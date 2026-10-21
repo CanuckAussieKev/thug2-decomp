@@ -119,8 +119,9 @@ int CheckReceivedMessage(Net::MsgHandlerContext* context)
     default: return kDispatch;
     }
     if (!context->m_Msg || context->m_MsgLength < needed) {
-        LogOnce(id, context->m_MsgLength, "too short to check, dropped: length");
-        return kDropped;
+        // (not checked - nothing is read past its end -, and left to THUG2's handlers as it is)
+        LogOnce(id, context->m_MsgLength, "too short to check, passed on unchecked: length");
+        return kDispatch;
     }
     switch (id) {
     case kMsgPrimaryAnim: {

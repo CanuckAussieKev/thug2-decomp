@@ -23,6 +23,7 @@
 #include "game/script/struct.h"
 #include "game/skate/appearance_guard.h"
 #include "game/skate/skate_net.h"
+#include "game/skate/thugpro_cas.h"
 #include "game/skater/local_net_logic.h"
 #include "game/util/bitstream.h"
 #include "hook/appmain_testkit.h"
@@ -924,25 +925,25 @@ void TestNetGuards()
     const std::vector<Case> cases = {
         {"anim loaded", 0x29, 14, {{2, 0x12345678}}, -1, {0xA0005678}, {{2, 0x12345678}}},
         {"anim missing", 0x29, 14, {{2, kBadAnim}}, -1, {0xA0000001}, {{2, 0x1CA1FF20}}},
-        {"anim short", 0x29, 5, {{2, kBadAnim}}, 1, {}, {{2, kBadAnim}}},
+        {"anim short", 0x29, 5, {{2, kBadAnim}}, -1, {}, {{2, kBadAnim}}},
         {"anim exactly long enough", 0x29, 6, {{2, kBadAnim}}, -1, {0xA0000001}, {{2, 0x1CA1FF20}}},
         {"special item", 0x77, 10, {{0, 0x0000AAAA}}, -1, {0xB000AAAA}, {}},
         {"special item missing", 0x77, 10, {{0, kBadDetails}}, 1, {0xB0000002}, {{0, kBadDetails}}},
         {"special item destroyed missing", 0x78, 4, {{0, kBadDetails}}, 1, {0xB0000002}, {}},
-        {"special item short", 0x78, 3, {{0, 0x0000AAAA}}, 1, {}, {}},
+        {"special item short", 0x78, 3, {{0, kBadDetails}}, -1, {}, {}},
         {"start info", 0x33, 0x50, {{0xC, 0x00001111}, {0x10, 0x00002222}}, -1, {0xD0002222, 0xC0001111},
          {{0xC, 0x00001111}, {0x10, 0x00002222}}},
         {"start info mode missing", 0x33, 0x50, {{0xC, kBadMode}, {0x10, 0x00002222}}, -1, {0xD0002222, 0xC0000003},
          {{0xC, 0x1C471C60}, {0x10, 0x00002222}}},
         {"start info level missing", 0x33, 0x50, {{0xC, kBadMode}, {0x10, kBadLevel}}, 3, {0xD0000004, 0xE0000033},
          {{0xC, kBadMode}}},
-        {"start info short", 0x33, 0x13, {{0xC, kBadMode}}, 1, {}, {{0xC, kBadMode}}},
+        {"start info short", 0x33, 0x13, {{0xC, kBadMode}, {0x10, kBadLevel}}, -1, {}, {{0xC, kBadMode}}},
         {"game info", 0x34, 0x30, {{0, 0x00003333}}, -1, {0xC0003333}, {{0, 0x00003333}}},
         {"game info mode missing", 0x34, 0x30, {{0, kBadMode}, {4, 0x77777777}}, -1, {0xC0000003},
          {{0, 0x1C471C60}, {4, 0x77777777}}},
         {"change level", 0x46, 8, {{0, 0x00004444}}, -1, {0xD0004444}, {{0, 0x00004444}}},
         {"change level missing", 0x46, 8, {{0, kBadLevel}}, 3, {0xD0000004, 0xE0000046}, {}},
-        {"change level short", 0x46, 2, {{0, kBadLevel}}, 1, {}, {}},
+        {"change level short", 0x46, 3, {{0, kBadLevel}}, -1, {}, {}},
         {"another message", 0x20, 0, {{0, kBadLevel}}, -1, {}, {{0, kBadLevel}}},
         {"another message (0x23)", 0x23, 20, {{2, kBadAnim}}, -1, {}, {{2, kBadAnim}}},
     };
@@ -981,7 +982,7 @@ void TestNetGuards()
         context.m_MsgId = 0x29;
         context.m_MsgLength = 14;
         g_guardCalls.clear();
-        Check(CheckReceivedMessage(&context) == 1 && g_guardCalls.empty(), "network guards: no message");
+        Check(CheckReceivedMessage(&context) == -1 && g_guardCalls.empty(), "network guards: no message");
     }
     // Through the dispatcher.
     {
@@ -1225,8 +1226,211 @@ void TestAppearanceGuard()
     delete s;
 }
 
+// --- THUGPRO's parts from its install (TP-R6, game/skate/thugpro_cas.h: ours only) ---------------------------------
+
+std::vector<std::string> g_foundAsked;
+bool StandInFound(const char* path)
+{
+    g_foundAsked.push_back(path);
+    return !std::strstr(path, "missing");
+}
+
+// The archive reader (stored and compressed files, names as stored, a file not asked for, a cut-off archive), the
+// LZSS decoder against the game's encoder, the .qb walk (arrays, structures, scripts, name tables, line ends
+// before '='), path keys, and the choice of entries (ours already, twice, without desc_id, every path found or not -
+// nested structures and arrays too).
+void TestThugproCas()
+{
+    using namespace Obj::ThugproCas;
+    // LZSS (a stream made by hand: literals, a reference to what was just written - overlapping its own output -, one
+    // into the window's initial spaces).
+    const std::vector<uint8_t> packed = {0xF7, 'a', 'b', 'c', 0xEE, 0xF3, 'x', 'y', 'z', 'w', 0x00, 0x00, 0x00};
+    const std::string text = "abcabcabcxyzw   ";
+    const std::vector<uint8_t> payload(text.begin(), text.end());
+    Check(DecodeLzss(packed.data(), packed.size(), payload.size()) == payload, "THUGPRO parts: LZSS");
+    Check(DecodeLzss(packed.data(), packed.size(), 7) == std::vector<uint8_t>(payload.begin(), payload.begin() + 7) &&
+              DecodeLzss(packed.data(), 5, payload.size()).size() == 3,
+          "THUGPRO parts: LZSS cut off");
+    // The archive.
+    std::vector<uint8_t> archive(12, 0);
+    auto put32 = [&archive](uint32_t value) {
+        for (int i = 0; i < 4; ++i)
+            archive.push_back(static_cast<uint8_t>(value >> (8 * i)));
+    };
+    auto entry = [&](const char* name, const std::vector<uint8_t>& data, uint32_t size, bool compressed) {
+        put32(size);
+        put32(compressed ? static_cast<uint32_t>(data.size()) : 0);
+        uint16_t nameSize = static_cast<uint16_t>((std::strlen(name) + 4) & ~3u);
+        archive.push_back(static_cast<uint8_t>(nameSize));
+        archive.push_back(static_cast<uint8_t>(nameSize >> 8));
+        archive.push_back(1);
+        archive.push_back(0);
+        put32(0x12345678);
+        size_t at = archive.size();
+        archive.resize(at + nameSize, 0);
+        std::memcpy(archive.data() + at, name, std::strlen(name));
+        archive.insert(archive.end(), data.begin(), data.end());
+        while (archive.size() % 4)
+            archive.push_back(0xEE);
+    };
+    entry("qb\\game\\decks.qb", {'a', 'b', 'c', 'd', 'e'}, 5, false);
+    entry("qb\\other.qb", {'x', 'y', 'z'}, 3, false);
+    entry("QB/Thugpro/THUGPRO_boards.qb", packed, static_cast<uint32_t>(payload.size()), true);
+    entry("qb\\game\\cas_logos.qb", packed, static_cast<uint32_t>(payload.size()) + 5, true); // (decodes short)
+    archive[8] = 4;
+    std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
+    bool read = ReadArchive(archive,
+                            {"qb\\game\\decks.qb", "qb\\thugpro\\thugpro_boards.qb", "qb\\missing.qb",
+                             "qb\\game\\cas_logos.qb"},
+                            &files);
+    Check(read && files.size() == 2 && files[0].first == "qb\\game\\decks.qb" &&
+              files[0].second == std::vector<uint8_t>{'a', 'b', 'c', 'd', 'e'} &&
+              files[1].first == "qb\\thugpro\\thugpro_boards.qb" && files[1].second == payload,
+          "THUGPRO parts: the archive");
+    std::vector<uint8_t> cut(archive.begin(), archive.begin() + 40);
+    files.clear();
+    Check(!ReadArchive(cut, {"qb\\other.qb"}, &files) && !ReadArchive({1, 2}, {}, &files),
+          "THUGPRO parts: a cut-off archive");
+    // (cut in the first file's data: not read past the end)
+    std::vector<uint8_t> cutData(archive.begin(), archive.begin() + 12 + 16 + 20 + 2);
+    files.clear();
+    Check(!ReadArchive(cutData, {"qb\\game\\decks.qb"}, &files) && files.empty(),
+          "THUGPRO parts: an archive cut in a file's data");
+    // The .qb walk.
+    std::vector<uint8_t> qb;
+    auto bytes = [&qb](std::initializer_list<uint8_t> list) { qb.insert(qb.end(), list); };
+    auto name = [&qb](uint32_t value) {
+        for (int i = 0; i < 4; ++i)
+            qb.push_back(static_cast<uint8_t>(value >> (8 * i)));
+    };
+    bytes({0x01, 0x16});
+    name(0x11111111);
+    bytes({0x07});
+    size_t first = qb.size();
+    bytes({0x05, 0x17, 1, 0, 0, 0, 0x03, 0x16});
+    name(0xAAAA);
+    bytes({0x07, 0x17, 2, 0, 0, 0, 0x04, 0x06, 0x01, 0x16});
+    name(0x22222222);
+    bytes({0x07, 0x03, 0x16});
+    name(0xBBBB);
+    bytes({0x04, 0x02, 9, 0, 0, 0, 0x16});
+    name(0x66666666);
+    bytes({0x17, 1, 0, 0, 0, 0x01, 0x23, 0x16});
+    name(0x33333333);
+    bytes({0x01, 0x16});
+    name(0xCCCC);
+    bytes({0x01, 0x16});
+    name(0x77777777);
+    bytes({0x07, 0x05, 0x06, 0x01, 0x24, 0x01, 0x2B});
+    name(0xDDDD);
+    bytes({'n', 'a', 'm', 'e', 0, 0x16});
+    name(0x44444444);
+    bytes({0x01, 0x07, 0x01});
+    size_t second = qb.size();
+    bytes({0x05, 0x06, 0x01, 0x16});
+    name(0x55555555);
+    bytes({0x07, 0x17, 5, 0, 0, 0, 0x01, 0x00, 0x00, 0x00});
+    auto arrays = TopLevelArrays(qb.data(), qb.size());
+    // (cut short: only what comes before the end)
+    auto early = TopLevelArrays(qb.data(), first + 1);
+    Check(arrays.size() == 2 && arrays[0].first == 0x11111111 && arrays[0].second == qb.data() + first &&
+              arrays[1].first == 0x44444444 && arrays[1].second == qb.data() + second,
+          "THUGPRO parts: the .qb's arrays");
+    Check(early.size() == 1 && early[0].first == 0x11111111, "THUGPRO parts: the .qb's arrays up to its size");
+    // Path keys.
+    Check(PathKey("Models/Skater_Secret/Skater_eddie/Skater_eddie.skin") ==
+                  "models\\skater_secret\\skater_eddie\\skater_eddie" &&
+              PathKey("models\\skater_secret\\skater_eddie\\skater_eddie.skin.xbx") ==
+                  "models\\skater_secret\\skater_eddie\\skater_eddie" &&
+              PathKey("data/textures/X/CS_A.png") == "textures\\x\\cs_a" &&
+              PathKey("textures\\x\\cs_a.img.xbx") == "textures\\x\\cs_a" && PathKey("a.b.c") == "a.b.c" &&
+              PathKey("m\\a.skin.tex") == "m\\a",
+          "THUGPRO parts: path keys");
+    // The choice.
+    HandList ours({0x11, 0x12});
+    HandStruct parts[8], nested[2];
+    Script::CArray strings = {};
+    const char* stringElements[2] = {"textures/fine/a", "textures/missing/b"};
+    strings.m_type = Script::ESYMBOLTYPE_STRING;
+    strings.m_size = 2;
+    strings.m_elements = reinterpret_cast<uint32_t*>(stringElements);
+    parts[0].Checksum(kDescId, 0x12);                                                                   // ours
+    parts[1].Checksum(kDescId, 0x13).Add(Script::ESYMBOLTYPE_STRING, 0x1, reinterpret_cast<uint32_t>("models/a/b.skin"))
+        .Add(Script::ESYMBOLTYPE_STRING, 0x2, reinterpret_cast<uint32_t>("not a path"));                // taken
+    parts[2].Checksum(kDescId, 0x14).Add(Script::ESYMBOLTYPE_STRING, 0x1, reinterpret_cast<uint32_t>("models/missing.skin"))
+        .Add(Script::ESYMBOLTYPE_STRING, 0x6, reinterpret_cast<uint32_t>("models/never/asked.skin"));
+    parts[3].Checksum(kDescId, 0x15);                                                                   // taken
+    parts[4].Checksum(kDescId, 0x13);                                                                   // twice
+    parts[5].Add(Script::ESYMBOLTYPE_STRING, 0x1, reinterpret_cast<uint32_t>("models/c/d.skin"));       // no desc_id
+    nested[0].Add(Script::ESYMBOLTYPE_STRING, 0x3, reinterpret_cast<uint32_t>("textures\\e\\f"));
+    parts[6].Checksum(kDescId, 0x16).Add(Script::ESYMBOLTYPE_STRUCTURE, 0x4, reinterpret_cast<uint32_t>(nested[0].Struct()));
+    parts[7].Checksum(kDescId, 0x17).Add(Script::ESYMBOLTYPE_ARRAY, 0x5, reinterpret_cast<uint32_t>(&strings));
+    uint32_t theirElements[8];
+    for (int i = 0; i < 8; ++i)
+        theirElements[i] = reinterpret_cast<uint32_t>(parts[i].Struct());
+    Script::CArray theirs = {};
+    theirs.m_type = Script::ESYMBOLTYPE_STRUCTURE;
+    theirs.m_size = 8;
+    theirs.m_elements = theirElements;
+    g_foundAsked.clear();
+    std::vector<uint32_t> picked = PickNew(&ours.array, &theirs, StandInFound);
+    std::vector<std::string> asked = {"models/a/b.skin", "models/missing.skin", "textures\\e\\f", "textures/fine/a",
+                                      "textures/missing/b"};
+    Check(picked == std::vector<uint32_t>{1, 3, 6} && g_foundAsked == asked, "THUGPRO parts: the entries taken");
+    theirs.m_type = Script::ESYMBOLTYPE_NAME;
+    Check(PickNew(&ours.array, &theirs, StandInFound).empty() && PickNew(nullptr, &theirs, StandInFound).empty(),
+          "THUGPRO parts: not a list of structures");
+    // Nothing is served before a load.
+    char path[260];
+    Check(!FilePath("models\\a\\b.skin.xbx", path), "THUGPRO parts: nothing served before the load");
+}
+
+// The user's THUGPRO install, when there is one (read only; skipped without): its CAS files read and walked as the
+// game will - every file found, decompressed to its stored size, and the lists the parts go into among the arrays.
+void TestThugproCasInstall()
+{
+    char local[MAX_PATH] = {};
+    if (!GetEnvironmentVariableA("LOCALAPPDATA", local, sizeof(local)))
+        return;
+    std::string file = std::string(local) + "\\THUG Pro\\data\\pre\\thugpro_qb.prx";
+    HANDLE handle = CreateFileA(file.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (handle == INVALID_HANDLE_VALUE) {
+        Log("THUGPRO parts: no THUGPRO install (%s) - its test skipped", file.c_str());
+        return;
+    }
+    std::vector<uint8_t> archive(GetFileSize(handle, nullptr));
+    DWORD read = 0;
+    BOOL ok = ReadFile(handle, archive.data(), static_cast<DWORD>(archive.size()), &read, nullptr);
+    CloseHandle(handle);
+    Check(ok && read == archive.size(), "THUGPRO parts: the install's archive read");
+    std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
+    bool parsed = Obj::ThugproCas::ReadArchive(
+        archive, {"qb\\game\\cas_skater_m.qb", "qb\\thugpro\\thugpro_boards.qb", "qb\\game\\cas_skater_shared.qb"}, &files);
+    Check(parsed && files.size() == 3, "THUGPRO parts: the install's CAS files found");
+    // (each array named: skater_m_head in cas_skater_m, board in thugpro_boards, hat in cas_skater_shared)
+    const std::pair<const char*, uint32_t> lists[] = {{"qb\\game\\cas_skater_m.qb", 0x650FAB6D},
+                                                      {"qb\\thugpro\\thugpro_boards.qb", 0xA7A9D4B8},
+                                                      {"qb\\game\\cas_skater_shared.qb", 0x6DF453B6}};
+    for (size_t i = 0; i < files.size(); ++i) {
+        std::vector<uint8_t> data = files[i].second;
+        data.resize(data.size() + 16, 0);
+        auto arrays = Obj::ThugproCas::TopLevelArrays(data.data(), files[i].second.size());
+        uint32_t wanted = 0;
+        for (auto& [name, list] : lists)
+            wanted = files[i].first == name ? list : wanted;
+        bool has = false;
+        for (auto& array : arrays)
+            has = has || array.first == wanted;
+        Log("THUGPRO parts: %s: %u bytes, %u top-level arrays", files[i].first.c_str(),
+            static_cast<unsigned>(files[i].second.size()), static_cast<unsigned>(arrays.size()));
+        Check(has, "THUGPRO parts: the install's CAS lists among the arrays");
+    }
+}
+
 } // namespace
 
+SELFTEST(Early, TestThugproCasInstall, Cleanup);
+SELFTEST(Early, TestThugproCas, Cleanup);
 SELFTEST(Early, TestNetGuards, Cleanup);
 SELFTEST(Early, TestAppearanceGuard, Cleanup);
 SELFTEST(Early, TestGraffitiLog, Cleanup);

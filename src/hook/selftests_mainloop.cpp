@@ -15,6 +15,7 @@
 #include "game/core/dbg.h"
 #include "game/gfx/screen.h"
 #include "game/sio/device.h"
+#include "game/skate/thugpro_cas.h"
 #include "game/sys/mlp.h"
 #include "game/sys/platform.h"
 #include "game/sys/timer.h"
@@ -97,6 +98,8 @@ void SetUpStandIns(StandIns& s)
         g_stageFirst &= g_trace.empty() && r.args[0] == static_cast<uint32_t>(TestStage::EngineStarted);
         return 0u;
     });
+    // (ours only: THUGPRO's parts loaded once the scripts are - TP-R6, game/skate/thugpro_cas.h; none here)
+    s.At({Resolve(reinterpret_cast<const void*>(&Obj::ThugproCas::LoadOnce))}, 0, [](Regs&) { return 0u; });
     s.At({0x005BDD60, AddressOf(&Sio::ReadKeyboard)}, 0, [](Regs& r) {
         ++g_frame;
         if (g_frame > 3000) // (a runaway loop: end it)

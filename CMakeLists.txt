@@ -455,6 +455,7 @@ add_library(thug2_code OBJECT
     src/game/skate/career.cpp
     src/game/skate/skater_profile.cpp
     src/game/skate/appearance_guard.cpp
+    src/game/skate/thugpro_cas.cpp
     src/game/skater/skater.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp

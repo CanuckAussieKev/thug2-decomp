@@ -14,7 +14,8 @@
 //     free skate (netlobby) - THUG2's LoadGameType would leave the game mode empty.
 //   - 0x33 the start info / 0x46 a change of level: a level whose load script doesn't exist (THUGPRO's own levels)
 //     leaves the server as "the server moved on" does (THUG2 would run a load that can't happen).
-// Short messages (less than a guard reads) are dropped. Everything is logged once per name.
+// A message shorter than a check reads isn't checked (nothing read past its end) and goes to THUG2's handlers as it
+// is. Everything is logged once per name.
 namespace Net {
 struct MsgHandlerContext;
 }
