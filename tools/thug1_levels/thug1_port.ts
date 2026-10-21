@@ -722,6 +722,8 @@ export function portScripts(
             animCheck: true,
             keptIn: KEPT_IN,
             strictConditions: true,
+            // (THUG1's ProximNodes are kept as THUG2's: their scripts' `if inside` is THUG2's Inside command)
+            proximInside: true,
             sounds: port.sounds,
             wonGoals,
             rewrites: made === null ? null : ownPedRewrites(made),

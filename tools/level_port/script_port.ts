@@ -905,6 +905,11 @@ export interface TranslatorOptions {
     // proximity node's script calls ALF_SUB_Hide_Const_Pool, which tests `inside`); THUG2's callee gets only what it's
     // given.
     inheritParams?: boolean;
+    // `if inside` is THUG2's own Inside command (0x00449950: whether the proximity node script running now was started
+    // by entering), kept as it is: the level's proximity nodes are THUG2's own ProximNodes (THUG1's). Without it `if
+    // inside` becomes `if GotParam inside` - the parameter our THPS3 proximity ghosts pass; a ProximNode passes none,
+    // so that test would always be false (THUG1 Vancouver's hotel stayed hidden with the camera inside it).
+    proximInside?: boolean;
     // geometry nodes the converted scene has no sector for (withoutUndrawn)
     undrawn?: Iterable<number>;
     // those of them that are collision-only and kept in the level: their Create / Kill are kept (THUG2's LevelGeometry
@@ -963,6 +968,7 @@ export class Translator {
     readonly referenced = new Set<number>(); // node names kept statements pass as values (discovery)
     readonly thug2: Thug2;
     readonly inheritParams: boolean;
+    readonly proximInside: boolean;
     readonly undrawn: Set<number>;
     readonly collisionOnly: Set<number>;
     readonly provided: Set<number>;
@@ -1014,6 +1020,7 @@ export class Translator {
         this.strictConditions = options.strictConditions ?? false;
         this.thug2 = thug2;
         this.inheritParams = options.inheritParams ?? false;
+        this.proximInside = options.proximInside ?? false;
         this.undrawn = new Set(options.undrawn ?? []);
         this.collisionOnly = new Set(options.collisionOnly ?? []);
         this.provided = new Set(options.provided ?? []);
@@ -1497,6 +1504,7 @@ export class Translator {
             return this.never(toks.length ? toks[0]!.i : 0);
         }
         if (
+            !this.proximInside &&
             content.length === 1 &&
             content[0]!.t === 0x16 &&
             this.text(content[0]!.name()!).toLowerCase() === "inside"
