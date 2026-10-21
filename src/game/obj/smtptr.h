@@ -97,6 +97,8 @@ public:
     }
 
     T* Get() const { return mp_object; }
+    // 0x00442670 (the screen elements' instance, written out in the unoptimised lens flare code).
+    bool IsNull() const { return mp_object == nullptr; }
     T* operator->() const { return mp_object; }
     explicit operator bool() const { return mp_object != nullptr; }
 

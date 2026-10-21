@@ -164,6 +164,12 @@ add_library(thug2_code OBJECT
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
     src/hook/selftests_skaterB.cpp
+    src/hook/sk5_testkit.cpp
+    src/hook/selftests_skater_vehicle_camera.cpp
+    src/hook/selftests_skater_walk_camera.cpp
+    src/hook/selftests_skater_trick_queue.cpp
+    src/hook/selftests_skater_walk_pieces.cpp
+    src/hook/selftests_skater_walk_collision.cpp
     src/hook/selftests_menu.cpp
     src/hook/selftests_left.cpp
     src/hook/selftests_gfx.cpp
@@ -253,6 +259,10 @@ add_library(thug2_code OBJECT
     src/hook/selftests_lfxc3.cpp
     src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
+    src/hook/selftests_obj_scene_cmds.cpp
+    src/hook/selftests_obj_terrain.cpp
+    src/hook/selftests_obj_lens_flare.cpp
+    src/hook/selftests_obj_walk_hang.cpp
     src/hook/selftests_engcmd2.cpp
     src/hook/selftests_engcmd3.cpp
     src/hook/selftests_engcmd4.cpp
@@ -526,6 +536,13 @@ add_library(thug2_code OBJECT
     src/game/skater/trick_lists.cpp
     src/game/skate/gap_checklist.cpp
     src/game/skater/manual.cpp
+    src/game/skater/vehicle_camera.cpp
+    src/game/skater/walk_camera.cpp
+    src/game/skater/walk_physics.cpp
+    src/game/skater/walk_movement.cpp
+    src/game/skater/walk_collision.cpp
+    src/game/skater/trick_queue.cpp
+    src/game/skater/trick_member_functions.cpp
     src/game/obj/movie_manager.cpp
     src/game/obj/anim_movies.cpp
     src/game/obj/trick_objects.cpp
@@ -658,6 +675,7 @@ add_library(thug2_code OBJECT
     src/game/sfx/sfx.cpp
     src/game/sfx/sound_cfuncs.cpp
     src/game/sfx/sfx_voices.cpp
+    src/game/sfx/terrain.cpp
     src/game/gfx/anim_blend.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
@@ -777,6 +795,9 @@ add_library(thug2_code OBJECT
     src/game/script/script_cfuncs.cpp
     src/game/script/array_cfuncs.cpp
     src/game/script/cfuncs_lighting.cpp
+    src/game/script/cfuncs_scene.cpp
+    src/game/gfx/lens_flare.cpp
+    src/game/obj/walk_hang.cpp
     src/game/script/cfuncs_render.cpp
     src/game/script/cfuncs_polys.cpp
     src/game/script/cfuncs_memory.cpp
