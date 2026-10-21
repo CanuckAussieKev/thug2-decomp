@@ -193,6 +193,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_engcmd2.cpp
     src/hook/selftests_engcmd3.cpp
+    src/hook/selftests_engcmd4.cpp
     src/hook/selftests_park.cpp
     src/hook/selftests_scache.cpp
     src/hook/selftests_text.cpp
@@ -606,6 +607,7 @@ add_library(thug2_code OBJECT
     src/game/script/cfuncs_lighting.cpp
     src/game/script/cfuncs_render.cpp
     src/game/script/cfuncs_polys.cpp
+    src/game/script/cfuncs_memory.cpp
     src/game/mth/geometry.cpp
     src/game/mth/math.cpp
     src/game/mth/matrix.cpp

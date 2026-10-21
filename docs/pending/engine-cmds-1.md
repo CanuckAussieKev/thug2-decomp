@@ -110,3 +110,32 @@ Switch off: `[replacements] disable=cfuncs_lighting.cpp` (and cfuncs_render.cpp,
     GetMetrics with the allocation failing; the details freed to the heap and into a stand-in pool. 41 deliberate
     bugs caught (7 after making the scene list reachable, 1 after adding a pool, 4 after the rounding cases);
     1 equivalent (IterateNext never returns true with no item).
+- [x] Batch EC1-4 (NOT run in the game yet; the memory manager's commands, the pool-usage dump, DumpHeaps, 15
+  functions): src/game/script/cfuncs_memory.cpp (new).
+  - Compiled-out commands with their arguments kept (empty inlines / Mem::PushMemProfile): 0x00447FF0
+    PushMemProfile, 0x00448020 PopMemProfile, 0x00448030 SetMemThreadSafe (off), 0x00448060 DumpFragments (<size>
+    0x3C00, K), 0x00448270 AnalyzeHeap and 0x004482C0 PrintMemInfo (a heap checksum, BottomUpHeap 0x0C7800B0 by
+    default; params may be null; the heap looked up, PrintMemInfo copies its name). 0x00448090 MemViewToggle
+    (Nx::ToggleMemView), 0x004480A0 GotExtraMemory (0x007CEFAC != 0).
+  - 0x004480B0 MemPushContext (an integer: 0 = the bottom-up heap, any other number does nothing; else a heap
+    name -> Manager::GetHeap), 0x00448130 MemPopContext, 0x00448140 MemInitHeap (name="<text>" size= ->
+    InitNamedHeap(crc, size, text, 0)), 0x004481A0 MemDeleteHeap / 0x00448200 MemHeapExists (name as a string or a
+    checksum; they return DeleteNamedHeap's result / GetNamedHeap != null).
+  - 0x00448330 DumpPoolUsage (naked DumpPoolUsageStub: "to the dump file" in BL, "print" on the stack, caller pops):
+    each line sprintf'd from the exe's own format texts, to Mem::DumpText and / or Dbg::Printf (the line as the
+    format, as the original); the current pool of the pairs CStruct 0x006F3614, CComponent 0x006F2338,
+    CSymbolTableEntry 0x006F362C, CVector 0x006F3654, CPair 0x006F3644, CArray 0x006F22B4, CScript 0x006F3548, the
+    hash items (PoolManager::GetPool(0)), CAnimCachePredictor 0x006F92B8, CBlendChannel 0x006F92C8,
+    CBonedAnimController 0x00701430, CAnimLookup 0x006FA7F4, sSpawnedPolyDetails 0x00700500,
+    Obj::CEventReceiverList 0x006F0FC8 (used, count, peak; the pools aren't null-checked, as in the original).
+  - 0x00448840 DumpHeaps (heap.cpp's DumpHeaps calls it with null params): current heap, then per heap (FirstHeap /
+    NextHeap) name, used size, free size ("Frag"), region MemAvailable ("Free"), the region's minimum (read before
+    MemAvailable, which can lower it), used blocks - in K (signed / 1024) or in bytes with an unnamed flag
+    (0xD65B9AC7); the sound manager's free memory (0x0047AE10 on 0x006F85A8 - 0 in this build - called twice, the
+    second divided); then the pool dump (print only).
+  - Test (selftests_engcmd4.cpp TestEngineCommandsMemory): a stand-in manager (its methods stood in for, ours and
+    the game's), three heaps with negative / odd sizes for the K rounding, a MemAvailable that lowers the minimum,
+    13 pool pairs with the current pool alternating (the other one a different pool), every command with null / given
+    params, named heaps there or not, the dump through its register convention with all four flag pairs (BL's upper
+    bits dirty), DumpHeaps in K / bytes / null params / no heaps. 29 deliberate bugs caught (1 after giving the pairs'
+    other pool).

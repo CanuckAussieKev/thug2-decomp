@@ -85,4 +85,26 @@ bool __cdecl CFunc_NudgeVC(Script::CStruct* params, Script::CScript* script);   
 bool __cdecl CFunc_SetLightDirection(Script::CStruct* params, Script::CScript* script);       // 0x00447E00
 bool __cdecl CFunc_GetMetrics(Script::CStruct* params, Script::CScript* script);              // 0x00447F30
 
+// --- cfuncs_memory.cpp ---------------------------------------------------------------------------------------
+
+// 0x00448330 (the first flag in BL: DumpPoolUsageStub): the pools' usage written to the dump file (Mem::DumpText)
+// and / or printed.
+void __cdecl DumpPoolUsage(bool toDumpFile, bool print);
+void DumpPoolUsageStub();
+
+bool __cdecl CFunc_PushMemProfile(Script::CStruct* params, Script::CScript* script);          // 0x00447FF0
+bool __cdecl CFunc_PopMemProfile(Script::CStruct* params, Script::CScript* script);           // 0x00448020
+bool __cdecl CFunc_SetMemThreadSafe(Script::CStruct* params, Script::CScript* script);        // 0x00448030
+bool __cdecl CFunc_DumpFragments(Script::CStruct* params, Script::CScript* script);           // 0x00448060
+bool __cdecl CFunc_MemViewToggle(Script::CStruct* params, Script::CScript* script);           // 0x00448090
+bool __cdecl CFunc_GotExtraMemory(Script::CStruct* params, Script::CScript* script);          // 0x004480A0
+bool __cdecl CFunc_MemPushContext(Script::CStruct* params, Script::CScript* script);          // 0x004480B0
+bool __cdecl CFunc_MemPopContext(Script::CStruct* params, Script::CScript* script);           // 0x00448130
+bool __cdecl CFunc_MemInitHeap(Script::CStruct* params, Script::CScript* script);             // 0x00448140
+bool __cdecl CFunc_MemDeleteHeap(Script::CStruct* params, Script::CScript* script);           // 0x004481A0
+bool __cdecl CFunc_MemHeapExists(Script::CStruct* params, Script::CScript* script);           // 0x00448200
+bool __cdecl CFunc_AnalyzeHeap(Script::CStruct* params, Script::CScript* script);             // 0x00448270
+bool __cdecl CFunc_PrintMemInfo(Script::CStruct* params, Script::CScript* script);            // 0x004482C0
+bool __cdecl CFunc_DumpHeaps(Script::CStruct* params, Script::CScript* script);               // 0x00448840
+
 } // namespace CFuncs
