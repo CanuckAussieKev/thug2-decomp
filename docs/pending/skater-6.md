@@ -191,3 +191,24 @@ Switch off: `[replacements] disable=gamenet_state.cpp,gamenet_handlers.cpp,gamen
     the step-smoothing flag preset, rounding cases for the ground move, a rehang time equal to the delay, a ride
     offset that rounds), 1 equivalent (`--countdown <= 0` after `countdown > 0`).
   - Note: building needed a fresh program database server endpoint once (C1060 "out of heap space" with the old one).
+- [x] Batch SK6-9 (NOT run in the game yet; the walk component's landing, ground snap and start, 3 functions): walk_moves.cpp.
+  0x0052A700 CollideAirMove (the air's move against the world: into a wall (face flag 0x2) put 0.1 off it - x, y, z's
+  offsets rounded, w's not - and the rest of the move (1 - distance) projected onto the wall's plane, stopped 0.05 off
+  anything it meets; anything else is landed on: on the ground, the trigger feeler copied, the land triggers
+  (0x0064C648), what it stands on told, the velocity relative to a ridden object and flattened, kept only along the
+  facing - stopped when heading away (dot <= 0) or, without control, under sticky_land_threshold_speed - the Land
+  animation), 0x0052B370 SnapToGround (a feeler from snap_up_height above to snap_down_height below; a step past
+  max_unnoticed_ground_snap told to the object as an event, a step up or down more than 3 into the step smoothing's
+  height (not below 0); the old ground's and the new ground's triggers (0x0064C660 / 0x0064C654) when the collision
+  changes, the terrain told; no ground: off a wall, the leave triggers (0x0064C630), a drop / hang / ladder tried,
+  else WalkOffEdge and SkaterOffEdge), 0x0052AF40 Begin (walking begins: on the ground or in the air - off a vert
+  ramp with a turn under way thrown along the object's forward axis turned on by +0x730 about +0x734 times
+  initial_vert_vel_boost (x and y's products unrounded), the heading from the velocity, the forward axis or the up
+  axis reversed (each flattened; under 0.001 long tries the next), off what it rode). Mth::Vector::ProjectOnto
+  (0x00406200, shared) fixed: the original keeps the dot product in double and rounds each component once.
+  - Test: TestWalkLanding (selftests_skater_walk2.cpp; the feeler's queries scripted hit by hit). 78 deliberate bugs:
+    71 caught at once, 7 after strengthening (normals whose w rounds differently, a miss leaving an object in the
+    feeler, a facing with y, a velocity exactly across the facing, 24 rounding cases for the vert-ramp throw, the
+    flags +0x1958 / +0x18B0 preset).
+  - Review note: the stopped agent's copy of walk_moves.cpp had one mutation left in (the throw's x product rounded -
+    its mutation run was cut off); put back.

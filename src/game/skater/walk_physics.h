@@ -45,6 +45,18 @@ public:
     // 0x0052AD10 (state 4: ANIMWAIT): placed along an animation - between two points (+0x18E4, +0x1904) by how far
     // the animation is, turned toward +0x191C, the height +0x9C eased - and carried by what it rides on.
     void UpdateAnimWait();
+    // 0x0052A700: the air's move from `from` to `to` against the world. Into a wall (face flag 0x2): 0.1 off it and
+    // the rest of the move slid along it (0.05 off anything that meets). Onto anything else: landed - on the ground
+    // (its triggers set off, what it stands on told), the velocity kept only along the facing and relative to what
+    // it landed on (stopped when heading away, or slow without control), the Land animation.
+    void CollideAirMove(const Mth::Vector* from, const Mth::Vector* to);
+    // 0x0052B370: onto the ground under it (snap_up_height above to snap_down_height below): big steps told to the
+    // object, the step smoothing, the ground's triggers when it changes. None (or a wall): off the edge into the air
+    // (SkaterOffEdge) unless a hang, a drop or a ladder takes over.
+    void SnapToGround();
+    // 0x0052AF40: walking begins (from skating): on the ground (`onGround`) or in the air - then thrown along the
+    // turn under way off a vert ramp, the heading from the velocity (or the object's axes), off what it rode.
+    void Begin(bool onGround);
     // 0x00529F80: the walk camera's override facing for the animation state (+0x78): along the hang (turned 0.95
     // radians for moving left or right), the facing on a ladder or while waiting for an animation; else none.
     void UpdateCameraOverride();

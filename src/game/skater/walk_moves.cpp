@@ -15,6 +15,7 @@
 #include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_cache.h"
+#include "game/nx/coll_line.h"
 #include "game/nx/feeler.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/object.h"
@@ -91,6 +92,16 @@ constexpr uint32_t kWaitHeightTo = 0x1918;
 constexpr uint32_t kWaitTurnTime = 0x192C;
 constexpr uint32_t kWaitTurn = 0x1930;
 constexpr uint32_t kWaitCarried = 0x1934;
+constexpr uint32_t kOffVert = 0x9B;            // (a byte: began in the air off a vert ramp)
+constexpr uint32_t kVertTurnSpeed = 0x72C;     // (a turn under way when it began: non-zero, the angle, the axis)
+constexpr uint32_t kVertTurn = 0x730;
+constexpr uint32_t kVertTurnAxis = 0x734;
+constexpr uint32_t kTriggerComponent = 0x177C; // the object's trigger component (sets off the ground's triggers)
+constexpr uint32_t kTerrainComponent = 0x1788; // (a component told the terrain under it)
+constexpr uint32_t kGroundNormal = 0x1794;
+constexpr uint32_t kHasGround = 0x1864;        // (a byte: the trigger feeler holds the ground stood on)
+constexpr uint32_t kObjectUp = 0x7C;           // the object's matrix: the second row
+constexpr uint32_t kObjectForward = 0x8C;      // ... the third
 
 // Animation states.
 constexpr uint32_t kAnimWait = 0x4FE6069C;       // ANIMWAIT
@@ -102,6 +113,8 @@ constexpr uint32_t kLadder = 0xC84243DA;         // Ladder
 constexpr uint32_t kLadderMoveDown = 0xFEC9DDED; // LadderMoveDown
 constexpr uint32_t kSkid = 0x1D537EFF;           // Skid
 constexpr uint32_t kStand = 0x9B46E749;          // Stand
+constexpr uint32_t kLand = 0x57FF2A27;           // Land
+constexpr uint32_t kWalkOffEdge = 0xABF1F6AC;    // WalkOffEdge
 
 // Names.
 constexpr uint32_t kWalkParameters = 0x6775E538;   // walk_parameters
@@ -113,6 +126,21 @@ constexpr uint32_t kAir = 0x439F4704;              // AIR (an event; also the ai
 constexpr uint32_t kPeggedDurationForSkid = 0x8E1CF27A; // pegged_duration_for_skid
 constexpr uint32_t kCurbFloatLerpDownRate = 0x9B3388FA; // curb_float_lerp_down_rate
 constexpr uint32_t kRehangDelay = 0xE6E0C0A4;      // rehang_delay (a skater physics value)
+constexpr uint32_t kStickyLandThresholdSpeed = 0x530DCF34; // sticky_land_threshold_speed (the same)
+constexpr uint32_t kSnapUpHeight = 0xCEE3A3E1;     // snap_up_height
+constexpr uint32_t kSnapDownHeight = 0xAF3E4251;   // snap_down_height
+constexpr uint32_t kMaxUnnoticedGroundSnap = 0xD3193D8E; // max_unnoticed_ground_snap
+constexpr uint32_t kInitialVertVelBoost = 0x17B37748; // initial_vert_vel_boost
+constexpr uint32_t kSteppedUp = 0x93FCF3ED;        // (events for a big step up / down; names not recovered)
+constexpr uint32_t kSteppedDown = 0x56E21153;
+constexpr uint32_t kSkaterOffEdge = 0xD96F01F1;    // SkaterOffEdge (an event)
+
+constexpr uint16_t kFaceWall = 0x2;        // a face flag: not stood on
+constexpr float kWallGap = 0.1f;           // 0x00645D74
+constexpr float kSlideGap = 0.05f;         // 0x00645D6C
+constexpr float kBigStepDown = -3.0f;      // 0x0064C798
+constexpr float kNudge = 0.001f;           // 0x006461D8
+constexpr double kMinHeadingLength = 0.0010000000474974513; // (0.001f)
 
 constexpr float kCameraRate = 0.05f;       // 0x3D4CCCCD
 constexpr double kHangTurn = 0.949999988079071; // 0x0064C790 (radians)
@@ -146,6 +174,29 @@ void ReportInside(int line, const char* where)
 {
     Dbg::Printf("M:%s:%i: %s\n", "mponents\\WalkComponent.cpp", line, where);
 }
+
+// A local feeler going away: the object hit let go of (the original's inlined smart pointer destructor).
+void ReleaseHit(Nx::CFeeler* feeler)
+{
+    if (CCompositeObject* hit = feeler->m_object.Get())
+        reinterpret_cast<CRefCounted*>(hit)->RemoveSmartPointer(
+            reinterpret_cast<CSmtPtr<CRefCounted>*>(&feeler->m_object));
+}
+
+// `position` put `gap` off the feeler's hit along its normal (x, y and z's offsets rounded first, w's not).
+void PutOff(Mth::Vector* position, const Nx::CFeeler* feeler, float gap)
+{
+    const Mth::Vector& point = feeler->m_point;
+    const Mth::Vector& normal = feeler->m_normal;
+    double scale = gap;
+    position->x = point.x + static_cast<float>(normal.x * scale);
+    position->y = point.y + static_cast<float>(normal.y * scale);
+    position->z = point.z + static_cast<float>(normal.z * scale);
+    position->w = static_cast<float>(normal.w * scale + point.w);
+}
+
+// The skater component's state flags (its +0x1528).
+const uint8_t* SkaterFlags(const void* walk) { return At<uint8_t*>(At<void*>(walk, kSkater), 0x1528); }
 
 // a + b in the x87's double precision, stored as a float.
 float Add(float a, float b) { return static_cast<float>(static_cast<double>(a) + b); }
@@ -510,7 +561,7 @@ void CWalkComponent::UpdateGround()
     position.y += y;
     position.z += z;
     position.w += w;
-    Call(0x0052B370, this); // (the ground under it)
+    SnapToGround();
 
     if (At<int>(this, kState) == 0 && !Halted(this)) {
         Call(0x005264F0, this);
@@ -564,7 +615,7 @@ void CWalkComponent::UpdateAir()
         extra = {0.0f, 0.0f, 0.0f, 1.0f};
     Call(0x00500820, At<void*>(this, kSkater));
     Mth::Vector& oldPosition = VectorAt(this, kOldPosition);
-    Call(0x0052A700, this, &oldPosition, &position); // (the move against the world)
+    CollideAirMove(&oldPosition, &position);
     if (At<int>(this, kState) != 1 || Halted(this))
         return;
 
@@ -615,7 +666,7 @@ void CWalkComponent::UpdateAir()
         Call(0x0043EB80, At<void*>(this, kRide), feeler->GetHitObject());
     VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     vertical = 0.0f;
-    Call(0x0052A700, this, &position, &start);
+    CollideAirMove(&position, &start);
     GameFunction<void(__thiscall*)(Nx::CFeeler*)>(0x0041C350)(feeler); // (its destructor)
 }
 
@@ -680,6 +731,238 @@ void CWalkComponent::UpdateAnimWait()
     At<float>(this, kTargetHeight) = static_cast<float>((At<float>(this, kWaitHeightTo) - low) * t + low);
 }
 
+// 0x0052A700
+void CWalkComponent::CollideAirMove(const Mth::Vector* from, const Mth::Vector* to)
+{
+    alignas(16) uint8_t storage[sizeof(Nx::CFeeler)];
+    auto* feeler = reinterpret_cast<Nx::CFeeler*>(storage)->Construct();
+    feeler->m_line.start = *from;
+    feeler->m_line.end = *to;
+    if (!feeler->GetCollision(true, false)) {
+        ReleaseHit(feeler);
+        return;
+    }
+    Mth::Vector& position = VectorAt(this, kPosition);
+    if (feeler->m_hit.faceFlags & kFaceWall) {
+        // A wall: put 0.1 off it, the rest of the move slid along it - stopped 0.05 off anything that meets.
+        PutOff(&position, feeler, kWallGap);
+        auto left = static_cast<float>(1.0 - feeler->m_distance);
+        const Mth::Line& line = feeler->m_line;
+        auto dx = line.end.x - line.start.x;
+        auto dy = line.end.y - line.start.y;
+        auto dz = line.end.z - line.start.z;
+        double dw = static_cast<double>(line.end.w) - line.start.w;
+        Mth::Vector rest = {dx * left, dy * left, dz * left, static_cast<float>(dw * left)};
+        rest.ProjectToPlane(feeler->m_normal);
+        feeler->m_line.start = position;
+        feeler->m_line.end = rest + position;
+        if (feeler->GetCollision(true, false))
+            PutOff(&position, feeler, kSlideGap);
+        else
+            position = feeler->m_line.end;
+        ReleaseHit(feeler);
+        return;
+    }
+
+    // Landed: on the ground, the ground's trigger kinds set off, the velocity kept only along the facing (relative
+    // to what it landed on) - stopped when heading away, or slow (under sticky_land_threshold_speed) without
+    // control.
+    position = feeler->m_point;
+    At<float>(this, kVerticalSpeed) = 0.0f;
+    Call(0x005260E0, this, 0);
+    Nx::CFeeler* ground = &At<Nx::CFeeler>(this, kTriggerFeeler);
+    Call(0x0043A930, ground, feeler); // (the feeler copied)
+    At<bool>(this, kHasGround) = true;
+    Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C648), ground);
+    if (!Halted(this)) {
+        VectorAt(this, kGroundNormal) = feeler->m_normal;
+        void* ride = At<void*>(this, kRide);
+        Call(0x00427CD0, ride, feeler); // (what it landed on)
+        Mth::Vector& velocity = VectorAt(this, kVelocity);
+        ride = At<void*>(this, kRide);
+        if (auto* tracker = At<CRideTracker*>(ride, 0x18)) {
+            if (!tracker->m_object.Get()) {
+                Call(0x00427C70, ride); // (what it stood on is gone)
+            } else {
+                velocity -= At<CRideTracker*>(ride, 0x18)->m_object.Get()->m_vel;
+                velocity.y = 0.0f;
+            }
+        }
+        const Mth::Vector& facing = VectorAt(this, kFacing);
+        double along = static_cast<double>(velocity.z) * facing.z + static_cast<double>(velocity.y) * facing.y +
+                       static_cast<double>(velocity.x) * facing.x;
+        bool stop = true;
+        if (along > 0.0) {
+            velocity.ProjectOnto(facing);
+            stop = false;
+            if (At<float>(this, kControlMagnitude) == 0.0f) {
+                auto speed = static_cast<float>(std::sqrt(static_cast<double>(velocity.x) * velocity.x +
+                                                          static_cast<double>(velocity.y) * velocity.y +
+                                                          static_cast<double>(velocity.z) * velocity.z));
+                stop = GameFunction<float(__cdecl*)(uint32_t)>(0x0043DA70)(kStickyLandThresholdSpeed) > speed;
+            }
+        }
+        if (stop)
+            velocity = {0.0f, 0.0f, 0.0f, 1.0f};
+        VectorAt(this, kRideOffset) = {0.0f, 0.0f, 0.0f, 1.0f};
+        Call(0x0046B7F0, At<uint8_t*>(this, kInput) + 0x1C0); // (a button's release taken)
+        At<uint32_t>(this, kAnimState) = kLand;
+    }
+    ReleaseHit(feeler);
+}
+
+// 0x0052B370
+void CWalkComponent::SnapToGround()
+{
+    // A feeler from snap_up_height above to snap_down_height below the position.
+    alignas(16) uint8_t storage[sizeof(Nx::CFeeler)];
+    auto* feeler = reinterpret_cast<Nx::CFeeler*>(storage)->Construct();
+    Mth::Vector& position = VectorAt(this, kPosition);
+    feeler->m_line.start = position;
+    feeler->m_line.start.y += WalkParameter(kSnapUpHeight);
+    feeler->m_line.end = position;
+    feeler->m_line.end.y -= WalkParameter(kSnapDownHeight);
+    if (feeler->GetCollision(true, false) && !(feeler->m_hit.faceFlags & kFaceWall)) {
+        // Onto the ground (a big step told to the object as an event); a step up, or down more than 3, goes into
+        // the step smoothing's height.
+        float step = feeler->m_point.y - position.y;
+        float unnoticed = WalkParameter(kMaxUnnoticedGroundSnap);
+        if (std::fabs(step) > unnoticed)
+            m_object->SelfEvent(step > 0.0f ? kSteppedUp : kSteppedDown, nullptr);
+        position.y = feeler->m_point.y;
+        if (step > 0.0f || step < kBigStepDown) {
+            double offset = static_cast<double>(At<float>(this, kCurbOffset)) - step;
+            At<float>(this, kCurbOffset) = offset < 0.0 ? 0.0f : static_cast<float>(offset);
+        }
+        // Onto other collision: the old ground's and the new ground's trigger kinds set off.
+        Nx::CFeeler* ground = &At<Nx::CFeeler>(this, kTriggerFeeler);
+        if (ground->m_hit.object != feeler->m_hit.object) {
+            if (At<bool>(this, kHasGround)) {
+                Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C660), ground);
+                if (Halted(this)) {
+                    GameFunction<void(__thiscall*)(Nx::CFeeler*)>(0x0041C350)(feeler); // (its destructor)
+                    return;
+                }
+            }
+            Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C654), feeler);
+            if (Halted(this)) {
+                GameFunction<void(__thiscall*)(Nx::CFeeler*)>(0x0041C350)(feeler); // (its destructor)
+                return;
+            }
+        }
+        Call(0x0043A930, ground, feeler); // (the feeler copied)
+        At<bool>(this, kHasGround) = true;
+        VectorAt(this, kGroundNormal) = feeler->m_normal;
+        Call(0x00427CD0, At<void*>(this, kRide), feeler); // (what it stands on)
+        // (the terrain byte, passed as the dword there)
+        Call(0x005196A0, At<void*>(this, kTerrainComponent), *reinterpret_cast<const uint32_t*>(&feeler->m_hit.terrain));
+        ReleaseHit(feeler);
+        return;
+    }
+
+    // No ground (or only a wall): off the wall, then off the edge - unless a hang, a drop or a ladder takes over.
+    if (feeler->GetCollision(true, false))
+        PutOff(&position, feeler, kWallGap);
+    if (At<bool>(this, kHasGround)) {
+        Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C630),
+             &At<Nx::CFeeler>(this, kTriggerFeeler));
+        if (Halted(this)) {
+            ReleaseHit(feeler);
+            return;
+        }
+    }
+    if (At<uint8_t*>(this, kInput)[0x1A0]) {
+        Mth::Vector& oldPosition = VectorAt(this, kOldPosition);
+        if (position == oldPosition)
+            oldPosition.y += kNudge; // (so the two differ)
+        if (Call<bool>(0x005299F0, this)) {
+            ReleaseHit(feeler);
+            return;
+        }
+    }
+    if (Call<bool>(0x00441FC0, this) || Call<bool>(0x0043EC40, this)) {
+        ReleaseHit(feeler);
+        return;
+    }
+    Call(0x005260E0, this, 1);
+    VectorAt(this, kHeading) = VectorAt(this, kFacing);
+    LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
+    At<uint32_t>(this, kAnimState) = kWalkOffEdge;
+    m_object->BroadcastEvent(kSkaterOffEdge, nullptr, 0.0f);
+    ReleaseHit(feeler);
+}
+
+// 0x0052AF40
+void CWalkComponent::Begin(bool onGround)
+{
+    At<int>(this, kStateTime) = Now();
+    if (onGround) {
+        Call(0x005260E0, this, 0);
+        VectorAt(this, kGroundNormal) = {0.0f, 1.0f, 0.0f, 1.0f};
+        At<bool>(this, kHasGround) = false;
+        m_object->m_vel.y = 0.0f;
+        At<bool>(this, kOffVert) = false;
+    } else {
+        Call(0x005260E0, this, 1);
+        // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
+        // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
+        if (SkaterFlags(this)[0x30] && !(At<float>(this, kVertTurnSpeed) == 0.0f)) {
+            Mth::Vector forward = VectorAt(m_object, kObjectForward);
+            GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Vector*, float)>(0x00421440)(
+                &forward, &VectorAt(this, kVertTurnAxis), At<float>(this, kVertTurn));
+            double boost = WalkParameter(kInitialVertVelBoost);
+            Mth::Vector& velocity = m_object->m_vel;
+            auto z = static_cast<float>(forward.z * boost);
+            auto w = static_cast<float>(forward.w * boost);
+            velocity.x = static_cast<float>(forward.x * boost + velocity.x); // (x and y's products unrounded)
+            velocity.y = static_cast<float>(forward.y * boost + velocity.y);
+            velocity.z += z;
+            velocity.w += w;
+        }
+        if (!SkaterFlags(this)[0x30])
+            At<bool>(this, kFlag1958) = true;
+        // The heading: the velocity flattened, else the forward axis flattened, else the up axis reversed and
+        // flattened; made unit length.
+        Mth::Vector& heading = VectorAt(this, kHeading);
+        heading = m_object->m_vel;
+        heading.y = 0.0f;
+        double length = std::sqrt((static_cast<double>(heading.x) * heading.x +
+                                   static_cast<double>(heading.y) * heading.y) +
+                                  static_cast<double>(heading.z) * heading.z);
+        if (length < kMinHeadingLength) {
+            heading = VectorAt(m_object, kObjectForward);
+            heading.y = 0.0f;
+            length = std::sqrt((static_cast<double>(heading.z) * heading.z +
+                                static_cast<double>(heading.x) * heading.x) +
+                               static_cast<double>(heading.y) * heading.y);
+            if (length < kMinHeadingLength) {
+                heading = -VectorAt(m_object, kObjectUp);
+                heading.y = 0.0f;
+                length = std::sqrt((static_cast<double>(heading.x) * heading.x +
+                                    static_cast<double>(heading.y) * heading.y) +
+                                   static_cast<double>(heading.z) * heading.z);
+            }
+        }
+        double inverse = 1.0 / length;
+        heading.x = static_cast<float>(inverse * heading.x);
+        heading.y = static_cast<float>(inverse * heading.y);
+        heading.z = static_cast<float>(inverse * heading.z);
+        heading.w = static_cast<float>(inverse * heading.w);
+        LeaveRide(&m_object->m_vel, &m_object->m_vel.y);
+        At<uint32_t>(this, 0x1898) = 0;
+        At<bool>(this, 0x18B0) = false;
+        At<bool>(this, kOffVert) = SkaterFlags(this)[0x30] || SkaterFlags(this)[0xB0];
+    }
+    At<float>(this, kCurbOffset) = 0.0f;
+    At<uint32_t>(this, 0x748) = 0;
+    At<uint32_t>(this, kPreviousAnimState) = 0;
+    At<bool>(this, kJumpHeld) = true;
+    VectorAt(this, kRideOffset) = {0.0f, 0.0f, 0.0f, 1.0f};
+    At<uint32_t>(this, kTargetHeight) = 0;
+    At<uint32_t>(At<void*>(this, 0x1790), 0x18) = 0;
+    At<bool>(this, 0x70C) = false;
+}
+
 } // namespace Obj
 
 using Obj::CWalkComponent;
@@ -699,3 +982,7 @@ REPLACE(0x0052D4B0, &CWalkComponent::Update);
 REPLACE(0x0052D300, &CWalkComponent::UpdateGround);
 REPLACE(0x0052CEF0, &CWalkComponent::UpdateAir);
 REPLACE(0x0052AD10, &CWalkComponent::UpdateAnimWait);
+REPLACE(0x0052A700, &CWalkComponent::CollideAirMove);
+REPLACE(0x0052B370, &CWalkComponent::SnapToGround);
+REPLACE(0x0052AF40, &CWalkComponent::Begin);
+
