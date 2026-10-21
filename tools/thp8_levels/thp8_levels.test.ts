@@ -336,7 +336,7 @@ test("glows: a material is drawn adding only when every sector using it is a glo
 test("material colour: the four floats before the first texture's checksum; glows scaled by it times its alpha", () => {
     const params = Buffer.alloc(0x80);
     params.writeUInt32BE(0x00000008, 0x24);
-    [0.5, 1, 1, 0.1].forEach((f, i) => params.writeFloatBE(f, 0x50 + 4 * i));
+    for (const [i, f] of [0.5, 1, 1, 0.1].entries()) params.writeFloatBE(f, 0x50 + 4 * i);
     params.writeUInt32BE(0xe893f0d3, 0x60);
     const m = { textures: [0xe893f0d3], params } as unknown as geom.GeomMaterial;
     assert.deepEqual(
