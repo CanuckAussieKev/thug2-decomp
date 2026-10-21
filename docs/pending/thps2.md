@@ -59,8 +59,56 @@ Venice Beach and Philadelphia too, never THUG1's or THUGPRO's remakes - as their
 
 ## Game runs (C:\Games\THUG2-3, own build's DLL, make_menu_level --game)
 
-RESULTS
+Each level started with `-Level thps2_<name>` (run_game.ps1), 60 frames in free skate, a capture at the skater and one
+from an overview camera (`camera`), the log read: **all ten load and run** (no exception, run-time check or CRT
+report; responding), the skater stands / rolls on the floor at the Player1 restart (collision works) facing the way
+THPS2 starts him (Hangar: down the drop-in into the hangar; checked in a capture). Pictures in
+C:\Games\THUG2-3\Screenshots\thps2_<name>_start / _over (frame_0001.png + series.txt), Hangar's sign test in
+h_sign2, the level select in levelselect_a (THPS2 section: ten signs - THUG2 sign textures as placeholders - stars
+on the globe, HANGAR first).
+
+| Level | Loads | Skater at start (THUG2 x, y, z) | Scene / collision objects | Textures (from newtex) |
+|---|---|---|---|---|
+| Hangar | yes | (-445, 274, -362) rolling down the drop-in | 354 / 382 | 88 (56) |
+| School II | yes | (701, 0, -2836) | 948 / 1000 | 202 (178) |
+| Marseille | yes | (1500, 119, -423) | 624 / 682 | 151 (131) |
+| NY City | yes | (-26939, -13, -12419) | 927 / 1087 | 171 (107) |
+| Venice Beach | yes | (13839, 76, -2748) | 793 / 847 | 151 (117) |
+| Skatestreet | yes | (-25255, 1202, -9236) | 756 / 799 | 124 (97) |
+| Philadelphia | yes | (2321, 199, -2796) | 817 / 846 | 184 (129) |
+| The Bullring | yes | (236, 0, -377) | 517 / 576 | 58 (50) |
+| Chopper Drop | yes | (-419, 0, -90) | 142 / 172 | 45 (36) |
+| Skate Heaven | yes | (-181, 0, -593) | 512 / 564 | 91 (83) |
+
+Restarts other than the start (offline - `convert` checks the floor under each with the converted collision): all on
+the floor but Hangar's Control Room (124 inches up) and Re_Start_2P_NY (no floor: a leftover of NY's), NY's Ho_Pit_QP /
+Ho_Pit_Side_Rail (~290 up - HORSE spots in the air) and Skatestreet's Re_Start_2P_SS_Wave_RollIn (180 up).
+
+Seen in the pictures: the overviews show dark spiky shapes outside the play areas (Hangar's mountains - one model
+14,000 units across, object flag 0x2000 - and similar backdrops in Philadelphia): THPS2's backdrops, drawn dark by
+their vertex colours; worth a look by a player. The sky is black (THPS2 draws no sky model; THUG2's default sun shows).
+
+What a player should try (not done by an agent - needs skating): grinding the rails (terrain sounds are metal for
+all), the vert ramps (Hangar's halfpipe, Skatestreet's bowls: vert flag from surface 0x20), wallrides on walls,
+semi-transparent faces (Skate Heaven's glass), invisible walls at the levels' edges, the restart list (pause menu).
 
 ## Not done (phase 2 plan)
 
-PLAN
+1. **The .trg command language** (types 1, 4, 5, 6, 12, 13, 15: u16 opcodes such as 0x8000 / 0x4280 / 0x2134 /
+   0x2128 / 0x4290, checksums, link lists): decode it from the files (statistics, as the formats here) - it holds the
+   gaps (trigger planes, surface 0x02, linked to named nodes; rails link to type 12 nodes - their gap names), kill
+   zones (water in Venice / Marseille / Skate Heaven), the level's start commands (type 4: start points, the _o
+   library) and the objects' behaviour. Then: gaps as THUG2 gap scripts (TriggerType / StartGap / EndGap through
+   tools/level_port/script_port.ts's forms), kill zones as SK3_KillSkater with a restart (nodes.addKillRestarts).
+2. **The _o models**: moving and breakable objects placed by type 1 nodes (Hangar's helicopter and fans, Philly's
+   fountain, School II's...) as LevelObjects of THPS2's own models; their movements from the commands.
+3. **Terrain sounds**: surface bits 9-12 -> THUG2 TERRAIN_* (listen in THPS2 / compare textures); rail flags' low
+   nibble (0 / 1 / 2) -> rail TerrainType and Type.
+4. **Rendering**: a sky (THPS2's clear colour, if the level commands set one, or a THUG2 sky as a stand-in); check the
+   0x40 semi-transparency guess and THPS2's other blend modes (bits 12-14?); face flag 0x400 (double-sided?); the 21-242
+   quads per level whose corners go round (drawn as bowties now); lighting values for the skater.
+5. **Signs**: pictograms for the ten (level_select_icons.ts), replacing the THUG2 sign textures.
+6. **Peds / music**: THPS2 has no peds in these levels; its soundtrack (Music folder) as level music - with the other
+   games' (docs/level-port-compromises.md section 8).
+7. **Online**: THUGPRO has no THPS2-data ports (its Hangar / School II / Venice / Philly are THUG1's remakes, which
+   stay in THUG1's section), so the thps2_ names have nothing to agree with; check no Load_ checksum clashes.

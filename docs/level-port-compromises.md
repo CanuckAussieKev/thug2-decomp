@@ -302,3 +302,26 @@ Formats marked "not identified" haven't been looked into yet.
    vertex colour wibbles and Warehouse's dark set.
 8. **Music.** Each game's soundtrack and level streams.
 9. **Goals and pickups.** A project of its own (porting career mode), outside free skate.
+
+## 9. THPS2 (phase 1, 2026-10-21)
+
+Converter `tools/thps2_levels` (README there; records in docs/pending/thps2.md). All ten levels - Hangar, School II,
+Marseille, NY City, Venice Beach, Skatestreet, Philadelphia, The Bullring, Chopper Drop, Skate Heaven - from THPS2's own
+ALL.PKR, as `thps2_<name>` in a THPS2 level select section (THUG1's remakes of Hangar / School II / Venice / Philly stay
+in THUG1's). Every level loads in free skate (agents' load checks only; nobody has skated them yet).
+
+| What | THPS2 |
+|---|---|
+| Level geometry, textures | Original (the PC version's newtex BMPs where there is one, else the PlayStation texture) |
+| Vertex colours | Original (THPS2's 128 = neutral is THUG2's 128 = full) |
+| Mip levels | Made (2 x 2 averages, as THPS3's) |
+| Collision | Original faces; vert from THPS2's surface flag; wallride on every steep face (THPS2's own wallride flag not found); invisible walls kept (camera passes), trigger planes and the invisible walls on vert lips left out |
+| Terrain sounds | Stand-in: THUG2's default on every face, metal on every rail |
+| Restarts, rails | Original (the start as Player1; 2P / HORSE / generic by name) |
+| Gaps, kill zones, triggers | Missing (THPS2's .trg command language not decoded yet) |
+| Moving / breakable objects (the _o models) | Missing |
+| Semi-transparency | Faces with flag 0x40 blended at a half (inferred meaning) |
+| Sky | Missing: black (THPS2 has no sky model) |
+| Lighting | THUG2's default |
+| Peds, cars, music, goals | Missing (THPS2's levels have no peds or traffic) |
+| Level select signs | Stand-in: THUG2 sign textures (no pictograms yet) |
