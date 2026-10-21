@@ -6,7 +6,8 @@ param([Parameter(Mandatory = $true)][string]$Game, [Parameter(Mandatory = $true)
 # into free skate there - src/game/front/start_level.h; no keys, the overlay untouched), then the log is read (its
 # level's collision loaded, no exception, run-time check failure or debug CRT report).
 # A load check only: whether anything works when skated into is for the user to try.
-$Game = $Game.TrimEnd('\')
+. (Join-Path $PSScriptRoot 'game_exe.ps1')
+$Game = Resolve-GameFolder $Game  # (the install root or its Game folder: the log is beside the exe)
 if (-not $ShotDir) { $ShotDir = Join-Path $env:TEMP 'thug2-shots' }
 $log = Join-Path $Game 'thug2-decomp.log'
 foreach ($l in $Levels) {

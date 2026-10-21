@@ -46,6 +46,7 @@ import * as levelPortNodes from "../level_port/nodes.ts"; // (the terrain sounds
 import * as portedLevels from "../level_port/ported_levels.ts"; // (the converted levels: added when <game>\thug2-decomp-<game> exist)
 import * as thug2Col from "../level_port/thug2_col.ts"; // (the front end's collision without THUG2's shop)
 import { parseCli } from "../lib/cli.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     decodeAsciiReplace,
     formatFixed,
@@ -1304,8 +1305,8 @@ async function main(): Promise<number> {
     });
     let game = values.game;
     const tool = values.ns;
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    if (!isDir(path.join(game, "Data")) && isDir(path.join(game, "Game", "Data"))) game = pyJoin(game, "Game");
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    game = resolveInstall(game, "thug2");
     const out = values.out || pyJoin(game, "thug2-decomp-data");
     if (!fs.existsSync(tool)) pyExit(`${tool} not found: build it with tools\\build_neverscript.ps1`);
 

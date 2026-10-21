@@ -29,6 +29,7 @@ import { Name, Struct, Vector } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import * as tex from "../level_port/tex.ts";
 import { parseConverterArgs } from "../lib/converter_args.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
 import { search, sub } from "../lib/re.ts";
 import * as thps4 from "./thps4.ts";
@@ -289,7 +290,10 @@ export function findFolder(levelsDir: string, name: string): string | null {
 
 export function levelStructs(thps4Dir: string): Map<string, Struct> {
     // THPS4's Levels.qb: its level structures by their level= name.
-    const q = new qb.QbFile(fs.readFileSync(path.join(thps4Dir, "Game", "data", "scripts", "Levels.qb")), "Levels.qb");
+    const q = new qb.QbFile(
+        fs.readFileSync(path.join(resolveInstall(thps4Dir, "thps4"), "data", "scripts", "Levels.qb")),
+        "Levels.qb",
+    );
     const found = new Map<string, Struct>();
     for (const [, value] of q.globals) {
         if (value instanceof Struct) {
@@ -442,7 +446,7 @@ const sceneSectors = (scene4: thps4.Scene): Set<number> =>
 const NEW_FILES = new Map<string, Buffer | string>();
 
 export function cmdConvert(args: Args): void {
-    const levelsDir = pyJoin(args.thps4, "Game", "data", "levels");
+    const levelsDir = pyJoin(resolveInstall(args.thps4, "thps4"), "data", "levels");
     const out = args.out || pyJoin(args.thug2, STAGING);
     if (!fs.existsSync(args.ns)) pyExit(`${args.ns} not found: build it with tools\\build_neverscript.ps1`);
     const structs = levelStructs(args.thps4);
@@ -711,7 +715,7 @@ export function cmdSelfcheck(args: Args): number {
         "TestLevelcol.prx",
         ...args.extra,
     ]);
-    const levelsDir = pyJoin(args.thps4, "Game", "data", "levels");
+    const levelsDir = pyJoin(resolveInstall(args.thps4, "thps4"), "data", "levels");
     for (const folder of fs.readdirSync(levelsDir).sort()) {
         for (const file of globAll(pyJoin(levelsDir, folder)).sort()) {
             const low = file.toLowerCase();
@@ -801,11 +805,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         thugproBanners: parsed.flags.get("thugpro-banners")!,
         extra: parsed.lists.get("extra")!,
     };
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    const isDir = (p: string): boolean => fs.existsSync(p) && fs.statSync(p).isDirectory();
-    if (!isDir(path.join(args.thug2, "Data")) && isDir(path.join(args.thug2, "Game", "Data"))) {
-        args.thug2 = pyJoin(args.thug2, "Game");
-    }
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    args.thug2 = resolveInstall(args.thug2, "thug2");
     if (args.command === "selfcheck") return cmdSelfcheck(args);
     cmdConvert(args);
     return 0;

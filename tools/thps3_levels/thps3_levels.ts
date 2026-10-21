@@ -31,6 +31,7 @@ import * as scriptPort from "../level_port/script_port.ts";
 import type * as tex from "../level_port/tex.ts";
 import type * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     compareStr,
     decodeLatin1,
@@ -133,7 +134,10 @@ export function levelName(base: string, entry: Struct | null, thug2Names: Readon
 
 // Every LEVELS row's name ({folder in lower case: name}), from THPS3's levels.qb and THUG2's Levels.qb.
 export function levelNames(thps3Dir: string, thug2: string, legacy = false): Map<string, string> {
-    const levelsQ = new qb.QbFile(read(pyJoin(thps3Dir, "Data", "Scripts", "levels.qb")), "levels.qb");
+    const levelsQ = new qb.QbFile(
+        read(pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Scripts", "levels.qb")),
+        "levels.qb",
+    );
     const master = masterLevels(levelsQ);
     const thug2Names = thug2LevelNames(thug2);
     return new Map(
@@ -802,7 +806,7 @@ function sortedGlobQb(dir: string): string[] {
 export function scriptNames(thps3Dir: string): QbFile[] {
     // The game's global scripts (Data\Scripts\*.qb): the level scripts that kill the skater are among them.
     const out: QbFile[] = [];
-    for (const file of sortedGlobQb(pyJoin(thps3Dir, "Data", "Scripts"))) {
+    for (const file of sortedGlobQb(pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Scripts"))) {
         try {
             out.push(new qb.QbFile(read(file), file));
         } catch (e) {
@@ -982,7 +986,7 @@ export class Port {
         this.thug2 = thug2;
         this.sources = sources;
         this.levelsQ = levelsQ;
-        this.modelsDir = pyJoin(thps3Dir, "Data", "Models");
+        this.modelsDir = pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Models");
         this.assets = new pedsCars.Thug2Assets(thug2.root);
     }
 
@@ -2650,12 +2654,12 @@ function title(text: string): string {
 }
 
 export function cmdConvert(args: Args): void {
-    const levelsDir = pyJoin(args.thps3, "Data", "Levels");
+    const levelsDir = pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Levels");
     const out = args.out || pyJoin(args.thug2, STAGING);
     if (!fs.existsSync(args.ns)) pyExit(`${args.ns} not found: build it with tools\\build_neverscript.ps1`);
     const table = new Map(LEVELS.map((row) => [row[0].toLowerCase(), row]));
     const wanted = args.levels.length ? args.levels : LEVELS.filter((row) => row[5]).map((row) => row[0]);
-    const scriptsDir = pyJoin(args.thps3, "Data", "Scripts");
+    const scriptsDir = pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Scripts");
     const levelsQ = new qb.QbFile(read(pyJoin(scriptsDir, "levels.qb")), "levels.qb");
     const lightsQ = new qb.QbFile(read(pyJoin(scriptsDir, "lights.qb")), "lights.qb");
     const globalQbs = scriptNames(args.thps3);
@@ -2899,8 +2903,11 @@ export function cmdSelfcheck(args: Args): number {
         "TestLevelcol.prx",
         ...args.extra,
     ]);
-    const levelsDir = pyJoin(args.thps3, "Data", "Levels");
-    const paths = [...sortedGlobAll(levelsDir), ...sortedGlobQb(pyJoin(args.thps3, "Data", "Scripts"))];
+    const levelsDir = pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Levels");
+    const paths = [
+        ...sortedGlobAll(levelsDir),
+        ...sortedGlobQb(pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Scripts")),
+    ];
     for (const file of paths) {
         const low = file.toLowerCase();
         let what: string;
@@ -3053,10 +3060,8 @@ export function parseCommandLine(argv: readonly string[]): Args {
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const args = parseCommandLine(argv);
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    if (!isDir(pyJoin(args.thug2, "Data")) && isDir(pyJoin(args.thug2, "Game", "Data"))) {
-        args.thug2 = pyJoin(args.thug2, "Game");
-    }
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    args.thug2 = resolveInstall(args.thug2, "thug2");
     if (args.command === "selfcheck") return cmdSelfcheck(args);
     cmdConvert(args);
     return 0;

@@ -34,6 +34,7 @@ import * as path from "node:path";
 import { parseArgs } from "node:util";
 import * as prx from "./level_port/prx.ts";
 import { checksum } from "./level_port/qb.ts";
+import { resolveInstall } from "./lib/install.ts";
 import { decodeLatin1, hex8, isMain, print, pyExit, runMain } from "./lib/py.ts";
 import { unpackNumbers } from "./lib/struct.ts";
 
@@ -385,7 +386,7 @@ function main(): number {
     });
     if (!fs.existsSync(values.exe)) pyExit(`${values.exe} not found`);
     const exe = new Exe(fs.readFileSync(values.exe));
-    const names = scriptNames(values.thug2);
+    const names = scriptNames(resolveInstall(values.thug2, "thug2"));
     const m = extract(exe, names);
     fs.writeFileSync(values.out, render(m, names, path.basename(values.exe)));
     print(

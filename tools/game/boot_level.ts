@@ -8,6 +8,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveInstall } from "../lib/install.ts";
 import { decodeCp1252, isMain, print, runMain } from "../lib/py.ts";
 
 // subprocess.run(..., text=True)'s text: cp1252, universal newlines
@@ -18,7 +19,14 @@ const NS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "
 function main(): number {
     const [level, game] = process.argv.slice(2);
     if (level === undefined || game === undefined) throw new RangeError("usage: boot_level.ts <level> <game folder>");
-    const F = path.join(game, "thug2-decomp-data", "front_end", "levels", "mainmenu", "mainmenu_scripts.qb");
+    const F = path.join(
+        resolveInstall(game, "thug2"),
+        "thug2-decomp-data",
+        "front_end",
+        "levels",
+        "mainmenu",
+        "mainmenu_scripts.qb",
+    );
     const src = path.join(os.tmpdir(), "mainmenu_scripts.q");
     let r = spawnSync(NS, ["-d", F, "-o", src]);
     if (r.error) throw r.error;

@@ -14,6 +14,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
 import * as qb from "../level_port/qb.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, runMain } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { LEVELS, legacyName, levelNames } from "./thps3_levels.ts";
@@ -68,7 +69,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         print(`no ${FOLDER} in ${v.game}: nothing to migrate`);
         return 0;
     }
-    const thug2 = fs.existsSync(pyJoin(v.game, "Data")) ? v.game : pyJoin(v.game, "Game");
+    const thug2 = resolveInstall(v.game, "thug2");
     const names = levelNames(v.thps3 ?? "C:\\Games\\THPS3", thug2);
     const wanted = new Set(parsed.positionals.map((x) => x.toLowerCase()));
     for (const [base] of LEVELS) {

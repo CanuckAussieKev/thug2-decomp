@@ -25,6 +25,7 @@ import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     Float,
     formatFixed,
@@ -220,7 +221,7 @@ export function extractNetNodes(base: string, thugpro: string, thps4Dir: string)
     const data = scripts === null ? null : prx.find(scripts, `levels\\${key}\\${key}.qb`);
     if (data === null) pyExit(`THUGPRO has no levels\\${key}\\${key}.qb`);
     const [theirs, theirNames] = nodeArray(data, `${key}.qb`);
-    const folder = findPath(thps4Dir, "Game", "data", "levels", base);
+    const folder = findPath(resolveInstall(thps4Dir, "thps4"), "data", "levels", base);
     const ownFile = folder === null ? null : findPath(folder, `${base}.qb`);
     if (ownFile === null) pyExit(`no THPS4 ${base}.qb in ${thps4Dir}`);
     const own = new qb.QbFile(fs.readFileSync(ownFile), ownFile).get("NodeArray");
@@ -369,7 +370,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         pyExit(2);
     }
     const v = parsed.values;
-    const thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
+    const thug2 = resolveInstall(v.thug2 ?? "C:\\Games\\THUG2\\Game", "thug2");
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
     if (v["extract-thugpro"]) return extract(thugpro, v.thps4 ?? "C:\\Games\\THPS4");
     const oursDir = v.staging || pyJoin(thug2, STAGING, "levels");
