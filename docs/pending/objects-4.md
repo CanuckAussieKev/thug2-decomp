@@ -90,3 +90,43 @@ src/game/nx/feeler.h / feeler.cpp (CFeeler::Assign added).
     ECX again).
   - Test (TestVehiclePhysics): 5000 random vehicles (unit orientations, scripted suspension hits and trigger
     take-overs, the park editor on and off, network games), every call recorded.
+- [x] Batch OC4-5 (NOT run in the game yet; the Vehicle component's collision and integration, 9 functions):
+  src/game/obj/vehicle_collision.cpp (new), src/game/obj/vehicle_internal.h (new: what the vehicle's files share -
+  the debug strings, the quaternion and trigger calls not rewritten yet, D3DXMatrixMultiply).
+  - 0x0043BEE0 Integrate (a sub-step: momenta, the move through MoveBy, the turn, the wheels' roll, turning in the air,
+    righting, the dependents), 0x00437120 MoveBy (no tunnelling: a hit puts it at the surface with the rest of the move
+    reflected and the momentum bounced 1.5; nothing within 4800 below puts it back - "uber frig"; else the model lit
+    from the ground through 0x00420670), 0x00438770 UpdateRighting, 0x00439D90 AlignInAir, 0x00438BB0 Collide (rect
+    queries of the two colliders and lines to their corners; contacts in the array at 0x006951C8; impulses with
+    restitution in up to six passes, depth pushes at most 2, friction, the strongest impulse, steering against walls),
+    0x00436CF0 GetPenetration (stdcall), 0x00436E50 FindEdgeContact, 0x00437060 NormalFacesAway, 0x00437450
+    GetImpulseDenominator.
+  - Quirks kept: Collide marks the contact after a feeler's as from a feeler, not the feeler's own; UpdateRighting's
+    target matrix's fourth row is the original's stack (ours the identity's; nothing reads it).
+  - Test (TestVehicleCollision): 4000 random vehicles (rect hits on a grid so that edges meet, opposite and nearly
+    opposite normals, ties at an edge's middle, righting exactly at 300 / 5300 ms, NaNs in the state and the contacts),
+    the slerps stood in (ours and the original's x87 code differ in the last bit - mth/slerp.cpp, not this range).
+- [x] Batch OC4-6 (NOT run in the game yet; the Vehicle component's life, 13 functions): src/game/obj/vehicle_component.cpp.
+  - 0x0043AA30 Create, 0x00437C00 Construct, 0x0043B990 DestroyBody (the wheels as `delete[]`), 0x0043C1A0 Destroy,
+    0x00437D10 InitFromStructure (debug modes, centre of mass, mass and moments of inertia, the body's settings,
+    colliders - their points' average distance less 48 to the skater's 0x005802C0 -, engine and gear ratios, Wheels made
+    the first time and read through 0x00434F20, all_wheels, drive count, Save's Orientation / Pos, the skater's place
+    and animation, sounds, everything at rest), 0x0043BA20 Finalize (the wheels' places and the skater's bone from the
+    model, wheelbase and track, the suspension's rest extension, the colliders' lowest point, the skater's components -
+    hidden unless shown driving -, everything made relative to the wheels' centre), 0x0043C1D0 Update (the controls;
+    asleep: steering, roll, bones, skater; else up to six sub-steps of at most 1/30 s; the gravity override's end), 0x0043A070
+    UpdateSkeleton, 0x0043A2C0 GetWheelRimPoint, 0x0043A400 DebugDraw (compiled out of this build: nothing touched),
+    0x0043AA90 MoveToNode (not a Ghidra function: on the ground under the node, sixty passive updates through the
+    vtable, asleep, teleported), 0x0043B670 Vehicle_MoveToRestart, 0x0043B720 Vehicle_PlaceBeforeCamera.
+  - Found while testing the whole update: the original's x87 compares keep a NaN on the "not greater" side; nine
+    compares in batches 4 and 5 written as `!(a <= b)` took the other side with one - now `a > b` (the brakes' caps, the
+    spin damping, CheckSleep's limits, NormalFacesAway, AlignInAir's slow / fast, Collide's depth clamp and friction
+    cap). The tests now put NaNs (and a step of no time) into the state.
+  - Quirks kept: Finalize always reads four wheels from the model, and the wheelbase / track from wheel -1 when there's
+    no wheel of a kind; MoveToNode always averages four wheels and uses wheel -1 with no fixed wheel.
+  - Test (TestVehicleLife, TestVehicleRestart): 3000 random components over the thirteen functions (Create out of
+    memory, wheel arrays made or kept, every structure name there or not, every frame length up to more than six steps
+    and exactly 1/30 s, asleep and passive, bones in debug mode 2, no camera...), whole updates with every call stood in
+    or real; Vehicle_MoveToRestart's three ways over 500 cases. The rotations about an axis / x / z are stood in in these
+    tests: ours (mth/matrix.cpp, float code with the C runtime's cos / sin) and the original's differ in the last bits,
+    and wholly for very large angles - worth a look in that file.

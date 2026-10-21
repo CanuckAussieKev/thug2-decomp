@@ -6,8 +6,10 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_cache.h"
+#include "game/nx/coll_rect.h"
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
+#include "hook/game.h"
 
 namespace Script {
 class CScript;
@@ -70,7 +72,7 @@ public:
         bool drive;                // +0xB4 drive (0x97E20A70): yes / no
         uint8_t padB5[3];
         float restY;               // +0xB8 the suspension's rest extension (Finalize)
-        float unknownBC;           // +0xBC (0xD87D0183)
+        float maxDrawnY;           // +0xBC (0xD87D0183) the model's wheel drawn no lower than this
         float radius;              // +0xC0 radius
         float invMoment;           // +0xC4 386.4 / moment
         float springRate;          // +0xC8 spring_rate
@@ -106,6 +108,18 @@ public:
         float lengths[2];          // +0x80
     };
 
+    // A contact point of the colliders with the world this step (0x2C bytes; in the array at 0x006951C8).
+    struct Contact {
+        Mth::Vector point;         // +0x00 (world)
+        Mth::Vector normal;        // +0x10 the world's, out of it
+        float depth;               // +0x20 how far in
+        float impulse;             // +0x24 the impulses at it this step (summed)
+        bool fromFeeler;           // +0x28 (set on the record after a feeler's - as the original)
+        uint8_t pad29[3];
+    };
+    // The contacts (one array for every vehicle; m_contactCount of them this step).
+    static Contact* Contacts() { return &GameVariable<Contact>(0x006951C8); }
+
     // --- the component ---
     // 0x0043AA30 (registered with the composite object manager): a new one (0 if out of memory).
     static CBaseComponent* __cdecl Create();
@@ -121,8 +135,24 @@ public:
     // 0x0043BA20 (vtable slot 3): the components, the wheels' and the skater's positions from the model, the
     // wheelbase and track, the centre of mass, the skater's components; the body's state into the object.
     void Finalize();
-    // 0x0043C1D0 (vtable slot 1)
+    // 0x0043C1D0 (vtable slot 1): the controls (none when passive); asleep, only the steering, the wheels' roll, the
+    // model and the skater; else in up to six sub-steps of at most 1/30 s: Integrate, Collide (not when passive), the
+    // wheels' contacts, steering, damping and forces, the air and free-fall times; then (not when passive) the body
+    // into the object, CheckSleep, the model and the skater. Stops as soon as a trigger's script took over or the
+    // object died. A gravity override ends when its time is up or two wheels touch.
     void Update();
+    // 0x0043A070: the model's bones: 1 the skater's place, 2 on the wheels (steered, rolled, at their suspension's
+    // extension but no lower than maxDrawnY); nothing in debug mode 2 (all zero). Skipped while rendering is off.
+    void UpdateSkeleton();
+    // 0x0043A2C0: a point on a tyre's rim in the world: `spoke` of twelve around (at its roll), on its outer or inner
+    // face, steered. Returns out.
+    Mth::Vector* GetWheelRimPoint(Mth::Vector* out, const Wheel* wheel, int spoke, bool outer);
+    // 0x0043A400: the wheels and the centre of mass drawn (with m_debugMode; compiled out of this build).
+    void DebugDraw();
+    // 0x0043AA90 (not a Ghidra function): moved to a node: its fixed axle at the node, on the ground below it (from
+    // 24 above to 240 below) at the wheels' rest height, facing the node's way; settled by sixty passive updates;
+    // asleep, still, teleported (and the skater too).
+    void MoveToNode(Script::CStruct* node);
 
     // --- the body ---
     // 0x00435520: the velocity (the momentum times the inverse mass, w 0) and the angular velocity (the angular
@@ -217,6 +247,38 @@ public:
     // 0x004378B0: the skater carried: at skater_pos on the vehicle, its matrix and velocity; with a visible skater,
     // its steering animation's frame from the smoothed steering (in a network game sent on every fifteenth time).
     void UpdateSkater();
+
+    // --- collision and integration (vehicle_collision.cpp) ---
+    // 0x0043BEE0: a sub-step: the momenta from the forces, the move (through MoveBy) and the turn (the orientation
+    // by its derivative) from the velocities plus half the accelerations; the wheels' roll; turning in the air
+    // (no wheel touching and no impulse); righting; the dependents.
+    void Integrate();
+    // 0x00437120: the position moved by `move` - not through the world: a hit puts it at the surface with the rest of
+    // the move reflected and the momentum into it bounced (1.5); then, with nothing at all within 4800 below, put
+    // back where it was ("uber frig"), else the model lit from the ground.
+    void MoveBy(const Mth::Vector* move);
+    // 0x00438770: righting itself: stuck upside down or on its side (slow, after a collision, the throttle held) it
+    // stops and, from 300 ms to 5.3 s on, turns upright (a slerp, 3 a second). Upright (up.y > 0.999): not.
+    void UpdateRighting();
+    // 0x00439D90: in the air (not righting or kicked), turned level towards its velocity (fast) or facing (slow, with
+    // m_alignWhenSlow), ramped in over m_alignTime of free fall.
+    void AlignInAir();
+    // 0x00438BB0: the colliders against the world (rect queries and lines from the centre to their corners): the
+    // contacts, impulses at those closing in (restitution; up to six passes), pushes out by their depth, friction
+    // against sliding, the strongest impulse, and steering against walls. Stops as soon as a trigger's script took
+    // over or the object died.
+    void Collide();
+    // 0x00436CF0 (stdcall): how deep a contact on a collider's face is: its distance in from the nearest of the
+    // face's edges, along the normal (0 under 0.01).
+    static double __stdcall GetPenetration(const Contact* contact, const Collider* collider);
+    // 0x00436E50: a contact on a triangle edge whose normal faces away: if another joined hit of the rect has an end
+    // there with the opposite normal, the contact's normal across the edge and its depth. Whether there was.
+    bool FindEdgeContact(Contact* contact, Nx::CRectFeeler* rect, const Collider* collider, int hit, int end);
+    // 0x00437060: whether a contact's normal points away from the centre of mass (not a contact).
+    bool NormalFacesAway(const Contact* contact);
+    // 0x00437450: 1 / (n . (n / m + (I^-1 (r x n)) x r)) - the impulse for a unit velocity change along `direction`
+    // at `offset`. Unrounded.
+    double GetImpulseDenominator(const Mth::Vector* offset, const Mth::Vector* direction);
 
     // --- script member functions (the table at 0x00684060) ---
     // 0x00437A60 Vehicle_Kick (0x93B713A6): `linear` and `angular` (vectors, rotated into the world) added to the

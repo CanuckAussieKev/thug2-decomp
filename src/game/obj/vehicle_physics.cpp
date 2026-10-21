@@ -14,17 +14,19 @@
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_movable.h"
 #include "game/obj/anim_blender.h"
+#include "game/obj/vehicle_internal.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
 namespace Obj {
 
+using namespace Vehicle;
+
 namespace {
 
 const float kHalf = 0.5f;                                  // 0x006453BC
 const float kTenth = std::bit_cast<float>(0x3DCCCCCDu);     // 0x00645D74
-const float kGravity = std::bit_cast<float>(0x43C13333u);   // 0x006466A4: 386.4 (inches a second squared)
 const float kRightingGravity = std::bit_cast<float>(0x42E7D70Bu); // 0x00646718: 115.92
 const float kNoSteering = std::bit_cast<float>(0x3A83126Fu); // 0x006461D8: 0.001
 const float kSteeringRate = 10.0f;                          // 0x00646710
@@ -89,24 +91,6 @@ double X87Atan2(double y, double x)
         fstp result
     }
     return result;
-}
-
-// The trigger component's 0x00434BF0 (not rewritten yet): `feeler` reported for `events`.
-void TriggerFeeler(CBaseComponent* trigger, const int* events, Nx::CFeeler* feeler)
-{
-    GameFunction<void(__thiscall*)(CBaseComponent*, const int*, Nx::CFeeler*)>(0x00434BF0)(trigger, events, feeler);
-}
-
-// Quaternions (not rewritten yet): 0x0042BC40 the rotation matrix of a quaternion (its 3x3).
-void QuatToMatrix(const Mth::Vector* quat, Mth::Matrix* matrix)
-{
-    GameFunction<void(__thiscall*)(const Mth::Vector*, Mth::Matrix*)>(0x0042BC40)(quat, matrix);
-}
-
-// D3DXMatrixMultiply (linked library code; stdcall).
-void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
-{
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
 }
 
 // The cap on a brake-like torque: what stops the wheel in this step, |(-1 / (dt * invMoment)) * spin| as a float.
@@ -254,7 +238,7 @@ void CVehicleComponent::ApplyDamping()
     double damping = ((x * x + y * y) + z * z) * m_spinDamping * m_timestep;
     float dampingRounded = static_cast<float>(damping);
     double length = std::sqrt((x * x + y * y) + z * z);
-    if (!(damping <= length)) {
+    if (damping > length) {
         m_rotmom = {0.0f, 0.0f, 0.0f, 1.0f};
     } else {
         Mth::Vector axis = m_rotmom;
@@ -410,7 +394,7 @@ void CVehicleComponent::ApplyEngineBraking()
         double ratio = m_gearRatios[gear];
         double braking = ratio * m_engineBraking * ratio / Unsigned(m_driveWheelCount);
         float stop = StoppingTorque(static_cast<double>(wheel.invMoment) * m_timestep, wheel.spin);
-        if (!(braking <= stop))
+        if (braking > stop)
             braking = stop;
         if (!(wheel.spin < 0.0f))
             braking = -braking;
@@ -455,7 +439,7 @@ void CVehicleComponent::ApplyBrakes()
         Wheel& wheel = m_wheels[i];
         double braking = wheel.brakeTorque;
         float stop = StoppingTorque(static_cast<double>(m_timestep) * wheel.invMoment, wheel.spin);
-        if (!(braking <= stop)) {
+        if (braking > stop) {
             wheel.brakeExcess = static_cast<float>(braking - stop);
             braking = stop;
         } else {
@@ -474,7 +458,7 @@ void CVehicleComponent::ApplyHandbrake(float scale)
         Wheel& wheel = m_wheels[i];
         double braking = static_cast<double>(scale) * wheel.handbrakeTorque;
         float stop = StoppingTorque(static_cast<double>(m_timestep) * wheel.invMoment, wheel.spin);
-        if (!(braking <= stop)) {
+        if (braking > stop) {
             wheel.brakeExcess = static_cast<float>(braking - stop);
             braking = stop;
         } else {
@@ -497,7 +481,7 @@ void CVehicleComponent::ApplyBrakeExcess()
             continue;
         double braking = wheel.brakeExcess;
         float stop = StoppingTorque(static_cast<double>(m_timestep) * wheel.invMoment, wheel.spin);
-        if (!(braking <= stop))
+        if (braking > stop)
             braking = stop;
         if (!(wheel.spin < 0.0f))
             braking = -braking;
@@ -713,10 +697,10 @@ void CVehicleComponent::CheckSleep()
     if (m_wheelsInContact != 0 && m_wheelsInContact != m_wheelCount)
         return;
     double vx = m_vel.x, vy = m_vel.y, vz = m_vel.z;
-    if (!((vx * vx + vy * vy) + vz * vz <= kSleepSpeed))
+    if ((vx * vx + vy * vy) + vz * vz > kSleepSpeed)
         return;
     double sx = m_rotvel.x, sy = m_rotvel.y, sz = m_rotvel.z;
-    if (!((sx * sx + sy * sy) + sz * sz <= kSleepSpin))
+    if ((sx * sx + sy * sy) + sz * sz > kSleepSpin)
         return;
     if (IsKicked())
         return;

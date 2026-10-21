@@ -668,6 +668,7 @@ add_library(thug2_code OBJECT
     src/game/obj/vehicle_sound.cpp
     src/game/obj/vehicle_component.cpp
     src/game/obj/vehicle_physics.cpp
+    src/game/obj/vehicle_collision.cpp
     src/game/skater/rotation.cpp
     src/game/skater/local_net_logic.cpp
     src/game/skater/nonlocal_net_logic.cpp
