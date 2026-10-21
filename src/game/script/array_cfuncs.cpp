@@ -6,9 +6,11 @@
 #include <cstring>
 
 #include "game/script/cscript.h"
+#include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace CFuncs {
 
@@ -131,6 +133,11 @@ bool __cdecl CFunc_GetArraySize(CStruct* params, Script::CScript* script)
                 array = ElementArray(array, static_cast<uint32_t>(index));
         }
     }
+    // (NOT ORIGINAL: no array - its parameters had none, or an index led nowhere - is logged before the original's
+    // crash on it, with the script's name: e.g. a converted level's script naming an array THUG2 hasn't)
+    if (!array)
+        Log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
+            Script::FindChecksumNameOrUnknown(script->m_scriptName));
     script->m_params->AddInteger(kArraySize, static_cast<int>(array->m_size));
     return true;
 }

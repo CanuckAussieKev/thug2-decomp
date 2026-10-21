@@ -333,6 +333,7 @@ export const LINKS_AT: ReadonlyMap<number, number> = new Map([
     [12, 2],
     [13, 2],
     [14, 2],
+    [1000, 2], // ScriptPoint: the points objects move along (C_MOVE_TO_NODE), linked to the next ones
 ]);
 
 export interface TrgNode {
@@ -473,7 +474,8 @@ export const CMD = {
 export const END_COMMANDS = 0xffff;
 
 // Argument layouts: h u16, w aligned u32, s a string, S strings up to an empty one, B boxes (aligned 6 x i32) up to a
-// u16 0xFF. Opcodes 0 and 1 (no arguments) appear twice, unnamed in the symbol file.
+// u16 0xFF. (Opcodes 0 and 1 are kept as no-argument commands; in the ten levels they only ever were SendVisible's
+// argument, read as commands of their own before phase 3.)
 const COMMAND_ARGS: ReadonlyMap<number, string> = new Map([
     [0, ""],
     [1, ""],
@@ -484,7 +486,7 @@ const COMMAND_ARGS: ReadonlyMap<number, string> = new Map([
     [CMD.SendSignal, ""],
     [CMD.SendKill, ""],
     [CMD.SendKillLoudly, ""],
-    [CMD.SendVisible, ""],
+    [CMD.SendVisible, "h"], // (1 shown, 0 hidden - the "opcodes 0 / 1" phase 2 saw after it)
     [CMD.SetFoggingParams, "hhh"],
     [CMD.Text, "s"],
     [CMD.DebugText, "s"],
@@ -676,4 +678,235 @@ export function railPointOf(node: TrgNode): RailPoint {
     const l = nodeView(node, at, 14);
     const d = node.data;
     return { position: [d.readInt32LE(l), d.readInt32LE(l + 4), d.readInt32LE(l + 8)], flags: d.readUInt16LE(l + 12) };
+}
+
+// --- crates (type 2) and script points (type 1000) -----------------------------------------------------------------
+//
+// A "Crate" node is a named world object: u16 2, u16 link count, links, [aligned] u32 - the name checksum of the world
+// model it is (Hangar's window panes and doors). Commands kill it (SendKill: gone; SendKillLoudly: broken - THPS2
+// breaks it into pieces), hide or show it (SendVisible). A ScriptPoint (1000) is a point of a path objects move along:
+// u16 1000, u16 link count, links (the next points), [aligned] i32 x, y, z (vertex units), i16 angles x, y, z, then
+// a script of its own (C_DONE in the ten levels).
+
+export const NODE_CRATE = 2;
+export const NODE_SCRIPT_POINT = 1000;
+
+export function crateOf(node: TrgNode): number {
+    if (node.type !== NODE_CRATE) throw new FormatError(`node ${node.index}: not a crate`);
+    const l = nodeView(node, align4(node.dataAt), 4);
+    return node.data.readUInt32LE(l);
+}
+
+export function scriptPointOf(node: TrgNode): [number, number, number] {
+    if (node.type !== NODE_SCRIPT_POINT) throw new FormatError(`node ${node.index}: not a script point`);
+    const l = nodeView(node, align4(node.dataAt), 12);
+    const d = node.data;
+    return [d.readInt32LE(l), d.readInt32LE(l + 4), d.readInt32LE(l + 8)];
+}
+
+// --- the object script language ------------------------------------------------------------------------------------
+//
+// An object's script (objectOf's tokens) is the symbol file's language: commands C_* (0x41xx-0x47xx) with a fixed
+// number of values each, assignments to variables V_* (0x21xx-0x23xx: V_VELOCITY x y z...), C_IF_* ... C_ENDIF blocks
+// and labels jumped to by C_GOTO / C_GOTO_BREAK (the latter ends the frame's processing: a jump that waits a frame).
+// A value is a number (an i16) or a variable read: V_RANDOM n (0 .. n - 1), V_REGISTER r, V_MY_NODE (the object's
+// node index), V_LINKED_NODE n (the first node node n links to, 0: none), V_INPUT_SIGNAL (signals received). The
+// object runs in frames (THPS2's 30 a second): C_WAIT n waits n of them; velocities are vertex units a frame, angular
+// velocities 4096ths of a turn a frame, angular accelerations the same a frame. Worked out from the ten levels'
+// scripts (every one parses to its end with this table: selfcheck).
+
+export const C = {
+    DONE: 0x4100,
+    GOTO: 0x4101,
+    GOTO_BREAK: 0x4102,
+    LABEL: 0x4104,
+    READ_LABELS: 0x4105,
+    BREAK: 0x4107,
+    ADD: 0x4110,
+    SUB: 0x4111,
+    IF_GT: 0x4112,
+    IF_LT: 0x4113,
+    IF_EQ: 0x4114,
+    IF_FLAG_SET: 0x4115,
+    IF_FLAG_CLEAR: 0x4116,
+    ENDIF: 0x4120,
+    DIE_QUIETLY: 0x4205,
+    MOVE_TO_NODE: 0x4221,
+    WAIT: 0x4280,
+    WAIT_FOR_SIGNAL: 0x4281,
+    PLAY_SFX: 0x4290,
+    PLAY_POSITIONAL_SFX: 0x4291,
+    SPARK: 0x4292,
+    SET_FMV_CHECKSUM: 0x4293,
+    START_FMV: 0x4294,
+    SHAKE_CAMERA: 0x4298,
+    SET_FMV_TRACK: 0x4299,
+    FLASH_SCREEN: 0x429c,
+    SET_WATER_LEVEL: 0x429e,
+    SEND_SIGNAL_TO_LINKS: 0x42b1,
+    SEND_PULSE_TO_LINKS: 0x42b2,
+    SEND_SIGNAL_TO_NODE: 0x42b3,
+    SEND_PULSE_TO_NODE: 0x42b4,
+    GOALCOUNTER: 0x42c0,
+    SHATTER: 0x4301,
+    IS_BOUNCY: 0x4309,
+    PLAY_LOOPING_SFX: 0x4507,
+    PLAY_LOOPING_POSITIONAL_SFX: 0x4508,
+    STOP_LOOPING_SFX: 0x4509,
+} as const;
+
+export const V = {
+    REGISTER: 0x2120,
+    APPLY_GRAVITY: 0x2123,
+    ATTRIBUTE: 0x2125,
+    ANGULAR_VELOCITY: 0x2127,
+    ANGULAR_ACCELERATION: 0x2128,
+    RANDOM: 0x2129,
+    MY_NODE: 0x212a,
+    LINKED_NODE: 0x212b,
+    INPUT_SIGNAL: 0x212c,
+    VELOCITY: 0x2134,
+} as const;
+
+// How many values each command takes (C_SET_FMV_CHECKSUM: a dword as two raw u16s, read apart).
+const COMMAND_VALUES: ReadonlyMap<number, number> = new Map<number, number>([
+    [C.DONE, 0],
+    [C.GOTO, 1],
+    [C.GOTO_BREAK, 1],
+    [C.READ_LABELS, 0],
+    [C.BREAK, 0],
+    [C.ADD, 2],
+    [C.SUB, 2],
+    [C.DIE_QUIETLY, 0],
+    [C.MOVE_TO_NODE, 1],
+    [C.WAIT, 1],
+    [C.WAIT_FOR_SIGNAL, 0],
+    [C.PLAY_SFX, 1],
+    [C.PLAY_POSITIONAL_SFX, 1],
+    [C.SPARK, 1],
+    [C.START_FMV, 0],
+    [C.SHAKE_CAMERA, 1],
+    [C.SET_FMV_TRACK, 1],
+    [C.FLASH_SCREEN, 5],
+    [C.SET_WATER_LEVEL, 0],
+    [C.SEND_SIGNAL_TO_LINKS, 1],
+    [C.SEND_PULSE_TO_LINKS, 1],
+    [C.SEND_SIGNAL_TO_NODE, 1],
+    [C.SEND_PULSE_TO_NODE, 1],
+    [C.GOALCOUNTER, 1],
+    [C.SHATTER, 0],
+    [C.IS_BOUNCY, 1],
+    [C.PLAY_LOOPING_SFX, 1],
+    [C.PLAY_LOOPING_POSITIONAL_SFX, 2],
+    [C.STOP_LOOPING_SFX, 0],
+]);
+const IF_VALUES: ReadonlyMap<number, number> = new Map<number, number>([
+    [C.IF_GT, 2],
+    [C.IF_LT, 2],
+    [C.IF_EQ, 2],
+    [C.IF_FLAG_SET, 1],
+    [C.IF_FLAG_CLEAR, 1],
+]);
+// Variables assigned as statements: how many values follow (V_REGISTER / V_ATTRIBUTE: an index, then the value).
+const ASSIGN_VALUES: ReadonlyMap<number, number> = new Map<number, number>([
+    [V.VELOCITY, 3],
+    [V.ANGULAR_VELOCITY, 3],
+    [V.ANGULAR_ACCELERATION, 3],
+    [V.REGISTER, 2],
+    [V.ATTRIBUTE, 2],
+    [V.APPLY_GRAVITY, 1],
+]);
+
+export type ScriptValue =
+    | { k: "num"; v: number }
+    | { k: "random"; max: ScriptValue }
+    | { k: "reg"; n: number }
+    | { k: "myNode" }
+    | { k: "linked"; of: ScriptValue }
+    | { k: "input" };
+
+export type ScriptStmt =
+    | { k: "cmd"; op: number; args: ScriptValue[] }
+    | { k: "set"; v: number; args: ScriptValue[] }
+    | { k: "if"; op: number; args: ScriptValue[]; body: ScriptStmt[] }
+    | { k: "label"; n: number };
+
+export function parseObjectScript(tokens: readonly number[], what = "script"): ScriptStmt[] {
+    let i = 0;
+    const fail = (message: string): never => {
+        throw new FormatError(`${what}: ${message} at token ${i}`);
+    };
+    const value = (): ScriptValue => {
+        if (i >= tokens.length) fail("value past the end");
+        const t = tokens[i++]!;
+        if (t >= 0x2000 && t < 0x4000) {
+            switch (t) {
+                case V.RANDOM:
+                    return { k: "random", max: value() };
+                case V.REGISTER: {
+                    const n = value();
+                    return n.k === "num" ? { k: "reg", n: n.v } : fail("a register by a variable");
+                }
+                case V.MY_NODE:
+                    return { k: "myNode" };
+                case V.LINKED_NODE:
+                    return { k: "linked", of: value() };
+                case V.INPUT_SIGNAL:
+                    return { k: "input" };
+                default:
+                    return fail(`variable 0x${t.toString(16)} read`);
+            }
+        }
+        if (t >= 0x4000 && t < 0x8000) fail(`command 0x${t.toString(16)} where a value was expected`);
+        return { k: "num", v: (t << 16) >> 16 };
+    };
+    const values = (n: number): ScriptValue[] => Array.from({ length: n }, value);
+    const block = (inIf: boolean): ScriptStmt[] => {
+        const out: ScriptStmt[] = [];
+        while (i < tokens.length) {
+            const t = tokens[i++]!;
+            if (t === C.ENDIF) {
+                // (a C_ENDIF with no if open: some scripts close an if twice - nothing to do)
+                if (inIf) return out;
+                continue;
+            }
+            const ifCount = IF_VALUES.get(t);
+            if (ifCount !== undefined) {
+                const args = values(ifCount);
+                out.push({ k: "if", op: t, args, body: block(true) });
+                continue;
+            }
+            if (t === C.LABEL) {
+                const n = value();
+                out.push({ k: "label", n: n.k === "num" ? n.v : fail("a label by a variable") });
+                continue;
+            }
+            if (t === C.SET_FMV_CHECKSUM) {
+                const a = tokens[i++] ?? 0;
+                const b = tokens[i++] ?? 0;
+                out.push({
+                    k: "cmd",
+                    op: t,
+                    args: [
+                        { k: "num", v: a },
+                        { k: "num", v: b },
+                    ],
+                });
+                continue;
+            }
+            const count = COMMAND_VALUES.get(t);
+            if (count !== undefined) {
+                out.push({ k: "cmd", op: t, args: values(count) });
+                continue;
+            }
+            const assign = ASSIGN_VALUES.get(t);
+            if (assign !== undefined) {
+                out.push({ k: "set", v: t, args: values(assign) });
+                continue;
+            }
+            fail(`unknown token 0x${t.toString(16)}`);
+        }
+        return out;
+    };
+    return block(false);
 }

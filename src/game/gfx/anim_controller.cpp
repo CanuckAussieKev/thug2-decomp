@@ -10,8 +10,10 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/script/names.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace Gfx {
 
@@ -102,6 +104,19 @@ void* SourceFrameOf(void* source, uint32_t anim)
     return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0048CFD0)(source, anim);
 }
 int FrameIndex(void* frame) { return GameFunction<int(__thiscall*)(void*)>(0x00482BA0)(frame); }
+// NOT ORIGINAL - the frame of an animation the source's set hasn't is null, and FrameIndex reads through it (a crash at
+// 0x00482BA2, as in the original: e.g. peds whose animations weren't loaded, or a converted level's script playing one
+// the skeleton hasn't): logged first, with the animation's name.
+void* LoggedSourceFrameOf(void* source, uint32_t set, uint32_t anim)
+{
+    void* frame = SourceFrameOf(source, set + anim);
+    if (!frame) {
+        const char* name = Script::FindChecksumName(anim);
+        Log("anim: no animation 0x%08X%s%s%s in the set 0x%08X - the next step (FrameIndex 0x00482BA0) crashes", anim,
+            name ? " (" : "", name ? name : "", name ? ")" : "", set);
+    }
+    return frame;
+}
 void ReleaseFrameIndex(void* frame, int index) { GameFunction<void(__thiscall*)(void*, int)>(0x00482BD0)(frame, index); }
 void FramePose(void* frame, uint8_t* pose, float time, int index, void* source)
 {
@@ -221,7 +236,7 @@ int CStandardAnimController::CallMemberFunction(uint32_t name, Script::CStruct* 
     case kPlayAnim: {
         PlayParams p = ReadPlayParams(params);
         PlayAnim(mp_timeline, p.anim, p.start, p.end, p.loopType, p.blend, p.speed);
-        mp_frameData = SourceFrameOf(mp_source, m_animSet + p.anim);
+        mp_frameData = LoggedSourceFrameOf(mp_source, m_animSet, p.anim);
         m_frameIndex = FrameIndex(mp_frameData);
         return 1;
     }
@@ -236,7 +251,7 @@ int CStandardAnimController::CallMemberFunction(uint32_t name, Script::CStruct* 
         }
         mp_source = NewSource();
         SourceFrame(mp_source, false);
-        mp_frameData = SourceFrameOf(mp_source, m_animSet + anim);
+        mp_frameData = LoggedSourceFrameOf(mp_source, m_animSet, anim);
         m_frameIndex = FrameIndex(mp_frameData);
         return 1;
     }

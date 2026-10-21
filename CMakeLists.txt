@@ -88,6 +88,30 @@ FetchContent_Declare(stb
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(stb)
 
+# --- LZHAM 1.0 (Rich Geldreich; public domain, earlier releases MIT - see THIRD_PARTY_NOTICES.md) -----------------
+# THUGPRO's compression method 3 on the wire (src/game/net/net_lzham.cpp: the THUGPRO peer mode, register TP-R11):
+# lzham_codec at commit d379b1f (master, LZHAM_DLL_VERSION 0x1010 - the same codec THUGPRO builds in), the codec's
+# own sources compiled here as a static library, single-threaded (no helper threads are ever asked for).
+FetchContent_Declare(lzham
+    URL https://github.com/richgel999/lzham_codec/archive/d379b1f9121e2197881c61cfc4713c78848bdfe7.tar.gz
+    URL_HASH SHA256=34931869697f2afb6d5880438ca313f61ddb6cb4c8fcea947cad1aaaf88dd8c2
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR no-cmake) # sources only: the codec's own CMake files are for gcc
+FetchContent_MakeAvailable(lzham)
+file(GLOB LZHAM_DECOMP_SOURCES ${lzham_SOURCE_DIR}/lzhamdecomp/*.cpp)
+add_library(lzham STATIC
+    ${LZHAM_DECOMP_SOURCES}
+    ${lzham_SOURCE_DIR}/lzhamcomp/lzham_lzbase.cpp
+    ${lzham_SOURCE_DIR}/lzhamcomp/lzham_lzcomp.cpp
+    ${lzham_SOURCE_DIR}/lzhamcomp/lzham_lzcomp_internal.cpp
+    ${lzham_SOURCE_DIR}/lzhamcomp/lzham_lzcomp_state.cpp
+    ${lzham_SOURCE_DIR}/lzhamcomp/lzham_match_accel.cpp
+    ${lzham_SOURCE_DIR}/lzhamcomp/lzham_win32_threading.cpp
+    ${lzham_SOURCE_DIR}/lzhamlib/lzham_lib.cpp)
+target_include_directories(lzham PUBLIC ${lzham_SOURCE_DIR}/include
+    PRIVATE ${lzham_SOURCE_DIR}/lzhamdecomp ${lzham_SOURCE_DIR}/lzhamcomp)
+target_compile_options(lzham PRIVATE /W0)
+
 # --- The build's commit (the screenshot sidecar names the DLL's source) -------------------------------------------
 set(THUG2_BUILD_INFO "${CMAKE_BINARY_DIR}/generated/build_info.h")
 add_custom_target(build_info
@@ -135,6 +159,7 @@ add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 add_library(thug2_code OBJECT
     src/hook/hook.cpp
     src/hook/log.cpp
+    src/hook/crash.cpp
     src/hook/shadow.cpp
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
@@ -187,6 +212,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_thugpro_guards.cpp
     src/hook/selftests_mouse.cpp
     src/hook/selftests_automation.cpp
+    src/hook/selftests_crash.cpp
     src/hook/selftests_screenshot.cpp
     src/hook/selftests_sprite.cpp
     src/hook/selftests_netB.cpp
@@ -276,6 +302,8 @@ add_library(thug2_code OBJECT
     src/hook/selftests_motion.cpp
     src/hook/selftests_gamenet.cpp
     src/hook/selftests_thugpro.cpp
+    src/hook/selftests_thugpro_join.cpp
+    src/hook/selftests_gamenet_join.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_editor_ui.cpp
@@ -528,6 +556,7 @@ add_library(thug2_code OBJECT
     src/game/nx/coll_tri.cpp
     src/game/net/chat.cpp
     src/game/net/stats.cpp
+    src/game/net/gamenet_join.cpp
     src/game/net/gamenet_manager.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
@@ -540,6 +569,7 @@ add_library(thug2_code OBJECT
     src/game/net/online_identity.cpp
     src/game/net/thugpro_compat.cpp
     src/game/net/net_guards.cpp
+    src/game/net/thugpro_join.cpp
     src/game/net/thugpro_peer.cpp
     src/game/net/net_dispatcher.cpp
     src/game/net/net_app_messages.cpp
@@ -552,6 +582,7 @@ add_library(thug2_code OBJECT
     src/game/net/net_manager.cpp
     src/game/net/net_metrics.cpp
     src/game/net/net_compress.cpp
+    src/game/net/net_lzham.cpp
     src/game/net/net_descs.cpp
     src/game/net/net_conn.cpp
     src/game/net/net_messages.cpp
@@ -653,7 +684,7 @@ add_library(thug2_code OBJECT
     src/game/util/bps.cpp
 )
 target_include_directories(thug2_code PUBLIC src PRIVATE ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
-target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32 imgui) # ws2_32: the command line's server address
+target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32 imgui lzham) # ws2_32: the command line's server address
 # (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them)
 add_dependencies(thug2_code editor_fonts)
 target_include_directories(thug2_code PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
