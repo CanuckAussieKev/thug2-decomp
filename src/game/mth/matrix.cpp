@@ -164,20 +164,41 @@ Matrix& Matrix::RotateZLocal(float angle)
 // 0x00404C60
 Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle)
 {
-    float x = axis.x, y = axis.y, z = axis.z;
-    float length = std::sqrt(x * x + y * y + z * z);
-    if (length > 0.0f) {
-        float scale = 1.0f / length;
-        x *= scale;
-        y *= scale;
-        z *= scale;
+    // As the original's x87 code, rounding where it stores: the axis made unit (x and y kept in double, z rounded
+    // to float), 1 - cos from the FPU's full-precision cosine, the sine rounded to float, the products as below.
+    double x = axis.x, y = axis.y;
+    float z = axis.z;
+    double length = std::sqrt((static_cast<double>(z) * z + y * y) + x * x);
+    if (length > 0.0) {
+        double inverse = 1.0 / length;
+        x *= inverse;
+        y *= inverse;
+        z = static_cast<float>(z * inverse);
     }
-
-    float t = 1.0f - std::cos(angle);
-    float s = std::sin(angle);
-    m.row[0] = {1.0f - (1.0f - x * x) * t, x * y * t + z * s, z * x * t - y * s, 0.0f};
-    m.row[1] = {x * y * t - z * s, 1.0f - (1.0f - y * y) * t, z * y * t + x * s, 0.0f};
-    m.row[2] = {z * x * t + y * s, z * y * t - x * s, 1.0f - (1.0f - z * z) * t, 0.0f};
+    double t;
+    float s;
+    const float one = 1.0f;
+    __asm {
+        fld angle
+        fld st(0)
+        fcos
+        fsubr one
+        fstp t
+        fsin
+        fstp s
+    }
+    float zz = static_cast<float>(1.0 - static_cast<double>(z) * z);
+    float xxT = static_cast<float>((1.0 - x * x) * t);
+    float yyT = static_cast<float>((1.0 - y * y) * t);
+    float zzT = static_cast<float>(zz * t);
+    float xyT = static_cast<float>(static_cast<float>(y * x) * t);
+    float zyT = static_cast<float>(z * y * t);
+    float zxT = static_cast<float>(z * x * t);
+    float xs = static_cast<float>(x * s);
+    double ys = y * s, zs = static_cast<double>(z) * s;
+    m.row[0] = {static_cast<float>(1.0 - xxT), static_cast<float>(xyT + zs), static_cast<float>(zxT - ys), 0.0f};
+    m.row[1] = {static_cast<float>(xyT - zs), static_cast<float>(1.0 - yyT), static_cast<float>(zyT + static_cast<double>(xs)), 0.0f};
+    m.row[2] = {static_cast<float>(zxT + ys), static_cast<float>(zyT - static_cast<double>(xs)), static_cast<float>(1.0 - zzT), 0.0f};
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     return m;
 }
