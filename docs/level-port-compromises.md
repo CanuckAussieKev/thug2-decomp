@@ -105,6 +105,17 @@ back: the crash is in THUG2's code, which we are rewriting.
 - Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one, always
   shown (the flicker script's Invisible of the lit set left out - with no dark set under it, half the room went black;
   docs/pending/warehouse-flicker.md).
+- **Foundry's generator doors differ from THPS3's own free skate on purpose (TP-41).** THPS3 opens GENERATOR 1 CORE
+  (the big double door, GenDoor01-03) only through the career's valve goal or in a multiplayer game; ours are open in
+  free skate too, as in THUGPRO (which plays every game as a network game), so the generator room is reachable. In a
+  network game both agree anyway. Skater Island's outer door (SI_OuterDoor, which THPS3's cannon goal blows) is gone in
+  free skate the same way. `--compat none` leaves both closed.
+- Free skate's start state follows THPS3's own free skate (PC-THPS3-16): what only a career / goal / multiplayer
+  branch of a start script makes (Tokyo's secret buildings and destroyed sign, Skater Island's cannon-damage set,
+  Airport's tickets, LA's car-fall triggers) isn't there at the start any more. THPS3's multiplayer, goal and career
+  states otherwise aren't brought over: no goals, no career flags. Not matched to THUGPRO's free skate (a network game
+  there: THPS3's multiplayer branches everywhere): Shipyard's multiplayer world state (THPS3's
+  BDJ_SHP_RestartSetupNet, not looked into) - docs/pending/thps3-doors.md.
 
 **Scripts** (THPS3's own, translated; a called script gets its caller's parameters as in THPS3). Statements left out,
 counts across all levels:
