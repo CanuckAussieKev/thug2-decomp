@@ -1,5 +1,9 @@
 #pragma once
 
+namespace Net {
+struct MsgHandlerContext;
+}
+
 namespace GameNet {
 
 class Manager; // the network game manager (not decompiled yet; one instance, see GetManager)
@@ -26,5 +30,10 @@ bool HandleChatCommand(Manager* manager, const char* text);
 // (script 0x3B4548B8) unless a dialog is up; F1-F4 run the taunt script (0x2C43B5BA) with a taunt name, at
 // most one every two seconds. With PartyMod's keyboard input built in: F1 is key 0x1F.
 void __cdecl KeyboardTask(void* task);
+
+// 0x00532050: the chat handler (message 76, registered by the join): "\c<colour + 2><name>\c0 : <text>" added to
+// the chat display (create_console_message text=...). 1. In the THUGPRO peer mode (thugpro_peer.h) the message is
+// THUGPRO's layout (a machine id first) and a malformed one is dropped.
+int __cdecl HandleChat(Net::MsgHandlerContext* context);
 
 } // namespace GameNet

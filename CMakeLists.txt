@@ -271,6 +271,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_menulvl.cpp
     src/hook/selftests_motion.cpp
     src/hook/selftests_gamenet.cpp
+    src/hook/selftests_thugpro.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_editor_ui.cpp
@@ -528,6 +529,7 @@ add_library(thug2_code OBJECT
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/net/online_identity.cpp
+    src/game/net/thugpro_peer.cpp
     src/game/net/net_dispatcher.cpp
     src/game/net/net_app_messages.cpp
     src/game/net/net_client.cpp

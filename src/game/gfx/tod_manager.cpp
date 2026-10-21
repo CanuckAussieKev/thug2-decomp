@@ -277,9 +277,17 @@ BloomParams BloomOf(const TODParams& params)
 TODParamsFilter g_paramsFilter = nullptr;
 bool Filter(TODParams* params) { return g_paramsFilter && g_paramsFilter(params); }
 
+// NOT ORIGINAL - SetMultiplayerUnlock's (null: none).
+MultiplayerUnlock g_multiplayerUnlock = nullptr;
+// What the original tests (IsMultiplayer), then the unlock (THUGPRO's network games): the lights left alone.
+bool LightsLocked() { return IsMultiplayer() && !(g_multiplayerUnlock && g_multiplayerUnlock()); }
+
 } // namespace
 
 void SetTODParamsFilter(TODParamsFilter filter) { g_paramsFilter = filter; }
+void SetMultiplayerUnlock(MultiplayerUnlock unlock) { g_multiplayerUnlock = unlock; }
+MultiplayerUnlock GetMultiplayerUnlock() { return g_multiplayerUnlock; }
+bool TODLightsLocked() { return LightsLocked(); }
 
 uint32_t NextTODState(uint32_t state)
 {
@@ -967,7 +975,7 @@ void CTODManager::UpdateSystem(int index)
 // 0x00573BE0
 void CTODManager::ResetLevelLights(uint32_t stateName)
 {
-    if (IsMultiplayer())
+    if (LightsLocked()) // (the unlock: NOT ORIGINAL - SetMultiplayerUnlock)
         return;
     TODParams params;
     if (!stateName) {
@@ -1082,7 +1090,7 @@ void CTODManager::SetTempBloomParams(Script::CStruct* params)
 // 0x00574400
 void CTODManager::EnableBloom(int on)
 {
-    if (IsMultiplayer())
+    if (LightsLocked()) // (the unlock: NOT ORIGINAL - SetMultiplayerUnlock)
         return;
     TODParams& current = SystemAt(this, CurrentSystem()).current;
     if (on == current.bloomOn)
@@ -1115,7 +1123,7 @@ void CTODManager::Update()
 // 0x00574670 (a state that never comes - not one of the four - loops forever, as in the original)
 void CTODManager::SetTODInstant(uint32_t state)
 {
-    if (IsMultiplayer())
+    if (LightsLocked()) // (the unlock: NOT ORIGINAL - SetMultiplayerUnlock)
         return;
     // How long until `state`, from the first non-sky system.
     TODSystem& current = SystemAt(this, CurrentSystem());
@@ -1153,6 +1161,34 @@ void CTODManager::SetTODInstant(uint32_t state)
         }
     }
     RefreshAll(false);
+}
+
+// NOT ORIGINAL (game/net/thugpro_peer.h)
+uint32_t CTODManager::CurrentState() const
+{
+    int index = CurrentSystem();
+    return index < kSystems ? m_systems[index].state : 0;
+}
+
+// NOT ORIGINAL (game/net/thugpro_peer.h): SetTODInstant's walk, without moving - at most once round the four states:
+// `state` is reached (an unknown current state or target never is) and every state on the way has its structure.
+bool CTODManager::CanSetTODInstant(uint32_t state) const
+{
+    int index = CurrentSystem();
+    if (index >= kSystems)
+        return false;
+    const TODSystem& current = m_systems[index];
+    if (!current.params)
+        return false;
+    uint32_t s = NextTODState(current.state);
+    for (int step = 0; step < 4 && s; ++step, s = NextTODState(s)) {
+        if (s == state)
+            return true;
+        Script::CStruct* structure = nullptr;
+        if (!current.params->GetStructure(s, &structure, 0) || !structure)
+            return false;
+    }
+    return false;
 }
 
 CTODManager*& TODManager() { return GameVariable<CTODManager*>(0x007CE490); }

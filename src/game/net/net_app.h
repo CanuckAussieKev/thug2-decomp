@@ -283,4 +283,10 @@ static_assert(offsetof(App, m_dispatcher) == 0x0C && offsetof(App, m_dispatcherA
                   offsetof(App, m_unknown1F00) == 0x1F00 && sizeof(App) == 0x1F08,
               "layout must match the original (the Client, 0x1F18 bytes, adds the server's address)");
 
+// NOT ORIGINAL - a look at every message App::EnqueueMessage queues, first (THUGPRO's additions to messages we send:
+// game/net/thugpro_peer.h). The filter may queue other messages itself (through EnqueueMessage) and returns true
+// when it has queued this one itself (EnqueueMessage then does nothing more). Null (the default): the original.
+using EnqueueFilter = bool (*)(App* app, int handle, MsgDesc* desc);
+void SetEnqueueFilter(EnqueueFilter filter);
+
 } // namespace Net
