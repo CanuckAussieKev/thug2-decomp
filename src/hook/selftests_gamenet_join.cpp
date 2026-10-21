@@ -767,7 +767,7 @@ void TestGameNetJoin()
     }
 
     // --- The connection request handler 0x0052F790 (host) ---
-    for (int flags = 0; flags < 32; ++flags) {
+    for (int flags = 0; flags < 64; ++flags) {
         Compare("GameNet HandleConnection 0x0052F790", [&](bool original) {
             bool remote = (flags & 1) != 0;
             SetConnFlags(kConn0, remote ? Net::Conn::kFlagRemote : Net::Conn::kFlagLocal);
@@ -780,7 +780,7 @@ void TestGameNetJoin()
             auto* info = Request();
             info->version = GameNet::kVersion;
             info->willingToWait = true;
-            info->broadband = (flags & 2) != 0;
+            info->broadband = (flags & 32) != 0;
             std::memset(info->cdKeyResponse, 'K', 72);
             auto* context = Context(3, 92, kConn0, kServerApp, packet);
             Handle(original, 0x0052F790, &Manager::HandleConnection, context);
@@ -790,6 +790,7 @@ void TestGameNetJoin()
     Compare("GameNet HandleConnection 0x0052F790 (CD key)", [&](bool original) {
         SetConnFlags(kConn0, Net::Conn::kFlagRemote);
         SetFlag(kServerApp, 0x10u);
+        g_script.banned = 0; // (the loop above ends banned)
         auto* info = Request();
         info->version = GameNet::kVersion;
         info->willingToWait = true;
@@ -828,6 +829,7 @@ void TestGameNetJoin()
             g_script.banned = (flags & 2) ? 1 : 0;
             M()->m_flags = (flags & 4) ? 4 : 0;
             g_script.gameMode = (flags & 8) ? 0x12345678 : 0x1C471C60;
+            M()->m_gameOver = false; // (a game in progress: the joiner waits as a pending observer)
             auto* join = reinterpret_cast<GameNet::JoinInfo*>(At(kMessage));
             join->version = GameNet::kVersion;
             join->observer = (flags & 16) != 0;

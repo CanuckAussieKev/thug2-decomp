@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -62,6 +63,9 @@ std::vector<uint8_t> Pattern(size_t size, uint32_t seed, bool repetitive)
 // these parameters; a change to either (the dictionary, the level, the table settings) changes it.
 constexpr char kGoldenInput[] = "THUGPRO THUGPRO THUGPRO THUGPRO THUGPRO ";
 const char* const kGoldenStream = "406CA20005448554750524F200056068B0C0ED990B6E";
+// And of a larger, mixed input (TestThugproLzham builds it): its size and hash, computed the same way.
+constexpr size_t kGoldenMixedSize = 409;
+constexpr uint32_t kGoldenMixedHash = 0x4A1A6D6C;
 
 void TestThugproLzham()
 {
@@ -95,6 +99,27 @@ void TestThugproLzham()
         if (kGoldenStream[0] == '\0')
             Log("LZHAM golden stream: %s", hex.c_str());
         Check(hex == kGoldenStream, "LZHAM: THUGPRO's parameters make the fixed stream");
+        // A larger one (an appearance-sized mix of text and noise), where the level changes the stream too.
+        std::vector<uint8_t> mixed = Pattern(1500, 11, true);
+        std::vector<uint8_t> noisy = Pattern(300, 5, false);
+        std::copy(noisy.begin(), noisy.end(), mixed.begin() + 600);
+        std::vector<uint8_t> big(4096);
+        size_t bigSize = Net::Lzham::Compress(mixed.data(), mixed.size(), big.data(), big.size());
+        uint32_t bigHash = HashBytes(big.data(), static_cast<uint32_t>(bigSize));
+        for (uint32_t seed = 1; seed < 6; ++seed) { // TEMP experiment
+            for (size_t n : {size_t(4000), size_t(20000), size_t(60000)}) {
+                std::vector<uint8_t> x = Pattern(n, seed, true);
+                for (size_t i = 0; i < n; i += 37 * seed)
+                    x[i] = static_cast<uint8_t>(Pattern(1, static_cast<uint32_t>(i), false)[0]);
+                std::vector<uint8_t> y(n * 2);
+                size_t ys = Net::Lzham::Compress(x.data(), n, y.data(), y.size());
+                Log("  EXP seed %u n %u: %u %08X", seed, static_cast<unsigned>(n), static_cast<unsigned>(ys), HashBytes(y.data(), static_cast<uint32_t>(ys)));
+            }
+        }
+        if (bigSize != kGoldenMixedSize || bigHash != kGoldenMixedHash)
+            Log("  LZHAM mixed stream: %u bytes, hash %08X", static_cast<unsigned>(bigSize), bigHash);
+        Check(bigSize == kGoldenMixedSize && bigHash == kGoldenMixedHash,
+              "LZHAM: THUGPRO's parameters make the fixed stream of 1500 mixed bytes");
         uint8_t out[64];
         size_t outSize = 0;
         std::vector<uint8_t> golden;
@@ -187,15 +212,24 @@ void CleanUpCompression()
     }
 }
 
-// One compressed message (0x12) through ours: what was dispatched ("id length hash"), or the handler's result.
+// One compressed message (0x12) through ours: what was dispatched ("id length hash"), or the handler's result. The
+// message's `length` bytes end where a no-access page begins: a read past the message faults (a crash, caught as a
+// failure) instead of passing unseen.
 std::string Receive(const std::vector<uint8_t>& message, uint32_t length)
 {
     static Net::App app; // (only its dispatcher's address is used: DispatchMsg is stood in)
-    std::vector<uint8_t> buffer(message.size() + 64, 0xAB);
-    std::memcpy(buffer.data(), message.data(), message.size());
+    static uint8_t* pages = nullptr;
+    constexpr uint32_t kPage = 0x1000;
+    if (!pages) {
+        pages = static_cast<uint8_t*>(VirtualAlloc(nullptr, 2 * kPage, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        DWORD old;
+        VirtualProtect(pages + kPage, kPage, PAGE_NOACCESS, &old);
+    }
+    uint8_t* buffer = pages + kPage - length;
+    std::memcpy(buffer, message.data(), length < message.size() ? length : message.size());
     Net::MsgHandlerContext context;
     std::memset(&context, 0, sizeof(context));
-    context.m_Msg = reinterpret_cast<char*>(buffer.data());
+    context.m_Msg = reinterpret_cast<char*>(buffer);
     context.m_MsgId = 0x12;
     context.m_MsgLength = length;
     context.m_App = &app;
@@ -299,6 +333,18 @@ void TestThugproCompressedMessages()
         inner[5] = 9; // the inner message's length: 9 > 7 - 3
         Check(Receive(inner, static_cast<uint32_t>(inner.size())) == "none -> 4",
               "HandleCompressedMessages: an inner length past the expanded data - dropped");
+        inner[5] = 5; // 5 > 7 - 3: past the data, though not past the expanded size
+        Check(Receive(inner, static_cast<uint32_t>(inner.size())) == "none -> 4",
+              "HandleCompressedMessages: an inner length past the data after its id and length - dropped");
+        inner[5] = 4;
+        Check(Receive(inner, static_cast<uint32_t>(inner.size())).find("-> 1") != std::string::npos,
+              "HandleCompressedMessages: an inner length filling the data exactly - dispatched");
+        // Shorter than its header, for every method: nothing read past the message.
+        for (uint8_t method : {uint8_t(1), uint8_t(2), uint8_t(3)}) {
+            std::vector<uint8_t> two = {method, 7};
+            Check(Receive(two, 2) == "none -> 4" && Receive(two, 1) == "none -> 4",
+                  "HandleCompressedMessages: a 1- or 2-byte message - dropped, nothing read past it");
+        }
         std::vector<uint8_t> unknown = good;
         unknown[0] = 4;
         Check(Receive(unknown, static_cast<uint32_t>(unknown.size())) == "none -> 4" &&
