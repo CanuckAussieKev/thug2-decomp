@@ -28,7 +28,7 @@ The range's classes / topics:
 - 0x00422D00-0x004230B0: the model light update component (0xE3FCA939).
 - 0x00423130-0x00423643: the motion component's member-function registration and its first members.
 
-Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp` (any of them alone; the files of later batches are added here).
+Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp` (any of them alone; the files of later batches are added here).
 
 - [x] Batch OC1-1 (NOT run in the game yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
   (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
@@ -184,3 +184,32 @@ Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_co
     12), DestroyParticles, SetFlag.
   - Mutations: 80 deliberate bugs, all caught (76 at first; the update time reached exactly, an entry adjustment and
     update_Brightness without ObjID added for 3; one mutation rewritten that didn't compile).
+- [x] Batch OC1-5 (NOT run in the game yet; the floating text and input components, 37 functions):
+  src/game/obj/floating_text.{h,cpp}, input_component.{h,cpp} (new).
+  - Obj::CFloatingTextComponent (type 0xEADA1621, vtable 0x00646018, 0x6C bytes): 0x0041E3C0 Create, 0x0041E5E0 /
+    0x0041E6C0 the destructors (the 3D element destroyed by script 0x2575B406 with id=), 0x0041E2B0 InitFromStructure
+    (id - the object's id minus 0x1525E9DF by default -, string, color, y_offset, duration), 0x0041E3A0 Finalize,
+    0x0041E450 Update (the element made by script 0x6A060CF0 the first time, kept at the object's position raised by
+    y_offset with the text "\c<color><string>" while the model is visible; the end time), 0x0041E270
+    CallMemberFunction; Front::GetScreenElementManager 0x0041E2A0. The text buffer: the original's sprintf into 64
+    bytes overflowed for strings over ~60 characters - ours is cut at 64 (snprintf).
+  - Obj::CInputComponent (type 0x27D7CD28 "input", vtable 0x0064605C, 0x4A0 bytes): 0x0041EEC0 Create, 0x0041E6F0
+    RegisterMemberFunctions, 0x0041E850 Construct, 0x0041E710 / 0x0041E8C0 the destructors (both input handlers out of
+    their lists), 0x0041F390 InitFromStructure (Player / controller), 0x0041F1B0 BindToController (the two handlers,
+    vtable 0x0064D7D8, code 0x0041F170 / 0x0041F190), 0x0041F090 / 0x0041F100 the pad updates (paused objects skipped;
+    disabled, net-disabled or blocked: the pad reset, blocked also clears the events), 0x0041EF20 IsInputBlocked (in
+    network games: the controller-unplugged dialog, the root window's menu_state on, the keyboard anchor), 0x0041ECA0
+    UpdateEvents and 0x0041EBF0 CheckButton (16 buttons: locked ones skipped; down / up events to the object when input
+    events are on and it isn't disabled), 0x0041E7E0 LockButton (locked until now + seconds - _ftol-truncated - and
+    released when asked), and the members 0x0041E8F0 LockButtonFromScript, 0x0041E9A0 / 0x0041E9B0 / 0x0041E9C0 /
+    0x0041E9D0 Disable / Enable / NetDisable / NetEnablePlayerInput, 0x0041E7C0 / 0x0041E7D0 Enable / DisableInputEvents,
+    0x0041E9E0 PlayerInputIsDisabled, 0x0041EA20-0x0041EA50 Left / Right / Up / DownPressed, 0x0041EA60 GetSticks
+    (angles in degrees, lengths), 0x0041EB20 HeldLongerThan (button, time in seconds or frames).
+  - Tests (selftests_obj_text_input.cpp): TestFloatingTextComponent - 40 seeds: Create, InitFromStructure from random
+    parameters (long strings), Finalize, updates (model visible or not, the end passed, no element manager), the
+    destructors; TestInputComponent - 48 seeds: Create / Construct, bound to controllers, the handlers' code on
+    random pad data (disabled / net-disabled / events off, network games with the blocking elements, buttons locked
+    in the past / now / ahead / NaN), LockButton (times past 2^31), every member, the destructors.
+  - Mutations: 71 deliberate bugs, all caught (66 at first; the test then varied the disable flags around the
+    members, dirtied the buttons before LockButtonFromScript and gave clear= negative values and a presence bit of
+    its own). The test also found the lock time's truncation (ours first rounded it).
