@@ -660,7 +660,7 @@ void NoteOnlineChange(Nodes::Family family, const char* what, const char* verb)
     g_onlineWarned = true;
     g_onlineWarningShown = true;
     Log("level editor: %s %s in a level shared with THUGPRO (%s) - warned", what, verb, game);
-    Hud::Message("Online: this level is shared with THUGPRO - changing its spawns, crowns and flags breaks parity", 8.0);
+    Hud::Message("Shared level: spawn, crown and flag changes differ from THUGPRO players' copies", 8.0);
 }
 void NoteOnlineEdit(int index)
 {
@@ -1071,22 +1071,22 @@ bool ScaleSelectionBy(V3 factor, bool uniform)
     if (WallOnly()) {
         // (level_editor_walls.h: a wall's collision is moved by the geometry's own Translate / RotateY on the BSP
         // tree's sixteenths; a scale would need its collision kept and rebuilt as level_editor_scale.h does scenery's)
-        Hud::Message("Invisible walls don't scale yet - only move and turn");
+        Hud::Message("Invisible walls can't be scaled");
         return false;
     }
     if (MovableNode() >= 0 || (objects.empty() && !Scenery::HasSelection())) {
-        Hud::Message("Only scenery and objects scale ([ / ]): nodes don't");
+        Hud::Message("Nodes can't be scaled");
         return false;
     }
     if (!objects.empty() && std::none_of(objects.begin(), objects.end(), Scale::ObjectScalable)) {
-        Hud::Message("This object has no model to scale");
+        Hud::Message("Object has no model to scale");
         return false;
     }
     UndoStep before = Snapshot();
     bool changed = objects.empty() ? !IsUnitScale(Scenery::ScaleSelection(factor, uniform))
                                    : ScaleObjects(objects, factor, uniform);
     if (!changed) {
-        Hud::Message("Scale: at its limit (0.25x to 4x on each axis; less for large compressed collision)");
+        Hud::Message("Scale limit reached");
         return false;
     }
     if (objects.empty()) {
@@ -2592,7 +2592,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_offerPending = g_offerShow = Layout::AutosaveOffered();
     NoteAction("entered the editor");
     Log("level editor: on");
-    Hud::Message(edited.empty() ? "Level editor - F1 for help" : edited, edited.empty() ? 3.0 : 5.0);
+    Hud::Message(edited.empty() ? "Level Editor - F1: Keyboard Shortcuts" : edited, edited.empty() ? 3.0 : 5.0);
     if (DebugEnabled()) {
         Objects::LogCensus();
         Scenery::LogCensus();
@@ -2828,7 +2828,7 @@ std::string DescribeSelection()
         const Nodes::Node& node = Nodes::All()[g_nodeIndex];
         return "node " + Nodes::Label(node.name) + " (" + Nodes::Label(node.cls) + ")";
     }
-    return "nothing - click something";
+    return "Nothing";
 }
 
 const char* ModeName()
@@ -2855,9 +2855,9 @@ std::string HandleHoverText(int handle)
 {
     const char* axis = handle == 0 ? "X" : handle == 1 ? "Y" : handle == 2 ? "Z" : "";
     switch (GizmoMode()) {
-    case Transform::Mode::Rotate: return "the heading ring - drag to turn it (Ctrl: steps)";
+    case Transform::Mode::Rotate: return "Rotate ring (Ctrl: snap)";
     case Transform::Mode::Scale:
-        return handle == Transform::kCentre ? std::string("the centre - drag to scale it on all axes")
+        return handle == Transform::kCentre ? std::string("Uniform scale handle")
                                             : std::string("the ") + axis + " handle - drag to scale it along that axis";
     default: return std::string("the ") + axis + " arrow - drag to move along it";
     }
@@ -2865,7 +2865,7 @@ std::string HandleHoverText(int handle)
 std::string HoverText()
 {
     if (uint32_t wall = View::HoverWall(); wall && g_hoverAxis < 0)
-        return "invisible wall " + Objects::Label(wall) + " - Shift+click selects it";
+        return "Invisible wall " + Objects::Label(wall) + " (Shift+click)";
     if (g_hoverHandle >= 0 && g_hoverAxis < 0)
         return std::string("the trigger volume's ") + "-+"[g_hoverHandle & 1] + "XYZ"[g_hoverHandle >> 1] +
                " face - drag to resize it";
@@ -2943,7 +2943,7 @@ const std::vector<PlaceEntry>& PlaceEntries()
     using NodeCreate::Kind;
     using NodeCreate::Team;
     const Team teams[] = {Team::Red, Team::Blue, Team::Green, Team::Yellow};
-    entries.push_back({Kind::Spawn, Team::Red, "Multiplayer spawn", Nodes::SpawnColour(Nodes::kMultiplayer, 0)});
+    entries.push_back({Kind::Spawn, Team::Red, "Multiplayer Spawn", Nodes::SpawnColour(Nodes::kMultiplayer, 0)});
     for (Team t : teams) {
         std::string colour = NodeCreate::TeamName(t);
         entries.push_back({Kind::TeamSpawn, t, "Team spawn (" + colour + ")",
@@ -2952,16 +2952,16 @@ const std::vector<PlaceEntry>& PlaceEntries()
     entries.push_back({Kind::Crown, Team::Red, "Crown", 0xFFFFC233});
     for (Team t : teams) {
         std::string colour = NodeCreate::TeamName(t);
-        entries.push_back({Kind::FlagSet, t, "CTF flag set (" + colour + ")", Nodes::TeamColour(("_" + colour).c_str())});
+        entries.push_back({Kind::FlagSet, t, "CTF Flag (" + colour + ")", Nodes::TeamColour(("_" + colour).c_str())});
     }
     for (Team t : teams) {
         std::string colour = NodeCreate::TeamName(t);
-        entries.push_back({Kind::FlagSet, t, "Team lobby flag (" + colour + ")", Nodes::TeamColour(("_" + colour).c_str()),
+        entries.push_back({Kind::FlagSet, t, "Team Flag (" + colour + ")", Nodes::TeamColour(("_" + colour).c_str()),
                            true});
     }
     entries.push_back({Kind::Light, Team::Red, "Level light", 0xFFFFE9A8});
-    entries.push_back({Kind::Sound, Team::Red, "Sound emitter (silent for now)", 0xFF4FD1C5});
-    entries.push_back({Kind::Proxim, Team::Red, "Proximity node (sphere)", 0xFFF08A3C});
+    entries.push_back({Kind::Sound, Team::Red, "Sound Emitter", 0xFF4FD1C5});
+    entries.push_back({Kind::Proxim, Team::Red, "Proximity Node", 0xFFF08A3C});
     return entries;
 }
 
@@ -3026,7 +3026,7 @@ void PlaceNode(int entry, V3 at)
     if (index >= 0)
         SelectNodeOnly(index);
     NoteOnlineChange(FamilyOf(e.kind), specs.front().name.c_str(), "added");
-    Hud::Message("Added " + specs.front().name + " (" + e.label + ") - Ctrl+Z takes it away");
+    Hud::Message("Added " + specs.front().name);
     Adjust::Action placed; // (level_editor_adjust.h)
     placed.kind = Adjust::Kind::Place;
     Adjust::Note(placed);
@@ -3115,10 +3115,10 @@ void SetLinksFromInspector(uint32_t node, const std::string& text, bool home)
         }
     }
     if (!Chains::SetState(state)) {
-        Hud::Message("Links: not in a level");
+        Hud::Message("No level loaded");
         return;
     }
-    AfterChainChange(before, 0, home ? "Links back as the level has them" : "Links set (live)");
+    AfterChainChange(before, 0, home ? "Links reverted" : "Links set");
 }
 
 // The Inspector's field requests: set, removed, put back.
@@ -3151,7 +3151,7 @@ void FieldRequest(const Ui::Request& request)
             if (relinked)
                 SetLinksFromInspector(node, "", true);
         }
-        message = request.id ? "Field back as the level has it" : "Every field back as the level has it";
+        message = request.id ? "Field reverted" : "All fields reverted";
     } else {
         Fields::Own before;
         Fields::Capture(node, request.id, &before);
@@ -3172,8 +3172,8 @@ void FieldRequest(const Ui::Request& request)
         const char* note = nullptr;
         const Nodes::Node& n = Nodes::All()[Nodes::Find(node)];
         Fields::When when = Fields::WhenApplied(n.family, request.id, &note);
-        message = std::string(removed ? "Field taken out" : "Field set") +
-                  (when == Fields::When::Live ? " (live)" : " (on reload: when the edited copy is next loaded)");
+        message = std::string(removed ? "Field removed" : "Field set") +
+                  (when == Fields::When::Live ? "" : " (applies on reload)");
     }
     if (!step.fields.empty()) {
         PushUndo(step, message.c_str());
@@ -3252,12 +3252,12 @@ bool PlaceEntity(int entry, V3 at)
         int node = Nodes::Find(NodeCreate::Checksum(name));
         if (node >= 0)
             SelectNodeOnly(node);
-        Hud::Message("Added " + name + " playing " + Nodes::Label(placed.sound) + " - Inspector: volume, radius");
+        Hud::Message("Added " + name + " (" + Nodes::Label(placed.sound) + ")");
         NoteAction("added the sound emitter %s (%s)", name.c_str(), Nodes::Label(placed.sound).c_str());
         return true;
     }
     if (placed.copies.empty()) {
-        Hud::Message(placed.message.empty() ? std::string("Nothing could be made") : placed.message, 5.0);
+        Hud::Message(placed.message.empty() ? std::string("Could not place") : placed.message, 5.0);
         return true;
     }
     UndoStep step;
@@ -3285,7 +3285,7 @@ bool PlaceEntity(int entry, V3 at)
         g_pickables.clear();
         SelectNodeOnly(node); // (a particle system: its node)
     }
-    Hud::Message(placed.message + " - Ctrl+Z takes it away");
+    Hud::Message(placed.message);
     NoteAction("%s", placed.message.c_str());
     Adjust::Action adjust; // (level_editor_adjust.h)
     adjust.kind = Adjust::Kind::Place;
@@ -3321,7 +3321,7 @@ void DrawChainPoint(V3 dir, bool alt)
     V3 point;
     uint32_t end = 0;
     if (!Chains::SnapPoint(g_pos, Normalize(dir), kMaxPickDistance, alt, &point, &end)) {
-        Hud::Message("Click on the level (nothing under the cursor)");
+        Hud::Message("No surface under the cursor");
         return;
     }
     Chains::State before = Chains::Current();
@@ -3380,7 +3380,7 @@ void DeleteNode(bool confirmed)
         g_nodeSelected = false;
         g_pickables.clear();
         g_hoverNode = -1;
-        Hud::Message("Deleted - Ctrl+Z brings it back");
+        Hud::Message("Deleted");
         NoteAction("deleted the copy %s", Nodes::Label(node.name).c_str());
         return;
     }
@@ -3399,17 +3399,17 @@ void DeleteNode(bool confirmed)
         g_pickables.clear();
         g_hoverNode = -1;
         NoteOnlineChange(node.family, spec.name.c_str(), "deleted");
-        Hud::Message("Deleted " + spec.name + " - Ctrl+Z brings it back");
+        Hud::Message("Deleted " + spec.name);
         NoteAction("deleted the added node %s", spec.name.c_str());
         return;
     }
     if (node.hidden) {
-        Hud::Message("It's hidden already - Home shows it again");
+        Hud::Message("Already hidden");
         return;
     }
     const char* why = nullptr;
     if (!NodeCreate::CanHide(node, &why)) {
-        Hud::Message(why ? why : "It can't be hidden", 5.0);
+        Hud::Message(why ? why : "Can't be hidden", 5.0);
         return;
     }
     if (Ui::Running() && !confirmed) {
@@ -3424,7 +3424,7 @@ void DeleteNode(bool confirmed)
     step.hidden = false; // (undone: shown)
     PushUndo(step, "Hide node");
     NoteOnlineChange(node.family, Nodes::Label(node.name).c_str(), "hidden");
-    Hud::Message("Hidden " + Nodes::Label(node.name) + " - Home or Ctrl+Z brings it back");
+    Hud::Message("Hidden " + Nodes::Label(node.name));
     NoteAction("hid the level's node %s", Nodes::Label(node.name).c_str());
 }
 
@@ -3437,7 +3437,7 @@ bool ShowHiddenNode()
     uint32_t name = Nodes::All()[index].name;
     if (Chains::IsChainNode(name)) {
         // (a deleted rail / path point: its neighbours were linked past it - the chains' undo puts both back)
-        Hud::Message("A deleted rail / path point: Ctrl+Z (or Reset level) brings it back with its links");
+        Hud::Message("Deleted points can be restored with Undo");
         return true;
     }
     if (!NodeCreate::Hide(name, false))
@@ -3447,7 +3447,7 @@ bool ShowHiddenNode()
     step.hiddenNames = {name};
     step.hidden = true; // (undone: hidden again)
     PushUndo(step, "Show node");
-    Hud::Message("Shown again: " + Nodes::Label(name));
+    Hud::Message("Shown " + Nodes::Label(name));
     NoteAction("showed the level's node %s again", Nodes::Label(name).c_str());
     return true;
 }
@@ -3790,10 +3790,10 @@ Ui::Model BuildModel()
             model.place.entries.push_back({e.label, e.colour, why ? why : ""});
         }
         // (phase 4: chains drawn point by point - level_editor_chains.h)
-        model.place.entries.push_back({"Rail (click points; Enter finishes)", 0xFF7FB2D9, ""});
-        model.place.entries.push_back({"Path (ped / car waypoints; Enter finishes)", 0xFF8FD18F, ""});
-        model.place.entries.push_back({"Ladder (click a wall at its foot, then its top)", 0xFFC88FD9, ""});
-        model.place.entries.push_back({"Ledge (hang / shimmy: click points along an edge; Enter finishes)", 0xFFB98CFF, ""});
+        model.place.entries.push_back({"Rail", 0xFF7FB2D9, ""});
+        model.place.entries.push_back({"Path", 0xFF8FD18F, ""});
+        model.place.entries.push_back({"Ladder", 0xFFC88FD9, ""});
+        model.place.entries.push_back({"Ledge", 0xFFB98CFF, ""});
         // (peds, cars, bouncy sets, particle systems, sound emitters - level_editor_entities.h; PlaceEntity)
         for (const Entities::PaletteEntry& e : Entities::Palette())
             model.place.entries.push_back({e.label, e.colour, e.why});
@@ -3935,7 +3935,7 @@ void PlaceFromBrowser(V3 at, bool keepOpen = false)
     if (g_browser.tab == 0) {
         uint32_t copy = Scenery::Duplicate(source);
         if (!copy) {
-            Hud::Message("Couldn't copy that piece");
+            Hud::Message("Couldn't copy the piece");
             return;
         }
         g_objects.clear();
@@ -3947,7 +3947,7 @@ void PlaceFromBrowser(V3 at, bool keepOpen = false)
     } else {
         Obj::CCompositeObject* object = Objects::MakeCopy(source, at);
         if (!object) {
-            Hud::Message("Couldn't copy that object");
+            Hud::Message("Couldn't copy the object");
             return;
         }
         SelectObjects({object});
@@ -3963,7 +3963,7 @@ void PlaceFromBrowser(V3 at, bool keepOpen = false)
         g_browser.open = false;
         Hud::HidePanel();
     }
-    Hud::Message("Placed a copy of " + Objects::Label(source) + " - B adds another");
+    Hud::Message("Placed " + Objects::Label(source));
     NoteAction("placed a copy of %s (the browser)", Objects::Label(source).c_str());
 }
 
@@ -4023,7 +4023,7 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
         for (size_t i = 0; i < made.size(); ++i)
             step.copies.push_back({made[i]->m_id, sources[i], Objects::Save(made[i])});
         if (made.empty()) {
-            Hud::Message("Only level objects, game objects, peds and cars can be copied");
+            Hud::Message("This object type can't be copied");
             return;
         }
         SelectObjects(made);
@@ -4047,7 +4047,7 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
             }
         }
         if (copies.empty()) {
-            Hud::Message("Couldn't copy that");
+            Hud::Message("Couldn't copy");
             return;
         }
         Scenery::SetSelection(copies);
@@ -4063,8 +4063,7 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
         step.sectors = copies;
     } else {
         if (WallOnly())
-            Hud::Message("Invisible walls can't be copied yet (a copy needs a sector of its own - "
-                         "docs/pending/editor-polish.md)");
+            Hud::Message("Invisible walls can't be copied");
         return;
     }
     PushUndo(step, repeat ? "Repeat duplicate" : "Duplicate");
@@ -4076,8 +4075,7 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
     Transform::NoteDuplicate(&Transform::LastDuplicate(),
                              step.sectors.empty() ? Transform::Kind::Objects : Transform::Kind::Scenery, made, sourcePos,
                              sourceHeading);
-    Hud::Message(repeat ? "Duplicated again (Ctrl+Shift+D repeats it)"
-                        : "Duplicated - move / turn the copy, then Ctrl+Shift+D repeats that");
+    Hud::Message(repeat ? "Duplicated again" : "Duplicated");
     {
         // (the panel's numbers - level_editor_adjust.h: each copy's offset from the one before, its turn, how many)
         Adjust::Action action;
@@ -4111,7 +4109,7 @@ bool DuplicateNode(const Frame& frame, const Transform::RepeatStep* repeat)
     NodeCreate::Kind kind;
     if (at < 0 || list[at].owned || list[at].like || !list[at].links.empty() || !NodeCreate::KindOf(list[at], &kind) ||
         kind == NodeCreate::Kind::FlagSet) {
-        Hud::Message("Only nodes the editor added (spawns, crowns, lights, sounds, proximity nodes) can be copied yet");
+        Hud::Message("Only added nodes can be duplicated");
         return false;
     }
     if (const char* why = NodeCreate::WhyNot(kind, NodeCreate::Team::Red)) {
@@ -4144,9 +4142,7 @@ bool DuplicateNode(const Frame& frame, const Transform::RepeatStep* repeat)
         SelectNodeOnly(index);
     Transform::NoteDuplicate(&Transform::LastDuplicate(), Transform::Kind::Node, {NodeCreate::Checksum(spec.name)},
                              values.pos, values.angles.y);
-    Hud::Message("Copied as " + spec.name +
-                 (repeat ? std::string(" (Ctrl+Shift+D repeats it)")
-                         : std::string(" - move / turn it, then Ctrl+Shift+D repeats that")));
+    Hud::Message("Duplicated as " + spec.name);
     NoteAction("duplicated node %s", spec.name.c_str());
     return true;
 }
@@ -4171,7 +4167,7 @@ void RepeatDuplicate(const Frame& frame)
     }
     Transform::RepeatStep repeat;
     if (!Transform::RepeatFor(Transform::LastDuplicate(), kind, ids, SelectionPos(), SelectionHeading(), &repeat)) {
-        Hud::Message("Ctrl+Shift+D repeats a copy: Ctrl+D first, move / turn the copy, then Ctrl+Shift+D", 4.0);
+        Hud::Message("Nothing to repeat: duplicate first (Ctrl+D)", 4.0);
         return;
     }
     Duplicate(frame, &repeat);
@@ -4186,12 +4182,10 @@ void SwitchWall(uint32_t wall, bool off)
         return;
     PushUndo(Snapshot(), "Wall collision");
     if (!Walls::SetOff(wall, off)) {
-        Hud::Message("Couldn't switch that wall's collision");
+        Hud::Message("Couldn't change the wall's collision");
         return;
     }
-    Hud::Message(off ? "Wall deleted: its collision is off - the skater passes it (shown dashed; Delete / Home brings it "
-                       "back, Ctrl+Z undoes)"
-                     : "Wall restored: its collision is on again");
+    Hud::Message(off ? "Wall collision off" : "Wall collision on");
     NoteAction("invisible wall %08X: collision %s", wall, off ? "off" : "on");
 }
 
@@ -4216,8 +4210,7 @@ void SwitchSceneryCollision(bool off)
     PushUndo(step, "Collision on / off");
     char text[160];
     std::snprintf(text, sizeof(text),
-                  off ? "Collision off for %d piece%s - drawn, but the skater passes through (Ctrl+Z undoes)"
-                      : "Collision on again for %d piece%s",
+                  off ? "Collision off (%d piece%s)" : "Collision on (%d piece%s)",
                   changed, changed == 1 ? "" : "s");
     Hud::Message(text);
     NoteAction("scenery collision %s (%d pieces)", off ? "off" : "on", changed);
@@ -4246,14 +4239,14 @@ void Delete()
             step.copies.push_back({object->m_id, source, Objects::Save(object)});
         }
         if (step.copies.empty()) {
-            Hud::Message("Only copies of objects can be deleted (scenery can be hidden)");
+            Hud::Message("Only object copies can be deleted");
             return;
         }
         for (const MadeCopy& copy : step.copies)
             Objects::RemoveCopy(copy.name);
         g_objects.clear();
         PushUndo(step, "Delete copies");
-        Hud::Message("Deleted - Ctrl+Z brings it back");
+        Hud::Message("Deleted");
         NoteAction("deleted object copies (Delete)");
         return;
     }
@@ -4264,7 +4257,7 @@ void Delete()
     if (Scenery::HasSelection()) {
         PushUndo(Snapshot(), "Hide scenery");
         Scenery::HideSelection();
-        Hud::Message("Hidden - Ctrl+Z brings it back");
+        Hud::Message("Hidden");
         NoteAction("hid scenery (Delete)");
     }
 }
@@ -4293,9 +4286,9 @@ void Reset()
         }
         if (any) {
             PushUndo(before, "Home");
-            Hud::Message("Put back where the level had it");
+            Hud::Message("Reverted");
         } else {
-            Hud::Message("It's where the level has it");
+            Hud::Message("Already original");
         }
         if (Chains::IsLadder(g_nodeName))
             RunChainOp(Chains::kOpFacingHome, 0); // (a level ladder turned: its facing too - its own undo step)
@@ -4312,7 +4305,7 @@ void Reset()
         }
         if (any) {
             PushUndo(before, "Home");
-            Hud::Message("Put back where it was");
+            Hud::Message("Reverted");
         }
     } else if (uint32_t wall = objects.empty() ? WallOnly() : 0) {
         // (an invisible wall: where the level has it, its collision on)
@@ -4320,15 +4313,15 @@ void Reset()
         if (Walls::Moved(wall, &placement) || Walls::Off(wall)) {
             PushUndo(Snapshot(), "Home");
             Walls::ApplyStates({{wall, {0, {0.0f, 0.0f, 0.0f}}, false}});
-            Hud::Message("Wall put back where the level had it, its collision on");
+            Hud::Message("Wall reverted");
         } else {
-            Hud::Message("It's where the level has it");
+            Hud::Message("Already original");
         }
     } else if (Scenery::HasSelection()) {
         PushUndo(Snapshot(), "Home");
         Scenery::ResetSelection();
         FollowScenery(); // (what it carries goes with it - level_editor_carry.h)
-        Hud::Message("Put back where the level had it");
+        Hud::Message("Reverted");
     }
     NoteAction("reset (Home): %s", DescribeSelection().c_str());
 }
@@ -4416,7 +4409,7 @@ void NoteClickForCycle(float x, float y, V3 dir, bool plain)
     }
     if (g_cycle.index >= 0 && g_cycle.order.size() > 1) {
         char text[64];
-        std::snprintf(text, sizeof(text), "%d of %d under the cursor - click again for the next", g_cycle.index + 1,
+        std::snprintf(text, sizeof(text), "%d of %d under cursor", g_cycle.index + 1,
                       static_cast<int>(g_cycle.order.size()));
         Hud::Message(text, 2.5);
     }
@@ -4435,8 +4428,7 @@ bool DropUnderCursor(V3 dir)
         if (!Scenery::CarriesRail(name))
             return false;
         Scenery::DropRail(name);
-        Hud::Message("Rail point " + Nodes::Label(name) + " no longer moves with the selection (" +
-                     std::to_string(Scenery::SelectedRailCount()) + " carried)");
+        Hud::Message("Removed rail point " + Nodes::Label(name));
         return true;
     }
     Scenery::Hit first;
@@ -4452,8 +4444,7 @@ bool DropUnderCursor(V3 dir)
         return false;
     uint32_t checksum = layers[index].checksum;
     Scenery::Toggle(checksum);
-    Hud::Message("Removed " + Objects::Label(checksum) + (Scenery::IsShadow(checksum) ? " (shadow)" : "") +
-                 " from the selection (" + std::to_string(Scenery::Selection().size()) + " left)");
+    Hud::Message("Removed " + Objects::Label(checksum) + " from selection");
     return true;
 }
 
@@ -4485,7 +4476,7 @@ void ViewHide(bool isolate)
         Deselect();
     NoteAction("view: %s (%d hidden)", isolate ? "isolated" : "hid", count);
     char text[128];
-    std::snprintf(text, sizeof(text), "%s %d while editing (Alt+H shows all; never saved)",
+    std::snprintf(text, sizeof(text), "%s %d in editor",
                   isolate ? "Isolated: hid" : "Hid", count);
     Hud::Message(text);
 }
@@ -4496,7 +4487,7 @@ void ViewShowAll()
     int count = View::HiddenCount();
     View::ShowAll();
     NoteAction("view: showed all (%d)", count);
-    Hud::Message(count ? "Everything hidden in the editor shown again" : "Nothing is hidden in the editor");
+    Hud::Message(count ? "All shown" : "Nothing hidden");
 }
 
 // C / the toolbar's Collision.
@@ -4506,10 +4497,9 @@ void ShowCollision(bool on)
     if (!on)
         View::ClearWall();
     if (on && !Ui::Running())
-        Hud::Message("The collision view needs the editor's UI ([features] editor_ui=1)");
+        Hud::Message("Requires the editor UI (editor_ui=1)");
     else
-        Hud::Message(on ? "Collision shown (C hides it): invisible walls magenta, Shift+click one"
-                        : "Collision hidden");
+        Hud::Message(on ? "Collision shown" : "Collision hidden");
 }
 
 // L / the Inspector's Lock: the selection locked and deselected (every click passes it from now - the Inspector lists
@@ -4520,7 +4510,7 @@ void ToggleLock()
     if (locks.empty() && !g_nodeSelected && !Picking::Locks().empty()) {
         // (nothing selected: every lock dropped - the old HUD has no Inspector to unlock one)
         char text[64];
-        std::snprintf(text, sizeof(text), "Unlocked all %d (Ctrl+Z locks them again)",
+        std::snprintf(text, sizeof(text), "Unlocked %d",
                       static_cast<int>(Picking::Locks().size()));
         PushLocksUndo(); // (one undo step - unsaved with it)
         Picking::ClearLocks();
@@ -4528,8 +4518,7 @@ void ToggleLock()
         return;
     }
     if (locks.empty()) {
-        Hud::Message(g_nodeSelected ? "Nodes can't be locked - turn off Pick: Nodes in the toolbar"
-                                    : "Nothing selected to lock");
+        Hud::Message(g_nodeSelected ? "Nodes can't be locked" : "Nothing selected");
         return;
     }
     bool all = true;
@@ -4540,10 +4529,10 @@ void ToggleLock()
         Picking::SetLocked(lock.kind, lock.id, !all);
     NoteAction("%s %d", all ? "unlocked" : "locked", static_cast<int>(locks.size()));
     if (all) {
-        Hud::Message("Unlocked: clicks take it again");
+        Hud::Message("Unlocked");
     } else {
         Deselect();
-        Hud::Message("Locked: clicks pass it (the Inspector lists the locks)");
+        Hud::Message("Locked");
     }
 }
 
@@ -4746,7 +4735,7 @@ void AskResetLevel()
         return;
     }
     g_resetAskedAt = now;
-    Hud::Message("Reset the level? All back as shipped, its layout deleted: Ctrl+Shift+Del again", 5.0);
+    Hud::Message("Reset level? Press Ctrl+Shift+Delete again to confirm", 5.0);
 }
 
 void ToggleHelp()
@@ -5036,14 +5025,12 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             if (!noChange && Picking::Locked(static_cast<uint32_t>(request.value), request.id)) {
                 PushLocksUndo(); // (one undo step - unsaved with it)
                 Picking::SetLocked(static_cast<uint32_t>(request.value), request.id, false);
-                Hud::Message("Unlocked: clicks take it again (Ctrl+Z locks it again)");
+                Hud::Message("Unlocked");
             }
             break;
         case Ui::Request::kCarry:
             Carry::SetEnabled(request.value != 0);
-            Hud::Message(request.value ? "Carry objects: what stands on moved scenery comes along (Alt while moving "
-                                         "leaves it)"
-                                       : "Carry objects off: scenery moves by itself");
+            Hud::Message(request.value ? "Carry Objects on" : "Carry Objects off");
             break;
         case Ui::Request::kSelectNode:
             SelectNode(request.value);
@@ -5139,7 +5126,7 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             break;
         case Ui::Request::kPlaceHere:
             if (ChainKindOf(request.value) != Chains::Draw::None) {
-                Hud::Message("Click the rail's / path's points in the view one by one");
+                Hud::Message("Click points in the view");
                 break;
             }
             if (!noChange) {
@@ -5251,14 +5238,14 @@ void DrillThrough(int steps, float x, float y, V3 dir)
     if (count < 2) {
         g_cycle.have = false;
         g_drilled = false;
-        Hud::Message(count ? "Only one thing under the cursor" : "Nothing under the cursor to step through", 1.5);
+        Hud::Message(count ? "Only one item under cursor" : "Nothing under cursor", 1.5);
         return;
     }
     int at = Nav::DrillIndex(shown, steps, count);
     g_cycle.index = Nav::CycleIndexShowing(at, count);
     g_drilled = true;
     char text[96];
-    std::snprintf(text, sizeof(text), "%d of %d under the cursor (Alt+wheel) - click takes it", at + 1, count);
+    std::snprintf(text, sizeof(text), "%d of %d under cursor", at + 1, count);
     Hud::Message(text, 2.0);
 }
 
@@ -5268,7 +5255,7 @@ void TeleportTo(V3 dir)
     V3 hit;
     V3 ray = Normalize(dir);
     if (!Cast(g_pos, g_pos + ray * kMaxPickDistance, &hit)) {
-        Hud::Message("No surface under the cursor to go to");
+        Hud::Message("No surface under cursor");
         return;
     }
     if (HaveSelection() || g_nodeSelected)
@@ -5339,16 +5326,15 @@ void TransformKeys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const M
         settings.mode = Transform::NextMode(settings.mode);
     if (settings.mode != before) {
         const char* why = settings.mode == Transform::Mode::Rotate && HaveSelection() && GizmoMode() != settings.mode
-                              ? " - this selection doesn't turn (a chain's point)"
+                              ? " (selection can't rotate)"
                           : settings.mode == Transform::Mode::Scale && HaveSelection() && GizmoMode() != settings.mode
-                              ? " - only scenery and objects with a model scale"
+                              ? " (selection can't scale)"
                               : "";
-        Hud::Message(std::string("Tool: ") + Transform::ModeName(settings.mode) + why);
+        Hud::Message(std::string(Transform::ModeName(settings.mode)) + " Tool" + why);
     }
     if (grave) {
         settings.space = settings.space == Transform::Space::World ? Transform::Space::Local : Transform::Space::World;
-        Hud::Message(settings.space == Transform::Space::World ? "World space: the gizmo along the world's axes (`)"
-                                                               : "Local space: the gizmo along the selection's own axes (`)");
+        Hud::Message(settings.space == Transform::Space::World ? "World Space" : "Local Space");
     }
     // (F - UX1's frame, level_editor_camera.h - flies the camera to the selection: it follows it again after)
     if (f && HaveSelection())
@@ -5366,9 +5352,7 @@ void TransformKeys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const M
         g_dragMoved = true;
         BeginChange();
         StartDrag(g_pos, dir, false, frame, input.x, input.y);
-        Hud::Message(std::string(Transform::ModeName(g_dragMode)) +
-                     ": the mouse moves it - X / Y / Z an axis, type an amount; a click or Enter applies, Esc puts it back",
-                     4.0);
+        Hud::Message(std::string(Transform::ModeName(g_dragMode)) + ": X/Y/Z constrain, type a value, Enter applies", 4.0);
     }
 }
 
@@ -5405,7 +5389,7 @@ void Update()
     }
     if (g_offerShow) {
         g_offerShow = false;
-        Hud::Message("Unsaved changes from a previous session: Ctrl+R restores, Ctrl+Shift+R discards", 20.0);
+        Hud::Message("Autosave found: Ctrl+R restores, Ctrl+Shift+R discards", 20.0);
     }
     uint64_t now = SDL_GetPerformanceCounter();
     double seconds = g_lastCounter ? static_cast<double>(now - g_lastCounter) / SDL_GetPerformanceFrequency() : 0.0;
@@ -5503,7 +5487,7 @@ void Update()
             g_typed = {};
             g_vertexHave = false;
             FocusOnSelection();
-            Hud::Message("Put back");
+            Hud::Message("Cancelled");
         } else if (g_confirmReset) {
             g_confirmReset = false;
         } else if (g_confirmHide) {
@@ -5526,7 +5510,7 @@ void Update()
             Faces::ClearSelection(); // (map3)
         } else if (Faces::Picking()) {
             Faces::SetPicking(false);
-            Hud::Message("Faces mode off (K)");
+            Hud::Message("Face Select off");
         }
     }
 
@@ -5563,7 +5547,7 @@ void Update()
             if (g_placeOpen)
                 Entities::RefreshPalette(); // (objects made since show up)
         } else {
-            Hud::Message("The Place palette (N) needs the editor's UI ([features] editor_ui=1)");
+            Hud::Message("Requires the editor UI (editor_ui=1)");
         }
     }
 
@@ -5597,16 +5581,14 @@ void Update()
         ToggleLock();
     if (lPressed && railPoint && !noChange) {
         g_wholeRail = !g_wholeRail;
-        Hud::Message(g_wholeRail ? "Chains: a rail / ladder / path point moves with its whole chain (L: by itself)"
-                                 : "Chains: a rail / ladder / path point moves by itself (L: the whole chain)");
+        Hud::Message(g_wholeRail ? "Move whole chain" : "Move single point");
     }
     // C: the collision shown / hidden; H: the selection hidden (Alt+H: everything shown); I or /: isolated
     // (level_editor_view.h - while editing only).
     if (Actions::Pressed(Actions::kOcclusion) && !g_browser.open) {
         g_occlusionOff = !g_occlusionOff;
         Nx::OcclusionOff() = g_occlusionOff;
-        Hud::Message(g_occlusionOff ? "Occlusion off: everything in range is drawn (O: the game's occlusion)"
-                                    : "Occlusion on, as in play (O: off) - distant things may vanish behind occluders");
+        Hud::Message(g_occlusionOff ? "Occlusion culling off" : "Occlusion culling on");
     }
     if (Actions::Pressed(Actions::kCollision) && !g_browser.open)
         ShowCollision(!View::ShowCollision());
@@ -5623,15 +5605,13 @@ void Update()
     for (int mode = 0; mode < Overlays::kViewModes && mode < 4; ++mode) {
         if (Actions::Pressed(Actions::kViewModeLit + mode) && !g_dragging) { // (while dragging digits are typed values)
             Overlays::SetViewMode(mode);
-            Hud::Message(std::string("View: ") + Overlays::ViewModeName(mode) + " (Alt+1 Lit, Alt+2 Unlit, Alt+3 "
-                                                                               "Wireframe, Alt+4 Collision only)");
+            Hud::Message(std::string("View: ") + Overlays::ViewModeName(mode) + );
         }
     }
     if (Actions::Pressed(Actions::kJumpArcs) && !g_browser.open) {
         bool on = !Overlays::Shown(Overlays::kJumpArcs);
         Overlays::Set(Overlays::kJumpArcs, on);
-        Hud::Message(on ? "Jump arcs on (Y): select a kicker, a quarter pipe or a ramp - push / top / max speed"
-                        : "Jump arcs off (Y)");
+        Hud::Message(on ? "Jump Arcs on" : "Jump Arcs off");
     }
     bool rulerClear = Actions::Pressed(Actions::kRulerClear);
     if ((Actions::Pressed(Actions::kRuler) || rulerClear) && !g_browser.open && !g_dragging) {
@@ -5642,8 +5622,7 @@ void Update()
             Ruler::SetArmed(!Ruler::Armed());
             if (Ruler::Armed())
                 Overlays::Set(Overlays::kRuler, true);
-            Hud::Message(Ruler::Armed() ? "Ruler (M): click two points - snaps to corners (Alt: no snap); Shift+M clears"
-                                        : "Ruler off (M) - the measurement stays until Shift+M");
+            Hud::Message(Ruler::Armed() ? "Ruler: click two points" : "Ruler off");
         }
     }
     // T: the trigger volumes shown (and the Triggers window) - level_editor_triggers.h; their changes, undo steps and
@@ -5651,10 +5630,9 @@ void Update()
     if (Actions::Pressed(Actions::kTriggers) && !g_browser.open) {
         if (Ui::Running()) {
             Triggers::SetShown(!Triggers::Shown());
-            Hud::Message(Triggers::Shown() ? "Trigger volumes shown (T) - the Triggers window adds kill zones, teleports, gaps"
-                                           : "Trigger volumes hidden (T)");
+            Hud::Message(Triggers::Shown() ? "Trigger volumes shown" : "Trigger volumes hidden");
         } else {
-            Hud::Message("The trigger volumes (T) need the editor's UI ([features] editor_ui=1)");
+            Hud::Message("Requires the editor UI (editor_ui=1)");
         }
     }
     {
@@ -5691,11 +5669,9 @@ void Update()
     if (Actions::Pressed(Actions::kFaces) && !g_browser.open && !noChange) {
         if (Ui::Running()) {
             Faces::SetPicking(!Faces::Picking());
-            Hud::Message(Faces::Picking() ? "Faces mode (K): a click takes a collision face, Shift+click adds one - the "
-                                            "Inspector sets their flags"
-                                          : "Faces mode off (K)");
+            Hud::Message(Faces::Picking() ? "Face Select on" : "Face Select off");
         } else {
-            Hud::Message("Faces mode (K) needs the editor's UI ([features] editor_ui=1)");
+            Hud::Message("Requires the editor UI (editor_ui=1)");
         }
     }
     if (Actions::Pressed(Actions::kCameraNode) && !g_browser.open && !noChange)
@@ -5717,7 +5693,7 @@ void Update()
             Objects::Label(scene).c_str(), g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
         Log("    {{%.3ff, %.3ff, %.3ff}, {%.6ff, %.6ff, %.6ff}, {%.6ff, %.6ff, %.6ff}},", g_pos.x, g_pos.y, g_pos.z,
             view.back.x, view.back.y, view.back.z, view.up.x, view.up.y, view.up.z);
-        Hud::Message("The camera is written to thug2-decomp.log");
+        Hud::Message("Camera position logged");
     }
     if (Actions::Pressed(Actions::kDeselect) && (HaveSelection() || g_nodeSelected) && !g_dragging)
         Deselect();
@@ -5950,7 +5926,7 @@ void Update()
                     action.uniform = false;
                     Adjust::Note(action);
                     const char* axisName = axis == 0 ? "x" : axis == 1 ? "y" : "z";
-                    Hud::Message(std::string("Stretched along ") + axisName + " (the axis the camera faces most)");
+                    Hud::Message(std::string("Stretched along ") + axisName);
                     NoteAction("stretched along %s (Alt+[ / ]): %s", axisName, DescribeSelection().c_str());
                 }
             } else if (ScaleSelectionBy(Scale::Uniform(factor), true)) {
@@ -6026,7 +6002,7 @@ void Update()
     // (not with Ctrl or Shift: Ctrl+Alt / Alt+Shift snap to a vertex / a surface - level_editor_snap.h)
     if (alt && !ctrl && !shift && (g_dragging || g_keyMoving) && Carry::Count() > 0) {
         Carry::Leave();
-        Hud::Message("Alt: what stood on it stays where it was (for this move)");
+        Hud::Message("Not carrying objects");
     }
     // Shift with the collision shown: the invisible wall a Shift+click would take, highlighted (level_editor_view.h).
     View::SetHoverWall(!g_dragging && haveRay && shift && !alt && View::ShowCollision() && Ui::Running()
@@ -6165,7 +6141,7 @@ void Update()
     bool handlePressed = input.leftPresses && haveRay && !g_dragging && g_hoverAxis < 0 && g_hoverHandle >= 0 &&
                          !Triggers::Resizing() && Triggers::BeginResize(g_hoverHandle, g_pos, dir);
     if (handlePressed) {
-        Hud::Message("Resizing: drag the face (Ctrl snaps to 25); Ctrl+Z undoes", 3.0);
+        Hud::Message("Resize: drag the face (Ctrl: snap)", 3.0);
     } else if (input.leftPresses && haveRay && !g_dragging && g_hoverAxis < 0 && Ux9::Busy() &&
                Ux9::Click(g_pos, Normalize(dir), backX, backY)) {
         // (UX9: the gap wizard's / the ground tool's pick - level_editor_ux9.h)
@@ -6233,8 +6209,7 @@ void Update()
         if (wall) {
             Deselect();
             View::SelectWall(wall);
-            Hud::Message("Invisible wall " + Objects::Label(wall) +
-                         " - Delete switches its collision off; drag its face or the arrows to move it");
+            Hud::Message("Invisible wall " + Objects::Label(wall));
         } else if (onWall) {
             drag = true;
         } else if (g_hoverAxis >= 0 && input.leftPresses) {
@@ -6250,8 +6225,7 @@ void Update()
             } else {
                 Deselect();
             }
-            Hud::Message(triggerSector ? "Trigger " + Objects::Label(triggerSector) + " (the Triggers window shows it)"
-                                       : std::string("Trigger volume selected (the Inspector has its settings)"));
+            Hud::Message(triggerSector ? "Trigger " + Objects::Label(triggerSector) : std::string("Trigger volume"));
         } else if (g_hoverSector) {
             g_objects.clear();
             if (one)
@@ -6589,7 +6563,7 @@ void PushLocksUndoLabelled(const char* label) { PushLocksUndo(label); }
 bool ApplyLayoutStep(const std::string& text, const char* label, std::string* message)
 {
     if (!g_active || ChangeUnderWay()) {
-        *message = "Not while something is being moved";
+        *message = "Not available while moving";
         return false;
     }
     UndoStep step;
