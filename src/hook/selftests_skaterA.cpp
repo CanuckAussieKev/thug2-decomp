@@ -392,6 +392,105 @@ void TestLipPushOff()
     Check(same, "skater: LipPushOff (PS2 controls off and on)");
 }
 
+// CStruct::GetFloat with nothing found (thiscall, 3 arguments popped): false, the output left alone.
+bool __fastcall NoFloat(void* /*params*/, void* /*edx*/, uint32_t /*name*/, float* /*out*/, int /*required*/)
+{
+    return false;
+}
+
+// SetSpeed 0x004FCE90: the velocity long enough to keep its direction or not (around the 0.001 threshold of its
+// squared length, zero, a NaN), the facing's bits copied as they are, the speed (the stand-in's unnamed float).
+void TestSetSpeed()
+{
+    g_arena = g_physicsArena;
+    g_arenaSize = kArenaSize;
+    StandIns standIns({
+        {0x004766D0, 12, 3, Ret::Bool, true, 0, -1, 1, 1,
+         CodeAddress(static_cast<bool (Script::CStruct::*)(uint32_t, float*, int)>(&Script::CStruct::GetFloat))},
+    });
+    bool same = true;
+    int kept = 0, faced = 0;
+    for (int variant = 0; variant < 3000 && same; ++variant) {
+        g_rng = 0x9E3779B9u * (variant + 1);
+        FillArena();
+        float* velocity = &ArenaAt<float>(kObject + 0xAC);
+        switch (variant % 8) {
+        case 0:
+            velocity[0] = velocity[1] = velocity[2] = 0.0f;
+            break;
+        case 1: // (squared 0.00099856: under 0.001)
+            velocity[0] = 0.0316f;
+            velocity[1] = velocity[2] = 0.0f;
+            break;
+        case 2: // (squared 0.00100489: over)
+            velocity[1] = 0.0317f;
+            velocity[0] = velocity[2] = 0.0f;
+            break;
+        case 3: // (0.00999 each: squared 0.000299 - under, all three counted)
+            velocity[0] = velocity[1] = velocity[2] = 0.00999f;
+            break;
+        case 4:
+            ArenaAt<uint32_t>(kObject + 0xAC + 4 * (Next() % 3)) = 0x7FC00000u; // a NaN: normalised
+            break;
+        case 5: // (small but over: z counted)
+            velocity[0] = velocity[1] = 0.0f;
+            velocity[2] = -0.04f;
+            break;
+        case 6: // (squared exactly 0.001f as a double, once rounded: not under)
+            if (variant % 16 == 6) {
+                ArenaAt<uint32_t>(kObject + 0xAC) = 0x3D0186DCu;
+                ArenaAt<uint32_t>(kObject + 0xB0) = 0x38262149u;
+                velocity[2] = 0.0f;
+            }
+            break;
+        default:
+            break;
+        }
+        ArenaAt<uint32_t>(kObject + 0x98) = 0x7F800001u; // (the facing's w a signalling NaN: copied, not loaded)
+        float x = velocity[0], y = velocity[1], z = velocity[2];
+        double lengthSqr = static_cast<double>(x) * x + static_cast<double>(y) * y + static_cast<double>(z) * z;
+        (lengthSqr < static_cast<double>(0.001f) ? faced : kept) += 1;
+        std::memcpy(g_physicsStart, g_physicsArena, kArenaSize);
+        uint32_t seed = Next() | 1;
+        std::vector<uint32_t> expected = RunOnArena(seed, [](uint8_t* component) {
+            return static_cast<uint32_t>(Original<int(__thiscall*)(void*, void*, void*)>(0x004FCE90)(
+                component, reinterpret_cast<void*>(0x1234), reinterpret_cast<void*>(0x5678)));
+        });
+        std::vector<uint32_t> actual = RunOnArena(seed, [](uint8_t* component) {
+            return static_cast<uint32_t>(reinterpret_cast<Skater::CorePhysicsComponent*>(component)->SetSpeed(
+                reinterpret_cast<Script::CStruct*>(0x1234), reinterpret_cast<Script::CScript*>(0x5678)));
+        });
+        same = Compare(expected, actual, "set speed", variant);
+    }
+    Check(same, "skater: SetSpeed - the speed passed");
+    same = true;
+    {
+        // Without the speed (GetFloat false, nothing written): 0.
+        CodePatch original(0x004766D0, JumpTo(0x004766D0, reinterpret_cast<const void*>(&NoFloat)));
+        uint32_t oursAt = reinterpret_cast<uint32_t>(
+            CodeAddress(static_cast<bool (Script::CStruct::*)(uint32_t, float*, int)>(&Script::CStruct::GetFloat)));
+        CodePatch ours(oursAt, JumpTo(oursAt, reinterpret_cast<const void*>(&NoFloat)));
+        for (int variant = 0; variant < 50 && same; ++variant) {
+            g_rng = 0x7F4A7C15u * (variant + 1);
+            FillArena();
+            std::memcpy(g_physicsStart, g_physicsArena, kArenaSize);
+            std::vector<uint32_t> expected = RunOnArena(1, [](uint8_t* component) {
+                return static_cast<uint32_t>(Original<int(__thiscall*)(void*, void*, void*)>(0x004FCE90)(
+                    component, reinterpret_cast<void*>(0x1234), reinterpret_cast<void*>(0x5678)));
+            });
+            std::vector<uint32_t> actual = RunOnArena(1, [](uint8_t* component) {
+                return static_cast<uint32_t>(reinterpret_cast<Skater::CorePhysicsComponent*>(component)->SetSpeed(
+                    reinterpret_cast<Script::CStruct*>(0x1234), reinterpret_cast<Script::CScript*>(0x5678)));
+            });
+            same = Compare(expected, actual, "set speed (none passed)", variant);
+        }
+    }
+    bool covered = kept >= 1000 && faced >= 1000;
+    if (!covered)
+        Log("  set speed coverage: direction kept %d, the facing's %d", kept, faced);
+    Check(same && covered, "skater: SetSpeed - none passed (0), coverage");
+}
+
 // The stand-ins for CheckForGround's callees.
 std::vector<StandIn> GroundStandIns()
 {
@@ -690,5 +789,6 @@ void TestDoAirPhysics()
 } // namespace
 
 SELFTEST(Early, TestLipPushOff);
+SELFTEST(Early, TestSetSpeed);
 SELFTEST(Early, TestCheckForGround);
 SELFTEST(Early, TestDoAirPhysics);

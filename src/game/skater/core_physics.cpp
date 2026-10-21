@@ -3,15 +3,20 @@
 
 #include "game/skater/core_physics.h"
 
+#include <chrono>
 #include <cmath>
+#include <cstring>
 
+#include "game/core/crc.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/controls.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace Skater {
 
@@ -173,6 +178,91 @@ int CorePhysicsComponent::LipPushOff(Script::CStruct*, Script::CScript*)
         }
     }
     return 0;
+}
+
+namespace {
+
+// Not original - [features] debug_rail_speed=1: what the rail speed-up loops do (THAW's RailAccelerate2, which
+// the THAW ports carry, and the level editor's ed_RailSpeedLoop: while the skater grinds and climbs, SetSpeed
+// with the speed * (1 + rate) each frame). A loop's first boost (a new loop, or one after a pause of half a
+// second) and then, once a second, the boosts in it: how many, the speed (game units a second - the length of the
+// velocity, as GetSpeed reads it) at the first and at the last, the height. (Only boosts are seen: a loop on a rail
+// that doesn't climb boosts nothing and logs nothing.)
+struct RailBoostLog {
+    Script::CScript* script = nullptr;
+    std::chrono::steady_clock::time_point last, windowStart;
+    int boosts = 0;
+    float speedFrom = 0.0f, heightFrom = 0.0f;
+};
+
+void LogRailBoost(Script::CScript* script, float before, float after, float height)
+{
+    static const bool on = ConfigInt("features", "debug_rail_speed", 0) != 0;
+    if (!on || !script)
+        return;
+    static const uint32_t kLoops[] = {Crc::GenerateCRCFromString("RailAccelerate2"),
+                                      Crc::GenerateCRCFromString("ed_RailSpeedLoop")};
+    if (script->m_scriptName != kLoops[0] && script->m_scriptName != kLoops[1])
+        return;
+    static RailBoostLog log;
+    auto now = std::chrono::steady_clock::now();
+    auto seconds = [](std::chrono::steady_clock::duration d) { return std::chrono::duration<double>(d).count(); };
+    if (script != log.script || seconds(now - log.last) > 0.5) {
+        float rate = 0.0f;
+        script->m_params->GetFloat(Crc::GenerateCRCFromString("rate"), &rate, 0);
+        Log("rail speed-up: %s boosting (rate %.3f): speed %.0f -> %.0f, height %.0f",
+            script->m_scriptName == kLoops[0] ? "RailAccelerate2" : "ed_RailSpeedLoop", rate, before, after, height);
+        log.script = script;
+        log.windowStart = now;
+        log.boosts = 0;
+        log.speedFrom = before;
+        log.heightFrom = height;
+    } else {
+        ++log.boosts;
+        double window = seconds(now - log.windowStart);
+        if (window >= 1.0) {
+            // (the speed the skater had before each boost - what the rail physics and the speed limit left of the
+            // last one)
+            Log("rail speed-up: %.2f s, %d boosts: speed %.0f -> %.0f (%+.0f a second; this boost to %.0f), height "
+                "%.0f -> %.0f",
+                window, log.boosts, log.speedFrom, before, (before - log.speedFrom) / window, after, log.heightFrom,
+                height);
+            log.windowStart = now;
+            log.boosts = 0;
+            log.speedFrom = before;
+            log.heightFrom = height;
+        }
+    }
+    log.last = now;
+}
+
+} // namespace
+
+// 0x004FCE90
+int CorePhysicsComponent::SetSpeed(Script::CStruct* params, Script::CScript* script)
+{
+    float speed = 0.0f;
+    params->GetFloat(0u, &speed, 0); // (unnamed)
+    void* object = At<void*>(this, kObject);
+    Mth::Vector& velocity = VectorAt(object, kVelocity);
+    double lengthSqr = static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y +
+                       static_cast<double>(velocity.z) * velocity.z;
+    float before = static_cast<float>(std::sqrt(lengthSqr));
+    if (lengthSqr < static_cast<double>(0.001f)) { // (not taken for a NaN)
+        std::memcpy(&velocity, &VectorAt(object, kFacing), sizeof(velocity)); // (moved, not loaded as floats)
+    } else {
+        double scale = 1.0 / std::sqrt(lengthSqr);
+        velocity.x = static_cast<float>(scale * velocity.x);
+        velocity.y = static_cast<float>(scale * velocity.y);
+        velocity.z = static_cast<float>(scale * velocity.z);
+        velocity.w = static_cast<float>(scale * velocity.w);
+    }
+    velocity.x = speed * velocity.x;
+    velocity.y = speed * velocity.y;
+    velocity.z = speed * velocity.z;
+    velocity.w = speed * velocity.w;
+    LogRailBoost(script, before, speed, VectorAt(object, kPosition).y);
+    return 1;
 }
 
 // 0x00509BD0
@@ -664,5 +754,6 @@ void CorePhysicsComponent::LandFromAir()
 } // namespace Skater
 
 REPLACE(0x004FCBA0, &Skater::CorePhysicsComponent::LipPushOff);
+REPLACE(0x004FCE90, &Skater::CorePhysicsComponent::SetSpeed);
 REPLACE(0x00509BD0, &Skater::CorePhysicsComponent::CheckForGround);
 REPLACE(0x0050CA00, &Skater::CorePhysicsComponent::DoAirPhysics);

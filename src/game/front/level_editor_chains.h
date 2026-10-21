@@ -71,8 +71,11 @@
 //     editor's as its TriggerScript (its own component, over any shared one; the node's script before is kept and
 //     called first, its arguments passed on): ed_railspeed_<node> = `[<its script> <...>]` + `ed_RailSpeed rate=<r>`,
 //     and the editor's fixed scripts ed_RailSpeed / ed_RailSpeedLoop (THAW's two, compiled - RailSpeedQb) do the rest:
-//     on landing (TriggerType [3, 8, -1]: land, onto) the loop is spawned on the skater; each frame on the rail and
+//     on getting onto the rail (TriggerType [3, 13, -1]: onto, grind - THUG2's rail event, on landing and at each next
+//     segment; THAW's own `land onto` is never true on a THUG2 rail: TriggerType needs every number - see
+//     tools/thaw_levels/thaw_scripts.ts) the loop is spawned on the skater; each frame on the rail and
 //     higher than the last, its speed * (1 + rate). Taken off: the node's own TriggerScript put back as it was.
+//     ([features] debug_rail_speed=1 logs the loops' boosts - Skater::CorePhysicsComponent::SetSpeed.)
 //     Shown as chevrons along the segment (the level's own RailAccelerate rails too, in grey - read only).
 // Layout records (version 2 still - an older reader skips them):
 //   point <name> <Class> pos=x,y,z [like=<node>] [terrain=<T>] [links=<node>,<node>] [facing=<radians>]
@@ -195,7 +198,7 @@ const std::vector<std::string>& GrindTerrainNames();
 // Rail speed-ups: the editor's fixed scripts (a .qb image in the loader's old format, the names after them: THAW's
 // RailAccelerate / RailAccelerate2 as ed_RailSpeed / ed_RailSpeedLoop, compiled by NeverScript from
 //     script ed_RailSpeed {rate = 0.05
-//         if TriggerType [3, 8, -1] {
+//         if TriggerType [3, 13, -1] {
 //             KillSpawnedScript name=ed_RailSpeedLoop
 //             Obj_SpawnScript ed_RailSpeedLoop params={rate=<rate>}
 //         }
