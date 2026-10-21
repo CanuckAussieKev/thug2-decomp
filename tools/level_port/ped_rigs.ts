@@ -106,8 +106,27 @@ export function fixPedRigs(
     return result;
 }
 
+// The animation sets (animload_ scripts, by name) the level's other peds name - animals (THPS4's pigeons:
+// animload_anl_pigeon) -, besides the two human rigs': loadLevelAnimsNs's `extra`. The level's own load_level_anims
+// is the only thing that loads them: an animal playing an animation of a set not loaded reads through the missing
+// frames (0x00482BA0 - THPS4 London and Chicago crashed with load_level_anims loading only the humans' sets).
+export function otherAnims(nodes: readonly Struct[], names: ReadonlyMap<number, string>): string[] {
+    const human = new Set([MALE.anims, FEMALE.anims].map(checksum));
+    const found = new Map<number, string>();
+    for (const node of nodes) {
+        const cls = node.get("Class");
+        if (!(cls instanceof Name && cls.value === checksum("Pedestrian"))) continue;
+        const anims = node.get("AnimName");
+        if (!(anims instanceof Name) || human.has(anims.value) || found.has(anims.value)) continue;
+        const text = names.get(anims.value);
+        if (text === undefined) throw new TypeError(`an AnimName without a name: 0x${anims.value.toString(16)}`);
+        found.set(anims.value, text);
+    }
+    return [...found.values()].sort();
+}
+
 // The level's load_level_anims (NeverScript), as THUG2's levels write it: the human peds' animations - Ped_Female's
-// only loaded here.
+// only loaded here - and `extra` (otherAnims).
 export function loadLevelAnimsNs(female: boolean, extra: readonly string[] = []): string {
     const all = [MALE.anims, ...(female ? [FEMALE.anims] : []), ...extra];
     return `script load_level_anims {\n${all.map((a) => `    ${a} \n`).join("")}}\n`;

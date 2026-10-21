@@ -13,6 +13,7 @@ import { findall, type Match, search, sub } from "../lib/re.ts";
 import * as qb from "./qb.ts";
 import { checksum, Name, type QbFile, type QbValue, type Statement, Struct, Vector } from "./qb.ts";
 import * as thug2Col from "./thug2_col.ts";
+import { TABLE_MEMBERS } from "./thug2_members.ts";
 
 export type Names = Map<number, string>;
 
@@ -635,6 +636,30 @@ export function absentInNetGames(
     //   THPS4's skate shop's standing ped crashed a network game). THUG2's own levels keep all of them out.
     // `text`'s own scripts are read, and `scripts` ({checksum: compiled code}, added after compiling:
     // script_port.appendScripts). Returns [text, nodes marked].
+    const followers = scriptsUsing(text, scripts, PATH_COMMAND_SET, null);
+    let marked = 0;
+    const fix = (match: Match): string => {
+        const node = match.str(0);
+        if (!search(/\bCreatedAtStart\b/, node) || search(/\bAbsentInNetGames\b/, node)) return node;
+        const script = search(/\bTriggerScript=(#?\w+)/, node);
+        const follows = script !== null && followers.has(nameValue(script.str(1)));
+        if (!follows && !search(/\bClass=(Pedestrian|Vehicle)\b/i, node)) return node;
+        marked += 1;
+        return sub(/\bCreatedAtStart\b/, "CreatedAtStart AbsentInNetGames", node, 1);
+    };
+    return [sub(ELEMENT, fix, text), marked];
+}
+
+export function scriptsUsing(
+    text: string,
+    scripts: ReadonlyMap<number, Uint8Array> | null,
+    commands: ReadonlySet<number>,
+    more: ReadonlyMap<number, ReadonlySet<number>> | null,
+): Set<number> {
+    // The scripts that run one of `commands` (checksums), themselves or through scripts they name (any name a script
+    // uses counts: a call, a spawned script, a parameter): `text`'s own scripts (NeverScript), `scripts`
+    // ({checksum: compiled code}) and `more` (other scripts: {checksum: the names each uses} - THUG2's own,
+    // script_port.Thug2.bodies).
     const calls = new Map<number, Set<number>>(); // script -> the names it uses
     for (const [name, body] of findall(SCRIPT_BLOCK, text, "tuples") as [string, string][]) {
         calls.set(nameValue(name), new Set(findall(/#[0-9A-Fa-f]{8}\b|\b[A-Za-z_]\w*/, body).map(nameValue)));
@@ -647,9 +672,12 @@ export function absentInNetGames(
         }
         calls.set(name, new Set([...(calls.get(name) ?? []), ...used]));
     }
+    for (const [name, used] of more ?? new Map<number, ReadonlySet<number>>()) {
+        if (!calls.has(name)) calls.set(name, new Set(used));
+    }
     const intersects = (a: ReadonlySet<number>, b: ReadonlySet<number>): boolean => [...a].some((x) => b.has(x));
     const followers = new Set<number>();
-    for (const [name, used] of calls) if (intersects(used, PATH_COMMAND_SET)) followers.add(name);
+    for (const [name, used] of calls) if (intersects(used, commands)) followers.add(name);
     let grew = true;
     while (grew) {
         grew = false;
@@ -660,17 +688,78 @@ export function absentInNetGames(
             }
         }
     }
+    return followers;
+}
+
+// The model component's light members: each runs on the model's lights (CModel +0x2C, 0x00532EB0) without checking
+// they're there (the member function 0x00421AE0: Obj_EnableAmbientLight at 0x00421D68 calls the lights' virtual +0x24
+// through 0x0048DE30 - a null read). A model has lights only when its object was made with UseModelLights (the model
+// component's init 0x004214F0 makes them, or takes them away without the flag). Obj_HasModelLights checks; not listed.
+export const MODEL_LIGHT_COMMANDS = [
+    "Obj_EnableAmbientLight",
+    "Obj_DisableAmbientLight",
+    "Obj_EnableDiffuseLight",
+    "Obj_DisableDiffuseLight",
+    "Obj_SetLightAmbientColor",
+    "Obj_SetLightDiffuseColor",
+    "Obj_SetLightDirection",
+];
+const MODEL_LIGHT_SET: ReadonlySet<number> = new Set(MODEL_LIGHT_COMMANDS.map(checksum));
+
+// The node array (NeverScript text) with `flag` after the Class of every node of `classes` (lower case; null: any)
+// whose TriggerScript is one of `users` and that hasn't the flag yet. Returns [text, nodes marked].
+function flagNodes(
+    text: string,
+    users: ReadonlySet<number>,
+    flag: string,
+    classes: ReadonlySet<string> | null,
+): [string, number] {
+    const has = new RegExp(`\\b${flag}\\b`, "i");
     let marked = 0;
     const fix = (match: Match): string => {
         const node = match.str(0);
-        if (!search(/\bCreatedAtStart\b/, node) || search(/\bAbsentInNetGames\b/, node)) return node;
         const script = search(/\bTriggerScript=(#?\w+)/, node);
-        const follows = script !== null && followers.has(nameValue(script.str(1)));
-        if (!follows && !search(/\bClass=(Pedestrian|Vehicle)\b/i, node)) return node;
+        if (script === null || !users.has(nameValue(script.str(1))) || search(has, node)) return node;
+        const cls = search(/\bClass=(\w+)/, node);
+        if (cls === null || (classes !== null && !classes.has(cls.str(1).toLowerCase()))) return node;
         marked += 1;
-        return sub(/\bCreatedAtStart\b/, "CreatedAtStart AbsentInNetGames", node, 1);
+        return `${node.slice(0, cls.end())} ${flag}${node.slice(cls.end())}`;
     };
     return [sub(ELEMENT, fix, text), marked];
+}
+
+export function useModelLights(
+    text: string,
+    scripts: ReadonlyMap<number, Uint8Array> | null = null,
+    more: ReadonlyMap<number, ReadonlySet<number>> | null = null,
+): [string, number] {
+    // The node array (NeverScript text) with UseModelLights on every node whose TriggerScript sets its model's lights
+    // (MODEL_LIGHT_COMMANDS, itself or through scripts it names: scriptsUsing) - as THUG1's and THUG2's own objects
+    // that do carry it. Without it the first such command reads through the missing lights (THPS4 Carnival's rides,
+    // Mdl_NoDynLighting: a crash at 0x0048DE30 when the level loads). Returns [text, nodes marked].
+    return flagNodes(text, scriptsUsing(text, scripts, MODEL_LIGHT_SET, more), "UseModelLights", null);
+}
+
+// The stream component's members (thug2_members.ts): a table's - an object without the component crashes on them
+// (Script::CallMemberFunction 0x00472980 runs the entry on its null component).
+const STREAM_MEMBER_SET: ReadonlySet<number> = new Set(
+    TABLE_MEMBERS.filter(([, component]) => component === "stream").map(([name]) => name),
+);
+// The classes gameobj_add_components (THUG2's ped.qb) makes: a stream component only with SupportStreams. Peds and
+// cars always have one (AddMotionComponents 0x0057B2F0).
+const GAME_OBJECT_CLASSES: ReadonlySet<string> = new Set(["levelobject", "gameobject"]);
+
+export function supportStreams(
+    text: string,
+    scripts: ReadonlyMap<number, Uint8Array> | null = null,
+    more: ReadonlyMap<number, ReadonlySet<number>> | null = null,
+): [string, number] {
+    // The node array (NeverScript text) with SupportStreams on every LevelObject / GameObject whose TriggerScript plays
+    // or stops a stream on it (the stream members, itself or through the scripts it names - `more`: THUG2's own,
+    // whose SpawnSound runs a script on the same object). THPS4's trams run THUG2's Car_Generic01, whose tire squeal
+    // (SpawnSound Auto_SFX_Car_Tire_Squeal) plays a stream: on a LevelObject without the component, a crash when the
+    // car brakes for the skater (Alcatraz, San Francisco). Returns [text, nodes marked].
+    return flagNodes(text, scriptsUsing(text, scripts, STREAM_MEMBER_SET, more), "SupportStreams", GAME_OBJECT_CLASSES);
 }
 
 // Python's re.split(r"[\s,]+", text.strip()) without the empty parts.

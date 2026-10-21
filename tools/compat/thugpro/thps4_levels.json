@@ -4043,7 +4043,7 @@
     "enabled": false
   },
   "port_changes": {
-    "_register": "PC-THPS4-1 ... PC-THPS4-11 (README.md here: \"Our own changes (port_changes)\")",
+    "_register": "PC-THPS4-1 ... PC-THPS4-13 (README.md here: \"Our own changes (port_changes)\")",
     "_note": "This project's own changes to THPS4's levels - neither THPS4's data nor THUGPRO's. Applied whatever --compat says (they are not THUGPRO data: --compat none keeps them); thps4_levels.ts convert --no-port-changes leaves out all but the required ones (THPS4's data as it is, but what a level needs to load or install). Each entry: id, op (add / set / remove), rule (the converter step that applies it: thps4_levels.portChanges), target (target.level or target.levels: a list or \"*\"), why, required (true: a level needs it to load / make_menu_level needs it - kept with --no-port-changes). A \"set\" on something the level hasn't is an error the converter reports, never an add.",
     "entries": [
       {
@@ -4209,6 +4209,30 @@
           "nodes": "path followers, peds and cars (AbsentInNetGames); single-player levels' Player1 restarts (Multiplayer, Horse)"
         },
         "why": "Network games have no path manager or ped animations, and need restarts for the players (nodes.netGameNodes)"
+      },
+      {
+        "id": "PC-THPS4-12",
+        "op": "add",
+        "rule": "model_lights",
+        "required": true,
+        "target": {
+          "levels": "*",
+          "node_flag": "UseModelLights",
+          "where": "objects whose TriggerScript sets its model's lights (Obj_EnableAmbientLight, Obj_SetLightAmbientColor...: Carnival's and London's Mdl_NoDynLighting)"
+        },
+        "why": "Crash guard: THUG2's model light members (0x00421AE0) read through the model's lights, which only UseModelLights makes (0x004214F0) - Carnival crashed loading at 0x0048DE30 (nodes.useModelLights)"
+      },
+      {
+        "id": "PC-THPS4-13",
+        "op": "add",
+        "rule": "support_streams",
+        "required": true,
+        "target": {
+          "levels": "*",
+          "node_flag": "SupportStreams",
+          "where": "LevelObjects / GameObjects whose TriggerScript plays a stream on them, through THUG2's scripts too (the trams' Car_Generic01: SpawnSound Auto_SFX_Car_Tire_Squeal)"
+        },
+        "why": "Crash guard: the stream members run on the object's stream component, which a LevelObject only has with SupportStreams (gameobj_add_components) - Alcatraz and San Francisco crashed when a tram braked for the skater (nodes.supportStreams)"
       }
     ]
   },
