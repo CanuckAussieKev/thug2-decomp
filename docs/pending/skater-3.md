@@ -131,3 +131,31 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     (selftests_skater_physics_control.cpp; the original passes bools with stale upper bytes - the stand-ins
     record the low byte). 22 + 27 deliberate bugs caught, 2 after strengthening (an exact cosine for
     AbsolutePitchGreaterThan; InitFromStructure's flag traced).
+- [x] Batch SK3-6 (NOT run in the game yet; SkaterRotate, SkaterRunTimer and SkaterScore, 29 functions):
+  src/game/skater/rotate_component.cpp, run_timer.cpp, skater_score.cpp (new).
+  - SkaterRotate (0x52D61A0D, vtable 0x0064C018, 0x58 bytes): 0x00517D40 Create, 0x00517CC0 / 0x00517CF0, 0x00517CD0
+    InitFromStructure, 0x00517D20 Finalize, 0x00517DC0 Update (each active turn: the frame's step, |step| added to
+    the turned total, the last step cut to end exactly - by the sign of the rounded step -, the object's and core
+    physics' matrices turned by CreateRotateMatrix(axis) through D3DXMatrixMultiply; suspended with none left),
+    0x00517EA0 CallMemberFunction (Rotate: with a duration - ms, or seconds / second, frames / frame - turns about x
+    / y / z or to face a Node (GetAngleInPlane, y); without, at once: x by CreateRotateXMatrix, y / z by
+    RotateY/ZLocal, none: turned round - at and right rows negated, the core physics' +0x34C flipped).
+  - SkaterRunTimer (0x8BCE7E66, vtable 0x0064C04C, 0x28 bytes): 0x005185D0 Create, 0x00518240
+    RegisterMemberFunctions (0x006849C0), 0x00518260 / 0x005182B0, 0x005182E0 Finalize, 0x00518270 GetDebugInfo
+    (m_state / m_timer), 0x00518300 Update (Hang_Run_Timer_Speed_Adjustment while the walk's state is 2-4;
+    RunTimerUp every frame once up), 0x00518390 Stop (HideRunTimer to the timer script, spawn id 0x83321DEA + the
+    skater's index), 0x005183F0 Resume (the first 8 resumes cap the time at duration x (8 - n) / 8; ShowRunTimer),
+    and RunTimer_Pause 0x005184A0, _unpause 0x005184F0, _GetFactorComplete 0x00518500,
+    _GetRunTimerControllerId 0x00518540, _GetRunTimerId 0x00518570, _ComboStarted 0x005185A0.
+  - SkaterScore (0xD262802F, vtable 0x0064C090, 0x1C bytes): 0x00518B60 Create, 0x00518BE0 DestroyBody (the
+    Mdl::Score destroyed and freed), 0x00518C50, 0x00518660 InitFromStructure (the score made once, 0x1550 bytes,
+    for the object id), 0x005186E0 Update (CHEAT_ALWAYS_SPECIAL), 0x00518630 ResetScore (the skater's),
+    0x00518760 CallMemberFunction (IsLatestTrick, Last/Total score and CurrentScorePot comparisons, the special
+    value, GetTotalScore, GetNumberOfNonGapTricks, GotSpecial, ForceSpecial, IncrementScore, TweakTrick). Quirk
+    kept: a comparison or SetSpecialValue without its value uses the params pointer (the stack slot the original
+    reuses).
+  - Test: TestSkaterRotate / TestSkaterRunTimer / TestSkaterScore (selftests_skater_timers.cpp). 54 deliberate
+    bugs: 53 caught (12 after strengthening: a turn ending exactly / with no rate, the core's flag traced, exactly 0
+    and NaN time left, the score kept between inits, the comparisons' boundaries, a pot of 252.5); 1 equivalent
+    (the rate as degrees / duration * k or degrees * k / duration: the same float for every value tried - 2 million
+    random ones).
