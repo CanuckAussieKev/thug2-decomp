@@ -119,3 +119,34 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     with no next but a prev (the original reads the missing next's link: a crash either way), the summation
     order of the two squared lengths compared with constants (one-ulp changes), the jump-adjust speed rounded to a
     float before squaring (same), and sign < 0 vs <= 0 (the sign is always +-1).
+- [x] Batch SK2-4 (NOT run in the game yet; the lip state, back on the board, trying for a rail, 3 functions):
+  src/game/skater/core_states.cpp (new), core_grind.cpp (TryGrind). +0x1524 is the balance trick component (+0x18
+  the trick's kind, +0xD4 a lip's CBalance).
+  - 0x0050BF50 DoLipPhysics (state 3): flags +0x78 / +0xA8 / +0x80 off, +0x2E4; riding something: the position and
+    +0x258 from 0x00427A00 of the ride, its turn applied to both matrices (else stop riding); a Lip balance trick:
+    the Perfect Rail cheat (its script integer's global flag on the career, the lean +0x104 / +0x108 cleared,
+    0x007CE4FD set) and CBalance::Update of +0xD4; button +0x1C0 -> flag +0x20; 0x004FFB10 (off): flag +0xD8 and the
+    rail's TriggerScript twice (0x0064BBE0, then the off-a-lip events); the node's Name to +0x240 and 0x00522370 (only
+    with the rail manager's node array); +0x238 = now.
+  - 0x0050C670 ResumeSkating(bool onGround, const uint8_t* grind, void* acidDrop) (RET 0xC; called by 0x00517B20):
+    0x004FDE40; state 0 or 1 (+0x94 the same; the air: flag +0xC0, flag +0xB0 when +0x1534's +0x9B); +0x90 = now;
+    the display matrix, the ground normals (+0x68 / +0x78 / +0x58) from the up, +0x98 and the old position from the
+    position; +0x1C5, +0x2C0, +0x378, +0x39C, +0x3A0, +0x370, +0x310 cleared, +0x311 set, flag +0xF4 cleared raw,
+    +0x350 cleared unless 0xC0000000, +0x3AC = 1, +0x4E0 / +0x4E4 / +0x4EC / +0x4E8 cleared. A rail (the point; +0x10
+    its manager, +0x14 its node, +0x18 an object): the old ride let go (as EndSkitch), the object ridden,
+    StartGrind(no lip trick, from an object), the positions kept again. Else an acid drop: 0x00502F20.
+  - 0x0050DAE0 TryGrind(bool always) (RET 4; from the wall ride update - the main update inlines the same): only in
+    the air or `always`, not with flag +0x70 / +0x3A4, the grind button +0x1A0, not within
+    Physics_Wallplant_Disallow_Grind_Duration of +0x4E0 (unsigned); Rail_Corner_Leave_Angle's cosine as the
+    alignment while 0x00420250(+0x234) < +0x23C (not in the park editor, 0x007CE5D8 +0x40), else 1. The level's rails
+    (skate module +0x24): FindGrindRail from the old position to the new; found: 0x004FC4A0(2, ...) (debug), stop
+    riding, StartGrind if 0x00500020 allows. Else each RailManager component (the composite object manager's list,
+    +0x14 the next): its rails (vtable slot 13), the move into its object's space (0x0042BA10's matrix, inverted),
+    found: the point back to the world, StartGrind, ride the component's object, 0x00427DD0, the velocity less the
+    object's.
+  - Tests (selftests_skater_states.cpp): TestDoLipPhysics (ride states, turned, the Lip kind or not, the cheat, the
+    off check, the node array), TestResumeSkating (ground / air, +0x9B, +0x350, rail with or without an object and
+    an old ride, acid, neither), TestTryGrind (every early return, the corner angle's two conditions, the level's
+    rail found and allowed, 0-2 moving rail managers found on the first / second / none - stand-in vtables, a
+    turned and moved object matrix; the matrix functions pointed at ours). 34 deliberate bugs: 33 caught, 1
+    equivalent (flag +0x20 tested before setting it to 1: SetTimedFlag does nothing when it's set already).

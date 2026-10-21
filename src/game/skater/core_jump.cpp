@@ -60,9 +60,6 @@ constexpr float kSteepDrop = 1.5f;     // 0x00646744
 
 float ScaledPhysics(void* object, uint32_t name) { return static_cast<Obj::CSkater*>(object)->GetScaledPhysics(name); }
 
-// The ride tracker (+0x152C's +0x18) and what its smart pointer points at.
-Obj::CRideTracker*& Tracker(void* component) { return At<Obj::CRideTracker*>(At<void*>(component, kRide), 0x18); }
-void StopRiding(void* component) { GameFunction<void(__thiscall*)(void*)>(0x00427C70)(At<void*>(component, kRide)); }
 
 // 0x00518EE0: the jump sound, by how fast the skater goes (a fraction of the max max speed) and a terrain.
 void PlayJumpSound(void* component, uint8_t terrain)

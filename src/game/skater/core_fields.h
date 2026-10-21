@@ -9,6 +9,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/ride_tracker.h"
 #include "hook/game.h"
 
 namespace Skater::CoreFields {
@@ -46,6 +47,7 @@ constexpr uint32_t kTriggerComponent = 0x1510;
 constexpr uint32_t kSoundComponent = 0x1514;
 constexpr uint32_t kSkaterComponent = 0x1518;
 constexpr uint32_t kOtherFlags = 0x151C;
+constexpr uint32_t kBalanceTrick = 0x1524;    // the balance trick component (+0x18 the trick's kind, +0xD4 a lip's balance)
 constexpr uint32_t kTimedFlags = 0x1528;     // bools, each followed by the time it last changed; +0x18 the state
 constexpr uint32_t kRide = 0x152C;           // +0x18: the ride tracker (Obj::CRideTracker*), if riding something
 constexpr uint32_t kTriggerState = 0x1530;   // +0x26: a trigger's script took over
@@ -131,6 +133,10 @@ inline void AssignFeeler(void* to, const void* from)
 {
     GameFunction<void*(__thiscall*)(void*, const void*)>(0x0043A930)(to, from);
 }
+// The ride tracker (+0x152C's +0x18) and what its smart pointer points at; 0x00427C70: stop riding.
+inline Obj::CRideTracker*& Tracker(void* component) { return At<Obj::CRideTracker*>(At<void*>(component, kRide), 0x18); }
+inline void StopRiding(void* component) { GameFunction<void(__thiscall*)(void*)>(0x00427C70)(At<void*>(component, kRide)); }
+
 inline void DestroyFeeler(void* feeler) { GameFunction<void(__thiscall*)(void*)>(0x0041C350)(feeler); }
 
 // 0x005003A0: the collision feeler from kFeelerStart to kFeelerEnd: true on a hit (kHitPoint, kHitNormal, ...).

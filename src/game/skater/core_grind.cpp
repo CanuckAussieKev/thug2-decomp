@@ -5,8 +5,10 @@
 
 #include "game/core/dbg.h"
 #include "game/mth/math.h"
+#include "game/mth/matrix.h"
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
@@ -49,6 +51,10 @@ constexpr uint32_t kBadLedgeSide = 0x31669752;        // Rail_Bad_Ledge_Side_Dis
 constexpr uint32_t kRailTolerance = 0xD0688D4E;       // Rail_Tolerance
 constexpr uint32_t kPointRail = 0xB8048F1D;           // PointRail (event)
 constexpr uint32_t kPointRailSpin = 0xDA82D6D6;       // PointRailSpin (event)
+constexpr uint32_t kDisallowGrind = 0x96DCA7DC;       // Physics_Wallplant_Disallow_Grind_Duration
+constexpr uint32_t kCornerLeaveAngle = 0x76C1DA15;    // Rail_Corner_Leave_Angle
+constexpr uint32_t kRailManagerType = 0x1CDFB2A3;     // RailManager (a component)
+constexpr uint32_t kParkEditorLevel = 0xD443A2BC;     // (the park editor's level)
 
 // The trigger events (const int[3]).
 constexpr uint32_t kGrindEvents = 0x0064BC28;     // getting onto a rail
@@ -510,6 +516,77 @@ void CorePhysicsComponent::StartGrind(const Mth::Vector* point, Obj::CRailNode* 
         GrindAlongRail(this, point, fromObject);
 }
 
+namespace {
+
+// 0x00500020: whether the rail `node` (of `manager`) may be ground.
+bool CanGrind(void* component, Obj::CRailNode* node, Obj::CRailManager* manager)
+{
+    return GameFunction<bool(__thiscall*)(void*, Obj::CRailNode*, Obj::CRailManager*, int)>(0x00500020)(component, node,
+                                                                                                        manager, 0);
+}
+
+} // namespace
+
+// 0x0050DAE0
+void CorePhysicsComponent::TryGrind(bool always)
+{
+    if (StateOf(this) != kAir && !always)
+        return;
+    if (Flag(this, 0x70) || At<uint8_t>(this, 0x3A4) || !InputOf(this)[0x1A0])
+        return;
+    if (Since(At<uint32_t>(this, 0x4E0)) < static_cast<uint32_t>(Script::GetInteger(kDisallowGrind)))
+        return;
+    void* object = ObjectOf(this);
+    Mth::Vector last = VectorAt(object, kOldPosition);
+    Mth::Vector now = VectorAt(object, kPosition);
+    // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
+    float minAlignment = 1.0f;
+    if (At<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) != kParkEditorLevel &&
+        GameFunction<uint32_t(__cdecl*)(uint32_t)>(0x00420250)(At<uint32_t>(this, 0x234)) < At<uint32_t>(this, 0x23C))
+        minAlignment = static_cast<float>(std::cos(static_cast<double>(Script::GetFloat(kCornerLeaveAngle)) * kDegrees));
+    auto* manager = At<Obj::CRailManager*>(GameVariable<uint8_t*>(0x007CE478), 0x24);
+    Mth::Vector point;
+    Obj::CRailNode* node;
+    if (manager->FindGrindRail(&last, &now, &point, &node, nullptr, minAlignment, 0)) {
+        void* o = ObjectOf(this);
+        GameFunction<void(__cdecl*)(int, const Mth::Vector*, const Mth::Vector*)>(0x004FC4A0)(
+            2, &VectorAt(o, kOldPosition), &VectorAt(o, kPosition));
+        StopRiding(this);
+        if (CanGrind(this, node, manager))
+            StartGrind(&point, node, manager, false, false);
+        return;
+    }
+    // The rails on moving objects: the move in the object's space.
+    for (auto* rails = Obj::CompositeObjectManager()->GetFirstComponentByType(kRailManagerType); rails;
+         rails = At<Obj::CBaseComponent*>(rails, 0x14)) {
+        auto* objectRails = reinterpret_cast<Obj::CRailManager*(__thiscall*)(void*)>(
+            (*reinterpret_cast<void***>(rails))[13])(rails);
+        Mth::Matrix world;
+        GameFunction<void(__thiscall*)(void*, Mth::Matrix*)>(0x0042BA10)(rails, &world);
+        Mth::Matrix inverse;
+        inverse = world;
+        inverse.Invert();
+        last.w = 1.0f;
+        now.w = 1.0f;
+        Mth::Vector localLast, localNow;
+        inverse.Transform(localLast, last);
+        inverse.Transform(localNow, now);
+        if (objectRails->FindGrindRail(&localLast, &localNow, &point, &node, nullptr, minAlignment, 0)) {
+            point.w = 1.0f;
+            Mth::Vector inWorld;
+            point = world.Transform(inWorld, point);
+            if (!CanGrind(this, node, objectRails))
+                return;
+            StartGrind(&point, node, objectRails, false, false);
+            GameFunction<void(__thiscall*)(void*, void*)>(0x0043EB80)(At<void*>(this, kRide), At<void*>(rails, 0xC));
+            GameFunction<void(__thiscall*)(void*)>(0x00427DD0)(At<void*>(this, kRide));
+            VectorAt(ObjectOf(this), kVelocity) -= VectorAt(Tracker(this)->m_object.mp_object, kVelocity);
+            return;
+        }
+    }
+}
+
 } // namespace Skater
 
+REPLACE(0x0050DAE0, &Skater::CorePhysicsComponent::TryGrind);
 REPLACE(0x0050A770, &Skater::CorePhysicsComponent::StartGrind);

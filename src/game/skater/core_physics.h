@@ -125,6 +125,23 @@ public:
     // flattened, and too slow against the facing it starts from the facing.
     void StartGrind(const Mth::Vector* point, Obj::CRailNode* node, Obj::CRailManager* manager, bool noLipTrick,
                     bool fromObject);
+    // 0x0050DAE0: in the air (or `always`), grind button (+0x1A0) held, not after a wallplant for
+    // Physics_Wallplant_Disallow_Grind_Duration: a rail along the last move (soon after leaving a rail, only one
+    // lining up within Rail_Corner_Leave_Angle) - the level's, else each moving rail manager's (the move in its
+    // object's space, the point back in the world: the skater then rides that object, less its velocity) - and,
+    // when 0x00500020 allows it, onto it (StartGrind).
+    void TryGrind(bool always);
+
+    // --- core_states.cpp ---
+    // 0x0050BF50: the lip state's update: carried by what the skater rides (0x00427A00: the position and +0x258),
+    // the lip's balance (Perfect Rail cheat: its global flag, no lean), button +0x1C0 to flag +0x20, getting off it
+    // (0x004FFB10: the rail's TriggerScript twice), the rail node's Name, +0x238 the time.
+    void DoLipPhysics();
+    // 0x0050C670 (from the skater when it gets back on its board): on the ground or into the air (+0x94 the same;
+    // in the air flag +0xC0, and +0xB0 for +0x1534's +0x9B), the matrices and ground normals from the object, the
+    // positions kept, the jump / trick state cleared; then onto a rail (`grind`: a point, +0x10 its manager, +0x14
+    // its node, +0x18 an object to ride - the old ride let go) or an acid drop (0x00502F20).
+    void ResumeSkating(bool onGround, const uint8_t* grind, void* acidDrop);
 
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
