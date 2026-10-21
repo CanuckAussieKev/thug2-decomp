@@ -426,6 +426,15 @@ export class NodePass {
             const s = this.whole(node, "THUGPRO's own nodes (TPN-THUG1-2)");
             const model = s.get("model") ?? s.get("Model");
             if (typeof model === "string" && model.toLowerCase() !== "none") this.addRefs(model);
+            // (their animation sets loaded too - THUGPRO's load_level_anims isn't ours: Venice's 3 seagulls, THUG2's
+            // anl_seagull set, played `default` from a set never loaded - FrameIndex on null, 0x00482BA2)
+            for (const key of ["AnimName", "Extra_Anims"]) {
+                const anim = s.get(key);
+                if (!(anim instanceof Name)) continue;
+                if (this.port.thug2.scripts.has(anim.value))
+                    this.extraAnims.add(textOf(anim, n) || qb.nameText(anim.value, n));
+                else this.count(`THUGPRO's own nodes: ${key} not THUG2's (not loaded)`);
+            }
             return s;
         }
         if (["waypoint", "proximnode", "emitterobject"].includes(cls)) return this.whole(node, `${cls}s`);

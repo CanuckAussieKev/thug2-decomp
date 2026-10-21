@@ -101,8 +101,17 @@ export function sectorBytes(sector: thug2Scene.Sector, materials: readonly thug2
 export function colBytes(o: thug2Col.ColObject): Buffer {
     return thug2Col.writeCol({ objects: [o], pad: 0 });
 }
+// A node's fingerprint: its NeverScript text with every name as a checksum. The register's CRCs were made with each
+// checksum written as the number's hex digits (`#1CA1FF20`); qb.nameText writes NeverScript's form - the bytes in file
+// order (`#20FFA11C`) - since 2026-10-21, which changed every node's text: every TPN-THPS3 node was then left out
+// ("differs from the register") while the scripts naming them stayed - Tokyo's TRG_Restart_EventL... So the
+// fingerprint keeps the register's form.
 export function nodeBytes(node: Struct): Buffer {
-    return Buffer.from(qb.toNs(node, new Map()), "latin1");
+    const text = qb.toNs(node, new Map()).replace(/#([0-9A-F]{8})\b/g, (_, hex: string) => {
+        const bytes = Buffer.from(hex, "hex");
+        return `#${hex8(bytes.readUInt32LE(0))}`;
+    });
+    return Buffer.from(text, "latin1");
 }
 export function itemCrc(data: Uint8Array): string {
     return crcHex(data);
@@ -165,6 +174,11 @@ export interface LevelNew {
     collision: geometry.SourceColObject[];
     models: [string, Buffer][]; // [path under models\, data]
     names: Map<number, string>; // THUGPRO's checksum names (for writing the node array)
+    // THUGPRO's globals its loaded scripts name (in their files: Shipyard's window counter's shp_window_objects...);
+    // resolveGlobals takes out those THPS3 defines (`thps3Globals`: THPS3's kept) and marks the flag numbers
+    globals: Map<number, QbValue>;
+    thps3Globals: Set<number>;
+    flagGlobals: Set<number>; // THPS3's level-flag numbers THUGPRO's scripts `Change` as variables (adaptScript)
     warnings: string[];
     counts: Record<string, number>;
 }
@@ -179,6 +193,9 @@ export const emptyNew = (): LevelNew => ({
     collision: [],
     models: [],
     names: new Map(),
+    globals: new Map(),
+    thps3Globals: new Set(),
+    flagGlobals: new Set(),
     warnings: [],
     counts: {},
 });
@@ -217,7 +234,12 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
     const archives = new Archives(thugpro);
     const qbs = new Map<
         string,
-        { nodes: Map<number, Struct>; scripts: Map<number, Buffer>; names: Map<number, string> }
+        {
+            nodes: Map<number, Struct>;
+            scripts: Map<number, Buffer>;
+            names: Map<number, string>;
+            globals: Map<number, QbValue>;
+        }
     >();
     const qbOf = (archive: string, file: string) => {
         const key = `${archive}|${file}`.toLowerCase();
@@ -228,7 +250,13 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
             const [array, names] = nodeArray(data, file);
             const nodes = new Map<number, Struct>();
             for (const n of array as QbValue[]) if (n instanceof Struct && nameOf(n) !== null) nodes.set(nameOf(n)!, n);
-            q = { nodes, scripts: scriptBytes(data), names };
+            let globals = new Map<number, QbValue>();
+            try {
+                globals = new Map(new qb.QbFile(data, file, true).globals.map(([k, v]) => [k.value, v]));
+            } catch {
+                // (a file whose globals the reader can't take: its scripts are still usable)
+            }
+            q = { nodes, scripts: scriptBytes(data), names, globals };
             qbs.set(key, q);
         }
         return q;
@@ -413,6 +441,12 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
                 }
                 for (const [k, v] of q.names) out.names.set(k, v);
                 out.scripts.set(target(e.target.name), { code, entry: e });
+                // (the globals of its file it names: without them GetArraySize / IsAlive read a null - Shipyard's
+                // SHP_TP_WindowCounter crashed on its shp_window_objects)
+                for (const r of scriptNames(code).refs) {
+                    const g = q.globals.get(r);
+                    if (g !== undefined) out.globals.set(r, g);
+                }
                 count("scripts");
             }
         } catch (err) {
@@ -555,10 +589,15 @@ export function applyGeometry(
 }
 
 // A script's bytes with the entry's replace_calls applied (each name swapped where it is a name token: the bytes keep
-// their length, so if / else jumps stay right).
-export function adaptScript(code: Buffer, replace: Readonly<Record<string, string>> | undefined): Buffer {
-    if (replace === undefined || !Object.keys(replace).length) return code;
-    const swap = new Map(Object.entries(replace).map(([a, b]) => [qb.checksum(a), qb.checksum(b)]));
+// their length, so if / else jumps stay right); `flags` (LevelNew.flagGlobals): `Change <g>=0` / `=1` of those names
+// as `UnSetFlag flag=<g>` / `SetFlag flag=<g>` - the same 16 bytes (name name = int / name name = name).
+export function adaptScript(
+    code: Buffer,
+    replace: Readonly<Record<string, string>> | undefined,
+    flags: ReadonlySet<number> = new Set(),
+): Buffer {
+    const swap = new Map(Object.entries(replace ?? {}).map(([a, b]) => [qb.checksum(a), qb.checksum(b)]));
+    if (!swap.size && !flags.size) return code;
     const out = Buffer.from(code);
     for (const [offset, t, p] of qb.tokens(Buffer.concat([code, Buffer.from([0])]), true)) {
         if (t === 0x00) break;
@@ -566,22 +605,91 @@ export function adaptScript(code: Buffer, replace: Readonly<Record<string, strin
         const to = swap.get(p.readUInt32LE(0));
         if (to !== undefined) out.writeUInt32LE(to, offset + 1);
     }
+    for (const [offset, global, value] of flagChanges(code, flags)) {
+        out.writeUInt32LE(qb.checksum(value ? "SetFlag" : "UnSetFlag"), offset + 1);
+        out.writeUInt32LE(qb.checksum("flag"), offset + 6);
+        out[offset + 10] = 0x07;
+        out[offset + 11] = 0x16;
+        out.writeUInt32LE(global, offset + 12);
+    }
     return out;
 }
 
+// The `Change <g>=0` / `=1` statements of a script naming one of `globals`: [offset of Change's token, g, 0 / 1].
+export function flagChanges(code: Uint8Array, globals: ReadonlySet<number>): [number, number, number][] {
+    const found: [number, number, number][] = [];
+    if (!globals.size) return found;
+    const change = qb.checksum("Change");
+    const toks = [...qb.tokens(Buffer.concat([code, Buffer.from([0])]), true)];
+    for (let i = 0; i + 3 < toks.length; i++) {
+        const [offset, t, p] = toks[i]!;
+        if (t !== 0x16 || p.readUInt32LE(0) !== change) continue;
+        const [, t1, p1] = toks[i + 1]!;
+        const [, t2] = toks[i + 2]!;
+        const [, t3, p3] = toks[i + 3]!;
+        if (t1 !== 0x16 || t2 !== 0x07 || t3 !== 0x17) continue;
+        const g = p1.readUInt32LE(0);
+        const v = p3.readInt32LE(0);
+        if (globals.has(g) && (v === 0 || v === 1)) found.push([offset, g, v]);
+    }
+    return found;
+}
+
+// THUGPRO's globals (LevelNew.globals) against THPS3's (the level's and the global .qb files, `thps3`): a name THPS3
+// defines keeps THPS3's value - its scripts use it (thps3Globals: portScripts brings it along). Where THPS3's is an
+// integer and THUGPRO's scripts `Change` it to 0 / 1, it is one of THPS3's level-flag numbers (SetFlag / GetFlag
+// flag=<g>) that THUGPRO made a variable - Shipyard's BDJ_SHP_ANNOUNCE_ON (14; THUGPRO's 0 / 1): flagGlobals, those
+// statements made UnSetFlag / SetFlag (adaptScript), so THPS3's announcer scripts still see them. The others stay
+// THUGPRO's (globalsNs). Returns report lines.
+export function resolveGlobals(n: LevelNew, thps3: readonly qb.QbFile[]): string[] {
+    const ours = new Map<number, QbValue>();
+    for (const q of thps3) for (const [k, v] of q.globals) if (!ours.has(k.value)) ours.set(k.value, v);
+    const report: string[] = [];
+    for (const k of [...n.globals.keys()]) {
+        const mine = ours.get(k);
+        if (mine === undefined) continue;
+        n.globals.delete(k);
+        n.thps3Globals.add(k);
+        if (typeof mine !== "number" || !Number.isInteger(mine)) continue;
+        const one = new Set([k]);
+        if ([...n.scripts.values()].some(({ code }) => flagChanges(code, one).length)) {
+            n.flagGlobals.add(k);
+            report.push(
+                `TPN-THPS3: ${qb.nameText(k, n.names)} is THPS3's level flag ${mine}: THUGPRO's Change of it made ` +
+                    "UnSetFlag / SetFlag",
+            );
+        }
+    }
+    return report;
+}
+
+// THUGPRO's own globals (LevelNew.globals after resolveGlobals) as NeverScript text, but those THUG2 has (`skip`).
+export function globalsNs(n: LevelNew, names: ReadonlyMap<number, string>, skip: ReadonlySet<number>): string {
+    let text = "";
+    for (const [k, v] of [...n.globals].sort((a, b) => a[0] - b[0])) {
+        if (!skip.has(k)) text += `${qb.nameText(k, names)} = ${qb.toNs(v, names)}\n`;
+    }
+    return text;
+}
+
 // What portScripts needs of THUGPRO's scripts (thps3_levels ExtraScripts): the names added to the file, the THPS3
-// scripts they and the added nodes' trigger scripts may use (the translator brings those it can), and the `set`
-// scripts replacing ours.
+// scripts they and the added nodes' trigger scripts may use (the translator brings those it can), the `set`
+// scripts replacing ours, and the level's THUGPRO items (`tp`: the globals they name).
 export function extraScripts(
     n: LevelNew,
     names: Map<number, string>,
-): { provided: number[]; roots: [number, "object" | "skater" | "none"][]; replacing: Map<number, Buffer> } {
+): {
+    provided: number[];
+    roots: [number, "object" | "skater" | "none"][];
+    replacing: Map<number, Buffer>;
+    tp: LevelNew;
+} {
     const provided: number[] = [];
     const roots: [number, "object" | "skater" | "none"][] = [];
     const replacing = new Map<number, Buffer>();
     for (const [k, { code, entry }] of n.scripts) {
         if (entry.op === "add") provided.push(k);
-        else replacing.set(k, adaptScript(code, entry.replace_calls));
+        else replacing.set(k, adaptScript(code, entry.replace_calls, n.flagGlobals));
         const context = entry.context ?? "none";
         for (const r of scriptNames(code).refs) roots.push([r, context]);
     }
@@ -590,7 +698,7 @@ export function extraScripts(
         if (t instanceof Name) roots.push([t.value, "object"]);
     }
     for (const [k, v] of n.names) if (!names.has(k)) names.set(k, v);
-    return { provided, roots, replacing };
+    return { provided, roots, replacing, tp: n };
 }
 
 // THUGPRO's added scripts (adapted), but those whose name the level's file has already: [{name: bytes}, clashes].
@@ -600,7 +708,7 @@ export function addedScripts(n: LevelNew, existing: ReadonlySet<number>): [Map<n
     for (const [k, { code, entry }] of n.scripts) {
         if (entry.op !== "add") continue;
         if (existing.has(k)) clashes.push(entry.target.name);
-        else out.set(k, adaptScript(code, entry.replace_calls));
+        else out.set(k, adaptScript(code, entry.replace_calls, n.flagGlobals));
     }
     return [out, clashes];
 }

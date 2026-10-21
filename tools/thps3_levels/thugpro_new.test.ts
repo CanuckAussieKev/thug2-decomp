@@ -6,7 +6,19 @@ import * as qb from "../level_port/qb.ts";
 import { Name, Struct } from "../level_port/qb.ts";
 import { pack } from "../lib/struct.ts";
 import { PortChanges } from "./thps3_levels.ts";
-import { adaptScript, applyNodes, emptyNew, type NewEntry, rowId, scriptBytes, scriptNames } from "./thugpro_new.ts";
+import {
+    adaptScript,
+    applyNodes,
+    emptyNew,
+    flagChanges,
+    globalsNs,
+    type NewEntry,
+    nodeBytes,
+    resolveGlobals,
+    rowId,
+    scriptBytes,
+    scriptNames,
+} from "./thugpro_new.ts";
 
 const name = (text: string): Buffer => Buffer.concat([Buffer.from([0x16]), pack("<I", qb.checksum(text))]);
 const nl = Buffer.from([0x01]);
@@ -51,6 +63,66 @@ test("adaptScript swaps a name, the bytes keep their length", () => {
     assert.ok(scriptNames(out).calls.has(qb.checksum("Create")));
     assert.ok(!scriptNames(out).calls.has(qb.checksum("THUGPRO_ForceCreate")));
     assert.equal(adaptScript(code, undefined), code);
+});
+
+test("nodeBytes: names unknown to it as the register's #<hex digits> (its CRCs were made so)", () => {
+    const node = new Struct([[new Name(qb.checksum("Class")), new Name(0x1ca1ff20)]]);
+    const text = nodeBytes(node).toString("latin1");
+    assert.ok(text.includes("#1CA1FF20"), text);
+    assert.ok(!text.includes("#20FFA11C"), text);
+});
+
+test("adaptScript flags: Change <g>=0 / 1 of a level-flag number as UnSetFlag / SetFlag flag=<g>", () => {
+    const int = (v: number): Buffer => Buffer.concat([Buffer.from([0x17]), pack("<i", v)]);
+    const change = (v: number): Buffer =>
+        Buffer.concat([name("Change"), name("BDJ_SHP_ANNOUNCE_ON"), Buffer.from([0x07]), int(v), nl]);
+    const code = Buffer.concat([
+        Buffer.from([0x23]),
+        name("Foo"),
+        nl,
+        change(0),
+        change(1),
+        change(2),
+        Buffer.concat([name("Change"), name("Other"), Buffer.from([0x07]), int(0), nl]),
+        Buffer.from([0x24]),
+        nl,
+    ]);
+    const flag = new Set([qb.checksum("BDJ_SHP_ANNOUNCE_ON")]);
+    assert.equal(flagChanges(code, flag).length, 2);
+    const out = adaptScript(code, undefined, flag);
+    assert.equal(out.length, code.length);
+    const expect = (cmd: string): Buffer =>
+        Buffer.concat([name(cmd), name("flag"), Buffer.from([0x07]), name("BDJ_SHP_ANNOUNCE_ON"), nl]);
+    assert.ok(out.includes(expect("UnSetFlag")));
+    assert.ok(out.includes(expect("SetFlag")));
+    assert.ok(out.includes(change(2)), "only 0 / 1 are flag changes");
+    assert.ok(out.includes(Buffer.concat([name("Change"), name("Other")])), "other globals untouched");
+});
+
+test("resolveGlobals: THPS3's names kept (a Changed flag number marked), THUGPRO's own written", () => {
+    const n = emptyNew();
+    n.globals.set(qb.checksum("BDJ_SHP_ANNOUNCE_ON"), 0);
+    n.globals.set(qb.checksum("shp_window_objects"), [new Name(qb.checksum("sl_GlassSide01"))]);
+    const code = Buffer.concat([
+        name("Change"),
+        name("BDJ_SHP_ANNOUNCE_ON"),
+        Buffer.from([0x07, 0x17]),
+        pack("<i", 1),
+        nl,
+    ]);
+    n.scripts.set(qb.checksum("Foo"), { code, entry: { op: "add" } as NewEntry });
+    const thps3 = new qb.QbFile(
+        Buffer.concat([name("BDJ_SHP_ANNOUNCE_ON"), Buffer.from([0x07, 0x17]), pack("<i", 14), nl, Buffer.from([0])]),
+        "thps3",
+    );
+    const report = resolveGlobals(n, [thps3]);
+    assert.equal(report.length, 1);
+    assert.ok(n.flagGlobals.has(qb.checksum("BDJ_SHP_ANNOUNCE_ON")));
+    assert.ok(n.thps3Globals.has(qb.checksum("BDJ_SHP_ANNOUNCE_ON")));
+    const names = new Map([[qb.checksum("shp_window_objects"), "shp_window_objects"]]);
+    names.set(qb.checksum("sl_GlassSide01"), "sl_GlassSide01");
+    assert.equal(globalsNs(n, names, new Set()), "shp_window_objects = [sl_GlassSide01]\n");
+    assert.equal(globalsNs(n, names, new Set([qb.checksum("shp_window_objects")])), "");
 });
 
 test("rowId: one register row per kind", () => {
