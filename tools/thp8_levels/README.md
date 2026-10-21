@@ -101,7 +101,10 @@ public descriptions of the Xbox 360's texture fetch constant / tiling and of Hav
   to THUG2's nearest.
 - Nodes (level_port's static path): restarts, rails (with their Links and TerrainTypes), level geometry, kill zones
   where THP8's trigger script calls a kill-skater script by name; positions in inches.
-- Sky: THP8's default sky dome. Lighting: THUG2's default (THP8 lights with ambient / shadow maps and its time of day).
+- Glows and light shafts (lamp halos, sun shafts: sectors named `...Glow`, `..._Glo`, `...LightShaft...`) drawn adding,
+  at the strength of their material colour (the four floats before the first texture's checksum in the material's
+  parameter block: R, G, B, A); THP8's blend modes themselves are not decoded yet.
+- Sky: THP8's default sky dome, its cloud layers faded out towards the horizon. Lighting: THUG2's default (THP8 lights with ambient / shadow maps and its time of day).
 
 Not yet (phase 2 - docs/pending/thp8.md): gaps, the kill zones THP8 writes as `Skater:KillSkater` member calls,
 scripts, peds, vehicles, game objects (the zone's own .mdl / .skin), particles, sub-zones (_gfx / _sfx), lighting from

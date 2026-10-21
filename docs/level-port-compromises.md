@@ -350,7 +350,7 @@ Formats marked "not identified" haven't been looked into yet.
 Converter `tools/thps2_levels` (README there; records in docs/pending/thps2.md). All ten levels - Hangar, School II,
 Marseille, NY City, Venice Beach, Skatestreet, Philadelphia, The Bullring, Chopper Drop, Skate Heaven - from THPS2's own
 ALL.PKR, as `thps2_<name>` in a THPS2 level select section (THUG1's remakes of Hangar / School II / Venice / Philly stay
-in THUG1's). Every level loads in free skate (agents' load checks only; nobody has skated them yet).
+in THUG1's). Every level loads in free skate (agents' load checks only - 2026-10-22, all fifteen again after the glow / cloud fixes; nobody has skated them yet).
 
 | What | THPS2 |
 |---|---|
@@ -380,7 +380,7 @@ world is one streamed city; each of its zones is a level here (the whole city is
 the eleven city zones (Suburbs, School, School inside, Shops, Slums, Factory, Capitol, City park, Skate park, Fun park,
 Parking - sign names ours), Training, the Cartoon world, the skate shop and the bedroom, as `thp8_<zone>` in a
 "TONY HAWK'S PROJECT 8" level select section (numbers 110-124). All fifteen load in free skate (agents' load checks
-only; nobody has skated them yet).
+only - 2026-10-22, all fifteen again after the glow / cloud fixes; nobody has skated them yet).
 
 | What | THP8 |
 |---|---|
@@ -394,7 +394,8 @@ only; nobody has skated them yet).
 | Kill zones | Original where the trigger script calls a kill-skater script (0-4 per zone) |
 | Node flags | THP8's non-story values (game_progress_set_non_story_mode_nodeflags: gates open, barriers down); nodes left not made are left out of the scene and collision |
 | Network barriers | Original (z_online_<x>'s walls, for the areas that are one zone), collision only |
-| Sky | Original clouds (THP8's default sky), cut at the horizon; its atmosphere domes (a shader) as a stand-in clear-sky gradient |
+| Sky | Original clouds (THP8's default sky), faded out towards the horizon (cutting them there left the dome showing through as grey spikes); its atmosphere domes (a shader) as a stand-in clear-sky gradient |
+| Glows, light shafts | Stand-in blend: drawn adding, picked by their sectors' names (THP8's blend mode in the material's parameter block not found yet), at the strength of the material colour's alpha where the block has one |
 | Billboards | Missing (camera-facing quads, as THAW's) |
 | Gaps, scripts, peds, vehicles, game objects, particles, sounds, music, goals | Missing (phase 2) |
 | Level select signs | Stand-in: THUG2's training sign (placeholders) |

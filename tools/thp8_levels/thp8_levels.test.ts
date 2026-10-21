@@ -10,7 +10,18 @@ import * as dxt from "./dxt.ts";
 import * as geom from "./geom.ts";
 import * as havok from "./havok.ts";
 import { readPak, readToc, readTocList } from "./thp8.ts";
-import { place, rotate, SCALE, thug2Terrain, toThug } from "./thp8_levels.ts";
+import {
+    cloudFade,
+    GLOW_DEFAULT,
+    glowMaterials,
+    glowScale,
+    materialColour,
+    place,
+    rotate,
+    SCALE,
+    thug2Terrain,
+    toThug,
+} from "./thp8_levels.ts";
 import * as xenos from "./xenos.ts";
 
 const be = (...words: number[]): Buffer => {
@@ -292,4 +303,54 @@ test("havok: a packfile's classes read from its __types__, an object's members b
     const bad = packfile([classnames]);
     bad.writeUInt32BE(0, 0);
     assert.throws(() => new havok.Packfile(bad), /not a Havok packfile/);
+});
+
+test("sky: cloud layers fade out towards the horizon (none at or below it, all from 0.35 up)", () => {
+    assert.equal(cloudFade([100, 0, 0]), 0);
+    assert.equal(cloudFade([100, -20, 0]), 0);
+    assert.equal(cloudFade([0, 100, 0]), 1);
+    assert.equal(cloudFade([100, 40, 0]), 1);
+    const low = cloudFade([100, 10, 0]);
+    const high = cloudFade([100, 25, 0]);
+    assert.ok(low > 0 && low < high && high < 1);
+});
+
+test("glows: a material is drawn adding only when every sector using it is a glow / light shaft", () => {
+    const mesh = (material: number) => ({ material }) as geom.GeomMesh;
+    const sector = (c: number, ...materials: number[]) =>
+        ({ checksum: c, meshes: materials.map(mesh) }) as unknown as geom.GeomSector;
+    const g = {
+        materials: [],
+        bbox: [],
+        sectors: [sector(1, 10, 11), sector(2, 11, 12), sector(3, 13), sector(4, 14)],
+    };
+    const names = new Map([
+        [1, "Z_Skateshop_Lamp_Glo01"],
+        [2, "Z_Skateshop_g_counter02"],
+        [3, "Z_Outschool_PH_Outschool_Lightshafts05"],
+        [4, "Z_Shops_g_GlowingSign_frame"],
+    ]);
+    assert.deepEqual([...glowMaterials(g as geom.Geom, names)].sort(), [10, 13]);
+});
+
+test("material colour: the four floats before the first texture's checksum; glows scaled by it times its alpha", () => {
+    const params = Buffer.alloc(0x80);
+    params.writeUInt32BE(0x00000008, 0x24);
+    [0.5, 1, 1, 0.1].forEach((f, i) => params.writeFloatBE(f, 0x50 + 4 * i));
+    params.writeUInt32BE(0xe893f0d3, 0x60);
+    const m = { textures: [0xe893f0d3], params } as unknown as geom.GeomMaterial;
+    assert.deepEqual(
+        materialColour(m)!.map((x) => +x.toFixed(3)),
+        [0.5, 1, 1, 0.1],
+    );
+    assert.deepEqual(
+        glowScale(m).map((x) => +x.toFixed(3)),
+        [0.05, 0.1, 0.1],
+    );
+    // no texture checksum in the block, or floats out of range: no colour, the stand-in strength
+    const none = { textures: [0x1234], params } as unknown as geom.GeomMaterial;
+    assert.equal(materialColour(none), null);
+    assert.deepEqual(glowScale(none), [GLOW_DEFAULT, GLOW_DEFAULT, GLOW_DEFAULT]);
+    params.writeFloatBE(-3, 0x50);
+    assert.equal(materialColour(m), null);
 });

@@ -344,6 +344,43 @@ export interface SceneParts {
     placed: Map<number, { master: number; at: Placement }>;
     hidden?: ReadonlySet<number>; // sectors not made (notMade)
     dome?: boolean; // untextured materials coloured as a clear sky (THP8's atmosphere shader - the sky's dome)
+    additive?: ReadonlySet<number>; // materials drawn adding (glowMaterials)
+}
+
+// THP8's glows and light shafts (lamp halos, sun shafts: textures on black that its shaders add) by their sectors'
+// names - their blend mode is somewhere in the material's parameter block, not found yet. A material is drawn adding
+// when every sector using it is one of these; blended by its alpha they stood as white haze.
+export const GLOW_SECTOR = /(glow\d*$|_glo\d*$|glow_|_glo_|lightshaft|light_shaft)/i;
+export function glowMaterials(g: geom.Geom, names: ReadonlyMap<number, string>): Set<number> {
+    const glow = new Map<number, boolean>();
+    for (const s of g.sectors) {
+        const is = GLOW_SECTOR.test(names.get(s.checksum) ?? "");
+        for (const m of s.meshes) glow.set(m.material, (glow.get(m.material) ?? true) && is);
+    }
+    return new Set([...glow].filter(([, is]) => is).map(([m]) => m));
+}
+
+// A material's colour: in many parameter blocks the four floats (R, G, B, A) just before the first texture's
+// checksum - a tint, or for glows their strength in A (0.09 for the skate shop's lamp halos). Not every block has it
+// (and in some the floats are 0, 0, 0 - another parameter): null when missing or out of range.
+export function materialColour(m: geom.GeomMaterial): number[] | null {
+    if (!m.textures.length) return null;
+    const p = m.params;
+    for (let at = 0x20; at + 4 <= p.length; at += 4) {
+        if (p.readUInt32BE(at) !== m.textures[0]) continue;
+        const c = [0, 1, 2, 3].map((i) => p.readFloatBE(at - 16 + 4 * i));
+        return c.every((x) => Number.isFinite(x) && x >= 0 && x <= 4) ? c : null;
+    }
+    return null;
+}
+
+// How bright a glow is drawn (its vertex colours scaled): its colour times its alpha, or a stand-in when its
+// parameter block has none.
+export const GLOW_DEFAULT = 0.35;
+export function glowScale(m: geom.GeomMaterial): number[] {
+    const c = materialColour(m);
+    if (!c) return [GLOW_DEFAULT, GLOW_DEFAULT, GLOW_DEFAULT];
+    return [c[0]! * c[3]!, c[1]! * c[3]!, c[2]! * c[3]!].map((x) => Math.min(1, x));
 }
 
 const BILLBOARD = checksum("billboard"); // the shader template of THP8's camera-facing quads
@@ -378,6 +415,7 @@ export function convertScenes(
     const texOut = new Map<number, tex.Texture>();
     const transparent = new Set<number>();
     const billboards = new Set<number>();
+    const glows = new Map<number, number[]>(); // additive materials -> their R, G, B scale (glowScale)
     const sectors: geometry.SourceSector[] = [];
     const written = new Set<number>();
     const counts = { sectors: 0, instances: 0, masters: 0, triangles: 0, skipped: 0, hidden: 0, billboards: 0 };
@@ -401,10 +439,18 @@ export function convertScenes(
                 if (texOut.has(first)) texture = first;
             }
             const t = texOut.get(texture);
-            const alpha = t !== undefined && (t.dxt === 5 || t.dxt === 2);
+            const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);
+            const alpha = !add && t !== undefined && (t.dxt === 5 || t.dxt === 2);
             if (alpha) transparent.add(m.checksum);
-            const mat = makeMaterial(m.checksum, texture, alpha, true);
-            if (alpha) mat.noBackfaceCulling = 1;
+            const mat = makeMaterial(m.checksum, texture, add ? "add" : alpha, true);
+            if (alpha || add) mat.noBackfaceCulling = 1;
+            if (add) {
+                // (in the transparent bucket, after the opaque scene: drawn there without it, a halo's black
+                // square stood on the floor)
+                mat.passes[0]!.flags |= thug2Scene.PASS_TRANSPARENT;
+                mat.drawOrder = 1500.0;
+                glows.set(m.checksum, glowScale(m));
+            }
             materials.set(m.checksum, mat);
         }
         const bySector = new Map(g.sectors.map((s) => [s.checksum, s]));
@@ -427,6 +473,7 @@ export function convertScenes(
                 }
                 const base = positions.length;
                 const blend = transparent.has(m.material);
+                const glow = glows.get(m.material);
                 const dome = part.dome && !materials.get(m.material)!.passes[0]!.texture;
                 for (const v of geom.readVertices(m)) {
                     const q = place(v.position, at);
@@ -438,15 +485,25 @@ export function convertScenes(
                     }
                     // (255 = full as THUG2's 128; opaque materials' vertex alpha - THP8's layer blend weights - full)
                     const [b, g2, r, a] = v.color as [number, number, number, number];
-                    colors.push([b >> 1, g2 >> 1, r >> 1, blend ? a >> 1 : 128]);
+                    // (the sky's cloud layers faded out towards the horizon: THP8's city and haze hide their low
+                    // edges, which in THUG2's small sky stood up as grey spikes)
+                    const fade = part.dome ? cloudFade(v.position) : 1;
+                    const k = glow ?? [1, 1, 1];
+                    colors.push([
+                        Math.round((b >> 1) * k[2]!),
+                        Math.round((g2 >> 1) * k[1]!),
+                        Math.round((r >> 1) * k[0]!),
+                        blend ? Math.round((a >> 1) * fade) : 128,
+                    ]);
                     uvs.push(v.uvs[0] ?? [0, 0]);
                 }
                 let tris = geom.triangles(m).map((t) => t.map((i) => i + base));
                 if (part.dome && !dome) {
                     // (the sky's cloud layers reach below the horizon, where THP8's city hides them - THUG2's sky
-                    // turns with the camera, and looking down it showed them as sheets: their triangles whose middle
-                    // is below the horizon left out)
-                    tris = tris.filter((t) => t.reduce((y, i) => y + positions[i]![1]!, 0) >= 0);
+                    // turns with the camera, and looking down it showed them as sheets: their triangles wholly
+                    // below the horizon left out, the rest faded out towards it - cutting at the triangles' middles
+                    // had left the dome showing through as grey spikes)
+                    tris = tris.filter((t) => t.some((i) => positions[i]![1]! > 0));
                 }
                 counts.triangles += tris.length;
                 if (tris.length) meshes.push({ flags: 0, material: m.material, strip: trisToStrip(tris) });
@@ -877,7 +934,7 @@ export function cmdConvert(args: Args): number {
         }
         // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
         const done = convertScenes(
-            [{ geom: z.geom, textures: z.textures, placed, hidden }],
+            [{ geom: z.geom, textures: z.textures, placed, hidden, additive: glowMaterials(z.geom, names) }],
             shift,
             warnings,
             !args.noMips,
@@ -937,6 +994,15 @@ export function skyColour(p: readonly number[]): number[] {
     const t = Math.max(0, Math.min(1, p[1]! / r));
     const mix = (a: number, b: number): number => Math.round((a + (b - a) * t ** 0.6) / 2);
     return [mix(220, 190), mix(205, 120), mix(190, 70), 128];
+}
+
+// How much of a cloud layer's vertex shows by its height over the horizon (as the sine of the angle): none at the
+// horizon, all from CLOUD_FADE_TOP up, smoothly between.
+export const CLOUD_FADE_TOP = 0.35;
+export function cloudFade(p: readonly number[]): number {
+    const r = Math.hypot(p[0]!, p[1]!, p[2]!) || 1;
+    const t = Math.max(0, Math.min(1, p[1]! / r / CLOUD_FADE_TOP));
+    return t * t * (3 - 2 * t);
 }
 
 // THP8's default sky (SKIES\DEFAULT_SKY\default_sky.pak.xen: a dome scene) as the levels' sky, in the same units.

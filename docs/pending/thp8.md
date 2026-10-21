@@ -53,7 +53,33 @@ Not converted: z_mainmenu, z_mocap, z_navmesh, z_peds, z_anim, z_world, z_viewer
 
 ## In the game (workspace C:\Games\THUG2-4, under the lock; DLL built from this branch = main's C++)
 
-RESULTS_PLACEHOLDER
+2026-10-22 (continuation; DLL = this branch's verify build, i.e. main's C++ at 5413a11; `NOT run by a person yet`):
+
+- All fifteen zones convert (~26 s for all, `convert --thug2 C:\Games\THUG2-4`), make_menu_level installs them (the
+  PROJECT 8 section's fifteen signs listed in its output), and **all fifteen load into free skate** with
+  `run_game.ps1 -Level thp8_<zone> -Commands "waitfor level thp8_<zone> 170;wait 180"`: 300 frames each, no crash, no
+  hang, no dialog, nothing in the log (no debug-CRT / run-time check reports, no script asserts); pools held (no
+  pool ran dry - the largest, the Cartoon world with 165,000 triangles and 825 instances, and the Capitol with
+  178,000, load as the small ones do). One loop's parking run printed nothing (the funpark game before it was slow to
+  close); both again on their own: fine.
+- Captures (%TEMP%\thp8shots, not kept): the skater standing at each zone's first restart, textures, rails and
+  collision right (skater on the ground, no falling through), the city zones recognisable (the skate park's half pipe
+  and shelters, the school's library steps, the shops' bunting, the slums' bowl, the factory's conveyor, the cartoon
+  world's flower beds and painted roads, the bedroom, the skate shop's shoe wall).
+- Fixed on the way: (1) **grey spikes in the sky** behind every zone: the cloud layers were cut at the horizon by their
+  triangles' middles, which left the atmosphere dome showing through the gaps as tall grey triangles (confirmed by
+  leaving the clouds out: the spikes went with them) - now only the triangles wholly below the horizon are left out
+  and the clouds' vertex alpha fades to nothing at the horizon (cloudFade, full from sin 0.35 up). (2) **white haze in
+  the skate shop / bedroom / light shafts**: THP8's glows (textures on black that its shaders add) were alpha-blended
+  at full strength - now drawn adding (in the transparent bucket: without PASS_TRANSPARENT a floor halo's black
+  square showed) at the strength of their material colour: the four floats before the first texture's checksum in
+  the parameter block (R, G, B, A; the skate shop's lamp shafts A = 0.09). Glows are picked by sector name
+  (`GLOW_SECTOR`: 1-26 sectors per zone where they exist); the blend mode itself isn't decoded (a word at +0x24 of
+  the parameter block is 8 on most glows but also on foliage-like values: not a clean field).
+- Not fixed, seen: a long striped band across the skate park's start (a cable or tape - not looked into); the
+  horizon flat (THP8's periphery hills are there, as `SF_Perif_*` sectors, but low); levels look flat-lit and some
+  surfaces pale (THP8's material colours - tints in the same float block, e.g. trees 0.6 / 0.68 / 0.58 - not applied
+  except on glows: in some blocks those floats are 0, 0, 0 and mean something else).
 
 ## Left for phase 2
 
@@ -66,6 +92,10 @@ RESULTS_PLACEHOLDER
   it (Skate park + Fun park is the likely first pair).
 - THP8's English level names (localised text not decoded): sign names are ours; real level-select signs.
 - `NOT run by a person yet`: agents' load checks only.
+- Material tints: THP8's material colour (the float block before the first texture) on more than glows, once it's
+  known when those floats are a tint (not 0, 0, 0 houses).
+- The skate park's striped band; the skate shop's made restart puts the skater by the counter of a room open on one
+  side (a menu set).
 
 ## Phase-2 plan
 
