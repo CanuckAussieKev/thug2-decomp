@@ -187,5 +187,77 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     SkaterStateHistoryFrame).
   - Game run (THUG2-3, -level BO, ~20 s with the automation channel: skating, ollies, a trick, turning): loads, the
     skater skates, the score / special HUD shown; no exception, run-time check or CRT report in the log.
-  - Test: TestSkaterSound / TestSkaterStancePanel / TestSkaterState (selftests_skater_state.cpp). 48 deliberate
-    bugs: 47 caught; 1 equivalent (the bonk / cess speed's sum regrouped: the same float).
+  - Test: TestSkaterSound / TestSkaterStancePanel / TestSkaterState (selftests_skater_state_component.cpp - renamed
+    when SK1's selftests_skater_state.cpp merged). 48 deliberate bugs: 47 caught; 1 equivalent (the bonk / cess
+    speed's sum regrouped: the same float).
+- [x] Batch SK3-8 (NOT run in a network game - nothing offline reaches it; SkaterNonLocalNetLogic's component code,
+  11 functions): src/game/skater/nonlocal_net_logic.cpp (new).
+  - SkaterNonLocalNetLogic (0x850EEF66, vtable 0x0064BFAC, 0x2C0 bytes - another player's skater on this machine):
+    0x005147F0 Create, 0x005144E0 Construct, 0x005144B0 / 0x00514550 the destructors, 0x00514580 Finalize,
+    0x005144D0 ResetPlayback, 0x00514610 UpdateGroundLighting (a feeler 4800 down: the model's light from the
+    hit's vertex values, the shadow at the hit), 0x00514850 SnapToGround, 0x00514D10 TurnTowards, 0x00514E20
+    BounceOffWall, 0x00517270 Update (lighting, playback, extrapolation when this machine plays in a game that
+    wants it and the history is full, the history's messages, out of a lip, driving told to the scripts, the
+    looping sound).
+  - Test: TestSkaterNonLocalNetLogic / TestSkaterNonLocalNetLogicUpdate (selftests_skater_nonlocal.cpp). The
+    stopped agent's mutation run showed the lighting / snap tests testing nothing (both stood in for, for the
+    update's test; the snap's results overwritten by the next round): fixed - the C runtime's _CIacos (its error
+    path reaches C runtime state not set up offline: a call to 0) answered by its x87 path, the original's
+    OrthoNormalizeAbout pointed at ours (not bit-identical), each round's results traced, rounds standing on the
+    ground (every path of the snap). 78 deliberate bugs: 77 caught (13 after strengthening); 1 equivalent
+    (TurnTowards' dot product regrouped in double, rounded to float: the same for every value tried).
+- [x] Batch SK3-9 (game run below; the core physics' update, 1 function): src/game/skater/core_update.cpp (new),
+  core_physics.h (Update declared - additive).
+  - 0x00510830 CorePhysicsComponent::Update (vtable +0x04): the frame's length (slow motion), +0x254 / +0x255 /
+    +0x256, button +0x1C0 -> flag +0x20, LimitSpeed, flags +0x98 / +0xA0 cleared, 0x00500670 (a box round the
+    skater at +0x4F4 published at 0x00691974 - cleared at the end), UpdateModelRotation, the state's update (jump
+    table 0x00510CFC: ground - +0x338 the start position, TryStartSkitch after -, air - landing sets +0x254 -, wall
+    ride, lip, rail, wallplant), 0x004FF200, TryGrind (inlined in the original: ours calls it), free revert, focus,
+    projectiles, special time; event 0xF225FE69 / 0x5E27200A when +0x4F0 (in the air with flag +0x30, not +0x78)
+    changes; +0x14CC cleared out of the air. 0x00500670 and 0x004FF200 aren't rewritten yet (not Ghidra functions
+    / outside the skater ranges): GameFunction.
+  - Test: TestCorePhysicsUpdate (selftests_skater_core_update.cpp, skater_core_testkit.h): 6000 variants, every
+    state and an unknown one, the original's inlined grind try against our TryGrind (TestTryGrind's stand-ins).
+    27 deliberate bugs: 26 caught; 1 equivalent (flag +0x20 tested before setting it: SetFlag sets only a change).
+- [x] Batch SK3-10 (NOT run in a network game; the non-local skater's playback, 5 functions):
+  src/game/skater/nonlocal_playback.cpp (new), nonlocal_net_logic.h (declarations - additive).
+  - 0x00515940 Interpolate: the first time from the newest state a second's frames behind (put there, shown -
+    script 0x1011A5D6 -, lit); after: the playback time kept within the history (fallen back past the newest, ten
+    frames on when ten or more behind; 0x007CCDE4 the lag), the matrix slerped (the earlier state's when the at
+    rows differ by more than 0.75), the position interpolated (put there when 600 or more apart), the velocity
+    averaged over the updates' moves (quirk kept: the sum starts from the position, not 0), the state's state,
+    trick, terrain, physics mode, driving, end run flags and 24 timed flags.
+  - 0x00515360 Extrapolate (ground) and 0x00516E00 ExtrapolateOnRail: the update's speed (move / frame ms x 16),
+    lag (the connection's latency over a frame, unsigned - quirk kept: a latency under a frame wraps round to a
+    huge lag) and alignment with this machine's skater's velocity kept (20 each); on the ground: on along the
+    last move, flattened, by the averages, a wall in between (at the collision height) bounced off; on a rail:
+    alignment x lag x frame length (at most 1 s) a frame at a time by 0x00516640 MoveAlongRail; off its end:
+    Extrapolate from the played position. ExtrapolateOnRail doesn't check this machine's skater for null.
+  - 0x00516640 MoveAlongRail(node, seconds) -> node: the rail's pull (physics value 0xD1F46992) along the
+    segment, the way along it, the corner ahead (active, turning less than the physics value 0x76C1DA15's angle,
+    flattened); past the segment's end (by more than 0.1): onto the next one (quirk kept: going forward the
+    segment's own end node's flag is tested, not the node beyond), RailClear and not round too sharp a corner
+    (else 0), with the overshoot; the velocity and the matrix along the segment, the move.
+  - 0x00516180 PlayHistoryEvents: the messages since the last played up to now: 0x29 / 0x2B / 0x2C / 0x3C / 0x3D
+    / 0x41 the anim blender's primary channel, 0x2A the board's rotation (the byte as sent), 0x3E / 0x76 / 0x8C
+    the model's parts (+0x38, +0xCC, +0x160), 0x77 / 0x78 special items made (their 0x5CB5CB7E component told the
+    name and owner) and destroyed.
+  - Test: TestSkaterNonLocalInterpolate / Extrapolate / Rail / HistoryEvents
+    (selftests_skater_nonlocal_playback.cpp): every path; the original's slerp, Normalize, SetDirection and
+    ProjectOnto pointed at ours (not bit-identical). 108 deliberate bugs: 107 caught (7 after strengthening:
+    playback times 100-1000 ahead and ten behind, this machine's player without a skater, climbing rails, small
+    velocities, sane latencies); 1 equivalent (the velocity from m_lastPlayPos or m_playPos: equal then).
+- Merged main with SK1: Update calls SK1's LimitSpeed / UpdateModelRotation / TryStartSkitch / UpdateFreeRevert /
+  UpdateFocusButton / UpdateProjectiles / UpdateSpecialTime; SK1's selftests_skater_state.cpp kept the name, this
+  range's state component tests are now src/hook/selftests_skater_state_component.cpp (CMakeLists.txt).
+- Game run (THUG2-3, -level BO, ~20 s, automation: skating, ollies, a trick, turning) with SK3-1..10 and SK1 / SK2
+  / SK4: loads, the skater skates; no exception, run-time check or CRT report in the log. The non-local skater
+  code only runs in network games (not tested: no online runs) - a LAN / online play-test by the user covers it.
+- Range done: all 158 Ghidra functions of 0x00510823-0x005197F2 (and the non-Ghidra ones noted per batch)
+  replaced; find_gaps.py: 0 gaps in the range; scan_register_assumptions: no new RISK; audit: no MISMATCH;
+  thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all 601 early self-tests pass;
+  check_code_writes: no overlaps.
+- Switch off: `[replacements] disable=` end_run.cpp, finalize_physics.cpp, flip_and_rotate.cpp, floating_name.cpp,
+  gap.cpp, local_net_logic.cpp, looping_sound.cpp, matrix_queries.cpp, physics_control.cpp, rotate_component.cpp,
+  run_timer.cpp, skater_score.cpp, skater_sound.cpp, stance_panel.cpp, skater_state.cpp, nonlocal_net_logic.cpp,
+  nonlocal_playback.cpp, core_update.cpp.
