@@ -143,7 +143,29 @@ public:
     // its node, +0x18 an object to ride - the old ride let go) or an acid drop (0x00502F20).
     void ResumeSkating(bool onGround, const uint8_t* grind, void* acidDrop);
 
+    // --- core_rail.cpp: grinding ---
+    // 0x0050DDF0: the rail state's update (state 4). Carried along by a moving rail; off the rail when 0x004FFB10
+    // says so (Rail_jump_rerail_time, flags +0xD0 / +0xD8); a grind / slide's balance (the Perfect Rail cheat). At the
+    // rail's last node: 0x00504730. Otherwise the rail's gravity along the segment (the way round flips +0x34C when
+    // it turns the skater back), the next segment's corner (Rail_Corner_Leave_Angle; only nodes flagged 4), past the
+    // segment's end onto the next one or TransferOrLeaveRail; still grinding: the velocity, the facing (turned 0.3 of
+    // the way, display and object matrices rebuilt), the move with what went past the end, and a feeler ahead that
+    // throws the skater off the rail on a hit (OffRail). Then the ground normal, the score's rail time (0x00564270),
+    // the node's Name.
+    void DoRailPhysics();
+    // 0x0050C200: at the end of a rail (`end`: where it ends): onto another rail along the move (FindGrindRail within
+    // the corner angle, the wall side of this rail; not this rail's next or last node outside the park editor) when
+    // the skater is between its two nodes - or, outside the park editor, when the move is at least as long as its
+    // segment (then onto its middle) - the velocity along it, the skater at its point; else off the rail into the
+    // air (OffRail).
+    void TransferOrLeaveRail(const Mth::Vector* end);
+
 private:
+    // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
+    // what every way out of the update does.)
+    void GrindAlong(Obj::CRailNode* startNode, Obj::CRailNode* goOnTo, bool noNextSegment, float overshoot);
+    void FinishRail();
+
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
     // normal as the new up.)
     void LandFromAir();

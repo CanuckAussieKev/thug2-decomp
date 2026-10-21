@@ -341,7 +341,7 @@ inline bool Compare(const std::vector<uint32_t>& expected, const std::vector<uin
     for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
         if (expected[i] != actual[i]) {
             if (!shown) {
-                for (size_t k = i > 10 ? i - 10 : 0; k < i; ++k)
+                for (size_t k = i > 40 ? i - 40 : 0; k < i; ++k)
                     Log("    entry %u: %08X", static_cast<unsigned>(k), expected[k]);
             }
             Log("    entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);

@@ -89,7 +89,7 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     0x005627B0 of +0x1520's +0x18; +0x22C / +0x230 = node / manager. A feeler from the skater to the point hitting
     more than 6 from it stops everything (two forms of the distance, rounded as the original).
     Point rail (no prev, no next): a spin button (+0x100 / +0xA0) held and (unnamed script float 0x0A477668) * 1000
-    ms since +0x1504 -> the spin: stopped on the point, +0x2EC, +0x1500 = +0x100 held, state 4, 0x004FC470 with the
+    ms since +0x1504 -> the spin (0x0A477668 is Physics_Natas_Delay: a Natas spin): stopped on the point, +0x2EC, +0x1500 = +0x100 held, state 4, 0x004FC470 with the
     terrain, the landing sound, PointRailSpin, TriggerRailScript {spin}, +0x1504 = now. Else the kick: the velocity
     level (fast ones turned level), the kick direction at Physics_Point_Rail_Kick_Upward_Angle, Name to +0x240 and
     0x00522370, a TriggerScript run, onto the rail (state 4), terrain + sound, the speed along the move plus
@@ -150,3 +150,44 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     rail found and allowed, 0-2 moving rail managers found on the first / second / none - stand-in vtables, a
     turned and moved object matrix; the matrix functions pointed at ours). 34 deliberate bugs: 33 caught, 1
     equivalent (flag +0x20 tested before setting it to 1: SetTimedFlag does nothing when it's set already).
+- [x] Batch SK2-5 (NOT run in the game yet; grinding, 2 functions, 5 KB): src/game/skater/core_rail.cpp (new).
+  - 0x0050DDF0 DoRailPhysics (state 4; one REPLACEd function with the private GrindAlong / FinishRail for its
+    second half and its common end): flags +0x78 / +0xA8 / +0x80 / +0xB0 off, +0x2E4; riding a moving rail: its
+    RailManager component's matrix asked for (0x0042BA10 - the result isn't used), then carried by the ride tracker
+    (its turn on both matrices). Rail_minimum_rerail_time to +0x23C (truncated), flag +0x50 off. 0x004FFB10 (off):
+    TriggerScripts {2,4,0} and {13,4,0}, Rail_jump_rerail_time, flags +0xD0 / +0xD8, up 1, the end. A grind / slide
+    balance trick: CBalance::Update of +0x7C, then the Perfect Rail cheat (+0xAC / +0xB0 cleared). The node's next
+    missing: 0x00504730 and nothing else. The segment's direction - x scaled by 1 / length unrounded, y, z, w by it
+    rounded to a float, as the original; Physics_Rail_Gravity projected onto it, over the frame into the velocity;
+    the way along it before and after (a dot product's sign; a change flips +0x34C). The next segment that way
+    (backward: the previous node flagged 4; forward: the next's next flagged 4) through a corner gentler than
+    Rail_Corner_Leave_Angle (both segments level, normalised) - or none. Past the segment's end (the distance from
+    the node it started at over the length + 0.1): the overshoot; onto the next segment when its node (backward: the
+    previous; forward: the next) is flagged 4, RailClear and a gentle corner (the position at the corner node,
+    0x004FC470 with its terrain, the TriggerScript), else TransferOrLeaveRail at the corner node. Still on the rail
+    (state 4): the velocity along the (new) segment the same way; the facing that way (+0x34C: the other), the display
+    facing +0x38 turned 0.3 towards it (0x0043D990), level rights, ups from cross products for the display (+0x18 /
+    +0x28) and the object's matrix; the overshoot dropped when this segment isn't longer; the move (x unrounded),
+    plus the overshoot along the facing (x, y unrounded), w + 1. With a next segment (outside the park editor) the
+    feeler only when it climbs as this one does (|dy| < 0.01): a feeler from the last position to 6 past the new one
+    along the move, raised by the up; a hit (not on faces flagged 0x10 at +0xF9, outside the park editor): off the
+    rail - back to the old position, up 1, the velocity along the hit, the air, OffRail. The end: the ground normal
+    from the up, the score's rail time (0x00564270 of +0x1520's +0x18: +0x3A8 * its +0x154C, truncated), the node's
+    Name (0x00476EC0, GetChecksum's bool form) with the node array.
+  - 0x0050C200 TransferOrLeaveRail(const Vector* end) (RET 4): the line from `end` (park editor: back along the
+    velocity, w unrounded) raised 6 to the skater raised 6.1; FindGrindRail with this node excluded, the
+    corner angle's cosine and this node's GetWallSide; a node with a next, not this one (nor, outside the park editor,
+    its next or previous): between its two nodes (the two vectors to them pointing apart) -> onto it; else (not in the
+    park editor) when the move is at least the segment's length -> onto its middle. Onto: the velocity along it
+    (still: x / z from the facing; Sign of the dot product), +0x22C, the point, TriggerScript, 0x004FC470. Else off:
+    TriggerScript {13,4,0}, the air, up 1, OffRail.
+  - Tests (selftests_skater_rail.cpp): TestDoRailPhysics (16000 variants: rails of 6 nodes - straight climbing ones
+    and random ones, flags 4 on some, the skater at each node and the last, near and far, along and against, still;
+    the off check, ride states, every balance kind, the park editor; TransferOrLeaveRail stood in, leaving the rail
+    or not) and TestTransferOrLeaveRail (12000: what FindGrindRail finds - nothing, a node, this one, the last, the
+    neighbours -, a node at NaN). GetWorldPos returns the node's position; RailClear, GetWallSide, FindGrindRail,
+    the lerp 0x0043D990 stood in (recording their vectors); the vector functions pointed at ours. 54 deliberate
+    bugs: 49 caught (3 after adding a still-in-x-only skater, a NaN rail position and other states after a
+    transfer), 5 equivalent in practice: exact equalities that random data can't reach (the move's length vs the
+    segment's, the overshoot vs the next segment's length, the climb difference at 0.01) and two summation orders
+    of squared lengths that are then rounded or compared (one-ulp changes).
