@@ -14,9 +14,10 @@ class CStruct;
 } // namespace Script
 
 // The Walk component (type 0x726E85AA, vtable 0x0064C75C; made by 0x0052A5C0, its member function table 0x006847F8
-// registered by 0x00525E40): the skater on foot - walking, running, jumping, hanging, climbing. Only the pieces at
-// 0x00524E10-0x00529F62 are here (walk_physics.cpp); its layout is only partly known, so fields are reached by
-// offset (named in walk_fields.h). Its tuning is the global structure walk_parameters.
+// registered by 0x00525E40, 0x1960 bytes): the skater on foot - walking, running, jumping, hanging, climbing. Its code
+// is in walk_physics.cpp, walk_movement.cpp and walk_collision.cpp (0x00524E10-0x00529F62) and walk_moves.cpp
+// (0x00529F80-0x0052D6A0); its layout is only partly known, so fields are reached by offset (walk_fields.h names
+// them for the first three). Its tuning is the global structure walk_parameters.
 //
 // Vtable: 0 the scalar deleting destructor (0x0052A290), 1 Update (0x0052D4B0), 2 InitFromStructure, 3 Finalize.
 namespace Obj {
