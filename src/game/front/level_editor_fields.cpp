@@ -904,15 +904,15 @@ std::vector<Row> RowsOf(const Nodes::Node& node)
         }
         row.editable = true;
         if (node.added) {
-            row.why = "A node the editor added: its fields come from its kind (Place) - delete it and place another.";
+            row.why = "Set by the node type";
         } else if (row.when == When::ReadOnly || row.when == When::Elsewhere) {
             row.why = row.note;
         } else if (row.value.kind == Kind::Other) {
-            row.why = "A structure, a script or an array of those: not edited here.";
+            row.why = "Not editable here";
         } else if (row.value.kind == Kind::Flag && effective->included && !anyOwn) {
-            row.why = "A flag of the class's shared structure (ncomp_...): one node can't switch it off by itself.";
+            row.why = "Shared by the class";
         } else if (node.hidden && (key == Nodes::HiddenClassKey() || key == Nodes::HiddenTypeKey())) {
-            row.why = "The editor's record of a hidden node's class / type (Home shows the node again).";
+            row.why = "Editor data for a hidden node";
         }
         row.editable = row.why.empty();
         rows.push_back(row);
@@ -928,7 +928,7 @@ bool SetOn(Script::CStruct* s, uint32_t name, Nodes::Family family, uint32_t key
 {
     When when = WhenApplied(family, key, nullptr);
     if (when == When::ReadOnly || when == When::Elsewhere || key == KeyLinks() || key == 0) {
-        *error = "That field isn't edited here";
+        *error = "Field not editable";
         return false;
     }
     if (!removed && value.kind == Kind::Other) {
@@ -941,7 +941,7 @@ bool SetOn(Script::CStruct* s, uint32_t name, Nodes::Family family, uint32_t key
     if (flag) {
         bool on = !removed && value.on;
         if (!on && !now.present && IncludedAfter(s, key, true, -1)) {
-            *error = "A flag of the shared structure: it can't be switched off for one node";
+            *error = "Shared by the class";
             return false;
         }
         want.present = on;
@@ -970,7 +970,7 @@ bool Set(uint32_t name, uint32_t key, const Value& value, bool removed, std::str
         return false;
     }
     if (NodeCreate::IsAdded(name)) {
-        *error = "A node the editor added: its fields come from its kind";
+        *error = "Set by the node type";
         return false;
     }
     const Nodes::Node* layer = LayerNode(name);

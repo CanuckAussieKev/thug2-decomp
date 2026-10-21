@@ -287,7 +287,7 @@ const char* Problem(const Spec& spec)
         if (spec.gap.empty())
             return "It has no gap";
         if (spec.text.empty() || spec.score <= 0)
-            return "A gap needs its name and a score (the gap list takes only those)";
+            return "A gap needs a name and a score";
         return nullptr;
     case Kind::Other:
         return "It has no script";
@@ -1262,7 +1262,7 @@ const char* GameProblem(const Spec& spec)
         !SkateScript::GetNode(ChecksumOf(spec.target), false))
         return "That node isn't in this level";
     if (spec.kind == Kind::Script && !IsScript(ChecksumOf(spec.script)))
-        return "There is no script of that name";
+        return "Script not found";
     return nullptr;
 }
 

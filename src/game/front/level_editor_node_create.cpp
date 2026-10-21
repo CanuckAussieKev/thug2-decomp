@@ -822,7 +822,7 @@ const char* WhyNotLobbyFlag(Team team)
     if (!InLevel())
         return "Not in a level";
     if (NameTaken(LobbyFlagName(team)))
-        return "This level has that team's lobby flag already (the game finds it by name) - move it";
+        return "This team flag already exists";
     return nullptr;
 }
 
@@ -980,7 +980,7 @@ bool MoveCrown(uint32_t name, int delta, std::string* message)
         SetOrder(order);
         return true;
     }
-    *message = "Only crowns you added can be reordered";
+    *message = "Only added crowns can be reordered";
     return false;
 }
 
@@ -998,7 +998,7 @@ bool CanHide(const Nodes::Node& node, const char** why)
 {
     *why = nullptr;
     if (node.added) {
-        *why = "An added node is deleted, not hidden";
+        *why = "Added nodes are deleted, not hidden";
         return false;
     }
     if (!node.name) {
@@ -1014,13 +1014,13 @@ bool CanHide(const Nodes::Node& node, const char** why)
     case Nodes::Family::Trigger:
         break;
     default:
-        *why = "Only spawns, crowns, flags, lights, sounds and proximity nodes can be hidden yet";
+        *why = "This node type can't be hidden";
         return false;
     }
     if (node.hidden)
         return true;
     if (node.family == Nodes::Family::Crown && Nodes::Walked(Nodes::Family::Crown) <= 1) {
-        *why = "It's the level's last crown - King of the Hill needs one (the game would divide by zero)";
+        *why = "Can't hide the last crown";
         return false;
     }
     if (node.family == Nodes::Family::Spawn) {
@@ -1030,7 +1030,7 @@ bool CanHide(const Nodes::Node& node, const char** why)
                 others |= n.restartTypes;
         }
         if (HideLeavesNoRestart(node.restartTypes, others)) {
-            *why = "It's the level's last Player1 or Multiplayer restart - the skater would have nowhere to start";
+            *why = "Can't hide the last start point";
             return false;
         }
     }

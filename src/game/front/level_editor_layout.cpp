@@ -1036,7 +1036,7 @@ bool Save(std::string* message)
 {
     File file;
     if (!Capture(&file)) {
-        *message = "Not in a level - nothing saved";
+        *message = "No level loaded";
         return false;
     }
     CreateDirectoryA(Folder().c_str(), nullptr);
@@ -1079,7 +1079,7 @@ bool Load(std::string* message)
     }
     std::string why;
     if (Refused(&why)) {
-        *message = "The layout isn't put in place - " + why;
+        *message = "Layout not applied: " + why;
         Log("level editor: %s", message->c_str());
         return false;
     }
@@ -1511,7 +1511,7 @@ bool EnterEditedCopy(std::string* message)
         return false;
     }
     if (NetworkActive()) {
-        *message = "The level editor is offline only - not in a network session";
+        *message = "Level editor is not available online";
         return false;
     }
     if (const char* mode = CareerModeActive()) {
@@ -1530,7 +1530,7 @@ bool EnterEditedCopy(std::string* message)
     g_pending = false; // (put in place here, not again by Tick)
     std::string loaded;
     if (HasSavedLayout() && Load(&loaded))
-        *message = "Editing the edited copy of " + LevelTitle() + " - its saved layout put in place";
+        *message = "Editing " + LevelTitle() + " (Edited)";
     else
         *message = "A new edited copy of " + LevelTitle() + " - made by the first save (Ctrl+S)";
     Log("level editor: %s (%s)", message->c_str(), loaded.c_str());
@@ -1579,12 +1579,12 @@ bool PutBack(const std::string& before, std::string* message)
     int line = 0;
     uint8_t* scene = Scenery::MainScene();
     if (Nx::CurrentLevel() == 0 || !scene || !Read(before, &file, &line) || file.scene != Scenery::SceneName(scene)) {
-        *message = "Couldn't put the level's changes back";
+        *message = "Couldn't restore the changes";
         return false;
     }
     ResetToLevel(file);
     std::string summary = Apply(file);
-    *message = "Reset undone: the level's changes are back (not saved)";
+    *message = "Reset undone (unsaved)";
     Log("level editor: %s - %s", message->c_str(), summary.c_str());
     return true;
 }

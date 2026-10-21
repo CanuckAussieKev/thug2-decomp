@@ -1033,7 +1033,7 @@ bool WriteSnapshotFile(const std::string& name, std::string* message)
 bool SaveSnapshot(const std::string& name, std::string* message)
 {
     if (!ValidSnapshotName(name)) {
-        *message = "A snapshot's name: letters, digits, _ and -, up to 32 (not \"autosave\")";
+        *message = "Invalid name: use letters, digits, _ and - (max 32)";
         return false;
     }
     std::string before = g_state.snapshot;

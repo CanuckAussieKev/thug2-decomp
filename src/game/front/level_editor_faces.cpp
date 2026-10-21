@@ -257,17 +257,17 @@ bool KeyOf(const View::FaceHit& hit, FaceKey* key, std::string* why)
     if (hit.companion) {
         Nx::CCollObjTriData* geometry = nullptr;
         if (!SharedCollision::OriginOf(hit.checksum, hit.face, &geometry, &face) || !geometry) {
-            *why = "That face belongs to a copy's collision - edit its source's faces (copies are made from it)";
+            *why = "Face belongs to a copy; edit the source";
             return false;
         }
         checksum = geometry->m_checksum;
     }
     if (Scenery::IsClone(checksum)) {
-        *why = "That face belongs to a copy (Ctrl+D) - edit its source's faces (a copy can't be saved by its faces)";
+        *why = "Face belongs to a copy; edit the source";
         return false;
     }
     if (!Geometry(checksum) || face < 0 || face > 0xFFFF) {
-        *why = "That face isn't one of the level's collision";
+        *why = "Not a level collision face";
         return false;
     }
     *key = {checksum, static_cast<uint16_t>(face)};

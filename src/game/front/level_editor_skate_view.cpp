@@ -68,10 +68,10 @@ const char* Name(Kind kind)
     switch (kind) {
     case Kind::Floor: return "Skatable floor";
     case Kind::Bank: return "Bank / ramp (skatable slope)";
-    case Kind::Vert: return "Vert (quarter pipe: straight up)";
+    case Kind::Vert: return "Vert";
     case Kind::Wallride: return "Wallride wall";
     case Kind::NotSkatable: return "Not skatable (bail / wall)";
-    case Kind::Kill: return "Kill zone (bail, back to a restart)";
+    case Kind::Kill: return "Kill zone";
     case Kind::Water: return "Water (kill zone)";
     default: return "";
     }

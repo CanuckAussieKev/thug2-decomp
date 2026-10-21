@@ -1187,7 +1187,7 @@ bool Export(const std::string& id, std::string* message)
     uint8_t* component = editor ? reinterpret_cast<uint8_t*>(editor->GetComponent(0x81F01058)) : nullptr;
     uint32_t level = CurrentLevel();
     if (!component || !level) {
-        *message = "The goal editor isn't there";
+        *message = "Goal editor unavailable";
         return false;
     }
     // (as NewEditorGoal 0x004EA6C0: the first level_goal_index no goal of this level has, then a free slot; at most 10

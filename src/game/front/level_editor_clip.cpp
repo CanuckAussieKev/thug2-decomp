@@ -272,7 +272,7 @@ bool Paste(std::string* message)
     int line = 0;
     // (the comment line first, then the layout's header: Read skips comments)
     if (!IsClipText(text) || !Layout::Read(text.substr(text.find('\n') + 1), &fragment, &line)) {
-        *message = "The clipboard has nothing the editor copied (Ctrl+C in the editor copies the selection)";
+        *message = "Clipboard has no editor data";
         return false;
     }
     std::string current;
@@ -335,7 +335,7 @@ bool CopyProps(std::string* message)
         }
     }
     if (!props.haveTransform && props.fields.empty()) {
-        *message = "Select something first: its transform and fields are copied";
+        *message = "Nothing selected";
         return false;
     }
     g_props = props;
@@ -346,26 +346,26 @@ bool CopyProps(std::string* message)
 bool PasteTransform(std::string* message)
 {
     if (!g_props.haveTransform) {
-        *message = "No transform copied (Ctrl+Shift+C copies the selection's)";
+        *message = "No transform copied";
         return false;
     }
     if (!SetSelectionTransform(g_props.transform)) {
-        *message = "Select something to paste the transform onto";
+        *message = "Nothing selected";
         return false;
     }
-    *message = "Transform pasted (Ctrl+Z undoes)";
+    *message = "Transform pasted";
     return true;
 }
 
 bool PasteFields(std::string* message)
 {
     if (g_props.fields.empty()) {
-        *message = "No fields copied (Ctrl+Shift+C copies the inspected node's own fields)";
+        *message = "No fields copied";
         return false;
     }
     std::vector<uint32_t> nodes = SelectedNodes();
     if (nodes.empty()) {
-        *message = "Select the nodes to paste the fields onto";
+        *message = "No nodes selected";
         return false;
     }
     std::string why;

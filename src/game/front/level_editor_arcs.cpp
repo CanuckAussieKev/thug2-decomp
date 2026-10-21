@@ -530,7 +530,7 @@ std::string Describe()
         return "";
     char text[160];
     if (g_cache.arcs.empty())
-        return "jump arcs: no lip found in the selection's collision";
+        return "Jump Arcs: no lip found";
     const LipArcs& first = g_cache.arcs.front();
     if (first.lip.vert)
         std::snprintf(text, sizeof(text), "jump arcs: %d lips; vert - rises %.0f at top speed",

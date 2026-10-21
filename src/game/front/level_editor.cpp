@@ -5605,7 +5605,7 @@ void Update()
     for (int mode = 0; mode < Overlays::kViewModes && mode < 4; ++mode) {
         if (Actions::Pressed(Actions::kViewModeLit + mode) && !g_dragging) { // (while dragging digits are typed values)
             Overlays::SetViewMode(mode);
-            Hud::Message(std::string("View: ") + Overlays::ViewModeName(mode) + );
+            Hud::Message(std::string("View: ") + Overlays::ViewModeName(mode));
         }
     }
     if (Actions::Pressed(Actions::kJumpArcs) && !g_browser.open) {

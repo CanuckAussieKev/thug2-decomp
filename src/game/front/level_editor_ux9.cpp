@@ -102,7 +102,7 @@ void Apply()
     if (const Ground::Spec* made = Ground::Find(spec.name))
         g_draft = *made;
     g_editing = true;
-    g_formMessage = "In place - Ctrl+Z takes it back; Ctrl+S saves it with the layout";
+    g_formMessage = "Applied";
     ShowMessage(std::string(spec.lower ? "Lowered" : "Raised") + " ground: " + spec.name, 5.0);
 }
 
@@ -163,9 +163,9 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
             std::string why;
             Ground::Spec spec = g_draft;
             if (selection.empty())
-                g_formMessage = "Select a scenery piece first (its material is taken)";
+                g_formMessage = "Select a scenery piece to copy its material";
             else if (const char* no = Ground::WhyNotDonor(selection[0]))
-                g_formMessage = std::string("That piece can't lend its material: ") + no;
+                g_formMessage = std::string("Can't use this material: ") + no;
             else if (Ground::ChooseMaterial(selection[0], &spec, &why))
                 g_draft.material = spec.material, g_draft.uv = spec.uv, g_draft.colour = spec.colour,
                 g_draft.terrain = spec.terrain, g_formMessage.clear();
