@@ -5,9 +5,10 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import { keyOf, norm } from "../anteara/anteara.ts";
+import { unswizzleOrder } from "../level_port/tex.ts";
 import { nsString } from "./career_complete.ts";
 import { mapPosition, THAW_LEVELS, THPS3_LEVELS, THPS4_LEVELS, THUG1_LEVELS, THUG2_EXTRA } from "./level_select.ts";
-import { coverage, PICTOGRAMS, strayInk } from "./level_select_icons.ts";
+import { coverage, PICTOGRAMS, readImg, strayInk, writeImg } from "./level_select_icons.ts";
 import { parseArguments, skipStatement } from "./qb_walk.ts";
 
 test("mapPosition puts places where THUG2's stars are", () => {
@@ -57,4 +58,23 @@ test("every level we add has a pictogram of its own, and every pictogram stays i
         const ink = coverage(layers).reduce((a, b) => a + b, 0);
         assert.ok(ink > 120, `${name}: hardly any ink (${ink})`);
     }
+});
+
+test("a sign written upright is stored the way the game draws THUG2's own: bottom-up in unswizzleOrder", () => {
+    // (found in the game: the level select showed our signs upside down while THUG2's own were upright)
+    const w = 8;
+    const h = 8;
+    const palette: [number, number, number, number][] = [[0, 0, 0, 255]];
+    const indices = new Array<number>(w * h).fill(0);
+    indices[1 * w + 2] = 1; // a mark near the top left (x 2, y 1)
+    indices[6 * w + 5] = 2; // another near the bottom right
+    const data = writeImg(w, h, palette, indices);
+    const stored = data.subarray(data.length - w * h);
+    const order = unswizzleOrder(w, h);
+    // the game's read order: row 0 of unswizzleOrder is the BOTTOM row of the picture
+    assert.equal(stored[order[(h - 1 - 1) * w + 2]!], 1);
+    assert.equal(stored[order[(h - 1 - 6) * w + 5]!], 2);
+    assert.notEqual(stored[order[1 * w + 2]!], 1);
+    // and reading gives the upright picture back
+    assert.deepEqual(readImg(data).indices, indices);
 });
