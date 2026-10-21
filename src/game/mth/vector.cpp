@@ -187,7 +187,8 @@ void Vector::DegreesToRadians()
 // 0x00405F20
 void Vector::RadiansToDegrees()
 {
-    constexpr float kScale = 57.2957795f; // 180 / pi
+    constexpr float kScale = 57.2957763671875f; // 180 / pi as the exe stores it (0x00645468: 0x42652EE0, one below
+                                                // the nearest float, 57.2957795f)
     x *= kScale;
     y *= kScale;
     z *= kScale;
