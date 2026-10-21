@@ -315,6 +315,8 @@ std::string Write(const File& file)
     }
     for (const Cameras::Camera& c : file.cameras)
         out << Cameras::WriteRecord(c) << '\n';
+    for (const Goals::Goal& g : file.goals)
+        out << "goal " << Goals::WriteRecord(g) << '\n'; // (level_editor_goals.h)
     return out.str();
 }
 
@@ -463,6 +465,10 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = Clusters::ReadRecord(in, &file->clusters.emplace_back()); // (map3: level_editor_clusters.h)
         } else if (kind == "camera") {
             ok = Cameras::ReadRecord(in, &file->cameras.emplace_back()); // (map3: level_editor_cameras.h)
+        } else if (kind == "goal") {
+            std::string rest;
+            std::getline(in, rest);
+            ok = Goals::ReadRecord(rest, &file->goals.emplace_back()); // (level_editor_goals.h)
         } // (anything else: a later version's record - skipped)
         if (!ok)
             return false;
@@ -760,6 +766,7 @@ bool Capture(File* file)
     file->faces = Faces::Changed();
     file->clusters = Clusters::Changed();
     file->cameras = Cameras::Capture();
+    file->goals = Goals::Capture(); // (their points are owned nodes: not `node` records)
     return true;
 }
 
@@ -867,6 +874,7 @@ std::string Apply(const File& file)
     int faces = Faces::Apply(file.faces);
     int clusters = Clusters::Apply(file.clusters);
     int cameras = Cameras::Apply(file.cameras);
+    Goals::Apply(file.goals); // (after the nodes: their points' nodes made; in play unless the editor runs)
     if (faces || clusters || cameras)
         Log("level editor: the layout's %d collision faces, %d trick-object clusters, %d cameras put in place", faces,
             clusters, cameras);
@@ -932,6 +940,7 @@ void ResetToLevel(const File& keep)
     Faces::ResetAll();
     Clusters::ResetAll();
     Cameras::ResetAll();
+    Goals::ResetAll(); // (out of play, their points' nodes removed - Apply makes the layout's again)
 }
 
 // The crash hook's write: no C++ objects here (structured exception handling), no allocation.
@@ -1206,6 +1215,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     Faces::ForgetLevel(); // (map3: nothing written - the level's collision and trick objects went with it)
     Clusters::ForgetLevel();
     Cameras::ForgetLevel();
+    Goals::ForgetLevel(); // (a goal of ours still in the goal manager taken out: its nodes went with the level)
     Chains::ForgetLevel(); // (before the overlay goes: the level's links put back while its array is the one loaded)
     NodeCreate::ForgetLevel();
     Entities::ForgetLevel();

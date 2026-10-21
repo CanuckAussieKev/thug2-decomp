@@ -15,6 +15,7 @@
 
 #include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_cameras.h"
+#include "game/front/level_editor_goals.h"
 #include "game/front/level_editor_clusters.h"
 #include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_node_edit.h"
@@ -1096,6 +1097,8 @@ void Inspector(const Model& model)
         // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
         if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(Nodes::All().size()))
             Cameras::InspectorSection(Nodes::All()[model.nodes.selected].name, g_mono, g_small);
+        if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(Nodes::All().size()))
+            Goals::InspectorSection(Nodes::All()[model.nodes.selected].name, g_mono, g_small); // (a goal's point)
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
         ImGui::TextWrapped("Nothing selected - click something in the view (a gizmo, an object, scenery), or pick it "
                            "in the Outliner.");
@@ -1219,6 +1222,7 @@ void Inspector(const Model& model)
     Entities::ViewOptions(); // (Show uncreated objects)
     LockList(model);
     Cameras::ListSection(g_mono, g_small); // (map3: the camera nodes - level_editor_cameras.h)
+    Goals::ListSection(g_mono, g_small);   // (Create-a-Goal goals of the edited copy - level_editor_goals.h)
     LevelSection(model.levelProps, g_mono, g_small, &g_requests); // (phase 6: level_editor_fields_ui.cpp)
     ImGui::End();
 }

@@ -10,6 +10,7 @@
 #include "game/front/level_editor_clusters.h"
 #include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_fields.h"
+#include "game/front/level_editor_goals.h"
 #include "game/front/level_editor_level_props.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_picking.h"
@@ -110,7 +111,9 @@ class CScript;
 //                                                      (level_editor_clusters.h)
 //   camera <name> pos=x,y,z angles=x,y,z dist=d        (map3) a camera node (level_editor_cameras.h)
 //   level ... sky=<scene>                              (map3) the edited copy's sky (level_editor_level_props.h)
-// An older reader skips faces / cluster / camera records and a level record's sky= (the level's own sky then).
+//   goal <id> type=<type> name="..." ... p0=x,y,z,heading,height ...  a Create-a-Goal goal of the edited copy
+//                                                      (level_editor_goals.h - played in free skate / single session)
+// An older reader skips faces / cluster / camera / goal records and a level record's sky= (the level's own sky then).
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -163,6 +166,7 @@ struct File {
     std::vector<Faces::SectorFaces> faces;      // (map3) `faces`
     std::vector<Clusters::Membership> clusters; // (map3) `cluster`
     std::vector<Cameras::Camera> cameras;       // (map3) `camera`
+    std::vector<Goals::Goal> goals;             // `goal` (level_editor_goals.h)
 };
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't

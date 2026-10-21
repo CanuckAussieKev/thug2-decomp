@@ -17,6 +17,7 @@
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_cameras.h"
+#include "game/front/level_editor_goals.h"
 #include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_entities.h"
@@ -1873,6 +1874,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     View::Start();
     Faces::Start(); // (map3: Faces mode off, nothing selected)
     Triggers::Start(); // (the level's trigger volumes found)
+    Goals::Start();    // (the goals out of play while editing - level_editor_goals.h)
     Entities::Start();
     // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time; the setting from
     // [Graphics] OcclusionCulling comes back when the editor closes)
@@ -1994,6 +1996,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Faces::Stop();
     Carry::Disarm();
     Triggers::Stop();
+    Goals::Stop(); // (the goals put in play again, with their changes)
     Entities::Stop(); // (the previewed object put back)
     Nx::OcclusionOff() = g_occlusionInPlay;
     Ui::Stop();
@@ -4409,6 +4412,8 @@ void Update()
             PushUndo(entities);
         }
         int select = Triggers::TakeSelect();
+        if (select < 0)
+            select = Goals::TakeSelect(); // (a goal just made / a point chosen in its section)
         if (select >= 0 && !g_dragging) {
             g_pickables.clear();
             g_hoverNode = -1;
@@ -4438,6 +4443,7 @@ void Update()
     Faces::Update();
     Clusters::Update();
     Cameras::Update();
+    Goals::Update();
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
     if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
@@ -4968,6 +4974,9 @@ void Draw()
                             &g_overlay.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
         Triggers::AddHandles(&g_overlay.circles); // (the selected trigger volume's resize handles)
         Entities::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
+        Goals::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ,
+                          model.nodes.selected >= 0 ? Nodes::All()[model.nodes.selected].name : 0, &g_overlay.lines,
+                          &g_overlay.texts); // (the goals' points' labels)
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
         Ui::Frame(model, g_overlay);
@@ -5017,6 +5026,7 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
                   model.view.capped ? ", capped" : "", model.view.hidden);
     out.emplace_back("view", text);
     out.emplace_back("triggers", std::string(Triggers::Shown() ? "shown: " : "hidden: ") + Triggers::Describe());
+    out.emplace_back("goals", Goals::Describe());
     if (model.view.wall)
         out.emplace_back("invisible wall", model.view.wallName + ": " + model.view.wallInfo);
     const Ui::Model::Selection& sel = model.selection;
