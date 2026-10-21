@@ -9,6 +9,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/memory_sizes.h"
 #include "game/core/pool.h"
 #include "game/mth/random.h"
 #include "game/script/cache.h"
@@ -16,6 +17,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace Script {
 
@@ -333,6 +335,11 @@ void AllocatePermanentStringHeap(uint32_t size, uint32_t count)
 // 0x0046F520
 void CreateScriptPools()
 {
+    // Not original - the counts are ours (game/core/memory_sizes.h: pool sizes as THUGPRO's, thug2-decomp.ini
+    // [memory]); the script region they come from is grown to match (Mem::Manager::InitStandardHeaps).
+    // Original behaviour: CScriptCacheEntry 300, CComponent 86000, CStruct 19800, CVector 9500, CPair 800, CArray
+    // 7000, CSymbolTableEntry 12500, CScript 300, CStoredRandom 100, the string heap 190000 bytes / 7000 strings.
+    const Mem::Sizes::Pools& sizes = Mem::Sizes::Current();
     Mem::PushMemProfile("AllocateChecksumNameLookupTables");
     AllocateChecksumNameLookupTables();
     Mem::PopMemProfile();
@@ -340,36 +347,42 @@ void CreateScriptPools()
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
     Mem::PushMemProfile("CScriptCacheEntry");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3560), 0x14, 300, "CScriptCacheEntry");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F3560), 0x14, sizes.scriptCacheEntries, "CScriptCacheEntry");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CComponent and Reserve CComponent");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F2338), 0x10, 86000, "CComponent");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F2338), 0x10, sizes.components, "CComponent");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CStruct");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3614), 0x08, 19800, "CStruct");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F3614), 0x08, sizes.structs, "CStruct");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CVector");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3654), 0x10, 9500, "CVector");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F3654), 0x10, sizes.vectors, "CVector");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CPair");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3644), 0x0C, 800, "CPair");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F3644), 0x0C, sizes.pairs, "CPair");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CArray");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F22B4), 0x0C, 7000, "CArray");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F22B4), 0x0C, sizes.arrays, "CArray");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CSymbolTableEntry");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F362C), 0x14, 12500, "CSymbolTableEntry");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F362C), 0x14, sizes.symbols, "CSymbolTableEntry");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CScript");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3548), 0xF4, 300, "CScript");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F3548), 0xF4, sizes.scripts, "CScript");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CStoredRandom");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F2578), 0x60, 100, "CStoredRandom");
+    CreatePool(GameVariable<Mem::PoolPair>(0x006F2578), 0x60, sizes.storedRandoms, "CStoredRandom");
     Mem::PopMemProfile();
     Mem::PushMemProfile("AllocatePermanentStringHeap");
-    AllocatePermanentStringHeap(190000, 7000);
+    AllocatePermanentStringHeap(sizes.stringBytes, sizes.strings);
     Mem::PopMemProfile();
     Mem::PopContext();
+    // (not original either: the sizes in the log)
+    Log("script pools: CComponent %d, CStruct %d, CVector %d, CPair %d, CArray %d, CSymbolTableEntry %d, CScript %d, "
+        "CScriptCacheEntry %d, strings %u bytes / %u (thug2-decomp.ini [memory]; the original's CComponent 86000); "
+        "script region %u bytes",
+        sizes.components, sizes.structs, sizes.vectors, sizes.pairs, sizes.arrays, sizes.symbols, sizes.scripts,
+        sizes.scriptCacheEntries, sizes.stringBytes, sizes.strings, Mem::Sizes::ScriptRegionSize());
 }
 
 } // namespace Script

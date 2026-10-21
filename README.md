@@ -358,6 +358,23 @@ than by hand
 
 **`[editor_keys]`**: rebound editor keys, written by Preferences > Keys (only the ones that differ from the defaults).
 
+**`[memory]`** - the script pools' sizes (ours, as THUGPRO's: bigger than THUG2's so big converted levels fit; the
+script heap and main memory grow to match - `src/game/core/memory_sizes.h`)
+
+| Key | Default | THUG2's |
+|---|---|---|
+| `component_pool` | 184000 | 86000 |
+| `struct_pool` | 49600 | 19800 |
+| `vector_pool` | 19000 | 9500 |
+| `pair_pool` | 1600 | 800 |
+| `array_pool` | 16000 | 7000 |
+| `symbol_pool` | 45000 | 12500 |
+| `script_pool` | 1200 | 300 |
+| `script_cache_pool` | 1200 | 300 |
+| `string_heap` / `string_count` | 1 MB / 28000 | 190000 bytes / 7000 |
+| `hash_item_pool` | 40000 | 10000 |
+| `original_sizes` | 0 | 1 puts every pool back to THUG2's size |
+
 **`[replacements]`** and **`[selftests]`**
 
 | Key | Default | Effect |

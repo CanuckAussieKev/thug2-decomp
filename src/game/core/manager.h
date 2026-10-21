@@ -28,7 +28,7 @@ public:
     static Manager* Get();
     static Manager*& Instance();
 
-    // 0x005BBC00: the 64 MB block, the main region and its two heaps (in static storage).
+    // 0x005BBC00: the 64 MB block (ours bigger: game/core/memory_sizes.h), the main region and its two heaps (in static storage).
     Manager* Construct();
     // The rest of the standard heaps (front end, network, script, skater info, theme, skater, named texture heaps).
     void InitStandardHeaps();
