@@ -84,7 +84,7 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
     ramp gives the full lean), 1 only with a NaN script value (LeanInAir's start time: x87 and SSE give NaNs different
     signs, so the harness can't feed NaNs).
   - Build note: the verify build now embeds its debug info (/Z7, CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded in
-    this worktree's out\scriptsuild.cmd) - the shared vc140.pdb kept breaking (C1033 / C2471).
+    this worktree's out\scripts\build.cmd) - the shared vc140.pdb kept breaking (C1033 / C2471).
 - [ ] Next: wall plants (0x00503710, 0x00507500, 0x00508140), wall lean push / ceilings (0x00503B30, 0x00504EE0,
   0x005051B0), the forward collisions (0x00506E50, 0x005059D0), the acid drop (0x00502240, 0x00502F20, 0x00505F70),
   the grind start 0x005004B0.
