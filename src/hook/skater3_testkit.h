@@ -11,11 +11,13 @@
 #include <cstring>
 #include <functional>
 #include <initializer_list>
+#include <map>
 #include <vector>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/object.h"
+#include "game/script/struct.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -81,6 +83,8 @@ inline void DumpArena(std::vector<uint32_t>& trace)
         trace.push_back(Rel(*reinterpret_cast<uint32_t*>(g_arena.bytes + i)));
 }
 
+inline bool g_logCalls = false; // (log each recorded call: to place a crash)
+
 // A recording stand-in for the functions at `addresses`: `args` stack arguments popped by the callee (`callerPops`:
 // cdecl, none popped), recorded with `tag` and ECX (`withThis`); returns `answer`'s value (0 without one).
 inline void* Rec(StandIns& s, std::initializer_list<uint32_t> addresses, int args, uint32_t tag,
@@ -88,6 +92,8 @@ inline void* Rec(StandIns& s, std::initializer_list<uint32_t> addresses, int arg
 {
     return s.At(addresses, static_cast<uint16_t>(callerPops ? 0 : 4 * args),
                 [args, tag, answer, withThis](Regs& r) {
+                    if (g_logCalls)
+                        Log("  call %X", tag);
                     g_trace.push_back(tag);
                     if (withThis)
                         g_trace.push_back(Rel(r.ecx));
@@ -148,6 +154,74 @@ inline void TestLifecycle(bool original, uint32_t create, uint32_t destroyBody, 
             At(offset), flags)));
         trace.push_back(Rel(F<uint32_t>(offset)));
     }
+}
+
+// --- stand-in script structures -------------------------------------------------------------------------------
+// The structures' components by the structure's address: name -> value (flags: present, any value). The getters
+// (the game's and ours) answer from here and record {tag, the structure, the name, the assert flag}.
+inline std::map<uint32_t, std::map<uint32_t, uint32_t>> g_structs;
+inline void SetComponent(void* structure, uint32_t name, uint32_t value)
+{
+    g_structs[reinterpret_cast<uint32_t>(structure)][name] = value;
+}
+inline bool FindComponent(uint32_t structure, uint32_t name, uint32_t* value)
+{
+    auto s = g_structs.find(structure);
+    if (s == g_structs.end())
+        return false;
+    auto c = s->second.find(name);
+    if (c == s->second.end())
+        return false;
+    *value = c->second;
+    return true;
+}
+inline void StandInStructGetters(StandIns& s)
+{
+    using Script::CStruct;
+    auto getter = [](uint32_t tag) {
+        return [tag](Regs& r) {
+            Record({tag, Rel(r.ecx), r.args[0], (r.args[2] & 0xFF) != 0 ? 1u : 0u});
+            uint32_t value;
+            if (!FindComponent(r.ecx, r.args[0], &value))
+                return 0u;
+            // (types: an array or structure is a pointer into the arena; a number isn't one)
+            bool pointer = (Rel(value) & 0xFF000000) == 0x77000000;
+            if ((tag == 0x6860 || tag == 0x67C0) != pointer)
+                return 0u;
+            *reinterpret_cast<uint32_t*>(r.args[1]) = value;
+            return 1u;
+        };
+    };
+    // (the overloads taking the assert flag as a bool that search the structure themselves - 0x00476CB0,
+    // 0x00476D50, 0x00476E70, 0x00476F10 - answer as the getters they stand for; the others jump to them)
+    s.At({0x00476CB0}, 12, getter(0x6630));
+    s.At({0x00476D50}, 12, getter(0x66D0));
+    s.At({0x00476E70}, 12, getter(0x67C0));
+    s.At({0x00476F10}, 12, getter(0x6860));
+    s.At({0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))}, 12,
+         getter(0x6950));
+    s.At({0x00476630, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))}, 12,
+         getter(0x6630));
+    s.At({0x004766D0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, float*, int)>(&CStruct::GetFloat))}, 12,
+         getter(0x66D0));
+    s.At({0x00476590, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
+         12, getter(0x6590));
+    s.At({0x00476860, AddressOf(static_cast<bool (CStruct::*)(uint32_t, Script::CArray**, int)>(&CStruct::GetArray))},
+         12, getter(0x6860));
+    s.At({0x004767C0,
+          AddressOf(static_cast<bool (CStruct::*)(uint32_t, Script::CStruct**, int)>(&CStruct::GetStructure))},
+         12, getter(0x67C0));
+    s.At({0x00476B40, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
+        Record({0x6B40, Rel(r.ecx), r.args[0]});
+        uint32_t value;
+        return FindComponent(r.ecx, r.args[0], &value) ? 1u : 0u;
+    });
+    s.At({0x00476AF0, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsComponentNamed))}, 4,
+         [](Regs& r) {
+             Record({0x6AF0, Rel(r.ecx), r.args[0]});
+             uint32_t value;
+             return FindComponent(r.ecx, r.args[0], &value) ? 1u : 0u;
+         });
 }
 
 // A stand-in returning a float in ST0 (`answer`'s value), recorded as Rec does.

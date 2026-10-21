@@ -55,3 +55,32 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     branch original vs ours; the network message's bytes, the structures' allocations (the pool, stood in), the
     original's sprintf (the game's C runtime isn't started offline) done by a stand-in. 34 deliberate bugs caught,
     1 after strengthening (Create's cleared flag: the test now dirties the memory Create gets).
+- [x] Batch SK3-3 (NOT run in the game yet; SkaterGap, 24 functions): src/game/skater/gap.cpp (new).
+  - SkaterGap (0x11B4C67F, vtable 0x0064BE90, 0x58 bytes): 0x00512C60 Create, 0x005122A0 Construct (two list heads,
+    Lst::Head<TrickListEntry> 0x0064BEC4 / <TrickNameEntry> 0x0064BEC8), 0x00511F10 / 0x005122F0 the destructors,
+    0x00511BB0 InitFromStructure (frame 0), 0x00511BC0 Finalize (core physics, balance trick, physics control,
+    walk), 0x00512320 Update (frame + 1, CheckGaps), 0x00512CC0 CallMemberFunction (StartGap, EndGap, StartGapTrick
+    - 0xFC4F2009, name found by its checksum -, CheckGapTricks, ClearGapTricks, DuplicateTrigger), 0x00511C80
+    GetStateFlags, 0x00511F60 CheckGaps, 0x00512030 ClearGaps, 0x00512050 StartGapTrick, 0x00512140 CheckGapTricks,
+    0x005121A0 ClearGapTricks (NotInSameFrame), 0x00512360 StartGap, 0x00512770 EndGap, the list node / head
+    destructors 0x00511E50 / 0x00511E90 / 0x00512240 / 0x00511E70 / 0x00511ED0 / 0x00512270, and the trick
+    component's helpers 0x00511C10 ClearPendingGaps / 0x00511C30 AwardPendingGaps (ProcessAllGapsReward once every
+    level's gaps are got). 0x00511C10, 0x00511C30, 0x00512140, 0x005121A0 aren't Ghidra functions.
+  - Gap flags (gap.h): the low half cancels the gap in a state (0x1 ground, 0x2 air, 0x4 rail, 0x8 wall, 0x10 lip,
+    0x20 wallplant, 0x40 manual, 0x80 / 0x100 walk states 2 / 3, 0x200 skating, 0x400 walking, 0x800 driving), the
+    high half requires it (ticked off when seen; EndGap fails a gap with any left). CarGap adds 0x600 (a driving-only
+    gap); otherwise 0x800 unless 0xE3ED4ADE (name unknown) is given. StartGap checks at once unless the settings'
+    +0x40 (0x007CE5D8) is Off and driving doesn't matter.
+  - The 0x64-byte gap entries and 0x34-byte gap tricks are trick_lists.h's TrickListEntry / TrickNameEntry (their
+    fields named by accessors in gap.cpp; 0x00578670 SetFlag marks a gap trick done - the same +0x2C).
+  - Quirks kept: EndGap leaks the DoPerfectCheck2 results structure when the landing isn't perfect; after each gap
+    it ends the walk begins again from the first gap (a Continue that starts a gap of the same GapID makes EndGap
+    loop for ever - as the original); BoardRotate / the board's after-work don't check the player for null.
+  - Test: TestSkaterGap (selftests_skater_gap.cpp): the state flags in 40 states; four rounds of gaps started
+    (every trick kind and flag kind, duplicates, skipped), checked by updates, ended (failed requirements,
+    Require_Perfect 0/1/2, text or not, score with a local skater or not, GapScript permanent / NetEnabled,
+    Continue, an event killing the other gap); the gap tricks (done, other node, duplicates), DuplicateTrigger, the
+    destructors, the helpers. Script structures are stand-ins answering from a table (skater3_testkit.h; the
+    bool-assert getters that search themselves - 0x00476CB0 etc. - stood in as their int twins). 61 deliberate bugs
+    caught, 13 after strengthening (the test's own flag values, a Construct stand-in that clears what 0x00578740
+    does, three more rounds).
