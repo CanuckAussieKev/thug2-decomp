@@ -117,4 +117,18 @@ other members added; TriggerNode unchanged).
     getters stood in for; edges: a sound due exactly now, the camera exactly at the edge of hearing (the float sum
     rounding below the double one). 42 deliberate bugs caught, 3 after strengthening; 1 equivalent (Construct's
     explicit null emitter: Calloc zeroes).
-- [ ] Next: the stream component (0x433870-0x433D90 and its member functions).
+- [x] Batch OC3-5 (NOT run in the game yet; the stream component, 15 functions): src/game/obj/stream_component.*
+  (new). CStreamComponent (0x0F1641E3 "stream", vtable 0x00646594, 0x2C bytes: +0x18 three stream ids, +0x24
+  emitter node, +0x28 proxim node; Pcm's stream_commands.cpp calls 0x00433CD0 / 0x00433D30): Create 0x00433D90,
+  RegisterMemberFunctions 0x00433870 (not a Ghidra function; table 0x00684E70), Construct 0x00433C10, DestroyBody
+  0x00433890 (Pcm::StopStream of each), Destroy 0x00433C40, InitFromStructure 0x00433900 (ProximNode=),
+  GetStreamPosition 0x00433CD0 (the emitter's nearest point with a camera, else the object's position),
+  GetStreamExtent 0x00433D30, PlayStream 0x00433970 (only with a free place: vol / pitch 100, priority 50,
+  num_loops, id, dropoff feet, dropoff_function, emitter, the unnamed stream, use_pos_info 1 ->
+  Pcm::PlayStreamFromObject; whether it played), AddStream 0x00433B30 (Add=), RemoveStream 0x00433BA0 (remove=), and
+  the members (not Ghidra functions; all true): Obj_PlayStream 0x00433C70, Obj_AddStream 0x00433C90,
+  Obj_RemoveStream 0x00433CB0, Obj_StopStream 0x00433930.
+  - Test (selftests_obj_stream.cpp TestStreamComponent): 4000 random cases over the 15, Pcm's four, the nodes, the
+    camera, the getters stood in for. 21 deliberate bugs caught, 1 after strengthening (Create's record traced before
+    Construct overwrote it).
+- [ ] Next: the suspend component and its task (0x433E10-0x434610), the 0x7505D7CC component (0x434630-0x434870).
