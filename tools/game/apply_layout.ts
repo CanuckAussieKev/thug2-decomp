@@ -591,6 +591,9 @@ const K = {
     particleObject: checksum("ParticleObject"),
     midPosition: checksum("MidPosition"),
     endPosition: checksum("EndPosition"),
+    boxDimsStart: checksum("BoxDimsStart"),
+    boxDimsMid: checksum("BoxDimsMid"),
+    boxDimsEnd: checksum("BoxDimsEnd"),
     radius: checksum("Radius"),
     edPathSpeed: checksum("ed_path_speed"),
     edSound: checksum("ed_sound"),
@@ -776,6 +779,51 @@ export function shiftParticle(array: NodeArray, node: Struct, delta: V3): boolea
             const [x, y, z] = v.values as [number, number, number];
             node.entries = node.entries.filter(([k]) => k?.value !== key);
             node.entries.push([new Name(key), v3({ x: x + delta.x, y: y + delta.y, z: z + delta.z })]);
+        }
+    }
+    return true;
+}
+
+// (map4) A particle node moved and turned: its emitter as the node has it (at `from`, heading `fromYaw`) placed for `pos`
+// and heading `yaw` - MidPosition / EndPosition turned about the node's place and moved with it, each BoxDims* box
+// the box along the world's axes that holds the turned box - as the DLL's Entities::TurnParticle
+// (level_editor_entities.h).
+export function turnBoxExtents(v: V3, turn: number): V3 {
+    let c = Math.abs(Math.cos(turn));
+    let s = Math.abs(Math.sin(turn));
+    if (c < 1e-6) c = 0;
+    if (s < 1e-6) s = 0;
+    return { x: c * v.x + s * v.z, y: v.y, z: s * v.x + c * v.z };
+}
+export function placeParticle(
+    array: NodeArray,
+    node: Struct,
+    from: V3,
+    fromYaw: number,
+    pos: V3,
+    yaw: number,
+): boolean {
+    const cls = fieldOf(array, node, K.cls);
+    if (!(cls instanceof Name) || cls.value !== K.particleObject) return false;
+    const turn = yaw - fromYaw;
+    if (turn === 0) return shiftParticle(array, node, { x: pos.x - from.x, y: pos.y - from.y, z: pos.z - from.z });
+    const replace = (key: number, v: V3): void => {
+        node.entries = node.entries.filter(([k]) => k?.value !== key);
+        node.entries.push([new Name(key), v3(v)]);
+    };
+    for (const key of [K.midPosition, K.endPosition]) {
+        const v = fieldOf(array, node, key);
+        if (v instanceof Vector && v.kind === "vector") {
+            const [x, y, z] = v.values as [number, number, number];
+            const t = Triggers.turnAboutUp({ x: x - from.x, y: y - from.y, z: z - from.z }, turn);
+            replace(key, { x: pos.x + t.x, y: pos.y + t.y, z: pos.z + t.z });
+        }
+    }
+    for (const key of [K.boxDimsStart, K.boxDimsMid, K.boxDimsEnd]) {
+        const v = fieldOf(array, node, key);
+        if (v instanceof Vector && v.kind === "vector") {
+            const [x, y, z] = v.values as [number, number, number];
+            replace(key, turnBoxExtents({ x, y, z }, turn));
         }
     }
     return true;
@@ -1363,12 +1411,14 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         if (i < 0) continue;
         const node = array.edit(i);
         const kind = nodeKind(node);
-        if (s.pos) {
-            // (a particle system's emitter places move with it - level_editor_entities.h)
+        if (s.pos || s.angles) {
+            // (a particle system's emitter places move and turn with it, its boxes turn - level_editor_entities.h)
             const was = readVector(node, K.pos);
-            if (was) shiftParticle(array, node, { x: s.pos.x - was.x, y: s.pos.y - was.y, z: s.pos.z - was.z });
-            setVector(node, K.pos, s.pos);
+            const wasAngles = readVector(node, K.angles) ?? { x: 0, y: 0, z: 0 };
+            const pos = s.pos ?? was;
+            if (was && pos) placeParticle(array, node, was, wasAngles.y, pos, (s.angles ?? wasAngles).y);
         }
+        if (s.pos) setVector(node, K.pos, s.pos);
         if (s.angles) setVector(node, K.angles, s.angles);
         if ((s.pos || s.angles) && kind) breaks(`${kind} ${label(s.name)} moved / turned`);
         for (const f of s.fields) {
@@ -1718,6 +1768,8 @@ function describeTrigger(s: Triggers.TriggerSpec): string {
             return `jump boost (trigger_jump_boost speed=${s.strength}) ${at}`;
         case "break":
             return `breakable ${s.target || "?"} (shatters when hit${s.sound ? `, ${s.sound}` : ""}; its collision left out) ${at}`;
+        case "camera":
+            return `camera ${s.target || "?"} for ${Triggers.clampSeconds(s.seconds)} s (LevelEditor_PlayCamera - needs this project's DLL) ${at}`;
     }
 }
 
@@ -1732,17 +1784,11 @@ export function levelStructureValues(level: LevelProps): [string, QbValue][] {
     if (level.tod && (TOD_STATES as readonly string[]).includes(level.tod))
         out.push(["tod_state", new Name(checksum(level.tod))]);
     if (level.time === 0 || level.time === 1) out.push(["tod_manager_active", level.time]);
-    if (level.ambient) {
-        ["ambient_red", "ambient_green", "ambient_blue"].forEach((k, i) => {
-            out.push([k, channel(level.ambient![i]!)]);
-        });
-    }
-    if (level.fog) {
-        ["fog_red", "fog_green", "fog_blue", "fog_alpha"].forEach((k, i) => {
-            out.push([k, channel(level.fog![i]!)]);
-        });
-        out.push(["fog_dist", distance(level.fog[4])]);
-    }
+    // (map4) The ambient light and fog as our own keys, ed_ambient=[r g b] / ed_fog=[r g b alpha distance]: THUG2 reads no
+    // level structure's ambient_* / fog_* (only the time-of-day manager's states have them); the DLL reads these once the
+    // level is up and puts them over the manager's (level_editor_level_props.h) - as LevelProps::StructureValues.
+    if (level.ambient) out.push(["ed_ambient", level.ambient.map(channel)]);
+    if (level.fog) out.push(["ed_fog", [...level.fog.slice(0, 4).map(channel), distance(level.fog[4])]]);
     if (level.sky && validSky(level.sky)) out.push(["sky", level.sky]); // (map3: the sky scene load_level loads)
     return out;
 }
@@ -1751,6 +1797,7 @@ function describeValue(v: QbValue): string {
     if (v instanceof Name) return TOD_STATES.find((t) => checksum(t) === v.value) ?? hex8(v.value);
     if (v instanceof Vector) return `(${v.values.join(", ")})`;
     if (v instanceof Float) return String(v.value);
+    if (Array.isArray(v)) return `[${v.map(describeValue).join(" ")}]`;
     return typeof v === "string" ? `"${v}"` : String(v);
 }
 

@@ -95,6 +95,19 @@ test("boost / break triggers: the DLL's bodies", () => {
     assert.equal(readTriggerRecord("ed_trigger03 boost pos=0,0,0")?.strength, 900);
 });
 
+// (map4) LevelEditor_PlayCamera camera=ed_camera01 time=2.5 - the DLL self-test's bytes (selftests_editor_map4.cpp).
+test("camera triggers: the DLL's body, records", () => {
+    const shot = readTriggerRecord("ed_trigger05 camera pos=0,0,0 target=ed_camera01 seconds=2.5");
+    assert.ok(shot);
+    assert.equal(shot.seconds, 2.5);
+    assert.deepEqual(body(shot), hex("16 c7654bff 16 fa11e3c4 07 16 bda5ba50 16 ba676b90 07 1a 00002040 01"));
+    assert.equal(readTriggerRecord("ed_trigger05 camera pos=0,0,0 target=ed_camera01")?.seconds, 3);
+    assert.equal(body(readTriggerRecord("ed_trigger05 camera pos=0,0,0")!).length, 0, "no camera: an empty script");
+    assert.equal(readTriggerRecord("ed_trigger05 camera pos=0,0,0 seconds=0.1"), null);
+    assert.equal(readTriggerRecord("ed_trigger05 camera pos=0,0,0 seconds=61"), null);
+    assert.equal(readTriggerRecord("ed_trigger05 camera pos=0,0,0 seconds=2 seconds=3"), null);
+});
+
 test("layout records: ledges, speed-ups, proximity nodes - read as the DLL reads them", () => {
     const layout = readLayout(
         [

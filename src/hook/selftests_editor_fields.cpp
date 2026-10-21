@@ -379,13 +379,23 @@ void TestEditorLevelProps()
     int fog[5] = {300, -4, 128, 50, 999999};
     std::memcpy(s.fog, fog, sizeof(fog));
     auto values = LevelProps::StructureValues(s);
-    bool keys = values.size() == 7 && std::strcmp(values[0].first, "tod_state") == 0 &&
+    // (map4: the fog as our own ed_fog=[r g b alpha distance] - nothing reads a level structure's fog_*)
+    bool keys = values.size() == 3 && std::strcmp(values[0].first, "tod_state") == 0 &&
                 values[0].second.checksum == Fields::NameChecksum("evening") &&
                 std::strcmp(values[1].first, "tod_manager_active") == 0 && values[1].second.integer == 1 &&
-                std::strcmp(values[2].first, "fog_red") == 0 && values[2].second.integer == 255 &&
-                values[3].second.integer == 0 && std::strcmp(values[6].first, "fog_dist") == 0 &&
-                values[6].second.integer == 100000;
-    Check(keys && LevelProps::StructureValues(empty).empty(), "level props: the level structure's keys and values");
+                std::strcmp(values[2].first, "ed_fog") == 0 && values[2].second.kind == Fields::Kind::Integers &&
+                values[2].second.list.size() == 5 && values[2].second.list[0] == 255 && values[2].second.list[1] == 0 &&
+                values[2].second.list[2] == 128 && values[2].second.list[3] == 50 && values[2].second.list[4] == 100000;
+    s.hasAmbient = true;
+    s.ambient[0] = 10;
+    s.ambient[1] = 20;
+    s.ambient[2] = 999;
+    auto withAmbient = LevelProps::StructureValues(s);
+    bool ambient = withAmbient.size() == 4 && std::strcmp(withAmbient[2].first, "ed_ambient") == 0 &&
+                   withAmbient[2].second.list.size() == 3 && withAmbient[2].second.list[2] == 255 &&
+                   std::strcmp(withAmbient[3].first, "ed_fog") == 0;
+    Check(keys && ambient && LevelProps::StructureValues(empty).empty(),
+          "level props: the level structure's keys and values");
 }
 SELFTEST(Early, TestEditorLevelProps);
 

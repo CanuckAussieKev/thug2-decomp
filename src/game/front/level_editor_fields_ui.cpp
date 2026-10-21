@@ -483,7 +483,8 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         if (ImGui::IsItemDeactivatedAfterEdit())
             requests->push_back(Request{Request::kLevelPropsDone});
         ImGui::EndDisabled();
-        When(smallFont, "on reload", "The level structure's ambient_red / _green / _blue (as Levels.qb sets them).");
+        When(smallFont, "live", "The ambient light the time-of-day manager sends the engine, this colour over its "
+                                "state's (and on every load of the edited copy).");
         // Fog.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -521,8 +522,9 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         if (done)
             requests->push_back(Request{Request::kLevelPropsDone});
         ImGui::EndDisabled();
-        When(smallFont, "on reload", "The level structure's fog_red / _green / _blue / _alpha / _dist (as Levels.qb sets "
-                                 "them; 0 alpha: no fog).");
+        When(smallFont, "live", "The fog the time-of-day manager sends the engine (colour, alpha, distance), these over "
+                                "its state's and shown even where the level's fog is off (0 alpha: no fog). On every "
+                                "load of the edited copy too.");
         ImGui::EndTable();
     }
     if (!LevelProps::Empty(level.props)) {

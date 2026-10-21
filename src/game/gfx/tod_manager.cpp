@@ -273,7 +273,13 @@ BloomParams BloomOf(const TODParams& params)
     return {params.bloomOn, params.bloom1, params.bloom2, params.bloomStrength, params.bloomColor};
 }
 
+// NOT ORIGINAL - SetTODParamsFilter's (null: none).
+TODParamsFilter g_paramsFilter = nullptr;
+bool Filter(TODParams* params) { return g_paramsFilter && g_paramsFilter(params); }
+
 } // namespace
+
+void SetTODParamsFilter(TODParamsFilter filter) { g_paramsFilter = filter; }
 
 uint32_t NextTODState(uint32_t state)
 {
@@ -547,6 +553,7 @@ void CTODManager::SetFogActive(bool on)
         return;
     SetFog(true);
     TODParams params = GetTODParams(-1);
+    Filter(&params); // (NOT ORIGINAL: an edited level's own fog - SetTODParamsFilter)
     SetFogColor(Rgba(params.fogRed, params.fogGreen, params.fogBlue, static_cast<uint8_t>(params.fogAlpha)));
     SetFogDistance(static_cast<float>(params.fogDist));
 }
@@ -727,6 +734,9 @@ void SetLightDirection(int index, float heading, float pitch)
 // 0x00572A10
 void CTODManager::ApplyTODParams(TODParams params)
 {
+    // (NOT ORIGINAL: an edited level's own ambient light and fog put over the state's - SetTODParamsFilter; its fog
+    // shown even when the manager's is off)
+    bool fogForced = Filter(&params);
     SetAmbientColor(Rgba(params.ambientRed, params.ambientGreen, params.ambientBlue, 0x80));
     SetLightDirection(0, params.heading0, params.pitch0);
     SetLightDirection(1, params.heading1, params.pitch1);
@@ -735,7 +745,7 @@ void CTODManager::ApplyTODParams(TODParams params)
     SetAmbientModulation(params.ambientModLo, params.ambientModHi);
     SetLightModulation(0, params.modLo0, params.modHi0);
     SetLightModulation(1, params.modLo1, params.modHi1);
-    if (m_fogActive) {
+    if (m_fogActive || fogForced) {
         SetFog(true);
         SetFogColor(Rgba(params.fogRed, params.fogGreen, params.fogBlue, static_cast<uint8_t>(params.fogAlpha)));
         SetFogDistance(static_cast<float>(params.fogDist));

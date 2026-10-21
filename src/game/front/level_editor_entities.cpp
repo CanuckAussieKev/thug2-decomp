@@ -62,6 +62,32 @@ V3 SetAnchor(const std::vector<V3>& places)
     return {(minX + maxX) * 0.5f, minY, (minZ + maxZ) * 0.5f};
 }
 
+V3 TurnBoxExtents(V3 extents, float turn)
+{
+    double c = std::fabs(std::cos(static_cast<double>(turn))), s = std::fabs(std::sin(static_cast<double>(turn)));
+    // (a quarter turn exactly: x and z swapped - cos(pi/2) in floats isn't 0)
+    if (c < 1e-6)
+        c = 0.0;
+    if (s < 1e-6)
+        s = 0.0;
+    return {static_cast<float>(c * extents.x + s * extents.z), extents.y,
+            static_cast<float>(s * extents.x + c * extents.z)};
+}
+
+ParticleEmitter TurnParticle(const ParticleEmitter& origin, V3 from, V3 pos, float turn)
+{
+    ParticleEmitter out = origin;
+    if (origin.hasMid)
+        out.mid = pos + TurnAboutUp(origin.mid - from, turn);
+    if (origin.hasEnd)
+        out.end = pos + TurnAboutUp(origin.end - from, turn);
+    for (int i = 0; i < 3; ++i) {
+        if (origin.hasBox[i])
+            out.box[i] = TurnBoxExtents(origin.box[i], turn);
+    }
+    return out;
+}
+
 namespace {
 float Length(V3 v) { return std::sqrt(Dot(v, v)); }
 } // namespace
@@ -385,8 +411,16 @@ struct Remake {
 };
 std::vector<Remake> g_remakes;
 
-// A particle node's place its emitter places were last made for.
-std::unordered_map<uint32_t, V3> g_particleAt;
+// A particle node's emitter as it was first seen (the level's - or a copy's as made), the place and heading it was at
+// then, and the place / heading it was last made for (map4: turned too).
+struct ParticleOrigin {
+    ParticleEmitter emitter;
+    V3 from = {};
+    float fromYaw = 0.0f;
+    V3 at = {};
+    float atYaw = 0.0f;
+};
+std::unordered_map<uint32_t, ParticleOrigin> g_particleAt;
 
 // Objects whose model the editor swapped: the model each was made with.
 std::unordered_map<uint32_t, std::string> g_madeWith;
@@ -992,7 +1026,7 @@ void Tick(bool editorActive, uint32_t selected, bool dragging)
 
 // --- particles and ghosts (the node edits) ---
 
-void NodeMoved(uint32_t name, V3 pos)
+void NodeMoved(uint32_t name, V3 pos, V3 angles)
 {
     int index = Nodes::Find(name);
     if (index < 0 || Nodes::All()[index].family != Nodes::Family::Particle)
@@ -1000,27 +1034,46 @@ void NodeMoved(uint32_t name, V3 pos)
     Script::CStruct* node = NodeStruct(name);
     if (!node)
         return;
+    static const uint32_t kMid = Key("MidPosition"), kEnd = Key("EndPosition");
+    static const uint32_t kBoxes[3] = {Key("BoxDimsStart"), Key("BoxDimsMid"), Key("BoxDimsEnd")};
     auto it = g_particleAt.find(name);
     if (it == g_particleAt.end()) {
+        // (first seen: the node's emitter now is the one its origin - the level's place, or a copy's as made - had)
         const NodeEdit::Values* origin = NodeEdit::Origin(name);
-        V3 at = origin ? origin->pos : pos;
-        if (Objects::IsCopy(name) && !origin)
-            at = pos;
-        it = g_particleAt.emplace(name, at).first;
-    }
-    V3 delta = pos - it->second;
-    if (delta.x == 0.0f && delta.y == 0.0f && delta.z == 0.0f)
-        return;
-    // Its emitter's other places (world places in the node) moved with it.
-    static const uint32_t kMid = Key("MidPosition"), kEnd = Key("EndPosition");
-    for (uint32_t key : {kMid, kEnd}) {
+        ParticleOrigin o;
+        o.from = origin ? origin->pos : pos;
+        o.fromYaw = origin ? origin->angles.y : angles.y;
         Script::VectorValue v;
-        if (node->GetVector(key, &v, 0)) {
-            node->RemoveComponent(key);
-            node->AddVector(key, v.x + delta.x, v.y + delta.y, v.z + delta.z);
+        if ((o.emitter.hasMid = node->GetVector(kMid, &v, 0)))
+            o.emitter.mid = {v.x, v.y, v.z};
+        if ((o.emitter.hasEnd = node->GetVector(kEnd, &v, 0)))
+            o.emitter.end = {v.x, v.y, v.z};
+        for (int i = 0; i < 3; ++i) {
+            if ((o.emitter.hasBox[i] = node->GetVector(kBoxes[i], &v, 0)))
+                o.emitter.box[i] = {v.x, v.y, v.z};
         }
+        o.at = o.from;
+        o.atYaw = o.fromYaw;
+        it = g_particleAt.emplace(name, o).first;
     }
-    it->second = pos;
+    ParticleOrigin& o = it->second;
+    if (pos.x == o.at.x && pos.y == o.at.y && pos.z == o.at.z && angles.y == o.atYaw)
+        return;
+    // Its emitter's other places (world places in the node) moved and turned with it, its boxes turned - from the
+    // emitter as first seen (no drift over many turns).
+    ParticleEmitter now = TurnParticle(o.emitter, o.from, pos, angles.y - o.fromYaw);
+    auto put = [&](uint32_t key, bool has, V3 v) {
+        if (!has)
+            return;
+        node->RemoveComponent(key);
+        node->AddVector(key, v.x, v.y, v.z);
+    };
+    put(kMid, now.hasMid, now.mid);
+    put(kEnd, now.hasEnd, now.end);
+    for (int i = 0; i < 3; ++i)
+        put(kBoxes[i], now.hasBox[i], now.box[i]);
+    o.at = pos;
+    o.atYaw = angles.y;
     QueueRemake(name, false, 0.3); // (once the drag rests)
 }
 
@@ -1041,7 +1094,8 @@ const char* WhenApplied(uint32_t name, int family)
 {
     auto f = static_cast<Nodes::Family>(family);
     if (f == Nodes::Family::Particle)
-        return "Now: the system is made again where it is (its Mid / End places moved with it) once the game removes the "
+        return "Now: the system is made again where it is (its Mid / End places moved and turned with it, its boxes turned) "
+               "once the game removes the "
                "old one - at the latest on leaving the editor.";
     if (f == Nodes::Family::Object && !LiveObject(name))
         return "Not made at the start: a script's create makes it where its node is now (its pos= / angles=).";

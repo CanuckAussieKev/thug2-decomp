@@ -2023,6 +2023,7 @@ void RegisterScriptFunctions()
         {"LevelEditor_Stop", reinterpret_cast<void*>(&CFunc_Stop)},
         {"LevelEditor_PickLevel", reinterpret_cast<void*>(&Layout::CFunc_PickLevel)},
         {"LevelEditor_EditedLevels", reinterpret_cast<void*>(&Layout::CFunc_EditedLevels)},
+        {"LevelEditor_PlayCamera", reinterpret_cast<void*>(&Cameras::CFunc_PlayCamera)}, // (map4)
     };
     Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
 }

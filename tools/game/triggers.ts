@@ -28,9 +28,9 @@ import { f32, pack } from "../lib/struct.ts";
 
 // (the feature map added boost - a jump boost: trigger_jump_boost speed=<strength> - and break - a breakable: its piece
 // shattered and killed, its collision off while it's breakable through `replaces`)
-export type Kind = "kill" | "teleport" | "script" | "gapstart" | "gapend" | "boost" | "break";
+export type Kind = "kill" | "teleport" | "script" | "gapstart" | "gapend" | "boost" | "break" | "camera";
 // (the DLL's KindWord order; "other" - a level trigger without a script - is never a record)
-export const KINDS: readonly Kind[] = ["kill", "teleport", "script", "gapstart", "gapend", "boost", "break"];
+export const KINDS: readonly Kind[] = ["kill", "teleport", "script", "gapstart", "gapend", "boost", "break", "camera"];
 export const KIND_NAMES: Readonly<Record<Kind, string>> = {
     kill: "Kill zone",
     teleport: "Teleport",
@@ -39,9 +39,13 @@ export const KIND_NAMES: Readonly<Record<Kind, string>> = {
     gapend: "Gap end",
     boost: "Jump boost",
     break: "Breakable",
+    camera: "Camera",
 };
 export const BOOST_MIN = 100;
 export const BOOST_MAX = 5000;
+// (map4) a camera trigger's seconds (Triggers::kCameraMinSeconds / kCameraMaxSeconds)
+export const CAMERA_MIN_SECONDS = 0.5;
+export const CAMERA_MAX_SECONDS = 60;
 
 export interface V3 {
     x: number;
@@ -69,6 +73,14 @@ export interface TriggerSpec {
     // (the feature map) a boost's strength (its upward speed), a breakable's sound ("": none)
     strength: number;
     sound: string;
+    // (map4) a camera trigger's shot length: LevelEditor_PlayCamera camera=<target> time=<seconds>
+    seconds: number;
+}
+
+// Triggers::ClampSeconds: within CAMERA_MIN_SECONDS .. CAMERA_MAX_SECONDS (a float; not a number: 3).
+export function clampSeconds(seconds: number): number {
+    if (!Number.isFinite(seconds)) return 3;
+    return f32(Math.max(CAMERA_MIN_SECONDS, Math.min(CAMERA_MAX_SECONDS, f32(seconds))));
 }
 
 export const FACE_FLAGS = 0x1150; // (THUG2's own trigger boxes': 0x40 | 0x10 | 0x100 | 0x1000)
@@ -133,6 +145,8 @@ export function problem(spec: TriggerSpec): string | null {
             return null;
         case "break":
             return spec.target ? null : "Choose the piece it breaks";
+        case "camera":
+            return spec.target ? null : "Choose the camera it plays";
     }
 }
 
@@ -171,6 +185,7 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
         replaces: 0,
         exit: false,
         strength: 900,
+        seconds: 3,
         sound: "",
     };
     // text="..." (last: it may hold spaces)
@@ -245,6 +260,10 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
         } else if (key === "sound") {
             ok = once() && validName(value);
             spec.sound = value;
+        } else if (key === "seconds") {
+            const v = readNumber(value);
+            ok = once() && v !== null && v >= CAMERA_MIN_SECONDS && v <= CAMERA_MAX_SECONDS;
+            if (v !== null) spec.seconds = v;
         } // (another key: a later version's - skipped)
         if (!ok) return null;
     }
@@ -326,6 +345,17 @@ export function body(spec: TriggerSpec): Buffer {
             parts.push(nameToken(checksum("Kill")), nameValue("name", piece), Buffer.from([LINE]));
             break;
         }
+        case "camera":
+            // LevelEditor_PlayCamera camera=<node> time=<seconds> (the DLL's level_editor_cameras.h: the game's
+            // virtual_cam through PlaySkaterCamAnim - a baked level needs this project's DLL for it)
+            parts.push(nameToken(checksum("LevelEditor_PlayCamera")), nameValue("camera", checksumOf(spec.target)));
+            parts.push(
+                nameToken(checksum("time")),
+                Buffer.from([EQUALS, 0x1a]),
+                pack("<f", clampSeconds(spec.seconds)),
+            );
+            parts.push(Buffer.from([LINE]));
+            break;
     }
     return Buffer.concat(parts);
 }
@@ -345,6 +375,10 @@ export function scriptNames(spec: TriggerSpec, flags = false): Map<number, strin
         if (spec.kind === "break") {
             note(spec.target);
             note(spec.sound);
+        }
+        if (spec.kind === "camera") {
+            note("LevelEditor_PlayCamera");
+            note(spec.target);
         }
         if (flags && spec.kind === "gapstart") for (const f of spec.flags) note(f);
     }

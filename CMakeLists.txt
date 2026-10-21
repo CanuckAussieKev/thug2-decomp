@@ -276,6 +276,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_map1.cpp
     src/hook/selftests_editor_walls.cpp
     src/hook/selftests_editor_map3.cpp
+    src/hook/selftests_editor_map4.cpp
     src/hook/selftests_editor_scale.cpp
     src/hook/selftests_collision_component.cpp
     src/hook/selftests_editor_shared_coll.cpp

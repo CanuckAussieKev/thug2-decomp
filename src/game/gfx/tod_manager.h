@@ -230,6 +230,13 @@ void SetLightDirection(int index, float heading, float pitch);
 // 0x00573180: the bloom parameters added to `out` (on, bloom1, bloom2, strength, color).
 void AddBloomParams(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color, Script::CStruct* out);
 
+// NOT ORIGINAL - an override of what the manager sends the engine (the level editor's level properties: an edited
+// level's own ambient light and fog - level_editor_level_props.h). When set, ApplyTODParams and SetFogActive pass the
+// parameters through it first: it changes the ones it overrides and returns true when the fog must be on (its fog
+// shown even where the manager's fog is off). Null (the default): the original behaviour.
+using TODParamsFilter = bool (*)(TODParams* params);
+void SetTODParamsFilter(TODParamsFilter filter);
+
 // The singleton (0x007CE490).
 CTODManager*& TODManager();
 // 0x00574540: the singleton (made zeroed with `create` if there's none); a reference taken.

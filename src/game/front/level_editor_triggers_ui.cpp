@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/script/qb.h"
@@ -28,7 +29,7 @@ ImVec4 Colour(uint32_t argb)
 std::string NameOf(uint32_t checksum) { return NameFor(checksum, Script::KeptQbName(checksum)); }
 
 // The level's restarts (names), and the scripts its nodes' TriggerScripts name - made again when the nodes change.
-std::vector<std::string> g_restarts, g_scripts;
+std::vector<std::string> g_restarts, g_scripts, g_cameras; // (map4: the editor's camera nodes)
 uint32_t g_listsGeneration = 0xFFFFFFFF;
 void UpdateLists()
 {
@@ -37,6 +38,9 @@ void UpdateLists()
     g_listsGeneration = Nodes::Generation();
     g_restarts.clear();
     g_scripts.clear();
+    g_cameras.clear();
+    for (const Cameras::Camera& camera : Cameras::All())
+        g_cameras.push_back(camera.name);
     static const uint32_t kTriggerScript = 0x2CA8A299;
     for (const Nodes::Node& node : Nodes::All()) {
         if (node.family == Nodes::Family::Spawn && !node.hidden && node.name)
@@ -284,6 +288,12 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("A launch pad: trigger_jump_boost speed=<strength> (THUG2's own - Berlin's fans, THAW's Ruins) "
                           "throws the skater up when skated through");
+    ImGui::SameLine();
+    if (ImGui::Button("Camera"))
+        Queue([] { AddCamera(); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Plays one of the editor's cameras (V makes one) for a few seconds when skated through - the "
+                          "game's own virtual_cam (PlaySkaterCamAnim, as the goals' cameras) - then the skater's camera");
     ImGui::TextDisabled("%s", Describe().c_str());
     ImGui::TextDisabled("Breakables: select a scenery piece - the Inspector's \"Breaks when hit\"");
     // The legend.
@@ -367,7 +377,8 @@ void InspectorSection(int index)
         return;
     }
     // The kind.
-    const Kind kinds[] = {Kind::Kill, Kind::Teleport, Kind::Script, Kind::GapStart, Kind::GapEnd, Kind::Boost};
+    const Kind kinds[] = {Kind::Kill,   Kind::Teleport, Kind::Script, Kind::GapStart,
+                          Kind::GapEnd, Kind::Boost,    Kind::Camera};
     if (ImGui::BeginCombo("Kind", KindName(s.kind))) {
         for (Kind k : kinds) {
             if (ImGui::Selectable(KindName(k), k == s.kind) && k != s.kind) {
@@ -448,6 +459,26 @@ void InspectorSection(int index)
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("The skater's upward speed as it goes through (trigger_jump_boost speed=): 600 a hop, 900 a "
                               "jump, 2000+ a launch");
+        break;
+    }
+    case Kind::Camera: {
+        // (map4) the camera played and for how long
+        changed |= NameCombo("Camera", &s.target, g_cameras);
+        changed |= NameField("Or a node", &s.target, target, sizeof(target), &targetEditing);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Any node with targetOffset / positionOffset (an editor camera), or else its Pos / Angles");
+        float seconds = s.seconds;
+        if (ImGui::SliderFloat("Seconds", &seconds, kCameraMinSeconds, kCameraMaxSeconds, "%.1f",
+                               ImGuiSliderFlags_AlwaysClamp) &&
+            seconds != s.seconds) {
+            Spec timed = s;
+            timed.seconds = seconds;
+            Queue([key, timed] { SetSpec(key, timed, false); });
+        }
+        if (ImGui::IsItemActivated())
+            Queue([] { BeginEdit(); });
+        ImGui::TextWrapped("LevelEditor_PlayCamera camera=%s time=%.1f - a level script may call it too.",
+                           s.target.empty() ? "<camera>" : s.target.c_str(), s.seconds);
         break;
     }
     case Kind::Other:
