@@ -38,3 +38,23 @@ src/game/nx/feeler.h / feeler.cpp (CFeeler::Assign added).
     without a network game / suspension / device / timers exactly over, every vibrate branch, the lifetime exactly
     reached), and 500 random feeler assignments (null / shared / self). 39 deliberate bugs caught, 2 of them after
     strengthening the tests (timers and lifetimes exactly reached).
+- [x] Batch OC4-2 (NOT run in the game yet; the VehicleSound component, 12 functions): src/game/obj/vehicle_sound.cpp
+  (new); src/game/obj/vehicle_component.h (new: the Vehicle component's layout, used from here on).
+  - VehicleSound (type 0x28C97F3C, vtable 0x006467F4, 0xBC bytes): 0x0043CFC0 Create, 0x0043C590 Construct,
+    0x0043C5F0 / 0x0043D020 the destructors (both sounds stopped), 0x0043C670 InitFromStructure (the park editor's
+    level), 0x0043D050 Finalize (the Vehicle and Sound components, then the settings), 0x0043D290 Update, 0x0043C540
+    GetDebugInfo (vtable slot 10), 0x0043CE70 ReadSettings (PlayerVehicleSounds' structure named by the vehicle's
+    `sounds`; EngineSound, TireSound, Gears, CollideSound; the park editor's CAG ones), 0x0043C690 UpdateEngine (the
+    skater's vehicle sound's engine model - game/skater/vehicle_sound.cpp - driven by the slowest driven wheel's
+    |spin| * radius; the gear shifts while a wheel touches and drops to first after 0xC0F451D4 s in the air),
+    0x0043CBC0 UpdateSkid (the fastest slip of a sliding wheel while braking or handbraking), 0x0043D090
+    UpdateCollideSound (after collision_mute_delay, the vehicle's strongest contact impulse / FullCollision over
+    collision_cutoff_factor: CollideSound at that percent through the Sound component's 0x00433240, and event
+    0xC4A60423 to the skater with its Strength clamped to 0-1).
+  - Quirks kept: the wheel loops always look at four wheels; out of memory the event structure's AddFloat is called
+    on null (as the original).
+  - Test (src/hook/selftests_obj_vehicle_sound.cpp): 6000 random components / vehicles (every function, the edge
+    cases at the comparisons: shift points, the air delay, the recovery, the mute delay and the cutoff exactly met;
+    ~2800 sounds played or updated, ~1000 crash sounds). 40 deliberate bugs: 36 caught (2 after strengthening: a
+    shift down at exactly the speed, the air delay exactly met); 4 equivalent (min / max kept on equal values - the
+    same value either way; a float product already float; loudness clamped at exactly 1).

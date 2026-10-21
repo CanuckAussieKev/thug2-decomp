@@ -184,6 +184,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_stats.cpp
     src/hook/selftests_skater_tagging.cpp
     src/hook/selftests_obj_small_components.cpp
+    src/hook/selftests_obj_vehicle_sound.cpp
     src/hook/selftests_skater_trick.cpp
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_el3d.cpp
@@ -631,6 +632,7 @@ add_library(thug2_code OBJECT
     src/game/obj/velocity_component.cpp
     src/game/obj/vibration_component.cpp
     src/game/obj/wait_and_die.cpp
+    src/game/obj/vehicle_sound.cpp
     src/game/skater/rotation.cpp
     src/game/skater/local_net_logic.cpp
     src/game/sio/device.cpp
