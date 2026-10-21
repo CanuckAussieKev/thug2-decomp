@@ -190,6 +190,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
+    src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_engcmd2.cpp
     src/hook/selftests_engcmd3.cpp
@@ -604,6 +605,11 @@ add_library(thug2_code OBJECT
     src/game/script/qb.cpp
     src/game/script/struct.cpp
     src/game/script/skate_cfuncs.cpp
+    src/game/script/math_cfuncs.cpp
+    src/game/script/debug_cfuncs.cpp
+    src/game/obj/object_cfuncs.cpp
+    src/game/script/script_cfuncs.cpp
+    src/game/script/array_cfuncs.cpp
     src/game/script/cfuncs_lighting.cpp
     src/game/script/cfuncs_render.cpp
     src/game/script/cfuncs_polys.cpp
