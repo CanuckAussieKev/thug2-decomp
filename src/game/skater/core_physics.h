@@ -213,6 +213,21 @@ public:
     // back out 6 along the normal; another wall ahead then: turned back, half as fast.
     void BounceOffWallAhead(const Mth::Vector* normal);
 
+    // --- core_physics_wallplant.cpp: wall plants and wall rides ---
+    // 0x00507500: a wall plant off what the feeler hit: in the air, not too soon after the last (the
+    // Physics_Disallow_Rewallplant_Duration / Physics_Wallplant_Delay / Physics_Min_Wallplant_Height checks), with a
+    // Wallplant_Trick pressed - else Physics_late_wallplant_frames to press it `late` (the skater backed off 24);
+    // `walking`: a feeler 36 behind the facing instead. At the approach angle allowed the skater bounces off (speed
+    // less Physics_Wallplant_Speed_Loss, at least the minimum exit speed; up at the vertical exit speed), rides what it
+    // hit, is set Physics_Wallplant_Distance_From_Wall off it, upright: Wallplant, state 5. `checkOnly`: whether it
+    // could, nothing done. Whether it planted.
+    bool WallPlant(bool late, bool checkOnly, bool walking);
+    // 0x00508140: starting a wall ride on the wall the feeler hit (+0x22A): triangle pressed (or within
+    // Wall_Ride_Triangle_Window), Wall_Ride_Delay after the last ride and plant, fast enough along it, not upside
+    // down, head-on or tilted: the skater put on it (+0x38C its normal), facing along it; WallRideLeft / Right,
+    // state 2. Whether it started.
+    bool StartWallRide();
+
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
     // normal as the new up.)

@@ -102,4 +102,25 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
   - Test (selftests_skater_walls.cpp TestSkaterPhysicsWalls, 36000 variants): fixed hits for exact distances (7 from
     the wall), normals exactly 0.01 into the ground, zero speeds, only w moved, flag bytes of 2, the script pools set
     up. 62 deliberate bugs: 62 caught (7 after strengthening).
-- [ ] Next: the wall ride / wall plant 0x00507500 and 0x00508140, the acid drop (0x00502240, 0x00502F20, 0x00505F70).
+- [x] Batch SK1-5 (NOT run in the game yet; the wall plant and the wall ride's start, 2 functions):
+  src/game/skater/core_physics_wallplant.cpp (new).
+  - 0x00507500 WallPlant(late, checkOnly, walking) (the callers: (0, 0, 0) on the ground's check, (1, 0, 0) from
+    DoAirPhysics's late frames, (0, 0, 1) from 0x00509BB0, (0, 1, 0) from another component): canwallplant tag when
+    driving; Physics_Disallow_Rewallplant_Duration (the time read unsigned), Physics_Wallplant_Delay, Physics_Min_Wallplant
+    _Height, steep enough unless late; a Wallplant_Trick (0x0051FDA0) - none: Physics_late_wallplant_frames (+0x14CC),
+    the velocity / position saved, backed off 24 - a late one prints "late wallplant" (the game's string) and looks
+    again from the saved position; the walking one 36 behind the facing (the facing's x, z times the double -1.0).
+    Physics_Wallplant_Min_Approach_Angle; a check above the hit moving up with pad +0x1A0; 0x0051DDF0(0, walking,
+    late); the bounce (Physics_Wallplant_Speed_Loss, LargerOf with the minimum exit speed, Vertical_Exit_Speed,
+    Walking_Wallplant_Speed), the ride on what was hit (0x00427CB0 / 0x00427C70 / 0x0043EB80), placed Distance_From_Wall
+    off it (0.1 off anything nearer), upright facing the velocity; Wallplant, flags, state 5.
+  - 0x00508140 StartWallRide (triangle; Wall_Ride_Delay against the last ride and plant as signed times; the same probe
+    above the hit moving up; Wall_Ride_Min_Speed along the wall; Upside_Down / Max_Incident / Max_Tilt; triggers on the
+    last ground feeler +0x158; nothing in the way along the move turned onto the wall; WallRideLeft / Right, state 2,
+    StartRidingHitObject).
+  - Test (selftests_skater_wallplant.cpp TestSkaterPhysicsWallplant, 30000 variants): values at each threshold (up
+    0.1, times 0 / 1 / 7 / 200 / 1000 against the script values, speed 0.01, a horizontal speed of exactly 0.0001,
+    square-on walls), SetLength's vector recorded. 63 deliberate bugs: 61 caught (11 after strengthening), 2
+    equivalent (the velocity's y zeroed again before SetLength - it already is; LargerOf's arguments swapped - equal
+    values either way).
+- [ ] Next: the acid drop (0x00502240, 0x00502F20) and the spine transfer 0x00505F70.
