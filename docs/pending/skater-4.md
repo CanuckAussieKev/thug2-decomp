@@ -88,3 +88,27 @@ src/game/skater/<class>.cpp + .h; tests in src/hook/selftests_skater_<class>.cpp
     vtables for the items, locks, hook manager): 5000 random cases over every function; exact whole-number hook
     cases for ties. 33 deliberate bugs: 32 caught (1 after adding the exact ties), 1 not observable (the order of
     the squared distance's sum: rounding only, against a float-rounded best).
+- [x] Batch SK4-4 (NOT run in the game yet; the stats manager component - the story mode's stat challenges, 26
+  functions): src/game/skater/stats_manager.cpp (new).
+  - StatsManager (type 0x4FF8DAC6, vtable 0x0064C294, 0xAA0 bytes; 70 goals of 0x24 bytes from +0x1C): 0x0051CB90
+    Create, 0x0051C440 RegisterMemberFunctions (not a Ghidra function: the table 0x00684180), 0x0051C5A0 Construct,
+    0x0051C460 / 0x0051C640 destructors, 0x0051C470 / 0x0051C480 goal status get / set, 0x0051C670
+    InitFromStructure (the skater by the object's id, the difficulty, the goals from the global array 0x4E46CC28 -
+    a goal's status is only reset when its structure has 0xBD982FDC), 0x0051C950 IsActive (a skater, the game
+    mode's flag 0x1DED1EA4, activated, not mode 0xE92ECAFE, the first profile named 0x0A7BE964 - without a name the
+    original compares its own `this`, kept), 0x0051C9D0 / 0x0051CAC0 / 0x0051CAE0 setters and counters (the +0xA58
+    value is a float: Update compares it as one), 0x0051CA00 Reset, 0x0051CBF0 AnnounceMetGoals, 0x0051CE80
+    MeetGoal, 0x0051CF90 Update (the combo's score / multiplier truncated as _ftol does; take-offs (the skater
+    state's +0x30) and jumps (physics state 1) followed: height, distance, the score made in the air; 13 goal kinds
+    checked - rise, drop, air combo, height, +0xA58, score, multiplier, two counters, trick counts (manuals with
+    0x89B7DBE4 too), jump / air distance (horizontal; the air distance zeroes the stored y's, as the original does),
+    0x00562370 of the goal's +0x18), 0x0051D6A0 CheckBalanceTime (manual / grind / lip time goals).
+  - Member functions: StatsManager_ReInit (vtable +0x14), _Reset, _ActivateGoals, _DeactivateGoals, _GetGoalStatus,
+    _UnlockAmGoals, _UnlockProGoals, _GetLastAirComboScore, _ClearLastAirComboScore (0x0051C4A0-0x0051C580,
+    0x0051CB20-0x0051CB70; most not Ghidra functions).
+  - Test (src/hook/selftests_skater_stats.cpp): 3000 random components with runs of 1-6 frames, balance times,
+    announcements, init, the setters and member functions; whole-feet cases for ties. 55 deliberate bugs: 54 caught
+    (8 after strengthening: ties in rises / heights / air scores, the counters traced between calls), 1 equivalent
+    (the points with a zero multiplier: the score is 0 then too).
+  - Seen once in a full thug2_check run: "sfx: loading waves" (selftests_objsys9.cpp) failed, then passed alone and
+    in the next full run - order-dependent or flaky, not this batch's code.
