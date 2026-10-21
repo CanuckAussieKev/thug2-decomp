@@ -12,8 +12,12 @@ namespace Script {
 class CScript;
 class CStruct;
 } // namespace Script
+namespace Mth {
+class Matrix;
+}
 namespace Obj {
 struct CRailNode;
+struct Record24;
 struct Record34;
 } // namespace Obj
 
@@ -319,6 +323,50 @@ public:
     // air, SkaterExitHang); else shimmied by the control's sideways part (hang_move_speed, eased by
     // hang_move_lerp_rate, below hang_move_cutoff the Hang animation).
     void UpdateHang();
+
+    // Ladders (the rail manager's climbing nodes; the skater's node +0x1764 and its other end, how far up +0x18CC).
+    // The animation-end callbacks: 0x00441020 / 0x00441070 (off the bottom / the top onto the ground: walking, the
+    // ledge feeler's hit to the triggers and the movable contact), 0x00441860 (off the top with no ground: in the
+    // air), 0x004410C0 / 0x00441190 (onto it at the bottom / the top: on the ladder, ladder_bottom_offset_up up /
+    // ladder_top_offset_up down from the top).
+    void EndLadderOffBottom();
+    void EndLadderOffTop();
+    void EndLadderOffTopToAir();
+    void EndOntoLadderBottom();
+    void EndOntoLadderTop();
+    // FindLadder's checkers (into `record`, a 0x24-byte record: the point to climb from, the facing - the ladder's
+    // orientation's third row - and how far along). The ladder (`bottom` to `top`) must stand within about 6
+    // degrees of upright. 0x00441260 (`this` isn't used): onto it from the top - ladder_top_offset_up below the top,
+    // ladder_climb_offset out of it. 0x004418B0: onto it from the bottom - faced within max_onto_ladder_angle,
+    // ladder_bottom_offset_up above the bottom, ladder_climb_offset out, nothing in the way to 6 behind that.
+    // 0x004413E0 (FindLadderOnLine's): grabbed where the line meets it (`onLadder`, `along` it), between the two
+    // offsets, nothing in the way from the skater; the skater core's flag +0xA0 of +0x1528 set.
+    bool CheckLadderTop(const Mth::Vector* bottom, const Mth::Vector* top, const Mth::Matrix* orientation,
+                        Record24* record);
+    bool CheckLadderBottom(const Mth::Vector* bottom, const Mth::Vector* top, const Mth::Matrix* orientation,
+                           Record24* record);
+    bool CheckLadderLine(const Mth::Vector* bottom, const Mth::Vector* top, const Mth::Matrix* orientation,
+                         const Mth::Vector* onLadder, float along, Record24* record);
+    // 0x00441680 / 0x00441B80: off the ladder's bottom (ladder_bottom_offset_forward back, down) / top
+    // (ladder_top_offset_forward ahead, up): the ground there (FindStandPosition), the animated move
+    // (LadderOffBottom / LadderOffTop) - off the top with no ground, into the air at its end.
+    void ClimbOffBottom();
+    void ClimbOffTop();
+    // 0x00441DE0 / 0x00441FC0: onto a ladder of the level's from its bottom (within button_horiz_snap_distance when
+    // `button`, else max_horiz_snap_distance; max_vert_snap_distance) / its top (FindLadder): stopped, the ride let
+    // go, the animated move (LadderOntoBottom / LadderOntoTop). Not while the skater core's +0x1528's +0x70.
+    // Whether it started.
+    bool ClimbOntoBottom(bool button);
+    bool ClimbOntoTop();
+    // 0x00442170: a ladder of the level's grabbed where the line `start`-`end` passes it (FindLadderOnLine): on it at
+    // once (the ride let go, stopped, the Ladder animation). Whether one was.
+    bool GrabLadder(const Mth::Vector* start, const Mth::Vector* end);
+    // 0x00442280: climbing by the control's up / down part (ladder_move_speed): off the bottom or the top past
+    // their offsets, else placed along it (LadderMoveUp / LadderMoveDown; Ladder at an end).
+    void ClimbLadder();
+    // 0x004425B0 (state 3): on a ladder, each frame: its rail script for the first 25 ticks; climbing with the
+    // control within ladder_control_tolerance of up or down, else still (Ladder).
+    void UpdateLadder();
 };
 
 // One of the Walk component's eight contacts (+0xA0, 0xCC bytes): a feeler at +0x1C. 0x00528880: constructed (its

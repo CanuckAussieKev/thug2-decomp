@@ -72,16 +72,21 @@ void BuildWalkParams()
                               0xAFBF7687, 0x8F35F29F, 0xA20C43B7, 0x6DA7F696, 0x9B2818CF, 0x21DFBE77,
                               0x01D1E6AF, 0xFDC8AEC0, 0x3344A6D0, 0x84FF931C, 0xCBEB3D89, 0xC774DD6D,
                               0x262A9467, 0xA85EC070, 0x98724EBC, 0xDBB3D53E, 0x2F83AE83, 0x52FA7CA6,
-                              0x1B877928, 0xD77EE881, 0xC506A97C, 0x228B5376};
+                              0x1B877928, 0xD77EE881, 0xC506A97C, 0x228B5376, 0xCAF2831B, 0xB620B580,
+                              0x456F216D, 0x5296E3FD, 0x76BF49E0, 0x35B3BBDA, 0xC4C164E8, 0x0EECD255,
+                              0xA2735DD9, 0x0AB2DB54, 0x7EE1B95B};
     const float values[] = {9.5f, 6.25f, 18.0f, 40.5f, 1.125f, 7.75f, 13.0f, 22.5f, 30.0f, 4.5f,
                             36.0f, 2.75f, 0.875f, 0.3f, 1.25f, 3.5f, 2.25f, 15.5f, 1.75f, 5.5f,
-                            50.0f, 2.5f, 8.25f, 0.625f, 55.0f, 2.125f, 0.45f, 0.5f};
-    // (a Params holds 16 components: the rest in a second one, chained on)
-    static Params more;
-    new (&more) Params;
-    for (int i = 0; i < 28; ++i)
-        (i < 16 ? params : more).Float(names[i], values[i]);
-    params.components[15].next = &more.components[0];
+                            50.0f, 2.5f, 8.25f, 0.625f, 55.0f, 2.125f, 0.45f, 0.5f, 3.25f, 4.75f,
+                            60.0f, 0.375f, 0.625f, 1.5f, 2.0f, 1.25f, 3.0f, 1.75f, 35.0f};
+    // (a Params holds 16 components: the rest in more, chained on)
+    static Params more[2];
+    for (Params& m : more)
+        new (&m) Params;
+    for (int i = 0; i < 39; ++i)
+        (i < 16 ? params : more[(i - 16) / 16]).Float(names[i], values[i]);
+    params.components[15].next = &more[0].components[0];
+    more[0].components[15].next = &more[1].components[0];
     g_walkParams = &params;
 }
 
@@ -195,6 +200,26 @@ std::vector<StandIn> WalkStandIns()
                  RecordFloat(reinterpret_cast<float*>(f.args[0])[i]);
          }},
         {0x0040AB40, 0, 0, Ret::None, true, 0, {Ours(&Nx::CCollCache::Destruct)}},
+        {0x0057D880, 0x1C, 7, Ret::Bool, true, 0x8, {Ours(&CRailManager::FindLadder)}, [](Frame& f, Result& r) {
+             for (int i = 0; i < 4; ++i)
+                 RecordFloat(reinterpret_cast<float*>(f.args[0])[i]);
+             float* record = reinterpret_cast<float*>(f.args[5]);
+             for (int i = 0; i < 9; ++i)
+                 record[i] = RandomFloat(2.0f);
+             *reinterpret_cast<uint8_t**>(f.args[6]) = ArenaPtr(kNodes + 0x54 * (Next() % 3));
+             r.eax = Next() % 3 != 0;
+         }},
+        {0x0057DA20, 0x14, 5, Ret::Bool, true, 0, {Ours(&CRailManager::FindLadderOnLine)}, [](Frame& f, Result& r) {
+             for (int i = 0; i < 4; ++i) {
+                 RecordFloat(reinterpret_cast<float*>(f.args[0])[i]);
+                 RecordFloat(reinterpret_cast<float*>(f.args[1])[i]);
+             }
+             float* record = reinterpret_cast<float*>(f.args[3]);
+             for (int i = 0; i < 9; ++i)
+                 record[i] = RandomFloat(2.0f);
+             *reinterpret_cast<uint8_t**>(f.args[4]) = ArenaPtr(kNodes + 0x54 * (Next() % 3));
+             r.eax = Next() % 3 != 0;
+         }},
     };
 }
 
@@ -571,6 +596,142 @@ void TestWalkHang()
             Original<void(__thiscall*)(Component*)>(0x00440BF0)(c);
         else
             c->UpdateHang();
+        return 0u;
+    });
+
+    // --- ladders ---
+    // the ladder's nodes: node 1 and its other end (its next, else its previous) one above the other
+    auto ladderNodes = [](uint8_t* walk) {
+        auto* node = reinterpret_cast<Obj::CRailNode*>(ArenaPtr(kNodes + 0x54));
+        if (!node->m_next && !node->m_prev)
+            node->m_prev = reinterpret_cast<Obj::CRailNode*>(ArenaPtr(kNodes));
+        Obj::CRailNode* other = node->m_next ? node->m_next : node->m_prev;
+        if (g_walkMode % 4 != 0)
+            other->m_pos = {node->m_pos.x + RandomFloat(0.1f), node->m_pos.y + 4.0f + RandomFloat(2.0f),
+                            node->m_pos.z + RandomFloat(0.1f), node->m_pos.w};
+        ArenaAt<uint8_t*>(kWalk + 0x1764) = reinterpret_cast<uint8_t*>(node);
+        (void)walk;
+    };
+    Compare("walk: the ladder's animation-end callbacks", 24, [ladderNodes](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        ladderNodes(walk);
+        const uint32_t addresses[] = {0x00441020, 0x00441070, 0x00441860, 0x004410C0, 0x00441190};
+        void (Component::*ours[])() = {&Component::EndLadderOffBottom, &Component::EndLadderOffTop,
+                                       &Component::EndLadderOffTopToAir, &Component::EndOntoLadderBottom,
+                                       &Component::EndOntoLadderTop};
+        for (int i = 0; i < 5; ++i) {
+            if (original)
+                Original<void(__thiscall*)(Component*)>(addresses[i])(c);
+            else
+                (c->*ours[i])();
+            RecordFloat(ArenaAt<float>(kWalk + 0x18CC));
+        }
+        return 0u;
+    });
+    // a ladder's ends, its orientation (the third row: out of it) and a point on it
+    auto ladderArgs = [](uint8_t* walk) {
+        Vector* bottom = reinterpret_cast<Vector*>(walk + 0x600);
+        Vector* top = reinterpret_cast<Vector*>(walk + 0x610);
+        if (g_walkMode % 5 != 0)
+            *top = {bottom->x + RandomFloat(0.15f), bottom->y + 5.0f + RandomFloat(2.0f), bottom->z + RandomFloat(0.15f),
+                    bottom->w};
+        if (g_walkMode % 5 == 1)
+            *top = {bottom->x + 0.6f, bottom->y + 4.0f, bottom->z + 0.6f, bottom->w}; // (leaning: 0.978 upright)
+        if (g_walkMode % 11 == 3)
+            *top = *bottom; // (no length)
+        if (g_walkMode % 7 == 0)
+            std::swap(*top, *bottom);
+        Vector* onLadder = reinterpret_cast<Vector*>(walk + 0x660);
+        onLadder->y = bottom->y + (top->y - bottom->y) * (static_cast<float>(Next() % 9) / 8.0f);
+        return std::make_pair(bottom, top);
+    };
+    g_hitPercent = 25;
+    Compare("walk: CheckLadderTop, CheckLadderBottom, CheckLadderLine", 240, [ladderArgs](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        auto ends = ladderArgs(walk);
+        auto* orientation = reinterpret_cast<const Mth::Matrix*>(walk + 0x620);
+        auto* onLadder = reinterpret_cast<const Vector*>(walk + 0x660);
+        auto* record = reinterpret_cast<Obj::Record24*>(walk + 0x680);
+        float along = ArenaAt<float>(0x6B0);
+        ArenaAt<uint8_t>(kFlagsBlock + 0xA0) = g_walkMode % 2 ? 1 : 0;
+        using Check4 = bool(__thiscall*)(Component*, const Vector*, const Vector*, const Mth::Matrix*, Obj::Record24*);
+        bool a = original ? Original<Check4>(0x00441260)(c, ends.first, ends.second, orientation, record)
+                          : c->CheckLadderTop(ends.first, ends.second, orientation, record);
+        for (uint32_t word : record->words)
+            Record(word);
+        bool b = original ? Original<Check4>(0x004418B0)(c, ends.first, ends.second, orientation, record)
+                          : c->CheckLadderBottom(ends.first, ends.second, orientation, record);
+        for (uint32_t word : record->words)
+            Record(word);
+        bool l = original ? Original<bool(__thiscall*)(Component*, const Vector*, const Vector*, const Mth::Matrix*,
+                                                       const Vector*, float, Obj::Record24*)>(0x004413E0)(
+                                c, ends.first, ends.second, orientation, onLadder, along, record)
+                          : c->CheckLadderLine(ends.first, ends.second, orientation, onLadder, along, record);
+        for (uint32_t word : record->words)
+            Record(word);
+        return static_cast<uint32_t>(a) | static_cast<uint32_t>(b) << 1 | static_cast<uint32_t>(l) << 2;
+    });
+    Compare("walk: ClimbOffBottom, ClimbOffTop", 40, [](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        if (original) {
+            Original<void(__thiscall*)(Component*)>(0x00441680)(c);
+            Original<void(__thiscall*)(Component*)>(0x00441B80)(c);
+        } else {
+            c->ClimbOffBottom();
+            c->ClimbOffTop();
+        }
+        return 0u;
+    });
+    Compare("walk: ClimbOntoBottom, ClimbOntoTop, GrabLadder", 60, [](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        bool button = g_walkMode % 2 != 0;
+        auto* start = reinterpret_cast<const Vector*>(walk + 0x6C0);
+        auto* end = reinterpret_cast<const Vector*>(walk + 0x6D0);
+        uint32_t results;
+        if (original) {
+            results = Original<bool(__thiscall*)(Component*, uint32_t)>(0x00441DE0)(c, button);
+            results |= Original<bool(__thiscall*)(Component*)>(0x00441FC0)(c) << 1;
+            results |= Original<bool(__thiscall*)(Component*, const Vector*, const Vector*)>(0x00442170)(c, start, end)
+                       << 2;
+        } else {
+            results = c->ClimbOntoBottom(button);
+            results |= c->ClimbOntoTop() << 1;
+            results |= c->GrabLadder(start, end) << 2;
+        }
+        return results;
+    });
+    g_hitPercent = 10;
+    Compare("walk: ClimbLadder, UpdateLadder", 240, [ladderNodes](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        ladderNodes(walk);
+        static const float alongs[] = {0.5f, 0.02f, 0.98f, 0.0f, 1.0f, 0.3f, 0.9f};
+        ArenaAt<float>(kWalk + 0x18CC) = alongs[g_walkMode % 7];
+        static const float angles[] = {0.0f, 3.1f, 1.5f, -1.6f, 0.4f, -2.9f, 0.9f, 2.2f};
+        ArenaAt<float>(kWalkInput + 0x248) = angles[(g_walkMode / 3) % 8];
+        ArenaAt<float>(kWalk + 0x80) = 0.25f + RandomFloat(0.2f);
+        ArenaAt<float>(kWalk + 0x94) = 1.0f + RandomFloat(1.0f);
+        if (g_walkMode % 10 == 1 || g_walkMode % 10 == 2) {
+            // standing still exactly at the bottom's / the top's limit (a ladder 4 high: 0.375 / 4, (4 - 0.625) / 4)
+            auto* node = reinterpret_cast<Obj::CRailNode*>(ArenaPtr(kNodes + 0x54));
+            Obj::CRailNode* other = node->m_next ? node->m_next : node->m_prev;
+            other->m_pos = {node->m_pos.x, node->m_pos.y + 4.0f, node->m_pos.z, node->m_pos.w};
+            ArenaAt<float>(kWalk + 0x94) = 0.0f;
+            ArenaAt<float>(kWalk + 0x18CC) = g_walkMode % 10 == 1 ? 0.09375f : 0.84375f;
+        }
+        // the time in the state: just begun or not
+        ArenaAt<uint32_t>(kWalk + 0x1C) = static_cast<uint32_t>(
+            GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60) - (g_walkMode % 2 ? 10 : 40));
+        if (original) {
+            if (g_walkMode % 3)
+                Original<void(__thiscall*)(Component*)>(0x00442280)(c);
+            else
+                Original<void(__thiscall*)(Component*)>(0x004425B0)(c);
+        } else {
+            if (g_walkMode % 3)
+                c->ClimbLadder();
+            else
+                c->UpdateLadder();
+        }
         return 0u;
     });
 

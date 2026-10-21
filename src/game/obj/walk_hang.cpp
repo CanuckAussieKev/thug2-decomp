@@ -137,6 +137,31 @@ constexpr uint32_t kAnimHangMoveRight = 0x279B1F0B;   // "HangMoveRight"
 constexpr uint32_t kAnimSwing = 0x1EE948A5;           // "SWING"
 constexpr uint32_t kAnimWall = 0xEC0A1009;            // "WALL"
 
+// Ladders.
+constexpr uint32_t kStateTime = 0x1C;                  // when the state last changed
+constexpr uint32_t kLadderOffBottomEvents = 0x00646978; // {1, 3, 0}
+constexpr uint32_t kLadderOffTopEvents = 0x00646984;    // {0xE, 3, 0}
+constexpr uint32_t kOntoLadderEvents = 0x00646990;      // {0xA, 3, 0}
+constexpr uint32_t kExitLadderEvents = 0x0064699C;      // {0xA, 4, 0}
+constexpr uint32_t kLadderBottomOffsetForward = 0xCAF2831B; // "ladder_bottom_offset_forward"
+constexpr uint32_t kLadderTopOffsetForward = 0xB620B580;    // "ladder_top_offset_forward"
+constexpr uint32_t kMaxOntoLadderAngle = 0x456F216D;   // "max_onto_ladder_angle"
+constexpr uint32_t kLadderBottomOffsetUp = 0x5296E3FD; // "ladder_bottom_offset_up"
+constexpr uint32_t kLadderTopOffsetUp = 0x76BF49E0;    // "ladder_top_offset_up"
+constexpr uint32_t kLadderClimbOffset = 0x35B3BBDA;    // "ladder_climb_offset"
+constexpr uint32_t kMaxVertSnapDistance = 0xC4C164E8;  // "max_vert_snap_distance"
+constexpr uint32_t kButtonHorizSnapDistance = 0x0EECD255; // "button_horiz_snap_distance"
+constexpr uint32_t kMaxHorizSnapDistance = 0xA2735DD9; // "max_horiz_snap_distance"
+constexpr uint32_t kLadderMoveSpeed = 0x0AB2DB54;      // "ladder_move_speed"
+constexpr uint32_t kLadderControlTolerance = 0x7EE1B95B; // "ladder_control_tolerance"
+constexpr uint32_t kAnimLadder = 0xC84243DA;           // "Ladder"
+constexpr uint32_t kAnimLadderMoveUp = 0xAF5ABC82;     // "LadderMoveUp"
+constexpr uint32_t kAnimLadderMoveDown = 0xFEC9DDED;   // "LadderMoveDown"
+constexpr uint32_t kAnimLadderOntoBottom = 0xE2524194; // "LadderOntoBottom"
+constexpr uint32_t kAnimLadderOntoTop = 0xD63ADCAD;    // "LadderOntoTop"
+constexpr uint32_t kAnimLadderOffBottom = 0x4DB1BBB1;  // "LadderOffBottom"
+constexpr uint32_t kAnimLadderOffTop = 0x12521BFB;     // "LadderOffTop"
+
 Obj::CCompositeObject* ObjectOf(void* walk) { return At<Obj::CCompositeObject*>(walk, kObject); }
 Obj::CRailManager*& RailsOf(void* walk) { return At<Obj::CRailManager*>(walk, kRailManager); }
 Skater::CorePhysicsComponent* PhysicsOf(void* walk) { return At<Skater::CorePhysicsComponent*>(walk, kPhysics); }
@@ -174,6 +199,15 @@ Obj::CRailManager* RailManagerOf(Obj::CBaseComponent* component)
 }
 // The skate module's rail manager (the level's).
 Obj::CRailManager* LevelRails() { return At<Obj::CRailManager*>(GameVariable<uint8_t*>(0x007CE478), 0x24); }
+
+// Onto a ladder from the level's rails: the ride let go, stopped.
+void GrabbedLadder(Obj::CWalkComponent* walk)
+{
+    RailsOf(walk) = LevelRails();
+    StopRiding(walk);
+    At<float>(walk, kVerticalSpeed) = 0.0f;
+    VectorAt(walk, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
+}
 
 // FindRail for a walk component between `start` and `end`: the level's rails, else each moving rail manager's (its
 // object's space: riding that object if one is found). `direction` / the margin's global float are read again for
@@ -228,11 +262,17 @@ void SetAnimDone(void* walk, uint32_t code)
     callback[3] = 0;
 }
 
-// The skater core's rail node and rail manager (its +0x22C / +0x230), for its rail scripts.
-void TellPhysicsRail(void* walk)
+// The skater core's rail node (its +0x22C), if there is one.
+void TellPhysicsNode(void* walk)
 {
     if (Obj::CRailNode* node = At<Obj::CRailNode*>(walk, kRailStart))
         At<Obj::CRailNode*>(PhysicsOf(walk), 0x22C) = node;
+}
+
+// The skater core's rail node and rail manager (its +0x22C / +0x230), for its rail scripts.
+void TellPhysicsRail(void* walk)
+{
+    TellPhysicsNode(walk);
     if (Obj::CRailManager* rails = RailsOf(walk))
         At<Obj::CRailManager*>(PhysicsOf(walk), 0x230) = rails;
 }
@@ -267,6 +307,29 @@ void ContactFeeler(void* walk, Nx::CFeeler* feeler)
 // The game's clock with its offset.
 int Now() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
 
+// The movable contact's ride let go (its object kept at +0x6C, the time at +0x70).
+void LetGoOfRide(void* contact)
+{
+    auto* tracker = At<Obj::CRideTracker*>(contact, 0x18);
+    if (!tracker)
+        return;
+    At<Obj::CCompositeObject*>(contact, 0x6C) = tracker->m_object.Get(); // (the object last ridden)
+    tracker->m_object.Release();
+    Mem::Free(tracker);
+    At<Obj::CRideTracker*>(contact, 0x18) = nullptr;
+    At<int>(contact, 0x70) = Now();
+}
+
+// The skater core's timed flag +0xA0 of +0x1528 set (with the time at +0xA4), unless it is.
+void SetPhysicsFlagA0(void* walk)
+{
+    uint8_t* flags = At<uint8_t*>(PhysicsOf(walk), 0x1528);
+    if (At<uint8_t>(flags, 0xA0) != 1) {
+        At<uint8_t>(flags, 0xA0) = 1;
+        At<int>(flags, 0xA4) = Now();
+    }
+}
+
 // The x87's cosine (the original's FCOS), rounded to a double.
 double X87Cos(double angle)
 {
@@ -288,6 +351,18 @@ double X87Sin(double angle)
     }
     return result;
 }
+
+// What FindLadder / FindLadderOnLine find (their 0x24-byte record, filled by the ladder checkers): the point to climb
+// from, the direction to face (the ladder's orientation's third row), how far along.
+struct FoundLadder {
+    Mth::Vector point;  // +0x00
+    Mth::Vector facing; // +0x10
+    float along;        // +0x20
+};
+static_assert(sizeof(FoundLadder) == sizeof(Obj::Record24), "the rail manager's record");
+
+// A ladder's other end: the node's next, else its previous.
+Obj::CRailNode* LadderOtherEnd(Obj::CRailNode* node) { return node->m_next ? node->m_next : node->m_prev; }
 
 // 0x006468F8: 60 degrees (a double)
 constexpr double kSixtyDegrees = 1.0471975511965976;
@@ -701,11 +776,7 @@ bool Obj::CWalkComponent::GrabRail(Mth::Vector start, Mth::Vector end)
     TellPhysicsRail(this);
     TriggerRailScript(this, kHangEvents);
     At<uint32_t>(this, kAnim) = kAnimHang;
-    uint8_t* flags = At<uint8_t*>(PhysicsOf(this), 0x1528);
-    if (At<uint8_t>(flags, 0xA0) != 1) {
-        At<uint8_t>(flags, 0xA0) = 1;
-        At<int>(flags, 0xA4) = Now();
-    }
+    SetPhysicsFlagA0(this);
     return true;
 }
 
@@ -1159,16 +1230,408 @@ void Obj::CWalkComponent::UpdateHang()
     At<uint32_t>(this, kAnim) = kAnimHang;
 }
 
+// --- ladders ---
+
+// 0x00441020
+void Obj::CWalkComponent::EndLadderOffBottom()
+{
+    SetState(0);
+    TriggerRailScript(this, kExitLadderEvents);
+    if (At<bool>(this, kPullUpHit)) {
+        auto* feeler = &At<Nx::CFeeler>(this, kPullUpFeeler);
+        TriggerFeeler(this, kLadderOffBottomEvents, feeler);
+        ContactFeeler(this, feeler);
+    }
+}
+
+// 0x00441070
+void Obj::CWalkComponent::EndLadderOffTop()
+{
+    SetState(0);
+    TriggerRailScript(this, kExitLadderEvents);
+    if (At<bool>(this, kPullUpHit)) {
+        auto* feeler = &At<Nx::CFeeler>(this, kPullUpFeeler);
+        TriggerFeeler(this, kLadderOffTopEvents, feeler);
+        ContactFeeler(this, feeler);
+    }
+}
+
+// 0x00441860
+void Obj::CWalkComponent::EndLadderOffTopToAir()
+{
+    SetState(1);
+    TriggerRailScript(this, kExitLadderEvents);
+    VectorAt(this, kExitFacing) = VectorAt(this, kFacing);
+    LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
+}
+
+// 0x004410C0
+void Obj::CWalkComponent::EndOntoLadderBottom()
+{
+    CRailNode* node = At<CRailNode*>(this, kRailStart);
+    CRailNode* other = LadderOtherEnd(node);
+    Mth::Vector a, b;
+    Mth::Vector* nodePos = RailsOf(this)->GetWorldPos(&a, node);
+    Mth::Vector* otherPos = RailsOf(this)->GetWorldPos(&b, other);
+    float dx = otherPos->x - nodePos->x;
+    float dy = otherPos->y - nodePos->y;
+    float dz = otherPos->z - nodePos->z;
+    float up = Param(kLadderBottomOffsetUp);
+    double length = std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx);
+    At<float>(this, kAlong) = static_cast<float>(up / length);
+    SetState(3);
+    TellPhysicsNode(this);
+}
+
+// 0x00441190
+void Obj::CWalkComponent::EndOntoLadderTop()
+{
+    CRailNode* node = At<CRailNode*>(this, kRailStart);
+    CRailNode* other = LadderOtherEnd(node);
+    Mth::Vector a, b;
+    Mth::Vector* nodePos = RailsOf(this)->GetWorldPos(&a, node);
+    Mth::Vector* otherPos = RailsOf(this)->GetWorldPos(&b, other);
+    double dx = static_cast<double>(otherPos->x) - nodePos->x;
+    double dy = static_cast<double>(otherPos->y) - nodePos->y;
+    double dz = static_cast<double>(otherPos->z) - nodePos->z;
+    float length = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
+    float up = Param(kLadderTopOffsetUp);
+    At<float>(this, kAlong) = static_cast<float>((static_cast<double>(length) - up) / length);
+    SetState(3);
+    TellPhysicsNode(this);
+}
+
+// 0x00441260
+bool Obj::CWalkComponent::CheckLadderTop(const Mth::Vector* bottom, const Mth::Vector* top,
+                                         const Mth::Matrix* orientation, Record24* record)
+{
+    if (bottom->y > top->y)
+        return false;
+    Mth::Vector up = {top->x - bottom->x, top->y - bottom->y, top->z - bottom->z, top->w - bottom->w};
+    up.Normalize();
+    if (up.y < 0.995f)
+        return false;
+    // ladder_top_offset_up below the top, ladder_climb_offset out of the ladder (x and y's products unrounded, as the
+    // x87 code subtracts them)
+    auto* ladder = reinterpret_cast<FoundLadder*>(record);
+    float offset = Param(kLadderTopOffsetUp);
+    float oy = offset * up.y, oz = offset * up.z, ow = offset * up.w;
+    ladder->point = {static_cast<float>(top->x - static_cast<double>(offset) * up.x), top->y - oy, top->z - oz,
+                     top->w - ow};
+    float climb = Param(kLadderClimbOffset);
+    const Mth::Vector& at = orientation->row[2];
+    float cz = climb * at.z, cw = climb * at.w;
+    ladder->point.x = static_cast<float>(ladder->point.x - static_cast<double>(climb) * at.x);
+    ladder->point.y = static_cast<float>(ladder->point.y - static_cast<double>(climb) * at.y);
+    ladder->point.z = ladder->point.z - cz;
+    ladder->point.w = ladder->point.w - cw;
+    ladder->facing = at;
+    return true;
+}
+
+// 0x004413E0
+bool Obj::CWalkComponent::CheckLadderLine(const Mth::Vector* bottom, const Mth::Vector* top,
+                                          const Mth::Matrix* orientation, const Mth::Vector* onLadder, float along,
+                                          Record24* record)
+{
+    // upright enough (its height as part of its length; no length: the height itself)
+    float dy = top->y - bottom->y;
+    double dz = static_cast<double>(top->z) - bottom->z;
+    double dx = static_cast<double>(top->x) - bottom->x;
+    double length = std::sqrt(dx * dx + static_cast<double>(dy) * dy + dz * dz);
+    float upY = dy;
+    if (length > 0.0)
+        upY = static_cast<float>(dy * (1.0 / length));
+    if (upY < 0.995f)
+        return false;
+    // the line meets it between ladder_bottom_offset_up above the bottom and ladder_top_offset_up below the top
+    if (static_cast<double>(upY) * Param(kLadderBottomOffsetUp) + bottom->y > onLadder->y)
+        return false;
+    if (top->y - static_cast<double>(upY) * Param(kLadderTopOffsetUp) < onLadder->y)
+        return false;
+    // the point ladder_climb_offset out of it there, if nothing is in the way
+    auto* ladder = reinterpret_cast<FoundLadder*>(record);
+    float climb = Param(kLadderClimbOffset);
+    const Mth::Vector& at = orientation->row[2];
+    float cx = climb * at.x, cy = climb * at.y, cz = climb * at.z;
+    ladder->point = {onLadder->x - cx, onLadder->y - cy, onLadder->z - cz,
+                     static_cast<float>(onLadder->w - static_cast<double>(climb) * at.w)};
+    Nx::CFeeler feeler;
+    feeler.Construct();
+    feeler.m_line.start = VectorAt(this, kPos);
+    feeler.m_line.end = ladder->point;
+    if (feeler.GetCollision(true, false))
+        return false;
+    ladder->facing = at;
+    ladder->along = along;
+    SetPhysicsFlagA0(this);
+    return true;
+}
+
+// 0x00441680
+void Obj::CWalkComponent::ClimbOffBottom()
+{
+    // ladder_bottom_offset_forward back and ladder_bottom_offset_up down: the ground there, if any
+    float forward = Param(kLadderBottomOffsetForward);
+    Mth::Vector& pos = VectorAt(this, kPos);
+    Mth::Vector& facing = VectorAt(this, kFacing);
+    float fz = forward * facing.z, fw = forward * facing.w;
+    Mth::Vector target = {static_cast<float>(pos.x - static_cast<double>(forward) * facing.x),
+                          static_cast<float>(pos.y - static_cast<double>(forward) * facing.y), pos.z - fz, pos.w - fw};
+    target.y = target.y - Param(kLadderBottomOffsetUp);
+    Nx::CFeeler* ground = &At<Nx::CFeeler>(this, kPullUpFeeler);
+    bool found = FindStandPosition(&target, &target, ground);
+    At<bool>(this, kPullUpHit) = found;
+    if (found)
+        VectorAt(this, kHitNormal) = ground->m_normal;
+    // the animated move there
+    VectorAt(this, kStartPos) = pos;
+    VectorAt(this, kEndPos) = target;
+    SetAnimDone(this, 0x00441020);
+    At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
+    At<float>(this, kEndHeightOffset) = 0.0f;
+    SetTransitionFacing(&facing, 1.0f);
+    At<int>(this, kAnimWaiting) = 1;
+    VectorAt(this, kTargetFacing) = facing;
+    At<float>(this, kTargetHeight) = pos.y;
+    SetState(4);
+    At<uint32_t>(this, kAnim) = kAnimLadderOffBottom;
+}
+
+// 0x004418B0
+bool Obj::CWalkComponent::CheckLadderBottom(const Mth::Vector* bottom, const Mth::Vector* top,
+                                            const Mth::Matrix* orientation, Record24* record)
+{
+    if (bottom->y > top->y)
+        return false;
+    Mth::Vector up = {top->x - bottom->x, top->y - bottom->y, top->z - bottom->z, top->w - bottom->w};
+    up.Normalize();
+    if (up.y < 0.995f)
+        return false;
+    // faced (within max_onto_ladder_angle)
+    float maxAngle = Param(kMaxOntoLadderAngle);
+    const Mth::Vector& at = orientation->row[2];
+    const Mth::Vector& facing = VectorAt(this, kFacing);
+    double dot = static_cast<double>(at.z) * facing.z + static_cast<double>(at.y) * facing.y +
+                 static_cast<double>(at.x) * facing.x;
+    if (dot < X87Cos(static_cast<double>(maxAngle) * 0.017453292384743690))
+        return false;
+    // ladder_bottom_offset_up above the bottom, ladder_climb_offset out of the ladder
+    auto* ladder = reinterpret_cast<FoundLadder*>(record);
+    float offset = Param(kLadderBottomOffsetUp);
+    float ox = offset * up.x, oy = offset * up.y, oz = offset * up.z;
+    ladder->point = {ox + bottom->x, oy + bottom->y, oz + bottom->z,
+                     static_cast<float>(static_cast<double>(offset) * up.w + bottom->w)};
+    float climb = Param(kLadderClimbOffset);
+    ladder->point.x = static_cast<float>(ladder->point.x - static_cast<double>(climb) * at.x);
+    ladder->point.y = static_cast<float>(ladder->point.y - static_cast<double>(climb) * at.y);
+    ladder->point.z = static_cast<float>(ladder->point.z - static_cast<double>(climb) * at.z);
+    ladder->point.w = static_cast<float>(ladder->point.w - static_cast<double>(climb) * at.w);
+    // nothing between the skater and 6 behind that point
+    Nx::CFeeler feeler;
+    feeler.Construct();
+    feeler.m_line.start = VectorAt(this, kPos);
+    float bx = at.x * 6.0f, by = at.y * 6.0f, bz = at.z * 6.0f;
+    feeler.m_line.end = {ladder->point.x - bx, ladder->point.y - by, ladder->point.z - bz,
+                         static_cast<float>(ladder->point.w - static_cast<double>(at.w) * 6.0f)};
+    if (feeler.GetCollision(true, false))
+        return false;
+    ladder->facing = at;
+    return true;
+}
+
+// 0x00441B80
+void Obj::CWalkComponent::ClimbOffTop()
+{
+    // ladder_top_offset_forward ahead and ladder_top_offset_up up: the ground there - or into the air
+    float forward = Param(kLadderTopOffsetForward);
+    Mth::Vector& pos = VectorAt(this, kPos);
+    Mth::Vector& facing = VectorAt(this, kFacing);
+    float fx = forward * facing.x, fy = forward * facing.y, fz = forward * facing.z;
+    Mth::Vector target = {fx + pos.x, fy + pos.y, fz + pos.z,
+                          static_cast<float>(static_cast<double>(forward) * facing.w + pos.w)};
+    target.y = target.y + Param(kLadderTopOffsetUp);
+    Nx::CFeeler ledge;
+    ledge.Construct();
+    bool found = FindStandPosition(&target, &target, &ledge);
+    VectorAt(this, kStartPos) = pos;
+    VectorAt(this, kEndPos) = target;
+    if (found) {
+        SetAnimDone(this, 0x00441070);
+        AssignFeeler(&At<Nx::CFeeler>(this, kPullUpFeeler), &ledge);
+        At<bool>(this, kPullUpHit) = true;
+        VectorAt(this, kHitNormal) = At<Nx::CFeeler>(this, kPullUpFeeler).m_normal;
+    } else {
+        SetAnimDone(this, 0x00441860);
+    }
+    At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
+    At<float>(this, kEndHeightOffset) = 0.0f;
+    SetTransitionFacing(&facing, 1.0f);
+    At<int>(this, kAnimWaiting) = 1;
+    VectorAt(this, kTargetFacing) = facing;
+    At<float>(this, kTargetHeight) = target.y;
+    SetState(4);
+    At<uint32_t>(this, kAnim) = kAnimLadderOffTop;
+}
+
+// 0x00441DE0
+bool Obj::CWalkComponent::ClimbOntoBottom(bool button)
+{
+    if (At<bool>(At<uint8_t*>(PhysicsOf(this), 0x1528), 0x70))
+        return false;
+    float radius = button ? Param(kButtonHorizSnapDistance) : Param(kMaxHorizSnapDistance);
+    float height = Param(kMaxVertSnapDistance);
+    FoundLadder ladder;
+    if (!LevelRails()->FindLadder(&VectorAt(this, kPos), radius, height, true, this, reinterpret_cast<uint32_t>(&ladder),
+                                  &At<CRailNode*>(this, kRailStart)))
+        return false;
+    GrabbedLadder(this);
+    VectorAt(this, kStartPos) = VectorAt(this, kPos);
+    VectorAt(this, kEndPos) = ladder.point;
+    SetAnimDone(this, 0x004410C0);
+    At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
+    At<float>(this, kEndHeightOffset) = 0.0f;
+    SetTransitionFacing(&ladder.facing, 1.0f);
+    At<int>(this, kAnimWaiting) = 1;
+    VectorAt(this, kTargetFacing) = ladder.facing;
+    At<float>(this, kTargetHeight) = ladder.point.y;
+    SetState(4);
+    At<uint32_t>(this, kAnim) = kAnimLadderOntoBottom;
+    return true;
+}
+
+// 0x00441FC0
+bool Obj::CWalkComponent::ClimbOntoTop()
+{
+    if (At<bool>(At<uint8_t*>(PhysicsOf(this), 0x1528), 0x70))
+        return false;
+    float height = Param(kMaxVertSnapDistance);
+    float radius = Param(kMaxHorizSnapDistance);
+    FoundLadder ladder;
+    if (!LevelRails()->FindLadder(&VectorAt(this, kPos), radius, height, false, this, reinterpret_cast<uint32_t>(&ladder),
+                                  &At<CRailNode*>(this, kRailStart)))
+        return false;
+    GrabbedLadder(this);
+    VectorAt(this, kStartPos) = VectorAt(this, kPos);
+    VectorAt(this, kEndPos) = ladder.point;
+    SetAnimDone(this, 0x00441190);
+    At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
+    At<float>(this, kEndHeightOffset) = 0.0f;
+    SetTransitionFacing(&ladder.facing, 1.0f);
+    At<int>(this, kAnimWaiting) = 1;
+    VectorAt(this, kTargetFacing) = ladder.facing;
+    At<float>(this, kTargetHeight) = VectorAt(this, kPos).y;
+    SetState(4);
+    At<uint32_t>(this, kAnim) = kAnimLadderOntoTop;
+    return true;
+}
+
+// 0x00442170
+bool Obj::CWalkComponent::GrabLadder(const Mth::Vector* start, const Mth::Vector* end)
+{
+    FoundLadder ladder;
+    if (!LevelRails()->FindLadderOnLine(start, end, this, reinterpret_cast<Record24*>(&ladder),
+                                        &At<CRailNode*>(this, kRailStart)))
+        return false;
+    RailsOf(this) = LevelRails();
+    LetGoOfRide(At<void*>(this, kContact));
+    VectorAt(this, kPos) = ladder.point;
+    VectorAt(this, kFacing) = ladder.facing;
+    At<float>(this, kAlong) = ladder.along;
+    At<float>(this, kVerticalSpeed) = 0.0f;
+    VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
+    SetState(3);
+    TellPhysicsNode(this);
+    At<uint32_t>(this, kAnim) = kAnimLadder;
+    return true;
+}
+
+// 0x00442280
+void Obj::CWalkComponent::ClimbLadder()
+{
+    // the control's up / down part (its angle's cosine) at ladder_move_speed
+    float speed = Param(kLadderMoveSpeed);
+    uint8_t* input = At<uint8_t*>(this, kInput);
+    double moveSpeed =
+        X87Cos(At<float>(input, 0x248)) * At<float>(this, kControlMagnitude) * static_cast<double>(speed);
+    At<float>(this, kAnimSpeed) = static_cast<float>(moveSpeed);
+    float move = static_cast<float>(moveSpeed * At<float>(this, kFrameLength));
+    CRailNode* node = At<CRailNode*>(this, kRailStart);
+    CRailNode* other = LadderOtherEnd(node);
+    Mth::Vector a, b;
+    Mth::Vector* nodePos = RailsOf(this)->GetWorldPos(&a, node);
+    Mth::Vector* otherPos = RailsOf(this)->GetWorldPos(&b, other);
+    Mth::Vector d = {otherPos->x - nodePos->x, otherPos->y - nodePos->y, otherPos->z - nodePos->z,
+                     otherPos->w - nodePos->w};
+    double length = std::sqrt(static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y +
+                              static_cast<double>(d.x) * d.x);
+    double step = move / length;
+    bool up = step > 0.0;
+    float& along = At<float>(this, kAlong);
+    along = static_cast<float>(step + along);
+    float lengthF = static_cast<float>(length);
+    // off the bottom or the top
+    float bottomUp = Param(kLadderBottomOffsetUp);
+    double inverse = 1.0 / lengthF;
+    float inverseF = static_cast<float>(inverse);
+    if (inverse * bottomUp > along) {
+        ClimbOffBottom();
+        return;
+    }
+    float topUp = Param(kLadderTopOffsetUp);
+    if ((static_cast<double>(lengthF) - topUp) * inverseF < along) {
+        ClimbOffTop();
+        return;
+    }
+    // else on it: the animation, the place along it (ladder_climb_offset out of it)
+    float t = along;
+    along = t > 1.0f ? 1.0f : t < 0.0f ? 0.0f : t;
+    if (along == 0.0f || along == 1.0f) {
+        At<uint32_t>(this, kAnim) = kAnimLadder;
+        At<float>(this, kAnimSpeed) = 0.0f;
+    } else {
+        At<uint32_t>(this, kAnim) = up ? kAnimLadderMoveUp : kAnimLadderMoveDown;
+    }
+    float climb = Param(kLadderClimbOffset);
+    const Mth::Vector& facing = VectorAt(this, kFacing);
+    Mth::Vector out = {climb * facing.x, climb * facing.y, climb * facing.z, climb * facing.w};
+    Mth::Vector part = {d.x * along, d.y * along, d.z * along, d.w * along};
+    nodePos = RailsOf(this)->GetWorldPos(&a, At<CRailNode*>(this, kRailStart));
+    double x = static_cast<double>(part.x) + nodePos->x;
+    float y = part.y + nodePos->y;
+    float z = part.z + nodePos->z;
+    float w = part.w + nodePos->w;
+    Mth::Vector& pos = VectorAt(this, kPos);
+    pos.z = z - out.z;
+    pos.w = w - out.w;
+    pos.x = static_cast<float>(x - out.x);
+    pos.y = y - out.y;
+    At<float>(this, kAnimSpeed) = std::fabs(At<float>(this, kAnimSpeed));
+}
+
+// 0x004425B0
+void Obj::CWalkComponent::UpdateLadder()
+{
+    // the ladder's rail script for the first 25 ticks
+    if (static_cast<uint32_t>(Now()) - At<uint32_t>(this, kStateTime) < 25)
+        TriggerRailScript(this, kOntoLadderEvents);
+    At<bool>(this, kFlag1958) = false;
+    // the control within ladder_control_tolerance of up or down: climbing
+    uint8_t* input = At<uint8_t*>(this, kInput);
+    float upright = static_cast<float>(1.5707963705062866 - std::fabs(At<float>(input, 0x248)));
+    float tolerance = Param(kLadderControlTolerance);
+    if (X87Cos(static_cast<double>(tolerance) * 0.017453292384743690) < std::fabs(upright)) {
+        ClimbLadder();
+        return;
+    }
+    At<uint32_t>(this, kAnim) = kAnimLadder;
+    At<float>(this, kAnimSpeed) = 0.0f;
+}
+
 // 0x0043EB80
 void Walk::MovableContact::StartRiding(Obj::CCompositeObject* object)
 {
-    if (auto* tracker = At<Obj::CRideTracker*>(this, 0x18)) {
-        At<Obj::CCompositeObject*>(this, 0x6C) = tracker->m_object.Get(); // (the object last ridden)
-        tracker->m_object.Release();
-        Mem::Free(tracker);
-        At<Obj::CRideTracker*>(this, 0x18) = nullptr;
-        At<int>(this, 0x70) = Now();
-    }
+    LetGoOfRide(this);
     void* memory = Mem::New(sizeof(Obj::CRideTracker));
     At<Obj::CRideTracker*>(this, 0x18) = memory ? static_cast<Obj::CRideTracker*>(memory)->Construct(object) : nullptr;
 }
@@ -1214,3 +1677,18 @@ REPLACE(0x0043FE30, &Obj::CWalkComponent::HangClear);
 REPLACE(0x00440130, &Obj::CWalkComponent::Shimmy);
 REPLACE(0x00440690, &Obj::CWalkComponent::CheckRail);
 REPLACE(0x00440BF0, &Obj::CWalkComponent::UpdateHang);
+REPLACE(0x00441020, &Obj::CWalkComponent::EndLadderOffBottom);
+REPLACE(0x00441070, &Obj::CWalkComponent::EndLadderOffTop);
+REPLACE(0x004410C0, &Obj::CWalkComponent::EndOntoLadderBottom);
+REPLACE(0x00441190, &Obj::CWalkComponent::EndOntoLadderTop);
+REPLACE(0x00441260, &Obj::CWalkComponent::CheckLadderTop);
+REPLACE(0x004413E0, &Obj::CWalkComponent::CheckLadderLine);
+REPLACE(0x00441680, &Obj::CWalkComponent::ClimbOffBottom);
+REPLACE(0x00441860, &Obj::CWalkComponent::EndLadderOffTopToAir);
+REPLACE(0x004418B0, &Obj::CWalkComponent::CheckLadderBottom);
+REPLACE(0x00441B80, &Obj::CWalkComponent::ClimbOffTop);
+REPLACE(0x00441DE0, &Obj::CWalkComponent::ClimbOntoBottom);
+REPLACE(0x00441FC0, &Obj::CWalkComponent::ClimbOntoTop);
+REPLACE(0x00442170, &Obj::CWalkComponent::GrabLadder);
+REPLACE(0x00442280, &Obj::CWalkComponent::ClimbLadder);
+REPLACE(0x004425B0, &Obj::CWalkComponent::UpdateLadder);

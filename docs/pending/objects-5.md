@@ -150,3 +150,25 @@ commands (0x445000-0x445B30). Shared files touched: CMakeLists.txt (new files li
     Update, the collision cache; facing exactly along the rail for the side tests). 61 deliberate bugs, all caught (2
     after strengthening: facing along the rail in PlaceOnHang and Shimmy; 2 re-run after the linker ran out of
     memory).
+- [x] Batch OC5-7 (NOT run in the game yet; ladders, 15 functions): src/game/obj/walk_hang.cpp, declared in the
+  walk component's block (walk_physics.h).
+  - Animation-end callbacks (code Ghidra never made functions of, stored at +0x1948): 0x00441020 EndLadderOffBottom /
+    0x00441070 EndLadderOffTop (walking; events {1,3,0} / {0xE,3,0} for the ledge feeler), 0x00441860
+    EndLadderOffTopToAir, 0x004410C0 EndOntoLadderBottom / 0x00441190 EndOntoLadderTop (state 3, along from the
+    bottom / top offsets).
+  - FindLadder's checkers 0x00441260 CheckLadderTop (`this` unused) / 0x004418B0 CheckLadderBottom (faced within
+    max_onto_ladder_angle; a feeler to 6 behind the point), FindLadderOnLine's 0x004413E0 CheckLadderLine (between
+    the offsets; the skater core's flag +0xA0 of +0x1528); the ladder must be within ~6 degrees of upright (0.995).
+  - 0x00441680 ClimbOffBottom / 0x00441B80 ClimbOffTop (FindStandPosition ahead / behind; into the air off the top
+    with no ground), 0x00441DE0 ClimbOntoBottom(button) / 0x00441FC0 ClimbOntoTop (FindLadder on the level's rails),
+    0x00442170 GrabLadder (FindLadderOnLine; the ride let go - StartRiding's first half, now LetGoOfRide shared),
+    0x00442280 ClimbLadder (the control's cosine x ladder_move_speed; off either end past its offset; LadderMoveUp /
+    Down), 0x004425B0 UpdateLadder (state 3: the rail script for 25 ticks, ladder_control_tolerance).
+  - Test: TestWalkHang extended (11 more parameters; FindLadder / FindLadderOnLine stand-ins; upright, leaning
+    (0.978), zero-length and upside-down ladders; standing exactly at the end limits). 61 deliberate bugs: 57 caught
+    (6 after strengthening), 4 equivalent: CheckLadderTop's bottom-above-top test (an upside-down ladder fails the
+    upright test anyway) and ClimbLadder's clamp / the Ladder animation at exactly 0 or 1 (unreachable while the
+    ladder offsets are positive: past them it climbs off).
+  - Range check: find_gaps shows no gaps in 0x43D929-0x445B50; all 85 functions Ghidra knows are REPLACEd, plus the
+    four callbacks it doesn't (0x0043DB00, 0x00441020, 0x00441070, 0x00441860); the other bytes between functions
+    are the previous functions' last instructions or int3 padding.
