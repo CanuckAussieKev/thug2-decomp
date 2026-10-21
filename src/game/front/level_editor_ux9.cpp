@@ -288,13 +288,10 @@ void Init()
         a.defaults = a.keys = {Actions::Chord{scancode, Actions::kAlt}};
         return Actions::Register(a);
     };
-    g_gapAction = make("gap_wizard", "Gap wizard", "Triggers", SDL_SCANCODE_J,
-                       "Click where a gap starts and where it ends, then name, score and type it");
-    g_skateAction = make("skateability", "Skateability overlay", "View", SDL_SCANCODE_K,
-                         "Surfaces coloured by what a skater can do on them, with a legend");
+    g_gapAction = make("gap_wizard", "Gap Wizard", "Triggers", SDL_SCANCODE_J, "Create a gap from a start and end point");
+    g_skateAction = make("skateability", "Skateability", "View", SDL_SCANCODE_K, "Colour surfaces by skateability");
     Actions::SetChecked(g_skateAction, [] { return SkateView::Shown() ? 1 : 0; });
-    g_groundAction = make("ground_tool", "Raise / lower ground", "Edit", SDL_SCANCODE_U,
-                          "Mark a rectangle on the ground: raise a platform or lower a pit, with kickers / quarter pipes");
+    g_groundAction = make("ground_tool", "Ground Tool", "Edit", SDL_SCANCODE_U, "Raise or lower a rectangle of ground");
     Layout::Extension e;
     e.keywords = {"ground"};
     e.capture = [] { return Ground::CaptureRecords(); };
@@ -330,8 +327,7 @@ void Update()
     }
     if (g_skateAction >= 0 && Actions::Pressed(g_skateAction)) {
         SkateView::SetShown(!SkateView::Shown());
-        ShowMessage(SkateView::Shown() ? "Skateability overlay (Alt+K): the legend is bottom right"
-                                       : "Skateability overlay off");
+        ShowMessage(SkateView::Shown() ? "Skateability on" : "Skateability off");
     }
     if (g_groundAction >= 0 && Actions::Pressed(g_groundAction)) {
         GapWizard::SetArmed(false);

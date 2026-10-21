@@ -53,20 +53,16 @@ uint32_t ParseBits(int value, bool present)
 const std::vector<BitInfo>& Bits()
 {
     static const std::vector<BitInfo> bits = {
-        {kLabels, "Labels", "", "Texts over the view: gizmo and trigger names, the feature map's numbers, distances"},
-        {kFeatureMap, "Feature map", "",
-         "Speed-ups' chevrons, jump boosts, proximity shapes, breakables (with the trigger volumes or a selection)"},
-        {kGrindPreview, "Grind preview", "",
-         "The rail under the cursor (or selected): its direction, segments, terrain, speed-ups and connections"},
-        {kJumpArcs, "Jump arcs", "Y", "The selected scenery's lips and the arcs a skater flies off them at three speeds"},
-        {kRuler, "Ruler", "M", "The ruler's measurement (M: the tool - click two points)"},
-        {kSkateability, "Skateability", "Alt+K",
-         "Surfaces coloured by what a skater can do: floor, bank, vert, wallride, not skatable, kill zones, water - and "
-         "the grind rails (a legend bottom right)"},
-        {kGrid, "Grid", "", "A 100-unit grid on the ground below the camera or the selection (every 500 brighter)"},
-        {kCarryHints, "Carried objects", "", "While scenery moves: what it carries (objects, nodes) outlined in green"},
-        {kLegend, "Collision legend", "", "The collision view's colours and counts (bottom left of the view)"},
-        {kOutlinerMarks, "Outliner markers", "", "The Outliner rows' letters: moved, added, hidden, locked..."},
+        {kLabels, "Labels", "", "Names and values over the view"},
+        {kFeatureMap, "Feature Map", "", "Speed-ups, boosts, proximity shapes and breakables"},
+        {kGrindPreview, "Grind Preview", "", "Direction, terrain and connections of the rail under the cursor"},
+        {kJumpArcs, "Jump Arcs", "Y", "Launch arcs from the selected ramp"},
+        {kRuler, "Ruler", "M", "The ruler's measurement"},
+        {kSkateability, "Skateability", "Alt+K", "Surfaces coloured by skateability"},
+        {kGrid, "Grid", "", "100-unit ground grid"},
+        {kCarryHints, "Carried Objects", "", "Outline objects carried by moving scenery"},
+        {kLegend, "Collision Legend", "", "Collision colour key"},
+        {kOutlinerMarks, "Outliner Markers", "", "Change letters on Outliner rows"},
     };
     return bits;
 }

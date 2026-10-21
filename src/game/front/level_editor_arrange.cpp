@@ -1041,20 +1041,13 @@ void RegisterActions()
         return;
     using Actions::Chord;
     const uint8_t ctrlAlt = Actions::kCtrl | Actions::kAlt;
-    g_actWindow = AddAction("arrange_window", "Arrange window", "Panels",
-                            "Align / distribute, replace the selection, linked copies, rail along an edge, the ghost and "
-                            "snapping settings",
+    g_actWindow = AddAction("arrange_window", "Arrange", "Panels", "Align, distribute and replace",
                             {Chord{SDL_SCANCODE_F2, 0}}, [] { Toggle(&Current().window); });
-    g_actAdjust = AddAction("adjust_last", "Adjust last action", "Panels",
-                            "The last move / turn / scale / duplicate / align / place: change its numbers, made again as "
-                            "the same undo step (shown after each; F4 hides / shows it)",
+    g_actAdjust = AddAction("adjust_last", "Adjust Last Operation", "Panels", "Edit the parameters of the last operation",
                             {Chord{SDL_SCANCODE_F4, 0}}, [] { Toggle(&Adjust::Shown()); });
-    g_actEdgeRail = AddAction("edge_rail", "Rail along an edge", "Edit",
-                              "A scenery piece selected: its top edges shown - click one to lay a grind rail exactly along "
-                              "it (Shift+click: more)",
+    g_actEdgeRail = AddAction("edge_rail", "Rail Along Edge", "Edit", "Click a scenery edge to add a rail along it",
                               {Chord{SDL_SCANCODE_R, Actions::kAlt}}, [] { SetEdgePicking(!g_edgePicking); });
-    g_actLinked = AddAction("linked_duplicate", "Duplicate linked", "Edit",
-                            "Copies that stay linked to their source: its scale (objects: its fields and model) reach them",
+    g_actLinked = AddAction("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
                             {Chord{SDL_SCANCODE_D, ctrlAlt}}, [] { Links::LinkedDuplicate(); });
     static const char* const kEdges[] = {"min", "centre", "max"};
     static const char* const kAxes = "xyz";
@@ -1063,30 +1056,26 @@ void RegisterActions()
             std::string key = std::string("align_") + kAxes[axis] + "_" + kEdges[edge];
             std::string name = std::string("Align ") + AxisName(axis) + " " + kEdges[edge];
             AddAction(key.c_str(), name.c_str(), "Arrange",
-                      "Line the selected pieces up (the Arrange window's reference and space)", {}, [axis, edge] {
+                      "Align the selection", {}, [axis, edge] {
                           Align(axis, static_cast<Edge>(edge), Current().reference, Current().local);
                       });
         }
         std::string key = std::string("distribute_") + kAxes[axis];
         std::string name = std::string("Distribute along ") + AxisName(axis);
-        AddAction(key.c_str(), name.c_str(), "Arrange", "Spread the selected pieces evenly (three or more)", {},
+        AddAction(key.c_str(), name.c_str(), "Arrange", "Space the selection evenly (3 or more)", {},
                   [axis] { Distribute(axis, Current().gaps, Current().local); });
     }
-    AddAction("replace_selection", "Replace selection with the Add palette's item", "Arrange",
-              "Each selected piece / object copy replaced by the highlighted piece / object, keeping its place, turn and "
-              "scale (a level's own object: its model)",
+    AddAction("replace_selection", "Replace Selection", "Arrange", "Replace with the item highlighted in Add Piece",
               {}, [] { Replace(); });
-    AddAction("unlink", "Unlink", "Arrange", "The selected linked copies made independent (on a source: its group dissolved)",
+    AddAction("unlink", "Unlink Copies", "Arrange", "Make linked copies independent",
               {}, [] { Links::UnlinkSelection(); });
-    AddAction("edge_snap", "Edge-to-edge snapping", "Settings", "Scenery's box faces snap flush to a neighbour's while moved",
+    AddAction("edge_snap", "Edge Snapping", "Settings", "Snap scenery flush to neighbours",
               {}, [] { Toggle(&Current().edgeSnap); }, [] { return Current().edgeSnap ? 1 : 0; });
-    AddAction("drag_readout", "Measurements while dragging", "Settings",
-              "Size, distance moved, height above the ground, nearest rail / ledge next to the cursor", {},
+    AddAction("drag_readout", "Drag Measurements", "Settings", "Show distances while dragging", {},
               [] { Toggle(&Current().measure); }, [] { return Current().measure ? 1 : 0; });
-    AddAction("placement_ghost", "Placement ghost", "Settings", "A see-through preview of what a click places", {},
+    AddAction("placement_ghost", "Placement Preview", "Settings", "Preview what a click places", {},
               [] { Toggle(&Current().ghost); }, [] { return Current().ghost ? 1 : 0; });
-    AddAction("click_places", "Click places the Add palette's item", "Settings",
-              "With the Add palette open, a click in the view places it (Shift: more)", {},
+    AddAction("click_places", "Click to Place", "Settings", "Place the Add Piece item with a click", {},
               [] { Toggle(&Current().clickPlaces); }, [] { return Current().clickPlaces ? 1 : 0; });
 }
 
