@@ -308,6 +308,11 @@ their collision from shared collision objects along), `palette_grid`, `trail_rec
 `fly_accel_ms`, `look_pct`, `invert_y`, `gizmo_pct`, `ui_scale_pct`, `autosave_s`, `snap_move`, `snap_turn`, `accent`,
 `wasd_flies`, `speed_by_selection`, `pad`, `tips_seen`). **`[editor_keys]`**: rebound keys (only the changed ones).
 
+**`[memory]`** - the script pools' sizes (ours, as THUGPRO's: bigger than THUG2's, so big converted levels fit;
+src/game/core/memory_sizes.h): `component_pool` (184000; THUG2: 86000), `struct_pool`, `vector_pool`, `pair_pool`,
+`array_pool`, `symbol_pool`, `script_pool`, `script_cache_pool`, `string_heap`, `string_count`, `hash_item_pool` (40000;
+THUG2: 10000); `original_sizes=1` puts them all back. The script heap and main memory grow to match.
+
 **`[replacements]`** `disable=` and **`[selftests]`** `enabled`, `early`, `shadow_calls`, `filter=` (run only the
 self-tests whose names contain one of these words), `trace` - see "Tracking down a problem".
 

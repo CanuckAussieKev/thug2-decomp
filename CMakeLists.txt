@@ -186,6 +186,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_sprite.cpp
     src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
+    src/hook/selftests_memory_sizes.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
@@ -314,6 +315,7 @@ add_library(thug2_code OBJECT
     src/game/core/heap.cpp
     src/game/core/manager.cpp
     src/game/core/mem.cpp
+    src/game/core/memory_sizes.cpp
     src/game/core/pool.cpp
     src/game/core/singleton.cpp
     src/game/core/stubs.cpp
