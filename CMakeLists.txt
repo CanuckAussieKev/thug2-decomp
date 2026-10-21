@@ -316,6 +316,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gamenet_join.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_obj_trigger.cpp
+    src/hook/selftests_obj_shadow.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_editor_ui.cpp
     src/hook/selftests_editor_nodes.cpp
@@ -631,6 +632,7 @@ add_library(thug2_code OBJECT
     src/game/obj/display_matrix_component.cpp
     src/game/obj/static_vehicle.cpp
     src/game/obj/vehicle_wheel.cpp
+    src/game/obj/shadow_component.cpp
     src/game/skater/rotation.cpp
     src/game/skater/local_net_logic.cpp
     src/game/sio/device.cpp

@@ -41,4 +41,24 @@ other members added; TriggerNode unchanged).
     getters / RegisterMemberFunctionTable / 0x00493040 / 0x004A2BA0 stood in for; the component, the allocation, the
     feeler, the wheel and the bones compared. 38 deliberate bugs caught, 7 after strengthening (only-w moves, event
     0, the wheel's whole record traced, a separate drive answer).
-- [ ] Next: the shadow component (0x431300-0x431B10, 0x431360).
+- [x] Batch OC3-2 (NOT run in the game yet; the shadow component, 15 functions): src/game/obj/shadow_component.*
+  (new). CShadowComponent (0x8A897DD2 "shadow", vtable 0x00646498, 0x48 bytes: +0x18 the renderer's shadow object,
+  +0x1C its position, +0x2C the ground normal, +0x3C ShadowType, +0x40 the model component, +0x44 follow the object):
+  Create 0x00431800, Construct 0x00431380, DestroyBody 0x00431300, Destroy 0x004313D0, Finalize 0x00431400 (the model
+  and its asset data to shadow slot 7), RefreshShadow 0x00431450 (visible = model flags 0x2 and not 0x4; detailed:
+  SetPosition(pos + up * 36) - after an unused call of the model's +0x2C object's slot 5 (its vector * -1 dropped);
+  simple: scale = model +0x1C then as Volume: Update(pos, matrix, normal); then Show - otherwise Hide), Hide
+  0x00431570, CreateShadow 0x004315A0 (1 detailed 0x004A19C0 (Calloc 0x24), 2 simple 0x004A1750 / 0x004A17E0(name)
+  (Calloc 0x14; written through without a check), 3 Volume 0x004A1F80 (Mem::New 0x68); 2 and 3 updated at once),
+  DestroyShadow 0x00431780 (the model's shadow flag 0x004949B0(false) first), SetPosition 0x004317C0, SetNormal
+  0x004317E0, SetLightDirection 0x00431360 (not a Ghidra function: shadow slot 3), InitFromStructure 0x00431860
+  (ShadowType simple by default, the flag 0x7E773A11 = don't follow; simple: ShadowModel "Ped_Shadow", ShadowScale
+  1), Update 0x004319D0 (following: the display matrix at the object's position, or the model hierarchy root's
+  matrix x the display matrix at pos + its translation, to shadow slot 4; then RefreshShadow), CallMemberFunction
+  0x00431B10 (Obj_ShadowOff / Obj_ShadowOn: ShadowType simple added when missing, InitFromStructure through the
+  vtable, a simple shadow's offset= 0.2 to its +0x10).
+  - Test (selftests_obj_shadow.cpp TestShadowComponent): 4000 random cases over the 15, the shadow object's 8 slots and
+    the fader's slot 5 recording vtables, the three constructors, the allocators (Calloc and the manager's Allocate),
+    the model's shadow flag / hierarchy, the struct getters stood in for; the component and both shadow objects
+    compared. 35 deliberate bugs caught (the two crashes: a shadow updated through null).
+- [ ] Next: the skeleton component (0x431BE0-0x432B90).
