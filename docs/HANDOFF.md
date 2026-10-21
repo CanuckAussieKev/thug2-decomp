@@ -342,3 +342,6 @@ What those agents were doing (the user's decisions, 2026-10-20):
   never capture the whole screen, never close a game you didn't start, and hand interactive tests to the user.
 - `.claude/worktrees/` holds finished agents' worktrees (defaultlevel a99dc09a…, cas100 a778032d…, merged). They can
   be removed with `git worktree remove`.
+
+## 2026-10-22 (usage limit)
+Stopped mid-work (resume from their worktree branches): shared node fields (worktree-agent-a8c820ba40a96d402, load checks), skater SK1 (a86a1577a57f1e90c, 0x500020-0x508773), SK3 (aa16173e077dcc91b, 0x510823-0x5197F2), SK5 (ad7146704ab7493b5, 0x521B90-0x529F62), SK6 (a79a8b861713be8f4, 0x529F62-0x533F20); prompt template out/scripts/skater_prompt.txt. Merged + installed today: SK2, SK4, THP8 phase 1, THPS2 phase 3, crash handling, THUGPRO join path, HD textures (THPS3 at 2x installed). Open: user to play-test skater physics / tricks; East LA register wording ('LA crash fix' is only the latest commit title); THP8 phase 2 order.
