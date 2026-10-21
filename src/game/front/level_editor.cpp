@@ -17,6 +17,7 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_chains.h"
+#include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_node_create.h"
@@ -756,8 +757,10 @@ struct FieldUndo {
 struct UndoStep {
     enum Kind {
         kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kWalls, kTriggers, kFields, kProps,
-        kLocks
+        kLocks, kEntities
     } kind = kObjects;
+    // kEntities: path speeds and emitters' sounds to put back (level_editor_entities.h).
+    Entities::State entities;
     // kLocks: the locks to put back (level_editor_picking.h - L, Unlock, Unlock all).
     std::vector<Picking::Lock> locks;
     // kScenery: what the scenery carried along (level_editor_carry.h) - their places before the change.
@@ -1135,6 +1138,9 @@ void Restore(UndoStep& step)
     case UndoStep::kTriggers:
         Triggers::Restore(step.triggers);
         break;
+    case UndoStep::kEntities:
+        Entities::SetState(step.entities);
+        break;
     }
 }
 
@@ -1224,6 +1230,9 @@ UndoStep Current(const UndoStep& step)
     case UndoStep::kTriggers:
         now.triggers = Triggers::Save();
         break;
+    case UndoStep::kEntities:
+        now.entities = Entities::Current();
+        break;
     }
     return now;
 }
@@ -1235,6 +1244,7 @@ void StepHistory(std::vector<UndoStep>* from, std::vector<UndoStep>* to, const c
         Hud::Message(from == &g_undo ? "Nothing to undo" : "Nothing to redo");
         return;
     }
+    Entities::StopPreview(); // (the previewed object back where it stands before anything is put back)
     UndoStep step = from->back();
     from->pop_back();
     Carry::Disarm(); // (the steps put places back themselves: nothing follows them)
@@ -1844,6 +1854,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     bool ui = Ui::Start();
     View::Start();
     Triggers::Start(); // (the level's trigger volumes found)
+    Entities::Start();
     // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time; the setting from
     // [Graphics] OcclusionCulling comes back when the editor closes)
     g_occlusionInPlay = Nx::OcclusionOff();
@@ -1963,6 +1974,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     View::Stop(); // (everything hidden in the editor shown again)
     Carry::Disarm();
     Triggers::Stop();
+    Entities::Stop(); // (the previewed object put back)
     Nx::OcclusionOff() = g_occlusionInPlay;
     Ui::Stop();
     SetRelative(false);
@@ -2162,6 +2174,7 @@ struct PlaceEntry {
     NodeCreate::Team team;
     std::string label;
     uint32_t colour;
+    bool lobby = false; // (a team lobby flag, TRG_Flag_<Colour>: NodeCreate::LobbyFlagName)
 };
 const std::vector<PlaceEntry>& PlaceEntries()
 {
@@ -2181,6 +2194,11 @@ const std::vector<PlaceEntry>& PlaceEntries()
     for (Team t : teams) {
         std::string colour = NodeCreate::TeamName(t);
         entries.push_back({Kind::FlagSet, t, "CTF flag set (" + colour + ")", Nodes::TeamColour(("_" + colour).c_str())});
+    }
+    for (Team t : teams) {
+        std::string colour = NodeCreate::TeamName(t);
+        entries.push_back({Kind::FlagSet, t, "Team lobby flag (" + colour + ")", Nodes::TeamColour(("_" + colour).c_str()),
+                           true});
     }
     entries.push_back({Kind::Light, Team::Red, "Level light", 0xFFFFE9A8});
     entries.push_back({Kind::Sound, Team::Red, "Sound emitter (silent for now)", 0xFF4FD1C5});
@@ -2204,13 +2222,16 @@ Nodes::Family FamilyOf(NodeCreate::Kind kind)
 
 // Palette entry `entry` placed at `at` (a point the cursor or the view found): dropped to the ground below it as G
 // drops a node (a light raised 150 units), facing the camera's heading; selected; one undo step.
+bool PlaceEntity(int entry, V3 at);
 void PlaceNode(int entry, V3 at)
 {
+    if (PlaceEntity(entry, at))
+        return; // (the entities' entries - after the chains': level_editor_entities.h)
     const std::vector<PlaceEntry>& entries = PlaceEntries();
     if (entry < 0 || entry >= static_cast<int>(entries.size()))
         return;
     const PlaceEntry& e = entries[entry];
-    if (const char* why = NodeCreate::WhyNot(e.kind, e.team)) {
+    if (const char* why = e.lobby ? NodeCreate::WhyNotLobbyFlag(e.team) : NodeCreate::WhyNot(e.kind, e.team)) {
         Hud::Message(why, 5.0);
         return;
     }
@@ -2219,11 +2240,11 @@ void PlaceNode(int entry, V3 at)
         at = DroppedTo(at, at.y, ground.y);
     if (e.kind == NodeCreate::Kind::Light)
         at.y += 150.0f;
-    std::string name = NodeCreate::FixedName(e.kind, e.team);
+    std::string name = e.lobby ? NodeCreate::LobbyFlagName(e.team) : NodeCreate::FixedName(e.kind, e.team);
     if (name.empty())
         name = NodeCreate::FreshName(NodeCreate::NameStem(e.kind), NodeCreate::NameTaken);
     std::vector<NodeCreate::Spec> specs = {NodeCreate::Default(e.kind, e.team, at, g_yaw, name)};
-    if (e.kind == NodeCreate::Kind::FlagSet)
+    if (e.kind == NodeCreate::Kind::FlagSet && !e.lobby) // (a lobby flag has no base - as the levels' own)
         specs.push_back(NodeCreate::Base(specs.front()));
     UndoStep step;
     step.kind = UndoStep::kAdded;
@@ -2432,6 +2453,81 @@ int ChainEntry(int entry)
     int base = static_cast<int>(PlaceEntries().size());
     return entry >= base && entry < base + kChainEntries ? entry - base : -1;
 }
+// The Place palette's entities (after the chains): peds, cars, bouncy sets, particle systems, sound emitters
+// (level_editor_entities.h). Placed at `at` (dropped to the ground below it): copies (one undo step, as the browser's)
+// or a sound emitter with its sound (an added node: its undo step). False: not one of those entries.
+bool PlaceEntity(int entry, V3 at)
+{
+    int index = entry - static_cast<int>(PlaceEntries().size()) - kChainEntries;
+    if (entry < 0 || index < 0 || index >= static_cast<int>(Entities::Palette().size()))
+        return false;
+    const Entities::PaletteEntry& e = Entities::Palette()[index];
+    if (!e.why.empty()) {
+        Hud::Message(e.why, 5.0);
+        return true;
+    }
+    V3 ground;
+    if (GroundBelow(GroundRayStart(at, at.y, true), &ground))
+        at = DroppedTo(at, at.y, ground.y);
+    Entities::Placed placed = Entities::Place(index, at, g_yaw);
+    if (placed.emitter) {
+        std::string name = NodeCreate::FreshName(NodeCreate::NameStem(NodeCreate::Kind::Sound), NodeCreate::NameTaken);
+        NodeCreate::Spec spec = NodeCreate::Default(NodeCreate::Kind::Sound, NodeCreate::Team::Red, at, g_yaw, name);
+        std::string message;
+        if (!NodeCreate::Create(spec, -1, &message)) {
+            Hud::Message(message, 5.0);
+            return true;
+        }
+        Entities::AttachSound(NodeCreate::Checksum(name), placed.sound);
+        UndoStep step;
+        step.kind = UndoStep::kAdded;
+        step.exist = false;
+        step.added.push_back(spec);
+        step.addedAt.push_back(NodeCreate::IndexOf(NodeCreate::Current(), name));
+        PushUndo(step);
+        g_pickables.clear();
+        g_hoverNode = -1;
+        int node = Nodes::Find(NodeCreate::Checksum(name));
+        if (node >= 0)
+            SelectNodeOnly(node);
+        Hud::Message("Added " + name + " playing " + Nodes::Label(placed.sound) + " - Inspector: volume, radius");
+        NoteAction("added the sound emitter %s (%s)", name.c_str(), Nodes::Label(placed.sound).c_str());
+        return true;
+    }
+    if (placed.copies.empty()) {
+        Hud::Message(placed.message.empty() ? std::string("Nothing could be made") : placed.message, 5.0);
+        return true;
+    }
+    UndoStep step;
+    step.kind = UndoStep::kMade;
+    step.exist = false;
+    std::vector<Obj::CCompositeObject*> made;
+    for (uint32_t name : placed.copies) {
+        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(name));
+        if (!object)
+            continue;
+        uint32_t source = 0;
+        for (const Objects::Copy& c : Objects::Copies()) {
+            if (c.name == name)
+                source = c.source;
+        }
+        step.copies.push_back({name, source, Objects::Save(object)});
+        OrientedBox box;
+        if (Objects::ModelBox(object, &box))
+            made.push_back(object);
+    }
+    PushUndo(step);
+    if (!made.empty()) {
+        SelectObjects(made);
+    } else if (int node = Nodes::Find(placed.copies.front()); node >= 0) {
+        g_pickables.clear();
+        SelectNodeOnly(node); // (a particle system: its node)
+    }
+    Hud::Message(placed.message + " - Ctrl+Z takes it away");
+    NoteAction("%s", placed.message.c_str());
+    return true;
+}
+
 Chains::Draw ChainKindOf(int entry)
 {
     int chain = ChainEntry(entry);
@@ -2497,6 +2593,29 @@ void DeleteNode(bool confirmed)
     if (node.family == Nodes::Family::Rail || node.family == Nodes::Family::Path ||
         node.family == Nodes::Family::Ladder) { // (a ladder: whole)
         RunChainOp(Chains::kOpDelete, 0);
+        return;
+    }
+    // A copy selected by its node (a particle system's - level_editor_entities.h): deleted as the object copies are.
+    if (Objects::IsCopy(node.name)) {
+        UndoStep step;
+        step.kind = UndoStep::kMade;
+        step.exist = true; // (undone: made again)
+        uint32_t source = 0;
+        for (const Objects::Copy& c : Objects::Copies()) {
+            if (c.name == node.name)
+                source = c.source;
+        }
+        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(node.name));
+        if (!object || (object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+            return;
+        step.copies.push_back({node.name, source, Objects::Save(object)});
+        Objects::RemoveCopy(node.name);
+        PushUndo(step);
+        g_nodeSelected = false;
+        g_pickables.clear();
+        g_hoverNode = -1;
+        Hud::Message("Deleted - Ctrl+Z brings it back");
+        NoteAction("deleted the copy %s", Nodes::Label(node.name).c_str());
         return;
     }
     if (node.added) {
@@ -2884,13 +3003,16 @@ Ui::Model BuildModel()
     model.place.armed = g_placeArmed;
     if (g_placeOpen) {
         for (const PlaceEntry& e : PlaceEntries()) {
-            const char* why = NodeCreate::WhyNot(e.kind, e.team);
+            const char* why = e.lobby ? NodeCreate::WhyNotLobbyFlag(e.team) : NodeCreate::WhyNot(e.kind, e.team);
             model.place.entries.push_back({e.label, e.colour, why ? why : ""});
         }
         // (phase 4: chains drawn point by point - level_editor_chains.h)
         model.place.entries.push_back({"Rail (click points; Enter finishes)", 0xFF7FB2D9, ""});
         model.place.entries.push_back({"Path (ped / car waypoints; Enter finishes)", 0xFF8FD18F, ""});
         model.place.entries.push_back({"Ladder (click a wall at its foot, then its top)", 0xFFC88FD9, ""});
+        // (peds, cars, bouncy sets, particle systems, sound emitters - level_editor_entities.h; PlaceEntity)
+        for (const Entities::PaletteEntry& e : Entities::Palette())
+            model.place.entries.push_back({e.label, e.colour, e.why});
     }
     model.chain = ChainTarget() ? Chains::ViewOf(ChainTarget()) : Chains::View{};
     if (!model.chain.waiting)
@@ -3089,7 +3211,7 @@ void Duplicate(const Frame& frame)
             step.copies.push_back({copy->m_id, source, Objects::Save(copy)});
         }
         if (made.empty()) {
-            Hud::Message("Only level objects and game objects can be copied (not peds or cars)");
+            Hud::Message("Only level objects, game objects, peds and cars can be copied");
             return;
         }
         SelectObjects(made);
@@ -3934,6 +4056,8 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             break;
         case Ui::Request::kPlaceToggle:
             g_placeOpen = !g_placeOpen;
+            if (g_placeOpen)
+                Entities::RefreshPalette();
             if (ChainKindOf(g_placeArmed) != Chains::Draw::None)
                 StopChainDrawing(nullptr);
             g_placeArmed = -1;
@@ -4037,6 +4161,11 @@ void Update()
     Layout::Tick();
     Triggers::Guard(); // (no editor trigger volumes in a network session)
     Triggers::Play(g_active); // (exit triggers: the skater leaving one, in play)
+    // (emitters' sounds, path speeds, objects made again, the path preview - level_editor_entities.h)
+    {
+        Obj::CCompositeObject* primary = g_active ? Primary() : nullptr;
+        Entities::Tick(g_active, primary ? primary->m_id : 0, g_dragging);
+    }
     Chains::Tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
     if (!g_active)
         return;
@@ -4131,6 +4260,8 @@ void Update()
         if (Ui::Running()) {
             g_placeOpen = !g_placeOpen;
             g_placeArmed = -1;
+            if (g_placeOpen)
+                Entities::RefreshPalette(); // (objects made since show up)
         } else {
             Hud::Message("The Place palette (N) needs the editor's UI ([features] editor_ui=1)");
         }
@@ -4213,6 +4344,11 @@ void Update()
         if (Triggers::TakeUndo(&step.triggers)) {
             step.kind = UndoStep::kTriggers;
             PushUndo(step);
+        }
+        UndoStep entities;
+        if (Entities::TakeUndo(&entities.entities)) {
+            entities.kind = UndoStep::kEntities;
+            PushUndo(entities);
         }
         int select = Triggers::TakeSelect();
         if (select >= 0 && !g_dragging) {
@@ -4735,6 +4871,7 @@ void Draw()
         View::AddCollision(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.under, &g_overlay.lines);
         Triggers::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         Triggers::AddHandles(&g_overlay.circles); // (the selected trigger volume's resize handles)
+        Entities::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
         Ui::Frame(model, g_overlay);

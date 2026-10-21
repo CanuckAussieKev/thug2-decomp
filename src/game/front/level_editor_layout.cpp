@@ -297,6 +297,7 @@ std::string Write(const File& file)
         Comment(out, s.name);
     }
     out << Chains::WriteRecords(file.chains);
+    out << Entities::WriteRecords(file.entities);
     for (const Walls::WallState& w : file.walls) {
         out << "wall";
         Hex(out, w.checksum);
@@ -438,6 +439,8 @@ bool Read(const std::string& text, File* file, int* lineNumber)
                 file->walls.push_back(w);
         } else if (Chains::IsRecord(kind)) {
             ok = Chains::ReadRecord(kind, in, &file->chains); // (phase 4: point / links / drop / terrain)
+        } else if (Entities::IsRecord(kind)) {
+            ok = Entities::ReadRecord(kind, in, &file->entities); // (speed / emitter)
         } else if (kind == "level") {
             ok = LevelProps::ReadRecord(in, &file->level); // (phase 6: the level's properties)
         } // (anything else: a later version's record - skipped)
@@ -638,6 +641,11 @@ Obj::CCompositeObject* LiveObject(uint32_t id)
 // The level's changes as they are now (false: not in a level).
 bool Capture(File* file)
 {
+    // (an object the editor's preview is moving along its path: read where it stands - level_editor_entities.h)
+    struct PreviewHold {
+        PreviewHold() { Entities::PreviewSuspend(); }
+        ~PreviewHold() { Entities::PreviewResume(); }
+    } hold;
     uint8_t* scene = Scenery::MainScene();
     if (Nx::CurrentLevel() == 0 || !scene)
         return false;
@@ -675,6 +683,7 @@ bool Capture(File* file)
     // Added nodes (as `node` records, where they are now; the crowns' order is theirs), hidden ones.
     // (rail / path points: the chains' `point` records; the level's points deleted: `drop`, not `hide`)
     file->chains = Chains::Current();
+    file->entities = Entities::Current(); // (speeds, emitters' sounds)
     file->added = NodeCreate::Current();
     // (a trigger volume's node: its own `trigger` record - level_editor_triggers.h)
     file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
@@ -790,6 +799,13 @@ std::string Apply(const File& file)
             edits.push_back({record.name, record.fields});
     }
     int fields = edits.empty() ? 0 : Fields::Apply(edits);
+    for (const Fields::NodeEdits& node : edits) {
+        static const uint32_t kModel = Crc::GenerateCRCFromString("model");
+        for (const Fields::Edit& edit : node.edits) {
+            if (edit.key == kModel)
+                Entities::ModelEdited(node.name); // (a copy's own model: made again with it)
+        }
+    }
     LevelProps::Set(file.level);
     Picking::SetLocks(file.locks);
     // Chains (phase 4): added rail / path points, relinked and dropped level points, terrains - the rail manager built
@@ -799,6 +815,7 @@ std::string Apply(const File& file)
     // Collision (level_editor_walls.h): invisible walls moved / switched off, drawn pieces' collision switched off - after
     // the sectors (a piece shown by them gets its switch back).
     Walls::ApplyStates(file.walls);
+    Entities::SetState(file.entities); // (after the nodes and copies: the emitters and objects they name)
     Walls::Tick();
     int triggers = Triggers::Apply(file.triggers, &message);
     if (!message.empty())
@@ -859,6 +876,7 @@ void ResetToLevel(const File& keep)
     NodeCreate::ResetAll(); // (added nodes removed, hidden ones shown: Apply makes the layout's again)
     Fields::ResetAll();
     LevelProps::Set(LevelProps::Props{});
+    Entities::SetState(Entities::State{});
 }
 
 // The crash hook's write: no C++ objects here (structured exception handling), no allocation.
@@ -1132,6 +1150,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     LevelProps::ForgetLevel();
     Chains::ForgetLevel(); // (before the overlay goes: the level's links put back while its array is the one loaded)
     NodeCreate::ForgetLevel();
+    Entities::ForgetLevel();
     Picking::ClearLocks();
     g_pending = true; // (Tick decides: the edited copy if it was picked, never in a network session)
     g_wait = 0;

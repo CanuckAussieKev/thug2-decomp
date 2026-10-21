@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "game/front/level_editor_chains.h"
+#include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_fields.h"
 #include "game/front/level_editor_level_props.h"
 #include "game/front/level_editor_node_create.h"
@@ -88,6 +89,8 @@ class CScript;
 //                                                      moved / turned as a sector's, and whether it's switched off;
 //                                                      a drawn piece's collision switched off by itself (no move: its
 //                                                      sector record moves it)
+//   speed <node> <mph>                                 a moving object's path speed (level_editor_entities.h)
+//   emitter <node> sound=<s> vol=<v> radius=<r>        a sound emitter's sound, volume and radius (the same)
 //   ... scale=<s>                                      (after a sector / rail / clone / object / copy record's numbers,
 //   ... scale=<x>,<y>,<z>                              when not 1) a uniform or a per-axis scale (level_editor_scale.h):
 //                                                      the point x as loaded is at QuarterTurn((x.x * sx, x.y * sy,
@@ -143,6 +146,7 @@ struct File {
     std::vector<Picking::Lock> locks;     // `lock`
     std::vector<Triggers::Placed> triggers; // `trigger`
     Chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
+    Entities::State entities;             // `speed`, `emitter` (level_editor_entities.h)
     LevelProps::Props level;              // (phase 6) `level` (level_editor_level_props.h)
     std::vector<Walls::WallState> walls;  // `wall`: collision moved / switched off
 };

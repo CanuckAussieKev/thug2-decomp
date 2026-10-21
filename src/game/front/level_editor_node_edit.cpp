@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "game/front/level_editor_chains.h"
+#include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
@@ -231,7 +232,8 @@ bool Movable(const Nodes::Node& node)
     case Nodes::Family::Other:
         return true;
     default:
-        return false;
+        // (particle systems, objects the level hasn't made - level_editor_entities.h)
+        return Entities::MovableNode(node.name, static_cast<int>(node.family));
     }
 }
 
@@ -265,6 +267,9 @@ const char* WhenApplied(const Nodes::Node& node)
     case Nodes::Family::Trigger:
         return sectorShape ? "Its node now - but its area is the level sector of its name, which stays."
                            : "Now (its sphere follows).";
+    case Nodes::Family::Particle:
+    case Nodes::Family::Object:
+        return Entities::WhenApplied(node.name, static_cast<int>(node.family));
     default:
         return "When the game next reads it (scripts, cameras).";
     }
@@ -360,6 +365,7 @@ bool Set(uint32_t name, const Values& values)
     WriteVector(node, kAngles, values.angles);
     const Nodes::Node* layer = NodeNamed(name);
     ApplyLive(layer, name, values);
+    Entities::NodeMoved(name, values.pos); // (a particle system: its emitter places with it, made again)
     int index = Nodes::Find(name);
     if (index >= 0)
         Nodes::Reread(index);
