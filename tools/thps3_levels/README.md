@@ -103,7 +103,9 @@ start of offline free skate (start_state.ts: node flags, then the start scripts 
   checks these in our output. The data is read from
   THUGPRO's install by `thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json`.
 - Scripts, peds, vehicles, objects (`--no-scripts` leaves them out): the level's scripts translated to THUG2's
-  (tools/level_port/script_port.ts) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and
+  (tools/level_port/script_port.ts) and run from a setup script; peds as THPS3's own people (models, skeletons and
+  animations: thps3_skin.ts, thps3_peds.ts - docs/pending/ped-models.md phase 2; `--thug2-peds`: THUG2's people)
+  driven by THUG2's ped AI, pros and crowds as THUG2's people, resting birds and
   sharks as THUG2's animals, traffic as THUG2's cars (Car_Generic01), other vehicles and moving game objects as
   LevelObjects of their THPS3 models, proximity nodes as ghosts watching their radius - what's brought and what's
   left out per level: docs/pending/thps3-scripts.md. Obj_RotX / Y / Z with `deceleration` (a drag in THPS3, "slow

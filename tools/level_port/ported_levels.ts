@@ -243,8 +243,9 @@ export function installFiles(game: string, overlay: string, manifest: Manifest |
         }
         // Models a converter brings along (<staging>\models\<name>\...: THPS3's TPN-THPS3, THUGPRO's own models read from
         // its install) into the overlay's models folder, where the game looks for models\<name>\<name>.mdl.
-        // (and the animations a converter brings for its own people: <staging>\anims\<game>\... - ped_models.ts)
-        for (const folder of ["models", "anims"]) {
+        // (and the animations and skeletons a converter brings for its own people: <staging>\anims\<game>\...,
+        // <staging>\skeletons\... - ped_models.ts)
+        for (const folder of ["models", "anims", "skeletons"]) {
             const from = path.join(game, staging, folder);
             if (!fs.existsSync(from) || !fs.statSync(from).isDirectory()) continue;
             for (const entry of fs.readdirSync(from)) {
