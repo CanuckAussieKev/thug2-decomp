@@ -50,6 +50,19 @@ constexpr uint32_t kDecimalPlaces = 0xD8E2E09F; // "decimalplaces"
 constexpr uint32_t kStructure = 0x90FEC815;    // "Structure"
 constexpr uint32_t kStruct = 0x456D28D1;       // "struct"
 constexpr uint32_t kUntilEvent = 0x2C3A27A4;   // "UntilEvent"
+constexpr uint32_t kEx = 0xF8728BEC;           // "ex"
+constexpr uint32_t kScr = 0xA6D2D890;          // "scr"
+constexpr uint32_t kGroup = 0x923FBB3A;        // "Group"
+constexpr uint32_t kDefaultGroup = 0x1CA1FF20; // "default"
+constexpr uint32_t kException = 0x80367192;    // "Exception"
+constexpr uint32_t kParams = 0x7031F10C;       // "params"
+constexpr uint32_t kLevel = 0x651533EC;        // "level"
+constexpr uint32_t kLevelNone = 0x806FFF30;    // "none"
+constexpr uint32_t kLevelWarn = 0xD6454EFA;    // (a guess: "warn")
+constexpr uint32_t kLevelAssert = 0x4E10B054;  // (a guess: "assert")
+
+// Whether FirstTimeThisIsCalled hasn't been called yet (0x0067D6D5, true at start).
+bool& FirstTimeNotCalled() { return GameVariable<bool>(0x0067D6D5); }
 
 // Whether the scripts' printf prints (0x0067D6D4).
 bool& ScriptPrintfEnabled() { return GameVariable<bool>(0x0067D6D4); }
@@ -111,6 +124,7 @@ Script::ESymbolType TypeFromName(uint32_t name)
 } // namespace
 
 char* FormatTextBuffer() { return &GameVariable<char>(0x00696940); }
+int& ScriptWarningLevel() { return GameVariable<int>(0x006F3534); }
 
 // 0x0044A480
 int FormatText(Script::CStruct* results, Script::CStruct* params)
@@ -449,6 +463,183 @@ bool __cdecl CFunc_CleanUpAndRemoveSymbol(Script::CStruct* params, Script::CScri
     return true;
 }
 
+// 0x0044AB20: SetEventHandler ex=<event> scr=<script> [Group=<name> (default)] [Exception] [params={...}]: an
+// event handler of the calling script.
+bool __cdecl CFunc_SetEventHandler(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t eventType = 0;
+    params->GetChecksum(kEx, &eventType, 1);
+    uint32_t handler = 0;
+    params->GetChecksum(kScr, &handler, 1);
+    uint32_t group = kDefaultGroup;
+    params->GetChecksum(kGroup, &group, 0);
+    bool exception = params->ContainsFlag(kException);
+    Script::CStruct* handlerParams = nullptr;
+    params->GetStructure(kParams, &handlerParams, 0);
+    script->SetEventHandler(eventType, handler, group, exception, handlerParams);
+    return true;
+}
+
+// 0x0044ABD0: SetExceptionHandler / SetException (one function): SetEventHandler, always as an exception.
+bool __cdecl CFunc_SetExceptionHandler(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t eventType = 0;
+    params->GetChecksum(kEx, &eventType, 1);
+    uint32_t handler = 0;
+    params->GetChecksum(kScr, &handler, 1);
+    uint32_t group = kDefaultGroup;
+    params->GetChecksum(kGroup, &group, 0);
+    Script::CStruct* handlerParams = nullptr;
+    params->GetStructure(kParams, &handlerParams, 0);
+    script->SetEventHandler(eventType, handler, group, true, handlerParams);
+    return true;
+}
+
+// 0x0044AC70: ResetEventHandlersFromTable <global array> [Group=<name> (default)].
+bool __cdecl CFunc_ResetEventHandlersFromTable(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 1);
+    Script::CArray* table = Script::GetArray(name);
+    uint32_t group = kDefaultGroup;
+    params->GetChecksum(kGroup, &group, 0);
+    script->ResetEventHandlersFromTable(table, group);
+    return true;
+}
+
+// 0x0044ACD0: ClearEventHandler <event>.
+bool __cdecl CFunc_ClearEventHandler(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t eventType = 0;
+    params->GetChecksum(0u, &eventType, 1);
+    script->ClearEventHandler(eventType);
+    return true;
+}
+
+// 0x0044AD00: ClearEventHandlerGroup [<group> (default)].
+bool __cdecl CFunc_ClearEventHandlerGroup(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t group = kDefaultGroup;
+    params->GetChecksum(0u, &group, 0);
+    script->ClearEventHandlerGroup(group);
+    return true;
+}
+
+// 0x0044AD30: OnExceptionRun [<script>] (none: 0 - cleared).
+bool __cdecl CFunc_OnExceptionRun(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 0);
+    script->SetOnExceptionScript(name);
+    return true;
+}
+
+// 0x0044AD60: OnExitRun [<script>] (none: 0 - cleared).
+bool __cdecl CFunc_OnExitRun(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 0);
+    script->SetOnExitScript(name);
+    return true;
+}
+
+// 0x0044AD90: PrintEventHandlerTable.
+bool __cdecl CFunc_PrintEventHandlerTable(Script::CStruct*, Script::CScript* script)
+{
+    script->PrintEventHandlerTable();
+    return true;
+}
+
+// 0x0044ADA0: StopAllScripts.
+bool __cdecl CFunc_StopAllScripts(Script::CStruct*, Script::CScript*)
+{
+    Script::StopAllScripts();
+    return true;
+}
+
+// 0x0044ADB0: FirstTimeThisIsCalled: true the first time only (for the whole game).
+bool __cdecl CFunc_FirstTimeThisIsCalled(Script::CStruct*, Script::CScript*)
+{
+    if (!FirstTimeNotCalled())
+        return false;
+    FirstTimeNotCalled() = false;
+    return true;
+}
+
+// 0x0044ADD0: SetScriptWarningLevel [level=none (default) | warn | assert]: 0 / 1 / 2; another name changes nothing.
+bool __cdecl CFunc_SetScriptWarningLevel(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t level = kLevelNone;
+    params->GetChecksum(kLevel, &level, 0);
+    if (level == kLevelAssert)
+        ScriptWarningLevel() = 2;
+    else if (level == kLevelNone)
+        ScriptWarningLevel() = 0;
+    else if (level == kLevelWarn)
+        ScriptWarningLevel() = 1;
+    return true;
+}
+
+// 0x0044AE30: CastToInteger <name>: the calling script's float parameter of that name made an integer (truncated).
+// False if there's no name or no such float.
+bool __cdecl CFunc_CastToInteger(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0;
+    if (!params->GetChecksum(0u, &name, 0))
+        return false;
+    float value = 0.0f;
+    if (!script->m_params->GetFloat(name, &value, 0))
+        return false;
+    script->m_params->RemoveComponent(name);
+    script->m_params->AddInteger(name, Truncate(value));
+    return true;
+}
+
+// 0x0044AEB0: StringToInteger <name>: the calling script's string parameter of that name made an integer (each
+// character taken as a digit: c - '0', no checks). False if there's no name or no such string. (The string is read
+// after its component was removed - freed memory, as in the original.)
+bool __cdecl CFunc_StringToInteger(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0;
+    if (!params->GetChecksum(0u, &name, 0))
+        return false;
+    const char* string = "";
+    if (!script->m_params->GetString(name, &string, 0))
+        return false;
+    script->m_params->RemoveComponent(name);
+    int value = 0;
+    for (int length = static_cast<int>(std::strlen(string)); length > 0; --length)
+        value = value * 10 + (*string++ - '0');
+    script->m_params->AddInteger(name, value);
+    return true;
+}
+
+// 0x0044B720: AddParams {...}: the command's parameters added to the calling script's.
+bool __cdecl CFunc_AddParams(Script::CStruct* params, Script::CScript* script)
+{
+    script->m_params->AppendStructureIfAny(params);
+    return true;
+}
+
+// 0x0044B740: RemoveComponent name=<name> (or the unnamed name): taken out of the calling script's parameters.
+bool __cdecl CFunc_RemoveComponent(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0;
+    if (!params->GetChecksum(kName, &name, 0))
+        params->GetChecksum(0u, &name, 1);
+    script->m_params->RemoveComponent(name);
+    return true;
+}
+
+// 0x0044B790: GetScriptString index=<n> (0): string = the script string.
+bool __cdecl CFunc_GetScriptString(Script::CStruct* params, Script::CScript* script)
+{
+    int index = 0;
+    params->GetInteger(kIndex, &index, 0);
+    script->m_params->AddString(kString, Script::GetScriptString(index));
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x00449D00, CFuncs::CFunc_Change);
@@ -468,3 +659,19 @@ REPLACE(0x0044AA20, CFuncs::CFunc_IsArray);
 REPLACE(0x0044AA50, CFuncs::CFunc_Block);
 REPLACE(0x0044AAB0, CFuncs::CFunc_IsTrue);
 REPLACE(0x0044AAE0, CFuncs::CFunc_CleanUpAndRemoveSymbol);
+REPLACE(0x0044AB20, CFuncs::CFunc_SetEventHandler);
+REPLACE(0x0044ABD0, CFuncs::CFunc_SetExceptionHandler);
+REPLACE(0x0044AC70, CFuncs::CFunc_ResetEventHandlersFromTable);
+REPLACE(0x0044ACD0, CFuncs::CFunc_ClearEventHandler);
+REPLACE(0x0044AD00, CFuncs::CFunc_ClearEventHandlerGroup);
+REPLACE(0x0044AD30, CFuncs::CFunc_OnExceptionRun);
+REPLACE(0x0044AD60, CFuncs::CFunc_OnExitRun);
+REPLACE(0x0044AD90, CFuncs::CFunc_PrintEventHandlerTable);
+REPLACE(0x0044ADA0, CFuncs::CFunc_StopAllScripts);
+REPLACE(0x0044ADB0, CFuncs::CFunc_FirstTimeThisIsCalled);
+REPLACE(0x0044ADD0, CFuncs::CFunc_SetScriptWarningLevel);
+REPLACE(0x0044AE30, CFuncs::CFunc_CastToInteger);
+REPLACE(0x0044AEB0, CFuncs::CFunc_StringToInteger);
+REPLACE(0x0044B720, CFuncs::CFunc_AddParams);
+REPLACE(0x0044B740, CFuncs::CFunc_RemoveComponent);
+REPLACE(0x0044B790, CFuncs::CFunc_GetScriptString);

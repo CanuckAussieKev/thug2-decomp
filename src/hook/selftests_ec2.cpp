@@ -27,6 +27,7 @@
 #include "game/obj/objman.h"
 #include "game/obj/proxim.h"
 #include "game/obj/smtptr.h"
+#include "game/script/array_cfuncs.h"
 #include "game/script/cscript.h"
 #include "game/script/debug_cfuncs.h"
 #include "game/script/math_cfuncs.h"
@@ -1162,9 +1163,288 @@ void TestFormatCFuncs()
     Compare(traces[0], traces[1], "FormatText, EnableScriptPrintf .. CleanUpAndRemoveSymbol (0x0044A480-0x0044AAE0)");
 }
 
+// --- event handlers, warning level, casts, arrays, AddParams, RemoveComponent, GetScriptString (0x0044AB20-0x0044B790)
+
+// An array built by hand: `type`, the elements (one element is kept in place, as the game does).
+struct TestArray {
+    Script::CArray array;
+    uint32_t elements[8];
+    TestArray(ESymbolType type, std::initializer_list<uint32_t> values)
+    {
+        std::memset(&array, 0, sizeof(array));
+        array.m_type = type;
+        array.m_size = static_cast<uint32_t>(values.size());
+        uint32_t i = 0;
+        for (uint32_t v : values)
+            elements[i++] = v;
+        if (array.m_size == 1)
+            array.m_single = elements[0];
+        else
+            array.m_elements = elements;
+    }
+    Script::CArray* Get() { return &array; }
+    uint32_t Raw() { return reinterpret_cast<uint32_t>(&array); }
+};
+
+TestParams g_scriptParams; // the calling script's own parameters, where a command reads them
+TestArray* g_globalArray;
+
+void StandInArrayCalls(StandIns& s)
+{
+    StandInFormatCalls(s);
+    s.At({0x00477FC0, AddressOf(&CStruct::AddPair)}, 12, [](Regs& r) {
+        Record({0xADD2, Rel(r.ecx), r.args[0], r.args[1], r.args[2]});
+        return 0u;
+    });
+    s.At({0x00478B00, AddressOf(static_cast<Method<void, uint32_t, Script::CArray*>>(&CStruct::AddArray))}, 8, [](Regs& r) {
+        Record({0xADDA, Rel(r.ecx), r.args[0], r.args[1]});
+        return 0u;
+    });
+    using GetArrayFn = Script::CArray* (*)(uint32_t);
+    s.At({0x00479070, AddressOf(static_cast<GetArrayFn>(&Script::GetArray))}, 0, [](Regs& r) {
+        Record({0x9070, r.args[0]});
+        return reinterpret_cast<uint32_t>(g_globalArray ? g_globalArray->Get() : nullptr);
+    });
+    // the game's _stricmp (its C runtime isn't started offline) answered by ours - what ours calls (not recorded)
+    s.At({0x00626EFB}, 0, [](Regs& r) {
+        return static_cast<uint32_t>(
+            _stricmp(reinterpret_cast<const char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1])));
+    });
+    s.At({0x004736C0, AddressOf(&Script::CScript::ResetEventHandlersFromTable)}, 8, [](Regs& r) {
+        Record({0x36C0, Rel(r.ecx), r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x00473690, AddressOf(&Script::CScript::ClearEventHandler)}, 4, [](Regs& r) {
+        Record({0x3690, Rel(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00472EA0, AddressOf(&Script::CScript::ClearEventHandlerGroup)}, 4, [](Regs& r) {
+        Record({0x2EA0, Rel(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00472ED0, AddressOf(&Script::CScript::SetOnExceptionScript)}, 4, [](Regs& r) {
+        Record({0x2ED0, Rel(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00472EF0, AddressOf(&Script::CScript::SetOnExitScript)}, 4, [](Regs& r) {
+        Record({0x2EF0, Rel(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00472EC0, AddressOf(&Script::CScript::PrintEventHandlerTable)}, 0, [](Regs& r) {
+        Record({0x2EC0, Rel(r.ecx)});
+        return 0u;
+    });
+    s.At({0x00474250, AddressOf(&Script::StopAllScripts)}, 0, [](Regs&) {
+        Record({0x4250});
+        return 0u;
+    });
+    s.At({0x00476390, AddressOf(&Script::GetScriptString)}, 0, [](Regs& r) {
+        Record({0x6390, r.args[0]});
+        return reinterpret_cast<uint32_t>("script string");
+    });
+}
+
+void TestArrayCFuncs()
+{
+    // the globals: the symbol table (empty), FirstTimeThisIsCalled's flag, the warning level
+    std::vector<Saved> saved = {{0x006F3624, 4, {}}, {0x0067D6D5, 1, {}}, {0x006F3534, 4, {}}};
+    SaveAll(saved);
+    static Script::CSymbolTableEntry* table[0x1000];
+    std::memset(table, 0, sizeof(table));
+    GameVariable<Script::CSymbolTableEntry**>(0x006F3624) = table;
+
+    auto* standIns = new StandIns;
+    StandInArrayCalls(*standIns);
+
+    // the arrays
+    static Script::CPair pairs[2] = {{0, 1.5f, -2.0f}, {0, 3.0f, 4.25f}};
+    static Script::CVector vectors[2] = {{0, 1.0f, 2.0f, 3.0f}, {0, -1.0f, 0.5f, 9.0f}};
+    static TestParams structs[2];
+    static TestArray ints(Script::ESYMBOLTYPE_INTEGER, {5, static_cast<uint32_t>(-7), 42});
+    static TestArray floats(Script::ESYMBOLTYPE_FLOAT, {0x3FC00000, 0xC0200000});
+    static TestArray strings(Script::ESYMBOLTYPE_STRING, {reinterpret_cast<uint32_t>("Alpha"), reinterpret_cast<uint32_t>("beta"),
+                                                         reinterpret_cast<uint32_t>("GAMMA")});
+    static TestArray locals(Script::ESYMBOLTYPE_LOCALSTRING, {reinterpret_cast<uint32_t>("loc0"), reinterpret_cast<uint32_t>("loc1")});
+    static TestArray names(Script::ESYMBOLTYPE_NAME, {0xAAA1, 0xAAA2});
+    static TestArray pairArray(Script::ESYMBOLTYPE_PAIR, {reinterpret_cast<uint32_t>(&pairs[0]), reinterpret_cast<uint32_t>(&pairs[1])});
+    static TestArray vectorArray(Script::ESYMBOLTYPE_VECTOR, {reinterpret_cast<uint32_t>(&vectors[0]), reinterpret_cast<uint32_t>(&vectors[1])});
+    static TestArray structArray(Script::ESYMBOLTYPE_STRUCTURE, {reinterpret_cast<uint32_t>(structs[0].Struct()),
+                                                               reinterpret_cast<uint32_t>(structs[1].Struct())});
+    static TestArray single(Script::ESYMBOLTYPE_INTEGER, {99});
+    static TestArray arrays(Script::ESYMBOLTYPE_ARRAY, {ints.Raw(), single.Raw()});
+    static TestArray scripts(Script::ESYMBOLTYPE_QSCRIPT, {1, 2});
+    static TestArray grid(Script::ESYMBOLTYPE_ARRAY, {ints.Raw(), floats.Raw(), strings.Raw(), locals.Raw(), names.Raw(),
+                                                      pairArray.Raw(), vectorArray.Raw(), structArray.Raw()});
+    static TestArray grid2(Script::ESYMBOLTYPE_ARRAY, {arrays.Raw(), scripts.Raw()});
+    static TestArray cube(Script::ESYMBOLTYPE_ARRAY, {grid2.Raw(), grid.Raw()});
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        auto call = [&](uint32_t address, CFunc ours, TestParams& params) { Call(original, address, ours, params); };
+        // a command reading the calling script's own parameters
+        auto callOn = [&](uint32_t address, CFunc ours, TestParams& params, TestParams& own) {
+            std::memset(g_script, 0, sizeof(g_script));
+            auto* script = reinterpret_cast<Script::CScript*>(g_script);
+            script->m_params = own.Struct();
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        GameVariable<uint8_t>(0x0067D6D5) = 1;
+        GameVariable<int>(0x006F3534) = 7;
+
+        // the event handlers
+        {
+            TestParams extra; extra.Integer(0x31, 1);
+            TestParams a;
+            a.Checksum(0xF8728BEC, 0xE1).Checksum(0xA6D2D890, 0x5C1).Checksum(0x923FBB3A, 0x6A1).Flag(0x80367192)
+                .Structure(0x7031F10C, extra.Struct());
+            call(0x0044AB20, CFuncs::CFunc_SetEventHandler, a);
+            call(0x0044ABD0, CFuncs::CFunc_SetExceptionHandler, a);
+            TestParams b; b.Checksum(0xF8728BEC, 0xE2).Checksum(0xA6D2D890, 0x5C2);
+            call(0x0044AB20, CFuncs::CFunc_SetEventHandler, b);
+            call(0x0044ABD0, CFuncs::CFunc_SetExceptionHandler, b);
+            g_globalArray = &names;
+            TestParams c; c.Checksum(0, 0x7AB1E).Checksum(0x923FBB3A, 0x6A3);
+            call(0x0044AC70, CFuncs::CFunc_ResetEventHandlersFromTable, c);
+            TestParams d; d.Checksum(0, 0x7AB1F);
+            call(0x0044AC70, CFuncs::CFunc_ResetEventHandlersFromTable, d);
+            TestParams e; e.Checksum(0, 0xE5);
+            call(0x0044ACD0, CFuncs::CFunc_ClearEventHandler, e);
+            call(0x0044AD00, CFuncs::CFunc_ClearEventHandlerGroup, e);
+            call(0x0044AD30, CFuncs::CFunc_OnExceptionRun, e);
+            call(0x0044AD60, CFuncs::CFunc_OnExitRun, e);
+            TestParams none;
+            call(0x0044AD00, CFuncs::CFunc_ClearEventHandlerGroup, none);
+            call(0x0044AD30, CFuncs::CFunc_OnExceptionRun, none);
+            call(0x0044AD60, CFuncs::CFunc_OnExitRun, none);
+            call(0x0044AD90, CFuncs::CFunc_PrintEventHandlerTable, none);
+            call(0x0044ADA0, CFuncs::CFunc_StopAllScripts, none);
+            call(0x0044ADB0, CFuncs::CFunc_FirstTimeThisIsCalled, none);
+            call(0x0044ADB0, CFuncs::CFunc_FirstTimeThisIsCalled, none);
+        }
+        // the warning level
+        for (uint32_t level : {0x4E10B054u, 0x806FFF30u, 0xD6454EFAu, 0x12345u, 0u}) {
+            GameVariable<int>(0x006F3534) = 7;
+            TestParams p;
+            if (level)
+                p.Checksum(0x651533EC, level);
+            call(0x0044ADD0, CFuncs::CFunc_SetScriptWarningLevel, p);
+            Record({GameVariable<uint32_t>(0x006F3534)});
+        }
+        // CastToInteger / StringToInteger on the script's own parameters
+        {
+            TestParams own;
+            own.Float(0xF1, 3.99f).Float(0xF2, -2.5f).Integer(0xF3, 8).String(0xF4, "1234").String(0xF5, "9x7")
+                .String(0xF6, "");
+            for (uint32_t name : {0xF1u, 0xF2u, 0xF3u, 0xF4u, 0xF9u}) {
+                TestParams p; p.Checksum(0, name);
+                callOn(0x0044AE30, CFuncs::CFunc_CastToInteger, p, own);
+            }
+            TestParams none;
+            callOn(0x0044AE30, CFuncs::CFunc_CastToInteger, none, own);
+            for (uint32_t name : {0xF4u, 0xF5u, 0xF6u, 0xF1u, 0xF9u}) {
+                TestParams p; p.Checksum(0, name);
+                callOn(0x0044AEB0, CFuncs::CFunc_StringToInteger, p, own);
+            }
+            callOn(0x0044AEB0, CFuncs::CFunc_StringToInteger, none, own);
+        }
+        // ArrayContains: integers, strings (case ignored), names, another type, an empty array
+        {
+            static TestArray empty(Script::ESYMBOLTYPE_INTEGER, {});
+            auto contains = [&](TestArray& array, auto add) {
+                TestParams p; p.Array(0x5EF31148, array.Get());
+                add(p);
+                call(0x0044AF50, CFuncs::CFunc_ArrayContains, p);
+            };
+            contains(ints, [](TestParams& p) { p.Integer(0x71059581, 42); });
+            contains(ints, [](TestParams& p) { p.Integer(0x71059581, -7); });
+            contains(ints, [](TestParams& p) { p.Integer(0x71059581, 6); });
+            contains(strings, [](TestParams& p) { p.String(0x71059581, "gamma"); });
+            contains(strings, [](TestParams& p) { p.String(0x71059581, "delta"); });
+            contains(names, [](TestParams& p) { p.Checksum(0x71059581, 0xAAA2); });
+            contains(names, [](TestParams& p) { p.Checksum(0x71059581, 0xAAA3); });
+            contains(floats, [](TestParams& p) { p.Float(0x71059581, 1.5f); });
+            contains(empty, [](TestParams& p) { p.Integer(0x71059581, 0); });
+            contains(single, [](TestParams& p) { p.Integer(0x71059581, 99); });
+        }
+        // GetArraySize: the array, then one, two, three indices deep
+        {
+            TestParams a; a.Array(0, grid.Get()); call(0x0044B030, CFuncs::CFunc_GetArraySize, a);
+            TestParams b; b.Array(0, grid.Get()).Integer(0x0BA453B9, 2); call(0x0044B030, CFuncs::CFunc_GetArraySize, b);
+            TestParams c; c.Array(0, cube.Get()).Integer(0x0BA453B9, 0).Integer(0x92AD0203, 0); call(0x0044B030, CFuncs::CFunc_GetArraySize, c);
+            TestParams d; d.Array(0, cube.Get()).Integer(0x0BA453B9, 0).Integer(0x92AD0203, 0).Integer(0xE5AA3295, 1);
+            call(0x0044B030, CFuncs::CFunc_GetArraySize, d);
+            TestParams e; e.Array(0, cube.Get()).Integer(0x92AD0203, 0); call(0x0044B030, CFuncs::CFunc_GetArraySize, e);
+        }
+        // Get2DArrayData over every row type (the array in the script's parameters, then the global one)
+        {
+            TestParams own; own.Array(0xA7A7, grid.Get());
+            for (int row = 0; row < 8; ++row) {
+                for (int column = 0; column < 2; ++column) {
+                    TestParams p; p.Checksum(0x8F61D602, 0xA7A7).Integer(0x0BA453B9, row).Integer(0x92AD0203, column);
+                    callOn(0x0044B0F0, CFuncs::CFunc_Get2DArrayData, p, own);
+                }
+            }
+            g_globalArray = &grid2;
+            TestParams q; q.Checksum(0x8F61D602, 0xB7B7).Integer(0x0BA453B9, 0).Integer(0x92AD0203, 1);
+            callOn(0x0044B0F0, CFuncs::CFunc_Get2DArrayData, q, own);
+            TestParams r; r.Checksum(0x8F61D602, 0xB7B7).Integer(0x0BA453B9, 1).Integer(0x92AD0203, 0);
+            callOn(0x0044B0F0, CFuncs::CFunc_Get2DArrayData, r, own); // (a script array: nothing)
+        }
+        // Get3DArrayData
+        {
+            TestParams own; own.Array(0xC0BE, cube.Get());
+            const int cases[][3] = {{1, 0, 2}, {1, 1, 1}, {1, 4, 0}, {0, 0, 1}, {1, 7, 1}, {1, 6, 0}, {1, 2, 2}};
+            for (const auto& c : cases) {
+                TestParams p;
+                p.Checksum(0x8F61D602, 0xC0BE).Integer(0x0BA453B9, c[0]).Integer(0x92AD0203, c[1]).Integer(0xE5AA3295, c[2]);
+                callOn(0x0044B300, CFuncs::CFunc_Get3DArrayData, p, own);
+            }
+            g_globalArray = &cube;
+            TestParams q; q.Checksum(0x8F61D602, 0xD0D0).Integer(0x0BA453B9, 0).Integer(0x92AD0203, 0).Integer(0xE5AA3295, 0);
+            callOn(0x0044B300, CFuncs::CFunc_Get3DArrayData, q, own);
+        }
+        // GetNDArrayData: the indices in the script's own parameters - one, two and three deep
+        {
+            static TestArray one(Script::ESYMBOLTYPE_INTEGER, {2});
+            static TestArray two(Script::ESYMBOLTYPE_INTEGER, {5, 1});
+            static TestArray three(Script::ESYMBOLTYPE_INTEGER, {1, 3, 0});
+            static TestArray threeB(Script::ESYMBOLTYPE_INTEGER, {0, 0, 1});
+            TestParams p; p.Checksum(0x8F61D602, 0xC0BE);
+            for (TestArray* indices : {&one, &two, &three, &threeB}) {
+                TestParams own; own.Array(0xC0BE, indices == &one ? ints.Get() : indices == &two ? grid.Get() : cube.Get())
+                    .Array(0xFFC8E484, indices->Get());
+                callOn(0x0044B530, CFuncs::CFunc_GetNDArrayData, p, own);
+            }
+            g_globalArray = &grid;
+            TestParams own2; own2.Array(0xFFC8E484, two.Get());
+            TestParams q; q.Checksum(0x8F61D602, 0xE0E0);
+            callOn(0x0044B530, CFuncs::CFunc_GetNDArrayData, q, own2);
+        }
+        // AddParams, RemoveComponent, GetScriptString
+        {
+            TestParams a; a.Integer(0x99, 1);
+            call(0x0044B720, CFuncs::CFunc_AddParams, a);
+            TestParams b; b.Checksum(0xA1DC81F9, 0xD1).Checksum(0, 0xD2); call(0x0044B740, CFuncs::CFunc_RemoveComponent, b);
+            TestParams c; c.Checksum(0, 0xD3); call(0x0044B740, CFuncs::CFunc_RemoveComponent, c);
+            TestParams d; d.Integer(0x7F8C98FE, 5); call(0x0044B790, CFuncs::CFunc_GetScriptString, d);
+            TestParams none; call(0x0044B790, CFuncs::CFunc_GetScriptString, none);
+        }
+        g_globalArray = nullptr;
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(saved);
+    Check(traces[0].size() > 300, "array and event handler commands: the original reached its calls");
+    Compare(traces[0], traces[1], "SetEventHandler .. GetScriptString (0x0044AB20-0x0044B790)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestMathCFuncs, RemoveStandIns);
 SELFTEST(Early, TestObjectCFuncs, RemoveStandIns);
 SELFTEST(Early, TestScriptCFuncs, RemoveStandIns);
 SELFTEST(Early, TestFormatCFuncs, RemoveStandIns);
+SELFTEST(Early, TestArrayCFuncs, RemoveStandIns);

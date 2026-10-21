@@ -605,6 +605,7 @@ add_library(thug2_code OBJECT
     src/game/script/debug_cfuncs.cpp
     src/game/obj/object_cfuncs.cpp
     src/game/script/script_cfuncs.cpp
+    src/game/script/array_cfuncs.cpp
     src/game/mth/geometry.cpp
     src/game/mth/math.cpp
     src/game/mth/matrix.cpp

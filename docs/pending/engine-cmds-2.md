@@ -123,3 +123,29 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and src/hook
     structure (skipped), a missing parameter, an empty format, a repeated parameter, the value's flag bit set, a name
     that resolves to an integer; the game's sprintf stood in by vsnprintf for the original; the buffer and value
     compared after each call. The other commands over each branch. 31 deliberate bugs, all caught.
+- [x] Batch EC2-5 (NOT run in the game yet; event handlers, stopping scripts, the warning level, integer casts,
+  arrays, AddParams, RemoveComponent, GetScriptString): src/game/script/script_cfuncs.{h,cpp},
+  src/game/script/array_cfuncs.{h,cpp} (new).
+  - SetEventHandler 0x0044AB20 (ex, scr, Group - default "default" -, Exception, params), SetExceptionHandler
+    0x0044ABD0 (SetExceptionHandler / SetException: the same, always an exception), ResetEventHandlersFromTable
+    0x0044AC70 (the global array named, Group), ClearEventHandler 0x0044ACD0, ClearEventHandlerGroup 0x0044AD00
+    (default "default"), OnExceptionRun / OnExitRun 0x0044AD30 / 0x0044AD60 (none: 0), PrintEventHandlerTable
+    0x0044AD90, StopAllScripts 0x0044ADA0, FirstTimeThisIsCalled 0x0044ADB0 (the flag 0x0067D6D5),
+    SetScriptWarningLevel 0x0044ADD0 (the level 0x006F3534: none 0 - the default -, 0xD6454EFA 1, 0x4E10B054 2 -
+    "warn" / "assert" are guesses; other names leave it).
+  - CastToInteger 0x0044AE30 / StringToInteger 0x0044AEB0 work on the CALLING script's parameter of the given name
+    (float truncated / each character - '0', no checks; the string is read after its component was removed - freed
+    memory, kept); false without a name or such a parameter.
+  - ArrayContains 0x0044AF50 (integer, string - _stricmp against GetLocalString - and name arrays; the type read once,
+    the size every pass), GetArraySize 0x0044B030 (Index1 / index2 / index3 lead into element arrays; array_size),
+    Get2DArrayData / Get3DArrayData / GetNDArrayData 0x0044B0F0 / 0x0044B300 / 0x0044B530 (arrayName: the array in the
+    calling script's parameters, else the global one; ND reads `indices` from the script's parameters too; val added
+    by the element array's type: integer, float, string / local string - both through GetLocalString -, pair, vector,
+    structure, array, name; other types nothing; an empty indices array runs off the end, as in the original).
+  - AddParams 0x0044B720 (AppendStructureIfAny), RemoveComponent 0x0044B740 (name=, else the unnamed name asserted),
+    GetScriptString 0x0044B790 (index -> string).
+  - Test TestArrayCFuncs: every command and branch; hand-built arrays of every element type, arrays of arrays two and
+    three deep, single-element (in place) and empty arrays, the script's own parameters for the casts and array
+    lookups, global arrays, a script-typed row (nothing added), the warning level over all names; the game's
+    _stricmp answered by ours. 40 deliberate bugs, all caught (3 by crashes in ours).
+- After EC2-5 the range 0x004489B0-0x0044B7E0 is done: inspect survey shows every function REPLACED, find_gaps 0 gaps.

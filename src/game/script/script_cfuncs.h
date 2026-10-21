@@ -29,6 +29,25 @@ bool __cdecl CFunc_IsArray(Script::CStruct* params, Script::CScript* script);   
 bool __cdecl CFunc_Block(Script::CStruct* params, Script::CScript* script);                // 0x0044AA50
 bool __cdecl CFunc_IsTrue(Script::CStruct* params, Script::CScript* script);               // 0x0044AAB0
 bool __cdecl CFunc_CleanUpAndRemoveSymbol(Script::CStruct* params, Script::CScript* script); // 0x0044AAE0
+bool __cdecl CFunc_SetEventHandler(Script::CStruct* params, Script::CScript* script);           // 0x0044AB20
+bool __cdecl CFunc_SetExceptionHandler(Script::CStruct* params, Script::CScript* script);       // 0x0044ABD0
+bool __cdecl CFunc_ResetEventHandlersFromTable(Script::CStruct* params, Script::CScript* script); // 0x0044AC70
+bool __cdecl CFunc_ClearEventHandler(Script::CStruct* params, Script::CScript* script);         // 0x0044ACD0
+bool __cdecl CFunc_ClearEventHandlerGroup(Script::CStruct* params, Script::CScript* script);    // 0x0044AD00
+bool __cdecl CFunc_OnExceptionRun(Script::CStruct* params, Script::CScript* script);            // 0x0044AD30
+bool __cdecl CFunc_OnExitRun(Script::CStruct* params, Script::CScript* script);                 // 0x0044AD60
+bool __cdecl CFunc_PrintEventHandlerTable(Script::CStruct* params, Script::CScript* script);    // 0x0044AD90
+bool __cdecl CFunc_StopAllScripts(Script::CStruct* params, Script::CScript* script);            // 0x0044ADA0
+bool __cdecl CFunc_FirstTimeThisIsCalled(Script::CStruct* params, Script::CScript* script);     // 0x0044ADB0
+bool __cdecl CFunc_SetScriptWarningLevel(Script::CStruct* params, Script::CScript* script);     // 0x0044ADD0
+bool __cdecl CFunc_CastToInteger(Script::CStruct* params, Script::CScript* script);             // 0x0044AE30
+bool __cdecl CFunc_StringToInteger(Script::CStruct* params, Script::CScript* script);           // 0x0044AEB0
+bool __cdecl CFunc_AddParams(Script::CStruct* params, Script::CScript* script);                 // 0x0044B720
+bool __cdecl CFunc_RemoveComponent(Script::CStruct* params, Script::CScript* script);           // 0x0044B740
+bool __cdecl CFunc_GetScriptString(Script::CStruct* params, Script::CScript* script);           // 0x0044B790
+
+// The script warning level (0x006F3534): 0 none, 1 warn, 2 assert (SetScriptWarningLevel).
+int& ScriptWarningLevel();
 
 // 0x0044A480 (cdecl): FormatText's work (its callers 0x0044BE2D and 0x0044C8F5). The unnamed string of `params` is
 // the format: "%x" (one character) and "%%name" (letters, digits, _) stand for the parameter of that name, written
