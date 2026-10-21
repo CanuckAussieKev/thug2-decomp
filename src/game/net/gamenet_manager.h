@@ -8,6 +8,9 @@ struct App;
 struct Conn;
 struct MsgHandlerContext;
 } // namespace Net
+namespace Prefs {
+class Preferences;
+} // namespace Prefs
 
 namespace Tsk {
 class BaseTask;
@@ -107,6 +110,111 @@ public:
     bool OnServer() const { return (m_flags & 1) != 0; }
     // 0x00533F80 (inline here): internet play (flags bit 2), not LAN.
     bool InInternetMode() const { return (m_flags & 4) != 0; }
+
+    // --- gamenet_state.cpp: the manager's small members (0x00532AA0-0x005333F0) ---
+    // 0x00532AA0 / 0x00532AC0: how the player joins (m_joinMode: 0 to play, 1 to watch - IsObserving). Setting it
+    // clears the join-by-address flag (0x007CCA88, TryJoinServerIPSuccess).
+    void SetJoinMode(int mode);
+    int GetJoinMode();
+    // 0x00532AD0: m_hostMode (1: the task at +0xF4 is removed when the player list is sent - 0x0056B890).
+    int GetHostMode();
+    // 0x00532AE0: the network preference rank_test: 1 rank_test_less, 2 rank_test_greater, else 0.
+    int GetRankTest();
+    // 0x00532B30: rank_limit: num_1 ... num_9 -> 0 ... 8, else 9.
+    int GetRankLimit();
+    // 0x00532BE0: skill_level: num_1 ... num_4 -> 0 ... 3, num_5 -> 4, else 2.
+    int GetSkillLevel();
+    // 0x00532C50: num_players: num_2 ... num_8 -> 2 ... 8, else 2.
+    int GetMaxPlayers();
+    // 0x00532CF0: team_mode: teams_none 0, teams_two 2, teams_three 3, teams_four (or anything else) 4.
+    int GetNumTeams();
+    // 0x00532D60: num_observers: num_0 ... num_8 -> 0 ... 8, else 2.
+    int GetMaxObservers();
+    // 0x00533080: the level preference's checksum (level).
+    uint32_t GetLevelPreference();
+    // 0x005330B0: fireball_difficulty: num_1 ... num_4 -> 1 ... 4, num_5 -> 5, else 3.
+    int GetFireballLevel();
+    // 0x00533140: show_names is boolean_true (a missing preference: false, not asserted).
+    bool ShouldDrawPlayerNames();
+    // 0x00533130: the player-names flag (+0x47) toggled (TogglePlayerNames).
+    void TogglePlayerNames();
+    // 0x00532FE0: the game mode (+0x30) has no time limit: goal attack, king of the hill, score challenge (and
+    // their net versions) always; else, in a network game, a capture the flag that isn't timed_ctf, or the
+    // stop_at_zero preference set.
+    bool IsUntimedGame();
+    // 0x00532E30: the task at +0xF4 taken off its list.
+    void RemoveHostTask();
+    // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90: the server joined: m_joinIp,
+    // m_joinPrivateIp, m_joinPort.
+    uint32_t GetJoinIp();
+    uint32_t GetJoinPrivateIp();
+    int GetJoinPort();
+    void SetJoinIp(uint32_t ip);
+    void SetJoinPrivateIp(uint32_t ip);
+    void SetJoinPort(int port);
+    // 0x00532EA0: client `index` (ClientSlot).
+    Net::App* GetClient(int index);
+    // 0x00532EB0: the server list's client (m_matchClient).
+    Net::App* GetMatchClient();
+    // 0x00532EC0: m_camPlayer.
+    void* GetCamPlayer();
+    // 0x00532ED0: ask for servers on the LAN: message 0x11 (the time now, 12 bytes) through the lobby client to the
+    // address asked for (0x007CCA84, once), else broadcast on port 5153 and to the address from the command line.
+    void FindServersOnLan();
+    // 0x00532F70 / 0x00532F80: the network preferences (+0x104) / the taunt preferences (+0x110).
+    Prefs::Preferences* GetNetworkPreferences();
+    Prefs::Preferences* GetTauntPreferences();
+    // 0x00532F90 / 0x00532FD0: the eight words at +0x48 (the start info's, message 0x34) / one of them.
+    void SetStartInfoWords(const uint32_t* words);
+    uint32_t GetStartInfoWord(int index);
+    // 0x00533060 / 0x00533070: the current game's number (+0x38).
+    void SetGameId(uint8_t id);
+    uint8_t GetGameId();
+    // 0x00533250: tell the server the game has ended here (message 0x59, the game's number - once every player's
+    // has, the server sends 0x5A, game over) and note the number (+0x39).
+    void SendGameEnded();
+    // 0x005332A0: the end of the current game has been reported.
+    bool GameEndedSent();
+    // 0x005332B0 / 0x005332C0 / 0x005332D0: m_gameOver (the server's message 0x5A).
+    bool IsGameOver();
+    void SetGameOver();
+    void ClearGameOver();
+    // 0x005332E0 / 0x005332F0: the cheating notice has been shown (+0x3B).
+    bool CheatingNoted();
+    void NoteCheating();
+    // 0x00533180 / 0x00533190 / 0x005331A0: the last player (+0x1D0) / team (+0x1D4) announced as the leader.
+    void SetLastLeader(void* player);
+    void* GetLastLeader();
+    int GetLastLeadingTeam();
+    // 0x005331B0 / 0x005331C0: m_lastScoreUpdate.
+    void SetLastScoreUpdate(uint32_t time);
+    uint32_t GetLastScoreUpdate();
+    // 0x005331D0 / 0x005331E0: the final scores have come (+0x44).
+    void SetFinalScoresReceived(bool received);
+    bool FinalScoresReceived();
+    // 0x005331F0 / 0x00533200: m_joinState.
+    void SetJoinState(int state);
+    int GetJoinState();
+    // 0x00533210 / 0x00533220: the crown of king of the hill (+0x6C) / forgotten.
+    void* GetCrown();
+    void ClearCrown();
+    // 0x00533230: the crown's restart point (+0x68), a signed byte.
+    void SetCrownSpawnPoint(char point);
+    // 0x00533240: +0x9950.
+    void SetLobbyId(uint32_t id);
+    // 0x00533300: message 0x26 - the ready query's id the server sent (m_latestReadyQuery, message 0x25) back to the
+    // server through each client (the player's connection is ready again).
+    void SendReadyResponse();
+    // 0x00533360: the buffer at +0xFDF8 (its size in *size, +0xFDFC).
+    void* GetPendingData(uint32_t* size);
+    // 0x00533380: the goal editor has created goals (0x004E7E50 with 0).
+    bool HasCreatedGoals();
+    // 0x005333A0: the goal editor's goals for `level` written into the goals message (+0x1D8: the level, then the
+    // goals - at most 6000 bytes); +0x1948 its size, +0x194C the level.
+    void PrepareCreatedGoals(uint32_t level);
+    // 0x005333E0 / 0x005333F0: the goals message / its size.
+    void* GetCreatedGoalsMessage();
+    uint32_t GetCreatedGoalsSize();
 
     // --- The join (gamenet_join.cpp) ---
 
