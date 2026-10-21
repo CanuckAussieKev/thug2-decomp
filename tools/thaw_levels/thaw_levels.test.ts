@@ -17,6 +17,7 @@ import {
     nodeFlagScript,
     setCompat,
     sixteenths,
+    zoneNodeFlags,
 } from "./thaw_levels.ts";
 import { RAIL_SCRIPTS, scriptToks } from "./thaw_scripts.ts";
 
@@ -265,4 +266,44 @@ test("node flags: the non-story script runs the initial one first, then its own 
         [true, false, false, false, true],
     );
     assert.equal(array[4]!.entries.filter(([k]) => k === null).length, 1);
+});
+
+test("TP-40: THUGPRO's node flag values on top of THAW's non-story ones, per zone; THAW's own with --compat none", () => {
+    setCompat("thugpro");
+    const k = checksum;
+    // THAW's non-story state as recorded in the profile (Skate Ranch: the dino's stand-in, no dino head)
+    const thaw = new Map([
+        [k("NODEFLAG_Z_SR_HO_DINO"), false],
+        [k("NODEFLAG_Z_SR_HO_DINO_DEF"), true],
+        [k("NODEFLAG_Z_SR_HO_ROPES"), true],
+        [k("NODEFLAG_OI_Derrick_After"), true],
+    ]);
+    const report: string[] = [];
+    const sr = zoneNodeFlags("z_sr", thaw, report);
+    assert.equal(sr.get(k("NODEFLAG_Z_SR_HO_DINO")), true);
+    assert.equal(sr.get(k("NODEFLAG_Z_SR_HO_DINO_DEF")), false);
+    assert.equal(sr.get(k("NODEFLAG_Z_SR_EL_MATTRESS")), true); // (unset in THAW: off; THUGPRO's on)
+    assert.equal(sr.get(k("NODEFLAG_Z_SR_HO_ROPES")), true); // (the same in both: THAW's)
+    assert.equal(sr.get(k("NODEFLAG_OI_Derrick_After")), true); // (another zone's flag: not touched here)
+    assert.equal(thaw.get(k("NODEFLAG_Z_SR_HO_DINO")), false); // (THAW's map itself unchanged)
+    // every recorded THAW value matched but the ones this test left out of its map (all off there)
+    assert.ok(report.every((line) => !line.includes("HO_DINO") || line.includes("node flags as")));
+    assert.equal(zoneNodeFlags("z_oi", thaw).get(k("NODEFLAG_OI_Derrick_After")), false);
+    assert.equal(zoneNodeFlags("z_ch", thaw), thaw); // (no entries: THAW's)
+    // a THAW value other than the recorded one is reported
+    const changed: string[] = [];
+    zoneNodeFlags("z_sr", new Map([[k("NODEFLAG_Z_SR_HO_DINO"), true]]), changed);
+    assert.ok(changed.some((line) => line.includes("NODEFLAG_Z_SR_HO_DINO is on in THAW")));
+    // the flagged nodes made as THUGPRO's
+    const node = (flag: string): Struct =>
+        new Struct([[new Name(checksum("CreatedFromVariable")), new Name(checksum(flag))]]);
+    const array = [node("NODEFLAG_Z_SR_HO_DINO"), node("NODEFLAG_Z_SR_HO_DINO_DEF")];
+    assert.equal(applyNodeFlags(array, sr), 1);
+    assert.deepEqual(
+        array.map((n) => n.hasFlag("CreatedAtStart")),
+        [true, false],
+    );
+    setCompat("none");
+    assert.equal(zoneNodeFlags("z_sr", thaw), thaw);
+    setCompat("thugpro");
 });
