@@ -63,6 +63,7 @@ import {
 } from "../lib/py.ts";
 import { findall, finditer, type Match, search, sub } from "../lib/re.ts";
 import { unpackNumbers } from "../lib/struct.ts";
+import * as thug2Levels from "../thug2_levels/thugpro_apply.ts"; // (THUGPRO's changes to THUG2's levels: TP-42)
 import * as careerComplete from "./career_complete.ts"; // (GAME OPTIONS' CREATE 100% CAS)
 import { reEscape } from "./career_complete.ts";
 import * as levelSelect from "./level_select.ts"; // (the level select's sections, stars and signs)
@@ -1455,6 +1456,10 @@ async function main(): Promise<number> {
                 backdrop ? new Map([["scripts\\game\\menu\\roundbarmenu.qb", frontEndRoundbar]]) : new Map(),
             ) ?? "Anteara Mod: the game has no Data\\scripts\\qdir.txt - not installed",
         );
+
+        // THUGPRO's changes to THUG2's own levels that the user switched on (tools/thug2_levels, register TP-42 -
+        // tools/compat/thugpro/thug2_levels.json; none by default): their changed level files into this overlay.
+        for (const line of thug2Levels.installEnabled(game, out)) print(line);
     } finally {
         fs.rmSync(work, { recursive: true, force: true });
     }
