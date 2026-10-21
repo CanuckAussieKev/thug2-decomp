@@ -89,6 +89,45 @@ Put the build's `dinput8.dll` and `SDL2.dll` in `C:\Games\THUG2\Game`, start the
 `-level <name>` / `[features] start_level=` starts in a level; `-edit <name>` (or `node tools/game/edit_level.ts`)
 opens the level editor there; `[features] skip_intro_movies=1`.
 
+### 4a. Boot straight into a level
+
+| How | What it does |
+|---|---|
+| `THUG2.exe -level <name>` or `[features] start_level=<name>` | Skips the menus and starts that level in free skate (`src/game/front/start_level.h`). `<name>` is the level's folder name (`TR`, `BO`, `foun`, `z_ma`...). |
+| `THUG2.exe -edit <name>` or `[features] edit_level=<name>` | The same, skips the intro movies and opens the level editor there. |
+| `node tools/game/edit_level.ts` | Lists every installed level by game (THUG2's own and the ported ones); `edit_level.ts <name> [--game <folder>]` starts one in the editor. A misspelt name is refused with the list. |
+| `tools\game\run_game.ps1 -Game <folder> -Level <name>` | A test run in a workspace: starts the level, waits, takes a picture, closes the game. |
+| `tools\game\load_check.ps1 -Game <folder> -Levels a, b, c` | Loads each level in turn and reports whether it loaded and ran without errors (under the folder's lock). |
+| `run_game.ps1 -Commands "waitfor ready", "choose ..."` | The test-automation channel (workspaces only, `[features] automation=1`): menu choices, scripts and waits as commands, the game's state in `thug2-decomp-status.json`. Never online. See `tools/game/README.md`. |
+
+### 4b. The level editor
+
+The editor is built into the DLL: pause menu > **LEVEL EDITOR**, or start with `-edit <name>`. It's offered in free
+skate and single session only (never in career / story, classic, the park editor or network games).
+
+- **Learning it:** F1 lists every key; **Ctrl+Space** (or F3) searches every action; the status bar shows what the
+  mouse and keys do at that moment; first-run tips appear once. Every key is rebindable (Preferences > Keys, saved in
+  `[editor_keys]` of the ini). The full list of controls and the editor's modules is the comment at the top of
+  `src/game/front/level_editor.h`; each feature's record and test checklist is a `docs/pending/editor-*.md` file.
+- **Edited copies:** edits never change a shipped level. Saving (Ctrl+S) writes the level's layout,
+  `Game\thug2-decomp-layouts\<scene>.txt` (plain text, one record per line - `tools/game/layout_file.ts` reads it),
+  and the level select then has a separate entry, **EDITED LEVELS (OFFLINE)** > "<LEVEL> (EDITED)", that loads the
+  level with the layout on top. Layouts are never applied online. Unsaved work is autosaved every minute
+  (`<scene>.autosave.txt`) and offered back after a crash; Reset level puts a level back as shipped.
+- **Nodes and scripts it makes:** nodes the editor adds (spawns, crowns, flags, lights, rails, ladders, paths,
+  triggers, cameras, goals...) go into an extra node array it adds to the level; trigger volumes, rail speed-ups,
+  jump boosts, breakables and proximity nodes get small QB scripts the editor generates and loads at run time
+  (`level_editor_triggers.cpp`, `level_editor_chains.cpp`; the same scripts in TypeScript for the bake:
+  `tools/game/triggers.ts`, `tools/game/map_features.ts`). Goals use THUG2's own Create-a-Goal records
+  (`level_editor_goals.cpp`).
+- **Baking a layout into a level's files:** `node tools/game/apply_layout.ts --level <name> [--dry-run]` writes a
+  copy of the level's `.scn.xbx` / `.col.xbx` / `.qb` (and its scripts and `Levels.qb` entry) with the layout built
+  in, to `out\baked\<name>` by default. `--install --game <workspace>` puts it in that folder's overlay, backing up
+  what it replaces; `--uninstall --level <name>` restores the newest backup (repeat to step back further). It warns
+  about every edit that would break online parity with THUGPRO.
+- **Offline helpers:** `node tools/game/pick_census.ts` (what the editor's click picking makes of each piece of a
+  level), `node tools/thps4_levels/migrate_layouts.ts` (moves layouts when a ported level is renamed).
+
 ### 5. Convert the other games' levels (optional)
 
 Each converter reads your install of that game and writes a staging folder next to THUG2; the menu tool then installs
