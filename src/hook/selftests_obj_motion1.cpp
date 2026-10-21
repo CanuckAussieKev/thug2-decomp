@@ -43,7 +43,7 @@ StandIn LinkCount()
 }
 StandIn FrameSeconds() { return {0x005BEAA0, 0, 0, Ret::Float, false, 0, {Ours(&Tmr::GetSlomoFrameSeconds)}}; }
 StandIn StopWaiting() { return {0x004728F0, 0, 0, Ret::None, true, 0, {Ours(&CScript::StopWaiting)}}; }
-StandIn MoveToNodeCall() { return {0x00426C10, 8, 2, Ret::None, true}; }
+StandIn MoveToNodeCall() { return {0x00426C10, 8, 2, Ret::None, true, 0, {Ours(&CMotionComponent::MoveToNode)}}; }
 StandIn OrientToNodeCall() { return {0x00425970, 4, 1, Ret::None, true, 0, {Ours(&CMotionComponent::OrientToNode)}}; }
 StandIn FollowerConstruct()
 {

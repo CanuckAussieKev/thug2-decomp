@@ -38,13 +38,6 @@ constexpr uint32_t kWaitRotate = 9;
 // The game clock with its offset (0x0044ECE0 + 0x00696D60).
 int GameClock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 
-// 0x00426C10 (no source yet): Obj_MoveToNode.
-void MoveToNode(CMotionComponent* motion, Script::CStruct* params, Script::CScript* script)
-{
-    GameFunction<void(__thiscall*)(CMotionComponent*, Script::CStruct*, Script::CScript*)>(0x00426C10)(motion, params,
-                                                                                                       script);
-}
-
 } // namespace
 
 // --- life ---
@@ -188,7 +181,7 @@ int CMotionComponent::CallMemberFunction(uint32_t name, Script::CStruct* params,
 {
     if (name != kObjMoveToNode)
         return 2;
-    MoveToNode(this, params, script);
+    MoveToNode(params, script);
     return 1;
 }
 

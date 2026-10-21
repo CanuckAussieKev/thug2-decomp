@@ -37,9 +37,7 @@ constexpr uint32_t kOrientY = 0xE19E310A;         // OrientY
 constexpr uint32_t kPedLogic = 0x6EFDDFB8;        // the pedlogic component
 
 // The rest of the update (no source yet).
-void UpdateJump(CMotionComponent* motion) { GameFunction<void(__thiscall*)(CMotionComponent*)>(0x00424870)(motion); }
 void UpdatePathSpeed(CMotionComponent* motion) { GameFunction<void(__thiscall*)(CMotionComponent*)>(0x00423530)(motion); }
-void StickToGround(CMotionComponent* motion) { GameFunction<bool(__thiscall*)(CMotionComponent*)>(0x00425F40)(motion); }
 
 // The velocity of a step from where the object was (`back`: minus that position) to where it is now: x from the
 // unrounded difference and reciprocal, the others from the rounded ones (as the original's x87 code).
@@ -108,7 +106,7 @@ void CMotionComponent::Update()
             UpdateFollowLeader();
         }
         if (m_motionFlags & MOTION_JUMPING) {
-            UpdateJump(this);
+            UpdateJump();
             m_object->m_pos = m_jumpPos;
         }
     }
@@ -207,7 +205,7 @@ void CMotionComponent::UpdatePath()
         m_object->m_pos = mp_pathFollower->m_pos;
         if (m_motionFlags2 & MOTION2_STICK_TO_GROUND) {
             m_object->m_pos.y = height;
-            StickToGround(this);
+            StickToGround();
         } else if (m_motionFlags2 & MOTION2_CONSTANT_HEIGHT) {
             m_object->m_pos.y = height;
         }

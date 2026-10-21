@@ -123,7 +123,7 @@ void RandomFlags()
 void TestMotionUpdate()
 {
     StandIns standIns({FrameSeconds(), Own(0x00425C70, Ours(&CMotionComponent::UpdateRotations), 0, 0),
-                       Own(0x00424440, Ours(&CMotionComponent::UpdateTurn), 0, 0), Game(0x00424870, 0, 0),
+                       Own(0x00424440, Ours(&CMotionComponent::UpdateTurn), 0, 0), Own(0x00424870, Ours(&CMotionComponent::UpdateJump), 0, 0),
                        Own(0x00423740, Ours(&CMotionComponent::UpdateHover), 0, 0),
                        Own(0x00424200, Ours(&CMotionComponent::UpdateMoveTo), 0, 0, Ret::Bool),
                        Own(0x00426E70, Ours(&CMotionComponent::UpdatePath), 0, 0),
@@ -207,7 +207,7 @@ void TestMotionUpdatePath()
                             if (Next() % 4 == 0)
                                 reinterpret_cast<float*>(f.args[0])[1] = 0.0f;
                         }},
-                       Game(0x00425F40, 0, 0, Ret::Bool)});
+                       Own(0x00425F40, Ours(&CMotionComponent::StickToGround), 0, 0, Ret::Bool)});
     bool ok = CompareVoid("motion UpdatePath", 0x00426E70, &CMotionComponent::UpdatePath, 6000, [](int) {
         RandomFlags();
         if (Next() % 5 == 0)

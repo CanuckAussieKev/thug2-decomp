@@ -174,6 +174,34 @@ public:
     // identity), as the display matrix too.
     void OrientToNode(Script::CStruct* node);
 
+    // --- jumping, the ground, moving to points (motion_ground.cpp) ---
+    // 0x00424870: one frame of the jump into m_jumpPos: up by speed * frame + gravity * frame^2 / 2 (the speed
+    // then changed by gravity * frame), along the heading at the start's speed; coming down, it lands at
+    // land_height or on whatever a feeler from col_dist_above over to col_dist_below under finds (no longer
+    // jumping - the position isn't snapped to it).
+    void UpdateJump();
+    // 0x00425F40: false without DistAbove / DistBelow. Height only (+0x70): the right axis rebuilt from up and at,
+    // the ground between |DistAbove| feet over and |DistBelow| under found (GroundHit, the cached triangle first)
+    // and the height to make up kept as the ground offset. Else three feelers (behind right, behind left, ahead -
+    // 72 back or ahead, 30 to the side) with up taken as (0, 1, 0): with all three, the height half way between
+    // the back's middle and the front, the right axis along the back points, at halfway to the direction from the
+    // back to the front, up = at x right. Whether that was found.
+    bool StickToGround();
+    // 0x004269F0 (RET 0x1C: the target by value): moving to `target` - at once (no time or speed given: there now,
+    // oriented to `node` with `orient`; true), over `time` seconds, or at `speed` (mph, fps or ips) reached by
+    // Acceleration (the same units). False when it moves.
+    bool MoveTo(Script::CStruct* params, Script::CScript* script, Mth::Vector target, uint32_t node);
+    // 0x00426C10: MoveTo the node Name (at once: arrived there; else the node told on arriving).
+    void MoveToNode(Script::CStruct* params, Script::CScript* script);
+    // 0x00426CB0: MoveTo the unnamed vector (FLAG_MAX_COORDS: converted) - relative to its position unless
+    // `absolute`.
+    void MoveToPosition(Script::CStruct* params, Script::CScript* script, bool absolute);
+    // 0x00426D80: MoveTo its node's link LinkNum (1 based; else a random one with randomlink when there are
+    // several, else the first).
+    void MoveToLink(Script::CStruct* params, Script::CScript* script);
+    // The body of Obj_MoveForward / Obj_MoveLeft (two copies in the original): MoveTo `dist` along `direction`.
+    void MoveAlong(Script::CStruct* params, Script::CScript* script, const Mth::Vector& direction);
+
     // --- script member functions (the table at 0x00681EB8; all true) ---
     bool Obj_StorePos(Script::CStruct* params, Script::CScript* script);          // 0x004237D0
     bool Obj_StoreNode(Script::CStruct* params, Script::CScript* script);         // 0x00423810 (the path's node)
@@ -216,6 +244,17 @@ public:
     bool Obj_LookAtPosStored(Script::CStruct* params, Script::CScript* script);  // 0x00426880 (Obj_StorePos's)
     bool Obj_LookAtRelPos(Script::CStruct* params, Script::CScript* script);     // 0x004268A0
     bool Obj_LookAtObject(Script::CStruct* params, Script::CScript* script);     // 0x004276A0 (LookAtObject's)
+    // 0x004268C0: DistAbove / DistBelow (feet); `off`: no longer sticking. Else sticking - false (and nothing
+    // more) with both 0, else stuck now.
+    bool Obj_StickToGround(Script::CStruct* params, Script::CScript* script);
+    // 0x00426960: at the unnamed node, oriented to it, its model brought up to date (a crash without one).
+    bool Obj_SkipToRestart(Script::CStruct* params, Script::CScript* script);
+    bool Obj_MoveToPosStored(Script::CStruct* params, Script::CScript* script); // 0x004272D0 (Obj_StorePos's)
+    bool Obj_MoveForward(Script::CStruct* params, Script::CScript* script);     // 0x00427320 (along at)
+    bool Obj_MoveLeft(Script::CStruct* params, Script::CScript* script);        // 0x004273D0 (along right)
+    bool Obj_MoveToPos(Script::CStruct* params, Script::CScript* script);       // 0x00427470 (absolute)
+    bool Obj_MoveToRelPos(Script::CStruct* params, Script::CScript* script);    // 0x00427490
+    bool Obj_MoveToLink(Script::CStruct* params, Script::CScript* script);      // 0x004274B0
 
     uint32_t m_motionFlags;    // +0x18 MOTION_*
     uint32_t m_motionFlags2;   // +0x1C MOTION2_*
@@ -309,5 +348,11 @@ static_assert(offsetof(CMotionComponent, m_motionFlags) == 0x18 && offsetof(CMot
                   offsetof(CMotionComponent, m_jumpHasLandHeight) == 0x234 &&
                   offsetof(CMotionComponent, m_jumpStart) == 0x23C && sizeof(CMotionComponent) == 0x24C,
               "layout must match the original (0x00426650 allocates 0x24C bytes)");
+
+// 0x00425CB0 (ECX the triangle, EDX the end; the start and `out` on the stack, the caller pops: GroundHitStub):
+// the line from `start` to `end` against the cached triangle (three corners) - hit: the point. Else a feeler along
+// it: hit, the face it hit becomes the cached triangle and the point is the feeler's. Whether anything was hit.
+bool __cdecl GroundHit(Mth::Vector* triangle, const Mth::Vector* end, const Mth::Vector* start, Mth::Vector* out);
+void GroundHitStub();
 
 } // namespace Obj

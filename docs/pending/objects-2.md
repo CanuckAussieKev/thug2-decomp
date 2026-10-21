@@ -89,3 +89,18 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
     caught (2 after the position looked at was recorded, 1 after negative elapsed turn times were added); the one
     missed (UpdateAxisRotation's `<` as `<=` when capping at the maximum) only differs when |speed| equals the
     maximum, where both set the same value.
+- [x] Batch OC2-4 (NOT run in the game yet; the motion component's jump, sticking to the ground and moving to
+  points, 15 functions): src/game/obj/motion_ground.cpp (new); motion.h (declarations); motion_component.cpp /
+  motion_path.cpp call the members instead of the game's addresses.
+  - 0x00425CB0 GroundHit (register arguments: ECX the cached triangle, EDX the end, the start and the result on the
+    stack, the caller pops - REPLACE_UNCHECKED naked stub over a cdecl body): the cached triangle first, then a
+    feeler (the face hit, 8- or 10-byte faces, becomes the cached triangle). 0x00424870 UpdateJump, 0x00425F40
+    StickToGround (height only: the ground offset; else three feelers 72 back / ahead and 30 to the side give
+    the height and the axes), 0x004269F0 MoveTo (RET 0x1C: the target by value; at once, a time, or a speed in
+    mph / fps / ips with an acceleration; the original reads `time` into the target argument's x), 0x00426C10
+    MoveToNode, 0x00426CB0 MoveToPosition, 0x00426D80 MoveToLink (LinkNum 1-based, randomlink), Obj_StickToGround,
+    Obj_SkipToRestart (its model component updated - none: a crash, as the original), Obj_MoveToPosStored,
+    Obj_MoveForward, Obj_MoveLeft, Obj_MoveToPos, Obj_MoveToRelPos, Obj_MoveToLink.
+  - Test (selftests_obj_motion4.cpp): TestMotionJump (8000 variants, one in seven landing exactly on land_height),
+    TestMotionGroundHit (the original called with its register arguments), TestMotionStick (8000: both GroundHit
+    conventions answered alike), TestMotionMoves. 40 deliberate bugs caught (1 after the exact landing case).
