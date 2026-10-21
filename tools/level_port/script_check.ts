@@ -6,9 +6,10 @@
 //     once when no animation plays (the anim component's check, called straight after the command by CScript::Update),
 //     so the loop spins for ever in one frame: THUG1 Hotter Than Hell's ATV riders (THUGPRO's SE_ATVDriver02 / 04:
 //     `while { Obj_WaitAnimFinished }`), the hang in the blender's wait check;
-//   - names given to IsAlive / Create / Kill / Visible / Invisible / Shatter... (`name=<constant>`) that aren't nodes of
-//     the level: CFunc_IsAlive (0x005A5380 -> 0x005A4EF0) and the others look the name up with GetNode, which asserts
-//     and returns null - THUG2 crashes on it (THAW Hollywood: IsAlive name=<ObjID> with the skater's id 0);
+//   - names given to IsAlive / Create / Visible / Invisible (`name=<constant>`) that aren't nodes of the level:
+//     CFunc_IsAlive (0x005A5380 -> 0x005A4EF0) and the others look the name up with GetNode, which asserts and returns
+//     null - THUG2 crashes on it (THAW Hollywood: IsAlive name=<ObjID> with the skater's id 0 - a parameter, which
+//     this can't see: the translator's guards are ObjectExists now);
 //   - arrays read by GetArraySize / `<array>[i]` that the file doesn't define (a global of another file: reported to
 //     look at - THUG2's own globals are fine; THPS3 Shipyard's shp_window_objects was missing);
 //   - a node's animation set (AnimName / Extra_Anims) that the level's load_level_anims doesn't load: the ped plays an
@@ -30,10 +31,10 @@ const NAME = 0x16;
 const BEGIN = 0x20;
 const REPEAT = 0x21;
 
-// Commands that look the name= up as a node (asserting): a name the level hasn't crashes THUG2.
-export const NODE_LOOKUPS = new Set(
-    ["IsAlive", "Create", "Kill", "Visible", "Invisible", "Shatter", "ShatterAndDie"].map(checksum),
-);
+// Commands that look the name= up as a node and use it without a check (0x005A4EF0 -> 0x005A4DA0, GetNode asserting):
+// IsAlive (0x005A3D10), Visible / Invisible (0x005A3B80: the node's Class read), Create (0x005A32A0 -> 0x005A2E50).
+// Kill's 0x005A32C0 returns when there's no node; Shatter (0x005A5090) finds the sector, not the node.
+export const NODE_LOOKUPS = new Set(["IsAlive", "Create", "Visible", "Invisible"].map(checksum));
 // (THUG2's skater sets, loaded by the game itself)
 const ALWAYS_LOADED = new Set(["animload_THPS6_human"].map(checksum));
 
