@@ -118,6 +118,9 @@ export interface PsxTexture {
     width: number;
     height: number;
     rgba: Buffer; // width x height x RGBA, the palette applied (0x0000 transparent)
+    // per texel 1 where the colour has the semi-transparency bit (bit 15) and isn't transparent: on a face drawn
+    // semi-transparent (face flag 0x40) the PlayStation blends only those texels, the others are drawn opaque
+    semi: Buffer;
 }
 
 export interface Psx {
@@ -292,16 +295,18 @@ function readTextureLibrary(buf: Buffer, at: number, name: string): PsxTexture[]
         const palette = palettes.get(key);
         if (palette === undefined) throw new FormatError(`${name}: texture ${i}: no palette ${key.toString(16)}`);
         const rgba = Buffer.alloc(width * height * 4);
+        const semi = Buffer.alloc(width * height);
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const v =
                     paletteSize === 16 ? (buf[p + y * row + (x >> 1)]! >> ((x & 1) * 4)) & 15 : buf[p + y * row + x]!;
                 const [r, g, b, a] = ps1Color(palette[v]!);
                 rgba.set([r, g, b, a], (y * width + x) * 4);
+                if (a && palette[v]! & 0x8000) semi[y * width + x] = 1;
             }
         }
         p += row * height;
-        out.push({ paletteSize, key, index, width, height, rgba });
+        out.push({ paletteSize, key, index, width, height, rgba, semi });
     }
     if (p !== buf.length) throw new FormatError(`${name}: ${buf.length - p} bytes after the textures`);
     return out;

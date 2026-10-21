@@ -194,13 +194,40 @@ export function heading(angle: number): number {
 // A face's triangles as corner indices (0-3), turned for THUG2: THPS2's 0 1 2 (a quad, 0 1 / 2 3, is 0 1 2 and
 // 1 3 2) has its outward normal along -(v1 - v0) x (v2 - v0); after the half turn THUG2's (b - a) x (c - a) has to
 // point out - 0 2 1 (and 1 2 3).
-export function faceTriangles(face: thps2.PsxFace): [number, number, number][] {
-    return face.vertices.length === 3
-        ? [[0, 2, 1]]
-        : [
-              [0, 2, 1],
-              [1, 2, 3],
-          ];
+// A few quads a level (8-232; 780 of the ten levels' 33,000) have their corners going round (0 1 2 3) instead: split
+// 0 1 / 2 3 their halves fold over each other - a bowtie, a hole where the PlayStation drew a twisted ribbon (thin
+// strips mostly: poles, rails, trims). Given the model's vertices such a quad is split along its diagonal 0-2 instead
+// (0 1 2 and 0 2 3), each corner keeping its uv.
+export function faceTriangles(
+    face: thps2.PsxFace,
+    vertices?: readonly (readonly number[])[],
+): [number, number, number][] {
+    if (face.vertices.length === 3) return [[0, 2, 1]];
+    if (vertices !== undefined && quadGoesRound(face, vertices))
+        return [
+            [0, 2, 1],
+            [0, 3, 2],
+        ];
+    return [
+        [0, 2, 1],
+        [1, 2, 3],
+    ];
+}
+
+// Whether a quad's 0 1 / 2 3 halves face opposite ways while 0 1 2 and 0 2 3 agree (its corners go round).
+export function quadGoesRound(face: thps2.PsxFace, vertices: readonly (readonly number[])[]): boolean {
+    const p = face.vertices.map((v) => vertices[v]!);
+    const sub = (a: readonly number[], b: readonly number[]): number[] => [a[0]! - b[0]!, a[1]! - b[1]!, a[2]! - b[2]!];
+    const cross = (a: number[], b: number[]): number[] => [
+        a[1]! * b[2]! - a[2]! * b[1]!,
+        a[2]! * b[0]! - a[0]! * b[2]!,
+        a[0]! * b[1]! - a[1]! * b[0]!,
+    ];
+    const dot = (a: number[], b: number[]): number => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
+    const n012 = cross(sub(p[1]!, p[0]!), sub(p[2]!, p[0]!));
+    const n132 = cross(sub(p[3]!, p[1]!), sub(p[2]!, p[1]!));
+    const n023 = cross(sub(p[2]!, p[0]!), sub(p[3]!, p[0]!));
+    return dot(n012, n132) < 0 && dot(n012, n023) > 0;
 }
 
 // A face's uvs in THUG2's units (v down, as THPS2's): THPS2's are texel numbers, n / size. They tile: more than half
@@ -463,12 +490,31 @@ export function makeTexture(checksum: number, t: thps2.PsxTexture, bmp: Bmp | nu
 
 // --- materials -----------------------------------------------------------------------------------------------------
 
+// How a face is drawn: opaque, or semi-transparent (face flag 0x40) in the PlayStation's blend mode its flags' bits
+// 8-9 give (the GPU's ABR: 0 is 0.5 B + 0.5 F, 1 is B + F). Only semi-transparent faces have bits 8-9 set in the ten
+// levels (mode 1: 431 faces, their vertex colours dark - lum ~30 against ~80: light beams and glows added onto what's
+// behind; modes 2 / 3 never). The PC's textures have no semi-transparency bit on any texel (the PlayStation's
+// per-texel switch), so the whole face blends.
+export type Blend = "opaque" | "half" | "add";
+
+export function faceBlend(face: thps2.PsxFace): Blend {
+    if (!(face.flags & thps2.FACE_SEMI_TRANSPARENT)) return "opaque";
+    return ((face.flags >> 8) & 3) === 1 ? "add" : "half";
+}
+
 // `wrap`: the texture repeats (some face reaches past it); else clamped (cut-outs and signs: nothing bleeds in from
 // the far side at their edges).
-export function makeMaterial(checksum: number, texture: number, semi: boolean, wrap = false): thug2Scene.Material {
+export function makeMaterial(
+    checksum: number,
+    texture: number,
+    blending: Blend | boolean,
+    wrap = false,
+): thug2Scene.Material {
+    const blend: Blend = blending === true ? "half" : blending === false ? "opaque" : blending;
+    const semi = blend !== "opaque";
     let flags = thug2Scene.PASS_SMOOTH;
     if (texture) flags |= thug2Scene.PASS_TEXTURED;
-    // (semi-transparent: THUG2's blend by the vertex alpha - a half, the PlayStation's usual 0.5 B + 0.5 F)
+    // (half: THUG2's blend by the vertex alpha - SEMI_ALPHA; add: THUG2's add, the vertex alpha full)
     flags |= semi ? thug2Scene.PASS_TRANSPARENT : thug2Scene.PASS_IGNORE_VERTEX_ALPHA;
     return {
         checksum,
@@ -485,7 +531,7 @@ export function makeMaterial(checksum: number, texture: number, semi: boolean, w
             {
                 texture,
                 flags,
-                blendMode: semi ? 5 : 0,
+                blendMode: blend === "add" ? 1 : semi ? 5 : 0,
                 fixedAlpha: 0,
                 uAddress: wrap ? 0 : 1,
                 vAddress: wrap ? 0 : 1,
@@ -565,11 +611,11 @@ export function convertWorld(
             if (t !== undefined && faceTiles(face, t.width, t.height)) tiled.add(name!);
         }
     }
-    const materialFor = (texture: number, semi: boolean): number => {
-        const key = `${texture}|${semi ? 1 : 0}`;
+    const materialFor = (texture: number, blend: Blend): number => {
+        const key = `${texture}|${blend}`;
         let m = materials.get(key);
         if (m === undefined) {
-            m = makeMaterial(qb.checksum(`${level}_material_${materials.size}`), texture, semi, tiled.has(texture));
+            m = makeMaterial(qb.checksum(`${level}_material_${materials.size}`), texture, blend, tiled.has(texture));
             materials.set(key, m);
         }
         return m.checksum;
@@ -603,7 +649,7 @@ export function convertWorld(
                 }
                 const base = t.verts.length;
                 for (const v of face.vertices) t.verts.push(verts[v]!);
-                for (const [a, b, c] of faceTriangles(face)) {
+                for (const [a, b, c] of faceTriangles(face, model.vertices)) {
                     const k = face.vertices.map((_, i) => base + i);
                     t.faces.push([TRIGGER_FACE_FLAGS, 0, k[a]!, k[b]!, k[c]!]);
                     t.faces.push([TRIGGER_FACE_FLAGS, 0, k[a]!, k[c]!, k[b]!]);
@@ -618,7 +664,7 @@ export function convertWorld(
             const flags = collisionFlags(face, normal[1]);
             if (flags === null) counts.noCollision++;
             else
-                for (const [a, b, c] of faceTriangles(face))
+                for (const [a, b, c] of faceTriangles(face, model.vertices))
                     faces.push([flags, faceTerrain(face), face.vertices[a]!, face.vertices[b]!, face.vertices[c]!]);
             if (face.flags & thps2.FACE_INVISIBLE) {
                 counts.hidden++;
@@ -643,15 +689,15 @@ export function convertWorld(
                     }
                 }
             }
-            const semi = (face.flags & thps2.FACE_SEMI_TRANSPARENT) !== 0;
-            const material = materialFor(texture, semi);
+            const blend = faceBlend(face);
+            const material = materialFor(texture, blend);
             const cornerUvs = texture
                 ? faceUvs(face, size[0], size[1])
                 : face.vertices.map((): [number, number] => [0, 0]);
             const corner = (k: number): number => {
                 const c = colorsOf[k]!;
                 const uv = cornerUvs[k]!;
-                const alpha = semi ? SEMI_ALPHA : 128;
+                const alpha = blend === "half" ? SEMI_ALPHA : 128;
                 const key = `${face.vertices[k]}|${c.join(",")},${alpha}|${uv[0]},${uv[1]}`;
                 let i = keyed.get(key);
                 if (i === undefined) {
@@ -668,7 +714,7 @@ export function convertWorld(
                 list = [];
                 byMaterial.set(material, list);
             }
-            for (const [a, b, c] of faceTriangles(face)) list.push([corner(a), corner(b), corner(c)]);
+            for (const [a, b, c] of faceTriangles(face, model.vertices)) list.push([corner(a), corner(b), corner(c)]);
         }
         counts.objects++;
         if (positions.length) {
@@ -901,7 +947,7 @@ export function restartKinds(restarts: readonly thps2.Restart[], start?: string,
     return restarts.map((r, i): RestartKind => {
         if (i === first) return "Player1";
         if (i === second) return "Player2";
-        if (/2p/i.test(r.name)) return /start_2p|2p start/i.test(r.name) ? "Player2" : "MultiPlayer";
+        if (/2p/i.test(r.name)) return second < 0 && /start_2p|2p start/i.test(r.name) ? "Player2" : "MultiPlayer";
         if (/^ho_/i.test(r.name)) return "Horse";
         return "Generic";
     });
@@ -946,6 +992,7 @@ export function nodeArrayText(
     trg: readonly thps2.TrgNode[],
     triggers: readonly PlacedTrigger[] = [],
     objects: readonly PlacedObject[] = [],
+    leaveOut: ReadonlySet<string> = new Set(),
 ): NodeArrayResult {
     const restartNodes = trg.filter((n) => n.type === thps2.NODE_RESTART);
     const restarts = restartNodes.map(thps2.restartOf);
@@ -955,7 +1002,7 @@ export function nodeArrayText(
         startCommands.find((c) => c.op === op)?.args[0] as string | undefined;
     const kinds = restartKinds(restarts, named(thps2.CMD.SetRestart), named(thps2.CMD.SetRestart2));
     const dummy = (i: number): boolean => /dummy/i.test(restarts[i]!.name);
-    const order = restarts.map((_, i) => i).filter((i) => !dummy(i));
+    const order = restarts.map((_, i) => i).filter((i) => !dummy(i) && !leaveOut.has(restarts[i]!.name));
     order.sort((a, b) => (kinds[a] === "Player1" ? -1 : kinds[b] === "Player1" ? 1 : a - b));
     // the kills' restarts: the one pulsed, else the nearest of the listed ones
     const restartOfNode = new Map(restartNodes.map((n, i) => [n.index, i]));
@@ -1126,6 +1173,21 @@ export function checkRestarts(trg: readonly thps2.TrgNode[], col: thug2Col.ColFi
         const floor = floorBelow(col, x, z, y + 24);
         if (floor === null) out.push(`${r.name}: no floor under it`);
         else if (y - floor > 120) out.push(`${r.name}: ${Math.round(y - floor)} inches above the floor`);
+    }
+    return out;
+}
+
+// The restarts with no floor under them at all: leftovers of other levels (Hangar's Re_Start_2P_NY, NY's 2P start
+// copied in) - left out of the node array, a skater put there would fall for good. Restarts in the air above a floor
+// stay: THPS2 drops the skater from them as THUG2 does (Hangar's Control Room, the HORSE spots over NY's pit, the
+// Skatestreet wave's 2P roll-in).
+export function restartsWithoutFloor(trg: readonly thps2.TrgNode[], col: thug2Col.ColFile): Set<string> {
+    const out = new Set<string>();
+    for (const n of trg) {
+        if (n.type !== thps2.NODE_RESTART) continue;
+        const r = thps2.restartOf(n);
+        const [x, y, z] = toThug(r.position);
+        if (floorBelow(col, x, z, y + 24) === null) out.add(r.name);
     }
     return out;
 }
@@ -1377,7 +1439,8 @@ export function cmdConvert(args: Args): number {
             `  ${c.objects} objects, ${c.faces} faces (${c.hidden} not drawn, ${c.noCollision} not collided with), ` +
                 `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${biased} layer materials given a z bias`,
         );
-        const nodeArray = nodeArrayText(name, trg, placed, levelObjs.placed);
+        const noFloor = restartsWithoutFloor(trg, done.col);
+        const nodeArray = nodeArrayText(name, trg, placed, levelObjs.placed, noFloor);
         common.nsCompile(args.ns, nodeArray.text, pyJoin(levelDir, `${name}.qb`));
         report.push(
             `  nodes: ${nodeArray.restarts} restarts, ${nodeArray.rails} rail points, ${nodeArray.triggers} triggers ` +
@@ -1388,7 +1451,8 @@ export function cmdConvert(args: Args): number {
             `  objects: ${oc.static} static, ${oc.bouncy} bouncy (not collided with), ${oc.spinning} spinning; not yet: ` +
                 `${oc.scripted} scripted, ${oc.turned} turned about x / z, ${oc.noModel} without a model`,
         );
-        for (const problem of checkRestarts(trg, done.col)) report.push(`  restart ${problem}`);
+        for (const problem of checkRestarts(trg, done.col))
+            report.push(`  restart ${problem}${/: no floor/.test(problem) ? " - left out" : ""}`);
         // the sky: the background models of the _o file
         let skyName: string | null = null;
         const backgrounds = backgroundModels(trg);

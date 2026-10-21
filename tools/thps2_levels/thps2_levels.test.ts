@@ -383,6 +383,12 @@ test("restarts: the start first as Player1, 2P / horse / generic by name, headin
         "Generic",
     ]);
     assert.deepEqual(conv.restartKinds([r("Re_The_Pit"), r("Re_Start")]), ["Generic", "Player1"]);
+    // the start node's names decide; then another 2P start is only a multiplayer one (Hangar's Re_Start_2P_NY)
+    assert.deepEqual(conv.restartKinds([r("Start"), r("Re_Start_2P_NY"), r("2P Start 1")], "Start", "2P Start 1"), [
+        "Player1",
+        "MultiPlayer",
+        "Player2",
+    ]);
     assert.equal(conv.restartTitle("Ho_Start_Bike_Racks"), "Bike Racks");
     assert.equal(conv.restartTitle("Re_Start_Skate"), "Skate");
     assert.equal(conv.restartTitle("Control Room"), "Control Room");
@@ -646,6 +652,48 @@ test("objects: static, bouncy and spinning platforms as LevelObjects of their ow
     );
     assert.match(text, /Name=TRG_Object_1 \n {8}Class=LevelObject \n {8}CreatedAtStart \n {4}\}/);
     assert.match(text, /script thps2_test_Spin_0 \{\n {4}Obj_RotZ speed=-337\.5 \n\}/);
+});
+
+test("faces: quads whose corners go round split along 0-2; blend modes from flags 0x40 and bits 8-9", () => {
+    const face = (flags: number): thps2.PsxFace => ({
+        flags,
+        vertices: [0, 1, 2, 3],
+        shade: [0, 0, 0, 0],
+        plane: 0,
+        surface: 0,
+        texture: -1,
+        uvs: [],
+        extra: Buffer.alloc(0),
+    });
+    // Hangar's thin strip: corners round (0 and 3 at one end, 1 and 2 at the other)
+    const round = [
+        [0, 16, 139],
+        [8, 16, -137],
+        [16, 0, -137],
+        [24, 0, 139],
+    ];
+    const grid = [
+        [0, 0, 0],
+        [64, 0, 0],
+        [0, 0, 64],
+        [64, 0, 64],
+    ];
+    assert.equal(conv.quadGoesRound(face(0), round), true);
+    assert.equal(conv.quadGoesRound(face(0), grid), false);
+    assert.deepEqual(conv.faceTriangles(face(0), round), [
+        [0, 2, 1],
+        [0, 3, 2],
+    ]);
+    assert.deepEqual(conv.faceTriangles(face(0), grid), [
+        [0, 2, 1],
+        [1, 2, 3],
+    ]);
+    assert.equal(conv.faceBlend(face(0x0100)), "opaque");
+    assert.equal(conv.faceBlend(face(0x0040)), "half");
+    assert.equal(conv.faceBlend(face(0x0140)), "add");
+    assert.equal(conv.makeMaterial(1, 2, "add").passes[0]!.blendMode, 1);
+    assert.equal(conv.makeMaterial(1, 2, "half").passes[0]!.blendMode, 5);
+    assert.equal(conv.makeMaterial(1, 2, "opaque").passes[0]!.blendMode, 0);
 });
 
 test("levels: ten, each its own name and level select number", () => {
