@@ -654,6 +654,7 @@ export function cmdConvert(args: Args): void {
         if (streams)
             report.push(`  ${streams} object(s) given a stream component (SupportStreams: their scripts play streams)`);
 
+        let sharedReported = false;
         const writeQb = (source: string): void => {
             common.nsCompile(args.ns, source, qbPath);
             if (brought.size) {
@@ -661,6 +662,16 @@ export function cmdConvert(args: Args): void {
                 for (const s of [...port!.sources, ...levelSources]) for (const [k, v] of s.names) allNames.set(k, v);
                 for (const [k, v] of names) allNames.set(k, v);
                 fs.writeFileSync(qbPath, scriptPort.appendScripts(fs.readFileSync(qbPath), brought, allNames));
+            }
+            // (PC-THPS4-14, required: every node kind's common fields shared - the last step, after everything that
+            // reads the nodes' own fields: the text passes above, groundRestartsAt's rewrite through this -
+            // nodes.shareNodeFields)
+            if (portChange("shared_fields", base)) {
+                const shared = nodes.shareNodeFieldsIn(qbPath, `${name}_NodeArray`, name);
+                if (!sharedReported && shared.includes) {
+                    report.push(`  node fields shared: ${shared.includes} structures, ${shared.nodes} nodes`);
+                }
+                sharedReported = true;
             }
         };
 

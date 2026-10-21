@@ -58,6 +58,9 @@ void ForgetStoredRandomsOf(uint32_t owner);
 void CreateScriptPools();
 // Create a pool of `count` items of `item_size` as `pools`' current pool (0x0046F090.. one per class).
 void CreatePool(Mem::PoolPair& pools, int item_size, int count, const char* name);
+// NOT ORIGINAL - the script pools' use logged (`script pools in use <when>: CComponent <used> (peak <peak>) of
+// <count>, CStruct ...`): what a level costs them (game/front/start_level.cpp logs it once the level is up).
+void LogScriptPoolUse(const char* when);
 // The permanent string heap: `size` bytes of strings, at most `count` of them.
 void AllocatePermanentStringHeap(uint32_t size, uint32_t count);
 

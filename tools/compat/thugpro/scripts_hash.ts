@@ -40,7 +40,9 @@ function main(): number {
         console.log(`kReleaseScriptsHash ${hex(ours)}: up to date`);
         return 0;
     }
-    console.log(`kReleaseScriptsHash ${hex(ours)}: out of date - set it to ${hex(hash)} in src/game/net/thugpro_join.h`);
+    console.log(
+        `kReleaseScriptsHash ${hex(ours)}: out of date - set it to ${hex(hash)} in src/game/net/thugpro_join.h`,
+    );
     return 2;
 }
 

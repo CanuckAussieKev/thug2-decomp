@@ -23,6 +23,7 @@
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_manager.h"
 #include "game/net/net_metrics.h"
+#include "game/net/thugpro_peer.h"
 #include "game/util/lzss.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -54,6 +55,7 @@ void SaveGlobals(std::vector<TestStandIns::Saved> globals)
 void CleanUp()
 {
     TestStandIns::RemoveStandIns();
+    GameNet::Thugpro::SetPeerModeOverride(-1);
     if (g_netD_swapped) {
         TestStandIns::RestoreAll(g_netD_saved);
         g_netD_swapped = false;
@@ -650,6 +652,9 @@ void TestNetCompressMessage()
         return;
     }
     SaveGlobals({{0x007CC979, 1, {}}, {0x007D1800, 4, {}}});
+    // THUG2's own methods: the THUGPRO peer mode off (on - OnlineGameName=thugpro - LZSS goes as LZHAM: that's
+    // selftests_thugpro_join.cpp's)
+    GameNet::Thugpro::SetPeerModeOverride(0);
     g_arena = static_cast<uint8_t*>(VirtualAlloc(nullptr, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
     auto* s = new StandIns;
     StandInPrintf(*s);

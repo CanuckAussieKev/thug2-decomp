@@ -7094,6 +7094,666 @@ belong with the CScript batch.
     wall and over its top, round a corner, jumping off), wallplants, skitching (StartSkitch / StopSkitch, a car),
     bonking walls in the air, ledges in the air (the snap up), side collisions while skating along walls,
     manuals with the Perfect Manual cheat, getting off and back on the board.
+- [x] Batch 222 (SK1-1; skater 1, merged 2026-10-22; run in the game: docs/pending/skater-1.md; NOT judged by a player yet; the component's setup, reset, timers and speed code, 15 functions):
+  src/game/skater/core_physics_state.cpp, core_physics_speed.cpp (new).
+  - 0x00505440 Create (Calloc 0x153C), 0x00500CA0 Construct (the base's constructor, vtable, type; feelers at +0xA8 /
+    +0x158 and a collision cache at +0x4F4 made; +0x3F0's constructor 0x005902E0 only returns it, so it isn't called),
+    0x00500DB0 Destroy (the body is 0x004FC500, not rewritten), 0x00506BE0 Reset (positions kept unless in a network
+    game; every timed flag 23..0 set then cleared, flag 7 telling +0x1514's +0x1E; the ride's smart pointer
+    released and freed; +0x350 kept at -2), 0x00506BA0 SetLastGroundFeeler (CFeeler copy 0x0043A930 into +0x158).
+  - Timers: 0x00500710 UpdateFreeRevert ("You earned a free revert!!!!" through Dbg::Printf with the game's own
+    strings; Physics_Time_Before_Free_Revert * 1000 truncated by _ftol, compared unsigned), 0x005007A0
+    UpdateFocusButton (focus_button_pressed_time -> toggle_bullettime), 0x00500820 UpdateProjectiles (every 30
+    frames; walk_ / skate_maybe_throw_projectile), 0x00500900 UpdateModelRotation (the countdown compared unrounded
+    with 20 and 0, as the x87 left it), 0x00500BC0 UpdateSpecialTime (the score's timer; KillSpecial with
+    TimeLimit), 0x00500DE0 GetAirTimeLeft (script member: AirTimeLeft from the quadratic; NaN kept, -0 kept, 0.00001
+    when it never comes down).
+  - Speed: 0x00501850 LimitSpeed (the horizontal speed - y taken out while it's measured - capped at
+    Skater_Max_Max_Speed_Stat and slowed by Physics_Heavy_Air_Friction above Skater_Max_Speed_Stat; +0x350's override
+    timer, -1 / -2 never counted; +0x320 puts Physics_Rolling_Friction back), 0x005019E0 Brake
+    (Physics_Brake_Acceleration; stopped when less than two frames' worth is left - a NaN speed keeps braking, as
+    the original's JNZ), 0x00506DF0 ApplyGroundFriction, 0x005021D0 StartRidingHitObject.
+  - Found: 0x004FF470 (gravity) can return an unrounded product (FLD; FMUL) - declared double here
+    (core_physics.cpp's DoAirPhysics reads it as float: a possible rounding difference there).
+  - Test (selftests_skater_state.cpp TestSkaterPhysicsTimers, TestSkaterPhysicsSetup): 8000 + 2000 variants on
+    random state around each threshold (timers ending exactly, the 20.00000006-rounds-to-20 countdown, NaNs, -0 air
+    time, a take-off height the subtraction loses bits of, zero velocity with a zero brake), every callee stood in
+    (ours and the game's). 54 deliberate bugs: 52 caught (6 after strengthening the test), 2 equivalent (+0x350's
+    timer reset at exactly 0 - it already is 0; the sum order of the speed's squares - y is 0 in LimitSpeed, and the
+    float result hides it in Brake).
+- [x] Batch 223 (SK1-2; skater 1, merged 2026-10-22; run in the game: docs/pending/skater-1.md; NOT judged by a player yet; the feelers, the member functions, skitching, 10 functions):
+  src/game/skater/core_physics_feelers.cpp, core_physics_skitch.cpp (new; skitch.cpp is SK4's skitch component).
+  - 0x005003A0 CheckFeeler (the component's feeler +0xA8 along +0x208..+0x218: +0x228 skatable / +0x229 vert /
+    +0x22A wall from the hit face's flags 1 / 2 / 4 / 8 in that order, else no steeper than Wall_Non_Skatable_Angle -
+    its x87 sine against the normal's y; the hit's +0x104 cleared for an object hit with face flag 0x40),
+    0x00500020 CanGrindRail (not the last rail +0x22C or its neighbours while still in the air; a new rail sets flag
+    +0x50 - in a created park only when all four end-to-end distances, unrounded lengths, are over 6; the wait
+    +0x23C since +0x234 for the same rail; state 4; on vert only moving up; the second argument unused),
+    0x005012B0 NearGround (script member; x of the side offset left unrounded), 0x00501600 CallMemberFunction (Ledge,
+    Obj_MoveToNode: the motion component's member function, then display matrix / shadow / +0x98 / old position /
+    teleported / the camera's update; NoReset and orient), 0x005009C0 FindNearestWallSide (a local feeler: nose /
+    tail / left / Right 12 along the forward or side row -> +0x2D4), 0x00501C90 CheckSideCollision and 0x005055B0
+    CheckSideCollisions (Skater_side_collide_height; the original keeps some products unrounded - x of the base, w of
+    each end - and checks the opposite side's time three times in a loop), 0x005054A0 ApplyModelRotations (the Model
+    component's rotations: the velocity turned by the quaternion-like 0x00420AC0 / 0x00420B50).
+  - Skitching: 0x00503EC0 StartSkitch (skitch_hold_time compared unsigned; the nearest skitch point of the
+    composite manager's skitch components within Skitch_Max_Distance - unrounded lengths, a tie keeps the first;
+    +0x364 the car through 0x0041D1D0; Skitched to both), 0x00501DB0 Skitch (the four buttons pick a direction; 6 at
+    a time short of 120 along the side for another point; held Skitch_Offset behind the point; pulled at
+    skitch_suck_speed - a NaN distance keeps pulling, as the original's TEST AH,1; 180 away: OffMeterBottom; the
+    skater's position w zeroed; its matrix = the car's display matrix).
+  - Test (selftests_skater_feelers.cpp TestSkaterPhysicsFeelers / Members / Skitch, 9000 + 4000 + 9000 variants):
+    the harness now records a stand-in's `this` words (the feeler's line), fills outputs at `this` (the hit), can
+    return its first argument, fill fixed outputs (ties, exact distances: 5 from every point, 1 away at a speed of
+    1, 180.001 away) and points the game's math functions at ours (OurMath). 71 deliberate bugs: 69 caught (11
+    after strengthening), 2 equivalent (NearGround's x * 16 is exact anyway; the side turn's |angle| against the
+    rounded instead of the unrounded turn - only for an angle within a rounding of it).
+- [x] Batch 224 (SK1-3; skater 1, merged 2026-10-22; run in the game: docs/pending/skater-1.md; NOT judged by a player yet; the turns, 9 functions): src/game/skater/core_physics_turning.cpp (new).
+  - 0x005002D0 TurnForRailJump (Rail_Jump_Angle), 0x00503560 TurnOnGround (Physics_Ground_Rotation /
+    Physics_Ground_Sharp_Rotation; the sharp turn ramps up over 600 ms below a speed of 10; +0x3A5; the velocity
+    turned unless +0x388), 0x005039F0 BounceOffWall (acos of the side row against the wall normal - the clamp and
+    the 90-degree test on the unrounded values, as the x87 left them; Wall_Bounce_Angle_Multiplier; the velocity
+    turned by the unrounded turn, the matrices by the rounded one; returns the angle), 0x00501B00 TurnDownSlope
+    (Skater_Slow_Turn_on_slopes), 0x00504730 NatasSpin (natas_spin_factor less the balance; CHEAT_PERFECT_RAIL;
+    the rotation total shown as Spin does), 0x00504910 LeanInAir (Physics_Air_Lean_stat after
+    Physics_Air_No_Lean_Time, ramping to Physics_Air_Ramp_Lean_Time), 0x00504A60 RotateInAcidDrop (the slerp at
+    +0x3F0 eased 3t^2 - 2t^3; the change since +0x4A0 applied to the skater's matrix), 0x00504B40 RecoverInAir
+    (ground within 500 below, not vert, normal y at least 0.2: flag +0x80; tipped past 0.9: turned back at
+    Physics_recover_rate_stat), 0x00504DF0 KeepUpright (skater_upright_sideways_speed beyond +-1.2 a second).
+  - Each turn of the velocity is the original's inline x87 fsin / fcos (Physics::X87Sin / X87Cos); the matrices'
+    turns are RotateY/X/ZLocal (the original's CreateRotate*Matrix + D3DXMatrixMultiply).
+  - Test (selftests_skater_turning.cpp TestSkaterPhysicsTurning, 27000 variants): speeds around 10, a total of
+    exactly 360 with a slop of 0.1 and no spin, a wall normal a hair past 90 degrees (the acos rounds to 90), tipped
+    and full-mantissa matrices. 43 deliberate bugs: 40 caught (4 after strengthening), 2 equivalent (the slope turn's
+    sign at an angle of exactly 0 - the step is the angle then; the lean ramp's end at exactly the end time - the
+    ramp gives the full lean), 1 only with a NaN script value (LeanInAir's start time: x87 and SSE give NaNs different
+    signs, so the harness can't feed NaNs).
+  - Build note: the verify build now embeds its debug info (/Z7, CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded in
+    this worktree's out\scripts\build.cmd) - the shared vc140.pdb kept breaking (C1033 / C2471).
+- [x] Batch 225 (SK1-4; skater 1, merged 2026-10-22; run in the game: docs/pending/skater-1.md; NOT judged by a player yet; walls, ceilings, the grind trick, 7 functions):
+  src/game/skater/core_physics_walls.cpp (new), core_physics_state.cpp.
+  - 0x00503710 VertWallplant (the trick button, or within Wall_Ride_Triangle_Window; on vert with no rotation and
+    none done; the wall within Physics_vert_wallplant_distance - an int against the unrounded distance - at least the
+    velocity limit up, 60 over the take-off height, steep or vert; 0x0051DDF0; triggers; Physics_vert_wallplant_boost
+    when not falling; Vert_WallPlant), 0x00503B30 LeanPushOffWall (the held time read unsigned; the Skate_wall_lean_push
+    values), 0x00504EE0 KeepOffCeiling and 0x005051B0 KeepOffCeilingAtWall (a ceiling within the head height: slid
+    along it below it - nudged 0.001 along the second hit's normal, not the ceiling's -, the velocity into its plane),
+    0x00506E50 CheckWallAhead (Skater_First_Forward_Collision_Height / _Length; x of the far end left unrounded), 0x005059D0
+    BounceOffWallAhead (BounceOffWall; slowed beyond Wall_Bounce_Dont_Slow_Angle; FlailLeft / FlailRight by flag +0x28
+    against the turn's side, the raw byte; the sound call's word carries the surface byte under the angle's upper bytes,
+    as the original's stack slot; backed out 6; a second wall: turned back by the unrounded pi - turn, half speed),
+    0x005004B0 StartGrindTrick (GrindTrickList[type 0-8][buttons], or Trick_Motoskateboard_Grind; the skater's script made
+    from the pool when it has none, set and run).
+  - Test (selftests_skater_walls.cpp TestSkaterPhysicsWalls, 36000 variants): fixed hits for exact distances (7 from
+    the wall), normals exactly 0.01 into the ground, zero speeds, only w moved, flag bytes of 2, the script pools set
+    up. 62 deliberate bugs: 62 caught (7 after strengthening).
+- [x] Batch 226 (SK1-5; skater 1, merged 2026-10-22; run in the game: docs/pending/skater-1.md; NOT judged by a player yet; the wall plant and the wall ride's start, 2 functions):
+  src/game/skater/core_physics_wallplant.cpp (new).
+  - 0x00507500 WallPlant(late, checkOnly, walking) (the callers: (0, 0, 0) on the ground's check, (1, 0, 0) from
+    DoAirPhysics's late frames, (0, 0, 1) from 0x00509BB0, (0, 1, 0) from another component): canwallplant tag when
+    driving; Physics_Disallow_Rewallplant_Duration (the time read unsigned), Physics_Wallplant_Delay, Physics_Min_Wallplant
+    _Height, steep enough unless late; a Wallplant_Trick (0x0051FDA0) - none: Physics_late_wallplant_frames (+0x14CC),
+    the velocity / position saved, backed off 24 - a late one prints "late wallplant" (the game's string) and looks
+    again from the saved position; the walking one 36 behind the facing (the facing's x, z times the double -1.0).
+    Physics_Wallplant_Min_Approach_Angle; a check above the hit moving up with pad +0x1A0; 0x0051DDF0(0, walking,
+    late); the bounce (Physics_Wallplant_Speed_Loss, LargerOf with the minimum exit speed, Vertical_Exit_Speed,
+    Walking_Wallplant_Speed), the ride on what was hit (0x00427CB0 / 0x00427C70 / 0x0043EB80), placed Distance_From_Wall
+    off it (0.1 off anything nearer), upright facing the velocity; Wallplant, flags, state 5.
+  - 0x00508140 StartWallRide (triangle; Wall_Ride_Delay against the last ride and plant as signed times; the same probe
+    above the hit moving up; Wall_Ride_Min_Speed along the wall; Upside_Down / Max_Incident / Max_Tilt; triggers on the
+    last ground feeler +0x158; nothing in the way along the move turned onto the wall; WallRideLeft / Right, state 2,
+    StartRidingHitObject).
+  - Test (selftests_skater_wallplant.cpp TestSkaterPhysicsWallplant, 30000 variants): values at each threshold (up
+    0.1, times 0 / 1 / 7 / 200 / 1000 against the script values, speed 0.01, a horizontal speed of exactly 0.0001,
+    square-on walls), SetLength's vector recorded. 63 deliberate bugs: 61 caught (11 after strengthening), 2
+    equivalent (the velocity's y zeroed again before SetLength - it already is; LargerOf's arguments swapped - equal
+    values either way).
+- [x] Batch 227 (SK1-6; skater 1, merged 2026-10-22; run in the game: docs/pending/skater-1.md; NOT judged by a player yet; the acid drop, 2 functions): src/game/skater/core_physics_acid_drop.cpp (new).
+  (Written by the first SK1 agent before it stopped at a usage limit; reviewed, its test strengthened and committed by
+  the second.)
+  - 0x00502240 FindAcidDrop(pop, position, lastPosition, velocity, drop): along the horizontal velocity (or the walk's
+    direction), from the higher of the two positions; walking on the ground the reach is
+    Physics_Acid_Drop_Walking_On_Ground_Search_Distance, 200 up, else 500 (walking in the air: backed off 12); the
+    search's box through a collision cache (CCollCache 0x0040AB50 / 0x0040ABA0 / 0x0040AB40); feelers 4000 down at
+    0.01, then +3 (+24 more beyond 100) - the next step compared unrounded with the reach; a vert face (flag 8) no
+    flatter than 0.707 facing away (>= 0.05) or, walking in, towards (<= -0.25). The arc: the velocity projected onto
+    the direction to the hit (walking), at least the walk's speed (0x0043DAA0), Physics_Acid_Drop_Pop_Speed up with
+    `pop`, at most twice it; the peak at the wall (walking up: the arc's top when it comes first);
+    Physics_Acid_Drop_Min_Air_Time; then up the wall 24 at a time for a point reached with nothing in the way (two
+    feelers via the arc's middle). The velocity put back when none; AcidDrop (0x28 bytes: point, normal, the first
+    hit's height, the hit object alive) filled when found.
+  - 0x00502F20 StartAcidDrop(drop): the horizontal speed to reach the point in the fall's time into the flags block
+    (+0xE4; a copy at 0x007CCDBC), +0x37C the point's height, flags 0x78 / 0x30 / 0xA8 set and 0x38 / 0x68 cleared,
+    +0x14C0, the wall's matrix (+0x3B0: along the drop in the wall's plane, the normal, across; turned round when
+    along points up), +0x490, the slerp (+0x3F0) from the skater's matrix to it turned by the facing's angle, +0x488 /
+    +0x48C / +0x4A0; SkaterAcidDropTriggered with DropHeight; flag 0xB0; the Ollied handler cleared.
+  - Test (selftests_skater_acid_drop.cpp TestSkaterPhysicsAcidDrop, 20000 variants): the harness's stand-ins got two
+    optional hooks (StandIn::pickFloat - a Ret::Float stand-in's value; StandIn::after - called with `this` after the
+    outputs: records the feeler's cache pointer, sets a vert wall at the edges). Edges: the facing exactly 0.05 /
+    -0.25, the hit at the skater's own height (the peak equal to it, an air time of -0), the reach exactly one of the
+    search's steps. 64 deliberate bugs: 62 caught (6 after strengthening), 2 equivalent (the box corner's w rounded
+    twice - BBox::AddPoint takes x, y, z only; the wall direction's normalising at a length of at most 1 instead of
+    above 0 - the length is never below 1 by more than a rounding, and the Normalize after it gives the same vector).
+- Merge note: SK1's names that clashed with SK2's (both are CorePhysicsComponent methods) were renamed when the
+  branches met: 0x005055B0 CheckSideFeelers, 0x00501C90 CheckSideFeeler, 0x00503EC0 TryStartSkitch; SK1's calls of
+  the state change helper are Physics::SetState (the class has the script member SetState now).
+- [x] Batch 228 (SK1-7; skater 1, merged 2026-10-22; run in the game: docs/pending/skater-1.md; NOT judged by a player yet; the spine transfer, 1 function): core_physics_acid_drop.cpp.
+  - 0x00505F70 TrySpineTransfer (from BreakVert 0x00507120, which now calls ours): the skater's up flattened and
+    normalised; the velocity's opposite (x, y, z normalised, w only negated) turned a quarter round (0x00420AC0 /
+    0x00420B50) about the horizontal across the wall; a feeler 4000 down from half a unit along it finds the wall
+    (its point, its normal flattened). 0x004FEE10 (not rewritten: this, look, normal, &hip, &target, &targetNormal,
+    &objectHit; RET 0x18) looks back for a target; failing that, with exactly one of input +0x60 / +0x80 held, back
+    and along the wall that way (left: -back + (-n.z, 0, n.x, 1) inline; right: (n.z, 0, -n.x, -1) + back through
+    operator+). The target's height is the skater's own (the original overwrites its y). A target facing the wall's
+    way out by less than 0.9, or more than 24 from the wall: all the speed straight up. The fall time (as the acid
+    drop's FallTime) at least 0.1; beyond 24 (+1) too slow to cover it: false. A feeler to the target at the
+    skater's height hitting something: +0x2D0 = 1 (BreakVert tries again), true. Then the landing direction (a
+    spine: along the target's slope, -1 / n.y times its normal against the offset, unrounded; a hip: straight up
+    or down by the side of the target's normal it lies on), the orientation [cross; normal; along projected to its
+    plane] turned by the facing against the old velocity (under 30 degrees: none), the slerp at +0x3F0 (at least
+    0.9 seconds; the long way round when the halfway matrix is upside down), +0x490 / +0x488 / +0x48C / +0x4A0 /
+    +0x37C, the flags block's +0xE4 (the offset over the time; w left unrounded; y 0), SkaterAwardTransfer or
+    SkaterAwardHipTransfer (node 0), Ollied cleared, flags 0x78 set and 0xA8 / 0x38 / 0x48 cleared, +0x14C0.
+  - Test (selftests_skater_acid_drop.cpp TestSkaterPhysicsSpineTransfer, 30000 variants; the real 0x00420AC0 /
+    0x00420B50 / Matrix copy run, the math helpers pointed at ours, 0x004FEE10 a stand-in recording `look` and
+    `normal` and making up the rest): still velocities, an up with no horizontal part, full-mantissa vectors, the
+    target exactly 24 / 23 from the wall, straight across the skater (a hip's side exactly 0), the target facing
+    exactly 0.9 (the up flattened to (0.9, 0, 0.436) normalises back to 0.9f). selftests_skaterB.cpp's BreakVert test
+    now stands in for ours as well as the original. 53 deliberate bugs: 51 caught (1 after strengthening), 2 not:
+    the velocity's w (equivalent - 0x00420B50 takes the vector's w as 1), the speed check at exact equality (a sum of
+    float squares equal to the square of the time's inverse times a float: not constructible).
+- [x] Batch 229 (SK6-1; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; GameNet::Manager's small members, 58 functions 0x00532AA0-0x005333F0):
+  src/game/net/gamenet_state.cpp (new).
+  - Flags and saved values: join mode +0x3C (SetJoinMode clears the join-by-address flag 0x007CCA88), +0x40, the
+    server's public address / ports +0x19C-+0x1A4, the clients +0x08 / +0x0C (GetClient(i): +0x08 + 4i), the LAN
+    lobby client +0x2C, the start info's eight words +0x48, the game number +0x38 and the one ready was sent for
+    +0x39, every-player-ready +0x3A, cheating noted +0x3B, final scores received +0x44, draw names +0x47 (toggled),
+    the crown and its spawn point (+0x6C, +0x68 = a signed byte, sign-extended), the last leader / leading team
+    +0x1D0 / +0x1D4, +0x190, the join state +0x198, +0x1CC, +0x9950, the buffer +0xFDF8 / size +0xFDFC.
+  - Network preferences (+0x104; taunt preferences +0x110): rank_test, rank_limit, skill_level, num_players,
+    team_mode, num_observers, level, fireball_difficulty mapped from num_N / teams_N / rank_test_* checksums as
+    the original's compare chains do (defaults 0 / 9 / 2 / 2 / 4 / 2 / - / 3); show_names == boolean_true. Quirk
+    kept: when the preference has no `checksum` the original reads its uninitialised local - the slot ECX was
+    pushed into, i.e. the manager's address (ShouldDrawPlayerNames initialises it to 0).
+  - 0x00532FE0 IsUntimedGame: goal attack / king / net king / (net) score challenge always; else in a network game
+    netctf with ctf_game_type != timed_ctf, or stop_at_zero = boolean_true.
+  - Messages: 0x00532ED0 FindServersOnLan (message 0x11, 12 bytes - the time, then 8 bytes the original leaves
+    uninitialised, zeroed here - through the lobby client to the address asked for at 0x007CCA84 once, else broadcast
+    to port 5153 and to the command line's address 0x0067EFB8 unless -1); 0x00533250 SendGameEnded (0x59, the game
+    number, sequenced in group 8, then +0x39 = +0x38); 0x00533300 SendReadyResponse (0x26, +0x188, important, through
+    each client there is). 0x00532E30 removes the task at +0xF4 (a tail jump to Tsk::BaseTask::Remove).
+  - The goal editor's created goals: 0x00533380 (0x004E7E50(0) > 0, the manager unused), 0x005333A0 (the level at
+    +0x1D8 and +0x194C, 0x004EBB70(level, +0x1DC, 6000), size + 4 at +0x1948), 0x005333E0 / 0x005333F0.
+  - 4-byte functions source-only (0x00532AC0, 0x00532AD0, 0x00532EB0, 0x00533070, 0x005331E0, 0x00533210,
+    0x005332B0, 0x005332E0). Several are linker-folded with other classes' identical getters (0x00532EB0 has 32
+    callers, 0x00532EA0 49, 0x00532F70 34): the replacements do the same thing for all of them.
+  - Test: TestGameNetState (selftests_skater_gamenet.cpp) - four scenarios on a stand-in manager in an arena (every
+    word told apart), network preferences built by hand as real structures (each value of each preference between
+    two others, and the checksum-less miss), every untimed mode x network game x ctf type x stop_at_zero, the
+    messages with the apps' sends, the clock, the task list, InNetGame and the goal editor stood in for; calls,
+    results and the arena compared. 38 deliberate bugs: 36 caught at once, 1 after strengthening (the crown spawn
+    point's sign: the second call overwrote the first), 1 equivalent (ShouldDrawPlayerNames' assert flag only
+    decides whether the empty debug-message function is called).
+- [x] Batch 230 (SK6-2; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; the smaller message handlers and helpers, 30 functions):
+  src/game/net/gamenet_handlers.cpp / .h (new). The handlers' message ids come from their registration (client:
+  0x00534480, server: 0x0053C380); names of scripts and preferences from the game's own .qb checksum tables.
+  - Client: 0x0052D7B0 (0x25: the acknowledgement id, +0x188 - sent back by 0x00533300 as 0x26), 0x0052D7D0 (0x26,
+    server's too: the packet acked; the sender's player 0x005446C0 - its connection ready again if the id is the one
+    it owes), 0x0052D800 (0x4D: ExitSurveyorMode, then observe 0x0053E650), 0x0052D830 (0x79: a remote connection's
+    important queues emptied), the CTF flag messages 0x0052D850 / 0x0052D880 / 0x0052D8B0 / 0x0052D8E0 (0x74 stole,
+    0x71 took, 0x72 captured, 0x73 retrieved: the player of object id msg[0], team msg[1] - signed bytes, the id
+    pushed as 16 bits), 0x0052D910 / 0x0052D930 (launch_auto_server_notification, Kill_Team_Flags), 0x0052D950
+    (0x3F: a panel message through 0x005376F0), 0x0052D980 (0x23: the object update message's length from its bits -
+    8 present bits, then per skater a 16-bit time, 9 flags, 6 signed 16-bit fields, 4+6+1+1, 8, a signed 32),
+    0x0052DAC0 (0x70 and 0x46: nothing), 0x0052DAD0 (0x7C: the CD key challenge answered as 0x7D, 33 bytes, from
+    profile_password through the online service's 0x0054CA10), 0x0052DCA0 (0x7B: the connection's last
+    communication msg[0] seconds on), 0x0052DCC0 (0x53: join state 6, 0x54 to the server, the skate module's
+    handlers on each local client unless on the server), 0x0052E1A0 (0x42: 0x00537140(true), the task at +0xD0 on
+    the logic tasks unless the app is local), 0x0052EB70 (0x6C, both: the park map, its CRC computed and dropped),
+    0x0052ED80 (0x5A: every player ready; an observer of a goal attack gets create_rankings), 0x0052EDD0 (0x6A: trick
+    objects reset, create_game_ended_dialog, 0x00537620), 0x0052F2D0 (0x69: the team count; the first one outside a
+    team game runs ChooseTeamMessage and PrepareSkaterForMove on the local skater), 0x0052F370 (0x80: the skate
+    module's checksum written into the received message at +4, sent back as 0x81).
+  - Server: 0x0052EBB0 (0x90: in a team game the object word noted for the sender's team - five slots at +0x70 +
+    0x14 * team; 4 for an unknown sender or a repeat), 0x0052F3D0 (0x7D: the CD key answer checked by the online
+    service's 0x0054CA30 with the sender's skater's id - no null check, the original's), 0x0052F400 (0x8B: the rail
+    editor's rails streamed as 0x88, 0x1132 bytes; 0x8A: the created goals as 0x87 if there are any).
+  - 0x0052D6A0 GetCdKey (HKCU then HKLM Software\Activision\Tony Hawk's Underground 2 "key", keys created; quirk
+    kept: a HKCU key without the value is never closed; differs: a 100-byte value without a terminator - the
+    original's strcpy ran on into its stack, ours stops). The list searches' destructors 0x0052DB60 / 0x0052DB70 /
+    0x0052F730 / 0x0052F760 (vtables 0x0064C828 / 0x0064C82C).
+  - Test: TestGameNetHandlersSmall (selftests_skater_gamenet2.cpp, kit src/hook/gamenet_testkit.h) - six scenarios:
+    every handler on a stand-in arena (known / unknown players, signed ids and teams, remote / local connections and
+    apps, server / client, team games, observers, filled team slots), object update messages of 15 bit layouts,
+    GetCdKey through stood-in registry functions on 7 paths, the destructors with a stood-in Free. 46 deliberate bugs
+    caught (one needed a rerun: a transient build failure).
+- [x] Batch 231 (SK6-3; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; the client's game handlers, 12 functions): src/game/net/gamenet_game_handlers.cpp
+  (new; shared helpers in gamenet_handler_util.h, gamenet_handlers.cpp moved onto them).
+  - 0x0052DB80 (0x22 new player: a NewPlayerInfo filled from the message - name strncpy'd 15, object id, team as a
+    signed byte, flags, words; the appearance into its profile unless flags & 5; announced and added 10 frames on when
+    m_readyToPlay, else at once), 0x0052E870 (0x58 crown: the king stops being one; the drop announced to him / to
+    everyone in a network game / to the other local player - found by the id `(skater id == 0)`, i.e. the other of
+    two; then the crown moved to the msg[0]'th crown node (type 0xAF86421B), counting on across up to 49 node walks,
+    and taken off), 0x005300C0 (0x5F: local flag 0x200, launch_fcfs_notification), 0x00530CB0 (0x75 flag returned:
+    flag_returned Team / String0 team_<n>_name, the CTF panel and arrow), 0x00530E50 / 0x00530FF0 (0x88 / 0x87: the
+    created rails (in the heap at the memory manager's +0x114, 0x0067F000 cleared around 0x004F7DF0) / goals
+    (InitialiseCreatedGoals DoNotCreateGoalPeds) arrived; a checksum mismatch asks again (4) or, leaving for the main
+    menu, cancels the join with show_timeout (5) - the two differ in the order of the cancel's steps, kept),
+    0x00531950 (0x6D: goals selected, the menu spawned when msg[0] = 1), 0x00531A80 (0x68: a player's team and
+    the announcements; warn_all_same_team), 0x00531C80 / 0x00531F10 (0x6E / 0x6F goal attack completed / started:
+    the goal's virtuals +0x70 / +0x6C / +0x3C / +0x34 / +0x68, chains through +0x28, the goals left; null current
+    goal dereferenced as the original does), 0x00532280 (0x8D eliminated; 0x8E nothing), 0x00532390 (0x4E observers
+    full: CreateJoinRefusedDialog).
+  - Test: TestGameNetGameHandlers (selftests_skater_gamenet3.cpp; kit gained InstallCommon - scripts, structures,
+    memory, sprintf) - five scenarios. 44 deliberate bugs caught, 10 after strengthening (new player flags 1 / 4, the
+    crown worn before each case, the fcfs flag recorded, distinct heaps at the memory manager's +0x110 / +0x114,
+    foreign-only packets, a list holding only the player, the current goal being the completed one, message 0x8C,
+    elimination id 0).
+- [x] Batch 232 (SK6-4; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; the server's handlers, 9 functions): src/game/net/gamenet_server_handlers.cpp
+  (new). 0x0052E060 (0x4A observe request: 4 unknown / observing; full (remote, the observers 0x00539C70 at the
+  num_observers preference) 0x4E; else out of the game (0x0053CB70 2, skater removed 0x00565790, flag 4, the camera
+  moved: 0x0053A580, null if that is the same player, 0x0053A910) and 0x4D), 0x0052E9E0 (0x6B: park map 0x6C 15000
+  bytes, rails 0x88, created goals 0x87 - streamed in place; with 'F' at msg[4] the level change 0x46 (bytes 5-7 the
+  original leaves uninitialised - zeroed) and a ready query 0x25 (the time; 0x00544670 notes what the player owes),
+  sent at once), 0x0052EC40 (0x59 game ended for a player - flag 0x100, 4 if again or another game; game over 0x5A
+  to all once everyone's has), 0x0052EE10 (0x67 team change relayed as 0x68 in the lobby or after the game),
+  0x0052EF40 / 0x0052F1A0 (0x6E / 0x6F goal attack: completed - once per team (goal virtual +0x50 per teammate) /
+  per player, marked done (+0x6C), passed on; started - to teammates; the goal message's bytes 1-3 the original leaves
+  uninitialised, zeroed; the started one sets no queue - the original's), 0x0052FCC0 (0x0B disconnect: a remote
+  player removed - 5; a waiting new player dropped with its connection, its node deleted through its vtable - 5;
+  else 2), 0x0052FDA0 (0x57 drop what's carried: flag 0x8000 cleared; CTF flag returned locally and 0x75 to remote
+  players; king: Rnd(10) into +0x68 and 0x58 to all), 0x00532170 (0x81 checksum answer: word0 ^ 0xDEADFACE == word1,
+  else notify_client_cheating once).
+  - Test: TestGameNetServerHandlers (selftests_skater_gamenet4.cpp) - four scenarios. 45 deliberate bugs caught, 1
+    after strengthening (an observer local player on the returned flag's team).
+- [x] Batch 233 (SK6-5; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; the session handlers, 5 big functions): src/game/net/gamenet_session_handlers.cpp
+  (new). 0x0052DD40 (0x11 LAN search, 12 bytes: the 0xE0-byte answer 0x10 to the asker's address - counts and limits
+  (a limit below its count raised to it), password, in a game, host mode, logged in to GameSpy on the internet, server
+  name, level, mode, skill, the asker's time, the players' names, then the waiting new players' not yet players -
+  their names used as sprintf formats; the original's uninitialised bytes zeroed), 0x005301A0 (0x60-0x66 from the
+  host's own player: the twelve options into the network preferences - fireball's 0x00534FC0 looked up for nothing;
+  the target score falling back to capture then time options (x1000); kick/ban by index and name (_stricmp);
+  change_level; 0x00558960; end game 0x6A to remote players; the team count's preference and SetNumTeams),
+  0x005311F0 (0x46 level change, see the header), 0x005313C0 (0x34 start game: the type info's checksum is read into
+  one slot across the loop - a type without one compares the previous type's, the first the array's address; the
+  goal script defaults to the skate module's address as in skate_net's twin), 0x00532460 (0x54 the game's state for
+  a joiner: the 0x50-byte game info - bytes 5-7 and 0x4D-0x4F uninitialised in the original -, the created goals,
+  the spawned scripts' list at +0x150 as 0x49 (bytes 13-15 uninitialised), the skate module's 0x0056B990, an
+  observer's graffiti trick objects (0x5C, copied), the chosen goals 0x6D, the king 0x55, then 0x42; the local
+  player only gets ready to play).
+  - Test: TestGameNetSessionHandlers (selftests_skater_gamenet5.cpp) - five scenarios (the original's uninitialised
+    bytes masked; a score component is always there - the original doesn't check). 57 deliberate bugs caught, 8
+    after strengthening (logged in without internet play, new players with flags 0x14 / 4, a target score of 0, the
+    game-over flag set before a level change, the level and change time recorded after each, the created park to
+    itself). (Two needed a rerun: the compiler's program database failing to open - out\scripts\mut_build.cmd now
+    deletes it and builds again.)
+- [x] Batch 234 (SK6-6; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; tasks, GameSpy callbacks and a missed handler, 8 functions):
+  src/game/net/gamenet_tasks.cpp (new), 0x0052E760 in gamenet_game_handlers.cpp. 0x0052F4A0 level change task
+  (at 0x007CCDE8: 0x00565A00 with the level, the king's crown off, no flags carried, the task at +0xEC removed),
+  0x00533810 modem state task (Net::Manager's state shown when it changes; redial pause = state 8 for 5 s then
+  ConnectToInternet, leaving its parameters undeleted as the original does), 0x00533B50 net metrics task ("(%d) Lag:
+  %d Resends: %d Bps: %d %d" per remote connection of the client (unless local) and the server - both lists twice,
+  the original's outer loop), 0x00533ED0 join timeout task (unsigned 60000 ms), the GameSpy qr2 callbacks 0x00533400
+  (every player/team key "") / 0x00533420 (the key lists) / 0x005334B0 (debug output), 0x0052E760 (0x55 new king:
+  missed by the first survey - find_gaps found it).
+  - Tests: TestGameNetTasks (selftests_skater_gamenet6.cpp; 28 deliberate bugs caught, 1 after strengthening - a join
+    time difference past 2^31), TestGameNetGameHandlers gained HandleNewKing (6 caught).
+  - Range check: find_gaps shows nothing left in 0x0052D6A0-0x00533F20 (the gaps it lists from 0x00533F20 on are
+    GameNet::Manager's own range, not this one).
+- [x] Batch 235 (SK6-7; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; the walk component's small pieces, 12 functions): src/game/skater/walk_moves.cpp
+  (new) and src/game/skater/walk_physics.h (new here - the skater-5 agent's branch has a file of the same name declaring
+  the same class `Obj::CWalkComponent`: merge both member blocks). 0x0052A5C0 Create (0x1960 bytes), 0x0052A190 the
+  constructor (eight 0xCC-byte contacts at +0xA0 through the CRT's vector constructor, the collision cache +0x790, the
+  trigger feeler +0x17B4, the eight component pointers +0x1770-+0x178C null, type Walk, control and extra velocity
+  (0, 0, 0, 1)), 0x0052A290 the scalar deleting destructor, 0x00529F80 the walk camera's override facing by animation
+  state (ANIMWAIT: the facing or the hang move's; HangMoveRight: turned 0.95 rad inline - sin/cos rounded to floats;
+  HangMoveLeft: 0x00420A90 by -0.95 and SetOverrideFacing; HANG: SetOverrideFacing; the ladder states; else off),
+  0x0052A2C0 the animation speed (mode +0x700: 1 run speed / +0x17B0 when that is over 0, the animation component told
+  only when the trigger state's +0x24; 2 hang_move_animation_speed; 3 ladder_move_speed, sent over the network in a
+  net game when it moved 0.1 or more from the last sent +0x18E0 - NaN counts as moved), 0x0052A620 riding (the ride
+  tracker's carried move added, a turn turns the facing, kept level unless y is exactly 0), 0x0052AB90 leaving a ride
+  (the ridden object's velocity +0x1888 added - x's frame move kept unrounded as the x87 does -, the tracker's object
+  kept at the ride component's +0x6C, the tracker released and freed, the time at +0x70), 0x0052B2D0 into the air,
+  member functions 0x0052A180 Walk_AnimWaitComplete, 0x0052C280 ReleaseHang, 0x0052C290 Walk_ForceToAirFromHang
+  (return 1 in EAX), 0x0052C2B0. Names of the member function table 0x006847F8 recovered from the .qb checksums.
+  - Tests: TestWalkMoves (selftests_skater_walk.cpp; 50 deliberate bugs caught, 10 after strengthening - a state
+    snapshot after each call, a carried w, a dot of exactly 0, 64 rounding cases for the unrounded x move).
+  - Switch off: `[replacements] disable=walk_moves.cpp`.
+- [x] Batch 236 (SK6-8; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; the walk component's update and three of its states, 4 functions):
+  walk_moves.cpp. 0x0052D4B0 Update (vtable slot 1: the animation state restarted, the frame's length from
+  Tmr::GetSlomoFrameSeconds, the step smoothing's height taken off and - unless the state held it (+0x718) - eased
+  down by curb_float_lerp_down_rate and put back; the states 0-4 through a jump table (2 and 3 are 0x00440BF0 /
+  0x004425B0, placed far away by the linker); an acid drop tried after more than 500 ms on the ground (unsigned);
+  the animation state sent to the object as an event; the +0x710 countdown clearing +0x70C), 0x0052D300 the ground
+  (Skid becomes Stand before pegged_duration_for_skid; moved by the velocity - x's move unrounded; inside a moving
+  object it takes the object's velocity flattened and faces along it when its length is over 10 - the length squared
+  kept unrounded as 0x004023A0 leaves it in ST0; the debug line "WALKING_GROUND, within moving object"), 0x0052CEF0
+  the air (the gravity 0x005284C0 returns in ST0 is used unrounded; every move unrounded; the extra velocity dropped
+  above +0x18AC; ledges / ladders grabbed - 0x0043F030 takes the two positions by value - unless rehang_delay hasn't
+  passed since leaving states 2-4; inside a moving object the position goes through (p + offset) - offset as the
+  original's (rounding kept), a feeler 30 above and below the object's position finds what it stands on, stopped),
+  0x0052AD10 the animation wait (the lerp 0x0043D990 between +0x18E4 and +0x1904 by the animation's progress plus
+  what it was carried; the facing turned by turn * min(t / time, 1) - turn with unrounded sin / cos; the height
+  +0x9C eased). Nx's current collision cache (0x00691974) is cleared where the original clears it.
+  - Tests: TestWalkUpdate (selftests_skater_walk2.cpp: the original and ours with recording stand-ins, some changing
+    the state or halting the walk mid-way; functions returning in ST0 stood in for by FLD; the state hashed after
+    each call). 78 deliberate bugs: 70 caught at once, 7 after strengthening (the cleared cache recorded per call,
+    the step-smoothing flag preset, rounding cases for the ground move, a rehang time equal to the delay, a ride
+    offset that rounds), 1 equivalent (`--countdown <= 0` after `countdown > 0`).
+  - Note: building needed a fresh program database server endpoint once (C1060 "out of heap space" with the old one).
+- [x] Batch 237 (SK6-9; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; the walk component's landing, ground snap and start, 3 functions): walk_moves.cpp.
+  0x0052A700 CollideAirMove (the air's move against the world: into a wall (face flag 0x2) put 0.1 off it - x, y, z's
+  offsets rounded, w's not - and the rest of the move (1 - distance) projected onto the wall's plane, stopped 0.05 off
+  anything it meets; anything else is landed on: on the ground, the trigger feeler copied, the land triggers
+  (0x0064C648), what it stands on told, the velocity relative to a ridden object and flattened, kept only along the
+  facing - stopped when heading away (dot <= 0) or, without control, under sticky_land_threshold_speed - the Land
+  animation), 0x0052B370 SnapToGround (a feeler from snap_up_height above to snap_down_height below; a step past
+  max_unnoticed_ground_snap told to the object as an event, a step up or down more than 3 into the step smoothing's
+  height (not below 0); the old ground's and the new ground's triggers (0x0064C660 / 0x0064C654) when the collision
+  changes, the terrain told; no ground: off a wall, the leave triggers (0x0064C630), a drop / hang / ladder tried,
+  else WalkOffEdge and SkaterOffEdge), 0x0052AF40 Begin (walking begins: on the ground or in the air - off a vert
+  ramp with a turn under way thrown along the object's forward axis turned on by +0x730 about +0x734 times
+  initial_vert_vel_boost (x and y's products unrounded), the heading from the velocity, the forward axis or the up
+  axis reversed (each flattened; under 0.001 long tries the next), off what it rode). Mth::Vector::ProjectOnto
+  (0x00406200, shared) fixed: the original keeps the dot product in double and rounds each component once.
+  - Test: TestWalkLanding (selftests_skater_walk2.cpp; the feeler's queries scripted hit by hit). 78 deliberate bugs:
+    71 caught at once, 7 after strengthening (normals whose w rounds differently, a miss leaving an object in the
+    feeler, a facing with y, a velocity exactly across the facing, 24 rounding cases for the vert-ramp throw, the
+    flags +0x1958 / +0x18B0 preset).
+  - Review note: the stopped agent's copy of walk_moves.cpp had one mutation left in (the throw's x product rounded -
+    its mutation run was cut off); put back.
+- [x] Batch 238 (SK6-10; skater 6, merged 2026-10-22; run in the game: docs/pending/skater-6.md; NOT judged by a player yet; NOT run in the game yet when recorded; the walk component's jumps and contacts, 3 functions):
+  walk_moves.cpp. 0x0052B7D0 Jump (also ReleaseHang's: up at jump_velocity times the jump factor - on the ground /
+  in the air min_jump_factor..1 by how long jump has been held over hold_time_for_max_jump (the time as unsigned),
+  off a hang or ladder hang_jump_factor; the ground's jump triggers (0x0064C63C) when on the ground; running, pushed
+  along the control's direction at least as fast as jump_horiz_speed scaled by how far the control is pushed
+  (0x00528120) over 0x0043DAA0 (whose ST0 is used unrounded), the heading the velocity's when moving faster than
+  0.1; off a hang the hang's plane (+0x18B4 / +0x18C4 / +0x18C8) noted, a ladder's sideways speed dropped; off what
+  it rode, into the air, SkaterJump), 0x0052BC70 TryBarrierJump (contacts 0, 1 and 6 - ahead and either side -
+  facing the control head-on within barrier_jump_max_angle and with nothing at barrier_jump_highest_barrier's
+  height (feelers of 3 feeler_lengths, in a collision cache of the box around it): the barrier's top found
+  stepping down in ninths (8 tries each), then up fast enough (sqrt(2 g h)) to clear it by
+  barrier_jump_min_clearance; the Jump animation, SkaterJump, the JumpRequested handler cleared), 0x0052C2C0
+  UpdateContacts (feelers 0-6 a seventh of a turn apart from the facing at feeler_height, 7 along the fall in the
+  air (a floor below - normal y over 0.707 - not a contact); each contact's normal flattened and made unit length
+  and the hit object's speed along it (not what it rides); on the ground walking into a barrier for
+  barrier_jump_delay tries 0x00441DE0 / a barrier jump, a pressed jump 0x00441DE0(1), steep ground (normal y under
+  0.5) pushes it down the slope; pushed out within push_feeler_length; only contacts it moves into count; in a
+  corner (two facing apart) or turned back by sliding it stops (min_anim_run_speed); the velocity slid along them
+  in the order 7, 4, 3, 5, 2, 6, 1, 0 (x and w kept unrounded as on the x87's stack), no faster than it was
+  going along the new direction; +0x186C (renamed kBlocked) set when slowed under half its speed; the run speed
+  +0x704 follows). The x87's FSIN / FCOS are used through inline asm (also in 0x00529F80 and 0x0052AD10 now).
+  - Test: TestWalkJumps (selftests_skater_walk2.cpp; the contacts set up by hand, the feelers' queries scripted, the
+    collision cache stood in for, rounding cases found by out/scripts/search_round.py / search_push.py). 130
+    deliberate bugs: 107 caught at once, 15 after strengthening (a velocity along the control only through y, a
+    length between the speed and half a unit over it, the feeler's cache recorded, a high position, a clear
+    contact not touching, searched rounding cases for the feelers' ends and the pushes, a floor ahead, a slide
+    straight back along the velocity, a velocity under 1e-8, a speed equal to min_anim_run_speed, contact 7's w and
+    fall), 8 equivalent (the magnitude's == 0 / !(!= 0); two dead heading stores; the direction's w is always 1;
+    `if (!any)` - nothing pressed then either; an exact-zero slide changes nothing; the capped x's rounding feeds
+    only the blocked ratio; the hang plane's sum order - its products are exact in double).
+- [x] Game runs (workspace C:\Games\THUG2-3, branch at 7b905c6 = SK6-1..10 merged with main): BO loads in free
+  skate (twice idle), and with the automation channel the skater was teleported standing, walked forward, jumped,
+  turned, walked and jumped again (~1100 units covered on foot, the walk component's update, ground / air states,
+  contacts, jump, landing and ground snap all running) - no crash, no run-time check, no debug-CRT report. The final
+  run with -FullTests: late (17) and engine-started (3) self-tests pass; in the game two early self-tests outside
+  this range fail ("skate net registration": THUGPRO guard message ids 0x9B / 0x9F registered where the original
+  registers 0x33 / 0x23; "net compress message") - both pass offline (thug2_check, both exes) and touch none of
+  this range's code. Not driven: hanging, ladders, barrier jumps, network play - for the user to try.
+- Range done: find_gaps lists nothing in 0x00529F62-0x00533F20 (0x00529F62-0x00529F7F is 0x00529CE0's jump table
+  and padding). All 114 + 36 functions have source.
+- [x] Batch 239 (SK3-1; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; SkaterEndRun and SkaterFinalizePhysics, 19 functions):
+  src/game/skater/end_run.cpp, finalize_physics.cpp (new).
+  - SkaterEndRun (0xB1D5A3E1, vtable 0x0064BDB8, 0x1C bytes): 0x00510F90 Create, 0x00510D20 / 0x00510D40 the
+    destructors, 0x00510D70 Update (outside a multiplayer game - Mdl::Skate 0x005651F0 - it suspends itself; a local
+    skater whose run is over has the network manager tell the server once: 0x005332A0 / 0x00533250, message 0x59),
+    0x00510DC0 CallMemberFunction (IsInEndOfRun, EndOfRunStarted, EndofRunDone, ClearEndofRunStarted,
+    Goal_EndOfRunStarted, Goal_EndOfRunDone, RunStarted), 0x00510D30 GetFlags (into a pointer, returned),
+    0x00510EA0 EndRun(force) (unforced, a game mode that doesn't end runs here - 0x00553550 - only sends RunHasEnded;
+    otherwise once: the forced flag and ForceEndOfRun for a local skater), 0x00510F10 EndGoalRun (GoalHasEnded; its
+    one argument isn't read), 0x00510F30-0x00510F80 the flag getters / clearers. Flag 0x20 is cleared by
+    Goal_EndOfRunDone and RunStarted but never set in this component.
+  - SkaterFinalizePhysics (0x9B373E58, vtable 0x0064BDEC, 0x20 bytes): 0x00511280 Create, 0x00511010 / 0x00511020,
+    0x00511050 Finalize (core physics, state), 0x00511080 Update: the state's +0xF4 (out of a lip straight up: the
+    core physics' +0x256 says the frame began in a lip, the skater is now in the air, |vx| and |vz| below 1), two
+    physics vectors to the state, both matrices orthonormal again about up (the physics' replaced by its object's
+    when 0x00405480 had to repair the object's), the display matrix, the sound components' terrain / state and the
+    looping sound's speed fraction (|v| in x-z over Skater_Max_Max_Speed_Stat, computed in double, rounded once).
+  - Skater states (the core physics' dispatch at 0x00510830): 0 ground, 1 air, 3 lip; 2, 4, 5 not named yet.
+  - Test: TestSkaterEndRun / TestSkaterFinalizePhysics (selftests_skater_end_run.cpp): every function original vs
+    ours on one arena, each callee stood in for and recorded (Suspend through a recording vtable, the matrix
+    functions change the matrix so their order shows, 0x00580790 answers in ST0); 34 deliberate bugs caught, 1
+    after strengthening (only the looping sound's state differing).
+- [x] Batch 240 (SK3-2; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; SkaterFlipAndRotate and SkaterFloatingName, 15 functions):
+  src/game/skater/flip_and_rotate.cpp, floating_name.cpp (new).
+  - SkaterFlipAndRotate (0x488AF07A, vtable 0x0064BE20, 0x28 bytes): 0x00511470 Create, 0x00511300 / 0x00511320,
+    0x00511350 Finalize (core physics, model, animation blender), 0x00511600 CallMemberFunction (BoardIsRotated,
+    BoardRotate [`Normal` or the other way], BoardRotateAfter, flip, FlipAndRotate, RotateNoFlip, FlipAfter,
+    IsFlipAfterSet, RotateAfter, 0x72289A28 - name unknown: flip only if the core physics' 0x004FC440 says so;
+    PlayAnim does the "after" work and returns 2 so the animation components still play it), 0x00511390
+    SetBoardRotated (returns the old value; with `send`, a local player's server gets message 0x2A {object id, value};
+    its third argument isn't read), 0x00511310 ClearAfterFlags (not a Ghidra function; called by the skater),
+    0x00511420 ApplyFlipToAnims (the state component's flip byte passed to the animation blender's 0x00419C10 as it
+    is), 0x005114F0 Flip (+0x28 toggled - the original's "changed" test is always true - and +0x2C the game clock),
+    0x00511570 DoAfterAnim (flip, turn around 0x004FE120, board; the model's +0x1F4 cleared). BoardRotate and the
+    board's after-work don't check the player for null (as the original).
+  - SkaterFloatingName (0x125044E2, vtable 0x0064BE54, 0x1C bytes): 0x00511810 Create (the label id not set),
+    0x00511AA0 DestroyBody (destroy_object_label with id; the structure's allocation inlined in the original),
+    0x00511B80 Destroy, 0x00511780 InitFromStructure (skater_name_0..7 by object id - a jump table; other ids leave
+    it), 0x00511870 Update (no network game or show_names off: suspended; the label found through the screen
+    element manager; a skater not shown (CSkater +0x2C4) or hidden: destroy_object_label if there is one; else
+    create_object_label or the label's SetProperties with id, text "\c<n><name>" - n = team + 2 in a team game,
+    else object id + 2 - and pos3D 96 (this machine's player) or 120 above the skater).
+  - Test: TestSkaterFlipAndRotate / TestSkaterFloatingName (selftests_skater_flip_name.cpp): every function and
+    branch original vs ours; the network message's bytes, the structures' allocations (the pool, stood in), the
+    original's sprintf (the game's C runtime isn't started offline) done by a stand-in. 34 deliberate bugs caught,
+    1 after strengthening (Create's cleared flag: the test now dirties the memory Create gets).
+- [x] Batch 241 (SK3-3; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; SkaterGap, 24 functions): src/game/skater/gap.cpp (new).
+  - SkaterGap (0x11B4C67F, vtable 0x0064BE90, 0x58 bytes): 0x00512C60 Create, 0x005122A0 Construct (two list heads,
+    Lst::Head<TrickListEntry> 0x0064BEC4 / <TrickNameEntry> 0x0064BEC8), 0x00511F10 / 0x005122F0 the destructors,
+    0x00511BB0 InitFromStructure (frame 0), 0x00511BC0 Finalize (core physics, balance trick, physics control,
+    walk), 0x00512320 Update (frame + 1, CheckGaps), 0x00512CC0 CallMemberFunction (StartGap, EndGap, StartGapTrick
+    - 0xFC4F2009, name found by its checksum -, CheckGapTricks, ClearGapTricks, DuplicateTrigger), 0x00511C80
+    GetStateFlags, 0x00511F60 CheckGaps, 0x00512030 ClearGaps, 0x00512050 StartGapTrick, 0x00512140 CheckGapTricks,
+    0x005121A0 ClearGapTricks (NotInSameFrame), 0x00512360 StartGap, 0x00512770 EndGap, the list node / head
+    destructors 0x00511E50 / 0x00511E90 / 0x00512240 / 0x00511E70 / 0x00511ED0 / 0x00512270, and the trick
+    component's helpers 0x00511C10 ClearPendingGaps / 0x00511C30 AwardPendingGaps (ProcessAllGapsReward once every
+    level's gaps are got). 0x00511C10, 0x00511C30, 0x00512140, 0x005121A0 aren't Ghidra functions.
+  - Gap flags (gap.h): the low half cancels the gap in a state (0x1 ground, 0x2 air, 0x4 rail, 0x8 wall, 0x10 lip,
+    0x20 wallplant, 0x40 manual, 0x80 / 0x100 walk states 2 / 3, 0x200 skating, 0x400 walking, 0x800 driving), the
+    high half requires it (ticked off when seen; EndGap fails a gap with any left). CarGap adds 0x600 (a driving-only
+    gap); otherwise 0x800 unless 0xE3ED4ADE (name unknown) is given. StartGap checks at once unless the settings'
+    +0x40 (0x007CE5D8) is Off and driving doesn't matter.
+  - The 0x64-byte gap entries and 0x34-byte gap tricks are trick_lists.h's TrickListEntry / TrickNameEntry (their
+    fields named by accessors in gap.cpp; 0x00578670 SetFlag marks a gap trick done - the same +0x2C).
+  - Quirks kept: EndGap leaks the DoPerfectCheck2 results structure when the landing isn't perfect; after each gap
+    it ends the walk begins again from the first gap (a Continue that starts a gap of the same GapID makes EndGap
+    loop for ever - as the original); BoardRotate / the board's after-work don't check the player for null.
+  - Test: TestSkaterGap (selftests_skater_gap.cpp): the state flags in 40 states; four rounds of gaps started
+    (every trick kind and flag kind, duplicates, skipped), checked by updates, ended (failed requirements,
+    Require_Perfect 0/1/2, text or not, score with a local skater or not, GapScript permanent / NetEnabled,
+    Continue, an event killing the other gap); the gap tricks (done, other node, duplicates), DuplicateTrigger, the
+    destructors, the helpers. Script structures are stand-ins answering from a table (skater3_testkit.h; the
+    bool-assert getters that search themselves - 0x00476CB0 etc. - stood in as their int twins). 61 deliberate bugs
+    caught, 13 after strengthening (the test's own flag values, a Construct stand-in that clears what 0x00578740
+    does, three more rounds).
+- [x] Batch 242 (SK3-4; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; the rest of SkaterLocalNetLogic and SkaterLoopingSound, 20 functions):
+  src/game/skater/local_net_logic.cpp (added to), looping_sound.cpp (new).
+  - SkaterLocalNetLogic: 0x00513630 Create (the state byte and +0x35 0xFF so the first update sends them),
+    0x00512E30 / 0x00512E40 the destructors, 0x00512E70 Finalize (the state and core physics components), 0x005136C0
+    Update (SendUpdate in a multiplayer game with a local player - the network manager's 0x00537320), 0x005136F0
+    HandleGraffitiSteal (message 0x4B's client handler, not a Ghidra function: for the network manager's run count
+    +0x38 only - else kHandlerMsgDone; the local skater as victim runs GraffitiStealYou, as thief
+    GraffitiStealOther, String0 = the other's name; the original clears the new structure right after Init).
+  - SkaterLoopingSound (0xB5F1E9D2, vtable 0x0064BF38, 0x110 bytes): 0x00513AD0 Create, 0x00513860
+    RegisterMemberFunctions (not a Ghidra function), 0x005138E0 Construct, 0x00513B30 / 0x00513FA0, 0x00513880
+    InitFromStructure (the air pitch floor 45 / fall 18.33 a second, volume_mult), 0x005138B0 SetSpeedFraction (at
+    most 1), 0x00513970 Finalize, 0x00513F60 Suspend, 0x005139E0 CallMemberFunction (SkaterLoopingSound_TurnOn /
+    _TurnOff; PlayAnim turns it on for the walk-to-skate animation - the object's tags' animTags), 0x00513BB0 Update
+    (0x00513BED, a Ghidra function made of its body, registered as source only): the sound by state - ground
+    TABLE_WHEELROLL, air the entry at 0x0067F018, rail TABLE_GRIND / TABLE_SLIDE (none when the state's +0x70);
+    stopped when it changes or the skater hasn't moved (the original stops it every frame the position is the same);
+    in the air the playing sound's pitch falls; otherwise volume and pitch by the speed (half while the core
+    physics' +0x2EC); played, or updated when the first channel or the pitch moved by more than 0.5. 0x00513AB0
+    StopSound (the skater's), 0x00513990 the sVolume assignment emitted here.
+  - Test: TestSkaterLocalNetLogic / TestSkaterLoopingSound (selftests_skater_sound_net.cpp). 52 deliberate bugs:
+    50 caught (6 after strengthening: the walking skater on PlayAnim, the air pitch fall, the update's fields traced
+    each frame, playing sounds with small volume / pitch changes); 2 equivalent (`fraction >= 1` clamps 1 to 1;
+    `!(pos == last)` equals `pos != last`, NaN included).
+- [x] Batch 243 (SK3-5; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; SkaterMatrixQueries and SkaterPhysicsControl, 27 functions):
+  src/game/skater/matrix_queries.cpp, physics_control.cpp, skater_x87.h (new: the x87's FSIN / FCOS / FPTAN for the
+  skater's code).
+  - SkaterMatrixQueries (0xBF518E27, vtable 0x0064BF70, 0x60 bytes): 0x00514430 Create, 0x00513FD0 / 0x00513FE0,
+    0x00514010 Finalize, 0x00514030 Update (the core physics' matrix copied), 0x00514040 CallMemberFunction (not a
+    Ghidra function): GetHeading (heading / cosine / sine; FastACos of the at row's x, 360 - it for a negative z),
+    GetSlope (Slope, ChangeInSlope; GetAngle of the at row and its flattened copy, negative pointing down),
+    AbsolutePitchGreaterThan, PitchGreaterThan (against the core physics' +0x78), RollGreaterThan, YawingLeft,
+    YawingRight, YawBetween (a pair: beyond the first, not beyond the second) - cosines by the x87's FCOS.
+  - SkaterPhysicsControl (0xD9151D4D, vtable 0x0064BFE0, 0x30 bytes): 0x00517830 Create, 0x005176A0
+    RegisterMemberFunctions (the table 0x006846F0), 0x005176C0 / 0x00517740, 0x005176D0 InitFromStructure,
+    0x00517770 Finalize (the state's physics mode -1), 0x00517AC0 Update, 0x00517C80 CallMemberFunction
+    (SkaterPhysicsControl_SwitchWalkingToSkating / _SwitchSkatingToWalking), 0x005178B0 SetPaused, 0x00517940
+    SwitchSkatingToWalking, 0x00517B20 SwitchWalkingToSkating, and the script member functions PausePhysics
+    0x00517A80, UnPausePhysics 0x00517AA0, GetTimeSincePhysicsSwitch 0x005177A0 / GetPreviousPhysicsStateDuration
+    0x005177F0 (ms as unsigned, times 0.001), SetBoardMissing 0x005176E0 / UnsetBoardMissing 0x005176F0 /
+    IsBoardMissing 0x00517700, SetForceWalk 0x00517710 / UnSetForceWalk 0x00517720 (with the board missing flag) /
+    IsForceWalkOn 0x00517730 (the table's names matched to the functions in table order). Calls into the walk,
+    camera and core physics code stay GameFunction (0x004FDD50, 0x0050C670, 0x00519680, 0x0052AF40, 0x005260C0,
+    0x004FA420 / 0x00524FF0, 0x00525060 / 0x004F9A40).
+  - Tests: TestSkaterMatrixQueries (selftests_skater_queries.cpp), TestSkaterPhysicsControl
+    (selftests_skater_physics_control.cpp; the original passes bools with stale upper bytes - the stand-ins
+    record the low byte). 22 + 27 deliberate bugs caught, 2 after strengthening (an exact cosine for
+    AbsolutePitchGreaterThan; InitFromStructure's flag traced).
+- [x] Batch 244 (SK3-6; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; SkaterRotate, SkaterRunTimer and SkaterScore, 29 functions):
+  src/game/skater/rotate_component.cpp, run_timer.cpp, skater_score.cpp (new).
+  - SkaterRotate (0x52D61A0D, vtable 0x0064C018, 0x58 bytes): 0x00517D40 Create, 0x00517CC0 / 0x00517CF0, 0x00517CD0
+    InitFromStructure, 0x00517D20 Finalize, 0x00517DC0 Update (each active turn: the frame's step, |step| added to
+    the turned total, the last step cut to end exactly - by the sign of the rounded step -, the object's and core
+    physics' matrices turned by CreateRotateMatrix(axis) through D3DXMatrixMultiply; suspended with none left),
+    0x00517EA0 CallMemberFunction (Rotate: with a duration - ms, or seconds / second, frames / frame - turns about x
+    / y / z or to face a Node (GetAngleInPlane, y); without, at once: x by CreateRotateXMatrix, y / z by
+    RotateY/ZLocal, none: turned round - at and right rows negated, the core physics' +0x34C flipped).
+  - SkaterRunTimer (0x8BCE7E66, vtable 0x0064C04C, 0x28 bytes): 0x005185D0 Create, 0x00518240
+    RegisterMemberFunctions (0x006849C0), 0x00518260 / 0x005182B0, 0x005182E0 Finalize, 0x00518270 GetDebugInfo
+    (m_state / m_timer), 0x00518300 Update (Hang_Run_Timer_Speed_Adjustment while the walk's state is 2-4;
+    RunTimerUp every frame once up), 0x00518390 Stop (HideRunTimer to the timer script, spawn id 0x83321DEA + the
+    skater's index), 0x005183F0 Resume (the first 8 resumes cap the time at duration x (8 - n) / 8; ShowRunTimer),
+    and RunTimer_Pause 0x005184A0, _unpause 0x005184F0, _GetFactorComplete 0x00518500,
+    _GetRunTimerControllerId 0x00518540, _GetRunTimerId 0x00518570, _ComboStarted 0x005185A0.
+  - SkaterScore (0xD262802F, vtable 0x0064C090, 0x1C bytes): 0x00518B60 Create, 0x00518BE0 DestroyBody (the
+    Mdl::Score destroyed and freed), 0x00518C50, 0x00518660 InitFromStructure (the score made once, 0x1550 bytes,
+    for the object id), 0x005186E0 Update (CHEAT_ALWAYS_SPECIAL), 0x00518630 ResetScore (the skater's),
+    0x00518760 CallMemberFunction (IsLatestTrick, Last/Total score and CurrentScorePot comparisons, the special
+    value, GetTotalScore, GetNumberOfNonGapTricks, GotSpecial, ForceSpecial, IncrementScore, TweakTrick). Quirk
+    kept: a comparison or SetSpecialValue without its value uses the params pointer (the stack slot the original
+    reuses).
+  - Test: TestSkaterRotate / TestSkaterRunTimer / TestSkaterScore (selftests_skater_timers.cpp). 54 deliberate
+    bugs: 53 caught (12 after strengthening: a turn ending exactly / with no rate, the core's flag traced, exactly 0
+    and NaN time left, the score kept between inits, the comparisons' boundaries, a pot of 252.5); 1 equivalent
+    (the rate as degrees / duration * k or degrees * k / duration: the same float for every value tried - 2 million
+    random ones).
+- [x] Batch 245 (SK3-7; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; SkaterSound, SkaterStancePanel, SkaterState and three state history
+  functions, 51 functions): src/game/skater/skater_sound.cpp, stance_panel.cpp, skater_state.cpp (new).
+  - SkaterSound (0x187574FA, vtable 0x0064C0C4, 0x28 bytes): 0x00518E20 Create, 0x00518C80 / 0x00518C90, 0x00518CC0
+    InitFromStructure (volume_mult), 0x00518FD0 CallMemberFunction (PlayJumpSound, PlayLandSound, PlayBonkSound,
+    PlayCessSound), and the play functions 0x00518CF0 (TABLE_LAND / GRINDLAND / SLIDELAND), 0x00518D60 (TABLE_JUMP
+    / GRINDJUMP / SLIDEJUMP), 0x00518DD0 (TABLE_BONK), 0x00518EA0, 0x00518EE0, 0x00518F00, 0x00518F50 (TABLE_CESS),
+    0x00518FA0 (the last five not Ghidra functions): the terrain's sound (0x00444BB0) at the skater, the volume the
+    speed's percentage times volume_mult. The original passes the terrain byte with stale upper bytes (only the
+    byte is read).
+  - SkaterStancePanel (0x21FC3301, vtable 0x0064C0F8, 0x24 bytes): 0x005193B0 Create, 0x00519130 / 0x005191E0,
+    0x00519140 InitFromStructure, 0x00519210 Finalize, 0x00519150 GetStance (not a Ghidra function), 0x00519230
+    Update (the panel element - id = skater number - 0x69751A23 -: hidden or the stance's texture, 0x0064C12C),
+    0x005192C0 CallMemberFunction (NollieOn / NollieOff / InNollie, PressureOn / PressureOff / InPressure; each
+    change broadcast: SkaterEnterNollie...).
+  - SkaterState (0x43686585, vtable 0x0064C140, 0x128 bytes): 0x00519740 Create, 0x00519430 RegisterMemberFunctions
+    (0x00684A80), 0x00519450 / 0x00519620, 0x00519460 InitFromStructure (in the air), 0x00519660 SetState /
+    0x00519680 SetPhysicsMode / 0x005196A0 SetTerrain (OnSkaterStateChange / OnSkaterPhysicsStateChange /
+    OnSkaterTerrainChange), 0x00519470 ClearPowerups, 0x00519650 ClearDoingTrick, and the member functions InAir,
+    OnWall, OnLip, OnRail, InWallplant, InBailState (+0x70), walking, skating, Driving, SetDriving, UnsetDriving,
+    doingtrick (+0xE0), HasPowerup / pickeduppowerup (the one name at 0x0067F09C), GetTerrain, GetSparksPos,
+    SetSparksPos (names matched from the table's filler 0x00644340; OnGround is 0x00525E90's). States: 0 ground, 1
+    air, 2 wall, 3 lip, 4 rail, 5 wallplant; physics 0 skating, 1 walking.
+  - The state history (SkaterStateHistory 0x18223FD6, SK4's state_history.h): 0x005197C0 its destructor body
+    (CSkaterStateHistoryComponent::DestroyBody, declared in state_history.h - additive - and now called directly by
+    its Destroy), 0x005197D0 / 0x005197E0 a state record's time (two 16-bit halves at +0x78 / +0x7A;
+    SkaterStateHistoryFrame).
+  - Game run (THUG2-3, -level BO, ~20 s with the automation channel: skating, ollies, a trick, turning): loads, the
+    skater skates, the score / special HUD shown; no exception, run-time check or CRT report in the log.
+  - Test: TestSkaterSound / TestSkaterStancePanel / TestSkaterState (selftests_skater_state_component.cpp - renamed
+    when SK1's selftests_skater_state.cpp merged). 48 deliberate bugs: 47 caught; 1 equivalent (the bonk / cess
+    speed's sum regrouped: the same float).
+- [x] Batch 246 (SK3-8; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; NOT run in a network game - nothing offline reaches it; SkaterNonLocalNetLogic's component code,
+  11 functions): src/game/skater/nonlocal_net_logic.cpp (new).
+  - SkaterNonLocalNetLogic (0x850EEF66, vtable 0x0064BFAC, 0x2C0 bytes - another player's skater on this machine):
+    0x005147F0 Create, 0x005144E0 Construct, 0x005144B0 / 0x00514550 the destructors, 0x00514580 Finalize,
+    0x005144D0 ResetPlayback, 0x00514610 UpdateGroundLighting (a feeler 4800 down: the model's light from the
+    hit's vertex values, the shadow at the hit), 0x00514850 SnapToGround, 0x00514D10 TurnTowards, 0x00514E20
+    BounceOffWall, 0x00517270 Update (lighting, playback, extrapolation when this machine plays in a game that
+    wants it and the history is full, the history's messages, out of a lip, driving told to the scripts, the
+    looping sound).
+  - Test: TestSkaterNonLocalNetLogic / TestSkaterNonLocalNetLogicUpdate (selftests_skater_nonlocal.cpp). The
+    stopped agent's mutation run showed the lighting / snap tests testing nothing (both stood in for, for the
+    update's test; the snap's results overwritten by the next round): fixed - the C runtime's _CIacos (its error
+    path reaches C runtime state not set up offline: a call to 0) answered by its x87 path, the original's
+    OrthoNormalizeAbout pointed at ours (not bit-identical), each round's results traced, rounds standing on the
+    ground (every path of the snap). 78 deliberate bugs: 77 caught (13 after strengthening); 1 equivalent
+    (TurnTowards' dot product regrouped in double, rounded to float: the same for every value tried).
+- [x] Batch 247 (SK3-9; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; game run below; the core physics' update, 1 function): src/game/skater/core_update.cpp (new),
+  core_physics.h (Update declared - additive).
+  - 0x00510830 CorePhysicsComponent::Update (vtable +0x04): the frame's length (slow motion), +0x254 / +0x255 /
+    +0x256, button +0x1C0 -> flag +0x20, LimitSpeed, flags +0x98 / +0xA0 cleared, 0x00500670 (a box round the
+    skater at +0x4F4 published at 0x00691974 - cleared at the end), UpdateModelRotation, the state's update (jump
+    table 0x00510CFC: ground - +0x338 the start position, TryStartSkitch after -, air - landing sets +0x254 -, wall
+    ride, lip, rail, wallplant), 0x004FF200, TryGrind (inlined in the original: ours calls it), free revert, focus,
+    projectiles, special time; event 0xF225FE69 / 0x5E27200A when +0x4F0 (in the air with flag +0x30, not +0x78)
+    changes; +0x14CC cleared out of the air. 0x00500670 and 0x004FF200 aren't rewritten yet (not Ghidra functions
+    / outside the skater ranges): GameFunction.
+  - Test: TestCorePhysicsUpdate (selftests_skater_core_update.cpp, skater_core_testkit.h): 6000 variants, every
+    state and an unknown one, the original's inlined grind try against our TryGrind (TestTryGrind's stand-ins).
+    27 deliberate bugs: 26 caught; 1 equivalent (flag +0x20 tested before setting it: SetFlag sets only a change).
+- [x] Batch 248 (SK3-10; skater 3, merged 2026-10-22; run in the game: docs/pending/skater-3.md; NOT judged by a player yet; NOT run in a network game; the non-local skater's playback, 5 functions):
+  src/game/skater/nonlocal_playback.cpp (new), nonlocal_net_logic.h (declarations - additive).
+  - 0x00515940 Interpolate: the first time from the newest state a second's frames behind (put there, shown -
+    script 0x1011A5D6 -, lit); after: the playback time kept within the history (fallen back past the newest, ten
+    frames on when ten or more behind; 0x007CCDE4 the lag), the matrix slerped (the earlier state's when the at
+    rows differ by more than 0.75), the position interpolated (put there when 600 or more apart), the velocity
+    averaged over the updates' moves (quirk kept: the sum starts from the position, not 0), the state's state,
+    trick, terrain, physics mode, driving, end run flags and 24 timed flags.
+  - 0x00515360 Extrapolate (ground) and 0x00516E00 ExtrapolateOnRail: the update's speed (move / frame ms x 16),
+    lag (the connection's latency over a frame, unsigned - quirk kept: a latency under a frame wraps round to a
+    huge lag) and alignment with this machine's skater's velocity kept (20 each); on the ground: on along the
+    last move, flattened, by the averages, a wall in between (at the collision height) bounced off; on a rail:
+    alignment x lag x frame length (at most 1 s) a frame at a time by 0x00516640 MoveAlongRail; off its end:
+    Extrapolate from the played position. ExtrapolateOnRail doesn't check this machine's skater for null.
+  - 0x00516640 MoveAlongRail(node, seconds) -> node: the rail's pull (physics value 0xD1F46992) along the
+    segment, the way along it, the corner ahead (active, turning less than the physics value 0x76C1DA15's angle,
+    flattened); past the segment's end (by more than 0.1): onto the next one (quirk kept: going forward the
+    segment's own end node's flag is tested, not the node beyond), RailClear and not round too sharp a corner
+    (else 0), with the overshoot; the velocity and the matrix along the segment, the move.
+  - 0x00516180 PlayHistoryEvents: the messages since the last played up to now: 0x29 / 0x2B / 0x2C / 0x3C / 0x3D
+    / 0x41 the anim blender's primary channel, 0x2A the board's rotation (the byte as sent), 0x3E / 0x76 / 0x8C
+    the model's parts (+0x38, +0xCC, +0x160), 0x77 / 0x78 special items made (their 0x5CB5CB7E component told the
+    name and owner) and destroyed.
+  - Test: TestSkaterNonLocalInterpolate / Extrapolate / Rail / HistoryEvents
+    (selftests_skater_nonlocal_playback.cpp): every path; the original's slerp, Normalize, SetDirection and
+    ProjectOnto pointed at ours (not bit-identical). 108 deliberate bugs: 107 caught (7 after strengthening:
+    playback times 100-1000 ahead and ten behind, this machine's player without a skater, climbing rails, small
+    velocities, sane latencies); 1 equivalent (the velocity from m_lastPlayPos or m_playPos: equal then).
+- Merged main with SK1: Update calls SK1's LimitSpeed / UpdateModelRotation / TryStartSkitch / UpdateFreeRevert /
+  UpdateFocusButton / UpdateProjectiles / UpdateSpecialTime; SK1's selftests_skater_state.cpp kept the name, this
+  range's state component tests are now src/hook/selftests_skater_state_component.cpp (CMakeLists.txt).
+- Game run (THUG2-3, -level BO, ~20 s, automation: skating, ollies, a trick, turning) with SK3-1..10 and SK1 / SK2
+  / SK4: loads, the skater skates; no exception, run-time check or CRT report in the log. The non-local skater
+  code only runs in network games (not tested: no online runs) - a LAN / online play-test by the user covers it.
+- Range done: all 158 Ghidra functions of 0x00510823-0x005197F2 (and the non-Ghidra ones noted per batch)
+  replaced; find_gaps.py: 0 gaps in the range; scan_register_assumptions: no new RISK; audit: no MISMATCH;
+  thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all 601 early self-tests pass;
+  check_code_writes: no overlaps.
+- Switch off: `[replacements] disable=` end_run.cpp, finalize_physics.cpp, flip_and_rotate.cpp, floating_name.cpp,
+  gap.cpp, local_net_logic.cpp, looping_sound.cpp, matrix_queries.cpp, physics_control.cpp, rotate_component.cpp,
+  run_timer.cpp, skater_score.cpp, skater_sound.cpp, stance_panel.cpp, skater_state.cpp, nonlocal_net_logic.cpp,
+  nonlocal_playback.cpp, core_update.cpp.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
 - [ ] Next: the range is done (find_gaps.py: nothing left in 0x45EFD0-0x47DC40); a final game run.
 - [ ] Next: nothing left in the range; hand back.

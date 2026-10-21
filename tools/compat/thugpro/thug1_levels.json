@@ -13133,9 +13133,9 @@
         "required": true,
         "target": {
           "levels": "all",
-          "what": "the node array's shared parts made global structures (<level>_inc_n)"
+          "what": "every node kind's common fields (all but Pos / Position / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> - the converter's last step on the level's .qb (nodes.shareNodeFields), after every pass that reads nodes' own fields (until 2026-10-21 before the text passes: groundRestartsAt missed the restarts whose Class was shared)"
         },
-        "why": "expanded, THUG1's node arrays run THUG2 out of script components while loading"
+        "why": "node fields shared the way THUG2's own levels do (ncomp_*), so big levels fit the script component pool"
       },
       {
         "id": "PC-THUG1-18",
