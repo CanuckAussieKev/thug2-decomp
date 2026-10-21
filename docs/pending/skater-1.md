@@ -37,7 +37,7 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
     timer reset at exactly 0 - it already is 0; the sum order of the speed's squares - y is 0 in LimitSpeed, and the
     float result hides it in Brake).
 - [x] Batch SK1-2 (NOT run in the game yet; the feelers, the member functions, skitching, 10 functions):
-  src/game/skater/core_physics_feelers.cpp, skitch.cpp (new).
+  src/game/skater/core_physics_feelers.cpp, core_physics_skitch.cpp (new; skitch.cpp is SK4's skitch component).
   - 0x005003A0 CheckFeeler (the component's feeler +0xA8 along +0x208..+0x218: +0x228 skatable / +0x229 vert /
     +0x22A wall from the hit face's flags 1 / 2 / 4 / 8 in that order, else no steeper than Wall_Non_Skatable_Angle -
     its x87 sine against the normal's y; the hit's +0x104 cleared for an object hit with face flag 0x40),

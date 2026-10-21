@@ -1,0 +1,1112 @@
+// The trick component's button events, their checks and the trick lists' queue. See trick_component.h.
+
+#include "game/skater/trick_component.h"
+
+#include <cstdint>
+#include <cstring>
+
+#include "game/core/dbg.h"
+#include "game/script/names.h"
+#include "game/script/struct.h"
+#include "game/sio/inpman.h"
+#include "game/skater/controls.h"
+#include "game/sys/timer.h"
+#include "hook/game.h"
+#include "hook/hook.h"
+
+namespace Obj {
+
+namespace {
+
+constexpr uint32_t kInput = 0x27D7CD28;
+constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3;
+constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;
+constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;
+constexpr uint32_t kSkaterState = 0x43686585;
+constexpr uint32_t kStatsManager = 0x4FF8DAC6;
+
+constexpr uint32_t kSecond = 1000; // the sequences' window (ms)
+
+template <typename T>
+T& Field(const void* object, uint32_t offset)
+{
+    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+}
+
+// The events from the newest back, `count` of them (the count read again each step, as the original does).
+template <typename Visit>
+void ForEachEvent(CTrickComponent* trick, Visit visit)
+{
+    int index = trick->m_eventHead;
+    for (int n = 0; n < trick->m_eventCount; ++n) {
+        if (!visit(index, trick->m_events[index]))
+            return;
+        if (--index < 0)
+            index += CTrickComponent::kEvents;
+    }
+}
+
+uint32_t Now() { return Tmr::GetTime(); }
+
+const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
+
+// _stricmp (0x00626EFB) in the C locale.
+int CompareNoCase(const char* a, const char* b)
+{
+    for (;; ++a, ++b) {
+        int x = static_cast<unsigned char>(*a), y = static_cast<unsigned char>(*b);
+        if (x >= 'A' && x <= 'Z')
+            x += 'a' - 'A';
+        if (y >= 'A' && y <= 'Z')
+            y += 'a' - 'A';
+        if (x != y || !x)
+            return x - y;
+    }
+}
+
+} // namespace
+
+// 0x0051EA40
+bool IsDirection(uint32_t button)
+{
+    switch (button) {
+    case 0xB7231A95:
+    case 0x85981897:
+    case 0x4B358AEB:
+    case 0x786B8B68:
+    case 0xA50950C5:
+    case 0xBC6B118F:
+    case 0xD8847EFA:
+    case 0xE3006FC4:
+        return true;
+    default:
+        return false;
+    }
+}
+
+__declspec(naked) void IsDirectionStub()
+{
+    __asm {
+        push ecx
+        push edx
+        push eax
+        call IsDirection
+        add esp, 4
+        pop edx
+        pop ecx
+        ret
+    }
+}
+
+namespace {
+void __stdcall MarkUsedThunk(CTrickComponent* trick, uint32_t flags) { trick->MarkUsed(flags); }
+} // namespace
+
+__declspec(naked) void MarkUsedStub()
+{
+    __asm {
+        push ecx
+        push edx
+        push dword ptr [esp + 0xC]
+        push ecx
+        call MarkUsedThunk
+        pop edx
+        pop ecx
+        ret 4
+    }
+}
+
+// 0x0051EA90
+void __cdecl CTrickComponent::RegisterMemberFunctions()
+{
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00683148), 0x18);
+}
+
+// 0x0051F2B0
+void CTrickComponent::Finalize()
+{
+    m_input = reinterpret_cast<uint8_t*>(m_object->GetComponent(kInput));
+    m_balanceTrick = m_object->GetComponent(kSkaterBalanceTrick);
+    m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
+    m_flipRotate = m_object->GetComponent(kSkaterFlipAndRotate);
+    m_skaterState = m_object->GetComponent(kSkaterState);
+    m_statsManager = m_object->GetComponent(kStatsManager);
+}
+
+// 0x0051F320
+void CTrickComponent::Reset()
+{
+    m_unknown18 = 0;
+    m_ignoredCount = 0;
+    m_unknownA24 = false;
+    m_extraListCount = 0;
+    m_queueFirst = -1;
+    m_queueLast = -1;
+    std::memset(m_extraLists, 0, 0x1238 - 0x1208);
+    Field<uint8_t>(this, 0x1268) = 0;
+    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1268 - 0x1238);
+    Field<uint8_t>(this, 0x12B0) = 0;
+    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12B0 - 0x1280);
+    Field<uint8_t>(this, 0x12C8) = 0;
+    Field<uint8_t>(this, 0x12C9) = 0;
+    Field<uint32_t>(this, 0x12CC) = 0;
+    Field<uint32_t>(this, 0x12D0) = 0;
+    Field<uint32_t>(this, 0x12D4) = 0;
+    Field<uint32_t>(this, 0x1328) = 0;
+    Field<uint32_t>(this, 0x132C) = 0;
+    ClearEventBuffer();
+    m_buttonMap[0] = m_buttonMap[1] = m_buttonMap[2] = 0;
+    for (int i = 0; i < kButtons; ++i) {
+        m_down[i] = false;
+        m_heldOffUntil[i] = 0.0f;
+    }
+    Field<uint8_t>(this, 0x1330) = 0;
+    Field<uint8_t>(this, 0x1BB8) = 0;
+}
+
+// 0x0051EAB0
+void CTrickComponent::ClearExtraTricks() { std::memset(&m_extraListCount, 0, 0x1230 - 0x1204); }
+
+// 0x0051EB30
+void CTrickComponent::ClearBlock1238()
+{
+    Field<uint8_t>(this, 0x1268) = 0;
+    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1264 - 0x1238);
+}
+
+// 0x0051EF00
+void CTrickComponent::ClearBlock1280()
+{
+    Field<uint8_t>(this, 0x12B0) = 0;
+    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12AC - 0x1280);
+}
+
+// 0x0051EB00
+void CTrickComponent::ClearEventBuffer()
+{
+    for (TrickEvent& e : m_events) {
+        e.type = 0;
+        e.used = false;
+        e.flags = 0;
+    }
+    m_eventCount = 0;
+    m_eventHead = 0;
+}
+
+// 0x0051EB80
+void CTrickComponent::ClearUsed()
+{
+    ForEachEvent(this, [](int, TrickEvent& e) {
+        e.used = false;
+        return true;
+    });
+}
+
+// 0x0051EBD0
+void CTrickComponent::MarkUsed(uint32_t flags)
+{
+    ForEachEvent(this, [&](int, TrickEvent& e) {
+        if (e.used) {
+            e.used = false;
+            e.flags |= flags;
+        }
+        return true;
+    });
+}
+
+// 0x0051F570
+TrickEvent* CTrickComponent::AddEvent(int type)
+{
+    if (++m_eventHead >= kEvents)
+        m_eventHead = 0;
+    if (m_eventCount < kEvents)
+        ++m_eventCount;
+    TrickEvent& e = m_events[m_eventHead];
+    e.type = type;
+    e.time = Now();
+    e.used = false;
+    e.flags = 0;
+    return &e;
+}
+
+// 0x0051F610
+void CTrickComponent::ExpireButton(uint32_t button, uint32_t ms)
+{
+    ForEachEvent(this, [&](int, TrickEvent& e) {
+        if (e.button == button) {
+            uint32_t time = e.time;
+            if (!(Now() - time < ms))
+                e.flags = 0xFFFFFFFF;
+        }
+        return true;
+    });
+}
+
+// 0x0051F6B0
+bool CTrickComponent::FindPress(uint32_t button, uint32_t ms, uint32_t mask)
+{
+    bool found = false;
+    ForEachEvent(this, [&](int, TrickEvent& e) {
+        uint32_t time = e.time;
+        if (Now() - time >= ms)
+            return false;
+        if (!(e.flags & mask) && e.type == 1 && e.button == button) {
+            e.used = true;
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    return found;
+}
+
+// 0x0051F7A0
+bool CTrickComponent::FindPressBoth(uint32_t first, uint32_t second, uint32_t ms, uint32_t mask)
+{
+    bool gotFirst = false, gotSecond = false, any = false, found = false;
+    ForEachEvent(this, [&](int, TrickEvent& e) {
+        uint32_t time = e.time;
+        if (Now() - time >= ms)
+            return false;
+        if ((e.flags & mask) || e.type != 1)
+            return true;
+        if (e.button == first) {
+            e.used = true;
+            if (gotSecond) {
+                found = true;
+                return false;
+            }
+            gotFirst = true;
+            any = true;
+        } else if (e.button == second) {
+            e.used = true;
+            if (gotFirst) {
+                found = true;
+                return false;
+            }
+            gotSecond = true;
+            any = true;
+        } else if (any) {
+            return false;
+        }
+        return true;
+    });
+    return found;
+}
+
+// 0x0051F8F0
+void CTrickComponent::UpdateButton(int index, bool pressed)
+{
+    if (m_heldOffUntil[index] != 0.0f) {
+        if (pressed) {
+            uint32_t now = Now();
+            if (static_cast<double>(now) <= m_heldOffUntil[index] || m_heldOffUntil[index] != m_heldOffUntil[index])
+                return;
+        }
+        m_heldOffUntil[index] = 0.0f;
+    }
+    if (m_down[index] == pressed)
+        return;
+    m_down[index] = pressed;
+    uint32_t button = Inp::ButtonChecksum(index);
+    for (int i = 0; i < m_ignoredCount; ++i)
+        if (m_ignored[i] == button)
+            return;
+    AddEvent(pressed ? 1 : 2)->button = button;
+}
+
+// 0x0051F290
+void CTrickComponent::HoldOffButton(int index, float until)
+{
+    m_down[index] = false;
+    m_heldOffUntil[index] = until;
+}
+
+// 0x0051F9B0
+bool CTrickComponent::CheckSpinSequence(const uint32_t* buttons, bool any)
+{
+    int state = 0, second = 0;
+    bool found = false, failed = false;
+    ForEachEvent(this, [&](int index, TrickEvent& e) {
+        uint32_t time = e.time;
+        if (Now() - time >= kSecond) {
+            failed = true;
+            return false;
+        }
+        switch (state) {
+        case 0:
+            if (!(e.flags & 0x100) && e.type == 1 && e.button == buttons[1]) {
+                state = 1;
+                second = index;
+                e.used = true;
+            }
+            break;
+        case 1:
+            if (second - index > 2 || (e.type == 2 && e.button == buttons[2])) {
+                failed = true;
+                return false;
+            }
+            if (!(e.flags & 0x100) && e.type == 1 && e.button == buttons[0]) {
+                state = 2;
+                e.used = true;
+            }
+            break;
+        case 2:
+            if (e.type == 2 && e.button == buttons[2]) {
+                failed = true;
+                return false;
+            }
+            if ((e.type == 1 && e.button == buttons[2]) || any) {
+                found = true;
+                return false;
+            }
+            break;
+        }
+        return true;
+    });
+    if (!found)
+        return false;
+    MarkUsed(0x100);
+    SetButtonMap(buttons);
+    return true;
+}
+
+// 0x0051FB90
+bool CTrickComponent::CheckReleasePress(uint32_t button, bool twice, bool setMap)
+{
+    int state = 0;
+    uint32_t first = 0;
+    bool found = false;
+    ForEachEvent(this, [&](int, TrickEvent& e) {
+        uint32_t time = e.time;
+        if (Now() - time >= kSecond)
+            return false;
+        if (!twice) {
+            if (state == 0) {
+                if (e.flags == 0 && e.type == 2 && e.button == button) {
+                    state = 1;
+                    e.used = true;
+                }
+            } else if (state == 1 && e.flags == 0 && e.type == 1 && e.button == button) {
+                e.used = true;
+                found = true;
+                return false;
+            }
+        } else if (state == 0) {
+            uint32_t b = e.button;
+            if ((b == 0x20689278 || b == 0x2B489A86 || b == 0x321C9756) && e.flags == 0 && e.type == 2 && b == button) {
+                first = b;
+                state = 1;
+                e.used = true;
+            }
+        } else if (state == 1) {
+            if (e.flags == 0 && e.type == 1 && e.button == first) {
+                state = 2;
+                e.used = true;
+            }
+        } else if (state == 2 && e.flags == 0 && e.type == 1 && e.button == button) {
+            e.used = true;
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    if (!found)
+        return false;
+    if (setMap) {
+        MarkUsed(0xFFFFFFFF);
+        // (the original hands its own three stack arguments over as the map)
+        const uint32_t map[3] = {button, twice, setMap};
+        SetButtonMap(map);
+    }
+    return true;
+}
+
+// 0x0051EC40
+uint32_t CTrickComponent::ReadTrigger(const uint8_t* node, int count, uint32_t* out)
+{
+    for (int i = 0; i < count; ++i) {
+        uint32_t button = Field<uint32_t>(node, 8);
+        if (button == 0x03749393)
+            button = m_buttonMap[1];
+        else if (button == 0x7473A305)
+            button = m_buttonMap[2];
+        else if (button == 0x9A7DC229)
+            button = m_buttonMap[0];
+        out[i] = button;
+        node = Field<const uint8_t*>(node, 0xC);
+    }
+    if ((node[0] & 0xFE) == 2)
+        return Field<uint32_t>(node, 8);
+    return static_cast<uint32_t>(Script::GetInteger(Field<uint32_t>(node, 8)));
+}
+
+// 0x0051ECC0
+void CTrickComponent::SetButtonMap(const uint32_t* buttons)
+{
+    m_buttonMap[0] = buttons[0];
+    m_buttonMap[1] = buttons[1];
+    m_buttonMap[2] = buttons[2];
+}
+
+// 0x0051ECF0
+bool CTrickComponent::IsButtonDown(uint32_t button) { return m_down[Inp::ButtonIndex(button)]; }
+
+// 0x0051ED10
+void CTrickComponent::ClearQueue()
+{
+    m_queueLast = -1;
+    m_queueFirst = -1;
+}
+
+// 0x0051ED20
+void CTrickComponent::QueueTrick(uint32_t list, int index, bool flag)
+{
+    int slot;
+    if (m_queueFirst == -1 && m_queueLast == -1) {
+        slot = 0;
+        m_queueFirst = 0;
+        m_queueLast = 0;
+    } else {
+        slot = m_queueLast + 1;
+        if (slot >= 100)
+            slot = 0;
+        if (slot == m_queueFirst)
+            return;
+        m_queueLast = slot;
+    }
+    m_queue[slot].list = list;
+    m_queue[slot].index = index;
+    m_queue[slot].flag = flag;
+}
+
+// 0x0051ED90
+void CTrickComponent::RemoveTrickList(uint32_t list)
+{
+    for (int i = 0; i < m_extraListCount; ++i) {
+        if (m_extraLists[i] != list)
+            continue;
+        for (int j = i; j < m_extraListCount - 1; ++j)
+            m_extraLists[j] = m_extraLists[j + 1];
+        --m_extraListCount;
+    }
+    for (QueuedTrick& queued : m_queue)
+        if (queued.list == list)
+            queued.list = 0;
+}
+
+// 0x0051EE10
+bool CTrickComponent::IsTrickEntry(Script::CStruct* trick)
+{
+    uint32_t checksum = 0;
+    if (trick->GetChecksum(0xA6D2D890u, &checksum, 0) || trick->GetChecksum(0x22E168C1u, &checksum, 0))
+        return true;
+    Script::CArray* array = nullptr;
+    if (trick->GetArray(0x689FE07Cu, &array, 0))
+        return true;
+    uint32_t name = 0;
+    if (!trick->GetChecksum(0xA92A2280u, &name, 0))
+        return false;
+    uint32_t structure = 0;
+    m_trickLists->GetChecksum(name, &structure, 0);
+    if (structure)
+        return Script::GetStructure(structure) != nullptr;
+    int value = 0;
+    return m_trickLists->GetInteger(name, &value, 0);
+}
+
+// 0x0051EF50
+bool CTrickComponent::TrickNamed(Script::CStruct* trick, const char* name)
+{
+    uint32_t alias = 0;
+    if (trick->GetChecksum(0xA92A2280u, &alias, 0)) {
+        uint32_t structure = 0;
+        m_trickLists->GetChecksum(alias, &structure, 0);
+        if (structure) {
+            trick = Script::GetStructure(structure);
+            if (!trick)
+                return false;
+        }
+    }
+    Script::CStruct* params = nullptr;
+    trick->GetStructure(0x7031F10Cu, &params, 0);
+    if (!params)
+        return false;
+    const char* trickName = nullptr;
+    params->GetString(0xA1DC81F9u, &trickName, 0);
+    return trickName && CompareNoCase(trickName, name) == 0;
+}
+
+// 0x0051F010
+void CTrickComponent::DumpEventBuffer()
+{
+    Dbg::Printf(Text(0x0064C4F4));
+    int count = m_eventCount > 10 ? 10 : m_eventCount;
+    int index = m_eventHead;
+    for (int n = 0; n < count; ++n) {
+        const TrickEvent& e = m_events[index];
+        Dbg::Printf(Text(0x0064C4D8), e.time, e.flags);
+        uint32_t text = 0;
+        switch (e.button) {
+        case 0x00000000: text = 0x0064C4C4; break;
+        case 0x20689278: text = 0x0064C4CC; break;
+        case 0x26B0C991: text = 0x00647AE4; break;
+        case 0x2B489A86: text = 0x0064C4BC; break;
+        case 0x321C9756: text = 0x0064C4B4; break;
+        case 0x4B358AEB: text = 0x0064C4AC; break;
+        case 0x6BF8A7F4: text = 0x00647AD4; break;
+        case 0x7323E97C: text = 0x00647AE8; break;
+        case 0x767A45D7: text = 0x0064C4A4; break;
+        case 0x786B8B68: text = 0x0064C498; break;
+        case 0x85981897: text = 0x0064C488; break;
+        case 0xA50950C5: text = 0x0064C490; break;
+        case 0xB7231A95: text = 0x0064C480; break;
+        case 0xBC6B118F: text = 0x0064C47C; break;
+        case 0xBD30325B: text = 0x0064C474; break;
+        case 0xBFB9982B: text = 0x00647AE0; break;
+        case 0xD8847EFA: text = 0x0064C468; break;
+        case 0xE3006FC4: text = 0x0064C460; break;
+        case 0xF2F1F64E: text = 0x00647AD8; break;
+        default: break;
+        }
+        if (text)
+            Dbg::Printf(Text(text));
+        Dbg::Printf(Text(0x0064C458));
+        switch (e.type) {
+        case 0: Dbg::Printf(Text(0x0064C43C)); break;
+        case 1: Dbg::Printf(Text(0x0064C444)); break;
+        case 2: Dbg::Printf(Text(0x0064C44C)); break;
+        default: break;
+        }
+        Dbg::Printf(Text(0x00646AC0));
+        if (--index < 0)
+            index += kEvents;
+    }
+}
+
+namespace {
+
+// How a scan over the events ended: the trigger found; stopped (false, the used marks kept: an event too old, or
+// one that rules the trigger out); or the events ran out (false, the used marks cleared - for most kinds).
+enum class Scan { Found, Stopped, Ended };
+
+// One step of a sequence: an event of `type` (1 pressed, 2 released) of the trigger's button `button` (0-2).
+struct Step {
+    int type;
+    int button;
+};
+
+// The steps matched in order from the newest event back, one step per event (each marked used); events with any of
+// `mask`'s flags skipped; older than `ms`: stopped.
+template <size_t N>
+Scan MatchSteps(CTrickComponent* trick, const Step (&steps)[N], const uint32_t* buttons, uint32_t ms, uint32_t mask)
+{
+    size_t state = 0;
+    Scan result = Scan::Ended;
+    ForEachEvent(trick, [&](int, TrickEvent& e) {
+        uint32_t time = e.time;
+        if (Now() - time >= ms) {
+            result = Scan::Stopped;
+            return false;
+        }
+        const Step& step = steps[state];
+        if (!(e.flags & mask) && e.type == step.type && e.button == buttons[step.button]) {
+            e.used = true;
+            if (++state == N) {
+                result = Scan::Found;
+                return false;
+            }
+        }
+        return true;
+    });
+    return result;
+}
+
+// The newest event of `type` of `button` (no flag of `mask`) within `ms`, unmarked.
+Scan FindEvent(CTrickComponent* trick, int type, uint32_t button, uint32_t ms, uint32_t mask, TrickEvent*& found)
+{
+    Scan result = Scan::Ended;
+    ForEachEvent(trick, [&](int, TrickEvent& e) {
+        uint32_t time = e.time;
+        if (Now() - time >= ms) {
+            result = Scan::Stopped;
+            return false;
+        }
+        if (!(e.flags & mask) && e.type == type && e.button == button) {
+            found = &e;
+            result = Scan::Found;
+            return false;
+        }
+        return true;
+    });
+    return result;
+}
+
+// The d-pad's four directions (ReleaseAndTap looks past them).
+bool IsStraightDirection(uint32_t button)
+{
+    return button == 0xBC6B118F || button == 0xE3006FC4 || button == 0x85981897 || button == 0x4B358AEB;
+}
+
+} // namespace
+
+// 0x0051FDA0
+bool CTrickComponent::CheckTrigger(Script::CStruct* trigger, uint32_t markFlags, uint32_t mask, bool scaled)
+{
+    if (!trigger || m_input[0x498] || m_input[0x499])
+        return false;
+    Script::CComponent* kind = trigger->GetNextComponent(nullptr);
+    if (!kind)
+        return false;
+    const auto* node = reinterpret_cast<const uint8_t*>(kind->next);
+    uint32_t buttons[3] = {0, 0, 0};
+    // The events marked used get `markFlags`, the trigger's buttons become the map.
+    auto succeed = [&] {
+        MarkUsed(markFlags);
+        SetButtonMap(buttons);
+        return true;
+    };
+    auto fail = [&] {
+        ClearUsed();
+        return false;
+    };
+    auto finish = [&](Scan scan) { return scan == Scan::Found ? succeed() : scan == Scan::Stopped ? false : fail(); };
+
+    switch (kind->checksum) {
+    case 0x823B8342: { // Press: the button pressed (the event gets the flags itself, nothing marked)
+        uint32_t ms = ReadTrigger(node, 1, buttons);
+        if (scaled) {
+            float rate = Field<float>(m_corePhysics, 0x2E8);
+            if (rate < 1.0f)
+                ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
+        }
+        TrickEvent* e = nullptr;
+        Scan scan = FindEvent(this, 1, buttons[0], ms, mask, e);
+        if (scan != Scan::Found)
+            return scan == Scan::Stopped ? false : fail();
+        e->flags |= markFlags;
+        SetButtonMap(buttons);
+        return true;
+    }
+    case 0x61B8FCE2: { // Release: the button released (as Press)
+        uint32_t ms = ReadTrigger(node, 1, buttons);
+        TrickEvent* e = nullptr;
+        Scan scan = FindEvent(this, 2, buttons[0], ms, mask, e);
+        if (scan != Scan::Found)
+            return scan == Scan::Stopped ? false : fail();
+        e->flags |= markFlags;
+        SetButtonMap(buttons);
+        return true;
+    }
+    case 0x7FA5CDBB: { // Tap: the button pressed, then released (the button map left alone)
+        static const Step steps[] = {{2, 0}, {1, 0}};
+        Scan scan = MatchSteps(this, steps, buttons, ReadTrigger(node, 1, buttons), mask);
+        if (scan != Scan::Found)
+            return scan == Scan::Stopped ? false : fail();
+        MarkUsed(markFlags);
+        return true;
+    }
+    case 0x7D482318: { // InOrder: the first pressed, then the second
+        static const Step steps[] = {{1, 1}, {1, 0}};
+        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 2, buttons), mask));
+    }
+    case 0xFFB718BD: { // PressAndRelease: the first pressed, then the second released
+        static const Step steps[] = {{2, 1}, {1, 0}};
+        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 2, buttons), mask));
+    }
+    case 0x2C434C90: { // TapTwiceRelease: the first pressed twice, then the second released
+        static const Step steps[] = {{2, 1}, {1, 0}, {1, 0}};
+        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 2, buttons), mask));
+    }
+    case 0xC1AD35C0: { // TripleInOrderSloppy: the first, second and third pressed in turn
+        static const Step steps[] = {{1, 2}, {1, 1}, {1, 0}};
+        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 3, buttons), mask));
+    }
+    case 0x3FE7C311: { // TripleInOrderStrict: the first tapped, the second tapped, then the third pressed
+        static const Step steps[] = {{1, 2}, {2, 1}, {1, 1}, {2, 0}, {1, 0}};
+        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 3, buttons), mask));
+    }
+    case 0xA2E042D7: { // TripleInOrder: the first tapped, then the second and third pressed (in either order)
+        uint32_t ms = ReadTrigger(node, 3, buttons);
+        int state = 0;
+        Scan scan = Scan::Ended;
+        ForEachEvent(this, [&](int, TrickEvent& e) {
+            uint32_t time = e.time;
+            if (Now() - time >= ms) {
+                scan = Scan::Stopped;
+                return false;
+            }
+            if (e.flags & mask)
+                return true;
+            switch (state) {
+            case 0:
+                if (e.type == 1 && e.button == buttons[2]) {
+                    e.used = true;
+                    state = 1;
+                } else if (e.type == 1 && e.button == buttons[1]) {
+                    e.used = true;
+                    state = 2;
+                }
+                break;
+            case 1:
+            case 2:
+                if (e.type == 1 && e.button == buttons[state == 1 ? 1 : 2]) {
+                    e.used = true;
+                    state = 3;
+                }
+                break;
+            case 3:
+                if (e.type == 2 && e.button == buttons[0]) {
+                    e.used = true;
+                    state = 4;
+                }
+                break;
+            default:
+                if (e.type == 1 && e.button == buttons[0]) {
+                    e.used = true;
+                    scan = Scan::Found;
+                    return false;
+                }
+                break;
+            }
+            return true;
+        });
+        return finish(scan);
+    }
+    case 0xF630DAE5: { // HoldTwoAndPress: the first and second pressed (either order, neither released), then the third
+        uint32_t ms = ReadTrigger(node, 3, buttons);
+        int state = 0;
+        Scan scan = Scan::Ended;
+        ForEachEvent(this, [&](int, TrickEvent& e) {
+            uint32_t time = e.time;
+            if (Now() - time >= ms) {
+                scan = Scan::Stopped;
+                return false;
+            }
+            if (e.flags & mask)
+                return true;
+            if (state == 0) {
+                if (e.type == 1 && e.button == buttons[2]) {
+                    e.used = true;
+                    state = 1;
+                }
+                return true;
+            }
+            // (1: either of the two; 2: the first still to come; 3: the second still to come)
+            int next = -1;
+            if ((state == 1 || state == 2) && e.button == buttons[state == 1 ? 1 : 0])
+                next = state == 1 ? 2 : 4;
+            else if ((state == 1 && e.button == buttons[0]) || (state == 3 && e.button == buttons[1]))
+                next = state == 1 ? 3 : 4;
+            if (next < 0)
+                return true;
+            if (e.type == 1) {
+                e.used = true;
+                if (next == 4) {
+                    scan = Scan::Found;
+                    return false;
+                }
+                state = next;
+            } else if (e.type == 2) {
+                scan = Scan::Stopped;
+                return false;
+            }
+            return true;
+        });
+        return finish(scan);
+    }
+    case 0x395EC2D4: { // ReleaseTwo: both released (either order; scanning back from the newest, a press of the one
+                       // whose release came first rules it out)
+        uint32_t ms = ReadTrigger(node, 2, buttons);
+        bool got0 = false, got1 = false;
+        Scan scan = Scan::Ended;
+        ForEachEvent(this, [&](int, TrickEvent& e) {
+            uint32_t time = e.time;
+            if (Now() - time >= ms) {
+                scan = Scan::Stopped;
+                return false;
+            }
+            bool free = !(e.flags & mask);
+            if (!got0 && free && e.type == 2 && e.button == buttons[0]) {
+                e.used = true;
+                got0 = true;
+            }
+            if (!got1 && free && e.type == 2 && e.button == buttons[1]) {
+                e.used = true;
+                got1 = true;
+            }
+            if (got0 && got1) {
+                scan = Scan::Found;
+                return false;
+            }
+            if (free && e.type == 1 && ((got0 && e.button == buttons[0]) || (!got0 && got1 && e.button == buttons[1]))) {
+                scan = Scan::Stopped;
+                return false;
+            }
+            return true;
+        });
+        return finish(scan);
+    }
+    case 0xAC2B1445: { // ReleaseTwoAndPress: the first and second released and the third pressed (as ReleaseTwo)
+        uint32_t ms = ReadTrigger(node, 3, buttons);
+        bool got0 = false, got1 = false, got2 = false;
+        Scan scan = Scan::Ended;
+        ForEachEvent(this, [&](int, TrickEvent& e) {
+            uint32_t time = e.time;
+            if (Now() - time >= ms) {
+                scan = Scan::Stopped;
+                return false;
+            }
+            bool free = !(e.flags & mask);
+            if (!got0 && free && e.type == 2 && e.button == buttons[0]) {
+                e.used = true;
+                got0 = true;
+            }
+            if (!got1 && free && e.type == 2 && e.button == buttons[1]) {
+                e.used = true;
+                got1 = true;
+            }
+            if (!got2 && free && e.type == 1 && e.button == buttons[2]) {
+                e.used = true;
+                got2 = true;
+            }
+            if (got0 && got1) {
+                if (got2) {
+                    scan = Scan::Found;
+                    return false;
+                }
+            } else if (free && e.type == 1 && ((got0 && e.button == buttons[0]) || (!got0 && got1 && e.button == buttons[1]))) {
+                scan = Scan::Stopped;
+                return false;
+            }
+            return true;
+        });
+        return finish(scan);
+    }
+    case 0x3F369070: { // PressTwoAnyOrder: both pressed (either order, no release of either between); never clears
+        uint32_t ms = ReadTrigger(node, 2, buttons);
+        bool got0 = false, got1 = false;
+        Scan scan = Scan::Stopped;
+        ForEachEvent(this, [&](int, TrickEvent& e) {
+            uint32_t time = e.time;
+            if (Now() - time >= ms)
+                return false;
+            if (e.flags & mask)
+                return true;
+            for (int k = 0; k < 2; ++k) {
+                if (e.button != buttons[k])
+                    continue;
+                bool& mine = k == 0 ? got0 : got1;
+                bool other = k == 0 ? got1 : got0;
+                if (e.type == 2) {
+                    e.used = true;
+                    got0 = got1 = false;
+                } else if (e.type == 1) {
+                    e.used = true;
+                    if (other) {
+                        scan = Scan::Found;
+                        return false;
+                    }
+                    mine = true;
+                }
+            }
+            return true;
+        });
+        return finish(scan);
+    }
+    case 0x14FE9B7D: { // AirTrickLogic: the second held (its newest press marked) and the first pressed - or both pressed
+        uint32_t ms = ReadTrigger(node, 2, buttons);
+        if (IsButtonDown(buttons[1])) {
+            ForEachEvent(this, [&](int, TrickEvent& e) {
+                if (e.type == 1 && e.button == buttons[1]) {
+                    e.used = true;
+                    return false;
+                }
+                return true;
+            });
+            return FindPress(buttons[0], ms, mask) ? succeed() : fail();
+        }
+        return FindPressBoth(buttons[0], buttons[1], ms, mask) ? succeed() : fail();
+    }
+    case 0x3C3028F4: { // PressTwo: both held, and both pressed
+        uint32_t ms = ReadTrigger(node, 2, buttons);
+        if (!IsButtonDown(buttons[0]) || !IsButtonDown(buttons[1]))
+            return fail();
+        return FindPressBoth(buttons[0], buttons[1], ms, mask) ? succeed() : fail();
+    }
+    case 0xA8123ECF: { // HoldThree: the three (as named, not mapped) held; nothing marked
+        const auto* second = Field<const uint8_t*>(node, 0xC);
+        uint32_t a = Field<uint32_t>(node, 8), b = Field<uint32_t>(second, 8);
+        uint32_t c = Field<uint32_t>(Field<const uint8_t*>(second, 0xC), 8);
+        return IsButtonDown(a) && IsButtonDown(b) && IsButtonDown(c);
+    }
+    case 0x696E5E66: { // ReleaseAndTap: the newest three events past the d-pad's four directions: the first released,
+                       // then the second pressed and released
+        uint32_t ms = ReadTrigger(node, 2, buttons);
+        int found[3] = {-1, -1, -1};
+        int count = 0;
+        ForEachEvent(this, [&](int index, TrickEvent& e) {
+            if (!(e.flags & mask) && !IsStraightDirection(e.button)) {
+                found[count++] = index;
+                if (count == 3)
+                    return false;
+            }
+            return true;
+        });
+        if (found[0] == -1 || found[1] == -1 || found[2] == -1)
+            return false;
+        for (int index : found) {
+            uint32_t time = m_events[index].time;
+            if (Now() - time >= ms)
+                return false;
+        }
+        TrickEvent& newest = m_events[found[0]];
+        TrickEvent& middle = m_events[found[1]];
+        TrickEvent& oldest = m_events[found[2]];
+        if (newest.type != 2 || newest.button != buttons[1] || middle.type != 1 || middle.button != buttons[1] ||
+            oldest.type != 2 || oldest.button != buttons[0])
+            return fail();
+        newest.used = true;
+        middle.used = true;
+        oldest.used = true;
+        return succeed();
+    }
+    case 0xB6258557: { // (name unknown) the button pressed, with no direction pressed but the map's (its last
+                       // direction) - those marked used; the newest press gets the flags
+        uint32_t direction = 0;
+        for (uint32_t mapped : m_buttonMap)
+            if (IsDirection(mapped))
+                direction = mapped;
+        uint32_t ms = ReadTrigger(node, 1, buttons);
+        bool found = false;
+        int foundIndex = 0;
+        bool refused = false;
+        ForEachEvent(this, [&](int index, TrickEvent& e) {
+            uint32_t time = e.time;
+            if (Now() - time >= ms)
+                return false;
+            if (!(e.flags & mask) && e.type == 1) {
+                if (e.button == buttons[0]) {
+                    found = true;
+                    foundIndex = index;
+                } else if (IsDirection(e.button)) {
+                    if (e.button != direction) {
+                        refused = true;
+                        return false;
+                    }
+                    e.used = true;
+                }
+            }
+            return true;
+        });
+        if (refused)
+            return false;
+        if (!found)
+            return fail();
+        m_events[foundIndex].flags |= markFlags;
+        return succeed();
+    }
+    default:
+        return fail();
+    }
+}
+
+// 0x00521930
+void CTrickComponent::QueueDoneTricks(uint32_t list, bool flag, uint32_t used)
+{
+    Script::CArray* tricks = Script::GetArray(list);
+    if (!tricks)
+        return;
+    int count = static_cast<int>(tricks->m_size);
+    uint32_t mask = ~used & 0xFFFFFFFB;
+    for (int i = 0; i < count; ++i) {
+        auto* trick = reinterpret_cast<Script::CStruct*>(tricks->GetElement(static_cast<uint32_t>(i)));
+        if (!IsTrickEntry(trick))
+            continue;
+        Script::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
+        Script::CStruct* alternate = nullptr;
+        trick->GetStructure(0x68B74085u, &alternate, 0);
+        if (CheckTrigger(trigger, 1, mask, false) || CheckTrigger(alternate, 1, mask, false))
+            QueueTrick(list, i, flag);
+    }
+}
+
+// 0x00521A10
+void CTrickComponent::QueueAllDoneTricks()
+{
+    if (m_manualList && Field<bool>(m_balance1C, 0x74))
+        QueueDoneTricks(m_manualList, true, m_listUsed);
+    for (int i = 0; i < m_extraListCount; ++i)
+        QueueDoneTricks(m_extraLists[i], false, m_listUsed);
+}
+
+// 0x00521A80
+void CTrickComponent::SetPendingTrick(uint32_t list, uint32_t mask, bool flag)
+{
+    Script::CArray* tricks = Script::GetArray(list);
+    if (!tricks)
+        return;
+    int count = static_cast<int>(tricks->m_size);
+    for (int i = 0; i < count; ++i) {
+        auto* trick = reinterpret_cast<Script::CStruct*>(tricks->GetElement(static_cast<uint32_t>(i)));
+        if (!IsTrickEntry(trick))
+            continue;
+        Script::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
+        Script::CStruct* alternate = nullptr;
+        trick->GetStructure(0x68B74085u, &alternate, 0);
+        if (!CheckTrigger(trigger, 4, mask, false) && !CheckTrigger(alternate, 4, mask, false))
+            continue;
+        Field<uint32_t>(this, 0x126C) = list;
+        Field<int>(this, 0x1270) = i;
+        Field<int>(this, 0x1274) = static_cast<int>(
+            static_cast<uint32_t>(GameFunction<int(__cdecl*)()>(0x0044ECE0)()) + static_cast<uint32_t>(GameVariable<int>(0x00696D60)));
+        Field<bool>(this, 0x127C) = flag;
+        Field<int>(this, 0x1278) = -1;
+        trick->GetInteger(0x79A07F3Fu, &Field<int>(this, 0x1278), 0);
+        Field<bool>(this, 0x1268) = true;
+    }
+}
+
+// 0x0051F260
+bool CTrickComponent::SetCurrentBailEndpose(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t& endpose = Field<uint32_t>(this, 0x1BBC);
+    if (!params->GetChecksum(0u, &endpose, 0))
+        endpose = 0;
+    return true;
+}
+
+} // namespace Obj
+
+REPLACE_UNCHECKED(0x0051EA40, Obj::IsDirectionStub);
+REPLACE(0x0051EA90, Obj::CTrickComponent::RegisterMemberFunctions);
+REPLACE(0x0051F2B0, &Obj::CTrickComponent::Finalize);
+REPLACE(0x0051F320, &Obj::CTrickComponent::Reset);
+REPLACE(0x0051EAB0, &Obj::CTrickComponent::ClearExtraTricks);
+REPLACE(0x0051EB30, &Obj::CTrickComponent::ClearBlock1238);
+REPLACE(0x0051EF00, &Obj::CTrickComponent::ClearBlock1280);
+REPLACE(0x0051EB00, &Obj::CTrickComponent::ClearEventBuffer);
+REPLACE(0x0051EB80, &Obj::CTrickComponent::ClearUsed);
+REPLACE_UNCHECKED(0x0051EBD0, Obj::MarkUsedStub);
+REPLACE(0x0051F570, &Obj::CTrickComponent::AddEvent);
+REPLACE(0x0051F610, &Obj::CTrickComponent::ExpireButton);
+REPLACE(0x0051F6B0, &Obj::CTrickComponent::FindPress);
+REPLACE(0x0051F7A0, &Obj::CTrickComponent::FindPressBoth);
+REPLACE(0x0051F8F0, &Obj::CTrickComponent::UpdateButton);
+REPLACE(0x0051F290, &Obj::CTrickComponent::HoldOffButton);
+REPLACE(0x0051F9B0, &Obj::CTrickComponent::CheckSpinSequence);
+REPLACE(0x0051FB90, &Obj::CTrickComponent::CheckReleasePress);
+REPLACE(0x0051EC40, &Obj::CTrickComponent::ReadTrigger);
+REPLACE(0x0051ECC0, &Obj::CTrickComponent::SetButtonMap);
+REPLACE(0x0051ECF0, &Obj::CTrickComponent::IsButtonDown);
+REPLACE(0x0051ED10, &Obj::CTrickComponent::ClearQueue);
+REPLACE(0x0051ED20, &Obj::CTrickComponent::QueueTrick);
+REPLACE(0x0051ED90, &Obj::CTrickComponent::RemoveTrickList);
+REPLACE(0x0051EE10, &Obj::CTrickComponent::IsTrickEntry);
+REPLACE(0x0051EF50, &Obj::CTrickComponent::TrickNamed);
+REPLACE(0x0051F010, &Obj::CTrickComponent::DumpEventBuffer);
+REPLACE(0x0051FDA0, &Obj::CTrickComponent::CheckTrigger);
+REPLACE(0x00521930, &Obj::CTrickComponent::QueueDoneTricks);
+REPLACE(0x00521A10, &Obj::CTrickComponent::QueueAllDoneTricks);
+REPLACE(0x00521A80, &Obj::CTrickComponent::SetPendingTrick);
+REPLACE(0x0051F260, &Obj::CTrickComponent::SetCurrentBailEndpose);

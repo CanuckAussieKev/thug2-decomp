@@ -177,6 +177,12 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_turning.cpp
     src/hook/selftests_skater_walls.cpp
     src/hook/selftests_skater_wallplant.cpp
+    src/hook/selftests_skater_state_history.cpp
+    src/hook/selftests_skater_vehicle_sound.cpp
+    src/hook/selftests_skater_skitch_items.cpp
+    src/hook/selftests_skater_stats.cpp
+    src/hook/selftests_skater_tagging.cpp
+    src/hook/selftests_skater_trick.cpp
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_el3d.cpp
     src/hook/selftests_fe_anim.cpp
@@ -630,11 +636,18 @@ add_library(thug2_code OBJECT
     src/game/skater/core_physics_state.cpp
     src/game/skater/core_physics_speed.cpp
     src/game/skater/core_physics_feelers.cpp
-    src/game/skater/skitch.cpp
+    src/game/skater/core_physics_skitch.cpp
     src/game/skater/core_physics_turning.cpp
     src/game/skater/core_physics_walls.cpp
     src/game/skater/core_physics_wallplant.cpp
     src/game/skater/debug_collision.cpp
+    src/game/skater/state_history.cpp
+    src/game/skater/vehicle_sound.cpp
+    src/game/skater/skitch.cpp
+    src/game/skater/special_item.cpp
+    src/game/skater/stats_manager.cpp
+    src/game/skater/tagging.cpp
+    src/game/skater/trick_component.cpp
     src/game/sys/platform.cpp
     src/game/sys/platform_cfuncs.cpp
     src/game/sys/debug_mode.cpp
