@@ -72,6 +72,9 @@ class CScript;
 //   level_editor_walls.cpp    collision switched off and on with the game's own switch (CSector::SetActive): invisible
 //                             walls deleted (Delete) / restored and moved / turned, a drawn piece's collision off by
 //                             itself (the Inspector's Collision); undo, `wall` layout records
+//   level_editor_checks.cpp   (UX5) the problem checker (Alt+P / the toolbar's Problems: Go to / Fix / Ignore; layout
+//                             records that don't resolve kept, never dropped), level_editor_budget.cpp the budget
+//                             meter (the engine's limits, on the toolbar), level_editor_notes.cpp note pins
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
