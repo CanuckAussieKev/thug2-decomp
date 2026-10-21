@@ -298,6 +298,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gamenet.cpp
     src/hook/selftests_thugpro.cpp
     src/hook/selftests_thugpro_join.cpp
+    src/hook/selftests_gamenet_join.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_editor_ui.cpp

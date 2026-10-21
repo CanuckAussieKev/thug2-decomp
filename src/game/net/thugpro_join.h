@@ -29,7 +29,7 @@ namespace GameNet::Thugpro {
 // %LOCALAPPDATA%\THUG Pro\data\pre\thugpro_qb.prx -
 //   node tools/compat/thugpro/scripts_hash.ts
 // (or 7-Zip's "CRC-32" of the file), written here, or set in the ini without a rebuild: [online] thugpro_scripts_hash=<hex>.
-// TestThugproJoinLayouts checks this value against the user's install when it's there.
+// (scripts_hash.ts says whether this value is still the installed THUGPRO's.)
 constexpr uint32_t kReleaseScriptsHash = 0x09FC08B0; // THUGPRO's release scripts (thugpro_qb.prx of 2026-10-17)
 
 // The hash we send: [online] thugpro_scripts_hash=<hex> if set, else kReleaseScriptsHash.
