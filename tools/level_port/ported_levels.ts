@@ -77,8 +77,24 @@ export function readManifest(file: string): Manifest | null {
     return pyJsonLoads(readTextPy(file)) as Manifest | null;
 }
 
+// A convert of some levels only (`convert foun`) updates their entries and keeps the others already in the staging
+// folder's list - before, it wrote just the levels of that run and the level select lost the rest.
 export function writeManifest(file: string, manifest: unknown): void {
-    writeTextPy(file, pyJsonDumps(manifest, 1));
+    writeTextPy(file, pyJsonDumps(mergeManifest(readManifest(file), manifest as Manifest), 1));
+}
+
+export function mergeManifest(old: Manifest | null, fresh: Manifest): Manifest {
+    if (!old || !Array.isArray(old.levels) || !Array.isArray(fresh.levels)) return fresh;
+    const freshByLevel = new Map(fresh.levels.map((e) => [String(e.level).toLowerCase(), e]));
+    const levels: LevelEntry[] = [];
+    for (const e of old.levels) {
+        const key = String(e.level).toLowerCase();
+        const replacement = freshByLevel.get(key);
+        levels.push(replacement ?? e);
+        freshByLevel.delete(key);
+    }
+    levels.push(...freshByLevel.values());
+    return { ...fresh, levels };
 }
 
 function truthy(value: unknown): boolean {
