@@ -5,7 +5,7 @@
 // The game's level select sprites (Levelselect.prx) are 8-bit paletted images:
 //   u32 version (2), u32 bits per texel (8), u32 width, u32 height, u32 format (0x13 = paletted), u32 0,
 //   u16 width, u16 height, u32 palette size in bytes (64: 16 BGRA colours), the palette, then width * height
-//   indices stored swizzled (tools/level_port/tex.ts unswizzleOrder) - read by 0x004E0790.
+//   indices stored swizzled (tools/level_port/tex.ts unswizzleOrder), the rows bottom-up - read by 0x004E0790.
 // Nothing of the game is stored here: the frame is read from the user's Levelselect.prx each time.
 //
 // A preview:
@@ -53,19 +53,24 @@ export function readImg(data: Buffer): Img {
     }
     const stored = data.subarray(32 + paletteSize!, 32 + paletteSize! + w! * h!);
     const order = unswizzleOrder(w!, h!);
+    // (the game draws the rows bottom-up compared with unswizzleOrder's: THUG2's own signs come out upside down in
+    // that order and upright in the game - so the rows of `indices` are flipped, top row first)
     const indices: number[] = [];
-    for (let i = 0; i < w! * h!; i++) {
-        const v = stored[order[i]!];
-        if (v === undefined) throw new RangeError("index out of range");
-        indices.push(v);
+    for (let y = 0; y < h!; y++) {
+        for (let x = 0; x < w!; x++) {
+            const v = stored[order[(h! - 1 - y) * w! + x]!];
+            if (v === undefined) throw new RangeError("index out of range");
+            indices.push(v);
+        }
     }
     return { w: w!, h: h!, palette, indices };
 }
 
 export function writeImg(w: number, h: number, palette: readonly Colour[], indices: readonly number[]): Buffer {
     const stored = Buffer.alloc(w * h);
+    // (rows flipped as readImg reads them: the game draws the stored order bottom-up)
     unswizzleOrder(w, h).forEach((at, i) => {
-        stored[at] = indices[i]!;
+        stored[at] = indices[(h - 1 - Math.floor(i / w)) * w + (i % w)]!;
     });
     const head = pack("<IIIIIIHHI", 2, 8, w, h, 0x13, 0, w, h, palette.length * 4);
     return Buffer.concat([head, ...palette.map((c) => Buffer.from(c)), stored]);
