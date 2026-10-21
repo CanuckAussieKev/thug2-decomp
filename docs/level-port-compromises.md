@@ -103,6 +103,9 @@ back: the crash is in THUG2's code, which we are rewriting.
 - 23 materials' second passes not converted. (The env-mapped passes - uv flag 0x80, the *_reflect overlays - are
   THUG2's env passes since 2026-10-21; before, their uv wibble scrolled them over the ramps: docs/pending/shimmer-2.md.)
 - Reflection overlays (PS2 blend 0x8) drawn as additive: an approximation that fixed Foundry's black halfpipe.
+- THUGPRO's invisible collision overlays (Suburbia's 5 `*_collfix`, Foundry's 3 `*_coll`) left out by default: the user
+  tried every spot by hand without them (2026-10-21) - THPS3's own collision is enough there; THPS3's picnic box is
+  back (`--collfix` keeps THUGPRO's; docs/pending/collfix-spots.md).
 - Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one, always
   shown (the flicker script's Invisible of the lit set left out - with no dark set under it, half the room went black;
   docs/pending/warehouse-flicker.md).
