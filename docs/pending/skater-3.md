@@ -159,3 +159,30 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     and NaN time left, the score kept between inits, the comparisons' boundaries, a pot of 252.5); 1 equivalent
     (the rate as degrees / duration * k or degrees * k / duration: the same float for every value tried - 2 million
     random ones).
+- [x] Batch SK3-7 (NOT run in the game yet; SkaterSound, SkaterStancePanel, SkaterState and three state history
+  functions, 59 functions): src/game/skater/skater_sound.cpp, stance_panel.cpp, skater_state.cpp (new).
+  - SkaterSound (0x187574FA, vtable 0x0064C0C4, 0x28 bytes): 0x00518E20 Create, 0x00518C80 / 0x00518C90, 0x00518CC0
+    InitFromStructure (volume_mult), 0x00518FD0 CallMemberFunction (PlayJumpSound, PlayLandSound, PlayBonkSound,
+    PlayCessSound), and the play functions 0x00518CF0 (TABLE_LAND / GRINDLAND / SLIDELAND), 0x00518D60 (TABLE_JUMP
+    / GRINDJUMP / SLIDEJUMP), 0x00518DD0 (TABLE_BONK), 0x00518EA0, 0x00518EE0, 0x00518F00, 0x00518F50 (TABLE_CESS),
+    0x00518FA0 (the last five not Ghidra functions): the terrain's sound (0x00444BB0) at the skater, the volume the
+    speed's percentage times volume_mult. The original passes the terrain byte with stale upper bytes (only the
+    byte is read).
+  - SkaterStancePanel (0x21FC3301, vtable 0x0064C0F8, 0x24 bytes): 0x005193B0 Create, 0x00519130 / 0x005191E0,
+    0x00519140 InitFromStructure, 0x00519210 Finalize, 0x00519150 GetStance (not a Ghidra function), 0x00519230
+    Update (the panel element - id = skater number - 0x69751A23 -: hidden or the stance's texture, 0x0064C12C),
+    0x005192C0 CallMemberFunction (NollieOn / NollieOff / InNollie, PressureOn / PressureOff / InPressure; each
+    change broadcast: SkaterEnterNollie...).
+  - SkaterState (0x43686585, vtable 0x0064C140, 0x128 bytes): 0x00519740 Create, 0x00519430 RegisterMemberFunctions
+    (0x00684A80), 0x00519450 / 0x00519620, 0x00519460 InitFromStructure (in the air), 0x00519660 SetState /
+    0x00519680 SetPhysicsMode / 0x005196A0 SetTerrain (OnSkaterStateChange / OnSkaterPhysicsStateChange /
+    OnSkaterTerrainChange), 0x00519470 ClearPowerups, 0x00519650 ClearDoingTrick, and the member functions InAir,
+    OnWall, OnLip, OnRail, InWallplant, InBailState (+0x70), walking, skating, Driving, SetDriving, UnsetDriving,
+    doingtrick (+0xE0), HasPowerup / pickeduppowerup (the one name at 0x0067F09C), GetTerrain, GetSparksPos,
+    SetSparksPos (names matched from the table's filler 0x00644340; OnGround is 0x00525E90's). States: 0 ground, 1
+    air, 2 wall, 3 lip, 4 rail, 5 wallplant; physics 0 skating, 1 walking.
+  - The state history (SkaterStateHistory 0x18223FD6, the next range's): 0x005197C0 its destructor body (registered
+    here as SkaterStateHistoryBase::DestroyBody - the class's own source may take it over), 0x005197D0 /
+    0x005197E0 a frame record's time (two 16-bit halves at +0x78 / +0x7A; SkaterStateHistoryFrame).
+  - Test: TestSkaterSound / TestSkaterStancePanel / TestSkaterState (selftests_skater_state.cpp). 48 deliberate
+    bugs: 47 caught; 1 equivalent (the bonk / cess speed's sum regrouped: the same float).
