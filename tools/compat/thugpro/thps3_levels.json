@@ -7577,7 +7577,8 @@
         "files": {
           "models\\Obj_Bucket\\Obj_Bucket.mdl.xbx": "c10e65e9",
           "models\\Obj_Bucket\\Obj_Bucket.col.xbx": "8d51eb01",
-          "models\\Obj_Bucket\\Obj_Bucket.tex.xbx": "cc75b999"
+          "models\\Obj_Bucket\\Obj_Bucket.tex.xbx": "cc75b999",
+          "models\\Obj_Bucket\\Obj_Bucket.qb": "6fb88833"
         }
       },
       {
@@ -8040,7 +8041,8 @@
         "files": {
           "models\\CarPlantNode\\CarPlantNode.col.xbx": "48e5e63b",
           "models\\CarPlantNode\\CarPlantNode.mdl.xbx": "c2a6c70b",
-          "models\\CarPlantNode\\CarPlantNode.tex.xbx": "11a9b822"
+          "models\\CarPlantNode\\CarPlantNode.tex.xbx": "11a9b822",
+          "models\\CarPlantNode\\CarPlantNode.qb": "ff4de910"
         }
       },
       {
@@ -8056,7 +8058,8 @@
         "files": {
           "models\\CarPlantNode_Bus\\CarPlantNode_Bus.col.xbx": "7843722e",
           "models\\CarPlantNode_Bus\\CarPlantNode_Bus.mdl.xbx": "a391e5f3",
-          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.tex.xbx": "11a9b822"
+          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.tex.xbx": "11a9b822",
+          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.qb": "c1012f97"
         }
       },
       {
@@ -8466,7 +8469,8 @@
         "files": {
           "models\\CarPlantNode\\CarPlantNode.col.xbx": "48e5e63b",
           "models\\CarPlantNode\\CarPlantNode.mdl.xbx": "c2a6c70b",
-          "models\\CarPlantNode\\CarPlantNode.tex.xbx": "11a9b822"
+          "models\\CarPlantNode\\CarPlantNode.tex.xbx": "11a9b822",
+          "models\\CarPlantNode\\CarPlantNode.qb": "ff4de910"
         }
       },
       {
@@ -8482,7 +8486,8 @@
         "files": {
           "models\\icecreamtruck\\icecreamtruck.col.xbx": "ddff4238",
           "models\\icecreamtruck\\icecreamtruck.mdl.xbx": "a3079741",
-          "models\\icecreamtruck\\icecreamtruck.tex.xbx": "aeda6ddd"
+          "models\\icecreamtruck\\icecreamtruck.tex.xbx": "aeda6ddd",
+          "models\\icecreamtruck\\icecreamtruck.qb": "5742d837"
         }
       },
       {
@@ -8498,7 +8503,8 @@
         "files": {
           "models\\light_airplane01\\light_airplane01.col.xbx": "8d575dfe",
           "models\\light_airplane01\\light_airplane01.mdl.xbx": "4d4f86ec",
-          "models\\light_airplane01\\light_airplane01.tex.xbx": "37a6863a"
+          "models\\light_airplane01\\light_airplane01.tex.xbx": "37a6863a",
+          "models\\light_airplane01\\light_airplane01.qb": "e7627c73"
         }
       },
       {
@@ -9370,7 +9376,8 @@
         "files": {
           "models\\bullet_train\\bullet_train.mdl.xbx": "9e73c662",
           "models\\bullet_train\\bullet_train.tex.xbx": "29d9bad3",
-          "models\\bullet_train\\bullet_train.col.xbx": "0673b8bf"
+          "models\\bullet_train\\bullet_train.col.xbx": "0673b8bf",
+          "models\\bullet_train\\bullet_train.qb": "570ca8fd"
         }
       },
       {
@@ -9386,7 +9393,8 @@
         "files": {
           "models\\plane_jet\\plane_jet.mdl.xbx": "79678fab",
           "models\\plane_jet\\plane_jet.tex.xbx": "1ab5e15c",
-          "models\\plane_jet\\plane_jet.col.xbx": "e059716d"
+          "models\\plane_jet\\plane_jet.col.xbx": "e059716d",
+          "models\\plane_jet\\plane_jet.qb": "15de4ff2"
         }
       },
       {
