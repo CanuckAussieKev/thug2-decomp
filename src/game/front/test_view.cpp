@@ -112,7 +112,7 @@ void StandingRows(float headingDegrees, Vec3* right, Vec3* up, Vec3* at)
 
 // --- the game ---------------------------------------------------------------------------------------------------
 
-std::string Teleport(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition)
+std::string Teleport(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition, bool onBoard)
 {
     Obj::CSkater* skater = LocalSkater();
     if (!skater)
@@ -136,13 +136,13 @@ std::string Teleport(Vec3 position, bool hasHeading, float headingDegrees, Vec3*
     skater->m_customRestartMatrix.row[1] = Row(up, 0.0f);
     skater->m_customRestartMatrix.row[2] = Row(at, 0.0f);
     skater->m_customRestartMatrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    skater->m_customRestartWalking = true;
+    skater->m_customRestartWalking = !onBoard;
     skater->SkipToCustomRestart();
     skater->m_customRestartPos = savedPos;
     skater->m_customRestartMatrix = savedMatrix;
     skater->m_customRestartWalking = savedWalking;
-    Log("test view: skater teleported standing to (%.1f, %.1f, %.1f) heading %.1f degrees%s", position.x, position.y,
-        position.z, headingDegrees, grounded ? " (on the ground below)" : " (no ground below: as given)");
+    Log("test view: skater teleported %s to (%.1f, %.1f, %.1f) heading %.1f degrees%s", onBoard ? "on its board" : "standing",
+        position.x, position.y, position.z, headingDegrees, grounded ? " (on the ground below)" : " (no ground below: as given)");
     if (outPosition)
         *outPosition = position;
     return {};
