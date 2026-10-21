@@ -31,3 +31,27 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     ours on one arena, each callee stood in for and recorded (Suspend through a recording vtable, the matrix
     functions change the matrix so their order shows, 0x00580790 answers in ST0); 34 deliberate bugs caught, 1
     after strengthening (only the looping sound's state differing).
+- [x] Batch SK3-2 (NOT run in the game yet; SkaterFlipAndRotate and SkaterFloatingName, 15 functions):
+  src/game/skater/flip_and_rotate.cpp, floating_name.cpp (new).
+  - SkaterFlipAndRotate (0x488AF07A, vtable 0x0064BE20, 0x28 bytes): 0x00511470 Create, 0x00511300 / 0x00511320,
+    0x00511350 Finalize (core physics, model, animation blender), 0x00511600 CallMemberFunction (BoardIsRotated,
+    BoardRotate [`Normal` or the other way], BoardRotateAfter, flip, FlipAndRotate, RotateNoFlip, FlipAfter,
+    IsFlipAfterSet, RotateAfter, 0x72289A28 - name unknown: flip only if the core physics' 0x004FC440 says so;
+    PlayAnim does the "after" work and returns 2 so the animation components still play it), 0x00511390
+    SetBoardRotated (returns the old value; with `send`, a local player's server gets message 0x2A {object id, value};
+    its third argument isn't read), 0x00511310 ClearAfterFlags (not a Ghidra function; called by the skater),
+    0x00511420 ApplyFlipToAnims (the state component's flip byte passed to the animation blender's 0x00419C10 as it
+    is), 0x005114F0 Flip (+0x28 toggled - the original's "changed" test is always true - and +0x2C the game clock),
+    0x00511570 DoAfterAnim (flip, turn around 0x004FE120, board; the model's +0x1F4 cleared). BoardRotate and the
+    board's after-work don't check the player for null (as the original).
+  - SkaterFloatingName (0x125044E2, vtable 0x0064BE54, 0x1C bytes): 0x00511810 Create (the label id not set),
+    0x00511AA0 DestroyBody (destroy_object_label with id; the structure's allocation inlined in the original),
+    0x00511B80 Destroy, 0x00511780 InitFromStructure (skater_name_0..7 by object id - a jump table; other ids leave
+    it), 0x00511870 Update (no network game or show_names off: suspended; the label found through the screen
+    element manager; a skater not shown (CSkater +0x2C4) or hidden: destroy_object_label if there is one; else
+    create_object_label or the label's SetProperties with id, text "\c<n><name>" - n = team + 2 in a team game,
+    else object id + 2 - and pos3D 96 (this machine's player) or 120 above the skater).
+  - Test: TestSkaterFlipAndRotate / TestSkaterFloatingName (selftests_skater_flip_name.cpp): every function and
+    branch original vs ours; the network message's bytes, the structures' allocations (the pool, stood in), the
+    original's sprintf (the game's C runtime isn't started offline) done by a stand-in. 34 deliberate bugs caught,
+    1 after strengthening (Create's cleared flag: the test now dirties the memory Create gets).

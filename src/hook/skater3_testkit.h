@@ -1,7 +1,7 @@
 #pragma once
 
-// Shared pieces of the self-tests for the skater's components of 0x00510823-0x005197F2 (selftests_skater_*.cpp of that range): one arena that holds the
-// component under test, its object and the other components it reaches (filled with the same pseudo-random values in
+// Shared pieces of the self-tests for the skater's components of 0x00510823-0x005197F2 (selftests_skater_*.cpp of
+// that range): one arena that holds the component under test, its object and the other components it reaches (filled with the same pseudo-random values in
 // both runs; pointers into it relocated so the runs compare), and recording stand-ins for every function the code
 // calls - each records a tag, `this` and its arguments and answers what the test says.
 
@@ -135,6 +135,7 @@ inline void TestLifecycle(bool original, uint32_t create, uint32_t destroyBody, 
     calloc = 0;
     trace.push_back(Rel(reinterpret_cast<uint32_t(__cdecl*)()>(Code(original, create))()));
     calloc = Addr(offset);
+    std::memset(At(offset), 0xCD, size); // (dirty: what Create leaves alone shows)
     trace.push_back(Rel(reinterpret_cast<uint32_t(__cdecl*)()>(Code(original, create))()));
     for (uint32_t i = 0; i < size; i += 4)
         trace.push_back(Rel(F<uint32_t>(offset + i)));
