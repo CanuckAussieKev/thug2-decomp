@@ -1,4 +1,5 @@
-// The skater's local network logic component: its update to the server (0x00512EA0, 0x005131A0). See
+// The skater's local network logic component: its update to the server (0x00512EA0, 0x005131A0), the rest of it
+// (0x00512E30-0x00512E94, 0x00513630-0x005136EA) and the graffiti steal message's handler (0x005136F0). See
 // local_net_logic.h.
 
 #include "game/skater/local_net_logic.h"
@@ -9,9 +10,15 @@
 #include "game/mth/vector.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
 #include "game/net/net_conn.h"
+#include "game/net/net_dispatcher.h"
 #include "game/net/net_lists.h"
 #include "game/net/thugpro_compat.h"
+#include "game/script/cscript.h"
+#include "game/script/struct.h"
+#include "game/skater/skater.h"
 #include "game/util/bitstream.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -25,6 +32,24 @@ namespace Thugpro = GameNet::Thugpro;
 constexpr uint32_t kComponent6C = 0xB1D5A3E1; // the component whose +0x18 goes out as the 0x80 field's 3 bits
 
 void* NetManager() { return GameVariable<void*>(0x007CCE14); }
+
+void** const kVtable = reinterpret_cast<void**>(0x0064BEF0);
+constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
+constexpr uint32_t kSkaterState = 0x43686585, kSkaterCorePhysics = 0x5BD63B29;
+constexpr uint32_t kString0 = 0xA4B08520, kGraffitiStealYou = 0x0B3FF911, kGraffitiStealOther = 0x4D7F6FFA;
+
+// Mdl::Skate (0x007CE478; not rewritten yet): a multiplayer game (0x005651F0), a skater by its id (0x00566600).
+bool IsMultiplayerGame()
+{
+    return GameFunction<bool(__thiscall*)(void*)>(0x005651F0)(GameVariable<void*>(0x007CE478));
+}
+CSkater* SkaterById(uint32_t id)
+{
+    return GameFunction<CSkater*(__thiscall*)(void*, uint32_t)>(0x00566600)(GameVariable<void*>(0x007CE478), id);
+}
+// The network manager's first local player (0x00537320) and its run count (0x00533070: +0x38). Not rewritten yet.
+void* LocalPlayer() { return GameFunction<void*(__thiscall*)(void*)>(0x00537320)(NetManager()); }
+uint8_t RunCount() { return GameFunction<uint8_t(__thiscall*)(void*)>(0x00533070)(NetManager()); }
 
 template <typename T>
 T& Field(const void* object, uint32_t offset)
@@ -185,7 +210,105 @@ void CSkaterLocalNetLogicComponent::SendUpdate()
     app->EnqueueMessageToServer(&desc);
 }
 
+// 0x00513630
+CBaseComponent* __cdecl CSkaterLocalNetLogicComponent::Create()
+{
+    void* memory = Mem::Calloc(sizeof(CSkaterLocalNetLogicComponent));
+    if (!memory)
+        return nullptr;
+    auto* component = static_cast<CSkaterLocalNetLogicComponent*>(memory);
+    component->CBaseComponent::Construct();
+    component->m_vtable = kVtable;
+    component->m_sentControls = 0;
+    component->m_sentValue6C = 0;
+    component->m_core = nullptr;
+    component->m_board = nullptr;
+    component->m_lastSendTime = 0;
+    component->m_sentValue7C = 0xFF;
+    component->m_type = kSkaterLocalNetLogic;
+    component->m_sentControls = 0;
+    component->m_sentFlag74 = 0xFF;
+    component->m_sentState = 0;
+    component->m_sentValue80 = 0;
+    return component;
+}
+
+// 0x00512E30
+void CSkaterLocalNetLogicComponent::DestroyBody()
+{
+    m_vtable = kVtable;
+    CBaseComponent::DestroyBody();
+}
+
+// 0x00512E40
+CSkaterLocalNetLogicComponent* CSkaterLocalNetLogicComponent::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
+// 0x00512E70
+void CSkaterLocalNetLogicComponent::Finalize()
+{
+    m_core = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterState));
+    m_board = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
+}
+
+// 0x005136C0
+void CSkaterLocalNetLogicComponent::Update()
+{
+    if (IsMultiplayerGame() && LocalPlayer())
+        SendUpdate();
+}
+
+// 0x005136F0
+int __cdecl CSkaterLocalNetLogicComponent::HandleGraffitiSteal(Net::MsgHandlerContext* context)
+{
+    const char* message = context->m_Msg;
+    if (static_cast<uint8_t>(message[0]) != RunCount())
+        return Net::kHandlerMsgDone;
+    uint32_t victimId = *reinterpret_cast<const uint32_t*>(message + 4);
+    uint32_t thiefId = *reinterpret_cast<const uint32_t*>(message + 8);
+    auto* skater = static_cast<CSkater*>(context->m_data);
+    CSkater* victim = SkaterById(victimId);
+    if (!victim)
+        return Net::kHandlerContinue;
+    CSkater* thief = SkaterById(thiefId);
+    if (!thief)
+        return Net::kHandlerContinue;
+    uint32_t script;
+    CSkater* other;
+    if (skater->m_id == victimId) {
+        script = kGraffitiStealYou;
+        other = thief;
+    } else if (skater->m_id == thiefId) {
+        script = kGraffitiStealOther;
+        other = victim;
+    } else {
+        return Net::kHandlerContinue;
+    }
+    Script::CStruct* params = Script::NewStruct();
+    if (params)
+        params = params->Init();
+    params->Clear(); // (on the new structure, as the original)
+    params->AddString(kString0, Script::ESYMBOLTYPE_STRING, other->GetDisplayName());
+    Script::RunScript(script, params, skater, false, nullptr);
+    if (params) {
+        params->Clear();
+        Script::DeleteStruct(params);
+    }
+    return Net::kHandlerContinue;
+}
+
 } // namespace Obj
 
+REPLACE(0x00513630, Obj::CSkaterLocalNetLogicComponent::Create);
+REPLACE(0x00512E30, &Obj::CSkaterLocalNetLogicComponent::DestroyBody);
+REPLACE(0x00512E40, &Obj::CSkaterLocalNetLogicComponent::Destroy);
+REPLACE(0x00512E70, &Obj::CSkaterLocalNetLogicComponent::Finalize);
+REPLACE(0x005136C0, &Obj::CSkaterLocalNetLogicComponent::Update);
+REPLACE(0x005136F0, Obj::CSkaterLocalNetLogicComponent::HandleGraffitiSteal);
 REPLACE(0x00512EA0, &Obj::CSkaterLocalNetLogicComponent::GetUpdateFlags);
 REPLACE(0x005131A0, &Obj::CSkaterLocalNetLogicComponent::SendUpdate);

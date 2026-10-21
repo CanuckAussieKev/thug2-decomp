@@ -103,6 +103,15 @@ if ($Commands.Count) {
     }
 }
 if (-not $trouble) { $trouble = Update-GameWatch $watch }
+if (-not $trouble -and -not $p.HasExited) {
+    # (a window that doesn't respond while the game keeps a core busy - a loop that never ends - isn't counted as idle
+    # by the watch; but PrintWindow below would wait for it for ever: a hung window at the end is trouble too)
+    $p.Refresh()
+    $h = $p.MainWindowHandle
+    if ($h -ne [IntPtr]::Zero -and [GameHealth]::IsHungAppWindow($h)) {
+        $trouble = "its window doesn't respond at the end of the run (busy: a loop that never ends?)"
+    }
+}
 if ($trouble) {
     # (a picture of a dialog's game; never of a hung window - PrintWindow would wait for it for ever)
     if (-not $p.HasExited -and $trouble -match 'dialog') { Snap "$Shot-trouble" }

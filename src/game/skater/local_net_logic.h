@@ -5,15 +5,37 @@
 
 #include "game/obj/object.h"
 
+namespace Net {
+struct MsgHandlerContext;
+} // namespace Net
+
 // The skater's local network logic component (SkaterLocalNetLogic, type 0x7CD3E6D5, its factory 0x00513630): a local
 // skater's updates to the server (message 0x23) - its position, orientation, state and controls, each sent when it
-// changed (and everything every 15th frame of its client app, unless it's the server's own skater). Only the update
-// is rewritten (0x00512EA0 / 0x005131A0, for the big-level positions, TP-R6 - game/net/thugpro_compat.h); the rest of
-// the component (0x00512C60-0x005136E8) isn't yet.
+// changed (and everything every 15th frame of its client app, unless it's the server's own skater). The update
+// (0x00512EA0 / 0x005131A0) carries the big-level positions, TP-R6 - game/net/thugpro_compat.h. Vtable 0x0064BEF0:
+// 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 12 the shared CallMemberFunction 0x0051ADC0.
 namespace Obj {
 
 class CSkaterLocalNetLogicComponent : public CBaseComponent {
 public:
+    // 0x00513630 (registered by RegisterComponentTypes): a new one (0 if out of memory): nothing sent yet (the state
+    // and +0x35 0xFF, so the first update sends them).
+    static CBaseComponent* __cdecl Create();
+    // 0x00512E30: the destructor body (the base's).
+    void DestroyBody();
+    // 0x00512E40 (vtable slot 0)
+    CSkaterLocalNetLogicComponent* Destroy(unsigned int flags);
+    // 0x00512E70 (vtable +0x0C): the state and core physics components found.
+    void Finalize();
+    // 0x005136C0 (vtable +0x04): in a multiplayer game with a local player (the network manager's 0x00537320),
+    // SendUpdate.
+    void Update();
+    // 0x005136F0 (the client's handler for message 0x4B, registered by 0x0056EB50; not a Ghidra function): someone's
+    // graffiti was stolen - the message's +4 the victim's skater id, +8 the thief's, +0 the network manager's run
+    // count (+0x38) it belongs to (another: kHandlerMsgDone). The handler's data is the local skater: its victim runs
+    // GraffitiStealYou with String0 = the thief's name, its thief GraffitiStealOther with the victim's.
+    static int __cdecl HandleGraffitiSteal(Net::MsgHandlerContext* context);
+
     // 0x00512EA0: which fields differ from what was last sent (bits: 0-2 the position x / y / z, 3-5 the angles,
     // 0x40 the state, 0x80 the controls, 0x100 the board component's value) - all but 0x100 when the update is
     // forced. The angles that do are recorded as sent here.
