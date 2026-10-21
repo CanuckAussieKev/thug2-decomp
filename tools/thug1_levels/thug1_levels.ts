@@ -15,7 +15,9 @@
 // The THUG2 formats, the geometry conversion, the node arrays and the installing are shared with tools/thps4_levels
 // (tools/level_port); this folder has THUG1's own formats (thug1.ts) and its levels.
 
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
@@ -32,6 +34,7 @@ import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { parseConverterArgs } from "../lib/converter_args.ts";
 import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
+import { applyTextEdits, DRIVING_EDITS } from "./driving.ts";
 import * as handEdits from "./hand_edits.ts";
 import * as portChanges from "./port_changes.ts";
 import * as thug1 from "./thug1.ts";
@@ -162,6 +165,33 @@ export function setCompat(name: string, thugproNew_ = true, ownChanges = true): 
             (level as Record<string, unknown>)[section] = data;
             COMPAT.edits.set(code.toLowerCase(), level);
         }
+    }
+    applyOverrides();
+}
+
+// Our own changes that take THUGPRO's entries back for THUG1's own data (port_changes.overrides - PC-THUG1-21 VC <-> SJ
+// as THUG1 has it, PC-THUG1-22 the drivable limo's scripts): those thugpro_new entries and TP-34 nodes left out. An
+// override naming nothing that's there (with the section loaded) is an error: the data and the register disagree.
+function applyOverrides(): void {
+    for (const o of portChanges.overrides(COMPAT.portChanges, "thugpro_new")) {
+        const level = COMPAT.new.get(o.level.toLowerCase());
+        if (level === undefined) continue; // (--no-thugpro-new / --compat none)
+        const kept = level.entries.filter((e) => e.target.toLowerCase() !== o.name.toLowerCase());
+        if (kept.length === level.entries.length)
+            throw new FormatError(`port_changes: override of thugpro_new ${o.level} ${o.name}: no such entry`);
+        level.entries = kept;
+    }
+    for (const o of portChanges.overrides(COMPAT.portChanges, "created_at_start")) {
+        const level = COMPAT.edits.get(o.level.toLowerCase());
+        const created = level?.created_at_start;
+        if (level === undefined || created === undefined) continue; // (--compat none)
+        const without = (list: string[] | undefined): string[] | undefined =>
+            list?.filter((n) => n.toLowerCase() !== o.name.toLowerCase());
+        const on = without(created.on);
+        const off = without(created.off);
+        if ((on?.length ?? 0) + (off?.length ?? 0) === (created.on?.length ?? 0) + (created.off?.length ?? 0))
+            throw new FormatError(`port_changes: override of TP-34 ${o.level} ${o.name}: not in its on / off`);
+        level.created_at_start = { ...(on ? { on } : {}), ...(off ? { off } : {}) };
     }
 }
 
@@ -700,7 +730,20 @@ export function convertLevelNodes(
                 : tpNew.level.entries
                       .filter((e) => e.kind === "script" && e.op === "add")
                       .map((e) => handEdits.checksumOf(e.target));
-        const ported = thug1Port.portScripts(port, levelSources, converted, array, kills, names, struct, sectors, adds);
+        // (PC-THUG1-22: a level in its won_goals keeps its drivable cars - THUG1's driving scripts callable, those goals won)
+        const won = portChanges.wonGoals(pc).get(code.toLowerCase());
+        const ported = thug1Port.portScripts(
+            port,
+            levelSources,
+            converted,
+            array,
+            kills,
+            names,
+            struct,
+            sectors,
+            won === undefined ? adds : [...adds, ...port.driving],
+            won ?? [],
+        );
         scripts = ported.scripts;
         if (tpNew !== null) {
             newScripts = prepareNewScripts(tpNew, port, converted, scripts, kills, names, sectors);
@@ -778,6 +821,50 @@ export function convertLevelNodes(
     return { triggers, starts, recheck };
 }
 
+// PC-THUG1-22 (our own change - port_changes.ts): THUG1's driving scripts (player_controlled_vehicle.qb - the player's
+// car, its camera, every car's setup -, misc\car_scripts.qb - SetupDrivableCar, the "Press ... to drive" prompt, getting
+// in and out) written to <out>\scripts\... in their THUG2 form (DRIVING_EDITS: decompiled with ns.exe, edited,
+// compiled): THUG2 ships both files empty but loads them (its qdir.txt) and keeps the engine side - the Vehicle /
+// VehicleCamera / VehicleSound components, the skater's SetDriving / Driving, BroadcastEnterVehicle - and the scripts
+// that call into them (goal_initialize_skater's GetVehicleSetup, switch_control's ToggleUserControlledVehicleMode).
+// make_menu_level puts them in the data overlay's scripts folder, where they replace the empty ones
+// (ported_levels.installFiles). Their scripts are then the game's own for the scripts of the levels the change names
+// (port.driving; the other levels' drivable cars stay parked, as before: untried). Returns the files written.
+export function drivingScripts(port: thug1Port.Thug1Port, qbPre: string, out: string, ns: string): string[] {
+    const written: string[] = [];
+    for (const file of portChanges.drivingFiles(COMPAT.portChanges)) {
+        const data = prx.find(qbPre, file);
+        if (data === null) {
+            print(`warning: PC-THUG1-22: ${file} not in ${qbPre} - THUG1's drivable cars stay parked`);
+            continue;
+        }
+        const source = new scriptPort.Source(data, path.win32.basename(file).toLowerCase(), true);
+        for (const name of source.scripts.keys()) port.driving.add(name);
+        const target = pyJoin(out, file);
+        fs.mkdirSync(path.win32.dirname(target), { recursive: true });
+        const edits = DRIVING_EDITS[file.toLowerCase()];
+        if (edits === undefined) {
+            fs.writeFileSync(target, data);
+        } else {
+            const work = fs.mkdtempSync(path.join(os.tmpdir(), "tmp"));
+            try {
+                const qbFile = path.join(work, "thug1.qb");
+                const nsFile = path.join(work, "thug1.ns");
+                fs.writeFileSync(qbFile, data);
+                const result = spawnSync(ns, ["-d", qbFile, "-o", nsFile]);
+                if (result.error) throw result.error;
+                if (result.status !== 0 || !fs.existsSync(nsFile)) pyExit(`ns couldn't decompile THUG1's ${file}`);
+                const text = fs.readFileSync(nsFile, "latin1");
+                common.nsCompile(ns, applyTextEdits(text, edits, file), target);
+            } finally {
+                fs.rmSync(work, { recursive: true, force: true });
+            }
+        }
+        written.push(file);
+    }
+    return written;
+}
+
 // Python's str.title() (ASCII): each run of letters capitalised.
 function title(text: string): string {
     return text.replace(/[A-Za-z]+/g, (word) => word[0]!.toUpperCase() + word.slice(1).toLowerCase());
@@ -800,6 +887,10 @@ export function cmdConvert(args: Args): void {
     const wanted = args.levels.length ? args.levels : LEVELS.filter((info) => info[5]).map((info) => info[0]);
     if (fs.existsSync(out) && fs.statSync(out).isDirectory()) fs.rmSync(out, { recursive: true });
     fs.mkdirSync(out, { recursive: true });
+    if (port !== null) {
+        const written = drivingScripts(port, prePath(args, "qb.pre")!, out, args.ns);
+        if (written.length) print(`THUG1's driving scripts (PC-THUG1-22): ${written.join(", ")}`);
+    }
     // TPN-THUG1-1 ... TPN-THUG1-4: what is new in THUGPRO, read from its install (thugpro_new.ts); missing: warned, left out
     const install = new thugproNew.Install(args.thugpro);
     const okModels = new Set<string>();

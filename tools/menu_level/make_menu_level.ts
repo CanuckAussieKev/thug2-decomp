@@ -63,6 +63,7 @@ import {
 } from "../lib/py.ts";
 import { findall, finditer, type Match, search, sub } from "../lib/re.ts";
 import { unpackNumbers } from "../lib/struct.ts";
+import { applyTextEdits, CAR_SCRIPTS, DRIVING_EDITS } from "../thug1_levels/driving.ts"; // (PC-THUG1-22, the Anteara Mod's copy)
 import * as thug2Levels from "../thug2_levels/thugpro_apply.ts"; // (THUGPRO's changes to THUG2's levels: TP-42)
 import * as careerComplete from "./career_complete.ts"; // (GAME OPTIONS' CREATE 100% CAS)
 import { reEscape } from "./career_complete.ts";
@@ -1441,7 +1442,11 @@ async function main(): Promise<number> {
         }
 
         // The Anteara Mod (tools/anteara; the DLL reads anteara\ first while [features] anteara_mod=1): its script
-        // set, with the edits above re-applied to the files it also changes or this overlay changes.
+        // set, with the edits above re-applied to the files it also changes or this overlay changes. (With THUG1's
+        // drivable cars installed - PC-THUG1-22, tools/thug1_levels/driving.ts - the mod's car_scripts.qb, THUG1's
+        // unchanged, gets their THUG2 edits too: unchanged it hangs THUG1 Vancouver loading. Its own
+        // player_controlled_vehicle.qb already has the Motion component.)
+        const thug1Driving = fs.existsSync(path.join(game, "thug2-decomp-thug1", ...CAR_SCRIPTS.split("\\")));
         print(
             anteara.install(
                 game,
@@ -1452,6 +1457,14 @@ async function main(): Promise<number> {
                     ["scripts\\game\\menu\\gamemenu_levelselect.qb", overlaySelect],
                     ["scripts\\game\\menu\\sprites.qb", overlaySprites],
                     ["scripts\\game\\menu\\gamemenu_pause.qb", addLevelEditor],
+                    ...(thug1Driving
+                        ? [
+                              [
+                                  CAR_SCRIPTS,
+                                  (text: string) => applyTextEdits(text, DRIVING_EDITS[CAR_SCRIPTS]!, CAR_SCRIPTS),
+                              ] as const,
+                          ]
+                        : []),
                 ]),
                 backdrop ? new Map([["scripts\\game\\menu\\roundbarmenu.qb", frontEndRoundbar]]) : new Map(),
             ) ?? "Anteara Mod: the game has no Data\\scripts\\qdir.txt - not installed",

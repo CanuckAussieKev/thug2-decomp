@@ -22,6 +22,7 @@ export interface PortChange {
     target: string;
     why: string;
     required: boolean;
+    data: compat.Entry; // (the whole entry: a change's own data besides the common fields - overrides, won_goals...)
 }
 
 // The changes this converter makes (id -> what the code does), each with its entry in the data.
@@ -58,6 +59,14 @@ export const IMPLEMENTED: ReadonlyMap<string, string> = new Map([
         "PC-THUG1-20",
         "collision face flags 0x2000-0x8000 dropped, skinned sectors left out of the scene (thug1.ts, geometry)",
     ],
+    [
+        "PC-THUG1-21",
+        "VC <-> SJ as THUG1 has it: THUGPRO's transition arrows left out, VC's SJ kill zone kept (setCompat, overrides)",
+    ],
+    [
+        "PC-THUG1-22",
+        "THUG1's drivable cars: its driving scripts installed, their goals counted as won (drivingScripts, thug1_port)",
+    ],
 ]);
 
 export class PortChanges {
@@ -77,6 +86,7 @@ export class PortChanges {
                 target: typeof what === "string" ? what : "",
                 why: e.why,
                 required: e.required === true,
+                data: e,
             });
         }
         for (const [id, what] of IMPLEMENTED) {
@@ -106,6 +116,56 @@ export class PortChanges {
             );
         }
     }
+}
+
+// The THUGPRO profile entries the changes that are on take back (an entry's `overrides`: {thugpro_new: [{level,
+// name}], created_at_start: [{level, name}]} - a thugpro_new entry's target, a TP-34 on / off node), where our own
+// change keeps THUG1's own data instead.
+export interface Override {
+    level: string;
+    name: string;
+}
+
+export function overrides(changes: PortChanges, section: "thugpro_new" | "created_at_start"): Override[] {
+    const out: Override[] = [];
+    for (const [id, e] of changes.entries) {
+        if (!IMPLEMENTED.has(id) || !changes.on(id)) continue;
+        const list = (e.data.overrides as Record<string, unknown> | undefined)?.[section];
+        if (list === undefined) continue;
+        if (!Array.isArray(list)) throw new FormatError(`port_changes ${id}: overrides.${section} is not a list`);
+        for (const o of list as Override[]) {
+            if (typeof o.level !== "string" || typeof o.name !== "string") {
+                throw new FormatError(
+                    `port_changes ${id}: overrides.${section} ${JSON.stringify(o)}: needs level, name`,
+                );
+            }
+            out.push({ level: o.level, name: o.name });
+        }
+    }
+    return out;
+}
+
+// PC-THUG1-22's goals counted as won, by level code in lower case (names as THUG1's scripts give them); none when off.
+export function wonGoals(changes: PortChanges): Map<string, string[]> {
+    const out = new Map<string, string[]>();
+    if (!changes.on("PC-THUG1-22")) return out;
+    const won = (changes.entries.get("PC-THUG1-22")!.data.won_goals ?? {}) as Record<string, unknown>;
+    for (const [code, list] of Object.entries(won)) {
+        if (!Array.isArray(list) || !list.every((g) => typeof g === "string"))
+            throw new FormatError(`port_changes PC-THUG1-22: won_goals.${code} is not a list of names`);
+        out.set(code.toLowerCase(), list as string[]);
+    }
+    return out;
+}
+
+// PC-THUG1-22's THUG1 script files installed as THUG2's (their names in THUG1's qb.pre - THUG2's own are empty); none
+// when off.
+export function drivingFiles(changes: PortChanges): string[] {
+    if (!changes.on("PC-THUG1-22")) return [];
+    const files = changes.entries.get("PC-THUG1-22")!.data.scripts ?? [];
+    if (!Array.isArray(files) || !files.every((f) => typeof f === "string"))
+        throw new FormatError("port_changes PC-THUG1-22: scripts is not a list of file names");
+    return files as string[];
 }
 
 export function load(enabled = true): PortChanges {
