@@ -13,7 +13,8 @@
 // - scripts: THUGPRO's level scripts in no THPS3 file, not THUG2's own, not ones ours makes (CTF / team flags), and
 //   THPS3-named ones THUGPRO rewrote to use its new nodes or scripts (they replace ours); left out when they call
 //   what THUG2 hasn't (THUGPRO's DLL commands, its global scripts) - listed with the calls in `_left_out`;
-// - models: the files of the models those nodes name that THUGPRO's level archive carries (models\<name>\...).
+// - models: the files of the models those nodes name that THUGPRO's level archive carries (models\<name>\..., the
+//   model's .qb node array with them: a Vehicle can't load without it).
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -509,6 +510,21 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
         const model = modelOf(n);
         if (model === null || lower(model) === "none") continue;
         if (!wantModel(model, text(nm))) continue;
+        // A Vehicle needs its model's node array: THUG2's car_add_components gives every car a nodearray component
+        // (0x00427F20 loads models\<model up to its first '.'>.qb) and a railmanager, whose AddFromNodeArray
+        // (0x0057E960) reads the array's size with no null check - a model without its .qb crashes the level's load
+        // (Foundry's Obj_Bucket did, 2026-10-21). THUGPRO's archive carries it with the model (taken below with the
+        // model's files); THUG2's own models have theirs.
+        const dot = model.indexOf(".");
+        const arrayFile = lower(`models\\${dot < 0 ? model : model.slice(0, dot)}.qb`);
+        if (![...archiveFiles.keys()].some((f) => lower(f) === arrayFile) && !thug2Has(input.thug2Dir, arrayFile)) {
+            leftOut.push({
+                kind: "node",
+                target: text(nm),
+                why: `THUGPRO made it a Vehicle with ${model}, but neither THUGPRO's level archive nor THUG2 has its node array ${arrayFile} (a car's rail manager crashes without it): ours keeps THPS3's object`,
+            });
+            continue;
+        }
         const fields: Record<string, string> = { Class: "Vehicle", model };
         const skeleton = keyText(n, "skeletonName");
         if (skeleton !== null) fields.skeletonName = skeleton;
@@ -527,8 +543,8 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
     }
     for (const [prefix, why] of models) {
         const filesOf: Record<string, string> = {};
-        for (const [f, d] of archiveFiles)
-            if (lower(f).startsWith(prefix) && !lower(f).endsWith(".qb")) filesOf[f] = itemCrc(d);
+        // (its .qb too: the model's own node array, which a Vehicle's nodearray / railmanager components load - above)
+        for (const [f, d] of archiveFiles) if (lower(f).startsWith(prefix)) filesOf[f] = itemCrc(d);
         entries.push({
             op: "add",
             id: REGISTER_ID,
