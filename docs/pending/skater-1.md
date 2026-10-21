@@ -36,4 +36,32 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
     (ours and the game's). 54 deliberate bugs: 52 caught (6 after strengthening the test), 2 equivalent (+0x350's
     timer reset at exactly 0 - it already is 0; the sum order of the speed's squares - y is 0 in LimitSpeed, and the
     float result hides it in Brake).
-- [ ] Next: the feelers (0x005003A0 and its users), skitching, turning, wall plants, the acid drop search.
+- [x] Batch SK1-2 (NOT run in the game yet; the feelers, the member functions, skitching, 10 functions):
+  src/game/skater/core_physics_feelers.cpp, skitch.cpp (new).
+  - 0x005003A0 CheckFeeler (the component's feeler +0xA8 along +0x208..+0x218: +0x228 skatable / +0x229 vert /
+    +0x22A wall from the hit face's flags 1 / 2 / 4 / 8 in that order, else no steeper than Wall_Non_Skatable_Angle -
+    its x87 sine against the normal's y; the hit's +0x104 cleared for an object hit with face flag 0x40),
+    0x00500020 CanGrindRail (not the last rail +0x22C or its neighbours while still in the air; a new rail sets flag
+    +0x50 - in a created park only when all four end-to-end distances, unrounded lengths, are over 6; the wait
+    +0x23C since +0x234 for the same rail; state 4; on vert only moving up; the second argument unused),
+    0x005012B0 NearGround (script member; x of the side offset left unrounded), 0x00501600 CallMemberFunction (Ledge,
+    Obj_MoveToNode: the motion component's member function, then display matrix / shadow / +0x98 / old position /
+    teleported / the camera's update; NoReset and orient), 0x005009C0 FindNearestWallSide (a local feeler: nose /
+    tail / left / Right 12 along the forward or side row -> +0x2D4), 0x00501C90 CheckSideCollision and 0x005055B0
+    CheckSideCollisions (Skater_side_collide_height; the original keeps some products unrounded - x of the base, w of
+    each end - and checks the opposite side's time three times in a loop), 0x005054A0 ApplyModelRotations (the Model
+    component's rotations: the velocity turned by the quaternion-like 0x00420AC0 / 0x00420B50).
+  - Skitching: 0x00503EC0 StartSkitch (skitch_hold_time compared unsigned; the nearest skitch point of the
+    composite manager's skitch components within Skitch_Max_Distance - unrounded lengths, a tie keeps the first;
+    +0x364 the car through 0x0041D1D0; Skitched to both), 0x00501DB0 Skitch (the four buttons pick a direction; 6 at
+    a time short of 120 along the side for another point; held Skitch_Offset behind the point; pulled at
+    skitch_suck_speed - a NaN distance keeps pulling, as the original's TEST AH,1; 180 away: OffMeterBottom; the
+    skater's position w zeroed; its matrix = the car's display matrix).
+  - Test (selftests_skater_feelers.cpp TestSkaterPhysicsFeelers / Members / Skitch, 9000 + 4000 + 9000 variants):
+    the harness now records a stand-in's `this` words (the feeler's line), fills outputs at `this` (the hit), can
+    return its first argument, fill fixed outputs (ties, exact distances: 5 from every point, 1 away at a speed of
+    1, 180.001 away) and points the game's math functions at ours (OurMath). 71 deliberate bugs: 69 caught (11
+    after strengthening), 2 equivalent (NearGround's x * 16 is exact anyway; the side turn's |angle| against the
+    rounded instead of the unrounded turn - only for an angle within a rounding of it).
+- [ ] Next: turning (0x005002D0, 0x00503560, 0x005039F0, 0x00501B00, 0x00504730-0x00504DF0), wall plants, the acid drop
+  search.

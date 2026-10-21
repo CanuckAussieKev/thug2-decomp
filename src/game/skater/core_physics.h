@@ -6,6 +6,9 @@ namespace Script {
 class CStruct;
 class CScript;
 } // namespace Script
+namespace Mth {
+class Vector;
+} // namespace Mth
 
 // The skater's core physics component (on the ground, in the air): the pieces PartyMod changes for its
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::Ps2Controls()). Its layout is only partly
@@ -110,6 +113,49 @@ public:
     // 0x005021D0: unless flag +0x88 is set, a ride on the object the feeler hit (0x00427CD0: true when one starts);
     // a new ride makes the velocity relative to it (its velocity taken off).
     void StartRidingHitObject();
+
+    // --- core_physics_feelers.cpp: the feelers ---
+    // 0x005003A0: the feeler (+0xA8) along its line (+0x208 to +0x218), faces with any of `ignore` or without all of
+    // `require` passed over, movables too. On a hit: +0x228 skatable (face flag 1, or 8 vert, or neither 2 nor 4 and
+    // no steeper than Wall_Non_Skatable_Angle), +0x229 vert (flag 8), +0x22A a wall (flag 4). Whether it hit.
+    bool CheckFeeler(uint32_t ignore, uint32_t require);
+    // 0x00500020: whether the skater may grind `rail` (a rail node; +0x40 / +0x44 its neighbours) now: not the
+    // last one (+0x22C) or its neighbours again while still in the air after it; a new rail sets flag +0x50 (in a
+    // created park: one whose ends are all more than 6 from the last's); the same one only after +0x23C ms since
+    // +0x234. Then, unless `anyTime`: not in state 4, and on a vert wall (flag +0x38) only moving up. (The second
+    // argument isn't used.)
+    bool CanGrindRail(const void* rail, const void* unused, bool anyTime);
+    // 0x005012B0 (the script member function NearGround): whether there's ground within 20 above or below a point
+    // 16 to the skater's side (with Right: the other side). 1 or 0.
+    int NearGround(Script::CStruct* params, Script::CScript* script);
+    // 0x00501600 (vtable slot 12: a member function by name): Ledge - +0x248; Obj_MoveToNode - the motion
+    // component moves the skater, then the display matrix, the shadow, +0x98, the old position and the camera follow
+    // (teleported); without NoReset it stops and lands, with orient its horizontal speed turns to the new facing.
+    // 2 for any other name.
+    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    // 0x005009C0: which end or side of the board (nose / tail 12 along the forward row, left / Right 12 along the
+    // side row) has the nearest wall: +0x2D4 (0 if none).
+    void FindNearestWallSide();
+    // 0x00501C90: one side collision feeler (`side` 0-3) from `start` to `end`, unless the opposite side hit more
+    // than 500 ms ago: a hit's normal added to +0x2AC, its distance kept in +0x2BC if nearer, the side's time noted.
+    void CheckSideCollision(const Mth::Vector* start, const Mth::Vector* end, uint32_t side);
+    // 0x005055B0: the side collisions (+0x2C0 the reach and +0x2C4 the push, both set): four feelers at
+    // Skater_side_collide_height, both ways along the side and forward rows; with a hit, the skater pushed off (the
+    // nearer, the harder) and turned (+0x2C8 a second) along a wall it faces into.
+    void CheckSideCollisions();
+    // 0x005054A0: the model's rotations (+0xC8 / +0x15C / +0x1F0 of the Model component: any on) applied to the
+    // skater's matrix (0x004215F0), the velocity turned with its rotation about up, then reset. Whether any was on.
+    bool ApplyModelRotations();
+
+    // --- skitch.cpp: skitching ---
+    // 0x00503EC0: the grab button held longer than skitch_hold_time on the ground (not driving, not skitching): the
+    // nearest skitch point of another object within Skitch_Max_Distance grabbed (+0x24C its index, +0x364 the car);
+    // both told Skitched.
+    void StartSkitch();
+    // 0x00501DB0: skitching: the button pairs move to the next skitch point along the car; the skater held
+    // Skitch_Offset behind the point (pulled towards a new one at skitch_suck_speed), turned as the car. Without
+    // a car, or 180 or more away: OffMeterBottom.
+    void Skitch();
 
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground

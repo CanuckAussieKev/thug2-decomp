@@ -148,6 +148,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_skater_physics_harness.cpp
     src/hook/selftests_skater_state.cpp
+    src/hook/selftests_skater_feelers.cpp
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_el3d.cpp
     src/hook/selftests_fe_anim.cpp
@@ -594,6 +595,8 @@ add_library(thug2_code OBJECT
     src/game/skater/core_physics.cpp
     src/game/skater/core_physics_state.cpp
     src/game/skater/core_physics_speed.cpp
+    src/game/skater/core_physics_feelers.cpp
+    src/game/skater/skitch.cpp
     src/game/skater/debug_collision.cpp
     src/game/sys/platform.cpp
     src/game/sys/platform_cfuncs.cpp

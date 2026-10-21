@@ -28,6 +28,7 @@ enum class Ret : uint8_t {
     Float,  // a float from a short list, on the x87 stack (recorded)
     Double, // a value that isn't a float (a float times 4/3), on the x87 stack (recorded)
     Fixed,  // *value (a variable the test sets), in EAX (recorded)
+    FirstArg, // the first stack argument (an output the callee fills and returns)
 };
 
 struct StandIn {
@@ -43,7 +44,15 @@ struct StandIn {
     const void* also = nullptr;     // our rewrite of the callee, called directly by ours: stood in the same way
     const uint32_t* value = nullptr; // Ret::Fixed: where the result is read from
     uint8_t floatArgs = 0;          // bit i: argument i is a float (recorded as its bits; the same either way)
+    uint8_t wordArgs = 0;           // bit i: argument i is 16 bits (only its low half means anything)
+    int16_t thisOut = -1;           // fill `words` words at this + thisOut (random floats), or -1
+    int16_t thisIn = -1;            // record `thisInWords` words at this + thisIn, or -1
+    uint8_t thisInWords = 0;
+    float outScale = 4.0f;          // the outputs' range (-outScale..outScale)
 };
+
+// While set, outputs are filled with 1, 2, 3, 1 (instead of random floats): equal results from separate calls.
+extern bool g_fixedOut;
 
 // The stand-ins written over their callees while this exists.
 struct StandIns {
@@ -113,6 +122,20 @@ bool Compare(const std::vector<uint32_t>& expected, const std::vector<uint32_t>&
              int variant);
 // Whether `trace` has a call to `address` (recorded with `this` when thiscall).
 bool Called(const std::vector<uint32_t>& trace, uint32_t address);
+
+// A value recorded in the trace (for a test's own stand-in functions).
+void RecordValue(uint32_t value);
+
+// The game's math functions pointed at ours while this exists (ours are tested on their own; x87 and SSE code differ
+// in the last bits), so a test compares only the code under test: RotateToPlane, ProjectToPlane, ProjectOnto,
+// Normalize, GetAngleAbout, the matrix rotations and products, OrthoNormalizeAbout, the slerp.
+struct OurMath {
+    std::vector<CodePatch*> patches;
+    OurMath();
+    ~OurMath();
+    OurMath(const OurMath&) = delete;
+    OurMath& operator=(const OurMath&) = delete;
+};
 
 // The x87's precision set to 53 bits (as the game runs it) while this exists.
 struct X87Double {

@@ -4,6 +4,7 @@
 // only partly known: its fields are reached by offset). Used by core_physics_state.cpp, core_physics_speed.cpp and
 // the other files of 0x00500020-0x00508773.
 
+#include <cmath>
 #include <cstdint>
 
 #include "game/mth/matrix.h"
@@ -136,6 +137,15 @@ inline double X87Cos(double angle)
     }
     return result;
 }
+
+// A vector's squared length and length as the original's Vector::LengthSqr (0x004023A0) / Length (0x004023C0)
+// leave them on the x87 stack: x * x + y * y + z * z, unrounded.
+inline double LengthSqrUnrounded(const Mth::Vector& v)
+{
+    double x = v.x, y = v.y, z = v.z;
+    return x * x + y * y + z * z;
+}
+inline double LengthUnrounded(const Mth::Vector& v) { return std::sqrt(LengthSqrUnrounded(v)); }
 
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, the low half kept.
 inline uint32_t Ftol(double value) { return static_cast<uint32_t>(static_cast<int64_t>(value)); }

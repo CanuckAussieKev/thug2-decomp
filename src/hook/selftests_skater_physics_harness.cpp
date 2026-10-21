@@ -8,6 +8,10 @@
 
 #include <cstring>
 
+#include "game/mth/matrix.h"
+#include "game/mth/slerp.h"
+#include "game/mth/vector.h"
+#include "hook/hook.h"
 #include "hook/log.h"
 
 namespace SkaterPhysicsTest {
@@ -69,7 +73,7 @@ void __cdecl RecordStandInCall(uint32_t* frame)
     if (s.thiscall)
         g_calls.push_back(Relative(frame[1], stackLow));
     for (int i = 0; i < s.args; ++i) {
-        uint32_t word = (s.byteArgs & (1 << i)) ? args[i] & 0xFF : args[i];
+        uint32_t word = (s.byteArgs & (1 << i)) ? args[i] & 0xFF : (s.wordArgs & (1 << i)) ? args[i] & 0xFFFF : args[i];
         g_calls.push_back((s.floatArgs & (1 << i)) ? word : Relative(word, stackLow));
     }
     if (s.inArg >= 0) {
@@ -77,10 +81,21 @@ void __cdecl RecordStandInCall(uint32_t* frame)
         for (int i = 0; i < s.words; ++i)
             g_calls.push_back(Relative(data[i], stackLow));
     }
+    if (s.thisIn >= 0) {
+        const uint32_t* data = reinterpret_cast<const uint32_t*>(frame[1] + s.thisIn);
+        for (int i = 0; i < s.thisInWords; ++i)
+            g_calls.push_back(Relative(data[i], stackLow));
+    }
+    static const float kFixed[4] = {1.0f, 2.0f, 3.0f, 1.0f};
     if (s.outArg >= 0) {
         float* data = reinterpret_cast<float*>(args[s.outArg]);
         for (int i = 0; i < s.words; ++i)
-            data[i] = RandomFloat(4.0f);
+            data[i] = g_fixedOut ? kFixed[i % 4] : RandomFloat(s.outScale);
+    }
+    if (s.thisOut >= 0) {
+        float* data = reinterpret_cast<float*>(frame[1] + s.thisOut);
+        for (int i = 0; i < s.words; ++i)
+            data[i] = g_fixedOut ? kFixed[i % 4] : RandomFloat(s.outScale);
     }
     g_stubFloatKind = 0;
     switch (s.ret) {
@@ -114,6 +129,9 @@ void __cdecl RecordStandInCall(uint32_t* frame)
     case Ret::Fixed:
         g_stubEax = *s.value;
         g_calls.push_back(Relative(g_stubEax, stackLow));
+        break;
+    case Ret::FirstArg:
+        g_stubEax = args[0];
         break;
     }
     g_stubPop = s.pop;
@@ -161,6 +179,7 @@ __declspec(naked) void StandInEntry()
 } // namespace
 
 uint8_t* const g_physicsArena = g_arena;
+bool g_fixedOut = false;
 uint32_t g_rng = 1;
 
 StandIns::StandIns(const std::vector<StandIn>& list)
@@ -208,7 +227,7 @@ float PickFloat()
 
 int PickInt()
 {
-    static const int values[] = {-100, 0, 0, 50, 150, 300, 1000, 1, 500, 250};
+    static const int values[] = {-100, 0, 0, 50, 150, 300, 1000, 1, 500, 250, -1};
     return values[Next() % (sizeof(values) / sizeof(values[0]))];
 }
 
@@ -273,6 +292,47 @@ bool Compare(const std::vector<uint32_t>& expected, const std::vector<uint32_t>&
         }
     }
     return false;
+}
+
+void RecordValue(uint32_t value) { g_calls.push_back(value); }
+
+namespace {
+
+Mth::Matrix* __stdcall OurMatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+{
+    return &Mth::Multiply(*out, *a, *b);
+}
+
+} // namespace
+
+OurMath::OurMath()
+{
+    auto redirect = [this](uint32_t address, const void* ours) {
+        patches.push_back(new CodePatch(address, JumpTo(address, ours)));
+    };
+    redirect(0x004060F0, CodeAddress(&Mth::Vector::RotateToPlane));
+    redirect(0x00406080, CodeAddress(&Mth::Vector::ProjectToPlane));
+    redirect(0x00406200, CodeAddress(&Mth::Vector::ProjectOnto));
+    redirect(0x004023F0, CodeAddress(&Mth::Vector::Normalize));
+    redirect(0x00406630, CodeAddress(&Mth::GetAngleAbout));
+    redirect(0x00404DD0, CodeAddress(&Mth::CreateRotateXMatrix));
+    redirect(0x00404E20, CodeAddress(&Mth::CreateRotateYMatrix));
+    redirect(0x00404E70, CodeAddress(&Mth::CreateRotateZMatrix));
+    redirect(0x005BFA8C, reinterpret_cast<const void*>(&OurMatrixMultiply));
+    redirect(0x00405670, CodeAddress(&Mth::Matrix::RotateXLocal));
+    redirect(0x00405710, CodeAddress(&Mth::Matrix::RotateYLocal));
+    redirect(0x004057B0, CodeAddress(&Mth::Matrix::RotateZLocal));
+    redirect(0x00405950, CodeAddress(&Mth::Matrix::Rotate));
+    redirect(0x00405170, CodeAddress(&Mth::Matrix::OrthoNormalizeAbout));
+    redirect(0x00405990, CodeAddress(&Mth::SlerpInterpolator::SetMatrices));
+    redirect(0x00405A20, CodeAddress(&Mth::SlerpInterpolator::GetMatrix));
+    redirect(0x004058E0, CodeAddress(&Mth::SlerpInterpolator::InvertDirection));
+}
+
+OurMath::~OurMath()
+{
+    for (size_t i = patches.size(); i-- > 0;)
+        delete patches[i];
 }
 
 bool Called(const std::vector<uint32_t>& trace, uint32_t address)
