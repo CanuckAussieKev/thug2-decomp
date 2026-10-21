@@ -9,10 +9,12 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/script/node_prefixes.h"
+#include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace SkateScript {
 
@@ -28,6 +30,23 @@ constexpr uint32_t kPos = 0x7F261953;      // pos
 
 CNodeManager*& Instance() { return GameVariable<CNodeManager*>(0x006F0D84); }
 uint32_t& References() { return GameVariable<uint32_t>(0x006F0D88); }
+
+// NOT ORIGINAL - a node asked for that must exist (the release build's assertion did nothing) and doesn't: logged, the
+// first time for each name. Many callers then use the null as a node and crash (e.g. IsAlive's 0x005A3D10 -> a crash
+// in CStruct::GetChecksum: a converted level's script naming a node its NodeArray hasn't).
+void LogMissingNode(uint32_t name)
+{
+    static uint32_t logged[32];
+    static int count = 0;
+    for (int i = 0; i < count; ++i)
+        if (logged[i] == name)
+            return;
+    if (count < 32)
+        logged[count++] = name;
+    const char* text = Script::FindChecksumName(name);
+    Log("nodes: no node named 0x%08X%s%s%s in the level's node arrays - the caller expected one (it may crash on it)",
+        name, text ? " (" : "", text ? text : "", text ? ")" : "");
+}
 
 constexpr uint32_t kClass = 0x12B4E660;    // class
 constexpr uint32_t kLink = 0xC953660E;     // link (a class= whose nodes aren't hashed)
@@ -85,7 +104,7 @@ void CNodeManager::UnhashNodeArray(uint32_t array)
 }
 
 // 0x0045CFC0
-CStruct* CNodeManager::GetNode(uint32_t name, bool /*assert*/)
+CStruct* CNodeManager::GetNode(uint32_t name, bool assert)
 {
     for (uint32_t slot = name & (kSlots - 1); m_slots[slot].m_node != -1; slot = (slot + 1) & (kSlots - 1)) {
         const NodeSlot& s = m_slots[slot];
@@ -95,6 +114,8 @@ CStruct* CNodeManager::GetNode(uint32_t name, bool /*assert*/)
         if (nodeName == name)
             return node;
     }
+    if (assert)
+        LogMissingNode(name);
     return nullptr;
 }
 
