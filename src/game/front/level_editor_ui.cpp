@@ -14,8 +14,11 @@
 #include <cstring>
 
 #include "game/front/level_editor_entities.h"
+#include "game/front/level_editor_budget.h"
 #include "game/front/level_editor_camera.h"
 #include "game/front/level_editor_cameras.h"
+#include "game/front/level_editor_checks.h"
+#include "game/front/level_editor_notes.h"
 #include "game/front/level_editor_clusters.h"
 #include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_node_edit.h"
@@ -476,6 +479,8 @@ void Toolbar(const Model& model)
         Ask(Request::kDrop);
     ImGui::EndDisabled();
     ViewToolbar(model);
+    Budget::ToolbarItem(g_scale);   // (UX5: the budget meter - level_editor_budget.h)
+    Checks::ToolbarButton(g_scale); // (UX5: Problems, Alt+P - level_editor_checks.h)
     ImGui::SameLine(0.0f, 14.0f * g_scale);
     // Which level: always its edited copy (level_editor_layout.h) - never the level as shipped.
     ImGui::TextColored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s (edited copy)", model.levelTitle.c_str());
@@ -771,6 +776,7 @@ void Outliner(const Model& model)
         ImGui::PopFont();
         ImGui::TreePop();
     }
+    Notes::OutlinerSection(g_mono, g_outlinerSearch); // (UX5: note pins - level_editor_notes.h)
     ImGui::EndChild();
     ImGui::End();
 }
@@ -1389,6 +1395,11 @@ void Help(const Model& model)
                                   "Ctrl+Z undoes it this session)"},
         {"Adding", "B", "the level's pieces and objects: Up / Down choose, Left / Right switch, F shows, Enter "
                         "places a copy"},
+        {"", "+ Note here (Outliner)", "a note pin where the view looks - editor only, saved with the layout, never "
+                                       "in play or baked; click it in the Outliner's Notes to edit"},
+        {"Checking", "Alt+P (toolbar: Problems)", "the problem checker: placement, rails, collision, limits, triggers, "
+                                                  "gaps, multiplayer, layout records - Go to / Fix / Ignore"},
+        {"", "Budget (toolbar bar)", "the engine's limits: hover for every meter, click for the table"},
         {"Saving", "Ctrl+S", "the edited copy's layout - the level select's \"<LEVEL> (EDITED)\" loads it (offline "
                              "only); the level as shipped never changes"},
         {"", "Ctrl+R / Ctrl+Shift+R", "restore / discard an older autosave"},
@@ -1941,6 +1952,10 @@ void Frame(const Model& model, const Overlay& overlay)
     Prefs::TipsWindow(g_scale, g_heading, g_mono);
     Triggers::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
                      model.nodes.selected);
+    // (UX5: the Problems window, the selected note's window)
+    Checks::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
+                   g_mono);
+    Notes::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale);
     ImGui::PopFont();
     ImGui::Render();
     UiBackend::Render();

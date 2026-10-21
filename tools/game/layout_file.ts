@@ -135,6 +135,83 @@ export interface CameraRecord {
     distance: number;
 }
 export const CAMERA_DISTANCE = { min: 50, max: 20000, default: 1000 } as const;
+// (UX5 - level_editor_notes.h) a note pin: editor only - never baked (apply_layout.ts passes it over silently).
+// `colour`: RGB; `text` as typed (the record percent-encodes % " # and control characters).
+export interface NoteRecord {
+    name: string;
+    pos: V3;
+    colour: number;
+    text: string;
+}
+export const NOTE_MAX_TEXT = 500; // (bytes - Notes::kMaxText)
+// Notes::Decode: %XX escapes back into bytes (the rest as UTF-8); null for a bad escape or a raw " / #.
+export function decodeNoteText(encoded: string): string | null {
+    const bytes: number[] = [];
+    const encoder = new TextEncoder();
+    for (let i = 0; i < encoded.length; i++) {
+        const c = encoded[i]!;
+        if (c === '"' || c === "#") return null;
+        if (c !== "%") {
+            const code = encoded.codePointAt(i)!;
+            const char = String.fromCodePoint(code);
+            bytes.push(...encoder.encode(char));
+            i += char.length - 1;
+            continue;
+        }
+        const hex = encoded.slice(i + 1, i + 3);
+        if (!/^[0-9A-Fa-f]{2}$/.test(hex)) return null;
+        bytes.push(Number.parseInt(hex, 16));
+        i += 2;
+    }
+    return new TextDecoder().decode(Uint8Array.from(bytes.slice(0, NOTE_MAX_TEXT)));
+}
+// Notes::ReadRecord ported: the words after "note" as the line has them (comment cut) - a name, pos= (required),
+// color=RRGGBB, text="..." last; a repeated key, a bad value, text= not last or not quoted refuses it (null); other
+// keys skipped.
+export function readNoteRecord(rest: string): NoteRecord | null {
+    const m = /^\s*(\S+)(.*)$/.exec(rest);
+    if (!m || !validWord(m[1]!)) return null;
+    const note: NoteRecord = { name: m[1]!, pos: { x: 0, y: 0, z: 0 }, colour: 0xffd84a, text: "" };
+    const tail = m[2]!;
+    let at = 0;
+    let pos = false,
+        colour = false,
+        text = false;
+    for (;;) {
+        while (at < tail.length && tail[at] === " ") at++;
+        if (at >= tail.length) break;
+        if (text) return null;
+        const equals = tail.indexOf("=", at);
+        if (equals < 0) return null;
+        const key = tail.slice(at, equals);
+        if (key.includes(" ")) return null;
+        if (key === "text") {
+            if (tail[equals + 1] !== '"') return null;
+            const close = tail.indexOf('"', equals + 2);
+            if (close < 0) return null;
+            const decoded = decodeNoteText(tail.slice(equals + 2, close));
+            if (decoded === null) return null;
+            note.text = decoded;
+            text = true;
+            at = close + 1;
+            continue;
+        }
+        const end = tail.indexOf(" ", equals);
+        const value = tail.slice(equals + 1, end < 0 ? undefined : end);
+        at = end < 0 ? tail.length : end;
+        if (key === "pos") {
+            const p = parseTriple(value);
+            if (pos || !p) return null;
+            note.pos = p;
+            pos = true;
+        } else if (key === "color") {
+            if (colour || !/^[0-9A-Fa-f]{6}$/.test(value)) return null;
+            note.colour = Number.parseInt(value, 16);
+            colour = true;
+        } // (another key: a later version's - skipped)
+    }
+    return pos ? note : null;
+}
 // LevelProps::ValidSky: 1-64 letters, digits, _, holding "_sky" (what the load takes for a sky).
 export function validSky(sky: string): boolean {
     return /^[A-Za-z0-9_]{1,64}$/.test(sky) && sky.toLowerCase().includes("_sky");
@@ -175,6 +252,8 @@ export interface Layout {
     faces: FaceRecord[];
     clusters: ClusterRecord[];
     cameras: CameraRecord[];
+    // (UX5) note pins - editor only, never baked
+    notes: NoteRecord[];
 }
 
 // The DLL's limits for those (level_editor_entities.h kMinMph...).
@@ -454,6 +533,7 @@ export function readLayout(text: string): Layout {
         faces: [],
         clusters: [],
         cameras: [],
+        notes: [],
     };
     const lines = text.split("\n");
     let header = false;
@@ -781,6 +861,12 @@ export function readLayout(text: string): Layout {
                     if (!cluster) fail("bad cluster");
                     layout.clusters.push({ sector, trick: true, cluster });
                 }
+                break;
+            }
+            case "note": {
+                // (UX5: Notes::ReadRecord) note <name> pos=x,y,z [color=RRGGBB] [text="..."] - editor only
+                const note = readNoteRecord(line.trim().replace(/^note\s+/, "")) ?? fail("bad note");
+                layout.notes.push(note);
                 break;
             }
             case "camera": {

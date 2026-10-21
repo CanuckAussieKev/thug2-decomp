@@ -17,9 +17,11 @@
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_arcs.h"
+#include "game/front/level_editor_budget.h"
 #include "game/front/level_editor_camera.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_carry.h"
+#include "game/front/level_editor_checks.h"
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_clusters.h"
@@ -31,6 +33,7 @@
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
+#include "game/front/level_editor_notes.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_preview.h"
@@ -5130,6 +5133,7 @@ void TransformKeys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const M
 
 void Update()
 {
+    Budget::Observe(); // (UX5: the budget's baseline - the level up, before its edited copy's layout goes in)
     Layout::Tick();
     Triggers::Guard(); // (no editor trigger volumes in a network session)
     Triggers::Play(g_active); // (exit triggers: the skater leaving one, in play)
@@ -5418,9 +5422,14 @@ void Update()
     Faces::Update();
     Clusters::Update();
     Cameras::Update();
+    Checks::Update(); // (UX5: the Problems window's Go to / Fix - level_editor_checks.h)
+    Notes::Update();  // (UX5: note pins - level_editor_notes.h)
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
-    if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
+    bool pPressed = Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl;
+    if (pPressed && alt)
+        Checks::ToggleWindow(); // (UX5) Alt+P: the Problems window (Hammer's Check for Problems key)
+    if (pPressed && !alt) {
         Frame view = FrameFromYawPitch(g_yaw, g_pitch);
         uint32_t scene = Scenery::SceneName(Scenery::MainScene());
         Log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:", Nx::CurrentLevel(),
@@ -6015,6 +6024,10 @@ void Draw()
         Faces::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines);
         Cameras::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ,
                             model.nodes.selected >= 0 ? Nodes::All()[model.nodes.selected].name : 0, &g_overlay.lines);
+        // (UX5: note pins; the problem checker run again a moment after a change)
+        Notes::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.circles,
+                          &g_overlay.texts);
+        Checks::NoteModel(model.changes, model.marks);
         Triggers::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         if (Overlays::Shown(Overlays::kFeatureMap)) // (the Overlays menu - level_editor_overlays.h)
             Triggers::AddExtras(g_pos, frame, g_lens, g_viewport, kNearZ, model.nodes.selected, &g_overlay.lines,
@@ -6108,6 +6121,15 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
     std::snprintf(text, sizeof(text), "%d changes, %d pieces moved%s", model.changes, model.moved,
                   model.unsaved ? ", unsaved" : "");
     out.emplace_back("changes", text);
+    // (UX5) the problem checker's last count (the level's own and ignored ones left out) and the notes
+    {
+        int errors = 0, warnings = 0, infos = 0;
+        Checks::ShownCounts(&errors, &warnings, &infos);
+        std::snprintf(text, sizeof(text), "%d errors, %d warnings, %d notes; %u layout records unresolved; %u note pins",
+                      errors, warnings, infos, static_cast<unsigned>(Checks::LayoutIssues().size()),
+                      static_cast<unsigned>(Notes::All().size()));
+        out.emplace_back("problems", text);
+    }
     if (!model.message.empty())
         out.emplace_back("message", model.message);
     return out;
@@ -6146,6 +6168,36 @@ void LookFrom(V3 pos, float yaw, float pitch)
     g_pos = pos;
     g_yaw = yaw;
     g_pitch = std::clamp(pitch, -89.0f * kPi / 180.0f, 89.0f * kPi / 180.0f);
+}
+
+// (UX5 - level_editor_modules.h) the Problems window's and the notes' Go to.
+bool GoToNodeNamed(uint32_t name)
+{
+    int index = g_active && !g_dragging && name ? Nodes::Find(name) : -1;
+    if (index < 0)
+        return false;
+    GoToNode(index);
+    if (HaveSelection())
+        GoToSelection();
+    return true;
+}
+
+bool GoToScenery(uint32_t sector)
+{
+    if (!g_active || g_dragging || !sector || !Scenery::SectorOf(sector) || Scenery::WhyNotMovable(sector))
+        return false;
+    Deselect();
+    Scenery::SetSelection({sector});
+    GoToSelection();
+    return true;
+}
+
+void GoToPoint(V3 pos, float distance)
+{
+    if (!g_active || g_dragging)
+        return;
+    Deselect();
+    LookAt(pos, distance);
 }
 
 } // namespace Front::LevelEditor
