@@ -24,7 +24,13 @@ class CStruct;
 //     <tod_state>, TODManager_SetActive); the state also changes at once in the editor (Gfx::CTODManager::
 //     SetTODInstant);
 //   - its ambient light colour (ambient_red / _green / _blue) and fog (fog_red / _green / _blue / _alpha / _dist):
-//     level structure keys as the levels set them (Levels.qb; the converters write the same keys) - on reload.
+//     level structure keys as the levels set them (Levels.qb; the converters write the same keys) - on reload;
+//   - its sky (the feature map's "sky" row): another level's sky scene - the level structure's sky= ("TR_Sky"), which
+//     load_level loads before the level's own scene (Levels.qb: `if gotparam sky { LoadScene scene=<sky> }`; a scene
+//     whose name holds "_sky" is the sky - Nx::CFunc_LoadScene's is_sky). The skies are loose files
+//     (Data\levels\<X>_Sky\<X>_Sky.scn / .tex / .col, the ported levels' in the data overlay), so any level's loads
+//     with any other: Skies() lists the sky= of every level structure the game has (THUG2's 21 and the ported ones) -
+//     on reload (the sky scene is loaded with the level, before it).
 // How: LevelEditor_PickLevel (the level select chose the edited copy, before load_level runs) writes them into the
 // level's structure (Level_<x>, which load_level includes - its values are read as the load goes), and once the edited
 // copy is up (Layout::Tick) the structure is put back as the level has it: a level loaded any other way never sees
@@ -33,7 +39,8 @@ class CStruct;
 //
 // Layout record (version 2 still; an older reader skips the kind):
 //   level [name=<text>] [start=<node>] [tod=<state>] [time=0|1] [ambient=r,g,b] [fog=r,g,b,alpha,distance]
-// <text> %-escaped (level_editor_fields.h); <node> 8 hex digits.
+//         [sky=<scene>]
+// <text> and <scene> %-escaped (level_editor_fields.h); <node> 8 hex digits.
 namespace Front::LevelEditor::LevelProps {
 
 // --- the pure parts (self-tested: src/hook/selftests_editor_fields.cpp) -------------------------------------------
@@ -53,6 +60,7 @@ struct Props {
     int ambient[3] = {};
     bool hasFog = false;
     int fog[5] = {}; // r, g, b, alpha, distance
+    std::string sky; // the sky scene ("": the level's own) - another level's, e.g. "BO_Sky"
 };
 bool Same(const Props& a, const Props& b);
 bool Empty(const Props& props);
@@ -61,6 +69,9 @@ std::string WriteRecord(const Props& props);
 bool ReadRecord(std::istringstream& in, Props* props);
 // The level structure's keys the properties set, with their values (in this order).
 std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& props);
+// Whether a sky scene's name may be kept (1-64 characters, letters, digits, '_', and holding "_sky" - what the load
+// takes as a sky: Nx::CFunc_LoadScene).
+bool ValidSky(const std::string& sky);
 // A colour channel / distance typed in, kept in range.
 int Channel(int value);
 int Distance(int value);
@@ -81,5 +92,8 @@ void WriteIntoStructure(Script::CStruct* level, const Props& props);
 void RestoreStructure();
 // The edited copy is up: the skater put at its start.
 void OnEditedCopyUp(const Props& props);
+// The skies there are: every level structure's sky= (the game's Levels.qb and the overlay's ported levels), each once
+// (case doesn't matter), sorted - made once a level.
+const std::vector<std::string>& Skies();
 
 } // namespace Front::LevelEditor::LevelProps
