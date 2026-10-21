@@ -47,6 +47,8 @@ public:
     CSkaterStateHistoryComponent* Construct();
     // 0x00519840 (vtable slot 0): the destructor body (0x005197C0), then freed with flags & 1.
     CSkaterStateHistoryComponent* Destroy(unsigned int flags);
+    // 0x005197C0: the destructor body (the base's; in skater_state.cpp).
+    void DestroyBody();
 
     // 0x00519FA0: how far the object moves this frame: its velocity times the frame's length (w from the unrounded
     // frame length, x / y / z from it rounded).
