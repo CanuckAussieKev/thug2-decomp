@@ -1,0 +1,5123 @@
+{
+  "_comment": "THUGPRO's changes to THUG2's own levels (TP-42 in README.md here; the user's decision 2026-10-21: compare THUG2's node data). Written by `node tools/thug2_levels/thugpro_compare.ts --extract-thugpro`, never by hand except `enabled`: every entry is off until the user switches it on; `node tools/thug2_levels/thugpro_apply.ts` (and make_menu_level.ts) apply the switched-on entries through the data overlay (levels\\<L>\\<L>.qb / .col.xbx / .scn.xbx / _scripts.qb, scripts\\game\\Levels.qb), made from the user's THUG2 files - never the game's files. class: parity (online play with THUGPRO players: spawns, crowns, CTF, rails, kill zones, collision players touch, graffiti objects), visible (seen differently, nothing to stand on: gaps, vehicles, loose objects), single_player, cosmetic, none. `scripts` / `replace_scripts` / `geometry`: THUGPRO's own items BY REFERENCE (archive entry and CRC-32; read from the THUGPRO install when applied, never stored here). `edits`: tools/thug1_levels/hand_edits.ts's form (names, {float}, {vector}, {string}).",
+  "_register": "TP-42",
+  "_source": "THUGPRO's installed data\\pre (thugpro_qb.prx's Levels.qb: per level its node array qb=, level_qb=, more_level_qbs, thugpro_col_pre / thugpro_scn_pre; thugpro_dynamic.qb's <L>_LevelChanges) against THUG2's Data\\pre (<L>_scripts.prx, <L>col.prx, <L>scn.prx, qb_scripts.prx's Levels.qb)",
+  "levels": {
+    "TR": {
+      "sources": {
+        "nodes": "thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb",
+        "collision": "TRcol_thugpro.prx: levels\\TR\\TR.col.xbx",
+        "scene": "TRscn_thugpro.prx: levels\\TR\\TR.scn.xbx"
+      },
+      "entries": [
+        {
+          "id": "T2-TR-1",
+          "level": "TR",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_TR's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\tr_bg\" -> \"tr_bg\"; loading_screen: \"loadscrn_training\" -> (none); menu3d_name: \"menu3d\\\\tr_menu3d\\\\tr_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/TR_icon_1\", \"PanelSprites/Menu3d/TR_ic -> (none); game: (none) -> thug2; flag HasClassicGoals: (none) -> yes; flag DisableBackfacePatch: (none) -> yes; flag Indoor: (none) -> yes; flag nosun: (none) -> yes; overview_cam_pos: (none) -> (-1473.68994140625, 4401.080078125, -2635.700927734375); overview_cam_angle: (none) -> 180"
+        },
+        {
+          "id": "T2-TR-2",
+          "level": "TR",
+          "kind": "level_option",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "THUGPRO's host option \"(no menu item)\" (SERVER_LEVEL_CHANGE_01_ON): TR_LEVEL_CHANGE_01 off after loading, THUGPRO's state unless the host switches it (creates / kills collision nodes)",
+          "scripts": [
+            {
+              "name": "THUGPRO_ForceCreate",
+              "from": "thugpro_qb.prx: qb\\thugpro\\thugpro_utils.qb",
+              "crc": 1777729287
+            },
+            {
+              "name": "THUGPRO_SafeKill",
+              "from": "thugpro_qb.prx: qb\\thugpro\\thugpro_utils.qb",
+              "crc": 1918787587
+            },
+            {
+              "name": "TR_LEVEL_CHANGE_01",
+              "from": "thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb",
+              "crc": 225077582
+            }
+          ],
+          "level_setup": {
+            "options": [
+              {
+                "script": "TR_LEVEL_CHANGE_01",
+                "params": ["off"]
+              }
+            ]
+          },
+          "note": "applied as the state after loading only; a host switching it needs THUGPRO's messages 155-159"
+        },
+        {
+          "id": "T2-TR-3",
+          "level": "TR",
+          "kind": "scripts_changed",
+          "what": "scripts",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "TR's level scripts as THUGPRO's files have them (thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb): 6 scripts changed / added: TRG_RodneySkate_01Script, TRG_MikeSkate_01Script, TRG_BobSkate_01Script, TRG_EricSkate_01Script, TRG_BamSkate_01Script, TRG_MuskaSkate_01Script",
+          "replace_scripts": [
+            {
+              "name": "TRG_RodneySkate_01Script",
+              "from": "thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb",
+              "crc": 35950091
+            },
+            {
+              "name": "TRG_MikeSkate_01Script",
+              "from": "thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb",
+              "crc": 1765472756
+            },
+            {
+              "name": "TRG_BobSkate_01Script",
+              "from": "thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb",
+              "crc": 3223061372
+            },
+            {
+              "name": "TRG_EricSkate_01Script",
+              "from": "thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb",
+              "crc": 973221278
+            },
+            {
+              "name": "TRG_BamSkate_01Script",
+              "from": "thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb",
+              "crc": 3534327466
+            },
+            {
+              "name": "TRG_MuskaSkate_01Script",
+              "from": "thugpro_tr.prx: levels\\TR\\thugpro\\TR.qb",
+              "crc": 63326849
+            }
+          ],
+          "scripts": []
+        },
+        {
+          "id": "T2-TR-4",
+          "level": "TR",
+          "kind": "geometry_added",
+          "what": "collision",
+          "class": "none",
+          "enabled": false,
+          "applicable": true,
+          "description": "SkWare_Main_8a_QP: a piece THUGPRO added to TR (collision 17 faces, its scene sector, its node) - THUGPRO's own geometry, by reference from its install; not created at start - only TR_LEVEL_CHANGE_01 makes it (a host option, off after loading): the same as THUG2's until a host switches it on",
+          "nodes": ["SkWare_Main_8a_QP"],
+          "edits": {
+            "rails": {
+              "added": [
+                {
+                  "Pos": {
+                    "vector": [0.3837279975414276, -741.0911865234375, -2714.54736328125]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "Name": "SkWare_Main_8a_QP",
+                  "Class": "LevelGeometry",
+                  "Cluster": "WH_TB_Halfpipe_02",
+                  "CollisionMode": "Geometry",
+                  "flags": ["TrickObject"]
+                }
+              ]
+            }
+          },
+          "geometry": [
+            {
+              "name": "SkWare_Main_8a_QP"
+            }
+          ]
+        },
+        {
+          "id": "T2-TR-5",
+          "level": "TR",
+          "kind": "collision_objects_removed",
+          "what": "collision",
+          "class": "none",
+          "enabled": false,
+          "applicable": false,
+          "description": "TR's collision as THUGPRO's (TRcol_thugpro.prx: levels\\TR\\TR.col.xbx): 44 objects, 0 faces - TRG_SFX_TrigBox_WarehouseHum_01 (0 faces), TRG_SFX_SOB_LightHum_01 (0 faces), TRG_SFX_Ghost_PipeBust01 (0 faces), TRG_SFX_TrigBox_TR_Reverb01 (0 faces), TRG_SFX_TrigBox_Drips_01 (0 faces) (+39 more) - empty objects: no effect",
+          "nodes": [
+            "TRG_SFX_TrigBox_WarehouseHum_01",
+            "TRG_SFX_SOB_LightHum_01",
+            "TRG_SFX_Ghost_PipeBust01",
+            "TRG_SFX_TrigBox_TR_Reverb01",
+            "TRG_SFX_TrigBox_Drips_01",
+            "TRG_SFX_TrigBox_Drips_02",
+            "TRG_SFX_TrigBox_WarehouseHum_02",
+            "TRG_SFX_SOB_LightHum_02",
+            "TRG_SFX_Ghost_PipeBust02",
+            "TRG_SFX_Ghost_PipeBust03",
+            "TRG_SFX_Ghost_PipeBust04",
+            "TRG_SFX_Ghost_PipeBust05",
+            "TRG_SFX_Ghost_PipeBust06",
+            "TRG_SFX_Ghost_PipeBust07",
+            "TRG_SFX_Ghost_PipeBust08",
+            "TRG_SFX_Ghost_PipeBust09",
+            "TRG_SFX_Ghost_PipeBust10",
+            "TRG_SFX_Ghost_PipeBust11",
+            "TRG_SFX_Ghost_PipeBust12",
+            "TRG_SFX_Ghost_PipeBust13",
+            "TRG_SFX_Ghost_PipeBust14",
+            "TRG_SFX_Ghost_PipeBust15",
+            "TRG_SFX_Ghost_PipeBust16",
+            "TRG_SFX_Ghost_PipeBust17",
+            "TRG_SFX_Ghost_PipeBust18",
+            "TRG_SFX_Ghost_PipeBust19",
+            "TRG_SFX_Ghost_Airplane_By_01",
+            "TRG_SFX_TrigBox_BustedPipe",
+            "TRG_SFX_SOB_BustedPipe",
+            "TRG_SFX_TrigBox_TrashFire01",
+            "TRG_SFX_SOB_TrashFire01",
+            "TRG_SFX_SOB_Drip01",
+            "TRG_SFX_SOB_Drip02",
+            "TRG_SFX_SOB_Drip03",
+            "TRG_SFX_SOB_Drip04",
+            "TRG_SFX_SOB_Drip05",
+            "TRG_SFX_SOB_Drip06",
+            "TRG_SFX_SOB_Drip07",
+            "TRG_SFX_SOB_Drip08",
+            "TRG_SFX_TrigBox_ArcadeMachine",
+            "TRG_SFX_SOB_Arcade_Game",
+            "TRG_SFX_Ghost_SwitchBreak",
+            "TRG_SFX_TrigBox_SwitchBreakElectric",
+            "TRG_SFX_SOB_SwitchBreakElectric"
+          ]
+        },
+        {
+          "id": "T2-TR-6",
+          "level": "TR",
+          "kind": "scene_changed",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "TR's scene as THUGPRO's (TRscn_thugpro.prx: levels\\TR\\TR.scn.xbx): 25 sectors drawn otherwise (materials / vertex colours; same places)"
+        }
+      ]
+    },
+    "BO": {
+      "sources": {
+        "nodes": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+        "extra levels\\bo\\bo_thugpro.qb": "thugpro_bo.prx"
+      },
+      "entries": [
+        {
+          "id": "T2-BO-1",
+          "level": "BO",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_BO's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\bo_bg\" -> \"bo_bg\"; loading_screen: \"loadscrn_boston\" -> (none); menu3d_name: \"menu3d\\\\bo_menu3d\\\\bo_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/BO_icon_1\", \"PanelSprites/Menu3d/BO_ic -> (none); game: (none) -> thug2; flag HasClassicGoals: (none) -> yes; flag DisableBackfacePatch: (none) -> yes; overview_cam_angle: (none) -> 180; overview_cam_zoom: (none) -> (0.0, 4000.0, 500.0)"
+        },
+        {
+          "id": "T2-BO-2",
+          "level": "BO",
+          "kind": "level_option",
+          "what": "collision+rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "THUGPRO's host option \"Construction Site Ramps\" (SERVER_LEVEL_CHANGE_01_ON, net_only): bo_LEVEL_CHANGE_01 off after loading, THUGPRO's state unless the host switches it (creates / kills collision, rails nodes)",
+          "scripts": [
+            {
+              "name": "bo_LEVEL_CHANGE_01",
+              "from": "thugpro_bo.prx: levels\\bo\\bo_thugpro.qb",
+              "crc": 197611357
+            }
+          ],
+          "level_setup": {
+            "options": [
+              {
+                "script": "bo_LEVEL_CHANGE_01",
+                "params": ["off"]
+              }
+            ]
+          },
+          "note": "applied as the state after loading only; a host switching it needs THUGPRO's messages 155-159"
+        },
+        {
+          "id": "T2-BO-3",
+          "level": "BO",
+          "kind": "level_option",
+          "what": "level_option",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "THUGPRO's host option \"(no menu item)\" (SERVER_LEVEL_CHANGE_02_ON): bo_LEVEL_CHANGE_02 off after loading, THUGPRO's state unless the host switches it",
+          "scripts": [
+            {
+              "name": "bo_LEVEL_CHANGE_02",
+              "from": "thugpro_bo.prx: levels\\bo\\bo_thugpro.qb",
+              "crc": 2667050852
+            }
+          ],
+          "level_setup": {
+            "options": [
+              {
+                "script": "bo_LEVEL_CHANGE_02",
+                "params": ["off"]
+              }
+            ]
+          },
+          "note": "applied as the state after loading only; a host switching it needs THUGPRO's messages 155-159"
+        },
+        {
+          "id": "T2-BO-4",
+          "level": "BO",
+          "kind": "scripts_changed",
+          "what": "scripts",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BO's level scripts as THUGPRO's files have them (thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb): 64 scripts changed / added: JG_CY_Ivy01Script, JG_CY_Ivy02Script, JG_Per_PeriphRoadScript, BO_Gov_periph1Script, JG_CO_SubShadow01Script, BO_Hospital_Street_lines_01Script, BO_Hospital_Crosswalk_lines_02Script, JG_CO_SubShadow02Script (+56 more)",
+          "replace_scripts": [
+            {
+              "name": "JG_CY_Ivy01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1445877260
+            },
+            {
+              "name": "JG_CY_Ivy02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1846926719
+            },
+            {
+              "name": "JG_Per_PeriphRoadScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3720588209
+            },
+            {
+              "name": "BO_Gov_periph1Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 874822913
+            },
+            {
+              "name": "JG_CO_SubShadow01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 439260445
+            },
+            {
+              "name": "BO_Hospital_Street_lines_01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3541726837
+            },
+            {
+              "name": "BO_Hospital_Crosswalk_lines_02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3326225294
+            },
+            {
+              "name": "JG_CO_SubShadow02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 571809390
+            },
+            {
+              "name": "BO_DirtMoundScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 783289621
+            },
+            {
+              "name": "JG_CY_GroundScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3858321400
+            },
+            {
+              "name": "BO_GovtCenter01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2952704266
+            },
+            {
+              "name": "BO_StreetScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1155680948
+            },
+            {
+              "name": "BO_Church_GrimeFrontScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 798619852
+            },
+            {
+              "name": "NY_Street01CheersSectionScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3079013508
+            },
+            {
+              "name": "BO_Trashcan_02_outsideScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1742580703
+            },
+            {
+              "name": "JG_CO_TreeShadow03Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1776038873
+            },
+            {
+              "name": "JG_CO_TreeShadow04Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3096617425
+            },
+            {
+              "name": "JG_CO_TreeShadow02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3370497847
+            },
+            {
+              "name": "JG_CO_TreeShadow01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 4041096260
+            },
+            {
+              "name": "JG_CO_PlanterGrime02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2701521861
+            },
+            {
+              "name": "JG_CO_PlanterGrime01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2571008182
+            },
+            {
+              "name": "BO_Railshadow_59aScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3985823683
+            },
+            {
+              "name": "BOUNCY_TSIGN_02_ShadowScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2920955745
+            },
+            {
+              "name": "BOUNCY_TSIGN_01_ShadowScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3833808917
+            },
+            {
+              "name": "BO_Street05Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 257990519
+            },
+            {
+              "name": "BO_Street06Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 928715780
+            },
+            {
+              "name": "BO_BostonCommonGrassScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1356268138
+            },
+            {
+              "name": "BO_GovCntr_Brick_04Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1917118382
+            },
+            {
+              "name": "BO_GovCntr_Brick_02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 36958536
+            },
+            {
+              "name": "BO_Street01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3860170252
+            },
+            {
+              "name": "BO_Street02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3727560063
+            },
+            {
+              "name": "BO_Street03Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2132248977
+            },
+            {
+              "name": "BO_Street02UpperScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2564886644
+            },
+            {
+              "name": "BO_GovCntr_Brick_01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 973634107
+            },
+            {
+              "name": "BO_GovCntr_Brick_03Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2735371686
+            },
+            {
+              "name": "BO_GovCntr_Brick_05Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3548209984
+            },
+            {
+              "name": "BO_BostonCommonScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2877876802
+            },
+            {
+              "name": "JG_CO_FreedomTrailScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2556288203
+            },
+            {
+              "name": "BO_BostonCommon01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1915063477
+            },
+            {
+              "name": "BO_BostonCommon02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1243482054
+            },
+            {
+              "name": "BO_BostonCommon03Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3945235240
+            },
+            {
+              "name": "JG_CO_FreedomTrail01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1474169339
+            },
+            {
+              "name": "JG_CO_FreedomTrail02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1877312136
+            },
+            {
+              "name": "JG_CO_FreedomTrail03Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3470526054
+            },
+            {
+              "name": "JG_BD_Tracks01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2508784694
+            },
+            {
+              "name": "JG_BD_Tracks02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2914160453
+            },
+            {
+              "name": "TRGP_FireScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 4234936348
+            },
+            {
+              "name": "NightOn_09_CourtGlow03Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2022328689
+            },
+            {
+              "name": "NightOn_09_CourtGlow05Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 150822807
+            },
+            {
+              "name": "NightOn_09_CourtGlow01Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3783804652
+            },
+            {
+              "name": "NightOn_09_CourtGlow02Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3652439455
+            },
+            {
+              "name": "NightOn_04_BDGroundGlowScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 873954317
+            },
+            {
+              "name": "NightOn_02_StreetLampGLowScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3607357989
+            },
+            {
+              "name": "NightOn_02_StreetLampGLow2Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2278783414
+            },
+            {
+              "name": "NightOn_02_StreetLampGLow03Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3248161475
+            },
+            {
+              "name": "NightOn_02_StreetLampGLow04Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 282431691
+            },
+            {
+              "name": "NightOn_02_StreetLampGLow05Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2985038885
+            },
+            {
+              "name": "NightOn_02_StreetLampGLow07Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 686693304
+            },
+            {
+              "name": "NightOn_02_StreetLampGLow06Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2312609622
+            },
+            {
+              "name": "NightOff_02_JG_CO_TreeShadow06Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1666746637
+            },
+            {
+              "name": "NightOff_02_JG_CO_WallShdw07Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 3547805316
+            },
+            {
+              "name": "NightOff_02_JG_CO_TreeShadow05Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1533215358
+            },
+            {
+              "name": "JG_BD_BeforeShadowScript",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 1787634121
+            },
+            {
+              "name": "BO_Street04Script",
+              "from": "thugpro_bo.prx: levels\\BO\\thugpro\\BO.qb",
+              "crc": 2925075353
+            }
+          ],
+          "scripts": []
+        },
+        {
+          "id": "T2-BO-5",
+          "level": "BO",
+          "kind": "nodes_added",
+          "what": "rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "BO's node array as THUGPRO's: 6 rails nodes, added (RailNode): TP_BO_Office03_Ledge_Rail_0 (added (RailNode)), TP_BO_Office03_Ledge_Rail_1 (added (RailNode)), TP_BO_Office03_Ledge_Rail_2 (added (RailNode)), TP_BO_Office03_Ledge_Rail_3 (added (RailNode)) (+2 more)",
+          "nodes": [
+            "TP_BO_Office03_Ledge_Rail_0",
+            "TP_BO_Office03_Ledge_Rail_1",
+            "TP_BO_Office03_Ledge_Rail_2",
+            "TP_BO_Office03_Ledge_Rail_3",
+            "TP_BO_Office03_Ledge_Rail_4",
+            "TP_BO_Office03_Ledge_Rail_5"
+          ],
+          "edits": {
+            "rails": {
+              "added": [
+                {
+                  "pos": {
+                    "vector": [-2604.034912109375, 627.780029296875, 292.1990051269531]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "name": "TP_BO_Office03_Ledge_Rail_0",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_GRINDCONC",
+                  "Links": ["TP_BO_Office03_Ledge_Rail_1"],
+                  "flags": ["CreatedAtStart"]
+                },
+                {
+                  "pos": {
+                    "vector": [-2801.4541015625, 627.698974609375, 101.9280014038086]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "name": "TP_BO_Office03_Ledge_Rail_1",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_GRINDCONC",
+                  "Links": ["TP_BO_Office03_Ledge_Rail_2"],
+                  "flags": ["CreatedAtStart"]
+                },
+                {
+                  "pos": {
+                    "vector": [-2894.403076171875, 627.8079833984375, -74.02100372314453]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "name": "TP_BO_Office03_Ledge_Rail_2",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_GRINDCONC",
+                  "Links": ["TP_BO_Office03_Ledge_Rail_3"],
+                  "flags": ["CreatedAtStart"]
+                },
+                {
+                  "pos": {
+                    "vector": [-2894.681884765625, 627.8590087890625, -637.4509887695312]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "name": "TP_BO_Office03_Ledge_Rail_3",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_GRINDCONC",
+                  "Links": ["TP_BO_Office03_Ledge_Rail_4"],
+                  "flags": ["CreatedAtStart"]
+                },
+                {
+                  "pos": {
+                    "vector": [-2800.861083984375, 627.9249877929688, -815.6710205078125]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "name": "TP_BO_Office03_Ledge_Rail_4",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_GRINDCONC",
+                  "Links": ["TP_BO_Office03_Ledge_Rail_5"],
+                  "flags": ["CreatedAtStart"]
+                },
+                {
+                  "pos": {
+                    "vector": [-2719.346923828125, 626.2999877929688, -895.1690063476562]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "name": "TP_BO_Office03_Ledge_Rail_5",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_GRINDCONC",
+                  "flags": ["CreatedAtStart"]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "T2-BO-6",
+          "level": "BO",
+          "kind": "net_presence",
+          "what": "effects",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BO's node array as THUGPRO's: 4 effects nodes, AbsentInNetGames taken off: FireA_Smoke01 (AbsentInNetGames taken off), FireB01 (AbsentInNetGames taken off), ParticleBox_Fire03A (AbsentInNetGames taken off), FireA01 (AbsentInNetGames taken off)",
+          "nodes": ["FireA_Smoke01", "FireB01", "ParticleBox_Fire03A", "FireA01"],
+          "edits": {
+            "net_presence": {
+              "present": ["FireA_Smoke01", "FireB01", "ParticleBox_Fire03A", "FireA01"]
+            }
+          }
+        },
+        {
+          "id": "T2-BO-7",
+          "level": "BO",
+          "kind": "net_presence",
+          "what": "sounds",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BO's node array as THUGPRO's: 1 sounds nodes, AbsentInNetGames taken off: TRG_SFX_TrigBox_TrashCanFire01 (AbsentInNetGames taken off)",
+          "nodes": ["TRG_SFX_TrigBox_TrashCanFire01"],
+          "edits": {
+            "net_presence": {
+              "present": ["TRG_SFX_TrigBox_TrashCanFire01"]
+            }
+          }
+        },
+        {
+          "id": "T2-BO-8",
+          "level": "BO",
+          "kind": "node_values",
+          "what": "kill_zones",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "BO's node array as THUGPRO's: 1 kill_zones nodes, TriggerScript: BO_Office03 (TriggerScript: BO_Office03Script -> (none))",
+          "nodes": ["BO_Office03"],
+          "edits": {
+            "node_values": {
+              "BO_Office03": {
+                "TriggerScript": null
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-BO-9",
+          "level": "BO",
+          "kind": "node_values",
+          "what": "vehicles",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BO's node array as THUGPRO's: 2 vehicles nodes, SuspendDistance / lod_dist1 / lod_dist2: TRG_Car_Street_CC03 (SuspendDistance: 0 -> (none)), TRG_Car_Street_CC03 (lod_dist1: 300 -> (none)), TRG_Car_Street_CC03 (lod_dist2: 350 -> (none)), TRG_Car_Street_CC04 (SuspendDistance: 10000 -> (none)) (+2 more)",
+          "nodes": ["TRG_Car_Street_CC03", "TRG_Car_Street_CC04"],
+          "edits": {
+            "node_values": {
+              "TRG_Car_Street_CC03": {
+                "SuspendDistance": null,
+                "lod_dist1": null,
+                "lod_dist2": null
+              },
+              "TRG_Car_Street_CC04": {
+                "SuspendDistance": null,
+                "lod_dist1": null,
+                "lod_dist2": null
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-BO-10",
+          "level": "BO",
+          "kind": "banners",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "BO_LevelChanges: 4 banner / billboard / poster models of THUGPRO's (THUGPRO's own textures and models, no collision): BO_Billboard02, BO_Billboard03, JG_BO_TeaHouseBanners, JG_BO_YMCABanners01"
+        }
+      ]
+    },
+    "BA": {
+      "sources": {
+        "nodes": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+        "extra levels\\ba\\ba_thugpro.qb": "thugpro_ba.prx"
+      },
+      "entries": [
+        {
+          "id": "T2-BA-1",
+          "level": "BA",
+          "kind": "level_structure",
+          "what": "collision+rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "Level_BA's setup_script BA_Setup -> THUGPRO's thugpro_BA_Setup (it creates / kills collision, rails nodes)",
+          "scripts": [
+            {
+              "name": "thugpro_BA_Initializer",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 2140347997
+            },
+            {
+              "name": "thugpro_BA_MakeBridgePassable",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3439315176
+            },
+            {
+              "name": "thugpro_BA_ReCreateBridgeParts",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3672224881
+            },
+            {
+              "name": "thugpro_BA_RotateBridgeParts",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 2903883355
+            },
+            {
+              "name": "thugpro_BA_Setup",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3186344124
+            },
+            {
+              "name": "THUGPRO_ForceCreate",
+              "from": "thugpro_qb.prx: qb\\thugpro\\thugpro_utils.qb",
+              "crc": 1777729287
+            },
+            {
+              "name": "THUGPRO_SafeKill",
+              "from": "thugpro_qb.prx: qb\\thugpro\\thugpro_utils.qb",
+              "crc": 1918787587
+            }
+          ],
+          "level_setup": {
+            "setup_script": "thugpro_BA_Setup"
+          }
+        },
+        {
+          "id": "T2-BA-2",
+          "level": "BA",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_BA's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\ba_bg\" -> \"ba_bg\"; loading_screen: \"loadscrn_barcelona\" -> (none); menu3d_name: \"menu3d\\\\ba_menu3d\\\\ba_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/BA_icon_1\", \"PanelSprites/Menu3d/BA_ic -> (none); special_ped_info: [ { Type=pro FLAG=PRO_FOUND_02 } { name=BullFighter Type=gue -> (none); game: (none) -> thug2; flag HasClassicGoals: (none) -> yes; overview_cam_angle: (none) -> -63; overview_cam_zoom: (none) -> (1000.0, 7500.0, 1000.0)"
+        },
+        {
+          "id": "T2-BA-3",
+          "level": "BA",
+          "kind": "level_option",
+          "what": "collision+kill_zones",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "THUGPRO's host option \"Bull Wreckage\" (SERVER_LEVEL_CHANGE_01_ON, net_only): BA_LEVEL_CHANGE_01 off after loading, THUGPRO's state unless the host switches it (creates / kills collision, kill_zones nodes)",
+          "scripts": [
+            {
+              "name": "BA_LEVEL_CHANGE_01",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 4239504892
+            },
+            {
+              "name": "thugpro_BA_Bull_After_Kill",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 4086141203
+            },
+            {
+              "name": "thugpro_BA_Event_BullAfter",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 816552574
+            },
+            {
+              "name": "THUGPRO_SafeCreate",
+              "from": "thugpro_qb.prx: qb\\thugpro\\thugpro_utils.qb",
+              "crc": 2971894593
+            },
+            {
+              "name": "THUGPRO_SafeKill",
+              "from": "thugpro_qb.prx: qb\\thugpro\\thugpro_utils.qb",
+              "crc": 1918787587
+            }
+          ],
+          "level_setup": {
+            "options": [
+              {
+                "script": "BA_LEVEL_CHANGE_01",
+                "params": ["off"]
+              }
+            ]
+          },
+          "note": "applied as the state after loading only; a host switching it needs THUGPRO's messages 155-159"
+        },
+        {
+          "id": "T2-BA-4",
+          "level": "BA",
+          "kind": "trigger_scripts",
+          "what": "kill_zones",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA_LevelChanges: trigger scripts of 23 nodes replaced by THUGPRO's - touching them kills the skater (sk3_killskater): BA_BullBefore_TRGP_Truck -> thugpro_BA_BullBefore_TRGP_TruckScript, BA_MACBARoof -> thugpro_BA_MACBARoofScript, TRGP_BA_Kill01 -> thugpro_TRGP_BA_Kill01Script, TRGP_BA_Kill02 -> thugpro_TRGP_BA_Kill02Script, TRGP_BA_Kill03 -> thugpro_TRGP_BA_Kill03Script, TRGP_BA_Kill04 -> thugpro_TRGP_BA_Kill04Script (+17 more)",
+          "nodes": [
+            "BA_BullBefore_TRGP_Truck",
+            "BA_MACBARoof",
+            "TRGP_BA_Kill01",
+            "TRGP_BA_Kill02",
+            "TRGP_BA_Kill03",
+            "TRGP_BA_Kill04",
+            "TRGP_BA_Kill05",
+            "SE_AirCon01",
+            "SE_Maremagnum_booth",
+            "SE_Maremagnum_nolight",
+            "NightOn_07_SE_Maremagnum_sign_glow",
+            "Nightoff_07_SE_Maremagnum_sign_glow_day",
+            "Nighton_01_SE_Maremagnum_booth_lights",
+            "Nighton_01_SE_Maremagnum_booth_glows",
+            "NightOn_07_SE_Maremagnum_sign_glow_2",
+            "SE_AirCon_break2",
+            "SE_Maremagnum_BottomWall",
+            "SE_Maremagnum_BottomLedge",
+            "BA_MACBARoof01",
+            "SE_Maremagnum",
+            "SE_Maremagnum_interior",
+            "Nightoff_07_SE_Maremagnum_sign_glow2_day",
+            "NightOn_07_SE_Maremagnum_sign2_glow"
+          ],
+          "edits": {
+            "node_values": {
+              "BA_BullBefore_TRGP_Truck": {
+                "TriggerScript": "thugpro_BA_BullBefore_TRGP_TruckScript"
+              },
+              "BA_MACBARoof": {
+                "TriggerScript": "thugpro_BA_MACBARoofScript"
+              },
+              "TRGP_BA_Kill01": {
+                "TriggerScript": "thugpro_TRGP_BA_Kill01Script"
+              },
+              "TRGP_BA_Kill02": {
+                "TriggerScript": "thugpro_TRGP_BA_Kill02Script"
+              },
+              "TRGP_BA_Kill03": {
+                "TriggerScript": "thugpro_TRGP_BA_Kill03Script"
+              },
+              "TRGP_BA_Kill04": {
+                "TriggerScript": "thugpro_TRGP_BA_Kill04Script"
+              },
+              "TRGP_BA_Kill05": {
+                "TriggerScript": "thugpro_TRGP_BA_Kill05Script"
+              },
+              "SE_AirCon01": {
+                "TriggerScript": "thugpro_SE_AirCon01Script"
+              },
+              "SE_Maremagnum_booth": {
+                "TriggerScript": "thugpro_SE_Maremagnum_boothScript"
+              },
+              "SE_Maremagnum_nolight": {
+                "TriggerScript": "thugpro_SE_Maremagnum_nolightScript"
+              },
+              "NightOn_07_SE_Maremagnum_sign_glow": {
+                "TriggerScript": "thugpro_NightOn_07_SE_Maremagnum_sign_glowScript"
+              },
+              "Nightoff_07_SE_Maremagnum_sign_glow_day": {
+                "TriggerScript": "thugpro_Nightoff_07_SE_Maremagnum_sign_glow_dayScript"
+              },
+              "Nighton_01_SE_Maremagnum_booth_lights": {
+                "TriggerScript": "thugpro_Nighton_01_SE_Maremagnum_booth_lightsScript"
+              },
+              "Nighton_01_SE_Maremagnum_booth_glows": {
+                "TriggerScript": "thugpro_Nighton_01_SE_Maremagnum_booth_glowsScript"
+              },
+              "NightOn_07_SE_Maremagnum_sign_glow_2": {
+                "TriggerScript": "thugpro_NightOn_07_SE_Maremagnum_sign_glow_2Script"
+              },
+              "SE_AirCon_break2": {
+                "TriggerScript": "thugpro_SE_AirCon_break2Script"
+              },
+              "SE_Maremagnum_BottomWall": {
+                "TriggerScript": "thugpro_SE_Maremagnum_BottomWallScript"
+              },
+              "SE_Maremagnum_BottomLedge": {
+                "TriggerScript": "thugpro_SE_Maremagnum_BottomLedgeScript"
+              },
+              "BA_MACBARoof01": {
+                "TriggerScript": "thugpro_BA_MACBARoof01Script"
+              },
+              "SE_Maremagnum": {
+                "TriggerScript": "thugpro_SE_MaremagnumScript"
+              },
+              "SE_Maremagnum_interior": {
+                "TriggerScript": "thugpro_SE_Maremagnum_interiorScript"
+              },
+              "Nightoff_07_SE_Maremagnum_sign_glow2_day": {
+                "TriggerScript": "thugpro_Nightoff_07_SE_Maremagnum_sign_glow2_dayScript"
+              },
+              "NightOn_07_SE_Maremagnum_sign2_glow": {
+                "TriggerScript": "thugpro_NightOn_07_SE_Maremagnum_sign2_glowScript"
+              }
+            }
+          },
+          "scripts": [
+            {
+              "name": "thugpro_BA_BullBefore_TRGP_TruckScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 2343488499
+            },
+            {
+              "name": "thugpro_BA_LeavingMessage",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 1365767627
+            },
+            {
+              "name": "thugpro_BA_MACBARoof01Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 2544247663
+            },
+            {
+              "name": "thugpro_BA_MACBARoofScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3821827111
+            },
+            {
+              "name": "thugpro_Nightoff_07_SE_Maremagnum_sign_glow_dayScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 587780649
+            },
+            {
+              "name": "thugpro_Nightoff_07_SE_Maremagnum_sign_glow2_dayScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 1534297643
+            },
+            {
+              "name": "thugpro_Nighton_01_SE_Maremagnum_booth_glowsScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3517337116
+            },
+            {
+              "name": "thugpro_Nighton_01_SE_Maremagnum_booth_lightsScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3011626023
+            },
+            {
+              "name": "thugpro_NightOn_07_SE_Maremagnum_sign_glow_2Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3048381813
+            },
+            {
+              "name": "thugpro_NightOn_07_SE_Maremagnum_sign_glowScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3062546018
+            },
+            {
+              "name": "thugpro_NightOn_07_SE_Maremagnum_sign2_glowScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 7851411
+            },
+            {
+              "name": "thugpro_SE_AirCon_break2Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 292038831
+            },
+            {
+              "name": "thugpro_SE_AirCon01Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 4228978493
+            },
+            {
+              "name": "thugpro_SE_Maremagnum_boothScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 1869617891
+            },
+            {
+              "name": "thugpro_SE_Maremagnum_BottomLedgeScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 2459441891
+            },
+            {
+              "name": "thugpro_SE_Maremagnum_BottomWallScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 1734563110
+            },
+            {
+              "name": "thugpro_SE_Maremagnum_interiorScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 808012474
+            },
+            {
+              "name": "thugpro_SE_Maremagnum_nolightScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 817254461
+            },
+            {
+              "name": "thugpro_SE_MaremagnumScript",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3597998091
+            },
+            {
+              "name": "thugpro_TRGP_BA_Kill01Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 2787865114
+            },
+            {
+              "name": "thugpro_TRGP_BA_Kill02Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 2661681199
+            },
+            {
+              "name": "thugpro_TRGP_BA_Kill03Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 887110118
+            },
+            {
+              "name": "thugpro_TRGP_BA_Kill04Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 3829115230
+            },
+            {
+              "name": "thugpro_TRGP_BA_Kill05Script",
+              "from": "thugpro_ba.prx: levels\\ba\\ba_thugpro.qb",
+              "crc": 1293084952
+            }
+          ]
+        },
+        {
+          "id": "T2-BA-5",
+          "level": "BA",
+          "kind": "scripts_changed",
+          "what": "gaps",
+          "class": "visible",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's level scripts as THUGPRO's files have them (thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb): 3 scripts changed / added: TRG_BA_BullAfter_BullScript, TRG_BA_Rail668Script, TRG_BA_Rail1350Script",
+          "replace_scripts": [
+            {
+              "name": "TRG_BA_BullAfter_BullScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 498587072
+            },
+            {
+              "name": "TRG_BA_Rail668Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 254668313
+            },
+            {
+              "name": "TRG_BA_Rail1350Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2184563406
+            }
+          ],
+          "scripts": []
+        },
+        {
+          "id": "T2-BA-6",
+          "level": "BA",
+          "kind": "scripts_changed",
+          "what": "scripts",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's level scripts as THUGPRO's files have them (thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb): 77 scripts changed / added: TRG_BA_Restart_BridgePassableScript, TRG_BA_Restart_BridgeImpassableScript, TRG_BA_Restart_BullAfterScript, TRG_BA_Restart_BullBefore_SmokeStackScript, TRG_BA_BullBefore_Bull01Script, TRG_BA_Bull_BullDuring_OutOfTruckScript, TRG_BA_Bull_BullDuring_HospitalScript, TRG_BA_Bull_BullDuring_SantsBenchScript (+69 more)",
+          "replace_scripts": [
+            {
+              "name": "TRG_BA_Restart_BridgePassableScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 518128859
+            },
+            {
+              "name": "TRG_BA_Restart_BridgeImpassableScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3719331563
+            },
+            {
+              "name": "TRG_BA_Restart_BullAfterScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1706949653
+            },
+            {
+              "name": "TRG_BA_Restart_BullBefore_SmokeStackScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2014981983
+            },
+            {
+              "name": "TRG_BA_BullBefore_Bull01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1926327891
+            },
+            {
+              "name": "TRG_BA_Bull_BullDuring_OutOfTruckScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2395785984
+            },
+            {
+              "name": "TRG_BA_Bull_BullDuring_HospitalScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1036289075
+            },
+            {
+              "name": "TRG_BA_Bull_BullDuring_SantsBenchScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3541829941
+            },
+            {
+              "name": "TRG_BA_Bull_BullDuring_CarScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1968830720
+            },
+            {
+              "name": "TRG_BA_Bull_BullDuring_SantsHPScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2809219656
+            },
+            {
+              "name": "TRG_BA_Bull_BullDuring_SmokeStackScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3230146693
+            },
+            {
+              "name": "BA_BullAfter_Car_TRGP_FireScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2368654121
+            },
+            {
+              "name": "RDM_bridgeA_North01_nolightScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2708675234
+            },
+            {
+              "name": "perif_warf01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 434060820
+            },
+            {
+              "name": "perif_warf_REFScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3733718933
+            },
+            {
+              "name": "ARC_near_REFScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3876968861
+            },
+            {
+              "name": "perif_warf_buildings_REFScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3576531370
+            },
+            {
+              "name": "perif_warf01_buildingsScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2597789219
+            },
+            {
+              "name": "perif_warf01_treesScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 689079992
+            },
+            {
+              "name": "perif_warf01_buildings2Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1862076535
+            },
+            {
+              "name": "ARC_shoretreesScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1812341823
+            },
+            {
+              "name": "ARC_buildingsScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 4289777882
+            },
+            {
+              "name": "Nighton_09_arc_lightsScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 656178647
+            },
+            {
+              "name": "Nighton_09_arc_lights_REFScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3474853009
+            },
+            {
+              "name": "Macba_apm_edgerScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2628970188
+            },
+            {
+              "name": "RDM_SeawallScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1878393433
+            },
+            {
+              "name": "ARC_streetScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 441056637
+            },
+            {
+              "name": "ARC_BackScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 790740626
+            },
+            {
+              "name": "ARCScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 4049886080
+            },
+            {
+              "name": "perf_boats05Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3656627880
+            },
+            {
+              "name": "SE_dock_Kickers01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3328881225
+            },
+            {
+              "name": "SE_dock_Kickers02Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 4266735930
+            },
+            {
+              "name": "SE_dock_Kickers04Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2384867292
+            },
+            {
+              "name": "SE_Dock_CornerScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1801325409
+            },
+            {
+              "name": "BA_SE_Geo453Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2771155369
+            },
+            {
+              "name": "SE_NEW_railingsScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1249282767
+            },
+            {
+              "name": "SE_NEW_railings04Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 4193679232
+            },
+            {
+              "name": "SE_NEW_railings02Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2306957670
+            },
+            {
+              "name": "SE_NEW_railings03Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 683206024
+            },
+            {
+              "name": "green_light01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2418884934
+            },
+            {
+              "name": "green_light_glowScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 395634566
+            },
+            {
+              "name": "green_light01_glowScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1550992299
+            },
+            {
+              "name": "SE_NEW_railings01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2981816853
+            },
+            {
+              "name": "SE_NEW_railings02bScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 934750145
+            },
+            {
+              "name": "BA_RambladeMar08Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1664179936
+            },
+            {
+              "name": "BA_RambladeMar12Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3032191793
+            },
+            {
+              "name": "BA_RambladeMar13Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 360847327
+            },
+            {
+              "name": "BA_RambladeMar15Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1710555449
+            },
+            {
+              "name": "RDM_pilesScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3267550690
+            },
+            {
+              "name": "BA_RambladeMar13_no_lightScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2209280248
+            },
+            {
+              "name": "BA_RambladeMar08_nolightsScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3717513384
+            },
+            {
+              "name": "RDM_bridgeA_North01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 532373957
+            },
+            {
+              "name": "RDM_bridgeA_South01_nolightScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 541245346
+            },
+            {
+              "name": "NightOff_06_RDM_south_shdw_01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1311101067
+            },
+            {
+              "name": "NightOn_06_BA_RambladeMarGLOW01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2652799662
+            },
+            {
+              "name": "NightOn_06_BA_RambladeMar08_glowScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3601441754
+            },
+            {
+              "name": "RDM_bridgeA_South01_bridge_closedScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1177615532
+            },
+            {
+              "name": "BA_RambladeMar08_nolights01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 219097113
+            },
+            {
+              "name": "BA_RambladeMar13_no_light01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2439846875
+            },
+            {
+              "name": "BA_BullBefore_TruckDoorScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3324198389
+            },
+            {
+              "name": "ARC_groundScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3142849115
+            },
+            {
+              "name": "RDM_Seawall01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1975707931
+            },
+            {
+              "name": "BA_Bull_TruckScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 109632340
+            },
+            {
+              "name": "Bus_grounds01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 932223448
+            },
+            {
+              "name": "Bus_grounds02Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 262869675
+            },
+            {
+              "name": "Bus_grounds03Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2928842309
+            },
+            {
+              "name": "Bus_grounds04Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 2145125453
+            },
+            {
+              "name": "SE_NEW_railings03_shadScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1512391552
+            },
+            {
+              "name": "RDM_bridgeA_South_RailingScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 4128216693
+            },
+            {
+              "name": "RDM_bridgeA_South_Railing01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3146861585
+            },
+            {
+              "name": "RDM_bridgeA_North_RailingScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 542948777
+            },
+            {
+              "name": "RDM_bridgeA_North_Railing01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 983623953
+            },
+            {
+              "name": "green_lightScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 3438739768
+            },
+            {
+              "name": "RDM_bridgeA_South01Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 734157618
+            },
+            {
+              "name": "Object03Script",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 592488396
+            },
+            {
+              "name": "Bus_groundsScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1387279699
+            },
+            {
+              "name": "Nightoff_05_bus_awn_shadScript",
+              "from": "thugpro_ba.prx: levels\\BA\\thugpro\\BA.qb",
+              "crc": 1645932027
+            }
+          ],
+          "scripts": []
+        },
+        {
+          "id": "T2-BA-7",
+          "level": "BA",
+          "kind": "net_presence",
+          "what": "rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's node array as THUGPRO's: 1 rails nodes, AbsentInNetGames taken off: TRG_BA_SE_Climb_Boat_Wire01 (AbsentInNetGames taken off)",
+          "nodes": ["TRG_BA_SE_Climb_Boat_Wire01"],
+          "edits": {
+            "net_presence": {
+              "present": ["TRG_BA_SE_Climb_Boat_Wire01"]
+            }
+          }
+        },
+        {
+          "id": "T2-BA-8",
+          "level": "BA",
+          "kind": "net_presence",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's node array as THUGPRO's: 6 collision nodes, AbsentInNetGames taken off: TRGP_SE_Tele02 (AbsentInNetGames taken off), TRGP_SE_Tele04 (AbsentInNetGames taken off), BA_SE_fountains01 (AbsentInNetGames taken off), BA_SE_fountains02 (AbsentInNetGames taken off) (+2 more)",
+          "nodes": [
+            "TRGP_SE_Tele02",
+            "TRGP_SE_Tele04",
+            "BA_SE_fountains01",
+            "BA_SE_fountains02",
+            "BA_SE_fountains03",
+            "SE_Maremagnum_Doors"
+          ],
+          "edits": {
+            "net_presence": {
+              "present": [
+                "TRGP_SE_Tele02",
+                "TRGP_SE_Tele04",
+                "BA_SE_fountains01",
+                "BA_SE_fountains02",
+                "BA_SE_fountains03",
+                "SE_Maremagnum_Doors"
+              ]
+            }
+          }
+        },
+        {
+          "id": "T2-BA-9",
+          "level": "BA",
+          "kind": "net_presence",
+          "what": "vehicles",
+          "class": "visible",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's node array as THUGPRO's: 1 vehicles nodes, AbsentInNetGames taken off: TRG_BA_Bridge_Boat01 (AbsentInNetGames taken off)",
+          "nodes": ["TRG_BA_Bridge_Boat01"],
+          "edits": {
+            "net_presence": {
+              "present": ["TRG_BA_Bridge_Boat01"]
+            }
+          }
+        },
+        {
+          "id": "T2-BA-10",
+          "level": "BA",
+          "kind": "net_presence",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's node array as THUGPRO's: 14 scenery nodes, AbsentInNetGames taken off: trg_bouncy_patio_75_shadow (AbsentInNetGames taken off), BA_NEW_Bouncy_Table03_shadow (AbsentInNetGames taken off), BA_new_Bouncy_Chair05_shadow (AbsentInNetGames taken off), BA_new_Bouncy_Chair06_shadow (AbsentInNetGames taken off) (+10 more)",
+          "nodes": [
+            "trg_bouncy_patio_75_shadow",
+            "BA_NEW_Bouncy_Table03_shadow",
+            "BA_new_Bouncy_Chair05_shadow",
+            "BA_new_Bouncy_Chair06_shadow",
+            "BA_NEW_Bouncy_Table06_shadow",
+            "BA_new_Bouncy_Chair11_shadow",
+            "BA_new_Bouncy_Chair12_shadow",
+            "BA_NEW_Bouncy_Table07_shadow",
+            "BA_new_Bouncy_Chair13_shadow",
+            "BA_new_Bouncy_Chair14_shadow",
+            "BA_NEW_Bouncy_Table08_shadow",
+            "BA_new_Bouncy_Chair15_shadow",
+            "BA_new_Bouncy_Chair16_shadow",
+            "BA_SE_Boat_wire"
+          ],
+          "edits": {
+            "net_presence": {
+              "present": [
+                "trg_bouncy_patio_75_shadow",
+                "BA_NEW_Bouncy_Table03_shadow",
+                "BA_new_Bouncy_Chair05_shadow",
+                "BA_new_Bouncy_Chair06_shadow",
+                "BA_NEW_Bouncy_Table06_shadow",
+                "BA_new_Bouncy_Chair11_shadow",
+                "BA_new_Bouncy_Chair12_shadow",
+                "BA_NEW_Bouncy_Table07_shadow",
+                "BA_new_Bouncy_Chair13_shadow",
+                "BA_new_Bouncy_Chair14_shadow",
+                "BA_NEW_Bouncy_Table08_shadow",
+                "BA_new_Bouncy_Chair15_shadow",
+                "BA_new_Bouncy_Chair16_shadow",
+                "BA_SE_Boat_wire"
+              ]
+            }
+          }
+        },
+        {
+          "id": "T2-BA-11",
+          "level": "BA",
+          "kind": "net_presence",
+          "what": "effects",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's node array as THUGPRO's: 1 effects nodes, AbsentInNetGames taken off: BA_BullAfter_Car_Fire02_Start (AbsentInNetGames taken off)",
+          "nodes": ["BA_BullAfter_Car_Fire02_Start"],
+          "edits": {
+            "net_presence": {
+              "present": ["BA_BullAfter_Car_Fire02_Start"]
+            }
+          }
+        },
+        {
+          "id": "T2-BA-12",
+          "level": "BA",
+          "kind": "net_presence",
+          "what": "sounds",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's node array as THUGPRO's: 2 sounds nodes, AbsentInNetGames taken off: TRG_SFX_TrigBox_CarFire (AbsentInNetGames taken off), TRG_SFX_TrigBox_ShipStuck01 (AbsentInNetGames taken off)",
+          "nodes": ["TRG_SFX_TrigBox_CarFire", "TRG_SFX_TrigBox_ShipStuck01"],
+          "edits": {
+            "net_presence": {
+              "present": ["TRG_SFX_TrigBox_CarFire", "TRG_SFX_TrigBox_ShipStuck01"]
+            }
+          }
+        },
+        {
+          "id": "T2-BA-13",
+          "level": "BA",
+          "kind": "node_values",
+          "what": "objects",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "BA's node array as THUGPRO's: 1 objects nodes, Target taken off: TRG_BA_BullBefore_Door_Trigger (Target taken off)",
+          "nodes": ["TRG_BA_BullBefore_Door_Trigger"],
+          "edits": {
+            "node_values": {
+              "TRG_BA_BullBefore_Door_Trigger": {
+                "-Target": true
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-BA-14",
+          "level": "BA",
+          "kind": "banners",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "BA_LevelChanges: 5 banner / billboard / poster models of THUGPRO's (THUGPRO's own textures and models, no collision): static levels\\dynamic\\tpBanner_Normal.mdl, static leveleditor\\exported\\Big_Banner.mdl, static levels\\dynamic\\tpBanner_Square.mdl, static levels\\dynamic\\tpBanner_Normal.mdl (+1 more)"
+        }
+      ]
+    },
+    "BE": {
+      "sources": {
+        "extra levels\\be\\be_thugpro.qb": "thugpro_be.prx"
+      },
+      "entries": [
+        {
+          "id": "T2-BE-1",
+          "level": "BE",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_BE's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\be_bg\" -> \"be_bg\"; loading_screen: \"loadscrn_berlin\" -> (none); menu3d_name: \"menu3d\\\\be_menu3d\\\\be_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/BE_icon_1\", \"PanelSprites/Menu3d/BE_ic -> (none); special_ped_info: [ { type=pro FLAG=PRO_FOUND_03 } { name=graffititagger type= -> (none); game: (none) -> thug2; flag HasClassicGoals: (none) -> yes; overview_cam_angle: (none) -> 0; overview_cam_zoom: (none) -> (3000.0, 8000.0, -5000.0)"
+        },
+        {
+          "id": "T2-BE-2",
+          "level": "BE",
+          "kind": "level_option",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "THUGPRO's host option \"Train LevelEvent\" (SERVER_LEVEL_CHANGE_01_ON, net_only): be_LEVEL_CHANGE_01 off after loading, THUGPRO's state unless the host switches it (creates / kills collision nodes)",
+          "scripts": [
+            {
+              "name": "be_LEVEL_CHANGE_01",
+              "from": "thugpro_be.prx: levels\\be\\be_thugpro.qb",
+              "crc": 2572674327
+            }
+          ],
+          "level_setup": {
+            "options": [
+              {
+                "script": "be_LEVEL_CHANGE_01",
+                "params": ["off"]
+              }
+            ]
+          },
+          "note": "applied as the state after loading only; a host switching it needs THUGPRO's messages 155-159"
+        },
+        {
+          "id": "T2-BE-3",
+          "level": "BE",
+          "kind": "level_option",
+          "what": "level_option",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "THUGPRO's host option \"Thunderstorm\" (SERVER_LEVEL_CHANGE_02_ON): BE_LEVEL_CHANGE_02 off after loading, THUGPRO's state unless the host switches it",
+          "scripts": [
+            {
+              "name": "BE_LEVEL_CHANGE_02",
+              "from": "thugpro_be.prx: levels\\be\\be_thugpro.qb",
+              "crc": 2508794951
+            },
+            {
+              "name": "THUGPRO_BE_KillThunderScripts",
+              "from": "thugpro_be.prx: levels\\be\\be_thugpro.qb",
+              "crc": 1247145718
+            },
+            {
+              "name": "THUGPRO_BE_ThunderStorm",
+              "from": "thugpro_be.prx: levels\\be\\be_thugpro.qb",
+              "crc": 2898734946
+            },
+            {
+              "name": "THUGPRO_BE_ThunderStormStart",
+              "from": "thugpro_be.prx: levels\\be\\be_thugpro.qb",
+              "crc": 4191000762
+            }
+          ],
+          "level_setup": {
+            "options": [
+              {
+                "script": "BE_LEVEL_CHANGE_02",
+                "params": ["off"]
+              }
+            ]
+          },
+          "note": "applied as the state after loading only; a host switching it needs THUGPRO's messages 155-159"
+        },
+        {
+          "id": "T2-BE-4",
+          "level": "BE",
+          "kind": "banners",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "BE_LevelChanges: 2 banner / billboard / poster models of THUGPRO's (THUGPRO's own textures and models, no collision): g_sign_billboard_01, g_billboard_shops_front_03"
+        }
+      ]
+    },
+    "AU": {
+      "sources": {
+        "nodes": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+        "extra levels\\au\\au_thugpro.qb": "thugpro_au.prx"
+      },
+      "entries": [
+        {
+          "id": "T2-AU-1",
+          "level": "AU",
+          "kind": "level_structure",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "Level_AU's setup_script AU_Setup -> THUGPRO's AU_thugpro_Setup (it creates / kills collision nodes)",
+          "scripts": [
+            {
+              "name": "AU_thugpro_Initializer",
+              "from": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+              "crc": 1674696622
+            },
+            {
+              "name": "AU_thugpro_Setup",
+              "from": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+              "crc": 1654394591
+            }
+          ],
+          "level_setup": {
+            "setup_script": "AU_thugpro_Setup"
+          }
+        },
+        {
+          "id": "T2-AU-2",
+          "level": "AU",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_AU's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\au_bg\" -> \"au_bg\"; loading_screen: \"loadscrn_australia\" -> (none); menu3d_name: \"menu3d\\\\au_menu3d\\\\au_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/AU_icon_1\", \"PanelSprites/Menu3d/AU_ic -> (none); game: (none) -> thug2; flag HasClassicGoals: (none) -> yes; overview_cam_zoom: (none) -> (3500.0, 6500.0, 0.0)"
+        },
+        {
+          "id": "T2-AU-3",
+          "level": "AU",
+          "kind": "scripts_changed",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's level scripts as THUGPRO's files have them (thugpro_au.prx: levels\\AU\\thugpro\\AU.qb): 6 scripts changed / added: AU_thugpro_Setup (new), AU_thugpro_Initializer (new), TRG_PostEvent_A_CraneGrind04Script, TRG_PostEvent_A_CraneGrind01Script, TRG_56Script, TRG_57Script - they create / kill collision nodes",
+          "replace_scripts": [
+            {
+              "name": "AU_thugpro_Setup",
+              "from": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+              "crc": 1654394591
+            },
+            {
+              "name": "AU_thugpro_Initializer",
+              "from": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+              "crc": 1674696622
+            },
+            {
+              "name": "TRG_PostEvent_A_CraneGrind04Script",
+              "from": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+              "crc": 2234669609
+            },
+            {
+              "name": "TRG_PostEvent_A_CraneGrind01Script",
+              "from": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+              "crc": 2552097082
+            },
+            {
+              "name": "TRG_56Script",
+              "from": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+              "crc": 1674052937
+            },
+            {
+              "name": "TRG_57Script",
+              "from": "thugpro_au.prx: levels\\AU\\thugpro\\AU.qb",
+              "crc": 3193887948
+            }
+          ],
+          "scripts": []
+        },
+        {
+          "id": "T2-AU-4",
+          "level": "AU",
+          "kind": "nodes_added",
+          "what": "rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 4 rails nodes, added (RailNode): ed_rail_0_0 (added (RailNode)), ed_rail_0_1 (added (RailNode)), ed_rail_1_0 (added (RailNode)), ed_rail_1_1 (added (RailNode))",
+          "nodes": ["ed_rail_0_0", "ed_rail_0_1", "ed_rail_1_0", "ed_rail_1_1"],
+          "edits": {
+            "rails": {
+              "added": [
+                {
+                  "pos": {
+                    "vector": [1246.012939453125, 107.83499908447266, 4441.54296875]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "Name": "ed_rail_0_0",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_CONCROUGH",
+                  "Links": ["ed_rail_0_1"],
+                  "flags": ["CreatedAtStart"]
+                },
+                {
+                  "pos": {
+                    "vector": [1705.7349853515625, 107.63099670410156, 4706.81494140625]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "Name": "ed_rail_0_1",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_CONCROUGH",
+                  "flags": ["CreatedAtStart"]
+                },
+                {
+                  "pos": {
+                    "vector": [-4791.19384765625, -115, 5858.83203125]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "Name": "ed_rail_1_0",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_GRINDCONC",
+                  "Links": ["ed_rail_1_1"],
+                  "flags": ["CreatedAtStart"]
+                },
+                {
+                  "pos": {
+                    "vector": [-4870.37890625, -119.68099975585938, 6091.828125]
+                  },
+                  "Angles": {
+                    "vector": [0, 0, 0]
+                  },
+                  "Name": "ed_rail_1_1",
+                  "Class": "RailNode",
+                  "TerrainType": "TERRAIN_GRINDCONC",
+                  "flags": ["CreatedAtStart"]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "T2-AU-5",
+          "level": "AU",
+          "kind": "net_presence",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 37 collision nodes, AbsentInNetGames taken off: TRGP_Warp_Alley01 (AbsentInNetGames taken off), TRGP_Warp_Secret02 (AbsentInNetGames taken off), TRGP_Warp_Secret01 (AbsentInNetGames taken off), TRGP_Warp_Secret03 (AbsentInNetGames taken off) (+33 more)",
+          "nodes": [
+            "TRGP_Warp_Alley01",
+            "TRGP_Warp_Secret02",
+            "TRGP_Warp_Secret01",
+            "TRGP_Warp_Secret03",
+            "NightOn_01_AU_CG_GlobeLamp_Light_06",
+            "NightOn_01_AU_CG_GlobeLamp_Light_05",
+            "NightOn_01_AU_CG_GlobeLamp_Light_04",
+            "NightOn_01_AU_CG_GlobeLamp_Light_03",
+            "NightOn_01_AU_CG_GlobeLamp_Light_02",
+            "NightOn_01_AU_CG_GlobeLamp_Light_01",
+            "NightOn_01_Geo_PreEvent_B_StreetLampGlobe01",
+            "NightOn_01_Street_lamp_06",
+            "NightOn_01_Street_lamp_05",
+            "NightOn_01_Geo_PreEvent_B_StreetLamp01",
+            "NightOn_01_Street_lamp_04",
+            "NightOn_01_Street_lamp_03",
+            "NightOn_01_Street_lamp_02",
+            "NightOn_01_Street_lamp_01",
+            "NightOn_09_JG_CourtWindows01",
+            "NightOn_01_CG_StripLightGlow_02",
+            "NightOn_01_CG_StripLightGlow_03",
+            "NightOn_01_CG_StripLightGlow_04",
+            "NightOn_01_CG_StripLightGlow_05",
+            "NightOn_01_CG_StripLightGlow_06",
+            "NightOn_01_CG_StripLightGlow_07",
+            "NightOn_01_CG_LawnLightGlow_04",
+            "NightOn_01_CG_LawnLightGlow_05",
+            "NightOn_01_CG_LawnLightGlow_09",
+            "NightOn_01_CG_GroundLightGlow_03",
+            "NightOn_01_FountainLight_01",
+            "NightOn_02_ceilingGlow_01",
+            "NightOn_01_CG_LawnLightGlow_07",
+            "NightOn_01_StoreGlow",
+            "NightOn_01_SKDKGlass01",
+            "NightOn_01_CG_GroundLightGlow_04",
+            "NightOn_01_CG_GroundLightGlow_07",
+            "NightOn_01_MumboSign01"
+          ],
+          "edits": {
+            "net_presence": {
+              "present": [
+                "TRGP_Warp_Alley01",
+                "TRGP_Warp_Secret02",
+                "TRGP_Warp_Secret01",
+                "TRGP_Warp_Secret03",
+                "NightOn_01_AU_CG_GlobeLamp_Light_06",
+                "NightOn_01_AU_CG_GlobeLamp_Light_05",
+                "NightOn_01_AU_CG_GlobeLamp_Light_04",
+                "NightOn_01_AU_CG_GlobeLamp_Light_03",
+                "NightOn_01_AU_CG_GlobeLamp_Light_02",
+                "NightOn_01_AU_CG_GlobeLamp_Light_01",
+                "NightOn_01_Geo_PreEvent_B_StreetLampGlobe01",
+                "NightOn_01_Street_lamp_06",
+                "NightOn_01_Street_lamp_05",
+                "NightOn_01_Geo_PreEvent_B_StreetLamp01",
+                "NightOn_01_Street_lamp_04",
+                "NightOn_01_Street_lamp_03",
+                "NightOn_01_Street_lamp_02",
+                "NightOn_01_Street_lamp_01",
+                "NightOn_09_JG_CourtWindows01",
+                "NightOn_01_CG_StripLightGlow_02",
+                "NightOn_01_CG_StripLightGlow_03",
+                "NightOn_01_CG_StripLightGlow_04",
+                "NightOn_01_CG_StripLightGlow_05",
+                "NightOn_01_CG_StripLightGlow_06",
+                "NightOn_01_CG_StripLightGlow_07",
+                "NightOn_01_CG_LawnLightGlow_04",
+                "NightOn_01_CG_LawnLightGlow_05",
+                "NightOn_01_CG_LawnLightGlow_09",
+                "NightOn_01_CG_GroundLightGlow_03",
+                "NightOn_01_FountainLight_01",
+                "NightOn_02_ceilingGlow_01",
+                "NightOn_01_CG_LawnLightGlow_07",
+                "NightOn_01_StoreGlow",
+                "NightOn_01_SKDKGlass01",
+                "NightOn_01_CG_GroundLightGlow_04",
+                "NightOn_01_CG_GroundLightGlow_07",
+                "NightOn_01_MumboSign01"
+              ]
+            }
+          }
+        },
+        {
+          "id": "T2-AU-6",
+          "level": "AU",
+          "kind": "net_presence",
+          "what": "rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 131 rails nodes, AbsentInNetGames taken off: TRG_L_Secret01 (AbsentInNetGames taken off), TRG_L_Secret02 (AbsentInNetGames taken off), TRG_L_Secret03 (AbsentInNetGames taken off), TRG_L_Secret04 (AbsentInNetGames taken off) (+127 more)",
+          "nodes": [
+            "TRG_L_Secret01",
+            "TRG_L_Secret02",
+            "TRG_L_Secret03",
+            "TRG_L_Secret04",
+            "TRG_L_Secret05",
+            "TRG_L_Secret08",
+            "TRG_L_Secret09",
+            "TRG_L_Secret10",
+            "TRG_L_Secret11",
+            "TRG_L_Secret12",
+            "TRG_L_Secret13",
+            "TRG_L_Secret14",
+            "TRG_L_Secret15",
+            "TRG_L_Secret16",
+            "TRG_L_Secret17",
+            "TRG_L_Secret18",
+            "TRG_L_Secret19",
+            "TRG_L_Secret20",
+            "TRG_L_Secret21",
+            "TRG_L_Secret22",
+            "TRG_L_Secret35",
+            "TRG_L_Secret36",
+            "TRG_L_Secret37",
+            "TRG_L_Secret38",
+            "TRG_L_Secret39",
+            "TRG_L_Secret40",
+            "TRG_L_Secret41",
+            "TRG_L_Secret43",
+            "TRG_L_Secret23",
+            "TRG_L_Secret24",
+            "TRG_L_Secret25",
+            "TRG_L_Secret26",
+            "TRG_L_Secret27",
+            "TRG_L_Secret28",
+            "TRG_L_Secret29",
+            "TRG_L_Secret30",
+            "TRG_L_Secret31",
+            "TRG_L_Secret32",
+            "TRG_L_Secret33",
+            "TRG_L_Secret44",
+            "TRG_L_Secret45",
+            "TRG_L_Secret46",
+            "TRG_L_Secret47",
+            "TRG_L_Secret48",
+            "TRG_L_Secret49",
+            "TRG_L_Secret50",
+            "TRG_L_Secret51",
+            "TRG_L_Secret52",
+            "TRG_R_SecretEntry01",
+            "TRG_R_SecretEntry02",
+            "TRG_R_SecretEntry03",
+            "TRG_R_SecretEntry04",
+            "TRG_R_SecretEntry05",
+            "TRG_R_SecretEntry06",
+            "TRG_R_SecretEntry07",
+            "TRG_R_SecretEntry08",
+            "TRG_R_SecretEntry09",
+            "TRG_R_SecretEntry10",
+            "TRG_R_SecretEntry11",
+            "TRG_R_SecretEntry12",
+            "TRG_R_SecretEntry13",
+            "TRG_R_SecretEntry14",
+            "TRG_R_SecretEntry15",
+            "TRG_R_SecretEntry16",
+            "TRG_R_SecretEntry17",
+            "TRG_R_SecretEntry18",
+            "TRG_R_SecretEntry19",
+            "TRG_R_SecretLadder01",
+            "TRG_R_SecretLadder02",
+            "TRG_L_Secret53",
+            "TRG_L_SecretPool01",
+            "TRG_L_SecretPool02",
+            "TRG_L_SecretPool03",
+            "TRG_L_SecretPool04",
+            "TRG_L_SecretPool05",
+            "TRG_L_SecretPool06",
+            "TRG_L_SecretPool07",
+            "TRG_L_SecretPool08",
+            "TRG_L_SecretPool09",
+            "TRG_L_SecretPool10",
+            "TRG_L_SecretPool11",
+            "TRG_L_SecretPool12",
+            "TRG_L_SecretPool35",
+            "TRG_L_SecretPool36",
+            "TRG_L_SecretPool37",
+            "TRG_L_SecretPool38",
+            "TRG_L_SecretPool39",
+            "TRG_L_SecretPool40",
+            "TRG_L_SecretPool41",
+            "TRG_L_SecretPool42",
+            "TRG_L_SecretPool43",
+            "TRG_L_SecretPool44",
+            "TRG_L_SecretPool45",
+            "TRG_L_SecretPool46",
+            "TRG_L_SecretPool47",
+            "TRG_L_SecretPool48",
+            "TRG_L_SecretPool49",
+            "TRG_L_SecretPool52",
+            "TRG_L_SecretPool53",
+            "TRG_L_SecretPool54",
+            "TRG_L_SecretPool55",
+            "TRG_L_SecretPool56",
+            "TRG_L_SecretPool57",
+            "TRG_L_SecretPool58",
+            "TRG_L_SecretPool59",
+            "TRG_L_SecretPool60",
+            "TRG_L_SecretPool61",
+            "TRG_L_SecretPool64",
+            "TRG_L_SecretPool65",
+            "TRG_L_SecretPool66",
+            "TRG_L_SecretPool67",
+            "TRG_L_SecretPool68",
+            "TRG_L_SecretPool69",
+            "TRG_L_SecretPool70",
+            "TRG_L_SecretPool71",
+            "TRG_L_SecretPool76",
+            "TRG_L_SecretPool77",
+            "TRG_L_Secret54",
+            "TRG_L_Secret55",
+            "TRG_L_SecretFallsLip01",
+            "TRG_L_SecretFallsLip02",
+            "TRG_L_Secret06",
+            "TRG_L_Secret07",
+            "TRG_L_Secret34",
+            "TRG_L_Secret42",
+            "TRG_L_Secret56",
+            "TRG_L_Secret57",
+            "TRG_L_Secret58",
+            "TRG_L_Secret59",
+            "TRG_L_Secret60",
+            "TRG_L_SecretFallsLip03"
+          ],
+          "edits": {
+            "net_presence": {
+              "present": [
+                "TRG_L_Secret01",
+                "TRG_L_Secret02",
+                "TRG_L_Secret03",
+                "TRG_L_Secret04",
+                "TRG_L_Secret05",
+                "TRG_L_Secret08",
+                "TRG_L_Secret09",
+                "TRG_L_Secret10",
+                "TRG_L_Secret11",
+                "TRG_L_Secret12",
+                "TRG_L_Secret13",
+                "TRG_L_Secret14",
+                "TRG_L_Secret15",
+                "TRG_L_Secret16",
+                "TRG_L_Secret17",
+                "TRG_L_Secret18",
+                "TRG_L_Secret19",
+                "TRG_L_Secret20",
+                "TRG_L_Secret21",
+                "TRG_L_Secret22",
+                "TRG_L_Secret35",
+                "TRG_L_Secret36",
+                "TRG_L_Secret37",
+                "TRG_L_Secret38",
+                "TRG_L_Secret39",
+                "TRG_L_Secret40",
+                "TRG_L_Secret41",
+                "TRG_L_Secret43",
+                "TRG_L_Secret23",
+                "TRG_L_Secret24",
+                "TRG_L_Secret25",
+                "TRG_L_Secret26",
+                "TRG_L_Secret27",
+                "TRG_L_Secret28",
+                "TRG_L_Secret29",
+                "TRG_L_Secret30",
+                "TRG_L_Secret31",
+                "TRG_L_Secret32",
+                "TRG_L_Secret33",
+                "TRG_L_Secret44",
+                "TRG_L_Secret45",
+                "TRG_L_Secret46",
+                "TRG_L_Secret47",
+                "TRG_L_Secret48",
+                "TRG_L_Secret49",
+                "TRG_L_Secret50",
+                "TRG_L_Secret51",
+                "TRG_L_Secret52",
+                "TRG_R_SecretEntry01",
+                "TRG_R_SecretEntry02",
+                "TRG_R_SecretEntry03",
+                "TRG_R_SecretEntry04",
+                "TRG_R_SecretEntry05",
+                "TRG_R_SecretEntry06",
+                "TRG_R_SecretEntry07",
+                "TRG_R_SecretEntry08",
+                "TRG_R_SecretEntry09",
+                "TRG_R_SecretEntry10",
+                "TRG_R_SecretEntry11",
+                "TRG_R_SecretEntry12",
+                "TRG_R_SecretEntry13",
+                "TRG_R_SecretEntry14",
+                "TRG_R_SecretEntry15",
+                "TRG_R_SecretEntry16",
+                "TRG_R_SecretEntry17",
+                "TRG_R_SecretEntry18",
+                "TRG_R_SecretEntry19",
+                "TRG_R_SecretLadder01",
+                "TRG_R_SecretLadder02",
+                "TRG_L_Secret53",
+                "TRG_L_SecretPool01",
+                "TRG_L_SecretPool02",
+                "TRG_L_SecretPool03",
+                "TRG_L_SecretPool04",
+                "TRG_L_SecretPool05",
+                "TRG_L_SecretPool06",
+                "TRG_L_SecretPool07",
+                "TRG_L_SecretPool08",
+                "TRG_L_SecretPool09",
+                "TRG_L_SecretPool10",
+                "TRG_L_SecretPool11",
+                "TRG_L_SecretPool12",
+                "TRG_L_SecretPool35",
+                "TRG_L_SecretPool36",
+                "TRG_L_SecretPool37",
+                "TRG_L_SecretPool38",
+                "TRG_L_SecretPool39",
+                "TRG_L_SecretPool40",
+                "TRG_L_SecretPool41",
+                "TRG_L_SecretPool42",
+                "TRG_L_SecretPool43",
+                "TRG_L_SecretPool44",
+                "TRG_L_SecretPool45",
+                "TRG_L_SecretPool46",
+                "TRG_L_SecretPool47",
+                "TRG_L_SecretPool48",
+                "TRG_L_SecretPool49",
+                "TRG_L_SecretPool52",
+                "TRG_L_SecretPool53",
+                "TRG_L_SecretPool54",
+                "TRG_L_SecretPool55",
+                "TRG_L_SecretPool56",
+                "TRG_L_SecretPool57",
+                "TRG_L_SecretPool58",
+                "TRG_L_SecretPool59",
+                "TRG_L_SecretPool60",
+                "TRG_L_SecretPool61",
+                "TRG_L_SecretPool64",
+                "TRG_L_SecretPool65",
+                "TRG_L_SecretPool66",
+                "TRG_L_SecretPool67",
+                "TRG_L_SecretPool68",
+                "TRG_L_SecretPool69",
+                "TRG_L_SecretPool70",
+                "TRG_L_SecretPool71",
+                "TRG_L_SecretPool76",
+                "TRG_L_SecretPool77",
+                "TRG_L_Secret54",
+                "TRG_L_Secret55",
+                "TRG_L_SecretFallsLip01",
+                "TRG_L_SecretFallsLip02",
+                "TRG_L_Secret06",
+                "TRG_L_Secret07",
+                "TRG_L_Secret34",
+                "TRG_L_Secret42",
+                "TRG_L_Secret56",
+                "TRG_L_Secret57",
+                "TRG_L_Secret58",
+                "TRG_L_Secret59",
+                "TRG_L_Secret60",
+                "TRG_L_SecretFallsLip03"
+              ]
+            }
+          }
+        },
+        {
+          "id": "T2-AU-7",
+          "level": "AU",
+          "kind": "net_presence",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 86 scenery nodes, AbsentInNetGames taken off: NightOn_01_Lampglow01 (AbsentInNetGames taken off), NightOn_01_Lampglow02 (AbsentInNetGames taken off), NightOn_01_Lampglow04 (AbsentInNetGames taken off), NightOn_01_Lampglow06 (AbsentInNetGames taken off) (+82 more)",
+          "nodes": [
+            "NightOn_01_Lampglow01",
+            "NightOn_01_Lampglow02",
+            "NightOn_01_Lampglow04",
+            "NightOn_01_Lampglow06",
+            "NightOn_01_Lampglow09",
+            "NightOn_01_Lampglow10",
+            "NightOn_01_Lampglow11",
+            "NIghtOn_01_Lampglow12",
+            "NightOn_01_Lampglow05",
+            "NightOn_01_Lampglow07",
+            "NightOn_01_Lampglow08",
+            "NightOn_01_JG_Stars",
+            "NightOn_01_Moon",
+            "NightOn_01_MoonGlow",
+            "NightOn_01_CircleLightMap_01",
+            "NightOn_01_CircleLightMap_02",
+            "NightOn_01_AU_CG_GlobeLamp_06",
+            "NightOn_01_AU_CG_GlobeLamp_05",
+            "NightOn_01_AU_CG_GlobeLamp_04",
+            "NightOn_01_AU_CG_GlobeLamp_03",
+            "NightOn_01_AU_CG_GlobeLamp_02",
+            "NightOn_01_AU_CG_GlobeLamp_01",
+            "NightOn_01_CG_MiniSpots_02",
+            "NightOn_01_CG_MiniSpotsGlow_05",
+            "NightOn_01_CG_MiniSpotsGlow_06",
+            "NightOn_01_CG_MiniSpots_03",
+            "NightOn_01_CG_MiniSpotsGlow_07",
+            "NightOn_01_CG_MiniSpotsGlow_08",
+            "NightOn_01_CG_MiniSpotsGlow_09",
+            "NightOn_01_CG_MiniSpotsGlow_10",
+            "NightOn_01_CG_MiniSpots_04",
+            "NightOn_01_CG_WallLightGlow_02",
+            "NightOn_01_CG_LawnLightGlow_03",
+            "NightOn_01_CG_LawnLightGlow_06",
+            "NightOn_01_CG_LawnLightGlow_08",
+            "NightOn_01_CG_LawnLightGlow_10",
+            "NightOn_01_CircleLightMap_10",
+            "NightOn_01_WinGlow_01",
+            "NightOn_01_WinGlow_02",
+            "NightOn_01_CG_WallLightGlow_03",
+            "NightOn_01_CG_MiniSpotsGlow_11",
+            "NightOn_01_CG_MiniSpotsGlow_12",
+            "NightOn_01_CG_MiniSpotsGlow_13",
+            "NightOn_01_CG_MiniSpotsGlow_14",
+            "NightOn_02_Geo_HTL_Lights02",
+            "NightOn_02_Geo_HTL_Lights04",
+            "NightOn_02_Geo_HTL_Lights01",
+            "NightOn_01_CG_MiniSpotsGlow_15",
+            "NightOn_01_CG_MiniSpotsGlow_16",
+            "NightOn_01_CG_MiniSpotsGlow_17",
+            "NightOn_01_CG_MiniSpotsGlow_18",
+            "NightOn_01_CG_MiniSpotsGlow_19",
+            "NightOn_01_CG_MiniSpotsGlow_20",
+            "NightOn_01_CG_MiniSpotsGlow_21",
+            "NightOn_01_CG_MiniSpotsGlow_22",
+            "NightOn_01_CG_MiniSpotsGlow_23",
+            "NightOn_01_CG_MiniSpotsGlow_24",
+            "NightOn_01_CG_MiniSpotsGlow_25",
+            "NightOn_01_CG_MiniSpotsGlow_26",
+            "NightOn_01_WinGlow_03",
+            "NightOn_01_WinGlow_04",
+            "NightOn_01_WinGlow_05",
+            "NightOn_01_Geo_Shops_Int04",
+            "NightOn_01_CG_LawnLightGlow_11",
+            "NightOn_01_MumboLightMap",
+            "NightOn_01_WinGlow_06",
+            "NightOn_03_WinGlow_07",
+            "NightOn_01_CG_GroundLightGlow_05",
+            "NightOn_01_CG_GroundLightGlow_06",
+            "NightOn_01_CG_GroundLightGlow_08",
+            "NightOn_01_CG_GroundLightGlow_09",
+            "NightOn_01_WinGlow_30",
+            "NightOn_01_CG_LawnLightGlow_12",
+            "NightOn_01_LightMap_OrangeBldg",
+            "NightOn_01_CG_LawnLightGlow_13",
+            "NightOn_01_CG_LawnLightGlow_14",
+            "NightOn_01_WinGlow_31",
+            "NightOn_03_PeriphLight_01",
+            "NightOn_05_PeriphLight_02",
+            "NightOn_02_PeriphLight_03",
+            "NightOn_02_PeriphLight_04",
+            "NightOn_05_PeriphLight_05",
+            "NightOn_06_PeriphLight_10",
+            "NightOn_08_PeriphLights_01",
+            "NightOn_01_CG_WallLightGlow_06",
+            "NightOn_03_WinGlow_08"
+          ],
+          "edits": {
+            "net_presence": {
+              "present": [
+                "NightOn_01_Lampglow01",
+                "NightOn_01_Lampglow02",
+                "NightOn_01_Lampglow04",
+                "NightOn_01_Lampglow06",
+                "NightOn_01_Lampglow09",
+                "NightOn_01_Lampglow10",
+                "NightOn_01_Lampglow11",
+                "NIghtOn_01_Lampglow12",
+                "NightOn_01_Lampglow05",
+                "NightOn_01_Lampglow07",
+                "NightOn_01_Lampglow08",
+                "NightOn_01_JG_Stars",
+                "NightOn_01_Moon",
+                "NightOn_01_MoonGlow",
+                "NightOn_01_CircleLightMap_01",
+                "NightOn_01_CircleLightMap_02",
+                "NightOn_01_AU_CG_GlobeLamp_06",
+                "NightOn_01_AU_CG_GlobeLamp_05",
+                "NightOn_01_AU_CG_GlobeLamp_04",
+                "NightOn_01_AU_CG_GlobeLamp_03",
+                "NightOn_01_AU_CG_GlobeLamp_02",
+                "NightOn_01_AU_CG_GlobeLamp_01",
+                "NightOn_01_CG_MiniSpots_02",
+                "NightOn_01_CG_MiniSpotsGlow_05",
+                "NightOn_01_CG_MiniSpotsGlow_06",
+                "NightOn_01_CG_MiniSpots_03",
+                "NightOn_01_CG_MiniSpotsGlow_07",
+                "NightOn_01_CG_MiniSpotsGlow_08",
+                "NightOn_01_CG_MiniSpotsGlow_09",
+                "NightOn_01_CG_MiniSpotsGlow_10",
+                "NightOn_01_CG_MiniSpots_04",
+                "NightOn_01_CG_WallLightGlow_02",
+                "NightOn_01_CG_LawnLightGlow_03",
+                "NightOn_01_CG_LawnLightGlow_06",
+                "NightOn_01_CG_LawnLightGlow_08",
+                "NightOn_01_CG_LawnLightGlow_10",
+                "NightOn_01_CircleLightMap_10",
+                "NightOn_01_WinGlow_01",
+                "NightOn_01_WinGlow_02",
+                "NightOn_01_CG_WallLightGlow_03",
+                "NightOn_01_CG_MiniSpotsGlow_11",
+                "NightOn_01_CG_MiniSpotsGlow_12",
+                "NightOn_01_CG_MiniSpotsGlow_13",
+                "NightOn_01_CG_MiniSpotsGlow_14",
+                "NightOn_02_Geo_HTL_Lights02",
+                "NightOn_02_Geo_HTL_Lights04",
+                "NightOn_02_Geo_HTL_Lights01",
+                "NightOn_01_CG_MiniSpotsGlow_15",
+                "NightOn_01_CG_MiniSpotsGlow_16",
+                "NightOn_01_CG_MiniSpotsGlow_17",
+                "NightOn_01_CG_MiniSpotsGlow_18",
+                "NightOn_01_CG_MiniSpotsGlow_19",
+                "NightOn_01_CG_MiniSpotsGlow_20",
+                "NightOn_01_CG_MiniSpotsGlow_21",
+                "NightOn_01_CG_MiniSpotsGlow_22",
+                "NightOn_01_CG_MiniSpotsGlow_23",
+                "NightOn_01_CG_MiniSpotsGlow_24",
+                "NightOn_01_CG_MiniSpotsGlow_25",
+                "NightOn_01_CG_MiniSpotsGlow_26",
+                "NightOn_01_WinGlow_03",
+                "NightOn_01_WinGlow_04",
+                "NightOn_01_WinGlow_05",
+                "NightOn_01_Geo_Shops_Int04",
+                "NightOn_01_CG_LawnLightGlow_11",
+                "NightOn_01_MumboLightMap",
+                "NightOn_01_WinGlow_06",
+                "NightOn_03_WinGlow_07",
+                "NightOn_01_CG_GroundLightGlow_05",
+                "NightOn_01_CG_GroundLightGlow_06",
+                "NightOn_01_CG_GroundLightGlow_08",
+                "NightOn_01_CG_GroundLightGlow_09",
+                "NightOn_01_WinGlow_30",
+                "NightOn_01_CG_LawnLightGlow_12",
+                "NightOn_01_LightMap_OrangeBldg",
+                "NightOn_01_CG_LawnLightGlow_13",
+                "NightOn_01_CG_LawnLightGlow_14",
+                "NightOn_01_WinGlow_31",
+                "NightOn_03_PeriphLight_01",
+                "NightOn_05_PeriphLight_02",
+                "NightOn_02_PeriphLight_03",
+                "NightOn_02_PeriphLight_04",
+                "NightOn_05_PeriphLight_05",
+                "NightOn_06_PeriphLight_10",
+                "NightOn_08_PeriphLights_01",
+                "NightOn_01_CG_WallLightGlow_06",
+                "NightOn_03_WinGlow_08"
+              ]
+            }
+          }
+        },
+        {
+          "id": "T2-AU-8",
+          "level": "AU",
+          "kind": "net_presence",
+          "what": "lights",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 61 lights nodes, AbsentInNetGames taken off: TRG_Night_LevelLight_01_Lamp49 (AbsentInNetGames taken off), TRG_Night_LevelLight_01_Lamp50 (AbsentInNetGames taken off), TRG_Night_LevelLight_01_Lamp51 (AbsentInNetGames taken off), TRG_Night_LevelLight_01_Lamp52 (AbsentInNetGames taken off) (+57 more)",
+          "nodes": [
+            "TRG_Night_LevelLight_01_Lamp49",
+            "TRG_Night_LevelLight_01_Lamp50",
+            "TRG_Night_LevelLight_01_Lamp51",
+            "TRG_Night_LevelLight_01_Lamp52",
+            "TRG_Night_LevelLight_01_Lamp54",
+            "TRG_Night_LevelLight_01_Lamp55",
+            "TRG_Night_LevelLight_02_Lamp56",
+            "TRG_Night_LevelLight_02_Lamp57",
+            "TRG_Night_LevelLight_01_Lamp56",
+            "TRG_Night_LevelLight_01_Lamp57",
+            "TRG_Night_LevelLight_01_Lamp58",
+            "TRG_Night_LevelLight_01_Lamp59",
+            "TRG_Night_LevelLight_01_Lamp60",
+            "TRG_Night_LevelLight_01_Lamp61",
+            "TRG_Night_LevelLight_01_Lamp62",
+            "TRG_Night_LevelLight_01_Lamp63",
+            "TRG_Night_LevelLight_01_Lamp64",
+            "TRG_Night_LevelLight_01_Lamp65",
+            "TRG_Night_LevelLight_01_Lamp66",
+            "TRG_Night_LevelLight_01_Lamp67",
+            "TRG_Night_LevelLight_01_Lamp68",
+            "TRG_Night_LevelLight_01_Lamp69",
+            "TRG_Night_LevelLight_01_Lamp70",
+            "TRG_Night_LevelLight_02_Lamp58",
+            "TRG_Night_LevelLight_02_Lamp59",
+            "TRG_Night_LevelLight_01_Lamp71",
+            "TRG_Night_LevelLight_01_Lamp72",
+            "TRG_Night_LevelLight_01_Lamp73",
+            "TRG_Night_LevelLight_01_Lamp74",
+            "TRG_Night_LevelLight_01_Lamp75",
+            "TRG_Night_LevelLight_01_Lamp76",
+            "TRG_Night_LevelLight_01_Lamp77",
+            "TRG_Night_LevelLight_01_Lamp78",
+            "TRG_Night_LevelLight_01_Lamp79",
+            "TRG_Night_LevelLight_01_Lamp80",
+            "TRG_Night_LevelLight_02_Lamp60",
+            "TRG_Night_LevelLight_02_Lamp61",
+            "TRG_Night_LevelLight_02_Lamp62",
+            "TRG_Night_LevelLight_02_Lamp63",
+            "TRG_Night_LevelLight_02_Lamp64",
+            "TRG_Night_LevelLight_02_Lamp82",
+            "TRG_Night_LevelLight_02_Lamp83",
+            "TRG_Night_LevelLight_02_Lamp84",
+            "TRG_Night_LevelLight_02_Lamp85",
+            "TRG_Night_LevelLight_02_Lamp86",
+            "TRG_Night_LevelLight_02_Lamp87",
+            "TRG_Night_LevelLight_02_Lamp88",
+            "TRG_Night_LevelLight_02_Lamp89",
+            "TRG_Night_LevelLight_02_Lamp90",
+            "TRG_Night_LevelLight_02_Lamp91",
+            "TRG_Night_LevelLight_02_Lamp92",
+            "TRG_Night_LevelLight_02_Lamp94",
+            "TRG_Night_LevelLight_01_Lamp82",
+            "TRG_Night_LevelLight_01_Lamp83",
+            "TRG_Night_LevelLight_01_Lamp84",
+            "TRG_Night_LevelLight_01_Lamp85",
+            "TRG_Night_LevelLight_01_Lamp86",
+            "TRG_Night_LevelLight_01_Fountain_01",
+            "TRG_Night_LevelLight_01_Fountain_02",
+            "TRG_Night_LevelLight_01_Fountain_03",
+            "TRG_Night_LevelLight_01_Fountain_04"
+          ],
+          "edits": {
+            "net_presence": {
+              "present": [
+                "TRG_Night_LevelLight_01_Lamp49",
+                "TRG_Night_LevelLight_01_Lamp50",
+                "TRG_Night_LevelLight_01_Lamp51",
+                "TRG_Night_LevelLight_01_Lamp52",
+                "TRG_Night_LevelLight_01_Lamp54",
+                "TRG_Night_LevelLight_01_Lamp55",
+                "TRG_Night_LevelLight_02_Lamp56",
+                "TRG_Night_LevelLight_02_Lamp57",
+                "TRG_Night_LevelLight_01_Lamp56",
+                "TRG_Night_LevelLight_01_Lamp57",
+                "TRG_Night_LevelLight_01_Lamp58",
+                "TRG_Night_LevelLight_01_Lamp59",
+                "TRG_Night_LevelLight_01_Lamp60",
+                "TRG_Night_LevelLight_01_Lamp61",
+                "TRG_Night_LevelLight_01_Lamp62",
+                "TRG_Night_LevelLight_01_Lamp63",
+                "TRG_Night_LevelLight_01_Lamp64",
+                "TRG_Night_LevelLight_01_Lamp65",
+                "TRG_Night_LevelLight_01_Lamp66",
+                "TRG_Night_LevelLight_01_Lamp67",
+                "TRG_Night_LevelLight_01_Lamp68",
+                "TRG_Night_LevelLight_01_Lamp69",
+                "TRG_Night_LevelLight_01_Lamp70",
+                "TRG_Night_LevelLight_02_Lamp58",
+                "TRG_Night_LevelLight_02_Lamp59",
+                "TRG_Night_LevelLight_01_Lamp71",
+                "TRG_Night_LevelLight_01_Lamp72",
+                "TRG_Night_LevelLight_01_Lamp73",
+                "TRG_Night_LevelLight_01_Lamp74",
+                "TRG_Night_LevelLight_01_Lamp75",
+                "TRG_Night_LevelLight_01_Lamp76",
+                "TRG_Night_LevelLight_01_Lamp77",
+                "TRG_Night_LevelLight_01_Lamp78",
+                "TRG_Night_LevelLight_01_Lamp79",
+                "TRG_Night_LevelLight_01_Lamp80",
+                "TRG_Night_LevelLight_02_Lamp60",
+                "TRG_Night_LevelLight_02_Lamp61",
+                "TRG_Night_LevelLight_02_Lamp62",
+                "TRG_Night_LevelLight_02_Lamp63",
+                "TRG_Night_LevelLight_02_Lamp64",
+                "TRG_Night_LevelLight_02_Lamp82",
+                "TRG_Night_LevelLight_02_Lamp83",
+                "TRG_Night_LevelLight_02_Lamp84",
+                "TRG_Night_LevelLight_02_Lamp85",
+                "TRG_Night_LevelLight_02_Lamp86",
+                "TRG_Night_LevelLight_02_Lamp87",
+                "TRG_Night_LevelLight_02_Lamp88",
+                "TRG_Night_LevelLight_02_Lamp89",
+                "TRG_Night_LevelLight_02_Lamp90",
+                "TRG_Night_LevelLight_02_Lamp91",
+                "TRG_Night_LevelLight_02_Lamp92",
+                "TRG_Night_LevelLight_02_Lamp94",
+                "TRG_Night_LevelLight_01_Lamp82",
+                "TRG_Night_LevelLight_01_Lamp83",
+                "TRG_Night_LevelLight_01_Lamp84",
+                "TRG_Night_LevelLight_01_Lamp85",
+                "TRG_Night_LevelLight_01_Lamp86",
+                "TRG_Night_LevelLight_01_Fountain_01",
+                "TRG_Night_LevelLight_01_Fountain_02",
+                "TRG_Night_LevelLight_01_Fountain_03",
+                "TRG_Night_LevelLight_01_Fountain_04"
+              ]
+            }
+          }
+        },
+        {
+          "id": "T2-AU-9",
+          "level": "AU",
+          "kind": "net_presence",
+          "what": "restarts",
+          "class": "none",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 2 restarts nodes, AbsentInNetGames taken off: TRG_Restart_Secret01 (AbsentInNetGames taken off), TRG_Restart_Secret02 (AbsentInNetGames taken off)",
+          "nodes": ["TRG_Restart_Secret01", "TRG_Restart_Secret02"],
+          "edits": {
+            "net_presence": {
+              "present": ["TRG_Restart_Secret01", "TRG_Restart_Secret02"]
+            }
+          }
+        },
+        {
+          "id": "T2-AU-10",
+          "level": "AU",
+          "kind": "created_at_start",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 2 collision nodes, CreatedAtStart taken off: Geo_PreEvent_A_InvColl01 (CreatedAtStart taken off), Geo_PreEvent_A_Wall01 (CreatedAtStart taken off)",
+          "nodes": ["Geo_PreEvent_A_InvColl01", "Geo_PreEvent_A_Wall01"],
+          "edits": {
+            "created_at_start": {
+              "off": ["Geo_PreEvent_A_InvColl01", "Geo_PreEvent_A_Wall01"]
+            }
+          }
+        },
+        {
+          "id": "T2-AU-11",
+          "level": "AU",
+          "kind": "created_at_start",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 3 scenery nodes, CreatedAtStart taken off: Geo_TrashBin02_Shadow (CreatedAtStart taken off), Geo_TrashBin01_Shadow (CreatedAtStart taken off), Geo_PreEvent_A_Wall02 (CreatedAtStart taken off)",
+          "nodes": ["Geo_TrashBin02_Shadow", "Geo_TrashBin01_Shadow", "Geo_PreEvent_A_Wall02"],
+          "edits": {
+            "created_at_start": {
+              "off": ["Geo_TrashBin02_Shadow", "Geo_TrashBin01_Shadow", "Geo_PreEvent_A_Wall02"]
+            }
+          }
+        },
+        {
+          "id": "T2-AU-12",
+          "level": "AU",
+          "kind": "node_values",
+          "what": "graffiti",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 10 graffiti nodes, TrickObject added / Cluster: TRG_PostEvent_A_Planters01 (TrickObject added), TRG_PostEvent_A_Planters01 (Cluster: (none) -> object202), TRG_PostEvent_A_Planters02 (TrickObject added), TRG_PostEvent_A_Planters02 (Cluster: (none) -> object202) (+14 more)",
+          "nodes": [
+            "TRG_PostEvent_A_Planters01",
+            "TRG_PostEvent_A_Planters02",
+            "TRG_PostEvent_A_Planters03",
+            "TRG_PostEvent_A_Planters04",
+            "TRG_PostEvent_A_Planters05",
+            "TRG_PostEvent_A_Planters06",
+            "TRG_PostEvent_A_Planters07",
+            "TRG_PostEvent_A_Planters08",
+            "Box172",
+            "object202"
+          ],
+          "edits": {
+            "node_values": {
+              "TRG_PostEvent_A_Planters01": {
+                "+TrickObject": true,
+                "Cluster": "object202"
+              },
+              "TRG_PostEvent_A_Planters02": {
+                "+TrickObject": true,
+                "Cluster": "object202"
+              },
+              "TRG_PostEvent_A_Planters03": {
+                "+TrickObject": true,
+                "Cluster": "object202"
+              },
+              "TRG_PostEvent_A_Planters04": {
+                "+TrickObject": true,
+                "Cluster": "object202"
+              },
+              "TRG_PostEvent_A_Planters05": {
+                "+TrickObject": true,
+                "Cluster": "object202"
+              },
+              "TRG_PostEvent_A_Planters06": {
+                "+TrickObject": true,
+                "Cluster": "object202"
+              },
+              "TRG_PostEvent_A_Planters07": {
+                "+TrickObject": true,
+                "Cluster": "object202"
+              },
+              "TRG_PostEvent_A_Planters08": {
+                "+TrickObject": true,
+                "Cluster": "object202"
+              },
+              "Box172": {
+                "+TrickObject": true
+              },
+              "object202": {
+                "+TrickObject": true
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-AU-13",
+          "level": "AU",
+          "kind": "node_values",
+          "what": "rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AU's node array as THUGPRO's: 1 rails nodes, TriggerScript: TRG_PreEvent_A_Hydrant01 (TriggerScript: TRG_PreEvent_A_Hydrant01Script -> (none))",
+          "nodes": ["TRG_PreEvent_A_Hydrant01"],
+          "edits": {
+            "node_values": {
+              "TRG_PreEvent_A_Hydrant01": {
+                "TriggerScript": null
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-AU-14",
+          "level": "AU",
+          "kind": "banners",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "AU_LevelChanges: 6 banner / billboard / poster models of THUGPRO's (THUGPRO's own textures and models, no collision): Box03, GEO_Logo_Butterfinger, GEO_Logo_Motorola, static leveleditor\\exported\\Big_Banner.mdl (+2 more)"
+        }
+      ]
+    },
+    "NO": {
+      "sources": {},
+      "entries": [
+        {
+          "id": "T2-NO-1",
+          "level": "NO",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_NO's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\no_bg\" -> \"no_bg\"; loading_screen: \"loadscrn_new_orleans\" -> (none); menu3d_name: \"menu3d\\\\no_menu3d\\\\no_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/NO_icon_1\", \"PanelSprites/Menu3d/NO_ic -> (none); tod_state: night -> (none); game: (none) -> thug2; flag HasClassicGoals: (none) -> yes; overview_cam_angle: (none) -> 90; overview_cam_zoom: (none) -> (-1500.0, 6000.0, -1000.0)"
+        }
+      ]
+    },
+    "ST": {
+      "sources": {
+        "extra levels\\st\\st_thugpro.qb": "thugpro_st.prx"
+      },
+      "entries": [
+        {
+          "id": "T2-ST-1",
+          "level": "ST",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_ST's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\st_bg\" -> \"st_bg\"; loading_screen: \"loadscrn_skatopia\" -> (none); menu3d_name: \"menu3d\\\\st_menu3d\\\\st_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/SK_icon_1\", \"PanelSprites/Menu3d/SK_ic -> (none); game: (none) -> thug2; flag HasClassicGoals: (none) -> yes; overview_cam_zoom: (none) -> (0.0, -2000.0, 1000.0)"
+        },
+        {
+          "id": "T2-ST-2",
+          "level": "ST",
+          "kind": "level_option",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "THUGPRO's host option \"Ramp Boards\" (SERVER_LEVEL_CHANGE_01_ON, inverted): ST_LEVEL_CHANGE_01 off after loading, THUGPRO's state unless the host switches it (creates / kills collision nodes)",
+          "scripts": [
+            {
+              "name": "ST_LEVEL_CHANGE_01",
+              "from": "thugpro_st.prx: levels\\st\\st_thugpro.qb",
+              "crc": 3590135498
+            }
+          ],
+          "level_setup": {
+            "options": [
+              {
+                "script": "ST_LEVEL_CHANGE_01",
+                "params": ["off"]
+              }
+            ]
+          },
+          "note": "applied as the state after loading only; a host switching it needs THUGPRO's messages 155-159"
+        }
+      ]
+    },
+    "SE": {
+      "sources": {},
+      "entries": [
+        {
+          "id": "T2-SE-1",
+          "level": "SE",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_SE's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: [\"music\\\\vag\\\\backgrounds\\\\se_bg\", \"music\\\\vag\\\\backgrounds\\ -> [\"se_bg\", \"se_bg2\", \"se_bg3\"]; loading_screen: \"loadscrn_secret_1\" -> (none); menu3d_name: \"menu3d\\\\se_menu3d\\\\se_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/SE_icon_1\"] -> (none); game: (none) -> thug2; overview_cam_zoom: (none) -> (0.0, 20000.0, -10000.0)"
+        }
+      ]
+    },
+    "SE2": {
+      "sources": {},
+      "entries": [
+        {
+          "id": "T2-SE2-1",
+          "level": "SE2",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_SE2's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\se2_bg\" -> \"se2_bg\"; loading_screen: \"loadscrn_secret_2\" -> (none); menu3d_name: \"menu3d\\\\se2_menu3d\\\\se2_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/SE2_icon_1\", \"PanelSprites/Menu3d/SE2_ -> (none); game: (none) -> thug2; flag HasClassicGoals: (none) -> yes; overview_cam_zoom: (none) -> (0.0, 8000.0, 0.0); overview_cam_hide_objects: (none) -> [CG_Vortex_01, CG_Vortex_02, CG_Vortex3_spinny]"
+        }
+      ]
+    },
+    "SC": {
+      "sources": {
+        "collision": "sccol_thugpro.prx: levels\\SC\\SC.col.xbx",
+        "extra levels\\sc\\sc_thugpro.qb": "thugpro_sc.prx"
+      },
+      "entries": [
+        {
+          "id": "T2-SC-1",
+          "level": "SC",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_SC's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\sc_bg\" -> \"sc_bg\"; loading_screen: \"loadscrn_school\" -> (none); menu3d_name: \"menu3d\\\\sc_menu3d\\\\sc_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/SC_icon_1\", \"PanelSprites/Menu3d/SC_ic -> (none); game: (none) -> THPS1; flag HasClassicGoals: (none) -> yes; overview_cam_angle: (none) -> -45; overview_cam_zoom: (none) -> (1000.0, 0.0, -1000.0)"
+        },
+        {
+          "id": "T2-SC-2",
+          "level": "SC",
+          "kind": "killed",
+          "what": "rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "SC_LevelChanges: THUGPRO kills 2 nodes after loading (rails): TRG_615, TRG_550 - applied as CreatedAtStart taken off",
+          "nodes": ["TRG_615", "TRG_550"],
+          "edits": {
+            "created_at_start": {
+              "off": ["TRG_615", "TRG_550"]
+            }
+          }
+        },
+        {
+          "id": "T2-SC-3",
+          "level": "SC",
+          "kind": "collision_faces_removed",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "SC's collision as THUGPRO's (sccol_thugpro.prx: levels\\SC\\SC.col.xbx): 26 objects, 390 faces - DivePlat03 (7 of 20 faces taken out, all backs of two-sided faces), School_OuterWall15 (1 of 23 faces taken out), LightPole14 (2 of 10 faces taken out, all backs of two-sided faces), LightPole19 (6 of 30 faces taken out, all backs of two-sided faces), SchoolRoofLip04 (3 of 15 faces taken out) (+21 more)",
+          "nodes": [
+            "DivePlat03",
+            "School_OuterWall15",
+            "LightPole14",
+            "LightPole19",
+            "SchoolRoofLip04",
+            "HandicapRail26",
+            "SchoolRoofLip03",
+            "School_Other_Building03",
+            "Picnic02",
+            "School_Alley_Roof03",
+            "Fence01",
+            "Picnic09",
+            "Picnic10",
+            "Picnic11",
+            "Picnic12",
+            "Rail04",
+            "Rail05",
+            "Rail06",
+            "Rail11",
+            "Rail12",
+            "Rail13",
+            "Rail14",
+            "Rail15",
+            "School_Gym_Backboard01",
+            "School_Roof_Floor06",
+            "Rail011"
+          ],
+          "edits": {
+            "collision_removed": {
+              "DivePlat03": {
+                "faces": 20,
+                "remove": [6, 7, 8, 9, 14, 16, 17]
+              },
+              "School_OuterWall15": {
+                "faces": 23,
+                "remove": [19]
+              },
+              "LightPole14": {
+                "faces": 10,
+                "remove": [8, 9]
+              },
+              "LightPole19": {
+                "faces": 30,
+                "remove": [8, 9, 18, 19, 28, 29]
+              },
+              "SchoolRoofLip04": {
+                "faces": 15,
+                "remove": [0, 11, 12]
+              },
+              "HandicapRail26": {
+                "faces": 12,
+                "remove": [1, 2]
+              },
+              "SchoolRoofLip03": {
+                "faces": 11,
+                "remove": [1, 6]
+              },
+              "School_Other_Building03": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "Picnic02": {
+                "faces": 156,
+                "remove": [
+                  24,
+                  25,
+                  56,
+                  57,
+                  58,
+                  59,
+                  60,
+                  61,
+                  62,
+                  63,
+                  82,
+                  84,
+                  89,
+                  91,
+                  120,
+                  121,
+                  122,
+                  123,
+                  124,
+                  125,
+                  126,
+                  127,
+                  146,
+                  148,
+                  153,
+                  155
+                ]
+              },
+              "School_Alley_Roof03": {
+                "faces": 16,
+                "remove": [4, 5, 12, 13]
+              },
+              "Fence01": {
+                "faces": 30,
+                "remove": [16]
+              },
+              "Picnic09": {
+                "faces": 156,
+                "remove": [
+                  24,
+                  25,
+                  56,
+                  57,
+                  58,
+                  59,
+                  60,
+                  61,
+                  62,
+                  63,
+                  82,
+                  84,
+                  89,
+                  91,
+                  120,
+                  121,
+                  122,
+                  123,
+                  124,
+                  125,
+                  126,
+                  127,
+                  146,
+                  148,
+                  153,
+                  155
+                ]
+              },
+              "Picnic10": {
+                "faces": 156,
+                "remove": [
+                  24,
+                  25,
+                  56,
+                  57,
+                  58,
+                  59,
+                  60,
+                  61,
+                  62,
+                  63,
+                  82,
+                  84,
+                  89,
+                  91,
+                  120,
+                  121,
+                  122,
+                  123,
+                  124,
+                  125,
+                  126,
+                  127,
+                  146,
+                  148,
+                  153,
+                  155
+                ]
+              },
+              "Picnic11": {
+                "faces": 156,
+                "remove": [
+                  24,
+                  25,
+                  56,
+                  57,
+                  58,
+                  59,
+                  60,
+                  61,
+                  62,
+                  63,
+                  82,
+                  84,
+                  89,
+                  91,
+                  120,
+                  121,
+                  122,
+                  123,
+                  124,
+                  125,
+                  126,
+                  127,
+                  146,
+                  148,
+                  153,
+                  155
+                ]
+              },
+              "Picnic12": {
+                "faces": 156,
+                "remove": [
+                  24,
+                  25,
+                  56,
+                  57,
+                  58,
+                  59,
+                  60,
+                  61,
+                  62,
+                  63,
+                  82,
+                  84,
+                  89,
+                  91,
+                  120,
+                  121,
+                  122,
+                  123,
+                  124,
+                  125,
+                  126,
+                  127,
+                  146,
+                  148,
+                  153,
+                  155
+                ]
+              },
+              "Rail04": {
+                "faces": 68,
+                "remove": [10, 11, 17, 18, 32, 33, 39, 40, 54, 55, 66, 67]
+              },
+              "Rail05": {
+                "faces": 80,
+                "remove": [10, 11, 19, 20, 36, 37, 45, 46, 62, 63, 76, 77]
+              },
+              "Rail06": {
+                "faces": 68,
+                "remove": [10, 11, 17, 18, 32, 33, 39, 40, 54, 55, 66, 67]
+              },
+              "Rail11": {
+                "faces": 120,
+                "remove": [
+                  10,
+                  11,
+                  17,
+                  18,
+                  32,
+                  33,
+                  39,
+                  40,
+                  54,
+                  55,
+                  66,
+                  67,
+                  84,
+                  85,
+                  91,
+                  92,
+                  106,
+                  107,
+                  108,
+                  109,
+                  110,
+                  111,
+                  112,
+                  113,
+                  114,
+                  115,
+                  118,
+                  119
+                ]
+              },
+              "Rail12": {
+                "faces": 120,
+                "remove": [
+                  10,
+                  11,
+                  17,
+                  18,
+                  32,
+                  33,
+                  39,
+                  40,
+                  54,
+                  55,
+                  66,
+                  67,
+                  84,
+                  85,
+                  91,
+                  92,
+                  106,
+                  107,
+                  108,
+                  109,
+                  110,
+                  111,
+                  112,
+                  113,
+                  114,
+                  115,
+                  118,
+                  119
+                ]
+              },
+              "Rail13": {
+                "faces": 68,
+                "remove": [10, 11, 17, 18, 32, 33, 39, 40, 54, 55, 66, 67]
+              },
+              "Rail14": {
+                "faces": 68,
+                "remove": [10, 11, 17, 18, 32, 33, 39, 40, 54, 55, 66, 67]
+              },
+              "Rail15": {
+                "faces": 106,
+                "remove": [13, 14, 19, 20, 24, 27, 28, 47, 48, 53, 54, 58, 61, 62, 81, 82, 87, 88, 89, 100, 101]
+              },
+              "School_Gym_Backboard01": {
+                "faces": 30,
+                "remove": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+              },
+              "School_Roof_Floor06": {
+                "faces": 202,
+                "remove": [28, 33]
+              },
+              "Rail011": {
+                "faces": 272,
+                "remove": [
+                  8,
+                  9,
+                  14,
+                  15,
+                  19,
+                  22,
+                  23,
+                  26,
+                  27,
+                  31,
+                  34,
+                  35,
+                  40,
+                  41,
+                  45,
+                  48,
+                  49,
+                  60,
+                  61,
+                  66,
+                  67,
+                  71,
+                  74,
+                  75,
+                  85,
+                  86,
+                  96,
+                  97,
+                  100,
+                  101,
+                  102,
+                  105,
+                  106,
+                  116,
+                  117,
+                  128,
+                  129,
+                  134,
+                  135,
+                  136,
+                  137,
+                  138,
+                  139,
+                  142,
+                  143,
+                  153,
+                  154,
+                  164,
+                  165,
+                  168,
+                  169,
+                  170,
+                  173,
+                  174,
+                  184,
+                  185,
+                  193,
+                  194,
+                  204,
+                  205,
+                  210,
+                  211,
+                  212,
+                  215,
+                  216,
+                  226,
+                  227,
+                  230,
+                  231,
+                  232,
+                  235,
+                  236,
+                  246,
+                  247,
+                  255,
+                  256,
+                  261,
+                  262,
+                  263,
+                  266,
+                  267
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-SC-4",
+          "level": "SC",
+          "kind": "collision_faces_removed",
+          "what": "collision",
+          "class": "visible",
+          "enabled": false,
+          "applicable": true,
+          "description": "SC's collision as THUGPRO's (sccol_thugpro.prx: levels\\SC\\SC.col.xbx): 4 objects, 10 faces - skylight02 (4 of 18 faces taken out, all backs of two-sided faces, trigger faces only), skylight08 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only), Skylight09 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only), Skylight001 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only)",
+          "nodes": ["skylight02", "skylight08", "Skylight09", "Skylight001"],
+          "edits": {
+            "collision_removed": {
+              "skylight02": {
+                "faces": 18,
+                "remove": [4, 5, 6, 7]
+              },
+              "skylight08": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "Skylight09": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "Skylight001": {
+                "faces": 4,
+                "remove": [2, 3]
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-SC-5",
+          "level": "SC",
+          "kind": "collision_face_flags",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "SC's collision as THUGPRO's (sccol_thugpro.prx: levels\\SC\\SC.col.xbx): 17 objects, 188 faces - School_Other_Building07 (+ wallride 11), Fence13 (+ wallride 13), Fence08 (+ wallride 7), School_Gym_QuarterPipe04 (+ wallride 16), Fence15 (+ wallride 2) (+12 more)",
+          "nodes": [
+            "School_Other_Building07",
+            "Fence13",
+            "Fence08",
+            "School_Gym_QuarterPipe04",
+            "Fence15",
+            "Fence16",
+            "Fence02",
+            "School_UpperWall03",
+            "School_UpperWall09",
+            "Fence01",
+            "School_RoofBuilding02",
+            "School_Roof_VentRamp11",
+            "School_Roof_VentRamp12",
+            "School_OuterWall13",
+            "School_OuterWall12",
+            "School_OuterWall11",
+            "School_OuterWall10"
+          ],
+          "edits": {
+            "face_values": {
+              "School_Other_Building07": {
+                "faces": 11,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                }
+              },
+              "Fence13": {
+                "faces": 15,
+                "set": {
+                  "0x0004": [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+                }
+              },
+              "Fence08": {
+                "faces": 12,
+                "set": {
+                  "0x0004": [0, 1, 4, 5, 8, 10, 11]
+                }
+              },
+              "School_Gym_QuarterPipe04": {
+                "faces": 80,
+                "set": {
+                  "0x0004": [3, 4, 5, 6, 7, 8, 9, 10, 59, 60, 61, 62, 63, 64, 65, 66]
+                }
+              },
+              "Fence15": {
+                "faces": 5,
+                "set": {
+                  "0x0004": [0, 1]
+                }
+              },
+              "Fence16": {
+                "faces": 2,
+                "set": {
+                  "0x0004": [0, 1]
+                }
+              },
+              "Fence02": {
+                "faces": 14,
+                "set": {
+                  "0x0004": [12, 13]
+                }
+              },
+              "School_UpperWall03": {
+                "faces": 64,
+                "set": {
+                  "0x0004": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    24,
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42,
+                    43
+                  ]
+                }
+              },
+              "School_UpperWall09": {
+                "faces": 9,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8]
+                }
+              },
+              "Fence01": {
+                "faces": 30,
+                "set": {
+                  "0x0004": [0, 1, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+                }
+              },
+              "School_RoofBuilding02": {
+                "faces": 64,
+                "set": {
+                  "0x0004": [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 30, 31]
+                }
+              },
+              "School_Roof_VentRamp11": {
+                "faces": 8,
+                "set": {
+                  "0x0004": [0, 1]
+                }
+              },
+              "School_Roof_VentRamp12": {
+                "faces": 8,
+                "set": {
+                  "0x0004": [0, 1]
+                }
+              },
+              "School_OuterWall13": {
+                "faces": 12,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                }
+              },
+              "School_OuterWall12": {
+                "faces": 12,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                }
+              },
+              "School_OuterWall11": {
+                "faces": 12,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                }
+              },
+              "School_OuterWall10": {
+                "faces": 13,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PH": {
+      "sources": {
+        "extra levels\\ph\\ph_thugpro.qb": "thugpro_ph.prx"
+      },
+      "entries": [
+        {
+          "id": "T2-PH-1",
+          "level": "PH",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_PH's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\ph_bg\" -> \"ph_bg\"; loading_screen: \"loadscrn_philly\" -> (none); menu3d_name: \"menu3d\\\\PH_menu3d\\\\PH_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/PH_icon_1\", \"PanelSprites/Menu3d/PH_ic -> (none); game: (none) -> THPS2; flag HasClassicGoals: (none) -> yes; overview_cam_angle: (none) -> 0; overview_cam_zoom: (none) -> (0.0, 5000.0, 3000.0); overview_cam_hide_objects: (none) -> [PH_Phillyside_Ceiling0, PH_Phillyside_Ceiling01, PH_Phillys"
+        },
+        {
+          "id": "T2-PH-2",
+          "level": "PH",
+          "kind": "killed",
+          "what": "rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "PH_LevelChanges: THUGPRO kills 4 nodes after loading (rails): TRG_Pillar_Natas03, TRG_Pillar_Natas04, TRG_Pillar_Natas06, TRG_Pillar_Natas07 - applied as CreatedAtStart taken off",
+          "nodes": ["TRG_Pillar_Natas03", "TRG_Pillar_Natas04", "TRG_Pillar_Natas06", "TRG_Pillar_Natas07"],
+          "edits": {
+            "created_at_start": {
+              "off": ["TRG_Pillar_Natas03", "TRG_Pillar_Natas04", "TRG_Pillar_Natas06", "TRG_Pillar_Natas07"]
+            }
+          }
+        },
+        {
+          "id": "T2-PH-3",
+          "level": "PH",
+          "kind": "banners",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "PH_LevelChanges: 4 banner / billboard / poster models of THUGPRO's (THUGPRO's own textures and models, no collision): static leveleditor\\exported\\Big_Banner.mdl, static leveleditor\\exported\\Big_Banner_alt01.mdl, static leveleditor\\exported\\Big_Banner.mdl, static leveleditor\\exported\\Big_Banner_alt02.mdl"
+        }
+      ]
+    },
+    "DJ": {
+      "sources": {
+        "collision": "djcol_thugpro.prx: levels\\DJ\\DJ.col.xbx"
+      },
+      "entries": [
+        {
+          "id": "T2-DJ-1",
+          "level": "DJ",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_DJ's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\dj_bg\" -> \"dj_bg\"; loading_screen: \"loadscrn_downhill\" -> (none); menu3d_name: \"menu3d\\\\DJ_menu3d\\\\DJ_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/DJ_icon_1\", \"PanelSprites/Menu3d/DJ_ic -> (none); game: (none) -> THPS1; flag HasClassicGoals: (none) -> yes; overview_cam_pos: (none) -> (2500.0, 10000.0, 0.0)"
+        },
+        {
+          "id": "T2-DJ-2",
+          "level": "DJ",
+          "kind": "collision_faces_removed",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "DJ's collision as THUGPRO's (djcol_thugpro.prx: levels\\DJ\\DJ.col.xbx): 10 objects, 46 faces - Jam_Generator03 (2 of 8 faces taken out, all backs of two-sided faces), Jam_Generator01 (2 of 8 faces taken out, all backs of two-sided faces), Jam_Sign02 (4 of 34 faces taken out, all backs of two-sided faces), twoPEnd_15Jam_Generator06 (2 of 8 faces taken out, all backs of two-sided faces), Jam_Sign10 (8 of 30 faces taken out, all backs of two-sided faces) (+5 more)",
+          "nodes": [
+            "Jam_Generator03",
+            "Jam_Generator01",
+            "Jam_Sign02",
+            "twoPEnd_15Jam_Generator06",
+            "Jam_Sign10",
+            "Box03",
+            "Box04",
+            "DMT_billboard000",
+            "Jam_Canyon_Wall31",
+            "Jam_Path013"
+          ],
+          "edits": {
+            "collision_removed": {
+              "Jam_Generator03": {
+                "faces": 8,
+                "remove": [2, 6]
+              },
+              "Jam_Generator01": {
+                "faces": 8,
+                "remove": [2, 6]
+              },
+              "Jam_Sign02": {
+                "faces": 34,
+                "remove": [12, 13, 14, 15]
+              },
+              "twoPEnd_15Jam_Generator06": {
+                "faces": 8,
+                "remove": [2, 6]
+              },
+              "Jam_Sign10": {
+                "faces": 30,
+                "remove": [10, 11, 12, 13, 22, 23, 24, 25]
+              },
+              "Box03": {
+                "faces": 66,
+                "remove": [1, 4, 5, 8, 48, 49, 51, 52, 55, 57, 58, 61]
+              },
+              "Box04": {
+                "faces": 64,
+                "remove": [1, 4, 5, 8, 48, 49, 51, 52, 55, 57, 58, 61]
+              },
+              "DMT_billboard000": {
+                "faces": 44,
+                "remove": [28, 37]
+              },
+              "Jam_Canyon_Wall31": {
+                "faces": 156,
+                "remove": [27]
+              },
+              "Jam_Path013": {
+                "faces": 197,
+                "remove": [110]
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-DJ-3",
+          "level": "DJ",
+          "kind": "collision_faces_removed",
+          "what": "collision",
+          "class": "visible",
+          "enabled": false,
+          "applicable": true,
+          "description": "DJ's collision as THUGPRO's (djcol_thugpro.prx: levels\\DJ\\DJ.col.xbx): 1 objects, 2 faces - spray_03 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only)",
+          "nodes": ["spray_03"],
+          "edits": {
+            "collision_removed": {
+              "spray_03": {
+                "faces": 4,
+                "remove": [2, 3]
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-DJ-4",
+          "level": "DJ",
+          "kind": "collision_face_flags",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "DJ's collision as THUGPRO's (djcol_thugpro.prx: levels\\DJ\\DJ.col.xbx): 8 objects, 106 faces - Jam_Canyon_Wall27 (+ wallride 12), Jam_Quarter_Pipe18 (+ wallride 16), Jam_Canyon_Wall40 (+ wallride 1), Jam_Quarter_Pipe05 (+ wallride 14), Jam_Quarter_Pipe12 (+ wallride 12) (+3 more)",
+          "nodes": [
+            "Jam_Canyon_Wall27",
+            "Jam_Quarter_Pipe18",
+            "Jam_Canyon_Wall40",
+            "Jam_Quarter_Pipe05",
+            "Jam_Quarter_Pipe12",
+            "Object11",
+            "DJ_Graff04",
+            "Jam_Backdrop_Canyon10"
+          ],
+          "edits": {
+            "face_values": {
+              "Jam_Canyon_Wall27": {
+                "faces": 314,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 84, 85, 86, 87, 88, 97, 98]
+                }
+              },
+              "Jam_Quarter_Pipe18": {
+                "faces": 81,
+                "set": {
+                  "0x0004": [20, 21, 26, 27, 36, 37, 42, 43, 51, 52, 57, 58, 69, 70, 75, 76]
+                }
+              },
+              "Jam_Canyon_Wall40": {
+                "faces": 1,
+                "set": {
+                  "0x0004": [0]
+                }
+              },
+              "Jam_Quarter_Pipe05": {
+                "faces": 76,
+                "set": {
+                  "0x0004": [29, 30, 31, 51, 60, 61, 62, 63, 64, 65, 70, 71, 72, 73]
+                }
+              },
+              "Jam_Quarter_Pipe12": {
+                "faces": 46,
+                "set": {
+                  "0x0004": [4, 5, 10, 11, 20, 21, 26, 27, 36, 37, 40, 41]
+                }
+              },
+              "Object11": {
+                "faces": 21,
+                "set": {
+                  "0x0004": [10, 11, 12, 14]
+                }
+              },
+              "DJ_Graff04": {
+                "faces": 86,
+                "set": {
+                  "0x0004": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    20,
+                    21,
+                    22,
+                    23,
+                    24,
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    33,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41
+                  ]
+                }
+              },
+              "Jam_Backdrop_Canyon10": {
+                "faces": 367,
+                "set": {
+                  "0x0004": [110, 111, 112, 113, 114, 151, 187]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "LA": {
+      "sources": {
+        "nodes": "thugpro_la.prx: levels\\LA\\thugpro\\LA.qb",
+        "scripts": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb"
+      },
+      "entries": [
+        {
+          "id": "T2-LA-1",
+          "level": "LA",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_LA's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\la_bg\" -> \"la_bg\"; loading_screen: \"loadscrn_los_angeles\" -> (none); menu3d_name: \"menu3d\\\\la_menu3d\\\\la_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/LA_icon_1\", \"PanelSprites/Menu3d/LA_ic -> (none); game: (none) -> THPS3; flag HasClassicGoals: (none) -> yes; overview_cam_zoom: (none) -> (0.0, 10000.0, 0.0)"
+        },
+        {
+          "id": "T2-LA-2",
+          "level": "LA",
+          "kind": "scripts_changed",
+          "what": "collision+rails",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "LA's level scripts as THUGPRO's files have them (thugpro_la.prx: levels\\LA\\thugpro\\LA.qb, thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb): 21 scripts changed / added: TRGP_CarFall_E01Script, TRGP_CarFall_E03Script, LA_Main_Initializer, LA_Goals, LA_LowCarb, LA_combo_check, LA_incombo, AP_circlebench (+13 more) - they create / kill collision, rails nodes",
+          "replace_scripts": [
+            {
+              "name": "TRGP_CarFall_E01Script",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA.qb",
+              "crc": 3712602624
+            },
+            {
+              "name": "TRGP_CarFall_E03Script",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA.qb",
+              "crc": 2851984625
+            },
+            {
+              "name": "LA_Main_Initializer",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 1138160553
+            },
+            {
+              "name": "LA_Goals",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 4268538583
+            },
+            {
+              "name": "LA_LowCarb",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 435962036
+            },
+            {
+              "name": "LA_combo_check",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 85986203
+            },
+            {
+              "name": "LA_incombo",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2472664843
+            },
+            {
+              "name": "AP_circlebench",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2557464243
+            },
+            {
+              "name": "LA_circlewall",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 1656475723
+            },
+            {
+              "name": "BO_FireParticlesOn",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 1631264381
+            },
+            {
+              "name": "BO_SmokeParticlesOn",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 3351910402
+            },
+            {
+              "name": "LA_Freeway_Break",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 749977378
+            },
+            {
+              "name": "LA_Rocks_Falling",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 3467041021
+            },
+            {
+              "name": "LA_Rocks_Falling1",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 3828180840
+            },
+            {
+              "name": "LA_Rocks_Falling2",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2517904012
+            },
+            {
+              "name": "LA_Rocks_Falling3",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 3087208912
+            },
+            {
+              "name": "LA_Car_Wobble",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2308742904
+            },
+            {
+              "name": "LA_Sign_Fall_Low",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2554799629
+            },
+            {
+              "name": "CarCam_01",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2266533615
+            },
+            {
+              "name": "LA_Bye_Gap_THUGPro",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 3419790167
+            },
+            {
+              "name": "LA_Car_Wobble_THUGPro",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 3125994887
+            }
+          ],
+          "scripts": []
+        },
+        {
+          "id": "T2-LA-3",
+          "level": "LA",
+          "kind": "scripts_changed",
+          "what": "gaps",
+          "class": "visible",
+          "enabled": false,
+          "applicable": true,
+          "description": "LA's level scripts as THUGPRO's files have them (thugpro_la.prx: levels\\LA\\thugpro\\LA.qb, thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb): 5 scripts changed / added: LA_AndyManualS, LA_AndyManualE, LA_Gap_NG_End, LA_Gap_SG_End, LA_Gap_EG_End - they create / kill collision, rails nodes",
+          "replace_scripts": [
+            {
+              "name": "LA_AndyManualS",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2833942347
+            },
+            {
+              "name": "LA_AndyManualE",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2457789678
+            },
+            {
+              "name": "LA_Gap_NG_End",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 1076932437
+            },
+            {
+              "name": "LA_Gap_SG_End",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 2697302227
+            },
+            {
+              "name": "LA_Gap_EG_End",
+              "from": "thugpro_la.prx: levels\\LA\\thugpro\\LA_scripts.qb",
+              "crc": 1972264121
+            }
+          ],
+          "scripts": []
+        },
+        {
+          "id": "T2-LA-4",
+          "level": "LA",
+          "kind": "net_presence",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "LA's node array as THUGPRO's: 1 collision nodes, AbsentInNetGames added: TRGP_CarFall_E03 (AbsentInNetGames added)",
+          "nodes": ["TRGP_CarFall_E03"],
+          "edits": {
+            "net_presence": {
+              "absent": ["TRGP_CarFall_E03"]
+            }
+          }
+        },
+        {
+          "id": "T2-LA-5",
+          "level": "LA",
+          "kind": "node_values",
+          "what": "vehicles",
+          "class": "visible",
+          "enabled": false,
+          "applicable": true,
+          "description": "LA's node array as THUGPRO's: 1 vehicles nodes, pos: TRG_Veh72 (pos: (-2082.59619140625, -542.9631958007812, 4962.2109375) -> (-2082.59619140625, -419.9788818359375, 4962.2109375))",
+          "nodes": ["TRG_Veh72"],
+          "edits": {
+            "node_values": {
+              "TRG_Veh72": {
+                "pos": {
+                  "vector": [-2082.59619140625, -419.9788818359375, 4962.2109375]
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-LA-6",
+          "level": "LA",
+          "kind": "node_values",
+          "what": "vehicles",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "LA's node array as THUGPRO's: 4 vehicles nodes, SuspendDistance: TRG_Veh43 (SuspendDistance: 0 -> 10000), TRG_Veh70 (SuspendDistance: 0 -> 10000), TRG_Veh72 (SuspendDistance: 0 -> 10000), TRG_Veh74 (SuspendDistance: 0 -> 10000)",
+          "nodes": ["TRG_Veh43", "TRG_Veh70", "TRG_Veh72", "TRG_Veh74"],
+          "edits": {
+            "node_values": {
+              "TRG_Veh43": {
+                "SuspendDistance": 10000
+              },
+              "TRG_Veh70": {
+                "SuspendDistance": 10000
+              },
+              "TRG_Veh72": {
+                "SuspendDistance": 10000
+              },
+              "TRG_Veh74": {
+                "SuspendDistance": 10000
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CA": {
+      "sources": {},
+      "entries": [
+        {
+          "id": "T2-CA-1",
+          "level": "CA",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_CA's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\ca_bg\" -> \"ca_bg\"; loading_screen: \"loadscrn_canada\" -> (none); menu3d_name: \"menu3d\\\\CA_menu3d\\\\CA_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/CA_icon_1\", \"PanelSprites/Menu3d/CA_ic -> (none); game: (none) -> THPS3; flag HasClassicGoals: (none) -> yes; flag nosun: (none) -> yes; overview_cam_pos: (none) -> (1975.968017578125, 9068.7529296875, 4968.9521484375); overview_cam_angle: (none) -> 45.0"
+        },
+        {
+          "id": "T2-CA-2",
+          "level": "CA",
+          "kind": "trigger_scripts",
+          "what": "triggers",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": true,
+          "description": "CA_LevelChanges: trigger scripts of 1 nodes replaced by THUGPRO's: TRG_Conc_Park_Rail891 -> TRG_Conc_Park_Rail891Script_thugpro",
+          "nodes": ["TRG_Conc_Park_Rail891"],
+          "edits": {
+            "node_values": {
+              "TRG_Conc_Park_Rail891": {
+                "TriggerScript": "TRG_Conc_Park_Rail891Script_thugpro"
+              }
+            }
+          },
+          "scripts": [
+            {
+              "name": "TRG_Conc_Park_Rail891Script_thugpro",
+              "from": "thugpro_qb.prx: qb\\thugpro\\thugpro_dynamic.qb",
+              "crc": 3428378162
+            }
+          ]
+        }
+      ]
+    },
+    "AP": {
+      "sources": {
+        "collision": "APcol_thugpro.prx: levels\\AP\\AP.col.xbx",
+        "extra levels\\ap\\ap_thugpro.qb": "thugpro_ap.prx"
+      },
+      "entries": [
+        {
+          "id": "T2-AP-1",
+          "level": "AP",
+          "kind": "level_structure",
+          "what": "level_settings",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "Level_AP's other settings as THUGPRO's Levels.qb has them (loading screen, music, menus, lights, THUGPRO's own flags): ambient_track: \"music\\\\vag\\\\backgrounds\\\\ap_bg\" -> \"ap_bg\"; loading_screen: \"loadscrn_airport\" -> (none); menu3d_name: \"menu3d\\\\AP_menu3d\\\\AP_menu3d.mdl\" -> (none); menu3d_sprites: [\"PanelSprites/Menu3d/AP_icon_1\", \"PanelSprites/Menu3d/AP_ic -> (none); game: (none) -> THPS3; flag HasClassicGoals: (none) -> yes; overview_cam_angle: (none) -> 90; overview_cam_zoom: (none) -> (-22000.0, 30000.0, 4000.0)"
+        },
+        {
+          "id": "T2-AP-2",
+          "level": "AP",
+          "kind": "collision_faces_removed",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AP's collision as THUGPRO's (APcol_thugpro.prx: levels\\AP\\AP.col.xbx): 34 objects, 245 faces - StartMidArea_085 (10 of 325 faces taken out, all backs of two-sided faces), StartMidArea_128 (24 of 108 faces taken out, all backs of two-sided faces), MidArea_011 (8 of 28 faces taken out, all backs of two-sided faces), StartMidArea_025 (6 of 128 faces taken out, all backs of two-sided faces), MidReflec_27 (6 of 134 faces taken out, all backs of two-sided faces) (+29 more)",
+          "nodes": [
+            "StartMidArea_085",
+            "StartMidArea_128",
+            "MidArea_011",
+            "StartMidArea_025",
+            "MidReflec_27",
+            "MidReflec_10",
+            "MidArea_065",
+            "MidArea_095",
+            "MidArea_097",
+            "MidArea_126",
+            "EscalatorColl01_119",
+            "StartMidArea_135",
+            "StartMidArea_136",
+            "Walkway_Coll04",
+            "EndArea_stairrails01",
+            "EndArea_Airliner04n",
+            "EndArea_041",
+            "LowArea_04",
+            "LowArea_33",
+            "LowArea_06",
+            "AP_TeleBox",
+            "StartMidArea_043",
+            "StartMidArea_118",
+            "EndArea_09",
+            "StartArea_04",
+            "EO_Chopper04",
+            "Box02",
+            "MidArea_185",
+            "Stupid_Collision",
+            "Tickets",
+            "MidEndArea_02",
+            "GO_Chopper_propeller02",
+            "GO_Chopper_propeller03",
+            "EO_Chopper02"
+          ],
+          "edits": {
+            "collision_removed": {
+              "StartMidArea_085": {
+                "faces": 325,
+                "remove": [290, 291, 292, 293, 294, 295, 296, 297, 316, 320]
+              },
+              "StartMidArea_128": {
+                "faces": 108,
+                "remove": [6, 7, 8, 9, 24, 25, 26, 27, 42, 43, 44, 45, 60, 61, 62, 63, 78, 79, 80, 81, 96, 97, 98, 99]
+              },
+              "MidArea_011": {
+                "faces": 28,
+                "remove": [4, 5, 6, 7, 18, 19, 20, 21]
+              },
+              "StartMidArea_025": {
+                "faces": 128,
+                "remove": [92, 93, 94, 95, 96, 97]
+              },
+              "MidReflec_27": {
+                "faces": 134,
+                "remove": [98, 99, 100, 101, 102, 103]
+              },
+              "MidReflec_10": {
+                "faces": 214,
+                "remove": [
+                  156,
+                  157,
+                  158,
+                  159,
+                  160,
+                  161,
+                  162,
+                  163,
+                  164,
+                  165,
+                  166,
+                  167,
+                  168,
+                  169,
+                  170,
+                  171,
+                  172,
+                  173,
+                  174,
+                  175,
+                  176,
+                  177,
+                  178,
+                  179,
+                  180,
+                  181,
+                  182,
+                  183,
+                  184,
+                  185,
+                  186,
+                  187,
+                  188,
+                  189,
+                  190,
+                  191,
+                  192,
+                  193,
+                  194,
+                  195,
+                  196,
+                  197,
+                  198,
+                  199,
+                  200,
+                  201,
+                  202,
+                  203,
+                  204,
+                  205,
+                  206,
+                  207,
+                  213
+                ]
+              },
+              "MidArea_065": {
+                "faces": 38,
+                "remove": [22]
+              },
+              "MidArea_095": {
+                "faces": 82,
+                "remove": [22, 63]
+              },
+              "MidArea_097": {
+                "faces": 28,
+                "remove": [8, 22]
+              },
+              "MidArea_126": {
+                "faces": 18,
+                "remove": [6, 7, 8, 9]
+              },
+              "EscalatorColl01_119": {
+                "faces": 120,
+                "remove": [6, 7, 22, 23, 38, 39, 54, 55, 70, 71, 72, 73, 88, 89, 90, 91]
+              },
+              "StartMidArea_135": {
+                "faces": 14,
+                "remove": [2, 3, 6, 7]
+              },
+              "StartMidArea_136": {
+                "faces": 14,
+                "remove": [2, 3, 6, 7]
+              },
+              "Walkway_Coll04": {
+                "faces": 130,
+                "remove": [4, 5, 18, 19, 34, 35, 52, 53, 68, 69, 84, 85]
+              },
+              "EndArea_stairrails01": {
+                "faces": 232,
+                "remove": [227, 228, 229, 230, 231]
+              },
+              "EndArea_Airliner04n": {
+                "faces": 408,
+                "remove": [395, 396, 397, 398, 399]
+              },
+              "EndArea_041": {
+                "faces": 77,
+                "remove": [65]
+              },
+              "LowArea_04": {
+                "faces": 16,
+                "remove": [4, 5, 6, 7, 12, 13, 14, 15]
+              },
+              "LowArea_33": {
+                "faces": 169,
+                "remove": [68]
+              },
+              "LowArea_06": {
+                "faces": 40,
+                "remove": [2, 3, 6, 7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31, 34, 35, 38, 39]
+              },
+              "AP_TeleBox": {
+                "faces": 14,
+                "remove": [0]
+              },
+              "StartMidArea_043": {
+                "faces": 693,
+                "remove": [517, 518, 519, 520, 521, 522, 523, 524, 543, 547]
+              },
+              "StartMidArea_118": {
+                "faces": 18,
+                "remove": [6, 7, 8, 9]
+              },
+              "EndArea_09": {
+                "faces": 24,
+                "remove": [0, 2, 6, 8, 12, 14, 18, 20]
+              },
+              "StartArea_04": {
+                "faces": 154,
+                "remove": [1, 83, 124, 134, 144]
+              },
+              "EO_Chopper04": {
+                "faces": 17,
+                "remove": [0, 9]
+              },
+              "Box02": {
+                "faces": 56,
+                "remove": [46, 47, 48, 49, 50, 51, 52, 53, 54, 55]
+              },
+              "MidArea_185": {
+                "faces": 77,
+                "remove": [40]
+              },
+              "Stupid_Collision": {
+                "faces": 19,
+                "remove": [0, 13, 14]
+              },
+              "Tickets": {
+                "faces": 10,
+                "remove": [9]
+              },
+              "MidEndArea_02": {
+                "faces": 341,
+                "remove": [59, 84]
+              },
+              "GO_Chopper_propeller02": {
+                "faces": 32,
+                "remove": [7, 23]
+              },
+              "GO_Chopper_propeller03": {
+                "faces": 32,
+                "remove": [7, 23]
+              },
+              "EO_Chopper02": {
+                "faces": 32,
+                "remove": [7, 23]
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-AP-3",
+          "level": "AP",
+          "kind": "collision_faces_removed",
+          "what": "collision",
+          "class": "visible",
+          "enabled": false,
+          "applicable": true,
+          "description": "AP's collision as THUGPRO's (APcol_thugpro.prx: levels\\AP\\AP.col.xbx): 26 objects, 53 faces - TRGP_Gap_FuckPolice01 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only), TRGP_Gap_FuckPolice02 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only), TRGP_GrindTheDish05 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only), TRGP_GrindTheDish06 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only), TRGP_GrindTheDish07 (2 of 4 faces taken out, all backs of two-sided faces, trigger faces only) (+21 more)",
+          "nodes": [
+            "TRGP_Gap_FuckPolice01",
+            "TRGP_Gap_FuckPolice02",
+            "TRGP_GrindTheDish05",
+            "TRGP_GrindTheDish06",
+            "TRGP_GrindTheDish07",
+            "TRGP_GrindTheDish08",
+            "TRGP_RailGaping05",
+            "TRGP_RailGaping06",
+            "TRGP_RailGaping07",
+            "TRGP_RailGaping08",
+            "TRGP_RailGaping09",
+            "TRGP_RailGaping10",
+            "TRGP_RailGaping11",
+            "TRGP_RailGaping12",
+            "TRGP_RailGaping13",
+            "TRGP_RailGaping14",
+            "TRGP_RailGaping15",
+            "TRGP_RailGaping16",
+            "MidArea_dt_01",
+            "AP_Alarm_Sound",
+            "AP_Alarm_Sound01",
+            "AP_Alarm_Sound02",
+            "AP_Alarm_Sound03",
+            "AP_Alarm_Sound04",
+            "AP_Alarm_Sound05",
+            "StartArea_20"
+          ],
+          "edits": {
+            "collision_removed": {
+              "TRGP_Gap_FuckPolice01": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_Gap_FuckPolice02": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_GrindTheDish05": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_GrindTheDish06": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_GrindTheDish07": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_GrindTheDish08": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping05": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping06": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping07": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping08": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping09": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping10": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping11": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping12": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping13": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping14": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping15": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "TRGP_RailGaping16": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "MidArea_dt_01": {
+                "faces": 48,
+                "remove": [8, 9, 30]
+              },
+              "AP_Alarm_Sound": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "AP_Alarm_Sound01": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "AP_Alarm_Sound02": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "AP_Alarm_Sound03": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "AP_Alarm_Sound04": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "AP_Alarm_Sound05": {
+                "faces": 4,
+                "remove": [2, 3]
+              },
+              "StartArea_20": {
+                "faces": 127,
+                "remove": [13, 15]
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-AP-4",
+          "level": "AP",
+          "kind": "collision_face_flags",
+          "what": "collision",
+          "class": "parity",
+          "enabled": false,
+          "applicable": true,
+          "description": "AP's collision as THUGPRO's (APcol_thugpro.prx: levels\\AP\\AP.col.xbx): 7 objects, 617 faces - StartArea_62 (+ wallride 8), StartArea_shine06 (+ wallride 20), StartArea778 (+ wallride 449), StartMidArea_02 (+ wallride 11), StartMidArea_06 (+ wallride 12) (+2 more)",
+          "nodes": [
+            "StartArea_62",
+            "StartArea_shine06",
+            "StartArea778",
+            "StartMidArea_02",
+            "StartMidArea_06",
+            "AP_Graff04",
+            "StartArea_01"
+          ],
+          "edits": {
+            "face_values": {
+              "StartArea_62": {
+                "faces": 8,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7]
+                }
+              },
+              "StartArea_shine06": {
+                "faces": 20,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+                }
+              },
+              "StartArea778": {
+                "faces": 449,
+                "set": {
+                  "0x0004": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    20,
+                    21,
+                    22,
+                    23,
+                    24,
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    33,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42,
+                    43,
+                    44,
+                    45,
+                    46,
+                    47,
+                    48,
+                    49,
+                    50,
+                    51,
+                    52,
+                    53,
+                    54,
+                    55,
+                    56,
+                    57,
+                    58,
+                    59,
+                    60,
+                    61,
+                    62,
+                    63,
+                    64,
+                    65,
+                    66,
+                    67,
+                    68,
+                    69,
+                    70,
+                    71,
+                    72,
+                    73,
+                    74,
+                    75,
+                    76,
+                    77,
+                    78,
+                    79,
+                    80,
+                    81,
+                    82,
+                    83,
+                    84,
+                    85,
+                    86,
+                    87,
+                    88,
+                    89,
+                    90,
+                    91,
+                    92,
+                    93,
+                    94,
+                    95,
+                    96,
+                    97,
+                    98,
+                    99,
+                    100,
+                    101,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    107,
+                    108,
+                    109,
+                    110,
+                    111,
+                    112,
+                    113,
+                    114,
+                    115,
+                    116,
+                    117,
+                    118,
+                    119,
+                    120,
+                    121,
+                    122,
+                    123,
+                    124,
+                    125,
+                    126,
+                    127,
+                    128,
+                    129,
+                    130,
+                    131,
+                    132,
+                    133,
+                    134,
+                    135,
+                    136,
+                    137,
+                    138,
+                    139,
+                    140,
+                    141,
+                    142,
+                    143,
+                    144,
+                    145,
+                    146,
+                    147,
+                    148,
+                    149,
+                    150,
+                    151,
+                    152,
+                    153,
+                    154,
+                    155,
+                    156,
+                    157,
+                    158,
+                    159,
+                    160,
+                    161,
+                    162,
+                    163,
+                    164,
+                    165,
+                    166,
+                    167,
+                    168,
+                    169,
+                    170,
+                    171,
+                    172,
+                    173,
+                    174,
+                    175,
+                    176,
+                    177,
+                    178,
+                    179,
+                    180,
+                    181,
+                    182,
+                    183,
+                    184,
+                    185,
+                    186,
+                    187,
+                    188,
+                    189,
+                    190,
+                    191,
+                    192,
+                    193,
+                    194,
+                    195,
+                    196,
+                    197,
+                    198,
+                    199,
+                    200,
+                    201,
+                    202,
+                    203,
+                    204,
+                    205,
+                    206,
+                    207,
+                    208,
+                    209,
+                    210,
+                    211,
+                    212,
+                    213,
+                    214,
+                    215,
+                    216,
+                    217,
+                    218,
+                    219,
+                    220,
+                    221,
+                    222,
+                    223,
+                    224,
+                    225,
+                    226,
+                    227,
+                    228,
+                    229,
+                    230,
+                    231,
+                    232,
+                    233,
+                    234,
+                    235,
+                    236,
+                    237,
+                    238,
+                    239,
+                    240,
+                    241,
+                    242,
+                    243,
+                    244,
+                    245,
+                    246,
+                    247,
+                    248,
+                    249,
+                    250,
+                    251,
+                    252,
+                    253,
+                    254,
+                    255,
+                    256,
+                    257,
+                    258,
+                    259,
+                    260,
+                    261,
+                    262,
+                    263,
+                    264,
+                    265,
+                    266,
+                    267,
+                    268,
+                    269,
+                    270,
+                    271,
+                    272,
+                    273,
+                    274,
+                    275,
+                    276,
+                    277,
+                    278,
+                    279,
+                    280,
+                    281,
+                    282,
+                    283,
+                    284,
+                    285,
+                    286,
+                    287,
+                    288,
+                    289,
+                    290,
+                    291,
+                    292,
+                    293,
+                    294,
+                    295,
+                    296,
+                    297,
+                    298,
+                    299,
+                    300,
+                    301,
+                    302,
+                    303,
+                    304,
+                    305,
+                    306,
+                    307,
+                    308,
+                    309,
+                    310,
+                    311,
+                    312,
+                    313,
+                    314,
+                    315,
+                    316,
+                    317,
+                    318,
+                    319,
+                    320,
+                    321,
+                    322,
+                    323,
+                    324,
+                    325,
+                    326,
+                    327,
+                    328,
+                    329,
+                    330,
+                    331,
+                    332,
+                    333,
+                    334,
+                    335,
+                    336,
+                    337,
+                    338,
+                    339,
+                    340,
+                    341,
+                    342,
+                    343,
+                    344,
+                    345,
+                    346,
+                    347,
+                    348,
+                    349,
+                    350,
+                    351,
+                    352,
+                    353,
+                    354,
+                    355,
+                    356,
+                    357,
+                    358,
+                    359,
+                    360,
+                    361,
+                    362,
+                    363,
+                    364,
+                    365,
+                    366,
+                    367,
+                    368,
+                    369,
+                    370,
+                    371,
+                    372,
+                    373,
+                    374,
+                    375,
+                    376,
+                    377,
+                    378,
+                    379,
+                    380,
+                    381,
+                    382,
+                    383,
+                    384,
+                    385,
+                    386,
+                    387,
+                    388,
+                    389,
+                    390,
+                    391,
+                    392,
+                    393,
+                    394,
+                    395,
+                    396,
+                    397,
+                    398,
+                    399,
+                    400,
+                    401,
+                    402,
+                    403,
+                    404,
+                    405,
+                    406,
+                    407,
+                    408,
+                    409,
+                    410,
+                    411,
+                    412,
+                    413,
+                    414,
+                    415,
+                    416,
+                    417,
+                    418,
+                    419,
+                    420,
+                    421,
+                    422,
+                    423,
+                    424,
+                    425,
+                    426,
+                    427,
+                    428,
+                    429,
+                    430,
+                    431,
+                    432,
+                    433,
+                    434,
+                    435,
+                    436,
+                    437,
+                    438,
+                    439,
+                    440,
+                    441,
+                    442,
+                    443,
+                    444,
+                    445,
+                    446,
+                    447,
+                    448
+                  ]
+                }
+              },
+              "StartMidArea_02": {
+                "faces": 11,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                }
+              },
+              "StartMidArea_06": {
+                "faces": 12,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                }
+              },
+              "AP_Graff04": {
+                "faces": 399,
+                "set": {
+                  "0x0004": [
+                    173,
+                    174,
+                    175,
+                    176,
+                    177,
+                    178,
+                    179,
+                    180,
+                    181,
+                    182,
+                    183,
+                    184,
+                    185,
+                    186,
+                    187,
+                    190,
+                    191,
+                    200,
+                    201,
+                    202,
+                    203,
+                    204,
+                    205,
+                    206,
+                    207,
+                    208,
+                    209,
+                    210,
+                    211,
+                    212,
+                    213,
+                    214,
+                    215,
+                    218,
+                    219,
+                    220,
+                    221,
+                    222,
+                    223,
+                    226,
+                    227,
+                    228,
+                    229,
+                    230,
+                    231,
+                    232,
+                    233,
+                    234,
+                    235,
+                    236,
+                    237,
+                    238,
+                    239,
+                    240,
+                    241,
+                    242,
+                    243,
+                    244,
+                    245,
+                    247,
+                    248,
+                    249,
+                    250,
+                    251,
+                    254,
+                    255,
+                    256,
+                    257,
+                    258,
+                    260,
+                    261,
+                    262,
+                    263,
+                    264,
+                    361,
+                    362,
+                    363,
+                    364,
+                    369,
+                    370,
+                    372,
+                    373,
+                    375,
+                    376,
+                    378,
+                    379,
+                    382,
+                    383,
+                    384,
+                    388,
+                    389,
+                    390,
+                    391,
+                    396
+                  ]
+                }
+              },
+              "StartArea_01": {
+                "faces": 463,
+                "set": {
+                  "0x0004": [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177]
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "T2-AP-5",
+          "level": "AP",
+          "kind": "banners",
+          "what": "scenery",
+          "class": "cosmetic",
+          "enabled": false,
+          "applicable": false,
+          "description": "AP_LevelChanges: 1 banner / billboard / poster models of THUGPRO's (THUGPRO's own textures and models, no collision): static leveleditor\\exported\\Big_Banner.mdl"
+        }
+      ]
+    }
+  }
+}
