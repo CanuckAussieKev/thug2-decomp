@@ -344,3 +344,11 @@ Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_co
     C++ destructor lets go of the object at the same point), and three of the path speed's comparisons done on the
     rounded float or with <= (the path velocity is a float: the result is the same value). (Found while resuming: the
     previous agent's interrupted mutation run had left the counter's reset out of Update - restored.)
+- [x] Game runs after OC1-10 and the merge of main (C:\Games\THUG2-1, this branch's dinput8.dll, 236 replacements in
+  0x0041A6D0-0x00423643 installed): free skate in BO and NO (New Orleans, peds and cars on paths) - loads, the skater
+  spawns and moves (inputs through the automation channel, 14/14 commands), late and engine-started self-tests pass, no
+  exception / run-time check / debug CRT report in the log. Real skating, model lighting under objects and scripted
+  path movers are for the user to judge.
+- Range done: every function of 0x0041A6D0-0x00423643 has source (225 addresses; find_gaps.py: no gap in the range);
+  scan_register_assumptions: no RISK in the range; audit_game_function_calls: no MISMATCH; check_code_writes: no
+  overlaps.
