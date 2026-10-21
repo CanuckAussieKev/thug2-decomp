@@ -2,7 +2,7 @@
 
 Generated 2026-10-21 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: ███████░░░░░░░░░░░░░ 36.7%** of the code rewritten (3,219 of 8,382 functions, 593.0 KB of 1,617.8 KB).
+**Game code: ███████░░░░░░░░░░░░░ 37.3%** of the code rewritten (3,297 of 8,382 functions, 603.5 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -11,7 +11,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Core utilities (CRC/checksums, string helpers, rect, random) | `0x401000`-`0x406460` | ███████████████████░ 99% | 129 / 130 | 19.8 KB / 19.8 KB |
 | Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ████████████████████ 100% | 423 / 423 | 75.5 KB / 75.5 KB |
 | Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 1% | 21 / 584 | 2.4 KB / 157.7 KB |
-| Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ███████░░░░░░░░░░░░░ 35% | 77 / 246 | 11.5 KB / 32.5 KB |
+| Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | █████████████░░░░░░░ 67% | 155 / 246 | 22.0 KB / 32.5 KB |
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | ████████████████████ 100% | 167 / 167 | 22.1 KB / 22.1 KB |
 | Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
 | Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | `0x45bda0`-`0x45efd0` | ████████████████████ 100% | 88 / 88 | 10.0 KB / 10.0 KB |
