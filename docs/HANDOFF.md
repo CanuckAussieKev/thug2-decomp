@@ -34,6 +34,9 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   chains, phase 5 triggers, and a check of face flag 0x80 (the view agent found the camera's feeler IGNORES 0x80 - our
   converters say 0x80 = camera collides and the THPS4 converter inverts it: possibly wrong; docs/pending/face-flag-0x80.md).
   Phase 6 (full Inspector + apply_layout.ts) starts after 4 and 5 merge.
+- **UX round DONE (2026-10-21):** UX1-UX9 + goals + occlusion picking fix + THAW rail speed-up fixes all merged, installed,
+  pushed (main 20ebef7; 503 self-tests, 149 TS tests). Nothing play-tested. Pages: entity map KzL5HQAt54n5g7JtfmEbtv,
+  checklist DUcbR4CuAAULq98JWcxX46. No agents running.
 - **UX round (2026-10-21, later; user: "do it all" incl. research ideas):** running UX1 play/camera/prefs, UX2 transforms/
   snapping/repeat (RMB-held flying default, Space cycles modes), UX3 selection/panels/command search+keymap, UX4 view
   modes/assets/previews, UX5 problem checker/budget meter/notes, goals on Create-a-Goal (editor-goals.md). QUEUED after
