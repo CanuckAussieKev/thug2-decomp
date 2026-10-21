@@ -1123,6 +1123,47 @@ export function checkRestarts(trg: readonly thps2.TrgNode[], col: thug2Col.ColFi
     return out;
 }
 
+// --- the sky -------------------------------------------------------------------------------------------------------
+
+// THPS2's skies: BackgroundCreate(model) in a restart's or the start's commands makes a background of a model in the
+// level's _o file - a panorama ~13,400 units across (School II, Marseille, Venice, the Bullring, Chopper Drop, Skate
+// Heaven's six) or a smaller backdrop (NY's / Philadelphia's f36ac9e6, made by a command point at the start) drawn
+// around the camera. They become the level's THUG2 sky (<level>_sky: a scene THUG2 draws around the camera, no
+// collision). Hangar and Skatestreet make none (indoor, black outside); SetSkyColor / SetFadeColor (the clear / fog
+// colours: two u16s each, layout not decoded) are left out.
+export function backgroundModels(trg: readonly thps2.TrgNode[]): number[] {
+    const out: number[] = [];
+    for (const n of trg) {
+        let commands: thps2.Command[];
+        if (n.type === thps2.NODE_RESTART) commands = thps2.restartCommands(n);
+        else if (n.type === thps2.NODE_START) commands = thps2.startCommands(n);
+        else if (n.type === thps2.NODE_COMMAND_POINT) commands = thps2.commandPointOf(n).commands;
+        else continue;
+        for (const c of commands) {
+            const model = c.args[0] as number;
+            if (c.op === thps2.CMD.BackgroundCreate && !out.includes(model)) out.push(model);
+        }
+    }
+    return out;
+}
+
+// The sky scene: each background model of the _o file at the origin (THPS2 draws it centred on the camera).
+export function convertSky(
+    objects: thps2.Psx,
+    models: readonly number[],
+    sky: string,
+    textures: LevelTextures,
+    mips = true,
+): ConvertedWorld | null {
+    const used = models.map((m) => objects.modelNames.indexOf(m)).filter((i) => i >= 0);
+    if (!used.length) return null;
+    const placed: thps2.Psx = {
+        ...objects,
+        objects: used.map((model) => ({ flags: 0, position: [0, 0, 0], model, raw: Buffer.alloc(36) })),
+    };
+    return convertWorld(placed, sky, textures, mips);
+}
+
 // --- convert -------------------------------------------------------------------------------------------------------
 
 export interface Args {
@@ -1192,10 +1233,32 @@ export function cmdConvert(args: Args): number {
                 `(${nodeArray.gaps} gaps, ${nodeArray.kills} kill zones; ${effects.length - placed.length} without trigger faces)`,
         );
         for (const problem of checkRestarts(trg, done.col)) report.push(`  restart ${problem}`);
+        // the sky: the background models of the _o file
+        let skyName: string | null = null;
+        const backgrounds = backgroundModels(trg);
+        const objectsFile = `data/${info.base}_o.psx`;
+        if (backgrounds.length && pkr.has(objectsFile)) {
+            const objects = thps2.readPsx(pkr.read(objectsFile), objectsFile);
+            const sky = convertSky(
+                objects,
+                backgrounds,
+                `${name}_sky`,
+                levelTextures(pkr, info, objects),
+                !args.noMips,
+            );
+            if (sky) {
+                skyName = `${name}_sky`;
+                common.writeLevel(pyJoin(out, "levels", skyName), skyName, sky.scene, sky.textures, null);
+                report.push(
+                    `  sky: ${skyName} from ${backgrounds.length} background models (${sky.counts.faces} faces, ` +
+                        `${sky.textures.textures.length} textures)`,
+                );
+            }
+        }
         manifest.levels.push({
             folder: info.base,
             level: name,
-            sky: null,
+            sky: skyName,
             display: `THPS2 ${info.sign}`,
             name: titleCase(info.sign),
             game: "THPS2",

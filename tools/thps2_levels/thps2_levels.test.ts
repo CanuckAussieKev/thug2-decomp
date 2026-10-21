@@ -564,6 +564,21 @@ test("terrains: THPS2's numbers as THUG2's Terrain_Types indices; rails by their
     );
 });
 
+test("sky: BackgroundCreate's models, the _o file's model placed at the origin", () => {
+    const bg = (at: number): Buffer => {
+        const head = u16(thps2.NODE_START, C.BackgroundCreate);
+        return Buffer.concat([head, pad4(at, head.length), u32(0xabcdef01), u16(0, 0, 0, 0xffff)]);
+    };
+    const trg = thps2.readTrg(trgOf([bg, () => u16(thps2.NODE_END)]), "test");
+    assert.deepEqual(conv.backgroundModels(trg), [0xabcdef01]);
+    const psx = thps2.readPsx(worldPsx(), "test"); // (its one model is named 0xabcdef01, at (100, -200, 300))
+    const sky = conv.convertSky(psx, [0xabcdef01], "thps2_test_sky", { byName: new Map(), bmps: new Map() }, false)!;
+    assert.equal(sky.scene.sectors.length, 1);
+    // the quad's corner (0, 0, 0) of the model at the origin, not at the object's place
+    assert.ok(Math.abs(sky.scene.sectors[0]!.bbox[0]!) < 1e-3);
+    assert.equal(conv.convertSky(psx, [0x12], "x", { byName: new Map(), bmps: new Map() }, false), null);
+});
+
 test("levels: ten, each its own name and level select number", () => {
     assert.equal(conv.LEVELS.length, 10);
     assert.equal(new Set(conv.LEVELS.map((l) => conv.levelName(l))).size, 10);
