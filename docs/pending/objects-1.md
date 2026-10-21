@@ -28,7 +28,7 @@ The range's classes / topics:
 - 0x00422D00-0x004230B0: the model light update component (0xE3FCA939).
 - 0x00423130-0x00423643: the motion component's member-function registration and its first members.
 
-Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp` (any of them alone; the files of later batches are added here).
+Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp,model_component.cpp` (any of them alone; the files of later batches are added here).
 
 - [x] Batch OC1-1 (NOT run in the game yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
   (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
@@ -237,3 +237,29 @@ Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_co
     ones). selftests_lock_obj.cpp's stand-in for the lock's update also covers ours.
   - Mutations: 68 deliberate bugs, 66 caught; 2 equivalent on the test's values: the lag's step x rounded to float
     before it's added (the sum's rounding hides it) and the quaternion product's w summed in another order (in double).
+- [x] Batch OC1-7 (NOT run in the game yet; the model component's display turns, display matrix and smaller members,
+  18 functions): src/game/obj/model_component.{h,cpp} (new; the class's layout and every member declared), game_clock.h
+  (GameClockTimeSince).
+  - Obj::CModelSpin / CModelSpinAxis (RotateDisplay's turns: up to six per axis): 0x00420590 Angle (off: 0; past its
+    period - a NaN period never ends -: held at base + range or switched off; linear (power 0), eased in
+    (sin(pi/2 t) squared power - 1 times) or out (1 - sin(pi/2 - pi/2 t)); the game clock's time or the real one;
+    left unrounded in ST0), 0x004204F0 Clear, 0x00420520 Add (the first free slot), 0x004213E0 Angle (the sum).
+  - Obj::CModelComponent (type 0x286A8D26 "model", vtable 0x00646128, 0x238 bytes): 0x004215F0 GetDisplayMatrix (the
+    object's display matrix, flipped - rows 0 and 2 negated - with EnableDisplayFlip, turned by the spins about X, Y
+    and Z about the pivot, at the object's position plus the pivot's shift and the display offset), 0x00421960
+    TestCollision (a line against the bone volumes; "No collision data for %s model"), 0x00420070 Hide, 0x00420090
+    SetColorValue, 0x004200C0 UpdateBrightness, 0x004200E0 RebuildFromProfile (vtable slot 13), 0x00420100
+    GetRefObjectName, 0x00420110 ReplaceTexture (the model's 0x00493E80), 0x004202A0 HideGeom (network message 0x3E),
+    0x00420670 ApplyBrightness (a feeler's hit vertex value doubled; lerped or set; the global brightness without model
+    lights), 0x00420700 SetColor (a sector model's geom 0), 0x00420730 RotateDisplay (frames; the pivot (0, 30, 0, 1);
+    message 0x76: period, power, start, range, object, hold, axes), 0x004208D0 CancelRotateDisplay (message 0x8C);
+    Tmr::GameClockTimeSince 0x00420250.
+  - Tests (selftests_obj_model.cpp): TestModelComponentMembers - 64 seeds: every spin's angle (flags, NaN periods,
+    powers -3 to 4, starts past 2^31 and exactly at the end; compared rounded to float - the original's x87 precision is
+    finer than a double's), each axis's angle and activity (axes with no turn on, none active), the display matrix
+    twice (pivots zero / set / NaN; the rotation matrices and D3DXMatrixMultiply's operands stood in for), the line test,
+    Clear and Add (a full axis), every member (models, lights, players there or not).
+  - Mutations: 72 deliberate bugs, 69 caught (63 at first; the test then got spins exactly at their end, inactive
+    axes, no turns and the axis's state after Clear; 2 retried after a build failure); 3 equivalent: GetDisplayMatrix
+    skipping an inactive axis (its angle is 0 anyway), the pivot shift's w (only the position's w gets it, then set
+    to 1), and TestCollision's skeleton check (the original reads through the pointer before it, so never gets there).
