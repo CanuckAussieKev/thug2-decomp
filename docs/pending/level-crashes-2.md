@@ -48,6 +48,18 @@ the converters, and each level then ran 6 minutes clean. Workspace ini as made (
   planes and trains as Vehicles now that their `set`s apply again (PC-THPS3-15 keeps the bullet trains our solid
   LevelObjects).
 
+## Re-verified after merging main (0ac0ce9, 2026-10-22) - NOT run by a person yet
+- Merge of main (skater SK1-SK6, OC5, THP8 phase 2, shared node fields...) clean, no conflicts. Build (out\build\lc2):
+  thug2_check 0 MISMATCHED (4314 replacements), 627 early self-tests pass, crash handling 8/8; npm typecheck / lint /
+  test (318 pass); check_code_writes: no overlaps.
+- THPS3, THPS4, THUG1 and THAW reconverted with the merged converters into C:\Games\THUG2 (the main install - the user
+  allowed it for this, the workspaces were busy; under its game lock) and installed (`make_menu_level.ts --game`).
+  No "differs from the register" line in any conversion.
+- `script_check.ts --thug2 C:\Games\THUG2` over all four games' converted levels: **no findings** in any.
+- load_check.ps1 -Seconds 200, this branch's DLL, ini with automation=1 and a 1280x720 window (put back on release):
+  tok, shp, z_ho, vn, hh each `running after ~206 s`, responding, loaded; their logs have no exception, run-time check,
+  debug-CRT report, `no node named`, `anim: no`, `GetArraySize:`, `script: ... steps in one frame` or register line.
+
 ## The lead must
 - Reconvert THPS3, THAW, THUG1 and THPS4 (every level's .qb may change: THPS3's TPN nodes / globals, the `<param>:`
   guards of the shared translator in THAW / THUG1 / THPS4, THUG1's anim sets and idle loops), then
