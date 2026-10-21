@@ -697,12 +697,9 @@ add_library(thug2_code OBJECT
     src/game/skater/core_rail.cpp
     src/game/skater/core_ground.cpp
     src/game/skater/core_wallride.cpp
-<<<<<<< HEAD
     src/game/skater/walk_moves.cpp
-=======
     src/game/skater/core_update.cpp
     src/game/skater/nonlocal_playback.cpp
->>>>>>> worktree-agent-a8237629ddb7c8518
     src/game/skater/state_history.cpp
     src/game/skater/vehicle_sound.cpp
     src/game/skater/skitch.cpp
