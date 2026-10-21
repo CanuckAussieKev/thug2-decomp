@@ -2,8 +2,6 @@
 
 #include "game/front/level_editor_adjust.h"
 
-#include <SDL2/SDL.h>
-
 #include <algorithm>
 #include <cmath>
 
@@ -91,7 +89,6 @@ bool g_applying;
 bool g_shown = true;
 bool g_pending;
 Action g_request;
-bool g_f6Key = true;
 
 bool SameSelection(const Edit::Selected& a, const Edit::Selected& b) { return a.kind == b.kind && a.ids == b.ids; }
 
@@ -226,11 +223,7 @@ bool& Shown() { return g_shown; }
 
 void Tick()
 {
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    bool down = keys[SDL_SCANCODE_F6] != 0;
-    if (down && !g_f6Key && Ui::KeysToEditor())
-        g_shown = !g_shown;
-    g_f6Key = down;
+    // (F6 - its registry entry, level_editor_arrange.cpp - switches Shown)
     if (!g_pending || Edit::Dragging())
         return;
     g_pending = false;

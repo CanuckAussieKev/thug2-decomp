@@ -316,6 +316,8 @@ std::string Write(const File& file)
     }
     for (const Cameras::Camera& c : file.cameras)
         out << Cameras::WriteRecord(c) << '\n';
+    for (const Links::Record& r : file.links)
+        out << Links::WriteRecord(r) << '\n'; // (UX7: linked copies)
     for (const std::string& line : file.extra)
         out << line << '\n';
     // (UX5) note pins; the records that didn't resolve when loaded, kept (level_editor_checks.h)
@@ -476,6 +478,8 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = Cameras::ReadRecord(in, &file->cameras.emplace_back()); // (map3: level_editor_cameras.h)
         } else if (kind == "note") {
             ok = Notes::ReadRecord(in, &file->notes.emplace_back()); // (UX5: level_editor_notes.h)
+        } else if (kind == "link") {
+            ok = Links::ReadRecord(in, &file->links.emplace_back()); // (UX7: level_editor_links.h)
         } else {
             // (anything else: another module's record or a later version's - kept as it is: AddExtension)
             size_t a = line.find_first_not_of(" \t"), b = line.find_last_not_of(" \t");
@@ -736,11 +740,15 @@ bool Capture(File* file)
     file->rails.erase(std::remove_if(file->rails.begin(), file->rails.end(),
                                      [](const Scenery::RailState& r) { return NodeCreate::IsAdded(r.name); }),
                       file->rails.end());
+    std::vector<uint32_t> cloneOrder; // (UX7: the linked copies' clones by their records' order)
     for (const Scenery::Clone& clone : Scenery::Clones()) {
         Placement now;
-        if (Scenery::PlacementNow(clone.checksum, &now) && !Scenery::Hidden(clone.checksum))
+        if (Scenery::PlacementNow(clone.checksum, &now) && !Scenery::Hidden(clone.checksum)) {
             file->clones.push_back({clone.source, Compose(now, clone.sourceAtCopy)});
+            cloneOrder.push_back(clone.checksum);
+        }
     }
+    file->links = Links::Capture(cloneOrder);
     for (uint32_t id : Objects::Touched()) {
         Obj::CCompositeObject* object = LiveObject(id);
         if (!object)
@@ -842,8 +850,11 @@ bool ReadFor(const std::string& path, uint32_t scene, File* file, std::string* m
 std::string Apply(const File& file)
 {
     std::vector<Scenery::SectorState> clones;
+    std::vector<uint32_t> cloneMade;
     for (const CloneRecord& record : file.clones) {
-        if (uint32_t made = Scenery::Duplicate(record.source))
+        uint32_t made = Scenery::Duplicate(record.source);
+        cloneMade.push_back(made); // (UX7: by the records' order, 0 for one not made - the linked copies)
+        if (made)
             clones.push_back({made, record.placement, false});
     }
     Scenery::ApplyStates(clones, {});
@@ -921,6 +932,8 @@ std::string Apply(const File& file)
     int faces = Faces::Apply(file.faces);
     int clusters = Clusters::Apply(file.clusters);
     int cameras = Cameras::Apply(file.cameras);
+    if (int links = Links::Apply(file.links, cloneMade)) // (UX7: the linked copies - after their copies were made)
+        Log("level editor: the layout's %d linked-copy groups in place", links);
     ApplyExtensions(file.extra); // (other modules' records: level_editor_organize.h)
     if (faces || clusters || cameras)
         Log("level editor: the layout's %d collision faces, %d trick-object clusters, %d cameras put in place", faces,
@@ -990,6 +1003,7 @@ void ResetToLevel(const File& keep)
     Faces::ResetAll();
     Clusters::ResetAll();
     Cameras::ResetAll();
+    Links::ResetAll(); // (UX7)
     ResetExtensions();
     Notes::ResetAll();             // (UX5)
     Checks::ForgetLayoutRecords(); // (UX5: Apply notes the next layout's again)
@@ -1269,6 +1283,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     Faces::ForgetLevel(); // (map3: nothing written - the level's collision and trick objects went with it)
     Clusters::ForgetLevel();
     Cameras::ForgetLevel();
+    Links::ForgetLevel(); // (UX7)
     Notes::ForgetLevel();  // (UX5)
     Checks::ForgetLevel(); // (UX5: the issues, the ignored list, the unresolved records)
     Chains::ForgetLevel(); // (before the overlay goes: the level's links put back while its array is the one loaded)

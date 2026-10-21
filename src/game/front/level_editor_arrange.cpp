@@ -12,12 +12,14 @@
 #include <tuple>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_adjust.h"
 #include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_fields.h"
 #include "game/front/level_editor_hud.h"
+#include "game/front/level_editor_links.h"
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
@@ -939,15 +941,6 @@ bool EdgeClick(float x, float y)
 
 namespace {
 
-bool g_mKey = true, g_f7Key = true;
-bool PressedOnce(const uint8_t* keys, SDL_Scancode code, bool* was)
-{
-    bool down = keys[code] != 0;
-    bool pressed = down && !*was;
-    *was = down;
-    return pressed;
-}
-
 // The rails' and ledges' segments where skaters grind them (cached while the nodes and rails stay).
 struct Segment {
     V3 a, b;
@@ -1017,6 +1010,85 @@ bool SelectionBox(const Edit::Selected& selection, Aabb* box, V3* size)
     return false;
 }
 
+} // namespace
+
+namespace {
+
+// The registry's entries (level_editor_actions.h): their indices, once registered.
+int g_actWindow = -1, g_actAdjust = -1, g_actEdgeRail = -1, g_actLinked = -1;
+
+int AddAction(const char* id, const char* name, const char* category, const char* tip, std::vector<Actions::Chord> keys,
+              std::function<void()> run, std::function<int()> checked = nullptr)
+{
+    Actions::Action a;
+    a.id = id;
+    a.name = name;
+    a.category = category;
+    a.tip = tip;
+    a.kind = checked ? Actions::Kind::Toggle : Actions::Kind::Press;
+    a.defaults = a.keys = std::move(keys);
+    a.run = std::move(run);
+    a.checked = std::move(checked);
+    return Actions::Register(a);
+}
+
+void Toggle(bool* setting) { *setting = !*setting; }
+
+void RegisterActions()
+{
+    if (g_actWindow >= 0)
+        return;
+    using Actions::Chord;
+    const uint8_t ctrlAlt = Actions::kCtrl | Actions::kAlt;
+    g_actWindow = AddAction("arrange_window", "Arrange window", "Panels",
+                            "Align / distribute, replace the selection, linked copies, rail along an edge, the ghost and "
+                            "snapping settings",
+                            {Chord{SDL_SCANCODE_F2, 0}}, [] { Toggle(&Current().window); });
+    g_actAdjust = AddAction("adjust_last", "Adjust last action", "Panels",
+                            "The last move / turn / scale / duplicate / align / place: change its numbers, made again as "
+                            "the same undo step (shown after each; F6 hides / shows it)",
+                            {Chord{SDL_SCANCODE_F6, 0}}, [] { Toggle(&Adjust::Shown()); });
+    g_actEdgeRail = AddAction("edge_rail", "Rail along an edge", "Edit",
+                              "A scenery piece selected: its top edges shown - click one to lay a grind rail exactly along "
+                              "it (Shift+click: more)",
+                              {Chord{SDL_SCANCODE_F7, 0}}, [] { SetEdgePicking(!g_edgePicking); });
+    g_actLinked = AddAction("linked_duplicate", "Duplicate linked", "Edit",
+                            "Copies that stay linked to their source: its scale (objects: its fields and model) reach them",
+                            {Chord{SDL_SCANCODE_D, ctrlAlt}}, [] { Links::LinkedDuplicate(); });
+    static const char* const kEdges[] = {"min", "centre", "max"};
+    static const char* const kAxes = "xyz";
+    for (int axis = 0; axis < 3; ++axis) {
+        for (int edge = 0; edge < 3; ++edge) {
+            std::string key = std::string("align_") + kAxes[axis] + "_" + kEdges[edge];
+            std::string name = std::string("Align ") + AxisName(axis) + " " + kEdges[edge];
+            AddAction(key.c_str(), name.c_str(), "Arrange",
+                      "Line the selected pieces up (the Arrange window's reference and space)", {}, [axis, edge] {
+                          Align(axis, static_cast<Edge>(edge), Current().reference, Current().local);
+                      });
+        }
+        std::string key = std::string("distribute_") + kAxes[axis];
+        std::string name = std::string("Distribute along ") + AxisName(axis);
+        AddAction(key.c_str(), name.c_str(), "Arrange", "Spread the selected pieces evenly (three or more)", {},
+                  [axis] { Distribute(axis, Current().gaps, Current().local); });
+    }
+    AddAction("replace_selection", "Replace selection with the Add palette's item", "Arrange",
+              "Each selected piece / object copy replaced by the highlighted piece / object, keeping its place, turn and "
+              "scale (a level's own object: its model)",
+              {}, [] { Replace(); });
+    AddAction("unlink", "Unlink", "Arrange", "The selected linked copies made independent (on a source: its group dissolved)",
+              {}, [] { Links::UnlinkSelection(); });
+    AddAction("edge_snap", "Edge-to-edge snapping", "Settings", "Scenery's box faces snap flush to a neighbour's while moved",
+              {}, [] { Toggle(&Current().edgeSnap); }, [] { return Current().edgeSnap ? 1 : 0; });
+    AddAction("drag_readout", "Measurements while dragging", "Settings",
+              "Size, distance moved, height above the ground, nearest rail / ledge next to the cursor", {},
+              [] { Toggle(&Current().measure); }, [] { return Current().measure ? 1 : 0; });
+    AddAction("placement_ghost", "Placement ghost", "Settings", "A see-through preview of what a click places", {},
+              [] { Toggle(&Current().ghost); }, [] { return Current().ghost ? 1 : 0; });
+    AddAction("click_places", "Click places the Add palette's item", "Settings",
+              "With the Add palette open, a click in the view places it (Shift: more)", {},
+              [] { Toggle(&Current().clickPlaces); }, [] { return Current().clickPlaces ? 1 : 0; });
+}
+
 V3 g_dragFrom;
 bool g_wasDragging;
 
@@ -1024,20 +1096,19 @@ bool g_wasDragging;
 
 void Update()
 {
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
-    bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
-    bool typing = !Ui::KeysToEditor();
-    bool m = PressedOnce(keys, SDL_SCANCODE_M, &g_mKey), f7 = PressedOnce(keys, SDL_SCANCODE_F7, &g_f7Key);
-    if (!typing && !Edit::Dragging()) {
-        if (m && !ctrl && !alt) {
-            if (Ui::Running())
-                Current().window = !Current().window;
-            else
-                Hud::Message("The Arrange window (M) needs the editor's UI ([features] editor_ui=1)");
-        }
-        if (f7)
+    RegisterActions();
+    RunQueued();
+    if (!Edit::Dragging()) {
+        if (Actions::Pressed(g_actWindow) && !Ui::Running())
+            Hud::Message("The Arrange window (F2) needs the editor's UI ([features] editor_ui=1)");
+        else if (Actions::Pressed(g_actWindow))
+            Toggle(&Current().window);
+        if (Actions::Pressed(g_actAdjust))
+            Toggle(&Adjust::Shown());
+        if (Actions::Pressed(g_actEdgeRail))
             SetEdgePicking(!g_edgePicking);
+        if (Actions::Pressed(g_actLinked))
+            Links::LinkedDuplicate();
     }
     if (g_edgePicking && Edit::Selection().kind != Edit::Kind::Scenery)
         g_edgePicking = false; // (deselected: Esc stops it)
