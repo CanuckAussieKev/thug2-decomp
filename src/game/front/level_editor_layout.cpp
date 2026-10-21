@@ -305,6 +305,14 @@ std::string Write(const File& file)
         out << ' ' << (w.off ? 1 : 0);
         Comment(out, w.checksum);
     }
+    // (map3) collision faces' flags, scenery clusters, camera nodes
+    out << Faces::WriteRecords(file.faces);
+    for (const Clusters::Membership& m : file.clusters) {
+        out << Clusters::WriteRecord(m);
+        Comment(out, m.sector);
+    }
+    for (const Cameras::Camera& c : file.cameras)
+        out << Cameras::WriteRecord(c) << '\n';
     return out.str();
 }
 
@@ -443,6 +451,12 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = Entities::ReadRecord(kind, in, &file->entities); // (speed / emitter)
         } else if (kind == "level") {
             ok = LevelProps::ReadRecord(in, &file->level); // (phase 6: the level's properties)
+        } else if (kind == "faces") {
+            ok = Faces::ReadRecord(in, &file->faces.emplace_back()); // (map3: level_editor_faces.h)
+        } else if (kind == "cluster") {
+            ok = Clusters::ReadRecord(in, &file->clusters.emplace_back()); // (map3: level_editor_clusters.h)
+        } else if (kind == "camera") {
+            ok = Cameras::ReadRecord(in, &file->cameras.emplace_back()); // (map3: level_editor_cameras.h)
         } // (anything else: a later version's record - skipped)
         if (!ok)
             return false;
@@ -721,6 +735,10 @@ bool Capture(File* file)
         it->fields = node.edits;
     }
     file->level = LevelProps::Current();
+    // (map3) collision faces' flags, scenery clusters, camera nodes (their nodes are owned: not `node` records)
+    file->faces = Faces::Changed();
+    file->clusters = Clusters::Changed();
+    file->cameras = Cameras::Capture();
     return true;
 }
 
@@ -820,6 +838,14 @@ std::string Apply(const File& file)
     int triggers = Triggers::Apply(file.triggers, &message);
     if (!message.empty())
         Log("level editor: %s", message.c_str());
+    // (map3) collision faces' flags - after the sectors (a moved piece's shared collision took its faces along: theirs
+    // are set there), scenery clusters (after the level's own registration), camera nodes.
+    int faces = Faces::Apply(file.faces);
+    int clusters = Clusters::Apply(file.clusters);
+    int cameras = Cameras::Apply(file.cameras);
+    if (faces || clusters || cameras)
+        Log("level editor: the layout's %d collision faces, %d trick-object clusters, %d cameras put in place", faces,
+            clusters, cameras);
     char summary[360];
     std::snprintf(summary, sizeof(summary),
                   "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
@@ -877,6 +903,11 @@ void ResetToLevel(const File& keep)
     Fields::ResetAll();
     LevelProps::Set(LevelProps::Props{});
     Entities::SetState(Entities::State{});
+    // (map3) every face's flags and every piece's cluster back as the level has them; the cameras went with the added
+    // nodes (NodeCreate::ResetAll) - Apply makes the layout's again
+    Faces::ResetAll();
+    Clusters::ResetAll();
+    Cameras::ResetAll();
 }
 
 // The crash hook's write: no C++ objects here (structured exception handling), no allocation.
@@ -1148,6 +1179,9 @@ void OnSceneLoaded(const char* name, bool isNet)
     NodeEdit::ForgetLevel();
     Fields::ForgetLevel();
     LevelProps::ForgetLevel();
+    Faces::ForgetLevel(); // (map3: nothing written - the level's collision and trick objects went with it)
+    Clusters::ForgetLevel();
+    Cameras::ForgetLevel();
     Chains::ForgetLevel(); // (before the overlay goes: the level's links put back while its array is the one loaded)
     NodeCreate::ForgetLevel();
     Entities::ForgetLevel();

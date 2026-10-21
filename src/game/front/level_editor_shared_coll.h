@@ -82,6 +82,8 @@ public:
     std::vector<FaceCopy> Faces() const;
     // On / off (the object's flag 4, as CSector::SetActive turns a sector's collision off).
     void SetActive(bool active);
+    // A face's flags set (level_editor_faces.h: the face flags edited).
+    void SetFaceFlags(int face, uint16_t flags);
     bool Active() const;
 
     Nx::CCollStatic* Object() { return &m_object; }
@@ -131,5 +133,16 @@ int Count(int* faces = nullptr);
 void ForEachCompanion(void (*each)(void* context, uint32_t checksum, const Companion& companion), void* context);
 std::vector<int> TakenFaces(const Nx::CCollObjTriData* geometry);
 uint32_t Generation();
+// (level_editor_faces.h - face flags edited) A level geometry's face taken along by a piece's companion: the piece, the
+// face's index in the companion and the flags it had (given back when the companion goes; the original carries 0x10
+// meanwhile). False: not taken.
+bool TakenFace(const Nx::CCollObjTriData* geometry, int face, uint32_t* piece, int* index, uint16_t* flags);
+// A companion's face's origin: the level geometry and face it was taken from (false: none - a copy's companion, whose
+// faces are copies).
+bool OriginOf(uint32_t piece, int index, Nx::CCollObjTriData** geometry, int* face);
+// A taken face's flags set: the companion's copy and the flags given back when the companion goes (false: not taken).
+bool SetTakenFlags(const Nx::CCollObjTriData* geometry, int face, uint16_t flags);
+// The piece's companion (null: none, or its level gone).
+const Companion* CompanionOf(uint32_t piece);
 
 } // namespace Front::LevelEditor::SharedCollision

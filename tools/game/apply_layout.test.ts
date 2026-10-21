@@ -937,6 +937,210 @@ test("bake: an exit trigger's box gets its faces again facing in; a plain one do
     readCol(writeCol(out.col!), "col");
 });
 
+// --- (map3) faces, clusters, cameras, the sky --------------------------------------------------------------------------
+
+test("layout_file: (map3) faces, cluster and camera records, the level's sky - read as the DLL, malformed refused", () => {
+    const l = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            "level tod=night sky=BO_Sky",
+            `faces ${hex("SecA")} 9:1,0:0091,65535:FFFF`,
+            `cluster ${hex("Obj01")} ${hex("MyCluster")}  # Obj01`,
+            `cluster ${hex("SecA")} -`,
+            "camera ed_camera01 pos=1,2,3 angles=-0.25,1.5,0 dist=10 later=7",
+            "camera ed_camera02 pos=4,5,6",
+        ].join("\n"),
+    );
+    assert.equal(l.level.sky, "BO_Sky");
+    assert.deepEqual(l.faces, [
+        {
+            checksum: checksum("SecA"),
+            faces: [
+                [0, 0x91],
+                [9, 1],
+                [65535, 0xffff],
+            ],
+        },
+    ]);
+    assert.deepEqual(l.clusters, [
+        { sector: checksum("Obj01"), trick: true, cluster: checksum("MyCluster") },
+        { sector: checksum("SecA"), trick: false, cluster: 0 },
+    ]);
+    assert.deepEqual(l.cameras, [
+        { name: "ed_camera01", pos: { x: 1, y: 2, z: 3 }, angles: { x: -0.25, y: 1.5, z: 0 }, distance: 50 },
+        { name: "ed_camera02", pos: { x: 4, y: 5, z: 6 }, angles: { x: 0, y: 0, z: 0 }, distance: 1000 },
+    ]);
+    assert.deepEqual(l.unknown, []);
+    const refused = [
+        "level sky=TR",
+        "level sky=TR%20Sky",
+        `faces ${hex("SecA")} 1:0011,1:0012`,
+        `faces ${hex("SecA")} 1:00110`,
+        `faces ${hex("SecA")}`,
+        `faces ${hex("SecA")} 65536:1`,
+        `faces ${hex("SecA")} 1:1 junk`,
+        `cluster ${hex("SecA")}`,
+        `cluster ${hex("SecA")} 00000000`,
+        `cluster 00000000 ${hex("SecA")}`,
+        "camera ed_camera01",
+        "camera ed_camera01 pos=1,2,3 pos=1,2,3",
+        "camera bad-name pos=1,2,3",
+        "camera ed_camera01 pos=1,2,3 dist=x",
+        "camera ed_camera01 pos=1,2,3 nokey",
+    ];
+    for (const line of refused) {
+        assert.throws(
+            () => readLayout(`thug2-decomp layout 2\nscene ${hex(LEVEL)}\n${line}\n`),
+            (e: unknown) => e instanceof LayoutError && e.line === 3,
+            line,
+        );
+    }
+});
+
+test("bake: (map3) face flags - the collision object's, a taken face's in its companion (the original keeps 0x10)", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `sector ${hex("SecA")} 1 100 0 0 0`,
+            `faces ${hex("SecB")} 0:0004`,
+            `faces ${hex("Loose")} 0:0041`,
+            `faces ${hex("Far")} 0:2081,3:0001`,
+            `faces ${hex("Nothing")} 0:0001`,
+        ].join("\n"),
+    );
+    const out = bake(layout, level(), null);
+    const object = (name: string): ColObject => out.col!.objects.find((o) => o.checksum === checksum(name))!;
+    assert.equal(object("SecB").faces[0]![0], 0x0004, "a plain face's flags");
+    assert.equal(object("Far").faces[0]![0], 0x2081);
+    // (Loose's face went with the moved SecA: the companion has the flags, the original keeps 0x10)
+    assert.equal(object("Loose").faces[0]![0], 0x0051);
+    assert.equal(object(`ed_coll_${hex("SecA")}_1`).faces[0]![0], 0x0041);
+    assert.ok(out.warnings.some((w) => w.startsWith(`face 3 of ${hex("Far")}`) && w.includes("has 1 faces")));
+    assert.ok(out.warnings.some((w) => w.includes(`faces of ${hex("Nothing")}`) && w.includes("no collision object")));
+    assert.ok(out.report.some((r) => r.startsWith("collision faces: 3 faces")));
+    readCol(writeCol(out.col!), "col");
+    // A copy's companion keeps the flags it was made with (the DLL's copies don't take face edits).
+    const copied = bake(
+        readLayout(
+            [
+                "thug2-decomp layout 2",
+                `scene ${hex(LEVEL)}`,
+                `sector ${hex("SecA")} 1 100 0 0 0`,
+                `clone ${hex("SecA")} 0 0 0 1000`,
+                `faces ${hex("Loose")} 0:0041`,
+            ].join("\n"),
+        ),
+        level(),
+        null,
+    );
+    const flags = (name: string): number =>
+        copied.col!.objects.find((o) => o.checksum === checksum(name))!.faces[0]![0];
+    assert.equal(flags(`ed_coll_${hex("SecA")}_1`), 0x0041);
+    assert.equal(flags(`ed_coll_${hex("SecA")}_2`), 0x0001, "the copy's companion as loaded");
+});
+
+// A node array with a TrickObject of its own and one from a shared structure.
+function trickQb(): Buffer {
+    const ncomp = struct([
+        [null, NAME("TrickObject")],
+        ["Cluster", NAME("SharedCluster")],
+    ]);
+    const nodes = [
+        struct([
+            ["Pos", vec(0, 0, 0)],
+            ["Name", NAME("Own01")],
+            ["Class", NAME("LevelGeometry")],
+            [null, NAME("TrickObject")],
+            ["Cluster", NAME("OwnCluster")],
+        ]),
+        struct([
+            ["Pos", vec(0, 0, 0)],
+            ["Name", NAME("Shared01")],
+            ["Class", NAME("LevelGeometry")],
+            [null, NAME("ncomp_LevelGeometry_1")],
+        ]),
+        struct([
+            ["Pos", vec(0, 0, 0)],
+            ["Name", NAME("Plain01")],
+            ["Class", NAME("LevelGeometry")],
+        ]),
+    ];
+    const global = (name: string, value: QbValue): Buffer =>
+        Buffer.concat([encodeValue(NAME(name)), Buffer.from([0x07]), encodeValue(value), Buffer.from([0x01])]);
+    return Buffer.concat([
+        global("ncomp_LevelGeometry_1", ncomp),
+        global(`${LEVEL}_NodeArray`, nodes),
+        ...[
+            "TrickObject",
+            "Cluster",
+            "Own01",
+            "Shared01",
+            "Plain01",
+            "ncomp_LevelGeometry_1",
+            `${LEVEL}_NodeArray`,
+        ].map((n) => Buffer.concat([Buffer.from([0x2b]), pack("<I", checksum(n)), Buffer.from(`${n}\0`, "latin1")])),
+        Buffer.from([0x00]),
+    ]);
+}
+
+test("bake: (map3) scenery clusters - TrickObject + Cluster= on the node, taken out, a shared one warned", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `cluster ${hex("Plain01")} ${hex("NewCluster")}`,
+            `cluster ${hex("Own01")} -`,
+            `cluster ${hex("Shared01")} -`,
+            `cluster ${hex("Gone01")} -`,
+        ].join("\n"),
+    );
+    const out = bake(layout, { ...level(), qb: trickQb() }, null);
+    const nodes = nodesOf(out.qb);
+    const flag = (s: Struct): boolean =>
+        s.entries.some(([k, v]) => k === null && v instanceof Name && v.value === checksum("TrickObject"));
+    const plain = named(nodes, "Plain01");
+    assert.ok(flag(plain));
+    assert.equal((plain.get("Cluster") as Name).value, checksum("NewCluster"));
+    const own = named(nodes, "Own01");
+    assert.ok(!flag(own) && own.get("Cluster") === undefined, "its own TrickObject and Cluster= taken out");
+    assert.ok(out.warnings.some((w) => w.startsWith("scenery Shared01") && w.includes("shared structure")));
+    assert.ok(out.warnings.some((w) => w.startsWith("cluster: no node")));
+});
+
+test("bake: (map3) camera nodes appended (virtual_cam offsets); the level's sky in Levels.qb", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            "level sky=BO_Sky",
+            "camera ed_camera01 pos=100,50,-20 angles=-0.25,0.5,0 dist=800",
+            "camera Rail01 pos=0,0,0",
+        ].join("\n"),
+    );
+    const out = bake(layout, { ...level(), levels: levelsQb() }, null);
+    const nodes = nodesOf(out.qb);
+    const cam = named(nodes, "ed_camera01");
+    assert.deepEqual(
+        cam.entries.map(([k]) => k!.value),
+        ["Pos", "Angles", "Name", "Class", "Type", "targetOffset", "positionOffset"].map(checksum),
+    );
+    assert.equal((cam.get("Type") as Name).value, checksum("ed_camera"));
+    const target = (cam.get("targetOffset") as Vector).values;
+    const offset = (cam.get("positionOffset") as Vector).values;
+    // (the game's at row for (-0.25, 0.5, 0): (sin 0.5 cos 0.25, sin 0.25, cos 0.5 cos 0.25), 800 ahead)
+    const f = [Math.sin(0.5) * Math.cos(0.25), Math.sin(0.25), Math.cos(0.5) * Math.cos(0.25)];
+    [100, 50, -20].forEach((p, i) => {
+        assert.ok(Math.abs(target[i]! - (p + f[i]! * 800)) < 1e-3, `target ${i}`);
+        assert.ok(Math.abs(offset[i]! + f[i]! * 800) < 1e-3, `offset ${i}`);
+    });
+    assert.ok(out.warnings.some((w) => w.startsWith("camera Rail01") && w.includes("already")));
+    const lv = new QbFile(out.levels!, "Levels.qb", true);
+    const s = lv.globals.find(([k]) => k.value === checksum(`Level_${LEVEL}`))![1] as Struct;
+    assert.equal(s.get("sky"), "BO_Sky");
+});
+
 // --- level_editor_entities.h: speeds, emitters' sounds, particle systems moved / copied, team lobby flags -----------
 
 function entityLevel(): LevelFiles {

@@ -14,11 +14,15 @@
 #include <cstring>
 
 #include "game/front/level_editor_entities.h"
+#include "game/front/level_editor_cameras.h"
+#include "game/front/level_editor_clusters.h"
+#include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_scale.h"
+#include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
@@ -223,6 +227,15 @@ void ViewToolbar(const Model& model)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Shows the level's collision near the camera, coloured by surface (the legend: bottom left);\n"
                           "invisible walls in magenta - Shift+click one to see what it is");
+    // (map3: Faces mode - level_editor_faces.h)
+    ImGui::SameLine();
+    bool faces = Faces::Picking();
+    if (ImGui::Checkbox("Faces (K)", &faces))
+        Faces::SetPicking(faces);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Faces mode: a click takes a collision face (Shift+click adds / drops one); the Inspector sets "
+                          "or clears their flags\n(skatable, wallride, vert, not collidable, trigger, camera passes, not "
+                          "taggable) - live, saved, Home puts them back");
     if (model.view.hidden > 0) {
         ImGui::SameLine();
         char label[48];
@@ -378,6 +391,7 @@ void ViewSection(const Model& model)
             ImGui::TextDisabled("%d hidden in the editor", model.view.hidden);
         }
     }
+    Faces::InspectorSection(g_mono, g_small); // (map3: the collision faces selected - level_editor_faces.h)
 }
 
 // --- the panels ---
@@ -1078,6 +1092,9 @@ void Inspector(const Model& model)
         NodeSection(model, model.nodes.selected);
         Triggers::InspectorSection(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
         Entities::InspectorSection(model.nodes.selected, 0, g_mono, &g_requests); // (sound, particles, ghosts)
+        // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
+        if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(Nodes::All().size()))
+            Cameras::InspectorSection(Nodes::All()[model.nodes.selected].name, g_mono, g_small);
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
         ImGui::TextWrapped("Nothing selected - click something in the view (a gizmo, an object, scenery), or pick it "
                            "in the Outliner.");
@@ -1159,6 +1176,9 @@ void Inspector(const Model& model)
             ImGui::EndTable();
         }
         MemberList(s.members);
+        // (map3: the selected scenery's trick-object cluster - level_editor_clusters.h)
+        if (s.sectors > 0 && s.objects == 0)
+            Clusters::InspectorSection(Scenery::Selection(), g_mono, g_small);
         ImGui::Spacing();
         ImGui::TextWrapped("%s", model.selected.c_str());
         ImGui::Spacing();
@@ -1194,6 +1214,7 @@ void Inspector(const Model& model)
     ViewSection(model);
     Entities::ViewOptions(); // (Show uncreated objects)
     LockList(model);
+    Cameras::ListSection(g_mono, g_small); // (map3: the camera nodes - level_editor_cameras.h)
     LevelSection(model.levelProps, g_mono, g_small, &g_requests); // (phase 6: level_editor_fields_ui.cpp)
     ImGui::End();
 }
@@ -1312,6 +1333,16 @@ void Help(const Model& model)
         {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
         {"", "I or /", "isolates the selection: everything else hidden while editing"},
         {"", "Alt+H", "shows everything hidden in the editor again"},
+        {"Faces", "K", "Faces mode (the collision shown): a click takes a collision face, Shift+click adds / drops one; "
+                       "the Inspector sets or clears their flags - skatable, not skatable, wallride, vert, not "
+                       "collidable, trigger, camera passes (0x80), not taggable (0x2000) - live; All faces of a piece; "
+                       "Home puts the selected faces' flags back; saved in the layout"},
+        {"Cameras", "V", "a camera node where the view is, looking its way (its frustum drawn); select it (the Outliner "
+                         "or its gizmo) to move it, Z / X its heading, the Inspector its pitch, target, Look through; "
+                         "Delete removes it; saved in the layout"},
+        {"Trick objects", "Inspector", "(selected scenery) Trick object: put the pieces in a cluster, each its own, or "
+                                       "not a trick object - live, saved"},
+        {"Sky", "Inspector", "Level properties: Sky - another level's sky scene, when the edited copy next loads"},
         {"Triggers", "T", "shows the trigger volumes - kill zones red, teleports purple (an arrow to where they send), "
                           "gap starts green, gap ends yellow, scripts cyan - and the Triggers window: add a kill zone, "
                           "water, a teleport, a script, a gap (its start and end); the level's listed"},

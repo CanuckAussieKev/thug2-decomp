@@ -3,7 +3,7 @@
 Branch `worktree-agent-ae3e302d5d2c230d8`. Level editor / UI work: no game runs (the user tests). Verified by building
 (out\build\verify in the worktree), thug2_check.exe on THUG2PM.exe and on the stock C:\Games\THUG2\Game\THUG2.exe (both
 pass: 426 early self-tests), `node tools/check_code_writes.ts` (No overlaps), `npm run typecheck` / `lint` / `test`
-(129 pass), and mutations (below).
+(133 pass after merging main 5ee9e5f), and mutations (below). (One stock-exe check run failed "sfx: loading waves" once and passed on the rerun - not this work: a flaky wave-load comparison.)
 
 ## What was built
 

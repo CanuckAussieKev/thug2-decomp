@@ -2,6 +2,8 @@
 
 #include "game/front/level_editor_level_props.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 
@@ -58,10 +60,23 @@ bool Same(const Props& a, const Props& b)
 {
     return a.name == b.name && a.start == b.start && a.tod == b.tod && a.time == b.time && a.hasAmbient == b.hasAmbient &&
            (!a.hasAmbient || std::memcmp(a.ambient, b.ambient, sizeof(a.ambient)) == 0) && a.hasFog == b.hasFog &&
-           (!a.hasFog || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0);
+           (!a.hasFog || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0) && _stricmp(a.sky.c_str(), b.sky.c_str()) == 0;
 }
 
 bool Empty(const Props& props) { return Same(props, Props{}); }
+
+bool ValidSky(const std::string& sky)
+{
+    if (sky.empty() || sky.size() > 64)
+        return false;
+    std::string lower;
+    for (char c : sky) {
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
+            return false;
+        lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return lower.find("_sky") != std::string::npos;
+}
 
 int Channel(int value) { return value < 0 ? 0 : value > 255 ? 255 : value; }
 int Distance(int value) { return value < 0 ? 0 : value > 100000 ? 100000 : value; }
@@ -91,6 +106,8 @@ std::string WriteRecord(const Props& props)
                       props.fog[4]);
         line += text;
     }
+    if (!props.sky.empty())
+        line += " sky=" + Fields::Escape(props.sky);
     return line + "\n";
 }
 
@@ -124,6 +141,9 @@ bool ReadRecord(std::istringstream& in, Props* props)
             if (!ReadInts(value, p.fog, 5))
                 return false;
             p.hasFog = true;
+        } else if (key == "sky") {
+            if (!Fields::Unescape(value, &p.sky) || !ValidSky(p.sky))
+                return false;
         } // (another key: a later version's - skipped)
     }
     *props = p;
@@ -153,6 +173,12 @@ std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& 
         out.push_back({"fog_alpha", Int(Channel(props.fog[3]))});
         out.push_back({"fog_dist", Int(Distance(props.fog[4]))});
     }
+    if (ValidSky(props.sky)) {
+        Fields::Value v;
+        v.kind = Fields::Kind::String;
+        v.text = props.sky;
+        out.push_back({"sky", v});
+    }
     return out;
 }
 
@@ -161,6 +187,8 @@ std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& 
 namespace {
 
 Props g_props;
+std::vector<std::string> g_skies;
+bool g_skiesMade;
 
 // The level structure's values put in by WriteIntoStructure, and what was there before.
 struct Kept {
@@ -222,6 +250,9 @@ bool LevelDefaults(Props* props)
     const char* name = nullptr;
     if (level->GetString(Crc::GenerateCRCFromString("name"), &name, 0) && name)
         p.name = name;
+    const char* sky = nullptr;
+    if (level->GetString(Crc::GenerateCRCFromString("sky"), &sky, 0) && sky)
+        p.sky = sky;
     uint32_t state = 0;
     p.tod = 1; // (load_level: afternoon when the level names none)
     if (level->GetChecksum(Crc::GenerateCRCFromString("tod_state"), &state, 0)) {
@@ -246,7 +277,37 @@ bool LevelDefaults(Props* props)
     return true;
 }
 
-void ForgetLevel() { g_props = Props{}; }
+void ForgetLevel()
+{
+    g_props = Props{};
+    g_skiesMade = false;
+}
+
+const std::vector<std::string>& Skies()
+{
+    if (g_skiesMade)
+        return g_skies;
+    g_skiesMade = true;
+    g_skies.clear();
+    static const uint32_t kSky = Crc::GenerateCRCFromString("sky"), kLoadScript = Crc::GenerateCRCFromString("load_script");
+    for (Script::CSymbolTableEntry* e = Script::GetNextSymbol(nullptr); e; e = Script::GetNextSymbol(e)) {
+        const char* sky = nullptr;
+        uint32_t load = 0;
+        // (a level structure: it names its load script - not some other structure with a sky=)
+        if (e->type != Script::ESYMBOLTYPE_STRUCTURE || !e->structure || !e->structure->GetChecksum(kLoadScript, &load, 0) ||
+            !e->structure->GetString(kSky, &sky, 0) || !sky || !ValidSky(sky))
+            continue;
+        bool there = false;
+        for (const std::string& s : g_skies)
+            there = there || _stricmp(s.c_str(), sky) == 0;
+        if (!there)
+            g_skies.push_back(sky);
+    }
+    std::sort(g_skies.begin(), g_skies.end(), [](const std::string& a, const std::string& b) {
+        return _stricmp(a.c_str(), b.c_str()) < 0;
+    });
+    return g_skies;
+}
 
 void WriteIntoStructure(Script::CStruct* level, const Props& props)
 {
