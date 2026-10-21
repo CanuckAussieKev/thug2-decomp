@@ -14,8 +14,13 @@
 //     collidable (0x10), no skater shadow (0x100), invisible (0x1000). The trigger component's feeler only asks for
 //     0x50 (SetIgnore(0, 0x50) - level_editor_triggers.h), so it meets the box as it meets the DLL's;
 //   - the script: `script <name>Script <body> endscript` - the DLL's tokens - in the level's scripts .qb.
-// One difference from the DLL's box: a static box's faces are met where a line crosses them, on the way in and again
-// on the way out (THUG2's own boxes too), where the DLL's movable box fires only on the way in.
+// Both fire on the way in only: the DLL's movable box is met where a line enters it (Mth::BBox::LineIntersect), and a
+// static box's faces are one-sided - the static line test (CCollStatic::CollideWithLine 0x00413B50) takes a face only
+// through RayHitsTriangle (0x0040B420), which refuses a determinant below 0.03: a line crossing a face from behind (its
+// normal (v1 - v0) x (v2 - v0) along the line) doesn't meet it. The boxes' faces point outwards (as THUG2's own), so a
+// line leaving the box meets nothing. An exit trigger (exit=1: the DLL emulates leaving with a test of the skater's
+// place every frame - Triggers::Play) is baked with the 12 faces again, wound the other way: a line leaving the box
+// meets those, and the node's TriggerScript runs again, as the DLL runs it on leaving.
 
 import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
 import { buildTree, type ColObject, type Face, setReaches } from "../level_port/thug2_col.ts";
@@ -53,6 +58,8 @@ export interface TriggerSpec {
     text: string;
     score: number;
     replaces: number;
+    // (editor-polish) also fires on leaving the box: the record's exit=1
+    exit: boolean;
 }
 
 export const FACE_FLAGS = 0x1150; // (THUG2's own trigger boxes': 0x40 | 0x10 | 0x100 | 0x1000)
@@ -149,6 +156,7 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
         text: "",
         score: 100,
         replaces: 0,
+        exit: false,
     };
     // text="..." (last: it may hold spaces)
     const quote = text.indexOf(' text="');
@@ -212,6 +220,9 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
         } else if (key === "replaces") {
             ok = once() && /^(0[xX])?[0-9A-Fa-f]+$/.test(value) && value.length <= 8;
             spec.replaces = Number.parseInt(value, 16) >>> 0;
+        } else if (key === "exit") {
+            ok = once() && (value === "0" || value === "1");
+            spec.exit = value === "1";
         } // (another key: a later version's - skipped)
         if (!ok) return null;
     }
@@ -362,7 +373,8 @@ export const BOX_FACES: readonly [number, number, number][] = [
 ];
 
 // The trigger's collision object: the box's 12 faces, flags FACE_FLAGS, terrain 0, intensities 128 (as THUG2's own),
-// fixed-point corners while the box fits 16-bit sixteenths (as the shipped boxes), its tree and reaches built.
+// fixed-point corners while the box fits 16-bit sixteenths (as the shipped boxes), its tree and reaches built. An exit
+// trigger's has the 12 faces again wound the other way (facing in: met on the way out - see the top).
 export function triggerCollision(spec: TriggerSpec): ColObject {
     const corners = boxCorners(spec);
     const min = {
@@ -378,6 +390,7 @@ export function triggerCollision(spec: TriggerSpec): ColObject {
     const fixed = Math.max(max.x - min.x, max.y - min.y, max.z - min.z) * 16 <= 65535;
     const verts = corners.map((c) => [c.x, c.y, c.z]);
     const faces: Face[] = BOX_FACES.map(([a, b, c]) => [FACE_FLAGS, 0, a, b, c]);
+    if (spec.exit) faces.push(...BOX_FACES.map(([a, b, c]): Face => [FACE_FLAGS, 0, a, c, b]));
     const o: ColObject = {
         checksum: checksum(spec.name),
         flags: 0,

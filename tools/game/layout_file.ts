@@ -15,11 +15,19 @@ export interface V3 {
     y: number;
     z: number;
 }
-// A point x as loaded is at QuarterTurn(x * scale, quarters) + offset (level_editor.h's Placement).
+// A point x as loaded is at QuarterTurn(PerAxis(x, scale), quarters) + offset (level_editor.h's Placement): `scale` is
+// along the piece's own axes as loaded - uniform (`scale=s`) or stretched (`scale=x,y,z`); 1, 1, 1 unless scaled.
 export interface Placement {
     quarters: number;
     offset: V3;
-    scale: number;
+    scale: V3;
+}
+export const UNIT_SCALE: Readonly<V3> = { x: 1, y: 1, z: 1 };
+export function isUnitScale(s: V3): boolean {
+    return s.x === 1 && s.y === 1 && s.z === 1;
+}
+export function isUniformScale(s: V3): boolean {
+    return s.x === s.y && s.y === s.z;
 }
 export type FieldKind =
     | "integer"
@@ -94,8 +102,9 @@ export interface Layout {
     sectors: { checksum: number; placement: Placement; hidden: boolean }[];
     rails: { name: number; placement: Placement; hidden: boolean }[];
     clones: { source: number; placement: Placement }[];
-    objects: { id: number; pos: V3; rows: number[] }[];
-    copies: { name: number; source: number; pos: V3; rows: number[] }[];
+    // (scale: the object's model and collision along its own axes - a trailing scale= on the record, 1, 1, 1 without)
+    objects: { id: number; pos: V3; rows: number[]; scale: V3 }[];
+    copies: { name: number; source: number; pos: V3; rows: number[]; scale: V3 }[];
     sets: SetRecord[];
     nodes: NodeRecord[];
     crownOrder: string[];
@@ -255,18 +264,35 @@ function readPlacement(words: string[], at: number): Placement | null {
     const q = Number(words[at]);
     const xyz = [words[at + 1], words[at + 2], words[at + 3]].map(parseNumber);
     if (!Number.isInteger(q) || q < 0 || q > 3 || xyz.some((v) => v === null)) return null;
-    return { quarters: q, offset: { x: xyz[0]!, y: xyz[1]!, z: xyz[2]! }, scale: 1 };
+    return { quarters: q, offset: { x: xyz[0]!, y: xyz[1]!, z: xyz[2]! }, scale: { ...UNIT_SCALE } };
 }
 
-function readScale(words: string[], at: number, p: Placement): boolean {
+// A `scale=` token (level_editor_scale.h's Scale::ReadToken): one number (uniform) or exactly three separated by commas
+// (x, y, z along the piece's own axes), each a float above 0; null: malformed.
+export function readScaleToken(word: string): V3 | null {
+    if (!word.startsWith("scale=") || word.length === 6) return null;
+    const parts = word.slice(6).split(",");
+    if (parts.length !== 1 && parts.length !== 3) return null;
+    const n = parts.map((t) => {
+        const v = parseNumber(t);
+        return v === null ? null : Math.fround(v);
+    });
+    if (n.some((v) => v === null || !(v > 0) || !Number.isFinite(v))) return null;
+    return parts.length === 1 ? { x: n[0]!, y: n[0]!, z: n[0]! } : { x: n[0]!, y: n[1]!, z: n[2]! };
+}
+
+// The key=value fields after a sector / rail / clone / object / copy record's numbers (ReadScaleFields): scale=;
+// others (a later version's) skipped. Null: a bad scale.
+function readScale(words: string[], at: number): V3 | null {
+    let scale: V3 = { ...UNIT_SCALE };
     for (const w of words.slice(at)) {
         if (w.startsWith("scale=")) {
-            const s = parseNumber(w.slice(6));
-            if (s === null || !(s > 0)) return false;
-            p.scale = s;
+            const s = readScaleToken(w);
+            if (!s) return null;
+            scale = s;
         }
     }
-    return true;
+    return scale;
 }
 
 function validWord(w: string): boolean {
@@ -338,7 +364,7 @@ export function readLayout(text: string): Layout {
                 const p = readPlacement(words, 2) ?? fail("bad placement");
                 const hidden = words[6];
                 if (hidden !== "0" && hidden !== "1") fail("bad hidden flag");
-                if (!readScale(words, 7, p)) fail("bad scale=");
+                p.scale = readScale(words, 7) ?? fail("bad scale=");
                 if (kind === "sector") layout.sectors.push({ checksum: name, placement: p, hidden: hidden === "1" });
                 else layout.rails.push({ name, placement: p, hidden: hidden === "1" });
                 break;
@@ -346,7 +372,7 @@ export function readLayout(text: string): Layout {
             case "clone": {
                 const source = hex(1);
                 const p = readPlacement(words, 2) ?? fail("bad placement");
-                if (!readScale(words, 6, p)) fail("bad scale=");
+                p.scale = readScale(words, 6) ?? fail("bad scale=");
                 layout.clones.push({ source, placement: p });
                 break;
             }
@@ -358,8 +384,9 @@ export function readLayout(text: string): Layout {
                 const n = numbers as number[];
                 const pos = { x: n[0]!, y: n[1]!, z: n[2]! };
                 const rows = n.slice(3, 12);
-                if (kind === "object") layout.objects.push({ id: ids[0]!, pos, rows });
-                else layout.copies.push({ name: ids[0]!, source: ids[1]!, pos, rows });
+                const scale = readScale(words, 1 + ids.length + 12) ?? fail("bad scale=");
+                if (kind === "object") layout.objects.push({ id: ids[0]!, pos, rows, scale });
+                else layout.copies.push({ name: ids[0]!, source: ids[1]!, pos, rows, scale });
                 break;
             }
             case "set": {

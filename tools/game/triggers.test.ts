@@ -45,6 +45,7 @@ function spec(over: Partial<TriggerSpec>): TriggerSpec {
         text: "",
         score: 100,
         replaces: 0,
+        exit: false,
         ...over,
     };
 }
@@ -206,6 +207,58 @@ test("triggers: the node and the box", () => {
     const big = triggerCollision({ ...s, size: { x: 50000, y: 10, z: 10 } });
     assert.equal(big.fixedVerts, 0, "too big for sixteenths: float corners");
     assert.equal(readCol(writeCol({ objects: [big] }), "col").objects[0]!.verts[0]![0], big.verts[0]![0]);
+});
+
+// The static line test's triangle test (src/game/nx/coll_tests.cpp RayHitsTriangle, 0x0040B420): a determinant below
+// 0.03 - the line crossing the face from behind - is no hit. In doubles here (only the sides matter).
+function lineHits(start: number[], end: number[], v0: number[], v1: number[], v2: number[]): boolean {
+    const d = [end[0]! - start[0]!, end[1]! - start[1]!, end[2]! - start[2]!];
+    const e1 = [v1[0]! - v0[0]!, v1[1]! - v0[1]!, v1[2]! - v0[2]!];
+    const e2 = [v2[0]! - v0[0]!, v2[1]! - v0[1]!, v2[2]! - v0[2]!];
+    const p = [e2[2]! * d[1]! - e2[1]! * d[2]!, e2[0]! * d[2]! - e2[2]! * d[0]!, e2[1]! * d[0]! - e2[0]! * d[1]!];
+    const det = e1[2]! * p[2]! + p[0]! * e1[0]! + p[1]! * e1[1]!;
+    if (det < 0.03) return false;
+    const o = [start[0]! - v0[0]!, start[1]! - v0[1]!, start[2]! - v0[2]!];
+    const u = o[2]! * p[2]! + o[1]! * p[1]! + o[0]! * p[0]!;
+    if (u < 0 || u > det) return false;
+    const q = [o[1]! * e1[2]! - o[2]! * e1[1]!, o[2]! * e1[0]! - o[0]! * e1[2]!, o[0]! * e1[1]! - o[1]! * e1[0]!];
+    const v = q[2]! * d[2]! + q[0]! * d[0]! + q[1]! * d[1]!;
+    if (v < 0 || u + v > det) return false;
+    const along = (q[2]! * e2[2]! + q[1]! * e2[1]! + q[0]! * e2[0]!) / det;
+    return along >= 0 && along <= 1;
+}
+
+test("triggers: a baked box fires on the way in; with exit=1 on the way out too", () => {
+    assert.equal(readTriggerRecord("ed_t kill pos=0,0,0 exit=1")?.exit, true);
+    assert.equal(readTriggerRecord("ed_t kill pos=0,0,0 exit=0")?.exit, false);
+    assert.equal(readTriggerRecord("ed_t kill pos=0,0,0")?.exit, false);
+    assert.equal(readTriggerRecord("ed_t kill pos=0,0,0 exit=yes"), null);
+    assert.equal(readTriggerRecord("ed_t kill pos=0,0,0 exit=0 exit=1"), null);
+    const s = spec({ name: "ed_t", target: "TRG_Restart01", pos: { x: 0, y: 100, z: 0 }, yaw: 0.3 });
+    const hits = (o: ReturnType<typeof triggerCollision>, from: number[], to: number[]): number =>
+        o.faces.filter((f) => lineHits(from, to, o.verts[f[2]]!, o.verts[f[3]]!, o.verts[f[4]]!)).length;
+    // (off the quads' diagonals: a line through a diagonal meets both its triangles)
+    const inside = [11, 103, -17];
+    const lines = [
+        [7, 90, 1000],
+        [1000, 110, 13],
+        [-23, 1000, 5],
+        [31, -1000, -9],
+        [-700, 120, -650],
+    ];
+    const plain = triggerCollision(s);
+    const exit = triggerCollision({ ...s, exit: true });
+    assert.equal(exit.faces.length, 24);
+    assert.deepEqual(exit.faces.slice(0, 12), plain.faces, "the box's own faces first, as without exit");
+    for (const [i, [a, b, c]] of BOX_FACES.entries()) assert.deepEqual(exit.faces[12 + i]!.slice(2), [a, c, b]);
+    for (const outside of lines) {
+        assert.equal(hits(plain, outside, inside), 1, `in from ${outside}: one face`);
+        assert.equal(hits(plain, inside, outside), 0, `out to ${outside}: nothing (one-sided faces)`);
+        assert.equal(hits(exit, outside, inside), 1, `exit box, in from ${outside}: one face`);
+        assert.equal(hits(exit, inside, outside), 1, `exit box, out to ${outside}: one (a face facing in)`);
+    }
+    const back = readCol(writeCol({ objects: [exit] }), "col").objects[0]!;
+    assert.deepEqual(back.faces, exit.faces);
 });
 
 // --- qb_write: scripts and structures ---------------------------------------------------------------------------------

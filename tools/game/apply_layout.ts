@@ -24,13 +24,17 @@
 //   - --dry-run reads and bakes in memory, writes nothing, and prints the report.
 //
 // What each record becomes (the DLL's meaning, src/game/front/level_editor_*.h):
-//   sector / clone / rail / wall: the sector's render vertices (and normals, turned) and its collision object moved -
-//     QuarterTurn(x * scale, quarters) + offset of the place as loaded; boxes and spheres made again, the collision's
+//   sector / clone / rail / wall: the sector's render vertices (and normals) and its collision object moved -
+//     QuarterTurn(PerAxis(x, scale), quarters) + offset of the place as loaded (scale= one number or x,y,z along the
+//     piece's own axes); normals as the editor's Rebuild: n / scale made unit length, then turned (unscaled: turned);
+//     boxes and spheres made again, the collision's
 //     BSP tree and reaches built again (tools/level_port/thug2_col.ts); a hidden sector left out of both files; a clone
 //     is a new sector and collision object (named ed_clone_<source>_<n>); a wall's `off`: its collision object left
 //     out (the render sector stays); a rail point's pos= moved (hidden: its node hidden as below, links to it cut);
 //   object / copy: the object's node's pos= and angles= (its heading - the editor only turns objects about up); a copy
-//     is a new node, its source's fields with its own name and place;
+//     is a new node, its source's fields with its own name and place; a scale= becomes the node's `scale` (a float, or
+//     a vector when stretched), which the model component's InitModel reads - the model drawn scaled; its collision
+//     isn't (the collision component reads no scale): warned;
 //   set: pos= / angles= and the Inspector's field edits (level_editor_fields.h): the node's own component - over its
 //     shared structure's (ncomp_...) as an override at its end, as the DLL does;
 //   node / point / order: the nodes the editor added, appended to the node array (the level's indexes stay) with the
@@ -52,7 +56,10 @@
 //     as THUG2's own boxes) and its script (the DLL's bytes) in the level's scripts .qb (<level>_scripts.qb, else the
 //     node array's .qb - the ported levels'). The gap list, built as the level's nodes are parsed (every EndGap a
 //     node's TriggerScript reaches), takes the gap ends as it takes the level's. A level trigger a trigger `replaces`
-//     (and any a `wall` record switches off) is left out of the collision, as the DLL switches it off;
+//     (and any a `wall` record switches off) is left out of the collision, as the DLL switches it off. The box fires on
+//     the way in only (its faces point out; the static line test is one-sided - triggers.ts), as the DLL's; an exit
+//     trigger (exit=1) gets the faces again facing in, so leaving it runs the node's TriggerScript again, as the DLL's
+//     per-frame leaving test does;
 //   anything else (a later record kind): "unsupported record", listed.
 // THUGPRO parity: a level shared with THUGPRO (a ported level in tools/compat/thugpro's register, or THUG2's own -
 // THUGPRO players have those as shipped) gets a warning for every edit that changes spawns, crowns (King of the Hill),
@@ -67,10 +74,13 @@ import { buildTree, type ColFile, type ColObject, readCol, setReaches, writeCol 
 import { readScene, type Scene, type Sector, writeScene } from "../level_port/thug2_scene.ts";
 import { parseCli } from "../lib/cli.ts";
 import { Float, hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
+import { f32 } from "../lib/struct.ts";
 import { backUp, listBackups, restoreLatest } from "./bake_backup.ts";
 import { resolveGameFolder } from "./edit_level.ts";
 import {
     type FieldValue,
+    isUniformScale,
+    isUnitScale,
     type Layout,
     LayoutError,
     type LevelProps,
@@ -101,17 +111,40 @@ export function quarterTurn(v: V3, quarters: number): V3 {
     }
 }
 
+// QuarterTurn(PerAxis(v, scale), quarters) + offset: the scale along the piece's own axes as loaded, then its turn.
 export function applyPlacement(p: Placement, v: V3): V3 {
-    const t = quarterTurn({ x: v.x * p.scale, y: v.y * p.scale, z: v.z * p.scale }, p.quarters);
+    const t = quarterTurn({ x: v.x * p.scale.x, y: v.y * p.scale.y, z: v.z * p.scale.z }, p.quarters);
     return { x: t.x + p.offset.x, y: t.y + p.offset.y, z: t.z + p.offset.z };
 }
 
 function isIdentity(p: Placement): boolean {
-    return (p.quarters & 3) === 0 && p.scale === 1 && p.offset.x === 0 && p.offset.y === 0 && p.offset.z === 0;
+    return (p.quarters & 3) === 0 && isUnitScale(p.scale) && p.offset.x === 0 && p.offset.y === 0 && p.offset.z === 0;
+}
+
+// A normal of a placed piece (level_editor_scale.cpp's ScaledNormal, as Scale::Rebuild writes them): through the inverse
+// transpose of the per-axis scale (n / scale), made unit length again, then turned with the piece; unscaled: only
+// turned (not normalised again - the file's own numbers kept). A zero normal stays zero.
+export function scaledNormal(n: V3, scale: V3, quarters: number): V3 {
+    if (!isUnitScale(scale)) {
+        const m = { x: f32(n.x / scale.x), y: f32(n.y / scale.y), z: f32(n.z / scale.z) };
+        const length = f32(Math.sqrt(f32(f32(f32(m.x * m.x) + f32(m.y * m.y)) + f32(m.z * m.z))));
+        const inverse = f32(1 / length);
+        n = length > 0 ? { x: f32(m.x * inverse), y: f32(m.y * inverse), z: f32(m.z * inverse) } : m;
+    }
+    return quarterTurn(n, quarters);
 }
 
 const FVF_XYZ = 0x002;
+const FVF_POSITION_MASK = 0x400e;
 const FVF_NORMAL = 0x010;
+
+// Where a vertex's normal is (level_editor_scale.cpp's NormalOffset): an FVF (below 0x10000 - a larger value is a shader
+// handle) with plain XYZ positions and NORMAL, a stride of 24 or more -> its three floats at +12 (D3D's fixed order);
+// -1: no normal there.
+export function normalOffset(fvf: number, stride: number): number {
+    if (fvf >= 0x10000 || (fvf & FVF_POSITION_MASK) !== FVF_XYZ || !(fvf & FVF_NORMAL) || stride < 24) return -1;
+    return 12;
+}
 
 function bounds(points: V3[]): { min: V3; max: V3; centre: V3; radius: number } {
     const min = { x: Infinity, y: Infinity, z: Infinity };
@@ -130,13 +163,14 @@ function bounds(points: V3[]): { min: V3; max: V3; centre: V3; radius: number } 
     return { min, max, centre, radius };
 }
 
-// A sector's render meshes moved: every vertex buffer of the mesh's size (positions; normals turned), the meshes' and
-// the sector's boxes and spheres made again.
+// A sector's render meshes moved: every vertex buffer of the mesh's size (positions; normals as scaledNormal), the
+// meshes' and the sector's boxes and spheres made again.
 export function placeSector(sector: Sector, p: Placement): void {
     const all: V3[] = [];
     for (const mesh of sector.meshes) {
         const fvf = mesh.vertexShader[0] ?? 0;
         const stride = mesh.stride;
+        const normalAt = normalOffset(fvf, stride);
         const points: V3[] = [];
         mesh.buffers = mesh.buffers.map(([flag, data]) => {
             const copy = Buffer.from(data);
@@ -152,14 +186,19 @@ export function placeSector(sector: Sector, p: Placement): void {
                 copy.writeFloatLE(q.y, at + 4);
                 copy.writeFloatLE(q.z, at + 8);
                 points.push(q);
-                if (fvf & FVF_NORMAL && stride >= 24) {
-                    const n = quarterTurn(
-                        { x: copy.readFloatLE(at + 12), y: copy.readFloatLE(at + 16), z: copy.readFloatLE(at + 20) },
+                if (normalAt >= 0) {
+                    const n = scaledNormal(
+                        {
+                            x: copy.readFloatLE(at + normalAt),
+                            y: copy.readFloatLE(at + normalAt + 4),
+                            z: copy.readFloatLE(at + normalAt + 8),
+                        },
+                        p.scale,
                         p.quarters,
                     );
-                    copy.writeFloatLE(n.x, at + 12);
-                    copy.writeFloatLE(n.y, at + 16);
-                    copy.writeFloatLE(n.z, at + 20);
+                    copy.writeFloatLE(n.x, at + normalAt);
+                    copy.writeFloatLE(n.y, at + normalAt + 4);
+                    copy.writeFloatLE(n.z, at + normalAt + 8);
                 }
             }
             return [flag, copy];
@@ -187,7 +226,8 @@ export function placeSector(sector: Sector, p: Placement): void {
         const b = bounds(corners);
         sector.bbox = [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z];
         const c = applyPlacement(p, { x: sector.sphere[0]!, y: sector.sphere[1]!, z: sector.sphere[2]! });
-        sector.sphere = [c.x, c.y, c.z, (sector.sphere[3] ?? 0) * p.scale];
+        // (the radius times the largest axis, as the editor's Rebuild)
+        sector.sphere = [c.x, c.y, c.z, (sector.sphere[3] ?? 0) * Math.max(p.scale.x, p.scale.y, p.scale.z)];
     }
 }
 
@@ -474,6 +514,37 @@ export function anglesOfRows(rows: readonly number[]): { angles: V3; tilted: boo
     return { angles: { x: 0, y: Math.atan2(at.x, at.z), z: 0 }, tilted };
 }
 
+// An object's scale (an `object` / `copy` record's scale=) as its node's `scale`: the model component's InitModel
+// (0x00420D10, from its InitFromStructure 0x004214F0 and the member Obj_InitModel) reads `scale` from the object's
+// structure - the node's fields, which gameobj_add_components hands the model component (`<...>`) - through 0x00487B00
+// (a float: uniform; a vector: per axis; else x= / y= / z=) and gives it to CModel::SetScale (0x00492EE0), the call the
+// editor scales the model with. Written as a float when uniform, a vector otherwise; each axis kept within 0.25 .. 4 as
+// the editor's Clamp. 1, 1, 1: nothing written (the editor leaves an object it never scaled as loaded). The object's
+// collision isn't scaled by it: the collision component (0x0041C7B0 / 0x0041C890) reads no scale - its triangles are
+// the model's asset collision shared by every object of that model (or a LevelObject's sector) - warned. True: written.
+export const OBJECT_SCALE_MIN = 0.25;
+export const OBJECT_SCALE_MAX = 4;
+export function objectScaleValue(scale: V3): QbValue | null {
+    if (isUnitScale(scale)) return null;
+    const clamp = (v: number): number =>
+        Number.isNaN(v) ? 1 : f32(Math.max(OBJECT_SCALE_MIN, Math.min(OBJECT_SCALE_MAX, v)));
+    const s = { x: clamp(scale.x), y: clamp(scale.y), z: clamp(scale.z) };
+    if (isUnitScale(s)) return null;
+    return isUniformScale(s) ? new Float(s.x) : new Vector("vector", [s.x, s.y, s.z]);
+}
+function bakeObjectScale(node: Struct, scale: V3, what: string, warnings: string[], report: string[]): boolean {
+    const value = objectScaleValue(scale);
+    if (!value) return false;
+    node.entries = node.entries.filter(([k]) => k?.value !== K.scale);
+    node.entries.push([new Name(K.scale), value]);
+    report.push(`${what}: scale=${describeValue(value)} (the model drawn scaled)`);
+    warnings.push(
+        `${what} scaled: its collision isn't - the game's collision component reads no scale (the editor scales the ` +
+            "object's collision itself); it collides at its loaded size in the baked level",
+    );
+    return true;
+}
+
 // --- nodes ----------------------------------------------------------------------------------------------------------
 
 const K = {
@@ -491,6 +562,7 @@ const K = {
     hiddenType: checksum("ed_hidden_type"),
     marker: checksum(MARKER),
     grindFlat: checksum("ed_grind_flat"),
+    scale: checksum("scale"),
 };
 // A rail point's flag: grindable on flat ground - only this project's DLL reads it (level_editor_chains.h: RailClear's
 // override); the game itself has no such field.
@@ -939,7 +1011,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
                 companions.push({
                     piece: c.source,
                     faces,
-                    placement: { ...c.placement, offset: { ...c.placement.offset } },
+                    placement: { ...c.placement, offset: { ...c.placement.offset }, scale: { ...c.placement.scale } },
                 });
         }
     }
@@ -1076,16 +1148,24 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         }
         setVector(node, K.pos, applyPlacement(r.placement, pos));
     }
+    // (an object's scale as loaded: a copy is made from its source's fields as loaded - the DLL's copy node - so a scale
+    // baked into the source isn't the copy's)
+    const scaleAsLoaded = new Map<number, QbValue | undefined>();
     for (const o of layout.objects) {
         const i = nodeAt(o.id, "object");
         if (i < 0) continue;
         const node = array.edit(i);
+        if (!scaleAsLoaded.has(i)) scaleAsLoaded.set(i, node.get(K.scale));
         setVector(node, K.pos, o.pos);
         const { angles, tilted } = anglesOfRows(o.rows);
         if (tilted) warnings.push(`object ${label(o.id)} is tilted: only its heading is baked`);
         setVector(node, K.angles, angles);
         const kind = nodeKind(node);
         if (kind) breaks(`${kind} ${label(o.id)} moved`);
+        if (bakeObjectScale(node, o.scale, `object ${label(o.id)}`, warnings, report)) {
+            array.remember("scale");
+            if (kind) breaks(`${kind} ${label(o.id)} scaled`);
+        }
     }
     for (const c of layout.copies) {
         const i = nodeAt(c.source, "copy");
@@ -1094,6 +1174,13 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         copy.entries.unshift([new Name(K.name), new Name(c.name)]);
         setVector(copy, K.pos, c.pos);
         setVector(copy, K.angles, anglesOfRows(c.rows).angles);
+        if (scaleAsLoaded.has(i)) {
+            const loaded = scaleAsLoaded.get(i);
+            copy.entries = copy.entries.filter(([k]) => k?.value !== K.scale);
+            if (loaded !== undefined) copy.entries.push([new Name(K.scale), loaded]);
+        }
+        if (bakeObjectScale(copy, c.scale, `copy ${label(c.name)} of ${label(c.source)}`, warnings, report))
+            array.remember("scale");
         array.append(copy);
         const kind = nodeKind(copy);
         breaks(`a copy of ${kind ?? "object"} ${label(c.source)} added`);
@@ -1266,7 +1353,10 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         if ((spec.kind === "gapstart" || spec.kind === "gapend") && Triggers.partner(specs, k) < 0) {
             warnings.push(`trigger ${spec.name}: gap ${spec.gap} has no ${spec.kind === "gapstart" ? "end" : "start"}`);
         }
-        report.push(`trigger ${spec.name}: ${describeTrigger(spec)}`);
+        report.push(
+            `trigger ${spec.name}: ${describeTrigger(spec)}` +
+                (spec.exit ? " - also on leaving it (exit=1: its box's faces doubled, the copies facing in)" : ""),
+        );
         breaks(`trigger ${spec.name} (${spec.kind}${spec.gap ? `, gap ${spec.gap}` : ""}) added`);
     });
     for (const u of layout.unknown) {
@@ -1337,6 +1427,8 @@ export function levelStructureValues(level: LevelProps): [string, QbValue][] {
 
 function describeValue(v: QbValue): string {
     if (v instanceof Name) return TOD_STATES.find((t) => checksum(t) === v.value) ?? hex8(v.value);
+    if (v instanceof Vector) return `(${v.values.join(", ")})`;
+    if (v instanceof Float) return String(v.value);
     return typeof v === "string" ? `"${v}"` : String(v);
 }
 
