@@ -351,6 +351,14 @@ add_library(thug2_code OBJECT
     src/hook/selftests_thugpro_join.cpp
     src/hook/selftests_gamenet_join.cpp
     src/hook/selftests_trigger.cpp
+    src/hook/selftests_obj_trigger.cpp
+    src/hook/selftests_obj_shadow.cpp
+    src/hook/selftests_obj_skeleton.cpp
+    src/hook/selftests_obj_sound.cpp
+    src/hook/selftests_obj_stream.cpp
+    src/hook/selftests_obj_suspend.cpp
+    src/hook/selftests_obj_rigidbody.cpp
+    src/hook/selftests_obj_rigidbody_physics.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_editor_ui.cpp
     src/hook/selftests_editor_nodes.cpp
@@ -705,6 +713,19 @@ add_library(thug2_code OBJECT
     src/game/obj/smtptr.cpp
     src/game/obj/tracker.cpp
     src/game/obj/trigger_component.cpp
+    src/game/obj/display_matrix_component.cpp
+    src/game/obj/static_vehicle.cpp
+    src/game/obj/vehicle_wheel.cpp
+    src/game/obj/shadow_component.cpp
+    src/game/obj/skeleton_component.cpp
+    src/game/obj/sound_component.cpp
+    src/game/obj/stream_component.cpp
+    src/game/obj/suspend_component.cpp
+    src/game/obj/texture_projection_component.cpp
+    src/game/obj/rigidbody_component.cpp
+    src/game/obj/rigidbody_physics.cpp
+    src/game/mth/quat.cpp
+    src/game/mth/vector_transform.cpp
     src/game/skater/rotation.cpp
     src/game/skater/local_net_logic.cpp
     src/game/skater/nonlocal_net_logic.cpp

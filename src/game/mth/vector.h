@@ -2,6 +2,8 @@
 
 namespace Mth {
 
+class Matrix;
+
 // The engine's general-purpose vector: x, y, z plus a w component. Most operations work on all four
 // components; Length, Normalize, DotProduct and CrossProduct use only x, y, z.
 class Vector {
@@ -56,6 +58,10 @@ public:
     Vector& RotateAboutY(float angle);
     // 0x00421440: turn by `angle` radians about `axis` (through a quaternion: w becomes what Quat::Rotate leaves).
     Vector& RotateAboutAxis(const Vector& axis, float angle);
+
+    // 0x00434200 (vector_transform.cpp): this = this * `matrix`, all four components (w too: a full 4x4 product,
+    // each sum from the w term back to the x / y ones). Returns this.
+    Vector& MultiplyBy(const Matrix& matrix);
 };
 
 Vector operator+(const Vector& a, const Vector& b);
