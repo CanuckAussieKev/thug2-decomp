@@ -88,6 +88,10 @@ public:
     Matrix& Adjugate(const Matrix& source);
     // Invert in place: adjugate / determinant. Like the original, a zero determinant isn't checked for.
     Matrix& Invert();
+    // 0x0041A730: the constructor Matrix(angles): the identity turned about the world's X, Y and Z axes by angles.x,
+    // .y and .z in turn (RotateX / RotateY / RotateZ) - all three skipped when they're exactly 0 (NaN isn't). Returns
+    // this.
+    Matrix& InitFromAngles(const Vector& angles);
     // 0x00416DF0: invert in place assuming the 3x3 part is orthonormal (a rotation): it's transposed and the
     // translation (row 3's x, y, z) becomes -(translation . each old row). The fourth column isn't touched.
     Matrix& InvertOrthonormal();

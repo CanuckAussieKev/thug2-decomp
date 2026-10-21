@@ -303,6 +303,27 @@ CObject* CObjectSearch::NextItemOfType()
     return object;
 }
 
+// 0x0041AA90
+void CObjectSearch::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x00645DF8); }
+
+// 0x0041AAA0
+CObjectSearch* CObjectSearch::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
+// 0x0041A850
+CObjectSearch* CObjectSearch::DestroyAsBase(unsigned int flags)
+{
+    m_vtable = reinterpret_cast<void**>(0x00645DF8);
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
 // 0x00461FA0
 void ReleaseTracker()
 {
@@ -346,5 +367,8 @@ REPLACE(0x00461AB0, &Obj::CGeneralManager::FlushDeadObjects);
 REPLACE(0x00461BB0, Obj::FlushDeadObjectsTask);
 REPLACE(0x00461F30, &Obj::CObjectSearch::FirstItemOfType);
 REPLACE(0x00461ED0, &Obj::CObjectSearch::NextItemOfType);
+REPLACE(0x0041AA90, &Obj::CObjectSearch::DestroyBody);
+REPLACE(0x0041AAA0, &Obj::CObjectSearch::Destroy);
+REPLACE(0x0041A850, &Obj::CObjectSearch::DestroyAsBase);
 REPLACE(0x00461FA0, Obj::ReleaseTracker);
 REPLACE(0x00461FE0, &Obj::CTracker::RegisterEventListener);

@@ -66,6 +66,10 @@ Vector operator/(const Vector& v, float divisor);
 // Whether a and b are more than `degrees` apart (false if either is shorter than 0.5).
 bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees);
 
+// 0x0041A820 (cdecl): the squared distance between the points a and b (x87: (dx * dx + dz * dz) + dy * dy, not
+// rounded to float).
+double DistanceSquared(const Vector& a, const Vector& b);
+
 // The angle between a and b in degrees (0 to 180; a zero vector counts as itself).
 double GetAngle(const Vector& a, const Vector& b);
 // The angle in radians (-pi to pi) from a to b seen along `axis`: both projected onto the plane across it,

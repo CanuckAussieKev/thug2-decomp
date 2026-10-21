@@ -333,6 +333,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_scale.cpp
     src/hook/selftests_collision_component.cpp
     src/hook/selftests_lock_obj.cpp
+    src/hook/selftests_obj_query.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -483,6 +484,7 @@ add_library(thug2_code OBJECT
     src/game/skate/victory_conditions.cpp
     src/game/skate/trick_goals.cpp
     src/game/skate/skate_net.cpp
+    src/game/skate/skate_module.cpp
     src/game/sys/viewer.cpp
     src/game/obj/game_objects.cpp
     src/game/skater/trick_lists.cpp
@@ -618,6 +620,7 @@ add_library(thug2_code OBJECT
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/lock_obj.cpp
+    src/game/obj/object_query.cpp
     src/game/obj/motion.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp

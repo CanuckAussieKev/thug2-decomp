@@ -5,6 +5,7 @@
 
 #include "game/core/dbg.h"
 #include "game/mth/math.h"
+#include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
 
@@ -100,6 +101,20 @@ Matrix& Matrix::RotateZ(float angle)
 {
     Matrix rotation;
     return Multiply(*this, *this, CreateRotateZMatrix(rotation, angle));
+}
+
+// 0x0041A730 (the original: D3DXMatrixMultiply(this, this, &rotation) for each angle, as RotateX / Y / Z)
+Matrix& Matrix::InitFromAngles(const Vector& angles)
+{
+    Ident();
+    if (angles.x != 0.0f || angles.y != 0.0f || angles.z != 0.0f) {
+        Matrix rotation;
+        auto multiply = GameFunction<void*(__stdcall*)(Matrix*, const Matrix*, const Matrix*)>(0x005BFA8C);
+        multiply(this, this, &CreateRotateXMatrix(rotation, angles.x));
+        multiply(this, this, &CreateRotateYMatrix(rotation, angles.y));
+        multiply(this, this, &CreateRotateZMatrix(rotation, angles.z));
+    }
+    return *this;
 }
 
 // 0x0041A640
@@ -592,6 +607,7 @@ REPLACE(0x0041A6A0, &Mth::Matrix::RotateX);
 REPLACE(0x0041A6D0, &Mth::Matrix::RotateY);
 REPLACE(0x0041A700, &Mth::Matrix::RotateZ);
 REPLACE(0x0041A640, &Mth::Matrix::Ident);
+REPLACE(0x0041A730, &Mth::Matrix::InitFromAngles);
 REPLACE(0x0040AF60, &Mth::Matrix::Transform);
 REPLACE(0x0040B000, &Mth::Matrix::TransformAsPos);
 REPLACE(0x0040B090, &Mth::Matrix::RotateVector);

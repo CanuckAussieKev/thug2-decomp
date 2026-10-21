@@ -377,6 +377,15 @@ double GetAngleAbout(const Vector& a, const Vector& b, const Vector& axis)
     return side < 0.0f ? -angle : angle;
 }
 
+// 0x0041A820
+double DistanceSquared(const Vector& a, const Vector& b)
+{
+    double dx = static_cast<double>(a.x) - b.x;
+    double dy = static_cast<double>(a.y) - b.y;
+    double dz = static_cast<double>(a.z) - b.z;
+    return dx * dx + dz * dz + dy * dy;
+}
+
 } // namespace Mth
 
 // --- replacements -------------------------------------------------------------------------------------
@@ -437,3 +446,4 @@ REPLACE(0x00402500, static_cast<Vector (*)(const Vector&)>(&Mth::operator-));
 REPLACE_SHADOW(0x00402530, Mth::DotProduct);
 REPLACE(0x00402550, Mth::CrossProduct);
 REPLACE(0x00402600, &LineAdapter::Construct);
+REPLACE(0x0041A820, Mth::DistanceSquared);
