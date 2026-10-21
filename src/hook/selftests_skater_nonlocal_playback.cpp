@@ -313,8 +313,8 @@ void TestSkaterNonLocalInterpolate()
                     uint32_t last = *reinterpret_cast<uint16_t*>(frame + 0x78) |
                                     (static_cast<uint32_t>(*reinterpret_cast<uint16_t*>(frame + 0x7A)) << 16);
                     uint32_t now = F<uint32_t>(kApp + 8) - F<uint32_t>(kComponent + 0x18);
-                    int ahead[] = {-200, -40, -10, -3, 0, 5, 30, 2000};
-                    F<int>(kComponent + 0x1C) = static_cast<int>(last - now) + ahead[random.Below(8)];
+                    int ahead[] = {-330, -200, -176, -168, -160, -150, -40, -10, -3, 0, 5, 30, 400, 999, 2000};
+                    F<int>(kComponent + 0x1C) = static_cast<int>(last - now) + ahead[random.Below(15)];
                 }
                 reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x00515940))(c);
                 RecordAll(trace);
@@ -352,6 +352,7 @@ void TestSkaterNonLocalExtrapolate()
                 g_a.onServer = random.Below(2) == 0;
                 g_a.localConn = random.Below(5) == 0;
                 g_a.noLocal = random.Below(4) == 0;
+                F<uint32_t>(kLocal + 0x14) = random.Below(5) == 0 ? 0u : Addr(kLocalSkater);
                 g_a.physics = static_cast<float>(random.Below(40)) / 2.0f;
                 F<int>(kConn + 0x1CA4) = static_cast<int>(random.Below(300));
                 const float frames[] = {0.0f, 1.0f / 60.0f, 1.0f / 30.0f, 0.05f, 0.0004f};
@@ -390,7 +391,7 @@ void FillRail(Lcg& random)
         F<float>(node + 0x28) = z;
         F<float>(node + 0x2C) = 1.0f;
         x += 20.0f + Small(random, 40);
-        y += Small(random, 12);
+        y += Small(random, 120);
         z += random.Below(3) == 0 ? Small(random, 200) : Small(random, 8);
         F<uint32_t>(node + 0x40) = i + 1 < kNodeCount ? Addr(node + kNodeSize) : 0u;
         F<uint32_t>(node + 0x44) = i > 0 ? Addr(node - kNodeSize) : 0u;
@@ -431,7 +432,7 @@ void TestSkaterNonLocalRail()
                             (F<float>(next + 0x20 + 4 * i) - F<float>(node + 0x20 + 4 * i)) * along + Small(random, 2);
                     F<float>(kObject + 0x58) = 1.0f;
                     for (int i = 0; i < 4; ++i)
-                        F<float>(kObject + 0xAC + 4 * i) = Small(random, 200);
+                        F<float>(kObject + 0xAC + 4 * i) = Small(random, k % 2 ? 200 : 6);
                     float seconds = static_cast<float>(1 + random.Below(4)) / 60.0f;
                     uint32_t result = reinterpret_cast<uint32_t(__thiscall*)(void*, uint32_t, float)>(
                         Code(original, 0x00516640))(c, Addr(node), seconds);
@@ -471,14 +472,19 @@ void TestSkaterNonLocalRail()
                 g_a.calls = 0;
                 g_a.found = static_cast<int>(random.Below(5));
                 F<int>(kConn + 0x1CA4) = static_cast<int>(random.Below(300));
-                const float frames[] = {0.0f, 1.0f / 60.0f, 1.0f / 30.0f, 0.05f, 0.25f};
-                F<float>(kComponent + 0x29C) = frames[random.Below(5)];
+                const float frames[] = {0.0f, 1.0f / 60.0f, 1.0f / 30.0f, 0.05f, 0.25f, 0.75f, 1.5f};
+                F<float>(kComponent + 0x29C) = frames[random.Below(7)];
+                if (random.Below(2)) // (a latency of a frame or a little more: a lag of a few frames)
+                    F<int>(kConn + 0x1CA4) = static_cast<int>(F<float>(kComponent + 0x29C) * 1000.0f * 2.0f) +
+                                             static_cast<int>(random.Below(80));
                 F<int>(kComponent + 0x298) = static_cast<int>(random.Below(60));
                 F<int>(kComponent + 0x24) = static_cast<int>(random.Below(20));
                 for (int i = 0; i < 20; ++i)
                     F<uint32_t>(kHistory + 0x1C + i * 0x84 + 0x80) = random.Next();
                 for (int i = 0; i < 20; ++i)
                     F<float>(kComponent + 0x108 + 4 * i) = static_cast<float>(random.Below(9)) / 8.0f;
+                for (int i = 0; i < 20; ++i)
+                    F<float>(kComponent + 0xB8 + 4 * i) = static_cast<float>(random.Below(40)) / 8.0f;
                 for (int i = 0; i < 4; ++i) {
                     F<float>(kComponent + 0x28 + 4 * i) = Small(random, 400);
                     F<float>(kComponent + 0x38 + 4 * i) = F<float>(kComponent + 0x28 + 4 * i) - Small(random, 60);

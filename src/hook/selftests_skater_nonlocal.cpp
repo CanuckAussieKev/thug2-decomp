@@ -139,7 +139,9 @@ void StandIn(StandIns& s, bool update)
             feeler->m_normal = {nx, g_a.normalY, 0.11f * static_cast<float>(g_a.hitCount % 3) - 0.1f, 0.0f};
             if (g_a.hitT > 0.0f) // (the ground the skater stands on: its up row, tilted a little)
                 feeler->m_normal = {F<float>(kObject + 0x7C) + nx * 0.1f, F<float>(kObject + 0x80),
-                                    F<float>(kObject + 0x84), 0.0f};
+                                    F<float>(kObject + 0x84), 0.25f};
+            if (g_a.hitT == 1.0f) // (exactly at the skater)
+                feeler->m_point = F<Mth::Vector>(kObject + 0x4C);
             feeler->m_hit.faceFlags = g_a.faceFlags;
         }
         return static_cast<uint32_t>(hit);
@@ -365,7 +367,7 @@ void TestSkaterNonLocalNetLogic()
                 g_a.nonSkatableAngle = 20.0f;
                 g_a.snapUp = static_cast<float>(4 + random.Below(9));
                 const float ts[] = {0.0625f, 0.05f, 0.07f, 0.055f, 0.06f};
-                g_a.hitT = ts[random.Below(5)];
+                g_a.hitT = k % 3 == 0 ? 1.0f : ts[random.Below(5)];
                 for (int i = 0; i < 4; ++i)
                     F<float>(kComponent + 0x58 + 4 * i) = F<float>(kObject + 0x7C + 4 * i) * (k % 7 == 1 ? -1.0f : 1.0f);
                 reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x00514850))(c);
