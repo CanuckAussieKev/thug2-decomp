@@ -191,6 +191,14 @@ public:
     // (Wall_Ride_Jump_Up_Speed), upright.
     void DoWallRidePhysics();
 
+    // --- core_update.cpp ---
+    // 0x00510830 (vtable +0x04): the frame. Its length (+0x8C, slow motion included); the frame's flags (+0x254
+    // landed this frame, +0x256 began in a lip, +0x255 the timed flags' +0x78); button +0x1C0 -> flag +0x20; the
+    // speed limited; flags +0x98 / +0xA0 cleared; the state's update (ground, air, wall ride, lip, rail, wallplant);
+    // TryGrind (inlined in the original); free revert, focus, projectiles, special time; event 0xF225FE69 /
+    // 0x5E27200A when +0x4F0 (in the air with flag +0x30, not +0x78) changes; +0x14CC cleared out of the air.
+    void Update();
+
     // --- core_physics_state.cpp: the component made, reset and destroyed; timers ---
     // (Fields: core_physics_fields.h. The component is 0x153C bytes, type 0x5BD63B29 SkaterCorePhysics, vtable
     // 0x0064BC48: 0 Destroy, 1 its update 0x00510830, 12 CallMemberFunction 0x00501600.)
