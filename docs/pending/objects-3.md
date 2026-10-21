@@ -234,3 +234,15 @@ other members added; TriggerNode unchanged).
     after fixing mutations that didn't build).
 - Range complete: inspect survey 0x42CECD-0x4351B2 shows all 120 Ghidra functions REPLACED; find_gaps.py: no gap
   in the range.
+- [x] OC3 game run (2026-10-22, workspace C:\Games\THUG2-3, this branch merged with main 6e21460, OC3-1..8): `-Level BO`,
+  teleported next to BO_Bouncy_Ball01 (a rigid body; its Update runs every frame), walked past it twice (posted `up`
+  presses), ~60 s: the level loads, the skater spawns and walks, the range's replacements installed, no exception /
+  run-time check / CRT report in the log. Not driven: a bail (the bail board is a rigid body - bails.qb
+  BailBoardComponents), thrown projectiles (projectiles.qb), make_skater_explode's body chunks (skater_fx.qb), kicking
+  a bouncy object hard. thug2_check after the merge: 0 MISMATCHED, 635 early self-tests pass on THUG2PM.exe and the
+  stock THUG2.exe; check_code_writes: no overlaps.
+- For the user to try: in Boston kick the bouncy balls / trash cans (BO_Bouncy_*) and watch them roll, bounce and
+  settle; bail (the board flies off, tumbles and settles); throw projectiles where the game allows. Off switches
+  (`[replacements] disable=`): rigidbody_physics.cpp (the physics only), rigidbody_component.cpp, and the other files
+  of the range: trigger_component.cpp, shadow_component.cpp, skeleton_component.cpp, sound_component.cpp,
+  stream_component.cpp, suspend_component.cpp, texture_projection_component.cpp, quat.cpp.
