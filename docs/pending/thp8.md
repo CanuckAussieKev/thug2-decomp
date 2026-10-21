@@ -182,3 +182,11 @@ DLL in the workspace for the runs: this branch's verify build (main's C++ at 55d
   test checks all tables' icons are unique and inside the diamond), THP8_LEVELS in level_select.ts. Seen in the
   game's level select (Screenshots\p6_select: the PROJECT 8 section, SUBURBIA's mailbox sign and the row).
 - Sounds / music: not simple - THP8's are SoundEvents over its own banks (FSB-like .xen streams); not attempted.
+
+## Final check (2026-10-22)
+
+- All fifteen zones loaded again with the final data (p7: start + overview captures, nothing in the log). One run
+  (shops) hung at start-up loading the front end's THPS4 skate shop texture - idle, before any THP8 level, as one
+  earlier run (05:05) did; the retry loaded fine: a start-up flake of the workspace, not THP8's.
+- Captures in C:\Games\THUG2-4\Screenshots (p2_* before the layer / 8888 fixes, p4_* / p7_* final, p5_crete_props,
+  p5_factory, p6_select).
