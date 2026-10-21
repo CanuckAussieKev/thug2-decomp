@@ -37,6 +37,13 @@ public:
     // Button +0x80 held, or nothing pushed: returns 0 and leaves the velocity alone. 1 otherwise.
     int LipPushOff(Script::CStruct* params, Script::CScript* script);
 
+    // 0x004FCE90 (the script member function SetSpeed): the skater's speed set to the unnamed float (0 without one)
+    // - the velocity's direction kept; with almost none (its length squared below 0.001), the facing's instead
+    // (the object's matrix row at +0x8C, all four components). The fourth component is scaled with the rest. 1.
+    // Not original: [features] debug_rail_speed=1 logs the calls of the rail speed-up loops (the THAW ports'
+    // RailAccelerate2, the level editor's ed_RailSpeedLoop) - when one starts, then once a second.
+    int SetSpeed(Script::CStruct* params, Script::CScript* script);
+
     // 0x00509BD0: keep to the ground while skating. A feeler along the skater's up axis looks for the ground
     // below; on a hit the skater sticks to it (unless it's too steep or too far for a hit on a wall), otherwise
     // it leaves the ground - into the air, or into an acid drop if the physics finds one while both triggers

@@ -52,16 +52,22 @@ export const MADE_SCRIPTS =
     `script ${CAR_DRIVE} {\n    Car_Generic01 \n}\n`;
 
 // THAW's rail speed-up (skutils.qb's RailAccelerate, the trigger script of uphill rails: while the skater grinds the
-// rail and climbs, rate= more speed a frame - 5% by default). THAW's checks the trigger type first (`if TriggerType {land onto}`): THUG2's
-// TriggerType with GetTriggerArray's numbers for those flags (script_port.triggerFlags). THAW's spawns the loop through
+// rail and climbs, rate= more speed a frame - 5% by default). THAW's checks the trigger type first (`if TriggerType
+// {land onto}`: the skater got onto the rail). THUG2's rail code trips a rail node's trigger as grind + onto ({13, 3}:
+// landing on the rail 0x0050AA9E, each next segment in the rail update 0x0050DDF0 at 0x0050E6D1; land onto {8, 3}
+// only at 0x00508570 / 0x0050D706, landing on the ground), and its TriggerType needs EVERY number of the array
+// (CTriggerComponent 0x00434970) - so THAW's flags taken literally ([3, 8, -1], land AND onto) were never true on a
+// rail and the loop never ran: only THUG2's own landing boost (Rail_Speed_Boost) was felt (the user's test in East
+// LA, 2026-10-21). Here: grind onto. (THUGPRO's RailAccelerate in its thugpro_utils.q has no trigger check at all -
+// on a rail, the same effect.) THAW's spawns the loop through
 // the skater's id (`<objid>:Obj_SpawnScriptLater`); a rail's trigger script runs on the skater here, so
 // Obj_SpawnScript. THAW's passes its own parameters on (`params=<...>`): the rail scripts' rate= (THAW's levels use
 // 0.01 - 0.5, Z_OI's MegaBoost 2; without one RailAccelerate2's default 0.05) - THUG2's Obj_SpawnScript takes params=
 // as well (0x004617E0). (Written from THAW's own script; THUGPRO has one of the same shape in its thugpro_utils.q.)
 export const RAIL_ACCELERATE = "RailAccelerate";
-const LAND_ONTO = scriptPort.triggerFlags(["land", "onto"]) as number[];
+const GRIND_ONTO = scriptPort.triggerFlags(["grind", "onto"]) as number[];
 export const RAIL_SCRIPTS = `script RailAccelerate {
-    if TriggerType [${LAND_ONTO.join(", ")}] {
+    if TriggerType [${GRIND_ONTO.join(", ")}] {
         KillSpawnedScript name=RailAccelerate2
         Obj_SpawnScript RailAccelerate2 params=<...>
     }

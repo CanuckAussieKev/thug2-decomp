@@ -212,7 +212,7 @@ nodes, run by THUG2's code.
 - How THAW closes the open ends of the LA areas in online mode: not checked.
 
 **Scripts** (THAW's own; its token stream is THUG2's plus an inline structure token). Left out:
-- RailAccelerate (THAW's rail speed-ups) is ours, from THAW's, with its land / onto check; its parameters (the rails' rate=) passed on to the loop as THAW's do (`params=<...>`).
+- RailAccelerate (THAW's rail speed-ups) is ours, from THAW's; its parameters (the rails' rate=) passed on to the loop as THAW's do (`params=<...>`). Its trigger check is THUG2's rail event, grind + onto (`TriggerType [3, 13, -1]`), not THAW's land + onto: THUG2's TriggerType needs every listed event, and a THUG2 rail never trips land (until thaw-railspeed2 the loop never ran - only THUG2's own landing boost was felt).
 - TriggerType with THAW's Smack / Natas / AcidDrop / STALL (false: THUG2 has no such event); IsCreated becomes THUG2's IsAlive name= for converted nodes, false otherwise;
   InManual becomes THUG2's state tag (GetSingleTag state = Skater_InManual).
 - `object:member` calls.

@@ -4,6 +4,7 @@
 // trigger_jump_boost / Boston's BO_ShatteringGlass call forms), proximity nodes' enter / exit scripts (`if Inside ...
 // else ...` byte for byte) and their records.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <sstream>
@@ -83,6 +84,11 @@ void TestEditorMapRailSpeed()
     Check(qb[0] == 0x23 && qb[1] == 0x16 && qb[2] == static_cast<uint8_t>(speedName) &&
               qb[5] == static_cast<uint8_t>(speedName >> 24),
           "editor map: the first script is ed_RailSpeed");
+    // Its trigger check: THUG2's rail event, onto + grind (land + onto is never true on a rail - TriggerType needs
+    // every number of its array).
+    std::vector<uint8_t> grindOnto = Hex("47 4c00 16 8273713a 05 17 03000000 09 17 0d000000 09 17 ffffffff 06");
+    Check(std::search(qb.begin(), qb.end(), grindOnto.begin(), grindOnto.end()) != qb.end(),
+          "editor map: ed_RailSpeed starts its loop on TriggerType [3, 13, -1] (onto, grind)");
     // A point's script: the node's own called first (its arguments passed on), then ed_RailSpeed rate=.
     Check(C::SpeedBody(Crc::GenerateCRCFromString("ed_orig"), 0.05f) ==
               Hex("16 eb29e2c1 2c 01 16 7d9ec1f6 16 c6c01320 07 1a cdcc4c3d 01"),

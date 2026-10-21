@@ -196,3 +196,7 @@ test("RailAccelerate passes its parameters (a rail's rate=) on to RailAccelerate
     assert.match(RAIL_SCRIPTS, /Obj_SpawnScript RailAccelerate2 params=<\.\.\.>\n/);
     assert.match(RAIL_SCRIPTS, /script RailAccelerate2 \{rate=0\.05\n/);
 });
+
+test("RailAccelerate starts the loop on THUG2's rail event (grind onto), not land onto - never true on a rail", () => {
+    assert.match(RAIL_SCRIPTS, /if TriggerType \[3, 13, -1\] \{\n/);
+});
