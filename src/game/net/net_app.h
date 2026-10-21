@@ -230,7 +230,9 @@ struct App {
     // 0x0045B0B0 (id 8): an ack: the important and sequenced messages sent with that timestamp are done; the
     // round trip is a latency measurement.
     static int __cdecl HandleAck(MsgHandlerContext* context);
-    // 0x0045ABF0 (id 0x12): a compressed message (method 1 or 2), expanded and dispatched.
+    // 0x0045ABF0 (id 0x12): a compressed message (method 1 or 2; NOT ORIGINAL: 3, THUGPRO's LZHAM), expanded and
+    // dispatched. NOT ORIGINAL: every length in it bounded (short messages, streams ending inside a code, an LZSS
+    // stream expanding past its size, an inner length past the data, unknown methods: dropped).
     static int __cdecl HandleCompressedMessages(MsgHandlerContext* context);
     // 0x0045B2F0 (ids 0xE, 0xF): a stream's start and its pieces; the whole message is dispatched when complete.
     static int __cdecl HandleStreamMessages(MsgHandlerContext* context);

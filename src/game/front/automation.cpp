@@ -385,8 +385,14 @@ ParseResult ParseCommand(const std::string& line, Command* out, std::string* err
         command.target = tokens[1];
     } else if (keyword == "teleport") {
         command.op = Op::Teleport;
-        if ((count != 4 && count != 5) || !ReadNumbers(tokens, 1, &command.numbers))
-            return fail("teleport <x> <y> <z> [heading]");
+        // (a last word `board`: the skater put on its board instead of standing - TestView::Teleport's onBoard)
+        std::vector<std::string> words = tokens;
+        if (words.size() >= 5 && Lower(words.back()) == "board") {
+            command.target = "board";
+            words.pop_back();
+        }
+        if ((words.size() != 4 && words.size() != 5) || !ReadNumbers(words, 1, &command.numbers))
+            return fail("teleport <x> <y> <z> [heading] [board]");
     } else if (keyword == "camera") {
         command.op = Op::Camera;
         if (count == 2 && Lower(tokens[1]) == "off")
@@ -545,6 +551,8 @@ std::string Describe(const Command& command)
             std::snprintf(value, sizeof(value), " %g", static_cast<double>(number));
             text += value;
         }
+        if (command.op == Op::Teleport && command.target == "board")
+            text += " board";
         return text;
     }
     case Op::Capture: return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
@@ -1260,7 +1268,8 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
         }
         const std::vector<float>& n = command.numbers;
         Front::TestView::Vec3 at = {};
-        std::string failed = Front::TestView::Teleport({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at);
+        std::string failed = Front::TestView::Teleport({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at,
+                                                       command.target == "board");
         if (!failed.empty()) {
             Fail(runner, failed, false);
             return true;
