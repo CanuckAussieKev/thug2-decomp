@@ -118,7 +118,7 @@ src/game/nx/feeler.h / feeler.cpp (CFeeler::Assign added).
     UpdateSkeleton, 0x0043A2C0 GetWheelRimPoint, 0x0043A400 DebugDraw (compiled out of this build: nothing touched),
     0x0043AA90 MoveToNode (not a Ghidra function: on the ground under the node, sixty passive updates through the
     vtable, asleep, teleported), 0x0043B670 Vehicle_MoveToRestart, 0x0043B720 Vehicle_PlaceBeforeCamera.
-  - Found while testing the whole update: the original's x87 compares keep a NaN on the "not greater" side; nine
+  - Found while testing the whole update: the original's x87 compares keep a NaN on the "not greater" side; twelve
     compares in batches 4 and 5 written as `!(a <= b)` took the other side with one - now `a > b` (the brakes' caps, the
     spin damping, CheckSleep's limits, NormalFacesAway, AlignInAir's slow / fast, Collide's depth clamp and friction
     cap). The tests now put NaNs (and a step of no time) into the state.

@@ -549,7 +549,7 @@ void StandInPhysics(StandIns& s)
             return 0u;
         feeler->m_distance = g_hitDistance[k];
         feeler->m_point = {g_hitDistance[k] * 3.0f, -g_hitDistance[k], 7.0f, 1.0f};
-        feeler->m_normal = {0.1f * k, 0.9f, -0.2f, 1.0f};
+        feeler->m_normal = {0.1f * k, 0.9f, -0.2f, k % 3 == 0 ? 0.37f : 1.0f};
         feeler->m_hit.object = reinterpret_cast<Nx::CCollObj*>(g_hitObject[k]);
         return 1u;
     });
@@ -630,6 +630,8 @@ void BuildPhysics(Random& r)
         }
         if (r.OneIn(6))
             wheel.torque = -0.0f;
+        if (r.OneIn(6)) // (nearly stopped: what stops it is small, but not nothing)
+            wheel.spin = r.Range(-0.01f, 0.01f);
     }
     // (the steering exactly at its dead zone, a wheelbase of nothing, no spin)
     const float deadZone = std::bit_cast<float>(0x3A83126Fu);
@@ -639,6 +641,12 @@ void BuildPhysics(Random& r)
         v->m_displaySteering = r.Bit() ? deadZone : -deadZone;
     if (r.OneIn(8))
         v->m_wheelbase = 0.0f;
+    if (r.OneIn(6)) { // (upright on all wheels, not steering, turning: the turning damped)
+        v->m_steering = 0.0f;
+        v->m_wheelsInContact = v->m_wheelCount;
+        v->m_matrix.row[1].y = 0.9f;
+        v->m_rotmom.y = r.Range(-3.0f, 3.0f);
+    }
     if (r.OneIn(6)) { // (in the air but resting on two or three contacts)
         v->m_wheelsInContact = 0;
         v->m_contactCount = 2 + static_cast<int>(r.Below(2));
@@ -682,7 +690,7 @@ void BuildPhysics(Random& r)
     g_clockStep = static_cast<int>(r.Below(200));
     for (int k = 0; k < 16; ++k) {
         g_hits[k] = !r.OneIn(3);
-        g_hitDistance[k] = r.Range(0.0f, 1.0f);
+        g_hitDistance[k] = r.OneIn(24) ? std::bit_cast<float>(0x7FC00000u) : r.Range(0.0f, 1.0f);
         g_hitObject[k] = 0x7000 + r.Below(3);
     }
     g_hitNext = 0;
