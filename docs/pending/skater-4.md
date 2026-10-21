@@ -112,3 +112,26 @@ src/game/skater/<class>.cpp + .h; tests in src/hook/selftests_skater_<class>.cpp
     (the points with a zero multiplier: the score is 0 then too).
   - Seen once in a full thug2_check run: "sfx: loading waves" (selftests_objsys9.cpp) failed, then passed alone and
     in the next full run - order-dependent or flaky, not this batch's code.
+- [x] Batch SK4-5 (NOT run in the game yet; graffiti tags and stickers - the tagging and tagging control components, 18
+  functions): src/game/skater/tagging.cpp (new).
+  - Tagging (type 0x5B512EDC, vtable 0x0064C330, 0x24 bytes): 0x0051DA80 Create, 0x0051D760 / 0x0051D860 destructors
+    (both textures given back), 0x0051D890 InitFromStructure (copies of tags\cas_01 and tags\sticker keyed by
+    "_<skater number>" - without 0xA2B033FD the number is the params pointer, as in the original), 0x0051DB00
+    CallMemberFunction (SetGraffitiTexture, SetStickerTexture, HasCustomTagTexture, ApplyCustomTagTexture),
+    0x0051D830 ApplyCustomTagTexture (0xAA286543), 0x0051D850 HasCustomTagTexture (4 bytes: REPLACE_SOURCE_ONLY),
+    0x0051D9C0 / 0x0051DA20 SetGraffitiTexture / SetStickerTexture, 0x0051DBC0 PlaceTag (the decal 0x004928A0; a
+    sticker turned by Rnd(90) - 45 degrees; message 0x99 to the server, 0x28 bytes, group 10 - bytes 2-3 are stack
+    garbage in the original).
+  - TaggingControl (type 0x380D909A, vtable 0x0064C394, 0x38 bytes): 0x0051E280 Create, 0x0051DD50 / 0x0051DD60
+    destructors, 0x0051DD90 Finalize, 0x0051E300 CallMemberFunction (TagNow, VertStickerSlap, TagClearFlags,
+    BlockTaggingOn / Off - the names' checksums confirmed with out\scripts\qbkey.py), 0x0051DDF0 SlapSticker (a
+    feeler along the facing: the velocity, the walk heading or the up row reversed; a sticker is marked first, placed
+    the next time), 0x0051E390 Update (and 0x0051EA30, its jump: REPLACE_SOURCE_ONLY): the tag button tapped within
+    100 ms while walking - six feelers from the tagging bone across the heading (x87 FSIN / FCOS, as the original),
+    the nearest wall, the line stretched by 10 up to 5 times, the tag started (script 0x8C92DEA3 / 0x5213AFD6, 30
+    frames) then placed (50 / 75 / 100 by the combo's score), the cooldown 0xD29DE3D7.
+  - Test (src/hook/selftests_skater_tagging.cpp; the feeler's query scripted - its line recorded, hits made up):
+    6000 random cases over every function. 57 deliberate bugs: 53 caught (6 after strengthening: random normals,
+    ties between walls, the destroyed block traced, the custom-tag flag varied, the two float sources told apart), 4
+    equivalent (VertStickerSlap's walking flag only matters for tags; a zero facing.y; reach * 0; a miss at 1000 vs
+    999 against a 999 start).

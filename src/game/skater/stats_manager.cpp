@@ -102,7 +102,7 @@ double Distance(const Mth::Vector& a, const Mth::Vector& b)
 int Minus(int a, int b) { return static_cast<int>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }
 
 // The original's float-to-int (_ftol: towards zero).
-int Truncate(double value) { return static_cast<int>(value); }
+int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); } // (the low 32 bits)
 
 } // namespace
 
