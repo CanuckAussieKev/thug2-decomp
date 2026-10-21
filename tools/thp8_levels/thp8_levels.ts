@@ -832,7 +832,11 @@ export function cmdConvert(args: Args): number {
     const names = thp8.loadNames(findCaseless(compressed, "PAK", "dbg.pak.xen")!);
     const terrains = terrainTable(compressed, names);
     const flags = nonStoryNodeFlags(compressed, names);
-    if (fs.existsSync(out)) fs.rmSync(out, { recursive: true, force: true });
+    // (only the levels converted now are made again: a partial convert keeps the others, as levels.json does -
+    // ported_levels.writeManifest)
+    for (const info of wanted) {
+        fs.rmSync(pyJoin(out, "levels", levelName(info)), { recursive: true, force: true });
+    }
     fs.mkdirSync(out, { recursive: true });
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
     const report: string[] = [];
