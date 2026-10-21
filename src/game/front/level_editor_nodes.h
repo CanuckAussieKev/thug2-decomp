@@ -131,15 +131,26 @@ inline bool Online(Family family) { return family == Family::Spawn || family == 
 
 // --- picking (pure) ---
 
-// Something drawn, in back buffer pixels: a point (a..a) or a segment (a..b) of node `node`, `depth` along the view.
+// Something drawn, in back buffer pixels: a point (a..a) or a segment (a..b) of node `node`, `depth` along the view
+// (a segment's: at its middle; `depthA` / `depthB` at its ends - none given: `depth` all along).
 struct Pickable {
     int node;
     float ax, ay, bx, by;
     bool segment;
     float depth;
+    float depthA = -1.0f, depthB = -1.0f;
+};
+// The first occluding surface under the cursor, along the view (level_editor_picking.h's GizmoInFront): gizmos further
+// than `depth` and the slack (GizmoSlack: `unitsPerPixel` at depth 1, `pixels` of reach) aren't picked.
+struct Occluder {
+    bool blocked = false;
+    float depth = 0.0f;
+    float unitsPerPixel = 0.0f;
+    float pixels = 0.0f;
 };
 // The node under (x, y): the nearest within `radius` pixels (points first: a point within the radius beats a segment;
-// equals go to the nearer to the camera). -1 if none.
-int PickNearest(const std::vector<Pickable>& pickables, float x, float y, float radius);
+// equals go to the nearer to the camera), not behind `occluder` (a segment's depth where it passes nearest to (x, y)).
+// -1 if none.
+int PickNearest(const std::vector<Pickable>& pickables, float x, float y, float radius, const Occluder& occluder = {});
 
 } // namespace Front::LevelEditor::Nodes

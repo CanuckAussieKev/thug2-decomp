@@ -643,6 +643,7 @@ Placement PlacementOf(uint32_t checksum, uint8_t* geom)
 }
 
 bool GeomSeeThrough(uint8_t* geom); // (below)
+float GeomLevelShare(uint32_t checksum, uint8_t* geom);
 
 bool SamePlacement(const Placement& a, const Placement& b)
 {
@@ -672,6 +673,7 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
         V3 min, max;
         bool in;
         bool seeThrough;
+        float levelShare; // (Picking::LevelShare: structure's low-and-flat rule)
     };
     std::vector<Piece> pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
     ForEachSector(scene, [&](uint32_t other, uint8_t* sector) {
@@ -680,19 +682,20 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
         if (!PlainGeom(geom) || !geom[0x48] || !GeomBox(geom, &min, &max) ||
             !SectorSizeMovable(min, max, kMaxSectorExtent) || !SamePlacement(PlacementOf(other, geom), placement))
             return;
-        pieces.push_back({other, min, max, false, GeomSeeThrough(geom)});
+        pieces.push_back({other, min, max, false, GeomSeeThrough(geom), GeomLevelShare(other, geom)});
     });
     // (by size only: a camera nowhere near)
     const V3 nowhere = {1.0e9f, 1.0e9f, 1.0e9f};
     bool clickedStructure = false;
     for (const Piece& piece : pieces) {
         if (piece.checksum == checksum)
-            clickedStructure = Picking::IsStructure(piece.min, piece.max, nowhere);
+            clickedStructure = Picking::IsStructure(piece.min, piece.max, nowhere, piece.levelShare);
     }
     auto take = [&](Piece& piece) {
         if (piece.in || WhyNotMovable(piece.checksum))
             return false;
-        if (piece.checksum != checksum && !clickedStructure && Picking::IsStructure(piece.min, piece.max, nowhere))
+        if (piece.checksum != checksum && !clickedStructure &&
+            Picking::IsStructure(piece.min, piece.max, nowhere, piece.levelShare))
             return false;
         piece.in = true;
         group.push_back(piece.checksum);
@@ -788,7 +791,7 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
             std::vector<std::pair<V3, V3>> others;
             for (const Piece& other : pieces) {
                 if (!other.in && !other.seeThrough && Shadows::StandsBy(other.min, piece.max) &&
-                    !Picking::IsStructure(other.min, other.max, nowhere))
+                    !Picking::IsStructure(other.min, other.max, nowhere, other.levelShare))
                     others.push_back({other.min, other.max});
             }
             for (const Piece& member : pieces) {
@@ -876,7 +879,8 @@ bool RayMeshes(uint8_t* geom, V3 origin, V3 dir, float maxT, float* t)
     return found;
 }
 
-// Whether a geometry's meshes are all alpha-blended (the scene's own test: the material's +0x20 flag 0x40).
+// Whether a geometry's meshes are all see-through (Picking::MaterialSeeThrough: the material's +0x20 - the first
+// pass's flags, 0x40 the scene's transparent sort - and +0x80, its blend mode; the scene loader 0x004D3390 fills both).
 bool GeomSeeThrough(uint8_t* geom)
 {
     auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
@@ -885,10 +889,39 @@ bool GeomSeeThrough(uint8_t* geom)
         return false;
     for (uint32_t i = 0; i < count; ++i) {
         const uint8_t* material = meshes[i] ? meshes[i]->material : nullptr;
-        if (!material || !(material[0x20] & 0x40))
+        if (!material || !Picking::MaterialSeeThrough(*reinterpret_cast<const uint32_t*>(material + 0x20),
+                                                       *reinterpret_cast<const uint32_t*>(material + 0x80)))
             return false;
     }
     return true;
+}
+
+// The level part of a geometry's upward-facing surface (its meshes' first index buffers as strips, as RayMeshes reads
+// them; billboards left out), measured once a piece while the editor runs (moves and quarter turns don't change it).
+std::unordered_map<uint32_t, std::pair<uint8_t*, float>> g_levelShares;
+
+float GeomLevelShare(uint32_t checksum, uint8_t* geom)
+{
+    auto it = g_levelShares.find(checksum);
+    if (it != g_levelShares.end() && it->second.first == geom)
+        return it->second.second;
+    Picking::TopArea area;
+    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
+        Nx::sMesh* mesh = meshes[i];
+        if (!mesh || mesh->billboard || (mesh->flags & 0x10))
+            continue;
+        Nx::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
+        Nx::sIndexBuffer* indices = mesh->indexBuffers[0];
+        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
+            continue;
+        Picking::AddTopStrip(&area, vertices->data, mesh->stride, mesh->vertexCount, indices->indices,
+                             mesh->indexCounts[0]);
+    }
+    float share = Picking::LevelShare(area);
+    g_levelShares[checksum] = {geom, share};
+    return share;
 }
 
 } // namespace
@@ -897,6 +930,13 @@ bool SeeThrough(uint32_t checksum)
 {
     uint8_t* sector = FindSector(checksum, nullptr);
     return sector && PlainGeom(GeomOf(sector)) && GeomSeeThrough(GeomOf(sector));
+}
+
+float LevelShare(uint32_t checksum)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    uint8_t* geom = sector ? GeomOf(sector) : nullptr;
+    return PlainGeom(geom) ? GeomLevelShare(checksum, geom) : 1.0f;
 }
 
 bool Passed(uint32_t checksum, V3 camera)
@@ -909,7 +949,7 @@ bool Passed(uint32_t checksum, V3 camera)
     V3 min, max;
     if (CurrentBox(checksum, geom, &box)) {
         BoundsOf(box, &min, &max);
-        if (Picking::IsStructure(min, max, camera))
+        if (Picking::IsStructure(min, max, camera, GeomLevelShare(checksum, geom)))
             return true;
     }
     return GeomSeeThrough(geom);
@@ -917,33 +957,21 @@ bool Passed(uint32_t checksum, V3 camera)
 
 bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layers)
 {
-    float best = maxT;
-    bool found = false;
     *hit = Hit{};
-    auto note = [&](uint32_t checksum, float t) {
-        // (locked: passed by every click; structure / see-through: by a plain click - the nearest noted for Alt)
-        if (Picking::Locked(Picking::kScenery, checksum) || View::HiddenSector(checksum)) // (H: level_editor_view.h)
-            return false;
-        bool passed = Passed(checksum, origin);
-        if (layers && std::none_of(layers->begin(), layers->end(), [&](const Layer& l) { return l.checksum == checksum; }))
-            layers->push_back({checksum, t, passed});
-        if (passed) {
-            if (!hit->passed || t < hit->passedT) {
-                hit->passed = checksum;
-                hit->passedT = t;
-            }
-            return false;
-        }
-        if (t < best) {
-            best = t;
-            hit->checksum = checksum;
-            hit->t = t;
-            found = true;
-        }
-        return true;
+    std::vector<Picking::Met> met;
+    // (without `layers`: nothing past the first occluding piece that isn't locked can matter - a plain click stops at
+    // it, and Alt takes it or something nearer)
+    float stop = maxT;
+    auto note = [&](uint32_t checksum, uint8_t* geom, float t, bool collision) {
+        if (View::HiddenSector(checksum)) // (H: level_editor_view.h - not shown, not met)
+            return;
+        bool locked = Picking::Locked(Picking::kScenery, checksum);
+        bool occludes = collision || !(PlainGeom(geom) && GeomSeeThrough(geom));
+        met.push_back({checksum, t, Passed(checksum, origin), occludes, locked});
+        if (occludes && !locked && !layers && t < stop)
+            stop = t;
     };
-    // The collision ray, past collision that has no geometry to show (invisible walls) and pieces passed, at most a
-    // few dozen times.
+    // The collision ray, past collision that has no geometry to show (invisible walls), at most a few dozen faces.
     V3 from = origin;
     for (int i = 0; i < 32; ++i) {
         V3 point;
@@ -951,23 +979,24 @@ bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layer
         if (!CastStatic(from, origin + unitDir * maxT, &point, &checksum))
             break;
         float t = Dot(point - origin, unitDir);
-        if (t >= best && !layers)
+        if (t >= stop)
             break;
         uint8_t* sector = FindSector(checksum, nullptr);
-        if (sector && GeomOf(sector) && note(checksum, t) && !layers)
-            break;
+        if (sector && GeomOf(sector))
+            note(checksum, GeomOf(sector), t, true);
         from = point + unitDir * 1.0f;
     }
-    // Sectors without collision: by their triangles (the box only to skip the rest - a decal's box can fill a room).
+    // Every shown piece by its triangles (the box only to skip the rest - a decal's box can fill a room): pieces without
+    // collision, and the drawn parts of pieces with it that their collision doesn't cover.
     ForEachScene([&](uint8_t* scene) {
         ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) {
             uint8_t* geom = GeomOf(sector);
-            if (CollOf(sector) || !PlainGeom(geom) || !geom[0x48])
+            if (!PlainGeom(geom) || !geom[0x48])
                 return;
             OrientedBox box;
             if (!CurrentBox(checksum, geom, &box))
                 return;
-            float t;
+            float t = 0.0f;
             bool inside = false;
             {
                 V3 min, max;
@@ -975,15 +1004,39 @@ bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layer
                 inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
                          origin.z >= min.z && origin.z <= max.z;
             }
-            if (!inside && !RayBox(origin, unitDir, box.origin, box.axes, box.min, box.max, &t))
+            if (!inside && (!RayBox(origin, unitDir, box.origin, box.axes, box.min, box.max, &t) || t >= stop))
                 return;
-            if (RayMeshes(geom, origin, unitDir, maxT, &t))
-                note(checksum, t);
+            if (RayMeshes(geom, origin, unitDir, stop, &t))
+                note(checksum, geom, t, false);
         });
     });
-    if (layers)
+    Picking::Resolved r = Picking::Resolve(met);
+    hit->checksum = r.take;
+    hit->t = r.takeT;
+    hit->passed = r.passed;
+    hit->passedT = r.passedT;
+    hit->blocked = r.blocked;
+    hit->blockT = r.blockT;
+    for (const Picking::Met& m : met) {
+        if (!m.locked && !m.passed && (!hit->nearest || m.t < hit->nearestT)) {
+            hit->nearest = m.id;
+            hit->nearestT = m.t;
+        }
+    }
+    if (layers) {
+        // (each piece once, at its nearest; not locked)
+        for (const Picking::Met& m : met) {
+            if (m.locked)
+                continue;
+            auto it = std::find_if(layers->begin(), layers->end(), [&](const Layer& l) { return l.checksum == m.id; });
+            if (it == layers->end())
+                layers->push_back({m.id, m.t, m.passed});
+            else if (m.t < it->t)
+                it->t = m.t;
+        }
         std::stable_sort(layers->begin(), layers->end(), [](const Layer& a, const Layer& b) { return a.t < b.t; });
-    return found || hit->passed;
+    }
+    return hit->checksum || hit->passed || hit->nearest;
 }
 
 bool Box(uint32_t checksum, OrientedBox* box)
@@ -1637,6 +1690,7 @@ void Reset()
     g_shadowOf.clear();
     g_hoverGroupOf = 0;
     g_hoverGroup.clear();
+    g_levelShares.clear();
 }
 
 uint8_t* SectorGeometry(uint32_t checksum)

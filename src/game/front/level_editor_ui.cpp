@@ -1193,8 +1193,9 @@ void Inspector(const Model& model)
             if (ImGui::Button(model.selectionLocked ? "Unlock (L)" : "Lock (L)"))
                 Ask(Request::kToggleLock);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("A locked piece or object is passed by every click in the view (the Outliner still "
-                                  "selects it); kept in the layout");
+                ImGui::SetTooltip("A locked piece or object is never taken by a click in the view (a locked piece "
+                                  "still hides what's behind it from a plain click; the Outliner still selects it); "
+                                  "kept in the layout");
         }
         if (s.objects == 0 && s.sectors == 1)
             Triggers::ScenerySection(s.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
@@ -1276,7 +1277,8 @@ void Help(const Model& model)
         {"", "Wheel", "forward / back (with a selection: nearer / further)"},
         {"", "- / =", "flying speed"},
         {"Selecting", "Click", "an object or scenery (scenery takes its group); floors, ceilings, walls you're "
-                               "inside and see-through decals are passed - a click on only those deselects"},
+                               "inside and see-through decals are passed - a click on only those deselects; what's "
+                               "nearest hides what's behind it (gizmos too; Click again / Alt reach past)"},
         {"", "Click again", "(same spot) the next thing under the cursor - n of m in the status bar"},
         {"", "Shift+click", "adds / removes"},
         {"", "Alt+click, middle click", "one piece of scenery - any piece, floors and decals too (hold Alt to see it); "

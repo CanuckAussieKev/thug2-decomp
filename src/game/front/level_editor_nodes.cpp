@@ -10,6 +10,7 @@
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/mth/matrix.h"
 #include "game/script/names.h"
@@ -646,7 +647,7 @@ bool LevelIsShared(const char** game)
     return false;
 }
 
-int PickNearest(const std::vector<Pickable>& pickables, float x, float y, float radius)
+int PickNearest(const std::vector<Pickable>& pickables, float x, float y, float radius, const Occluder& occluder)
 {
     int best = -1;
     float bestDistance = 0.0f, bestDepth = 0.0f;
@@ -656,6 +657,19 @@ int PickNearest(const std::vector<Pickable>& pickables, float x, float y, float 
                             : std::sqrt((x - p.ax) * (x - p.ax) + (y - p.ay) * (y - p.ay));
         if (d > radius)
             continue;
+        if (occluder.blocked) {
+            // (where a segment passes nearest: its depth there, perspective-correct - 1 / depth is linear on screen)
+            float depth = p.depth;
+            if (p.segment && p.depthA > 0.0f && p.depthB > 0.0f) {
+                float dx = p.bx - p.ax, dy = p.by - p.ay, length2 = dx * dx + dy * dy;
+                float s = length2 > 0.0f ? std::max(0.0f, std::min(1.0f, ((x - p.ax) * dx + (y - p.ay) * dy) / length2))
+                                         : 0.0f;
+                depth = 1.0f / ((1.0f - s) / p.depthA + s / p.depthB);
+            }
+            if (!Picking::GizmoInFront(depth, true, occluder.depth,
+                                       Picking::GizmoSlack(depth, occluder.unitsPerPixel, occluder.pixels)))
+                continue;
+        }
         bool point = !p.segment;
         bool better;
         if (best < 0)
