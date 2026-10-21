@@ -115,6 +115,40 @@ encrypted too (partypatcher expects a THawk2.exe of crc32 d8e631f0 - an unwrappe
 Nothing here decrypts anything: with those two, every gap keeps its stand-in. The table's layout is still unknown (no
 readable executable seen): the finder is checked on synthetic executables only.
 
-Not yet (phase 3): gap names and scores (a readable THPS2 executable), the scripted objects (waiting for signals, moving
-along nodes, breaking: C_SHATTER glass, falling roof debris), the cars (Car_* kinds, C_*.psx models), the sound
-emitters (ScriptOnlyBaddy), SetSkyColor / SetFadeColor (layout not decoded), flag 0x400, THPS2's music (Bink audio).
+## Phase 3 (2026-10-22): the levels' logic (thps2_scripts.ts)
+
+THPS2's level logic - the .trg's command points and the objects' scripts - as THUG2 scripts in the level's .qb (the
+NeverScript text is written to `<staging>\source\<level>.ns` to read):
+
+- The start: the start restart's list is followed once (offline): the objects its pulses create are CreatedAtStart, the
+  crates / rail points it hides or kills aren't, the pulses it uses come off the points' budgets (SetInitialPulses).
+  Script-only objects created at the start (timers) are spawned by the level's setup_script.
+- Triggers: a trigger face runs its command points (`<level>_CP_<node>`): SendPulse (a point runs, an object is created
+  and starts its script), SendSignal (a global the waiting object polls), SendKill / SendKillLoudly (objects die; a
+  crate - a named world object, a LevelGeometry node `TRG_Crate_<node>` - is killed, a loud kill shatters it once:
+  Hangar's glass with THUG2's glass sound), SendVisible (a crate's geometry and collision taken away / put back).
+  IfCareerFlag / IfCareerGoal / IfPulseCount blocks are career-only: left out (free skate).
+- Glass: a crate whose drawn faces are all semi-transparent and that some trigger breaks lets the skater through (its
+  collision non-collidable, as THUG2's own breakable glass) - he flies through it, its trigger fires, it shatters.
+- Objects: the object script language (C_* / V_* tokens of symbols.tdf) translated - waits, signals, registers,
+  labels and jumps (a loop over labelled blocks), V_VELOCITY / V_ANGULAR_VELOCITY / V_ANGULAR_ACCELERATION as
+  Obj_MoveToRelPos / Obj_Rot*, C_MOVE_TO_NODE along script points, C_SHATTER, C_DIE_QUIETLY, C_SHAKE_CAMERA, pulses and
+  signals to nodes and links; a timer's links pulsed when it ends. Objects turned about x / z get a turned copy of
+  their model.
+- Left out (counted in the report): sounds (THPS2's audio isn't converted), sparks, FMV, screen flashes, the water
+  level, goal counters, gravity (thrown rocks fly straight), visibility boxes (THPS2's draw culling), fog / sky colours.
+
+Hangar as THPS2's free skate has it: the wind tunnel's end door is closed at the start, its propeller still; flying into
+the door at the propeller's height (the trigger strip there) breaks the door, spins the propeller up and starts the big
+fan outside - the way out. The glass panes above the quarter pipes break when flown through; the roof debris falls
+after its trigger.
+
+Z-fighting: each drawn face lying on another (coplanar, inside it) gets a z bias one above it (per face: faceLayers);
+exact duplicate triangles are left out. And the strips: until 2026-10-22 trisToStrip's joins left a real triangle
+(last, a, b) at every other join, drawn over the next face with the previous face's material - most of what the user
+saw as z-fighting (same-bias coplanar overlap: Hangar 1.39M -> 0 square inches, NY 5.84M -> 0, Philadelphia 5.07M -> 0,
+Skate Heaven 2.78M -> 0 - `node tools/level_port/layer_check.ts`). THPS3's trisToStrip had the same join, fixed too.
+
+Not yet: gap names and scores (a readable THPS2 executable), the cars (Car_* kinds, C_*.psx models), sounds and the
+sound emitters (ScriptOnlyBaddy; THPS2's audio), SetSkyColor / SetFadeColor (layout not decoded), flag 0x400, THPS2's
+music (Bink audio).
