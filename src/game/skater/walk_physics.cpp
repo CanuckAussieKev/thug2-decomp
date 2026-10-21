@@ -350,7 +350,7 @@ bool CWalkComponent::Walk_ScaleAnimSpeed(Script::CStruct* params, Script::CScrip
 }
 
 // 0x00525F60
-bool CWalkComponent::ReleaseHang(Script::CStruct* /*params*/, Script::CScript* /*script*/)
+bool CWalkComponent::Walk_ReleaseHang(Script::CStruct* /*params*/, Script::CScript* /*script*/)
 {
     GameFunction<void(__thiscall*)(void*)>(0x0043DB90)(this);
     return true;
@@ -464,7 +464,7 @@ REPLACE(0x005284C0, Obj::CWalkComponent::GetGravity);
 REPLACE(0x00528280, Obj::CWalkComponent::FindStandPosition);
 REPLACE(0x00525E90, &Obj::CWalkComponent::Walk_Ground);
 REPLACE(0x00525EA0, &Obj::CWalkComponent::Walk_ScaleAnimSpeed);
-REPLACE(0x00525F60, &Obj::CWalkComponent::ReleaseHang);
+REPLACE(0x00525F60, &Obj::CWalkComponent::Walk_ReleaseHang);
 REPLACE(0x00528580, &Obj::CWalkComponent::Walk_GetStateTime);
 REPLACE(0x005285C0, &Obj::CWalkComponent::Walk_GetSpeedScale);
 REPLACE(0x005286A0, &Obj::CWalkComponent::Walk_GetHangInitAnimType);

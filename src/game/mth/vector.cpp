@@ -93,7 +93,7 @@ Vector& Vector::SetDirection(const Vector& direction)
 // 0x00406200
 Vector& Vector::ProjectOnto(const Vector& axis)
 {
-    // As the original's x87 code: the dot product kept in double ((x, then z, then y), each part rounded once.
+    // As the original's x87 code: the dot product stays in double, each component rounded once.
     double dot = (static_cast<double>(axis.x) * x + static_cast<double>(z) * axis.z) + static_cast<double>(y) * axis.y;
     *this = {static_cast<float>(dot * axis.x), static_cast<float>(dot * axis.y), static_cast<float>(dot * axis.z),
              static_cast<float>(dot * axis.w)};
