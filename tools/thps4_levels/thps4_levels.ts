@@ -21,6 +21,7 @@ import { FormatError } from "../level_port/binio.ts";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as overlayBias from "../level_port/overlay_bias.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
@@ -412,6 +413,9 @@ export function convertGeometry(
     const scene = geometry.convertScene(scene4, warnings, scene4.materials.map(thps4.toThug2Material), true);
     const converted = tex.depalettise(textures);
     const col = geometry.convertCol(col4, keepTriggers, warnings, thps4.faceFlags);
+    // (THPS4's materials have no z bias: the layers on other surfaces get one, or they shimmer - level_port/overlay_bias.ts)
+    const biased = overlayBias.biasOverlays(scene);
+    if (biased) report.push(`  ${biased} layer materials given a z bias over the surfaces under them`);
     common.writeLevel(outDir, outName, scene, textures, col);
     common.reportLevel(report, outName, scene, textures, col, warnings, converted);
     return files;
