@@ -9,6 +9,11 @@ Used by `tools/thps4_levels` (THPS4), `tools/thug1_levels` (THUG1), `tools/thps3
   files, read and written field by field: THUG2's own files come out byte-identical (each tool's `selfcheck`).
 - `geometry.ts` - scenes with one vertex array per sector (THPS4, THUG1) to THUG2's per-mesh vertex buffers;
   collision objects to THUG2's (fixed-point vertices, BSP trees, reaches) for THPS4.
+- `overlay_bias.ts` - z bias for the layers lying on other surfaces in scenes whose source has none (THPS3, THPS4):
+  found from the geometry (coplanar, overlapping, same facing); without it they z-fight - shimmer - with the surface
+  under them. THUG2 applies a material's z bias as D3DRS_DEPTHBIAS (0x004D1F51 / 0x004D2420).
+- `layer_check.ts` - CLI: per level, mip chains that stop short and how much layer area has a z bias between -
+  a port compared with THUG2's own (`node tools/level_port/layer_check.ts <levels folder> [<level> ...]`).
 - `qb.ts` - THPS4 / THUG1 qb files: globals, names, script statements; values as NeverScript text.
 - `nodes.ts` - node arrays: what's kept, kill zones, THUG1's included structures.
 - `peds_cars.ts` - THPS4's peds and cars made again as THUG2's own (THUG2's ped AI walking / vert skating, its

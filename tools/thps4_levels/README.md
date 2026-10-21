@@ -47,7 +47,9 @@ back - they must come out byte-identical - and parses every THPS4 level file.
 - Scene: materials (up to 4 passes) and sectors; THPS4's per-sector vertex arrays become THUG2's per-mesh vertex
   buffers (position, normal if any, colour, a uv set per pass), strips kept. Vertex colours (levels and skies) have
   their rgb halved: THPS4's PC files light rgb at 255 = full (alpha at 128 = full, kept), THUG2 takes 128 = full -
-  unhalved, every level drew exactly twice as bright, light colours clipped to white (washed out).
+  unhalved, every level drew exactly twice as bright, light colours clipped to white (washed out). THPS4's materials
+  have no z bias: the layers lying on other surfaces get one from the geometry (tools/level_port/overlay_bias.ts), or
+  they z-fight (shimmer) with the surface under them.
 - Textures: the same format (DXT1/2/5); THPS4's few 8-bit paletted ones (skies, London) become 32-bit, unswizzled.
 - Collision: version 8 -> 10, with THUG2's BSP trees, fixed-point vertices, small faces and the per-face "reach"
   bytes THUG2's ray test needs. Face flags: THPS4's camera flag inverted, flags THUG2 doesn't use dropped.

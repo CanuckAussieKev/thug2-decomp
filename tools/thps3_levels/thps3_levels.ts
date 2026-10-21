@@ -21,6 +21,7 @@ import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as movers from "../level_port/movers.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as overlayBias from "../level_port/overlay_bias.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as prx from "../level_port/prx.ts";
@@ -329,7 +330,8 @@ export function mipDown(level: Buffer, w: number, h: number): Buffer {
 
 export function convertTextures(tdx: readonly thps3.TdxTexture[], mips = true): tex.TexFile {
     // THPS3's 32-bit textures (BGRA, as Direct3D's A8R8G8B8) in THUG2's dictionary, checksum = the name's; mip levels
-    // made down to 8 x 8 (THPS3's have one level: without them distant textures shimmer).
+    // made down to the level whose shorter side is 4, as THUG2's own (THPS3's have one level: without them distant
+    // textures shimmer; a chain stopped early - it was 4 levels, down to 8 x 8 - still does on tiled floors and ramps).
     const out: tex.Texture[] = [];
     const seen = new Set<number>();
     for (const t of tdx) {
@@ -341,7 +343,7 @@ export function convertTextures(tdx: readonly thps3.TdxTexture[], mips = true): 
         const levels = [first];
         let w = t.width;
         let h = t.height;
-        while (mips && w > 8 && h > 8 && levels.length < 4) {
+        while (mips && Math.min(w, h) > 4) {
             levels.push(mipDown(levels[levels.length - 1]!, w, h));
             w = Math.max(1, Math.floor(w / 2));
             h = Math.max(1, Math.floor(h / 2));
@@ -771,6 +773,9 @@ export function convertWorld(
         tpNew !== undefined && (tpNew.sectors.length || tpNew.collision.length)
             ? thugproNew.applyGeometry(scene, textures, col, tpNew, warnings)
             : null;
+    // (THPS3's materials have no z bias: the layers on other surfaces get one, or they shimmer - level_port/overlay_bias.ts)
+    const biased = overlayBias.biasOverlays(scene);
+    if (biased) report.push(`  ${biased} layer materials given a z bias over the surfaces under them`);
     common.writeLevel(outDir, name, scene, textures, col);
     common.reportLevel(report, name, scene, textures, col, [...new Set(warnings)].sort(compareStr));
     if (newLine !== null) report.push(newLine);
