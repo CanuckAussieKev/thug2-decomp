@@ -34,6 +34,10 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   chains, phase 5 triggers, and a check of face flag 0x80 (the view agent found the camera's feeler IGNORES 0x80 - our
   converters say 0x80 = camera collides and the THPS4 converter inverts it: possibly wrong; docs/pending/face-flag-0x80.md).
   Phase 6 (full Inspector + apply_layout.ts) starts after 4 and 5 merge.
+- **Running (2026-10-21, evening):** ported non-car Vehicles rebuilt as moving GameObjects in all 4 games (ported-movers.md,
+  workspace THUG2-2); THUGPRO hacks review -> scratchpad	hugpro-hacks.json -> a decisions page; decompiling "Engine script
+  commands" 0x445b50-0x44e6b0 (246 fns) in thirds: EC1 0x445b50-0x4489b0 (THUG2-1), EC2 -0x44b7e0 (THUG2-3), EC3 -0x44e6b0
+  (THUG2-4); records docs/pending/engine-cmds-1..3.md; brief crash-check runs allowed in their workspaces.
 - **UX round DONE (2026-10-21):** UX1-UX9 + goals + occlusion picking fix + THAW rail speed-up fixes all merged, installed,
   pushed (main 20ebef7; 503 self-tests, 149 TS tests). Nothing play-tested. Pages: entity map KzL5HQAt54n5g7JtfmEbtv,
   checklist DUcbR4CuAAULq98JWcxX46. No agents running.
