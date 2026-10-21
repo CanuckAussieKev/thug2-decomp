@@ -2,7 +2,7 @@
 
 Generated 2026-10-22 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: ███████░░░░░░░░░░░░░ 38.3%** of the code rewritten (3,465 of 8,417 functions, 622.8 KB of 1,625.2 KB).
+**Game code: ████████░░░░░░░░░░░░ 40.7%** of the code rewritten (3,525 of 8,382 functions, 657.8 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -22,8 +22,8 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | █░░░░░░░░░░░░░░░░░░░ 8% | 25 / 488 | 9.2 KB / 114.8 KB |
 | Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ████████████████████ 100% | 202 / 202 | 59.5 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 341 | 0.7 KB / 85.7 KB |
-| Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | █░░░░░░░░░░░░░░░░░░░ 7% | 69 / 579 | 14.1 KB / 194.3 KB |
-| Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 3% | 13 / 457 | 3.2 KB / 91.9 KB |
+| Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | ████░░░░░░░░░░░░░░░░ 24% | 122 / 544 | 45.6 KB / 186.9 KB |
+| Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | █░░░░░░░░░░░░░░░░░░░ 7% | 20 / 457 | 6.6 KB / 91.9 KB |
 | Menu input mapping | `0x54ef60`-`0x550040` | ████████████████████ 100% | 20 / 20 | 4.0 KB / 4.0 KB |
 | Goals & career (GoalManager, create-a-trick, trick objects, level launching) | `0x550040`-`0x56c920` | ░░░░░░░░░░░░░░░░░░░░ 1% | 2 / 666 | 1.2 KB / 103.8 KB |
 | Time-of-day manager & world state | `0x56c920`-`0x577300` | ████████████████████ 100% | 137 / 137 | 38.1 KB / 38.1 KB |
