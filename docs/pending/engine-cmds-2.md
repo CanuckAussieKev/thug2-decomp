@@ -149,3 +149,20 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and src/hook
     lookups, global arrays, a script-typed row (nothing added), the warning level over all names; the game's
     _stricmp answered by ours. 40 deliberate bugs, all caught (3 by crashes in ours).
 - After EC2-5 the range 0x004489B0-0x0044B7E0 is done: inspect survey shows every function REPLACED, find_gaps 0 gaps.
+
+## Game runs (workspace C:\Games\THUG2-3, under its lock)
+
+- After EC2-3: `run_game.ps1 -Level BO -Tests "MathCFuncs,..."` - Boston loaded into free skate, running and responding
+  after 64 s; no EXCEPTION / RUN-TIME CHECK / DEBUG CRT in the log. (A first try with `-Level foun` stayed in the main
+  menu: "Load_foun isn't a level's load script" - not a load name in this workspace.)
+- After EC2-5 (final): `run_game.ps1 -Level BO -FullTests -Seconds 120` - all 508 early, 17 late and 2 engine-started
+  self-tests passed in the game, 3308 of 3308 replacements installed, Boston loaded and ran 154 s (responding); no
+  EXCEPTION / RUN-TIME CHECK / DEBUG CRT. (The workspace's debug_mode=1 launched the viewer, as it does.)
+- Nothing here is judged by a player: the commands run in every level's scripts (Wait, Change, GlobalExists,
+  FormatText, the event handlers, the arrays...), so ordinary play exercises them; a broken one would show as scripts
+  misbehaving (menus, goals, text with numbers - FormatText).
+
+## Switching it off
+
+`[replacements] disable=` in thug2-decomp.ini with the file names: math_cfuncs.cpp, debug_cfuncs.cpp,
+object_cfuncs.cpp, script_cfuncs.cpp, array_cfuncs.cpp.
