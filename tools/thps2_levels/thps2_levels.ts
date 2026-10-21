@@ -548,6 +548,7 @@ export function convertWorld(
     textures: LevelTextures,
     mips = true,
     triggers: ReadonlyMap<number, number> = new Map(),
+    named: ReadonlyMap<number, NamedObject> = new Map(),
 ): ConvertedWorld {
     const warnings: string[] = [];
     const triggerObjects = new Map<number, geometry.SourceColObject>();
@@ -577,7 +578,8 @@ export function convertWorld(
     const colObjects: geometry.SourceColObject[] = [];
     world.objects.forEach((object, index) => {
         const model = world.models[object.model]!;
-        const checksum = qb.checksum(`${level}_object_${index}`);
+        const own = named.get(index);
+        const checksum = own ? own.checksum : qb.checksum(`${level}_object_${index}`);
         const place = (v: readonly number[]): Vec3 =>
             toThug([v[0]! + object.position[0], v[1]! + object.position[1], v[2]! + object.position[2]]);
         // scene: a vertex per (model vertex, colour, uv)
@@ -684,7 +686,7 @@ export function convertWorld(
                 meshes: [...byMaterial].map(([material, tris]) => ({ flags: 0, material, strip: trisToStrip(tris) })),
             });
         }
-        if (faces.length) {
+        if (faces.length && (own === undefined || own.collide)) {
             const lo = [0, 1, 2].map((k) => Math.min(...verts.map((v) => v[k]!)));
             const hi = [0, 1, 2].map((k) => Math.max(...verts.map((v) => v[k]!)));
             colObjects.push({
@@ -721,7 +723,7 @@ function hex(value: number): string {
 
 // The textures a level can use: its library's (<base>_l.psx), then the world's own (Chopper Drop has some); the
 // newtex BMPs of its folder (and newtex's top folder, which some levels share) by checksum.
-export function levelTextures(pkr: Pkr, info: LevelInfo, world: thps2.Psx): LevelTextures {
+export function levelTextures(pkr: Pkr, info: LevelInfo, world: thps2.Psx, ...more: thps2.Psx[]): LevelTextures {
     const byName = new Map<number, thps2.PsxTexture>();
     const add = (psx: thps2.Psx): void => {
         for (const t of psx.textures) {
@@ -732,6 +734,7 @@ export function levelTextures(pkr: Pkr, info: LevelInfo, world: thps2.Psx): Leve
     const libName = `data/${info.base}_l.psx`;
     if (pkr.has(libName)) add(thps2.readPsx(pkr.read(libName), libName));
     add(world);
+    for (const m of more) add(m);
     const bmps = new Map<number, Bmp>();
     for (const folder of [`newtex/${info.newtex}/`, "newtex/"]) {
         for (const e of pkr.list(folder)) {
@@ -942,6 +945,7 @@ export function nodeArrayText(
     level: string,
     trg: readonly thps2.TrgNode[],
     triggers: readonly PlacedTrigger[] = [],
+    objects: readonly PlacedObject[] = [],
 ): NodeArrayResult {
     const restartNodes = trg.filter((n) => n.type === thps2.NODE_RESTART);
     const restarts = restartNodes.map(thps2.restartOf);
@@ -1039,6 +1043,9 @@ export function nodeArrayText(
         lines.push("    } ");
         blocks.push(lines.join("\n"));
     }
+    // objects
+    const [objectBlocks, objectScripts] = objectNodesText(level, objects);
+    blocks.push(...objectBlocks);
     // triggers
     const scripts: string[] = [];
     const gaps = new Set<number>();
@@ -1073,7 +1080,7 @@ export function nodeArrayText(
             ),
         );
     }
-    const text = `${level}_NodeArray = [\n${blocks.join("\n")}\n]\n${loadTerrainNs()}\n${scripts.map((s) => `${s}\n`).join("")}`;
+    const text = `${level}_NodeArray = [\n${blocks.join("\n")}\n]\n${loadTerrainNs()}\n${[...scripts, ...objectScripts].map((s) => `${s}\n`).join("")}`;
     return {
         text,
         restarts: order.length,
@@ -1121,6 +1128,146 @@ export function checkRestarts(trg: readonly thps2.TrgNode[], col: thug2Col.ColFi
         else if (y - floor > 120) out.push(`${r.name}: ${Math.round(y - floor)} inches above the floor`);
     }
     return out;
+}
+
+// --- objects: the _o file's models placed by type-1 nodes ----------------------------------------------------------
+
+// A world object converted under a name of its own (a LevelObject's sector and collision object), collidable or not.
+export interface NamedObject {
+    checksum: number;
+    collide: boolean;
+}
+
+// What a platform object's script does, as far as it's converted: nothing (static), C_IS_BOUNCY (a prop the skater
+// knocks about - THPS2's own physics: kept still and not collided with), V_ANGULAR_VELOCITY alone (spins for good:
+// Venice's roof vents), or more (waits for a signal, moves along nodes, falls, shatters...: not converted yet).
+export type ObjectBehaviour = "static" | "bouncy" | "spinning" | "scripted";
+
+export function objectBehaviour(o: thps2.ObjectNode): ObjectBehaviour {
+    // (C_READ_LABELS, 0x4105, no arguments: scans the script for its labels - nothing to do here)
+    const all = o.tokens.filter((v) => v !== 0x4105);
+    const t = all[all.length - 1] === thps2.C_DONE ? all.slice(0, -1) : all;
+    if (!t.length) return "static";
+    if (t.length === 2 && t[0] === 0x4309) return "bouncy"; // C_IS_BOUNCY(n)
+    if (t.length === 4 && t[0] === thps2.V_ANGULAR_VELOCITY) return "spinning";
+    return "scripted";
+}
+
+// A spinning object's turn: THPS2's angle units a frame (30 frames a second) about its own x, y, z as THUG2's
+// Obj_RotX / Y / Z speeds (degrees a second) - its y and z turned the other way, as the space's half turn about x
+// turns them.
+export function spinSpeeds(o: thps2.ObjectNode): Vec3 {
+    const at = o.tokens.indexOf(thps2.V_ANGULAR_VELOCITY) + 1;
+    const [x, y, z] = o.tokens.slice(at, at + 3).map((v) => ((v << 16) >> 16) * (30 / 4096) * 360);
+    return [x!, 0 - y!, 0 - z!];
+}
+
+export interface PlacedObject {
+    index: number; // the node's
+    name: string;
+    object: thps2.ObjectNode;
+    behaviour: ObjectBehaviour;
+}
+
+export interface LevelObjects {
+    world: thps2.Psx; // the world with the objects' models appended, each at the origin (its own space)
+    named: Map<number, NamedObject>; // by object index in `world`
+    placed: PlacedObject[];
+    counts: Record<ObjectBehaviour | "turned" | "noModel", number>;
+}
+
+// The platform objects with a model in the _o file, static / bouncy / spinning and turned about y only, appended to the
+// world as objects of their own (their faces' textures and colours renumbered into the world's lists).
+export function levelObjects(world: thps2.Psx, objects: thps2.Psx | null, trg: readonly thps2.TrgNode[]): LevelObjects {
+    const counts = { static: 0, bouncy: 0, spinning: 0, scripted: 0, turned: 0, noModel: 0 };
+    const merged: thps2.Psx = {
+        ...world,
+        objects: [...world.objects],
+        models: [...world.models],
+        modelNames: [...world.modelNames],
+        textureNames: [...world.textureNames],
+        rgbs: [...world.rgbs],
+    };
+    const named = new Map<number, NamedObject>();
+    const placed: PlacedObject[] = [];
+    const modelAt = new Map<number, number>(); // _o model index -> merged model index
+    for (const n of trg) {
+        if (n.type !== 1) continue;
+        const o = thps2.objectOf(n);
+        if (o.kind !== thps2.OBJECT_PLATFORM) continue;
+        const source = objects ? objects.modelNames.indexOf(o.model) : -1;
+        if (source < 0 || objects === null) {
+            counts.noModel++;
+            continue;
+        }
+        const behaviour = objectBehaviour(o);
+        counts[behaviour]++;
+        if (behaviour === "scripted") continue;
+        if (o.angles[0] || o.angles[2]) {
+            counts.turned++;
+            continue;
+        }
+        let m = modelAt.get(source);
+        if (m === undefined) {
+            const model = objects.models[source]!;
+            const textureBase = merged.textureNames.length;
+            const rgbBase = merged.rgbs.length;
+            m = merged.models.length;
+            merged.models.push({
+                ...model,
+                faces: model.faces.map((f) => ({
+                    ...f,
+                    texture: f.texture < 0 ? f.texture : f.texture + textureBase,
+                    shade:
+                        f.flags & thps2.FACE_GOURAUD
+                            ? (f.shade.map((s) => s + rgbBase) as thps2.PsxFace["shade"])
+                            : f.shade,
+                })),
+            });
+            merged.modelNames.push(objects.modelNames[source]!);
+            modelAt.set(source, m);
+        }
+        const name = `TRG_Object_${n.index}`;
+        named.set(merged.objects.length, { checksum: qb.checksum(name), collide: behaviour !== "bouncy" });
+        merged.objects.push({ flags: 0, position: [0, 0, 0], model: m, raw: Buffer.alloc(36) });
+        placed.push({ index: n.index, name, object: o, behaviour });
+    }
+    if (objects && modelAt.size) {
+        // the _o file's texture names and colours, after the world's (the faces above were renumbered to these)
+        merged.textureNames.push(...objects.textureNames);
+        merged.rgbs.push(...objects.rgbs);
+    }
+    return { world: merged, named, placed, counts };
+}
+
+// The objects' nodes: LevelObjects of their sectors (collidable ones CollisionMode=Geometry), turned about y; the
+// spinning ones a TriggerScript that turns them for good.
+export function objectNodesText(level: string, placed: readonly PlacedObject[]): [string[], string[]] {
+    const blocks: string[] = [];
+    const scripts: string[] = [];
+    for (const p of placed) {
+        const lines = [
+            "    {",
+            `        Position=${vec(toNodePosition(p.object.position))} `,
+            `        Angles=${vec([0, heading(p.object.angles[1]), 0])} `,
+            `        Name=${p.name} `,
+            "        Class=LevelObject ",
+            "        CreatedAtStart ",
+        ];
+        if (p.behaviour !== "bouncy") lines.push("        CollisionMode=Geometry ");
+        if (p.behaviour === "spinning") {
+            const script = `${level}_Spin_${p.index}`;
+            lines.push(`        TriggerScript=${script} `);
+            const speeds = spinSpeeds(p.object);
+            const body = (["Obj_RotX", "Obj_RotY", "Obj_RotZ"] as const)
+                .map((f, k) => (speeds[k] ? `    ${f} speed=${fixed(speeds[k]!)} \n` : ""))
+                .join("");
+            scripts.push(`script ${script} {\n${body}}`);
+        }
+        lines.push("    } ");
+        blocks.push(lines.join("\n"));
+    }
+    return [blocks, scripts];
 }
 
 // --- the sky -------------------------------------------------------------------------------------------------------
@@ -1199,9 +1346,13 @@ export function cmdConvert(args: Args): number {
         const name = levelName(info);
         const worldFile = `data/${info.base}.psx`;
         const world = thps2.readPsx(pkr.read(worldFile), worldFile);
-        const textures = levelTextures(pkr, info, world);
         const trgFile = `data/${info.base}_t.trg`;
         const trg = thps2.readTrg(pkr.read(trgFile), trgFile);
+        const objectsFile = `data/${info.base}_o.psx`;
+        const objects = pkr.has(objectsFile) ? thps2.readPsx(pkr.read(objectsFile), objectsFile) : null;
+        // the _o file's static / bouncy / spinning objects, appended to the world
+        const levelObjs = levelObjects(world, objects, trg);
+        const textures = levelTextures(pkr, info, world, ...(objects ? [objects] : []));
         // the triggers that do something here (gaps, kills) and have trigger faces in the world
         const effects = [...triggerEffects(trg).values()].filter(triggerActive);
         const places = triggerPositions(
@@ -1214,7 +1365,7 @@ export function cmdConvert(args: Args): number {
         const triggerNames = new Map(
             placed.map((t) => [t.effect.trigger, qb.checksum(triggerNodeName(t.effect.trigger))]),
         );
-        const done = convertWorld(world, name, textures, !args.noMips, triggerNames);
+        const done = convertWorld(levelObjs.world, name, textures, !args.noMips, triggerNames, levelObjs.named);
         const levelDir = pyJoin(out, "levels", name);
         // (THPS2 draws its layers - painted lines, decals, shadows on the floors - in the PlayStation's order with no
         // depth buffer: coplanar with the surface under them they'd fight over THUG2's depth buffer as stripes)
@@ -1226,19 +1377,22 @@ export function cmdConvert(args: Args): number {
             `  ${c.objects} objects, ${c.faces} faces (${c.hidden} not drawn, ${c.noCollision} not collided with), ` +
                 `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${biased} layer materials given a z bias`,
         );
-        const nodeArray = nodeArrayText(name, trg, placed);
+        const nodeArray = nodeArrayText(name, trg, placed, levelObjs.placed);
         common.nsCompile(args.ns, nodeArray.text, pyJoin(levelDir, `${name}.qb`));
         report.push(
             `  nodes: ${nodeArray.restarts} restarts, ${nodeArray.rails} rail points, ${nodeArray.triggers} triggers ` +
                 `(${nodeArray.gaps} gaps, ${nodeArray.kills} kill zones; ${effects.length - placed.length} without trigger faces)`,
         );
+        const oc = levelObjs.counts;
+        report.push(
+            `  objects: ${oc.static} static, ${oc.bouncy} bouncy (not collided with), ${oc.spinning} spinning; not yet: ` +
+                `${oc.scripted} scripted, ${oc.turned} turned about x / z, ${oc.noModel} without a model`,
+        );
         for (const problem of checkRestarts(trg, done.col)) report.push(`  restart ${problem}`);
         // the sky: the background models of the _o file
         let skyName: string | null = null;
         const backgrounds = backgroundModels(trg);
-        const objectsFile = `data/${info.base}_o.psx`;
-        if (backgrounds.length && pkr.has(objectsFile)) {
-            const objects = thps2.readPsx(pkr.read(objectsFile), objectsFile);
+        if (backgrounds.length && objects) {
             const sky = convertSky(
                 objects,
                 backgrounds,
@@ -1309,6 +1463,7 @@ export function cmdSelfcheck(args: Args): number {
                         if (n.type === thps2.NODE_COMMAND_POINT) thps2.commandPointOf(n);
                         else if (n.type === thps2.NODE_RESTART) thps2.restartCommands(n);
                         else if (n.type === thps2.NODE_START || n.type === thps2.NODE_START_2P) thps2.startCommands(n);
+                        else if (n.type === 1) thps2.objectOf(n);
                         else continue;
                         lists++;
                     }

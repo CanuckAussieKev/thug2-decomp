@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
+import { checksum as qbChecksum } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import { Pkr, readPkrDirectory, writePkr } from "./pkr.ts";
 import * as thps2 from "./thps2.ts";
@@ -577,6 +578,74 @@ test("sky: BackgroundCreate's models, the _o file's model placed at the origin",
     // the quad's corner (0, 0, 0) of the model at the origin, not at the object's place
     assert.ok(Math.abs(sky.scene.sectors[0]!.bbox[0]!) < 1e-3);
     assert.equal(conv.convertSky(psx, [0x12], "x", { byName: new Map(), bmps: new Map() }, false), null);
+});
+
+// a type-1 object of the model 0xabcdef01 (worldPsx's), its script tokens after the model
+function objectNode(kind: number, angles: number[], tokens: number[]): (at: number) => Buffer {
+    return (at) => {
+        const head = Buffer.concat([u16(1, kind, 0x1000, 0), Buffer.from([0, 2, 4, 0xff])]);
+        const pos = Buffer.concat([head, pad4(at, head.length), i32(4096 * 9, -4096 * 18, 4096 * 27), i16(...angles)]);
+        const model = u16(thps2.V_MODEL_CHECKSUM);
+        const mAt = at + pos.length + 2;
+        return Buffer.concat([pos, model, pad4(mAt, 0), u32(0xabcdef01), u16(...tokens)]);
+    };
+}
+
+test("objects: static, bouncy and spinning platforms as LevelObjects of their own sectors; scripted ones left", () => {
+    const trg = thps2.readTrg(
+        trgOf([
+            objectNode(thps2.OBJECT_PLATFORM, [0, 1024, 0], [0x2127, 0, 0, 128, thps2.C_DONE]),
+            objectNode(thps2.OBJECT_PLATFORM, [0, 0, 0], [0x4105, 0x4309, 3, thps2.C_DONE]),
+            objectNode(thps2.OBJECT_PLATFORM, [0, 0, 0], [0x4281, 0x4301, thps2.C_DONE]),
+            objectNode(thps2.OBJECT_PLATFORM, [100, 0, 0], [thps2.C_DONE]),
+            () => u16(thps2.NODE_END),
+        ]),
+        "test",
+    );
+    const spin = thps2.objectOf(trg[0]!);
+    assert.deepEqual(
+        [spin.kind, spin.created, spin.position, spin.angles],
+        [402, [0, 2, 4], [36864, -73728, 110592], [0, 1024, 0]],
+    );
+    assert.equal(spin.model, 0xabcdef01);
+    assert.equal(conv.objectBehaviour(spin), "spinning");
+    // 128 units a frame about z, 30 frames a second: 337.5 degrees a second, turned by the half turn about x
+    assert.deepEqual(conv.spinSpeeds(spin), [0, 0, -337.5]);
+    assert.equal(conv.objectBehaviour(thps2.objectOf(trg[1]!)), "bouncy");
+    assert.equal(conv.objectBehaviour(thps2.objectOf(trg[2]!)), "scripted");
+    const world = thps2.readPsx(worldPsx(), "world");
+    const objs = conv.levelObjects(world, world, trg);
+    assert.deepEqual(objs.counts, { static: 1, bouncy: 1, spinning: 1, scripted: 1, turned: 1, noModel: 0 });
+    assert.equal(objs.world.objects.length, world.objects.length + 2);
+    assert.deepEqual(
+        objs.placed.map((p) => [p.name, p.behaviour]),
+        [
+            ["TRG_Object_0", "spinning"],
+            ["TRG_Object_1", "bouncy"],
+        ],
+    );
+    // the model appended once, its texture renumbered after the world's names
+    assert.equal(objs.world.models.length, world.models.length + 1);
+    assert.equal(objs.world.models[1]!.faces[0]!.texture, world.textureNames.length);
+    const out = conv.convertWorld(
+        objs.world,
+        "thps2_test",
+        { byName: new Map(), bmps: new Map() },
+        false,
+        new Map(),
+        objs.named,
+    );
+    const spinName = qbChecksum("TRG_Object_0");
+    assert.ok(out.scene.sectors.some((s) => s.checksum === spinName));
+    assert.ok(out.col.objects.some((o) => o.checksum === spinName));
+    assert.ok(!out.col.objects.some((o) => o.checksum === qbChecksum("TRG_Object_1"))); // (bouncy: no collision)
+    const text = conv.nodeArrayText("thps2_test", trg, [], objs.placed).text;
+    assert.match(
+        text,
+        /Name=TRG_Object_0 \n {8}Class=LevelObject \n {8}CreatedAtStart \n {8}CollisionMode=Geometry \n {8}TriggerScript=thps2_test_Spin_0 /,
+    );
+    assert.match(text, /Name=TRG_Object_1 \n {8}Class=LevelObject \n {8}CreatedAtStart \n {4}\}/);
+    assert.match(text, /script thps2_test_Spin_0 \{\n {4}Obj_RotZ speed=-337\.5 \n\}/);
 });
 
 test("levels: ten, each its own name and level select number", () => {

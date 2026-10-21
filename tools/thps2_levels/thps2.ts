@@ -610,6 +610,61 @@ export function startCommands(node: TrgNode): Command[] {
     return readCommands(node, 2);
 }
 
+// --- objects (type 1: "Baddy" in the symbol file) ------------------------------------------------------------------
+//
+// u16 1, u16 kind (402 Platform: a model of the _o file; 203 ScriptOnlyBaddy: sounds, no model; 213-220 the cars), u16,
+// u16 link count, links, u8 creation flags up to 0xFF (NotCreatedAtStart 0 / CreatedAtStart 1, ActiveWhenCreated 2,
+// ManualSuspendControl 4 / RadialSuspendControl 5), [aligned] i32 x, y, z, i16 angle x, y, z (4096 = a turn), then the
+// object's script: u16 tokens of the symbol file's script language - commands (C_*, 0x41xx-0x47xx) and variables
+// (V_*, 0x21xx-0x23xx) followed by their values (u16 numbers or variables). V_MODEL_CHECKSUM (0x212F) takes an
+// aligned u32: the model's name checksum.
+
+export const OBJECT_PLATFORM = 402;
+export const OBJECT_SCRIPT_ONLY = 203;
+
+export const V_MODEL_CHECKSUM = 0x212f;
+export const V_ANGULAR_VELOCITY = 0x2127; // (x, y, z: angle units a frame)
+export const C_DONE = 0x4100;
+
+export interface ObjectNode {
+    kind: number;
+    created: number[]; // the creation flags
+    position: [number, number, number];
+    angles: [number, number, number];
+    model: number; // 0: none
+    tokens: number[]; // the script's u16 tokens (V_MODEL_CHECKSUM's u32 left out)
+}
+
+export function objectOf(node: TrgNode): ObjectNode {
+    if (node.type !== 1) throw new FormatError(`node ${node.index}: not an object`);
+    const d = node.data;
+    if (d.length < 6) throw new FormatError(`node ${node.index}: object cut short`);
+    const kind = d.readUInt16LE(2);
+    let p = node.dataAt - node.offset;
+    const created: number[] = [];
+    while (p < d.length && d[p] !== 0xff) created.push(d[p++]!);
+    p = align4(node.offset + p + 1) - node.offset;
+    if (p + 18 > d.length) throw new FormatError(`node ${node.index}: object cut short`);
+    const position: [number, number, number] = [d.readInt32LE(p), d.readInt32LE(p + 4), d.readInt32LE(p + 8)];
+    const angles: [number, number, number] = [d.readInt16LE(p + 12), d.readInt16LE(p + 14), d.readInt16LE(p + 16)];
+    p += 18;
+    let model = 0;
+    const tokens: number[] = [];
+    while (p + 2 <= d.length) {
+        const t = d.readUInt16LE(p);
+        p += 2;
+        if (t === V_MODEL_CHECKSUM) {
+            p = align4(node.offset + p) - node.offset;
+            if (p + 4 > d.length) throw new FormatError(`node ${node.index}: model checksum past its end`);
+            if (!model) model = d.readUInt32LE(p);
+            p += 4;
+            continue;
+        }
+        tokens.push(t);
+    }
+    return { kind, created, position, angles, model, tokens };
+}
+
 export function railPointOf(node: TrgNode): RailPoint {
     if (node.type !== NODE_RAIL_POINT) throw new FormatError(`node ${node.index}: not a rail point`);
     const at = align4(node.dataAt);
