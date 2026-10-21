@@ -103,6 +103,12 @@ struct CObjectSearch {
     CObject* FirstItemOfType(Mem::ListNode* head, uint32_t type);
     // 0x00461ED0: the next one, or null.
     CObject* NextItemOfType();
+    // 0x0041AA90: the destructor body (only its base's vtable, Lst::Search<CObject>'s 0x00645DF8, put back).
+    void DestroyBody();
+    // 0x0041AAA0: the scalar deleting destructor (vtable slot 0).
+    CObjectSearch* Destroy(unsigned int flags);
+    // 0x0041A850: its base's scalar deleting destructor (slot 0 of 0x00645DF8; the vtable put back).
+    CObjectSearch* DestroyAsBase(unsigned int flags);
 
     void** m_vtable;
     Mem::ListNode* m_node; // +0x04 the current node (null at the end)

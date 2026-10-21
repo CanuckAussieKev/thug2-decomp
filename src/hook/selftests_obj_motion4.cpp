@@ -168,12 +168,12 @@ uint32_t OriginalGroundHit()
     void* triangle = ArenaPtr(kMotion + 0x40);
     void* end = ArenaPtr(kMine + 0x300);
     void* start = ArenaPtr(kMine + 0x310);
-    void* out = ArenaPtr(kMine + 0x320);
+    void* hitOut = ArenaPtr(kMine + 0x320);
     uint32_t result;
     __asm {
         mov ecx, triangle
         mov edx, end
-        push out
+        push hitOut
         push start
         call code
         add esp, 8

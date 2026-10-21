@@ -32,6 +32,9 @@ public:
     // 0x00417250: the same with the line from `start` to `end`. Returns this.
     CFeeler* Construct(const Mth::Vector* start, const Mth::Vector* end);
 
+    // 0x0041C350: the destructor's body: the object hit let go (its smart pointer).
+    void Destruct();
+
     // 0x004170F0: faces with any of `ignore` set, or without all of `require`, are passed over.
     void SetIgnore(uint16_t ignore, uint16_t require);
     // 0x00417190 / 0x004171B0 / 0x004171D0

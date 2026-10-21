@@ -5,6 +5,7 @@
 
 #include "game/core/dbg.h"
 #include "game/mth/math.h"
+#include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
 
@@ -102,6 +103,20 @@ Matrix& Matrix::RotateZ(float angle)
     return Multiply(*this, *this, CreateRotateZMatrix(rotation, angle));
 }
 
+// 0x0041A730 (the original: D3DXMatrixMultiply(this, this, &rotation) for each angle, as RotateX / Y / Z)
+Matrix& Matrix::InitFromAngles(const Vector& angles)
+{
+    Ident();
+    if (angles.x != 0.0f || angles.y != 0.0f || angles.z != 0.0f) {
+        Matrix rotation;
+        auto multiply = GameFunction<void*(__stdcall*)(Matrix*, const Matrix*, const Matrix*)>(0x005BFA8C);
+        multiply(this, this, &CreateRotateXMatrix(rotation, angles.x));
+        multiply(this, this, &CreateRotateYMatrix(rotation, angles.y));
+        multiply(this, this, &CreateRotateZMatrix(rotation, angles.z));
+    }
+    return *this;
+}
+
 // 0x0041A640
 Matrix& Matrix::Ident()
 {
@@ -164,20 +179,41 @@ Matrix& Matrix::RotateZLocal(float angle)
 // 0x00404C60
 Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle)
 {
-    float x = axis.x, y = axis.y, z = axis.z;
-    float length = std::sqrt(x * x + y * y + z * z);
-    if (length > 0.0f) {
-        float scale = 1.0f / length;
-        x *= scale;
-        y *= scale;
-        z *= scale;
+    // As the original's x87 code, rounding where it stores: the axis made unit (x and y kept in double, z rounded
+    // to float), 1 - cos from the FPU's full-precision cosine, the sine rounded to float, the products as below.
+    double x = axis.x, y = axis.y;
+    float z = axis.z;
+    double length = std::sqrt((static_cast<double>(z) * z + y * y) + x * x);
+    if (length > 0.0) {
+        double inverse = 1.0 / length;
+        x *= inverse;
+        y *= inverse;
+        z = static_cast<float>(z * inverse);
     }
-
-    float t = 1.0f - std::cos(angle);
-    float s = std::sin(angle);
-    m.row[0] = {1.0f - (1.0f - x * x) * t, x * y * t + z * s, z * x * t - y * s, 0.0f};
-    m.row[1] = {x * y * t - z * s, 1.0f - (1.0f - y * y) * t, z * y * t + x * s, 0.0f};
-    m.row[2] = {z * x * t + y * s, z * y * t - x * s, 1.0f - (1.0f - z * z) * t, 0.0f};
+    double t;
+    float s;
+    const float one = 1.0f;
+    __asm {
+        fld angle
+        fld st(0)
+        fcos
+        fsubr one
+        fstp t
+        fsin
+        fstp s
+    }
+    float zz = static_cast<float>(1.0 - static_cast<double>(z) * z);
+    float xxT = static_cast<float>((1.0 - x * x) * t);
+    float yyT = static_cast<float>((1.0 - y * y) * t);
+    float zzT = static_cast<float>(zz * t);
+    float xyT = static_cast<float>(static_cast<float>(y * x) * t);
+    float zyT = static_cast<float>(z * y * t);
+    float zxT = static_cast<float>(z * x * t);
+    float xs = static_cast<float>(x * s);
+    double ys = y * s, zs = static_cast<double>(z) * s;
+    m.row[0] = {static_cast<float>(1.0 - xxT), static_cast<float>(xyT + zs), static_cast<float>(zxT - ys), 0.0f};
+    m.row[1] = {static_cast<float>(xyT - zs), static_cast<float>(1.0 - yyT), static_cast<float>(zyT + static_cast<double>(xs)), 0.0f};
+    m.row[2] = {static_cast<float>(zxT + ys), static_cast<float>(zyT - static_cast<double>(xs)), static_cast<float>(1.0 - zzT), 0.0f};
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     return m;
 }
@@ -592,6 +628,7 @@ REPLACE(0x0041A6A0, &Mth::Matrix::RotateX);
 REPLACE(0x0041A6D0, &Mth::Matrix::RotateY);
 REPLACE(0x0041A700, &Mth::Matrix::RotateZ);
 REPLACE(0x0041A640, &Mth::Matrix::Ident);
+REPLACE(0x0041A730, &Mth::Matrix::InitFromAngles);
 REPLACE(0x0040AF60, &Mth::Matrix::Transform);
 REPLACE(0x0040B000, &Mth::Matrix::TransformAsPos);
 REPLACE(0x0040B090, &Mth::Matrix::RotateVector);

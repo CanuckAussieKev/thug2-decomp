@@ -374,6 +374,27 @@ export function manifestLevels(manifest: Manifest, table: ReadonlyMap<string, Ta
     });
 }
 
+// THP8's zones (tools/thp8_levels' manifest, by zone): THP8's city's areas in its own map order (qb.pak's zone_info -
+// the sign's text comes from the manifest, THP8's own area names), then the separate zones. No stars: THP8's city
+// is fictional.
+export const THP8_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, TableEntry>([
+    ["z_houses", { icon: "mailbox", place: "THP8's city (fictional)", location: null }],
+    ["z_outschool", { icon: "schoolbell", place: "THP8's city (fictional)", location: null }],
+    ["z_inschool", { icon: "locker", place: "THP8's city (fictional)", location: null }],
+    ["z_shops", { icon: "trafficlight", place: "THP8's city (fictional)", location: null }],
+    ["z_ghetto", { icon: "bricks", place: "THP8's city (fictional)", location: null }],
+    ["z_factory", { icon: "gear", place: "THP8's city (fictional)", location: null }],
+    ["z_center", { icon: "capitolflag", place: "THP8's city (fictional)", location: null }],
+    ["z_citypark", { icon: "bench", place: "THP8's city (fictional)", location: null }],
+    ["z_cretepark", { icon: "bowl", place: "THP8's city (fictional)", location: null }],
+    ["z_funpark", { icon: "coaster", place: "THP8's city (fictional)", location: null }],
+    ["z_parking", { icon: "parking", place: "THP8's city (fictional)", location: null }],
+    ["z_training", { icon: "target", place: "THP8's training area (no place)", location: null }],
+    ["z_cartoon", { icon: "cloud", place: "THP8's cartoon world (no place)", location: null }],
+    ["z_skateshop", { icon: "skatetool", place: "THP8's skate shop (no place)", location: null }],
+    ["z_bedroom", { icon: "bed", place: "THP8's bedroom (no place)", location: null }],
+]);
+
 // THUG2's own list (level_select_menu_level_info) with what make_menu_level adds to it: SKATE SHOP and TEST LEVEL
 // get signs of their own and no star (they were TRAINING's sign and star).
 export const THUG2_EXTRA: ReadonlyMap<string, { icon: string; sign: string; place: string }> = new Map([
@@ -438,12 +459,12 @@ export function sections(
         ]);
     }
     if (games.thp8) {
-        // (placeholder signs - the manifest's THUG2 sign texture - and no stars: THP8's city is fictional)
+        // (signs of their own - THP8_LEVELS - and no stars: THP8's city is fictional)
         out.push([
             "thp8",
             "TONY HAWK'S PROJECT 8",
             "level_select_menu_thp8_level_info",
-            manifestLevels(games.thp8, new Map(), "THP8"),
+            manifestLevels(games.thp8, THP8_LEVELS, "THP8"),
         ]);
     }
     return out;

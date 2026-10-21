@@ -47,7 +47,7 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
     37 deliberate bugs, 36 caught; the one missed (Obj_GetSpeed's sum order) is equivalent in practice: the double
     sums differ in the last bit at most and the result is rounded to a float.
 - [x] Batch OC2-2 (NOT run in the game yet; the motion component's update, moving to points, paths, following a
-  leader, 15 functions): src/game/obj/motion_path.cpp (new).
+  leader, 15 functions): src/game/obj/motion_path.cpp (new; renamed motion_update.cpp at the merge with main - OC1 has a motion_path.cpp of its own).
   - 0x004270E0 Update (slot 1): the frame length, hover (back to the base height, then the bob), the axes' turns,
     Obj_Rotate's turn, then move-to / path / leader (the first that applies), the jump (its position copied); the
     ground offset eased in at 384 per second squared (the speed zeroed on a change of direction or an overshoot -
@@ -91,7 +91,7 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
     maximum, where both set the same value.
 - [x] Batch OC2-4 (NOT run in the game yet; the motion component's jump, sticking to the ground and moving to
   points, 15 functions): src/game/obj/motion_ground.cpp (new); motion.h (declarations); motion_component.cpp /
-  motion_path.cpp call the members instead of the game's addresses.
+  motion_update.cpp call the members instead of the game's addresses.
   - 0x00425CB0 GroundHit (register arguments: ECX the cached triangle, EDX the end, the start and the result on the
     stack, the caller pops - REPLACE_UNCHECKED naked stub over a cdecl body): the cached triangle first, then a
     feeler (the face hit, 8- or 10-byte faces, becomes the cached triangle). 0x00424870 UpdateJump, 0x00425F40

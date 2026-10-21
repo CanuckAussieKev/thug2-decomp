@@ -87,3 +87,4 @@ REPLACE(0x00463880, &Obj::CRefCounted::ScalarDelete);
 REPLACE(0x004637C0, &Obj::CRefCounted::AddSmartPointer);
 REPLACE(0x004637E0, &Obj::CRefCounted::RemoveSmartPointer);
 REPLACE(0x00416DD0, &Obj::CSmtPtr<Obj::CRefCounted>::Release);
+REPLACE(0x0041D1D0, &Obj::CSmtPtr<Obj::CRefCounted>::AssignObject);

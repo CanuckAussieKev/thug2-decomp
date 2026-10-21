@@ -164,6 +164,12 @@ add_library(thug2_code OBJECT
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
     src/hook/selftests_skaterB.cpp
+    src/hook/sk5_testkit.cpp
+    src/hook/selftests_skater_vehicle_camera.cpp
+    src/hook/selftests_skater_walk_camera.cpp
+    src/hook/selftests_skater_trick_queue.cpp
+    src/hook/selftests_skater_walk_pieces.cpp
+    src/hook/selftests_skater_walk_collision.cpp
     src/hook/selftests_menu.cpp
     src/hook/selftests_left.cpp
     src/hook/selftests_gfx.cpp
@@ -253,6 +259,10 @@ add_library(thug2_code OBJECT
     src/hook/selftests_lfxc3.cpp
     src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
+    src/hook/selftests_obj_scene_cmds.cpp
+    src/hook/selftests_obj_terrain.cpp
+    src/hook/selftests_obj_lens_flare.cpp
+    src/hook/selftests_obj_walk_hang.cpp
     src/hook/selftests_engcmd2.cpp
     src/hook/selftests_engcmd3.cpp
     src/hook/selftests_engcmd4.cpp
@@ -365,6 +375,17 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_scale.cpp
     src/hook/selftests_collision_component.cpp
     src/hook/selftests_lock_obj.cpp
+    src/hook/selftests_obj_bbox.cpp
+    src/hook/selftests_obj_color_camera.cpp
+    src/hook/selftests_obj_car_physics.cpp
+    src/hook/selftests_obj_collide_light.cpp
+    src/hook/selftests_obj_fam_particle.cpp
+    src/hook/selftests_obj_text_input.cpp
+    src/hook/selftests_obj_lock_quat.cpp
+    src/hook/selftests_obj_model.cpp
+    src/hook/selftests_obj_model_init.cpp
+    src/hook/selftests_obj_model_members.cpp
+    src/hook/selftests_obj_light_motion.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -515,11 +536,19 @@ add_library(thug2_code OBJECT
     src/game/skate/victory_conditions.cpp
     src/game/skate/trick_goals.cpp
     src/game/skate/skate_net.cpp
+    src/game/skate/skate_module.cpp
     src/game/sys/viewer.cpp
     src/game/obj/game_objects.cpp
     src/game/skater/trick_lists.cpp
     src/game/skate/gap_checklist.cpp
     src/game/skater/manual.cpp
+    src/game/skater/vehicle_camera.cpp
+    src/game/skater/walk_camera.cpp
+    src/game/skater/walk_physics.cpp
+    src/game/skater/walk_movement.cpp
+    src/game/skater/walk_collision.cpp
+    src/game/skater/trick_queue.cpp
+    src/game/skater/trick_member_functions.cpp
     src/game/obj/movie_manager.cpp
     src/game/obj/anim_movies.cpp
     src/game/obj/trick_objects.cpp
@@ -652,14 +681,31 @@ add_library(thug2_code OBJECT
     src/game/sfx/sfx.cpp
     src/game/sfx/sound_cfuncs.cpp
     src/game/sfx/sfx_voices.cpp
+    src/game/sfx/terrain.cpp
     src/game/gfx/anim_blend.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/lock_obj.cpp
     src/game/obj/chain_component.cpp
+    src/game/obj/lock_obj_update.cpp
+    src/game/obj/model_component.cpp
+    src/game/obj/model_component_init.cpp
+    src/game/obj/model_component_members.cpp
+    src/game/obj/model_light_update.cpp
+    src/game/obj/motion_path.cpp
+    src/game/obj/bbox_component.cpp
+    src/game/obj/color_cycle.cpp
+    src/game/obj/camera_component.cpp
+    src/game/obj/car_physics.cpp
+    src/game/obj/collide_and_die.cpp
+    src/game/obj/dynamic_light.cpp
+    src/game/obj/fam.cpp
+    src/game/obj/flexible_particle.cpp
+    src/game/obj/floating_text.cpp
+    src/game/obj/input_component.cpp
     src/game/obj/motion.cpp
     src/game/obj/motion_component.cpp
-    src/game/obj/motion_path.cpp
+    src/game/obj/motion_update.cpp
     src/game/obj/motion_ground.cpp
     src/game/obj/motion_rotate.cpp
     src/game/obj/movable_contact.cpp
@@ -764,6 +810,9 @@ add_library(thug2_code OBJECT
     src/game/script/script_cfuncs.cpp
     src/game/script/array_cfuncs.cpp
     src/game/script/cfuncs_lighting.cpp
+    src/game/script/cfuncs_scene.cpp
+    src/game/gfx/lens_flare.cpp
+    src/game/obj/walk_hang.cpp
     src/game/script/cfuncs_render.cpp
     src/game/script/cfuncs_polys.cpp
     src/game/script/cfuncs_memory.cpp
@@ -773,6 +822,7 @@ add_library(thug2_code OBJECT
     src/game/mth/random.cpp
     src/game/mth/slerp.cpp
     src/game/mth/vector.cpp
+    src/game/mth/quaternion.cpp
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
     src/game/util/bps.cpp

@@ -1,4 +1,4 @@
-// Self-tests for the motion component's update, moving to points, paths and following a leader (motion_path.cpp):
+// Self-tests for the motion component's update, moving to points, paths and following a leader (motion_update.cpp):
 // original vs ours on a stand-in component, every callee stood in for (motion_testkit.h) - but Mth::CrossProduct
 // and Vector::Normalize, which run as they are (the original's and ours, each tested on its own).
 

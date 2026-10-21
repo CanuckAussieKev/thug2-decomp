@@ -176,8 +176,9 @@ void StandIn(StandIns& s)
             m[i] = a[i % 3] * static_cast<float>(i + 1);
         return r.ecx;
     });
-    // The lock's update (0x0041F760, no source): recorded; moves the object and takes another orientation, as it would.
-    s.At({0x0041F760}, 0, [](Regs& r) {
+    // The lock's update (0x0041F760: selftests_obj_lock_update.cpp tests it): recorded; moves the object and takes
+    // another orientation, as it would.
+    s.At({0x0041F760, AddressOf(&Obj::CLockObjComponent::UpdateLock)}, 0, [](Regs& r) {
         auto* object = reinterpret_cast<Obj::CCompositeObject*>(g_world.object);
         Record({0xF760, Rel(r.ecx)});
         object->m_pos = {object->m_pos.x + 10.0f, object->m_pos.y - 3.0f, object->m_pos.z + 0.5f, 1.0f};

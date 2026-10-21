@@ -55,12 +55,6 @@ void AnglesToMatrix(Mth::Matrix* matrix, const Mth::Vector* angles)
     GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(matrix, angles);
 }
 
-// The lock's update (no source yet).
-void UpdateLock(CLockObjComponent* component)
-{
-    GameFunction<void(__thiscall*)(CLockObjComponent*)>(0x0041F760)(component);
-}
-
 } // namespace
 
 // 0x0041F520
@@ -131,13 +125,13 @@ void CLockObjComponent::Update()
     if (!(m_lockFlags & LOCK_FLAG_LOCKED))
         return;
     if (!(m_lockFlags & LOCK_FLAG_NO_ROTATE)) {
-        UpdateLock(this);
+        UpdateLock();
         return;
     }
     // NOT ORIGINAL: THAW's no_rotate - placed by the lock (the offset turned by the target, as THAW's ferris cars go
     // round with the wheel), its own orientation kept.
     Mth::Matrix own = m_object->m_matrix;
-    UpdateLock(this);
+    UpdateLock();
     m_object->m_matrix = own;
     m_object->m_displayMatrix = own;
 }

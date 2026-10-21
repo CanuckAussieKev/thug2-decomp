@@ -51,6 +51,13 @@ public:
     void FeetToInches();
     // x = -x, y = -z, z = y. Purpose not identified yet (looks like a coordinate-system conversion).
     void NegateXRotateX90();
+
+    // Turn by `angle` radians about the X / Y axis (the FPU's sine and cosine; w unchanged) - 0x00420A50 / 0x00420A90
+    // (src/game/mth/quaternion.cpp).
+    Vector& RotateAboutX(float angle);
+    Vector& RotateAboutY(float angle);
+    // 0x00421440: turn by `angle` radians about `axis` (through a quaternion: w becomes what Quat::Rotate leaves).
+    Vector& RotateAboutAxis(const Vector& axis, float angle);
 };
 
 Vector operator+(const Vector& a, const Vector& b);
@@ -69,6 +76,10 @@ Vector operator/(const Vector& v, float divisor);
 double GetDistance(const Vector& a, const Vector& b);
 // Whether a and b are more than `degrees` apart (false if either is shorter than 0.5).
 bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees);
+
+// 0x0041A820 (cdecl): the squared distance between the points a and b (x87: (dx * dx + dz * dz) + dy * dy, not
+// rounded to float).
+double DistanceSquared(const Vector& a, const Vector& b);
 
 // The angle between a and b in degrees (0 to 180; a zero vector counts as itself).
 double GetAngle(const Vector& a, const Vector& b);

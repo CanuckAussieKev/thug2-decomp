@@ -7754,6 +7754,433 @@ belong with the CScript batch.
   gap.cpp, local_net_logic.cpp, looping_sound.cpp, matrix_queries.cpp, physics_control.cpp, rotate_component.cpp,
   run_timer.cpp, skater_score.cpp, skater_sound.cpp, stance_panel.cpp, skater_state.cpp, nonlocal_net_logic.cpp,
   nonlocal_playback.cpp, core_update.cpp.
+- [x] Batch 249 (SK5-1; skater 5, merged 2026-10-22; run in the game: docs/pending/skater-5.md; NOT judged by a player yet; the VehicleCamera component, 12 functions):
+  src/game/skater/vehicle_camera.cpp/.h (new), src/game/skater/x87_math.h (new).
+  - 0x005248C0 Create (Calloc 0xA4, the base constructor, vtable 0x0064C5A0, type 0x2C747D8A, height 60, distance
+    144, lerp 3), 0x00524420 RegisterMemberFunctions (the table 0x00684150: VehicleCamera_Reset; not a Ghidra
+    function), 0x00524440 / 0x00524470 the destructor body and the scalar deleting destructor, 0x005244A0
+    InitFromStructure (subject= - an object id: the object and its Vehicle component; then 0x9213625F (lerp),
+    0x14849B6D (height), 0xBD3D3CA9 (distance), angle=, each kept when not given), 0x00524C00 Finalize (the
+    CameraLookAround component, then Reset), 0x00524B40 Reset (the look-around back to straight ahead, the
+    target from the vehicle's heading, the orientation built, given to the camera object, the Camera component's
+    Update - a tail call through its vtable), 0x00524450 VehicleCamera_Reset (vtable +0x14 with the params,
+    vtable +0x0C; true - a member function reached through its record's member function pointer, set by the static
+    initialiser at 0x006437E0).
+  - 0x00524550 UpdateTargetDirection: the vehicle's heading (its at-row negated, flat, normalised) turned toward its
+    flat velocity by speed x 0.0037879 (at most 1) along the heading, with two wheels or more down (+0x114 of the
+    Vehicle component); with fewer, its flat velocity, but only at a speed of at least 88000000 (0x0064C5D8 - in
+    practice never; a NaN speed passes).
+  - 0x00524780 UpdateOrientation (rows from the direction turned by the look-around heading - rows 0 and 1 get w = 1,
+    which ApplyToCamera clears -, the position `distance` behind / `height` above the vehicle, w = the vehicle's
+    w + 1; then x Rz(angle degrees) through D3DXMatrixMultiply), 0x00524720 ApplyToCamera (the w's cleared, the
+    position, matrix and display matrix of the camera object).
+  - 0x00524940 Update: the camera's old position kept; the angle between direction and target (acos of their
+    clamped dot, folded below 90 degrees), the turn at most that angle at lerp a second toward the target's side;
+    the position kept clear of the world (AvoidCameraCollisions, neither sideways nor refocused).
+  - Finding: FSIN / FCOS / FPATAN results are 64-bit even with the 53-bit precision control: computing with them
+    rounded to doubles first gave 1-ulp differences (in a near-cancelling turn); x87_math.h keeps them in registers.
+  - Test (selftests_skater_vehicle_camera.cpp TestVehicleCamera / TestVehicleCameraLife): every function, original
+    vs ours, 50-4000 random variants each (unit and random directions, speeds over the full-weight limit, the huge
+    flat speed, zero and NaN speeds, 0-3 wheels), every callee stood in for (GetComponent / GetObjectByID giving the
+    arena's objects, acos, the frame time, CreateRotateZMatrix, D3DXMatrixMultiply, AvoidCameraCollisions, Normalize
+    recording its input, the CStruct getters, Calloc failing at times). 26 deliberate bugs caught (26 of 26).
+- [x] Batch 250 (SK5-2; skater 5, merged 2026-10-22; run in the game: docs/pending/skater-5.md; NOT judged by a player yet; the WalkCamera component and the Walk component's camera pieces, 19
+  functions): src/game/skater/walk_camera.cpp/.h, src/game/skater/walk_physics.cpp/.h (new).
+  - 0x00525DC0 Create (0xA8 bytes, vtable 0x0064C5E0, type 0xC7D37EC2, the target (0, 0, 0, 1)), 0x00524C20 /
+    0x00524F20 the destructors, 0x00524C50 SetSkater (its Walk and SkaterPhysicsControl components; none: all
+    null), 0x00524F50 InitFromStructure (the skater from 0x4C48DA58 - an object id, name not recovered -, the zoom
+    and turn cosine 1, the orientation from the camera object), 0x00524FB0 Finalize (CameraLookAround, Camera,
+    skatercamera), 0x00525D40 CallMemberFunction (WalkCamera_FlushRequest, WalkCamera_Reset; else 2), 0x00524C30
+    ResetNow (Update through the vtable with the reset flag), 0x005250A0 FlushRequest, 0x00525F70
+    SetOverrideFacing, 0x00525060 / 0x00524FF0 SaveState / RestoreState (a 0x58-byte state: orientation, target,
+    turn cosine, zoom), 0x00524EF0 Param (stdcall: walk_camera_parameters' float - the original's value is
+    uninitialised when missing, ours 0; it's asserted), 0x005250E0 GetTarget (eased at the skater camera's +0xE4
+    across / +0xE8 up through FrameBlend), 0x00524CB0 GetZoomedOffsets (the zoom eased toward the look-around's
+    factor while it turns - an integer compare of the factor's bits with 1.0 -, the distance x zoom, nearer when the
+    look-around tilts up: ((tilt + 0.628) x 1.5924 x 0.6 + 0.4); the height from 3 when zoomed in), 0x00524D70
+    LerpByRange (cdecl, returns `out`).
+  - 0x005251D0 Update (2.9 KB): paused when the physics control's state says so (the camera object's PAUSED flag),
+    three instant frames after the skater teleports; the facing swung to the skater's within lock_angle by its
+    speed between min_slerp_speed and full_slerp_speed (the d-pad's pair when 0x00524E10 says so), at once when
+    flushing / resetting / at full speed; the right stick turns it (facing_control: the sine rounded to float, the
+    cosine kept in the register - its own x87 sequence); an override's facing turned by the look-around heading;
+    the look matrix tilted by the look-around tilt + the skater camera's +0x12C, slerped toward at
+    matrix_slerp_rate (run_slerp_factor running, doubled in walk states 3 / 4, control_slerp_factor x |stick|,
+    flush_slerp_factor; an override's rate) unless all three rows are within 0.99 already; then placed behind /
+    above the target, aimed at the point above the skater (right = up x at, up = at x right), kept clear of the
+    world toward the point ahead plus the Walk component's offset; the skater camera's +0x74 matrix updated.
+  - Walk component (walk_physics.cpp - only the class's pieces in this range; its constructor and layout are in the
+    next range): 0x00524E10 UsingDpad, 0x00524E60 GetCameraOffset (facing x -18 in states 2-4 and for 150 ms in the
+    air after 2 / 3).
+  - Test (selftests_skater_walk_camera.cpp TestWalkCamera / TestWalkCameraLife): every function, original vs ours,
+    50-8000 variants (flags, instant frames, teleports, paused physics, null skater / physics control, d-pad, walk
+    states, stick on / off, the orientation already aligned with an identity multiply, the speed just under the full
+    speed in double but equal as a float and exactly the least speed, the zoom just under 1, a state changed exactly
+    150 ms ago), every callee stood in for (Param, the Walk pieces, the slerp's SetMatrices / GetMatrix recording
+    their matrices, CreateRotateXMatrix, D3DXMatrixMultiply, FrameBlend, the clock...). 52 deliberate bugs: 51
+    caught (4 after adding the edge variants), 1 equivalent (the factor's bit compare against 1.0 - using a factor of
+    exactly 1.0 gives the same).
+- [x] Batch 251 (SK5-3; skater 5, merged 2026-10-22; run in the game: docs/pending/skater-5.md; NOT judged by a player yet; the Trick component's tricks, button buffer and trick object list, 30
+  functions): src/game/skater/trick_queue.cpp/.h (new; the class Obj::CTrickComponent with only this range's
+  methods - its fields by named offsets - so the next range's agent's declaration of the same class can be merged
+  with it).
+  - Life: 0x00523490 Create, 0x00522390 Construct (its trick object list +0x13B4, reset by 0x0051F320), 0x005234F0 /
+    0x005243F0 the destructors (the trick mappings structure freed); 0x005231D0 Update (suspended while the object's
+    +0xBC is clear; then the buttons, the balance trick's buttons, the extra tricks, 0x00521A10, the manual tricks,
+    the extra grind tricks - each pending one dropped after its time - and button mashing); 0x00522410
+    SetTrickMappings (the profile's 12 special trick slots: keys = trick, an integer when the slot's flag is set,
+    else a name; then its trick_mapping info); 0x00521E50 UpdateButtons (the d-pad direction 1-8, then 13 buttons
+    from the input's mask bits, in the original's order - 0xC before 0xB).
+  - Tricks: 0x00522520 TryTrick (Scr; a Grind needs a rail; Params without IsExtra counted by the 0x4FF8DAC6
+    component; the pending ones dropped; SwitchScript, the flag added unnamed, the extra params appended, one
+    Update; the state's +0xE0; CountTrick), 0x00522670 DoNextTrick (the queue +0xA2C / +0xA30 of 100 entries; the
+    first script as an interrupt; the slot's mapping: an integer - CreateATrick with trick_index -, or a structure,
+    the goal manager told first), 0x005228B0 DoNextManualTrick (ScriptToRunFirst run on a copy of the params, copied
+    back), 0x00522E80 DoExtraGrindTrick (four flags pick Scripts[n] or prefix + Template[n] through the game's
+    sprintf and the CRC; the core physics' +0x3A8 cleared for a skater - the original's stack cookie isn't kept),
+    0x00521BA0 UpdateManualTricks, 0x00521C10 / 0x00521D20 Check / UpdateExtraGrindTricks, 0x00522AA0
+    TryExtraTricks, 0x00522C00 UpdateExtraTricks, 0x00522CD0 SetExtraTricks (duration in frames x 16.67 ms
+    truncated; ignore= as a string is passed on as its address - a name nothing matches -, as the original does),
+    0x00521D80 GetIgnoreMask (no check that the array exists, as the original), 0x00521DF0 IgnoreTricks.
+  - Mashing: 0x00522030 GetBashSpeed (presses / releases but triangle within BashPeriod, marked used; x
+    BashSpeedupFactor rounded to float, at most BashMaxPercentSpeedup %, + 1 - returned unrounded), 0x00522170
+    CountTriangleBashes, 0x005230E0 UpdateBash (in RunOutQuick / 0xA4B7A992 the blender's speed; else over 1.5: 2 in
+    the state's +0x1C case, or TantrumOff then, once with a bail end pose, the "ButtonMash - trigger quick getup"
+    message and bail_quick_getup - otherwise the speed set as well).
+  - Trick objects and counting: 0x00522340 CountTrick (past 3 the object's 0x94182A08 event), 0x00522370,
+    0x005232A0, 0x005232E0 (not a Ghidra function), 0x00523310.
+  - Member functions through records (table 0x00683148): 0x00522280 Pressed (dur= 15), 0x005222F0
+    GetCurrentBailEndpose (not a Ghidra function). 0x00523350: the C function DoNextTrick (TrickParams copied into
+    a new structure for the call).
+  - Test (selftests_skater_trick_queue.cpp TestTrickQueue): every function, original vs ours, 50-4000 variants
+    with every CStruct / CArray / script / object / clock / profile / trick-object call stood in for (structures
+    and arrays as tokens; the inlined `new CStruct` and NewStruct through one stand-in pool), the button buffer, the
+    queue, the four trick array sets and every flag randomised, the trick script sometimes killing the extra tricks.
+    59 deliberate bugs: 58 caught (2 after strengthening: a direct TryExtraTricks test with scripts that kill the
+    extra tricks, and the kit compared -1 / -5 as equal NaNs - fixed: only the quiet NaN's sign is ignored now), 1
+    equivalent (GetBashSpeed's `>` against `>=`: equal values give the same result).
+- [x] Batch 252 (SK5-4; skater 5, merged 2026-10-22; run in the game: docs/pending/skater-5.md; NOT judged by a player yet; the Trick component's script member functions, 0x00523560 - 3.7 KB, 34
+  names): src/game/skater/trick_member_functions.cpp (new).
+  - Released / Held (a button through 0x0051ECF0, or buttons= by Inp::ButtonIndex into the held flags +0xA00),
+    GetSpazzFactor (the triangle mashes as spazzfactor), 0x070E934D (the button x's events marked used, in buffer
+    order), ClearPanel_Landed (a deferred trick scored when its spin is a whole turn - 360 on a rail, else 180 - less
+    spin_count_slop with 0.1 to spare; the goal manager's 0x005587F0; SkaterExitCombo with skaterId when the score
+    holds a combo; the gap and score components reset; SkaterLanded; the balance trick's two resets), ClearPanel_Bailed,
+    GetSpin (rounded down to half turns with the slop) / GetActualSpin / ResetSpin, SetQueueTricks (one name that
+    isn't an array becomes 0x9E22D268) / SetManualTricks / SetExtraGrindTricks / SetExtraTricks / KillExtraTricks /
+    ClearTricksFrom, ClearTrickQueue, DoNextManualTrick, ClearManualTrick, ClearExtraGrindTrick, the trick mappings
+    from a global structure (0xABFF7889), 0xB42A1230 (slot= mapped to the created trick trick= - a pair (13, its
+    index) through 0x00478470, a jump to AddPair), ClearEventBuffer (buttons= / OlderThan=, else all),
+    RestoreEvents (UsedBy= regular / extra / manual / 0xEC066B6A within duration= 200 ms), UseGrindEvents, BashOn /
+    BashOff, NoQuickGetup / ClearQuickGetup, SetTrickName / SetTrickScore, display (Deferred; AddSpin= while the
+    score shows the same trick - the score told the unrounded total; else the trick scored with its flags -
+    Blockspin 2, switch 4, special 0x20 unless NoSpecial, NoDegrade 0x40, cat 0x80, Natas 0x100, NoMult 0x200,
+    NoSwitch 0x400 - on a rail its score times the score's rail multiplier with the "RAIL score" debug line,
+    SkaterTrickDisplayed and the spin scored), 0x36B2BE57 (a button to the trick object list), 0x72C926CA /
+    0xDE98DE7A (0x0051F010 / 0x00521A10). 2 for other names.
+  - Test (selftests_skater_trick_queue.cpp TestTrickMemberFunctions): every name (and two unknown ones), original vs
+    ours, 250-2500 variants each (names displayed / deferred, spin totals at and just off whole turns, a slop of 0.1
+    making the threshold exactly 180 / 360, the score showing the trick or not, rails, the event buffer with the
+    button x, UsedBy's kinds). The kit's arena grew to 64 KB (the score component's +0x154C) and copies the arena
+    out faster. 41 deliberate bugs caught, 4 after strengthening (the button x events, the exact thresholds, UsedBy's
+    kinds, a spin whose sum rounds up to the next degree).
+- [x] Batch 253 (SK5-5; skater 5, merged 2026-10-22; run in the game: docs/pending/skater-5.md; NOT judged by a player yet; the Walk component's life, state and member functions, 26 functions):
+  src/game/skater/walk_physics.cpp/.h.
+  - Life: 0x00525E40 RegisterMemberFunctions (the table 0x006847F8, 0x18-byte records), 0x00528880 / 0x00528890 a
+    contact's constructor (its feeler at +0x1C) / destructor (the smart pointer +0xB4), 0x005288B0 the destructor
+    body (+0x184C let go, the collision cache +0x790, the eight contacts last first, the base's), 0x00526060
+    InitFromStructure (camera= an object id: the object and its WalkCamera component; +0x710 cleared), 0x00525FB0
+    Finalize (nine components: Input, animblender, Model, Trigger, SkaterPhysicsControl, MovableContact,
+    SkaterState, SkaterCorePhysics, TaggingControl), 0x00525E60 SetCamera.
+  - 0x005260E0 SetState (26 callers): the previous state and the time kept; leaving the ground / air clears the
+    run flags; leaving the air its jump time and velocity and the rail flag; the ground resets +0x1870 to 10000;
+    a climb (4) its offset; caught a ledge from the air: the pad's two hang controls debounced for
+    hang_control_debounce_time (now - time x -1000, truncated). 0x005260C0 ClearModelOffset.
+  - Queries: 0x00528560 GetFacing, 0x00528220 GetTurnedFacing (index sevenths of a turn: the cosine rounded to
+    float, the sine kept in the register), 0x00528370 UpdateRunAdjustment (1 while the score holds a combo, else
+    down at run_adjust_rate), 0x00528400 LimitSpeed (the speed kept from rising 100 ms after landing; a stopped run
+    becomes Skid or Stand), 0x005284C0 GetGravity (cdecl; the moon cheat halves it and sets the global
+    0x007CE4FD), 0x00528280 FindStandPosition (stdcall: feeler_height x 2 above to stand_pos_search_depth below).
+  - Member functions (records of 0x006847F8): Walk_Ground, Walk_ScaleAnimSpeed (Off resets the blender's speed -
+    its third argument the float with bits 1, as the original pushes -, Run / HangMove / LadderMove, StandardSpeed=),
+    Walk_ReleaseHang - named so beside SK6's ReleaseHang 0x0052C280 - (0x0043DB90), Walk_GetStateTime, Walk_GetSpeedScale (WalkSlow / WalkFast / RunSlow / RunFast by
+    max_slow_walk_speed / max_fast_walk_speed / max_slow_run_speed), Walk_GetHangInitAnimType,
+    Walk_GetStateDuration (seconds), Walk_GetPreviousState / Walk_GetState (the names at 0x0064C618),
+    Walk_GetHangAngle (asin of the rail's climb between the hang nodes, in degrees, signed by the facing - z's square
+    from its unrounded difference, as the x87 code), Walk_SetForwardControlLock.
+  - Test (selftests_skater_walk_pieces.cpp - selftests_skater_walk.cpp until the merge with SK6 - TestWalkPieces): every function, original vs ours, 20-3000 variants each (states
+    -1..5, clock values at and around 100 / 150 ms, d-pad / stick, the moon cheat, collisions found or not, -0 and +0
+    speeds, the parameters sometimes equal to the component's values). The trick queue's test was split in two
+    (TestTrickQueue / TestTrickQueueExtra): it ran past the watchdog's 45 s on a loaded machine.
+    36 deliberate bugs caught, 1 after strengthening (Walk_GetSpeedScale's `<` against `<=`: the parameters and
+    the speed now drawn from a shared short list half the time).
+- [x] Batch 254 (SK5-6; skater 5, merged 2026-10-22; run in the game: docs/pending/skater-5.md; NOT judged by a player yet; the Walk component's control, speed and facing, 10 functions):
+  src/game/skater/walk_movement.cpp (new), src/game/skater/walk_fields.h (new: the component's fields by offset and
+  the helpers walk_physics.cpp and walk_movement.cpp share).
+  - 0x00527F20 UpdateControl: the control direction (+0x84) is the camera's flat forward turned by the pad's stick
+    angle (m_polar[1], straight ahead within forward_tolerance degrees; FSIN / FCOS kept in registers); the push
+    (+0x94): the stick's (StickLength x 1/0.85, full - +0x98 - from 1), else the d-pad's (walk_point on the ground
+    without X - the original reads it through 0x0043DA70 -, else 1); the forward control lock holds it on the facing.
+    0x00528120 GetControlSpeed (unrounded in ST0): (push - 0.3) / (walk_point - 0.3) x walk_speed, past walk_point up
+    to the run speed (0x0043DAA0); +0x17A4 running.
+  - 0x00526260 TurnFacingToVelocity (wall_turn_*: the rate rounded to float below 1), 0x00526430 AdjustSpeedForSlope
+    (unrounded in ST0: on a ground normal y <= 0.95 faster than walk_speed, ((1 - |d|) + |d| x normal.y) x speed),
+    0x00527420 UpdateUpright (the up vector eased upright at lerp_upright_rate while +0x72C is 0; snapped past 0.999;
+    exactly 1 by its bits), 0x00527720 SetTransitionFacing (the turn to a facing by FPATAN, folded the shorter way;
+    6 callers in the script commands at 0x0043EA41-0x0044210B), 0x005277B0 UpdateCollisionCache (the box: feeler_length
+    + 1 across, walker_height + 1 up, snap_down_height + 1 down; the feelers' current cache 0x00691974),
+    0x00527BE0 RestoreDisplayOffset, 0x00527C50 UpdatePush (off the plane it hit within push_feeler_length at
+    push_strength - x's product kept unrounded -, the velocity into it taken away unless exactly 0),
+    0x00527DB0 CopyFromObject (flat velocity and facing; a facing under 0.001 long becomes the up row backwards and
+    the up vector is nudged).
+  - Finding (and fix outside the range): StickLength (0x0046C370, control_pad.cpp) leaves its length unrounded in ST0
+    and its cosine at the FPU's full precision; ours rounded both. It now returns double, the cosine multiplied in
+    the register (TimesAbsCos); TestControlPadMath compares the doubles.
+  - Test (selftests_skater_walk_pieces.cpp TestWalkMovement): every function, original vs ours, 300-3000 variants
+    (stand-ins for Lerp 0x0043D990, the cache's Update - its box recorded -, StickLength with unrounded values and
+    one exactly full after x 1/0.85, the run speed; shared short-list values for equal compares; -0 velocities; the
+    current cache global recorded). 44 deliberate bugs caught, 3 after strengthening (the cache global, the
+    velocity's -0 when nothing is taken away, a push exactly full).
+- [x] Batch 255 (SK5-7; skater 5, merged 2026-10-22; run in the game: docs/pending/skater-5.md; NOT judged by a player yet; the rest of the range: the Walk component's collision checks, jumps,
+  ground velocity and its object, 16 functions): src/game/skater/walk_collision.cpp (new), walk_movement.cpp.
+  - Collision: 0x005264F0 UpdateCurbFloat (the facing along the ground, never downhill, made unit with a float
+    inverse; a feeler curb_float_feeler_length ahead and one down from snap_up_height half a unit past the hit; the
+    offset +0x714 eased toward the height there unless settled - |offset| < 0.01, no push, slower than
+    min_curb_height_adjust_vel), 0x00526BA0 CheckCeiling (walker_height, 18 less while falling; the velocity into the
+    ceiling projected away, the head moved back out of it; the object's 0x6E84ACF3 event), 0x00526E00
+    CheckStickerSlap (X and the pad's +0x20 button within 30 ms, a wall ahead - static collision only -,
+    Physics_Min_Wallplant_Height, Physics_Disallow_Rewallplant_Duration, Skater_Late_Jump_Slop, 0x00507500(0, 1, 0):
+    "walking sticker slap", walking_wallplant_switch), 0x00527080 UpdateGroundBelow (feelers down from the critical
+    point - uber_frig_current_height x 12 - and from 12 above, faces flagged 0x20 only: the height above the ground,
+    the shadow, the model shaded (0x00420670); nothing below: "applying uber frig" - back to the frame's start
+    position, velocity and facing reversed, forward control locked for 60 frames, the ground state, Land),
+    0x005278D0 EaseCriticalPointOffset (m_critical_point_offset - the game's own message - eased out at 1000 a second
+    in states 0, 1, 3; its path checked: "adjusting position due to bad critical point" with the game's two debug
+    lines; kept on the push plane's side).
+  - Jumps: 0x00526850 SteerJump (after the jump's delay +0x1898; across and along the jump's direction eased toward
+    the push by jump_adjust_speed / jump_accel_factor; no push: along eased to 0; faster ahead kept),
+    0x00529160 PlanJumpOverObstruction (a ledge within jump_obstruction_check_height with jump_obstruction_check_back
+    clear: the time to rise to it under GetGravity and the velocity back to it - +0x189C, +0x18AC, +0x1898),
+    0x005293F0 TryWallplant (X in the air not rising, the same three checks, the first touching contact in the order
+    0, 1, 6, 2, 5, 3, 4: off it mirrored, up by the hold of X - hold_time_for_max_jump, min_jump_factor,
+    vert_wall_jump_speed, horiz_wall_jump_speed -, a moving wall's velocity added; the trigger, the trick objects -
+    0x00522370 -, the wallplant time, Wallplant), 0x005299F0 TryGrind (bool: the level's rails, else each
+    RailManager component's in its object's space - 0x0042BA10, vtable +0x34 -; 0x00500020; a wall within 6 of the
+    rail's point is fine; output_tracking_lines; +0x748 = 1, rail).
+  - Ground and object: 0x00528950 UpdateGroundVelocity(velocity - the game passes +0x34): Run / Stand, the way it
+    goes (the velocity's past ignore_velocity_threshold - a float inverse, w from the unrounded one -, the push's,
+    the velocity's past 0.01, the facing); past slop_lock_angle (acos in degrees, CRT 0x00623630 in the register)
+    turned in place at rotate_in_place_rate (walk_rotate_factor walking; wall_rotate_factor against a wall - +0x186C -
+    or with a wall where it turns), snapped onto the push when it turns past; else eased by worse_turn_factor /
+    worse_worse_turn_factor; the speed eased toward the slope-adjusted target (walk/run_accel_rate up, decel_factor
+    down, low_speed_decel_factor stopping from walking speed). 0x00529800 UpdateRotateUpright (D3DXMatrixMultiply),
+    0x005298D0 ApplyTransition (the object at the transition's point, its member function pointer +0x1948 / +0x194C),
+    0x00529CE0 CopyToObject (the facing tilted back by +0x744 - 0.0001 when flat -, the orientation from up x facing,
+    the velocity by state through the jump table 0x00529F64: 0 / 1 the walk's, 2 sideways x climb scale, 3 up at its
+    speed, else none; the model's offset along up).
+  - Findings and fixes outside the range: Vector::ProjectOnto (0x00406200) kept the dot product in double in the
+    original - ours rounded it to float in another order (fixed); Mth::CreateRotateMatrix(axis, angle) (0x00404C60)
+    wasn't bit-exact (x, y unrounded, z rounded, 1 - cos at full precision, the sine rounded - rewritten as the x87
+    code); Matrix::Invert / Adjugate / Determinant still aren't bit-exact (float minors - left as they are; the test
+    stands in for Invert).
+  - Test (selftests_skater_walk_collision.cpp TestWalkCollision / TestWalkJumps / TestWalkObject - three parts
+    under the watchdog): every function, original vs ours, 300-4000 variants (feelers hitting or not, holding an
+    object or not, a hit exactly 6 from the rail's point, the contacts, the RailManager components' chain with a
+    stand-in vtable, the game's debug lines by their formats, Script::GetFloat values equal to the heights and times,
+    the offset eased by exactly its length, the velocity +0x34 passed as itself). 89 deliberate bugs: 87 caught, 5
+    after strengthening; 2 equivalent (EaseCriticalPointOffset's push-back at a distance of exactly 0 - the point's y
+    can't give -0; SteerJump adding 0 to a negative target).
+- [x] SK5 summary (2026-10-22): the whole range 0x00521B90-0x00529F62 is source - the 98 Ghidra functions of the
+  survey and the non-Ghidra pieces (0x005222F0, 0x005232E0, 0x00524420, 0x00525E40, 0x00525E90-0x00525F60,
+  0x00526060, 0x00528580-0x00528740, 0x00528890); 0x00527510 / 0x00527600 were already on main (controls.cpp).
+  find_gaps: nothing in the range; scan_register_assumptions / audit_game_function_calls: nothing new;
+  check_code_writes: no overlaps; thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, 623 early
+  self-tests pass. Merged with main (SK1, SK3, SK4, SK6): SK6's Walk component block is in walk_physics.h beside this
+  range's.
+  - Game run (THUG2-3, under the lock): BO in free skate, the skater teleported to its spawn (standing: the walk
+    state), walked forward 270 units, jumped, turned left / right, walked on - it moves and animates as it should;
+    every replacement installed, no run-time check, CRT report or exception in the log. Nothing harder was driven
+    (hangs, ladders, wallplants, grinds from walking, the sticker slap, the uber frig: try those by hand).
+  - Switch off: `[replacements] disable=walk_physics.cpp,walk_movement.cpp,walk_collision.cpp` (the Walk component),
+    `walk_camera.cpp`, `vehicle_camera.cpp`, `trick_queue.cpp`, `trick_member_functions.cpp`; the shared fixes are in
+    control_pad.cpp (StickLength), vector.cpp (ProjectOnto) and matrix.cpp (CreateRotateMatrix).
+  - Left: CTrickComponent is declared twice (trick_component.h by SK4, trick_queue.h here - each with its own range's
+    methods; no file includes both): merge them into one class when convenient. Matrix::Invert / Adjugate /
+    Determinant aren't bit-exact with the original's x87 code.
+- [x] Batch 256 (OC5-1; objects 5, merged 2026-10-22; run in the game: docs/pending/objects-5.md; NOT judged by a player yet; the engine's scene, asset and configuration commands, 19 functions):
+  src/game/script/cfuncs_scene.cpp + .h (new). LoadScene (0x00445130) was done already (gfx/scene.cpp).
+  - 0x00445000 LoadTerrainSounds (Terrain=<checksum> -> 0x00444EB0; false without), 0x00445030 PreloadModel
+    (name -> <name>.mdl through 0x004879D0; a model made (0x0048BFA0), its file loaded (0x004935E0 with
+    AllowReplaceTex as its 5th argument), destroyed (0x0048C3C0)), 0x00445120 UnloadAllLevelGeometry (0x0048C810),
+    0x00445320 LoadCollision (scene= [is_net]: the scene by name (0x0048C750) - not checked for null, as the
+    original - 0x0049DF70), 0x00445380 AddCollision (scene= Add= -> 0x0049DFD0), 0x004453F0 QuickReload
+    (0x0048CEF0), 0x00445720 AddScene (0x0048CDD0 with the memory manager's debug heap pushed), 0x004457B0
+    UnloadScene (found by name: true; a name not loaded unloads the FIRST scene of the engine's table (0x0048C770)
+    and returns false - the original's; the texture dictionary at +0x88 unloaded after the scene).
+  - Assets: 0x00445430 UnloadAnim (descChecksum + refChecksum, or + the asset manager's +0x18 - which is the
+    reference checksum SetReferenceChecksum sets (CAssMan::m_unknown18) - or the name's CRC), 0x004454E0 LoadAsset
+    (name or an unnamed string, parent, async, desc; LoadOrGetAsset gets the script's params pointer as its `extra`;
+    on failure the AssertOnMissingAssets integer is read for a compiled-out assert), 0x004455A0 LoadAnim (returns
+    CAssMan::LoadAnim's result - no `mov al,1`), 0x00445640 LoadSkeleton, 0x004456A0 SetReferenceChecksum
+    (checksum or integer), 0x004456F0 SetDefaultPermanent.
+  - Configuration: 0x00445820 SetConfig (language: English 2, French and Spanish 3, German and Italian 5; CD (first
+    time: File::AsyncInit, passed "DATA") / NotCD (0x00684FA8), GotExtraMemory / NoExtraMemory (0x007CEFAC), Pal /
+    NTSC (0x00684FB0), framerate (0x00684FB4)), 0x00445980 PrintConfig (the original passes no number for "%s, %d
+    fps": the %d reads the frame rate still on the stack from the name function's call - passed explicitly here),
+    0x00445A30 Bootstrap (0x007CEFAD).
+  - The sun: 0x00445A40 InitSun (theta phi radius size texture corona_texture lens_flare_data -> 0x004429D0),
+    0x00445B30 UpdateLensFlare (0x00442D70).
+  - Checksum names found from the game's .qb name tables (AllowReplaceTex, refChecksum, language, NoExtraMemory, NTSC,
+    framerate, lens_flare_data, walk_parameters...).
+  - Test: TestSceneCommands (src/hook/selftests_obj_scene_cmds.cpp): every command, original vs ours, on hand-built
+    params (cfunc_testkit.h), every game function called stood in for by recording code (the asset manager's and the
+    memory manager's methods at both the game's and our addresses, with stand-in manager objects; Dbg::Printf's
+    strings compared by content); the configuration globals recorded after each call. 40 deliberate bugs caught (1
+    after strengthening: Italian's case needed a language order that changes the setting).
+- [x] Batch 257 (OC5-2; objects 5, merged 2026-10-22; run in the game: docs/pending/objects-5.md; NOT judged by a player yet; the terrain manager, 17 functions): src/game/sfx/terrain.cpp + .h (new,
+  namespace Terrain).
+  - Two Lst::HashTables filled by 0x004444A0 LoadTerrainTypes from terrain.qb: Terrain_Types (0x006968D0: a terrain's
+    checksum -> its index byte, 8-byte items) and Terrain_Actions (0x006968E8: a sound table's index -> TABLE_* type
+    and TA_* action, 12-byte items); 0x00444460 empties both (items not freed).
+  - Look-ups: 0x004442C0 GetTerrainIndex (an unknown terrain reads its index through null - a crash, as the original;
+    the level editor already guards against it), 0x00444310 GetTableAction (likewise through null + 8), 0x00444360
+    GetTerrainChecksum / 0x004443B0 GetTableIndex (table walks that stop at an empty item), 0x00444400 / 0x00444480
+    GetTerrainStructure(Into) (the terrain's global structure, else STANDARD_TERRAIN_DEFAULT's).
+  - Sounds: 0x004445B0 GetSoundInfo (a 0x84-byte SoundInfo: name, the checksum of the name without folders, pitch /
+    volume ranges, load pitch / volume; defaults 100 except minVol 0), 0x00444710 GetScaledVolume (returns the
+    unrounded x87 value as double; maxVol compared with 100 by its bits), 0x00444760 PickSoundAction (a soundAction
+    structure, or a weighted random pick by chance, walking the array from its end - Mth::Rnd), 0x00444830
+    FindSoundAction (the action's structure, or the first array entry whose useUpTo isn't below the value; a NaN
+    value fits only entries without useUpTo), 0x004448E0 LoadSoundAction / 0x00444950 LoadTableSounds (load type 1,
+    the load pitch and volume; TERRAIN_DEFAULT's structure for an action counts only if it names the action again
+    inside - otherwise its array is read, and with no array the original reads an uninitialised pointer),
+    0x00444B10 GetTerrainSound, 0x00444BB0 PlayTerrainSound (volume / pitch scaled into the sound's ranges;
+    propagate: message 0x35 of 12 bytes - the position truncated to int16s, table, terrain, the three percentages
+    truncated to bytes - to the server through client 0), 0x00444EB0 LoadTerrainSounds (TERRAIN_DEFAULT's
+    SoundActions with the terrain's appended over them, every table loaded).
+  - Test: TestTerrainManager (src/hook/selftests_obj_terrain.cpp): stand-in tables (16 buckets), hand-built script
+    data in terrain.qb's shapes, an arena behind the memory manager's Allocate; the sound manager (the dropoff
+    distance by a float-returning thiscall stand-in), the network client, Mth::Rnd and the global symbol look-ups
+    recorded. Every function, every branch above; arena, tables and trace compared. 42 deliberate bugs: 41 caught (2
+    after strengthening - a sound with minVol 0 but maxVol not 100, a missing STANDARD_TERRAIN_DEFAULT), 1
+    equivalent (maxVol's bit compare vs a float compare with 100).
+  - Register scan: 0x004442C0 / 0x004443B0 callers push the whole EAX into byte parameters (the original's upper
+    bytes were a pointer's) - only the byte is read.
+- [x] Batch 258 (OC5-3; objects 5, merged 2026-10-22; run in the game: docs/pending/objects-5.md; NOT judged by a player yet; the sun and its lens flare, 14 functions): src/game/gfx/lens_flare.cpp +
+  .h (new, namespace Sun); Obj::CSmtPtr::IsNull added to smtptr.h (additive). The original's file was compiled without
+  optimisation (frame pointers, every small helper called) - the rewrite calls our math directly.
+  - 0x00442670 CSmtPtr::IsNull, 0x00442680 ClampToRange (min checked first, NaN passes - unlike Mth::Clamp),
+    0x004426B0 the camera's +0xB4 factor (REPLACE of a thiscall float getter), 0x004426C0 QueryRequest::Init.
+  - 0x004426D0 SetSun (the parts by mask; a new texture deletes the old sun texture through its vtable - for a new
+    corona too: the original deletes the SUN texture when there's a corona, kept), 0x004429D0 Init (InitSun's work:
+    the lens_flare_data array's elements - pos_scale, scale, rgba packed r-low, id - each with creation and morph
+    params; LensFlare_Morph_In / Out and SunBurst_Out; colour 255 255 255 128).
+  - The flare: 0x004428F0 PlaceFlareElements (each element morphed to centre + pos_scale * (sun - centre)),
+    0x00442D70 UpdateFlare, 0x00442DF0 HideFlare (Lens_Flare_Container's alpha to 0 over morph_time; with params,
+    the elements sent to sun_pos), 0x00443030 UnhideFlare (alpha 1 over 0.2), 0x00443780 ShowFlare (CreateLensFlare
+    run when there's no container; nothing unless DoUpdateLensFlare).
+  - Drawing: 0x00443180 BuildSunQuad (a quad facing the camera, size camera+0xB4 * size, its corners through
+    0x00434200 then moved to the sun; the primitive drawer's blend modes), 0x00442810 QuerySunVisibility (the
+    occlusion query callback: a 10 x 10 query round the sun's screen place), 0x00443870 Render (each frame: the sun
+    theta / phi / radius from the camera; hidden behind the camera or off the projection; the sun drawn; a query;
+    not seen: the corona fading over SunBurst_Out, MaybeHideLensFlare (with morph_time unless it's been hidden past
+    LensFlare_Morph_Out); seen: the corona at half colour, ShowFlare (morphed in unless hidden past Morph_In). The
+    visible pixel count's brightness is worked out and never used - kept as a comment).
+  - Test: TestSunAndLensFlare (src/hook/selftests_obj_lens_flare.cpp): a stand-in camera, textures (with a recording
+    vtable), screen element manager and container (real smart pointers), script structures; the viewport camera and
+    the primitive drawer's virtual calls by naked dispatchers (the shared vtable-call helpers 0x004A1090 / 0x004A10A0
+    pick by ECX), Script::GetFloat by a float-returning stand-in. Every function and case above, 12 sun-drawing cases.
+    The original's Matrix::Rotate is pointed at ours for the test (its x87 sine / cosine differ from ours by an ulp -
+    in the game the hook does the same). 48 deliberate bugs: 47 caught (2 after strengthening - a sun just behind the
+    camera, a fade of exactly 1), 1 equivalent (the quad corners' w: the facing matrix's last row has no xyz).
+  - Found on the way: the primitive drawer the original keeps on its stack is 0x150-0x15C bytes (its frame's gaps).
+- [x] Batch 259 (OC5-4; objects 5, merged 2026-10-22; run in the game: docs/pending/objects-5.md; NOT judged by a player yet; the walk component's hang helpers, part 1, 14 functions):
+  src/game/obj/walk_hang.cpp + .h (new: Walk::Component's member functions - the walk component itself, 0x00524xxx-
+  0x0052Axxx, isn't rewritten: its fields reached by offset, named in walk_hang.cpp).
+  - 0x0043D930 CreateWaitAndDieComponent (component type 0x03AC8065, vtable 0x00646898; its methods 0x0043D850-
+    0x0043D8E0 belong to the neighbouring range), 0x0043D990 Lerp (a + (b - a) * t, each component rounded as the
+    x87 code did - y kept unrounded, z and w rounded early), 0x0043DA20 SkaterTurn::TurnedRound (the skater core's
+    +0x228 within 45 degrees of a half turn), 0x0043DA70 Param (walk_parameters' floats), 0x0043DAA0 RunSpeed,
+    0x0043DC00 HangHeightOffset, 0x0043DC60 CriticalPointUp (all three return the x87 value unrounded, as double).
+  - Animation-end callbacks (stored at +0x1948 as the game's addresses - in the game, jumps to ours): 0x0043DB00
+    EndPullUp (walking; the pull-up feeler's hit to the triggers and the movable contact), 0x0043DB90
+    EndDropFromHang (in the air), 0x0043DCF0 EndDropToHang (hanging: the hang offset, the skater core's rail node /
+    manager, the rail script, tagging allowed again).
+  - 0x0043DDD0 SideClear (the hang's side obstruction feelers, out and back), 0x0043DFC0 FaceHangRail (the place
+    along the rail, the facing across it - to the side the direction says; past 60 degrees +0x1760 is told
+    (0x005250A0, x87 FCOS of the double at 0x006468F8 kept through inline asm)), 0x0043E230 NextHangRail (the segment
+    before / after, else a joining rail; "BAD ANGLE ON COINCIDENT RAIL" / "FOUND COINCIDENT RAIL" debug output kept),
+    0x0043EB80 MovableContact::StartRiding (a ride tracker for the object; the old one freed, its object at +0x6C).
+  - Found by the test: going forward, NextHangRail checks the segment's flags on `end` (the segment end -> next's
+    first node), not on the next node.
+  - Test: TestWalkHang (src/hook/selftests_obj_walk_hang.cpp): the skater core kit (skater_core_testkit.h) over a
+    walk arena - the component, 6 rail nodes in a chain, the rail manager, the skater core with its flags, the
+    contact and a ride tracker; every callee recorded (the walk component's own code, rail manager, feelers, events,
+    scripts, memory); walk_parameters a hand-built structure; Normalize pointed at ours. Random arenas per variant
+    (12-240). 39 deliberate bugs: 38 caught (4 after strengthening: short rails, many more FaceHangRail variants, t
+    of 0 / 0.25, the pull-up's offset recorded before the drop overwrites it), 1 equivalent (StartRiding's null
+    store before the new tracker).
+- [x] Batch 260 (OC5-5; objects 5, merged 2026-10-22; run in the game: docs/pending/objects-5.md; NOT judged by a player yet; the walk component's hang helpers, part 2, 4 functions):
+  src/game/obj/walk_hang.cpp + .h.
+  - 0x0043E530 PullUp (the ledge above the hang: the walk component's ground search 0x00528280 at the target, else
+    12 to either side; seven feelers round it and one from behind up past pull_up_obstruction_height; then the
+    PullUpFromHang move, ending in EndPullUp - or EndDropFromHang with no ground), 0x0043EC40 DropToHang (from
+    walking onto a rail below: speed, tagging and the skater core's +0x1528 +0x70 checks; FindRail facing away -
+    the level's rails, else each moving rail manager's in its object's space, riding it), 0x0043F030 GrabRail (a
+    rail between two points while falling no faster than 50; hanging at once, the rail script, +0x1528's +0xA0 flag
+    and time), 0x0043F3A0 ShimmyBlocked (11 stack arguments: the hang's sideways / up / back / critical-point feelers,
+    near a segment's end turned onto the next one).
+  - Test: TestWalkHang extended (18 walk parameters through two chained structures; the skate module global set to
+    the arena; stand-ins for the ground search, feeler assignment, ride release, the object matrix, FindRail on
+    moving rail managers; feeler hits by percentage per function; fake rail manager components). 45 deliberate bugs:
+    44 caught, 1 equivalent in practice (the pull-up offset's w rounded once more - facing w is 0 or 1).
+- [x] Batch 261 (OC5-6; objects 5, merged 2026-10-22; run in the game: docs/pending/objects-5.md; NOT judged by a player yet; hanging, 5 functions): src/game/obj/walk_hang.cpp.
+  - The walk component's functions are now members of Obj::CWalkComponent (game/skater/walk_physics.h, a
+    "walk_hang.cpp" block beside the skater agents' ones) instead of a Walk::Component of their own; walk_hang.h keeps
+    the other classes' pieces (Walk::MovableContact, Walk::SkaterTurn, Walk::Lerp, CreateWaitAndDieComponent). The
+    calls to 0x0052AB90 are LeaveRide (walk_moves.cpp) now.
+  - 0x0043FC70 PlaceOnHang (the rail's point along +0x18CC, up +0x18D0, out +0x18D4; riding something that turned, the
+    facing across the rail again - its w the side's sign, -1 on the other side: the original's), 0x0043FE30 HangClear
+    (both sides, shimmying both ways, the critical point in reach - on the ground over an obstacle,
+    hop_obstruction_feeler_up), 0x00440130 Shimmy (blocked: Hang; along the rail, onto the next or stopped at the end;
+    HangMoveLeft / HangMoveRight; a feeler between the old and new critical points puts everything back),
+    0x00440690 CheckRail (FindRail's checker: in the air not above the line / 12 below it; hang_max_rail_ascent;
+    the facing towards the skater's, one-sided rails' flags 0x40 / 0x80; a collision cache round the rail; the
+    animation SWING or WALL), 0x00440BF0 UpdateHang (state 2: the ride; pull-ups at pull_up_offset_forward and half of
+    it; turned round: let go; the shimmy's eased speed).
+  - Test: TestWalkHang extended (10 more walk parameters - three chained structures; stand-ins for the ride tracker's
+    Update, the collision cache; facing exactly along the rail for the side tests). 61 deliberate bugs, all caught (2
+    after strengthening: facing along the rail in PlaceOnHang and Shimmy; 2 re-run after the linker ran out of
+    memory).
+- [x] Batch 262 (OC5-7; objects 5, merged 2026-10-22; run in the game: docs/pending/objects-5.md; NOT judged by a player yet; ladders, 15 functions): src/game/obj/walk_hang.cpp, declared in the
+  walk component's block (walk_physics.h).
+  - Animation-end callbacks (code Ghidra never made functions of, stored at +0x1948): 0x00441020 EndLadderOffBottom /
+    0x00441070 EndLadderOffTop (walking; events {1,3,0} / {0xE,3,0} for the ledge feeler), 0x00441860
+    EndLadderOffTopToAir, 0x004410C0 EndOntoLadderBottom / 0x00441190 EndOntoLadderTop (state 3, along from the
+    bottom / top offsets).
+  - FindLadder's checkers 0x00441260 CheckLadderTop (`this` unused) / 0x004418B0 CheckLadderBottom (faced within
+    max_onto_ladder_angle; a feeler to 6 behind the point), FindLadderOnLine's 0x004413E0 CheckLadderLine (between
+    the offsets; the skater core's flag +0xA0 of +0x1528); the ladder must be within ~6 degrees of upright (0.995).
+  - 0x00441680 ClimbOffBottom / 0x00441B80 ClimbOffTop (FindStandPosition ahead / behind; into the air off the top
+    with no ground), 0x00441DE0 ClimbOntoBottom(button) / 0x00441FC0 ClimbOntoTop (FindLadder on the level's rails),
+    0x00442170 GrabLadder (FindLadderOnLine; the ride let go - StartRiding's first half, now LetGoOfRide shared),
+    0x00442280 ClimbLadder (the control's cosine x ladder_move_speed; off either end past its offset; LadderMoveUp /
+    Down), 0x004425B0 UpdateLadder (state 3: the rail script for 25 ticks, ladder_control_tolerance).
+  - Test: TestWalkHang extended (11 more parameters; FindLadder / FindLadderOnLine stand-ins; upright, leaning
+    (0.978), zero-length and upside-down ladders; standing exactly at the end limits). 61 deliberate bugs: 57 caught
+    (6 after strengthening), 4 equivalent: CheckLadderTop's bottom-above-top test (an upside-down ladder fails the
+    upright test anyway) and ClimbLadder's clamp / the Ladder animation at exactly 0 or 1 (unreachable while the
+    ladder offsets are positive: past them it climbs off).
+  - Range check: find_gaps shows no gaps in 0x43D929-0x445B50; all 85 functions Ghidra knows are REPLACEd, plus the
+    four callbacks it doesn't (0x0043DB00, 0x00441020, 0x00441070, 0x00441860); the other bytes between functions
+    are the previous functions' last instructions or int3 padding.
+- [x] Game runs (workspace C:\Games\THUG2-3 under the lock, branch at 6631ca1 = OC5-1..7 merged with main): BO in free
+  skate - on the board, pushed / ollied / turned; then teleported standing (the walk state) and walked ~800 units,
+  jumped three times, turned left and right, up onto a stoop. Walking and the air state run this range's ladder /
+  hang searches every frame (ClimbOntoBottom from the contacts, ClimbOntoTop / DropToHang off edges, GrabRail /
+  GrabLadder in the air - FindRail with CheckRail, FindLadder with the ladder checkers); the level loads the terrain
+  sounds, the sun and the lens flare. All 4231 replacements installed; no exception, run-time check, CRT report or
+  crash in the log. Not driven: an actual hang, shimmy, pull-up, ladder climb - for the user to try by hand.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
 - [ ] Next: the range is done (find_gaps.py: nothing left in 0x45EFD0-0x47DC40); a final game run.
 - [ ] Next: nothing left in the range; hand back.
