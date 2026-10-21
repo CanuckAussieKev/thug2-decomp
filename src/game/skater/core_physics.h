@@ -157,6 +157,34 @@ public:
     // a car, or 180 or more away: OffMeterBottom.
     void Skitch();
 
+    // --- core_physics_turning.cpp: turns ---
+    // 0x005002D0: jumping off a rail with pad +0x40 / +0x60 held: the velocity and matrices turned by
+    // Rail_Jump_Angle one way or the other.
+    void TurnForRailJump();
+    // 0x00503560: turning on the ground (pad +0x40 / +0x60) at Physics_Ground_Rotation - or with +0x20 held
+    // Physics_Ground_Sharp_Rotation, ramping up over 600 ms below a speed of 10; the velocity too unless +0x388.
+    void TurnOnGround();
+    // 0x005039F0: bouncing off a wall of normal `normal`: the angle between the side row and the normal (acos;
+    // past 90 degrees, less 180) times Wall_Bounce_Angle_Multiplier and `scale` turns the velocity and the matrices
+    // (`turn` = the turn). Returns the angle.
+    float BounceOffWall(const Mth::Vector* normal, float* turn, float scale);
+    // 0x00501B00: when the skater may (0x004FE420), turned towards straight down the slope at
+    // Skater_Slow_Turn_on_slopes (along the velocity, or the facing when hardly moving). Whether it did.
+    bool TurnDownSlope();
+    // 0x00504730: the natas spin: its rate from natas_spin_factor less how far off balance; the trick's rotation
+    // total and its display (as Spin); with CHEAT_PERFECT_RAIL the balance held. +0x1504 = now.
+    void NatasSpin();
+    // 0x00504910: leaning in the air (pad +0x20 / +0x40) by Physics_Air_Lean_stat, after Physics_Air_No_Lean_Time
+    // and ramping up until Physics_Air_Ramp_Lean_Time.
+    void LeanInAir();
+    // 0x00504A60: in an acid drop (flag +0x78): the matrices along the slerp at +0x3F0, eased, over +0x48C seconds.
+    void RotateInAcidDrop();
+    // 0x00504B40: tipped over in the air above ground (500 below, not vert, not too steep): flag +0x80; turned back
+    // upright at Physics_recover_rate_stat.
+    void RecoverInAir();
+    // 0x00504DF0: leaning sideways in the air: rolled back at skater_upright_sideways_speed.
+    void KeepUpright();
+
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
     // normal as the new up.)

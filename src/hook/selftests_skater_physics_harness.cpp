@@ -7,6 +7,7 @@
 #include <float.h>
 
 #include <cstring>
+#include <limits>
 
 #include "game/mth/matrix.h"
 #include "game/mth/slerp.h"
@@ -221,13 +222,14 @@ uint32_t Next()
 
 float PickFloat()
 {
-    static const float values[] = {0.0f, 0.5f, 1.0f, 2.5f, -1.5f, 30.0f, 60.0f, 89.0f, 200.0f, 0.001f, -0.25f, 7.0f};
+    static const float values[] = {0.0f, 0.5f, 1.0f, 2.5f, -1.5f, 30.0f, 60.0f, 89.0f, 200.0f, 0.001f, -0.25f, 7.0f,
+                                   0.1f};
     return values[Next() % (sizeof(values) / sizeof(values[0]))];
 }
 
 int PickInt()
 {
-    static const int values[] = {-100, 0, 0, 50, 150, 300, 1000, 1, 500, 250, -1};
+    static const int values[] = {-100, 0, 0, 50, 150, 300, 1000, 1, 500, 250, -1, 600, 200, 7};
     return values[Next() % (sizeof(values) / sizeof(values[0]))];
 }
 
@@ -327,6 +329,7 @@ OurMath::OurMath()
     redirect(0x00405990, CodeAddress(&Mth::SlerpInterpolator::SetMatrices));
     redirect(0x00405A20, CodeAddress(&Mth::SlerpInterpolator::GetMatrix));
     redirect(0x004058E0, CodeAddress(&Mth::SlerpInterpolator::InvertDirection));
+    redirect(0x00416DF0, CodeAddress(&Mth::Matrix::InvertOrthonormal));
 }
 
 OurMath::~OurMath()

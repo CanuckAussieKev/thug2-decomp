@@ -63,5 +63,28 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
     1, 180.001 away) and points the game's math functions at ours (OurMath). 71 deliberate bugs: 69 caught (11
     after strengthening), 2 equivalent (NearGround's x * 16 is exact anyway; the side turn's |angle| against the
     rounded instead of the unrounded turn - only for an angle within a rounding of it).
-- [ ] Next: turning (0x005002D0, 0x00503560, 0x005039F0, 0x00501B00, 0x00504730-0x00504DF0), wall plants, the acid drop
-  search.
+- [x] Batch SK1-3 (NOT run in the game yet; the turns, 9 functions): src/game/skater/core_physics_turning.cpp (new).
+  - 0x005002D0 TurnForRailJump (Rail_Jump_Angle), 0x00503560 TurnOnGround (Physics_Ground_Rotation /
+    Physics_Ground_Sharp_Rotation; the sharp turn ramps up over 600 ms below a speed of 10; +0x3A5; the velocity
+    turned unless +0x388), 0x005039F0 BounceOffWall (acos of the side row against the wall normal - the clamp and
+    the 90-degree test on the unrounded values, as the x87 left them; Wall_Bounce_Angle_Multiplier; the velocity
+    turned by the unrounded turn, the matrices by the rounded one; returns the angle), 0x00501B00 TurnDownSlope
+    (Skater_Slow_Turn_on_slopes), 0x00504730 NatasSpin (natas_spin_factor less the balance; CHEAT_PERFECT_RAIL;
+    the rotation total shown as Spin does), 0x00504910 LeanInAir (Physics_Air_Lean_stat after
+    Physics_Air_No_Lean_Time, ramping to Physics_Air_Ramp_Lean_Time), 0x00504A60 RotateInAcidDrop (the slerp at
+    +0x3F0 eased 3t^2 - 2t^3; the change since +0x4A0 applied to the skater's matrix), 0x00504B40 RecoverInAir
+    (ground within 500 below, not vert, normal y at least 0.2: flag +0x80; tipped past 0.9: turned back at
+    Physics_recover_rate_stat), 0x00504DF0 KeepUpright (skater_upright_sideways_speed beyond +-1.2 a second).
+  - Each turn of the velocity is the original's inline x87 fsin / fcos (Physics::X87Sin / X87Cos); the matrices'
+    turns are RotateY/X/ZLocal (the original's CreateRotate*Matrix + D3DXMatrixMultiply).
+  - Test (selftests_skater_turning.cpp TestSkaterPhysicsTurning, 27000 variants): speeds around 10, a total of
+    exactly 360 with a slop of 0.1 and no spin, a wall normal a hair past 90 degrees (the acos rounds to 90), tipped
+    and full-mantissa matrices. 43 deliberate bugs: 40 caught (4 after strengthening), 2 equivalent (the slope turn's
+    sign at an angle of exactly 0 - the step is the angle then; the lean ramp's end at exactly the end time - the
+    ramp gives the full lean), 1 only with a NaN script value (LeanInAir's start time: x87 and SSE give NaNs different
+    signs, so the harness can't feed NaNs).
+  - Build note: the verify build now embeds its debug info (/Z7, CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded in
+    this worktree's out\scriptsuild.cmd) - the shared vc140.pdb kept breaking (C1033 / C2471).
+- [ ] Next: wall plants (0x00503710, 0x00507500, 0x00508140), wall lean push / ceilings (0x00503B30, 0x00504EE0,
+  0x005051B0), the forward collisions (0x00506E50, 0x005059D0), the acid drop (0x00502240, 0x00502F20, 0x00505F70),
+  the grind start 0x005004B0.
