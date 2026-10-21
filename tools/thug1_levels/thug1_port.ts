@@ -105,6 +105,9 @@ export const GAP_SCRIPT_DEFAULTS: ReadonlyMap<number, readonly [string, string]>
 
 export interface Thug1TranslatorOptions extends scriptPort.TranslatorOptions {
     sounds?: Iterable<string>;
+    // goals counted as won (PC-THUG1-22): `GoalManager_HasWonGoal name=<goal>` of one is true - the goal manager is
+    // left out (no THUG1 goals here), which otherwise makes it false
+    wonGoals?: Iterable<string>;
 }
 
 export class Thug1Translator extends scriptPort.Translator {
@@ -128,9 +131,37 @@ export class Thug1Translator extends scriptPort.Translator {
         names: Map<number, string>,
         options: Thug1TranslatorOptions = {},
     ) {
-        const { sounds, ...rest } = options;
+        const { sounds, wonGoals, ...rest } = options;
         super(sources, thug2, translatable, nodeNames, allNodeNames, names, rest);
         this.sounds = new Set(sounds ?? []);
+        this.wonGoals = new Set([...(wonGoals ?? [])].map(checksum));
+    }
+
+    readonly wonGoals: ReadonlySet<number>;
+    static readonly HAS_WON_GOAL = checksum("GoalManager_HasWonGoal");
+
+    override condition(
+        toks: readonly scriptPort.Tok[],
+        contexts: ReadonlySet<scriptPort.Context>,
+        discover: boolean,
+    ): scriptPort.Tok[] {
+        // (PC-THUG1-22: `GoalManager_HasWonGoal name=<a goal counted as won>` -> `NOT GotParam <never>`, always true)
+        const content = toks.filter((t) => !scriptPort.EOL.includes(t.t));
+        const [command, key, equals, goal] = content;
+        if (
+            content.length === 4 &&
+            command!.t === 0x16 &&
+            command!.name() === Thug1Translator.HAS_WON_GOAL &&
+            key!.t === 0x16 &&
+            key!.name() === checksum("name") &&
+            equals!.t === 0x07 &&
+            goal!.t === 0x16 &&
+            this.wonGoals.has(goal!.name()!)
+        ) {
+            this.note("goal counted as won (PC-THUG1-22)");
+            return [new scriptPort.Tok(0x39, Buffer.alloc(0), command!.i), ...this.never(command!.i)];
+        }
+        return super.condition(toks, contexts, discover);
     }
 
     override thug2ScriptOk(name: number, contexts: Iterable<scriptPort.Context>): boolean {
@@ -211,6 +242,9 @@ export class Thug1Port {
     readonly skeletons = new Set<number>();
     readonly models = new Set<string>();
     readonly shared: scriptPort.Source[] = [];
+    // THUG1's driving scripts installed as THUG2's (PC-THUG1-22 - thug1_levels.drivingScripts): callable by the scripts
+    // of the levels whose drivable cars the change keeps (passed to portScripts as extraProvided)
+    readonly driving = new Set<number>();
     // (folders with a models\ folder of models THUG2 hasn't - THUGPRO's, TPN-THUG1-1: thugpro_new.ts - besides Data\models)
     readonly extraRoots: string[] = [];
     // THUG1's own people (thug1_peds.ts); null: THUG2's people on THUG1's peds' places, as before (--thug2-peds)
@@ -641,6 +675,7 @@ export function portScripts(
     struct: Struct | undefined,
     sectors: ReadonlySet<number> | null = null,
     extraProvided: Iterable<number> = [], // (scripts the level gets otherwise: THUGPRO's, TPN-THUG1-3 - thugpro_new.ts)
+    wonGoals: Iterable<string> = [], // (goals counted as won: PC-THUG1-22)
     made: NodePass | null = null, // (THUG1's own people: their Ped_InitAI anim lists - ownPedRewrites)
 ): PortedScripts {
     // The scripts brought along (see the top). Returns the scripts {name: THUG2 bytes}, the THUG1 globals they use as
@@ -688,6 +723,7 @@ export function portScripts(
             keptIn: KEPT_IN,
             strictConditions: true,
             sounds: port.sounds,
+            wonGoals,
             rewrites: made === null ? null : ownPedRewrites(made),
         },
     );
