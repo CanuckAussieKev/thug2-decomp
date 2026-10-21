@@ -59,6 +59,12 @@ class CStruct;
 //                                         series.txt (game/sys/screenshot.h StartSeries); done once all are written
 //   echo <text>                           logged and shown as the result (a marker for tools)
 //   quit                                  the game closes (as its window's close button)
+//   crash <kind>                          a deliberate fault, to check the crash handling (hook/crash.h): access, rtc,
+//                                         crterror, invalidparam, purecall, abort, overrun (the game's /GS box),
+//                                         crtbox (the game's CRT message box) - each logged, then the game ends
+//                                         without a dialog -, fastfail (ends at once, nothing logged), hang (the
+//                                         main thread stops: tools' not-responding check). Only here: the channel
+//                                         is on in the workspaces only.
 // A failure (a parse error, a refusal, a timeout, an element that never came) ends the batch: the lines after it
 // are skipped (counted as done, logged).
 //
@@ -99,7 +105,7 @@ void AddPadButtons(int port, uint8_t* data);
 
 // --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
 
-enum class Op { Run, Choose, Focus, Press, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture, LogTricks };
+enum class Op { Run, Choose, Focus, Press, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture, LogTricks, Crash };
 enum class Condition { None, Ready, FrontEnd, InGame, Level, Menu, Focus };
 
 struct Param {

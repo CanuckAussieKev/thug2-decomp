@@ -46,11 +46,18 @@ function Add-GameCommands([string]$folder, [string[]]$commands) {
 }
 
 # Wait until the game has done `lines` lines of the command file (or one failed, or the game exited, or the time ran
-# out). Returns @{ ok; why; status; seconds }.
-function Wait-GameCommands([string]$folder, [int]$lines, [int]$timeoutSeconds = 120, $process = $null) {
+# out, or - with a game_health.ps1 watch - it's in trouble). Returns @{ ok; why; status; seconds; trouble } (trouble:
+# Update-GameWatch's reason, else $null).
+function Wait-GameCommands([string]$folder, [int]$lines, [int]$timeoutSeconds = 120, $process = $null, $gameWatch = $null) {
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $status = $null
     while ($watch.Elapsed.TotalSeconds -lt $timeoutSeconds) {
+        if ($gameWatch) {
+            $trouble = Update-GameWatch $gameWatch
+            if ($trouble) {
+                return @{ ok = $false; why = "the game is in trouble: $trouble"; status = (Read-GameStatus $folder); seconds = $watch.Elapsed.TotalSeconds; trouble = $trouble }
+            }
+        }
         if ($process -and $process.HasExited) {
             return @{ ok = $false; why = "the game exited (code $($process.ExitCode))"; status = $status; seconds = $watch.Elapsed.TotalSeconds }
         }
