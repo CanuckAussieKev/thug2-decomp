@@ -35,6 +35,7 @@ import { Name, type QbValue, Struct } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import { parseCli } from "../lib/cli.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     Float,
     formatFixed,
@@ -527,10 +528,7 @@ export function inventoryLines(items: readonly Item[], examples = 5): string[] {
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const parsed = parseCli(USAGE, { args: [...argv], options: OPTIONS, allowPositionals: true, strict: true });
     const v = parsed.values;
-    let thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
-    if (!fs.existsSync(path.join(thug2, "Data")) && fs.existsSync(path.join(thug2, "Game", "Data"))) {
-        thug2 = pyJoin(thug2, "Game");
-    }
+    const thug2 = resolveInstall(v.thug2 ?? "C:\\Games\\THUG2\\Game", "thug2");
     const thug1 = v.thug1 ?? "C:\\Games\\THUG1";
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
     setCompat(v.compat ?? "thugpro");

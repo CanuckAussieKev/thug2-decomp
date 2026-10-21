@@ -14,6 +14,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseCli } from "../lib/cli.ts";
+import { findInstall } from "../lib/install.ts";
 import { isMain, print, pyExit, pyStrRepr, readTextPy, runMain } from "../lib/py.ts";
 
 const USAGE = "usage: make_automation_tables.ts [--game GAME] [--ns NS]";
@@ -185,14 +186,9 @@ function main(): number {
     const { values } = parseCli(USAGE, {
         options: { game: { type: "string", default: "C:\\Games\\THUG2" }, ns: { type: "string" } },
     });
-    const isDir = (p: string): boolean => fs.statSync(p, { throwIfNoEntry: false })?.isDirectory() ?? false;
-    let data = values.game;
-    for (const sub of ["Game\\Data", "Data"]) {
-        if (isDir(path.join(values.game, sub))) {
-            data = path.join(values.game, sub);
-            break;
-        }
-    }
+    // (the install root, the game folder itself - tools/lib/install.ts - or its Data folder)
+    const install = findInstall(values.game, "thug2");
+    const data = install === null ? values.game : path.join(install, "Data");
     let ns = values.ns;
     if (!ns) {
         for (const cand of [

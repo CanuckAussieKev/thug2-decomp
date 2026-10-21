@@ -113,19 +113,20 @@ std::string AddedText(const Meter& meter)
 
 namespace {
 
-// The script pools (Script::CreateScriptPools): their pool pairs, item counts and names.
+// The script pools (Script::CreateScriptPools): their pool pairs and names (the counts are the pools' own -
+// ours are bigger than the original's: game/core/memory_sizes.h).
 struct PoolInfo {
     uintptr_t pair;
     const char* name;
     const char* where;
 };
 const PoolInfo kPools[] = {
-    {0x006F3614, "Script structures (CStruct)", "CStruct pool 0x006F3614: 19800 (CreateScriptPools)"},
-    {0x006F2338, "Script components", "CComponent pool 0x006F2338: 86000 (CreateScriptPools)"},
-    {0x006F3654, "Script vectors", "CVector pool 0x006F3654: 9500 (CreateScriptPools)"},
-    {0x006F22B4, "Script arrays", "CArray pool 0x006F22B4: 7000 (CreateScriptPools)"},
-    {0x006F362C, "Script symbols", "CSymbolTableEntry pool 0x006F362C: 12500 (CreateScriptPools)"},
-    {0x006F3548, "Running scripts", "CScript pool 0x006F3548: 300 (CreateScriptPools)"},
+    {0x006F3614, "Script structures (CStruct)", "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
+    {0x006F2338, "Script components", "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
+    {0x006F3654, "Script vectors", "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
+    {0x006F22B4, "Script arrays", "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
+    {0x006F362C, "Script symbols", "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
+    {0x006F3548, "Running scripts", "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
 };
 constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
 
@@ -276,7 +277,7 @@ std::vector<Meter> Meters()
             m.limit = size;
             m.added = g_base.taken ? used - g_base.script : 0.0;
             m.bytes = m.approximate = true;
-            m.where = "the script region: 0x434770 bytes (InitStandardHeaps 0x005BBE80)";
+            m.where = "the script region (InitStandardHeaps 0x005BBE80: original 0x434770 bytes, grown by the bigger pools)";
             meters.push_back(m);
         }
         if (RegionUse(manager->m_mainRegion, &size, &used)) {
@@ -286,7 +287,7 @@ std::vector<Meter> Meters()
             m.limit = size;
             m.added = g_base.taken ? used - g_base.main : 0.0;
             m.bytes = m.approximate = true;
-            m.where = "the main region: 64 MB (Mem::Manager::Construct 0x005BBC00) - geometry, copies' meshes, collision";
+            m.where = "the main region (Mem::Manager::Construct 0x005BBC00: original 64 MB, grown by the bigger pools) - geometry, copies' meshes, collision";
             meters.push_back(m);
         }
     }

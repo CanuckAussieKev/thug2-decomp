@@ -25,7 +25,7 @@ New-Item -ItemType Directory -Force $ShotDir | Out-Null
 . (Join-Path $dir 'automation.ps1')
 $Game = Resolve-GameFolder $Game
 $exe = Find-GameExe $Game
-if (-not $exe) { "NO GAME IN $Game"; exit 2 }
+if (-not $exe) { "NO GAME IN $Game (no THUG2PM.exe or THUG2.exe in it or in its Game folder)"; exit 2 }
 $workspace = $Game -notin @('C:\Games\THUG2', 'C:\Games\THUG2\Game')
 function Get-GamesHere { Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -eq $Game } }
 # Never close a game that's already running: the user may be playing. Refuse instead.

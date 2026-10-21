@@ -14,6 +14,7 @@
 #include <initializer_list>
 #include <vector>
 
+#include "game/core/memory_sizes.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -500,6 +501,7 @@ int g_loops;
 
 void TestMain()
 {
+    Mem::Sizes::UseOriginal originalSizes; // (ours: the HashItem pool's size - compared at the original's)
     std::vector<Saved> saved = {{0x007D1800, 4, {}}, {0x007CEFA0, 4, {}}, {0x007CC978, 1, {}}, {0x007D6A2C, 1, {}},
                                 {0x006FA7D0, 4, {}}, {0x007CCE14, 4, {}}, {0x00696D40, 4, {}}};
     SaveAll(saved);
