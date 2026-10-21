@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "hook/log.h"
+#include "game/front/level_editor_prefs.h"
 
 namespace Front::LevelEditor::Transform {
 
@@ -16,53 +16,32 @@ namespace {
 constexpr float kPi = 3.14159265f;
 
 Settings g_settings;
-bool g_settingsRead;
-int g_flyAlways = -1; // (-1: not read yet)
 Repeat g_repeat;
-
-void ReadSettings()
-{
-    if (g_settingsRead)
-        return;
-    g_settingsRead = true;
-    int grid = ConfigInt("editor", "grid", 25);
-    for (float g : GridSizes()) {
-        if (static_cast<int>(g) == grid)
-            g_settings.grid = g;
-    }
-    // (rotate_snap= in whole degrees: 22 is 22.5)
-    int angle = ConfigInt("editor", "rotate_snap", 15);
-    for (float a : AngleSteps()) {
-        if (static_cast<int>(a) == angle)
-            g_settings.angleStep = a;
-    }
-}
 
 } // namespace
 
-Settings& Current()
-{
-    ReadSettings();
-    return g_settings;
-}
+Settings& Current() { return g_settings; }
 
-bool FlyAlways()
-{
-    if (g_flyAlways < 0)
-        g_flyAlways = ConfigInt("editor", "fly_always", 0) != 0 ? 1 : 0;
-    return g_flyAlways == 1;
-}
-
+bool FlyAlways() { return Prefs::Get().wasdFlies; }
 void SetFlyAlways(bool always)
 {
-    g_flyAlways = always ? 1 : 0;
-    ConfigSetInt("editor", "fly_always", g_flyAlways);
+    Prefs::Values v = Prefs::Get();
+    v.wasdFlies = always;
+    Prefs::Set(v);
 }
-
-void SaveSettings()
+float Grid() { return static_cast<float>(Prefs::Get().snapMove); }
+void SetGrid(float grid)
 {
-    ConfigSetInt("editor", "grid", static_cast<int>(g_settings.grid));
-    ConfigSetInt("editor", "rotate_snap", static_cast<int>(g_settings.angleStep));
+    Prefs::Values v = Prefs::Get();
+    v.snapMove = static_cast<int>(grid);
+    Prefs::Set(v);
+}
+float AngleStep() { return static_cast<float>(Prefs::Get().snapTurn); }
+void SetAngleStep(float degrees)
+{
+    Prefs::Values v = Prefs::Get();
+    v.snapTurn = static_cast<int>(degrees);
+    Prefs::Set(v);
 }
 
 const std::vector<float>& GridSizes()
@@ -72,7 +51,7 @@ const std::vector<float>& GridSizes()
 }
 const std::vector<float>& AngleSteps()
 {
-    static const std::vector<float> steps = {5.0f, 10.0f, 15.0f, 22.5f, 30.0f, 45.0f, 90.0f};
+    static const std::vector<float> steps = {5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 90.0f};
     return steps;
 }
 

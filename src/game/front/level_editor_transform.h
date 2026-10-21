@@ -13,13 +13,13 @@
 // and their pure parts (self-tested: src/hook/selftests_editor_transform.cpp); level_editor.cpp applies them to the
 // selection (its drag code calls these).
 //
-// The keys (the ini's [editor] fly_always= picks the scheme - the UX research: Unity, Unreal and Godot fly only while the right
+// The keys (the ini's [editor] wasd_flies= picks the scheme - the UX research: Unity, Unreal and Godot fly only while the right
 // mouse button is held, and their letter keys pick tools):
-//   fly_always=0 (the default): W A S D / Q E fly only while the right button is held (Shift faster); without it W / E / R
+//   wasd_flies=0 (the default): W A S D / Q E fly only while the right button is held (Shift faster); without it W / E / R
 //     pick Move / Rotate / Scale (Unreal's keys), Space cycles them (Unreal), the arrow keys nudge the selection (Up /
 //     Down along the view, Left / Right across; Page Up / Down up / down) and F frames the selection again (flying with
 //     a selection frees the camera from it).
-//   fly_always=1 (the editor as it was): W A S D / Q E fly or nudge whatever the mouse does, so the modes are on Space
+//   wasd_flies=1 (the editor as it was): W A S D / Q E fly or nudge whatever the mouse does, so the modes are on Space
 //     (cycles, with a selection - without one Space still flies up) and the toolbar's buttons.
 //   Both: ` (the key under Escape) switches World / Local (Unreal's Ctrl+`), Alt+G starts the mode's transform without
 //   holding the mouse (Blender's G / R / S - plain G stays Ground): the mouse moves it, a click or Enter applies it,
@@ -43,21 +43,22 @@ struct Settings {
     Space space = Space::World;
     Pivot pivot = Pivot::Base;
     SnapTarget target = SnapTarget::Grid;
-    float grid = 25.0f;      // units ([editor] grid=)
-    float angleStep = 15.0f; // degrees ([editor] rotate_snap=; Z / X turn objects and nodes by it too)
     bool alignToSlope = false; // (surface snapping: an object stands square to the surface)
 };
 Settings& Current();
-// [editor] fly_always=: 1 - W A S D fly or nudge whatever the mouse does (as the editor was); 0 (the default) - only
-// while the right mouse button is held.
+// UX1's preferences (level_editor_prefs.h) keep these: wasd_flies (1 - W A S D fly or nudge whatever the mouse does,
+// as the editor was; 0, the default - only while the right mouse button is held), snap_move (the grid, units) and
+// snap_turn (the rotation snap, degrees - Z / X turn objects and nodes by it too). Set: written to the ini.
 bool FlyAlways();
 void SetFlyAlways(bool always);
-// The settings changed by the toolbar or the keys: grid / rotate_snap written to the ini.
-void SaveSettings();
+float Grid();
+void SetGrid(float grid);
+float AngleStep();
+void SetAngleStep(float degrees);
 
 // The choices offered (the toolbar's lists).
 const std::vector<float>& GridSizes();  // 1, 5, 10, 25, 50, 100
-const std::vector<float>& AngleSteps(); // 5, 10, 15, 22.5, 30, 45, 90
+const std::vector<float>& AngleSteps(); // 5, 10, 15, 30, 45, 90
 const char* ModeName(Mode mode);        // "Move", "Rotate", "Scale"
 const char* PivotName(Pivot pivot);     // "Base", "Centre", "Own"
 const char* TargetName(SnapTarget target);

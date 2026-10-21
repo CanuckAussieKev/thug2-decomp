@@ -1,7 +1,7 @@
 # Level editor UX2: transform tools, typed values, snapping, repeat duplicate
 
 NOT run in the game yet (level editor / UI work: the user tests). Built, offline checks pass (thug2_check on THUG2PM.exe
-and on the stock C:\Games\THUG2\Game\THUG2.exe: 447 early self-tests), check_code_writes clean, the new self-tests
+and on the stock C:\Games\THUG2\Game\THUG2.exe: 454 early self-tests), check_code_writes clean, the new self-tests
 mutation-proven.
 
 ## What
@@ -40,8 +40,8 @@ mutation-proven.
 - **Snapping** (`level_editor_snap.{h,cpp}`): held while dragging, or always with the toolbar's Snap and its Snap to:
   - **Ctrl: grid, relative** (the lead's request: moves by whole grid steps from where the piece was - not onto the
     world's lines); **Ctrl+Shift: the world's grid** (absolute, as the old Ctrl). Grid sizes on the toolbar (1, 5, 10,
-    25, 50, 100; `[editor] grid=`). Rotate drags: Ctrl snaps to the rotation snap (5 / 10 / 15 / 22.5 / 30 / 45 / 90
-    degrees, default 15; `[editor] rotate_snap=`), which Z / X now use for objects and nodes too. Scale drags: tenths.
+    25, 50, 100; UX1's preference `[editor] snap_move=`). Rotate drags: Ctrl snaps to the rotation snap (5 / 10 / 15 /
+    30 / 45 / 90 degrees, default 15; UX1's `[editor] snap_turn=`), which Z / X now use for objects and nodes too. Scale drags: tenths.
   - **Alt+Shift: surface** - the selection's base slides along what the collision ray (the game's static feeler)
     meets first under the cursor, the selection's own sectors passed (re-cast past them, up to 8 times); objects stood
     square to the slope with the Tools menu's "Align objects to the slope" (rows' lengths kept; nodes and scenery keep
@@ -66,12 +66,12 @@ simply be added. The lead passed on the UX research (Unity, Unreal, Godot fly on
 their letters pick tools; Unreal cycles with Space) and asked for RMB-held flying as the default with the old way as a
 preference. Done:
 
-- **`[editor] fly_always=0` (default)**: W A S D / Q E (Space up) fly only while the right button is held. With a
+- **`[editor] wasd_flies=0` (default)**: W A S D / Q E (Space up) fly only while the right button is held. With a
   selection, flying with the right button lets the camera leave the selection (it stops orbiting; the wheel dollies);
-  **F** frames the selection again (so does any click / Deselect). Without the right button: **W / E / R** pick Move /
+  **F** (UX1's frame) flies back to it and the camera follows it again (so does any click / Deselect). Without the right button: **W / E / R** pick Move /
   Rotate / Scale, **Space** cycles them, the **arrow keys** nudge the selection (Up / Down along the view, Left / Right
   across), **Page Up / Down** up / down (as before).
-- **`[editor] fly_always=1`**: the editor as it was (W A S D / Q E / R / F fly or nudge); the tools are on **Space**
+- **`[editor] wasd_flies=1`**: the editor as it was (W A S D / Q E / R fly or nudge; F frames - UX1); the tools are on **Space**
   (cycles - only with a selection; without one Space still flies up) and the toolbar's buttons. The Tools... menu has a
   checkbox for it (writes the ini). UX1's preferences window can take it over: `Transform::FlyAlways()` /
   `SetFlyAlways()`.
@@ -80,11 +80,11 @@ Every key this work binds:
 
 | Key | When | Does |
 |---|---|---|
-| W / E / R | fly_always=0, right button up, no Ctrl / Alt / Shift | Move / Rotate / Scale tool |
-| Space | right button up (fly_always=1: with a selection) | cycles the tools |
-| RMB + W A S D / Q E / Space | fly_always=0 | fly (with a selection: the camera leaves it) |
-| Arrow keys, Page Up / Down | fly_always=0, a selection, browser closed | nudge it |
-| F | fly_always=0, a selection | frame it again |
+| W / E / R | wasd_flies=0, right button up, no Ctrl / Alt / Shift | Move / Rotate / Scale tool |
+| Space | right button up (wasd_flies=1: with a selection) | cycles the tools |
+| RMB + W A S D / Q E / Space | wasd_flies=0 | fly (with a selection: the camera leaves it) |
+| Arrow keys, Page Up / Down | wasd_flies=0, a selection, browser closed | nudge it |
+| F (UX1's) | a selection | also: the camera follows the selection again |
 | `` ` `` | not dragging | World / Local |
 | Alt+G | a selection | modal transform of the current tool |
 | X / Y / Z, 0-9 (and keypad), `-`, `.`, Backspace, Enter | while dragging | typed values (see above) |
@@ -97,10 +97,13 @@ Toolbar: Move / Rotate / Scale, World/Local, Snap (was "Snap 25") with the grid'
 rotation snap, Snap to - Grid / World grid / Surface / Vertex -, Align to slope, the fly keys). The help (F1) and the
 status bar's key hints list the new keys.
 
-Notes for the other UX agents (merge points): digits typed while dragging are consumed in `HandleEvent` - UX1's camera
-bookmarks (1 / 2 / 3) poll the keyboard, so they should skip while `g_dragging` (they would also fire mid-drag
-otherwise). The Space / W / E / R / F / `` ` `` / arrow keys are in `TransformKeys` (level_editor.cpp) - a keymap (UX3)
-can move them.
+Merged with UX1 (main): its preferences hold the settings this work uses - `Prefs::Get().wasdFlies` (shown in its
+window; the Tools... menu's checkbox writes the same), `snapMove` (the grid; the toolbar's list sets it), `snapTurn`
+(the rotation snap; integers, so no 22.5). UX1's keys kept: F frames (it no longer nudges down - with wasd_flies=1 Q /
+Page Down lower the selection), 1..9 / Ctrl+1..9 bookmarks (not while dragging now: digits are typed values then),
+F5 / Ctrl+P, numpad views, RMB+wheel speed, Ctrl+, prefs. Alt+left-drag orbits (UX1): start a drag first, then hold
+Alt+Shift / Ctrl+Alt for surface / vertex snapping. The Space / W / E / R / `` ` `` / arrow keys are in
+`TransformKeys` (level_editor.cpp) - a keymap (UX3) can move them.
 
 ## Files
 
@@ -113,12 +116,13 @@ can move them.
   `RepeatDuplicate`), `EndChange` (an undo step for a turn / scale that left the position), `KeysNow` / `ModeName` /
   hover text; `level_editor_ui.cpp` - the toolbar's Snap and the two calls, help rows; `level_editor.h` - the controls
   comment; `CMakeLists.txt` - four sources added.
-- Ini: `[editor] fly_always=` (0), `grid=` (25), `rotate_snap=` (15; 22 means 22.5). The pivot, space, Snap to and
+- Ini: UX1's preferences (level_editor_prefs.h) - `[editor] wasd_flies=` (0), `snap_move=` (25), `snap_turn=` (15);
+  no new keys of this work's. The pivot, space, Snap to and
   Align are per session.
 
 ## Checks (offline)
 
-- `thug2_check.exe` (THUG2PM.exe) and `thug2_check.exe C:\Games\THUG2\Game\THUG2.exe`: all 447 early self-tests pass.
+- `thug2_check.exe` (THUG2PM.exe) and `thug2_check.exe C:\Games\THUG2\Game\THUG2.exe`: all 454 early self-tests pass.
 - New self-tests (`selftests_editor_transform.cpp`): heading axes vs TurnAboutUp, HeadingOf, UnitAxes, AngleAbout;
   Wrap, angle snapping, quarters, relative grid snapping, scale factors (handle, pixels, snapped); the gizmo's segments
   (Move 3 arrows, Rotate ring, Scale cubes) and handle picking with stand-in projectors (arrows, ring, centre cube
@@ -134,13 +138,13 @@ can move them.
 
 Start with `node tools/game/edit_level.ts <level>` (or the pause menu's LEVEL EDITOR).
 
-1. **Fly scheme (default fly_always=0):** with nothing selected, W A S D do nothing; hold the right button: W A S D /
+1. **Fly scheme (default wasd_flies=0):** with nothing selected, W A S D do nothing; hold the right button: W A S D /
    Q E / Space fly, the mouse looks. Release: W / E / R switch the toolbar's Move / Rotate / Scale (the status line says
    "Tool: ..."), Space cycles.
 2. Select an object: the right button + W flies the camera away from it (no orbit); F frames it again; the arrow keys
    nudge it (Up / Down along the view), Page Up / Down raise / lower it; Ctrl+Z undoes a nudge.
 3. Tools... > tick "W A S D always fly": the old behaviour (W A S D nudge a selection, R / F up / down), Space cycles the
-   tools with a selection; check `[editor] fly_always=1` was written; untick it again.
+   tools with a selection; check `[editor] wasd_flies=1` was written; untick it again.
 4. **Rotate:** E, select a bench (object): a ring around it. Drag the ring: it turns freely; hold Ctrl: 15-degree steps;
    change Tools... > Rotation snap to 45: Ctrl steps by 45, Z / X turn by 45. Let go: Ctrl+Z puts the turn back in one
    step. Escape during the drag puts it back.
@@ -156,11 +160,11 @@ Start with `node tools/game/edit_level.ts <level>` (or the pause menu's LEVEL ED
 10. **Typed values:** drag an object by its body, type `x 100` then Enter: it lands exactly 100 units along x from
     where the drag started (status bar "Move along X: 100_"). Drag the ring, type `90` Enter: a 90-degree turn. Scale's
     centre, type `2` Enter: doubles. `-` turns the sign, Backspace erases, Escape puts it back. Typing digits while
-    dragging must not trigger other keys (camera bookmarks from UX1 - check after merging).
+    dragging must not recall UX1's camera bookmarks (1..9).
 11. **Alt+G:** with something selected press Alt+G: it follows the mouse without a button; type `z 50`, Enter. Again
     with Rotate: Alt+G turns it with the mouse; a left click applies. Escape cancels. Plain G still drops to the ground.
 12. **Grid snapping:** grid 25: Ctrl-drag an object sitting at x = 13: it moves to 38, 63... (relative); Ctrl+Shift-drag:
-    onto 25, 50... (world lines). Change the grid to 100 / 5 on the toolbar: the steps follow (and `[editor] grid=` is
+    onto 25, 50... (world lines). Change the grid to 100 / 5 on the toolbar: the steps follow (and `[editor] snap_move=` is
     written). The Snap checkbox snaps without Ctrl (Tools... > Snap to picks which kind).
 13. **Surface snapping:** hold Alt+Shift while dragging a bench over ramps / stairs: its base follows the surface under
     the cursor; with Tools... > Align to slope it tilts square to the ramp (Escape / Ctrl+Z put it upright). Dragging a
@@ -183,5 +187,6 @@ Start with `node tools/game/edit_level.ts <level>` (or the pause menu's LEVEL ED
 - Scaling with Centre spreads objects' places by the asked ratio even where a scale limit stopped the scale itself.
 - Surface snapping uses static collision (objects' collision isn't hit); vertex snapping's own corner is a box corner
   (not a mesh vertex) and the target an object's box corner rather than its mesh's vertices.
-- The pivot, the space, Snap to and Align aren't saved in the ini (the grid, the rotation snap and fly_always are).
+- The pivot, the space, Snap to and Align aren't saved in the ini (the grid, the rotation snap and wasd_flies are -
+  UX1's preferences).
 - The old HUD (editor_ui=0) has no toolbar: the keys work, the settings stay at their defaults / ini values.

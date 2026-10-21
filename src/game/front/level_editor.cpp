@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_camera.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_chains.h"
@@ -31,6 +32,8 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_preview.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_play.h"
+#include "game/front/level_editor_prefs.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_shadows.h"
@@ -318,7 +321,6 @@ bool g_unsaved; // (changes since the layout was last saved)
 int g_unsavedLoad = -1;
 int g_changes, g_snapshotChanges;
 uint32_t g_lastAutosave;
-constexpr uint32_t kAutosaveMs = 60000;
 bool g_offerShow;    // (shown on the first frame the HUD is up)
 bool g_offerPending; // (Ctrl+R / Ctrl+Shift+R)
 // What the editor last did, for the log if the game crashes (plain memory: the crash hook reads it).
@@ -327,6 +329,14 @@ std::string DescribeSelection(); // (the HUD's)
 int InspectedNode();              // (the node layer's)
 std::vector<Picking::Lock> SelectionLocks(); // (picking)
 void FollowScenery();                         // (carrying - level_editor_carry.h)
+// The camera tools and play from here (level_editor_camera.h, level_editor_play.h): the last frame's ray under the
+// cursor (an orbit's pivot), the play key (held when the editor starts: it counts once let go).
+bool g_lastHaveRay;
+V3 g_lastRay;
+bool g_playKey = true, g_playPKey = true;
+Camera::Rig RigNow();
+Play::Resume ResumeNow();
+void ApplyResume(const Play::Resume& resume);
 
 void NoteAction(const char* format, ...)
 {
@@ -398,7 +408,7 @@ float g_dragMouseX, g_dragMouseY, g_dragUnits, g_dragPush, g_axisT0;
 // The transform tools (level_editor_transform.h): what the drag does (Move unless it started on a Rotate / Scale handle
 // or as Alt+G's modal transform - no button held: a click or Enter applies it), what's typed, whether a turn or a scale
 // was made (an undo step even when the position stayed), the turn and scale so far, where the cursor is (back buffer
-// pixels), vertex snapping's corner, and the camera let go of the selection (fly_always=0: flying with RMB - F frames
+// pixels), vertex snapping's corner, and the camera let go of the selection (wasd_flies=0: flying with RMB - F frames
 // it again).
 Transform::Mode g_dragMode = Transform::Mode::Move;
 bool g_modal, g_typedApply, g_pendingForced;
@@ -804,13 +814,13 @@ void TurnObjectsBy(const std::vector<Obj::CCompositeObject*>& objects, float rad
 }
 // Turned a notch (an object or a node by the rotation snap's step - 15 degrees unless the toolbar says otherwise -
 // about the Pivot / its own place; scenery a quarter about its pivot).
-float NotchRadians() { return Transform::Current().angleStep * kPi / 180.0f; }
+float NotchRadians() { return Transform::AngleStep() * kPi / 180.0f; }
 void TurnSelection(int notches)
 {
     NodeEdit::Values node;
     if (NodeValues(&node)) {
         node.angles = NodeEdit::WithHeading(node.angles, NodeEdit::HeadingDegrees(node.angles) +
-                                                             static_cast<float>(notches) * Transform::Current().angleStep);
+                                                             static_cast<float>(notches) * Transform::AngleStep());
         SetSelectedNode(node);
         return;
     }
@@ -1388,8 +1398,14 @@ V3 DragPlaneNormal(bool vertical, const Frame& frame)
 
 const V3 kAxes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
 
-// The gizmo's size: a fifth of the camera's distance from the selection (20 to 1500 units).
-float ArrowLength() { return std::max(20.0f, std::min(1500.0f, std::sqrt(Dot(SelectionPos() - g_pos, SelectionPos() - g_pos)) * 0.2f)); }
+// The gizmo's size: a fifth of the camera's distance from the selection (20 to 1500 units)
+// (as the picture shows the distance - an ortho view's far eye scaled down: level_editor_camera.h; [editor] gizmo_pct)
+float ArrowLength()
+{
+    float distance = Camera::Apparent(std::sqrt(Dot(SelectionPos() - g_pos, SelectionPos() - g_pos)));
+    float length = std::max(20.0f, std::min(1500.0f, distance * 0.2f)) * static_cast<float>(Prefs::Get().gizmoPct) / 100.0f;
+    return Camera::Ortho() ? length * std::sqrt(Dot(SelectionPos() - g_pos, SelectionPos() - g_pos)) / std::max(1.0f, distance) : length;
+}
 
 // A world point in back-buffer pixels (false: behind the camera).
 bool ToPixel(const Frame& frame, V3 point, float* px, float* py)
@@ -1646,7 +1662,7 @@ void RotateDrag(V3 origin, V3 dir, const Frame& frame, bool snap)
             g_rotLast = angle;
             g_rotTotal += g_rotByPlane ? delta : delta * g_rotSign;
         }
-        target = snap ? Transform::SnapAngle(g_rotTotal, Transform::Current().angleStep) : g_rotTotal;
+        target = snap ? Transform::SnapAngle(g_rotTotal, Transform::AngleStep()) : g_rotTotal;
     }
     ApplyTurnTo(target);
 }
@@ -1884,7 +1900,7 @@ void Drag(V3 origin, V3 dir, const Frame& frame, float mouseX, float mouseY, Sna
     }
     // Grid snapping: relative (whole steps from where the drag started), or the world's grid (absolute).
     bool absolute = snap.target == Transform::SnapTarget::WorldGrid;
-    float grid = Transform::Current().grid;
+    float grid = Transform::Grid();
     auto relative = [&](float d) { return Transform::SnapRelative(d, grid); };
     V3 wanted;
     if (g_axis >= 0) {
@@ -2059,7 +2075,11 @@ void AddArrow(V3 from, V3 to, const Frame& frame, uint32_t color, std::vector<Li
 // points, 4000 for chains, 2500 for objects and particles) unless selected.
 
 // Back buffer pixels per pixel at 720 lines (the icons' size).
-float PixelScale() { return g_viewport[3] > 0 ? static_cast<float>(g_viewport[3]) / 720.0f : 1.0f; }
+float PixelScale()
+{
+    float gizmo = static_cast<float>(Prefs::Get().gizmoPct) / 100.0f; // ([editor] gizmo_pct)
+    return (g_viewport[3] > 0 ? static_cast<float>(g_viewport[3]) / 720.0f : 1.0f) * gizmo;
+}
 
 constexpr uint32_t kSelectedGizmo = 0xFFFFFFFF, kHoverGizmo = 0xFFFFE070;
 
@@ -2101,7 +2121,7 @@ void AddNodeGizmos(const Frame& frame, int selected)
             continue;
         bool isSelected = i == selected, isHovered = i == g_hoverNode;
         V3 d = n.pos - g_pos;
-        float distance = std::sqrt(Dot(d, d));
+        float distance = Camera::Apparent(std::sqrt(Dot(d, d))); // (an ortho view: level_editor_camera.h)
         if (shape == Nodes::Shape::Chain) {
             constexpr float kChainCutoff = 4000.0f;
             for (int link : n.links) {
@@ -2109,7 +2129,7 @@ void AddNodeGizmos(const Frame& frame, int selected)
                 if (!m.hasPos)
                     continue;
                 V3 e = m.pos - g_pos;
-                if (!isSelected && !isHovered && distance > kChainCutoff && std::sqrt(Dot(e, e)) > kChainCutoff)
+                if (!isSelected && !isHovered && distance > kChainCutoff && Camera::Apparent(std::sqrt(Dot(e, e))) > kChainCutoff)
                     continue;
                 V3 a = n.pos, b = m.pos;
                 if (!ClipToNear(g_pos, frame, kNearZ + 0.01f, &a, &b))
@@ -2425,6 +2445,10 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time; the setting from
     // [Graphics] OcclusionCulling comes back when the editor closes)
     g_occlusionInPlay = Nx::OcclusionOff();
+    // (the camera tools and the preferences - level_editor_camera.h, level_editor_prefs.h)
+    g_speed = static_cast<float>(Prefs::Get().flySpeed);
+    Camera::Start(Scenery::SceneName(Scenery::MainScene()));
+    g_playKey = g_playPKey = true; // (the key that opened the editor doesn't leave it at once)
     Nx::OcclusionOff() = g_occlusionOff;
     g_hudTakenDown = 0;
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
@@ -2544,6 +2568,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Triggers::Stop();
     Entities::Stop(); // (the previewed object put back)
     Nx::OcclusionOff() = g_occlusionInPlay;
+    Camera::Stop();
     Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
@@ -2586,7 +2611,16 @@ void Init()
 
 void InputLogic()
 {
-    if (!g_active || !g_exitRequested)
+    if (!g_active)
+        return;
+    // Play from here (F5, Ctrl+P - level_editor_play.h): the editor's camera and selection kept for the way back, then
+    // left as Escape leaves it (Play closes the pause menu that brings back).
+    if (Play::TakeRequest()) {
+        Play::Keep(ResumeNow(), Layout::LevelLoads());
+        g_exitRequested = true;
+        Log("level editor: play from here");
+    }
+    if (!g_exitRequested)
         return;
     g_exitRequested = false;
     if (DebugEnabled())
@@ -2608,6 +2642,10 @@ void PlaceCamera(Gfx::Camera* camera)
         if (DebugEnabled())
             Log("level editor: camera %p at (%.1f, %.1f, %.1f), yaw %.1f, pitch %.1f degrees", static_cast<void*>(camera),
                 g_pos.x, g_pos.y, g_pos.z, g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
+        // (back from play from here: the camera and the selection as they were - level_editor_play.h)
+        Play::Resume resume;
+        if (Play::TakeResume(&resume, Layout::LevelLoads()))
+            ApplyResume(resume);
     }
     if (camera != g_camera)
         return;
@@ -2617,6 +2655,13 @@ void PlaceCamera(Gfx::Camera* camera)
     camera->m_matrix.row[1] = {frame.up.x, frame.up.y, frame.up.z, 0.0f};
     camera->m_matrix.row[2] = {frame.back.x, frame.back.y, frame.back.z, 0.0f};
 }
+
+float ViewAngle(Gfx::Camera* camera, float angle)
+{
+    return g_active && camera && camera == g_camera ? Camera::ViewAngle(angle) : angle;
+}
+
+float NearPlane(Gfx::Camera* camera) { return g_active && camera && camera == g_camera ? Camera::NearPlane() : 2.0f; }
 
 void NoteView(Gfx::Camera* camera, float angle, float aspect, const uint32_t viewport[4])
 {
@@ -4606,6 +4651,105 @@ void GoToSelection()
     FocusOnSelection();
 }
 
+// --- the camera tools (level_editor_camera.h) and play from here (level_editor_play.h) ---
+
+// The selection's size: a sphere round its box (an object's model, the scenery's first piece; 100 otherwise).
+float SelectionRadius()
+{
+    OrientedBox box;
+    if (Obj::CCompositeObject* object = Primary()) {
+        if (Objects::ModelBox(object, &box)) {
+            V3 size = BoxSize(box);
+            return std::max(50.0f, 0.5f * std::sqrt(Dot(size, size)));
+        }
+    } else if (!Scenery::Selection().empty()) {
+        V3 lo = {}, hi = {};
+        bool have = false;
+        for (uint32_t sector : Scenery::Selection()) {
+            if (!Scenery::Box(sector, &box))
+                continue;
+            V3 a, b;
+            BoundsOf(box, &a, &b);
+            GrowBox(&lo, &hi, have, a, b);
+            have = true;
+        }
+        if (have)
+            return std::max(50.0f, 0.5f * std::sqrt(Dot(hi - lo, hi - lo)));
+    }
+    return 100.0f;
+}
+
+void FocusNow() { FocusOnSelection(); }
+void DeselectNow() { Deselect(); }
+
+Camera::Rig RigNow()
+{
+    Camera::Rig rig = {};
+    rig.pos = &g_pos;
+    rig.yaw = &g_yaw;
+    rig.pitch = &g_pitch;
+    rig.orbitDistance = &g_orbitDistance;
+    rig.speed = &g_speed;
+    rig.haveSelection = HaveSelection();
+    rig.target = rig.haveSelection ? TargetOf() : g_pos;
+    rig.radius = rig.haveSelection ? SelectionRadius() : 100.0f;
+    rig.dragging = g_dragging || g_keyMoving || Triggers::Resizing();
+    rig.lens = g_lens;
+    rig.cast = &Cast;
+    rig.focus = &FocusNow;
+    rig.deselect = &DeselectNow;
+    return rig;
+}
+
+Play::Resume ResumeNow()
+{
+    Play::Resume r;
+    r.pos = g_pos;
+    r.yaw = g_yaw;
+    r.pitch = g_pitch;
+    r.speed = g_speed;
+    for (const Picked& p : g_objects)
+        r.objects.push_back(p.id);
+    r.sectors = Scenery::Selection();
+    if (g_nodeSelected && g_objects.empty() && r.sectors.empty())
+        r.node = g_nodeName;
+    return r;
+}
+
+void ApplyResume(const Play::Resume& r)
+{
+    g_pos = r.pos;
+    g_yaw = r.yaw;
+    g_pitch = r.pitch;
+    g_speed = r.speed;
+    std::vector<Obj::CCompositeObject*> objects;
+    for (uint32_t id : r.objects) {
+        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        if (object && Live({object, id}))
+            objects.push_back(object);
+    }
+    if (!objects.empty()) {
+        SelectObjects(objects);
+    } else if (!r.sectors.empty()) {
+        Scenery::SetSelection(r.sectors);
+    } else if (r.node) {
+        const std::vector<Nodes::Node>& nodes = Nodes::All();
+        for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
+            if (nodes[i].name == r.node) {
+                SelectNodeOnly(i);
+                break;
+            }
+        }
+    }
+    // (the camera where it was: the selection orbited from there)
+    if (HaveSelection()) {
+        V3 back = g_pos - TargetOf();
+        g_orbitDistance = std::max(kMinOrbit, std::min(kMaxOrbit, std::sqrt(Dot(back, back))));
+    }
+    Log("level editor: back from play from here - the camera at (%.0f, %.0f, %.0f), %s", g_pos.x, g_pos.y, g_pos.z,
+        DescribeSelection().c_str());
+}
+
 // What was asked for on the UI's panels (level_editor_ui.h), done as the keys would.
 void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
 {
@@ -4911,9 +5055,9 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
     }
 }
 
-// The transform tools' keys (level_editor_transform.h): the modes (fly_always=0: W / E / R while the right button isn't
-// held; both: Space cycles - with fly_always=1 only with a selection, Space flying up without one), ` World / Local,
-// Alt+G the modal transform, F (fly_always=0) frames the selection again.
+// The transform tools' keys (level_editor_transform.h): the modes (wasd_flies=0: W / E / R while the right button isn't
+// held; both: Space cycles - with wasd_flies=1 only with a selection, Space flying up without one), ` World / Local,
+// Alt+G the modal transform; F (UX1's frame) lets the camera follow the selection again.
 void TransformKeys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const Mouse& input, V3 dir, bool haveRay,
                    const Frame& frame)
 {
@@ -4950,10 +5094,9 @@ void TransformKeys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const M
         Hud::Message(settings.space == Transform::Space::World ? "World space: the gizmo along the world's axes (`)"
                                                                : "Local space: the gizmo along the selection's own axes (`)");
     }
-    if (f && !always && !alt && HaveSelection() && !input.right) {
+    // (F - UX1's frame, level_editor_camera.h - flies the camera to the selection: it follows it again after)
+    if (f && HaveSelection())
         g_freeCamera = false;
-        FocusOnSelection();
-    }
     // Alt+G: the tool's transform without holding the mouse (Blender's G / R / S).
     if (g && alt && HaveSelection() && haveRay) {
         g_axis = -1;
@@ -4999,7 +5142,7 @@ void Update()
     // minute while there are unsaved changes; an older autosave offered once the HUD is up.
     if (g_unsaved && g_changes != g_snapshotChanges && Layout::Snapshot())
         g_snapshotChanges = g_changes;
-    if (g_unsaved && SDL_GetTicks() - g_lastAutosave >= kAutosaveMs) {
+    if (g_unsaved && SDL_GetTicks() - g_lastAutosave >= static_cast<uint32_t>(Prefs::Get().autosaveSeconds) * 1000u) { // ([editor] autosave_s)
         g_lastAutosave = SDL_GetTicks();
         Layout::WriteAutosave();
     }
@@ -5029,6 +5172,20 @@ void Update()
     double boost = shift ? 4.0 : 1.0;
     if (!HaveSelection())
         g_dragging = false;
+    // The camera tools (level_editor_camera.h): Alt+drag orbits, the wheel with the right button the flying speed.
+    Camera::FilterMouse(RigNow(), {&input.leftPresses, &input.leftReleases, input.left, input.right, &input.relX,
+                                   &input.relY, &input.wheel},
+                        SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LALT] || SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RALT],
+                        g_lastHaveRay, g_lastRay);
+    // Play from here (F5, Ctrl+P - level_editor_play.h); the preferences (Ctrl+, - level_editor_prefs.h).
+    {
+        static bool prefsKey;
+        bool f5 = Pressed(keys, SDL_SCANCODE_F5, &g_playKey), p = Pressed(keys, SDL_SCANCODE_P, &g_playPKey);
+        if ((f5 || (p && ctrl)) && !g_dragging)
+            Play::Request();
+        if (Pressed(keys, SDL_SCANCODE_COMMA, &prefsKey) && ctrl && Ui::Running())
+            Prefs::Open() = !Prefs::Open();
+    }
 
     // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
     if (g_cancelRequested) {
@@ -5281,9 +5438,13 @@ void Update()
         StopChainDrawing("Drawing finished");
 
     // Looking (right button held): about the camera, or orbiting the selection.
-    SetRelative(input.right);
-    if (input.right)
-        Look(&g_yaw, &g_pitch, input.relX, input.relY, kLookRadiansPerPixel);
+    SetRelative(input.right || Camera::Orbiting());
+    if (input.right) {
+        const Prefs::Values& prefs = Prefs::Get(); // ([editor] look_pct, invert_y)
+        Look(&g_yaw, &g_pitch, input.relX, prefs.invertY ? -input.relY : input.relY,
+             kLookRadiansPerPixel * static_cast<float>(prefs.lookPct) / 100.0f);
+    }
+    Camera::ApplyOrbit(RigNow());
     Frame frame = FrameFromYawPitch(g_yaw, g_pitch);
 
     // The mouse ray (once the view has been drawn): the cursor in back-buffer pixels too (the arrows).
@@ -5305,6 +5466,10 @@ void Update()
     g_cursorY = backY;
     ApplyUiRequests(dir, haveRay, frame);
     TransformKeys(keys, ctrl, shift, alt, input, dir, haveRay, frame);
+    if (!g_dragging) // (digits typed while dragging aren't bookmarks - level_editor_transform.h)
+        Camera::Keys(RigNow(), keys, ctrl, g_browser.open); // (F, 1..9, the numpad - level_editor_camera.h)
+    g_lastHaveRay = haveRay;
+    g_lastRay = dir;
 
     if (g_browser.open) {
         // The browser takes the arrows, Enter and F (the selection's keys rest meanwhile).
@@ -5331,7 +5496,7 @@ void Update()
 
     bool haveSelection = HaveSelection();
     if (haveSelection && !g_browser.open) {
-        // The selection moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R/F, Page
+        // The selection moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R, Page
         // Up/Down) down/up - and the camera follows it.
         V3 forward = Normalize({-frame.back.x, 0.0f, -frame.back.z});
         V3 right = Normalize({frame.right.x, 0.0f, frame.right.z});
@@ -5340,9 +5505,9 @@ void Update()
             f = (keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0);
             r = (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0);
             u = (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_R] || keys[SDL_SCANCODE_PAGEUP] ? 1 : 0) -
-                (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_F] || keys[SDL_SCANCODE_PAGEDOWN] ? 1 : 0);
+                (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_PAGEDOWN] ? 1 : 0); // (F frames: level_editor_camera.h)
         } else {
-            // ([editor] fly_always=0 - level_editor_transform.h: the arrow keys nudge it, Page Up / Down up / down;
+            // ([editor] wasd_flies=0 - level_editor_transform.h: the arrow keys nudge it, Page Up / Down up / down;
             // W A S D / Q E fly the camera while the right button is held - away from the selection, F frames it again)
             f = (keys[SDL_SCANCODE_UP] ? 1 : 0) - (keys[SDL_SCANCODE_DOWN] ? 1 : 0);
             r = (keys[SDL_SCANCODE_RIGHT] ? 1 : 0) - (keys[SDL_SCANCODE_LEFT] ? 1 : 0);
@@ -5431,7 +5596,9 @@ void Update()
             FlyInput fly = {(keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0),
                             (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0),
                             (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_SPACE] ? 1 : 0) - (keys[SDL_SCANCODE_Q] ? 1 : 0)};
-            g_pos = Fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds));
+            // ([editor] fly_accel_ms: the speed reached over that time - level_editor_camera.h)
+            float ramp = Camera::FlyFactor(fly.forward || fly.right || fly.up, seconds);
+            g_pos = Fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds * ramp));
         }
         if (input.wheel) {
             float step = static_cast<float>(kWheelStep * boost * input.wheel);
@@ -5716,6 +5883,12 @@ void Update()
         V3 from = Primary() || MovableNode() >= 0 ? g_markBase + V3{0.0f, 2.0f, 0.0f} : g_markBase - V3{0.0f, 1.0f, 0.0f};
         g_haveMark = GroundBelow(from, &g_markGround);
     }
+    // The camera tools' end of the frame: a flight, an ortho view kept on its axis (level_editor_camera.h).
+    bool flew = keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_D] ||
+                keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_E];
+    Camera::AfterUpdate(RigNow(), input.wheel,
+                        input.right || input.leftPresses || input.middlePresses || input.wheel || flew ||
+                            Camera::Orbiting());
 }
 
 void Draw()

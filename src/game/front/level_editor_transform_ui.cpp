@@ -50,7 +50,7 @@ void ToolbarTools(float uiScale)
                               m.mode == Mode::Move     ? "move it along an axis"
                               : m.mode == Mode::Rotate ? "turn it (the heading ring; scenery by quarter turns)"
                                                        : "scale it along an axis, or all three from the centre",
-                              always ? "fly_always=1: no letter key" : m.key, always ? "" : " while the right button is up");
+                              always ? "wasd_flies=1: no letter key" : m.key, always ? "" : " while the right button is up");
         ImGui::SameLine(0.0f, 2.0f * uiScale);
     }
     ImGui::SameLine(0.0f, 6.0f * uiScale);
@@ -66,17 +66,15 @@ void ToolbarSnap(float uiScale)
     Settings& settings = Current();
     ImGui::SameLine(0.0f, 4.0f * uiScale);
     ImGui::SetNextItemWidth(52.0f * uiScale);
-    if (ImGui::BeginCombo("##grid", GridLabel(settings.grid).c_str())) {
+    if (ImGui::BeginCombo("##grid", GridLabel(Grid()).c_str())) {
         for (float grid : GridSizes()) {
-            if (ImGui::Selectable(GridLabel(grid).c_str(), grid == settings.grid)) {
-                settings.grid = grid;
-                SaveSettings();
-            }
+            if (ImGui::Selectable(GridLabel(grid).c_str(), grid == Grid()))
+                SetGrid(grid);
         }
         ImGui::EndCombo();
     }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("The grid's size in units (Ctrl while moving, or Snap)");
+        ImGui::SetTooltip("The grid's size in units (Ctrl while moving, or Snap; Prefs: snap_move)");
     ImGui::SameLine(0.0f, 4.0f * uiScale);
     if (ImGui::SmallButton("Tools..."))
         ImGui::OpenPopup("##transform_tools");
@@ -101,10 +99,8 @@ void ToolbarSnap(float uiScale)
             float step = AngleSteps()[i];
             char label[16];
             std::snprintf(label, sizeof(label), "%g\xC2\xB0", step);
-            if (ImGui::RadioButton(label, settings.angleStep == step)) {
-                settings.angleStep = step;
-                SaveSettings();
-            }
+            if (ImGui::RadioButton(label, AngleStep() == step))
+                SetAngleStep(step);
             if (i + 1 < AngleSteps().size())
                 ImGui::SameLine();
         }
@@ -127,7 +123,7 @@ void ToolbarSnap(float uiScale)
         if (ImGui::Checkbox("W A S D always fly (as before; the tools on Space)", &always))
             SetFlyAlways(always);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("[editor] fly_always=1. Off (the default): W A S D / Q E fly while the right button is held;\n"
+            ImGui::SetTooltip("[editor] wasd_flies=1. Off (the default): W A S D / Q E fly while the right button is held;\n"
                               "without it W / E / R pick the tools and the arrow keys nudge the selection");
         ImGui::EndPopup();
     }
