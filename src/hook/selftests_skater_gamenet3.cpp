@@ -28,12 +28,14 @@ using Script::CStruct;
 constexpr uint32_t kGoals = 0x16000;    // stand-in goals, 0x40 apart (16): vtable +0, +0x14 a word, +0x28 its chain
 constexpr uint32_t kChains = 0x16800;   // goal name chains
 constexpr uint32_t kNodes = 0x16C00;    // stand-in nodes, 0x10 apart
+constexpr uint32_t kNewInfos = 0x17000; // new player infos, 0x40 apart
 
 uint32_t g_presentIds;      // object ids 0x10 + i with a player (bits)
 uint32_t g_local;           // the local player (arena offset, 0 none)
 uint32_t g_king;            // the king of the hill (arena offset, 0 none)
 uint32_t g_firstPlayer;     // the players' list: kPlayers + i * kPlayerSize for i < g_playerCount
 int g_playerCount;
+int g_newCount;
 bool g_netGame, g_teamGame;
 int g_teamCount;
 uint32_t g_currentGoal;     // 0x0055DBF0's answer (arena offset, 0 none)
@@ -167,6 +169,18 @@ void Install(StandIns& s)
     Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
     Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_teamCount); });
     Stub(s, {0x00543420}, 0, 0x3420);
+    // The new players waiting to be added: infos at kNewInfos, 0x40 apart.
+    s.At({0x00537070}, 4, [](Regs& r) {
+        Rec(0x7070, {r.ecx});
+        reinterpret_cast<uint32_t*>(r.args[0])[1] = 0;
+        return g_newCount > 0 ? At(kNewInfos) : 0u;
+    });
+    s.At({0x004573D0}, 4, [](Regs& r) {
+        uint32_t& index = reinterpret_cast<uint32_t*>(r.args[0])[1];
+        Rec(0x73D0, {r.ecx, index});
+        ++index;
+        return static_cast<int>(index) < g_newCount ? At(kNewInfos + 0x40 * index) : 0u;
+    });
     Stub(s, {0x00564C60}, 8, 0x4C60);
 }
 
@@ -181,6 +195,7 @@ void RunCase(const char* what, Scenario scenario)
         g_local = PlayerAt(0);
         g_king = 0;
         g_playerCount = 4;
+        g_newCount = 0;
         g_netGame = g_teamGame = false;
         g_teamCount = 2;
         g_currentGoal = 0;
@@ -409,6 +424,28 @@ void Goals(bool original)
     started(0x11, 0x60A10001);
 }
 
+void NewKing(bool original)
+{
+    auto handle = [&](uint8_t id) {
+        Message({id});
+        Handle(original, 0x0052E760, GameNet::HandleNewKing, 0x55);
+    };
+    // New players: ids 0x18, 0x19, 0x1A; the second has the crown.
+    g_newCount = 3;
+    for (uint32_t i = 0; i < 3; ++i) {
+        Word<uint8_t>(kNewInfos + 0x40 * i + 0x10) = static_cast<uint8_t>(0x18 + i);
+        Word<uint32_t>(kNewInfos + 0x40 * i + 0x20) = i == 1 ? 0x184 : 0x104;
+    }
+    g_presentIds = 0x0F;
+    handle(0x12);   // no king: the new player's crown off; a player gets it
+    g_king = PlayerAt(2);
+    handle(0x1A);   // the king's off; a new player gets it
+    g_king = 0;
+    handle(0x1E);   // nobody: the crown off nobody; no such new player
+    g_newCount = 0;
+    handle(0x1A);
+}
+
 void TestGameNetGameHandlers()
 {
     SaveGlobals({{0x0067F000, 1, {}}});
@@ -417,6 +454,7 @@ void TestGameNetGameHandlers()
     RunCase("GameNet::HandleCrownSpawn", Crown);
     RunCase("GameNet handlers: created rails / goals arriving", CreatedData);
     RunCase("GameNet handlers: selected / completed / started goals", Goals);
+    RunCase("GameNet::HandleNewKing", NewKing);
     Cleanup();
 }
 

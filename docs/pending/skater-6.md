@@ -137,3 +137,16 @@ Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' f
     game-over flag set before a level change, the level and change time recorded after each, the created park to
     itself). (Two needed a rerun: the compiler's program database failing to open - out\scripts\mut_build.cmd now
     deletes it and builds again.)
+- [x] Batch SK6-6 (NOT run in the game yet; tasks, GameSpy callbacks and a missed handler, 8 functions):
+  src/game/net/gamenet_tasks.cpp (new), 0x0052E760 in gamenet_game_handlers.cpp. 0x0052F4A0 level change task
+  (at 0x007CCDE8: 0x00565A00 with the level, the king's crown off, no flags carried, the task at +0xEC removed),
+  0x00533810 modem state task (Net::Manager's state shown when it changes; redial pause = state 8 for 5 s then
+  ConnectToInternet, leaving its parameters undeleted as the original does), 0x00533B50 net metrics task ("(%d) Lag:
+  %d Resends: %d Bps: %d %d" per remote connection of the client (unless local) and the server - both lists twice,
+  the original's outer loop), 0x00533ED0 join timeout task (unsigned 60000 ms), the GameSpy qr2 callbacks 0x00533400
+  (every player/team key "") / 0x00533420 (the key lists) / 0x005334B0 (debug output), 0x0052E760 (0x55 new king:
+  missed by the first survey - find_gaps found it).
+  - Tests: TestGameNetTasks (selftests_skater_gamenet6.cpp; 28 deliberate bugs caught, 1 after strengthening - a join
+    time difference past 2^31), TestGameNetGameHandlers gained HandleNewKing (6 caught).
+  - Range check: find_gaps shows nothing left in 0x0052D6A0-0x00533F20 (the gaps it lists from 0x00533F20 on are
+    GameNet::Manager's own range, not this one).

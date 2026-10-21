@@ -105,7 +105,11 @@ inline uint8_t* FirstNewPlayer(Manager* manager, NewPlayerSearch* search)
 {
     return Call<uint8_t*>(0x00537070, manager, search);
 }
-inline uint8_t* NextNewPlayer(NewPlayerSearch* search) { return Call<uint8_t*>(0x004573D0, nullptr, search); }
+// (0x004573D0 is the lists' generic next item - App::NextConnection; the manager is passed as its `this`)
+inline uint8_t* NextNewPlayer(Manager* manager, NewPlayerSearch* search)
+{
+    return Call<uint8_t*>(0x004573D0, manager, search);
+}
 
 // A player's connection's handle, for App::EnqueueMessage (0x005434A0: 0 without a connection).
 inline int PlayerHandle(uint8_t* player) { return Call<int>(0x005434A0, player); }

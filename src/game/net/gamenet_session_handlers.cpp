@@ -196,7 +196,7 @@ int __cdecl HandleFindServer(Net::MsgHandlerContext* context)
         ++named;
     }
     char* slot = info.players[named];
-    for (uint8_t* added = FirstNewPlayer(manager, &newPlayers); added; added = NextNewPlayer(&newPlayers)) {
+    for (uint8_t* added = FirstNewPlayer(manager, &newPlayers); added; added = NextNewPlayer(manager, &newPlayers)) {
         uint32_t flags = Field<uint32_t>(added, 0x20);
         if (!(flags & 0x18) && (flags & 4))
             continue;

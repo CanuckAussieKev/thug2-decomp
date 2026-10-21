@@ -271,6 +271,37 @@ int __cdecl HandleGoalsData(Net::MsgHandlerContext* context)
     return kDone;
 }
 
+// 0x0052E760
+int __cdecl HandleNewKing(Net::MsgHandlerContext* context)
+{
+    const uint8_t* msg = Message(context);
+    Manager* manager = ManagerOf(context);
+    NewPlayerSearch search;
+    // The crown off the old king - or off a new player waiting to be added.
+    if (uint8_t* king = KingOfTheHill(manager)) {
+        Call(0x00544340, king, false);
+    } else {
+        for (uint8_t* added = FirstNewPlayer(manager, &search); added; added = NextNewPlayer(manager, &search)) {
+            if (Field<uint32_t>(added, 0x20) & 0x80) {
+                Field<uint32_t>(added, 0x20) &= ~0x80u;
+                break;
+            }
+        }
+    }
+    // Onto the player of object id msg[0] - or the new player of that id.
+    if (uint8_t* player = PlayerByObjectId(manager, msg)) {
+        Call(0x00544340, player, true);
+        return kContinue;
+    }
+    for (uint8_t* added = FirstNewPlayer(manager, &search); added; added = NextNewPlayer(manager, &search)) {
+        if (added[0x10] == msg[0]) {
+            Field<uint32_t>(added, 0x20) |= 0x80;
+            break;
+        }
+    }
+    return kContinue;
+}
+
 // 0x00531950
 int __cdecl HandleSelectedGoals(Net::MsgHandlerContext* context)
 {
@@ -463,6 +494,7 @@ int __cdecl HandleObserversFull(Net::MsgHandlerContext*)
 } // namespace GameNet
 
 REPLACE(0x0052DB80, GameNet::HandleNewPlayer);
+REPLACE(0x0052E760, GameNet::HandleNewKing);
 REPLACE(0x0052E870, GameNet::HandleCrownSpawn);
 REPLACE(0x005300C0, GameNet::HandleFcfsNotice);
 REPLACE(0x00530CB0, GameNet::HandleFlagReturned);

@@ -94,6 +94,9 @@ int __cdecl HandleChecksumRequest(Net::MsgHandlerContext* context);
 // its profile unless flags 5), announced (net_message_new_player) and added 10 frames on once ready to play, else at
 // once. 1.
 int __cdecl HandleNewPlayer(Net::MsgHandlerContext* context);
+// 0x0052E760 (0x55): a new king: the crown off the old one (or a waiting new player's flag 0x80), onto the player of
+// object id msg[0] (or the waiting new player of that id). 1.
+int __cdecl HandleNewKing(Net::MsgHandlerContext* context);
 // 0x0052E870 (0x58): the crown dropped: the king no longer one (the drop announced to him, to everyone in a network
 // game, else to the other local player), then the crown put at the msg[0]'th crown node (counting on across up to 49
 // walks of the nodes) and taken off. 1.
@@ -186,5 +189,24 @@ int __cdecl HandleStartGame(Net::MsgHandlerContext* context);
 // created goals, the spawned scripts (0x49), the skate module's state, an observer's graffiti, the chosen goals (0x6D),
 // the king (0x55); the local player is just made ready to play; then 0x42 to all of them. 1.
 int __cdecl HandleSendGameState(Net::MsgHandlerContext* context);
+
+// --- The tasks and GameSpy callbacks (gamenet_tasks.cpp; tasks get their Tsk::Task, the manager at +0x1C) ---
+// 0x0052F4A0: the level change, once its time (0x007CCDE8) has come: the skate module changes level (0x00565A00), the
+// king loses the crown, nobody carries a flag, and the task (+0xEC) takes itself off.
+void __cdecl LevelChangeTask(void* task);
+// 0x00533810: the online connection's state (Net::Manager's modem state) shown when it changes (+0x1A8 the last
+// shown): connecting / dialing, connected, logged in (with the speed on a modem), disconnecting, hanging up,
+// disconnected, a redial pause (state 8 for 5 s, then ConnectToInternet - its parameters never deleted).
+void __cdecl ModemStateTask(void* task);
+// 0x00533B50: update_net_metrics for each remote connection of the client (if not local) and the server - each list
+// twice (the original's loop).
+void __cdecl NetMetricsTask(void* task);
+// 0x00533ED0: joining for over a minute (and not in a game): the join state task removed, ShowJoinTimeoutNotice.
+void __cdecl JoinTimeoutTask(void* task);
+// 0x00533400 / 0x00533420 / 0x005334B0: the GameSpy query callbacks - every player / team key "", the key lists (the
+// server's 1, 2, 4, 5, 6, 8, 20, 10, 11, 19; the players' 21, 24, 25), an error adding the server (debug output).
+void __cdecl PlayerTeamKeyCallback(int key, int index, void* buffer, void* data);
+void __cdecl KeyListCallback(int type, void* keys, void* data);
+void __cdecl AddErrorCallback(int error, const char* message, void* data);
 
 } // namespace GameNet
