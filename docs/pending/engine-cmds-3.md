@@ -24,3 +24,27 @@ Shared files touched: CMakeLists.txt (new files listed).
     edges, empty / missing arrays, objects or not, AppendSuffix's cut cases); the structure-changing methods,
     SetScript, Rnd, Printf, sprintf and 0x0044A480 stood in for by recording code. 30 of 31 deliberate bugs caught;
     the miss (AppendSuffix's `>` as `>=`) is equivalent (cutting at the text's own end changes nothing).
+- [x] Batch EC3-2 (NOT run in the game yet; ForEachIn, array building and changing, printf text, Dump - 11 functions):
+  src/game/script/script_util_cfuncs.h / .cpp.
+  - 0x0044C290 ForEachIn (with params: a structure per element - the element's components then the params - run
+    now on the script's object; without: the element itself as the parameters; no array crashes, as in the
+    original), 0x0044C430 GetElement (by the name "Index"; integers, structure copies handed over by pointer
+    (AddComponentOfType 11), arrays copied; other types print 0x00647110; true without an array, false out of
+    range), 0x0044C5A0 PermuteArray (by name strings "Array" / "PermuteSource" / "NewArrayName" /
+    "MakeNewFirstDifferFromOldLast": size * 10 random swaps of a copy or the array itself; a first element equal
+    to the old last one swapped with a random other), 0x0044C730 GotoPreserveParams, 0x0044C840 FormatPrintfText
+    (helper of ScriptAssert: "%s\n" of the text put together by 0x0044A480 with TextName=PrintfText, "" if that
+    fails; "%d\n" of an integer; the third argument unused), 0x0044C9B0 Dump (builds "name=%a" with a copy of the
+    parameter as a, or "name=[!! DOES NOT EXIST !!]", and frees it: the printing is compiled out), 0x0044CB70
+    ScriptAssert (the message only; the assert is compiled out), 0x0044CBC0 CreateIndexArray (index_array),
+    0x0044CCC0 AppendStruct (a copy of params added by pointer to the global structure `struct` as `field`),
+    0x0044CDB0 StringToCharArray (char_array of one-character strings), 0x0044CEC0 SetArrayElement (the script's
+    array; NewValue resolved if it names a global, copied; the old element's string / pair / vector / structure /
+    array freed; float arrays take integers; other types untouched).
+  - Test TestScriptArrayCFuncs: original vs ours with the pools, structure / array / component methods, RunScript,
+    CopyArray, CreateString and FormatText stood in for (allocations from one arena reset per run, so pointers match),
+    every case above incl. a global symbol in the stand-in table. 39 of 40 deliberate bugs caught (3 after
+    strengthening: MakeNewFirstDifferFromOldLast on 2-element arrays and with distinct others, the resolved
+    global); 1 equivalent (PermuteArray's two Rnd calls swapped: the swap is symmetric).
+  - Build note: the verify build's compile PDB (CMakeFiles\thug2_code.dir\vc140.pdb) got corrupted (C2471) after
+    ~12 mutation builds; out\scripts\mutbuild.cmd retries after deleting it.

@@ -10,6 +10,9 @@
 #include "game/core/str.h"
 #include "game/mth/random.h"
 #include "game/script/cscript.h"
+#include "game/script/names.h"
+#include "game/script/parse.h"
+#include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -19,6 +22,7 @@ namespace CFuncs {
 namespace {
 
 using Script::CArray;
+using Script::CComponent;
 using Script::CScript;
 using Script::CStruct;
 
@@ -40,6 +44,18 @@ constexpr uint32_t kText = 0xC4745838;           // "text"
 constexpr uint32_t kMaxLength = 0xA6931595;      // (name unknown) AppendSuffix: the longest result
 constexpr uint32_t kSuffix = 0x4A4F7821;         // "suffix"
 constexpr uint32_t kResultName = 0x50060694;     // (name unknown) AppendSuffix: the result's name
+constexpr uint32_t kDo = 0x62BA3F6A;             // "do"
+constexpr uint32_t kTextName = 0xFF0DB407;       // "TextName"
+constexpr uint32_t kPrintfText = 0xBC4AC08B;     // "PrintfText"
+constexpr uint32_t kIndexArray = 0xAC3A91DE;     // "index_array"
+constexpr uint32_t kStruct = 0x456D28D1;         // "struct"
+constexpr uint32_t kField = 0xA40ABAA7;          // "field"
+constexpr uint32_t kString = 0x61414D56;         // "string"
+constexpr uint32_t kCharArray = 0x3C5EC9E9;      // "char_array"
+constexpr uint32_t kArrayName = 0x8F61D602;      // "ArrayName"
+constexpr uint32_t kNewValue = 0x4B40630D;       // "NewValue"
+// AddComponentOfType's type for a structure handed over by pointer.
+constexpr uint32_t kTypeStructurePointer = 11;
 
 // The calling script's object (null: not an object's script).
 Obj::CObject* ScriptObject(CScript* script) { return script->m_object.Get(); }
@@ -62,9 +78,9 @@ void CopyText(char* out, const char* text)
 const char* TypeName(Script::ESymbolType /*type*/) { return reinterpret_cast<const char*>(0x00648474); }
 
 // 0x0044A480 (not rewritten here): FormatText's work - the text put together from `params` into `out`.
-void FormatTextInto(CStruct* out, CStruct* params)
+int FormatTextInto(CStruct* out, CStruct* params)
 {
-    GameFunction<void(__cdecl*)(CStruct*, CStruct*)>(0x0044A480)(out, params);
+    return GameFunction<int(__cdecl*)(CStruct*, CStruct*)>(0x0044A480)(out, params);
 }
 
 } // namespace
@@ -352,6 +368,340 @@ bool __cdecl CFunc_AppendSuffix(CStruct* params, CScript* script)
 // 0x0044C120: IsObjectScript: whether the script runs on an object.
 bool __cdecl CFunc_IsObjectScript(CStruct*, CScript* script) { return ScriptObject(script) != nullptr; }
 
+// 0x0044C290: ForEachIn <array> do=<script> [params={...}]: the script run (now, on this script's object) for each
+// element of the array - with params, on a structure made of the element (a structure; none for null) and those
+// params, else on the element itself as its parameters. Always true. (Original quirk: no array crashes.)
+bool __cdecl CFunc_ForEachIn(CStruct* params, CScript* script)
+{
+    uint32_t each = 0;
+    params->GetChecksum(kDo, &each, 0);
+    CArray* array = nullptr;
+    params->GetArray(0u, &array, 0);
+    CStruct* extra = nullptr;
+    params->GetStructure(kParams, &extra, 0);
+    if (extra) {
+        CStruct* elementParams = Script::NewStruct();
+        if (elementParams)
+            elementParams = elementParams->Init();
+        for (uint32_t i = 0; i < array->m_size; ++i) {
+            elementParams->Clear();
+            if (auto* element = reinterpret_cast<CStruct*>(array->GetElement(i)))
+                elementParams->AppendStructure(element);
+            if (extra)
+                elementParams->AppendStructure(extra);
+            Script::RunScript(each, elementParams, ScriptObject(script), false, nullptr);
+        }
+        if (elementParams) {
+            elementParams->Clear();
+            Script::DeleteStruct(elementParams);
+        }
+        return true;
+    }
+    for (uint32_t i = 0; i < array->m_size; ++i) {
+        Obj::CObject* object = ScriptObject(script);
+        Script::RunScript(each, reinterpret_cast<CStruct*>(array->GetElement(i)), object, false, nullptr);
+    }
+    return true;
+}
+
+// 0x0044C430: GetElement <array> Index=n: element n as the script's element (taken out first): integers, a copy of
+// a structure (handed over), arrays (copied); another type prints 0x00647110 (still true). False if the index is
+// outside the array; true without an array.
+bool __cdecl CFunc_GetElement(CStruct* params, CScript* script)
+{
+    CArray* array = nullptr;
+    params->GetArray(0u, &array, 0);
+    int index = 0;
+    params->GetInteger(reinterpret_cast<const char*>(0x00647178), &index, 0); // "Index"
+    script->m_params->RemoveComponent(kElement);
+    if (!array)
+        return true;
+    if (index < 0 || index >= static_cast<int>(array->m_size))
+        return false;
+    switch (array->m_type) {
+    case Script::ESYMBOLTYPE_INTEGER:
+        script->m_params->AddComponentOfType(kElement, Script::ESYMBOLTYPE_INTEGER, array->GetElement(index));
+        break;
+    case Script::ESYMBOLTYPE_STRUCTURE: {
+        CStruct* copy = Script::NewStruct();
+        if (copy)
+            copy = copy->Init();
+        copy->AppendStructureIfAny(reinterpret_cast<CStruct*>(array->GetElement(index)));
+        script->m_params->AddComponentOfType(kElement, kTypeStructurePointer, reinterpret_cast<uint32_t>(copy));
+        break;
+    }
+    case Script::ESYMBOLTYPE_ARRAY:
+        script->m_params->AddArray(kElement, reinterpret_cast<CArray*>(array->GetElement(index)));
+        break;
+    default:
+        Dbg::Printf(reinterpret_cast<const char*>(0x00647110), array->m_type); // "... only supports ..."
+        break;
+    }
+    return true;
+}
+
+// 0x0044C5A0: PermuteArray Array=<array> (NewArrayName=<name> | PermuteSource) [MakeNewFirstDifferFromOldLast]:
+// the elements shuffled (size * 10 random swaps) - in a copy put in the script's parameters under the new name, or
+// with PermuteSource in the array itself. With MakeNewFirstDifferFromOldLast, a first element equal to the old last
+// one is swapped with a random other. False without the array or (making a copy) a name.
+bool __cdecl CFunc_PermuteArray(CStruct* params, CScript* script)
+{
+    CArray* source = nullptr;
+    params->GetArray(reinterpret_cast<const char*>(0x006471C0), &source, 0); // "Array"
+    if (!source)
+        return false;
+    bool makeCopy = !params->ContainsFlag(reinterpret_cast<const char*>(0x006471B0)); // "PermuteSource"
+    uint32_t newName = 0;
+    CArray* copy = nullptr;
+    CArray* array = source;
+    if (makeCopy) {
+        params->GetChecksum(reinterpret_cast<const char*>(0x006471A0), &newName, 0); // "NewArrayName"
+        if (!newName)
+            return false;
+        array = Script::NewArray();
+        if (array)
+            array = array->Init();
+        copy = array;
+        Script::CopyArray(array, source);
+    }
+    int size = static_cast<int>(array->m_size);
+    if (size) {
+        uint32_t* elements = array->GetArrayPointer();
+        uint32_t oldLast = elements[size - 1];
+        for (int swaps = size * 10; swaps > 0; --swaps) {
+            int a = Mth::Rnd(size);
+            int b = Mth::Rnd(size);
+            uint32_t swap = elements[a];
+            elements[a] = elements[b];
+            elements[b] = swap;
+        }
+        if (params->ContainsFlag(reinterpret_cast<const char*>(0x00647180)) && size > 1 && elements[0] == oldLast) {
+            // "MakeNewFirstDifferFromOldLast"
+            int other = Mth::Rnd(size - 1) + 1;
+            uint32_t swap = elements[0];
+            elements[0] = elements[other];
+            elements[other] = swap;
+        }
+    }
+    if (makeCopy)
+        script->m_params->AddArrayPointer(newName, copy);
+    return true;
+}
+
+// 0x0044C730: GotoPreserveParams <script> [params={...}]: Goto, the script's own parameters (and the params) going
+// with it. Always true.
+bool __cdecl CFunc_GotoPreserveParams(CStruct* params, CScript* script)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 0);
+    CStruct* scriptParams = Script::NewStruct();
+    if (scriptParams)
+        scriptParams = scriptParams->Init();
+    scriptParams->AppendStructureIfAny(script->m_params);
+    CStruct* extra = nullptr;
+    params->GetStructure(kParams, &extra, 0);
+    scriptParams->AppendStructureIfAny(extra);
+    script->SetScript(name, scriptParams, ScriptObject(script));
+    if (scriptParams) {
+        scriptParams->Clear();
+        Script::DeleteStruct(scriptParams);
+    }
+    return true;
+}
+
+// 0x0044C840
+bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
+{
+    const char* text = reinterpret_cast<const char*>(0x006471DC); // "Default printf text"
+    if (params->GetString(0u, &text, 0)) {
+        CStruct* format = Script::NewStruct();
+        if (format)
+            format = format->Init();
+        format->AddChecksum(kTextName, kPrintfText);
+        format->AppendStructureIfAny(params);
+        if (FormatTextInto(format, format))
+            format->GetString(reinterpret_cast<const char*>(0x006471D0), &text, 0); // "PrintfText"
+        else
+            text = reinterpret_cast<const char*>(0x006469B4); // ""
+        Sprintf(out, reinterpret_cast<const char*>(0x006471CC), text); // "%s\n"
+        if (format) {
+            format->Clear();
+            Script::DeleteStruct(format);
+        }
+        return true;
+    }
+    int value = 0;
+    if (params->GetInteger(0u, &value, 0))
+        Sprintf(out, reinterpret_cast<const char*>(0x006471C8), value); // "%d\n"
+    return true;
+}
+
+// 0x0044C9B0: Dump <name>: the script's parameter of that name written up ("name=%a" with a copy of it as a, or
+// "name=[!! DOES NOT EXIST !!]") for printing - the printing is compiled out, so it's only made and freed. Always
+// true. (Original quirk: no name leaves it uninitialised; here 0.)
+bool __cdecl CFunc_Dump(CStruct* params, CScript* script)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 1);
+    CStruct* dump = Script::NewStruct();
+    if (dump)
+        dump = dump->Init();
+    char text[0x400];
+    CComponent* component = script->m_params->FindComponent(name);
+    if (!component) {
+        Sprintf(text, reinterpret_cast<const char*>(0x006471F8), Script::FindChecksumNameOrUnknown(name));
+    } else {
+        Sprintf(text, reinterpret_cast<const char*>(0x006471F0), Script::FindChecksumNameOrUnknown(name)); // "%s=%%a"
+        CComponent* value = Script::NewComponent();
+        Script::CopyComponent(value, component, 0);
+        value->name = kA;
+        dump->AddComponent(value);
+    }
+    dump->AddString(0u, text);
+    if (dump) {
+        dump->Clear();
+        Script::DeleteStruct(dump);
+    }
+    return true;
+}
+
+// 0x0044CB70: ScriptAssert <text or integer>: the message made (FormatPrintfText); the assert itself is compiled
+// out. Always true.
+bool __cdecl CFunc_ScriptAssert(CStruct* params, CScript* script)
+{
+    char message[0x400];
+    FormatPrintfText(message, params, script);
+    return true;
+}
+
+// 0x0044CBC0: CreateIndexArray <n>: the array 0, 1 .. n-1 as the script's index_array. Always true. (Original
+// quirk: no n leaves it uninitialised; here 0.)
+bool __cdecl CFunc_CreateIndexArray(CStruct* params, CScript* script)
+{
+    int size = 0;
+    params->GetInteger(0u, &size, 1);
+    CArray* indexes = Script::NewArray();
+    if (indexes)
+        indexes = indexes->Init();
+    indexes->SetSizeAndType(static_cast<uint32_t>(size), Script::ESYMBOLTYPE_INTEGER);
+    for (int i = 0; i < size; ++i)
+        indexes->SetElement(i, static_cast<uint32_t>(i));
+    script->m_params->AddArray(kIndexArray, indexes);
+    Script::CleanUpArray(indexes);
+    if (indexes) {
+        indexes->Clear();
+        Script::DeleteArray(indexes);
+    }
+    return true;
+}
+
+// 0x0044CCC0: AppendStruct struct=<global structure> field=<name> params={...}: a copy of params added to the
+// global structure as `field`. Always true. (Original quirks: missing names are uninitialised - here 0 - and a
+// missing global structure crashes.)
+bool __cdecl CFunc_AppendStruct(CStruct* params, CScript*)
+{
+    uint32_t structName = 0;
+    uint32_t field = 0;
+    CStruct* fieldParams = nullptr;
+    params->GetChecksum(kStruct, &structName, 1);
+    params->GetChecksum(kField, &field, 1);
+    params->GetStructure(kParams, &fieldParams, 1);
+    CStruct* copy = Script::NewStruct();
+    if (copy)
+        copy = copy->Init();
+    copy->AppendStructureIfAny(fieldParams);
+    Script::GetStructure(structName)->AddStructurePointer(field, copy);
+    return true;
+}
+
+// 0x0044CDB0: StringToCharArray string=<text>: an array of one-character strings as the script's char_array.
+// Always true.
+bool __cdecl CFunc_StringToCharArray(CStruct* params, CScript* script)
+{
+    const char* string = nullptr;
+    params->GetString(kString, &string, 1);
+    uint32_t length = static_cast<uint32_t>(std::strlen(string));
+    CArray* characters = Script::NewArray();
+    if (characters)
+        characters = characters->Init();
+    characters->SetSizeAndType(length, Script::ESYMBOLTYPE_STRING);
+    char one[2];
+    one[1] = '\0';
+    for (uint32_t i = 0; i < length; ++i) {
+        one[0] = string[i];
+        characters->SetElement(i, reinterpret_cast<uint32_t>(Script::CreateString(one)));
+    }
+    script->m_params->AddArrayPointer(kCharArray, characters);
+    return true;
+}
+
+// 0x0044CEC0: SetArrayElement ArrayName=<the script's array> index=n NewValue=<value>: element n of the script's
+// array set to a copy of the value (a name naming a global resolved first); what the element owned before
+// (string, pair, vector, structure, array) is freed. Float arrays take integers too; other array types are left
+// alone. Always true. (Original quirks: missing parameters crash or use uninitialised values; the value isn't
+// checked against the array's type.)
+bool __cdecl CFunc_SetArrayElement(CStruct* params, CScript* script)
+{
+    uint32_t arrayName = 0;
+    params->GetChecksum(kArrayName, &arrayName, 1);
+    CArray* array = nullptr;
+    script->m_params->GetArray(arrayName, &array, 1);
+    int index = 0;
+    params->GetInteger(kIndex, &index, 1);
+    CComponent* newValue = params->FindLastComponent(kNewValue);
+    Script::ResolveNameComponent(newValue);
+    CComponent* value = Script::NewComponent();
+    Script::CopyComponent(value, newValue, 0);
+    bool store = true; // the element becomes the value (whose own copy is handed over)
+    switch (array->m_type) {
+    case Script::ESYMBOLTYPE_INTEGER:
+    case Script::ESYMBOLTYPE_NAME:
+        array->SetElement(index, value->raw);
+        store = false;
+        break;
+    case Script::ESYMBOLTYPE_FLOAT:
+        if (value->Type() == Script::ESYMBOLTYPE_FLOAT)
+            array->SetFloat(index, value->floatValue);
+        else
+            array->SetFloat(index, static_cast<float>(value->integer));
+        store = false;
+        break;
+    case Script::ESYMBOLTYPE_STRING:
+    case Script::ESYMBOLTYPE_LOCALSTRING:
+        Script::FreeString(array->GetLocalString(index));
+        break;
+    case Script::ESYMBOLTYPE_PAIR:
+        Script::FreePair(reinterpret_cast<void*>(array->GetElement(index)));
+        break;
+    case Script::ESYMBOLTYPE_VECTOR:
+        Script::FreeVector(reinterpret_cast<void*>(array->GetElement(index)));
+        break;
+    case Script::ESYMBOLTYPE_STRUCTURE:
+        if (auto* old = reinterpret_cast<CStruct*>(array->GetElement(index))) {
+            old->Clear();
+            Script::DeleteStruct(old);
+        }
+        break;
+    case Script::ESYMBOLTYPE_ARRAY: {
+        auto* old = reinterpret_cast<CArray*>(array->GetElement(index));
+        Script::CleanUpArray(old);
+        if (old) {
+            old->Clear();
+            Script::DeleteArray(old);
+        }
+        break;
+    }
+    default:
+        store = false;
+        break;
+    }
+    if (store)
+        array->GetArrayPointer()[index] = value->raw;
+    value->raw = 0;
+    Script::FreeComponent(value);
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x0044B7E0, CFuncs::CFunc_RemoveParameter);
@@ -370,3 +720,14 @@ REPLACE(0x0044BF20, CFuncs::CFunc_GetUpperCaseString);
 REPLACE(0x0044BFA0, CFuncs::CFunc_AddFlag);
 REPLACE(0x0044BFD0, CFuncs::CFunc_AppendSuffix);
 REPLACE(0x0044C120, CFuncs::CFunc_IsObjectScript);
+REPLACE(0x0044C290, CFuncs::CFunc_ForEachIn);
+REPLACE(0x0044C430, CFuncs::CFunc_GetElement);
+REPLACE(0x0044C5A0, CFuncs::CFunc_PermuteArray);
+REPLACE(0x0044C730, CFuncs::CFunc_GotoPreserveParams);
+REPLACE(0x0044C840, CFuncs::FormatPrintfText);
+REPLACE(0x0044C9B0, CFuncs::CFunc_Dump);
+REPLACE(0x0044CB70, CFuncs::CFunc_ScriptAssert);
+REPLACE(0x0044CBC0, CFuncs::CFunc_CreateIndexArray);
+REPLACE(0x0044CCC0, CFuncs::CFunc_AppendStruct);
+REPLACE(0x0044CDB0, CFuncs::CFunc_StringToCharArray);
+REPLACE(0x0044CEC0, CFuncs::CFunc_SetArrayElement);

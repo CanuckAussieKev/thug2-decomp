@@ -29,5 +29,20 @@ bool __cdecl CFunc_GetUpperCaseString(Script::CStruct* params, Script::CScript* 
 bool __cdecl CFunc_AddFlag(Script::CStruct* params, Script::CScript* script);                // 0x0044BFA0
 bool __cdecl CFunc_AppendSuffix(Script::CStruct* params, Script::CScript* script);           // 0x0044BFD0
 bool __cdecl CFunc_IsObjectScript(Script::CStruct* params, Script::CScript* script);         // 0x0044C120
+bool __cdecl CFunc_ForEachIn(Script::CStruct* params, Script::CScript* script);              // 0x0044C290
+bool __cdecl CFunc_GetElement(Script::CStruct* params, Script::CScript* script);             // 0x0044C430
+bool __cdecl CFunc_PermuteArray(Script::CStruct* params, Script::CScript* script);           // 0x0044C5A0
+bool __cdecl CFunc_GotoPreserveParams(Script::CStruct* params, Script::CScript* script);     // 0x0044C730
+bool __cdecl CFunc_Dump(Script::CStruct* params, Script::CScript* script);                   // 0x0044C9B0
+bool __cdecl CFunc_ScriptAssert(Script::CStruct* params, Script::CScript* script);           // 0x0044CB70
+bool __cdecl CFunc_CreateIndexArray(Script::CStruct* params, Script::CScript* script);       // 0x0044CBC0
+bool __cdecl CFunc_AppendStruct(Script::CStruct* params, Script::CScript* script);           // 0x0044CCC0
+bool __cdecl CFunc_StringToCharArray(Script::CStruct* params, Script::CScript* script);      // 0x0044CDB0
+bool __cdecl CFunc_SetArrayElement(Script::CStruct* params, Script::CScript* script);        // 0x0044CEC0
+
+// 0x0044C840: the text a printf-like command shows, into `out` (followed by a newline): an unnamed string put
+// together as FormatText would (with TextName=PrintfText, the parameters added; "" if that fails), else an
+// unnamed integer; nothing is written without either. (`script` unused.) Always true.
+bool __cdecl FormatPrintfText(char* out, Script::CStruct* params, Script::CScript* script);
 
 } // namespace CFuncs
