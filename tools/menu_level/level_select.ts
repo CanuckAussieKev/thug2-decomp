@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the level select in sections, one per game, for make_menu_level.ts's data overlay:
-//   - Up / Down switch between the games (THUG2, then THUG1, THPS4, THPS3, THPS2 when converted); Left / Right
-//     move through the section's levels as before. A header above the signs names the section; the helper text
+//   - Up / Down switch between the games (THUG2, then THUG1, THPS4, THPS3, THPS2, THAW, THP8 when converted); Left /
+//     Right move through the section's levels as before. A header above the signs names the section; the helper text
 //     says "Up/Down = Game". Classic mode (its brackets use Up / Down) keeps the game's own list.
 //   - every level we add gets a star (the game's level_dot) at its real-world place on the globe, which turns to it
 //     as to THUG2's own levels; a level with no place (the skate shops, TEST LEVEL) spins the globe, as THUG2's
@@ -393,6 +393,7 @@ export function sections(
         thps3?: Manifest | undefined;
         thps2?: Manifest | undefined;
         thaw?: Manifest | undefined;
+        thp8?: Manifest | undefined;
     } = {},
 ): Section[] {
     const out: Section[] = [["thug2", "TONY HAWK'S UNDERGROUND 2", "level_select_menu_level_info", null]];
@@ -434,6 +435,15 @@ export function sections(
             "TONY HAWK'S AMERICAN WASTELAND",
             "level_select_menu_thaw_level_info",
             thawPositionScaleFlags(games.thaw, manifestLevels(games.thaw, THAW_LEVELS, "THAW")),
+        ]);
+    }
+    if (games.thp8) {
+        // (placeholder signs - the manifest's THUG2 sign texture - and no stars: THP8's city is fictional)
+        out.push([
+            "thp8",
+            "TONY HAWK'S PROJECT 8",
+            "level_select_menu_thp8_level_info",
+            manifestLevels(games.thp8, new Map(), "THP8"),
         ]);
     }
     return out;
