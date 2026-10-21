@@ -352,9 +352,15 @@ check: `node tools/thps3_levels/thugpro_inventory.ts --thug2 <folder> --applied`
 | Id | What | Why | Where | Off by |
 |---|---|---|---|---|
 | TP-R1 | Online identity: GameSpy game name `thugpro` (key unchanged) | Shows THUGPRO's lobbies ("General", "Newbies") on OpenSpy instead of THUG2's | `src/game/net/online_identity.cpp` | `[Miscellaneous] OnlineGameName=` empty (the default: THUG2's own) |
+| TP-R2 | Chat (76) in THUGPRO's layout: a 4-byte machine id before THUG2's object / name / text, text at most 127; received ones read the same way (malformed dropped) | THUGPRO reads every chat message that way: THUG2's layout comes out shifted by 4 both ways | `src/game/net/chat.cpp` (send; the handler 0x00532050, now source), `src/game/net/thugpro_peer.cpp` (layout, machine id: `[online] thugpro_machine_id=<hex>` or random per run) | The THUGPRO peer mode off: `OnlineGameName` not `thugpro` and `[online] thugpro_peer=0` (the default) |
+| TP-R3 | THUGPRO's host options: server info (155: time of day, weather, 8 level options, 8 pro-set flags) and the time-of-day / weather updates (156 / 157) applied on our side (THUG2's TOD manager - its multiplayer lock lifted in these games, as THUGPRO's DLL does -, THUG2's rain / snow, the level's `<level>_LEVEL_CHANGE_0n on`, the pro sets' node prefixes); 158 ignored (as THUGPRO); 159 (mods allowed = 0) leaves the game. Hosting: 155 sent before each start info from our TOD state and the chat commands `/tod`, `/weather`, `/option`, `/proset` (156 / 157 sent by `/tod` / `/weather`) | THUGPRO's level options change geometry and rails, its pro sets add or remove pieces: positions only agree when both sides build the same | `src/game/net/thugpro_peer.cpp`, `src/game/gfx/tod_manager.cpp` (the unlock), `src/game/skate/skate_net.cpp` (registration), `src/game/net/net_app.cpp` (the send filter) | As TP-R2 |
+| TP-R4 | THUGPRO's pro-set levels: its THPS4 levels (`Load_practice`, `sch`, `alc`, `sf2`, `kon`, `lon`, `jnk`, `zoo`, `cnv`, `hof` - its Levels.q `Game = THPS4`) and THUG1's `Load_NY`; the prefixes of its `toggle_*_params` (`Proset1`..`7`, `G_COMP`, their `TRG_` and `NOT` sets) | Where its pro-set flags count (its gameflow's HandleProtrickObjects) | `src/game/net/thugpro_peer.cpp` (`kProSetLevels`, `kProSets`) | As TP-R2 |
+| TP-R5 | Change level (70) as host: THUGPRO's 32-byte level name after THUG2's 8 bytes ("Skateshop\n", "Park Editor\n", "Custom Park\n", the level select's name or "Unknown\n") | THUGPRO joiners show it (and its missing-level dialog names it) | `src/game/net/thugpro_peer.cpp` (the send filter) | As TP-R2 |
 
-Not done (would be run-time work): THUGPRO's own protocol - its extra messages (155-159), the scripts-hash check,
-LZHAM compression, the level name it adds to 0x46. Mixed games with THUGPRO players need that whatever the files are.
+Not done (would be run-time work): the scripts-hash check and THUGPRO's join request (the join path - another
+agent's), LZHAM compression; level options changed by a THUGPRO host during a game (THUGPRO sends them as THUG2 flag
+broadcasts - `BroadcastOmnigon cheat_flag=SERVER_LEVEL_CHANGE_0n_ON` - whose flag numbers are THUGPRO's script
+globals: ours apply them at the next game's server info).
 
 ## Changing approach (build time -> run time)
 

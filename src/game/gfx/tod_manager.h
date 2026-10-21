@@ -197,6 +197,12 @@ public:
     void SetTempBloomParams(Script::CStruct* params);
     void EnableBloom(int on);
 
+    // NOT ORIGINAL (THUGPRO's time of day in network games - game/net/thugpro_peer.h): the first non-sky system's
+    // state (0 if both are sky systems), and whether SetTODInstant(state) can run - it loops for ever unless the
+    // current state and `state` are among the four, and reads each state's structure on the way.
+    uint32_t CurrentState() const;
+    bool CanSetTODInstant(uint32_t state) const;
+
     Lst::HashTable* m_deadObjects;       // +0x000 nodes marked permanently dead (value: the manager)
     Script::CStruct* m_unknown4;          // +0x004 made, emptied and freed, never filled
     TODSystem m_systems[kSystems];        // +0x008
@@ -236,6 +242,17 @@ void AddBloomParams(int on, int bloom1, int bloom2, uint32_t strength, uint32_t 
 // shown even where the manager's fog is off). Null (the default): the original behaviour.
 using TODParamsFilter = bool (*)(TODParams* params);
 void SetTODParamsFilter(TODParamsFilter filter);
+
+// NOT ORIGINAL - THUGPRO's time of day in network games (game/net/thugpro_peer.h): in a multiplayer game the original
+// leaves the lights as they are - ResetLevelLights, SetTODInstant and EnableBloom do nothing. THUGPRO's DLL lifts
+// that (its 4 byte patches at 0x00573BF8, 0x00574683, 0x00574410; its 4th, 0x00574375, makes SetTempBloomParams
+// always take the multiplayer branch - what it already does in a multiplayer game). When the unlock is set and says
+// true, those three run in a multiplayer game too. Null (the default): the original behaviour.
+using MultiplayerUnlock = bool (*)();
+void SetMultiplayerUnlock(MultiplayerUnlock unlock);
+MultiplayerUnlock GetMultiplayerUnlock();
+// What those three test: a multiplayer game (0x005651F0) not unlocked.
+bool TODLightsLocked();
 
 // The singleton (0x007CE490).
 CTODManager*& TODManager();
