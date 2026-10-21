@@ -261,7 +261,7 @@ public:
     // hang_obstruction_feeler_up - and back the other way. True if neither hits.
     bool SideClear(Nx::CFeeler* feeler, const Mth::Vector* hang, const Mth::Vector* side);
     // 0x0043DFC0: hanging on the rail +0x1764 / +0x1768 `distance` from its start (`fromEnd`: its end), facing away
-    // from it - the side `direction` says; turning round more than 60 degrees tells +0x1760 (0x005250A0). The hang
+    // from it - the side `direction` says; turning round more than 60 degrees flushes the walk camera (+0x1760). The hang
     // offset (+0x71C) from the new facing.
     void FaceHangRail(float distance, bool fromEnd, const Mth::Vector* direction);
     // 0x0043E230: the rail joining `start` / `end` (the segment the skater is at, `*t` along it): past the start
@@ -270,7 +270,7 @@ public:
     // or it's refused: "BAD ANGLE ON COINCIDENT RAIL"). Its nodes into `newStart` / `newEnd`, `*t` flipped when it
     // runs the other way. Whether there's one.
     bool NextHangRail(float* t, CRailNode* start, CRailNode* end, CRailNode** newStart, CRailNode** newEnd);
-    // 0x0043E530: a pull-up onto the ledge above the hang: the ground near `target` (0x00528280; failing that, 12 to
+    // 0x0043E530: a pull-up onto the ledge above the hang: the ground near `target` (FindStandPosition; failing that, 12 to
     // one side, then 12 to the other - `target` moved), seven feelers round it (none may hit) and one from behind the
     // skater up past the pull_up_obstruction_height (neither may hit). Then the animated move (PullUpFromHang) towards
     // it, ending walking (the ledge's feeler kept for the triggers) or, with no ground found, in the air. Whether it

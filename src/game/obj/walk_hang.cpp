@@ -20,6 +20,7 @@
 #include "game/obj/smtptr.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/walk_camera.h"
 #include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -48,7 +49,7 @@ constexpr uint32_t kUnknown74 = 0x74;       // (a float set to 1 by a drop to ha
 constexpr uint32_t kAnim = 0x78;            // the animation to play (checksum)
 constexpr uint32_t kHeightOffset = 0x9C;    // the origin's height offset
 constexpr uint32_t kHangOffset = 0x71C;     // the hang's offset from the critical point (a vector)
-constexpr uint32_t kTurnTarget = 0x1760;    // told when the hang turns round (0x005250A0)
+constexpr uint32_t kWalkCamera = 0x1760;    // the walk camera (Obj::CWalkCameraComponent)
 constexpr uint32_t kRailStart = 0x1764;     // the rail held: its node...
 constexpr uint32_t kRailEnd = 0x1768;       // ... and the next
 constexpr uint32_t kRailManager = 0x176C;   // whose rail manager
@@ -71,13 +72,6 @@ constexpr uint32_t kEndHeightOffset = 0x1918;   // ... and end
 constexpr uint32_t kAnimWaiting = 0x1944;   // an animation is playing: the callback waits
 constexpr uint32_t kAnimDone = 0x1948;      // the callback (a member function pointer: the code, then 3 words)
 
-// The walk component's own code (not rewritten): its state (+0x18: 0 walking, 1 in the air, 2 hanging, 3 on a
-// ladder, 4 an animated move), 0x00527720 (turning to face a direction, at a rate).
-void SetState(void* walk, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x005260E0)(walk, state); }
-void TurnTo(void* walk, const Mth::Vector* facing, float rate)
-{
-    GameFunction<void(__thiscall*)(void*, const Mth::Vector*, float)>(0x00527720)(walk, facing, rate);
-}
 
 // The events the rail scripts and triggers get (const int[3]).
 constexpr uint32_t kHangEvents = 0x006468DC;     // {0xA, 3, 0}
@@ -161,13 +155,6 @@ struct FoundRail {
 };
 static_assert(sizeof(FoundRail) == sizeof(Obj::Record34), "the rail manager's record");
 
-// The ground for a pull-up near `target` (the walk component's 0x00528280): its point into `point`, the feeler that
-// found it filled in. Whether there is some.
-bool FindPullUpGround(void* walk, Mth::Vector* target, Mth::Vector* point, Nx::CFeeler* feeler)
-{
-    return GameFunction<bool(__thiscall*)(void*, Mth::Vector*, Mth::Vector*, Nx::CFeeler*)>(0x00528280)(walk, target,
-                                                                                                      point, feeler);
-}
 // A feeler copied (its assignment 0x0043A930).
 void AssignFeeler(Nx::CFeeler* to, const Nx::CFeeler* from)
 {
@@ -375,7 +362,7 @@ double Obj::CWalkComponent::CriticalPointUp()
 // 0x0043DB00
 void Obj::CWalkComponent::EndPullUp()
 {
-    SetState(this, 0);
+    SetState(0);
     ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
     TriggerRailScript(this, kExitHangEvents);
     if (At<bool>(this, kPullUpHit)) {
@@ -390,7 +377,7 @@ void Obj::CWalkComponent::EndPullUp()
 // 0x0043DB90
 void Obj::CWalkComponent::EndDropFromHang()
 {
-    SetState(this, 1);
+    SetState(1);
     ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
     TriggerRailScript(this, kExitHangEvents);
     VectorAt(this, kExitFacing) = VectorAt(this, kFacing);
@@ -402,7 +389,7 @@ void Obj::CWalkComponent::EndDropFromHang()
 void Obj::CWalkComponent::EndDropToHang()
 {
     SetHangOffset(this);
-    SetState(this, 2);
+    SetState(2);
     TellPhysicsRail(this);
     TriggerRailScript(this, kHangEvents);
     At<bool>(ObjectOf(this)->GetComponent(kTaggingControl), 0x1D) = false;
@@ -482,7 +469,7 @@ void Obj::CWalkComponent::FaceHangRail(float distance, bool fromEnd, const Mth::
     double dot = static_cast<double>(across.z) * facing.z + static_cast<double>(across.y) * facing.y +
                  static_cast<double>(across.x) * facing.x;
     if (X87Cos(kSixtyDegrees) > dot)
-        GameFunction<void(__thiscall*)(void*)>(0x005250A0)(At<void*>(this, kTurnTarget));
+        At<CWalkCameraComponent*>(this, kWalkCamera)->FlushRequest();
     VectorAt(this, kFacing) = {across.x, across.y, across.z, 1.0f};
     SetHangOffset(this);
 }
@@ -561,7 +548,7 @@ bool Obj::CWalkComponent::PullUp(Mth::Vector* target)
     Nx::CFeeler ledge;
     ledge.Construct();
     Mth::Vector ground;
-    bool found = FindPullUpGround(this, target, &ground, &ledge);
+    bool found = FindStandPosition(target, &ground, &ledge);
     if (!found) {
         float across = -VectorAt(this, kFacing).z;
         Mth::Vector first = ground;
@@ -569,12 +556,12 @@ bool Obj::CWalkComponent::PullUp(Mth::Vector* target)
         target->x = static_cast<float>(static_cast<double>(across) * 12.0f + target->x);
         target->z = static_cast<float>(static_cast<double>(facingX) * 12.0f + target->z);
         target->w = target->w + 12.0f;
-        found = FindPullUpGround(this, target, &ground, &ledge);
+        found = FindStandPosition(target, &ground, &ledge);
         if (!found) {
             target->x = static_cast<float>(target->x - static_cast<double>(across) * 24.0f);
             target->z = static_cast<float>(target->z - static_cast<double>(facingX) * 24.0f);
             target->w = target->w - 24.0f;
-            found = FindPullUpGround(this, target, &ground, &ledge);
+            found = FindStandPosition(target, &ground, &ledge);
             if (!found)
                 ground = first;
         }
@@ -625,7 +612,7 @@ bool Obj::CWalkComponent::PullUp(Mth::Vector* target)
     }
     VectorAt(this, kStartPos) = pos;
     VectorAt(this, kEndPos) = ground;
-    TurnTo(this, &VectorAt(this, kFacing), 1.0f);
+    SetTransitionFacing(&VectorAt(this, kFacing), 1.0f);
     At<int>(this, kAnimWaiting) = 1;
     At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
     At<float>(this, kEndHeightOffset) = 0.0f;
@@ -636,7 +623,7 @@ bool Obj::CWalkComponent::PullUp(Mth::Vector* target)
     offset.y = 1.0f;
     VectorAt(this, kTargetFacing) = facing;
     At<float>(this, kTargetHeight) = pos.y - At<float>(this, kRailUp);
-    SetState(this, 4);
+    SetState(4);
     At<uint32_t>(this, kAnim) = kAnimPullUpFromHang;
     return true;
 }
@@ -672,7 +659,7 @@ bool Obj::CWalkComponent::DropToHang()
     VectorAt(this, kStartPos) = VectorAt(this, kPos);
     VectorAt(this, kEndPos) = rail.point;
     SetAnimDone(this, 0x0043DCF0);
-    TurnTo(this, &rail.facing, Param(kDropToHangRotateFactor));
+    SetTransitionFacing(&rail.facing, Param(kDropToHangRotateFactor));
     At<int>(this, kAnimWaiting) = 1;
     float horiz = Param(kHangCriticalPointHorizOffset);
     VectorAt(this, kHangOffset) = {rail.facing.x * horiz, rail.facing.y * horiz, rail.facing.z * horiz,
@@ -681,7 +668,7 @@ bool Obj::CWalkComponent::DropToHang()
     At<float>(this, kTargetHeight) = VectorAt(this, kPos).y;
     At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
     At<float>(this, kEndHeightOffset) = static_cast<float>(HangHeightOffset());
-    SetState(this, 4);
+    SetState(4);
     At<uint32_t>(this, kAnim) = kAnimDropToHang;
     return true;
 }
@@ -710,7 +697,7 @@ bool Obj::CWalkComponent::GrabRail(Mth::Vector start, Mth::Vector end)
     VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     At<float>(this, kVerticalSpeed) = 0.0f;
     At<float>(this, kHeightOffset) = static_cast<float>(HangHeightOffset());
-    SetState(this, 2);
+    SetState(2);
     TellPhysicsRail(this);
     TriggerRailScript(this, kHangEvents);
     At<uint32_t>(this, kAnim) = kAnimHang;
@@ -1138,7 +1125,7 @@ void Obj::CWalkComponent::UpdateHang()
                 return;
         } else if (reinterpret_cast<const Walk::SkaterTurn*>(input + 0x20)->TurnedRound()) {
             // turned round: let go
-            SetState(this, 1);
+            SetState(1);
             ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
             TriggerRailScript(this, kExitHangEvents);
             VectorAt(this, kExitFacing) = facing;

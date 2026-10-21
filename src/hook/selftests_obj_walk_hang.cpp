@@ -22,6 +22,7 @@
 #include "game/obj/walk_hang.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/walk_camera.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
 #include "hook/cfunc_testkit.h"
@@ -93,11 +94,11 @@ std::vector<StandIn> WalkStandIns()
     return {
         {0x00479020, 0, 1, Ret::Int, false, 0, {Ours(static_cast<Script::CStruct* (*)(uint32_t)>(&Script::GetStructure))},
          [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(g_walkParams->Struct()); }},
-        {0x005260E0, 4, 1, Ret::None, true},
+        {0x005260E0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CWalkComponent::SetState)}},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
         {0x005092E0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::TriggerRailScript)}},
         {0x0052AB90, 8, 2, Ret::None, true, 0, {Ours(&Obj::CWalkComponent::LeaveRide)}},
-        {0x00527720, 8, 2, Ret::None, true},
+        {0x00527720, 8, 2, Ret::None, true, 0, {Ours(&Obj::CWalkComponent::SetTransitionFacing)}},
         {0x00434BF0, 8, 2, Ret::None, true},
         {0x00427CD0, 4, 1, Ret::None, true},
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
@@ -120,7 +121,7 @@ std::vector<StandIn> WalkStandIns()
              }
              r.eax = 0;
          }},
-        {0x005250A0, 0, 0, Ret::None, true},
+        {0x005250A0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CWalkCameraComponent::FlushRequest)}},
         {0x00401C30, 0, 0, Ret::None, false, 0, {Ours(&Dbg::Printf)}, [](Frame& f, Result&) {
              // (the strings by content: the original's and ours are at different addresses)
              for (int i = 0; i < 4; ++i)
@@ -146,7 +147,7 @@ std::vector<StandIn> WalkStandIns()
              if (r.eax)
                  std::memset(ArenaPtr(kSpare), 0, 0x28);
          }},
-        {0x00528280, 12, 1, Ret::Bool, true, 0, {}, [](Frame& f, Result&) {
+        {0x00528280, 12, 1, Ret::Bool, false, 0, {Ours(&Obj::CWalkComponent::FindStandPosition)}, [](Frame& f, Result&) {
              for (int i = 0; i < 4; ++i)
                  RecordFloat(reinterpret_cast<float*>(f.args[0])[i]);
              for (int i = 0; i < 4; ++i)
