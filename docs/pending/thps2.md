@@ -323,7 +323,7 @@ Captures in C:\Games\THUG2-1\Screenshots:
   shatters (THUG2's glass pieces) and is gone.
 - cd_t0 ... cd_t25 (5 s apart): Chopper Drop - a boat comes past the ship's tower and leaves (its path), the start's
   drop gap scored ("GAP 1200").
-- Load check of all ten: LOADCHECK
+- Load check of all ten (load_check.ps1): all load and run - no exception, run-time check failure or CRT report in the log; Philadelphia's first try timed out before its collision was read (82 s window), a second run loaded it cleanly.
 The first agent's captures there: h3_door_*, h3_glass_*, h3_event, z_before_* / z_after_*.
 
 ## For the user to try
