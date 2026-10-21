@@ -10,8 +10,11 @@ import * as path from "node:path";
 import { getCloseMatches } from "../lib/difflib.ts";
 import { decodeLatin1, intFromBytesLE, pyIntHex, pyMinBy, pyParseFloat, pySum } from "../lib/py.ts";
 import { findall, type Match, search, sub } from "../lib/re.ts";
+import { pack } from "../lib/struct.ts";
+import { FormatError } from "./binio.ts";
 import * as qb from "./qb.ts";
 import { checksum, Name, type QbFile, type QbValue, type Statement, Struct, Vector } from "./qb.ts";
+import { type Element, encodeValue, globalArraySpan, replaceGlobalArray } from "./qb_write.ts";
 import * as thug2Col from "./thug2_col.ts";
 import { TABLE_MEMBERS } from "./thug2_members.ts";
 
@@ -195,41 +198,49 @@ export function killCommands(
     return found;
 }
 
-// Keys every node keeps for itself when the rest is shared (shareIncludes).
+// Keys every node keeps for itself when the rest is shared (shareParts): what THUG2's own levels keep on the node
+// (their ncomp_* hold the rest) - a node's identity, place and links. The level editor reads a node's fields through
+// its includes and edits them as the node's own overrides (src/game/front/level_editor_fields.cpp), as on THUG2's own
+// levels; tools/game/apply_layout.ts the same.
 export const OWN_KEYS: ReadonlySet<number> = new Set(
     ["Pos", "Position", "Angles", "Name", "Links", "TriggerScript"].map(checksum),
 );
 
-export function shareIncludes(
-    converted: Struct[],
-    names: Names,
+export function shareParts(
+    converted: readonly Struct[],
     prefix: string,
     shared: (node: Struct) => boolean = () => true,
-): [Struct[], string] {
+): [Struct[], [string, Struct][]] {
     // expandIncludes undone: the parts nodes have in common (everything but OWN_KEYS) made global structures that the
     // nodes name - as THUG2's own levels have them (BE: `ncomp_RailNode_1 = {Class=RailNode Type=Concrete
     // CreatedAtStart TrickObject Cluster=... TerrainType=...}`, the rail nodes listing just Pos / Angles / Name, the
-    // include, Links). THUG2's structure lookups follow the include. One structure per set of identical parts that at
-    // least two nodes have; `shared` picks the nodes that may take part. Every node's entries cost a script component
-    // (the CComponent pool, 86000 for everything loaded): expanded node arrays bigger than THUG2's ran it dry while
-    // loading (THUG1 Hawaii / New Jersey; THAW Kyoto). Returns [the nodes, the structures as NeverScript text].
-    const groups = new Map<string, number>();
+    // include, Links; THUGPRO's level compiler does it for every node kind too). THUG2's structure lookups follow the
+    // include (Search / GetChecksum / ContainsFlag: src/game/script/struct.cpp IncludedStructure). One
+    // `<prefix>_inc_<n>` per set of identical parts (the same tokens) that at least two nodes have; `shared` picks the
+    // nodes that may take part. Every node's entries cost a script component (the CComponent pool, 86000 for
+    // everything loaded): expanded node arrays bigger than THUG2's ran it dry while loading (THUG1 Hawaii / New
+    // Jersey; THAW Kyoto). Returns [the nodes - the unshared ones the same objects -, the structures in order].
+    const groups = new Map<string, [number, Struct]>();
     const sharedOf: (string | null)[] = [];
     for (const node of converted) {
         const parts = node.entries.filter(([k]) => k === null || !OWN_KEYS.has(k.value));
-        const k = shared(node) && parts.length > 1 ? qb.toNs(new Struct(parts), names) : null;
+        let k: string | null = null;
+        if (shared(node) && parts.length > 1) {
+            const value = new Struct(parts);
+            k = encodeValue(value).toString("hex");
+            const group = groups.get(k);
+            if (group) group[0] += 1;
+            else groups.set(k, [1, value]);
+        }
         sharedOf.push(k);
-        if (k !== null) groups.set(k, (groups.get(k) ?? 0) + 1);
     }
     const made = new Map<string, Name>();
-    const lines: string[] = [];
-    for (const [k, count] of groups) {
+    const includes: [string, Struct][] = [];
+    for (const [k, [count, value]] of groups) {
         if (count < 2) continue;
         const inc = `${prefix}_inc_${made.size}`;
-        const value = checksum(inc);
-        if (!names.has(value)) names.set(value, inc);
-        made.set(k, new Name(value));
-        lines.push(`${inc} = ${k}`);
+        made.set(k, new Name(checksum(inc)));
+        includes.push([inc, value]);
     }
     const linksKey = checksum("Links");
     const triggerKey = checksum("TriggerScript");
@@ -241,7 +252,144 @@ export function shareIncludes(
         const late = (e: qb.Entry): boolean => e[0]!.value === linksKey || e[0]!.value === triggerKey;
         return new Struct([...own.filter((e) => !late(e)), [null, include], ...own.filter(late)]);
     });
-    return [out, lines.join("\n") + (lines.length ? "\n" : "")];
+    return [out, includes];
+}
+
+// What shareNodeFields did to a level's .qb.
+export interface Shared {
+    data: Buffer;
+    includes: number; // structures made
+    nodes: number; // nodes naming one
+}
+
+export function shareNodeFields(data: Buffer, arrayName: string, prefix: string, file = "qb"): Shared {
+    // A compiled level .qb (`data`, its scripts appended) with its node array's common parts shared (shareParts) - every
+    // node kind: the include structures defined just before the array, the nodes that name one rewritten, every other
+    // byte kept (the unshared nodes too). The converters' LAST step on a level's .qb, after every pass that reads nodes'
+    // own fields (the text passes stripMissingTrickObjects, absentInNetGames / netRestarts, groundRestarts; the profile
+    // fix, the THUGPRO register's node edits...): a field moved into an include would be invisible to them
+    // (assertUnshared stops a text pass given shared nodes). A node array naming a global structure already is an
+    // error: sharing runs once.
+    const q = new qb.QbFile(data, file, true);
+    const arrayKey = checksum(arrayName);
+    const array = q.globals.find(([k, v]) => k.value === arrayKey && Array.isArray(v))?.[1];
+    if (!Array.isArray(array)) throw new FormatError(`${file}: no node array ${arrayName}`);
+    const structures = new Set(q.globals.filter(([, v]) => v instanceof Struct).map(([k]) => k.value));
+    const list: Struct[] = [];
+    for (const node of array) {
+        if (!(node instanceof Struct)) throw new FormatError(`${file}: ${arrayName} has an element that isn't a node`);
+        for (const [k, v] of node.entries) {
+            if (k === null && v instanceof Name && structures.has(v.value)) {
+                throw new FormatError(
+                    `${file}: ${arrayName}'s nodes name shared structures already (${qb.nameText(v.value, q.names)}): ` +
+                        "sharing runs once, last",
+                );
+            }
+        }
+        list.push(node);
+    }
+    const [out, includes] = shareParts(list, prefix);
+    if (!includes.length) return { data, includes: 0, nodes: 0 };
+    for (const [inc] of includes) {
+        if (q.globals.some(([k]) => k.value === checksum(inc)))
+            throw new FormatError(`${file}: ${inc} defined already`);
+    }
+    const elements: Element[] = out.map((n, i) => (n === list[i] ? { keep: i } : { value: n }));
+    const newNames = new Map(includes.map(([inc]): [number, string] => [checksum(inc), inc]));
+    const replaced = replaceGlobalArray(data, arrayKey, elements, newNames, true);
+    // (the array's `name =`: its name token before the value; the bytes before it are the same in `replaced`)
+    const span = globalArraySpan(data, arrayKey)!;
+    let at = -1;
+    for (const [offset, t, payload] of qb.tokens(data, true)) {
+        if (offset >= span[0]) break;
+        if (t === 0x16 && payload.readUInt32LE(0) === arrayKey >>> 0) at = offset;
+    }
+    if (at < 0) throw new FormatError(`${file}: ${arrayName}'s name not found`);
+    const definitions = includes.flatMap(([inc, value]) => [
+        Buffer.from([0x16]),
+        pack("<I", checksum(inc) >>> 0),
+        Buffer.from([0x07]),
+        encodeValue(value),
+        Buffer.from([0x01]),
+    ]);
+    const result = Buffer.concat([replaced.subarray(0, at), ...definitions, replaced.subarray(at)]);
+    const differ = sharedDifferences(data, result, arrayName, file);
+    if (differ.length)
+        throw new FormatError(`${file}: sharing changed nodes' fields: ${differ.slice(0, 3).join("; ")}`);
+    return { data: result, includes: includes.length, nodes: out.filter((n, i) => n !== list[i]).length };
+}
+
+// A node's fields as THUG2 resolves them, in a form to compare: its own (OWN_KEYS) entries in order, and the rest in
+// order with every global structure it names put in place (what a structure lookup sees through the include).
+export function resolvedFields(node: QbValue, globals: ReadonlyMap<number, QbValue>): string {
+    if (!(node instanceof Struct)) return encodeValue(node).toString("hex");
+    const [expanded] = expandIncludes([node], globals) as Struct[];
+    const own = expanded!.entries.filter(([k]) => k !== null && OWN_KEYS.has(k.value));
+    const rest = expanded!.entries.filter(([k]) => k === null || !OWN_KEYS.has(k.value));
+    return `${encodeValue(new Struct(own)).toString("hex")}|${encodeValue(new Struct(rest)).toString("hex")}`;
+}
+
+export function sharedDifferences(before: Buffer, after: Buffer, arrayName: string, file = "qb"): string[] {
+    // The structural check of sharing (shareNodeFields runs it on every level it writes): every node of `arrayName` in
+    // `after` resolves to the same fields as the same node in `before` (resolvedFields), and every other global is
+    // the same. Returns the differences (none: the same behaviour).
+    const a = new qb.QbFile(before, file, true);
+    const b = new qb.QbFile(after, file, true);
+    const ga = new Map(a.globals.map(([k, v]): [number, QbValue] => [k.value, v]));
+    const gb = new Map(b.globals.map(([k, v]): [number, QbValue] => [k.value, v]));
+    const arrayKey = checksum(arrayName);
+    const na = ga.get(arrayKey);
+    const nb = gb.get(arrayKey);
+    if (!Array.isArray(na) || !Array.isArray(nb)) return [`no node array ${arrayName}`];
+    const out: string[] = [];
+    if (na.length !== nb.length) out.push(`${na.length} nodes before, ${nb.length} after`);
+    for (let i = 0; i < Math.min(na.length, nb.length); i++) {
+        if (resolvedFields(na[i]!, ga) !== resolvedFields(nb[i]!, gb)) out.push(`node ${i}`);
+    }
+    for (const [k, v] of ga) {
+        if (k === arrayKey) continue;
+        const w = gb.get(k);
+        if (w === undefined || encodeValue(v).toString("hex") !== encodeValue(w).toString("hex"))
+            out.push(`global ${qb.nameText(k, a.names)}`);
+    }
+    return out;
+}
+
+export function shareNodeFieldsIn(file: string, arrayName: string, prefix: string): Shared {
+    // shareNodeFields on the .qb file `file`, written back.
+    const shared = shareNodeFields(fs.readFileSync(file), arrayName, prefix, path.basename(file));
+    if (shared.includes) fs.writeFileSync(file, shared.data);
+    return shared;
+}
+
+export function unshareNodeFields(data: Buffer, arrayName: string, file = "qb"): Buffer {
+    // shareNodeFields undone for a reader of a converted level's nodes as text (make_menu_level's front end takes
+    // the converted skate shop's rails, peds and triggers by their Class): the nodes that name a global structure get
+    // its entries in its place (expandIncludes); every other byte kept (the structures stay defined).
+    const q = new qb.QbFile(data, file, true);
+    const arrayKey = checksum(arrayName);
+    const array = q.globals.find(([k, v]) => k.value === arrayKey && Array.isArray(v))?.[1];
+    if (!Array.isArray(array)) throw new FormatError(`${file}: no node array ${arrayName}`);
+    const globals = new Map(q.globals.map(([k, v]): [number, QbValue] => [k.value, v]));
+    const includes = (node: QbValue): boolean =>
+        node instanceof Struct &&
+        node.entries.some(([k, v]) => k === null && v instanceof Name && globals.get(v.value) instanceof Struct);
+    const expanded = expandIncludes(array, globals);
+    const elements: Element[] = expanded.map((n, i) => (includes(array[i]!) ? { value: n } : { keep: i }));
+    return replaceGlobalArray(data, arrayKey, elements, new Map(), true);
+}
+
+export function assertUnshared(text: string, pass: string): void {
+    // The passes reading nodes' own fields (NeverScript text) run before sharing (shareNodeFields): a node naming a
+    // structure the text defines (`<level>_inc_<n>`) is an error here, not a field silently missed.
+    const defined = new Set<string>();
+    for (const m of text.matchAll(/^(#?\w+) = \{/gm)) defined.add(m[1]!);
+    if (!defined.size) return;
+    for (const m of text.matchAll(/^[ \t]+(#?\w+)[ \t]*$/gm)) {
+        if (defined.has(m[1]!)) {
+            throw new FormatError(`${pass}: the nodes name ${m[1]}, shared already - the pass must run before sharing`);
+        }
+    }
 }
 
 export function expandIncludes(array: readonly QbValue[], globalsByChecksum: ReadonlyMap<number, QbValue>): QbValue[] {
@@ -593,6 +741,7 @@ export function nodeArrayNs(
 const ELEMENT = /\{[^{}]*\}/;
 
 export function stripMissingTrickObjects(text: string, sectors: { has(value: number): boolean }): [string, number] {
+    assertUnshared(text, "stripMissingTrickObjects");
     // The node array (NeverScript text) with TrickObject / Cluster taken off the LevelGeometry nodes whose sector isn't
     // in the converted scene (`sectors`: collision-only or invisible pieces, left out of the scene): ParseNodeArray
     // registers a TrickObject's sector without checking it's there (0x00588630 reads through the null - THPS3
@@ -628,6 +777,7 @@ export function absentInNetGames(
     text: string,
     scripts: ReadonlyMap<number, Uint8Array> | null = null,
 ): [string, number] {
+    assertUnshared(text, "absentInNetGames");
     // The node array (NeverScript text) with AbsentInNetGames on every CreatedAtStart node a network game can't
     // have - what the shipped levels do for such objects:
     // - one whose TriggerScript follows a path (itself or through scripts it names): no path manager there;
@@ -771,6 +921,7 @@ function splitTypes(text: string): string[] {
 }
 
 export function netRestarts(text: string): [string, number] {
+    assertUnshared(text, "netRestarts");
     // A level with no Multiplayer restart (THPS4's skate shop and MotoX, THPS3's tutorials, THUG1's Downhill Jam,
     // Philly and School: single-player levels in their games) has nowhere for a network game to put the players: its
     // Player1 restarts become Multiplayer and Horse ones too, as THUG2's own skate shop's are. Returns [text, changed].
@@ -853,6 +1004,7 @@ function nodePos(node: string): number[] | null {
 }
 
 export function groundRestarts(text: string, col: thug2Col.ColFile): [string, string[]] {
+    assertUnshared(text, "groundRestarts");
     // The node array (NeverScript text) checked against the converted collision (thug2_col's form): a restart with
     // nothing under it (THAW's shop interiors - separate zones we don't port - are at y -600 over nothing) or over a
     // kill zone's trigger faces (East L.A.'s TransitionParkTeleport restarts, a network game's spawns, above the
