@@ -4,7 +4,10 @@
 #include <string>
 #include <vector>
 
+#include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_chains.h"
+#include "game/front/level_editor_clusters.h"
+#include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_fields.h"
 #include "game/front/level_editor_level_props.h"
 #include "game/front/level_editor_node_create.h"
@@ -99,6 +102,12 @@ class CScript;
 // and reads past a record's scale= (the piece then placed unscaled); an older reader of version 2 skips wall records (the
 // walls then as the level has them). A reader before the per-axis scale refuses a file with a scale=<x>,<y>,<z> on a
 // sector / rail / clone record (a uniform scale is still written scale=<s>); it ignores an object's / copy's scale.
+//   faces <checksum> <face>:<flags>,...               (map3) collision faces' flags as edited (level_editor_faces.h)
+//   cluster <sector> <cluster> | -                     (map3) a scenery piece's trick-object cluster, or none
+//                                                      (level_editor_clusters.h)
+//   camera <name> pos=x,y,z angles=x,y,z dist=d        (map3) a camera node (level_editor_cameras.h)
+//   level ... sky=<scene>                              (map3) the edited copy's sky (level_editor_level_props.h)
+// An older reader skips faces / cluster / camera records and a level record's sky= (the level's own sky then).
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -147,6 +156,9 @@ struct File {
     Chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
     LevelProps::Props level;              // (phase 6) `level` (level_editor_level_props.h)
     std::vector<Walls::WallState> walls;  // `wall`: collision moved / switched off
+    std::vector<Faces::SectorFaces> faces;      // (map3) `faces`
+    std::vector<Clusters::Membership> clusters; // (map3) `cluster`
+    std::vector<Cameras::Camera> cameras;       // (map3) `camera`
 };
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't

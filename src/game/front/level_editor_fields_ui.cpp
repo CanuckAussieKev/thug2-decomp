@@ -433,6 +433,31 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
             ImGui::EndCombo();
         }
         When(smallFont, "on reload", "Whether the time of day moves on (career mode only - the game's own rule).");
+        // Its sky (the feature map's sky row): another level's sky scene.
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::TextDisabled("Sky");
+        ImGui::TableNextColumn();
+        std::string ownSky = "(the level's: " + (level.haveDefaults && !own.sky.empty() ? own.sky : std::string("none")) + ")";
+        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::PushFont(mono);
+        if (ImGui::BeginCombo("##sky", props.sky.empty() ? ownSky.c_str() : props.sky.c_str())) {
+            if (ImGui::Selectable(ownSky.c_str(), props.sky.empty())) {
+                props.sky.clear();
+                SendProps(requests, props, true);
+            }
+            for (const std::string& sky : LevelProps::Skies()) {
+                if (ImGui::Selectable(sky.c_str(), _stricmp(sky.c_str(), props.sky.c_str()) == 0)) {
+                    props.sky = sky;
+                    SendProps(requests, props, true);
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopFont();
+        When(smallFont, "on reload", "The level structure's sky= - the sky scene load_level loads before the level "
+                                    "(any level's: the skies are loose files). Shown when the edited copy next loads "
+                                    "from the level select.");
         // Ambient light.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();

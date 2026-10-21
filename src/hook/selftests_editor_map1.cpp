@@ -279,6 +279,9 @@ void TestEditorMapProxim()
               T::ProximEdited(back),
           "editor map: a sphere's record round trip");
     Check(!T::ProximEdited(T::ProximEdit{0x1u}), "editor map: an edit of nothing isn't one");
+    T::ProximEdit moved = e;
+    moved.offset.z = 7.0f;
+    Check(!T::SameProxim(e, moved), "editor map: proximity edits differ by a box's offset");
     Check(!T::ReadProximRecord("1234 enter=a", &back) && !T::ReadProximRecord("12345678 shape=box", &back) &&
               !T::ReadProximRecord("12345678 shape=sphere", &back) &&
               !T::ReadProximRecord("12345678 shape=cone radius=5", &back) &&

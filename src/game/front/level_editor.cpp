@@ -10,15 +10,20 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_chains.h"
+#include "game/front/level_editor_clusters.h"
+#include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
+#include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
@@ -642,6 +647,7 @@ void Deselect()
     Scenery::ClearSelection();
     g_nodeSelected = false;
     View::ClearWall();
+    Faces::ClearSelection(); // (map3: the collision faces selected - level_editor_faces.h)
 }
 
 // Where the selection is: the first object's position, else the scenery's pivot (the middle of its boxes); its base:
@@ -756,8 +762,10 @@ struct FieldUndo {
 struct UndoStep {
     enum Kind {
         kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kWalls, kTriggers, kFields, kProps,
-        kLocks
+        kLocks, kModule
     } kind = kObjects;
+    // kModule: a module's own step (level_editor_modules.h - face flags, clusters, cameras).
+    std::shared_ptr<ModuleStep> module;
     // kLocks: the locks to put back (level_editor_picking.h - L, Unlock, Unlock all).
     std::vector<Picking::Lock> locks;
     // kScenery: what the scenery carried along (level_editor_carry.h) - their places before the change.
@@ -1135,6 +1143,10 @@ void Restore(UndoStep& step)
     case UndoStep::kTriggers:
         Triggers::Restore(step.triggers);
         break;
+    case UndoStep::kModule:
+        if (step.module)
+            step.module->Restore();
+        break;
     }
 }
 
@@ -1223,6 +1235,9 @@ UndoStep Current(const UndoStep& step)
     }
     case UndoStep::kTriggers:
         now.triggers = Triggers::Save();
+        break;
+    case UndoStep::kModule:
+        now.module = step.module ? step.module->Now() : nullptr;
         break;
     }
     return now;
@@ -1845,6 +1860,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // The UI (Dear ImGui) - else the HUD of screen elements.
     bool ui = Ui::Start();
     View::Start();
+    Faces::Start(); // (map3: Faces mode off, nothing selected)
     Triggers::Start(); // (the level's trigger volumes found)
     // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time; the setting from
     // [Graphics] OcclusionCulling comes back when the editor closes)
@@ -1963,6 +1979,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Hud::HidePanel();
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
+    Faces::Stop();
     Carry::Disarm();
     Triggers::Stop();
     Nx::OcclusionOff() = g_occlusionInPlay;
@@ -3228,6 +3245,9 @@ void Delete()
 // Home: the selection back where the level had it.
 void Reset()
 {
+    // (map3: faces selected - their flags back as the level has them, level_editor_faces.h)
+    if (Faces::HasSelection() && Faces::HomeSelection())
+        return;
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     NodeEdit::Values node;
     if (ShowHiddenNode()) {
@@ -4121,6 +4141,11 @@ void Update()
             Hud::HidePanel();
         } else if (HaveSelection() || g_nodeSelected) {
             Deselect();
+        } else if (Faces::HasSelection()) {
+            Faces::ClearSelection(); // (map3)
+        } else if (Faces::Picking()) {
+            Faces::SetPicking(false);
+            Hud::Message("Faces mode off (K)");
         }
     }
 
@@ -4234,6 +4259,24 @@ void Update()
         }
     }
     Walls::Tick(); // (scenery whose collision is switched off kept off - level_editor_walls.h)
+    // (map3) K: Faces mode - clicks take collision faces (level_editor_faces.h); V: a camera node made from the view
+    // (level_editor_cameras.h).
+    static bool kKey, vKey;
+    if (Pressed(keys, SDL_SCANCODE_K, &kKey) && !ctrl && !g_browser.open && !noChange) {
+        if (Ui::Running()) {
+            Faces::SetPicking(!Faces::Picking());
+            Hud::Message(Faces::Picking() ? "Faces mode (K): a click takes a collision face, Shift+click adds one - the "
+                                            "Inspector sets their flags"
+                                          : "Faces mode off (K)");
+        } else {
+            Hud::Message("Faces mode (K) needs the editor's UI ([features] editor_ui=1)");
+        }
+    }
+    if (Pressed(keys, SDL_SCANCODE_V, &vKey) && !ctrl && !g_browser.open && !noChange)
+        Cameras::CreateFromView();
+    Faces::Update();
+    Clusters::Update();
+    Cameras::Update();
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
     if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
@@ -4448,6 +4491,7 @@ void Update()
     View::SetHoverWall(!g_dragging && haveRay && shift && !alt && View::ShowCollision() && Ui::Running()
                            ? View::PickWall(g_pos, Normalize(dir))
                            : 0);
+    Faces::Hover(g_pos, Normalize(dir), haveRay && !g_dragging && g_hoverAxis < 0); // (map3: Faces mode's hover)
     // Dragging, or what's under the cursor (an arrow first, then an object or scenery - the nearer).
     if (g_dragging && HaveSelection() && haveRay) {
         if (!g_dragMoved && std::fabs(input.x - g_pressX) + std::fabs(input.y - g_pressY) >= 4.0f)
@@ -4529,6 +4573,10 @@ void Update()
                          !Triggers::Resizing() && Triggers::BeginResize(g_hoverHandle, g_pos, dir);
     if (handlePressed) {
         Hud::Message("Resizing: drag the face (Ctrl snaps to 25); Ctrl+Z undoes", 3.0);
+    } else if (input.leftPresses && haveRay && !g_dragging && Faces::Picking() && g_hoverAxis < 0) {
+        // (map3: Faces mode - the collision face clicked, Shift adds / drops it: level_editor_faces.h)
+        Faces::ClickAt(g_pos, Normalize(dir), shift);
+        NoteAction("faces mode click: %s", Faces::Describe().c_str());
     } else if (input.leftPresses && haveRay && !g_dragging && Chains::WantsPick() && g_hoverAxis < 0) {
         // (an armed Link / path assignment: the node clicked - level_editor_chains.h)
         if (g_hoverNode >= 0) {
@@ -4741,6 +4789,10 @@ void Draw()
         Preview::Frame(&model);
         AddNodeGizmos(frame, model.nodes.selected);
         View::AddCollision(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.under, &g_overlay.lines);
+        // (map3: the selected collision faces, the camera nodes' frustums)
+        Faces::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines);
+        Cameras::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ,
+                            model.nodes.selected >= 0 ? Nodes::All()[model.nodes.selected].name : 0, &g_overlay.lines);
         Triggers::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         Triggers::AddExtras(g_pos, frame, g_lens, g_viewport, kNearZ, model.nodes.selected, &g_overlay.lines,
                             &g_overlay.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
@@ -4816,6 +4868,41 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
     if (!model.message.empty())
         out.emplace_back("message", model.message);
     return out;
+}
+
+// --- for the modules (level_editor_modules.h) ---
+
+void PushModuleUndo(std::shared_ptr<ModuleStep> before)
+{
+    UndoStep step;
+    step.kind = UndoStep::kModule;
+    step.module = std::move(before);
+    step.where = SelectionPos();
+    PushUndo(step);
+}
+
+bool CurrentView(ViewNow* view)
+{
+    if (!g_active || !g_haveView)
+        return false;
+    view->pos = g_pos;
+    view->yaw = g_yaw;
+    view->pitch = g_pitch;
+    view->lens = g_lens;
+    std::memcpy(view->viewport, g_viewport, sizeof(view->viewport));
+    view->nearZ = kNearZ;
+    return true;
+}
+
+void LookFrom(V3 pos, float yaw, float pitch)
+{
+    if (!g_active)
+        return;
+    Deselect();
+    g_dragging = false;
+    g_pos = pos;
+    g_yaw = yaw;
+    g_pitch = std::clamp(pitch, -89.0f * kPi / 180.0f, 89.0f * kPi / 180.0f);
 }
 
 } // namespace Front::LevelEditor

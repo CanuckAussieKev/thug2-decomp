@@ -114,6 +114,30 @@ export interface LevelProps {
     time?: number;
     ambient?: [number, number, number];
     fog?: [number, number, number, number, number];
+    sky?: string; // (map3) another level's sky scene - LevelProps::ValidSky
+}
+// (map3 - level_editor_faces.h) a sector's collision faces' flags as edited: [face index, flags], ascending.
+export interface FaceRecord {
+    checksum: number;
+    faces: [number, number][];
+}
+// (map3 - level_editor_clusters.h) a scenery piece's trick-object cluster (trick false: not a trick object).
+export interface ClusterRecord {
+    sector: number;
+    trick: boolean;
+    cluster: number;
+}
+// (map3 - level_editor_cameras.h) a camera node.
+export interface CameraRecord {
+    name: string;
+    pos: V3;
+    angles: V3;
+    distance: number;
+}
+export const CAMERA_DISTANCE = { min: 50, max: 20000, default: 1000 } as const;
+// LevelProps::ValidSky: 1-64 letters, digits, _, holding "_sky" (what the load takes for a sky).
+export function validSky(sky: string): boolean {
+    return /^[A-Za-z0-9_]{1,64}$/.test(sky) && sky.toLowerCase().includes("_sky");
 }
 export interface Layout {
     version: number;
@@ -143,6 +167,10 @@ export interface Layout {
     // (phase 5) the editor's trigger volumes: name, kind and their key=value fields as written (level_editor_triggers.h),
     // and the record as the DLL reads it (`spec`)
     triggers: { line: number; name: string; kind: string; fields: Record<string, string>; spec: TriggerSpec }[];
+    // (map3) collision faces' flags, scenery clusters, camera nodes
+    faces: FaceRecord[];
+    clusters: ClusterRecord[];
+    cameras: CameraRecord[];
 }
 
 export class LayoutError extends Error {
@@ -407,6 +435,9 @@ export function readLayout(text: string): Layout {
         level: {},
         unknown: [],
         triggers: [],
+        faces: [],
+        clusters: [],
+        cameras: [],
     };
     const lines = text.split("\n");
     let header = false;
@@ -643,7 +674,11 @@ export function readLayout(text: string): Layout {
                         level.tod = (TOD_STATES as readonly string[]).includes(t) ? t : fail("bad tod");
                     } else if (key === "time")
                         level.time = value === "0" || value === "1" ? Number(value) : fail("bad time");
-                    else if (key === "ambient" || key === "fog") {
+                    else if (key === "sky") {
+                        // (map3) a sky scene (%-escaped like name=; LevelProps::ValidSky)
+                        const t = unescapeText(value);
+                        level.sky = t !== null && validSky(t) ? t : fail("bad sky");
+                    } else if (key === "ambient" || key === "fog") {
                         const n = value.split(",").map((v) => (isInt(v) ? Number(v) : fail(`bad ${key}`)));
                         if (n.length !== (key === "ambient" ? 3 : 5)) fail(`bad ${key}`);
                         if (key === "ambient") level.ambient = n as [number, number, number];
@@ -665,6 +700,62 @@ export function readLayout(text: string): Layout {
                 // (the DLL's reader refuses the whole file over a record it can't read: a bad value, a repeated key)
                 const spec = readTriggerRecord(line.trim().replace(/^trigger\s+/, "")) ?? fail("bad trigger");
                 layout.triggers.push({ line: number, name, kind: triggerKind, fields, spec });
+                break;
+            }
+            case "faces": {
+                // (map3: Faces::ReadRecord) faces <checksum> <face>:<flags>,... - faces 0..65535 once each, flags 1-4 hex
+                const sector = parseHex8(words[1]) ?? fail("bad checksum");
+                if (words.length !== 3) fail("faces: <checksum> <face>:<flags>,...");
+                const faces: [number, number][] = [];
+                for (const item of words[2]!.split(",")) {
+                    const m = /^(\d+):([0-9A-Fa-f]{1,4})$/.exec(item);
+                    if (!m) fail(`bad face "${item}"`);
+                    const face = Number(m![1]);
+                    if (face > 0xffff) fail(`bad face "${item}"`);
+                    if (faces.some(([f]) => f === face)) fail(`face ${face} twice`);
+                    faces.push([face, Number.parseInt(m![2]!, 16)]);
+                }
+                faces.sort((a, b) => a[0] - b[0]);
+                layout.faces.push({ checksum: sector, faces });
+                break;
+            }
+            case "cluster": {
+                // (map3: Clusters::ReadRecord) cluster <sector> <cluster> | -
+                if (words.length !== 3) fail("cluster: <sector> <cluster> | -");
+                const sector = parseHex8(words[1]) ?? fail("bad checksum");
+                if (!sector) fail("bad checksum");
+                if (words[2] === "-") layout.clusters.push({ sector, trick: false, cluster: 0 });
+                else {
+                    const cluster = parseHex8(words[2]) ?? fail("bad cluster");
+                    if (!cluster) fail("bad cluster");
+                    layout.clusters.push({ sector, trick: true, cluster });
+                }
+                break;
+            }
+            case "camera": {
+                // (map3: Cameras::ReadRecord) camera <name> pos=x,y,z [angles=x,y,z] [dist=d]
+                const name = words[1] ?? "";
+                if (!validWord(name)) fail("bad camera name");
+                const camera: CameraRecord = {
+                    name,
+                    pos: { x: 0, y: 0, z: 0 },
+                    angles: { x: 0, y: 0, z: 0 },
+                    distance: CAMERA_DISTANCE.default,
+                };
+                const seen = new Set<string>();
+                for (const [key, value] of keyValues(words.slice(2), number)) {
+                    if (key === "pos" || key === "angles" || key === "dist") {
+                        if (seen.has(key)) fail(`${key} twice`);
+                        seen.add(key);
+                    }
+                    if (key === "pos" || key === "angles") camera[key] = parseTriple(value) ?? fail(`bad ${key}`);
+                    else if (key === "dist") {
+                        const d = parseNumber(value) ?? fail("bad dist");
+                        camera.distance = Math.min(CAMERA_DISTANCE.max, Math.max(CAMERA_DISTANCE.min, d));
+                    } // (another key: a later version's - skipped)
+                }
+                if (!seen.has("pos")) fail("a camera without pos");
+                layout.cameras.push(camera);
                 break;
             }
             default:
