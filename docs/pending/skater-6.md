@@ -77,3 +77,25 @@ Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' f
     apps, server / client, team games, observers, filled team slots), object update messages of 15 bit layouts,
     GetCdKey through stood-in registry functions on 7 paths, the destructors with a stood-in Free. 46 deliberate bugs
     caught (one needed a rerun: a transient build failure).
+- [x] Batch SK6-3 (NOT run in the game yet; the client's game handlers, 12 functions): src/game/net/gamenet_game_handlers.cpp
+  (new; shared helpers in gamenet_handler_util.h, gamenet_handlers.cpp moved onto them).
+  - 0x0052DB80 (0x22 new player: a NewPlayerInfo filled from the message - name strncpy'd 15, object id, team as a
+    signed byte, flags, words; the appearance into its profile unless flags & 5; announced and added 10 frames on when
+    m_readyToPlay, else at once), 0x0052E870 (0x58 crown: the king stops being one; the drop announced to him / to
+    everyone in a network game / to the other local player - found by the id `(skater id == 0)`, i.e. the other of
+    two; then the crown moved to the msg[0]'th crown node (type 0xAF86421B), counting on across up to 49 node walks,
+    and taken off), 0x005300C0 (0x5F: local flag 0x200, launch_fcfs_notification), 0x00530CB0 (0x75 flag returned:
+    flag_returned Team / String0 team_<n>_name, the CTF panel and arrow), 0x00530E50 / 0x00530FF0 (0x88 / 0x87: the
+    created rails (in the heap at the memory manager's +0x114, 0x0067F000 cleared around 0x004F7DF0) / goals
+    (InitialiseCreatedGoals DoNotCreateGoalPeds) arrived; a checksum mismatch asks again (4) or, leaving for the main
+    menu, cancels the join with show_timeout (5) - the two differ in the order of the cancel's steps, kept),
+    0x00531950 (0x6D: goals selected, the menu spawned when msg[0] = 1), 0x00531A80 (0x68: a player's team and
+    the announcements; warn_all_same_team), 0x00531C80 / 0x00531F10 (0x6E / 0x6F goal attack completed / started:
+    the goal's virtuals +0x70 / +0x6C / +0x3C / +0x34 / +0x68, chains through +0x28, the goals left; null current
+    goal dereferenced as the original does), 0x00532280 (0x8D eliminated; 0x8E nothing), 0x00532390 (0x4E observers
+    full: CreateJoinRefusedDialog).
+  - Test: TestGameNetGameHandlers (selftests_skater_gamenet3.cpp; kit gained InstallCommon - scripts, structures,
+    memory, sprintf) - five scenarios. 44 deliberate bugs caught, 10 after strengthening (new player flags 1 / 4, the
+    crown worn before each case, the fcfs flag recorded, distinct heaps at the memory manager's +0x110 / +0x114,
+    foreign-only packets, a list holding only the player, the current goal being the completed one, message 0x8C,
+    elimination id 0).

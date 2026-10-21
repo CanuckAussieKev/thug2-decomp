@@ -6,13 +6,17 @@
 // arena and the traces plus the whole arena (arena-relative) are compared.
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <map>
 #include <vector>
 
+#include "game/core/manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
+#include "game/script/cscript.h"
+#include "game/script/struct.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_dispatcher.h"
 #include "hook/game.h"
@@ -88,12 +92,16 @@ inline void SetUpArena(int run)
     GameVariable<uint32_t>(0x007CE5D8) = At(kMisc + 0x300); // the park editor
     GameVariable<uint32_t>(0x00696D68) = At(kMisc + 0x400); // the main loop's task stacks
     GameVariable<uint32_t>(0x007D1800) = At(kMisc + 0x800); // the memory manager
+    GameVariable<bool>(0x007CC979) = true;                  // (set up)
+    std::memset(reinterpret_cast<void*>(0x006F3614), 0, 16); // no structure pools
+    std::memset(reinterpret_cast<void*>(0x006F22B4), 0, 16); // no array pools
 }
 
 inline void SaveGlobals(std::initializer_list<Saved> extra = {})
 {
     g_saved = {{0x007CCE14, 4, {}}, {0x007CE478, 4, {}}, {0x007CE470, 4, {}}, {0x007CE500, 4, {}},
-               {0x007CE5D8, 4, {}}, {0x00696D68, 4, {}}, {0x007D1800, 4, {}}};
+               {0x007CE5D8, 4, {}}, {0x00696D68, 4, {}}, {0x007D1800, 4, {}}, {0x007CC979, 1, {}},
+               {0x006F3614, 16, {}}, {0x006F22B4, 16, {}}};
     g_saved.insert(g_saved.end(), extra);
     SaveAll(g_saved);
 }
@@ -144,6 +152,82 @@ inline void RecordDesc(uint32_t tag, uint32_t ecx, const Net::MsgDesc* desc)
               static_cast<uint32_t>(desc->m_queue), desc->m_groupId, desc->m_singular,
               static_cast<uint32_t>(desc->m_delay), desc->m_forcedSequenceId, desc->m_compression,
               Rel(where) >= 0xA0000000u ? where : 0u});
+}
+
+// Stand-ins most handlers need: scripts, script structures, memory (allocations from the arena's heap), sprintf.
+// (Structures come from the stood-in memory manager: the struct pools are emptied by SetUpArena's caller - see
+// SaveGlobals - so the original's inline new and ours both allocate there.)
+inline void InstallCommon(StandIns& s)
+{
+    using Script::CStruct;
+    s.At({0x00475790, AddressOf(static_cast<void (*)(uint32_t, CStruct*, Obj::CObject*, bool, const char*)>(
+                          &Script::RunScript))},
+         0, [](Regs& r) {
+             Rec(0x5790, {r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, r.args[4]});
+             return 0u;
+         });
+    s.At({0x00475420, AddressOf(static_cast<Script::CScript* (*)(uint32_t, CStruct*, uint32_t, CStruct*, int, uint32_t,
+                                                                  bool, bool, bool, bool)>(&Script::SpawnScript))},
+         0, [](Regs& r) {
+             Rec(0x5420, {r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5], r.args[6] & 0xFF,
+                          r.args[7] & 0xFF, r.args[8] & 0xFF, r.args[9] & 0xFF});
+             return 0u;
+         });
+    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8,
+         [](Regs& r) {
+             Rec(0x7D40, {r.ecx, r.args[0], r.args[1]});
+             return 0u;
+         });
+    s.At({0x00477B80, AddressOf(static_cast<void (CStruct::*)(uint32_t, int)>(&CStruct::AddInteger))}, 8, [](Regs& r) {
+        Rec(0x7B80, {r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x004779D0, AddressOf(static_cast<void (CStruct::*)(uint32_t, const char*)>(&CStruct::AddString))}, 8,
+         [](Regs& r) {
+             Rec(0x79D0, {r.ecx, r.args[0], Str(r.args[1])});
+             return 0u;
+         });
+    s.At({0x00478390, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t, const char*)>(&CStruct::AddString))},
+         12, [](Regs& r) {
+             Rec(0x8390, {r.ecx, r.args[0], r.args[1], Str(r.args[2])});
+             return 0u;
+         });
+    s.At({0x004783C0, AddressOf(&CStruct::AddComponentOfType)}, 12, [](Regs& r) {
+        Rec(0x83C0, {r.ecx, r.args[0], r.args[1] & 0xFF, r.args[2]});
+        return 0u;
+    });
+    s.At({0x00477130, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) {
+        Rec(0x7130, {r.ecx});
+        return 0u;
+    });
+    // The text of a global by name: a string in the arena naming it.
+    s.At({0x00478FF0, AddressOf(static_cast<const char* (*)(const char*)>(&Script::GetString))}, 0, [](Regs& r) {
+        uint32_t h = Hash(reinterpret_cast<const char*>(r.args[0]));
+        Rec(0x8FF0, {h});
+        char* text = &Word<char>(kMisc + 0xE00);
+        std::snprintf(text, 32, "text-%08X", h);
+        return reinterpret_cast<uint32_t>(text);
+    });
+    s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
+        Rec(0xAFC0, {r.args[0], r.args[1] & 0xFF});
+        uint32_t block = At(g_heapNext);
+        g_heapNext += (r.args[0] + 15) & ~15u;
+        std::memset(reinterpret_cast<void*>(block), 0xCD, r.args[0]);
+        return block;
+    });
+    s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
+        Rec(0xABA0, {r.args[0]});
+        return 0u;
+    });
+    s.At({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, [](Regs& r) {
+        Rec(0xB0E0, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, [](Regs& r) {
+        Rec(0xB110, {r.ecx});
+        return 0u;
+    });
+    s.At({0x006234FE}, 0, StandInSprintf);
 }
 
 // Run a handler (the original at `address` or ours) on the arena's message, app, connection and manager.

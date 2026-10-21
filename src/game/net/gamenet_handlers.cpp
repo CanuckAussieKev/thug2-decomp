@@ -10,6 +10,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/task.h"
+#include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -23,6 +24,8 @@
 #include "hook/hook.h"
 
 namespace GameNet {
+
+using namespace Detail;
 
 namespace {
 
@@ -45,51 +48,10 @@ constexpr uint8_t kMsgRequestRails = 0x8B;
 constexpr uint8_t kMsgRequestGoals = 0x8A;
 constexpr uint8_t kMsgGoalsData = 0x87;
 constexpr uint8_t kMsgRailsData = 0x88;
-constexpr uint8_t kGroupGame = 8;
 
 constexpr int kCdKeyAnswerSize = 0x21;
 constexpr uint16_t kRailDataSize = 0x1132;
 constexpr int kParkMapSize = 15000;
-
-// Handler results.
-constexpr int kContinue = Net::kHandlerContinue;
-constexpr int kDone = Net::kHandlerMsgDone;
-
-template <typename T>
-T& Field(const void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
-}
-template <typename R = void, typename... A>
-R Call(uint32_t address, const void* object, A... args)
-{
-    return GameFunction<R(__thiscall*)(const void*, A...)>(address)(object, args...);
-}
-
-Manager* ManagerOf(Net::MsgHandlerContext* context) { return static_cast<Manager*>(context->m_data); }
-const uint8_t* Message(Net::MsgHandlerContext* context) { return reinterpret_cast<const uint8_t*>(context->m_Msg); }
-uint32_t MessageWord(Net::MsgHandlerContext* context, uint32_t offset)
-{
-    return *reinterpret_cast<const uint32_t*>(context->m_Msg + offset);
-}
-void Run(uint32_t name, Obj::CObject* object = nullptr) { Script::RunScript(name, nullptr, object, false, nullptr); }
-
-// The singletons (not rewritten): the skate module, the game mode, the trick object manager, the park editor.
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
-uint8_t* GameMode() { return GameVariable<uint8_t*>(0x007CE470); }
-bool IsTeamGame() { return Call<bool>(0x005535F0, GameMode()); }
-uint32_t GameType() { return Call<uint32_t>(0x005532A0, GameMode()); }
-
-// The manager's players (GameNet::PlayerInfo, not rewritten yet).
-uint8_t* PlayerByConnection(Manager* manager, Net::Conn* conn) { return Call<uint8_t*>(0x0053AE10, manager, conn); }
-// (the original pushes the id as 16 bits: a signed byte widened)
-uint8_t* PlayerByObjectId(Manager* manager, const uint8_t* id)
-{
-    return Call<uint8_t*, uint16_t>(0x0053AEA0, manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
-}
-
-// A message for the server through `app` (a client).
-void SendToServer(Net::App* app, Net::MsgDesc* desc) { static_cast<Net::Client*>(app)->EnqueueMessageToServer(desc); }
 
 } // namespace
 
@@ -354,7 +316,7 @@ int __cdecl HandleChooseTeam(Net::MsgHandlerContext* context)
     Call(0x005535A0, GameMode(), teams);
     Run(kChooseTeamMessage);
     if (Call<Obj::CObject*>(0x00566520, skate)) { // the local skater
-        Run(kPrepareSkaterForMove, Call<Obj::CObject*>(0x00566520, skate));
+        Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(0x00566520, skate));
         Call(0x00566370, skate, Call<Obj::CObject*>(0x00566520, skate), 0, 0);
     }
     return kContinue;

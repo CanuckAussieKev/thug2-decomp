@@ -89,6 +89,43 @@ int __cdecl HandleChooseTeam(Net::MsgHandlerContext* context);
 // the received message). 1.
 int __cdecl HandleChecksumRequest(Net::MsgHandlerContext* context);
 
+// --- The client's handlers about the game (gamenet_game_handlers.cpp) ---
+// 0x0052DB80 (0x22): a new player: a NewPlayerInfo from the message (name, object id, team, flags, the appearance into
+// its profile unless flags 5), announced (net_message_new_player) and added 10 frames on once ready to play, else at
+// once. 1.
+int __cdecl HandleNewPlayer(Net::MsgHandlerContext* context);
+// 0x0052E870 (0x58): the crown dropped: the king no longer one (the drop announced to him, to everyone in a network
+// game, else to the other local player), then the crown put at the msg[0]'th crown node (counting on across up to 49
+// walks of the nodes) and taken off. 1.
+int __cdecl HandleCrownSpawn(Net::MsgHandlerContext* context);
+// 0x005300C0 (0x5F): the local player's flag 0x200 set, launch_fcfs_notification with checksum = the message's word. 1.
+int __cdecl HandleFcfsNotice(Net::MsgHandlerContext* context);
+// 0x00530CB0 (0x75): a flag carrier's flag returned: flag_returned (Team, String0 = team_<n>_name's text), the CTF
+// panel message gone for the carrier, the arrow hidden for the flag's team; the carrier carries none. 1.
+int __cdecl HandleFlagReturned(Net::MsgHandlerContext* context);
+// 0x00530E50 (0x88, the server's too) / 0x00530FF0 (0x87): the created rails / goals arrived: read into the rail
+// editor (in the heap at the memory manager's +0x114) / the goal editor (InitialiseCreatedGoals). Damaged (checksum
+// mismatch): asked for again (0x8B / 0x8A; 4) - or, when leaving for the main menu, the join cancelled
+// (cancel_join_server show_timeout; 5).
+int __cdecl HandleRailsData(Net::MsgHandlerContext* context);
+int __cdecl HandleGoalsData(Net::MsgHandlerContext* context);
+// 0x00531950 (0x6D): the goals chosen (0x00558580, then each named one's virtual +0x74 and 0x00554440); msg[0] = 1
+// spawns wait_and_create_view_selected_goals_menu goal_summary. 1.
+int __cdecl HandleSelectedGoals(Net::MsgHandlerContext* context);
+// 0x00531A80 (0x68): a player's team (msg[1]) set and announced (joined_team_you / _other, in team games); a warning
+// when everyone else is on that team too. 1.
+int __cdecl HandleJoinedTeam(Net::MsgHandlerContext* context);
+// 0x00531C80 (0x6E) / 0x00531F10 (0x6F): goal attack: a player completed / started a goal (msg +4): its team and
+// skater noted on the goal; the goals left announced to the player, or to teammates (the goal - or the end of its
+// chain - ending for them too). 1.
+int __cdecl HandleGoalCompleted(Net::MsgHandlerContext* context);
+int __cdecl HandleGoalStarted(Net::MsgHandlerContext* context);
+// 0x00532280 (0x8D; 0x8E nothing): elimiskate: the player of object id (the message's word) eliminated, or none
+// (negative). 1.
+int __cdecl HandleEliminated(Net::MsgHandlerContext* context);
+// 0x00532390 (0x4E): the join refused, the observers full (CreateJoinRefusedDialog). 1.
+int __cdecl HandleObserversFull(Net::MsgHandlerContext* context);
+
 // --- The server's handlers (gamenet_handlers.cpp) ---
 // 0x0052EBB0 (0x90): in a team game, the object (the message's word) noted for the sender's team (five at most);
 // 4 if the sender is unknown or its team has it already, else 1.

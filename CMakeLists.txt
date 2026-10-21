@@ -298,6 +298,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gamenet.cpp
     src/hook/selftests_skater_gamenet.cpp
     src/hook/selftests_skater_gamenet2.cpp
+    src/hook/selftests_skater_gamenet3.cpp
     src/hook/selftests_thugpro.cpp
     src/hook/selftests_thugpro_join.cpp
     src/hook/selftests_gamenet_join.cpp
@@ -554,6 +555,7 @@ add_library(thug2_code OBJECT
     src/game/net/gamenet_manager.cpp
     src/game/net/gamenet_state.cpp
     src/game/net/gamenet_handlers.cpp
+    src/game/net/gamenet_game_handlers.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
     src/game/ed/upper_menu.cpp
