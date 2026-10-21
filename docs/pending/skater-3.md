@@ -84,3 +84,26 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     bool-assert getters that search themselves - 0x00476CB0 etc. - stood in as their int twins). 61 deliberate bugs
     caught, 13 after strengthening (the test's own flag values, a Construct stand-in that clears what 0x00578740
     does, three more rounds).
+- [x] Batch SK3-4 (NOT run in the game yet; the rest of SkaterLocalNetLogic and SkaterLoopingSound, 20 functions):
+  src/game/skater/local_net_logic.cpp (added to), looping_sound.cpp (new).
+  - SkaterLocalNetLogic: 0x00513630 Create (the state byte and +0x35 0xFF so the first update sends them),
+    0x00512E30 / 0x00512E40 the destructors, 0x00512E70 Finalize (the state and core physics components), 0x005136C0
+    Update (SendUpdate in a multiplayer game with a local player - the network manager's 0x00537320), 0x005136F0
+    HandleGraffitiSteal (message 0x4B's client handler, not a Ghidra function: for the network manager's run count
+    +0x38 only - else kHandlerMsgDone; the local skater as victim runs GraffitiStealYou, as thief
+    GraffitiStealOther, String0 = the other's name; the original clears the new structure right after Init).
+  - SkaterLoopingSound (0xB5F1E9D2, vtable 0x0064BF38, 0x110 bytes): 0x00513AD0 Create, 0x00513860
+    RegisterMemberFunctions (not a Ghidra function), 0x005138E0 Construct, 0x00513B30 / 0x00513FA0, 0x00513880
+    InitFromStructure (the air pitch floor 45 / fall 18.33 a second, volume_mult), 0x005138B0 SetSpeedFraction (at
+    most 1), 0x00513970 Finalize, 0x00513F60 Suspend, 0x005139E0 CallMemberFunction (SkaterLoopingSound_TurnOn /
+    _TurnOff; PlayAnim turns it on for the walk-to-skate animation - the object's tags' animTags), 0x00513BB0 Update
+    (0x00513BED, a Ghidra function made of its body, registered as source only): the sound by state - ground
+    TABLE_WHEELROLL, air the entry at 0x0067F018, rail TABLE_GRIND / TABLE_SLIDE (none when the state's +0x70);
+    stopped when it changes or the skater hasn't moved (the original stops it every frame the position is the same);
+    in the air the playing sound's pitch falls; otherwise volume and pitch by the speed (half while the core
+    physics' +0x2EC); played, or updated when the first channel or the pitch moved by more than 0.5. 0x00513AB0
+    StopSound (the skater's), 0x00513990 the sVolume assignment emitted here.
+  - Test: TestSkaterLocalNetLogic / TestSkaterLoopingSound (selftests_skater_sound_net.cpp). 52 deliberate bugs:
+    50 caught (6 after strengthening: the walking skater on PlayAnim, the air pitch fall, the update's fields traced
+    each frame, playing sounds with small volume / pitch changes); 2 equivalent (`fraction >= 1` clamps 1 to 1;
+    `!(pos == last)` equals `pos != last`, NaN included).

@@ -210,6 +210,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_end_run.cpp
     src/hook/selftests_skater_flip_name.cpp
     src/hook/selftests_skater_gap.cpp
+    src/hook/selftests_skater_sound_net.cpp
     src/hook/selftests_mouse.cpp
     src/hook/selftests_automation.cpp
     src/hook/selftests_crash.cpp
@@ -624,6 +625,7 @@ add_library(thug2_code OBJECT
     src/game/skater/flip_and_rotate.cpp
     src/game/skater/floating_name.cpp
     src/game/skater/gap.cpp
+    src/game/skater/looping_sound.cpp
     src/game/sio/device.cpp
     src/game/sio/inpman.cpp
     src/game/sio/sdl_input.cpp

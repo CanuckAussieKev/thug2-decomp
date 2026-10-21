@@ -316,7 +316,7 @@ void TestSkaterGap()
                     c, name, At(params), At(kScript)));
             };
             auto update = [&]() { reinterpret_cast<Fn0>(Code(original, 0x00512320))(c); };
-            auto node = [&](uint32_t n) { F<uint32_t>(kScript + 0xB8) = n; };
+            auto setNode = [&](uint32_t n) { F<uint32_t>(kScript + 0xB8) = n; };
             constexpr uint32_t kStartGap = 0x65B9EC39, kEndGap = 0xE5399FB2, kStartGapTrick = 0xFC4F2009,
                                kCheckGapTricks = 0x42F80E5E, kClearGapTricks = 0x0196772B,
                                kDuplicateTrigger = 0x4562E4A6;
@@ -382,11 +382,11 @@ void TestSkaterGap()
                 g_a.perfect = (static_cast<int>(seed) + i + round) % 3;
                 g_a.linked = ((seed + static_cast<uint32_t>(round)) & 1) != 0;
                 F<uint8_t>(kObject + 0xBC) = i == 5 ? 0 : 1;
-                node(0x40 + seed);
+                setNode(0x40 + seed);
                 memberFunction(kEndGap, q);
             };
             auto startAll = [&](std::initializer_list<int> which) {
-                node(0x40 + seed);
+                setNode(0x40 + seed);
                 for (int i : which)
                     memberFunction(i == 6 || i == 9 ? kStartGapTrick : kStartGap, p[i]);
             };
@@ -431,10 +431,10 @@ void TestSkaterGap()
             SetComponent(At(p[5]), 0x2760DE9E, 0);
             skate(0);
             startAll({9, 0});
-            node(0x40 + seed);
+            setNode(0x40 + seed);
             memberFunction(kStartGapTrick, p[9]);
             F<uint8_t>(reinterpret_cast<void*>(F<uint32_t>(kComponent + 0x38)), 0x2C) = 1; // (the newest done)
-            node(0x99);
+            setNode(0x99);
             memberFunction(kStartGapTrick, p[9]);
             memberFunction(kStartGap, p[0]); // (another node: P0's gap at the first node stays)
             for (int state : {2, 0})
@@ -447,9 +447,9 @@ void TestSkaterGap()
 
             // Round 3: an event while a gap ends kills the other gap of the GapID (the walk begins again).
             skate(0);
-            node(0x41);
+            setNode(0x41);
             memberFunction(kStartGap, p[5]);
-            node(0x42);
+            setNode(0x42);
             memberFunction(kStartGap, p[5]);
             g_a.killOldest = true;
             endGap(3, 5);

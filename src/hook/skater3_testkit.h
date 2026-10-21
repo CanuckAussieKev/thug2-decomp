@@ -229,7 +229,7 @@ inline float g_floatAnswer;
 inline uint8_t* g_floatCode = nullptr;
 inline size_t g_floatUsed = 0;
 inline void RecFloat(StandIns& s, std::initializer_list<uint32_t> addresses, int args, uint32_t tag,
-                     std::function<float(Regs&)> answer, bool withThis = true)
+                     std::function<float(Regs&)> answer, bool withThis = true, bool callerPops = false)
 {
     if (!g_floatCode)
         g_floatCode = static_cast<uint8_t*>(VirtualAlloc(nullptr, 0x1000, MEM_COMMIT | MEM_RESERVE,
@@ -253,7 +253,7 @@ inline void RecFloat(StandIns& s, std::initializer_list<uint32_t> addresses, int
     uint8_t* p = g_floatCode + g_floatUsed;
     g_floatUsed += 16;
     int32_t relative = static_cast<int32_t>(reinterpret_cast<uintptr_t>(inner) - (reinterpret_cast<uintptr_t>(p) + 5));
-    uint16_t pop = static_cast<uint16_t>(4 * args);
+    uint16_t pop = static_cast<uint16_t>(callerPops ? 0 : 4 * args);
     p[0] = 0xE8;
     std::memcpy(p + 1, &relative, 4);
     p[5] = 0xD9; // fld dword ptr [g_floatAnswer]
