@@ -13,10 +13,10 @@
 // draws the signs (3x, on grey) into a PNG to look at.
 
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as zlib from "node:zlib";
 import { unswizzleOrder } from "../level_port/tex.ts";
 import { parseCli } from "../lib/cli.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { isMain, print, pyHypot, pyJoin, pyMinBy, runMain } from "../lib/py.ts";
 import { pack, unpackNumbers } from "../lib/struct.ts";
 
@@ -744,8 +744,8 @@ async function main(): Promise<number> {
         return 2;
     }
     let game = values.game;
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    if (!isDir(path.join(game, "Data")) && isDir(path.join(game, "Game", "Data"))) game = pyJoin(game, "Game");
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    game = resolveInstall(game, "thug2");
     const frame = prxFile(pyJoin(game, "Data", "pre", "Levelselect.prx"), FRAME_SOURCE);
     const names = given.length ? given : [...PICTOGRAMS.keys()];
     const scale = 3;
@@ -772,14 +772,6 @@ async function main(): Promise<number> {
     writePng(out, width, height, image);
     print(`wrote ${out}: ${names.join(", ")}`);
     return 0;
-}
-
-function isDir(p: string): boolean {
-    try {
-        return fs.statSync(p).isDirectory();
-    } catch {
-        return false;
-    }
 }
 
 // (not awaited: main imports make_menu_level.ts, which imports this module through level_select.ts - a top-level

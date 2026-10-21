@@ -11,6 +11,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/memory_sizes.h"
 #include "game/core/pool.h"
 #include "game/core/stubs.h"
 #include "game/file/async.h"
@@ -117,7 +118,9 @@ int __cdecl Main(int argc, char** argv)
         Script::CreateSymbolTable();
         Mem::PopMemProfile();
         Mem::PushMemProfile("Hash Item Pool Manager");
-        Mem::PoolManager::SetUp(0, 10000);
+        // Not original - the HashItem pool's size is ours (game/core/memory_sizes.h: pool sizes as THUGPRO's;
+        // the main block grows to match). Original behaviour: 10000 items.
+        Mem::PoolManager::SetUp(0, Mem::Sizes::Current().hashItems);
         Mem::PopMemProfile();
         Pre::CreateManager(true);
         Tmr::Init();

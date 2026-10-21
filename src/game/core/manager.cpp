@@ -5,6 +5,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
+#include "game/core/memory_sizes.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -452,7 +453,6 @@ void* const kManagerStorage = reinterpret_cast<void*>(0x007D11F8);
 void* const kMainRegionStorage = reinterpret_cast<void*>(0x007D11E0);
 void* const kTopDownStorage = reinterpret_cast<void*>(0x007D1130);
 void* const kBottomUpStorage = reinterpret_cast<void*>(0x007D1098);
-constexpr uint32_t kMainBlockSize = 0x4000000; // 64 MB
 
 bool& ManagerReady() { return GameVariable<bool>(0x007CC979); }
 
@@ -485,10 +485,14 @@ Manager* Manager::Construct()
     m_unknown5E4 = 0;
     m_unknown5E0 = 0;
 
-    auto* block = static_cast<uint8_t*>(CrtMalloc(kMainBlockSize));
+    // Not original - the block is 64 MB and what the bigger script pools take more (game/core/memory_sizes.h:
+    // pool sizes as THUGPRO's), so every heap in it keeps the room it had.
+    // Original behaviour: 64 MB (0x4000000).
+    const uint32_t blockSize = Sizes::MainBlockSize();
+    auto* block = static_cast<uint8_t*>(CrtMalloc(blockSize));
     GameVariable<uint8_t*>(0x007D17EC) = block;
-    GameVariable<uint8_t*>(0x007D17E8) = block + kMainBlockSize;
-    GameVariable<uint8_t*>(0x007D17E4) = block + kMainBlockSize;
+    GameVariable<uint8_t*>(0x007D17E8) = block + blockSize;
+    GameVariable<uint8_t*>(0x007D17E4) = block + blockSize;
     uint8_t* end = GameVariable<uint8_t*>(0x007D17E4);
     void* region = Clear(sizeof(Region), kMainRegionStorage);
     m_mainRegion = region ? new (region) Region(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
@@ -539,7 +543,10 @@ void Manager::InitStandardHeaps()
     m_frontEndHeap = AddHeap(m_frontEndRegion, Allocator::kGrowUp, "FrontEnd");
     Dbg::Printf("Setup mp_frontend_heap at %p\n", m_frontEndHeap);
 
-    m_scriptRegion = NewAllocRegion(0x434770);
+    // Not original - grown by what the bigger script pools take more (game/core/memory_sizes.h: pool sizes as
+    // THUGPRO's; the room left for scripts stays the original's).
+    // Original behaviour: 0x434770 bytes.
+    m_scriptRegion = NewAllocRegion(Sizes::ScriptRegionSize());
     Dbg::Printf("allocated mp_script_region at %p\n", m_scriptRegion);
     m_scriptHeap = AddHeap(m_scriptRegion, Allocator::kGrowUp, "Script");
     Dbg::Printf("Setup mp_script_heap at %p\n", m_scriptHeap);

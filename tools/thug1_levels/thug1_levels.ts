@@ -30,6 +30,7 @@ import * as scriptPort from "../level_port/script_port.ts";
 import * as tex from "../level_port/tex.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { parseConverterArgs } from "../lib/converter_args.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
 import * as handEdits from "./hand_edits.ts";
 import * as portChanges from "./port_changes.ts";
@@ -328,7 +329,7 @@ export function levelNames(thug1: string, thug2: string, legacy = false): Map<st
 }
 
 export function prePath(args: { thug1: string }, name: string): string | null {
-    const file = pyJoin(args.thug1, "Game", "Data", "pre", name);
+    const file = pyJoin(resolveInstall(args.thug1, "thug1"), "Data", "pre", name);
     if (fs.existsSync(file)) return file;
     const folder = path.win32.dirname(file);
     for (const entry of fs.readdirSync(folder)) {
@@ -943,7 +944,7 @@ export function cmdSelfcheck(args: Args): number {
         "TestLevelcol.prx",
         ...args.extra,
     ]);
-    const thug1Pre = pyJoin(args.thug1, "Game", "Data", "pre");
+    const thug1Pre = pyJoin(resolveInstall(args.thug1, "thug1"), "Data", "pre");
     // Every level file of every THUG1 level archive (scenes, textures, collision, the levels' qb files).
     for (const archive of fs.readdirSync(thug1Pre).sort()) {
         const lowArchive = archive.toLowerCase();
@@ -1029,11 +1030,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         );
         pyExit(2);
     }
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    const isDir = (p: string): boolean => fs.existsSync(p) && fs.statSync(p).isDirectory();
-    if (!isDir(path.join(args.thug2, "Data")) && isDir(path.join(args.thug2, "Game", "Data"))) {
-        args.thug2 = pyJoin(args.thug2, "Game");
-    }
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    args.thug2 = resolveInstall(args.thug2, "thug2");
     if (args.command === "selfcheck") return cmdSelfcheck(args);
     cmdConvert(args);
     return 0;

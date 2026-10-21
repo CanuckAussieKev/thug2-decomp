@@ -12,14 +12,21 @@ paths below are the project's defaults; every tool takes a flag (`--thug2`, `--t
 
 **Games** (your own copies; nothing from them is ever committed):
 
-| Game | Needed for | Default folder | What the tools read |
-|---|---|---|---|
-| Tony Hawk's Underground 2 (PC) | Everything | `C:\Games\THUG2` (the game in its `Game` subfolder) | The exe, `Game\Data\...` |
-| THPS3 (PC) | Porting THPS3's levels | `C:\Games\THPS3` | `Data\Levels\<Lvl>\` (`.bsp`, `.tdx`, `.qb`), `Data\Scripts\` |
-| THPS4 (PC) | Porting THPS4's levels, the THPS4 skate-shop menu backdrop | `C:\Games\THPS4` | `Game\data\levels\` |
-| THUG (PC) | Porting THUG1's levels | `C:\Games\THUG1` | `Game\Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
-| THAW (PC, version 1.01) | Porting THAW's levels | `C:\Games\THAW` | `Game\data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`, `data\pak\qb.pak.wpc`, `data\pak\dbg.pak.wpc`, `data\skies\` |
-| THUGPRO (optional) | THUGPRO's own additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`tools/compat/thugpro`) |
+| Game | Needed for | Default folder | Recognised by (in the folder or its `Game` folder) | What the tools read |
+|---|---|---|---|---|
+| Tony Hawk's Underground 2 (PC) | Everything | `C:\Games\THUG2` (the game in its `Game` subfolder) | `THUG2.exe` or `THUG2PM.exe`, or `Data\pre\qb_scripts.prx` | The exe, `Data\...` |
+| THPS3 (PC) | Porting THPS3's levels | `C:\Games\THPS3` | `Data\Levels` | `Data\Levels\<Lvl>\` (`.bsp`, `.tdx`, `.qb`), `Data\Scripts\` |
+| THPS4 (PC) | Porting THPS4's levels, the THPS4 skate-shop menu backdrop | `C:\Games\THPS4` | `data\levels` and `data\skeletons` | `data\levels\`, `data\scripts\`, `data\models\` |
+| THUG (PC) | Porting THUG1's levels | `C:\Games\THUG1` | `Data\pre\qb.pre` | `Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
+| THAW (PC, version 1.01) | Porting THAW's levels | `C:\Games\THAW` | `data\worlds\worldzones` or `data\pak\qb.pak.wpc` | `data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`, `data\pak\qb.pak.wpc`, `data\pak\dbg.pak.wpc`, `data\skies\` |
+| THUGPRO (optional) | THUGPRO's own additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | | Read only, by reference (`tools/compat/thugpro`) |
+
+**Layout:** every folder you give a tool (`--thug2`, `--thps3`, `--thps4`, `--thug1`, `--thaw`, `--game`, `-Game`, CMake's
+`THUG2_GAME_DIR`) may be the install root - with the game in a `Game` subfolder, as the stock installs of THUG2, THPS4,
+THUG and THAW have it - or the game folder itself (`Game`'s contents at the top, e.g. after deleting the launcher, docs
+and readme around it). The tools look for the markers in the column above in the folder itself first, then in its
+`Game` folder, without regard to case, and say what they expected when neither matches (`tools/lib/install.ts`;
+`tools/game/game_exe.ps1` for the PowerShell scripts, which also need the exe).
 
 THUG2 needs an **unwrapped exe**: a no-CD `THUG2.exe`, or PartyMod's `THUG2PM.exe` (the addresses the code is
 named after; both have the same layout). The retail SafeDisc-encrypted exe can't run anything. The exe is never
@@ -292,24 +299,99 @@ The ini sits next to the exe. Every key is optional; the default applies when it
 | `automation` | 0 | The test-automation channel; for workspaces only, never the main install |
 | `debug_rail_speed`, `debug_collision`, `debug_sprites` | 0 | Extra log lines for those systems |
 
-**`[Graphics]`** (from PartyMod, plus `OcclusionCulling`): `ResolutionX` / `ResolutionY` (0 = desktop), `Windowed`,
-`Borderless`, `AntiAliasing`, `HQShadows`, `DistanceClipping` with `ClippingDistance` (1-100), `Fog`, `DisableBlur`
-(1), `OcclusionCulling` (1 = the original's occlusion culling; 0 draws everything in view, and stops distant scenery
-popping in).
+**`[Graphics]`** - from PartyMod, plus `OcclusionCulling`
 
-**`[Miscellaneous]`** (PartyMod): `UsePS2Controls` (1), `UIControls`, `PreferGlyphs` / `GlyphStyle` (controller button
-glyphs), `OnlineDomain` (`openspy.net`), `OnlineGameName` / `OnlineGameKey` (see Online play), `Debug`.
-**`[Keybinds]`** and **`[Gamepad]`** (`MovementStick`, `CameraStick`): PartyMod's bindings, plus `Screenshot=` (an SDL
-key name or scan code). **`[Logging]`** `Level` (2).
+| Key | Default | Effect |
+|---|---|---|
+| `ResolutionX` / `ResolutionY` | 0 | The game's resolution; 0 = the desktop's |
+| `Windowed` | 0 | Runs in a window |
+| `Borderless` | 0 | A borderless window |
+| `AntiAliasing` | 0 | Multisample anti-aliasing |
+| `HQShadows` | 0 | High-quality shadows |
+| `DistanceClipping` | 0 | Stops drawing beyond a distance (`ClippingDistance`) |
+| `ClippingDistance` | 100 | That distance, 1-100 |
+| `Fog` | 0 | Distance fog |
+| `DisableBlur` | 1 | Keeps the motion blur off |
+| `OcclusionCulling` | 1 | The original's occlusion culling; 0 draws everything in view (no distant scenery popping in) |
 
-**`[editor]`** - remembered by the level editor (set from its toolbar, Overlays menu and Preferences window rather
-than by hand): `families`, `pick`, `overlays`, `collision`, `triggers`, `carry`, `shared_collision` (1: moved pieces take
-their collision from shared collision objects along), `palette_grid`, `trail_record`, the Preferences (`fly_speed`,
-`fly_accel_ms`, `look_pct`, `invert_y`, `gizmo_pct`, `ui_scale_pct`, `autosave_s`, `snap_move`, `snap_turn`, `accent`,
-`wasd_flies`, `speed_by_selection`, `pad`, `tips_seen`). **`[editor_keys]`**: rebound keys (only the changed ones).
+**`[Miscellaneous]`** - from PartyMod
 
-**`[replacements]`** `disable=` and **`[selftests]`** `enabled`, `early`, `shadow_calls`, `filter=` (run only the
-self-tests whose names contain one of these words), `trace` - see "Tracking down a problem".
+| Key | Default | Effect |
+|---|---|---|
+| `UsePS2Controls` | 1 | PS2 controls (spine transfer, acid drop, break vert as on PS2); 0 = the Xbox layout |
+| `UIControls` | 1 | PartyMod's menu-controls option |
+| `PreferGlyphs` | 0 | Shows controller button glyphs even when playing with the keyboard |
+| `GlyphStyle` | 1 | The button glyphs shown: 1 = PlayStation, other values = Xbox |
+| `OnlineDomain` | `openspy.net` | The online service's domain (see Online play) |
+| `OnlineGameName` / `OnlineGameKey` | (empty) | The online identity: empty = THUG2's own; `thugpro` = THUGPRO's lobbies (see Online play) |
+| `Debug` | 0 | Opens a console window with the game's debug output |
+
+**`[Keybinds]`**, **`[Gamepad]`**, **`[Logging]`**
+
+| Key | Default | Effect |
+|---|---|---|
+| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings; plus `Screenshot=` (an SDL key name or scan code; default Print Screen) |
+| `[Gamepad] MovementStick` / `CameraStick` | left / right | Which stick moves and which turns the camera |
+| `[Logging] Level` | 2 | How much goes into the log |
+
+**`[editor]`** - remembered by the level editor; set from its toolbar, menus and Preferences window (Ctrl+,) rather
+than by hand
+
+| Key | Default | Effect |
+|---|---|---|
+| `families` | all | The Outliner's family chips (which node kinds show) |
+| `pick` | 7 (all) | The toolbar's Pick filter: 1 nodes, 2 objects, 4 scenery |
+| `overlays` | all | The Overlays menu's choices |
+| `collision` | 0 | The collision view (C) |
+| `triggers` | 1 | Trigger volumes shown (T) |
+| `carry` | 1 | Objects and nodes standing on scenery move with it |
+| `shared_collision` | 1 | Moved pieces take their faces from shared collision objects with them |
+| `palette_grid` | 1 | The Add palette as a thumbnail grid (0 = a list) |
+| `trail_record` | 1 | Records play-test trails |
+| `fly_speed` | 800 | Camera fly speed |
+| `fly_accel_ms` | 0 | Time to reach full fly speed |
+| `look_pct` | 100 | Mouse-look sensitivity (%) |
+| `invert_y` | 0 | Inverts mouse-look up / down |
+| `gizmo_pct` | 100 | Gizmo size (%) |
+| `ui_scale_pct` | 0 | UI scale (%); 0 = automatic for the window size |
+| `autosave_s` | 60 | Seconds between autosaves |
+| `snap_move` | 25 | Grid size for snapped moves |
+| `snap_turn` | 15 | Angle step for snapped turns |
+| `accent` | 0 | The UI's accent colour: 0 orange, 1 blue, 2 green, 3 purple, 4 red, 5 teal |
+| `wasd_flies` | 0 | 1 = WASD always flies (the old way); 0 = fly while the right mouse button is held |
+| `speed_by_selection` | 0 | Fly speed scaled to the selection's size |
+| `pad` | 0 | Controller mode |
+| `tips_seen` | 0 | The first-run tips have been shown |
+
+**`[editor_keys]`**: rebound editor keys, written by Preferences > Keys (only the ones that differ from the defaults).
+
+**`[memory]`** - the script pools' sizes (ours, as THUGPRO's: bigger than THUG2's so big converted levels fit; the
+script heap and main memory grow to match - `src/game/core/memory_sizes.h`)
+
+| Key | Default | THUG2's |
+|---|---|---|
+| `component_pool` | 184000 | 86000 |
+| `struct_pool` | 49600 | 19800 |
+| `vector_pool` | 19000 | 9500 |
+| `pair_pool` | 1600 | 800 |
+| `array_pool` | 16000 | 7000 |
+| `symbol_pool` | 45000 | 12500 |
+| `script_pool` | 1200 | 300 |
+| `script_cache_pool` | 1200 | 300 |
+| `string_heap` / `string_count` | 1 MB / 28000 | 190000 bytes / 7000 |
+| `hash_item_pool` | 40000 | 10000 |
+| `original_sizes` | 0 | 1 puts every pool back to THUG2's size |
+
+**`[replacements]`** and **`[selftests]`**
+
+| Key | Default | Effect |
+|---|---|---|
+| `[replacements] disable=` | (empty) | Leaves these as the original game's code: parts of source file names (`matrix.cpp`), function names (`Mth::FastSin`) or exact addresses (`0x00402640`), comma-separated; `*` disables everything |
+| `[selftests] enabled` | 1 | 0 skips every self-test and shadow check |
+| `[selftests] early` | 1 | 0 skips the early self-tests in the game (`thug2_check.exe` runs them offline) |
+| `[selftests] shadow_calls` | 100 | For each REPLACE_SHADOW function, how many of the game's own calls also run the original to compare |
+| `[selftests] filter=` | (empty) | Runs only the self-tests whose names contain one of these words |
+| `[selftests] trace` | 0 | Logs each self-test as it starts (to find one that hangs) |
 
 ## Online play
 

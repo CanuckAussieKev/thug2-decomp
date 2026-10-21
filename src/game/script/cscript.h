@@ -7,7 +7,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 
-// A running script (Script::CScript, 0xF4 bytes, pool 0x006F3548 of 300) and the list of all of them.
+// A running script (Script::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, game/core/memory_sizes.h) and the list of all of them.
 //
 // A script runs compiled .qb code (see qb.h) one statement at a time from its program counter until it has to
 // wait or it ends; Update does that once (the callers decide when: the spawned scripts every frame, objects'

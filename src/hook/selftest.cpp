@@ -1,3 +1,4 @@
+#include "game/core/memory_sizes.h"
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
 #include "game/lst/search.h"
@@ -2581,6 +2582,7 @@ void TestMemoryManagerHeapCreation()
         return;
     }
     constexpr size_t kSize = 12 * 1024 * 1024;
+    Mem::Sizes::UseOriginal originalSizes; // (ours: the script region's size - compared at the original's)
     g_saved_manager_for_test = nullptr;
     g_saved_manager_ready = GameVariable<bool>(0x007CC979);
     g_manager_test_swapped = true;

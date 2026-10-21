@@ -35,6 +35,7 @@ import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import { plainTokens, u32 } from "../level_port/script_port.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { Float, hex8, pyJoin } from "../lib/py.ts";
 import { pack } from "../lib/struct.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
@@ -322,7 +323,7 @@ export function extractNew(base: string, key: string, thugpro: string, thps4Dir:
     const definedIn = new Map<number, string>(); // script -> file id
     for (const f of files.values()) for (const s of f.scripts.keys()) if (!definedIn.has(s)) definedIn.set(s, f.id);
     // THPS4's own
-    const folder = findPath(thps4Dir, "Game", "data", "levels", base);
+    const folder = findPath(resolveInstall(thps4Dir, "thps4"), "data", "levels", base);
     if (folder === null) throw new TypeError(`no THPS4 ${base} in ${thps4Dir}`);
     const thps4Scripts = new Set<number>();
     let thps4Nodes = new Set<number>();
