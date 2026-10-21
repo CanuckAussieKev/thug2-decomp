@@ -34,6 +34,12 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   chains, phase 5 triggers, and a check of face flag 0x80 (the view agent found the camera's feeler IGNORES 0x80 - our
   converters say 0x80 = camera collides and the THPS4 converter inverts it: possibly wrong; docs/pending/face-flag-0x80.md).
   Phase 6 (full Inspector + apply_layout.ts) starts after 4 and 5 merge.
+- **2026-10-21, end: every editor feature merged, installed, pushed** (main d062c85; 420 self-tests, 127 TS tests): career-mode
+  guard (free skate / single session only), bake of triggers / level props / per-axis + object scale / exit triggers,
+  bake backups + --uninstall, ladders, trick-object rails, grindable-on-flat-ground, carrying, Outliner markers, trigger
+  handles, stretch + object scaling (collision + matrix components decompiled: batch 193, 35.97%). No agents running.
+  Not done: walls can't be scaled / copied; object collision scale and start restart not bakeable. Everything awaits
+  the user's play test (checklist page DUcbR4CuAAULq98JWcxX46).
 - **Account switch (2026-10-21): the main pages are now on this account** - editor plan / entity map
   claude.ai/artifact/KzL5HQAt54n5g7JtfmEbtv (source scratchpad\main\editor-plan.html), play-test checklist
   claude.ai/artifact/DUcbR4CuAAULq98JWcxX46 (source scratchpad\main\playtest-checklist.html; its db `results` starts empty -
