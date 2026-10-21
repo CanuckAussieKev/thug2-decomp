@@ -76,6 +76,8 @@ struct Server {
     // a pad: nothing at all when it has none), recorded if recording; the buttons noted for the device's index
     // (0x00696D48 / 50 / 58); then the handlers run.
     void ServiceHandlers();
+    // 0x0044E520: the destructor: the handler list destroyed (0x004070E0).
+    void Destruct();
 };
 static_assert(sizeof(Server) == 0x84 && offsetof(Server, m_data) == 0x40 && offsetof(Server, m_dataOutEnd) == 0x80);
 
@@ -92,6 +94,22 @@ struct Manager {
     // 0x0044E700: the servers, the task, each server's device (by index), the stick working the d-pad on.
     // Returns this.
     Manager* Construct();
+    // 0x0044E530: the destructor: the task deleted (its virtual scalar deleting destructor), the servers destroyed
+    // (the last first).
+    void Destruct();
+    // 0x0044E5D0 / 0x0044E5F0: server `index`'s device (if any) stops and refuses vibration / allows it again.
+    void DisableActuators(int index);
+    void EnableActuators(int index);
+    // 0x0044E610 / 0x0044E620
+    void SetOverridePadWithStick(bool on) { m_overridePadWithStick = on; }
+    bool OverridePadWithStick() { return m_overridePadWithStick; }
+    // 0x0044E630 / 0x0044E640: m_unknown110[`player`] (the controller a player uses: Construct gives player 0
+    // controller 0, player 1 none).
+    int GetPlayerController(int player) { return m_unknown110[player]; }
+    void SetPlayerController(int player, int controller) { m_unknown110[player] = controller; }
+    // 0x0044E660: the task's code (`task` its Tsk::Task<Manager>: the manager at +0x1C): for each server, a
+    // recording played back or made that reached its end stops; then the server's frame (ServiceHandlers).
+    static void __cdecl ServiceTask(void* task);
 };
 static_assert(sizeof(Manager) == 0x118 && offsetof(Manager, m_overridePadWithStick) == 0x10C);
 
@@ -100,5 +118,11 @@ static_assert(sizeof(Manager) == 0x118 && offsetof(Manager, m_overridePadWithSti
 Manager* CreateManager(bool create);
 // 0x0044E6B0: drops a reference; the last one destroys (0x0044E530) and frees the manager.
 void ReleaseManager();
+
+// The button table (0x0067D6D8: 22 checksums, entries 1-21 the buttons - up, down, ..., the debounce times are
+// indexed the same way). 0x0044E590: entry `index`'s checksum. 0x0044E5A0: the index of `checksum` (0 if it's
+// none of them).
+uint32_t __cdecl ButtonChecksum(int index);
+int __cdecl ButtonIndex(uint32_t checksum);
 
 } // namespace Inp

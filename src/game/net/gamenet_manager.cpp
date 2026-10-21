@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "game/ed/park.h"
+#include "game/net/net_app.h"
 #include "game/script/struct.h"
 #include "hook/hook.h"
 
@@ -67,3 +68,26 @@ const char* Manager::GetLevelName(bool parkName)
 } // namespace GameNet
 
 REPLACE(0x005369A0, &GameNet::Manager::GetLevelName);
+
+namespace GameNet {
+
+static_assert(offsetof(Manager, m_server) == 0x04 && offsetof(Manager, m_client) == 0x08,
+              "layout must match the original");
+
+// 0x0044E4E0
+int Manager::InNetMode() { return (m_flags & 0x0C) != 0 ? 1 : 0; }
+
+// 0x0044E4F0
+bool Manager::InNetGame()
+{
+    if (!(m_flags & 0x0C))
+        return false;
+    if (m_server && !m_server->IsLocal())
+        return true;
+    return m_client && !m_client->IsLocal();
+}
+
+} // namespace GameNet
+
+REPLACE(0x0044E4E0, &GameNet::Manager::InNetMode);
+REPLACE(0x0044E4F0, &GameNet::Manager::InNetGame);

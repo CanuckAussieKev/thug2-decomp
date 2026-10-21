@@ -22,6 +22,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as nodes from "../level_port/nodes.ts";
+import * as pedRigs from "../level_port/ped_rigs.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
@@ -446,6 +447,17 @@ export class NodePass {
             s.remove("AnimName");
             s.entries.push([nameOf(n, "AnimName"), nameOf(n, HUMAN[1])]);
         }
+        const profile = s.get("profile");
+        if (!(profile instanceof Name && this.port.assets.profileExists(textOf(profile, n)))) {
+            const female = skeleton.includes("female") || textOf(s.get("Type"), n).toLowerCase().includes("_f_");
+            s.remove("profile");
+            s.entries.push([nameOf(n, "profile"), nameOf(n, female ? "random_female_profile" : "random_male_profile")]);
+            this.count("peds given a THUG2 profile");
+        }
+        // (the skeleton and animations the THUG2 profile's model is rigged to - a woman's on THPS6_human is twisted:
+        // tools/level_port/ped_rigs.ts; its animations then go in load_level_anims below)
+        if (pedRigs.fixPedRigs([s], n, (v) => this.port.assets.femaleRigs.has(v)).changed.length)
+            this.count("peds given their profile's skeleton");
         const anim = s.get("AnimName");
         if (anim instanceof Name) {
             if (this.port.thug2.scripts.has(anim.value))
@@ -459,13 +471,6 @@ export class NodePass {
             } else {
                 s.remove("Extra_Anims");
             }
-        }
-        const profile = s.get("profile");
-        if (!(profile instanceof Name && this.port.assets.profileExists(textOf(profile, n)))) {
-            const female = skeleton.includes("female") || textOf(s.get("Type"), n).toLowerCase().includes("_f_");
-            s.remove("profile");
-            s.entries.push([nameOf(n, "profile"), nameOf(n, female ? "random_female_profile" : "random_male_profile")]);
-            this.count("peds given a THUG2 profile");
         }
         return s;
     }

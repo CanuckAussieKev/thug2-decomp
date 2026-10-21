@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
+import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { renameScene } from "./migrate_layouts.ts";
 import type * as thps3 from "./thps3.ts";
 import {
@@ -15,6 +16,8 @@ import {
     legacyName,
     levelName,
     solidCollision,
+    textureChecksum,
+    toThug2Material,
 } from "./thps3_levels.ts";
 import { nodeEdits } from "./thugpro_compare.ts";
 
@@ -458,4 +461,33 @@ test("PC-THPS3-15: a solid moving sector's collision - every face, flags 0 (clum
     ]);
     assert.deepEqual(out[0]!.bbox, [-5, 0, -5, 1, 5, 10, 5, 1]);
     assert.deepEqual(solidCollision([sector(1)], materials, new Set(), new Set()), []);
+});
+
+test("an environment-mapped pass (uv flag 0x80) as THUG2's env pass, not a uv scroll; a plain uv wibble kept", () => {
+    const material = (uvFlags: number, uvWibble: number[]): thps3.RwMaterial => ({
+        rwColor: [255, 255, 255, 255],
+        texture: null,
+        ns: {
+            id: 1,
+            passCount: 1,
+            flags: 0x18,
+            terrain: 0,
+            colors: [[127, 127, 127, 255]],
+            blend: 0x8,
+            fixedAlpha: 20,
+            texture: { name: "Foun_CG_QP_Reflect_01.png", mask: "", filter: 6, uAddress: 1, vAddress: 1 },
+            uvFlags,
+            uvWibble,
+        },
+    });
+    const textures = new Set([textureChecksum("Foun_CG_QP_Reflect_01.png")]);
+    const reflect = toThug2Material(5, material(0x81, [1, 0, 1, 1, 0, 0, 1, 1]), textures).passes[0]!;
+    assert.equal(reflect.flags & thug2Scene.PASS_ENVIRONMENT, thug2Scene.PASS_ENVIRONMENT);
+    assert.equal(reflect.flags & thug2Scene.PASS_UV_WIBBLE, 0);
+    assert.equal(reflect.uvWibble, undefined);
+    assert.deepEqual(reflect.envmapTiling, [3, 3]);
+    const scroll = toThug2Material(6, material(0x01, [0, -0.5, 0, 0, 0, 0, 0, 0]), textures).passes[0]!;
+    assert.equal(scroll.flags & thug2Scene.PASS_ENVIRONMENT, 0);
+    assert.equal(scroll.flags & thug2Scene.PASS_UV_WIBBLE, thug2Scene.PASS_UV_WIBBLE);
+    assert.deepEqual(scroll.uvWibble, [0, -0.5, 0, 0, 0, 0, 0, 0]);
 });

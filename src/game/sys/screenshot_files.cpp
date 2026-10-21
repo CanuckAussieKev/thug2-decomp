@@ -44,6 +44,21 @@ std::string FileStem(const Stamp& s)
     return text;
 }
 
+std::string SeriesFolderName(const Stamp& s)
+{
+    char text[64];
+    std::snprintf(text, sizeof(text), "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour,
+                  s.minute, s.second);
+    return text;
+}
+
+std::string SeriesFrameName(int number)
+{
+    char text[32];
+    std::snprintf(text, sizeof(text), "frame_%04d.png", number);
+    return text;
+}
+
 std::string CandidateName(const std::string& stem, int n)
 {
     return n <= 1 ? stem + ".png" : stem + "_" + std::to_string(n) + ".png";

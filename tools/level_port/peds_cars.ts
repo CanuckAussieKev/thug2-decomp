@@ -22,6 +22,7 @@ import * as path from "node:path";
 import { decodeLatin1, Float, hex8, intFromBytesLE, pyJoin, pyTruthy } from "../lib/py.ts";
 import { unpack } from "../lib/struct.ts";
 import { FormatError } from "./binio.ts";
+import * as pedRigs from "./ped_rigs.ts";
 import * as prx from "./prx.ts";
 import * as qb from "./qb.ts";
 import { checksum, type Entry, Name, type QbFile, type QbValue, type Statement, Struct, Vector } from "./qb.ts";
@@ -429,16 +430,26 @@ export function vertLoop(
 export class Thug2Assets {
     readonly models: string;
     readonly profiles: Set<number>;
+    readonly femaleRigs: Set<number>; // the profiles whose models are rigged to Ped_Female (ped_rigs.ts)
 
     constructor(thug2: string) {
         this.models = path.join(thug2, "Data", "models");
         const data = prx.find(path.join(thug2, "Data", "pre", "qb_scripts.prx"), "scripts\\profile_ped.qb");
         if (data === null) throw new FormatError("qb_scripts.prx: scripts\\profile_ped.qb not found");
-        this.profiles = new Set(new qb.QbFile(data, "profile_ped.qb", true).globals.map(([key]) => key.value));
+        const globals = new qb.QbFile(data, "profile_ped.qb", true).globals;
+        this.profiles = new Set(globals.map(([key]) => key.value));
+        this.femaleRigs = pedRigs.femaleRigProfiles(globals);
     }
 
     profileExists(name: string): boolean {
         return this.profiles.has(checksum(name));
+    }
+
+    // The rig (skeleton, animations, generic Type) the profile's model needs (ped_rigs.ts).
+    rig(profile: string | number): pedRigs.Rig {
+        return this.femaleRigs.has(typeof profile === "string" ? checksum(profile) : profile)
+            ? pedRigs.FEMALE
+            : pedRigs.MALE;
     }
 
     modelExists(model: string): boolean {

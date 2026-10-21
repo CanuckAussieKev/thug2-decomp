@@ -99,7 +99,8 @@ back: the crash is in THUG2's code, which we are rewriting.
 
 **Rendering**
 - Vertex colour wibbles (animated vertex colours) not converted.
-- The env-mapped passes (uv flag 0x80) and 23 materials' second passes not converted.
+- 23 materials' second passes not converted. (The env-mapped passes - uv flag 0x80, the *_reflect overlays - are
+  THUG2's env passes since 2026-10-21; before, their uv wibble scrolled them over the ramps: docs/pending/shimmer-2.md.)
 - Reflection overlays (PS2 blend 0x8) drawn as additive: an approximation that fixed Foundry's black halfpipe.
 - Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one.
 
@@ -275,6 +276,6 @@ Formats marked "not identified" haven't been looked into yet.
 6. **THAW's story content.** Read the story archive alongside the online one for the missing props, peds and
    vehicles.
 7. **Lighting and skies.** THAW's time of day, night sectors and per-level skies; THUG1's LevelLights. THPS3's
-   vertex colour wibbles, env-mapped passes and Warehouse's dark set.
+   vertex colour wibbles and Warehouse's dark set.
 8. **Music.** Each game's soundtrack and level streams.
 9. **Goals and pickups.** A project of its own (porting career mode), outside free skate.

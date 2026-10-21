@@ -258,8 +258,75 @@ void ReleaseManager()
     References() = 0;
 }
 
+// 0x0044E520
+void Server::Destruct() { GameFunction<void(__thiscall*)(void*)>(0x004070E0)(m_handlers); }
+
+// 0x0044E530
+void Manager::Destruct()
+{
+    if (m_task) {
+        auto** vtable = *static_cast<void***>(m_task);
+        reinterpret_cast<void*(__thiscall*)(void*, int)>(vtable[2])(m_task, 1);
+    }
+    // (the C runtime's eh vector destructor iterator: the last first)
+    for (int i = kNumServers - 1; i >= 0; --i)
+        m_servers[i].Destruct();
+}
+
+// 0x0044E5D0
+void Manager::DisableActuators(int index)
+{
+    if (Sio::Device* device = m_servers[index].m_device)
+        device->DisableActuators();
+}
+
+// 0x0044E5F0
+void Manager::EnableActuators(int index)
+{
+    if (Sio::Device* device = m_servers[index].m_device)
+        device->EnableActuators();
+}
+
+// 0x0044E660
+void __cdecl Manager::ServiceTask(void* task)
+{
+    auto* manager = *reinterpret_cast<Manager**>(static_cast<uint8_t*>(task) + 0x1C);
+    for (Server& server : manager->m_servers) {
+        if (server.m_dataIn && server.m_dataIn >= server.m_dataInEnd)
+            server.m_dataIn = nullptr;
+        if (server.m_dataOut && server.m_dataOut >= server.m_dataOutEnd)
+            server.m_dataOut = nullptr;
+        server.ServiceHandlers();
+    }
+}
+
+// 0x0044E590
+uint32_t __cdecl ButtonChecksum(int index) { return reinterpret_cast<const uint32_t*>(0x0067D6D8)[index]; }
+
+// 0x0044E5A0
+int __cdecl ButtonIndex(uint32_t checksum)
+{
+    const uint32_t* table = reinterpret_cast<const uint32_t*>(0x0067D6D8);
+    for (int i = 1; i < 22; ++i) {
+        if (table[i] == checksum)
+            return i;
+    }
+    return 0;
+}
+
 } // namespace Inp
 
+REPLACE(0x0044E520, &Inp::Server::Destruct);
+REPLACE(0x0044E530, &Inp::Manager::Destruct);
+REPLACE(0x0044E5D0, &Inp::Manager::DisableActuators);
+REPLACE(0x0044E5F0, &Inp::Manager::EnableActuators);
+REPLACE(0x0044E610, &Inp::Manager::SetOverridePadWithStick);
+REPLACE(0x0044E620, &Inp::Manager::OverridePadWithStick);
+REPLACE(0x0044E630, &Inp::Manager::GetPlayerController);
+REPLACE(0x0044E640, &Inp::Manager::SetPlayerController);
+REPLACE(0x0044E660, Inp::Manager::ServiceTask);
+REPLACE(0x0044E590, Inp::ButtonChecksum);
+REPLACE(0x0044E5A0, Inp::ButtonIndex);
 REPLACE(0x0044E840, &Inp::Data::MaskDigitalInput);
 REPLACE(0x0044E860, &Inp::Data::MaskAnalogInput);
 REPLACE(0x0044E8C0, &Inp::Data::ConvertDigitalToAnalog);

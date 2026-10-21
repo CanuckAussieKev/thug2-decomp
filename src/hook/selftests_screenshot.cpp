@@ -63,6 +63,10 @@ void TestScreenshotNames()
     CheckText(CandidateName("thug2_x", 13), "thug2_x_13.png", "candidate 13");
     CheckText(SidecarName("thug2_x_2.png"), "thug2_x_2.txt", "sidecar name");
     CheckText(SidecarName("thug2_x.PNG"), "thug2_x.txt", "sidecar name (upper case)");
+    CheckText(SeriesFolderName({2026, 10, 21, 8, 4, 59}), "series_2026-10-21_08-04-59", "series folder");
+    CheckText(SeriesFrameName(1), "frame_0001.png", "series frame 1");
+    CheckText(SeriesFrameName(600), "frame_0600.png", "series frame 600");
+    CheckText(SeriesFrameName(12345), "frame_12345.png", "series frame 12345");
 
     std::set<std::string> files;
     auto taken = [&files](const std::string& name) { return files.count(name) != 0; };
