@@ -1,8 +1,8 @@
-// The object query component (Obj::CObjectQueryComponent): Obj_ObjectInRadius, Obj_ObjectInRadiusOfNode and
+// The bounding box component (Obj::CBBoxComponent): Obj_ObjectInRadius, Obj_ObjectInRadiusOfNode and
 // Obj_ObjectInRect. From the disassembly of 0x0041A810-0x0041B274. The x87 roundings are kept: values the original
 // stores are rounded to float, the ones it keeps on the FPU stack are worked in double.
 
-#include "game/obj/object_query.h"
+#include "game/obj/bbox_component.h"
 
 #include <cmath>
 #include <cstdint>
@@ -87,14 +87,14 @@ bool IsNear(const CCompositeObject* object, const CCompositeObject* self, float 
 } // namespace
 
 // 0x0041ADC0
-CBaseComponent* __cdecl CObjectQueryComponent::Create()
+CBaseComponent* __cdecl CBBoxComponent::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CObjectQueryComponent));
-    return memory ? static_cast<CObjectQueryComponent*>(memory)->Construct() : nullptr;
+    void* memory = Mem::Calloc(sizeof(CBBoxComponent));
+    return memory ? static_cast<CBBoxComponent*>(memory)->Construct() : nullptr;
 }
 
 // 0x0041AAD0
-CObjectQueryComponent* CObjectQueryComponent::Construct()
+CBBoxComponent* CBBoxComponent::Construct()
 {
     CBaseComponent::Construct();
     m_vtable = kVtable;
@@ -106,14 +106,14 @@ CObjectQueryComponent* CObjectQueryComponent::Construct()
 }
 
 // 0x0041A810
-void CObjectQueryComponent::DestroyBody()
+void CBBoxComponent::DestroyBody()
 {
     m_vtable = kVtable;
     CBaseComponent::DestroyBody();
 }
 
 // 0x0041A880
-CObjectQueryComponent* CObjectQueryComponent::Destroy(unsigned int flags)
+CBBoxComponent* CBBoxComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
@@ -122,7 +122,7 @@ CObjectQueryComponent* CObjectQueryComponent::Destroy(unsigned int flags)
 }
 
 // 0x0041A950
-void CObjectQueryComponent::InitRect(Rect* rect, Script::CStruct* params)
+void CBBoxComponent::InitRect(Rect* rect, Script::CStruct* params)
 {
     rect->m_computed = false;
     rect->m_angle = 0.0f;
@@ -151,7 +151,7 @@ void CObjectQueryComponent::InitRect(Rect* rect, Script::CStruct* params)
 }
 
 // 0x0041AB20
-void CObjectQueryComponent::ComputeRect(Rect* rect)
+void CBBoxComponent::ComputeRect(Rect* rect)
 {
     if (rect->m_computed)
         return;
@@ -182,7 +182,7 @@ void CObjectQueryComponent::ComputeRect(Rect* rect)
 }
 
 // 0x0041A8B0
-double RectRadiusSqr(CObjectQueryComponent::Rect* rect)
+double RectRadiusSqr(CBBoxComponent::Rect* rect)
 {
     if (rect->m_radiusComputed)
         return rect->m_radiusSqr;
@@ -204,7 +204,7 @@ double RectRadiusSqr(CObjectQueryComponent::Rect* rect)
 }
 
 // 0x0041AC40
-bool CObjectQueryComponent::IsInRect(CCompositeObject* object, Rect* rect)
+bool CBBoxComponent::IsInRect(CCompositeObject* object, Rect* rect)
 {
     float offsetX = rect->m_offset.x;
     float offsetY = rect->m_offset.y;
@@ -221,7 +221,7 @@ bool CObjectQueryComponent::IsInRect(CCompositeObject* object, Rect* rect)
         return false;
     // The middle of its box in the box's frame.
     Mth::Vector point = object->m_pos;
-    auto* query = static_cast<CObjectQueryComponent*>(object->GetComponent(kType));
+    auto* query = static_cast<CBBoxComponent*>(object->GetComponent(kType));
     point.y = static_cast<float>((static_cast<double>(query->m_boxMax.y) - query->m_boxMin.y) * kHalf + point.y);
     point.x = point.x - self.x;
     point.y = point.y - self.y;
@@ -233,7 +233,7 @@ bool CObjectQueryComponent::IsInRect(CCompositeObject* object, Rect* rect)
 }
 
 // 0x0041AE20
-bool CObjectQueryComponent::AnySkaterNear(Rect* rect, float radiusSqr, const Mth::Vector* point)
+bool CBBoxComponent::AnySkaterNear(Rect* rect, float radiusSqr, const Mth::Vector* point)
 {
     int count = Mdl::Skate::Instance()->GetNumSkaters();
     for (int i = 0; i < count; ++i) {
@@ -251,7 +251,7 @@ bool CObjectQueryComponent::AnySkaterNear(Rect* rect, float radiusSqr, const Mth
 }
 
 // 0x0041AF10
-bool CObjectQueryComponent::AnyObjectNear(Script::CStruct* params, Script::CScript* script, float radiusSqr, Rect* rect,
+bool CBBoxComponent::AnyObjectNear(Script::CStruct* params, Script::CScript* script, float radiusSqr, Rect* rect,
                                           uint32_t type, const Mth::Vector* point)
 {
     (void)params;
@@ -291,7 +291,7 @@ bool CObjectQueryComponent::AnyObjectNear(Script::CStruct* params, Script::CScri
 }
 
 // 0x0041B0A0
-bool CObjectQueryComponent::QueryObjects(Script::CStruct* params, Script::CScript* script, Rect* rect,
+bool CBBoxComponent::QueryObjects(Script::CStruct* params, Script::CScript* script, Rect* rect,
                                          const Mth::Vector* point)
 {
     float radiusSqr = 0.0f;
@@ -315,7 +315,7 @@ bool CObjectQueryComponent::QueryObjects(Script::CStruct* params, Script::CScrip
 }
 
 // 0x0041B1A0
-int CObjectQueryComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
+int CBBoxComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
 {
     Rect rect;
     Mth::Vector position;
@@ -339,15 +339,15 @@ int CObjectQueryComponent::CallMemberFunction(uint32_t name, Script::CStruct* pa
 
 } // namespace Obj
 
-REPLACE(0x0041ADC0, Obj::CObjectQueryComponent::Create);
-REPLACE(0x0041AAD0, &Obj::CObjectQueryComponent::Construct);
-REPLACE(0x0041A810, &Obj::CObjectQueryComponent::DestroyBody);
-REPLACE(0x0041A880, &Obj::CObjectQueryComponent::Destroy);
-REPLACE(0x0041B1A0, &Obj::CObjectQueryComponent::CallMemberFunction);
-REPLACE(0x0041A950, &Obj::CObjectQueryComponent::InitRect);
-REPLACE(0x0041AB20, &Obj::CObjectQueryComponent::ComputeRect);
-REPLACE(0x0041AC40, &Obj::CObjectQueryComponent::IsInRect);
-REPLACE(0x0041AE20, &Obj::CObjectQueryComponent::AnySkaterNear);
-REPLACE(0x0041AF10, &Obj::CObjectQueryComponent::AnyObjectNear);
-REPLACE(0x0041B0A0, &Obj::CObjectQueryComponent::QueryObjects);
+REPLACE(0x0041ADC0, Obj::CBBoxComponent::Create);
+REPLACE(0x0041AAD0, &Obj::CBBoxComponent::Construct);
+REPLACE(0x0041A810, &Obj::CBBoxComponent::DestroyBody);
+REPLACE(0x0041A880, &Obj::CBBoxComponent::Destroy);
+REPLACE(0x0041B1A0, &Obj::CBBoxComponent::CallMemberFunction);
+REPLACE(0x0041A950, &Obj::CBBoxComponent::InitRect);
+REPLACE(0x0041AB20, &Obj::CBBoxComponent::ComputeRect);
+REPLACE(0x0041AC40, &Obj::CBBoxComponent::IsInRect);
+REPLACE(0x0041AE20, &Obj::CBBoxComponent::AnySkaterNear);
+REPLACE(0x0041AF10, &Obj::CBBoxComponent::AnyObjectNear);
+REPLACE(0x0041B0A0, &Obj::CBBoxComponent::QueryObjects);
 REPLACE(0x0041A8B0, Obj::RectRadiusSqr);

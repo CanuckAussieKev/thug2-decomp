@@ -40,6 +40,9 @@ void CatchUp()
 // 0x0044ECE0
 int GameClockElapsed() { return Elapsed(); }
 
+// 0x0041C200
+int GameClockTime() { return GameClockElapsed() + Offset(); }
+
 // 0x0044ED10
 void PauseGameClock(bool pause)
 {
@@ -58,5 +61,6 @@ void SetGameClockSpeed(float speed)
 } // namespace Tmr
 
 REPLACE(0x0044ECE0, Tmr::GameClockElapsed);
+REPLACE(0x0041C200, Tmr::GameClockTime);
 REPLACE(0x0044ED10, Tmr::PauseGameClock);
 REPLACE(0x0044ED70, Tmr::SetGameClockSpeed);

@@ -11,7 +11,7 @@ search's destructors).
 
 The range's classes / topics:
 - 0x0041A730 / 0x0041A820: Mth helpers (Matrix(angles), DistanceSquared).
-- 0x0041A810-0x0041B274: the object query component (0xB87C8E43): Obj_ObjectInRadius / InRadiusOfNode / InRect;
+- 0x0041A810-0x0041B274: the bounding box component (0xB87C8E43 "bbox"): Obj_ObjectInRadius / InRadiusOfNode / InRect;
   the object search's destructors (0x0041A850, 0x0041AA90, 0x0041AAA0); Mdl::Skate::GetNumSkaters (0x0041AD90).
 - 0x0041B280-0x0041B580: the colour cycle component (0xCDC76A22).
 - 0x0041B6D0-0x0041B8A0: the camera component (0xC4E311FA).
@@ -28,11 +28,11 @@ The range's classes / topics:
 - 0x00422D00-0x004230B0: the model light update component (0xE3FCA939).
 - 0x00423130-0x00423643: the motion component's member-function registration and its first members.
 
-Switch off: `[replacements] disable=object_query.cpp` (and the file of each later batch, listed with it).
+Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp` (any of them alone; the files of later batches are added here).
 
-- [x] Batch OC1-1 (NOT run in the game yet; the object query component, 19 functions): src/game/obj/object_query.{h,cpp}
+- [x] Batch OC1-1 (NOT run in the game yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
   (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
-  - Obj::CObjectQueryComponent (type 0xB87C8E43, vtable 0x00645DC4, 0x4C bytes; every composite object gets one,
+  - Obj::CBBoxComponent (type 0xB87C8E43 "bbox", vtable 0x00645DC4, 0x4C bytes; every composite object gets one,
     AddBaseComponents): 0x0041ADC0 Create, 0x0041AAD0 Construct (its box +-10 about the origin and an offset (0, 0, 0,
     1) - set nowhere else in the exe), 0x0041A810 / 0x0041A880 the destructors, 0x0041B1A0 CallMemberFunction:
     Obj_ObjectInRect (0x6520B902), Obj_ObjectInRadius (0x67660FE5), Obj_ObjectInRadiusOfNode (0xDCE760A1; no node=:
@@ -46,18 +46,18 @@ Switch off: `[replacements] disable=object_query.cpp` (and the file of each late
     call returns it unrounded from the FPU stack, later calls the stored float), 0x0041AC40 IsInRect (first the
     bounding distance from the box's middle - x and the middle's z rounded to float where the original stores them -,
     then the middle of the other object's own box brought into the rect's frame, PointInBox 0x004817D0; the other
-    object's query component is read without a null check, as in the original).
+    object's bbox component is read without a null check, as in the original).
   - 0x0041A850 / 0x0041AA90 / 0x0041AAA0: Obj::CObjectSearch's destructors (its base Lst::Search<CObject>'s vtable
     0x00645DF8; its own 0x00645DFC). 0x0041AD90 Mdl::Skate::GetNumSkaters (the list head at +0x28; a node's data is
     checked for -1 before the node for null, as the original). 0x0041A730 Matrix::InitFromAngles (the constructor
     Matrix(angles): the identity, then RotateX / Y / Z through D3DX - all skipped when all three are exactly 0; -0 counts
     as 0, NaN not). 0x0041A820 Mth::DistanceSquared ((dx dx + dz dz) + dy dy, unrounded; tracker.cpp has its own copy).
-  - Tests (selftests_obj_query.cpp): TestObjectQueryComponent - 48 seeds: Create (and out of memory), the destructors
+  - Tests (selftests_obj_bbox.cpp): TestBBoxComponent - 48 seeds: Create (and out of memory), the destructors
     (flags 0 / 1 / 2), InitRect from random parameter sets, ComputeRect / RectRadiusSqr from six rect states (computed
     or not, angle 0 / -0 / other, NaN height), IsInRect for six objects (some inside the bounding distance), two at
     exactly the bounding distance, objects at exactly the radius (13 from the point; 169 and just above), the skaters
     and each type with and without a rect / point / radius, QueryObjects and the four members (and another) from random
-    parameter sets (radius, type checksum / array / none, node); TestObjectQueryHelpers - the search destructors, the
+    parameter sets (radius, type checksum / array / none, node); TestBBoxHelpers - the search destructors, the
     skater count (0-5), Matrix(angles) (zeros, -0, one angle, NaN), DistanceSquared (unrounded results).
   - Mutations: 45 deliberate bugs, 44 caught (40 at first; floats in sevenths - values needing more than a float's
     precision - and exact-distance cases added for 4). 1 equivalent: `>=` for `>` in RectRadiusSqr's largest size (the
@@ -108,3 +108,39 @@ Switch off: `[replacements] disable=object_query.cpp` (and the file of each late
     camera's null check folded (null either way), the order of the steering distance's squares and `clamped > 1` for
     `ratio > 1` (the ratio is rounded to float before use: the same value), `turn <= 0` for `turn < 0` (0 never gets
     there), the tilt's max compared after rounding (the same value assigned).
+
+- [x] Batch OC1-3 (NOT run in the game yet; the collide-and-die and dynamic light components, the light's radius, the
+  feeler's destructor, a smart pointer's assignment, the game clock's time - 18 functions): src/game/obj/collide_and_die.{h,cpp},
+  dynamic_light.{h,cpp}, src/game/nx/dynamic_light.h (new); feeler.cpp, smtptr.h / .cpp, game_clock.cpp (additions).
+  - Obj::CCollideAndDieComponent (type 0x6259B52B "collideanddie", vtable 0x00645EB4, 0x54 bytes): 0x0041C370 Create,
+    0x0041C210 Construct (made at the game clock's time, the first update to come), 0x0041C1F0 / 0x0041C280 the
+    destructors, 0x0041C2B0 InitFromStructure (radius, scale, death_script, vel - asserted; vel (0, 0, 1) by default,
+    normalised), 0x0041C330 Finalize (the suspend component), 0x0041C3D0 Update: suspended (outside a network game):
+    nothing; ten seconds after it was made (unsigned) it dies; dying, a second after the hit; otherwise a feeler from
+    the last position (the first time: the object's own) 24 up to the position 24 up plus radius along the
+    normalised velocity (x87 roundings where the original stores) - on a hit (movables included) the projectile
+    collision component's 0x004F2F40, dying, death_script run with pos (the hit point), vel and scale. The position kept
+    for the next update.
+  - Obj::CDynamicLightComponent (type 0xD8BFC9F7, vtable 0x00645F58, 0x48 bytes) and Nx::CDynamicLight (layout only;
+    made by 0x0048FB80): 0x0041D0F0 Create, 0x0041CBD0 / 0x0041D0C0 the destructors (the light's owner cleared),
+    0x0041CBF0 InitFromStructure (StartRadius / StartIntensity / StartRGBA, asserted - the array read whether found or
+    not - also the middle and end values unless MidRadius / MidIntensity / MidRGBA / midTime (-1) and EndRadius /
+    EndIntensity / EndRGBA are given; the arrays share the original's one slot), 0x0041CDA0 Finalize (the wait-and-die
+    component), 0x0041CDC0 Update (the light made the first time, owned by the object; the fraction of the life -
+    elapsed / total as unsigned values, FILD's 2^32 correction - from start to end or through the middle (midTime
+    compared as -1's bits); radius, intensity and each colour byte (_ftol) interpolated in double; the light at the
+    object's position), 0x0041CFC0 CallMemberFunction (0xFAAD1C11 radius=, 0x86E1FA56 intensity=, 0x1A0F4C50 rgba= - the
+    light unchecked), 0x0041CB90 CDynamicLight::SetRadius (and 1 / radius; 1e10 for 0).
+  - 0x0041C200 Tmr::GameClockTime (elapsed + the offset), 0x0041C350 Nx::CFeeler::Destruct (the object hit let go: 82
+    callers, unwind code among them), 0x0041D1D0 CSmtPtr<CRefCounted>::AssignObject (Set returning this; 17 callers).
+  - Tests (selftests_obj_collide_light.cpp): TestCollideAndDieComponent - 48 seeds: Create on dirty memory, the
+    destructors, InitFromStructure with and without params, 8 random updates each (suspended / in a network game,
+    elapsed times at and around 500 / 10000, a hit or not, an object hit, a projectile component, a death script; a
+    position 24 below a non-float), the feeler's destructor and the assignment (an object or none, from one or none),
+    the game clock's time; TestDynamicLightComponent - 40 seeds: Create, the destructors with and without a light,
+    InitFromStructure with each optional parameter missing in turn, 8 updates each (no middle, middles 0 / 0.25 / 0.5 /
+    0.7 / 1 / NaN, exactly at the middle, elapsed past 2^31, a total past 2^31), the three members and another,
+    SetRadius (0, -0, 3, NaN).
+  - Mutations: 49 deliberate bugs, 48 caught (39 at first; 6 that first failed to build - a vc140.pdb lock - caught on
+    a rerun; a non-float position and the destructor's results added for 3). 1 equivalent: dropping `&& !m_dying`
+    before the hit's handling (a dying component never gets there).

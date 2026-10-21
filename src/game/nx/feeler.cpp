@@ -208,12 +208,16 @@ void CFeeler::DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames)
     Gfx::AddDebugLine(&m_line.start, &m_line.end, colour, colour, frames);
 }
 
+// 0x0041C350
+void CFeeler::Destruct() { m_object.Release(); }
+
 } // namespace Nx
 
 REPLACE(0x00417760, static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct));
 REPLACE(0x00417250,
         static_cast<Nx::CFeeler* (Nx::CFeeler::*)(const Mth::Vector*, const Mth::Vector*)>(&Nx::CFeeler::Construct));
 REPLACE(0x004170F0, &Nx::CFeeler::SetIgnore);
+REPLACE(0x0041C350, &Nx::CFeeler::Destruct);
 REPLACE(0x00417190, &Nx::CFeeler::SetStart);
 REPLACE(0x004171B0, &Nx::CFeeler::SetEnd);
 REPLACE(0x004171D0, &Nx::CFeeler::SetLine);

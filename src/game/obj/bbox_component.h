@@ -14,15 +14,15 @@ class CStruct;
 
 namespace Obj {
 
-// The object query component (type 0xB87C8E43 - its name isn't in THUG2's scripts -, vtable 0x00645DC4, 0x4C bytes;
-// made by 0x0041ADC0; every composite object gets one, AddBaseComponents): the member functions Obj_ObjectInRadius,
+// The bounding box component (type 0xB87C8E43 "bbox", vtable 0x00645DC4, 0x4C bytes; made by 0x0041ADC0; every
+// composite object gets one, AddBaseComponents): the member functions Obj_ObjectInRadius,
 // Obj_ObjectInRadiusOfNode and Obj_ObjectInRect - whether a skater / ped / car / game object (other than the object
 // itself) is within a distance of the object (or of a node), or inside a box turned with the object. Its own box (the
 // other objects' boxes give the height of their middle) is set only by the constructor: +-10 about the origin.
 //
 // Vtable: 0 the scalar deleting destructor, 12 CallMemberFunction; the rest the base's / shared (1 0x0051B970, 2 / 8
 // / 10 0x005BAB90, 3 / 4 / 9 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 11 0x0045D720).
-class CObjectQueryComponent : public CBaseComponent {
+class CBBoxComponent : public CBaseComponent {
 public:
     static constexpr uint32_t kType = 0xB87C8E43;
 
@@ -47,11 +47,11 @@ public:
     static CBaseComponent* __cdecl Create();
     // 0x0041AAD0: the base's constructor, its vtable and type; the box (10, 10, 10, 1) - (-10, -10, -10, 1), the
     // offset (0, 0, 0, 1). Returns this.
-    CObjectQueryComponent* Construct();
+    CBBoxComponent* Construct();
     // 0x0041A810: the base's body.
     void DestroyBody();
     // 0x0041A880 (vtable slot 0)
-    CObjectQueryComponent* Destroy(unsigned int flags);
+    CBBoxComponent* Destroy(unsigned int flags);
     // 0x0041B1A0 (vtable slot 12): Obj_ObjectInRect (0x6520B902; a Rect from `params`), Obj_ObjectInRadius
     // (0x67660FE5), Obj_ObjectInRadiusOfNode (0xDCE760A1: about the position of `node` - none: 0): 1 / 0 for whether
     // an object is there (QueryObjects); anything else 2 (not its own).
@@ -83,21 +83,21 @@ public:
     Mth::Vector m_offset; // +0x38
     uint8_t unknown48[4];
 };
-static_assert(offsetof(CObjectQueryComponent, m_boxMax) == 0x18 && offsetof(CObjectQueryComponent, m_boxMin) == 0x28 &&
-                  offsetof(CObjectQueryComponent, m_offset) == 0x38 && sizeof(CObjectQueryComponent) == 0x4C,
+static_assert(offsetof(CBBoxComponent, m_boxMax) == 0x18 && offsetof(CBBoxComponent, m_boxMin) == 0x28 &&
+                  offsetof(CBBoxComponent, m_offset) == 0x38 && sizeof(CBBoxComponent) == 0x4C,
               "layout must match the original");
-static_assert(offsetof(CObjectQueryComponent::Rect, m_height) == 0x40 &&
-                  offsetof(CObjectQueryComponent::Rect, m_angle) == 0x4C &&
-                  offsetof(CObjectQueryComponent::Rect, m_max) == 0x50 &&
-                  offsetof(CObjectQueryComponent::Rect, m_offset) == 0x70 &&
-                  offsetof(CObjectQueryComponent::Rect, m_computed) == 0x84 &&
-                  offsetof(CObjectQueryComponent::Rect, m_radiusSqr) == 0x88 &&
-                  sizeof(CObjectQueryComponent::Rect) == 0x8C,
+static_assert(offsetof(CBBoxComponent::Rect, m_height) == 0x40 &&
+                  offsetof(CBBoxComponent::Rect, m_angle) == 0x4C &&
+                  offsetof(CBBoxComponent::Rect, m_max) == 0x50 &&
+                  offsetof(CBBoxComponent::Rect, m_offset) == 0x70 &&
+                  offsetof(CBBoxComponent::Rect, m_computed) == 0x84 &&
+                  offsetof(CBBoxComponent::Rect, m_radiusSqr) == 0x88 &&
+                  sizeof(CBBoxComponent::Rect) == 0x8C,
               "layout must match the original");
 
 // 0x0041A8B0 (cdecl): the square of a distance that holds the whole box: (the largest of height, dist and width + the
 // largest of the offset's x, y and z, all as magnitudes) squared - computed once (kept as a float; the first call
 // returns it unrounded, as the original does on the FPU stack).
-double RectRadiusSqr(CObjectQueryComponent::Rect* rect);
+double RectRadiusSqr(CBBoxComponent::Rect* rect);
 
 } // namespace Obj

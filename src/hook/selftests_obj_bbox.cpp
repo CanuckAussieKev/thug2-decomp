@@ -1,4 +1,4 @@
-// Self-tests for the object query component (src/game/obj/object_query.cpp, 0x0041A810-0x0041B274), the object
+// Self-tests for the bounding box component (src/game/obj/bbox_component.cpp, 0x0041A810-0x0041B274), the object
 // search's destructors (objman.cpp: 0x0041A850, 0x0041AA90, 0x0041AAA0), the skate module's skater count
 // (skate_module.cpp: 0x0041AD90) and two Mth helpers (0x0041A730 Matrix(angles), 0x0041A820 DistanceSquared): the
 // original and ours, every call they make stood in for and recorded (the allocation, the base component, the script
@@ -17,7 +17,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
-#include "game/obj/object_query.h"
+#include "game/obj/bbox_component.h"
 #include "game/obj/objman.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -31,7 +31,7 @@
 namespace {
 
 using namespace AppMainTests;
-using Obj::CObjectQueryComponent;
+using Obj::CBBoxComponent;
 
 constexpr int kOthers = 6;
 
@@ -305,7 +305,7 @@ void ResetWorld(uint32_t seed)
     self->mp_manager = reinterpret_cast<Obj::CBaseManager*>(g_world.manager);
     std::memset(g_world.manager, 0, sizeof(g_world.manager));
     *reinterpret_cast<void***>(g_world.manager) = g_world.managerVtable;
-    auto* c = reinterpret_cast<CObjectQueryComponent*>(g_world.component);
+    auto* c = reinterpret_cast<CBBoxComponent*>(g_world.component);
     c->m_object = self;
     // The skaters' list: `count` nodes after the head (data -1).
     std::memset(g_world.skate, 0, sizeof(g_world.skate));
@@ -340,9 +340,9 @@ void DumpWorld(std::vector<uint32_t>& trace)
         trace.push_back(Rel(reinterpret_cast<uint32_t*>(g_world.self)[i]));
 }
 
-#define OBJECT_QUERY_ADDRESSES                                                                                             {0x0041ADC0, 0x0041AAD0, 0x0041A810, 0x0041A880, 0x0041B1A0, 0x0041A950, 0x0041AB20, 0x0041AC40, 0x0041AE20,           0x0041AF10, 0x0041B0A0, 0x0041A8B0, 0x0041AD90, 0x0041A850, 0x0041AA90, 0x0041AAA0, 0x0041A730, 0x0041A820}
+#define BBOX_ADDRESSES                                                                                             {0x0041ADC0, 0x0041AAD0, 0x0041A810, 0x0041A880, 0x0041B1A0, 0x0041A950, 0x0041AB20, 0x0041AC40, 0x0041AE20,           0x0041AF10, 0x0041B0A0, 0x0041A8B0, 0x0041AD90, 0x0041A850, 0x0041AA90, 0x0041AAA0, 0x0041A730, 0x0041A820}
 
-using Rect = CObjectQueryComponent::Rect;
+using Rect = CBBoxComponent::Rect;
 
 // The rect's state before a call: not computed (or computed), its sizes and offset from the seed.
 void PrepareRect(Lcg& random, int variant)
@@ -362,7 +362,7 @@ void PrepareRect(Lcg& random, int variant)
 
 // The component made / constructed / destroyed; the rect's parameters, matrix and radius; whether objects are in it
 // or near; the searches for each type; the three members and another (every parameter combination the seeds pick).
-void TestObjectQueryComponent()
+void TestBBoxComponent()
 {
     StandIns& s = *new StandIns();
     StandIn(s);
@@ -374,10 +374,10 @@ void TestObjectQueryComponent()
             g_a = {};
             g_a.seed = seed;
             GameVariable<void*>(0x007CE478) = g_world.skate;
-            Originals guard(original, OBJECT_QUERY_ADDRESSES);
+            Originals guard(original, BBOX_ADDRESSES);
             std::vector<uint32_t> trace;
             Lcg random(0x9E000000 + seed);
-            auto* c = reinterpret_cast<CObjectQueryComponent*>(g_world.component);
+            auto* c = reinterpret_cast<CBBoxComponent*>(g_world.component);
             auto* rect = reinterpret_cast<Rect*>(g_world.rect);
             void* script = reinterpret_cast<void*>(0x5C900000 + seed);
             auto* params = reinterpret_cast<Script::CStruct*>(0x5C700000 + seed);
@@ -485,14 +485,14 @@ void TestObjectQueryComponent()
         };
         std::vector<uint32_t> expected = run(true);
         std::vector<uint32_t> actual = run(false);
-        Compare(expected, actual, "object query component: made, destroyed, its rect, objects in the rect / near, "
+        Compare(expected, actual, "bbox component: made, destroyed, its rect, objects in the rect / near, "
                                   "the members");
     }
     delete &s;
 }
 
 // The object search's destructors, the skater count, Matrix(angles) and DistanceSquared.
-void TestObjectQueryHelpers()
+void TestBBoxHelpers()
 {
     StandIns& s = *new StandIns();
     StandIn(s);
@@ -502,7 +502,7 @@ void TestObjectQueryHelpers()
             ResetWorld(seed);
             g_a = {};
             g_a.seed = seed;
-            Originals guard(original, OBJECT_QUERY_ADDRESSES);
+            Originals guard(original, BBOX_ADDRESSES);
             std::vector<uint32_t> trace;
             // the search's destructors
             uint32_t search[3] = {0x5EA00000, 0x5EA00004, seed};
@@ -551,5 +551,5 @@ void TestObjectQueryHelpers()
 
 } // namespace
 
-SELFTEST(Early, TestObjectQueryComponent, RemoveStandIns);
-SELFTEST(Early, TestObjectQueryHelpers, RemoveStandIns);
+SELFTEST(Early, TestBBoxComponent, RemoveStandIns);
+SELFTEST(Early, TestBBoxHelpers, RemoveStandIns);
