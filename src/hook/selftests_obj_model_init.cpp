@@ -131,8 +131,9 @@ void StandIn(StandIns& s)
         g_trace.insert(g_trace.end(), {0x7A70, Rel(r.args[0]), HashBytes(reinterpret_cast<const uint8_t*>(ext),
                                                                           std::strlen(ext)), Rel(r.args[2])});
         char* out = reinterpret_cast<char*>(r.args[2]);
-        std::strcpy(out, name);
-        std::strcat(out, ext);
+        size_t nameLength = std::strlen(name);
+        std::memcpy(out, name, nameLength);
+        std::memcpy(out + nameLength, ext, std::strlen(ext) + 1);
         return 0u;
     });
     RecBools(s, {0x004935E0}, 8, 0x35E0, 4 | 0x10, [](Regs& r) {

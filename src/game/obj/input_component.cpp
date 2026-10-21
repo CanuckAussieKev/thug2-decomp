@@ -389,9 +389,11 @@ int CInputComponent::DownPressed(Script::CStruct*, Script::CScript*) { return m_
 int CInputComponent::GetSticks(Script::CStruct*, Script::CScript* script)
 {
     script->m_params->AddFloat(0x737F15CF, m_pad.m_polar[1].angle * kRadiansToDegrees);
-    script->m_params->AddFloat(0x686AD1C2, StickLength(m_pad.m_stick[2], m_pad.m_stick[3], m_pad.m_polar[1].angle));
+    script->m_params->AddFloat(0x686AD1C2,
+                               static_cast<float>(StickLength(m_pad.m_stick[2], m_pad.m_stick[3], m_pad.m_polar[1].angle)));
     script->m_params->AddFloat(0xD6030CEA, m_pad.m_polar[0].angle * kRadiansToDegrees);
-    script->m_params->AddFloat(0xC94777AC, StickLength(m_pad.m_stick[0], m_pad.m_stick[1], m_pad.m_polar[0].angle));
+    script->m_params->AddFloat(0xC94777AC,
+                               static_cast<float>(StickLength(m_pad.m_stick[0], m_pad.m_stick[1], m_pad.m_polar[0].angle)));
     return 1;
 }
 
