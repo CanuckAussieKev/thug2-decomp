@@ -49,6 +49,8 @@ struct StandIn {
     int16_t thisIn = -1;            // record `thisInWords` words at this + thisIn, or -1
     uint8_t thisInWords = 0;
     float outScale = 4.0f;          // the outputs' range (-outScale..outScale)
+    float (*pickFloat)() = nullptr; // Ret::Float: the value returned (else one of PickFloat's)
+    void (*after)(uint8_t* self) = nullptr; // called with `this` once the outputs are filled (to record or set more)
 };
 
 // While set, outputs are filled with 1, 2, 3, 1 (instead of random floats): equal results from separate calls.

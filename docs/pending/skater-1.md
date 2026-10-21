@@ -123,4 +123,33 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
     square-on walls), SetLength's vector recorded. 63 deliberate bugs: 61 caught (11 after strengthening), 2
     equivalent (the velocity's y zeroed again before SetLength - it already is; LargerOf's arguments swapped - equal
     values either way).
-- [ ] Next: the acid drop (0x00502240, 0x00502F20) and the spine transfer 0x00505F70.
+- [x] Batch SK1-6 (NOT run in the game yet; the acid drop, 2 functions): src/game/skater/core_physics_acid_drop.cpp (new).
+  (Written by the first SK1 agent before it stopped at a usage limit; reviewed, its test strengthened and committed by
+  the second.)
+  - 0x00502240 FindAcidDrop(pop, position, lastPosition, velocity, drop): along the horizontal velocity (or the walk's
+    direction), from the higher of the two positions; walking on the ground the reach is
+    Physics_Acid_Drop_Walking_On_Ground_Search_Distance, 200 up, else 500 (walking in the air: backed off 12); the
+    search's box through a collision cache (CCollCache 0x0040AB50 / 0x0040ABA0 / 0x0040AB40); feelers 4000 down at
+    0.01, then +3 (+24 more beyond 100) - the next step compared unrounded with the reach; a vert face (flag 8) no
+    flatter than 0.707 facing away (>= 0.05) or, walking in, towards (<= -0.25). The arc: the velocity projected onto
+    the direction to the hit (walking), at least the walk's speed (0x0043DAA0), Physics_Acid_Drop_Pop_Speed up with
+    `pop`, at most twice it; the peak at the wall (walking up: the arc's top when it comes first);
+    Physics_Acid_Drop_Min_Air_Time; then up the wall 24 at a time for a point reached with nothing in the way (two
+    feelers via the arc's middle). The velocity put back when none; AcidDrop (0x28 bytes: point, normal, the first
+    hit's height, the hit object alive) filled when found.
+  - 0x00502F20 StartAcidDrop(drop): the horizontal speed to reach the point in the fall's time into the flags block
+    (+0xE4; a copy at 0x007CCDBC), +0x37C the point's height, flags 0x78 / 0x30 / 0xA8 set and 0x38 / 0x68 cleared,
+    +0x14C0, the wall's matrix (+0x3B0: along the drop in the wall's plane, the normal, across; turned round when
+    along points up), +0x490, the slerp (+0x3F0) from the skater's matrix to it turned by the facing's angle, +0x488 /
+    +0x48C / +0x4A0; SkaterAcidDropTriggered with DropHeight; flag 0xB0; the Ollied handler cleared.
+  - Test (selftests_skater_acid_drop.cpp TestSkaterPhysicsAcidDrop, 20000 variants): the harness's stand-ins got two
+    optional hooks (StandIn::pickFloat - a Ret::Float stand-in's value; StandIn::after - called with `this` after the
+    outputs: records the feeler's cache pointer, sets a vert wall at the edges). Edges: the facing exactly 0.05 /
+    -0.25, the hit at the skater's own height (the peak equal to it, an air time of -0), the reach exactly one of the
+    search's steps. 64 deliberate bugs: 62 caught (6 after strengthening), 2 equivalent (the box corner's w rounded
+    twice - BBox::AddPoint takes x, y, z only; the wall direction's normalising at a length of at most 1 instead of
+    above 0 - the length is never below 1 by more than a rounding, and the Normalize after it gives the same vector).
+- Merge note: SK1's names that clashed with SK2's (both are CorePhysicsComponent methods) were renamed when the
+  branches met: 0x005055B0 CheckSideFeelers, 0x00501C90 CheckSideFeeler, 0x00503EC0 TryStartSkitch; SK1's calls of
+  the state change helper are Physics::SetState (the class has the script member SetState now).
+- [ ] Next: the spine transfer 0x00505F70.

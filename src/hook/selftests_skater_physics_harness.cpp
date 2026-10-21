@@ -98,6 +98,8 @@ void __cdecl RecordStandInCall(uint32_t* frame)
         for (int i = 0; i < s.words; ++i)
             data[i] = g_fixedOut ? kFixed[i % 4] : RandomFloat(s.outScale);
     }
+    if (s.after)
+        s.after(reinterpret_cast<uint8_t*>(frame[1]));
     g_stubFloatKind = 0;
     switch (s.ret) {
     case Ret::None:
@@ -112,7 +114,7 @@ void __cdecl RecordStandInCall(uint32_t* frame)
         g_calls.push_back(g_stubEax);
         break;
     case Ret::Float:
-        g_stubFloat = PickFloat();
+        g_stubFloat = s.pickFloat ? s.pickFloat() : PickFloat();
         g_stubFloatKind = 1;
         g_stubEax = 0xEEEEEEEE;
         g_calls.push_back(*reinterpret_cast<uint32_t*>(&g_stubFloat));

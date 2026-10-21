@@ -30,6 +30,32 @@ CorePhysicsComponent* Ours(uint8_t* component) { return reinterpret_cast<CorePhy
 
 uint32_t g_pointer; // what Ret::Fixed stand-ins return
 
+// Variants set up at a threshold: the facing exactly at its limit (walking or not), the hit at the skater's own height
+// (the arc's peak equal to it), the search reach exactly one of the search's steps.
+enum class Edge { None, Facing, WalkFacing, Level, Reach };
+Edge g_edge = Edge::None;
+float g_reach;
+std::vector<float> g_exactSteps; // the search's steps that are floats exactly
+
+// GetCollision's extra: whether the feeler goes through the cache; at an edge, a vert wall (normal (1, 0.5, 0)) - at the
+// skater's height for Level.
+void AfterGetCollision(uint8_t* feeler)
+{
+    RecordValue(*reinterpret_cast<uint32_t*>(feeler + 0xAC) != 0);
+    if (g_edge == Edge::None || g_edge == Edge::Reach)
+        return;
+    *reinterpret_cast<uint16_t*>(feeler + 0x50) |= 8;
+    float* normal = reinterpret_cast<float*>(feeler + 0x88);
+    normal[0] = 1.0f;
+    normal[1] = 0.5f;
+    normal[2] = 0.0f;
+    normal[3] = 0.0f;
+    if (g_edge == Edge::Level)
+        *reinterpret_cast<float*>(feeler + 0x7C) = ArenaAt<float>(kObject + 0x50);
+}
+
+float PickScriptFloat() { return g_edge == Edge::Reach ? g_reach : PickFloat(); }
+
 // (the copy of the drop's horizontal velocity kept at 0x007CCDBC)
 void RecordCopy()
 {
@@ -42,11 +68,13 @@ std::vector<StandIn> AcidDropStandIns()
     return {
         {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0}, // the clock
         {0x00478F00, 0, 1, Ret::Float, false, 0, -1, -1, 0,
-         CodeAddress(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
+         CodeAddress(static_cast<float (*)(uint32_t)>(&Script::GetFloat)), nullptr, 0, 0, -1, -1, 0, 4.0f,
+         &PickScriptFloat},
         {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0}, // PhysicsFloat
         {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0}, // the gravity
         {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 18, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,
-         0x50, 0, 8}, // (the line recorded; the hit's flags, distance, point and normal filled in)
+         0x50, 0, 8, 4.0f, nullptr, &AfterGetCollision}, // (the line recorded; the hit's flags, distance, point and normal
+                                                         // filled in)
         {0x00417210, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Nx::CFeeler::HitObjectAlive)},
         {0x0040AB50, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Nx::CCollCache::Construct)},
         {0x0040ABA0, 4, 1, Ret::None, true, 0, 0, -1, 8, CodeAddress(&Nx::CCollCache::Update)}, // (the box recorded)
@@ -79,7 +107,15 @@ void TestSkaterPhysicsAcidDrop()
     GameVariable<bool>(0x007CC979) = true;
     Mth::Vector savedCopy = GameVariable<Mth::Vector>(0x007CCDBC);
     bool same = true;
-    int found = 0, searched = 0, started = 0;
+    int found = 0, searched = 0, started = 0, edges = 0;
+    if (g_exactSteps.empty()) { // (the search's steps, as FindAcidDrop takes them)
+        float step = 0.01f;
+        for (double next = step; next < 3000.0; step = static_cast<float>(next)) {
+            next = static_cast<double>(step) + (step > 100.0f ? 24.0 : 0.0) + 3.0;
+            if (static_cast<double>(static_cast<float>(next)) == next)
+                g_exactSteps.push_back(static_cast<float>(next));
+        }
+    }
     for (int variant = 0; variant < 20000 && same; ++variant) {
         bool start = variant % 4 == 3;
         g_rng = 0x1F123BB5u * (variant + 1);
@@ -118,6 +154,18 @@ void TestSkaterPhysicsAcidDrop()
         default:
             break;
         }
+        g_edge = start ? Edge::None : static_cast<Edge>(Next() % 8 < 4 ? Next() % 5 : 0);
+        if (g_edge == Edge::Facing || g_edge == Edge::WalkFacing) { // (looking along the walk's direction)
+            ArenaAt<uint8_t>(kWalk + 0x118) = g_edge == Edge::Facing;
+            ArenaAt<int>(kWalk + 0x1C) = 1;
+            ArenaAt<uint32_t>(kMisc2 + 0x20 + 0x18) = 1;
+            ArenaAt<Mth::Vector>(kMisc2 + 0x20 + 0x48) = {g_edge == Edge::Facing ? 0.05f : -0.25f, 0.0f, 0.0f, 0.0f};
+        } else if (g_edge == Edge::Reach && !g_exactSteps.empty()) { // (walking on the ground: the reach a script value)
+            ArenaAt<uint8_t>(kWalk + 0x118) = 0;
+            ArenaAt<int>(kWalk + 0x1C) = 1;
+            ArenaAt<uint32_t>(kMisc2 + 0x20 + 0x18) = 0;
+            g_reach = g_exactSteps[Next() % (g_exactSteps.size() < 12 ? g_exactSteps.size() : 12)];
+        }
         AcidDrop* drop = &ArenaAt<AcidDrop>(kScratch + 0x200);
         if (start) {
             ArenaAt<float>(kScratch + 0x214) = RandomBool(50) ? RandomFloat(1.0f) : 0.5f + RandomFloat(0.4f);
@@ -145,6 +193,7 @@ void TestSkaterPhysicsAcidDrop()
             });
             searched += Called(actual, 0x0040ABA0);
             found += actual[0] != 0;
+            edges += g_edge != Edge::None && actual[0] != 0;
         } else {
             expected = RunOnArena(seed, [=](uint8_t* component) {
                 GameVariable<Mth::Vector>(0x007CCDBC) = {};
@@ -167,9 +216,11 @@ void TestSkaterPhysicsAcidDrop()
     GameVariable<bool>(0x007CC979) = savedReady;
     GameVariable<Mth::Vector>(0x007CCDBC) = savedCopy;
     g_fixedOut = false;
-    bool covered = searched > 5000 && found > 30 && started > 3000;
+    g_edge = Edge::None;
+    bool covered = searched > 5000 && found > 30 && started > 3000 && edges > 30;
     if (!covered)
-        Log("  physics acid drop coverage: searched %d, found %d, started %d", searched, found, started);
+        Log("  physics acid drop coverage: searched %d, found %d, started %d, at an edge %d", searched,
+            found, started, edges);
     Check(same && covered, "skater physics: FindAcidDrop, StartAcidDrop");
 }
 
