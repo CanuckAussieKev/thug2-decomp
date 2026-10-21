@@ -21,6 +21,8 @@
 #include "game/skater/controls.h"
 #include "game/skater/trick_queue.h"
 #include "game/sys/game_clock.h"
+#include "game/sio/inpman.h"
+#include "game/skater/skater.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -39,9 +41,10 @@ constexpr uint32_t kObject = 0x2000;    // (0x110)
 constexpr uint32_t kScript = 0x2200;    // (+0x14 its params, +0xBC its object)
 constexpr uint32_t kInput = 0x2300;
 constexpr uint32_t kState = 0x2340;     // (+0x1C, +0xE0)
-constexpr uint32_t kFlags = 0x2380;     // (+0x74)
 constexpr uint32_t kRail = 0x2400;      // (+0x4C)
-constexpr uint32_t kCore = 0x2800;      // (+0x1B0, +0x22C, +0x3A8)
+constexpr uint32_t kCore = 0x8000;      // (+0x1B0, +0x22C, +0x318, +0x374, +0x3A8, +0x1528)
+constexpr uint32_t kScore = 0xA000;     // (+0x14, +0x60, +0x154C)
+constexpr uint32_t kRailState = 0xC000; // (the core physics' +0x1528: +0x18, +0x30)
 constexpr uint32_t kBlender = 0x2C00;
 constexpr uint32_t kTokens = 0x3000;    // structures: 32 tokens of 0x20 bytes
 constexpr uint32_t kArrays = 0x3400;    // arrays: 8 of 0x10 (+4 the size)
@@ -53,6 +56,13 @@ constexpr uint32_t kPool = 0x5800;
 constexpr uint32_t kGrind = 0x255ED86F;
 
 bool g_arraysAlways = false;
+const uint32_t kUsedByKinds[] = {0xB58EFC2B, 0xB2C0F29A, 0xEF24413B, 0xEC066B6A, 0x1234};
+
+void CopyText(char* to, const char* from)
+{
+    while ((*to++ = *from++) != '\0') {
+    }
+}
 
 uint32_t Token(uint32_t i) { return reinterpret_cast<uint32_t>(Arena() + kTokens + (i % 32) * 0x20); }
 uint32_t MaybeToken(uint32_t percent) { return Chance(percent) ? Token(Next()) : 0u; }
@@ -90,10 +100,13 @@ void StandIns(Kit& kit, bool trickFunctions)
         Record(0x476950);
         Record(Relative(f.ecx));
         Record(f.args[0]);
-        bool found = Chance(70);
+        bool found = f.args[2] ? true : Chance(70); // (an asserted one is there: else the original passes on stack garbage)
         Record(found);
         if (found)
-            *reinterpret_cast<uint32_t*>(f.args[1]) = PickChecksum();
+            *reinterpret_cast<uint32_t*>(f.args[1]) =
+                f.args[0] == 0x9694FC41 // UsedBy: the four kinds, or another
+                    ? kUsedByKinds[Next() % 5]
+                    : PickChecksum();
         return Int(found);
     }, {Code(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))});
     auto getInteger = [](Frame& f, uint32_t name) {
@@ -242,6 +255,8 @@ void StandIns(Kit& kit, bool trickFunctions)
             return Int(reinterpret_cast<uint32_t>(Arena() + kComponent));
         case 0x7149B753:
             return Int(reinterpret_cast<uint32_t>(Arena() + kBlender));
+        case 0x11B4C67F:
+            return Int(reinterpret_cast<uint32_t>(Arena() + kCore + 0x400)); // SkaterGap
         default:
             return Int(0);
         }
@@ -329,6 +344,53 @@ void StandIns(Kit& kit, bool trickFunctions)
     }, {Code(static_cast<void* (*)(unsigned int)>(&Mem::Calloc))});
     kit.Recorder(0x0045D740, {0, 0, Ret::None, true}, {Code(&Obj::CBaseComponent::DestroyBody)});
     kit.Recorder(0x005BABA0, {4, 1, Ret::None, true}, {Code(&Mem::Manager::Free)});
+    // CallMemberFunction's callees.
+    kit.Recorder(0x0051ECF0, {4, 1, Ret::Bool, true});
+    kit.Recorder(0x0051F610, {8, 2, Ret::None, true});
+    for (uint32_t address : {0x0051EB00u, 0x0051EB30u, 0x0051EF00u, 0x0051F010u, 0x005587F0u, 0x00511C30u, 0x00511C10u,
+                             0x0051CBF0u, 0x0051CA00u, 0x004F8DB0u, 0x004F8DE0u, 0x00509990u, 0x00564330u})
+        kit.Recorder(address, {0, 0, Ret::None, true});
+    kit.Recorder(0x0051ED90, {4, 1, Ret::None, true});
+    kit.Recorder(0x004FC440, {0, 0, Ret::Bool, true});
+    kit.Recorder(0x00563F30, {4, 1, Ret::None, true});
+    kit.Recorder(0x00564860, {4, 1, Ret::None, true});
+    kit.Recorder(0x00564BE0, {4, 1, Ret::None, true});
+    kit.Add({0x00563990}, 12, [](Frame& f) {
+        Record(0x563990);
+        Record(Relative(f.ecx));
+        Record(Hash(reinterpret_cast<const char*>(f.args[0])));
+        Record(f.args[1]);
+        Record(f.args[2]);
+        return Result();
+    });
+    kit.Add({0x00561640}, 0, [](Frame& f) { // the trick the score shows: sometimes the one named
+        Record(0x561640);
+        Record(Relative(f.ecx));
+        uint32_t name = Chance(50) ? Hash(reinterpret_cast<const char*>(Arena() + kComponent + 0x1331)) : Next();
+        Record(name);
+        return Int(name);
+    });
+    kit.Add({0x0044E5A0}, 0, [](Frame& f) {
+        Record(0x44E5A0);
+        Record(f.args[0]);
+        uint32_t index = Next() % 24;
+        Record(index);
+        return Int(index);
+    }, {Code(&Inp::ButtonIndex)});
+    kit.Recorder(0x00477FC0, {12, 3, Ret::None, true}, {Code(&CStruct::AddPair)});
+    kit.Recorder(0x00477C60, {8, 2, Ret::None, true},
+                 {Code(static_cast<void (CStruct::*)(uint32_t, float)>(&CStruct::AddFloat))});
+    kit.Add({0x00580400}, 0, [](Frame& f) { // a physics float: often 0.1 (a whole turn's threshold exactly 180 / 360)
+        Record(0x580400);
+        Record(f.args[0]);
+        Record(f.args[1]);
+        Record(Relative(f.args[2]));
+        float value = Chance(40) ? 0.1f : PickFloat();
+        RecordFloat(value);
+        return Float(value);
+    }, {Code(&Obj::GetPhysicsFloat)});
+    kit.Recorder(0x00476B40, {4, 1, Ret::Bool, true},
+                 {Code(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))});
     (void)trickFunctions;
 }
 
@@ -336,7 +398,7 @@ void FillVariant(int variant)
 {
     FillArena();
     Pointer(kComponent + 0x0C, kObject);
-    Pointer(kComponent + 0x1C, kFlags);
+    Pointer(kComponent + 0x1C, kScore);
     Pointer(kComponent + 0x20, kInput);
     Pointer(kComponent + 0x24, kCore + 0x100); // (the balance trick: only passed on)
     Pointer(kComponent + 0x28, kCore);
@@ -353,7 +415,22 @@ void FillVariant(int variant)
     if (Chance(20))
         At<uint32_t>(kCore + 0x22C) = 0;
     At<uint32_t>(kRail + 0x4C) = Chance(70) ? 1 : 0;
-    At<uint8_t>(kFlags + 0x74) = Chance(60) ? 1 : 0;
+    At<uint8_t>(kScore + 0x74) = Chance(60) ? 1 : 0;
+    At<int>(kScore + 0x14) = Chance(40) ? 0 : static_cast<int>(Next() % 1000);
+    At<float>(kScore + 0x60) = Chance(20) ? 0.0f : RandomFloat(4.0f);
+    At<float>(kScore + 0x154C) = RandomFloat(3.0f);
+    Pointer(kCore + 0x1528, kRailState);
+    At<int>(kRailState + 0x18) = Chance(50) ? 4 : static_cast<int>(Next() % 6);
+    At<uint8_t>(kRailState + 0x30) = Chance(30) ? 1 : 0;
+    At<uint8_t>(kCore + 0x374) = Chance(40) ? 1 : 0;
+    // The displayed trick's name and the deferred one (strings), the spin total (sometimes whole turns).
+    {
+        static const char* const names[] = {"", "Kickflip", "Heelflip to Fakie", "50-50"};
+        CopyText(reinterpret_cast<char*>(Arena() + kComponent + 0x1331), names[Next() % 4]);
+        CopyText(reinterpret_cast<char*>(Arena() + kComponent + 0x1368), names[Next() % 4]);
+        static const float spins[] = {0.0f, 180.0f, -360.0f, 179.99998f, 359.5f, 540.0f, 360.0f, -180.0f};
+        At<float>(kComponent + 0x13A4) = Chance(70) ? spins[Next() % 8] : RandomFloat(800.0f);
+    }
     At<uint32_t>(kState + 0x1C) = Chance(40) ? 1 : 0;
     At<uint32_t>(kInput + 0x1C) = Next();
     for (uint32_t i = 0; i < 8; ++i)
@@ -375,7 +452,7 @@ void FillVariant(int variant)
         uint32_t e = 0x38 + i * 0x18;
         At<uint32_t>(e) = 1000 - Next() % 600;
         At<int>(e + 4) = static_cast<int>(Next() % 4);
-        At<uint32_t>(e + 8) = Chance(25) ? 0x20689278u : Next();
+        At<uint32_t>(e + 8) = Chance(25) ? 0x20689278u : Chance(20) ? 0x7323E97Cu : Next();
     }
     flag(0xA24, 50);
     // The queue: head / tail (or -1), entries some empty.
@@ -463,7 +540,7 @@ uint32_t D(double d)
     return bits[0] ^ bits[1] * 3;
 }
 
-void TestTrickQueue()
+void RunTrickTests(int part)
 {
     Kit kit;
     StandIns(kit, true);
@@ -485,6 +562,7 @@ void TestTrickQueue()
                            [&](CTrickComponent* c) { prepare(); return ours(c); });
     };
     using Self = void*;
+    if (part == 0) {
     check("trick: Update", 3000, [](uint8_t* c) { Original<void(__thiscall*)(Self)>(0x005231D0)(c); return 0u; },
           [](CTrickComponent* c) { c->Update(); return 0u; });
     check("trick: UpdateButtons", 300, [](uint8_t* c) { Original<void(__thiscall*)(Self)>(0x00521E50)(c); return 0u; },
@@ -629,9 +707,40 @@ void TestTrickQueue()
               return reinterpret_cast<uint32_t>(Original<void*(__thiscall*)(Self, unsigned)>(0x005243F0)(c, Next() & 3));
           },
           [](CTrickComponent* c) { return reinterpret_cast<uint32_t>(c->Destroy(Next() & 3)); });
-    Check(ok, "trick: the component's tricks, button buffer and trick objects (original vs ours)");
+    }
+    if (part == 1) {
+        static const uint32_t names[] = {0x04BA9EE9, 0x00271B04, 0x070E934D, 0x11CA5C42, 0x190B85BC, 0x1CA450FB,
+                                         0x1FCF080A, 0x290F6010, 0x36B2BE57, 0x444C0E5A, 0x4B2EE2BC, 0x4BA7719F,
+                                         0x54C33B20, 0x54D43789, 0x6BA35AB4, 0x72C926CA, 0x7627DC71, 0x788F9A4E,
+                                         0x86928082, 0x8E3D3BEC, 0xAB6B8DD9, 0xABFF7889, 0xB42A1230, 0xB8045433,
+                                         0xCB30572D, 0xCB3A8FD2, 0xD4099D35, 0xD5813251, 0xD872002D, 0xD8C79BB0,
+                                         0xDE98DE7A, 0xE50D471E, 0xEDA2772E, 0xF32E8D5C, 0x12345678, 0x788F9A4F};
+        for (uint32_t name : names) {
+            static uint32_t current;
+            current = name;
+            char what[64];
+            std::snprintf(what, sizeof(what), "trick: CallMemberFunction %08X", name);
+            g_arraysAlways = true;
+            check(what, name == 0xF32E8D5C || name == 0x11CA5C42 ? 2500 : 250,
+                  [](uint8_t* c) {
+                      return U(Original<int(__thiscall*)(Self, uint32_t, uint32_t, uint32_t)>(0x00523560)(
+                          c, current, Token(1), reinterpret_cast<uint32_t>(Arena() + kScript)));
+                  },
+                  [](CTrickComponent* c) {
+                      return U(c->CallMemberFunction(current, reinterpret_cast<CStruct*>(Token(1)),
+                                                     reinterpret_cast<Script::CScript*>(Arena() + kScript)));
+                  });
+            g_arraysAlways = false;
+        }
+    }
+    Check(ok, part == 0 ? "trick: the component's tricks, button buffer and trick objects (original vs ours)"
+                        : "trick: CallMemberFunction (original vs ours)");
 }
+
+void TestTrickQueue() { RunTrickTests(0); }
+void TestTrickMemberFunctions() { RunTrickTests(1); }
 
 } // namespace
 
 SELFTEST(Early, TestTrickQueue, Sk5::Cleanup);
+SELFTEST(Early, TestTrickMemberFunctions, Sk5::Cleanup);

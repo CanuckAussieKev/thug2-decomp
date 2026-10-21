@@ -108,6 +108,15 @@ public:
     void PassToTrickObjects(uint32_t value);
     uint32_t EndTrickObjects(uint32_t a, uint32_t b);
 
+    // 0x00523560 (slot 12; trick_member_functions.cpp): its script member functions - Released / Held (a button,
+    // or buttons=), GetSpazzFactor, GetSpin / GetActualSpin / ResetSpin, the trick arrays (SetQueueTricks,
+    // SetManualTricks, SetExtraGrindTricks, SetExtraTricks, KillExtraTricks, ClearTricksFrom), the queue
+    // (ClearTrickQueue, DoNextManualTrick, ClearManualTrick, ClearExtraGrindTrick), the trick mappings, the event
+    // buffer (ClearEventBuffer, RestoreEvents, UseGrindEvents, 0x070E934D), mashing (BashOn / BashOff, the quick
+    // getup), the trick display (SetTrickName, SetTrickScore, display), ClearPanel_Landed / ClearPanel_Bailed.
+    // 1 / 0 for true / false, 2 for a name it doesn't know.
+    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+
     // --- member functions reached through their records (the table at 0x00683148) ---
     // 0x00522280 (Pressed): whether the unnamed button was pressed within dur= (15) ms (0x0051F6B0).
     int Pressed(Script::CStruct* params, Script::CScript* script);

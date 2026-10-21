@@ -12,7 +12,7 @@ rounded to 53 bits by the precision control - and the game's C runtime acos / as
 src/hook/selftests_skater_*.cpp on a kit of their own, src/hook/sk5_testkit.h/.cpp (one arena both runs start from,
 every callee stood in for by a recording handler that can give a float in ST0, NaNs compared as NaNs).
 Shared files touched: CMakeLists.txt (new files listed, additive).
-Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, walk_physics.cpp, trick_queue.cpp, the other files listed per batch).
+Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, walk_physics.cpp, trick_queue.cpp, trick_member_functions.cpp, the other files listed per batch).
 
 - [x] Batch SK5-1 (NOT run in the game yet; the VehicleCamera component, 12 functions):
   src/game/skater/vehicle_camera.cpp/.h (new), src/game/skater/x87_math.h (new).
@@ -119,3 +119,28 @@ Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, wa
     59 deliberate bugs: 58 caught (2 after strengthening: a direct TryExtraTricks test with scripts that kill the
     extra tricks, and the kit compared -1 / -5 as equal NaNs - fixed: only the quiet NaN's sign is ignored now), 1
     equivalent (GetBashSpeed's `>` against `>=`: equal values give the same result).
+- [x] Batch SK5-4 (NOT run in the game yet; the Trick component's script member functions, 0x00523560 - 3.7 KB, 34
+  names): src/game/skater/trick_member_functions.cpp (new).
+  - Released / Held (a button through 0x0051ECF0, or buttons= by Inp::ButtonIndex into the held flags +0xA00),
+    GetSpazzFactor (the triangle mashes as spazzfactor), 0x070E934D (the button x's events marked used, in buffer
+    order), ClearPanel_Landed (a deferred trick scored when its spin is a whole turn - 360 on a rail, else 180 - less
+    spin_count_slop with 0.1 to spare; the goal manager's 0x005587F0; SkaterExitCombo with skaterId when the score
+    holds a combo; the gap and score components reset; SkaterLanded; the balance trick's two resets), ClearPanel_Bailed,
+    GetSpin (rounded down to half turns with the slop) / GetActualSpin / ResetSpin, SetQueueTricks (one name that
+    isn't an array becomes 0x9E22D268) / SetManualTricks / SetExtraGrindTricks / SetExtraTricks / KillExtraTricks /
+    ClearTricksFrom, ClearTrickQueue, DoNextManualTrick, ClearManualTrick, ClearExtraGrindTrick, the trick mappings
+    from a global structure (0xABFF7889), 0xB42A1230 (slot= mapped to the created trick trick= - a pair (13, its
+    index) through 0x00478470, a jump to AddPair), ClearEventBuffer (buttons= / OlderThan=, else all),
+    RestoreEvents (UsedBy= regular / extra / manual / 0xEC066B6A within duration= 200 ms), UseGrindEvents, BashOn /
+    BashOff, NoQuickGetup / ClearQuickGetup, SetTrickName / SetTrickScore, display (Deferred; AddSpin= while the
+    score shows the same trick - the score told the unrounded total; else the trick scored with its flags -
+    Blockspin 2, switch 4, special 0x20 unless NoSpecial, NoDegrade 0x40, cat 0x80, Natas 0x100, NoMult 0x200,
+    NoSwitch 0x400 - on a rail its score times the score's rail multiplier with the "RAIL score" debug line,
+    SkaterTrickDisplayed and the spin scored), 0x36B2BE57 (a button to the trick object list), 0x72C926CA /
+    0xDE98DE7A (0x0051F010 / 0x00521A10). 2 for other names.
+  - Test (selftests_skater_trick_queue.cpp TestTrickMemberFunctions): every name (and two unknown ones), original vs
+    ours, 250-2500 variants each (names displayed / deferred, spin totals at and just off whole turns, a slop of 0.1
+    making the threshold exactly 180 / 360, the score showing the trick or not, rails, the event buffer with the
+    button x, UsedBy's kinds). The kit's arena grew to 64 KB (the score component's +0x154C) and copies the arena
+    out faster. 41 deliberate bugs caught, 4 after strengthening (the button x events, the exact thresholds, UsedBy's
+    kinds, a spin whose sum rounds up to the next degree).

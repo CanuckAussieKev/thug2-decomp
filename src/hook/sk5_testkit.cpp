@@ -12,7 +12,7 @@ namespace Sk5 {
 
 namespace {
 
-constexpr uint32_t kArenaSize = 0x8000;
+constexpr uint32_t kArenaSize = 0x10000;
 alignas(16) uint8_t g_arena[kArenaSize];
 alignas(16) uint8_t g_start[kArenaSize];
 uint32_t g_rng = 1;
@@ -269,10 +269,24 @@ std::vector<uint32_t> Run(uint32_t seed, const std::function<uint32_t()>& call)
     g_trace.clear();
     g_stackLow = 0;
     uint32_t result = call();
-    std::vector<uint32_t> trace = {Relative(result)};
+    std::vector<uint32_t> trace;
+    trace.reserve(1 + g_trace.size() + kArenaSize / 4);
+    trace.push_back(Relative(result));
     trace.insert(trace.end(), g_trace.begin(), g_trace.end());
-    for (uint32_t i = 0; i < kArenaSize; i += 4)
-        trace.push_back(Relative(At<uint32_t>(i)));
+    // The arena (the same mapping as Relative's, inline: this runs for every word of every run).
+    uint32_t base = reinterpret_cast<uint32_t>(g_arena);
+    NT_TIB* tib = reinterpret_cast<NT_TIB*>(NtCurrentTeb());
+    uint32_t stackLow = reinterpret_cast<uint32_t>(tib->StackLimit);
+    uint32_t stackHigh = reinterpret_cast<uint32_t>(tib->StackBase);
+    const uint32_t* words = reinterpret_cast<const uint32_t*>(g_arena);
+    for (uint32_t i = 0; i < kArenaSize / 4; ++i) {
+        uint32_t word = words[i];
+        if (word - base <= kArenaSize)
+            word = 0xA0000000u + (word - base);
+        else if (word >= stackLow && word < stackHigh)
+            word = 0x5AC00000u;
+        trace.push_back(word);
+    }
     // The quiet NaN's sign isn't compared (x87 and SSE code propagate it differently). (Only that NaN: every
     // other pattern - -1 and other integers among them - stays as it is.)
     for (uint32_t& word : trace) {
