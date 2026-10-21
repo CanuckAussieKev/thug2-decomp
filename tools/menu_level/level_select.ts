@@ -27,7 +27,8 @@
 //
 // The level editor's edited copies (src/game/front/level_editor_layout.h): one more section, EDITED LEVELS (OFFLINE),
 // after the games' - Up from the first - while the DLL's LevelEditor_EditedLevels returns any (one entry for each level
-// with a saved layout: the level's own entry, "<TEXT> (EDITED)", flagged edited_layout). Never in the network level
+// with a saved layout: the level's own entry titled with the edited copy's name - else "<TEXT> (EDITED)" - flagged
+// edited_layout, its sign labelled with sign_label= - the name, else "EDITED" - map4). Never in the network level
 // select (in_server_options) or a network game. The section count is worked out each time (an edited copy can appear
 // or go: Reset level deletes it). level_select_change_level's first line is LevelEditor_PickLevel <...>: the DLL keeps
 // which was chosen - the edited copy (edited_layout) or the level as shipped - and puts the layout in place only for
@@ -390,6 +391,10 @@ export const HEADER_SCALE = 1.0;
 export const HEADER_ARROW_DX = 125.0;
 // The edited copies' section (the level editor's layouts).
 export const EDITED_TITLE = "EDITED LEVELS (OFFLINE)";
+// (map4) The label on an edited copy's sign (sign_label=): in the sign's own space (68 x 72, its middle at 34, 36 - as
+// the sign's shadow), near its foot, small.
+export const SIGN_LABEL_POS: readonly [number, number] = [34.0, 64.0];
+export const SIGN_LABEL_SCALE = 0.45;
 
 function indent(block: string, spaces = 4): string {
     return pySplitlines(block)
@@ -580,6 +585,41 @@ export function editLevelSelect(text: string, sectionList: readonly Section[]): 
     ].join("\n");
     const anchor = "\nlevel_select_menu_level_info = [";
     text = replaceOnce(text, anchor, `\n${scripts}${arrays}${anchor.slice(1)}`, "level_select_menu_level_info");
+
+    // (map4) An edited copy's sign carries its name: level_select_menu_add_item draws a label on the sign of an entry
+    // with sign_label= (LevelEditor_EditedLevels gives each edited copy one - its level properties' name, else
+    // "EDITED"), a child of the sign so it grows / fades with it on focus.
+    text = replaceOnce(
+        text,
+        "        CreateScreenElement {\n            type=SpriteElement \n            parent=<id> \n            local_id=shadow \n",
+        "        sign_id = <id> \n" +
+            "        CreateScreenElement {\n            type=SpriteElement \n            parent=<id> \n            local_id=shadow \n",
+        "level_select_menu_add_item's sign shadow",
+    );
+    text = replaceOnce(
+        text,
+        "            scale=1.05 \n            z_priority=-1 \n        } \n    } else {\n",
+        "            scale=1.05 \n            z_priority=-1 \n        } \n" +
+            "        if GotParam sign_label {\n" +
+            "            CreateScreenElement {\n" +
+            "                type=TextElement \n" +
+            "                parent=<sign_id> \n" +
+            "                local_id=label \n" +
+            "                text=<sign_label> \n" +
+            "                font=small \n" +
+            `                pos=(${f1(SIGN_LABEL_POS[0])}, ${f1(SIGN_LABEL_POS[1])}) \n` +
+            "                rgba=[128 128 128 128] \n" +
+            "                just=[center center] \n" +
+            `                scale=${formatFixed(SIGN_LABEL_SCALE, 2)} \n` +
+            "                z_priority=3 \n" +
+            "                shadow \n" +
+            "                shadow_rgba=UI_text_shadow_color \n" +
+            "                shadow_offs=UI_text_shadow_offset \n" +
+            "            } \n" +
+            "        } \n" +
+            "    } else {\n",
+        "level_select_menu_add_item's sign",
+    );
 
     // level_select_change_level: the DLL told which was chosen - the edited copy or the level as shipped.
     text = replaceOnce(

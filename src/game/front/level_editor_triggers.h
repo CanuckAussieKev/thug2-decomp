@@ -61,7 +61,8 @@ class CGapChecklist;
 //     is there (its `replaces`).
 //   - Saved as layout records (still version 2; older readers skip them):
 //       trigger <name> <kind> pos=x,y,z yaw=r size=x,y,z [target=<node>] [water=1] [script=<script>] [gap=<GapID>]
-//               [flags=A,B] [score=n] [replaces=<checksum>] [text="..."]
+//               [flags=A,B] [score=n] [replaces=<checksum>] [seconds=s] [text="..."]
+//     (map4: kind `camera` - target= an editor camera, seconds= the shot: LevelEditor_PlayCamera, level_editor_cameras.h)
 //     (a level trigger switched off or moved: its `wall` record - level_editor_walls.h)
 //   - The level's node array leaving takes everything with it (NodeCreate's listener): the boxes unregistered, the
 //     editor's gaps taken out of that level's checklist.
@@ -70,8 +71,8 @@ namespace Front::LevelEditor::Triggers {
 // --- the pure parts (self-tested: src/hook/selftests_editor_triggers.cpp) -----------------------------------------
 
 // (the feature map added Boost and Break after Other: the record words of the older kinds keep their places)
-enum class Kind : uint8_t { Kill, Teleport, Script, GapStart, GapEnd, Other, Boost, Break };
-constexpr int kKinds = 8;
+enum class Kind : uint8_t { Kill, Teleport, Script, GapStart, GapEnd, Other, Boost, Break, Camera };
+constexpr int kKinds = 9;
 const char* KindName(Kind kind); // "Kill zone"...
 const char* KindWord(Kind kind); // the record's: kill, teleport, script, gapstart, gapend, other
 bool KindFromWord(const std::string& word, Kind* kind);
@@ -88,6 +89,9 @@ struct Calls {
     // RailAccelerate (a rail's speed-up: its rate=, else THAW's default 0.05)
     bool boost = false, shatter = false, railSpeed = false;
     float boostSpeed = 0.0f, boostMulti = 0.0f, railRate = 0.0f;
+    // (map4) LevelEditor_PlayCamera camera=<node> (level_editor_cameras.h): the camera played
+    bool camera = false;
+    uint32_t cameraNode = 0;
 };
 // The kind a script's calls make it (in this order: kill, teleport, gap end, gap start, a jump boost, a breakable;
 // else Script when it has one, Other when it has none).
@@ -121,7 +125,14 @@ struct Spec {
     // breakable, so the skater goes through as through THUG2's glass, whose faces are 0x50 too); the script plays
     // `sound` (none: "") and shatters the piece as BO_ShatteringGlass does (Shatter name= area= ... then Kill name=).
     std::string sound;
+    // (map4) Camera: `target` an editor camera node (level_editor_cameras.h - Type=ed_camera; any node with
+    // targetOffset / positionOffset, or Pos / Angles, will do); the script plays it for `seconds` - LevelEditor_PlayCamera
+    // camera=<target> time=<seconds>, the game's own virtual_cam (PlaySkaterCamAnim) - then the skater's camera is back.
+    float seconds = 3.0f;
 };
+// Camera shots kept within these (seconds).
+constexpr float kCameraMinSeconds = 0.5f, kCameraMaxSeconds = 60.0f;
+float ClampSeconds(float seconds); // (not a number: 3)
 // Break's sounds offered (THUG2's shared hits most levels load: Shared\Hits\...; any other may be typed).
 const std::vector<const char*>& BreakSounds();
 // Jump boost strengths kept within these.
@@ -342,6 +353,9 @@ int ApplyProxims(const std::vector<ProximEdit>& edits);
 Calls ScriptCalls(uint32_t script);
 // A jump boost added where the view looks (the Triggers window); one undo step.
 void AddBoost();
+// (map4) A camera trigger added where the view looks, playing the nearest editor camera (level_editor_cameras.h); one
+// undo step.
+void AddCamera();
 // A scenery piece made breakable (a Break trigger over it, its collision off while it is) or not (the trigger removed,
 // its collision back; shown again if a test run broke it); one undo step. The Break trigger standing for it (null:
 // none).

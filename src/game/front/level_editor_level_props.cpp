@@ -161,17 +161,21 @@ std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& 
     }
     if (props.time == 0 || props.time == 1)
         out.push_back({"tod_manager_active", Int(props.time)});
+    // (map4: our own keys - the engine reads no level structure's ambient_* / fog_*; OnLevelUp reads these)
     if (props.hasAmbient) {
-        out.push_back({"ambient_red", Int(Channel(props.ambient[0]))});
-        out.push_back({"ambient_green", Int(Channel(props.ambient[1]))});
-        out.push_back({"ambient_blue", Int(Channel(props.ambient[2]))});
+        Fields::Value v;
+        v.kind = Fields::Kind::Integers;
+        for (int i = 0; i < 3; ++i)
+            v.list.push_back(static_cast<uint32_t>(Channel(props.ambient[i])));
+        out.push_back({"ed_ambient", v});
     }
     if (props.hasFog) {
-        out.push_back({"fog_red", Int(Channel(props.fog[0]))});
-        out.push_back({"fog_green", Int(Channel(props.fog[1]))});
-        out.push_back({"fog_blue", Int(Channel(props.fog[2]))});
-        out.push_back({"fog_alpha", Int(Channel(props.fog[3]))});
-        out.push_back({"fog_dist", Int(Distance(props.fog[4]))});
+        Fields::Value v;
+        v.kind = Fields::Kind::Integers;
+        for (int i = 0; i < 4; ++i)
+            v.list.push_back(static_cast<uint32_t>(Channel(props.fog[i])));
+        v.list.push_back(static_cast<uint32_t>(Distance(props.fog[4])));
+        out.push_back({"ed_fog", v});
     }
     if (ValidSky(props.sky)) {
         Fields::Value v;
@@ -182,11 +186,66 @@ std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& 
     return out;
 }
 
+bool Override(const Props& edited, const Props& level, Gfx::TODParams* params)
+{
+    const Props* ambient = edited.hasAmbient ? &edited : level.hasAmbient ? &level : nullptr;
+    if (ambient) {
+        params->ambientRed = Channel(ambient->ambient[0]);
+        params->ambientGreen = Channel(ambient->ambient[1]);
+        params->ambientBlue = Channel(ambient->ambient[2]);
+    }
+    const Props* fog = edited.hasFog ? &edited : level.hasFog ? &level : nullptr;
+    if (!fog)
+        return false;
+    params->fogRed = Channel(fog->fog[0]);
+    params->fogGreen = Channel(fog->fog[1]);
+    params->fogBlue = Channel(fog->fog[2]);
+    params->fogAlpha = Channel(fog->fog[3]);
+    params->fogDist = Distance(fog->fog[4]);
+    return true;
+}
+
+void ReadOverrideKeys(Script::CStruct* level, Props* out)
+{
+    static const uint32_t kAmbient = Crc::GenerateCRCFromString("ed_ambient"),
+                          kFog = Crc::GenerateCRCFromString("ed_fog");
+    auto read = [&](uint32_t key, int* values, uint32_t count) {
+        Script::CArray* array = nullptr;
+        if (!level || !level->GetArray(key, &array, 0) || !array || array->m_type != Script::ESYMBOLTYPE_INTEGER ||
+            array->m_size != count)
+            return false;
+        for (uint32_t i = 0; i < count; ++i)
+            values[i] = static_cast<int32_t>(array->GetElement(i));
+        return true;
+    };
+    out->hasAmbient = read(kAmbient, out->ambient, 3);
+    out->hasFog = read(kFog, out->fog, 5);
+}
+
 // --- the game side ----------------------------------------------------------------------------------------------
 
 namespace {
 
 Props g_props;
+// (map4) The level structure's ed_ambient / ed_fog (a bake's - or the edited copy's, written for its load).
+Props g_level;
+bool g_filterSet;
+
+bool Filter(Gfx::TODParams* params) { return Override(g_props, g_level, params); }
+
+void InstallFilter()
+{
+    if (!g_filterSet) {
+        g_filterSet = true;
+        Gfx::SetTODParamsFilter(&Filter);
+    }
+}
+
+bool LightingSame(const Props& a, const Props& b)
+{
+    return a.hasAmbient == b.hasAmbient && (!a.hasAmbient || std::memcmp(a.ambient, b.ambient, sizeof(a.ambient)) == 0) &&
+           a.hasFog == b.hasFog && (!a.hasFog || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0);
+}
 std::vector<std::string> g_skies;
 bool g_skiesMade;
 
@@ -236,9 +295,46 @@ void Set(const Props& props)
             tod = defaults.tod;
     }
     bool todChanged = props.tod != g_props.tod;
+    bool fogWas = g_props.hasFog || g_level.hasFog;
+    bool lighting = !LightingSame(props, g_props);
     g_props = props;
+    InstallFilter();
     if (todChanged)
-        ShowTimeOfDay(tod);
+        ShowTimeOfDay(tod); // (its refresh sends the ambient / fog through the filter too)
+    if (lighting && !todChanged)
+        Reapply();
+    // (a fog the editor had forced on, taken off where the manager's fog is off: off again - the manager's own switch)
+    Gfx::CTODManager* manager = Gfx::TODManager();
+    if (fogWas && !g_props.hasFog && !g_level.hasFog && manager && !manager->m_fogActive) {
+        manager->m_fogActive = true;
+        manager->SetFogActive(false);
+    }
+}
+
+void OnLevelUp(bool network)
+{
+    Props level;
+    if (!network)
+        ReadOverrideKeys(CurrentLevelStructure(), &level);
+    bool changed = !LightingSame(level, g_level);
+    g_level = level;
+    if (!changed)
+        return;
+    InstallFilter();
+    Reapply();
+    Log("level editor: the level structure's own lighting (ed_ambient / ed_fog) put in place:%s%s",
+        level.hasAmbient ? " ambient" : "", level.hasFog ? " fog" : "");
+}
+
+void Reapply()
+{
+    Gfx::CTODManager* manager = Gfx::TODManager();
+    // (no parameters yet: nothing to send; lights a script set from a named state - ResetLevelLights - kept: the
+    // override goes with the next state change)
+    if (!manager || !manager->m_paramsSet || manager->m_levelLightsReset)
+        return;
+    InstallFilter();
+    manager->ApplyTODParams(manager->GetTODParams(-1));
 }
 
 bool LevelDefaults(Props* props)
@@ -261,17 +357,19 @@ bool LevelDefaults(Props* props)
     }
     int value = 1;
     p.time = level->GetInteger(Crc::GenerateCRCFromString("tod_manager_active"), &value, 0) && value == 0 ? 0 : 1;
-    static const char* const kAmbient[3] = {"ambient_red", "ambient_green", "ambient_blue"};
-    static const char* const kFog[5] = {"fog_red", "fog_green", "fog_blue", "fog_alpha", "fog_dist"};
-    for (int i = 0; i < 3; ++i) {
-        value = 0;
-        p.hasAmbient = level->GetInteger(Crc::GenerateCRCFromString(kAmbient[i]), &value, 0) || p.hasAmbient;
-        p.ambient[i] = value;
-    }
-    for (int i = 0; i < 5; ++i) {
-        value = 0;
-        p.hasFog = level->GetInteger(Crc::GenerateCRCFromString(kFog[i]), &value, 0) || p.hasFog;
-        p.fog[i] = value;
+    // (map4) The ambient light and fog the level shows: the time-of-day manager's current state's - where the engine's
+    // come from - with the level structure's ed_ keys (a bake's) over them.
+    Gfx::CTODManager* manager = Gfx::TODManager();
+    if (manager && manager->m_paramsSet) {
+        Gfx::TODParams now = manager->GetTODParams(-1);
+        Override(Props{}, g_level, &now);
+        p.hasAmbient = true;
+        p.ambient[0] = now.ambientRed;
+        p.ambient[1] = now.ambientGreen;
+        p.ambient[2] = now.ambientBlue;
+        p.hasFog = true;
+        int fog[5] = {now.fogRed, now.fogGreen, now.fogBlue, now.fogAlpha, now.fogDist};
+        std::memcpy(p.fog, fog, sizeof(fog));
     }
     *props = p;
     return true;
@@ -280,6 +378,7 @@ bool LevelDefaults(Props* props)
 void ForgetLevel()
 {
     g_props = Props{};
+    g_level = Props{}; // (before the new level's load sends its lighting: OnLevelUp reads its keys once it's up)
     g_skiesMade = false;
 }
 

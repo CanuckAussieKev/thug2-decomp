@@ -61,10 +61,25 @@ bool ReadRecord(std::istringstream& in, Camera* out);
 // The stem of fresh names.
 constexpr const char* kStem = "ed_camera";
 
+// (map4) Playing a camera: the script command LevelEditor_PlayCamera camera=<node> [time=<seconds>] (the editor's
+// Camera triggers call it - level_editor_triggers.h - and so may a level's own scripts) plays the node as the game
+// plays its goal / view-goals cameras: PlaySkaterCamAnim {name=ed_camera_shot virtual_cam targetid=world
+// targetOffset=... positionOffset=... frames=<n> skippable=1} (CFunc_PlaySkaterCamAnim 0x005AD830 - view_goals_menu.qb's
+// play_single_view_goals_cam is the same call), without play_hold: after its frames the camera animation ends and
+// the skater's camera is back (a button skips it). The offsets: an editor camera's from its place now (TargetOf /
+// PositionOffset), else the node's targetOffset / positionOffset, else its Pos / Angles looking kDefaultDistance
+// ahead. A shot still playing is killed first (KillSkaterCamAnim name=ed_camera_shot, 0x005ADD70). Refused while the
+// editor runs (its own camera; Look through is the preview there).
+constexpr float kShotDefaultSeconds = 3.0f, kShotMinSeconds = 0.5f, kShotMaxSeconds = 60.0f;
+// The animation's frames for `seconds` (kept within the limits; not a number: the default) - 60 a second.
+int ShotFrames(float seconds);
+
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The cameras there are now (their nodes' places).
 std::vector<Camera> All();
+// LevelEditor_PlayCamera (registered with the editor's other commands - level_editor.h's RegisterScriptFunctions).
+bool __cdecl CFunc_PlayCamera(Script::CStruct* params, Script::CScript* script);
 bool IsCamera(uint32_t name);
 // A camera made where the editor's view is, looking its way - one undo step (its name; "" when it couldn't be).
 std::string CreateFromView();

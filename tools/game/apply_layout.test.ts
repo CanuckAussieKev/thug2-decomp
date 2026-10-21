@@ -608,14 +608,11 @@ test("bake: triggers - node, trigger box, script in the scripts .qb; level prope
     assert.equal(s.get("name"), "My Test");
     assert.equal((s.get("tod_state") as Name).value, checksum("night"));
     assert.equal(s.get("tod_manager_active"), 1);
-    assert.deepEqual(
-        ["ambient_red", "ambient_green", "ambient_blue"].map((k) => s.get(k)),
-        [255, 2, 3],
-    );
-    assert.deepEqual(
-        ["fog_red", "fog_green", "fog_blue", "fog_alpha", "fog_dist"].map((k) => s.get(k)),
-        [4, 5, 6, 7, 100000],
-    );
+    // (map4: our own ed_ambient / ed_fog keys - the structure's own ambient_* left as they were)
+    assert.deepEqual(s.get("ed_ambient"), [255, 2, 3]);
+    assert.deepEqual(s.get("ed_fog"), [4, 5, 6, 7, 100000]);
+    assert.equal(s.get("ambient_red"), 10);
+    assert.equal(s.get("fog_red"), undefined);
     const before = levelsQb();
     const first = before.indexOf(Buffer.concat([encodeValue(NAME(`Level_${LEVEL}`))]));
     assert.deepEqual(out.levels.subarray(0, first), before.subarray(0, first), "Level_aa as it was");
@@ -1156,6 +1153,7 @@ function entityLevel(): LevelFiles {
             ["Class", NAME("ParticleObject")],
             ["MidPosition", vec(110, 20, 0)],
             ["EndPosition", vec(120, 40, 0)],
+            ["BoxDimsStart", vec(30, 5, 10)],
         ]),
         struct([
             ["Pos", vec(0, 0, 0)],
@@ -1168,7 +1166,17 @@ function entityLevel(): LevelFiles {
             ["Class", NAME("Vehicle")],
         ]),
     ];
-    const names = ["Pos", "Name", "Class", "Type", "Smoke01", "ParticleObject", "MidPosition", "EndPosition"];
+    const names = [
+        "Pos",
+        "Name",
+        "Class",
+        "Type",
+        "Smoke01",
+        "ParticleObject",
+        "MidPosition",
+        "EndPosition",
+        "BoxDimsStart",
+    ];
     names.push("TRG_SFX_SOB_Fire01", "EmitterObject", "BoundingBox", "CreatedAtStart", "ncomp_EmitterObject_1");
     names.push("TRG_Car01", "Vehicle", `${LEVEL}_NodeArray`);
     const global = (name: string, value: QbValue): Buffer =>
@@ -1219,6 +1227,49 @@ test("layout_file: speed and emitter records as the DLL writes and refuses them"
     assert.throws(() =>
         readLayout(["thug2-decomp layout 2", `scene ${hex(LEVEL)}`, "speed 0000ABCD 5", "speed 0000ABCD 6"].join("\n")),
     );
+});
+
+// (map4) A particle node turned: its Mid / End turned about its place and moved with it, its boxes turned (a quarter
+// turn swaps x and z) - as the DLL's Entities::TurnParticle.
+test("bake: a particle system turned - its emitter places and boxes with it", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `set ${hex("Smoke01")} pos=200,0,0 angles=0,1.57079637,0`,
+        ].join("\n"),
+    );
+    const nodes = nodesOf(bake(layout, entityLevel(), null).qb);
+    const smoke = named(nodes, "Smoke01");
+    const near = (v: QbValue | undefined, want: number[]): void => {
+        const got = (v as Vector).values;
+        assert.ok(
+            got.every((x, i) => Math.abs(x - want[i]!) < 1e-3),
+            `${got.join(",")} is not ${want.join(",")}`,
+        );
+    };
+    near(smoke.get("MidPosition"), [200, 20, -10]);
+    near(smoke.get("EndPosition"), [200, 40, -20]);
+    near(smoke.get("BoxDimsStart"), [10, 5, 30]);
+    assert.deepEqual(
+        (smoke.get("Angles") as Vector).values.map((x) => Math.round(x * 1000) / 1000),
+        [0, 1.571, 0],
+    );
+    // Half a quarter: the box that holds the turned box.
+    const eighth = nodesOf(
+        bake(
+            readLayout(
+                ["thug2-decomp layout 2", `scene ${hex(LEVEL)}`, `set ${hex("Smoke01")} angles=0,0.78539819,0`].join(
+                    "\n",
+                ),
+            ),
+            entityLevel(),
+            null,
+        ).qb,
+    );
+    const r = Math.SQRT1_2;
+    near(named(eighth, "Smoke01").get("BoxDimsStart"), [r * 40, 5, r * 40]);
+    near(named(eighth, "Smoke01").get("MidPosition"), [100 + 10 * r, 20, -10 * r]);
 });
 
 test("bake: particle systems moved and copied with their emitter places; speeds and emitters' sounds as node fields", () => {

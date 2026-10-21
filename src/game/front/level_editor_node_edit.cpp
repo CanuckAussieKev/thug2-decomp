@@ -365,7 +365,7 @@ bool Set(uint32_t name, const Values& values)
     WriteVector(node, kAngles, values.angles);
     const Nodes::Node* layer = NodeNamed(name);
     ApplyLive(layer, name, values);
-    Entities::NodeMoved(name, values.pos); // (a particle system: its emitter places with it, made again)
+    Entities::NodeMoved(name, values.pos, values.angles); // (a particle system: its emitter turned and moved, remade)
     int index = Nodes::Find(name);
     if (index >= 0)
         Nodes::Reread(index);

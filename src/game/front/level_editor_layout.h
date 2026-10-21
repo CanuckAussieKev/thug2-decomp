@@ -234,6 +234,12 @@ uint32_t RequestFromPick(uint32_t load, bool edited, bool network);
 bool NetworkSession(bool online, bool netGame, bool netScene);
 // The level select's text for an edited copy ("TRAINING" -> "TRAINING (EDITED)").
 std::string EditedText(const char* text);
+// (map4) The edited copy's entry: its title (the level select's text, shown above the signs when it's chosen) - its
+// level properties' name, else EditedText of the level's own text - and the label drawn on its sign (the name, at most
+// kSignLabelMax characters - longer ones cut with '.'; "EDITED" when it has none).
+constexpr size_t kSignLabelMax = 14;
+std::string EditedTitle(const char* levelText, const std::string& name);
+std::string SignLabel(const std::string& name);
 // A file of the layouts' folder that is a saved layout - "<8 hex digits>.txt", not an autosave - and its scene.
 bool SavedLayoutScene(const std::string& fileName, uint32_t* scene);
 // A level structure (levels.qb's Level_TR: load_script=Load_TR, level="TR") seen as `load` -> its scene: the scene's

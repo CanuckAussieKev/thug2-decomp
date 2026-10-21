@@ -529,6 +529,20 @@ const char* ModeRefusal(const ModeFlags& mode)
 
 std::string EditedText(const char* text) { return std::string(text && *text ? text : "LEVEL") + " (EDITED)"; }
 
+std::string EditedTitle(const char* levelText, const std::string& name)
+{
+    return name.empty() ? EditedText(levelText) : name;
+}
+
+std::string SignLabel(const std::string& name)
+{
+    if (name.empty())
+        return "EDITED";
+    if (name.size() <= kSignLabelMax)
+        return name;
+    return name.substr(0, kSignLabelMax - 1) + ".";
+}
+
 bool SavedLayoutScene(const std::string& fileName, uint32_t* scene)
 {
     // (exactly "XXXXXXXX.txt": "XXXXXXXX.autosave.txt" and "XXXXXXXX.txt.tmp" aren't)
@@ -1247,6 +1261,9 @@ void Tick()
     uint32_t load = CurrentLoad();
     bool apply = ApplyEditedCopy(g_request, load, refused);
     g_request = RequestAfterLoad(g_request, load, refused);
+    // (map4: the level structure's own ambient light / fog - a bake's ed_ keys, or the edited copy's written there for
+    // this load - taken before it's put back; never in a network session)
+    LevelProps::OnLevelUp(NetworkActive());
     // (the level's structure as the level has it again: load_level has read the edited copy's properties by now)
     LevelProps::RestoreStructure();
     if (!apply) {
@@ -1525,7 +1542,8 @@ bool __cdecl CFunc_EditedLevels(Script::CStruct*, Script::CScript* script)
     if (saved.empty())
         return false;
     static const uint32_t kLevel = Crc::GenerateCRCFromString("level"), kText = Crc::GenerateCRCFromString("text"),
-                          kEditedLayout = Crc::GenerateCRCFromString("edited_layout");
+                          kEditedLayout = Crc::GenerateCRCFromString("edited_layout"),
+                          kSignLabel = Crc::GenerateCRCFromString("sign_label");
     static const char* const kLists[] = {"level_select_menu_level_info", "level_select_menu_thug1_level_info",
                                          "level_select_menu_thps4_level_info", "level_select_menu_thps3_level_info",
                                          "level_select_menu_thaw_level_info"};
@@ -1549,18 +1567,18 @@ bool __cdecl CFunc_EditedLevels(Script::CStruct*, Script::CScript* script)
             done.push_back(level->second.scene);
             const char* text = nullptr;
             entry->GetString(kText, &text, 0);
-            // (phase 6: the edited copy's own name, when its level properties give it one)
+            // (phase 6 / map4: the edited copy's own name, when its level properties give it one - its title, and the
+            // label the overlay's level select draws on its sign: sign_label - tools/menu_level/level_select.ts)
             LevelProps::Props props;
             std::string named;
-            if (SavedProps(level->second.scene, &props) && !props.name.empty()) {
+            if (SavedProps(level->second.scene, &props))
                 named = props.name;
-                text = named.c_str();
-            }
             Script::CStruct* copy = Script::NewStruct()->Init();
             copy->AppendStructure(entry);
             for (const char* flag : kDropped)
                 copy->RemoveFlag(Crc::GenerateCRCFromString(flag));
-            copy->AddString(kText, EditedText(text).c_str());
+            copy->AddString(kText, EditedTitle(text, named).c_str());
+            copy->AddString(kSignLabel, SignLabel(named).c_str());
             copy->AddChecksum(0u, kEditedLayout);
             entries.push_back(copy);
         }

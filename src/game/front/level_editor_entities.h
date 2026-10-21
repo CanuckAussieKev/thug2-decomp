@@ -48,8 +48,9 @@ struct ImFont;
 //     in range, volume in percent; a sphere emitter's radius set (its node's Radius and the emitter manager's copy).
 //     The Place palette's "Sound emitter: <sound>" entries add an emitter (level_editor_node_create.h) with that sound.
 //     `emitter` records. Silent while the game is paused (the editor).
-//   - Particle systems (ParticleObject): moved as point nodes (pos=, `set` records) - their emitter's MidPosition and
-//     EndPosition (world places, as the level's particle nodes have them) moved with them, and the system made again
+//   - Particle systems (ParticleObject): moved and turned as point nodes (pos= / angles=, `set` records) - their
+//     emitter's MidPosition and EndPosition (world places, as the level's particle nodes have them) moved and turned
+//     with them, its BoxDims* boxes turned (map4: TurnParticle), and the system made again
 //     there (killed; once the game has removed it, made from its node: shown at the latest on leaving the editor). New
 //     ones are copies of a level's particle node (`copy` records, their Mid / End moved with them).
 // Layout records (version 2 still; an older reader skips them):
@@ -79,6 +80,21 @@ inline float MphToUnits(float mph) { return mph * 17.6f; }
 constexpr float kMinMph = 0.1f, kMaxMph = 200.0f;
 constexpr float kMinVolume = 0.0f, kMaxVolume = 400.0f;
 constexpr float kMinRadius = 1.0f, kMaxRadius = 100000.0f;
+
+// (map4) A particle system's emitter as its node places it: MidPosition / EndPosition (world places) and the three
+// boxes the particles start / pass / end in (BoxDimsStart / BoxDimsMid / BoxDimsEnd - extents along the world's axes:
+// the engine bounds the system with place +- half the box on each world axis, 0x00495260). Turned with its node by
+// `turn` radians about the up axis (as TurnAboutUp turns: a node's heading) and moved to `pos`, from `origin` (the
+// node as it was at `from`, never the last result - no drift): Mid / End turned about the node's place, each box the
+// box along the world's axes that holds the turned box (|cos| x + |sin| z, y kept - a quarter turn swaps x and z).
+struct ParticleEmitter {
+    bool hasMid = false, hasEnd = false;
+    V3 mid = {}, end = {};
+    bool hasBox[3] = {};
+    V3 box[3] = {}; // start, mid, end
+};
+ParticleEmitter TurnParticle(const ParticleEmitter& origin, V3 from, V3 pos, float turn);
+V3 TurnBoxExtents(V3 extents, float turn);
 
 // A type for the Place palette: peds / cars of the same class, Type, profile and model are one entry (the first).
 std::string TypeKey(uint32_t cls, uint32_t type, uint32_t profile, const std::string& model);
@@ -130,8 +146,9 @@ void SetState(const State& state);
 // A change made from the Inspector since the last call: the state before it (the editor pushes it as one undo step).
 bool TakeUndo(State* before);
 
-// A node the node edits moved (NodeEdit::Set): a particle system's emitter places moved with it, the system made again.
-void NodeMoved(uint32_t name, V3 pos);
+// A node the node edits moved or turned (NodeEdit::Set): a particle system's emitter places and boxes moved and turned
+// with it (TurnParticle, from the node as the level - or the copy - had it), the system made again.
+void NodeMoved(uint32_t name, V3 pos, V3 angles);
 // Whether the node edits move this node: a particle node, an object node the level hasn't made (a ghost).
 bool MovableNode(uint32_t name, int family);
 // The Inspector's note for those.

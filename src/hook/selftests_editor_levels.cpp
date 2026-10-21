@@ -72,6 +72,12 @@ void TestEditorLevelsFiles()
     Check(Layout::EditedText("TRAINING") == "TRAINING (EDITED)" && Layout::EditedText("") == "LEVEL (EDITED)" &&
               Layout::EditedText(nullptr) == "LEVEL (EDITED)",
           "editor levels: the level select's text for an edited copy");
+    // (map4) The entry's title and its sign's label: the edited copy's name, else "<LEVEL> (EDITED)" / "EDITED".
+    Check(Layout::EditedTitle("TRAINING", "") == "TRAINING (EDITED)" && Layout::EditedTitle("TRAINING", "My TR") == "My TR" &&
+              Layout::EditedTitle(nullptr, "") == "LEVEL (EDITED)" && Layout::SignLabel("") == "EDITED" &&
+              Layout::SignLabel("My TR") == "My TR" && Layout::SignLabel("12345678901234") == "12345678901234" &&
+              Layout::SignLabel("123456789012345") == "1234567890123.",
+          "editor levels: the edited entry's title and sign label (its name)");
     uint32_t scene = 0;
     Check(Layout::SavedLayoutScene("4B7E41E2.txt", &scene) && scene == 0x4B7E41E2,
           "editor levels: TR's saved layout is an edited copy (scene 4B7E41E2)");

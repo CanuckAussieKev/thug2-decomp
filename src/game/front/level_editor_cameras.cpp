@@ -3,6 +3,7 @@
 #include "game/front/level_editor_cameras.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -16,9 +17,11 @@
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
+#include "game/mth/vector.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "hook/game.h"
 #include "hook/log.h"
 #include "imgui.h"
 
@@ -90,6 +93,14 @@ V3 Forward(V3 angles)
 V3 TargetOf(V3 pos, V3 angles, float distance) { return pos + Forward(angles) * ClampDistance(distance); }
 
 V3 PositionOffset(V3 pos, V3 angles, float distance) { return pos - TargetOf(pos, angles, distance); }
+
+int ShotFrames(float seconds)
+{
+    if (!std::isfinite(seconds))
+        seconds = kShotDefaultSeconds;
+    seconds = std::max(kShotMinSeconds, std::min(kShotMaxSeconds, seconds));
+    return static_cast<int>(std::lround(seconds * 60.0f));
+}
 
 void FrustumCorners(V3 pos, V3 angles, float tanX, float tanY, float depth, V3 out[4])
 {
@@ -300,6 +311,94 @@ std::vector<Camera> All()
         out.push_back(c);
     }
     return out;
+}
+
+namespace {
+
+uint32_t Crc(const char* text) { return Fields::NameChecksum(text); }
+
+// When the last shot ends (steady clock seconds; 0: none played).
+double g_shotUntil;
+double Now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+
+using CFunction = bool(__cdecl*)(Script::CStruct*, Script::CScript*);
+
+// The offsets of the camera `name` (false: no such node).
+bool ShotOffsets(uint32_t name, V3* target, V3* position)
+{
+    std::vector<Camera> all = All();
+    if (const Camera* c = Find(all, name)) {
+        *target = TargetOf(c->pos, c->angles, c->distance);
+        *position = PositionOffset(c->pos, c->angles, c->distance);
+        return true;
+    }
+    Script::CStruct* node = SkateScript::NodeManagerInstance() ? SkateScript::GetNode(name, false) : nullptr;
+    if (!node)
+        return false;
+    Script::VectorValue t, p;
+    if (node->GetVector(Crc("targetOffset"), &t, 0) && node->GetVector(Crc("positionOffset"), &p, 0)) {
+        *target = {t.x, t.y, t.z};
+        *position = {p.x, p.y, p.z};
+        return true;
+    }
+    Mth::Vector at;
+    if (!SkateScript::GetPosition(node, &at))
+        return false;
+    Script::VectorValue a = {};
+    node->GetVector(Crc("Angles"), &a, 0);
+    V3 pos = {at.x, at.y, at.z}, angles = {a.x, a.y, a.z};
+    *target = TargetOf(pos, angles, kDefaultDistance);
+    *position = PositionOffset(pos, angles, kDefaultDistance);
+    return true;
+}
+
+} // namespace
+
+bool __cdecl CFunc_PlayCamera(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0;
+    if (!params || !params->GetChecksum(Crc("camera"), &name, 0) || !name) {
+        Log("level editor: LevelEditor_PlayCamera needs camera=<node>");
+        return false;
+    }
+    if (Active())
+        return false; // (the editor's own camera; Look through previews a camera there)
+    V3 target, position;
+    if (!ShotOffsets(name, &target, &position)) {
+        Log("level editor: LevelEditor_PlayCamera - no node %s", Nodes::Label(name).c_str());
+        return false;
+    }
+    float seconds = kShotDefaultSeconds;
+    int whole = 0;
+    if (!params->GetFloat(Crc("time"), &seconds, 0) && params->GetInteger(Crc("time"), &whole, 0))
+        seconds = static_cast<float>(whole);
+    const uint32_t shot = Crc("ed_camera_shot");
+    double now = Now();
+    if (now < g_shotUntil) {
+        // (the last shot still playing: killed first, as the goals kill theirs)
+        Script::CStruct* kill = Script::NewStruct()->Init();
+        kill->AddChecksum(Crc("name"), shot);
+        GameFunction<CFunction>(0x005ADD70)(kill, script); // CFunc_KillSkaterCamAnim
+        kill->Clear();
+        Script::DeleteStruct(kill);
+    }
+    // The game's own virtual_cam, as view_goals_menu.qb's play_single_view_goals_cam plays a goal's camera.
+    Script::CStruct* anim = Script::NewStruct()->Init();
+    anim->AddChecksum(Crc("name"), shot);
+    anim->AddChecksum(0u, Crc("virtual_cam"));
+    anim->AddChecksum(Crc("targetid"), Crc("world"));
+    anim->AddVector(Crc("targetOffset"), target.x, target.y, target.z);
+    anim->AddVector(Crc("positionOffset"), position.x, position.y, position.z);
+    int frames = ShotFrames(seconds);
+    anim->AddInteger(Crc("frames"), frames);
+    anim->AddInteger(Crc("skippable"), 1);
+    GameFunction<CFunction>(0x005AD830)(anim, script); // CFunc_PlaySkaterCamAnim
+    anim->Clear();
+    Script::DeleteStruct(anim);
+    g_shotUntil = now + frames / 60.0;
+    if (DebugEnabled())
+        Log("level editor: camera %s played for %d frames", Nodes::Label(name).c_str(), frames);
+    return true;
 }
 
 bool IsCamera(uint32_t name)

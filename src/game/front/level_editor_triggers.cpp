@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
@@ -154,6 +155,7 @@ const char* KindName(Kind kind)
     case Kind::Other: return "Trigger (no script)";
     case Kind::Boost: return "Jump boost";
     case Kind::Break: return "Breakable";
+    case Kind::Camera: return "Camera";
     }
     return "?";
 }
@@ -169,6 +171,7 @@ const char* KindWord(Kind kind)
     case Kind::Other: return "other";
     case Kind::Boost: return "boost";
     case Kind::Break: return "break";
+    case Kind::Camera: return "camera";
     }
     return "other";
 }
@@ -195,6 +198,7 @@ uint32_t KindColour(Kind kind)
     case Kind::Other: return 0xFF8C9AAA;
     case Kind::Boost: return 0xFF3F9BFF;
     case Kind::Break: return 0xFFD8EEFF;
+    case Kind::Camera: return 0xFFFFA040;
     }
     return 0xFF8C9AAA;
 }
@@ -213,6 +217,8 @@ Kind KindOfCalls(const Calls& calls, bool hasScript)
         return Kind::Boost;
     if (calls.shatter)
         return Kind::Break;
+    if (calls.camera)
+        return Kind::Camera;
     return hasScript ? Kind::Script : Kind::Other;
 }
 
@@ -237,7 +243,7 @@ bool SameSpec(const Spec& a, const Spec& b)
     return a.name == b.name && a.kind == b.kind && a.size.x == b.size.x && a.size.y == b.size.y &&
            a.size.z == b.size.z && a.water == b.water && a.target == b.target && a.script == b.script &&
            a.gap == b.gap && a.flags == b.flags && a.text == b.text && a.score == b.score && a.replaces == b.replaces &&
-           a.exit == b.exit && a.strength == b.strength && a.sound == b.sound;
+           a.exit == b.exit && a.strength == b.strength && a.sound == b.sound && a.seconds == b.seconds;
 }
 
 uint32_t ChecksumOf(const std::string& name)
@@ -258,6 +264,13 @@ std::string NameFor(uint32_t checksum, const char* known)
 }
 
 std::string ScriptName(const Spec& spec) { return spec.name + "Script"; }
+
+float ClampSeconds(float seconds)
+{
+    if (!std::isfinite(seconds))
+        return 3.0f;
+    return std::max(kCameraMinSeconds, std::min(kCameraMaxSeconds, seconds));
+}
 
 const char* Problem(const Spec& spec)
 {
@@ -282,6 +295,8 @@ const char* Problem(const Spec& spec)
         return nullptr;
     case Kind::Break:
         return spec.target.empty() ? "Choose the piece it breaks" : nullptr;
+    case Kind::Camera:
+        return spec.target.empty() ? "Choose the camera it plays" : nullptr;
     }
     return "?";
 }
@@ -467,6 +482,20 @@ std::vector<uint8_t> Body(const Spec& spec)
         out.push_back(0x01);
         break;
     }
+    case Kind::Camera: {
+        // LevelEditor_PlayCamera camera=<node> time=<seconds> (level_editor_cameras.h: the game's virtual_cam)
+        PutName(&out, Crc("LevelEditor_PlayCamera"));
+        PutNameValue(&out, Crc("camera"), ChecksumOf(spec.target));
+        PutName(&out, Crc("time"));
+        out.push_back(0x07);
+        out.push_back(0x1A);
+        float seconds = ClampSeconds(spec.seconds);
+        uint32_t bits;
+        std::memcpy(&bits, &seconds, 4);
+        Put4(&out, bits);
+        out.push_back(0x01);
+        break;
+    }
     }
     return out;
 }
@@ -506,6 +535,10 @@ std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
             if (spec.kind == Kind::Break) {
                 note(spec.target);
                 note(spec.sound);
+            }
+            if (spec.kind == Kind::Camera) {
+                note("LevelEditor_PlayCamera");
+                note(spec.target);
             }
         }
     }
@@ -552,6 +585,10 @@ std::string Record(const Placed& placed)
         out << " strength=" << s.strength;
     if (!s.sound.empty())
         out << " sound=" << s.sound;
+    if (s.kind == Kind::Camera) {
+        std::snprintf(number, sizeof(number), " seconds=%.9g", ClampSeconds(s.seconds));
+        out << number;
+    }
     std::string text = CleanText(s.text);
     if (!text.empty())
         out << " text=\"" << text << '"';
@@ -579,7 +616,7 @@ bool ReadRecord(const std::string& line, Placed* placed)
         return false;
     bool havePos = false, haveYaw = false, haveSize = false, haveTarget = false, haveWater = false, haveScript = false,
          haveGap = false, haveFlags = false, haveScore = false, haveReplaces = false, haveExit = false,
-         haveStrength = false, haveSound = false;
+         haveStrength = false, haveSound = false, haveSeconds = false;
     s.score = 100;
     auto once = [](bool* seen) {
         if (*seen)
@@ -647,6 +684,11 @@ bool ReadRecord(const std::string& line, Placed* placed)
         } else if (key == "sound") {
             ok = once(&haveSound) && ValidName(value);
             s.sound = value;
+        } else if (key == "seconds") {
+            float seconds = 0.0f;
+            ok = once(&haveSeconds) && ReadNumber(value, &seconds) && seconds >= kCameraMinSeconds &&
+                 seconds <= kCameraMaxSeconds;
+            s.seconds = seconds;
         } // (another key: a later version's - skipped)
         if (!ok)
             return false;
@@ -956,6 +998,13 @@ void __cdecl OnBoost(Script::CStruct* params, const uint8_t*)
         g_calls->boostMulti = value;
 }
 void __cdecl OnShatter(Script::CStruct*, const uint8_t*) { g_calls->shatter = true; }
+void __cdecl OnCamera(Script::CStruct* params, const uint8_t*)
+{
+    g_calls->camera = true;
+    uint32_t node = 0;
+    if (params && params->GetChecksum(Crc("camera"), &node, 0))
+        g_calls->cameraNode = node;
+}
 void __cdecl OnRailAccelerate(Script::CStruct* params, const uint8_t*)
 {
     g_calls->railSpeed = true;
@@ -1006,6 +1055,7 @@ Calls Walk(uint32_t script)
     SkateScript::ForEachScriptCall(script, Crc("ShatterAndDie"), &OnShatter, nullptr, 0);
     SkateScript::ForEachScriptCall(script, Crc("RailAccelerate"), &OnRailAccelerate, nullptr, 0);
     SkateScript::ForEachScriptCall(script, Crc("ed_RailSpeed"), &OnRailAccelerate, nullptr, 0);
+    SkateScript::ForEachScriptCall(script, Crc("LevelEditor_PlayCamera"), &OnCamera, nullptr, 0); // (map4)
     Script::SetScriptFlag6F2564();
     g_calls = nullptr;
     return calls;
@@ -2096,6 +2146,10 @@ std::string Describe(const Calls& calls, Kind kind)
         text += value;
         break;
     }
+    case Kind::Camera:
+        if (calls.cameraNode)
+            text += " -> " + LabelOf(calls.cameraNode);
+        break;
     default:
         break;
     }
@@ -2163,6 +2217,8 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
         V3 target;
         if (!l.off && l.kind == Kind::Teleport && NodePos(l.calls.target, &target))
             paint.Arrow(centre, target, Dim(KindColour(l.kind), 0xE0));
+        else if (!l.off && l.kind == Kind::Camera && NodePos(l.calls.cameraNode, &target)) // (map4)
+            paint.Arrow(centre, target, Dim(KindColour(l.kind), 0xE0));
         if (n.first <= kLabelRadius || inspected)
             label({centre.x, l.max.y, centre.z}, colour,
                   (l.off ? "(off) " : "") + Describe(l.calls, l.kind) + "  " + LabelOf(l.sector));
@@ -2175,7 +2231,7 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
         uint32_t colour = a.problem ? 0xC0A0A0A0u : KindColour(a.spec.kind);
         paint.Box(box, colour, 2.0f);
         V3 target;
-        if (!a.problem && (a.spec.kind == Kind::Teleport || a.spec.kind == Kind::Kill) &&
+        if (!a.problem && (a.spec.kind == Kind::Teleport || a.spec.kind == Kind::Kill || a.spec.kind == Kind::Camera) &&
             NodePos(ChecksumOf(a.spec.target), &target))
             paint.Arrow(a.pos, target, Dim(colour, a.spec.kind == Kind::Kill ? 0x80 : 0xE0));
         if (a.spec.kind == Kind::GapStart) {
@@ -2196,7 +2252,7 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
             text += " \"" + a.spec.text + "\"";
         else if (a.spec.kind == Kind::Boost)
             text += " " + std::to_string(a.spec.strength);
-        else if (a.spec.kind == Kind::Break)
+        else if (a.spec.kind == Kind::Break || a.spec.kind == Kind::Camera)
             text += " " + a.spec.target;
         if (a.problem)
             text += " (not active)";
@@ -2800,6 +2856,30 @@ void AddBoost()
     p.pos = PlaceAhead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
     Create({p}, "a jump boost (strength in the Inspector)");
+}
+
+void AddCamera()
+{
+    Placed p;
+    p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
+    p.spec.kind = Kind::Camera;
+    p.spec.seconds = 3.0f;
+    p.pos = PlaceAhead(p.spec.size, 0.0f);
+    p.yaw = g_yaw;
+    // (the nearest of the editor's cameras - another is chosen in the Inspector)
+    float best = 0.0f;
+    for (const Cameras::Camera& camera : Cameras::All()) {
+        V3 d = camera.pos - p.pos;
+        float distance = d.x * d.x + d.y * d.y + d.z * d.z;
+        if (p.spec.target.empty() || distance < best) {
+            best = distance;
+            p.spec.target = camera.name;
+        }
+    }
+    std::string what = p.spec.target.empty()
+                           ? std::string("a camera trigger - make a camera (V) and choose it in the Inspector")
+                           : "a camera trigger playing " + p.spec.target + " (camera and seconds in the Inspector)";
+    Create({p}, what.c_str());
 }
 
 const Added* BreakableOf(uint32_t sector)
