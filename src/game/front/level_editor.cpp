@@ -1594,7 +1594,8 @@ void AddNodeGizmos(const Frame& frame, int selected)
                     }
                 }
                 V3 middle = (a + b) * 0.5f;
-                g_pickables.push_back({i, ax, ay, bx, by, true, -Dot(middle - g_pos, frame.back)});
+                g_pickables.push_back({i, ax, ay, bx, by, true, -Dot(middle - g_pos, frame.back), -Dot(a - g_pos, frame.back),
+                                       -Dot(b - g_pos, frame.back)});
             }
             if (isSelected || isHovered) {
                 float px, py;
@@ -3444,6 +3445,29 @@ void FocusOnSelection()
     YawPitchFromBack(Normalize(back), &g_yaw, &g_pitch);
 }
 
+// Occlusion for gizmos (level_editor_picking.h's GizmoInFront): the first occluding surface under the cursor as a depth
+// along the view, and what the pick radius spans there (the slack). Alt (or a middle click) reaches past: none.
+Nodes::Occluder GizmoOccluder(const Frame& frame, V3 dir, const Scenery::Hit& hit, bool everything)
+{
+    Nodes::Occluder occluder;
+    if (everything || !hit.blocked)
+        return occluder;
+    occluder.blocked = true;
+    occluder.depth = hit.blockT * -Dot(Normalize(dir), frame.back);
+    occluder.unitsPerPixel = g_viewport[2] > 0 ? 2.0f * g_lens.tanX / static_cast<float>(g_viewport[2]) : 0.0f;
+    occluder.pixels = 8.0f * PixelScale();
+    return occluder;
+}
+
+// How far along the ray a plain click may take a trigger volume (Triggers::Pick): to the first occluding surface under
+// the cursor and kGizmoSlack past it - a volume standing on the floor still picks, one behind a wall doesn't.
+float TriggerReach(V3 dir)
+{
+    Scenery::Hit hit;
+    Scenery::Pick(g_pos, Normalize(dir), kMaxPickDistance, &hit);
+    return hit.blocked ? hit.blockT + Picking::kGizmoSlack : 1e30f;
+}
+
 // Click-to-cycle (level_editor_picking.h): a plain click on the last click's spot (within 4 pixels at 720 lines), the
 // camera where it was (a click turns it to the selection, it doesn't move it), nothing changed or dragged since and the
 // filter the same - and that click took something with more under it.
@@ -4664,22 +4688,30 @@ void Update()
             else
                 hoverSector = next.id;
         } else if (haveRay && g_hoverAxis < 0) {
+            bool everything = alt || input.middlePresses;
             Picking::Candidates c;
-            c.node = Ui::Running() ? Nodes::PickNearest(g_pickables, backX, backY, 8.0f * PixelScale()) : -1;
+            Scenery::Hit hit;
+            Scenery::Pick(g_pos, Normalize(dir), kMaxPickDistance, &hit);
+            // (a gizmo behind the first occluding surface under the cursor isn't taken by a plain click)
+            c.node = Ui::Running() ? Nodes::PickNearest(g_pickables, backX, backY, 8.0f * PixelScale(),
+                                                        GizmoOccluder(frame, dir, hit, everything))
+                                   : -1;
             float objectT = kMaxPickDistance;
             Obj::CCompositeObject* object = Objects::Pick(g_pos, dir, kMaxPickDistance, &objectT);
             c.object = object != nullptr;
             c.objectT = objectT;
-            Scenery::Hit hit;
-            Scenery::Pick(g_pos, Normalize(dir), kMaxPickDistance, &hit);
-            c.scenery = hit.checksum != 0;
-            c.sceneryT = hit.t;
+            // (Alt: the nearest pickable piece whatever is in front of it; a plain click: the first, if nothing occludes)
+            uint32_t sceneryPick = everything ? hit.nearest : hit.checksum;
+            c.scenery = sceneryPick != 0;
+            c.sceneryT = everything ? hit.nearestT : hit.t;
             c.passed = hit.passed != 0;
             c.passedT = hit.passedT;
-            switch (Picking::Choose(c, g_pickFilter, alt || input.middlePresses)) {
+            c.blocked = hit.blocked;
+            c.blockT = hit.blockT;
+            switch (Picking::Choose(c, g_pickFilter, everything)) {
             case Picking::Choice::kNode: g_hoverNode = c.node; break;
             case Picking::Choice::kObject: hover = object; break;
-            case Picking::Choice::kScenery: hoverSector = hit.checksum; break;
+            case Picking::Choice::kScenery: hoverSector = sceneryPick; break;
             case Picking::Choice::kPassed: hoverSector = hit.passed; break;
             case Picking::Choice::kNone:
                 if (g_pickFilter & Picking::kScenery)
@@ -4759,7 +4791,8 @@ void Update()
         int triggerNode = -1;
         uint32_t triggerSector = 0;
         bool trigger = !wall && input.leftPresses && !alt && g_hoverAxis < 0 && g_hoverNode < 0 &&
-                       Ui::Running() && Triggers::Pick(g_pos, Normalize(dir), &triggerNode, &triggerSector);
+                       Ui::Running() &&
+                       Triggers::Pick(g_pos, Normalize(dir), &triggerNode, &triggerSector, TriggerReach(dir));
         if (wall) {
             Deselect();
             View::SelectWall(wall);

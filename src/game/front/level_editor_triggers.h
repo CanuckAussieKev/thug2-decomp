@@ -290,7 +290,9 @@ bool Resizing();
 void Play(bool editing);
 // A click while they're shown: the nearest volume under the ray - an editor trigger's node, or a level trigger's node
 // (Nodes::All() index; -1: none, or a level trigger without a node - then it's the one inspected, `sector`).
-bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector);
+// Only volumes met before `maxT` along the ray (a plain click: the first occluding surface under the cursor and some
+// slack - a volume behind a wall isn't taken; level_editor_picking.h).
+bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector, float maxT = 1e30f);
 // The level trigger shown in the Triggers window (0: none) - picked, or chosen in its list.
 uint32_t InspectedSector();
 void Inspect(uint32_t sector);

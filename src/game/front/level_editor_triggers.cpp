@@ -2000,13 +2000,13 @@ void SelectNodeNamed(uint32_t name)
 
 // --- picking and drawing ---
 
-bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector)
+bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector, float maxT)
 {
     *node = -1;
     *sector = 0;
     if (!Shown())
         return false;
-    float best = 1e30f;
+    float best = maxT;
     bool any = false;
     for (const Added& a : g_added) {
         if (!a.alive)

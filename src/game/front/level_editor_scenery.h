@@ -25,16 +25,25 @@
 // (0x0049E760: collision and meshes turned about the geometry's world position).
 namespace Front::LevelEditor::Scenery {
 
-// The sector under a ray: the game's collision ray (static collision only) up to `maxT` along the (unit) direction,
-// skipping collision without geometry (invisible walls); sectors without collision by their meshes' triangles (their
-// boxes only to skip the rest quickly). `t`: the distance. Locked pieces (level_editor_picking.h) are passed; so are
-// structure and see-through pieces for a plain click - the nearest of those in front is `passed` (Alt+click takes it).
-// True when either was found.
+// The sectors under a ray up to `maxT` along the (unit) direction: the game's collision ray (static collision only,
+// skipping collision without geometry - invisible walls) and every shown piece's meshes' triangles (their boxes only to
+// skip the rest quickly; a piece with collision too - its drawn parts the collision doesn't cover: TR's hanging lights'
+// housings), each piece at its nearest. What's nearest occludes what's behind it (level_editor_picking.h's Resolve):
+//   - `checksum` / `t`: what a plain click takes - the first pickable piece with nothing occluding in front of it;
+//   - `blocked` / `blockT`: the first occluding surface (a collision face met, or an opaque mesh - whatever the piece:
+//     pickable, structure, locked);
+//   - `passed` / `passedT`: the nearest piece a plain click passes (structure, see-through; not locked) - Alt+click;
+//   - `nearest` / `nearestT`: the nearest pickable piece, occlusion aside (not locked) - Alt+click.
+// Hidden pieces (H) aren't met at all. True when anything but a locked piece was found.
 struct Hit {
     uint32_t checksum = 0;
     float t = 0.0f;
     uint32_t passed = 0;
     float passedT = 0.0f;
+    bool blocked = false;
+    float blockT = 0.0f;
+    uint32_t nearest = 0;
+    float nearestT = 0.0f;
 };
 // `layers` (click-to-cycle): every piece the ray meets (not locked), nearest first, each once.
 struct Layer {
@@ -43,10 +52,15 @@ struct Layer {
     bool passed;
 };
 bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layers = nullptr);
-// Every mesh alpha-blended (the material's flag 0x40, as the scene sorts them): a decal, a web, a shadow, a glow.
+// Every mesh see-through (Picking::MaterialSeeThrough: drawn transparent, or added / subtracted / modulated /
+// brightened onto what's behind): a decal, a web, a shadow, a glow.
 bool SeeThrough(uint32_t checksum);
-// What a plain click passes (level_editor_picking.h): structure for a camera at `camera`, or see-through.
+// What a plain click passes (level_editor_picking.h): structure for a camera at `camera` (with the piece's level top -
+// LevelShare), or see-through.
 bool Passed(uint32_t checksum, V3 camera);
+// The level part of a piece's upward-facing surface (Picking::LevelShare; 1 without geometry). Measured once a piece
+// while the editor runs.
+float LevelShare(uint32_t checksum);
 
 // A sector's box where it is now (false: no such sector, or no geometry).
 bool Box(uint32_t checksum, OrientedBox* box);
