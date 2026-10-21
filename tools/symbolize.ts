@@ -3,7 +3,9 @@
 //
 //     node tools/symbolize.ts [--pdb-dir out/build/verify] [log or offsets...]
 //
-// With a log file: symbolizes every "DINPUT8.dll+0x..." in its last EXCEPTION report. With hex offsets: those.
+// With a log file: symbolizes every "DINPUT8.dll+0x..." in its last crash report (EXCEPTION, RUN-TIME CHECK FAILURE,
+// ... - src/hook/crash.h; also tools/game/read_dump.ts's output saved to a file). With hex offsets (or
+// "dinput8.dll+0x..."): those.
 // The PDB must come from the same build as the DLL that crashed (compare the deployed DLL's timestamp).
 // Uses Windows' dbghelp.dll - through Windows PowerShell's Add-Type (C# P/Invoke), as Node has no FFI.
 
@@ -17,10 +19,17 @@ const USAGE = "usage: symbolize.ts [--pdb-dir PDB_DIR] [items ...]";
 
 const BASE = 0x10000000; // any base: offsets are relative
 
+// A report's first line: EXCEPTION, RUN-TIME CHECK FAILURE, DEBUG CRT REPORT, INVALID PARAMETER, PURE VIRTUAL CALL,
+// ABORT, BUFFER OVERRUN DETECTED, GAME CRT MESSAGE (src/hook/crash.h).
+export const REPORT_START =
+    /^(?:EXCEPTION |RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|INVALID PARAMETER|PURE VIRTUAL CALL|ABORT|BUFFER OVERRUN|GAME CRT MESSAGE)/gm;
+
 export function offsetsFromLog(file: string): number[] {
     const text = readTextPy(file, "replace");
-    const start = text.lastIndexOf("EXCEPTION ");
-    if (start < 0) pyExit(`no EXCEPTION report in ${file}`);
+    // (the last report of any kind - src/hook/crash.h; read_dump.ts's output too)
+    const starts = [...text.matchAll(REPORT_START)];
+    const start = starts.length ? starts[starts.length - 1]!.index! : -1;
+    if (start < 0) pyExit(`no EXCEPTION (or other crash) report in ${file}`);
     let report = text.slice(start);
     // the report: its first line and the indented lines after it
     const first = report.indexOf("\n") + 1;
@@ -105,7 +114,7 @@ function main(): number {
     const offsets: number[] = [];
     for (const item of items) {
         if (fs.statSync(item, { throwIfNoEntry: false })?.isFile()) offsets.push(...offsetsFromLog(item));
-        else offsets.push(pyIntHex(item));
+        else offsets.push(pyIntHex(item.replace(/^dinput8\.dll\+/i, ""))); // "DINPUT8.dll+0x..." as read_dump prints it
     }
 
     const dll = path.resolve(values["pdb-dir"], "dinput8.dll");

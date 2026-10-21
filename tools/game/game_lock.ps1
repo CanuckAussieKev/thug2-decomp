@@ -8,10 +8,14 @@ param(
 # in that folder. -Game: C:\Games\THUG2 (the user's, the default) or a workspace copy C:\Games\THUG2-1, -2, -3...
 #   acquire: waits up to -WaitMinutes for the lock (prints BUSY and exits 1 if still held - do other work, try again);
 #            on success backs up the deployed dinput8.dll and thug2-decomp.ini into the lock folder.
-#   release: puts the backed-up dinput8.dll and ini back and removes the lock; never closes a running game.
+#   release: in a workspace, first closes a game still running from that folder (the holder's: crashed, stuck on a
+#            dialog, or left open - its outcome and log tail recorded, game_health.ps1); then puts the backed-up
+#            dinput8.dll and ini back and removes the lock. Never closes a game in the main install C:\Games\THUG2.
 #   status:  who holds it, since when.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
+. (Join-Path $PSScriptRoot 'game_health.ps1')
 $game = Resolve-GameFolder $Game
+$mainInstall = $game -in @('C:\Games\THUG2', 'C:\Games\THUG2\Game')
 if (-not (Find-GameExe $game)) { "NO GAME IN $game (no THUG2PM.exe or THUG2.exe in it or in its Game folder)"; exit 2 }
 $lock = Join-Path $game '.game-lock'
 # (the games running from this folder only - the other folders' games are someone else's)
@@ -45,7 +49,16 @@ switch ($Action) {
         if (-not (Test-Path $lock)) { 'not held'; exit 0 }
         $holder = Get-Content $ownerFile -ErrorAction SilentlyContinue
         if ($Owner -and -not ("$holder".StartsWith("$Owner "))) { "NOT YOURS: $holder"; exit 1 }
-        # (never closes a running game: the user may be playing - the test scripts close their own runs)
+        # A workspace's game still running is the lock holder's (crashed, hung on a dialog, or left open): closed
+        # first, its outcome recorded (game_health.ps1). The main install's never: the user may be playing.
+        if (-not $mainInstall) {
+            foreach ($running in @(Get-GamesHere)) {
+                $why = Update-GameWatch (New-GameWatch $running 0)
+                $closed = Close-Game $running
+                if ($why) { Write-GameOutcome $game "at release: $why" $closed $running.StartTime }
+                else { "a game was still running from $game at release: $closed" }
+            }
+        }
         if (Get-GamesHere) {
             Copy-Item (Join-Path $lock 'thug2-decomp.ini.backup') (Join-Path $game 'thug2-decomp.ini') -Force
             Remove-Item $lock -Recurse -Force

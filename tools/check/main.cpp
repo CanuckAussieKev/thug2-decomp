@@ -11,7 +11,9 @@
 //   - runs the early self-tests, which compare our code with the original code. The game's own start-up
 //     never runs, which is exactly the situation the early stage is written for (inside DllMain).
 //
-// Exit code 0 when everything passes, 1 on a mismatch or a failed self-test, 2 if the exe can't be loaded, 3 if
+// Then the crash handling (hook/crash.h): each deliberate fault in a process of its own must be reported and end it.
+//
+// Exit code 0 when everything passes, 1 on a mismatch, a failed self-test or crash-handling check, 2 if the exe can't be loaded, 3 if
 // a test corrupts memory (CRT report, run-time check failure, or the game's own buffer overrun check) - printed,
 // never a dialog.
 #include <windows.h>
@@ -23,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "hook/crash.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
@@ -63,20 +66,35 @@ const IMAGE_NT_HEADERS32* GameHeaders(const std::vector<unsigned char>& bytes)
 
 // --- the parent: start the child with the game's address range reserved ---------------------------------
 
-int RunChild(const char* exe_path, DWORD image_size)
+// `mode`: "--child" (the checks) or "--crash <kind>" (one deliberate fault). `output`: the child's stdout and stderr
+// collected there instead of shown (nullptr: shown).
+int RunChild(const char* exe_path, DWORD image_size, const std::string& mode = "--child", std::string* output = nullptr)
 {
     char self[MAX_PATH];
     GetModuleFileNameA(nullptr, self, MAX_PATH);
-    std::string command = std::string("\"") + self + "\" --child \"" + exe_path + "\"";
+    std::string command = std::string("\"") + self + "\" " + mode + " \"" + exe_path + "\"";
     STARTUPINFOA si = {sizeof(si)};
     si.dwFlags = STARTF_USESTDHANDLES;
     si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    HANDLE readEnd = nullptr, writeEnd = nullptr;
+    if (output) {
+        SECURITY_ATTRIBUTES inherit = {sizeof(inherit), nullptr, TRUE};
+        if (!CreatePipe(&readEnd, &writeEnd, &inherit, 0))
+            return 2;
+        SetHandleInformation(readEnd, HANDLE_FLAG_INHERIT, 0);
+        si.hStdOutput = si.hStdError = writeEnd;
+    }
     PROCESS_INFORMATION pi = {};
-    if (!CreateProcessA(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_SUSPENDED, nullptr, nullptr, &si,
-                        &pi)) {
+    BOOL created = CreateProcessA(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_SUSPENDED, nullptr, nullptr,
+                                  &si, &pi);
+    if (writeEnd)
+        CloseHandle(writeEnd); // (the child's copy is the only one left: reading ends when it exits)
+    if (!created) {
         std::printf("couldn't start the checking process (error %lu)\n", GetLastError());
+        if (readEnd)
+            CloseHandle(readEnd);
         return 2;
     }
     void* reserved = VirtualAllocEx(pi.hProcess, reinterpret_cast<void*>(kImageBase), image_size, MEM_RESERVE,
@@ -87,6 +105,28 @@ int RunChild(const char* exe_path, DWORD image_size)
         return 2;
     }
     ResumeThread(pi.hThread);
+    if (output) {
+        // (at most 60 s: a fault that shows a dialog instead of ending the process mustn't hang the check - it's
+        // killed, exit code 6)
+        ULONGLONG deadline = GetTickCount64() + 60000;
+        char chunk[4096];
+        for (;;) {
+            bool ended = WaitForSingleObject(pi.hProcess, 20) == WAIT_OBJECT_0;
+            DWORD available = 0, n = 0;
+            while (PeekNamedPipe(readEnd, nullptr, 0, nullptr, &available, nullptr) && available &&
+                   ReadFile(readEnd, chunk, sizeof(chunk), &n, nullptr) && n)
+                output->append(chunk, n);
+            if (ended)
+                break;
+            if (GetTickCount64() > deadline) {
+                output->append("\n(still running after 60 s - a dialog? killed)\n");
+                TerminateProcess(pi.hProcess, 6);
+                WaitForSingleObject(pi.hProcess, INFINITE);
+                break;
+            }
+        }
+        CloseHandle(readEnd);
+    }
     WaitForSingleObject(pi.hProcess, INFINITE);
     DWORD code = 2;
     GetExitCodeProcess(pi.hProcess, &code);
@@ -205,12 +245,74 @@ int Child(const char* exe_path)
     return mismatched || failures ? 1 : 0;
 }
 
+// One deliberate fault (hook/crash.h) in a process of its own, with the game's image loaded and the handlers set as
+// in the game: it must be reported and end the process - never a dialog, never a hang. Exit code 4: this build
+// can't cause it.
+int CrashChild(const char* kind, const char* exe_path)
+{
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    LogToConsole();
+    TestFault fault;
+    if (!ParseTestFault(kind, &fault))
+        return 2;
+    std::vector<unsigned char> bytes;
+    const IMAGE_NT_HEADERS32* nt = ReadFileBytes(exe_path, bytes) ? GameHeaders(bytes) : nullptr;
+    if (!nt || !LoadGameImage(bytes, nt))
+        return 2;
+    InstallGameCrtHandlers();
+    if (!CauseTestFault(fault))
+        return 4;
+    return 5; // (still running: a handler returned)
+}
+
+// The crash handling, fault by fault: the exit code and the report each must give.
+int CheckCrashHandling(const char* exe_path, DWORD image_size)
+{
+    struct Expected {
+        const char* kind;
+        DWORD exitCode;
+        const char* report;
+    };
+    const Expected expected[] = {
+        {"access", 0xC0000005, "unhandled: nothing caught exception 0xC0000005"},
+        {"rtc", 3, "RUN-TIME CHECK FAILURE"},
+        {"crterror", 3, "DEBUG CRT REPORT (type 1)"},
+        {"invalidparam", 3, "INVALID PARAMETER"},
+        {"purecall", 3, "PURE VIRTUAL CALL"},
+        {"abort", 3, "ABORT"},
+        {"overrun", 0xC0000409, "BUFFER OVERRUN DETECTED"},
+        {"crtbox", 3, "GAME CRT MESSAGE: Microsoft Visual C++ Runtime Library: crash test: a message"},
+    };
+    const int total = static_cast<int>(sizeof(expected) / sizeof(expected[0]));
+    int failed = 0, skipped = 0;
+    for (const Expected& e : expected) {
+        std::string output;
+        DWORD code = static_cast<DWORD>(RunChild(exe_path, image_size, std::string("--crash ") + e.kind, &output));
+        if (code == 4) {
+            ++skipped;
+            continue;
+        }
+        char ends[64];
+        std::snprintf(ends, sizeof(ends), "the process ends (exit code %lu = 0x%08lX)", code, code);
+        if (code != e.exitCode || output.find(e.report) == std::string::npos || output.find(ends) == std::string::npos) {
+            ++failed;
+            std::printf("CRASH HANDLING FAIL: %s - exit code 0x%08lX (wanted 0x%08lX), its output:\n%s\n", e.kind, code,
+                        e.exitCode, output.c_str());
+        }
+    }
+    std::printf("crash handling: %d faults, %d reported and ended as they should, %d not in this build, %d FAILED\n",
+                total, total - failed - skipped, skipped, failed);
+    return failed ? 1 : 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
     if (argc > 2 && std::strcmp(argv[1], "--child") == 0)
         return Child(argv[2]);
+    if (argc > 3 && std::strcmp(argv[1], "--crash") == 0)
+        return CrashChild(argv[2], argv[3]);
 
     const char* exe_path = argc > 1 ? argv[1] : "C:\\Games\\THUG2_PM_BAK\\THUG2PM.exe";
     std::vector<unsigned char> bytes;
@@ -223,5 +325,7 @@ int main(int argc, char** argv)
         std::printf("%s isn't the 32-bit game exe (image base 0x400000)\n", exe_path);
         return 2;
     }
-    return RunChild(exe_path, nt->OptionalHeader.SizeOfImage);
+    int result = RunChild(exe_path, nt->OptionalHeader.SizeOfImage);
+    int crashes = CheckCrashHandling(exe_path, nt->OptionalHeader.SizeOfImage);
+    return result ? result : crashes;
 }

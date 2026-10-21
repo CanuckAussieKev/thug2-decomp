@@ -1,6 +1,9 @@
 param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$Game = 'C:\Games\THUG2',
       [string]$ShotDir = '', [string]$Level = '', [string]$Tests = '', [switch]$FullTests, [string[]]$Commands = @(),
-      [switch]$WaitReady, [string]$Run = '')
+      [switch]$WaitReady, [string]$Run = '', [int]$HangSeconds = 45)
+# A game in trouble (game_health.ps1: it crashed - exit code not 0 -, Windows Error Reporting runs for it, it shows a
+# dialog, or its window hasn't responded for -HangSeconds) is noticed while waiting, closed (WM_CLOSE, then killed),
+# and reported with the end of its log - also appended to <folder>\thug2-decomp-crashes.txt. Exit code 5 then.
 # -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front/start_level.h).
 # Self-tests (start-up time): workspaces skip the early tests ([selftests] early=0 - thug2_check runs them offline).
 #   -Tests "anim,coll": only the self-tests whose names contain one of those words run (THUG2_SELFTESTS) - the ones of
@@ -23,6 +26,7 @@ if (-not $ShotDir) { $ShotDir = Join-Path $env:TEMP 'thug2-shots' }
 New-Item -ItemType Directory -Force $ShotDir | Out-Null
 . (Join-Path $dir 'game_exe.ps1')
 . (Join-Path $dir 'automation.ps1')
+. (Join-Path $dir 'game_health.ps1')
 $Game = Resolve-GameFolder $Game
 $exe = Find-GameExe $Game
 if (-not $exe) { "NO GAME IN $Game (no THUG2PM.exe or THUG2.exe in it or in its Game folder)"; exit 2 }
@@ -54,8 +58,11 @@ $gameArgs = @()
 if ($Level) { $gameArgs += @('-level', $Level) }
 if ($Run) { $gameArgs += @('-run', $Run) }
 $started = [Diagnostics.Stopwatch]::StartNew()
+$startTime = Get-Date
 if ($gameArgs.Count) { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -ArgumentList $gameArgs -PassThru }
 else { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -PassThru }
+$watch = New-GameWatch $p $HangSeconds
+$trouble = $null
 if ($workspace) {
     # (a new window takes the front: once the game's window is up, the window the user had in front gets it back)
     for ($i = 0; $i -lt 60 -and -not $p.HasExited; $i++) {
@@ -74,13 +81,16 @@ function Snap($name) {
     else { & "$dir\game_shot.ps1" -Path "$ShotDir\$name.png" }
 }
 if ($Commands.Count) {
-    $r = Wait-GameCommands $Game $lines $Seconds $p
+    $r = Wait-GameCommands $Game $lines $Seconds $p $watch
     "commands {0} after {1:N1} s from the start: {2}" -f ($(if ($r.ok) { 'done' } else { 'FAILED' })), $started.Elapsed.TotalSeconds, $r.why
     Format-GameStatus $r.status
+    $trouble = $r.trouble
 } elseif ($WaitReady) {
     while ($started.Elapsed.TotalSeconds -lt $Seconds -and -not $p.HasExited) {
         $s = Read-GameStatus $Game
         if ($s -and $s.ready) { break }
+        $trouble = Update-GameWatch $watch
+        if ($trouble) { break }
         Start-Sleep -Milliseconds 100
     }
     "ready after {0:N1} s: {1}" -f $started.Elapsed.TotalSeconds, (Format-GameStatus (Read-GameStatus $Game))
@@ -88,7 +98,19 @@ if ($Commands.Count) {
     for ($i = 0; $i -lt $Seconds; $i++) {
         Start-Sleep -Seconds 1
         if ($p.HasExited) { break }
+        $trouble = Update-GameWatch $watch
+        if ($trouble) { break }
     }
+}
+if (-not $trouble) { $trouble = Update-GameWatch $watch }
+if ($trouble) {
+    # (a picture of a dialog's game; never of a hung window - PrintWindow would wait for it for ever)
+    if (-not $p.HasExited -and $trouble -match 'dialog') { Snap "$Shot-trouble" }
+    $closed = Close-Game $p
+    Write-GameOutcome $Game $trouble $closed $startTime
+    $cmdFile = Get-CommandFile $Game
+    if (Test-Path $cmdFile) { Remove-Item $cmdFile -Force -ErrorAction SilentlyContinue }
+    exit 5
 }
 if ($p.HasExited) { "exited early (code $($p.ExitCode)) after {0:N1} s" -f $started.Elapsed.TotalSeconds } else {
     Snap "$Shot-1"
@@ -99,6 +121,11 @@ if ($p.HasExited) { "exited early (code $($p.ExitCode)) after {0:N1} s" -f $star
         Snap "$Shot-mid"
         Start-Sleep -Seconds 3
         Snap "$Shot-2"
+        $trouble = Update-GameWatch $watch
+        if ($trouble) {
+            Write-GameOutcome $Game $trouble (Close-Game $p) $startTime
+            exit 5
+        }
     }
     "running after {0:N1} s; responding=$($p.Responding)" -f $started.Elapsed.TotalSeconds
     Stop-Process -Id $p.Id -Force
