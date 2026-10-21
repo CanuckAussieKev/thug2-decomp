@@ -115,4 +115,11 @@ otherwise, nothing to stand on), **single_player**, **cosmetic**, **none** (no e
 
 ## Load check
 
-See the end of this record (filled in by the game run, if a workspace was free).
+Done by the finishing session (2026-10-21), workspace C:\Games\THUG2-2 under the game lock, offline: `thugpro_apply.ts
+--enable T2-AP-2,T2-SC-2 --install --game C:/Games/THUG2-2` (AP's collision with 245 faces out, SC's node array with 2
+rails not created at start), then `tools/game/load_check.ps1 -Levels AP` / `SC` (the level names are case-sensitive:
+upper case). AP: collision loaded, game responding, no exception / run-time check failure. SC: the game read
+`levels\sc\sc.qb` from the overlay, responding, no exception. Overlay files removed and the lock released afterwards;
+every entry stays off in the register (`enabled` count 0). Not skated: whether the faces / rails behave is for the user.
+The workspace DLL's early self-tests printed unrelated SELFTEST FAIL lines (texture / anim / text elements; they vary
+between runs - timing in a window, nothing to do with level data).
