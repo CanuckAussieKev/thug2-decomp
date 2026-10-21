@@ -11,8 +11,10 @@
 #include "game/core/manager.h"
 #include "game/core/string.h"
 #include "game/file/async.h"
+#include "game/gfx/lens_flare.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -99,19 +101,6 @@ void LoadModelFile(void* model, const char* file, bool allowReplaceTex)
 }
 void DestroyModel(void* model) { GameFunction<void(__cdecl*)(void*)>(0x0048C3C0)(model); }
 
-// The terrain manager's sounds for a terrain (terrain.cpp) and the lens flare (lens_flare.cpp).
-void LoadTerrainSounds(uint32_t terrain) { GameFunction<bool(__cdecl*)(uint32_t)>(0x00444EB0)(terrain); }
-void InitSun(float theta, float phi, float radius, float size, uint32_t texture, uint32_t coronaTexture,
-             uint32_t lensFlareData)
-{
-    GameFunction<void(__cdecl*)(float, float, float, float, uint32_t, uint32_t, uint32_t)>(0x004429D0)(
-        theta, phi, radius, size, texture, coronaTexture, lensFlareData);
-}
-void UpdateLensFlare(CStruct* params, CScript* script)
-{
-    GameFunction<void(__cdecl*)(CStruct*, CScript*)>(0x00442D70)(params, script);
-}
-
 } // namespace
 
 // 0x00445000
@@ -120,7 +109,7 @@ bool __cdecl CFunc_LoadTerrainSounds(CStruct* params, CScript*)
     uint32_t terrain;
     if (!params->GetChecksum(kTerrain, &terrain, 0))
         return false;
-    LoadTerrainSounds(terrain);
+    Terrain::LoadTerrainSounds(terrain);
     return true;
 }
 
@@ -389,14 +378,14 @@ bool __cdecl CFunc_InitSun(CStruct* params, CScript*)
     params->GetChecksum(kTexture, &texture, 1);
     params->GetChecksum(kCoronaTexture, &coronaTexture, 1);
     params->GetChecksum(kLensFlareData, &lensFlareData, 1);
-    InitSun(theta, phi, radius, size, texture, coronaTexture, lensFlareData);
+    Sun::Init(theta, phi, radius, size, texture, coronaTexture, lensFlareData);
     return true;
 }
 
 // 0x00445B30
 bool __cdecl CFunc_UpdateLensFlare(CStruct* params, CScript* script)
 {
-    UpdateLensFlare(params, script);
+    Sun::UpdateFlare(params, script);
     return true;
 }
 

@@ -64,3 +64,31 @@ commands (0x445000-0x445B30). Shared files touched: CMakeLists.txt (new files li
     equivalent (maxVol's bit compare vs a float compare with 100).
   - Register scan: 0x004442C0 / 0x004443B0 callers push the whole EAX into byte parameters (the original's upper
     bytes were a pointer's) - only the byte is read.
+- [x] Batch OC5-3 (NOT run in the game yet; the sun and its lens flare, 14 functions): src/game/gfx/lens_flare.cpp +
+  .h (new, namespace Sun); Obj::CSmtPtr::IsNull added to smtptr.h (additive). The original's file was compiled without
+  optimisation (frame pointers, every small helper called) - the rewrite calls our math directly.
+  - 0x00442670 CSmtPtr::IsNull, 0x00442680 ClampToRange (min checked first, NaN passes - unlike Mth::Clamp),
+    0x004426B0 the camera's +0xB4 factor (REPLACE of a thiscall float getter), 0x004426C0 QueryRequest::Init.
+  - 0x004426D0 SetSun (the parts by mask; a new texture deletes the old sun texture through its vtable - for a new
+    corona too: the original deletes the SUN texture when there's a corona, kept), 0x004429D0 Init (InitSun's work:
+    the lens_flare_data array's elements - pos_scale, scale, rgba packed r-low, id - each with creation and morph
+    params; LensFlare_Morph_In / Out and SunBurst_Out; colour 255 255 255 128).
+  - The flare: 0x004428F0 PlaceFlareElements (each element morphed to centre + pos_scale * (sun - centre)),
+    0x00442D70 UpdateFlare, 0x00442DF0 HideFlare (Lens_Flare_Container's alpha to 0 over morph_time; with params,
+    the elements sent to sun_pos), 0x00443030 UnhideFlare (alpha 1 over 0.2), 0x00443780 ShowFlare (CreateLensFlare
+    run when there's no container; nothing unless DoUpdateLensFlare).
+  - Drawing: 0x00443180 BuildSunQuad (a quad facing the camera, size camera+0xB4 * size, its corners through
+    0x00434200 then moved to the sun; the primitive drawer's blend modes), 0x00442810 QuerySunVisibility (the
+    occlusion query callback: a 10 x 10 query round the sun's screen place), 0x00443870 Render (each frame: the sun
+    theta / phi / radius from the camera; hidden behind the camera or off the projection; the sun drawn; a query;
+    not seen: the corona fading over SunBurst_Out, MaybeHideLensFlare (with morph_time unless it's been hidden past
+    LensFlare_Morph_Out); seen: the corona at half colour, ShowFlare (morphed in unless hidden past Morph_In). The
+    visible pixel count's brightness is worked out and never used - kept as a comment).
+  - Test: TestSunAndLensFlare (src/hook/selftests_obj_lens_flare.cpp): a stand-in camera, textures (with a recording
+    vtable), screen element manager and container (real smart pointers), script structures; the viewport camera and
+    the primitive drawer's virtual calls by naked dispatchers (the shared vtable-call helpers 0x004A1090 / 0x004A10A0
+    pick by ECX), Script::GetFloat by a float-returning stand-in. Every function and case above, 12 sun-drawing cases.
+    The original's Matrix::Rotate is pointed at ours for the test (its x87 sine / cosine differ from ours by an ulp -
+    in the game the hook does the same). 48 deliberate bugs: 47 caught (2 after strengthening - a sun just behind the
+    camera, a fade of exactly 1), 1 equivalent (the quad corners' w: the facing matrix's last row has no xyz).
+  - Found on the way: the primitive drawer the original keeps on its stack is 0x150-0x15C bytes (its frame's gaps).

@@ -13,6 +13,8 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/file/async.h"
+#include "game/gfx/lens_flare.h"
+#include "game/sfx/terrain.h"
 #include "game/script/cfuncs_scene.h"
 #include "game/script/struct.h"
 #include "hook/cfunc_testkit.h"
@@ -48,7 +50,7 @@ uint32_t Text(uint32_t p) { return Hash(reinterpret_cast<const char*>(p)); }
 
 void StandInCalls(StandIns& s)
 {
-    s.At({0x00444EB0}, 0, [](Regs& r) { Record({0x4EB0, r.args[0]}); return 1u; });
+    s.At({0x00444EB0, AddressOf(&Terrain::LoadTerrainSounds)}, 0, [](Regs& r) { Record({0x4EB0, r.args[0]}); return 1u; });
     s.At({0x0048BFA0}, 0, [](Regs& r) { Record({0xBFA0, r.args[0]}); return Addr(g_model); });
     // <name>.mdl: a String in the caller's storage (no text: copying it allocates nothing)
     s.At({0x004879D0}, 0, [](Regs& r) {
@@ -138,13 +140,13 @@ void StandInCalls(StandIns& s)
     s.At({0x005B6020}, 0, [](Regs& r) { Record({0x6020, r.args[0]}); return Addr(g_display); });
     s.At({0x005B5F20}, 0, [](Regs&) { Record({0x5F20}); return Addr(g_language); });
     s.At({0x005B5F90}, 0, [](Regs&) { Record({0x5F90}); return Addr(g_territory); });
-    s.At({0x004429D0}, 0, [](Regs& r) {
+    s.At({0x004429D0, AddressOf(&Sun::Init)}, 0, [](Regs& r) {
         Record({0x29D0});
         for (int i = 0; i < 7; ++i)
             Record({r.args[i]});
         return 0u;
     });
-    s.At({0x00442D70}, 0, [](Regs& r) { Record({0x2D70, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x00442D70, AddressOf(&Sun::UpdateFlare)}, 0, [](Regs& r) { Record({0x2D70, r.args[0], r.args[1]}); return 0u; });
 }
 
 void RecordConfig()

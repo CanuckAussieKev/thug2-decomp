@@ -237,6 +237,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_obj_scene_cmds.cpp
     src/hook/selftests_obj_terrain.cpp
+    src/hook/selftests_obj_lens_flare.cpp
     src/hook/selftests_engcmd2.cpp
     src/hook/selftests_engcmd3.cpp
     src/hook/selftests_engcmd4.cpp
@@ -695,6 +696,7 @@ add_library(thug2_code OBJECT
     src/game/script/array_cfuncs.cpp
     src/game/script/cfuncs_lighting.cpp
     src/game/script/cfuncs_scene.cpp
+    src/game/gfx/lens_flare.cpp
     src/game/script/cfuncs_render.cpp
     src/game/script/cfuncs_polys.cpp
     src/game/script/cfuncs_memory.cpp
