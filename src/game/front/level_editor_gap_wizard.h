@@ -13,7 +13,7 @@ struct Painter;
 // NOT ORIGINAL - the level editor's two-pick gap wizard (ours; see level_editor.h - the UX research's skate idea #1,
 // after THPS2's park editor: pick the two pieces a gap joins, then name it, score it and give it a type).
 //
-// The Gap wizard (Alt+J, the command search, the Triggers window's "Gap wizard..."): click where the gap starts - a
+// The Gap wizard (Alt+J, or "Gap wizard" in the command search): click where the gap starts - a
 // rail (the rail manager's segment nearest the cursor, within 14 pixels), a lip (a sloped or vert face's top), a wall
 // (wallride) or an area (a floor) - then where it ends; a small form asks for its name, its score (50 - 5000) and its
 // type, and makes the gap with phase 5's trigger code (level_editor_triggers.h: Triggers::AddGapPair - a start volume

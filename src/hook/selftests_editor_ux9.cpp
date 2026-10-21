@@ -163,6 +163,8 @@ void TestEditorGroundStripAndVertices()
           "editor ground: XYZ | NORMAL | DIFFUSE | TEX1");
     Check(G::LayoutFor(0x242, 32, &l) && l.normal < 0 && l.diffuse == 12 && l.tex == 16 && l.texCount == 2,
           "editor ground: XYZ | DIFFUSE | TEX2");
+    Check(G::LayoutFor(0x1C2, 28, &l) && l.diffuse == 12 && l.specular == 16 && l.tex == 20 && l.texCount == 1,
+          "editor ground: XYZ | DIFFUSE | SPECULAR | TEX1");
     Check(!G::LayoutFor(0x152, 40, &l) && !G::LayoutFor(2, 12, &l) && !G::LayoutFor(0x10152, 36, &l) &&
               !G::LayoutFor(0x146, 32, &l),
           "editor ground: other strides, built-in shaders, handles and XYZRHW refused");
@@ -183,8 +185,11 @@ void TestEditorGroundStripAndVertices()
     G::Spec t = Box(100);
     t.uv = 100;
     G::Mesh tm = G::Build(t);
-    Check(Near(tm.vertices[0].u, tm.vertices[0].pos.x / 100.0f) && Near(tm.vertices[0].v, -tm.vertices[0].pos.z / 100.0f),
-          "editor ground: the deck's texture coordinates from x / z");
+    bool deckUv = true;
+    for (int i = 0; i < 6; ++i)
+        deckUv = deckUv && Near(tm.vertices[i].u, tm.vertices[i].pos.x / 100.0f) &&
+                 Near(tm.vertices[i].v, -tm.vertices[i].pos.z / 100.0f);
+    Check(deckUv, "editor ground: the deck's texture coordinates from x / z");
 }
 SELFTEST(Early, TestEditorGroundStripAndVertices);
 

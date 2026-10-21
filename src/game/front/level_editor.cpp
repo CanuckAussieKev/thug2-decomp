@@ -17,6 +17,8 @@
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_actions.h"
+#include "game/front/level_editor_adjust.h"
+#include "game/front/level_editor_arrange.h"
 #include "game/front/level_editor_arcs.h"
 #include "game/front/level_editor_budget.h"
 #include "game/front/level_editor_camera.h"
@@ -31,6 +33,7 @@
 #include "game/front/level_editor_grind_preview.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
+#include "game/front/level_editor_links.h"
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
@@ -877,8 +880,11 @@ struct FieldUndo {
 struct UndoStep {
     enum Kind {
         kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kWalls, kTriggers, kFields, kProps,
-        kLocks, kEntities, kModule
+        kLocks, kEntities, kModule, kGroup
     } kind = kObjects;
+    // kGroup (UX7 - level_editor_modules.h's Edit::Fold): several steps made as one action, put back last first.
+    std::vector<UndoStep> group;
+    uint64_t serial = 0; // (a number for the step: the adjust-last panel knows its step is still the newest)
     // kEntities: path speeds and emitters' sounds to put back (level_editor_entities.h).
     Entities::State entities;
     // kModule: a module's own step (level_editor_modules.h - face flags, clusters, cameras).
@@ -922,6 +928,7 @@ struct UndoStep {
     std::string label, detail;
 };
 std::vector<UndoStep> g_undo, g_redo;
+uint64_t g_undoSerial;
 UndoStep g_pending;
 bool g_hasPending;
 constexpr size_t kMaxUndo = 64;
@@ -992,6 +999,7 @@ const char* KindLabel(UndoStep::Kind kind)
     case UndoStep::kLocks: return "Locks";
     case UndoStep::kEntities: return "Path speed / sound";
     case UndoStep::kModule: return "Faces / clusters / cameras";
+    case UndoStep::kGroup: return "Several changes";
     }
     return "Change";
 }
@@ -1000,6 +1008,7 @@ void PushUndo(UndoStep step, const char* label = nullptr)
 {
     step.label = label && *label ? label : KindLabel(step.kind);
     step.detail = DescribeSelection();
+    step.serial = ++g_undoSerial;
     g_undo.push_back(std::move(step));
     if (g_undo.size() > kMaxUndo)
         g_undo.erase(g_undo.begin());
@@ -1298,6 +1307,10 @@ void Restore(UndoStep& step)
         if (step.module)
             step.module->Restore();
         break;
+    case UndoStep::kGroup:
+        for (size_t i = step.group.size(); i-- > 0;)
+            Restore(step.group[i]);
+        break;
     }
 }
 
@@ -1393,6 +1406,10 @@ UndoStep Current(const UndoStep& step)
     case UndoStep::kModule:
         now.module = step.module ? step.module->Now() : nullptr;
         break;
+    case UndoStep::kGroup:
+        for (size_t i = 0; i < step.group.size(); ++i)
+            now.group[i] = Current(step.group[i]);
+        break;
     }
     return now;
 }
@@ -1409,6 +1426,7 @@ void StepHistory(std::vector<UndoStep>* from, std::vector<UndoStep>* to, const c
     from->pop_back();
     Carry::Disarm(); // (the steps put places back themselves: nothing follows them)
     to->push_back(Current(step));
+    to->back().serial = ++g_undoSerial;
     Restore(step);
     MarkUnsaved();
     NoteAction("%s", what);
@@ -1987,8 +2005,35 @@ void Drag(V3 origin, V3 dir, const Frame& frame, float mouseX, float mouseY, Sna
             wanted = g_dragStart + d;
         }
     }
+    // (no snapping held: a scenery piece's box faces flush with its neighbours' - level_editor_arrange.h)
+    if (!snap.on && !Primary() && MovableNode() < 0 && !WallOnly()) {
+        int axes = g_axis >= 0 ? (Transform::Current().space == Transform::Space::World ? 1 << g_axis : 0)
+                   : g_dragVertical ? 2
+                                    : 5;
+        if (axes)
+            wanted = Arrange::EdgeSnapped(pos, wanted, axes);
+    }
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
         PlaceSelection(wanted);
+}
+
+// A move, turn or scale made (its undo step just pushed): the last action for its panel (level_editor_adjust.h).
+void NoteForAdjust(Transform::Mode mode, V3 moved, bool uniform)
+{
+    Adjust::Action action;
+    if (mode == Transform::Mode::Rotate) {
+        action.kind = Adjust::Kind::Turn;
+        action.quarters = !Primary() && MovableNode() < 0;
+        action.degrees = action.quarters ? static_cast<float>(g_quartersApplied) * 90.0f : g_rotApplied * 180.0f / kPi;
+    } else if (mode == Transform::Mode::Scale) {
+        action.kind = Adjust::Kind::Scale;
+        action.factor = ScaleAppliedNow();
+        action.uniform = uniform;
+    } else {
+        action.kind = Adjust::Kind::Move;
+        action.offset = moved;
+    }
+    Adjust::Note(action);
 }
 
 void EndDrag()
@@ -1996,9 +2041,13 @@ void EndDrag()
     if (!g_dragging)
         return;
     g_dragging = false;
+    bool uniform = g_axis < 0 && g_typed.axis < 0;
     g_axis = -1;
+    uint64_t serial = g_undo.empty() ? 0 : g_undo.back().serial;
     EndChange();
     Settle();
+    if (!g_undo.empty() && g_undo.back().serial != serial)
+        NoteForAdjust(g_dragMode, SelectionPos() - g_dragStart, uniform);
     V3 at = SelectionPos();
     NoteAction("%s to (%.0f, %.0f, %.0f): %s",
                g_dragMode == Transform::Mode::Rotate  ? "turned"
@@ -2972,6 +3021,9 @@ void PlaceNode(int entry, V3 at)
         SelectNodeOnly(index);
     NoteOnlineChange(FamilyOf(e.kind), specs.front().name.c_str(), "added");
     Hud::Message("Added " + specs.front().name + " (" + e.label + ") - Ctrl+Z takes it away");
+    Adjust::Action placed; // (level_editor_adjust.h)
+    placed.kind = Adjust::Kind::Place;
+    Adjust::Note(placed);
     NoteAction("added %s (%s)", specs.front().name.c_str(), e.label.c_str());
 }
 
@@ -3229,6 +3281,9 @@ bool PlaceEntity(int entry, V3 at)
     }
     Hud::Message(placed.message + " - Ctrl+Z takes it away");
     NoteAction("%s", placed.message.c_str());
+    Adjust::Action adjust; // (level_editor_adjust.h)
+    adjust.kind = Adjust::Kind::Place;
+    Adjust::Note(adjust);
     return true;
 }
 
@@ -3870,7 +3925,7 @@ V3 CursorPoint(V3 dir, bool haveRay, const Frame& frame)
     return ahead;
 }
 
-void PlaceFromBrowser(V3 at)
+void PlaceFromBrowser(V3 at, bool keepOpen = false)
 {
     if (g_browser.index >= static_cast<int>(g_browser.items.size()))
         return;
@@ -3901,8 +3956,14 @@ void PlaceFromBrowser(V3 at)
     }
     PushUndo(step, "Place copy");
     Thumbs::NoteUsed(g_browser.tab, source); // (the palette's Recently used - level_editor_thumbs.h)
-    g_browser.open = false;
-    Hud::HidePanel();
+    Adjust::Action placed; // (level_editor_adjust.h: where it went, its turn)
+    placed.kind = Adjust::Kind::Place;
+    placed.quarters = g_browser.tab == 0;
+    Adjust::Note(placed);
+    if (!keepOpen) { // (Shift+click with the arrange tools' Click places: more of it - level_editor_arrange.h)
+        g_browser.open = false;
+        Hud::HidePanel();
+    }
     Hud::Message("Placed a copy of " + Objects::Label(source) + " - B adds another");
     NoteAction("placed a copy of %s (the browser)", Objects::Label(source).c_str());
 }
@@ -3911,8 +3972,12 @@ void PlaceFromBrowser(V3 at)
 // `repeat` (Ctrl+Shift+D - level_editor_transform.h): the copies go where the last copies' move and turn put them from
 // their source (each copy turned as much), else beside it. One undo step either way.
 bool DuplicateNode(const Frame& frame, const Transform::RepeatStep* repeat);
+// (the last Duplicate's sources and copies, in pairs - level_editor_links.h's linked copies)
+std::vector<std::pair<uint32_t, uint32_t>> g_duplicatePairs;
 void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr)
 {
+    g_duplicatePairs.clear();
+    Edit::Selected adjustSource = Edit::Selection(); // (level_editor_adjust.h: what it copied)
     UndoStep step;
     step.kind = UndoStep::kMade;
     step.exist = false;
@@ -3948,6 +4013,7 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
             Objects::Restore(state);
             made.push_back(copy);
             sources.push_back(source);
+            g_duplicatePairs.push_back({object->m_id, copy->m_id});
         }
         // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
         if (repeat && repeat->turn != 0.0f && !made.empty()) {
@@ -3976,8 +4042,10 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
         }
         std::vector<uint32_t> copies;
         for (uint32_t checksum : Scenery::Selection()) {
-            if (uint32_t copy = Scenery::Duplicate(checksum))
+            if (uint32_t copy = Scenery::Duplicate(checksum)) {
                 copies.push_back(copy);
+                g_duplicatePairs.push_back({checksum, copy});
+            }
         }
         if (copies.empty()) {
             Hud::Message("Couldn't copy that");
@@ -4011,6 +4079,19 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
                              sourceHeading);
     Hud::Message(repeat ? "Duplicated again (Ctrl+Shift+D repeats it)"
                         : "Duplicated - move / turn the copy, then Ctrl+Shift+D repeats that");
+    {
+        // (the panel's numbers - level_editor_adjust.h: each copy's offset from the one before, its turn, how many)
+        Adjust::Action action;
+        action.kind = Adjust::Kind::Duplicate;
+        action.quarters = !step.sectors.empty();
+        if (repeat) {
+            action.offset = repeat->offset;
+            action.degrees = action.quarters ? static_cast<float>(repeat->quarters) * 90.0f : repeat->turn * 180.0f / kPi;
+        } else {
+            action.offset = SelectionPos() - sourcePos;
+        }
+        Adjust::NoteDuplicate(adjustSource, action);
+    }
     NoteAction("duplicated (%s): %s", repeat ? "Ctrl+Shift+D" : "Ctrl+D", DescribeSelection().c_str());
 }
 
@@ -5568,6 +5649,11 @@ void Update()
     g_cursorY = backY;
     ApplyUiRequests(dir, haveRay, frame);
     TransformKeys(keys, ctrl, shift, alt, input, dir, haveRay, frame);
+    // (UX7: the arrange tools' keys, the adjust panel's changes, the linked copies - level_editor_arrange.h,
+    // level_editor_adjust.h, level_editor_links.h)
+    Arrange::Update();
+    Adjust::Tick();
+    Links::Tick();
     if (!g_dragging) // (digits typed while dragging aren't bookmarks - level_editor_transform.h)
         Camera::Keys(RigNow(), keys, ctrl, g_browser.open); // (F, 1..9, the numpad - level_editor_camera.h)
     g_lastHaveRay = haveRay;
@@ -5643,8 +5729,11 @@ void Update()
             g_keyMoving = true;
         } else {
             if (g_keyMoving) {
+                uint64_t serial = g_undo.empty() ? 0 : g_undo.back().serial;
                 EndChange();
                 Settle();
+                if (!g_undo.empty() && g_undo.back().serial != serial) // (level_editor_adjust.h)
+                    NoteForAdjust(Transform::Mode::Move, SelectionPos() - g_pending.where, true);
             }
             g_keyMoving = false;
         }
@@ -5659,6 +5748,11 @@ void Update()
             PushUndo(Snapshot(), "Turn");
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
+            Adjust::Action action; // (level_editor_adjust.h)
+            action.kind = Adjust::Kind::Turn;
+            action.quarters = !Primary() && MovableNode() < 0;
+            action.degrees = static_cast<float>(turn) * (action.quarters ? 90.0f : Transform::AngleStep());
+            Adjust::Note(action);
         }
         // [ / ]: scenery or objects scaled down / up a tenth (Shift: a hundredth); Alt+[ / ]: stretched so along the
         // world axis the camera faces most (looking down: y) - level_editor_scale.h.
@@ -5672,12 +5766,21 @@ void Update()
                 Frame view = FrameFromYawPitch(g_yaw, g_pitch);
                 int axis = Scale::MainAxis(view.back);
                 if (ScaleSelectionBy(Scale::AlongAxis(axis, factor), false)) {
+                    Adjust::Action action; // (level_editor_adjust.h)
+                    action.kind = Adjust::Kind::Scale;
+                    action.factor = Scale::AlongAxis(axis, factor);
+                    action.uniform = false;
+                    Adjust::Note(action);
                     const char* axisName = axis == 0 ? "x" : axis == 1 ? "y" : "z";
                     Hud::Message(std::string("Stretched along ") + axisName + " (the axis the camera faces most)");
                     NoteAction("stretched along %s (Alt+[ / ]): %s", axisName, DescribeSelection().c_str());
                 }
             } else if (ScaleSelectionBy(Scale::Uniform(factor), true)) {
                 NoteAction("scaled ([ / ]): %s", DescribeSelection().c_str());
+                Adjust::Action action; // (level_editor_adjust.h)
+                action.kind = Adjust::Kind::Scale;
+                action.factor = Scale::Uniform(factor);
+                Adjust::Note(action);
             }
         }
         // G: down onto the ground below it.
@@ -5865,6 +5968,12 @@ void Update()
                Ux9::Click(g_pos, Normalize(dir), backX, backY)) {
         // (UX9: the gap wizard's / the ground tool's pick - level_editor_ux9.h)
         NoteAction("ux9 tool click");
+    } else if (input.leftPresses && haveRay && !g_dragging && Arrange::EdgePicking() &&
+               Arrange::EdgeClick(backX, backY)) {
+        // (F7: a rail along the edge clicked - level_editor_arrange.h)
+    } else if (input.leftPresses && haveRay && !g_dragging && g_browser.open && g_hoverAxis < 0 && !ctrl && !alt &&
+               Arrange::PlaceClick(shift)) {
+        // (the Add palette open with Click places: its piece where the ghost showed it - level_editor_arrange.h)
     } else if (input.leftPresses && haveRay && !g_dragging && Ruler::Armed() && g_hoverAxis < 0) {
         // (the ruler armed: a click puts an end - level_editor_ruler.h)
         Hud::Message(Ruler::Click(), 6.0);
@@ -6136,6 +6245,9 @@ void Draw()
             Ruler::AddOverlay(painter);
             Ux9::AddOverlay(painter); // (UX9: skateability colours, the gap wizard's gates, the ground tool's preview)
         }
+        // (UX7: the placement ghost, the readout while dragging, the faces snapped to, the top edges for a rail -
+        // level_editor_arrange.h)
+        Arrange::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay);
         Thumbs::Frame(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
         Ui::Frame(model, g_overlay);
         return;
@@ -6516,5 +6628,257 @@ void GoToPoint(V3 pos, float distance)
     Deselect();
     LookAt(pos, distance);
 }
+
+
+// --- for the arrange tools (UX7 - level_editor_modules.h's Edit) ---
+
+namespace Edit {
+
+Selected Selection()
+{
+    Selected out;
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (!objects.empty()) {
+        out.kind = Kind::Objects;
+        for (Obj::CCompositeObject* object : objects)
+            out.ids.push_back(object->m_id);
+    } else if (MovableNode() >= 0) {
+        out.kind = Kind::Node;
+        out.ids.push_back(g_nodeName);
+    } else if (uint32_t wall = WallOnly()) {
+        out.kind = Kind::Wall;
+        out.ids.push_back(wall);
+    } else if (Scenery::HasSelection()) {
+        out.kind = Kind::Scenery;
+        out.ids = Scenery::Selection();
+    }
+    return out;
+}
+
+void Select(const Selected& selected)
+{
+    switch (selected.kind) {
+    case Kind::Objects: {
+        std::vector<Obj::CCompositeObject*> objects;
+        for (uint32_t id : selected.ids) {
+            auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+            if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+                objects.push_back(object);
+        }
+        Deselect();
+        SelectObjects(objects);
+        break;
+    }
+    case Kind::Scenery:
+        g_objects.clear();
+        g_nodeSelected = false;
+        View::ClearWall();
+        Scenery::SetSelection(selected.ids);
+        break;
+    case Kind::Node: {
+        int index = selected.ids.empty() ? -1 : Nodes::Find(selected.ids.front());
+        if (index >= 0)
+            SelectNodeOnly(index);
+        break;
+    }
+    case Kind::Wall:
+        Deselect();
+        if (!selected.ids.empty())
+            View::SelectWall(selected.ids.front());
+        break;
+    case Kind::None:
+        Deselect();
+        break;
+    }
+}
+
+V3 Pos() { return SelectionPos(); }
+float Base() { return SelectionBase(); }
+V3 Centre() { return SelectionCentre(); }
+
+void Begin() { BeginChange(); }
+void End()
+{
+    g_pendingForced = true;
+    EndChange();
+    Settle();
+}
+
+void PlaceAt(V3 pos) { PlaceSelection(pos); }
+
+void TurnBy(float radians)
+{
+    NodeEdit::Values node;
+    if (NodeValues(&node)) {
+        node.angles = NodeEdit::WithHeading(node.angles, NodeEdit::HeadingDegrees(node.angles) + radians * 180.0f / kPi);
+        SetSelectedNode(node);
+        return;
+    }
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (!objects.empty()) {
+        TurnObjectsBy(objects, radians, SelectionCentre());
+        return;
+    }
+    if (int quarters = Transform::Quarters(radians))
+        TurnSelection(quarters);
+}
+
+bool ScaleBy(V3 factor, bool uniform) { return ScaleSelectionBy(factor, uniform); }
+
+std::vector<std::pair<uint32_t, uint32_t>> Duplicate(const void* repeat)
+{
+    g_duplicatePairs.clear();
+    LevelEditor::Duplicate(FrameFromYawPitch(g_yaw, g_pitch), static_cast<const Transform::RepeatStep*>(repeat));
+    return g_duplicatePairs;
+}
+
+uint64_t TopSerial() { return g_undo.empty() ? 0 : g_undo.back().serial; }
+size_t Depth() { return g_undo.size(); }
+
+void Fold(size_t depth)
+{
+    depth = std::min(depth, g_undo.size());
+    if (g_undo.size() - depth < 2)
+        return;
+    UndoStep group;
+    group.kind = UndoStep::kGroup;
+    std::string label = g_undo.back().label;
+    group.group.assign(g_undo.begin() + static_cast<long>(depth), g_undo.end());
+    g_undo.erase(g_undo.begin() + static_cast<long>(depth), g_undo.end());
+    group.where = SelectionPos();
+    PushUndo(group, label.c_str());
+}
+
+bool TakeBack()
+{
+    if (g_undo.empty())
+        return false;
+    Entities::StopPreview();
+    UndoStep step = g_undo.back();
+    g_undo.pop_back();
+    Carry::Disarm();
+    Restore(step);
+    MarkUnsaved();
+    return true;
+}
+
+void PushMade(const std::vector<uint32_t>& objects, const std::vector<uint32_t>& sectors)
+{
+    UndoStep step;
+    step.kind = UndoStep::kMade;
+    step.exist = false;
+    for (uint32_t id : objects) {
+        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        if (!object)
+            continue;
+        uint32_t source = 0;
+        for (const Objects::Copy& c : Objects::Copies()) {
+            if (c.name == id)
+                source = c.source;
+        }
+        step.copies.push_back({id, source, Objects::Save(object)});
+    }
+    step.sectors = sectors;
+    if (step.copies.empty() && step.sectors.empty())
+        return;
+    PushUndo(step, "Copies");
+}
+
+void PushSnapshot() { PushUndo(Snapshot()); }
+
+void RemoveCopies(const std::vector<uint32_t>& ids)
+{
+    UndoStep step;
+    step.kind = UndoStep::kMade;
+    step.exist = true; // (undone: made again)
+    for (uint32_t id : ids) {
+        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        if (!object || !Objects::IsCopy(id))
+            continue;
+        uint32_t source = 0;
+        for (const Objects::Copy& c : Objects::Copies()) {
+            if (c.name == id)
+                source = c.source;
+        }
+        step.copies.push_back({id, source, Objects::Save(object)});
+    }
+    if (step.copies.empty())
+        return;
+    for (const MadeCopy& copy : step.copies)
+        Objects::RemoveCopy(copy.name);
+    g_objects.clear();
+    PushUndo(step, "Remove copies");
+}
+
+void Settle() { LevelEditor::Settle(); }
+
+bool SetField(uint32_t node, uint32_t key, int kind, const std::string& text)
+{
+    Ui::Request request;
+    request.kind = Ui::Request::kFieldSet;
+    request.node = node;
+    request.id = key;
+    request.value = kind;
+    request.text = text;
+    size_t before = g_undo.size();
+    uint64_t serial = TopSerial();
+    FieldRequest(request);
+    return g_undo.size() != before || TopSerial() != serial;
+}
+
+void ChainChanged(const void* before, uint32_t select, const std::string& message)
+{
+    AfterChainChange(*static_cast<const Chains::State*>(before), select, message);
+}
+
+bool Ground(V3 from, V3* ground) { return GroundBelow(from, ground); }
+bool Dragging() { return g_active && g_dragging; }
+int DragMode() { return static_cast<int>(g_dragMode); }
+void Cursor(float* x, float* y)
+{
+    *x = g_cursorX;
+    *y = g_cursorY;
+}
+bool Ray(V3* origin, V3* dir)
+{
+    if (!g_active || !g_lastHaveRay)
+        return false;
+    *origin = g_pos;
+    *dir = g_lastRay;
+    return true;
+}
+bool GroundMark(V3* base, V3* ground)
+{
+    if (!g_haveMark || !HaveSelection())
+        return false;
+    *base = g_markBase;
+    *ground = g_markGround;
+    return true;
+}
+float Yaw() { return g_yaw; }
+
+bool BrowserItem(int* tab, uint32_t* id)
+{
+    if (!g_browser.open || g_browser.index < 0 || g_browser.index >= static_cast<int>(g_browser.items.size()))
+        return false;
+    *tab = g_browser.tab;
+    *id = g_browser.items[g_browser.index].id;
+    return true;
+}
+void PlaceBrowserItem(V3 at, bool keepOpen) { PlaceFromBrowser(at, keepOpen); }
+
+int PlaceArmed(uint32_t* colour)
+{
+    *colour = 0;
+    if (!g_placeOpen || g_placeArmed < 0)
+        return -1;
+    if (g_placeArmed < static_cast<int>(PlaceEntries().size()))
+        *colour = PlaceEntries()[g_placeArmed].colour;
+    return g_placeArmed;
+}
+
+V3 CursorPoint() { return LevelEditor::CursorPoint(g_lastRay, g_lastHaveRay, FrameFromYawPitch(g_yaw, g_pitch)); }
+
+} // namespace Edit
 
 } // namespace Front::LevelEditor

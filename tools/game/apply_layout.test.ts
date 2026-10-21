@@ -221,6 +221,50 @@ function named(nodes: Struct[], name: string): Struct {
     assert.ok(n, `node ${name}`);
     return n;
 }
+test("bake: (UX9) a raised ground piece and a pit - new sectors and collision, the pit's tiles left out", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `ground ed_ground01 raise rect=0,0,400,300 base=0 height=100 ramps=q,-,-,- length=0 material=0x${hex("SecA")} uv=128 color=FF606060 terrain=3`,
+            `ground ed_ground02 lower rect=400,-100,700,200 base=0 height=80 ramps=-,-,-,- length=0 material=0x${hex("SecA")} uv=128 color=FF606060 terrain=3 hides=0x${hex("SecB")}`,
+            "ground ed_ground03 raise rect=0,0,10,10 base=0 height=10 material=0x00000001",
+        ].join("\n"),
+    );
+    assert.equal(layout.grounds.length, 3);
+    const out = bake(layout, level(), null);
+    const scene = readScene(writeScene(out.scene), "scn");
+    const col = readCol(writeCol(out.col!), "col");
+    const piece = scene.sectors.find((s) => s.checksum === checksum("ed_ground01"))!;
+    const pieceCol = col.objects.find((o) => o.checksum === checksum("ed_ground01"))!;
+    // (deck 2 + 3 walls x 2 + a quarter pipe: 16 curve + 16 cheek triangles)
+    assert.equal(pieceCol.faces.length, 40);
+    assert.equal(piece.meshes[0]!.vertexCount, 120);
+    assert.ok(piece.meshes[0]!.strips[0]!.length > 0);
+    assert.equal(pieceCol.faces.filter((f) => f[0] === 0x0009).length, 8, "the quarter pipe's vert faces");
+    assert.ok(
+        pieceCol.faces.every((f) => f[1] === 3),
+        "the terrain",
+    );
+    assert.ok(scene.sectors.some((s) => s.checksum === checksum("ed_ground02")));
+    assert.equal(
+        scene.sectors.some((s) => s.checksum === checksum("SecB")),
+        false,
+        "the pit's tile left out",
+    );
+    assert.equal(
+        col.objects.some((o) => o.checksum === checksum("SecB")),
+        false,
+    );
+    assert.ok(
+        out.warnings.some((w) => w.includes("ed_ground03")),
+        "a missing material: warned, not baked",
+    );
+    assert.ok(
+        out.report.some((r) => r.startsWith("ground ed_ground01: a platform 400 x 300, 100 high, ramps q,-,-,-")),
+    );
+});
+
 function vertex(s: Sector, v: number): number[] {
     const data = s.meshes[0]!.buffers[0]![1];
     return [0, 4, 8, 12, 16, 20].map((o) => data.readFloatLE(v * 36 + o));
@@ -1360,4 +1404,48 @@ test("bake: particle systems moved and copied with their emitter places; speeds 
     const flag = named(nodes, "TRG_Flag_Green");
     assert.equal((flag.get("TriggerScript") as Name).value, checksum("TRG_Flag_GreenScript"), "a lobby flag's script");
     assert.equal(out.unsupported.length, 0);
+});
+
+// --- (UX7) linked copies -------------------------------------------------------------------------------------------
+
+test("layout_file: (UX7) link records - read as Links::ReadRecord, malformed refused", () => {
+    const l = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            "link sector 1A2B3C4D c0@1,DEADBEEF,c3@2",
+            "link object 11111111 22222222 later=1",
+        ].join("\n"),
+    );
+    assert.deepEqual(l.linkGroups, [
+        {
+            scenery: true,
+            source: { id: 0x1a2b3c4d, clone: -1, quarters: 0 },
+            members: [
+                { id: 0, clone: 0, quarters: 1 },
+                { id: 0xdeadbeef, clone: -1, quarters: 0 },
+                { id: 0, clone: 3, quarters: 2 },
+            ],
+        },
+        {
+            scenery: false,
+            source: { id: 0x11111111, clone: -1, quarters: 0 },
+            members: [{ id: 0x22222222, clone: -1, quarters: 0 }],
+        },
+    ]);
+    assert.deepEqual(l.unknown, []);
+    for (const line of [
+        "link object c1 22222222",
+        "link object 11111111 22222222@1",
+        "link sector 1A2B3C4D",
+        "link thing 11111111 22222222",
+        "link sector 1A2B3C4D c0@7",
+        "link sector 1A2B3C4D 123",
+    ]) {
+        assert.throws(
+            () => readLayout(`thug2-decomp layout 2\nscene ${hex(LEVEL)}\n${line}\n`),
+            (e: unknown) => e instanceof LayoutError && e.line === 3,
+            line,
+        );
+    }
 });

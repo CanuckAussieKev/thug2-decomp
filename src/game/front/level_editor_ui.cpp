@@ -1,6 +1,8 @@
 // NOT ORIGINAL - the level editor's UI (ours). See level_editor_ui.h. Only ImGui's own API here: the platform and the
 // renderer are level_editor_ui_backend.cpp's.
 
+#include "game/front/level_editor_adjust.h"
+#include "game/front/level_editor_arrange.h"
 #include "game/front/level_editor_ui.h"
 
 #include <SDL2/SDL.h>
@@ -1590,7 +1592,7 @@ void Browser(const Model& model)
     }
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_browserSearch, sizeof(g_browserSearch));
-    float buttons = ImGui::GetFrameHeightWithSpacing() * 2.0f;
+    float buttons = ImGui::GetFrameHeightWithSpacing() * 3.0f; // (UX7: a row of the arrange tools')
     const std::vector<BrowserItem>& items = *model.browserItems;
     bool follow = model.browserIndex != g_browserShownIndex; // (the keys moved it: keep it in view)
     g_browserShownIndex = model.browserIndex;
@@ -1615,6 +1617,7 @@ void Browser(const Model& model)
     ImGui::SameLine();
     if (ImGui::Button("Show me (F)"))
         Ask(Request::kBrowserFocus);
+    Arrange::BrowserExtras(g_scale); // (UX7: Replace selection, Click places - level_editor_arrange.h)
     ImGui::EndDisabled();
     ImGui::PushFont(g_small);
     Muted("Enter places a copy where the cursor points (over a panel: where the view looks).");
@@ -2007,6 +2010,9 @@ void Frame(const Model& model, const Overlay& overlay)
     Prefs::Window(g_scale, g_heading, g_small); // (level_editor_prefs.h)
     Prefs::TipsWindow(g_scale, g_heading, g_mono);
     PlayTest::Window(g_scale, g_heading, g_small); // (level_editor_playtest.h)
+    // (UX7: the Arrange window, the adjust-last panel - level_editor_arrange.h, level_editor_adjust.h)
+    Arrange::Window(g_scale);
+    Adjust::Panel(g_layout.viewport.x, g_layout.viewport.y + g_layout.viewport.height, g_scale);
     Triggers::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
                      model.nodes.selected);
     // (UX5: the Problems window, the selected note's window)

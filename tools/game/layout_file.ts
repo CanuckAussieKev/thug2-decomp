@@ -8,6 +8,7 @@
 // Phase 5's `trigger` records are read by tools/game/triggers.ts (the DLL's Triggers::ReadRecord, ported).
 
 import { checksum } from "../level_port/qb.ts";
+import { type GroundSpec, readGroundRecord } from "./ground_pieces.ts";
 import { readTriggerRecord, type TriggerSpec } from "./triggers.ts";
 
 export interface V3 {
@@ -254,6 +255,53 @@ export interface Layout {
     cameras: CameraRecord[];
     // (UX5) note pins - editor only, never baked
     notes: NoteRecord[];
+    // (UX7) linked copies' groups - the copies are `clone` / `copy` records of their own; the bake writes them as they
+    // are (plain copies): a link only matters to the editor
+    linkGroups: LinkRecord[];
+    // (UX9) raised / lowered ground pieces (level_editor_ground.h - tools/game/ground_pieces.ts); a record the DLL
+    // wouldn't read is skipped there (logged) - here listed as unknown
+    grounds: GroundSpec[];
+}
+
+// (UX7 - level_editor_links.h) a group of linked copies: `link sector|object <source> <member>[@q],...`. A sector is
+// referred to by its checksum or (`clone` >= 0) by the index of its layout's `clone` record; `quarters` (sectors only):
+// the source's quarter turns when that copy was made.
+export interface LinkRef {
+    id: number;
+    clone: number;
+    quarters: number;
+}
+export interface LinkRecord {
+    scenery: boolean;
+    source: LinkRef;
+    members: LinkRef[];
+}
+function parseLinkRef(text: string, member: boolean, scenery: boolean): LinkRef | null {
+    const m = /^(c\d+|[0-9A-Fa-f]{8})(?:@([0-3]))?$/.exec(text);
+    if (!m) return null;
+    if (m[2] !== undefined && (!member || !scenery)) return null;
+    const quarters = m[2] === undefined ? 0 : Number(m[2]);
+    if (m[1]!.startsWith("c")) {
+        if (!scenery) return null;
+        return { id: 0, clone: Number(m[1]!.slice(1)), quarters };
+    }
+    const id = Number.parseInt(m[1]!, 16);
+    return id ? { id, clone: -1, quarters } : null;
+}
+// Links::ReadRecord ported: the words after "link" (null: malformed; later words skipped).
+export function readLinkRecord(words: string[]): LinkRecord | null {
+    const [kind, source, members] = words;
+    if ((kind !== "sector" && kind !== "object") || source === undefined || members === undefined) return null;
+    const scenery = kind === "sector";
+    const src = parseLinkRef(source, false, scenery);
+    if (!src) return null;
+    const refs: LinkRef[] = [];
+    for (const word of members.split(",")) {
+        const ref = parseLinkRef(word, true, scenery);
+        if (!ref) return null;
+        refs.push(ref);
+    }
+    return { scenery, source: src, members: refs };
 }
 
 // The DLL's limits for those (level_editor_entities.h kMinMph...).
@@ -534,6 +582,8 @@ export function readLayout(text: string): Layout {
         clusters: [],
         cameras: [],
         notes: [],
+        linkGroups: [],
+        grounds: [],
     };
     const lines = text.split("\n");
     let header = false;
@@ -861,6 +911,18 @@ export function readLayout(text: string): Layout {
                     if (!cluster) fail("bad cluster");
                     layout.clusters.push({ sector, trick: true, cluster });
                 }
+                break;
+            }
+            case "link": {
+                // (UX7: Links::ReadRecord) link sector|object <source> <member>,...
+                layout.linkGroups.push(readLinkRecord(words.slice(1)) ?? fail("bad link"));
+                break;
+            }
+            case "ground": {
+                // (UX9: Ground::ReadRecord) ground <name> raise|lower rect= base= height= ramps= ... material= ...
+                const ground = readGroundRecord(line.trim().replace(/^ground\s+/, ""));
+                if (ground) layout.grounds.push(ground);
+                else layout.unknown.push({ line: number, kind, text: line.trim() });
                 break;
             }
             case "note": {

@@ -2403,6 +2403,41 @@ bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select)
     return true;
 }
 
+bool AddRail(const std::vector<V3>& points, uint32_t cluster, std::string* message, uint32_t* select)
+{
+    *select = 0;
+    if (points.size() < 2 || !InLevel()) {
+        *message = points.size() < 2 ? "A rail needs two points" : "Not in a level";
+        return false;
+    }
+    Draw drawing = g_draw;
+    g_draw = Draw::None; // (NewPoint: a plain rail, whatever is being drawn)
+    State state = Current();
+    Graph graph = GraphOf(Nodes::Family::Rail);
+    uint32_t last = 0, first = 0;
+    for (V3 at : points) {
+        Point p = NewPoint(Nodes::Family::Rail, last, at, state);
+        uint32_t made = Checksum(p.name);
+        if (!last)
+            p.cluster = cluster ? cluster : made;
+        state.points.push_back(p);
+        graph[made] = {};
+        if (last)
+            Extend(&graph, last, made);
+        else
+            first = made;
+        last = made;
+    }
+    g_draw = drawing;
+    PutGraph(&state, graph);
+    if (!SetState(state)) {
+        *message = "Not in a level";
+        return false;
+    }
+    *select = first;
+    return true;
+}
+
 namespace {
 
 // The game's collision ray (as level_editor.cpp's: a CFeeler, 0x00417760 / 0x00417710; the hit's normal at +0x24, its
