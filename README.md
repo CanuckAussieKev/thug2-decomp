@@ -120,7 +120,7 @@ a level, takes pictures and closes the game. Everything is in `tools/game/README
    `powershell tools\ghidra\snapshot_project.ps1` for the read-only snapshot the scripts use.
 2. Regenerate `data\derived\`: `set GHIDRA_INSTALL_DIR=C:\ghidra` then
    `uv run --no-project --python 3.13 --with pyghidra python tools\ghidra\export_functions.py C:\Games\THUG2-ghidra-snapshot data\derived\functions.json`,
-   and `node tools\extract_cfuncs.ts` for the script command table.
+   and `node tools\extract_cfuncs.ts <path to THUG2PM.exe> data\derived\cfuncs.csv` for the script command table.
 3. Follow the `decomp-batch` skill (`.claude/skills/decomp-batch/`) for every batch: read the disassembly, write the
    C++, self-test original against ours, prove the tests with `node tools/mutate.ts`, run the register and call
    scans, record the batch in `docs/decomp-progress.md`.
