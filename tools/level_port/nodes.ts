@@ -312,11 +312,47 @@ export function shareNodeFields(data: Buffer, arrayName: string, prefix: string,
         encodeValue(value),
         Buffer.from([0x01]),
     ]);
-    return {
-        data: Buffer.concat([replaced.subarray(0, at), ...definitions, replaced.subarray(at)]),
-        includes: includes.length,
-        nodes: out.filter((n, i) => n !== list[i]).length,
-    };
+    const result = Buffer.concat([replaced.subarray(0, at), ...definitions, replaced.subarray(at)]);
+    const differ = sharedDifferences(data, result, arrayName, file);
+    if (differ.length)
+        throw new FormatError(`${file}: sharing changed nodes' fields: ${differ.slice(0, 3).join("; ")}`);
+    return { data: result, includes: includes.length, nodes: out.filter((n, i) => n !== list[i]).length };
+}
+
+// A node's fields as THUG2 resolves them, in a form to compare: its own (OWN_KEYS) entries in order, and the rest in
+// order with every global structure it names put in place (what a structure lookup sees through the include).
+export function resolvedFields(node: QbValue, globals: ReadonlyMap<number, QbValue>): string {
+    if (!(node instanceof Struct)) return encodeValue(node).toString("hex");
+    const [expanded] = expandIncludes([node], globals) as Struct[];
+    const own = expanded!.entries.filter(([k]) => k !== null && OWN_KEYS.has(k.value));
+    const rest = expanded!.entries.filter(([k]) => k === null || !OWN_KEYS.has(k.value));
+    return `${encodeValue(new Struct(own)).toString("hex")}|${encodeValue(new Struct(rest)).toString("hex")}`;
+}
+
+export function sharedDifferences(before: Buffer, after: Buffer, arrayName: string, file = "qb"): string[] {
+    // The structural check of sharing (shareNodeFields runs it on every level it writes): every node of `arrayName` in
+    // `after` resolves to the same fields as the same node in `before` (resolvedFields), and every other global is
+    // the same. Returns the differences (none: the same behaviour).
+    const a = new qb.QbFile(before, file, true);
+    const b = new qb.QbFile(after, file, true);
+    const ga = new Map(a.globals.map(([k, v]): [number, QbValue] => [k.value, v]));
+    const gb = new Map(b.globals.map(([k, v]): [number, QbValue] => [k.value, v]));
+    const arrayKey = checksum(arrayName);
+    const na = ga.get(arrayKey);
+    const nb = gb.get(arrayKey);
+    if (!Array.isArray(na) || !Array.isArray(nb)) return [`no node array ${arrayName}`];
+    const out: string[] = [];
+    if (na.length !== nb.length) out.push(`${na.length} nodes before, ${nb.length} after`);
+    for (let i = 0; i < Math.min(na.length, nb.length); i++) {
+        if (resolvedFields(na[i]!, ga) !== resolvedFields(nb[i]!, gb)) out.push(`node ${i}`);
+    }
+    for (const [k, v] of ga) {
+        if (k === arrayKey) continue;
+        const w = gb.get(k);
+        if (w === undefined || encodeValue(v).toString("hex") !== encodeValue(w).toString("hex"))
+            out.push(`global ${qb.nameText(k, a.names)}`);
+    }
+    return out;
 }
 
 export function shareNodeFieldsIn(file: string, arrayName: string, prefix: string): Shared {

@@ -9,6 +9,7 @@ import {
     expandIncludes,
     groundRestarts,
     netRestarts,
+    sharedDifferences,
     shareNodeFields,
     stripMissingTrickObjects,
     unshareNodeFields,
@@ -120,4 +121,22 @@ test("the text passes refuse shared nodes: a field in an include can't be missed
         "lv_NodeArray = [\n    {\n        Pos=(0.0, 0.0, 0.0)\n        Name=Sector01\n        Class=LevelGeometry\n" +
         "        CreatedAtStart\n        TrickObject\n        Cluster=c\n    }\n]\n";
     assert.deepEqual(stripMissingTrickObjects(own, new Set())[1], 1);
+});
+
+test("sharedDifferences: the shared level resolves to the same fields; a changed include or node is found", () => {
+    const before = levelQb(NODES());
+    const shared = shareNodeFields(before, "lv_NodeArray", "lv", "lv.qb").data;
+    assert.deepEqual(sharedDifferences(before, shared, "lv_NodeArray", "lv.qb"), []);
+    // (a field the rails don't have: the three rails that name the include differ)
+    const nodes = NODES();
+    for (const n of nodes.slice(0, 3)) n.entries = n.entries.filter(([k]) => k?.value !== checksum("TerrainType"));
+    assert.deepEqual(sharedDifferences(levelQb(nodes), shared, "lv_NodeArray", "lv.qb"), [
+        "node 0",
+        "node 1",
+        "node 2",
+    ]);
+    // (an own field changed)
+    const moved = NODES();
+    moved[3]!.entries[0] = [NAME("Pos"), vec(1, 0, 0)];
+    assert.deepEqual(sharedDifferences(levelQb(moved), shared, "lv_NodeArray", "lv.qb"), ["node 3"]);
 });
