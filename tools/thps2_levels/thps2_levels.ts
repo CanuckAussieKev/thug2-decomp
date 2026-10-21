@@ -553,12 +553,14 @@ export const SEMI_ALPHA = 64; // a half, in THUG2's 128 = full
 
 export function trisToStrip(tris: readonly (readonly number[])[]): number[] {
     // A triangle list as one strip, the triangles joined by degenerate ones (each starts at an even index, so its
-    // turning order is kept) - as tools/thps3_levels' trisToStrip.
+    // turning order is kept) - as tools/thps3_levels' trisToStrip. The join is last, last, a, a (a once more when the
+    // triangle would start at an odd index): every triangle between two real ones has a corner twice. (Until
+    // 2026-10-22 a was pushed once when the parity allowed it, which left (last, a, b) a real triangle: drawn over the
+    // next face's first triangle with the previous face's material - z-fighting the user saw, ~1 join in 2.)
     const s: number[] = [];
     for (const [a, b, c] of tris as [number, number, number][]) {
         if (s.length) {
-            s.push(s[s.length - 1]!);
-            s.push(a);
+            s.push(s[s.length - 1]!, a, a);
             if ((s.length - 1) % 2) s.push(a);
             s.push(b, c);
         } else {
@@ -876,8 +878,9 @@ export function faceLayers(world: thps2.Psx, localFrom = Number.POSITIVE_INFINIT
         return side !== 0;
     };
     const cell = 2 * kLayerTolerance;
-    const key = (t: LayerTri, plane: number): string =>
-        `${Math.round(t.n[0] * 20)},${Math.round(t.n[1] * 20)},${Math.round(t.n[2] * 20)},${plane}`;
+    // (by the normal's main axis and its sign, and the plane's distance: faces whose normals differ a little - which
+    // a key of rounded normal components would split between buckets never compared - still meet; dot >= 0.99 below)
+    const key = (t: LayerTri, plane: number): string => `${t.axis},${Math.sign(t.n[t.axis]!)},${plane}`;
     const buckets = new Map<string, LayerTri[]>();
     for (const t of tris) {
         const k = key(t, Math.round(t.d / cell));

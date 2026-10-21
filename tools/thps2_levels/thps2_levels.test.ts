@@ -738,3 +738,22 @@ test("levels: ten, each its own name and level select number", () => {
     assert.equal(conv.findLevel("skhan")?.name, "hangar");
     assert.equal(conv.findLevel("thps2_hangar")?.base, "skhan");
 });
+
+test("trisToStrip: the joins draw nothing - every triangle but the given ones has a corner twice, windings kept", () => {
+    const tris = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [5, 4, 6],
+        [7, 8, 9],
+        [2, 9, 10],
+    ];
+    const strip = conv.trisToStrip(tris);
+    const drawn: number[][] = [];
+    for (let i = 0; i + 2 < strip.length; i++) {
+        const [a, b, c] = [strip[i]!, strip[i + 1]!, strip[i + 2]!];
+        if (a === b || b === c || a === c) continue;
+        drawn.push(i % 2 ? [a, c, b] : [a, b, c]);
+    }
+    // (a stray (last, a, b) at every other join: what the strips had until 2026-10-22)
+    assert.deepEqual(drawn, tris);
+});
