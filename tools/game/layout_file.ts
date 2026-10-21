@@ -87,7 +87,26 @@ export interface PointRecord {
     facing: number;
     cluster: number;
     grindFlat: boolean;
+    // (the feature map) a ClimbingNode's Type ("" a ladder, "Ledge"), a ledge's side (0, 1 left, 2 right), a rail
+    // point's speed-up rate (0: none)
+    type: string;
+    hang: number;
+    speed: number;
 }
+// (the feature map - level_editor_triggers.h's ProximEdit) a proximity node's scripts and shape
+export interface ProximRecord {
+    node: number;
+    enter: string;
+    exit: string;
+    shape: "" | "sphere" | "box";
+    radius: number;
+    size: V3;
+    offset: V3;
+}
+export const SPEED_MIN = 0.005;
+export const SPEED_MAX = 0.5;
+export const PROXIM_MIN = 10;
+export const PROXIM_MAX = 20000;
 export interface LevelProps {
     name?: string;
     start?: number;
@@ -116,6 +135,8 @@ export interface Layout {
     terrains: { name: number; terrain: string }[];
     facings: { name: number; facing: number }[]; // (phase 4b) level ladder points turned
     grindFlat: number[]; // (phase 4b) level rail points grindable on flat ground
+    speeds: { name: number; rate: number }[]; // (the feature map) level rail points given a speed-up
+    proxims: ProximRecord[]; // (the feature map) proximity nodes' scripts / shapes
     walls: { checksum: number; placement: Placement; off: boolean }[];
     level: LevelProps;
     unknown: { line: number; kind: string; text: string }[];
@@ -309,6 +330,57 @@ function keyValues(words: string[], line: number): [string, string][] {
     return out;
 }
 
+// A `proxim` record's words after "proxim" (the comment already cut) - Triggers::ReadProximRecord ported: the node in 8
+// hex digits, enter= / exit= names, shape=sphere|box with its radius= / size= (sizes and radii 10 .. 20000), offset=;
+// a repeated key or a bad value refuses it (null); unknown keys skipped.
+export function readProximRecord(words: string[]): ProximRecord | null {
+    const node = parseHex8(words[0]);
+    if (node === null) return null;
+    const p: ProximRecord = {
+        node,
+        enter: "",
+        exit: "",
+        shape: "",
+        radius: 0,
+        size: { x: 0, y: 0, z: 0 },
+        offset: { x: 0, y: 0, z: 0 },
+    };
+    const seen = new Set<string>();
+    const inRange = (v: number): boolean => Math.fround(v) >= PROXIM_MIN && Math.fround(v) <= PROXIM_MAX;
+    for (const field of words.slice(1)) {
+        const equals = field.indexOf("=");
+        if (equals <= 0) return null;
+        const key = field.slice(0, equals);
+        const value = field.slice(equals + 1);
+        if (["enter", "exit", "shape", "radius", "size", "offset"].includes(key)) {
+            if (seen.has(key)) return null;
+            seen.add(key);
+        }
+        if (key === "enter" || key === "exit") {
+            if (!validWord(value)) return null;
+            p[key] = value;
+        } else if (key === "shape") {
+            if (value !== "sphere" && value !== "box") return null;
+            p.shape = value;
+        } else if (key === "radius") {
+            const r = parseNumber(value);
+            if (r === null || !inRange(r)) return null;
+            p.radius = r;
+        } else if (key === "size") {
+            const s = parseTriple(value);
+            if (!s || !inRange(s.x) || !inRange(s.y) || !inRange(s.z)) return null;
+            p.size = s;
+        } else if (key === "offset") {
+            const o = parseTriple(value);
+            if (!o) return null;
+            p.offset = o;
+        }
+    }
+    if (p.shape === "box" && !seen.has("size")) return null;
+    if (p.shape === "sphere" && !seen.has("radius")) return null;
+    return p;
+}
+
 export function readLayout(text: string): Layout {
     const layout: Layout = {
         version: 0,
@@ -329,6 +401,8 @@ export function readLayout(text: string): Layout {
         terrains: [],
         facings: [],
         grindFlat: [],
+        speeds: [],
+        proxims: [],
         walls: [],
         level: {},
         unknown: [],
@@ -471,6 +545,9 @@ export function readLayout(text: string): Layout {
                     facing: 0,
                     cluster: 0,
                     grindFlat: false,
+                    type: "",
+                    hang: 0,
+                    speed: 0,
                 };
                 let havePos = false;
                 for (const [key, value] of keyValues(words.slice(3), number)) {
@@ -484,6 +561,19 @@ export function readLayout(text: string): Layout {
                     else if (key === "cluster") p.cluster = parseHex8(value) ?? fail("bad cluster");
                     else if (key === "grindflat")
                         p.grindFlat = value === "1" ? true : value === "0" ? false : fail("bad grindflat");
+                    else if (key === "type")
+                        p.type = value.toLowerCase() === "ledge" && cls === "ClimbingNode" ? "Ledge" : fail("bad type");
+                    else if (key === "hang") p.hang = value === "left" ? 1 : value === "right" ? 2 : fail("bad hang");
+                    else if (key === "speed") {
+                        const rate = parseNumber(value);
+                        p.speed =
+                            rate !== null &&
+                            Math.fround(rate) >= Math.fround(SPEED_MIN) &&
+                            Math.fround(rate) <= Math.fround(SPEED_MAX) &&
+                            cls === "RailNode"
+                                ? rate
+                                : fail("bad speed");
+                    }
                 }
                 if (!havePos) fail("a point without pos");
                 layout.points.push(p);
@@ -516,6 +606,23 @@ export function readLayout(text: string): Layout {
                 if (!layout.grindFlat.includes(name)) layout.grindFlat.push(name);
                 break;
             }
+            case "speed": {
+                // (the feature map: speed <node> <rate> - Chains::ReadRecord's: 8 hex digits, a rate in range, once)
+                const name = parseHex8(words[1]) ?? fail("bad checksum");
+                const rate = parseNumber(words[2]);
+                if (
+                    rate === null ||
+                    Math.fround(rate) < Math.fround(SPEED_MIN) ||
+                    Math.fround(rate) > Math.fround(SPEED_MAX)
+                )
+                    fail("bad speed");
+                if (layout.speeds.some((s) => s.name === name)) fail("a point's speed twice");
+                layout.speeds.push({ name, rate: rate! });
+                break;
+            }
+            case "proxim":
+                layout.proxims.push(readProximRecord(words.slice(1)) ?? fail("bad proxim"));
+                break;
             case "wall": {
                 const name = hex(1);
                 const p = readPlacement(words, 2) ?? fail("bad placement");

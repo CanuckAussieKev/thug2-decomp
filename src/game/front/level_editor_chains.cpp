@@ -14,14 +14,18 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/level_editor_fields.h"
+#include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_triggers.h"
 #include "game/lst/hashtable.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
+#include "game/script/load.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -158,14 +162,20 @@ template <typename T> void SortByName(std::vector<T>* list)
 bool SamePoint(const Point& a, const Point& b)
 {
     return a.name == b.name && a.cls == b.cls && SameV3(a.pos, b.pos) && a.like == b.like && a.terrain == b.terrain &&
-           a.links == b.links && a.facing == b.facing && a.cluster == b.cluster && a.grindFlat == b.grindFlat;
+           a.links == b.links && a.facing == b.facing && a.cluster == b.cluster && a.grindFlat == b.grindFlat &&
+           SameText(a.type, b.type.c_str()) && a.hang == b.hang && a.speed == b.speed;
 }
 
 bool SameState(const State& a, const State& b)
 {
     if (a.points.size() != b.points.size() || a.links.size() != b.links.size() || a.dropped != b.dropped ||
-        a.terrains.size() != b.terrains.size() || a.facings.size() != b.facings.size() || a.grindFlat != b.grindFlat)
+        a.terrains.size() != b.terrains.size() || a.facings.size() != b.facings.size() || a.grindFlat != b.grindFlat ||
+        a.speeds.size() != b.speeds.size())
         return false;
+    for (size_t i = 0; i < a.speeds.size(); ++i) {
+        if (a.speeds[i].name != b.speeds[i].name || a.speeds[i].rate != b.speeds[i].rate)
+            return false;
+    }
     for (size_t i = 0; i < a.facings.size(); ++i) {
         if (a.facings[i].name != b.facings[i].name || a.facings[i].facing != b.facings[i].facing)
             return false;
@@ -188,7 +198,7 @@ bool SameState(const State& a, const State& b)
 bool Empty(const State& state)
 {
     return state.points.empty() && state.links.empty() && state.dropped.empty() && state.terrains.empty() &&
-           state.facings.empty() && state.grindFlat.empty();
+           state.facings.empty() && state.grindFlat.empty() && state.speeds.empty();
 }
 
 bool IsChainClass(const std::string& cls)
@@ -224,6 +234,15 @@ std::string WriteRecords(const State& state)
         }
         if (p.grindFlat)
             out << " grindflat=1";
+        if (IsLedge(p))
+            out << " type=Ledge";
+        if (p.hang)
+            out << " hang=" << HangWord(p.hang);
+        if (p.speed > 0.0f) {
+            char speed[48];
+            std::snprintf(speed, sizeof(speed), " speed=%.9g", p.speed);
+            out << speed;
+        }
         out << '\n';
     }
     for (const LinkEdit& l : state.links) {
@@ -258,13 +277,20 @@ std::string WriteRecords(const State& state)
         Hex(out, name);
         out << '\n';
     }
+    for (const SpeedEdit& e : state.speeds) {
+        char rate[48];
+        std::snprintf(rate, sizeof(rate), " %.9g", e.rate);
+        out << "speed ";
+        Hex(out, e.name);
+        out << rate << '\n';
+    }
     return out.str();
 }
 
 bool IsRecord(const std::string& kind)
 {
     return kind == "point" || kind == "links" || kind == "drop" || kind == "terrain" || kind == "facing" ||
-           kind == "grindflat";
+           kind == "grindflat" || kind == "speed";
 }
 
 bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
@@ -306,6 +332,22 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
                 if (value != "0" && value != "1")
                     return false;
                 p.grindFlat = value == "1";
+            } else if (key == "type") {
+                // (a ClimbingNode's: Ledge - a ladder's Type isn't written)
+                if (!SameText(value, "Ledge") || !SameText(p.cls, "ClimbingNode"))
+                    return false;
+                p.type = "Ledge";
+            } else if (key == "hang") {
+                if (value == HangWord(kHangLeft))
+                    p.hang = kHangLeft;
+                else if (value == HangWord(kHangRight))
+                    p.hang = kHangRight;
+                else
+                    return false;
+            } else if (key == "speed") {
+                if (!ReadFloat(value, &p.speed) || !(p.speed >= kSpeedMin && p.speed <= kSpeedMax) ||
+                    !SameText(p.cls, "RailNode"))
+                    return false;
             } // (others: a later version's - skipped)
         }
         if (std::find(seen.begin(), seen.end(), "pos") == seen.end())
@@ -377,7 +419,136 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
         }
         return true;
     }
+    if (kind == "speed") {
+        SpeedEdit e = {};
+        std::string value;
+        if (!ReadHexWord(in, &e.name) || !(in >> value) || !ReadFloat(value, &e.rate) ||
+            !(e.rate >= kSpeedMin && e.rate <= kSpeedMax))
+            return false;
+        for (const SpeedEdit& other : state->speeds) {
+            if (other.name == e.name)
+                return false;
+        }
+        state->speeds.push_back(e);
+        SortByName(&state->speeds);
+        return true;
+    }
     return false;
+}
+
+float ClampSpeed(float rate)
+{
+    if (!(rate >= kSpeedMin))
+        return kSpeedMin;
+    return rate > kSpeedMax ? kSpeedMax : rate;
+}
+
+bool IsLedge(const Point& point) { return SameText(point.cls, "ClimbingNode") && SameText(point.type, "Ledge"); }
+
+const char* HangWord(int hang) { return hang == kHangLeft ? "left" : hang == kHangRight ? "right" : ""; }
+
+const std::vector<uint8_t>& RailSpeedQb()
+{
+    // (NeverScript's output for the source in level_editor_chains.h - the self-test walks it token by token)
+    static const std::vector<uint8_t> qb = {
+        0x23, 0x16, 0x7D, 0x9E, 0xC1, 0xF6, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x07, 0x1A, 0xCD, 0xCC, 0x4C,
+        0x3D, 0x01, 0x47, 0x4C, 0x00, 0x16, 0x82, 0x73, 0x71, 0x3A, 0x05, 0x17, 0x03, 0x00, 0x00, 0x00,
+        0x09, 0x17, 0x08, 0x00, 0x00, 0x00, 0x09, 0x17, 0xFF, 0xFF, 0xFF, 0xFF, 0x06, 0x01, 0x16, 0x2D,
+        0xC0, 0x0D, 0xCD, 0x16, 0xF9, 0x81, 0xDC, 0xA1, 0x07, 0x16, 0x6F, 0x9E, 0xFC, 0x68, 0x01, 0x16,
+        0xC2, 0xE5, 0xA4, 0x23, 0x16, 0x6F, 0x9E, 0xFC, 0x68, 0x16, 0x0C, 0xF1, 0x31, 0x70, 0x07, 0x03,
+        0x16, 0xC6, 0xC0, 0x13, 0x20, 0x07, 0x2D, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x04, 0x01, 0x28, 0x01,
+        0x24, 0x01, 0x23, 0x16, 0x6F, 0x9E, 0xFC, 0x68, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x07, 0x1A, 0xCD,
+        0xCC, 0x4C, 0x3D, 0x01, 0x16, 0x75, 0x26, 0x81, 0x20, 0x07, 0x17, 0x00, 0x00, 0x00, 0x00, 0x01,
+        0x20, 0x01, 0x47, 0x83, 0x00, 0x16, 0x62, 0x1E, 0x85, 0xE9, 0x01, 0x16, 0x2D, 0xAD, 0x0A, 0xE9,
+        0x01, 0x16, 0xD0, 0x6F, 0x61, 0xA4, 0x07, 0x0E, 0x2D, 0x16, 0x53, 0x19, 0x26, 0x7F, 0x08, 0x1E,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x01, 0x47, 0x36,
+        0x00, 0x0E, 0x2D, 0x16, 0xD0, 0x6F, 0x61, 0xA4, 0x14, 0x2D, 0x16, 0x75, 0x26, 0x81, 0x20, 0x0F,
+        0x01, 0x16, 0x4A, 0xAC, 0xCA, 0xC0, 0x01, 0x16, 0x9B, 0x93, 0x3B, 0x38, 0x0E, 0x2D, 0x16, 0x09,
+        0x01, 0xD9, 0xF0, 0x0D, 0x0E, 0x1A, 0x00, 0x00, 0x80, 0x3F, 0x0B, 0x2D, 0x16, 0xC6, 0xC0, 0x13,
+        0x20, 0x0F, 0x0F, 0x01, 0x28, 0x01, 0x16, 0x75, 0x26, 0x81, 0x20, 0x07, 0x2D, 0x16, 0xD0, 0x6F,
+        0x61, 0xA4, 0x01, 0x16, 0x1A, 0x7C, 0x11, 0x82, 0x17, 0x01, 0x00, 0x00, 0x00, 0x16, 0x05, 0xDF,
+        0x37, 0xFC, 0x01, 0x48, 0x06, 0x00, 0x01, 0x22, 0x01, 0x28, 0x01, 0x21, 0x01, 0x24, 0x01, 0x2B,
+        0x7D, 0x9E, 0xC1, 0xF6, 0x65, 0x64, 0x5F, 0x52, 0x61, 0x69, 0x6C, 0x53, 0x70, 0x65, 0x65, 0x64,
+        0x00, 0x2B, 0xF9, 0x81, 0xDC, 0xA1, 0x6E, 0x61, 0x6D, 0x65, 0x00, 0x2B, 0xC2, 0xE5, 0xA4, 0x23,
+        0x4F, 0x62, 0x6A, 0x5F, 0x53, 0x70, 0x61, 0x77, 0x6E, 0x53, 0x63, 0x72, 0x69, 0x70, 0x74, 0x00,
+        0x2B, 0x9B, 0x93, 0x3B, 0x38, 0x53, 0x65, 0x74, 0x53, 0x70, 0x65, 0x65, 0x64, 0x00, 0x2B, 0x09,
+        0x01, 0xD9, 0xF0, 0x73, 0x70, 0x65, 0x65, 0x64, 0x00, 0x2B, 0x75, 0x26, 0x81, 0x20, 0x4F, 0x6C,
+        0x64, 0x50, 0x6F, 0x73, 0x00, 0x2B, 0x62, 0x1E, 0x85, 0xE9, 0x4F, 0x6E, 0x52, 0x61, 0x69, 0x6C,
+        0x00, 0x2B, 0x4A, 0xAC, 0xCA, 0xC0, 0x47, 0x65, 0x74, 0x53, 0x70, 0x65, 0x65, 0x64, 0x00, 0x2B,
+        0xC6, 0xC0, 0x13, 0x20, 0x72, 0x61, 0x74, 0x65, 0x00, 0x2B, 0x2D, 0xC0, 0x0D, 0xCD, 0x4B, 0x69,
+        0x6C, 0x6C, 0x53, 0x70, 0x61, 0x77, 0x6E, 0x65, 0x64, 0x53, 0x63, 0x72, 0x69, 0x70, 0x74, 0x00,
+        0x2B, 0x6F, 0x9E, 0xFC, 0x68, 0x65, 0x64, 0x5F, 0x52, 0x61, 0x69, 0x6C, 0x53, 0x70, 0x65, 0x65,
+        0x64, 0x4C, 0x6F, 0x6F, 0x70, 0x00, 0x2B, 0xD0, 0x6F, 0x61, 0xA4, 0x4E, 0x65, 0x77, 0x50, 0x6F,
+        0x73, 0x00, 0x2B, 0x82, 0x73, 0x71, 0x3A, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x54, 0x79,
+        0x70, 0x65, 0x00, 0x2B, 0x0C, 0xF1, 0x31, 0x70, 0x70, 0x61, 0x72, 0x61, 0x6D, 0x73, 0x00, 0x2B,
+        0x2D, 0xAD, 0x0A, 0xE9, 0x4F, 0x62, 0x6A, 0x5F, 0x47, 0x65, 0x74, 0x50, 0x6F, 0x73, 0x69, 0x74,
+        0x69, 0x6F, 0x6E, 0x00, 0x2B, 0x53, 0x19, 0x26, 0x7F, 0x50, 0x6F, 0x73, 0x00, 0x2B, 0x1A, 0x7C,
+        0x11, 0x82, 0x77, 0x61, 0x69, 0x74, 0x00, 0x2B, 0x05, 0xDF, 0x37, 0xFC, 0x67, 0x61, 0x6D, 0x65,
+        0x66, 0x72, 0x61, 0x6D, 0x65, 0x00, 0x00,
+    };
+    return qb;
+}
+
+std::string SpeedScriptName(uint32_t node)
+{
+    char text[32];
+    std::snprintf(text, sizeof(text), "ed_railspeed_%08X", node);
+    return text;
+}
+
+namespace {
+void Put4(std::vector<uint8_t>* out, uint32_t value)
+{
+    for (int i = 0; i < 4; ++i)
+        out->push_back(static_cast<uint8_t>(value >> (8 * i)));
+}
+void PutName(std::vector<uint8_t>* out, uint32_t checksum)
+{
+    out->push_back(0x16);
+    Put4(out, checksum);
+}
+} // namespace
+
+std::vector<uint8_t> SpeedBody(uint32_t original, float rate)
+{
+    std::vector<uint8_t> out;
+    if (original) {
+        PutName(&out, original);
+        out.push_back(0x2C); // (<...>: its arguments passed on)
+        out.push_back(0x01);
+    }
+    PutName(&out, Crc::GenerateCRCFromString("ed_RailSpeed"));
+    PutName(&out, Crc::GenerateCRCFromString("rate"));
+    out.push_back(0x07);
+    out.push_back(0x1A);
+    uint32_t bits;
+    std::memcpy(&bits, &rate, 4);
+    Put4(&out, bits);
+    out.push_back(0x01);
+    return out;
+}
+
+std::vector<uint8_t> SpeedQbFile(const std::vector<SpeedScript>& scripts)
+{
+    std::vector<uint8_t> out;
+    for (const SpeedScript& s : scripts) {
+        out.push_back(0x23);
+        PutName(&out, Crc::GenerateCRCFromString(SpeedScriptName(s.node).c_str()));
+        out.push_back(0x01);
+        std::vector<uint8_t> body = SpeedBody(s.original, s.rate);
+        out.insert(out.end(), body.begin(), body.end());
+        out.push_back(0x24);
+        out.push_back(0x01);
+    }
+    for (const SpeedScript& s : scripts) {
+        std::string name = SpeedScriptName(s.node);
+        out.push_back(0x2B);
+        Put4(&out, Crc::GenerateCRCFromString(name.c_str()));
+        out.insert(out.end(), name.begin(), name.end());
+        out.push_back(0x00);
+    }
+    out.push_back(0x00);
+    return out;
 }
 
 std::vector<uint32_t> Predecessors(const Graph& graph, uint32_t name)
@@ -783,7 +954,28 @@ uint32_t g_snapSector;
 struct Extras {
     uint32_t cluster = 0;
     bool grindFlat = false;
+    float speed = 0.0f; // (a speed-up's rate - ApplySpeeds)
 };
+constexpr uint32_t kTriggerScriptKey = 0x2CA8A299; // TriggerScript
+// Level rail points given a speed-up (their rates).
+std::map<uint32_t, float> g_levelSpeeds;
+// The speed-ups in place: each node's structure, its own TriggerScript before ours (to put back) and the script that
+// counted then (called first by ours); the per-point scripts last defined.
+struct SpeedApplied {
+    Script::CStruct* node = nullptr;
+    Fields::Own original;
+    uint32_t originalScript = 0;
+};
+std::map<uint32_t, SpeedApplied> g_speedApplied;
+std::vector<uint8_t> g_speedDefined;
+// The level's own speed-ups (a RailAccelerate in a rail point's TriggerScript): found once for each rail manager
+// array (name, rate).
+struct LevelSpeedCache {
+    const Obj::CRailNode* nodes = nullptr;
+    int count = -1;
+    std::vector<std::pair<uint32_t, float>> found;
+};
+LevelSpeedCache g_levelSpeedCache;
 std::unordered_map<uint32_t, Extras> g_extras;
 // Level ladder points turned: their facing and the rail manager's orientation as the level had it.
 struct FacingSet {
@@ -819,12 +1011,23 @@ std::vector<Point> AddedPoints()
         p.like = spec.like;
         p.terrain = spec.terrain;
         p.links = spec.links;
-        if (SameText(spec.cls, "ClimbingNode"))
+        if (SameText(spec.cls, "ClimbingNode")) {
             p.facing = spec.angles.y; // (a ladder's Angles: (0, facing, 0))
+            if (SameText(spec.type, "Ledge")) {
+                p.type = "Ledge";
+                for (const NodeCreate::Field& f : spec.extra) {
+                    if (f.type == NodeCreate::Field::kFlag && SameText(f.text, "HangLeft"))
+                        p.hang = kHangLeft;
+                    if (f.type == NodeCreate::Field::kFlag && SameText(f.text, "HangRight"))
+                        p.hang = kHangRight;
+                }
+            }
+        }
         auto extras = g_extras.find(Checksum(spec.name));
         if (extras != g_extras.end()) {
             p.cluster = extras->second.cluster;
             p.grindFlat = extras->second.grindFlat;
+            p.speed = extras->second.speed;
         }
         // (a rail point: where the rail manager has it - a sector moved with it takes it along)
         if (const Obj::CRailNode* node = RailNodeNamed(Checksum(spec.name)))
@@ -846,6 +1049,15 @@ NodeCreate::Spec SpecOf(const Point& p)
     if (SameText(p.cls, "ClimbingNode")) {
         spec.type = "Ladder";
         spec.angles = {0.0f, p.facing, 0.0f};
+        if (IsLedge(p)) {
+            // (THUG2's own ledges: Type=Ledge, CreatedAtStart, a side to hang from when the level gives one)
+            spec.type = "Ledge";
+            if (p.hang) {
+                NodeCreate::Field flag = {NodeCreate::Field::kFlag, ""};
+                flag.text = p.hang == kHangLeft ? "HangLeft" : "HangRight";
+                spec.extra.push_back(flag);
+            }
+        }
     }
     return spec;
 }
@@ -1110,6 +1322,8 @@ State Current()
         state.facings.push_back({entry.first, entry.second.facing});
     state.grindFlat = g_levelFlat;
     std::sort(state.grindFlat.begin(), state.grindFlat.end());
+    for (const auto& entry : g_levelSpeeds)
+        state.speeds.push_back({entry.first, entry.second}); // (a map: sorted by name)
     return state;
 }
 
@@ -1127,7 +1341,8 @@ bool SetState(const State& target)
         const Point* want = nullptr;
         for (const Point& t : target.points)
             want = SameText(t.name, p.name.c_str()) ? &t : want;
-        if (!want || want->cls != p.cls || want->like != p.like || want->terrain != p.terrain) {
+        if (!want || want->cls != p.cls || want->like != p.like || want->terrain != p.terrain ||
+            !SameText(want->type, p.type.c_str()) || want->hang != p.hang) {
             NodeCreate::Spec removed;
             int at;
             NodeCreate::Remove(Checksum(p.name), &removed, &at);
@@ -1164,8 +1379,13 @@ bool SetState(const State& target)
     }
     g_extras.clear();
     for (const Point& t : target.points) {
-        if (t.cluster || t.grindFlat)
-            g_extras[Checksum(t.name)] = {t.cluster, t.grindFlat};
+        if (t.cluster || t.grindFlat || t.speed > 0.0f)
+            g_extras[Checksum(t.name)] = {t.cluster, t.grindFlat, t.speed > 0.0f ? ClampSpeed(t.speed) : 0.0f};
+    }
+    g_levelSpeeds.clear();
+    for (const SpeedEdit& e : target.speeds) {
+        if (!NodeCreate::IsAdded(e.name) && NodeStruct(e.name))
+            g_levelSpeeds[e.name] = ClampSpeed(e.rate);
     }
     // Level ladders turned (the rail manager's orientation as the level had it kept to put back), level rails marked
     // grindable on flat ground.
@@ -1255,6 +1475,7 @@ bool SetState(const State& target)
         MoveAddedPoint(Checksum(t.name), t.pos);
     for (uint32_t name : pathsChanged)
         Remake(name);
+    ApplySpeeds();
     Nodes::Invalidate();
     return true;
 }
@@ -1281,6 +1502,15 @@ void ForgetLevel()
     g_levelFlat.clear();
     g_trick.clear();
     ++g_flatGeneration;
+    // (the speed-ups' TriggerScripts: the level's nodes put back while its array is the one loaded)
+    for (const auto& entry : g_speedApplied) {
+        Script::CStruct* node = NodeStruct(entry.first);
+        if (node && node == entry.second.node)
+            Fields::PutIn(node, kTriggerScriptKey, false, entry.second.original);
+    }
+    g_speedApplied.clear();
+    g_levelSpeeds.clear();
+    g_levelSpeedCache = LevelSpeedCache{};
 }
 
 namespace {
@@ -1321,6 +1551,139 @@ bool FlatHook(const Mth::Vector* a, const Mth::Vector* b) { return FlatGrindable
 
 } // namespace
 
+bool IsLedgeNode(uint32_t name)
+{
+    static const uint32_t kLedge = Checksum("Ledge");
+    int index = Nodes::Find(name);
+    return index >= 0 && Nodes::All()[index].cls == ClimbingNodeClass() && Nodes::All()[index].type == kLedge;
+}
+
+void ApplySpeeds()
+{
+    if (!SkateScript::NodeManagerInstance() || (g_speedApplied.empty() && g_extras.empty() && g_levelSpeeds.empty()))
+        return;
+    // What's wanted (none in a network session: the edited level's changes are offline only).
+    std::map<uint32_t, float> want;
+    if (!Layout::Refused()) {
+        for (const auto& entry : g_extras) {
+            if (entry.second.speed > 0.0f)
+                want[entry.first] = entry.second.speed;
+        }
+        for (const auto& entry : g_levelSpeeds)
+            want[entry.first] = entry.second;
+    }
+    // Those no longer wanted put back; a node whose structure was made again (the overlay registered again) forgotten
+    // (its new structure has no TriggerScript of ours).
+    for (auto it = g_speedApplied.begin(); it != g_speedApplied.end();) {
+        Script::CStruct* node = NodeStruct(it->first);
+        if (node != it->second.node) {
+            it = g_speedApplied.erase(it);
+            continue;
+        }
+        if (!want.count(it->first)) {
+            Fields::PutIn(node, kTriggerScriptKey, false, it->second.original);
+            it = g_speedApplied.erase(it);
+            continue;
+        }
+        ++it;
+    }
+    std::vector<SpeedScript> scripts;
+    for (const auto& w : want) {
+        Script::CStruct* node = NodeStruct(w.first);
+        if (!node)
+            continue;
+        uint32_t ours = Checksum(SpeedScriptName(w.first));
+        auto it = g_speedApplied.find(w.first);
+        if (it == g_speedApplied.end()) {
+            SpeedApplied a;
+            a.node = node;
+            a.original = Fields::OwnIn(node, kTriggerScriptKey, false);
+            node->GetChecksum(kTriggerScriptKey, &a.originalScript, 0);
+            if (a.originalScript == ours)
+                a.originalScript = 0;
+            it = g_speedApplied.emplace(w.first, a).first;
+        }
+        scripts.push_back({w.first, it->second.originalScript, w.second});
+    }
+    if (scripts.empty())
+        return;
+    // The scripts: the fixed two (once - they stay defined), the points' when they change.
+    static const uint32_t kRailSpeed = Checksum("ed_RailSpeed");
+    Script::CSymbolTableEntry* fixed = Script::LookUpSymbol(kRailSpeed);
+    if (!fixed || fixed->type != Script::ESYMBOLTYPE_QSCRIPT)
+        Script::LoadQBData("editor\\thug2_decomp_railspeed.qb", RailSpeedQb().data(), 0, 0, 0);
+    std::vector<uint8_t> file = SpeedQbFile(scripts);
+    if (file != g_speedDefined) {
+        Script::LoadQBData("editor\\thug2_decomp_railspeeds.qb", file.data(), 0, 0, 0);
+        g_speedDefined = file;
+        if (DebugEnabled())
+            Log("level editor: %u rail speed-up scripts defined", static_cast<unsigned>(scripts.size()));
+    }
+    // Each node's TriggerScript ours (its own component, after any shared one: it counts).
+    for (const SpeedScript& s : scripts) {
+        Script::CStruct* node = NodeStruct(s.node);
+        uint32_t ours = Checksum(SpeedScriptName(s.node)), now = 0;
+        if (!node || (node->GetChecksum(kTriggerScriptKey, &now, 0) && now == ours))
+            continue;
+        Fields::Own own;
+        own.present = true;
+        own.value.kind = Fields::Kind::Name;
+        own.value.checksum = ours;
+        own.index = -1;
+        Fields::PutIn(node, kTriggerScriptKey, false, own);
+    }
+}
+
+std::vector<SpeedSegment> SpeedSegments(V3 near, float radius)
+{
+    std::vector<SpeedSegment> out;
+    Obj::CRailManager* rails = Rails();
+    if (!rails || !rails->m_nodes || !SkateScript::NodeManagerInstance())
+        return out;
+    // (the level's own RailAccelerate points: found once for each rail manager array)
+    if (g_levelSpeedCache.nodes != rails->m_nodes || g_levelSpeedCache.count != rails->m_count) {
+        g_levelSpeedCache.nodes = rails->m_nodes;
+        g_levelSpeedCache.count = rails->m_count;
+        g_levelSpeedCache.found.clear();
+        for (int i = 0; i < rails->m_count; ++i) {
+            const Obj::CRailNode* node = &rails->m_nodes[i];
+            Script::CStruct* params = node->m_next ? NodeStruct(node->m_name) : nullptr;
+            uint32_t script = 0;
+            if (!params || !params->GetChecksum(kTriggerScriptKey, &script, 0) || !script)
+                continue;
+            auto applied = g_speedApplied.find(node->m_name);
+            if (applied != g_speedApplied.end())
+                script = applied->second.originalScript; // (the level's own script, under ours)
+            Triggers::Calls calls = Triggers::ScriptCalls(script);
+            if (calls.railSpeed)
+                g_levelSpeedCache.found.push_back({node->m_name, calls.railRate});
+        }
+    }
+    float r2 = radius * radius;
+    auto add = [&](const Obj::CRailNode* node, float rate, bool level) {
+        if (!node || !node->m_next || (node->m_flags & Obj::RAIL_FLAG_CLIMBING))
+            return;
+        V3 a = {node->m_pos.x, node->m_pos.y, node->m_pos.z};
+        V3 b = {node->m_next->m_pos.x, node->m_next->m_pos.y, node->m_next->m_pos.z};
+        V3 da = a - near, db = b - near;
+        if (Dot(da, da) > r2 && Dot(db, db) > r2)
+            return;
+        out.push_back({a, b, rate, level});
+    };
+    for (const auto& entry : g_speedApplied) {
+        auto extras = g_extras.find(entry.first);
+        auto level = g_levelSpeeds.find(entry.first);
+        float rate = extras != g_extras.end() ? extras->second.speed : level != g_levelSpeeds.end() ? level->second : 0.0f;
+        if (rate > 0.0f)
+            add(RailNodeNamed(entry.first), rate, false);
+    }
+    for (const auto& found : g_levelSpeedCache.found) {
+        if (!g_speedApplied.count(found.first))
+            add(RailNodeNamed(found.first), found.second, true);
+    }
+    return out;
+}
+
 bool FlatGrindable(V3 a, V3 b)
 {
     Obj::CRailManager* rails = Rails();
@@ -1354,6 +1717,7 @@ void Tick()
             g_built = nullptr;
         }
     }
+    ApplySpeeds();
     if (g_remake.empty())
         return;
     if (!InLevel()) {
@@ -1503,9 +1867,10 @@ void PutGraph(State* state, const Graph& graph)
 }
 
 // A new point's name: ed_rail01 / ed_path01... free in the level and in the state.
-std::string FreshPointName(Nodes::Family family, const State& state)
+std::string FreshPointName(Nodes::Family family, const State& state, bool ledge = false)
 {
     const char* stem = family == Nodes::Family::Path     ? "ed_path"
+                       : ledge                           ? "ed_ledge"
                        : family == Nodes::Family::Ladder ? "ed_ladder"
                                                          : "ed_rail";
     return NodeCreate::FreshName(stem, [&](const std::string& name) {
@@ -1520,21 +1885,26 @@ std::string FreshPointName(Nodes::Family family, const State& state)
 // A new point drawn on from `from` (0: a new chain of `family`): its class, and the fields it copies.
 Point NewPoint(Nodes::Family family, uint32_t from, V3 pos, const State& state)
 {
+    // (a ledge: drawn as one, or drawn on from one)
+    bool ledge = family == Nodes::Family::Ladder && (g_draw == Draw::Ledge || (from && IsLedgeNode(from)));
     Point p;
-    p.name = FreshPointName(family, state);
+    p.name = FreshPointName(family, state, ledge);
     p.cls = family == Nodes::Family::Path ? "Waypoint" : family == Nodes::Family::Ladder ? "ClimbingNode" : "RailNode";
     p.pos = pos;
+    if (ledge)
+        p.type = "Ledge";
     if (from) {
         p.like = from;
         bool added = false;
         for (const Point& q : state.points) {
             if (Checksum(q.name) == from) {
                 // (an added point: its own template and terrain - the layout makes them in one go - its cluster and
-                // whether it's grindable on flat ground)
+                // whether it's grindable on flat ground; a ledge's hang side)
                 p.like = q.like;
                 p.terrain = q.terrain;
                 p.cluster = q.cluster;
                 p.grindFlat = q.grindFlat;
+                p.hang = q.hang;
                 added = true;
             }
         }
@@ -1720,9 +2090,10 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         *select = name;
         return Apply(state, message, "No path now - it is made again without one");
     }
-    if (family == Nodes::Family::Ladder)
+    bool ledge = family == Nodes::Family::Ladder && IsLedgeNode(name);
+    if (family == Nodes::Family::Ladder && !ledge)
         return LadderOp(op, name, node, arg, message, select);
-    if (family != Nodes::Family::Rail && family != Nodes::Family::Path) {
+    if (family != Nodes::Family::Rail && family != Nodes::Family::Path && !ledge) {
         *message = "Not a rail, ladder or path point";
         return false;
     }
@@ -1816,7 +2187,7 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
             *message = "Extend from an end of the chain (its first or last point)";
             return false;
         }
-        g_draw = family == Nodes::Family::Path ? Draw::Path : Draw::Rail;
+        g_draw = family == Nodes::Family::Path ? Draw::Path : ledge ? Draw::Ledge : Draw::Rail;
         g_drawLast = name;
         g_pick = kOpCancel;
         *message = "Click to add points from this end (Enter or a right click finishes)";
@@ -1881,6 +2252,72 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         return Apply(state, message, arg ? "Grindable on flat ground now (the game's check for ground beside it skipped)"
                                          : "Ground beside it checked again, as the game does");
     }
+    case kOpSpeed:
+    case kOpSpeedRail: {
+        if (family != Nodes::Family::Rail) {
+            *message = "Only rails have speed-ups";
+            return false;
+        }
+        float rate = arg ? ClampSpeed(static_cast<float>(arg) / 10000.0f) : 0.0f;
+        std::vector<uint32_t> points = op == kOpSpeedRail ? ChainOf(name) : std::vector<uint32_t>{name};
+        int changed = 0;
+        for (uint32_t point : points) {
+            const Obj::CRailNode* rail = RailNodeNamed(point);
+            if (op == kOpSpeedRail && (!rail || !rail->m_next))
+                continue; // (a rail's last point has no segment of its own)
+            bool added = false;
+            for (Point& p : state.points) {
+                if (Checksum(p.name) == point) {
+                    p.speed = rate;
+                    added = true;
+                }
+            }
+            if (!added) {
+                auto it = std::find_if(state.speeds.begin(), state.speeds.end(),
+                                       [&](const SpeedEdit& e) { return e.name == point; });
+                if (rate <= 0.0f && it != state.speeds.end())
+                    state.speeds.erase(it);
+                else if (rate > 0.0f && it != state.speeds.end())
+                    it->rate = rate;
+                else if (rate > 0.0f)
+                    state.speeds.push_back({point, rate});
+            }
+            ++changed;
+        }
+        SortByName(&state.speeds);
+        *select = name;
+        char text[160];
+        if (rate > 0.0f)
+            std::snprintf(text, sizeof(text), "Speed-up on %d segment%s: %.1f%% more speed a frame while climbing on it",
+                          changed, changed == 1 ? "" : "s", rate * 100.0f);
+        else
+            std::snprintf(text, sizeof(text), "Speed-up taken off %d segment%s", changed, changed == 1 ? "" : "s");
+        return Apply(state, message, text);
+    }
+    case kOpHang: {
+        if (!ledge) {
+            *message = "Only ledges have a side to hang from";
+            return false;
+        }
+        bool any = false;
+        for (uint32_t point : ChainOf(name)) {
+            for (Point& p : state.points) {
+                if (Checksum(p.name) == point) {
+                    p.hang = static_cast<int>(arg) == kHangLeft || static_cast<int>(arg) == kHangRight ? static_cast<int>(arg)
+                                                                                                    : 0;
+                    any = true;
+                }
+            }
+        }
+        if (!any) {
+            *message = "A level's ledge keeps its own HangLeft / HangRight (its fields, below)";
+            return false;
+        }
+        *select = name;
+        return Apply(state, message, arg == static_cast<uint32_t>(kHangLeft)    ? "The ledge is hung from its left side"
+                                     : arg == static_cast<uint32_t>(kHangRight) ? "The ledge is hung from its right side"
+                                                                                 : "The game decides the ledge's side");
+    }
     case kOpLinkArm: {
         if (!IsLast(graph, name) && !IsFirst(graph, name)) {
             *message = "Link from an end of the chain (its first or last point)";
@@ -1923,7 +2360,9 @@ bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select)
         *message = "Drawing on from that end - click the next point";
         return false;
     }
-    Nodes::Family family = g_draw == Draw::Path ? Nodes::Family::Path : Nodes::Family::Rail;
+    Nodes::Family family = g_draw == Draw::Path    ? Nodes::Family::Path
+                           : g_draw == Draw::Ledge ? Nodes::Family::Ladder
+                                                   : Nodes::Family::Rail;
     State state = Current();
     Graph graph = GraphOf(family);
     if (g_drawLast && !graph.count(g_drawLast))
@@ -1956,8 +2395,10 @@ bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select)
     g_drawLast = made;
     *select = made;
     if (message->empty())
-        *message = first ? (family == Nodes::Family::Path ? "Path started - click more waypoints (Enter finishes)"
-                                                         : "Rail started - click more points (Enter finishes)")
+        *message = first ? (family == Nodes::Family::Path     ? "Path started - click more waypoints (Enter finishes)"
+                            : family == Nodes::Family::Ladder ? "Ledge started - click more points along the edge (Enter "
+                                                                "finishes)"
+                                                              : "Rail started - click more points (Enter finishes)")
                          : "Point added - Enter or a right click finishes";
     return true;
 }
@@ -2068,12 +2509,16 @@ bool SnapPoint(V3 from, V3 dir, float maxT, bool free, V3* point, uint32_t* end)
     }
     // A free end of a chain of the kind drawn, within 24: taken as it is.
     if (g_draw != Draw::None) {
-        Nodes::Family family = g_draw == Draw::Path ? Nodes::Family::Path : Nodes::Family::Rail;
+        Nodes::Family family = g_draw == Draw::Path    ? Nodes::Family::Path
+                               : g_draw == Draw::Ledge ? Nodes::Family::Ladder
+                                                       : Nodes::Family::Rail;
         Graph graph = GraphOf(family);
         float best = 24.0f * 24.0f;
         for (const auto& entry : graph) {
             if (entry.first == g_drawLast || (!IsLast(graph, entry.first) && !IsFirst(graph, entry.first)))
                 continue;
+            if (g_draw == Draw::Ledge && !IsLedgeNode(entry.first))
+                continue; // (a ledge links onto ledges, not ladders)
             V3 at = PlaceOf(entry.first), d = at - *point;
             float distance = Dot(d, d);
             if (distance < best) {
@@ -2141,6 +2586,9 @@ const char* Waiting()
     if (g_draw == Draw::Path)
         return g_drawLast ? "Drawing a path: click the next waypoint (Enter / right click finishes)"
                           : "Drawing a path: click its first waypoint";
+    if (g_draw == Draw::Ledge)
+        return g_drawLast ? "Drawing a ledge: click the next point along the edge (Enter / right click finishes)"
+                          : "Drawing a ledge: click its first point on an edge the skater can hang from";
     if (g_draw == Draw::Ladder)
         return g_ladderHaveFoot ? "A ladder: click where its top goes (straight above the foot; Esc stops)"
                                 : "A ladder: click a wall where its foot goes (it faces the wall)";
@@ -2165,9 +2613,10 @@ View ViewOf(uint32_t name)
         return view;
     }
     view.rail = node.family == Nodes::Family::Rail;
-    view.ladder = node.family == Nodes::Family::Ladder;
+    view.ledge = node.family == Nodes::Family::Ladder && IsLedgeNode(name);
+    view.ladder = node.family == Nodes::Family::Ladder && !view.ledge;
     view.path = node.family == Nodes::Family::Path;
-    if (!view.rail && !view.ladder && !view.path)
+    if (!view.rail && !view.ladder && !view.path && !view.ledge)
         return view;
     view.show = true;
     view.added = node.added;
@@ -2194,7 +2643,35 @@ View ViewOf(uint32_t name)
     view.canExtend = IsLast(graph, name) || IsFirst(graph, name);
     view.canLink = view.canExtend;
     view.canDelete = true;
+    if (view.ledge) {
+        if (node.added) {
+            for (const Point& p : AddedPoints()) {
+                if (Checksum(p.name) == name)
+                    view.hang = p.hang;
+            }
+        } else if (Script::CStruct* params = NodeStruct(name)) {
+            static const uint32_t kLeft = Checksum("HangLeft"), kRight = Checksum("HangRight");
+            view.hang = params->ContainsFlag(kLeft) ? kHangLeft : params->ContainsFlag(kRight) ? kHangRight : 0;
+        }
+    }
     if (view.rail) {
+        auto speed = g_extras.find(name);
+        auto levelSpeed = g_levelSpeeds.find(name);
+        view.speed = speed != g_extras.end() ? speed->second.speed
+                     : levelSpeed != g_levelSpeeds.end() ? levelSpeed->second
+                                                         : 0.0f;
+        Script::CStruct* own = NodeStruct(name);
+        uint32_t script = 0;
+        auto applied = g_speedApplied.find(name);
+        if (applied != g_speedApplied.end())
+            script = applied->second.originalScript;
+        else if (own)
+            own->GetChecksum(kTriggerScriptKey, &script, 0);
+        if (script) {
+            Triggers::Calls calls = Triggers::ScriptCalls(script);
+            view.levelSpeed = calls.railSpeed;
+            view.levelRate = calls.railRate;
+        }
         auto extras = g_extras.find(name);
         if (node.added) {
             view.canTrickObject = true;

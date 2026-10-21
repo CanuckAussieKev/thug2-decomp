@@ -59,14 +59,31 @@
 //     park editor's level. Ours lets a rail the editor marks pass too (Obj::SetRailClearOverride: its segments by their
 //     ends' places): an added point's `grindflat=1`, a level point's `grindflat` record, and in a baked level
 //     (tools/game/apply_layout.ts) the node flag ed_grind_flat, which only this DLL reads.
+//   - Ledges (the feature map): ClimbingNode chains of Type Ledge (THUG2's own form: CreatedAtStart, Type=Ledge, and
+//     HangLeft / HangRight when the level says which side the skater hangs from - ST's TRG_619... - AddNode
+//     0x0057D090 reads them as for any climbing node), drawn and edited as rails are (Draw::Ledge: the clicks snapped
+//     to edges, Insert / Delete / Extend / Link / Unlink), their hang side for the whole ledge (kOpHang). Ladders keep
+//     their own tools (a ledge isn't turned or deleted whole).
+//   - Rail speed-ups (the feature map; THAW's RailAccelerate, which the THAW ports carry in their scripts - skutils.qb's:
+//     while the skater grinds a rail and climbs, more speed each frame): a rail point's TriggerScript runs when the
+//     skater lands on its segment (the skater's rail code calls CTriggerComponent::TriggerNode 0x00434A60, which reads
+//     the node's TriggerScript then - so a change shows at once). A point given a speed-up gets a script of the
+//     editor's as its TriggerScript (its own component, over any shared one; the node's script before is kept and
+//     called first, its arguments passed on): ed_railspeed_<node> = `[<its script> <...>]` + `ed_RailSpeed rate=<r>`,
+//     and the editor's fixed scripts ed_RailSpeed / ed_RailSpeedLoop (THAW's two, compiled - RailSpeedQb) do the rest:
+//     on landing (TriggerType [3, 8, -1]: land, onto) the loop is spawned on the skater; each frame on the rail and
+//     higher than the last, its speed * (1 + rate). Taken off: the node's own TriggerScript put back as it was.
+//     Shown as chevrons along the segment (the level's own RailAccelerate rails too, in grey - read only).
 // Layout records (version 2 still - an older reader skips them):
 //   point <name> <Class> pos=x,y,z [like=<node>] [terrain=<T>] [links=<node>,<node>] [facing=<radians>]
-//         [cluster=<node>] [grindflat=1]                     a point the editor added
+//         [cluster=<node>] [grindflat=1] [type=Ledge] [hang=left|right] [speed=<rate>]
+//                                                            a point the editor added
 //   links <node> <node>,<node>... | -                       a level node's links= as edited (- : none)
 //   drop <node>                                              a level's chain point deleted (hidden; relinked)
 //   terrain <node> <T>                                       a level rail point's terrain
 //   facing <node> <radians>                                  a level ladder point turned (its heading)
 //   grindflat <node>                                         a level rail point grindable on flat ground
+//   speed <node> <rate>                                      a level rail point given a speed-up (rate 0.005 - 0.5)
 // Nodes are 8 hex digits (their checksums), terrains their names (TERRAIN_GRINDMETAL).
 namespace Front::LevelEditor::Chains {
 
@@ -83,6 +100,17 @@ struct Point {
     float facing = 0.0f;   // a ladder's heading (radians: Angles (0, facing, 0) - its at row points into the wall)
     uint32_t cluster = 0;  // a rail's trick-object cluster (0: not a trick object)
     bool grindFlat = false; // a rail's: grindable on flat ground (RailClear passed)
+    std::string type;       // a ClimbingNode's Type: "" (a ladder - Type Ladder) or "Ledge"
+    int hang = 0;           // a ledge's: 0 as the game decides, kHangLeft / kHangRight (the flags HangLeft / HangRight)
+    float speed = 0.0f;     // a rail point's speed-up rate (0: none)
+};
+constexpr int kHangLeft = 1, kHangRight = 2;
+// A speed-up's rate kept within these (THAW's rails: 0.02 - 0.1; its default 0.05).
+constexpr float kSpeedMin = 0.005f, kSpeedMax = 0.5f, kSpeedDefault = 0.05f;
+float ClampSpeed(float rate);
+struct SpeedEdit {
+    uint32_t name;
+    float rate;
 };
 struct FacingEdit {
     uint32_t name;
@@ -104,6 +132,7 @@ struct State {
     std::vector<TerrainEdit> terrains; // (sorted by name)
     std::vector<FacingEdit> facings;   // level ladder points turned (sorted by name)
     std::vector<uint32_t> grindFlat;   // level rail points grindable on flat ground (sorted)
+    std::vector<SpeedEdit> speeds;     // level rail points given a speed-up (sorted by name)
 };
 bool SamePoint(const Point& a, const Point& b);
 bool SameState(const State& a, const State& b);
@@ -163,6 +192,44 @@ V3 SnapToEdge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from, 
 // The game's grind terrains (Terrain_Types' TERRAIN_GRIND... in scripts\game\terrain.qb), in the script's order.
 const std::vector<std::string>& GrindTerrainNames();
 
+// Rail speed-ups: the editor's fixed scripts (a .qb image in the loader's old format, the names after them: THAW's
+// RailAccelerate / RailAccelerate2 as ed_RailSpeed / ed_RailSpeedLoop, compiled by NeverScript from
+//     script ed_RailSpeed {rate = 0.05
+//         if TriggerType [3, 8, -1] {
+//             KillSpawnedScript name=ed_RailSpeedLoop
+//             Obj_SpawnScript ed_RailSpeedLoop params={rate=<rate>}
+//         }
+//     }
+//     script ed_RailSpeedLoop {rate = 0.05
+//         OldPos = 0
+//         while {
+//             if OnRail {
+//                 Obj_GetPosition
+//                 NewPos = (<Pos>.(0.0, 1.0, 0.0))
+//                 if (<NewPos> > <OldPos>) { GetSpeed  SetSpeed (<speed> * (1.0 + <rate>)) }
+//                 OldPos = <NewPos>
+//                 wait 1 gameframe
+//             } else { break }
+//         }
+//     }
+// - the rate passed on to the loop, which THAW's own doesn't do).
+const std::vector<uint8_t>& RailSpeedQb();
+// A point's script: "ed_railspeed_" and its node's checksum in 8 hex digits.
+std::string SpeedScriptName(uint32_t node);
+// Its body: the node's script before (`original`, 0: none) called with the arguments passed on - 16 <original> 2C 01
+// - then 16 <ed_RailSpeed> 16 <rate> 07 1A <rate> 01. A .qb image of several ("script <name> ... endscript", the names
+// after them).
+struct SpeedScript {
+    uint32_t node;
+    uint32_t original;
+    float rate;
+};
+std::vector<uint8_t> SpeedBody(uint32_t original, float rate);
+std::vector<uint8_t> SpeedQbFile(const std::vector<SpeedScript>& scripts);
+// A ClimbingNode's `type=` word (Ledge; "" - a ladder - isn't written) and its hang side's (left / right).
+bool IsLedge(const Point& point);
+const char* HangWord(int hang);
+
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // What the editor has changed in the level's chains now.
@@ -205,11 +272,28 @@ enum Op : int {
     kOpFacingHome,  // (a ladder) facing as the level has it
     kOpTrickObject, // (a drawn rail) `arg` 1: a trick object (its cluster), 0: not - the whole rail
     kOpGrindFlat,   // (a rail) `arg` 1: grindable on flat ground, 0: as the game decides - the whole rail
+    kOpSpeed,       // (a rail point) `arg`: its speed-up's rate in 1/10000ths (0: none) - its segment
+    kOpSpeedRail,   // (a rail point) the same for every point of its rail but the last
+    kOpHang,        // (a ledge) `arg` 0 / kHangLeft / kHangRight - the whole ledge
 };
 bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select);
 // Drawing new chains (the Place palette's Rail / Path / Ladder, or Extend): each click a point linked on from the
 // last; a ladder: its foot on a wall, then its top.
-enum class Draw : uint8_t { None, Rail, Path, Ladder };
+enum class Draw : uint8_t { None, Rail, Path, Ladder, Ledge };
+// A ClimbingNode of Type Ledge (a level's or the editor's).
+bool IsLedgeNode(uint32_t name);
+// Once a frame (Tick) and after every state change: the speed-ups' TriggerScripts in place (the scripts defined, the
+// nodes' own TriggerScript set - a node array rebuilt since: set again), those taken off put back. In a network
+// session (level_editor_layout.h's Refused) none.
+void ApplySpeeds();
+// The speed-ups to draw: each segment (a point and its next where the rail manager has them), its rate, whether it's
+// the level's own (a RailAccelerate in its TriggerScript - read only).
+struct SpeedSegment {
+    V3 a, b;
+    float rate;
+    bool level;
+};
+std::vector<SpeedSegment> SpeedSegments(V3 near, float radius);
 // A click while drawing a ladder: the ray from `from` along `dir`. True: the ladder was made (drawing stops).
 bool LadderClick(V3 from, V3 dir, float maxT, std::string* message, uint32_t* select);
 // The rail manager's RailClear override (Obj::SetRailClearOverride): a segment of a rail marked grindable on flat
@@ -248,6 +332,13 @@ struct View {
     // Rails: a trick object (its cluster's label), whether that can be switched (drawn rails); grindable on flat ground.
     bool trickObject = false, canTrickObject = false, grindFlat = false;
     std::string cluster;
+    // Ledges: a ledge (rail-like tools), its hang side (kHangLeft...). Rails: the point's speed-up (0: none) and the
+    // level's own one (its TriggerScript's RailAccelerate: read only, its rate - 0.05 when it gives none).
+    bool ledge = false;
+    int hang = 0;
+    float speed = 0.0f;
+    bool levelSpeed = false;
+    float levelRate = 0.0f;
 };
 View ViewOf(uint32_t name);
 

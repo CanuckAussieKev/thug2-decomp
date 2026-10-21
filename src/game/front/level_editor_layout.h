@@ -71,6 +71,7 @@ class CScript;
 //                                                      (level_editor_picking.h)
 //   trigger <name> <kind> pos=x,y,z yaw=r size=x,y,z ...  a trigger volume the editor added (level_editor_triggers.h:
 //                                                      its node is the overlay's, not a `node` record)
+//   proxim <node> [enter=] [exit=] [shape=] ...        a proximity node's scripts / shape (level_editor_triggers.h)
 // An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock and trigger
 // records.
 //   point <name> <Class> pos=x,y,z [like=<node>] [terrain=<T>] [links=<node>,...]
@@ -142,6 +143,7 @@ struct File {
     std::vector<uint32_t> hidden;         // `hide`
     std::vector<Picking::Lock> locks;     // `lock`
     std::vector<Triggers::Placed> triggers; // `trigger`
+    std::vector<Triggers::ProximEdit> proxims; // `proxim` (the feature map: a proximity node's scripts / shape)
     Chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
     LevelProps::Props level;              // (phase 6) `level` (level_editor_level_props.h)
     std::vector<Walls::WallState> walls;  // `wall`: collision moved / switched off

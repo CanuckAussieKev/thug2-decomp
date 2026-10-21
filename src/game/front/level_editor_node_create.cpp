@@ -297,6 +297,7 @@ std::vector<Field> Fields(const Spec& spec)
     }
     if (SameText(spec.cls, "ClimbingNode")) {
         flag("CreatedAtStart"); // (a ladder's point - its Type Ladder above: as the levels' ladders)
+        fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (a ledge's HangLeft / HangRight)
         return fields;
     }
     Kind kind;

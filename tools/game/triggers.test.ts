@@ -46,6 +46,8 @@ function spec(over: Partial<TriggerSpec>): TriggerSpec {
         score: 100,
         replaces: 0,
         exit: false,
+        strength: 900,
+        sound: "",
         ...over,
     };
 }

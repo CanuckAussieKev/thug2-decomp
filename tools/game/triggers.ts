@@ -26,16 +26,22 @@ import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
 import { buildTree, type ColObject, type Face, setReaches } from "../level_port/thug2_col.ts";
 import { f32, pack } from "../lib/struct.ts";
 
-export type Kind = "kill" | "teleport" | "script" | "gapstart" | "gapend";
+// (the feature map added boost - a jump boost: trigger_jump_boost speed=<strength> - and break - a breakable: its piece
+// shattered and killed, its collision off while it's breakable through `replaces`)
+export type Kind = "kill" | "teleport" | "script" | "gapstart" | "gapend" | "boost" | "break";
 // (the DLL's KindWord order; "other" - a level trigger without a script - is never a record)
-export const KINDS: readonly Kind[] = ["kill", "teleport", "script", "gapstart", "gapend"];
+export const KINDS: readonly Kind[] = ["kill", "teleport", "script", "gapstart", "gapend", "boost", "break"];
 export const KIND_NAMES: Readonly<Record<Kind, string>> = {
     kill: "Kill zone",
     teleport: "Teleport",
     script: "Runs a script",
     gapstart: "Gap start",
     gapend: "Gap end",
+    boost: "Jump boost",
+    break: "Breakable",
 };
+export const BOOST_MIN = 100;
+export const BOOST_MAX = 5000;
 
 export interface V3 {
     x: number;
@@ -60,6 +66,9 @@ export interface TriggerSpec {
     replaces: number;
     // (editor-polish) also fires on leaving the box: the record's exit=1
     exit: boolean;
+    // (the feature map) a boost's strength (its upward speed), a breakable's sound ("": none)
+    strength: number;
+    sound: string;
 }
 
 export const FACE_FLAGS = 0x1150; // (THUG2's own trigger boxes': 0x40 | 0x10 | 0x100 | 0x1000)
@@ -120,6 +129,10 @@ export function problem(spec: TriggerSpec): string | null {
             if (!spec.text || spec.score <= 0)
                 return "A gap needs its name and a score (the gap list takes only those)";
             return null;
+        case "boost":
+            return null;
+        case "break":
+            return spec.target ? null : "Choose the piece it breaks";
     }
 }
 
@@ -157,6 +170,8 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
         score: 100,
         replaces: 0,
         exit: false,
+        strength: 900,
+        sound: "",
     };
     // text="..." (last: it may hold spaces)
     const quote = text.indexOf(' text="');
@@ -223,6 +238,13 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
         } else if (key === "exit") {
             ok = once() && (value === "0" || value === "1");
             spec.exit = value === "1";
+        } else if (key === "strength") {
+            const strength = /^[+-]?\d+$/.test(value) ? Number(value) : -1;
+            ok = once() && strength >= BOOST_MIN && strength <= BOOST_MAX;
+            spec.strength = strength;
+        } else if (key === "sound") {
+            ok = once() && validName(value);
+            spec.sound = value;
         } // (another key: a later version's - skipped)
         if (!ok) return null;
     }
@@ -278,6 +300,32 @@ export function body(spec: TriggerSpec): Buffer {
             parts.push(text, Buffer.from([0x00, LINE]));
             break;
         }
+        case "boost":
+            // trigger_jump_boost speed=<n>
+            parts.push(nameToken(checksum("trigger_jump_boost")), nameToken(checksum("speed")));
+            parts.push(
+                Buffer.from([EQUALS, 0x17]),
+                pack("<i", Math.max(BOOST_MIN, Math.min(BOOST_MAX, spec.strength))),
+            );
+            parts.push(Buffer.from([LINE]));
+            break;
+        case "break": {
+            // [PlaySound <sound>] Shatter name=<piece> area=5000 variance=1.0 spread=1.5 life=3 bounce=0 scale=0.4
+            // vel_x=0 vel_y=60 vel_z=0, Kill name=<piece> (BO_ShatteringGlass's)
+            const piece = checksumOf(spec.target);
+            if (spec.sound)
+                parts.push(nameToken(checksum("PlaySound")), nameToken(checksumOf(spec.sound)), Buffer.from([LINE]));
+            const integer = (key: string, v: number): Buffer =>
+                Buffer.concat([nameToken(checksum(key)), Buffer.from([EQUALS, 0x17]), pack("<i", v)]);
+            const real = (key: string, v: number): Buffer =>
+                Buffer.concat([nameToken(checksum(key)), Buffer.from([EQUALS, 0x1a]), pack("<f", v)]);
+            parts.push(nameToken(checksum("Shatter")), nameValue("name", piece));
+            parts.push(integer("area", 5000), real("variance", 1.0), real("spread", 1.5), integer("life", 3));
+            parts.push(integer("bounce", 0), real("scale", 0.4), integer("vel_x", 0), integer("vel_y", 60));
+            parts.push(integer("vel_z", 0), Buffer.from([LINE]));
+            parts.push(nameToken(checksum("Kill")), nameValue("name", piece), Buffer.from([LINE]));
+            break;
+        }
     }
     return Buffer.concat(parts);
 }
@@ -294,6 +342,10 @@ export function scriptNames(spec: TriggerSpec, flags = false): Map<number, strin
         if (spec.kind === "kill" || spec.kind === "teleport") note(spec.target);
         if (spec.kind === "script") note(spec.script);
         if (spec.kind === "gapstart" || spec.kind === "gapend") note(spec.gap);
+        if (spec.kind === "break") {
+            note(spec.target);
+            note(spec.sound);
+        }
         if (flags && spec.kind === "gapstart") for (const f of spec.flags) note(f);
     }
     return out;

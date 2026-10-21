@@ -69,8 +69,9 @@ namespace Front::LevelEditor::Triggers {
 
 // --- the pure parts (self-tested: src/hook/selftests_editor_triggers.cpp) -----------------------------------------
 
-enum class Kind : uint8_t { Kill, Teleport, Script, GapStart, GapEnd, Other };
-constexpr int kKinds = 6;
+// (the feature map added Boost and Break after Other: the record words of the older kinds keep their places)
+enum class Kind : uint8_t { Kill, Teleport, Script, GapStart, GapEnd, Other, Boost, Break };
+constexpr int kKinds = 8;
 const char* KindName(Kind kind); // "Kill zone"...
 const char* KindWord(Kind kind); // the record's: kill, teleport, script, gapstart, gapend, other
 bool KindFromWord(const std::string& word, Kind* kind);
@@ -83,9 +84,13 @@ struct Calls {
     uint32_t gapId = 0;  // StartGap / EndGap GapID=
     std::string gapText;
     int gapScore = 0;
+    // (the feature map) trigger_jump_boost (its speed= or multi=), Shatter / ShatterAndDie (a breakable), THAW's
+    // RailAccelerate (a rail's speed-up: its rate=, else THAW's default 0.05)
+    bool boost = false, shatter = false, railSpeed = false;
+    float boostSpeed = 0.0f, boostMulti = 0.0f, railRate = 0.0f;
 };
-// The kind a script's calls make it (in this order: kill, teleport, gap end, gap start; else Script when it has one,
-// Other when it has none).
+// The kind a script's calls make it (in this order: kill, teleport, gap end, gap start, a jump boost, a breakable;
+// else Script when it has one, Other when it has none).
 Kind KindOfCalls(const Calls& calls, bool hasScript);
 
 // The gap flags StartGap is given in THUG2's levels (the checkboxes offered).
@@ -108,7 +113,19 @@ struct Spec {
     // enters it (a CCollMovBBox is met on the way in), so leaving is seen by Play's inside test on the skater each
     // frame - its TriggerScript run on the skater as the trigger component runs it (0x00434A60).
     bool exit = false;
+    // Boost (a jump boost / launch pad - THUG2's own skutils.qb trigger_jump_boost, as THAW's Ruins and BE's fans use
+    // it: `trigger_jump_boost speed=<n>` sets the skater's upward velocity to n, its sideways kept): the strength.
+    int strength = 900;
+    // Break (a breakable - "breaks when hit"): `target` the scenery piece (its sector's name); the box is its box (where
+    // it is now, grown a little) and it stands in for its collision (`replaces` - the piece's collision off while it's
+    // breakable, so the skater goes through as through THUG2's glass, whose faces are 0x50 too); the script plays
+    // `sound` (none: "") and shatters the piece as BO_ShatteringGlass does (Shatter name= area= ... then Kill name=).
+    std::string sound;
 };
+// Break's sounds offered (THUG2's shared hits most levels load: Shared\Hits\...; any other may be typed).
+const std::vector<const char*>& BreakSounds();
+// Jump boost strengths kept within these.
+constexpr int kBoostMin = 100, kBoostMax = 5000;
 bool SameSpec(const Spec& a, const Spec& b);
 // A name's checksum: "0x" and 8 hex digits are a checksum without a known name, anything else is a name.
 uint32_t ChecksumOf(const std::string& name);
@@ -159,6 +176,45 @@ bool ReadRecord(const std::string& text, Placed* placed);
 // The other end of a gap: the index in `specs` of a trigger with the same GapID and the other end's kind (-1: none).
 int Partner(const std::vector<Spec>& specs, int index);
 
+// --- proximity nodes (the feature map) ---
+//
+// A ProximNode (the editor's or a level's) runs ONE script - its TriggerScript, kept by the game in its ProximNode
+// (+0xA0, read at Proxim_AddNode) - both when a skater comes in and when it goes out; the script tells them apart
+// with `if Inside` (the level's own: BO's TRG_Proxim_In_LibraryScript). The editor gives a node an enter script and /
+// or an exit script: a script of its own, ed_proxim_<node> = `if Inside { <enter> } else { <exit> }`, where a branch
+// not chosen calls the node's own script (its arguments passed on - `<script> <...>`), if it has one, so the other half
+// keeps working; it is put in the ProximNode's script (+0xA0), the node's structure untouched. Its shape: a sphere
+// (Radius: +0x70 / +0x74) or a box - the game's PROXIM_SHAPE_BOX (1: an axis-aligned box in the world, +0x7C - which
+// the game otherwise takes from the sector named like the node), here `size` about the node's place plus `offset`
+// (kept with the node as it moves). Put back (script, shape, radius, box) as the node had them when the edit goes, in a
+// network session and with Reset level. Records (version 2; older readers skip them):
+//   proxim <node> [enter=<script>] [exit=<script>] [shape=sphere|box] [radius=r] [size=x,y,z] [offset=x,y,z]
+struct ProximEdit {
+    uint32_t node = 0;
+    std::string enter, exit; // the scripts ("": the node's own, if any)
+    bool shape = false;      // the shape is the editor's (else as the node has it)
+    bool box = false;
+    float radius = 0.0f;     // (a sphere's)
+    V3 size = {}, offset = {}; // (a box's: its extents and its middle from the node's place)
+};
+bool SameProxim(const ProximEdit& a, const ProximEdit& b);
+// Whether it changes anything (a script or a shape).
+bool ProximEdited(const ProximEdit& edit);
+std::string ProximRecord(const ProximEdit& edit, const char* known); // (after "proxim "; `known`: the node's name)
+bool ReadProximRecord(const std::string& text, ProximEdit* edit);
+// "ed_proxim_" and the node's checksum in 8 hex digits.
+std::string ProximScriptName(uint32_t node);
+// The body (empty: neither script chosen): 47 <to else> 16 <Inside> 01 [16 <enter> 01 | 16 <own> 2C 01] 48 <to end>
+// 01 [16 <exit> 01 | 16 <own> 2C 01] 28 01 - as NeverScript compiles `if Inside {...} else {...}` (the jumps' offsets
+// counted from the offset's own first byte).
+std::vector<uint8_t> ProximBody(uint32_t enter, uint32_t exit, uint32_t own);
+struct ProximScript {
+    uint32_t node, enter, exit, own;
+};
+std::vector<uint8_t> ProximQbFile(const std::vector<ProximScript>& scripts);
+// Radius and box sizes kept within these.
+constexpr float kProximMin = 10.0f, kProximMax = 20000.0f;
+
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // A level's own trigger volume (its collision's faces with 0x40).
@@ -186,6 +242,7 @@ struct Added {
     float yaw = 0.0f;
     const char* problem = nullptr;
     Calls calls;  // (Run a script: what the chosen script calls)
+    bool broken = false; // (a breakable whose piece is gone - broken in play, hidden: no box until it's back)
 };
 const std::vector<Added>& AddedTriggers();
 // Whether `name` is one of the editor's trigger nodes.
@@ -261,6 +318,7 @@ struct State {
     std::vector<Spec> specs;
     std::vector<NodeCreate::Spec> nodes;
     std::vector<Walls::WallState> walls; // (the level triggers switched here)
+    std::vector<ProximEdit> proxims;     // (proximity nodes' scripts / shapes)
 };
 State Save();
 void Restore(const State& state);
@@ -275,6 +333,33 @@ uint32_t TakeWallSelect();
 std::vector<Placed> CaptureAdded();
 int Apply(const std::vector<Placed>& placed, std::string* message);
 void ResetAll();
+// The proximity nodes' edits likewise (put in place after the nodes: how many found).
+std::vector<ProximEdit> CaptureProxims();
+int ApplyProxims(const std::vector<ProximEdit>& edits);
+
+// --- the feature map's game side ---
+// What a script calls (walked once a level) - the chains' speed-ups read RailAccelerate from it.
+Calls ScriptCalls(uint32_t script);
+// A jump boost added where the view looks (the Triggers window); one undo step.
+void AddBoost();
+// A scenery piece made breakable (a Break trigger over it, its collision off while it is) or not (the trigger removed,
+// its collision back; shown again if a test run broke it); one undo step. The Break trigger standing for it (null:
+// none).
+void SetBreakable(uint32_t sector, bool on);
+const Added* BreakableOf(uint32_t sector);
+// The Inspector's section for one scenery piece (level_editor_triggers_ui.cpp): Breaks when hit, its sound.
+void ScenerySection(uint32_t sector);
+// A proximity node's edit (null: none) and changed (`undo`: a step of its own); its runtime state put in place every
+// frame (Guard). Whether the node is a proximity node the game has (its ProximNode).
+const ProximEdit* ProximOf(uint32_t node);
+void SetProxim(const ProximEdit& edit, bool undo);
+bool IsProxim(uint32_t node);
+// The selected node has resize handles (an editor trigger, a proximity node).
+bool HasHandles(uint32_t node);
+// The feature map's lines over the view, the trigger window shown or not: rail speed-ups' chevrons
+// (level_editor_chains.h), the selected / edited proximity nodes' shapes, breakables' cracks, boosts' arrows.
+void AddExtras(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ, int selectedNode,
+               std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Text>* texts);
 
 // For the Inspector, the help and the screenshot sidecar: a line about the triggers.
 std::string Describe();
