@@ -41,7 +41,8 @@ export const SCALE = 39.37; // THP8's metres in THUG2's inches
 
 export interface ZoneInfo {
     zone: string; // THP8's zone (z_houses)
-    sign: string; // the level select's sign text
+    sign: string; // the level select's sign text when THP8 names none (zoneNames: THP8's own area names win)
+    suffix?: string; // added to THP8's area name: a second zone of the same area
     location: string;
     levelNum: number;
     online?: string; // the network area whose barriers close it off (z_online_<x>)
@@ -64,7 +65,13 @@ export const ZONES: readonly ZoneInfo[] = [
         levelNum: 111,
         online: "z_online_school",
     },
-    { zone: "z_inschool", sign: "SCHOOL INSIDE", location: "THP8's city: inside the high school", levelNum: 112 },
+    {
+        zone: "z_inschool",
+        sign: "SCHOOL INSIDE",
+        suffix: " INSIDE",
+        location: "THP8's city: inside the high school",
+        levelNum: 112,
+    },
     { zone: "z_shops", sign: "SHOPS", location: "THP8's city: the shops", levelNum: 113, online: "z_online_shops" },
     { zone: "z_ghetto", sign: "SLUMS", location: "THP8's city: the slums", levelNum: 114, online: "z_online_ghetto" },
     {
@@ -102,6 +109,39 @@ export const ZONES: readonly ZoneInfo[] = [
     { zone: "z_skateshop", sign: "SKATE SHOP", location: "THP8's skate shop", levelNum: 123 },
     { zone: "z_bedroom", sign: "BEDROOM", location: "THP8's bedroom", levelNum: 124 },
 ];
+
+// THP8's English names of its city's areas (qb.pak's zone_info: {id=[z_center] Name="THE CAPITOL"} - its map's
+// labels): zone -> name. The Fun Park's entry also lists the cartoon world (a world of its own here: our sign).
+export function zoneNames(compressed: string, names: Map<number, string>): Map<string, string> {
+    const pak = thp8.openPak(findCaseless(compressed, "PAK", "qb.pak.xen")!);
+    const key = checksum("zone_info");
+    const out = new Map<string, string>();
+    for (const e of pak.entries) {
+        if (e.extension !== ".qb") continue;
+        const q = new thaw.QbItems(thp8.entryData(pak, e), "qb.pak", names, ">");
+        const table = q.globals.find(([n]) => n.value === key)?.[1];
+        if (!Array.isArray(table)) continue;
+        for (const entry of table) {
+            if (!(entry instanceof Struct)) continue;
+            const ids = entry.get("id");
+            const name = entry.get("Name");
+            const text = name instanceof qb.Local ? name.text : typeof name === "string" ? name : null;
+            if (!Array.isArray(ids) || text === null) continue;
+            for (const id of ids) {
+                const zone = id instanceof Name ? (names.get(id.value) ?? "").toLowerCase() : "";
+                if (zone && zone !== "z_cartoon") out.set(zone, text.toUpperCase().replace(/[^ -~]/g, ""));
+            }
+        }
+        return out;
+    }
+    return out;
+}
+
+// The sign's text: THP8's area name (with the zone's suffix), else ours.
+export function signText(info: ZoneInfo, areaNames: ReadonlyMap<string, string>): string {
+    const area = areaNames.get(info.zone);
+    return area !== undefined ? area + (info.suffix ?? "") : info.sign;
+}
 
 export function levelName(info: ZoneInfo): string {
     return `thp8_${info.zone.replace(/^z_/, "")}`;
@@ -1720,6 +1760,7 @@ export function cmdConvert(args: Args): number {
     const terrains = terrainTable(compressed, names);
     const flags = nonStoryNodeFlags(compressed, names);
     const managers = todManagers(compressed, names);
+    const areaNames = zoneNames(compressed, names);
     const library = findCaseless(compressed, "FXFILES", "MaterialLibrary.bin.xen");
     const techniques = library ? mats.readTechniques(thp8.unpack(library)) : new Map<number, string[]>();
     const port = makeScriptPort(args.thug2, compressed, names);
@@ -1909,8 +1950,10 @@ export function cmdConvert(args: Args): number {
             folder: info.zone,
             level: name,
             sky,
-            display: `THP8 ${info.sign}`,
-            name: `${info.sign.charAt(0)}${info.sign.slice(1).toLowerCase()}`,
+            display: `THP8 ${signText(info, areaNames)}`,
+            name: signText(info, areaNames)
+                .toLowerCase()
+                .replace(/\b\w/g, (c) => c.toUpperCase()),
             game: "THP8",
             location: info.location,
             icon: "sign_training",

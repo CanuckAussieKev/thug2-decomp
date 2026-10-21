@@ -25,25 +25,27 @@ some updates their entries in `levels.json` and keeps the others. `--no-mips` sk
 `selfcheck` reads every file of every zone archive (scenes and their strips, textures' base levels untiled,
 collision, qb / node arrays) and round-trips THUG2's LA / TestLevel files; `list` shows the zones.
 
-| Zone | THUG2 level (Load_...) | Sign | Level select | Network barriers added |
-|---|---|---|---|---|
-| z_houses | thp8_houses | SUBURBS | 110 | z_online_suburbs |
-| z_outschool | thp8_outschool | SCHOOL | 111 | z_online_school |
-| z_inschool | thp8_inschool | SCHOOL INSIDE | 112 | |
-| z_shops | thp8_shops | SHOPS | 113 | z_online_shops |
-| z_ghetto | thp8_ghetto | SLUMS | 114 | z_online_ghetto |
-| z_factory | thp8_factory | FACTORY | 115 | z_online_factory |
-| z_center | thp8_center | CAPITOL | 116 | z_online_capitol |
-| z_citypark | thp8_citypark | CITY PARK | 117 | |
-| z_cretepark | thp8_cretepark | SKATE PARK | 118 | z_online_skatepark |
-| z_funpark | thp8_funpark | FUN PARK | 119 | z_online_funpark |
-| z_parking | thp8_parking | PARKING | 120 | |
-| z_training | thp8_training | TRAINING | 121 | |
-| z_cartoon | thp8_cartoon | CARTOON | 122 | |
-| z_skateshop | thp8_skateshop | SKATE SHOP | 123 | |
-| z_bedroom | thp8_bedroom | BEDROOM | 124 | |
+| Zone | THUG2 level (Load_...) | Sign text | Pictogram | Level select | Network barriers added |
+|---|---|---|---|---|---|
+| z_houses | thp8_houses | SUBURBIA | mailbox | 110 | z_online_suburbs |
+| z_outschool | thp8_outschool | SCHOOL | schoolbell | 111 | z_online_school |
+| z_inschool | thp8_inschool | SCHOOL INSIDE | locker | 112 | |
+| z_shops | thp8_shops | MAIN STREET | trafficlight | 113 | z_online_shops |
+| z_ghetto | thp8_ghetto | SLUMS | bricks | 114 | z_online_ghetto |
+| z_factory | thp8_factory | FACTORY | gear | 115 | z_online_factory |
+| z_center | thp8_center | THE CAPITOL | capitolflag | 116 | z_online_capitol |
+| z_citypark | thp8_citypark | CITY PARK | bench | 117 | |
+| z_cretepark | thp8_cretepark | SKATE PARK | bowl | 118 | z_online_skatepark |
+| z_funpark | thp8_funpark | FUN PARK | coaster | 119 | z_online_funpark |
+| z_parking | thp8_parking | HILL TOP | parking | 120 | |
+| z_training | thp8_training | TRAINING | target | 121 | |
+| z_cartoon | thp8_cartoon | CARTOON | cloud | 122 | |
+| z_skateshop | thp8_skateshop | SKATE SHOP | skatetool | 123 | |
+| z_bedroom | thp8_bedroom | BEDROOM | bed | 124 | |
 
-The sign names are ours (THP8's English level names are in its localised text, not decoded yet).
+The city's sign texts are THP8's own English area names (qb.pak's `zone_info`, its map's labels; the school's inside
+zone gets " INSIDE"); training, the cartoon world, the skate shop and the bedroom have none there: ours. The
+pictograms are ours (tools/menu_level/level_select_icons.ts, THP8_LEVELS in level_select.ts).
 
 ## The world and how it's cut
 

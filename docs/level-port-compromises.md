@@ -403,4 +403,4 @@ only - 2026-10-22, all fifteen again after the glow / cloud fixes; nobody has sk
 | Billboards | Missing (camera-facing quads, as THAW's) |
 | Props | Original models (GO_ physics props) as THUG2 bouncy LevelObjects: collision and contacts a box of the model's size, THAW's bouncy coefficients (THP8's Havok shapes and profiles not read); the scripted pendulum left out |
 | Peds, vehicles, particles, sounds, music, goals | Missing: THP8 spawns its peds and traffic from its grid / ped systems at run time (no Pedestrian / car nodes made at the start - shops' two peds are story ones), its particles (.pfx, CreateGlobalFlexParticleSystem) and sound events have no THUG2 counterpart |
-| Level select signs | Stand-in: THUG2's training sign (placeholders) |
+| Level select signs | THP8's own English area names (zone_info: SUBURBIA, MAIN STREET, THE CAPITOL, HILL TOP...; ours for training, the cartoon world, skate shop, bedroom); our own pictograms (mailbox, school bell, lockers, traffic light, bricks, gear, flag, bench, bowl, coaster, parking sign, target, cloud, skate tool, bed) |

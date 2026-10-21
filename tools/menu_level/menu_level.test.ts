@@ -14,6 +14,7 @@ import {
     mapPosition,
     signEntry,
     THAW_LEVELS,
+    THP8_LEVELS,
     THPS3_LEVELS,
     THPS4_LEVELS,
     THUG1_LEVELS,
@@ -79,7 +80,7 @@ test("gap names pass only as plain ASCII", () => {
 test("every level we add has a pictogram of its own, and every pictogram stays inside the sign's diamond", () => {
     const icons = [
         ...[...THUG2_EXTRA.values()].map((e) => e.icon),
-        ...[THUG1_LEVELS, THPS4_LEVELS, THPS3_LEVELS, THAW_LEVELS].flatMap((table) =>
+        ...[THUG1_LEVELS, THPS4_LEVELS, THPS3_LEVELS, THAW_LEVELS, THP8_LEVELS].flatMap((table) =>
             [...table.values()].map((e) => e.icon!),
         ),
     ];

@@ -171,3 +171,14 @@ DLL in the workspace for the runs: this branch's verify build (main's C++ at 55d
 - Interiors re-tuned (ambient x 6 / (1 + 4 x)): the factory's floor was white (p5_factory).
 - All 15 zones load (p4 run: every zone, start + overview captures, no exception / run-time check / pool dry in the
   log). For the user: bump a cafe chair / cone (do they bounce?), the props' look.
+
+## Step 4 - names and signs
+
+- THP8's English area names from qb.pak's `zone_info` (its map's labels): SUBURBIA, SCHOOL (+ INSIDE), MAIN STREET,
+  SLUMS, FACTORY, THE CAPITOL, CITY PARK, SKATE PARK, FUN PARK, HILL TOP; ours for TRAINING, CARTOON, SKATE SHOP,
+  BEDROOM. The manifest's display / name follow.
+- Fifteen new pictograms (level_select_icons.ts: mailbox, schoolbell, locker, trafficlight, bricks, gear,
+  capitolflag, bench, bowl, coaster, parking, target, cloud, skatetool, bed - distinct from every existing one; the
+  test checks all tables' icons are unique and inside the diamond), THP8_LEVELS in level_select.ts. Seen in the
+  game's level select (Screenshots\p6_select: the PROJECT 8 section, SUBURBIA's mailbox sign and the row).
+- Sounds / music: not simple - THP8's are SoundEvents over its own banks (FSB-like .xen streams); not attempted.
