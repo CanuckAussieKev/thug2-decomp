@@ -40,3 +40,27 @@ src/game/skater/<class>.cpp + .h; tests in src/hook/selftests_skater_<class>.cpp
     messages sent), 3000 random hit / collision messages. 64 deliberate bugs caught, 6 of them after strengthening
     the tests (w of the velocity and positions, collinear cases, a score loss equal to the score, 32-character
     names).
+- [x] Batch SK4-2 (NOT run in the game yet; the skater vehicle sound component, 16 functions):
+  src/game/skater/vehicle_sound.cpp (new).
+  - SkaterVehicleSound (type 0x1859F772, vtable 0x0064C1E4, 0xC8 bytes): 0x0051B880 Create, 0x0051AD90
+    RegisterMemberFunctions (not a Ghidra function: the table at 0x00684648), 0x0051ADD0 Construct, 0x0051ADB0 /
+    0x0051AE30 the destructors, 0x0051AE60 InitFromStructure (the park editor's level: its +0x40 isn't "off"; the
+    params aren't read), 0x0051B8E0 Finalize (core physics, sound, input), 0x0051B920 Update (while driving - the core
+    physics' +0x2ED -, not silenced, with settings), 0x0051B670 ReadSettings (the structure named by +0xC0 in the
+    global 0x3C2DA7F5: the engine and skid sounds, up to 6 gears of 4 floats, +0x34; the park editor's sounds from the
+    global 0x38EC37AC).
+  - 0x0051AE80 UpdateEngine: the speed in mph (|vel| * 3 * 1/17.6, times 0xEC67BC97 unless braking with +0x1C0
+    set) eased by 0x02A7095B, each step limited by 0xCA5EFD91 / 0x77C8E7C8 (as the original compares them, the limit
+    only applies when it points the wrong way - kept); the gear back to the first 0xC0F451D4 ms after driving stopped
+    (the core physics' +0x380), else shifted at the gear's points; just after a shift the engine is quieter
+    (0xBFA32092 of full, back to full over 0xFB6BD20E ms); the engine's speed between the gear's pitch range, eased
+    by 0x3DD9C040; its pitch and volume from where it is between the settings' limits; played or updated.
+  - 0x0051B3E0 UpdateSkid (the level follows |vel| * 3 while braking; a silent volume stops it), 0x0051B3B0 (reads
+    0x71B4B9FE and the clock, nothing else).
+  - Member functions: 0x0051B7C0 SetSkaterVehicleSounds, 0x0051B820 NoSkaterVehicleSounds, 0x0051B860
+    StopSkaterVehicleSounds (not a Ghidra function).
+  - 0x0051ADC0: the shared CallMemberFunction of components without their own (returns 2) - ComponentWithoutMemberFunctions.
+  - Test (src/hook/selftests_skater_vehicle_sound.cpp): 6000 random components (the sound manager's and the script
+    structures' calls stood in for, sVolume's methods real), each method; edge cases (a speed that rounds to 0 from
+    just below, a shift point at exactly the speed, an engine just over its range). 46 deliberate bugs: 45 caught (4
+    after adding the edge cases), 1 equivalent (the shift recovery capped at exactly 1 gives 1 either way).
