@@ -142,7 +142,7 @@ void CorePhysicsComponent::DoJump(Script::CStruct* params)
         if (sound)
             PlayJumpSound(this, At<uint8_t>(this, 0x1AA));
         break;
-    case kWall:
+    case kRail:
         if (sound)
             PlayJumpSound(this, Flag(this, 0xE1));
         break;
@@ -195,7 +195,7 @@ void CorePhysicsComponent::DoJump(Script::CStruct* params)
         position.w += w;
     }
     int state = StateOf(this);
-    if (state == kWall || (state == kAir && At<int>(this, 0x94) == kWall))
+    if (state == kRail || (state == kAir && At<int>(this, 0x94) == kRail))
         GameFunction<void(__thiscall*)(void*)>(0x005002D0)(this);
     if (At<uint8_t>(this, 0x2EC))
         TriggerRailScript(reinterpret_cast<const int*>(kJumpEvents));
@@ -309,7 +309,7 @@ int CorePhysicsComponent::SetState(Script::CStruct* params, Script::CScript*)
         TriggerRailScript(reinterpret_cast<const int*>(kOffLipEvents));
     if (StateOf(this) != kLip && state == kLipName)
         At<void*>(this, kRailNode) = nullptr;
-    if (StateOf(this) == kRail) {
+    if (StateOf(this) == kWallRide) {
         GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(this, Mth::Vector{0.0f, 1.0f, 0.0f, 1.0f});
         MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
     }

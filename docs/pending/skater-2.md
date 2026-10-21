@@ -7,6 +7,7 @@ stand-in component, every callee - and our rewrite of it where ours calls it dir
 results left on the x87 stack; traces compared with the whole arena). Shared files touched: CMakeLists.txt (new files
 listed), src/game/skater/core_physics.h (new declarations, a block before `private:`).
 Switch off: `[replacements] disable=core_jump.cpp` (and the batch files below).
+The physics states (+0x1528's +0x18): 0 ground, 1 air, 2 wall ride, 3 lip, 4 rail, 5 wallplant (core_fields.h).
 PartyMod: none of these functions is patched by PartyMod (its 48 patched functions were done in the PartyMod rounds).
 
 - [x] Batch SK2-1 (NOT run in the game yet; jumping, skitching, the rail's TriggerScript, the wallplant state and
@@ -20,13 +21,13 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     (0x0064BBD4 off a lip, 0x0064BC10 jumping, 0x0064BC1C TriggerGrindOff).
   - 0x00509450 DoJump(CStruct* params) (RET 4): by state - ground (trigger feeler 0x0064BB8C on +0x158 first: a
     trigger's script taking over ends it; +0x338 = the position; the jump sound; 0x004FEBA0; flag +0x48), air (the
-    sound), wall (the sound with flag +0xE1 as terrain; ground / air use +0x1AA) - no sound with no_sound. The jump
+    sound), rail (state 4: the sound with flag +0xE1 as terrain; ground / air use +0x1AA) - no sound with no_sound. The jump
     sound 0x00518EE0 on the sound component: |velocity| / Skater_Max_Max_Speed_Stat. +0x378 (held time) capped at
     Skater_max_tense_time; the speed = min + (max - min) * held / maxTense (double), the pair by BonelessHeight and
     "from vert" (flag +0x30, or ground with +0x40): Physics_{,Air_,Boneless_,Boneless_Air_}Jump_Speed{,_min}_Stat;
     params' speed overrides. On vert going down: velocity += +0x58 * speed and speed 0, off vert; else a downward
-    velocity is zeroed; vy += speed; up.y < -0.1: vy -= 1.5 * speed and position += up * 12. State wall (or air
-    after wall, +0x94): 0x005002D0. +0x2EC: TriggerRailScript(jumping). Into the air, +0x4EC = now, SkaterJump
+    velocity is zeroed; vy += speed; up.y < -0.1: vy -= 1.5 * speed and position += up * 12. State rail (or air
+    after a rail, +0x94 the last state): 0x005002D0. +0x2EC: TriggerRailScript(jumping). Into the air, +0x4EC = now, SkaterJump
     broadcast. x87 roundings kept (x / y products unrounded where the original keeps them on the stack).
   - 0x00509920 BeginSkitch / 0x00509990 EndSkitch: ride the object at +0x364 (0x0043EB80), flag +0x88, +0x24A,
     0x00501DB0, event 0x35224F25 to it / flag off, event 0x2739B86D, the smart pointer released (inlined Release),
@@ -80,3 +81,41 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     hit object moving along the wall), 4 equivalent: the snap loop's unrounded compare (6 - 2 is exact), depth > 0
     vs its float (differs only below the smallest denormal), the ground path's length vs reach (equal off the air),
     the length's summation order in the forward feeler (a one-ulp double change that the float direction absorbs).
+- [x] Batch SK2-3 (NOT run in the game yet; getting onto a rail, 1 function, 6 KB): src/game/skater/core_grind.cpp (new).
+  - 0x0050A770 StartGrind(const Vector* point, CRailNode* node, CRailManager* manager, bool noLipTrick, bool
+    fromObject) (RET 0x14; the Update passes 0, 0, 0x0050C670 1, 1): one REPLACEd function split into helpers
+    (KickOffPointRail, SpinOnPointRail, StartLipTrick, GrindAlongRail and their shared pieces). First the
+    flip-and-rotate component's 0x00511570; a new rail: the node's index ((node - manager +0x40) / 0x54) to
+    0x005627B0 of +0x1520's +0x18; +0x22C / +0x230 = node / manager. A feeler from the skater to the point hitting
+    more than 6 from it stops everything (two forms of the distance, rounded as the original).
+    Point rail (no prev, no next): a spin button (+0x100 / +0xA0) held and (unnamed script float 0x0A477668) * 1000
+    ms since +0x1504 -> the spin: stopped on the point, +0x2EC, +0x1500 = +0x100 held, state 4, 0x004FC470 with the
+    terrain, the landing sound, PointRailSpin, TriggerRailScript {spin}, +0x1504 = now. Else the kick: the velocity
+    level (fast ones turned level), the kick direction at Physics_Point_Rail_Kick_Upward_Angle, Name to +0x240 and
+    0x00522370, a TriggerScript run, onto the rail (state 4), terrain + sound, the speed along the move plus
+    Point_Rail_Speed_Boost (from an object and too slow against the facing: from standing along the facing),
+    Rail_minimum_rerail_time (+0x23C, truncated), the velocity turned to the kick, the TriggerScript again (kicked),
+    into the air 1 higher, PointRail.
+    Lip trick (unless +0x375: going up, |up.y| < sin(LipPlayerHorizontalAngle), facing up, |ground normal y| <
+    cos(LipRampVertAngle), |right.y| < sin(LipAllowAngle - _Override for nodes flagged 1); not with noLipTrick or
+    on a vehicle +0x2ED): stopped, flags off, 0x004F8EE0 of +0x1524, +0x258 = where it was, state 3, at the point
+    upright along the ramp top (up the level ramp normal, facing up, right across), the gap component's
+    0x00511F60(0, 0x100000), TriggerRailScript {lip}, the object's own script (made if none) set to LipTrick and run,
+    flag +0xE0 set raw, the terrain.
+    Grind: the segment's direction (node to next, world positions), the acid drop's hold velocity added when flag
+    +0xA8 (with its two compiled-out debug prints - Dbg::Printf with the game's strings), still: x / z from the
+    facing, the way along the velocity (a tie: Mth::Rnd(2)), nothing at the rail's end that way (the point is the
+    end node), the TriggerScript, onto the rail, the sound (not in the trigger state's same millisecond), the speed
+    along the rail (height kept) plus Rail_Speed_Boost (from an object, too slow against the facing: from standing,
+    the facing's way), which side the jump started (+0x338), the bad ledge feelers either side
+    (Physics_Ground_Snap_Up, Rail_Bad_Ledge_Drop_Down_Dist, Rail_Bad_Ledge_Side_Dist: +0x249 bad, +0x248 any),
+    sideways (|dir . right| under Rail_Tolerance) or turned round (+0x34C), the trick from the skater component
+    (0x00522E80) or by the d-pad (Obj::DPadDirection, 0x005004B0); +0x234 = now.
+  - Test (selftests_skater_grind.cpp TestStartGrind): 16000 variants: rails of 2-5 nodes and point rails, the
+    point at nodes / the rail's ends, every state and flag, the lip conditions met, still / barely moving / fast /
+    level-speed-exactly-10 velocities, no facing (a tie, the coin), no right (the tolerance's limit), a hit exactly
+    6 away, the jump started at the point, full-precision values; GetWorldPos and the rest stood in, the vector
+    functions pointed at ours. 49 deliberate bugs: 44 caught (8 after adding those values), 5 equivalent: a node
+    with no next but a prev (the original reads the missing next's link: a crash either way), the summation
+    order of the two squared lengths compared with constants (one-ulp changes), the jump-adjust speed rounded to a
+    float before squaring (same), and sign < 0 vs <= 0 (the sign is always +-1).

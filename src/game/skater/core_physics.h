@@ -9,6 +9,10 @@ class CScript;
 namespace Mth {
 class Vector;
 } // namespace Mth
+namespace Obj {
+struct CRailNode;
+class CRailManager;
+} // namespace Obj
 
 // The skater's core physics component (on the ground, in the air): the pieces PartyMod changes for its
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::Ps2Controls()). Its layout is only partly
@@ -67,7 +71,7 @@ public:
     // rail node, its script node or a TriggerScript.
     void TriggerRailScript(const int* events);
     // 0x00509450: jump, by the state: from the ground (the trigger check first: a trigger's script may take over),
-    // from the air or a wall - the jump sound unless `params` has no_sound. The speed from the physics values
+    // from the air or a rail - the jump sound unless `params` has no_sound. The speed from the physics values
     // (boneless or not, from vert or not) between their min and max by how long the jump was held (+0x378, up to
     // the max tense time) - or `params`' speed; off vert pushed off the ramp instead (going down: stopped first);
     // then into the air (+0x4EC the time, the event SkaterJump).
@@ -81,7 +85,7 @@ public:
     void DoWallplantPhysics();
     // The script member functions (all return 1; neither argument used unless said): 0x00509A40 Jump (DoJump with
     // `params`), 0x00509A60 StartSkitch, 0x00509A70 StopSkitch, 0x00509A80 SetState (`params`' unnamed checksum:
-    // AIR, Ground or Lip; off a lip runs the rail's TriggerScript, off a rail the up set straight), 0x00509B70
+    // AIR, Ground or Lip; off a lip runs the rail's TriggerScript, wall riding the up set straight), 0x00509B70
     // TriggerGrindOff (the rail's TriggerScript for grinding off), 0x00509B90 (0x675CF35E: break out of vert, forced,
     // and 0x00504DF0), 0x00509BB0 WalkingWallplant (0x00507500 with 0, 0, 1).
     int Jump(Script::CStruct* params, Script::CScript* script);
@@ -102,13 +106,25 @@ public:
     // moving object's push. False when nothing stopped the skater.
     bool CheckAirForwardCollision(const Mth::Vector* from);
     // 0x0050A2C0: a feeler from the skater's side height (Skater_side_collide_height) out to one side (`side` -1 or
-    // 1 along the right) `length` long (more in the air: Skater_air_extra_side_col). Never on a rail. In the air the
+    // 1 along the right) `length` long (more in the air: Skater_air_extra_side_col). Never while wall riding. In the air the
     // skater is pushed out of what it hit (a tenth of the overlap) - true only when 0x00508140 took over; otherwise
     // a near-vertical wall puts the skater back (+0x98), then, unless something is above the hit or a trigger takes
     // over, onto it (true).
     bool CheckSideCollision(float side, float length);
     // 0x0050C930: both sides (Skater_side_collide_length); hit on both, the position goes back to where it was.
     void CheckSideCollisions();
+
+    // --- core_grind.cpp: onto a rail ---
+    // 0x0050A770: onto the rail `node` (of `manager`) at `point` - nothing when a feeler from the skater to the point
+    // hits something more than 6 from it. A node on its own is a point rail: kicked up off it into the air
+    // (Physics_Point_Rail_Kick_Upward_Angle, Point_Rail_Speed_Boost), or - holding a spin button (+0x100 / +0xA0)
+    // long enough after the last - a point rail spin. Otherwise a lip trick when the skater comes up a vert ramp at
+    // the rail (the Lip* angles; not with `noLipTrick`), else a grind: along the rail the way the skater goes (a
+    // coin toss when across it; nothing at the rail's end), Rail_Speed_Boost, the bad ledge feelers either side, and
+    // the grind trick picked from the pad. `fromObject` (from a car plant or a vehicle): the velocity isn't
+    // flattened, and too slow against the facing it starts from the facing.
+    void StartGrind(const Mth::Vector* point, Obj::CRailNode* node, Obj::CRailManager* manager, bool noLipTrick,
+                    bool fromObject);
 
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground

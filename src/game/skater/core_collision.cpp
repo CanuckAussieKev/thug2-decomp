@@ -261,7 +261,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Mth::Vector* from)
 // 0x0050A2C0
 bool CorePhysicsComponent::CheckSideCollision(float side, float length)
 {
-    if (StateOf(this) == kRail)
+    if (StateOf(this) == kWallRide)
         return false;
     void* object = ObjectOf(this);
     float height = Script::GetFloat(kSideHeight);
