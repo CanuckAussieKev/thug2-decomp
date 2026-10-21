@@ -1,6 +1,7 @@
 #include "game/script/qb.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
 #include <new>
 #include <string>
@@ -383,6 +384,34 @@ void CreateScriptPools()
         "script region %u bytes",
         sizes.components, sizes.structs, sizes.vectors, sizes.pairs, sizes.arrays, sizes.symbols, sizes.scripts,
         sizes.scriptCacheEntries, sizes.stringBytes, sizes.strings, Mem::Sizes::ScriptRegionSize());
+}
+
+void LogScriptPoolUse(const char* when)
+{
+    // Not original (log only).
+    struct Named {
+        const char* name;
+        uint32_t pair;
+    };
+    static const Named kPools[] = {{"CComponent", 0x006F2338}, {"CStruct", 0x006F3614}, {"CVector", 0x006F3654},
+                                   {"CPair", 0x006F3644},      {"CArray", 0x006F22B4},  {"CSymbolTableEntry", 0x006F362C},
+                                   {"CScript", 0x006F3548}};
+    std::string line;
+    for (const Named& p : kPools) {
+        int used = 0, peak = 0, count = 0;
+        for (Mem::Pool* pool : GameVariable<Mem::PoolPair>(p.pair).pools) {
+            if (!pool)
+                continue;
+            used += pool->m_used;
+            peak += pool->m_peakUsed;
+            count += pool->m_count;
+        }
+        char part[96];
+        std::snprintf(part, sizeof(part), "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak,
+                      count);
+        line += part;
+    }
+    Log("script pools in use %s: %s", when, line.c_str());
 }
 
 } // namespace Script

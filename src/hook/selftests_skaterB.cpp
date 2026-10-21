@@ -165,6 +165,10 @@ struct SkaterStandIns {
     Patch show{0x00564BE0, Jump(0x00564BE0, reinterpret_cast<void*>(&StandInShowRotation))};
     Patch offset{0x00406630, Jump(0x00406630, reinterpret_cast<void*>(&StandInRampOffset))};
     Patch stuck{0x00505F70, Jump(0x00505F70, reinterpret_cast<void*>(&StandInStuck))};
+    // (ours calls our rewrite of 0x00505F70 directly: stood in the same way)
+    Patch stuckOurs{reinterpret_cast<uint32_t>(CodeAddress(&Skater::CorePhysicsComponent::TrySpineTransfer)),
+                    Jump(reinterpret_cast<uint32_t>(CodeAddress(&Skater::CorePhysicsComponent::TrySpineTransfer)),
+                         reinterpret_cast<void*>(&StandInStuck))};
 };
 
 // The math helpers break vert uses, in the original redirected to ours: they're tested on their own (with a
