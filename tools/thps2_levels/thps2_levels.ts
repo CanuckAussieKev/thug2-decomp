@@ -27,6 +27,7 @@ import * as fs from "node:fs";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as overlayBias from "../level_port/overlay_bias.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
 import type * as tex from "../level_port/tex.ts";
@@ -795,12 +796,15 @@ export function cmdConvert(args: Args): number {
         const textures = levelTextures(pkr, info, world);
         const done = convertWorld(world, name, textures, !args.noMips);
         const levelDir = pyJoin(out, "levels", name);
+        // (THPS2 draws its layers - painted lines, decals, shadows on the floors - in the PlayStation's order with no
+        // depth buffer: coplanar with the surface under them they'd fight over THUG2's depth buffer as stripes)
+        const biased = overlayBias.biasOverlays(done.scene);
         common.writeLevel(levelDir, name, done.scene, done.textures, done.col);
         common.reportLevel(report, name, done.scene, done.textures, done.col, [...new Set(done.warnings)].sort());
         const c = done.counts;
         report.push(
             `  ${c.objects} objects, ${c.faces} faces (${c.hidden} not drawn, ${c.noCollision} not collided with), ` +
-                `${c.bmps} of ${done.textures.textures.length} textures from newtex`,
+                `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${biased} layer materials given a z bias`,
         );
         const trgFile = `data/${info.base}_t.trg`;
         const trg = thps2.readTrg(pkr.read(trgFile), trgFile);
