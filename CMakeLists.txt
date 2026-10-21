@@ -304,6 +304,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_gamenet4.cpp
     src/hook/selftests_skater_gamenet5.cpp
     src/hook/selftests_skater_gamenet6.cpp
+    src/hook/selftests_skater_walk.cpp
     src/hook/selftests_thugpro.cpp
     src/hook/selftests_thugpro_join.cpp
     src/hook/selftests_gamenet_join.cpp
@@ -634,6 +635,7 @@ add_library(thug2_code OBJECT
     src/game/skater/controls.cpp
     src/game/skater/core_physics.cpp
     src/game/skater/debug_collision.cpp
+    src/game/skater/walk_moves.cpp
     src/game/sys/platform.cpp
     src/game/sys/platform_cfuncs.cpp
     src/game/sys/debug_mode.cpp

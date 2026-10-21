@@ -1,7 +1,7 @@
 # The end of the skater range (0x00529F62-0x00533F20) - skater-6 agent
 
 Branch worktree-agent-a79a8b861713be8f4. The range is not skater code past 0x0052D6A0: it is the end of the walk
-component (0x00529F80-0x0052D6A0: its update, jumps, hanging, landing; class `Skater::WalkComponent`) and then the
+component (0x00529F80-0x0052D6A0: its update, jumps, hanging, landing; class `Obj::CWalkComponent`) and then the
 network game manager's message handlers and small members (GameNet::Manager, 0x0052D6A0-0x00533F20). 114 functions in
 Ghidra's list plus 36 Ghidra never made (handlers and callbacks reached only through their registration - found by the
 INT3 padding before them and by the code addresses pushed as immediates; created in this agent's snapshot copy
@@ -10,7 +10,7 @@ Shared files touched: CMakeLists.txt (new files listed, additive); src/game/net/
 added; main's field names - from the THUGPRO join merge - used where they exist: m_joinMode, m_hostMode, m_gameOver,
 m_latestReadyQuery, m_readyToPlay, m_lastScoreUpdate, m_joinState, m_joinIp, m_joinPrivateIp, m_joinPort,
 m_camPlayer, m_matchClient, ClientSlot; the other fields reached by offset).
-Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' files, listed with them).
+Switch off: `[replacements] disable=gamenet_state.cpp,gamenet_handlers.cpp,gamenet_game_handlers.cpp,gamenet_server_handlers.cpp,gamenet_session_handlers.cpp,gamenet_tasks.cpp,walk_moves.cpp` (or any of them).
 
 - [x] Batch SK6-1 (NOT run in the game yet; GameNet::Manager's small members, 58 functions 0x00532AA0-0x005333F0):
   src/game/net/gamenet_state.cpp (new).
@@ -150,3 +150,22 @@ Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' f
     time difference past 2^31), TestGameNetGameHandlers gained HandleNewKing (6 caught).
   - Range check: find_gaps shows nothing left in 0x0052D6A0-0x00533F20 (the gaps it lists from 0x00533F20 on are
     GameNet::Manager's own range, not this one).
+- [x] Batch SK6-7 (NOT run in the game yet; the walk component's small pieces, 12 functions): src/game/skater/walk_moves.cpp
+  (new) and src/game/skater/walk_physics.h (new here - the skater-5 agent's branch has a file of the same name declaring
+  the same class `Obj::CWalkComponent`: merge both member blocks). 0x0052A5C0 Create (0x1960 bytes), 0x0052A190 the
+  constructor (eight 0xCC-byte contacts at +0xA0 through the CRT's vector constructor, the collision cache +0x790, the
+  trigger feeler +0x17B4, the eight component pointers +0x1770-+0x178C null, type Walk, control and extra velocity
+  (0, 0, 0, 1)), 0x0052A290 the scalar deleting destructor, 0x00529F80 the walk camera's override facing by animation
+  state (ANIMWAIT: the facing or the hang move's; HangMoveRight: turned 0.95 rad inline - sin/cos rounded to floats;
+  HangMoveLeft: 0x00420A90 by -0.95 and SetOverrideFacing; HANG: SetOverrideFacing; the ladder states; else off),
+  0x0052A2C0 the animation speed (mode +0x700: 1 run speed / +0x17B0 when that is over 0, the animation component told
+  only when the trigger state's +0x24; 2 hang_move_animation_speed; 3 ladder_move_speed, sent over the network in a
+  net game when it moved 0.1 or more from the last sent +0x18E0 - NaN counts as moved), 0x0052A620 riding (the ride
+  tracker's carried move added, a turn turns the facing, kept level unless y is exactly 0), 0x0052AB90 leaving a ride
+  (the ridden object's velocity +0x1888 added - x's frame move kept unrounded as the x87 does -, the tracker's object
+  kept at the ride component's +0x6C, the tracker released and freed, the time at +0x70), 0x0052B2D0 into the air,
+  member functions 0x0052A180 Walk_AnimWaitComplete, 0x0052C280 ReleaseHang, 0x0052C290 Walk_ForceToAirFromHang
+  (return 1 in EAX), 0x0052C2B0. Names of the member function table 0x006847F8 recovered from the .qb checksums.
+  - Tests: TestWalkMoves (selftests_skater_walk.cpp; 50 deliberate bugs caught, 10 after strengthening - a state
+    snapshot after each call, a carried w, a dot of exactly 0, 64 rounding cases for the unrounded x move).
+  - Switch off: `[replacements] disable=walk_moves.cpp`.
