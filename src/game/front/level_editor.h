@@ -140,6 +140,9 @@ class CScript;
 //     (Ctrl+Space / F3), the undo history (Ctrl+H), the Changes panel (Ctrl+Shift+H), box select, select similar
 //     (Shift+G), the Outliner's toggles / groups / labels, copy / paste between levels (Ctrl+C / Ctrl+V) and layout
 //     snapshots: level_editor_ux3.h.
+//   - (UX8 - level_editor_ux8.h) the status bar's context hints (level_editor_hints.h), quick selection sets
+//     (Ctrl+Alt+1..9 / Alt+Shift+1..9, the toolbar's Sets), pie menus (Q / Tab, Alt+Q / Shift+Tab), controller mode
+//     (Preferences), Alt+wheel drill-through, the follow camera (Shift+F), double-click teleport, walk mode (Shift+`).
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view. `-edit <level>` (or edit_level=) starts the
 // game in the editor in that level (game/front/start_level.h; tools/game/edit_level.ts). editor_ui=0 (default 1) brings

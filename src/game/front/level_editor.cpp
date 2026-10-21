@@ -32,6 +32,7 @@
 #include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_grind_preview.h"
 #include "game/front/level_editor_hud.h"
+#include "game/front/level_editor_hints.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_links.h"
 #include "game/front/level_editor_modules.h"
@@ -57,6 +58,7 @@
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_ux3.h"
+#include "game/front/level_editor_ux8.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_walls.h"
 #include "game/front/mouse_menus.h"
@@ -574,7 +576,7 @@ void HandleEvent(SDL_Event* event)
         if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat && !Actions::Capturing()) {
             if (g_dragging || g_browser.open || g_help || g_placeOpen || g_confirmHide || g_confirmReset ||
                 Chains::Drawing() != Chains::Draw::None || Chains::WantsPick() || !g_objects.empty() ||
-                Scenery::HasSelection() || g_nodeSelected)
+                Scenery::HasSelection() || g_nodeSelected || Ux8::WantsEscape()) // (UX8: a pie, walking)
                 g_cancelRequested = true;
             else
                 g_exitRequested = true;
@@ -2550,6 +2552,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     bool ui = Ui::Start();
     View::Start();
     Overlays::Start(); // (the view menus: Lit to start with - level_editor_overlays.h)
+    Ux8::Start();      // (no pie, not walking, not following - level_editor_ux8.h)
     Faces::Start(); // (map3: Faces mode off, nothing selected)
     Triggers::Start(); // (the level's trigger volumes found)
     Goals::Start();    // (the goals out of play while editing - level_editor_goals.h)
@@ -2678,6 +2681,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
     Overlays::Stop(); // (the view mode back to Lit)
+    Ux8::Stop();
     Thumbs::Stop();   // (the Add palette's thumbnails freed)
     Ruler::SetArmed(false);
     Faces::Stop();
@@ -2726,6 +2730,7 @@ void Init()
     SetCrashHook(OnCrash);
     Script::KeepQbNames(Enabled()); // (node names for the HUD: Fire_Tender rather than 61EF3AD4)
     Ux3::Init(); // (the Outliner's records in the layouts, the actions' callbacks - level_editor_ux3.h)
+    Ux8::Init(); // (pies, quick sets, walk / follow / teleport, controller mode: their actions - level_editor_ux8.h)
 }
 
 void InputLogic()
@@ -3474,74 +3479,66 @@ void MoveSelectedCrown(int delta)
 
 std::vector<Ui::BrowserItem> g_uiBrowserItems;
 
-// The keys for what you're doing (as the HUD's bottom lines).
+// The keys for what you're doing now (the status bar - UX8's context hints, level_editor_hints.h: from the action
+// registry's keys as bound now and the editor's state; the old HUD keeps its own lines).
 std::vector<std::pair<std::string, std::string>> KeysNow()
 {
-    if (Chains::Drawing() == Chains::Draw::Ladder)
-        return {{"Click", Chains::Waiting()}, {"Ctrl+Z", "take the last ladder away"}, {"Esc", "stop"}};
-    if (Chains::Drawing() != Chains::Draw::None)
-        return {{"Click", "add a point"}, {"Alt+click", "no edge snapping"}, {"Near an end", "links onto it"},
-                {"Enter, right click", "finish"}, {"Ctrl+Z", "take the last point away"}, {"Esc", "stop"}};
-    if (Chains::WantsPick())
-        return {{"Click", Chains::Waiting()}, {"Esc", "cancel"}};
-    if (g_placeArmed >= 0)
-        return {{"Click", "place it"}, {"Shift+click", "place more"}, {"Esc", "cancel"}, {"N", "close the palette"}};
-    if (g_browser.open)
-        return {{"Up/Down", "choose"}, {"Left/Right", "scenery / objects"}, {"Enter", "place it"}, {"F", "show me"},
-                {"B, Esc", "close"}};
-    // (typed values, a Rotate / Scale drag, the modal transform - level_editor_transform.h)
-    if (g_dragging && (!g_typed.text.empty() || g_typed.axis >= 0))
-        return {{"Typed", Transform::Describe(g_dragMode, g_typed, g_axis >= 0 && g_axis < 3 ? g_axis : -1)},
-                {"Enter", "apply"}, {"Backspace", "erase"}, {"X Y Z", "axis"}, {"Esc", "put it back"}};
-    if (g_dragging && g_dragMode == Transform::Mode::Rotate)
-        return {{"Mouse", "turns it"}, {"Ctrl", "steps"}, {"Digits", "degrees"}, {g_modal ? "Click, Enter" : "Release", "apply"},
-                {"Esc", "put it back"}};
-    if (g_dragging && g_dragMode == Transform::Mode::Scale)
-        return {{"Mouse", "scales it"}, {"Ctrl", "tenths"}, {"X Y Z", "axis"}, {"Digits", "a factor"},
-                {g_modal ? "Click, Enter" : "Release", "apply"}, {"Esc", "put it back"}};
-    if (g_dragging && g_modal)
-        return {{"Mouse", "moves it"}, {"X Y Z", "axis"}, {"Digits", "an amount"}, {"Ctrl", "grid"},
-                {"Click, Enter", "apply"}, {"Esc", "put it back"}};
-    if (g_dragging && Carry::Count() > 0) {
-        // (scenery carrying objects / nodes - level_editor_carry.h)
-        std::string carried = "leave the " + std::to_string(Carry::Count()) + " carried";
-        if (g_axis >= 0)
-            return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "grid"}, {"Alt", carried}, {"Digits", "an amount"},
-                    {"Esc", "put it back"}};
-        return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Ctrl", "grid"}, {"Alt+Shift", "surface"},
-                {"Ctrl+Alt", "vertex"}, {"Alt", carried}, {"X Y Z", "axis"}, {"Esc", "put it back"}};
+    Hints::Context c;
+    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+    if (Ui::KeysToEditor()) {
+        if (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL])
+            c.mods |= Actions::kCtrl;
+        if (keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT])
+            c.mods |= Actions::kShift;
+        if (keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT])
+            c.mods |= Actions::kAlt;
     }
-    if (g_dragging && g_axis >= 0)
-        return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "grid"}, {"Ctrl+Shift", "world grid"},
-                {"Digits", "an amount"}, {"Esc", "put it back"}};
-    if (g_dragging)
-        return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Wheel", "push / pull"}, {"Ctrl", "grid"},
-                {"Ctrl+Shift", "world grid"}, {"Alt+Shift", "surface"}, {"Ctrl+Alt", "vertex"}, {"X Y Z", "axis"},
-                {"Esc", "put it back"}};
+    c.rmb = g_mouse.right;
+    c.flyAlways = Transform::FlyAlways();
     if (MovableNode() >= 0)
-        return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn 15\xC2\xB0"},
-                {"G", "drop"}, {"Del", "delete / hide"}, {"Home", "level's place"}, {"Esc", "deselect"}};
-    if (g_nodeSelected)
-        return {{"WASD", "fly"}, {"RMB", "look"}, {"Click", "select another"}, {"Esc", "deselect"},
-                {"Outliner", "double-click: go to"}, {"F1", "help"}};
-    if (HaveSelection() && !Transform::FlyAlways())
-        return {{"Drag", "move"}, {"Handles", Transform::ModeName(GizmoMode())}, {"W E R", "move / rotate / scale"},
-                {"RMB+WASD", "fly"}, {"Arrows", "nudge"}, {"Z X", "turn"}, {"G", "drop"}, {"Alt+G", "modal"},
-                {"Ctrl+D", "copy"}, {"Ctrl+Shift+D", "repeat"}, {"F", "frame"}, {"Esc", "deselect"}};
-    if (HaveSelection() && !Primary())
-        return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"[ ]", "scale"},
-                {"G", "drop"}, {"Ctrl+click", "remove a piece"}, {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"},
-                {"Esc", "deselect"}};
-    if (HaveSelection())
-        return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"G", "drop"},
-                {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
-    if (!Transform::FlyAlways())
-        return {{"RMB+WASD", "fly"}, {"RMB+Q E", "down / up"}, {"Shift", "fast"}, {"Wheel", "dolly"},
-                {"Click", "select"}, {"W E R / Space", "tool"}, {"B", "add"}, {"N", "place"}, {"Ctrl+S", "save"},
-                {"Ctrl+Z/Y", "undo / redo"}, {"F1", "help"}};
-    return {{"WASD", "fly"}, {"Q E", "down / up"}, {"Shift", "fast"}, {"RMB", "look"}, {"Wheel", "dolly"},
-            {"Click", "select"}, {"B", "add"}, {"N", "place"}, {"Ctrl+S", "save"}, {"Ctrl+Z/Y", "undo / redo"},
-            {"F1", "help"}};
+        c.selection = WallOnly() ? Hints::Selection::Wall : Hints::Selection::PointNode;
+    else if (Primary())
+        c.selection = Hints::Selection::Objects;
+    else if (WallOnly())
+        c.selection = Hints::Selection::Wall;
+    else if (Scenery::HasSelection())
+        c.selection = Hints::Selection::Scenery;
+    else if (g_nodeSelected)
+        c.selection = Hints::Selection::OtherNode;
+    c.freeCamera = g_freeCamera;
+    c.tool = static_cast<int>(Transform::Current().mode);
+    if (g_dragging)
+        c.drag = g_dragMode == Transform::Mode::Rotate ? Hints::Drag::Rotate
+                 : g_dragMode == Transform::Mode::Scale ? Hints::Drag::Scale
+                 : g_axis >= 0                          ? Hints::Drag::MoveAxis
+                                                        : Hints::Drag::Move;
+    c.modal = g_modal;
+    if (g_dragging && (!g_typed.text.empty() || g_typed.axis >= 0))
+        c.typed = Transform::Describe(g_dragMode, g_typed, g_axis >= 0 && g_axis < 3 ? g_axis : -1);
+    c.carried = g_dragging ? Carry::Count() : 0;
+    c.browser = g_browser.open;
+    c.placeArmed = g_placeArmed >= 0;
+    c.ladderDrawing = Chains::Drawing() == Chains::Draw::Ladder;
+    c.chainDrawing = Chains::Drawing() != Chains::Draw::None && !c.ladderDrawing;
+    c.chainPick = Chains::WantsPick();
+    if (c.ladderDrawing || c.chainPick)
+        c.chainWaiting = Chains::Waiting();
+    c.rulerArmed = Ruler::Armed();
+    c.facesMode = Faces::Picking();
+    c.boxArmed = Organize::BoxArmed();
+    c.chainPoint = MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName);
+    c.following = Ux8::Following();
+    c.walking = Ux8::Walking();
+    c.pieOpen = Ux8::PieOpen();
+    c.pieSticky = Ux8::PieSticky();
+    c.pad = Ux8::PadMode() && Ux8::PadOwnsCursor();
+    c.simulating = PlayTest::Simulating();
+    if (c.mods)
+        c.modded = Hints::ModifierHints(Actions::All(), c.mods, 9);
+    std::vector<std::pair<std::string, std::string>> out;
+    for (const Hints::Hint& h : Hints::Build(c, [](const char* id) { return Actions::KeysText(Actions::Find(id)); }))
+        out.emplace_back(h.keys, h.what);
+    return out;
 }
 
 // The Outliner's markers (level_editor_ui.h's kMark*): by node name, what the editor has done to it, its object or its
@@ -5207,6 +5204,105 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
     }
 }
 
+// --- UX8 (level_editor_ux8.h): wheel drill-through, click-to-teleport, walk mode ---
+
+// The controller's right stick at full tilt: as a mouse moved this many pixels a second.
+constexpr float kPadLookPixelsPerSecond = 700.0f;
+bool g_drilled; // (the click-to-cycle's next entry was chosen by Alt+wheel: it stays the hover while Alt is held)
+
+// Alt+wheel: the hover stepped `steps` deeper (negative: nearer) through everything under the cursor - the
+// click-to-cycle's list (made now as a click would make it, nothing taken), its next entry set so the hover shows the
+// one stepped to; a click then takes it.
+void DrillThrough(int steps, float x, float y, V3 dir)
+{
+    int shown = -1;
+    if (CycleHolds(x, y, false, false)) {
+        shown = (g_cycle.index + 1) % static_cast<int>(g_cycle.order.size());
+    } else {
+        std::vector<Picking::Layered> objects, scenery;
+        for (const auto& hit : Objects::PickAll(g_pos, dir, kMaxPickDistance))
+            objects.push_back({hit.first->m_id, hit.second, false});
+        Scenery::Hit first;
+        std::vector<Scenery::Layer> layers;
+        Scenery::Pick(g_pos, Normalize(dir), kMaxPickDistance, &first, &layers);
+        for (const Scenery::Layer& layer : layers)
+            scenery.push_back({layer.checksum, layer.t, layer.passed});
+        g_cycle = Cycle{};
+        g_cycle.have = true;
+        g_cycle.x = x;
+        g_cycle.y = y;
+        g_cycle.pos = g_pos;
+        g_cycle.changes = g_changes;
+        g_cycle.filter = g_pickFilter;
+        g_cycle.order = Picking::CycleOrder(g_hoverNode, objects, scenery, g_pickFilter);
+        Obj::CCompositeObject* object = Live(g_hover);
+        shown = g_hoverNode >= 0 ? Picking::IndexOf(g_cycle.order, Picking::Choice::kNode, g_hoverNode)
+                : object       ? Picking::IndexOf(g_cycle.order, Picking::Choice::kObject, object->m_id)
+                : g_hoverSector ? Picking::IndexOf(g_cycle.order, Picking::Choice::kScenery, g_hoverSector)
+                                : -1;
+    }
+    int count = static_cast<int>(g_cycle.order.size());
+    if (count < 2) {
+        g_cycle.have = false;
+        g_drilled = false;
+        Hud::Message(count ? "Only one thing under the cursor" : "Nothing under the cursor to step through", 1.5);
+        return;
+    }
+    int at = Nav::DrillIndex(shown, steps, count);
+    g_cycle.index = Nav::CycleIndexShowing(at, count);
+    g_drilled = true;
+    char text[96];
+    std::snprintf(text, sizeof(text), "%d of %d under the cursor (Alt+wheel) - click takes it", at + 1, count);
+    Hud::Message(text, 2.0);
+}
+
+// Click-to-teleport: the camera glides to the surface under the cursor (Nav::TeleportTarget), looking the same way.
+void TeleportTo(V3 dir)
+{
+    V3 hit;
+    V3 ray = Normalize(dir);
+    if (!Cast(g_pos, g_pos + ray * kMaxPickDistance, &hit)) {
+        Hud::Message("No surface under the cursor to go to");
+        return;
+    }
+    if (HaveSelection() || g_nodeSelected)
+        Deselect(); // (the camera would orbit it)
+    Camera::Cancel();
+    Ux8::StartGlide(g_pos, Nav::TeleportTarget(g_pos, hit));
+    NoteAction("teleported to (%.0f, %.0f, %.0f)", hit.x, hit.y, hit.z);
+}
+
+// Walk mode's frame: the mouse (captured) and the right stick look, the fly keys / left stick walk, the fly-up key /
+// A jump, Shift / L3 run; Escape (or B) stops.
+void WalkFrame(const Mouse& input, const uint8_t* keys, const Ux8::Pad& pad, double seconds)
+{
+    if (g_cancelRequested || (pad.active && pad.b)) {
+        g_cancelRequested = false;
+        Ux8::Cancel();
+        SetRelative(false);
+        return;
+    }
+    SetRelative(true);
+    const Prefs::Values& prefs = Prefs::Get();
+    float dx = input.relX + pad.lookX * kPadLookPixelsPerSecond * static_cast<float>(seconds);
+    float dy = input.relY - pad.lookY * kPadLookPixelsPerSecond * static_cast<float>(seconds);
+    Look(&g_yaw, &g_pitch, dx, prefs.invertY ? -dy : dy, kLookRadiansPerPixel * static_cast<float>(prefs.lookPct) / 100.0f);
+    static bool jumpWas;
+    bool jumpKey = Actions::Held(keys, Actions::kFlyUp);
+    Nav::WalkInput in;
+    in.forward = static_cast<float>((Actions::Held(keys, Actions::kForward) ? 1 : 0) - (Actions::Held(keys, Actions::kBack) ? 1 : 0)) +
+                 pad.moveY;
+    in.right = static_cast<float>((Actions::Held(keys, Actions::kRight) ? 1 : 0) - (Actions::Held(keys, Actions::kLeft) ? 1 : 0)) +
+               pad.moveX;
+    in.jump = (jumpKey && !jumpWas) || pad.aPresses > 0;
+    in.run = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT] || pad.fast;
+    jumpWas = jumpKey;
+    Nav::Walker& walker = Ux8::WalkerState();
+    Nav::Step(&walker, g_yaw, in, static_cast<float>(seconds), Cast);
+    g_pos = Nav::EyeOf(walker);
+    Camera::AfterUpdate(RigNow(), 0, true);
+}
+
 // The transform tools' keys (level_editor_transform.h): the modes (wasd_flies=0: W / E / R while the right button isn't
 // held; both: Space cycles - with wasd_flies=1 only with a selection, Space flying up without one), ` World / Local,
 // Alt+G the modal transform; F (UX1's frame) lets the camera follow the selection again.
@@ -5321,6 +5417,24 @@ void Update()
     static const uint8_t kNoKeys[SDL_NUM_SCANCODES] = {};
     if (!Ui::KeysToEditor())
         keys = kNoKeys;
+    // (UX8: a game controller in controller mode - level_editor_ux8.h: A as the left button at the crosshair, the
+    // D-pad as the nudge keys, L3 as Shift, B as Escape; the sticks below)
+    Ux8::Pad pad = Ux8::ReadPad();
+    bool padCursor = false;
+    if (pad.active) {
+        keys = Ux8::PadKeys(keys, pad);
+        input.left = input.left || pad.aDown;
+        input.leftPresses += pad.aPresses;
+        input.leftReleases += pad.aReleases;
+        float cx, cy;
+        padCursor = Ux8::PadCursor(pad, input.relX != 0.0f || input.relY != 0.0f, &cx, &cy) && !input.right;
+        if (padCursor) {
+            input.x = cx;
+            input.y = cy;
+        }
+        if (Ux8::PadCancel(pad))
+            g_cancelRequested = true;
+    }
     bool shift = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
     bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
     bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
@@ -5342,11 +5456,25 @@ void Update()
         Prefs::Open() = !Prefs::Open();
     // Simulate (F6) and the Trail window (F7) - level_editor_playtest.h.
     PlayTest::Tick(g_dragging);
+    // Walk mode (UX8 - level_editor_ux8.h: Shift+`): the camera at a skater's eye height; the editor's other keys and
+    // clicks rest meanwhile.
+    if (Ux8::TakeWalkToggle() && !g_dragging) {
+        bool on = !Ux8::Walking();
+        if (on)
+            Deselect();
+        Ux8::SetWalking(on, g_pos);
+    }
+    if (Ux8::Walking()) {
+        WalkFrame(input, keys, pad, seconds);
+        return;
+    }
 
     // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
     if (g_cancelRequested) {
         g_cancelRequested = false;
-        if (Triggers::Resizing()) {
+        if (Ux8::Cancel()) {
+            // (UX8: a pie menu closed)
+        } else if (Triggers::Resizing()) {
             Triggers::EndResize(); // (kept as far as it went - Ctrl+Z puts the size back)
         } else if (g_dragging) {
             // (a turn, a scale or an object stood on a slope: the step taken when it started put back -
@@ -5399,6 +5527,21 @@ void Update()
     bool noChange = g_dragging || g_keyMoving || g_fieldEditing || Triggers::Resizing();
     // (the history, changes, search, selection tools and clipboards - level_editor_ux3.h)
     Ux3::Update();
+    // (UX8: quick selection sets, the follow camera's key, the pie menus - a pie up takes the clicks)
+    {
+        Ux8::Frame ux8;
+        ux8.mouseX = input.x;
+        ux8.mouseY = input.y;
+        ux8.leftPresses = &input.leftPresses;
+        ux8.leftReleases = &input.leftReleases;
+        ux8.right = input.right;
+        ux8.dragging = g_dragging;
+        ux8.browser = g_browser.open;
+        ux8.keys = keys;
+        ux8.pad = pad;
+        ux8.haveSelection = HaveSelection() || g_nodeSelected;
+        Ux8::Update(ux8);
+    }
 
     // The panels: F1 the help, B the browser.
     if (Actions::Pressed(Actions::kHelp))
@@ -5620,14 +5763,39 @@ void Update()
         Look(&g_yaw, &g_pitch, input.relX, prefs.invertY ? -input.relY : input.relY,
              kLookRadiansPerPixel * static_cast<float>(prefs.lookPct) / 100.0f);
     }
+    bool padSticks = pad.active && !Ux8::PieOpen();
+    if (padSticks && (pad.lookX != 0.0f || pad.lookY != 0.0f)) {
+        // (UX8: the controller's right stick looks - orbits a selection, as the right button does)
+        const Prefs::Values& prefs = Prefs::Get();
+        float px = pad.lookX * kPadLookPixelsPerSecond * static_cast<float>(seconds),
+              py = -pad.lookY * kPadLookPixelsPerSecond * static_cast<float>(seconds);
+        Look(&g_yaw, &g_pitch, px, prefs.invertY ? -py : py,
+             kLookRadiansPerPixel * static_cast<float>(prefs.lookPct) / 100.0f);
+    }
     Camera::ApplyOrbit(RigNow());
     Frame frame = FrameFromYawPitch(g_yaw, g_pitch);
+    if (padSticks && (pad.moveX != 0.0f || pad.moveY != 0.0f || pad.upDown != 0.0f)) {
+        // (UX8: the left stick flies, the triggers down / up - with a selection the camera leaves it, as the right
+        // button's flying does; F frames it again)
+        V3 move = frame.back * -pad.moveY + frame.right * pad.moveX + V3{0.0f, pad.upDown, 0.0f};
+        g_pos = g_pos + move * static_cast<float>(g_speed * (pad.fast ? 4.0 : 1.0) * seconds);
+        if (HaveSelection())
+            g_freeCamera = true;
+        if (g_dragging && padCursor)
+            g_dragMoved = true; // (the crosshair stays put: the camera's move is the drag's)
+        Ux8::StopGlide();
+    }
+    // (UX8: a teleport's glide - a double click on a surface; flying or looking ends it)
+    if (input.right)
+        Ux8::StopGlide();
+    Ux8::Glide(&g_pos, seconds);
 
     // The mouse ray (once the view has been drawn): the cursor in back-buffer pixels too (the arrows).
     bool haveRay = false;
     V3 dir = frame.back * -1.0f;
     float backX = 0.0f, backY = 0.0f;
-    if (g_haveView && !input.right && input.windowWidth > 0 && input.windowHeight > 0 && Ui::MouseToEditor()) {
+    if (g_haveView && !input.right && input.windowWidth > 0 && input.windowHeight > 0 &&
+        (Ui::MouseToEditor() || padCursor)) {
         MouseMenus::ScreenMapping mapping = MouseMenus::CurrentMapping(input.windowWidth, input.windowHeight);
         backX = static_cast<float>(static_cast<double>(input.x) * mapping.backBufferWidth / input.windowWidth);
         backY = static_cast<float>(static_cast<double>(input.y) * mapping.backBufferHeight / input.windowHeight);
@@ -5651,6 +5819,14 @@ void Update()
         Camera::Keys(RigNow(), keys, ctrl, g_browser.open); // (F, 1..9, the numpad - level_editor_camera.h)
     g_lastHaveRay = haveRay;
     g_lastRay = dir;
+    // (UX8: Alt+wheel steps what a click would take through everything under the cursor; the command search's
+    // Teleport to the cursor)
+    if (alt && input.wheel && !g_dragging && !input.right && haveRay && !Camera::Orbiting() && !g_browser.open) {
+        DrillThrough(-input.wheel, input.x, input.y, dir);
+        input.wheel = 0;
+    }
+    if (Ux8::TakeTeleport() && haveRay && !g_dragging)
+        TeleportTo(dir);
 
     if (g_browser.open) {
         // The browser takes the arrows, Enter and F (the selection's keys rest meanwhile).
@@ -5814,6 +5990,20 @@ void Update()
         if (speed)
             g_speed = static_cast<float>(std::max(50.0, std::min(20000.0, g_speed * std::pow(1.5, speed))));
     }
+    {
+        // (UX8: the follow camera, Shift+F - the camera moved as the selection moves, keeping its offset even after
+        // flying off it; not while a mouse drag places it - the drag goes by the cursor's ray. Another selection starts
+        // afresh.)
+        static uint32_t followKey;
+        SelectionIds ids = CurrentSelection();
+        uint32_t key = (ids.objects.empty() ? 0u : ids.objects.front()) ^ (ids.sectors.empty() ? 0u : ids.sectors.front() * 31u) ^
+                       (ids.node * 131u) ^ static_cast<uint32_t>(ids.objects.size() * 7u + ids.sectors.size() * 13u);
+        bool active = Ux8::Following() && HaveSelection() && !g_dragging && !Triggers::Resizing() && key == followKey;
+        followKey = key;
+        V3 delta = Nav::FollowStep(&Ux8::Follower(), active, active ? TargetOf() : V3{0.0f, 0.0f, 0.0f});
+        if (active && g_freeCamera)
+            g_pos = g_pos + delta;
+    }
     if (g_browser.open && haveSelection && !g_dragging && !g_freeCamera)
         g_pos = TargetOf() + frame.back * g_orbitDistance;
 
@@ -5879,7 +6069,10 @@ void Update()
         // structure and see-through pieces passed unless Alt (or a middle click) - as the pick filter allows.
         g_hoverNode = -1;
         g_hoverPassed = 0;
-        g_hoverCycle = CycleHolds(input.x, input.y, shift, alt || input.middlePresses)
+        // (UX8: a drill-through - Alt+wheel - holds with Alt still down: its entry is the hover)
+        bool drilled = g_drilled && CycleHolds(input.x, input.y, false, false);
+        g_drilled = drilled;
+        g_hoverCycle = drilled || CycleHolds(input.x, input.y, shift, alt || input.middlePresses)
                            ? (g_cycle.index + 1) % static_cast<int>(g_cycle.order.size())
                            : -1;
         if (haveRay && g_hoverAxis < 0 && g_hoverCycle >= 0) {
@@ -5952,6 +6145,13 @@ void Update()
                         g_hoverNode < 0 && !Live(g_hover) && !g_hoverSector && !Faces::Picking() &&
                         !Chains::WantsPick() && Chains::Drawing() == Chains::Draw::None &&
                         !(g_placeArmed >= 0 && g_placeOpen) && !alt;
+    // (UX8: a double click on nothing a click takes - a surface - with nothing selected (the first click deselects):
+    // the camera glides there - level_editor_ux8.h)
+    if (boxCandidate && !Ruler::Armed() && !Organize::BoxArmed() &&
+        Ux8::NoteEmptyClick(SDL_GetTicks(), input.x, input.y) && !HaveSelection() && !g_nodeSelected) {
+        TeleportTo(dir);
+        boxCandidate = false;
+    }
     bool handlePressed = input.leftPresses && haveRay && !g_dragging && g_hoverAxis < 0 && g_hoverHandle >= 0 &&
                          !Triggers::Resizing() && Triggers::BeginResize(g_hoverHandle, g_pos, dir);
     if (handlePressed) {
