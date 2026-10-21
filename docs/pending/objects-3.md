@@ -244,5 +244,6 @@ other members added; TriggerNode unchanged).
 - For the user to try: in Boston kick the bouncy balls / trash cans (BO_Bouncy_*) and watch them roll, bounce and
   settle; bail (the board flies off, tumbles and settles); throw projectiles where the game allows. Off switches
   (`[replacements] disable=`): rigidbody_physics.cpp (the physics only), rigidbody_component.cpp, and the other files
-  of the range: trigger_component.cpp, shadow_component.cpp, skeleton_component.cpp, sound_component.cpp,
+  of the range: trigger_component.cpp, display_matrix_component.cpp, static_vehicle.cpp, vehicle_wheel.cpp,
+  vector_transform.cpp, shadow_component.cpp, skeleton_component.cpp, sound_component.cpp,
   stream_component.cpp, suspend_component.cpp, texture_projection_component.cpp, quat.cpp.
