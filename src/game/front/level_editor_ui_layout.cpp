@@ -100,12 +100,12 @@ struct MarkInfo {
     const char* name;
 };
 const MarkInfo kMarks[kMarkCount] = {
-    {'M', 0xFFFFC040u, "moved (turned / scaled) by the editor - Home puts it back"},
-    {'+', 0xFF60E060u, "added by the editor"},
-    {'D', 0xFFFF6060u, "hidden in the level (Delete) - saved; Home / Ctrl+Z brings it back"},
-    {'H', 0xFF9090A0u, "hidden while editing only (H / Isolate - Alt+H shows all; never saved)"},
-    {'L', 0xFF60B0FFu, "locked: clicks pass it (L, the Inspector's Unlock)"},
-    {'C', 0xFFFF40E0u, "its collision is switched off (the skater passes through)"},
+    {'M', 0xFFFFC040u, "Moved"},
+    {'+', 0xFF60E060u, "Added"},
+    {'D', 0xFFFF6060u, "Hidden in game"},
+    {'H', 0xFF9090A0u, "Hidden in editor"},
+    {'L', 0xFF60B0FFu, "Locked"},
+    {'C', 0xFFFF40E0u, "Collision off"},
 };
 } // namespace
 

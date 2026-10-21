@@ -13,7 +13,7 @@ void OptionsMenuItems()
     Settings& settings = Current();
     if (ImGui::BeginMenu("Pivot")) {
         static const char* const kTips[3] = {"Objects: first object; scenery: its pivot; nodes: their position",
-                                             "Center of the selection's bounds", "Each object about its own position"};
+                                             "Centre of the selection's bounds", "Each object about its own position"};
         int i = 0;
         for (Pivot pivot : {Pivot::Base, Pivot::Centre, Pivot::Own}) {
             if (ImGui::MenuItem(PivotName(pivot), nullptr, settings.pivot == pivot))

@@ -45,7 +45,7 @@ void OverlayItems(const Ui::Model& model, std::vector<Ui::Request>* requests)
         r.value = model.view.collision ? 0 : 1;
         requests->push_back(r);
     }
-    Tip("Collision near the camera, colored by surface");
+    Tip("Collision near the camera, coloured by surface");
     if (ImGui::MenuItem("Trigger Volumes", "T", Triggers::Shown()))
         Triggers::SetShown(!Triggers::Shown());
     Tip("Kill zones, teleports, gaps and script triggers");
@@ -89,25 +89,11 @@ void OverlayItems(const Ui::Model& model, std::vector<Ui::Request>* requests)
 const std::vector<HelpRow>& HelpRows()
 {
     static const std::vector<HelpRow> rows = {
-        {"View modes", "Alt+1 / 2 / 3 / 4", "Lit / Unlit (textures without their light) / Wireframe / Collision only "
-                                            "(the toolbar's View menu; back to Lit when the editor closes)"},
-        {"", "Overlays (toolbar)", "one menu with a checkbox for every overlay - collision (C), trigger volumes (T), "
-                                   "labels, feature map, grind preview, jump arcs (Y), ruler (M), grid, carried objects, "
-                                   "the collision legend, the Outliner's markers and each gizmo family - remembered"},
-        {"Jump arcs", "Y", "with scenery selected (a kicker, a quarter pipe, any ramp): its lips and the flight off "
-                           "them at three speeds - push (green), top (yellow), max (red) - with a full ollie; where "
-                           "each lands (a cross, its distance and drop), or how high a vert lip sends you"},
-        {"Grind preview", "Hover a rail", "its whole rail: direction (chevrons), points, segments, terrain, speed-ups, "
-                                          "length, and the rail ends near its ends (transfers) - the selected rail's "
-                                          "too"},
-        {"Ruler", "M", "the ruler: click two points (on collision, snapped to a corner within 12 px - Alt: no snap); "
-                       "the distance, the horizontal gap and the height difference stay shown; a third click starts "
-                       "again; M again leaves the tool (the measurement stays)"},
-        {"", "Shift+M", "clears the measurement"},
-        {"Add palette", "B, then Grid", "thumbnails of the pieces / objects (made a few a frame); the list as before "
-                                        "with List; the filter searches names"},
-        {"", "Star, Recent", "a star on a thumbnail or row keeps it in Favourites; Recent: the last 20 placed - both "
-                             "remembered per level"},
+        {"View", "Alt+1 / 2 / 3 / 4", "Lit / Unlit / Wireframe / Collision only"},
+        {"", "Y", "Jump arcs from the selected ramp"},
+        {"", "M, Shift+M", "Ruler; clear measurement (Alt: no snap)"},
+        {"", "Hover a rail", "Grind preview"},
+        {"Add Piece", "Grid / List", "Thumbnail or list view; star to add to Favourites"},
     };
     return rows;
 }

@@ -1094,11 +1094,9 @@ const char* WhenApplied(uint32_t name, int family)
 {
     auto f = static_cast<Nodes::Family>(family);
     if (f == Nodes::Family::Particle)
-        return "Now: the system is made again where it is (its Mid / End places moved and turned with it, its boxes turned) "
-               "once the game removes the "
-               "old one - at the latest on leaving the editor.";
+        return "Live (rebuilt)";
     if (f == Nodes::Family::Object && !LiveObject(name))
-        return "Not made at the start: a script's create makes it where its node is now (its pos= / angles=).";
+        return "On script spawn";
     return "";
 }
 

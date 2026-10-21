@@ -508,28 +508,26 @@ When WhenApplied(Nodes::Family family, uint32_t key, const char** note)
     const char* dummy = nullptr;
     const char** out = note ? note : &dummy;
     if (key == KeyName() || key == KeyClass() || key == KeyType()) {
-        *out = "Its identity: links, scripts and the editor's families go by it - place a new node instead.";
+        *out = "Read-only";
         return When::ReadOnly;
     }
     if (key == KeyPos() || key == KeyAngles()) {
-        *out = "The Position / Heading above (or drag it in the view).";
+        *out = "Edit with Position / Heading";
         return When::Elsewhere;
     }
     if (key == KeyLinks()) {
-        *out = "Live: a rail, ladder or path is linked again at once, a ped or car made again on its new path; other "
-               "nodes' links are read when the game follows them. Saved as a links record.";
+        *out = "Live";
         return When::Live;
     }
     if (key == KeyTerrain() && family == Nodes::Family::Rail) {
-        *out = "A rail's terrain: the Terrain list above (the whole rail, live).";
+        *out = "Edit with Terrain";
         return When::Elsewhere;
     }
     if (key == KeyRestartTypes() && family == Nodes::Family::Spawn) {
-        *out = "Live: read at every respawn (and by F8, the restart tester).";
+        *out = "Live";
         return When::Live;
     }
-    *out = "On reload: the level reads it when it makes the node's object, trigger, light or sound - written now, and "
-           "into the node again when the edited copy loads.";
+    *out = "Applies on level reload";
     return When::Reload;
 }
 
