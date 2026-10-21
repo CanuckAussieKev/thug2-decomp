@@ -36,6 +36,11 @@ std::string CandidateName(const std::string& stem, int n);
 std::string PickName(const std::string& stem, const std::function<bool(const std::string&)>& taken);
 // The sidecar's name for a picture: "<name without .png>.txt".
 std::string SidecarName(const std::string& pngName);
+// A frame series (StartSeries): its folder's default name "series_YYYY-MM-DD_HH-MM-SS", its frames' names
+// "frame_0001.png" ... (from 1; 4 digits, more past 9999) and its one sidecar, "series.txt".
+std::string SeriesFolderName(const Stamp& stamp);
+std::string SeriesFrameName(int number);
+constexpr const char* kSeriesSidecar = "series.txt";
 
 // --- pixels ------------------------------------------------------------------------------------------------------
 

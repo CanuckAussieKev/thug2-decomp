@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 // NOT ORIGINAL - the screenshot key (ours, added at the user's request: "to reference to you things that I have
 // noticed"; not the game's and not PartyMod's).
 //
@@ -32,5 +34,22 @@ void Init();
 void BeforePresent(bool rendering);
 // The renderer, a viewport's camera as it's drawn (for the sidecar): its position and view direction.
 void NoteView(int viewport, const float position[3], const float forward[3]);
+
+// A frame series (the test-automation channel's `capture` - game/front/automation.h; works with the key off too):
+// the next `frames` rendered frames (at most kMaxSeriesFrames), every one, as frame_0001.png ... in `folder`
+// (relative: to the screenshot folder; "": series_<time> there), with one sidecar series.txt (the screenshot
+// sidecar's state at the first frame, the series' count, and a line a frame: the game's frame, its vblank count and
+// clock) - no cursor mark, no messages. The pictures are encoded on worker threads; while kSeriesInFlight are waiting,
+// the frame waits for one. The game slows down while it captures, but every logic frame is drawn and taken: the
+// main loop doesn't count the capture's time (SeriesRunning - no frames skipped to catch up), so the series is the
+// game's frames one after another, a vblank (1/60 s of game time) apart. "" if started, else why not (one series at
+// a time).
+constexpr int kMaxSeriesFrames = 600;
+constexpr int kSeriesInFlight = 6;
+std::string StartSeries(int frames, const std::string& folder);
+// Whether a series is still being captured or written.
+bool SeriesRunning();
+// The last series' result: "ok: <n> frames in <folder>" or "error: ...".
+std::string SeriesResult();
 
 } // namespace Sys::Screenshot

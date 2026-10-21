@@ -12,6 +12,7 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/menu_backdrop.h"
+#include "game/front/test_view.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
 #include "game/sys/screenshot.h"
@@ -528,6 +529,9 @@ void RenderViewport(int index)
     // where the editor flies.
     // Original behaviour: the camera is drawn where the game put it.
     Front::LevelEditor::PlaceCamera(static_cast<Gfx::Camera*>(camera));
+    // Not original - the automation channel's camera lock (game/front/test_view.h): viewport 0's camera held at a pose.
+    // Original behaviour: the camera is drawn where the game put it.
+    Front::TestView::PlaceCamera(static_cast<Gfx::Camera*>(camera), index);
     GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
     double width = GameVariable<int>(0x00786D6C);
     double height = static_cast<float>(GameVariable<int>(0x00786D70));
