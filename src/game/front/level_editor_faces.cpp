@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 
+#include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_objects.h"
@@ -314,15 +315,25 @@ bool Picking() { return g_picking; }
 
 void SetPicking(bool on)
 {
+    // The collision view comes on with Face Select and goes off with it again if Face Select turned it on.
+    static bool s_turnedCollisionOn;
+    if (on && !g_picking) {
+        s_turnedCollisionOn = !View::ShowCollision();
+        if (s_turnedCollisionOn)
+            View::SetShowCollision(true);
+    } else if (!on && g_picking) {
+        if (s_turnedCollisionOn && View::ShowCollision())
+            View::SetShowCollision(false);
+        s_turnedCollisionOn = false;
+    }
     g_picking = on;
-    if (on && !View::ShowCollision())
-        View::SetShowCollision(true);
     if (!on)
         g_haveHover = false;
 }
 
 void Start()
 {
+    Actions::SetChecked(Actions::kFaces, [] { return g_picking ? 1 : 0; }); // (its check in the View menu)
     g_picking = false;
     g_selection.clear();
     g_haveHover = false;
