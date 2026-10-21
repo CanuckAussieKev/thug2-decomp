@@ -58,6 +58,14 @@ public:
         }
     }
 
+    // 0x0042B580 (one instance, shared): the in-place default constructor - all three words cleared (returns this).
+    CSmtPtr* Construct()
+    {
+        mp_next = nullptr;
+        mp_prev = nullptr;
+        mp_object = nullptr;
+        return this;
+    }
     // In-place constructors (return this): from a pointer, from another smart pointer (the screen elements'
     // instances are 0x004A7820 / 0x004A7690).
     CSmtPtr* ConstructFrom(T* object)

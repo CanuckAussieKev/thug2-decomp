@@ -104,3 +104,37 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
   - Test (selftests_obj_motion4.cpp): TestMotionJump (8000 variants, one in seven landing exactly on land_height),
     TestMotionGroundHit (the original called with its register arguments), TestMotionStick (8000: both GroundHit
     conventions answered alike), TestMotionMoves. 40 deliberate bugs caught (1 after the exact landing case).
+- [x] Batch OC2-5 (NOT run in the game yet; the movable contact, node array, object hook manager, rail manager,
+  chain, particle and proximity components, 74 functions): src/game/obj/movable_contact.cpp, node_components.cpp,
+  chain_component.cpp, particle_component.cpp, proximity_component.cpp (+ .h, all new); smtptr.h (CSmtPtr::Construct,
+  the shared in-place default constructor 0x0042B580).
+  - Movable contact (0x004276C0-0x00427DD0, 10): Create / DestroyBody / Destroy, FindContact (a feeler from 400 above
+    to 6 below, nudged up 0.1 and retried up to 10 times while it hits a dead object), FindContactAhead,
+    GetContactPoint, StartRiding / StopRiding (the stop time is the game clock plus its offset 0x00696D60) /
+    IsRiding (stops riding when the contact is gone), UpdateContactPoint.
+  - Node array, object hook manager, rail manager (0x00427EA0-0x00428220, 0x0042B880-0x0042BA90, 14): life,
+    InitFromStructure / RefreshFromStructure (the model path "models\%s" - the original's unbounded strcpy / strcat
+    as a bounded snprintf), UpdateRailMatrix.
+  - Chain (0x00428250-0x004298B0, 14; the 0x6DCFEC46 component): a link's / a chain's constructors and destructor,
+    CLineObject::SetBlendMode 0x00428270, the list's destructor, Create / Destroy / Finalize, InitFromStructure
+    (collision_info, chains, segments, lengths, bones, obj_end), CallMemberFunction, Update (Verlet steps at the
+    chain's rate, the ends on bones / another object, constraint passes, the collision plane, the lines shown when
+    the object isn't hidden), a chain's UpdateLines.
+  - Particle (0x00429940-0x0042B040, 30): RegisterMemberFunctions, life, Hide, the 19 script setters (the unnamed
+    float read into the `params` argument's own slot: not given, the pointer's bits), InitFromStructure (0x15C-byte
+    parameters: oriented to 0x0C4C809E, scaled, coloured with alphas capped at 128, rotated X / Y / Z, local
+    positions, the model followed, the emit script spawned), Update (lifetimes against the clock + offset, the
+    ground value, positions / orientations moved with the object), CallMemberFunction (0x2299A9F2: the system's
+    slot 7; 0x96896315: a ground feeler 4800 down), GetParticleParams (the name, two floats and the colours read
+    straight from the system's +4 after the result structure is made; positions, sizes and boxes through the
+    getter 0x004AAD40, once each).
+  - Proximity (0x0042B570-0x0042B850, 5 + CSmtPtr::Construct): RunScript, Update (in / out by the skater's
+    capsule, the reach test squared in double), Proximity_Init / SetActive / EnterProximityNotHandled.
+  - Test: selftests_obj_contact.cpp (TestContactLife, TestContactFind, TestContactRiding, TestNodeComponents),
+    selftests_obj_particle.cpp (TestParticleLife / Members / Update / Init / GetParams, TestProximity,
+    TestChainLife / Members / Init / Update). 66 deliberate bugs, 65 caught (19 after strengthening: the particle
+    Init and GetParams tests registered - they had been written but never run -, the clock offset given values,
+    lifetimes ending exactly now, the skater exactly the reach away, UpdateLines tested without its own stand-in,
+    0x0C4C809E always given - without it both versions orient by their own stack's leftovers); the one missed
+    (alpha `>` 0x80 as `>=`) is equivalent: both give 0x80. Found by the tests: GetParticleParams' order (rewritten
+    to match).

@@ -332,6 +332,8 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_motion2.cpp
     src/hook/selftests_obj_motion3.cpp
     src/hook/selftests_obj_motion4.cpp
+    src/hook/selftests_obj_contact.cpp
+    src/hook/selftests_obj_particle.cpp
     src/hook/selftests_gamenet.cpp
     src/hook/selftests_skater_gamenet.cpp
     src/hook/selftests_skater_gamenet2.cpp
@@ -654,13 +656,18 @@ add_library(thug2_code OBJECT
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/lock_obj.cpp
+    src/game/obj/chain_component.cpp
     src/game/obj/motion.cpp
     src/game/obj/motion_component.cpp
     src/game/obj/motion_path.cpp
     src/game/obj/motion_ground.cpp
     src/game/obj/motion_rotate.cpp
+    src/game/obj/movable_contact.cpp
+    src/game/obj/node_components.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp
+    src/game/obj/particle_component.cpp
+    src/game/obj/proximity_component.cpp
     src/game/park/park_cursor.cpp
     src/game/park/park_editor.cpp
     src/game/park/park_memory.cpp
