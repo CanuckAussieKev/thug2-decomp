@@ -92,3 +92,29 @@ commands (0x445000-0x445B30). Shared files touched: CMakeLists.txt (new files li
     in the game the hook does the same). 48 deliberate bugs: 47 caught (2 after strengthening - a sun just behind the
     camera, a fade of exactly 1), 1 equivalent (the quad corners' w: the facing matrix's last row has no xyz).
   - Found on the way: the primitive drawer the original keeps on its stack is 0x150-0x15C bytes (its frame's gaps).
+- [x] Batch OC5-4 (NOT run in the game yet; the walk component's hang helpers, part 1, 14 functions):
+  src/game/obj/walk_hang.cpp + .h (new: Walk::Component's member functions - the walk component itself, 0x00524xxx-
+  0x0052Axxx, isn't rewritten: its fields reached by offset, named in walk_hang.cpp).
+  - 0x0043D930 CreateWaitAndDieComponent (component type 0x03AC8065, vtable 0x00646898; its methods 0x0043D850-
+    0x0043D8E0 belong to the neighbouring range), 0x0043D990 Lerp (a + (b - a) * t, each component rounded as the
+    x87 code did - y kept unrounded, z and w rounded early), 0x0043DA20 SkaterTurn::TurnedRound (the skater core's
+    +0x228 within 45 degrees of a half turn), 0x0043DA70 Param (walk_parameters' floats), 0x0043DAA0 RunSpeed,
+    0x0043DC00 HangHeightOffset, 0x0043DC60 CriticalPointUp (all three return the x87 value unrounded, as double).
+  - Animation-end callbacks (stored at +0x1948 as the game's addresses - in the game, jumps to ours): 0x0043DB00
+    EndPullUp (walking; the pull-up feeler's hit to the triggers and the movable contact), 0x0043DB90
+    EndDropFromHang (in the air), 0x0043DCF0 EndDropToHang (hanging: the hang offset, the skater core's rail node /
+    manager, the rail script, tagging allowed again).
+  - 0x0043DDD0 SideClear (the hang's side obstruction feelers, out and back), 0x0043DFC0 FaceHangRail (the place
+    along the rail, the facing across it - to the side the direction says; past 60 degrees +0x1760 is told
+    (0x005250A0, x87 FCOS of the double at 0x006468F8 kept through inline asm)), 0x0043E230 NextHangRail (the segment
+    before / after, else a joining rail; "BAD ANGLE ON COINCIDENT RAIL" / "FOUND COINCIDENT RAIL" debug output kept),
+    0x0043EB80 MovableContact::StartRiding (a ride tracker for the object; the old one freed, its object at +0x6C).
+  - Found by the test: going forward, NextHangRail checks the segment's flags on `end` (the segment end -> next's
+    first node), not on the next node.
+  - Test: TestWalkHang (src/hook/selftests_obj_walk_hang.cpp): the skater core kit (skater_core_testkit.h) over a
+    walk arena - the component, 6 rail nodes in a chain, the rail manager, the skater core with its flags, the
+    contact and a ride tracker; every callee recorded (the walk component's own code, rail manager, feelers, events,
+    scripts, memory); walk_parameters a hand-built structure; Normalize pointed at ours. Random arenas per variant
+    (12-240). 39 deliberate bugs: 38 caught (4 after strengthening: short rails, many more FaceHangRail variants, t
+    of 0 / 0.25, the pull-up's offset recorded before the drop overwrites it), 1 equivalent (StartRiding's null
+    store before the new tracker).
