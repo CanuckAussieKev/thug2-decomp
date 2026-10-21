@@ -121,9 +121,9 @@ CCompositeObject* CreateGameObject(Script::CStruct* params, int /*unused*/)
 }
 
 // 0x00468EB0
-void CreateGameObjectFromNode(Script::CStruct* params)
+CCompositeObject* CreateGameObjectFromNode(Script::CStruct* params)
 {
-    CreateGameObject(params, 0);
+    return CreateGameObject(params, 0);
 }
 
 // 0x00468EC0
