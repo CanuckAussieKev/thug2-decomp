@@ -7,9 +7,10 @@ class CStruct;
 class CScript;
 } // namespace Script
 
-// The script commands (CFunctions) of the music and streams, 0x0044D100-0x0044D7C7: thin wrappers reading their
-// parameters and calling the Pcm functions (music.h, music_api.h, stream_commands.h). All are cdecl (params,
-// script) and return whether the script's `if` should be taken.
+// The script commands (CFunctions) of the music and streams, 0x0044D100-0x0044D7C7 and (between the sound effects'
+// commands, sfx/sound_cfuncs.h) 0x0044D8F0-0x0044E399: thin wrappers reading their parameters and calling the Pcm
+// functions (music.h, music_api.h, stream_commands.h). All are cdecl (params, script) and return whether the
+// script's `if` should be taken.
 namespace CFuncs {
 
 bool __cdecl CFunc_StreamExists(Script::CStruct* params, Script::CScript* script);          // 0x0044D100
@@ -37,5 +38,11 @@ bool __cdecl CFunc_SetMusicLooping(Script::CStruct* params, Script::CScript* scr
 bool __cdecl CFunc_PreLoadStreamDone(Script::CStruct* params, Script::CScript* script);     // 0x0044D770
 bool __cdecl CFunc_UseUserSoundtrack(Script::CStruct* params, Script::CScript* script);     // 0x0044D790
 bool __cdecl CFunc_UseStandardSoundtrack(Script::CStruct* params, Script::CScript* script); // 0x0044D7C0
+bool __cdecl CFunc_PlayStream(Script::CStruct* params, Script::CScript* script);            // 0x0044D8F0
+bool __cdecl CFunc_SetStreamParams(Script::CStruct* params, Script::CScript* script);       // 0x0044DAA0
+bool __cdecl CFunc_LoadMusicHeader(Script::CStruct* params, Script::CScript* script);       // 0x0044E120
+bool __cdecl CFunc_LoadStreamHeader(Script::CStruct* params, Script::CScript* script);      // 0x0044E180
+bool __cdecl CFunc_GetCurrentTrack(Script::CStruct* params, Script::CScript* script);       // 0x0044E1E0
+bool __cdecl CFunc_StartPreLoadedStream(Script::CStruct* params, Script::CScript* script);  // 0x0044E2C0
 
 } // namespace CFuncs

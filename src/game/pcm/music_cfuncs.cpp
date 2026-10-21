@@ -5,10 +5,14 @@
 #include <cstdint>
 
 #include "game/core/dbg.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
 #include "game/pcm/stream_commands.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -25,6 +29,16 @@ constexpr uint32_t kVol = 0xF6A36814;       // "vol"
 constexpr uint32_t kLoop = 0x5EA0E211;      // "loop"
 constexpr uint32_t kTrackTitle = 0x14BADF8A; // "TrackTitle"
 constexpr uint32_t kPlaylist0 = 0x389129E4; // (name unknown) AddMusicTrack / ClearMusicTrackList: playlist 0, not 1
+constexpr uint32_t kVolL = 0x5E285A66;      // "volL"
+constexpr uint32_t kVolR = 0xA4276705;      // "volR"
+constexpr uint32_t kPitch = 0xD8604126;     // "pitch"
+constexpr uint32_t kPriority = 0x9D5923D8;  // "priority"
+constexpr uint32_t kStreamOption = 0xE46111E0; // (name unknown) PlayStream: passed on to the platform
+constexpr uint32_t kId = 0x40C698AF;        // "id"
+constexpr uint32_t kLipsync = 0xF5C3922B;   // "lipsync"
+constexpr uint32_t kCurrentTrack = 0x8D02705D; // "current_track"
+constexpr uint32_t kStreamId = 0x8A68AB90;  // "streamid"
+constexpr uint32_t kVolume = 0x46653221;    // "volume"
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
@@ -301,6 +315,127 @@ bool __cdecl CFunc_UseStandardSoundtrack(CStruct*, CScript*)
     return true;
 }
 
+// 0x0044D8F0: PlayStream <stream> [volL= volR= | vol= (100)] [pitch=100] [priority=50] [0xE46111E0=n] [id=<id>]
+// [lipsync=1 (its frame amplitudes loaded first)]: the stream played (stereo). False without a stream, or when
+// lipsync's amplitudes can't be loaded; else true (whether it plays or not).
+bool __cdecl CFunc_PlayStream(CStruct* params, CScript*)
+{
+    uint32_t stream = 0;
+    if (!params->GetChecksum(0u, &stream, 0))
+        return false;
+    float vol = 100.0f;
+    float left = 100.0f;
+    float right = 100.0f;
+    float pitch = 100.0f;
+    int priority = 50;
+    int option = 0;
+    uint32_t id = 0;
+    int lipsync = 0;
+    params->GetFloat(kVolL, &left, 0);
+    params->GetFloat(kVolR, &right, 0);
+    if (params->GetFloat(kVol, &vol, 0)) {
+        left = vol;
+        right = vol;
+    }
+    params->GetFloat(kPitch, &pitch, 0);
+    params->GetInteger(kPriority, &priority, 0);
+    params->GetInteger(kStreamOption, &option, 0);
+    params->GetChecksum(kId, &id, 0);
+    params->GetInteger(kLipsync, &lipsync, 0);
+    if (lipsync == 1 && !Pcm::LoadStreamFrameAmp(stream))
+        return false;
+    Sfx::sVolume volume;
+    volume.SetType(Sfx::sVolume::TYPE_STEREO); // (the channels as they were, the first two set below)
+    volume.m_channels[0] = left;
+    volume.m_channels[1] = right;
+    Pcm::PlayStream(stream, &volume, pitch, option, priority, id); // (the original pushes a seventh argument, 1)
+    return true;
+}
+
+// 0x0044DAA0: SetStreamParams <id or name> [volL= volR= | vol=] [pitch=]: the playing stream's volume (if any is
+// given: the manager's default type, the channels set) and pitch (if given). False without a stream or when
+// either change fails.
+bool __cdecl CFunc_SetStreamParams(CStruct* params, CScript*)
+{
+    uint32_t stream = 0;
+    if (!params->GetChecksum(0u, &stream, 0))
+        return false;
+    float left = 0.0f;  // (uninitialised in the original: a channel not given passes on whatever was there)
+    float right = 0.0f;
+    float vol = 0.0f;
+    bool gotLeft = params->GetFloat(kVolL, &left, 0);
+    bool gotVolume = params->GetFloat(kVolR, &right, 0) || gotLeft;
+    if (params->GetFloat(kVol, &vol, 0)) {
+        left = vol;
+        right = vol;
+        gotVolume = true;
+    }
+    bool ok = true;
+    if (gotVolume) {
+        Sfx::sVolume volume;
+        volume.Init();
+        volume.SetSilent();
+        volume.m_channels[0] = left;
+        volume.m_channels[1] = right;
+        ok = Pcm::SetStreamVolume(stream, &volume);
+    }
+    float pitch = 0.0f;
+    if (params->GetFloat(kPitch, &pitch, 0))
+        return Pcm::SetStreamPitch(stream, pitch) && ok;
+    return ok;
+}
+
+// 0x0044E120 / 0x0044E180: LoadMusicHeader / LoadStreamHeader <file>: loaded from the bottom-up heap; whether it
+// was. False without a file.
+bool __cdecl CFunc_LoadMusicHeader(CStruct* params, CScript*)
+{
+    const char* file = nullptr;
+    params->GetString(0u, &file, 0);
+    if (!file)
+        return false;
+    Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_bottomUpHeap);
+    bool loaded = Pcm::LoadMusicHeader(file);
+    Mem::Manager::Get()->PopContext();
+    return loaded;
+}
+bool __cdecl CFunc_LoadStreamHeader(CStruct* params, CScript*)
+{
+    const char* file = nullptr;
+    params->GetString(0u, &file, 0);
+    if (!file)
+        return false;
+    Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_bottomUpHeap);
+    bool loaded = Pcm::LoadStreamHeader(file);
+    Mem::Manager::Get()->PopContext();
+    return loaded;
+}
+
+// 0x0044E1E0: GetCurrentTrack: the track playing as the script's current_track. Always true.
+bool __cdecl CFunc_GetCurrentTrack(CStruct*, CScript* script)
+{
+    script->m_params->AddInteger(kCurrentTrack, Pcm::GetCurrentTrack());
+    return true;
+}
+
+// 0x0044E2C0: StartPreLoadedStream streamid=<id> [volume=100]: the preloaded stream started (pitch 100, priority
+// 0) at that volume on both channels; whether it did. (Original quirk: no streamid passes an uninitialised one;
+// here 0.)
+bool __cdecl CFunc_StartPreLoadedStream(CStruct* params, CScript*)
+{
+    uint32_t stream = 0;
+    params->GetChecksum(kStreamId, &stream, 1);
+    float level = 100.0f;
+    params->GetFloat(kVolume, &level, 0);
+    auto* volume = static_cast<Sfx::sVolume*>(Mem::New(sizeof(Sfx::sVolume)));
+    if (volume)
+        volume = volume->Init();
+    volume->m_channels[0] = level;
+    volume->m_channels[1] = level;
+    bool started = Pcm::StartPreLoadedStream(stream, volume, 100.0f, 0);
+    Mem::Manager::Get()->Free(volume);
+    return started;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x0044D100, CFuncs::CFunc_StreamExists);
@@ -328,3 +463,9 @@ REPLACE(0x0044D740, CFuncs::CFunc_SetMusicLooping);
 REPLACE(0x0044D770, CFuncs::CFunc_PreLoadStreamDone);
 REPLACE(0x0044D790, CFuncs::CFunc_UseUserSoundtrack);
 REPLACE(0x0044D7C0, CFuncs::CFunc_UseStandardSoundtrack);
+REPLACE(0x0044D8F0, CFuncs::CFunc_PlayStream);
+REPLACE(0x0044DAA0, CFuncs::CFunc_SetStreamParams);
+REPLACE(0x0044E120, CFuncs::CFunc_LoadMusicHeader);
+REPLACE(0x0044E180, CFuncs::CFunc_LoadStreamHeader);
+REPLACE(0x0044E1E0, CFuncs::CFunc_GetCurrentTrack);
+REPLACE(0x0044E2C0, CFuncs::CFunc_StartPreLoadedStream);

@@ -548,6 +548,7 @@ add_library(thug2_code OBJECT
     src/game/obj/path_manager.cpp
     src/game/obj/path_follower.cpp
     src/game/sfx/sfx.cpp
+    src/game/sfx/sound_cfuncs.cpp
     src/game/sfx/sfx_voices.cpp
     src/game/gfx/anim_blend.cpp
     src/game/obj/event.cpp

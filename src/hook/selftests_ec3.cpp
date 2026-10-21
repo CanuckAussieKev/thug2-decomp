@@ -9,9 +9,11 @@
 #include <cstring>
 #include <functional>
 #include <initializer_list>
+#include <limits>
 #include <vector>
 
 #include "game/core/dbg.h"
+#include "game/core/manager.h"
 #include "game/core/pool.h"
 #include "game/mth/random.h"
 #include "game/pcm/music.h"
@@ -23,6 +25,8 @@
 #include "game/script/qb.h"
 #include "game/script/script_util_cfuncs.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
+#include "game/sfx/sound_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -985,8 +989,251 @@ void TestMusicCFuncs()
     Compare(traces[0], traces[1], "music and stream commands (0x0044D100-0x0044D7C0)");
 }
 
+// --- batch EC3-4: the sound effects commands and the rest of the stream commands ----------------------------
+
+alignas(16) uint8_t g_fakeSfxManager[0x20];
+alignas(16) uint8_t g_fakeMemManager[sizeof(Mem::Manager)];
+alignas(16) uint8_t g_volumeBlock[0x40];
+
+// A volume passed by pointer: its type and the two channels set.
+void RecordVolume(uint32_t address)
+{
+    auto* volume = reinterpret_cast<const Sfx::sVolume*>(address);
+    Record({static_cast<uint32_t>(volume->m_type), Bits(volume->m_channels[0]), Bits(volume->m_channels[1])});
+}
+
+void StandInSoundCalls(StandIns& s)
+{
+    using Manager = Sfx::CSfxManager;
+    auto method = [&s](uint32_t address, uint32_t ours, uint16_t pop, uint32_t tag, int volumeArg) {
+        s.At({address, ours}, pop, [tag, pop, volumeArg](Regs& r) {
+            Record({tag, r.ecx == reinterpret_cast<uint32_t>(g_fakeSfxManager) ? 1u : r.ecx});
+            for (int i = 0; i < pop / 4; ++i) {
+                if (i == volumeArg)
+                    RecordVolume(r.args[i]);
+                else if (tag == 0xB360 && i == 0)
+                    Record({Hash(reinterpret_cast<const char*>(r.args[i]))});
+                else if ((tag == 0xB6B0 && i == 2) || (tag == 0xB650 && i > 0)) // (flags: bools in AL, the rest stale)
+                    Record({r.args[i] & 0xFF});
+                else
+                    Record({r.args[i]});
+            }
+            return g_pcmResult;
+        });
+    };
+    method(0x0047B360, AddressOf(&Manager::LoadSound), 28, 0xB360, -1);
+    method(0x0047BD20, AddressOf(&Manager::PlaySound), 24, 0xBD20, 1);
+    method(0x0047B4E0, AddressOf(&Manager::StopSound), 4, 0xB4E0, -1);
+    method(0x0047B240, AddressOf(&Manager::StopAllSounds), 0, 0xB240, -1);
+    method(0x0047B520, AddressOf(&Manager::SetSoundParams), 12, 0xB520, 1);
+    method(0x0047B6F0, AddressOf(&Manager::IsSoundPlaying), 8, 0xB6F0, -1);
+    method(0x0047AE90, AddressOf(&Manager::StopGroup), 4, 0xAE90, -1);
+    method(0x0047AEA0, AddressOf(&Manager::UnloadGroup), 4, 0xAEA0, -1);
+    method(0x0047AF10, AddressOf(&Manager::UnloadAllGroups), 0, 0xAF10, -1);
+    method(0x0047B6B0, AddressOf(&Manager::PrintSounds), 12, 0xB6B0, -1);
+    method(0x0047B210, AddressOf(&Manager::SetDefaultDropoff), 4, 0xB210, -1);
+    method(0x0047B5D0, AddressOf(&Manager::SetMainVolume), 4, 0xB5D0, -1);
+    method(0x0047B650, AddressOf(&Manager::SetPitch), 12, 0xB650, -1);
+    // (the Pcm functions, cdecl: the same recording, without a this)
+    auto pcm = [&s](uint32_t address, uint32_t ours, int count, uint32_t tag, int volumeArg) {
+        s.At({address, ours}, 0, [tag, count, volumeArg](Regs& r) {
+            Record({tag});
+            for (int i = 0; i < count; ++i) {
+                if (i == volumeArg)
+                    RecordVolume(r.args[i]);
+                else
+                    Record({tag == 0x15E0 || tag == 0x1620 ? Hash(reinterpret_cast<const char*>(r.args[i])) : r.args[i]});
+            }
+            return g_pcmResult;
+        });
+    };
+    pcm(0x00451960, AddressOf(&Pcm::PlayStream), 6, 0x1960, 1);
+    pcm(0x00450780, AddressOf(&Pcm::SetStreamVolume), 2, 0x0780, 1);
+    pcm(0x004507D0, AddressOf(&Pcm::SetStreamPitch), 2, 0x07D0, -1);
+    pcm(0x004516A0, AddressOf(&Pcm::LoadStreamFrameAmp), 1, 0x16A0, -1);
+    pcm(0x004515E0, AddressOf(&Pcm::LoadMusicHeader), 1, 0x15E0, -1);
+    pcm(0x00451620, AddressOf(&Pcm::LoadStreamHeader), 1, 0x1620, -1);
+    pcm(0x00450520, AddressOf(&Pcm::GetCurrentTrack), 0, 0x0520, -1);
+    pcm(0x00450980, AddressOf(&Pcm::StartPreLoadedStream), 4, 0x0980, 1);
+    s.At({0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 0, [](Regs& r) {
+        Record({0x8F60, r.args[0]});
+        return 0u;
+    });
+    // the memory manager
+    s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
+        Record({0xAFC0, r.args[0], r.args[1], r.args[2]});
+        std::memset(g_volumeBlock, 0xCD, sizeof(g_volumeBlock));
+        return reinterpret_cast<uint32_t>(g_volumeBlock);
+    });
+    s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
+        Record({0xABA0, r.args[0] == reinterpret_cast<uint32_t>(g_volumeBlock) ? 1u : r.args[0]});
+        return 0u;
+    });
+    s.At({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, [](Regs& r) {
+        Record({0xB0E0, r.args[0]});
+        return 0u;
+    });
+    s.At({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, [](Regs&) {
+        Record({0xB110});
+        return 0u;
+    });
+}
+
+void TestSoundCFuncs()
+{
+    EmptySymbolTable();
+    // the sound manager, the memory manager (ready), the volumes the getters read
+    for (Saved s : std::initializer_list<Saved>{{0x006F85A8, 4, {}}, {0x007D1800, 4, {}}, {0x007CC979, 1, {}},
+                                                {0x0067D7E4, 8, {}}, {0x0067DA38, 4, {}}}) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+        g_ec3Saved.push_back(s);
+    }
+    std::memset(g_fakeSfxManager, 0, sizeof(g_fakeSfxManager));
+    reinterpret_cast<int*>(g_fakeSfxManager)[1] = 2; // the default volume type (surround)
+    GameVariable<void*>(0x006F85A8) = g_fakeSfxManager;
+    std::memset(g_fakeMemManager, 0, sizeof(g_fakeMemManager));
+    reinterpret_cast<Mem::Manager*>(g_fakeMemManager)->m_bottomUpHeap = reinterpret_cast<Mem::Heap*>(0x0B077011);
+    reinterpret_cast<Mem::Manager*>(g_fakeMemManager)->m_topDownHeap = reinterpret_cast<Mem::Heap*>(0x0B077022);
+    GameVariable<void*>(0x007D1800) = g_fakeMemManager;
+    GameVariable<bool>(0x007CC979) = true;
+    auto* standIns = new StandIns;
+    StandInStructCalls(*standIns);
+    StandInSoundCalls(*standIns);
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        auto call = [&](uint32_t address, CFunc ours, TestParams& params) {
+            std::memset(g_ec3Script, 0, sizeof(g_ec3Script));
+            reinterpret_cast<CStruct**>(g_ec3Script)[0x14 / 4] = g_ec3Own.Struct();
+            auto* script = reinterpret_cast<Script::CScript*>(g_ec3Script);
+            if (g_ec3Trace)
+                Log("ec3: %08X %s", address, original ? "original" : "ours");
+            for (uint32_t result : {0x00000000u, 0x00000001u, 0xFFFFFF00u}) {
+                g_pcmResult = result;
+                g_fakeSfxManager[0] = 0x5A;
+                bool returned = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+                Record({0xC0DE, address, returned ? 1u : 0u, g_fakeSfxManager[0]});
+            }
+        };
+        using namespace CFuncs;
+        TestParams none;
+        g_ec3Own.Reset();
+        // LoadSound: the defaults; everything; the level flag over a bank; a bank; the second flag; no file
+        {
+            TestParams a; a.String(0, "Shared\\Skater\\land");
+            TestParams b; b.String(0, "loud").Float(0xD8604126, 85.5f).Float(0xFF2020EC, 30.25f).Float(0xF6A36814, 40.0f)
+                .Integer(0x279F4085, 3).Flag(0xCF15C120);
+            TestParams c; c.String(0, "level").Flag(0x389129E4).Integer(0x279F4085, 4).Flag(0x8B87176F);
+            TestParams d; d.String(0, "bank").Integer(0x279F4085, 5).Flag(0x8B87176F);
+            TestParams e; e.Float(0xD8604126, 85.5f);
+            for (TestParams* p : {&a, &b, &c, &d, &e})
+                call(0x0044D7D0, CFunc_LoadSound, *p);
+        }
+        // PlaySound / SetSoundParams: the defaults; volL / volR; vol over them; pitch and id; no sound
+        {
+            TestParams a; a.Checksum(0, 0x50D);
+            TestParams b; b.Checksum(0, 0x50E).Float(0x5E285A66, 20.0f).Float(0xA4276705, 70.0f).Float(0xD8604126, 120.0f);
+            TestParams c; c.Checksum(0, 0x50F).Float(0x5E285A66, 20.0f).Float(0xF6A36814, 33.0f).Checksum(0x40C698AF, 0x1D1D);
+            TestParams d; d.Float(0xF6A36814, 10.0f).Checksum(0x40C698AF, 0x1D1E);
+            for (TestParams* p : {&a, &b, &c, &d}) {
+                call(0x0044DC10, CFunc_PlaySound, *p);
+                call(0x0044DDB0, CFunc_SetSoundParams, *p);
+                call(0x0044DD50, CFunc_StopSound, *p);
+                call(0x0044DED0, CFunc_IsSoundPlaying, *p);
+            }
+            call(0x0044DDA0, CFunc_StopAllSounds, none);
+        }
+        // the banks
+        {
+            static TestArray banks(Script::ESYMBOLTYPE_INTEGER, {1, 7, 0x400});
+            static TestArray empty(Script::ESYMBOLTYPE_INTEGER, {});
+            TestParams a; a.Array(0, banks.Get());
+            TestParams b; b.Array(0, empty.Get());
+            TestParams c; c.Integer(0, 6);
+            for (TestParams* p : {&none, &a, &b, &c}) {
+                call(0x0044DF10, CFunc_AddSoundBanks, *p);
+                call(0x0044DF70, CFunc_ClearSoundBank, *p);
+            }
+            call(0x0044DFA0, CFunc_RemoveAllSoundBanks, none);
+        }
+        // reverb, dropoff, volume, pitch modulation, the silence override: around their limits
+        {
+            for (float level : {0.0f, 55.5f, 99.5f, 100.0f, 100.5f, -3.0f, std::numeric_limits<float>::quiet_NaN()}) {
+                TestParams a; a.Float(0, level).Integer(0x6835B854, 3).Flag(0xF16FB852);
+                call(0x0044DFB0, CFunc_SetSfxReverb, a);
+                call(0x0044E040, CFunc_SetSfxDropoff, a);
+                call(0x0044E090, CFunc_SetSfxVolume, a);
+                call(0x0044E0C0, CFunc_SetGlobalPitchModulation, a);
+            }
+            TestParams b; b.Integer(0x6835B854, 1);
+            TestParams c; c.Flag(0x6A3BD54B);
+            TestParams d; d.Flag(0xC406CE6F).Float(0, 0.5f);
+            for (TestParams* p : {&none, &b, &c, &d}) {
+                call(0x0044DFB0, CFunc_SetSfxReverb, *p);
+                call(0x0044E040, CFunc_SetSfxDropoff, *p);
+                call(0x0044E090, CFunc_SetSfxVolume, *p);
+                call(0x0044E0C0, CFunc_SetGlobalPitchModulation, *p);
+            }
+            TestParams e; e.Integer(0, 0);
+            TestParams f; f.Integer(0, 2);
+            for (TestParams* p : {&none, &e, &f}) {
+                call(0x0044E290, CFunc_SetPositionalSoundSilenceOverrideMode, *p);
+                Record({g_fakeSfxManager[0]});
+            }
+        }
+        // GetValueFromVolume: each kind (volumes truncated, negative ones too), another name
+        {
+            for (float volume : {57.9f, 100.0f, 9.99f, -15.5f}) {
+                GameVariable<float>(0x0067DA38) = volume;
+                GameVariable<float>(0x0067D7E4) = volume * 0.5f;
+                GameVariable<float>(0x0067D7E8) = volume + 3.0f;
+                for (uint32_t which : {0x8D6F6554u, 0xA5162BD2u, 0xE32F3525u, 0x12345678u}) {
+                    TestParams p; p.Checksum(0, which);
+                    call(0x0044E200, CFunc_GetValueFromVolume, p);
+                }
+            }
+        }
+        // the stream commands of this batch
+        {
+            TestParams a; a.Checksum(0, 0x57E);
+            TestParams b; b.Checksum(0, 0x57F).Float(0x5E285A66, 25.0f).Float(0xA4276705, 75.0f).Float(0xD8604126, 90.0f)
+                .Integer(0x9D5923D8, 70).Integer(0xE46111E0, 2).Checksum(0x40C698AF, 0x1D);
+            TestParams c; c.Checksum(0, 0x580).Float(0xF6A36814, 64.0f).Integer(0xF5C3922B, 1);
+            TestParams d; d.Checksum(0, 0x581).Integer(0xF5C3922B, 2).Float(0x5E285A66, 1.0f).Float(0xA4276705, 2.0f);
+            TestParams e; e.Float(0xF6A36814, 64.0f);
+            TestParams f; f.Checksum(0, 0x582).Float(0xD8604126, 77.0f);
+            TestParams g; g.Checksum(0, 0x583).Float(0xF6A36814, 12.5f);
+            for (TestParams* p : {&a, &b, &c, &d, &e, &f, &g}) {
+                call(0x0044D8F0, CFunc_PlayStream, *p);
+                if (p != &d && p != &b) // (one channel alone passes an uninitialised other in the original)
+                    call(0x0044DAA0, CFunc_SetStreamParams, *p);
+            }
+            TestParams h; h.Checksum(0, 0x584).Float(0x5E285A66, 5.0f).Float(0xA4276705, 6.0f).Float(0xD8604126, 7.0f);
+            call(0x0044DAA0, CFunc_SetStreamParams, h);
+            TestParams i; i.String(0, "music\\vag\\header");
+            for (TestParams* p : {&none, &i}) {
+                call(0x0044E120, CFunc_LoadMusicHeader, *p);
+                call(0x0044E180, CFunc_LoadStreamHeader, *p);
+            }
+            call(0x0044E1E0, CFunc_GetCurrentTrack, none);
+            TestParams j; j.Checksum(0x8A68AB90, 0x9E1).Float(0x46653221, 44.0f);
+            TestParams k; k.Checksum(0x8A68AB90, 0x9E2);
+            call(0x0044E2C0, CFunc_StartPreLoadedStream, j);
+            call(0x0044E2C0, CFunc_StartPreLoadedStream, k);
+        }
+        traces[run] = g_trace;
+    }
+    RestoreEc3();
+    Check(traces[0].size() > 1500, "sound commands: the original reached its calls");
+    Compare(traces[0], traces[1], "sound effects and stream commands (0x0044D7D0-0x0044E2C0)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestScriptUtilCFuncs, RestoreEc3);
 SELFTEST(Early, TestScriptArrayCFuncs, RestoreEc3);
 SELFTEST(Early, TestMusicCFuncs, RestoreEc3);
+SELFTEST(Early, TestSoundCFuncs, RestoreEc3);
