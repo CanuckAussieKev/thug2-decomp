@@ -8,8 +8,10 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
+#include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
@@ -18,10 +20,9 @@
 #include "game/obj/smtptr.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-
-namespace Walk {
 
 namespace {
 
@@ -40,7 +41,7 @@ const T& At(const void* object, uint32_t offset)
 constexpr uint32_t kObject = 0x0C;          // the skater's object (Obj::CCompositeObject*)
 constexpr uint32_t kPos = 0x24;             // the position (a vector)
 constexpr uint32_t kVelocity = 0x34;        // the velocity (a vector)
-constexpr uint32_t kSpeed = 0x44;           // (a float with it)
+constexpr uint32_t kVerticalSpeed = 0x44;   // (the vertical speed)
 constexpr uint32_t kFacing = 0x48;          // the facing (a vector)
 constexpr uint32_t kOldPos = 0x68;          // last frame's position
 constexpr uint32_t kUnknown74 = 0x74;       // (a float set to 1 by a drop to hang)
@@ -70,14 +71,9 @@ constexpr uint32_t kEndHeightOffset = 0x1918;   // ... and end
 constexpr uint32_t kAnimWaiting = 0x1944;   // an animation is playing: the callback waits
 constexpr uint32_t kAnimDone = 0x1948;      // the callback (a member function pointer: the code, then 3 words)
 
-// The walk component's own code (not rewritten): its state (0 walking, 1 in the air, 2 hanging, 3 on a ladder or
-// rail, 4 an animated move), 0x0052AB90 (the velocity from `velocity` / `speed` - its +0x34 / +0x44), 0x00527720
-// (turning to face a direction, at a rate).
+// The walk component's own code (not rewritten): its state (+0x18: 0 walking, 1 in the air, 2 hanging, 3 on a
+// ladder, 4 an animated move), 0x00527720 (turning to face a direction, at a rate).
 void SetState(void* walk, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x005260E0)(walk, state); }
-void SetVelocity(void* walk, Mth::Vector* velocity, float* speed)
-{
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*, float*)>(0x0052AB90)(walk, velocity, speed);
-}
 void TurnTo(void* walk, const Mth::Vector* facing, float rate)
 {
     GameFunction<void(__thiscall*)(void*, const Mth::Vector*, float)>(0x00527720)(walk, facing, rate);
@@ -118,24 +114,49 @@ constexpr uint32_t kAnimHang = 0x4194ECCA;             // "Hang"
 // More fields: the facing aimed at in an animated move, the height there, the hang point's offset along the rail.
 constexpr uint32_t kTargetFacing = 0x18B4;
 constexpr uint32_t kTargetHeight = 0x18C8;
-constexpr uint32_t kRail2C = 0x18D8;
+constexpr uint32_t kHangAnim = 0x18D8; // the hang's animation (SWING / WALL)
 
 constexpr uint32_t kTaggingControl = 0x380D909A;       // "TaggingControl"
+
+// The hang's own update.
+constexpr uint32_t kState = 0x18;            // 0 walking, 1 in the air, 2 hanging, 3 on a ladder, 4 an animated move
+constexpr uint32_t kFrameLength = 0x80;      // the frame's length (seconds)
+constexpr uint32_t kControlMagnitude = 0x94; // how far the control is pushed
+constexpr uint32_t kControlHeld = 0x98;      // (a byte: the control is pushed)
+constexpr uint32_t kAnimSpeed = 0x704;       // the move's speed (for the animation's)
+constexpr uint32_t kInput = 0x1770;          // the input component (+0x20: the control - see Walk::SkaterTurn)
+constexpr uint32_t kHangMoveSpeed = 0x18DC;  // the shimmy's speed, eased towards the control's
+constexpr uint32_t kFlag1958 = 0x1958;       // (a byte cleared each hanging frame)
+constexpr uint32_t kHangHorizOriginOffset = 0x262A9467; // "hang_horiz_origin_offset"
+constexpr uint32_t kHopObstructionFeelerUp = 0xA85EC070; // "hop_obstruction_feeler_up"
+constexpr uint32_t kHangMaxRailAscent = 0x98724EBC;   // "hang_max_rail_ascent"
+constexpr uint32_t kHangInitAnimFeelerHeight = 0xDBB3D53E; // "hang_init_anim_feeler_height"
+constexpr uint32_t kHangInitAnimFeelerLength = 0x2F83AE83; // "hang_init_anim_feeler_length"
+constexpr uint32_t kPullUpOffsetUp = 0x52FA7CA6;      // "pull_up_offset_up"
+constexpr uint32_t kHangVertControlTolerance = 0x1B877928; // "hang_vert_control_tolerance"
+constexpr uint32_t kHangMoveSpeedParam = 0xD77EE881;  // "hang_move_speed"
+constexpr uint32_t kHangMoveLerpRate = 0xC506A97C;    // "hang_move_lerp_rate"
+constexpr uint32_t kHangMoveCutoff = 0x228B5376;      // "hang_move_cutoff"
+constexpr uint32_t kAnimAir = 0x439F4704;             // "Air"
+constexpr uint32_t kAnimHangMoveLeft = 0x2D9815C3;    // "HangMoveLeft"
+constexpr uint32_t kAnimHangMoveRight = 0x279B1F0B;   // "HangMoveRight"
+constexpr uint32_t kAnimSwing = 0x1EE948A5;           // "SWING"
+constexpr uint32_t kAnimWall = 0xEC0A1009;            // "WALL"
 
 Obj::CCompositeObject* ObjectOf(void* walk) { return At<Obj::CCompositeObject*>(walk, kObject); }
 Obj::CRailManager*& RailsOf(void* walk) { return At<Obj::CRailManager*>(walk, kRailManager); }
 Skater::CorePhysicsComponent* PhysicsOf(void* walk) { return At<Skater::CorePhysicsComponent*>(walk, kPhysics); }
 Mth::Vector& VectorAt(void* walk, uint32_t offset) { return At<Mth::Vector>(walk, offset); }
 
-// What FindRail finds (its 0x34-byte record): the point on the rail, the direction to face, how far along, out and
-// up from the rail, and the rail's node.
+// What FindRail finds (its 0x34-byte record, filled by CheckRail): the hang point, the direction to face (out from
+// the wall), how far along, out and up from the rail, the animation, and the rail's node.
 struct FoundRail {
     Mth::Vector point;     // +0x00
     Mth::Vector facing;    // +0x10
     float along;           // +0x20
     float out;             // +0x24
     float up;              // +0x28
-    float unknown2C;       // +0x2C
+    uint32_t anim;         // +0x2C the hang's animation (SWING, or WALL)
     Obj::CRailNode* node;  // +0x30
 };
 static_assert(sizeof(FoundRail) == sizeof(Obj::Record34), "the rail manager's record");
@@ -170,8 +191,8 @@ Obj::CRailManager* LevelRails() { return At<Obj::CRailManager*>(GameVariable<uin
 // FindRail for a walk component between `start` and `end`: the level's rails, else each moving rail manager's (its
 // object's space: riding that object if one is found). `direction` / the margin's global float are read again for
 // each. The rail manager used is left at +0x176C.
-bool FindWalkRail(Component* walk, const Mth::Vector* start, const Mth::Vector* end,
-                  const Mth::Vector* (*direction)(Component*, Mth::Vector*), uint32_t margin, FoundRail* found)
+bool FindWalkRail(Obj::CWalkComponent* walk, const Mth::Vector* start, const Mth::Vector* end,
+                  const Mth::Vector* (*direction)(Obj::CWalkComponent*, Mth::Vector*), uint32_t margin, FoundRail* found)
 {
     Mth::Vector buffer;
     RailsOf(walk) = LevelRails();
@@ -194,20 +215,20 @@ bool FindWalkRail(Component* walk, const Mth::Vector* start, const Mth::Vector* 
         towards = direction(walk, &buffer);
         snap = Script::GetFloat(margin);
         if (RailsOf(walk)->FindRail(&localStart, &localEnd, towards, walk, record, snap)) {
-            reinterpret_cast<MovableContact*>(At<void*>(walk, kContact))
+            reinterpret_cast<Walk::MovableContact*>(At<void*>(walk, kContact))
                 ->StartRiding(At<Obj::CCompositeObject*>(component, 0x0C));
             return true;
         }
     }
     return false;
 }
-const Mth::Vector* FacingAway(Component* walk, Mth::Vector* buffer)
+const Mth::Vector* FacingAway(Obj::CWalkComponent* walk, Mth::Vector* buffer)
 {
     const Mth::Vector& facing = At<Mth::Vector>(walk, 0x48);
     *buffer = {-facing.x, -facing.y, -facing.z, -facing.w};
     return buffer;
 }
-const Mth::Vector* Facing(Component* walk, Mth::Vector*) { return &At<Mth::Vector>(walk, 0x48); }
+const Mth::Vector* Facing(Obj::CWalkComponent* walk, Mth::Vector*) { return &At<Mth::Vector>(walk, 0x48); }
 
 // The animation-end callback (+0x1948): a member function pointer as the compiler lays it out - the code (the game's
 // address: in the game, a jump to ours) and three words of adjustment.
@@ -233,9 +254,9 @@ void TriggerRailScript(void* walk, uint32_t events)
     PhysicsOf(walk)->TriggerRailScript(reinterpret_cast<const int*>(events));
 }
 // The hang offset (+0x71C) for the facing: hang_critical_point_horiz_offset along it, the critical point's height up.
-void SetHangOffset(Component* walk)
+void SetHangOffset(Obj::CWalkComponent* walk)
 {
-    float horiz = Component::Param(kHangCriticalPointHorizOffset);
+    float horiz = Obj::CWalkComponent::Param(kHangCriticalPointHorizOffset);
     const Mth::Vector& facing = VectorAt(walk, kFacing);
     Mth::Vector& offset = VectorAt(walk, kHangOffset);
     offset.z = horiz * facing.z;
@@ -289,7 +310,7 @@ constexpr double kSixtyDegrees = 1.0471975511965976;
 // --- small helpers ---
 
 // 0x0043D990
-Mth::Vector* __cdecl Lerp(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b, float t)
+Mth::Vector* __cdecl Walk::Lerp(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b, float t)
 {
     double dx = static_cast<double>(b->x) - a->x;
     double dy = static_cast<double>(b->y) - a->y;
@@ -306,7 +327,7 @@ Mth::Vector* __cdecl Lerp(Mth::Vector* out, const Mth::Vector* a, const Mth::Vec
 }
 
 // 0x0043DA20
-int SkaterTurn::TurnedRound() const
+int Walk::SkaterTurn::TurnedRound() const
 {
     const void* skater = this;
     if (At<int>(skater, 0x234) == 0 && At<float>(skater, 0x22C) != 0.0f &&
@@ -316,7 +337,7 @@ int SkaterTurn::TurnedRound() const
 }
 
 // 0x0043DA70
-float __cdecl Component::Param(uint32_t name)
+float __cdecl Obj::CWalkComponent::Param(uint32_t name)
 {
     float value;
     Script::GetStructure(kWalkParameters)->GetFloat(name, &value, 1);
@@ -324,7 +345,7 @@ float __cdecl Component::Param(uint32_t name)
 }
 
 // 0x0043DAA0
-double Component::RunSpeed()
+double Obj::CWalkComponent::RunSpeed()
 {
     float combo = Param(kComboRunSpeed);
     float run = Param(kRunSpeed);
@@ -332,7 +353,7 @@ double Component::RunSpeed()
 }
 
 // 0x0043DC00
-double Component::HangHeightOffset()
+double Obj::CWalkComponent::HangHeightOffset()
 {
     const uint8_t* node = At<uint8_t*>(At<void*>(this, kModel), 0x208);
     if (!(node[0x44] & 8))
@@ -343,7 +364,7 @@ double Component::HangHeightOffset()
 }
 
 // 0x0043DC60
-double Component::CriticalPointUp()
+double Obj::CWalkComponent::CriticalPointUp()
 {
     float vert = Param(kHangCriticalPointVertOffset);
     float scaling = Param(kMaxCasScaling);
@@ -352,7 +373,7 @@ double Component::CriticalPointUp()
 }
 
 // 0x0043DB00
-void Component::EndPullUp()
+void Obj::CWalkComponent::EndPullUp()
 {
     SetState(this, 0);
     ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
@@ -367,18 +388,18 @@ void Component::EndPullUp()
 }
 
 // 0x0043DB90
-void Component::EndDropFromHang()
+void Obj::CWalkComponent::EndDropFromHang()
 {
     SetState(this, 1);
     ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
     TriggerRailScript(this, kExitHangEvents);
     VectorAt(this, kExitFacing) = VectorAt(this, kFacing);
-    SetVelocity(this, &VectorAt(this, kVelocity), &At<float>(this, kSpeed));
+    LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
     At<float>(this, kHeightOffset) = At<float>(this, kEndHeightOffset);
 }
 
 // 0x0043DCF0
-void Component::EndDropToHang()
+void Obj::CWalkComponent::EndDropToHang()
 {
     SetHangOffset(this);
     SetState(this, 2);
@@ -388,7 +409,7 @@ void Component::EndDropToHang()
 }
 
 // 0x0043DDD0
-bool Component::SideClear(Nx::CFeeler* feeler, const Mth::Vector* hang, const Mth::Vector* side)
+bool Obj::CWalkComponent::SideClear(Nx::CFeeler* feeler, const Mth::Vector* hang, const Mth::Vector* side)
 {
     float sideLength = Param(kHangObstructionFeelerSide);
     float sx = sideLength * side->x;
@@ -424,7 +445,7 @@ bool Component::SideClear(Nx::CFeeler* feeler, const Mth::Vector* hang, const Mt
 }
 
 // 0x0043DFC0
-void Component::FaceHangRail(float distance, bool fromEnd, const Mth::Vector* direction)
+void Obj::CWalkComponent::FaceHangRail(float distance, bool fromEnd, const Mth::Vector* direction)
 {
     Obj::CRailManager* rails = RailsOf(this);
     Mth::Vector a, b;
@@ -467,7 +488,7 @@ void Component::FaceHangRail(float distance, bool fromEnd, const Mth::Vector* di
 }
 
 // 0x0043E230
-bool Component::NextHangRail(float* t, Obj::CRailNode* start, Obj::CRailNode* end, Obj::CRailNode** newStart,
+bool Obj::CWalkComponent::NextHangRail(float* t, Obj::CRailNode* start, Obj::CRailNode* end, Obj::CRailNode** newStart,
                              Obj::CRailNode** newEnd)
 {
     Obj::CRailManager* rails = RailsOf(this);
@@ -534,7 +555,7 @@ bool Component::NextHangRail(float* t, Obj::CRailNode* start, Obj::CRailNode* en
 }
 
 // 0x0043E530
-bool Component::PullUp(Mth::Vector* target)
+bool Obj::CWalkComponent::PullUp(Mth::Vector* target)
 {
     // the ground to stand on: near the target, else 12 to one side of it, else 12 to the other
     Nx::CFeeler ledge;
@@ -621,7 +642,7 @@ bool Component::PullUp(Mth::Vector* target)
 }
 
 // 0x0043EC40
-bool Component::DropToHang()
+bool Obj::CWalkComponent::DropToHang()
 {
     if (At<bool>(At<uint8_t*>(PhysicsOf(this), 0x1528), 0x70))
         return false;
@@ -642,7 +663,7 @@ bool Component::DropToHang()
         return false;
     At<Obj::CRailNode*>(this, kRailStart) = rail.node;
     At<Obj::CRailNode*>(this, kRailEnd) = rail.node->m_next;
-    At<float>(this, kSpeed) = 0.0f;
+    At<float>(this, kVerticalSpeed) = 0.0f;
     VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     At<float>(this, kAlong) = rail.along;
     At<float>(this, kRailOut) = rail.out;
@@ -666,9 +687,9 @@ bool Component::DropToHang()
 }
 
 // 0x0043F030
-bool Component::GrabRail(Mth::Vector start, Mth::Vector end)
+bool Obj::CWalkComponent::GrabRail(Mth::Vector start, Mth::Vector end)
 {
-    if (At<float>(this, kSpeed) > 50.0f)
+    if (At<float>(this, kVerticalSpeed) > 50.0f)
         return false;
     start.y = start.y + Param(kHangVertOriginOffset);
     end.y = end.y + Param(kHangVertOriginOffset);
@@ -684,10 +705,10 @@ bool Component::GrabRail(Mth::Vector start, Mth::Vector end)
     At<float>(this, kAlong) = rail.along;
     At<float>(this, kRailUp) = rail.up;
     At<float>(this, kRailOut) = rail.out;
-    At<float>(this, kRail2C) = rail.unknown2C;
+    At<uint32_t>(this, kHangAnim) = rail.anim;
     SetHangOffset(this);
     VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
-    At<float>(this, kSpeed) = 0.0f;
+    At<float>(this, kVerticalSpeed) = 0.0f;
     At<float>(this, kHeightOffset) = static_cast<float>(HangHeightOffset());
     SetState(this, 2);
     TellPhysicsRail(this);
@@ -702,15 +723,15 @@ bool Component::GrabRail(Mth::Vector start, Mth::Vector end)
 }
 
 // 0x0043F3A0
-bool Component::ShimmyBlocked(const Mth::Vector* out, float along, const Mth::Vector* point, bool left,
+bool Obj::CWalkComponent::ShimmyBlocked(const Mth::Vector* out, float along, const Mth::Vector* point, bool left,
                               const Mth::Vector* move, Mth::Vector segment, Obj::CRailNode* start, Obj::CRailNode* end)
 {
     double dot = static_cast<double>(segment.y) * move->y + static_cast<double>(segment.x) * move->x +
                  static_cast<double>(segment.z) * move->z;
-    bool backwards = dot < 0.0 ? left : !left;
+    bool towardsEnd = dot < 0.0 ? left : !left;
     Mth::Vector sideways = left ? *move : Mth::Vector{-move->x, -move->y, -move->z, -move->w};
     Mth::Vector outwards = *out;
-    double t = backwards ? 1.0 - along : along;
+    double t = towardsEnd ? 1.0 - along : along;
     double segmentLength = std::sqrt(static_cast<double>(segment.z) * segment.z +
                                      static_cast<double>(segment.y) * segment.y +
                                      static_cast<double>(segment.x) * segment.x);
@@ -718,7 +739,7 @@ bool Component::ShimmyBlocked(const Mth::Vector* out, float along, const Mth::Ve
     float sideLength = Param(kHangMoveCollisionSideLength);
     if (static_cast<double>(sideLength) + 1.0f > distance) {
         // near the segment's end: look along the next segment instead, if it doesn't turn too far
-        along = (backwards ? 2.0f : -2.0f) + along;
+        along = (towardsEnd ? 2.0f : -2.0f) + along;
         Obj::CRailNode* nextStart;
         Obj::CRailNode* nextEnd;
         if (NextHangRail(&along, start, end, &nextStart, &nextEnd)) {
@@ -785,7 +806,7 @@ bool Component::ShimmyBlocked(const Mth::Vector* out, float along, const Mth::Ve
     addScaled(Param(kHangCriticalPointHorizOffset), outwards);
     addScaled(Param(kHangMoveCollisionSideLength), sideways);
     segment.Normalize();
-    const Mth::Vector onward = backwards ? Mth::Vector{-segment.x, -segment.y, -segment.z, -segment.w} : segment;
+    const Mth::Vector onward = towardsEnd ? Mth::Vector{-segment.x, -segment.y, -segment.z, -segment.w} : segment;
     line.end.x = line.end.x + onward.x;
     line.end.y = line.end.y + onward.y;
     line.end.z = line.end.z + onward.z;
@@ -800,8 +821,359 @@ bool Component::ShimmyBlocked(const Mth::Vector* out, float along, const Mth::Ve
     return feeler.GetCollision(true, false) != 0;
 }
 
+// 0x0043FC70
+void Obj::CWalkComponent::PlaceOnHang()
+{
+    CRailManager* rails = RailsOf(this);
+    Mth::Vector a, b, point;
+    Mth::Vector* endPos = rails->GetWorldPos(&a, At<CRailNode*>(this, kRailEnd));
+    Mth::Vector* startPos = rails->GetWorldPos(&b, At<CRailNode*>(this, kRailStart));
+    Mth::Vector& pos = VectorAt(this, kPos);
+    pos = *Walk::Lerp(&point, startPos, endPos, At<float>(this, kAlong));
+    pos.y = At<float>(this, kRailUp) + pos.y;
+    // out from the rail along the facing (x's product left unrounded, as the x87 code adds it)
+    float out = At<float>(this, kRailOut);
+    Mth::Vector& facing = VectorAt(this, kFacing);
+    double outX = static_cast<double>(out) * facing.x;
+    float outY = out * facing.y;
+    float outZ = out * facing.z;
+    float outW = out * facing.w;
+    pos.x = static_cast<float>(outX + pos.x);
+    pos.y = outY + pos.y;
+    pos.z = outZ + pos.z;
+    pos.w = outW + pos.w;
+
+    // riding something: let go of it once it's gone; when it turned, the facing across the rail again
+    void* contact = At<void*>(this, kContact);
+    auto* tracker = At<CRideTracker*>(contact, 0x18);
+    if (!tracker)
+        return;
+    if (!tracker->m_object.Get()) {
+        StopRiding(this);
+        return;
+    }
+    if (!tracker->m_turned)
+        return;
+    rails->GetWorldPos(&a, At<CRailNode*>(this, kRailEnd));
+    rails->GetWorldPos(&b, At<CRailNode*>(this, kRailStart));
+    Mth::Vector along = {b.x - a.x, 0.0f, b.z - a.z, b.w - a.w};
+    along.Normalize();
+    double side = static_cast<double>(along.x) * facing.z + static_cast<double>(-along.z) * facing.x;
+    float facingY = facing.y;
+    facing.y = 0.0f;
+    side = side + static_cast<double>(facingY) * 0.0f;
+    if (side > 0.0) {
+        facing.x = -along.z;
+        facing.z = along.x;
+        facing.w = 1.0f;
+    } else {
+        facing.w = -1.0f; // (the original's)
+        facing.x = along.z;
+        facing.z = -along.x;
+    }
+}
+
+// 0x0043FE30
+bool Obj::CWalkComponent::HangClear(Nx::CFeeler* feeler, const Mth::Vector* point, Record34* record)
+{
+    auto* rail = reinterpret_cast<FoundRail*>(record);
+    rail->point = *point;
+    CRailNode* node = rail->node;
+    Mth::Vector side = {-rail->facing.z, 0.0f, rail->facing.x, 1.0f};
+    Mth::Vector a, b;
+    Mth::Vector* nextPos = RailsOf(this)->GetWorldPos(&a, node->m_next);
+    Mth::Vector* nodePos = RailsOf(this)->GetWorldPos(&b, rail->node);
+    Mth::Vector segment = {nodePos->x - nextPos->x, nodePos->y - nextPos->y, nodePos->z - nextPos->z,
+                           nodePos->w - nextPos->w};
+    // room at both sides
+    if (!SideClear(feeler, &rail->point, &side))
+        return false;
+    Mth::Vector otherSide = {-side.x, 0.0f, -side.z, -1.0f};
+    if (!SideClear(feeler, &rail->point, &otherSide))
+        return false;
+    // the hang point: below the rail and out from it; room to shimmy either way from there
+    rail->point.y = rail->point.y - Param(kHangVertOriginOffset);
+    float horiz = Param(kHangHorizOriginOffset);
+    rail->point.x = static_cast<float>(static_cast<double>(horiz) * rail->facing.x + rail->point.x);
+    rail->point.y = static_cast<float>(static_cast<double>(horiz) * rail->facing.y + rail->point.y);
+    rail->point.z = static_cast<float>(static_cast<double>(horiz) * rail->facing.z + rail->point.z);
+    rail->point.w = static_cast<float>(static_cast<double>(horiz) * rail->facing.w + rail->point.w);
+    if (ShimmyBlocked(&rail->facing, rail->along, &rail->point, true, &side, segment, rail->node, rail->node->m_next))
+        return false;
+    if (ShimmyBlocked(&rail->facing, rail->along, &rail->point, false, &side, segment, rail->node, rail->node->m_next))
+        return false;
+    // nothing between the skater and the critical point - or, on the ground, over whatever is (up first)
+    Mth::Vector critical = rail->point + Param(kHangCriticalPointHorizOffset) * rail->facing;
+    critical.y = static_cast<float>(CriticalPointUp() + critical.y);
+    Mth::Line& line = feeler->m_line;
+    line.start = VectorAt(this, kPos);
+    line.end = critical;
+    if (!feeler->GetCollision(true, false))
+        return true;
+    if (At<int>(this, kState) != 0)
+        return false;
+    line.end = VectorAt(this, kPos);
+    line.end.y = Param(kHopObstructionFeelerUp) + line.end.y;
+    if (feeler->GetCollision(true, false))
+        return false;
+    line.start = line.end;
+    line.end = critical;
+    return !feeler->GetCollision(true, false);
+}
+
+// 0x00440130
+void Obj::CWalkComponent::Shimmy(float move)
+{
+    Mth::Vector& pos = VectorAt(this, kPos);
+    Mth::Vector& offset = VectorAt(this, kHangOffset);
+    Mth::Vector& facing = VectorAt(this, kFacing);
+    float& along = At<float>(this, kAlong);
+    CRailNode*& start = At<CRailNode*>(this, kRailStart);
+    CRailNode*& end = At<CRailNode*>(this, kRailEnd);
+    // all of it kept, to be put back if the move is blocked
+    const Mth::Vector oldPos = pos;
+    const Mth::Vector oldCritical = {pos.x + offset.x, pos.y + offset.y, pos.z + offset.z, pos.w + offset.w};
+    const float oldAlong = along;
+    CRailNode* const oldStart = start;
+    CRailNode* const oldEnd = end;
+    const Mth::Vector oldOffset = offset;
+    const Mth::Vector oldFacing = facing;
+
+    Mth::Vector side = {-facing.z, 0.0f, facing.x, 1.0f};
+    Mth::Vector a, b;
+    Mth::Vector* endPos = RailsOf(this)->GetWorldPos(&a, end);
+    Mth::Vector* startPos = RailsOf(this)->GetWorldPos(&b, start);
+    Mth::Vector segment = {startPos->x - endPos->x, startPos->y - endPos->y, startPos->z - endPos->z,
+                           startPos->w - endPos->w};
+    bool left = move > 0.0f;
+    // (the differences unrounded here, as the x87 code keeps them)
+    double dot = static_cast<double>(side.x) * (static_cast<double>(startPos->x) - endPos->x) +
+                 (static_cast<double>(startPos->z) - endPos->z) * oldFacing.x +
+                 (static_cast<double>(startPos->y) - endPos->y) * 0.0f;
+    bool towardsEnd = dot < 0.0 ? left : !left;
+    if (ShimmyBlocked(&facing, along, &pos, left, &side, segment, start, end)) {
+        At<float>(this, kHangMoveSpeed) = 0.0f;
+        At<uint32_t>(this, kAnim) = kAnimHang;
+        return;
+    }
+
+    // along the rail by the move
+    double lengthSquared = static_cast<double>(segment.x) * segment.x + static_cast<double>(segment.y) * segment.y +
+                           static_cast<double>(segment.z) * segment.z;
+    float lengthSquaredF = static_cast<float>(lengthSquared);
+    double step = std::fabs(move) / std::sqrt(lengthSquared);
+    if (!towardsEnd)
+        step = -step;
+    double moved = step + along;
+    along = static_cast<float>(moved);
+    if (moved < 0.0 || moved > 1.0) {
+        // past an end: onto the next rail (the rest of the way along it), or stopped at the end
+        if (!NextHangRail(&along, start, end, &start, &end)) {
+            float t = along;
+            At<float>(this, kHangMoveSpeed) = 0.0f;
+            if (t > 1.0f)
+                along = 1.0f;
+            else
+                along = t < 0.0f ? 0.0f : t;
+            At<uint32_t>(this, kAnim) = kAnimHang;
+            goto check;
+        }
+        float t = along;
+        double clamped = t > 1.0f ? 1.0 : t < 0.0f ? 0.0 : t;
+        double over = static_cast<double>(along) - clamped;
+        float rest = static_cast<float>(std::fabs(over) * std::sqrt(static_cast<double>(lengthSquaredF)));
+        Mth::Vector reversed;
+        const Mth::Vector* direction = &segment;
+        if (!towardsEnd) {
+            reversed = {-segment.x, -segment.y, -segment.z, -segment.w};
+            direction = &reversed;
+        }
+        FaceHangRail(rest, along < 0.0f, direction);
+    }
+    At<uint32_t>(this, kAnim) = left ? kAnimHangMoveLeft : kAnimHangMoveRight;
+
+check:
+    // nothing in the way from the old critical point to the new one, or it's all put back
+    {
+        Mth::Vector critical = {offset.x + pos.x, offset.y + pos.y, offset.z + pos.z, offset.w + pos.w};
+        Nx::CFeeler feeler;
+        feeler.Construct();
+        feeler.m_line.start = oldCritical;
+        feeler.m_line.end = critical;
+        if (feeler.GetCollision(true, false)) {
+            pos = oldPos;
+            along = oldAlong;
+            start = oldStart;
+            end = oldEnd;
+            offset = oldOffset;
+            facing = oldFacing;
+            At<float>(this, kHangMoveSpeed) = 0.0f;
+            At<uint32_t>(this, kAnim) = kAnimHang;
+        }
+    }
+}
+
+// 0x00440690
+bool Obj::CWalkComponent::CheckRail(const Mth::Vector* start, const Mth::Vector* end, const Mth::Vector* onRail,
+                                    const Mth::Vector* onLine, float along, Record34* record, bool away)
+{
+    auto* rail = reinterpret_cast<FoundRail*>(record);
+    float origin = Param(kHangVertOriginOffset);
+    // in the air: only rails at or below the line, and close to it
+    if (At<int>(this, kState) == 1) {
+        if (onRail->y > onLine->y)
+            return false;
+        if (std::fabs(static_cast<double>(onRail->y) - onLine->y) > 12.0f)
+            return false;
+    }
+    // not too steep
+    float dz = end->z - start->z;
+    float dx = end->x - start->x;
+    Mth::Vector direction = {dx, end->y - start->y, dz, end->w - start->w};
+    direction.Normalize();
+    if (std::fabs(direction.y) > X87Sin(static_cast<double>(Param(kHangMaxRailAscent)) * 0.017453292384743690))
+        return false;
+
+    // the facing: across the rail, flat - towards the skater's facing (or away)
+    Mth::Vector& out = rail->facing;
+    out = {-dz, 0.0f, dx, 1.0f};
+    out.Normalize();
+    const Mth::Vector& facing = VectorAt(this, kFacing);
+    auto flip = [&out] {
+        out.x = -out.x;
+        out.y = -out.y;
+        out.z = -out.z;
+    };
+    double towards = static_cast<double>(facing.z) * out.z + static_cast<double>(facing.y) * out.y +
+                     static_cast<double>(facing.x) * out.x;
+    if (away ? towards > 0.0 : towards < 0.0)
+        flip();
+    // a one-sided rail (flag 0x80: hung from one side, 0x40: the other) turns it round
+    bool onRight = static_cast<double>(direction.x) * out.z - static_cast<double>(direction.z) * out.x > 0.0;
+    uint32_t flags = rail->node->m_flags;
+    if (((flags & 0x80) && onRight) || ((flags & 0x40) && !onRight)) {
+        flip();
+        onRight = !onRight;
+    }
+
+    // room to hang there (the collision near the rail cached), facing that way - or the other, if the rail allows
+    Nx::CFeeler feeler;
+    feeler.Construct();
+    Nx::CCollCache cache;
+    cache.Construct();
+    float height = origin + 12.0f;
+    Mth::BBox box;
+    box.max = {onRail->x + 24.0f, height + onRail->y, onRail->z + 24.0f, onRail->w + 1.0f};
+    box.min = {onRail->x - 24.0f, onRail->y - 24.0f, onRail->z - 24.0f, onRail->w - 1.0f};
+    cache.Update(box);
+    feeler.mp_cache = &cache;
+    rail->along = along;
+    if (!HangClear(&feeler, onRail, record)) {
+        if ((At<int>(this, kState) != 1 && away) || ((flags & 0x80) && !onRight) || ((flags & 0x40) && onRight) ||
+            (flip(), !HangClear(&feeler, onRail, record))) {
+            cache.Destruct();
+            return false;
+        }
+    }
+
+    // up and out from the rail; the animation: WALL when a feeler out from the hang point, raised, hits
+    rail->up = rail->point.y - onRail->y;
+    rail->out = static_cast<float>(((static_cast<double>(rail->point.y) - onRail->y) * out.y +
+                                    (static_cast<double>(rail->point.z) - onRail->z) * out.z) +
+                                   (static_cast<double>(rail->point.x) - onRail->x) * out.x);
+    float horiz = Param(kHangCriticalPointHorizOffset);
+    float hx = horiz * out.x, hy = horiz * out.y, hz = horiz * out.z;
+    double hw = static_cast<double>(horiz) * out.w;
+    Mth::Line& line = feeler.m_line;
+    line.start = {hx + rail->point.x, hy + rail->point.y, hz + rail->point.z, static_cast<float>(hw + rail->point.w)};
+    line.start.y = line.start.y + Param(kHangInitAnimFeelerHeight);
+    line.end = line.start;
+    float length = Param(kHangInitAnimFeelerLength);
+    line.end.x = static_cast<float>(static_cast<double>(length) * out.x + line.end.x);
+    line.end.y = static_cast<float>(static_cast<double>(length) * out.y + line.end.y);
+    line.end.z = static_cast<float>(static_cast<double>(length) * out.z + line.end.z);
+    line.end.w = static_cast<float>(static_cast<double>(length) * out.w + line.end.w);
+    rail->anim = feeler.GetCollision(true, false) ? kAnimWall : kAnimSwing;
+    cache.Destruct();
+    return true;
+}
+
+// 0x00440BF0
+void Obj::CWalkComponent::UpdateHang()
+{
+    // carried by what it rides on
+    void* contact = At<void*>(this, kContact);
+    if (auto* tracker = At<CRideTracker*>(contact, 0x18)) {
+        if (!tracker->m_object.Get() || !tracker->Update(&VectorAt(this, kPos))) {
+            StopRiding(this);
+        } else {
+            CBaseComponent* component =
+                At<CRideTracker*>(At<void*>(this, kContact), 0x18)->m_object.Get()->GetComponent(kRailManagerComponent);
+            Mth::Matrix matrix;
+            ObjectMatrixOf(component, &matrix); // (unused)
+            PlaceOnHang();
+        }
+    }
+    At<bool>(this, kFlag1958) = false;
+
+    Mth::Vector& pos = VectorAt(this, kPos);
+    const Mth::Vector& facing = VectorAt(this, kFacing);
+    uint8_t* input = At<uint8_t*>(this, kInput);
+    if (At<bool>(this, kControlHeld)) {
+        if (At<int>(input, 0x250) == 0 && At<float>(input, 0x24C) != 0.0f &&
+            std::fabs(At<float>(input, 0x248)) < 0.78539818525314331f) {
+            // pushed forward: a pull-up, pull_up_offset_forward ahead - then half that
+            float forward = Param(kPullUpOffsetForward);
+            Mth::Vector target = {static_cast<float>(static_cast<double>(forward) * facing.x + pos.x),
+                                  static_cast<float>(static_cast<double>(forward) * facing.y + pos.y),
+                                  forward * facing.z + pos.z, forward * facing.w + pos.w};
+            target.y = Param(kPullUpOffsetUp) + target.y;
+            if (PullUp(&target))
+                return;
+            double half = static_cast<double>(Param(kPullUpOffsetForward)) * 0.5f;
+            target = {static_cast<float>(half * facing.x) + pos.x, static_cast<float>(half * facing.y) + pos.y,
+                      static_cast<float>(half * facing.z) + pos.z, static_cast<float>(half * facing.w + pos.w)};
+            target.y = Param(kPullUpOffsetUp) + target.y;
+            if (PullUp(&target))
+                return;
+        } else if (reinterpret_cast<const Walk::SkaterTurn*>(input + 0x20)->TurnedRound()) {
+            // turned round: let go
+            SetState(this, 1);
+            ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
+            TriggerRailScript(this, kExitHangEvents);
+            VectorAt(this, kExitFacing) = facing;
+            LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
+            At<uint32_t>(this, kAnim) = kAnimAir;
+            return;
+        }
+    }
+
+    // the shimmy's speed: the control's sideways part (within hang_vert_control_tolerance of straight sideways)
+    float sideways = static_cast<float>(1.5707963705062866 - std::fabs(At<float>(input, 0x248)));
+    float tolerance = Param(kHangVertControlTolerance);
+    float wanted = 0.0f;
+    if (X87Cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
+        float direction = At<float>(input, 0x248) > 0.0f ? 1.0f : -1.0f;
+        float speed = Param(kHangMoveSpeedParam);
+        wanted = static_cast<float>(static_cast<double>(direction) * At<float>(this, kControlMagnitude) * speed);
+    }
+    float rate = Param(kHangMoveLerpRate);
+    float& moveSpeed = At<float>(this, kHangMoveSpeed);
+    moveSpeed = static_cast<float>(moveSpeed + (static_cast<double>(wanted) - moveSpeed) *
+                                                   (static_cast<double>(rate) * At<float>(this, kFrameLength)));
+    float speedNow = moveSpeed;
+    float cutoff = Param(kHangMoveCutoff);
+    if (std::fabs(speedNow) > cutoff) {
+        At<float>(this, kAnimSpeed) = std::fabs(moveSpeed);
+        Shimmy(moveSpeed * At<float>(this, kFrameLength));
+        PlaceOnHang();
+        return;
+    }
+    At<uint32_t>(this, kAnim) = kAnimHang;
+}
+
 // 0x0043EB80
-void MovableContact::StartRiding(Obj::CCompositeObject* object)
+void Walk::MovableContact::StartRiding(Obj::CCompositeObject* object)
 {
     if (auto* tracker = At<Obj::CRideTracker*>(this, 0x18)) {
         At<Obj::CCompositeObject*>(this, 0x6C) = tracker->m_object.Get(); // (the object last ridden)
@@ -814,7 +1186,6 @@ void MovableContact::StartRiding(Obj::CCompositeObject* object)
     At<Obj::CRideTracker*>(this, 0x18) = memory ? static_cast<Obj::CRideTracker*>(memory)->Construct(object) : nullptr;
 }
 
-} // namespace Walk
 
 namespace Obj {
 
@@ -836,18 +1207,23 @@ CBaseComponent* __cdecl CreateWaitAndDieComponent()
 REPLACE(0x0043D930, Obj::CreateWaitAndDieComponent);
 REPLACE(0x0043D990, Walk::Lerp);
 REPLACE(0x0043DA20, &Walk::SkaterTurn::TurnedRound);
-REPLACE(0x0043DA70, Walk::Component::Param);
-REPLACE(0x0043DAA0, &Walk::Component::RunSpeed);
-REPLACE(0x0043DB00, &Walk::Component::EndPullUp);
-REPLACE(0x0043DB90, &Walk::Component::EndDropFromHang);
-REPLACE(0x0043DC00, &Walk::Component::HangHeightOffset);
-REPLACE(0x0043DC60, &Walk::Component::CriticalPointUp);
-REPLACE(0x0043DCF0, &Walk::Component::EndDropToHang);
-REPLACE(0x0043DDD0, &Walk::Component::SideClear);
-REPLACE(0x0043DFC0, &Walk::Component::FaceHangRail);
-REPLACE(0x0043E230, &Walk::Component::NextHangRail);
+REPLACE(0x0043DA70, Obj::CWalkComponent::Param);
+REPLACE(0x0043DAA0, &Obj::CWalkComponent::RunSpeed);
+REPLACE(0x0043DB00, &Obj::CWalkComponent::EndPullUp);
+REPLACE(0x0043DB90, &Obj::CWalkComponent::EndDropFromHang);
+REPLACE(0x0043DC00, &Obj::CWalkComponent::HangHeightOffset);
+REPLACE(0x0043DC60, &Obj::CWalkComponent::CriticalPointUp);
+REPLACE(0x0043DCF0, &Obj::CWalkComponent::EndDropToHang);
+REPLACE(0x0043DDD0, &Obj::CWalkComponent::SideClear);
+REPLACE(0x0043DFC0, &Obj::CWalkComponent::FaceHangRail);
+REPLACE(0x0043E230, &Obj::CWalkComponent::NextHangRail);
 REPLACE(0x0043EB80, &Walk::MovableContact::StartRiding);
-REPLACE(0x0043E530, &Walk::Component::PullUp);
-REPLACE(0x0043EC40, &Walk::Component::DropToHang);
-REPLACE(0x0043F030, &Walk::Component::GrabRail);
-REPLACE(0x0043F3A0, &Walk::Component::ShimmyBlocked);
+REPLACE(0x0043E530, &Obj::CWalkComponent::PullUp);
+REPLACE(0x0043EC40, &Obj::CWalkComponent::DropToHang);
+REPLACE(0x0043F030, &Obj::CWalkComponent::GrabRail);
+REPLACE(0x0043F3A0, &Obj::CWalkComponent::ShimmyBlocked);
+REPLACE(0x0043FC70, &Obj::CWalkComponent::PlaceOnHang);
+REPLACE(0x0043FE30, &Obj::CWalkComponent::HangClear);
+REPLACE(0x00440130, &Obj::CWalkComponent::Shimmy);
+REPLACE(0x00440690, &Obj::CWalkComponent::CheckRail);
+REPLACE(0x00440BF0, &Obj::CWalkComponent::UpdateHang);

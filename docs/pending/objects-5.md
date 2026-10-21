@@ -132,3 +132,21 @@ commands (0x445000-0x445B30). Shared files touched: CMakeLists.txt (new files li
     the arena; stand-ins for the ground search, feeler assignment, ride release, the object matrix, FindRail on
     moving rail managers; feeler hits by percentage per function; fake rail manager components). 45 deliberate bugs:
     44 caught, 1 equivalent in practice (the pull-up offset's w rounded once more - facing w is 0 or 1).
+- [x] Batch OC5-6 (NOT run in the game yet; hanging, 5 functions): src/game/obj/walk_hang.cpp.
+  - The walk component's functions are now members of Obj::CWalkComponent (game/skater/walk_physics.h, a
+    "walk_hang.cpp" block beside the skater agents' ones) instead of a Walk::Component of their own; walk_hang.h keeps
+    the other classes' pieces (Walk::MovableContact, Walk::SkaterTurn, Walk::Lerp, CreateWaitAndDieComponent). The
+    calls to 0x0052AB90 are LeaveRide (walk_moves.cpp) now.
+  - 0x0043FC70 PlaceOnHang (the rail's point along +0x18CC, up +0x18D0, out +0x18D4; riding something that turned, the
+    facing across the rail again - its w the side's sign, -1 on the other side: the original's), 0x0043FE30 HangClear
+    (both sides, shimmying both ways, the critical point in reach - on the ground over an obstacle,
+    hop_obstruction_feeler_up), 0x00440130 Shimmy (blocked: Hang; along the rail, onto the next or stopped at the end;
+    HangMoveLeft / HangMoveRight; a feeler between the old and new critical points puts everything back),
+    0x00440690 CheckRail (FindRail's checker: in the air not above the line / 12 below it; hang_max_rail_ascent;
+    the facing towards the skater's, one-sided rails' flags 0x40 / 0x80; a collision cache round the rail; the
+    animation SWING or WALL), 0x00440BF0 UpdateHang (state 2: the ride; pull-ups at pull_up_offset_forward and half of
+    it; turned round: let go; the shimmy's eased speed).
+  - Test: TestWalkHang extended (10 more walk parameters - three chained structures; stand-ins for the ride tracker's
+    Update, the collision cache; facing exactly along the rail for the side tests). 61 deliberate bugs, all caught (2
+    after strengthening: facing along the rail in PlaceOnHang and Shimmy; 2 re-run after the linker ran out of
+    memory).
