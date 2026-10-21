@@ -104,7 +104,8 @@ if ($Commands.Count) {
 }
 if (-not $trouble) { $trouble = Update-GameWatch $watch }
 if ($trouble) {
-    if (-not $p.HasExited) { Snap "$Shot-trouble" }
+    # (a picture of a dialog's game; never of a hung window - PrintWindow would wait for it for ever)
+    if (-not $p.HasExited -and $trouble -match 'dialog') { Snap "$Shot-trouble" }
     $closed = Close-Game $p
     Write-GameOutcome $Game $trouble $closed $startTime
     $cmdFile = Get-CommandFile $Game

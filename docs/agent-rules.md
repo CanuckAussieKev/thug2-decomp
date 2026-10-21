@@ -51,6 +51,10 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
   refuses anything online - never try to get round it.
 - Take the workspace's lock for every game run, copy in your own build's dinput8.dll if needed, read
   `<workspace>\thug2-decomp.log` after every run, release the lock (it puts the DLL and ini back).
+- **On a crash or hang:** run_game / game_cmd close it themselves (exit code 5, "GAME IN TROUBLE" + the log's end, kept
+  in `<workspace>\thug2-decomp-crashes.txt`); otherwise close it (game_lock release does), read the log, symbolize
+  (`node tools/symbolize.ts --pdb-dir <your build> <log>`; a WER dump: `node tools/game/read_dump.ts`), record it in
+  your pending doc, and carry on - never leave a game or a dialog open (tools/game/README.md "Crashes").
 - Screenshots: the game's window only, never the screen. Never close a game you didn't start. Never delete original
   game files (files we made may be deleted).
 - Load checks and idle runs are fine. Anything a player must judge (does a script fire when skated into, does a menu

@@ -5,8 +5,10 @@
 #   - Windows Error Reporting runs for it (a WerFault.exe whose command line names its process id),
 #   - it shows a dialog (a visible top-level #32770 window of its own: a message box - "Buffer overrun detected!",
 #     an assertion...; the DLL shows none since crash.h, but the game's own D3D error box and older builds do),
-#   - its window has stopped responding (IsHungAppWindow) for -HangSeconds in a row (default 45: level loads block the
-#     message loop for a few seconds, never this long).
+#   - its window has stopped responding (IsHungAppWindow) for -HangSeconds in a row (default 45) while it was idle (less
+#     than a tenth of a core: a deadlock, a wait) - a long load also stops the message loop (a cold start of a workspace
+#     with big overlays: over a minute), but it works the CPU. A game that spins in a loop isn't caught here: the
+#     scripts' own time limits end those runs.
 # Close-Game asks first (CloseMainWindow), then kills it and its WerFault. Write-GameOutcome prints what happened with
 # the end of the game's log and appends it to <folder>\thug2-decomp-crashes.txt (ours - may be deleted).
 
@@ -53,7 +55,7 @@ function Get-WerFaultFor([int]$id) {
 
 # A watch on one game: Update-GameWatch returns $null while it's fine, else why it isn't.
 function New-GameWatch($process, [int]$HangSeconds = 45) {
-    @{ process = $process; hangSeconds = $HangSeconds; hungSince = $null; lastWer = [DateTime]::MinValue }
+    @{ process = $process; hangSeconds = $HangSeconds; hungSince = $null; hungCpu = 0.0; lastWer = [DateTime]::MinValue }
 }
 
 function Update-GameWatch($watch) {
@@ -73,9 +75,17 @@ function Update-GameWatch($watch) {
     }
     $h = $p.MainWindowHandle
     if ($h -ne [IntPtr]::Zero -and [GameHealth]::IsHungAppWindow($h)) {
-        if (-not $watch.hungSince) { $watch.hungSince = Get-Date }
+        $cpu = $p.TotalProcessorTime.TotalSeconds
+        if (-not $watch.hungSince) { $watch.hungSince = Get-Date; $watch.hungCpu = $cpu }
         $s = ((Get-Date) - $watch.hungSince).TotalSeconds
-        if ($s -ge $watch.hangSeconds) { return ("its window hasn't responded for {0:N0} s" -f $s) }
+        if ($s -ge $watch.hangSeconds) {
+            # (a long load also stops the message loop - but it works: a game that used a tenth of a core or more
+            # meanwhile isn't hung; the count starts again)
+            if ($cpu - $watch.hungCpu -lt 0.1 * $s) {
+                return ("its window hasn't responded for {0:N0} s, idle ({1:N1} s of CPU)" -f $s, ($cpu - $watch.hungCpu))
+            }
+            $watch.hungSince = Get-Date; $watch.hungCpu = $cpu
+        }
     } else { $watch.hungSince = $null }
     $null
 }
