@@ -224,25 +224,38 @@ export const THPS3_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
     ["SkateShop", { text: "SKATE SHOP", icon: "shop", place: "THPS3's skate shop (no place)", location: null }],
 ]);
 
-// THPS2's levels (tools/thps2_levels' manifest, by its base name in ALL.PKR), in THPS2's career order. No pictograms
-// yet: each sign is a THUG2 sign texture as a placeholder (the manifest's icon). Places: Hangar's Mullet Falls,
+// THPS2's levels (tools/thps2_levels' manifest, by its base name in ALL.PKR), in THPS2's career order, each a pictogram
+// of its own (Hangar's airfield windsock, School II's pencil, Marseille's sailboat, NY's Empire State Building, Venice's
+// roller skate, Skatestreet's helmet, Philadelphia's pretzel, the Bullring's bull, Chopper Drop's Hawaiian volcano,
+// Skate Heaven's halo and wings - none like the THUG1 remakes' or THUG2's signs). Places: Hangar's Mullet Falls,
 // Montana (its own "MULLET FALLS AIRFIELD" sign); School II (Southern California); Marseille; New York; Venice Beach
 // (Los Angeles); Skatestreet (Ventura, California); Philadelphia; the Bullring (Mexico - no city named: Mexico City);
 // Chopper Drop (Hawaii); Skate Heaven (no place).
 export const THPS2_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, TableEntry>([
-    ["skhan", { text: "HANGAR", place: "Mullet Falls, Montana", location: [-110.36, 46.88] }],
-    ["sksl2", { text: "SCHOOL II", place: "Southern California", location: [-117.92, 33.84] }],
-    ["skmar", { text: "MARSEILLE", place: "Marseille, France", location: [5.37, 43.3] }],
-    ["skny", { text: "NY CITY", place: "New York", location: [-74.0, 40.71] }],
-    ["skven", { text: "VENICE BEACH", place: "Venice Beach, Los Angeles", location: [-118.47, 33.99] }],
-    ["skss", { text: "SKATESTREET", place: "Skatestreet, Ventura, California", location: [-119.23, 34.28] }],
-    ["skph", { text: "PHILADELPHIA", place: "Philadelphia", location: [-75.17, 39.95] }],
+    ["skhan", { text: "HANGAR", icon: "windsock", place: "Mullet Falls, Montana", location: [-110.36, 46.88] }],
+    ["sksl2", { text: "SCHOOL II", icon: "pencil", place: "Southern California", location: [-117.92, 33.84] }],
+    ["skmar", { text: "MARSEILLE", icon: "sailboat", place: "Marseille, France", location: [5.37, 43.3] }],
+    ["skny", { text: "NY CITY", icon: "empire", place: "New York", location: [-74.0, 40.71] }],
+    [
+        "skven",
+        { text: "VENICE BEACH", icon: "rollerskate", place: "Venice Beach, Los Angeles", location: [-118.47, 33.99] },
+    ],
+    [
+        "skss",
+        { text: "SKATESTREET", icon: "helmet", place: "Skatestreet, Ventura, California", location: [-119.23, 34.28] },
+    ],
+    ["skph", { text: "PHILADELPHIA", icon: "pretzel", place: "Philadelphia", location: [-75.17, 39.95] }],
     [
         "skbul",
-        { text: "THE BULLRING", place: "a bullring in Mexico (inferred: Mexico City)", location: [-99.13, 19.43] },
+        {
+            text: "THE BULLRING",
+            icon: "bull",
+            place: "a bullring in Mexico (inferred: Mexico City)",
+            location: [-99.13, 19.43],
+        },
     ],
-    ["skb1", { text: "CHOPPER DROP", place: "Hawaii", location: [-157.86, 21.31] }],
-    ["skhvn", { text: "SKATE HEAVEN", place: "Skate Heaven (no place)", location: null }],
+    ["skb1", { text: "CHOPPER DROP", icon: "volcano", place: "Hawaii", location: [-157.86, 21.31] }],
+    ["skhvn", { text: "SKATE HEAVEN", icon: "halo", place: "Skate Heaven (no place)", location: null }],
 ]);
 
 // THUG1's levels (its conversion's manifest, <game>\thug2-decomp-thug1\levels.json, by folder): signs only - the
