@@ -169,6 +169,10 @@ void TestAutomationParse()
     Check(ParseCommand("capture 120 x", &command, &error) == ParseResult::Command && command.op == Op::Capture &&
               command.frames == 120 && command.target == "x",
           "automation parse: capture's frames and folder");
+    Check(ParseCommand("logtricks", &command, &error) == ParseResult::Command && command.op == Op::LogTricks &&
+              command.frames == 0 && ParseCommand("logtricks 300", &command, &error) == ParseResult::Command &&
+              command.frames == 300 && ParseCommand("logtricks 0", &command, &error) == ParseResult::Error,
+          "automation parse: logtricks' count");
     Check(ParseCommand("frobnicate", &command, &error) == ParseResult::Error && !error.empty(),
           "automation parse: an error says why");
 }

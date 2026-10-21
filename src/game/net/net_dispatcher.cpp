@@ -9,6 +9,7 @@
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
 #include "game/net/net_app_messages.h"
+#include "game/net/net_guards.h"
 #include "hook/hook.h"
 
 namespace Net {
@@ -100,6 +101,10 @@ MsgHandler* Dispatcher::AddHandler(uint8_t id, MsgHandlerCode code, uint32_t fla
 // 0x0045A750
 int Dispatcher::DispatchMsg(MsgHandlerContext* context)
 {
+    // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R4, net_guards.h).
+    int guarded = GameNet::Guards::CheckReceivedMessage(context);
+    if (guarded >= 0)
+        return guarded;
     Lst::Search<MsgHandler> search;
     MsgHandler* next;
     for (MsgHandler* handler = search.FirstItem(&List(context->m_MsgId).m_node); handler; handler = next) {

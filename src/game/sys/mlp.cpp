@@ -14,6 +14,7 @@
 #include "game/core/mem.h"
 #include "game/front/level_editor_ui.h"
 #include "game/gfx/screen.h"
+#include "game/net/thugpro_compat.h"
 #include "game/sio/device.h"
 #include "game/sys/platform.h"
 #include "game/sys/screenshot.h"
@@ -206,6 +207,8 @@ void Manager::MainLoop()
         Sio::ReadKeyboard();
         Platform::ProcessWindowEvents();
         ServiceNetwork();
+        // Not original - THUGPRO's big-level positions in network games (TP-R2, game/net/thugpro_compat.h).
+        GameNet::Thugpro::RefreshPositionScale();
         if (!AppActive()) {
             if (!TextEntry()) {
                 // Inactive: idle until the window is active again (nothing else runs meanwhile).

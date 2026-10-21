@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "game/obj/object.h"
+#include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"
 #include "hook/viewer_testkit.h"
 
@@ -28,6 +29,9 @@ std::map<uint32_t, uint32_t> g_nextComponent; // component (0: the first) -> the
 bool g_face;
 bool g_faceValid;
 int g_written;
+
+std::vector<uint32_t> g_sanitised;
+uint32_t g_sanitisedExpected;
 
 void Install(StandIns& s)
 {
@@ -105,6 +109,12 @@ void Install(StandIns& s)
         Rec(0x9400, {r.ecx, r.args[0]});
         return r.args[0] + 0x30;
     });
+    // (ours only: the appearance guard after the read - TP-R5, tested in selftests_thugpro_guards.cpp - left out here)
+    // (counted: ours calls it once per read, on the appearance just read - the profile's +0x4C)
+    s.At({AddressOf(&Obj::AppearanceGuard::Sanitise)}, 0, [](Regs& r) {
+        g_sanitised.push_back(r.args[0]);
+        return 0u;
+    });
     s.At({0x004896A0}, 12, [](Regs& r) {
         Rec(0x96A0, {r.ecx, r.args[0], r.args[1], r.args[2]});
         return 0x29u;
@@ -168,6 +178,8 @@ void TestProfileRest()
         g_written = 0;
         std::vector<uint32_t>& t = traces[run];
         auto* p = Ptr<CSkaterProfile>(kProfile);
+        if (!original)
+            g_sanitisedExpected = At(kProfile + 0x4C);
         uint32_t info = At(kProfile + 0x5C);
         auto* params = Ptr<CStruct>(kParams);
         auto mark = [&](uint32_t m) { g_trace.push_back(0xEE000000 | m); };
@@ -265,6 +277,8 @@ void TestProfileRest()
     }
     Cleanup();
     Compare(traces[0], traces[1], "profile: params, reset, saves, buffers");
+    Check(g_sanitised.size() == 1 && g_sanitised[0] == g_sanitisedExpected, "profile: the read appearance guarded");
+    g_sanitised.clear();
 }
 
 } // namespace

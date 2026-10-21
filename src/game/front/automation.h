@@ -99,7 +99,7 @@ void AddPadButtons(int port, uint8_t* data);
 
 // --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
 
-enum class Op { Run, Choose, Focus, Press, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture };
+enum class Op { Run, Choose, Focus, Press, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture, LogTricks };
 enum class Condition { None, Ready, FrontEnd, InGame, Level, Menu, Focus };
 
 struct Param {
