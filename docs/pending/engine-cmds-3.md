@@ -66,3 +66,32 @@ Shared files touched: CMakeLists.txt (new files listed).
     called with four different Pcm results, with and without its parameters (not the asserting getters' missing
     cases: the original passes uninitialised values there), TrackEnabled over the masks' edges and negative /
     large tracks. 35 of 35 deliberate bugs caught (2 after strengthening: track 64, the shift count's low byte).
+- [x] Batch EC3-4 (NOT run in the game yet; the sound effects commands and the rest of the stream commands - 21
+  CFunctions): src/game/sfx/sound_cfuncs.h / .cpp (new), src/game/pcm/music_cfuncs.h / .cpp.
+  - Sound effects (Sfx::CSfxManager at 0x006F85A8): 0x0044D7D0 LoadSound (pitch / dropoff in feet * 12 / vol; load
+    type 1, 0 with the flag 0x389129E4 - name unknown -, 2 with bank=; flags 1 PosUpdateWithDoppler, 2 NoReverb),
+    0x0044DC10 PlaySound (volL / volR or vol, pitch, id; a stereo sVolume: Init, SetSilent, two channels),
+    0x0044DD50 StopSound (a failed stop reads the global DebugSoundFX for a compiled-out report), 0x0044DDA0
+    StopAllSounds, 0x0044DDB0 SetSoundParams (true without a sound), 0x0044DED0 IsSoundPlaying, 0x0044DF10
+    AddSoundBanks (each bank << 10 to StopGroup - empty in this build), 0x0044DF70 ClearSoundBank, 0x0044DFA0
+    RemoveAllSoundBanks, 0x0044DFB0 SetSfxReverb (level clamped to 100; mode=, instant: to 0x0047B6B0, compiled
+    out - the level passed as its float bits), 0x0044E040 SetSfxDropoff (false for <= 0; NaN goes on; * 12),
+    0x0044E090 SetSfxVolume, 0x0044E0C0 SetGlobalPitchModulation (two unnamed flags as the pitch call's unused
+    arguments), 0x0044E200 GetValueFromVolume (sfxvol / the music's / the effects' volume, truncated, / 10, as
+    value), 0x0044E290 SetPositionalSoundSilenceOverrideMode (the manager's +0 byte).
+  - Streams / music: 0x0044D8F0 PlayStream (volL / volR / vol / pitch / priority 50 / an unnamed option / id;
+    lipsync=1 loads the frame amplitudes first - false if that fails; the sVolume only SetType(0) - the other
+    channels as the stack left them), 0x0044DAA0 SetStreamParams (the volume only if one of volL / volR / vol is
+    given - Init + SetSilent; then the pitch; false if either fails), 0x0044E120 LoadMusicHeader / 0x0044E180
+    LoadStreamHeader (from the bottom-up heap: PushContext / PopContext), 0x0044E1E0 GetCurrentTrack
+    (current_track), 0x0044E2C0 StartPreLoadedStream (streamid=, volume=: a heap sVolume, pitch 100, priority 0,
+    freed after).
+  - Test TestSoundCFuncs: every manager method, Pcm function and the memory manager's calls stood in for
+    (recording; volumes by type and the two channels), the manager's default volume type set, the volume globals
+    for GetValueFromVolume, each command with three results, limits (100 / 99.5 / NaN / negatives). 35 of 38
+    deliberate bugs caught (1 after strengthening: the reverb clamp just under 100); 2 equivalent (int(v)/10 vs
+    int(v/10); SetSilent after Init, which already silences); 1 not testable: SetStreamParams with only one of
+    volL / volR passes the other uninitialised in the original.
+  - Build: after this batch's first mutation run hung on the PDB server (link.exe waiting for ever), the verify
+    build was reconfigured with CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded (/Z7; the EC2 agent's tip) and a fresh
+    _MSPDBSRV_ENDPOINT_: mutations then ran at a few seconds each.
