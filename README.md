@@ -356,7 +356,7 @@ than by hand
 | `look_pct` | 100 | Mouse-look sensitivity (%) |
 | `invert_y` | 0 | Inverts mouse-look up / down |
 | `gizmo_pct` | 100 | Gizmo size (%) |
-| `ui_scale_pct` | 0 | UI scale (%); 0 = automatic for the window size |
+| `ui_scale_pct` | 0 | UI scale (%); 0 = automatic for the window size (1080p 100 %, 1440p 125 %, 4K 200 %) |
 | `autosave_s` | 60 | Seconds between autosaves |
 | `snap_move` | 25 | Grid size for snapped moves |
 | `snap_turn` | 15 | Angle step for snapped turns |
