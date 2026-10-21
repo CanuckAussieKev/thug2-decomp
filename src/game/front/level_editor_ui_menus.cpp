@@ -98,7 +98,7 @@ void ViewMenu(const Model& model, std::vector<Request>* requests)
         Overlays::OverlayItems(model, requests);
         ImGui::EndMenu();
     }
-    Items({"faces", "occlusion"});
+    Items({"collision", "faces", "occlusion"});
     ImGui::Separator();
     Items({"hide", "isolate", "show_all"});
     ImGui::Separator();

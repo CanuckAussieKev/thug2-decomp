@@ -215,6 +215,11 @@ void CollisionLegend(const Model& model)
                      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove);
     ImGui::PushFont(g_small);
     ImGui::TextUnformatted("Collision");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Hide##collisionLegend"))
+        Ask(Request::kCollision); // (value 0: off)
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Hide Collision  (C)");
     for (int i = 0; i < static_cast<int>(View::Surface::kCount); ++i) {
         auto surface = static_cast<View::Surface>(i);
         ImVec2 at = ImGui::GetCursorScreenPos();
