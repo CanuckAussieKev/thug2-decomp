@@ -29,6 +29,7 @@
 import * as fs from "node:fs";
 import { FormatError } from "../level_port/binio.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as pedRigs from "../level_port/ped_rigs.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as qb from "../level_port/qb.ts";
 import { checksum, type Entry, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
@@ -733,13 +734,15 @@ export class PortedNodes {
 
     private ped(node: Struct, profile: string, walking: boolean, links: number[] | null): Struct {
         const n = this.names;
+        // (the skeleton the THUG2 profile's model is rigged to: a woman's on THPS6_human was twisted - ped_rigs.ts)
+        const rig = this.assets !== null ? this.assets.rig(profile) : pedRigs.MALE;
         const entries: Entry[] = [
             ...this.base(node, "Pedestrian"),
-            [key(n, "Type"), key(n, "Ped_From_Profile")],
+            [key(n, "Type"), key(n, rig.type)],
             [null, key(n, "CreatedAtStart")],
             [key(n, "PedAI_Type"), key(n, "Stand")],
-            [key(n, "skeletonName"), key(n, "THPS6_human")],
-            [key(n, "AnimName"), key(n, "animload_THPS6_human")],
+            [key(n, "skeletonName"), key(n, rig.skeleton)],
+            [key(n, "AnimName"), key(n, rig.anims)],
             [key(n, "profile"), key(n, profile)],
             [key(n, "SuspendDistance"), 10000],
             [key(n, "lod_dist1"), 200],

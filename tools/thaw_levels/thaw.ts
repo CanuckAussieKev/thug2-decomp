@@ -23,7 +23,8 @@ import * as qb from "../level_port/qb.ts";
 import { checksum, Name, type QbValue, type Statement, Struct, Vector } from "../level_port/qb.ts";
 import type * as tex from "../level_port/tex.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
-import { decodeLatin1, Float, pyStrip } from "../lib/py.ts";
+import { resolveInstall } from "../lib/install.ts";
+import { decodeLatin1, Float, pyJoin, pyStrip } from "../lib/py.ts";
 import { unpackNumbers } from "../lib/struct.ts";
 
 const hex = (n: number): string => n.toString(16).toUpperCase();
@@ -128,7 +129,7 @@ const NAME_LINE = /0x([0-9a-fA-F]{8}) ([^\r\n]+)/g;
 // Every checksum name of every .dbg file in data\pak\dbg.pak.wpc: checksum -> text.
 export function loadNames(thaw: string): Map<number, string> {
     const names = new Map<number, string>();
-    for (const [, data] of pakFiles(`${thaw}\\Game\\data\\pak\\dbg.pak.wpc`)) {
+    for (const [, data] of pakFiles(pyJoin(resolveInstall(thaw, "thaw"), "data", "pak", "dbg.pak.wpc"))) {
         for (const match of decodeLatin1(data).matchAll(NAME_LINE)) {
             const text = pyStrip(match[2]!);
             const value = Number.parseInt(match[1]!, 16);

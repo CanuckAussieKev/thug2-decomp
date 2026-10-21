@@ -47,6 +47,16 @@ class CStruct;
 //                                         past the level's first frames -, menu <id> (the element exists), focus <id>
 //                                         (the element is focused, or a focused menu's selected item)
 //   level <name>                          free skate in a level, as -level (game/front/start_level.h)
+//   teleport <x> <y> <z> [heading]        the local skater put there STANDING (walking, no momentum), on the ground
+//                                         below; heading in degrees (0 = +z, 90 = +x, as the screenshot sidecar);
+//                                         none: the way it faced (game/front/test_view.h). In a level only.
+//   camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]
+//                                         viewport 0's camera held at that position looking along (dx, dy, dz) every
+//                                         frame (comparable frames), moved by (vx, vy, vz) a game frame if given (a
+//                                         slow exact move: z-fighting shows); `camera off` lets it go
+//   capture <frames> [folder]             the next <frames> rendered frames (1-600), every one, as frame_0001.png ...
+//                                         in the screenshot folder's <folder> (default series_<time>), with one
+//                                         series.txt (game/sys/screenshot.h StartSeries); done once all are written
 //   echo <text>                           logged and shown as the result (a marker for tools)
 //   quit                                  the game closes (as its window's close button)
 // A failure (a parse error, a refusal, a timeout, an element that never came) ends the batch: the lines after it
@@ -89,7 +99,7 @@ void AddPadButtons(int port, uint8_t* data);
 
 // --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
 
-enum class Op { Run, Choose, Focus, Press, Wait, WaitFor, Level, Echo, Quit };
+enum class Op { Run, Choose, Focus, Press, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture };
 enum class Condition { None, Ready, FrontEnd, InGame, Level, Menu, Focus };
 
 struct Param {
@@ -103,11 +113,13 @@ struct Param {
 struct Command {
     Op op;
     std::string target;        // run: the script; choose / focus: the id; press: the button; level / echo: the text;
-                               // waitfor level / menu / focus: the name
+                               // waitfor level / menu / focus: the name; capture: the folder ("" default); camera:
+                               // "off" to let it go
     std::vector<Param> params; // run
     Condition condition;       // waitfor
-    int frames;                // press / wait
+    int frames;                // press / wait / capture
     int seconds;               // choose / focus / waitfor: the timeout
+    std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
 };
 
 enum class ParseResult { Command, Empty, Error };

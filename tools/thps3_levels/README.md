@@ -48,7 +48,8 @@ RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) wi
 - Materials: RW's material and texture (name, addressing), and Neversoft's extension: flags (0x02 invisible - the
   collision-only and trigger planes, 0x08 transparent, 0x10 decal), the terrain type (THUG2's numbering), the
   colour (0x80 = neutral), the blend as the PS2's alpha register ((A - B) * C + D, which THUG2's blend modes are named
-  after), the fixed alpha, the uv wibble.
+  after), the fixed alpha, the uv flags (0x01 the uv wibble; 0x80 environment-mapped - the *_reflect textures:
+  THUG2's env pass, their "wibble" numbers not used as a scroll - docs/pending/shimmer-2.md).
 - `.tdx` - a texture dictionary of D3D8 texture natives: every texture THPS3 PC ships is 32-bit BGRA with one level
   (THUG2's 32-bit textures exactly; mip levels are made by the converter).
 - `.dff` - clumps (the GameObjects: fans, doors, rubble, pumpkins...): only the ones there at the start are converted

@@ -269,6 +269,13 @@ void Manager::MainLoop()
         Sys::Screenshot::BeforePresent(!SkipRender());
         if (!SkipRender())
             EndScene();
+        // Not original - a frame series (game/sys/screenshot.h): the capture's time isn't counted, so no frame is
+        // skipped to catch up - every logic frame is drawn and taken.
+        // Original behaviour: the next frame is due a frame after this one was (late ones skip drawing).
+        if (Sys::Screenshot::SeriesRunning()) {
+            QueryPerformanceCounter(&counter);
+            frameStart = static_cast<uint64_t>(counter.QuadPart);
+        }
         Tmr::UpdateFrameLength();
         m_profiling = 0;
     } while (!m_done);

@@ -14,6 +14,7 @@
 #include <initializer_list>
 #include <vector>
 
+#include "game/core/memory_sizes.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -22,6 +23,7 @@
 #include "game/file/pre.h"
 #include "game/gfx/tod_manager.h"
 #include "game/front/career_complete.h"
+#include "game/front/test_view.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/mc/memcard.h"
@@ -499,6 +501,7 @@ int g_loops;
 
 void TestMain()
 {
+    Mem::Sizes::UseOriginal originalSizes; // (ours: the HashItem pool's size - compared at the original's)
     std::vector<Saved> saved = {{0x007D1800, 4, {}}, {0x007CEFA0, 4, {}}, {0x007CC978, 1, {}}, {0x007D6A2C, 1, {}},
                                 {0x006FA7D0, 4, {}}, {0x007CCE14, 4, {}}, {0x00696D40, 4, {}}};
     SaveAll(saved);
@@ -618,6 +621,9 @@ void TestMain()
               [](Regs&) { return 0u; });
         // (and CREATE 100% CAS's - game/front/career_complete.h)
         s->At({Resolve(reinterpret_cast<const void*>(&Front::CareerComplete::RegisterScriptFunctions))}, 0,
+              [](Regs&) { return 0u; });
+        // (and the test views' - game/front/test_view.h)
+        s->At({Resolve(reinterpret_cast<const void*>(&Front::TestView::RegisterScriptFunctions))}, 0,
               [](Regs&) { return 0u; });
         s->At({0x004694E0}, 0, plain(0x94E0));
         s->At({0x004E4860}, 0, plain(0x4860));

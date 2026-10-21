@@ -22,6 +22,7 @@ import * as geometry from "../level_port/geometry.ts";
 import * as movers from "../level_port/movers.ts";
 import * as nodes from "../level_port/nodes.ts";
 import * as overlayBias from "../level_port/overlay_bias.ts";
+import * as pedRigs from "../level_port/ped_rigs.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as prx from "../level_port/prx.ts";
@@ -31,6 +32,7 @@ import * as scriptPort from "../level_port/script_port.ts";
 import type * as tex from "../level_port/tex.ts";
 import type * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     compareStr,
     decodeLatin1,
@@ -133,7 +135,10 @@ export function levelName(base: string, entry: Struct | null, thug2Names: Readon
 
 // Every LEVELS row's name ({folder in lower case: name}), from THPS3's levels.qb and THUG2's Levels.qb.
 export function levelNames(thps3Dir: string, thug2: string, legacy = false): Map<string, string> {
-    const levelsQ = new qb.QbFile(read(pyJoin(thps3Dir, "Data", "Scripts", "levels.qb")), "levels.qb");
+    const levelsQ = new qb.QbFile(
+        read(pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Scripts", "levels.qb")),
+        "levels.qb",
+    );
     const master = masterLevels(levelsQ);
     const thug2Names = thug2LevelNames(thug2);
     return new Map(
@@ -281,8 +286,16 @@ export function toThug2Material(
         hasColor: neutral ? 0 : 1,
         color: neutral ? [0.5, 0.5, 0.5] : [r / 256.0, g / 256.0, b / 256.0],
     };
+    // An environment-mapped pass (uv flag 0x80: Foundry's quarter pipe / lamp / cannister / window reflections, the
+    // *_reflect textures - the only ones with it) as THUG2's: its uvs from the view (THUG2's own env passes: tiling 3 x 3,
+    // no uv wibble). THPS3 gives them the uv wibble flag too, with "1 0 1 1 0 0 1 1" (or "2 0 0 ..."): taken as a uv
+    // scroll of a texture a second over the mesh's own uvs, the reflections crawled over the ramps all the time - the
+    // shimmer of docs/pending/shimmer-2.md. Not a wibble here (THUG2's renderer passes over the wibble of an env pass
+    // anyway - 0x004D1F00 - unless env mapping is off).
     // (Python's any(): NaN is true, 0.0 and -0.0 false)
-    if (ns.uvFlags & thps3.UV_WIBBLE && ns.uvWibble?.some((x) => x !== 0)) {
+    if (ns.uvFlags & thps3.UV_ENVIRONMENT) {
+        p.flags |= thug2Scene.PASS_ENVIRONMENT;
+    } else if (ns.uvFlags & thps3.UV_WIBBLE && ns.uvWibble?.some((x) => x !== 0)) {
         p.flags |= thug2Scene.PASS_UV_WIBBLE;
         p.uvWibble = ns.uvWibble;
     }
@@ -802,7 +815,7 @@ function sortedGlobQb(dir: string): string[] {
 export function scriptNames(thps3Dir: string): QbFile[] {
     // The game's global scripts (Data\Scripts\*.qb): the level scripts that kill the skater are among them.
     const out: QbFile[] = [];
-    for (const file of sortedGlobQb(pyJoin(thps3Dir, "Data", "Scripts"))) {
+    for (const file of sortedGlobQb(pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Scripts"))) {
         try {
             out.push(new qb.QbFile(read(file), file));
         } catch (e) {
@@ -982,7 +995,7 @@ export class Port {
         this.thug2 = thug2;
         this.sources = sources;
         this.levelsQ = levelsQ;
-        this.modelsDir = pyJoin(thps3Dir, "Data", "Models");
+        this.modelsDir = pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Models");
         this.assets = new pedsCars.Thug2Assets(thug2.root);
     }
 
@@ -2361,6 +2374,10 @@ export function convertNodeArray(
         // when the ped is made (nodes.fixProfiles): THUG2's random one instead
         const fixed = nodes.fixProfiles(converted, names, (v) => port.assets.profiles.has(v));
         if (fixed.length) newReport.push(`  ped profiles THUG2 hasn't, made THUG2's: ${fixed.join(", ")}`);
+        // every human ped (THUGPRO's added ones too) on the skeleton its profile's model is rigged to - a woman's
+        // on THPS6_human is twisted (tools/level_port/ped_rigs.ts; load_level_anims loads both: loadAnimsNs)
+        const rigs = pedRigs.fixPedRigs(converted, names, (v) => port.assets.femaleRigs.has(v));
+        if (rigs.changed.length) newReport.push(`  peds given their profile's skeleton: ${rigs.changed.join(", ")}`);
     }
     if (port === null) {
         // (static: no scripts - THUGPRO's nodes keep none either)
@@ -2639,12 +2656,12 @@ function title(text: string): string {
 }
 
 export function cmdConvert(args: Args): void {
-    const levelsDir = pyJoin(args.thps3, "Data", "Levels");
+    const levelsDir = pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Levels");
     const out = args.out || pyJoin(args.thug2, STAGING);
     if (!fs.existsSync(args.ns)) pyExit(`${args.ns} not found: build it with tools\\build_neverscript.ps1`);
     const table = new Map(LEVELS.map((row) => [row[0].toLowerCase(), row]));
     const wanted = args.levels.length ? args.levels : LEVELS.filter((row) => row[5]).map((row) => row[0]);
-    const scriptsDir = pyJoin(args.thps3, "Data", "Scripts");
+    const scriptsDir = pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Scripts");
     const levelsQ = new qb.QbFile(read(pyJoin(scriptsDir, "levels.qb")), "levels.qb");
     const lightsQ = new qb.QbFile(read(pyJoin(scriptsDir, "lights.qb")), "lights.qb");
     const globalQbs = scriptNames(args.thps3);
@@ -2888,8 +2905,11 @@ export function cmdSelfcheck(args: Args): number {
         "TestLevelcol.prx",
         ...args.extra,
     ]);
-    const levelsDir = pyJoin(args.thps3, "Data", "Levels");
-    const paths = [...sortedGlobAll(levelsDir), ...sortedGlobQb(pyJoin(args.thps3, "Data", "Scripts"))];
+    const levelsDir = pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Levels");
+    const paths = [
+        ...sortedGlobAll(levelsDir),
+        ...sortedGlobQb(pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Scripts")),
+    ];
     for (const file of paths) {
         const low = file.toLowerCase();
         let what: string;
@@ -3042,10 +3062,8 @@ export function parseCommandLine(argv: readonly string[]): Args {
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const args = parseCommandLine(argv);
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    if (!isDir(pyJoin(args.thug2, "Data")) && isDir(pyJoin(args.thug2, "Game", "Data"))) {
-        args.thug2 = pyJoin(args.thug2, "Game");
-    }
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    args.thug2 = resolveInstall(args.thug2, "thug2");
     if (args.command === "selfcheck") return cmdSelfcheck(args);
     cmdConvert(args);
     return 0;

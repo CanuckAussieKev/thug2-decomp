@@ -17,12 +17,14 @@
 //                           addressing - HashNode 0x0045CE60) - every node of every node array
 //   node arrays     20      CNodeManager's arrays (AddNodeArray 0x0045D520) - the level's, the editor's overlay...
 //   script pools            Script::CreateScriptPools (qb.cpp) - every node is a CStruct of CComponents, vectors and
-//                           arrays from these (pool pairs, items in use / items):
-//                           CStruct 19800 (0x006F3614), CComponent 86000 (0x006F2338), CVector 9500 (0x006F3654),
-//                           CArray 7000 (0x006F22B4), CSymbolTableEntry 12500 (0x006F362C), CScript 300 (0x006F3548)
-//   script heap     0x434770 bytes   Mem::Manager::InitStandardHeaps 0x005BBE80: the script region (the editor's
-//                           compiled trigger / proximity scripts go there)
-//   main memory     64 MB   Mem::Manager::Construct 0x005BBC00: the main region (top-down + bottom-up heaps): the
+//                           arrays from these (pool pairs, items in use / items - the pools' own counts; ours are
+//                           bigger, game/core/memory_sizes.h; the original's in brackets):
+//                           CStruct 49600 (19800, 0x006F3614), CComponent 184000 (86000, 0x006F2338), CVector 19000
+//                           (9500, 0x006F3654), CArray 16000 (7000, 0x006F22B4), CSymbolTableEntry 45000 (12500,
+//                           0x006F362C), CScript 1200 (300, 0x006F3548)
+//   script heap     0x434770 bytes + the bigger pools   Mem::Manager::InitStandardHeaps 0x005BBE80: the script region
+//                           (the editor's compiled trigger / proximity scripts go there)
+//   main memory     64 MB + the same   Mem::Manager::Construct 0x005BBC00: the main region (top-down + bottom-up heaps): the
 //                           level's geometry, the editor's copies' meshes (CScene::CloneSector) and collision
 //   collision faces 2048 a piece (SharedCollision::kMostFaces - CCollObjTriData::GetFacesInBox's no-tree face list)
 // What the edits added: the nodes / crowns / restarts / lights the editor added (counted), and for the pools and heaps

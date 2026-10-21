@@ -24,6 +24,7 @@ import * as qb from "../level_port/qb.ts";
 import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     Float,
     formatFixed,
@@ -519,7 +520,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         pyExit(2);
     }
     const v = parsed.values;
-    const thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
+    const thug2 = resolveInstall(v.thug2 ?? "C:\\Games\\THUG2\\Game", "thug2");
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
     if (v["extract-thugpro"]) return extract(thugpro, v.thaw ?? "C:\\Games\\THAW", thug2);
     const oursDir = v.staging || pyJoin(thug2, STAGING, "levels");

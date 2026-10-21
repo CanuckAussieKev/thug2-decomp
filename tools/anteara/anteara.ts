@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import * as zlib from "node:zlib";
 import { parseCli } from "../lib/cli.ts";
 import { unifiedDiff } from "../lib/difflib.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     compareStr,
     encodeLatin1,
@@ -585,8 +586,8 @@ async function main(): Promise<number> {
         return 2;
     }
     let game = values.game;
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    if (!isDir(path.join(game, "Data")) && isDir(path.join(game, "Game", "Data"))) game = pyJoin(game, "Game");
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    game = resolveInstall(game, "thug2");
     const need = (value: string | undefined): string => {
         if (value === undefined) throw new TypeError("expected str, bytes or os.PathLike object, not NoneType");
         return value;

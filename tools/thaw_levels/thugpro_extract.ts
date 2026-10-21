@@ -30,6 +30,7 @@ import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.t
 import type * as scriptPort from "../level_port/script_port.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { pyExit, pyRound } from "../lib/py.ts";
 import * as thaw from "./thaw.ts";
 import {
@@ -150,7 +151,7 @@ export interface Sources {
 
 export function thawScriptNames(thawFolder: string, names: Map<number, string>): Set<number> {
     const out = new Set<number>();
-    const pak = findPath(thawFolder, "Game", "data", "pak", "qb.pak.wpc");
+    const pak = findPath(resolveInstall(thawFolder, "thaw"), "data", "pak", "qb.pak.wpc");
     if (pak === null) pyExit(`${thawFolder}: no qb.pak.wpc`);
     for (const [entry, data] of thaw.pakFiles(pak)) {
         if (![".qb", ".nqb", ".sqb"].includes(entry.extension)) continue;
@@ -320,7 +321,14 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
 
     // --- THAW: the net archive (what we convert) and the full one
     const netPak = zonePak(src.thawFolder, zone);
-    const fullPak = findPath(src.thawFolder, "Game", "data", "worlds", "worldzones", zone, `${zone}.pak.wpc`);
+    const fullPak = findPath(
+        resolveInstall(src.thawFolder, "thaw"),
+        "data",
+        "worlds",
+        "worldzones",
+        zone,
+        `${zone}.pak.wpc`,
+    );
     if (netPak === null || fullPak === null) pyExit(`no THAW ${zone} archives in ${src.thawFolder}`);
     const netFiles = zoneFiles(netPak);
     const net = zoneArray(netFiles, zone, names);

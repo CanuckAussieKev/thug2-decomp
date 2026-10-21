@@ -25,6 +25,7 @@ import type * as scriptPort from "../level_port/script_port.ts";
 import * as texFile from "../level_port/tex.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { hex8, pyJoin } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { nameOf, nodeArray } from "../thaw_levels/thugpro_compare.ts";
@@ -157,7 +158,7 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
     const scriptsArchive = archiveName("_scripts.prx");
     const scnArchive = archiveName("scn.prx");
     const colArchive = archiveName("col.prx");
-    const folder = findFolder(pyJoin(input.thps3Dir, "Data", "Levels"), base);
+    const folder = findFolder(pyJoin(resolveInstall(input.thps3Dir, "thps3"), "Data", "Levels"), base);
     if (scriptsArchive === null || folder === null) return { entries, leftOut };
     const pre = (a: string): string => findPath(thugpro, "data", "pre", a)!;
 
@@ -221,12 +222,15 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
         }
     }
     const [skyBase] = loadScriptInfo(
-        new qb.QbFile(fs.readFileSync(pyJoin(input.thps3Dir, "Data", "Scripts", "levels.qb")), "levels.qb"),
+        new qb.QbFile(
+            fs.readFileSync(pyJoin(resolveInstall(input.thps3Dir, "thps3"), "Data", "Scripts", "levels.qb")),
+            "levels.qb",
+        ),
         base,
     );
     let skyVerts = -1;
     if (skyBase) {
-        const skyFolder = findFolder(pyJoin(input.thps3Dir, "Data", "Levels"), skyBase);
+        const skyFolder = findFolder(pyJoin(resolveInstall(input.thps3Dir, "thps3"), "Data", "Levels"), skyBase);
         const skyBsp = skyFolder ? levelFiles(skyFolder, skyBase).get("bsp") : undefined;
         if (skyBsp !== undefined)
             skyVerts = thps3

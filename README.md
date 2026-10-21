@@ -12,14 +12,21 @@ paths below are the project's defaults; every tool takes a flag (`--thug2`, `--t
 
 **Games** (your own copies; nothing from them is ever committed):
 
-| Game | Needed for | Default folder | What the tools read |
-|---|---|---|---|
-| Tony Hawk's Underground 2 (PC) | Everything | `C:\Games\THUG2` (the game in its `Game` subfolder) | The exe, `Game\Data\...` |
-| THPS3 (PC) | Porting THPS3's levels | `C:\Games\THPS3` | `Data\Levels\<Lvl>\` (`.bsp`, `.tdx`, `.qb`), `Data\Scripts\` |
-| THPS4 (PC) | Porting THPS4's levels, the THPS4 skate-shop menu backdrop | `C:\Games\THPS4` | `Game\data\levels\` |
-| THUG (PC) | Porting THUG1's levels | `C:\Games\THUG1` | `Game\Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
-| THAW (PC, version 1.01) | Porting THAW's levels | `C:\Games\THAW` | `Game\data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`, `data\pak\qb.pak.wpc`, `data\pak\dbg.pak.wpc`, `data\skies\` |
-| THUGPRO (optional) | THUGPRO's own additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`tools/compat/thugpro`) |
+| Game | Needed for | Default folder | Recognised by (in the folder or its `Game` folder) | What the tools read |
+|---|---|---|---|---|
+| Tony Hawk's Underground 2 (PC) | Everything | `C:\Games\THUG2` (the game in its `Game` subfolder) | `THUG2.exe` or `THUG2PM.exe`, or `Data\pre\qb_scripts.prx` | The exe, `Data\...` |
+| THPS3 (PC) | Porting THPS3's levels | `C:\Games\THPS3` | `Data\Levels` | `Data\Levels\<Lvl>\` (`.bsp`, `.tdx`, `.qb`), `Data\Scripts\` |
+| THPS4 (PC) | Porting THPS4's levels, the THPS4 skate-shop menu backdrop | `C:\Games\THPS4` | `data\levels` and `data\skeletons` | `data\levels\`, `data\scripts\`, `data\models\` |
+| THUG (PC) | Porting THUG1's levels | `C:\Games\THUG1` | `Data\pre\qb.pre` | `Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
+| THAW (PC, version 1.01) | Porting THAW's levels | `C:\Games\THAW` | `data\worlds\worldzones` or `data\pak\qb.pak.wpc` | `data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`, `data\pak\qb.pak.wpc`, `data\pak\dbg.pak.wpc`, `data\skies\` |
+| THUGPRO (optional) | THUGPRO's own additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | | Read only, by reference (`tools/compat/thugpro`) |
+
+**Layout:** every folder you give a tool (`--thug2`, `--thps3`, `--thps4`, `--thug1`, `--thaw`, `--game`, `-Game`, CMake's
+`THUG2_GAME_DIR`) may be the install root - with the game in a `Game` subfolder, as the stock installs of THUG2, THPS4,
+THUG and THAW have it - or the game folder itself (`Game`'s contents at the top, e.g. after deleting the launcher, docs
+and readme around it). The tools look for the markers in the column above in the folder itself first, then in its
+`Game` folder, without regard to case, and say what they expected when neither matches (`tools/lib/install.ts`;
+`tools/game/game_exe.ps1` for the PowerShell scripts, which also need the exe).
 
 THUG2 needs an **unwrapped exe**: a no-CD `THUG2.exe`, or PartyMod's `THUG2PM.exe` (the addresses the code is
 named after; both have the same layout). The retail SafeDisc-encrypted exe can't run anything. The exe is never
@@ -42,9 +49,12 @@ JetBrains Mono 2.304 fonts (the level editor's UI).
 
 **Antivirus:** the self-test runner loads the game's code into its own process and patches it in memory, which
 behaviour-based antivirus can flag (Bitdefender has killed builds). Add exceptions for the repo folder, the game
-folders and your temp build-script folder.
+folders (keep build scripts inside the repo, e.g. `out\scripts`, so the repo's exception covers them).
 
 ### 2. Folder layout on disk
+
+The paths below use the stock layout, with the game in a `Game` subfolder; if you keep the game at the install's top
+level instead, drop the `Game\` part - the tools find either.
 
 ```
 C:\Dev\thug2-decomp\              this repo
@@ -357,6 +367,23 @@ than by hand
 | `tips_seen` | 0 | The first-run tips have been shown |
 
 **`[editor_keys]`**: rebound editor keys, written by Preferences > Keys (only the ones that differ from the defaults).
+
+**`[memory]`** - the script pools' sizes (ours, as THUGPRO's: bigger than THUG2's so big converted levels fit; the
+script heap and main memory grow to match - `src/game/core/memory_sizes.h`)
+
+| Key | Default | THUG2's |
+|---|---|---|
+| `component_pool` | 184000 | 86000 |
+| `struct_pool` | 49600 | 19800 |
+| `vector_pool` | 19000 | 9500 |
+| `pair_pool` | 1600 | 800 |
+| `array_pool` | 16000 | 7000 |
+| `symbol_pool` | 45000 | 12500 |
+| `script_pool` | 1200 | 300 |
+| `script_cache_pool` | 1200 | 300 |
+| `string_heap` / `string_count` | 1 MB / 28000 | 190000 bytes / 7000 |
+| `hash_item_pool` | 40000 | 10000 |
+| `original_sizes` | 0 | 1 puts every pool back to THUG2's size |
 
 **`[replacements]`** and **`[selftests]`**
 

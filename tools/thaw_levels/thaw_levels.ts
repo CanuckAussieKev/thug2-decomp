@@ -20,6 +20,7 @@ import { FormatError } from "../level_port/binio.ts";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as pedRigs from "../level_port/ped_rigs.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
@@ -28,6 +29,7 @@ import * as scriptPort from "../level_port/script_port.ts";
 import type * as tex from "../level_port/tex.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     formatG,
     isMain,
@@ -363,7 +365,7 @@ export function findPath(folder: string, ...parts: string[]): string | null {
 }
 
 export function zonePak(thawFolder: string, zone: string): string | null {
-    return findPath(thawFolder, "Game", "data", "worlds", "worldzones", zone, `${zone}_net.pak.wpc`);
+    return findPath(resolveInstall(thawFolder, "thaw"), "data", "worlds", "worldzones", zone, `${zone}_net.pak.wpc`);
 }
 
 // {".geom" / ".tex" / ".col": data, "<file name>.qb": data} of a zone's archive, without its _sfx sub-zone.
@@ -380,7 +382,7 @@ export function zoneFiles(file: string): Map<string, Buffer> {
 // TP-6: THAW's full zone archive (<zone>.pak.wpc, with the story's pieces; without its _sfx sub-zone), for the pieces
 // THUGPRO shows in network games that the net archive hasn't.
 export function fullArchive(thawFolder: string, zone: string): thugproEdits.FullArchive {
-    const file = findPath(thawFolder, "Game", "data", "worlds", "worldzones", zone, `${zone}.pak.wpc`);
+    const file = findPath(resolveInstall(thawFolder, "thaw"), "data", "worlds", "worldzones", zone, `${zone}.pak.wpc`);
     if (file === null) throw new FormatError(`${zone}: no ${zone}.pak.wpc (TP-6 needs THAW's full archive)`);
     const files = zoneFiles(file);
     return {
@@ -410,7 +412,7 @@ export function zoneArray(files: ReadonlyMap<string, Buffer>, zone: string, name
 
 function levelStructs(thawFolder: string, names: Map<number, string>): Map<string, Struct> {
     const found = thaw
-        .pakFiles(findPath(thawFolder, "Game", "data", "pak", "qb.pak.wpc")!)
+        .pakFiles(findPath(resolveInstall(thawFolder, "thaw"), "data", "pak", "qb.pak.wpc")!)
         .find(([e]) => e.path?.toLowerCase().endsWith("\\levels.qb.wpc"));
     if (found === undefined) throw new RangeError("StopIteration: no levels.qb");
     const q = new thaw.QbItems(found[1], "levels.qb", names);
@@ -422,6 +424,81 @@ function levelStructs(thawFolder: string, names: Map<number, string>): Map<strin
         }
     }
     return out;
+}
+
+// --- node flags -------------------------------------------------------------------------------------------------
+
+// THAW's story areas make much of their geometry, rails and objects from node flags: a node with
+// `CreatedFromVariable=NODEFLAG_...` (and no CreatedAtStart) is made when the level loads if its flag is on. The flags
+// are set by scripts: a story game runs chapter_info.qb's game_progress_set_initial_story_mode_nodeflags (and its
+// progress then changes them), every other game - free skate, classic, network - its
+// game_progress_set_non_story_mode_nodeflags (which runs the initial one first, then sets its own list: every
+// Skate Ranch piece built and its stand-in, `_DEF`, off; NODEFLAG_GAMEMODE_MULTIPLAYER on...). THAW.exe names both
+// scripts (their checksums are in its code), and no qb file calls the non-story one. THUG2 has no node flags: a node
+// left without CreatedAtStart is never made - Skate Ranch lost 2,208 nodes (the built pieces' ground, ramps and rails:
+// holes onto the sky under the level), and HO / BH / DT / EL / SM / LV / OI 110-510 each.
+const NODEFLAG_SCRIPT = "game_progress_set_non_story_mode_nodeflags";
+const NODEFLAG_CHANGE = "ChangeNodeFlag";
+
+// The flags a node flag script sets, in order ({flag value} entries of its Flags array; the scripts it calls run where
+// they're called: a name token at a line's start that is a script of the same file).
+export function nodeFlagScript(
+    scripts: ReadonlyMap<number, Buffer>,
+    script: number,
+    label = "qb",
+    out: Map<number, boolean> = new Map(),
+    seen: Set<number> = new Set(),
+): Map<number, boolean> {
+    const body = scripts.get(script);
+    if (body === undefined) throw new FormatError(`${label}: no script ${script.toString(16).padStart(8, "0")}`);
+    seen.add(script);
+    const t = [...thaw.tokens(body)];
+    let lineStart = true;
+    let own = 0;
+    for (let i = 0; i < t.length; i++) {
+        const [, kind, p] = t[i]!;
+        if (kind === 0x16 && lineStart) {
+            const callee = p.readUInt32LE(0);
+            if (scripts.has(callee) && !seen.has(callee)) nodeFlagScript(scripts, callee, label, out, seen);
+        }
+        if (kind === 0x03 && t[i + 1]?.[1] === 0x16 && t[i + 2]?.[1] === 0x17 && t[i + 3]?.[1] === 0x04) {
+            out.set(t[i + 1]![2].readUInt32LE(0), t[i + 2]![2].readInt32LE(0) !== 0);
+            own++;
+        }
+        lineStart = kind === 0x01 || kind === 0x02;
+    }
+    // (the Flags array is applied by a ChangeNodeFlag loop - anything else would be a script this reading doesn't know)
+    if (own && !t.some(([, kind, p]) => kind === 0x16 && p.readUInt32LE(0) === checksum(NODEFLAG_CHANGE))) {
+        throw new FormatError(
+            `${label}: node flag script ${script.toString(16).padStart(8, "0")} sets its flags some other way`,
+        );
+    }
+    return out;
+}
+
+// The node flags as THAW's non-story games have them (data\pak\qb.pak.wpc's chapter_info.qb).
+export function nonStoryNodeFlags(thawFolder: string, names: Map<number, string>): Map<number, boolean> {
+    const found = thaw
+        .pakFiles(findPath(resolveInstall(thawFolder, "thaw"), "data", "pak", "qb.pak.wpc")!)
+        .find(([e]) => e.path?.toLowerCase().endsWith("\\chapter_info.qb.wpc"));
+    if (found === undefined) throw new FormatError(`${thawFolder}: no chapter_info.qb in qb.pak (THAW's node flags)`);
+    const q = new thaw.QbItems(found[1], "chapter_info.qb", names);
+    return nodeFlagScript(q.scriptData, checksum(NODEFLAG_SCRIPT), q.name);
+}
+
+// The nodes made from a node flag that is on get CreatedAtStart (THUG2's form of "made when the level loads"); the
+// ones whose flag is off (or never set: off, as THAW creates them) stay as they were - not made. Returns how many
+// were turned on.
+export function applyNodeFlags(array: readonly QbValue[], flags: ReadonlyMap<number, boolean>): number {
+    let made = 0;
+    for (const node of array) {
+        if (!(node instanceof Struct)) continue;
+        const flag = node.get("CreatedFromVariable");
+        if (!(flag instanceof Name) || !flags.get(flag.value) || node.hasFlag("CreatedAtStart")) continue;
+        node.entries.push([null, new Name(checksum("CreatedAtStart"))]);
+        made++;
+    }
+    return made;
 }
 
 // --- scene ------------------------------------------------------------------------------------------------------
@@ -810,7 +887,10 @@ export class Port {
     constructor(args: Args, names: Map<number, string>) {
         this.thug2 = new scriptPort.Thug2(args.thug2);
         this.assets = new pedsCars.Thug2Assets(args.thug2);
-        this.globals = thawScripts.globalSources(findPath(args.thaw, "Game", "data", "pak", "qb.pak.wpc")!, names);
+        this.globals = thawScripts.globalSources(
+            findPath(resolveInstall(args.thaw, "thaw"), "data", "pak", "qb.pak.wpc")!,
+            names,
+        );
         this.particles = thawScripts.particleTextures(args.thug2);
     }
 }
@@ -985,6 +1065,7 @@ export function convertLevelNodes(
     sectors: ReadonlySet<number> = new Set(),
     colObjects: ReadonlySet<number> = new Set(),
     extra: NewNodes | null = null,
+    nodeFlags: ReadonlyMap<number, boolean> = new Map(),
 ): LevelNodes {
     const low = zone.toLowerCase();
     const data = files.get(`${low}.qb`);
@@ -1008,6 +1089,9 @@ export function convertLevelNodes(
     if (edits !== null) array = thugproEdits.applyNodeEdits(edits, array, names, report);
     // TPN-THAW-3 / TPN-THAW-4: THUGPRO's nodes and the TriggerScripts naming its scripts, as if THAW's
     if (extra !== null) array = addNewNodes(extra, array, names, report);
+    // The nodes THAW makes from its node flags in a non-story game (nonStoryNodeFlags), as made at the start
+    const flagged = applyNodeFlags(array, nodeFlags);
+    if (flagged) report.push(`  ${flagged} nodes made from THAW's node flags (non-story games) get CreatedAtStart`);
     const nameOf = (n: QbValue): number | null => {
         const v = n instanceof Struct ? n.get("Name") : undefined;
         return v instanceof Name ? v.value : null;
@@ -1172,6 +1256,18 @@ export function convertLevelNodes(
             triggers.add(v);
         }
     }
+    // Every human ped on the skeleton its THUG2 profile's model is rigged to (ours and THUGPRO's added ones), and
+    // the level's load_level_anims for the Ped_Female animations (tools/level_port/ped_rigs.ts).
+    let animsText = "";
+    if (port !== null) {
+        const rigs = pedRigs.fixPedRigs(converted, names, (v) => port.assets.femaleRigs.has(v));
+        if (rigs.changed.length) report.push(`  peds given their profile's skeleton: ${rigs.changed.join(", ")}`);
+        if (rigs.human) {
+            if (/^script load_level_anims\b/im.test(extraText))
+                throw new FormatError(`${name}: load_level_anims already defined`);
+            animsText = pedRigs.loadLevelAnimsNs(rigs.female > 0);
+        }
+    }
     // PC-THAW-13 shared_parts: the rail nodes' common parts as include structures, as THUG2's own levels have them
     // (expanded, Kyoto's node array ran THUG2's script component pool dry while loading). Rails only: the text passes
     // after this (stripMissingTrickObjects, groundRestarts) read geometry and restart nodes' own entries. The terrain
@@ -1193,6 +1289,7 @@ export function convertLevelNodes(
         includes +
         nodes.nodeArrayNs(`${name}_NodeArray`, arrayNodes, names, kills) +
         extraText +
+        animsText +
         spawnScripts +
         (extra?.setupNs ?? "");
     if (breakingNames.size) {
@@ -1232,7 +1329,7 @@ export function recentreShift(col: thug2Col.ColFile, limit: number): number[] {
 }
 
 function convertSky(args: Args, out: string, report: string[]): string | null {
-    const file = findPath(args.thaw, "Game", "data", "skies", SKY, `${SKY.toLowerCase()}.pak.wpc`);
+    const file = findPath(resolveInstall(args.thaw, "thaw"), "data", "skies", SKY, `${SKY.toLowerCase()}.pak.wpc`);
     if (!file) return null;
     const files = zoneFiles(file);
     const warnings: string[] = [];
@@ -1304,10 +1401,11 @@ function newCollision(r: thugproNew.Resolved, col: thug2Col.ColFile, tpFrame: re
 function cmdConvert(args: Args): void {
     const out = args.out || pyJoin(args.thug2, STAGING);
     if (!fs.existsSync(args.ns)) pyExit(`${args.ns} not found: build it with tools\\build_neverscript.ps1`);
-    if (!findPath(args.thaw, "Game", "data", "pak", "dbg.pak.wpc"))
-        pyExit(`${args.thaw}: THAW's Game\\data\\pak not found`);
+    if (!findPath(resolveInstall(args.thaw, "thaw"), "data", "pak", "dbg.pak.wpc"))
+        pyExit(`${args.thaw}: THAW's data\\pak not found`);
     const names = thaw.loadNames(args.thaw);
     const structs = levelStructs(args.thaw, names);
+    const nodeFlags = nonStoryNodeFlags(args.thaw, names);
     const wanted = args.levels.length ? args.levels : LEVELS.filter((l) => l[5]).map((l) => l[0]);
     if (isDir(out)) fs.rmSync(out, { recursive: true });
     fs.mkdirSync(out, { recursive: true });
@@ -1409,6 +1507,7 @@ function cmdConvert(args: Args): void {
             drawn,
             new Set(colIn.objects.map((o) => o.checksum)),
             extra,
+            nodeFlags,
         );
         const warnings: string[] = [];
         const scene = convertScene(
@@ -1494,7 +1593,7 @@ function cmdSelfcheck(args: Args): number {
     let [checked, failures] = common.thug2RoundTrips(pre, ["LAscn.prx", "LAcol.prx"]);
     const names = thaw.loadNames(args.thaw);
     print(`${names.size} checksum names from dbg.pak`);
-    const data = findPath(args.thaw, "Game", "data")!;
+    const data = findPath(resolveInstall(args.thaw, "thaw"), "data")!;
     const paks = [findPath(data, "pak", "qb.pak.wpc")!];
     for (const folder of ["worlds\\worldzones", "skies"]) {
         const root = pyJoin(data, folder);
@@ -1639,10 +1738,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const args = parseCommandLine(argv);
     setCompat(args.compat, !args.noThugproNew);
     setPortChanges(!args.noPortChanges);
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    if (!isDir(pyJoin(args.thug2, "Data")) && isDir(pyJoin(args.thug2, "Game", "Data"))) {
-        args.thug2 = pyJoin(args.thug2, "Game");
-    }
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    args.thug2 = resolveInstall(args.thug2, "thug2");
     if (args.command === "selfcheck") return cmdSelfcheck(args);
     cmdConvert(args);
     return 0;

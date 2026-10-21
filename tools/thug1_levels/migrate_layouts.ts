@@ -12,6 +12,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as qb from "../level_port/qb.ts";
 import { parseCli } from "../lib/cli.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, readTextPy, runMain } from "../lib/py.ts";
 import { migrateText } from "../thaw_levels/migrate_layouts.ts";
 import { LEVELS, levelNames } from "./thug1_levels.ts";
@@ -44,7 +45,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         print(`no ${FOLDER} in ${v.game}: nothing to migrate`);
         return 0;
     }
-    const thug2 = findDir(v.game, "Game", "Data") ? pyJoin(v.game, "Game") : v.game;
+    const thug2 = resolveInstall(v.game, "thug2");
     const now = levelNames(v.thug1 ?? "C:\\Games\\THUG1", thug2);
     const wanted = new Set(parsed.positionals.map((x) => x.toLowerCase()));
     for (const [code] of LEVELS) {

@@ -11,6 +11,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/memory_sizes.h"
 #include "game/core/pool.h"
 #include "game/core/stubs.h"
 #include "game/file/async.h"
@@ -18,6 +19,7 @@
 #include "game/front/career_complete.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
+#include "game/front/test_view.h"
 #include "game/gfx/tod_manager.h"
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
@@ -117,7 +119,9 @@ int __cdecl Main(int argc, char** argv)
         Script::CreateSymbolTable();
         Mem::PopMemProfile();
         Mem::PushMemProfile("Hash Item Pool Manager");
-        Mem::PoolManager::SetUp(0, 10000);
+        // Not original - the HashItem pool's size is ours (game/core/memory_sizes.h: pool sizes as THUGPRO's;
+        // the main block grows to match). Original behaviour: 10000 items.
+        Mem::PoolManager::SetUp(0, Mem::Sizes::Current().hashItems);
         Mem::PopMemProfile();
         Pre::CreateManager(true);
         Tmr::Init();
@@ -142,6 +146,7 @@ int __cdecl Main(int argc, char** argv)
         // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
         Front::LevelEditor::RegisterScriptFunctions();
         Front::CareerComplete::RegisterScriptFunctions();
+        Front::TestView::RegisterScriptFunctions(); // (TeleportSkaterStanding - game/front/test_view.h)
         GameFunction<void(__cdecl*)()>(0x005A5B20)();
 
         Mem::PushMemProfile("Game Singletons");
