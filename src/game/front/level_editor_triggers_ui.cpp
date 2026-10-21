@@ -245,7 +245,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
                             ImVec2(1.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(380.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
-    if (!ImGui::Begin("Triggers (T)###triggers", &open, ImGuiWindowFlags_NoSavedSettings)) {
+    if (!ImGui::Begin("Triggers###triggers", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         if (!open)
             Queue([] { SetShown(false); });

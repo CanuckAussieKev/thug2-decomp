@@ -77,7 +77,7 @@ void Palette()
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.1f), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(640.0f * S(), 0.0f));
-    ImGui::Begin("Command search###ux3palette", &open,
+    ImGui::Begin("Command Search###ux3palette", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize);
     if (!g_paletteWasOpen) {

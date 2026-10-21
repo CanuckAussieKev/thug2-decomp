@@ -293,8 +293,7 @@ void ListSection(ImFont* mono, ImFont* smallFont)
     if (static_cast<int>(all.size()) >= kMaxGoals)
         ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Placed where the view looks: the pro facing you, the start beside it, letters / checkpoints "
-                          "ahead");
+        ImGui::SetTooltip("Add at view center");
     if (all.empty())
         ImGui::TextDisabled("No goals (max 10)");
     ImGui::PushFont(mono);
