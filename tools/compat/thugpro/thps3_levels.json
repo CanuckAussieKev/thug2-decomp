@@ -11958,6 +11958,41 @@
         },
         "why": "THUG2's node loader follows a non-rail node's links as a path",
         "required": true
+      },
+      {
+        "id": "PC-THPS3-15",
+        "op": "set",
+        "target": {
+          "what": "plain moving props THUGPRO made Vehicles (TPN-THPS3-3 `set`, left out for them): Foundry's molten-metal bucket and Tokyo's two bullet trains stay our LevelObjects (drawn with THPS3's own model, moved by THPS3's scripts with THPS3's timing) and get CollisionMode=Geometry - their collision the level's collision object of their name, in their own space: THUGPRO's when TPN-THPS3-1 adds one (the bucket's 134 faces), else made from the drawn geometry (the trains) - tools/level_port/movers.ts",
+          "levels": [
+            "foun",
+            "tok"
+          ]
+        },
+        "why": "THUGPRO made this non-car a Vehicle to get path movement + collision; THUG2 builds solid moving props as LevelObjects with CollisionMode=Geometry (Boston's subway trains, New Orleans' blades), Vehicle only for movers carrying rails / trigger nodes in their model's node array (Barcelona's bridges, boat, tram); client-side only - moving level objects aren't sent over the network",
+        "required": false,
+        "online": "needs a hand check: THUGPRO's players have Vehicles (THUGPRO's models) there; the three are AbsentInNetGames, so neither side makes them in a network game",
+        "objects": [
+          {
+            "level": "foun",
+            "name": "Obj_Bucket",
+            "what": "the molten-metal bucket (THPS3's CJR_Foun_Bucket: Obj_MoveToNode out, tips with Obj_RotX); THPS3's bucket kills no one (TRGP_Kill_Bucket is a static gap trigger) - THUGPRO's kill inside it (its model's TRGP_KillSkaterBucket -> FOUN_BucketKillSkater01, THUGPRO's TP_DoFlash) isn't brought",
+            "thugpro_set": "TPN-THPS3-3"
+          },
+          {
+            "level": "tok",
+            "name": "TRG_shinkansenEast",
+            "what": "the eastbound bullet train (JS_BulletTrainEast)",
+            "thugpro_set": "TPN-THPS3-3"
+          },
+          {
+            "level": "tok",
+            "name": "TRG_shinkansenwest",
+            "what": "the westbound bullet train",
+            "thugpro_set": "TPN-THPS3-3"
+          }
+        ],
+        "kept_vehicles": "Vehicles kept as THUGPRO makes them: Tokyo's three jets TRG_Plane_* (plane_jet: its node array's trigger node Box02) and Subway's plane TRG_Plane (light_airplane01: trigger nodes TRGP_CarPlant01 / TRGP_Killskater01) - movers carrying trigger nodes, THUG2's Vehicle form; Rio's 8 and Subway's 1 invisible carplant_collision Vehicles (Obj_LockToObject on a car) - left for a separate decision; road traffic (Tokyo's 18 cars, Subway's ice-cream truck) and every car our converters make"
       }
     ]
   }
