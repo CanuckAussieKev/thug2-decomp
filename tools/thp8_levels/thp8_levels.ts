@@ -346,13 +346,23 @@ export interface SceneParts {
     dome?: boolean; // untextured materials coloured as a clear sky (THP8's atmosphere shader - the sky's dome)
 }
 
+const BILLBOARD = checksum("billboard"); // the shader template of THP8's camera-facing quads
+
 const SECTOR_FLAGS = (0x80002000 | thug2Scene.SEC_TEXCOORDS | thug2Scene.SEC_COLORS) >>> 0;
 
 export interface ConvertedScene {
     scene: thug2Scene.Scene;
     textures: tex.TexFile;
     sectors: Set<number>; // the sector checksums written
-    counts: { sectors: number; instances: number; masters: number; triangles: number; skipped: number; hidden: number };
+    counts: {
+        sectors: number;
+        instances: number;
+        masters: number;
+        triangles: number;
+        skipped: number;
+        hidden: number;
+        billboards: number;
+    };
 }
 
 // The materials and textures a set of THP8 scenes uses, as THUG2's: each material one pass with its first texture
@@ -362,18 +372,21 @@ export function convertScenes(
     shift: readonly number[],
     warnings: string[],
     mips = true,
+    unit = SCALE, // inches per metre (the sky: SKY_UNIT)
 ): ConvertedScene {
     const materials = new Map<number, thug2Scene.Material>();
     const texOut = new Map<number, tex.Texture>();
     const transparent = new Set<number>();
+    const billboards = new Set<number>();
     const sectors: geometry.SourceSector[] = [];
     const written = new Set<number>();
-    const counts = { sectors: 0, instances: 0, masters: 0, triangles: 0, skipped: 0, hidden: 0 };
+    const counts = { sectors: 0, instances: 0, masters: 0, triangles: 0, skipped: 0, hidden: 0, billboards: 0 };
     for (const part of parts) {
         const g = part.geom;
         // materials
         for (const m of g.materials) {
             if (materials.has(m.checksum) || !m.checksum) continue;
+            if (m.template === BILLBOARD) billboards.add(m.checksum);
             let texture = 0;
             // (the first texture that isn't a normal map: a few shaders list theirs first)
             const first = m.textures.find(
@@ -406,11 +419,18 @@ export function convertScenes(
                     counts.skipped++;
                     continue;
                 }
+                if (billboards.has(m.material)) {
+                    // (every corner at the pivot, spread by THP8's billboard shader to face the camera: left out, as
+                    // THAW's are)
+                    counts.billboards++;
+                    continue;
+                }
                 const base = positions.length;
                 const blend = transparent.has(m.material);
                 const dome = part.dome && !materials.get(m.material)!.passes[0]!.texture;
                 for (const v of geom.readVertices(m)) {
-                    positions.push(toThug(place(v.position, at), shift));
+                    const q = place(v.position, at);
+                    positions.push([q[0] * unit + shift[0]!, q[1] * unit + shift[1]!, q[2] * unit + shift[2]!]);
                     if (dome) {
                         colors.push(skyColour(v.position));
                         uvs.push([0, 0]);
@@ -421,7 +441,13 @@ export function convertScenes(
                     colors.push([b >> 1, g2 >> 1, r >> 1, blend ? a >> 1 : 128]);
                     uvs.push(v.uvs[0] ?? [0, 0]);
                 }
-                const tris = geom.triangles(m).map((t) => t.map((i) => i + base));
+                let tris = geom.triangles(m).map((t) => t.map((i) => i + base));
+                if (part.dome && !dome) {
+                    // (the sky's cloud layers reach below the horizon, where THP8's city hides them - THUG2's sky
+                    // turns with the camera, and looking down it showed them as sheets: their triangles whose middle
+                    // is below the horizon left out)
+                    tris = tris.filter((t) => t.reduce((y, i) => y + positions[i]![1]!, 0) >= 0);
+                }
                 counts.triangles += tris.length;
                 if (tris.length) meshes.push({ flags: 0, material: m.material, strip: trisToStrip(tris) });
             }
@@ -759,6 +785,7 @@ export interface Args {
     out: string | null;
     ns: string;
     noMips: boolean;
+    leaveOut: RegExp | null; // sectors (and their collision) left out by name
 }
 
 interface ZoneData {
@@ -809,7 +836,7 @@ export function cmdConvert(args: Args): number {
     fs.mkdirSync(out, { recursive: true });
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
     const report: string[] = [];
-    const sky = convertSky(compressed, out, report, !args.noMips);
+    const sky = convertSky(compressed, out, report, !args.noMips, args.leaveOut, names);
     for (const info of wanted) {
         const file = zonePak(compressed, info.zone);
         if (file === null) {
@@ -841,6 +868,9 @@ export function cmdConvert(args: Args): number {
             if (node?.hasFlag("CreatedAtStart")) placed.set(k, v);
         }
         const hidden = notMade(array, names);
+        if (args.leaveOut) {
+            for (const s of z.geom.sectors) if (args.leaveOut.test(names.get(s.checksum) ?? "")) hidden.add(s.checksum);
+        }
         // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
         const done = convertScenes(
             [{ geom: z.geom, textures: z.textures, placed, hidden }],
@@ -861,7 +891,8 @@ export function cmdConvert(args: Args): number {
         const c = done.counts;
         report.push(
             `  ${info.zone}${online ? ` + ${info.online}` : ""}: ${c.sectors} sectors, ${c.instances} instances of ` +
-                `${c.masters} masters, ${c.triangles} triangles; collision ${col.objects.size} objects (${col.named} ` +
+                `${c.masters} masters, ${c.billboards} billboard meshes left out, ` +
+                `${c.triangles} triangles; collision ${col.objects.size} objects (${col.named} ` +
                 `named after their sector / node; ${col.hidden} of nodes not made left out); ${flagged} nodes made ` +
                 `from THP8's non-story node flags, ${hidden.size} not made; moved by (${shift.map((x) => x.toFixed(1)).join(", ")})`,
         );
@@ -892,6 +923,8 @@ export function cmdConvert(args: Args): number {
 }
 
 export const SKY = "thp8_sky";
+// THUG2 draws a sky around the camera, small: THAW's reaches ~720 units. THP8's dome (1,456 m) made as big.
+export const SKY_UNIT = 0.5;
 
 // A stand-in for THP8's atmosphere shader on the sky's domes: a clear sky by the vertex's height (horizon pale, zenith
 // blue), B G R A with 128 = full.
@@ -899,11 +932,18 @@ export function skyColour(p: readonly number[]): number[] {
     const r = Math.hypot(p[0]!, p[1]!, p[2]!) || 1;
     const t = Math.max(0, Math.min(1, p[1]! / r));
     const mix = (a: number, b: number): number => Math.round((a + (b - a) * t ** 0.6) / 2);
-    return [mix(235, 200), mix(220, 140), mix(205, 80), 128];
+    return [mix(220, 190), mix(205, 120), mix(190, 70), 128];
 }
 
 // THP8's default sky (SKIES\DEFAULT_SKY\default_sky.pak.xen: a dome scene) as the levels' sky, in the same units.
-export function convertSky(compressed: string, out: string, report: string[], mips: boolean): string | null {
+export function convertSky(
+    compressed: string,
+    out: string,
+    report: string[],
+    mips: boolean,
+    leaveOut: RegExp | null = null,
+    names: ReadonlyMap<number, string> = new Map(),
+): string | null {
     const file = findCaseless(compressed, "SKIES", "DEFAULT_SKY", "default_sky.pak.xen");
     if (file === null) {
         report.push("default_sky.pak.xen not found - no sky");
@@ -915,11 +955,16 @@ export function convertSky(compressed: string, out: string, report: string[], mi
     const t = pak.entries.find((e) => e.extension === ".tex");
     if (!g || !t) return null;
     const textures = new Map(xenos.readXenosTex(thp8.entryData(pak, t), file).map((x) => [x.checksum, x]));
+    const sky = geom.readGeom(thp8.entryData(pak, g), file);
+    const hidden = new Set(
+        sky.sectors.filter((s) => leaveOut?.test(names.get(s.checksum) ?? "")).map((s) => s.checksum),
+    );
     const done = convertScenes(
-        [{ geom: geom.readGeom(thp8.entryData(pak, g), file), textures, placed: new Map(), dome: true }],
+        [{ geom: sky, textures, placed: new Map(), dome: true, hidden }],
         [0, 0, 0],
         warnings,
         mips,
+        SKY_UNIT,
     );
     common.writeLevel(pyJoin(out, "levels", SKY), SKY, done.scene, done.textures, null);
     common.reportLevel(report, SKY, done.scene, done.textures, null, [...new Set(warnings)].sort());
@@ -1001,7 +1046,8 @@ const USAGE = `usage: thp8_levels.ts {convert,selfcheck,list} [zones ...] [--thu
   --thp8      THP8's folder (default C:\\Games\\THP8) - holding game\\DATA\\COMPRESSED
   --out       where convert writes (default <thug2>\\${STAGING})
   --ns        NeverScript's compiler (default out\\neverscript\\ns.exe)
-  --no-mips   no mip levels (faster)`;
+  --no-mips   no mip levels (faster)
+  --leave-out a regular expression: sectors whose names match are left out (scene and collision)`;
 
 export function parseCommandLine(argv: readonly string[]): Args {
     const { values, positionals } = parseCli(USAGE, {
@@ -1013,6 +1059,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
             out: { type: "string" },
             ns: { type: "string" },
             "no-mips": { type: "boolean" },
+            "leave-out": { type: "string" },
         },
     });
     const command = positionals[0];
@@ -1028,6 +1075,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
         out: values.out ?? null,
         ns: values.ns ?? common.NS,
         noMips: values["no-mips"] ?? false,
+        leaveOut: values["leave-out"] ? new RegExp(values["leave-out"], "i") : null,
     };
 }
 
