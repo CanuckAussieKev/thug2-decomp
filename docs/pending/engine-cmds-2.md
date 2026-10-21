@@ -28,7 +28,7 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and src/hook
     free_mem=<its region's MemAvailable> min_free_mem=<the region's least>; one pooled structure, cleared each time.
     Test 0x00449110: prints the bytes of a hand-made symbol table entry (three times, flags 1 and 2 set in
     between; flag 4 then cleared, unprinted) and of a component.
-  - Checksum names found from the game's .qb name entries (out\scripts\names.py); LinearMap's input (0x08296457)
+  - Checksum names found from the name entries in the game's .qb files; LinearMap's input (0x08296457)
     stays unnamed.
   - Test TestMathCFuncs (src/hook/selftests_ec2.cpp): every command over several inputs (out-of-range, NaN, zero
     vectors, reversed / empty LinearMap ranges, cancelling LinearMap ranges, Clamp's NaN cases, each rotation alone
@@ -69,3 +69,35 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and src/hook
     instead of truncating shows).
   - The verify build is configured with CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded (/Z7) in this worktree: the
     shared compile PDB kept getting corrupted during mutation runs (C1033 / C2471).
+- [x] Batch EC2-3 (NOT run in the game yet; RunScriptOnObject, Orient, Change, SetEventHandlerOnObject, Wait, the
+  comparisons, SetScriptString, GlobalExists): src/game/obj/object_cfuncs.{h,cpp}, src/game/script/script_cfuncs.{h,cpp}
+  (new).
+  - RunScriptOnObject 0x00449A10: UniqueID removed from the caller's parameters; the object (Obj::FindObject, the
+    tracker) gets its own script's object set if it has none (0x0041D1D0 - CSmtPtr::Set) and runs the script as an
+    interrupt (CObject::CallScript); false with no object.
+  - Orient 0x00449AC0: angles (Angles, default (0,0,0,1); `degrees` scales all four) to the object's m_matrix
+    (0x0041A730), offset as its position row; with bone, times the bone's matrix from RelativeTo's skeleton
+    component (0x005480F0 its skeleton, 0x004A36E0 the bone's matrix; no RelativeTo: crashes, as in the original);
+    with RelativeTo, times that object's display matrix with its position; then m_pos = the position row, the row
+    reset, the display matrix = the matrix. No check that the object exists.
+  - SetEventHandlerOnObject 0x00449F80: ex / scr / Group (default "default") / Exception / params; the object's
+    script made from the script pool (CScript::operator new + Construct) if it has none; CScript::SetEventHandler.
+  - Change 0x00449D00: <name>=<value> (the first component) or globalname(guess)=<name> newValue=<value>; scripts and C
+    / member functions refused; the global removed (CleanUpAndRemoveSymbol) and made again (its +0x08 kept); the
+    value copied into a fresh component (its flag bit kept); a name with `resolve` takes the global it names (type and
+    value); integers, floats and names stored, structures copied into a new pooled structure, arrays into a new
+    array (CopyArray); any other type (strings, vectors, pairs...) leaves the global made again but EMPTY - kept.
+  - Wait 0x0044A0D0: seconds / second (x 1000) and frame / frames (x 16.666666) as ms of frame time (WaitTime) or,
+    with the flag 0xC847F2B9 (name unknown), the game clock (WaitRealTime); gameframe / gameframes / game: Updates
+    (Wait); one_per_frame: WaitOnePerFrame; a bare number: ms. Each truncated (_ftol).
+  - IntegerEquals / ChecksumEquals 0x0044A200 / 0x0044A260 (A, B; missing 0), StringEquals 0x0044A2C0 (by checksum:
+    case-insensitive), SetScriptString 0x0044A320 (index 0, string ""), GlobalExists 0x0044A380 (name; type names
+    Structure / struct, checksum / name, float, array, string, vector, Integer / int, pair; none: type 0, never true).
+  - Test TestScriptCFuncs: RunScriptOnObject over an object with no script, a script without / with an object, no
+    object and no params; Orient (defaults, degrees with an offset, RelativeTo, a bone, RelativeTo missing);
+    SetEventHandlerOnObject with every argument and with the script made; Change over every value type, resolve
+    (resolved, structure, unresolvable), refused types, a string global, globalname / newValue, nothing; Wait over
+    every unit with and without the real-time flag, an integer, a negative; the comparisons both ways and with missing
+    arguments; GlobalExists over 8 symbol types x 13 type names. The symbol table, pools, smart pointers, the
+    skeleton and the waits recorded; the objects and new symbols / structures / arrays compared after. 43 deliberate
+    bugs: 42 caught, 1 equivalent (Orient's w angle: 0x0041A730 reads x, y, z only).

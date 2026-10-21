@@ -23,5 +23,8 @@ bool __cdecl CFunc_DestroyParticlesByGroupID(Script::CStruct* params, Script::CS
 bool __cdecl CFunc_GetNode(Script::CStruct* params, Script::CScript* script);                   // 0x00449850
 bool __cdecl CFunc_GetNodeName(Script::CStruct* params, Script::CScript* script);               // 0x00449890
 bool __cdecl CFunc_GetTriggerNodeName(Script::CStruct* params, Script::CScript* script);        // 0x004498C0
+bool __cdecl CFunc_RunScriptOnObject(Script::CStruct* params, Script::CScript* script);         // 0x00449A10
+bool __cdecl CFunc_Orient(Script::CStruct* params, Script::CScript* script);                    // 0x00449AC0
+bool __cdecl CFunc_SetEventHandlerOnObject(Script::CStruct* params, Script::CScript* script);   // 0x00449F80
 
 } // namespace CFuncs

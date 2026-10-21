@@ -24,10 +24,13 @@
 #include "game/obj/object_cfuncs.h"
 #include "game/obj/objman.h"
 #include "game/obj/proxim.h"
+#include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/debug_cfuncs.h"
 #include "game/script/math_cfuncs.h"
 #include "game/script/nodes.h"
+#include "game/script/qb.h"
+#include "game/script/script_cfuncs.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -667,7 +670,339 @@ void TestObjectCFuncs()
     Compare(traces[0], traces[1], "object, node, .qb, language and proximity script commands (0x00449280-0x00449960)");
 }
 
+// --- RunScriptOnObject, Orient, Change, SetEventHandlerOnObject, Wait, comparisons, script strings, GlobalExists ---
+// (0x00449A10-0x0044A380)
+
+alignas(16) uint8_t g_ownScript[0x100];   // an object's own script
+alignas(16) uint8_t g_newScript[0x100];   // the script SetEventHandlerOnObject makes
+alignas(16) uint8_t g_symbols[8][0x14];   // the stand-in globals
+alignas(16) uint8_t g_newSymbols[4][0x14];
+alignas(16) uint8_t g_newStructs[2][0x10];
+alignas(16) uint8_t g_newArrays[2][0x10];
+alignas(16) uint8_t g_skeletonComponent[0x40];
+int g_newSymbolCount;
+int g_newStructCount;
+int g_newArrayCount;
+bool g_failBoneMatrix;
+
+uint32_t ScriptRel(uint32_t value)
+{
+    struct Range {
+        const void* base;
+        uint32_t size;
+        uint32_t tag;
+    };
+    const Range ranges[] = {{g_ownScript, sizeof(g_ownScript), 0xD0000000u}, {g_newScript, sizeof(g_newScript), 0xD1000000u},
+                            {g_symbols, sizeof(g_symbols), 0xD2000000u},     {g_newSymbols, sizeof(g_newSymbols), 0xD3000000u},
+                            {g_newStructs, sizeof(g_newStructs), 0xD4000000u}, {g_newArrays, sizeof(g_newArrays), 0xD5000000u},
+                            {g_skeletonComponent, sizeof(g_skeletonComponent), 0xD6000000u}};
+    for (const Range& r : ranges) {
+        auto base = reinterpret_cast<uint32_t>(r.base);
+        if (value >= base && value < base + r.size)
+            return r.tag + (value - base);
+    }
+    return ObjRel(value);
+}
+
+// The stand-in globals: 0x51000 + i.
+Script::CSymbolTableEntry* Symbol(int i) { return reinterpret_cast<Script::CSymbolTableEntry*>(g_symbols[i]); }
+uint32_t SymbolFor(uint32_t name)
+{
+    if (name >= 0x51000 && name < 0x51008)
+        return reinterpret_cast<uint32_t>(g_symbols[name - 0x51000]);
+    return 0u;
+}
+
+void StandInScriptCalls(StandIns& s)
+{
+    StandInObjectCalls(s);
+    s.At({0x004776B0, AddressOf(static_cast<Method<void, uint32_t>>(&CStruct::RemoveComponent))}, 4, [](Regs& r) {
+        Record({0x76B0, Rel(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00460AD0, AddressOf(&Obj::FindObject)}, 0, [](Regs& r) {
+        Record({0x0AD0, r.args[0]});
+        return r.args[0] >= 0x0B100 && r.args[0] < 0x0B104 ? reinterpret_cast<uint32_t>(g_objects[r.args[0] - 0x0B100]) : 0u;
+    });
+    s.At({0x00461500, AddressOf(&Obj::CObject::CallScript)}, 8, [](Regs& r) {
+        Record({0x1500, ObjRel(r.ecx), r.args[0], ObjRel(r.args[1])});
+        return 0u;
+    });
+    s.At({0x004637C0, AddressOf(&Obj::CRefCounted::AddSmartPointer)}, 4, [](Regs& r) {
+        Record({0x37C0, ScriptRel(r.ecx), ScriptRel(r.args[0])});
+        return 0u;
+    });
+    s.At({0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 4, [](Regs& r) {
+        Record({0x37E0, ScriptRel(r.ecx), ScriptRel(r.args[0])});
+        return 0u;
+    });
+    s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
+        Record({0xDB90, ObjRel(r.ecx), r.args[0]});
+        return reinterpret_cast<uint32_t>(g_skeletonComponent);
+    });
+    s.At({0x004A36E0}, 8, [](Regs& r) {
+        Record({0x36E0, r.ecx, r.args[0]});
+        if (g_failBoneMatrix)
+            return 0u;
+        auto* m = reinterpret_cast<float*>(r.args[1]);
+        for (int i = 0; i < 16; ++i)
+            m[i] = (i % 5 == 0) ? 1.0f : 0.125f * (i + 1);
+        return 1u;
+    });
+    s.At({0x005BA3D0, AddressOf(&Mem::Pool::Allocate)}, 0, [](Regs& r) {
+        Record({0xA3D0, r.ecx});
+        return reinterpret_cast<uint32_t>(g_newScript);
+    });
+    s.At({0x004738E0, AddressOf(&Script::CScript::Construct)}, 0, [](Regs& r) {
+        Record({0x38E0, ScriptRel(r.ecx)});
+        return r.ecx;
+    });
+    s.At({0x004735D0, AddressOf(&Script::CScript::SetEventHandler)}, 20, [](Regs& r) {
+        Record({0x35D0, ScriptRel(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, ObjRel(r.args[4])});
+        return 0u;
+    });
+    s.At({0x00478CC0, AddressOf(&Script::FindSymbol)}, 0, [](Regs& r) {
+        Record({0x8CC0, r.args[0]});
+        return SymbolFor(r.args[0]);
+    });
+    s.At({0x00478CF0, AddressOf(&Script::LookUpSymbol)}, 0, [](Regs& r) {
+        Record({0x8CF0, r.args[0]});
+        return SymbolFor(r.args[0]);
+    });
+    s.At({0x004711D0, AddressOf(&Script::CleanUpAndRemoveSymbol)}, 0, [](Regs& r) {
+        Record({0x11D0, ScriptRel(r.args[0])});
+        return 0u;
+    });
+    s.At({0x00479110, AddressOf(&Script::CreateSymbol)}, 0, [](Regs& r) {
+        Record({0x9110, r.args[0]});
+        uint8_t* entry = g_newSymbols[g_newSymbolCount++ & 3];
+        std::memset(entry, 0, 0x14);
+        reinterpret_cast<Script::CSymbolTableEntry*>(entry)->name = r.args[0];
+        return reinterpret_cast<uint32_t>(entry);
+    });
+    s.At({0x00409030, AddressOf(&Script::NewStruct)}, 0, [](Regs&) {
+        Record({0x9030});
+        return reinterpret_cast<uint32_t>(g_newStructs[g_newStructCount++ & 1]);
+    });
+    s.At({0x00408F90, AddressOf(&Script::NewArray)}, 0, [](Regs&) {
+        Record({0x8F90});
+        return reinterpret_cast<uint32_t>(g_newArrays[g_newArrayCount++ & 1]);
+    });
+    s.At({0x00478A60, AddressOf(&Script::CopyArray)}, 0, [](Regs& r) {
+        Record({0x8A60, ScriptRel(r.args[0]), r.args[1]});
+        return 0u;
+    });
+    for (uint32_t address : {0x00472BD0u, 0x00472BF0u, 0x00472C10u, 0x00473310u}) {
+        uint32_t ours = 0;
+        switch (address) {
+        case 0x00472BD0u: ours = AddressOf(&Script::CScript::Wait); break;
+        case 0x00472BF0u: ours = AddressOf(&Script::CScript::WaitOnePerFrame); break;
+        case 0x00472C10u: ours = AddressOf(&Script::CScript::WaitTime); break;
+        default: ours = AddressOf(&Script::CScript::WaitRealTime); break;
+        }
+        s.At({address, ours}, 4, [address](Regs& r) {
+            Record({address, Rel(r.ecx), r.args[0]});
+            return 0u;
+        });
+    }
+    s.At({0x00476370, AddressOf(&Script::SetScriptString)}, 0, [](Regs& r) {
+        Record({0x6370, r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
+        return 0u;
+    });
+}
+
+void TestScriptCFuncs()
+{
+    // the globals: the symbol table (empty), the composite object manager, the script pools
+    std::vector<Saved> saved = {{0x006F3624, 4, {}}, {0x006F0FB8, 4, {}}, {0x006F3548, 16, {}}};
+    SaveAll(saved);
+    static Script::CSymbolTableEntry* table[0x1000];
+    std::memset(table, 0, sizeof(table));
+    GameVariable<Script::CSymbolTableEntry**>(0x006F3624) = table;
+
+    auto* standIns = new StandIns;
+    StandInScriptCalls(*standIns);
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        auto call = [&](uint32_t address, CFunc ours, TestParams& params) { Call(original, address, ours, params); };
+        GameVariable<uint32_t>(0x006F0FB8) = 0x00C0FFEE;
+        g_newSymbolCount = g_newStructCount = g_newArrayCount = 0;
+        std::memset(g_newSymbols, 0, sizeof(g_newSymbols));
+        std::memset(g_objects, 0, sizeof(g_objects));
+        std::memset(g_ownScript, 0, sizeof(g_ownScript));
+        std::memset(g_newScript, 0xCD, sizeof(g_newScript));
+        std::memset(g_newStructs, 0xCD, sizeof(g_newStructs));
+        std::memset(g_newArrays, 0xCD, sizeof(g_newArrays));
+        std::memset(g_skeletonComponent, 0, sizeof(g_skeletonComponent));
+        *reinterpret_cast<uint32_t*>(g_skeletonComponent + 0x18) = 0x05CE1E70; // its skeleton
+        for (int i = 0; i < 4; ++i) {
+            auto* object = reinterpret_cast<Obj::CCompositeObject*>(g_objects[i]);
+            object->m_vtable = g_objectVtable;
+            object->m_pos = {10.0f * i + 0.5f, -2.0f * i, 7.25f, 1.0f};
+            object->m_displayMatrix.Ident();
+            object->m_displayMatrix.row[0] = {0.0f, 1.0f, 0.0f, 0.0f};
+            object->m_displayMatrix.row[1] = {-1.0f, 0.0f, 0.5f, 0.0f};
+            object->m_displayMatrix.row[3] = {100.0f * i, 3.0f, -9.0f, 1.0f};
+            object->m_matrix.Ident();
+        }
+
+        // RunScriptOnObject: an object without a script, one whose script has no object, one whose script has one,
+        // no object
+        {
+            TestParams extra; extra.Integer(0x77, 3);
+            reinterpret_cast<Obj::CObject*>(g_objects[1])->m_script = reinterpret_cast<Script::CScript*>(g_ownScript);
+            reinterpret_cast<Obj::CObject*>(g_objects[2])->m_script = reinterpret_cast<Script::CScript*>(g_newScript);
+            std::memset(g_newScript, 0, sizeof(g_newScript));
+            *reinterpret_cast<uint8_t**>(g_newScript + 0xBC) = g_objects[3];
+            for (uint32_t id : {0x0B100u, 0x0B101u, 0x0B102u, 0x0B1FFu}) {
+                TestParams a; a.Checksum(0x40C698AF, id).Checksum(0, 0x5C0000 + id).Structure(0x7031F10C, extra.Struct());
+                call(0x00449A10, CFuncs::CFunc_RunScriptOnObject, a);
+            }
+            TestParams b; b.Checksum(0x40C698AF, 0x0B101).Checksum(0, 0x5C1234); // (no params)
+            call(0x00449A10, CFuncs::CFunc_RunScriptOnObject, b);
+            Record({ScriptRel(*reinterpret_cast<uint32_t*>(g_ownScript + 0xBC))});
+            for (int i = 0; i < 4; ++i)
+                reinterpret_cast<Obj::CObject*>(g_objects[i])->m_script = nullptr;
+        }
+        // Orient: everything default; angles in degrees with an offset; relative to another object; with a bone
+        {
+            auto recordObjects = [] { Record({HashBytes(&g_objects[0][0], sizeof(g_objects))}); };
+            TestParams a; a.Checksum(0x57525413, 0x0B100);
+            call(0x00449AC0, CFuncs::CFunc_Orient, a);
+            recordObjects();
+            TestParams b;
+            b.Checksum(0x57525413, 0x0B101).Vector(0x9D2D0915, 30.0f, -45.0f, 90.0f).Vector(0xA6F5352F, 1.0f, 2.0f, 3.0f)
+                .Flag(0x30EDA37B);
+            call(0x00449AC0, CFuncs::CFunc_Orient, b);
+            recordObjects();
+            TestParams c;
+            c.Checksum(0x57525413, 0x0B102).Vector(0x9D2D0915, 0.5f, 0.25f, -1.0f).Checksum(0xC03F9839, 0x0B103);
+            call(0x00449AC0, CFuncs::CFunc_Orient, c);
+            recordObjects();
+            TestParams d;
+            d.Checksum(0x57525413, 0x0B100).Vector(0xA6F5352F, -4.0f, 0.5f, 8.0f).Checksum(0xC03F9839, 0x0B101)
+                .Checksum(0xCAB94088, 0x0B0E);
+            call(0x00449AC0, CFuncs::CFunc_Orient, d);
+            recordObjects();
+            TestParams e; e.Checksum(0x57525413, 0x0B103).Checksum(0xC03F9839, 0x0B1FF); // RelativeTo: none
+            call(0x00449AC0, CFuncs::CFunc_Orient, e);
+            recordObjects();
+        }
+        // SetEventHandlerOnObject: an object with a script; one without (made); every argument / the defaults
+        {
+            TestParams extra; extra.Integer(0x31, 1);
+            reinterpret_cast<Obj::CObject*>(g_objects[0])->m_script = reinterpret_cast<Script::CScript*>(g_ownScript);
+            Mem::PoolPair& pools = GameVariable<Mem::PoolPair>(0x006F3548);
+            std::memset(&pools, 0, sizeof(pools));
+            pools.pools[0] = reinterpret_cast<Mem::Pool*>(0x00F00100);
+            TestParams a;
+            a.Checksum(0xF8728BEC, 0xE7E7).Checksum(0xA6D2D890, 0x5C5C).Checksum(0x923FBB3A, 0x6A6A).Flag(0x80367192)
+                .Structure(0x7031F10C, extra.Struct()).Checksum(0x57525413, 0x0B100);
+            call(0x00449F80, CFuncs::CFunc_SetEventHandlerOnObject, a);
+            std::memset(g_newScript, 0xCD, sizeof(g_newScript));
+            TestParams b; b.Checksum(0xF8728BEC, 0xE8E8).Checksum(0xA6D2D890, 0x5D5D).Checksum(0x57525413, 0x0B102);
+            call(0x00449F80, CFuncs::CFunc_SetEventHandlerOnObject, b);
+            Record({ScriptRel(reinterpret_cast<uint32_t>(reinterpret_cast<Obj::CObject*>(g_objects[2])->m_script))});
+        }
+        // Change: by name=value and by globalname / newValue; each type; resolve; refused names
+        {
+            static Script::CArray anArray;
+            TestParams inner; inner.Integer(0x42, 4);
+            std::memset(g_symbols, 0, sizeof(g_symbols));
+            const uint8_t types[8] = {1, 2, 10, 12, 13, 7, 8, 3};
+            for (int i = 0; i < 8; ++i) {
+                Symbol(i)->type = static_cast<Script::ESymbolType>(types[i]);
+                Symbol(i)->name = 0x51000 + i;
+                Symbol(i)->unknown8 = 0xAB00 + i;
+                Symbol(i)->raw = 0x7700 + i;
+            }
+            std::vector<TestParams*> cases;
+            auto add = [&]() { cases.push_back(new TestParams); return cases.back(); };
+            add()->Integer(0x51000, 42);
+            add()->Float(0x51001, 2.5f);
+            add()->Structure(0x51002, inner.Struct());
+            add()->Array(0x51003, &anArray);
+            add()->Checksum(0x51004, 0xC4C4);
+            add()->Checksum(0x51004, 0x51001).Flag(0x991A7BC3);          // resolved: the float's value
+            add()->Checksum(0x51004, 0x51002).Flag(0x991A7BC3);          // resolved: a structure (copied)
+            add()->Checksum(0x51004, 0x5FFFF).Flag(0x991A7BC3);          // not a global: the name kept
+            add()->String(0x51000, "text");                              // a string: the global made empty
+            add()->Vector(0x51001, 1.0f, 2.0f, 3.0f);
+            add()->Integer(0x51005, 1);                                  // a script: refused
+            add()->Integer(0x51006, 1);                                  // a C function: refused
+            add()->Integer(0x51007, 9);                                  // a string global: changed
+            add()->Integer(0x5FFFF, 1);                                  // no such global
+            add()->Checksum(0x60F6F242, 0x51000).Integer(0x4B40630D, -5);   // globalname / newValue
+            add()->Checksum(0x60F6F242, 0x51000).Integer(0x12345, -6);      // no newValue
+            add();                                                       // nothing
+            for (TestParams* p : cases) {
+                call(0x00449D00, CFuncs::CFunc_Change, *p);
+                Record({HashBytes(&g_newSymbols[0][0], sizeof(g_newSymbols)), HashBytes(&g_newStructs[0][0], sizeof(g_newStructs)),
+                        HashBytes(&g_newArrays[0][0], sizeof(g_newArrays))});
+                delete p;
+            }
+        }
+        // Wait: every unit, with and without the real-time flag, fractions truncated
+        {
+            const uint32_t units[] = {0, 0xD029F619, 0x49E0EE96, 0xFC37DF05, 0xB99AE3D6, 0xDCD4CE73, 0x4A07C332,
+                                      0x019176C5, 0xECAA3345};
+            for (int realTime = 0; realTime < 2; ++realTime) {
+                for (uint32_t unit : units) {
+                    TestParams p; p.Float(0, 2.7f);
+                    if (unit)
+                        p.Flag(unit);
+                    if (realTime)
+                        p.Flag(0xC847F2B9);
+                    call(0x0044A0D0, CFuncs::CFunc_Wait, p);
+                }
+            }
+            TestParams q; q.Integer(0, 3).Flag(0x4A07C332); call(0x0044A0D0, CFuncs::CFunc_Wait, q);
+            TestParams r; r.Float(0, -1.3f).Flag(0xD029F619); call(0x0044A0D0, CFuncs::CFunc_Wait, r);
+            TestParams none; call(0x0044A0D0, CFuncs::CFunc_Wait, none);
+        }
+        // the comparisons, SetScriptString, GlobalExists
+        {
+            TestParams a; a.Integer(0x174841BC, 5).Integer(0x8E411006, 5); call(0x0044A200, CFuncs::CFunc_IntegerEquals, a);
+            TestParams b; b.Integer(0x174841BC, 5).Integer(0x8E411006, 6); call(0x0044A200, CFuncs::CFunc_IntegerEquals, b);
+            TestParams c; c.Integer(0x8E411006, 0); call(0x0044A200, CFuncs::CFunc_IntegerEquals, c);
+            TestParams d; d.Integer(0x174841BC, 7); call(0x0044A200, CFuncs::CFunc_IntegerEquals, d);
+            TestParams e; e.Checksum(0x174841BC, 0xAA).Checksum(0x8E411006, 0xAA); call(0x0044A260, CFuncs::CFunc_ChecksumEquals, e);
+            TestParams f; f.Checksum(0x174841BC, 0xAA).Checksum(0x8E411006, 0xAB); call(0x0044A260, CFuncs::CFunc_ChecksumEquals, f);
+            TestParams g; g.Checksum(0x174841BC, 0xAA); call(0x0044A260, CFuncs::CFunc_ChecksumEquals, g);
+            TestParams h; h.String(0x174841BC, "Hello").String(0x8E411006, "hELLO"); call(0x0044A2C0, CFuncs::CFunc_StringEquals, h);
+            TestParams i; i.String(0x174841BC, "Hello").String(0x8E411006, "Hell"); call(0x0044A2C0, CFuncs::CFunc_StringEquals, i);
+            TestParams j; j.Integer(0x7F8C98FE, 3).String(0x61414D56, "a string"); call(0x0044A320, CFuncs::CFunc_SetScriptString, j);
+            TestParams k; call(0x0044A320, CFuncs::CFunc_SetScriptString, k);
+            const uint32_t typeNames[] = {0x90FEC815, 0x456D28D1, 0x21902065, 0x365AA16A, 0x5EF31148, 0x61414D56,
+                                          0xE491B7A4, 0xA1DC81F9, 0xA5F054F4, 0xEBAE254E, 0xF6A5E196, 0x12345678, 0};
+            const uint8_t symbolTypes[] = {1, 2, 3, 5, 6, 10, 12, 13};
+            for (uint8_t type : symbolTypes) {
+                Symbol(0)->type = static_cast<Script::ESymbolType>(type);
+                for (uint32_t typeName : typeNames) {
+                    TestParams p; p.Checksum(0xA1DC81F9, 0x51000);
+                    if (typeName)
+                        p.Checksum(0x7321A8D6, typeName);
+                    call(0x0044A380, CFuncs::CFunc_GlobalExists, p);
+                }
+            }
+            Symbol(0)->type = Script::ESYMBOLTYPE_NONE;
+            TestParams none; none.Checksum(0xA1DC81F9, 0x51000); call(0x0044A380, CFuncs::CFunc_GlobalExists, none);
+            TestParams missing; missing.Checksum(0xA1DC81F9, 0x5FFFF); call(0x0044A380, CFuncs::CFunc_GlobalExists, missing);
+        }
+        Record({HashBytes(&g_newScript[0], sizeof(g_newScript)), HashBytes(&g_ownScript[0], sizeof(g_ownScript))});
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(saved);
+    Check(traces[0].size() > 300, "script commands: the original reached its calls");
+    Compare(traces[0], traces[1], "RunScriptOnObject .. GlobalExists (0x00449A10-0x0044A380)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestMathCFuncs, RemoveStandIns);
 SELFTEST(Early, TestObjectCFuncs, RemoveStandIns);
+SELFTEST(Early, TestScriptCFuncs, RemoveStandIns);

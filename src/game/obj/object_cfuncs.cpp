@@ -38,6 +38,18 @@ constexpr uint32_t kWorldOffset = 0x36CB486C;   // "world_offset"
 constexpr uint32_t kGroupId = 0x87FA53ED;       // "groupID"
 constexpr uint32_t kParticle = 0xA9DB601E;      // "particle" (the component type)
 constexpr uint32_t kNodeName = 0x9F92BA78;      // "nodename"
+constexpr uint32_t kId = 0x40C698AF;            // "id"
+constexpr uint32_t kRelativeTo = 0xC03F9839;    // "RelativeTo"
+constexpr uint32_t kBone = 0xCAB94088;          // "bone"
+constexpr uint32_t kOffset = 0xA6F5352F;        // "offset"
+constexpr uint32_t kAngles = 0x9D2D0915;        // "Angles"
+constexpr uint32_t kDegrees = 0x30EDA37B;       // "degrees"
+constexpr uint32_t kSkeleton = 0x222756D5;      // "skeleton" (the component type)
+constexpr uint32_t kEx = 0xF8728BEC;            // "ex"
+constexpr uint32_t kScr = 0xA6D2D890;           // "scr"
+constexpr uint32_t kGroup = 0x923FBB3A;         // "Group"
+constexpr uint32_t kDefaultGroup = 0x1CA1FF20;  // "default"
+constexpr uint32_t kException = 0x80367192;     // "Exception"
 
 Obj::CCompositeObject* ObjectById(uint32_t id)
 {
@@ -65,6 +77,29 @@ uint32_t ParticleGroup(Obj::CBaseComponent* component)
 {
     auto* system = *reinterpret_cast<uint8_t* const*>(reinterpret_cast<uint8_t*>(component) + 0x1C);
     return *reinterpret_cast<const uint32_t*>(system + 0x0C);
+}
+
+// The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
+void AnglesToMatrix(Mth::Matrix* matrix, const Script::VectorValue* angles)
+{
+    GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Script::VectorValue*)>(0x0041A730)(matrix, angles);
+}
+
+// D3DX's matrix product (linked library code; stdcall): out = a * b.
+void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+{
+    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+}
+
+// A skeleton component's skeleton (0x005480F0: its +0x18) and that skeleton's matrix of `bone` (0x004A36E0; false -
+// `out` untouched - if it has no such bone).
+void* SkeletonOf(Obj::CBaseComponent* component)
+{
+    return GameFunction<void*(__thiscall*)(Obj::CBaseComponent*)>(0x005480F0)(component);
+}
+bool GetBoneMatrix(void* skeleton, uint32_t bone, Mth::Matrix* out)
+{
+    return GameFunction<bool(__thiscall*)(void*, uint32_t, Mth::Matrix*)>(0x004A36E0)(skeleton, bone, out);
 }
 
 // The object's MarkAsDead (vtable slot 6).
@@ -228,6 +263,100 @@ bool __cdecl CFunc_GetTriggerNodeName(Script::CStruct*, Script::CScript* script)
     return true;
 }
 
+// 0x00449A10: RunScriptOnObject id=<object> <script> [params={...}]: UniqueID is taken out of the calling script's
+// parameters; the object (found through the tracker) runs the script now as an interrupt of its own script (which,
+// if it has no object yet, is given this one). False if there is no such object.
+bool __cdecl CFunc_RunScriptOnObject(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t id = 0, name = 0;
+    params->GetChecksum(kId, &id, 1);
+    params->GetChecksum(0u, &name, 1);
+    Script::CStruct* scriptParams = nullptr;
+    params->GetStructure(kParams, &scriptParams, 0);
+    script->m_params->RemoveComponent(kUniqueId);
+    Obj::CObject* object = Obj::FindObject(id);
+    if (!object)
+        return false;
+    Script::CScript* own = object->m_script;
+    if (own && !own->m_object.Get())
+        own->m_object.Set(object);
+    object->CallScript(name, scriptParams);
+    return true;
+}
+
+// 0x00449AC0: Orient object=<id> [RelativeTo=<id>] [bone=<name>] [offset=<vector>] [Angles=<vector>] [degrees]:
+// the object's matrix made from the angles (radians unless `degrees`), its position the offset; then, with a bone,
+// times that bone's matrix in the relative object's skeleton (no RelativeTo: a crash, as in the original), and
+// with RelativeTo, times that object's display matrix at its position. The result becomes the object's position,
+// matrix (position row reset) and display matrix. (No check that the object exists.)
+bool __cdecl CFunc_Orient(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t id = 0;
+    params->GetChecksum(kObject, &id, 1);
+    Obj::CCompositeObject* object = ObjectById(id);
+    Obj::CCompositeObject* relativeTo = nullptr;
+    uint32_t relativeId = 0;
+    if (params->GetChecksum(kRelativeTo, &relativeId, 0))
+        relativeTo = ObjectById(relativeId);
+    uint32_t bone = 0;
+    params->GetChecksum(kBone, &bone, 0);
+    Script::VectorValue offset;
+    if (!params->GetVector(kOffset, &offset, 0))
+        offset = {0.0f, 0.0f, 0.0f, 1.0f};
+    Script::VectorValue angles;
+    if (!params->GetVector(kAngles, &angles, 0))
+        angles = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (params->ContainsFlag(kDegrees)) {
+        float degrees = GameVariable<const float>(0x00645464); // pi / 180
+        angles.x *= degrees;
+        angles.y *= degrees;
+        angles.z *= degrees;
+        angles.w *= degrees;
+    }
+
+    Mth::Matrix& matrix = object->m_matrix;
+    AnglesToMatrix(&matrix, &angles);
+    matrix.row[3] = {offset.x, offset.y, offset.z, offset.w};
+    if (bone) {
+        Mth::Matrix boneMatrix;
+        GetBoneMatrix(SkeletonOf(relativeTo->GetComponent(kSkeleton)), bone, &boneMatrix);
+        MatrixMultiply(&matrix, &matrix, &boneMatrix);
+    }
+    if (relativeTo) {
+        Mth::Matrix relative;
+        relative = relativeTo->m_displayMatrix;
+        relative.row[3] = relativeTo->m_pos;
+        MatrixMultiply(&matrix, &matrix, &relative);
+    }
+    object->m_pos = matrix.row[3];
+    matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    object->m_displayMatrix = matrix;
+    return true;
+}
+
+// 0x00449F80: SetEventHandlerOnObject object=<id> ex=<event> scr=<script> [Group=<name> (default)] [Exception]
+// [params={...}]: the event handler set on the object's script (made - on the script pool - if it has none). (No
+// check that the object exists.)
+bool __cdecl CFunc_SetEventHandlerOnObject(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t eventType = 0, handler = 0, group = kDefaultGroup;
+    params->GetChecksum(kEx, &eventType, 1);
+    params->GetChecksum(kScr, &handler, 1);
+    params->GetChecksum(kGroup, &group, 0);
+    bool exception = params->ContainsFlag(kException);
+    Script::CStruct* handlerParams = nullptr;
+    params->GetStructure(kParams, &handlerParams, 0);
+    uint32_t id = 0;
+    params->GetChecksum(kObject, &id, 1);
+    Obj::CCompositeObject* object = ObjectById(id);
+    if (!object->m_script) {
+        void* memory = Script::CScript::operator new(sizeof(Script::CScript));
+        object->m_script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
+    }
+    object->m_script->SetEventHandler(eventType, handler, group, exception, handlerParams);
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x00449280, CFuncs::CFunc_AppendNodeParams);
@@ -242,3 +371,6 @@ REPLACE(0x004497D0, CFuncs::CFunc_DestroyParticlesByGroupID);
 REPLACE(0x00449850, CFuncs::CFunc_GetNode);
 REPLACE(0x00449890, CFuncs::CFunc_GetNodeName);
 REPLACE(0x004498C0, CFuncs::CFunc_GetTriggerNodeName);
+REPLACE(0x00449A10, CFuncs::CFunc_RunScriptOnObject);
+REPLACE(0x00449AC0, CFuncs::CFunc_Orient);
+REPLACE(0x00449F80, CFuncs::CFunc_SetEventHandlerOnObject);
