@@ -345,12 +345,12 @@ Formats marked "not identified" haven't been looked into yet.
 8. **Music.** Each game's soundtrack and level streams.
 9. **Goals and pickups.** A project of its own (porting career mode), outside free skate.
 
-## 9. THPS2 (phases 1 and 2, 2026-10-21)
+## 9. THPS2 (phases 1 - 3, 2026-10-21 / 22)
 
 Converter `tools/thps2_levels` (README there; records in docs/pending/thps2.md). All ten levels - Hangar, School II,
 Marseille, NY City, Venice Beach, Skatestreet, Philadelphia, The Bullring, Chopper Drop, Skate Heaven - from THPS2's own
 ALL.PKR, as `thps2_<name>` in a THPS2 level select section (THUG1's remakes of Hangar / School II / Venice / Philly stay
-in THUG1's). Every level loads in free skate (agents' load checks only; nobody has skated them yet).
+in THUG1's). Every level loads in free skate (agents' load checks only - 2026-10-22, all fifteen again after the glow / cloud fixes; nobody has skated them yet).
 
 | What | THPS2 |
 |---|---|
@@ -358,16 +358,44 @@ in THUG1's). Every level loads in free skate (agents' load checks only; nobody h
 | Vertex colours | Original (THPS2's 128 = neutral is THUG2's 128 = full) |
 | Mip levels | Made (2 x 2 averages, as THPS3's) |
 | Collision | Original faces; vert from THPS2's surface flag; wallride on every steep face (THPS2's own wallride flag not found); invisible walls kept (camera passes), trigger planes and the invisible walls on vert lips left out |
-| Texture mapping | Original: uvs as texel numbers over the size, repeating textures wrap-addressed (phase 2 - phase 1 clamped them into stripes); layers (decals) given a z bias |
+| Texture mapping | Original: uvs as texel numbers over the size, repeating textures wrap-addressed (phase 2 - phase 1 clamped them into stripes); each face lying on another given a z bias above it, exact duplicate triangles left out (THPS2 has no depth buffer: its ordering table drew them in turn); the strips' stray join triangles (the user's z-fighting) gone since phase 3 |
 | Terrain sounds | Original numbers (THPS2's 16 terrains as the nearest THUG2 terrain: metal pole and metal both smooth metal); rails concrete / metal / wood from their flags |
 | Restarts, rails | Original (Player1 / Player2 as the start node names them; 2P / HORSE / generic by name); restarts with no floor at all left out |
 | Gaps | Original triggers and gap numbers; **stand-in names and scores**: "GAP <number>", 250 points (THPS2's gap table is in its executable - SafeDisc-encrypted in the PC release; gap_table.ts reads it from a readable one, `--thps2-exe`); StartGap with CANCEL_GROUND for every gap |
 | Kill zones | Original (KillBruce triggers, back to the restart they pulse) |
-| Other trigger commands | Missing: career flags, pulses to objects, sounds, visibility boxes, camera |
-| Moving / breakable objects (the _o models) | Static, bouncy and spinning platform objects as LevelObjects of THPS2's models (bouncy ones not collided with: THPS2 knocks them about); scripted ones (signals, paths, shattering) missing |
+| Other trigger commands | Original (phase 3): pulses, signals, kills (loud ones shatter: glass), SendVisible, pulse budgets, the start's commands as the level's start state; missing: career-only blocks (free skate runs none), sounds, visibility boxes (THPS2's draw culling), camera, fog / sky colours |
+| Moving / breakable objects (the _o models) | Static, bouncy and spinning platform objects as LevelObjects of THPS2's models (bouncy ones not collided with: THPS2 knocks them about); scripted ones (phase 3) with their scripts translated - waits, signals, velocities, spins, paths of script points, shattering, dying (Hangar's propeller and door, glass, roof debris; Chopper Drop's boats and planes); gravity left out (Skate Heaven's thrown rocks fly straight), random velocities at their middle, sounds / sparks left out |
 | Semi-transparency | Faces with flag 0x40 in the PlayStation blend mode of bits 8-9 (half or added); whole faces (the PC's textures have no per-texel bit) |
 | Sky | Original: BackgroundCreate's panorama models as THUG2 skies (Hangar, Skatestreet: none - black); SetSkyColor / SetFadeColor not decoded |
 | Backdrops (Hangar's / Philadelphia's dark spiky shapes) | Original: world objects THPS2 draws and collides with (flag 0x2000 marks large objects, not backdrops) - kept as they are |
 | Lighting | THUG2's default |
 | Peds, cars, music, goals | Missing (no peds; the cars - Car_* objects, C_*.psx models - not converted; music is Bink audio) |
 | Level select signs | Pictograms of our own |
+
+## 10. THP8 (phase 1, 2026-10-21)
+
+Converter `tools/thp8_levels` (README there; records in docs/pending/thp8.md). Tony Hawk's Project 8's Xbox 360 data
+(the user's own, as the fan-made recompilation installs it in C:\Games\THP8\game\DATA - only the data is read). THP8's
+world is one streamed city; each of its zones is a level here (the whole city is ~10 times what THUG2's memory takes):
+the eleven city zones (Suburbs, School, School inside, Shops, Slums, Factory, Capitol, City park, Skate park, Fun park,
+Parking - sign names ours), Training, the Cartoon world, the skate shop and the bedroom, as `thp8_<zone>` in a
+"TONY HAWK'S PROJECT 8" level select section (numbers 110-124). All fifteen load in free skate (agents' load checks
+only - 2026-10-22, all fifteen again after the glow / cloud fixes; nobody has skated them yet).
+
+| What | THP8 |
+|---|---|
+| Level geometry, textures | Original (each zone's own scene; instanced pieces - MasterName nodes - baked in at their places) |
+| Materials | Stand-in: each one pass with its first colour texture - THP8's shaders layer normal, specular, ambient and shadow maps over it (not drawn); multi-layer (blended terrain) materials show their first layer |
+| Lighting | Stand-in: THUG2's default; THP8's vertex colours kept (mostly white: THP8 lights with its ambient / shadow maps and time of day) |
+| Mip levels | Made (the Xbox packs its small levels into one tile: not read) |
+| Collision | Original (Havok meshes; boxes as boxes, cylinders / capsules / spheres as 8-sided prisms); face flags and terrains THP8's (its terrain numbers as THUG2's nearest) |
+| Space | THP8's metres x 39.37 (inches); each zone moved so the middle of its collision is at the origin |
+| Restarts, rails | Original (the skate shop has none: one made over its floor) |
+| Kill zones | Original where the trigger script calls a kill-skater script (0-4 per zone) |
+| Node flags | THP8's non-story values (game_progress_set_non_story_mode_nodeflags: gates open, barriers down); nodes left not made are left out of the scene and collision |
+| Network barriers | Original (z_online_<x>'s walls, for the areas that are one zone), collision only |
+| Sky | Original clouds (THP8's default sky), faded out towards the horizon (cutting them there left the dome showing through as grey spikes); its atmosphere domes (a shader) as a stand-in clear-sky gradient |
+| Glows, light shafts | Stand-in blend: drawn adding, picked by their sectors' names (THP8's blend mode in the material's parameter block not found yet), at the strength of the material colour's alpha where the block has one |
+| Billboards | Missing (camera-facing quads, as THAW's) |
+| Gaps, scripts, peds, vehicles, game objects, particles, sounds, music, goals | Missing (phase 2) |
+| Level select signs | Stand-in: THUG2's training sign (placeholders) |

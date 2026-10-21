@@ -338,7 +338,9 @@ void StopIfReplacementsFailed()
                           "\nFix them, or list them under [replacements] disable= in thug2-decomp.ini to run the "
                           "original code for them deliberately. Details are in thug2-decomp.log.";
     Log("Stopping: replacements failed to install");
-    MessageBoxA(nullptr, message.c_str(), "thug2-decomp", MB_OK | MB_ICONERROR | MB_TOPMOST);
+    // (no box in a workspace's unattended run - [features] automation=1: the log says it, the game ends)
+    if (ConfigInt("features", "automation", 0) != 1)
+        MessageBoxA(nullptr, message.c_str(), "thug2-decomp", MB_OK | MB_ICONERROR | MB_TOPMOST);
     ExitProcess(1);
 }
 

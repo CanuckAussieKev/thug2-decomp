@@ -260,16 +260,20 @@ export class ItemReader {
     readonly name: string;
     readonly data: Buffer;
     readonly names: Map<number, string>;
+    // the byte order of the item format's words: "<" (THAW's PC files), ">" (THP8's Xbox 360 files - tools/thp8_levels;
+    // their script bodies stay little-endian THUG2 tokens)
+    readonly order: "<" | ">";
     end = 0;
 
-    constructor(data: Uint8Array, name: string, names: Map<number, string>) {
+    constructor(data: Uint8Array, name: string, names: Map<number, string>, order: "<" | ">" = "<") {
         this.data = Buffer.isBuffer(data) ? data : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
         this.name = name;
         this.names = names;
+        this.order = order;
     }
 
     protected u32(at: number): number {
-        return u32At(this.data, at);
+        return unpackNumbers(`${this.order}I`, this.data, at)[0]!;
     }
 
     protected reach(at: number): void {
@@ -282,6 +286,14 @@ export class ItemReader {
         if (kind === T_FLOAT) return new Float(unpackNumbers("<f", Buffer.from(Uint32Array.of(v).buffer))[0]!);
         if (kind === T_NAME) return new Name(v);
         if (kind === T_REF) return asValue(new Ref(v));
+        if (kind === T_LOCAL && this.order === ">") {
+            // (THP8: a wide string - UTF-16, big-endian, up to a 0 character)
+            let end = v;
+            while (end + 1 < d.length && (d[end] || d[end + 1])) end += 2;
+            if (end + 1 >= d.length) throw new RangeError("subsection not found");
+            this.reach(end + 2);
+            return new qb.Local(Buffer.from(d.subarray(v, end)).swap16().toString("utf16le"));
+        }
         if (kind === T_STRING || kind === T_LOCAL) {
             const end = d.indexOf(0, v);
             if (end < 0) throw new RangeError("subsection not found"); // (Python's bytes.index)
@@ -292,7 +304,7 @@ export class ItemReader {
         if (kind === T_PAIR || kind === T_VECTOR) {
             const n = kind === T_PAIR ? 2 : 3;
             this.reach(v + 4 + 4 * n);
-            return new Vector(n === 2 ? "pair" : "vector", unpackNumbers(`<${n}f`, d, v + 4));
+            return new Vector(n === 2 ? "pair" : "vector", unpackNumbers(`${this.order}${n}f`, d, v + 4));
         }
         if (kind === T_STRUCT) return this.struct(v);
         if (kind === T_ARRAY) return this.array(v);
@@ -306,8 +318,22 @@ export class ItemReader {
         while (item) {
             const kindByte = this.data[item + 1];
             if (kindByte === undefined) throw new RangeError("index out of range");
-            const [key, v, next] = unpackNumbers("<3I", this.data, item + 4) as [number, number, number];
+            const [key, v, next] = unpackNumbers(`${this.order}3I`, this.data, item + 4) as [number, number, number];
             this.reach(item + 16);
+            if (this.order === ">") {
+                // (THP8: 0x80 | type; an unnamed type 0x1A - a reference to a global: the node arrays' includes - is
+                // taken as THUG1's include, an unnamed checksum)
+                if (!(kindByte & 0x80)) {
+                    throw new FormatError(
+                        `${this.name}: structure entry type byte ${hex(kindByte).padStart(2, "0")} at 0x${hex(item)}`,
+                    );
+                }
+                const kind = kindByte & 0x7f;
+                if (kind === T_REF && key === 0) entries.push([null, new Name(v)]);
+                else entries.push([key ? new Name(key) : null, this.value(kind, v)]);
+                item = next;
+                continue;
+            }
             if (!(kindByte & 1)) {
                 throw new FormatError(
                     `${this.name}: structure entry type byte ${hex(kindByte).padStart(2, "0")} at 0x${hex(item)}`,
@@ -327,7 +353,7 @@ export class ItemReader {
         this.reach(at + 12);
         if (count === 0) return [];
         if (count === 1) return [this.value(kind, x)];
-        const values = unpackNumbers(`<${count}I`, this.data, x);
+        const values = unpackNumbers(`${this.order}${count}I`, this.data, x);
         this.reach(x + 4 * count);
         return values.map((v) => this.value(kind, v));
     }
@@ -340,8 +366,8 @@ export class QbItems extends ItemReader {
     readonly scripts = new Map<number, Statement[]>();
     readonly scriptData = new Map<number, Buffer>();
 
-    constructor(data: Uint8Array, name = "qb", names?: Map<number, string>) {
-        super(data, name, names ?? new Map());
+    constructor(data: Uint8Array, name = "qb", names?: Map<number, string>, order: "<" | ">" = "<") {
+        super(data, name, names ?? new Map(), order);
         const d = this.data;
         const size = this.u32(4);
         if (size !== d.length) throw new FormatError(`${name}: size ${size} in a file of ${d.length}`);
@@ -349,7 +375,7 @@ export class QbItems extends ItemReader {
         while (offset < d.length) {
             if (offset + 20 > d.length) throw new FormatError(`${name}: item past the end at 0x${hex(offset)}`);
             const [zero, , kind, zero2] = d.subarray(offset, offset + 4) as unknown as [number, number, number, number];
-            const [key, , value] = unpackNumbers("<4I", d, offset + 4) as [number, number, number, number];
+            const [key, , value] = unpackNumbers(`${this.order}4I`, d, offset + 4) as [number, number, number, number];
             if (zero || zero2) {
                 throw new FormatError(
                     `${name}: item header ${d.subarray(offset, offset + 4).toString("hex")} at 0x${hex(offset)}`,
@@ -357,7 +383,7 @@ export class QbItems extends ItemReader {
             }
             this.end = offset + 20;
             if (kind === T_SCRIPT) {
-                const [, usize, csize] = unpackNumbers("<3I", d, value) as [number, number, number];
+                const [, usize, csize] = unpackNumbers(`${this.order}3I`, d, value) as [number, number, number];
                 const packed = d.subarray(value + 12, value + 12 + csize);
                 const body = csize !== usize ? prx.lzssDecode(packed, usize) : Buffer.from(packed);
                 if (body.length !== usize) {
@@ -394,8 +420,8 @@ export class QbItems extends ItemReader {
 }
 
 // A 0x4A token's structure (THAW's item format, offsets from its own start).
-export function inlineStruct(payload: Uint8Array, names: Map<number, string>): Struct {
-    return new ItemReader(payload, "inline structure", names).struct(0);
+export function inlineStruct(payload: Uint8Array, names: Map<number, string>, order: "<" | ">" = "<"): Struct {
+    return new ItemReader(payload, "inline structure", names, order).struct(0);
 }
 
 // Script tokens: THUG2's (src/game/script/qb.h) with weighted random tokens, plus 0x4A {u16 size, padding to 4 from

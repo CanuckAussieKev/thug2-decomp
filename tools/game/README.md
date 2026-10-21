@@ -12,8 +12,9 @@ TypeScript tools' --game / --thug2 the same, tools/lib/install.ts).
   workspace before giving it to a new agent, so it starts from main.
 - `game_lock.ps1 -Action acquire|release|status -Owner <name> -Game <folder>` - one game per folder. Acquire waits
   (default 8 min; prints BUSY and exits 1 if still held), refuses while a game from that folder runs, and backs up
-  the deployed dinput8.dll and thug2-decomp.ini into `<folder>\.game-lock`; release puts them back and never closes a
-  game. Under the lock you may copy your build's DLL in, edit the ini, launch and close the game you started. To
+  the deployed dinput8.dll and thug2-decomp.ini into `<folder>\.game-lock`; release puts them back - in a workspace it
+  first closes a game still running from that folder (crashed, stuck or left open; recorded - "Crashes" below), in the
+  main install it never closes one. Under the lock you may copy your build's DLL in, edit the ini, launch and close the game you started. To
   install something permanently (the lead installing main), also copy it over the `.backup` file before releasing.
 - **Faster start-up (self-tests):** workspaces skip the early self-tests in the game (`[selftests] early=0`, set by
   make_workspace.ps1 - thug2_check already runs them offline against both exes). `run_game.ps1 -Tests "anim,coll"` runs
@@ -112,7 +113,32 @@ THIRD_PARTY_NOTICES.md says): https://github.com/Morten1337/thps-formats (MIT), 
 Morten1337's private repositories are never used (CLAUDE.md).
 
 After every run read `<folder>\thug2-decomp.log` (locked while the game runs): replacements installed, self-test
-stages passed, no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT.
+stages passed, no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT / INVALID PARAMETER / PURE VIRTUAL CALL /
+ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
+
+## Crashes
+- **The DLL never shows a dialog** (src/hook/crash.h): every fault - an exception, a Debug run-time check or CRT
+  error, an invalid CRT parameter, a pure virtual call, abort(), the game's own /GS check ("Buffer overrun detected!"
+  from its VC7.1 CRT) or any other box of the game's CRT - is logged with the call stack / return addresses and ends
+  the process (exit code 3, 0xC0000409 for an overrun, the exception's code when unhandled). Windows Error Reporting
+  shows nothing. Not catchable: our own build's /GS failures (fast fail - exit code 0xC0000409, nothing logged; WER may
+  still write a dump).
+- **The scripts notice a game in trouble** (game_health.ps1): it exited with a code other than 0, a WerFault runs for
+  it, it shows a dialog, or its window hasn't responded for `-HangSeconds` (default 45) while idle (a long load works
+  the CPU and isn't counted). run_game.ps1 and game_cmd.ps1 then close it (WM_CLOSE, then a kill), print
+  `GAME IN TROUBLE: ...` with the log's last lines, append it to `<folder>\thug2-decomp-crashes.txt` and exit 5;
+  load_check.ps1 reports it per level and goes on; `game_lock.ps1 -Action release` closes a game still running from a
+  workspace first (never in the main install).
+- **Then:** read the log, `node tools/symbolize.ts --pdb-dir <the build that crashed> <folder>\thug2-decomp.log`
+  (the last report of any kind), record it in your pending doc, carry on.
+- **A dump** (`%LOCALAPPDATA%\CrashDumps\THUG2*.dmp`, written by WER when LocalDumps is on - a crash from before the
+  DLL logged it, or a fast fail): `node tools/game/read_dump.ts <dmp> [--image <build>\dinput8.dll] [--threads]` gives
+  the exception, registers and return addresses (checked against the module files: the exe and, with --image, the
+  DLL whose PE timestamp the dump names - each agent's build dir has one; `?` = not checked); save it to a file and
+  `node tools/symbolize.ts --pdb-dir <that build> <file>` names our functions.
+- **Testing the handling:** the automation command `crash <kind>` (workspaces only): access, rtc, crterror,
+  invalidparam, purecall, abort, overrun, crtbox, fastfail, hang. thug2_check runs eight of them offline in child
+  processes ("crash handling: ...").
 
 Anything a player has to judge (does a script fire when skated into, does a menu feel right) isn't verified with
 scripted keys: hand it to the user with a list of what to try.

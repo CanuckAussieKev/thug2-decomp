@@ -32,6 +32,7 @@
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
+#include "hook/crash.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -385,8 +386,14 @@ ParseResult ParseCommand(const std::string& line, Command* out, std::string* err
         command.target = tokens[1];
     } else if (keyword == "teleport") {
         command.op = Op::Teleport;
-        if ((count != 4 && count != 5) || !ReadNumbers(tokens, 1, &command.numbers))
-            return fail("teleport <x> <y> <z> [heading]");
+        // (a last word `board`: the skater put on its board instead of standing - TestView::Teleport's onBoard)
+        std::vector<std::string> words = tokens;
+        if (words.size() >= 5 && Lower(words.back()) == "board") {
+            command.target = "board";
+            words.pop_back();
+        }
+        if ((words.size() != 4 && words.size() != 5) || !ReadNumbers(words, 1, &command.numbers))
+            return fail("teleport <x> <y> <z> [heading] [board]");
     } else if (keyword == "camera") {
         command.op = Op::Camera;
         if (count == 2 && Lower(tokens[1]) == "off")
@@ -415,6 +422,12 @@ ParseResult ParseCommand(const std::string& line, Command* out, std::string* err
     } else if (keyword == "echo") {
         command.op = Op::Echo;
         command.target = Rest(line);
+    } else if (keyword == "crash") {
+        command.op = Op::Crash;
+        TestFault fault;
+        if (count != 2 || !ParseTestFault(tokens[1], &fault))
+            return fail(std::string("crash <kind>: ") + TestFaultNames());
+        command.target = TestFaultName(fault);
     } else if (keyword == "quit") {
         command.op = Op::Quit;
         if (count != 1)
@@ -535,6 +548,7 @@ std::string Describe(const Command& command)
     case Op::Level: return "level " + command.target;
     case Op::Echo: return "echo " + command.target;
     case Op::Quit: return "quit";
+    case Op::Crash: return "crash " + command.target;
     case Op::Teleport:
     case Op::Camera: {
         if (command.target == "off")
@@ -545,6 +559,8 @@ std::string Describe(const Command& command)
             std::snprintf(value, sizeof(value), " %g", static_cast<double>(number));
             text += value;
         }
+        if (command.op == Op::Teleport && command.target == "board")
+            text += " board";
         return text;
     }
     case Op::Capture: return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
@@ -1196,6 +1212,8 @@ std::string LogTricks(int count, std::string* failed)
 }
 
 // Start the next command; true if it's done already (the next can start this frame).
+void WriteStatus(Runner& runner);
+
 bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
 {
     Line line = runner.queue.front();
@@ -1260,7 +1278,8 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
         }
         const std::vector<float>& n = command.numbers;
         Front::TestView::Vec3 at = {};
-        std::string failed = Front::TestView::Teleport({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at);
+        std::string failed = Front::TestView::Teleport({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at,
+                                                       command.target == "board");
         if (!failed.empty()) {
             Fail(runner, failed, false);
             return true;
@@ -1303,6 +1322,16 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
             Finish(runner, result);
         else
             Fail(runner, failed, false);
+        return true;
+    }
+    case Op::Crash: {
+        TestFault fault = TestFault::Access;
+        ParseTestFault(command.target, &fault);
+        WriteStatus(runner); // (its "current" says what ended the game)
+        if (!CauseTestFault(fault))
+            Fail(runner, "crash " + command.target + ": not in this build (a Debug build's check)", false);
+        else
+            Fail(runner, "crash " + command.target + ": the game still runs after it", false);
         return true;
     }
     case Op::Quit: {

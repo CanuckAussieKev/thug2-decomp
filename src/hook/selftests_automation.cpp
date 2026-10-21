@@ -173,6 +173,11 @@ void TestAutomationParse()
               command.frames == 0 && ParseCommand("logtricks 300", &command, &error) == ParseResult::Command &&
               command.frames == 300 && ParseCommand("logtricks 0", &command, &error) == ParseResult::Error,
           "automation parse: logtricks' count");
+    Check(ParseCommand("crash Overrun", &command, &error) == ParseResult::Command && command.op == Op::Crash &&
+              command.target == "overrun" && Round("crash hang") == "crash hang" &&
+              ParseCommand("crash", &command, &error) == ParseResult::Error &&
+              ParseCommand("crash nothing", &command, &error) == ParseResult::Error,
+          "automation parse: crash's kinds");
     Check(ParseCommand("frobnicate", &command, &error) == ParseResult::Error && !error.empty(),
           "automation parse: an error says why");
 }
