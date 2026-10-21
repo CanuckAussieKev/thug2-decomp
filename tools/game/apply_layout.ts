@@ -77,6 +77,9 @@
 //     taken out - a shared structure's TrickObject can't be: warned, the DLL unregisters it at run time); camera
 //     (level_editor_cameras.h): a node appended (GenericNode, Type ed_camera, Pos, Angles, targetOffset /
 //     positionOffset as a virtual_cam takes them); level sky= (level_editor_level_props.h): Levels.qb's sky=;
+//   (UX9, tools/game/ground_pieces.ts) ground: a raised / lowered ground piece - a new sector (its material piece's
+//     first mesh's format and material, the DLL's generated vertices, a strip drawing each face both ways) and
+//     collision object (its faces, flags and terrain), named after the piece; a pit's floor tiles (hides=) left out;
 //   anything else (a later record kind): "unsupported record", listed.
 // THUGPRO parity: a level shared with THUGPRO (a ported level in tools/compat/thugpro's register, or THUG2's own -
 // THUGPRO players have those as shipped) gets a warning for every edit that changes spawns, crowns (King of the Hill),
@@ -94,6 +97,7 @@ import { Float, hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
 import { f32 } from "../lib/struct.ts";
 import { backUp, listBackups, restoreLatest } from "./bake_backup.ts";
 import { resolveGameFolder } from "./edit_level.ts";
+import { groundSector } from "./ground_pieces.ts";
 import {
     CAMERA_DISTANCE,
     type CameraRecord,
@@ -1285,6 +1289,39 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         }
         array.names.set(name, `ed_clone_${hex8(c.source)}_${n}`);
         breaks(`a copy of scenery ${label(c.source)} added`);
+    }
+    // (UX9) Raised / lowered ground pieces (tools/game/ground_pieces.ts): a new sector and collision object each, in
+    // their material's piece's format; a pit's floor tiles left out.
+    for (const g of layout.grounds) {
+        const at = sectorAt.get(g.material);
+        const made = at === undefined ? "its material's piece isn't in the scene" : groundSector(g, scene.sectors[at]!);
+        const name = checksum(g.name);
+        if (typeof made === "string" || sectorAt.has(name) || colAt.has(name)) {
+            warnings.push(
+                `ground ${g.name}: not baked - ${typeof made === "string" ? made : "a sector of that name is there already"}`,
+            );
+            continue;
+        }
+        scene.sectors.push(made.sector);
+        sectorAt.set(name, scene.sectors.length - 1);
+        if (col) {
+            col.objects.push(made.collision);
+            colAt.set(name, col.objects.length - 1);
+        } else {
+            warnings.push(`ground ${g.name}: the level has no collision file - drawn only`);
+        }
+        array.names.set(name, g.name);
+        for (const tile of g.hides) {
+            dropSectors.add(tile);
+            dropCollision.add(tile);
+        }
+        report.push(
+            `ground ${g.name}: ${g.lower ? "a pit" : "a platform"} ${Math.round(g.x1 - g.x0)} x ${Math.round(g.z1 - g.z0)}, ` +
+                `${Math.round(g.height)} ${g.lower ? "deep" : "high"}, ramps ${g.ramps.join(",")}, ` +
+                `${made.collision.faces.length} faces, material ${label(g.material)}` +
+                (g.hides.length ? `, floor tiles left out: ${g.hides.map(label).join(", ")}` : ""),
+        );
+        breaks(`a ground piece ${g.name} added`);
     }
     if (col) {
         let faces = 0;

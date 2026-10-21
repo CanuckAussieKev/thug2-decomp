@@ -8,6 +8,7 @@
 // Phase 5's `trigger` records are read by tools/game/triggers.ts (the DLL's Triggers::ReadRecord, ported).
 
 import { checksum } from "../level_port/qb.ts";
+import { type GroundSpec, readGroundRecord } from "./ground_pieces.ts";
 import { readTriggerRecord, type TriggerSpec } from "./triggers.ts";
 
 export interface V3 {
@@ -257,6 +258,9 @@ export interface Layout {
     // (UX7) linked copies' groups - the copies are `clone` / `copy` records of their own; the bake writes them as they
     // are (plain copies): a link only matters to the editor
     linkGroups: LinkRecord[];
+    // (UX9) raised / lowered ground pieces (level_editor_ground.h - tools/game/ground_pieces.ts); a record the DLL
+    // wouldn't read is skipped there (logged) - here listed as unknown
+    grounds: GroundSpec[];
 }
 
 // (UX7 - level_editor_links.h) a group of linked copies: `link sector|object <source> <member>[@q],...`. A sector is
@@ -579,6 +583,7 @@ export function readLayout(text: string): Layout {
         cameras: [],
         notes: [],
         linkGroups: [],
+        grounds: [],
     };
     const lines = text.split("\n");
     let header = false;
@@ -911,6 +916,13 @@ export function readLayout(text: string): Layout {
             case "link": {
                 // (UX7: Links::ReadRecord) link sector|object <source> <member>,...
                 layout.linkGroups.push(readLinkRecord(words.slice(1)) ?? fail("bad link"));
+                break;
+            }
+            case "ground": {
+                // (UX9: Ground::ReadRecord) ground <name> raise|lower rect= base= height= ramps= ... material= ...
+                const ground = readGroundRecord(line.trim().replace(/^ground\s+/, ""));
+                if (ground) layout.grounds.push(ground);
+                else layout.unknown.push({ line: number, kind, text: line.trim() });
                 break;
             }
             case "note": {

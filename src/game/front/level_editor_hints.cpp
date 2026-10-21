@@ -296,6 +296,18 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         b.Raw("Esc", "deselect");
         return b.out;
     }
+    if (c.ux9Tool == 1) {
+        b.Raw("LMB", "pick a gap end (rail, lip, wall, ground)");
+        b.Act("gap_wizard", "wizard off");
+        b.Raw("Esc", "cancel");
+        return b.out;
+    }
+    if (c.ux9Tool == 2) {
+        b.Raw("LMB", "a corner (on a piece: edit it)");
+        b.Act("ground_tool", "tool off");
+        b.Raw("Esc", "cancel");
+        return b.out;
+    }
     if (c.facesMode) {
         b.Raw("LMB", "take a face");
         b.Raw("Shift+LMB", "add / drop a face");

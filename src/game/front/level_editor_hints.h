@@ -38,6 +38,7 @@ struct Context {
     bool chainDrawing = false, ladderDrawing = false, chainPick = false;
     std::string chainWaiting; // (Chains::Waiting)
     bool rulerArmed = false, facesMode = false, boxArmed = false;
+    int ux9Tool = 0;          // (UX9 - level_editor_ux9.h) 1 the gap wizard picking, 2 the ground tool marking a rectangle
     bool chainPoint = false;  // a rail / ladder / path point selected
     bool following = false;   // the camera follows the selection (Shift+F)
     bool walking = false;     // walk mode

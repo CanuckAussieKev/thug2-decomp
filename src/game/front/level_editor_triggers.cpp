@@ -1893,6 +1893,27 @@ void AddGap()
     Create({start, end}, "a gap: its start and its end");
 }
 
+// (UX9: the gap wizard - level_editor_gap_wizard.h) A gap's two ends as given, their names and GapID fresh.
+void AddGapPair(Placed start, Placed end)
+{
+    std::string gap = FreshGap();
+    start.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
+    std::string first = start.spec.name;
+    end.spec.name =
+        NodeCreate::FreshName("ed_trigger", [&](const std::string& n) { return SameText(n, first) || NameTaken(n); });
+    start.spec.kind = Kind::GapStart;
+    end.spec.kind = Kind::GapEnd;
+    for (Placed* p : {&start, &end}) {
+        p->spec.gap = gap;
+        p->spec.size = ClampSize(p->spec.size);
+        p->spec.text = CleanText(p->spec.text);
+    }
+    end.spec.flags = start.spec.flags;
+    end.spec.text = start.spec.text;
+    end.spec.score = start.spec.score;
+    Create({start, end}, "a gap from the wizard: its start and its end");
+}
+
 void SetSpec(const std::string& name, const Spec& spec, bool undo)
 {
     int i = SpecIndex(name);

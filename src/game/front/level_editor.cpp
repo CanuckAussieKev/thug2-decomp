@@ -59,6 +59,7 @@
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_ux3.h"
 #include "game/front/level_editor_ux8.h"
+#include "game/front/level_editor_ux9.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_walls.h"
 #include "game/front/mouse_menus.h"
@@ -576,7 +577,8 @@ void HandleEvent(SDL_Event* event)
         if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat && !Actions::Capturing()) {
             if (g_dragging || g_browser.open || g_help || g_placeOpen || g_confirmHide || g_confirmReset ||
                 Chains::Drawing() != Chains::Draw::None || Chains::WantsPick() || !g_objects.empty() ||
-                Scenery::HasSelection() || g_nodeSelected || Ux8::WantsEscape()) // (UX8: a pie, walking)
+                Scenery::HasSelection() || g_nodeSelected || Ux8::WantsEscape() || // (UX8: a pie, walking)
+                Ux9::Busy()) // (UX9: a tool armed)
                 g_cancelRequested = true;
             else
                 g_exitRequested = true;
@@ -2553,6 +2555,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     View::Start();
     Overlays::Start(); // (the view menus: Lit to start with - level_editor_overlays.h)
     Ux8::Start();      // (no pie, not walking, not following - level_editor_ux8.h)
+    Ux9::Start();      // (UX9: gap wizard, skateability, ground tool - level_editor_ux9.h)
     Faces::Start(); // (map3: Faces mode off, nothing selected)
     Triggers::Start(); // (the level's trigger volumes found)
     Goals::Start();    // (the goals out of play while editing - level_editor_goals.h)
@@ -2682,6 +2685,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     View::Stop(); // (everything hidden in the editor shown again)
     Overlays::Stop(); // (the view mode back to Lit)
     Ux8::Stop();
+    Ux9::Stop();
     Thumbs::Stop();   // (the Add palette's thumbnails freed)
     Ruler::SetArmed(false);
     Faces::Stop();
@@ -2731,6 +2735,7 @@ void Init()
     Script::KeepQbNames(Enabled()); // (node names for the HUD: Fire_Tender rather than 61EF3AD4)
     Ux3::Init(); // (the Outliner's records in the layouts, the actions' callbacks - level_editor_ux3.h)
     Ux8::Init(); // (pies, quick sets, walk / follow / teleport, controller mode: their actions - level_editor_ux8.h)
+    Ux9::Init(); // (UX9: its actions and the ground pieces' layout records - level_editor_ux9.h)
 }
 
 void InputLogic()
@@ -3524,6 +3529,7 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     if (c.ladderDrawing || c.chainPick)
         c.chainWaiting = Chains::Waiting();
     c.rulerArmed = Ruler::Armed();
+    c.ux9Tool = Ux9::PickingTool();
     c.facesMode = Faces::Picking();
     c.boxArmed = Organize::BoxArmed();
     c.chainPoint = MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName);
@@ -5474,6 +5480,8 @@ void Update()
         g_cancelRequested = false;
         if (Ux8::Cancel()) {
             // (UX8: a pie menu closed)
+        } else if (!g_dragging && Ux9::Cancel()) {
+            // (UX9: the gap wizard / the ground tool given up first - level_editor_ux9.h)
         } else if (Triggers::Resizing()) {
             Triggers::EndResize(); // (kept as far as it went - Ctrl+Z puts the size back)
         } else if (g_dragging) {
@@ -5698,6 +5706,7 @@ void Update()
     Goals::Update();
     Checks::Update(); // (UX5: the Problems window's Go to / Fix - level_editor_checks.h)
     Notes::Update();  // (UX5: note pins - level_editor_notes.h)
+    Ux9::Update();    // (UX9: Alt+J / Alt+K / Alt+U and the forms - level_editor_ux9.h)
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     if (Actions::Pressed(Actions::kProblems))
         Checks::ToggleWindow(); // (UX5) Alt+P: the Problems window (Hammer's Check for Problems key)
@@ -6026,6 +6035,7 @@ void Update()
     Faces::Hover(g_pos, Normalize(dir), haveRay && !g_dragging && g_hoverAxis < 0); // (map3: Faces mode's hover)
     if (Ruler::Armed() && haveRay && !g_dragging)
         Ruler::Hover(g_pos, Normalize(dir), backX, backY, alt); // (the ruler's next end - level_editor_ruler.h)
+    Ux9::Hover(g_pos, Normalize(dir), backX, backY, haveRay && !g_dragging); // (UX9: the tools' next pick)
     // Dragging, or what's under the cursor (an arrow first, then an object or scenery - the nearer).
     if (g_dragging && HaveSelection() && haveRay) {
         if (!g_dragMoved && (g_modal || std::fabs(input.x - g_pressX) + std::fabs(input.y - g_pressY) >= 4.0f))
@@ -6156,6 +6166,10 @@ void Update()
                          !Triggers::Resizing() && Triggers::BeginResize(g_hoverHandle, g_pos, dir);
     if (handlePressed) {
         Hud::Message("Resizing: drag the face (Ctrl snaps to 25); Ctrl+Z undoes", 3.0);
+    } else if (input.leftPresses && haveRay && !g_dragging && g_hoverAxis < 0 && Ux9::Busy() &&
+               Ux9::Click(g_pos, Normalize(dir), backX, backY)) {
+        // (UX9: the gap wizard's / the ground tool's pick - level_editor_ux9.h)
+        NoteAction("ux9 tool click");
     } else if (input.leftPresses && haveRay && !g_dragging && Arrange::EdgePicking() &&
                Arrange::EdgeClick(backX, backY)) {
         // (F7: a rail along the edge clicked - level_editor_arrange.h)
@@ -6431,6 +6445,7 @@ void Draw()
             Arcs::AddOverlay(painter, objects.empty() ? Scenery::Selection() : std::vector<uint32_t>{});
             GrindPreview::AddOverlay(painter, g_dragging ? -1 : model.nodes.hovered, model.nodes.selected);
             Ruler::AddOverlay(painter);
+            Ux9::AddOverlay(painter); // (UX9: skateability colours, the gap wizard's gates, the ground tool's preview)
         }
         // (UX7: the placement ghost, the readout while dragging, the faces snapped to, the top edges for a rail -
         // level_editor_arrange.h)
@@ -6507,6 +6522,8 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
     for (const std::string& line : {Arcs::Describe(), Ruler::Describe(), GrindPreview::Describe()})
         if (!line.empty())
             out.emplace_back("measure", line);
+    if (std::string ux9 = Ux9::Describe(); !ux9.empty())
+        out.emplace_back("ux9", ux9);
     std::snprintf(text, sizeof(text), "%d changes, %d pieces moved%s", model.changes, model.moved,
                   model.unsaved ? ", unsaved" : "");
     out.emplace_back("changes", text);
