@@ -812,12 +812,13 @@ function sortedGlobQb(dir: string): string[] {
         .sort(compareStr);
 }
 
-export function scriptNames(thps3Dir: string): QbFile[] {
-    // The game's global scripts (Data\Scripts\*.qb): the level scripts that kill the skater are among them.
+export function scriptNames(thps3Dir: string, edit: (data: Buffer) => Buffer = (d) => d): QbFile[] {
+    // The game's global scripts (Data\Scripts\*.qb): the level scripts that kill the skater are among them. `edit`:
+    // TP-41's editScripts.
     const out: QbFile[] = [];
     for (const file of sortedGlobQb(pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Scripts"))) {
         try {
-            out.push(new qb.QbFile(read(file), file));
+            out.push(new qb.QbFile(edit(read(file)), file));
         } catch (e) {
             if (!(e instanceof FormatError)) throw e;
         }
@@ -887,8 +888,11 @@ export function startCondition(cond: readonly [number, Buffer][], c: (name: stri
         i = 1;
     }
     if (i >= cond.length || cond[i]![0] !== 0x16) return null;
-    for (const [t] of cond.slice(i)) if (![0x16, 0x07, 0x17, 0x18, 0x1a, 0x1b, 0x1c].includes(t)) return null;
     const command = nameValue(cond[i]![1]);
+    // (TP-41: a condition editScripts decided)
+    if (command === c(scriptPort.ALWAYS)) return !negate;
+    if (command === c(scriptPort.NEVER)) return negate;
+    for (const [t] of cond.slice(i)) if (![0x16, 0x07, 0x17, 0x18, 0x1a, 0x1b, 0x1c].includes(t)) return null;
     const offline = ["IsCareerMode", "GetGoal", "InMultiPlayerGame", "InNetGame", "InSplitScreenGame"].map(c);
     return offline.includes(command) ? negate : null;
 }
@@ -1027,6 +1031,7 @@ export class Port {
     moving = new Set<number>();
     vehicles = new Map<number, string>(); // node name -> model name (the level's vehicles made LevelObjects of their models)
     drawn = new Set<number>(); // the level's atomic sectors with a scene sector (drawnSectors)
+    sectors = new Set<number>(); // all its atomic sectors (each a collision object)
     solid = new Set<number>(); // moving LevelObjects made solid (PC-THPS3-15): their sectors get collision
     copies = new Map<number, number>(); // node name -> clump checksum (game objects drawn with another clump of the level: model=)
     private readonly models = new Map<string, Model | null>();
@@ -1593,7 +1598,7 @@ export function portScripts(
     undrawn: Iterable<number> = [],
     extra: ExtraScripts = { provided: [], roots: [], replacing: new Map() },
     shown: readonly string[] = [],
-    freeSkate: FreeSkateCompat = { flags: [], kill: [] }, // (TP-41: flags set before the start scripts run, nodes killed after)
+    collisionOnly: Iterable<number> = [], // (PC-THPS3-17: their Create / Kill kept)
 ): [Map<number, Buffer>, string | null, string, string] {
     // The level's scripts brought along (tools/level_port/script_port.ts) from its nodes' trigger scripts - the
     // sectors' and rails' (run by the skater), the made objects' (run by them) - and its start scripts: the scripts
@@ -1623,7 +1628,7 @@ export function portScripts(
         allNames,
         names,
         // (THPS3's rotation deceleration in THUG2's terms - thps3_rotation.ts)
-        { provided, inheritParams: true, undrawn, rewrites: ROTATION_REWRITES, shownPrefixes: shown },
+        { provided, inheritParams: true, undrawn, collisionOnly, rewrites: ROTATION_REWRITES, shownPrefixes: shown },
     );
     const roots: [number, scriptPort.Context][] = [];
     for (const node of converted) {
@@ -1689,15 +1694,7 @@ export function portScripts(
     let setup: string | null = null;
     const run = starts.filter((s) => out.has(s));
     if (run.length) {
-        // (TP-41: THUGPRO's free skate is a network game - THPS3's multiplayer state; the flag is set before the
-        // start scripts that read it run)
-        const flags = freeSkate.flags.map((f) => `    SetFlag flag=${f} \n`).join("");
-        // (nodes THUGPRO's free skate hasn't: killed a second after the start scripts made them)
-        const killer = freeSkate.kill.length ? `    SpawnScript ${level}_free_skate \n` : "";
-        setup = `script ${level}_setup {\n${flags}${run.map((s) => `    SpawnScript ${qb.nameText(s, names)} \n`).join("")}${killer}}\n`;
-        if (freeSkate.kill.length) {
-            setup += `script ${level}_free_skate {\n    Wait 1 Second \n${freeSkate.kill.map((k) => `    Kill Name=${k} \n`).join("")}}\n`;
-        }
+        setup = `script ${level}_setup {\n${run.map((s) => `    SpawnScript ${qb.nameText(s, names)} \n`).join("")}}\n`;
     }
     const worst = [...tr.leftOut].sort((a, b) => b[1] - a[1]);
     let bytes = 0;
@@ -1786,11 +1783,120 @@ export interface LevelCompat {
     freeSkate?: FreeSkateCompat; // TP-41
 }
 
-// TP-41: THUGPRO's free skate is a network game (THPS3's multiplayer state): level flags set at the start of ours
-// (`flags`, before the start scripts) and nodes killed once the start scripts have made them (`kill`).
+// TP-41: THUGPRO's own edits of THPS3's level scripts that change its offline free skate's world (doors, boarded
+// houses, panels), in THPS3's terms (editScripts): per script, the `if` commands decided ({command: true / false} -
+// every `if` of that command in the script) and statements left out (`drop`: "<command> Name=<node>" or
+// "<command> prefix=<text>" - the life THUGPRO's edit takes away and ours keeps).
+export interface ScriptEdit {
+    conditions: Record<string, boolean>;
+    drop: string[];
+}
+
 export interface FreeSkateCompat {
-    flags: string[];
-    kill: string[];
+    scripts: Record<string, ScriptEdit>;
+}
+
+// TP-41: every level's script edits (the free_skate section), by script checksum - the scripts are THPS3's global and
+// level files, edited once for all levels (a script two levels edit differently is an error in the data).
+export function freeSkateEdits(profile: compat.Profile): Map<number, ScriptEdit> {
+    const out = new Map<number, ScriptEdit>();
+    for (const [level, entry] of Object.entries(profile.section("thps3_levels", "free_skate"))) {
+        if (level.startsWith("_")) continue;
+        const scripts = (entry as { scripts?: Record<string, Partial<ScriptEdit>> }).scripts ?? {};
+        for (const [script, edit] of Object.entries(scripts)) {
+            const k = qb.checksum(script);
+            if (out.has(k)) throw new RangeError(`TP-41: ${script} edited twice (${level})`);
+            out.set(k, { conditions: edit.conditions ?? {}, drop: edit.drop ?? [] });
+        }
+    }
+    return out;
+}
+
+// TP-41: THPS3 script file bytes with the edits written in (same length: each changed token keeps its size): an `if`
+// whose command (after any `not`) is in `conditions` gets script_port's ALWAYS / NEVER marker for its command, a
+// statement matching `drop` gets the DROPPED marker for its command - the translator and createdAtStart then take the
+// branch decided and leave the statement out.
+export function editScripts(data: Buffer, edits: ReadonlyMap<number, ScriptEdit>): Buffer {
+    if (!edits.size) return data;
+    const out = Buffer.from(data);
+    const c = qb.checksum;
+    let toks: qb.Token[];
+    try {
+        toks = [...qb.tokens(data)];
+    } catch {
+        return data; // (a file the tokenizer can't take has no scripts to edit - scriptNames skips it too)
+    }
+    let edit: ScriptEdit | null = null;
+    let conditions = new Map<number, boolean>();
+    let drops: { command: number; name: number | null; prefix: string | null }[] = [];
+    let line: qb.Token[] = [];
+    const write = (tok: qb.Token, marker: string): void => {
+        out.writeUInt32LE(c(marker), tok[0] + 1);
+    };
+    const flush = (): void => {
+        if (edit === null || !line.length) return;
+        const [, head] = line[0]!;
+        if (head === 0x25) {
+            let k = 1;
+            while (k < line.length && line[k]![1] === 0x39) k++;
+            const tok = line[k];
+            if (tok !== undefined && tok[1] === 0x16) {
+                const value = conditions.get(tok[2].readUInt32LE(0));
+                if (value !== undefined) write(tok, value ? scriptPort.ALWAYS : scriptPort.NEVER);
+            }
+        } else if (head === 0x16) {
+            const command = line[0]![2].readUInt32LE(0);
+            for (const d of drops) {
+                if (d.command !== command) continue;
+                for (let k = 1; k + 2 < line.length; k++) {
+                    if (line[k]![1] !== 0x16 || line[k + 1]![1] !== 0x07) continue;
+                    const key = line[k]![2].readUInt32LE(0);
+                    const [, vt, vp] = line[k + 2]!;
+                    const hit =
+                        (d.name !== null && key === c("Name") && vt === 0x16 && vp.readUInt32LE(0) === d.name) ||
+                        (d.prefix !== null &&
+                            key === c("prefix") &&
+                            (vt === 0x1b || vt === 0x1c) &&
+                            decodeLatin1(qb.rstripNul(vp)).toLowerCase() === d.prefix);
+                    if (hit) write(line[0]!, scriptPort.DROPPED);
+                }
+            }
+        }
+    };
+    for (let i = 0; i < toks.length; i++) {
+        const tok = toks[i]!;
+        if (tok[1] === 0x23 && toks[i + 1]?.[1] === 0x16) {
+            edit = edits.get(toks[i + 1]![2].readUInt32LE(0)) ?? null;
+            conditions = new Map(Object.entries(edit?.conditions ?? {}).map(([k, v]) => [c(k), v]));
+            drops = (edit?.drop ?? []).map((d) => {
+                const m = /^(\S+)\s+(name|prefix)=(\S+)$/i.exec(d.trim());
+                if (m === null)
+                    throw new RangeError(`TP-41: drop "${d}" is not "<command> Name=<node>" / "prefix=<text>"`);
+                const isName = m[2]!.toLowerCase() === "name";
+                return {
+                    command: c(m[1]!),
+                    name: isName ? c(m[3]!) : null,
+                    prefix: isName ? null : m[3]!.replace(/^"|"$/g, "").toLowerCase(),
+                };
+            });
+            line = [];
+            i += 1;
+            continue;
+        }
+        if (tok[1] === 0x24) {
+            flush();
+            edit = null;
+            line = [];
+            continue;
+        }
+        if (tok[1] === 0x01 || tok[1] === 0x02) {
+            flush();
+            line = [];
+            continue;
+        }
+        line.push(tok);
+    }
+    return out;
 }
 
 // THUGPRO's hand edits of a level's nodes (tools/thps3_levels/thugpro_compare.ts nodeEdits, the user's decision
@@ -2139,12 +2245,21 @@ export function levelCompat(profile: compat.Profile, level: string): LevelCompat
         | Record<string, CollisionEditCompat>
         | undefined;
     if (collision !== undefined) out.collision = collision;
-    // TP-41 (the user's decision 2026-10-21 pattern: THUGPRO's state for online parity, documented as differing)
+    // TP-41 (the user's decision 2026-10-21: free skate's world as THUGPRO's offline free skate, documented as
+    // differing from THPS3's own)
     const freeSkate = profile.section("thps3_levels", "free_skate")[level] as
-        | { set_flags?: string[]; kill?: string[] }
+        | { scripts?: Record<string, Partial<ScriptEdit>> }
         | undefined;
-    if (freeSkate?.set_flags?.length || freeSkate?.kill?.length)
-        out.freeSkate = { flags: freeSkate.set_flags ?? [], kill: freeSkate.kill ?? [] };
+    if (freeSkate?.scripts && Object.keys(freeSkate.scripts).length) {
+        out.freeSkate = {
+            scripts: Object.fromEntries(
+                Object.entries(freeSkate.scripts).map(([k, v]) => [
+                    k,
+                    { conditions: v.conditions ?? {}, drop: v.drop ?? [] },
+                ]),
+            ),
+        };
+    }
     return out;
 }
 
@@ -2312,6 +2427,8 @@ export function convertNodeArray(
         const script = n.get("TriggerScript");
         if (cls instanceof Name && cls.value === proxim && script instanceof Name) starts.push(script.value);
     }
+    // (TP-41: the scripts THUGPRO edited run at the start - an object's or a restart's - and what they make is kept)
+    for (const s of Object.keys(ctfCompat.freeSkate?.scripts ?? {})) starts.push(qb.checksum(s));
     const [created, prefixes] = createdAtStart(q, globalQbs, names, base, starts, pc);
     const hidden = new Set<number>();
     // Sector sets a level's scripts keep switching between, left out (LEFT_OUT_PREFIXES): with both drawn they
@@ -2458,10 +2575,14 @@ export function convertNodeArray(
         // the geometry nodes the scene has no sector for (collision-only, or left out): their Visible / Kill...
         // crash THUG2 (script_port Translator.withoutUndrawn)
         const undrawn = new Set<number>();
+        // (PC-THPS3-17: the collision-only ones kept in the level - their Create / Kill are safe and kept)
+        const collisionOnly = new Set<number>();
         for (const n of array) {
             if (isEnvironment(n) && n.get("Name") instanceof Name) {
                 const v = nameOf(n);
                 if (!port.drawn.has(v) || hidden.has(v)) undrawn.add(v);
+                if (!port.drawn.has(v) && !hidden.has(v) && port.sectors.has(v) && pc.on("PC-THPS3-17"))
+                    collisionOnly.add(v);
             }
         }
         [scripts, setup, globalsText, scriptReport] = portScripts(
@@ -2477,7 +2598,7 @@ export function convertNodeArray(
             undrawn,
             thugproNew.extraScripts(tpNew, names),
             shownPrefixes(pc, base), // (PC-THPS3-1)
-            ctfCompat.freeSkate,
+            collisionOnly,
         );
     }
     // (after the scripts: their trigger scripts are THUG2's Team_Flag, not THPS3 scripts to bring along)
@@ -2731,12 +2852,19 @@ export function cmdConvert(args: Args): void {
     const scriptsDir = pyJoin(resolveInstall(args.thps3, "thps3"), "Data", "Scripts");
     const levelsQ = new qb.QbFile(read(pyJoin(scriptsDir, "levels.qb")), "levels.qb");
     const lightsQ = new qb.QbFile(read(pyJoin(scriptsDir, "lights.qb")), "lights.qb");
-    const globalQbs = scriptNames(args.thps3);
+    // the compatibility profile (tools/compat: thugpro - TP-10 / TP-11 - or none)
+    const profile = compat.load(args.compat);
+    // (TP-41: THUGPRO's edits of THPS3's scripts, written into them before anything reads them)
+    const scriptEdits = freeSkateEdits(profile);
+    const edit = (data: Buffer): Buffer => editScripts(data, scriptEdits);
+    const globalQbs = scriptNames(args.thps3, edit);
     let port: Port | null = null;
     if (!args.noScripts) {
         port = new Port(
             new scriptPort.Thug2(args.thug2),
-            sortedGlobQb(scriptsDir).map((p) => new scriptPort.Source(read(p), path.win32.basename(p).toLowerCase())),
+            sortedGlobQb(scriptsDir).map(
+                (p) => new scriptPort.Source(edit(read(p)), path.win32.basename(p).toLowerCase()),
+            ),
             levelsQ,
             args.thps3,
         );
@@ -2744,8 +2872,6 @@ export function cmdConvert(args: Args): void {
     const master = masterLevels(levelsQ);
     const thug2Names = thug2LevelNames(args.thug2);
     const teams = flagTeams(globalQbs);
-    // the compatibility profile (tools/compat: thugpro - TP-10 / TP-11 - or none)
-    const profile = compat.load(args.compat);
     // our own changes to THPS3's data (PC-n: kept under --compat none; --no-port-changes keeps only the required ones)
     const pc = thps3PortChanges(!args.noPortChanges);
     if (isDir(out)) fs.rmSync(out, { recursive: true, force: true });
@@ -2776,7 +2902,7 @@ export function cmdConvert(args: Args): void {
         // The node array first: the collision keeps the trigger faces of the kill zones it keeps, and the sectors
         // not there at the start are left out of both.
         const qbFile = files.get("qb")!;
-        const q = new qb.QbFile(read(qbFile), qbFile);
+        const q = new qb.QbFile(edit(read(qbFile)), qbFile);
         const once = entryStruct ? entryStruct.get("once_on_startup") : undefined;
         const dffFile = files.get("dff");
         const clumps = dffFile !== undefined && !args.noObjects ? thps3.readDff(read(dffFile), dffFile) : [];
@@ -2784,7 +2910,8 @@ export function cmdConvert(args: Args): void {
         const world = thps3.readBsp(read(bspFile), bspFile);
         if (port !== null) {
             port.drawn = drawnSectors(world);
-            port.level = new scriptPort.Source(read(qbFile), "level");
+            port.sectors = new Set(world.sectors.map((sec) => sec.checksum));
+            port.level = new scriptPort.Source(edit(read(qbFile)), "level");
             port.clumps = new Set(clumps.map((c) => c.checksum));
             port.moving = new Set();
             port.vehicles = new Map();

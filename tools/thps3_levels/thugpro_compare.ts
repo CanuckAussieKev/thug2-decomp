@@ -55,6 +55,7 @@ import {
     sequence,
     TOLERANCE,
 } from "../thaw_levels/thugpro_compare.ts";
+import * as startStateMod from "./start_state.ts";
 import * as thps3 from "./thps3.ts";
 import { findFolder, flagTeams, LEVELS, levelFiles, STAGING, scriptNames } from "./thps3_levels.ts";
 import { REGISTER_ID } from "./thugpro_new.ts";
@@ -133,7 +134,35 @@ function mpRestartNames(array: readonly QbValue[]): Set<number> {
 const nameList = (keys: Iterable<number>, names: ReadonlyMap<number, string>): string[] =>
     [...keys].map((k) => names.get(k) ?? hex8(k)).sort();
 
-export function compare(entry: portedLevels.LevelEntry, oursDir: string, thugpro: string, thug2: string): Result {
+// THUGPRO's level structures (its data\pre\thugpro_qb.prx, qb\game\Levels.qb): level -> its setup_script and
+// startup_script (the scripts it runs at a level's start).
+export function thugproStartScripts(thugpro: string): Map<string, number[]> {
+    const out = new Map<string, number[]>();
+    const file = findPath(thugpro, "data", "pre", "thugpro_qb.prx");
+    const data = file ? prx.find(file, "qb\\game\\Levels.qb") : null;
+    if (!data) return out;
+    const q = new qb.QbFile(data, "Levels.qb", true);
+    for (const [, value] of q.globals) {
+        if (!(value instanceof Struct)) continue;
+        const level = value.get("level");
+        if (typeof level !== "string") continue;
+        const roots: number[] = [];
+        for (const key of ["setup_script", "startup_script"]) {
+            const v = value.get(key);
+            if (v instanceof Name) roots.push(v.value);
+        }
+        out.set(level.toLowerCase(), roots);
+    }
+    return out;
+}
+
+export function compare(
+    entry: portedLevels.LevelEntry,
+    oursDir: string,
+    thugpro: string,
+    thug2: string,
+    startScripts: ReadonlyMap<string, number[]> | null = null,
+): Result {
     const folder = String(entry.folder ?? entry.level);
     const mine = entry.level;
     const own = THUG2_OWN.get(folder.toLowerCase());
@@ -259,6 +288,40 @@ export function compare(entry: portedLevels.LevelEntry, oursDir: string, thugpro
         names,
     );
     out.scripts = `${ours.scripts.size}/${theirs.scripts.size}`;
+    if (startScripts !== null && !own) {
+        // --start-state: what each side has at the start of offline free skate (start_state.ts), node by node
+        const oursLevel = startStateMod.readLevel([fs.readFileSync(oursQb)], names);
+        const theirLevel = startStateMod.readLevel(
+            theirFiles.map(([d]) => d),
+            names,
+        );
+        const ourRoots = [entry.setup_script, entry.startup_script]
+            .filter((x): x is string => typeof x === "string")
+            .map(qb.checksum);
+        const theirRoots = startScripts.get(key) ?? [];
+        const a = startStateMod.startState(oursLevel, [...ourRoots, ...startStateMod.nodeRoots(oursLevel.nodes)]);
+        const b = startStateMod.startState(theirLevel, [...theirRoots, ...startStateMod.nodeRoots(theirLevel.nodes)]);
+        const allNames = new Map([...names, ...oursLevel.names, ...theirLevel.names]);
+        out.start_roots_theirs = nameList(theirRoots, allNames);
+        // (the scene sectors and collision objects of both sides: a node neither draws nor collides with - trigger
+        // planes collide - doesn't count)
+        const sectors = new Set<number>();
+        const ourScn = pyJoin(oursDir, mine, `${mine}.scn.xbx`);
+        if (fs.existsSync(ourScn))
+            for (const sc of thug2Scene.readScene(fs.readFileSync(ourScn), ourScn).sectors) sectors.add(sc.checksum);
+        const theirScn = findPath(thugpro, "data", "pre", `${key}scn.prx`);
+        if (theirScn)
+            for (const [name, sdata] of prx.entries(theirScn, (n) => /\.scn\./i.test(n)))
+                for (const sc of thug2Scene.readScene(sdata, name).sectors) sectors.add(sc.checksum);
+        const ourColFile = pyJoin(oursDir, mine, `${mine}.col.xbx`);
+        if (fs.existsSync(ourColFile))
+            for (const o of thug2Col.readCol(fs.readFileSync(ourColFile), ourColFile).objects) sectors.add(o.checksum);
+        const theirColFile = findPath(thugpro, "data", "pre", `${key}col.prx`);
+        if (theirColFile)
+            for (const [name, cdata] of colCheck.colFiles(theirColFile))
+                for (const o of thug2Col.readCol(cdata, name).objects) sectors.add(o.checksum);
+        out.start_diffs = startStateMod.startDiffs(a, b, allNames, sectors);
+    }
     // collision
     const ourCol = pyJoin(oursDir, mine, `${mine}.col.xbx`);
     if (fs.existsSync(ourCol)) {
@@ -845,7 +908,7 @@ export function extractThugpro(
 }
 
 const USAGE =
-    "usage: thugpro_compare.ts [-h] [--thug2 THUG2] [--thugpro THUGPRO] [--thps3 THPS3] [--staging STAGING] [--json JSON] [--details] [--extract-thugpro FILE] [levels ...]";
+    "usage: thugpro_compare.ts [-h] [--thug2 THUG2] [--thugpro THUGPRO] [--thps3 THPS3] [--staging STAGING] [--json JSON] [--details] [--start-state] [--extract-thugpro FILE] [levels ...]";
 
 const OPTIONS = {
     thug2: { type: "string" },
@@ -853,6 +916,7 @@ const OPTIONS = {
     staging: { type: "string" }, // our converted levels (default <thug2>\thug2-decomp-thps3)
     json: { type: "string" },
     details: { type: "boolean" },
+    "start-state": { type: "boolean" }, // the nodes whose free-skate start state differs (start_state.ts)
     thps3: { type: "string" },
     "extract-thugpro": { type: "string" },
     help: { type: "boolean", short: "h" },
@@ -903,8 +967,9 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     }
     const results: Result[] = [];
     let bad = 0;
+    const startScripts = v["start-state"] ? thugproStartScripts(thugpro) : null;
     for (const entry of entries) {
-        const r = compare(entry, pyJoin(staging, "levels"), thugpro, thug2);
+        const r = compare(entry, pyJoin(staging, "levels"), thugpro, thug2, startScripts);
         results.push(r);
         if ("error" in r) {
             print(`${r.folder.padEnd(10)} ${r.level.padEnd(16)} ${String(r.error)}`);
@@ -939,6 +1004,18 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             if (only.length)
                 print(
                     `    nodes_only_theirs (${only.length}): ${only.slice(0, 40).join(", ")}${only.length > 40 ? " ..." : ""}`,
+                );
+        }
+        if (r.start_diffs !== undefined) {
+            // world (geometry, rails) first: those are the free-skate layout; the rest is the level's life
+            const diffs = r.start_diffs as startStateMod.StartDiff[];
+            print(
+                `    start state (THUGPRO's start scripts: ${(r.start_roots_theirs as string[]).join(", ")}): ` +
+                    `${diffs.filter((d) => d.world).length} world nodes, ${diffs.filter((d) => !d.world).length} others differ`,
+            );
+            for (const d of [...diffs.filter((x) => x.world), ...diffs.filter((x) => !x.world)])
+                print(
+                    `      ${d.world ? "world" : "life "} ${d.name} [${d.cls}${d.theirCls !== d.cls ? `/${d.theirCls}` : ""}]: ours ${d.ours}; THUGPRO ${d.theirs}`,
                 );
         }
         if (!r.same_load_script && !THUG2_OWN.has(r.folder.toLowerCase())) bad += 1;
