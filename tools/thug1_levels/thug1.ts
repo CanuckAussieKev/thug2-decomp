@@ -317,8 +317,10 @@ export function untableAnim(data: Buffer, qTable: Buffer, tTable: Buffer, name =
     const head = Buffer.from(data.subarray(0, start));
     head.writeUInt32LE(q.length, 0x1c);
     head.writeUInt32LE(t.length, 0x20);
-    qPer.forEach((x, b) => head.writeUInt16LE(x.length, sizesAt + 2 * b));
-    tPer.forEach((x, b) => head.writeUInt16LE(x.length, sizesAt + 2 * bones + 2 * b));
+    for (let b = 0; b < bones; b++) {
+        head.writeUInt16LE(qPer[b]!.length, sizesAt + 2 * b);
+        head.writeUInt16LE(tPer[b]!.length, sizesAt + 2 * bones + 2 * b);
+    }
     const body = Buffer.concat([q, t]);
     const pad = Buffer.alloc(((body.length + 3) & ~3) - body.length);
     return Buffer.concat([head, body, pad, rest]);
