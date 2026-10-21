@@ -77,3 +77,36 @@ Switch off: `[replacements] disable=cfuncs_lighting.cpp` (and cfuncs_render.cpp,
     no object. 45 deliberate bugs caught (6 after fixing the hand-built params' structure / array types, 3 more after
     an offset with -0, 1 after a fog alpha without bit 0, 1 after letterbox=1); 1 equivalent (0x0048E9D0's flag:
     both branches of the original read the same array).
+- [x] Batch EC1-3 (NOT run in the game yet; spawned polygons, the scenes' vertex colours, the light direction, metrics,
+  8 functions): src/game/script/cfuncs_polys.cpp (new).
+  - 0x004472D0 FreeSpawnedPolyDetails (the pool pair 0x00700500's Free - the details' operator delete),
+    0x00447330 SpawnPoly (0xB8-byte details from the pool pair, constructed by 0x00491990 - zeroed, blend mode
+    0x54628ED7; pos into +0, two vectors (names unknown; (0,0,1,1) / (0,1,0,1)), start_dims / end_dims pairs,
+    lifetime, start_colors / end_colors arrays of 4 [r g b a] (per corner) or start_color / end_color (one for all
+    corners) as bytes, an unnamed flag -> flags |= 2, just=[right|left|center, bottom|center|top] -> +0xB0 / +0xB4
+    of 1 / -1 / 0, BlendMode, texture -> the texture dictionary 0x00700F20's 0x0049F540; then 0x00492450(details,
+    &vector1, &vector2)). A failed allocation writes through null as in the original.
+  - 0x00447710 CompressSceneVertexColours(scene, target, factor, lightGroup) / 0x00447980 CompressVC (target,
+    percent -> factor (100 - percent) * 0.01 rounded once, LightGroup): each scene's sectors (the hash table at
+    +0xD0, the sector's light group at +0xC, its geometry +0x14: 0x0048DF70 count, 0x0048E150 colours into a
+    Mem::New buffer, 0x0048DFA0 back) - channels (c - target) * factor + target in double, limited to 0..255 and
+    truncated, alpha kept, nothing when target and factor are both 0; skies (scene +0x8D) skipped in the list walk,
+    then the first sky (0x0048C7B0) done. A chain item without a value ends a scene's walk (as in the original).
+  - 0x00447A60 NudgeSceneVertexColours(scene, amount) / 0x00447D90 NudgeVC (percent * 0.01, every scene, skies
+    too): per vertex a hash ((int(x*16) * int(y*16)) ^ int(z*16)) & 0x7FFF (positions 0x0048DF80) gives the scale
+    float(h / 32768 * amount * 2 + 1 - amount); red and green products rounded to floats, blue's kept in double (as
+    the x87 code does), each limited to 0..255 and truncated. The positions are freed before the colours.
+  - 0x00447E00 SetLightDirection (index, direction=<vector> with w 0, or heading and pitch (both) turning (0, 0, 1):
+    about x by pitch then about y by heading, in the x87's own FSIN / FCOS with the products against the
+    extended-precision sine / cosine as the original keeps them (X87SinTimes / X87CosTimes) and the heading's
+    sine / cosine stored as floats; returns 0x0048ED70's AL), 0x00447F30 GetMetrics (a new CStruct (struct pool,
+    Init) filled by 0x0048CB00, added as Metrics, cleared and freed).
+  - Test (selftests_engcmd3.cpp TestEngineCommandsPolys): stand-in heap (Manager::Allocate / Free), stand-in scenes
+    (a ring through a scene -1 sentinel; two skies), hash tables with chains, an empty bucket with a chain, a chain
+    item without a value, a sector without geometry, light groups; geometry stand-ins; SpawnPoly with per-corner /
+    single colours / neither, each `just` value, texture or not; CompressVC over light groups, NaN target, percent
+    above 100, a factor that differs when rounded twice; NudgeVC with a vertex hashing to 0 whose channels show the
+    float / double rounding; SetLightDirection over angles and missing heading / pitch, both callee results;
+    GetMetrics with the allocation failing; the details freed to the heap and into a stand-in pool. 41 deliberate
+    bugs caught (7 after making the scene list reachable, 1 after adding a pool, 4 after the rounding cases);
+    1 equivalent (IterateNext never returns true with no item).

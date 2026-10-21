@@ -70,4 +70,19 @@ bool __cdecl CFunc_SetLightDiffuseColor(Script::CStruct* params, Script::CScript
 bool __cdecl CFunc_GetLightCurrentColor(Script::CStruct* params, Script::CScript* script);    // 0x00447130
 bool __cdecl CFunc_GetBonePosition(Script::CStruct* params, Script::CScript* script);         // 0x00447220
 
+// --- cfuncs_polys.cpp ----------------------------------------------------------------------------------------
+
+// 0x004472D0: a spawned polygon's details given back to their pool pair (0x00700500).
+void __cdecl FreeSpawnedPolyDetails(void* details);
+// 0x00447710: a scene's sector vertex colours (of `lightGroup`, if not 0) moved towards `target` by `factor`.
+void __cdecl CompressSceneVertexColours(uint8_t* scene, float target, float factor, uint32_t lightGroup);
+// 0x00447A60: a scene's sector vertex colours scaled by a pseudo-random amount (by position) of up to `amount`.
+void __cdecl NudgeSceneVertexColours(uint8_t* scene, float amount);
+
+bool __cdecl CFunc_SpawnPoly(Script::CStruct* params, Script::CScript* script);               // 0x00447330
+bool __cdecl CFunc_CompressVC(Script::CStruct* params, Script::CScript* script);              // 0x00447980
+bool __cdecl CFunc_NudgeVC(Script::CStruct* params, Script::CScript* script);                 // 0x00447D90
+bool __cdecl CFunc_SetLightDirection(Script::CStruct* params, Script::CScript* script);       // 0x00447E00
+bool __cdecl CFunc_GetMetrics(Script::CStruct* params, Script::CScript* script);              // 0x00447F30
+
 } // namespace CFuncs
