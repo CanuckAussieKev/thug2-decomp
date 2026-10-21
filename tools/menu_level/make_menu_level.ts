@@ -1414,8 +1414,14 @@ async function main(): Promise<number> {
             write(frontEndScripts(frontEnd), "front_end\\levels\\mainmenu\\mainmenu_scripts.qb");
             const roundbar = decompile(prxFile(qbScripts, "scripts\\game\\menu\\roundbarmenu.qb"), "roundbarmenu.qb");
             write(frontEndRoundbar(roundbar), "front_end\\scripts\\game\\menu\\roundbarmenu.qb");
+            // (the nodes' shared fields put back in each node: the front end takes the shop's nodes by their Class -
+            // tools/thps4_levels' PC-THPS4-12 shares them, nodes.shareNodeFields)
             const backdropNodes = decompile(
-                fs.readFileSync(path.join(out, "levels", BACKDROP_LEVEL, `${BACKDROP_LEVEL}.qb`)),
+                levelPortNodes.unshareNodeFields(
+                    fs.readFileSync(path.join(out, "levels", BACKDROP_LEVEL, `${BACKDROP_LEVEL}.qb`)),
+                    `${BACKDROP_LEVEL}_NodeArray`,
+                    `${BACKDROP_LEVEL}.qb`,
+                ),
                 "backdrop.qb",
             );
             write(

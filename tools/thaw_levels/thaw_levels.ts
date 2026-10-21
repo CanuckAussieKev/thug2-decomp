@@ -832,6 +832,16 @@ function writeLevelQb(
     // (TPN-THAW-4: ours of the scripts THUGPRO's replace taken out first)
     if (drop.size) fs.writeFileSync(file, thugproNew.removeScripts(fs.readFileSync(file), drop));
     if (scripts.size) fs.writeFileSync(file, scriptPort.appendScripts(fs.readFileSync(file), scripts, names));
+    // PC-THAW-13 shared_parts (required): every node kind's common fields shared - the last step, after everything
+    // that reads the nodes' own fields (netGameNodes here; stripMissingTrickObjects and groundRestarts write the
+    // level's .qb again through this): nodes.shareNodeFields
+    if (portChange("shared_parts")) {
+        const level = path.win32.basename(file, ".qb");
+        const shared = nodes.shareNodeFieldsIn(file, `${level}_NodeArray`, level);
+        if (shared.includes) {
+            print(`  ${level}.qb: node fields shared: ${shared.includes} structures, ${shared.nodes} nodes`);
+        }
+    }
 }
 
 const levelGeometryNames = (list: readonly Struct[], names: Map<number, string>, test: (n: Struct) => boolean) => {
@@ -1172,26 +1182,9 @@ export function convertLevelNodes(
             triggers.add(v);
         }
     }
-    // PC-THAW-13 shared_parts: the rail nodes' common parts as include structures, as THUG2's own levels have them
-    // (expanded, Kyoto's node array ran THUG2's script component pool dry while loading). Rails only: the text passes
-    // after this (stripMissingTrickObjects, groundRestarts) read geometry and restart nodes' own entries. The terrain
-    // fix first (nodeArrayNs's, on the nodes' own TerrainType).
-    let includes = "";
-    let arrayNodes = converted;
-    if (portChange("shared_parts")) {
-        nodes.fixTerrains(converted, names);
-        [arrayNodes, includes] = nodes.shareIncludes(
-            converted,
-            names,
-            name,
-            (n) => nodes.classOf(n, names) === "railnode",
-        );
-        if (includes)
-            report.push(`  ${includes.split("\n").length - 1} include structures for the rail nodes' common parts`);
-    }
+    // (PC-THAW-13: the node fields are shared when the .qb is written - writeLevelQb's last step)
     let text =
-        includes +
-        nodes.nodeArrayNs(`${name}_NodeArray`, arrayNodes, names, kills) +
+        nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) +
         extraText +
         spawnScripts +
         (extra?.setupNs ?? "");

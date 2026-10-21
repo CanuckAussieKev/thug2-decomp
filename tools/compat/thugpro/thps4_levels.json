@@ -4209,6 +4209,17 @@
           "nodes": "path followers, peds and cars (AbsentInNetGames); single-player levels' Player1 restarts (Multiplayer, Horse)"
         },
         "why": "Network games have no path manager or ped animations, and need restarts for the players (nodes.netGameNodes)"
+      },
+      {
+        "id": "PC-THPS4-12",
+        "op": "set",
+        "rule": "shared_fields",
+        "required": true,
+        "target": {
+          "levels": "*",
+          "nodes": "every node kind's common fields (all but Pos / Position / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> - the converter's last step on the level's .qb (nodes.shareNodeFields), after every pass that reads nodes' own fields"
+        },
+        "why": "node fields shared the way THUG2's own levels do (ncomp_*), so big levels fit the script component pool"
       }
     ]
   },

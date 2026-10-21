@@ -11993,6 +11993,16 @@
           }
         ],
         "kept_vehicles": "Vehicles kept as THUGPRO makes them: Tokyo's three jets TRG_Plane_* (plane_jet: its node array's trigger node Box02) and Subway's plane TRG_Plane (light_airplane01: trigger nodes TRGP_CarPlant01 / TRGP_Killskater01) - movers carrying trigger nodes, THUG2's Vehicle form; Rio's 8 and Subway's 1 invisible carplant_collision Vehicles (Obj_LockToObject on a car) - left for a separate decision; road traffic (Tokyo's 18 cars, Subway's ice-cream truck) and every car our converters make"
+      },
+      {
+        "id": "PC-THPS3-16",
+        "op": "set",
+        "target": {
+          "what": "every node kind's common fields (all but Pos / Position / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> - the converter's last step on the level's .qb (nodes.shareNodeFields), after every pass that reads nodes' own fields",
+          "levels": "*"
+        },
+        "why": "node fields shared the way THUG2's own levels do (ncomp_*), so big levels fit the script component pool",
+        "required": true
       }
     ]
   }

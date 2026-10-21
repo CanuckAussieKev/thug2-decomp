@@ -516,36 +516,6 @@ export function resolveDuplicateTriggers(
     return count;
 }
 
-// Keys every node keeps for itself when the rest is shared (compressIncludes).
-export const OWN_KEYS: ReadonlySet<number> = nodes.OWN_KEYS;
-
-export function compressIncludes(
-    converted: Struct[],
-    names: Map<number, string>,
-    prefix: string,
-    sectors: ReadonlySet<number>,
-): [Struct[], string] {
-    // The node array's shared parts made global structures again, as THUG1's and THUG2's own levels have them
-    // (`ncomp_RailNode_574`: an unnamed name in a node that is a global structure - THUG2's structure lookups follow
-    // it). Expanded (nodes.expandIncludes) the THUG1 node arrays with their objects run THUG2 out of script components
-    // while loading (a null from its component pool: crashes in ParseQB / the loading screen - HI and NJ in the game).
-    // Done last: the terrain fix and the TrickObject / Cluster strip (geometry nodes without a scene sector) first,
-    // since they read the nodes' own entries. Returns [nodes, the globals as NeverScript text].
-    nodes.fixTerrains(converted, names);
-    const trick = checksum("TrickObject");
-    const cluster = checksum("Cluster");
-    for (const node of converted) {
-        const name = node.get("Name");
-        if (nodes.classOf(node, names) === "levelgeometry" && name instanceof Name && !sectors.has(name.value)) {
-            node.entries = node.entries.filter(
-                ([k, v]) =>
-                    !(k === null && v instanceof Name && v.value === trick) && !(k !== null && k.value === cluster),
-            );
-        }
-    }
-    return nodes.shareIncludes(converted, names, prefix);
-}
-
 export function runsBy(node: Struct, names: ReadonlyMap<number, string>): scriptPort.Context {
     // Who runs a node's trigger script: the skater (sectors, rails, climbing nodes, proximity nodes), the object
     // itself, or nobody.
