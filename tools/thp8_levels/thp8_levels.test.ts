@@ -4,23 +4,31 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checksum, Name, Struct } from "../level_port/qb.ts";
+import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
 import * as thaw from "../thaw_levels/thaw.ts";
 import * as dxt from "./dxt.ts";
 import * as geom from "./geom.ts";
 import * as havok from "./havok.ts";
 import { readPak, readToc, readTocList } from "./thp8.ts";
 import {
+    bouncyProps,
+    boxTriangles,
     cloudFade,
+    emptyScript,
+    endlessLoop,
+    faceFlags,
     GLOW_DEFAULT,
     glowMaterials,
     glowScale,
     materialColour,
+    memberCalls,
     place,
     rotate,
     SCALE,
+    soloRestarts,
     thug2Terrain,
     toThug,
+    triggerVolumes,
 } from "./thp8_levels.ts";
 import * as xenos from "./xenos.ts";
 
@@ -353,4 +361,142 @@ test("material colour: the four floats before the first texture's checksum; glow
     assert.deepEqual(glowScale(none), [GLOW_DEFAULT, GLOW_DEFAULT, GLOW_DEFAULT]);
     params.writeFloatBE(-3, 0x50);
     assert.equal(materialColour(m), null);
+});
+
+test("restarts: network spawns also single-player ones (Player1 first), others as they were", () => {
+    const text =
+        "x_NodeArray = [\n" +
+        "    {Pos=(0,0,0) Name=a Class=Restart restart_types=[Multiplayer]}\n" +
+        "    {Pos=(0,0,0) Name=b Class=Restart restart_types=[Player1]}\n" +
+        "    {Pos=(0,0,0) Name=c Class=Restart restart_types=[Player1 Multiplayer]}\n" +
+        "    {Pos=(0,0,0) Name=d Class=RailNode restart_types=[Multiplayer]}\n" +
+        "]\n";
+    const [out, changed] = soloRestarts(text);
+    assert.equal(changed, 1);
+    assert.match(out, /Name=a Class=Restart restart_types=\[Player1 Multiplayer\]/);
+    assert.match(out, /Name=b Class=Restart restart_types=\[Player1\]/);
+    assert.match(out, /Name=d Class=RailNode restart_types=\[Multiplayer\]/);
+});
+
+test("face flags: THP8's trigger volumes (0x20 on non-collidable faces) as THUG2's trigger 0x40", () => {
+    assert.equal(faceFlags(0x0004_00b0), 0xd0); // (terrain bits dropped; 0x20 -> 0x40, non-collidable and camera kept)
+    assert.equal(faceFlags(0x20), 0x20); // (collidable: a decal, as it was)
+    assert.equal(faceFlags(0x48), 0x48);
+});
+
+test("trigger volumes: collision-only LevelGeometry nodes with a TriggerScript", () => {
+    const names = new Map<number, string>([[checksum("LevelGeometry"), "LevelGeometry"]]);
+    const node = (name: string, script: boolean): Struct => {
+        const s = new Struct([
+            [new Name(checksum("Name")), new Name(checksum(name))],
+            [new Name(checksum("Class")), new Name(checksum("LevelGeometry"))],
+            [new Name(checksum("Pos")), new Vector("vector", [1, 2, 3])],
+        ]);
+        if (script) s.entries.push([new Name(checksum("TriggerScript")), new Name(checksum(`${name}Script`))]);
+        return s;
+    };
+    const array = [node("Kill", true), node("Drawn", true), node("Plain", false)];
+    const v = triggerVolumes(array, names, new Set([checksum("Drawn")]));
+    assert.deepEqual(
+        v.map((x) => [x.name, x.pos]),
+        [[checksum("Kill"), [1, 2, 3]]],
+    );
+});
+
+test("member calls: `Skater:KillSkater node=x` read as a call of KillSkater", () => {
+    const tok = (t: number, word?: number): [number, Buffer] => {
+        const p = Buffer.alloc(word === undefined ? 0 : 4);
+        if (word !== undefined) p.writeUInt32LE(word >>> 0);
+        return [t, p];
+    };
+    const line = [tok(0x16, checksum("Skater")), tok(0x42), tok(0x16, checksum("KillSkater")), tok(0x16, 7)];
+    const q = {
+        scripts: new Map([[1, [line]]]),
+        calls: () => [[checksum("Skater"), line]],
+    } as unknown as thaw.QbItems;
+    const calls = memberCalls(q).calls(1);
+    assert.deepEqual(
+        calls.map(([c, l]) => [c, l.length]),
+        [
+            [checksum("Skater"), 4],
+            [checksum("KillSkater"), 2],
+        ],
+    );
+});
+
+test("endless loops: a while with no count and no wait that can run is found; the script emptied", () => {
+    const names = new Map<number, string>([
+        [checksum("wait"), "wait"],
+        [checksum("GotParam"), "GotParam"],
+    ]);
+    const name = (text: string): Buffer => {
+        const b = Buffer.alloc(5);
+        b[0] = 0x16;
+        b.writeUInt32LE(checksum(text), 1);
+        return b;
+    };
+    const b = (...x: number[]): Buffer => Buffer.from(x);
+    // script s { while { if GotParam thps3_port_never { wait } } }  (repeat with no count)
+    const body = (inner: Buffer[], count: Buffer = b()) =>
+        Buffer.concat([b(0x23), name("s"), b(0x01, 0x20, 0x01), ...inner, b(0x21), count, b(0x01, 0x24)]);
+    const neverWait = [
+        b(0x47, 0x10, 0x00),
+        name("GotParam"),
+        name("thps3_port_never"),
+        b(0x01),
+        name("wait"),
+        b(0x01, 0x28, 0x01),
+    ];
+    assert.equal(endlessLoop(body(neverWait), names), true);
+    assert.equal(endlessLoop(body([name("wait"), b(0x01)]), names), false); // (a wait that runs)
+    assert.equal(endlessLoop(body(neverWait, b(0x17, 5, 0, 0, 0)), names), false); // (counted)
+    // (the never-true if's else branch runs)
+    const elseWait = [
+        b(0x47, 0x10, 0x00),
+        name("GotParam"),
+        name("thps3_port_never"),
+        b(0x01, 0x48, 0x02, 0x00, 0x01),
+        name("wait"),
+        b(0x01, 0x28, 0x01),
+    ];
+    assert.equal(endlessLoop(body(elseWait), names), false);
+    assert.deepEqual([...emptyScript(body(neverWait))], [0x23, ...name("s"), 0x01, 0x24]);
+});
+
+test("props: GO_ game objects made at the start become bouncy LevelObjects with their model's box as contacts", () => {
+    const names = new Map<number, string>([
+        [checksum("GameObject"), "GameObject"],
+        [checksum("GO_Cafe_Chair"), "GO_Cafe_Chair"],
+        [checksum("Ghost"), "Ghost"],
+    ]);
+    const node = (name: string, type: string, made: boolean): Struct => {
+        const s = new Struct([
+            [new Name(checksum("Name")), new Name(checksum(name))],
+            [new Name(checksum("Pos")), new Vector("vector", [1, 2, 3])],
+            [new Name(checksum("Class")), new Name(checksum("GameObject"))],
+            [new Name(checksum("Type")), new Name(checksum(type))],
+        ]);
+        if (made) s.entries.push([null, new Name(checksum("CreatedAtStart"))]);
+        s.entries.push([null, new Name(checksum("Bouncy"))]);
+        return s;
+    };
+    const chair = node("Chair1", "GO_Cafe_Chair", true);
+    const later = node("Chair2", "GO_Cafe_Chair", false);
+    const ghost = node("G", "Ghost", true);
+    const models = new Map([[checksum("GO_Cafe_Chair"), { box: [-0.5, 0, -0.5, 0.5, 1, 0.5] } as never]]);
+    const made = bouncyProps([chair, later, ghost], names, models);
+    assert.deepEqual([...made], [[checksum("Chair1"), checksum("GO_Cafe_Chair")]]);
+    assert.equal(names.get((chair.get("Class") as Name).value), "LevelObject");
+    assert.ok(chair.hasFlag("bouncy") && chair.hasFlag("CreatedAtStart"));
+    const contacts = chair.get("contacts") as Vector[];
+    assert.equal(contacts.length, 8);
+    assert.deepEqual(
+        contacts[7]!.values.map((v) => +v.toFixed(3)),
+        [0.5 * SCALE, SCALE, 0.5 * SCALE].map((v) => +v.toFixed(3)),
+    );
+    assert.equal(names.get((later.get("Class") as Name).value), "GameObject");
+    // the box: twelve triangles owned by the node, covering the six sides
+    const tris = boxTriangles([0, 0, 0, 1, 2, 3], 42);
+    assert.equal(tris.length, 12);
+    assert.ok(tris.every((t) => t.owner === 42));
 });
