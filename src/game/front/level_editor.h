@@ -75,6 +75,10 @@ class CScript;
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
+//   level_editor_camera.cpp   the camera tools: F frames the selection, Alt+drag orbits, the right button + wheel sets
+//                             the speed, Ctrl+1..9 / 1..9 camera bookmarks, the numpad's ortho views
+//   level_editor_play.cpp     play from here (F5 / Ctrl+P) and back to the editor with the same camera and selection
+//   level_editor_prefs.cpp    the preferences window ([editor] in the ini) and the first-run tips
 // The controls (F1 lists them in the game):
 //   - Flying: W A S D, Q / E down / up, Shift faster, the right mouse button looks, the wheel goes forward / back.
 //   - Seeing (the UI): the Outliner lists the level's nodes by family (search; the chips show / hide a family, in
@@ -149,6 +153,10 @@ void PlaceCamera(Gfx::Camera* camera);
 // Called by the renderer once a viewport is set up: what the view's projection is (for the mouse ray and the
 // outlines). `viewport`: the device viewport (x, y, width, height in back buffer pixels).
 void NoteView(Gfx::Camera* camera, float angle, float aspect, const uint32_t viewport[4]);
+// Called by the renderer for a viewport's camera (Nx::RenderViewport): its field of view (degrees) and near plane - the
+// game's own, except for the editor's camera in an ortho view (level_editor_camera.h: a long lens from far back).
+float ViewAngle(Gfx::Camera* camera, float angle);
+float NearPlane(Gfx::Camera* camera);
 // After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
 void Draw();
 // For the screenshot sidecar (game/sys/screenshot.h): what the editor shows now - its mode, the level, its camera,

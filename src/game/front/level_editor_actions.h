@@ -98,6 +98,11 @@ enum Id : int {
     kForward, kBack, kLeft, kRight, kFlyUp, kFlyDown, kNudgeUp, kNudgeDown, kFaster, kSlower,
     kCollision, kFaces, kTriggers, kOcclusion, kHide, kIsolate, kShowAll, kCameraNode, kLogCamera,
     kChainInsert, kChainExtend, kChainLink, kChainUnlink, kChainFinish,
+    // (UX1: play from here, the camera's tools, the preferences - level_editor_play.h, level_editor_camera.h,
+    // level_editor_prefs.h)
+    kPlay, kPreferences, kFrameSelection,
+    kBookmark1, kBookmarkStore1 = kBookmark1 + 9,
+    kViewTop = kBookmarkStore1 + 9, kViewBottom, kViewFront, kViewBack, kViewRight, kViewLeft, kViewOrtho,
     kBuiltinCount
 };
 
@@ -123,6 +128,8 @@ std::vector<int> Conflicts(int index);
 // The keyboard this frame (SDL_GetKeyboardState; all up while the UI types): which actions' keys were pressed.
 // `suspended`: none fire (a key being captured for rebinding).
 void BeginFrame(const uint8_t* keys);
+// The editor starting: the keys down now count as already down (the key that opened it doesn't act at once).
+void SeedKeys(const uint8_t* keys);
 bool Pressed(int index);
 bool Held(const uint8_t* keys, int index);
 // As if its key had been pressed: Pressed is true next frame (the command search, menus).

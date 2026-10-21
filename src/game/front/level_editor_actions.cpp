@@ -353,7 +353,7 @@ std::vector<Action> Builtins()
         Make("fly_up", "Fly up", "Camera", Kind::Hold, {L('E'), K(SDL_SCANCODE_SPACE)}, "The camera up"),
         Make("fly_down", "Fly down", "Camera", Kind::Hold, {L('Q')}, "The camera down"),
         Make("nudge_up", "Nudge up", "Transform", Kind::Hold, {L('E'), L('R'), K(SDL_SCANCODE_PAGEUP)}, "The selection up"),
-        Make("nudge_down", "Nudge down", "Transform", Kind::Hold, {L('Q'), L('F'), K(SDL_SCANCODE_PAGEDOWN)}, "The selection down"),
+        Make("nudge_down", "Nudge down", "Transform", Kind::Hold, {L('Q'), K(SDL_SCANCODE_PAGEDOWN)}, "The selection down"),
         Make("faster", "Flying speed up", "Camera", Kind::Press, {K(SDL_SCANCODE_EQUALS)}, "1.5 times faster"),
         Make("slower", "Flying speed down", "Camera", Kind::Press, {K(SDL_SCANCODE_MINUS)}, "1.5 times slower"),
 
@@ -372,7 +372,45 @@ std::vector<Action> Builtins()
         Make("chain_link", "Chain: link to the next end clicked", "Chains", Kind::Press, {L('J')}, "This end linked to the next end clicked"),
         Make("chain_unlink", "Chain: unlink from the next", "Chains", Kind::Press, {L('U')}, "This point unlinked from its next"),
         Make("chain_finish", "Chain: finish drawing", "Chains", Kind::Press, {K(SDL_SCANCODE_RETURN)}, "Drawing a rail / path finished (or a right click)"),
+
+        // (UX1 - level_editor_play.h, level_editor_prefs.h, level_editor_camera.h)
+        Make("play", "Play from here", "Play", Kind::Press, {K(SDL_SCANCODE_F5), L('P', kCtrl)},
+             "Free skate from the camera's place (the editor comes back where it was)"),
+        Make("preferences", "Preferences", "Panels", Kind::Press, {K(SDL_SCANCODE_COMMA, kCtrl)}, "The editor's preferences (and its Keys)"),
+        Make("frame_selection", "Frame the selection", "Camera", Kind::Press, {L('F')}, "The camera to fit the selection"),
     };
+    for (int i = 1; i <= 9; ++i) {
+        std::string n = std::to_string(i);
+        Action a = Make(("bookmark_" + n).c_str(), ("Camera bookmark " + n).c_str(), "Camera", Kind::Press,
+                        {K(SDL_SCANCODE_1 + i - 1)}, "The camera to bookmark n (stored with Ctrl+n; kept per level)");
+        b.push_back(a);
+    }
+    for (int i = 1; i <= 9; ++i) {
+        std::string n = std::to_string(i);
+        Action a = Make(("bookmark_store_" + n).c_str(), ("Store camera bookmark " + n).c_str(), "Camera", Kind::Press,
+                        {K(SDL_SCANCODE_1 + i - 1, kCtrl)}, "The camera stored as bookmark n");
+        b.push_back(a);
+    }
+    for (Action& a : b) {
+        // (the bookmarks' tips name their own number)
+        size_t at = a.tip.find("bookmark n");
+        if (at != std::string::npos)
+            a.tip.replace(at + 9, 1, a.id.substr(a.id.size() - 1));
+        at = a.tip.find("Ctrl+n");
+        if (at != std::string::npos)
+            a.tip.replace(at + 5, 1, a.id.substr(a.id.size() - 1));
+    }
+    std::vector<Action> views = {
+        Make("view_top", "View: top", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_7)}, "An orthographic view from above"),
+        Make("view_bottom", "View: bottom", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_7, kCtrl)}, "From below"),
+        Make("view_front", "View: front", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_1)}, "From the front"),
+        Make("view_back", "View: back", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_1, kCtrl)}, "From the back"),
+        Make("view_right", "View: right", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_3)}, "From the right"),
+        Make("view_left", "View: left", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_3, kCtrl)}, "From the left"),
+        Make("view_ortho", "View: perspective / ortho", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_5)},
+             "Perspective and orthographic switched"),
+    };
+    b.insert(b.end(), views.begin(), views.end());
     // The hints (not rebindable): what the mouse and the modes' own keys do.
     struct Hint {
         const char *id, *name, *category, *keys, *tip;
@@ -390,6 +428,8 @@ std::vector<Action> Builtins()
         {"hint_arrow", "Move along an axis", "Transform", "Drag an arrow", "Along that axis only"},
         {"hint_carry", "Leave what it carries", "Transform", "Alt while moving", "What stood on scenery stays (this move)"},
         {"hint_escape", "Cancel / close / leave", "Panels", "Esc", "A drag put back, a window closed, the selection dropped, then leaves"},
+        {"hint_orbit", "Orbit", "Camera", "Alt+drag", "About the point looked at (UX1: level_editor_camera.h)"},
+        {"hint_speed", "Flying speed", "Camera", "Right mouse + wheel", "The flying speed up / down while looking"},
         {"hint_browser", "Browser keys", "Panels", "Up / Down, Left / Right, F, Enter", "Choose, scenery / objects, show me, place it"},
         {"hint_outliner", "Outliner", "Panels", "Click, double-click", "Selects; takes the camera there"},
     };
@@ -606,6 +646,12 @@ void BeginFrame(const uint8_t* keys)
         for (int i : Resolve(bound, s, held))
             g_fired[i] = true;
     }
+}
+
+void SeedKeys(const uint8_t* keys)
+{
+    std::memcpy(g_was, keys, sizeof(g_was));
+    g_triggered.assign(g_triggered.size(), false);
 }
 
 bool Pressed(int index) { return index >= 0 && index < static_cast<int>(g_fired.size()) && g_fired[index]; }
