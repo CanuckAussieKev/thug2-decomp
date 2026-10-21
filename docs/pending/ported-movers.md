@@ -1,96 +1,97 @@
-# Ported levels: non-car Vehicles as moving game objects (PC-THPS3-15) - 2026-10-21
+# Ported levels: plain moving props made solid LevelObjects (PC-THPS3-15) - 2026-10-21
 
-The change (user-approved): objects that THUGPRO (thugpro_new) or our converters made `Class=Vehicle` but which aren't
-road traffic are built THUG2's way: an ordinary moving GameObject with the model kept, its path and timing unchanged,
-solid through the collision component made from the model's .col, its behaviour kept. Real cars stay Vehicles.
+Branch `worktree-agent-aa1edbf0fa25a716e`. The task (user-approved): objects THUGPRO or our converters made
+`Class=Vehicle` that aren't road traffic built THUG2's way; real cars stay Vehicles. Corrected by the lead mid-task:
+THUG2's form for a plain solid mover is a **LevelObject with CollisionMode=Geometry**; a **Vehicle** is THUG2's own form
+for movers carrying rails or trigger nodes in their model's node array. The first version (GameObjects with THUGPRO's
+models, commit 68937d1) is replaced; it also crashed Tokyo in the load check (below).
 
-## How THUG2 does it (checked in THUG2's own data)
+## THUG2's own forms (checked in its data: Data\pre\*_scripts.prx node arrays, ped.qb, skutils.qb)
 
-- `gameobj_add_components` (ped.qb): a GameObject with `model=` gets the model component, with `CollisionMode` (not
-  none) the collision component; `gameobj_composite_structure` (skutils.qb) gives every game object suspend, **motion**
-  (Obj_MoveToNode / Obj_FollowPathLinked / Obj_RotX), objectproximity, sound; CreateGameObject (0x00468CB0) adds lockobj
-  (Obj_LockToObject). The collision component builds the movable collision from the model's own collision (the asset's
-  data: models\<model>.col) and places it at the object every frame (batch 193, Obj::CCollisionComponent).
-- THUG2's own levels' solid moving props: LevelObjects with CollisionMode=Geometry (BO's subway trains, NO's helicopter
-  blades, TR's gates). `car_add_components` (a Vehicle) adds skeleton, model, collision, the **nodearray** component
-  (models\<model>.qb), the car **rail manager** and skitch - the parts that crashed Foundry (docs/pending/foun-crash.md).
-- A trigger face of a moving object's collision (0x00434BF0): with a nodearray component the node is looked up in the
-  object's own array; without one (a game object) **in the level's array by the collision object's name**
-  (CTriggerComponent::TriggerNode 0x00434A60 with a null array -> GetNode). So the model's trigger nodes get stand-ins
-  in the level's node array (Class LevelGeometry, no sector, named like the collision object).
-- THUG2 itself keeps some non-cars Vehicles: BA's boat (veh_ba_boat: 17 rails, a ledge and a ladder in its node array), NO's
-  streetcar - a Vehicle is how a moving model gets grind rails, ladders and skitch hooks.
+- Solid moving props: LevelObjects with `CollisionMode=Geometry` - Boston's subway trains BO_Subway01 / 03 (moved by
+  Obj_MoveToNode), New Orleans' helicopter blades Veh_NO_Heli_Blades and fan blades, the Triangle's gates and AC fans,
+  AU's bouncy tables. No THUG2 level node is a GameObject with a CollisionMode.
+- Vehicles that aren't cars: Barcelona's drawbridges TRG_BA_Bridge_North / South, its boat TRG_BA_Bridge_Boat01
+  (veh_ba_boat's node array: 17 grind rails, a ledge, a ladder), its skitch / grind nodes; New Orleans' streetcar. A
+  Vehicle's model node array (nodearray component), car rail manager and skitch give a mover rails, ladders, hooks and
+  trigger nodes (a trigger face of its collision looks its node up in that array: 0x00434BF0).
+- A LevelObject draws the scene sector of its name (in its own space - our moving sectors are made so, movingSector)
+  and its collision component takes that sector's collision: the level's collision object of the same name, same
+  space (Obj::CCollisionComponent::InitFromStructure 0x0041C7B0 -> GetSector), placed at the object every frame.
 
 ## Implementation
 
-- `tools/level_port/movers.ts` (shared): `makeMovers` turns each listed node that is a Vehicle with the listed model
-  into `Class=GameObject` + `CollisionMode=Geometry` (skeletonName / NoRail / NoSkitch / NoCollision dropped; Type,
-  flags, model, TriggerScript, Links, lod / suspend kept), and adds the stand-ins for the model's trigger nodes (from
-  the model's .qb node array and its .col's trigger objects); a trigger listed in `kill_triggers` gets
-  `SK3_KillSkater nodename=<the restart nearest the object's node>` (THUGPRO's own trigger scripts call commands of its
-  DLL - `#4917D1E6`, `#A972042C`, the carplant `#C653CCB8` - that neither THUG2 nor any THUGPRO .qb defines). A level
-  node of the trigger's name already there is kept (reported); a listed node that isn't a Vehicle with that model
-  (`--compat none`, `--no-thugpro-new`) is left as it is (reported).
-- `tools/thps3_levels/thps3_levels.ts` convertNodeArray: applied right after TPN-THPS3's nodes
-  (`thugproNew.applyNodes`), from the register's PC-THPS3-15 `objects`; the models from TPN-THPS3-6 (the level's
-  THUGPRO model files). TPN-THPS3-3's `drop_sector` still drops our drawn copy (THUGPRO's model draws the object).
-- Register: `tools/compat/thugpro/thps3_levels.json` port_changes PC-THPS3-15 (op set, required false, `online` note,
-  `objects` with level / name / model / what / kill_triggers, `kept_vehicles`); README row. `--no-port-changes`: the
-  entry is off - THUGPRO's Vehicles as before (checked: Foun, Tok).
-- Tests: `tools/level_port/movers.test.ts` (5): model file names, the level filter, trigger objects from a .col, a
-  bucket made a solid game object with its kill stand-in to the nearest restart, a car untouched, a trigger without a
-  kill, a second run / another model changing nothing.
+- `tools/level_port/movers.ts` (shared): `makeSolid` gives each listed node that is a LevelObject with a drawn sector
+  `CollisionMode=Geometry` (anything else is left and reported).
+- `tools/thps3_levels/thps3_levels.ts`: cmdConvert leaves TPN-THPS3-3's Vehicle `set` out for the listed nodes (so our
+  LevelObject and its drawn THPS3 model stay - no drop_sector); convertNodeArray calls makeSolid (Port.solid);
+  convertWorld (`solid` option, `solidCollision`) adds a collision object for each solid moving sector from its drawn
+  geometry (faces flag 0 as THPS3's plain faces, the material's terrain) unless THUGPRO's collision of the name is added
+  by TPN-THPS3-1 (the bucket's: 134 faces, box x/y -60..60, z -76..60, centred like our drawn bucket, which is larger:
+  -111..110, -89..89, -76..78 - THUGPRO's shape kept, as the lead asked; with `--compat none` ours is made).
+- Register: `tools/compat/thugpro/thps3_levels.json` port_changes PC-THPS3-15 (op set, required false, `online`,
+  `objects` - level / name / what / thugpro_set -, `kept_vehicles`); README row. `--no-port-changes`: off - THUGPRO's
+  Vehicles back (checked, Foun).
+- Tests: tools/level_port/movers.test.ts (2: the level filter; makeSolid on a LevelObject, a Vehicle, an undrawn
+  object, a missing one, run twice), thps3_levels.test.ts (solidCollision: chosen / skipped sectors, faces, terrain,
+  box). typecheck, lint, npm test (152 pass), thps3_levels selfcheck (323 files, 0 failures).
 
-## Inventory (every Vehicle-class node of the converted levels, all four games, default options)
+## Inventory (every Vehicle-class node of the converted levels - all four games, default options; 225)
 
-Non-cars and the cars next to them; the 225 Vehicles in all: THPS3 burn 4, la 6, rio 8 cars + 8 carplant boxes, sub 1
-car + 2, tok 18 cars + 5, foun 1; THPS4 skate shop 2; THUG1 fl 30, hh 4, hi 15, nj 23, ny 32, ru 3, sd 11, vc 16 (+
-the non-cars below); THAW bh 3, dn 2, dt 8, ho 4, ma 1, sr 1, kyoto 4, hof 2, sz 3. Every one not listed below is a car
-(skeleton car, a THUG2 / THUG1 car model, Car_Generic01 or a level's car / driveable / goal-car script).
+All are cars (skeleton car, a car model, Car_Generic01 or a level's car / driveable / goal-car script) except:
 
 | Level | Object | Model | Car? | Before | After |
 |---|---|---|---|---|---|
-| THPS3 foun | Obj_Bucket (molten-metal bucket) | THUGPRO Obj_Bucket | no | Vehicle (TPN-THPS3-3) | GameObject, solid; TRGP_KillSkaterBucket stand-in kills (SK3_KillSkater nodename=TRG_CTF2_Restart_3P) |
-| THPS3 sub | TRG_Plane (light plane) | THUGPRO light_airplane01 | no | Vehicle (TPN-THPS3-3) | GameObject, solid; TRGP_Killskater01 kills (nodename=TRG_Restart_Horse05); TRGP_CarPlant01 stand-in, no script |
-| THPS3 sub | TRG_IceCreamTruck_Carplant_collision | THUGPRO CarPlantNode (invisible trigger box) | no | Vehicle (TPN-THPS3-2 add) | GameObject riding on the truck (Obj_LockToObject); TRGP_CarPlant01 stand-in, no script |
-| THPS3 sub | TRG_IceCreamTruck | THUGPRO icecreamtruck | **yes** (wheels, roof rails, skitch hook) | Vehicle | Vehicle |
-| THPS3 tok | TRG_shinkansenEast / West | THUGPRO bullet_train (7 collision boxes) | no | Vehicle | GameObject, solid |
-| THPS3 tok | TRG_Plane_NorthWest / SouthWest / East | THUGPRO plane_jet | no | Vehicle | GameObject, solid; Box02 stand-in, no script (THUGPRO's wallplant bonus Box02Script not brought) |
-| THPS3 tok | 18 TRG_Car* | THUGPRO Veh_Focus / Galaxie / Smart_car | **yes** | Vehicle | Vehicle |
-| THPS3 rio | 8 TRG_Car_Path*_carplant_collision | THUGPRO CarPlantNode (6) / CarPlantNode_Bus (2) | no | Vehicle (TPN-THPS3-2 add) | GameObjects riding on the cars; TRGP_CarPlant01 stand-in, no script |
-| THUG1 nj | TRG_TrainA01 / 02 (El trains) | THUGPRO veh_el_train | no | Vehicle (TPN-THUG1-2) | **kept Vehicle**: its node array gives 4 roof grind rails, 2 skitch hooks and a collision trigger - Vehicle-only parts |
-| THUG1 hi | TRG_HI_Boat01 | THUG2's veh_ba_boat | no | Vehicle (TPN-THUG1-2) | **kept Vehicle**: 17 grind rails, a ledge and a ladder (climbing nodes) in the model's node array; THUG2's own BA boat is this Vehicle |
-| THUG1 ru | JO_Tank_Base, _01, _02, G_COMPNOT_gr_Tank | THUGPRO veh_tank_ru | no (static tanks) | Vehicle (THUG1's own class) | kept: THUG1's own data, not THUGPRO's or ours |
-| THUG1 hh | TRG_SE_JO_Qp_Ghost | veh_skitchnode | no | Vehicle (THUG1's) | kept: a skitch node (skitch is Vehicle-only) |
-| THUG1 sd / vc / hh | karts, leaf blowers, limo, mini baja, ATVs, the stadium tram (sdkart on Car_Generic01) | THUG1 / THUGPRO models, skeleton car | driveable / goal vehicles | Vehicle (THUG1's) | kept |
-| THPS4, THAW | - | - | all cars | Vehicle | Vehicle |
+| THPS3 foun | Obj_Bucket (molten-metal bucket) | THUGPRO Obj_Bucket (TPN-THPS3-3) | no | Vehicle | **LevelObject + CollisionMode=Geometry** (THPS3's bucket drawn, THUGPRO's 134-face collision) |
+| THPS3 tok | TRG_shinkansenEast / TRG_shinkansenwest | THUGPRO bullet_train (TPN-THPS3-3; its node array only collision boxes) | no | Vehicle | **LevelObject + CollisionMode=Geometry** (THPS3's train drawn, collision from it) |
+| THPS3 tok | TRG_Plane_NorthWest / SouthWest / East | THUGPRO plane_jet | no | Vehicle | kept Vehicle: its node array's trigger node Box02 (THUGPRO's wallplant bonus) |
+| THPS3 sub | TRG_Plane | THUGPRO light_airplane01 | no | Vehicle | kept Vehicle: trigger nodes TRGP_CarPlant01, TRGP_Killskater01 |
+| THPS3 rio | 8 TRG_Car_Path*_carplant_collision | THUGPRO CarPlantNode / _Bus (invisible trigger box on a car, Obj_LockToObject) | no | Vehicle (TPN-THPS3-2 add) | kept - **left for a separate decision** |
+| THPS3 sub | TRG_IceCreamTruck_Carplant_collision | THUGPRO CarPlantNode | no | Vehicle | kept - separate decision |
+| THPS3 sub | TRG_IceCreamTruck | THUGPRO icecreamtruck (wheels, roof rails, skitch hook) | yes | Vehicle | Vehicle |
+| THPS3 tok | 18 TRG_Car* | THUGPRO Veh_Focus / Galaxie / Smart_car | yes | Vehicle | Vehicle |
+| THUG1 nj | TRG_TrainA01 / 02 (El trains) | THUGPRO veh_el_train (TPN-THUG1-2) | no | Vehicle | kept: 4 roof rails, 2 skitch hooks, a collision trigger in its node array |
+| THUG1 hi | TRG_HI_Boat01 | THUG2's veh_ba_boat (TPN-THUG1-2) | no | Vehicle | kept: rails, ledge, ladder - THUG2's own BA boat is this Vehicle |
+| THUG1 ru | JO_Tank_Base / 01 / 02, G_COMPNOT_gr_Tank | THUGPRO veh_tank_ru | no (static) | Vehicle (THUG1's own class) | kept: THUG1's data, static, not THUGPRO's or ours |
+| THUG1 hh | TRG_SE_JO_Qp_Ghost | veh_skitchnode | no | Vehicle (THUG1's) | kept: a skitch node |
+| THUG1 sd / vc / hh / ru | karts, leaf blowers, limo, mini baja, ATVs, the stadium tram, ladas | THUG1 / THUGPRO models, skeleton car | driveable / goal / traffic | Vehicle | Vehicle |
+| THPS4 (skate shop 2), THAW (bh 3, dn 2, dt 8, ho 4, ma 1, sr 1, kyoto 4, hof 2, sz 3) | cars | | yes | Vehicle | Vehicle |
 
-No PC entry for THUG1, THPS4 or THAW: nothing there qualifies (THPS4's and THAW's Vehicles are all cars; THUG1's
-non-cars are THUG1's own Vehicles or need the Vehicle-only rails / skitch). `movers.ts` is shared: a THUG1 entry
-(e.g. the tanks) would be a register list plus one call in thug1_levels.
+Counts of all Vehicles: THPS3 burn 4, la 6, rio 16, sub 3, tok 23, foun 1; THPS4 2; THUG1 fl 30, hh 5, hi 16, nj 25, ny
+32, ru 7, sd 11, vc 16; THAW 28. No entry for THUG1 / THPS4 / THAW: nothing there qualifies (THUG1's non-cars carry
+rails / hooks / triggers or are THUG1's own static Vehicles). movers.ts is shared if one is wanted later.
 
-## Load checks (workspace C:\Games\THUG2-2, under its lock)
+**The bucket's kill:** THPS3's bucket kills no one - its `TRGP_Kill_Bucket` (Foundry's static trigger plane where the
+bucket pours) runs only `StartGap Bucket_Trigger_Gap`. The kill inside it is THUGPRO's: its model's trigger node
+TRGP_KillSkaterBucket calls FOUN_BucketKillSkater01 (THUGPRO's TP_DoFlash; not in THUG2, nor in what we bring). As a
+LevelObject the bucket has no trigger nodes, so it doesn't kill - THPS3's behaviour. A kill inside it would need a
+moving trigger of its own (e.g. a second collision-only LevelObject locked to it): the lead's call.
 
-See the results section below.
+## Load checks (C:\Games\THUG2-2, under its lock; the lead's DLL out\build\lead\dinput8.dll; all four games converted, make_menu_level)
+
+- Final version: `foun` and `tok` reached free skate (load_check: running after 83 s, responding, loaded), no
+  EXCEPTION / run-time check / CRT report in the log.
+- The first version (GameObjects with THUGPRO's models) crashed Tokyo after loading: 0xC0000005 reading CCCCCCD0 in
+  Script::CStruct::ExpandInto under a member-function call on an object (ComponentCallMemberFunction) - not followed up,
+  that version is gone.
+- **Rio crashes after loading - before this branch too** (checked with PC-THPS3-15 switched off: THUGPRO's Vehicles):
+  0xC0000005 reading CCCCCCD0 in Script::CStruct::ExpandInto (struct.cpp:1223), called from 0x00488F40 (the skater
+  profile / appearance loader, LoadFromStructure) via 0x00422711 (the model component's model init), a
+  CallMemberFunction on an object - probably a ped's or car's model from a profile. Not caused by this change (Rio has
+  no PC-THPS3-15 object); needs its own look.
+- Sub loaded and kept running in the first round (load_check's "loaded" not reached in 85 s; no exception); it has no
+  PC-THPS3-15 object in the final version.
 
 ## What the user should check by hand
 
-1. Foundry (`-level foun`): the bucket moves out along its path and tips (as before); it is solid (ride into its side);
-   dropping into it kills the skater and puts him back at the restart nearby; nothing crashes when the bucket appears.
-2. Tokyo (`tok`): the bullet trains run (both directions) and are solid; the three jets fly their paths; the cars
-   drive as before.
-3. Subway (`sub`): the light plane flies and is solid where it can be reached (and kills on its trigger); the ice-cream
-   truck drives as before.
-4. Rio (`rio`): the cars drive; nothing visible changes (the carplant boxes are invisible).
-5. Nothing crashes loading or after a few minutes in these four levels.
-
-## Online
-
-Client-side only - moving level objects aren't sent over the network. THUGPRO's players have Vehicles where ours have
-game objects; all 16 objects are AbsentInNetGames, so neither side makes them in a network game. **Needs a hand check
-online** (not tested: agents never go online).
+1. Foundry: the bucket moves out and tips as before; it is solid (ride into it, it carries / blocks the skater where it
+   is, also while moving); it doesn't kill (THPS3's behaviour - say if THUGPRO's kill is wanted).
+2. Tokyo: both bullet trains run with their timing and are solid (they knock / block the skater, moving); the jets fly
+   as before; nothing crashes over a few minutes.
+3. Online (needs a hand check): THUGPRO's players have Vehicles there; all three objects are AbsentInNetGames, so
+   neither side makes them in a network game - client-side only, moving level objects aren't sent over the network.
 
 ## Reconvert
 
-The lead must reconvert THPS3's Foun, Sub, Tok and Rio (`node tools/thps3_levels/thps3_levels.ts convert` - or all)
-and run make_menu_level for the main install. The other games' output is unchanged by this branch.
+The lead must reconvert THPS3's **Foun** and **Tok** (`node tools/thps3_levels/thps3_levels.ts convert` - all, so
+levels.json stays whole) and run make_menu_level for the main install. Nothing else changes.

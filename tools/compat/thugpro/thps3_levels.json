@@ -11963,122 +11963,36 @@
         "id": "PC-THPS3-15",
         "op": "set",
         "target": {
-          "what": "non-car Vehicles (THUGPRO's TPN-THPS3-3 `set` / TPN-THPS3-2 `add` nodes: Foundry's bucket, Tokyo's bullet trains and jets, Subway's plane, the carplant boxes on Rio's and Subway's cars) as THUG2's moving game objects: Class GameObject, THUGPRO's model kept, CollisionMode=Geometry (the model's own .col through the collision component, moving with the object), scripts and timing unchanged; the model's trigger nodes as stand-ins in the level's array (kills as SK3_KillSkater) - tools/level_port/movers.ts",
+          "what": "plain moving props THUGPRO made Vehicles (TPN-THPS3-3 `set`, left out for them): Foundry's molten-metal bucket and Tokyo's two bullet trains stay our LevelObjects (drawn with THPS3's own model, moved by THPS3's scripts with THPS3's timing) and get CollisionMode=Geometry - their collision the level's collision object of their name, in their own space: THUGPRO's when TPN-THPS3-1 adds one (the bucket's 134 faces), else made from the drawn geometry (the trains) - tools/level_port/movers.ts",
           "levels": [
             "foun",
-            "sub",
-            "tok",
-            "rio"
+            "tok"
           ]
         },
-        "why": "THUGPRO made this non-car a Vehicle to get path movement + collision; THUG2 builds solid moving props as game objects; client-side only - moving level objects aren't sent over the network",
+        "why": "THUGPRO made this non-car a Vehicle to get path movement + collision; THUG2 builds solid moving props as LevelObjects with CollisionMode=Geometry (Boston's subway trains, New Orleans' blades), Vehicle only for movers carrying rails / trigger nodes in their model's node array (Barcelona's bridges, boat, tram); client-side only - moving level objects aren't sent over the network",
         "required": false,
-        "online": "needs a hand check: THUGPRO's players have Vehicles there (every object listed is AbsentInNetGames, so neither side makes them in a network game - checked in the converted node arrays)",
+        "online": "needs a hand check: THUGPRO's players have Vehicles (THUGPRO's models) there; the three are AbsentInNetGames, so neither side makes them in a network game",
         "objects": [
           {
             "level": "foun",
             "name": "Obj_Bucket",
-            "model": "Obj_Bucket\\Obj_Bucket.mdl",
-            "what": "the molten-metal bucket (THPS3's CJR_Foun_Bucket: Obj_MoveToNode out, tips with Obj_RotX)",
-            "kill_triggers": [
-              "TRGP_KillSkaterBucket"
-            ]
-          },
-          {
-            "level": "sub",
-            "name": "TRG_Plane",
-            "model": "light_airplane01\\light_airplane01.mdl",
-            "what": "the light plane (ALF_SUB_PlaneLight)",
-            "kill_triggers": [
-              "TRGP_Killskater01"
-            ]
-          },
-          {
-            "level": "sub",
-            "name": "TRG_IceCreamTruck_Carplant_collision",
-            "model": "CarPlantNode\\CarPlantNode.mdl",
-            "what": "THUGPRO's invisible carplant box riding on the ice-cream truck (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
+            "what": "the molten-metal bucket (THPS3's CJR_Foun_Bucket: Obj_MoveToNode out, tips with Obj_RotX); THPS3's bucket kills no one (TRGP_Kill_Bucket is a static gap trigger) - THUGPRO's kill inside it (its model's TRGP_KillSkaterBucket -> FOUN_BucketKillSkater01, THUGPRO's TP_DoFlash) isn't brought",
+            "thugpro_set": "TPN-THPS3-3"
           },
           {
             "level": "tok",
             "name": "TRG_shinkansenEast",
-            "model": "bullet_train\\bullet_train.mdl",
-            "what": "the eastbound bullet train (JS_BulletTrainEast)"
+            "what": "the eastbound bullet train (JS_BulletTrainEast)",
+            "thugpro_set": "TPN-THPS3-3"
           },
           {
             "level": "tok",
             "name": "TRG_shinkansenwest",
-            "model": "bullet_train\\bullet_train.mdl",
-            "what": "the westbound bullet train"
-          },
-          {
-            "level": "tok",
-            "name": "TRG_Plane_NorthWest",
-            "model": "plane_jet\\plane_jet.mdl",
-            "what": "a jet (JS_PlaneNorthWest)"
-          },
-          {
-            "level": "tok",
-            "name": "TRG_Plane_SouthWest",
-            "model": "plane_jet\\plane_jet.mdl",
-            "what": "a jet (JS_PlaneSouthWest)"
-          },
-          {
-            "level": "tok",
-            "name": "TRG_Plane_East",
-            "model": "plane_jet\\plane_jet.mdl",
-            "what": "a jet (JS_PlaneEast)"
-          },
-          {
-            "level": "rio",
-            "name": "TRG_Car_PathC_Car_OldsBlue01_carplant_collision",
-            "model": "CarPlantNode\\CarPlantNode.mdl",
-            "what": "THUGPRO's invisible carplant box riding on TRG_Car_PathC_Car_OldsBlue01 (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
-          },
-          {
-            "level": "rio",
-            "name": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collision",
-            "model": "CarPlantNode\\CarPlantNode.mdl",
-            "what": "THUGPRO's invisible carplant box riding on TRG_Car_PathB_Car_MicroBusGrey01 (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
-          },
-          {
-            "level": "rio",
-            "name": "TRG_Car_PathB_Car_2CVGrey01_carplant_collision",
-            "model": "CarPlantNode\\CarPlantNode.mdl",
-            "what": "THUGPRO's invisible carplant box riding on TRG_Car_PathB_Car_2CVGrey01 (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
-          },
-          {
-            "level": "rio",
-            "name": "TRG_Car_PathC_Car_Police01_carplant_collision",
-            "model": "CarPlantNode\\CarPlantNode.mdl",
-            "what": "THUGPRO's invisible carplant box riding on TRG_Car_PathC_Car_Police01 (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
-          },
-          {
-            "level": "rio",
-            "name": "TRG_Car_PathA_Car_2CVYellow01_carplant_collision",
-            "model": "CarPlantNode\\CarPlantNode.mdl",
-            "what": "THUGPRO's invisible carplant box riding on TRG_Car_PathA_Car_2CVYellow01 (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
-          },
-          {
-            "level": "rio",
-            "name": "TRG_Car_PathA_Car_OldsBeige01_carplant_collision",
-            "model": "CarPlantNode\\CarPlantNode.mdl",
-            "what": "THUGPRO's invisible carplant box riding on TRG_Car_PathA_Car_OldsBeige01 (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
-          },
-          {
-            "level": "rio",
-            "name": "TRG_Car_PathD_Car_BigBus01_carplant_collision",
-            "model": "CarPlantNode_Bus\\CarPlantNode_Bus.mdl",
-            "what": "THUGPRO's invisible carplant box riding on TRG_Car_PathD_Car_BigBus01 (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
-          },
-          {
-            "level": "rio",
-            "name": "TRG_Car_PathD_Car_BigBus02_carplant_collision",
-            "model": "CarPlantNode_Bus\\CarPlantNode_Bus.mdl",
-            "what": "THUGPRO's invisible carplant box riding on TRG_Car_PathD_Car_BigBus02 (Obj_LockToObject; its trigger calls THUGPRO's own carplant command)"
+            "what": "the westbound bullet train",
+            "thugpro_set": "TPN-THPS3-3"
           }
         ],
-        "kept_vehicles": "road traffic stays Vehicles: Tokyo's 18 cars TRG_Car* (THUGPRO's Veh_Focus / Galaxie / Smart_car, skeleton car), Subway's ice-cream truck TRG_IceCreamTruck (THUGPRO's icecreamtruck: wheels, roof rails, skitch hook) and every ported car our converters make (Car_Generic01)"
+        "kept_vehicles": "Vehicles kept as THUGPRO makes them: Tokyo's three jets TRG_Plane_* (plane_jet: its node array's trigger node Box02) and Subway's plane TRG_Plane (light_airplane01: trigger nodes TRGP_CarPlant01 / TRGP_Killskater01) - movers carrying trigger nodes, THUG2's Vehicle form; Rio's 8 and Subway's 1 invisible carplant_collision Vehicles (Obj_LockToObject on a car) - left for a separate decision; road traffic (Tokyo's 18 cars, Subway's ice-cream truck) and every car our converters make"
       }
     ]
   }

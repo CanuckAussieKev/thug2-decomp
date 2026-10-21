@@ -697,6 +697,23 @@ export interface ConvertWorldOptions {
     colEdits?: ReadonlyMap<number, CollisionEditCompat>;
     // TPN-THPS3: THUGPRO's new sectors, textures and collision objects (thugpro_new.ts applyGeometry)
     thugproNew?: thugproNew.LevelNew;
+    // PC-THPS3-15: the moving sectors (objects) that get collision of their own - in their own space, as drawn - for
+    // their LevelObject's CollisionMode=Geometry (unless THUGPRO's collision of the name is added)
+    solid?: ReadonlySet<number>;
+}
+
+// The collision of the solid moving sectors (PC-THPS3-15): every face collidable (THPS3's clumps have no face flags:
+// 0, as THPS3's plain world faces), the terrain of its material. `materials`: the world's, then the objects'.
+export function solidCollision(
+    sectors: readonly thps3.Sector[],
+    materials: readonly thps3.RwMaterial[],
+    solid: ReadonlySet<number>,
+    skip: ReadonlySet<number>,
+): geometry.SourceColObject[] {
+    const chosen = sectors
+        .filter((s) => solid.has(s.checksum) && !skip.has(s.checksum))
+        .map((s) => ({ ...s, faceFlags: s.faceFlags ?? new Array<number>(s.triangles.length).fill(0) }));
+    return collisionObjects(chosen, materials, new Set()).objects;
 }
 
 export function convertWorld(
@@ -738,12 +755,15 @@ export function convertWorld(
     let col: thug2Col.ColFile | null = null;
     const counts = { dropped: 0, faces: 0, missing: 0 };
     if (withCol) {
-        col = geometry.convertCol(
-            collisionObjects(world.sectors, world.materials, skip, options.colEdits, counts),
-            keepTriggers,
-            warnings,
-            faceFlags,
-        );
+        const source = collisionObjects(world.sectors, world.materials, skip, options.colEdits, counts);
+        if (options.solid?.size) {
+            // (PC-THPS3-15; THUGPRO's collision of the name, when it adds one, is the object's instead)
+            const theirs = new Set((options.thugproNew?.collision ?? []).map((o) => o.checksum));
+            const ours = solidCollision(objectList, raw, options.solid, skip).filter((o) => !theirs.has(o.checksum));
+            source.objects.push(...ours);
+            report.push(`  PC-THPS3-15: ${ours.length} moving objects' collision made from their drawn geometry`);
+        }
+        col = geometry.convertCol(source, keepTriggers, warnings, faceFlags);
     }
     const tpNew = options.thugproNew;
     const newLine =
@@ -947,6 +967,7 @@ export class Port {
     moving = new Set<number>();
     vehicles = new Map<number, string>(); // node name -> model name (the level's vehicles made LevelObjects of their models)
     drawn = new Set<number>(); // the level's atomic sectors with a scene sector (drawnSectors)
+    solid = new Set<number>(); // moving LevelObjects made solid (PC-THPS3-15): their sectors get collision
     copies = new Map<number, number>(); // node name -> clump checksum (game objects drawn with another clump of the level: model=)
     private readonly models = new Map<string, Model | null>();
     readonly assets: pedsCars.Thug2Assets;
@@ -2313,21 +2334,20 @@ export function convertNodeArray(
     // scripts are brought along (their trigger scripts count) and before TP-18's rails (Foundry's wires find their
     // foun_wire cluster)
     const newReport = tpNew.nodes.length || tpNew.sets.length ? thugproNew.applyNodes(converted, names, tpNew) : [];
-    // PC-THPS3-15: THUGPRO's non-car Vehicles (the bucket, the trains, the planes, the carplant boxes) as THUG2's
-    // moving game objects with their models' collision (tools/level_port/movers.ts; --no-port-changes: Vehicles)
+    // PC-THPS3-15: plain moving props (Foundry's bucket, Tokyo's bullet trains) solid as THUG2 builds them: our
+    // LevelObjects with CollisionMode=Geometry - their collision made in convertWorld (Port.solid) unless THUGPRO's of
+    // the name is added (TPN-THPS3-1: the bucket's); THUGPRO's Vehicle `set` is left out for them (cmdConvert)
     const moverChange = pc.get("PC-THPS3-15", base.toLowerCase());
-    if (moverChange !== null) {
-        const models = new Map(tpNew.models.map(([file, data]) => [file.toLowerCase(), data] as const));
-        newReport.push(
-            ...movers.makeMovers(
-                converted,
-                names,
-                movers.moversFor(moverChange.objects, name),
-                models,
-                kills,
-                "PC-THPS3-15",
-            ),
+    if (moverChange !== null && port !== null && made !== null) {
+        const [solid, solidReport] = movers.makeSolid(
+            converted,
+            names,
+            movers.moversFor(moverChange.objects, name),
+            made.moving,
+            "PC-THPS3-15",
         );
+        for (const s of solid) port.solid.add(s);
+        newReport.push(...solidReport);
     }
     if (port === null) {
         // (static: no scripts - THUGPRO's nodes keep none either)
@@ -2672,6 +2692,7 @@ export function cmdConvert(args: Args): void {
             port.moving = new Set();
             port.vehicles = new Map();
             port.copies = new Map();
+            port.solid = new Set();
         }
         const compatData = levelCompat(profile, name);
         // TPN-THPS3: THUGPRO's own content, read from its install (--thugpro; --no-thugpro-new or --compat none: none)
@@ -2679,6 +2700,15 @@ export function cmdConvert(args: Args): void {
             ? []
             : thugproNew.levelEntries(compat.thugproNew(profile, "thps3_levels"), name);
         const tpNew = thugproNew.loadNew(newEntries, args.thugpro);
+        // (PC-THPS3-15: the plain moving props stay our solid LevelObjects - THUGPRO's Vehicle `set` left out for them)
+        const solidMovers = movers.moversFor(pc.get("PC-THPS3-15", base.toLowerCase())?.objects, name);
+        if (solidMovers.length && port !== null) {
+            const listed = new Set(solidMovers.map((m) => qb.checksum(m.name)));
+            const kept = tpNew.sets.filter((s) => !listed.has(s.name));
+            if (kept.length !== tpNew.sets.length)
+                report.push(`  PC-THPS3-15: ${tpNew.sets.length - kept.length} TPN-THPS3-3 Vehicle sets left out`);
+            tpNew.sets = kept;
+        }
         const [nodeText, hidden, triggers, nodeReport, scripts, hasSetup] = convertNodeArray(
             q,
             globalQbs,
@@ -2745,6 +2775,7 @@ export function cmdConvert(args: Args): void {
                 Object.entries(compatData.collision ?? {}).map(([k, v]) => [compatName(k, new Map()).value, v]),
             ),
             thugproNew: tpNew,
+            solid: port !== null ? port.solid : new Set(),
         });
         const [withoutTricks, cleared] = withoutMissingTrickObjects(text, pyJoin(levelDir, `${name}.scn.xbx`));
         // (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.groundRestarts)

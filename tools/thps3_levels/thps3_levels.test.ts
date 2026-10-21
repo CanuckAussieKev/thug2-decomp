@@ -14,6 +14,7 @@ import {
     ctfNodes,
     legacyName,
     levelName,
+    solidCollision,
 } from "./thps3_levels.ts";
 import { nodeEdits } from "./thugpro_compare.ts";
 
@@ -426,4 +427,35 @@ test("THUGPRO's node edits found against THPS3's array (nodeEdits)", () => {
     );
     assert.ok(edits.notes.some((x) => /Light: class environmentobject -> genericnode/.test(x)));
     assert.ok(edits.notes.some((x) => /removed Named: used by a script/.test(x)));
+});
+
+test("PC-THPS3-15: a solid moving sector's collision - every face, flags 0 (clumps have none), its material's terrain", () => {
+    const sector = (checksum: number): thps3.Sector => ({
+        checksum,
+        materialBase: 0,
+        positions: [
+            [-5, 0, -5],
+            [5, 0, -5],
+            [0, 10, 5],
+        ],
+        uvs: [],
+        uvSets: 0,
+        triangles: [
+            [1, 0, 1, 2],
+            [1, 0, 2, 1],
+        ],
+        binmesh: null,
+    });
+    const materials = [{ ns: null }, { ns: { terrain: 7 } }] as unknown as thps3.RwMaterial[];
+    const out = solidCollision([sector(1), sector(2), sector(3)], materials, new Set([2, 3]), new Set([3]));
+    assert.deepEqual(
+        out.map((o) => o.checksum),
+        [2],
+    );
+    assert.deepEqual(out[0]!.faces, [
+        [0, 7, 0, 1, 2],
+        [0, 7, 0, 2, 1],
+    ]);
+    assert.deepEqual(out[0]!.bbox, [-5, 0, -5, 1, 5, 10, 5, 1]);
+    assert.deepEqual(solidCollision([sector(1)], materials, new Set(), new Set()), []);
 });
