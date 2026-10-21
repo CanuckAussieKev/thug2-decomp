@@ -6,8 +6,10 @@
 //   nodes      restarts, rails, level geometry and KOTH crowns as before (tools/level_port/nodes.ts); waypoints,
 //              climbing nodes (ledges, ladders), proximity nodes, sound emitters whole; LevelObjects as LevelObjects
 //              (their sectors are in their own space - static geometry put them at the level's origin), bouncy ones
-//              with their rigid body settings; peds with THUG2's skeleton and animations (THPS6_human) and a THUG2
-//              profile (THUG1's own when THUG2 has it); vehicles and game objects whose model THUG2 has
+//              with their rigid body settings; peds as THUG1's own people - its models, skeletons and animations
+//              (thug1_peds.ts) - or, where THUG1's model can't be brought, with THUG2's skeleton and animations
+//              (THPS6_human) and a THUG2 profile (THUG1's own name when THUG2 has it); vehicles and game objects whose
+//              model THUG2 has
 //              (Data\models); particle objects whose texture THUG2 has (Data\images\particles). Lights, goal nodes
 //              (GenericNodes other than crowns) and objects of models THUG2 lacks are left out (placeholders: the
 //              Links are indices).
@@ -29,6 +31,7 @@ import * as qb from "../level_port/qb.ts";
 import { checksum, Name, Struct } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import { decodeLatin1, hex8, pyJoin } from "../lib/py.ts";
+import { Thug1Peds } from "./thug1_peds.ts";
 
 // THUG1's shared script files a level's scripts may be brought along from (besides the level's own .qb files).
 export const SHARED_SOURCES = [
@@ -210,8 +213,10 @@ export class Thug1Port {
     readonly shared: scriptPort.Source[] = [];
     // (folders with a models\ folder of models THUG2 hasn't - THUGPRO's, TPN-THUG1-1: thugpro_new.ts - besides Data\models)
     readonly extraRoots: string[] = [];
+    // THUG1's own people (thug1_peds.ts); null: THUG2's people on THUG1's peds' places, as before (--thug2-peds)
+    readonly peds: Thug1Peds | null;
 
-    constructor(thug2: string, qbPre: string) {
+    constructor(thug2: string, qbPre: string, ownPeds = true) {
         this.thug2 = new scriptPort.Thug2(thug2);
         this.root = thug2;
         this.assets = new pedsCars.Thug2Assets(thug2);
@@ -251,6 +256,13 @@ export class Thug1Port {
                 if (!(e instanceof RangeError)) throw e;
             }
         }
+        this.peds = ownPeds
+            ? new Thug1Peds(path.dirname(qbPre), {
+                  thug2Globals: this.thug2.globals,
+                  thug2Anims: this.thug2.anims,
+                  qbScripts: path.join(thug2, "Data", "pre", "qb_scripts.prx"),
+              })
+            : null;
     }
 
     modelScriptRefs(model: string): Map<number, string> {
@@ -316,10 +328,21 @@ export class NodePass {
     readonly counts = new Map<string, number>();
     readonly particleTextures = new Set<string>();
     readonly extraAnims = new Set<string>();
+    // THUG1's own people (thug1_peds.ts): the sexes placed (false: men, true: women), the load scripts of their THUG1
+    // animation sets (Extra_Anims), the animations their nodes name (DefaultAnimName)
+    readonly ownSexes = new Set<boolean>();
+    readonly ownSkaters = new Set<boolean>(); // (the sexes with skating peds)
+    readonly ownExtras = new Map<string, string>();
+    readonly ownMore = new Set<number>();
+    // (and the anim-list globals made for their Ped_InitAI calls: name -> NeverScript; the peds that got THUG2's)
+    readonly ownGlobals = new Map<string, string>();
+    thug2Peds = 0;
     readonly modelRefs = new Map<number, string>(); // the gap / trick scripts the kept objects' THUG2 models name
     readonly kept: qb.QbValue[];
     // (THUGPRO's own nodes - TPN-THUG1-2, thugpro_new.ts: THUG2 nodes already, kept whole as they are)
     readonly forced: ReadonlySet<Struct>;
+
+    readonly level: string; // THUG1's level code (its random people's parts are the level's: thug1_peds.ts)
 
     constructor(
         port: Thug1Port,
@@ -327,8 +350,10 @@ export class NodePass {
         names: Map<number, string>,
         sectors: ReadonlySet<number>,
         forced: ReadonlySet<Struct> = new Set(),
+        level = "",
     ) {
         this.port = port;
+        this.level = level;
         this.names = names;
         this.sectors = sectors;
         this.forced = forced;
@@ -439,6 +464,9 @@ export class NodePass {
             // 0x00482BA0 on a null; THUG1 Hawaii's dog / shark)
             return this.leftOut("animal peds");
         }
+        const own = this.ownPed(node, skeleton);
+        if (own !== null) return own;
+        this.thug2Peds += 1;
         const s = this.whole(node, "peds");
         if (skeleton === "thps5_human" || skeleton === "") {
             // (THUG2's humans: THPS6_human; THUG1's THPS5_human animations aren't loaded)
@@ -472,6 +500,42 @@ export class NodePass {
                 s.remove("Extra_Anims");
             }
         }
+        return s;
+    }
+
+    // A ped as THUG1's own person (thug1_peds.ts): its profile's models, THUG1's skeleton and animations - or null when
+    // THUG1 hasn't the profile or a model can't be brought (the ped gets THUG2's then).
+    ownPed(node: Struct, skeleton: string): Struct | null {
+        const peds = this.port.peds;
+        const n = this.names;
+        const profile = node.get("profile");
+        const nodeName = node.get("Name");
+        if (peds === null || !(profile instanceof Name)) return null;
+        const who = textOf(nodeName, n) || String(profile.value);
+        const own = peds.resolve(profile.value, who, skeleton === "ped_female", this.level);
+        if (own === null) return null;
+        const s = this.whole(node, "peds");
+        this.count("peds as THUG1's own people");
+        s.set("profile", nameOf(n, own.profile));
+        pedRigs.fixPedRigs(
+            [s],
+            n,
+            () => false,
+            () => own.rig,
+        );
+        this.ownSexes.add(own.rig === pedRigs.THUG1_FEMALE);
+        if (own.skater) this.ownSkaters.add(own.rig === pedRigs.THUG1_FEMALE);
+        const extra = s.get("Extra_Anims");
+        s.remove("Extra_Anims");
+        if (extra instanceof Name) {
+            const made = peds.extraScript(extra.value);
+            if (made !== null) {
+                this.ownExtras.set(made[0], made[1]);
+                s.entries.push([nameOf(n, "Extra_Anims"), nameOf(n, made[0])]);
+            }
+        }
+        const defaultAnim = s.get("DefaultAnimName");
+        if (defaultAnim instanceof Name) this.ownMore.add(defaultAnim.value);
         return s;
     }
 }
@@ -577,6 +641,7 @@ export function portScripts(
     struct: Struct | undefined,
     sectors: ReadonlySet<number> | null = null,
     extraProvided: Iterable<number> = [], // (scripts the level gets otherwise: THUGPRO's, TPN-THUG1-3 - thugpro_new.ts)
+    made: NodePass | null = null, // (THUG1's own people: their Ped_InitAI anim lists - ownPedRewrites)
 ): PortedScripts {
     // The scripts brought along (see the top). Returns the scripts {name: THUG2 bytes}, the THUG1 globals they use as
     // NeverScript text, the level structure's startup / setup script names kept, the report line. Trigger scripts not
@@ -623,6 +688,7 @@ export function portScripts(
             keptIn: KEPT_IN,
             strictConditions: true,
             sounds: port.sounds,
+            rewrites: made === null ? null : ownPedRewrites(made),
         },
     );
     const roots: [number, scriptPort.Context][] = [];
@@ -639,6 +705,14 @@ export function portScripts(
         }
     }
     const out = tr.run(roots);
+    if (made !== null && port.peds !== null && made.ownSexes.size) {
+        // (every animation the brought scripts may have THUG1's people play: loaded for them - thug1_peds.ts)
+        const globals = new Map<number, qb.QbValue>();
+        for (const [k, v] of tr.globals) globals.set(k, v);
+        // (the scripts peds run: their trigger scripts and what those call)
+        const pedScripts = [...out].filter(([s]) => tr.contexts.get(s)?.has(scriptPort.PED)).map(([, code]) => code);
+        for (const a of port.peds.scriptAnims(pedScripts, globals)) made.ownMore.add(a);
+    }
 
     const available = (script: number): boolean =>
         out.has(script) || port.thug2.scripts.has(script) || provided.has(script);
@@ -670,6 +744,44 @@ export function portScripts(
 
 const byCodePoint = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
+// THUG1's Ped_InitAI walking animations (WalkAnims= / Walking_Anims= / Walk_Anims=) as THUG2's Anim_Types
+// (thug1_peds.animTypes): only where every ped of the level is THUG1's own person (a THUG2 ped can't play THUG1's).
+export const WALK_KEYS: ReadonlySet<number> = new Set(["WalkAnims", "Walking_Anims", "Walk_Anims"].map(checksum));
+
+export function ownPedRewrites(made: NodePass): Map<number, (toks: scriptPort.Tok[]) => scriptPort.Tok[] | null> {
+    const peds = made.port.peds;
+    if (peds === null || !made.ownSexes.size || made.thug2Peds) return new Map();
+    const rewrite = (toks: scriptPort.Tok[]): scriptPort.Tok[] => {
+        const out: scriptPort.Tok[] = [];
+        for (let k = 0; k < toks.length; k++) {
+            const t = toks[k]!;
+            const value = toks[k + 2];
+            if (
+                k > 0 &&
+                t.t === 0x16 &&
+                WALK_KEYS.has(t.name()!) &&
+                toks[k + 1]?.t === 0x07 &&
+                value !== undefined &&
+                value.t === 0x16
+            ) {
+                const types = peds.animTypes(value.name()!);
+                if (types !== null) {
+                    const [name, text, anims] = types;
+                    made.ownGlobals.set(name, text);
+                    for (const a of anims) made.ownMore.add(a);
+                    if (!made.names.has(checksum(name))) made.names.set(checksum(name), name);
+                    out.push(scriptPort.nameTok(checksum(name), t.i));
+                }
+                k += 2;
+                continue;
+            }
+            out.push(t);
+        }
+        return out;
+    };
+    return new Map([[checksum("Ped_InitAI"), rewrite]]);
+}
+
 export function levelScriptsNs(
     made: NodePass,
     thug1Anims: readonly string[],
@@ -677,7 +789,7 @@ export function levelScriptsNs(
 ): string {
     // The load scripts THUG2's load_level runs when the level's .qb has them: the particle textures of the kept
     // particle objects, the peds' extra animations (the THUG1 level's load_level_anims list where THUG2 has them).
-    const parts: string[] = [];
+    const parts: string[] = [...[...made.ownGlobals].sort((a, b) => byCodePoint(a[0], b[0])).map(([, t]) => t)];
     if (made.particleTextures.size) {
         const loads = [...made.particleTextures]
             .sort(byCodePoint)
@@ -689,7 +801,23 @@ export function levelScriptsNs(
     for (const [value, text] of [...made.modelRefs].sort((a, b) => a[0] - b[0])) {
         if (!defined.has(value)) parts.push(`script ${text} {\n}\n`);
     }
-    const anims = [...new Set([...made.extraAnims, ...thug1Anims])].sort(byCodePoint);
+    // (THUG1's own people: their base sets and THUG1 sets - thug1_peds.ts; THUG1's women also get THUG2's Ped_Female
+    // set, which an animation looked up without their ReferenceChecksum would find)
+    const own: string[] = [];
+    const peds = made.port.peds;
+    if (peds !== null) {
+        for (const female of [false, true]) {
+            if (!made.ownSexes.has(female)) continue;
+            parts.push(peds.baseScript(female, made.ownMore, made.ownSkaters.has(female)));
+            own.push((female ? pedRigs.THUG1_FEMALE : pedRigs.THUG1_MALE).anims);
+            if (female) own.push(pedRigs.FEMALE.anims);
+        }
+        for (const [name, text] of [...made.ownExtras].sort((a, b) => byCodePoint(a[0], b[0]))) {
+            parts.push(text);
+            own.push(name);
+        }
+    }
+    const anims = [...new Set([...made.extraAnims, ...thug1Anims, ...own])].sort(byCodePoint);
     if (anims.length) parts.push(`script load_level_anims {\n${anims.map((a) => `    ${a} \n`).join("")}}\n`);
     return parts.join("");
 }

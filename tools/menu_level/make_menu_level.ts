@@ -43,6 +43,7 @@ import * as zlib from "node:zlib";
 import * as anteara from "../anteara/anteara.ts";
 import { textOutput } from "../level_port/common.ts";
 import * as levelPortNodes from "../level_port/nodes.ts"; // (the terrain sounds a level loads)
+import * as pedModels from "../level_port/ped_models.ts"; // (the ported levels' own people: their profiles and CAS parts)
 import * as portedLevels from "../level_port/ported_levels.ts"; // (the converted levels: added when <game>\thug2-decomp-<game> exist)
 import * as thug2Col from "../level_port/thug2_col.ts"; // (the front end's collision without THUG2's shop)
 import { parseCli } from "../lib/cli.ts";
@@ -1317,7 +1318,7 @@ async function main(): Promise<number> {
     // The folder is ours: emptied first (a file left from an earlier layout would still be read).
     const marker = path.join(out, MARKER);
     if (isDir(out)) {
-        const ours = new Set(["scripts", "levels", "front_end", "models"]);
+        const ours = new Set(["scripts", "levels", "front_end", "models", "anims"]);
         if (!fs.existsSync(marker) && !fs.readdirSync(out).every((name) => ours.has(name))) {
             pyExit(`${out} has files this tool didn't make: not emptying it`);
         }
@@ -1407,6 +1408,19 @@ async function main(): Promise<number> {
         write(addLevelEditor(pause), "scripts\\game\\menu\\gamemenu_pause.qb");
         // Always: GAME OPTIONS' CREATE 100% CAS (the DLL's [features] create_100_cas decides whether it shows).
         addCreate100Cas(decompile, write, pre, levels);
+        // The ports' own people (tools/level_port/ped_models.ts): their CAS parts and profiles added to THUG2's lists.
+        const peds = pedModels.readAdditions(game);
+        const pedEdits = new Map<string, (text: string) => string>();
+        if (!pedModels.empty(peds)) {
+            pedEdits.set("scripts\\cas_ped_m.qb", pedModels.casEdit(peds, "cas_ped_m"));
+            pedEdits.set("scripts\\cas_ped_f.qb", pedModels.casEdit(peds, "cas_ped_f"));
+            pedEdits.set("scripts\\profile_ped.qb", pedModels.profileEdit(peds));
+            for (const [file, edit] of pedEdits) {
+                write(edit(decompile(prxFile(qbScripts, file), path.win32.basename(file))), file);
+            }
+            const parts = Object.values(peds.cas).reduce((n, e) => n + e.length, 0);
+            print(`ported levels' own people: ${peds.profiles.length} profiles, ${parts} CAS parts added`);
+        }
 
         // The standard main menu, for the front end in THPS4's skate shop (the DLL uses front_end\ while
         // menu_backdrop is on and the shop is installed).
@@ -1450,6 +1464,7 @@ async function main(): Promise<number> {
                     ["scripts\\game\\menu\\gamemenu_levelselect.qb", overlaySelect],
                     ["scripts\\game\\menu\\sprites.qb", overlaySprites],
                     ["scripts\\game\\menu\\gamemenu_pause.qb", addLevelEditor],
+                    ...pedEdits,
                 ]),
                 backdrop ? new Map([["scripts\\game\\menu\\roundbarmenu.qb", frontEndRoundbar]]) : new Map(),
             ) ?? "Anteara Mod: the game has no Data\\scripts\\qdir.txt - not installed",

@@ -12,9 +12,12 @@
 //   then per mesh: 4f sphere, 6f box, u32 flags, u32 material checksum, u32 LOD count, per LOD {u32 count, u16 strip
 //   indices into the sector's vertices} (every shipped mesh has one LOD).
 //   The file ends with i32 0 (no hierarchy objects).
+// - Skins (models\...\<name>.skin.xbx, the people in the <LV>ped.pre archives): the scene format with skinned sectors
+//   (SEC_WEIGHTS): the weights packed as THUG2's, the bone indices the bones' own numbers (THUG2's are x 3), the
+//   normals 3f (THUG2's packed) - toThug2Skin.
 
 import { FormatError, Reader } from "../level_port/binio.ts";
-import type { SourceSector } from "../level_port/geometry.ts";
+import { pixelShader, type SourceSector } from "../level_port/geometry.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { hex8, pyMax } from "../lib/py.ts";
@@ -162,4 +165,72 @@ export function toThug2Col(
     const out: thug2Col.ColFile = { objects };
     if (col.pad !== undefined) out.pad = col.pad;
     return out;
+}
+
+// --- skins to THUG2 -------------------------------------------------------------------------------------------------
+
+// A THUG1 skin (a ped model or one of its CAS parts) in THUG2's form: each mesh's strip gets its own vertex buffer of
+// the vertices it uses (thug2_scene.ts's skinned vertex), the materials, boxes, spheres and flags as they are (THUG1's
+// skins have THUG2's sector flags, 0x80402057). `bones`: the skeleton's bone count - an index past it throws.
+export function toThug2Skin(scene: Scene, name: string, bones: number): thug2Scene.Scene {
+    const materials = new Map(scene.materials.map((m) => [m.checksum, m]));
+    const sectors: thug2Scene.Sector[] = [];
+    for (const s of scene.sectors) {
+        if (!(s.flags & thug2Scene.SEC_WEIGHTS) || s.weights === undefined || s.bones === undefined)
+            throw new FormatError(`${name}: sector ${hex8(s.checksum)} isn't skinned`);
+        const sets = s.flags & thug2Scene.SEC_TEXCOORDS ? Math.max(1, s.uvSets ?? 1) : 1;
+        const meshes: thug2Scene.Mesh[] = [];
+        for (const mesh of s.meshes) {
+            if (mesh.strip.length < 3) continue;
+            const material = materials.get(mesh.material);
+            if (material === undefined) throw new FormatError(`${name}: material ${hex8(mesh.material)} missing`);
+            const uvSets = Math.max(1, Math.min(material.passes.length, sets));
+            const used = [...new Set(mesh.strip)].sort((a, b) => a - b);
+            const local = new Map(used.map((v, i) => [v, i]));
+            const vertices = used.map((v): thug2Scene.SkinVertex => {
+                const vertexBones = s.bones![v]!;
+                for (const b of vertexBones) {
+                    if (b >= bones) throw new FormatError(`${name}: bone ${b} past the skeleton's ${bones}`);
+                }
+                const uvs = s.uvs?.[v] ?? [];
+                const out: number[] = [];
+                for (let k = 0; k < uvSets; k++) {
+                    const k2 = 2 * k + 1 < uvs.length ? k : 0;
+                    out.push(uvs[2 * k2] ?? 0, uvs[2 * k2 + 1] ?? 0);
+                }
+                return {
+                    position: s.positions[v]!,
+                    weights: thug2Scene.unpackWeights(s.weights![v]!),
+                    bones: vertexBones,
+                    normal: s.normals?.[v] ?? [0, 1, 0],
+                    color: s.colors?.[v] ?? [128, 128, 128, 128],
+                    uvs: out,
+                };
+            });
+            const strip = mesh.strip.map((v) => local.get(v)!);
+            meshes.push(
+                thug2Scene.skinnedMesh({
+                    sphere: mesh.sphere,
+                    bbox: mesh.bbox,
+                    flags: mesh.flags,
+                    material: mesh.material,
+                    vertices,
+                    uvSets,
+                    strip,
+                    pixelShader: pixelShader(material),
+                }),
+            );
+        }
+        const sector: thug2Scene.Sector = {
+            checksum: s.checksum,
+            bone: s.bone,
+            flags: (s.flags & ~thug2Scene.SEC_COLOR_WIBBLES) >>> 0,
+            bbox: s.bbox,
+            sphere: s.sphere,
+            meshes,
+        };
+        if (s.billboard !== undefined) sector.billboard = s.billboard;
+        sectors.push(sector);
+    }
+    return { versions: [1, 1, 1], materials: scene.materials, sectors, hierarchyCount: 0, tail: Buffer.alloc(0) };
 }
