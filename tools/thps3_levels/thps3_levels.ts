@@ -19,6 +19,7 @@ import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
+import * as hdTextures from "../level_port/hd_textures.ts";
 import * as movers from "../level_port/movers.ts";
 import * as nodes from "../level_port/nodes.ts";
 import * as overlayBias from "../level_port/overlay_bias.ts";
@@ -717,6 +718,23 @@ export interface ConvertWorldOptions {
     // PC-THPS3-15: the moving sectors (objects) that get collision of their own - in their own space, as drawn - for
     // their LevelObject's CollisionMode=Geometry (THPS3's shape: THUGPRO's collision of the name is left out)
     solid?: ReadonlySet<number>;
+    // --hd-textures: the level's own textures upscaled (tools/level_port/hd_textures.ts; THUGPRO's added ones not)
+    hd?: { options: hdTextures.HdOptions; stats: hdTextures.HdStats } | null;
+}
+
+// How the materials address each texture (hd_textures pads a wrapped side with the texture's other edge).
+export function textureAddressing(materials: readonly thps3.RwMaterial[]): Map<number, hdTextures.Addressing> {
+    const out = new Map<number, hdTextures.Addressing>();
+    for (const m of materials) {
+        const info = m.ns?.texture ?? m.texture;
+        if (!info) continue;
+        const checksum = textureChecksum(info.name);
+        const seen = out.get(checksum) ?? { wrapU: false, wrapV: false };
+        seen.wrapU ||= address(info.uAddress) === 0;
+        seen.wrapV ||= address(info.vAddress) === 0;
+        out.set(checksum, seen);
+    }
+    return out;
 }
 
 // The collision of the solid moving sectors (PC-THPS3-15): every face collidable (THPS3's clumps have no face flags:
@@ -755,6 +773,9 @@ export function convertWorld(
         objectList = objects[0];
         raw.push(...objects[1].map(([, m]) => m));
         checksums.push(...objects[1].map(([c]) => c));
+    }
+    if (options.hd) {
+        hdTextures.upscaleTexFile(textures, textureAddressing(raw), options.hd.options, options.hd.stats);
     }
     const materials = raw.map((m, i) => toThug2Material(checksums[i]!, m, known));
     for (const m of raw) {
@@ -2829,6 +2850,8 @@ export interface Args {
     noPortChanges: boolean; // PC-n: only the required ones
     noCollfix: boolean; // TPN-THPS3-1 / -2: THUGPRO's collision overlays left out (collfix.ts)
     collfixOnly?: string[] | null; // --no-collfix-only: just these overlays (their base names, e.g. SUB_TRamp06) left out
+    hd?: hdTextures.HdOptions | null; // --hd-textures [2|4] and its --hd-* settings (null: off)
+    hdCacheClear?: boolean;
 }
 
 function isDir(p: string): boolean {
@@ -2883,6 +2906,12 @@ export function cmdConvert(args: Args): void {
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
     const report: string[] = [];
     const skiesDone = new Set<string>();
+    // --hd-textures: the optional AI upscaling pass (its cache is only touched when it's on)
+    const hd = args.hd ? { options: args.hd, stats: hdTextures.newStats() } : null;
+    if (hd && args.hdCacheClear) {
+        fs.rmSync(hd.options.cacheDir, { recursive: true, force: true });
+        report.push(`HD textures: cache ${hd.options.cacheDir} cleared`);
+    }
     for (const folderName of wanted) {
         const row = table.get(folderName.toLowerCase());
         const folder = findFolder(levelsDir, folderName);
@@ -3034,6 +3063,7 @@ export function cmdConvert(args: Args): void {
             ),
             thugproNew: tpNew,
             solid: port !== null ? port.solid : new Set(),
+            hd,
         });
         const [withoutTricks, cleared] = withoutMissingTrickObjects(text, pyJoin(levelDir, `${name}.scn.xbx`));
         // (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.groundRestarts)
@@ -3080,7 +3110,7 @@ export function cmdConvert(args: Args): void {
                         sky,
                         pyJoin(out, "levels", sky),
                         report,
-                        { withCol: false, mips: !args.noMips, tag: legacyName(skyBase) },
+                        { withCol: false, mips: !args.noMips, tag: legacyName(skyBase), hd },
                     );
                     skiesDone.add(sky);
                 }
@@ -3105,6 +3135,7 @@ export function cmdConvert(args: Args): void {
         manifest.levels.push(entry);
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
+    if (hd) report.push(...hdTextures.report(hd.stats, hd.options));
     print(report.join("\n"));
     print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
 }
@@ -3173,7 +3204,7 @@ export function cmdSelfcheck(args: Args): number {
 
 const USAGE =
     "usage: thps3_levels.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--out OUT] [--ns NS] [--no-objects] " +
-    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--collfix] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
+    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--collfix] [--hd-textures [{2,4}]] [--hd-model MODEL] [--hd-max N] [--hd-min N] [--hd-cache DIR] [--hd-cache-clear] [--hd-no-match] [--hd-tool EXE] [--hd-gpu ID] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
 
 const HELP = `${USAGE}
 
@@ -3203,9 +3234,34 @@ options:
   --collfix            convert: THUGPRO's collision overlays kept
   --no-collfix-only NAMES
                        convert: only these overlays left out (comma-separated base names, e.g. SUB_TRamp06)
+  --hd-textures [{2,4}]
+                       convert: the textures AI-upscaled (default x4; tools/hd_textures/README.md - optional, off
+                       by default; needs node tools/hd_textures/fetch.ts once)
+  --hd-model MODEL     convert: realesrgan-x4plus (default) or realesrgan-x4plus-anime
+  --hd-max N           convert: the upscaled textures' longer side at most N (default 1024)
+  --hd-min N           convert: textures smaller than N (longer side) left as they are (default 16)
+  --hd-cache DIR       convert: the upscaled textures' cache (default %LOCALAPPDATA%\\thug2-decomp\\hd-textures)
+  --hd-cache-clear     convert: the cache emptied first (everything upscaled again)
+  --hd-no-match        convert: the model's own colours / contrast kept (default: pulled back to the original's)
+  --hd-tool EXE        convert: realesrgan-ncnn-vulkan.exe (default: the one fetch.ts unpacks into out\\hd_textures)
+  --hd-gpu ID          convert: the upscaler's GPU (its -g; default: its own choice)
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
 
-const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat", "--thugpro", "--no-collfix-only"] as const;
+const VALUE_OPTIONS = [
+    "--thug2",
+    "--thps3",
+    "--out",
+    "--ns",
+    "--compat",
+    "--thugpro",
+    "--no-collfix-only",
+    "--hd-model",
+    "--hd-max",
+    "--hd-min",
+    "--hd-cache",
+    "--hd-tool",
+    "--hd-gpu",
+] as const;
 const FLAG_OPTIONS = [
     "--no-objects",
     "--no-scripts",
@@ -3215,8 +3271,10 @@ const FLAG_OPTIONS = [
     "--no-port-changes",
     "--no-collfix",
     "--collfix",
+    "--hd-cache-clear",
+    "--hd-no-match",
 ] as const;
-const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--extra", "--help"];
+const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--hd-textures", "--extra", "--help"];
 
 function usageError(message: string): never {
     process.stderr.write(`${USAGE}\nthps3_levels.ts: error: ${message}\n`);
@@ -3262,6 +3320,14 @@ export function parseCommandLine(argv: readonly string[]): Args {
             if (eq >= 0) values[option] = arg.slice(eq + 1);
             else if (i < argv.length && !looksLikeOption(argv[i]!)) values[option] = argv[i++]!;
             else usageError(`argument ${option}: expected one argument`);
+        } else if (option === "--hd-textures") {
+            // (an optional value: --hd-textures, --hd-textures 2, --hd-textures=4)
+            let value = "4";
+            if (eq >= 0) value = arg.slice(eq + 1);
+            else if (i < argv.length && /^\d+$/.test(argv[i]!)) value = argv[i++]!;
+            if (value !== "2" && value !== "4")
+                usageError(`argument --hd-textures: invalid choice: '${value}' (choose from 2, 4)`);
+            values[option] = value;
         } else if (option === "--extra") {
             if (eq >= 0) extra.push(arg.slice(eq + 1));
             while (eq < 0 && i < argv.length && !looksLikeOption(argv[i]!)) extra.push(argv[i++]!);
@@ -3277,9 +3343,37 @@ export function parseCommandLine(argv: readonly string[]): Args {
     const profile = values["--compat"];
     if (profile !== undefined && !(compat.PROFILES as readonly string[]).includes(profile))
         usageError(`argument --compat: invalid choice: '${profile}' (choose from ${compat.PROFILES.join(", ")})`);
+    let hd: hdTextures.HdOptions | null = null;
+    if (values["--hd-textures"] !== undefined) {
+        hd = hdTextures.defaultOptions(Number(values["--hd-textures"]));
+        const model = values["--hd-model"];
+        if (model !== undefined) {
+            if (!(hdTextures.MODELS as readonly string[]).includes(model))
+                usageError(
+                    `argument --hd-model: invalid choice: '${model}' (choose from ${hdTextures.MODELS.join(", ")})`,
+                );
+            hd.model = model;
+        }
+        for (const [option, key] of [
+            ["--hd-max", "maxSize"],
+            ["--hd-min", "minSize"],
+        ] as const) {
+            const text = values[option];
+            if (text === undefined) continue;
+            const n = Number(text);
+            if (!Number.isInteger(n) || n < 1) usageError(`argument ${option}: invalid int value: '${text}'`);
+            hd[key] = n;
+        }
+        if (values["--hd-cache"] !== undefined) hd.cacheDir = path.resolve(values["--hd-cache"]);
+        if (values["--hd-tool"] !== undefined) hd.tool = path.resolve(values["--hd-tool"]);
+        if (values["--hd-gpu"] !== undefined) hd.gpu = values["--hd-gpu"];
+        hd.match = !flags.has("--hd-no-match");
+    }
     return {
         command,
         levels: positionals.slice(1),
+        hd,
+        hdCacheClear: flags.has("--hd-cache-clear"),
         thug2: values["--thug2"] ?? "C:\\Games\\THUG2\\Game",
         thps3: values["--thps3"] ?? "C:\\Games\\THPS3",
         out: values["--out"] ?? null,
