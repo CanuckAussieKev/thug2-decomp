@@ -13,7 +13,7 @@ namespace {
 
 constexpr uint32_t kRelative = 0x91A4C826; // relative
 constexpr uint32_t kAbsolute = 0x592089A9; // absolute
-constexpr uint32_t kConvert = 0x26AF9DC9;  // (name unknown): the angles converted (z negated, NegateXRotateX90)
+constexpr uint32_t kConvert = 0x26AF9DC9;  // FLAG_MAX_COORDS: the angles converted (z negated, NegateXRotateX90)
 
 // 0x00425520 (thiscall, RET 8; not rewritten yet): start turning the object to `target` (its time from `params`).
 void StartRotation(CMotionComponent* motion, Script::CStruct* params, const Mth::Matrix* target)
@@ -44,7 +44,7 @@ void CMotionComponent::RotateTo(Script::CStruct* params)
     Mth::Vector angles;
     Mth::Matrix target;
     if (GetAngles(params, kRelative, &angles)) {
-        target = mp_object->m_matrix;
+        target = m_object->m_matrix;
         target.RotateLocal(angles);
         StartRotation(this, params, &target);
         return;

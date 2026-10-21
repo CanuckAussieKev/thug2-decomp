@@ -86,9 +86,9 @@ bool Run(bool original, Params& params, std::vector<Started>* out)
     matrix.row[1] = {-0.8f, 0.6f, 0.0f, 0.0f};
     matrix.row[2] = {0.48f, 0.64f, 0.6f, 0.0f};
     matrix.row[3] = {1.0f, 2.0f, 3.0f, 1.0f};
-    uint8_t component[0x200] = {};
+    alignas(16) uint8_t component[0x260] = {};
     auto* motion = reinterpret_cast<CMotionComponent*>(component);
-    motion->mp_object = reinterpret_cast<Obj::CCompositeObject*>(object);
+    motion->m_object = reinterpret_cast<Obj::CCompositeObject*>(object);
 
     // An empty symbol table if there is none (offline): a flag in a parameter structure is also looked up as a global
     // structure it might include.

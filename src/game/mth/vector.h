@@ -16,6 +16,8 @@ public:
     Vector& operator+=(const Vector& other);
     Vector& operator-=(const Vector& other);
     Vector& operator*=(float scale);
+    // 0x00423650: all four components times 1 / divisor (the reciprocal unrounded).
+    Vector& operator/=(float divisor);
     // 0x004A86D0: any of the four components differs (or is NaN).
     bool operator!=(const Vector& other) const;
     // 0x0040AED0: all four components equal (NaN is unequal).
@@ -63,6 +65,8 @@ Vector CrossProduct(const Vector& a, const Vector& b);
 
 // v times 1 / divisor (all four components).
 Vector operator/(const Vector& v, float divisor);
+// 0x00423680: the distance between two points (x, y, z: z, x, then y squared and added; unrounded).
+double GetDistance(const Vector& a, const Vector& b);
 // Whether a and b are more than `degrees` apart (false if either is shorter than 0.5).
 bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees);
 

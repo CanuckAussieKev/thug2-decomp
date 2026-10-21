@@ -279,6 +279,26 @@ Vector operator/(const Vector& v, float divisor)
     return {rounded * v.x, rounded * v.y, rounded * v.z, static_cast<float>(inverse * v.w)};
 }
 
+// 0x00423650
+Vector& Vector::operator/=(float divisor)
+{
+    double inverse = 1.0 / static_cast<double>(divisor);
+    x = static_cast<float>(inverse * x);
+    y = static_cast<float>(inverse * y);
+    z = static_cast<float>(inverse * z);
+    w = static_cast<float>(inverse * w);
+    return *this;
+}
+
+// 0x00423680
+double GetDistance(const Vector& a, const Vector& b)
+{
+    double dx = static_cast<double>(a.x) - b.x;
+    double dy = static_cast<double>(a.y) - b.y;
+    double dz = static_cast<double>(a.z) - b.z;
+    return std::sqrt((dz * dz + dx * dx) + dy * dy);
+}
+
 // 0x00406560
 bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees)
 {
@@ -420,6 +440,8 @@ REPLACE(0x00406560, Mth::IsAngleBeyond);
 REPLACE(0x0040AED0, &Vector::operator==);
 REPLACE(0x0040AF20, static_cast<Mth::Vector (*)(const Mth::Vector&, float)>(&Mth::operator/));
 REPLACE(0x00406630, Mth::GetAngleAbout);
+REPLACE(0x00423650, &Vector::operator/=);
+REPLACE_SHADOW(0x00423680, Mth::GetDistance);
 REPLACE(0x00406080, &Vector::ProjectToPlane);
 REPLACE(0x004060F0, &Vector::RotateToPlane);
 REPLACE(0x004061A0, &Vector::SetDirection);
