@@ -40,10 +40,40 @@ finished here).
   CStruct ...`; tools/game/load_check.ps1 prints the CComponent / CStruct part and any `pool ... full` line.
 
 ## Verified
-POOLS_AND_CHECKS
+- After merging main (2026-10-22: THPS3 / THUG1 peds, the strip fix, HD textures - off by default -, THPS2 / THP8):
+  all four games converted twice, with main's tools and with this branch's (`--thug2 C:\Games\THUG2-2`); `compare_nodes`
+  main vs branch: **all 56 levels** - every node resolves to the same fields, every other global and every script the
+  same. The branch's output also compares equal (same resolution, same component counts) to the pre-merge conversion the
+  first load checks ran on, so those results stand for the merged output. Converters' selfchecks 0 failures (thps3 329,
+  thps4 139, thug1 2190, thaw 735 files); `npm run typecheck` / `lint` / `test` (299) pass; thug2_check: 569 early
+  self-tests pass.
+- Script node components per game (the levels' node arrays as THUG2 parses them, main -> branch): THPS3 185,732 ->
+  121,448 (35% fewer; shp 26,503 -> 16,643), THPS4 208,814 -> 122,081 (42%; jnk 28,041 -> 15,746), THUG1 259,141 ->
+  259,141 (main already shared, before the text passes - now after them: same count), THAW 270,047 -> 232,655 (14%;
+  kyoto 26,056 -> 23,555).
+- In the game (C:\Games\THUG2-2, `-level <name>`, load_check.ps1; pools logged once the level is up 90 frames): every
+  level loads; the pools once up, of CComponent 184,000 / CStruct 49,600:
+  - THPS3: CComponent 56,271 (thps3_tut) - 70,411 (shp), CStruct 13,852 - 17,305
+  - THPS4: 56,645 (motox) - 71,501 (jnk), CStruct 14,040 - 17,775 (thps4_skateshop: a shop, not a level's load script)
+  - THUG1: 55,775 (thug1_nj_skateshop) - 83,530 (ny, the most of all: 45%), CStruct 13,739 - 19,856
+  - THAW: 58,999 (skatepark) - 76,273 (kyoto: the level whose crash started this), CStruct 14,502 - 18,494
+  - Main's output for comparison: alc 77,719 -> 69,593, can 69,792 -> 65,152, foun 65,375 -> 62,351, shp 78,840 ->
+    70,411, tok 74,032 -> 67,793, z_ho 70,804 -> 69,364. CStruct rises a little (the shared structures are globals:
+    tok 16,357 -> 16,679). No pool full / 80% warning for the script pools in any level.
+- Failures - all the same with main's conversion (re-run with main's output installed), so not this change:
+  - tok (THPS3), z_ho (THAW), shp (THPS3, at ~120-150 s) crash in trigger scripts (a skater / ped feeler's TriggerNode:
+    CFunc_GetArraySize; z_ho a CStruct::GetChecksum on null through InNetGame's slot); vn (THUG1) crashes at
+    THUG2PM.exe+0x82BA2 (anim controller's FrameIndex).
+  - hh (THUG1) hangs once loaded: a loop that never ends in CAnimBlenderComponent::PassToChannels walking its channel
+    list (a minidump of the hung game: CScript::UpdateWait -> PassToChannels -> Ended / IsHead; a circular list). Its
+    window stops responding while a core stays busy, which game_health's hang watch doesn't count (it waits for an idle
+    hang) and run_game's last PrintWindow then waited for ever (the first pass: 51 min): run_game.ps1 now reports a
+    window that doesn't respond at the end of the run as trouble and closes it.
 
 ## The lead must
 - Reconvert all four games (every level's .qb changes; scenes, collision, textures don't):
   `node tools/thps3_levels/thps3_levels.ts convert`, the same for thps4_levels, thug1_levels, thaw_levels, then
   `node tools/menu_level/make_menu_level.ts` for the main install.
 - Install the DLL only for the pool log (not needed for the data change).
+- Not from this change, open on main: the tok / z_ho / shp trigger-script crashes, vn's FrameIndex crash, hh's
+  endless PassToChannels loop (above).
