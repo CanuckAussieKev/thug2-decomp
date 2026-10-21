@@ -38,12 +38,6 @@ constexpr uint32_t kWaitRotate = 9;
 // The game clock with its offset (0x0044ECE0 + 0x00696D60).
 int GameClock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 
-// 0x00425970 (no source yet): the object turned to its node's angles.
-void OrientToNode(CMotionComponent* motion, Script::CStruct* node)
-{
-    GameFunction<void(__thiscall*)(CMotionComponent*, Script::CStruct*)>(0x00425970)(motion, node);
-}
-
 // 0x00426C10 (no source yet): Obj_MoveToNode.
 void MoveToNode(CMotionComponent* motion, Script::CStruct* params, Script::CScript* script)
 {
@@ -72,7 +66,7 @@ CMotionComponent* CMotionComponent::Construct()
     m_type = kType;
     mp_pathFollower = nullptr;
     m_pathGroup = nullptr;
-    m_alignToGround = true;
+    m_groundHeightOnly = true;
     Reset();
     return this;
 }
@@ -138,8 +132,9 @@ void CMotionComponent::Reset()
     m_motionFlags2 = 0;
     for (Mth::Vector& corner : m_groundTriangle)
         corner = rest;
-    for (Mth::Vector& unused : m_unused74)
-        unused = rest;
+    for (auto& triangle : m_groundTriangles)
+        for (Mth::Vector& corner : triangle)
+            corner = rest;
 }
 
 // 0x00423C90
@@ -160,7 +155,7 @@ void CMotionComponent::InitFromStructure(Script::CStruct* params)
     params->GetChecksum(kName, &name, 0);
     m_node = name;
     m_firstNode = name;
-    OrientToNode(this, params);
+    OrientToNode(params);
 }
 
 // 0x004236C0

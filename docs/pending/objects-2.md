@@ -66,3 +66,26 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
     TestMotionLeader, TestMotionPaths (StartPath, ArriveAtNode, FollowPathLinked, the members, GetNextObjOnPath over
     groups of up to 7 objects - empty slots, itself, NaN facings, distances tying with the range and each other).
     58 deliberate bugs caught, 7 after strengthening; one real bug found by them (the NaN cap).
+- [x] Batch OC2-3 (NOT run in the game yet; the motion component's rotation and looking at things, 24 functions):
+  src/game/obj/motion_rotate.cpp (new); motion.h (+0x70 is "height only" for StickToGround, +0x74 the cached
+  ground triangle, +0x1CC a Mth::SlerpInterpolator; the members declared); motion.cpp's RotateTo now calls
+  StartRotation as a member.
+  - 0x00423F10 SetRotationDirection, 0x00424B90 / 0x00424D50 / 0x00424F50 Obj_RotX / RotY / RotZ (Angle in degrees -
+    FLAG_MAX_COORDS swaps Y and Z and flips X's sign -, the deceleration, Acceleration and speed; for ever without an
+    angle or a deceleration), 0x004258B0 RotateAboutAxis (orthonormalised about up first; the turn multiplied in
+    front), 0x00425A80 UpdateAxisRotation (accelerating to the maximum, decelerating to 0 - which then stops it -,
+    the step capped at the target, done when reached), 0x00425C70 UpdateRotations, 0x00425520 StartRotation (a
+    slerp from the matrix to the target over the time given or 1 s: made on first use - the manager made ready -,
+    or straight there), 0x00424440 UpdateTurn (a turn time of 0 or past it: the end).
+  - Looking: 0x004240E0 SetupLookAxis (the angle in the plane, nothing below the threshold), 0x004252E0 LookAt (at
+    once, over a time, or at a speed with an acceleration; the axes from 0xA4AECB20), 0x00425710 LookAtNodeLinked,
+    0x004257A0 LookAtNode, 0x00425800 LookAtPosition, 0x00427500 LookAtObject (skater / ped / car / other types,
+    not itself, the nearest), 0x00425970 OrientToNode (the node's angles: X, Y, Z multiplied in turn; the display
+    matrix too); Obj_Rotate, Obj_LookAtNode, Obj_LookAtNodeLinked, Obj_LookAtNodeStored, Obj_LookAtPos,
+    Obj_LookAtPosStored, Obj_LookAtRelPos, Obj_LookAtObject.
+  - Test (selftests_obj_motion3.cpp): TestMotionRotAxes (4000 variants each), TestMotionAxisUpdate,
+    TestMotionTurn (turn times of 0 with negative elapsed times), TestMotionLookAt (SetupLookAxis, LookAt 8000
+    variants, the look-at members with the position looked at recorded, OrientToNode). 56 deliberate bugs, 55
+    caught (2 after the position looked at was recorded, 1 after negative elapsed turn times were added); the one
+    missed (UpdateAxisRotation's `<` as `<=` when capping at the maximum) only differs when |speed| equals the
+    maximum, where both set the same value.

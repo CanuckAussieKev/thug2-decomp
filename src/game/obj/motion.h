@@ -12,6 +12,10 @@ class CScript;
 class CStruct;
 } // namespace Script
 
+namespace Mth {
+class SlerpInterpolator;
+}
+
 namespace Obj {
 
 class CPathFollower;
@@ -60,15 +64,15 @@ public:
     // 0x00426650 (registered with the component types): a new one (Mem::Calloc; the constructor inlined).
     static CBaseComponent* __cdecl Create();
     // 0x00424AA0: the constructor (returns this): the base's, its vtable and type, no path follower or path group,
-    // the ground triangle check on (+0x70), no ground offset; then Reset.
+    // only the ground's height taken (+0x70), no ground offset; then Reset.
     CMotionComponent* Construct();
     // 0x00424AE0: the destructor body: the path follower deleted (its vtable), the turn's interpolator and the
     // follow trail freed, then the base's.
     void DestroyBody();
     // 0x004266F0 (vtable slot 0): the scalar deleting destructor.
     CMotionComponent* Destroy(unsigned int flags);
-    // 0x00423D00: every motion setting back to rest (identity-like vectors, no flags, no speeds); the ground check
-    // (+0x70) and the pointers are kept.
+    // 0x00423D00: every motion setting back to rest (identity-like vectors, no flags, no speeds); +0x70 and the
+    // pointers are kept.
     void Reset();
     // 0x00423C90: a path follower for `owner` if there's none yet (Mem::Calloc 0xE4).
     void InitPathFollower(CCompositeObject* owner);
@@ -126,6 +130,50 @@ public:
     // (its lockobj component: a crash without one).
     void FollowLeader(Script::CStruct* params);
 
+    // --- turning (motion_rotate.cpp) ---
+    // 0x00423F10: the axis' speed, maximum, acceleration and deceleration made positive - negative when its target
+    // angle is.
+    void SetRotationDirection(int axis);
+    // The body of Obj_RotX / RotY / RotZ (three copies in the original): Angle (degrees; times `sign`) to turn
+    // through - 0: that axis stops -, then deceleration (to speed: the speed to reach) or Acceleration (with speed: the
+    // speed to reach; the speed now kept only while already turning) or just speed (degrees per second); with no
+    // angle and no deceleration it turns for ever.
+    void RotateAboutAxisBy(Script::CStruct* params, int axis, float sign);
+    // 0x004258B0: the orientation turned `angle` radians about its own axis 0-2 (rotation * matrix), that row kept
+    // as the others are made orthonormal again; any other axis: nothing.
+    void RotateAboutAxis(int axis, float angle);
+    // 0x00425A80: one frame of an axis' turn - accelerated (to the speed to reach, going its way), decelerated (to
+    // it: done slowing, no turn this frame, finished when that speed is 0), then turned by speed * frame (only as
+    // far as the target, when there is one: finished). Whether it's finished.
+    bool UpdateAxisRotation(int axis);
+    // 0x00425C70: each turning axis' frame; finished axes stop.
+    void UpdateRotations();
+    // 0x00425520: Obj_Rotate's turn from the orientation now to `target` over `time` seconds (0: at once) - its
+    // interpolator made on first use (from the manager, set up first if needed).
+    void StartRotation(Script::CStruct* params, const Mth::Matrix* target);
+    // 0x00424440: one frame of it (done at the end, or when there's no time).
+    void UpdateTurn();
+    // 0x004240E0: axis `axis` set to turn towards `target` seen from `from` (the angle in the plane across that axis
+    // from row `referenceAxis`): true (turning) when the angle is beyond `threshold`.
+    bool SetupLookAxis(const Mth::Vector* target, const Mth::Vector* from, int referenceAxis, int axis, float threshold);
+    // 0x004252E0: turn to look at `target`: instant (about y at once when beyond AngleThreshold degrees; true if
+    // turned), else the axes 0xA4AECB20 (bits, default y) turned over `time`, or at `speed` (degrees per second,
+    // default 360) with Acceleration - true if any turns.
+    bool LookAt(Script::CStruct* params, const Mth::Vector* target);
+    // 0x00425710: look at the node of its node's link LinkNum (1 based, default 1; out of range: the first).
+    void LookAtNodeLinked(Script::CStruct* params, Script::CScript* script);
+    // 0x004257A0: look at the node Name (none: nothing).
+    void LookAtNode(Script::CStruct* params, Script::CScript* script);
+    // 0x00425800: look at the unnamed vector (FLAG_MAX_COORDS: converted) - relative to its position unless
+    // `absolute`.
+    void LookAtPosition(Script::CStruct* params, bool absolute);
+    // 0x00427500: look at the nearest object of Type (skater, ped, gameobj, Car), else the object of id Name in its
+    // manager's list (not itself). False when there's none (or LookAt turns nothing).
+    bool LookAtObject(Script::CStruct* params, Script::CScript* script);
+    // 0x00425970: the orientation from the node's angles (x, then y, then z: matrix * rotation each; none: the
+    // identity), as the display matrix too.
+    void OrientToNode(Script::CStruct* node);
+
     // --- script member functions (the table at 0x00681EB8; all true) ---
     bool Obj_StorePos(Script::CStruct* params, Script::CScript* script);          // 0x004237D0
     bool Obj_StoreNode(Script::CStruct* params, Script::CScript* script);         // 0x00423810 (the path's node)
@@ -155,6 +203,19 @@ public:
     bool Obj_FollowPathLinked(Script::CStruct* params, Script::CScript* script); // 0x00425270
     bool Obj_FollowPathStored(Script::CStruct* params, Script::CScript* script); // 0x00425290 (Obj_StoreNode's)
     bool Obj_FollowLeader(Script::CStruct* params, Script::CScript* script);     // 0x004252C0
+    // 0x00424B90 / 0x00424D50 / 0x00424F50: turn about x / y / z (RotateAboutAxisBy; a look-at's turns stopped
+    // first). FLAG_MAX_COORDS: x's angle negated; y and z swapped.
+    bool Obj_RotX(Script::CStruct* params, Script::CScript* script);
+    bool Obj_RotY(Script::CStruct* params, Script::CScript* script);
+    bool Obj_RotZ(Script::CStruct* params, Script::CScript* script);
+    bool Obj_Rotate(Script::CStruct* params, Script::CScript* script);           // 0x00426770 (RotateTo)
+    bool Obj_LookAtNode(Script::CStruct* params, Script::CScript* script);       // 0x00426790
+    bool Obj_LookAtNodeLinked(Script::CStruct* params, Script::CScript* script); // 0x004267B0
+    bool Obj_LookAtNodeStored(Script::CStruct* params, Script::CScript* script); // 0x004267D0 (Obj_StoreNode's)
+    bool Obj_LookAtPos(Script::CStruct* params, Script::CScript* script);        // 0x00426810 (absolute)
+    bool Obj_LookAtPosStored(Script::CStruct* params, Script::CScript* script);  // 0x00426880 (Obj_StorePos's)
+    bool Obj_LookAtRelPos(Script::CStruct* params, Script::CScript* script);     // 0x004268A0
+    bool Obj_LookAtObject(Script::CStruct* params, Script::CScript* script);     // 0x004276A0 (LookAtObject's)
 
     uint32_t m_motionFlags;    // +0x18 MOTION_*
     uint32_t m_motionFlags2;   // +0x1C MOTION2_*
@@ -167,9 +228,9 @@ public:
     float m_groundAbove;       // +0x38 Obj_StickToGround DistAbove (feet)
     float m_groundBelow;       // +0x3C DistBelow
     Mth::Vector m_groundTriangle[3]; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
-    bool m_alignToGround;      // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
+    bool m_groundHeightOnly;   // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
     uint8_t pad71[3];
-    Mth::Vector m_unused74[9]; // +0x74 (only set by Reset)
+    Mth::Vector m_groundTriangles[3][3]; // +0x74 the three feelers' last triangles
     CObjectGroup* m_pathGroup; // +0x104 the path's group of objects (path manager)
     Mth::Vector m_moveTarget;  // +0x108
     float m_moveDistance;      // +0x118 from the start to the target
@@ -193,7 +254,7 @@ public:
     uint32_t m_storedNode;     // +0x1C0 Obj_StoreNode
     float m_turnTime;          // +0x1C4 Obj_Rotate's time (0: at once)
     float m_turnElapsed;       // +0x1C8
-    void* mp_turn;             // +0x1CC Obj_Rotate's interpolator (0x98 bytes, 0x005902E0)
+    Mth::SlerpInterpolator* mp_turn; // +0x1CC Obj_Rotate's interpolator (0x98 bytes)
     float m_hoverBase;         // +0x1D0 the height without the bob
     float m_hoverOffset;       // +0x1D4 the bob now
     float m_hoverAmplitude;    // +0x1D8
@@ -231,8 +292,8 @@ public:
 static_assert(offsetof(CMotionComponent, m_motionFlags) == 0x18 && offsetof(CMotionComponent, m_moveSpeed) == 0x20 &&
                   offsetof(CMotionComponent, m_pathSpeed) == 0x30 &&
                   offsetof(CMotionComponent, m_groundTriangle) == 0x40 &&
-                  offsetof(CMotionComponent, m_alignToGround) == 0x70 &&
-                  offsetof(CMotionComponent, m_unused74) == 0x74 && offsetof(CMotionComponent, m_pathGroup) == 0x104 &&
+                  offsetof(CMotionComponent, m_groundHeightOnly) == 0x70 &&
+                  offsetof(CMotionComponent, m_groundTriangles) == 0x74 && offsetof(CMotionComponent, m_pathGroup) == 0x104 &&
                   offsetof(CMotionComponent, m_moveTarget) == 0x108 &&
                   offsetof(CMotionComponent, m_moveArriveNode) == 0x128 &&
                   offsetof(CMotionComponent, m_rotTarget) == 0x12C && offsetof(CMotionComponent, m_moveStart) == 0x18C &&

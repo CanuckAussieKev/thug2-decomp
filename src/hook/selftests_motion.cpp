@@ -101,6 +101,9 @@ bool Run(bool original, Params& params, std::vector<Started>* out)
     {
         TestStandIns::Patch start(0x00425520, TestStandIns::Branch(0xE9, 0x00425520,
                                                                   reinterpret_cast<void*>(&StandInStartRotation)));
+        // (and ours, which RotateTo calls directly)
+        uint32_t ours = TestStandIns::AddressOf(&CMotionComponent::StartRotation);
+        TestStandIns::Patch startOurs(ours, TestStandIns::Branch(0xE9, ours, reinterpret_cast<void*>(&StandInStartRotation)));
         if (original)
             Original<void(__thiscall*)(CMotionComponent*, CStruct*)>(0x00425600)(motion, &params.structure);
         else

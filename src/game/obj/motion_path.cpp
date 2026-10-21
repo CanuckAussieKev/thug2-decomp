@@ -37,8 +37,6 @@ constexpr uint32_t kOrientY = 0xE19E310A;         // OrientY
 constexpr uint32_t kPedLogic = 0x6EFDDFB8;        // the pedlogic component
 
 // The rest of the update (no source yet).
-void UpdateRotations(CMotionComponent* motion) { GameFunction<void(__thiscall*)(CMotionComponent*)>(0x00425C70)(motion); }
-void UpdateTurn(CMotionComponent* motion) { GameFunction<void(__thiscall*)(CMotionComponent*)>(0x00424440)(motion); }
 void UpdateJump(CMotionComponent* motion) { GameFunction<void(__thiscall*)(CMotionComponent*)>(0x00424870)(motion); }
 void UpdatePathSpeed(CMotionComponent* motion) { GameFunction<void(__thiscall*)(CMotionComponent*)>(0x00423530)(motion); }
 void StickToGround(CMotionComponent* motion) { GameFunction<bool(__thiscall*)(CMotionComponent*)>(0x00425F40)(motion); }
@@ -98,9 +96,9 @@ void CMotionComponent::Update()
             UpdateHover();
         }
         if (m_motionFlags & MOTION_ROTATE_AXES)
-            UpdateRotations(this);
+            UpdateRotations();
         if (m_motionFlags & MOTION_TURNING)
-            UpdateTurn(this);
+            UpdateTurn();
         if (m_motionFlags & MOTION_MOVING) {
             if (UpdateMoveTo())
                 m_motionFlags &= ~MOTION_MOVING;
