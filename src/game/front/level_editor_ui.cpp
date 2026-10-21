@@ -14,6 +14,7 @@
 #include <cstring>
 
 #include "game/front/level_editor_entities.h"
+#include "game/front/level_editor_camera.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_clusters.h"
 #include "game/front/level_editor_faces.h"
@@ -21,10 +22,12 @@
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_prefs.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_thumbs.h"
+#include "game/front/level_editor_transform.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
@@ -66,6 +69,15 @@ int g_previewAsked = -1;
 
 void Ask(Request::Kind kind, int value = 0, uint32_t id = 0) { g_requests.push_back({kind, value, id}); }
 
+// The accent colour ([editor] accent - level_editor_prefs.h) at `alpha`.
+ImVec4 Accent(float alpha)
+{
+    float rgb[3];
+    Prefs::AccentRgb(Prefs::Get().accent, rgb);
+    return ImVec4(rgb[0], rgb[1], rgb[2], alpha);
+}
+int g_styleGeneration = -1; // (the preferences' scale / accent the style was built for)
+
 // ARGB (the editor's colours) to ImGui's packed colour.
 ImU32 Colour(uint32_t argb)
 {
@@ -106,7 +118,7 @@ void ApplyStyle(float scale)
     style.ScrollbarSize = 12.0f;
     // A dark neutral with the orange accent of the plan's mockup.
     ImVec4* c = style.Colors;
-    const ImVec4 accent(0.82f, 0.34f, 0.11f, 1.0f), accentSoft(0.82f, 0.34f, 0.11f, 0.55f);
+    const ImVec4 accent = Accent(1.0f), accentSoft = Accent(0.55f);
     c[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.115f, 0.125f, 0.94f);
     c[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     c[ImGuiCol_PopupBg] = ImVec4(0.12f, 0.125f, 0.135f, 0.98f);
@@ -118,8 +130,8 @@ void ApplyStyle(float scale)
     c[ImGuiCol_Button] = ImVec4(0.2f, 0.21f, 0.225f, 1.0f);
     c[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
     c[ImGuiCol_ButtonActive] = accentSoft;
-    c[ImGuiCol_Header] = ImVec4(0.82f, 0.34f, 0.11f, 0.35f);
-    c[ImGuiCol_HeaderHovered] = ImVec4(0.82f, 0.34f, 0.11f, 0.45f);
+    c[ImGuiCol_Header] = Accent(0.35f);
+    c[ImGuiCol_HeaderHovered] = Accent(0.45f);
     c[ImGuiCol_HeaderActive] = accentSoft;
     c[ImGuiCol_CheckMark] = accent;
     c[ImGuiCol_SliderGrab] = accent;
@@ -138,9 +150,12 @@ void UpdateScale()
     int width = 0, height = 0;
     UiBackend::WindowSize(&width, &height);
     float scale = UiLayout::ScaleFor(width, height);
-    if (scale == g_scale)
+    if (int pct = Prefs::Get().uiScalePct; pct > 0) // ([editor] ui_scale_pct: the automatic one overridden)
+        scale = static_cast<float>(pct) / 100.0f;
+    if (scale == g_scale && g_styleGeneration == Prefs::StyleGeneration())
         return;
     g_scale = scale;
+    g_styleGeneration = Prefs::StyleGeneration();
     UiLayout::FontSizes sizes = UiLayout::FontSizesFor(scale);
     ImFontAtlas* atlas = ImGui::GetIO().Fonts;
     atlas->Clear();
@@ -402,7 +417,7 @@ void Toolbar(const Model& model)
     for (int i = 0; i < 4; ++i) {
         bool on = i == mode;
         if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
         ImGui::SmallButton(modes[i]);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("The mode follows what you do: fly (nothing selected), select (a click), move (drag), "
@@ -412,11 +427,17 @@ void Toolbar(const Model& model)
         ImGui::SameLine(0.0f, 2.0f * g_scale);
     }
     ImGui::SameLine(0.0f, 14.0f * g_scale);
+    // The transform tools (level_editor_transform.h): Move / Rotate / Scale, World / Local, the pivot.
+    Transform::ToolbarTools(g_scale);
+    ImGui::SameLine(0.0f, 10.0f * g_scale);
     bool snap = model.snapAlways;
-    if (ImGui::Checkbox("Snap 25", &snap))
+    if (ImGui::Checkbox("Snap", &snap))
         Ask(Request::kSnapAlways, snap ? 1 : 0);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Moves snap to a 25-unit grid (Ctrl while moving does the same)");
+        ImGui::SetTooltip("Moves snap without a key - to the Snap to list's choice (grid steps from where it was by\n"
+                          "default). While dragging: Ctrl the grid, Ctrl+Shift the world's grid, Alt+Shift a surface,\n"
+                          "Ctrl+Alt a vertex; turns snap to the angle step, scales to tenths");
+    Transform::ToolbarSnap(g_scale);
     // Carrying (level_editor_carry.h; [editor] carry= in the ini).
     ImGui::SameLine(0.0f, 10.0f * g_scale);
     bool carry = model.carry;
@@ -441,7 +462,7 @@ void Toolbar(const Model& model)
         ImGui::SameLine(0.0f, 4.0f * g_scale);
         bool on = (model.pickFilter & pick.bit) != 0;
         if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
         if (ImGui::SmallButton(pick.label))
             Ask(Request::kPickFilter, 0, model.pickFilter ^ pick.bit);
         if (on)
@@ -467,7 +488,7 @@ void Toolbar(const Model& model)
     // Right: undo / redo / save, reset, help, add.
     float right = (ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x);
     float width =
-        ImGui::CalcTextSize("Undo  Redo  Save layout  Reset level  Help (F1)  Add (B)  Place (N)").x + 98.0f * g_scale;
+        ImGui::CalcTextSize("Undo  Redo  Save layout  Reset level  Help (F1)  Add (B)  Place (N)  Prefs").x + 112.0f * g_scale;
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f * g_scale, right - width));
     ImGui::BeginDisabled(!model.canUndo);
     if (ImGui::SmallButton("Undo"))
@@ -480,7 +501,7 @@ void Toolbar(const Model& model)
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (model.unsaved)
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
     if (ImGui::SmallButton("Save layout"))
         Ask(Request::kSave);
     if (model.unsaved)
@@ -502,13 +523,18 @@ void Toolbar(const Model& model)
         ImGui::SetTooltip("Copies of the level's scenery and objects");
     ImGui::SameLine();
     if (model.place.open)
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
     if (ImGui::SmallButton("Place (N)"))
         Ask(Request::kPlaceToggle);
     if (model.place.open)
         ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("New nodes: spawns, crowns, CTF flags, lights, sounds, proximity nodes");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Prefs"))
+        Prefs::Open() = !Prefs::Open(); // (level_editor_prefs.h)
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Preferences (Ctrl+,): camera speed, mouse, gizmo size, UI scale, autosave, snap, accent");
     ImGui::End();
 }
 
@@ -601,7 +627,7 @@ void FamilyChips(const Model& model)
             if (ImGui::GetCursorPosX() + width > right)
                 ImGui::NewLine();
         }
-        ImGui::PushStyleColor(ImGuiCol_Button, on ? ImVec4(0.82f, 0.34f, 0.11f, 0.75f) : ImVec4(0.2f, 0.21f, 0.225f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button, on ? Accent(0.75f) : ImVec4(0.2f, 0.21f, 0.225f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_Text, on ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.6f, 0.61f, 0.63f, 1.0f));
         if (ImGui::SmallButton(name))
             Ask(Request::kFamilies, 0, model.nodes.families ^ Nodes::Bit(family));
@@ -1231,10 +1257,11 @@ void StatusBar(const Model& model)
     }
     ImGui::PopFont();
     // Right: the changes and the camera.
-    char right[160];
-    std::snprintf(right, sizeof(right), "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  (%.0f, %.0f, %.0f)  speed %.0f",
+    char right[224];
+    std::string view = Camera::Status(); // (an ortho view, orbiting - level_editor_camera.h)
+    std::snprintf(right, sizeof(right), "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  (%.0f, %.0f, %.0f)  speed %.0f%s%s",
                   model.unsaved ? "unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x,
-                  model.camera.y, model.camera.z, model.speed);
+                  model.camera.y, model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
     ImGui::PushFont(g_mono);
     float width = ImGui::CalcTextSize(right).x;
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f * g_scale, (ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x) - width));
@@ -1254,18 +1281,38 @@ void Help(const Model& model)
     bool open = true;
     ImGui::Begin("Level editor - keys (F1 or Esc closes this)", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
+    // (the first-run tips again, the preferences - level_editor_prefs.h)
+    if (ImGui::SmallButton("Show tips"))
+        Prefs::ShowTips();
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Preferences (Ctrl+,)"))
+        Prefs::Open() = true;
     struct Row {
         const char* section;
         const char* keys;
         const char* what;
     };
     static const Row kRows[] = {
-        {"Flying", "W A S D", "move"},
+        {"Flying", "W A S D", "move - while the right button is held (wasd_flies=1: always)"},
         {"", "Q / E (Space)", "down / up"},
         {"", "Shift", "faster"},
         {"", "Right mouse", "look (orbits the selection)"},
         {"", "Wheel", "forward / back (with a selection: nearer / further)"},
         {"", "- / =", "flying speed"},
+        {"", "Right mouse + wheel", "flying speed (shown in the status bar)"},
+        {"", "F", "frames the selection: the camera flies to see all of it (Prefs: the speed from its size)"},
+        {"", "Alt+left drag", "orbits round the selection, or round the point under the cursor; the wheel meanwhile: "
+                              "nearer / further (Alt+click without moving: as before)"},
+        {"", "Ctrl+1..9 / 1..9", "stores / flies back to a camera bookmark (per level: thug2-decomp-layouts\\<scene>"
+                                 ".cameras.txt)"},
+        {"", "Numpad 7 / 1 / 3", "top / front / right view, orthographic (Ctrl: bottom / back / left); numpad 5 "
+                                 "perspective / ortho; in ortho the wheel and W / S zoom, A / D / Q / E pan; looking "
+                                 "about goes back to perspective"},
+        {"Play", "F5, Ctrl+P", "play from here: the skater on the ground below the camera, facing its way, the game "
+                               "running; F5 / Ctrl+P in play comes back to the editor - the camera and the selection as "
+                               "they were (offline, free skate / single session only)"},
+        {"", "Ctrl+,", "preferences (the toolbar's Prefs): camera speed, acceleration, mouse, gizmo size, UI scale, "
+                       "autosave, snap, accent - kept in thug2-decomp.ini [editor]"},
         {"Selecting", "Click", "an object or scenery (scenery takes its group); floors, ceilings, walls you're "
                                "inside and see-through decals are passed - a click on only those deselects; what's "
                                "nearest hides what's behind it (gizmos too; Click again / Alt reach past)"},
@@ -1306,10 +1353,27 @@ void Help(const Model& model)
         {"", "Proximity node", "(its Inspector) the scripts it runs on entering / leaving, sphere or box, drag its dots "
                                "to resize; Home puts it back"},
         {"", "Horse spot", "(a spawn's Inspector) restart_types Horse - an H on its gizmo"},
-        {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
+        {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl: grid steps from where it was, "
+                           "Ctrl+Shift: the world's grid, Alt+Shift: onto the surface under the cursor, Ctrl+Alt: its "
+                           "corner onto a vertex; the toolbar's Snap does it without a key)"},
         {"", "Drag an arrow", "along that axis only"},
-        {"", "W A S D / Q E", "nudge it"},
-        {"", "Z / X", "turn (objects and nodes 15\xC2\xB0, scenery a quarter)"},
+        {"Tools", "W / E / R", "Move / Rotate / Scale - while the right button is up (wasd_flies=1: no letter keys); "
+                               "Space cycles them; the toolbar too"},
+        {"", "RMB + W A S D / Q E", "fly (with something selected the camera leaves it: F frames it again); "
+                                    "wasd_flies=1 in the ini (or Tools...): W A S D fly / nudge without the button"},
+        {"", "Arrow keys / PgUp PgDn", "nudge the selection (wasd_flies=1: W A S D / Q E)"},
+        {"", "Rotate's ring", "drag to turn (objects and nodes freely, Ctrl: the rotation snap's steps; scenery by "
+                              "quarter turns - the engine's)"},
+        {"", "Scale's cubes", "an axis' cube scales along it, the centre all three (Ctrl: tenths)"},
+        {"", "`", "World / Local: the gizmo along the world's axes or the selection's own"},
+        {"", "Tools...", "the pivot (Base, Centre, Own), the rotation snap (5\xC2\xB0 - 90\xC2\xB0), Snap to, Align to "
+                         "slope; the grid's size beside Snap (1 - 100)"},
+        {"", "While dragging", "X / Y / Z: that axis (again: free); digits, - and .: an exact amount (Move units, "
+                               "Rotate degrees, Scale a factor); Backspace erases, Enter applies, Esc puts it back"},
+        {"", "Alt+G", "the tool's transform without holding the mouse (Blender's G / R / S): a click or Enter applies"},
+        {"", "Ctrl+D, Ctrl+Shift+D", "copy; then move / turn the copy and Ctrl+Shift+D repeats that from it - a row "
+                                     "(turned: an arc) of benches, lamps, ledges; one undo step each"},
+        {"", "Z / X", "turn (objects and nodes by the rotation snap - 15\xC2\xB0 -, scenery a quarter)"},
         {"", "[ / ]", "scale scenery (about its bottom) or an object down / up 10% (Shift: 1%), 0.25x to 4x"},
         {"", "Alt+[ / ]", "stretch it along the axis the camera faces most - or the Inspector's Scale X / Y / Z"},
         {"", "G", "drops it onto the ground"},
@@ -1470,7 +1534,7 @@ void Browser(const Model& model)
             ImGui::SameLine();
         bool on = model.browserTab == tab;
         if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
         if (ImGui::Button(tab == 0 ? "Scenery" : "Objects") && !on)
             Ask(Request::kBrowserTab, tab);
         if (on)
@@ -1873,6 +1937,8 @@ void Frame(const Model& model, const Overlay& overlay)
     ConfirmReset(model);
     CollisionLegend(model);
     OnlineWarning(model);
+    Prefs::Window(g_scale, g_heading, g_small); // (level_editor_prefs.h)
+    Prefs::TipsWindow(g_scale, g_heading, g_mono);
     Triggers::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
                      model.nodes.selected);
     ImGui::PopFont();

@@ -27,6 +27,8 @@ Small hooks in shared files (all additive):
 - `level_editor_preview.h/.cpp`: the drawing split out as `Preview::DrawView(kind, id, orbit)` (Render uses it).
 - `level_editor_carry.h/.cpp`: `CarriedObjects()` / `CarriedNodes()` (read only).
 - `level_editor.h`: the module list's comment. `CMakeLists.txt`: 8 lines.
+- After merging main (UX1, UX2): `level_editor_camera.cpp` (UX1's bookmarks) skips 1..9 while Alt is held - Alt+1..4 are
+  the view modes; the view-mode keys are ignored while dragging (UX2 types values with the digits then).
 
 ## What it does
 1. **View modes** (toolbar "View: Lit" menu; **Alt+1 Lit, Alt+2 Unlit, Alt+3 Wireframe, Alt+4 Collision only**; back
@@ -98,7 +100,7 @@ Keys bound (all documented in F1's new rows): **Alt+1 / Alt+2 / Alt+3 / Alt+4** 
 
 ## Checks (offline)
 - Built (own build dir out\build\ux4, own PDB endpoint); `thug2_check.exe` on THUG2PM.exe and on the stock
-  C:\Games\THUG2\Game\THUG2.exe (read only): 0 MISMATCHED, all early self-tests pass (446, five of them new:
+  C:\Games\THUG2\Game\THUG2.exe (read only): 0 MISMATCHED, all early self-tests pass (446 on my branch, 459 after merging main with UX1 / UX2 - five of them new:
   TestEditorUnlitShaders, TestEditorJumpLips, TestEditorJumpPhysics, TestEditorOverlaysRulerGrind,
   TestEditorPaletteThumbs).
 - `node tools/check_code_writes.ts`: No overlaps. No new REPLACE (nothing of the game's replaced).
