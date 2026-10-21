@@ -584,7 +584,8 @@ export class Thug1Peds {
     write(staging: string): string {
         let bytes = 0;
         for (const [mesh, files] of this.pending) {
-            const base = path.join(staging, ...mesh.split("/"));
+            // (the mesh name "models/.../x.skin": its files x.skin.xbx, x.tex.xbx...)
+            const base = path.join(staging, ...mesh.replace(/\.skin$/i, "").split("/"));
             fs.mkdirSync(path.dirname(base), { recursive: true });
             const col = thug2Col.writeCol({ objects: [], pad: 0 });
             for (const [ext, data] of [

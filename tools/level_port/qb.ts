@@ -455,7 +455,11 @@ export function nameText(value: number, names: ReadonlyMap<number, string>): str
     ) {
         return text;
     }
-    return `#${hex8(value)}`;
+    // (NeverScript's #xxxxxxxx is the checksum's bytes in file order: little-endian - #20FFA11C is 0x1CA1FF20,
+    // `default`. Written as the number's hex digits it compiled to the byte-swapped checksum.)
+    const bytes = Buffer.alloc(4);
+    bytes.writeUInt32LE(value >>> 0);
+    return `#${bytes.toString("hex").toUpperCase()}`;
 }
 
 // Words NeverScript reads as keywords, not names.
