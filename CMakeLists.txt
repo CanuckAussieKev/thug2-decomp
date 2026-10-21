@@ -159,6 +159,7 @@ add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 add_library(thug2_code OBJECT
     src/hook/hook.cpp
     src/hook/log.cpp
+    src/hook/crash.cpp
     src/hook/shadow.cpp
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
@@ -208,6 +209,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_thugpro_guards.cpp
     src/hook/selftests_mouse.cpp
     src/hook/selftests_automation.cpp
+    src/hook/selftests_crash.cpp
     src/hook/selftests_screenshot.cpp
     src/hook/selftests_sprite.cpp
     src/hook/selftests_netB.cpp

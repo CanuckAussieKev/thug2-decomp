@@ -382,12 +382,13 @@ export function convertTextures(tdx: readonly thps3.TdxTexture[], mips = true): 
 
 export function trisToStrip(tris: readonly (readonly number[])[]): number[] {
     // A triangle list as one strip, the triangles joined by degenerate ones (each starts at an even index, so its
-    // winding is kept).
+    // winding is kept): last, last, a, a (a once more for the parity) - every triangle between two real ones has a
+    // corner twice. (Until 2026-10-22 a was pushed once when the parity allowed it, which left (last, a, b) a real
+    // triangle drawn with the wrong material - found by the THPS2 port's z-fighting, tools/thps2_levels.)
     const s: number[] = [];
     for (const [a, b, c] of tris as [number, number, number][]) {
         if (s.length) {
-            s.push(s[s.length - 1]!);
-            s.push(a);
+            s.push(s[s.length - 1]!, a, a);
             if ((s.length - 1) % 2) s.push(a);
             s.push(b, c);
         } else {
