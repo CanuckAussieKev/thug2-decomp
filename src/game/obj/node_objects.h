@@ -34,8 +34,8 @@ void StartNodeObject(CCompositeObject* object, Script::CStruct* params);
 // bytes, 0x0041F500 / 0x0041AAD0) after script 0xF3B84DA6, finalised; then as StartNodeObject (but script
 // 0x413B766D first), and component 0x286A8D26's 0x00420480. The second argument isn't used.
 CCompositeObject* CreateGameObject(Script::CStruct* params, int unused);
-// 0x00468EB0
-void CreateGameObjectFromNode(Script::CStruct* params);
+// 0x00468EB0: CreateGameObject(params, 0) - the object returned (the special item component reads it).
+CCompositeObject* CreateGameObjectFromNode(Script::CStruct* params);
 // 0x00468EC0: with the flag 0x69C257E9 a plain composite object from the node (script 0xA98F5C63 run on it
 // first), else a game object.
 void CreateNodeObject(Script::CStruct* params);
