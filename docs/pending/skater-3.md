@@ -107,3 +107,27 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     50 caught (6 after strengthening: the walking skater on PlayAnim, the air pitch fall, the update's fields traced
     each frame, playing sounds with small volume / pitch changes); 2 equivalent (`fraction >= 1` clamps 1 to 1;
     `!(pos == last)` equals `pos != last`, NaN included).
+- [x] Batch SK3-5 (NOT run in the game yet; SkaterMatrixQueries and SkaterPhysicsControl, 27 functions):
+  src/game/skater/matrix_queries.cpp, physics_control.cpp, skater_x87.h (new: the x87's FSIN / FCOS / FPTAN for the
+  skater's code).
+  - SkaterMatrixQueries (0xBF518E27, vtable 0x0064BF70, 0x60 bytes): 0x00514430 Create, 0x00513FD0 / 0x00513FE0,
+    0x00514010 Finalize, 0x00514030 Update (the core physics' matrix copied), 0x00514040 CallMemberFunction (not a
+    Ghidra function): GetHeading (heading / cosine / sine; FastACos of the at row's x, 360 - it for a negative z),
+    GetSlope (Slope, ChangeInSlope; GetAngle of the at row and its flattened copy, negative pointing down),
+    AbsolutePitchGreaterThan, PitchGreaterThan (against the core physics' +0x78), RollGreaterThan, YawingLeft,
+    YawingRight, YawBetween (a pair: beyond the first, not beyond the second) - cosines by the x87's FCOS.
+  - SkaterPhysicsControl (0xD9151D4D, vtable 0x0064BFE0, 0x30 bytes): 0x00517830 Create, 0x005176A0
+    RegisterMemberFunctions (the table 0x006846F0), 0x005176C0 / 0x00517740, 0x005176D0 InitFromStructure,
+    0x00517770 Finalize (the state's physics mode -1), 0x00517AC0 Update, 0x00517C80 CallMemberFunction
+    (SkaterPhysicsControl_SwitchWalkingToSkating / _SwitchSkatingToWalking), 0x005178B0 SetPaused, 0x00517940
+    SwitchSkatingToWalking, 0x00517B20 SwitchWalkingToSkating, and the script member functions PausePhysics
+    0x00517A80, UnPausePhysics 0x00517AA0, GetTimeSincePhysicsSwitch 0x005177A0 / GetPreviousPhysicsStateDuration
+    0x005177F0 (ms as unsigned, times 0.001), SetBoardMissing 0x005176E0 / UnsetBoardMissing 0x005176F0 /
+    IsBoardMissing 0x00517700, SetForceWalk 0x00517710 / UnSetForceWalk 0x00517720 (with the board missing flag) /
+    IsForceWalkOn 0x00517730 (the table's names matched to the functions in table order). Calls into the walk,
+    camera and core physics code stay GameFunction (0x004FDD50, 0x0050C670, 0x00519680, 0x0052AF40, 0x005260C0,
+    0x004FA420 / 0x00524FF0, 0x00525060 / 0x004F9A40).
+  - Tests: TestSkaterMatrixQueries (selftests_skater_queries.cpp), TestSkaterPhysicsControl
+    (selftests_skater_physics_control.cpp; the original passes bools with stale upper bytes - the stand-ins
+    record the low byte). 22 + 27 deliberate bugs caught, 2 after strengthening (an exact cosine for
+    AbsolutePitchGreaterThan; InitFromStructure's flag traced).
