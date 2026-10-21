@@ -125,9 +125,11 @@ export function thug2Calls(thug2: string): Set<number> {
 }
 
 // THUGPRO's DLL commands with a THUG2 equivalent close enough for its scripts here (the adaptation written into an
-// entry's `replace_calls`, applied at convert time by swapping the name: same bytes otherwise): ForceCreate creates a
-// node even where AbsentInNetGames would keep it out (THUG2's Create: the same outside network games); edmsg2 / Output
-// are debug prints (THUG2's printf).
+// entry's `replace_calls`, applied at convert time by swapping the name: same bytes otherwise): THUGPRO_ForceCreate is
+// a THUGPRO global script (its thugpro_utils.q): Create the node, or Kill and Create it again when it is alive - a
+// plain Create underneath, so AbsentInNetGames still keeps the node out of a network game (THUG2's Create: 0x005A4DA0
+// asks 0x00565BB0, true for AbsentInNetGames in a network or multi-player game); ours differs only in not re-creating
+// a live object. edmsg2 / Output are debug prints (THUG2's printf).
 export const ADAPT: Readonly<Record<string, string>> = {
     THUGPRO_ForceCreate: "Create",
     edmsg2: "printf",
@@ -463,9 +465,51 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
         });
         return false;
     };
+    // A shadow vehicle: an added Vehicle its own script locks onto another object (Obj_LockToObject) whose model holds
+    // nothing but trigger nodes running what THUG2 hasn't - THUGPRO's carplant_collision boxes on Rio's cars and
+    // Suburbia's ice-cream truck (CarPlantNode: one trigger, TRGP_CarPlant01 -> THUGPRO_TriggerCarPlant, a THUGPRO
+    // global script launching the skater's Carplant event). Ours would be an invisible box whose trigger does nothing,
+    // locked on a car whose own model already carries its collision, car-hop triggers and car plants (THUG2's cars,
+    // PC-THPS3-10) - left out, with its script and model (the user's decision 2026-10-21).
+    const lockToObject = qb.checksum("Obj_LockToObject");
+    const shadowVehicle = (n: Struct, code: Buffer | undefined): string | null => {
+        if (classOf(n) !== "vehicle" || code === undefined || !scriptNames(code).calls.has(lockToObject)) return null;
+        const model = modelOf(n);
+        if (model === null) return null;
+        const dot = model.indexOf(".");
+        const arrayFile = lower(`models\\${dot < 0 ? model : model.slice(0, dot)}.qb`);
+        const data = [...archiveFiles].find(([f]) => lower(f) === arrayFile)?.[1];
+        if (data === undefined) return null;
+        const modelQb = new qb.QbFile(data, arrayFile, true);
+        const array = modelQb.globals.find(([, v]) => Array.isArray(v))?.[1];
+        if (!Array.isArray(array) || array.length === 0) return null;
+        const modelScripts = scriptBytes(data);
+        const missing = new Set<number>();
+        for (const node of array) {
+            const ts = node instanceof Struct ? node.get("TriggerScript") : undefined;
+            const body = ts instanceof Name ? modelScripts.get(ts.value) : undefined;
+            if (body === undefined) return null;
+            const unknown = [...scriptNames(body).calls].filter(
+                (c) => !thug2.cfuncs.has(c) && !member(c) && !thug2.scripts.has(c) && !thps3Scripts.has(c),
+            );
+            if (!unknown.length) return null;
+            for (const c of unknown) missing.add(c);
+        }
+        return (
+            `a shadow Vehicle locked onto another object (Obj_LockToObject) whose model ${model} holds only triggers ` +
+            `running what THUG2 hasn't (${[...missing].map(text).join(", ")}): an inert invisible box in ours, on a car ` +
+            "that carries its own collision and triggers"
+        );
+    };
     for (const [nm, n] of addedNodes) {
         const t = n.get("TriggerScript");
         const geometry = theirSectors.has(nm) || theirCol.has(nm);
+        const shadow = shadowVehicle(n, t instanceof Name ? scripts.get(t.value)?.code : undefined);
+        if (shadow !== null) {
+            leftOut.push({ kind: "node", target: text(nm), why: shadow });
+            if (t instanceof Name) excluded.set(t.value, `the trigger script of left-out ${text(nm)}`);
+            continue;
+        }
         const dropKeys: string[] = [];
         if (t instanceof Name && excluded.has(t.value)) {
             if (!geometry) {

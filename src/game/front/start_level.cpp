@@ -5,7 +5,9 @@
 #include <windows.h>
 
 #include <cctype>
+#include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -16,6 +18,7 @@
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/mouse_menus.h"
+#include "game/front/test_view.h"
 #include "game/gfx/screen.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -95,6 +98,44 @@ enum class Edit { Off, WaitLevel, WaitPause, Done };
 Edit s_edit = Edit::Off;
 int s_editFrames;
 int s_presses;
+
+// -at / start_at: the skater put there standing once the level is up (AtUpdate).
+constexpr int kAtSettleFrames = 60;  // (in the level, unpaused, before the teleport)
+enum class At { Off, WaitLevel, Done };
+At s_at = At::Off;
+int s_atFrames;
+
+// The spot asked for ("" if none): -at, then start_at=.
+const std::string& AtText()
+{
+    static const std::string text = [] {
+        std::string t = OptionValue(g_commandLine, "at");
+        return t.empty() ? FromIni("start_at") : t;
+    }();
+    return text;
+}
+
+// True while the teleport is still to come (-edit's editor waits for it).
+bool AtUpdate(Mdl::FrontEnd* frontEnd)
+{
+    if (s_at != At::WaitLevel)
+        return false;
+    bool inLevel = Nx::CurrentLevel() != 0 && Obj::FindObject(kSkater) != nullptr;
+    bool paused = frontEnd && frontEnd->m_paused;
+    s_atFrames = inLevel && !paused ? s_atFrames + 1 : 0;
+    if (s_atFrames < kAtSettleFrames)
+        return true;
+    s_at = At::Done;
+    Spot spot;
+    ParseSpot(AtText(), &spot);  // (checked when it was asked for)
+    TestView::Vec3 at{};
+    std::string failed = TestView::Teleport({spot.x, spot.y, spot.z}, spot.hasHeading, spot.heading, &at);
+    if (!failed.empty())
+        Log("start at: %s - the skater stays where the level put it", failed.c_str());
+    else
+        Log("start at: the skater stands at (%.1f, %.1f, %.1f) in %s", at.x, at.y, at.z, Requested());
+    return false;
+}
 
 void EditUpdate(Mdl::FrontEnd* frontEnd)
 {
@@ -187,15 +228,70 @@ std::string OptionValue(const std::string& line, const char* option)
     return {};
 }
 
+bool ParseSpot(const std::string& text, Spot* out)
+{
+    std::string s = text;
+    // (the sidecar's "(x, y, z)": one pair of parentheses around the whole)
+    size_t first = s.find_first_not_of(" \t");
+    size_t last = s.find_last_not_of(" \t");
+    if (first == std::string::npos)
+        return false;
+    s = s.substr(first, last - first + 1);
+    if (!s.empty() && s.front() == '(' && s.back() == ')')
+        s = s.substr(1, s.size() - 2);
+    float values[4];
+    int count = 0;
+    size_t at = 0;
+    for (;;) {
+        at = s.find_first_not_of(" \t", at);
+        if (at == std::string::npos || count == 4)
+            return false;
+        const char* start = s.c_str() + at;
+        char* end = nullptr;
+        double v = std::strtod(start, &end);
+        if (end == start || !std::isfinite(v))
+            return false;
+        values[count++] = static_cast<float>(v);
+        at = static_cast<size_t>(end - s.c_str());
+        at = s.find_first_not_of(" \t", at);
+        if (at == std::string::npos)
+            break;
+        if (s[at] == ',')
+            ++at;  // (a comma, or only spaces, between two numbers)
+        else if (at > 0 && s[at - 1] != ' ' && s[at - 1] != '\t')
+            return false;  // (something glued to the number: "1x")
+    }
+    if (count < 3)
+        return false;
+    if (out) {
+        *out = {};
+        out->x = values[0];
+        out->y = values[1];
+        out->z = values[2];
+        out->hasHeading = count == 4;
+        out->heading = count == 4 ? values[3] : 0.0f;
+    }
+    return true;
+}
+
 const char* Requested() { return TheRequest().level.c_str(); }
 
 bool EditRequested() { return TheRequest().edit && !TheRequest().level.empty(); }
 
 void Update(Mdl::FrontEnd* frontEnd)
 {
-    if (!*Requested() || Mlp::FramesRun() == 0)
+    if (Mlp::FramesRun() == 0)
         return;
+    if (!*Requested()) {
+        if (!s_done && !AtText().empty()) {
+            s_done = true;
+            Log("start at: %s asked for without a level (-level / start_level) - ignored", AtText().c_str());
+        }
+        return;
+    }
     if (s_done) {
+        if (AtUpdate(frontEnd))
+            return;  // (-edit's editor once the skater stands there)
         if (s_edit != Edit::Off && s_edit != Edit::Done)
             EditUpdate(frontEnd);
         return;
@@ -207,7 +303,17 @@ void Update(Mdl::FrontEnd* frontEnd)
     if (++s_frames < 60)
         return;
     s_done = true;
-    if (Load(Requested(), nullptr) && EditRequested()) {
+    bool loaded = Load(Requested(), nullptr);
+    if (loaded && !AtText().empty()) {
+        if (ParseSpot(AtText(), nullptr)) {
+            s_at = At::WaitLevel;
+            s_atFrames = 0;
+            Log("start at: the skater is put at %s standing once %s is up", AtText().c_str(), Requested());
+        } else {
+            Log("start at: \"%s\" isn't x,y,z or x,y,z,heading - ignored", AtText().c_str());
+        }
+    }
+    if (loaded && EditRequested()) {
         s_edit = Edit::WaitLevel;
         s_editFrames = 0;
         s_presses = 0;

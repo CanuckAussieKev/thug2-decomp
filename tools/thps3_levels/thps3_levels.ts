@@ -53,6 +53,7 @@ import {
     runMain,
 } from "../lib/py.ts";
 import { StructError, unpackNumbers } from "../lib/struct.ts";
+import * as collfix from "./collfix.ts";
 import * as thps3 from "./thps3.ts";
 import { ROTATION_REWRITES } from "./thps3_rotation.ts";
 import * as thugproNew from "./thugpro_new.ts";
@@ -714,7 +715,7 @@ export interface ConvertWorldOptions {
     // TPN-THPS3: THUGPRO's new sectors, textures and collision objects (thugpro_new.ts applyGeometry)
     thugproNew?: thugproNew.LevelNew;
     // PC-THPS3-15: the moving sectors (objects) that get collision of their own - in their own space, as drawn - for
-    // their LevelObject's CollisionMode=Geometry (unless THUGPRO's collision of the name is added)
+    // their LevelObject's CollisionMode=Geometry (THPS3's shape: THUGPRO's collision of the name is left out)
     solid?: ReadonlySet<number>;
 }
 
@@ -773,7 +774,7 @@ export function convertWorld(
     if (withCol) {
         const source = collisionObjects(world.sectors, world.materials, skip, options.colEdits, counts);
         if (options.solid?.size) {
-            // (PC-THPS3-15; THUGPRO's collision of the name, when it adds one, is the object's instead)
+            // (PC-THPS3-15; cmdConvert leaves THUGPRO's collision of the name out - should one remain, it wins)
             const theirs = new Set((options.thugproNew?.collision ?? []).map((o) => o.checksum));
             const ours = solidCollision(objectList, raw, options.solid, skip).filter((o) => !theirs.has(o.checksum));
             source.objects.push(...ours);
@@ -2537,8 +2538,9 @@ export function convertNodeArray(
     // foun_wire cluster)
     const newReport = tpNew.nodes.length || tpNew.sets.length ? thugproNew.applyNodes(converted, names, tpNew) : [];
     // PC-THPS3-15: plain moving props (Foundry's bucket, Tokyo's bullet trains) solid as THUG2 builds them: our
-    // LevelObjects with CollisionMode=Geometry - their collision made in convertWorld (Port.solid) unless THUGPRO's of
-    // the name is added (TPN-THPS3-1: the bucket's); THUGPRO's Vehicle `set` is left out for them (cmdConvert)
+    // LevelObjects with CollisionMode=Geometry - their collision made in convertWorld (Port.solid) from THPS3's drawn
+    // model; THUGPRO's Vehicle `set` and its collision of the name (TPN-THPS3-1: the bucket's) are left out for them
+    // (cmdConvert)
     const moverChange = pc.get("PC-THPS3-15", base.toLowerCase());
     if (moverChange !== null && port !== null && made !== null) {
         const [solid, solidReport] = movers.makeSolid(
@@ -2825,6 +2827,8 @@ export interface Args {
     thugpro: string; // TPN-THPS3: THUGPRO's install, read at convert time
     noThugproNew: boolean;
     noPortChanges: boolean; // PC-n: only the required ones
+    noCollfix: boolean; // TPN-THPS3-1 / -2: THUGPRO's collision overlays left out (collfix.ts)
+    collfixOnly?: string[] | null; // --no-collfix-only: just these overlays (their base names, e.g. SUB_TRamp06) left out
 }
 
 function isDir(p: string): boolean {
@@ -2920,9 +2924,31 @@ export function cmdConvert(args: Args): void {
         }
         const compatData = levelCompat(profile, name);
         // TPN-THPS3: THUGPRO's own content, read from its install (--thugpro; --no-thugpro-new or --compat none: none)
-        const newEntries = args.noThugproNew
+        let newEntries = args.noThugproNew
             ? []
             : thugproNew.levelEntries(compat.thugproNew(profile, "thps3_levels"), name);
+        // --no-collfix: THUGPRO's invisible collision overlays (`*_collfix` / `*_coll`: collision object and node) left
+        // out, and the THPS3 node one replaced (TP-14 switched it off) kept as THPS3 has it - to try both (collfix.ts)
+        if (args.noCollfix) {
+            const all = newEntries;
+            newEntries = collfix.withoutCollfix(all, args.collfixOnly ?? null);
+            const flags = compatData.edits?.flags;
+            const kept = flags
+                ? collfix.replacedNodes(
+                      all.filter((e) => !newEntries.includes(e)),
+                      Object.keys(flags),
+                  )
+                : [];
+            if (flags && kept.length) {
+                compatData.edits!.flags = Object.fromEntries(Object.entries(flags).filter(([n]) => !kept.includes(n)));
+            }
+            if (all.length !== newEntries.length || kept.length) {
+                report.push(
+                    `  --no-collfix: ${all.length - newEntries.length} TPN-THPS3 overlay entries left out` +
+                        (kept.length ? `; THPS3's ${kept.join(", ")} kept (TP-14 flags not applied)` : ""),
+                );
+            }
+        }
         const tpNew = thugproNew.loadNew(newEntries, args.thugpro);
         // (PC-THPS3-15: the plain moving props stay our solid LevelObjects - THUGPRO's Vehicle `set` left out for them)
         const solidMovers = movers.moversFor(pc.get("PC-THPS3-15", base.toLowerCase())?.objects, name);
@@ -2932,6 +2958,14 @@ export function cmdConvert(args: Args): void {
             if (kept.length !== tpNew.sets.length)
                 report.push(`  PC-THPS3-15: ${tpNew.sets.length - kept.length} TPN-THPS3-3 Vehicle sets left out`);
             tpNew.sets = kept;
+            // (their collision is THPS3's own shape, made from the drawn model in convertWorld - the user's decision
+            // 2026-10-21: THUGPRO's smaller collision of the name (TPN-THPS3-1, the bucket's 134 faces) left out)
+            const keptCol = tpNew.collision.filter((o) => !listed.has(o.checksum));
+            if (keptCol.length !== tpNew.collision.length)
+                report.push(
+                    `  PC-THPS3-15: ${tpNew.collision.length - keptCol.length} TPN-THPS3-1 collision objects left out (THPS3's shape instead)`,
+                );
+            tpNew.collision = keptCol;
         }
         const [nodeText, hidden, triggers, nodeReport, scripts, hasSetup] = convertNodeArray(
             q,
@@ -3139,7 +3173,7 @@ export function cmdSelfcheck(args: Args): number {
 
 const USAGE =
     "usage: thps3_levels.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--out OUT] [--ns NS] [--no-objects] " +
-    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
+    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
 
 const HELP = `${USAGE}
 
@@ -3163,9 +3197,13 @@ options:
   --thugpro THUGPRO    convert: THUGPRO's install, read for its new content (TPN-THPS3; default %LOCALAPPDATA%\\THUG Pro)
   --no-thugpro-new     convert: THUGPRO's new content left out, its hand edits kept
   --no-port-changes    convert: our own changes to THPS3's data left out (PC-n) but those the game needs
+  --no-collfix         convert: THUGPRO's invisible collision overlays left out (Suburbia's *_collfix, Foundry's
+                       *_coll - TPN-THPS3-1 / -2), Suburbia's Inviso_PicnicCollide01 kept as THPS3's (collfix.ts)
+  --no-collfix-only NAMES
+                       convert: only these overlays left out (comma-separated base names, e.g. SUB_TRamp06)
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
 
-const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat", "--thugpro"] as const;
+const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat", "--thugpro", "--no-collfix-only"] as const;
 const FLAG_OPTIONS = [
     "--no-objects",
     "--no-scripts",
@@ -3173,6 +3211,7 @@ const FLAG_OPTIONS = [
     "--legacy-names",
     "--no-thugpro-new",
     "--no-port-changes",
+    "--no-collfix",
 ] as const;
 const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--extra", "--help"];
 
@@ -3251,6 +3290,12 @@ export function parseCommandLine(argv: readonly string[]): Args {
         thugpro: values["--thugpro"] ?? thugproNew.DEFAULT_THUGPRO,
         noThugproNew: flags.has("--no-thugpro-new"),
         noPortChanges: flags.has("--no-port-changes"),
+        noCollfix: flags.has("--no-collfix") || values["--no-collfix-only"] !== undefined,
+        collfixOnly:
+            values["--no-collfix-only"]
+                ?.split(",")
+                .map((n) => n.trim())
+                .filter(Boolean) ?? null,
     };
 }
 

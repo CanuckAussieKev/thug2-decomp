@@ -15,8 +15,9 @@ $InstallMarkers = @{
     thps4 = @(, @('data\levels', 'data\skeletons'))
     thug1 = @(, @('Data\pre\qb.pre'))
     thaw  = @(, @('data\worlds\worldzones')) + @(, @('data\pak\qb.pak.wpc'))
+    thps2 = @(, @('ALL.PKR'))
 }
-$InstallTitles = @{ thug2 = 'THUG2'; thps3 = 'THPS3'; thps4 = 'THPS4'; thug1 = 'THUG1'; thaw = 'THAW' }
+$InstallTitles = @{ thug2 = 'THUG2'; thps3 = 'THPS3'; thps4 = 'THPS4'; thug1 = 'THUG1'; thaw = 'THAW'; thps2 = 'THPS2' }
 
 function Test-InstallMarkers([string]$folder, [string]$game) {
     foreach ($entry in $InstallMarkers[$game]) {
