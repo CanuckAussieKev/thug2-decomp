@@ -57,10 +57,13 @@ int Rnd2(int n)
 }
 
 // 0x00403E80
-float PlusOrMinus(float range)
+float PlusOrMinus(float range) { return static_cast<float>(PlusOrMinusExact(range)); }
+
+// (0x00403E80's result as the x87 leaves it in ST0, unrounded)
+double PlusOrMinusExact(float range)
 {
     // A sample in [0, 10000), centred on 0 and scaled so that +/-5000 maps to +/-range.
-    float centred = static_cast<float>(Scale(Next(Stream1()), 10000)) - 5000.0f;
+    double centred = static_cast<double>(Scale(Next(Stream1()), 10000)) - 5000.0f;
     return centred * range * 0.0002f;
 }
 
