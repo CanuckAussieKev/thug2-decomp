@@ -495,3 +495,9 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
 }
 
 } // namespace Front::LevelEditor::Notes
+
+namespace Front::LevelEditor::Notes {
+
+void AddHereQueued() { g_queue.push_back([] { AddHere(); }); }
+
+} // namespace Front::LevelEditor::Notes

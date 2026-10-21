@@ -754,6 +754,36 @@ void ShowAll()
     g_hiddenObjects.clear();
 }
 
+int Show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
+{
+    int shown = 0;
+    for (auto it = g_hiddenSectors.begin(); it != g_hiddenSectors.end();) {
+        if (std::find(sectors.begin(), sectors.end(), it->checksum) == sectors.end()) {
+            ++it;
+            continue;
+        }
+        if (Scenery::SectorOf(it->checksum) == it->sector && GeomOf(it->sector))
+            SetVisibility(it->sector, it->mask);
+        it = g_hiddenSectors.erase(it);
+        ++shown;
+    }
+    for (auto it = g_hiddenObjects.begin(); it != g_hiddenObjects.end();) {
+        if (std::find(objects.begin(), objects.end(), it->id) == objects.end()) {
+            ++it;
+            continue;
+        }
+        Obj::CCompositeObject* object = LiveObject(it->id);
+        for (int g = 0; object && g < static_cast<int>(it->geoms.size()); ++g) {
+            void* geom = Objects::Geometry(object, g);
+            if (geom && geom == it->geoms[g].first)
+                SetGeomActive(geom, it->geoms[g].second);
+        }
+        it = g_hiddenObjects.erase(it);
+        ++shown;
+    }
+    return shown;
+}
+
 int HiddenCount() { return static_cast<int>(g_hiddenSectors.size() + g_hiddenObjects.size()); }
 
 std::vector<uint32_t> HiddenIds()

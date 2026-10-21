@@ -34,6 +34,7 @@
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
+#include "game/front/level_editor_ux3.h"
 #include "game/front/level_editor_view.h"
 #include "hook/log.h"
 #include "imgui.h"
@@ -479,6 +480,7 @@ void Toolbar(const Model& model)
         Ask(Request::kDrop);
     ImGui::EndDisabled();
     ViewToolbar(model);
+    Ux3::Toolbar(model); // (Search, History, Changes, Snapshots - level_editor_ux3.h)
     Budget::ToolbarItem(g_scale);   // (UX5: the budget meter - level_editor_budget.h)
     Checks::ToolbarButton(g_scale); // (UX5: Problems, Alt+P - level_editor_checks.h)
     ImGui::SameLine(0.0f, 14.0f * g_scale);
@@ -653,7 +655,15 @@ void Outliner(const Model& model)
     ImGui::Begin("Outliner", nullptr, kPanel);
     PanelTitle("Outliner");
     ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##search", "Search nodes\xE2\x80\xA6", g_outlinerSearch, sizeof(g_outlinerSearch));
+    // (Select similar on a node asks for its family here - level_editor_ux3.h)
+    if (std::string asked = Ux3::TakeOutlinerSearch(); !asked.empty())
+        std::snprintf(g_outlinerSearch, sizeof(g_outlinerSearch), "%s", asked.c_str());
+    ImGui::InputTextWithHint("##search", "Search (rail: spawn: object: group:<name> label: locked:)\xE2\x80\xA6",
+                             g_outlinerSearch, sizeof(g_outlinerSearch));
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Words match names and labels. Type filters: a family (rail:, spawn:, crown:, flag:, object:,\n"
+                          "scenery:, light:, sound:, trigger:, path:, ladder:, particle:, other:), group:<name>,\n"
+                          "label: (rows with a label), locked:, hidden: - e.g. \"rail: ware\"");
     // (only the rows the editor has changed - those with markers)
     ImGui::Checkbox("Changed only", &g_changedOnly);
     if (ImGui::IsItemHovered()) {
@@ -669,6 +679,7 @@ void Outliner(const Model& model)
     FamilyChips(model);
     ImGui::Separator();
     ImGui::BeginChild("##tree");
+    Ux3::Groups(); // (the user's groups - level_editor_organize.h)
     const std::vector<Nodes::Node>& nodes = Nodes::All();
     if (nodes.empty())
         Muted("No nodes (no level loaded).");
@@ -684,7 +695,7 @@ void Outliner(const Model& model)
         shown.clear();
         for (int i : members) {
             auto found = model.marks.find(nodes[i].name);
-            if (Matches(g_cache.labels[i], g_outlinerSearch) &&
+            if (Ux3::RowPasses(nodes[i], g_cache.labels[i], g_outlinerSearch) &&
                 MarkShown(found == model.marks.end() ? 0 : found->second, g_changedOnly))
                 shown.push_back(i);
         }
@@ -729,9 +740,14 @@ void Outliner(const Model& model)
                 ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
                 if (node.hidden)
                     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-                bool clicked = ImGui::Selectable(g_cache.labels[i].c_str(), isSelected,
+                // (the user's label beside the name - level_editor_organize.h)
+                std::string userLabel = Ux3::RowLabel(node.name);
+                std::string rowText = userLabel.empty() ? g_cache.labels[i] : g_cache.labels[i] + "  \xE2\x80\x94 " + userLabel;
+                bool clicked = ImGui::Selectable(rowText.c_str(), isSelected,
                                                  ImGuiSelectableFlags_AllowDoubleClick |
-                                                     ImGuiSelectableFlags_SpanAllColumns);
+                                                     ImGuiSelectableFlags_SpanAllColumns |
+                                                     ImGuiSelectableFlags_AllowOverlap); // (the row's toggles)
+                Ux3::RowMenu(node); // (right-click: label, groups, eye / lock / selectable)
                 if (node.hidden)
                     ImGui::PopStyleColor();
                 if (clicked) {
@@ -747,7 +763,8 @@ void Outliner(const Model& model)
                 uint8_t marks = found == model.marks.end() ? 0 : found->second;
                 // (the Overlays menu's Outliner markers off: none shown - Changed only still filters by them)
                 std::string letters = Overlays::Shown(Overlays::kOutlinerMarks) ? MarkLetters(marks) : std::string();
-                float rowRight = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - ImGui::GetStyle().ScrollbarSize;
+                float rowRight = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - ImGui::GetStyle().ScrollbarSize -
+                                 Ux3::TogglesWidth();
                 float marksWidth = letters.empty() ? 0.0f : ImGui::CalcTextSize(letters.c_str()).x + 6.0f * g_scale;
                 if (!tag.empty()) {
                     float width = ImGui::CalcTextSize(tag.c_str()).x;
@@ -768,6 +785,7 @@ void Outliner(const Model& model)
                             ImGui::SetTooltip("%s", MarkName(bit));
                     }
                 }
+                Ux3::RowToggles(node, rowRight); // (the eye, the lock, selectable - level_editor_organize.h)
                 if (row == scrollTo)
                     ImGui::SetScrollHereY(0.4f);
                 ImGui::PopID();
@@ -1227,6 +1245,7 @@ void Inspector(const Model& model)
         if (model.nodes.selected >= 0)
             NodeSection(model, model.nodes.selected);
     }
+    Ux3::InspectorSection(model); // (the clipboard, the shared fields of a multi-selection - level_editor_ux3.h)
     ImGui::Spacing();
     ImGui::Separator();
     Muted("Under the cursor");
@@ -1293,6 +1312,9 @@ void Help(const Model& model)
     ImGui::SameLine();
     if (ImGui::SmallButton("Preferences (Ctrl+,)"))
         Prefs::Open() = true;
+    // (every action from the registry, with its keys as bound now - level_editor_actions.h; the details below)
+    Ux3::HelpFromRegistry();
+    if (ImGui::CollapsingHeader("Details: every key and gesture explained###helpdetails")) {
     struct Row {
         const char* section;
         const char* keys;
@@ -1466,6 +1488,7 @@ void Help(const Model& model)
             ImGui::TextWrapped("%s", row.what);
         }
         ImGui::EndTable();
+    }
     }
     ImGui::End();
     if (!open)
@@ -1889,6 +1912,8 @@ bool MouseToEditor()
 
 bool KeysToEditor() { return !g_running || !g_wantKeys; }
 
+void PushRequest(const Request& request) { g_requests.push_back(request); }
+
 std::vector<Request> TakeRequests()
 {
     std::vector<Request> requests;
@@ -1936,6 +1961,23 @@ void Frame(const Model& model, const Overlay& overlay)
         }
     }
     ImGui::PushFont(g_ui);
+    {
+        Ux3::Fonts fonts;
+        fonts.ui = g_ui;
+        fonts.small = g_small;
+        fonts.mono = g_mono;
+        fonts.heading = g_heading;
+        fonts.scale = g_scale;
+        Ux3::SetFonts(fonts);
+        Ux3::Settings settings;
+        settings.snapAlways = model.snapAlways;
+        settings.carry = model.carry;
+        settings.collision = model.view.collision;
+        settings.pickFilter = model.pickFilter;
+        settings.canUndo = model.canUndo;
+        settings.canRedo = model.canRedo;
+        Ux3::NoteSettings(settings);
+    }
     Toolbar(model);
     Outliner(model);
     Inspector(model);
@@ -1956,6 +1998,8 @@ void Frame(const Model& model, const Overlay& overlay)
     Checks::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
                    g_mono);
     Notes::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale);
+    Ux3::Windows(model);         // (the search, history, changes, keys, snapshots - level_editor_ux3.h)
+    Ux3::RememberSections();     // (the Inspector's sections folded as last time)
     ImGui::PopFont();
     ImGui::Render();
     UiBackend::Render();

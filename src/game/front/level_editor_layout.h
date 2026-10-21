@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -167,11 +168,26 @@ struct File {
     std::vector<Faces::SectorFaces> faces;      // (map3) `faces`
     std::vector<Clusters::Membership> clusters; // (map3) `cluster`
     std::vector<Cameras::Camera> cameras;       // (map3) `camera`
+    // Records this reader doesn't know, as they are (comments taken off): another module's (AddExtension - the
+    // editor's own records: level_editor_organize.h) or a later version's. Write writes them back.
+    std::vector<std::string> extra;
     std::vector<Notes::Note> notes;             // (UX5) `note` (level_editor_notes.h)
     // (UX5) lines written again as they are, at the end: the loaded layout's records that didn't resolve (Capture fills
     // it from level_editor_checks.h; Read never does - they are records like any other there)
     std::vector<std::string> carried;
 };
+
+// Another module's records, carried by the layout (level_editor_organize.h's groups, labels, locks, snapshot name):
+// `capture` gives its lines when the level's changes are captured (Save, the autosave, undo of a reset...), `apply` takes
+// the file's lines whose first word is one of `keywords` when a layout is put in place, `reset` forgets its state when
+// the level is put back as shipped or another layout goes in place (and when a new level loads).
+struct Extension {
+    std::vector<std::string> keywords;
+    std::function<std::vector<std::string>()> capture;
+    std::function<void(const std::vector<std::string>& lines)> apply;
+    std::function<void()> reset;
+};
+void AddExtension(const Extension& extension);
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't
 // understood).

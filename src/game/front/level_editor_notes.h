@@ -58,6 +58,8 @@ std::vector<Note> Capture();
 int Apply(const std::vector<Note>& notes);
 void ResetAll();
 void ForgetLevel();
+// "+ Note here" from elsewhere (the command search - level_editor_ux3.h): queued as the Outliner's button does.
+void AddHereQueued();
 // Once a frame while the editor runs: what the UI asked for (queued).
 void Update();
 // The pins over the view (the selected one brighter): a stem from the point up, a head, the text beside it.

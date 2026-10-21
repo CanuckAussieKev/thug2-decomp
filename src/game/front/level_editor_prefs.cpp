@@ -5,6 +5,7 @@
 
 #include <algorithm>
 
+#include "game/front/level_editor_ux3.h"
 #include "hook/log.h"
 #include "imgui.h"
 
@@ -218,6 +219,13 @@ void Window(float scale, ImFont* heading, ImFont* small)
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("%s", AccentName(i));
         ImGui::PopID();
+    }
+    // The keymap (level_editor_actions.h - UX3's Keys section, [editor_keys] in the ini).
+    ImGui::Spacing();
+    if (ImGui::CollapsingHeader("Keys###prefskeys")) {
+        ImGui::BeginChild("##prefskeys", ImVec2(0.0f, 380.0f * scale), ImGuiChildFlags_Borders);
+        Ux3::KeysSection();
+        ImGui::EndChild();
     }
     ImGui::Spacing();
     ImGui::Separator();
