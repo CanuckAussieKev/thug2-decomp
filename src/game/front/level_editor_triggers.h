@@ -310,6 +310,9 @@ void AddKill(bool water);
 void AddTeleport();
 void AddScript();
 void AddGap();
+// (UX9: the gap wizard) A gap made of two ends placed as given (their specs' size, text, score and the start's flags;
+// names and the GapID made fresh) - the start selected; one undo step. Queued like the others.
+void AddGapPair(Placed start, Placed end);
 // A trigger's settings changed (`undo`: a step of its own - else BeginEdit started one, e.g. a field being dragged).
 // A gap's name, score and flags go to both its ends.
 void SetSpec(const std::string& name, const Spec& spec, bool undo);

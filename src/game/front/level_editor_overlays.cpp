@@ -60,6 +60,9 @@ const std::vector<BitInfo>& Bits()
          "The rail under the cursor (or selected): its direction, segments, terrain, speed-ups and connections"},
         {kJumpArcs, "Jump arcs", "Y", "The selected scenery's lips and the arcs a skater flies off them at three speeds"},
         {kRuler, "Ruler", "M", "The ruler's measurement (M: the tool - click two points)"},
+        {kSkateability, "Skateability", "Alt+K",
+         "Surfaces coloured by what a skater can do: floor, bank, vert, wallride, not skatable, kill zones, water - and "
+         "the grind rails (a legend bottom right)"},
         {kGrid, "Grid", "", "A 100-unit grid on the ground below the camera or the selection (every 500 brighter)"},
         {kCarryHints, "Carried objects", "", "While scenery moves: what it carries (objects, nodes) outlined in green"},
         {kLegend, "Collision legend", "", "The collision view's colours and counts (bottom left of the view)"},

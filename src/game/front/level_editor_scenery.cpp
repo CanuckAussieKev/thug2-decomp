@@ -13,6 +13,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/front/level_editor_clusters.h"
+#include "game/front/level_editor_ground.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_scale.h"
@@ -1052,6 +1053,8 @@ const char* WhyNotMovable(uint32_t checksum)
     uint8_t* sector = FindSector(checksum, nullptr);
     if (!sector)
         return "not found";
+    if (Ground::IsPiece(checksum))
+        return "a generated ground piece - edit it with the Ground tool (Alt+U, click it)"; // (UX9)
     uint8_t* geom = GeomOf(sector);
     if (!geom)
         return "collision only";

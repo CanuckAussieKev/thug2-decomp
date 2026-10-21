@@ -20,6 +20,7 @@
 #include "game/front/level_editor_goals.h"
 #include "game/front/level_editor_checks.h"
 #include "game/front/level_editor_notes.h"
+#include "game/front/level_editor_ux9.h"
 #include "game/front/level_editor_clusters.h"
 #include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_node_edit.h"
@@ -2012,6 +2013,8 @@ void Frame(const Model& model, const Overlay& overlay)
     Checks::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
                    g_mono);
     Notes::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale);
+    // (UX9: the gap wizard's and the ground tool's forms, the skateability legend - level_editor_ux9.h)
+    Ux9::Windows(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale);
     Ux3::Windows(model);         // (the search, history, changes, keys, snapshots - level_editor_ux3.h)
     Ux3::RememberSections();     // (the Inspector's sections folded as last time)
     ImGui::PopFont();

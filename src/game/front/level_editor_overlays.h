@@ -33,9 +33,10 @@ enum Bit : uint32_t {
     kJumpArcs = 1u << 6,      // Y: the selected scenery's lips and the flight arcs off them
     kGrindPreview = 1u << 7,  // the rail under the cursor: direction, segments, terrain, speed-ups, connections
     kRuler = 1u << 8,         // M: the ruler's measurement
+    kSkateability = 1u << 9,  // (UX9) Alt+K: surfaces coloured by what a skater can do on them (level_editor_skate_view.h)
 };
-constexpr uint32_t kAllBits = (1u << 9) - 1;
-constexpr uint32_t kDefaultBits = kAllBits & ~(kGrid | kJumpArcs);
+constexpr uint32_t kAllBits = (1u << 10) - 1;
+constexpr uint32_t kDefaultBits = kAllBits & ~(kGrid | kJumpArcs | kSkateability);
 struct BitInfo {
     uint32_t bit;
     const char* label;
