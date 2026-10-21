@@ -93,4 +93,28 @@ other members added; TriggerNode unchanged).
     (sometimes a half turn: the quaternion's w = 0), the struct getters / adders, the manager stood in for; values
     with full mantissas so x87 roundings show. 44 deliberate bugs caught, 6 after strengthening (full-mantissa
     values, the half turn, the offset checked); 1 equivalent (Create's explicit null skeleton: Calloc zeroes).
-- [ ] Next: the sound component (0x432C80-0x4335D0, 0x433630).
+- [x] Batch OC3-4 (NOT run in the game yet; the sound component, 18 functions): src/game/obj/sound_component.* (new).
+  CSoundComponent (0x07713C7B "sound", vtable 0x00646514, 0xC0 bytes: +0x18 eight sound slots (Obj_SetSound - type
+  8 is accepted and lands on the next field), +0x38 two waiting looping sounds (PlaybackProps + the time to look
+  again), +0x98 position, +0xA8 a frame ago, +0xB8 emitter node, +0xBC proxim node; the sfx manager takes the
+  component as its "object" - sfx_voices.cpp's calls to 0x00432E50 / 0x00432EB0 / 0x00432F10 / 0x00432D40 /
+  0x00432F70 are these): Create 0x00433100, RegisterMemberFunctions 0x00432C80 (not a Ghidra function; table
+  0x00683118), Construct 0x00432D90, DestroyBody 0x00432DF0 (StopObjectSounds), Destroy 0x00433160,
+  InitFromStructure 0x00432CA0 (ProximNode=), Update 0x004335D0, CallMemberFunction 0x00433190 (Obj_AdjustSound,
+  Obj_StopSound - also drops a waiting one -, Obj_SetSound), KeepLoopingSound 0x00432D40 (2 s later),
+  GetSoundPosition 0x00432E50 / GetPreviousSoundPosition 0x00432EB0 (the emitter's nearest point to the camera),
+  GetSoundExtent 0x00432F10 (the proxim node's), UpdateProps 0x00432F70 (`this` unused: pitch / volume towards
+  +0x18 / +0x1C by the steps +0x20 / +0x24 times 60 x the frame's seconds, Mth::KeepWithin), UpdateWaitingSounds
+  0x00433480 (due ones: played - forced - when the nearest camera is within dropoff (0: 1020) + 240 (the sum in
+  double), then faded in from 0 at volume3 / 100 a frame; else looked at again at now - ftol((distance - dropoff) *
+  1000 * -1/600) + 333 ms), PlaySound 0x00433240 (Obj_PlaySound's body: vol / pitch or Percent between min / max,
+  dropoff feet, dropoff_function, NoPosUpdate (not positional), emitter; the slot `Type` when no checksum; vtable
+  slot 13 (empty 0x0048D090) told first; PlayObjectSound with {pitch, volume, dropoff, falloff}), AdjustSound
+  0x00432FF0 (volumePercent / pitchPercent of volume2 / pitch2, at once unless volumeStep / pitchStep), SetSound
+  0x00432CE0, Obj_PlaySound 0x00433630 (not a Ghidra function).
+  - Test (selftests_obj_sound.cpp TestSoundComponent): 5000 random cases over the 18, the sfx manager's four, the
+    cameras, emitter / proxim nodes, the clock (GetSlomoFrameSeconds' double through a naked stand-in), the struct
+    getters stood in for; edges: a sound due exactly now, the camera exactly at the edge of hearing (the float sum
+    rounding below the double one). 42 deliberate bugs caught, 3 after strengthening; 1 equivalent (Construct's
+    explicit null emitter: Calloc zeroes).
+- [ ] Next: the stream component (0x433870-0x433D90 and its member functions).
