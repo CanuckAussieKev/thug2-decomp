@@ -51,6 +51,7 @@ import {
 } from "../lib/py.ts";
 import { StructError, unpackNumbers } from "../lib/struct.ts";
 import * as thps3 from "./thps3.ts";
+import { ROTATION_REWRITES } from "./thps3_rotation.ts";
 import * as thugproNew from "./thugpro_new.ts";
 
 export const STAGING = "thug2-decomp-thps3";
@@ -1560,7 +1561,8 @@ export function portScripts(
         nodeNames,
         allNames,
         names,
-        { provided, inheritParams: true, undrawn },
+        // (THPS3's rotation deceleration in THUG2's terms - thps3_rotation.ts)
+        { provided, inheritParams: true, undrawn, rewrites: ROTATION_REWRITES },
     );
     const roots: [number, scriptPort.Context][] = [];
     for (const node of converted) {
