@@ -271,6 +271,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_menulvl.cpp
     src/hook/selftests_motion.cpp
     src/hook/selftests_gamenet.cpp
+    src/hook/selftests_thugpro.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_editor_ui.cpp
@@ -289,6 +290,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_goals.cpp
     src/hook/selftests_editor_scale.cpp
     src/hook/selftests_collision_component.cpp
+    src/hook/selftests_lock_obj.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -527,6 +529,7 @@ add_library(thug2_code OBJECT
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/net/online_identity.cpp
+    src/game/net/thugpro_peer.cpp
     src/game/net/net_dispatcher.cpp
     src/game/net/net_app_messages.cpp
     src/game/net/net_client.cpp
@@ -565,6 +568,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/anim_blend.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
+    src/game/obj/lock_obj.cpp
     src/game/obj/motion.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp

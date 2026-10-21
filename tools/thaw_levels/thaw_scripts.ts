@@ -454,6 +454,9 @@ export class PortedNodes {
     readonly pedPaths = new Set<number>();
     // TPN-THAW-4: THUGPRO's car scripts (not THAW's, so not in scriptQbs) that drive the car along its path
     readonly drivers = new Set<number>();
+    // PC-THAW-14: the models (lower case, as nodes name them) converted from THAW's own data\models
+    // (thaw_levels.convertThawModel): their Vehicles keep THAW's model and its rails
+    readonly thawModels = new Set<string>();
     private indices: Map<QbValue, number> | null = null;
 
     constructor(
@@ -786,6 +789,7 @@ export class PortedNodes {
         const n = this.names;
         if (!node.hasFlag("CreatedAtStart")) return this.leftOut("cars not there at the start left out");
         let model = node.get("model");
+        if (typeof model === "string" && this.thawModels.has(model.toLowerCase())) return this.thawModelVehicle(node);
         if (!(typeof model === "string" && this.assets !== null && this.assets.modelExists(model))) {
             model = pedsCars.FALLBACK_CAR;
         }
@@ -805,6 +809,30 @@ export class PortedNodes {
         if (driving) entries.push([key(n, "TriggerScript"), key(n, CAR_DRIVE)], [key(n, "Links"), links]);
         this.count(driving ? "driving cars" : "parked cars");
         return this.made(entries);
+    }
+
+    // PC-THAW-14: a Vehicle whose model is converted from THAW's own (Santa Monica's ferris cars): THUG2's form of a
+    // mover with rails - Barcelona's drawbridges, Class=Vehicle with a model and no skeleton; car_add_components (ped.qb)
+    // gives it the model's collision, its node array and a rail manager for the model's rails (NoRail / NoSkitch /
+    // NoCollision as THAW's node has them). THAW's own Type, suspend and LOD distances. Scripts may address it
+    // (THAW's SM_FerrisWheelRotation locks the cars to the wheel: Obj_LockToObject, a lockobj member).
+    thawModelVehicle(node: Struct): Struct {
+        const n = this.names;
+        const type = node.get("Type");
+        if (!n.has(checksum("Default"))) n.set(checksum("Default"), "Default");
+        const entries: Entry[] = [
+            ...this.base(node, "Vehicle"),
+            [key(n, "Type"), type instanceof Name ? type : key(n, "Default")],
+            ...this.flags(node, "CreatedAtStart", "AbsentInNetGames", "NoSkitch", "NoRail", "NoCollision"),
+            [key(n, "model"), node.get("model")!],
+        ];
+        for (const k of ["SuspendDistance", "lod_dist1", "lod_dist2"]) {
+            const value = node.get(k);
+            if (value !== undefined) entries.push([key(n, k), value]);
+        }
+        this.objectContexts.set((node.get("Name") as Name).value, scriptPort.VEHICLE);
+        this.count("vehicles with THAW's own model");
+        return this.made(entries, node, scriptPort.VEHICLE);
     }
 }
 
@@ -868,6 +896,10 @@ export const SKATER: Context = scriptPort.addContext(
 // for the converted level's nodes of these classes - IsCreated of anything else (a parameter, a node not kept, the
 // skater...) is left out as before (a condition on it false).
 const IS_CREATED = checksum("IsCreated");
+// THAW's `ZoneLoadedAndParsed <zone>` (is that streamed zone loaded yet: SM_FerrisWheelRotation waits for it before
+// locking the ferris cars): THUG2 hasn't the command; a converted level is one zone, loaded before its scripts run -
+// true. (Left out it was false, and the wait loop around it never ended: the wheel never turned.)
+const ZONE_LOADED = checksum("ZoneLoadedAndParsed");
 const IS_ALIVE_CLASSES = new Set([
     "gameobject",
     "pedestrian",
@@ -916,6 +948,18 @@ export class Translator extends scriptPort.Translator {
             new Tok(0x07, Buffer.alloc(0), i),
             scriptPort.nameTok(target, i),
         ];
+    }
+
+    override condition(toks: readonly Tok[], contexts: ReadonlySet<Context>, discover: boolean): Tok[] {
+        const content = toks.filter((t) => !scriptPort.EOL.includes(t.t));
+        const negated = content.length > 1 && content[0]!.t === 0x39;
+        const head = content[negated ? 1 : 0];
+        if (head !== undefined && head.t === 0x16 && head.name() === ZONE_LOADED) {
+            // (ZONE_LOADED above: true - `not GotParam <never>`; negated, false)
+            const never = this.never(head.i);
+            return negated ? never : [new Tok(0x39, Buffer.alloc(0), head.i), ...never];
+        }
+        return super.condition(toks, contexts, discover);
     }
 
     override command(toks: Tok[], contexts: ReadonlySet<Context>, discover: boolean): Tok[] | null {

@@ -11770,25 +11770,100 @@
         },
         "why": "THPS3's start scripts make them only in the career (JS_Mid_Smasher_CareerRestart: IsCareerMode and the TOK_SECRET_AREA_OPEN flag) or by a goal script; the static follow took both branches of every `if`, so free skate had both the building and its replacement",
         "required": false
+      },
+      {
+        "id": "PC-THPS3-17",
+        "op": "set",
+        "target": {
+          "what": "Create / Kill of collision-only geometry (no scene sector: invisible walls, blockers, trigger planes) kept in the brought scripts - before, every statement naming one was left out with Visible / Invisible / Shatter, so a collision-only piece the scripts kill stayed solid (Shipyard's ramp and anchor-chain pieces BDJ_SHP_RestartSetup kills in free skate; Subway's BOARDED_02 / SUB_Blocker02 with TP-41) and one they make never came",
+          "levels": "*"
+        },
+        "why": "THUG2's LevelGeometry Create (0x005A2E50) and Kill (0x005A32C0) reach the missing geometry only through CSector::SetVisibility / SetActive / 0x0049EA30, which skip a null one; only Visible / Invisible (0x005A3B80) and Shatter read it (the crash level-port-compromises.md section 3 lists)",
+        "required": false
       }
     ]
   },
   "free_skate": {
     "_register": "TP-41",
-    "_source": "THUGPRO's Foundry scripts (data\\pre\\FOUN_scripts.prx: foun_scripts.qb CJR_Foun_LoadingScript / CJR_Foun_Valve_Check / CJR_Foun_Secret_Gen_Doors) read against THPS3's cjr_scripts.qb. THUGPRO runs every game, free skate too, as a network game: THPS3's `InMultiPlayerGame` is `InNetGame` there, so the level always takes THPS3's multiplayer branch - the generator's doors open, GenDoor01/02/03_Open made, the closed doors killed, the secret generator room (TRG_Ledge_SecretGen*, Secret_Gen*, Collision_Secret_Gen*, Air_Polys_Secret_Gen*) made. THPS3's own free skate (not career, no network) leaves them closed until the career's valve goal sets CJR_FLAG_GEN_OPEN. Our ports have no career: in a network game ours already takes the multiplayer branch (THUG2's InMultiplayerGame is true there too), so online both sides agree; offline free skate: the flag set from <level>_setup.",
-    "si": {
-      "kill": [
-        "SI_OuterDoor",
-        "SI_Sponsors06",
-        "si_lighting02"
-      ],
-      "what": "Skater Island's outer door (SI_OuterDoor, with the banner SI_Sponsors06 and light si_lighting02 THPS3 takes down with it) is gone in free skate: THPS3 blows it with the cannon goal (ALF_SI_BlowDoor, ALF_SI_CheckFlags: SI_FLAG_OUTSIDE_OPEN) or, in a multiplayer game, kills it from ALF_SI_Unhide_Inside (`if InMultiPlayerGame`); THUGPRO's SI_OuterDoor is CreatedAtStart + AbsentInNetGames (TP-14) and its free skate is a network game. Killed a second after ALF_SI_Init made it (no shatter, no sound); the outside is reachable"
-    },
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx (levels\\<level>\\<level>_scripts.qb and <level>.qb) read against THPS3's Data\\Scripts\\*.qb, its level structures (data\\pre\\thugpro_qb.prx qb\\game\\Levels.qb: setup_script / startup_script) and Morten1337's thugpro source (game\\menu\\skateshop.q: Freeskate is THUG2's offline single session; game\\gameflow.q: ResetSkaters at the start, which runs the Player1 restart's trigger script). THUGPRO's offline free skate is not a network game (InNetGame / InMultiplayerGame false: its peds, all AbsentInNetGames, are there); its world differs from THPS3's where THUGPRO rewrote a script. Each edit makes THPS3's own script take the branch THUGPRO's rewrite runs (`conditions`: every `if` of that command in the script decided) and leaves out what the rewrite no longer does (`drop`: \"<command> Name=<node>\" / \"prefix=<text>\") - except the level's life THUGPRO's rewrite kills (peds, moving things), kept in ours (the user's decision 2026-10-21). Checked node by node: node tools/thps3_levels/thugpro_compare.ts --start-state (tools/thps3_levels/start_state.ts).",
     "foun": {
-      "set_flags": [
-        "CJR_FLAG_GEN_OPEN"
-      ],
-      "what": "Foundry's GENERATOR 1 CORE doors (GenDoor01 / 02, the big double door, and GenDoor03) open in free skate and the generator room behind is reachable, as in THUGPRO and THPS3's multiplayer: CJR_Foun_Valve_Check's GetFlag branch (kills the GenDoor_Closed* sectors, makes GenDoor01-03_Open) - the same script THPS3's career runs once the five valves are un-jammed"
+      "scripts": {
+        "CJR_Foun_Valve_Check": {
+          "conditions": {
+            "GetFlag": true
+          },
+          "what": "GENERATOR 1 CORE: the double doors and GenDoor03 open (GenDoor_Closed* killed, GenDoor01-03_Open made) and the generator room reachable. THUGPRO's non-career branch opens them without THPS3's `if GetFlag flag=CJR_FLAG_GEN_OPEN` (set only by the career's five-valve goal); the freed valve peds are made either way"
+        },
+        "CJR_Foun_Valve_A_Booth": {
+          "conditions": {
+            "IsCareerMode": true,
+            "GetGoal": true
+          },
+          "what": "valve booth A shows its cleared state (blue panel / gear, Obj_ValveA_Gear_Blue*): THUGPRO's script is `GoTo CJR_Foun_Valve_A_Booth_Clear` - THPS3's career branch once the valve goal is done"
+        },
+        "CJR_Foun_Valve_B_Booth": {
+          "conditions": {
+            "IsCareerMode": true,
+            "GetGoal": true
+          },
+          "what": "valve booth B shows its cleared state (blue panel / gear, Obj_ValveB_Gear_Blue*): THUGPRO's script is `GoTo CJR_Foun_Valve_B_Booth_Clear` - THPS3's career branch once the valve goal is done"
+        },
+        "CJR_Foun_Valve_C_Booth": {
+          "conditions": {
+            "IsCareerMode": true,
+            "GetGoal": true
+          },
+          "what": "valve booth C shows its cleared state (blue panel / gear, Obj_ValveC_Gear_Blue*): THUGPRO's script is `GoTo CJR_Foun_Valve_C_Booth_Clear` - THPS3's career branch once the valve goal is done"
+        },
+        "CJR_Foun_Valve_D_Booth": {
+          "conditions": {
+            "IsCareerMode": true,
+            "GetGoal": true
+          },
+          "what": "valve booth D shows its cleared state (blue panel / gear, Obj_ValveD_Gear_Blue*): THUGPRO's script is `GoTo CJR_Foun_Valve_D_Booth_Clear` - THPS3's career branch once the valve goal is done"
+        },
+        "CJR_Foun_Valve_E_Booth": {
+          "conditions": {
+            "IsCareerMode": true,
+            "GetGoal": true
+          },
+          "what": "valve booth E shows its cleared state (blue panel / gear, Obj_ValveE_Gear_Blue*): THUGPRO's script is `GoTo CJR_Foun_Valve_E_Booth_Clear` - THPS3's career branch once the valve goal is done"
+        }
+      }
+    },
+    "sub": {
+      "scripts": {
+        "ALF_SUB_Status": {
+          "conditions": {
+            "InMultiPlayerGame": false,
+            "GetGoal": true
+          },
+          "drop": [
+            "Kill Name=TRG_Ped_ThinMan"
+          ],
+          "what": "the houses unboarded (BOARDED_* killed - BOARDED_02 is collision only, PC-THPS3-17 -, UNBOARDED_* made), SUB_Blocker* gone, the open rails instead of the closed ones (TRG_RAIL_OPEN_*, TRG_Rail_Blocker*), the dish turned (DISHEND_*), the curtain lit (LIT_CURTAIN, TRG_PornMusic): THUGPRO's ALF_SUB_Status runs both of THPS3's goal-done branches (GOAL_SCRIPTED1 and 2) unconditionally, in network games too (THPS3's `if InMultiplayerGame Die` is gone). Kept in ours: the Thin Man ped THUGPRO's kills"
+        }
+      }
+    },
+    "si": {
+      "scripts": {
+        "ALF_SI_Init": {
+          "drop": [
+            "Create Name=TRGP_FireCannons"
+          ],
+          "what": "the cannons' trigger (TRGP_FireCannons, collision only - PC-THPS3-17) not made at the start: THUGPRO's ALF_SI_Init leaves it out (its node not CreatedAtStart, TP-14), so free skate's interior isn't blown up by skating into it (THUGPRO makes its own TRG_FireCannonsProximity01 once the outer door is blown - THUGPRO's, not brought)"
+        }
+      }
+    },
+    "shp": {
+      "scripts": {
+        "BDJ_SHP_LoadingScript": {
+          "conditions": {
+            "IsCareerMode": true
+          },
+          "what": "the helicopter (sfo_Chopper, sfo_ChopperBlades) made at the start and flown off, the ship's flags made to flap (sto_FlagFlap*): THUGPRO's SHP_Setup makes them in every offline game (THPS3: the career's branch of BDJ_SHP_LoadingScript, whose goal flags are all clear in free skate - FERRY, NETS, POOL and the peds' flags unset as its free-skate branch does)"
+        }
+      }
     }
   }
 }

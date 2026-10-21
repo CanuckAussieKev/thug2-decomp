@@ -11,6 +11,8 @@
 #include "game/core/crc.h"
 #include "game/gfx/screen.h"
 #include "game/net/net_app.h"
+#include "game/net/net_dispatcher.h"
+#include "game/net/thugpro_peer.h"
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
@@ -104,8 +106,11 @@ constexpr uint32_t kShowChatScript = 0xCCB19938;    // the script that adds a li
 
 void Copy(char* out, size_t size, const char* in)
 {
-    // The original copies with no limit (and would overrun on a too-long line); stop at the field size.
-    strncpy_s(out, size, in, _TRUNCATE);
+    // The original copies with no limit (and would overrun on a too-long line); stop at the field size. (Not
+    // strncpy_s: a debug build fills the rest of the field with 0xFE - sent over the network.)
+    size_t length = strnlen(in, size - 1);
+    std::memcpy(out, in, length);
+    out[length] = '\0';
 }
 
 } // namespace
@@ -135,6 +140,15 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
     desc.m_data = &packet;
     desc.m_queue = MsgDesc::kQueueSequenced;
     desc.m_groupId = 8;
+    // NOT ORIGINAL - THUGPRO's layout in the THUGPRO peer mode (thugpro_peer.h): our machine id first, the text cut
+    // to its 127 characters.
+    Thugpro::ChatMessage thugpro;
+    if (Thugpro::PeerMode()) {
+        desc.m_length = static_cast<uint16_t>(
+            Thugpro::EncodeChat(&thugpro, Thugpro::MachineId(), color, packet.name, packet.text));
+        desc.m_data = &thugpro;
+        Copy(packet.text, sizeof(packet.text), thugpro.text); // (what was sent, shown below)
+    }
     SendToServer(manager, &desc);
 
     // The server doesn't send our own line back to us, so show it here.
@@ -170,6 +184,43 @@ void RunScriptWith(uint32_t script, Script::CStruct* params)
 
 } // namespace
 
+namespace {
+
+// The length of the string at `text`, at most up to `end` (a string the message doesn't end is cut there).
+int BoundedLength(const char* text, const char* end)
+{
+    return text < end ? static_cast<int>(strnlen(text, static_cast<size_t>(end - text))) : 0;
+}
+
+} // namespace
+
+// 0x00532050 (GameNet::Manager's chat handler, message 76; its data: none)
+int __cdecl HandleChat(Net::MsgHandlerContext* context)
+{
+    const char* message = context->m_Msg;
+    char line[256];
+    if (Thugpro::PeerMode()) {
+        // NOT ORIGINAL - THUGPRO's layout (machine id first); dropped when malformed, as THUGPRO does.
+        Thugpro::ChatLine chat;
+        if (!Thugpro::DecodeChat(reinterpret_cast<const uint8_t*>(message), context->m_MsgLength, true, &chat))
+            return 1;
+        std::snprintf(line, sizeof(line), "\\c%i%s\\c0 : %s", chat.objId + 2, chat.name, chat.text);
+    } else {
+        // The original sprintfs the name and the text with no bounds (a name without its NUL runs on into the text)
+        // into 256 bytes on the stack; here both stop at the message's end, and the line at 256.
+        const char* end = message + context->m_MsgLength;
+        const char* name = message + 1;
+        const char* text = message + 1 + kNameSize;
+        std::snprintf(line, sizeof(line), "\\c%i%.*s\\c0 : %.*s", static_cast<int8_t>(message[0]) + 2,
+                      BoundedLength(name, end), name, BoundedLength(text, end), text);
+    }
+    ScriptStruct* params = NewScriptStruct();
+    AddString(params, kText, line);
+    RunScript(kShowChatScript, params);
+    DeleteScriptStruct(params);
+    return 1;
+}
+
 // 0x00537BD0 (GameNet::Manager::SendChatMessage)
 void SendChatMessage(Manager* manager, const char* text)
 {
@@ -191,6 +242,9 @@ bool HandleChatCommand(Manager* manager, const char* text)
 {
     if (text[0] != '/')
         return false;
+    // (the THUGPRO peer mode's own: /tod, /weather, /option, /proset, /thugpro - thugpro_peer.h)
+    if (Thugpro::HandleChatCommand(text))
+        return true;
     if (_stricmp(text, "/hello") == 0) {
         // \cN switches the text colour (N = one hex digit, a palette entry of the chat font; \c0 = normal).
         SendNamedChatMessage(manager, "Server", "\\c2Hello, \\c4World!");
@@ -325,3 +379,4 @@ struct ManagerAdapter {
 REPLACE(0x005A16B0, CFunc_SendChatMessage);
 REPLACE(0x00537BD0, &ManagerAdapter::SendChatMessage);
 REPLACE(0x005334D0, GameNet::KeyboardTask);
+REPLACE(0x00532050, GameNet::HandleChat);

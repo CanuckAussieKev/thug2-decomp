@@ -149,3 +149,40 @@ test("hidesShown: Invisible / Kill prefix= of a set kept shown, not name= or oth
     Object.assign(tr, { shownPrefixes: [] });
     assert.equal(tr.hidesShown(prefix("SkWare_Light")), false);
 });
+
+test("withoutUndrawn: Create / Kill of collision-only geometry kept (collisionOnly), Visible and the left-out not", () => {
+    const words = ["prefix", "name", "Kill", "Create", "Visible", "Wall_A", "Wall_B", "Wall_Drawn", "Gone"];
+    const names = new Map<number, string>(words.map((w) => [checksum(w), w]));
+    const nodes = ["Wall_A", "Wall_B", "Wall_Drawn", "Gone"].map(checksum);
+    const tr = Object.create(sp.Translator.prototype) as sp.Translator;
+    Object.assign(tr, {
+        names,
+        leftOut: new Map(),
+        allNodeNames: new Set(nodes),
+        nodeNames: new Set(nodes.slice(0, 3)),
+        undrawn: new Set(["Wall_A", "Wall_B", "Gone"].map(checksum)),
+        collisionOnly: new Set(["Wall_A", "Wall_B"].map(checksum)),
+    });
+    const str = (s: string): sp.Tok => new sp.Tok(0x1b, Buffer.from(`${s}\0`, "latin1"), 0);
+    const statement = (command: string, key: string, value: sp.Tok): sp.Tok[] => [
+        name(command),
+        name(key),
+        tok(0x07),
+        value,
+    ];
+    const run = (toks: sp.Tok[]): string[] | null =>
+        tr
+            .withoutUndrawn(toks, sp.argsOf(toks.slice(1)))
+            ?.filter((t) => t.t === 0x16 || t.t === 0x1b)
+            .map((t) => (t.t === 0x1b ? t.p.toString("latin1").replace(/\0$/, "") : tr.text(t.name()!))) ?? null;
+    assert.deepEqual(run(statement("Kill", "name", name("Wall_A"))), ["Kill", "name", "Wall_A"]);
+    assert.deepEqual(run(statement("Create", "prefix", str("Wall_"))), ["Create", "prefix", "Wall_"]);
+    assert.equal(run(statement("Visible", "name", name("Wall_A"))), null); // (CFunc_Visible reads the geometry)
+    assert.equal(run(statement("Kill", "name", name("Gone"))), null); // (left out of the level)
+    // (a prefix= reaching a left-out node: the statement once per node it may name, name= each)
+    const each = run(statement("Kill", "prefix", str("")))!;
+    assert.deepEqual(each.filter((_, i) => i % 3 === 2).sort(), ["Wall_A", "Wall_B", "Wall_Drawn"]);
+    assert.ok(each.every((w, i) => i % 3 === 2 || w === ["Kill", "name"][i % 3]));
+    Object.assign(tr, { collisionOnly: new Set() });
+    assert.equal(run(statement("Kill", "name", name("Wall_A"))), null); // (without: left out, as before)
+});
