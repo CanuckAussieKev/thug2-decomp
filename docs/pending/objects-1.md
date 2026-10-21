@@ -62,3 +62,49 @@ Switch off: `[replacements] disable=object_query.cpp` (and the file of each late
   - Mutations: 45 deliberate bugs, 44 caught (40 at first; floats in sevenths - values needing more than a float's
     precision - and exact-distance cases added for 4). 1 equivalent: `>=` for `>` in RectRadiusSqr's largest size (the
     same value either way).
+
+- [x] Batch OC1-2 (NOT run in the game yet; the colour cycle, camera and car physics components, 31 functions):
+  src/game/obj/color_cycle.{h,cpp}, camera_component.{h,cpp}, car_physics.{h,cpp} (new).
+  - Obj::CColorCycleComponent (type 0xCDC76A22, vtable 0x00645E00, 0x7C bytes): 0x0041B3C0 Create (the constructor
+    inlined), 0x0041B280 RegisterMemberFunctions (the table 0x006845D0; its functions written in by the static
+    initialiser 0x00643D60), 0x0041B2A0 / 0x0041B2E0 the destructors, 0x0041B310 SetColors (up to five; vectors' x, y,
+    z, w 1 - more than five overrun the fields after, as in the original), 0x0041B440 SetOn (off: the object's colour
+    back to 0x808080 through the SetObjectColor helper 0x005A3E80 with name= / color=; on: from the first colour, 0
+    ms), 0x0041B580 Update (the current colour (z << 8 + y) << 8 + x, each _ftol-truncated; milliseconds with slow
+    motion, compared with the period before rounding; then the next colour), the members 0x0041B560 [0x4AF8B9AE] on,
+    0x0041B570 [0x1DE2F35B] off, 0x0041B2B0 [0x4A752AAE] the period (the unnamed float, asserted - the original's slot
+    for it is the params argument: without one the period takes the pointer's bits), 0x0041B390 [0x80D5F732] the
+    colours (the unnamed array, asserted - without one the params pointer is taken for the array).
+  - Obj::CCameraComponent (type 0xC4E311FA, vtable 0x00645E34, 0x1C bytes): 0x0041B840 Create, 0x0041B730 Construct (a
+    Gfx::Camera of its own; null when out of memory), 0x0041B6D0 / 0x0041B7C0 the destructors (the camera deleted
+    through its vtable), 0x0041B7F0 InitFromStructure (the object's priority -1000 with the composite object manager,
+    its slot 4), 0x0041B810 Finalize / 0x0041B8A0 Update (the camera at the object's position and orientation; Update
+    also makes the orientation the display matrix).
+  - Obj::CCarPhysicsComponent (type 0xC695136D, vtable 0x00645E6C, 0x58 bytes): 0x0041BD90 Create, 0x0041B910
+    RegisterMemberFunctions (0x006846A8), 0x0041BAD0 Construct (CreateCar's), 0x0041B930 / 0x0041BB00 the destructors,
+    0x0041B940 InitFromStructure (the tilt's limits / rate / divisor: script globals 0x877DB8DA, 0xFB3464DF,
+    0xFD8BC8D6, 0xB2C7447B, overridden by params), 0x0041BE10 Finalize (the motion, suspend, skeleton and model; the
+    distance between bones 2 and 4, each times bone 0 - D3DX), 0x0041C1B0 Update (not when suspended - the suspend
+    component's +0x30 or 0x00433EA0 -, dead or without a skeleton), 0x0041BB30 UpdateAngles (the spin from the
+    motion's speed, kept in 0-360 by steps on the FPU stack; the steering towards -asin(the bone distance / the
+    distance to the path follower's point) - the game's own _CIasin 0x00623560 - negated for a negative turn, 0
+    without a follower; the tilt towards -acceleration / divisor within the limits - the globals re-read while
+    0x4CF13D8F is set; both through Mth::KeepWithin at 60 degrees a second (times the rate for the tilt)), 0x0041C0B0
+    UpdateBones / 0x0041BF00 UpdateSkeleton (cdecl: the bones' matrices from the model's description, four wheel
+    bones turned about X by the spin, two steering ones about Z by the steering then X by the spin, the body 0x88C21962
+    about X by the tilt, each but the first times its parent; a hidden body's bone 0 scaled to nothing), the members
+    0x0041B9E0 [0xA2331896] the body shown (the unnamed integer), 0x0041BA20 [0xC9F0DB4B] nothing.
+  - Tests: selftests_obj_color_camera.cpp (TestColorCycleComponent - 40 seeds: Create on dirty memory, the
+    destructors, the members with and without their parameters, 10 random on / off / update steps each - periods
+    reached exactly, just short of them before rounding, NaN; structures from the pool or the manager (or none);
+    TestCameraComponent - 8 seeds), selftests_obj_car_physics.cpp (TestCarPhysicsComponent - 40 seeds: Create /
+    Construct on dirty memory, InitFromStructure with and without params, Finalize with and without a skeleton,
+    UpdateAngles from 8 states each (spin past 360 by several turns, exactly 720 / 1080, negative, NaN; no follower,
+    no turn, NaN turn, the bone distance huge / 0 / negative, the follower's point on its own position; divisor 0 /
+    tiny, wide limits, the globals re-read or not), UpdateBones shown / hidden, UpdateSkeleton, Update's early outs; the
+    C runtime's asin stood in - the game's isn't started offline).
+  - Mutations: 63 deliberate bugs, 57 caught (51 at first; dirty Calloc memory, a frame landing just short of the
+    period, exactly 720 / 1080, wide tilt limits added for 6). 6 equivalent: Script::PrintContents removed (empty), the
+    camera's null check folded (null either way), the order of the steering distance's squares and `clamped > 1` for
+    `ratio > 1` (the ratio is rounded to float before use: the same value), `turn <= 0` for `turn < 0` (0 never gets
+    there), the tilt's max compared after rounding (the same value assigned).

@@ -334,6 +334,8 @@ add_library(thug2_code OBJECT
     src/hook/selftests_collision_component.cpp
     src/hook/selftests_lock_obj.cpp
     src/hook/selftests_obj_query.cpp
+    src/hook/selftests_obj_color_camera.cpp
+    src/hook/selftests_obj_car_physics.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -621,6 +623,9 @@ add_library(thug2_code OBJECT
     src/game/obj/flip_rotate.cpp
     src/game/obj/lock_obj.cpp
     src/game/obj/object_query.cpp
+    src/game/obj/color_cycle.cpp
+    src/game/obj/camera_component.cpp
+    src/game/obj/car_physics.cpp
     src/game/obj/motion.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp
