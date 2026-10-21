@@ -9,7 +9,7 @@ import { pack } from "../lib/struct.ts";
 import { migrateText, quarterTurn } from "./migrate_layouts.ts";
 import { inlineStruct, statements, tokens } from "./thaw.ts";
 import { applySpawns, COMPAT, levelName, moveTree, setCompat, sixteenths } from "./thaw_levels.ts";
-import { scriptToks } from "./thaw_scripts.ts";
+import { RAIL_SCRIPTS, scriptToks } from "./thaw_scripts.ts";
 
 test("formatG is Python's %g / %.9g: exact value, halves to even", () => {
     const values = [100.0625, -0.0, 0.0, 12660.4375, -61514.9375, 1e-5, 0.0001, 123456789.0, 1234567.0, 999999.5];
@@ -190,4 +190,9 @@ test("applySpawns (TP-4):changes a named restart, adds one with the drop-in, not
     assert.equal(applySpawns("z_xx", "z_xx", untouched, names, []), "");
     assert.deepEqual((untouched[0]!.get("Pos") as Vector).values, [1, 2, 3]);
     setCompat("thugpro");
+});
+
+test("RailAccelerate passes its parameters (a rail's rate=) on to RailAccelerate2, as THAW's skutils.qb does", () => {
+    assert.match(RAIL_SCRIPTS, /Obj_SpawnScript RailAccelerate2 params=<\.\.\.>\n/);
+    assert.match(RAIL_SCRIPTS, /script RailAccelerate2 \{rate=0\.05\n/);
 });

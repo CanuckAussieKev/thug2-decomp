@@ -212,7 +212,8 @@ const std::vector<std::string>& GrindTerrainNames();
 //             } else { break }
 //         }
 //     }
-// - the rate passed on to the loop, which THAW's own doesn't do).
+// - the rate passed on to the loop: THAW's passes all of its parameters, params=<...>, which the THAW converter's
+// RailAccelerate does too since thaw-railspeed; here only rate=, the one the loop reads).
 const std::vector<uint8_t>& RailSpeedQb();
 // A point's script: "ed_railspeed_" and its node's checksum in 8 hex digits.
 std::string SpeedScriptName(uint32_t node);
