@@ -1,6 +1,8 @@
 // NOT ORIGINAL - tests of tools/game/edit_level.ts's pure parts (no game data).
 
 import assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 import { findExe, findLevel, formatList, type Level, resolveGameFolder } from "./edit_level.ts";
@@ -34,15 +36,25 @@ test("formatList groups by game, THUG2 first, and leaves uninstalled levels out"
     ]);
 });
 
-test("resolveGameFolder steps into a stock install's Game folder", () => {
-    const files = new Set([
-        path.join("C:\\Games\\THUG2", "Game", "THUG2.exe"),
-        path.join("C:\\Games\\THUG2-1", "THUG2PM.exe"),
-    ]);
+test("resolveGameFolder steps into a stock install's Game folder, and keeps a folder that isn't THUG2's", () => {
+    const top = fs.mkdtempSync(path.join(os.tmpdir(), "edit-level-"));
+    try {
+        fs.mkdirSync(path.join(top, "Stock", "Game"), { recursive: true });
+        fs.writeFileSync(path.join(top, "Stock", "Game", "THUG2.exe"), "");
+        fs.mkdirSync(path.join(top, "Flat"));
+        fs.writeFileSync(path.join(top, "Flat", "THUG2PM.exe"), "");
+        assert.equal(resolveGameFolder(path.join(top, "Stock")), path.join(top, "Stock", "Game"));
+        assert.equal(resolveGameFolder(`${path.join(top, "Stock")}\\`), path.join(top, "Stock", "Game"));
+        assert.equal(resolveGameFolder(path.join(top, "Flat")), path.join(top, "Flat"));
+        assert.equal(resolveGameFolder(`${path.join(top, "None")}\\`), path.join(top, "None"));
+    } finally {
+        fs.rmSync(top, { recursive: true });
+    }
+});
+
+test("findExe: THUG2PM.exe or THUG2.exe", () => {
+    const files = new Set([path.join("C:\\Games\\THUG2-1", "THUG2PM.exe")]);
     const exists = (p: string): boolean => files.has(p);
-    assert.equal(resolveGameFolder("C:\\Games\\THUG2", exists), path.join("C:\\Games\\THUG2", "Game"));
-    assert.equal(resolveGameFolder("C:\\Games\\THUG2\\", exists), path.join("C:\\Games\\THUG2", "Game"));
-    assert.equal(resolveGameFolder("C:\\Games\\THUG2-1", exists), "C:\\Games\\THUG2-1");
     assert.equal(findExe("C:\\Games\\THUG2-1", exists), path.join("C:\\Games\\THUG2-1", "THUG2PM.exe"));
     assert.equal(findExe("C:\\Games\\Nothing", exists), null);
 });

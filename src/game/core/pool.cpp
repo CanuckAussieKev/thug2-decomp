@@ -58,8 +58,23 @@ void* Pool::Allocate()
         return nullptr;
     }
     ++m_used;
-    if (m_used > m_peakUsed)
+    if (m_used > m_peakUsed) {
         m_peakUsed = m_used;
+        // Not original either - a pool reaching 80 % is logged once per pool (which pools a big level comes near:
+        // the script pools' sizes are ours, game/core/memory_sizes.h).
+        if (static_cast<int64_t>(m_used) * 5 == static_cast<int64_t>(m_count) * 4 && m_count >= 50 &&
+            m_name[0] != '\0') {
+            static const Pool* nearlyFull[32];
+            static int nearlyFullCount;
+            bool seen = false;
+            for (int i = 0; i < nearlyFullCount; ++i)
+                seen = seen || nearlyFull[i] == this;
+            if (!seen && nearlyFullCount < 32) {
+                nearlyFull[nearlyFullCount++] = this;
+                Log("pool %s 80%% full: %d of %d items in use", m_name, m_used, m_count);
+            }
+        }
+    }
     m_freeList = *static_cast<void**>(item);
     return item;
 }

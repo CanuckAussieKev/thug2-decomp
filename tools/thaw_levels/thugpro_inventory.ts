@@ -20,6 +20,7 @@ import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyJsonDumps, runMain, writeTextPy } from "../lib/py.ts";
 import * as thaw from "./thaw.ts";
 import {
@@ -136,7 +137,7 @@ function inventory(zone: string, thawFolder: string, thugpro: string, names: Nam
     };
 
     // THAW: the full archive with its _sfx sub-zone
-    const pak = findPath(thawFolder, "Game", "data", "worlds", "worldzones", zone, `${zone}.pak.wpc`);
+    const pak = findPath(resolveInstall(thawFolder, "thaw"), "data", "worlds", "worldzones", zone, `${zone}.pak.wpc`);
     if (pak === null) pyExit(`no THAW ${zone}.pak.wpc in ${thawFolder}`);
     const thawNodes: Struct[] = [];
     const sfxNodes = new Set<string>();

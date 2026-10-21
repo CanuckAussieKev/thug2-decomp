@@ -32,6 +32,7 @@ import * as qb from "../level_port/qb.ts";
 import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import * as tex from "../level_port/tex.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { pyJoin, pyMax, pyMin, pyParseInt, pyRepr, pySum, pyTruthy } from "../lib/py.ts";
 import * as thps4 from "./thps4.ts";
 
@@ -133,7 +134,7 @@ export class Port {
         this.thug2 = new scriptPort.Thug2(thug2Dir);
         this.assets = new pedsCars.Thug2Assets(thug2Dir);
         this.vehicles = new VehicleModels(thps4Dir);
-        const folder = path.join(thps4Dir, "Game", "data", "scripts");
+        const folder = path.join(resolveInstall(thps4Dir, "thps4"), "data", "scripts");
         this.sources = fs
             .readdirSync(folder)
             .sort()
@@ -560,7 +561,7 @@ export class VehicleModels {
     private readonly cache = new Map<string, Model | null>();
 
     constructor(thps4Dir: string) {
-        this.modelsDir = path.join(thps4Dir, "Game", "data", "models");
+        this.modelsDir = path.join(resolveInstall(thps4Dir, "thps4"), "data", "models");
     }
 
     model(file: string): Model | null {
