@@ -19,6 +19,7 @@ import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
+import * as movers from "../level_port/movers.ts";
 import * as nodes from "../level_port/nodes.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
@@ -2312,6 +2313,22 @@ export function convertNodeArray(
     // scripts are brought along (their trigger scripts count) and before TP-18's rails (Foundry's wires find their
     // foun_wire cluster)
     const newReport = tpNew.nodes.length || tpNew.sets.length ? thugproNew.applyNodes(converted, names, tpNew) : [];
+    // PC-THPS3-15: THUGPRO's non-car Vehicles (the bucket, the trains, the planes, the carplant boxes) as THUG2's
+    // moving game objects with their models' collision (tools/level_port/movers.ts; --no-port-changes: Vehicles)
+    const moverChange = pc.get("PC-THPS3-15", base.toLowerCase());
+    if (moverChange !== null) {
+        const models = new Map(tpNew.models.map(([file, data]) => [file.toLowerCase(), data] as const));
+        newReport.push(
+            ...movers.makeMovers(
+                converted,
+                names,
+                movers.moversFor(moverChange.objects, name),
+                models,
+                kills,
+                "PC-THPS3-15",
+            ),
+        );
+    }
     if (port === null) {
         // (static: no scripts - THUGPRO's nodes keep none either)
         const added = new Set(tpNew.nodes.map((n) => n.node));
