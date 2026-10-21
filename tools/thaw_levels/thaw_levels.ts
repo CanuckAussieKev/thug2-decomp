@@ -1183,10 +1183,12 @@ export function convertLevelNodes(
     if (port !== null) {
         const rigs = pedRigs.fixPedRigs(converted, names, (v) => port.assets.femaleRigs.has(v));
         if (rigs.changed.length) report.push(`  peds given their profile's skeleton: ${rigs.changed.join(", ")}`);
-        if (rigs.human) {
+        // (and any animals' sets: nothing else loads them - pedRigs.otherAnims)
+        const animals = pedRigs.otherAnims(converted, names);
+        if (rigs.human || animals.length) {
             if (/^script load_level_anims\b/im.test(extraText))
                 throw new FormatError(`${name}: load_level_anims already defined`);
-            animsText = pedRigs.loadLevelAnimsNs(rigs.female > 0);
+            animsText = pedRigs.loadLevelAnimsNs(rigs.female > 0, animals);
         }
     }
     // PC-THAW-13 shared_parts: the rail nodes' common parts as include structures, as THUG2's own levels have them

@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { test } from "node:test";
 import { Float } from "../lib/py.ts";
-import { fixProfiles } from "./nodes.ts";
+import { fixProfiles, supportStreams, useModelLights } from "./nodes.ts";
 import * as pedRigs from "./ped_rigs.ts";
 import { Thug2Assets } from "./peds_cars.ts";
 import { lzssDecode } from "./prx.ts";
@@ -147,6 +147,118 @@ test("fixProfiles: a ped profile THUG2 hasn't becomes THUG2's random one (a woma
     assert.equal((array[2]!.get("profile") as Name).value, checksum("PedPro_Muska"));
     assert.equal(array[3]!.get("profile"), undefined);
     assert.ok(changed[0]!.startsWith("A: random_sk3_male_profile -> random_male_profile"));
+});
+
+test("useModelLights: objects whose scripts set their model's lights get UseModelLights", () => {
+    const text = [
+        "cnv_NodeArray = [",
+        "    {",
+        "        Name=Car01 ",
+        "        Class=LevelObject ",
+        "        CreatedAtStart ",
+        "        TriggerScript=Car01Script ",
+        "    } ",
+        "    {",
+        "        Name=Car02 ",
+        "        Class=LevelObject ",
+        "        TriggerScript=Car02Script ",
+        "    } ",
+        "    {",
+        "        Name=Car03 ",
+        "        Class=LevelObject UseModelLights ",
+        "        TriggerScript=Car01Script ",
+        "    } ",
+        "]",
+        "script Car01Script {",
+        "    Mdl_NoDynLighting ",
+        "} ",
+        "script Car02Script {",
+        "    Obj_RotY speed=10 ",
+        "} ",
+        "script Mdl_NoDynLighting {",
+        "    Obj_EnableAmbientLight ",
+        "} ",
+        "",
+    ].join("\n");
+    const [out, marked] = useModelLights(text);
+    assert.equal(marked, 1);
+    assert.ok(out.includes("Name=Car01 \n        Class=LevelObject UseModelLights \n        CreatedAtStart"));
+    assert.ok(out.includes("Name=Car02 \n        Class=LevelObject \n"));
+    assert.equal(out.match(/UseModelLights/g)!.length, 2);
+    // a compiled script brought along (script_port.appendScripts) counts too: 0x16 <checksum> is a name
+    const code = Buffer.alloc(5);
+    code[0] = 0x16;
+    code.writeUInt32LE(checksum("Obj_SetLightAmbientColor"), 1);
+    const [, viaCode] = useModelLights(text, new Map([[checksum("Car02Script"), code]]));
+    assert.equal(viaCode, 2);
+});
+
+test("supportStreams: objects whose scripts play streams (through THUG2's scripts too) get SupportStreams", () => {
+    const text = [
+        "alc_NodeArray = [",
+        "    {",
+        "        Name=Tram01 ",
+        "        Class=LevelObject ",
+        "        TriggerScript=Tram01Script ",
+        "    } ",
+        "    {",
+        "        Name=Ped01 ",
+        "        Class=Pedestrian ",
+        "        TriggerScript=Tram01Script ",
+        "    } ",
+        "    {",
+        "        Name=Ghost01 ",
+        "        Class=GameObject ",
+        "        TriggerScript=Ghost01Script ",
+        "    } ",
+        "]",
+        "script Tram01Script {",
+        "    Car_Generic01 PathNum=1 ",
+        "} ",
+        "script Ghost01Script {",
+        "    Obj_RotY ",
+        "} ",
+        "",
+    ].join("\n");
+    // (THUG2's Car_Generic01 -> SpawnSound Auto_SFX_Car_Tire_Squeal -> Obj_PlayStream)
+    const more = new Map([
+        [checksum("Car_Generic01"), new Set([checksum("SpawnSound"), checksum("Auto_SFX_Car_Tire_Squeal")])],
+        [checksum("Auto_SFX_Car_Tire_Squeal"), new Set([checksum("Obj_PlayStream")])],
+    ]);
+    const [out, marked] = supportStreams(text, null, more);
+    assert.equal(marked, 1);
+    assert.ok(out.includes("Name=Tram01 \n        Class=LevelObject SupportStreams \n"));
+    assert.ok(out.includes("Class=Pedestrian \n")); // (peds have a stream component anyway)
+    assert.equal(supportStreams(text)[1], 0);
+});
+
+test("ped rigs: otherAnims names the animals' animation sets for load_level_anims", () => {
+    const names = new Map<number, string>();
+    const k = (t: string): Name => {
+        names.set(checksum(t), t);
+        return new Name(checksum(t));
+    };
+    const ped = (anims: string): Struct =>
+        new Struct([
+            [k("Class"), k("Pedestrian")],
+            [k("AnimName"), k(anims)],
+        ]);
+    const nodes = [
+        ped("animload_THPS6_human"),
+        ped("animload_anl_pigeon"),
+        ped("animload_ped_female"),
+        ped("animload_anl_pigeon"),
+        new Struct([
+            [k("Class"), k("LevelObject")],
+            [k("AnimName"), k("animload_anl_dog")],
+        ]),
+    ];
+    const animals = pedRigs.otherAnims(nodes, names);
+    assert.deepEqual(animals, ["animload_anl_pigeon"]);
+    assert.equal(
+        pedRigs.loadLevelAnimsNs(false, animals),
+        "script load_level_anims {\n    animload_THPS6_human \n    animload_anl_pigeon \n}\n",
+    );
 });
 
 test("ped rigs: a woman's profile gets Ped_Female, a man's THPS6_human; animals are left alone", () => {

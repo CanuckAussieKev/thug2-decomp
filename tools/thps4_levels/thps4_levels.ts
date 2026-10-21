@@ -615,7 +615,9 @@ export function cmdConvert(args: Args): void {
         const rigs = pedRigs.fixPedRigs([...converted, ...moving], names, (v) => thug2.femaleRigs.has(v));
         if (rigs.changed.length) report.push(`  peds given their profile's skeleton: ${rigs.changed.join(", ")}`);
         if (/^script load_level_anims\b/im.test(extraText)) throw new FormatError(`${name}: load_level_anims defined`);
-        const animsText = rigs.human ? pedRigs.loadLevelAnimsNs(rigs.female > 0) : "";
+        // (and the animals' - the pigeons': nothing else loads them, pedRigs.otherAnims)
+        const animals = pedRigs.otherAnims([...converted, ...moving], names);
+        const animsText = rigs.human || animals.length ? pedRigs.loadLevelAnimsNs(rigs.female > 0, animals) : "";
         pedsCars.offsetLinks(moving, converted.length);
         let text = nodes.nodeArrayNs(`${name}_NodeArray`, [...converted, ...moving], names, kills);
         text += pedsCars.scriptsNs(movingScripts) + extraText + netScripts + animsText;
@@ -635,6 +637,22 @@ export function cmdConvert(args: Args): void {
         const [netText, marked] = portChange("net_game_nodes", base) ? nodes.netGameNodes(text, brought) : [text, 0];
         text = netText;
         if (marked) report.push(`  ${marked} node(s) changed for network games`);
+        // (objects whose scripts set their model's lights - Carnival's rides: Mdl_NoDynLighting - made with them, or
+        // the first such command reads through the missing lights: nodes.useModelLights) (PC-THPS4-12)
+        const thug2Scripts = port?.thug2.bodies ?? null;
+        const [lightText, lit] = portChange("model_lights", base)
+            ? nodes.useModelLights(text, brought, thug2Scripts)
+            : [text, 0];
+        text = lightText;
+        if (lit) report.push(`  ${lit} object(s) given model lights (UseModelLights: their scripts set them)`);
+        // (and a stream component where their scripts play streams - the trams' Car_Generic01: nodes.supportStreams)
+        // (PC-THPS4-13)
+        const [streamText, streams] = portChange("support_streams", base)
+            ? nodes.supportStreams(text, brought, thug2Scripts)
+            : [text, 0];
+        text = streamText;
+        if (streams)
+            report.push(`  ${streams} object(s) given a stream component (SupportStreams: their scripts play streams)`);
 
         const writeQb = (source: string): void => {
             common.nsCompile(args.ns, source, qbPath);

@@ -268,9 +268,11 @@ Not THUGPRO entries: what this project changed in a source game's levels on purp
 | PC-THPS4-9 | remove | yes | `empty_restart_scripts` | every level: restart trigger scripts left empty | THPS4's menu restart's script has nothing left; an empty script broke make_menu_level's parsing |
 | PC-THPS4-10 | set | no | `ground_restarts` | every level: restarts over nothing / a kill zone | Not network spawns or kill targets (a player would fall forever) |
 | PC-THPS4-11 | set | no | `net_game_nodes` | every level: path followers, peds, cars; single-player levels' Player1 restarts | Network games: no path manager or ped animations, and restarts for the players |
+| PC-THPS4-12 | add | yes | `model_lights` | every level: UseModelLights on objects whose trigger script sets their model's lights | Crash guard: the light members (0x00421AE0) read through lights only UseModelLights makes - Carnival crashed loading at 0x0048DE30 (nodes.useModelLights) |
+| PC-THPS4-13 | add | yes | `support_streams` | every level: SupportStreams on LevelObjects / GameObjects whose trigger script plays a stream on them (through THUG2's scripts too) | Crash guard: a LevelObject has a stream component only with SupportStreams - the trams' Car_Generic01 (its tire squeal) crashed Alcatraz and San Francisco (nodes.supportStreams) |
 
 Checked: `--compat thugpro` and `--compat none` output byte-identical to before the move (75 files each; the .qb
-files by code and sorted checksum names); `--no-port-changes` keeps PC-THPS4-4 / 5 / 6 / 7 / 9. Not entries (the converter's translation of THPS4's forms into THUG2's, not
+files by code and sorted checksum names); `--no-port-changes` keeps PC-THPS4-4 / 5 / 6 / 7 / 9 / 12 / 13. Not entries (the converter's translation of THPS4's forms into THUG2's, not
 a choice that could be switched back: the source has no THUG2 form to fall back on): THPS4's animals other than
 pigeons, particle emitters, proximity nodes (their scripts run once at the start instead), goals and their pick-ups
 and peds, trigger types as THUG2's arrays, MakeSkaterGoto kept for DropIn / StartSkating1 only, standing peds' THUG2
