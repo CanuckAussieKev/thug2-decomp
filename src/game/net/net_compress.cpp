@@ -6,6 +6,8 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
+#include "game/net/net_lzham.h"
+#include "game/net/thugpro_peer.h"
 #include "game/util/lzss.h"
 #include "hook/hook.h"
 
@@ -135,6 +137,11 @@ int RleDecompress(const uint8_t* in, int size, uint8_t* out, int* outSize)
 // 0x00454E30
 uint8_t* CompressMessage(uint8_t* msgId, uint16_t* length, const void* data, char method)
 {
+    // NOT ORIGINAL: in the THUGPRO peer mode LZSS goes as THUGPRO's LZHAM. THUGPRO's receivers don't expand LZSS
+    // (its patch over HandleCompressedMessages' method test), and its senders turn THUG2's two LZSS messages - the join
+    // request (80) and player create (34) - into LZHAM (TP-R11).
+    if (method == kMethodLzss && GameNet::Thugpro::PeerMode())
+        method = static_cast<char>(Lzham::kMethod);
     // The whole message - id, length, data - is compressed.
     int size = static_cast<uint16_t>(*length + 3); // (16 bits: wraps for a length of 0xFFFD up)
     int compressedSize = 0;
@@ -154,6 +161,11 @@ uint8_t* CompressMessage(uint8_t* msgId, uint16_t* length, const void* data, cha
     } else if (method == kMethodLzss) {
         compressedSize = Lzss::Encode(message, compressed + 3, size, false);
         Dbg::Printf("LZSS : New payload len : %d, New size : %d\n", size, compressedSize);
+    } else if (method == Lzham::kMethod) {
+        // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11). A stream that fails or doesn't fit counts as "no smaller".
+        size_t lzham = Lzham::Compress(message, static_cast<size_t>(size), compressed + 3, static_cast<size_t>(maxSize));
+        compressedSize = lzham != 0 ? static_cast<int>(lzham) : size;
+        Dbg::Printf("LZHAM : New payload len : %d, New size : %d\n", size, compressedSize);
     }
     // (Another method compresses to nothing: the 3-byte header "wins".)
     Mem::Free(message);
