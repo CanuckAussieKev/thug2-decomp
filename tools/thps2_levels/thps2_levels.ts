@@ -37,6 +37,7 @@ import { parseCli } from "../lib/cli.ts";
 import { resolveInstall } from "../lib/install.ts";
 import { isMain, print, pyExit, pyJoin, runMain } from "../lib/py.ts";
 import { mipDown } from "../thps3_levels/thps3_levels.ts";
+import * as gapTable from "./gap_table.ts";
 import { Pkr } from "./pkr.ts";
 import * as thps2 from "./thps2.ts";
 
@@ -867,15 +868,26 @@ export function triggerEffects(trg: readonly thps2.TrgNode[]): Map<number, Trigg
     return out;
 }
 
-// Gaps: THPS2's gap table (names, scores) is in its executable - SafeDisc-encrypted on the PC, not read here - so a
-// gap is named by its number and scored by its kind (the number's ten-thousands, as THPS1's table in the PC release
-// shows: 0 air, 1 ..., 2 grinds): the stand-ins docs/level-port-compromises.md section 9 lists.
+// Gaps: THPS2's gap table (names, scores) is in its executable (gap_table.ts reads it from a readable one). A gap it
+// doesn't name - every gap, with the retail SafeDisc-encrypted executable - is named by its number and given 250
+// points: the stand-ins docs/level-port-compromises.md section 9 lists.
 export const GAP_SCORE = 250;
 export function gapName(level: string, gap: number): string {
     return `${level}_Gap_${gap}`;
 }
-export function gapText(gap: number): string {
-    return `GAP ${gap}`;
+export function gapText(gap: number, table?: ReadonlyMap<number, gapTable.GapInfo>): string {
+    const name = table?.get(gap)?.name;
+    return name === undefined ? `GAP ${gap}` : name.replaceAll('"', "'").replaceAll("\\", "/");
+}
+export function gapScore(gap: number, table?: ReadonlyMap<number, gapTable.GapInfo>): number {
+    return table?.get(gap)?.score ?? GAP_SCORE;
+}
+
+// A level's gap numbers (GapPolyHit's), from its .trg nodes.
+export function gapNumbers(trg: readonly thps2.TrgNode[]): number[] {
+    const gaps = new Set<number>();
+    for (const e of triggerEffects(trg).values()) for (const g of [...e.gapEnds, ...e.gapStarts]) gaps.add(g);
+    return [...gaps].sort((a, b) => a - b);
 }
 
 export function triggerNodeName(trigger: number): string {
@@ -914,8 +926,13 @@ export function triggerActive(e: TriggerEffect): boolean {
 }
 
 // A trigger's script (NeverScript text): the gaps it ends, then those it starts (meeting it again from the other side
-// starts the way back), or a kill back to its restart.
-export function triggerScriptText(level: string, e: TriggerEffect, restartName: (index: number) => string): string {
+// starts the way back), or a kill back to its restart. `gaps`: THPS2's table (names, scores) - else the stand-ins.
+export function triggerScriptText(
+    level: string,
+    e: TriggerEffect,
+    restartName: (index: number) => string,
+    gaps?: ReadonlyMap<number, gapTable.GapInfo>,
+): string {
     const lines: string[] = [];
     if (e.kill) {
         lines.push(
@@ -925,7 +942,7 @@ export function triggerScriptText(level: string, e: TriggerEffect, restartName: 
         );
     } else {
         for (const g of e.gapEnds)
-            lines.push(`    EndGap GapID=${gapName(level, g)} score=${GAP_SCORE} text="${gapText(g)}" `);
+            lines.push(`    EndGap GapID=${gapName(level, g)} score=${gapScore(g, gaps)} text="${gapText(g, gaps)}" `);
         for (const g of e.gapStarts) lines.push(`    StartGap GapID=${gapName(level, g)} flags=[CANCEL_GROUND] `);
     }
     return `script ${triggerScriptName(level, e.trigger)} {\n${lines.join("\n")}\n}`;
@@ -974,6 +991,7 @@ export interface NodeArrayResult {
     rails: number;
     triggers: number;
     gaps: number;
+    gapsNamed: number; // of them, named by THPS2's table
     kills: number;
 }
 
@@ -993,6 +1011,7 @@ export function nodeArrayText(
     triggers: readonly PlacedTrigger[] = [],
     objects: readonly PlacedObject[] = [],
     leaveOut: ReadonlySet<string> = new Set(),
+    gapNames: ReadonlyMap<number, gapTable.GapInfo> = new Map(),
 ): NodeArrayResult {
     const restartNodes = trg.filter((n) => n.type === thps2.NODE_RESTART);
     const restarts = restartNodes.map(thps2.restartOf);
@@ -1124,6 +1143,7 @@ export function nodeArrayText(
                 level,
                 effect,
                 (index) => restartNames.get(restartOfNode.get(index) ?? -1) ?? "TRG_Restart_01",
+                gapNames,
             ),
         );
     }
@@ -1134,6 +1154,7 @@ export function nodeArrayText(
         rails: railNodes.length,
         triggers: scripts.length,
         gaps: gaps.size,
+        gapsNamed: [...gaps].filter((g) => gapNames.has(g)).length,
         kills,
     };
 }
@@ -1410,13 +1431,14 @@ export function convertSky(
 // --- convert -------------------------------------------------------------------------------------------------------
 
 export interface Args {
-    command: "convert" | "selfcheck" | "list";
+    command: "convert" | "selfcheck" | "list" | "gaps";
     levels: string[];
     thug2: string;
     thps2: string;
     out: string | null;
     ns: string;
     noMips: boolean;
+    thps2Exe: string | null; // the executable to read the gap table from (default: <thps2>\THawk2.exe, THPS2.exe)
 }
 
 export function findLevel(name: string): LevelInfo | undefined {
@@ -1438,6 +1460,9 @@ export function cmdConvert(args: Args): number {
     fs.mkdirSync(out, { recursive: true });
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
     const report: string[] = [];
+    // THPS2's gap names and scores, from its executable when it is readable
+    const gaps = levelGapTable(args, pkr, wanted);
+    report.push(...gaps.report.map((l) => `gaps: ${l}`));
     for (const info of wanted) {
         const name = levelName(info);
         const worldFile = `data/${info.base}.psx`;
@@ -1474,11 +1499,12 @@ export function cmdConvert(args: Args): number {
                 `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${biased} layer materials given a z bias`,
         );
         const noFloor = restartsWithoutFloor(trg, done.col);
-        const nodeArray = nodeArrayText(name, trg, placed, levelObjs.placed, noFloor);
+        const nodeArray = nodeArrayText(name, trg, placed, levelObjs.placed, noFloor, gaps.gaps);
         common.nsCompile(args.ns, nodeArray.text, pyJoin(levelDir, `${name}.qb`));
         report.push(
             `  nodes: ${nodeArray.restarts} restarts, ${nodeArray.rails} rail points, ${nodeArray.triggers} triggers ` +
-                `(${nodeArray.gaps} gaps, ${nodeArray.kills} kill zones; ${effects.length - placed.length} without trigger faces)`,
+                `(${nodeArray.gaps} gaps - ${nodeArray.gapsNamed} named by THPS2's table, ${nodeArray.kills} kill ` +
+                `zones; ${effects.length - placed.length} without trigger faces)`,
         );
         const oc = levelObjs.counts;
         report.push(
@@ -1525,6 +1551,43 @@ export function cmdConvert(args: Args): number {
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
     print(report.join("\n"));
     print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
+    return 0;
+}
+
+// The executables gap_table.ts looks in: --thps2-exe, else THPS2's own (THawk2.exe) and PartyMod's (THPS2.exe).
+export function gapExeFiles(args: Args): string[] {
+    if (args.thps2Exe) return [args.thps2Exe];
+    const dir = resolveInstall(args.thps2, "thps2");
+    return [pyJoin(dir, "THawk2.exe"), pyJoin(dir, "THPS2.exe")];
+}
+
+// THPS2's gap table for the gap numbers of `levels`' .trg files.
+export function levelGapTable(args: Args, pkr: Pkr, levels: readonly LevelInfo[]): gapTable.GapSource {
+    const numbers = new Set<number>();
+    for (const info of levels) {
+        const trgFile = `data/${info.base}_t.trg`;
+        for (const g of gapNumbers(thps2.readTrg(pkr.read(trgFile), trgFile))) numbers.add(g);
+    }
+    return gapTable.loadGapTable(gapExeFiles(args), numbers);
+}
+
+// What the executables are and the gaps each level gets: their numbers and names (or the stand-ins).
+export function cmdGaps(args: Args): number {
+    const pkr = new Pkr(pyJoin(resolveInstall(args.thps2, "thps2"), "ALL.PKR"));
+    const levels = args.levels.length ? args.levels.map((n) => findLevel(n)).filter((l) => l !== undefined) : LEVELS;
+    const source = levelGapTable(args, pkr, levels);
+    print(source.report.join("\n"));
+    for (const info of levels) {
+        const trgFile = `data/${info.base}_t.trg`;
+        const numbers = gapNumbers(thps2.readTrg(pkr.read(trgFile), trgFile));
+        const named = numbers.filter((g) => source.gaps.has(g)).length;
+        print(`${levelName(info)}: ${numbers.length} gaps, ${named} named`);
+        for (const g of numbers)
+            print(
+                `  ${String(g).padStart(5)}  ${String(gapScore(g, source.gaps)).padStart(5)}  ${gapText(g, source.gaps)}`,
+            );
+    }
+    pkr.close();
     return 0;
 }
 
@@ -1605,18 +1668,21 @@ function cmdList(args: Args): number {
     return 0;
 }
 
-const USAGE = `usage: thps2_levels.ts {convert,selfcheck,list} [levels ...] [--thug2 THUG2] [--thps2 THPS2] [--out OUT]
-                       [--ns NS] [--no-mips]
+const USAGE = `usage: thps2_levels.ts {convert,selfcheck,list,gaps} [levels ...] [--thug2 THUG2] [--thps2 THPS2] [--out OUT]
+                       [--ns NS] [--no-mips] [--thps2-exe EXE]
 
   convert     the levels (default all ten: ${LEVELS.map((l) => l.name).join(", ")}) into <thug2>\\${STAGING}
   selfcheck   parse every THPS2 level file, round-trip THUG2's LA / TestLevel files
   list        the levels and their files
+  gaps        what THPS2's executables are and each level's gaps (numbers, scores, names)
 
   --thug2     THUG2's folder (default C:\\Games\\THUG2) - the install root or its Game folder
   --thps2     THPS2's folder (default C:\\Games\\THPS2) - where ALL.PKR is
   --out       where convert writes (default <thug2>\\${STAGING})
   --ns        NeverScript's compiler (default out\\neverscript\\ns.exe)
-  --no-mips   no mip levels (faster)`;
+  --no-mips   no mip levels (faster)
+  --thps2-exe the THPS2 executable to read gap names and scores from (default <thps2>\\THawk2.exe, then
+              THPS2.exe); an encrypted (SafeDisc) one is reported and the gaps keep stand-in names`;
 
 export function parseCommandLine(argv: readonly string[]): Args {
     const { values, positionals } = parseCli(USAGE, {
@@ -1628,11 +1694,12 @@ export function parseCommandLine(argv: readonly string[]): Args {
             out: { type: "string" },
             ns: { type: "string" },
             "no-mips": { type: "boolean" },
+            "thps2-exe": { type: "string" },
         },
     });
     const command = positionals[0];
-    if (command !== "convert" && command !== "selfcheck" && command !== "list") {
-        process.stderr.write(`${USAGE}\nerror: the command is convert, selfcheck or list\n`);
+    if (command !== "convert" && command !== "selfcheck" && command !== "list" && command !== "gaps") {
+        process.stderr.write(`${USAGE}\nerror: the command is convert, selfcheck, list or gaps\n`);
         pyExit(2);
     }
     return {
@@ -1643,12 +1710,14 @@ export function parseCommandLine(argv: readonly string[]): Args {
         out: values.out ?? null,
         ns: values.ns ?? common.NS,
         noMips: values["no-mips"] ?? false,
+        thps2Exe: values["thps2-exe"] ?? null,
     };
 }
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const args = parseCommandLine(argv);
     if (args.command === "list") return cmdList(args);
+    if (args.command === "gaps") return cmdGaps(args);
     args.thug2 = resolveInstall(args.thug2, "thug2");
     if (args.command === "selfcheck") return cmdSelfcheck(args);
     return cmdConvert(args);

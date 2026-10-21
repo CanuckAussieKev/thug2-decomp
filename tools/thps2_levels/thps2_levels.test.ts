@@ -538,6 +538,19 @@ test("triggers: gaps both ways, kills to the restart they pulse, career-only pul
     );
     // "Bowl" is restart 1, the first listed (Player1): TRG_Restart_01
     assert.match(out.text, /script thps2_test_Trigger_0000cccc \{\n {4}SK3_KillSkater nodename=TRG_Restart_01 \n\}/);
+    assert.deepEqual(conv.gapNumbers(trg), [2700]);
+    // with THPS2's gap table: its name (quotes made safe) and score
+    const named = conv.nodeArrayText(
+        "thps2_test",
+        trg,
+        placed,
+        [],
+        new Set(),
+        new Map([[2700, { name: 'OVER THE "PIPE"', score: 500 }]]),
+    );
+    assert.equal(named.gapsNamed, 1);
+    assert.match(named.text, /EndGap GapID=thps2_test_Gap_2700 score=500 text="OVER THE 'PIPE'" /);
+    assert.equal(out.gapsNamed, 0);
 });
 
 test("convertWorld: a trigger's faces become a trigger object of its node's name, both windings", () => {
