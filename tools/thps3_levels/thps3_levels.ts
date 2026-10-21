@@ -2349,6 +2349,12 @@ export function convertNodeArray(
         for (const s of solid) port.solid.add(s);
         newReport.push(...solidReport);
     }
+    if (port !== null) {
+        // a ped profile THUG2 hasn't (THUGPRO's random_sk3_male_profile on its Rio ped, TPN-THPS3-2) crashes the game
+        // when the ped is made (nodes.fixProfiles): THUG2's random one instead
+        const fixed = nodes.fixProfiles(converted, names, (v) => port.assets.profiles.has(v));
+        if (fixed.length) newReport.push(`  ped profiles THUG2 hasn't, made THUG2's: ${fixed.join(", ")}`);
+    }
     if (port === null) {
         // (static: no scripts - THUGPRO's nodes keep none either)
         const added = new Set(tpNew.nodes.map((n) => n.node));

@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { test } from "node:test";
 import { Float } from "../lib/py.ts";
+import { fixProfiles } from "./nodes.ts";
 import { lzssDecode } from "./prx.ts";
 import { checksum, fmtFloat, Name, nameText, QbFile, Struct, toNs, Vector } from "./qb.ts";
 import * as tex from "./tex.ts";
@@ -116,4 +117,32 @@ test("THUG2's own TR level read and written again is byte-identical", { skip: !f
     assert.ok(thug2Col.writeCol(thug2Col.readCol(col)).equals(col));
     const t = fs.readFileSync(path.join(THUG2_TR, "TR.tex.xbx"));
     assert.ok(tex.writeTex(tex.readTex(t)).equals(t));
+});
+
+test("fixProfiles: a ped profile THUG2 hasn't becomes THUG2's random one (a woman's female)", () => {
+    const names = new Map<number, string>();
+    const k = (t: string): Name => {
+        names.set(checksum(t), t);
+        return new Name(checksum(t));
+    };
+    const ped = (name: string, type: string, profile: string): Struct =>
+        new Struct([
+            [k("Name"), k(name)],
+            [k("Type"), k(type)],
+            [k("profile"), k(profile)],
+        ]);
+    const array = [
+        ped("A", "Ped_From_Profile", "random_sk3_male_profile"),
+        ped("B", "Ped_F_From_Profile", "unknown_profile"),
+        ped("C", "Ped_From_Profile", "PedPro_Muska"),
+        new Struct([[k("Name"), k("D")]]),
+    ];
+    const known = new Set([checksum("PedPro_Muska")]);
+    const changed = fixProfiles(array, names, (v) => known.has(v));
+    assert.equal(changed.length, 2);
+    assert.equal((array[0]!.get("profile") as Name).value, checksum("random_male_profile"));
+    assert.equal((array[1]!.get("profile") as Name).value, checksum("random_female_profile"));
+    assert.equal((array[2]!.get("profile") as Name).value, checksum("PedPro_Muska"));
+    assert.equal(array[3]!.get("profile"), undefined);
+    assert.ok(changed[0]!.startsWith("A: random_sk3_male_profile -> random_male_profile"));
 });
