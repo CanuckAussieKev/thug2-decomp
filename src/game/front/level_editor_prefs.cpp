@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "game/front/level_editor_ux3.h"
+#include "game/front/level_editor_ux8.h"
 #include "hook/log.h"
 #include "imgui.h"
 
@@ -220,6 +221,7 @@ void Window(float scale, ImFont* heading, ImFont* small)
             ImGui::SetTooltip("%s", AccentName(i));
         ImGui::PopID();
     }
+    Ux8::PrefsSection(); // (UX8: controller mode - level_editor_ux8.h)
     // The keymap (level_editor_actions.h - UX3's Keys section, [editor_keys] in the ini).
     ImGui::Spacing();
     if (ImGui::CollapsingHeader("Keys###prefskeys")) {
