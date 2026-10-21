@@ -172,3 +172,10 @@ commands (0x445000-0x445B30). Shared files touched: CMakeLists.txt (new files li
   - Range check: find_gaps shows no gaps in 0x43D929-0x445B50; all 85 functions Ghidra knows are REPLACEd, plus the
     four callbacks it doesn't (0x0043DB00, 0x00441020, 0x00441070, 0x00441860); the other bytes between functions
     are the previous functions' last instructions or int3 padding.
+- [x] Game runs (workspace C:\Games\THUG2-3 under the lock, branch at 6631ca1 = OC5-1..7 merged with main): BO in free
+  skate - on the board, pushed / ollied / turned; then teleported standing (the walk state) and walked ~800 units,
+  jumped three times, turned left and right, up onto a stoop. Walking and the air state run this range's ladder /
+  hang searches every frame (ClimbOntoBottom from the contacts, ClimbOntoTop / DropToHang off edges, GrabRail /
+  GrabLadder in the air - FindRail with CheckRail, FindLadder with the ladder checkers); the level loads the terrain
+  sounds, the sun and the lens flare. All 4231 replacements installed; no exception, run-time check, CRT report or
+  crash in the log. Not driven: an actual hang, shimmy, pull-up, ladder climb - for the user to try by hand.
