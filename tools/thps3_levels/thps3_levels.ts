@@ -53,6 +53,7 @@ import {
     runMain,
 } from "../lib/py.ts";
 import { StructError, unpackNumbers } from "../lib/struct.ts";
+import * as collfix from "./collfix.ts";
 import * as thps3 from "./thps3.ts";
 import { ROTATION_REWRITES } from "./thps3_rotation.ts";
 import * as thugproNew from "./thugpro_new.ts";
@@ -2704,6 +2705,7 @@ export interface Args {
     thugpro: string; // TPN-THPS3: THUGPRO's install, read at convert time
     noThugproNew: boolean;
     noPortChanges: boolean; // PC-n: only the required ones
+    noCollfix: boolean; // TPN-THPS3-1 / -2: THUGPRO's collision overlays left out (collfix.ts)
 }
 
 function isDir(p: string): boolean {
@@ -2793,9 +2795,26 @@ export function cmdConvert(args: Args): void {
         }
         const compatData = levelCompat(profile, name);
         // TPN-THPS3: THUGPRO's own content, read from its install (--thugpro; --no-thugpro-new or --compat none: none)
-        const newEntries = args.noThugproNew
+        let newEntries = args.noThugproNew
             ? []
             : thugproNew.levelEntries(compat.thugproNew(profile, "thps3_levels"), name);
+        // --no-collfix: THUGPRO's invisible collision overlays (`*_collfix` / `*_coll`: collision object and node) left
+        // out, and the THPS3 node one replaced (TP-14 switched it off) kept as THPS3 has it - to try both (collfix.ts)
+        if (args.noCollfix) {
+            const all = newEntries;
+            newEntries = collfix.withoutCollfix(all);
+            const flags = compatData.edits?.flags;
+            const kept = flags ? collfix.replacedNodes(all, Object.keys(flags)) : [];
+            if (flags && kept.length) {
+                compatData.edits!.flags = Object.fromEntries(Object.entries(flags).filter(([n]) => !kept.includes(n)));
+            }
+            if (all.length !== newEntries.length || kept.length) {
+                report.push(
+                    `  --no-collfix: ${all.length - newEntries.length} TPN-THPS3 overlay entries left out` +
+                        (kept.length ? `; THPS3's ${kept.join(", ")} kept (TP-14 flags not applied)` : ""),
+                );
+            }
+        }
         const tpNew = thugproNew.loadNew(newEntries, args.thugpro);
         // (PC-THPS3-15: the plain moving props stay our solid LevelObjects - THUGPRO's Vehicle `set` left out for them)
         const solidMovers = movers.moversFor(pc.get("PC-THPS3-15", base.toLowerCase())?.objects, name);
@@ -3012,7 +3031,7 @@ export function cmdSelfcheck(args: Args): number {
 
 const USAGE =
     "usage: thps3_levels.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--out OUT] [--ns NS] [--no-objects] " +
-    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
+    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
 
 const HELP = `${USAGE}
 
@@ -3036,6 +3055,8 @@ options:
   --thugpro THUGPRO    convert: THUGPRO's install, read for its new content (TPN-THPS3; default %LOCALAPPDATA%\\THUG Pro)
   --no-thugpro-new     convert: THUGPRO's new content left out, its hand edits kept
   --no-port-changes    convert: our own changes to THPS3's data left out (PC-n) but those the game needs
+  --no-collfix         convert: THUGPRO's invisible collision overlays left out (Suburbia's *_collfix, Foundry's
+                       *_coll - TPN-THPS3-1 / -2), Suburbia's Inviso_PicnicCollide01 kept as THPS3's (collfix.ts)
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
 
 const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat", "--thugpro"] as const;
@@ -3046,6 +3067,7 @@ const FLAG_OPTIONS = [
     "--legacy-names",
     "--no-thugpro-new",
     "--no-port-changes",
+    "--no-collfix",
 ] as const;
 const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--extra", "--help"];
 
@@ -3124,6 +3146,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
         thugpro: values["--thugpro"] ?? thugproNew.DEFAULT_THUGPRO,
         noThugproNew: flags.has("--no-thugpro-new"),
         noPortChanges: flags.has("--no-port-changes"),
+        noCollfix: flags.has("--no-collfix"),
     };
 }
 

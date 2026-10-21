@@ -120,7 +120,7 @@ export function formatList(levels: readonly Level[]): string[] {
     return lines;
 }
 
-function readLevels(game: string): { levels: Level[]; source: string } {
+export function readLevels(game: string): { levels: Level[]; source: string } {
     const overlayQb = path.join(game, OVERLAY, "scripts", "game", "Levels.qb");
     const ownQb = path.join(game, "Data", "scripts", "game", "Levels.qb");
     const source = fs.existsSync(overlayQb) ? overlayQb : ownQb;
