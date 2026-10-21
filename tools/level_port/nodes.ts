@@ -485,6 +485,36 @@ export function fixTerrains(nodes: readonly Struct[], names: Names): number {
     return count;
 }
 
+export function fixProfiles(nodes: readonly Struct[], names: Names, known: (value: number) => boolean): string[] {
+    // A ped's `profile` has to name a structure THUG2 defines (scripts\profile_ped.qb, or the level's own globals):
+    // ped_init_model runs `Obj_InitModelFromProfile struct=<profile>`, and with a name that isn't a structure its
+    // GetStructure (0x004767C0) fails without writing, so 0x0042270C passes an uninitialised local on to 0x00488F40,
+    // whose ExpandInto reads through it - the original crashes the same way (THPS3 Rio: THUGPRO's TRG_Ped_2084 with
+    // THUGPRO's random_sk3_male_profile, TPN-THPS3-2). An unknown one: THUG2's random_female_profile for a woman
+    // (Ped_F_From_Profile), else random_male_profile. Returns the changed nodes' names.
+    const key = checksum("profile");
+    const profile = (text: string): Name => {
+        const value = checksum(text);
+        if (!names.has(value)) names.set(value, text);
+        return new Name(value);
+    };
+    const changed: string[] = [];
+    for (const node of nodes) {
+        const value = node.get("profile");
+        if (!(value instanceof Name) || known(value.value)) continue;
+        const replacement = profile(
+            typeOf(node, names) === "ped_f_from_profile" ? "random_female_profile" : "random_male_profile",
+        );
+        node.entries = node.entries.map(([k, v]) => [k, k !== null && k.value === key ? replacement : v]);
+        const nm = node.get("Name");
+        changed.push(
+            `${nm instanceof Name ? qb.nameText(nm.value, names) : "?"}: ${qb.nameText(value.value, names)} -> ` +
+                qb.nameText(replacement.value, names),
+        );
+    }
+    return changed;
+}
+
 export function nodeArrayNs(
     arrayName: string,
     nodes: readonly Struct[],
