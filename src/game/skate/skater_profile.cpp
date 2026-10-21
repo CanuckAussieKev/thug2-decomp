@@ -5,6 +5,7 @@
 #include "game/core/manager.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
+#include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -448,6 +449,9 @@ uint8_t* CSkaterProfile::ReadFromBuffer(uint8_t* buffer)
 {
     PushScriptHeap();
     uint8_t* at = GameFunction<uint8_t*(__thiscall*)(CSkaterProfile*, uint8_t*)>(0x00489400)(this, buffer); // the appearance
+    // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
+    // appearance_guard.h). Every caller reads a network message.
+    AppearanceGuard::Sanitise(reinterpret_cast<Script::CStruct*>(m_appearance + 0x4C));
     Script::CStruct* part = reinterpret_cast<Script::CStruct*>(buffer); // (the argument's slot)
     InfoStructure()->GetStructure(kTrickStyle, &part, 1);
     part->Clear();

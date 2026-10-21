@@ -36,6 +36,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as compat from "../compat/compat.ts";
 import { type LevelEntry, loadOf, type Manifest } from "../level_port/ported_levels.ts";
 import {
     compareStr,
@@ -124,6 +125,8 @@ export interface Level {
     sign: string;
     place: string;
     location: readonly [number, number] | null;
+    // Flags added to the entry (the DLL reads them: IsBigLevel / IsTallLevel - TP-R6, src/game/net/thugpro_compat.h).
+    flags?: string[];
 }
 
 // A table entry: what a game's table says about one of its levels (by folder).
@@ -417,7 +420,7 @@ export function sections(
             "thaw",
             "TONY HAWK'S AMERICAN WASTELAND",
             "level_select_menu_thaw_level_info",
-            manifestLevels(games.thaw, THAW_LEVELS, "THAW"),
+            thawPositionScaleFlags(games.thaw, manifestLevels(games.thaw, THAW_LEVELS, "THAW")),
         ]);
     }
     return out;
@@ -473,8 +476,24 @@ export function signEntry(lv: Level): string {
     // (no seen_flag, no star) - ours are seen as soon as they're unlocked.
     return (
         `    {text="${lv.text}" level_num=${lv.levelNum} num_goals=0 flag=LEVEL_UNLOCKED_TR seen_flag=LEVEL_UNLOCKED_TR level=${lv.load} ` +
-        `sign_texture=${texture}${dot}} \n`
+        `sign_texture=${texture}${dot}${(lv.flags ?? []).map((flag) => ` ${flag}`).join("")}} \n`
     );
+}
+
+// TP-R6 (tools/compat/thugpro/README.md): the THAW levels THUGPRO sends skaters' positions of in whole units in
+// network games (its IsBigLevel / IsTallLevel), from thaw_levels.json "net_position_scale" - their level select entries
+// get the same flags, which the DLL reads (src/game/net/thugpro_compat.h).
+export function thawPositionScaleFlags(manifest: Manifest, levels: Level[], profile = compat.load("thugpro")): Level[] {
+    const scale = profile.section("thaw_levels", "net_position_scale") as { big?: string[]; tall?: string[] };
+    const flagsByLoad = new Map<string, string[]>();
+    for (const entry of manifest.levels) {
+        const flags = [
+            ...(entry.folder !== undefined && (scale.big ?? []).includes(entry.folder) ? ["IsBigLevel"] : []),
+            ...(entry.folder !== undefined && (scale.tall ?? []).includes(entry.folder) ? ["IsTallLevel"] : []),
+        ];
+        if (flags.length) flagsByLoad.set(`Load_${loadOf(entry)}`, flags);
+    }
+    return levels.map((lv) => (flagsByLoad.has(lv.load) ? { ...lv, flags: flagsByLoad.get(lv.load)! } : lv));
 }
 
 export function editLevelSelect(text: string, sectionList: readonly Section[]): string {

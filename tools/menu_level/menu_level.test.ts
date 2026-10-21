@@ -5,9 +5,21 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import { keyOf, norm } from "../anteara/anteara.ts";
+import * as compat from "../compat/compat.ts";
+import type { Manifest } from "../level_port/ported_levels.ts";
 import { unswizzleOrder } from "../level_port/tex.ts";
 import { nsString } from "./career_complete.ts";
-import { mapPosition, THAW_LEVELS, THPS3_LEVELS, THPS4_LEVELS, THUG1_LEVELS, THUG2_EXTRA } from "./level_select.ts";
+import {
+    type Level,
+    mapPosition,
+    signEntry,
+    THAW_LEVELS,
+    THPS3_LEVELS,
+    THPS4_LEVELS,
+    THUG1_LEVELS,
+    THUG2_EXTRA,
+    thawPositionScaleFlags,
+} from "./level_select.ts";
 import { coverage, PICTOGRAMS, readImg, strayInk, writeImg } from "./level_select_icons.ts";
 import { parseArguments, skipStatement } from "./qb_walk.ts";
 
@@ -15,6 +27,31 @@ test("mapPosition puts places where THUG2's stars are", () => {
     assert.deepEqual(mapPosition(-118.24, 34.05), [77.8, 101.8]);
     assert.deepEqual(mapPosition(-0.128, 51.507), [223.0, 69.3]);
     assert.deepEqual(mapPosition(144.96, -37.8), [426.0, 194.0]);
+});
+
+const compatNone = compat.load("none");
+
+test("THUGPRO's big level (TP-R6) is flagged in its level select entry", () => {
+    const manifest = {
+        levels: [
+            { folder: "Z_MA", level: "z_ma", display: "THAW The Mall", name: "z_ma", level_num: 1 },
+            { folder: "Z_CH", level: "skatepark", display: "THAW Chicago", name: "skatepark", level_num: 2 },
+        ],
+    } as unknown as Manifest;
+    const level = (load: string): Level => ({
+        text: load,
+        levelNum: 1,
+        load,
+        icon: "cart",
+        sign: "sign_x",
+        place: "",
+        location: null,
+    });
+    const flagged = thawPositionScaleFlags(manifest, [level("Load_z_ma"), level("Load_skatepark")]);
+    assert.deepEqual(flagged[0]!.flags, ["IsBigLevel"]);
+    assert.equal(flagged[1]!.flags, undefined);
+    assert.match(signEntry(flagged[0]!), / IsBigLevel\} \n$/);
+    assert.equal(thawPositionScaleFlags(manifest, [level("Load_z_ma")], compatNone)[0]!.flags, undefined);
 });
 
 test("qb_walk reads a call's arguments to the end of the line", () => {

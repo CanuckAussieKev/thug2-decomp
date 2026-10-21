@@ -29,6 +29,7 @@
 #include "hook/log.h"
 #include "hook/selftest.h"
 #include "hook/standins.h"
+#include "hook/thugpro_testkit.h"
 
 namespace {
 
@@ -112,6 +113,7 @@ void __fastcall StandInGoalUpdate(uint8_t* goal) { Rec(0x60A2, {reinterpret_cast
 void Cleanup()
 {
     RemoveStandIns();
+    GameNet::Thugpro::SetPositionScale({});
     RestoreAll(g_sn_saved);
     g_sn_saved.clear();
 }
@@ -763,15 +765,18 @@ void TestSkateNetHandlers()
 }
 
 // The object updates: a run of messages for several skaters (first updates, every field and none, the time stamp
-// going round, a missing object, packets flagged late / foreign), the state histories compared after each.
+// going round, a missing object, packets flagged late / foreign), the state histories compared after each. In each
+// position scale (TP-R6: THUG2's, and THUGPRO's big / tall levels - the original with THUGPRO's patches).
 void TestSkateNetObjectUpdates()
 {
     SaveGlobals();
     StandIns* s = new StandIns;
     Install(*s);
+    for (int mode = 0; mode < ThugproTests::kScaleModes; ++mode) {
     std::vector<uint32_t> traces[2];
     for (int run = 0; run < 2; ++run) {
         bool original = run == 0;
+        ThugproTests::UseScale(original, mode, true);
         SetUpArena(run);
         ResetState();
         g_sn_present = 0xF7; // (no object 3)
@@ -819,9 +824,14 @@ void TestSkateNetObjectUpdates()
         const auto* words = reinterpret_cast<const uint32_t*>(g_sn_base);
         for (uint32_t i = 0; i < kScores / 4; ++i)
             traces[run].push_back(Rel(words[i]));
+        ThugproTests::EndScale();
+    }
+    static const char* const kWhat[] = {"skate net object updates", "skate net object updates (big level)",
+                                        "skate net object updates (tall level)",
+                                        "skate net object updates (big and tall)"};
+    Compare(traces[0], traces[1], kWhat[mode]);
     }
     Cleanup();
-    Compare(traces[0], traces[1], "skate net object updates");
 }
 
 } // namespace

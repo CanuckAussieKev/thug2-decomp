@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "game/front/menu_backdrop.h"
+#include "game/skate/thugpro_cas.h"
 #include "hook/log.h"
 
 namespace Front::DataOverlay {
@@ -84,20 +85,21 @@ bool AntearaMod()
 bool OverlayPath(const char* name, char (&path)[260])
 {
     static const bool overlay = IsFolder(Folder());
-    if (!name || !overlay)
+    if (!name)
         return false;
     char relative[260];
     OverlayName(name, relative);
     std::string full;
     const char* folders[4];
-    int count = SearchFolders(AntearaMod(), MenuBackdrop::Active(), folders);
+    int count = overlay ? SearchFolders(AntearaMod(), MenuBackdrop::Active(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
         std::string candidate = Folder() + "\\" + folders[i] + relative;
         if (IsFile(candidate))
             full = candidate;
     }
+    // Last: a THUGPRO part's file from the user's THUGPRO install (TP-R10, game/skate/thugpro_cas.h).
     if (full.empty())
-        return false;
+        return Obj::ThugproCas::FilePath(relative, path);
     if (full.size() >= sizeof(path))
         return false;
     std::memcpy(path, full.c_str(), full.size() + 1);

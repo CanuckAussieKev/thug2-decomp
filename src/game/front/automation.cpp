@@ -6,12 +6,14 @@
 
 #include <SDL2/SDL.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <unordered_map>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/front/front_end.h"
@@ -22,7 +24,9 @@
 #include "game/front/test_view.h"
 #include "game/net/net_manager.h"
 #include "game/obj/event.h"
+#include "game/lst/hashtable.h"
 #include "game/obj/object.h"
+#include "game/obj/trick_objects.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -403,6 +407,11 @@ ParseResult ParseCommand(const std::string& line, Command* out, std::string* err
                 return fail("capture: a folder name (no ..)");
             command.target = folder;
         }
+    } else if (keyword == "logtricks") {
+        command.op = Op::LogTricks;
+        command.frames = 0; // (every trick object)
+        if (count > 2 || (count == 2 && !ReadCount(tokens[1], 1, 100000, &command.frames)))
+            return fail("logtricks [count]");
     } else if (keyword == "echo") {
         command.op = Op::Echo;
         command.target = Rest(line);
@@ -539,6 +548,7 @@ std::string Describe(const Command& command)
         return text;
     }
     case Op::Capture: return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
+    case Op::LogTricks: return "logtricks" + (command.frames ? " " + std::to_string(command.frames) : std::string());
     }
     return "?";
 }
@@ -1147,6 +1157,44 @@ bool ConditionMet(Runner& runner)
     return ++runner.counter >= frames;
 }
 
+// `logtricks [count]` (a test of the graffiti change mask, TP-R7 - docs/pending/thugpro-guards.md): one trick by
+// skater 0 over the level's trick objects (every one, or the first `count` in the table's order), through the trick
+// object manager's LogTrickObjects as a skater's trick goes - more than THUG2's own mask held crashed there.
+std::string LogTricks(int count, std::string* failed)
+{
+    auto* manager = GameVariable<Obj::CTrickObjectManager*>(0x007CE500);
+    if (!manager) {
+        *failed = "no trick object manager";
+        return "";
+    }
+    std::vector<uint32_t> objects;
+    std::vector<void*> clusters;
+    const Lst::HashTable& table = manager->m_objectClusters;
+    for (int bucket = 0; bucket < (1 << table.m_bits); ++bucket) {
+        for (const Lst::HashTable::Item* item = &table.m_buckets[bucket]; item; item = item->next) {
+            if (!item->value)
+                continue;
+            objects.push_back(item->key);
+            if (std::find(clusters.begin(), clusters.end(), item->value) == clusters.end())
+                clusters.push_back(item->value);
+        }
+    }
+    if (count > 0 && objects.size() > static_cast<size_t>(count))
+        objects.resize(static_cast<size_t>(count));
+    size_t asked = objects.size();
+    objects.push_back(0xEEEEEEEE); // (past the list: must be left alone)
+    uint8_t stolen[0x100] = {};
+    uint32_t changed = manager->LogTrickObjects(static_cast<uint32_t>(asked), objects.data(), stolen, 0, 1000000);
+    if (objects[asked] != 0xEEEEEEEE) {
+        *failed = "the word past the list was changed";
+        return "";
+    }
+    char result[160];
+    std::snprintf(result, sizeof(result), "ok (%u trick objects of %u clusters in the level logged, %u changed hands)",
+                  static_cast<unsigned>(asked), static_cast<unsigned>(clusters.size()), changed);
+    return result;
+}
+
 // Start the next command; true if it's done already (the next can start this frame).
 bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
 {
@@ -1243,6 +1291,19 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
             return true;
         }
         return false; // (Continue: done once written)
+    }
+    case Op::LogTricks: {
+        if (!LevelLoad() || InFrontEnd() || !SkaterUp()) {
+            Fail(runner, "not in a level with the skater", false);
+            return true;
+        }
+        std::string failed;
+        std::string result = LogTricks(command.frames, &failed);
+        if (failed.empty())
+            Finish(runner, result);
+        else
+            Fail(runner, failed, false);
+        return true;
     }
     case Op::Quit: {
         Finish(runner, "ok");

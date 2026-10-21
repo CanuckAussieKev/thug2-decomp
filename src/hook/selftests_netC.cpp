@@ -25,6 +25,7 @@
 #include "game/net/net_client.h"
 #include "game/net/net_compress.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/net_guards.h"
 #include "game/net/net_latency.h"
 #include "game/net/net_server.h"
 #include "game/sys/timer.h"
@@ -143,6 +144,8 @@ uint32_t g_nodeVtable[1];
 
 void SetUpStandIns(StandIns& s)
 {
+    // (ours only: the received-message guards - TP-R8, tested in selftests_thugpro_guards.cpp - pass everything here)
+    s.At({AddressOf(&GameNet::Guards::CheckReceivedMessage)}, 0, [](Regs&) { return 0xFFFFFFFFu; });
     auto memManager = reinterpret_cast<uint32_t>(g_memManager);
     // the memory manager
     s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [=](Regs& r) {

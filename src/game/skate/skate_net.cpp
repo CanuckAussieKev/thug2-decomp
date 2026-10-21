@@ -14,6 +14,7 @@
 #include "game/mth/vector.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/thugpro_compat.h"
 #include "game/net/thugpro_peer.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
@@ -31,6 +32,7 @@ namespace {
 
 using Script::CArray;
 using Script::CStruct;
+namespace Thugpro = GameNet::Thugpro;
 
 // Names.
 constexpr uint32_t kWidth = 0x73E5BAD0;                       // width
@@ -803,10 +805,11 @@ int SkateNet::HandleObjectUpdates(Net::MsgHandlerContext* context)
             matrix.GetEulerAngles(eulers);
             StateEntry& first = history->entries[0];
             for (int k = 0; k < 3; ++k) {
+                // (TP-R6: in a big level as sent there; THUGPRO's own left this one in halves / quarters)
                 if (k == 1)
-                    first.pos[1] = static_cast<int16_t>(static_cast<int>(static_cast<double>(skater->m_pos.y) * 4.0));
+                    first.pos[1] = Thugpro::PackHeight(skater->m_pos.y);
                 else
-                    first.pos[k] = static_cast<int16_t>(static_cast<int>(static_cast<double>((&skater->m_pos.x)[k]) * 2.0));
+                    first.pos[k] = Thugpro::PackHorizontal((&skater->m_pos.x)[k]);
                 first.angles[k] = (&eulers.x)[k];
             }
             previous = 0;
@@ -819,8 +822,9 @@ int SkateNet::HandleObjectUpdates(Net::MsgHandlerContext* context)
         }
         for (int k = 0; k < 3; ++k)
             cur.pos[k] = pos[k];
-        float position[3] = {static_cast<float>(pos[0] * 0.5), static_cast<float>(pos[1] * 0.25),
-                             static_cast<float>(pos[2] * 0.5)};
+        // (TP-R6: whole units in a big level)
+        float position[3] = {Thugpro::UnpackHorizontal(pos[0]), Thugpro::UnpackHeight(pos[1]),
+                             Thugpro::UnpackHorizontal(pos[2])};
         for (int k = 0; k < 3; ++k) {
             if (!(fields & (8u << k)))
                 angles[k] = prev.angles[k];
@@ -862,6 +866,235 @@ int SkateNet::HandleObjectUpdates(Net::MsgHandlerContext* context)
     return 1;
 }
 
+namespace {
+
+// A state entry's time stamp as 32 bits (0x005197D0 / 0x005197E0: +0x78 the low half, +0x7A the high).
+uint32_t EntryTime(const StateEntry& entry) { return static_cast<uint32_t>(entry.wraps) << 16 | entry.time; }
+
+// The server's record of what it last sent one client about each of the 8 skaters (by object id).
+struct RelaySent {
+    uint8_t unknown0[0x50];
+    uint32_t forcedFrame[8];   // +0x50 the server app's frame when everything was last sent
+    uint32_t time[8];          // +0x70 the entry's time stamp last sent
+    uint8_t value7C[8];        // +0x90
+    uint8_t flag75[8];         // +0x98
+    uint8_t flag76[8];         // +0xA0
+    int16_t pos[8][3];         // +0xA8
+    int16_t angles[8][3];      // +0xD8
+    uint32_t value68[8];       // +0x108
+    uint32_t value6C[8];       // +0x128
+    uint8_t state[8];          // +0x148
+    uint8_t flag74[8];         // +0x150
+    uint8_t unknown158[8];
+    uint32_t value80[8];       // +0x160
+};
+static_assert(offsetof(RelaySent, time) == 0x70 && offsetof(RelaySent, pos) == 0xA8 &&
+                  offsetof(RelaySent, angles) == 0xD8 && offsetof(RelaySent, value68) == 0x108 &&
+                  offsetof(RelaySent, state) == 0x148 && offsetof(RelaySent, value80) == 0x160,
+              "layout must match the original");
+
+// The server's frame count (its app: the network manager's +4, read through 0x005480C0).
+uint32_t ServerFrame()
+{
+    auto* server = GameFunction<Net::App*(__thiscall*)(void*)>(0x005480C0)(NetManager());
+    return static_cast<uint32_t>(server->m_frameCount);
+}
+
+int16_t PackAngle(float angle) { return static_cast<int16_t>(static_cast<int>(static_cast<double>(angle) * 4096.0)); }
+
+} // namespace
+
+// 0x005696C0
+uint32_t SkateNet::GetRelayFlags(void* sentRecord, void* stateEntry, uint8_t index)
+{
+    auto* sent = static_cast<RelaySent*>(sentRecord);
+    auto* entry = static_cast<StateEntry*>(stateEntry);
+    uint32_t flags = 0;
+    // Everything again once 60 of the server's frames have gone by.
+    uint32_t frame = ServerFrame();
+    uint32_t since = frame > sent->forcedFrame[index] ? ServerFrame() - sent->forcedFrame[index]
+                                                       : sent->forcedFrame[index] - ServerFrame();
+    bool force = since >= 60;
+    if (force)
+        sent->forcedFrame[index] = ServerFrame();
+    float angles[3] = {entry->angles[0], entry->angles[1], entry->angles[2]};
+    for (int k = 0; k < 3; ++k) {
+        // (TP-R6: whole units in a big level)
+        int16_t value = k == 1 ? Thugpro::PackHeight((&entry->position.x)[1]) : Thugpro::PackHorizontal((&entry->position.x)[k]);
+        if (value != sent->pos[index][k] || force)
+            flags |= 1u << k;
+    }
+    for (int k = 0; k < 3; ++k) {
+        if (PackAngle(angles[k]) != sent->angles[index][k] || force)
+            flags |= 8u << k;
+    }
+    if (static_cast<uint8_t>(entry->state) != sent->state[index] || entry->flag74 != sent->flag74[index] ||
+        entry->value7C != sent->value7C[index] || entry->flag75 != sent->flag75[index] ||
+        entry->flag76 != sent->flag76[index] || force)
+        flags |= 0x40;
+    if (entry->value68 != sent->value68[index] || entry->value6C != sent->value6C[index] || force)
+        flags |= 0x80;
+    if (entry->value80 != sent->value80[index] || force)
+        flags |= 0x100;
+    return flags;
+}
+
+// 0x005698F0
+void SkateNet::WriteObjectUpdate(Obj::CObject* object, RelayStream* out)
+{
+    uint8_t* player = PlayerByObjectId(Field<uint32_t>(object, 0x14));
+    Obj::CObject* skater = PlayerSkater(player);
+    uint8_t index = Field<uint8_t>(skater, 0x14);
+    auto* history = Field<StateHistory*>(skater, 0x27C);
+    StateEntry& entry = history->entries[(history->count - 1) % 20];
+    auto* sent = static_cast<RelaySent*>(out->m_sent);
+    Util::BitStream& stream = out->m_stream;
+    sent->time[index] = EntryTime(entry);
+    float angles[3] = {entry.angles[0], entry.angles[1], entry.angles[2]};
+    stream.WriteBits(entry.time, 16);
+    uint32_t flags = GetRelayFlags(sent, &entry, index);
+    stream.WriteBits(flags, 9);
+    for (int k = 0; k < 3; ++k) {
+        // (TP-R6: whole units in a big level)
+        int16_t value = k == 1 ? Thugpro::PackHeight(entry.position.y) : Thugpro::PackHorizontal((&entry.position.x)[k]);
+        if (flags & (1u << k))
+            stream.WriteBits(static_cast<uint32_t>(static_cast<int>(value)), 16);
+        sent->pos[index][k] = value;
+    }
+    for (int k = 0; k < 3; ++k) {
+        int16_t value = PackAngle(angles[k]);
+        if (flags & (8u << k))
+            stream.WriteBits(static_cast<uint32_t>(static_cast<int>(value)), 16);
+        sent->angles[index][k] = value;
+    }
+    // (the bytes go out sign-extended: WriteBits doesn't mask them, as the original)
+    auto signedByte = [](uint8_t value) { return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value))); };
+    uint8_t value7C = entry.value7C, state = static_cast<uint8_t>(entry.state), flag74 = entry.flag74;
+    uint8_t flag75 = entry.flag75, flag76 = entry.flag76;
+    if (flags & 0x40) {
+        stream.WriteBits(signedByte(flag74 ? static_cast<uint8_t>(state | 0x80) : state), 4);
+        stream.WriteBits(signedByte(value7C), 6);
+        stream.WriteBits(signedByte(flag75), 1);
+        stream.WriteBits(signedByte(flag76), 1);
+        sent->state[index] = state;
+        sent->flag74[index] = flag74;
+        sent->value7C[index] = value7C;
+        sent->flag75[index] = flag75;
+        sent->flag76[index] = flag76;
+    }
+    if (flags & 0x80) {
+        sent->value68[index] = entry.value68;
+        sent->value6C[index] = entry.value6C;
+        stream.WriteBits(entry.value68, 5);
+        stream.WriteBits(entry.value6C, 3);
+    }
+    if (flags & 0x100) {
+        sent->value80[index] = entry.value80;
+        stream.WriteBits(entry.value80, 32);
+    }
+}
+
+// 0x0056BE60
+int SkateNet::HandleClientObjectUpdate(Net::MsgHandlerContext* context)
+{
+    Util::BitStream stream;
+    uint8_t* player = Call<uint8_t*>(0x0053AE10, NetManager(), context->m_Conn);
+    Obj::CObject* object = player ? PlayerSkater(player) : nullptr;
+    if (!object || !(Field<uint8_t>(Field<uint8_t*>(player, 0x18), 0x60) & 1) || (context->m_PacketFlags & 3)) {
+        // Not taken: the message's length worked out from its fields (a 32-bit time stamp, 9 field bits, then 16
+        // bits for each position and angle, 12 for the state, 8 for the 0x80 pair, 32 for the last).
+        stream.SetInputData(context->m_Msg, 0x400);
+        stream.ReadSignedBits(32);
+        uint32_t fields = stream.ReadBits(9);
+        int bits = fields & 1 ? 0x39 : 0x29;
+        for (uint32_t bit : {2u, 4u, 8u, 0x10u, 0x20u}) {
+            if (fields & bit)
+                bits += 0x10;
+        }
+        if (fields & 0x40)
+            bits += 0xC;
+        if (fields & 0x80)
+            bits += 8;
+        if (fields & 0x100)
+            bits += 0x20;
+        context->m_MsgLength = static_cast<uint32_t>((bits + 7) >> 3);
+        return 1;
+    }
+    auto* history = Field<StateHistory*>(object, 0x27C);
+    StateEntry& cur = history->entries[history->count % 20];
+    // What isn't sent stays as it was (nothing yet: zero).
+    StateEntry* prev = nullptr;
+    int16_t pos[3] = {};
+    float angles[3] = {};
+    uint8_t state = 0, flag74 = 0, value7C = 0, flag75 = 0, flag76 = 0;
+    uint32_t value68 = 0, value6C = 0, value80 = 0;
+    if (history->count > 0) {
+        prev = &history->entries[(history->count + 19) % 20];
+        value68 = prev->value68;
+        flag74 = prev->flag74;
+        value6C = prev->value6C;
+        state = static_cast<uint8_t>(prev->state);
+        flag75 = prev->flag75;
+        value7C = prev->value7C;
+        value80 = prev->value80;
+        flag76 = prev->flag76;
+        for (int k = 0; k < 3; ++k) {
+            pos[k] = prev->pos[k];
+            angles[k] = prev->angles[k];
+        }
+    }
+    stream.SetInputData(context->m_Msg, 0x400);
+    uint32_t time = stream.ReadBits(32);
+    uint32_t fields = stream.ReadBits(9);
+    for (int k = 0; k < 3; ++k) {
+        if (fields & (1u << k))
+            pos[k] = static_cast<int16_t>(stream.ReadSignedBits(16));
+    }
+    for (int k = 0; k < 3; ++k) {
+        if (fields & (8u << k))
+            angles[k] = static_cast<float>(static_cast<int16_t>(stream.ReadSignedBits(16)) * (1.0 / 4096.0));
+    }
+    if (fields & 0x40) {
+        uint32_t bits = stream.ReadBits(4);
+        state = static_cast<uint8_t>(bits & 7);
+        flag74 = static_cast<uint8_t>((bits >> 7) & 1); // (always 0: the original's)
+        value7C = static_cast<uint8_t>(stream.ReadBits(6));
+        flag75 = static_cast<uint8_t>(stream.ReadBits(1));
+        flag76 = static_cast<uint8_t>(stream.ReadBits(1));
+    }
+    if (fields & 0x80) {
+        value68 = stream.ReadBits(5);
+        value6C = stream.ReadBits(3);
+    }
+    if (fields & 0x100)
+        value80 = stream.ReadBits(32);
+    context->m_MsgLength = static_cast<uint32_t>(stream.GetByteCount());
+    if (history->count > 0 && time < EntryTime(*prev))
+        return 4; // (an older update: dropped)
+    Mth::Matrix matrix;
+    matrix.SetFromEulerAngles(angles[0], angles[1], angles[2]);
+    cur.matrix = matrix;
+    // (TP-R6: whole units in a big level)
+    cur.position = {Thugpro::UnpackHorizontal(pos[0]), Thugpro::UnpackHeight(pos[1]), Thugpro::UnpackHorizontal(pos[2]),
+                    0.0f};
+    cur.time = static_cast<uint16_t>(time);
+    cur.wraps = static_cast<uint16_t>(time >> 16);
+    for (int k = 0; k < 3; ++k) {
+        cur.pos[k] = pos[k];
+        cur.angles[k] = angles[k];
+    }
+    cur.flag74 = flag74;
+    cur.value68 = value68;
+    cur.value6C = value6C;
+    cur.value7C = value7C;
+    cur.state = static_cast<int8_t>(state);
+    cur.value80 = value80;
+    cur.flag76 = flag76;
+    cur.flag75 = flag75;
+    ++history->count;
+    return 1;
+}
+
 } // namespace Mdl
 
 REPLACE(0x0056C920, Mdl::SkateNet::HandleServerRemovedYou);
@@ -875,4 +1108,7 @@ REPLACE(0x0056DEE0, &Mdl::SkateNet::StartServer);
 REPLACE(0x0056E2B0, &Mdl::SkateNet::CreateNetworkTasks);
 REPLACE(0x0056E380, Mdl::SkateNet::HandleRunScript);
 REPLACE(0x0056E470, Mdl::SkateNet::HandleObjectUpdates);
+REPLACE(0x005696C0, Mdl::SkateNet::GetRelayFlags);
+REPLACE(0x005698F0, Mdl::SkateNet::WriteObjectUpdate);
+REPLACE(0x0056BE60, Mdl::SkateNet::HandleClientObjectUpdate);
 REPLACE(0x0056EB50, &Mdl::SkateNet::AddClientHandlers);

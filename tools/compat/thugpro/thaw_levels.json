@@ -7,6 +7,12 @@
     "Z_SZ": "sz",
     "Z_SV": "vans"
   },
+  "net_position_scale": {
+    "_register": "TP-R6",
+    "_source": "THUGPRO's Levels.q (its source: `IsBigLevel` in level_z_ma only; `IsTallLevel` in its unreleased beach only) and THUGPRO_SetBigLevel (cfuncs.cpp): in network games those levels' skater positions travel in whole units. Read at run time from the level select entry's flags (tools/menu_level/level_select.ts thawPositionScaleFlags -> src/game/net/thugpro_compat.cpp)",
+    "big": ["Z_MA"],
+    "tall": []
+  },
   "frame_kept": {
     "_register": "TP-2",
     "zones": ["Z_SV"]

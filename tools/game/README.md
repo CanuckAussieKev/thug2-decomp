@@ -43,7 +43,9 @@ TypeScript tools' --game / --thug2 the same, tools/lib/install.ts).
     selected item), `focus <id> [s]`, `press <button> [frames]` (through Sio's control data: up down left right x/enter
     circle/esc square triangle start select l1 r1 l2 r2 l3 r3), `wait <frames>`, `waitfor ready | frontend | ingame |
     level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `teleport`, `camera`, `capture` (below),
-    `echo <text>`, `quit`. A failure or refusal
+    `logtricks [count]` (a test: one trick by skater 0 over the level's trick objects - all, or the first `count` - through
+    the trick object manager's LogTrickObjects; the result says how many objects / clusters and changed hands: THUG2's
+    own change mask crashed past 128, docs/pending/thugpro-guards.md), `echo <text>`, `quit`. A failure or refusal
     skips the rest of the batch.
   - **Looking at one spot frame by frame** (src/game/front/test_view.h, src/game/sys/screenshot.h StartSeries):
     `teleport <x> <y> <z> [heading]` puts the skater there standing (walking, no momentum, on the ground below;

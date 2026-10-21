@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "game/util/bitstream.h"
+
 // The skate module's network side (0x0056C920-0x0056F090): the message handlers it gives the server and client
 // apps - the game's start, the scores, the scavenger hunt, graffiti colours, scripts run on every machine, the
 // other skaters' positions -, the two tasks it runs in the main loop, and StartServer / AddClientHandlers that
@@ -12,6 +14,9 @@ namespace Net {
 struct App;
 struct MsgHandlerContext;
 } // namespace Net
+namespace Obj {
+class CObject;
+} // namespace Obj
 
 namespace Mdl {
 
@@ -56,6 +61,26 @@ public:
     // stamp, the fields that changed (position, angles, state, flags) - added to each object's state history
     // (+0x27C: 20 entries, the newest at count % 20).
     static int __cdecl HandleObjectUpdates(Net::MsgHandlerContext* context);
+
+    // The server's side of the skaters' updates (outside this file's range, with them for the big-level positions,
+    // TP-R6 - game/net/thugpro_compat.h): positions in half units (y in quarters), whole units in a big level.
+    // 0x0056BE60 (0x23 on the server): a client's own skater's update (a 32-bit time stamp, then the fields as above)
+    // into its state history; 4 (dropped) when it's older than the newest. From a player that isn't known or ready
+    // (its connection's +0x60 bit 0), or a late / foreign packet: skipped, its length worked out from its fields.
+    static int __cdecl HandleClientObjectUpdate(Net::MsgHandlerContext* context);
+    // What the server sends one client (the server task 0x00569BB0): a bit stream and the client's record of what it
+    // was last sent about each skater (+0x1C).
+    struct RelayStream {
+        Util::BitStream m_stream;
+        uint32_t m_unknown18;
+        void* m_sent;
+    };
+    // 0x005696C0: which of skater `index`'s fields (in `stateEntry`, its newest) differ from what `sentRecord` says
+    // was sent - every field once 60 of the server app's frames have gone by since the last time (then counted again).
+    static uint32_t __cdecl GetRelayFlags(void* sentRecord, void* stateEntry, uint8_t index);
+    // 0x005698F0: skater `object`'s newest state written to `out` (its 16-bit time stamp, the 9 field bits, the
+    // changed fields), and recorded as sent.
+    static void __cdecl WriteObjectUpdate(Obj::CObject* object, RelayStream* out);
 };
 
 } // namespace Mdl
