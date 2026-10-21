@@ -261,9 +261,18 @@ App* App::Destroy(unsigned int flags)
     return this;
 }
 
+namespace {
+EnqueueFilter g_enqueueFilter = nullptr; // NOT ORIGINAL - SetEnqueueFilter's
+}
+
+void SetEnqueueFilter(EnqueueFilter filter) { g_enqueueFilter = filter; }
+
 // 0x00457EB0
 void App::EnqueueMessage(int handle, MsgDesc* desc)
 {
+    // (NOT ORIGINAL: the filter - SetEnqueueFilter)
+    if (g_enqueueFilter && g_enqueueFilter(this, handle, desc))
+        return;
     PushNetworkHeap();
     // Every connection that takes it (`accepts`), or every one but handle & 0x7F, or the handle's.
     auto forEachTarget = [&](auto accepts, auto queue) {
