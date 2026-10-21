@@ -289,6 +289,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_goals.cpp
     src/hook/selftests_editor_scale.cpp
     src/hook/selftests_collision_component.cpp
+    src/hook/selftests_lock_obj.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -565,6 +566,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/anim_blend.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
+    src/game/obj/lock_obj.cpp
     src/game/obj/motion.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp

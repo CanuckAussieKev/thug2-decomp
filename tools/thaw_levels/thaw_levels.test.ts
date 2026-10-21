@@ -14,6 +14,7 @@ import {
     COMPAT,
     levelName,
     moveTree,
+    netOnlyRails,
     nodeFlagScript,
     setCompat,
     sixteenths,
@@ -306,4 +307,43 @@ test("TP-40: THUGPRO's node flag values on top of THAW's non-story ones, per zon
     setCompat("none");
     assert.equal(zoneNodeFlags("z_sr", thaw), thaw);
     setCompat("thugpro");
+});
+
+test("netOnlyRails (PC-THAW-15): Santa Monica's static ferris rails made only in network games", () => {
+    const names = new Map<number, string>();
+    const node = (name: string, cls: string): Struct => {
+        names.set(checksum(name), name);
+        names.set(checksum(cls), cls);
+        return new Struct([
+            [new Name(checksum("Pos")), new Vector("vector", [1.0, 2.0, 3.0])],
+            [new Name(checksum("Name")), new Name(checksum(name))],
+            [new Name(checksum("Class")), new Name(checksum(cls))],
+            [null, new Name(checksum("CreatedAtStart"))],
+        ]);
+    };
+    const converted = [
+        node("Z_SM_TRG_Veh_FerrisCar01_StaticRail01", "RailNode"),
+        node("Z_SM_TRG_Veh_FerrisCar01_StaticRail02", "RailNode"),
+        node("Z_SM_TRG_Veh_FerrisCar01", "Vehicle"), // (not a rail: kept)
+        node("Z_SM_TRG_Rail_Other", "RailNode"),
+    ];
+    const [script, text] = netOnlyRails("z_sm", converted, names, []);
+    assert.deepEqual(
+        converted.slice(0, 4).map((n) => n.hasFlag("CreatedAtStart")),
+        [false, false, true, true],
+    );
+    assert.equal(converted.length, 5);
+    const ghost = converted[4]!;
+    assert.equal((ghost.get("Name") as Name).value, checksum("Z_SM_TRG_G_FerrisNetRails"));
+    assert.equal(script, checksum("Z_SM_TRG_G_FerrisNetRailsScript"));
+    assert.equal((ghost.get("TriggerScript") as Name).value, script);
+    assert.ok(ghost.hasFlag("CreatedAtStart"));
+    assert.equal(
+        text,
+        "script Z_SM_TRG_G_FerrisNetRailsScript {\n    if InNetGame {\n" +
+            "        create name=Z_SM_TRG_Veh_FerrisCar01_StaticRail01\n" +
+            "        create name=Z_SM_TRG_Veh_FerrisCar01_StaticRail02\n    }\n}\n",
+    );
+    // another area: nothing
+    assert.deepEqual(netOnlyRails("z_ch", converted, names, []), [0, ""]);
 });

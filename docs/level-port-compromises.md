@@ -50,11 +50,11 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 | Animals | Stand-in (THUG2 pigeons, seagulls, sharks); flying birds missing | Pigeons as THUG2's own (Chicago, London, San Francisco: THPS4's script is THUG2's Pigeon_Generic); the rest missing (Zoo's among them) | Missing (dogs, sharks crash THUG2's ped AI) | Missing (pigeons) |
 | Traffic cars: model | Stand-in (THUG2 look-alike) | THUG2's car of the same name, else a sedan | Original (THUG2 ships most of THUG1's cars) | THUG2's car of the same name, else a sedan |
 | Traffic cars: driving | THUG2's Car_Generic01 on the original roads | Same (only the skate shop and Chicago have any; College none) | Same | Same |
-| Other vehicles (trains, trams, boats, rides) | Original models | Original models; skinned ones body only (no wheels, orientation guessed) | Original where THUG2 has the model and skeleton | Story vehicles missing |
+| Other vehicles (trains, trams, boats, rides) | Original models | Original models; skinned ones body only (no wheels, orientation guessed) | Original where THUG2 has the model and skeleton | Santa Monica's ferris cars: original (THAW's model, its rails); story vehicles missing |
 | Moving objects (fans, doors, presses) | Original models, moved by their scripts | Original | Original | Original (now drawn at their nodes, not the origin) |
 | Bouncy objects (cones, trash cans, boxes) | Static, no collision | Static (as level objects) | Original, with physics | Original, with physics; story-only props missing |
 | Collision on moving objects and vehicles | Missing (skater passes through) | Where the original had collision | Original | Where the original had collision |
-| Ride cars locked to a head (Obj_LockToObject) | n/a | Missing: they stay put | Missing | n/a |
+| Ride cars locked to a head (Obj_LockToObject) | n/a | Missing: they stay put | Missing | Original: Santa Monica's ferris wheel turns, its cars hang upright (THAW's no_rotate, added to THUG2's lock) and carry their grind rails |
 | Proximity areas (things that appear or switch near you) | Original (watched by generated ghost objects) | Missing: their scripts run once at the start | Original (THUG2 node) | Missing |
 | Ladders and ledges (hang, climb) | n/a | n/a | Original | Missing (ClimbingNode) |
 | Skitching | n/a | n/a | Original (THUG2's cars) | Missing |
@@ -257,6 +257,17 @@ nodes, run by THUG2's code.
 - Breakable glass and fences run THAW's own scripts (THUG2 has ShatterAndDie and BloodSplat too), with THUG2's
   breakable-glass face flags. Only for glass that has visible geometry in the online version (0-98 per level).
 - Skitching, ladders (ClimbingNode) and Casino's EmitterObjects missing.
+- Santa Monica's ferris wheel (2026-10-21, docs/pending/sm-ferris-wheel.md): as THAW - the wheel turns at THAW's 15
+  degrees a second (its SM_FerrisWheelRotation), the 12 cars are THAW's own model (converted, PC-THAW-14) locked to it
+  with THAW's `no_rotate` (THUG2's lock always took the target's orientation: src/game/obj/lock_obj.cpp adds the flag),
+  so they hang upright, and each carries THAW's two lip-able grind rails (its model's node array, moved by the car's
+  rail manager). Left out: the rails' TriggerScript (SM_FerrisCarBalanceReset, a goal helper easing lip balance) and
+  the wheel's loop sound. **Network games keep THUGPRO's frozen wheel**: THAW itself doesn't turn the wheel in a
+  multiplayer game (`if NOT InMultiplayerGame`) and has the cars AbsentInNetGames; THUGPRO keeps its cars there, frozen,
+  with 24 static rails (TP-8) instead of the model's. Ours: no cars online (THAW's flag, also THUG2's rule for
+  vehicles), and TP-8's static rails made only in network games (PC-THAW-15, by a ghost object's script) - so both
+  sides grind the same rails online, and offline the static rails don't hang in the air where the cars were at the
+  start. Split screen: the wheel stands still too (THAW's check), the cars stay at their nodes with their own rails.
 
 **Life**
 - Peds are THUG2 people picked by words in THAW's profile (female, skater, guard...), walking THAW's waypoints or

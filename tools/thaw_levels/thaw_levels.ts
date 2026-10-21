@@ -26,7 +26,7 @@ import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
 import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
-import type * as tex from "../level_port/tex.ts";
+import * as tex from "../level_port/tex.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { resolveInstall } from "../lib/install.ts";
@@ -928,6 +928,8 @@ export class Port {
     readonly assets: pedsCars.Thug2Assets;
     readonly globals: thawScripts.ThawSource[];
     readonly particles: Map<string, string>;
+    // PC-THAW-14: the models converted from THAW's own (convertThawModels), lower case as nodes name them
+    readonly thawModels = new Set<string>();
 
     constructor(args: Args, names: Map<number, string>) {
         this.thug2 = new scriptPort.Thug2(args.thug2);
@@ -1096,6 +1098,174 @@ export interface LevelNodes {
 // The node array: kept nodes and kill zones (THUG2's SK3_KillSkater, each naming a restart) as <name>.qb; with a
 // Port, the level's scripts, moving objects, peds and cars too (thaw_scripts.ts; sectors / colObjects: the checksums
 // the scene and collision have).
+// --- THAW's own models and the ferris wheel (PC-THAW-14 / PC-THAW-15) -------------------------------------------
+
+// The port_changes entry with this switch (null when the register hasn't it).
+function portChangeEntry(name: string): compat.Entry | null {
+    return compat.portChanges("thaw_levels").find((e) => e.switch === name) ?? null;
+}
+
+// PC-THAW-14 thaw_models: a model of THAW's data\models (`model` as nodes name it: "veh\\veh_sm_ferriscar\\
+// veh_sm_ferriscar.mdl"; its .mdl / .tex / .col / .qb files, each with .wpc) as THUG2's model files in
+// <out>\models\<the same path>: .mdl.xbx (a THUG2 model is a scene file's layout, in the model's own space - the
+// sectors converted as the levels' are, convertScene), .tex.xbx, .col.xbx (convertCol: no trigger faces) and .qb, its
+// node array <stem>_NodeArray: the model's rails, which a Vehicle's rail manager moves with it (THUG2's own idiom:
+// Barcelona's drawbridges, veh_ba_bridge_north.qb). Rail nodes keep THAW's entries THUG2 reads (Pos, Angles, Name,
+// Class, Type, TerrainType, Links; CreatedAtStart, LipOverride, DefaultLine - CRailManager::AddNode); their
+// TriggerScripts are left out (the ferris car's TRG_Rail01Script calls SM_FerrisCarBalanceReset, a goal helper easing
+// lip balance, not brought). make_menu_level copies <out>\models into the overlay. Returns false (and reports why)
+// when THAW hasn't the model.
+export function convertThawModel(
+    thawFolder: string,
+    model: string,
+    ns: string,
+    out: string,
+    names: Map<number, string>,
+    report: string[],
+): boolean {
+    const parts = model.toLowerCase().split("\\");
+    const stem = parts.at(-1)!.replace(/\.mdl$/, "");
+    const dirs = parts.slice(0, -1);
+    const root = resolveInstall(thawFolder, "thaw");
+    const file = (ext: string): Buffer | null => {
+        const p = findPath(root, "data", "models", ...dirs, `${stem}${ext}.wpc`);
+        return p === null ? null : fs.readFileSync(p);
+    };
+    const [mdl, texData, colData, qbData] = [file(".mdl"), file(".tex"), file(".col"), file(".qb")];
+    if (mdl === null || texData === null || colData === null || qbData === null) {
+        report.push(`PC-THAW-14: ${model}: not in THAW's data\\models (.mdl / .tex / .col / .qb) - left out`);
+        return false;
+    }
+    const warnings: string[] = [];
+    const scene = convertScene(thaw.readGeom(mdl, `${stem}.mdl`), warnings);
+    const textures = thaw.readTex(texData, `${stem}.tex`);
+    const col = convertCol(thaw.readCol(colData, `${stem}.col`), () => false, [0.0, 0.0, 0.0]);
+    const q = new thaw.QbItems(qbData, `${stem}.qb`, names);
+    const raw = q.get(`${stem}_NodeArray`);
+    if (!Array.isArray(raw)) throw new FormatError(`${model}: no ${stem}_NodeArray in its .qb`);
+    const array = nodes.expandIncludes(raw, new Map(q.globals.map(([k, v]) => [k.value, v])));
+    // (the rails, Links renumbered to the kept nodes)
+    const kept = new Map<number, number>();
+    array.forEach((node, i) => {
+        if (node instanceof Struct && nodes.classOf(node, names) === "railnode") kept.set(i, kept.size);
+    });
+    const keys = ["Pos", "Angles", "Name", "Class", "Type", "TerrainType"].map(checksum);
+    const flags = ["CreatedAtStart", "LipOverride", "DefaultLine"].map(checksum);
+    const rails: Struct[] = [];
+    let scriptsLeftOut = 0;
+    for (const [i] of kept) {
+        const node = array[i] as Struct;
+        const entries: qb.Entry[] = node.entries.filter(([k, v]) =>
+            k === null ? v instanceof Name && flags.includes(v.value) : keys.includes(k.value),
+        );
+        const links = node.get("Links");
+        if (Array.isArray(links)) {
+            const to = links.filter((l): l is number => typeof l === "number" && kept.has(l)).map((l) => kept.get(l)!);
+            if (to.length) entries.push([new Name(checksum("Links")), to]);
+        }
+        if (node.get("TriggerScript") !== undefined) scriptsLeftOut += 1;
+        rails.push(new Struct(entries));
+    }
+    nodes.fixTerrains(rails, names);
+    const text = `${stem}_NodeArray = [\n${rails.map((r) => `    ${qb.toNs(r, names, 1)}`).join("\n")}\n]\n`;
+    const dir = pyJoin(out, "models", ...dirs);
+    fs.mkdirSync(dir, { recursive: true });
+    let data = thug2Scene.writeScene(scene);
+    thug2Scene.readScene(data, stem);
+    fs.writeFileSync(pyJoin(dir, `${stem}.mdl.xbx`), data);
+    tex.checkLoadable(textures, stem);
+    data = tex.writeTex(textures);
+    tex.readTex(data, stem);
+    fs.writeFileSync(pyJoin(dir, `${stem}.tex.xbx`), data);
+    data = thug2Col.writeCol(col);
+    thug2Col.readCol(data, stem);
+    fs.writeFileSync(pyJoin(dir, `${stem}.col.xbx`), data);
+    common.nsCompile(ns, text, pyJoin(dir, `${stem}.qb`));
+    report.push(
+        `PC-THAW-14: ${model}: ${scene.sectors.length} sector(s), ${textures.textures.length} texture(s), ` +
+            `${col.objects.length} collision object(s), ${rails.length} rail node(s)` +
+            (scriptsLeftOut ? `; ${scriptsLeftOut} rail TriggerScript(s) left out` : "") +
+            (warnings.length ? `; ${warnings.join("; ")}` : ""),
+    );
+    return true;
+}
+
+// PC-THAW-14: every model the register lists, converted (convertThawModel); the ones made, lower case.
+export function convertThawModels(
+    thawFolder: string,
+    ns: string,
+    out: string,
+    names: Map<number, string>,
+    report: string[],
+): Set<string> {
+    const made = new Set<string>();
+    if (!portChange("thaw_models")) return made;
+    const models = portChangeEntry("thaw_models")?.models;
+    if (!Array.isArray(models)) return made;
+    for (const model of models) {
+        if (typeof model !== "string") throw new TypeError("PC-THAW-14: a model isn't a string");
+        if (convertThawModel(thawFolder, model, ns, out, names, report)) made.add(model.toLowerCase());
+    }
+    return made;
+}
+
+// PC-THAW-15 net_only_rails: the register's rail nodes of this area (TP-8's static rails on Santa Monica's ferris cars:
+// THUGPRO's for its frozen wheel) not created at the start; a ghost object (made at the start, its script run once)
+// creates them in network games - where THAW's own wheel doesn't turn (SM_FerrisWheelRotation: `if NOT
+// InMultiplayerGame`) and its cars are absent (THAW's AbsentInNetGames, also nodes.netGameNodes'): there THUGPRO's
+// players grind them, as ours do. Offline THAW's cars carry their own rails round with the wheel (PC-THAW-14), and the
+// static ones would hang in the air where the cars were at the start. Changes `converted` (THUG2's nodes, after
+// convertNodes); returns the ghost's script: [its checksum, NeverScript text] (none: [0, ""]).
+export function netOnlyRails(
+    zone: string,
+    converted: Struct[],
+    names: Map<number, string>,
+    report: string[],
+): [number, string] {
+    const zones = portChangeEntry("net_only_rails")?.zones as
+        | Record<string, { nodes: string; ghost: string }>
+        | undefined;
+    const spec = zones?.[zone.toUpperCase()];
+    if (spec === undefined) return [0, ""];
+    const pattern = new RegExp(spec.nodes, "i");
+    const rails: Struct[] = [];
+    for (const node of converted) {
+        const name = node.get("Name");
+        if (!(name instanceof Name) || nodes.classOf(node, names) !== "railnode") continue;
+        if (!pattern.test(names.get(name.value) ?? "")) continue;
+        node.removeFlag("CreatedAtStart");
+        rails.push(node);
+    }
+    if (!rails.length) {
+        report.push(`  PC-THAW-15: no rail node matches ${spec.nodes} - nothing changed`);
+        return [0, ""];
+    }
+    const script = `${spec.ghost}Script`;
+    const n = (text: string): Name => new Name(checksum(text));
+    names.set(checksum(spec.ghost), spec.ghost);
+    names.set(checksum(script), script);
+    converted.push(
+        new Struct([
+            [n("Pos"), rails[0]!.get("Pos") ?? new Vector("vector", [0.0, 0.0, 0.0])],
+            [n("Angles"), new Vector("vector", [0.0, 0.0, 0.0])],
+            [n("Name"), n(spec.ghost)],
+            [n("Class"), n("GameObject")],
+            [n("Type"), n("Ghost")],
+            [null, n("CreatedAtStart")],
+            [null, n("NeverSuspend")],
+            [n("model"), "none"],
+            [n("lod_dist1"), 400],
+            [n("lod_dist2"), 401],
+            [n("TriggerScript"), n(script)],
+        ]),
+    );
+    const creates = rails
+        .map((r) => `        create name=${qb.nameText((r.get("Name") as Name).value, names)}`)
+        .join("\n");
+    report.push(`  PC-THAW-15: ${rails.length} rail node(s) only in network games (created by ${spec.ghost})`);
+    return [checksum(script), `script ${script} {\n    if InNetGame {\n${creates}\n    }\n}\n`];
+}
+
 export function convertLevelNodes(
     files: ReadonlyMap<string, Buffer>,
     zone: string,
@@ -1192,6 +1362,7 @@ export function convertLevelNodes(
             shift,
         );
         for (const d of extra?.drivers ?? []) made.drivers.add(d);
+        for (const model of port.thawModels) made.thawModels.add(model);
         const m = made;
         array = array.map((n) => (n instanceof Struct ? (m.convert(n) ?? n) : n));
         for (const node of array) {
@@ -1225,6 +1396,10 @@ export function convertLevelNodes(
     const spawnScripts = applySpawns(zone, name, converted, names, report);
     if (shift.some((x) => x !== 0)) movePositions(converted, shift);
     kills = nodes.addKillRestarts(converted, kills, names);
+    // PC-THAW-15: TP-8's static ferris-car rails only in network games (THAW's own cars and rails move offline)
+    const [netRailsScript, netRailsText] = portChange("net_only_rails")
+        ? netOnlyRails(zone, converted, names, report)
+        : [0, ""];
     let scripts = new Map<number, Buffer>();
     let extraText = "";
     let scriptReport = "";
@@ -1246,6 +1421,7 @@ export function convertLevelNodes(
                 thawScripts.RAIL_ACCELERATE,
             ].map(checksum),
             ...(extra?.scripts.keys() ?? []),
+            ...(netRailsText ? [netRailsScript] : []),
         ]);
         const m = made;
         let globalsText: string;
@@ -1339,6 +1515,7 @@ export function convertLevelNodes(
         extraText +
         animsText +
         spawnScripts +
+        netRailsText +
         (extra?.setupNs ?? "");
     if (breakingNames.size) {
         // The breakables' glass sound (THAW's MA_BreakGlass plays HitGlassPane2x; THUG2 has it too, loaded per level):
@@ -1461,6 +1638,9 @@ function cmdConvert(args: Args): void {
     const report: string[] = [];
     const port = args.static ? null : new Port(args, names);
     const sky = convertSky(args, out, report);
+    // PC-THAW-14: THAW's own models the register lists (with --static no objects are made: none)
+    if (port !== null)
+        for (const m of convertThawModels(args.thaw, args.ns, out, names, report)) port.thawModels.add(m);
     for (const requested of wanted) {
         const info = BY_ZONE.get(requested.toLowerCase()) ?? BY_ZONE.get(`z_${requested.toLowerCase()}`);
         if (!info) {

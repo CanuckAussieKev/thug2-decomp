@@ -81,7 +81,7 @@
       "online_impact": "parity: grindable rails. Both sides must have them in the same static places.",
       "effort": "M",
       "risk": "medium",
-      "status_in_our_port": "we copy the rails (TP-8); whether our cars are drawn needs checking"
+      "status_in_our_port": "done the THAW way offline (2026-10-21, docs/pending/sm-ferris-wheel.md): the wheel turns (THAW's SM_FerrisWheelRotation), THAW's own car model with its two rails (PC-THAW-14) locked upright with THAW's no_rotate (added to THUG2's lockobj component). TP-8's static rails only in network games (PC-THAW-15), where THAW's wheel stands still and its cars are absent: online both sides grind the same static rails; THUGPRO draws frozen cars there, we don't (THAW's AbsentInNetGames)"
     },
     {
       "id": "thaw-el-sm-hand-offsets",
