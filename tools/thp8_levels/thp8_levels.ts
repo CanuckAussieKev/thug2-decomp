@@ -19,12 +19,13 @@ import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
 import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import type * as tex from "../level_port/tex.ts";
-import type * as thug2Col from "../level_port/thug2_col.ts";
+import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { parseCli } from "../lib/cli.ts";
 import { findCaseless, resolveInstall } from "../lib/install.ts";
 import { isMain, print, pyExit, pyJoin, runMain } from "../lib/py.ts";
 import * as thaw from "../thaw_levels/thaw.ts";
+import { applyNodeFlags, nodeFlagScript } from "../thaw_levels/thaw_levels.ts";
 import { makeMaterial, THUG2_TERRAIN_TYPES, trisToStrip } from "../thps2_levels/thps2_levels.ts";
 import * as geom from "./geom.ts";
 import * as havok from "./havok.ts";
@@ -210,6 +211,37 @@ const THP8_TO_THUG2: Record<string, (typeof THUG2_TERRAIN_TYPES)[number]> = {
     HIGHFRICTION: "CARPET",
 };
 
+// --- node flags ----------------------------------------------------------------------------------------------------
+
+// THP8 makes much of its zones' geometry from node flags (`CreatedFromVariable=NODEFLAG_...`: the gates between zones,
+// goal pieces, the turf war's signs), as THAW does. The flags as THP8's non-story games set them (qb.pak's
+// game_progress_set_non_story_mode_nodeflags - the unlocked state: gates open, barriers down) - read with
+// tools/thaw_levels' nodeFlagScript; the nodes they make get CreatedAtStart (applyNodeFlags).
+export const NODEFLAG_SCRIPT = "game_progress_set_non_story_mode_nodeflags";
+
+export function nonStoryNodeFlags(compressed: string, names: Map<number, string>): Map<number, boolean> {
+    const pak = thp8.openPak(findCaseless(compressed, "PAK", "qb.pak.xen")!);
+    const key = checksum(NODEFLAG_SCRIPT);
+    for (const e of pak.entries) {
+        if (e.extension !== ".qb") continue;
+        const q = new thaw.QbItems(thp8.entryData(pak, e), "qb.pak", names, ">");
+        if (q.scriptData.has(key)) return nodeFlagScript(q.scriptData, key, "qb.pak.xen");
+    }
+    pyExit(`qb.pak.xen: no ${NODEFLAG_SCRIPT}`);
+}
+
+// The sectors of LevelGeometry nodes left without CreatedAtStart (THUG2 never makes them: their geometry isn't drawn or
+// collided with) - left out of the scene and collision rather than kept unseen.
+export function notMade(array: readonly QbValue[], names: ReadonlyMap<number, string>): Set<number> {
+    const out = new Set<number>();
+    for (const n of array) {
+        if (!(n instanceof Struct) || nodes.classOf(n, names) !== "levelgeometry") continue;
+        const name = nodeName(n);
+        if (name !== null && !n.hasFlag("CreatedAtStart") && n.get("MasterName") === undefined) out.add(name);
+    }
+    return out;
+}
+
 // THP8's terrain_types names in order (the qb item format, PAK\qb.pak.xen).
 export function terrainTable(compressed: string, names: Map<number, string>): string[] {
     const pak = thp8.openPak(findCaseless(compressed, "PAK", "qb.pak.xen")!);
@@ -310,6 +342,8 @@ export interface SceneParts {
     textures: Map<number, xenos.XenosTexture>;
     // sectors to draw as copies elsewhere (instances): name -> [master sector, placement]
     placed: Map<number, { master: number; at: Placement }>;
+    hidden?: ReadonlySet<number>; // sectors not made (notMade)
+    dome?: boolean; // untextured materials coloured as a clear sky (THP8's atmosphere shader - the sky's dome)
 }
 
 const SECTOR_FLAGS = (0x80002000 | thug2Scene.SEC_TEXCOORDS | thug2Scene.SEC_COLORS) >>> 0;
@@ -318,7 +352,7 @@ export interface ConvertedScene {
     scene: thug2Scene.Scene;
     textures: tex.TexFile;
     sectors: Set<number>; // the sector checksums written
-    counts: { sectors: number; instances: number; masters: number; triangles: number; skipped: number };
+    counts: { sectors: number; instances: number; masters: number; triangles: number; skipped: number; hidden: number };
 }
 
 // The materials and textures a set of THP8 scenes uses, as THUG2's: each material one pass with its first texture
@@ -334,7 +368,7 @@ export function convertScenes(
     const transparent = new Set<number>();
     const sectors: geometry.SourceSector[] = [];
     const written = new Set<number>();
-    const counts = { sectors: 0, instances: 0, masters: 0, triangles: 0, skipped: 0 };
+    const counts = { sectors: 0, instances: 0, masters: 0, triangles: 0, skipped: 0, hidden: 0 };
     for (const part of parts) {
         const g = part.geom;
         // materials
@@ -374,8 +408,14 @@ export function convertScenes(
                 }
                 const base = positions.length;
                 const blend = transparent.has(m.material);
+                const dome = part.dome && !materials.get(m.material)!.passes[0]!.texture;
                 for (const v of geom.readVertices(m)) {
                     positions.push(toThug(place(v.position, at), shift));
+                    if (dome) {
+                        colors.push(skyColour(v.position));
+                        uvs.push([0, 0]);
+                        continue;
+                    }
                     // (255 = full as THUG2's 128; opaque materials' vertex alpha - THP8's layer blend weights - full)
                     const [b, g2, r, a] = v.color as [number, number, number, number];
                     colors.push([b >> 1, g2 >> 1, r >> 1, blend ? a >> 1 : 128]);
@@ -404,6 +444,10 @@ export function convertScenes(
         for (const s of g.sectors) {
             if (masters.has(s.checksum)) {
                 counts.masters++;
+                continue;
+            }
+            if (part.hidden?.has(s.checksum)) {
+                counts.hidden++;
                 continue;
             }
             emit(s.checksum, s, null);
@@ -439,6 +483,7 @@ export interface CollisionResult {
     col: thug2Col.ColFile;
     objects: Map<number, number>; // checksum -> faces
     named: number; // bodies named after their scene sector / node
+    hidden: number; // bodies of nodes not made, left out
 }
 
 const boxOf = (tris: readonly havok.HkTriangle[]): number[] => {
@@ -460,7 +505,7 @@ const boxOf = (tris: readonly havok.HkTriangle[]): number[] => {
 // primitive's node, else <level>_Col_<n>. Faces: THP8's flags (FACE_KEEP; trigger faces only on `keepTriggers`'
 // objects - THUG2 runs a trigger face's node's script without checking it's there), terrain by thug2Terrain.
 export function convertCollision(
-    sets: readonly { bodies: havok.HkBody[]; sectors: readonly geom.GeomSector[] }[],
+    sets: readonly { bodies: havok.HkBody[]; sectors: readonly geom.GeomSector[]; hidden?: ReadonlySet<number> }[],
     level: string,
     shift: readonly number[],
     terrains: readonly string[],
@@ -471,7 +516,8 @@ export function convertCollision(
     const used = new Set<number>();
     let named = 0;
     let n = 0;
-    for (const { bodies, sectors } of sets) {
+    let hiddenBodies = 0;
+    for (const { bodies, sectors, hidden } of sets) {
         for (const body of bodies) {
             if (!body.triangles.length) continue;
             const box = boxOf(body.triangles);
@@ -495,6 +541,10 @@ export function convertCollision(
                 if (owner !== undefined && name === owner) named++;
             }
             n++;
+            if (hidden?.has(name)) {
+                hiddenBodies++;
+                continue;
+            }
             used.add(name);
             const verts: number[][] = [];
             const index = new Map<string, number>();
@@ -535,7 +585,7 @@ export function convertCollision(
         }
     }
     const col = geometry.convertCol({ objects }, keepTriggers, warnings, (f) => f);
-    return { col, objects: new Map(objects.map((o) => [o.checksum, o.faces.length])), named };
+    return { col, objects: new Map(objects.map((o) => [o.checksum, o.faces.length])), named, hidden: hiddenBodies };
 }
 
 // The x / z shift (inches, whole sixteenths) that puts the middle of the collision at the origin.
@@ -555,6 +605,86 @@ export interface NodeResult {
     restarts: number;
     rails: number;
     triggers: Set<number>;
+    added: boolean; // a restart made (the zone had none)
+}
+
+// The highest collision face under (x, z) (metres), or null.
+export function floorAt(bodies: readonly havok.HkBody[], x: number, z: number): number | null {
+    let best: number | null = null;
+    for (const b of bodies) {
+        for (const t of b.triangles) {
+            if (t.material & thug2Col.FACE_NON_COLLIDABLE) continue;
+            const [a, p, c] = [t.a, t.b, t.c];
+            const d = (p[0]! - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (p[2]! - a[2]!);
+            if (Math.abs(d) < 1e-9) continue;
+            const u = ((x - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (z - a[2]!)) / d;
+            const v = ((p[0]! - a[0]!) * (z - a[2]!) - (x - a[0]!) * (p[2]! - a[2]!)) / d;
+            if (u < 0 || v < 0 || u + v > 1) continue;
+            const y = a[1]! + u * (p[1]! - a[1]!) + v * (c[1]! - a[1]!);
+            if (best === null || y > best) best = y;
+        }
+    }
+    return best;
+}
+
+// A Player1 restart for a zone that has none (THP8's skate shop: a menu scene), over the floor nearest the middle of
+// its collision.
+export function addRestart(
+    converted: Struct[],
+    bodies: readonly havok.HkBody[],
+    level: string,
+    shift: readonly number[],
+    names: Map<number, string>,
+): boolean {
+    if (converted.some((n) => nodes.classOf(n, names) === "restart")) return false;
+    const box = boxOf(bodies.flatMap((b) => b.triangles));
+    if (!Number.isFinite(box[0]!)) return false;
+    const [cx, cz] = [(box[0]! + box[3]!) / 2, (box[2]! + box[5]!) / 2];
+    let at: number[] | null = null;
+    for (let r = 0; r < 20 && at === null; r++) {
+        for (const [dx, dz] of [
+            [0, 0],
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+        ] as const) {
+            const x = cx + dx * r * 0.25;
+            const z = cz + dz * r * 0.25;
+            const y = floorAt(bodies, x, z);
+            if (y !== null) {
+                at = [x, y + 0.05, z];
+                break;
+            }
+        }
+    }
+    if (at === null) return false;
+    const n = (text: string): Name => {
+        const v = checksum(text);
+        if (!names.has(v)) names.set(v, text);
+        return new Name(v);
+    };
+    converted.unshift(
+        new Struct([
+            [n("Pos"), new Vector("vector", toThug(at, shift))],
+            [n("Angles"), new Vector("vector", [0, 0, 0])],
+            [n("Name"), n(`${level}_TRG_Restart_Start`)],
+            [n("Class"), n("Restart")],
+            [n("Type"), n("Player1")],
+            [null, n("CreatedAtStart")],
+            [n("restart_types"), [n("Player1"), n("MultiPlayer"), n("Horse")]],
+        ]),
+    );
+    // (the Links are node indices: every one moves up by the new first node)
+    const LINKS = checksum("Links");
+    for (const node of converted.slice(1)) {
+        node.entries = node.entries.map(([k, v]) =>
+            k !== null && k.value === LINKS && Array.isArray(v)
+                ? [k, v.map((i) => (typeof i === "number" ? i + 1 : i))]
+                : [k, v],
+        );
+    }
+    return true;
 }
 
 export function zoneNodes(
@@ -565,12 +695,15 @@ export function zoneNodes(
     shift: readonly number[],
     sectors: ReadonlySet<number>,
     scriptQbs: readonly thaw.QbItems[],
+    bodies: readonly havok.HkBody[] = [],
+    flags: ReadonlyMap<number, boolean> = new Map(),
 ): NodeResult {
     const key = checksum(`${zone}_NodeArray`);
     const raw = nqb.globals.find(([n]) => n.value === key)?.[1];
     if (!Array.isArray(raw)) pyExit(`${zone}: no ${zone}_NodeArray`);
     const globals = new Map(nqb.globals.map(([k, v]) => [k.value, v]));
     const array = nodes.expandIncludes(raw, globals);
+    applyNodeFlags(array, flags);
     const restartNames = new Set<number>();
     for (const n of array) {
         const v = n instanceof Struct ? nodeName(n) : null;
@@ -582,10 +715,15 @@ export function zoneNodes(
     const POS = checksum("Pos");
     const RESTART_NAME = checksum("RestartName");
     for (const node of converted) {
-        // (THP8's restarts have an empty RestartName '': NeverScript takes no empty string - left out)
-        node.entries = node.entries.filter(
-            ([k, v]) => !(k !== null && k.value === RESTART_NAME && v instanceof qb.Local && !v.text),
-        );
+        // (THP8's RestartName is a wide local string: as THUG2's plain one - left out when empty, NeverScript takes no
+        // empty string)
+        node.entries = node.entries
+            .filter(([k, v]) => !(k !== null && k.value === RESTART_NAME && v instanceof qb.Local && !v.text))
+            .map(([k, v]) =>
+                k !== null && k.value === RESTART_NAME && v instanceof qb.Local
+                    ? [k, v.text.replace(/[^ -~]/g, "").replaceAll('"', "")]
+                    : [k, v],
+            );
         node.entries = node.entries.map(([k, v]) =>
             k !== null && k.value === POS && v instanceof Vector && v.kind === "vector"
                 ? [k, new Vector("vector", toThug(v.values, shift))]
@@ -594,12 +732,21 @@ export function zoneNodes(
     }
     // (LevelGeometry nodes whose sector isn't drawn - collision-only pieces, masters - lose TrickObject / Cluster:
     // stripMissingTrickObjects, on the text)
+    const added = addRestart(converted, bodies, level, shift, names);
     kills = nodes.addKillRestarts(converted, kills, names);
     const triggers = nodes.killTriggerNames(converted, kills);
     let text = nodes.nodeArrayNs(`${level}_NodeArray`, converted, names, kills);
     [text] = nodes.stripMissingTrickObjects(text, sectors);
     const count = (cls: string): number => converted.filter((n) => nodes.classOf(n, names) === cls).length;
-    return { text, stats, kills: triggers.size, restarts: count("restart"), rails: count("railnode"), triggers };
+    return {
+        text,
+        stats,
+        kills: triggers.size,
+        restarts: count("restart"),
+        rails: count("railnode"),
+        triggers,
+        added,
+    };
 }
 
 // --- converting ---------------------------------------------------------------------------------------------------
@@ -657,10 +804,12 @@ export function cmdConvert(args: Args): number {
     }
     const names = thp8.loadNames(findCaseless(compressed, "PAK", "dbg.pak.xen")!);
     const terrains = terrainTable(compressed, names);
+    const flags = nonStoryNodeFlags(compressed, names);
     if (fs.existsSync(out)) fs.rmSync(out, { recursive: true, force: true });
     fs.mkdirSync(out, { recursive: true });
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
     const report: string[] = [];
+    const sky = convertSky(compressed, out, report, !args.noMips);
     for (const info of wanted) {
         const file = zonePak(compressed, info.zone);
         if (file === null) {
@@ -685,16 +834,26 @@ export function cmdConvert(args: Args): number {
         const array = Array.isArray(rawArray)
             ? nodes.expandIncludes(rawArray, new Map(z.nqb.globals.map(([k, v]) => [k.value, v])))
             : [];
-        for (const [k, v] of instances(array)) placed.set(k, v);
-        const parts: SceneParts[] = [{ geom: z.geom, textures: z.textures, placed }];
-        if (online?.geom) parts.push({ geom: online.geom, textures: online.textures, placed: new Map() });
-        const done = convertScenes(parts, shift, warnings, !args.noMips);
+        // (the node flags first: they decide which instances and sectors are made)
+        const flagged = applyNodeFlags(array, flags);
+        for (const [k, v] of instances(array)) {
+            const node = array.find((n) => n instanceof Struct && nodeName(n) === k) as Struct | undefined;
+            if (node?.hasFlag("CreatedAtStart")) placed.set(k, v);
+        }
+        const hidden = notMade(array, names);
+        // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
+        const done = convertScenes(
+            [{ geom: z.geom, textures: z.textures, placed, hidden }],
+            shift,
+            warnings,
+            !args.noMips,
+        );
         // nodes (the kill zones' trigger faces kept)
         const scriptQbs = [z.nqb, ...z.qbs];
-        const nodeResult = zoneNodes(z.nqb, zoneName, name, names, shift, done.sectors, scriptQbs);
+        const nodeResult = zoneNodes(z.nqb, zoneName, name, names, shift, done.sectors, scriptQbs, z.bodies, flags);
         // collision
-        const sets = [{ bodies: z.bodies, sectors: z.geom.sectors }];
-        if (online?.geom) sets.push({ bodies: online.bodies, sectors: online.geom.sectors });
+        const sets = [{ bodies: z.bodies, sectors: z.geom.sectors, hidden }];
+        if (online?.geom) sets.push({ bodies: online.bodies, sectors: online.geom.sectors, hidden: new Set() });
         const col = convertCollision(sets, name, shift, terrains, (c) => nodeResult.triggers.has(c), warnings);
         const levelDir = pyJoin(out, "levels", name);
         common.writeLevel(levelDir, name, done.scene, done.textures, col.col);
@@ -703,17 +862,19 @@ export function cmdConvert(args: Args): number {
         report.push(
             `  ${info.zone}${online ? ` + ${info.online}` : ""}: ${c.sectors} sectors, ${c.instances} instances of ` +
                 `${c.masters} masters, ${c.triangles} triangles; collision ${col.objects.size} objects (${col.named} ` +
-                `named after their sector / node); moved by (${shift.map((x) => x.toFixed(1)).join(", ")})`,
+                `named after their sector / node; ${col.hidden} of nodes not made left out); ${flagged} nodes made ` +
+                `from THP8's non-story node flags, ${hidden.size} not made; moved by (${shift.map((x) => x.toFixed(1)).join(", ")})`,
         );
         common.nsCompile(args.ns, nodeResult.text, pyJoin(levelDir, `${name}.qb`));
         report.push(
-            `  nodes: ${nodeResult.restarts} restarts, ${nodeResult.rails} rail nodes, ${nodeResult.kills} kill zones ` +
+            `  nodes: ${nodeResult.restarts} restarts${nodeResult.added ? " (one made: it had none)" : ""}, ` +
+                `${nodeResult.rails} rail nodes, ${nodeResult.kills} kill zones ` +
                 `(${[...nodeResult.stats].map(([k, v]) => `${k} ${v}`).join(", ")})`,
         );
         manifest.levels.push({
             folder: info.zone,
             level: name,
-            sky: null,
+            sky,
             display: `THP8 ${info.sign}`,
             name: `${info.sign.charAt(0)}${info.sign.slice(1).toLowerCase()}`,
             game: "THP8",
@@ -730,6 +891,41 @@ export function cmdConvert(args: Args): number {
     return 0;
 }
 
+export const SKY = "thp8_sky";
+
+// A stand-in for THP8's atmosphere shader on the sky's domes: a clear sky by the vertex's height (horizon pale, zenith
+// blue), B G R A with 128 = full.
+export function skyColour(p: readonly number[]): number[] {
+    const r = Math.hypot(p[0]!, p[1]!, p[2]!) || 1;
+    const t = Math.max(0, Math.min(1, p[1]! / r));
+    const mix = (a: number, b: number): number => Math.round((a + (b - a) * t ** 0.6) / 2);
+    return [mix(235, 200), mix(220, 140), mix(205, 80), 128];
+}
+
+// THP8's default sky (SKIES\DEFAULT_SKY\default_sky.pak.xen: a dome scene) as the levels' sky, in the same units.
+export function convertSky(compressed: string, out: string, report: string[], mips: boolean): string | null {
+    const file = findCaseless(compressed, "SKIES", "DEFAULT_SKY", "default_sky.pak.xen");
+    if (file === null) {
+        report.push("default_sky.pak.xen not found - no sky");
+        return null;
+    }
+    const warnings: string[] = [];
+    const pak = thp8.openPak(file);
+    const g = pak.entries.find((e) => e.extension === ".geom");
+    const t = pak.entries.find((e) => e.extension === ".tex");
+    if (!g || !t) return null;
+    const textures = new Map(xenos.readXenosTex(thp8.entryData(pak, t), file).map((x) => [x.checksum, x]));
+    const done = convertScenes(
+        [{ geom: geom.readGeom(thp8.entryData(pak, g), file), textures, placed: new Map(), dome: true }],
+        [0, 0, 0],
+        warnings,
+        mips,
+    );
+    common.writeLevel(pyJoin(out, "levels", SKY), SKY, done.scene, done.textures, null);
+    common.reportLevel(report, SKY, done.scene, done.textures, null, [...new Set(warnings)].sort());
+    return SKY;
+}
+
 // Every zone archive: its scene, textures (base levels untiled), collision and qb files read; THUG2's LA / TestLevel
 // files round-trip (common.thug2RoundTrips).
 export function cmdSelfcheck(args: Args): number {
@@ -741,9 +937,20 @@ export function cmdSelfcheck(args: Args): number {
     ]);
     const compressed = compressedFolder(args.thp8);
     const names = thp8.loadNames(findCaseless(compressed, "PAK", "dbg.pak.xen")!);
+    // every zone archive, the skies, and qb.pak (the scripts and globals)
     const zones = findCaseless(compressed, "ZONES")!;
-    for (const f of fs.readdirSync(zones).filter((x) => /\.pak\.xen$/i.test(x))) {
-        const pak = thp8.openPak(pyJoin(zones, f));
+    const files = fs
+        .readdirSync(zones)
+        .filter((x) => /\.pak\.xen$/i.test(x))
+        .map((x) => pyJoin(zones, x));
+    const skies = findCaseless(compressed, "SKIES");
+    for (const d of skies ? fs.readdirSync(skies) : []) {
+        for (const x of fs.readdirSync(pyJoin(skies!, d))) if (/\.pak\.xen$/i.test(x)) files.push(pyJoin(skies!, d, x));
+    }
+    files.push(findCaseless(compressed, "PAK", "qb.pak.xen")!);
+    for (const file of files) {
+        const f = file.slice(compressed.length + 1);
+        const pak = thp8.openPak(file);
         for (const e of pak.entries) {
             const what = `${f} ${e.extension} ${thp8.hex(e.full)}`;
             try {

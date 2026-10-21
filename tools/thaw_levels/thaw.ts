@@ -286,6 +286,14 @@ export class ItemReader {
         if (kind === T_FLOAT) return new Float(unpackNumbers("<f", Buffer.from(Uint32Array.of(v).buffer))[0]!);
         if (kind === T_NAME) return new Name(v);
         if (kind === T_REF) return asValue(new Ref(v));
+        if (kind === T_LOCAL && this.order === ">") {
+            // (THP8: a wide string - UTF-16, big-endian, up to a 0 character)
+            let end = v;
+            while (end + 1 < d.length && (d[end] || d[end + 1])) end += 2;
+            if (end + 1 >= d.length) throw new RangeError("subsection not found");
+            this.reach(end + 2);
+            return new qb.Local(Buffer.from(d.subarray(v, end)).swap16().toString("utf16le"));
+        }
         if (kind === T_STRING || kind === T_LOCAL) {
             const end = d.indexOf(0, v);
             if (end < 0) throw new RangeError("subsection not found"); // (Python's bytes.index)

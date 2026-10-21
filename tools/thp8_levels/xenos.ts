@@ -64,9 +64,12 @@ export function readXenosTex(data: Buffer, name = "tex"): XenosTexture[] {
     }
     for (const x of raw) {
         const size = tiledSize(x.t);
-        if (x.at + size > data.length)
-            throw new FormatError(`${name}: texture ${x.t.checksum.toString(16)} past the end`);
-        x.t.data = data.subarray(x.at, x.at + size);
+        if (x.at >= data.length) throw new FormatError(`${name}: texture ${x.t.checksum.toString(16)} past the end`);
+        // (the last texture of a file may stop before its tile's padding: the rest is zeros)
+        x.t.data =
+            x.at + size <= data.length
+                ? data.subarray(x.at, x.at + size)
+                : Buffer.concat([data.subarray(x.at), Buffer.alloc(x.at + size - data.length)]);
     }
     return raw.map((x) => x.t);
 }

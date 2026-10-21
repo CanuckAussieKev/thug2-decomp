@@ -443,6 +443,19 @@ export function readCollision(pf: Packfile, warnings: string[] = []): HkBody[] {
                 walk(childOf(s, c, "childShape"), t, material, out, ud || owner);
                 return;
             }
+            case "hkConvexTranslateShape": {
+                const v = pf.floats(s, pf.member(c, "translation").offset, 3);
+                const t = compose(m, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, v[0]!, v[1]!, v[2]!, 1]);
+                const ud = pf.u32(s, pf.member(c, "userData").offset);
+                walk(childOf(s, c, "childShape"), t, material, out, ud || owner);
+                return;
+            }
+            case "hkSphereShape": {
+                // (a prism as tall as it is wide)
+                const r = pf.real(s, c, "radius");
+                push(cylinderTriangles([0, -r, 0], [0, r, 0], r));
+                return;
+            }
             case "hkBoxShape":
                 push(boxTriangles(pf.floats(s, pf.member(c, "halfExtents").offset, 3)));
                 return;
