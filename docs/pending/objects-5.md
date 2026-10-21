@@ -118,3 +118,17 @@ commands (0x445000-0x445B30). Shared files touched: CMakeLists.txt (new files li
     (12-240). 39 deliberate bugs: 38 caught (4 after strengthening: short rails, many more FaceHangRail variants, t
     of 0 / 0.25, the pull-up's offset recorded before the drop overwrites it), 1 equivalent (StartRiding's null
     store before the new tracker).
+- [x] Batch OC5-5 (NOT run in the game yet; the walk component's hang helpers, part 2, 4 functions):
+  src/game/obj/walk_hang.cpp + .h.
+  - 0x0043E530 PullUp (the ledge above the hang: the walk component's ground search 0x00528280 at the target, else
+    12 to either side; seven feelers round it and one from behind up past pull_up_obstruction_height; then the
+    PullUpFromHang move, ending in EndPullUp - or EndDropFromHang with no ground), 0x0043EC40 DropToHang (from
+    walking onto a rail below: speed, tagging and the skater core's +0x1528 +0x70 checks; FindRail facing away -
+    the level's rails, else each moving rail manager's in its object's space, riding it), 0x0043F030 GrabRail (a
+    rail between two points while falling no faster than 50; hanging at once, the rail script, +0x1528's +0xA0 flag
+    and time), 0x0043F3A0 ShimmyBlocked (11 stack arguments: the hang's sideways / up / back / critical-point feelers,
+    near a segment's end turned onto the next one).
+  - Test: TestWalkHang extended (18 walk parameters through two chained structures; the skate module global set to
+    the arena; stand-ins for the ground search, feeler assignment, ride release, the object matrix, FindRail on
+    moving rail managers; feeler hits by percentage per function; fake rail manager components). 45 deliberate bugs:
+    44 caught, 1 equivalent in practice (the pull-up offset's w rounded once more - facing w is 0 or 1).

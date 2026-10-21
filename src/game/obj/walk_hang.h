@@ -60,6 +60,27 @@ public:
     // runs the other way. Whether there's one.
     bool NextHangRail(float* t, Obj::CRailNode* start, Obj::CRailNode* end, Obj::CRailNode** newStart,
                       Obj::CRailNode** newEnd);
+    // 0x0043E530: a pull-up onto the ledge above the hang: the ground near `target` (0x00528280; failing that, 12 to
+    // one side, then 12 to the other - `target` moved), seven feelers round it (none may hit) and one from behind the
+    // skater up past the pull_up_obstruction_height (neither may hit). Then the animated move (PullUpFromHang) towards
+    // it, ending walking (the ledge's feeler kept for the triggers) or, with no ground found, in the air. Whether it
+    // starts.
+    bool PullUp(Mth::Vector* target);
+    // 0x0043EC40: a drop from walking to hang on a rail below (not while +0x1528's +0x70, not faster than
+    // drop_to_hang_speed_factor x the running speed, not while tagging): FindRail along the move from the last
+    // position, facing away (the skate module's rails, else each moving rail manager's, in its object's space - riding
+    // that object), within Drop_To_Climb_Max_Snap. Then the animated move (DropToHang) onto it.
+    bool DropToHang();
+    // 0x0043F030: grabbing a rail between `start` and `end` (raised by hang_vert_origin_offset) while falling no faster
+    // than 50: FindRail within Climb_Max_Snap, as DropToHang; then hanging at once (the rail script, the skater core's
+    // +0x1528 flag +0xA0 set).
+    bool GrabRail(Mth::Vector start, Mth::Vector end);
+    // 0x0043F3A0: whether shimmying along the hang is blocked: feelers from the hang point `point` (up, out of the wall
+    // by `out`) sideways along the move (`move`, `left` or not), at three heights and down at the critical point -
+    // near the segment's end (`segment`, `start` / `end`, `along` it) turned onto the next segment first. True if any
+    // hits.
+    bool ShimmyBlocked(const Mth::Vector* out, float along, const Mth::Vector* point, bool left, const Mth::Vector* move,
+                       Mth::Vector segment, Obj::CRailNode* start, Obj::CRailNode* end);
 };
 
 // A composite object's movable contact component (the walk component's +0x1784, the skater core's +0x152C): what the

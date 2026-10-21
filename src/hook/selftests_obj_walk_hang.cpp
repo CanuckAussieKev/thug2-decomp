@@ -53,7 +53,11 @@ constexpr uint32_t kTagging = 0x2B00;   // the tagging component (GetComponent's
 constexpr uint32_t kRideObject = 0x2B80; // an object a rail component rides with
 constexpr uint32_t kTestFeeler = 0x2C00; // a feeler for SideClear (0xB0)
 constexpr uint32_t kFlagsBlock = 0x3400; // the skater core's timed flags (+0x1528 there)
+constexpr uint32_t kRailComps = 0x2D00;  // two rail manager components (0x40 each: vtable, +0x0C object, +0x14 next)
 constexpr uint32_t kSpare = 0x3600;      // allocations (to 0x3F00)
+
+uint8_t* g_savedSkate;
+alignas(16) uint8_t g_skate[0x40]; // the skate module (+0x24: the level's rail manager)
 
 // The walk parameters (walk_parameters): every name these functions read, each a different value.
 Params* g_walkParams;
@@ -62,14 +66,21 @@ void BuildWalkParams()
     static Params params;
     new (&params) Params;
     const uint32_t names[] = {0x7213EF07, 0xCC461B87, 0xA8C13E74, 0xDE86132E, 0x7201AD48, 0xC3263E6E,
-                              0xAFBF7687, 0x8F35F29F};
-    const float values[] = {9.5f, 6.25f, 18.0f, 40.5f, 1.125f, 7.75f, 13.0f, 22.5f};
-    for (int i = 0; i < 8; ++i)
-        params.Float(names[i], values[i]);
+                              0xAFBF7687, 0x8F35F29F, 0xA20C43B7, 0x6DA7F696, 0x9B2818CF, 0x21DFBE77,
+                              0x01D1E6AF, 0xFDC8AEC0, 0x3344A6D0, 0x84FF931C, 0xCBEB3D89, 0xC774DD6D};
+    const float values[] = {9.5f, 6.25f, 18.0f, 40.5f, 1.125f, 7.75f, 13.0f, 22.5f,
+                            30.0f, 4.5f, 36.0f, 2.75f, 0.875f, 0.3f, 1.25f, 3.5f, 2.25f, 15.5f};
+    // (a Params holds 16 components: the rest in a second one, chained on)
+    static Params more;
+    new (&more) Params;
+    for (int i = 0; i < 18; ++i)
+        (i < 16 ? params : more).Float(names[i], values[i]);
+    params.components[15].next = &more.components[0];
     g_walkParams = &params;
 }
 
 uint32_t g_walkMode; // what some stand-ins answer (per variant)
+uint32_t g_hitPercent = 50; // how often a feeler hits
 
 std::vector<StandIn> WalkStandIns()
 {
@@ -110,10 +121,11 @@ std::vector<StandIn> WalkStandIns()
              for (int i = 0; i < 4; ++i)
                  Record(i == 2 ? f.args[i] : TestStandIns::Hash(reinterpret_cast<const char*>(f.args[i])));
          }},
-        {0x004172F0, 8, 2, Ret::Bool, true, 0, {Ours(&Nx::CFeeler::GetCollision)}, [](Frame& f, Result&) {
+        {0x004172F0, 8, 2, Ret::Bool, true, 0, {Ours(&Nx::CFeeler::GetCollision)}, [](Frame& f, Result& r) {
              const float* line = reinterpret_cast<const float*>(f.ecx);
              for (int i = 0; i < 8; ++i)
                  RecordFloat(line[i]);
+             r.eax = Next() % 100 < g_hitPercent;
          }},
         {0x005BABA0, 4, 1, Ret::None, true, 0, {Ours(&Mem::Manager::Free)}},
         {0x005BAFC0, 12, 3, Ret::Int, true, 0, {Ours(&Mem::Manager::Allocate)},
@@ -129,8 +141,50 @@ std::vector<StandIn> WalkStandIns()
              if (r.eax)
                  std::memset(ArenaPtr(kSpare), 0, 0x28);
          }},
+        {0x00528280, 12, 1, Ret::Bool, true, 0, {}, [](Frame& f, Result&) {
+             for (int i = 0; i < 4; ++i)
+                 RecordFloat(reinterpret_cast<float*>(f.args[0])[i]);
+             for (int i = 0; i < 4; ++i)
+                 reinterpret_cast<float*>(f.args[1])[i] = RandomFloat(3.0f);
+             float* feeler = reinterpret_cast<float*>(f.args[2]);
+             for (int i = 0; i < 4; ++i)
+                 feeler[0x88 / 4 + i] = RandomFloat(1.0f);
+         }},
+        {0x0043A930, 4, 0, Ret::Int, true, 0, {}, [](Frame& f, Result& r) {
+             // (the normal the stand-in set; the rest of a stack feeler is unset)
+             std::memcpy(reinterpret_cast<uint8_t*>(f.ecx) + 0x88, reinterpret_cast<uint8_t*>(f.args[0]) + 0x88, 0x10);
+             r.eax = f.ecx;
+         }},
+        {0x00427C70, 0, 0, Ret::None, true},
+        {0x0045F2D0, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObjectManager::GetFirstComponentByType)},
+         [](Frame&, Result& r) { r.eax = g_walkMode % 4 ? reinterpret_cast<uint32_t>(ArenaPtr(kRailComps)) : 0u; }},
+        {0x0042BA10, 4, 1, Ret::None, true, 0, {}, [](Frame& f, Result&) {
+             float* m = reinterpret_cast<float*>(f.args[0]);
+             for (int i = 0; i < 16; ++i)
+                 m[i] = (i % 5 == 0) ? 1.0f + RandomFloat(0.25f) : RandomFloat(0.5f);
+         }},
+        {0x0057DDA0, 0x18, 6, Ret::Bool, true, 0, {Ours(&CRailManager::FindRail)}, [](Frame& f, Result& r) {
+             for (int i = 0; i < 4; ++i) {
+                 RecordFloat(reinterpret_cast<float*>(f.args[0])[i]);
+                 RecordFloat(reinterpret_cast<float*>(f.args[1])[i]);
+                 RecordFloat(reinterpret_cast<float*>(f.args[2])[i]);
+             }
+             float* record = reinterpret_cast<float*>(f.args[4]);
+             for (int i = 0; i < 12; ++i)
+                 record[i] = RandomFloat(2.0f);
+             reinterpret_cast<uint8_t**>(record)[12] = ArenaPtr(kNodes + 0x54 * (Next() % 3));
+             if (g_walkMode % 3 == 0)
+                 r.eax = 0;
+         }},
+        {0x00478F00, 0, 1, Ret::Float, false, 0, {Ours(static_cast<float (*)(uint32_t)>(&Script::GetFloat))}},
     };
 }
+
+// The rail manager components' vtable slot 0x34 (their rail manager).
+struct FakeRailComponent {
+    Obj::CRailManager* Rails() { return reinterpret_cast<Obj::CRailManager*>(ArenaPtr(kRails)); }
+};
+void* g_railComponentVtable[16];
 
 // The walk component's arena: random floats, then its pointers and the nodes' links.
 void FillWalkArena()
@@ -150,6 +204,7 @@ void FillWalkArena()
     pointer(kWalk + 0x178C, kPhysics);
     pointer(kModel + 0x208, kModelNode);
     pointer(kPhysics + 0x1528, kFlagsBlock);
+    *reinterpret_cast<uint8_t**>(g_skate + 0x24) = ArenaPtr(kRails);
     ArenaAt<uint8_t>(kModelNode + 0x44) = static_cast<uint8_t>(Next());
     // the pull-up feeler: no object, no cache
     ArenaAt<uint32_t>(kWalk + 0x17B4 + 0x98) = 0;
@@ -167,7 +222,15 @@ void FillWalkArena()
     // the ride tracker (or none)
     ArenaAt<uint32_t>(kContact + 0x18) = Next() % 3 ? reinterpret_cast<uint32_t>(ArenaPtr(kTracker)) : 0u;
     ArenaAt<uint32_t>(kTracker) = Next() % 2 ? reinterpret_cast<uint32_t>(ArenaPtr(kRideObject)) : 0u;
-    ArenaAt<uint8_t>(kTagging + 0x1C) = static_cast<uint8_t>(Next() % 2);
+    ArenaAt<uint8_t>(kTagging + 0x1C) = static_cast<uint8_t>(Next() % 4 == 0);
+    // two rail manager components
+    for (int i = 0; i < 2; ++i) {
+        uint32_t component = kRailComps + i * 0x40;
+        ArenaAt<void**>(component) = g_railComponentVtable;
+        pointer(component + 0x0C, kRideObject);
+        pointer(component + 0x14, i == 0 ? kRailComps + 0x40 : ~0u);
+    }
+    ArenaAt<uint8_t>(kFlagsBlock + 0x70) = static_cast<uint8_t>(Next() % 4 == 0);
     ArenaAt<uint8_t>(kTagging + 0x1D) = 7;
 }
 
@@ -208,15 +271,22 @@ void RemoveWalkStandIns()
     delete g_walkStandIns;
     g_walkMath = nullptr;
     g_walkStandIns = nullptr;
+    if (g_savedSkate)
+        GameVariable<uint8_t*>(0x007CE478) = g_savedSkate;
 }
 
 void TestWalkHang()
 {
     g_savedManagerReady = GameVariable<uint8_t>(0x007CC979);
     GameVariable<uint8_t>(0x007CC979) = 1;
+    g_savedSkate = GameVariable<uint8_t*>(0x007CE478);
+    GameVariable<uint8_t*>(0x007CE478) = g_skate;
     BuildWalkParams();
     g_walkStandIns = new StandIns(WalkStandIns());
-    g_walkMath = new UseOurs({{0x004023F0, Ours(&Vector::Normalize)}});
+    g_walkMath = new UseOurs({{0x004023F0, Ours(&Vector::Normalize)},
+                              {0x00405600, Ours(&Mth::Matrix::Invert)},
+                              {0x0040AF60, Ours(&Mth::Matrix::Transform)}});
+    g_railComponentVtable[0x34 / 4] = reinterpret_cast<void*>(Ours(&FakeRailComponent::Rails));
 
     // the small ones
     Compare("walk: Param, RunSpeed, HangHeightOffset, CriticalPointUp", 12, [](uint8_t* walk, bool original) {
@@ -334,8 +404,57 @@ void TestWalkHang()
         return reinterpret_cast<uint32_t>(component);
     });
 
+    g_hitPercent = 4;
+    Compare("walk: PullUp", 120, [](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        auto* target = reinterpret_cast<Vector*>(walk + 0x400);
+        bool started = original ? Original<bool(__thiscall*)(Component*, Vector*)>(0x0043E530)(c, target)
+                                : c->PullUp(target);
+        return static_cast<uint32_t>(started);
+    });
+    Compare("walk: DropToHang", 60, [](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        if (g_walkMode % 2)
+            for (int i = 0; i < 3; ++i)
+                ArenaAt<float>(kWalk + 0x34 + i * 4) *= 0.25f;
+        bool started = original ? Original<bool(__thiscall*)(Component*)>(0x0043EC40)(c) : c->DropToHang();
+        return static_cast<uint32_t>(started);
+    });
+    Compare("walk: GrabRail", 40, [](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        ArenaAt<uint8_t>(kFlagsBlock + 0xA0) = g_walkMode % 2 ? 1 : 0;
+        Vector start = *reinterpret_cast<Vector*>(walk + 0x420);
+        Vector end = *reinterpret_cast<Vector*>(walk + 0x430);
+        ArenaAt<float>(kWalk + 0x44) = g_walkMode % 5 == 0 ? 50.5f : g_walkMode % 7 == 0 ? 50.0f : 10.0f;
+        bool grabbed = original ? Original<bool(__thiscall*)(Component*, Vector, Vector)>(0x0043F030)(c, start, end)
+                                : c->GrabRail(start, end);
+        return static_cast<uint32_t>(grabbed);
+    });
+    g_hitPercent = 10;
+    Compare("walk: ShimmyBlocked", 360, [](uint8_t* walk, bool original) {
+        auto* c = reinterpret_cast<Component*>(walk);
+        auto* out = reinterpret_cast<const Vector*>(walk + 0x440);
+        auto* point = reinterpret_cast<const Vector*>(walk + 0x450);
+        auto* move = reinterpret_cast<const Vector*>(walk + 0x460);
+        Vector segment = *reinterpret_cast<Vector*>(walk + 0x470);
+        if (g_walkMode % 3 == 0)
+            segment = {segment.x * 0.25f, segment.y * 0.25f, segment.z * 0.25f, segment.w};
+        static const float alongs[] = {0.5f, 0.05f, 0.95f, 0.0f, 1.0f, 0.3f};
+        float along = alongs[g_walkMode % 6];
+        bool left = (g_walkMode / 6) % 2 != 0;
+        auto* start = reinterpret_cast<Obj::CRailNode*>(ArenaPtr(kNodes + 0x54));
+        auto* end = reinterpret_cast<Obj::CRailNode*>(ArenaPtr(kNodes + 0xA8));
+        bool blocked = original ? Original<bool(__thiscall*)(Component*, const Vector*, float, const Vector*, uint32_t,
+                                                             const Vector*, Vector, Obj::CRailNode*, Obj::CRailNode*)>(
+                                      0x0043F3A0)(c, out, along, point, left, move, segment, start, end)
+                                : c->ShimmyBlocked(out, along, point, left, move, segment, start, end);
+        return static_cast<uint32_t>(blocked);
+    });
+
+    g_hitPercent = 50;
     RemoveWalkStandIns();
     GameVariable<uint8_t>(0x007CC979) = g_savedManagerReady;
+    GameVariable<uint8_t*>(0x007CE478) = g_savedSkate;
 }
 
 } // namespace
