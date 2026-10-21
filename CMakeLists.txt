@@ -269,6 +269,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_nodes.cpp
     src/hook/selftests_editor_create.cpp
     src/hook/selftests_editor_preview.cpp
+    src/hook/selftests_editor_ux4.cpp
     src/hook/selftests_editor_levels.cpp
     src/hook/selftests_editor_picking.cpp
     src/hook/selftests_editor_view.cpp
@@ -364,6 +365,12 @@ add_library(thug2_code OBJECT
     src/game/front/level_editor_entities_ui.cpp
     src/game/front/level_editor_career.cpp
     src/game/front/level_editor_preview.cpp
+    src/game/front/level_editor_overlays.cpp
+    src/game/front/level_editor_overlays_ui.cpp
+    src/game/front/level_editor_arcs.cpp
+    src/game/front/level_editor_grind_preview.cpp
+    src/game/front/level_editor_ruler.cpp
+    src/game/front/level_editor_thumbs.cpp
     src/game/front/level_editor_chains.cpp
     src/game/front/level_editor_chains_ui.cpp
     src/game/front/level_editor_spots_ui.cpp
@@ -411,6 +418,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/wireframe.cpp
+    src/game/gfx/view_mode.cpp
     src/game/gfx/sprite.cpp
     src/game/gfx/camera.cpp
     src/game/gfx/scene.cpp

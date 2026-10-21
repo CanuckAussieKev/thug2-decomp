@@ -348,4 +348,8 @@ bool Armed() { return g_carried.armed; }
 
 int Count() { return g_carried.armed ? static_cast<int>(g_carried.objects.size() + g_carried.nodes.size()) : 0; }
 
+std::vector<uint32_t> CarriedObjects() { return g_carried.armed ? g_carried.objects : std::vector<uint32_t>{}; }
+
+std::vector<uint32_t> CarriedNodes() { return g_carried.armed ? g_carried.nodes : std::vector<uint32_t>{}; }
+
 } // namespace Front::LevelEditor::Carry
