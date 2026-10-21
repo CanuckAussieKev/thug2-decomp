@@ -132,3 +132,11 @@ when a sector has several meshes (Ped_M_AU_Torso05).
 - THUG1: animals (dogs, the pigeons, Hawaii's shark) and SJ's MonsterPed crowd (later phase, the user's decision);
   levels other than NJ / NY / VC not run in the game.
 - THPS3 / THPS4 / THAW: not started (plan sections 4.2-4.4).
+
+## After merging main (0d1eb27: Vancouver limo / driving PC-THUG1-21 / 22, TP-42)
+- Conflicts in make_menu_level.ts (the Anteara edits: the ped files' and car_scripts'), thug1_levels.ts / thug1_port.ts
+  (portScripts gets both `wonGoals` and `made`): both sides kept. typecheck / lint / test (242 pass), thug1_levels
+  selfcheck (2,190 files, 0 failures).
+- VC re-converted into C:\Games\THUG2-3 (own build of the merged branch): the limo is there with its "Press ... to
+  drive." prompt, and THUG1's female desk clerk stands animating - both survive the merge; no exceptions, no pool
+  warnings. The workspace's own staging / overlay put back, lock released.
