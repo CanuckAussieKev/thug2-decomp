@@ -97,7 +97,13 @@ export function readGeom(data: Buffer, name = "geom"): Geom {
             textures: Array.from({ length: n }, (_, k) => u32(at + MAT_TEXTURES + 4 * k)),
             terrain: u32(params + PARAM_TERRAIN),
             state: u32(params + PARAM_STATE),
-            params: Buffer.from(data.subarray(params, Math.min(params + 0x80, 0x20 + size))),
+            // (the block: 0x10 + its +0x0C word bytes)
+            params: Buffer.from(
+                data.subarray(
+                    params,
+                    Math.min(params + 0x10 + (params + 0x10 <= 0x20 + size ? u32(params + 0x0c) : 0), 0x20 + size),
+                ),
+            ),
         });
     }
     const s0 = 0x20 + size;

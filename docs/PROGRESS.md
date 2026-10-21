@@ -2,7 +2,7 @@
 
 Generated 2026-10-22 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: █████████░░░░░░░░░░░ 47.5%** of the code rewritten (3,850 of 8,382 functions, 768.3 KB of 1,617.8 KB).
+**Game code: ██████████░░░░░░░░░░ 51.3%** of the code rewritten (4,030 of 8,382 functions, 830.0 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -10,7 +10,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 |---|---|---|---:|---:|
 | Core utilities (CRC/checksums, string helpers, rect, random) | `0x401000`-`0x406460` | ███████████████████░ 99% | 129 / 130 | 19.8 KB / 19.8 KB |
 | Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ████████████████████ 100% | 423 / 423 | 75.5 KB / 75.5 KB |
-| Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 2% | 23 / 584 | 4.4 KB / 157.7 KB |
+| Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ████░░░░░░░░░░░░░░░░ 22% | 107 / 584 | 35.4 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ████████████████████ 100% | 246 / 246 | 32.5 KB / 32.5 KB |
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | ████████████████████ 100% | 167 / 167 | 22.1 KB / 22.1 KB |
 | Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
@@ -22,7 +22,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | █░░░░░░░░░░░░░░░░░░░ 8% | 25 / 488 | 9.2 KB / 114.8 KB |
 | Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ████████████████████ 100% | 202 / 202 | 59.5 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 341 | 0.7 KB / 85.7 KB |
-| Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | ████████████████░░░░ 83% | 447 / 544 | 156.2 KB / 186.9 KB |
+| Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | ███████████████████░ 99% | 543 / 544 | 186.9 KB / 186.9 KB |
 | Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | █░░░░░░░░░░░░░░░░░░░ 7% | 20 / 457 | 6.6 KB / 91.9 KB |
 | Menu input mapping | `0x54ef60`-`0x550040` | ████████████████████ 100% | 20 / 20 | 4.0 KB / 4.0 KB |
 | Goals & career (GoalManager, create-a-trick, trick objects, level launching) | `0x550040`-`0x56c920` | ░░░░░░░░░░░░░░░░░░░░ 1% | 2 / 666 | 1.2 KB / 103.8 KB |

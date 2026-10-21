@@ -264,20 +264,20 @@ void TestControlPadMath()
     for (float angle : angles) {
         for (int i = 0; i < 12; ++i) {
             float x = random.Pick(values), y = random.Pick(values);
-            float a = Original<float(__stdcall*)(float, float, float)>(0x0046C370)(x, y, angle);
-            float b = Obj::StickLength(x, y, angle);
-            if (FloatBits(a) != FloatBits(b)) {
-                Log("  stick length (%g, %g, %g): %08X / %08X", x, y, angle, FloatBits(a), FloatBits(b));
+            double a = Original<double(__stdcall*)(float, float, float)>(0x0046C370)(x, y, angle);
+            double b = Obj::StickLength(x, y, angle);
+            if (std::memcmp(&a, &b, sizeof(a)) != 0 && !(std::isnan(a) && std::isnan(b))) {
+                Log("  stick length (%g, %g, %g): %.17g / %.17g", x, y, angle, a, b);
                 same = false;
             }
         }
     }
     const float clamps[][3] = {{108.0f, 0.0f, 0.0f}, {-109.0f, 0.0f, 0.1f}, {0.0f, 108.0f, 3.0f}, {108.0f, 0.0f, 1.5f}};
     for (const float* c : clamps) {
-        float a = Original<float(__stdcall*)(float, float, float)>(0x0046C370)(c[0], c[1], c[2]);
-        float b = Obj::StickLength(c[0], c[1], c[2]);
-        if (FloatBits(a) != FloatBits(b)) {
-            Log("  stick length (%g, %g, %g): %08X / %08X", c[0], c[1], c[2], FloatBits(a), FloatBits(b));
+        double a = Original<double(__stdcall*)(float, float, float)>(0x0046C370)(c[0], c[1], c[2]);
+        double b = Obj::StickLength(c[0], c[1], c[2]);
+        if (std::memcmp(&a, &b, sizeof(a)) != 0) {
+            Log("  stick length (%g, %g, %g): %.17g / %.17g", c[0], c[1], c[2], a, b);
             same = false;
         }
     }
