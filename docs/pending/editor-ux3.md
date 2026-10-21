@@ -1,6 +1,6 @@
 # Level editor UX3: history, changes, command search / keymap, box select, organising, clipboards, snapshots (NOT ORIGINAL)
 
-Branch `worktree-agent-a539bcfcc17eed16b` (main merged at 45ddd93, UX1 in). **NOT run in the game yet** (no game
+Branch `worktree-agent-a539bcfcc17eed16b` (main merged with UX1 and UX2 in). **NOT run in the game yet** (no game
 runs for editor work): built and checked offline only - thug2_check on THUG2PM.exe and the stock THUG2.exe (0
 MISMATCHED, all early self-tests pass), check_code_writes (no overlaps), mutations below.
 
@@ -84,8 +84,12 @@ changes**, Keys (none), Snapshots (none), Ctrl+, preferences (UX1). Edit: Ctrl+Z
 **Ctrl+C / Ctrl+V copy / paste between levels**, **Ctrl+Shift+C copy transform + fields**, **Ctrl+Shift+V paste
 transform**, paste fields (none). Select: Backspace deselect, L lock, **Ctrl+B box select**, **Shift+G select
 similar**, select family (none), **Ctrl+I invert**, **Ctrl+A select all**, **Ctrl+G group**. Transform: Z / X, [ / ], G
-(Shift+G is now select similar), nudge W A S D / E R PageUp / Q PageDown (F left to UX1's frame). Camera: W A S D, fly
-E / Space, Q, - / =, F frame, 1..9 / Ctrl+1..9 bookmarks, numpad 7 / 1 / 3 (Ctrl: opposite) / 5, F5 / Ctrl+P play.
+(Shift+G is now select similar), UX2's tools W move / E rotate / R scale (no right button held), Space next tool, `
+world / local, Alt+G modal transform, Ctrl+Shift+D repeat duplicate, nudge with the arrows and PageUp / PageDown
+(wasd_flies=1: the fly keys nudge too, Space aside). Camera: fly W A S D / E Space / Q (right button held; wasd_flies=1
+always), - / =, F frame, 1..9 / Ctrl+1..9 bookmarks, numpad 7 / 1 / 3 (Ctrl: opposite) / 5, F5 / Ctrl+P play.
+Gestures listed (fixed): UX2's snap modifiers while dragging (Ctrl, Ctrl+Shift, Alt+Shift, Ctrl+Alt), typed X / Y / Z
+and digits during a drag (read from SDL events, not the keymap).
 View: C, K, T, O, H, I and /, Alt+H, V, P. Chains: Insert, End, J, U, Enter. Gestures (listed, fixed): drag from empty
 space = box, right mouse, wheel, Shift, Alt+drag orbit, RMB+wheel speed, Esc, browser keys.
 
@@ -105,7 +109,7 @@ a removing box).
   kept and written back) and `AddExtension` (capture / apply / reset hooks; reset also on a new level).
 - level_editor_ui.h/.cpp: `PushRequest`; toolbar / Outliner / Inspector / help / frame hooks (one line each mostly; the
   Outliner's Selectable gets AllowOverlap for the row toggles). level_editor_view.h/.cpp: `View::Show`.
-- level_editor_camera.cpp (UX1): F / 1..9 / Ctrl+1..9 / numpad from the registry. level_editor_prefs.cpp (UX1): the
+- level_editor_camera.cpp (UX1): F / 1..9 / Ctrl+1..9 / numpad from the registry; level_editor.cpp's TransformKeys (UX2) and its nudge / RMB-fly block likewise. My `TransformValues` (modules.h) is the Inspector clipboard's pose (UX2 owns the `Transform` namespace). level_editor_prefs.cpp (UX1): the
   Keys header. CMakeLists.txt: 6 sources, 1 self-test file.
 - New: level_editor_actions.*, level_editor_changes.*, level_editor_organize.*, level_editor_clip.*,
   level_editor_ux3.h/.cpp, level_editor_ux3_ui.cpp, src/hook/selftests_editor_ux3.cpp (10 tests).
@@ -124,7 +128,7 @@ inside / crossing / combine, similar criteria, snapshot names / files (not a sav
 sources, fresh names, fixed names refused), the registry's order / unique ids / no clashing defaults.
 Mutation-proved with `out/scripts/mut_ux3.ts` (`node tools/mutate.ts out/scripts/mut_ux3.ts`): see the result below.
 
-MUTATION_RESULT
+16 of 16 mutations caught (Ctrl matched exactly, the most specific chord, the fuzzy order, the comma key, the registry order, Without, the editor records left out of Changes, inside vs crossing, Ctrl removing, singular family words, escaped labels, the autosave name, model case, missing paste sources, taken names, the layout writing records back).
 
 ## Not done / limits
 
@@ -134,7 +138,6 @@ MUTATION_RESULT
   added rail whose others link to it may leave a broken link (Ctrl+Z puts it back).
 - Copy of a level's own node copies its kind, place and radius only (not its other fields); walls, faces, cameras and
   chains aren't copied between levels.
-- UX1's `wasd_flies` preference isn't read anywhere on main (nothing to do with UX3 - noticed while merging).
 - level_editor_play.cpp's `KeyDown` (F5 / Ctrl+P while playing, outside the editor) still reads the keys directly.
 
 ## In-game checklist (for the user - NOT run)
@@ -143,9 +146,11 @@ MUTATION_RESULT
    action by category with keys, "Details" folds the old table.
 2. Ctrl+Space (and F3): the search opens focused; type "undo", "box", "snap"; Up / Down / Enter runs; Esc closes;
    settings show [x] / [ ] and switch the toolbar's checkboxes.
-3. Every old key still works: fly W A S D Q E Space, nudge with a selection (E / R / PageUp up, Q / PageDown down), Z / X,
-   [ / ] (Shift fine, Alt stretch), G, Delete, Home, Ctrl+Z / Y / S / D, L, C, H, Alt+H, I, /, T, K, O, V, P, Insert / End
-   / J / U / Enter on chains, F1, B, N; UX1's F, 1..9 / Ctrl+1..9, numpad, F5 / Ctrl+P, Ctrl+,.
+3. Every key works as on main: fly W A S D Q E Space with the right button held (and, wasd_flies=1, always - then
+   they nudge a selection too); without it W / E / R pick the tool, Space cycles, ` world / local, Alt+G modal,
+   Ctrl+Shift+D repeats; arrows / PageUp / PageDown nudge; Z / X, [ / ] (Shift fine, Alt stretch), G, Delete, Home,
+   Ctrl+Z / Y / S / D, L, C, H, Alt+H, I, /, T, K, O, V, P, Insert / End / J / U / Enter on chains, F1, B, N; UX1's F,
+   1..9 / Ctrl+1..9, numpad, F5 / Ctrl+P, Ctrl+,.
 4. Keys window (search "Keys", or F1 > Keys..., or Preferences > Keys): click a key, press another - it changes, the
    ini gets `[editor_keys]`; right-click removes; + adds; Reset; a clash shows "also: ..."; Esc while capturing cancels
    and does NOT leave the editor or deselect.
