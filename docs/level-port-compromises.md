@@ -2,7 +2,8 @@
 
 What the THPS3, THPS4, THUG1 and THAW level ports in THUG2 bring over, what they don't bring over exactly as the
 original, and what an authentic copy still needs. State of main as of 2026-10-19 (all four "scripts, peds, vehicles"
-branches merged; all 56 levels installed in C:\Games\THUG2).
+branches merged; all 56 levels installed in C:\Games\THUG2). THPS2 (2026-10-21, phase 1: geometry, collision,
+restarts, rails) is section 9.
 
 The goal ("exact assets"): the original game's own models, particles, sounds and animations, with THUG2's behaviour
 only where the original's logic is engine code that can't run.

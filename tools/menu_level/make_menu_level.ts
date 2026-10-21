@@ -1386,6 +1386,7 @@ async function main(): Promise<number> {
             thps4: byGame.get("thug2-decomp-thps4"),
             thug1: byGame.get("thug2-decomp-thug1"),
             thps3: byGame.get("thug2-decomp-thps3"),
+            thps2: byGame.get("thug2-decomp-thps2"),
             thaw: byGame.get("thug2-decomp-thaw"),
         });
 

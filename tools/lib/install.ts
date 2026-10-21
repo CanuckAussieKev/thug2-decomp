@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import { pyExit, pyJoin } from "./py.ts";
 
-export type InstallGame = "thug2" | "thps3" | "thps4" | "thug1" | "thaw";
+export type InstallGame = "thug2" | "thps3" | "thps4" | "thug1" | "thaw" | "thps2";
 
 export interface InstallKind {
     title: string; // for messages ("THAW")
@@ -25,6 +25,8 @@ export const INSTALLS: Readonly<Record<InstallGame, InstallKind>> = {
     // (qb.pre: THUG1's scripts - THUG2's Data\pre has qb_scripts.prx instead)
     thug1: { title: "THUG1", markers: [["Data\\pre\\qb.pre"]] },
     thaw: { title: "THAW", markers: [["data\\worlds\\worldzones"], ["data\\pak\\qb.pak.wpc"]] },
+    // (THPS2 PC: every data file in one archive)
+    thps2: { title: "THPS2", markers: [["ALL.PKR"]] },
 };
 
 const SUBFOLDER = "Game";

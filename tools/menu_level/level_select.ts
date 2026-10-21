@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the level select in sections, one per game, for make_menu_level.ts's data overlay:
-//   - Up / Down switch between the games (THUG2, then THUG1, THPS4, THPS3 when converted); Left / Right
+//   - Up / Down switch between the games (THUG2, then THUG1, THPS4, THPS3, THPS2 when converted); Left / Right
 //     move through the section's levels as before. A header above the signs names the section; the helper text
 //     says "Up/Down = Game". Classic mode (its brackets use Up / Down) keeps the game's own list.
 //   - every level we add gets a star (the game's level_dot) at its real-world place on the globe, which turns to it
@@ -224,6 +224,27 @@ export const THPS3_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
     ["SkateShop", { text: "SKATE SHOP", icon: "shop", place: "THPS3's skate shop (no place)", location: null }],
 ]);
 
+// THPS2's levels (tools/thps2_levels' manifest, by its base name in ALL.PKR), in THPS2's career order. No pictograms
+// yet: each sign is a THUG2 sign texture as a placeholder (the manifest's icon). Places: Hangar's Mullet Falls,
+// Montana (its own "MULLET FALLS AIRFIELD" sign); School II (Southern California); Marseille; New York; Venice Beach
+// (Los Angeles); Skatestreet (Ventura, California); Philadelphia; the Bullring (Mexico - no city named: Mexico City);
+// Chopper Drop (Hawaii); Skate Heaven (no place).
+export const THPS2_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, TableEntry>([
+    ["skhan", { text: "HANGAR", place: "Mullet Falls, Montana", location: [-110.36, 46.88] }],
+    ["sksl2", { text: "SCHOOL II", place: "Southern California", location: [-117.92, 33.84] }],
+    ["skmar", { text: "MARSEILLE", place: "Marseille, France", location: [5.37, 43.3] }],
+    ["skny", { text: "NY CITY", place: "New York", location: [-74.0, 40.71] }],
+    ["skven", { text: "VENICE BEACH", place: "Venice Beach, Los Angeles", location: [-118.47, 33.99] }],
+    ["skss", { text: "SKATESTREET", place: "Skatestreet, Ventura, California", location: [-119.23, 34.28] }],
+    ["skph", { text: "PHILADELPHIA", place: "Philadelphia", location: [-75.17, 39.95] }],
+    [
+        "skbul",
+        { text: "THE BULLRING", place: "a bullring in Mexico (inferred: Mexico City)", location: [-99.13, 19.43] },
+    ],
+    ["skb1", { text: "CHOPPER DROP", place: "Hawaii", location: [-157.86, 21.31] }],
+    ["skhvn", { text: "SKATE HEAVEN", place: "Skate Heaven (no place)", location: null }],
+]);
+
 // THUG1's levels (its conversion's manifest, <game>\thug2-decomp-thug1\levels.json, by folder): signs only - the
 // sign text comes from the manifest's display name, the place from its location text (PLACES). Every level has a
 // pictogram of its own - the classics too: none shares one of THUG2's signs.
@@ -354,6 +375,7 @@ export function sections(
         thps4?: Manifest | undefined;
         thug1?: Manifest | undefined;
         thps3?: Manifest | undefined;
+        thps2?: Manifest | undefined;
         thaw?: Manifest | undefined;
     } = {},
 ): Section[] {
@@ -380,6 +402,14 @@ export function sections(
             "TONY HAWK'S PRO SKATER 3",
             "level_select_menu_thps3_level_info",
             manifestLevels(games.thps3, THPS3_LEVELS, "THPS3"),
+        ]);
+    }
+    if (games.thps2) {
+        out.push([
+            "thps2",
+            "TONY HAWK'S PRO SKATER 2",
+            "level_select_menu_thps2_level_info",
+            manifestLevels(games.thps2, THPS2_LEVELS, "THPS2"),
         ]);
     }
     if (games.thaw) {
