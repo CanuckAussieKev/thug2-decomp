@@ -183,6 +183,11 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
 - Checks: thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all 579 early self-tests pass;
   check_code_writes: no overlaps; audit_game_function_calls: no MISMATCH; scan_register_assumptions: only the known
   RISK lines (0x004EFF92; Ed::InitEditedGoalStub's, not in this range).
+- Game runs (workspace C:\Games\THUG2-2 under the lock, this branch's DLL after merging main, automation on): `-level bo`
+  (rolled forward, ollied, R2, square: the skater skated off, SWITCH shown) and `-level nj` (forward, ollie, turns,
+  triangle, spins, circle: 1365 points, a trick in progress by a wall) - all 3696 replacements installed, no crash, no
+  run-time check or debug CRT report in the log. Vert, wall plants, acid drops and spine transfers weren't driven
+  (too hard to steer by posted buttons): those want the user's play test.
 - Switching it off: `[replacements] disable=` core_physics_state.cpp, core_physics_speed.cpp, core_physics_feelers.cpp,
   core_physics_skitch.cpp, core_physics_turning.cpp, core_physics_walls.cpp, core_physics_wallplant.cpp,
   core_physics_acid_drop.cpp (by file name).
