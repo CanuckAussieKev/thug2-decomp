@@ -165,4 +165,26 @@ int __cdecl HandleDropCarried(Net::MsgHandlerContext* context);
 // notify_client_cheating with the sender's name. 1.
 int __cdecl HandleChecksumResponse(Net::MsgHandlerContext* context);
 
+// --- The session (gamenet_session_handlers.cpp) ---
+// 0x0052DD40 (0x11, server; 12 bytes - else 4): a LAN search answered (0x10, 0xE0 bytes, to the asker's address): the
+// player and observer counts and limits, password, in a game, host mode, logged in, the server's name, level, mode,
+// skill level, the asker's time, the players' names (observers only with 0x005434C0) and the waiting new players'
+// (their names used as sprintf formats, the original's). 1.
+int __cdecl HandleFindServer(Net::MsgHandlerContext* context);
+// 0x005301A0 (0x60-0x66, server; from the host's own player only - else 4): 0x60 the game's options into the network
+// preferences, then chosen_start_game; 0x61 kick (msg[0] = 1) or ban the msg[1]'th player named msg + 2; 0x62
+// change_level; 0x64 0x00558960 on the goal manager; 0x65 end the game (0x6A to the others); 0x66 the team count.
+int __cdecl HandleHostOptions(Net::MsgHandlerContext* context);
+// 0x005311F0 (0x46, client): a level change (msg + 4 nonzero): the level kept; unless one is pending (4), the change
+// task added (when: now + 3 s, + 1 s more for the created park), the level preference set on the server, announced. 4.
+int __cdecl HandleChangeLevel(Net::MsgHandlerContext* context);
+// 0x005313C0 (0x34, client): a game starts: the start info words, the crown's spawn point, the skaters reset, the game
+// mode set (victory conditions, time, teams...), StartingNewNetGame, the players' flags and scores reset, the crown
+// taken off, the mode's goal_script run. 1.
+int __cdecl HandleStartGame(Net::MsgHandlerContext* context);
+// 0x00532460 (0x54, server): a player ready to receive the game's state (once - flag 0x40): the game info (0x33), the
+// created goals, the spawned scripts (0x49), the skate module's state, an observer's graffiti, the chosen goals (0x6D),
+// the king (0x55); the local player is just made ready to play; then 0x42 to all of them. 1.
+int __cdecl HandleSendGameState(Net::MsgHandlerContext* context);
+
 } // namespace GameNet

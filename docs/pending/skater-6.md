@@ -116,3 +116,24 @@ Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' f
   else notify_client_cheating once).
   - Test: TestGameNetServerHandlers (selftests_skater_gamenet4.cpp) - four scenarios. 45 deliberate bugs caught, 1
     after strengthening (an observer local player on the returned flag's team).
+- [x] Batch SK6-5 (NOT run in the game yet; the session handlers, 5 big functions): src/game/net/gamenet_session_handlers.cpp
+  (new). 0x0052DD40 (0x11 LAN search, 12 bytes: the 0xE0-byte answer 0x10 to the asker's address - counts and limits
+  (a limit below its count raised to it), password, in a game, host mode, logged in to GameSpy on the internet, server
+  name, level, mode, skill, the asker's time, the players' names, then the waiting new players' not yet players -
+  their names used as sprintf formats; the original's uninitialised bytes zeroed), 0x005301A0 (0x60-0x66 from the
+  host's own player: the twelve options into the network preferences - fireball's 0x00534FC0 looked up for nothing;
+  the target score falling back to capture then time options (x1000); kick/ban by index and name (_stricmp);
+  change_level; 0x00558960; end game 0x6A to remote players; the team count's preference and SetNumTeams),
+  0x005311F0 (0x46 level change, see the header), 0x005313C0 (0x34 start game: the type info's checksum is read into
+  one slot across the loop - a type without one compares the previous type's, the first the array's address; the
+  goal script defaults to the skate module's address as in skate_net's twin), 0x00532460 (0x54 the game's state for
+  a joiner: the 0x50-byte game info - bytes 5-7 and 0x4D-0x4F uninitialised in the original -, the created goals,
+  the spawned scripts' list at +0x150 as 0x49 (bytes 13-15 uninitialised), the skate module's 0x0056B990, an
+  observer's graffiti trick objects (0x5C, copied), the chosen goals 0x6D, the king 0x55, then 0x42; the local
+  player only gets ready to play).
+  - Test: TestGameNetSessionHandlers (selftests_skater_gamenet5.cpp) - five scenarios (the original's uninitialised
+    bytes masked; a score component is always there - the original doesn't check). 57 deliberate bugs caught, 8
+    after strengthening (logged in without internet play, new players with flags 0x14 / 4, a target score of 0, the
+    game-over flag set before a level change, the level and change time recorded after each, the created park to
+    itself). (Two needed a rerun: the compiler's program database failing to open - out\scripts\mut_build.cmd now
+    deletes it and builds again.)
