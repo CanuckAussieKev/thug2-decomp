@@ -47,3 +47,36 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     down, steep ramps), TestSkitch, TestDoWallplantPhysics (durations around the elapsed times, wrapping times, ride
     states, turned or not), TestCoreMemberFunctions (the seven, SetState with every state name in every state).
     Coverage counters fail the test when a branch isn't reached. 36 deliberate bugs caught of 36.
+- [x] Batch SK2-2 (NOT run in the game yet; the wall checks, 3 functions): src/game/skater/core_collision.cpp (new).
+  - 0x00508780 CheckAirForwardCollision(const Vector* from) (RET 4, bool; DoAirPhysics' "stopped"): the move's
+    direction (z's difference kept unrounded as the original), a feeler from `from` + up * First_Forward_Collision_
+    Height to the new position raised + direction * First_Forward_Collision_Length. A skatable hit counts only when
+    its normal . ground normal < 0.8 and normal.y < 0.5. The component's feeler copied to the stack (0x004F8200);
+    the skater tried at the feeler's end lowered back - 0x004FFDB0 true and (vy > 10 or the wall steep, n.y < 0.1):
+    stopped there (true; the stack feeler's smart pointer let go inline). Else put back, the feeler copied back
+    (0x0043A930); a ledge (up.y > 0.5, vy > 0, n.y < 0.01): the stack feeler raised by Physics_Air_Snap_Up, lowered
+    2 at a time while the snap stays over 4 (the unrounded value compared), the skater raised by it (true). On vert:
+    at the hit, Skater_Min_Distance_To_Wall off it, the velocity rotated (wall ride, +0x78) or projected along it
+    (false). Otherwise a bonk unless a wallplant (0x00507500(0,0,0), not with +0x302) or 0x00508140 takes over
+    (unless flags +0xE0 / +0x70): flag +0xB0, the trigger {9,0,0}, a sound for a wall-ish hit (n.y < 0.05: 0x00518DD0
+    by speed / max max speed and terrain, or the script vehicle_play_land_sound on a vehicle +0x2ED), the velocity
+    along the wall (its y kept unless the wall faces down) plus a tenth of its length along the normal, +0x14F0 =
+    the normal, the facing turned 0.05 off the wall and the matrix rebuilt (cross products, normalised), a moving
+    hit object's velocity (into the skater) carried: position += v * frame * 2, velocity += v.
+  - 0x0050A2C0 CheckSideCollision(float side, float length) (RET 8, bool): never on a rail; the feeler from the
+    side height (Skater_side_collide_height) along right * side * length (+ Skater_air_extra_side_col in the air;
+    x, y products rounded, z, w unrounded - as the original). In the air: 0x00508140 taking over -> true; else
+    pushed out by a tenth of the overlap (distance - the extra reach, its vector's length set by 0x0042BBF0), false
+    (the 0x005039F0 call there needs a state other than air: dead code, kept). On the ground, for a near-vertical
+    wall (|n . up| < 0.25): back to +0x98, 0x005039F0(normal, an uninitialised float in the original - ours 0,
+    0.2), a stack feeler from hit + n to hit + n * length: clear and no trigger taking over -> at its end less up *
+    side height (true).
+  - 0x0050C930 CheckSideCollisions: both sides (Skater_side_collide_length), -1 first; hit on both -> the position
+    put back.
+  - Test (selftests_skater_collision.cpp): 12000 / 16000 variants each, full-precision values (roundings show) and
+    values on every comparison's edge, axis-aligned normals (dot products exactly at their limits), the stack
+    feelers' lines recorded at each GetCollision, the vector functions the original calls pointed at ours; coverage
+    counters for each path. 46 deliberate bugs: 42 caught (5 after adding full-precision values, exact edges and a
+    hit object moving along the wall), 4 equivalent: the snap loop's unrounded compare (6 - 2 is exact), depth > 0
+    vs its float (differs only below the smallest denormal), the ground path's length vs reach (equal off the air),
+    the length's summation order in the forward feeler (a one-ulp double change that the float direction absorbs).

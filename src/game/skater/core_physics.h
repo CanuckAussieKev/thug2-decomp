@@ -6,6 +6,9 @@ namespace Script {
 class CStruct;
 class CScript;
 } // namespace Script
+namespace Mth {
+class Vector;
+} // namespace Mth
 
 // The skater's core physics component (on the ground, in the air): the pieces PartyMod changes for its
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::Ps2Controls()). Its layout is only partly
@@ -88,6 +91,24 @@ public:
     int TriggerGrindOff(Script::CStruct* params, Script::CScript* script);
     int ForceBreakVert(Script::CStruct* params, Script::CScript* script);
     int WalkingWallplant(Script::CStruct* params, Script::CScript* script);
+
+    // --- core_collision.cpp: the skater against walls ahead and to the sides ---
+    // 0x00508780 (from the air update): a feeler from `from` to past the new position (raised by
+    // Skater_First_Forward_Collision_Height, Skater_First_Forward_Collision_Length further along the move). On
+    // something not too much like ground: true (stopped) when 0x004FFDB0 takes the skater there and it's fast upwards
+    // or the wall is steep, or when snapping up onto a ledge (Physics_Air_Snap_Up, lowered in steps of 2); on vert,
+    // pushed back off the wall (Skater_Min_Distance_To_Wall) and turned along it; otherwise (no wallplant, no
+    // 0x00508140) a bonk: the trigger, the sound, the velocity along the wall, the facing turned away from it, and a
+    // moving object's push. False when nothing stopped the skater.
+    bool CheckAirForwardCollision(const Mth::Vector* from);
+    // 0x0050A2C0: a feeler from the skater's side height (Skater_side_collide_height) out to one side (`side` -1 or
+    // 1 along the right) `length` long (more in the air: Skater_air_extra_side_col). Never on a rail. In the air the
+    // skater is pushed out of what it hit (a tenth of the overlap) - true only when 0x00508140 took over; otherwise
+    // a near-vertical wall puts the skater back (+0x98), then, unless something is above the hit or a trigger takes
+    // over, onto it (true).
+    bool CheckSideCollision(float side, float length);
+    // 0x0050C930: both sides (Skater_side_collide_length); hit on both, the position goes back to where it was.
+    void CheckSideCollisions();
 
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground

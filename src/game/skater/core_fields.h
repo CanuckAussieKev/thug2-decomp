@@ -4,6 +4,7 @@
 // core_collision.cpp, core_grind.cpp, core_states.cpp): its layout is only partly known, so fields are reached by
 // offset; the helpers here name the common ones and the small game calls everything uses.
 
+#include <cmath>
 #include <cstdint>
 
 #include "game/mth/matrix.h"
@@ -110,6 +111,27 @@ inline void TriggerFeeler(void* component, uint32_t events, uint32_t feelerOffse
 }
 // Whether a trigger's script took over (+0x1530's +0x26).
 inline bool TriggerTookOver(void* component) { return At<uint8_t>(At<uint8_t*>(component, kTriggerState), 0x26) != 0; }
+
+// A vector's length as the original's 0x004023C0 leaves it in ST0: sqrt((x*x + y*y) + z*z) in double, unrounded
+// (Mth::Vector::Length rounds it to a float).
+inline double LengthOf(const Mth::Vector& v)
+{
+    return std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) + static_cast<double>(v.z) * v.z);
+}
+
+// The component's feeler (+0xA8) copied into a feeler on the stack (0x004F8200, the copy constructor), copied back
+// (0x0043A930, assignment), and a stack feeler's destructor (0x0041C350: its smart pointer let go). The stack feelers
+// are raw storage: the original's code decides when the destructor runs (some paths let go of the smart pointer
+// inline instead - ReleaseFeelerObject).
+inline void CopyFeeler(void* to, const void* from)
+{
+    GameFunction<void*(__thiscall*)(void*, const void*)>(0x004F8200)(to, from);
+}
+inline void AssignFeeler(void* to, const void* from)
+{
+    GameFunction<void*(__thiscall*)(void*, const void*)>(0x0043A930)(to, from);
+}
+inline void DestroyFeeler(void* feeler) { GameFunction<void(__thiscall*)(void*)>(0x0041C350)(feeler); }
 
 // 0x005003A0: the collision feeler from kFeelerStart to kFeelerEnd: true on a hit (kHitPoint, kHitNormal, ...).
 // (`a` and `b`: two face-flag masks - 0x10, 0 for the ground checks; 0, 8 across a wall.)

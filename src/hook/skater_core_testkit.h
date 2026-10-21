@@ -205,7 +205,7 @@ extern "C" inline void __cdecl SkaterKitRecordCall(Frame* frame)
     if (s.ret == Ret::Float)
         RecordFloat(result.st0);
     else if (s.ret != Ret::None)
-        g_calls.push_back(result.eax);
+        g_calls.push_back(Relative(result.eax, stackLow));
     g_stubEax = result.eax;
     g_stubFloat = result.st0;
     g_stubPop = s.pop;
