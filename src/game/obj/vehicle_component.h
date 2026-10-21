@@ -124,6 +124,100 @@ public:
     // 0x0043C1D0 (vtable slot 1)
     void Update();
 
+    // --- the body ---
+    // 0x00435520: the velocity (the momentum times the inverse mass, w 0) and the angular velocity (the angular
+    // momentum through the world's inverse inertia).
+    void UpdateVelocities();
+    // 0x004355B0: the velocity at `offset` from the body's position: the angular velocity across it, plus the
+    // velocity (w the velocity's). Returns out.
+    Mth::Vector* GetPointVelocity(Mth::Vector* out, const Mth::Vector* offset);
+    // 0x00435640: `force` added to the force, and its torque about the centre of mass at `point` (relative to the
+    // body's position) to the torque. (`colour`: a debug line's, compiled out.)
+    void AddForceAtPoint(const Mth::Vector* force, const Mth::Vector* point, uint32_t colour);
+    // 0x00435710: the same with the lever `offset` as it is.
+    void AddForceAtOffset(const Mth::Vector* force, const Mth::Vector* offset);
+    // 0x004357C0: `impulse` added to the momentum, its moment at `offset` to the angular momentum; the velocities
+    // updated.
+    void ApplyImpulseAtOffset(const Mth::Vector* impulse, const Mth::Vector* offset);
+    // 0x00435850: whether a random kick is still going (m_kickTime > 0).
+    bool IsKicked();
+    // 0x00435890: a random kick along `along` (flattened, unit): pushed forward (0x3DB3FA83 * (1 +- 0.5)),
+    // sideways (0x39E99FEC * +-1.5) and up (0x738500FD * (1 +- 0.2)); spun about the up axis (0x14DDB3EF * +-1.5)
+    // and the sideways one (0x4088E6EC * (1 +- 0.8)) - the spin through the first moment of inertia for every axis
+    // (as the original). Kicked for 0x771922A6 seconds; awake.
+    void KickRandomlyAlong(const Mth::Vector* along);
+
+    // --- the wheels ---
+    // 0x004351C0: each wheel's roll angle on by its spin (less half its torque over the step), wrapped by 100 pi
+    // above 200 pi and below 0.
+    void UpdateWheelRotations();
+    // 0x00435250: the tyre's friction coefficient at `slip` (its slip speed), and its grip state: with the handbrake
+    // the handbrake's friction (with or without throttle); else static grip below max_static_grip_velocity, blending
+    // to dynamic by min_dynamic_grip_velocity, doubled while braking; below min_static_grip_velocity scaled down to 0.
+    // Returned unrounded (in ST0).
+    double GetTyreFriction(Wheel* wheel, float slip);
+    // 0x00435380: the gear for a wheel spinning at `spin`: the first whose engine speed (ratio * differential *
+    // spin) isn't over upshift_rpm, else the top one.
+    int GetGear(float spin);
+
+    // --- a physics step (vehicle_physics.cpp) ---
+    // 0x0043AE10: what follows from the position and orientation: the matrix (row 3 the identity's), the centre of
+    // mass's offset, the inverse inertia, the velocities, the wheels' suspension lines, the colliders in the world,
+    // and the collision cache.
+    void UpdateDependents();
+    // 0x00438A20: the inverse inertia tensor in the world: R * diag(inverse moments) * R^T (D3DXMatrixMultiply).
+    void UpdateInertia();
+    // 0x00435DA0: the collision cache refilled for the box around the wheels' lines and the colliders' corners.
+    void UpdateCollisionCache();
+    // 0x0043B240: each wheel's suspension line against the world (faces flagged 0x10 ignored): touching or in the
+    // air, the trigger component told when a wheel lands, leaves or moves onto another collision object (and,
+    // outside the park editor, of trigger faces along the line, flagged 0x50); then the wheels' contact points and
+    // velocities there. Stops at once if a trigger's script took over or the object died.
+    void UpdateWheelContacts();
+    // 0x00435F00: the smoothed steering eased towards the input (10 a second); the steered wheels' angles for both
+    // (Ackermann: the inner wheel - steering 1 - turned further than the outer one).
+    void UpdateSteering();
+    // 0x00438AE0: gravity, the springs, the tyres' grip, then drive, engine braking, brakes and the tyres' forces;
+    // with the handbrake and throttle the handbrake (by 1 - |steering|) instead of the others; with the handbrake
+    // alone the wheels locked.
+    void ApplyWheelForces();
+    // 0x00436280: gravity on the force (scaled by Vehicle_AdjustGravity; weaker after 300 ms of righting).
+    void ApplyGravity();
+    // 0x00436340: each touching wheel's spring and damper along the ground's normal, at its contact point; the
+    // load averaged over ten steps (in the air: an even share of the weight).
+    void ApplySuspension();
+    // 0x00435B60: each touching wheel's sideways direction (steered, along the ground), its ground velocity, and its
+    // tyre friction coefficient for its slip.
+    void UpdateWheelFriction();
+    // 0x004364B0: each touching wheel's tyre friction against its slip: the smaller of the torque that would stop the
+    // slip and the friction's own acts on the wheel; the force (and what's left of the stopping one) pushes the body.
+    void ApplyTyreForces();
+    // 0x00436900: the engine's torque on the driven wheels (by gear, differential and the wheels' share; less on
+    // slopes; reversed by reverse_torque_ratio; doubled on four-wheel drive with the handbrake).
+    void ApplyDriveTorque();
+    // 0x004367E0: without throttle, reverse or brake, engine braking on the driven touching wheels (at most what
+    // stops them this step).
+    void ApplyEngineBraking();
+    // 0x00436A90: braking each wheel (at most what stops it; the rest kept as its brake excess).
+    void ApplyBrakes();
+    // 0x00436B60: the handbrake on each wheel, its torque times `scale`, as the brakes.
+    void ApplyHandbrake(float scale);
+    // 0x00436C20: while braking, each wheel's brake excess applied again (at most what stops it).
+    void ApplyBrakeExcess();
+    // 0x004360C0: the spin damped (by its square, unless driving, steering or kicked), and on three or more wheels
+    // upright and not steering, the turning about up damped towards 0.
+    void ApplyDamping();
+    // 0x00437550: three steps hardly moving on all wheels (or none) and not driving: the momenta, forces and the
+    // wheels' torques cleared, asleep.
+    void CheckSleep();
+    // 0x004376B0: the controls from the input component: steering (the stick squared, or the d-pad), throttle,
+    // handbrake (unless no_handbrake), brake or reverse (by the forward speed), Exitable's other brake button; the
+    // handbrake flag forces the brake. Driving wakes it.
+    void ReadControls();
+    // 0x004378B0: the skater carried: at skater_pos on the vehicle, its matrix and velocity; with a visible skater,
+    // its steering animation's frame from the smoothed steering (in a network game sent on every fifteenth time).
+    void UpdateSkater();
+
     // --- script member functions (the table at 0x00684060) ---
     // 0x00437A60 Vehicle_Kick (0x93B713A6): `linear` and `angular` (vectors, rotated into the world) added to the
     // momenta. Awake. True.
@@ -234,6 +328,10 @@ public:
     CBaseComponent* mp_skaterCorePhysics; // +0x132C its core physics (0x5BD63B29)
     CBaseComponent* mp_trigger;    // +0x1330 the object's trigger component (0xE594F0A2)
 };
+// 0x004354C0 (cdecl): the quaternion product a * b into `out` (0x00420140, a quaternion's *=, on a copy of a).
+// Returns out.
+Mth::Vector* QuatProduct(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b);
+
 static_assert(sizeof(CVehicleComponent::Wheel) == 0x1C8 && offsetof(CVehicleComponent::Wheel, load) == 0x38 &&
                   offsetof(CVehicleComponent::Wheel, normal) == 0x64 &&
                   offsetof(CVehicleComponent::Wheel, feelerStart) == 0x78 &&

@@ -58,3 +58,35 @@ src/game/nx/feeler.h / feeler.cpp (CFeeler::Assign added).
     ~2800 sounds played or updated, ~1000 crash sounds). 40 deliberate bugs: 36 caught (2 after strengthening: a
     shift down at exactly the speed, the air delay exactly met); 4 equivalent (min / max kept on equal values - the
     same value either way; a float product already float; loudness clamped at exactly 1).
+- [x] Batch OC4-3 (NOT run in the game yet; the Vehicle component's body and member functions, 20 functions):
+  src/game/obj/vehicle_component.cpp (new).
+  - The wheel: 0x00435870 Construct (its feeler), 0x00437CF0 the destructor (not a Ghidra function). The body:
+    0x00435520 UpdateVelocities, 0x004355B0 GetPointVelocity, 0x00435640 AddForceAtPoint (a debug line's colour,
+    compiled out), 0x00435710 AddForceAtOffset, 0x004357C0 ApplyImpulseAtOffset, 0x00435850 IsKicked, 0x00435890
+    KickRandomlyAlong, 0x004354C0 QuatProduct (cdecl). The wheels: 0x004351C0 UpdateWheelRotations (wrapped by 100 pi
+    above 200 pi and below 0), 0x00435250 GetTyreFriction (returned unrounded in ST0), 0x00435380 GetGear.
+  - Member functions (the table at 0x00684060): 0x00437A60 Vehicle_Kick, 0x004353F0 Vehicle_Wake, 0x00435410
+    Vehicle_AdjustGravity, 0x00435480 Vehicle_HandbrakeActive, 0x00435490 Vehicle_AllWheelsAreInContact, 0x00437BC0
+    (0x4C73526B) KickRandomly, 0x004354B0 Vehicle_IsSkaterVisible (the last four and Wake never made functions by
+    Ghidra).
+  - 0x004351C0 has a naked adapter keeping ECX: the original update 0x0043C1D0 calls UpdateSkeleton right after it
+    without loading ECX again (found by a scan of the range's call sites; the register scanner doesn't see it).
+  - Quirk kept: KickRandomlyAlong spins every axis through the first moment of inertia.
+  - Test (TestVehicleMethods in src/hook/selftests_obj_vehicle.cpp): 6000 random vehicles over every function (the
+    roll exactly at 0 and 200 pi, the grip speeds tied, gears at the upshift speed). 45 deliberate bugs, all caught
+    (one after adding the roll exactly at 200 pi).
+- [x] Batch OC4-4 (NOT run in the game yet; the Vehicle component's physics step, 19 functions):
+  src/game/obj/vehicle_physics.cpp (new).
+  - 0x0043AE10 UpdateDependents, 0x00438A20 UpdateInertia (R * diag * R^T through D3DXMatrixMultiply), 0x00435DA0
+    UpdateCollisionCache, 0x0043B240 UpdateWheelContacts (the suspension lines; the trigger component told of
+    landings, take-offs, moves to another object and, outside the park editor, trigger faces; stops when a trigger's
+    script takes over or the object dies), 0x00435F00 UpdateSteering (Ackermann), 0x00438AE0 ApplyWheelForces,
+    0x00436280 ApplyGravity, 0x00436340 ApplySuspension (the load averaged over ten steps), 0x00435B60
+    UpdateWheelFriction, 0x004364B0 ApplyTyreForces, 0x00436900 ApplyDriveTorque, 0x004367E0 ApplyEngineBraking,
+    0x00436A90 ApplyBrakes, 0x00436B60 ApplyHandbrake, 0x00436C20 ApplyBrakeExcess, 0x004360C0 ApplyDamping,
+    0x00437550 CheckSleep, 0x004376B0 ReadControls, 0x004378B0 UpdateSkater (the steering animation, sent on every
+    fifteenth time in a network game).
+  - 0x00435F00 has a naked adapter keeping ECX (the original update calls ApplyDamping right after it without loading
+    ECX again).
+  - Test (TestVehiclePhysics): 5000 random vehicles (unit orientations, scripted suspension hits and trigger
+    take-overs, the park editor on and off, network games), every call recorded.
