@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <cstdio>
 #include <cstring>
 
 #include "hook/log.h"
@@ -286,10 +287,23 @@ bool Same(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& ac
         return true;
     Log("  %s: variant %d differs (trace sizes: original %u ours %u)", what, variant,
         static_cast<unsigned>(expected.size()), static_cast<unsigned>(actual.size()));
+    size_t first = SIZE_MAX;
     for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
         if (expected[i] != actual[i]) {
             Log("    entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            if (first == SIZE_MAX)
+                first = i;
             ++shown;
+        }
+    }
+    // The original's trace before the first difference (the calls that led there).
+    if (first != SIZE_MAX) {
+        for (size_t i = first > 24 ? first - 24 : 0; i < first; i += 8) {
+            char line[160];
+            int n = 0;
+            for (size_t j = i; j < i + 8 && j < first; ++j)
+                n += std::snprintf(line + n, sizeof(line) - n, " %08X", expected[j]);
+            Log("    before %u:%s", static_cast<unsigned>(i), line);
         }
     }
     return false;

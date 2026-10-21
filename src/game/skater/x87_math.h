@@ -45,6 +45,19 @@ inline float CosF(double angle)
     return result;
 }
 
+// Whether cos(angle) (at full precision) is above `value`.
+inline bool CosAbove(double angle, float value)
+{
+    uint16_t status;
+    __asm {
+        fld angle
+        fcos
+        fcomp value
+        fnstsw status
+    }
+    return (status & 0x4100) == 0;
+}
+
 // (a, b) turned by `angle`: a' = cos * a + sin * b, b' = cos * b - sin * a - each product and sum rounded to 53
 // bits from the full-precision sine and cosine (exact as doubles).
 inline void Rotate(double angle, double a, double b, double* rotatedA, double* rotatedB)
