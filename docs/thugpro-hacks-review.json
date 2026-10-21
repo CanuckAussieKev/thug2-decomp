@@ -89,7 +89,7 @@
       "levels": ["z_el", "z_sm", "vans"],
       "register": ["TP-2", "TP-3", "PC-THAW-1"],
       "title": "East LA / Santa Monica shifted by hand-picked offsets; Vans left unshifted",
-      "what_thugpro_did": "On top of the Zone_Origin frame, moved East LA by (-1319.656, -111.047, 269.924) and Santa Monica by (-5060.44, -580.625, -3203.87) (commit 361b2c1 'LA crash fix', node_position_patcher.py with a fixed z offset of -8000). Vans Park was never recentred because its toolchain looked the origin up under the new name.",
+      "what_thugpro_did": "On top of the Zone_Origin frame, moved East LA by (-1319.656, -111.047, 269.924) and Santa Monica by (-5060.44, -580.625, -3203.87) (East LA's from a hand-kept origin in Z_EL/world_offset.txt; Santa Monica's from node_position_patcher.py, a fixed z offset of -8000; when they were added is unknown - 361b2c1 'LA crash fix' is only the newest commit of the clone that was read). Vans Park was never recentred because its toolchain looked the origin up under the new name.",
       "why_its_a_hack": "These are magic numbers that fixed a crash, are in no THAW data and are probably tied to THUGPRO's own toolchain. The Vans exception is a toolchain bug kept for compatibility.",
       "verdict": "better-exists",
       "better_approach": "Use THAW's own Zone_Origin frame (PC-THAW-1) for every area, and translate positions on the wire only when the peer is THUGPRO: add or subtract the per-level offset in 0x23 / 0x48 / 0x8F / 0x95 before int16 packing, as the register's 'Changing approach' already describes. Until that layer exists, keep TP-2 / TP-3.",
