@@ -136,4 +136,33 @@ int __cdecl HandleCdKeyAnswer(Net::MsgHandlerContext* context);
 // 0x87). 1.
 int __cdecl HandleCreatedDataRequest(Net::MsgHandlerContext* context);
 
+// --- More of the server's handlers (gamenet_server_handlers.cpp) ---
+// 0x0052E060 (0x4A): a player asks to observe: 4 if unknown or observing already; a remote one when the observers are
+// full gets 0x4E; else (a remote one leaves the game - 0x0053CB70 with 2, its skater removed, flagged an observer, the
+// camera moved off it) 0x4D. 1.
+int __cdecl HandleObserveRequest(Net::MsgHandlerContext* context);
+// 0x0052E9E0 (0x6B): a joining player's data streamed to it: the park map (0x6C, 15000 bytes), the rails (0x88), the
+// created goals for the message's level (0x87, if any); with msg[4] 'F' also the level change (0x46) and a ready
+// query (0x25, the time - the player owes it), sent at once. 1.
+int __cdecl HandleRequestGameData(Net::MsgHandlerContext* context);
+// 0x0052EC40 (0x59): a player's game has ended (flag 0x100; 4 if again or for another game); when every player's has,
+// game over (0x5A) to all. 1.
+int __cdecl HandleGameEndedReport(Net::MsgHandlerContext* context);
+// 0x0052EE10 (0x67): a team change (object id, team) passed on to everyone as 0x68 - in the lobby or after the game
+// only (else 4; 4 for an unknown player or one without a skater). 1.
+int __cdecl HandleTeamChangeRequest(Net::MsgHandlerContext* context);
+// 0x0052EF40 / 0x0052F1A0 (0x6E / 0x6F, for the current game - else 4): goal attack: a goal completed (once per team
+// in team games; marked done by the sender's skater) / started (team games), passed on to the players / teammates. 1.
+int __cdecl HandleGoalCompletedReport(Net::MsgHandlerContext* context);
+int __cdecl HandleGoalStartedReport(Net::MsgHandlerContext* context);
+// 0x0052FCC0 (0x0B): a connection is closing: its player out of the game (a remote one; its skater removed unless an
+// observer) - 5; or a new player waiting to be added dropped with its connection - 5; else 2.
+int __cdecl HandleDisconnect(Net::MsgHandlerContext* context);
+// 0x0052FDA0 (0x57): the sender drops what it carries (its flag 0x8000 cleared): in CTF its flag returned (0x75 to
+// the remote players), in king of the hill the crown to a random spot (Rnd(10) into +0x68, 0x58 to all). 1.
+int __cdecl HandleDropCarried(Net::MsgHandlerContext* context);
+// 0x00532170 (0x81): the checksum answer: word 0 ^ 0xDEADFACE must be word 1; else, the first time,
+// notify_client_cheating with the sender's name. 1.
+int __cdecl HandleChecksumResponse(Net::MsgHandlerContext* context);
+
 } // namespace GameNet

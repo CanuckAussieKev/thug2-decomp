@@ -99,3 +99,20 @@ Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' f
     crown worn before each case, the fcfs flag recorded, distinct heaps at the memory manager's +0x110 / +0x114,
     foreign-only packets, a list holding only the player, the current goal being the completed one, message 0x8C,
     elimination id 0).
+- [x] Batch SK6-4 (NOT run in the game yet; the server's handlers, 9 functions): src/game/net/gamenet_server_handlers.cpp
+  (new). 0x0052E060 (0x4A observe request: 4 unknown / observing; full (remote, the observers 0x00539C70 at the
+  num_observers preference) 0x4E; else out of the game (0x0053CB70 2, skater removed 0x00565790, flag 4, the camera
+  moved: 0x0053A580, null if that is the same player, 0x0053A910) and 0x4D), 0x0052E9E0 (0x6B: park map 0x6C 15000
+  bytes, rails 0x88, created goals 0x87 - streamed in place; with 'F' at msg[4] the level change 0x46 (bytes 5-7 the
+  original leaves uninitialised - zeroed) and a ready query 0x25 (the time; 0x00544670 notes what the player owes),
+  sent at once), 0x0052EC40 (0x59 game ended for a player - flag 0x100, 4 if again or another game; game over 0x5A
+  to all once everyone's has), 0x0052EE10 (0x67 team change relayed as 0x68 in the lobby or after the game),
+  0x0052EF40 / 0x0052F1A0 (0x6E / 0x6F goal attack: completed - once per team (goal virtual +0x50 per teammate) /
+  per player, marked done (+0x6C), passed on; started - to teammates; the goal message's bytes 1-3 the original leaves
+  uninitialised, zeroed; the started one sets no queue - the original's), 0x0052FCC0 (0x0B disconnect: a remote
+  player removed - 5; a waiting new player dropped with its connection, its node deleted through its vtable - 5;
+  else 2), 0x0052FDA0 (0x57 drop what's carried: flag 0x8000 cleared; CTF flag returned locally and 0x75 to remote
+  players; king: Rnd(10) into +0x68 and 0x58 to all), 0x00532170 (0x81 checksum answer: word0 ^ 0xDEADFACE == word1,
+  else notify_client_cheating once).
+  - Test: TestGameNetServerHandlers (selftests_skater_gamenet4.cpp) - four scenarios. 45 deliberate bugs caught, 1
+    after strengthening (an observer local player on the returned flag's team).
