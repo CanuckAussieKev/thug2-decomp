@@ -13,12 +13,21 @@
 #include <vector>
 
 #include "game/core/alloc.h"
+#include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/pool.h"
+#include "game/mth/matrix.h"
+#include "game/mth/vector.h"
+#include "game/obj/compositemgr.h"
+#include "game/obj/object.h"
+#include "game/obj/object_cfuncs.h"
+#include "game/obj/objman.h"
+#include "game/obj/proxim.h"
 #include "game/script/cscript.h"
 #include "game/script/debug_cfuncs.h"
 #include "game/script/math_cfuncs.h"
+#include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -76,8 +85,8 @@ struct TestParams {
     }
     TestParams& String(uint32_t name, const char* value) { return Add(Script::ESYMBOLTYPE_STRING, name, reinterpret_cast<uint32_t>(value)); }
     TestParams& LocalString(uint32_t name, const char* value) { return Add(Script::ESYMBOLTYPE_LOCALSTRING, name, reinterpret_cast<uint32_t>(value)); }
-    TestParams& Structure(uint32_t name, CStruct* value) { return Add(Script::ESYMBOLTYPE_STRUCTUREPOINTER, name, reinterpret_cast<uint32_t>(value)); }
-    TestParams& Array(uint32_t name, Script::CArray* value) { return Add(Script::ESYMBOLTYPE_ARRAYPOINTER, name, reinterpret_cast<uint32_t>(value)); }
+    TestParams& Structure(uint32_t name, CStruct* value) { return Add(Script::ESYMBOLTYPE_STRUCTURE, name, reinterpret_cast<uint32_t>(value)); }
+    TestParams& Array(uint32_t name, Script::CArray* value) { return Add(Script::ESYMBOLTYPE_ARRAY, name, reinterpret_cast<uint32_t>(value)); }
     TestParams& Vector(uint32_t name, float x, float y, float z)
     {
         Script::CVector& v = vectors[vectorCount++];
@@ -360,6 +369,305 @@ void TestMathCFuncs()
     Compare(traces[0], traces[1], "math script commands, DisplayFreeMem, Test (0x004489B0-0x00449110)");
 }
 
+// --- objects, nodes, .qb files, languages, proximity (0x00449280-0x00449960) -----------------------------------
+
+alignas(16) uint8_t g_objects[4][0x110];
+alignas(16) uint8_t g_components[6][0x100];
+alignas(16) uint8_t g_particleSystems[3][0x20];
+alignas(16) uint8_t g_mlpManager[0x100];
+alignas(16) uint8_t g_proximManager[0x10];
+void* g_objectVtable[16];
+void* g_componentVtable[16];
+uint32_t g_firstUnusedId;
+
+uint32_t ObjRel(uint32_t value)
+{
+    struct Range {
+        const void* base;
+        uint32_t size;
+        uint32_t tag;
+    };
+    const Range ranges[] = {{g_objects, sizeof(g_objects), 0xC0000000u},
+                            {g_components, sizeof(g_components), 0xC1000000u},
+                            {g_particleSystems, sizeof(g_particleSystems), 0xC2000000u}};
+    for (const Range& r : ranges) {
+        auto base = reinterpret_cast<uint32_t>(r.base);
+        if (value >= base && value < base + r.size)
+            return r.tag + (value - base);
+    }
+    return Rel(value);
+}
+
+// GetObjScreenCoords' projection (0x004A1090, thiscall, the result in ST0): x, y and depth from the position.
+float __fastcall ProjectStandIn(void* camera, void*, const Mth::Vector* position, float* x, float* y, float* depth)
+{
+    Record({0x1090, reinterpret_cast<uint32_t>(camera), ObjRel(reinterpret_cast<uint32_t>(position))});
+    *x = position->x * 2.0f + 1.0f;
+    *y = position->y - 3.5f;
+    *depth = position->z;
+    return 0.75f;
+}
+
+void StandInObjectCalls(StandIns& s)
+{
+    StandInStructChanges(s);
+    s.At({0x00477E20, AddressOf(static_cast<Method<void, uint32_t, float, float, float>>(&CStruct::AddVector))}, 16,
+         [](Regs& r) {
+             Record({0xADDE, Rel(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3]});
+             return 0u;
+         });
+    s.At({0x00478670, AddressOf(static_cast<Method<void, uint32_t, CStruct*>>(&CStruct::AddStructure))}, 8, [](Regs& r) {
+        Record({0xADD7, Rel(r.ecx), r.args[0], ObjRel(r.args[1])});
+        return 0u;
+    });
+    s.At({0x00478540, AddressOf(&CStruct::AppendStructureIfAny)}, 4, [](Regs& r) {
+        Record({0x8540, ObjRel(r.ecx), ObjRel(r.args[0])});
+        return 0u;
+    });
+    s.At({0x0045C1B0, AddressOf(static_cast<CStruct* (*)(uint32_t, bool)>(&SkateScript::GetNode))}, 0, [](Regs& r) {
+        Record({0xC1B0, r.args[0], r.args[1] & 0xFF});
+        return r.args[0] == 0xDEAD ? 0u : 0x5D000000u + (r.args[0] & 0xFFFF);
+    });
+    s.At({0x0045F160, AddressOf(&Obj::InitCoim)}, 0, [](Regs& r) {
+        Record({0xF160, r.args[0], r.args[1], r.args[2], r.args[3]});
+        return 0u;
+    });
+    s.At({0x0045F1C0, AddressOf(&Obj::ResizeCoimHeap)}, 0, [](Regs& r) {
+        Record({0xF1C0, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0045F3A0, AddressOf(&Obj::CCompositeObjectManager::CreateCompositeObjectFromNode)}, 12, [](Regs& r) {
+        Record({0xF3A0, r.ecx, ObjRel(r.args[0]), ObjRel(r.args[1]), r.args[2] & 0xFF});
+        return 0u;
+    });
+    s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
+        Record({0x19F0, r.ecx, r.args[0]});
+        uint32_t id = r.args[0];
+        if (id >= 0x0B100 && id < 0x0B104)
+            return reinterpret_cast<uint32_t>(g_objects[id - 0x0B100]);
+        if (id >= 8 && id < g_firstUnusedId)
+            return reinterpret_cast<uint32_t>(g_objects[id & 3]);
+        return 0u;
+    });
+    s.At({0x0045F2D0, AddressOf(&Obj::CCompositeObjectManager::GetFirstComponentByType)}, 4, [](Regs& r) {
+        Record({0xF2D0, r.ecx, r.args[0]});
+        switch (r.args[0]) {
+        case 0xA9DB601E: return reinterpret_cast<uint32_t>(g_components[0]); // particle: 0, 1, 2
+        case 0x0000C0C0: return reinterpret_cast<uint32_t>(g_components[1]); // 1, 2
+        case 0x07713C7B: return reinterpret_cast<uint32_t>(g_components[3]); // sound: 3, 4
+        case 0x0F1641E3: return reinterpret_cast<uint32_t>(g_components[5]); // stream: 5
+        default: return 0u;
+        }
+    });
+    s.At({0x004A06D0}, 0, [](Regs& r) {
+        Record({0x06D0, r.args[0]});
+        return 0x00CA3E7Au;
+    });
+    s.Bytes(0x004A1090, Branch(0xE9, 0x004A1090, reinterpret_cast<void*>(&ProjectStandIn)));
+    s.At({0x0049ADE0}, 4, [](Regs& r) {
+        Record({0xADE0, r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x005A5960}, 0, [](Regs& r) {
+        Record({0x5960, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
+        return 0u;
+    });
+    s.At({0x005A59B0}, 0, [](Regs& r) {
+        Record({0x59B0, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0048C100}, 0, [](Regs& r) {
+        Record({0xC100, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
+        return 0u;
+    });
+    s.At({0x0048C0F0}, 0, [](Regs&) {
+        Record({0xC0F0});
+        return 0u;
+    });
+    s.At({0x0046AB50, AddressOf(&Obj::Proxim_Cleanup)}, 0, [](Regs&) {
+        Record({0xAB50});
+        return 0u;
+    });
+    g_objectVtable[6] = s.Thunk(0, [](Regs& r) {
+        Record({0xDEAD, ObjRel(r.ecx)});
+        return 0u;
+    });
+    g_componentVtable[12] = s.Thunk(12, [](Regs& r) {
+        Record({0xCA11, ObjRel(r.ecx), r.args[0], ObjRel(r.args[1]), Rel(r.args[2])});
+        return 1u;
+    });
+}
+
+void TestObjectCFuncs()
+{
+    // the globals: the symbol table (empty), the composite object manager, the particle manager, the language, the
+    // LevelSpecific .qb table, the proximity manager, the main loop manager
+    std::vector<Saved> saved = {{0x006F3624, 4, {}}, {0x006F0FB8, 4, {}}, {0x006FA7C0, 4, {}}, {0x007CEFA0, 4, {}},
+                                {0x00696900, 15 * 4, {}}, {0x006F2268, 4, {}}, {0x00696D68, 4, {}}};
+    SaveAll(saved);
+    static Script::CSymbolTableEntry* table[0x1000];
+    std::memset(table, 0, sizeof(table));
+    GameVariable<Script::CSymbolTableEntry**>(0x006F3624) = table;
+
+    auto* standIns = new StandIns;
+    StandInObjectCalls(*standIns);
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        auto call = [&](uint32_t address, CFunc ours, TestParams& params) { Call(original, address, ours, params); };
+        GameVariable<uint32_t>(0x006F0FB8) = 0x00C0FFEE;
+        std::memset(g_objects, 0, sizeof(g_objects));
+        std::memset(g_components, 0, sizeof(g_components));
+        std::memset(g_particleSystems, 0, sizeof(g_particleSystems));
+        for (int i = 0; i < 4; ++i) {
+            auto* object = reinterpret_cast<Obj::CCompositeObject*>(g_objects[i]);
+            object->m_vtable = g_objectVtable;
+            object->m_objectFlags = i == 2 ? Obj::OBJECT_FLAG_DEAD : 0x40;
+            object->m_pos = {10.0f * i + 0.5f, -2.0f * i, 7.25f, 1.0f};
+            object->m_displayMatrix.Ident();
+            object->m_displayMatrix.row[0] = {0.0f, 1.0f, 0.0f, 0.0f};
+            object->m_displayMatrix.row[1] = {-1.0f, 0.0f, 0.5f, 0.0f};
+            object->m_displayMatrix.row[3] = {100.0f * i, 3.0f, -9.0f, 1.0f};
+        }
+        // components 0-2: particles (objects 0, 1, 2; groups 0x61, 0x62, 0x61), 3-4 sound, 5 stream
+        for (int i = 0; i < 6; ++i) {
+            auto* c = reinterpret_cast<Obj::CBaseComponent*>(g_components[i]);
+            c->m_vtable = g_componentVtable;
+            c->m_object = reinterpret_cast<Obj::CCompositeObject*>(g_objects[i % 4]);
+            if (i != 2 && i != 4 && i != 5)
+                c->mp_nextOfType = reinterpret_cast<Obj::CBaseComponent*>(g_components[i + 1]);
+            if (i < 3) {
+                *reinterpret_cast<uint8_t**>(g_components[i] + 0x1C) = g_particleSystems[i];
+                *reinterpret_cast<uint32_t*>(g_particleSystems[i] + 0x0C) = i == 1 ? 0x62u : 0x61u;
+            }
+            std::memset(g_components[i] + 0x20, 0x11 * (i + 1), 0xC0);
+        }
+
+        // AppendNodeParams; GetNode (found / not); the node names
+        {
+            TestParams extra; extra.Integer(0x1234, 5);
+            TestParams a; a.Checksum(0x7A8017BA, 0x0E01).Structure(0x7031F10C, extra.Struct());
+            call(0x00449280, CFuncs::CFunc_AppendNodeParams, a);
+            TestParams b; b.Checksum(0, 0x0E02); call(0x00449850, CFuncs::CFunc_GetNode, b);
+            TestParams c; c.Checksum(0, 0xDEAD); call(0x00449850, CFuncs::CFunc_GetNode, c);
+            TestParams none;
+            for (int k = 0; k < 3; ++k) {
+                for (uint32_t which : {0x00449890u, 0x004498C0u}) {
+                    std::memset(g_script, 0, sizeof(g_script));
+                    auto* script = reinterpret_cast<Script::CScript*>(g_script);
+                    script->m_params = reinterpret_cast<CStruct*>(g_results);
+                    *reinterpret_cast<uint8_t**>(g_script + 0xBC) = k ? g_objects[k] : nullptr;
+                    reinterpret_cast<Obj::CObject*>(g_objects[k])->m_id = k == 1 ? 0u : 0x0B0B0 + k;
+                    script->m_node = k == 2 ? 0 : 0x4E0D + k;
+                    CFunc ours = which == 0x00449890u ? CFuncs::CFunc_GetNodeName : CFuncs::CFunc_GetTriggerNodeName;
+                    bool result = original ? Original<CFunc>(which)(none.Struct(), script) : ours(none.Struct(), script);
+                    Record({0xC0DE, which, result ? 1u : 0u});
+                }
+            }
+        }
+        // the COIM heap
+        {
+            TestParams a;
+            a.Integer(0x083FDB95, 0x40000).Integer(0xB0847D54, 17).Integer(0xBB9A31B5, -3).Float(0x03D6DE47, 123.456f);
+            call(0x004492E0, CFuncs::CFunc_InitCOIM, a);
+            TestParams b;
+            b.Integer(0x083FDB95, 0x1000).Integer(0xB0847D54, 0).Integer(0xBB9A31B5, 9).Float(0x03D6DE47, -1.9f);
+            call(0x004492E0, CFuncs::CFunc_InitCOIM, b);
+            TestParams c; c.Integer(0x7C554E79, 0x22000); call(0x00449380, CFuncs::CFunc_ResizeCOIMHeap, c);
+            TestParams d; call(0x00449380, CFuncs::CFunc_ResizeCOIMHeap, d);
+        }
+        // composite objects: made (with and without params), ids (free at once, after taken ones, preferred)
+        {
+            static Script::CArray components;
+            TestParams extra; extra.Integer(0x99, 1);
+            TestParams a; a.Array(0x11B70A02, &components).Structure(0x7031F10C, extra.Struct());
+            call(0x00449540, CFuncs::CFunc_CreateCompositeObject, a);
+            TestParams b; b.Array(0x11B70A02, &components);
+            call(0x00449540, CFuncs::CFunc_CreateCompositeObject, b);
+            TestParams none;
+            g_firstUnusedId = 8;
+            call(0x004495A0, CFuncs::CFunc_GetUniqueCompositeObjectID, none);
+            g_firstUnusedId = 11;
+            call(0x004495A0, CFuncs::CFunc_GetUniqueCompositeObjectID, none);
+            TestParams c; c.Checksum(0x392649D7, 0x30); call(0x004495A0, CFuncs::CFunc_GetUniqueCompositeObjectID, c);
+            TestParams d; d.Checksum(0x392649D7, 9); call(0x004495A0, CFuncs::CFunc_GetUniqueCompositeObjectID, d);
+        }
+        // screen coordinates, transforms, component scripts, particles
+        {
+            TestParams a; a.Checksum(0x57525413, 0x0B101); call(0x00449610, CFuncs::CFunc_GetObjScreenCoords, a);
+            TestParams b; b.Checksum(0x57525413, 0x0B1FF); call(0x00449610, CFuncs::CFunc_GetObjScreenCoords, b);
+            TestParams c; c.Vector(0xA18717AA, 1.5f, -2.0f, 4.0f).Checksum(0x57525413, 0x0B103);
+            call(0x00449740, CFuncs::CFunc_TransformLocalToWorld, c);
+            TestParams d; d.Vector(0xA18717AA, -0.25f, 8.0f, 0.0f).Checksum(0x57525413, 0x0B100);
+            call(0x00449740, CFuncs::CFunc_TransformLocalToWorld, d);
+            TestParams extra; extra.Integer(0x55, 2);
+            TestParams e; e.Checksum(0xB6015EA8, 0xC0C0).Checksum(0xB990D003, 0x7A26E7).Structure(0x7031F10C, extra.Struct());
+            call(0x004496B0, CFuncs::CFunc_RunScriptOnComponentType, e);
+            TestParams f; f.Checksum(0xB6015EA8, 0xA9DB601E).Checksum(0xB990D003, 0x7A26E8);
+            call(0x004496B0, CFuncs::CFunc_RunScriptOnComponentType, f);
+            TestParams g; g.Checksum(0xB6015EA8, 0x1234).Checksum(0xB990D003, 0x7A26E9);
+            call(0x004496B0, CFuncs::CFunc_RunScriptOnComponentType, g);
+            GameVariable<uint32_t>(0x006FA7C0) = 0x00FA7C00;
+            TestParams h; h.Checksum(0x87FA53ED, 0x61); call(0x004497D0, CFuncs::CFunc_DestroyParticlesByGroupID, h);
+            GameVariable<uint32_t>(0x006FA7C0) = 0;
+            TestParams i; i.Checksum(0x87FA53ED, 0x62); call(0x004497D0, CFuncs::CFunc_DestroyParticlesByGroupID, i);
+        }
+        // .qb files: plain, LevelSpecific (a free slot after taken ones; the table full), unloading (two slots match)
+        {
+            uint32_t* files = &GameVariable<uint32_t>(0x00696900);
+            for (int k = 0; k < 15; ++k)
+                files[k] = k < 3 || k == 5 ? 0x100 + k : 0;
+            TestParams a; a.String(0, "levels\\nj\\nj_scripts.qb"); call(0x004493B0, CFuncs::CFunc_LoadQB, a);
+            TestParams b; b.String(0, "levels\\nj\\nj_goals.qb").Flag(0x6DD1DECF); call(0x004493B0, CFuncs::CFunc_LoadQB, b);
+            TestParams c; c.String(0, "levels\\nj\\nj_more.qb").Flag(0x6DD1DECF); call(0x004493B0, CFuncs::CFunc_LoadQB, c);
+            for (int k = 0; k < 15; ++k)
+                Record({files[k]});
+            for (int k = 0; k < 15; ++k)
+                files[k] = 0x200 + k;
+            call(0x004493B0, CFuncs::CFunc_LoadQB, b);
+            files[2] = files[9] = Crc::GenerateCRCFromString("levels\\nj\\nj_goals.qb");
+            call(0x00449450, CFuncs::CFunc_UnloadQB, b);
+            for (int k = 0; k < 15; ++k)
+                Record({files[k]});
+        }
+        // screenshots, metrics, languages, proximity, ResetEngine
+        {
+            TestParams a; a.String(0xC3F4169A, "shots\\one"); call(0x004494A0, CFuncs::CFunc_ScreenShot, a);
+            TestParams none;
+            call(0x004494A0, CFuncs::CFunc_ScreenShot, none);
+            call(0x004494E0, CFuncs::CFunc_ToggleMetrics, none);
+            for (int language = 0; language < 8; ++language) {
+                GameVariable<int>(0x007CEFA0) = language;
+                call(0x004494F0, CFuncs::CFunc_German, none);
+                call(0x00449500, CFuncs::CFunc_French, none);
+                call(0x00449510, CFuncs::CFunc_Spanish, none);
+                call(0x00449520, CFuncs::CFunc_Italian, none);
+                call(0x00449530, CFuncs::CFunc_English, none);
+            }
+            call(0x004498F0, CFuncs::CFunc_ProximCleanup, none);
+            GameVariable<void*>(0x006F2268) = g_proximManager;
+            for (int entering : {0, 1}) {
+                std::memset(g_proximManager, 0xA5, sizeof(g_proximManager));
+                g_proximManager[4] = static_cast<uint8_t>(entering);
+                call(0x00449950, CFuncs::CFunc_Inside, none);
+            }
+            GameVariable<void*>(0x00696D68) = g_mlpManager;
+            std::memset(g_mlpManager, 0, sizeof(g_mlpManager));
+            call(0x00449960, CFuncs::CFunc_ResetEngine, none);
+            Record({HashBytes(g_mlpManager, sizeof(g_mlpManager))});
+        }
+        Record({HashBytes(&g_components[0][0], sizeof(g_components)), HashBytes(&g_objects[0][0], sizeof(g_objects))});
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(saved);
+    Check(traces[0].size() > 200, "object script commands: the original reached its calls");
+    Compare(traces[0], traces[1], "object, node, .qb, language and proximity script commands (0x00449280-0x00449960)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestMathCFuncs, RemoveStandIns);
+SELFTEST(Early, TestObjectCFuncs, RemoveStandIns);

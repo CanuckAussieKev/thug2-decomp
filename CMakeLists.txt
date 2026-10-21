@@ -603,6 +603,7 @@ add_library(thug2_code OBJECT
     src/game/script/skate_cfuncs.cpp
     src/game/script/math_cfuncs.cpp
     src/game/script/debug_cfuncs.cpp
+    src/game/obj/object_cfuncs.cpp
     src/game/mth/geometry.cpp
     src/game/mth/math.cpp
     src/game/mth/matrix.cpp
