@@ -3,10 +3,10 @@
 //   0x00  u32 0, 7 x 0xCABAAAFA (as THAW's)
 //   0x20  materials: u16 0x0310, u16 count, u32 size of the block (from 0x20), u32 16 (offset of the first), u32 -1;
 //         then 0x134 bytes per material (MAT_*), then their parameter blocks (offsets from 0x20)
-//   then the scene at S0 = 0x20 + size; offsets below are from S0, the scene's pointers from S = S0 + 0x10:
-//   +0x00 u32 0xBABEFACE, u32 8, u32 0, u32 ?, +0x10 box (4f min, 4f max), +0x30 sphere (4f)
-//   +0x5C mesh count, +0x7C sector count, +0x80 sectors, +0x84 sector nodes, +0x88 -1, +0x8C 0x14 bytes per sector
-//         (runtime), +0x90 meshes, +0x9C (filler), then two index tables (runtime: -1 / mesh numbers)
+//   then the scene at S0 = 0x20 + size: u32 0xBABEFACE, u32 n (8 or 0x18), n - 8 bytes of 0; from H = S0 + n (the
+//   scene's pointers are from S = H + 8): +0x00 u32 0, u32 0xEA, +0x08 box (4f min, 4f max), +0x28 sphere (4f),
+//   +0x54 mesh count, +0x74 sector count, +0x78 sectors, +0x7C sector nodes, +0x80 -1, +0x84 0x14 bytes per sector
+//   (runtime), +0x88 meshes, +0x94 (filler), then two index tables (runtime: -1 / mesh numbers)
 //   sectors     0x50 bytes: u32 0, u32 checksum (the node's name), u32 flags (SEC_*), ..., +0x30 sphere (4f)
 //   nodes       0x60 bytes per sector: +0x10 box (4f min, 4f max), +0x48 first mesh, +0x4C mesh count
 //   meshes      0x80 bytes (MESH_*): sphere, material checksum, vertex layout, index / vertex counts, the offsets
@@ -102,12 +102,13 @@ export function readGeom(data: Buffer, name = "geom"): Geom {
     }
     const s0 = 0x20 + size;
     if (u32(s0) !== SCENE) throw new FormatError(`${name}: no scene (0xBABEFACE) at 0x${s0.toString(16)}`);
-    const s = s0 + 0x10;
-    const meshCount = u32(s0 + 0x5c);
-    const sectorCount = u32(s0 + 0x7c);
-    const sectorsAt = s + u32(s0 + 0x80);
-    const nodesAt = s + u32(s0 + 0x84);
-    const meshesAt = s + u32(s0 + 0x90);
+    const h = s0 + u32(s0 + 4); // (the header's second word: 8 or 0x18 - the fields below move with it)
+    const s = h + 8;
+    const meshCount = u32(h + 0x54);
+    const sectorCount = u32(h + 0x74);
+    const sectorsAt = s + u32(h + 0x78);
+    const nodesAt = s + u32(h + 0x7c);
+    const meshesAt = s + u32(h + 0x88);
     const meshes: GeomMesh[] = [];
     for (let m = 0; m < meshCount; m++) {
         const r = meshesAt + MESH_SIZE * m;
@@ -142,7 +143,8 @@ export function readGeom(data: Buffer, name = "geom"): Geom {
         const node = nodesAt + NODE_SIZE * i;
         const firstMesh = u32(node + 0x48);
         const n = u32(node + 0x4c);
-        if (firstMesh + n > meshCount) throw new FormatError(`${name}: sector ${i}: meshes ${firstMesh}+${n} of ${meshCount}`);
+        if (firstMesh + n > meshCount)
+            throw new FormatError(`${name}: sector ${i}: meshes ${firstMesh}+${n} of ${meshCount}`);
         const lo = floats(data, node + 0x10, 3);
         const hi = floats(data, node + 0x20, 3);
         sectors.push({
@@ -153,7 +155,7 @@ export function readGeom(data: Buffer, name = "geom"): Geom {
             meshes: meshes.slice(firstMesh, firstMesh + n),
         });
     }
-    return { materials, sectors, bbox: [...floats(data, s0 + 0x10, 3), ...floats(data, s0 + 0x20, 3)] };
+    return { materials, sectors, bbox: [...floats(data, h + 8, 3), ...floats(data, h + 0x18, 3)] };
 }
 
 // IEEE half float.
@@ -211,7 +213,8 @@ export function triangles(m: GeomMesh): number[][] {
     let strip: number[] = [];
     const flush = (): void => {
         for (let k = 2; k < strip.length; k++) {
-            const [a, b, c] = k % 2 ? [strip[k - 1]!, strip[k - 2]!, strip[k]!] : [strip[k - 2]!, strip[k - 1]!, strip[k]!];
+            const [a, b, c] =
+                k % 2 ? [strip[k - 1]!, strip[k - 2]!, strip[k]!] : [strip[k - 2]!, strip[k - 1]!, strip[k]!];
             if (a !== b && b !== c && a !== c) out.push([a, b, c]);
         }
         strip = [];

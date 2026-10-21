@@ -64,7 +64,8 @@ export function readXenosTex(data: Buffer, name = "tex"): XenosTexture[] {
     }
     for (const x of raw) {
         const size = tiledSize(x.t);
-        if (x.at + size > data.length) throw new FormatError(`${name}: texture ${x.t.checksum.toString(16)} past the end`);
+        if (x.at + size > data.length)
+            throw new FormatError(`${name}: texture ${x.t.checksum.toString(16)} past the end`);
         x.t.data = data.subarray(x.at, x.at + size);
     }
     return raw.map((x) => x.t);

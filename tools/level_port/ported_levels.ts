@@ -46,6 +46,7 @@ export const STAGINGS = [
     "thug2-decomp-thps3",
     "thug2-decomp-thaw",
     "thug2-decomp-thps2",
+    "thug2-decomp-thp8",
 ] as const;
 
 export interface LevelEntry {

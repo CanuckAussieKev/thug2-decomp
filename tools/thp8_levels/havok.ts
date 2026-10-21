@@ -273,7 +273,10 @@ export class Packfile {
     // Objects of a class in the data section.
     objectsOf(className: string): Ptr[] {
         const data = this.section("__data__");
-        return this.sections[data]!.objects.filter((o) => o.className === className).map((o) => ({ section: data, at: o.at }));
+        return this.sections[data]!.objects.filter((o) => o.className === className).map((o) => ({
+            section: data,
+            at: o.at,
+        }));
     }
 
     classOf(p: Ptr): string | null {
@@ -283,7 +286,8 @@ export class Packfile {
     // An hkArray member: [pointer to the elements, count].
     array(obj: Ptr, className: string, member: string): [Ptr | null, number] {
         const m = this.member(className, member);
-        if (m.type !== T.ARRAY && m.type !== T.SIMPLEARRAY) throw new FormatError(`${className}.${member}: not an array`);
+        if (m.type !== T.ARRAY && m.type !== T.SIMPLEARRAY)
+            throw new FormatError(`${className}.${member}: not an array`);
         return [this.field(obj, m.offset), this.u32(obj, m.offset + 4)];
     }
 
@@ -314,5 +318,230 @@ export class Packfile {
     floats(obj: Ptr, off: number, n: number): number[] {
         const at = this.abs(obj) + off;
         return Array.from({ length: n }, (_, k) => this.data.readFloatBE(at + 4 * k));
+    }
+}
+
+// --- THP8's collision ---------------------------------------------------------------------------------------------
+//
+// hkRootLevelContainer -> hkPhysicsData -> hkPhysicsSystem(s) -> hkRigidBody (fixed; identity transforms: the shapes
+// are in world space, metres). A body's shape: an hkMoppBvTreeShape over an hkStorageMeshShape (triangles), or an
+// hkListShape of hkConvexTransformShapes (boxes, cylinders, capsules: the node array's CollisionPrimitive nodes - a
+// transform shape's userData is its node's name) and / or MOPP meshes. A mesh triangle's material index picks one of
+// its subpart's `materials` words, a list child's collisionFilterInfo is its word: terrain << 16 | face flags.
+
+export interface HkTriangle {
+    a: number[];
+    b: number[];
+    c: number[];
+    material: number;
+    owner: number; // the primitive's node name checksum, 0 for mesh triangles
+}
+
+export interface HkBody {
+    index: number;
+    triangles: HkTriangle[];
+}
+
+type Mat = number[]; // 4 x 4, column-major as hkTransform (3 rotation columns, then the translation)
+
+function apply(m: Mat, p: readonly number[]): number[] {
+    return [0, 1, 2].map((k) => m[k]! * p[0]! + m[4 + k]! * p[1]! + m[8 + k]! * p[2]! + m[12 + k]!);
+}
+
+// a * b (b applied first)
+function compose(a: Mat, b: Mat): Mat {
+    const col = (c: number): number[] => {
+        const v = [b[4 * c]!, b[4 * c + 1]!, b[4 * c + 2]!];
+        const r = [0, 1, 2].map((k) => a[k]! * v[0]! + a[4 + k]! * v[1]! + a[8 + k]! * v[2]!);
+        return c === 3 ? [r[0]! + a[12]!, r[1]! + a[13]!, r[2]! + a[14]!, 1] : [...r, 0];
+    };
+    return [...col(0), ...col(1), ...col(2), ...col(3)];
+}
+
+function transformAt(pf: Packfile, p: Ptr, off: number): Mat {
+    const f = pf.floats(p, off, 16);
+    return [f[0]!, f[1]!, f[2]!, 0, f[4]!, f[5]!, f[6]!, 0, f[8]!, f[9]!, f[10]!, 0, f[12]!, f[13]!, f[14]!, 1];
+}
+
+const SIDES = 8; // a cylinder's / capsule's facets
+
+function boxTriangles(he: readonly number[]): number[][][] {
+    const v = (x: number, y: number, z: number): number[] => [x * he[0]!, y * he[1]!, z * he[2]!];
+    const quads = [
+        [v(-1, -1, -1), v(-1, 1, -1), v(1, 1, -1), v(1, -1, -1)],
+        [v(-1, -1, 1), v(1, -1, 1), v(1, 1, 1), v(-1, 1, 1)],
+        [v(-1, -1, -1), v(-1, -1, 1), v(-1, 1, 1), v(-1, 1, -1)],
+        [v(1, -1, -1), v(1, 1, -1), v(1, 1, 1), v(1, -1, 1)],
+        [v(-1, -1, -1), v(1, -1, -1), v(1, -1, 1), v(-1, -1, 1)],
+        [v(-1, 1, -1), v(-1, 1, 1), v(1, 1, 1), v(1, 1, -1)],
+    ];
+    return quads.flatMap((q) => [
+        [q[0]!, q[1]!, q[2]!],
+        [q[0]!, q[2]!, q[3]!],
+    ]);
+}
+
+// A prism of SIDES faces round the segment a-b (radius r), its ends closed.
+function cylinderTriangles(a: readonly number[], b: readonly number[], r: number): number[][][] {
+    const axis = [0, 1, 2].map((k) => b[k]! - a[k]!);
+    const len = Math.hypot(...axis) || 1;
+    const n = axis.map((x) => x / len);
+    const other = Math.abs(n[0]!) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+    const cross = (p: readonly number[], q: readonly number[]): number[] => [
+        p[1]! * q[2]! - p[2]! * q[1]!,
+        p[2]! * q[0]! - p[0]! * q[2]!,
+        p[0]! * q[1]! - p[1]! * q[0]!,
+    ];
+    const u0 = cross(n, other);
+    const ul = Math.hypot(...u0);
+    const u = u0.map((x) => x / ul);
+    const w = cross(n, u);
+    const ring = (c: readonly number[]): number[][] =>
+        Array.from({ length: SIDES }, (_, i) => {
+            const t = (2 * Math.PI * i) / SIDES;
+            return [0, 1, 2].map((k) => c[k]! + r * (Math.cos(t) * u[k]! + Math.sin(t) * w[k]!));
+        });
+    const ra = ring(a);
+    const rb = ring(b);
+    const out: number[][][] = [];
+    for (let i = 0; i < SIDES; i++) {
+        const j = (i + 1) % SIDES;
+        out.push([ra[i]!, rb[i]!, rb[j]!], [ra[i]!, rb[j]!, ra[j]!]);
+        if (i > 0 && i < SIDES - 1) out.push([ra[0]!, ra[j]!, ra[i]!], [rb[0]!, rb[i]!, rb[j]!]);
+    }
+    return out;
+}
+
+// Every rigid body's triangles (world space; primitives made into triangles).
+export function readCollision(pf: Packfile, warnings: string[] = []): HkBody[] {
+    const childOf = (s: Ptr, c: string, member: string): Ptr | null =>
+        pf.field(s, pf.member(c, member).offset + pf.member("hkSingleShapeContainer", "childShape").offset);
+    const walk = (s: Ptr | null, m: Mat, material: number, out: HkBody, owner: number): void => {
+        if (s === null) return;
+        const c = pf.classOf(s);
+        const push = (tris: number[][][]): void => {
+            for (const [a, b, cc] of tris) {
+                out.triangles.push({ a: apply(m, a!), b: apply(m, b!), c: apply(m, cc!), material, owner });
+            }
+        };
+        switch (c) {
+            case "hkMoppBvTreeShape":
+                walk(childOf(s, c, "child"), m, material, out, owner);
+                return;
+            case "hkListShape": {
+                const [kids, n] = pf.array(s, c, "childInfo");
+                const size = pf.classes.get("hkListShapeChildInfo")?.size ?? 8;
+                for (let k = 0; k < n; k++) {
+                    const info = pf.at(kids!, size * k);
+                    walk(pf.field(info, 0), m, pf.u32(info, 4), out, owner);
+                }
+                return;
+            }
+            case "hkConvexTransformShape": {
+                const t = compose(m, transformAt(pf, s, pf.member(c, "transform").offset));
+                const ud = pf.u32(s, pf.member(c, "userData").offset);
+                walk(childOf(s, c, "childShape"), t, material, out, ud || owner);
+                return;
+            }
+            case "hkBoxShape":
+                push(boxTriangles(pf.floats(s, pf.member(c, "halfExtents").offset, 3)));
+                return;
+            case "hkCylinderShape":
+            case "hkCapsuleShape": {
+                const a = pf.floats(s, pf.member(c, "vertexA").offset, 3);
+                const b = pf.floats(s, pf.member(c, "vertexB").offset, 3);
+                const r = c === "hkCylinderShape" ? pf.real(s, c, "cylRadius") : pf.real(s, c, "radius");
+                push(cylinderTriangles(a, b, r));
+                return;
+            }
+            case "hkStorageMeshShape":
+                meshTriangles(pf, s, m, material, out, owner, warnings);
+                return;
+            default:
+                warnings.push(`shape ${c} left out`);
+        }
+    };
+    const collidable = pf.member("hkRigidBody", "collidable").offset;
+    const motion =
+        pf.member("hkRigidBody", "motion").offset +
+        pf.member("hkMaxSizeMotion", "motionState").offset +
+        pf.member("hkMotionState", "transform").offset;
+    return pf.objectsOf("hkRigidBody").map((rb, index) => {
+        const body: HkBody = { index, triangles: [] };
+        walk(pf.field(rb, collidable), transformAt(pf, rb, motion), 0, body, 0);
+        return body;
+    });
+}
+
+function meshTriangles(
+    pf: Packfile,
+    s: Ptr,
+    m: Mat,
+    material: number,
+    out: HkBody,
+    owner: number,
+    warnings: string[],
+): void {
+    const c = "hkStorageMeshShape";
+    const sc = "hkStorageMeshShapeSubpartStorage";
+    const sp = "hkMeshShapeSubpart";
+    const [storage, n] = pf.array(s, c, "storage");
+    const [subparts, ns] = pf.array(s, c, "subparts");
+    if (n !== ns) throw new FormatError(`${pf.name}: ${ns} subparts, ${n} storages`);
+    const scale = pf.floats(s, pf.member(c, "scaling").offset, 3);
+    const subSize = pf.classes.get(sp)!.size;
+    for (let k = 0; k < n; k++) {
+        const st = pf.field(storage!, 4 * k)!;
+        const sub = pf.at(subparts!, subSize * k);
+        const vstride = pf.int(sub, sp, "vertexStriding");
+        const nv = pf.int(sub, sp, "numVertices");
+        const istride = pf.int(sub, sp, "indexStriding");
+        const ntri = pf.int(sub, sp, "numTriangles");
+        const itype = pf.u8(sub, pf.member(sp, "stridingType").offset); // 1: 16-bit indices, 2: 32-bit
+        const mtype = pf.u8(sub, pf.member(sp, "materialIndexStridingType").offset); // 1: 8-bit, 2: 16-bit
+        const mstride = pf.int(sub, sp, "materialIndexStriding");
+        const matStride = pf.int(sub, sp, "materialStriding");
+        const [verts, vcount] = pf.array(st, sc, "vertices");
+        const [i16, n16] = pf.array(st, sc, "indices16");
+        const [i32, n32] = pf.array(st, sc, "indices32");
+        const [mi8, nmi8] = pf.array(st, sc, "materialIndices");
+        const [mi16, nmi16] = pf.array(st, sc, "materialIndices16");
+        const [mats, nmats] = pf.array(st, sc, "materials");
+        if (vstride < 12 || (nv && (nv - 1) * vstride + 12 > vcount * 4)) {
+            throw new FormatError(`${pf.name}: subpart of ${nv} vertices (stride ${vstride}), ${vcount} floats`);
+        }
+        const vertex = (i: number): number[] => {
+            if (i >= nv) throw new FormatError(`${pf.name}: vertex ${i} of ${nv}`);
+            const p = pf.floats(verts!, i * vstride, 3);
+            return apply(m, [p[0]! * scale[0]!, p[1]! * scale[1]!, p[2]! * scale[2]!]);
+        };
+        const index = (t: number, j: number): number => {
+            if (itype === 1) {
+                if (!i16 || (t * istride) / 2 + j >= n16) throw new FormatError(`${pf.name}: index past indices16`);
+                return pf.u16(i16, t * istride + 2 * j);
+            }
+            if (!i32 || (t * istride) / 4 + j >= n32) throw new FormatError(`${pf.name}: index past indices32`);
+            return pf.u32(i32, t * istride + 4 * j);
+        };
+        const materialOf = (t: number): number => {
+            if (!nmats) return material;
+            let mi = 0;
+            if (mtype === 1 && mi8 && t * mstride < nmi8) mi = pf.u8(mi8, t * mstride);
+            else if (mtype === 2 && mi16 && t < nmi16) mi = pf.u16(mi16, t * mstride);
+            if (mi >= nmats) {
+                warnings.push(`material index ${mi} of ${nmats}`);
+                return material;
+            }
+            return pf.u32(mats!, mi * matStride);
+        };
+        for (let t = 0; t < ntri; t++) {
+            out.triangles.push({
+                a: vertex(index(t, 0)),
+                b: vertex(index(t, 1)),
+                c: vertex(index(t, 2)),
+                material: materialOf(t),
+                owner,
+            });
+        }
     }
 }

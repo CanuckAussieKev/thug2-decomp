@@ -393,6 +393,7 @@ export function sections(
         thps3?: Manifest | undefined;
         thps2?: Manifest | undefined;
         thaw?: Manifest | undefined;
+        thp8?: Manifest | undefined;
     } = {},
 ): Section[] {
     const out: Section[] = [["thug2", "TONY HAWK'S UNDERGROUND 2", "level_select_menu_level_info", null]];
@@ -434,6 +435,15 @@ export function sections(
             "TONY HAWK'S AMERICAN WASTELAND",
             "level_select_menu_thaw_level_info",
             thawPositionScaleFlags(games.thaw, manifestLevels(games.thaw, THAW_LEVELS, "THAW")),
+        ]);
+    }
+    if (games.thp8) {
+        // (placeholder signs - the manifest's THUG2 sign texture - and no stars: THP8's city is fictional)
+        out.push([
+            "thp8",
+            "TONY HAWK'S PROJECT 8",
+            "level_select_menu_thp8_level_info",
+            manifestLevels(games.thp8, new Map(), "THP8"),
         ]);
     }
     return out;

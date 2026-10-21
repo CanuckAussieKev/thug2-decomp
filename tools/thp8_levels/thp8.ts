@@ -135,7 +135,8 @@ export function readPak(data: Buffer, name = "pak"): Pak {
             header += 160;
         }
         if (e.extension === ".last" || e.extension === "last") break;
-        if (e.offset + e.size > data.length) throw new FormatError(`${name}: entry at 0x${offset.toString(16)} past the end`);
+        if (e.offset + e.size > data.length)
+            throw new FormatError(`${name}: entry at 0x${offset.toString(16)} past the end`);
         entries.push(e);
         offset += header;
     }

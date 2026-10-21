@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import { pyExit, pyJoin } from "./py.ts";
 
-export type InstallGame = "thug2" | "thps3" | "thps4" | "thug1" | "thaw" | "thps2";
+export type InstallGame = "thug2" | "thps3" | "thps4" | "thug1" | "thaw" | "thps2" | "thp8";
 
 export interface InstallKind {
     title: string; // for messages ("THAW")
@@ -27,6 +27,8 @@ export const INSTALLS: Readonly<Record<InstallGame, InstallKind>> = {
     thaw: { title: "THAW", markers: [["data\\worlds\\worldzones"], ["data\\pak\\qb.pak.wpc"]] },
     // (THPS2 PC: every data file in one archive)
     thps2: { title: "THPS2", markers: [["ALL.PKR"]] },
+    // (THP8: the Xbox 360 game's data - game\DATA\COMPRESSED's archives and their table)
+    thp8: { title: "THP8", markers: [["DATA\\COMPRESSED\\compress.toc.xen"]] },
 };
 
 const SUBFOLDER = "Game";

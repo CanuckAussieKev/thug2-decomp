@@ -1391,6 +1391,7 @@ async function main(): Promise<number> {
             thps3: byGame.get("thug2-decomp-thps3"),
             thps2: byGame.get("thug2-decomp-thps2"),
             thaw: byGame.get("thug2-decomp-thaw"),
+            thp8: byGame.get("thug2-decomp-thp8"),
         });
 
         const overlaySelect = (text: string): string =>

@@ -9,7 +9,16 @@ const expand565 = (c: number): [number, number, number] => {
     return [(b << 3) | (b >> 2), (g << 2) | (g >> 4), (r << 3) | (r >> 2)];
 };
 
-function colorBlock(src: Buffer, at: number, out: Buffer, ox: number, oy: number, w: number, h: number, dxt1: boolean): void {
+function colorBlock(
+    src: Buffer,
+    at: number,
+    out: Buffer,
+    ox: number,
+    oy: number,
+    w: number,
+    h: number,
+    dxt1: boolean,
+): void {
     const c0 = src.readUInt16LE(at);
     const c1 = src.readUInt16LE(at + 2);
     const p0 = expand565(c0);
@@ -103,11 +112,12 @@ export function halve(src: Buffer, w: number, h: number): Buffer {
     const out = Buffer.alloc(nw * nh * 4);
     for (let y = 0; y < nh; y++) {
         for (let x = 0; x < nw; x++) {
-            const a = ((y * sy) * w + x * sx) * 4;
+            const a = (y * sy * w + x * sx) * 4;
             const b = a + (sx === 2 ? 4 : 0);
             const c = a + (sy === 2 ? w * 4 : 0);
             const d = c + (sx === 2 ? 4 : 0);
-            for (let k = 0; k < 4; k++) out[(y * nw + x) * 4 + k] = (src[a + k]! + src[b + k]! + src[c + k]! + src[d + k]! + 2) >> 2;
+            for (let k = 0; k < 4; k++)
+                out[(y * nw + x) * 4 + k] = (src[a + k]! + src[b + k]! + src[c + k]! + src[d + k]! + 2) >> 2;
         }
     }
     return out;
