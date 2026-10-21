@@ -16,6 +16,9 @@ Used by `tools/thps4_levels` (THPS4), `tools/thug1_levels` (THUG1), `tools/thps3
   a port compared with THUG2's own (`node tools/level_port/layer_check.ts <levels folder> [<level> ...]`).
 - `qb.ts` - THPS4 / THUG1 qb files: globals, names, script statements; values as NeverScript text.
 - `nodes.ts` - node arrays: what's kept, kill zones, THUG1's included structures.
+- `ped_rigs.ts` - every ported human ped on the skeleton its THUG2 profile's model is rigged to (Ped_Female for
+  women, else THPS6_human) and the level's load_level_anims for Ped_Female's animations; `ped_rig_check.ts` audits
+  converted levels (`node tools/level_port/ped_rig_check.ts <overlay folders>`).
 - `peds_cars.ts` - THPS4's peds and cars made again as THUG2's own (THUG2's ped AI walking / vert skating, its
   Car_Generic01 on the same paths, THUG2's profiles and models).
 - `script_port.ts` - the script translator (all four games); its TriggerType translation (`triggerType`) is shared.
