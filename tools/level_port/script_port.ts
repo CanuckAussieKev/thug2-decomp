@@ -317,6 +317,11 @@ export const RENAMES: Readonly<Record<string, string>> = {
 
 // A condition that is always false (an `if` whose command is left out): GotParam of a name no script passes.
 export const NEVER = "thps3_port_never";
+// Markers a converter writes into the source game's scripts before translating them (THPS3's TP-41 edits -
+// tools/thps3_levels editScripts): an `if` command decided true (ALWAYS) or false (NEVER), and a statement left out
+// (DROPPED). The translator makes ALWAYS `not GotParam <never>` and NEVER `GotParam <never>`, and leaves DROPPED out.
+export const ALWAYS = "thps3_port_always";
+export const DROPPED = "thps3_port_dropped";
 
 // THPS3's script files a level's scripts may be brought along from (the level's own .qb and the level designers'
 // shared files); anything else (goals, menus, the skater, peds' model scripts...) is THPS3's game, not the level's.
@@ -902,6 +907,10 @@ export interface TranslatorOptions {
     inheritParams?: boolean;
     // geometry nodes the converted scene has no sector for (withoutUndrawn)
     undrawn?: Iterable<number>;
+    // those of them that are collision-only and kept in the level: their Create / Kill are kept (THUG2's LevelGeometry
+    // Create 0x005A2E50 and Kill 0x005A32C0 reach the sector's geometry only through CSector's SetVisibility /
+    // SetActive / 0x0049EA30, which skip a null one - only Visible / Invisible / Shatter don't). THPS3's (PC-THPS3-17).
+    collisionOnly?: Iterable<number>;
     // more of LEFT_OUT / RENAMES (another game's)
     leftOut?: Iterable<string>;
     renames?: Readonly<Record<string, string>> | null;
@@ -955,6 +964,7 @@ export class Translator {
     readonly thug2: Thug2;
     readonly inheritParams: boolean;
     readonly undrawn: Set<number>;
+    readonly collisionOnly: Set<number>;
     readonly provided: Set<number>;
     readonly names: Map<number, string>;
     readonly where = new Map<number, Source>();
@@ -1005,6 +1015,7 @@ export class Translator {
         this.thug2 = thug2;
         this.inheritParams = options.inheritParams ?? false;
         this.undrawn = new Set(options.undrawn ?? []);
+        this.collisionOnly = new Set(options.collisionOnly ?? []);
         this.provided = new Set(options.provided ?? []);
         this.names = names;
         for (const s of sources) {
@@ -1111,6 +1122,10 @@ export class Translator {
             if (toks.length > 2 && this.objectStates) return this.onObject(toks, contexts, discover);
         }
         if (first.t !== 0x16) return toks;
+        if (first.name() === checksum(DROPPED)) {
+            this.note("left out by the converter's edit");
+            return null;
+        }
         const rewrite = this.rewrites.get(first.name()!);
         if (rewrite !== undefined) {
             const rewritten = rewrite(toks);
@@ -1407,10 +1422,14 @@ export class Translator {
         // Visible / Invisible / Create / Kill / Shatter of geometry nodes with no scene sector (collision-only: THUG2
         // looks the sector up and reads through the null - THPS3 Airport crashed loading): name= one of them -> left
         // out; prefix= matching one -> the statement once per matching node that has a sector (name=), or left out.
+        // Create / Kill of collision-only nodes (`collisionOnly`) are kept: those are safe.
+        const command = toks[0]!.t === 0x16 ? this.text(toks[0]!.name()!).toLowerCase() : "";
+        const safe = (n: number): boolean =>
+            !this.undrawn.has(n) || ((command === "create" || command === "kill") && this.collisionOnly.has(n));
         for (const [key, value] of args) {
             if (key === null) continue;
             const keyText = this.text(key).toLowerCase();
-            if (keyText === "name" && value.t === 0x16 && this.undrawn.has(value.name()!)) {
+            if (keyText === "name" && value.t === 0x16 && !safe(value.name()!)) {
                 this.note(`geometry without a scene sector: ${this.text(value.name()!)}`);
                 return null;
             }
@@ -1419,9 +1438,9 @@ export class Translator {
                 const matching = sortedNumbers(this.allNodeNames).filter((n) =>
                     (this.names.get(n) ?? "").toLowerCase().startsWith(prefix),
                 );
-                if (!matching.some((n) => this.undrawn.has(n))) return toks;
+                if (matching.every(safe)) return toks;
                 this.note(`prefix matching geometry without a scene sector: ${prefix}`);
-                const keep = matching.filter((n) => !this.undrawn.has(n) && this.nodeNames.has(n));
+                const keep = matching.filter((n) => safe(n) && this.nodeNames.has(n));
                 if (!keep.length) return null;
                 const out: Tok[] = [];
                 for (const n of keep) {
@@ -1445,6 +1464,19 @@ export class Translator {
     condition(toks: readonly Tok[], contexts: ReadonlySet<Context>, discover: boolean): Tok[] {
         // An if's condition: kept, or always false (`not <condition>`, 0x39, too).
         const content = toks.filter((t) => !EOL.includes(t.t));
+        let k = 0;
+        let negate = false;
+        while (k < content.length && content[k]!.t === 0x39) {
+            negate = !negate;
+            k += 1;
+        }
+        const decided = content[k]?.name();
+        if (decided === checksum(ALWAYS) || decided === checksum(NEVER)) {
+            // (a condition the converter decided - its arguments, if any, don't matter)
+            const at = content[k]!.i;
+            if ((decided === checksum(ALWAYS)) === negate) return this.never(at);
+            return [new Tok(0x39, Buffer.alloc(0), at), ...this.never(at)];
+        }
         if (content.length > 1 && content[0]!.t === 0x39 && (this.full || this.strictConditions)) {
             const kept = this.condition(content.slice(1), contexts, discover);
             const last = kept[kept.length - 1]!;

@@ -72,5 +72,11 @@ header is off) and scenes (read and converted).
 - `node tools/thaw_levels/thugpro_compare.ts` compares the converted levels with an installed THUGPRO's (read only): node positions, crowns,
   multiplayer restarts, game-mode nodes, collision faces unreachable through their BSP trees
   (`tools/level_port/col_check.ts`).
+- THAW's own models of the Vehicles the register lists (PC-THAW-14: Santa Monica's ferris car) from `data\models`:
+  `<staging>\models\<path>.mdl.xbx / .tex.xbx / .col.xbx / .qb` (scene, textures, collision, the rails of its node
+  array), copied into the overlay by make_menu_level. Santa Monica's wheel turns as in THAW and carries the cars
+  upright with their rails (THAW's `Obj_LockToObject ... no_rotate`, which our lockobj component now supports);
+  TP-8's static ferris rails only in network games (PC-THAW-15). THAW's `ZoneLoadedAndParsed <zone>` is true (a
+  converted level is one zone, loaded before its scripts run).
 - Level structure: THAW's name, the TestLevel_Sky sky, THUG2's default lighting (THAW lights by its time of day
   manager), no music, no goals.

@@ -26263,7 +26263,7 @@
     }
   },
   "port_changes": {
-    "_register": "PC-THAW-1...PC-THAW-12 (README.md: Our own changes (port_changes))",
+    "_register": "PC-THAW-1...PC-THAW-15 (README.md: Our own changes (port_changes))",
     "_note": "Our own changes to THAW's levels: neither THAW's data nor THUGPRO's. Applied whatever --compat (also none); --no-port-changes leaves out all but the `required` ones (the level needs them to load). op: add / set / remove; switch: the name tools/thaw_levels/thaw_levels.ts checks (portChange).",
     "entries": [
       {
@@ -26390,6 +26390,28 @@
         "why": "every node entry is a script component (THUG2's CComponent pool: 86000 for everything loaded); Kyoto's expanded node array (38,700 components, THUG2's largest level SE 29,000) ran it dry: a crash loading Kyoto",
         "switch": "shared_parts",
         "required": true
+      },
+      {
+        "id": "PC-THAW-14",
+        "op": "add",
+        "target": {
+          "rule": "THAW's own models (data\\models\\<path>.mdl / .tex / .col / .qb) of the Vehicles listed in `models`, converted to THUG2's model files (thaw_levels.convertThawModel: scene, textures, collision, the node array's rails); their Vehicles made THUG2's mover form with that model (thaw_scripts.PortedNodes.thawModelVehicle) instead of a stand-in car"
+        },
+        "models": ["veh\\veh_sm_ferriscar\\veh_sm_ferriscar.mdl"],
+        "why": "Santa Monica's 12 ferris cars: THUG2 has no such model (they were drawn as sedans); THAW's own car carries two grind rails in its node array, which THUG2's rail manager moves with the car as the wheel turns (THAW's SM_FerrisWheelRotation locks them to it)",
+        "switch": "thaw_models"
+      },
+      {
+        "id": "PC-THAW-15",
+        "op": "set",
+        "target": {
+          "rule": "rail nodes matching zones.<zone>.nodes (TP-8's static ferris-car rails) not created at the start; a ghost object zones.<zone>.ghost creates them in network games (thaw_levels.netOnlyRails)"
+        },
+        "zones": {
+          "Z_SM": { "nodes": "^Z_SM_TRG_Veh_FerrisCar\\d+_StaticRail\\d+$", "ghost": "Z_SM_TRG_G_FerrisNetRails" }
+        },
+        "why": "offline THAW's wheel turns and its cars carry their own rails (PC-THAW-14): the static rails would hang in the air where the cars were at the start; in network games THAW's wheel stands still and its cars are absent, and THUGPRO's players grind the static rails there (TP-8): both sides agree",
+        "switch": "net_only_rails"
       }
     ]
   }

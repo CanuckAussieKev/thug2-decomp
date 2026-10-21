@@ -2,7 +2,8 @@
 
 What the THPS3, THPS4, THUG1 and THAW level ports in THUG2 bring over, what they don't bring over exactly as the
 original, and what an authentic copy still needs. State of main as of 2026-10-19 (all four "scripts, peds, vehicles"
-branches merged; all 56 levels installed in C:\Games\THUG2).
+branches merged; all 56 levels installed in C:\Games\THUG2). THPS2 (2026-10-21, phase 1: geometry, collision,
+restarts, rails) is section 9.
 
 The goal ("exact assets"): the original game's own models, particles, sounds and animations, with THUG2's behaviour
 only where the original's logic is engine code that can't run.
@@ -49,11 +50,11 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 | Animals | Stand-in (THUG2 pigeons, seagulls, sharks); flying birds missing | Pigeons as THUG2's own (Chicago, London, San Francisco: THPS4's script is THUG2's Pigeon_Generic); the rest missing (Zoo's among them) | Missing (dogs, sharks crash THUG2's ped AI) | Missing (pigeons) |
 | Traffic cars: model | Stand-in (THUG2 look-alike) | THUG2's car of the same name, else a sedan | Original (THUG2 ships most of THUG1's cars) | THUG2's car of the same name, else a sedan |
 | Traffic cars: driving | THUG2's Car_Generic01 on the original roads | Same (only the skate shop and Chicago have any; College none) | Same | Same |
-| Other vehicles (trains, trams, boats, rides) | Original models | Original models; skinned ones body only (no wheels, orientation guessed) | Original where THUG2 has the model and skeleton | Story vehicles missing |
+| Other vehicles (trains, trams, boats, rides) | Original models | Original models; skinned ones body only (no wheels, orientation guessed) | Original where THUG2 has the model and skeleton | Santa Monica's ferris cars: original (THAW's model, its rails); story vehicles missing |
 | Moving objects (fans, doors, presses) | Original models, moved by their scripts | Original | Original | Original (now drawn at their nodes, not the origin) |
 | Bouncy objects (cones, trash cans, boxes) | Static, no collision | Static (as level objects) | Original, with physics | Original, with physics; story-only props missing |
 | Collision on moving objects and vehicles | Missing (skater passes through) | Where the original had collision | Original | Where the original had collision |
-| Ride cars locked to a head (Obj_LockToObject) | n/a | Missing: they stay put | Missing | n/a |
+| Ride cars locked to a head (Obj_LockToObject) | n/a | Missing: they stay put | Missing | Original: Santa Monica's ferris wheel turns, its cars hang upright (THAW's no_rotate, added to THUG2's lock) and carry their grind rails |
 | Proximity areas (things that appear or switch near you) | Original (watched by generated ghost objects) | Missing: their scripts run once at the start | Original (THUG2 node) | Missing |
 | Ladders and ledges (hang, climb) | n/a | n/a | Original | Missing (ClimbingNode) |
 | Skitching | n/a | n/a | Original (THUG2's cars) | Missing |
@@ -75,7 +76,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | Crash | Where in THUG2 | What the converters do now | Cost |
 |---|---|---|---|
 | A TrickObject / Cluster on geometry with no drawn sector | ParseNodeArray | Strip the marking (all games) | 2-89 nodes per THAW level aren't trick objects |
-| Visible / Kill / Shatter of collision-only geometry | CFunc_Visible 0x5A5050 | Leave the statement out, or expand `prefix=` to drawn nodes only | 1-74 statements per THAW level; a few in THPS3 |
+| Visible / Kill / Shatter of collision-only geometry | CFunc_Visible 0x5A5050 | Leave the statement out, or expand `prefix=` to drawn nodes only (THPS3 since PC-THPS3-17: Visible / Invisible / Shatter only - Create / Kill reach the geometry only through CSector calls that skip a null one) | 1-74 statements per THAW level; a few in THPS3 |
 | THUG2's Car_Generic01 on a LevelObject | its member calls on missing components | Traffic made a real THUG2 Vehicle | THPS3 cars are THUG2 look-alikes |
 | TriggerType with a bare name | 0x004349B2 | Made THUG2's array form (script_port.triggerType, every game); a form it can't make: left out (false) | THAW's four THUG2-less flags |
 | IsAlive / other commands naming a missing node | CFunc_IsAlive | Parameters naming nodes the level lacks are checked | Statements left out |
@@ -88,7 +89,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | A shader pass blending on an unwritten register | THUG2's ps.1.1 builder 0x004DD2C0 | A third pass blending like the second is dropped | One Santa Monica material |
 | Particle boxes not there at the start | LoadQBData, Kyoto (cause unknown) | Left out | JA 9, SZ 1, SV 1, BH 14 boxes |
 | Peds / cars added to THPS4 College | CNodeManager::HashNodes (cause unknown) | College has no THUG2 walkers or cars | College traffic |
-| An object following a path in a network game (no path manager there) | 0x004695D0 from Obj_FollowPathLinked | nodes.absent_in_net_games: CreatedAtStart path followers get AbsentInNetGames (all games) | Tokyo's shinkansen, College's blimp, Alcatraz / SF objects absent online |
+| An object following a path in a network game (no path manager there: THUG2's Levels.qb / ReloadScene call AllocatePathManMemory only `if ! InNetGame`, Cleanup frees it, and the motion component's 0x00423FC0 adds to a path group unconditionally - THUG2 itself never makes a path follower online: they're all AbsentInNetGames, as THUGPRO's Tokyo trains and planes) | 0x004695D0 from Obj_FollowPathLinked | nodes.absent_in_net_games: CreatedAtStart path followers get AbsentInNetGames (all games) | Tokyo's shinkansen, College's blimp, Alcatraz / SF objects absent online |
 | A pedestrian in a network game (THUG2 loads no ped animations there) | 0x00482BA0 from the anim controller's PlayAnim | The same pass: CreatedAtStart peds and vehicles get AbsentInNetGames (as THUG2's own levels) | No peds or cars online (THPS4's skate shop guy) |
 | A restart whose own script "kills" (respawn loop) | a restart's TriggerScript runs when the skater is put there | nodes.is_kill_call: camera animations (KillSkaterCamAnim) and other "kill" names that aren't kills don't count; add_kill_restarts never gives a restart a kill | THPS4 skate shop's start point and THAW BH's Gap14 restart lose their (camera / goal) scripts |
 | No Multiplayer restart (single-player levels) | a network game's spawn | nodes.net_restarts: Player1 restarts also Multiplayer and Horse (as THUG2's skate shop) | None |
@@ -102,20 +103,30 @@ back: the crash is in THUG2's code, which we are rewriting.
 - 23 materials' second passes not converted. (The env-mapped passes - uv flag 0x80, the *_reflect overlays - are
   THUG2's env passes since 2026-10-21; before, their uv wibble scrolled them over the ramps: docs/pending/shimmer-2.md.)
 - Reflection overlays (PS2 blend 0x8) drawn as additive: an approximation that fixed Foundry's black halfpipe.
+- THUGPRO's invisible collision overlays (Suburbia's 5 `*_collfix`, Foundry's 3 `*_coll`) left out by default: the user
+  tried every spot by hand without them (2026-10-21) - THPS3's own collision is enough there; THPS3's picnic box is
+  back (`--collfix` keeps THUGPRO's; docs/pending/collfix-spots.md).
 - Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one, always
   shown (the flicker script's Invisible of the lit set left out - with no dark set under it, half the room went black;
   docs/pending/warehouse-flicker.md).
-- **Foundry's generator doors differ from THPS3's own free skate on purpose (TP-41).** THPS3 opens GENERATOR 1 CORE
-  (the big double door, GenDoor01-03) only through the career's valve goal or in a multiplayer game; ours are open in
-  free skate too, as in THUGPRO (which plays every game as a network game), so the generator room is reachable. In a
-  network game both agree anyway. Skater Island's outer door (SI_OuterDoor, which THPS3's cannon goal blows) is gone in
-  free skate the same way. `--compat none` leaves both closed.
+- **Free skate's world is THUGPRO's offline free skate, not THPS3's, where THUGPRO rewrote a level script (TP-41, on
+  purpose: the user's decision 2026-10-21).** THUGPRO's free skate is THUG2's offline single session (not a network
+  game: its peds, all AbsentInNetGames, are there); its world differs from THPS3's free skate only where it edited
+  THPS3's scripts. Ours makes THPS3's own scripts take the same branches: Foundry's GENERATOR 1 CORE doors open (the
+  generator room reachable) and the five valve booths cleared; Subway's houses unboarded, blockers gone, open rails,
+  dish turned, curtain lit (online too, as THUGPRO's); Skater Island's cannon trigger not made at the start; Shipyard's
+  helicopter made and flown off at the start. What THUGPRO's rewrites kill that is the level's life (Subway's Thin Man,
+  Shipyard's ambient boats, Foundry's bucket - absent in THUGPRO's game, made by its scripts all the same) stays in ours.
+  Skater Island's outer door stays (THUGPRO's offline free skate has it). `--compat none`: THPS3's own free skate.
+  Not matched: THPS3's visibility culling (Rio's Sul bowl, Skater Island's inside / outside, Shipyard's sections,
+  Tokyo's areas, Foundry's generator: hidden from where they can't be seen and shown on entering), which THUGPRO
+  emptied - drawing only, collision the same; docs/pending/thps3-free-skate-thugpro.md.
 - Free skate's start state follows THPS3's own free skate (PC-THPS3-16): what only a career / goal / multiplayer
   branch of a start script makes (Tokyo's secret buildings and destroyed sign, Skater Island's cannon-damage set,
   Airport's tickets, LA's car-fall triggers) isn't there at the start any more. THPS3's multiplayer, goal and career
-  states otherwise aren't brought over: no goals, no career flags. Not matched to THUGPRO's free skate (a network game
-  there: THPS3's multiplayer branches everywhere): Shipyard's multiplayer world state (THPS3's
-  BDJ_SHP_RestartSetupNet, not looked into) - docs/pending/thps3-doors.md.
+  states otherwise aren't brought over: no goals, no career flags. Collision-only pieces (invisible walls, blockers,
+  trigger planes) follow THPS3's scripts' Create / Kill since PC-THPS3-17 (before, they stayed as the level loaded
+  them: Shipyard's ramp and anchor-chain collision THPS3 kills in free skate stayed solid).
 
 **Scripts** (THPS3's own, translated; a called script gets its caller's parameters as in THPS3). Statements left out,
 counts across all levels:
@@ -135,6 +146,7 @@ counts across all levels:
 - Traffic: THUG2 look-alike cars (police -> veh_cop, vans / buses -> veh_van...). THPS3's spare cars, made by its car
   scripts, missing (Burnside 44, LA 1).
 - Other vehicles (bullet trains, planes, boats, snowmobiles, karts) use their THPS3 models.
+- Foundry's bucket and Tokyo's bullet trains collide with THPS3's own drawn shape (PC-THPS3-15; THUGPRO's smaller bucket collision left out, 2026-10-21); THUGPRO's invisible carplant_collision boxes on Rio's cars and Suburbia's ice-cream truck are not brought (inert here: their trigger runs a THUGPRO script).
 - Skinned game objects missing (Suburbia 2, LA 1).
 
 ## 5. THPS4
@@ -248,6 +260,17 @@ nodes, run by THUG2's code.
 - Breakable glass and fences run THAW's own scripts (THUG2 has ShatterAndDie and BloodSplat too), with THUG2's
   breakable-glass face flags. Only for glass that has visible geometry in the online version (0-98 per level).
 - Skitching, ladders (ClimbingNode) and Casino's EmitterObjects missing.
+- Santa Monica's ferris wheel (2026-10-21, docs/pending/sm-ferris-wheel.md): as THAW - the wheel turns at THAW's 15
+  degrees a second (its SM_FerrisWheelRotation), the 12 cars are THAW's own model (converted, PC-THAW-14) locked to it
+  with THAW's `no_rotate` (THUG2's lock always took the target's orientation: src/game/obj/lock_obj.cpp adds the flag),
+  so they hang upright, and each carries THAW's two lip-able grind rails (its model's node array, moved by the car's
+  rail manager). Left out: the rails' TriggerScript (SM_FerrisCarBalanceReset, a goal helper easing lip balance) and
+  the wheel's loop sound. **Network games keep THUGPRO's frozen wheel**: THAW itself doesn't turn the wheel in a
+  multiplayer game (`if NOT InMultiplayerGame`) and has the cars AbsentInNetGames; THUGPRO keeps its cars there, frozen,
+  with 24 static rails (TP-8) instead of the model's. Ours: no cars online (THAW's flag, also THUG2's rule for
+  vehicles), and TP-8's static rails made only in network games (PC-THAW-15, by a ghost object's script) - so both
+  sides grind the same rails online, and offline the static rails don't hang in the air where the cars were at the
+  start. Split screen: the wheel stands still too (THAW's check), the cars stay at their nodes with their own rails.
 
 **Life**
 - Peds are THUG2 people picked by words in THAW's profile (female, skater, guard...), walking THAW's waypoints or
@@ -301,3 +324,26 @@ Formats marked "not identified" haven't been looked into yet.
    vertex colour wibbles and Warehouse's dark set.
 8. **Music.** Each game's soundtrack and level streams.
 9. **Goals and pickups.** A project of its own (porting career mode), outside free skate.
+
+## 9. THPS2 (phase 1, 2026-10-21)
+
+Converter `tools/thps2_levels` (README there; records in docs/pending/thps2.md). All ten levels - Hangar, School II,
+Marseille, NY City, Venice Beach, Skatestreet, Philadelphia, The Bullring, Chopper Drop, Skate Heaven - from THPS2's own
+ALL.PKR, as `thps2_<name>` in a THPS2 level select section (THUG1's remakes of Hangar / School II / Venice / Philly stay
+in THUG1's). Every level loads in free skate (agents' load checks only; nobody has skated them yet).
+
+| What | THPS2 |
+|---|---|
+| Level geometry, textures | Original (the PC version's newtex BMPs where there is one, else the PlayStation texture) |
+| Vertex colours | Original (THPS2's 128 = neutral is THUG2's 128 = full) |
+| Mip levels | Made (2 x 2 averages, as THPS3's) |
+| Collision | Original faces; vert from THPS2's surface flag; wallride on every steep face (THPS2's own wallride flag not found); invisible walls kept (camera passes), trigger planes and the invisible walls on vert lips left out |
+| Terrain sounds | Stand-in: THUG2's default on every face, metal on every rail |
+| Restarts, rails | Original (the start as Player1; 2P / HORSE / generic by name) |
+| Gaps, kill zones, triggers | Missing (THPS2's .trg command language not decoded yet) |
+| Moving / breakable objects (the _o models) | Missing |
+| Semi-transparency | Faces with flag 0x40 blended at a half (inferred meaning) |
+| Sky | Missing: black (THPS2 has no sky model) |
+| Lighting | THUG2's default |
+| Peds, cars, music, goals | Missing (THPS2's levels have no peds or traffic) |
+| Level select signs | Stand-in: THUG2 sign textures (no pictograms yet) |

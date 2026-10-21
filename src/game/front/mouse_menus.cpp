@@ -19,6 +19,7 @@
 #include "game/sys/debug_mode.h"
 #include "game/front/screen_element.h"
 #include "game/gfx/screen.h"
+#include "game/net/thugpro_peer.h"
 #include "game/obj/event.h"
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
@@ -864,6 +865,9 @@ void Init()
 
 void Update(Mdl::FrontEnd* frontEnd)
 {
+    // (not original either: the THUGPRO peer mode's host options applied once a level is up -
+    // game/net/thugpro_peer.h)
+    GameNet::Thugpro::Update();
     // Not original either - the level editor (game/front/level_editor.h) has the mouse while it runs: no menu
     // events (the clicks and wheel meanwhile are dropped), the cursor left as the editor sets it; its own input logic
     // runs here instead.

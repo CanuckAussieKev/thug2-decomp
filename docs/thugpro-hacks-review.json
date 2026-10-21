@@ -31,7 +31,8 @@
       "online_impact": "parity: moving hazards that knock players off. THUGPRO runs them online; ours, with ForceCreate mapped to Create, does not. Even THUGPRO clients disagree with each other on when a train passes.",
       "effort": "L",
       "risk": "medium",
-      "status_in_our_port": "we already differ without saying so: we copy the Vehicles and scripts, but ForceCreate -> Create keeps them out of net games (needs a register note)"
+      "status_in_our_port": "same as THUGPRO: offline only (checked 2026-10-21, see correction)",
+      "correction": "Wrong premise (docs/pending/thps3-bucket-cars-trains.md): THUGPRO_ForceCreate is not a DLL command but THUGPRO's global script (thugpro_utils.q: Create, or Kill + Create when the object is alive) - a plain Create, which THUG2 gates on AbsentInNetGames in a network or multi-player game (0x005A4DA0 -> 0x00565BB0). THUGPRO's trains and planes keep AbsentInNetGames (its tok.q), so THUGPRO does not create them online either: both sides agree (offline only) and no engine change is needed. Its random 4-10 s waits run offline, in each player's own game."
     },
     {
       "id": "carplant-locked-shadow-vehicles",
@@ -47,7 +48,8 @@
       "online_impact": "none (client-side): the cars and their shadows are AbsentInNetGames on both sides",
       "effort": "S",
       "risk": "low",
-      "status_in_our_port": "we copy it (TPN-THPS3-2 / -6)"
+      "status_in_our_port": "left out since 2026-10-21 (thugpro_new _left_out; thugpro_new_extract.ts shadowVehicle)",
+      "correction": "The shadow's collision is trigger-only (CarPlantNode.col.xbx: 12 faces, flags 0x50 = trigger + non-collidable) - no second solid collision. Its trigger runs THUGPRO_TriggerCarPlant (a THUGPRO global script: LaunchEvent Carplant on the skater), which ours hasn't, so in ours it was an inert invisible box (docs/pending/thps3-bucket-cars-trains.md)."
     },
     {
       "id": "collfix-overlay-collision",
@@ -79,7 +81,7 @@
       "online_impact": "parity: grindable rails. Both sides must have them in the same static places.",
       "effort": "M",
       "risk": "medium",
-      "status_in_our_port": "we copy the rails (TP-8); whether our cars are drawn needs checking"
+      "status_in_our_port": "done the THAW way offline (2026-10-21, docs/pending/sm-ferris-wheel.md): the wheel turns (THAW's SM_FerrisWheelRotation), THAW's own car model with its two rails (PC-THAW-14) locked upright with THAW's no_rotate (added to THUG2's lockobj component). TP-8's static rails only in network games (PC-THAW-15), where THAW's wheel stands still and its cars are absent: online both sides grind the same static rails; THUGPRO draws frozen cars there, we don't (THAW's AbsentInNetGames)"
     },
     {
       "id": "thaw-el-sm-hand-offsets",

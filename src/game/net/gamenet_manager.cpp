@@ -65,6 +65,26 @@ const char* Manager::GetLevelName(bool parkName)
     return name;
 }
 
+// NOT ORIGINAL (game/net/thugpro_peer.h: the name in a change level message)
+const char* Manager::LevelListName(uint32_t level)
+{
+    uint32_t entryLevel = 0;
+    Script::CStruct* entry = nullptr;
+    if (Script::CArray* levels = Script::GetArray(kLevelSelectMenuLevelInfo))
+        entry = FindLevel(levels, level, entryLevel);
+    for (const char* list : kPortedLevelLists) {
+        if (entry)
+            break;
+        entryLevel = 0;
+        if (Script::CArray* levels = Script::GetArray(list))
+            entry = FindLevel(levels, level, entryLevel);
+    }
+    const char* name = nullptr;
+    if (entry && !entry->GetString(kText, &name, 0))
+        name = nullptr;
+    return name;
+}
+
 } // namespace GameNet
 
 REPLACE(0x005369A0, &GameNet::Manager::GetLevelName);

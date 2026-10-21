@@ -25,7 +25,13 @@ public:
     // 0x0044E4F0: whether a network game is on: in network mode, with a server or client app that isn't local.
     bool InNetGame();
 
-    uint8_t m_flags;          // +0x00 (bits 2-3: network mode)
+    // NOT ORIGINAL: the level select's name for `level` (a load script), in THUG2's list or the ported levels' -
+    // GetLevelName's lookup for any level (null if none).
+    static const char* LevelListName(uint32_t level);
+    // 0x00533F90 (inline here): the server's side of the game (OnServer): flags bit 0.
+    bool OnServer() const { return (m_flags & 1) != 0; }
+
+    uint8_t m_flags;          // +0x00 (bit 0: on the server; bits 2-3: network mode)
     uint8_t m_unknown1[3];
     Net::App* m_server;       // +0x04
     Net::App* m_client;       // +0x08
