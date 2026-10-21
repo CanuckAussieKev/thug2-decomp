@@ -102,7 +102,16 @@ export const COMPAT = {
     edits: {} as Record<string, Record<string, unknown>>,
     // TPN-THAW-1...TPN-THAW-5: THUGPRO's own content, by reference (thugpro_new.ts; --no-thugpro-new: none)
     thugproNew: {} as Record<string, thugproNew.ZoneNew>,
+    // TP-40: THUGPRO's node flag values where they differ from THAW's non-story ones, per zone (zoneNodeFlags)
+    nodeFlagValues: new Map<string, Map<number, NodeFlagValue>>(),
 };
+
+// TP-40 (thaw_levels.json `node_flag_values`): one flag's value in THUGPRO's table and in THAW's non-story state.
+export interface NodeFlagValue {
+    flag: string;
+    thaw: boolean;
+    thugpro: boolean;
+}
 
 // TPN-THAW-1...TPN-THAW-5: the zone's THUGPRO content entries, or null (none, --compat none or --no-thugpro-new).
 export const newFor = (zone: string): thugproNew.ZoneNew | null => COMPAT.thugproNew[zone.toUpperCase()] ?? null;
@@ -145,6 +154,17 @@ export function setCompat(name: string, withThugproNew = true): void {
         Object.entries(profile.section("thaw_levels", "frame_adjust")) as [string, number[]][],
     );
     COMPAT.spawns = new Map(Object.entries(profile.section("thaw_levels", "spawns")) as [string, ZoneSpawns][]);
+    COMPAT.nodeFlagValues = new Map(
+        Object.entries(profile.section("thaw_levels", "node_flag_values")).map(([zone, flags]) => [
+            zone.toUpperCase(),
+            new Map(
+                Object.entries(flags as Record<string, { thaw: number; thugpro: number }>).map(([flag, v]) => [
+                    checksum(flag),
+                    { flag, thaw: v.thaw !== 0, thugpro: v.thugpro !== 0 },
+                ]),
+            ),
+        ]),
+    );
     COMPAT.edits = Object.fromEntries(
         ["node_edits", "node_flags", "removed", "added", "collision"].map((s) => [
             s,
@@ -499,6 +519,31 @@ export function applyNodeFlags(array: readonly QbValue[], flags: ReadonlyMap<num
         made++;
     }
     return made;
+}
+
+// TP-40: the node flags a zone's nodes are made from - THAW's non-story values with THUGPRO's on top where its table
+// differs (thaw_levels.json `node_flag_values`: the dino head at Skate Ranch, Oil Rig's derrick before it is taken...
+// - not the real THAW's state, kept for online play with THUGPRO). A THAW value other than the one the entry records
+// is reported (THAW's data or our reading of it changed); THUGPRO's value is applied anyway.
+export function zoneNodeFlags(
+    zone: string,
+    flags: ReadonlyMap<number, boolean>,
+    report: string[] = [],
+): ReadonlyMap<number, boolean> {
+    const values = COMPAT.nodeFlagValues.get(zone.toUpperCase());
+    if (values === undefined || !values.size) return flags;
+    const out = new Map(flags);
+    for (const [key, v] of values) {
+        const thaw = flags.get(key) ?? false;
+        if (thaw !== v.thaw) {
+            report.push(
+                `  TP-40: ${v.flag} is ${thaw ? "on" : "off"} in THAW, the profile expects ${v.thaw ? "on" : "off"}`,
+            );
+        }
+        out.set(key, v.thugpro);
+    }
+    report.push(`  TP-40: ${values.size} node flags as THUGPRO's table has them (not THAW's non-story values)`);
+    return out;
 }
 
 // --- scene ------------------------------------------------------------------------------------------------------
@@ -1089,8 +1134,9 @@ export function convertLevelNodes(
     if (edits !== null) array = thugproEdits.applyNodeEdits(edits, array, names, report);
     // TPN-THAW-3 / TPN-THAW-4: THUGPRO's nodes and the TriggerScripts naming its scripts, as if THAW's
     if (extra !== null) array = addNewNodes(extra, array, names, report);
-    // The nodes THAW makes from its node flags in a non-story game (nonStoryNodeFlags), as made at the start
-    const flagged = applyNodeFlags(array, nodeFlags);
+    // The nodes THAW makes from its node flags in a non-story game (nonStoryNodeFlags), as made at the start - with
+    // THUGPRO's values where its table differs (TP-40)
+    const flagged = applyNodeFlags(array, zoneNodeFlags(zone, nodeFlags, report));
     if (flagged) report.push(`  ${flagged} nodes made from THAW's node flags (non-story games) get CreatedAtStart`);
     const nameOf = (n: QbValue): number | null => {
         const v = n instanceof Struct ? n.get("Name") : undefined;

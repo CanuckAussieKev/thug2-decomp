@@ -212,6 +212,15 @@ nodes, run by THUG2's code.
 - Collision face bits 0x4000 and 0x8000 dropped (0x2000, not taggable, kept).
 - Collision-only geometry loses its TrickObject / Cluster marking, and statements naming it are left out (section 3).
 - The Mall: an invisible story blocker across the entrance doors removed (Z_MA_Mall_First_Rail_Blocker).
+- Node flags (pieces THAW makes from `CreatedFromVariable=NODEFLAG_...`): THAW's non-story values, **except 30 flags
+  set as THUGPRO's table has them, for online play with THUGPRO - so these areas differ from the real THAW** (TP-40,
+  tools/compat/thugpro/README.md): Skate Ranch has the dino head instead of its bare mound, the telescope, the crane's
+  top and the camper corner's props; Oil Rig has its derrick and grate pieces before they were taken (not the
+  wrecked derrick and the grate's 16 grind rails); Beverly Hills' exit to Skate Ranch is fenced and blocked and
+  Rodeo's awning rails are gone; Downtown's Chinatown green is unbroken (no "after" rails); East LA has the roof
+  couch, the hood park shack and the "before" statues and metro HQ rails; Hollywood's El Capitan doors are open, the
+  metro work site (scissor lift, barriers, 17 rails) and the roof boards are gone; Santa Monica's pier telescope is
+  gone. `--compat none`: THAW's own values.
 - How THAW closes the open ends of the LA areas in online mode: not checked.
 
 **Scripts** (THAW's own; its token stream is THUG2's plus an inline structure token). Left out:
