@@ -547,6 +547,7 @@ add_library(thug2_code OBJECT
     src/game/nx/coll_tri.cpp
     src/game/net/chat.cpp
     src/game/net/stats.cpp
+    src/game/net/gamenet_join.cpp
     src/game/net/gamenet_manager.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
@@ -559,6 +560,7 @@ add_library(thug2_code OBJECT
     src/game/net/online_identity.cpp
     src/game/net/thugpro_compat.cpp
     src/game/net/net_guards.cpp
+    src/game/net/thugpro_join.cpp
     src/game/net/thugpro_peer.cpp
     src/game/net/net_dispatcher.cpp
     src/game/net/net_app_messages.cpp
