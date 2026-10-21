@@ -1727,6 +1727,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
     scripts.push(...mapScripts); // (the feature map's: speed-ups, proximity nodes)
     for (const [c, n] of mapNames) scriptNames.set(c, n);
     // (UX5: note pins - layout.notes - are editor only: nothing is baked of them and nothing is said)
+    // (UX7: linked copies - layout.linkGroups - are baked as the plain copies their clone / copy records already are)
     for (const u of layout.unknown) {
         unsupported.push(`unsupported record "${u.kind}" (line ${u.line}): not baked - ${u.text}`);
         if (shared)
