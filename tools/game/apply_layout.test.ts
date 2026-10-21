@@ -17,9 +17,13 @@ import {
     bake,
     installRefusal,
     type LevelFiles,
+    normalOffset,
+    objectScaleValue,
+    placeSector,
     quarterTurn,
+    scaledNormal,
 } from "./apply_layout.ts";
-import { decodeValue, LayoutError, parseName, readLayout } from "./layout_file.ts";
+import { decodeValue, LayoutError, parseName, readLayout, readScaleToken } from "./layout_file.ts";
 
 const LEVEL = "tst";
 const NAME = (text: string): Name => new Name(checksum(text));
@@ -257,7 +261,9 @@ test("layout_file reads every record kind the editor writes", () => {
         ambient: [1, 2, 3],
         fog: [4, 5, 6, 7, 800],
     });
-    assert.equal(l.sectors[0]!.placement.scale, 2);
+    assert.deepEqual(l.sectors[0]!.placement.scale, { x: 2, y: 2, z: 2 });
+    assert.deepEqual(l.clones[0]!.placement.scale, { x: 1, y: 1, z: 1 });
+    assert.deepEqual(l.objects[0]!.scale, { x: 1, y: 1, z: 1 }, "older files: 1x");
     assert.equal(l.sectors[0]!.placement.quarters, 1);
     assert.equal(l.rails.length, 1);
     assert.equal(l.clones[0]!.placement.offset.z, 100);
@@ -352,7 +358,8 @@ test("qb_write: a node array written back keeps every untouched node's bytes", (
 
 test("placements as the editor's: QuarterTurn(x * scale) + offset", () => {
     assert.deepEqual(quarterTurn({ x: 1, y: 2, z: 3 }, 1), { x: 3, y: 2, z: -1 });
-    assert.deepEqual(applyPlacement({ quarters: 2, scale: 2, offset: { x: 1, y: 0, z: 0 } }, { x: 1, y: 1, z: 1 }), {
+    const two = { x: 2, y: 2, z: 2 };
+    assert.deepEqual(applyPlacement({ quarters: 2, scale: two, offset: { x: 1, y: 0, z: 0 } }, { x: 1, y: 1, z: 1 }), {
         x: -1,
         y: 2,
         z: -2,
@@ -692,4 +699,240 @@ test("bake: ladders, trick-object rails, flat-ground rails", () => {
         "point x LevelLight pos=1,2,3",
     ])
         assert.throws(() => readLayout(`thug2-decomp layout 2\nscene 00000001\n${line}\n`), LayoutError, line);
+});
+
+// --- the editor's later records: per-axis scale, object scale, exit triggers (editor-scale2 / editor-polish) --------
+
+// Every record kind and key the DLL's writers produce (level_editor_layout.cpp Write, LevelProps::WriteRecord,
+// Triggers::Record, Fields::Token, Chains::WriteRecords), in their own forms - comments too.
+test("layout_file reads every record and key the DLL writes", () => {
+    const h = hex;
+    const text = [
+        "thug2-decomp layout 2",
+        `scene ${h(LEVEL)}  # tst`,
+        "level name=My%20Level start=00000001 tod=evening time=1 ambient=1,2,3 fog=4,5,6,7,800",
+        `sector ${h("SecA")} 1 10 0 0 0 scale=2,1,0.5  # SecA`,
+        `sector ${h("SecB")} 0 0 0 0 1 scale=1.5`,
+        `rail ${h("Rail01")} 2 0 5 0 0 scale=1,2,3  # Rail01`,
+        `clone ${h("SecB")} 3 0 0 100 scale=0.25,4,1  # SecB`,
+        `object ${h("Obj01")} 1 2 3 1 0 0 0 1 0 0 0 1 scale=2  # Obj01`,
+        `copy 0000ABCD ${h("Obj01")} 1 2 3 1 0 0 0 1 0 0 0 1 scale=1,2,3  # Obj01`,
+        `copy 0000ABCE ${h("Obj01")} 4 5 6 1 0 0 0 1 0 0 0 1`,
+        "node ed_light01 GenericNode type=Light pos=1,2,3 angles=0,0.5,0 color=255,128,0 brightness=1.5 inner=100 outer=300 radius=50",
+        "node ed_restart01 Restart type=MultiPlayer pos=4,5,6 angles=0,1,0 types=MultiPlayer,Horse",
+        "order crown ed_crown01 ed_crown02",
+        `hide ${h("Crown01")}  # Crown01`,
+        `lock object ${h("Obj01")}  # Obj01`,
+        `lock sector ${h("SecA")}`,
+        'trigger ed_t01 gapstart pos=1,2,3 yaw=0.5 size=10,20,30 gap=G1 flags=CANCEL_GROUND,CANCEL_WALL score=100 replaces=0000ABCD exit=1 text="A gap"',
+        "trigger ed_t02 kill pos=1,2,3 yaw=0 size=400,200,400 target=TRG_Restart01 water=1",
+        "trigger ed_t03 script pos=1,2,3 yaw=0 size=400,200,400 script=tst_Setup exit=0",
+        `set ${h("TRG_Restart01")} pos=1,2,3 angles=0,1,0 f.a=i:1 f.b=f:1.5 f.c=p:1,2 f.d=v:1,2,3 f.e=n:Name f.f=s:x%20y f.g=l:y f.h=flag:1 f.i=an:A,0x0BADF00D f.j=ai:1,2 f.k=af:1.5,2 f.0x0000AAAA=del  # TRG_Restart01`,
+        `point ed_rail01 RailNode pos=1,2,3 like=${h("Rail01")} terrain=TERRAIN_GRINDWOOD links=${h("Rail01")},${h("Rail02")} facing=1.5 cluster=${h("Rail01")} grindflat=1`,
+        "point ed_ladder01 ClimbingNode pos=1,2,3 facing=0",
+        `links ${h("Rail01")} -`,
+        `links ${h("Rail02")} ${h("Rail01")},${h("Rail03")}`,
+        `drop ${h("Rail03")}`,
+        `terrain ${h("Rail02")} TERRAIN_GRINDWOOD`,
+        `facing ${h("Ladder01")} 1.5`,
+        `grindflat ${h("Rail02")}`,
+        `wall ${h("Wall1")} 0 0 16 0 1  # Wall1`,
+    ].join("\n");
+    const l = readLayout(text);
+    assert.deepEqual(l.unknown, [], "every record known");
+    assert.deepEqual(l.sectors[0]!.placement.scale, { x: 2, y: 1, z: 0.5 });
+    assert.deepEqual(l.sectors[1]!.placement.scale, { x: 1.5, y: 1.5, z: 1.5 });
+    assert.equal(l.sectors[1]!.hidden, true);
+    assert.deepEqual(l.rails[0]!.placement.scale, { x: 1, y: 2, z: 3 });
+    assert.deepEqual(l.clones[0]!.placement, {
+        quarters: 3,
+        offset: { x: 0, y: 0, z: 100 },
+        scale: { x: 0.25, y: 4, z: 1 },
+    });
+    assert.deepEqual(l.objects[0]!.scale, { x: 2, y: 2, z: 2 });
+    assert.deepEqual(l.objects[0]!.rows, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    assert.deepEqual(l.copies[0]!.scale, { x: 1, y: 2, z: 3 });
+    assert.deepEqual(l.copies[1]!.scale, { x: 1, y: 1, z: 1 });
+    assert.deepEqual(l.nodes[0]!.colour, [255, 128, 0]);
+    assert.equal(l.nodes[0]!.outer, 300);
+    assert.equal(l.nodes[0]!.radius, 50);
+    assert.deepEqual(l.nodes[1]!.types, ["MultiPlayer", "Horse"]);
+    assert.deepEqual(l.crownOrder, ["ed_crown01", "ed_crown02"]);
+    assert.deepEqual(
+        l.locks.map((k) => k.kind),
+        ["object", "sector"],
+    );
+    assert.equal(l.triggers.length, 3);
+    assert.equal(l.triggers[0]!.spec.exit, true);
+    assert.deepEqual(l.triggers[0]!.spec.flags, ["CANCEL_GROUND", "CANCEL_WALL"]);
+    assert.equal(l.triggers[1]!.spec.water, true);
+    assert.equal(l.triggers[2]!.spec.exit, false);
+    assert.equal(l.sets[0]!.fields.length, 12);
+    assert.equal(l.sets[0]!.fields[11]!.removed, true);
+    assert.equal(l.points[0]!.cluster, checksum("Rail01"));
+    assert.equal(l.points[0]!.grindFlat, true);
+    assert.equal(l.points[1]!.cls, "ClimbingNode");
+    assert.equal(l.links[1]!.links.length, 2);
+    assert.deepEqual(l.facings, [{ name: checksum("Ladder01"), facing: 1.5 }]);
+    assert.deepEqual(l.grindFlat, [checksum("Rail02")]);
+    assert.equal(l.walls[0]!.placement.offset.y, 16);
+    assert.equal(l.level.tod, "evening");
+});
+
+test("layout_file: scale= as Scale::ReadToken - one number or three, each above 0", () => {
+    assert.deepEqual(readScaleToken("scale=2"), { x: 2, y: 2, z: 2 });
+    assert.deepEqual(readScaleToken("scale=1.5,1,0.25"), { x: 1.5, y: 1, z: 0.25 });
+    const f = Math.fround(1.1);
+    assert.deepEqual(readScaleToken("scale=1.1"), { x: f, y: f, z: f });
+    for (const bad of [
+        "scale=",
+        "scale=0",
+        "scale=-1",
+        "scale=1,2",
+        "scale=1,2,3,4",
+        "scale=a",
+        "scale=1,,2",
+        "scale=1,0,1",
+        "scale=nan",
+        "scale=inf",
+    ])
+        assert.equal(readScaleToken(bad), null, bad);
+    const refused = (line: string): void => {
+        assert.throws(
+            () => readLayout(`thug2-decomp layout 2\nscene 00000001\n${line}\n`),
+            (e: unknown) => e instanceof LayoutError && e.line === 3 && /scale=/.test(e.message),
+            line,
+        );
+    };
+    refused("sector 00000001 0 0 0 0 0 scale=1,2");
+    refused("rail 00000001 0 0 0 0 0 scale=0");
+    refused("clone 00000001 0 0 0 0 scale=1,2,3,4");
+    refused("object 00000001 1 2 3 1 0 0 0 1 0 0 0 1 scale=-2");
+    refused("copy 00000002 00000001 1 2 3 1 0 0 0 1 0 0 0 1 scale=x");
+    // (other key=value fields after the numbers: a later version's - skipped)
+    const l = readLayout("thug2-decomp layout 2\nscene 00000001\nsector 00000001 0 0 0 0 0 later=1 scale=3\n");
+    assert.deepEqual(l.sectors[0]!.placement.scale, { x: 3, y: 3, z: 3 });
+    // exit= as Triggers::ReadRecord: 0 / 1, once
+    assert.throws(() => readLayout("thug2-decomp layout 2\ntrigger ed_t kill pos=0,0,0 exit=2\n"), LayoutError);
+    assert.throws(() => readLayout("thug2-decomp layout 2\ntrigger ed_t kill pos=0,0,0 exit=1 exit=1\n"), LayoutError);
+});
+
+test("normals as the editor's Rebuild: n / scale made unit length, then turned", () => {
+    assert.deepEqual(scaledNormal({ x: 1, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }, 1), { x: 0, y: 0, z: -1 });
+    // unscaled: turned only, not normalised again
+    assert.deepEqual(scaledNormal({ x: 0.5, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }, 0), { x: 0.5, y: 0, z: 0 });
+    const n = scaledNormal({ x: 0.6, y: 0.8, z: 0 }, { x: 2, y: 1, z: 1 }, 0);
+    assert.ok(Math.abs(n.x - 0.3 / Math.sqrt(0.73)) < 1e-6 && Math.abs(n.y - 0.8 / Math.sqrt(0.73)) < 1e-6);
+    const zero = scaledNormal({ x: 0, y: 0, z: 0 }, { x: 2, y: 1, z: 1 }, 0);
+    assert.ok(zero.x === 0 && zero.y === 0 && zero.z === 0, "a zero normal stays zero");
+    // NormalOffset: an FVF with XYZ and NORMAL and a stride of 24 or more; a shader handle, XYZRHW, XYZB1: none
+    assert.equal(normalOffset(0x152, 36), 12);
+    assert.equal(normalOffset(0x142, 36), -1);
+    assert.equal(normalOffset(0x152, 20), -1);
+    assert.equal(normalOffset(0x10152, 36), -1);
+    assert.equal(normalOffset(0x014, 36), -1);
+    assert.equal(normalOffset(0x016, 36), -1);
+    assert.equal(normalOffset(0x4012, 36), -1);
+});
+
+test("bake: a stretched sector - vertices per axis then turned, normals still the faces', collision, rails, copies", () => {
+    // The triangle's own normal in its vertices: stretched and turned, it must be the placed triangle's normal.
+    const s = sector("SecA", [0, 0, 0]);
+    const data = s.meshes[0]!.buffers[0]![1];
+    const face = { x: 0, y: -50 / Math.hypot(50, 100), z: 100 / Math.hypot(50, 100) };
+    for (let v = 0; v < 3; v++) {
+        data.writeFloatLE(face.x, v * 36 + 12);
+        data.writeFloatLE(face.y, v * 36 + 16);
+        data.writeFloatLE(face.z, v * 36 + 20);
+    }
+    placeSector(s, { quarters: 1, offset: { x: 100, y: 0, z: 0 }, scale: { x: 2, y: 3, z: 4 } });
+    const placed = s.meshes[0]!.buffers[0]![1];
+    const at = (v: number): number[] => [0, 4, 8, 12, 16, 20].map((o) => placed.readFloatLE(v * 36 + o));
+    const [a, b, c] = [at(0), at(1), at(2)];
+    // (10, 0, 0) -> (20, 0, 0) -> turned (0, 0, -20) -> (100, 0, -20); (0, 10, 5) -> (0, 30, 20) -> (120, 30, 0)
+    assert.deepEqual(b.slice(0, 3), [100, 0, -20]);
+    assert.deepEqual(c.slice(0, 3), [120, 30, 0]);
+    const e1 = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
+    const e2 = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
+    const cross = [
+        e1[1]! * e2[2]! - e1[2]! * e2[1]!,
+        e1[2]! * e2[0]! - e1[0]! * e2[2]!,
+        e1[0]! * e2[1]! - e1[1]! * e2[0]!,
+    ];
+    const length = Math.hypot(...cross);
+    for (const v of [a, b, c]) {
+        for (let k = 0; k < 3; k++) assert.ok(Math.abs(v[3 + k]! - cross[k]! / length) < 1e-6, `normal ${k}`);
+    }
+    assert.deepEqual(s.bbox, [100, 0, -20, 120, 30, 0]);
+
+    // Through the bake: the sector, its collision, the shared collision's companion, a rail point, a stretched copy.
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `sector ${hex("SecA")} 1 100 0 0 0 scale=2,3,4`,
+            `clone ${hex("SecB")} 0 0 0 1000 scale=1,1,2`,
+            `rail ${hex("Rail01")} 1 0 10 0 0 scale=2,1,1`,
+        ].join("\n"),
+    );
+    const out = bake(layout, level(), null);
+    const sa = out.scene.sectors.find((x) => x.checksum === checksum("SecA"))!;
+    assert.deepEqual(vertex(sa, 2).slice(0, 3), [120, 30, 0]);
+    const colA = out.col!.objects.find((o) => o.checksum === checksum("SecA"))!;
+    assert.deepEqual(colA.verts[1], [100, 0, -20]);
+    assert.deepEqual(colA.verts[2], [120, 30, 0]);
+    assert.deepEqual(colA.bbox, [100, 0, -20, 1, 120, 30, 0, 1]);
+    const companion = out.col!.objects.find((o) => o.checksum === checksum(`ed_coll_${hex("SecA")}_1`))!;
+    assert.deepEqual(companion.verts[1], [100, 0, -20], "the shared collision stretched with the piece");
+    const copy = out.scene.sectors.find((x) => x.checksum === checksum(`ed_clone_${hex("SecB")}_1`))!;
+    // SecB's (500, 10, 5) -> (500, 10, 10) + (0, 0, 1000)
+    assert.deepEqual(vertex(copy, 2).slice(0, 3), [500, 10, 1010]);
+    // Rail01 (100, 0, 0) -> (200, 0, 0) -> turned (0, 0, -200) -> (0, 10, -200)
+    assert.deepEqual((named(nodesOf(out.qb), "Rail01").get("Pos") as Vector).values, [0, 10, -200]);
+});
+
+test("bake: an object's / copy's scale= becomes its node's scale (the model's); its collision warned", () => {
+    assert.equal(objectScaleValue({ x: 1, y: 1, z: 1 }), null, "1x: nothing written");
+    assert.equal((objectScaleValue({ x: 2, y: 2, z: 2 }) as Float).value, 2);
+    assert.deepEqual((objectScaleValue({ x: 1, y: 2, z: 9 }) as Vector).values, [1, 2, 4], "clamped to 0.25 .. 4");
+    assert.equal((objectScaleValue({ x: 0.1, y: 0.1, z: 0.1 }) as Float).value, 0.25);
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `object ${hex("Obj01")} 7 8 9 1 0 0 0 1 0 0 0 1 scale=1.5`,
+            `copy ${hex("ed_copy01")} ${hex("Obj01")} 1 2 3 1 0 0 0 1 0 0 0 1 scale=1,2,0.5`,
+            `copy ${hex("ed_copy02")} ${hex("Obj01")} 1 2 3 1 0 0 0 1 0 0 0 1`,
+        ].join("\n"),
+    );
+    const out = bake(layout, level(), null);
+    const nodes = nodesOf(out.qb);
+    assert.equal((named(nodes, "Obj01").get("scale") as Float).value, 1.5);
+    assert.deepEqual((named(nodes, "ed_copy01").get("scale") as Vector).values, [1, 2, 0.5]);
+    // a copy without scale=: its source's fields as loaded - no scale
+    assert.equal(named(nodes, "ed_copy02").get("scale"), undefined);
+    assert.equal(new QbFile(out.qb, "tst.qb", true).names.get(checksum("scale")), "scale");
+    assert.equal(out.warnings.filter((w) => w.includes("its collision isn't")).length, 2);
+    assert.ok(out.report.some((r) => r.startsWith("object Obj01: scale=")));
+    // Baked twice over its own output: the scale replaced, not doubled.
+    const again = bake(layout, { ...level(), qb: out.qb }, null);
+    const obj = named(nodesOf(again.qb), "Obj01");
+    assert.equal(obj.entries.filter(([k]) => k?.value === checksum("scale")).length, 1);
+});
+
+test("bake: an exit trigger's box gets its faces again facing in; a plain one doesn't", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            "trigger ed_in01 script pos=0,0,0 yaw=0 size=100,100,100 script=tst_Setup",
+            "trigger ed_out01 script pos=0,0,500 yaw=0 size=100,100,100 script=tst_Setup exit=1",
+        ].join("\n"),
+    );
+    const out = bake(layout, level(), null);
+    const box = (name: string): ColObject => out.col!.objects.find((o) => o.checksum === checksum(name))!;
+    assert.equal(box("ed_in01").faces.length, 12);
+    assert.equal(box("ed_out01").faces.length, 24);
+    assert.ok(out.report.some((r) => r.startsWith("trigger ed_out01") && r.includes("also on leaving")));
+    readCol(writeCol(out.col!), "col");
 });
