@@ -101,3 +101,25 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and src/hook
     arguments; GlobalExists over 8 symbol types x 13 type names. The symbol table, pools, smart pointers, the
     skeleton and the waits recorded; the objects and new symbols / structures / arrays compared after. 43 deliberate
     bugs: 42 caught, 1 equivalent (Orient's w angle: 0x0041A730 reads x, y, z only).
+- [x] Batch EC2-4 (NOT run in the game yet; FormatText's worker, EnableScriptPrintf, IfDebugOn, StructureContains,
+  ClearStruct, ScriptExists, IsArray, Block, IsTrue, CleanUpAndRemoveSymbol): src/game/script/script_cfuncs.{h,cpp}.
+  - FormatText 0x0044A480 (cdecl (results, params) -> int; called from 0x0044BE2D and 0x0044C8F5 in the next third):
+    the unnamed format string; "\%" a literal '%'; "%x" (one character) or "%%name" ([A-Za-z0-9_]*) names a
+    parameter, found with FindLastComponent (the last one wins), copied into the global value component 0x00696D2C
+    (its flag bit kept) and ResolveNameComponent'd; integers "%d" / integer_width "%0*d" / UseCommas
+    (Str::FormatWithSeparators), floats "%.<decimalplaces, 3>f", strings and local strings copied, pairs
+    "(%.3f,%.3f)", vectors "(%.3f,%.3f,%.3f)", names their text (FindChecksumNameOrUnknown; result 2); other types
+    skipped. The text (buffer 0x00696940, unbounded as in the original) goes into textname / ChecksumName (its CRC).
+    0 (printed) with no format string or a missing parameter. sprintf -> snprintf with the buffer's size (the same text
+    unless the original would have overflowed it).
+  - EnableScriptPrintf 0x0044A900 (default 1; the flag 0x0067D6D4), IfDebugOn 0x0044A930 (IfDebugOn and IfDebugOff:
+    a compiled-out call with the script - kept as an empty inline - then true), StructureContains 0x0044A940
+    (Structure={...} <name>: a component or a flag of that name; false with no structure), ClearStruct 0x0044A9B0
+    (struct=<global>: Script::GetStructure(...)->Clear()), ScriptExists 0x0044A9E0 (LookUpSymbol is a script), IsArray
+    0x0044AA20, Block 0x0044AA50 (type, else UntilEvent - only if params aren't empty; CScript::Block), IsTrue
+    0x0044AAB0 (non-zero integer), CleanUpAndRemoveSymbol 0x0044AAE0 (FindSymbol; false if none).
+  - Test TestFormatCFuncs: FormatText over no format, every value type, integer_width, UseCommas, decimal places
+    (given and default), one-letter and long names (digits, underscores), the escape and a lone backslash, a
+    structure (skipped), a missing parameter, an empty format, a repeated parameter, the value's flag bit set, a name
+    that resolves to an integer; the game's sprintf stood in by vsnprintf for the original; the buffer and value
+    compared after each call. The other commands over each branch. 31 deliberate bugs, all caught.

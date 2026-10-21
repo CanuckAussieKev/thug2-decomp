@@ -3,9 +3,15 @@
 #include "game/script/script_cfuncs.h"
 
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 
 #include "game/core/crc.h"
+#include "game/core/dbg.h"
+#include "game/core/str.h"
 #include "game/script/cscript.h"
+#include "game/script/names.h"
+#include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -36,6 +42,31 @@ constexpr uint32_t kIndex = 0x7F8C98FE;        // "index"
 constexpr uint32_t kString = 0x61414D56;       // "string"
 constexpr uint32_t kName = 0xA1DC81F9;         // "name"
 constexpr uint32_t kType = 0x7321A8D6;         // "type"
+constexpr uint32_t kTextName = 0xFF0DB407;     // "textname"
+constexpr uint32_t kChecksumName = 0x76FA7A8F; // "ChecksumName"
+constexpr uint32_t kUseCommas = 0xF138085F;    // "UseCommas"
+constexpr uint32_t kIntegerWidth = 0xADA5B338; // "integer_width"
+constexpr uint32_t kDecimalPlaces = 0xD8E2E09F; // "decimalplaces"
+constexpr uint32_t kStructure = 0x90FEC815;    // "Structure"
+constexpr uint32_t kStruct = 0x456D28D1;       // "struct"
+constexpr uint32_t kUntilEvent = 0x2C3A27A4;   // "UntilEvent"
+
+// Whether the scripts' printf prints (0x0067D6D4).
+bool& ScriptPrintfEnabled() { return GameVariable<bool>(0x0067D6D4); }
+
+// The value FormatText is writing (0x00696D2C, a component of its own: its flag bit is kept).
+CComponent& FormatTextValue() { return GameVariable<CComponent>(0x00696D2C); }
+
+// IfDebugOn / IfDebugOff's work on the calling script - compiled out of this build (an empty call, 0x005480A0).
+inline void SetScriptDebug(Script::CScript* /*script*/) {}
+
+// `text` appended at `out`; returns the new end.
+char* Append(char* out, const char* text)
+{
+    size_t length = std::strlen(text);
+    std::memcpy(out, text, length + 1);
+    return out + length;
+}
 
 // _ftol: truncated towards zero, through 64 bits.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -78,6 +109,109 @@ Script::ESymbolType TypeFromName(uint32_t name)
 }
 
 } // namespace
+
+char* FormatTextBuffer() { return &GameVariable<char>(0x00696940); }
+
+// 0x0044A480
+int FormatText(Script::CStruct* results, Script::CStruct* params)
+{
+    uint32_t textName = 0;
+    params->GetChecksum(kTextName, &textName, 0);
+    uint32_t checksumName = 0;
+    params->GetChecksum(kChecksumName, &checksumName, 0);
+    int result = 1;
+    const char* format = "";
+    if (!params->GetString(0u, &format, 0)) {
+        Dbg::Printf("Expected text format parameters to contain a format string\n");
+        return 0;
+    }
+    char* out = FormatTextBuffer();
+    const char* p = format;
+    while (*p) {
+        if (*p == '\\' && p[1] == '%') {
+            *out++ = '%';
+            p += 2;
+            continue;
+        }
+        if (*p != '%') {
+            *out++ = *p++;
+            continue;
+        }
+        // a parameter: "%x" or "%%name"
+        char name[0x2C];
+        char* n = name;
+        char key = p[1];
+        p += 2;
+        if (key == '%') {
+            while ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_')
+                *n++ = *p++;
+        } else {
+            *n++ = key;
+        }
+        *n = '\0';
+        CComponent* found = params->FindLastComponent(Crc::GenerateCRCFromString(name));
+        if (!found) {
+            Dbg::Printf("Missing text formatting parameter '%s'\n", name);
+            return 0;
+        }
+        CComponent& value = FormatTextValue();
+        value.typeAndFlag = static_cast<uint8_t>((found->typeAndFlag & ~1) | (value.typeAndFlag & 1));
+        value.raw = found->raw;
+        Script::ResolveNameComponent(&value);
+        char text[100]; // (the original's sprintf into it is unbounded)
+        switch (value.Type()) {
+        case Script::ESYMBOLTYPE_INTEGER:
+            if (params->ContainsFlag(kUseCommas)) {
+                std::snprintf(text, sizeof(text), "%s", Str::FormatWithSeparators(value.integer));
+            } else {
+                int width = 0;
+                if (params->GetInteger(kIntegerWidth, &width, 0))
+                    std::snprintf(text, sizeof(text), "%0*d", width, value.integer);
+                else
+                    std::snprintf(text, sizeof(text), "%d", value.integer);
+            }
+            out = Append(out, text);
+            break;
+        case Script::ESYMBOLTYPE_FLOAT: {
+            int places = 3;
+            params->GetInteger(kDecimalPlaces, &places, 0);
+            char floatFormat[16];
+            std::snprintf(floatFormat, sizeof(floatFormat), "%%.%df", places);
+            std::snprintf(text, sizeof(text), floatFormat, static_cast<double>(value.floatValue));
+            out = Append(out, text);
+            break;
+        }
+        case Script::ESYMBOLTYPE_STRING:
+        case Script::ESYMBOLTYPE_LOCALSTRING:
+            for (const char* c = value.string; *c; ++c)
+                *out++ = *c;
+            break;
+        case Script::ESYMBOLTYPE_PAIR:
+            std::snprintf(text, sizeof(text), "(%.3f,%.3f)", static_cast<double>(value.pair->x),
+                          static_cast<double>(value.pair->y));
+            out = Append(out, text);
+            break;
+        case Script::ESYMBOLTYPE_VECTOR:
+            std::snprintf(text, sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.vector->x),
+                         static_cast<double>(value.vector->y), static_cast<double>(value.vector->z));
+            out = Append(out, text);
+            break;
+        case Script::ESYMBOLTYPE_NAME:
+            result = 2;
+            std::snprintf(text, sizeof(text), "%s", Script::FindChecksumNameOrUnknown(value.checksum));
+            out = Append(out, text);
+            break;
+        default:
+            break;
+        }
+    }
+    *out = '\0';
+    if (textName)
+        results->AddString(textName, FormatTextBuffer());
+    if (checksumName)
+        results->AddChecksum(checksumName, Crc::GenerateCRCFromString(FormatTextBuffer()));
+    return result;
+}
 
 // 0x00449D00: Change <name>=<value> (or globalname=<name> newValue=<value>) [resolve]: the global is made again
 // with the new value (its +0x08 word kept). Integers, floats and names are stored as they are, structures and arrays
@@ -227,6 +361,94 @@ bool __cdecl CFunc_GlobalExists(Script::CStruct* params, Script::CScript*)
     return entry && entry->type == type;
 }
 
+// 0x0044A900: EnableScriptPrintf <0 / 1> (1): the scripts' printf on or off.
+bool __cdecl CFunc_EnableScriptPrintf(Script::CStruct* params, Script::CScript*)
+{
+    int enable = 1;
+    params->GetInteger(0u, &enable, 0);
+    ScriptPrintfEnabled() = enable != 0;
+    return true;
+}
+
+// 0x0044A930: IfDebugOn / IfDebugOff (one function): compiled out - true.
+bool __cdecl CFunc_IfDebugOn(Script::CStruct*, Script::CScript* script)
+{
+    SetScriptDebug(script);
+    return true;
+}
+
+// 0x0044A940: StructureContains Structure={...} <name>: whether the structure has a component or a flag of that
+// name. False without a structure.
+bool __cdecl CFunc_StructureContains(Script::CStruct* params, Script::CScript*)
+{
+    Script::CStruct* structure;
+    if (!params->GetStructure(kStructure, &structure, 0))
+        return false;
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 0);
+    if (structure->ContainsComponentNamed(name))
+        return true;
+    return structure->ContainsFlag(name);
+}
+
+// 0x0044A9B0: ClearStruct struct=<global>: the global structure emptied.
+bool __cdecl CFunc_ClearStruct(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0;
+    params->GetChecksum(kStruct, &name, 1);
+    Script::GetStructure(name)->Clear();
+    return true;
+}
+
+// 0x0044A9E0: ScriptExists <name>: whether the name (following names of names) is a script.
+bool __cdecl CFunc_ScriptExists(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 0);
+    CSymbolTableEntry* entry = Script::LookUpSymbol(name);
+    return entry && entry->type == Script::ESYMBOLTYPE_QSCRIPT;
+}
+
+// 0x0044AA20: IsArray <value>: whether the unnamed value is an array.
+bool __cdecl CFunc_IsArray(Script::CStruct* params, Script::CScript*)
+{
+    Script::CArray* array = nullptr;
+    return params->GetArray(0u, &array, 0);
+}
+
+// 0x0044AA50: Block [type=<event> | UntilEvent=<event>]: the script waits until an event of that type (none: until
+// unblocked).
+bool __cdecl CFunc_Block(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t eventType = 0;
+    if (!params->IsEmpty()) {
+        if (!params->GetChecksum(kType, &eventType, 0))
+            params->GetChecksum(kUntilEvent, &eventType, 0);
+    }
+    script->Block(eventType);
+    return true;
+}
+
+// 0x0044AAB0: IsTrue <integer>: whether it is non-zero (missing: false).
+bool __cdecl CFunc_IsTrue(Script::CStruct* params, Script::CScript*)
+{
+    int value = 0;
+    params->GetInteger(0u, &value, 0);
+    return value != 0;
+}
+
+// 0x0044AAE0: CleanUpAndRemoveSymbol <name>: the global freed and taken out of the table. False if there is none.
+bool __cdecl CFunc_CleanUpAndRemoveSymbol(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 1);
+    CSymbolTableEntry* entry = Script::FindSymbol(name);
+    if (!entry)
+        return false;
+    Script::CleanUpAndRemoveSymbol(entry);
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x00449D00, CFuncs::CFunc_Change);
@@ -236,3 +458,13 @@ REPLACE(0x0044A260, CFuncs::CFunc_ChecksumEquals);
 REPLACE(0x0044A2C0, CFuncs::CFunc_StringEquals);
 REPLACE(0x0044A320, CFuncs::CFunc_SetScriptString);
 REPLACE(0x0044A380, CFuncs::CFunc_GlobalExists);
+REPLACE(0x0044A480, CFuncs::FormatText);
+REPLACE(0x0044A900, CFuncs::CFunc_EnableScriptPrintf);
+REPLACE(0x0044A930, CFuncs::CFunc_IfDebugOn);
+REPLACE(0x0044A940, CFuncs::CFunc_StructureContains);
+REPLACE(0x0044A9B0, CFuncs::CFunc_ClearStruct);
+REPLACE(0x0044A9E0, CFuncs::CFunc_ScriptExists);
+REPLACE(0x0044AA20, CFuncs::CFunc_IsArray);
+REPLACE(0x0044AA50, CFuncs::CFunc_Block);
+REPLACE(0x0044AAB0, CFuncs::CFunc_IsTrue);
+REPLACE(0x0044AAE0, CFuncs::CFunc_CleanUpAndRemoveSymbol);

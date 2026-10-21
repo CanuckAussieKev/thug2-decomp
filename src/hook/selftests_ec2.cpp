@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <cmath>
+#include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -16,6 +17,7 @@
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
+#include "game/core/str.h"
 #include "game/core/pool.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
@@ -28,7 +30,9 @@
 #include "game/script/cscript.h"
 #include "game/script/debug_cfuncs.h"
 #include "game/script/math_cfuncs.h"
+#include "game/script/names.h"
 #include "game/script/nodes.h"
+#include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/script_cfuncs.h"
 #include "game/script/struct.h"
@@ -1001,8 +1005,166 @@ void TestScriptCFuncs()
     Compare(traces[0], traces[1], "RunScriptOnObject .. GlobalExists (0x00449A10-0x0044A380)");
 }
 
+// --- FormatText's worker, EnableScriptPrintf .. CleanUpAndRemoveSymbol (0x0044A480-0x0044AAE0) --------------------
+
+char g_separated[32];
+
+void StandInFormatCalls(StandIns& s)
+{
+    StandInScriptCalls(s);
+    s.At({0x006234FE}, 0, StandInSprintf);
+    s.At({0x004779D0, AddressOf(static_cast<Method<void, uint32_t, const char*>>(&CStruct::AddString))}, 8, [](Regs& r) {
+        Record({0xADD3, Rel(r.ecx), r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
+        return 0u;
+    });
+    s.At({0x0046D110, AddressOf(&Script::FindChecksumNameOrUnknown)}, 0, [](Regs& r) {
+        Record({0xD110, r.args[0]});
+        return reinterpret_cast<uint32_t>(r.args[0] == 0x0A0A ? "TheName" : "unknown");
+    });
+    s.At({0x00402200, AddressOf(&Str::FormatWithSeparators)}, 0, [](Regs& r) {
+        Record({0x2200, r.args[0]});
+        std::snprintf(g_separated, sizeof(g_separated), "<%d>", static_cast<int>(r.args[0]));
+        return reinterpret_cast<uint32_t>(g_separated);
+    });
+    s.At({0x00479730, AddressOf(&Script::ResolveNameComponent)}, 0, [](Regs& r) {
+        auto* c = reinterpret_cast<CComponent*>(r.args[0]);
+        Record({0x9730, Rel(r.args[0]), c->typeAndFlag, c->raw});
+        if (c->Type() == Script::ESYMBOLTYPE_NAME && c->raw == 0x5E5E) {
+            c->typeAndFlag = static_cast<uint8_t>((Script::ESYMBOLTYPE_INTEGER << 1) | (c->typeAndFlag & 1));
+            c->raw = 77;
+        }
+        return 0u;
+    });
+    using GetStructureFn = CStruct* (*)(uint32_t);
+    s.At({0x00479020, AddressOf(static_cast<GetStructureFn>(&Script::GetStructure))}, 0, [](Regs& r) {
+        Record({0x9020, r.args[0]});
+        return 0x5E000000u + (r.args[0] & 0xFFFF);
+    });
+    s.At({0x00472FD0, AddressOf(&Script::CScript::Block)}, 4, [](Regs& r) {
+        Record({0x2FD0, Rel(r.ecx), r.args[0]});
+        return 0u;
+    });
+}
+
+void TestFormatCFuncs()
+{
+    // the globals: the symbol table (empty), FormatText's buffer and value, the scripts' printf switch
+    std::vector<Saved> saved = {{0x006F3624, 4, {}}, {0x00696940, 0x3EC + 16, {}}, {0x0067D6D4, 1, {}}};
+    SaveAll(saved);
+    static Script::CSymbolTableEntry* table[0x1000];
+    std::memset(table, 0, sizeof(table));
+    GameVariable<Script::CSymbolTableEntry**>(0x006F3624) = table;
+
+    auto* standIns = new StandIns;
+    StandInFormatCalls(*standIns);
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        auto call = [&](uint32_t address, CFunc ours, TestParams& params) { Call(original, address, ours, params); };
+        std::memset(reinterpret_cast<void*>(0x00696940), 0, 0x3EC + 16);
+
+        // FormatText
+        {
+            using FormatFn = int(__cdecl*)(CStruct*, CStruct*);
+            auto format = [&](TestParams& p) {
+                int result = original ? Original<FormatFn>(0x0044A480)(reinterpret_cast<CStruct*>(g_results), p.Struct())
+                                      : CFuncs::FormatText(reinterpret_cast<CStruct*>(g_results), p.Struct());
+                Record({0xF0F0, static_cast<uint32_t>(result), Hash(reinterpret_cast<const char*>(0x00696940)),
+                        GameVariable<uint32_t>(0x00696D2C), GameVariable<uint32_t>(0x00696D34)});
+            };
+            TestParams a; a.Checksum(0xFF0DB407, 0x7E47); format(a); // no format
+            TestParams b; b.String(0, "Score: %s points").Integer(Crc::GenerateCRCFromString("s"), 1234).Checksum(0xFF0DB407, 0x7E47);
+            format(b);
+            TestParams c;
+            c.String(0, "[%a|%b]").Integer(Crc::GenerateCRCFromString("a"), 7).Integer(0xADA5B338, 4)
+                .Float(Crc::GenerateCRCFromString("b"), 2.25f).Integer(0xD8E2E09F, 1).Checksum(0x76FA7A8F, 0xC5C5);
+            format(c);
+            TestParams d; d.String(0, "%n!").Integer(Crc::GenerateCRCFromString("n"), -1234567).Flag(0xF138085F)
+                .Checksum(0xFF0DB407, 0x7E48).Checksum(0x76FA7A8F, 0xC5C6);
+            format(d);
+            GameVariable<uint8_t>(0x00696D2C) = 1; // the value's flag bit kept
+            TestParams e;
+            e.String(0, "%%long_name1 and %%Other_2: %p %v %q %x %%fl")
+                .String(Crc::GenerateCRCFromString("long_name1"), "text")
+                .LocalString(Crc::GenerateCRCFromString("Other_2"), "local")
+                .Pair(Crc::GenerateCRCFromString("p"), 1.5f, -2.0f)
+                .Vector(Crc::GenerateCRCFromString("v"), 0.125f, 3.0f, -7.75f)
+                .Checksum(Crc::GenerateCRCFromString("q"), 0x0A0A)
+                .Checksum(Crc::GenerateCRCFromString("x"), 0x5E5E)
+                .Float(Crc::GenerateCRCFromString("fl"), 3.14159f)
+                .Checksum(0xFF0DB407, 0x7E49);
+            format(e);
+            TestParams inner; inner.Integer(1, 1);
+            TestParams f; f.String(0, "100\\% sure %s, 50\\x %t").Structure(Crc::GenerateCRCFromString("s"), inner.Struct())
+                .Integer(Crc::GenerateCRCFromString("t"), 9).Checksum(0xFF0DB407, 0x7E4A);
+            format(f);
+            TestParams g; g.String(0, "%a and %%missing").Integer(Crc::GenerateCRCFromString("a"), 1).Checksum(0xFF0DB407, 0x7E4B);
+            format(g);
+            TestParams h; h.String(0, "").Checksum(0xFF0DB407, 0x7E4C).Checksum(0x76FA7A8F, 0xC5C7);
+            format(h);
+            TestParams i; i.String(0, "%a%a").Integer(Crc::GenerateCRCFromString("a"), 3).Integer(Crc::GenerateCRCFromString("a"), 4);
+            format(i); // (the last one wins)
+            TestParams j; j.String(0, "%f").Float(Crc::GenerateCRCFromString("f"), -0.0004f);
+            format(j);
+        }
+        // EnableScriptPrintf, IfDebugOn
+        {
+            TestParams off; off.Integer(0, 0);
+            TestParams on; on.Integer(0, 5);
+            TestParams none;
+            for (TestParams* p : {&off, &on, &off, &none}) {
+                call(0x0044A900, CFuncs::CFunc_EnableScriptPrintf, *p);
+                Record({GameVariable<uint8_t>(0x0067D6D4)});
+            }
+            call(0x0044A930, CFuncs::CFunc_IfDebugOn, none);
+        }
+        // StructureContains: a component, a flag, neither, no structure
+        {
+            TestParams inner; inner.Integer(0x111, 1).Flag(0x222);
+            for (uint32_t name : {0x111u, 0x222u, 0x333u}) {
+                TestParams p; p.Structure(0x90FEC815, inner.Struct()).Checksum(0, name);
+                call(0x0044A940, CFuncs::CFunc_StructureContains, p);
+            }
+            TestParams q; q.Checksum(0, 0x111); call(0x0044A940, CFuncs::CFunc_StructureContains, q);
+        }
+        // ClearStruct, ScriptExists, IsArray, Block, IsTrue, CleanUpAndRemoveSymbol
+        {
+            TestParams a; a.Checksum(0x456D28D1, 0x1A2B); call(0x0044A9B0, CFuncs::CFunc_ClearStruct, a);
+            std::memset(g_symbols, 0, sizeof(g_symbols));
+            const uint8_t types[8] = {7, 1, 8, 7, 13, 12, 3, 10};
+            for (int k = 0; k < 8; ++k)
+                Symbol(k)->type = static_cast<Script::ESymbolType>(types[k]);
+            for (uint32_t name : {0x51000u, 0x51001u, 0x51002u, 0x51003u, 0x5FFFFu}) {
+                TestParams p; p.Checksum(0, name); call(0x0044A9E0, CFuncs::CFunc_ScriptExists, p);
+                call(0x0044AAE0, CFuncs::CFunc_CleanUpAndRemoveSymbol, p);
+            }
+            static Script::CArray anArray;
+            TestParams b; b.Array(0, &anArray); call(0x0044AA20, CFuncs::CFunc_IsArray, b);
+            TestParams c; c.Integer(0, 1); call(0x0044AA20, CFuncs::CFunc_IsArray, c);
+            TestParams none; call(0x0044AA20, CFuncs::CFunc_IsArray, none);
+            call(0x0044AA50, CFuncs::CFunc_Block, none);
+            TestParams d; d.Checksum(0x7321A8D6, 0xE1); call(0x0044AA50, CFuncs::CFunc_Block, d);
+            TestParams e; e.Checksum(0x2C3A27A4, 0xE2); call(0x0044AA50, CFuncs::CFunc_Block, e);
+            TestParams f; f.Checksum(0x2C3A27A4, 0xE3).Checksum(0x7321A8D6, 0xE4); call(0x0044AA50, CFuncs::CFunc_Block, f);
+            TestParams g; g.Integer(0x1234, 5); call(0x0044AA50, CFuncs::CFunc_Block, g);
+            for (int value : {0, 3, -1}) {
+                TestParams p; p.Integer(0, value); call(0x0044AAB0, CFuncs::CFunc_IsTrue, p);
+            }
+            call(0x0044AAB0, CFuncs::CFunc_IsTrue, none);
+        }
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(saved);
+    Check(traces[0].size() > 200, "FormatText and the script utilities: the original reached its calls");
+    Compare(traces[0], traces[1], "FormatText, EnableScriptPrintf .. CleanUpAndRemoveSymbol (0x0044A480-0x0044AAE0)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestMathCFuncs, RemoveStandIns);
 SELFTEST(Early, TestObjectCFuncs, RemoveStandIns);
 SELFTEST(Early, TestScriptCFuncs, RemoveStandIns);
+SELFTEST(Early, TestFormatCFuncs, RemoveStandIns);
