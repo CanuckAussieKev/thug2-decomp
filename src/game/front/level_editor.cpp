@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_chains.h"
@@ -29,6 +30,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_organize.h"
 #include "game/front/level_editor_preview.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scale.h"
@@ -36,6 +38,7 @@
 #include "game/front/level_editor_shadows.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_ui.h"
+#include "game/front/level_editor_ux3.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_walls.h"
 #include "game/front/mouse_menus.h"
@@ -503,7 +506,7 @@ void HandleEvent(SDL_Event* event)
         break;
     case SDL_KEYDOWN:
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
-        if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat) {
+        if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat && !Actions::Capturing()) {
             if (g_dragging || g_browser.open || g_help || g_placeOpen || g_confirmHide || g_confirmReset ||
                 Chains::Drawing() != Chains::Draw::None || Chains::WantsPick() || !g_objects.empty() ||
                 Scenery::HasSelection() || g_nodeSelected)
@@ -804,6 +807,8 @@ struct UndoStep {
     std::string layout;
     // kTriggers: the trigger volumes' state to put back (level_editor_triggers.h).
     Triggers::State triggers;
+    // (the undo history panel - level_editor_ux3.h: a short label given where the step is made, and what was selected)
+    std::string label, detail;
 };
 std::vector<UndoStep> g_undo, g_redo;
 UndoStep g_pending;
@@ -856,9 +861,35 @@ void FollowScenery()
     });
 }
 
-void PushUndo(const UndoStep& step)
+// A step's label when its maker gave none (by its kind).
+const char* KindLabel(UndoStep::Kind kind)
 {
-    g_undo.push_back(step);
+    switch (kind) {
+    case UndoStep::kObjects: return "Move objects";
+    case UndoStep::kScenery: return "Move scenery";
+    case UndoStep::kMade: return "Copies";
+    case UndoStep::kNodes: return "Move node";
+    case UndoStep::kAdded: return "Add / remove node";
+    case UndoStep::kHidden: return "Hide / show node";
+    case UndoStep::kOrder: return "Crown order";
+    case UndoStep::kLevel: return "Level layout";
+    case UndoStep::kChains: return "Chain edit";
+    case UndoStep::kWalls: return "Walls";
+    case UndoStep::kTriggers: return "Trigger volume";
+    case UndoStep::kFields: return "Fields";
+    case UndoStep::kProps: return "Level properties";
+    case UndoStep::kLocks: return "Locks";
+    case UndoStep::kEntities: return "Path speed / sound";
+    case UndoStep::kModule: return "Faces / clusters / cameras";
+    }
+    return "Change";
+}
+
+void PushUndo(UndoStep step, const char* label = nullptr)
+{
+    step.label = label && *label ? label : KindLabel(step.kind);
+    step.detail = DescribeSelection();
+    g_undo.push_back(std::move(step));
     if (g_undo.size() > kMaxUndo)
         g_undo.erase(g_undo.begin());
     g_redo.clear();
@@ -867,13 +898,13 @@ void PushUndo(const UndoStep& step)
 }
 
 // The locks as they are now, as an undo step (before L / Unlock / Unlock all change them).
-void PushLocksUndo()
+void PushLocksUndo(const char* label = "Lock / unlock")
 {
     UndoStep step;
     step.kind = UndoStep::kLocks;
     step.locks = Picking::Locks();
     step.where = SelectionPos();
-    PushUndo(step);
+    PushUndo(step, label);
 }
 
 // The selected objects scaled by `factor` (along the world's axes - each object takes it along its own axis nearest
@@ -939,7 +970,7 @@ bool ScaleSelectionBy(V3 factor, bool uniform)
         FollowScenery();
         Scenery::Commit();
     }
-    PushUndo(before);
+    PushUndo(before, "Scale");
     return true;
 }
 
@@ -984,7 +1015,7 @@ void EndChange()
                        ? NodeEdit::Differs(g_pending.nodes, NodeEdit::Read) // (moved or turned)
                        : g_pending.where.x != now.x || g_pending.where.y != now.y || g_pending.where.z != now.z;
     if (changed)
-        PushUndo(g_pending);
+        PushUndo(g_pending, "Move");
 }
 
 // Copies made or taken away: shown / made again, or hidden / deleted; selected when they're there.
@@ -1546,7 +1577,7 @@ void AddNodeGizmos(const Frame& frame, int selected)
     float bottom = static_cast<float>(g_viewport[1] + g_viewport[3]) + 40.0f;
     for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
         const Nodes::Node& n = nodes[i];
-        if (!n.hasPos || !(g_families & Nodes::Bit(n.family)))
+        if (!n.hasPos || !(g_families & Nodes::Bit(n.family)) || Organize::GizmoHidden(n.name))
             continue;
         Nodes::Shape shape = Nodes::ShapeOf(n.family);
         if (shape == Nodes::Shape::None)
@@ -1731,6 +1762,27 @@ void AddNodeGizmos(const Frame& frame, int selected)
             o.texts.push_back({px + r + 8.0f * k, py + 2.0f * k, 0xFFFFFFFF, Nodes::Label(n.name)});
         }
         g_pickables.push_back({i, px, py, px, py, false, depth});
+    }
+    // (the Outliner's selectable off: drawn, not picked - level_editor_organize.h)
+    g_pickables.erase(std::remove_if(g_pickables.begin(), g_pickables.end(),
+                                     [&](const Nodes::Pickable& p) {
+                                         return p.node >= 0 && p.node < static_cast<int>(nodes.size()) &&
+                                                !Organize::GizmoPickable(nodes[p.node].name);
+                                     }),
+                      g_pickables.end());
+    // (a box being dragged - level_editor_organize.h: its outline, solid inside / dashed crossing)
+    Organize::Rect box;
+    bool crossing = false;
+    if (Organize::BoxOutline(&box, &crossing)) {
+        uint32_t c = crossing ? 0xFF8FD18Fu : 0xFFFFC870u;
+        Ui::Line edges[4] = {{box.x0, box.y0, box.x1, box.y0, c, 1.5f}, {box.x1, box.y0, box.x1, box.y1, c, 1.5f},
+                             {box.x1, box.y1, box.x0, box.y1, c, 1.5f}, {box.x0, box.y1, box.x0, box.y0, c, 1.5f}};
+        for (const Ui::Line& edge : edges) {
+            if (crossing)
+                View::AddDashed(&o.lines, edge, 6.0f * k, 4.0f * k);
+            else
+                o.lines.push_back(edge);
+        }
     }
 }
 
@@ -2034,6 +2086,7 @@ void Init()
     Platform::RegisterEventHandler(HandleEvent);
     SetCrashHook(OnCrash);
     Script::KeepQbNames(Enabled()); // (node names for the HUD: Fire_Tender rather than 61EF3AD4)
+    Ux3::Init(); // (the Outliner's records in the layouts, the actions' callbacks - level_editor_ux3.h)
 }
 
 void InputLogic()
@@ -2281,7 +2334,7 @@ void PlaceNode(int entry, V3 at)
         Hud::Message(message, 5.0);
         return;
     }
-    PushUndo(step);
+    PushUndo(step, "Place node");
     g_pickables.clear();
     g_hoverNode = -1;
     int index = Nodes::Find(NodeCreate::Checksum(specs.front().name));
@@ -2302,7 +2355,7 @@ void AfterChainChange(const Chains::State& before, uint32_t select, const std::s
         UndoStep step;
         step.kind = UndoStep::kChains;
         step.chains = before;
-        PushUndo(step);
+        PushUndo(step, "Chain edit");
         g_pickables.clear();
         g_hoverNode = -1;
     }
@@ -2435,7 +2488,7 @@ void FieldRequest(const Ui::Request& request)
                   (when == Fields::When::Live ? " (live)" : " (on reload: when the edited copy is next loaded)");
     }
     if (!step.fields.empty()) {
-        PushUndo(step);
+        PushUndo(step, message.c_str());
         Hud::Message(message, 4.0);
         NoteAction("inspector: %s - %s.%s", message.c_str(), Objects::Label(node).c_str(),
                    Fields::NameText(request.id, Fields::NameOf).c_str());
@@ -2462,7 +2515,7 @@ void LevelPropsRequest(const Ui::Request& request)
         UndoStep step;
         step.kind = UndoStep::kProps;
         step.props = g_propsBefore;
-        PushUndo(step);
+        PushUndo(step, "Level properties");
         NoteAction("level properties changed");
     }
 }
@@ -2505,7 +2558,7 @@ bool PlaceEntity(int entry, V3 at)
         step.exist = false;
         step.added.push_back(spec);
         step.addedAt.push_back(NodeCreate::IndexOf(NodeCreate::Current(), name));
-        PushUndo(step);
+        PushUndo(step, "Place");
         g_pickables.clear();
         g_hoverNode = -1;
         int node = Nodes::Find(NodeCreate::Checksum(name));
@@ -2537,7 +2590,7 @@ bool PlaceEntity(int entry, V3 at)
         if (Objects::ModelBox(object, &box))
             made.push_back(object);
     }
-    PushUndo(step);
+    PushUndo(step, "Place");
     if (!made.empty()) {
         SelectObjects(made);
     } else if (int node = Nodes::Find(placed.copies.front()); node >= 0) {
@@ -2632,7 +2685,7 @@ void DeleteNode(bool confirmed)
             return;
         step.copies.push_back({node.name, source, Objects::Save(object)});
         Objects::RemoveCopy(node.name);
-        PushUndo(step);
+        PushUndo(step, "Delete copy");
         g_nodeSelected = false;
         g_pickables.clear();
         g_hoverNode = -1;
@@ -2650,7 +2703,7 @@ void DeleteNode(bool confirmed)
             return;
         step.added.push_back(spec);
         step.addedAt.push_back(at);
-        PushUndo(step);
+        PushUndo(step, "Delete node");
         g_nodeSelected = false;
         g_pickables.clear();
         g_hoverNode = -1;
@@ -2678,7 +2731,7 @@ void DeleteNode(bool confirmed)
     step.kind = UndoStep::kHidden;
     step.hiddenNames = {node.name};
     step.hidden = false; // (undone: shown)
-    PushUndo(step);
+    PushUndo(step, "Hide node");
     NoteOnlineChange(node.family, Nodes::Label(node.name).c_str(), "hidden");
     Hud::Message("Hidden " + Nodes::Label(node.name) + " - Home or Ctrl+Z brings it back");
     NoteAction("hid the level's node %s", Nodes::Label(node.name).c_str());
@@ -2702,7 +2755,7 @@ bool ShowHiddenNode()
     step.kind = UndoStep::kHidden;
     step.hiddenNames = {name};
     step.hidden = true; // (undone: hidden again)
-    PushUndo(step);
+    PushUndo(step, "Show node");
     Hud::Message("Shown again: " + Nodes::Label(name));
     NoteAction("showed the level's node %s again", Nodes::Label(name).c_str());
     return true;
@@ -2725,7 +2778,7 @@ void MoveSelectedCrown(int delta)
         Hud::Message(message, 5.0);
         return;
     }
-    PushUndo(step);
+    PushUndo(step, "Crown order");
     int now = Nodes::Find(name);
     if (now >= 0) {
         SelectNodeOnly(now);
@@ -3192,7 +3245,7 @@ void PlaceFromBrowser(V3 at)
         SelectObjects({object});
         step.copies.push_back({object->m_id, source, Objects::Save(object)});
     }
-    PushUndo(step);
+    PushUndo(step, "Place copy");
     g_browser.open = false;
     Hud::HidePanel();
     Hud::Message("Placed a copy of " + Objects::Label(source) + " - B adds another");
@@ -3270,7 +3323,7 @@ void Duplicate(const Frame& frame)
                          "docs/pending/editor-polish.md)");
         return;
     }
-    PushUndo(step);
+    PushUndo(step, "Duplicate");
     Hud::Message("Duplicated - drag the copy where you want it");
     NoteAction("duplicated (Ctrl+D): %s", DescribeSelection().c_str());
 }
@@ -3281,7 +3334,7 @@ void SwitchWall(uint32_t wall, bool off)
 {
     if (Walls::Off(wall) == off)
         return;
-    PushUndo(Snapshot());
+    PushUndo(Snapshot(), "Wall collision");
     if (!Walls::SetOff(wall, off)) {
         Hud::Message("Couldn't switch that wall's collision");
         return;
@@ -3310,7 +3363,7 @@ void SwitchSceneryCollision(bool off)
     }
     if (!changed)
         return;
-    PushUndo(step);
+    PushUndo(step, "Collision on / off");
     char text[160];
     std::snprintf(text, sizeof(text),
                   off ? "Collision off for %d piece%s - drawn, but the skater passes through (Ctrl+Z undoes)"
@@ -3349,7 +3402,7 @@ void Delete()
         for (const MadeCopy& copy : step.copies)
             Objects::RemoveCopy(copy.name);
         g_objects.clear();
-        PushUndo(step);
+        PushUndo(step, "Delete copies");
         Hud::Message("Deleted - Ctrl+Z brings it back");
         NoteAction("deleted object copies (Delete)");
         return;
@@ -3359,7 +3412,7 @@ void Delete()
         return;
     }
     if (Scenery::HasSelection()) {
-        PushUndo(Snapshot());
+        PushUndo(Snapshot(), "Hide scenery");
         Scenery::HideSelection();
         Hud::Message("Hidden - Ctrl+Z brings it back");
         NoteAction("hid scenery (Delete)");
@@ -3389,7 +3442,7 @@ void Reset()
             }
         }
         if (any) {
-            PushUndo(before);
+            PushUndo(before, "Home");
             Hud::Message("Put back where the level had it");
         } else {
             Hud::Message("It's where the level has it");
@@ -3408,21 +3461,21 @@ void Reset()
                 any |= Objects::Restore(*origin);
         }
         if (any) {
-            PushUndo(before);
+            PushUndo(before, "Home");
             Hud::Message("Put back where it was");
         }
     } else if (uint32_t wall = objects.empty() ? WallOnly() : 0) {
         // (an invisible wall: where the level has it, its collision on)
         Placement placement;
         if (Walls::Moved(wall, &placement) || Walls::Off(wall)) {
-            PushUndo(Snapshot());
+            PushUndo(Snapshot(), "Home");
             Walls::ApplyStates({{wall, {0, {0.0f, 0.0f, 0.0f}}, false}});
             Hud::Message("Wall put back where the level had it, its collision on");
         } else {
             Hud::Message("It's where the level has it");
         }
     } else if (Scenery::HasSelection()) {
-        PushUndo(Snapshot());
+        PushUndo(Snapshot(), "Home");
         Scenery::ResetSelection();
         FollowScenery(); // (what it carries goes with it - level_editor_carry.h)
         Hud::Message("Put back where the level had it");
@@ -3765,7 +3818,7 @@ void DropSelection()
     V3 ground;
     V3 from = GroundRayStart(pos, base, Primary() || MovableNode() >= 0);
     if (GroundBelow(from, &ground) && ground.y != base) {
-        PushUndo(Snapshot());
+        PushUndo(Snapshot(), "Drop to ground");
         PlaceSelection(DroppedTo(pos, base, ground.y));
         NoteAction("dropped to the ground (G): %s", DescribeSelection().c_str());
         Settle();
@@ -3821,7 +3874,7 @@ void ResetLevelNow()
     }
     g_undo.clear();
     g_redo.clear();
-    PushUndo(step);
+    PushUndo(step, "Reset level");
     g_unsaved = false; // (nothing to save: the level as shipped, no layout)
     g_offerPending = false;
     NoteAction("reset the level");
@@ -4089,7 +4142,7 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
                 V3 now = SelectionScaleNow();
                 if (g_hasPending && (now.x != g_scaleAtFieldStart.x || now.y != g_scaleAtFieldStart.y ||
                                      now.z != g_scaleAtFieldStart.z)) {
-                    PushUndo(g_pending);
+                    PushUndo(g_pending, "Scale (Inspector)");
                     NoteAction("scaled in the Inspector: %s", DescribeSelection().c_str());
                 }
                 g_hasPending = false;
@@ -4303,18 +4356,21 @@ void Update()
         }
     }
 
-    static bool backspace, zKey, yKey, sKey, dKey, rKey, homeKey, deleteKey, turnRight, slower, faster, dropKey, helpKey,
-        browseKey, enterKey, focusKey, leftKey, rightKey, placeKey;
+    static bool enterKey, focusKey, leftKey, rightKey;
     static uint32_t upSince, downSince, pageUpSince, pageDownSince;
-    bool zPressed = Pressed(keys, SDL_SCANCODE_Z, &zKey);
+    // The keys from the keymap (level_editor_actions.h: rebindable, [editor_keys] in the ini; the command search runs
+    // them the same way).
+    Actions::BeginFrame(keys);
     bool noChange = g_dragging || g_keyMoving || g_fieldEditing || Triggers::Resizing();
+    // (the history, changes, search, selection tools and clipboards - level_editor_ux3.h)
+    Ux3::Update();
 
     // The panels: F1 the help, B the browser.
-    if (Pressed(keys, SDL_SCANCODE_F1, &helpKey))
+    if (Actions::Pressed(Actions::kHelp))
         ToggleHelp();
-    if (Pressed(keys, SDL_SCANCODE_B, &browseKey) && !g_dragging)
+    if (Actions::Pressed(Actions::kBrowser) && !g_dragging)
         ToggleBrowser();
-    if (Pressed(keys, SDL_SCANCODE_N, &placeKey) && !g_dragging && !ctrl) {
+    if (Actions::Pressed(Actions::kPlace) && !g_dragging) {
         if (Ui::Running()) {
             g_placeOpen = !g_placeOpen;
             g_placeArmed = -1;
@@ -4326,33 +4382,27 @@ void Update()
     }
 
     // Ctrl+ keys: undo / redo, save, duplicate.
-    if (ctrl && !noChange) {
-        if (zPressed)
+    if (!noChange) {
+        if (Actions::Pressed(Actions::kUndo))
             StepHistory(&g_undo, &g_redo, "Undone");
-        if (Pressed(keys, SDL_SCANCODE_Y, &yKey))
+        if (Actions::Pressed(Actions::kRedo))
             StepHistory(&g_redo, &g_undo, "Redone");
-        if (Pressed(keys, SDL_SCANCODE_S, &sKey))
+        if (Actions::Pressed(Actions::kSave))
             SaveLayout();
         // Ctrl+R: an autosave restored in place of the current layout; Ctrl+Shift+R: it's discarded.
-        if (Pressed(keys, SDL_SCANCODE_R, &rKey))
-            AnswerAutosave(shift);
-        if (Pressed(keys, SDL_SCANCODE_D, &dKey))
+        if (Actions::Pressed(Actions::kRestoreAutosave) || Actions::Pressed(Actions::kDiscardAutosave))
+            AnswerAutosave(Actions::Pressed(Actions::kDiscardAutosave));
+        if (Actions::Pressed(Actions::kDuplicate))
             Duplicate(FrameFromYawPitch(g_yaw, g_pitch));
-        if (HaveSelection())
-            FocusOnSelection();
-    } else {
-        Pressed(keys, SDL_SCANCODE_Y, &yKey);
-        Pressed(keys, SDL_SCANCODE_S, &sKey);
-        Pressed(keys, SDL_SCANCODE_D, &dKey);
-        Pressed(keys, SDL_SCANCODE_R, &rKey);
     }
+    if (ctrl && !noChange && HaveSelection())
+        FocusOnSelection();
     // L: with a rail point selected, it moves with its whole rail or by itself (level_editor_node_edit.h); otherwise
     // the selection locked (clicks pass it - level_editor_picking.h) or, all locked, unlocked.
-    static bool lKey;
     int lNode = MovableNode();
     // (a rail's, a ladder's or a path's point: its whole chain or itself - level_editor_chains.h)
     bool railPoint = lNode >= 0 && NodeEdit::IsChain(Nodes::All()[lNode].name);
-    bool lPressed = Pressed(keys, SDL_SCANCODE_L, &lKey) && !ctrl;
+    bool lPressed = Actions::Pressed(Actions::kLock);
     if (lPressed && !railPoint && !g_dragging)
         ToggleLock();
     if (lPressed && railPoint && !noChange) {
@@ -4362,29 +4412,24 @@ void Update()
     }
     // C: the collision shown / hidden; H: the selection hidden (Alt+H: everything shown); I or /: isolated
     // (level_editor_view.h - while editing only).
-    static bool cKey, hKey, iKey, slashKey, oKey;
-    if (Pressed(keys, SDL_SCANCODE_O, &oKey) && !ctrl && !g_browser.open) {
+    if (Actions::Pressed(Actions::kOcclusion) && !g_browser.open) {
         g_occlusionOff = !g_occlusionOff;
         Nx::OcclusionOff() = g_occlusionOff;
         Hud::Message(g_occlusionOff ? "Occlusion off: everything in range is drawn (O: the game's occlusion)"
                                     : "Occlusion on, as in play (O: off) - distant things may vanish behind occluders");
     }
-    if (Pressed(keys, SDL_SCANCODE_C, &cKey) && !ctrl && !g_browser.open)
+    if (Actions::Pressed(Actions::kCollision) && !g_browser.open)
         ShowCollision(!View::ShowCollision());
-    if (Pressed(keys, SDL_SCANCODE_H, &hKey) && !ctrl && !noChange && !g_browser.open) {
-        if (alt)
-            ViewShowAll();
-        else
-            ViewHide(false);
-    }
-    bool isolateKey = Pressed(keys, SDL_SCANCODE_I, &iKey);
-    if ((Pressed(keys, SDL_SCANCODE_SLASH, &slashKey) || isolateKey) && !ctrl && !noChange && !g_browser.open)
+    if (Actions::Pressed(Actions::kShowAll) && !noChange && !g_browser.open)
+        ViewShowAll();
+    if (Actions::Pressed(Actions::kHide) && !noChange && !g_browser.open)
+        ViewHide(false);
+    if (Actions::Pressed(Actions::kIsolate) && !noChange && !g_browser.open)
         ViewHide(true);
     View::Tick();
     // T: the trigger volumes shown (and the Triggers window) - level_editor_triggers.h; their changes, undo steps and
     // selections.
-    static bool tKey;
-    if (Pressed(keys, SDL_SCANCODE_T, &tKey) && !ctrl && !g_browser.open) {
+    if (Actions::Pressed(Actions::kTriggers) && !g_browser.open) {
         if (Ui::Running()) {
             Triggers::SetShown(!Triggers::Shown());
             Hud::Message(Triggers::Shown() ? "Trigger volumes shown (T) - the Triggers window adds kill zones, teleports, gaps"
@@ -4401,12 +4446,12 @@ void Update()
         UndoStep step;
         if (Triggers::TakeUndo(&step.triggers)) {
             step.kind = UndoStep::kTriggers;
-            PushUndo(step);
+            PushUndo(step, "Trigger volume");
         }
         UndoStep entities;
         if (Entities::TakeUndo(&entities.entities)) {
             entities.kind = UndoStep::kEntities;
-            PushUndo(entities);
+            PushUndo(entities, "Path speed / sound");
         }
         int select = Triggers::TakeSelect();
         if (select >= 0 && !g_dragging) {
@@ -4422,8 +4467,7 @@ void Update()
     Walls::Tick(); // (scenery whose collision is switched off kept off - level_editor_walls.h)
     // (map3) K: Faces mode - clicks take collision faces (level_editor_faces.h); V: a camera node made from the view
     // (level_editor_cameras.h).
-    static bool kKey, vKey;
-    if (Pressed(keys, SDL_SCANCODE_K, &kKey) && !ctrl && !g_browser.open && !noChange) {
+    if (Actions::Pressed(Actions::kFaces) && !g_browser.open && !noChange) {
         if (Ui::Running()) {
             Faces::SetPicking(!Faces::Picking());
             Hud::Message(Faces::Picking() ? "Faces mode (K): a click takes a collision face, Shift+click adds one - the "
@@ -4433,14 +4477,13 @@ void Update()
             Hud::Message("Faces mode (K) needs the editor's UI ([features] editor_ui=1)");
         }
     }
-    if (Pressed(keys, SDL_SCANCODE_V, &vKey) && !ctrl && !g_browser.open && !noChange)
+    if (Actions::Pressed(Actions::kCameraNode) && !g_browser.open && !noChange)
         Cameras::CreateFromView();
     Faces::Update();
     Clusters::Update();
     Cameras::Update();
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
-    static bool poseKey;
-    if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
+    if (Actions::Pressed(Actions::kLogCamera)) {
         Frame view = FrameFromYawPitch(g_yaw, g_pitch);
         uint32_t scene = Scenery::SceneName(Scenery::MainScene());
         Log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:", Nx::CurrentLevel(),
@@ -4449,23 +4492,22 @@ void Update()
             view.back.x, view.back.y, view.back.z, view.up.x, view.up.y, view.up.z);
         Hud::Message("The camera is written to thug2-decomp.log");
     }
-    if (Pressed(keys, SDL_SCANCODE_BACKSPACE, &backspace) && (HaveSelection() || g_nodeSelected) && !g_dragging)
+    if (Actions::Pressed(Actions::kDeselect) && (HaveSelection() || g_nodeSelected) && !g_dragging)
         Deselect();
-    if (Pressed(keys, SDL_SCANCODE_HOME, &homeKey) && !noChange && !g_browser.open)
+    // (Home and Delete: not on what the Outliner's lock holds - level_editor_organize.h)
+    if (Actions::Pressed(Actions::kHome) && !noChange && !g_browser.open && !Organize::SelectionLocked(true))
         Reset();
-    if (Pressed(keys, SDL_SCANCODE_DELETE, &deleteKey) && !noChange && !g_browser.open && !g_confirmHide &&
-        !g_confirmReset) {
-        if (ctrl && shift)
+    if (!noChange && !g_browser.open && !g_confirmHide && !g_confirmReset) {
+        if (Actions::Pressed(Actions::kResetLevel))
             AskResetLevel(); // (Ctrl+Shift+Delete: Reset level)
-        else
+        else if (Actions::Pressed(Actions::kDelete) && !Organize::SelectionLocked(true))
             Delete();
     }
     // A rail's / path's point selected (level_editor_chains.h): Insert puts a point halfway to the next, End draws on
     // from this end, J links this end to the next end clicked, U unlinks it from its next.
-    static bool insertKey, endKey, joinKey, unlinkKey;
-    bool insertNow = Pressed(keys, SDL_SCANCODE_INSERT, &insertKey), endNow = Pressed(keys, SDL_SCANCODE_END, &endKey),
-         joinNow = Pressed(keys, SDL_SCANCODE_J, &joinKey), unlinkNow = Pressed(keys, SDL_SCANCODE_U, &unlinkKey);
-    if (g_nodeSelected && !noChange && !ctrl && !g_browser.open && Chains::IsChainNode(g_nodeName)) {
+    bool insertNow = Actions::Pressed(Actions::kChainInsert), endNow = Actions::Pressed(Actions::kChainExtend),
+         joinNow = Actions::Pressed(Actions::kChainLink), unlinkNow = Actions::Pressed(Actions::kChainUnlink);
+    if (g_nodeSelected && !noChange && !g_browser.open && Chains::IsChainNode(g_nodeName)) {
         if (insertNow)
             RunChainOp(Chains::kOpInsert, 0);
         if (unlinkNow)
@@ -4483,7 +4525,7 @@ void Update()
 
     // Drawing a chain (level_editor_chains.h): Enter or a right click (pressed and let go without looking about)
     // finishes it.
-    static bool chainEnter, rightWas;
+    static bool rightWas;
     static float rightTravel;
     if (input.right) {
         if (!rightWas)
@@ -4492,7 +4534,7 @@ void Update()
     }
     bool rightClick = rightWas && !input.right && rightTravel < 6.0f;
     rightWas = input.right;
-    bool enterNow = Pressed(keys, SDL_SCANCODE_RETURN, &chainEnter);
+    bool enterNow = Actions::Pressed(Actions::kChainFinish);
     if (Chains::Drawing() != Chains::Draw::None && (enterNow || rightClick) && !g_browser.open)
         StopChainDrawing("Drawing finished");
 
@@ -4543,17 +4585,20 @@ void Update()
     }
 
     bool haveSelection = HaveSelection();
+    // (the Outliner's lock - level_editor_organize.h: what it holds isn't moved, turned, scaled or dropped)
+    bool changeLocked = haveSelection && Organize::SelectionLocked(false);
     if (haveSelection && !g_browser.open) {
         // The selection moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R/F, Page
         // Up/Down) down/up - and the camera follows it.
         V3 forward = Normalize({-frame.back.x, 0.0f, -frame.back.z});
         V3 right = Normalize({frame.right.x, 0.0f, frame.right.z});
-        int f = (keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0);
-        int r = (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0);
-        int u = (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_R] || keys[SDL_SCANCODE_PAGEUP] ? 1 : 0) -
-                (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_F] || keys[SDL_SCANCODE_PAGEDOWN] ? 1 : 0);
-        if (ctrl)
+        int f = (Actions::Held(keys, Actions::kForward) ? 1 : 0) - (Actions::Held(keys, Actions::kBack) ? 1 : 0);
+        int r = (Actions::Held(keys, Actions::kRight) ? 1 : 0) - (Actions::Held(keys, Actions::kLeft) ? 1 : 0);
+        int u = (Actions::Held(keys, Actions::kNudgeUp) ? 1 : 0) - (Actions::Held(keys, Actions::kNudgeDown) ? 1 : 0);
+        if (ctrl || changeLocked)
             f = r = u = 0; // (Ctrl+S, Ctrl+D)
+        if ((f || r || u) && changeLocked)
+            Organize::SelectionLocked(true);
         if ((f || r || u) && !g_dragging && !g_fieldEditing) {
             if (!g_keyMoving)
                 BeginChange();
@@ -4571,19 +4616,21 @@ void Update()
         }
         // Z / X: turn it - an object 15 degrees, scenery a quarter turn about its centre (the engine turns level
         // geometry by quarter turns only).
-        int turn = (Pressed(keys, SDL_SCANCODE_X, &turnRight) ? 1 : 0) - (zPressed && !ctrl ? 1 : 0);
+        int turn = (Actions::Pressed(Actions::kTurnRight) ? 1 : 0) - (Actions::Pressed(Actions::kTurnLeft) ? 1 : 0);
+        if (turn && Organize::SelectionLocked(true))
+            turn = 0;
         if (turn && !g_dragging && MovableNode() >= 0 && Chains::IsLadder(g_nodeName)) {
             RunChainOp(Chains::kOpTurn, static_cast<uint32_t>(turn)); // (a ladder: its facing, whole)
         } else if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName))) { // (chain points don't turn)
-            PushUndo(Snapshot());
+            PushUndo(Snapshot(), "Turn");
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
         }
         // [ / ]: scenery or objects scaled down / up a tenth (Shift: a hundredth); Alt+[ / ]: stretched so along the
         // world axis the camera faces most (looking down: y) - level_editor_scale.h.
-        static bool scaleDownKey, scaleUpKey;
-        int scaling = (Pressed(keys, SDL_SCANCODE_RIGHTBRACKET, &scaleUpKey) ? 1 : 0) -
-                      (Pressed(keys, SDL_SCANCODE_LEFTBRACKET, &scaleDownKey) ? 1 : 0);
+        int scaling = (Actions::Pressed(Actions::kScaleUp) ? 1 : 0) - (Actions::Pressed(Actions::kScaleDown) ? 1 : 0);
+        if (scaling && Organize::SelectionLocked(true))
+            scaling = 0;
         if (scaling && !g_dragging && !g_fieldEditing && !ctrl) {
             float step = shift ? Scale::kFineStep : Scale::kStep;
             float factor = scaling > 0 ? step : 1.0f / step;
@@ -4600,7 +4647,7 @@ void Update()
             }
         }
         // G: down onto the ground below it.
-        if (Pressed(keys, SDL_SCANCODE_G, &dropKey) && !g_dragging)
+        if (Actions::Pressed(Actions::kDrop) && !g_dragging && !Organize::SelectionLocked(true))
             DropSelection();
         // The wheel: nearer / further - or, while dragging, the selection pushed away / pulled back (a tenth of its
         // distance a notch).
@@ -4620,17 +4667,16 @@ void Update()
         // browser has the keys: its F, arrows and Enter).
         g_keyMoving = false;
         if (!g_browser.open && !ctrl) {
-            FlyInput fly = {(keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0),
-                            (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0),
-                            (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_SPACE] ? 1 : 0) - (keys[SDL_SCANCODE_Q] ? 1 : 0)};
+            FlyInput fly = {(Actions::Held(keys, Actions::kForward) ? 1 : 0) - (Actions::Held(keys, Actions::kBack) ? 1 : 0),
+                            (Actions::Held(keys, Actions::kRight) ? 1 : 0) - (Actions::Held(keys, Actions::kLeft) ? 1 : 0),
+                            (Actions::Held(keys, Actions::kFlyUp) ? 1 : 0) - (Actions::Held(keys, Actions::kFlyDown) ? 1 : 0)};
             g_pos = Fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds));
         }
         if (input.wheel) {
             float step = static_cast<float>(kWheelStep * boost * input.wheel);
             g_pos = g_pos - frame.back * step;
         }
-        int speed = (Pressed(keys, SDL_SCANCODE_EQUALS, &faster) ? 1 : 0) -
-                    (Pressed(keys, SDL_SCANCODE_MINUS, &slower) ? 1 : 0);
+        int speed = (Actions::Pressed(Actions::kFaster) ? 1 : 0) - (Actions::Pressed(Actions::kSlower) ? 1 : 0);
         if (speed)
             g_speed = static_cast<float>(std::max(50.0, std::min(20000.0, g_speed * std::pow(1.5, speed))));
     }
@@ -4738,6 +4784,17 @@ void Update()
             NoteAction("resized a trigger volume: %s", DescribeSelection().c_str());
         }
     }
+    // Box select armed (Ctrl+B): the press starts a box wherever it is (nothing else takes it).
+    if (input.leftPresses && haveRay && !g_dragging && Organize::BoxArmed()) {
+        Organize::BoxPress(backX, backY, static_cast<uint8_t>((ctrl ? Actions::kCtrl : 0) | (shift ? Actions::kShift : 0)));
+        input.leftPresses = 0;
+    }
+    // A press where nothing is (no arrow, gizmo, object or scenery under the cursor): a box if it's dragged (Shift
+    // adds, Ctrl removes - the click itself does what it did: deselects when plain).
+    bool boxCandidate = input.leftPresses && haveRay && !g_dragging && g_hoverAxis < 0 && g_hoverHandle < 0 &&
+                        g_hoverNode < 0 && !Live(g_hover) && !g_hoverSector && !Faces::Picking() &&
+                        !Chains::WantsPick() && Chains::Drawing() == Chains::Draw::None &&
+                        !(g_placeArmed >= 0 && g_placeOpen) && !alt;
     bool handlePressed = input.leftPresses && haveRay && !g_dragging && g_hoverAxis < 0 && g_hoverHandle >= 0 &&
                          !Triggers::Resizing() && Triggers::BeginResize(g_hoverHandle, g_pos, dir);
     if (handlePressed) {
@@ -4848,7 +4905,7 @@ void Update()
                 }
                 drag = true;
             }
-        } else if (input.leftPresses && !shift) {
+        } else if (input.leftPresses && !shift && !ctrl) {
             Deselect();
         }
         if (Primary() || Scenery::HasSelection())
@@ -4856,6 +4913,8 @@ void Update()
         NoteAction("click - selected: %s", DescribeSelection().c_str());
         if (DebugEnabled())
             Log("level editor: click - selected: %s", DescribeSelection().c_str());
+        if (drag && Organize::SelectionLocked(true))
+            drag = false; // (the Outliner's lock: selected, not moved)
         if (drag) {
             g_dragging = true;
             g_dragStart = SelectionPos();
@@ -4866,6 +4925,9 @@ void Update()
             StartDrag(g_pos, dir, shift && g_axis < 0, frame, input.x, input.y);
         }
     }
+    if (boxCandidate && !g_dragging)
+        Organize::BoxPress(backX, backY, static_cast<uint8_t>((ctrl ? Actions::kCtrl : 0) | (shift ? Actions::kShift : 0)));
+    Organize::BoxTrack(input.left, backX, backY);
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
     if (input.leftReleases && !input.left) {
         if (g_dragging && g_dragMoved)
@@ -5043,14 +5105,239 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
 
 // --- for the modules (level_editor_modules.h) ---
 
-void PushModuleUndo(std::shared_ptr<ModuleStep> before)
+void PushModuleUndoLabelled(std::shared_ptr<ModuleStep> before, const char* label)
 {
     UndoStep step;
     step.kind = UndoStep::kModule;
     step.module = std::move(before);
     step.where = SelectionPos();
-    PushUndo(step);
+    PushUndo(step, label);
 }
+
+void PushModuleUndo(std::shared_ptr<ModuleStep> before) { PushModuleUndoLabelled(std::move(before), nullptr); }
+
+// --- for the history, changes, selection and clipboard modules (level_editor_modules.h, level_editor_ux3.h) ---
+
+std::vector<HistoryEntry> UndoHistory()
+{
+    std::vector<HistoryEntry> out;
+    for (const UndoStep& step : g_undo)
+        out.push_back({step.label, step.detail});
+    return out;
+}
+
+std::vector<HistoryEntry> RedoHistory()
+{
+    std::vector<HistoryEntry> out;
+    for (auto it = g_redo.rbegin(); it != g_redo.rend(); ++it)
+        out.push_back({it->label, it->detail});
+    return out;
+}
+
+bool ChangeUnderWay() { return g_dragging || g_keyMoving || g_fieldEditing || Triggers::Resizing(); }
+
+void JumpHistory(int steps)
+{
+    if (ChangeUnderWay() || !g_active)
+        return;
+    for (; steps < 0 && !g_undo.empty(); ++steps)
+        StepHistory(&g_undo, &g_redo, "Undone");
+    for (; steps > 0 && !g_redo.empty(); --steps)
+        StepHistory(&g_redo, &g_undo, "Redone");
+}
+
+void PushLocksUndoLabelled(const char* label) { PushLocksUndo(label); }
+
+bool ApplyLayoutStep(const std::string& text, const char* label, std::string* message)
+{
+    if (!g_active || ChangeUnderWay()) {
+        *message = "Not while something is being moved";
+        return false;
+    }
+    UndoStep step;
+    step.kind = UndoStep::kLevel;
+    step.reset = false;
+    if (!Layout::CaptureText(&step.layout)) {
+        *message = "Not in a level";
+        return false;
+    }
+    Entities::StopPreview();
+    Carry::Disarm();
+    Deselect();
+    if (!Layout::PutBack(text, message))
+        return false;
+    PushUndo(step, label);
+    NoteAction("%s (the layout put in place again)", label);
+    return true;
+}
+
+SelectionIds CurrentSelection()
+{
+    SelectionIds ids;
+    for (Obj::CCompositeObject* object : SelectedObjects())
+        ids.objects.push_back(object->m_id);
+    if (ids.objects.empty())
+        ids.sectors = Scenery::Selection();
+    if (ids.objects.empty() && ids.sectors.empty() && g_nodeSelected && InspectedNode() >= 0)
+        ids.node = g_nodeName;
+    return ids;
+}
+
+void SetSelection(const SelectionIds& ids)
+{
+    if (g_dragging)
+        return;
+    Deselect();
+    std::vector<Obj::CCompositeObject*> objects;
+    for (uint32_t id : ids.objects) {
+        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+            objects.push_back(object);
+    }
+    if (!objects.empty()) {
+        SelectObjects(objects);
+    } else if (!ids.sectors.empty()) {
+        Scenery::SetSelection(ids.sectors);
+    } else if (ids.node) {
+        int index = Nodes::Find(ids.node);
+        if (index >= 0)
+            SelectNode(index);
+    }
+    if (HaveSelection())
+        FocusOnSelection();
+    NoteAction("selected: %s", DescribeSelection().c_str());
+}
+
+bool GoToThing(uint32_t id)
+{
+    if (!g_active || !id || g_dragging)
+        return false;
+    int index = Nodes::Find(id);
+    if (index >= 0) {
+        GoToNode(index);
+        if (HaveSelection())
+            GoToSelection();
+        return true;
+    }
+    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+    if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD)) {
+        Deselect();
+        SelectObjects({object});
+        GoToSelection();
+        return true;
+    }
+    OrientedBox box;
+    if (Scenery::Box(id, &box)) {
+        Deselect();
+        Scenery::SetSelection({id});
+        GoToSelection();
+        return true;
+    }
+    return false;
+}
+
+bool ProjectToBack(V3 point, float* x, float* y)
+{
+    if (!g_active || !g_haveView)
+        return false;
+    float nx, ny;
+    if (!Project(g_pos, FrameFromYawPitch(g_yaw, g_pitch), g_lens, point, kNearZ, &nx, &ny))
+        return false;
+    NdcToPixel(g_viewport, nx, ny, x, y);
+    return true;
+}
+
+uint32_t PickFilterNow() { return g_pickFilter; }
+
+int SetFieldsOnNodes(const std::vector<uint32_t>& nodes, const std::vector<FieldSet>& fields, const char* label,
+                     std::string* message)
+{
+    UndoStep step;
+    step.kind = UndoStep::kFields;
+    int set = 0;
+    for (uint32_t node : nodes) {
+        if (Nodes::Find(node) < 0)
+            continue;
+        for (const FieldSet& f : fields) {
+            Fields::Own before;
+            Fields::Capture(node, f.key, &before);
+            Fields::Value value;
+            std::string error;
+            if (!f.removed && !Fields::Parse(static_cast<Fields::Kind>(f.kind), f.text, &value, &error)) {
+                if (message->empty())
+                    *message = error;
+                continue;
+            }
+            if (!Fields::Set(node, f.key, value, f.removed, &error)) {
+                if (message->empty())
+                    *message = Objects::Label(node) + ": " + error;
+                continue;
+            }
+            step.fields.push_back({node, f.key, before});
+            ++set;
+        }
+    }
+    if (!step.fields.empty()) {
+        PushUndo(step, label);
+        NoteAction("%s: %d fields on %u nodes", label, set, static_cast<unsigned>(nodes.size()));
+    }
+    return set;
+}
+
+bool SelectionTransform(Transform* transform)
+{
+    if (!HaveSelection())
+        return false;
+    *transform = Transform{};
+    transform->pos = SelectionPos();
+    NodeEdit::Values node;
+    if (Obj::CCompositeObject* object = Primary()) {
+        const Mth::Vector& at = object->m_matrix.row[2];
+        transform->hasHeading = true;
+        transform->heading = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
+        transform->hasScale = Scale::ObjectScalable(object);
+        transform->scale = Scale::ObjectScale(object);
+    } else if (NodeValues(&node)) {
+        transform->hasHeading = true;
+        transform->heading = node.angles.y;
+    } else if (Scenery::HasSelection()) {
+        transform->hasScale = true;
+        transform->scale = Scenery::SelectionScale();
+    }
+    return true;
+}
+
+bool SetSelectionTransform(const Transform& transform)
+{
+    if (!HaveSelection() || ChangeUnderWay())
+        return false;
+    if (Organize::SelectionLocked(true))
+        return false;
+    PushUndo(Snapshot(), "Paste transform");
+    PlaceSelection(transform.pos);
+    NodeEdit::Values node;
+    if (transform.hasHeading) {
+        if (Obj::CCompositeObject* object = Primary()) {
+            const Mth::Vector& at = object->m_matrix.row[2];
+            float now = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
+            V3 pivot = Objects::PosOf(object);
+            for (Obj::CCompositeObject* o : SelectedObjects())
+                Objects::TurnAbout(o, pivot, transform.heading - now);
+        } else if (NodeValues(&node)) {
+            node.angles.y = transform.heading;
+            SetSelectedNode(node);
+        }
+    }
+    if (transform.hasScale && (Primary() || Scenery::HasSelection()) && MovableNode() < 0)
+        ScaleSelectionTo(transform.scale);
+    if (!Primary() && Scenery::HasSelection())
+        FollowScenery();
+    Settle();
+    NoteAction("pasted a transform: %s", DescribeSelection().c_str());
+    return true;
+}
+
+void ShowMessage(const std::string& text, double seconds) { Hud::Message(text, seconds); }
 
 bool CurrentView(ViewNow* view)
 {

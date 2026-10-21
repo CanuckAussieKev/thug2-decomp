@@ -161,6 +161,8 @@ int Hide(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& obje
 int Isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects);
 // Alt+H: everything shown again.
 void ShowAll();
+// These shown again (the Outliner's eye - level_editor_organize.h). Returns how many were hidden.
+int Show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects);
 int HiddenCount();
 // What is hidden while editing: the sectors' checksums and the objects' ids (the Outliner's markers).
 std::vector<uint32_t> HiddenIds();
