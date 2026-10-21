@@ -71,10 +71,19 @@ its BSP trees, textures written back byte-identical, qb files): 333 files.
   `NoMessage`.
 - The level's life (`thug1_port.ts`; `--static` leaves it out): THUG1's nodes are THUG2's predecessors, so they are
   kept nearly whole - waypoints, ledges / ladders (ClimbingNode), proximity nodes, sound emitters; LevelObjects as
-  LevelObjects (moving and bouncy: cones, trash cans, chairs, with their rigid body settings); peds (THUG2's
-  THPS6_human skeleton and animations, their THUG1 profile when THUG2 has it, else a random one); vehicles and game
-  objects whose model THUG2 has (Data\models - THUG2 ships most of THUG1's cars); particle objects whose texture THUG2
-  has; the dynamic lights (LevelLight nodes, as THUG2's own levels have them). Goal nodes are left out.
+  LevelObjects (moving and bouncy: cones, trash cans, chairs, with their rigid body settings); peds as THUG1's own
+  people (`thug1_peds.ts`: their THUG1 profile's models, on THUG1's THPS5_human / Ped_Female skeletons, with THUG1's
+  animations and its Ped_InitAI walking lists - below; `--thug2-peds`: THUG2's THPS6_human people, their THUG1
+  profile when THUG2 has it, else a random one); vehicles and game objects whose model THUG2 has (Data\models - THUG2
+  ships most of THUG1's cars); particle objects whose texture THUG2 has; the dynamic lights (LevelLight nodes, as
+  THUG2's own levels have them). Goal nodes are left out.
+- THUG1's people (`thug1_peds.ts`; docs/pending/ped-models.md): the skins of the profiles' CAS parts (THUG1's
+  `<LV>ped.pre`) to `models\THUG1_Peds\...` (thug1.toThug2Skin: THUG2's skinned meshes, `thug2_scene.skinnedMesh`),
+  their THUG1 profiles / parts added to THUG2's profile_ped.qb / cas_ped_m.qb / cas_ped_f.qb as `THUG1_<name>`
+  (`<staging>\peds.json`, applied by make_menu_level), random people as up to 6 fixed variants per profile and level;
+  THUG1's animations to `anims\THUG1\...`, loaded by the level's load_level_anims under THPS5_human (men) /
+  THUG1_Ped_Female (women: their nodes' ReferenceChecksum), with every animation THUG2's ped AI may play (THUG1's of
+  that name, else one of the same role).
 - Scripts: from the nodes' trigger scripts and the level structure's startup_script / setup_script, through
   everything they call, from the level's .qb / _scripts.qb / _sfx.qb and THUG1's level designers' shared files - by
   `tools/level_port/script_port.ts` (THUG1's long if / else / switch made THUG2's jump forms, `object:command` calls

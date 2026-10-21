@@ -61,10 +61,10 @@ test("toNs: ints, Floats, vectors, flags, names", () => {
     ]);
     assert.equal(
         toNs(s, names),
-        '{\n    Pos=(1.0, 2.5, -3.0)\n    TrickObject\n    Links=[1, 2]\n    #7323E97C=1.0\n    #E4F130F4="a\\"b"\n}',
+        '{\n    Pos=(1.0, 2.5, -3.0)\n    TrickObject\n    Links=[1, 2]\n    #7CE92373=1.0\n    #F430F1E4="a\\"b"\n}',
     );
-    // (a keyword as a name is written as its checksum)
-    assert.equal(nameText(checksum("script"), new Map([[checksum("script"), "script"]])), "#E37E78C5");
+    // (a keyword as a name is written as its checksum - NeverScript's #: the bytes in file order)
+    assert.equal(nameText(checksum("script"), new Map([[checksum("script"), "script"]])), "#C5787EE3");
 });
 
 test("QbFile reads globals, negative numbers and floats", () => {
