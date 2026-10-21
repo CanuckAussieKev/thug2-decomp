@@ -1,20 +1,20 @@
 // NOT ORIGINAL - two conversions of the same levels compared node by node as THUG2 resolves them: every node's fields
 // with the global structures it names put in place (nodes.sharedDifferences' form), so a level whose node fields were
 // shared differently (or not at all) compares equal when its nodes still mean the same. Shared structures themselves
-// (`<level>_inc_<n>`) aren't compared as globals; every other global is.
+// (`<level>_inc_<n>`) aren't compared as globals; every other global is, and every script (its bytes).
 //
 //   node tools/level_port/compare_nodes.ts <levels folder, before> <levels folder, after> [--verbose]
 //
 // Each folder: <folder>\<level>\<level>.qb (a converter's staging levels folder or an installed overlay's). One line a
-// level: its nodes, the nodes that resolve differently, the other globals that differ, and its script component
-// count (components.ts) before / after. --verbose: the differing nodes' names.
+// level: its nodes, the nodes that resolve differently, the other globals and the scripts that differ, and its script
+// component count (components.ts) before / after. --verbose: the differing nodes', globals' and scripts' names.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { isMain, print, runMain } from "../lib/py.ts";
 import { components } from "./components.ts";
 import { resolvedFields } from "./nodes.ts";
-import { Name, nameText, QbFile, type QbValue, Struct } from "./qb.ts";
+import { Name, nameText, QbFile, type QbValue, Struct, tokens } from "./qb.ts";
 import { encodeValue } from "./qb_write.ts";
 
 const INC = /_inc_\d+$/i;
@@ -23,7 +23,23 @@ export interface Comparison {
     nodes: [number, number];
     differing: string[]; // the nodes (by Name, else index) that resolve differently
     globals: string[]; // other globals that differ or are missing on one side
+    scripts: string[]; // scripts that differ or are missing on one side
     components: [number, number];
+}
+
+// A .qb's scripts as their bytes (`script` to `endscript`), by name.
+function scriptBytes(data: Buffer): Map<number, string> {
+    const toks = [...tokens(data, true)];
+    const out = new Map<number, string>();
+    for (let i = 0; i < toks.length; i++) {
+        if (toks[i]![1] !== 0x23 || toks[i + 1]?.[1] !== 0x16) continue;
+        let j = i + 2;
+        while (j < toks.length && toks[j]![1] !== 0x24) j++;
+        const end = (toks[j]?.[0] ?? data.length - 1) + 1;
+        out.set(toks[i + 1]![2].readUInt32LE(0), data.subarray(toks[i]![0], end).toString("hex"));
+        i = j;
+    }
+    return out;
 }
 
 export function compareLevel(before: Buffer, after: Buffer, level: string): Comparison {
@@ -69,8 +85,13 @@ export function compareLevel(before: Buffer, after: Buffer, level: string): Comp
         if (x === undefined || y === undefined || encodeValue(x).toString("hex") !== encodeValue(y).toString("hex"))
             globals.push(nameText(k, names));
     }
+    const sa = scriptBytes(before);
+    const sb = scriptBytes(after);
+    const scripts = [...new Set([...sa.keys(), ...sb.keys()])]
+        .filter((k) => sa.get(k) !== sb.get(k))
+        .map((k) => nameText(k, names));
     const count = (q: QbFile): number => q.globals.reduce((n, [, v]) => n + components(v), 0);
-    return { nodes: [na.length, nb.length], differing, globals, components: [count(a), count(b)] };
+    return { nodes: [na.length, nb.length], differing, globals, scripts, components: [count(a), count(b)] };
 }
 
 function main(argv: string[]): number {
@@ -82,23 +103,28 @@ function main(argv: string[]): number {
         );
         return 2;
     }
-    print("level\tnodes\tdiffering nodes\tother globals differing\tcomponents before\tafter\tsaved");
+    print("level\tnodes\tdiffering nodes\tother globals differing\tscripts differing\tcomponents before\tafter\tsaved");
     let bad = 0;
     for (const level of fs.readdirSync(afterDir).sort()) {
         const fa = path.join(beforeDir, level, `${level}.qb`);
         const fb = path.join(afterDir, level, `${level}.qb`);
         if (!fs.existsSync(fa) || !fs.existsSync(fb)) continue;
         const c = compareLevel(fs.readFileSync(fa), fs.readFileSync(fb), level);
-        if (c.differing.length || c.globals.length || c.nodes[0] !== c.nodes[1]) bad++;
+        if (c.differing.length || c.globals.length || c.scripts.length || c.nodes[0] !== c.nodes[1]) bad++;
         const nodes = c.nodes[0] === c.nodes[1] ? `${c.nodes[0]}` : `${c.nodes[0]} -> ${c.nodes[1]}`;
         print(
-            `${level}\t${nodes}\t${c.differing.length}\t${c.globals.length}\t${c.components[0]}\t${c.components[1]}\t` +
-                `${c.components[0] - c.components[1]}`,
+            `${level}\t${nodes}\t${c.differing.length}\t${c.globals.length}\t${c.scripts.length}\t` +
+                `${c.components[0]}\t${c.components[1]}\t${c.components[0] - c.components[1]}`,
         );
         if (verbose && c.differing.length) print(`  nodes: ${c.differing.slice(0, 20).join(" ")}`);
         if (verbose && c.globals.length) print(`  globals: ${c.globals.slice(0, 20).join(" ")}`);
+        if (verbose && c.scripts.length) print(`  scripts: ${c.scripts.slice(0, 20).join(" ")}`);
     }
-    print(bad ? `${bad} level(s) differ` : "every level's nodes resolve to the same fields");
+    print(
+        bad
+            ? `${bad} level(s) differ`
+            : "every level's nodes resolve to the same fields; the other globals and the scripts are the same",
+    );
     return 0;
 }
 

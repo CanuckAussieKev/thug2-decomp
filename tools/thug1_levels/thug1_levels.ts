@@ -476,6 +476,22 @@ function nodeNamesOf(
     return out;
 }
 
+// The geometry nodes nodeNamesOf leaves out (no scene sector): a THUGPRO script may still Create / Kill them
+// (thugproNew.scriptCheck). Read from the nodes' own fields: the converted nodes aren't shared yet (nodes.shareNodeFields
+// runs last, on the written .qb).
+function undrawnOf(
+    converted: readonly Struct[],
+    sectors: ReadonlySet<number>,
+    names: ReadonlyMap<number, string>,
+): Set<number> {
+    const out = new Set<number>();
+    for (const n of converted) {
+        const v = n.get("Name");
+        if (v instanceof Name && nodes.classOf(n, names) === "levelgeometry" && !sectors.has(v.value)) out.add(v.value);
+    }
+    return out;
+}
+
 function prepareNewScripts(
     tpNew: NewContext,
     port: thug1Port.Thug1Port,
@@ -518,6 +534,7 @@ function prepareNewScripts(
     // (the added scripts that can run in THUG2 here: until none is refused, as one may call another)
     const base = [...scripts.keys(), ...kills.keys(), ...GENERATED];
     const nodeNames = nodeNamesOf(converted, sectors, names);
+    const undrawn = undrawnOf(converted, sectors, names);
     let refused = true;
     while (refused) {
         refused = false;
@@ -526,6 +543,7 @@ function prepareNewScripts(
                 thug2: port.thug2,
                 defined: new Set([...base, ...out.adds.keys()]),
                 nodeNames,
+                undrawn,
                 levelNodes: levelNodesOf(tpNew.side, converted),
                 names,
             });
@@ -557,6 +575,7 @@ function applyNewScripts(
     const lines: string[] = [];
     const counts = { add: 0, set: 0, remove: 0 };
     const nodeNames = nodeNamesOf(converted, sectors, names);
+    const undrawn = undrawnOf(converted, sectors, names);
     for (const { e, name, code } of s.later) {
         if (!defined.has(name)) {
             lines.push(
@@ -569,6 +588,7 @@ function applyNewScripts(
                 thug2: port.thug2,
                 defined: new Set([...defined, ...s.adds.keys()]),
                 nodeNames,
+                undrawn,
                 levelNodes: s.levelNodes,
                 names,
             });
