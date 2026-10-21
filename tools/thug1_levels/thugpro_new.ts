@@ -167,22 +167,42 @@ const SKATER = qb.checksum("skater");
 
 // The commands a THUG2-format script calls, and the nodes it names (name= / node= / nodename= / target=, and the
 // objects of `object:command`).
-export function scriptUses(code: Uint8Array): { calls: Set<number>; nodeNames: Set<number> } {
+export function scriptUses(code: Uint8Array): {
+    calls: Set<number>;
+    nodeNames: Set<number>;
+    createKillOnly: Set<number>;
+} {
+    // createKillOnly: the named nodes the script only ever names as `Create / Kill / IsAlive Name=<node>`.
     const toks = [...qb.tokens(Buffer.concat([Buffer.from(code), Buffer.from([0])]), true)];
     const calls = new Set<number>();
     const nodeNames = new Set<number>();
+    const otherUse = new Set<number>();
     const nodeKeys = new Set(["name", "node", "nodename", "target"].map(qb.checksum));
+    const nameKey = qb.checksum("name");
     for (let i = 2; i < toks.length; i++) {
         const [, t, p] = toks[i]!;
         if (t !== 0x16) continue;
         if (toks[i + 1]?.[1] === 0x42) {
-            if (p.readUInt32LE(0) !== SKATER) nodeNames.add(p.readUInt32LE(0));
+            if (p.readUInt32LE(0) !== SKATER) {
+                nodeNames.add(p.readUInt32LE(0));
+                otherUse.add(p.readUInt32LE(0));
+            }
         } else if (CALL_AFTER.has(toks[i - 1]![1])) calls.add(p.readUInt32LE(0));
-        if (nodeKeys.has(p.readUInt32LE(0)) && toks[i + 1]?.[1] === 0x07 && toks[i + 2]?.[1] === 0x16)
-            nodeNames.add(toks[i + 2]![2].readUInt32LE(0));
+        if (nodeKeys.has(p.readUInt32LE(0)) && toks[i + 1]?.[1] === 0x07 && toks[i + 2]?.[1] === 0x16) {
+            const node = toks[i + 2]![2].readUInt32LE(0);
+            nodeNames.add(node);
+            const before = toks[i - 1]!;
+            const command = before[1] === 0x16 ? before[2].readUInt32LE(0) : null;
+            if (p.readUInt32LE(0) !== nameKey || command === null || !CREATE_KILL.has(command)) otherUse.add(node);
+        }
     }
-    return { calls, nodeNames };
+    const createKillOnly = new Set([...nodeNames].filter((v) => !otherUse.has(v)));
+    return { calls, nodeNames, createKillOnly };
 }
+
+// The commands that reach a LevelGeometry node's geometry only through its sector and skip a missing one: THUG2's Create
+// (0x005A2E50) / Kill (0x005A32C0) - the finding behind THPS3's PC-THPS3-17 -, and IsAlive.
+const CREATE_KILL = new Set(["Create", "Kill", "IsAlive"].map(qb.checksum));
 
 // The part of thug1_port.LEFT_OUT (and its prefixes, LEFT_OUT_PREFIXES) that THUGPRO's scripts aren't trusted with
 // either: goals, chapters, cutscenes and the level flags (GetFlag of a THUG1 flag read far outside THUG2's - Manhattan
@@ -210,6 +230,7 @@ export interface ScriptContext {
     defined: ReadonlySet<number>; // the scripts the level defines (ours, with the ones added)
     nodeNames: ReadonlySet<number>; // the nodes our converted level has
     levelNodes: ReadonlySet<number>; // every node name of the level (THUG1's, THUGPRO's): only these are checked
+    undrawn?: ReadonlySet<number>; // our level's geometry nodes without a scene sector (only Create / Kill allowed)
     names: ReadonlyMap<number, string>;
 }
 
@@ -237,7 +258,7 @@ function thug2Known(t: scriptPort.Thug2): Set<number> {
 
 // Why a THUGPRO script can't run in our level (null: it can).
 export function scriptCheck(code: Uint8Array, c: ScriptContext): string | null {
-    const { calls, nodeNames } = scriptUses(code);
+    const { calls, nodeNames, createKillOnly } = scriptUses(code);
     const text = (v: number): string => c.names.get(v) ?? `#${v.toString(16)}`;
     const thug2 = thug2Known(c.thug2);
     for (const v of calls) {
@@ -248,7 +269,10 @@ export function scriptCheck(code: Uint8Array, c: ScriptContext): string | null {
         if (!known) return `calls ${text(v)}, which THUG2 hasn't (THUGPRO's own?)`;
     }
     for (const v of nodeNames) {
-        if (c.levelNodes.has(v) && !c.nodeNames.has(v)) return `names node ${text(v)}, not in our level`;
+        if (!c.levelNodes.has(v) || c.nodeNames.has(v)) continue;
+        // (geometry our level keeps without a scene sector - collision-only pieces -: Create / Kill of it are safe)
+        if (c.undrawn?.has(v) && createKillOnly.has(v)) continue;
+        return `names node ${text(v)}, not in our level`;
     }
     return null;
 }

@@ -44,11 +44,11 @@ void TestCorePhysicsUpdate()
     StandIns standIns({
         {0x005BEAA0, 0, 0, Ret::Float, false, 0, {Ours(&Tmr::GetSlomoFrameSeconds)}},
         {0x0044ECE0, 0, 0, Ret::Int, false},
-        {0x00501850, 0, 0, Ret::None, true},
+        {0x00501850, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::LimitSpeed)}},
         {0x00500670, 0, 0, Ret::None, true, 0, {}, [](Frame&, Result&) {
              GameVariable<uint32_t>(0x00691974) = 0x0B0C5000;
          }},
-        {0x00500900, 0, 0, Ret::None, true},
+        {0x00500900, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::UpdateModelRotation)}},
         state(0x0050EE70, Ours(&CorePhysicsComponent::DoGroundPhysics)),
         {0x0050CA00, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::DoAirPhysics)}, [](Frame&, Result&) {
              if (g_airLands)
@@ -58,12 +58,12 @@ void TestCorePhysicsUpdate()
         state(0x0050BF50, Ours(&CorePhysicsComponent::DoLipPhysics)),
         state(0x0050DDF0, Ours(&CorePhysicsComponent::DoRailPhysics)),
         state(0x00509050, Ours(&CorePhysicsComponent::DoWallplantPhysics)),
-        {0x00503EC0, 0, 0, Ret::None, true},
+        {0x00503EC0, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::TryStartSkitch)}},
         {0x004FF200, 0, 0, Ret::None, true},
-        {0x00500710, 0, 0, Ret::None, true},
-        {0x005007A0, 0, 0, Ret::None, true},
-        {0x00500820, 0, 0, Ret::None, true},
-        {0x00500BC0, 0, 0, Ret::None, true},
+        {0x00500710, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::UpdateFreeRevert)}},
+        {0x005007A0, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::UpdateFocusButton)}},
+        {0x00500820, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::UpdateProjectiles)}},
+        {0x00500BC0, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::UpdateSpecialTime)}},
         {0x00460A20, 12, 3, Ret::None, true, 0, {Ours(&Obj::CObject::BroadcastEvent)}},
         // TryGrind's
         {0x00478F60, 0, 1, Ret::Int, false, 0, {Ours(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}},

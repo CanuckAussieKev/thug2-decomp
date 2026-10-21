@@ -1,278 +1,349 @@
-// Self-tests for the skater's sound, stance panel and state components (src/game/skater/skater_sound.cpp,
-// stance_panel.cpp, skater_state.cpp; 0x00518C80-0x005197EF): the original and ours on the same stand-in skater, every
-// call they make recorded.
+// Self-tests for the skater core physics component's setup, reset, timers and speed code (core_physics_state.cpp,
+// core_physics_speed.cpp): original vs ours on a stand-in component, every callee into game code replaced by a
+// recording stand-in for the length of the test.
 
-#include <windows.h>
-
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <vector>
 
-#include "game/front/screen_element.h"
-#include "game/front/screen_element_manager.h"
-#include "game/front/sprite_element.h"
-#include "game/mth/vector.h"
-#include "game/obj/smtptr.h"
+#include "game/core/dbg.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
+#include "game/net/gamenet_manager.h"
+#include "game/nx/coll_cache.h"
+#include "game/nx/feeler.h"
+#include "game/obj/object.h"
 #include "game/script/cscript.h"
-#include "game/script/names.h"
 #include "game/script/struct.h"
-#include "game/skater/skater.h"
-#include "game/skater/skater_sound.h"
-#include "game/skater/skater_state.h"
-#include "game/skater/stance_panel.h"
-#include "hook/skater3_testkit.h"
+#include "game/skater/core_physics.h"
+#include "hook/game.h"
+#include "hook/hook.h"
+#include "hook/log.h"
+#include "hook/selftest.h"
+#include "hook/selftests_skater_physics_harness.h"
+
+using namespace SkaterPhysicsTest;
+using Skater::CorePhysicsComponent;
 
 namespace {
 
-using namespace Sk3Tests;
+CorePhysicsComponent* Ours(uint8_t* component) { return reinterpret_cast<CorePhysicsComponent*>(component); }
 
-// Arena layout
-constexpr uint32_t kComponent = 0x0000, kObject = 0x0200, kCore = 0x0600, kState = 0x0800, kElement = 0x0A00,
-                   kScript = 0x0C00, kParams = 0x0D00, kResults = 0x0E00;
+uint32_t g_pointerResult;  // what a Ret::Fixed stand-in returns (a struct, the score...)
 
-struct Answers {
-    uint32_t calloc;
-    float length;
-    bool haveElement;
+const void* RunScriptAddress()
+{
+    return CodeAddress(
+        static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript));
+}
+
+// The stand-ins for the timers' and the component's callees.
+std::vector<StandIn> StateStandIns()
+{
+    return {
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0},  // the clock
+        {0x00478F00, 0, 1, Ret::Float, false, 0, -1, -1, 0,
+         CodeAddress(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
+        {0x00478F60, 0, 1, Ret::Int, false, 0, -1, -1, 0,
+         CodeAddress(static_cast<int (*)(uint32_t)>(&Script::GetInteger))},
+        {0x00401C30, 0, 4, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Dbg::Printf)},
+        {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0},   // TimeSincePress
+        {0x00475790, 0, 5, Ret::None, false, 8, -1, -1, 0, RunScriptAddress()},
+        {0x004FC3C0, 0, 0, Ret::Bool, true, 0, -1, -1, 0},  // (a throw)
+        {0x004FC420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},  // (walking)
+        {0x0045DB90, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::GetComponent)},
+        {0x004208D0, 0, 0, Ret::None, true, 0, -1, -1, 0},  // (the model's rotations reset)
+        {0x005114F0, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00580480, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, nullptr, &g_pointerResult}, // (the score)
+        {0x00409030, 0, 0, Ret::Fixed, false, 0, -1, -1, 0, CodeAddress(&Script::NewStruct), &g_pointerResult},
+        {0x00476410, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Script::CStruct::Init), &g_pointerResult},
+        {0x00477D40, 8, 2, Ret::None, true, 0, -1, -1, 0,
+         CodeAddress(static_cast<void (Script::CStruct::*)(uint32_t, uint32_t)>(&Script::CStruct::AddChecksum))},
+        {0x00477130, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Script::CStruct::Clear)},
+        {0x00409070, 0, 1, Ret::None, false, 0, -1, -1, 0, CodeAddress(&Script::DeleteStruct)},
+        {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0},  // the gravity
+        {0x00477C60, 8, 2, Ret::None, true, 0, -1, -1, 0,
+         CodeAddress(static_cast<void (Script::CStruct::*)(uint32_t, float)>(&Script::CStruct::AddFloat)), nullptr, 2},
+        {0x0043A930, 4, 1, Ret::Int, true, 0, -1, -1, 0},   // (a feeler copied)
+        {0x0044E4F0, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&GameNet::Manager::InNetGame)},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},  // SetState
+        {0x00416DD0, 0, 0, Ret::None, true, 0, -1, -1, 0},  // (a smart pointer released)
+        {0x005BABA0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Mem::Manager::Free)},
+        {0x004FC500, 0, 0, Ret::None, true, 0, -1, -1, 0},  // (the destructor body)
+        {0x0045D730, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CBaseComponent::Construct)},
+        {0x00417760, 0, 0, Ret::Int, true, 0, -1, -1, 0,
+         CodeAddress(static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct))},
+        {0x0040AB50, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Nx::CCollCache::Construct)},
+        {0x00401CC0, 0, 1, Ret::Fixed, false, 0, -1, -1, 0,
+         CodeAddress(static_cast<void* (*)(unsigned int)>(&Mem::Calloc)), &g_pointerResult},
+        // (speed)
+        {0x00580790, 4, 1, Ret::Double, true, 0, -1, -1, 0},  // StatValue
+        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0},  // PhysicsFloat
+        {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, nullptr, nullptr, 1}, // SetLength (a float)
+        {0x004FE1F0, 4, 1, Ret::None, true, 0, -1, -1, 0, nullptr, nullptr, 1}, // the air friction (a float)
+        {0x004FE420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
+        {0x004FE6A0, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00501B00, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
+        {0x004FE730, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00427CD0, 4, 1, Ret::Bool, true, 0, -1, -1, 0},
+    };
+}
+
+// A float near `around`: below, at, above, or not a number.
+float Around(float around, float spread)
+{
+    switch (Next() % 6) {
+    case 0:
+        return around;
+    case 1:
+        return around - spread;
+    case 2:
+        return around + spread;
+    case 3: {
+        uint32_t nan = 0x7FC00000u;
+        float f;
+        std::memcpy(&f, &nan, 4);
+        return f;
+    }
+    default:
+        return around + RandomFloat(spread * 2.0f);
+    }
+}
+
+using Method = void (CorePhysicsComponent::*)();
+
+struct Case {
+    const char* name;
+    uint32_t original;
+    Method ours;
 };
-Answers g_a;
-void* g_vtable[16];
 
-void StandIn(StandIns& s)
+// The timers and the speed code: each run on random state around its thresholds.
+void TestSkaterPhysicsTimers()
 {
-    StandInComponentBase(s, &g_a.calloc);
-    StandInStructGetters(s);
-    Rec(s, {0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 1, 0xDB90, [](Regs&) { return Addr(kCore); });
-    // The sound's.
-    Rec(s, {0x004443B0}, 1, 0x43B0, [](Regs& r) { return 0x7AB00000u ^ r.args[0]; }, false, true);
-    s.At({0x00444BB0}, 0, [](Regs& r) {
-        // (the terrain: only its byte counts - the original passes stale upper bytes)
-        Record({0x4BB0, r.args[0], r.args[1] & 0xFF, Rel(r.args[2]), r.args[3], r.args[4], r.args[5], r.args[6]});
-        return 0u;
-    });
-    RecFloat(s, {0x004023C0, AddressOf(&Mth::Vector::Length)}, 0, 0x23C0, [](Regs&) { return g_a.length; });
-    // The stance panel's.
-    Rec(s, {0x004AAE20, AddressOf(&Front::CScreenElementManager::GetElement)}, 3, 0xAE20, [](Regs& r) {
-        reinterpret_cast<uint32_t*>(r.args[0])[0] = g_a.haveElement ? Addr(kElement) : 0u;
-        return r.args[0];
-    });
-    Rec(s, {0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 1, 0x37E0);
-    Rec(s, {0x0057FEC0, AddressOf(&Obj::CSkater::GetSkaterNumber)}, 0, 0xFEC0, [](Regs&) { return 3u; });
-    Rec(s, {0x004A8630, AddressOf(&Front::CScreenElement::SetAlpha)}, 2, 0x8630);
-    Rec(s, {0x004AF130, AddressOf(&Front::CSpriteElement::SetTexture)}, 1, 0xF130);
-    Rec(s, {0x00460A20, AddressOf(&Obj::CObject::BroadcastEvent)}, 3, 0x0A20);
-    // The state's.
-    Rec(s, {0x004609F0, AddressOf(&Obj::CObject::SelfEvent)}, 2, 0x09F0);
-    Rec(s, {0x00477B80, AddressOf(static_cast<void (Script::CStruct::*)(uint32_t, int)>(&Script::CStruct::AddInteger))},
-        2, 0x7B80);
-    Rec(s, {0x00477D40, AddressOf(static_cast<void (Script::CStruct::*)(uint32_t, uint32_t)>(&Script::CStruct::AddChecksum))},
-        2, 0x7D40);
-    Rec(s, {0x0046F060, AddressOf(&Script::RegisterMemberFunctionTable)}, 3, 0xF060, nullptr, false, true);
-    for (int i = 0; i < 16; ++i)
-        g_vtable[i] = RecThunk(s, 1, 0x7AB00 + i);
-}
-
-void ResetWorld(uint32_t seed)
-{
-    FillArena(seed);
-    g_a = {};
-    g_structs.clear();
-    F<uint32_t>(kComponent + 0x0C) = Addr(kObject);
-    F<uint32_t>(kScript + 0x14) = Addr(kResults);
-    F<uint32_t>(kCore + 0x0C) = Addr(kObject);
-    F<uint32_t>(kCore + 0x1528) = Addr(kState);
-}
-
-using Cmf = int(__thiscall*)(void*, uint32_t, void*, void*);
-
-// The sound: made, destroyed, initialised (volume_mult or not); each play function and member function in each
-// state, terrain and slide flag.
-void TestSkaterSound()
-{
-    StandIns& s = *new StandIns();
-    StandIn(s);
-    for (uint32_t seed = 1; seed <= 6; ++seed) {
-        auto run = [&](bool original) {
-            g_trace.clear();
-            ResetWorld(seed);
-            Originals guard(original, {0x00518E20, 0x00518C80, 0x00518C90, 0x00518CC0, 0x00518FD0, 0x00518CF0,
-                                       0x00518D60, 0x00518DD0, 0x00518EA0, 0x00518FA0, 0x00518EE0, 0x00518F00,
-                                       0x00518F50});
-            std::vector<uint32_t> trace;
-            TestLifecycle(original, 0x00518E20, 0x00518C80, 0x00518C90, kComponent, 0x28, g_a.calloc, trace);
-            F<uint32_t>(kComponent + 0x0C) = Addr(kObject);
-            void* c = At(kComponent);
-            for (int k = 0; k < 2; ++k) {
-                g_structs.clear();
-                if (k)
-                    SetComponent(At(kParams), 0xF1A99B27, Bits(0.5f + static_cast<float>(seed)));
-                reinterpret_cast<void(__thiscall*)(void*, void*)>(Code(original, 0x00518CC0))(c, At(kParams));
-                trace.push_back(F<uint32_t>(kComponent + 0x24));
+    g_rng = 1;
+    StandIns standIns(StateStandIns());
+    int savedOffset = GameVariable<int>(0x00696D60); // (the clock's offset: 0, so times can meet exactly)
+    GameVariable<int>(0x00696D60) = 0;
+    static const Case cases[] = {
+        {"UpdateFreeRevert", 0x00500710, &CorePhysicsComponent::UpdateFreeRevert},
+        {"UpdateFocusButton", 0x005007A0, &CorePhysicsComponent::UpdateFocusButton},
+        {"UpdateProjectiles", 0x00500820, &CorePhysicsComponent::UpdateProjectiles},
+        {"UpdateModelRotation", 0x00500900, &CorePhysicsComponent::UpdateModelRotation},
+        {"UpdateSpecialTime", 0x00500BC0, &CorePhysicsComponent::UpdateSpecialTime},
+        {"Reset", 0x00506BE0, &CorePhysicsComponent::Reset},
+        {"LimitSpeed", 0x00501850, &CorePhysicsComponent::LimitSpeed},
+        {"Brake", 0x005019E0, &CorePhysicsComponent::Brake},
+        {"ApplyGroundFriction", 0x00506DF0, &CorePhysicsComponent::ApplyGroundFriction},
+        {"StartRidingHitObject", 0x005021D0, &CorePhysicsComponent::StartRidingHitObject},
+    };
+    constexpr int kCases = sizeof(cases) / sizeof(cases[0]);
+    int deep[kCases] = {};
+    bool same = true;
+    for (int variant = 0; variant < 8000 && same; ++variant) {
+        int which = variant % kCases;
+        g_rng = 0x9E3779B9u * (variant + 1);
+        FillArena();
+        uint8_t* c = g_physicsArena + kComponent;
+        g_pointerResult = (Next() % 4) ? ArenaAddress(kScratch) : 0;
+        for (uint32_t flag = 0x20; flag < 0xF8; flag += 8)
+            ArenaAt<uint8_t>(kFlags + flag) = RandomBool(30);
+        ArenaAt<int>(kFlags + 0x18) = static_cast<int>(Next() % 3);
+        switch (which) {
+        case 0:
+            ArenaAt<int>(kComponent + 0x318) = static_cast<int>(Next() % 3);
+            ArenaAt<int>(kComponent + 0x31C) = PickInt();
+            break;
+        case 1:
+            c[0x14C1] = RandomBool(50);
+            ArenaAt<uint8_t>(kInput + 0xE0) = RandomBool(60);
+            break;
+        case 2:
+            c[0x14C8] = RandomBool(10);
+            c[0x2F4] = RandomBool(90);
+            ArenaAt<uint8_t>(kFlags + 0x70) = RandomBool(10);
+            ArenaAt<uint8_t>(kProjectile + 0x1C) = RandomBool(10);
+            ArenaAt<int>(kProjectile + 0x18) = RandomBool(10);
+            ArenaAt<float>(kProjectile + 0x20) = RandomBool(85) ? 0.0f : Around(0.0f, 1.0f);
+            ArenaAt<int>(kComponent + 0x14C4) = RandomBool(60) ? 0 : static_cast<int>(Next() % 3);
+            ArenaAt<int>(kComponent + 0x2F8) = static_cast<int>(Next() % 3) - 1;
+            break;
+        case 3:
+            c[0x2DB] = RandomBool(85);
+            c[0x2DC] = RandomBool(50);
+            ArenaAt<int>(kFlags + 0x18) = RandomBool(75) ? 1 : static_cast<int>(Next() % 3);
+            ArenaAt<float>(kComponent + 0x2E8) = Around(1.0f, 0.5f);
+            ArenaAt<float>(kComponent + 0x2E0) = (Next() % 2) ? Around(21.0f, 1.0f) : Around(1.0f, 1.0f);
+            if (RandomBool(20)) {
+                // (21 - 0.99999994: 20.00000006 unrounded - over 20 - but 20 as a float)
+                ArenaAt<float>(kComponent + 0x2E0) = 21.0f;
+                ArenaAt<uint32_t>(kComponent + 0x2E8) = 0x3F7FFFFFu;
             }
-            Lcg random(seed * 17);
-            const uint32_t names[] = {0x0E338369, 0x0069E457, 0x2C779F22, 0x6F5E9124, 0x12345678};
-            for (int k = 0; k < 80; ++k) {
-                F<int>(kComponent + 0x18) = static_cast<int>(random.Below(7)) - 1;
-                F<uint8_t>(kComponent + 0x1C) = static_cast<uint8_t>(random.Below(16));
-                F<uint8_t>(kComponent + 0x1D) = static_cast<uint8_t>(random.Below(16));
-                F<uint8_t>(kComponent + 0x1E) = static_cast<uint8_t>(random.Below(2));
-                F<float>(kComponent + 0x20) = 1.0f + static_cast<float>(random.Below(8)) / 2.0f;
-                for (uint32_t at : {0xACu, 0xB0u, 0xB4u})
-                    F<float>(kObject + at) = static_cast<float>(static_cast<int>(random.Below(81)) - 40) / 3.0f;
-                g_a.length = static_cast<float>(random.Below(50)) / 3.0f;
-                float speed = static_cast<float>(random.Below(40)) / 7.0f;
-                uint32_t terrain = random.Below(16) | 0x5500;
-                switch (k % 10) {
-                case 0: reinterpret_cast<void(__thiscall*)(void*, float, uint32_t)>(Code(original, 0x00518CF0))(c, speed, terrain); break;
-                case 1: reinterpret_cast<void(__thiscall*)(void*, float, uint32_t, int)>(Code(original, 0x00518D60))(c, speed, terrain, static_cast<int>(random.Below(6))); break;
-                case 2: reinterpret_cast<void(__thiscall*)(void*, float, uint32_t)>(Code(original, 0x00518DD0))(c, speed, terrain); break;
-                case 3: reinterpret_cast<void(__thiscall*)(void*, float)>(Code(original, 0x00518EA0))(c, speed); break;
-                case 4: reinterpret_cast<void(__thiscall*)(void*, float)>(Code(original, 0x00518FA0))(c, speed); break;
-                case 5: reinterpret_cast<void(__thiscall*)(void*, float, uint32_t)>(Code(original, 0x00518EE0))(c, speed, terrain); break;
-                case 6: reinterpret_cast<void(__thiscall*)(void*, float)>(Code(original, 0x00518F00))(c, speed); break;
-                case 7: reinterpret_cast<void(__thiscall*)(void*, float)>(Code(original, 0x00518F50))(c, speed); break;
-                default:
-                    trace.push_back(static_cast<uint32_t>(reinterpret_cast<Cmf>(Code(original, 0x00518FD0))(
-                        c, names[random.Below(5)], At(kParams), At(kScript))));
-                    break;
-                }
-            }
-            trace.insert(trace.end(), g_trace.begin(), g_trace.end());
-            DumpArena(trace);
-            return trace;
-        };
-        std::vector<uint32_t> expected = run(true);
-        std::vector<uint32_t> actual = run(false);
-        Compare(expected, actual, "skater sound: made, destroyed, initialised, every sound and member function");
+            break;
+        case 4:
+            c[0x301] = RandomBool(85);
+            ArenaAt<float>(kScratch) = Around(0.0f, 0.5f);
+            ArenaAt<float>(kComponent + 0x8C) = Around(0.25f, 0.25f);
+            break;
+        case 5:
+            ArenaAt<uint8_t>(kObject + 0x110) = RandomBool(50);
+            ArenaAt<uint8_t*>(kRide + 0x18) = RandomBool(50) ? g_physicsArena + kRider : nullptr;
+            ArenaAt<uint32_t>(kComponent + 0x350) = RandomBool(30) ? 0xC0000000u : Next();
+            break;
+        case 6: {
+            ArenaAt<float>(kComponent + 0x350) = RandomBool(40) ? 0.0f : Around(0.0f, 0.25f);
+            if (RandomBool(20))
+                ArenaAt<uint32_t>(kComponent + 0x350) = RandomBool(50) ? 0xBF800000u : 0xC0000000u;
+            ArenaAt<float>(kComponent + 0x320) = RandomBool(40) ? 0.0f : Around(0.0f, 0.25f);
+            ArenaAt<float>(kComponent + 0x8C) = Around(0.25f, 0.25f);
+            if (RandomBool(25)) // (a timer that ends exactly)
+                ArenaAt<float>(kComponent + 0x350) = ArenaAt<float>(kComponent + 0x8C);
+            if (RandomBool(25))
+                ArenaAt<float>(kComponent + 0x320) = ArenaAt<float>(kComponent + 0x8C);
+            float* velocity = &ArenaAt<float>(kObject + 0xAC);
+            for (int i = 0; i < 3; ++i)
+                velocity[i] = PickFloat();
+            ArenaAt<float>(kComponent + 0x354) = PickFloat();
+            ArenaAt<float>(kComponent + 0x358) = PickFloat();
+            break;
+        }
+        case 7: {
+            float* velocity = &ArenaAt<float>(kObject + 0xAC);
+            for (int i = 0; i < 3; ++i)
+                velocity[i] = (Next() % 3) ? RandomFloat(0.2f) : PickFloat();
+            ArenaAt<float>(kComponent + 0x8C) = Around(0.05f, 0.05f);
+            if (RandomBool(20)) // (stopped: 0 left, and nothing to brake when the brake is 0)
+                velocity[0] = velocity[1] = velocity[2] = 0.0f;
+            break;
+        }
+        case 8:
+            c[0x2D9] = RandomBool(30);
+            ArenaAt<uint8_t>(kFlags + 0x70) = RandomBool(30);
+            ArenaAt<float>(kComponent + 0x314) = (Next() % 2) ? PickFloat() : Around(1.0f, 1.0f);
+            break;
+        case 9:
+            ArenaAt<uint8_t>(kFlags + 0x88) = RandomBool(30);
+            break;
+        }
+        SaveStart();
+        uint32_t seed = Next() | 1;
+        const Case& test = cases[which];
+        std::vector<uint32_t> expected = RunOnArena(seed, [&](uint8_t* component) {
+            Original<void(__thiscall*)(void*)>(test.original)(component);
+            return 0u;
+        });
+        std::vector<uint32_t> actual = RunOnArena(seed, [&](uint8_t* component) {
+            (Ours(component)->*test.ours)();
+            return 0u;
+        });
+        same = Compare(expected, actual, test.name, variant);
+        // (a call past the first checks)
+        static const uint32_t deepCalls[kCases] = {0x00401C30, 0x00475790, 0x00475790, 0x005114F0, 0x00475790,
+                                                   0x005BABA0, 0x004FE1F0, 0x0042BBF0, 0x004FE730, 0x00427CD0};
+        deep[which] += Called(actual, deepCalls[which]);
     }
-    delete &s;
+    GameVariable<int>(0x00696D60) = savedOffset;
+    bool covered = true;
+    for (int i = 0; i < kCases; ++i) {
+        if (deep[i] < 40) {
+            Log("  physics timers coverage: %s reached its deep call %d times", cases[i].name, deep[i]);
+            covered = false;
+        }
+    }
+    Check(same && covered, "skater physics: timers, reset and speed (10 functions)");
 }
 
-// The stance panel: made, destroyed, initialised, finalized; the stance in every case; updates (changed or not, an
-// element or none, hidden or a texture); the member functions on each flag.
-void TestSkaterStancePanel()
+// The component made (Create / Construct), destroyed, a ground feeler kept, GetAirTimeLeft.
+void TestSkaterPhysicsSetup()
 {
-    StandIns& s = *new StandIns();
-    StandIn(s);
-    GameMemory manager({{0x00701440, 4}});
-    for (uint32_t seed = 1; seed <= 4; ++seed) {
-        auto run = [&](bool original) {
-            g_trace.clear();
-            ResetWorld(seed);
-            GameVariable<uint32_t>(0x00701440) = 0x5E000000 + seed;
-            Originals guard(original, {0x005193B0, 0x00519130, 0x005191E0, 0x00519140, 0x00519210, 0x00519230,
-                                       0x005192C0, 0x00519150});
-            std::vector<uint32_t> trace;
-            TestLifecycle(original, 0x005193B0, 0x00519130, 0x005191E0, kComponent, 0x24, g_a.calloc, trace);
-            F<uint32_t>(kComponent + 0x0C) = Addr(kObject);
-            void* c = At(kComponent);
-            reinterpret_cast<void(__thiscall*)(void*, void*)>(Code(original, 0x00519140))(c, At(kParams));
-            trace.push_back(F<uint32_t>(kComponent + 0x18));
-            reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x00519210))(c);
-            Lcg random(seed * 19);
-            const uint32_t names[] = {0x41EB710B, 0x1EB61DCE, 0x0A23D710, 0x71B57DD6, 0xFB9B7C9C, 0x9FAB9D0B,
-                                      0x12345678};
-            for (int k = 0; k < 64; ++k) {
-                F<uint8_t>(kComponent + 0x1D) = static_cast<uint8_t>(random.Below(3));
-                F<uint8_t>(kComponent + 0x1E) = static_cast<uint8_t>(random.Below(3));
-                F<uint8_t>(kObject + 0x110) = static_cast<uint8_t>(random.Below(3));
-                F<uint8_t>(kState + 0x28) = static_cast<uint8_t>(random.Below(3));
-                if (random.Below(3) == 0)
-                    F<int>(kComponent + 0x18) = static_cast<int>(random.Below(6));
-                g_a.haveElement = random.Below(4) != 0;
-                trace.push_back(static_cast<uint32_t>(
-                    reinterpret_cast<int(__thiscall*)(void*)>(Code(original, 0x00519150))(c)));
-                if (g_a.haveElement || F<int>(kComponent + 0x18) == 99) // (a missing element is used: a crash)
-                    reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x00519230))(c);
-                trace.push_back(F<uint32_t>(kComponent + 0x18));
-                trace.push_back(static_cast<uint32_t>(reinterpret_cast<Cmf>(Code(original, 0x005192C0))(
-                    c, names[k % 7], At(kParams), At(kScript))));
-                trace.push_back(F<uint32_t>(kComponent + 0x1C));
+    g_rng = 7;
+    StandIns standIns(StateStandIns());
+    bool same = true;
+    int landing = 0;
+    for (int variant = 0; variant < 2000 && same; ++variant) {
+        int which = variant % 5;
+        g_rng = 0x7F4A7C15u * (variant + 1);
+        FillArena();
+        g_pointerResult = (Next() % 3) ? ArenaAddress(kScratch) : 0;
+        SaveStart();
+        uint32_t seed = Next() | 1;
+        std::vector<uint32_t> expected, actual;
+        switch (which) {
+        case 0:
+            // (the memory: the component itself, or none; each constructs it: the original's, ours)
+            g_pointerResult = (Next() % 3) ? ArenaAddress(kComponent) : 0;
+            expected = RunOnArena(seed, [](uint8_t*) { return Original<uint32_t(__cdecl*)()>(0x00505440)(); });
+            actual = RunOnArena(seed, [](uint8_t*) {
+                return reinterpret_cast<uint32_t>(CorePhysicsComponent::Create());
+            });
+            break;
+        case 1:
+            expected = RunOnArena(seed, [](uint8_t* component) {
+                return reinterpret_cast<uint32_t>(Original<void*(__thiscall*)(void*)>(0x00500CA0)(component));
+            });
+            actual = RunOnArena(seed, [](uint8_t* component) {
+                return reinterpret_cast<uint32_t>(Ours(component)->Construct());
+            });
+            break;
+        case 2: {
+            unsigned int flags = Next() % 4;
+            expected = RunOnArena(seed, [flags](uint8_t* component) {
+                return reinterpret_cast<uint32_t>(
+                    Original<void*(__thiscall*)(void*, unsigned int)>(0x00500DB0)(component, flags));
+            });
+            actual = RunOnArena(seed, [flags](uint8_t* component) {
+                return reinterpret_cast<uint32_t>(Ours(component)->Destroy(flags));
+            });
+            break;
+        }
+        case 3:
+            expected = RunOnArena(seed, [](uint8_t* component) {
+                Original<void(__thiscall*)(void*, void*)>(0x00506BA0)(component, g_physicsArena + kScratch);
+                return 0u;
+            });
+            actual = RunOnArena(seed, [](uint8_t* component) {
+                Ours(component)->SetLastGroundFeeler(g_physicsArena + kScratch);
+                return 0u;
+            });
+            break;
+        case 4: {
+            ArenaAt<uint8_t*>(kScratch + 0x14) = g_physicsArena + kScratch + 0x100; // (the script's parameters)
+            switch (Next() % 4) {
+            case 0: // (at the take-off height, not moving up: -0 / gravity)
+                ArenaAt<float>(kObject + 0xB0) = 0.0f;
+                ArenaAt<float>(kFlags + 0x11C) = 0.0f;
+                break;
+            case 1: // (far up, a take-off height with bits the subtraction loses even unrounded)
+                ArenaAt<float>(kObject + 0x50) = 1.0e10f + RandomFloat(1.0e9f);
+                ArenaAt<uint32_t>(kFlags + 0x11C) = 0x3F000000u | (Next() & 0x7FFFFF);
+                break;
+            case 2:
+                ArenaAt<uint32_t>(kObject + 0xB0) = 0x7FC00000u; // (not a number)
+                break;
+            default:
+                break;
             }
-            trace.insert(trace.end(), g_trace.begin(), g_trace.end());
-            DumpArena(trace);
-            return trace;
-        };
-        std::vector<uint32_t> expected = run(true);
-        std::vector<uint32_t> actual = run(false);
-        Compare(expected, actual, "skater stance panel: made, destroyed, the stance, updated, member functions");
+            SaveStart();
+            auto* script = reinterpret_cast<Script::CScript*>(g_physicsArena + kScratch);
+            expected = RunOnArena(seed, [script](uint8_t* component) {
+                return static_cast<uint32_t>(Original<int(__thiscall*)(void*, void*, void*)>(0x00500DE0)(
+                    component, reinterpret_cast<void*>(0x1234), script));
+            });
+            actual = RunOnArena(seed, [script](uint8_t* component) {
+                return static_cast<uint32_t>(
+                    Ours(component)->GetAirTimeLeft(reinterpret_cast<Script::CStruct*>(0x1234), script));
+            });
+            landing += Called(actual, 0x00477C60);
+            break;
+        }
+        }
+        same = Compare(expected, actual, "physics setup", variant);
     }
-    delete &s;
-}
-
-// The state: made, destroyed, registered, initialised; its setters (changed or not); every member function; the
-// state history's three.
-void TestSkaterState()
-{
-    StandIns& s = *new StandIns();
-    StandIn(s);
-    for (uint32_t seed = 1; seed <= 4; ++seed) {
-        auto run = [&](bool original) {
-            g_trace.clear();
-            ResetWorld(seed);
-            Originals guard(original, {0x00519740, 0x00519430, 0x00519450, 0x00519620, 0x00519460, 0x00519660,
-                                       0x00519680, 0x005196A0, 0x00519470, 0x00519650, 0x00519480, 0x00519490,
-                                       0x005194A0, 0x005194B0, 0x005194C0, 0x005196D0, 0x005194D0, 0x005194F0,
-                                       0x00519510, 0x00519520, 0x00519530, 0x005196E0, 0x00519540, 0x005195B0,
-                                       0x005196F0, 0x00519720, 0x00519600, 0x005197D0, 0x005197E0, 0x005197C0});
-            std::vector<uint32_t> trace;
-            TestLifecycle(original, 0x00519740, 0x00519450, 0x00519620, kComponent, 0x128, g_a.calloc, trace);
-            reinterpret_cast<void(__cdecl*)()>(Code(original, 0x00519430))();
-            F<uint32_t>(kComponent + 0x0C) = Addr(kObject);
-            void* c = At(kComponent);
-            reinterpret_cast<void(__thiscall*)(void*, void*)>(Code(original, 0x00519460))(c, At(kParams));
-            trace.push_back(F<uint32_t>(kComponent + 0x18));
-            Lcg random(seed * 23);
-            const uint32_t members[] = {0x00519480, 0x00519490, 0x005194A0, 0x005194B0, 0x005194C0, 0x005196D0,
-                                        0x005194D0, 0x005194F0, 0x00519510, 0x00519520, 0x00519530, 0x005196E0,
-                                        0x00519540, 0x005195B0, 0x005196F0, 0x00519720, 0x00519600};
-            for (int k = 0; k < 120; ++k) {
-                F<int>(kComponent + 0x18) = static_cast<int>(random.Below(7)) - 1;
-                F<int>(kComponent + 0x1C) = static_cast<int>(random.Below(3)) - 1;
-                F<uint8_t>(kComponent + 0x70) = static_cast<uint8_t>(random.Below(3));
-                F<uint8_t>(kComponent + 0xE0) = static_cast<uint8_t>(random.Below(3));
-                F<uint8_t>(kComponent + 0xE1) = static_cast<uint8_t>(random.Below(4));
-                F<uint8_t>(kComponent + 0x118) = static_cast<uint8_t>(random.Below(3));
-                F<uint8_t>(kComponent + 0x120) = static_cast<uint8_t>(random.Below(3));
-                g_structs.clear();
-                if (random.Below(4))
-                    SetComponent(At(kParams), 0, random.Below(2) ? GameVariable<uint32_t>(0x0067F09C) : 0x12345u);
-                switch (k % 4) {
-                case 0: reinterpret_cast<void(__thiscall*)(void*, int)>(Code(original, 0x00519660))(c, static_cast<int>(random.Below(6))); break;
-                case 1: reinterpret_cast<void(__thiscall*)(void*, int)>(Code(original, 0x00519680))(c, static_cast<int>(random.Below(3)) - 1); break;
-                case 2: reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(Code(original, 0x005196A0))(c, 0x7700 + random.Below(4)); break;
-                default: reinterpret_cast<void(__thiscall*)(void*)>(Code(original, k & 4 ? 0x00519470 : 0x00519650))(c); break;
-                }
-                trace.push_back(reinterpret_cast<bool(__thiscall*)(void*, void*, void*)>(
-                                    Code(original, members[k % 17]))(c, At(kParams), At(kScript))
-                                    ? 1u
-                                    : 0u);
-                for (uint32_t at : {0x18u, 0x1Cu, 0x70u, 0xE0u, 0x118u, 0x120u, 0x124u})
-                    trace.push_back(F<uint32_t>(kComponent + at));
-            }
-            // The state history's frame time and destructor body.
-            uint8_t* frame = At(0x2000);
-            for (uint32_t time : {0x12345678u, 0xFFFF0001u, 0u}) {
-                reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(Code(original, 0x005197E0))(frame, time);
-                trace.push_back(F<uint32_t>(0x2078));
-                trace.push_back(reinterpret_cast<uint32_t(__thiscall*)(void*)>(Code(original, 0x005197D0))(frame));
-            }
-            F<uint32_t>(0x2100) = 0x0BADF00D;
-            reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x005197C0))(At(0x2100));
-            trace.push_back(Rel(F<uint32_t>(0x2100)));
-            trace.insert(trace.end(), g_trace.begin(), g_trace.end());
-            DumpArena(trace);
-            return trace;
-        };
-        std::vector<uint32_t> expected = run(true);
-        std::vector<uint32_t> actual = run(false);
-        Compare(expected, actual, "skater state: made, destroyed, set, every member function; state history frames");
-    }
-    delete &s;
+    Check(same && landing > 100, "skater physics: Create, Construct, Destroy, SetLastGroundFeeler, GetAirTimeLeft");
 }
 
 } // namespace
 
-SELFTEST(Early, TestSkaterSound, RemoveStandIns);
-SELFTEST(Early, TestSkaterStancePanel, RemoveStandIns);
-SELFTEST(Early, TestSkaterState, RemoveStandIns);
+SELFTEST(Early, TestSkaterPhysicsTimers);
+SELFTEST(Early, TestSkaterPhysicsSetup);

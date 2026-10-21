@@ -39,17 +39,17 @@ void CorePhysicsComponent::Update()
     At<uint8_t>(this, kFrameFlag255) = Flag(this, 0x78);
     if (!Flag(this, 0x20) && InputOf(this)[0x1C0])
         SetFlag(this, 0x20, 1);
-    Call(0x00501850, this); // LimitSpeed (SK1)
+    LimitSpeed();
     SetFlag(this, 0x98, 0);
     SetFlag(this, 0xA0, 0);
     Call(0x00500670, this); // (a box round the skater at +0x4F4, published at 0x00691974 for the frame)
-    Call(0x00500900, this); // UpdateModelRotation (SK1)
+    UpdateModelRotation();
 
     switch (StateOf(this)) {
     case kGround:
         VectorAt(this, kGroundStart) = VectorAt(ObjectOf(this), kPosition);
         DoGroundPhysics();
-        Call(0x00503EC0, this); // StartSkitch (SK1)
+        TryStartSkitch();
         break;
     case kAir:
         DoAirPhysics();
@@ -72,12 +72,12 @@ void CorePhysicsComponent::Update()
         break;
     }
 
-    Call(0x004FF200, this);
+    Call(0x004FF200, this); // (not rewritten yet)
     TryGrind(false); // (inlined in the original)
-    Call(0x00500710, this); // UpdateFreeRevert (SK1)
-    Call(0x005007A0, this); // UpdateFocusButton (SK1)
-    Call(0x00500820, this); // UpdateProjectiles (SK1)
-    Call(0x00500BC0, this); // UpdateSpecialTime (SK1)
+    UpdateFreeRevert();
+    UpdateFocusButton();
+    UpdateProjectiles();
+    UpdateSpecialTime();
 
     uint8_t inAir = StateOf(this) == kAir && Flag(this, 0x30) && !Flag(this, 0x78);
     uint8_t& airFromJump = At<uint8_t>(this, kAirFromJump);

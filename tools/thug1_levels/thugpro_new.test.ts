@@ -135,6 +135,24 @@ test("scriptCheck: THUG2's commands and the level's nodes only; THUG1's flags re
     assert.equal(scriptCheck(moveTo("TRG_Way"), c), null);
     assert.match(scriptCheck(moveTo("TRG_Gone"), c)!, /names node/);
     assert.equal(scriptCheck(moveTo("SomeScreenId"), c), null); // (not a node of the level: not checked)
+    // (geometry kept without a scene sector: Create / Kill / IsAlive of it allowed, anything else refused)
+    const lines = (...parts: [string, string][]): Buffer =>
+        Buffer.concat([
+            Buffer.from([0x23]),
+            name("S"),
+            Buffer.from([0x01]),
+            ...parts.flatMap(([cmd, n]) => [keyed(cmd, "name", n), Buffer.from([0x01])]),
+            Buffer.from([0x24, 0x01]),
+        ]);
+    const cmds = new Set(["Kill", "Create", "IsAlive", "Visible"].map(checksum));
+    const u = { ...c, defined: cmds, undrawn: new Set([checksum("TRG_Gone")]) };
+    assert.deepEqual(
+        [...scriptUses(lines(["Kill", "TRG_Gone"], ["Visible", "TRG_Way"])).createKillOnly],
+        [checksum("TRG_Gone")],
+    );
+    assert.equal(scriptCheck(lines(["Kill", "TRG_Gone"], ["IsAlive", "TRG_Gone"], ["Create", "TRG_Gone"]), u), null);
+    assert.match(scriptCheck(lines(["Kill", "TRG_Gone"], ["Visible", "TRG_Gone"]), u)!, /names node/);
+    assert.match(scriptCheck(lines(["Kill", "TRG_Gone"]), { ...c, defined: cmds })!, /names node/); // (not known to be undrawn geometry)
 });
 
 const nm = (t: string, n: Map<number, string>): Name => {

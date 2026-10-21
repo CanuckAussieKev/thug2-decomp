@@ -11780,6 +11780,16 @@
         },
         "why": "THUG2's LevelGeometry Create (0x005A2E50) and Kill (0x005A32C0) reach the missing geometry only through CSector::SetVisibility / SetActive / 0x0049EA30, which skip a null one; only Visible / Invisible (0x005A3B80) and Shatter read it (the crash level-port-compromises.md section 3 lists)",
         "required": false
+      },
+      {
+        "id": "PC-THPS3-18",
+        "op": "set",
+        "target": {
+          "what": "every node kind's common fields (all but Pos / Position / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> - the converter's last step on the level's .qb (nodes.shareNodeFields), after every pass that reads nodes' own fields",
+          "levels": "*"
+        },
+        "why": "node fields shared the way THUG2's own levels do (ncomp_*), so big levels fit the script component pool",
+        "required": true
       }
     ]
   },
