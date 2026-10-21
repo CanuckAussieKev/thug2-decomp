@@ -15,6 +15,7 @@
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/thugpro_compat.h"
+#include "game/net/thugpro_peer.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
@@ -337,6 +338,9 @@ void SkateNet::AddClientHandlers(Net::App* client, int index)
         for (int id : {0x91, 0x92, 0x94})
             AddHandler(client, id, HandleScavengerHunt, 0, this);
     }
+    // NOT ORIGINAL - the THUGPRO peer mode's messages, 155-159 (game/net/thugpro_peer.h)
+    if (GameNet::Thugpro::PeerMode())
+        GameNet::Thugpro::AddClientHandlers(client, this);
 }
 
 // 0x0056C920

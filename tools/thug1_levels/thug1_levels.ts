@@ -4,6 +4,7 @@
 //   node tools/thug1_levels/thug1_levels.ts selfcheck [--thug2 C:\Games\THUG2] [--thug1 C:\Games\THUG1]
 //   node tools/thug1_levels/thug1_levels.ts convert [levels...] [--thug2 ...] [--thug1 ...] [--out <folder>]
 //        [--compat thugpro|none] [--legacy-names] [--thugpro <THUGPRO's install>] [--no-thugpro-new] [--no-port-changes]
+//        [--thug2-peds]
 //   then: node tools/menu_level/make_menu_level.ts   (installs them into the data overlay, with level select signs)
 //
 // convert reads <thug1>\Game\Data\pre (the level archives <LV>scn.pre, <LV>col.pre, <LV>.pre and qb.pre's Levels.qb)
@@ -15,7 +16,9 @@
 // The THUG2 formats, the geometry conversion, the node arrays and the installing are shared with tools/thps4_levels
 // (tools/level_port); this folder has THUG1's own formats (thug1.ts) and its levels.
 
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
@@ -32,6 +35,7 @@ import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { parseConverterArgs } from "../lib/converter_args.ts";
 import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
+import { applyTextEdits, DRIVING_EDITS } from "./driving.ts";
 import * as handEdits from "./hand_edits.ts";
 import * as portChanges from "./port_changes.ts";
 import * as thug1 from "./thug1.ts";
@@ -112,6 +116,7 @@ interface Args {
     thugpro: string; // THUGPRO's install (TPN-THUG1-1 ... TPN-THUG1-4 read from it)
     noThugproNew: boolean;
     noPortChanges: boolean;
+    thug2Peds: boolean; // THUG2's people on THUG1's peds' places (as before thug1_peds.ts)
 }
 
 // --- level names (online: the load script's checksum is the level) ---------------------------------------------------
@@ -162,6 +167,33 @@ export function setCompat(name: string, thugproNew_ = true, ownChanges = true): 
             (level as Record<string, unknown>)[section] = data;
             COMPAT.edits.set(code.toLowerCase(), level);
         }
+    }
+    applyOverrides();
+}
+
+// Our own changes that take THUGPRO's entries back for THUG1's own data (port_changes.overrides - PC-THUG1-21 VC <-> SJ
+// as THUG1 has it, PC-THUG1-22 the drivable limo's scripts): those thugpro_new entries and TP-34 nodes left out. An
+// override naming nothing that's there (with the section loaded) is an error: the data and the register disagree.
+function applyOverrides(): void {
+    for (const o of portChanges.overrides(COMPAT.portChanges, "thugpro_new")) {
+        const level = COMPAT.new.get(o.level.toLowerCase());
+        if (level === undefined) continue; // (--no-thugpro-new / --compat none)
+        const kept = level.entries.filter((e) => e.target.toLowerCase() !== o.name.toLowerCase());
+        if (kept.length === level.entries.length)
+            throw new FormatError(`port_changes: override of thugpro_new ${o.level} ${o.name}: no such entry`);
+        level.entries = kept;
+    }
+    for (const o of portChanges.overrides(COMPAT.portChanges, "created_at_start")) {
+        const level = COMPAT.edits.get(o.level.toLowerCase());
+        const created = level?.created_at_start;
+        if (level === undefined || created === undefined) continue; // (--compat none)
+        const without = (list: string[] | undefined): string[] | undefined =>
+            list?.filter((n) => n.toLowerCase() !== o.name.toLowerCase());
+        const on = without(created.on);
+        const off = without(created.off);
+        if ((on?.length ?? 0) + (off?.length ?? 0) === (created.on?.length ?? 0) + (created.off?.length ?? 0))
+            throw new FormatError(`port_changes: override of TP-34 ${o.level} ${o.name}: not in its on / off`);
+        level.created_at_start = { ...(on ? { on } : {}), ...(off ? { off } : {}) };
     }
 }
 
@@ -491,6 +523,13 @@ function prepareNewScripts(
     for (const e of tpNew.level.entries) {
         if (e.kind !== "script") continue;
         const name = handEdits.checksumOf(e.target);
+        if (port.peds !== null && name === qb.checksum("load_level_anims")) {
+            // (THUGPRO's loads its people's THPS6_human animations; ours loads THUG1's own people's - thug1_peds.ts)
+            out.report.push(
+                `  THUGPRO new, left out: ${e.id} ${e.op} ${e.target}: ours loads THUG1's own people's animations`,
+            );
+            continue;
+        }
         const key = `${e.archive ?? tpNew.level.archive}|${e.file}`.toLowerCase();
         let raw = files.get(key);
         if (raw === undefined) {
@@ -659,7 +698,7 @@ export function convertLevelNodes(
         }
         // (PC-THUG1-4: our own change - port_changes.ts)
         const duplicates = pc.on("PC-THUG1-4") ? thug1Port.resolveDuplicateTriggers(array, scriptQbs, names) : 0;
-        made = new thug1Port.NodePass(port, array, names, sectors, forced);
+        made = new thug1Port.NodePass(port, array, names, sectors, forced, code);
         if (duplicates) made.counts.set("DuplicateTrigger nodes given their link's script", duplicates);
         kept = made.kept;
         for (const n of kept) {
@@ -700,7 +739,21 @@ export function convertLevelNodes(
                 : tpNew.level.entries
                       .filter((e) => e.kind === "script" && e.op === "add")
                       .map((e) => handEdits.checksumOf(e.target));
-        const ported = thug1Port.portScripts(port, levelSources, converted, array, kills, names, struct, sectors, adds);
+        // (PC-THUG1-22: a level in its won_goals keeps its drivable cars - THUG1's driving scripts callable, those goals won)
+        const won = portChanges.wonGoals(pc).get(code.toLowerCase());
+        const ported = thug1Port.portScripts(
+            port,
+            levelSources,
+            converted,
+            array,
+            kills,
+            names,
+            struct,
+            sectors,
+            won === undefined ? adds : [...adds, ...port.driving],
+            won ?? [],
+            made,
+        );
         scripts = ported.scripts;
         if (tpNew !== null) {
             newScripts = prepareNewScripts(tpNew, port, converted, scripts, kills, names, sectors);
@@ -720,10 +773,15 @@ export function convertLevelNodes(
                 triggers.add(nodeName.value);
             }
         }
-        const anims = q
-            .calls(qb.checksum("load_level_anims"))
-            .filter(([c]) => port.thug2.scripts.has(c))
-            .map(([c]) => qb.nameText(c, names));
+        const levelAnims = q.calls(qb.checksum("load_level_anims"));
+        const anims = levelAnims.filter(([c]) => port.thug2.scripts.has(c)).map(([c]) => qb.nameText(c, names));
+        // (THUG1's own people: the THUG1 sets the level loads, in our form - thug1_peds.ts)
+        if (port.peds !== null && made.ownSexes.size) {
+            for (const [c] of levelAnims) {
+                const own = port.peds.extraScript(c);
+                if (own !== null) made.ownExtras.set(own[0], own[1]);
+            }
+        }
         extra =
             ported.globalsText +
             thug1Port.levelScriptsNs(made, anims, new Set([...scripts.keys(), ...port.thug2.scripts]));
@@ -778,6 +836,50 @@ export function convertLevelNodes(
     return { triggers, starts, recheck };
 }
 
+// PC-THUG1-22 (our own change - port_changes.ts): THUG1's driving scripts (player_controlled_vehicle.qb - the player's
+// car, its camera, every car's setup -, misc\car_scripts.qb - SetupDrivableCar, the "Press ... to drive" prompt, getting
+// in and out) written to <out>\scripts\... in their THUG2 form (DRIVING_EDITS: decompiled with ns.exe, edited,
+// compiled): THUG2 ships both files empty but loads them (its qdir.txt) and keeps the engine side - the Vehicle /
+// VehicleCamera / VehicleSound components, the skater's SetDriving / Driving, BroadcastEnterVehicle - and the scripts
+// that call into them (goal_initialize_skater's GetVehicleSetup, switch_control's ToggleUserControlledVehicleMode).
+// make_menu_level puts them in the data overlay's scripts folder, where they replace the empty ones
+// (ported_levels.installFiles). Their scripts are then the game's own for the scripts of the levels the change names
+// (port.driving; the other levels' drivable cars stay parked, as before: untried). Returns the files written.
+export function drivingScripts(port: thug1Port.Thug1Port, qbPre: string, out: string, ns: string): string[] {
+    const written: string[] = [];
+    for (const file of portChanges.drivingFiles(COMPAT.portChanges)) {
+        const data = prx.find(qbPre, file);
+        if (data === null) {
+            print(`warning: PC-THUG1-22: ${file} not in ${qbPre} - THUG1's drivable cars stay parked`);
+            continue;
+        }
+        const source = new scriptPort.Source(data, path.win32.basename(file).toLowerCase(), true);
+        for (const name of source.scripts.keys()) port.driving.add(name);
+        const target = pyJoin(out, file);
+        fs.mkdirSync(path.win32.dirname(target), { recursive: true });
+        const edits = DRIVING_EDITS[file.toLowerCase()];
+        if (edits === undefined) {
+            fs.writeFileSync(target, data);
+        } else {
+            const work = fs.mkdtempSync(path.join(os.tmpdir(), "tmp"));
+            try {
+                const qbFile = path.join(work, "thug1.qb");
+                const nsFile = path.join(work, "thug1.ns");
+                fs.writeFileSync(qbFile, data);
+                const result = spawnSync(ns, ["-d", qbFile, "-o", nsFile]);
+                if (result.error) throw result.error;
+                if (result.status !== 0 || !fs.existsSync(nsFile)) pyExit(`ns couldn't decompile THUG1's ${file}`);
+                const text = fs.readFileSync(nsFile, "latin1");
+                common.nsCompile(ns, applyTextEdits(text, edits, file), target);
+            } finally {
+                fs.rmSync(work, { recursive: true, force: true });
+            }
+        }
+        written.push(file);
+    }
+    return written;
+}
+
 // Python's str.title() (ASCII): each run of letters capitalised.
 function title(text: string): string {
     return text.replace(/[A-Za-z]+/g, (word) => word[0]!.toUpperCase() + word.slice(1).toLowerCase());
@@ -796,10 +898,15 @@ export function cmdConvert(args: Args): void {
     }
     const thug2Loads = thug2LoadScripts(args.thug2);
     // (--static: only the geometry's nodes, restarts, rails and kill zones, as before the scripts were brought)
-    const port = args.static ? null : new thug1Port.Thug1Port(args.thug2, prePath(args, "qb.pre")!);
+    // (THUG1's own people - thug1_peds.ts - unless --thug2-peds)
+    const port = args.static ? null : new thug1Port.Thug1Port(args.thug2, prePath(args, "qb.pre")!, !args.thug2Peds);
     const wanted = args.levels.length ? args.levels : LEVELS.filter((info) => info[5]).map((info) => info[0]);
     if (fs.existsSync(out) && fs.statSync(out).isDirectory()) fs.rmSync(out, { recursive: true });
     fs.mkdirSync(out, { recursive: true });
+    if (port !== null) {
+        const written = drivingScripts(port, prePath(args, "qb.pre")!, out, args.ns);
+        if (written.length) print(`THUG1's driving scripts (PC-THUG1-22): ${written.join(", ")}`);
+    }
     // TPN-THUG1-1 ... TPN-THUG1-4: what is new in THUGPRO, read from its install (thugpro_new.ts); missing: warned, left out
     const install = new thugproNew.Install(args.thugpro);
     const okModels = new Set<string>();
@@ -929,11 +1036,24 @@ export function cmdConvert(args: Args): void {
         manifest.levels.push(entry);
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
+    if (port?.peds) {
+        // (THUG1's own people the levels use: their models, animations and the profile / CAS additions - peds.json)
+        report.push(port.peds.write(out));
+        for (const [what, why] of [...port.peds.failures].sort())
+            report.push(`  THUG1 ped not converted: ${what}: ${why}`);
+    }
     print(report.join("\n"));
     print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
 }
 
 // --- self-check -------------------------------------------------------------------------------------------------
+
+// THUG2's own skins the self-check writes again (a single-mesh head; a torso whose first index list is in the
+// exporter's whole-sector numbering), under Data\models.
+export const SKIN_CHECKS = [
+    "Ped_Male\\Australia\\Ped_M_AU_Head01.skin.xbx",
+    "Ped_Male\\Australia\\Ped_M_AU_Torso05.skin.xbx",
+];
 
 export function cmdSelfcheck(args: Args): number {
     const pre = pyJoin(args.thug2, "Data", "pre");
@@ -944,7 +1064,77 @@ export function cmdSelfcheck(args: Args): number {
         "TestLevelcol.prx",
         ...args.extra,
     ]);
+    // THUG2's own ped skins written again by the skinned-mesh writer from what its reader makes of them
+    // (thug2_scene.rewriteSkin): byte-identical.
+    for (const skin of SKIN_CHECKS) {
+        const file = pyJoin(args.thug2, "Data", "models", skin);
+        try {
+            const data = fs.readFileSync(file);
+            const again = thug2Scene.writeScene(thug2Scene.rewriteSkin(thug2Scene.readScene(data, skin)));
+            if (!again.equals(data)) throw new FormatError("not the same written again");
+            checked += 1;
+            print(`ok   ${skin}: written again byte-identical`);
+        } catch (e) {
+            if (
+                !(e instanceof FormatError || e instanceof RangeError || (e as NodeJS.ErrnoException).code === "ENOENT")
+            )
+                throw e;
+            print(`FAIL ${skin}: ${(e as Error).message}`);
+            failures += 1;
+        }
+    }
     const thug1Pre = pyJoin(resolveInstall(args.thug1, "thug1"), "Data", "pre");
+    // THUG1's ped skins (the <LV>ped.pre archives): to THUG2's form on a 55-bone skeleton, and that read back and
+    // written again the same.
+    const skins = new Set<string>();
+    for (const archive of fs.readdirSync(thug1Pre).sort()) {
+        if (!archive.toLowerCase().endsWith("ped.pre")) continue;
+        const isSkin = (n: string): boolean => n.toLowerCase().endsWith(".skin.xbx") && !skins.has(n.toLowerCase());
+        for (const [name, data] of prx.entries(pyJoin(thug1Pre, archive), isSkin)) {
+            skins.add(name.toLowerCase());
+            try {
+                const out = thug2Scene.writeScene(thug1.toThug2Skin(thug1.readScene(data, name), name, 55));
+                const again = thug2Scene.writeScene(thug2Scene.rewriteSkin(thug2Scene.readScene(out, name)));
+                if (!again.equals(out)) throw new FormatError("the THUG2 skin isn't the same written again");
+                checked += 1;
+            } catch (e) {
+                if (!(e instanceof FormatError || e instanceof RangeError)) throw e;
+                print(`FAIL ${archive} ${name}: ${e.message}`);
+                failures += 1;
+            }
+        }
+    }
+    print(`ok   ${skins.size} THUG1 ped skins made THUG2's`);
+    // THUG1's animations with their standard-key table keys written out (thug1.untableAnim): every one, and the
+    // result has none left (written out again: the same bytes).
+    const bits = pyJoin(thug1Pre, "Bits.pre");
+    const qTable = prx.find(bits, "anims\\standardkeyQ.bin");
+    const tTable = prx.find(bits, "anims\\standardkeyT.bin");
+    if (qTable === null || tTable === null) {
+        print(`FAIL ${bits}: no standard key tables`);
+        failures += 1;
+    } else {
+        const anims = new Set<string>();
+        for (const archive of fs.readdirSync(thug1Pre).sort()) {
+            if (!archive.toLowerCase().endsWith(".pre")) continue;
+            // (the objects' animations: anims\...; the levels' camera paths are another format)
+            const isAnim = (n: string): boolean => /^anims[\\/].*\.ska\.xbx$/i.test(n) && !anims.has(n.toLowerCase());
+            for (const [name, data] of prx.entries(pyJoin(thug1Pre, archive), isAnim)) {
+                anims.add(name.toLowerCase());
+                try {
+                    const out = thug1.untableAnim(data, qTable, tTable, name);
+                    if (!thug1.untableAnim(out, qTable, tTable, name).equals(out))
+                        throw new FormatError("table keys left");
+                    checked += 1;
+                } catch (e) {
+                    if (!(e instanceof FormatError || e instanceof RangeError)) throw e;
+                    print(`FAIL ${archive} ${name}: ${e.message}`);
+                    failures += 1;
+                }
+            }
+        }
+        print(`ok   ${anims.size} THUG1 animations' table keys written out`);
+    }
     // Every level file of every THUG1 level archive (scenes, textures, collision, the levels' qb files).
     for (const archive of fs.readdirSync(thug1Pre).sort()) {
         const lowArchive = archive.toLowerCase();
@@ -1006,6 +1196,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             "no-thugpro-new": { kind: "flag" },
             // our own changes that THUG2 doesn't need to load the level off (port_changes.ts)
             "no-port-changes": { kind: "flag" },
+            // THUG2's people on THUG1's peds' places (THPS6_human, THUG2 profiles), not THUG1's own (thug1_peds.ts)
+            "thug2-peds": { kind: "flag" },
         },
         argv,
     );
@@ -1023,6 +1215,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         thugpro: parsed.strings.get("thugpro")!,
         noThugproNew: parsed.flags.get("no-thugpro-new")!,
         noPortChanges: parsed.flags.get("no-port-changes")!,
+        thug2Peds: parsed.flags.get("thug2-peds")!,
     };
     if (!(compat.PROFILES as readonly string[]).includes(args.compat)) {
         process.stderr.write(

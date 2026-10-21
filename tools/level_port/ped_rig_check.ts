@@ -20,6 +20,20 @@ export interface LevelRigs {
     female: number;
     human: number;
     femaleAnimsLoaded: boolean;
+    // the animation sets the level's own-rig peds need (a port's own people: ped_rigs.ts OWN_RIGS) that its
+    // load_level_anims doesn't load
+    ownAnimsMissing: string[];
+}
+
+// A port's own profile (THUG1's people: tools/thug1_levels/thug1_peds.ts names them THUG1_<profile>): its rig, the man's
+// or the woman's by the skeleton the node has; undefined for THUG2's profiles.
+export function ownRig(profile: string, node: Struct, names: ReadonlyMap<number, string>): pedRigs.Rig | undefined {
+    if (!profile.startsWith("THUG1_")) return undefined;
+    const skeleton = node.get("skeletonName");
+    const text = skeleton instanceof Name ? (names.get(skeleton.value) ?? "") : "";
+    return text.toLowerCase() === pedRigs.THUG1_FEMALE.skeleton.toLowerCase()
+        ? pedRigs.THUG1_FEMALE
+        : pedRigs.THUG1_MALE;
 }
 
 export function checkLevel(file: QbFile, femaleRig: (profile: number) => boolean): LevelRigs {
@@ -36,8 +50,14 @@ export function checkLevel(file: QbFile, femaleRig: (profile: number) => boolean
     const names = new Map(file.names);
     const fix: pedRigs.RigFix = { changed: [], female: 0, human: 0 };
     const wrong: string[] = [];
+    const ownAnims = new Set<string>();
     for (const ped of peds) {
-        const one = pedRigs.fixPedRigs([new Struct([...ped.entries])], names, femaleRig);
+        const copy = new Struct([...ped.entries]);
+        const one = pedRigs.fixPedRigs([copy], names, femaleRig, (v, node) => {
+            const rig = ownRig(names.get(v) ?? "", node, names);
+            if (rig !== undefined) ownAnims.add(rig.anims);
+            return rig;
+        });
         fix.female += one.female;
         fix.human += one.human;
         const was = ped.get("skeletonName");
@@ -46,8 +66,11 @@ export function checkLevel(file: QbFile, femaleRig: (profile: number) => boolean
     }
     const anims = file.scripts.get(checksum("load_level_anims")) ?? [];
     const female = checksum(pedRigs.FEMALE.anims);
-    const femaleAnimsLoaded = anims.some((line) => line.some(([t, p]) => t === 0x16 && p.readUInt32LE(0) === female));
-    return { wrong, female: fix.female, human: fix.human, femaleAnimsLoaded };
+    const loads = (value: number): boolean =>
+        anims.some((line) => line.some(([t, p]) => t === 0x16 && p.readUInt32LE(0) === value));
+    const femaleAnimsLoaded = loads(female);
+    const ownAnimsMissing = [...ownAnims].filter((a) => !loads(checksum(a))).sort();
+    return { wrong, female: fix.female, human: fix.human, femaleAnimsLoaded, ownAnimsMissing };
 }
 
 function levelQbs(target: string): string[] {
@@ -79,11 +102,12 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             const r = checkLevel(new QbFile(fs.readFileSync(file), file, true), (v) => assets.femaleRigs.has(v));
             if (!r.human) continue;
             const animsBad = r.female > 0 && !r.femaleAnimsLoaded;
-            const ok = !r.wrong.length && !animsBad;
+            const ok = !r.wrong.length && !animsBad && !r.ownAnimsMissing.length;
             print(
                 `${path.relative(target, file) || file}: ${r.human} human peds, ${r.female} on Ped_Female` +
                     `${r.wrong.length ? `, ${r.wrong.length} on the wrong skeleton` : ""}` +
-                    `${animsBad ? ", Ped_Female animations not loaded (load_level_anims)" : ""}${ok ? " - ok" : ""}`,
+                    `${animsBad ? ", Ped_Female animations not loaded (load_level_anims)" : ""}` +
+                    `${r.ownAnimsMissing.length ? `, not loaded: ${r.ownAnimsMissing.join(", ")}` : ""}${ok ? " - ok" : ""}`,
             );
             for (const w of r.wrong.slice(0, 5)) print(`    ${w}`);
             if (r.wrong.length > 5) print(`    ... ${r.wrong.length - 5} more`);

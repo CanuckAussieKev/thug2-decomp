@@ -353,6 +353,180 @@ export function readScene(data: Uint8Array, name = "scene"): Scene {
     return { versions, materials, sectors, hierarchyCount, tail };
 }
 
+// --- skinned meshes (people and animals: models\...\<name>.skin.xbx) ----------------------------------------------
+//
+// A skinned sector (SEC_WEIGHTS) has its meshes in the same form as the rest, with a vertex of its own (measured on
+// THUG2's Ped_M_AU_Head01.skin.xbx and the other shipped peds - 1,066 meshes, Data\models\Peds, Ped_Male, Ped_Female):
+//   +0  3f position
+//   +12 u32 weights: three 11 / 11 / 10-bit fields, each n / 1023 (a fourth bone's weight is what is left of 1)
+//   +16 4 x u16 bone indices, each the bone's number x 3 (the rows of its matrix in the shader's constants)
+//   +24 u32 normal: x 11 bits, y 11 bits (signed, / 1023), z 10 bits (signed, / 511)
+//   +28 BGRA colour (128 = full)
+//   +32 2f uv, one pair per uv set (stride 40, 48, 56)
+// The mesh's built-in vertex shader is how many of the three weights any vertex uses (1 ... 3: the shipped files' 4 and
+// 6 are rare variants), its offsets [24, 28, 32]; the pixel shader as a static mesh's (geometry.pixelShader). The
+// shipped meshes' first index list (`lods`) is the strip again - in the numbering of the exporter's whole sector when
+// a sector has several meshes; the strip (`strips[0]`) is in the mesh's own.
+export const SKIN_OFFSETS = [24, 28, 32] as const;
+const SKIN_BASE_STRIDE = 32; // (without the uvs)
+
+export interface SkinVertex {
+    position: number[]; // 3f
+    weights: number[]; // 3 (the packed fields / 1023)
+    bones: number[]; // 4 bone numbers (not x 3)
+    normal: number[]; // 3
+    color: number[]; // BGRA
+    uvs: number[]; // 2 per uv set
+}
+
+export function unpackWeights(packed: number): number[] {
+    return [(packed & 0x7ff) / 1023, ((packed >>> 11) & 0x7ff) / 1023, ((packed >>> 22) & 0x3ff) / 1023];
+}
+
+export function packWeights(weights: readonly number[]): number {
+    const field = (w: number | undefined, max: number): number =>
+        Math.min(max, Math.max(0, Math.round((w ?? 0) * 1023)));
+    return (field(weights[0], 0x7ff) | (field(weights[1], 0x7ff) << 11) | (field(weights[2], 0x3ff) << 22)) >>> 0;
+}
+
+export function unpackNormal(packed: number): number[] {
+    const signed = (v: number, bits: number): number => (v >= 1 << (bits - 1) ? v - (1 << bits) : v);
+    return [
+        signed(packed & 0x7ff, 11) / 1023,
+        signed((packed >>> 11) & 0x7ff, 11) / 1023,
+        signed((packed >>> 22) & 0x3ff, 10) / 511,
+    ];
+}
+
+export function packNormal(normal: readonly number[]): number {
+    const field = (v: number | undefined, scale: number, mask: number): number =>
+        Math.round(Math.min(1, Math.max(-1, v ?? 0)) * scale) & mask;
+    return (
+        (field(normal[0], 1023, 0x7ff) |
+            (field(normal[1], 1023, 0x7ff) << 11) |
+            (field(normal[2], 511, 0x3ff) << 22)) >>>
+        0
+    );
+}
+
+// The vertices of a skinned mesh's buffer.
+export function readSkinVertices(mesh: Mesh): SkinVertex[] {
+    const sets = (mesh.stride - SKIN_BASE_STRIDE) / 8;
+    if (mesh.buffers.length !== 1 || !Number.isInteger(sets) || sets < 1)
+        throw new FormatError(`not a skinned mesh (stride ${mesh.stride}, ${mesh.buffers.length} buffers)`);
+    const data = mesh.buffers[0]![1];
+    if (data.length !== mesh.stride * mesh.vertexCount)
+        throw new FormatError(`skinned mesh: ${data.length} bytes for ${mesh.vertexCount} vertices`);
+    const r = new Reader(data, 0, "skin vertices");
+    const out: SkinVertex[] = [];
+    for (let k = 0; k < mesh.vertexCount; k++) {
+        const position = r.read("3f");
+        const weights = unpackWeights(r.u32());
+        const bones = r.read("4H").map((b) => {
+            if (b % 3) throw new FormatError(`skinned mesh: bone index ${b} not a multiple of 3`);
+            return b / 3;
+        });
+        const normal = unpackNormal(r.u32());
+        const color = r.read("4B");
+        out.push({ position, weights, bones, normal, color, uvs: r.read(`${2 * sets}f`) });
+    }
+    return out;
+}
+
+export function skinVertexBuffer(vertices: readonly SkinVertex[], uvSets: number): Buffer {
+    const w = new Writer();
+    for (const v of vertices) {
+        w.write("3f", ...v.position);
+        w.u32(packWeights(v.weights));
+        w.write("4H", ...v.bones.map((b) => b * 3));
+        w.u32(packNormal(v.normal));
+        w.write("4B", ...v.color);
+        if (v.uvs.length < 2 * uvSets)
+            throw new FormatError(`skinned vertex: ${v.uvs.length / 2} of ${uvSets} uv sets`);
+        w.write(`${2 * uvSets}f`, ...v.uvs.slice(0, 2 * uvSets));
+    }
+    return w.getvalue();
+}
+
+// The built-in vertex shader a skinned mesh needs: how many of the three packed weights its vertices use (at least 1).
+export function skinWeightCount(vertices: readonly SkinVertex[]): number {
+    let count = 1;
+    for (const v of vertices) {
+        const packed = packWeights(v.weights);
+        if ((packed >>> 22) & 0x3ff) count = 3;
+        else if (count < 2 && (packed >>> 11) & 0x7ff) count = 2;
+        if (count === 3) break;
+    }
+    return count;
+}
+
+export interface SkinMesh {
+    sphere: number[]; // 4f
+    bbox: number[]; // 6f
+    flags: number;
+    material: number;
+    vertices: SkinVertex[];
+    uvSets: number;
+    strip: number[]; // into `vertices`
+    lod?: number[]; // the first index list when not the strip (the shipped files' exporter numbering)
+    pixelShader: number;
+    psValue?: number;
+    psData?: Buffer;
+}
+
+// A skinned mesh in THUG2's form (the writer: readSkinVertices' counterpart).
+export function skinnedMesh(m: SkinMesh): Mesh {
+    const mesh: Mesh = {
+        sphere: m.sphere,
+        bbox: m.bbox,
+        flags: m.flags,
+        material: m.material,
+        lods: [m.lod ?? m.strip],
+        strips: [m.strip],
+        stride: SKIN_BASE_STRIDE + 8 * m.uvSets,
+        vertexCount: m.vertices.length,
+        buffers: [[0, skinVertexBuffer(m.vertices, m.uvSets)]],
+        vertexShader: [skinWeightCount(m.vertices), 0],
+        offsets: [...SKIN_OFFSETS],
+        hasWibble: 0,
+        indexSets: 1,
+        pixelShader: m.pixelShader,
+    };
+    if (m.pixelShader === 1) {
+        mesh.psValue = m.psValue ?? 0;
+        mesh.psData = m.psData ?? Buffer.alloc(0);
+    }
+    return mesh;
+}
+
+// A skinned scene written again from what readSkinVertices makes of it (the self-check: THUG2's own skins must come
+// out byte-identical). Throws on a mesh the writer can't make (more than one index list, a colour wibble...).
+export function rewriteSkin(scene: Scene): Scene {
+    const sectors = scene.sectors.map((s) => {
+        if (!(s.flags & SEC_WEIGHTS)) throw new FormatError(`sector 0x${s.checksum.toString(16)}: not skinned`);
+        const meshes = s.meshes.map((mesh) => {
+            if (mesh.lods.length !== 1 || mesh.strips.slice(1).some((x) => x.length) || mesh.hasWibble)
+                throw new FormatError(`sector 0x${s.checksum.toString(16)}: a mesh the skin writer doesn't make`);
+            const parts: SkinMesh = {
+                sphere: mesh.sphere,
+                bbox: mesh.bbox,
+                flags: mesh.flags,
+                material: mesh.material,
+                vertices: readSkinVertices(mesh),
+                uvSets: (mesh.stride - SKIN_BASE_STRIDE) / 8,
+                strip: mesh.strips[0]!,
+                lod: mesh.lods[0]!,
+                pixelShader: mesh.pixelShader,
+            };
+            if (mesh.psValue !== undefined) parts.psValue = mesh.psValue;
+            if (mesh.psData !== undefined) parts.psData = mesh.psData;
+            return skinnedMesh(parts);
+        });
+        return { ...s, meshes };
+    });
+    return { ...scene, sectors };
+}
+
 export function writeScene(scene: Scene): Buffer {
     const w = new Writer();
     w.write("3I", ...scene.versions);

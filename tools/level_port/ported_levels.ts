@@ -229,16 +229,31 @@ export function installFiles(game: string, overlay: string, manifest: Manifest |
             fs.cpSync(from, target, { recursive: true, preserveTimestamps: true, errorOnExist: true, force: false });
             installed.push(entry);
         }
+        // Game scripts a converter brings along (<staging>\scripts\...: THUG1's driving scripts, PC-THUG1-22 -
+        // tools/thug1_levels drivingScripts) into the overlay's scripts folder, where they replace the game's file of
+        // the same name (THUG2's empty player_controlled_vehicle.qb / misc\car_scripts.qb).
+        const scripts = path.join(game, staging, "scripts");
+        if (fs.existsSync(scripts) && fs.statSync(scripts).isDirectory()) {
+            fs.cpSync(scripts, path.join(overlay, "scripts"), {
+                recursive: true,
+                preserveTimestamps: true,
+                force: true,
+            });
+            installed.push(`scripts (${staging})`);
+        }
         // Models a converter brings along (<staging>\models\<name>\...: THPS3's TPN-THPS3, THUGPRO's own models read from
         // its install) into the overlay's models folder, where the game looks for models\<name>\<name>.mdl.
-        const models = path.join(game, staging, "models");
-        if (!fs.existsSync(models) || !fs.statSync(models).isDirectory()) continue;
-        for (const entry of fs.readdirSync(models)) {
-            const target = path.join(overlay, "models", entry);
-            // (merged, not replaced: two stagings may both bring models\veh\... - THUG1's El train and leaf blower, say;
-            // make_menu_level empties the overlay before each run anyway)
-            fs.cpSync(path.join(models, entry), target, { recursive: true, preserveTimestamps: true, force: true });
-            installed.push(`models\\${entry}`);
+        // (and the animations a converter brings for its own people: <staging>\anims\<game>\... - ped_models.ts)
+        for (const folder of ["models", "anims"]) {
+            const from = path.join(game, staging, folder);
+            if (!fs.existsSync(from) || !fs.statSync(from).isDirectory()) continue;
+            for (const entry of fs.readdirSync(from)) {
+                const target = path.join(overlay, folder, entry);
+                // (merged, not replaced: two stagings may both bring models\veh\... - THUG1's El train and leaf blower,
+                // say; make_menu_level empties the overlay before each run anyway)
+                fs.cpSync(path.join(from, entry), target, { recursive: true, preserveTimestamps: true, force: true });
+                installed.push(`${folder}\\${entry}`);
+            }
         }
     }
     return installed.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));

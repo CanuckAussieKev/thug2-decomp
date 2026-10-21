@@ -3173,7 +3173,7 @@ export function cmdSelfcheck(args: Args): number {
 
 const USAGE =
     "usage: thps3_levels.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--out OUT] [--ns NS] [--no-objects] " +
-    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
+    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--collfix] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
 
 const HELP = `${USAGE}
 
@@ -3198,7 +3198,9 @@ options:
   --no-thugpro-new     convert: THUGPRO's new content left out, its hand edits kept
   --no-port-changes    convert: our own changes to THPS3's data left out (PC-n) but those the game needs
   --no-collfix         convert: THUGPRO's invisible collision overlays left out (Suburbia's *_collfix, Foundry's
-                       *_coll - TPN-THPS3-1 / -2), Suburbia's Inviso_PicnicCollide01 kept as THPS3's (collfix.ts)
+                       *_coll - TPN-THPS3-1 / -2), Suburbia's Inviso_PicnicCollide01 kept as THPS3's (collfix.ts) -
+                       the default since 2026-10-21
+  --collfix            convert: THUGPRO's collision overlays kept
   --no-collfix-only NAMES
                        convert: only these overlays left out (comma-separated base names, e.g. SUB_TRamp06)
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
@@ -3212,6 +3214,7 @@ const FLAG_OPTIONS = [
     "--no-thugpro-new",
     "--no-port-changes",
     "--no-collfix",
+    "--collfix",
 ] as const;
 const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--extra", "--help"];
 
@@ -3290,7 +3293,9 @@ export function parseCommandLine(argv: readonly string[]): Args {
         thugpro: values["--thugpro"] ?? thugproNew.DEFAULT_THUGPRO,
         noThugproNew: flags.has("--no-thugpro-new"),
         noPortChanges: flags.has("--no-port-changes"),
-        noCollfix: flags.has("--no-collfix") || values["--no-collfix-only"] !== undefined,
+        // (the user's decision 2026-10-21, all 8 spots tried by hand: our own collision covers every overlay - left out by
+        // default; --collfix keeps THUGPRO's, --no-collfix-only NAMES leaves out just those)
+        noCollfix: !flags.has("--collfix") || flags.has("--no-collfix") || values["--no-collfix-only"] !== undefined,
         collfixOnly:
             values["--no-collfix-only"]
                 ?.split(",")

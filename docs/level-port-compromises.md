@@ -103,6 +103,9 @@ back: the crash is in THUG2's code, which we are rewriting.
 - 23 materials' second passes not converted. (The env-mapped passes - uv flag 0x80, the *_reflect overlays - are
   THUG2's env passes since 2026-10-21; before, their uv wibble scrolled them over the ramps: docs/pending/shimmer-2.md.)
 - Reflection overlays (PS2 blend 0x8) drawn as additive: an approximation that fixed Foundry's black halfpipe.
+- THUGPRO's invisible collision overlays (Suburbia's 5 `*_collfix`, Foundry's 3 `*_coll`) left out by default: the user
+  tried every spot by hand without them (2026-10-21) - THPS3's own collision is enough there; THPS3's picnic box is
+  back (`--collfix` keeps THUGPRO's; docs/pending/collfix-spots.md).
 - Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one, always
   shown (the flicker script's Invisible of the lit set left out - with no dark set under it, half the room went black;
   docs/pending/warehouse-flicker.md).
@@ -206,6 +209,24 @@ nodes, run by THUG2's code.
 - THUG1 level / career flags (GetFlag, SetFlag...).
 - 29 LoadSound calls of sounds THUG2 lacks. Music and voice streams.
 - Classic levels: DuplicateTrigger gap sectors get the trigger script of the node they link to (as THUG1).
+
+**Drivable cars** (THUG1's "Press ... to drive" cars, unlocked by story goals)
+- THUG2 ships its driving scripts empty (`player_controlled_vehicle.qb`, `misc\car_scripts.qb`) but keeps the engine
+  side (Vehicle / VehicleCamera / VehicleSound components, the skater's SetDriving) and the scripts calling into it.
+  PC-THUG1-22 installs THUG1's two files in the data overlay (made from the user's THUG1 at conversion, in their THUG2
+  form: THUG2 renamed the proximity events - ObjectInRadius / ObjectOutofRadius -, RunScriptOnObject + Block hangs, the
+  player's car needs a Motion component; tools/thug1_levels/driving.ts) and keeps
+  VC's limo, its unlocking goal (VC_Goal_Race4) counted as won - so it's parked by the SJ restart from the start, as in
+  a finished THUG1 story. The other levels' drivable cars (NJ rally car, NY Impala, FL police car, SD gardener's cart,
+  HI car, VC leaf blower - THUGPRO made it a static prop -, RU Lada, HH baja) stay as before (parked or absent): their
+  goals aren't counted as won and their SetupDrivableCar calls are left out. Adding one is a level in PC-THUG1-22's
+  `won_goals` (and taking back THUGPRO's emptying of its script, if any) - each needs trying in the game.
+- With the Anteara Mod on, its own copies of the two files (THUG1's car scripts - given the same THUG2 edits by
+  make_menu_level -, its own vehicle setups with LimoCar) are used instead.
+- The prompt and help texts keep THUG1's button codes (`\m5`, `\b3`...), which THUG2's font shows as other glyphs.
+
+**VC <-> SJ** (PC-THUG1-21): as THUG1 - no transition arrows (THUGPRO's, which change level with its own LoadZone),
+and VC's SJ kill zone (trp_death_SJ) kills, sending you to TRG_Restart_SJ.
 
 ## 7. THAW
 
