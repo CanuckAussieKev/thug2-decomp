@@ -144,3 +144,33 @@ Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, wa
     button x, UsedBy's kinds). The kit's arena grew to 64 KB (the score component's +0x154C) and copies the arena
     out faster. 41 deliberate bugs caught, 4 after strengthening (the button x events, the exact thresholds, UsedBy's
     kinds, a spin whose sum rounds up to the next degree).
+- [x] Batch SK5-5 (NOT run in the game yet; the Walk component's life, state and member functions, 26 functions):
+  src/game/skater/walk_physics.cpp/.h.
+  - Life: 0x00525E40 RegisterMemberFunctions (the table 0x006847F8, 0x18-byte records), 0x00528880 / 0x00528890 a
+    contact's constructor (its feeler at +0x1C) / destructor (the smart pointer +0xB4), 0x005288B0 the destructor
+    body (+0x184C let go, the collision cache +0x790, the eight contacts last first, the base's), 0x00526060
+    InitFromStructure (camera= an object id: the object and its WalkCamera component; +0x710 cleared), 0x00525FB0
+    Finalize (nine components: Input, animblender, Model, Trigger, SkaterPhysicsControl, MovableContact,
+    SkaterState, SkaterCorePhysics, TaggingControl), 0x00525E60 SetCamera.
+  - 0x005260E0 SetState (26 callers): the previous state and the time kept; leaving the ground / air clears the
+    run flags; leaving the air its jump time and velocity and the rail flag; the ground resets +0x1870 to 10000;
+    a climb (4) its offset; caught a ledge from the air: the pad's two hang controls debounced for
+    hang_control_debounce_time (now - time x -1000, truncated). 0x005260C0 ClearModelOffset.
+  - Queries: 0x00528560 GetFacing, 0x00528220 GetTurnedFacing (index sevenths of a turn: the cosine rounded to
+    float, the sine kept in the register), 0x00528370 UpdateRunAdjustment (1 while the score holds a combo, else
+    down at run_adjust_rate), 0x00528400 LimitSpeed (the speed kept from rising 100 ms after landing; a stopped run
+    becomes Skid or Stand), 0x005284C0 GetGravity (cdecl; the moon cheat halves it and sets the global
+    0x007CE4FD), 0x00528280 FindStandPosition (stdcall: feeler_height x 2 above to stand_pos_search_depth below).
+  - Member functions (records of 0x006847F8): Walk_Ground, Walk_ScaleAnimSpeed (Off resets the blender's speed -
+    its third argument the float with bits 1, as the original pushes -, Run / HangMove / LadderMove, StandardSpeed=),
+    ReleaseHang (0x0043DB90), Walk_GetStateTime, Walk_GetSpeedScale (WalkSlow / WalkFast / RunSlow / RunFast by
+    max_slow_walk_speed / max_fast_walk_speed / max_slow_run_speed), Walk_GetHangInitAnimType,
+    Walk_GetStateDuration (seconds), Walk_GetPreviousState / Walk_GetState (the names at 0x0064C618),
+    Walk_GetHangAngle (asin of the rail's climb between the hang nodes, in degrees, signed by the facing - z's square
+    from its unrounded difference, as the x87 code), Walk_SetForwardControlLock.
+  - Test (selftests_skater_walk.cpp TestWalkPieces): every function, original vs ours, 20-3000 variants each (states
+    -1..5, clock values at and around 100 / 150 ms, d-pad / stick, the moon cheat, collisions found or not, -0 and +0
+    speeds, the parameters sometimes equal to the component's values). The trick queue's test was split in two
+    (TestTrickQueue / TestTrickQueueExtra): it ran past the watchdog's 45 s on a loaded machine.
+    36 deliberate bugs caught, 1 after strengthening (Walk_GetSpeedScale's `<` against `<=`: the parameters and
+    the speed now drawn from a shared short list half the time).

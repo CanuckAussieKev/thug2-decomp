@@ -600,6 +600,9 @@ void RunTrickTests(int part)
               c->DoNextTrick(first, reinterpret_cast<CStruct*>(params), reinterpret_cast<CStruct*>(MaybeToken(50)));
               return 0u;
           });
+    }
+    // (part 2: split from part 0 to keep each test well under the watchdog's 45 s)
+    if (part == 2) {
     check("trick: DoNextManualTrick", 3000,
           [](uint8_t* c) { Original<void(__thiscall*)(Self, uint32_t)>(0x005228B0)(c, Token(Next())); return 0u; },
           [](CTrickComponent* c) { c->DoNextManualTrick(reinterpret_cast<CStruct*>(Token(Next()))); return 0u; });
@@ -733,14 +736,17 @@ void RunTrickTests(int part)
             g_arraysAlways = false;
         }
     }
-    Check(ok, part == 0 ? "trick: the component's tricks, button buffer and trick objects (original vs ours)"
-                        : "trick: CallMemberFunction (original vs ours)");
+    Check(ok, part == 0   ? "trick: the component's tricks and button buffer (original vs ours)"
+              : part == 2 ? "trick: the component's extra tricks, mappings and trick objects (original vs ours)"
+                          : "trick: CallMemberFunction (original vs ours)");
 }
 
 void TestTrickQueue() { RunTrickTests(0); }
 void TestTrickMemberFunctions() { RunTrickTests(1); }
+void TestTrickQueueExtra() { RunTrickTests(2); }
 
 } // namespace
 
 SELFTEST(Early, TestTrickQueue, Sk5::Cleanup);
 SELFTEST(Early, TestTrickMemberFunctions, Sk5::Cleanup);
+SELFTEST(Early, TestTrickQueueExtra, Sk5::Cleanup);
