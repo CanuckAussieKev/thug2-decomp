@@ -217,6 +217,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_flip_name.cpp
     src/hook/selftests_skater_gap.cpp
     src/hook/selftests_skater_sound_net.cpp
+    src/hook/selftests_skater_nonlocal.cpp
     src/hook/selftests_skater_queries.cpp
     src/hook/selftests_skater_physics_control.cpp
     src/hook/selftests_skater_timers.cpp
@@ -630,6 +631,7 @@ add_library(thug2_code OBJECT
     src/game/obj/trigger_component.cpp
     src/game/skater/rotation.cpp
     src/game/skater/local_net_logic.cpp
+    src/game/skater/nonlocal_net_logic.cpp
     src/game/skater/end_run.cpp
     src/game/skater/finalize_physics.cpp
     src/game/skater/flip_and_rotate.cpp
