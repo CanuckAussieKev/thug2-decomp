@@ -1647,6 +1647,8 @@ void AddNodeGizmos(const Frame& frame, int selected)
             }
             o.circles.push_back({px, py, r + 1.5f * k, kOutline, true, 1.0f});
             o.circles.push_back({px, py, r, c, true, 1.0f});
+            if (n.restartTypes & Nodes::kHorse) // (a HORSE spot: restart_types has Horse - the feature map)
+                o.texts.push_back({px + r + 3.0f * k, py - r - 12.0f * k, 0xFFF0943C, "H"});
             break;
         }
         case Nodes::Family::Crown: {
@@ -2464,7 +2466,7 @@ void LevelPropsRequest(const Ui::Request& request)
 }
 
 // The Place palette's chain entries (after the node kinds): a new rail, a new path, a new ladder.
-constexpr int kChainEntries = 3;
+constexpr int kChainEntries = 4; // (the feature map's ledge the fourth)
 int ChainEntry(int entry)
 {
     int base = static_cast<int>(PlaceEntries().size());
@@ -2551,6 +2553,7 @@ Chains::Draw ChainKindOf(int entry)
     return chain == 0   ? Chains::Draw::Rail
            : chain == 1 ? Chains::Draw::Path
            : chain == 2 ? Chains::Draw::Ladder
+           : chain == 3 ? Chains::Draw::Ledge
                         : Chains::Draw::None;
 }
 
@@ -3027,6 +3030,7 @@ Ui::Model BuildModel()
         model.place.entries.push_back({"Rail (click points; Enter finishes)", 0xFF7FB2D9, ""});
         model.place.entries.push_back({"Path (ped / car waypoints; Enter finishes)", 0xFF8FD18F, ""});
         model.place.entries.push_back({"Ladder (click a wall at its foot, then its top)", 0xFFC88FD9, ""});
+        model.place.entries.push_back({"Ledge (hang / shimmy: click points along an edge; Enter finishes)", 0xFFB98CFF, ""});
         // (peds, cars, bouncy sets, particle systems, sound emitters - level_editor_entities.h; PlaceEntity)
         for (const Entities::PaletteEntry& e : Entities::Palette())
             model.place.entries.push_back({e.label, e.colour, e.why});
@@ -3390,6 +3394,10 @@ void Reset()
         }
         if (Chains::IsLadder(g_nodeName))
             RunChainOp(Chains::kOpFacingHome, 0); // (a level ladder turned: its facing too - its own undo step)
+        if (Chains::ViewOf(g_nodeName).speed > 0.0f)
+            RunChainOp(Chains::kOpSpeed, 0); // (a rail point's speed-up taken off: its own undo step)
+        if (Triggers::ProximOf(g_nodeName))
+            Triggers::SetProxim(Triggers::ProximEdit{g_nodeName}, true); // (a proximity node's scripts / shape)
     } else if (!objects.empty()) {
         UndoStep before = Snapshot();
         bool any = false;
@@ -4364,7 +4372,7 @@ void Update()
         Frame view = FrameFromYawPitch(g_yaw, g_pitch);
         Triggers::Tick(g_pos, view.back * -1.0f, g_yaw);
         // (an editor trigger selected by itself: its resize handles)
-        Triggers::SetSelected(MovableNode() >= 0 && Triggers::IsTrigger(g_nodeName) ? g_nodeName : 0);
+        Triggers::SetSelected(MovableNode() >= 0 && Triggers::HasHandles(g_nodeName) ? g_nodeName : 0);
         UndoStep step;
         if (Triggers::TakeUndo(&step.triggers)) {
             step.kind = UndoStep::kTriggers;
@@ -4922,6 +4930,8 @@ void Draw()
         Cameras::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ,
                             model.nodes.selected >= 0 ? Nodes::All()[model.nodes.selected].name : 0, &g_overlay.lines);
         Triggers::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
+        Triggers::AddExtras(g_pos, frame, g_lens, g_viewport, kNearZ, model.nodes.selected, &g_overlay.lines,
+                            &g_overlay.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
         Triggers::AddHandles(&g_overlay.circles); // (the selected trigger volume's resize handles)
         Entities::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         for (size_t i = 0; i + 1 < lines.size(); i += 2)

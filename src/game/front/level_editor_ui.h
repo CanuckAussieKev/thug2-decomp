@@ -336,6 +336,8 @@ std::vector<Request> TakeRequests();
 // The Inspector's chain section (level_editor_chains_ui.cpp): drawn inside the node's section; what's asked for added
 // to `requests`.
 void ChainSection(const Chains::View& chain, std::vector<Request>* requests);
+// The feature map (level_editor_spots_ui.cpp): a spawn's Horse checkbox (its restart_types, through kFieldSet).
+void SpawnSection(int nodeIndex, std::vector<Request>* requests);
 // Phase 6 (level_editor_fields_ui.cpp): the Inspector's typed fields of node `nodeIndex` (Nodes::All()) - drawn inside
 // the node's section - and the level properties' section at the Inspector's foot; what's asked for added to
 // `requests`. `mono` / `small`: the UI's fonts.

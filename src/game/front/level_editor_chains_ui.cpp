@@ -68,8 +68,8 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
             ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
         return;
     }
-    const char* noun = chain.path ? "path" : chain.ladder ? "ladder" : "rail";
-    ImGui::SeparatorText(chain.path ? "Path" : chain.ladder ? "Ladder" : "Rail");
+    const char* noun = chain.path ? "path" : chain.ladder ? "ladder" : chain.ledge ? "ledge" : "rail";
+    ImGui::SeparatorText(chain.path ? "Path" : chain.ladder ? "Ladder" : chain.ledge ? "Ledge" : "Rail");
     ImGui::Text("%d point%s%s", chain.points, chain.points == 1 ? "" : "s", chain.added ? " (this one added)" : "");
     if (!chain.prev.empty())
         ImGui::TextDisabled("after %s", chain.prev.c_str());
@@ -155,6 +155,59 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
                               "switches it off.\nOn: this DLL skips it for this whole rail (saved in the layout; a "
                               "baked level gets the\nnode flag ed_grind_flat, which only this DLL reads - other "
                               "players can't grind it).");
+    }
+    if (chain.ledge) {
+        // (the feature map: a ledge's side to hang from - THUG2's HangLeft / HangRight flags, the whole ledge)
+        static const char* const kSides[3] = {"as the game decides", "left (HangLeft)", "right (HangRight)"};
+        int side = chain.hang >= 0 && chain.hang <= 2 ? chain.hang : 0;
+        ImGui::BeginDisabled(!chain.added);
+        if (ImGui::Combo("Hang from", &side, kSides, 3) && side != chain.hang)
+            Ask(requests, Chains::kOpHang, static_cast<uint32_t>(side));
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", chain.added ? "Which side of the ledge the skater hangs from (the node flags the "
+                                                  "levels' own ledges carry) - for the whole ledge"
+                                                : "A level's ledge keeps its own flags (its fields, below)");
+        ImGui::TextDisabled("A ClimbingNode chain of Type Ledge: the skater hangs from it and shimmies along");
+    }
+    if (chain.rail) {
+        // (the feature map: a speed-up - THAW's RailAccelerate - on this point's segment, or the whole rail)
+        if (chain.levelSpeed)
+            ImGui::TextDisabled("The level's own speed-up: +%.1f%% a frame (its script)",
+                                static_cast<double>(chain.levelRate * 100.0f));
+        bool on = chain.speed > 0.0f;
+        if (ImGui::Checkbox("Speed-up", &on))
+            Ask(requests, Chains::kOpSpeed, on ? static_cast<uint32_t>(Chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("THAW's rail speed-up: while the skater grinds this segment going up, its speed grows "
+                              "each frame.\nIts TriggerScript runs it when the skater lands on it (its own script still "
+                              "runs first).");
+        if (on) {
+            static float s_percent = -1.0f;
+            float percent = s_percent >= 0.0f ? s_percent : chain.speed * 100.0f;
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(110.0f);
+            if (ImGui::DragFloat("##speed", &percent, 0.05f, Chains::kSpeedMin * 100.0f, Chains::kSpeedMax * 100.0f,
+                                 "+%.1f%% / frame", ImGuiSliderFlags_AlwaysClamp))
+                s_percent = percent;
+            if (ImGui::IsItemDeactivatedAfterEdit() && s_percent >= 0.0f) {
+                Ask(requests, Chains::kOpSpeed, static_cast<uint32_t>(s_percent * 100.0f + 0.5f));
+                s_percent = -1.0f;
+            } else if (!ImGui::IsItemActive()) {
+                s_percent = -1.0f;
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("More speed each frame while climbing on it (THAW's rails: 2 - 10%%)");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Whole rail"))
+                Ask(requests, Chains::kOpSpeedRail, static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f));
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("This speed-up on every segment of the rail");
+        } else if (chain.points > 1) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Off on the whole rail"))
+                Ask(requests, Chains::kOpSpeedRail, 0u);
+        }
     }
     if (chain.waiting)
         ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);

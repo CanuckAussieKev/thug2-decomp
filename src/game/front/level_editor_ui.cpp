@@ -1012,6 +1012,7 @@ void NodeSection(const Model& model, int index)
         ImGui::NewLine();
         ChainSection(model.chain, &g_requests);
     }
+    SpawnSection(index, &g_requests); // (a HORSE spot - the feature map: level_editor_spots_ui.cpp)
     if (ImGui::Button("Go to"))
         Ask(Request::kGoToNode, index);
     // Every field of its structure, typed and editable (phase 6: level_editor_fields_ui.cpp).
@@ -1195,6 +1196,8 @@ void Inspector(const Model& model)
                 ImGui::SetTooltip("A locked piece or object is passed by every click in the view (the Outliner still "
                                   "selects it); kept in the layout");
         }
+        if (s.objects == 0 && s.sectors == 1)
+            Triggers::ScenerySection(s.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
         // (one object: its model, physics, path speed and preview - level_editor_entities.h)
         if (s.objects == 1)
             Entities::InspectorSection(-1, s.checksum, g_mono, &g_requests);
@@ -1301,6 +1304,16 @@ void Help(const Model& model)
         {"", "N > Ladder", "click a wall where its foot goes, then where its top goes; Z / X turn a ladder, Delete "
                            "deletes it whole, L off moves its foot or top"},
         {"", "Inspector", "a rail: Trick object (drawn rails), Grindable on flat ground"},
+        {"", "N > Ledge", "a hang / shimmy edge (ClimbingNode Type Ledge): click points along an edge, as a rail; the "
+                          "Inspector's Hang from: its side"},
+        {"", "Inspector", "a rail point: Speed-up (THAW's: more speed a frame climbing it) - its segment or the whole "
+                          "rail; chevrons show them (grey: the level's own)"},
+        {"Map", "T > Jump boost", "a launch pad (trigger_jump_boost speed=): its Strength in the Inspector, an arrow up"},
+        {"", "Breaks when hit", "(a scenery piece's Inspector) it shatters when hit, its collision off; its sound; "
+                                "cracks drawn - unticked or deleted: as the level has it"},
+        {"", "Proximity node", "(its Inspector) the scripts it runs on entering / leaving, sphere or box, drag its dots "
+                               "to resize; Home puts it back"},
+        {"", "Horse spot", "(a spawn's Inspector) restart_types Horse - an H on its gizmo"},
         {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},

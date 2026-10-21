@@ -283,6 +283,8 @@ std::string Write(const File& file)
     }
     for (const Triggers::Placed& t : file.triggers)
         out << "trigger " << Triggers::Record(t) << '\n';
+    for (const Triggers::ProximEdit& p : file.proxims)
+        out << "proxim " << Triggers::ProximRecord(p, Objects::NameOf(p.node)) << '\n';
     for (const SetRecord& s : file.nodes) {
         if (!s.hasPos && !s.hasAngles && s.fields.empty())
             continue;
@@ -436,6 +438,10 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             std::getline(in, rest);
             ok = Triggers::ReadRecord(rest.substr(std::min(rest.size(), rest.find_first_not_of(' '))),
                                       &file->triggers.emplace_back());
+        } else if (kind == "proxim") {
+            std::string rest;
+            std::getline(in, rest);
+            ok = Triggers::ReadProximRecord(rest, &file->proxims.emplace_back());
         } else if (kind == "wall") {
             // (level_editor_walls.h: later key=value fields skipped, as a sector's)
             Walls::WallState w = {};
@@ -704,6 +710,7 @@ bool Capture(File* file)
                                      [](const NodeCreate::Spec& spec) { return spec.owned; }),
                       file->added.end());
     file->triggers = Triggers::CaptureAdded();
+    file->proxims = Triggers::CaptureProxims();
     file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
                                      [](const NodeCreate::Spec& s) { return Chains::IsChainClass(s.cls); }),
                       file->added.end());
@@ -838,6 +845,9 @@ std::string Apply(const File& file)
     int triggers = Triggers::Apply(file.triggers, &message);
     if (!message.empty())
         Log("level editor: %s", message.c_str());
+    if (!file.proxims.empty())
+        Log("level editor: %d of the layout's %u proximity node edits in place", Triggers::ApplyProxims(file.proxims),
+            static_cast<unsigned>(file.proxims.size()));
     // (map3) collision faces' flags - after the sectors (a moved piece's shared collision took its faces along: theirs
     // are set there), scenery clusters (after the level's own registration), camera nodes.
     int faces = Faces::Apply(file.faces);

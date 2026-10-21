@@ -63,7 +63,14 @@
 //     (and any a `wall` record switches off) is left out of the collision, as the DLL switches it off. The box fires on
 //     the way in only (its faces point out; the static line test is one-sided - triggers.ts), as the DLL's; an exit
 //     trigger (exit=1) gets the faces again facing in, so leaving it runs the node's TriggerScript again, as the DLL's
-//     per-frame leaving test does;
+//     per-frame leaving test does; (the feature map) a jump boost (boost: trigger_jump_boost speed=) and a breakable
+//     (break: Shatter + Kill of its piece, the piece's collision left out - `replaces` - so the skater goes into it as
+//     into THUG2's glass) the same way;
+//   (the feature map, tools/game/map_features.ts) a ledge point (type=Ledge): ClimbingNode, Type Ledge, HangLeft /
+//     HangRight; a speed-up (a point's speed=, a `railspeed` record): the node's TriggerScript ed_railspeed_<node> (its own
+//     script called first) and the editor's ed_RailSpeed / ed_RailSpeedLoop in the scripts; a `proxim` record: the node's
+//     TriggerScript ed_proxim_<node> (if Inside {enter} else {exit}) and its sphere's Radius - a box is the DLL's alone
+//     (the game's box shape is a sector's): baked as a sphere around it, warned;
 //   (map3) faces (level_editor_faces.h): the collision object's faces' flags (by index - the .col's order is the DLL's);
 //     a face a moved piece's shared collision took along gets them in the companion (the original keeps 0x10 while
 //     taken, as the DLL); cluster (level_editor_clusters.h): the piece's node gets TrickObject + Cluster= (or both
@@ -102,6 +109,7 @@ import {
     type V3,
     validSky,
 } from "./layout_file.ts";
+import * as MapFeatures from "./map_features.ts";
 import * as Triggers from "./triggers.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -578,6 +586,8 @@ const K = {
     marker: checksum(MARKER),
     grindFlat: checksum("ed_grind_flat"),
     scale: checksum("scale"),
+    triggerScript: checksum("TriggerScript"),
+    shape: checksum("Shape"),
     particleObject: checksum("ParticleObject"),
     midPosition: checksum("MidPosition"),
     endPosition: checksum("EndPosition"),
@@ -586,6 +596,20 @@ const K = {
     edSound: checksum("ed_sound"),
     edVolume: checksum("ed_volume"),
 };
+
+// A node's field as the game's Search finds it: the last of its own and its included structures' (ncomp_...) - a name.
+function lookUpName(array: NodeArray, node: Struct, key: number): number | null {
+    let found: number | null = null;
+    for (const [k, v] of node.entries) {
+        if (k?.value === key && v instanceof Name) found = v.value;
+        else if (k === null && v instanceof Name) {
+            const included = array.includes.get(v.value);
+            const value = included ? getName(included, key) : null;
+            if (value !== null) found = value;
+        }
+    }
+    return found;
+}
 // A rail point's flag: grindable on flat ground - only this project's DLL reads it (level_editor_chains.h: RailClear's
 // override); the game itself has no such field.
 const GRIND_FLAT = "ed_grind_flat";
@@ -925,8 +949,21 @@ export function addedPoint(array: NodeArray, p: Layout["points"][number]): Struc
     array.remember(p.name);
     array.remember(p.cls);
     if (p.cls === "ClimbingNode") {
-        put(K.type, new Name(checksum("Ladder"))); // (a ladder's point, as THUG2's own - level_editor_chains.h)
-        array.remember("Ladder");
+        // (a ladder's point, as THUG2's own - level_editor_chains.h; a ledge's: Type Ledge and its side's flag, as ST's)
+        const type = p.type === "Ledge" ? "Ledge" : "Ladder";
+        put(K.type, new Name(checksum(type)));
+        array.remember(type);
+        if (p.type === "Ledge") {
+            for (const side of ["HangLeft", "HangRight"])
+                s.entries = s.entries.filter(
+                    ([k, v]) => !(k === null && v instanceof Name && v.value === checksum(side)),
+                );
+            if (p.hang === 1 || p.hang === 2) {
+                const side = p.hang === 1 ? "HangLeft" : "HangRight";
+                s.entries.push([null, new Name(checksum(side))]);
+                array.remember(side);
+            }
+        }
     }
     if (!s.entries.some(([k, v]) => k === null && v instanceof Name && v.value === K.createdAtStart))
         s.entries.push([null, new Name(K.createdAtStart)]);
@@ -1435,8 +1472,76 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         const i = array.append(addedPoint(array, p));
         array.linkNames.set(i, p.links);
         if (p.cls === "RailNode") breaks(`rail point ${p.name} added`);
-        if (p.cls === "ClimbingNode") breaks(`ladder point ${p.name} added`);
+        if (p.cls === "ClimbingNode") breaks(`${p.type === "Ledge" ? "ledge" : "ladder"} point ${p.name} added`);
         if (p.cls === "RailNode" && p.grindFlat) flat++;
+    }
+    // (the feature map) Rail speed-ups: each point's TriggerScript the editor's script, which calls its own first.
+    const mapScripts: [number, Buffer][] = [];
+    const mapNames = new Map<number, string>();
+    const speedUps = [
+        ...layout.points.filter((p) => p.speed > 0).map((p) => ({ name: checksum(p.name), rate: p.speed })),
+        ...layout.railSpeeds,
+    ];
+    for (const s of speedUps) {
+        const i = nodeAt(s.name, "speed");
+        if (i < 0) continue;
+        const node = i < array.original ? array.edit(i) : array.nodes[i]!;
+        const own = lookUpName(array, node, K.triggerScript) ?? 0;
+        const script = MapFeatures.speedScriptName(s.name);
+        node.entries = node.entries.filter(([k]) => k?.value !== K.triggerScript);
+        node.entries.push([new Name(K.triggerScript), new Name(checksum(script))]);
+        array.remember("TriggerScript");
+        array.remember(script);
+        mapScripts.push([checksum(script), MapFeatures.speedBody(own, Math.fround(s.rate))]);
+        mapNames.set(checksum(script), script);
+        report.push(`rail point ${label(s.name)}: a speed-up, +${(s.rate * 100).toFixed(1)}% a frame climbing it`);
+    }
+    if (speedUps.length) {
+        mapScripts.push([checksum(MapFeatures.RAIL_SPEED), MapFeatures.RAIL_SPEED_BODY]);
+        mapScripts.push([checksum(MapFeatures.RAIL_SPEED_LOOP), MapFeatures.RAIL_SPEED_LOOP_BODY]);
+        for (const n of MapFeatures.RAIL_SPEED_NAMES) mapNames.set(checksum(n), n);
+    }
+    // (the feature map) Proximity nodes: their scripts (TriggerScript - Proxim_AddNode reads it at the load) and spheres.
+    for (const e of layout.proxims) {
+        const i = nodeAt(e.node, "proxim");
+        if (i < 0) continue;
+        const node = i < array.original ? array.edit(i) : array.nodes[i]!;
+        const own = lookUpName(array, node, K.triggerScript) ?? 0;
+        if (e.enter || e.exit) {
+            const script = MapFeatures.proximScriptName(e.node);
+            node.entries = node.entries.filter(([k]) => k?.value !== K.triggerScript);
+            node.entries.push([new Name(K.triggerScript), new Name(checksum(script))]);
+            array.remember("TriggerScript");
+            array.remember(script);
+            mapScripts.push([
+                checksum(script),
+                MapFeatures.proximBody(Triggers.checksumOf(e.enter), Triggers.checksumOf(e.exit), own),
+            ]);
+            mapNames.set(checksum(script), script);
+            for (const n of [e.enter, e.exit, "Inside"]) if (n && Triggers.validName(n)) mapNames.set(checksum(n), n);
+        }
+        let radius = e.radius;
+        if (e.shape === "box") {
+            // (the game's box shape is the box of a sector named like the node: a sphere around the DLL's box instead)
+            const half = Math.hypot(e.size.x, e.size.y, e.size.z) / 2;
+            radius = Math.hypot(e.offset.x, e.offset.y, e.offset.z) + half;
+            warnings.push(
+                `proximity node ${label(e.node)}: its box (${e.size.x},${e.size.y},${e.size.z}) is the DLL's alone - baked ` +
+                    `as a sphere of radius ${radius.toFixed(0)} around it (the game takes a box shape from a sector)`,
+            );
+        }
+        if (e.shape) {
+            node.entries = node.entries.filter(([k]) => k?.value !== K.shape && k?.value !== K.radius);
+            node.entries.push([new Name(K.shape), new Name(checksum("Sphere"))]);
+            node.entries.push([new Name(K.radius), new Float(radius)]);
+            array.remember("Shape");
+            array.remember("Sphere");
+            array.remember("Radius");
+        }
+        report.push(
+            `proximity node ${label(e.node)}:${e.enter ? ` in ${e.enter}` : ""}${e.exit ? ` out ${e.exit}` : ""}` +
+                `${e.shape ? ` sphere ${radius.toFixed(0)}` : ""}`,
+        );
     }
     // (map3) Camera nodes (level_editor_cameras.h): appended as the DLL's overlay has them.
     for (const c of layout.cameras) {
@@ -1569,6 +1674,8 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         );
         breaks(`trigger ${spec.name} (${spec.kind}${spec.gap ? `, gap ${spec.gap}` : ""}) added`);
     });
+    scripts.push(...mapScripts); // (the feature map's: speed-ups, proximity nodes)
+    for (const [c, n] of mapNames) scriptNames.set(c, n);
     for (const u of layout.unknown) {
         unsupported.push(`unsupported record "${u.kind}" (line ${u.line}): not baked - ${u.text}`);
         if (shared)
@@ -1607,6 +1714,10 @@ function describeTrigger(s: Triggers.TriggerSpec): string {
             return `gap start ${s.gap} [${s.flags.join(", ")}] ${at}`;
         case "gapend":
             return `gap end ${s.gap} "${Triggers.cleanText(s.text)}" (${s.score}) ${at}`;
+        case "boost":
+            return `jump boost (trigger_jump_boost speed=${s.strength}) ${at}`;
+        case "break":
+            return `breakable ${s.target || "?"} (shatters when hit${s.sound ? `, ${s.sound}` : ""}; its collision left out) ${at}`;
     }
 }
 
