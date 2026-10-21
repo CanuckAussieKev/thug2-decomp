@@ -49,9 +49,12 @@ JetBrains Mono 2.304 fonts (the level editor's UI).
 
 **Antivirus:** the self-test runner loads the game's code into its own process and patches it in memory, which
 behaviour-based antivirus can flag (Bitdefender has killed builds). Add exceptions for the repo folder, the game
-folders and your temp build-script folder.
+folders (keep build scripts inside the repo, e.g. `out\scripts`, so the repo's exception covers them).
 
 ### 2. Folder layout on disk
+
+The paths below use the stock layout, with the game in a `Game` subfolder; if you keep the game at the install's top
+level instead, drop the `Game\` part - the tools find either.
 
 ```
 C:\Dev\thug2-decomp\              this repo
