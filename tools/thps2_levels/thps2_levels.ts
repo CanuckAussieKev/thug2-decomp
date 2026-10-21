@@ -1179,6 +1179,7 @@ export interface LevelExtra {
     objects?: ObjectLogic;
     crates?: readonly PlacedCrate[];
     triggerCalls?: ReadonlyMap<number, readonly string[]>;
+    offAtStart?: ReadonlySet<number>; // crates and rail points the start takes away (not CreatedAtStart)
     globals?: readonly string[];
     scripts?: readonly string[];
 }
@@ -1193,6 +1194,7 @@ export function nodeArrayText(
     extra: LevelExtra = {},
 ): NodeArrayResult {
     const calls = extra.triggerCalls ?? new Map<number, readonly string[]>();
+    const off = extra.offAtStart ?? new Set<number>();
     const restartNodes = trg.filter((n) => n.type === thps2.NODE_RESTART);
     const restarts = restartNodes.map(thps2.restartOf);
     const startNode = trg.find((n) => n.type === thps2.NODE_START);
@@ -1282,7 +1284,8 @@ export function nodeArrayText(
             `        Name=TRG_Rail_${t.index} `,
             "        Class=RailNode ",
             `        Type=${railTerrain(p.flags)[0]} `,
-            "        CreatedAtStart ",
+            // (a rail the start takes away - School II's: not there at the start)
+            ...(off.has(t.index) ? [] : ["        CreatedAtStart "]),
             `        TerrainType=TERRAIN_${railTerrain(p.flags)[1]} `,
         ];
         if (links.length) lines.push(`        Links=[${links.join(", ")}] `);
@@ -1301,7 +1304,8 @@ export function nodeArrayText(
                 "        Angles=(0.0, 0.0, 0.0) ",
                 `        Name=${c.name} `,
                 "        Class=LevelGeometry ",
-                "        CreatedAtStart ",
+                // (one the start hides - Hangar's invisible wall over the heli pit: not there at the start)
+                ...(off.has(c.index) ? [] : ["        CreatedAtStart "]),
                 "    } ",
             ].join("\n"),
         );
@@ -1427,6 +1431,7 @@ export interface PlacedCrate {
     name: string; // its LevelGeometry node / sector (TRG_Crate_<node>)
     position: Vec3; // THPS2's units (the world object's)
     glass: boolean; // every drawn face semi-transparent: THUG2's breakable glass (the skater goes through, it breaks)
+    drawn: boolean; // some face drawn (else collision only: never shattered)
 }
 
 // The crates (node type 2) that name a world object of the level, each object named after its crate (its first one).
@@ -1456,7 +1461,7 @@ export function levelCrates(
         const glass = drawn.length > 0 && drawn.every((f) => f.flags & thps2.FACE_SEMI_TRANSPARENT);
         const name = `TRG_Crate_${n.index}`;
         named.set(index, { checksum: qb.checksum(name), collide: true, passThrough: glass && broken.has(n.index) });
-        crates.push({ index: n.index, name, position: [...object.position], glass });
+        crates.push({ index: n.index, name, position: [...object.position], glass, drawn: drawn.length > 0 });
     }
     return [crates, named];
 }
@@ -1662,6 +1667,8 @@ export function levelLogic(
         objectName: (i) => objectName.get(i) ?? null,
         crateName: (i) => crate.get(i)?.name ?? null,
         glass: (i) => crate.get(i)?.glass ?? false,
+        drawn: (i) => crate.get(i)?.drawn ?? true,
+        railName: (i) => (trg[i]?.type === thps2.NODE_RAIL_POINT ? `TRG_Rail_${i}` : null),
         translate: (i) => scripted.has(i) || logic.isScriptOnly(i),
         start: startRestartNode(trg),
     });
@@ -1838,6 +1845,7 @@ export function cmdConvert(args: Args): number {
             objects: logic,
             crates,
             triggerCalls: logic.triggerCalls,
+            offAtStart: logic.offAtStart,
             globals: logic.globals,
             scripts: logicScripts,
         });
@@ -1852,6 +1860,9 @@ export function cmdConvert(args: Args): number {
             );
         }
         common.nsCompile(args.ns, nodeText, pyJoin(levelDir, `${name}.qb`));
+        // (the NeverScript text too, to read: <out>\source - not installed, make_menu_level copies levels\ only)
+        fs.mkdirSync(pyJoin(out, "source"), { recursive: true });
+        fs.writeFileSync(pyJoin(out, "source", `${name}.ns`), nodeText);
         report.push(
             `  nodes: ${nodeArray.restarts} restarts, ${nodeArray.rails} rail points, ${nodeArray.triggers} triggers ` +
                 `(${nodeArray.gaps} gaps - ${nodeArray.gapsNamed} named by THPS2's table, ${nodeArray.kills} kill ` +

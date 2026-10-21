@@ -331,7 +331,16 @@ test("convertWorld: a sector and a collision object per object; invisible faces 
     // the quad's two triangles (vert); the trigger triangle left out
     assert.equal(o.faces.length, 2);
     for (const f of o.faces) assert.equal(f[0], thug2Col.FACE_VERT);
-    assert.deepEqual(done.counts, { objects: 1, faces: 2, hidden: 1, noCollision: 1, bmps: 0, triggers: 0, duplicates: 0, layers: 0 });
+    assert.deepEqual(done.counts, {
+        objects: 1,
+        faces: 2,
+        hidden: 1,
+        noCollision: 1,
+        bmps: 0,
+        triggers: 0,
+        duplicates: 0,
+        layers: 0,
+    });
     // placed: the object's position, THUG2's space
     // (z: the model's 0..64 at 300, turned: -364 .. -300)
     assert.deepEqual(

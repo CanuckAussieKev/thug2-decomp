@@ -52,6 +52,8 @@ export interface LogicInput {
     objectName: (index: number) => string | null; // a LevelObject made of the object (it has a model), else null
     crateName: (index: number) => string | null; // the LevelGeometry node of a crate's world object, else null
     glass: (index: number) => boolean; // a crate that is glass (its faces semi-transparent): the glass sound
+    drawn?: (index: number) => boolean; // a crate with drawn faces (a collision-only one is never shattered)
+    railName?: (index: number) => string | null; // a rail point's RailNode, else null
     translate: (index: number) => boolean; // an object whose script is converted here (not one placed as it is)
     start: number | null; // the start restart's node index (the level's first commands)
 }
@@ -62,6 +64,7 @@ export interface Logic {
     triggerCalls: Map<number, string[]>; // a trigger's world model checksum -> the point scripts it runs
     createdAtStart: Set<number>; // object nodes the start creates
     pulsedLater: Set<number>; // object nodes only a later pulse creates
+    offAtStart: Set<number>; // crates and rail points the start hides or kills (their nodes not CreatedAtStart)
     objectScripts: Map<number, string>; // a LevelObject's node -> its TriggerScript
     setup: string[]; // NeverScript statements for the level's setup script (script-only objects spawned at the start)
     glassBroken: boolean; // a glass crate can break (its sound is loaded)
@@ -103,6 +106,7 @@ export class LevelLogic {
     private readonly calls = new Map<number, Set<number>>(); // a point's script calls these points' scripts
     private readonly translated = new Map<number, string | null>(); // objects' scripts (objectScriptText)
     private readonly translating = new Set<number>();
+    private readonly offAtStart = new Set<number>(); // crates / rail points the start hides or kills
     readonly warnings: string[] = [];
     readonly leftOut = new Map<string, number>();
     glassBroken = false;
@@ -229,31 +233,42 @@ export class LevelLogic {
         if (node.type === thps2.NODE_CRATE) {
             const name = this.input.crateName(target);
             if (name === null) return [];
+            // (a collision-only crate - Hangar's invisible wall over the heli pit - is never shattered: THUG2's
+            // Shatter / Visible of geometry with nothing drawn crash, Kill / Create skip the missing mesh)
+            const drawn = this.input.drawn?.(target) ?? true;
+            if (!loud || !drawn) return [`Kill name=${name}`];
+            // (a loud kill breaks it once: the pieces fly only the first time)
             this.dead.add(target);
             const g = this.deadGlobal(target);
             const body: string[] = [`Change ${g}=1`];
-            if (loud) {
-                if (this.input.glass(target)) {
-                    body.push("PlaySound HitGlassPane2x vol=100");
-                    this.glassBroken = true;
-                }
-                // (THUG2's breakable glass: BO_ShatteringGlass's pieces, as the level editor's breakables)
-                body.push(
-                    `Shatter name=${name} area=5000 variance=1.0 spread=1.5 life=3 bounce=0 scale=0.4 vel_x=0 vel_y=60 vel_z=0`,
-                );
+            if (this.input.glass(target)) {
+                body.push("PlaySound HitGlassPane2x vol=100");
+                this.glassBroken = true;
             }
+            // (THUG2's breakable glass: BO_ShatteringGlass's pieces, as the level editor's breakables)
+            body.push(
+                `Shatter name=${name} area=5000 variance=1.0 spread=1.5 life=3 bounce=0 scale=0.4 vel_x=0 vel_y=60 vel_z=0`,
+            );
             body.push(`Kill name=${name}`);
             return [`if (${g} = 0) {`, ...body.map((l) => `    ${l}`), "}"];
+        }
+        if (node.type === thps2.NODE_RAIL_POINT) {
+            // (a rail taken away: Hangar's rails on the helicopter once it has flown)
+            const name = this.input.railName?.(target) ?? null;
+            return name === null ? [] : [`Kill name=${name}`];
         }
         return [];
     }
 
+    // THPS2's SendVisible hides a crate's faces and its collision with them (Hangar's invisible wall over the heli pit,
+    // hidden at the start, shown when the helicopter has flown): THUG2's Kill / Create of its LevelGeometry, not
+    // Visible / Invisible (drawing only - and they crash on geometry with nothing drawn).
     private visibleLines(target: number, shown: boolean): string[] {
         const node = this.trg[target];
         if (node === undefined || node.type !== thps2.NODE_CRATE) return [];
         const name = this.input.crateName(target);
         if (name === null) return [];
-        return [`${shown ? "Visible" : "Invisible"} name=${name}`];
+        return [`${shown ? "Create" : "Kill"} name=${name}`];
     }
 
     // A point's script body (memoised; [] when it does nothing converted). Its pulses: guarded by its budget.
@@ -338,7 +353,16 @@ export class LevelLogic {
                     }
                     for (const l of node.links) pulse(l);
                 } else if (c.op === thps2.CMD.SendKill || c.op === thps2.CMD.SendKillLoudly) {
-                    for (const l of node.links) created.delete(l);
+                    for (const l of node.links) {
+                        created.delete(l);
+                        if (this.isPiece(l)) this.offAtStart.add(l);
+                    }
+                } else if (c.op === thps2.CMD.SendVisible) {
+                    for (const l of node.links) {
+                        if (this.trg[l]?.type !== thps2.NODE_CRATE) continue;
+                        if ((c.args[0] as number) !== 0) this.offAtStart.delete(l);
+                        else this.offAtStart.add(l);
+                    }
                 }
             }
         };
@@ -346,6 +370,12 @@ export class LevelLogic {
         // (script-only objects CreatedAtStart run from the start too)
         for (const i of created) if (this.isScriptOnly(i) && !spawned.includes(i)) spawned.push(i);
         return [created, spawned];
+    }
+
+    // A crate or a rail point: what the start's kills / SendVisible leave out of the level at the start.
+    private isPiece(index: number): boolean {
+        const t = this.trg[index]?.type;
+        return t === thps2.NODE_CRATE || t === thps2.NODE_RAIL_POINT;
     }
 
     // --- the object scripts ---
@@ -404,6 +434,27 @@ export class LevelLogic {
         const text = t.effects ? `script ${this.objScript(index)} {\n${body}}` : null;
         this.translated.set(index, text);
         return text;
+    }
+
+    // What an object's script ending pulses: its links, when the script never names them itself (no
+    // C_SEND_*_TO_LINKS, no V_LINKED_NODE). THPS2's timers are scripts of a C_WAIT and a C_DONE linked to the points they
+    // set off (NY's, Venice's), and Hangar's roof piece 124 ends linked to the point that makes the invisible wall over
+    // the heli pit solid again: the links are pulsed when the script is done (an inference from the data - nothing else
+    // in those scripts would ever reach them).
+    endPulses(self: number): string[] {
+        const o = this.objects.get(self);
+        const node = this.trg[self];
+        if (o === undefined || node === undefined || !node.links.length) return [];
+        if (
+            o.tokens.some(
+                (t) =>
+                    t === thps2.C.SEND_PULSE_TO_LINKS ||
+                    t === thps2.C.SEND_SIGNAL_TO_LINKS ||
+                    t === thps2.V.LINKED_NODE,
+            )
+        )
+            return [];
+        return node.links.flatMap((l) => this.pulseLines(l, null));
     }
 
     // (for ScriptTranslator)
@@ -519,6 +570,7 @@ export class LevelLogic {
             triggerCalls,
             createdAtStart,
             pulsedLater,
+            offAtStart: new Set(this.offAtStart),
             objectScripts,
             setup,
             glassBroken: this.glassBroken,
@@ -652,6 +704,11 @@ class ScriptTranslator {
                 return out;
             }
             if (s.k === "cmd" && (s.op === thps2.C.DONE || s.op === thps2.C.DIE_QUIETLY)) {
+                const ends = this.logic.endPulses(this.self);
+                if (ends.length) {
+                    out.push(...ends);
+                    this.effects = true;
+                }
                 if (s.op === thps2.C.DIE_QUIETLY && this.hasModel) {
                     out.push("Die");
                     this.effects = true;
