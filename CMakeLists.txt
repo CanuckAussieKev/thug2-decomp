@@ -236,6 +236,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_obj_scene_cmds.cpp
+    src/hook/selftests_obj_terrain.cpp
     src/hook/selftests_engcmd2.cpp
     src/hook/selftests_engcmd3.cpp
     src/hook/selftests_engcmd4.cpp
@@ -615,6 +616,7 @@ add_library(thug2_code OBJECT
     src/game/sfx/sfx.cpp
     src/game/sfx/sound_cfuncs.cpp
     src/game/sfx/sfx_voices.cpp
+    src/game/sfx/terrain.cpp
     src/game/gfx/anim_blend.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp

@@ -35,3 +35,32 @@ commands (0x445000-0x445B30). Shared files touched: CMakeLists.txt (new files li
     memory manager's methods at both the game's and our addresses, with stand-in manager objects; Dbg::Printf's
     strings compared by content); the configuration globals recorded after each call. 40 deliberate bugs caught (1
     after strengthening: Italian's case needed a language order that changes the setting).
+- [x] Batch OC5-2 (NOT run in the game yet; the terrain manager, 17 functions): src/game/sfx/terrain.cpp + .h (new,
+  namespace Terrain).
+  - Two Lst::HashTables filled by 0x004444A0 LoadTerrainTypes from terrain.qb: Terrain_Types (0x006968D0: a terrain's
+    checksum -> its index byte, 8-byte items) and Terrain_Actions (0x006968E8: a sound table's index -> TABLE_* type
+    and TA_* action, 12-byte items); 0x00444460 empties both (items not freed).
+  - Look-ups: 0x004442C0 GetTerrainIndex (an unknown terrain reads its index through null - a crash, as the original;
+    the level editor already guards against it), 0x00444310 GetTableAction (likewise through null + 8), 0x00444360
+    GetTerrainChecksum / 0x004443B0 GetTableIndex (table walks that stop at an empty item), 0x00444400 / 0x00444480
+    GetTerrainStructure(Into) (the terrain's global structure, else STANDARD_TERRAIN_DEFAULT's).
+  - Sounds: 0x004445B0 GetSoundInfo (a 0x84-byte SoundInfo: name, the checksum of the name without folders, pitch /
+    volume ranges, load pitch / volume; defaults 100 except minVol 0), 0x00444710 GetScaledVolume (returns the
+    unrounded x87 value as double; maxVol compared with 100 by its bits), 0x00444760 PickSoundAction (a soundAction
+    structure, or a weighted random pick by chance, walking the array from its end - Mth::Rnd), 0x00444830
+    FindSoundAction (the action's structure, or the first array entry whose useUpTo isn't below the value; a NaN
+    value fits only entries without useUpTo), 0x004448E0 LoadSoundAction / 0x00444950 LoadTableSounds (load type 1,
+    the load pitch and volume; TERRAIN_DEFAULT's structure for an action counts only if it names the action again
+    inside - otherwise its array is read, and with no array the original reads an uninitialised pointer),
+    0x00444B10 GetTerrainSound, 0x00444BB0 PlayTerrainSound (volume / pitch scaled into the sound's ranges;
+    propagate: message 0x35 of 12 bytes - the position truncated to int16s, table, terrain, the three percentages
+    truncated to bytes - to the server through client 0), 0x00444EB0 LoadTerrainSounds (TERRAIN_DEFAULT's
+    SoundActions with the terrain's appended over them, every table loaded).
+  - Test: TestTerrainManager (src/hook/selftests_obj_terrain.cpp): stand-in tables (16 buckets), hand-built script
+    data in terrain.qb's shapes, an arena behind the memory manager's Allocate; the sound manager (the dropoff
+    distance by a float-returning thiscall stand-in), the network client, Mth::Rnd and the global symbol look-ups
+    recorded. Every function, every branch above; arena, tables and trace compared. 42 deliberate bugs: 41 caught (2
+    after strengthening - a sound with minVol 0 but maxVol not 100, a missing STANDARD_TERRAIN_DEFAULT), 1
+    equivalent (maxVol's bit compare vs a float compare with 100).
+  - Register scan: 0x004442C0 / 0x004443B0 callers push the whole EAX into byte parameters (the original's upper
+    bytes were a pointer's) - only the byte is read.
