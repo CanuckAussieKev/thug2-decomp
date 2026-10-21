@@ -365,6 +365,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_collide_light.cpp
     src/hook/selftests_obj_fam_particle.cpp
     src/hook/selftests_obj_text_input.cpp
+    src/hook/selftests_obj_lock_quat.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -657,6 +658,7 @@ add_library(thug2_code OBJECT
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/lock_obj.cpp
+    src/game/obj/lock_obj_update.cpp
     src/game/obj/bbox_component.cpp
     src/game/obj/color_cycle.cpp
     src/game/obj/camera_component.cpp
@@ -775,6 +777,7 @@ add_library(thug2_code OBJECT
     src/game/mth/random.cpp
     src/game/mth/slerp.cpp
     src/game/mth/vector.cpp
+    src/game/mth/quaternion.cpp
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
     src/game/util/bps.cpp

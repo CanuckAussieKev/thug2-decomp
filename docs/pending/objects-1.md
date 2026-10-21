@@ -28,7 +28,7 @@ The range's classes / topics:
 - 0x00422D00-0x004230B0: the model light update component (0xE3FCA939).
 - 0x00423130-0x00423643: the motion component's member-function registration and its first members.
 
-Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp` (any of them alone; the files of later batches are added here).
+Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp` (any of them alone; the files of later batches are added here).
 
 - [x] Batch OC1-1 (NOT run in the game yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
   (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
@@ -213,3 +213,27 @@ Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_co
   - Mutations: 71 deliberate bugs, all caught (66 at first; the test then varied the disable flags around the
     members, dirtied the buttons before LockButtonFromScript and gave clear= negative values and a presence bit of
     its own). The test also found the lock time's truncation (ours first rounded it).
+- [x] Batch OC1-6 (NOT run in the game yet; the lock's update and the model component's rotations, 11 functions):
+  src/game/obj/lock_obj_update.cpp, src/game/mth/quaternion.{h,cpp} (new); lock_obj.{h,cpp} (the declarations, the
+  update called as a member), vector.h (RotateAboutX / Y / Axis declared).
+  - Obj::CLockObjComponent: 0x0041FF20 Create, 0x0041F500 Construct (not locked), 0x0041F400 / 0x0041F440 the
+    destructors, 0x0041F760 UpdateLock (the target by id, else by name; on a bone: the bone's matrix turned by the
+    target's model matrix - a model with +0x234 set, or a skater (id < 8) - or its display matrix, at its position
+    plus the offset turned by it, "at" pointing to the parent bone, "right" / "up" crossed with the target's up; at
+    the target: its model matrix (the offset turned by it, its translation dropped) or its display matrix; with a lag:
+    part of the way (the roundings where the original stores), then the next lag from the wobble (the update's own
+    2 pi / 1024, 0x0064611C); without: the position plus the model's offset (w gets 1 added - as the original); the
+    target's velocity, Angles' rotation, the display matrix).
+  - Mth::Quat (the model component's): 0x00420AC0 InitFromAxisAngle (FSIN / FCOS; a zero axis gives (0, 0, 0)),
+    0x00420140 operator*=, 0x00420B50 Rotate (q (v, 1) q*); Mth::Vector 0x00420A50 / 0x00420A90 RotateAboutX / Y,
+    0x00421440 RotateAboutAxis.
+  - Tests (selftests_obj_lock_quat.cpp): TestLockObjUpdate - 64 seeds: Create (out of memory too), Construct,
+    the destructors (vtable dirtied first), three updates each (the target by id / name / none, the skeleton component,
+    its skeleton, the bone and its parent there or not, the model followed or not - +0x234, a skater's id -, the lag
+    on and off, Angles); the matrix product (0x00404100: the original's goes through D3DXMatrixMultiply, ours through
+    Mth::Multiply - a few units in the last place apart, compared with a tolerance in selftest.cpp) stood in for in
+    both by the original's D3DXMatrixMultiply. TestModelRotations - 200 seeds of random quaternions, vectors and angles
+    (zero axes, zero and large angles, NaN, infinity; a NaN's sign not compared: the x87 and our build pick different
+    ones). selftests_lock_obj.cpp's stand-in for the lock's update also covers ours.
+  - Mutations: 68 deliberate bugs, 66 caught; 2 equivalent on the test's values: the lag's step x rounded to float
+    before it's added (the sum's rounding hides it) and the quaternion product's w summed in another order (in double).

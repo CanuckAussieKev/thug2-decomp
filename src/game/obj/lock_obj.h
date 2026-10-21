@@ -27,13 +27,29 @@ constexpr uint8_t LOCK_FLAG_NO_ROTATE = 0x8;
 // The lockobj component (type 0x5CB5CB7E "lockobj", vtable 0x006460E4, 0x90 bytes; the motion components each moving
 // object gets, AddMotionComponents): keeps its object locked to another object (Obj_LockToObject) - at the target's
 // position plus the offset turned by the target's orientation (or a bone of the target's skeleton), with the
-// target's orientation, optionally following with a lag. Vtable: 0 the scalar deleting destructor (0x0041F440, no
-// source yet), 1 Update, 2 InitFromStructure, 3 / 4 / 9 the empty 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 / 8 / 10
-// 0x005BAB90, 11 the base's 0x0045D720, 12 CallMemberFunction. Made by 0x0041FF20 (the constructor 0x0041F500 inlined;
-// both no source yet); the destructor body is 0x0041F400.
+// target's orientation, optionally following with a lag. Vtable: 0 the scalar deleting destructor (0x0041F440), 1
+// Update, 2 InitFromStructure, 3 / 4 / 9 the empty 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 / 8 / 10 0x005BAB90, 11
+// the base's 0x0045D720, 12 CallMemberFunction. Made by 0x0041FF20 (the constructor 0x0041F500 inlined); the
+// destructor body is 0x0041F400. Construction, destruction and the lock's update: lock_obj_update.cpp.
 class CLockObjComponent : public CBaseComponent {
 public:
     static constexpr uint32_t kType = 0x5CB5CB7E;
+
+    // 0x0041FF20 (registered with the composite object manager): a new one (Construct on zeroed memory; 0 if out of
+    // memory).
+    static CBaseComponent* __cdecl Create();
+    // 0x0041F500: the base's constructor, not locked, its vtable and type. Returns this.
+    CLockObjComponent* Construct();
+    // 0x0041F400: its vtable back, then the base's body.
+    void DestroyBody();
+    // 0x0041F440 (vtable slot 0)
+    CLockObjComponent* Destroy(unsigned int flags);
+    // 0x0041F760: the lock's update - finds the target by id, else by name (none: nothing), takes its orientation
+    // (its model's matrix when the model is followed - a model with +0x234 set, or a skater -, else its display
+    // matrix) or, on a bone, the bone's turned by it with "at" pointing to the bone's parent; puts the object at its
+    // position plus the offset turned by it (with a lag: part of the way, m_lag, then the next lag from the wobble),
+    // turns it by m_rotation when LOCK_FLAG_ANGLES, copies the target's velocity and sets the display matrix.
+    void UpdateLock();
 
     // 0x0041F520 (vtable slot 2): `off` unlocks (nothing else read). Otherwise locked to ObjectName (or id) at the
     // unnamed vector (else BoneOffset; default (0, 0, 0)), on `bone` of the target's skeleton if given; the object
@@ -42,10 +58,7 @@ public:
     // * sin(t * f1)) / 2, t = (milliseconds + a random phase) mod 1024 in steps of 2 pi / 1024. Angles turn the
     // orientation by that rotation after taking the target's. NOT ORIGINAL: no_rotate (LOCK_FLAG_NO_ROTATE).
     void InitFromStructure(Script::CStruct* params);
-    // 0x0041FF90 (vtable slot 1): when locked, the lock's update (0x0041F760, no source yet: finds the target by id or
-    // name - none: nothing -, takes its orientation (or its bone's), puts the object at its position plus the offset
-    // turned by it (lagging behind by m_lag when LOCK_FLAG_LAG), turns it by m_rotation when LOCK_FLAG_ANGLES, copies
-    // the target's velocity and sets the display matrix). NOT ORIGINAL: with LOCK_FLAG_NO_ROTATE the object's own
+    // 0x0041FF90 (vtable slot 1): when locked, the lock's update (UpdateLock). NOT ORIGINAL: with LOCK_FLAG_NO_ROTATE the object's own
     // orientation (matrix and display matrix) is put back after it - the position stays the lock's.
     void Update();
     // 0x0041F410 (vtable slot 12): Obj_LockToObject (0x785E57C7) - InitFromStructure(params) through the vtable,

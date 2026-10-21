@@ -614,7 +614,7 @@ void TestInputComponent()
                     c->m_netDisabled = address == 0x0041E9E0u && ((seed >> k) & 8);
                     trace.push_back(reinterpret_cast<uint32_t(__thiscall*)(void*, void*, void*)>(Code(original, address))(
                         c, params, g_world.script));
-                    trace.push_back(c->m_disabled | c->m_netDisabled << 8);
+                    trace.push_back(static_cast<uint32_t>(c->m_disabled) | static_cast<uint32_t>(c->m_netDisabled) << 8);
                 }
                 for (auto& button : g_world.buttons)
                     for (size_t i = 0; i < 8; ++i)
