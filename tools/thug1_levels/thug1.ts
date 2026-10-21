@@ -234,3 +234,92 @@ export function toThug2Skin(scene: Scene, name: string, bones: number): thug2Sce
     }
     return { versions: [1, 1, 1], materials: scene.materials, sectors, hierarchyCount: 0, tail: Buffer.alloc(0) };
 }
+
+// --- animations to THUG2 ----------------------------------------------------------------------------------------
+
+// THUG1's .ska.xbx is THUG2's format (THUG2's decoders 0x00482C20 / 0x00482E70 read both - THUG1's files lack the flags
+// 0x4000 / 0x10000 / 0x20000), but a key may be an index into a "standard key" table the game loads at start-up
+// (anims\standardkeyQ.bin / standardkeyT.bin in Bits.pre: 256 entries of 8 bytes, x / y / z u16 first) - and THUG2's
+// tables are other values than THUG1's: a THUG1 animation played by THUG2 comes out crumpled. So each table key is
+// written out with THUG1's table values (the key's explicit form), and the per-bone stream sizes made to match.
+//   u32 1, u32 flags, f32 duration, u32 bones, u32 rotation keys, u32 translation keys, u32 custom keys,
+//   u32 rotation bytes, u32 translation bytes, u16 rotation bytes per bone, u16 translation bytes per bone,
+//   (aligned to 4; flag 0x80000, a partial animation: u32 count and its bits, aligned) the rotation keys, the translation keys, (aligned) the custom keys.
+//   Rotation key: u16 h (time, 0x8000 the sign of w); h & 0x4000 clear: 3 x u16 (x, y, z); else h & 0x3800 clear: a
+//   byte, the table index; else x, y, z each a byte (h bit 0x2000 / 0x1000 / 0x800) or a u16.
+//   Translation key: byte b (b & 0x40: the time is b & 0x3f, else a u16 follows); b & 0x80: a byte, the table
+//   index; else 3 x u16.
+export const ANIM_FLAGS_UNSUPPORTED = 0x100 | 0x2000 | 0x8000 | 0x10000 | 0x1000000 | 0x8000000 | 0x10000000;
+
+export function untableAnim(data: Buffer, qTable: Buffer, tTable: Buffer, name = "anim"): Buffer {
+    const flags = data.readUInt32LE(4);
+    if (data.readUInt32LE(0) !== 1 || !(flags & 0x800000) || flags & ANIM_FLAGS_UNSUPPORTED)
+        throw new FormatError(`${name}: an animation of flags ${hex8(flags)}`);
+    const bones = data.readUInt32LE(0xc);
+    const qSize = data.readUInt32LE(0x1c);
+    const tSize = data.readUInt32LE(0x20);
+    const sizesAt = 0x24;
+    let start = (sizesAt + 4 * bones + 3) & ~3;
+    if (flags & 0x80000) {
+        // (a partial animation: u32 bone count, then a bit per bone - kept as it is)
+        const count = data.readInt32LE(start);
+        start = (start + 4 * (((count - 1) >> 5) + 2) + 3) & ~3;
+    }
+    const qPer: Buffer[] = [];
+    const tPer: Buffer[] = [];
+    let p = start;
+    const entry = (table: Buffer, index: number): Buffer => table.subarray(index * 8, index * 8 + 6);
+    for (let b = 0; b < bones; b++) {
+        const end = p + data.readUInt16LE(sizesAt + 2 * b);
+        const parts: Buffer[] = [];
+        while (p < end) {
+            const h = data.readUInt16LE(p);
+            if (h & 0x4000 && !(h & 0x3800)) {
+                const out = Buffer.alloc(2);
+                out.writeUInt16LE(h & ~0x4000);
+                parts.push(out, entry(qTable, data[p + 2]!));
+                p += 3;
+                continue;
+            }
+            const size = !(h & 0x4000) ? 8 : 2 + (h & 0x2000 ? 1 : 2) + (h & 0x1000 ? 1 : 2) + (h & 0x800 ? 1 : 2);
+            parts.push(data.subarray(p, p + size));
+            p += size;
+        }
+        if (p !== end) throw new FormatError(`${name}: bone ${b}'s rotation keys overrun`);
+        qPer.push(Buffer.concat(parts));
+    }
+    if (p !== start + qSize) throw new FormatError(`${name}: rotation keys don't add up`);
+    for (let b = 0; b < bones; b++) {
+        const end = p + data.readUInt16LE(sizesAt + 2 * bones + 2 * b);
+        const parts: Buffer[] = [];
+        while (p < end) {
+            const k = data[p]!;
+            const head = 1 + (k & 0x40 ? 0 : 2);
+            if (k & 0x80) {
+                const out = Buffer.from(data.subarray(p, p + head));
+                out[0] = k & ~0x80;
+                parts.push(out, entry(tTable, data[p + head]!));
+                p += head + 1;
+            } else {
+                parts.push(data.subarray(p, p + head + 6));
+                p += head + 6;
+            }
+        }
+        if (p !== end) throw new FormatError(`${name}: bone ${b}'s translation keys overrun`);
+        tPer.push(Buffer.concat(parts));
+    }
+    if (p !== start + qSize + tSize) throw new FormatError(`${name}: translation keys don't add up`);
+    const rest = data.subarray((p + 3) & ~3);
+    const q = Buffer.concat(qPer);
+    const t = Buffer.concat(tPer);
+    if (qPer.some((x) => x.length > 0xffff) || tPer.some((x) => x.length > 0xffff))
+        throw new FormatError(`${name}: a bone's keys past 64 KB`);
+    const head = Buffer.from(data.subarray(0, start));
+    head.writeUInt32LE(q.length, 0x1c);
+    head.writeUInt32LE(t.length, 0x20);
+    qPer.forEach((x, b) => head.writeUInt16LE(x.length, sizesAt + 2 * b));
+    tPer.forEach((x, b) => head.writeUInt16LE(x.length, sizesAt + 2 * bones + 2 * b));
+    const body = Buffer.concat([q, t]);
+    const pad = Buffer.alloc(((body.length + 3) & ~3) - body.length);
+    return Buffer.concat([head, body, pad, rest]);
+}

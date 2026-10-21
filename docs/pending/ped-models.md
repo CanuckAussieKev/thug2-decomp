@@ -87,6 +87,7 @@ when a sector has several meshes (Ped_M_AU_Torso05).
   `--thug2-peds`, TPN-THUG1-3 load_level_anims left out with own peds).
 
 ## Checks
+- (after the animation fix) `thug1_levels selfcheck`: 2,190 files, 0 failures.
 - npm run typecheck / lint / test: 202 tests pass.
 - `node tools/thug1_levels/thug1_levels.ts selfcheck`: 533 files, 0 failures (incl. the skins above).
 - `node tools/level_port/ped_rig_check.ts <staging>`: NJ / NY / VC ok.
@@ -102,12 +103,30 @@ when a sector has several meshes (Ped_M_AU_Torso05).
   (here `default`, a keyword) came out byte-swapped. Fixed in the shared `qb.nameText` (tests updated: `#C5787EE3` for
   `script`); tools/anteara's keyOf already used file order.
 - Run 3: NJ loads and runs (no exception, no pool warnings); THUG1's models and animations are read from the overlay
-  (log: models\thug1_peds\..., anims\thug1\...). **Not yet seen on screen**: the captures near Dealer02 / the
-  Tombstone guy (camera 63-160 units away) show a ped's shadow blob but no body. To check next: the camera nearer
-  than the nodes' lod_dist1 (80) - the THUG1 nodes keep lod_dist1=80 / lod_dist2=150, beyond which a ped model isn't
-  drawn -, and whether the ped stands where its node is (Ped_InitAI Stand); then NY / VC (women) and the pool lines.
-- The workspace's own THUG1 staging and overlay were moved aside, not deleted: `C:\Games\THUG2-4\
-  thug2-decomp-thug1.pedmodels-bak` and `thug2-decomp-data.pedmodels-bak` - put back (rename) after testing.
+  (log: models\thug1_peds\..., anims\thug1\...), but the people were **crumpled**: up close, Dealer02 was a heap of
+  his shirt on the ground (from 60+ units it looked like a shadow only). Experiment: every THUG1 animation file
+  replaced by THUG2's Ped_F_Idle1 (55 tracks, THUG2's encoding) -> full bodies standing. So the skins, skeleton,
+  textures and profiles were right and THUG1's animation data was decoded wrongly.
+- Cause: a .ska key may be an index into a **"standard key" table** the game loads at start-up (anims\standardkeyQ.bin /
+  standardkeyT.bin in Bits.pre / Bits.prx: 256 x 8 bytes; read by THUG2's key decoders 0x00482C20 / 0x00482E70 from
+  0x006F9AD8 / 0x006F92D8). THUG1's and THUG2's tables differ, so THUG1's table keys pick THUG2's values. Fix
+  (`thug1.untableAnim`): every table key written out explicitly with THUG1's table values (rotation key: header
+  without 0x4000 + 3 x u16; translation key: byte without 0x80 + 3 x u16), the per-bone stream sizes and the totals
+  updated, partial animations' (flag 0x80000) bone bits kept. The format otherwise is THUG2's (both decoders read
+  THUG1's flag set). Self-check: all 1,657 THUG1 object animations (anims\..., every .pre) convert and have no table
+  keys left (the levels' camera paths, flags 0x1E000000, are another format - not converted).
+- Run 4 (after the fix) - **THUG1's people on screen and animating** (captures, all at frame 1 unless noted; copies in
+  the worktree's out\scripts\peds\captures):
+  - NJ `nj_dealers_fix`: the three drug dealers by the porch (Dealer02 in the long coat, Dealer09 in the leaf shirt,
+    Dealer10 hooded) - THUG1's models; frames 1 and 60 differ (the leaf-shirt dealer's arm goes from a wave to his
+    head; 3.2% of pixels change over 60 frames with the camera still).
+  - NY `ny_parking3`: THUG1's female NYPD parking officer (Ped_Female rig, THUG1_Ped_Female animations: hands on hips)
+    next to the bum; `ny_guard3`: a THUG1 security guard.
+  - VC `vc_clerk`: the female desk clerk (Ped_Female); `vc_doorman`: the doorman by the rink.
+  - No exceptions, no `pool ... full` / `80% full` lines in NJ, NY or VC.
+  - The peds stand at their nodes (Ped_InitAI Stand); the camera has to be within ~80 units to frame them well.
+- The workspace's own THUG1 staging and overlay were moved aside during the runs and put back afterwards; THUG2-4's
+  lock released (its DLL and ini put back).
 
 ## What's left
 - THUG1: animals (dogs, the pigeons, Hawaii's shark) and SJ's MonsterPed crowd (later phase, the user's decision);

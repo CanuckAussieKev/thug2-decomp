@@ -578,6 +578,16 @@ export class Thug1Peds {
         return (this.sets.get(set)?.anims ?? []).map(([d]) => d);
     }
 
+    // THUG1's standard key tables (anims\standardkeyQ.bin / standardkeyT.bin, Bits.pre).
+    keyTables(): { q: Buffer; t: Buffer } {
+        const bits = path.join(this.pre, "Bits.pre");
+        const q = prx.find(bits, "anims\\standardkeyQ.bin");
+        const t = prx.find(bits, "anims\\standardkeyT.bin");
+        if (q === null || t === null || q.length < 2048 || t.length < 2048)
+            throw new Error(`${bits}: THUG1's standard key tables not found`);
+        return { q, t };
+    }
+
     // --- output -----------------------------------------------------------------------------------------------------
 
     // The models and animations used so far into the staging folder, and its peds.json. Returns a report line.
@@ -599,9 +609,12 @@ export class Thug1Peds {
             }
         }
         let anims = 0;
+        const tables = this.keyTables();
         for (const [ours, theirs] of this.animFiles) {
-            const data = this.file(`${theirs}.xbx`);
-            if (data === null) throw new Error(`THUG1's ${theirs}.xbx isn't in its archives`);
+            const raw = this.file(`${theirs}.xbx`);
+            if (raw === null) throw new Error(`THUG1's ${theirs}.xbx isn't in its archives`);
+            // (THUG1's standard-key table keys written out: THUG2's tables differ - thug1.untableAnim)
+            const data = thug1.untableAnim(raw, tables.q, tables.t, theirs);
             const target = path.join(staging, `${ours}.xbx`);
             fs.mkdirSync(path.dirname(target), { recursive: true });
             fs.writeFileSync(target, data);

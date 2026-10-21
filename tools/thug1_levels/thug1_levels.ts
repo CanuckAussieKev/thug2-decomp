@@ -1024,6 +1024,36 @@ export function cmdSelfcheck(args: Args): number {
         }
     }
     print(`ok   ${skins.size} THUG1 ped skins made THUG2's`);
+    // THUG1's animations with their standard-key table keys written out (thug1.untableAnim): every one, and the
+    // result has none left (written out again: the same bytes).
+    const bits = pyJoin(thug1Pre, "Bits.pre");
+    const qTable = prx.find(bits, "anims\\standardkeyQ.bin");
+    const tTable = prx.find(bits, "anims\\standardkeyT.bin");
+    if (qTable === null || tTable === null) {
+        print(`FAIL ${bits}: no standard key tables`);
+        failures += 1;
+    } else {
+        const anims = new Set<string>();
+        for (const archive of fs.readdirSync(thug1Pre).sort()) {
+            if (!archive.toLowerCase().endsWith(".pre")) continue;
+            // (the objects' animations: anims\...; the levels' camera paths are another format)
+            const isAnim = (n: string): boolean => /^anims[\\/].*\.ska\.xbx$/i.test(n) && !anims.has(n.toLowerCase());
+            for (const [name, data] of prx.entries(pyJoin(thug1Pre, archive), isAnim)) {
+                anims.add(name.toLowerCase());
+                try {
+                    const out = thug1.untableAnim(data, qTable, tTable, name);
+                    if (!thug1.untableAnim(out, qTable, tTable, name).equals(out))
+                        throw new FormatError("table keys left");
+                    checked += 1;
+                } catch (e) {
+                    if (!(e instanceof FormatError || e instanceof RangeError)) throw e;
+                    print(`FAIL ${archive} ${name}: ${e.message}`);
+                    failures += 1;
+                }
+            }
+        }
+        print(`ok   ${anims.size} THUG1 animations' table keys written out`);
+    }
     // Every level file of every THUG1 level archive (scenes, textures, collision, the levels' qb files).
     for (const archive of fs.readdirSync(thug1Pre).sort()) {
         const lowArchive = archive.toLowerCase();
