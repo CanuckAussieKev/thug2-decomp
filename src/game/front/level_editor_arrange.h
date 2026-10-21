@@ -30,7 +30,7 @@ struct Overlay;
 //     what a click places - the piece's / object's box (turned to the surface's slope for objects with "Align to
 //     slope"), a node's marker - follows the cursor on the surface; with "Click places" a click in the view places the
 //     Add palette's piece there (Shift: more).
-//   - Auto-rail along this edge (F7, a scenery piece selected): the piece's top outline - the edges of its upward
+//   - Auto-rail along this edge (Alt+R, a scenery piece selected): the piece's top outline - the edges of its upward
 //     faces where the surface falls away (convex lips), from its meshes' triangles - drawn; a click on one lays a grind
 //     rail exactly along it (level_editor_chains.h's points: one undo step).
 // The window: F2 (the command search: "Arrange"); the keys are in the action registry (level_editor_actions.h). Pure parts self-tested: src/hook/selftests_editor_arrange.cpp.
@@ -130,7 +130,7 @@ bool Replace();
 // Edge snapping while moving (level_editor.cpp's drag): the selection's scenery wanted at `wanted` (from `pos`, where
 // it is), `axes` as EdgeSnap's - the place it snaps to.
 V3 EdgeSnapped(V3 pos, V3 wanted, int axes);
-// Auto-rail (F7): picking an edge of the selected scenery's top outline; a click lays the rail. Click: whether the click
+// Auto-rail (Alt+R): picking an edge of the selected scenery's top outline; a click lays the rail. Click: whether the click
 // was taken.
 bool EdgePicking();
 void SetEdgePicking(bool on);
@@ -138,7 +138,7 @@ bool EdgeClick(float x, float y);
 // A click in the view while the Add palette is open (with Click places): its piece placed at the cursor (`more`:
 // Shift - the palette stays open). False: not taken.
 bool PlaceClick(bool more);
-// Once a frame while the editor runs (after the editor's keys): the keys M, F7, Ctrl+Alt+D handled by the editor.
+// Once a frame while the editor runs (after the editor's keys): the keys M, Alt+R, Ctrl+Alt+D handled by the editor.
 void Update();
 // What's drawn over the view: the ghost, the readout, the edges met by snapping, the top outline.
 void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,

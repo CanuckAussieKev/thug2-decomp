@@ -505,7 +505,7 @@ bool Align(int axis, Edge edge, Reference reference, bool local)
     std::vector<float> moves = AlignMoves(spans, edge, reference);
     MoveUnits(selection, units, axes[axis], moves);
     char text[128];
-    std::snprintf(text, sizeof(text), "Aligned %d pieces: %s on %s (%s, %s) - F6 adjusts, Ctrl+Z undoes",
+    std::snprintf(text, sizeof(text), "Aligned %d pieces: %s on %s (%s, %s) - F4 adjusts, Ctrl+Z undoes",
                   static_cast<int>(units.size()), edge == Edge::Min ? "min" : edge == Edge::Max ? "max" : "centre",
                   AxisName(axis), local ? "local" : "world", reference == Reference::First ? "the first" : "the bounds");
     Hud::Message(text, 4.0);
@@ -535,7 +535,7 @@ bool Distribute(int axis, bool gaps, bool local)
         spans.push_back(SpanAlong(unit.corners, axes[axis]));
     MoveUnits(selection, units, axes[axis], DistributeMoves(spans, gaps));
     char text[128];
-    std::snprintf(text, sizeof(text), "Distributed %d pieces along %s (%s) - F6 adjusts, Ctrl+Z undoes",
+    std::snprintf(text, sizeof(text), "Distributed %d pieces along %s (%s) - F4 adjusts, Ctrl+Z undoes",
                   static_cast<int>(units.size()), AxisName(axis), gaps ? "equal gaps" : "evenly spaced centres");
     Hud::Message(text, 4.0);
     Adjust::Action action;
@@ -596,6 +596,7 @@ bool ReplaceScenery(const Edit::Selected& selection, uint32_t source)
     size_t depth = Edit::Depth();
     // (the pieces hidden first: undone last, they come back selected)
     Edit::PushSnapshot();
+    Carry::Disarm(); // (nothing follows: what stood on the pieces stays where it is)
     Scenery::HideSelection();
     std::vector<uint32_t> made;
     for (const Unit& unit : units) {
@@ -889,7 +890,7 @@ void SetEdgePicking(bool on)
     g_edgeHover = -1;
     if (on) {
         size_t runs = EdgeRuns().size();
-        Hud::Message(runs ? "Rail along an edge: click one of its top edges (cyan) - Shift+click lays more; F7 / Esc stops"
+        Hud::Message(runs ? "Rail along an edge: click one of its top edges (cyan) - Shift+click lays more; Alt+R / Esc stops"
                           : "Rail along an edge: no top edges found on that piece",
                      5.0);
         if (!runs)
@@ -908,7 +909,7 @@ bool EdgeClick(float x, float y)
     int pick = RunAt(runs, [&](V3 p, float* px, float* py) { return PixelOf(view, p, px, py); }, x, y,
                      12.0f * static_cast<float>(view.viewport[3]) / 720.0f);
     if (pick < 0) {
-        Hud::Message("Rail along an edge: click on one of the cyan edges (F7 / Esc stops)");
+        Hud::Message("Rail along an edge: click on one of the cyan edges (Alt+R / Esc stops)");
         return true;
     }
     Run run = runs[pick];
@@ -1046,12 +1047,12 @@ void RegisterActions()
                             {Chord{SDL_SCANCODE_F2, 0}}, [] { Toggle(&Current().window); });
     g_actAdjust = AddAction("adjust_last", "Adjust last action", "Panels",
                             "The last move / turn / scale / duplicate / align / place: change its numbers, made again as "
-                            "the same undo step (shown after each; F6 hides / shows it)",
-                            {Chord{SDL_SCANCODE_F6, 0}}, [] { Toggle(&Adjust::Shown()); });
+                            "the same undo step (shown after each; F4 hides / shows it)",
+                            {Chord{SDL_SCANCODE_F4, 0}}, [] { Toggle(&Adjust::Shown()); });
     g_actEdgeRail = AddAction("edge_rail", "Rail along an edge", "Edit",
                               "A scenery piece selected: its top edges shown - click one to lay a grind rail exactly along "
                               "it (Shift+click: more)",
-                              {Chord{SDL_SCANCODE_F7, 0}}, [] { SetEdgePicking(!g_edgePicking); });
+                              {Chord{SDL_SCANCODE_R, Actions::kAlt}}, [] { SetEdgePicking(!g_edgePicking); });
     g_actLinked = AddAction("linked_duplicate", "Duplicate linked", "Edit",
                             "Copies that stay linked to their source: its scale (objects: its fields and model) reach them",
                             {Chord{SDL_SCANCODE_D, ctrlAlt}}, [] { Links::LinkedDuplicate(); });

@@ -223,7 +223,7 @@ bool& Shown() { return g_shown; }
 
 void Tick()
 {
-    // (F6 - its registry entry, level_editor_arrange.cpp - switches Shown)
+    // (F4 - its registry entry, level_editor_arrange.cpp - switches Shown)
     if (!g_pending || Edit::Dragging())
         return;
     g_pending = false;

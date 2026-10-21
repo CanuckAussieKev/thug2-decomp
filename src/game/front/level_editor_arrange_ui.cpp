@@ -102,7 +102,7 @@ void Window(float uiScale)
 
     ImGui::SeparatorText("Rail along an edge");
     bool picking = EdgePicking();
-    if (ImGui::Checkbox("Pick a top edge (F7)", &picking))
+    if (ImGui::Checkbox("Pick a top edge (Alt+R)", &picking))
         Later([picking] { SetEdgePicking(picking); });
     Tip("A scenery piece selected: its top outline drawn cyan - click one edge to lay a grind rail along it");
 
@@ -145,7 +145,7 @@ void Panel(float x, float y, float uiScale)
     ImGui::SetNextWindowPos(ImVec2(x + 8.0f * uiScale, y - 8.0f * uiScale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(280.0f * uiScale, 0.0f));
     char title[64];
-    std::snprintf(title, sizeof(title), "Adjust: %s (F6)###adjust_last", Title(last.kind));
+    std::snprintf(title, sizeof(title), "Adjust: %s (F4)###adjust_last", Title(last.kind));
     if (!ImGui::Begin(title, nullptr,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                           ImGuiWindowFlags_AlwaysAutoResize)) {

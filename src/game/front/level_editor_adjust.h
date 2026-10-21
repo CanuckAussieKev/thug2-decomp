@@ -16,7 +16,7 @@
 // them, as the same undo step: the step it made is put back (without a redo) and the action made again from where it
 // started (the copies from their source; a placed thing just moved / turned - its step is its existence). Only while
 // that action's step is still the newest on the undo stack (another action, an undo or a redo: the panel says so).
-// F6 hides / shows the panel. Pure parts self-tested: src/hook/selftests_editor_arrange.cpp.
+// F4 hides / shows the panel. Pure parts self-tested: src/hook/selftests_editor_arrange.cpp.
 namespace Front::LevelEditor::Adjust {
 
 enum class Kind : uint8_t { None, Move, Turn, Scale, Duplicate, Align, Distribute, Place };
@@ -56,9 +56,9 @@ void NoteDuplicate(const Edit::Selected& source, const Action& action);
 bool Applying();
 // The panel's numbers changed (the UI): made again in the next Tick.
 void Request(const Action& action, bool now);
-// Once a frame while the editor runs (after the editor's keys: F6).
+// Once a frame while the editor runs (after the editor's keys: F4).
 void Tick();
-// What the panel shows: the last action (kind None: nothing), whether it can still be adjusted, shown or hidden (F6).
+// What the panel shows: the last action (kind None: nothing), whether it can still be adjusted, shown or hidden (F4).
 const Action& Last();
 bool Adjustable();
 bool& Shown();
