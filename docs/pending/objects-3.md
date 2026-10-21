@@ -131,4 +131,43 @@ other members added; TriggerNode unchanged).
   - Test (selftests_obj_stream.cpp TestStreamComponent): 4000 random cases over the 15, Pcm's four, the nodes, the
     camera, the getters stood in for. 21 deliberate bugs caught, 1 after strengthening (Create's record traced before
     Construct overwrote it).
-- [ ] Next: the suspend component and its task (0x433E10-0x434610), the 0x7505D7CC component (0x434630-0x434870).
+- [x] Batch OC3-6 (NOT run in the game yet; the suspend component and its task, the texture projection component,
+  Mth::Vector::MultiplyBy, 26 functions): src/game/obj/suspend_component.*, texture_projection_component.*,
+  src/game/mth/vector_transform.cpp (new); vector.h: MultiplyBy declared (additive) with a forward declaration of
+  Matrix.
+  - CSuspendComponent (0xCE0CA665 "suspend", vtable 0x006465C8, 0x4C bytes: +0x18 NeverSuspend, +0x1C / +0x20 the
+    suspend distance (inches) and its square, +0x24 the distance squared at the last check, +0x28 frames before the
+    first check, +0x2C the model component, +0x30 far (suspended), +0x34 lod_dist1-4 (inches; 1000000-1000003 = no
+    LOD), +0x44 frames before the LOD checks): Create 0x00434290, RegisterMemberFunctions 0x00434610 (not a Ghidra
+    function; table 0x00684C48, then a tail jump to CreateSuspendTask), Construct 0x00433F50 (NeverSuspend by default,
+    DefaultMovingObjectSuspendDistance), DestroyBody 0x00433E10, Destroy 0x00433FD0, Update 0x00433E50 (suspends
+    itself: the base's Suspend(true)), InitFromStructure 0x00434000 (SuspendDistance - 0: lod_dist1, else the default -
+    clears NeverSuspend; NoLOD script integer; lod_dist1 50, lod_dist2 = lod_dist1 + 75, 3 / 4 1000001 / 1000002, x12,
+    the first two times LOD0 / LOD1DistanceMultiplier; the order checks call 0x005480A0(params, 0): kept as
+    Script::PrintContents), Finalize 0x004341C0, ResetCounts 0x00433E60, DisableLod 0x00433E70, IsFar 0x00433E90
+    (REPLACE_SOURCE_ONLY: 4 bytes), ShouldAnimate 0x00433EA0 (beyond lod_dist1 never - NaN counts as within -;
+    AnimLODInterleave4 (unrounded square) every 4th by 0x006951B8, AnimLODInterleave2 (square rounded to float) every
+    2nd by 0x006951B4; always during the LOD frames), UpdateVisibility 0x004342F0 (the MODEL COMPONENT's +0x234 forces
+    it; within lod_dist2 strictly: the model's bounding sphere 0x00492F30 through MultiplyBy + the position to
+    0x0048C490 (nonzero: out of view); 0x00493C60(visible); newly visible: the model component's Update),
+    Obj_ResetNoSuspendCount 0x004341E0 (not a Ghidra function). NextSuspendFrame 0x00433E20 (the counters
+    0x006951B0-B8), CreateSuspendTask 0x004345B0 (holder at 0x006951BC), SuspendTaskHolder::Construct 0x00434520
+    (Tsk::Task 0x20 bytes, vtable 0x006476F0, priority -1100, added to the main loop's logic tasks - null too),
+    SuspendTask 0x00434420 (not a Ghidra function; quirk kept: a component's check frames are counted down all at
+    once - the original goes round with the same component; camera = the skate module's +0x3DC (flag, position);
+    distance squared in double against the square; Suspend / wake; the model shown during the LOD frames, else
+    UpdateVisibility).
+  - CTextureProjectionComponent (0x7505D7CC - a name for "texture_projections="; vtable 0x00646604, 0x38 bytes: +0x18
+    the list head (vtable 0x00646638 made, 0x00646600 in its destructor), +0x2C / +0x30 / +0x34 the suspend, skeleton
+    and model components): Create 0x00434870, ProjectionList::Destroy 0x00434670, DestroyBody 0x004346B0 (0x0057A2F0
+    then the head unlinked), Destroy 0x00434840, InitFromStructure 0x00434730 (each texture_projections= structure: a
+    0xC8-byte projection (0x004C7E80) with its 0x1EE8B7B9 checksum at +0x14, 0x004A04C0(structure), at the front),
+    Finalize 0x00434630, Update 0x00434810 (each projection's 0x0049FFE0(object); the head test before the null test).
+  - Mth::Vector::MultiplyBy 0x00434200 (14 callers: v = v * M over all four, the sums in the original's order in
+    double).
+  - Test (selftests_obj_suspend.cpp TestSuspendComponent): 5000 random cases over the 26 on chains of four components;
+    Script::GetFloat through a naked stand-in (the float in ST0); edges: distances exactly on the LOD / suspend limits,
+    at AnimLODInterleave2's float square, and a crafted vector / matrix that puts MultiplyBy's sum on a float tie (the
+    order of its two last additions shows). 44 deliberate bugs caught, 6 after strengthening (a hash collision
+    between two answers, the edges, the tie).
+- [ ] Next: the rigid body component (0x42CEE0-0x430E20 and its member functions).

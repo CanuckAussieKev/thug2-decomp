@@ -346,6 +346,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_skeleton.cpp
     src/hook/selftests_obj_sound.cpp
     src/hook/selftests_obj_stream.cpp
+    src/hook/selftests_obj_suspend.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_editor_ui.cpp
     src/hook/selftests_editor_nodes.cpp
@@ -671,6 +672,9 @@ add_library(thug2_code OBJECT
     src/game/obj/skeleton_component.cpp
     src/game/obj/sound_component.cpp
     src/game/obj/stream_component.cpp
+    src/game/obj/suspend_component.cpp
+    src/game/obj/texture_projection_component.cpp
+    src/game/mth/vector_transform.cpp
     src/game/skater/rotation.cpp
     src/game/skater/local_net_logic.cpp
     src/game/skater/nonlocal_net_logic.cpp

@@ -2,6 +2,8 @@
 
 namespace Mth {
 
+class Matrix;
+
 // The engine's general-purpose vector: x, y, z plus a w component. Most operations work on all four
 // components; Length, Normalize, DotProduct and CrossProduct use only x, y, z.
 class Vector {
@@ -49,6 +51,9 @@ public:
     void FeetToInches();
     // x = -x, y = -z, z = y. Purpose not identified yet (looks like a coordinate-system conversion).
     void NegateXRotateX90();
+    // 0x00434200 (vector_transform.cpp): this = this * `matrix`, all four components (w too: a full 4x4 product,
+    // each sum from the w term back to the x / y ones). Returns this.
+    Vector& MultiplyBy(const Matrix& matrix);
 };
 
 Vector operator+(const Vector& a, const Vector& b);
