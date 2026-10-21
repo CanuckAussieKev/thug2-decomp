@@ -32,6 +32,7 @@
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
+#include "hook/crash.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -421,6 +422,12 @@ ParseResult ParseCommand(const std::string& line, Command* out, std::string* err
     } else if (keyword == "echo") {
         command.op = Op::Echo;
         command.target = Rest(line);
+    } else if (keyword == "crash") {
+        command.op = Op::Crash;
+        TestFault fault;
+        if (count != 2 || !ParseTestFault(tokens[1], &fault))
+            return fail(std::string("crash <kind>: ") + TestFaultNames());
+        command.target = TestFaultName(fault);
     } else if (keyword == "quit") {
         command.op = Op::Quit;
         if (count != 1)
@@ -541,6 +548,7 @@ std::string Describe(const Command& command)
     case Op::Level: return "level " + command.target;
     case Op::Echo: return "echo " + command.target;
     case Op::Quit: return "quit";
+    case Op::Crash: return "crash " + command.target;
     case Op::Teleport:
     case Op::Camera: {
         if (command.target == "off")
@@ -1204,6 +1212,8 @@ std::string LogTricks(int count, std::string* failed)
 }
 
 // Start the next command; true if it's done already (the next can start this frame).
+void WriteStatus(Runner& runner);
+
 bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
 {
     Line line = runner.queue.front();
@@ -1312,6 +1322,16 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
             Finish(runner, result);
         else
             Fail(runner, failed, false);
+        return true;
+    }
+    case Op::Crash: {
+        TestFault fault = TestFault::Access;
+        ParseTestFault(command.target, &fault);
+        WriteStatus(runner); // (its "current" says what ended the game)
+        if (!CauseTestFault(fault))
+            Fail(runner, "crash " + command.target + ": not in this build (a Debug build's check)", false);
+        else
+            Fail(runner, "crash " + command.target + ": the game still runs after it", false);
         return true;
     }
     case Op::Quit: {
