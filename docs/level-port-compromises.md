@@ -42,9 +42,9 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 | Where the camera goes through (face flag 0x80: THUG2's "camera passes through"; THPS3 / THPS4's "camera collides") | Original (flag inverted) | Original (flag inverted) | Original (kept; inverted in DJ, PH, SC and the skate shop, which THUG1 shipped with the old meaning) | Original (kept) |
 | Level scripts (gaps, triggers, moving things) | Original, translated | Original, translated | Original, translated (node array nearly whole) | Original, translated |
 | Gap checks that test how you landed (TriggerType) | Translated to THUG2's form | Translated to THUG2's form | Translated to THUG2's form | Translated (THAW's Smack / Natas / AcidDrop / STALL: no THUG2 event, left out - false) |
-| Peds: model | Stand-in (THUG2 people) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |
+| Peds: model | Original (THPS3's own models, `tools/thps3_levels/thps3_peds.ts`); pros and crowds: THUG2 stand-ins (`--thug2-peds`: all stand-ins) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |
 | Peds: where they stand or walk | Original | Original (walkers only; others stand) | Original | Original; ambient "life node" spots get standing peds (max 24) |
-| Peds: AI and animations | Stand-in (THUG2 ped AI) | Stand-in | THUG2's ped AI (THUG1's is its predecessor); THUG1-only animations dropped | Stand-in |
+| Peds: AI and animations | THUG2's ped AI playing THPS3's own animations on THPS3's skeletons (each animation it asks for: THPS3's of that name or role) | Stand-in | THUG2's ped AI (THUG1's is its predecessor); THUG1-only animations dropped | Stand-in |
 | Story and goal peds | Missing | Missing | Missing | Missing |
 | Crowds | Stand-in (THUG2 standing peds) | n/a | Missing (SJ's MonsterPed crowd) | n/a |
 | Animals | Stand-in (THUG2 pigeons, seagulls, sharks); flying birds missing | Pigeons as THUG2's own (Chicago, London, San Francisco: THPS4's script is THUG2's Pigeon_Generic); the rest missing (Zoo's among them) | Missing (dogs, sharks crash THUG2's ped AI) | Missing (pigeons) |
@@ -140,7 +140,9 @@ counts across all levels:
 - The tutorials' lessons and goals.
 
 **Life**
-- Peds and crowds are THUG2 people on THPS3's places and paths. Women use THUG2's female setup.
+- Peds are THPS3's own people (models, skeletons, animations - docs/pending/ped-models.md, phase 2) on THPS3's places
+  and paths, driven by THUG2's ped AI; the pros and the crowds are THUG2 people (the pros THUG2 has as its own
+  PedPro_ models). `--thug2-peds`: THUG2 people everywhere, as before.
 - Resting birds are THUG2 pigeons / seagulls (fly up within 15 ft); flying birds missing (Canada 55, Suburbia 8,
   Skater Island 23). Sharks are THUG2's.
 - Traffic: THUG2 look-alike cars (police -> veh_cop, vans / buses -> veh_van...). THPS3's spare cars, made by its car
@@ -359,7 +361,7 @@ in THUG1's). Every level loads in free skate (agents' load checks only; nobody h
 | Texture mapping | Original: uvs as texel numbers over the size, repeating textures wrap-addressed (phase 2 - phase 1 clamped them into stripes); layers (decals) given a z bias |
 | Terrain sounds | Original numbers (THPS2's 16 terrains as the nearest THUG2 terrain: metal pole and metal both smooth metal); rails concrete / metal / wood from their flags |
 | Restarts, rails | Original (Player1 / Player2 as the start node names them; 2P / HORSE / generic by name); restarts with no floor at all left out |
-| Gaps | Original triggers and gap numbers; **stand-in names and scores**: "GAP <number>", 250 points (THPS2's gap table is in its SafeDisc-encrypted executable); StartGap with CANCEL_GROUND for every gap |
+| Gaps | Original triggers and gap numbers; **stand-in names and scores**: "GAP <number>", 250 points (THPS2's gap table is in its executable - SafeDisc-encrypted in the PC release; gap_table.ts reads it from a readable one, `--thps2-exe`); StartGap with CANCEL_GROUND for every gap |
 | Kill zones | Original (KillBruce triggers, back to the restart they pulse) |
 | Other trigger commands | Missing: career flags, pulses to objects, sounds, visibility boxes, camera |
 | Moving / breakable objects (the _o models) | Static, bouncy and spinning platform objects as LevelObjects of THPS2's models (bouncy ones not collided with: THPS2 knocks them about); scripted ones (signals, paths, shattering) missing |

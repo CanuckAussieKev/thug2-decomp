@@ -131,7 +131,7 @@ when a sector has several meshes (Ped_M_AU_Torso05).
 ## What's left
 - THUG1: animals (dogs, the pigeons, Hawaii's shark) and SJ's MonsterPed crowd (later phase, the user's decision);
   levels other than NJ / NY / VC not run in the game.
-- THPS3 / THPS4 / THAW: not started (plan sections 4.2-4.4).
+- THPS3: done in phase 2 (below). THPS4 / THAW: not started (plan sections 4.2, 4.4).
 
 ## After merging main (0d1eb27: Vancouver limo / driving PC-THUG1-21 / 22, TP-42)
 - Conflicts in make_menu_level.ts (the Anteara edits: the ped files' and car_scripts'), thug1_levels.ts / thug1_port.ts
@@ -140,3 +140,93 @@ when a sector has several meshes (Ped_M_AU_Torso05).
 - VC re-converted into C:\Games\THUG2-3 (own build of the merged branch): the limo is there with its "Press ... to
   drive." prompt, and THUG1's female desk clerk stands animating - both survive the merge; no exceptions, no pool
   warnings. The workspace's own staging / overlay put back, lock released.
+
+# Phase 2: THPS3's own people in the THPS3 port (2026-10-21)
+
+Continued from a stopped agent's uncommitted work (its readers and converter draft, brought over and finished).
+Tools only - no src changes (the temporary log lines used during the game runs were taken out again).
+
+## The converter
+- **Readers** (tools/thps3_levels/thps3_skin.ts): THPS3's `.SKN` (a RenderWare 3.1 clump: each frame's Neversoft bone
+  chunk 0x108 gives its bone number, RenderWare's skin chunk 0x116 the per-vertex 4 bone numbers + 4 weights and per
+  bone the inverse bind matrix; vertices in bone 0's z-up space) and `.ska` (u32, 0x80000000, duration, rotation /
+  translation key counts, keys {quaternion or translation, time, the previous key's offset}; each track's first key
+  at time 0, in bone order). THPS3's and THUG2's stored quaternions turn points the same way (checked against THUG2's
+  own rest poses and THPS3's walk). All 176 men's (pedestrian_a) and 50 women's (Pedfem_a) animations parse.
+  Writers: THUG2's `.ske.xbx` (ids, parents, mirrors, rest pose) and `.ska.xbx` in its plain key forms (flags
+  0x06810000 - 15 of THUG2's own files use them; rotation: u16 frame at 60/s | 0x8000 when w < 0, 3 x i16 / 16384;
+  translation: u8 0, u16 frame, 3 x i16 / 32 - checked against the decoders 0x00482C20 / 0x00482E70 and the loader
+  0x00484200: no table keys, no custom keys).
+- **Rig: THPS3's own, no retarget.** 14 bones for the men's set, 15 for the women's (no hands, no neck - on
+  THPS6_human's 50 most bones would get nothing and THPS3's animations couldn't be used). One skeleton per set,
+  `THPS3_<set>_skeleton`: the set's base model's bind pose, bone 0 turned y-up and raised by the set's ground height
+  (the idle's frame 0 puts the base model's feet at 0: 37.85 men, 39.29 women); each model's vertices refitted bone by
+  bone into that pose (the models of one set have different bind poses). The self-check poses every model by the
+  written skeleton + animation the way THUG2 does and compares with THPS3's own skinning: within 0.046 units (30 men's
+  models), 0.040 (6 women's).
+- **Faces.** THPS3 draws its people double-sided and their strips wind both ways (about half of the triangles face
+  inwards); THUG2 culls a skin's back faces (its own skins: all but a handful of triangles wound along their normals),
+  so the first game run showed the guards with holes in their shirts and trousers. Every triangle is turned to face
+  along its vertex normals and the strip joined again with degenerate-only joins (`outwardStrip`, `joinTriangles`);
+  the self-check fails any written skin triangle wound against its normals.
+- **Models / profiles**: `models\THPS3_Peds\<model>\<model>.skin/.tex/.col/.cas.xbx` (textures from the model's
+  .tdx); profiles `THPS3_<model> = {ped_body={desc_id=THPS3_<model>}}`, parts `no_random`, added through peds.json
+  (THUG2's entries untouched). A ped node whose THPS3 `model=` belongs to the men's or women's set gets that profile,
+  `skeletonName=THPS3_<set>_skeleton`, `AnimName=animload_THPS3_<set>` and Ped_From_Profile / Ped_F_From_Profile;
+  fixPedRigs leaves it alone (not on a THUG2 human skeleton); ped_rig_check knows `THPS3_` profiles and checks their
+  set is loaded. Pros (PedPro_*: built from skater CAS parts on the skater rig) and crowds keep THUG2's stand-ins
+  (THUG2's own PedPro_ models where THUG2 has the pro). `--thug2-peds`: THUG2's people everywhere, no peds.json /
+  skeletons / animations (checked on Foundry and Suburbia).
+- **Animations**: the level's `animload_THPS3_<set>` (called from load_level_anims): `LoadSkeleton` of the set's
+  skeleton, then under `SetReferenceChecksum THPS3_<set>_skeleton` every animation THUG2's ped AI may play
+  (thug1_peds.pedAiAnims) from THPS3's file of that name or role (ROLES: getup, fall, jump, push, clap, cheer, wave,
+  disgust, talk, turn, idle / walk transitions, run, walk; else the idle), and `default` (the idle). Files:
+  `anims\THPS3\<set>\<THPS3's name>.ska.xbx`; installFiles / make_menu_level carry `skeletons\` too.
+  Foundry + Rio + Suburbia + Airport: 25 profiles, 25 models, 51 animation files, 2.6 MB.
+- **The crash on the way**: the first run with own peds crashed at 0x00482BA2 (`default` missing from the set). The
+  skeleton / reference was first named `THPS3_pedestrian_a` - the name of the set's base model's profile
+  (`THPS3_Pedestrian_A`, a global structure), so the script's `SetReferenceChecksum THPS3_pedestrian_a` passed the
+  global's contents instead of the name (the reference became 0x03CFCBA8 - seen with a temporary log line in
+  CAssMan::LoadAnim) and every animation went in under the wrong key. Now `THPS3_<set>_skeleton` (a test keeps rig
+  and profile names apart).
+
+## Checks
+- `node tools/thps3_levels/thps3_levels.ts selfcheck`: 329 files, 0 failures (pedestrian_a: 30 models, 176
+  animations; pedfem_a: 6 models, 50 animations; no inward triangles). thug1 / thps4 / thaw selfchecks: 0 failures.
+- npm run typecheck / lint / test: 260 tests pass (thps3_peds.test.ts: quaternions, the skeleton / animation writers
+  read back, mirrors, joinTriangles, outwardStrip, rig names, the construction worker walking posed as THPS3 poses him).
+- `node tools/level_port/ped_rig_check.ts <staging>`: Foundry, Rio, Suburbia, Airport ok.
+
+## In the game (C:\Games\THUG2-3, own DLL build of this branch, Foundry / Rio / Suburbia / Airport converted)
+- No exceptions, no pool warnings in the four levels (after the reference fix).
+- Captures (copies in the worktree's out\captures):
+  - Foundry `p3b_foun_booth_1/3`: the two security guards (Ped_Security_B) in the booth, front and back, solid
+    (before the face fix: holes); `p3b_foun_welder_1/2`: the welder (Ped_Welder_A) with his mask and torch.
+  - Suburbia `p3_sub_thinman_w1/w3`, `p3b_sub_thinman_1`: the Thin Man in his suit (waving, then hands behind his
+    back); `p3b_sub_bbq_1..4`: the BBQ guy at his grill (chef's hat, apron), moving between frames.
+  - Rio `p3b_rio_spect_1..3`: the spectators (Pedestrian_A-D) made with `run Create prefix=Ped_End_Spectator` (Rio's
+    own people are all made by its competition scripts, none in free skate; its free-skate crowd is THUG2's
+    stand-ins), standing and clapping.
+  - Airport `p3b_ap_start_1/2`: three walkers at the start (Pedestrian_A, Pedestrian_B and a woman, Pedfem_F) walking
+    with THPS3's walk; `p3b_ap_ticket_1/2`: the ticket agent (Pedfem_E, the women's rig) standing.
+- Test positions: a ped stands at (x, y, -z) of its node's Position as the .qb holds it (found with a temporary
+  automation command logging named objects' positions) - the first captures aimed at (x, y, z) and showed nothing.
+- The workspace's own THPS3 staging and overlay (moved aside by the stopped agent into `.thps3peds-backup`) put back;
+  THUG2-3's lock released (DLL and ini put back).
+
+## What's left
+- For a person to judge: the people in motion (the walk / idle mix THUG2's ped AI picks from THPS3's animations), the
+  BBQ guy's apron flap; LOD (THPS3's `_LOD01-03.SKN` not used; the models are 480-640 triangles).
+- THPS3's pros (PedPro_*), crowds (Crowd_*), animals: later (the user's decision).
+- Shared bug seen, not changed: `thps3_levels.trisToStrip` (and THPS2's copy) doubles only the last vertex at a join,
+  so between every two joined triangles it draws a stray one (c, a, b). Only THPS3 / THPS2 sectors stored as triangle
+  lists use it; worth a fix with a game check of those levels.
+- Useful for later ped tests: a permanent automation command logging where named objects are (the temporary one was
+  `echo obj <names>`).
+
+## Shared files changed (small, additive)
+- tools/level_port/ported_levels.ts (`installFiles` copies `<staging>\skeletons` too), tools/menu_level/
+  make_menu_level.ts (`skeletons` one of the overlay's own folders), tools/level_port/ped_rig_check.ts (THPS3_
+  profiles' rigs), docs/level-port-compromises.md (THPS3's peds rows).
+- tools/thps3_levels: thps3_skin.ts, thps3_peds.ts (+ test) new; thps3_levels.ts (`Port.peds`, the ped node's rig,
+  `loadAnimsNs`'s own sets, `--thug2-peds`, the selfcheck).

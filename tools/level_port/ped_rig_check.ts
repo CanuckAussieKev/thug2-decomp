@@ -28,6 +28,17 @@ export interface LevelRigs {
 // A port's own profile (THUG1's people: tools/thug1_levels/thug1_peds.ts names them THUG1_<profile>): its rig, the man's
 // or the woman's by the skeleton the node has; undefined for THUG2's profiles.
 export function ownRig(profile: string, node: Struct, names: ReadonlyMap<number, string>): pedRigs.Rig | undefined {
+    if (profile.startsWith("THPS3_")) {
+        // (THPS3's people - tools/thps3_levels/thps3_peds.ts: a skeleton per model, the set's animations; the rig is the
+        // node's own, checked for its animation set being loaded)
+        const text = (key: string): string => {
+            const v = node.get(key);
+            return v instanceof Name ? (names.get(v.value) ?? "") : "";
+        };
+        const reference = text("ReferenceChecksum");
+        const rig: pedRigs.Rig = { type: text("Type"), skeleton: text("skeletonName"), anims: text("AnimName") };
+        return reference ? { ...rig, reference } : rig;
+    }
     if (!profile.startsWith("THUG1_")) return undefined;
     const skeleton = node.get("skeletonName");
     const text = skeleton instanceof Name ? (names.get(skeleton.value) ?? "") : "";
@@ -52,6 +63,16 @@ export function checkLevel(file: QbFile, femaleRig: (profile: number) => boolean
     const wrong: string[] = [];
     const ownAnims = new Set<string>();
     for (const ped of peds) {
+        const profile = ped.get("profile");
+        const profileText = profile instanceof Name ? (names.get(profile.value) ?? "") : "";
+        if (profileText.startsWith("THPS3_")) {
+            // (on a skeleton of its own: fixPedRigs leaves it alone - its set must be loaded)
+            const rig = ownRig(profileText, ped, names)!;
+            if (!rig.skeleton.startsWith("THPS3_") || !rig.anims) wrong.push(`${profileText}: no THPS3 rig`);
+            ownAnims.add(rig.anims);
+            fix.human += 1;
+            continue;
+        }
         const copy = new Struct([...ped.entries]);
         const one = pedRigs.fixPedRigs([copy], names, femaleRig, (v, node) => {
             const rig = ownRig(names.get(v) ?? "", node, names);

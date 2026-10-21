@@ -337,3 +337,29 @@ test("ped rigs: a woman's profile gets Ped_Female, a man's THPS6_human; animals 
         "script load_level_anims {\n    animload_THPS6_human \n    animload_ped_female \n}\n",
     );
 });
+
+test("mergeManifest: a partial convert keeps the other levels", async () => {
+    const { mergeManifest } = await import("./ported_levels.ts");
+    const e = (level: string, n: number) => ({
+        folder: level,
+        level,
+        sky: null,
+        display: level,
+        name: level,
+        level_num: n,
+        default_stats: 6,
+        lighting: {},
+    });
+    const old = { levels: [e("foun", 1), e("can", 2), e("rio", 3)] };
+    const merged = mergeManifest(old, { levels: [{ ...e("can", 2), display: "new" }, e("tok", 9)] });
+    assert.deepEqual(
+        merged.levels.map((l) => [l.level, l.display]),
+        [
+            ["foun", "foun"],
+            ["can", "new"],
+            ["rio", "rio"],
+            ["tok", "tok"],
+        ],
+    );
+    assert.equal(mergeManifest(null, old), old);
+});

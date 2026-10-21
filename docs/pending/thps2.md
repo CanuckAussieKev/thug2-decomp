@@ -200,3 +200,44 @@ looping sounds - THPS2's audio\*.wav); SetSkyColor / SetFadeColor as THUG2 fog; 
 
 Shared files changed: tools/menu_level/level_select.ts (THPS2 table icons), tools/menu_level/level_select_icons.ts
 (ten pictograms) - additive.
+
+# Gap names from the executable (2026-10-21) - agent "thps2-gaps", branch worktree-agent-adfbcd13a0825e80b
+
+The user's note: C:\Games\THPS2 has THPS2.exe and THawk2.exe, "one of them is unencrypted". Checked (read only):
+**neither is**. Both are 2,193,512 bytes, SafeDisc 2.05.030-wrapped (the loader's "BoG_ *90.0&!!  Yy>" signature at
+0xFD4 with version words 2 / 5 / 30; sections stxt774 / stxt371; entry 0x25DC1FD in stxt371). .text (0x1000-0x115000)
+and .data (0x121000-0x15D000) are encrypted: 7.95-7.99 bits a byte in every 4 KB block, almost no zeros, no strings
+(only .rdata's imports / Bink names and the PDB path H:\TonyHawk\PC2\Release\THawk2.pdb are plain). THPS2.exe is
+THawk2.exe with PartyMod's partypatcher BPS patch applied - 35 bytes differ (15 at 0xF4E10 in .text, 20 at 0x158A6D in
+.data: literal bytes such as "ymod.dll\0" written over ciphertext). partypatcher's patch expects an input of crc32
+d8e631f0 (output 87c66f76); the user's THawk2.exe is 3d908efd, THPS2.exe fb775fe5: PartyMod was made for an unwrapped
+THawk2.exe of the same size, and the user's patched THPS2.exe is not what PartyMod expects (and still encrypted). The
+loader decrypts only at run time, with the disc and secdrv.sys - the secdrv service here is registered but its driver
+is missing / blocked (exit 1275), so THPS2 can't run on this machine to read the table from memory either. Nothing was
+decrypted (no DRM circumvention); ALL.PKR has no gap list (its only gap names are the park editor's sample parks').
+
+What was made anyway (so a readable executable just works):
+- `tools/thps2_levels/gap_table.ts`: probeExe (PE, SafeDisc version, encrypted data by entropy), findGapTable (a
+  table of fixed-size records holding a gap number the levels use - u16 / u32 -, a name - pointer into the image or
+  inline text - and a score, found at any record size 4-64, any field order; 4+ used numbers, names in 9 of 10
+  records, scores mostly multiples of 25 - no false table in THUG2.exe or THPS3.exe with THPS2's 341 gap numbers),
+  loadGapTable (the first readable executable of THawk2.exe / THPS2.exe / --thps2-exe; a report).
+- thps2_levels.ts: EndGap's score / text from the table (quotes made safe), else "GAP <n>" / 250 per gap; convert's
+  report says what each executable is and how many gaps each level got named; `gaps [levels] [--thps2-exe F]` lists
+  each level's gap numbers, scores, names; `--thps2-exe` for convert.
+- Tests: gap_table.test.ts (6: a SafeDisc-like encrypted exe recognised and yields nothing, a readable exe, pointer
+  records, inline-name records, unrelated data - a plain number list, 3 named records - no table, loadGapTable's order
+  and fallback report) and the node-array test with a named gap (score 500, text with quotes).
+
+Result: **0 of 341 gaps named** in every level (the stand-ins, as before): Hangar 15, School II 38, Marseille 30, NY 39,
+Venice 41, Skatestreet 30, Philadelphia 37, Bullring 31, Chopper Drop 8, Skate Heaven 72 gap numbers. Converted into
+C:\Games\THUG2-1 (under its lock) and installed with make_menu_level --game; the scripts are unchanged against the
+previous converter (decompiled hangar / venice / ny .qb identical but for ns.exe's checksum-table order - its .qb isn't
+byte-deterministic). No game run (nothing changed in the game's data). npm typecheck / lint / test (257) pass,
+selfcheck 1275 files 0 failures.
+
+For the user: the gap names need a readable THawk2.exe - the unwrapped one PartyMod's patcher expects (crc32
+d8e631f0, the same size). With one anywhere on disk: `node tools/thps2_levels/thps2_levels.ts gaps --thps2-exe <it>`
+shows what the finder makes of it (layout + names per level); if it names them, convert with the same option (or put
+it in the THPS2 folder as THawk2.exe - the user's own choice; agents never write there). If the finder finds nothing
+in a readable exe, its layout differs from the records assumed: look at the strings around a known gap name there.
