@@ -112,3 +112,88 @@ semi-transparent faces (Skate Heaven's glass), invisible walls at the levels' ed
    games' (docs/level-port-compromises.md section 8).
 7. **Online**: THUGPRO has no THPS2-data ports (its Hangar / School II / Venice / Philly are THUG1's remakes, which
    stay in THUG1's section), so the thps2_ names have nothing to agree with; check no Load_ checksum clashes.
+
+# Phase 2 (2026-10-21) - agent "thps2-phase2", branch worktree-agent-a30b37994b0d6aaf2, workspace C:\Games\THUG2-1
+
+NOT played by a person yet. Every step converted into C:\Games\THUG2-1 (under its lock; main's DLL of 21:47 copied
+in - no C++ changed), installed with make_menu_level --game, loaded and captured through the automation channel.
+
+## 0. The textures (the user's report: smeared stripes, wrong strips, flat-looking faces)
+
+Cause: THPS2's uvs are texel numbers that run past their texture - 55% of the ten levels' textured faces; u up to
+255 on 16-texel textures; the spans mostly n x size - 2 (126, 190, 254 on 64-wide). Phase 1 mapped every number at or
+past the last texel to the far edge and clamped: a face over 0..190 of a 64-wide texture drew one column stretched
+(stripes), 37..95 drew a sliver (a wrong strip), all past it one texel (flat colour). Now uv = texel / size, linear
+(shared edges stay continuous), and a texture any face repeats is wrap-addressed (the rest clamped). Checked: the uvs'
+corner order is right (of 6 permutations per triangle / 24 per quad, the identity gives the squarest texels for 86% of
+faces), neighbouring faces' uvs differ by whole tiles at shared vertices. Decals and painted lines get a z bias
+(overlay_bias, 3-25 layer materials a level). Before: C:\Games\THUG2\Game\Screenshots\thug2_2026-10-21_21-42-37 / -46 /
+-53 / 21-43-03.png (the user's). After, the same spots: C:\Games\THUG2-1\Screenshots\fix2_thps2_hangar,
+fix2_thps2_school2, fix2_thps2_marseille, fix2_thps2_venice (frame_0001.png): Marseille's hills, Venice's palm trunks
+and ground, School II's walls fixed. What stays streaky is THPS2's own mapping: low-resolution decals stretched over
+large faces (School II's dirt patch by the start: 64x32 texels over 220 inches - an offline render of the data,
+out\scripts\topdown.ts, shows the same), a few faces whose uvs are degenerate in the data (33 in School II).
+
+## 1. The .trg command language
+
+The game ships its trigger symbol file in ALL.PKR - data/symbols.tdf ("symbol definitions for use in defining TRG
+files", generated from Neversoft's symbols.s): node types (1 Baddy, 2 Crate, 4 AutoExec, 5 PowrUp, 6 CommandPoint, 8
+Restart, 10 RailPoint, 12 TrickOb, 13 CamPt, 15 AutoExec2), the command names and numbers (SendPulse 3, SendKill 11,
+KillBruce 152, SetRestart 140, BackgroundCreate 171, GapPolyHit 201, SetSkyColor 202...), the object script language
+(C_* 0x41xx-0x47xx, V_* 0x21xx) and the terrain names T_CONCRETE 0 ... T_SIDEWALK 15. (Game data, not source code; the
+executable itself is SafeDisc-encrypted - nothing read from it.) The argument layouts were worked out from the data;
+every command list of the ten levels parses to its 0xFFFF (selfcheck). thps2.ts: readCommands, commandPointOf,
+restartCommands, startCommands, objectOf.
+
+A command point's u32 is the name checksum of the world model whose surface-0x02 faces trigger it (89 of 90 in
+Hangar; the others are in the split-screen world _2.psx only - 85 in Venice, 37 in the Bullring: 2P-only, left out).
+Triggers converted: Hangar 36, School II 115, Marseille 126, NY 108, Venice 187, Skatestreet 68, Philadelphia 139,
+Bullring 211, Chopper Drop 13, Skate Heaven 158 - 371 gaps, 127 kill zones.
+
+- Gaps: GapPolyHit(other, gap number). Numbers per level (Hangar 2700-2721, NY 22400-22440...; +10000 / +20000 the
+  other kinds, as THPS1's table in partymod.dll shows: 0x13 air, 0x11, 0x19 grinds). Names and scores are in the
+  encrypted executable (partymod.dll carries THPS1's table only): stand-ins "GAP <number>", 250 points.
+- Kills: verified in the game - the skater teleported onto Venice's sea (8000, 37, 6000) is put back at the start 20
+  frames later (C:\Games\THUG2-1\Screenshots\kill_t0 / kill_t20).
+- Gaps not verified in the game (a gap needs the skater in the air through two triggers - a player's job).
+
+## 2. Terrains: as in the README; LoadTerrain loads DIRT, ROCK, GENERIC1 / 2 too. Not heard in the game (a player).
+
+## 3. Skies: eight panoramas; captures C:\Games\THUG2-1\Screenshots\sky_thps2_* (Marseille's sunset, Venice's blue,
+School II's pale sky). The "dark spiky shapes": Hangar's mountains are a world object (flag 0x2000 - set on 143 large
+objects of six levels, not a backdrop flag), drawn dark by THPS2's own vertex colours: kept.
+
+## 4. Objects: 192 platform objects (kind 402) with _o models: 5 static, 104 bouncy, 8 spinning converted; 103 scripted
+left (Hangar 30, Chopper Drop's 17 moving ones...), 1 turned about x / z left. Venice's roof fans turn
+(C:\Games\THUG2-1\Screenshots\ventD: frames 1 and 6 differ), the bouncy oil cans stand in Hangar (han_over).
+
+## 5. Checks
+
+- Flag 0x40: the PlayStation's semi-transparency; bits 8-9 of the flags are its blend mode (only ever set with 0x40:
+  mode 1 on 431 faces with dark vertex colours - added light beams, now THUG2's add). The PC's textures carry no
+  semi-transparency bit on any texel, so whole faces blend.
+- Flag 0x400 (2,573 faces of five levels): textured, visible, solid, any orientation, as open-edged as other faces -
+  not double-sided; meaning not found, ignored.
+- Bowties: 780 quads (8-232 a level) have their corners going round; split along 0-2 now.
+- Off-floor restarts: Re_Start_2P_NY in Hangar (no floor at all: NY's leftover) left out; Hangar's Control Room (124
+  inches up), NY's Ho_Pit_QP / Ho_Pit_Side_Rail (~290) and Skatestreet's 2P wave roll-in (180) kept - THUG2 drops the
+  skater onto the floor below as THPS2 does. Player2 is the start node's SetRestart2 (Hangar had two Player2s).
+
+## 6. Signs: windsock, pencil, sailboat, Empire State, roller skate, helmet, pretzel, bull, volcano, halo and wings
+(C:\Games\THUG2-1\Screenshots\ls_up2: the THPS2 section). Music: THPS2's Music\LTIX*.dat are Bink audio - not trivial.
+
+## For the user to try
+1. Gaps: Hangar's (GAP 2700... - over the halfpipes), School II's, any level's - does the HUD show "GAP <n>"?
+2. Kill zones: Venice's sea, the Bullring's pens, Skate Heaven's lava - put back at the right restart?
+3. Terrain sounds: Skatestreet's wood, Bullring's dirt, Venice's sand / grass, rails' wood / concrete grinds.
+4. The textures in all ten (anything still smeared that THPS2 doesn't smear?).
+5. The skies, the spinning fans (Venice's rooftops), the bouncy props (pass-through).
+
+## Phase 3
+Gap names / scores (a gap list from a running THPS2, or the user's); the scripted objects (the object script language:
+C_WAIT_FOR_SIGNAL, C_MOVE_TO_NODE paths of ScriptPoints, C_SHATTER glass, V_VELOCITY falls) driven by the trigger
+pulses; the cars (Car_* objects on ScriptPoint paths, C_*.psx models); sound emitters (ScriptOnlyBaddy: C_PLAY_SFX /
+looping sounds - THPS2's audio\*.wav); SetSkyColor / SetFadeColor as THUG2 fog; flag 0x400; music (Bink audio).
+
+Shared files changed: tools/menu_level/level_select.ts (THPS2 table icons), tools/menu_level/level_select_icons.ts
+(ten pictograms) - additive.

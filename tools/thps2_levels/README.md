@@ -72,5 +72,33 @@ texels, the newtex BMPs (by the texture's name checksum), the meaning of face fl
 - Level structure: THPS2's name; no sky (THPS2's backdrops are part of its worlds), THUG2's default lighting, no
   music, no goals.
 
-Not yet (phase 2): gaps, kill zones and the trigger planes' commands (the .trg's command language), the moving and
-breakable objects of the `_o` files, terrain sounds, rail terrain types, pictograms for the signs, THPS2's music.
+## Phase 2 (2026-10-21)
+
+- Textures tile: THPS2's uvs are texel numbers that run past their texture (n x size - 2 spans), so uv = texel / size,
+  linear, and a texture some face repeats is wrap-addressed (the others clamped). Phase 1 collapsed every number past
+  the texture onto its last texel - the smeared stripes. Layer materials (decals, painted lines) get a z bias
+  (level_port/overlay_bias.ts).
+- The .trg command language (thps2.ts): node types and command names from the trigger symbol file the game ships in
+  ALL.PKR (data/symbols.tdf), argument layouts from the data (every list of the ten levels parses to its end; `selfcheck`
+  checks). Command points (type 6) are run by the trigger faces of the world model their checksum names.
+- Gaps: GapPolyHit(other, gap) - meeting the trigger after `other` - as THUG2 trigger faces (both windings, flags
+  0x1150) in a collision object per trigger, a GenericNode per trigger and a script: EndGap then StartGap (CANCEL_GROUND)
+  for each of its gaps. THPS2's gap names and scores are in its SafeDisc-encrypted executable: named "GAP <number>",
+  250 points (stand-ins).
+- Kill zones: KillBruce in a trigger's list (or a command point it pulses) - SK3_KillSkater back to the restart it
+  pulses (a "Dummy" one becomes a typeless restart node), else the nearest.
+- Level start: SetRestart / SetRestart2 of the start node pick Player1 / Player2. Restarts with no floor at all are
+  left out.
+- Terrains: the collision's terrain numbers (symbols.tdf's T_CONCRETE ... T_SIDEWALK) as THUG2's Terrain_Types; rail
+  points' flags 0 / 1 / 2 concrete / metal / wood; LoadTerrain loads them.
+- Skies: BackgroundCreate(model) - a panorama model of the _o file - as <level>_sky (eight levels; Hangar and
+  Skatestreet have none).
+- Objects: the _o file's platform objects (type 1, kind 402) as LevelObjects of THPS2's models: static, bouncy (drawn,
+  not collided with) and spinning (V_ANGULAR_VELOCITY: Obj_RotX / Y / Z) ones.
+- Faces: semi-transparent faces in their PlayStation blend mode (bits 8-9: 0 half, 1 added); quads whose corners go
+  round split along 0-2 (no bowties).
+- Signs: pictograms of their own (tools/menu_level/level_select_icons.ts).
+
+Not yet (phase 3): gap names and scores (the encrypted executable), the scripted objects (waiting for signals, moving
+along nodes, breaking: C_SHATTER glass, falling roof debris), the cars (Car_* kinds, C_*.psx models), the sound
+emitters (ScriptOnlyBaddy), SetSkyColor / SetFadeColor (layout not decoded), flag 0x400, THPS2's music (Bink audio).
