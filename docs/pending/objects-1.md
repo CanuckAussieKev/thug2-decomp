@@ -28,7 +28,7 @@ The range's classes / topics:
 - 0x00422D00-0x004230B0: the model light update component (0xE3FCA939).
 - 0x00423130-0x00423643: the motion component's member-function registration and its first members.
 
-Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp,model_component.cpp,model_component_init.cpp,model_component_members.cpp` (any of them alone; the files of later batches are added here).
+Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp,model_component.cpp,model_component_init.cpp,model_component_members.cpp,model_light_update.cpp,motion_path.cpp` (any of them alone; the files of later batches are added here).
 
 - [x] Batch OC1-1 (NOT run in the game yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
   (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
@@ -315,3 +315,32 @@ Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_co
     that have tests of their own stood in for (GetDisplayMatrix, TestCollision, HideGeom, InitModel), the UV matrix's
     RotateZ too (the rotation matrices aren't compared here).
   - Mutations: 70 deliberate bugs, all caught (69 at first; the test then picks one time unit - seconds, second, frames or frame - per seed, so frame alone is reached).
+- [x] Batch OC1-10 (NOT run in the game yet; the model light update component and the motion component's path members,
+  28 functions): src/game/obj/model_light_update.{h,cpp}, src/game/obj/motion_path.{h,cpp} (new).
+  - Obj::CModelLightUpdateComponent (0xE3FCA939, vtable 0x00646198, 0x2C bytes): 0x00422DC0 Create, 0x00422D00 /
+    0x00422D10 the destructors, 0x00422D40 InitFromStructure (flag 0xE7375C4C: sample once; 0x470B8AE9 the interval in
+    frames, the counter starting at the component's address % interval + 1 - an interval of 0 divides by zero, as the
+    original), 0x00422DA0 Finalize (the model component), 0x00422E40 Sample (a feeler down from just above the object
+    - nudged a thousandth along its up vector, 8 up, 4800 down -, then one from 48 higher to just under the hit (or as
+    far down) on faces flagged 0x20; the brightness of whichever hit given to the model component, the second's lerped
+    at the caller's rate, the first's at 1), 0x004230B0 Update (the first sample at once; then the model's lights
+    lerped towards it by 0.02 until the counter passes the interval; then the counter back to 0 and a lerped sample -
+    or, sampling once, the component suspended).
+  - The motion component's (0x0A015E17) members of 0x00423130-0x00423642 as Obj::CMotionPathMembers (its fields by
+    offset, kept apart from motion.h): 0x00423130 the member-function table's registration (0x00681EB8), 0x00423150
+    IsRotating, 0x00423510 the path follower, 0x00423520 the random-link mode, 0x00423530 the speed along a path
+    (stopping over a distance to the minimum stop speed; else accelerating / decelerating to the path velocity, never
+    past it), and the script members (not Ghidra functions; names from the static initialiser 0x00640E30):
+    Obj_IsMoving / Obj_IsRotating / Obj_StopMoving / Obj_StopRotating, Obj_SetPathVelocity / MinStopVel /
+    Acceleration / Deceleration (miles an hour by default; Fps / ips, Fpsps / ipsps), Obj_PathHeading,
+    Obj_RandomPathMode, Obj_StopAlongPath (feet, or inches - then the stop's starting speed isn't noted, as the
+    original), Obj_StartAlongPath, Obj_WaitJumpFinished / WaitRotate / WaitMove / WaitStop (wait types 7, 9, 5, 8).
+  - Tests (selftests_obj_light_motion.cpp): TestModelLightUpdate - 64 seeds: made (out of memory too), destroyed,
+    parameters (interval and counter left random before), 12 updates over random hit patterns, Sample with every
+    combination of the two feelers' hits (objects hit or not), the arena compared. TestMotionPathMembers - 64 seeds: 24
+    random states (zeros, NaNs, the speed at the path velocity, the stop at its end) x 3 speed updates and the getters,
+    then each script member 3 times with random parameters.
+  - Mutations: 67 deliberate bugs, 63 caught; 4 equivalent: dropping the second feeler's Destruct (its smart pointer's
+    C++ destructor lets go of the object at the same point), and three of the path speed's comparisons done on the
+    rounded float or with <= (the path velocity is a float: the result is the same value). (Found while resuming: the
+    previous agent's interrupted mutation run had left the counter's reset out of Update - restored.)
