@@ -93,6 +93,7 @@ void TestEditorUx3Fuzzy()
     Check(Actions::FuzzyScore("", "Undo") == 1, "editor ux3: an empty search matches everything");
     Check(Actions::FuzzyScore("udo", "Undo") > 0 && Actions::FuzzyScore("xyz", "Undo") == 0,
           "editor ux3: letters in order match, others don't");
+    Check(Actions::FuzzyScore("ndu", "Undo") == 0, "editor ux3: letters out of order don't match");
     Check(Actions::FuzzyScore("undo", "Undo") > Actions::FuzzyScore("undo", "Undo history - unrelated words") - 1 &&
               Actions::FuzzyScore("sav", "Save layout") > Actions::FuzzyScore("sav", "Show all values"),
           "editor ux3: a prefix ranks above scattered letters");
