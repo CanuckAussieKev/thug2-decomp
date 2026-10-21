@@ -85,6 +85,9 @@ void ApplyStyle(float scale, const float accentRgb[3])
     c[ImGuiCol_TextDisabled] = ImVec4(0.6f, 0.61f, 0.63f, 1.0f);
     c[ImGuiCol_NavCursor] = accent;
     style.ScaleAllSizes(scale);
+    // The bars are thinner than ImGui's default minimum window size (32 x 32, scaled): at it the menu bar's window grew
+    // down over the tool strip.
+    style.WindowMinSize = ImVec2(4.0f, 4.0f);
     ImGui::GetStyle() = style;
 }
 

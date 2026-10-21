@@ -153,6 +153,7 @@ void TestEditorUiFonts()
         Check(inter->FindGlyphNoFallback('A') && inter->FindGlyphNoFallback(0x00B7) &&
                   inter->FindGlyphNoFallback(0x2026) && inter->FindGlyphNoFallback(0x00B0),
               "editor UI: Inter has A, the middle dot, the ellipsis and the degree sign");
+        Check(inter->FindGlyphNoFallback(0x25BC) != nullptr, "editor UI: Inter has the strip's list arrow (U+25BC)");
         const ImFontGlyph* i = mono->FindGlyphNoFallback('i');
         const ImFontGlyph* w = mono->FindGlyphNoFallback('W');
         const ImFontGlyph* zero = mono->FindGlyphNoFallback('0');
@@ -273,6 +274,7 @@ void TestEditorUiBarsFit()
             io.DeltaTime = 1.0f / 60.0f;
             L::Layout layout = L::Compute(io.DisplaySize.x, io.DisplaySize.y, scale, true, true);
             std::vector<U::Box> menu, strip, status;
+            float barHeights[3] = {};
             for (int frame = 0; frame < 2; ++frame) {
                 ImGui::NewFrame();
                 ImGui::PushFont(fonts.ui);
@@ -285,6 +287,7 @@ void TestEditorUiBarsFit()
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
                 ImGui::Begin("##menubar", nullptr, panel | ImGuiWindowFlags_MenuBar);
                 ImGui::PopStyleVar();
+                barHeights[0] = ImGui::GetWindowHeight();
                 std::vector<Ui::Request> requests;
                 if (ImGui::BeginMenuBar()) {
                     Ui::MenuBar(model, ux8, &requests);
@@ -295,6 +298,7 @@ void TestEditorUiBarsFit()
                 ImGui::SetNextWindowPos(ImVec2(layout.strip.x, layout.strip.y));
                 ImGui::SetNextWindowSize(ImVec2(layout.strip.width, layout.strip.height));
                 ImGui::Begin("##toolstrip", nullptr, panel);
+                barHeights[1] = ImGui::GetWindowHeight();
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f * scale, 3.0f * scale));
                 float padX = 8.0f * scale, padY = std::max(0.0f, (layout.strip.height - ImGui::GetFrameHeight()) * 0.5f);
                 U::Output out;
@@ -306,6 +310,7 @@ void TestEditorUiBarsFit()
                 ImGui::SetNextWindowPos(ImVec2(layout.status.x, layout.status.y));
                 ImGui::SetNextWindowSize(ImVec2(layout.status.width, layout.status.height));
                 ImGui::Begin("##status", nullptr, panel);
+                barHeights[2] = ImGui::GetWindowHeight();
                 ImGui::PushFont(fonts.small);
                 float y = layout.status.y + std::max(0.0f, (layout.status.height - ImGui::GetTextLineHeight()) * 0.5f);
                 ImGui::PopFont();
@@ -346,7 +351,20 @@ void TestEditorUiBarsFit()
                 }
                 return ok;
             };
-            bool ok = checkRow(menu, layout.menu, "menu", 5) && checkRow(strip, layout.strip, "strip", 3) &&
+            // The windows themselves keep their bars' heights (ImGui's minimum window size once stretched the menu bar's
+            // window down over the strip).
+            const float wanted[3] = {layout.menu.height, layout.strip.height, layout.status.height};
+            bool heights = true;
+            for (int i = 0; i < 3; ++i) {
+                if (std::abs(barHeights[i] - wanted[i]) > 0.5f) {
+                    heights = false;
+                    char text[128];
+                    std::snprintf(text, sizeof(text), "editor bars: %s bar %d is %.0f high, not %.0f", where, i,
+                                  barHeights[i], wanted[i]);
+                    Check(false, text);
+                }
+            }
+            bool ok = heights && checkRow(menu, layout.menu, "menu", 5) && checkRow(strip, layout.strip, "strip", 3) &&
                       checkRow(status, layout.status, "status", 2);
             // The core: Move and Problems always on the strip (the least important go first).
             bool move = false, problems = false, more = false;

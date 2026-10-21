@@ -134,7 +134,7 @@ void Note(const char* what)
 
 namespace {
 
-const char kDown[] = " \xE2\x96\xBE"; // (" ▾": a button that opens a list)
+const char kDown[] = " \xE2\x96\xBC"; // (" ▼": a button that opens a list - Inter has no small ▾)
 
 float ButtonWidth(const char* label)
 {
