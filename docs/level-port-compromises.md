@@ -102,7 +102,9 @@ back: the crash is in THUG2's code, which we are rewriting.
 - 23 materials' second passes not converted. (The env-mapped passes - uv flag 0x80, the *_reflect overlays - are
   THUG2's env passes since 2026-10-21; before, their uv wibble scrolled them over the ramps: docs/pending/shimmer-2.md.)
 - Reflection overlays (PS2 blend 0x8) drawn as additive: an approximation that fixed Foundry's black halfpipe.
-- Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one.
+- Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one, always
+  shown (the flicker script's Invisible of the lit set left out - with no dark set under it, half the room went black;
+  docs/pending/warehouse-flicker.md).
 
 **Scripts** (THPS3's own, translated; a called script gets its caller's parameters as in THPS3). Statements left out,
 counts across all levels:

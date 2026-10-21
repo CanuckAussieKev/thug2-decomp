@@ -282,7 +282,7 @@ AI, vehicles as level objects of their models, the CTF / team flags' THUG2 form,
 
 | Id | Op | What | Switchable |
 |---|---|---|---|
-| PC-THPS3-1 | remove | Warehouse's dark set (SkWare_Dark* sectors and nodes; `prefixes`, `target.levels`) | yes |
+| PC-THPS3-1 | remove | Warehouse's dark set (SkWare_Dark* sectors and nodes; `prefixes`, `target.levels`); the lit set kept shown: the scripts' Invisible / Kill prefix= of it left out (`shown`) | yes |
 | PC-THPS3-2 | set | The start scripts run once from `<level>_setup` | required |
 | PC-THPS3-3 | set | Kill zones as THUG2's SK3_KillSkater with a restart | required |
 | PC-THPS3-4 | add | Multiplayer / Horse types on the Player1 restarts of single-player levels (`nodes.netRestarts`) | yes |
