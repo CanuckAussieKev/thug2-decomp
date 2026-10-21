@@ -139,3 +139,11 @@ Switch off: `[replacements] disable=cfuncs_lighting.cpp` (and cfuncs_render.cpp,
     params, named heaps there or not, the dump through its register convention with all four flag pairs (BL's upper
     bits dirty), DumpHeaps in K / bytes / null params / no heaps. 29 deliberate bugs caught (1 after giving the pairs'
     other pool).
+
+## Game runs (C:\Games\THUG2-1, under the lock)
+- 2026-10-21, after EC1-4 (217c18a): `run_game.ps1 -Level foun -FullTests` - 507 early, 17 late, 2 engine-started
+  self-tests passed in the game, 3300 replacements installed, Foundry loaded and ran (lit as usual); then
+  `-Level BO` (Boston) loaded and ran. No EXCEPTION / RUN-TIME CHECK / DEBUG CRT in thug2-decomp.log.
+- For the user to check by hand: gamma changes in the options (ApplyChangeGamma writes the registry twice, as
+  the original), fog / clipping commands in levels that use them, CompressVC / NudgeVC (debug scripts), DumpHeaps
+  output (debug), SpawnPoly users.
