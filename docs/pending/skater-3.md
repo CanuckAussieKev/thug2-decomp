@@ -160,7 +160,7 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     (the rate as degrees / duration * k or degrees * k / duration: the same float for every value tried - 2 million
     random ones).
 - [x] Batch SK3-7 (NOT run in the game yet; SkaterSound, SkaterStancePanel, SkaterState and three state history
-  functions, 59 functions): src/game/skater/skater_sound.cpp, stance_panel.cpp, skater_state.cpp (new).
+  functions, 51 functions): src/game/skater/skater_sound.cpp, stance_panel.cpp, skater_state.cpp (new).
   - SkaterSound (0x187574FA, vtable 0x0064C0C4, 0x28 bytes): 0x00518E20 Create, 0x00518C80 / 0x00518C90, 0x00518CC0
     InitFromStructure (volume_mult), 0x00518FD0 CallMemberFunction (PlayJumpSound, PlayLandSound, PlayBonkSound,
     PlayCessSound), and the play functions 0x00518CF0 (TABLE_LAND / GRINDLAND / SLIDELAND), 0x00518D60 (TABLE_JUMP
