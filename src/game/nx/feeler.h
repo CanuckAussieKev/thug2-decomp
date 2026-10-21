@@ -64,6 +64,11 @@ public:
     // 0x00417150: the line drawn in colour (r, g, b) - compiled out of this build.
     void DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames);
 
+    // 0x0043A930 (operator=): every field of `other` copied (the hit record by CollisionHit::CopyFrom); the object
+    // hit's smart pointer let go of first, then pointed at `other`'s (so a feeler assigned to itself loses it).
+    // Returns this.
+    CFeeler* Assign(const CFeeler& other);
+
     // 0x00417110 (code Ghidra never made a function of; cdecl): the queries' callback while the feeler has one -
     // the feeler's own, given the feeler (the hit's callback data).
     static void __cdecl CallbackRelay(CollisionHit* hit);

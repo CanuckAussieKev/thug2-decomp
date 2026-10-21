@@ -208,6 +208,22 @@ void CFeeler::DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames)
     Gfx::AddDebugLine(&m_line.start, &m_line.end, colour, colour, frames);
 }
 
+// 0x0043A930
+CFeeler* CFeeler::Assign(const CFeeler& other)
+{
+    m_line = other.m_line;
+    m_callback = other.m_callback;
+    m_hit.CopyFrom(other.m_hit);
+    m_distance = other.m_distance;
+    m_point = other.m_point;
+    m_normal = other.m_normal;
+    m_object.Assign(&other.m_object);
+    m_objectId = other.m_objectId;
+    m_unknownA8 = other.m_unknownA8;
+    mp_cache = other.mp_cache;
+    return this;
+}
+
 } // namespace Nx
 
 REPLACE(0x00417760, static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct));
@@ -226,3 +242,4 @@ REPLACE(0x00417210, &Nx::CFeeler::HitObjectAlive);
 REPLACE(0x00417240, &Nx::CFeeler::GetHitObject);
 REPLACE(0x00417150, &Nx::CFeeler::DebugDraw);
 REPLACE(0x004174A0, &Nx::CFeeler::GetHitVertexValue);
+REPLACE(0x0043A930, &Nx::CFeeler::Assign);
