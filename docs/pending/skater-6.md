@@ -212,3 +212,33 @@ Switch off: `[replacements] disable=gamenet_state.cpp,gamenet_handlers.cpp,gamen
     flags +0x1958 / +0x18B0 preset).
   - Review note: the stopped agent's copy of walk_moves.cpp had one mutation left in (the throw's x product rounded -
     its mutation run was cut off); put back.
+- [x] Batch SK6-10 (NOT run in the game yet when recorded; the walk component's jumps and contacts, 3 functions):
+  walk_moves.cpp. 0x0052B7D0 Jump (also ReleaseHang's: up at jump_velocity times the jump factor - on the ground /
+  in the air min_jump_factor..1 by how long jump has been held over hold_time_for_max_jump (the time as unsigned),
+  off a hang or ladder hang_jump_factor; the ground's jump triggers (0x0064C63C) when on the ground; running, pushed
+  along the control's direction at least as fast as jump_horiz_speed scaled by how far the control is pushed
+  (0x00528120) over 0x0043DAA0 (whose ST0 is used unrounded), the heading the velocity's when moving faster than
+  0.1; off a hang the hang's plane (+0x18B4 / +0x18C4 / +0x18C8) noted, a ladder's sideways speed dropped; off what
+  it rode, into the air, SkaterJump), 0x0052BC70 TryBarrierJump (contacts 0, 1 and 6 - ahead and either side -
+  facing the control head-on within barrier_jump_max_angle and with nothing at barrier_jump_highest_barrier's
+  height (feelers of 3 feeler_lengths, in a collision cache of the box around it): the barrier's top found
+  stepping down in ninths (8 tries each), then up fast enough (sqrt(2 g h)) to clear it by
+  barrier_jump_min_clearance; the Jump animation, SkaterJump, the JumpRequested handler cleared), 0x0052C2C0
+  UpdateContacts (feelers 0-6 a seventh of a turn apart from the facing at feeler_height, 7 along the fall in the
+  air (a floor below - normal y over 0.707 - not a contact); each contact's normal flattened and made unit length
+  and the hit object's speed along it (not what it rides); on the ground walking into a barrier for
+  barrier_jump_delay tries 0x00441DE0 / a barrier jump, a pressed jump 0x00441DE0(1), steep ground (normal y under
+  0.5) pushes it down the slope; pushed out within push_feeler_length; only contacts it moves into count; in a
+  corner (two facing apart) or turned back by sliding it stops (min_anim_run_speed); the velocity slid along them
+  in the order 7, 4, 3, 5, 2, 6, 1, 0 (x and w kept unrounded as on the x87's stack), no faster than it was
+  going along the new direction; +0x186C (renamed kBlocked) set when slowed under half its speed; the run speed
+  +0x704 follows). The x87's FSIN / FCOS are used through inline asm (also in 0x00529F80 and 0x0052AD10 now).
+  - Test: TestWalkJumps (selftests_skater_walk2.cpp; the contacts set up by hand, the feelers' queries scripted, the
+    collision cache stood in for, rounding cases found by out/scripts/search_round.py / search_push.py). 130
+    deliberate bugs: 107 caught at once, 15 after strengthening (a velocity along the control only through y, a
+    length between the speed and half a unit over it, the feeler's cache recorded, a high position, a clear
+    contact not touching, searched rounding cases for the feelers' ends and the pushes, a floor ahead, a slide
+    straight back along the velocity, a velocity under 1e-8, a speed equal to min_anim_run_speed, contact 7's w and
+    fall), 8 equivalent (the magnitude's == 0 / !(!= 0); two dead heading stores; the direction's w is always 1;
+    `if (!any)` - nothing pressed then either; an exact-zero slide changes nothing; the capped x's rounding feeds
+    only the blocked ratio; the hang plane's sum order - its products are exact in double).

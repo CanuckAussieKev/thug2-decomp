@@ -13,8 +13,10 @@
 
 #include "game/core/dbg.h"
 #include "game/mth/vector.h"
+#include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
 #include "game/obj/anim_blender.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
 #include "game/script/struct.h"
@@ -45,6 +47,8 @@ float g_gravity;
 float g_rehang;
 uint32_t g_since;
 float g_times[3];
+float g_push;      // 0x00528120's answer
+double g_divisor;  // 0x0043DAA0's (unrounded)
 std::map<uint32_t, float> g_params;
 std::map<uint32_t, std::function<void()>> g_effects; // run when the stand-in with that tag is called
 
@@ -130,6 +134,18 @@ void ReturnFloat(StandIns& s, std::initializer_list<uint32_t> addresses, const f
         s.Bytes(address, code);
 }
 
+// A function returning a double in ST0 (unrounded): FLD qword [value]; RET.
+void ReturnDouble(StandIns& s, std::initializer_list<uint32_t> addresses, const double* value)
+{
+    uint32_t where = reinterpret_cast<uint32_t>(value);
+    std::vector<uint8_t> code = {0xDD, 0x05};
+    for (int i = 0; i < 4; ++i)
+        code.push_back(static_cast<uint8_t>(where >> (8 * i)));
+    code.push_back(0xC3);
+    for (uint32_t address : addresses)
+        s.Bytes(address, code);
+}
+
 // A pointer argument: arena-relative, or a marker for the stack (a local, whose place differs between the runs).
 uint32_t Where(uint32_t pointer)
 {
@@ -161,7 +177,7 @@ void Install(StandIns& s)
     // Ground's.
     S(s, {0x0052A620, AddressOf(&CWalkComponent::UpdateRide)}, 0, 0xA620);
     for (uint32_t a : {0x005277B0u, 0x00526260u, 0x005264F0u, 0x00500820u, 0x00526850u, 0x00527C50u,
-                       0x00526BA0u, 0x005299F0u, 0x00527510u, 0x00526E00u, 0x005293F0u, 0x0052C2C0u})
+                       0x00526BA0u, 0x005299F0u, 0x00527510u, 0x00526E00u, 0x005293F0u})
         S(s, {a}, 0, a & 0xFFFF);
     SVectors(s, {0x00528950}, 4, 0x8950);
     SVectors(s, {0x00427B30}, 8, 0x7B30);
@@ -193,6 +209,8 @@ void Install(StandIns& s)
         Rec(0x72F0, {r.args[0] & 0xFF, r.args[1] & 0xFF});
         auto* feeler = reinterpret_cast<uint8_t*>(r.ecx);
         RecFloat(0x72F1, reinterpret_cast<const float*>(feeler), 8); // the line
+        uint32_t cache = *reinterpret_cast<const uint32_t*>(feeler + 0xAC);
+        Rec(0x72F2, {cache ? Where(cache) : 0u}); // (its collision cache: one or none)
         if (g_hits.empty())
             return g_answers[0x72F0];
         Hit hit = g_hits.front();
@@ -253,6 +271,22 @@ void Install(StandIns& s)
     S(s, {0x00417240, AddressOf(&Nx::CFeeler::GetHitObject)}, 0, 0x7240, true);
     S(s, {0x0043EB80}, 4, 0xEB80);
     S(s, {0x0041C350}, 0, 0xC350, true);
+    // Jump's, the barrier jump's and the contacts'.
+    S(s, {0x0046B920, AddressOf(&Obj::CControlButton::GetPressedTime)}, 0, 0xB920);
+    ReturnFloat(s, {0x00528120}, &g_push);
+    ReturnDouble(s, {0x0043DAA0}, &g_divisor);
+    S(s, {0x00529160}, 0, 0x9160);
+    S(s, {0x00441DE0}, 4, 0x1DE0);
+    S(s, {0x004607A0, AddressOf(&Obj::CObject::ClearEventHandler)}, 4, 0x47A0);
+    s.At({0x0040AB50, AddressOf(&Nx::CCollCache::Construct)}, 0, [](Regs& r) {
+        Rec(0xAB50, {});
+        return r.ecx;
+    });
+    s.At({0x0040ABA0, AddressOf(&Nx::CCollCache::Update)}, 4, [](Regs& r) {
+        RecFloat(0xABA0, reinterpret_cast<const float*>(r.args[0]), 8); // (the box)
+        return 0u;
+    });
+    S(s, {0x0040AB40, AddressOf(&Nx::CCollCache::Destruct)}, 0, 0xAB40, true);
     // AnimWait's.
     S(s, {0x00427C70}, 0, 0x7C70);
     s.At({0x00416F00, AddressOf(&Obj::CRideTracker::Update)}, 4, [](Regs& r) {
@@ -400,6 +434,7 @@ void Ground(bool original)
 {
     StandIns& s = *StandIns::s_current;
     S(s, {0x0052B370, AddressOf(&CWalkComponent::SnapToGround)}, 0, 0xB370);
+    S(s, {0x0052C2C0, AddressOf(&CWalkComponent::UpdateContacts)}, 0, 0xC2C0);
     struct Case {
         uint32_t anim;
         float skid;
@@ -462,6 +497,7 @@ void Air(bool original)
 {
     StandIns& s = *StandIns::s_current;
     SVectors(s, {0x0052A700, AddressOf(&CWalkComponent::CollideAirMove)}, 8, 0xA700);
+    S(s, {0x0052C2C0, AddressOf(&CWalkComponent::UpdateContacts)}, 0, 0xC2C0);
     struct Case {
         bool contacts;
         int halt;         // 0 never; 1 at the start; 2 after the move; 3 after 0x5293F0
@@ -853,6 +889,402 @@ void TestWalkLanding()
     Cleanup();
 }
 
+// --- Jump, TryBarrierJump, UpdateContacts ---
+
+constexpr uint32_t kOtherMover = kSkaters + 0x200; // a moving object hit (m_vel +0xAC)
+
+void JumpParams()
+{
+    g_params[0x12333EBD] = 350.0f;   // hold_time_for_max_jump
+    g_params[0x246D0BF3] = 0.55f;    // min_jump_factor
+    g_params[0xF2FA5845] = 0.8125f;  // hang_jump_factor
+    g_params[0x63D62A21] = 210.3f;   // jump_velocity
+    g_params[0xDA85F5AE] = 6.75f;    // barrier_jump_highest_barrier
+    g_params[0x99978D2B] = 2.2f;     // feeler_length
+    g_params[0x6DA7F696] = 1.3f;     // feeler_height
+    g_params[0x78E6A5EC] = 40.0f;    // barrier_jump_max_angle
+    g_params[0x72660978] = 0.6f;     // barrier_jump_min_clearance
+    g_params[0x38D36700] = 400.0f;   // barrier_jump_delay
+    g_params[0xA20C43B7] = 1.1f;     // push_feeler_length
+    g_params[0x4D16F37D] = 3.5f;     // push_strength
+    g_params[0x0BD6A05D] = 2.0f;     // min_anim_run_speed
+}
+
+void SetContact(int i, bool hit, float nx, float ny, float nz, float nw, uint16_t flags = 0, bool clear = false,
+                float distance = 0.75f, float speed = 0.0f)
+{
+    uint32_t c = kWalk + 0xA0 + 0xCC * i;
+    Word<uint8_t>(c) = hit ? 1 : 0;
+    SetVector(c + 4, nx, ny, nz, nw);
+    Word<uint8_t>(c + 0x14) = clear ? 1 : 0;
+    Word<float>(c + 0x18) = speed;
+    Word<uint16_t>(c + 0x1C + 0x50) = flags;
+    Word<float>(c + 0x1C + 0x74) = distance;
+}
+void ClearContacts()
+{
+    for (int i = 0; i < 8; ++i)
+        SetContact(i, false, 0.1f * i, 0.0f, 0.3f, 0.0f, 0, false, 5.0f, 0.0f);
+}
+
+void CallJump(bool original)
+{
+    original ? Original<Plain>(0x0052B7D0)(Walk()) : Walk()->Jump();
+    Snapshot(0x5A4);
+}
+
+void Jumps(bool original)
+{
+    StandIns& s = *StandIns::s_current;
+    S(s, {0x0052AB90, AddressOf(&CWalkComponent::LeaveRide)}, 8, 0xAB90);
+    LandingSetUp();
+    JumpParams();
+    g_rehang = 7.5f; // jump_horiz_speed
+    struct Case {
+        int state;
+        uint32_t held;
+        bool hasGround, halt;
+        uint32_t magnitude; // (bits)
+        float control[3];
+        float velocity[3];
+        float push;
+        double divisor;
+    };
+    const Case cases[] = {
+        {0, 0, false, false, 0x00000000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.8f, 1.37},
+        {0, 100, true, false, 0x00000000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.8f, 1.37},
+        {0, 100, true, true, 0x00000000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.8f, 1.37},
+        {1, 100, true, true, 0x3F800000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.8f, 1.37},
+        {0, 350, false, false, 0x3F800000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.8f, 1.3700000000000001},
+        {0, 700, false, false, 0x3F800000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.95f, 1.3700000000000001},
+        {1, 0x80000000u, false, false, 0x3F800000, {0.6f, 0.1f, -0.8f}, {3, 0.5f, -4}, 0.95f, 0.7123456789},
+        {1, 123, false, false, 0x3F400000, {0.6f, 0, -0.8f}, {-3, 0.5f, 4}, 0.6f, 1.1111111111},
+        {0, 123, false, false, 0x7FC00000, {0.8f, 0, 0.6f}, {0, 0.5f, 0}, 0.6f, 1.1111111111},
+        {0, 7, false, false, 0x00000000, {0.8f, 0, 0.6f}, {0.05f, 0.02f, -0.07f}, 0.6f, 1.25},
+        {0, 7, false, false, 0x00000000, {0.8f, 0, 0.6f}, {0.06f, 0.05f, -0.06f}, 0.6f, 1.25},
+        {2, 7, true, false, 0x3F800000, {0.8f, 0, 0.6f}, {3, 0.5f, -4}, 0.6f, 1.25},
+        {3, 7, true, false, 0x3F800000, {0.8f, 0, 0.6f}, {3, 0.5f, -4}, 0.6f, 1.25},
+        {4, 7, true, false, 0x3F800000, {0.8f, 0, 0.6f}, {3, 0.5f, -4}, 0.6f, 1.25},
+        {5, 7, true, false, 0x3F800000, {0.8f, 0, 0.6f}, {3, 0.5f, -4}, 0.6f, 1.25},
+        {-1, 7, true, false, 0x3F800000, {0.8f, 0, 0.6f}, {3, 0.5f, -4}, 0.6f, 1.25},
+    };
+    std::vector<Case> all(std::begin(cases), std::end(cases));
+    for (int k = 0; k < 12; ++k) { // (rounding: the hold factor, the speed, the hang's plane)
+        all.push_back({0, 13u + 29u * k, false, false, 0x3F800000, {0.6f, 0, -0.8f}, {-3.3f + 0.1f * k, 0.5f, 4},
+                       0.37f + 0.05f * k, 1.0 + 0.0137 * k});
+        all.push_back({k & 1 ? 2 : 4, 7, false, false, 0x3F800000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.6f, 1.25});
+    }
+    // (along the control only through y; projected 5 long against a speed of 4.8; left too slow to have a heading)
+    all.push_back({0, 50, false, false, 0x3F800000, {0.6f, 0.1f, -0.8f}, {0.3f, 5.0f, 0.4f}, 0.6f, 1.25});
+    all.push_back({0, 50, false, false, 0x3F800000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.64f, 1.0});
+    all.push_back({0, 50, false, false, 0x3F800000, {0.6f, 0, -0.8f}, {0.05f, 0, -0.05f}, 0.0f, 1.0});
+    const size_t planes = all.size();
+    for (int k = 0; k < 32; ++k) // (the hang's plane: large terms that nearly cancel, summed in the original's order)
+        all.push_back({k & 1 ? 2 : 4, 7, false, false, 0x3F800000, {0.6f, 0, -0.8f}, {3, 0.5f, -4}, 0.6f, 1.25});
+    int n = 0;
+    for (const Case& c : all) {
+        ++n;
+        Unhalt();
+        g_effects.clear();
+        if (c.halt)
+            g_effects[0x4BF0] = Halt;
+        Word<int>(kWalk + 0x18) = c.state;
+        g_answers[0xB920] = c.held;
+        Word<uint8_t>(kWalk + 0x1864) = c.hasGround ? 1 : 0;
+        Word<uint32_t>(kWalk + 0x94) = c.magnitude;
+        SetVector(kWalk + 0x84, c.control[0], c.control[1], c.control[2], 0.375f);
+        SetVector(kWalk + 0x34, c.velocity[0], c.velocity[1], c.velocity[2], 0.625f);
+        SetVector(kWalk + 0x48, 0.28f, 0.0f, 0.96f, 0.125f);
+        SetVector(kWalk + 0x24, 12.375f + 0.731f * n, -3.1f + 0.377f * n, 1001.7f - 0.913f * n, 1.0f);
+        SetVector(kWalk + 0x71C, 0.3f * n, 36.7f, -7.7f * n, 0.0f);
+        SetVector(kWalk + 0x18B4, 0.36f, 0.1f, -0.93f, 0.5f);
+        if (static_cast<size_t>(n) > planes) {
+            SetVector(kWalk + 0x24, 1.0e7f + 37.0f * n, 0.3f + 0.0123f * n, 3.870968e6f + 11.0f * n, 1.0f);
+            SetVector(kWalk + 0x71C, 0.37f * n, 0.011f, -0.29f * n, 0.0f);
+        }
+        Word<float>(kWalk + 0x18D0) = 2.5f + 0.1f * n;
+        Word<uint8_t>(kWalk + 0x18B0) = 0;
+        SetVector(kObject + 0xAC, 1.5f, -2.25f, 3.0f, 0.75f);
+        g_push = c.push;
+        g_divisor = c.divisor;
+        CallJump(original);
+    }
+}
+
+void CallBarrier(bool original)
+{
+    bool jumped = original ? Original<bool(__thiscall*)(void*)>(0x0052BC70)(Walk()) : Walk()->TryBarrierJump();
+    Rec(0xBC70, {jumped ? 1u : 0u});
+    Snapshot(0x5A5);
+}
+
+void Barriers(bool original)
+{
+    StandIns& s = *StandIns::s_current;
+    S(s, {0x0052AB90, AddressOf(&CWalkComponent::LeaveRide)}, 8, 0xAB90);
+    LandingSetUp();
+    JumpParams();
+    const Hit block = MakeHit(0x1, 0.5f, 0, 0, 0, 0, 0, 1, 0, kGroundObject, 0, 0);
+    struct Case {
+        bool flag70;
+        int setup;              // which contacts (see below)
+        std::vector<Hit> hits;
+        bool hasGround, halt;
+    };
+    const std::vector<Case> cases = {
+        {true, 1, {}, false, false},
+        {false, 0, {}, false, false},
+        {false, 1, {block}, false, false},
+        {false, 1, {kMiss, kMiss, kMiss, block}, false, false},
+        {false, 1, {kMiss, kMiss, kMiss, kMiss, kMiss, kMiss, kMiss, kMiss, kMiss, kMiss}, true, false},
+        {false, 1, {kMiss, block}, true, true},
+        {false, 2, {kMiss, block, kMiss, kMiss, block}, false, false},
+        {false, 2, {kMiss, kMiss, kMiss, block, kMiss, block}, true, false},
+        {false, 3, {kMiss, kMiss, block, kMiss, block}, false, false},
+        {false, 4, {kMiss, kMiss, block, block}, false, false},
+        {false, 5, {kMiss, kMiss, block}, false, false},
+        {false, 1, {kMiss, kMiss, kMiss, block}, false, false},
+    };
+    std::vector<Case> all = cases;
+    for (int k = 0; k < 24; ++k) // (the feelers' ends for many facings)
+        all.push_back({false, 3, {kMiss, kMiss, kMiss, block, block}, false, false});
+    int n = 0;
+    for (const Case& c : all) {
+        ++n;
+        Unhalt();
+        g_effects.clear();
+        if (c.halt)
+            g_effects[0x4BF0] = Halt;
+        Word<uint8_t>(kFlags + 0x70) = c.flag70 ? 1 : 0;
+        ClearContacts();
+        // 1: straight ahead, head-on; 2: also both sides (one angled away, one a flag 0x2 face already clear);
+        // 3: the sides only, nearly head-on (within 40 degrees: cos 40 = 0.766); 4: just past 40 degrees.
+        if (c.setup == 1 || c.setup == 2)
+            SetContact(0, true, -0.6f, 0.0f, 0.8f, 0.25f);
+        if (c.setup == 2) {
+            SetContact(1, true, 0.8f, 0.0f, 0.6f, 0.0f, 0, true);
+            SetContact(6, true, -0.6f, 0.0f, 0.8f, 0.0f, 0x2, true);
+        }
+        if (c.setup == 3) {
+            SetContact(1, true, -0.2f, 0.0f, 0.97f, 0.5f);
+            SetContact(6, true, -0.9f, 0.0f, 0.43f, 0.0f);
+        }
+        if (c.setup == 4)
+            SetContact(1, true, -0.95f, 0.0f, -0.3f, 0.0f, 0, true);
+        if (c.setup == 5) { // (a contact clear from before but not touching now)
+            SetContact(0, true, -0.6f, 0.0f, 0.8f, 0.25f);
+            SetContact(6, false, -0.6f, 0.0f, 0.8f, 0.0f, 0, true);
+        }
+        g_hits = c.hits;
+        g_answers[0x72F0] = 0;
+        Word<uint8_t>(kWalk + 0x1864) = c.hasGround ? 1 : 0;
+        SetVector(kWalk + 0x84, 0.6f, 0.0f, -0.8f, 0.0f);
+        SetVector(kWalk + 0x48, 0.6f + 0.01f * n, 0.0f, -0.8f, 0.25f);
+        SetVector(kWalk + 0x24, 12.375f + 0.731f * n, -3.1f + 0.377f * n, 1001.7f - 0.913f * n, 1.0f + 0.13f * n);
+        if (n == 12) // (high up: the barrier's top found below where it started)
+            Word<float>(kWalk + 0x28) = 20.0f;
+        // (facings whose feeler ends show the rounding: found by out/scripts/search_round.py)
+        static const float facings[][3] = {
+            {0.3182440996170044f, 0.9480088353157043f, 0.43056967854499817f},
+            {-0.4610297679901123f, -0.8873846530914307f, 0.18763907253742218f},
+            {-0.11279186606407166f, -0.9936186075210571f, -0.2802896499633789f},
+            {-0.15449213981628418f, -0.9879940152168274f, 0.1704937368631363f},
+            {0.9493868350982666f, -0.31410932540893555f, 0.26652783155441284f},
+            {-0.981549859046936f, -0.19120633602142334f, 0.015360434539616108f},
+            {0.6775124073028564f, -0.7355113625526428f, -0.37769049406051636f},
+            {-0.04440072551369667f, -0.9990137815475464f, -0.014810461550951004f},
+            {0.9122633337974548f, 0.4096042513847351f, -0.056298062205314636f},
+            {-0.04182950779795647f, 0.9991247653961182f, -0.11605804413557053f},
+            {-0.7444955706596375f, 0.6676273941993713f, 0.1303531378507614f},
+            {-0.5443621873855591f, -0.8388503193855286f, -0.3893773853778839f}};
+        if (n > 12 && n - 13 < 12) {
+            const float* f = facings[n - 13];
+            SetVector(kWalk + 0x48, f[0], 0.0f, f[1], 0.25f);
+            Word<float>(kWalk + 0x2C) = f[2];
+        } else if (n > 12) {
+            SetVector(kWalk + 0x48, 0.6f - 0.0613f * n, 0.0f, -0.8f + 0.0291f * n, 0.25f);
+        }
+        g_gravity = 600.0f + 13.7f * n;
+        CallBarrier(original);
+    }
+}
+
+void CallContacts(bool original)
+{
+    bool touching = original ? Original<bool(__thiscall*)(void*)>(0x0052C2C0)(Walk()) : Walk()->UpdateContacts();
+    Rec(0xC2C0, {touching ? 1u : 0u});
+    Snapshot(0x5A6);
+}
+
+void Contacts(bool original)
+{
+    StandIns& s = *StandIns::s_current;
+    S(s, {0x0052BC70, AddressOf(&CWalkComponent::TryBarrierJump)}, 0, 0xBC70);
+    LandingSetUp();
+    JumpParams();
+    SetVector(kOtherMover + 0xAC, 0.75f, 0.5f, -1.25f, 0.0f);
+    auto wall = [](float nx, float ny, float nz, float nw, float distance, uint32_t owner = 0) {
+        return MakeHit(0x1, distance, 1, 2, 3, nx, ny, nz, nw, kGroundObject, 0, owner);
+    };
+    // The hits for feelers 0..7 (`at` lists which feelers hit, the others miss).
+    auto around = [](std::initializer_list<std::pair<int, Hit>> at) {
+        std::vector<Hit> hits(8, kMiss);
+        for (const auto& [i, hit] : at)
+            hits[i] = hit;
+        return hits;
+    };
+    struct Case {
+        int state;
+        std::vector<Hit> hits;
+        float velocity[4];
+        bool alive;        // the hit object alive (0x00417210)
+        int object;        // 0x00417240: 0 kRidden, 1 kOtherMover; the tracker: 2 none, 3 its object gone
+        bool allowed;      // +0x98
+        bool timed;        // +0x17A8
+        int since;         // +0x17AC
+        uint32_t jumpAnswer, barrierAnswer; // 0x00441DE0, TryBarrierJump
+        bool jumpPressed, jumpHeld, halted;
+        float groundY;     // the ground's normal's y
+        float speed;       // +0x704
+    };
+    const Hit facingIt = wall(-0.6f, 0.2f, 0.8f, 0.25f, 0.3f);
+    const Hit sideways = wall(0.8f, 0.1f, 0.6f, 0.5f, 0.9f);
+    const Hit opposite = wall(0.6f, 0.0f, -0.8f, 0.0f, 0.7f);
+    const Hit tilted = wall(-0.3f, 0.9f, 0.3f, 0.0f, 0.2f);
+    const Hit flatFacing = wall(0.0f, 0.4f, 0.0f, 0.0f, 0.2f);
+    const std::vector<Case> cases = {
+        {0, {}, {3, 0.5f, -4, 0.25f}, false, 0, false, true, 0, 0, 0, false, false, false, 1.0f, 3.0f},
+        {0, around({{0, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, false, 0, 0, 0, false, false, false, 1.0f, 3.0f},
+        {0, around({{0, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 74000, 0, 1, false, false, false, 1.0f, 3.0f},
+        {0, around({{1, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 74000, 1, 0, false, false, false, 1.0f, 3.0f},
+        {0, around({{6, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 74000, 0, 0, false, false, false, 1.0f, 3.0f},
+        {0, around({{6, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 74600, 0, 1, false, false, false, 1.0f, 3.0f},
+        {0, around({{6, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 74601, 0, 1, false, false, false, 1.0f, 3.0f},
+        {0, around({{0, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 80000, 0, 1, false, false, false, 1.0f, 3.0f},
+        {0, around({{2, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 74000, 0, 1, false, false, false, 1.0f, 3.0f},
+        {0, around({{0, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, false, true, 74000, 0, 1, false, false, false, 1.0f, 3.0f},
+        {0, around({{3, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 1, 0, true, false, false, 1.0f, 3.0f},
+        {0, around({{3, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 1, 0, true, true, false, 1.0f, 3.0f},
+        {0, around({{3, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, true, false, false, 1.0f, 3.0f},
+        {0, around({{3, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, true, 1.0f, 3.0f},
+        {0, around({{3, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.3f, 3.0f},
+        {0, around({{3, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.5f, 3.0f},
+        {0, around({{3, sideways}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.4999f, 3.0f},
+        {0, {}, {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {2, around({{3, facingIt}, {4, sideways}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{7, tilted}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{7, flatFacing}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{7, facingIt}, {0, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{2, sideways}, {5, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 1.5f},
+        {1, around({{2, facingIt}, {5, opposite}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{2, facingIt}, {5, opposite}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 1.5f},
+        {1, around({{1, opposite}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{1, facingIt}}), {3, 0.5f, -4, 0.25f}, true, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{1, facingIt}}), {3, 0.5f, -4, 0.25f}, true, 1, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{1, facingIt}}), {3, 0.5f, -4, 0.25f}, true, 2, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{1, facingIt}}), {3, 0.5f, -4, 0.25f}, true, 3, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{1, facingIt}}), {0.00005f, 0, -0.00005f, 0}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{2, tilted}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{1, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 2.0f},
+        {1, around({{1, facingIt}}), {3, 0.5f, -4, 0.25f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 2.0000002f},
+        {1, around({{1, wall(-1, 0, 0, 0, 0.9f)}}), {3, 0, 0, 0.5f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+        {1, around({{1, wall(-1, 0, 0, 0.5f, 0.9f)}}), {3, 0, 0.0001f, 0.5f}, false, 0, true, true, 0, 0, 0, false, false, false, 0.2f, 3.0f},
+    };
+    std::vector<Case> all = cases;
+    for (int k = 0; k < 8; ++k) { // (slid straight back along its velocity: the length equal to the speed along it)
+        Hit back = wall(0.0f, 0.0f, 1.0f, 0.5f + 0.37f * k, 0.9f);
+        all.push_back({1, around({{3, back}}), {0, 3.0f + 0.1f * k, -4, 0.3f + 0.013f * k}, false, 0, true, true, 0, 0, 0,
+                       false, false, false, 0.2f, 3.0f});
+    }
+    for (int k = 0; k < 24; ++k) { // (rounding: steep ground's push and the contacts' push)
+        Hit nearby = wall(-0.6f + 0.011f * k, 0.2f, 0.8f, 0.25f + 0.07f * k, 0.05f + 0.01f * k);
+        all.push_back({0, around({{3, nearby}}), {3.1f, 0.5f, -4.3f, 0.25f}, false, 0, false, false, 0, 0, 0, false, false,
+                       false, 0.1f + 0.01f * k, 3.0f});
+    }
+    for (int k = 0; k < 16; ++k) { // (rounding: the slide's unrounded x and w, the push, the fall)
+        Hit a = wall(-0.6f + 0.031f * k, 0.2f, 0.8f - 0.017f * k, 0.25f + 0.07f * k, 0.1f + 0.03f * k);
+        Hit b = wall(0.8f - 0.043f * k, 0.1f, 0.6f + 0.011f * k, 0.5f - 0.02f * k, 0.9f);
+        all.push_back({k & 1, around({{k % 7, a}, {(k + 3) % 7, b}}), {3.1f + 0.21f * k, 0.5f - 0.03f * k, -4.3f + 0.17f * k, 0.25f + 0.11f * k},
+                       (k & 2) != 0, 1, true, true, 0, 0, 0, false, false, false, 0.2f, 1.0f + 0.4f * k});
+    }
+    int n = 0;
+    for (const Case& c : all) {
+        ++n;
+        Unhalt();
+        if (c.halted)
+            Halt();
+        g_effects.clear();
+        ClearContacts();
+        Word<int>(kWalk + 0x18) = c.state;
+        g_hits = c.hits;
+        g_answers[0x72F0] = 0;
+        g_answers[0x7210] = c.alive ? 1 : 0;
+        g_answers[0x7240] = At(c.object == 1 ? kOtherMover : kRidden);
+        Word<uint32_t>(kRide + 0x18) = c.object == 2 ? 0 : At(kTracker);
+        Word<uint32_t>(kTracker) = c.object == 3 ? 0 : At(kRidden);
+        Word<uint8_t>(kWalk + 0x98) = c.allowed ? 1 : 0;
+        Word<uint8_t>(kWalk + 0x17A8) = c.timed ? 1 : 0;
+        Word<int>(kWalk + 0x17AC) = c.since;
+        g_answers[0x1DE0] = c.jumpAnswer;
+        g_answers[0xBC70] = c.barrierAnswer;
+        Word<uint8_t>(kInput + 0x100) = c.jumpPressed ? 1 : 0;
+        Word<uint8_t>(kWalk + 0x9A) = c.jumpHeld ? 1 : 0;
+        SetVector(kWalk + 0x1794, 0.6f, c.groundY, 0.7f + 0.01f * n, 0.375f);
+        Word<float>(kWalk + 0x704) = c.speed;
+        Word<uint8_t>(kWalk + 0x186C) = 0x55;
+        SetVector(kWalk + 0x34, c.velocity[0], c.velocity[1], c.velocity[2], c.velocity[3]);
+        SetVector(kWalk + 0x48, 0.6f + 0.01f * n, 0.0f, -0.8f, 0.25f);
+        SetVector(kWalk + 0x24, 12.375f + 0.731f * n, -3.1f + 0.377f * n, 1001.7f - 0.913f * n, 1.0f + 0.13f * n);
+        SetVector(kWalk + 0x71C, 0.3f * n, 0.7f, -0.77f * n, 0.125f);
+        Word<float>(kWalk + 0x44) = 6.5f - 0.3f * n;
+        Word<float>(kWalk + 0x80) = 1.0f / (55.0f + n);
+        SetVector(kWalk + 0x1794, 0.6f + 0.0137f * n, c.groundY, 0.7f + 0.01f * n, 0.375f + 0.031f * n);
+        Word<float>(kWalk + 0x30) = 1.0f + 0.0137f * n;
+        g_gravity = 600.0f + 13.7f * n;
+        CallContacts(original);
+    }
+    // (a feeler's direction and the fall's ends for each state and facing, every feeler missing)
+    // (pushes whose unrounded size shows in the position: found by out/scripts/search_push.py)
+    const float pushes[][2] = {{0.14201825857162476f, 0.02380952425301075f}, {-0.1370023638010025f, 0.03333333507180214f},
+                               {0.13268065452575684f, 0.029411764815449715f}, {-0.06948266178369522f, 0.014925372786819935f},
+                               {-0.10654174536466599f, 0.02083333395421505f}, {-0.0738891139626503f, 0.022727273404598236f},
+                               {-0.1719105988740921f, 0.012658228166401386f}, {-0.1145993322134018f, 0.01123595517128706f}};
+    for (const auto& p : pushes) {
+        ClearContacts();
+        Unhalt();
+        Word<int>(kWalk + 0x18) = 0;
+        g_hits = around({{3, wall(0.0f, 0.0f, 1.0f, 0.0f, 0.1f)}});
+        Word<uint8_t>(kWalk + 0x98) = 0;
+        Word<uint8_t>(kInput + 0x100) = 0;
+        SetVector(kWalk + 0x1794, 1.0f, 0.3f, 0.0f, 0.0f);
+        SetVector(kWalk + 0x24, p[0], 0.0f, p[0], 1.0f);
+        Word<float>(kWalk + 0x80) = p[1];
+        CallContacts(original);
+    }
+    for (int k = 0; k < 48; ++k) {
+        ClearContacts();
+        Word<int>(kWalk + 0x18) = k % 3;
+        g_hits.clear();
+        SetVector(kWalk + 0x48, 0.017f * k - 0.5f, 0.0f, 0.3f + 0.01f * k, 0.25f);
+        SetVector(kWalk + 0x24, 12.375f + 0.731f * k, -3.1f + 0.377f * k, 1001.7f - 0.913f * k, 1.0f + 0.0731f * k);
+        SetVector(kWalk + 0x71C, 0.3f * k, 0.7f, -0.77f * k, 0.1234f + 0.0177f * k);
+        SetVector(kWalk + 0x34, 3.1f + 0.21f * k, 0.5f - 0.03f * k, -4.3f + 0.17f * k, 0.25f + 0.011f * k);
+        Word<float>(kWalk + 0x44) = 6.5f - 0.31f * k;
+        Word<float>(kWalk + 0x80) = 1.0f / (51.0f + k);
+        g_gravity = 600.0f + 13.7f * k;
+        CallContacts(original);
+    }
+}
+
+void TestWalkJumps()
+{
+    SaveGlobals({{0x00696D60, 4, {}}, {0x00691974, 4, {}}});
+    RunCase("Walk: jumping", Jumps);
+    RunCase("Walk: a barrier jump", Barriers);
+    RunCase("Walk: the contacts", Contacts);
+    Cleanup();
+}
+
 void TestWalkUpdate()
 {
     SaveGlobals({{0x00696D60, 4, {}}, {0x00691974, 4, {}}});
@@ -867,3 +1299,4 @@ void TestWalkUpdate()
 
 SELFTEST(Early, TestWalkUpdate, GameNetKit::Cleanup);
 SELFTEST(Early, TestWalkLanding, GameNetKit::Cleanup);
+SELFTEST(Early, TestWalkJumps, GameNetKit::Cleanup);

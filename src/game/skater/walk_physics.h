@@ -57,6 +57,18 @@ public:
     // 0x0052AF40: walking begins (from skating): on the ground (`onGround`) or in the air - then thrown along the
     // turn under way off a vert ramp, the heading from the velocity (or the object's axes), off what it rode.
     void Begin(bool onGround);
+    // 0x0052B7D0: a jump (also off a hang: ReleaseHang): up at jump_velocity times how long jump was held (or
+    // hang_jump_factor off a hang or ladder); running, pushed along the control's direction; off what it rode, in the
+    // air, SkaterJump.
+    void Jump();
+    // 0x0052BC70: a jump over the barrier ahead (barrier_jump_*): when a contact ahead, faced head-on, has nothing
+    // in the way at the highest barrier's height - up fast enough to clear the barrier's top. Whether it jumped.
+    bool TryBarrierJump();
+    // 0x0052C2C0: the eight contacts (feelers around it, and along the fall in the air) found again; on the ground a
+    // barrier jump after barrier_jump_delay, a jump, the push down steep ground; pushed out of what is close, the
+    // velocity slid along what it walks into (stopped in a corner or when turned back), the run animation's speed
+    // kept up. False when it touches nothing it moves into (or jumped).
+    bool UpdateContacts();
     // 0x00529F80: the walk camera's override facing for the animation state (+0x78): along the hang (turned 0.95
     // radians for moving left or right), the facing on a ladder or while waiting for an animation; else none.
     void UpdateCameraOverride();

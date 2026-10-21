@@ -127,7 +127,7 @@ void Install(StandIns& s)
     // The state, the events, the other moves.
     Stub(s, {0x005260E0}, 4, 0x60E0);
     Stub(s, {0x005298D0}, 0, 0x98D0);
-    Stub(s, {0x0052B7D0}, 0, 0xB7D0);
+    Stub(s, {0x0052B7D0, AddressOf(&CWalkComponent::Jump)}, 0, 0xB7D0);
     Stub(s, {0x004609F0, AddressOf(&Obj::CObject::SelfEvent)}, 8, 0x09F0);
 }
 
