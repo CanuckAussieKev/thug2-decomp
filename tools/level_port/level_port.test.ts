@@ -7,6 +7,8 @@ import * as path from "node:path";
 import { test } from "node:test";
 import { Float } from "../lib/py.ts";
 import { fixProfiles } from "./nodes.ts";
+import * as pedRigs from "./ped_rigs.ts";
+import { Thug2Assets } from "./peds_cars.ts";
 import { lzssDecode } from "./prx.ts";
 import { checksum, fmtFloat, Name, nameText, QbFile, Struct, toNs, Vector } from "./qb.ts";
 import * as tex from "./tex.ts";
@@ -145,4 +147,81 @@ test("fixProfiles: a ped profile THUG2 hasn't becomes THUG2's random one (a woma
     assert.equal((array[2]!.get("profile") as Name).value, checksum("PedPro_Muska"));
     assert.equal(array[3]!.get("profile"), undefined);
     assert.ok(changed[0]!.startsWith("A: random_sk3_male_profile -> random_male_profile"));
+});
+
+test("ped rigs: a woman's profile gets Ped_Female, a man's THPS6_human; animals are left alone", () => {
+    const names = new Map<number, string>();
+    const k = (t: string): Name => {
+        names.set(checksum(t), t);
+        return new Name(checksum(t));
+    };
+    const parts = (...keys: string[]): Struct => new Struct(keys.map((p) => [k(p), new Struct([])]));
+    const body = (id: string): Struct => new Struct([[k("ped_body"), new Struct([[k("desc_id"), k(id)]])]]);
+    const female = pedRigs.femaleRigProfiles([
+        [k("random_male_profile"), parts("ped_m_head", "ped_m_torso")],
+        [k("random_female_profile"), parts("ped_f_head", "ped_f_torso")],
+        [k("randomized_pedestrian_profile"), k("random_female_profile")],
+        [k("Ped_Nurse_01"), body("Nurse 01")],
+        [k("Ped_zombiefem01"), body("zombie female 01")],
+    ]);
+    assert.deepEqual(
+        [...female].sort(),
+        ["random_female_profile", "randomized_pedestrian_profile", "Ped_Nurse_01"].map(checksum).sort(),
+    );
+    const ped = (name: string, type: string, profile: string, skeleton: string, anims: string): Struct =>
+        new Struct([
+            [k("Name"), k(name)],
+            [k("Class"), k("Pedestrian")],
+            [k("Type"), k(type)],
+            [k("SkeletonName"), k(skeleton)],
+            [k("AnimName"), k(anims)],
+            [k("profile"), k(profile)],
+        ]);
+    const array = [
+        ped("A", "Ped_From_Profile", "random_female_profile", "THPS6_human", "animload_THPS6_human"),
+        ped("B", "Ped_F_From_Profile", "random_male_profile", "Ped_Female", "animload_ped_female"),
+        ped("C", "Nurse", "Ped_Nurse_01", "THPS6_human", "animload_THPS6_human"),
+        ped("D", "Ped_From_Profile", "Ped_zombiefem01", "THPS6_human", "animload_THPS6_human"),
+        ped("E", "Anl_Pigeon", "random_female_profile", "Anl_Pigeon", "animload_anl_pigeon"),
+    ];
+    const fix = pedRigs.fixPedRigs(array, names, (v) => female.has(v));
+    assert.equal(fix.human, 4);
+    assert.equal(fix.female, 2);
+    assert.deepEqual(
+        fix.changed.map((c) => c.slice(0, 1)),
+        ["A", "B", "C"],
+    );
+    const text = (s: Struct, key: string): string => names.get((s.get(key) as Name).value)!;
+    assert.deepEqual(
+        array.map((s) => [text(s, "Type"), text(s, "skeletonName"), text(s, "AnimName")]),
+        [
+            ["Ped_F_From_Profile", "Ped_Female", "animload_ped_female"],
+            ["Ped_From_Profile", "THPS6_human", "animload_THPS6_human"],
+            ["Nurse", "Ped_Female", "animload_ped_female"], // (a level's own Type kept)
+            ["Ped_From_Profile", "THPS6_human", "animload_THPS6_human"],
+            ["Anl_Pigeon", "Anl_Pigeon", "animload_anl_pigeon"],
+        ],
+    );
+    // (the node's own key spelling kept, no second skeleton entry)
+    assert.equal(array[0]!.entries.filter(([n]) => n !== null && n.value === checksum("skeletonName")).length, 1);
+    const game = "C:\\Games\\THUG2\\Game";
+    if (fs.existsSync(path.join(game, "Data", "pre", "qb_scripts.prx"))) {
+        // (THUG2's own profiles: its levels put these on Ped_Female - ped_rigs.ts - and Ped_zombiefem01 not)
+        const assets = new Thug2Assets(game);
+        const on = (p: string): string => assets.rig(p).skeleton;
+        assert.deepEqual(
+            [
+                "random_female_profile",
+                "Ped_Nurse_01",
+                "Ped_Sun_Bather_01",
+                "Ped_zombiefem01",
+                "random_male_profile",
+            ].map(on),
+            ["Ped_Female", "Ped_Female", "Ped_Female", "THPS6_human", "THPS6_human"],
+        );
+    }
+    assert.equal(
+        pedRigs.loadLevelAnimsNs(true),
+        "script load_level_anims {\n    animload_THPS6_human \n    animload_ped_female \n}\n",
+    );
 });

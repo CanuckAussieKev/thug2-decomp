@@ -22,6 +22,7 @@ import * as geometry from "../level_port/geometry.ts";
 import * as movers from "../level_port/movers.ts";
 import * as nodes from "../level_port/nodes.ts";
 import * as overlayBias from "../level_port/overlay_bias.ts";
+import * as pedRigs from "../level_port/ped_rigs.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as prx from "../level_port/prx.ts";
@@ -2361,6 +2362,10 @@ export function convertNodeArray(
         // when the ped is made (nodes.fixProfiles): THUG2's random one instead
         const fixed = nodes.fixProfiles(converted, names, (v) => port.assets.profiles.has(v));
         if (fixed.length) newReport.push(`  ped profiles THUG2 hasn't, made THUG2's: ${fixed.join(", ")}`);
+        // every human ped (THUGPRO's added ones too) on the skeleton its profile's model is rigged to - a woman's
+        // on THPS6_human is twisted (tools/level_port/ped_rigs.ts; load_level_anims loads both: loadAnimsNs)
+        const rigs = pedRigs.fixPedRigs(converted, names, (v) => port.assets.femaleRigs.has(v));
+        if (rigs.changed.length) newReport.push(`  peds given their profile's skeleton: ${rigs.changed.join(", ")}`);
     }
     if (port === null) {
         // (static: no scripts - THUGPRO's nodes keep none either)

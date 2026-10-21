@@ -378,13 +378,16 @@ export class Nodes {
             this.count("standing peds");
             const type = node.get("Type");
             if (!(type instanceof Name)) throw new TypeError("a pedestrian's Type is not a name");
+            const chosen = profile(n.get(type.value) ?? "", this.assets);
+            // (the skeleton the profile's model is rigged to: tools/level_port/ped_rigs.ts)
+            const rig = this.assets.rig(chosen);
             let entries: qb.Entry[] = [
                 ...this.base(node, "Pedestrian"),
-                [key(n, "Type"), key(n, "Ped_From_Profile")],
+                [key(n, "Type"), key(n, rig.type)],
                 [key(n, "PedAI_Type"), key(n, "Stand")],
-                [key(n, "skeletonName"), key(n, "THPS6_human")],
-                [key(n, "AnimName"), key(n, "animload_THPS6_human")],
-                [key(n, "profile"), key(n, profile(n.get(type.value) ?? "", this.assets))],
+                [key(n, "skeletonName"), key(n, rig.skeleton)],
+                [key(n, "AnimName"), key(n, rig.anims)],
+                [key(n, "profile"), key(n, chosen)],
                 [key(n, "SuspendDistance"), 10000],
                 [key(n, "lod_dist1"), 200],
                 [key(n, "lod_dist2"), 201],

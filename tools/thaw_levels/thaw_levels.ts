@@ -20,6 +20,7 @@ import { FormatError } from "../level_port/binio.ts";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as pedRigs from "../level_port/ped_rigs.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
@@ -1172,6 +1173,18 @@ export function convertLevelNodes(
             triggers.add(v);
         }
     }
+    // Every human ped on the skeleton its THUG2 profile's model is rigged to (ours and THUGPRO's added ones), and
+    // the level's load_level_anims for the Ped_Female animations (tools/level_port/ped_rigs.ts).
+    let animsText = "";
+    if (port !== null) {
+        const rigs = pedRigs.fixPedRigs(converted, names, (v) => port.assets.femaleRigs.has(v));
+        if (rigs.changed.length) report.push(`  peds given their profile's skeleton: ${rigs.changed.join(", ")}`);
+        if (rigs.human) {
+            if (/^script load_level_anims\b/im.test(extraText))
+                throw new FormatError(`${name}: load_level_anims already defined`);
+            animsText = pedRigs.loadLevelAnimsNs(rigs.female > 0);
+        }
+    }
     // PC-THAW-13 shared_parts: the rail nodes' common parts as include structures, as THUG2's own levels have them
     // (expanded, Kyoto's node array ran THUG2's script component pool dry while loading). Rails only: the text passes
     // after this (stripMissingTrickObjects, groundRestarts) read geometry and restart nodes' own entries. The terrain
@@ -1193,6 +1206,7 @@ export function convertLevelNodes(
         includes +
         nodes.nodeArrayNs(`${name}_NodeArray`, arrayNodes, names, kills) +
         extraText +
+        animsText +
         spawnScripts +
         (extra?.setupNs ?? "");
     if (breakingNames.size) {

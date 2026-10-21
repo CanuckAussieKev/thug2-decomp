@@ -22,6 +22,7 @@ import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
 import * as overlayBias from "../level_port/overlay_bias.ts";
+import * as pedRigs from "../level_port/ped_rigs.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
@@ -605,9 +606,15 @@ export function cmdConvert(args: Args): void {
             }
             extraText += made.text;
         }
+        // Every human ped on the skeleton its THUG2 profile's model is rigged to (a woman's on THPS6_human is twisted),
+        // and the level's load_level_anims for the Ped_Female animations (tools/level_port/ped_rigs.ts).
+        const rigs = pedRigs.fixPedRigs([...converted, ...moving], names, (v) => thug2.femaleRigs.has(v));
+        if (rigs.changed.length) report.push(`  peds given their profile's skeleton: ${rigs.changed.join(", ")}`);
+        if (/^script load_level_anims\b/im.test(extraText)) throw new FormatError(`${name}: load_level_anims defined`);
+        const animsText = rigs.human ? pedRigs.loadLevelAnimsNs(rigs.female > 0) : "";
         pedsCars.offsetLinks(moving, converted.length);
         let text = nodes.nodeArrayNs(`${name}_NodeArray`, [...converted, ...moving], names, kills);
-        text += pedsCars.scriptsNs(movingScripts) + extraText + netScripts;
+        text += pedsCars.scriptsNs(movingScripts) + extraText + netScripts + animsText;
         // (a TrickObject without its sector crashes the loader: convertScene leaves skinned sectors out)
         text = createdInPlay(text, base, report);
         // (PC-THPS4-7)
