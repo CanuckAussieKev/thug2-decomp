@@ -47,7 +47,8 @@ void TestEditorGoalsTypes()
     for (int t = 0; t < Goals::kTypes; ++t) {
         Type type = static_cast<Type>(t);
         Type back;
-        names = names && Goals::TypeOf(Goals::TypeName(type), &back) && back == type &&
+        names = names && Goals::TypeChecksum(type) == Crc::GenerateCRCFromString(Goals::TypeName(type)) &&
+                Goals::TypeOf(Goals::TypeName(type), &back) && back == type &&
                 Goals::TypeOfChecksum(Goals::TypeChecksum(type), &back) && back == type;
         alignas(4) static uint8_t record[Goals::kImageSize];
         std::memset(record, 0xCD, sizeof(record));
@@ -67,6 +68,10 @@ void TestEditorGoalsTypes()
         spins = spins && static_cast<int>(spin) == Goals::Defaults(type, "ed_goal01").spin;
     }
     Check(names, "editor goals: the types' names and checksums (Skate 0x54166ACD .. Gap 0x61C5D092) both ways");
+    Check(std::string(Goals::TypeTitle(Type::Skate)) == "SKATE letters" &&
+              std::string(Goals::TypeTitle(Type::HighCombo)) == "High Combo" &&
+              std::string(Goals::TypeTitle(Type::Race)) == "Checkpoint / Race" && Goals::TypeChecksum(Type::Gap) == 0x61C5D092,
+          "editor goals: the types in Create-a-Goal's menu order (goals_menu_info)");
     Check(kinds, "editor goals: each point's kind as SetType 0x004E6DA0 makes it (pro, start, letters, checkpoints)");
     Check(counts, "editor goals: the fewest / most points as SetType sets them (SKATE / COMBO 7, race 4..12, others 2)");
     Check(spins, "editor goals: the trick goals' spin default (Trick to the Beat 0, SetType)");
@@ -388,7 +393,8 @@ void TestEditorGoalsRecords()
           "editor goals: more points than the type has refused");
     Check(!ReadLine("goal ed_goal01 type=Skate time=12x", &bad) && !ReadLine("goal ed_goal01 type=Skate p0=1,2,3", &bad) &&
               !ReadLine("goal ed_goal01 type=Skate name=\"open", &bad) &&
-              !ReadLine("goal ed_goal01 type=Skate name=\"a\"b", &bad) && !ReadLine("goal ed-goal type=Skate", &bad) &&
+              !ReadLine("goal ed_goal01 type=Skate name=\"a\"b", &bad) &&
+              !ReadLine("goal ed_goal01 type=Skate name=\"a\"x=1", &bad) && !ReadLine("goal ed-goal type=Skate", &bad) &&
               !ReadLine("goal ed_goal01 type=Skate control=Fly", &bad) &&
               !ReadLine("goal ed_goal01 type=Skatetris sets=0,9", &bad),
           "editor goals: bad numbers, points, quotes, names, controls and sets refused");
