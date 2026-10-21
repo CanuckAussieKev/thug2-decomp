@@ -157,7 +157,7 @@ void PadHints(const Context& c, Builder& b)
     b.Raw("LS", "fly");
     b.Raw("RS", c.selection != Selection::None && !c.freeCamera ? "orbit" : "look");
     b.Raw("LT/RT", "down / up");
-    b.Raw("PadA", c.drag != Drag::None ? "hold: drag" : "select (hold: drag)");
+    b.Raw("PadA", c.drag != Drag::None ? "hold: drag" : "select");
     b.Raw("PadB", c.drag != Drag::None ? "put it back" : "back");
     b.Raw("PadX", "pie");
     b.Raw("PadY", "view pie");
@@ -183,7 +183,7 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         b.Raw("Mouse", "point at a slice");
         b.Raw("LMB", "run it");
         if (!c.pieSticky)
-            b.Raw(b.Key("pie_context").empty() ? "Q" : b.Key("pie_context"), "let go: run the slice pointed at");
+            b.Raw(b.Key("pie_context").empty() ? "Q" : b.Key("pie_context"), "release: run");
         b.Raw("RMB", "close");
         b.Raw("Esc", "close");
         return b.out;
@@ -200,7 +200,7 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
     }
     if (c.ladderDrawing) {
         b.Raw("LMB", c.chainWaiting.empty() ? "place it" : c.chainWaiting);
-        b.Act("undo", "take the last ladder away");
+        b.Act("undo", "undo last ladder");
         b.Raw("Esc", "stop");
         return b.out;
     }
@@ -209,7 +209,7 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         b.Raw("Alt+LMB", "no edge snapping");
         b.Act("chain_finish", "finish");
         b.Raw("RMB", "finish");
-        b.Act("undo", "take the last point away");
+        b.Act("undo", "undo last point");
         b.Raw("Esc", "stop");
         return b.out;
     }
@@ -297,13 +297,13 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         return b.out;
     }
     if (c.ux9Tool == 1) {
-        b.Raw("LMB", "pick a gap end (rail, lip, wall, ground)");
+        b.Raw("LMB", "pick gap end");
         b.Act("gap_wizard", "wizard off");
         b.Raw("Esc", "cancel");
         return b.out;
     }
     if (c.ux9Tool == 2) {
-        b.Raw("LMB", "a corner (on a piece: edit it)");
+        b.Raw("LMB", "place corner");
         b.Act("ground_tool", "tool off");
         b.Raw("Esc", "cancel");
         return b.out;
@@ -328,7 +328,7 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         if (c.mods == Actions::kAlt) {
             b.Raw("Alt+LMB", "one piece (any)");
             b.Raw("Alt+LMB", "drag: orbit");
-            b.Raw("Alt+Wheel", "step through what's under the cursor");
+            b.Raw("Alt+Wheel", "cycle under cursor");
         } else if (c.mods == Actions::kShift) {
             b.Raw("Shift+LMB", "add / remove");
             if (selected)
@@ -336,7 +336,7 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         } else if (c.mods == Actions::kCtrl) {
             if (c.selection == Selection::Scenery)
                 b.Raw("Ctrl+LMB", "remove a part");
-            b.Raw("Ctrl+LMB", "drag: a removing box");
+            b.Raw("Ctrl+LMB", "drag: remove box");
         }
         for (const auto& m : c.modded)
             b.Raw(m.first, m.second);
@@ -383,7 +383,7 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         b.Fly(c, c.flyAlways ? "nudge" : "fly");
         b.Acts({"nudge_forward", "nudge_back", "nudge_left", "nudge_right"}, "nudge");
         if (c.chainPoint) {
-            b.Act("lock", "whole chain / itself");
+            b.Act("lock", "whole chain");
             b.Act("chain_insert", "insert a point");
             b.Act("chain_extend", "draw on");
         } else {
@@ -395,10 +395,10 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         if (c.selection == Selection::Scenery)
             b.Act("edge_rail", "rail along an edge");
         b.Act("arrange_window", "arrange");
-        b.Act("frame_selection", c.freeCamera ? "frame (follow again)" : "frame");
+        b.Act("frame_selection", c.freeCamera ? "frame" : "frame");
         b.Act("follow_selection", c.following ? "stop following" : "follow");
         b.Act("pie_context", "pie");
-        b.Act("delete", "delete / hide");
+        b.Act("delete", "delete");
         b.Raw("Esc", "deselect");
         break;
     }

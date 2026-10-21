@@ -1054,7 +1054,7 @@ const char* WhyNotMovable(uint32_t checksum)
     if (!sector)
         return "not found";
     if (Ground::IsPiece(checksum))
-        return "a generated ground piece - edit it with the Ground tool (Alt+U, click it)"; // (UX9)
+        return "generated ground piece: edit with the Ground Tool"; // (UX9)
     uint8_t* geom = GeomOf(sector);
     if (!geom)
         return "collision only";

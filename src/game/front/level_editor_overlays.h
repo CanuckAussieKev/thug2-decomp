@@ -88,9 +88,10 @@ bool PainterNow(Ui::Overlay* overlay, Painter* painter);
 // The grid (kGrid) and the carried things (kCarryHints) - LevelEditor::Draw, with the other overlays.
 void AddOverlay(const Painter& painter, bool moving, V3 selectionBase, bool haveSelection);
 
-// The toolbar's View and Overlays menus (level_editor_ui.cpp's toolbar: in place of the Collision (C) checkbox);
-// `requests`: the editor's (the families, the collision). `scale`: the UI's.
-void ToolbarMenus(const Ui::Model& model, float scale, std::vector<Ui::Request>* requests);
+// The menu bar's View menu parts (level_editor_ui_menus.cpp): the view modes (Alt+1..4), and the overlays' switches
+// with the gizmo families as a submenu; `requests`: the editor's (the families, the collision).
+void ViewModeItems();
+void OverlayItems(const Ui::Model& model, std::vector<Ui::Request>* requests);
 // F1's rows for the keys bound here and in the modules (the view modes, arcs, ruler, palette, grind preview): a section
 // (empty: the one before), the keys, what they do.
 struct HelpRow {

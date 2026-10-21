@@ -241,7 +241,7 @@ void AddHere()
     g_notes.push_back(note);
     g_selected = note.name;
     g_editFor.clear();
-    Hud::Message(("Note " + note.name + " placed where the view looks - type its text in its window").c_str());
+    Hud::Message(("Added note " + note.name).c_str());
 }
 
 ImU32 Colour(uint32_t rgb, int alpha = 255)
@@ -344,11 +344,11 @@ void OutlinerSection(ImFont* mono, const char* search)
     if (ImGui::SmallButton("+ Note here"))
         g_queue.push_back([] { AddHere(); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("A note pin where the view looks (editor only: never in play, never baked)");
+        ImGui::SetTooltip("Add a note at the view center");
     if (!open)
         return;
     if (g_notes.empty())
-        ImGui::TextDisabled("No notes - \"+ Note here\" puts one where the view looks.");
+        ImGui::TextDisabled("No notes");
     for (size_t i = 0; i < g_notes.size(); ++i) {
         const Note& note = g_notes[i];
         if (!Matches(note.name + " " + note.text, search))
@@ -373,7 +373,7 @@ void OutlinerSection(ImFont* mono, const char* search)
             });
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s\n%s\n(click opens it; double-click takes the camera there)", note.name.c_str(),
+            ImGui::SetTooltip("%s\n%s", note.name.c_str(),
                               note.text.empty() ? "(empty)" : note.text.c_str());
         ImGui::PopID();
     }
@@ -402,7 +402,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
         return;
     }
     std::string name = note->name;
-    ImGui::TextDisabled("Editor only: never in play, never baked.");
+    ImGui::TextDisabled("Editor only");
     // The text and the place: changed live, one undo step from the field taken to the field let go (pushed then - the
     // change complete: the autosave's snapshot follows it).
     auto held = [] {
@@ -477,7 +477,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
             n->pos = at;
         });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("To where the view looks");
+        ImGui::SetTooltip("Move to the view center");
     ImGui::SameLine();
     if (ImGui::Button("Delete"))
         g_queue.push_back([name] {
@@ -487,7 +487,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
             g_notes.erase(std::remove_if(g_notes.begin(), g_notes.end(), [&](const Note& n) { return n.name == name; }),
                           g_notes.end());
             g_selected.clear();
-            Hud::Message(("Note " + name + " deleted (Ctrl+Z brings it back)").c_str());
+            Hud::Message(("Deleted note " + name).c_str());
         });
     ImGui::End();
     if (!open)

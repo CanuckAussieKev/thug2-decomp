@@ -12,6 +12,7 @@
 #include <ctime>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -31,6 +32,7 @@
 #include "game/script/struct.h"
 #include "game/sys/config.h"
 #include "game/sys/mlp.h"
+#include "game/sys/timer.h"
 #include "game/sys/screenshot_files.h"
 #include "game/sys/sdl_events.h"
 #include "game/sys/sdl_window.h"
@@ -382,6 +384,115 @@ void Take()
     std::thread(Write, job).detach();
 }
 
+// --- a frame series ---
+
+struct Series {
+    std::string folder;   // (ending in a backslash)
+    int total = 0, taken = 0;
+    std::string sidecar;  // (made at the first frame, written at the end with the frames' times)
+    std::string times;    // a line a frame: its number, the game's frame and vblank count, the game clock (ms)
+    std::atomic<int> inFlight{0}, written{0};
+    std::mutex mutex;
+    std::string error;    // the first failure (under `mutex`)
+};
+std::shared_ptr<Series> g_series;
+std::string g_seriesResult = "none";
+
+bool WriteNewFile(const std::string& path, const void* data, size_t size)
+{
+    HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+    DWORD written = 0;
+    bool ok = WriteFile(file, data, static_cast<DWORD>(size), &written, nullptr) && written == size;
+    CloseHandle(file);
+    return ok;
+}
+
+void WriteSeriesFrame(std::shared_ptr<Series> series, Frame frame, int number)
+{
+    std::vector<uint8_t> rgb, png;
+    std::string error;
+    std::string path = series->folder + SeriesFrameName(number);
+    if (!ToRgb(frame, &rgb))
+        error = "frame " + std::to_string(number) + ": the pixels couldn't be read";
+    else if (!EncodePng(rgb.data(), frame.width, frame.height, &png))
+        error = "frame " + std::to_string(number) + ": the PNG couldn't be made";
+    else if (!WriteNewFile(path, png.data(), png.size()))
+        error = "couldn't write " + path + " (error " + std::to_string(GetLastError()) + ")";
+    if (error.empty()) {
+        ++series->written;
+    } else {
+        std::lock_guard<std::mutex> lock(series->mutex);
+        if (series->error.empty())
+            series->error = error;
+    }
+    --series->inFlight;
+}
+
+// The series' frame (from BeforePresent, rendering).
+void TakeSeriesFrame()
+{
+    std::shared_ptr<Series> series = g_series;
+    Frame frame;
+    std::string error;
+    if (!Gfx::ScreenshotCapture::CaptureBackBuffer(&frame, &error)) {
+        std::lock_guard<std::mutex> lock(series->mutex);
+        if (series->error.empty())
+            series->error = "frame " + std::to_string(series->taken + 1) + " not taken - " + error;
+        series->taken = series->total; // (no more)
+        return;
+    }
+    if (series->sidecar.empty()) {
+        std::time_t now = std::time(nullptr);
+        std::tm local = {};
+        localtime_s(&local, &now);
+        char taken[64];
+        std::snprintf(taken, sizeof(taken), "%04d-%02d-%02d %02d:%02d:%02d", local.tm_year + 1900, local.tm_mon + 1,
+                      local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
+        std::vector<Section> sections = GatherSections(frame, SeriesFrameName(1), series->folder, taken);
+        sections.front().title = "series";
+        sections.front().fields.push_back({"frames", std::to_string(series->total) + " (frame_0001.png on, one a rendered frame)"});
+        series->sidecar = FormatSidecar("THUG2 decomp frame series", sections, LogTail(kLogLines));
+    }
+    // (at most kSeriesInFlight waiting: the frame waits for one)
+    while (series->inFlight >= kSeriesInFlight)
+        Sleep(1);
+    ++series->inFlight;
+    int number = ++series->taken;
+    char line[96];
+    std::snprintf(line, sizeof(line), "%5d  %10u  %10llu  %10u\n", number, Mlp::FramesRun(),
+                  static_cast<unsigned long long>(Tmr::GetVblanks()), Tmr::GetTime());
+    series->times += line;
+    std::thread(WriteSeriesFrame, series, std::move(frame), number).detach();
+}
+
+// Once a frame: the next frame of a series taken; a finished series' result logged.
+void TickSeries(bool rendering)
+{
+    std::shared_ptr<Series> series = g_series;
+    if (!series)
+        return;
+    if (series->taken < series->total) {
+        if (rendering)
+            TakeSeriesFrame();
+        return;
+    }
+    if (series->inFlight > 0)
+        return;
+    std::string text = series->sidecar + "\n[frames]\nframe  game frame     vblanks  clock (ms)\n" + series->times;
+    WriteNewFile(series->folder + kSeriesSidecar, text.data(), text.size());
+    {
+        std::lock_guard<std::mutex> lock(series->mutex);
+        if (series->error.empty())
+            g_seriesResult = "ok: " + std::to_string(series->written.load()) + " frames in " + series->folder;
+        else
+            g_seriesResult = "error: " + series->error + " (" + std::to_string(series->written.load()) + " written)";
+    }
+    Log("screenshot: series - %s", g_seriesResult.c_str());
+    g_series.reset();
+}
+
 void HandleEvent(SDL_Event* event)
 {
     if (event->type == SDL_KEYDOWN && !event->key.repeat && static_cast<int>(event->key.keysym.scancode) == g_key)
@@ -432,6 +543,8 @@ void Init()
 
 void BeforePresent(bool rendering)
 {
+    // Not original either - a frame series (StartSeries), also with the key off.
+    TickSeries(rendering);
     if (!g_key)
         return;
     if (g_job && g_job->done) {
@@ -453,6 +566,49 @@ void BeforePresent(bool rendering)
     }
     TickMessage();
 }
+
+std::string StartSeries(int frames, const std::string& folder)
+{
+    if (g_series)
+        return "a series is running";
+    if (frames < 1 || frames > kMaxSeriesFrames)
+        return "1 to " + std::to_string(kMaxSeriesFrames) + " frames";
+    std::string base = Folder();
+    if (base.empty())
+        return "no screenshot folder (see the log)";
+    std::string path = folder;
+    for (char& c : path)
+        if (c == '/')
+            c = '\\';
+    if (path.empty()) {
+        std::time_t now = std::time(nullptr);
+        std::tm local = {};
+        localtime_s(&local, &now);
+        path = SeriesFolderName({local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min,
+                                 local.tm_sec});
+    }
+    bool absolute = path.size() >= 2 && (path[1] == ':' || (path[0] == '\\' && path[1] == '\\'));
+    if (!absolute)
+        path = base + path;
+    if (path.back() != '\\')
+        path += '\\';
+    std::error_code error;
+    std::filesystem::create_directories(std::filesystem::path(path), error);
+    DWORD attributes = GetFileAttributesA(path.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY))
+        return "can't make the folder " + path;
+    auto series = std::make_shared<Series>();
+    series->folder = path;
+    series->total = frames;
+    g_series = series;
+    g_seriesResult = "running";
+    Log("screenshot: series of %d frames into %s", frames, path.c_str());
+    return {};
+}
+
+bool SeriesRunning() { return g_series != nullptr; }
+
+std::string SeriesResult() { return g_seriesResult; }
 
 void NoteView(int viewport, const float position[3], const float forward[3])
 {

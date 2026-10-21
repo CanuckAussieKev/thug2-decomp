@@ -20677,6 +20677,175 @@
       }
     }
   },
+  "node_flag_values": {
+    "_register": "TP-40",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb: its global table `NODEFLAG_... = 0 / 1` (its thugpro_dynamic.q creates a node whose CreatedFromVariable names a true one), against THAW's non-story values (thaw_levels.nonStoryNodeFlags: chapter_info.qb game_progress_set_non_story_mode_nodeflags). Only the flags whose on / off differs; flags set in neither (or 0 in THUGPRO, unset in THAW) are off on both sides and not listed. Surveyed 2026-10-21 for all 15 areas: CH, MA, DN, JA, SZ, SV2, SV and LV have no differences.",
+    "_note": "Differs from the real THAW on purpose (the user's decision, 2026-10-21: match THUGPRO for online play, documented as such): `thugpro` is the value applied on top of THAW's non-story one (`thaw`, checked: a different THAW value is reported by the converter); `what` names the nodes the flag makes. Per area - a flag is only looked up in its own area. --compat none: THAW's values.",
+    "Z_HO": {
+      "NODEFLAG_Z_HO_CUTSCENELIGHTS": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "3 street-light pieces (Z_HO_streetlight, _streetlight_dark, _NightOff_01_streetlight): left out"
+      },
+      "NODEFLAG_Z_HO_ElCAP_CLOSEDDOORS": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the El Capitan theatre's closed doors (HO_ElCapitan_Doors_Closed): left out"
+      },
+      "NODEFLAG_Z_HO_ElCAP_OPENDOORS": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the El Capitan theatre's open doors (HO_ElCapitan_Doors_Open): made instead"
+      },
+      "NODEFLAG_Z_HO_DT_EVENT": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the metro work site before the Downtown event: barriers and quarter pipe, the scissor lift (base, platform, its collision) and its 8 rails, 9 TRG_Rail_Pre rails, invisible barrier collision and the TRGP_Pre_Kill kill piece (26 nodes): left out"
+      },
+      "NODEFLAG_Z_HO_DINO_BOARDS": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the boards on the roof where the dino head stood (HO_Before_roof_boards): left out - THUGPRO has the dino at Skate Ranch"
+      },
+      "NODEFLAG_Z_HO_DINO_BOARDS02": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the second set of those roof boards (HO_Before_roof_boards03): left out"
+      }
+    },
+    "Z_BH": {
+      "NODEFLAG_Z_BH_AWNINGPRE": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the awning on Rodeo Drive before it goes to Skate Ranch: 13 rodeo rails (TRG_rodeo_rail256-268) and 3 pieces (g_poststate_ranch_05 / _12, g_sectionH_59): left out"
+      },
+      "NODEFLAG_Z_BH_BHSRGATEPRE": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the closed exit to Skate Ranch: fences G_Exit_Fence_01 / _02 and the blocker g_bhsr_blocker: made"
+      },
+      "NODEFLAG_Z_BH_BHSRGATEPOST": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the opened exit's fences (G_Exit_Fence_03 / _04): left out"
+      }
+    },
+    "Z_DT": {
+      "NODEFLAG_Z_DT_GREEN_BEFORE": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "Chinatown's green before it shatters (DT_Green_Shatter03_DT): made"
+      },
+      "NODEFLAG_Z_DT_GREEN_ROOF_BEFORE": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the green roof before it shatters (DT_Green_Shatter01_DT and its collision _coll): made"
+      },
+      "NODEFLAG_Z_DT_GREEN_AFTER": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the 24 Chinatown rails of the shattered green (TRG_DT_Chinatown_Green_After01-24): left out"
+      },
+      "NODEFLAG_Z_DT_INITIALIZEGRAFFITIAREA_BEFORE": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the graffiti area's start-up pieces (DT_IGC_Graffiti_Initializer, game object TRG_DT_Gameobject_Graffiti): made"
+      }
+    },
+    "Z_EL": {
+      "NODEFLAG_Z_EL_COUCH_DEF": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the couch on the roof before it goes to Skate Ranch (g_roof_couch01) and its 8 rails (rail_hood_249-254, rail_477 / 478): made"
+      },
+      "NODEFLAG_Z_EL_SHACK_DEF": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the shack in the hood park (g_hood_park_skack01) and its 8 rails (rail_hood_170-177): made"
+      },
+      "NODEFLAG_Z_EL_SPEAR_BEFORE": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the statues before the spear event (g_hb_statue_Mechanic01, _Mechanic_Muffler01, _aztec01), g_andy_hood_grind_level_event and 6 metro HQ rails (rail_metrohq_before_event01-06): made"
+      },
+      "NODEFLAG_Z_EL_SPEAR_AFTER": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the statues after it (g_hb_statue_aztec02, _Mechanic02) and g_andy_r_spring05: left out"
+      }
+    },
+    "Z_SM": {
+      "NODEFLAG_PERMANENT_PEDS": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "two shop peds (TRG_Ped_Skateshop, TRG_Ped_TattooShop): made"
+      },
+      "NODEFLAG_Z_SM_INITIALIZEALLGOALS_BEFORE": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "a goal set-up piece (Trigger_InitializeGaps25Goal): left out"
+      },
+      "NODEFLAG_Z_SM_TELESCOPE_BEFORE": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the pier's telescope (PierOneg_sm_scope_gun03 / _scope03, CollisionPierTelescopes_Shooter) and the GAPS16 goal's 5 surfer peds: left out - THUGPRO has the telescope at Skate Ranch"
+      }
+    },
+    "Z_SR": {
+      "NODEFLAG_Z_SR_HO_DINO": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the dino head brought from Hollywood: 15 pieces (g_ho_dino_00-11, g_ho_dino_new_00, its flash pieces g_ho_dino_flash_00-03, invisible quarter pipes g_ho_dino_invis_qp_00-02 / invis2_01): made"
+      },
+      "NODEFLAG_Z_SR_HO_DINO_DEF": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the dino's stand-in, the bare mound cap (g_ho_def_dino_mound_cap): left out"
+      },
+      "NODEFLAG_Z_SR_SM_SCOPE_OBJ": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the telescope from Santa Monica's pier (obj_sm_scope) and its talk game object (talk_sm_scope): made"
+      },
+      "NODEFLAG_Z_SR_CRANE_TOP": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the crane's top and its cargo box (vehicles veh_crane_top, veh_crane_cargobox): made"
+      },
+      "NODEFLAG_Z_SR_CRANE_SNAKE": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "a crane shadow piece (g_crane_shadow_Post_02): made"
+      },
+      "NODEFLAG_Z_SR_EL_MATTRESS": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the camper / snake corner's pieces (g_r_353, g_snake_04, dog bowls, biscuits, food and their shadow / stain decals: 7 pieces): made"
+      }
+    },
+    "Z_OI": {
+      "NODEFLAG_OI_Derrick_Before": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the derrick before it is taken: the drill (Oil_Drill) and its blockers, the unbroken scaffold, OI_Rails_Taken_Derrick and its blocker, OI_Rail_Derric_Crush_01, TOD_NightOff_04 and 16 rails (23 nodes): made"
+      },
+      "NODEFLAG_OI_Derrick_After": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the derrick after it: Derrick_Destroyed_01, TRG_Derrick_Kicker_01 and 144 rails (146 nodes): left out"
+      },
+      "NODEFLAG_OI_Grate_before": {
+        "thaw": 0,
+        "thugpro": 1,
+        "what": "the spheres, pipes and metal grate before they go to Skate Ranch (TakenForPark_*), the ball decals and TOD_NightOff_10 (14 nodes): made"
+      },
+      "NODEFLAG_OI_Grate_after": {
+        "thaw": 1,
+        "thugpro": 0,
+        "what": "the 16 grate grind rails after (TRG_Grate_Grinds_01-16): left out"
+      }
+    }
+  },
   "notes": {
     "_note": "What the extraction saw and didn't apply (values our port makes its own way, clusters THAW's scripts name, pieces from THAW's full archive) - information only. Written by --extract-thugpro.",
     "Z_CH": [

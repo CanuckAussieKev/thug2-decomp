@@ -145,21 +145,20 @@ std::vector<MpProblem> MultiplayerProblems(const MpCounts& counts)
 {
     std::vector<MpProblem> out;
     if (counts.player1 == 0)
-        out.push_back({Severity::Error, "Free skate: no Player1 restart - nowhere to start", -1});
+        out.push_back({Severity::Error, "No Player1 restart", -1});
     if (counts.multiplayer == 0)
-        out.push_back({Severity::Warning, "2-player and network modes: no Multiplayer restart", -1});
+        out.push_back({Severity::Warning, "No Multiplayer restart", -1});
     else if (counts.multiplayer == 1)
-        out.push_back({Severity::Info, "Only one Multiplayer restart: every player starts on it", -1});
+        out.push_back({Severity::Info, "Only one Multiplayer restart", -1});
     if (counts.horse == 0)
-        out.push_back({Severity::Warning, "HORSE: no Horse restart", -1});
+        out.push_back({Severity::Warning, "No HORSE restart", -1});
     if (counts.crowns == 0)
         out.push_back({Severity::Warning, "King of the Hill: no crowns", -1});
     bool anyTeam = false;
     for (const TeamNodes& t : counts.teams)
         anyTeam = anyTeam || t.flag || t.base || t.restart;
     if (!anyTeam) {
-        out.push_back({Severity::Warning, "Capture the Flag: no team has a flag, base or team restart (TRG_CTF_Red, "
-                                          "TRG_CTF_Red_Base, TRG_CTF_Restart_Red...)",
+        out.push_back({Severity::Warning, "No Capture the Flag flags, bases or team restarts",
                        -1});
         return out;
     }
@@ -421,13 +420,13 @@ void CheckPlacement(std::vector<Issue>* out, uint32_t world)
         if (place == Place::InsideSolid) {
             issue.rule = Rule::InsideSolid;
             issue.severity = Severity::Error;
-            issue.text = what + " " + Name(n.name) + " is inside solid collision (closed in on both sides)";
+            issue.text = what + " " + Name(n.name) + " is inside solid collision";
             Add(out, issue);
         } else if (place == Place::BelowGround) {
             issue.rule = Rule::BelowGround;
             issue.severity = Severity::Error;
             issue.text = what + " " + Name(n.name) + " is under a surface (" +
-                         std::to_string(static_cast<int>(placed.upIn - kLift)) + " units below its top)";
+                         std::to_string(static_cast<int>(placed.upIn - kLift)) + " units below the surface)";
             issue.fixable = NodeEdit::Movable(n);
             issue.fixPos = point + V3{0.0f, placed.upIn, 0.0f};
             Add(out, issue, "below"); // (the key without the depth: Ignore holds while it's moved about)
@@ -436,7 +435,7 @@ void CheckPlacement(std::vector<Issue>* out, uint32_t world)
                 issue.rule = Rule::NoGround;
                 issue.severity = Severity::Warning;
                 issue.text = what + " " + Name(n.name) + ": nothing below it within " +
-                             std::to_string(static_cast<int>(kGroundReach)) + " units (it falls out of the level)";
+                             std::to_string(static_cast<int>(kGroundReach)) + " units";
                 Add(out, issue);
             }
         }
@@ -470,7 +469,7 @@ void CheckRails(std::vector<Issue>* out)
         issue.hasPos = n.hasPos;
         issue.pos = n.pos;
         issue.levelOwn = !n.added && !Marked(n.name, Ui::kMarkAdded);
-        issue.text = "Rail point " + Name(n.name) + " is linked to nothing and by nothing: no rail is made of it";
+        issue.text = "Rail point " + Name(n.name) + " is not linked";
         Add(out, issue);
     }
     // Floating: the rail points the editor moved or added.
@@ -491,7 +490,7 @@ void CheckRails(std::vector<Issue>* out)
         issue.hasPos = true;
         issue.pos = pos;
         issue.text = "Rail point " + Name(n.name) + " has no surface within " +
-                     std::to_string(static_cast<int>(kRailNear)) + " units (floating)";
+                     std::to_string(static_cast<int>(kRailNear)) + " units";
         Add(out, issue);
     }
 }
@@ -516,8 +515,7 @@ void CheckCollision(std::vector<Issue>* out)
             if (companion && companion->Active()) {
                 issue.rule = Rule::HiddenCollision;
                 issue.severity = Severity::Error;
-                issue.text = "Scenery " + Name(s.checksum) + " is hidden but the collision it took along is still on "
-                             "(an invisible wall)";
+                issue.text = "Scenery " + Name(s.checksum) + " is hidden but its collision is still on";
                 issue.fixable = true;
                 Add(out, issue);
             }
@@ -529,8 +527,7 @@ void CheckCollision(std::vector<Issue>* out)
         if (moved && !own && !companion && Scenery::SectorGeometry(s.checksum)) {
             issue.rule = Rule::CollisionLeft;
             issue.severity = Severity::Info;
-            issue.text = "Scenery " + Name(s.checksum) + " was moved with no collision of its own and none found to "
-                         "take along - if it had collision in a shared object, that stayed where it was";
+            issue.text = "Scenery " + Name(s.checksum) + " was moved but its collision may not have moved";
             Add(out, issue);
         }
     }
@@ -589,7 +586,7 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
                 issue.severity = Severity::Info;
                 issue.text = std::string(Triggers::KindName(a.spec.kind)) + " " + a.spec.name + ": its middle is " +
                              (place == Place::InsideSolid ? "inside solid collision" : "under a surface") +
-                             " - can the skater reach it?";
+                             "";
                 Add(out, issue, "reach");
             }
         }
@@ -603,10 +600,8 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
             if (!found) {
                 issue.rule = Rule::GapUnpaired;
                 issue.severity = Severity::Warning;
-                issue.text = start ? "Gap start " + a.spec.name + " (" + a.spec.gap + "): no end anywhere - the gap "
-                                     "is never landed"
-                                   : "Gap end " + a.spec.name + " (" + a.spec.gap + "): no start anywhere - the gap is "
-                                     "never started";
+                issue.text = start ? "Gap start " + a.spec.name + " (" + a.spec.gap + "): no end"
+                                   : "Gap end " + a.spec.name + " (" + a.spec.gap + "): no start";
                 Add(out, issue);
             }
         }
@@ -623,13 +618,13 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
         if (!t.hasNode) {
             issue.rule = Rule::TriggerIdle;
             issue.severity = Severity::Info;
-            issue.text = "Trigger faces of " + Name(t.sector) + " have no node of that name: nothing runs";
+            issue.text = "Trigger faces of " + Name(t.sector) + " have no node";
             Add(out, issue);
         } else if (!t.script) {
             issue.node = t.sector;
             issue.rule = Rule::TriggerScript;
             issue.severity = Severity::Info;
-            issue.text = "Trigger " + Name(t.sector) + " has no TriggerScript: nothing runs";
+            issue.text = "Trigger " + Name(t.sector) + " has no TriggerScript";
             Add(out, issue);
         } else if (!Script::ScriptExists(t.script)) {
             issue.node = t.sector;
@@ -658,7 +653,7 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
             issue.rule = Rule::TriggerScript;
             issue.severity = own ? Severity::Info : Severity::Warning;
             issue.levelOwn = own;
-            issue.text = "Proximity node " + Name(n.name) + " has no TriggerScript: nothing runs";
+            issue.text = "Proximity node " + Name(n.name) + " has no TriggerScript";
             Add(out, issue);
         } else if (script && !Script::ScriptExists(script)) {
             issue.rule = Rule::TriggerScript;
@@ -701,8 +696,7 @@ void CheckOnline(std::vector<Issue>* out)
         issue.hasPos = n.hasPos;
         issue.pos = n.pos;
         issue.text = Name(n.name) + (added ? " added" : hidden ? " hidden" : " moved") + " in a level shared with " +
-                     "THUGPRO (" + game + "): THUGPRO players have it as shipped (edited copies never go online; a "
-                     "bake would change it)";
+                     "THUGPRO (" + game + ")";
         Add(out, issue);
     }
 }
@@ -827,21 +821,21 @@ void Fix(const Issue& issue)
         NodeEdit::Set(issue.node, values);
         if (int index = Nodes::Find(issue.node); index >= 0)
             Nodes::Reread(index);
-        Hud::Message(("Put on the surface above: " + Name(issue.node) + " (Ctrl+Z undoes)").c_str());
+        Hud::Message(("Moved to surface: " + Name(issue.node)).c_str());
         Log("level editor: problems - %s put on the surface above it (%.0f, %.0f, %.0f)", Name(issue.node).c_str(),
             issue.fixPos.x, issue.fixPos.y, issue.fixPos.z);
         break;
     }
     case Rule::HiddenCollision:
         SharedCollision::SetActive(issue.sector, false);
-        Hud::Message(("The collision taken along by " + Name(issue.sector) + " switched off with it").c_str());
+        Hud::Message(("The collision taken along by " + Name(issue.sector) + " turned off").c_str());
         break;
     case Rule::LayoutRecord: {
         PushModuleUndo(std::make_shared<LayoutRecords>(g_layoutIssues));
         g_layoutIssues.erase(std::remove_if(g_layoutIssues.begin(), g_layoutIssues.end(),
                                             [&](const Issue& i) { return i.key == issue.key; }),
                              g_layoutIssues.end());
-        Hud::Message("Record dropped - the next save leaves it out (Ctrl+Z keeps it)");
+        Hud::Message("Record removed");
         Log("level editor: problems - layout record dropped: %s", issue.record.c_str());
         break;
     }
@@ -885,7 +879,7 @@ void NoteLayoutApplied(const Layout::File& file)
         issue.severity = Severity::Error;
         issue.record = LineOf(one);
         issue.fixable = !issue.record.empty();
-        issue.text = what + " - not in the level; kept in the layout (Fix drops it): " + issue.record;
+        issue.text = what + " not found in the level: " + issue.record;
         issue.key = IssueKey(Rule::LayoutRecord, subject, issue.record);
         if (std::none_of(g_layoutIssues.begin(), g_layoutIssues.end(), [&](const Issue& i) { return i.key == issue.key; }))
             g_layoutIssues.push_back(issue);
@@ -1183,23 +1177,23 @@ void ProblemsTab(float scale, ImFont* mono)
         ignored += g_ignored.count(issue.key) != 0;
     }
     char label[64];
-    std::snprintf(label, sizeof(label), "The level's own (%d)", own);
+    std::snprintf(label, sizeof(label), "Original Level (%d)", own);
     ImGui::Checkbox(label, &g_showOwn);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Problems the level has as shipped too - not the editor's doing (hidden by default)");
+        ImGui::SetTooltip("Problems present in the original level");
     ImGui::SameLine();
     std::snprintf(label, sizeof(label), "Ignored (%d)", ignored);
     ImGui::Checkbox(label, &g_showIgnored);
     ImGui::SameLine();
-    ImGui::TextDisabled(g_checkedOnce ? "checked in %.0f ms" : "not checked yet", g_lastSeconds * 1000.0);
+    ImGui::TextDisabled(g_checkedOnce ? "%.0f ms" : "not checked", g_lastSeconds * 1000.0);
     ImGui::Separator();
     int shown = 0;
     for (const Issue& issue : g_issues)
         shown += Shown(issue);
     if (!shown) {
-        ImGui::TextColored(ImVec4(0.45f, 0.80f, 0.50f, 1.0f), "No problems found.");
+        ImGui::TextColored(ImVec4(0.45f, 0.80f, 0.50f, 1.0f), "No problems");
         if (own)
-            ImGui::TextDisabled("(%d the level has as shipped - \"The level's own\" shows them)", own);
+            ImGui::TextDisabled("(%d in the original level)", own);
         return;
     }
     if (!ImGui::BeginTable("##problems", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
@@ -1222,7 +1216,7 @@ void ProblemsTab(float scale, ImFont* mono)
         ImGui::TableNextColumn();
         if (isIgnored || issue.levelOwn)
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-        ImGui::TextDisabled("%s%s", RuleName(issue.rule), issue.levelOwn ? " (as shipped)" : "");
+        ImGui::TextDisabled("%s%s", RuleName(issue.rule), issue.levelOwn ? " (original)" : "");
         ImGui::TextWrapped("%s", issue.text.c_str());
         if (isIgnored || issue.levelOwn)
             ImGui::PopStyleColor();
@@ -1241,8 +1235,8 @@ void ProblemsTab(float scale, ImFont* mono)
                 g_queue.push_back([copy] { Fix(copy); });
             }
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", issue.rule == Rule::BelowGround       ? "Put it on the surface above it (undoable)"
-                                        : issue.rule == Rule::HiddenCollision ? "Switch that collision off with the piece"
+                ImGui::SetTooltip("%s", issue.rule == Rule::BelowGround       ? "Move to the surface above"
+                                        : issue.rule == Rule::HiddenCollision ? "Turn the collision off"
                                         : issue.rule == Rule::LayoutRecord    ? "Drop the record: the next save leaves it out "
                                                                                 "(undoable)"
                                                                               : "");
@@ -1255,40 +1249,13 @@ void ProblemsTab(float scale, ImFont* mono)
                 g_ignored.insert(issue.key);
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Ignored until the level is loaded again (this session)");
+            ImGui::SetTooltip("Ignore until the level reloads");
         ImGui::PopID();
     }
     ImGui::EndTable();
 }
 
 } // namespace
-
-void ToolbarButton(float scale)
-{
-    int errors = 0, warnings = 0, infos = 0;
-    ShownCounts(&errors, &warnings, &infos);
-    ImGui::SameLine(0.0f, 8.0f * scale);
-    char label[64];
-    if (errors + warnings)
-        std::snprintf(label, sizeof(label), "Problems %d###problemsButton", errors + warnings);
-    else
-        std::snprintf(label, sizeof(label), "Problems###problemsButton");
-    int colours = 0;
-    if (errors) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.18f, 0.20f, 0.85f));
-        ++colours;
-    } else if (warnings) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.72f, 0.48f, 0.08f, 0.85f));
-        ++colours;
-    }
-    if (ImGui::SmallButton(label))
-        ToggleWindow();
-    ImGui::PopStyleColor(colours);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Alt+P: the problem checker - %d errors, %d warnings, %d notes in the edited copy (Go to / Fix / "
-                          "Ignore)",
-                          errors, warnings, infos);
-}
 
 void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono)
 {
@@ -1299,7 +1266,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(620.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
-    if (!ImGui::Begin("Problems (Alt+P)###problems", &open, ImGuiWindowFlags_NoSavedSettings)) {
+    if (!ImGui::Begin("Problems###problems", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         g_open = open;
         return;

@@ -7,6 +7,9 @@
 //     to sit where THUGPRO's does;
 //   - the King of the Hill crowns in the same order (the crown is picked by its index among the Crown nodes) and at
 //     the same places; the game-mode nodes under the names THUG2's scripts look for (TRG_CTF_Red...).
+//   - the nodes made from node flags (TP-40): THUGPRO makes a node whose CreatedFromVariable names a true global of
+//     its level's table; ours have CreatedAtStart instead (thaw_levels.zoneNodeFlags) - a piece on one side only is
+//     a wall or rail the other side hasn't.
 // Also reported: the multiplayer restarts (order and places), and how many of each side's collision faces can't be
 // found through their BSP trees (tools/level_port/col_check.ts).
 //
@@ -219,6 +222,34 @@ export function compare(zone: string, oursDir: string, thugpro: string): Result 
               : `${sa.filter((x, i) => !near(x, sb[i]!)).length} of ${sa.length} differ`;
     const ourNames = new Set(ours.filter((n): n is Struct => n instanceof Struct).map(nameOf));
     const theirNameSet = new Set(theirs.filter((n): n is Struct => n instanceof Struct).map(nameOf));
+    // TP-40: the nodes THUGPRO makes from its node flags (CreatedFromVariable naming a true global of its level qb -
+    // its thugpro_dynamic.q adds CreatedAtStart) against ours made at the start (thaw_levels.zoneNodeFlags)
+    const flagTable = new Map<number, QbValue>(
+        new qb.QbFile(data, `${key}.qb`, true).globals.map(([k, v]) => [k.value, v]),
+    );
+    const ourByName = new Map<number, Struct>();
+    for (const n of ours) {
+        const nm = n instanceof Struct ? nameOf(n) : null;
+        if (nm !== null) ourByName.set(nm, n as Struct);
+    }
+    let flagged = 0;
+    const flagDiffs: string[] = [];
+    for (const n of theirs) {
+        const flag = n instanceof Struct ? n.get("CreatedFromVariable") : undefined;
+        const nm = n instanceof Struct ? nameOf(n) : null;
+        const mine = nm === null ? undefined : ourByName.get(nm);
+        if (!(n instanceof Struct) || !(flag instanceof Name) || mine === undefined) continue;
+        // (not in a network game on either side: no matter online - e.g. the shop peds our port makes from
+        // NODEFLAG_PERMANENT_PEDS itself, thaw_scripts.wantedPed)
+        if (n.hasFlag("AbsentInNetGames") && mine.hasFlag("AbsentInNetGames")) continue;
+        flagged += 1;
+        const value = flagTable.get(flag.value);
+        const made = n.hasFlag("CreatedAtStart") || (typeof value === "number" && value !== 0);
+        if (mine.hasFlag("CreatedAtStart") !== made) flagDiffs.push(names.get(nm!) ?? hex8(nm!));
+    }
+    out.node_flags = flagDiffs.length
+        ? `${flagDiffs.length} of ${flagged} differ (${flagDiffs.slice(0, 8).join(" ")}${flagDiffs.length > 8 ? " ..." : ""})`
+        : `same (${flagged})`;
     out.ctf_ours = CTF_NAMES.filter((c) => ourNames.has(qb.checksum(c))).length;
     out.ctf_thugpro = CTF_NAMES.filter((c) => theirNameSet.has(qb.checksum(c))).length;
     // collision
@@ -546,7 +577,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             `${pad(zone, 6)} ${pad(r.level, 6)}${r.same_name ? "" : ` (THUGPRO: ${String(r.thugpro_level)})`} ` +
                 `nodes ${r.nodes_ours}/${r.nodes_thugpro}, ${r.shared} shared, ${r.same_place} at the same place ` +
                 `(worst ${formatFixed(worst[0].value, 3)} ${worst[1] || ""}); crowns ${r.crowns}; mp restarts ` +
-                `${r.mp_restarts}; net spawns ${r.net_spawns}; ctf nodes ${r.ctf_ours}/${r.ctf_thugpro}; collision unreachable ours ` +
+                `${r.mp_restarts}; net spawns ${r.net_spawns}; node flags ${r.node_flags}; ctf nodes ${r.ctf_ours}/${r.ctf_thugpro}; collision unreachable ours ` +
                 `${colOurs[1]}, THUGPRO ${colTheirs[1]}`,
         );
         const shared = r.shared as number;

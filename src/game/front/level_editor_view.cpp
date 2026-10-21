@@ -60,14 +60,14 @@ uint32_t SurfaceColour(Surface surface)
 const char* SurfaceName(Surface surface)
 {
     switch (surface) {
-    case Surface::kInvisibleWall: return "Invisible wall (collision, nothing drawn)";
-    case Surface::kTrigger: return "Trigger (0x40; with 0x10 a volume: kill zones, water)";
+    case Surface::kInvisibleWall: return "Invisible wall";
+    case Surface::kTrigger: return "Trigger";
     case Surface::kNoCollide: return "Not collidable (0x10)";
     case Surface::kWallride: return "Wallride (0x04)";
     case Surface::kVert: return "Vert (0x08)";
     case Surface::kNotSkatable: return "Not skatable (0x02)";
     case Surface::kSkatable: return "Skatable (0x01, any slope)";
-    default: return "Plain (skatable when flat enough)";
+    default: return "Plain";
     }
 }
 

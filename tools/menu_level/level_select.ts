@@ -159,22 +159,25 @@ export const THPS4_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
         },
     ],
     ["SF2", { text: "SAN FRANCISCO", icon: "bridge", place: "San Francisco", location: [-122.418, 37.775] }],
-    ["Alc", { text: "ALCATRAZ", icon: "bars", place: "Alcatraz Island, San Francisco", location: [-122.423, 37.827] }],
-    ["Kon", { text: "KONA", icon: "palm", place: "Kona Skatepark, Jacksonville, Florida", location: [-81.66, 30.33] }],
+    [
+        "Alc",
+        { text: "ALCATRAZ", icon: "lighthouse", place: "Alcatraz Island, San Francisco", location: [-122.423, 37.827] },
+    ],
+    ["Kon", { text: "KONA", icon: "snake", place: "Kona Skatepark, Jacksonville, Florida", location: [-81.66, 30.33] }],
     ["Jnk", { text: "SHIPYARD", icon: "anchor", place: "Baltimore harbour (inferred)", location: [-76.61, 39.27] }],
     ["Lon", { text: "LONDON", icon: "bigben", place: "London", location: [-0.128, 51.507] }],
-    ["Zoo", { text: "ZOO", icon: "paw", place: "San Diego Zoo", location: [-117.149, 32.735] }],
+    ["Zoo", { text: "ZOO", icon: "elephant", place: "San Diego Zoo", location: [-117.149, 32.735] }],
     [
         "Cnv",
         {
             text: "CARNIVAL",
-            icon: "ferris",
+            icon: "tent",
             place: "a Louisiana bayou county fair (inferred)",
             location: [-91.5, 30.0],
         },
     ],
     ["Hof", { text: "CHICAGO", icon: "skyline", place: "Chicago", location: [-87.63, 41.88] }],
-    ["SkateShop", { text: "SKATE SHOP", icon: "skateboard", place: "THPS4's skate shop (no place)", location: null }],
+    ["SkateShop", { text: "SKATE SHOP", icon: "tshirt", place: "THPS4's skate shop (no place)", location: null }],
     [
         "Motox",
         { text: "MOTOX", icon: "motorbike", place: "Chicago (its loading screen and sky)", location: [-87.65, 41.92] },
@@ -189,7 +192,7 @@ export const THPS4_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
 //   - The THPS1 / THPS2 classics: the Warehouse (Woodland Hills, California - THPS1's), Burnside (under the Burnside
 //     Bridge, Portland, Oregon), Roswell (New Mexico).
 export const THPS3_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, TableEntry>([
-    ["Foun", { text: "FOUNDRY", icon: "gear", place: "a foundry (no place named)", location: null }],
+    ["Foun", { text: "FOUNDRY", icon: "ladle", place: "a foundry (no place named)", location: null }],
     [
         "Can",
         {
@@ -201,41 +204,46 @@ export const THPS3_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
     ],
     ["Rio", { text: "RIO", icon: "redeemer", place: "Rio de Janeiro", location: [-43.17, -22.91] }],
     ["Sub", { text: "SUBURBIA", icon: "house", place: "an American suburb (no place named)", location: null }],
-    ["Ap", { text: "AIRPORT", icon: "texture:sign_airport", place: "an airport (no place named)", location: null }],
-    ["SI", { text: "SKATER ISLAND", icon: "ramp", place: "Skater Island (no place named)", location: null }],
-    ["LA", { text: "LOS ANGELES", icon: "texture:sign_la", place: "Los Angeles", location: [-118.24, 34.05] }],
-    ["Tok", { text: "TOKYO", icon: "torii", place: "Tokyo", location: [139.7, 35.7] }],
+    ["Ap", { text: "AIRPORT", icon: "tower", place: "an airport (no place named)", location: null }],
+    ["SI", { text: "SKATER ISLAND", icon: "trophy", place: "Skater Island (no place named)", location: null }],
+    ["LA", { text: "LOS ANGELES", icon: "freeway", place: "Los Angeles", location: [-118.24, 34.05] }],
+    ["Tok", { text: "TOKYO", icon: "tokyotower", place: "Tokyo", location: [139.7, 35.7] }],
     ["Shp", { text: "CRUISE SHIP", icon: "ship", place: "a cruise ship at sea (no place)", location: null }],
     ["Ware", { text: "WAREHOUSE", icon: "crate", place: "Woodland Hills, California", location: [-118.61, 34.17] }],
     [
         "Burn",
-        { text: "BURNSIDE", icon: "bridge", place: "Burnside skatepark, Portland, Oregon", location: [-122.66, 45.52] },
+        {
+            text: "BURNSIDE",
+            icon: "burnside",
+            place: "Burnside skatepark, Portland, Oregon",
+            location: [-122.66, 45.52],
+        },
     ],
     ["Ros", { text: "ROSWELL", icon: "ufo", place: "Roswell, New Mexico", location: [-104.52, 33.39] }],
-    ["Tut", { text: "TUTORIALS", icon: "cone", place: "THPS3's tutorials (no place)", location: null }],
-    ["SkateShop", { text: "SKATE SHOP", icon: "skateboard", place: "THPS3's skate shop (no place)", location: null }],
+    ["Tut", { text: "TUTORIALS", icon: "whistle", place: "THPS3's tutorials (no place)", location: null }],
+    ["SkateShop", { text: "SKATE SHOP", icon: "shop", place: "THPS3's skate shop (no place)", location: null }],
 ]);
 
 // THUG1's levels (its conversion's manifest, <game>\thug2-decomp-thug1\levels.json, by folder): signs only - the
-// sign text comes from the manifest's display name, the place from its location text (PLACES). Classic levels
-// that THUG2 has signs for keep THUG2's.
+// sign text comes from the manifest's display name, the place from its location text (PLACES). Every level has a
+// pictogram of its own - the classics too: none shares one of THUG2's signs.
 export const THUG1_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, TableEntry>([
-    ["NJ", { icon: "house" }],
+    ["NJ", { icon: "hydrant" }],
     ["NY", { icon: "torch" }],
     ["FL", { icon: "palm" }],
     ["SD", { icon: "sun" }],
     ["HI", { icon: "wave" }],
-    ["VC", { icon: "texture:sign_canada" }],
+    ["VC", { icon: "totem" }],
     ["SJ", { icon: "ramp" }],
     ["RU", { icon: "dome" }],
     ["SE", { icon: "flame" }],
-    ["SC", { icon: "texture:sign_school" }],
-    ["DJ", { icon: "texture:sign_jam" }],
-    ["PH", { icon: "texture:sign_philly" }],
-    ["VN", { icon: "palm" }],
-    ["HN", { icon: "texture:sign_airport" }],
-    ["SC2", { icon: "texture:sign_school" }],
-    ["NJ_Skateshop", { icon: "skateboard" }],
+    ["SC", { icon: "bus" }],
+    ["DJ", { icon: "cactus" }],
+    ["PH", { icon: "love" }],
+    ["VN", { icon: "dumbbell" }],
+    ["HN", { icon: "helicopter" }],
+    ["SC2", { icon: "apple" }],
+    ["NJ_Skateshop", { icon: "tag" }],
 ]);
 
 // THAW's levels (tools/thaw_levels' manifest, by zone), classic mode's first, then the story's areas. Places: the
@@ -243,21 +251,24 @@ export const THUG1_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
 // story's areas are all Los Angeles - each at its own neighbourhood (Hollywood, Beverly Hills, Downtown, East LA,
 // Santa Monica); Vans Park, the Skate Ranch, the Casino and the Oil Rig name none in LA: around the city.
 export const THAW_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, TableEntry>([
-    ["Z_CH", { text: "CHICAGO", icon: "skyline", place: "Chicago", location: [-87.65, 41.85] }],
-    ["Z_MA", { text: "THE MALL", icon: "crate", place: "a shopping mall (no place named)", location: null }],
-    ["Z_DN", { text: "MINNEAPOLIS", icon: "pine", place: "Minneapolis, Minnesota", location: [-93.27, 44.98] }],
+    ["Z_CH", { text: "CHICAGO", icon: "train", place: "Chicago", location: [-87.65, 41.85] }],
+    ["Z_MA", { text: "THE MALL", icon: "cart", place: "a shopping mall (no place named)", location: null }],
+    ["Z_DN", { text: "MINNEAPOLIS", icon: "spoonbridge", place: "Minneapolis, Minnesota", location: [-93.27, 44.98] }],
     ["Z_JA", { text: "KYOTO", icon: "torii", place: "Kyoto, Japan", location: [135.77, 35.01] }],
-    ["Z_SZ", { text: "SANTA CRUZ", icon: "wave", place: "Santa Cruz, California", location: [-122.03, 36.97] }],
-    ["Z_SV2", { text: "THE RUINS", icon: "dome", place: "ruins (no place named)", location: null }],
-    ["Z_SV", { text: "VANS PARK", icon: "ramp", place: "Los Angeles", location: [-118.1, 33.95] }],
-    ["Z_HO", { text: "HOLLYWOOD", icon: "torch", place: "Hollywood, Los Angeles", location: [-118.33, 34.1] }],
-    ["Z_BH", { text: "BEVERLY HILLS", icon: "palm", place: "Beverly Hills, Los Angeles", location: [-118.4, 34.07] }],
-    ["Z_DT", { text: "DOWNTOWN", icon: "skyline", place: "Downtown Los Angeles", location: [-118.25, 34.05] }],
-    ["Z_EL", { text: "EAST L.A.", icon: "house", place: "East Los Angeles", location: [-118.17, 34.02] }],
+    ["Z_SZ", { text: "SANTA CRUZ", icon: "surfboard", place: "Santa Cruz, California", location: [-122.03, 36.97] }],
+    ["Z_SV2", { text: "THE RUINS", icon: "column", place: "ruins (no place named)", location: null }],
+    ["Z_SV", { text: "VANS PARK", icon: "shoe", place: "Los Angeles", location: [-118.1, 33.95] }],
+    ["Z_HO", { text: "HOLLYWOOD", icon: "clapper", place: "Hollywood, Los Angeles", location: [-118.33, 34.1] }],
+    [
+        "Z_BH",
+        { text: "BEVERLY HILLS", icon: "mansion", place: "Beverly Hills, Los Angeles", location: [-118.4, 34.07] },
+    ],
+    ["Z_DT", { text: "DOWNTOWN", icon: "cityhall", place: "Downtown Los Angeles", location: [-118.25, 34.05] }],
+    ["Z_EL", { text: "EAST L.A.", icon: "lowrider", place: "East Los Angeles", location: [-118.17, 34.02] }],
     ["Z_SM", { text: "SANTA MONICA", icon: "ferris", place: "Santa Monica, Los Angeles", location: [-118.49, 34.01] }],
-    ["Z_SR", { text: "SKATE RANCH", icon: "skateboard", place: "Los Angeles", location: [-118.55, 34.2] }],
-    ["Z_LV", { text: "CASINO", icon: "sun", place: "Los Angeles", location: [-118.2, 34.15] }],
-    ["Z_OI", { text: "OIL RIG", icon: "anchor", place: "off Los Angeles", location: [-118.6, 33.85] }],
+    ["Z_SR", { text: "SKATE RANCH", icon: "horseshoe", place: "Los Angeles", location: [-118.55, 34.2] }],
+    ["Z_LV", { text: "CASINO", icon: "dice", place: "Los Angeles", location: [-118.2, 34.15] }],
+    ["Z_OI", { text: "OIL RIG", icon: "rig", place: "off Los Angeles", location: [-118.6, 33.85] }],
 ]);
 
 // Places a manifest's location text may name (the first found, longest names first), as [longitude, latitude].

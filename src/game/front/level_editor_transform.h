@@ -156,10 +156,9 @@ bool RepeatFor(const Repeat& memory, Kind kind, const std::vector<uint32_t>& sel
 V3 RepeatTarget(V3 from, const RepeatStep& step);
 Repeat& LastDuplicate();
 
-// The toolbar's parts (level_editor_transform_ui.cpp, drawn by level_editor_ui.cpp's toolbar; `uiScale`: the UI's
-// scale): the tools (Move / Rotate / Scale) and World / Local; after Snap, the grid's size and the Tools menu (the pivot,
-// the angle step, Snap to, Align to slope, the fly keys).
-void ToolbarTools(float uiScale);
-void ToolbarSnap(float uiScale);
+// The Tools menu's transform options (level_editor_transform_ui.cpp, in level_editor_ui_menus.cpp's menu bar): the
+// pivot, the rotation snap, what Snap snaps to, Align to slope, the fly keys. (The tool, World / Local, Snap and the
+// grid are on the tool strip: level_editor_ui_strip.h.)
+void OptionsMenuItems();
 
 } // namespace Front::LevelEditor::Transform

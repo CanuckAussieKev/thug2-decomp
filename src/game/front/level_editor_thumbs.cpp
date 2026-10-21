@@ -335,7 +335,7 @@ bool StarButton(const char* id, ImVec2 centre, float radius, bool on)
     bool clicked = ImGui::InvisibleButton(id, ImVec2(radius * 2.0f, radius * 2.0f));
     bool hovered = ImGui::IsItemHovered();
     if (hovered)
-        ImGui::SetTooltip(on ? "In Favourites - click to take it out" : "Add to Favourites");
+        ImGui::SetTooltip(on ? "Remove from Favourites" : "Add to Favourites");
     ImDrawList* draw = ImGui::GetWindowDrawList();
     if (on || hovered)
         Star(draw, centre, radius, on ? IM_COL32(255, 205, 60, 255) : IM_COL32(255, 205, 60, 150), true);
@@ -422,11 +422,11 @@ int ItemsPanel(const Ui::Model& model, const char* filter, bool follow, float he
     int hovered = -1;
     ImGui::BeginChild("##items", ImVec2(0.0f, height), ImGuiChildFlags_Borders);
     if (items.empty())
-        ImGui::TextDisabled(tab == 0 ? "(no pieces that can be moved)" : "(no objects that can be copied)");
+        ImGui::TextDisabled(tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
     else if (shown.empty())
-        ImGui::TextDisabled(g_listMode == 1 ? "(nothing placed from this tab yet)"
-                            : g_listMode == 2 ? "(no favourites yet: the star on an entry)"
-                                              : "(nothing matches the filter)");
+        ImGui::TextDisabled(g_listMode == 1 ? "(none placed yet)"
+                            : g_listMode == 2 ? "(no favourites)"
+                                              : "(no matches)");
     if (!grid) {
         // The list, a star at each row's end.
         ImGui::PushFont(mono);
@@ -502,7 +502,7 @@ int ItemsPanel(const Ui::Model& model, const char* filter, bool follow, float he
                 bool hover = ImGui::IsItemHovered();
                 if (hover) {
                     hovered = i;
-                    ImGui::SetTooltip("%s\nClick: highlight - double click: place", items[i].label.c_str());
+                    ImGui::SetTooltip("%s\nDouble-click to place", items[i].label.c_str());
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
                 uint64_t key = Key(tab, items[i].id);

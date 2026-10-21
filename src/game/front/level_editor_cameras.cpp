@@ -286,7 +286,7 @@ bool LookThrough(const Camera& c)
     float yaw, pitch;
     YawPitchOf(c.angles, &yaw, &pitch);
     LookFrom(c.pos, yaw, pitch);
-    Hud::Message("Looking through " + c.name + " (fly to leave it; the arrows / drag move it once selected)");
+    Hud::Message("Viewing through " + c.name);
     return true;
 }
 
@@ -411,7 +411,7 @@ std::string CreateFromView()
 {
     ViewNow view;
     if (!CurrentView(&view)) {
-        Hud::Message("No view to make a camera from");
+        Hud::Message("No view available");
         return "";
     }
     Camera c;
@@ -423,10 +423,10 @@ std::string CreateFromView()
     std::string message;
     g_distances[c.name] = c.distance;
     if (!NodeCreate::Create(SpecOf(c), -1, &message)) {
-        Hud::Message(message.empty() ? "The camera couldn't be made" : message, 4.0);
+        Hud::Message(message.empty() ? "Couldn't create the camera" : message, 4.0);
         return "";
     }
-    Hud::Message("Camera " + c.name + " made where the view is (its frustum shows it; Ctrl+S saves it)");
+    Hud::Message("Added camera " + c.name);
     Log("level editor: camera %s made at (%.1f, %.1f, %.1f), heading %.1f, pitch %.1f", c.name.c_str(), c.pos.x, c.pos.y,
         c.pos.z, view.yaw * 180.0f / kPi, view.pitch * 180.0f / kPi);
     return c.name;
@@ -452,7 +452,7 @@ bool AimFromView(uint32_t name)
     values.angles = AnglesFor(view.yaw, view.pitch);
     NodeEdit::NoteOrigin(name);
     NodeEdit::Set(name, values);
-    Hud::Message("Camera " + c->name + " put where the view is");
+    Hud::Message("Moved camera " + c->name + " to the view");
     return true;
 }
 
@@ -498,7 +498,7 @@ bool Remove(uint32_t name)
     std::string label = c->name;
     if (!NodeCreate::Remove(name, &removed, &at))
         return false;
-    Hud::Message("Camera " + label + " deleted (Ctrl+Z brings it back)");
+    Hud::Message("Deleted camera " + label);
     return true;
 }
 
@@ -630,20 +630,20 @@ void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont)
     ImGui::PopFont();
     ImGui::PopFont();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("As a virtual_cam takes them (targetid=world): the node keeps both in step with its place");
+        ImGui::SetTooltip("Computed from position and heading");
     if (ImGui::Button("Look through##camera"))
         g_queue.push_back([node] { Preview(node); });
     ImGui::SameLine();
     if (ImGui::Button("Put at the view##camera"))
         g_queue.push_back([node] { AimFromView(node); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("The camera moved to where the editor's view is, looking its way");
+        ImGui::SetTooltip("Move the camera to the current view");
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Delete##camera"))
         g_queue.push_back([node] { Remove(node); });
     ImGui::PopStyleColor();
-    ImGui::TextDisabled("Move: drag it or an arrow; Z / X turn its heading");
+    
 }
 
 void ListSection(ImFont* mono, ImFont* smallFont)
@@ -653,10 +653,9 @@ void ListSection(ImFont* mono, ImFont* smallFont)
     if (!ImGui::CollapsingHeader("Cameras###cameras"))
         return;
     ImGui::PushFont(smallFont);
-    ImGui::TextWrapped("Camera nodes of the edited copy (THUG2's levels have none of their own - their intro and goal "
-                       "cameras are scripts' virtual_cams). Saved with the layout; a script can read their fields.");
+    ImGui::TextDisabled("Camera nodes, saved with the layout");
     ImGui::PopFont();
-    if (ImGui::Button("New camera from the view (V)"))
+    if (ImGui::Button("New Camera from View"))
         g_queue.push_back([] { CreateFromView(); });
     std::vector<Camera> all = All();
     if (all.empty())
@@ -667,7 +666,7 @@ void ListSection(ImFont* mono, ImFont* smallFont)
         ImGui::PushID(static_cast<int>(name));
         ImGui::TextUnformatted(c.name.c_str());
         ImGui::SameLine();
-        if (ImGui::SmallButton("Look through"))
+        if (ImGui::SmallButton("View Through"))
             g_queue.push_back([name] { Preview(name); });
         ImGui::PopID();
     }

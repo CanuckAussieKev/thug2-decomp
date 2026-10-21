@@ -48,7 +48,7 @@ void Window(float uiScale)
         ImGui::End();
         return;
     }
-    ImGui::SeparatorText("Align / distribute");
+    ImGui::SeparatorText("Align and Distribute");
     static const char* const kAxes[] = {"X", "Y", "Z"};
     for (int axis = 0; axis < 3; ++axis) {
         if (axis)
@@ -57,11 +57,11 @@ void Window(float uiScale)
     }
     ImGui::SameLine(0.0f, 14.0f * uiScale);
     ImGui::Checkbox("Local", &s.local);
-    Tip("Along the first piece's own axes (an object's turn, scenery's quarter turns) - else the world's");
+    Tip("Use the first item's axes");
     int reference = static_cast<int>(s.reference);
-    ImGui::RadioButton("On the selection's bounds", &reference, 0);
+    ImGui::RadioButton("Selection Bounds", &reference, 0);
     ImGui::SameLine();
-    ImGui::RadioButton("On the first", &reference, 1);
+    ImGui::RadioButton("First Selected", &reference, 1);
     s.reference = static_cast<Reference>(reference);
     static const char* const kEdges[] = {"Min", "Centre", "Max"};
     for (int edge = 0; edge < 3; ++edge) {
@@ -80,52 +80,50 @@ void Window(float uiScale)
         int axis = s.axis;
         Later([axis] { Distribute(axis, Current().gaps, Current().local); });
     }
-    Tip("Three or more pieces spread along the axis: the first and last stay");
+    Tip("Space 3 or more evenly; ends stay");
     ImGui::SameLine();
     ImGui::Checkbox("Equal gaps", &s.gaps);
-    Tip("Off: their centres evenly apart; on: the gaps between them equal");
+    Tip("Equal gaps instead of equal centre spacing");
 
     ImGui::SeparatorText("Replace");
-    if (ImGui::Button("Replace selection with the Add palette's item"))
+    if (ImGui::Button("Replace Selection"))
         Later([] { Replace(); });
-    Tip("Open the Add palette (B), highlight a piece (scenery selected) or an object (objects selected): each selected "
-        "one is replaced, keeping its place, turn and scale. A level's own object gets the object's model");
+    Tip("Replace with the item highlighted in Add Piece (B)");
 
-    ImGui::SeparatorText("Linked copies");
-    if (ImGui::Button("Duplicate linked (Ctrl+Alt+D)"))
+    ImGui::SeparatorText("Linked Copies");
+    if (ImGui::Button("Duplicate Linked"))
         Later([] { Links::LinkedDuplicate(); });
     ImGui::SameLine();
     if (ImGui::Button("Unlink"))
         Later([] { Links::UnlinkSelection(); });
     std::string linked = Links::Describe();
-    ImGui::TextDisabled("%s", linked.empty() ? "(the selection isn't linked)" : linked.c_str());
+    ImGui::TextDisabled("%s", linked.empty() ? "(not linked)" : linked.c_str());
 
-    ImGui::SeparatorText("Rail along an edge");
+    ImGui::SeparatorText("Rail Along Edge");
     bool picking = EdgePicking();
-    if (ImGui::Checkbox("Pick a top edge (Alt+R)", &picking))
+    if (ImGui::Checkbox("Pick Edge", &picking))
         Later([picking] { SetEdgePicking(picking); });
-    Tip("A scenery piece selected: its top outline drawn cyan - click one edge to lay a grind rail along it");
+    Tip("Click a top edge of the selected scenery to add a rail  (Alt+R)");
 
-    ImGui::SeparatorText("While moving and placing");
-    ImGui::Checkbox("Edge-to-edge snapping (scenery)", &s.edgeSnap);
-    Tip("A moved piece's box faces snap flush to a neighbour's within a few units (green: the faces met). Ctrl / Alt "
-        "snapping held instead: off for that drag");
-    ImGui::Checkbox("Measurements while dragging", &s.measure);
-    ImGui::Checkbox("Placement ghost", &s.ghost);
-    ImGui::Checkbox("Click in the view places the Add palette's item", &s.clickPlaces);
-    ImGui::Checkbox("Ghost / placed object turned to the slope", &s.ghostSlope);
+    ImGui::SeparatorText("Options");
+    ImGui::Checkbox("Edge Snapping", &s.edgeSnap);
+    Tip("Snap scenery flush to neighbours");
+    ImGui::Checkbox("Drag Measurements", &s.measure);
+    ImGui::Checkbox("Placement Preview", &s.ghost);
+    ImGui::Checkbox("Click to Place", &s.clickPlaces);
+    ImGui::Checkbox("Align to Slope", &s.ghostSlope);
     ImGui::End();
 }
 
 void BrowserExtras(float uiScale)
 {
     (void)uiScale;
-    if (ImGui::SmallButton("Replace selection"))
+    if (ImGui::SmallButton("Replace Selection"))
         Later([] { Replace(); });
-    Tip("The selected pieces / object copies replaced by this one, keeping their places, turns and scales");
+    Tip("Replace the selection with this item");
     ImGui::SameLine();
-    ImGui::Checkbox("Click places", &Current().clickPlaces);
-    Tip("A click in the view places it where the ghost shows (Shift+click: more)");
+    ImGui::Checkbox("Click to Place", &Current().clickPlaces);
+    Tip("Click in the view to place (Shift: more)");
 }
 
 } // namespace Front::LevelEditor::Arrange
@@ -222,9 +220,9 @@ void Panel(float x, float y, float uiScale)
     ImGui::EndDisabled();
     editing = ImGui::IsAnyItemActive() && ImGui::IsWindowFocused();
     if (!adjustable)
-        ImGui::TextDisabled("Changed since - only the newest action adjusts");
+        ImGui::TextDisabled("Only the last operation can be adjusted");
     else if (edit.kind == Kind::Duplicate)
-        ImGui::TextDisabled("Let go of a field to make the copies again");
+        ImGui::TextDisabled("Release to apply");
     ImGui::End();
     if (adjustable && (live || done))
         Request(edit, done);

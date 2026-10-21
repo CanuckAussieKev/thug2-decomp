@@ -9,21 +9,23 @@ struct Rect {
     bool Contains(float px, float py) const { return px >= x && px < x + width && py >= y && py < y + height; }
 };
 
-// The UI's scale for a window (1 at 1280 x 720 and below; up with the smaller of width / 1280 and height / 720, in
-// quarter steps, at most 3 - 4K is 3).
+// The UI's scale for a window: 1 at 1920 x 1080, the smaller of width / 1920 and height / 1080 rounded down to a quarter
+// (2560 x 1440: 1.25, 4K: 2), at least 0.875 (1280 x 720), at most 3. [editor] ui_scale_pct overrides it.
 float ScaleFor(int windowWidth, int windowHeight);
-// The font sizes at a scale (pixels): Inter 14 for panels, 12 for tables and hints; JetBrains Mono 13.
+// The font sizes at a scale (whole pixels, so the glyphs stay crisp): Inter 14 for panels, 12 for tables and hints;
+// JetBrains Mono 13.
 struct FontSizes {
     float ui, small, mono, heading;
 };
 FontSizes FontSizesFor(float scale);
 
-// The screen's parts (window pixels): a toolbar across the top, the Outliner on the left and the Inspector on the
+// The screen's parts (window pixels): a toolbar across the top (the menu bar over the tool strip), the Outliner on the left and the Inspector on the
 // right between it and the status bar across the bottom, the viewport in the middle. A side panel that's closed takes
 // no room; the side panels narrow (to 180 at scale 1) so the viewport keeps at least 40% of the width, and close if
 // even that doesn't fit.
 struct Layout {
     Rect toolbar, outliner, inspector, status, viewport;
+    Rect menu, strip; // (the toolbar's two rows)
     bool outlinerShown, inspectorShown;
 };
 Layout Compute(float width, float height, float scale, bool outlinerOpen, bool inspectorOpen);

@@ -35,7 +35,7 @@ void SpawnSection(int nodeIndex, std::vector<Request>* requests)
     }
     bool horse = (node.restartTypes & Nodes::kHorse) != 0;
     ImGui::BeginDisabled(node.added);
-    if (ImGui::Checkbox("Horse spot", &horse)) {
+    if (ImGui::Checkbox("HORSE Spot", &horse)) {
         std::string text;
         for (uint32_t type : types) {
             if (type == kHorse)
@@ -53,10 +53,7 @@ void SpawnSection(int nodeIndex, std::vector<Request>* requests)
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", node.added ? "A spawn you placed keeps the types of its kind (place a level's own, or "
-                                             "edit a level restart)"
-                                           : "One of the spots a HORSE game sends the skaters to (restart_types: "
-                                             "Horse) - live, an H on its gizmo");
+        ImGui::SetTooltip("%s", node.added ? "Set by the spawn type" : "Use as a HORSE spot");
 }
 
 } // namespace Front::LevelEditor::Ui

@@ -42,8 +42,24 @@ TypeScript tools' --game / --thug2 the same, tools/lib/install.ts).
     waits for the item, the menu taking pad events, menu input unblocked and no loading screen; a menu id chooses its
     selected item), `focus <id> [s]`, `press <button> [frames]` (through Sio's control data: up down left right x/enter
     circle/esc square triangle start select l1 r1 l2 r2 l3 r3), `wait <frames>`, `waitfor ready | frontend | ingame |
-    level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `echo <text>`, `quit`. A failure or refusal
+    level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `teleport`, `camera`, `capture` (below),
+    `echo <text>`, `quit`. A failure or refusal
     skips the rest of the batch.
+  - **Looking at one spot frame by frame** (src/game/front/test_view.h, src/game/sys/screenshot.h StartSeries):
+    `teleport <x> <y> <z> [heading]` puts the skater there standing (walking, no momentum, on the ground below;
+    heading in degrees as the screenshot sidecar gives it), `camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]` holds
+    viewport 0's camera at that pose (a screenshot sidecar's [camera] lines), moved by (vx, vy, vz) every game frame
+    when given (`camera off` lets go), and `capture <frames> [folder]` saves the next 1-600 frames, every one, as
+    `Screenshots\<folder>\frame_0001.png ...` with one `series.txt` (the sidecar, and each frame's game frame / vblank /
+    clock). While a series runs the main loop doesn't count the capture's time, so no frame is skipped: the series is
+    the game's frames 1/60 s of game time apart. Script command too: `TeleportSkaterStanding pos=(x, y, z) heading=f`.
+    E.g. the user's screenshot spot, still and drifting sideways:
+    `-Level foun -Commands "waitfor level foun 150;teleport -4087.3 -390 2386.6 -177.3;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949;wait 60;capture 120 still;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949 0.05 0 0;capture 120 side"`.
+  - `node tools/game/frame_diff.ts <series folder> [--threshold N] [--region name:x,y,w,h]... [--heatmap out.png]`:
+    how much a series flickers - per pixel the frame-to-frame changes over the threshold (summed |dRGB|, default 24),
+    the share of pixels that flicker (>= 2% of the steps) per region, the mean difference, and a heat map. With the
+    camera still only animation changes pixels; with a slow drift surfaces change a little and z-fighting / crawling
+    ones a lot (docs/pending/shimmer-2.md).
   - Status: frames, ready, main_menu, where (front_end / level), paused, loading, level, game_mode, focus (the focused
     elements' ids), selected (the focused menus' items), lines_read / lines_done, current, last, result, errors,
     refusals. Unknown ids show as 0x<hex>: name them in a `waitfor` once and they're shown by name.

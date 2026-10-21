@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 
+#include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_objects.h"
@@ -26,17 +27,14 @@ namespace Front::LevelEditor::Faces {
 namespace {
 
 const FlagInfo kFlags[kFlagCount] = {
-    {0x0001, "Skatable (0x01)", "Skatable whatever its slope (the skater's feeler check 0x005003A0)"},
-    {0x0002, "Not skatable (0x02)", "Not skatable - unless 0x01 or 0x08 is set too (0x005003A0)"},
-    {0x0004, "Wallride (0x04)", "Wall-ridable, not skatable (0x005003A0: +0x22A)"},
-    {0x0008, "Vert (0x08)", "Vert: skatable, the skater launches off it as off a quarter pipe (0x005003A0: +0x229)"},
-    {0x0010, "Not collidable (0x10)", "Every feeler's default ignore mask (0x00417760 / 0x00417250): the skater, the "
-                                      "camera and objects pass through it"},
-    {0x0040, "Trigger (0x40)", "A trigger face: its node's TriggerScript runs when crossed (0x004131F0); with 0x10 a "
-                               "volume passed through - kill zones, water. A face without a trigger node does nothing"},
-    {0x0080, "Camera passes (0x80)", "The camera's collision feeler ignores it (0x004E4425: ignore 0x90) - the camera "
-                                     "goes through, the skater doesn't"},
-    {0x2000, "Not taggable (0x2000)", "The graffiti feelers ignore it (0x0051DF71 / 0x0051E74B: ignore 0x3000)"},
+    {0x0001, "Skatable", "Skatable at any slope"},
+    {0x0002, "Not Skatable", "Not skatable unless Skatable or Vert is set"},
+    {0x0004, "Wallride", "Wallride only"},
+    {0x0008, "Vert", "Launches like a quarter pipe"},
+    {0x0010, "Not Collidable", "Skater, camera and objects pass through"},
+    {0x0040, "Trigger", "Runs its node's TriggerScript when crossed"},
+    {0x0080, "Camera Pass-Through", "Camera passes through"},
+    {0x2000, "Not Taggable", "Can't be tagged with graffiti"},
 };
 
 int HexDigit(char c)
@@ -257,17 +255,17 @@ bool KeyOf(const View::FaceHit& hit, FaceKey* key, std::string* why)
     if (hit.companion) {
         Nx::CCollObjTriData* geometry = nullptr;
         if (!SharedCollision::OriginOf(hit.checksum, hit.face, &geometry, &face) || !geometry) {
-            *why = "That face belongs to a copy's collision - edit its source's faces (copies are made from it)";
+            *why = "Face belongs to a copy; edit the source";
             return false;
         }
         checksum = geometry->m_checksum;
     }
     if (Scenery::IsClone(checksum)) {
-        *why = "That face belongs to a copy (Ctrl+D) - edit its source's faces (a copy can't be saved by its faces)";
+        *why = "Face belongs to a copy; edit the source";
         return false;
     }
     if (!Geometry(checksum) || face < 0 || face > 0xFFFF) {
-        *why = "That face isn't one of the level's collision";
+        *why = "Not a level collision face";
         return false;
     }
     *key = {checksum, static_cast<uint16_t>(face)};
@@ -317,15 +315,25 @@ bool Picking() { return g_picking; }
 
 void SetPicking(bool on)
 {
+    // The collision view comes on with Face Select and goes off with it again if Face Select turned it on.
+    static bool s_turnedCollisionOn;
+    if (on && !g_picking) {
+        s_turnedCollisionOn = !View::ShowCollision();
+        if (s_turnedCollisionOn)
+            View::SetShowCollision(true);
+    } else if (!on && g_picking) {
+        if (s_turnedCollisionOn && View::ShowCollision())
+            View::SetShowCollision(false);
+        s_turnedCollisionOn = false;
+    }
     g_picking = on;
-    if (on && !View::ShowCollision())
-        View::SetShowCollision(true);
     if (!on)
         g_haveHover = false;
 }
 
 void Start()
 {
+    Actions::SetChecked(Actions::kFaces, [] { return g_picking ? 1 : 0; }); // (its check in the View menu)
     g_picking = false;
     g_selection.clear();
     g_haveHover = false;
@@ -349,7 +357,7 @@ bool ClickAt(V3 origin, V3 unitDir, bool add)
     if (!View::PickFace(origin, unitDir, &hit)) {
         if (!add)
             g_selection.clear();
-        Hud::Message("No collision face there (the faces drawn near the camera are the ones a click takes)");
+        Hud::Message("No collision face under cursor");
         return false;
     }
     FaceKey key;
@@ -359,7 +367,7 @@ bool ClickAt(V3 origin, V3 unitDir, bool add)
         return false;
     }
     if (add && g_selection.size() >= kMostSelected && std::find(g_selection.begin(), g_selection.end(), key) == g_selection.end()) {
-        Hud::Message("At most 8192 faces at once");
+        Hud::Message("Limit: 8192 faces");
         return false;
     }
     bool selected = Click(&g_selection, key, add);
@@ -447,7 +455,7 @@ bool SetFlag(uint16_t bit, bool on)
     PushModuleUndo(before);
     View::InvalidateCache();
     char text[128];
-    std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s (live; saved with Ctrl+S)", bit,
+    std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s", bit,
                   on ? "set" : "cleared", faces, faces == 1 ? "" : "s");
     Hud::Message(text);
     Log("level editor: %s", text);
@@ -470,8 +478,7 @@ bool HomeSelection()
         PushModuleUndo(before);
         View::InvalidateCache();
     }
-    Hud::Message(faces ? "The selected faces' flags put back as the level has them"
-                       : "The selected faces' flags are as the level has them");
+    Hud::Message(faces ? "Face flags reverted" : "Face flags already original");
     return true;
 }
 
@@ -586,15 +593,13 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     if (!ImGui::CollapsingHeader("Collision faces###faceflags", ImGuiTreeNodeFlags_DefaultOpen))
         return;
     ImGui::PushFont(smallFont);
-    ImGui::TextWrapped(g_picking ? "Faces mode (K): a click takes a collision face, Shift+click adds / drops one. Set "
-                                   "or clear the flags below - live, saved with Ctrl+S, Home puts them back."
-                                 : "Faces mode is off (K): the faces stay selected.");
+    ImGui::TextDisabled("%s", g_picking ? "Click a face to select, Shift+click to add" : "Face Select is off");
     ImGui::PopFont();
     bool picking = g_picking;
-    if (ImGui::Checkbox("Faces mode (K)", &picking))
+    if (ImGui::Checkbox("Face Select Mode", &picking))
         g_queue.push_back([picking] { SetPicking(picking); });
     if (g_selection.empty()) {
-        ImGui::TextDisabled("No faces selected.");
+        ImGui::TextDisabled("No faces selected");
         return;
     }
     std::vector<uint16_t> flags;
@@ -638,19 +643,19 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     if (ImGui::Button(allLabel.c_str()))
         g_queue.push_back([piece] {
             if (SelectPiece(piece, false))
-                Hud::Message("Every face of " + PieceLabel(piece) + " selected");
+                Hud::Message("Selected all faces of " + PieceLabel(piece));
         });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("The piece's whole collision (and the faces its shared collision took along)");
+        ImGui::SetTooltip("Select all faces of this piece");
     if (Scenery::HasSelection()) {
         ImGui::SameLine();
-        if (ImGui::Button("All faces of the selected scenery"))
+        if (ImGui::Button("Select All Faces"))
             g_queue.push_back([] {
                 std::vector<uint32_t> sectors = Scenery::Selection();
                 bool any = false;
                 for (size_t i = 0; i < sectors.size(); ++i)
                     any = SelectPiece(sectors[i], any) || any;
-                Hud::Message(any ? "Every face of the selected scenery selected" : "The selected scenery has no collision of its own");
+                Hud::Message(any ? "Selected all faces" : "Selection has no collision");
             });
     }
 }

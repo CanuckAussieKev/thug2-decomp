@@ -244,34 +244,28 @@ const char* WhenApplied(const Nodes::Node& node)
     bool sectorShape = s && s->GetChecksum(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
     case Nodes::Family::Rail:
-        return node.added ? "Now: skaters grind it where it is (an added point: its node moves too)."
-                          : "Now: skaters grind it where it is (its node keeps the level's place; the layout's rail "
-                            "record has it).";
+        return "Live";
     case Nodes::Family::Ladder:
-        return "Now: skaters climb it where it is (its node keeps the level's place; the layout's rail record has it). "
-               "Its facing stays.";
+        return "Live";
     case Nodes::Family::Path:
-        return "When a ped or car next heads for this waypoint (one already walking to it goes to the old place first).";
+        return "When next reached";
     case Nodes::Family::Spawn:
-        return "At the next respawn here, or F8 (the restart tester).";
+        return "Next respawn";
     case Nodes::Family::Crown:
-        return "When the next crown spawns (King of the Hill); one already out stays where it is.";
+        return "Next crown spawn";
     case Nodes::Family::Flag:
-        return "Now, when its flag is out (a CTF or team game); else when the game makes it.";
+        return "Live";
     case Nodes::Family::Light:
-        return "Now for what it lights as it moves; what it has lit in the level's colours after the level is "
-               "loaded again.";
+        return "Live; baked lighting on reload";
     case Nodes::Family::Sound:
-        return sectorShape ? "Its node now - but its area is the level sector of its name, which stays."
-                           : "Now (sounds play from its sphere about it).";
+        return sectorShape ? "Live; area unchanged" : "Live";
     case Nodes::Family::Trigger:
-        return sectorShape ? "Its node now - but its area is the level sector of its name, which stays."
-                           : "Now (its sphere follows).";
+        return sectorShape ? "Live; area unchanged" : "Live";
     case Nodes::Family::Particle:
     case Nodes::Family::Object:
         return Entities::WhenApplied(node.name, static_cast<int>(node.family));
     default:
-        return "When the game next reads it (scripts, cameras).";
+        return "When next read";
     }
 }
 

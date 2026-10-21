@@ -77,7 +77,7 @@ void Palette()
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.1f), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(640.0f * S(), 0.0f));
-    ImGui::Begin("Command search###ux3palette", &open,
+    ImGui::Begin("Command Search###ux3palette", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize);
     if (!g_paletteWasOpen) {
@@ -87,7 +87,7 @@ void Palette()
         g_paletteWasOpen = true;
     }
     ImGui::SetNextItemWidth(-1.0f);
-    bool enter = ImGui::InputTextWithHint("##query", "Search actions and settings (Enter runs, Esc closes)", g_query,
+    bool enter = ImGui::InputTextWithHint("##query", "Search commands\xE2\x80\xA6", g_query,
                                           sizeof(g_query), ImGuiInputTextFlags_EnterReturnsTrue);
     if (ImGui::IsItemActive() || enter) {
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))
@@ -128,7 +128,7 @@ void Palette()
         if (r == g_highlight && (ImGui::IsKeyPressed(ImGuiKey_DownArrow) || ImGui::IsKeyPressed(ImGuiKey_UpArrow)))
             ImGui::SetScrollHereY(0.5f);
         if (ImGui::IsItemHovered() && !a.tip.empty())
-            ImGui::SetTooltip("%s%s", a.tip.c_str(), a.kind == Actions::Kind::Info ? "\n(a gesture - shown for its keys)" : "");
+            ImGui::SetTooltip("%s%s", a.tip.c_str(), a.kind == Actions::Kind::Info ? "\n(mouse gesture)" : "");
         ImGui::SameLine(0.0f, 10.0f * S());
         ImGui::TextColored(kMuted, "%s", a.category.c_str());
         std::string keys = Actions::KeysText(i);
@@ -155,7 +155,7 @@ void Palette()
             Queue([run] { Actions::Run(run); });
         } else {
             std::string why = all[run].kind == Actions::Kind::Info ? all[run].name + ": " + Actions::KeysText(run)
-                                                                     : all[run].name + " can't be done now";
+                                                                     : all[run].name + " is unavailable";
             Queue([why] { ShowMessage(why); });
         }
     }
@@ -175,13 +175,13 @@ void HistoryWindow()
         return;
     }
     std::vector<HistoryEntry> undo = UndoHistory(), redo = RedoHistory();
-    ImGui::TextDisabled("%d to undo, %d to redo (64 kept, this session) - click a step to go back or forward to it",
+    ImGui::TextDisabled("%d undo, %d redo",
                         static_cast<int>(undo.size()), static_cast<int>(redo.size()));
     ImGui::Separator();
     ImGui::BeginChild("##steps");
     int jump = 0;
     bool any = false;
-    if (ImGui::Selectable("(before the steps kept)", undo.empty()))
+    if (ImGui::Selectable("(start)", undo.empty()))
         jump = -static_cast<int>(undo.size()), any = true;
     for (int i = 0; i < static_cast<int>(undo.size()); ++i) {
         ImGui::PushID(i);
@@ -191,7 +191,7 @@ void HistoryWindow()
         if (ImGui::Selectable(text, current))
             jump = -(static_cast<int>(undo.size()) - 1 - i), any = true;
         if (ImGui::IsItemHovered() && !undo[i].detail.empty())
-            ImGui::SetTooltip("Selected then: %s", undo[i].detail.c_str());
+            ImGui::SetTooltip("Selection: %s", undo[i].detail.c_str());
         if (current)
             ImGui::SetItemDefaultFocus();
         ImGui::PopID();
@@ -205,7 +205,7 @@ void HistoryWindow()
             jump = j + 1, any = true;
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered() && !redo[j].detail.empty())
-            ImGui::SetTooltip("Selected then: %s", redo[j].detail.c_str());
+            ImGui::SetTooltip("Selection: %s", redo[j].detail.c_str());
         ImGui::PopID();
     }
     ImGui::EndChild();
@@ -230,15 +230,14 @@ void ChangesWindow()
         return;
     }
     const std::vector<ChangeRow>& rows = ChangeList();
-    ImGui::TextWrapped("%d changes this edited copy makes to the level as shipped. Revert puts one back as the level has "
-                       "it (one undo step); Go to selects it and takes the camera there.",
+    ImGui::TextDisabled("%d changes",
                        static_cast<int>(rows.size()));
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_changesFilter, sizeof(g_changesFilter));
     ImGui::Separator();
     ImGui::BeginChild("##changes");
     if (rows.empty())
-        ImGui::TextDisabled("No changes - the edited copy is the level as shipped.");
+        ImGui::TextDisabled("No changes");
     for (const char* group : Changes::Groups()) {
         std::vector<const ChangeRow*> in;
         for (const ChangeRow& row : rows) {
@@ -268,7 +267,7 @@ void ChangesWindow()
             if (ImGui::SmallButton("Revert"))
                 Revert(*row);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Back as the level has it - one undo step (Ctrl+Z puts the change back)");
+                ImGui::SetTooltip("Revert this change");
             ImGui::PopID();
         }
     }
@@ -324,16 +323,14 @@ void SnapshotsWindow()
         g_snapshotsStale = false;
     }
     std::string active = Organize::ActiveSnapshot();
-    ImGui::TextWrapped("Named versions of this edited copy's layout (thug2-decomp-layouts\\<scene>.<name>.txt). Switching "
-                       "keeps the layout as it is in its own snapshot first, puts the other in place (Ctrl+Z undoes) and "
-                       "saves it as the edited copy's - the one the level select's (EDITED) entry loads.");
-    ImGui::Text("Active: %s", active.empty() ? "(none - the layout isn't a snapshot yet)" : active.c_str());
+    ImGui::TextDisabled("Named versions of the layout");
+    ImGui::Text("Active: %s", active.empty() ? "(none)" : active.c_str());
     ImGui::Separator();
     ImGui::SetNextItemWidth(200.0f * S());
-    bool enter = ImGui::InputTextWithHint("##name", "name (letters, digits, _ -)", g_snapshotName, sizeof(g_snapshotName),
+    bool enter = ImGui::InputTextWithHint("##name", "Name", g_snapshotName, sizeof(g_snapshotName),
                                           ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
-    if ((ImGui::Button("Save as snapshot") || enter) && g_snapshotName[0]) {
+    if ((ImGui::Button("Save Snapshot") || enter) && g_snapshotName[0]) {
         std::string name = g_snapshotName;
         Queue([name] {
             std::string message;
@@ -345,7 +342,7 @@ void SnapshotsWindow()
     }
     ImGui::BeginChild("##snapshots");
     if (g_snapshots.empty())
-        ImGui::TextDisabled("No snapshots of this level yet.");
+        ImGui::TextDisabled("No snapshots");
     for (const std::string& name : g_snapshots) {
         ImGui::PushID(name.c_str());
         bool isActive = name == active;
@@ -363,7 +360,7 @@ void SnapshotsWindow()
             g_snapshotsStale = true;
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Put this snapshot in place (the layout now kept in its own snapshot first)");
+            ImGui::SetTooltip("Load this snapshot");
         ImGui::SameLine();
         if (ImGui::SmallButton("Delete") && ImGui::GetIO().KeyShift) {
             Queue([name] {
@@ -374,7 +371,7 @@ void SnapshotsWindow()
             g_snapshotsStale = true;
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Shift+click deletes the snapshot's file");
+            ImGui::SetTooltip("Shift+click to delete");
         ImGui::PopID();
     }
     ImGui::EndChild();
@@ -396,7 +393,7 @@ void Menus()
     if (TakeSimilarMenu())
         ImGui::OpenPopup("Select similar###ux3similar");
     if (ImGui::BeginPopup("Select similar###ux3similar")) {
-        Heading("Select similar");
+        Heading("Select Similar");
         ImGui::Separator();
         struct Item {
             const char* name;
@@ -404,10 +401,10 @@ void Menus()
             const char* tip;
         };
         static const Item kItems[] = {
-            {"Same mesh", Organize::Similar::Mesh, "Objects with the same model file; scenery copies of the same piece or of the same size"},
-            {"Same class", Organize::Similar::Class, "The same node class (LevelObject, Pedestrian, Vehicle, GameObject...)"},
-            {"Same node family", Organize::Similar::Family, "The same family as the Outliner groups them"},
-            {"Same type", Organize::Similar::Type, "The same node Type"}};
+            {"Same mesh", Organize::Similar::Mesh, "Same model or scenery piece"},
+            {"Same class", Organize::Similar::Class, "Same node class"},
+            {"Same family", Organize::Similar::Family, "Same Outliner family"},
+            {"Same type", Organize::Similar::Type, "Same node type"}};
         for (const Item& item : kItems) {
             Organize::Similar by = item.by;
             if (ImGui::MenuItem(item.name))
@@ -416,9 +413,9 @@ void Menus()
                 ImGui::SetTooltip("%s", item.tip);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("All of this family"))
+        if (ImGui::MenuItem("Same Family (All)"))
             Queue([] { Organize::SelectFamily(); });
-        if (ImGui::MenuItem("Invert selection", Actions::KeysText(Actions::kInvertSelection).c_str()))
+        if (ImGui::MenuItem("Invert Selection", Actions::KeysText(Actions::kInvertSelection).c_str()))
             Queue([] { Organize::InvertSelection(); });
         if (ImGui::MenuItem("Select all", Actions::KeysText(Actions::kSelectAll).c_str()))
             Queue([] { Organize::SelectAll(); });
@@ -430,7 +427,7 @@ void Menus()
         ImGui::OpenPopup("Group the selection###ux3group");
     }
     if (ImGui::BeginPopupModal("Group the selection###ux3group", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("A named group of the selection (editor-only, saved in the layout):");
+        ImGui::TextUnformatted("Group name:");
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         bool enter = ImGui::InputText("##group", g_groupName, sizeof(g_groupName), ImGuiInputTextFlags_EnterReturnsTrue);
@@ -449,7 +446,7 @@ void Menus()
         ImGui::OpenPopup("Label###ux3label");
     }
     if (ImGui::BeginPopupModal("Label###ux3label", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("A label shown beside the row's name (editor-only; empty clears it):");
+        ImGui::TextUnformatted("Label (empty clears):");
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         bool enter = ImGui::InputText("##label", g_labelText, sizeof(g_labelText), ImGuiInputTextFlags_EnterReturnsTrue);
@@ -515,37 +512,6 @@ ImGuiID g_sharedActive;
 
 void SetFonts(const Fonts& fonts) { g_fonts = fonts; }
 
-void Toolbar(const Ui::Model& model)
-{
-    (void)model;
-    ImGui::SameLine(0.0f, 12.0f * S());
-    auto button = [](const char* label, Window window, int action, const char* tip) {
-        bool on = Open(window);
-        if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, kAccent);
-        if (ImGui::SmallButton(label))
-            Open(window) = !Open(window);
-        if (on)
-            ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered()) {
-            std::string keys = Actions::KeysText(action);
-            ImGui::SetTooltip("%s%s%s", tip, keys.empty() ? "" : "  -  ", keys.c_str());
-        }
-        ImGui::SameLine(0.0f, 4.0f * S());
-    };
-    button("Search", kPaletteWindow, Actions::kPalette, "Every action and setting by name");
-    button("History", kHistoryWindow, Actions::kHistory, "The undo steps by name");
-    int count = static_cast<int>(ChangeList().size());
-    char label[48];
-    std::snprintf(label, sizeof(label), "Changes %d###ux3changesbutton", count);
-    if (count > 0)
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.86f, 0.5f, 1.0f));
-    button(label, kChangesWindow, Actions::kChanges, "What this edited copy changes from the level as shipped");
-    if (count > 0)
-        ImGui::PopStyleColor();
-    button("Snapshots", kSnapshotsWindow, Actions::kSnapshots, "Named versions of the layout");
-}
-
 void Windows(const Ui::Model& model)
 {
     (void)model;
@@ -565,8 +531,7 @@ void HelpFromRegistry()
         if (std::find(categories.begin(), categories.end(), a.category) == categories.end())
             categories.push_back(a.category);
     }
-    ImGui::TextWrapped("Every action, with its keys as bound now (rebind them in Keys: the command search, Ctrl+Space, "
-                       "finds it). Hover one for more.");
+    ImGui::TextDisabled("All commands and their keys");
     if (ImGui::SmallButton("Keys..."))
         Open(kKeysWindow) = true;
     if (!ImGui::BeginTable("##registry", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg))
@@ -606,9 +571,7 @@ void HelpFromRegistry()
 void KeysSection()
 {
     const std::vector<Actions::Action>& all = Actions::All();
-    ImGui::TextWrapped("Click a key to press a new one for it (Esc cancels), + adds another, right-click a key removes it. "
-                       "Kept in thug2-decomp.ini [editor_keys]. Ctrl must match as bound; Shift / Alt added to a key "
-                       "make it a key of its own (Shift+G), else they qualify it (Shift+[ scales finely).");
+    ImGui::TextDisabled("Click a key to rebind, + to add, right-click to remove");
     ImGui::SetNextItemWidth(220.0f * S());
     ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", g_keysFilter, sizeof(g_keysFilter));
     ImGui::SameLine();
@@ -617,10 +580,10 @@ void KeysSection()
             Actions::ResetKeys(i);
     }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Shift+click: every key back to its default");
+        ImGui::SetTooltip("Shift+click to reset all keys");
     if (Actions::Capturing()) {
         const Actions::Action* a = Actions::Get(Actions::CapturingIndex());
-        ImGui::TextColored(kKeyColour, "Press the new key for \"%s\" (with Ctrl / Shift / Alt if wanted) - Esc cancels",
+        ImGui::TextColored(kKeyColour, "Press a key for \"%s\" (Esc: cancel)",
                            a ? a->name.c_str() : "?");
     }
     ImGui::Separator();
@@ -732,16 +695,16 @@ void Groups()
         if (ImGui::Selectable(text))
             Queue([i] { Organize::SelectGroup(i); });
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Click selects the group; right-click: add the selection, rename, delete");
+            ImGui::SetTooltip("Click to select; right-click for options");
         if (ImGui::BeginPopupContextItem("##groupmenu")) {
-            if (ImGui::MenuItem("Add the selection"))
+            if (ImGui::MenuItem("Add Selection"))
                 Queue([i] { Organize::AddToGroup(i); });
             if (ImGui::MenuItem("Rename...")) {
                 g_renameGroup = i;
                 std::snprintf(g_renameText, sizeof(g_renameText), "%s", g.name.c_str());
                 g_renameAsked = true;
             }
-            if (ImGui::MenuItem("Delete the group"))
+            if (ImGui::MenuItem("Delete Group"))
                 Queue([i] { Organize::DeleteGroup(i); });
             ImGui::EndPopup();
         }
@@ -767,9 +730,9 @@ void RowToggles(const Nodes::Node& node, float x)
         const char* tip;
     };
     const Toggle toggles[3] = {
-        {"\xE2\x80\xA2", "-", !hidden, "Shown in the editor (the eye) - click hides it while editing (never saved)"},
-        {"L", "L", locked, "Locked against changes - moving, turning, scaling, deleting, Home refused (saved, editor-only)"},
-        {"S", "S", selectable, "Selectable by a click in the view (off: clicks pass it - saved)"},
+        {"\xE2\x80\xA2", "-", !hidden, "Visible in editor"},
+        {"L", "L", locked, "Locked against changes"},
+        {"S", "S", selectable, "Selectable in the view"},
     };
     float step = ImGui::CalcTextSize("W").x + 6.0f * S();
     for (int t = 0; t < 3; ++t) {
@@ -814,24 +777,24 @@ void RowMenu(const Nodes::Node& node)
     }
     Nodes::Node copy = node;
     bool hidden = Organize::HiddenInEditor(node), locked = Organize::Locked(node.name), selectable = Organize::Selectable(node);
-    if (ImGui::MenuItem("Hidden in the editor", nullptr, hidden))
+    if (ImGui::MenuItem("Hidden in Editor", nullptr, hidden))
         Queue([copy, hidden] { Organize::SetHiddenInEditor(copy, !hidden); });
-    if (ImGui::MenuItem("Locked (no changes)", nullptr, locked))
+    if (ImGui::MenuItem("Locked", nullptr, locked))
         Queue([copy, locked] { Organize::SetLocked(copy.name, !locked); });
     if (ImGui::MenuItem("Selectable", nullptr, selectable))
         Queue([copy, selectable] { Organize::SetSelectable(copy, !selectable); });
     ImGui::Separator();
-    if (ImGui::MenuItem("Make a group of the selection...", Actions::KeysText(Actions::kMakeGroup).c_str()))
+    if (ImGui::MenuItem("Group Selection...", Actions::KeysText(Actions::kMakeGroup).c_str()))
         g_groupAsked = true;
     const Organize::State& state = Organize::Current();
-    if (!state.groups.empty() && ImGui::BeginMenu("Add the selection to")) {
+    if (!state.groups.empty() && ImGui::BeginMenu("Add Selection to")) {
         for (int i = 0; i < static_cast<int>(state.groups.size()); ++i) {
             if (ImGui::MenuItem(state.groups[i].name.c_str()))
                 Queue([i] { Organize::AddToGroup(i); });
         }
         ImGui::EndMenu();
     }
-    if (ImGui::MenuItem("Select similar...", Actions::KeysText(Actions::kSelectSimilar).c_str()))
+    if (ImGui::MenuItem("Select Similar...", Actions::KeysText(Actions::kSelectSimilar).c_str()))
         Queue([] { Actions::Trigger(Actions::kSelectSimilar); });
     ImGui::EndPopup();
 }
@@ -847,7 +810,7 @@ void InspectorSection(const Ui::Model& model)
     // The clipboard (Ctrl+Shift+C / Ctrl+Shift+V).
     if (ImGui::CollapsingHeader("Copy / paste###ux3clip")) {
         ImGui::BeginDisabled(!any);
-        if (ImGui::SmallButton("Copy transform + fields"))
+        if (ImGui::SmallButton("Copy Transform and Fields"))
             Queue([] {
                 std::string m;
                 Clip::CopyProps(&m);
@@ -858,7 +821,7 @@ void InspectorSection(const Ui::Model& model)
             ImGui::SetTooltip("%s", Actions::KeysText(Actions::kCopyProps).c_str());
         ImGui::SameLine();
         ImGui::BeginDisabled(!any || !Clip::HaveTransform());
-        if (ImGui::SmallButton("Paste transform"))
+        if (ImGui::SmallButton("Paste Transform"))
             Queue([] {
                 std::string m;
                 Clip::PasteTransform(&m);
@@ -915,10 +878,10 @@ void InspectorSection(const Ui::Model& model)
             shared.push_back({row.key, row.value.kind, text, mixed});
     }
     if (shared.empty()) {
-        ImGui::TextDisabled("No editable field all of them have.");
+        ImGui::TextDisabled("No shared editable fields");
         return;
     }
-    ImGui::TextDisabled("A value typed (Enter) goes to all %d - one undo step.", static_cast<int>(nodes.size()));
+    ImGui::TextDisabled("Applies to all %d", static_cast<int>(nodes.size()));
     if (!ImGui::BeginTable("##shared", 2, ImGuiTableFlags_SizingFixedFit))
         return;
     ImGui::TableSetupColumn("##k", ImGuiTableColumnFlags_WidthFixed, 120.0f * S());
@@ -951,7 +914,7 @@ void InspectorSection(const Ui::Model& model)
         else if (g_sharedActive == id)
             g_sharedActive = 0;
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s - %s", Fields::KindName(f.kind), f.mixed ? "the selected nodes differ" : "the same on all");
+            ImGui::SetTooltip("%s - %s", Fields::KindName(f.kind), f.mixed ? "mixed values" : "same on all");
         if (enter) {
             FieldSet set;
             set.key = f.key;

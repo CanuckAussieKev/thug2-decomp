@@ -9,8 +9,12 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_nodes.h"
+#include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
+#include "game/front/level_editor_ui_strip.h"
+#include "game/front/level_editor_ui_theme.h"
+#include "game/front/level_editor_ux8.h"
 #include "hook/selftest.h"
 #include "imgui.h"
 
@@ -25,32 +29,35 @@ bool Near(float a, float b, float tolerance = 0.01f) { return std::fabs(a - b) <
 
 void TestEditorUiLayout()
 {
-    // The scale: 1 up to 1280 x 720, the smaller of the two ratios in quarter steps, at most 3.
-    Check(L::ScaleFor(1280, 720) == 1.0f && L::ScaleFor(800, 600) == 1.0f && L::ScaleFor(0, 0) == 1.0f,
-          "editor UI: scale 1 at 1280x720 and below");
-    Check(L::ScaleFor(1920, 1080) == 1.5f, "editor UI: 1080p is 1.5");
-    Check(L::ScaleFor(2560, 1440) == 2.0f, "editor UI: 1440p is 2");
-    Check(L::ScaleFor(3840, 2160) == 3.0f && L::ScaleFor(7680, 4320) == 3.0f, "editor UI: 4K is 3, the most");
-    Check(L::ScaleFor(3840, 1080) == 1.5f, "editor UI: the smaller ratio (an ultra-wide screen)");
-    Check(L::ScaleFor(1600, 900) == 1.25f, "editor UI: quarter steps");
-    Check(L::ScaleFor(1366, 768) == 1.0f && L::ScaleFor(2000, 1200) == 1.5f, "editor UI: rounded down to a quarter");
-    L::FontSizes sizes = L::FontSizesFor(1.0f);
+    // The scale: 1 at 1080p (Blender's / Unreal's 100 %), quarter steps of the smaller ratio, 0.875 to 3.
+    Check(L::ScaleFor(1920, 1080) == 1.0f && L::ScaleFor(0, 0) == 1.0f, "editor UI: 1080p is 1");
+    Check(L::ScaleFor(1280, 720) == 0.875f && L::ScaleFor(800, 600) == 0.875f && L::ScaleFor(1600, 900) == 0.875f,
+          "editor UI: below 1080p 0.875 (Inter at 12 px)");
+    Check(L::ScaleFor(2560, 1440) == 1.25f, "editor UI: 1440p is 1.25");
+    Check(L::ScaleFor(3840, 2160) == 2.0f && L::ScaleFor(5120, 2880) == 2.5f && L::ScaleFor(7680, 4320) == 3.0f,
+          "editor UI: 4K is 2, 5K 2.5, at most 3");
+    Check(L::ScaleFor(3840, 1080) == 1.0f && L::ScaleFor(2000, 1200) == 1.0f,
+          "editor UI: the smaller ratio, rounded down to a quarter");    L::FontSizes sizes = L::FontSizesFor(1.0f);
     Check(sizes.ui == 14.0f && sizes.small == 12.0f && sizes.mono == 13.0f, "editor UI: Inter 14 / 12, mono 13");
     sizes = L::FontSizesFor(1.5f);
     Check(sizes.ui == 21.0f && sizes.small == 18.0f && sizes.mono == 20.0f, "editor UI: font sizes scale (rounded)");
 
-    // 1280 x 720: toolbar 36, status 26, Outliner 280, Inspector 320, the viewport between.
+    // 1280 x 720 at scale 1: menu bar 22 over the tool strip 28, status 24, Outliner 280, Inspector 320, the viewport
+    // between.
     L::Layout layout = L::Compute(1280.0f, 720.0f, 1.0f, true, true);
     Check(layout.outlinerShown && layout.inspectorShown, "editor UI: both panels at 1280x720");
-    Check(Near(layout.toolbar.height, 36.0f) && Near(layout.status.height, 26.0f) && Near(layout.status.y, 694.0f),
+    Check(Near(layout.toolbar.height, 50.0f) && Near(layout.status.height, 24.0f) && Near(layout.status.y, 696.0f),
           "editor UI: toolbar and status bar");
+    Check(Near(layout.menu.y, 0.0f) && Near(layout.menu.height, 22.0f) && Near(layout.strip.y, 22.0f) &&
+              Near(layout.strip.height, 28.0f),
+          "editor UI: the menu bar over the tool strip");
     Check(Near(layout.outliner.width, 280.0f) && Near(layout.inspector.width, 320.0f) &&
               Near(layout.inspector.x, 960.0f),
           "editor UI: the side panels' widths");
-    Check(Near(layout.viewport.x, 280.0f) && Near(layout.viewport.width, 680.0f) && Near(layout.viewport.y, 36.0f) &&
-              Near(layout.viewport.height, 658.0f),
+    Check(Near(layout.viewport.x, 280.0f) && Near(layout.viewport.width, 680.0f) && Near(layout.viewport.y, 50.0f) &&
+              Near(layout.viewport.height, 646.0f),
           "editor UI: the viewport fills the middle");
-    Check(Near(layout.outliner.height, 658.0f) && Near(layout.outliner.y, 36.0f), "editor UI: panels between bars");
+    Check(Near(layout.outliner.height, 646.0f) && Near(layout.outliner.y, 50.0f), "editor UI: panels between bars");
     // The parts tile the screen: their areas add up to it.
     float area = layout.toolbar.width * layout.toolbar.height + layout.status.width * layout.status.height +
                  layout.outliner.width * layout.outliner.height + layout.inspector.width * layout.inspector.height +
@@ -59,7 +66,7 @@ void TestEditorUiLayout()
     // 4K at scale 3: the same proportions.
     layout = L::Compute(3840.0f, 2160.0f, 3.0f, true, true);
     Check(Near(layout.outliner.width, 840.0f) && Near(layout.inspector.width, 960.0f) &&
-              Near(layout.toolbar.height, 108.0f) && Near(layout.viewport.width, 2040.0f),
+              Near(layout.toolbar.height, 150.0f) && Near(layout.viewport.width, 2040.0f),
           "editor UI: 4K at scale 3");
     // Narrow: the panels shrink so the viewport keeps 40%, then the Inspector closes, then the Outliner.
     layout = L::Compute(1000.0f, 720.0f, 1.0f, true, true);
@@ -80,7 +87,7 @@ void TestEditorUiLayout()
     Check(L::OnPanel(layout, 10.0f, 10.0f) && L::OnPanel(layout, 100.0f, 300.0f) && L::OnPanel(layout, 1000.0f, 300.0f) &&
               L::OnPanel(layout, 640.0f, 700.0f),
           "editor UI: toolbar, Outliner, Inspector, status bar are panels");
-    Check(!L::OnPanel(layout, 640.0f, 360.0f) && !L::OnPanel(layout, 281.0f, 37.0f) && !L::OnPanel(layout, 959.0f, 693.0f),
+    Check(!L::OnPanel(layout, 640.0f, 360.0f) && !L::OnPanel(layout, 281.0f, 51.0f) && !L::OnPanel(layout, 959.0f, 693.0f),
           "editor UI: the viewport isn't");
     Check(L::OnPanel(layout, 279.9f, 300.0f) && !L::OnPanel(layout, 280.0f, 300.0f), "editor UI: the Outliner's edge");
     layout = L::Compute(1280.0f, 720.0f, 1.0f, false, false);
@@ -146,6 +153,7 @@ void TestEditorUiFonts()
         Check(inter->FindGlyphNoFallback('A') && inter->FindGlyphNoFallback(0x00B7) &&
                   inter->FindGlyphNoFallback(0x2026) && inter->FindGlyphNoFallback(0x00B0),
               "editor UI: Inter has A, the middle dot, the ellipsis and the degree sign");
+        Check(inter->FindGlyphNoFallback(0x25BC) != nullptr, "editor UI: Inter has the strip's list arrow (U+25BC)");
         const ImFontGlyph* i = mono->FindGlyphNoFallback('i');
         const ImFontGlyph* w = mono->FindGlyphNoFallback('W');
         const ImFontGlyph* zero = mono->FindGlyphNoFallback('0');
@@ -177,6 +185,210 @@ void TestEditorUiFonts()
     ImGui::SetCurrentContext(previous);
 }
 SELFTEST(Early, TestEditorUiFonts);
+
+// --- the menu bar, the tool strip and the status bar: nothing overlaps (level_editor_ui_strip.h) -----------------
+
+void TestEditorUiStripFit()
+{
+    using S = Front::LevelEditor::UiStrip::Slot;
+    namespace U = Front::LevelEditor::UiStrip;
+    // Room for all: left from the left, right against the right end, no overflow.
+    std::vector<S> slots = {{50, 10, false, 5}, {30, 10, false, 2}, {40, 10, true, 1}, {20, 10, true, 4}};
+    U::Plan plan = U::Fit(slots, 0.0f, 400.0f, 16.0f, 8.0f);
+    Check(!plan.overflow && plan.shown[0] && plan.shown[1] && plan.shown[2] && plan.shown[3],
+          "editor strip: everything fits");
+    Check(Near(plan.x[0], 0.0f) && Near(plan.x[1], 60.0f) && Near(plan.x[3], 380.0f) && Near(plan.x[2], 330.0f),
+          "editor strip: left from the left, right against the end");
+    // 160 wide: 50 + 10 + 30 + 10 + 40 + 10 + 20 = 170 doesn't fit - the least important (priority 1) goes, and the
+    // overflow button takes its room at the end.
+    plan = U::Fit(slots, 0.0f, 160.0f, 16.0f, 8.0f);
+    Check(plan.overflow && plan.shown[0] && plan.shown[3] && !plan.shown[2] && Near(plan.overflowX, 144.0f),
+          "editor strip: the least important go into the overflow");
+    Check(plan.x[3] + 20.0f <= plan.overflowX - 8.0f + 0.01f && plan.x[0] + 50.0f <= plan.x[3] - 10.0f + 0.01f,
+          "editor strip: nothing overlaps the overflow button");
+    // Too narrow for anything but the overflow button.
+    plan = U::Fit(slots, 0.0f, 30.0f, 16.0f, 8.0f);
+    Check(plan.overflow && !plan.shown[0] && !plan.shown[1] && !plan.shown[2] && !plan.shown[3],
+          "editor strip: all in the overflow");
+}
+SELFTEST(Early, TestEditorUiStripFit);
+
+// The three bars laid out headless with the editor's fonts and style at 1280 x 720, 1920 x 1080 and 2560 x 1440, at
+// the automatic scale and at 100 / 150 / 200 %: no two controls overlap, every one is inside the window and its own
+// bar, and whatever doesn't fit is in the overflow menu.
+void TestEditorUiBarsFit()
+{
+    namespace U = Front::LevelEditor::UiStrip;
+    namespace T = Front::LevelEditor::UiTheme;
+    namespace Ui = Front::LevelEditor::Ui;
+    ImGuiContext* previous = ImGui::GetCurrentContext();
+    ImGuiContext* context = ImGui::CreateContext();
+    ImGui::SetCurrentContext(context);
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.LogFilename = nullptr;
+    const float accent[3] = {0.94f, 0.48f, 0.24f};
+    // A crowded state: everything the strip can show, long names, a long hint row (the screenshot's), a long status.
+    U::State state;
+    state.selection = true;
+    state.tool = 1;
+    state.snap = true;
+    state.grid = 100.0f;
+    state.grids = {1, 5, 10, 25, 50, 100};
+    state.pickFilter = 5;
+    state.level = "Shipyard Rooftops and Warehouse";
+    state.unsaved = true;
+    state.budget = true;
+    state.budgetFill = 0.83f;
+    state.budgetArgb = 0xFFE0A030u;
+    state.errors = 12;
+    state.warnings = 34;
+    state.hidden = 128;
+    state.simulating = true;
+    state.keyOf = [](const char*) { return std::string("Ctrl+Shift+F"); };
+    const std::vector<std::pair<std::string, std::string>> hints = {
+        {"LMB", "drag: move"}, {"W E R", "tool (move)"}, {"RMB+WASD", "fly"}, {"Up Down Left Right", "nudge"},
+        {"L", "whole chain / itself"}, {"Insert", "insert a point"}, {"End", "draw on"}, {"G", "drop"},
+        {"Ctrl+D", "copy"}, {"Ctrl+Alt+D", "linked copy"}, {"Alt+R", "rail along an edge"}, {"F2", "arrange"},
+        {"F", "frame"}, {"Shift+F", "follow"}, {"Q", "pie"}, {"Delete", "delete / hide"}};
+    const std::string right = "Unsaved  \xC2\xB7  1234 changes  \xC2\xB7  567 moved  \xC2\xB7  -3952, 38, -516  \xC2\xB7  "
+                              "speed 1500  \xC2\xB7  Ortho top, orbiting";
+    Ui::Model model = {};
+    model.mode = "SELECTED";
+    struct Size {
+        int w, h;
+    };
+    const Size sizes[] = {{1280, 720}, {1920, 1080}, {2560, 1440}};
+    int bad = 0, cases = 0, overflowed = 0;
+    for (const Size& size : sizes) {
+        float autoScale = L::ScaleFor(size.w, size.h);
+        for (float scale : {autoScale, 1.0f, 1.5f, 2.0f}) {
+            T::Fonts fonts = T::BuildFonts(scale);
+            T::ApplyStyle(scale, accent);
+            Front::LevelEditor::Ux8::Fonts ux8;
+            ux8.ui = fonts.ui;
+            ux8.small = fonts.small;
+            ux8.mono = fonts.mono;
+            ux8.scale = scale;
+            io.DisplaySize = ImVec2(static_cast<float>(size.w), static_cast<float>(size.h));
+            io.DeltaTime = 1.0f / 60.0f;
+            L::Layout layout = L::Compute(io.DisplaySize.x, io.DisplaySize.y, scale, true, true);
+            std::vector<U::Box> menu, strip, status;
+            float barHeights[3] = {};
+            for (int frame = 0; frame < 2; ++frame) {
+                ImGui::NewFrame();
+                ImGui::PushFont(fonts.ui);
+                const ImGuiWindowFlags panel = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                                               ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar;
+                // (as level_editor_ui.cpp's Toolbar and StatusBar place them)
+                U::SetRecorder(frame ? &menu : nullptr);
+                ImGui::SetNextWindowPos(ImVec2(layout.menu.x, layout.menu.y));
+                ImGui::SetNextWindowSize(ImVec2(layout.menu.width, layout.menu.height));
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+                ImGui::Begin("##menubar", nullptr, panel | ImGuiWindowFlags_MenuBar);
+                ImGui::PopStyleVar();
+                barHeights[0] = ImGui::GetWindowHeight();
+                std::vector<Ui::Request> requests;
+                if (ImGui::BeginMenuBar()) {
+                    Ui::MenuBar(model, ux8, &requests);
+                    ImGui::EndMenuBar();
+                }
+                ImGui::End();
+                U::SetRecorder(frame ? &strip : nullptr);
+                ImGui::SetNextWindowPos(ImVec2(layout.strip.x, layout.strip.y));
+                ImGui::SetNextWindowSize(ImVec2(layout.strip.width, layout.strip.height));
+                ImGui::Begin("##toolstrip", nullptr, panel);
+                barHeights[1] = ImGui::GetWindowHeight();
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f * scale, 3.0f * scale));
+                float padX = 8.0f * scale, padY = std::max(0.0f, (layout.strip.height - ImGui::GetFrameHeight()) * 0.5f);
+                U::Output out;
+                U::Draw(state, layout.strip.x + padX, layout.strip.y + padY, layout.strip.width - 2.0f * padX, scale,
+                        &out);
+                ImGui::PopStyleVar();
+                ImGui::End();
+                U::SetRecorder(frame ? &status : nullptr);
+                ImGui::SetNextWindowPos(ImVec2(layout.status.x, layout.status.y));
+                ImGui::SetNextWindowSize(ImVec2(layout.status.width, layout.status.height));
+                ImGui::Begin("##status", nullptr, panel);
+                barHeights[2] = ImGui::GetWindowHeight();
+                ImGui::PushFont(fonts.small);
+                float y = layout.status.y + std::max(0.0f, (layout.status.height - ImGui::GetTextLineHeight()) * 0.5f);
+                ImGui::PopFont();
+                U::StatusRow("", hints, right, layout.status.x + 8.0f * scale, y, layout.status.width - 16.0f * scale,
+                             ux8);
+                ImGui::End();
+                U::SetRecorder(nullptr);
+                ImGui::PopFont();
+                ImGui::Render();
+            }
+            ++cases;
+            char where[96];
+            std::snprintf(where, sizeof(where), "%dx%d at %.0f%%", size.w, size.h, scale * 100.0f);
+            auto checkRow = [&](const std::vector<U::Box>& boxes, const L::Rect& band, const char* row, size_t least) {
+                bool ok = boxes.size() >= least;
+                for (size_t a = 0; a < boxes.size(); ++a) {
+                    const U::Box& p = boxes[a];
+                    // (inside the window and within its bar's height)
+                    if (p.x0 < -0.5f || p.x1 > band.x + band.width + 0.5f || p.y0 < band.y - 0.5f ||
+                        p.y1 > band.y + band.height + 0.5f) {
+                        ok = false;
+                        char text[192];
+                        std::snprintf(text, sizeof(text), "editor bars: %s %s \"%s\" outside (%.0f..%.0f, %.0f..%.0f)",
+                                      where, row, p.what.c_str(), p.x0, p.x1, p.y0, p.y1);
+                        Check(false, text);
+                    }
+                    for (size_t b = a + 1; b < boxes.size(); ++b) {
+                        const U::Box& q = boxes[b];
+                        if (std::min(p.x1, q.x1) - std::max(p.x0, q.x0) > 0.5f &&
+                            std::min(p.y1, q.y1) - std::max(p.y0, q.y0) > 0.5f) {
+                            ok = false;
+                            char text[192];
+                            std::snprintf(text, sizeof(text), "editor bars: %s %s \"%s\" overlaps \"%s\"", where, row,
+                                          p.what.c_str(), q.what.c_str());
+                            Check(false, text);
+                        }
+                    }
+                }
+                return ok;
+            };
+            // The windows themselves keep their bars' heights (ImGui's minimum window size once stretched the menu bar's
+            // window down over the strip).
+            const float wanted[3] = {layout.menu.height, layout.strip.height, layout.status.height};
+            bool heights = true;
+            for (int i = 0; i < 3; ++i) {
+                if (std::abs(barHeights[i] - wanted[i]) > 0.5f) {
+                    heights = false;
+                    char text[128];
+                    std::snprintf(text, sizeof(text), "editor bars: %s bar %d is %.0f high, not %.0f", where, i,
+                                  barHeights[i], wanted[i]);
+                    Check(false, text);
+                }
+            }
+            bool ok = heights && checkRow(menu, layout.menu, "menu", 5) && checkRow(strip, layout.strip, "strip", 3) &&
+                      checkRow(status, layout.status, "status", 2);
+            // The core: Move and Problems always on the strip (the least important go first).
+            bool move = false, problems = false, more = false;
+            for (const U::Box& box : strip) {
+                move = move || box.what == "Move";
+                problems = problems || box.what == "Problems";
+                more = more || box.what == "More";
+            }
+            overflowed += more ? 1 : 0;
+            if (!move || !problems) {
+                char text[128];
+                std::snprintf(text, sizeof(text), "editor bars: %s - the core controls shown", where);
+                Check(false, text);
+                ok = false;
+            }
+            bad += ok ? 0 : 1;
+        }
+    }
+    Check(cases == 12 && bad == 0, "editor bars: menu bar, tool strip and status bar fit without overlaps (12 cases)");
+    Check(overflowed > 0 && overflowed < cases, "editor bars: the overflow menu is used when crowded, not always");
+    ImGui::DestroyContext(context);
+    ImGui::SetCurrentContext(previous);
+}
+SELFTEST(Early, TestEditorUiBarsFit);
 
 // --- the node layer: families and picking (level_editor_nodes.h) -------------------------------------------------
 

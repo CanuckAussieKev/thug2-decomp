@@ -75,8 +75,7 @@ void SetStage(Stage stage)
     g_stage = stage;
     g_haveHover = false;
     if (stage == Stage::First)
-        ShowMessage("Ground tool: click a corner of the rectangle (on the grid; a click on a generated piece edits it) - "
-                    "Esc cancels",
+        ShowMessage("Ground Tool: click the first corner",
                     6.0);
 }
 
@@ -102,7 +101,7 @@ void Apply()
     if (const Ground::Spec* made = Ground::Find(spec.name))
         g_draft = *made;
     g_editing = true;
-    g_formMessage = "In place - Ctrl+Z takes it back; Ctrl+S saves it with the layout";
+    g_formMessage = "Applied";
     ShowMessage(std::string(spec.lower ? "Lowered" : "Raised") + " ground: " + spec.name, 5.0);
 }
 
@@ -129,9 +128,9 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     }
     Ground::Spec& d = g_draft;
     int mode = d.lower ? 1 : 0;
-    ImGui::RadioButton("Raise (a platform)", &mode, 0);
+    ImGui::RadioButton("Raise", &mode, 0);
     ImGui::SameLine();
-    ImGui::RadioButton("Lower (a pit)", &mode, 1);
+    ImGui::RadioButton("Lower", &mode, 1);
     d.lower = mode == 1;
     ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0f, Ground::kMinHeight, Ground::kMaxHeight, "%.0f");
     float rect[4] = {d.x0, d.z0, d.x1, d.z1};
@@ -154,25 +153,24 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     }
     ImGui::DragFloat("Ramp length", &d.length, 1.0f, 0.0f, Ground::kMaxLength, d.length > 0.0f ? "%.0f" : "auto");
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("0: automatic - a kicker twice the height long, a quarter pipe its height as its radius");
+        ImGui::SetTooltip("0: automatic");
     ImGui::DragFloat("Grid", &g_grid, 1.0f, 0.0f, 500.0f, g_grid > 0.0f ? "%.0f" : "off");
-    ImGui::TextDisabled("Material: %s", d.material ? Objects::Label(d.material).c_str() : "(chosen when made)");
-    if (ImGui::Button("Material from the selected scenery"))
+    ImGui::TextDisabled("Material: %s", d.material ? Objects::Label(d.material).c_str() : "(automatic)");
+    if (ImGui::Button("Use Selected Material"))
         g_queue.push_back([] {
             const std::vector<uint32_t>& selection = Scenery::Selection();
             std::string why;
             Ground::Spec spec = g_draft;
             if (selection.empty())
-                g_formMessage = "Select a scenery piece first (its material is taken)";
+                g_formMessage = "Select a scenery piece to copy its material";
             else if (const char* no = Ground::WhyNotDonor(selection[0]))
-                g_formMessage = std::string("That piece can't lend its material: ") + no;
+                g_formMessage = std::string("Can't use this material: ") + no;
             else if (Ground::ChooseMaterial(selection[0], &spec, &why))
                 g_draft.material = spec.material, g_draft.uv = spec.uv, g_draft.colour = spec.colour,
                 g_draft.terrain = spec.terrain, g_formMessage.clear();
         });
     if (d.lower)
-        ImGui::TextWrapped("A pit hides the floor pieces under the rectangle: it is refused where the floor is one piece "
-                           "reaching outside it (THUG2's floors can't be cut).");
+        ImGui::TextDisabled("Pits need floor pieces inside the rectangle");
     if (!g_formMessage.empty())
         ImGui::TextWrapped("%s", g_formMessage.c_str());
     ImGui::Separator();
@@ -183,12 +181,12 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
         if (ImGui::Button("Remove"))
             g_queue.push_back([] {
                 Ground::Remove(g_draft.name);
-                ShowMessage("Ground piece " + g_draft.name + " removed - Ctrl+Z brings it back");
+                ShowMessage("Removed ground piece " + g_draft.name);
                 SetStage(Stage::Off);
             });
     }
     ImGui::SameLine();
-    if (ImGui::Button("New rectangle"))
+    if (ImGui::Button("New Rectangle"))
         g_queue.push_back([] { SetStage(Stage::First); });
     ImGui::SameLine();
     if (ImGui::Button("Close"))
@@ -236,7 +234,7 @@ bool GroundClick(V3 origin, V3 unitDir)
     V3 hit;
     uint32_t sector = 0;
     if (!Cast(origin, origin + unitDir * 20000.0f, &hit, &sector)) {
-        ShowMessage("Ground tool: click on the ground");
+        ShowMessage("Ground Tool: click on the ground");
         return true;
     }
     if (g_stage == Stage::First && Ground::IsPiece(sector)) {
@@ -252,7 +250,7 @@ bool GroundClick(V3 origin, V3 unitDir)
         g_first = corner;
         g_floor = Ground::IsPiece(sector) ? 0 : sector;
         g_stage = Stage::Second;
-        ShowMessage("Ground tool: now the opposite corner", 6.0);
+        ShowMessage("Ground Tool: click the opposite corner", 6.0);
         return true;
     }
     Ground::Spec spec;
@@ -262,7 +260,7 @@ bool GroundClick(V3 origin, V3 unitDir)
     spec.base = GroundAt(centre, g_first.y);
     std::string why;
     if (!Ground::ChooseMaterial(g_floor, &spec, &why)) {
-        ShowMessage("Ground tool: " + why, 8.0);
+        ShowMessage("Ground Tool: " + why, 8.0);
         SetStage(Stage::Off);
         return true;
     }
@@ -288,13 +286,10 @@ void Init()
         a.defaults = a.keys = {Actions::Chord{scancode, Actions::kAlt}};
         return Actions::Register(a);
     };
-    g_gapAction = make("gap_wizard", "Gap wizard", "Triggers", SDL_SCANCODE_J,
-                       "Click where a gap starts and where it ends, then name, score and type it");
-    g_skateAction = make("skateability", "Skateability overlay", "View", SDL_SCANCODE_K,
-                         "Surfaces coloured by what a skater can do on them, with a legend");
+    g_gapAction = make("gap_wizard", "Gap Wizard", "Triggers", SDL_SCANCODE_J, "Create a gap from a start and end point");
+    g_skateAction = make("skateability", "Skateability", "View", SDL_SCANCODE_K, "Colour surfaces by skateability");
     Actions::SetChecked(g_skateAction, [] { return SkateView::Shown() ? 1 : 0; });
-    g_groundAction = make("ground_tool", "Raise / lower ground", "Edit", SDL_SCANCODE_U,
-                          "Mark a rectangle on the ground: raise a platform or lower a pit, with kickers / quarter pipes");
+    g_groundAction = make("ground_tool", "Ground Tool", "Edit", SDL_SCANCODE_U, "Raise or lower a rectangle of ground");
     Layout::Extension e;
     e.keywords = {"ground"};
     e.capture = [] { return Ground::CaptureRecords(); };
@@ -326,12 +321,11 @@ void Update()
         g_stage = Stage::Off;
         GapWizard::SetArmed(on);
         if (!on)
-            ShowMessage("Gap wizard off");
+            ShowMessage("Gap Wizard off");
     }
     if (g_skateAction >= 0 && Actions::Pressed(g_skateAction)) {
         SkateView::SetShown(!SkateView::Shown());
-        ShowMessage(SkateView::Shown() ? "Skateability overlay (Alt+K): the legend is bottom right"
-                                       : "Skateability overlay off");
+        ShowMessage(SkateView::Shown() ? "Skateability on" : "Skateability off");
     }
     if (g_groundAction >= 0 && Actions::Pressed(g_groundAction)) {
         GapWizard::SetArmed(false);
@@ -339,7 +333,7 @@ void Update()
             SetStage(Stage::First);
         else {
             SetStage(Stage::Off);
-            ShowMessage("Ground tool off");
+            ShowMessage("Ground Tool off");
         }
     }
     GapWizard::Update();
@@ -365,7 +359,7 @@ bool Cancel()
     if (g_stage == Stage::Off)
         return false;
     SetStage(Stage::Off);
-    ShowMessage("Ground tool off");
+    ShowMessage("Ground Tool off");
     return true;
 }
 

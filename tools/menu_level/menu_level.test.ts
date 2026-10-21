@@ -6,7 +6,8 @@ import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import { keyOf, norm } from "../anteara/anteara.ts";
 import { nsString } from "./career_complete.ts";
-import { mapPosition } from "./level_select.ts";
+import { mapPosition, THAW_LEVELS, THPS3_LEVELS, THPS4_LEVELS, THUG1_LEVELS, THUG2_EXTRA } from "./level_select.ts";
+import { coverage, PICTOGRAMS, strayInk } from "./level_select_icons.ts";
 import { parseArguments, skipStatement } from "./qb_walk.ts";
 
 test("mapPosition puts places where THUG2's stars are", () => {
@@ -35,4 +36,25 @@ test("gap names pass only as plain ASCII", () => {
     assert.equal(nsString("a\\b"), "a\\\\b");
     assert.throws(() => nsString('say "hi"'));
     assert.throws(() => nsString("café"));
+});
+
+test("every level we add has a pictogram of its own, and every pictogram stays inside the sign's diamond", () => {
+    const icons = [
+        ...[...THUG2_EXTRA.values()].map((e) => e.icon),
+        ...[THUG1_LEVELS, THPS4_LEVELS, THPS3_LEVELS, THAW_LEVELS].flatMap((table) =>
+            [...table.values()].map((e) => e.icon!),
+        ),
+    ];
+    for (const icon of icons) assert.ok(PICTOGRAMS.has(icon), `${icon}: no such pictogram`);
+    const seen = new Set<string>();
+    for (const icon of icons) {
+        assert.ok(!seen.has(icon), `${icon}: on two levels' signs`);
+        seen.add(icon);
+    }
+    for (const [name, draw] of PICTOGRAMS) {
+        const layers = draw();
+        assert.deepEqual(strayInk(layers).length, 0, `${name}: ink outside the diamond's inside`);
+        const ink = coverage(layers).reduce((a, b) => a + b, 0);
+        assert.ok(ink > 120, `${name}: hardly any ink (${ink})`);
+    }
 });

@@ -165,11 +165,10 @@ void ForgetLevel();
 // shown) - the toolbar's button.
 const std::vector<Issue>& Issues();
 void ShownCounts(int* errors, int* warnings, int* infos);
-// The Problems window: open on a tab (0 problems, 1 budget), toggled (Alt+P), the toolbar's button, the window.
+// The Problems window: open on a tab (0 problems, 1 budget), toggled (Alt+P; the tool strip's Problems button), the window.
 constexpr int kProblemsTab = 0, kBudgetTab = 1;
 void OpenWindow(int tab);
 void ToggleWindow();
-void ToolbarButton(float scale);
 void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono);
 
 } // namespace Front::LevelEditor::Checks

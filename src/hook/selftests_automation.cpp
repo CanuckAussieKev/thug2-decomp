@@ -2,6 +2,7 @@
 // compare with): the command parser, the buttons' bits (as Sio's keyboard sets them), the deny-list (scripts, ids,
 // parameters, stand-in menu items with event handlers) and the status file's text, against worked-out values.
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -10,6 +11,7 @@
 #include "game/core/crc.h"
 #include "game/front/automation.h"
 #include "game/front/screen_element.h"
+#include "game/front/test_view.h"
 #include "game/obj/event.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -64,6 +66,14 @@ void TestAutomationParse()
         {"echo step 2 # done", "echo step 2 # done"},
         {"echo", "echo "},
         {"quit", "quit"},
+        {"teleport -4087.3 -390 2386.6", "teleport -4087.3 -390 2386.6"},
+        {"Teleport 1 2 3 -177.3", "teleport 1 2 3 -177.3"},
+        {"camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949", "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949"},
+        {"camera OFF", "camera off"},
+        {"camera 1 2 3 0 0 -1 0.05 0 -0.5", "camera 1 2 3 0 0 -1 0.05 0 -0.5"},
+        {"capture 90", "capture 90"},
+        {"capture 600 foun_ramp", "capture 600 foun_ramp"},
+        {"capture 2 \"two words\"", "capture 2 two words"},
         {"", "-"},
         {"   ", "-"},
         {"# only a comment", "-"},
@@ -98,6 +108,20 @@ void TestAutomationParse()
         {"level", ""},
         {"level a b", ""},
         {"quit now", ""},
+        {"teleport", ""},
+        {"teleport 1 2", ""},
+        {"teleport 1 2 3 4 5", ""},
+        {"teleport 1 x 3", ""},
+        {"camera 1 2 3 4 5", ""},
+        {"camera 1 2 3 4 5 6 7", ""},
+        {"camera 1 2 3 4 5 6 7 8 9 10", ""},
+        {"camera 1 2 3 0 0 0", ""},
+        {"camera on", ""},
+        {"capture", ""},
+        {"capture 0", ""},
+        {"capture 601", ""},
+        {"capture 5 ../out", ""},
+        {"capture 5 a b", ""},
     };
     for (const Case& c : cases) {
         std::string got = Round(c.line);
@@ -138,6 +162,13 @@ void TestAutomationParse()
     Check(ParseCommand("wait 45", &command, &error) == ParseResult::Command && command.op == Op::Wait &&
               command.frames == 45,
           "automation parse: wait's frames");
+    Check(ParseCommand("teleport 1.5 -2 3 90", &command, &error) == ParseResult::Command && command.op == Op::Teleport &&
+              command.numbers.size() == 4 && command.numbers[0] == 1.5f && command.numbers[1] == -2.0f &&
+              command.numbers[3] == 90.0f,
+          "automation parse: teleport's numbers");
+    Check(ParseCommand("capture 120 x", &command, &error) == ParseResult::Command && command.op == Op::Capture &&
+              command.frames == 120 && command.target == "x",
+          "automation parse: capture's frames and folder");
     Check(ParseCommand("frobnicate", &command, &error) == ParseResult::Error && !error.empty(),
           "automation parse: an error says why");
 }
@@ -448,5 +479,39 @@ void TestAutomationStatus()
     Check(got == expected, ("automation status: " + got).c_str());
 }
 SELFTEST(Early, TestAutomationStatus);
+
+// The test views' maths (game/front/test_view.h): a camera's rows from a view direction, a standing skater's from a
+// heading - worked out by hand.
+void TestTestViewRows()
+{
+    using Front::TestView::Vec3;
+    auto near = [](Vec3 a, Vec3 b) {
+        return std::fabs(a.x - b.x) < 1e-5f && std::fabs(a.y - b.y) < 1e-5f && std::fabs(a.z - b.z) < 1e-5f;
+    };
+    Vec3 right, up, back;
+    // Looking along +z: back -z, right up x back = (0,1,0) x (0,0,-1) = (-1, 0, 0), up (0, 1, 0).
+    Check(Front::TestView::CameraRows({0.0f, 0.0f, 2.0f}, &right, &up, &back) && near(back, {0, 0, -1}) &&
+              near(right, {-1, 0, 0}) && near(up, {0, 1, 0}),
+          "test view: camera along +z");
+    // Along +x: back -x, right (0,1,0) x (-1,0,0) = (0, 0, 1).
+    Check(Front::TestView::CameraRows({3.0f, 0.0f, 0.0f}, &right, &up, &back) && near(back, {-1, 0, 0}) &&
+              near(right, {0, 0, 1}) && near(up, {0, 1, 0}),
+          "test view: camera along +x");
+    // Down 45 degrees along -z: back (0, 0.7071, 0.7071), right (1, 0, 0), up back x right = (0, 0.7071, -0.7071).
+    const float h = 0.70710678f;
+    Check(Front::TestView::CameraRows({0.0f, -1.0f, -1.0f}, &right, &up, &back) && near(back, {0, h, h}) &&
+              near(right, {1, 0, 0}) && near(up, {0, h, -h}),
+          "test view: camera down along -z");
+    Check(!Front::TestView::CameraRows({0.0f, 0.0f, 0.0f}, &right, &up, &back), "test view: a zero direction");
+    Check(!Front::TestView::CameraRows({0.0f, -5.0f, 0.0f}, &right, &up, &back), "test view: straight down");
+    Vec3 at;
+    Front::TestView::StandingRows(0.0f, &right, &up, &at);
+    Check(near(right, {1, 0, 0}) && near(up, {0, 1, 0}) && near(at, {0, 0, 1}), "test view: heading 0 (identity)");
+    Front::TestView::StandingRows(90.0f, &right, &up, &at);
+    Check(near(right, {0, 0, -1}) && near(at, {1, 0, 0}), "test view: heading 90 (+x)");
+    Front::TestView::StandingRows(-180.0f, &right, &up, &at);
+    Check(near(right, {-1, 0, 0}) && near(at, {0, 0, -1}), "test view: heading -180 (-z)");
+}
+SELFTEST(Early, TestTestViewRows);
 
 } // namespace

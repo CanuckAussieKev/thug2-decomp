@@ -287,7 +287,7 @@ const char* Problem(const Spec& spec)
         if (spec.gap.empty())
             return "It has no gap";
         if (spec.text.empty() || spec.score <= 0)
-            return "A gap needs its name and a score (the gap list takes only those)";
+            return "A gap needs a name and a score";
         return nullptr;
     case Kind::Other:
         return "It has no script";
@@ -1262,7 +1262,7 @@ const char* GameProblem(const Spec& spec)
         !SkateScript::GetNode(ChecksumOf(spec.target), false))
         return "That node isn't in this level";
     if (spec.kind == Kind::Script && !IsScript(ChecksumOf(spec.script)))
-        return "There is no script of that name";
+        return "Script not found";
     return nullptr;
 }
 
@@ -1732,7 +1732,7 @@ void Create(std::vector<Placed> made, const char* what)
     Sync();
     if (first >= 0) {
         g_select = Nodes::Find(NameChecksum(g_specs[first].name));
-        Hud::Message(std::string("Added ") + what + " - its settings are in the Inspector; Ctrl+Z takes it away", 4.0);
+        Hud::Message(std::string("Added ") + what, 4.0);
     }
 }
 
@@ -1863,7 +1863,7 @@ void AddScript()
     p.spec.size = {300.0f, 200.0f, 300.0f};
     p.pos = PlaceAhead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
-    Create({p}, "a trigger that runs a script (choose it in the Inspector)");
+    Create({p}, "a script trigger");
 }
 
 void AddGap()
@@ -1890,7 +1890,7 @@ void AddGap()
     // (two fresh names: the first isn't taken until it's made)
     std::string first = start.spec.name;
     end.spec.name = NodeCreate::FreshName("ed_trigger", [&](const std::string& n) { return SameText(n, first) || NameTaken(n); });
-    Create({start, end}, "a gap: its start and its end");
+    Create({start, end}, "a gap");
 }
 
 // (UX9: the gap wizard - level_editor_gap_wizard.h) A gap's two ends as given, their names and GapID fresh.
@@ -1911,7 +1911,7 @@ void AddGapPair(Placed start, Placed end)
     end.spec.flags = start.spec.flags;
     end.spec.text = start.spec.text;
     end.spec.score = start.spec.score;
-    Create({start, end}, "a gap from the wizard: its start and its end");
+    Create({start, end}, "a gap");
 }
 
 void SetSpec(const std::string& name, const Spec& spec, bool undo)
@@ -1950,18 +1950,18 @@ void TurnOff(uint32_t sector, bool off)
             t = &l;
     }
     if (!t || !(t->wall || t->allTrigger)) {
-        Hud::Message("Its collision has faces that aren't a trigger's - switching it off would make them go too", 5.0);
+        Hud::Message("Has non-trigger faces; can't be disabled", 5.0);
         return;
     }
     if (std::find(g_switched.begin(), g_switched.end(), sector) == g_switched.end())
         g_switched.push_back(sector); // (its wall state in the undo steps from now on)
     NoteUndo();
     if (!Walls::SetOff(sector, off)) {
-        Hud::Message("Couldn't switch it", 4.0);
+        Hud::Message("Couldn't change the trigger", 4.0);
         return;
     }
-    Hud::Message(off ? "Trigger " + LabelOf(sector) + " switched off (a `wall` record in the layout; Ctrl+Z switches it on)"
-                     : "Trigger " + LabelOf(sector) + " switched on again");
+    Hud::Message(off ? "Trigger " + LabelOf(sector) + " disabled"
+                     : "Trigger " + LabelOf(sector) + " enabled");
 }
 
 void SelectWall(uint32_t sector)
@@ -1979,16 +1979,16 @@ void MakeEditable(uint32_t sector)
     if (!t)
         return;
     if (!t->script) {
-        Hud::Message("It has no TriggerScript to copy", 4.0);
+        Hud::Message("No TriggerScript to copy", 4.0);
         return;
     }
     if (!t->wall && !t->allTrigger) {
-        Hud::Message("Its collision has faces that aren't a trigger's - they'd go with it while the copy stands in", 5.0);
+        Hud::Message("Has non-trigger faces; can't be replaced", 5.0);
         return;
     }
     for (const Spec& s : g_specs) {
         if (s.replaces == sector && NodeAlive(s.name)) {
-            Hud::Message("It has an editable copy already: " + s.name, 4.0);
+            Hud::Message("Already has an editable copy: " + s.name, 4.0);
             return;
         }
     }
@@ -2001,7 +2001,7 @@ void MakeEditable(uint32_t sector)
                              std::max(20.0f, t->max.z - t->min.z)});
     p.pos = (t->min + t->max) * 0.5f;
     p.yaw = 0.0f;
-    Create({p}, ("an editable copy of " + LabelOf(sector) + " (the original is off while it's there)").c_str());
+    Create({p}, ("an editable copy of " + LabelOf(sector)).c_str());
 }
 
 void SelectPartner(const std::string& name)
@@ -2876,7 +2876,7 @@ void AddBoost()
     p.spec.strength = 900;
     p.pos = PlaceAhead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
-    Create({p}, "a jump boost (strength in the Inspector)");
+    Create({p}, "a jump boost");
 }
 
 void AddCamera()
@@ -2898,8 +2898,8 @@ void AddCamera()
         }
     }
     std::string what = p.spec.target.empty()
-                           ? std::string("a camera trigger - make a camera (V) and choose it in the Inspector")
-                           : "a camera trigger playing " + p.spec.target + " (camera and seconds in the Inspector)";
+                           ? std::string("a camera trigger")
+                           : "a camera trigger (" + p.spec.target + ")";
     Create({p}, what.c_str());
 }
 
@@ -2925,10 +2925,10 @@ void SetBreakable(uint32_t sector, bool on)
         p.spec.sound = BreakSounds().front();
         p.spec.replaces = sector; // (its collision off while it's breakable: the skater goes into it, as into glass)
         if (!BreakPlace(p.spec, &p.pos, &p.spec.size)) {
-            Hud::Message("That piece has no box to break", 4.0);
+            Hud::Message("Piece has no bounds", 4.0);
             return;
         }
-        Create({p}, "a breakable: it shatters when the skater hits it");
+        Create({p}, "a breakable");
         return;
     }
     // (off: its trigger removed - its collision comes back with it - and the piece shown if a test run broke it)
@@ -2943,7 +2943,7 @@ void SetBreakable(uint32_t sector, bool on)
     if (uint8_t* piece = Scenery::SectorOf(sector); piece && !SectorActive(sector) && !Scenery::Hidden(sector))
         GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(piece, true); // (CSector::SetActive)
     Sync();
-    Hud::Message("Not breakable now - its collision is back (Ctrl+Z makes it breakable again)", 4.0);
+    Hud::Message("No longer breakable", 4.0);
 }
 
 const ProximEdit* ProximOf(uint32_t node)

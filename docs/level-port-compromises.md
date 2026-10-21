@@ -99,9 +99,23 @@ back: the crash is in THUG2's code, which we are rewriting.
 
 **Rendering**
 - Vertex colour wibbles (animated vertex colours) not converted.
-- The env-mapped passes (uv flag 0x80) and 23 materials' second passes not converted.
+- 23 materials' second passes not converted. (The env-mapped passes - uv flag 0x80, the *_reflect overlays - are
+  THUG2's env passes since 2026-10-21; before, their uv wibble scrolled them over the ramps: docs/pending/shimmer-2.md.)
 - Reflection overlays (PS2 blend 0x8) drawn as additive: an approximation that fixed Foundry's black halfpipe.
-- Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one.
+- Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one, always
+  shown (the flicker script's Invisible of the lit set left out - with no dark set under it, half the room went black;
+  docs/pending/warehouse-flicker.md).
+- **Foundry's generator doors differ from THPS3's own free skate on purpose (TP-41).** THPS3 opens GENERATOR 1 CORE
+  (the big double door, GenDoor01-03) only through the career's valve goal or in a multiplayer game; ours are open in
+  free skate too, as in THUGPRO (which plays every game as a network game), so the generator room is reachable. In a
+  network game both agree anyway. Skater Island's outer door (SI_OuterDoor, which THPS3's cannon goal blows) is gone in
+  free skate the same way. `--compat none` leaves both closed.
+- Free skate's start state follows THPS3's own free skate (PC-THPS3-16): what only a career / goal / multiplayer
+  branch of a start script makes (Tokyo's secret buildings and destroyed sign, Skater Island's cannon-damage set,
+  Airport's tickets, LA's car-fall triggers) isn't there at the start any more. THPS3's multiplayer, goal and career
+  states otherwise aren't brought over: no goals, no career flags. Not matched to THUGPRO's free skate (a network game
+  there: THPS3's multiplayer branches everywhere): Shipyard's multiplayer world state (THPS3's
+  BDJ_SHP_RestartSetupNet, not looked into) - docs/pending/thps3-doors.md.
 
 **Scripts** (THPS3's own, translated; a called script gets its caller's parameters as in THPS3). Statements left out,
 counts across all levels:
@@ -211,6 +225,15 @@ nodes, run by THUG2's code.
 - Collision face bits 0x4000 and 0x8000 dropped (0x2000, not taggable, kept).
 - Collision-only geometry loses its TrickObject / Cluster marking, and statements naming it are left out (section 3).
 - The Mall: an invisible story blocker across the entrance doors removed (Z_MA_Mall_First_Rail_Blocker).
+- Node flags (pieces THAW makes from `CreatedFromVariable=NODEFLAG_...`): THAW's non-story values, **except 30 flags
+  set as THUGPRO's table has them, for online play with THUGPRO - so these areas differ from the real THAW** (TP-40,
+  tools/compat/thugpro/README.md): Skate Ranch has the dino head instead of its bare mound, the telescope, the crane's
+  top and the camper corner's props; Oil Rig has its derrick and grate pieces before they were taken (not the
+  wrecked derrick and the grate's 16 grind rails); Beverly Hills' exit to Skate Ranch is fenced and blocked and
+  Rodeo's awning rails are gone; Downtown's Chinatown green is unbroken (no "after" rails); East LA has the roof
+  couch, the hood park shack and the "before" statues and metro HQ rails; Hollywood's El Capitan doors are open, the
+  metro work site (scissor lift, barriers, 17 rails) and the roof boards are gone; Santa Monica's pier telescope is
+  gone. `--compat none`: THAW's own values.
 - How THAW closes the open ends of the LA areas in online mode: not checked.
 
 **Scripts** (THAW's own; its token stream is THUG2's plus an inline structure token). Left out:
@@ -275,6 +298,6 @@ Formats marked "not identified" haven't been looked into yet.
 6. **THAW's story content.** Read the story archive alongside the online one for the missing props, peds and
    vehicles.
 7. **Lighting and skies.** THAW's time of day, night sectors and per-level skies; THUG1's LevelLights. THPS3's
-   vertex colour wibbles, env-mapped passes and Warehouse's dark set.
+   vertex colour wibbles and Warehouse's dark set.
 8. **Music.** Each game's soundtrack and level streams.
 9. **Goals and pickups.** A project of its own (porting career mode), outside free skate.

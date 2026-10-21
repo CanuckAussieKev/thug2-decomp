@@ -11615,6 +11615,24 @@
       ]
     }
   },
+  "free_skate": {
+    "_register": "TP-41",
+    "_source": "THUGPRO's Foundry scripts (data\\pre\\FOUN_scripts.prx: foun_scripts.qb CJR_Foun_LoadingScript / CJR_Foun_Valve_Check / CJR_Foun_Secret_Gen_Doors) read against THPS3's cjr_scripts.qb. THUGPRO runs every game, free skate too, as a network game: THPS3's `InMultiPlayerGame` is `InNetGame` there, so the level always takes THPS3's multiplayer branch - the generator's doors open, GenDoor01/02/03_Open made, the closed doors killed, the secret generator room (TRG_Ledge_SecretGen*, Secret_Gen*, Collision_Secret_Gen*, Air_Polys_Secret_Gen*) made. THPS3's own free skate (not career, no network) leaves them closed until the career's valve goal sets CJR_FLAG_GEN_OPEN. Our ports have no career: in a network game ours already takes the multiplayer branch (THUG2's InMultiplayerGame is true there too), so online both sides agree; offline free skate: the flag set from <level>_setup.",
+    "si": {
+      "kill": [
+        "SI_OuterDoor",
+        "SI_Sponsors06",
+        "si_lighting02"
+      ],
+      "what": "Skater Island's outer door (SI_OuterDoor, with the banner SI_Sponsors06 and light si_lighting02 THPS3 takes down with it) is gone in free skate: THPS3 blows it with the cannon goal (ALF_SI_BlowDoor, ALF_SI_CheckFlags: SI_FLAG_OUTSIDE_OPEN) or, in a multiplayer game, kills it from ALF_SI_Unhide_Inside (`if InMultiPlayerGame`); THUGPRO's SI_OuterDoor is CreatedAtStart + AbsentInNetGames (TP-14) and its free skate is a network game. Killed a second after ALF_SI_Init made it (no shatter, no sound); the outside is reachable"
+    },
+    "foun": {
+      "set_flags": [
+        "CJR_FLAG_GEN_OPEN"
+      ],
+      "what": "Foundry's GENERATOR 1 CORE doors (GenDoor01 / 02, the big double door, and GenDoor03) open in free skate and the generator room behind is reachable, as in THUGPRO and THPS3's multiplayer: CJR_Foun_Valve_Check's GetFlag branch (kills the GenDoor_Closed* sectors, makes GenDoor01-03_Open) - the same script THPS3's career runs once the five valves are un-jammed"
+    }
+  },
   "_notes": {
     "foun": [
       "flags of Particle_Valve_Steam01: class environmentobject -> gameobject (translation)",
@@ -11823,10 +11841,13 @@
             "ware"
           ]
         },
-        "why": "THPS3's scripts switch between the lit and the dark copies of the same surfaces; drawn both, they fight over them (flicker)",
+        "why": "THPS3's scripts switch between the lit and the dark copies of the same surfaces; drawn both, they fight over them (flicker). The lit copy stays shown: the scripts' Invisible / Kill prefix= of it are left out too (JKU_Ware_RoomFlicker hid it for 10-120 frames at a time with nothing under it - half the level black)",
         "required": false,
         "prefixes": [
           "skware_dark"
+        ],
+        "shown": [
+          "skware_light"
         ]
       },
       {
@@ -11993,6 +12014,16 @@
           }
         ],
         "kept_vehicles": "Vehicles kept as THUGPRO makes them: Tokyo's three jets TRG_Plane_* (plane_jet: its node array's trigger node Box02) and Subway's plane TRG_Plane (light_airplane01: trigger nodes TRGP_CarPlant01 / TRGP_Killskater01) - movers carrying trigger nodes, THUG2's Vehicle form; Rio's 8 and Subway's 1 invisible carplant_collision Vehicles (Obj_LockToObject on a car) - left for a separate decision; road traffic (Tokyo's 18 cars, Subway's ice-cream truck) and every car our converters make"
+      },
+      {
+        "id": "PC-THPS3-16",
+        "op": "remove",
+        "target": {
+          "what": "CreatedAtStart for pieces only a career, goal, multiplayer, network or split-screen branch of a start script makes (createdAtStart follows an `if IsCareerMode` / GetGoal / InMultiPlayerGame / InNetGame / InSplitScreenGame branch only where it is false: offline free skate): Tokyo's career-opened secret buildings (Tok_Secret_Building00_*) and the destroyed sign (Tok_Mid_Sign_Destroyed*) are no longer there - drawn and collided with next to the buildings and sign they replace - at the start of free skate; they stay in the node array for the scripts that make them",
+          "levels": "*"
+        },
+        "why": "THPS3's start scripts make them only in the career (JS_Mid_Smasher_CareerRestart: IsCareerMode and the TOK_SECRET_AREA_OPEN flag) or by a goal script; the static follow took both branches of every `if`, so free skate had both the building and its replacement",
+        "required": false
       }
     ]
   }

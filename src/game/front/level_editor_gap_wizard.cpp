@@ -256,7 +256,7 @@ void SetArmed(bool on)
     g_formOpen = false;
     g_haveHover = false;
     if (on)
-        ShowMessage("Gap wizard: click where the gap starts (a rail, a lip, a wall or the ground) - Esc cancels", 6.0);
+        ShowMessage("Gap Wizard: click the gap start", 6.0);
 }
 
 bool Cancel()
@@ -264,7 +264,7 @@ bool Cancel()
     if (!Armed())
         return false;
     SetArmed(false);
-    ShowMessage("Gap wizard cancelled");
+    ShowMessage("Gap Wizard cancelled");
     return true;
 }
 
@@ -279,17 +279,17 @@ bool Click(V3 origin, V3 unitDir, float x, float y)
         return false;
     Spot spot;
     if (!SpotAt(origin, unitDir, x, y, &spot)) {
-        ShowMessage("Gap wizard: nothing there - click a rail, a lip, a wall or the ground");
+        ShowMessage("Gap Wizard: click a rail, lip, wall or ground");
         return true;
     }
     g_spots[g_picked++] = spot;
     if (g_picked == 1) {
-        ShowMessage(std::string("Gap starts at ") + SpotName(spot.kind) + " - now click where it ends", 6.0);
+        ShowMessage(std::string("Gap starts at ") + SpotName(spot.kind) + " - click the gap end", 6.0);
     } else {
         g_armed = false;
         g_formOpen = true;
         g_type = static_cast<int>(Suggest(g_spots[0], g_spots[1]));
-        ShowMessage(std::string("Gap ends at ") + SpotName(spot.kind) + " - name it, score it and make it", 6.0);
+        ShowMessage(std::string("Gap ends at ") + SpotName(spot.kind) + "", 6.0);
     }
     return true;
 }
@@ -339,7 +339,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(320.0f * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
-    if (!ImGui::Begin("Gap wizard###gapWizard", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
+    if (!ImGui::Begin("Gap Wizard###gapWizard", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open)
             g_queue.push_back([] { SetArmed(false); });
@@ -361,11 +361,11 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
     ImGui::RadioButton("Skitch", false);
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("THUG2's gaps have no skitch flag - a skitch gap can't be made");
+        ImGui::SetTooltip("Not supported in THUG2");
     ImGui::Separator();
     bool named = std::any_of(g_name, g_name + std::strlen(g_name), [](char c) { return c != ' '; });
     ImGui::BeginDisabled(!named);
-    if (ImGui::Button("Make the gap"))
+    if (ImGui::Button("Create Gap"))
         g_queue.push_back([] {
             Make();
             g_formOpen = false;

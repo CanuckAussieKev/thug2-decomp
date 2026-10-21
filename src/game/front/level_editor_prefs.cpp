@@ -182,29 +182,26 @@ void Window(float scale, ImFont* heading, ImFont* small)
             Tip(tip);
     };
     section("Camera");
-    slider("Fly speed", &v.flySpeed, 50, 20000, "%d units/s",
-           "The flying speed when the editor opens. While flying: - / = or the right button + the wheel.");
-    slider("Acceleration", &v.flyAccelMs, 0, 3000, "%d ms", "How long flying takes to reach full speed (0: at once).");
-    slider("Mouse sensitivity", &v.lookPct, 10, 500, "%d%%", "Mouse look with the right button, and Alt+drag orbit.");
-    check("Invert mouse Y", &v.invertY, nullptr);
-    check("W A S D always fly", &v.wasdFlies,
-          "W A S D fly the camera even with something selected (otherwise they nudge the selection).");
-    check("Speed from the selection's size", &v.speedBySelection,
-          "F (frame the selection) sets the flying speed from how big the selection is.");
+    slider("Fly Speed", &v.flySpeed, 50, 20000, "%d units/s", "Initial fly speed");
+    slider("Acceleration", &v.flyAccelMs, 0, 3000, "%d ms", "Time to reach full speed");
+    slider("Mouse Sensitivity", &v.lookPct, 10, 500, "%d%%", "Look and orbit sensitivity");
+    check("Invert Mouse Y", &v.invertY, nullptr);
+    check("WASD Always Flies", &v.wasdFlies, "Fly without holding the right mouse button");
+    check("Fly Speed from Selection Size", &v.speedBySelection, "Frame Selection sets fly speed from its size");
     section("Editing");
-    slider("Gizmo size", &v.gizmoPct, 25, 400, "%d%%", "The move arrows' length and the gizmos' size.");
-    slider("Move snap", &v.snapMove, 1, 1000, "%d units", "The grid moves snap to (Ctrl, or the toolbar's Snap).");
-    slider("Turn step", &v.snapTurn, 1, 90, "%d degrees", "Z / X turn objects and nodes this much (scenery: a quarter).");
-    slider("Autosave every", &v.autosaveSeconds, 10, 3600, "%d s", "Unsaved changes are written aside this often.");
+    slider("Gizmo Size", &v.gizmoPct, 25, 400, "%d%%", nullptr);
+    slider("Grid Size", &v.snapMove, 1, 1000, "%d units", nullptr);
+    slider("Rotation Snap", &v.snapTurn, 1, 90, "%d degrees", nullptr);
+    slider("Autosave Interval", &v.autosaveSeconds, 10, 3600, "%d s", nullptr);
     section("Look");
     bool autoScale = v.uiScalePct == 0;
-    if (ImGui::Checkbox("Automatic UI scale", &autoScale)) {
+    if (ImGui::Checkbox("Automatic UI Scale", &autoScale)) {
         v.uiScalePct = autoScale ? 0 : 100;
         changed = true;
     }
-    Tip("From the window's size (1280 x 720: 100%, 4K: 300%).");
+    Tip("Based on window size (1080p: 100%, 1440p: 125%, 4K: 200%)");
     if (!autoScale)
-        slider("UI scale", &v.uiScalePct, 75, 400, "%d%%", nullptr);
+        slider("UI Scale", &v.uiScalePct, 75, 400, "%d%%", nullptr);
     ImGui::TextUnformatted("Accent");
     for (int i = 0; i < kAccentCount; ++i) {
         float rgb[3];
@@ -233,7 +230,7 @@ void Window(float scale, ImFont* heading, ImFont* small)
     ImGui::Separator();
     if (small)
         ImGui::PushFont(small);
-    ImGui::TextDisabled("Kept in thug2-decomp.ini, [editor].");
+    ImGui::TextDisabled("Saved in thug2-decomp.ini [editor]");
     if (small)
         ImGui::PopFont();
     if (ImGui::Button("Defaults")) {
@@ -276,20 +273,20 @@ void TipsWindow(float scale, ImFont* heading, ImFont* mono)
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(470.0f * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
-    ImGui::Begin("Welcome to the level editor###editortips", &open,
+    ImGui::Begin("Level Editor###editortips", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
     if (heading)
         ImGui::PushFont(heading);
-    ImGui::TextUnformatted("The five keys you need");
+    ImGui::TextUnformatted("Essential Keys");
     if (heading)
         ImGui::PopFont();
     ImGui::Spacing();
     static const char* const kTips[][2] = {
-        {"Right mouse + W A S D", "fly (Q / E down / up, Shift faster, the wheel with the button held: speed)"},
-        {"Click, drag", "select something and move it (Shift+click adds; Esc deselects)"},
-        {"F", "frame the selection (Alt+drag orbits round it; 1..9 recall camera bookmarks, Ctrl+1..9 store them)"},
-        {"F5", "play from here: the skater where the camera is - F5 again comes back to the editor"},
-        {"F1", "every key; Ctrl+S saves the layout"},
+        {"Right mouse + W A S D", "Fly (Q / E: down / up, Shift: faster)"},
+        {"Click, drag", "Select and move (Shift+click: add, Esc: deselect)"},
+        {"F", "Frame selection (Alt+drag: orbit)"},
+        {"F5", "Play from here; F5 again returns"},
+        {"F1", "Keyboard shortcuts (Ctrl+S: save)"},
     };
     if (ImGui::BeginTable("##tips", 2, ImGuiTableFlags_SizingFixedFit)) {
         for (const auto& tip : kTips) {
@@ -310,7 +307,7 @@ void TipsWindow(float scale, ImFont* heading, ImFont* mono)
     ImGui::Spacing();
     bool dismiss = ImGui::Button("Got it");
     ImGui::SameLine();
-    ImGui::TextDisabled("(the help's Show tips brings this back)");
+    ImGui::TextDisabled("(Help > Show Tips shows this again)");
     ImGui::End();
     if (dismiss || !open) {
         g_tips = false;

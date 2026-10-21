@@ -1050,11 +1050,11 @@ bool Create(Type type)
 {
     ViewNow view;
     if (!CurrentView(&view)) {
-        Hud::Message("No view to place a goal from");
+        Hud::Message("No view available");
         return false;
     }
     if (static_cast<int>(g_goals.size()) >= kMaxGoals) {
-        Hud::Message("Ten goals is the most a level has (Create-a-Goal's limit)", 4.0);
+        Hud::Message("Goal limit reached (10)", 4.0);
         return false;
     }
     Frame frame = FrameFromYawPitch(view.yaw, view.pitch);
@@ -1082,8 +1082,7 @@ bool Create(Type type)
     g_goals.push_back(g);
     SyncNodes({g});
     SelectPoint(g, 0);
-    Hud::Message("Goal \"" + g.name + "\" placed - move its points (Pro, Start" +
-                 std::string(count > 2 ? ", letters / checkpoints" : "") + "); it plays when you leave the editor", 5.0);
+    Hud::Message("Added goal \"" + g.name + "\"", 5.0);
     Log("level editor: goal %s (%s) made at (%.1f, %.1f, %.1f)", g.id.c_str(), TypeName(type), base.x, base.y, base.z);
     return true;
 }
@@ -1127,7 +1126,7 @@ bool Remove(const std::string& id)
     for (size_t k = 0; k < g.points.size(); ++k)
         RemoveNode(PointNode(g, static_cast<int>(k)));
     g_goals.erase(g_goals.begin() + i);
-    Hud::Message("Goal \"" + g.name + "\" deleted (Ctrl+Z brings it back)");
+    Hud::Message("Deleted goal \"" + g.name + "\"");
     return true;
 }
 
@@ -1187,7 +1186,7 @@ bool Export(const std::string& id, std::string* message)
     uint8_t* component = editor ? reinterpret_cast<uint8_t*>(editor->GetComponent(0x81F01058)) : nullptr;
     uint32_t level = CurrentLevel();
     if (!component || !level) {
-        *message = "The goal editor isn't there";
+        *message = "Goal editor unavailable";
         return false;
     }
     // (as NewEditorGoal 0x004EA6C0: the first level_goal_index no goal of this level has, then a free slot; at most 10
@@ -1218,7 +1217,7 @@ bool Export(const std::string& id, std::string* message)
     FillImage(g, level, index, GapNumbers(g), &image);
     std::memcpy(slots + slot * kSlotSize, image.bytes, kSlotSize);
     *message = "\"" + g.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) +
-               " - CREATE-A-MODES > create goals in this level lists it; its SAVE GOALS saves it";
+               "";
     Log("level editor: goal %s exported to the goal editor (slot %d, CreatedGoal%d)", g.id.c_str(), slot, index);
     return true;
 }

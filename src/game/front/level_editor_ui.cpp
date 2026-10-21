@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's UI (ours). See level_editor_ui.h. Only ImGui's own API here: the platform and the
 // renderer are level_editor_ui_backend.cpp's.
 
+#include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_adjust.h"
 #include "game/front/level_editor_arrange.h"
 #include "game/front/level_editor_ui.h"
@@ -20,6 +21,7 @@
 #include "game/front/level_editor_camera.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_goals.h"
+#include "game/front/level_editor_hints.h"
 #include "game/front/level_editor_checks.h"
 #include "game/front/level_editor_notes.h"
 #include "game/front/level_editor_ux9.h"
@@ -39,6 +41,8 @@
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
+#include "game/front/level_editor_ui_strip.h"
+#include "game/front/level_editor_ui_theme.h"
 #include "game/front/level_editor_ux3.h"
 #include "game/front/level_editor_ux8.h"
 #include "game/front/level_editor_view.h"
@@ -96,64 +100,6 @@ ImU32 Colour(uint32_t argb)
 
 // --- fonts and style ---
 
-// The characters the editor shows: Latin-1, dashes and bullets, arrows and triangles.
-const ImWchar kRanges[] = {0x0020, 0x00FF, 0x2013, 0x2026, 0x2190, 0x2193, 0x25B2, 0x25C0, 0};
-
-ImFont* AddFont(UiFonts::CompressedFont font, float size)
-{
-    ImFontConfig config;
-    config.OversampleH = 2;
-    config.OversampleV = 1;
-    config.PixelSnapH = true;
-    std::snprintf(config.Name, sizeof(config.Name), "%.0fpx", size);
-    return ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(font.data, font.size, size, &config, kRanges);
-}
-
-void ApplyStyle(float scale)
-{
-    ImGuiStyle style;
-    ImGui::StyleColorsDark(&style);
-    style.WindowRounding = 0.0f;
-    style.ChildRounding = 3.0f;
-    style.FrameRounding = 3.0f;
-    style.PopupRounding = 3.0f;
-    style.GrabRounding = 3.0f;
-    style.TabRounding = 3.0f;
-    style.WindowBorderSize = 1.0f;
-    style.FrameBorderSize = 0.0f;
-    style.WindowPadding = ImVec2(10.0f, 8.0f);
-    style.FramePadding = ImVec2(7.0f, 4.0f);
-    style.ItemSpacing = ImVec2(7.0f, 5.0f);
-    style.IndentSpacing = 14.0f;
-    style.ScrollbarSize = 12.0f;
-    // A dark neutral with the orange accent of the plan's mockup.
-    ImVec4* c = style.Colors;
-    const ImVec4 accent = Accent(1.0f), accentSoft = Accent(0.55f);
-    c[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.115f, 0.125f, 0.94f);
-    c[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    c[ImGuiCol_PopupBg] = ImVec4(0.12f, 0.125f, 0.135f, 0.98f);
-    c[ImGuiCol_Border] = ImVec4(0.25f, 0.26f, 0.28f, 1.0f);
-    c[ImGuiCol_FrameBg] = ImVec4(0.18f, 0.19f, 0.2f, 1.0f);
-    c[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.25f, 0.27f, 1.0f);
-    c[ImGuiCol_FrameBgActive] = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
-    c[ImGuiCol_TitleBg] = c[ImGuiCol_TitleBgActive] = ImVec4(0.09f, 0.095f, 0.1f, 1.0f);
-    c[ImGuiCol_Button] = ImVec4(0.2f, 0.21f, 0.225f, 1.0f);
-    c[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
-    c[ImGuiCol_ButtonActive] = accentSoft;
-    c[ImGuiCol_Header] = Accent(0.35f);
-    c[ImGuiCol_HeaderHovered] = Accent(0.45f);
-    c[ImGuiCol_HeaderActive] = accentSoft;
-    c[ImGuiCol_CheckMark] = accent;
-    c[ImGuiCol_SliderGrab] = accent;
-    c[ImGuiCol_SliderGrabActive] = accent;
-    c[ImGuiCol_Separator] = c[ImGuiCol_Border];
-    c[ImGuiCol_Text] = ImVec4(0.91f, 0.9f, 0.88f, 1.0f);
-    c[ImGuiCol_TextDisabled] = ImVec4(0.6f, 0.61f, 0.63f, 1.0f);
-    c[ImGuiCol_NavCursor] = accent;
-    style.ScaleAllSizes(scale);
-    ImGui::GetStyle() = style;
-}
-
 // The fonts and the style for the window's size (made again when its scale changes: the font texture with them).
 void UpdateScale()
 {
@@ -167,15 +113,15 @@ void UpdateScale()
     g_scale = scale;
     g_styleGeneration = Prefs::StyleGeneration();
     UiLayout::FontSizes sizes = UiLayout::FontSizesFor(scale);
-    ImFontAtlas* atlas = ImGui::GetIO().Fonts;
-    atlas->Clear();
-    g_ui = AddFont(UiFonts::Inter(), sizes.ui);
-    g_small = AddFont(UiFonts::Inter(), sizes.small);
-    g_mono = AddFont(UiFonts::Mono(), sizes.mono);
-    g_heading = AddFont(UiFonts::InterSemiBold(), sizes.heading);
-    atlas->Build();
+    UiTheme::Fonts fonts = UiTheme::BuildFonts(scale);
+    g_ui = fonts.ui;
+    g_small = fonts.small;
+    g_mono = fonts.mono;
+    g_heading = fonts.heading;
     UiBackend::InvalidateDeviceObjects(); // (the font texture is made again)
-    ApplyStyle(scale);
+    float rgb[3];
+    Prefs::AccentRgb(Prefs::Get().accent, rgb);
+    UiTheme::ApplyStyle(scale, rgb);
     Log("level editor UI: scale %.2f for a %dx%d window (Inter %.0f px, JetBrains Mono %.0f px)", scale, width,
         height, sizes.ui, sizes.mono);
 }
@@ -255,26 +201,6 @@ void PanelTitle(const char* title)
 
 // --- the view options (level_editor_view.h) ---
 
-// The toolbar's Collision (C) and, while pieces are hidden in the editor, Show all.
-void ViewToolbar(const Model& model)
-{
-    // The View (Lit / Unlit / Wireframe / Collision only) and Overlays menus - Collision (C) is in Overlays - and
-    // Faces mode (K): level_editor_overlays.h.
-    Overlays::ToolbarMenus(model, g_scale, &g_requests);
-    if (model.view.hidden > 0) {
-        ImGui::SameLine();
-        char label[48];
-        std::snprintf(label, sizeof(label), "Show all (%d hidden)", model.view.hidden);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.30f, 0.62f, 0.85f));
-        if (ImGui::SmallButton(label))
-            Ask(Request::kViewShowAll);
-        ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Alt+H: everything hidden in the editor (H, I) shown again - hiding there is only while "
-                              "editing:\nnever saved, never in play");
-    }
-}
-
 // The collision's legend, over the bottom left of the view while it's shown.
 void CollisionLegend(const Model& model)
 {
@@ -288,7 +214,12 @@ void CollisionLegend(const Model& model)
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
                      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove);
     ImGui::PushFont(g_small);
-    ImGui::TextUnformatted("Collision (C)");
+    ImGui::TextUnformatted("Collision");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Hide##collisionLegend"))
+        Ask(Request::kCollision); // (value 0: off)
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Hide Collision  (C)");
     for (int i = 0; i < static_cast<int>(View::Surface::kCount); ++i) {
         auto surface = static_cast<View::Surface>(i);
         ImVec2 at = ImGui::GetCursorScreenPos();
@@ -299,10 +230,10 @@ void CollisionLegend(const Model& model)
         ImGui::SameLine();
         ImGui::TextUnformatted(View::SurfaceName(surface));
     }
-    ImGui::TextDisabled("%d faces in %d pieces (%d invisible walls)%s", model.view.triangles, model.view.sectors,
-                        model.view.walls, model.view.capped ? " - the nearest only" : "");
+    ImGui::TextDisabled("%d faces, %d pieces, %d invisible walls%s", model.view.triangles, model.view.sectors,
+                        model.view.walls, model.view.capped ? " (nearest)" : "");
     if (model.view.off > 0)
-        ImGui::TextDisabled("Faded / dashed: collision switched off (%d pieces)", model.view.off);
+        ImGui::TextDisabled("Faded / dashed: collision off (%d)", model.view.off);
     // (a moved piece's shared collision - level_editor_shared_coll.h - and the level's triggers by kind)
     auto swatchLine = [](uint32_t argb, const char* text) {
         ImVec2 at = ImGui::GetCursorScreenPos();
@@ -313,12 +244,12 @@ void CollisionLegend(const Model& model)
         ImGui::SameLine();
         ImGui::TextUnformatted(text);
     };
-    swatchLine(View::kCompanionEdge, "Cyan edges: a moved piece's collision taken along");
-    swatchLine(View::kTakenEdge, "Faded, cyan dashes: where it was taken from (off)");
-    swatchLine(View::kHoverWall, "Shift: the wall a Shift+click takes");
+    swatchLine(View::kCompanionEdge, "Moved collision");
+    swatchLine(View::kTakenEdge, "Original collision position (off)");
+    swatchLine(View::kHoverWall, "Wall under cursor (Shift)");
     if (model.view.companions > 0 || model.view.taken > 0)
-        ImGui::TextDisabled("%d moved pieces' collision drawn, %d faces taken", model.view.companions, model.view.taken);
-    if (ImGui::TreeNode("Triggers (0x40) by kind")) {
+        ImGui::TextDisabled("%d moved pieces, %d faces moved", model.view.companions, model.view.taken);
+    if (ImGui::TreeNode("Triggers")) {
         for (int k = 0; k < Triggers::kKinds; ++k) {
             auto kind = static_cast<Triggers::Kind>(k);
             ImVec2 at = ImGui::GetCursorScreenPos();
@@ -329,10 +260,10 @@ void CollisionLegend(const Model& model)
             ImGui::SameLine();
             ImGui::TextUnformatted(Triggers::KindName(kind));
         }
-        ImGui::TextDisabled("%d trigger faces coloured", model.view.triggers);
+        ImGui::TextDisabled("%d trigger faces", model.view.triggers);
         ImGui::TreePop();
     }
-    ImGui::TextDisabled("Not coloured: 0x80 camera passes, 0x2000 not taggable");
+    ImGui::TextDisabled("Not shown: camera pass-through, not taggable");
     ImGui::PopFont();
     ImGui::End();
 }
@@ -346,7 +277,7 @@ void ViewSection(const Model& model)
         ImGui::PushFont(g_heading);
         ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.9f, 1.0f), "%s", model.view.wallName.c_str());
         ImGui::PopFont();
-        Muted("invisible wall");
+        Muted("Invisible wall");
         ImGui::SameLine();
         Mono("0x%08X", model.view.wall);
         ImGui::PushFont(g_mono);
@@ -358,62 +289,60 @@ void ViewSection(const Model& model)
         else
             ImGui::TextWrapped("%s", model.view.wallState.c_str());
         if (model.view.wallOff) {
-            if (ImGui::Button("Restore (Del / Home)"))
+            if (ImGui::Button("Restore Collision"))
                 Ask(Request::kWallCollision, 1);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Switches its collision on again: the skater's feelers hit it");
+                ImGui::SetTooltip("Turn collision back on  (Del)");
         } else {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
-            if (ImGui::Button("Delete wall (Del)"))
+            if (ImGui::Button("Disable Collision"))
                 Ask(Request::kWallCollision, 0);
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Switches its collision off (the game's own switch - as a Kill of its node): the skater "
-                                  "passes it.\nIt stays drawn dashed here so you can bring it back; saved in the layout");
+                ImGui::SetTooltip("Turn this wall's collision off  (Del)");
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(!model.view.wallMoved && !model.view.wallOff);
-        if (ImGui::Button("Put back (Home)##wall"))
+        if (ImGui::Button("Revert##wall"))
             Ask(Request::kReset);
         ImGui::EndDisabled();
-        if (ImGui::Button("Ground (G)##wall"))
+        if (ImGui::Button("Drop to Ground##wall"))
             Ask(Request::kDrop);
         ImGui::SameLine();
         if (ImGui::Button("Close##wall"))
             Ask(Request::kClearWall);
-        ImGui::TextDisabled("Move: drag its face or an arrow, W A S D / Q E; Z / X a quarter turn");
+        
     }
     if (model.view.sceneryCollision >= 0 && !model.view.wall) {
         // A drawn piece's collision switched off by itself (it stays drawn; the same switch, level_editor_walls.h).
         ImGui::Spacing();
         ImGui::Separator();
         bool on = model.view.sceneryCollision == 1;
-        if (ImGui::Checkbox(model.view.sceneryCollision == 2 ? "Collision (some off)" : "Collision", &on))
+        if (ImGui::Checkbox(model.view.sceneryCollision == 2 ? "Collision (mixed)" : "Collision", &on))
             Ask(Request::kSceneryCollision, on ? 1 : 0);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Off: the piece stays drawn but the skater passes through it (saved in the layout; shown "
-                              "faded with the collision view)");
+            ImGui::SetTooltip("Off: visible but not solid");
     }
     if (model.view.canHide || model.view.hidden > 0) {
         ImGui::Spacing();
         ImGui::Separator();
-        Muted("While editing only (never saved, never in play)");
+        Muted("Editor Visibility");
         ImGui::BeginDisabled(!model.view.canHide);
-        if (ImGui::Button("Hide (H)"))
+        if (ImGui::Button("Hide"))
             Ask(Request::kViewHide);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Hides the selection from the view and from clicks while editing");
+            ImGui::SetTooltip("Hide Selection  (H)");
         ImGui::SameLine();
-        if (ImGui::Button("Isolate (I)"))
+        if (ImGui::Button("Isolate"))
             Ask(Request::kViewIsolate);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Hides everything else (scenery and objects) while editing");
+            ImGui::SetTooltip("Isolate Selection  (I)");
         ImGui::EndDisabled();
         if (model.view.hidden > 0) {
             ImGui::SameLine();
-            if (ImGui::Button("Show all (Alt+H)"))
+            if (ImGui::Button("Show All"))
                 Ask(Request::kViewShowAll);
-            ImGui::TextDisabled("%d hidden in the editor", model.view.hidden);
+            ImGui::TextDisabled("%d hidden", model.view.hidden);
         }
     }
     Faces::InspectorSection(g_mono, g_small); // (map3: the collision faces selected - level_editor_faces.h)
@@ -421,150 +350,74 @@ void ViewSection(const Model& model)
 
 // --- the panels ---
 
+// The menu bar over the tool strip (level_editor_ui_strip.h).
 void Toolbar(const Model& model)
 {
-    PlaceWindow(g_layout.toolbar);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * g_scale, 5.0f * g_scale));
-    ImGui::Begin("##toolbar", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
+    PlaceWindow(g_layout.menu);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::Begin("##menubar", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar);
+    ImGui::PopStyleVar(2);
+    if (ImGui::BeginMenuBar()) {
+        MenuBar(model, Ux8Fonts(), &g_requests);
+        ImGui::EndMenuBar();
+    }
+    ImGui::End();
+
+    PlaceWindow(g_layout.strip);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * g_scale, 4.0f * g_scale));
+    ImGui::Begin("##toolstrip", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
-    ImGui::PushFont(g_heading);
-    ImGui::TextColored(ImVec4(0.94f, 0.48f, 0.24f, 1.0f), "LEVEL EDITOR");
-    ImGui::PopFont();
-    ImGui::SameLine(0.0f, 16.0f * g_scale);
-    // The mode (what the mouse and keys do now).
-    const char* modes[] = {"Fly", "Select", "Move", "Add"};
-    int mode = std::strcmp(model.mode, "ADD") == 0 ? 3 : std::strncmp(model.mode, "MOVING", 6) == 0 ? 2
-             : std::strcmp(model.mode, "SELECTED") == 0 ? 1 : 0;
-    for (int i = 0; i < 4; ++i) {
-        bool on = i == mode;
-        if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
-        ImGui::SmallButton(modes[i]);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("The mode follows what you do: fly (nothing selected), select (a click), move (drag), "
-                              "add (B)");
-        if (on)
-            ImGui::PopStyleColor();
-        ImGui::SameLine(0.0f, 2.0f * g_scale);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f * g_scale, 3.0f * g_scale));
+    UiStrip::State state;
+    state.selection = std::strcmp(model.mode, "FLYING") != 0 && std::strcmp(model.mode, "ADD") != 0;
+    Transform::Settings& transform = Transform::Current();
+    state.tool = static_cast<int>(transform.mode);
+    state.local = transform.space == Transform::Space::Local;
+    state.snap = model.snapAlways;
+    state.grid = Transform::Grid();
+    state.grids = Transform::GridSizes();
+    state.pickFilter = model.pickFilter;
+    state.level = model.levelTitle;
+    state.saved = model.editedSaved;
+    state.unsaved = model.unsaved;
+    state.budget = Budget::StripMeter(&state.budgetFill, &state.budgetArgb);
+    int infos = 0;
+    Checks::ShownCounts(&state.errors, &state.warnings, &infos);
+    state.hidden = model.view.hidden;
+    state.simulating = PlayTest::Simulating();
+    state.keyOf = [](const char* id) {
+        int index = Actions::Find(id);
+        return index >= 0 ? Hints::FirstKey(Actions::KeysText(index)) : std::string();
+    };
+    const UiLayout::Rect& strip = g_layout.strip;
+    float padX = 8.0f * g_scale, padY = std::max(0.0f, (strip.height - ImGui::GetFrameHeight()) * 0.5f);
+    UiStrip::Output out;
+    UiStrip::Draw(state, strip.x + padX, strip.y + padY, strip.width - 2.0f * padX, g_scale, &out);
+    ImGui::PopStyleVar();
+    if (out.budgetHovered)
+        Budget::Tooltip();
+    if (out.levelHovered)
+        ImGui::SetTooltip("Editing a copy of %s. The original level is unchanged.\nLayout: %s", model.levelTitle.c_str(),
+                          model.editedSaved ? (model.unsaved ? "saved, with unsaved changes" : "saved") : "not saved yet");
+    for (const UiStrip::Event& e : out.events) {
+        switch (e.kind) {
+        case UiStrip::Event::kDeselect: Ask(Request::kDeselect); break;
+        case UiStrip::Event::kTool: transform.mode = static_cast<Transform::Mode>(static_cast<int>(e.value)); break;
+        case UiStrip::Event::kSpace:
+            transform.space = transform.space == Transform::Space::World ? Transform::Space::Local : Transform::Space::World;
+            break;
+        case UiStrip::Event::kSnap: Ask(Request::kSnapAlways, e.value != 0.0f ? 1 : 0); break;
+        case UiStrip::Event::kGrid: Transform::SetGrid(e.value); break;
+        case UiStrip::Event::kPick: Ask(Request::kPickFilter, 0, static_cast<uint32_t>(e.value)); break;
+        case UiStrip::Event::kProblems: Checks::ToggleWindow(); break;
+        case UiStrip::Event::kBudget: Checks::OpenWindow(Checks::kBudgetTab); break;
+        case UiStrip::Event::kShowAll: Ask(Request::kViewShowAll); break;
+        case UiStrip::Event::kSimulate: Actions::Run(Actions::kSimulate); break;
+        }
     }
-    ImGui::SameLine(0.0f, 14.0f * g_scale);
-    // The transform tools (level_editor_transform.h): Move / Rotate / Scale, World / Local, the pivot.
-    Transform::ToolbarTools(g_scale);
-    ImGui::SameLine(0.0f, 10.0f * g_scale);
-    bool snap = model.snapAlways;
-    if (ImGui::Checkbox("Snap", &snap))
-        Ask(Request::kSnapAlways, snap ? 1 : 0);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Moves snap without a key - to the Snap to list's choice (grid steps from where it was by\n"
-                          "default). While dragging: Ctrl the grid, Ctrl+Shift the world's grid, Alt+Shift a surface,\n"
-                          "Ctrl+Alt a vertex; turns snap to the angle step, scales to tenths");
-    Transform::ToolbarSnap(g_scale);
-    // Carrying (level_editor_carry.h; [editor] carry= in the ini).
-    ImGui::SameLine(0.0f, 10.0f * g_scale);
-    bool carry = model.carry;
-    if (ImGui::Checkbox(model.carried > 0 ? "Carry objects *###carry" : "Carry objects###carry", &carry))
-        Ask(Request::kCarry, carry ? 1 : 0);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Moving, turning or scaling scenery takes along the objects and nodes standing on it or attached\n"
-                          "to it (their node's Cluster= or links name it). Alt while moving leaves them.%s",
-                          model.carried > 0 ? ("\nCarrying " + std::to_string(model.carried) + " now.").c_str() : "");
-    // What a click in the view may take (level_editor_picking.h; [editor] pick= in the ini).
-    ImGui::SameLine(0.0f, 12.0f * g_scale);
-    ImGui::TextDisabled("Pick:");
-    static const struct {
-        const char* label;
-        uint32_t bit;
-        const char* tip;
-    } kPick[] = {{"Nodes", Picking::kNodes, "Clicks take nodes' gizmos (spawns, crowns, lights...)"},
-                 {"Objects", Picking::kObjects, "Clicks take objects (level objects, peds, cars)"},
-                 {"Scenery", Picking::kScenery, "Clicks take scenery pieces (off: only the Outliner and the browser "
-                                                "select them)"}};
-    for (const auto& pick : kPick) {
-        ImGui::SameLine(0.0f, 4.0f * g_scale);
-        bool on = (model.pickFilter & pick.bit) != 0;
-        if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
-        if (ImGui::SmallButton(pick.label))
-            Ask(Request::kPickFilter, 0, model.pickFilter ^ pick.bit);
-        if (on)
-            ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", pick.tip);
-    }
-    ImGui::SameLine();
-    ImGui::BeginDisabled(model.selection.objects == 0 && model.selection.sectors == 0 && !model.nodes.movable);
-    if (ImGui::SmallButton("Ground (G)"))
-        Ask(Request::kDrop);
-    ImGui::EndDisabled();
-    ViewToolbar(model);
-    Ux3::Toolbar(model); // (Search, History, Changes, Snapshots - level_editor_ux3.h)
-    Ux8::Toolbar(Ux8Fonts()); // (UX8: the Sets menu - level_editor_ux8.h)
-    Budget::ToolbarItem(g_scale);   // (UX5: the budget meter - level_editor_budget.h)
-    Checks::ToolbarButton(g_scale); // (UX5: Problems, Alt+P - level_editor_checks.h)
-    ImGui::SameLine(0.0f, 14.0f * g_scale);
-    // Which level: always its edited copy (level_editor_layout.h) - never the level as shipped.
-    ImGui::TextColored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s (edited copy)", model.levelTitle.c_str());
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("You are editing the edited copy of %s: a level of its own - \"%s (EDITED)\" in the level\n"
-                          "select (offline only). The level as shipped, and every network game, stay as they are.\n"
-                          "Saved layout: %s. Scene %s.",
-                          model.levelTitle.c_str(), model.levelTitle.c_str(),
-                          model.editedSaved ? "yes" : "not yet (Ctrl+S makes it)", model.level.c_str());
-    // Right: undo / redo / save, reset, help, add.
-    float right = (ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x);
-    float width =
-        ImGui::CalcTextSize("Undo  Redo  Save layout  Reset level  Help (F1)  Add (B)  Place (N)  Prefs").x + 112.0f * g_scale;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f * g_scale, right - width));
-    ImGui::BeginDisabled(!model.canUndo);
-    if (ImGui::SmallButton("Undo"))
-        Ask(Request::kUndo);
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    ImGui::BeginDisabled(!model.canRedo);
-    if (ImGui::SmallButton("Redo"))
-        Ask(Request::kRedo);
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (model.unsaved)
-        ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
-    if (ImGui::SmallButton("Save layout"))
-        Ask(Request::kSave);
-    if (model.unsaved)
-        ImGui::PopStyleColor();
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Ctrl+S: the edited copy's layout - the level select's (EDITED) entry loads it");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Reset level"))
-        Ask(Request::kResetLevel);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Ctrl+Shift+Delete: everything back as the level has it, its saved layout deleted (asks first)");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Help (F1)"))
-        Ask(Request::kToggleHelp);
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Add (B)"))
-        Ask(Request::kToggleBrowser);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Copies of the level's scenery and objects");
-    ImGui::SameLine();
-    if (model.place.open)
-        ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
-    if (ImGui::SmallButton("Place (N)"))
-        Ask(Request::kPlaceToggle);
-    if (model.place.open)
-        ImGui::PopStyleColor();
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("New nodes: spawns, crowns, CTF flags, lights, sounds, proximity nodes");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Prefs"))
-        Prefs::Open() = !Prefs::Open(); // (level_editor_prefs.h)
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Preferences (Ctrl+,): camera speed, mouse, gizmo size, UI scale, autosave, snap, accent");
-    ImGui::SameLine();
-    PlayTest::ToolbarButtons(); // (Trail, Simulate - level_editor_playtest.h)
     ImGui::End();
 }
-
 // The Outliner's rows: each node's label (made again when the node arrays change) and the families' node lists.
 struct OutlinerCache {
     uint32_t generation = 0;
@@ -660,7 +513,7 @@ void FamilyChips(const Model& model)
             Ask(Request::kFamilies, 0, model.nodes.families ^ Nodes::Bit(family));
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%d %s - click to %s them (kept in thug2-decomp.ini)", counts[f], name, on ? "hide" : "show");
+            ImGui::SetTooltip("%d %s - click to %s", counts[f], name, on ? "hide" : "show");
     }
     ImGui::PopStyleVar(2);
     ImGui::PopFont();
@@ -678,16 +531,14 @@ void Outliner(const Model& model)
     // (Select similar on a node asks for its family here - level_editor_ux3.h)
     if (std::string asked = Ux3::TakeOutlinerSearch(); !asked.empty())
         std::snprintf(g_outlinerSearch, sizeof(g_outlinerSearch), "%s", asked.c_str());
-    ImGui::InputTextWithHint("##search", "Search (rail: spawn: object: group:<name> label: locked:)\xE2\x80\xA6",
+    ImGui::InputTextWithHint("##search", "Search\xE2\x80\xA6",
                              g_outlinerSearch, sizeof(g_outlinerSearch));
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Words match names and labels. Type filters: a family (rail:, spawn:, crown:, flag:, object:,\n"
-                          "scenery:, light:, sound:, trigger:, path:, ladder:, particle:, other:), group:<name>,\n"
-                          "label: (rows with a label), locked:, hidden: - e.g. \"rail: ware\"");
+        ImGui::SetTooltip("Filter by name. Prefixes: rail: spawn: object: group:<name> label: locked: hidden:");
     // (only the rows the editor has changed - those with markers)
-    ImGui::Checkbox("Changed only", &g_changedOnly);
+    ImGui::Checkbox("Changed Only", &g_changedOnly);
     if (ImGui::IsItemHovered()) {
-        std::string legend = "Only rows the editor has changed. The markers at a row's end:";
+        std::string legend = "Show changed items only. Markers:";
         for (int bit = 0; bit < kMarkCount; ++bit)
             legend += std::string("\n") + MarkLetter(bit) + "  " + MarkName(bit);
         ImGui::SetTooltip("%s", legend.c_str());
@@ -702,7 +553,7 @@ void Outliner(const Model& model)
     Ux3::Groups(); // (the user's groups - level_editor_organize.h)
     const std::vector<Nodes::Node>& nodes = Nodes::All();
     if (nodes.empty())
-        Muted("No nodes (no level loaded).");
+        Muted("No level loaded");
     int selected = model.nodes.selected;
     bool follow = selected != g_lastSelected && selected >= 0; // (picked in the view: shown here)
     g_lastSelected = selected;
@@ -776,7 +627,7 @@ void Outliner(const Model& model)
                         Ask(Request::kGoToNode, i);
                 }
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("Click selects; double-click takes the camera there");
+                    ImGui::SetTooltip("Click to select, double-click to focus");
                 std::string tag = RowTag(node);
                 // (the markers - what the editor has done to it - at the row's end, the tag before them)
                 auto found = model.marks.find(node.name);
@@ -854,7 +705,7 @@ void NodeSection(const Model& model, int index)
         ImGui::PopFont();
     } else {
         ImGui::Spacing();
-        ImGui::SeparatorText("Its node");
+        ImGui::SeparatorText("Node");
     }
     std::string cls = node.cls ? Nodes::Label(node.cls) : "(no class)";
     if (node.type)
@@ -865,7 +716,7 @@ void NodeSection(const Model& model, int index)
     ImGui::PopFont();
     if (node.added) {
         ImGui::PushFont(g_small);
-        Badge("Added by the editor", IM_COL32(46, 122, 67, 200));
+        Badge("Added", IM_COL32(46, 122, 67, 200));
         ImGui::NewLine();
         ImGui::PopFont();
     }
@@ -873,9 +724,7 @@ void NodeSection(const Model& model, int index)
         ImGui::PushFont(g_small);
         Badge("Hidden", IM_COL32(110, 110, 110, 220));
         ImGui::NewLine();
-        ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s",
-                           "Hidden, not removed: the game skips it (its class is the editor's marker). Home shows it "
-                           "again.");
+        ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", "Hidden in game. Revert to show.");
         ImGui::PopFont();
     }
     // Online: spawns, crowns and flags in a level shared with THUGPRO.
@@ -886,11 +735,8 @@ void NodeSection(const Model& model, int index)
         ImGui::PushFont(g_heading);
         ImGui::TextColored(ImVec4(0.56f, 0.71f, 0.92f, 1.0f), "Online");
         ImGui::PopFont();
-        ImGui::TextWrapped("This level is ported from %s and shared with THUGPRO. Its %s decide where players start "
-                           "and play in net games: moving one changes that against THUGPRO's players (the THUGPRO "
-                           "register, tools/compat/thugpro). Layouts aren't used in net games - a layout baked into "
-                           "the level's files would be.",
-                           model.nodes.sharedGame, Nodes::FamilyName(node.family));
+        ImGui::TextWrapped("Shared with THUGPRO (ported from %s). %s affect online play.", model.nodes.sharedGame,
+                           Nodes::FamilyName(node.family));
         ImGui::EndChild();
         ImGui::PopStyleColor();
     }
@@ -921,13 +767,12 @@ void NodeSection(const Model& model, int index)
                 FieldLabel("Moves");
                 bool whole = model.nodes.wholeRail;
                 char label[64];
-                std::snprintf(label, sizeof(label), "Whole %s (L) - %d point%s", model.nodes.chainNoun,
+                std::snprintf(label, sizeof(label), "Whole %s (%d point%s)", model.nodes.chainNoun,
                               model.nodes.railPoints, model.nodes.railPoints == 1 ? "" : "s");
                 if (ImGui::Checkbox(label, &whole))
                     Ask(Request::kWholeRail, whole ? 1 : 0);
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("On: dragging, the arrows, nudging, G and the Position field move every point of\n"
-                                      "this rail by as much. Off: this point only (the segments to it follow).");
+                    ImGui::SetTooltip("Move all points together  (L)");
             }
             if (moved || turned) {
                 V3 angles = turned ? NodeEdit::WithHeading(model.nodes.angles, heading) : model.nodes.angles;
@@ -977,29 +822,27 @@ void NodeSection(const Model& model, int index)
             ImGui::PopFont();
             FieldLabel("Order");
             if (node.hidden)
-                Mono("not counted while hidden");
+                Mono("hidden");
             else
                 Mono("%d of %d restarts", node.order + 1, Nodes::Walked(Nodes::Family::Spawn));
         }
         if (node.family == Nodes::Family::Crown) {
             FieldLabel("Crown");
             if (node.hidden)
-                Mono("not counted while hidden\n(%d crowns count)", Nodes::Walked(Nodes::Family::Crown));
+                Mono("hidden (%d active)", Nodes::Walked(Nodes::Family::Crown));
             else
-                Mono("#%d of %d (the order the network sends;\nmoving it keeps it)", node.order,
+                Mono("%d of %d", node.order,
                      Nodes::Walked(Nodes::Family::Crown));
             if (model.nodes.nodeOnly && !node.hidden) {
                 ImGui::BeginDisabled(!model.nodes.crownUp);
-                if (ImGui::SmallButton("Move up"))
+                if (ImGui::SmallButton("Move Up"))
                     Ask(Request::kCrownMove, -1);
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    ImGui::SetTooltip(node.added ? "Earlier among the crowns you added (the level's own come first)"
-                                                 : "The level's own crowns keep the level's order: only crowns you "
-                                                   "added can be reordered");
+                    ImGui::SetTooltip(node.added ? "Move earlier in crown order" : "Only added crowns can be reordered");
                 ImGui::SameLine();
                 ImGui::BeginDisabled(!model.nodes.crownDown);
-                if (ImGui::SmallButton("Move down"))
+                if (ImGui::SmallButton("Move Down"))
                     Ask(Request::kCrownMove, 1);
                 ImGui::EndDisabled();
             }
@@ -1036,31 +879,33 @@ void NodeSection(const Model& model, int index)
     }
     if (editable) {
         ImGui::PushFont(g_small);
-        ImGui::TextDisabled("Shows in the game:");
-        ImGui::TextWrapped("%s", model.nodes.whenApplied);
-        if (model.nodes.moved)
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "Moved from where the level has it (Home puts it back).");
+        ImGui::TextDisabled("Applies: %s", model.nodes.whenApplied);
+        if (model.nodes.moved) {
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "Modified");
+        }
         ImGui::PopFont();
-        if (ImGui::Button("Ground (G)"))
+        if (ImGui::Button("Drop to Ground"))
             Ask(Request::kDrop);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Drop to Ground  (G)");
         ImGui::SameLine();
         ImGui::BeginDisabled(!model.nodes.moved && !model.nodes.hidden);
-        if (ImGui::Button(model.nodes.hidden ? "Show again (Home)" : "Home"))
+        if (ImGui::Button(model.nodes.hidden ? "Show" : "Revert"))
             Ask(Request::kReset);
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (model.nodes.added || (model.nodes.canHide && !model.nodes.hidden)) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.29f, 0.14f, 0.13f, 1.0f));
-            if (ImGui::Button(model.nodes.added ? "Delete (Del)" : "Hide (Del)"))
+            if (ImGui::Button(model.nodes.added ? "Delete" : "Hide"))
                 Ask(Request::kDeleteNode);
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip(model.nodes.added ? "Removed (Ctrl+Z brings it back)"
-                                                    : "A level's node is hidden, not removed (Home brings it back)");
+                ImGui::SetTooltip(model.nodes.added ? "Delete  (Del)" : "Hide original node  (Del)");
             ImGui::SameLine();
         } else if (!model.nodes.added && !model.nodes.hidden && !model.nodes.whyNoHide.empty()) {
             ImGui::BeginDisabled(true);
-            ImGui::Button("Hide (Del)");
+            ImGui::Button("Hide");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", model.nodes.whyNoHide.c_str());
@@ -1074,7 +919,7 @@ void NodeSection(const Model& model, int index)
     }
     PlayTest::RestartSection(index); // (a restart's Play from here - level_editor_playtest.h)
     SpawnSection(index, &g_requests); // (a HORSE spot - the feature map: level_editor_spots_ui.cpp)
-    if (ImGui::Button("Go to"))
+    if (ImGui::Button("Focus"))
         Ask(Request::kGoToNode, index);
     // Every field of its structure, typed and editable (phase 6: level_editor_fields_ui.cpp).
     FieldsSection(index, g_mono, g_small, &g_requests);
@@ -1088,7 +933,7 @@ void LockList(const Model& model)
     ImGui::Spacing();
     ImGui::Separator();
     char title[48];
-    std::snprintf(title, sizeof(title), "Locked (%d) - clicks pass these###locks", static_cast<int>(model.locks.size()));
+    std::snprintf(title, sizeof(title), "Locked (%d)###locks", static_cast<int>(model.locks.size()));
     if (!ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen))
         return;
     for (size_t i = 0; i < model.locks.size(); ++i) {
@@ -1111,7 +956,7 @@ void MemberList(const std::vector<Model::Selection::Member>& members)
     if (members.empty())
         return;
     ImGui::Spacing();
-    Muted("Parts (x removes one, Ctrl+click in the view too)");
+    Muted("Parts");
     float rows = static_cast<float>(std::min<size_t>(members.size(), 10));
     ImGui::BeginChild("##members", ImVec2(0.0f, rows * ImGui::GetFrameHeightWithSpacing() + 4.0f * g_scale), false);
     for (size_t i = 0; i < members.size(); ++i) {
@@ -1121,10 +966,9 @@ void MemberList(const std::vector<Model::Selection::Member>& members)
         if (ImGui::SmallButton("x"))
             Ask(Request::kMemberRemove, rail, member.id);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip(member.rail ? "No longer carried along with the selection"
-                                          : "Removed from the selection (stays where it is)");
+            ImGui::SetTooltip("Remove from selection");
         ImGui::SameLine();
-        if (ImGui::SmallButton("Keep only this"))
+        if (ImGui::SmallButton("Only"))
             Ask(Request::kMemberKeep, rail, member.id);
         ImGui::SameLine();
         ImGui::PushFont(g_mono);
@@ -1160,8 +1004,7 @@ void Inspector(const Model& model)
         if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(Nodes::All().size()))
             Goals::InspectorSection(Nodes::All()[model.nodes.selected].name, g_mono, g_small); // (a goal's point)
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
-        ImGui::TextWrapped("Nothing selected - click something in the view (a gizmo, an object, scenery), or pick it "
-                           "in the Outliner.");
+        ImGui::TextDisabled("Nothing selected");
     } else if (s.objects > 0 || s.sectors > 0) {
         ImGui::PushFont(g_heading);
         ImGui::TextWrapped("%s", s.name.c_str());
@@ -1219,16 +1062,12 @@ void Inspector(const Model& model)
                     if (ImGui::IsItemDeactivated())
                         Ask(Request::kScaleDone);
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Scale along its own %c axis, %.2fx to %.0fx (%s; [ / ]: 10%%, Shift: 1%%; "
-                                          "Alt+[ / ]: along the axis the camera faces; Home: back to 1x)",
-                                          "XYZ"[axis], Scale::kMin, Scale::kMax,
-                                          s.objects > 0 ? "about its position" : "about the middle of its bottom");
+                        ImGui::SetTooltip("Local %c scale (%.2f to %.0f)", "XYZ"[axis], Scale::kMin, Scale::kMax);
                 }
                 ImGui::PopFont();
                 ImGui::Checkbox("Uniform##scalelock", &g_scaleLocked);
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("On: a field changes all three in proportion. Off: each axis by itself (a stretch "
-                                      "- textures stretch with it)");
+                    ImGui::SetTooltip("Scale all axes together");
             }
             if (s.objects > 1 || s.sectors > 1) {
                 ImGui::TableNextRow();
@@ -1246,19 +1085,21 @@ void Inspector(const Model& model)
         ImGui::Spacing();
         ImGui::TextWrapped("%s", model.selected.c_str());
         ImGui::Spacing();
-        if (ImGui::Button("Ground (G)"))
+        if (ImGui::Button("Drop to Ground"))
             Ask(Request::kDrop);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Drop to Ground  (G)");
         ImGui::SameLine();
-        if (ImGui::Button("Deselect (Esc)"))
+        if (ImGui::Button("Deselect"))
             Ask(Request::kDeselect);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Deselect  (Esc)");
         if (model.selectionLockable) {
             ImGui::SameLine();
-            if (ImGui::Button(model.selectionLocked ? "Unlock (L)" : "Lock (L)"))
+            if (ImGui::Button(model.selectionLocked ? "Unlock" : "Lock"))
                 Ask(Request::kToggleLock);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("A locked piece or object is never taken by a click in the view (a locked piece "
-                                  "still hides what's behind it from a plain click; the Outliner still selects it); "
-                                  "kept in the layout");
+                ImGui::SetTooltip("Prevent selection in the view  (L)");
         }
         if (s.objects == 0 && s.sectors == 1)
             Triggers::ScenerySection(s.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
@@ -1271,7 +1112,7 @@ void Inspector(const Model& model)
     Ux3::InspectorSection(model); // (the clipboard, the shared fields of a multi-selection - level_editor_ux3.h)
     ImGui::Spacing();
     ImGui::Separator();
-    Muted("Under the cursor");
+    Muted("Under Cursor");
     const std::vector<Nodes::Node>& all = Nodes::All();
     if (model.nodes.hovered >= 0 && model.nodes.hovered < static_cast<int>(all.size())) {
         const Nodes::Node& node = all[model.nodes.hovered];
@@ -1294,28 +1135,21 @@ void StatusBar(const Model& model)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * g_scale, 4.0f * g_scale));
     ImGui::Begin("##status", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
-    ImGui::PushFont(g_small);
-    if (!model.message.empty()) {
-        ImGui::TextColored(ImVec4(1.0f, 0.86f, 0.5f, 1.0f), "%s", model.message.c_str());
-    } else {
-        // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
-        Ux8::HintRow(model.keys, Ux8Fonts());
-    }
-    ImGui::PopFont();
-    // Right: the changes and the camera.
+    // Right: unsaved, the changes, the camera (elided before the hints are crowded out).
     char right[224];
     std::string view = Camera::Status(); // (an ortho view, orbiting - level_editor_camera.h)
-    std::snprintf(right, sizeof(right), "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  (%.0f, %.0f, %.0f)  speed %.0f%s%s",
-                  model.unsaved ? "unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x,
-                  model.camera.y, model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
-    ImGui::PushFont(g_mono);
-    float width = ImGui::CalcTextSize(right).x;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f * g_scale, (ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x) - width));
-    ImGui::TextDisabled("%s", right);
+    std::snprintf(right, sizeof(right), "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  %.0f, %.0f, %.0f  \xC2\xB7  speed %.0f%s%s",
+                  model.unsaved ? "Unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x, model.camera.y,
+                  model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
+    const UiLayout::Rect& bar = g_layout.status;
+    float padX = 8.0f * g_scale;
+    ImGui::PushFont(g_small);
+    float y = bar.y + std::max(0.0f, (bar.height - ImGui::GetTextLineHeight()) * 0.5f);
     ImGui::PopFont();
+    // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
+    UiStrip::StatusRow(model.message, model.keys, right, bar.x + padX, y, bar.width - 2.0f * padX, Ux8Fonts());
     ImGui::End();
 }
-
 void Help(const Model& model)
 {
     if (!model.help)
@@ -1325,164 +1159,46 @@ void Help(const Model& model)
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(760.0f * g_scale, io.DisplaySize.y * 0.85f));
     bool open = true;
-    ImGui::Begin("Level editor - keys (F1 or Esc closes this)", &open,
+    ImGui::Begin("Keyboard Shortcuts", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
     // (the first-run tips again, the preferences - level_editor_prefs.h)
-    if (ImGui::SmallButton("Show tips"))
+    if (ImGui::SmallButton("Show Tips"))
         Prefs::ShowTips();
     ImGui::SameLine();
-    if (ImGui::SmallButton("Preferences (Ctrl+,)"))
+    if (ImGui::SmallButton("Preferences"))
         Prefs::Open() = true;
     // (every action from the registry, with its keys as bound now - level_editor_actions.h; the details below)
     Ux3::HelpFromRegistry();
-    if (ImGui::CollapsingHeader("Details: every key and gesture explained###helpdetails")) {
+    if (ImGui::CollapsingHeader("Reference###helpdetails")) {
     struct Row {
         const char* section;
         const char* keys;
         const char* what;
     };
     static const Row kRows[] = {
-        {"Flying", "W A S D", "move - while the right button is held (wasd_flies=1: always)"},
-        {"", "Q / E (Space)", "down / up"},
-        {"", "Shift", "faster"},
-        {"", "Right mouse", "look (orbits the selection)"},
-        {"", "Wheel", "forward / back (with a selection: nearer / further)"},
-        {"", "- / =", "flying speed"},
-        {"", "Right mouse + wheel", "flying speed (shown in the status bar)"},
-        {"", "F", "frames the selection: the camera flies to see all of it (Prefs: the speed from its size)"},
-        {"", "Alt+left drag", "orbits round the selection, or round the point under the cursor; the wheel meanwhile: "
-                              "nearer / further (Alt+click without moving: as before)"},
-        {"", "Ctrl+1..9 / 1..9", "stores / flies back to a camera bookmark (per level: thug2-decomp-layouts\\<scene>"
-                                 ".cameras.txt)"},
-        {"", "Numpad 7 / 1 / 3", "top / front / right view, orthographic (Ctrl: bottom / back / left); numpad 5 "
-                                 "perspective / ortho; in ortho the wheel and W / S zoom, A / D / Q / E pan; looking "
-                                 "about goes back to perspective"},
-        {"Play", "F5, Ctrl+P", "play from here: the skater on the ground below the camera, facing its way, the game "
-                               "running; F5 / Ctrl+P in play comes back to the editor - the camera and the selection as "
-                               "they were (offline, free skate / single session only)"},
-        {"", "F7", "the Trail window: each test run's path drawn back in the editor, coloured by what the skater did "
-                   "(air, grind, manual, bail...), gaps landed / lost and bails marked; the level's gaps landed or "
-                   "untested. A restart's Inspector: Play from here starts the run at that restart"},
-        {"", "F6", "Simulate: the world runs (peds, cars, moving objects) with the editor's camera, the skater frozen; "
-                   "F6 again - or a click in the view, an editing key - stops it and puts the objects back"},
-        {"", "Ctrl+,", "preferences (the toolbar's Prefs): camera speed, acceleration, mouse, gizmo size, UI scale, "
-                       "autosave, snap, accent - kept in thug2-decomp.ini [editor]"},
-        {"Selecting", "Click", "an object or scenery (scenery takes its group); floors, ceilings, walls you're "
-                               "inside and see-through decals are passed - a click on only those deselects; what's "
-                               "nearest hides what's behind it (gizmos too; Click again / Alt reach past)"},
-        {"", "Click again", "(same spot) the next thing under the cursor - n of m in the status bar"},
-        {"", "Shift+click", "adds / removes"},
-        {"", "Alt+click, middle click", "one piece of scenery - any piece, floors and decals too (hold Alt to see it); "
-                                       "on a selected piece: takes it out"},
-        {"", "Ctrl+click", "on a part of the scenery selection: removes just that piece (a shadow too) - or, on its "
-                           "gizmo, a rail point carried along; the Inspector lists the parts (x, Keep only this)"},
-        {"", "Shadows", "a scenery group takes its shadows (the see-through decals on the floor under it: by name, "
-                        "else by place) - they move, turn, scale and go back with it"},
-        {"", "L", "locks the selection: clicks pass it (the Inspector lists the locks: Unlock); with nothing selected, "
-                     "unlocks all"},
-        {"", "Pick: (toolbar)", "what clicks may take: nodes, objects, scenery"},
-        {"", "Esc, Backspace", "deselects"},
-        {"", "A gizmo, an Outliner row", "a node: spawns, crowns, flags, lights, sounds, triggers, rails and other "
-                                         "point nodes move as objects do; rail, ladder and path points too (particles don't yet)"},
-        {"", "L", "with a rail, ladder or path point selected: it moves with its whole chain / by itself (the "
-                  "Inspector's Whole rail / ladder / path)"},
-        {"Chains", "N > Rail / Path", "draw a new rail or path: each click a point (snapped to an edge of what the "
-                                     "cursor hits - Alt: not; near a free end: linked onto it), Enter or a right click "
-                                     "finishes, Esc stops"},
-        {"", "Insert", "(a rail / path point) a point halfway to the next"},
-        {"", "Delete", "(a rail / path point) deleted, the points either side linked (a level's own: hidden)"},
-        {"", "End", "(an end point) draw on from it"},
-        {"", "J / U", "(a point) link this end to the next end clicked / unlink it from its next point"},
-        {"", "Inspector", "a rail's terrain (whole rail); a ped's / car's path: Assign, then click a waypoint"},
-        {"", "N > Ladder", "click a wall where its foot goes, then where its top goes; Z / X turn a ladder, Delete "
-                           "deletes it whole, L off moves its foot or top"},
-        {"", "Inspector", "a rail: Trick object (drawn rails), Grindable on flat ground"},
-        {"", "N > Ledge", "a hang / shimmy edge (ClimbingNode Type Ledge): click points along an edge, as a rail; the "
-                          "Inspector's Hang from: its side"},
-        {"", "Inspector", "a rail point: Speed-up (THAW's: more speed a frame climbing it) - its segment or the whole "
-                          "rail; chevrons show them (grey: the level's own)"},
-        {"Map", "T > Jump boost", "a launch pad (trigger_jump_boost speed=): its Strength in the Inspector, an arrow up"},
-        {"", "Breaks when hit", "(a scenery piece's Inspector) it shatters when hit, its collision off; its sound; "
-                                "cracks drawn - unticked or deleted: as the level has it"},
-        {"", "Proximity node", "(its Inspector) the scripts it runs on entering / leaving, sphere or box, drag its dots "
-                               "to resize; Home puts it back"},
-        {"", "Horse spot", "(a spawn's Inspector) restart_types Horse - an H on its gizmo"},
-        {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl: grid steps from where it was, "
-                           "Ctrl+Shift: the world's grid, Alt+Shift: onto the surface under the cursor, Ctrl+Alt: its "
-                           "corner onto a vertex; the toolbar's Snap does it without a key)"},
-        {"", "Drag an arrow", "along that axis only"},
-        {"Tools", "W / E / R", "Move / Rotate / Scale - while the right button is up (wasd_flies=1: no letter keys); "
-                               "Space cycles them; the toolbar too"},
-        {"", "RMB + W A S D / Q E", "fly (with something selected the camera leaves it: F frames it again); "
-                                    "wasd_flies=1 in the ini (or Tools...): W A S D fly / nudge without the button"},
-        {"", "Arrow keys / PgUp PgDn", "nudge the selection (wasd_flies=1: W A S D / Q E)"},
-        {"", "Rotate's ring", "drag to turn (objects and nodes freely, Ctrl: the rotation snap's steps; scenery by "
-                              "quarter turns - the engine's)"},
-        {"", "Scale's cubes", "an axis' cube scales along it, the centre all three (Ctrl: tenths)"},
-        {"", "`", "World / Local: the gizmo along the world's axes or the selection's own"},
-        {"", "Tools...", "the pivot (Base, Centre, Own), the rotation snap (5\xC2\xB0 - 90\xC2\xB0), Snap to, Align to "
-                         "slope; the grid's size beside Snap (1 - 100)"},
-        {"", "While dragging", "X / Y / Z: that axis (again: free); digits, - and .: an exact amount (Move units, "
-                               "Rotate degrees, Scale a factor); Backspace erases, Enter applies, Esc puts it back"},
-        {"", "Alt+G", "the tool's transform without holding the mouse (Blender's G / R / S): a click or Enter applies"},
-        {"", "Ctrl+D, Ctrl+Shift+D", "copy; then move / turn the copy and Ctrl+Shift+D repeats that from it - a row "
-                                     "(turned: an arc) of benches, lamps, ledges; one undo step each"},
-        {"", "Z / X", "turn (objects and nodes by the rotation snap - 15\xC2\xB0 -, scenery a quarter)"},
-        {"", "[ / ]", "scale scenery (about its bottom) or an object down / up 10% (Shift: 1%), 0.25x to 4x"},
-        {"", "Alt+[ / ]", "stretch it along the axis the camera faces most - or the Inspector's Scale X / Y / Z"},
-        {"", "G", "drops it onto the ground"},
-        {"", "Inspector", "a node's position and heading: drag to scrub, Ctrl+click to type"},
-        {"", "Inspector", "All fields: type a value, Enter sets it (live / on reload says when the game sees it); Home "
-                          "puts one back, x takes one out; Add a field at the foot"},
-        {"", "Inspector", "Level properties (its foot): the edited copy's name, start, time of day, ambient, fog"},
-        {"Editing", "Ctrl+D", "duplicates"},
-        {"", "Delete", "hides scenery (deletes a copy); an invisible wall: its collision off / on again"},
-        {"", "Home", "puts it back where the level had it"},
-        {"", "Ctrl+Z / Ctrl+Y", "undo / redo"},
-        {"", "Ctrl+Shift+Delete", "Reset level: everything as the level has it, its saved layout deleted (asks; "
-                                  "Ctrl+Z undoes it this session)"},
-        {"Adding", "B", "the level's pieces and objects: Up / Down choose, Left / Right switch, F shows, Enter "
-                        "places a copy"},
-        {"", "+ Note here (Outliner)", "a note pin where the view looks - editor only, saved with the layout, never "
-                                       "in play or baked; click it in the Outliner's Notes to edit"},
-        {"Checking", "Alt+P (toolbar: Problems)", "the problem checker: placement, rails, collision, limits, triggers, "
-                                                  "gaps, multiplayer, layout records - Go to / Fix / Ignore"},
-        {"", "Budget (toolbar bar)", "the engine's limits: hover for every meter, click for the table"},
-        {"Saving", "Ctrl+S", "the edited copy's layout - the level select's \"<LEVEL> (EDITED)\" loads it (offline "
-                             "only); the level as shipped never changes"},
-        {"", "Ctrl+R / Ctrl+Shift+R", "restore / discard an older autosave"},
-        {"Leaving", "Esc", "first cancels a drag, closes a window or deselects; then leaves"},
-        {"View", "C", "shows the collision near the camera, coloured by surface (the legend); invisible walls magenta"},
-        {"", "Shift+click", "with the collision shown: an invisible wall - what it is (the Inspector); then Delete "
-                             "switches its collision off (drawn dashed; Delete / Home / Restore on again), drag its face "
-                             "or an arrow, W A S D / Q E, Z / X and G move it - undo, saved in the layout"},
-        {"", "Inspector: Collision", "(selected scenery) its collision off by itself - drawn, but the skater passes "
-                                     "through; saved in the layout"},
-        {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
-        {"", "I or /", "isolates the selection: everything else hidden while editing"},
-        {"", "Alt+H", "shows everything hidden in the editor again"},
-        {"Faces", "K", "Faces mode (the collision shown): a click takes a collision face, Shift+click adds / drops one; "
-                       "the Inspector sets or clears their flags - skatable, not skatable, wallride, vert, not "
-                       "collidable, trigger, camera passes (0x80), not taggable (0x2000) - live; All faces of a piece; "
-                       "Home puts the selected faces' flags back; saved in the layout"},
-        {"Cameras", "V", "a camera node where the view is, looking its way (its frustum drawn); select it (the Outliner "
-                         "or its gizmo) to move it, Z / X its heading, the Inspector its pitch, target, Look through; "
-                         "Delete removes it; saved in the layout"},
-        {"Trick objects", "Inspector", "(selected scenery) Trick object: put the pieces in a cluster, each its own, or "
-                                       "not a trick object - live, saved"},
-        {"Sky", "Inspector", "Level properties: Sky - another level's sky scene, when the edited copy next loads"},
-        {"Triggers", "T", "shows the trigger volumes - kill zones red, teleports purple (an arrow to where they send), "
-                          "gap starts green, gap ends yellow, scripts cyan - and the Triggers window: add a kill zone, "
-                          "water, a teleport, a script, a gap (its start and end); the level's listed"},
-        {"", "Click a volume", "selects it (Alt passes volumes); an added one moves, turns (Z / X) and drops (G) as a node "
-                               "does - its kind, size, restart / target / script and gap (name, score, flags) in the "
-                               "Inspector"},
-        {"", "Delete, Ctrl+Z", "deletes an added volume, undoes; a level's own one: Switch off, Move it (collision only: as an "
-                               "invisible wall), or Make an editable copy (the original off meanwhile) - the Triggers window"},
-        {"", "O", "occlusion culling: off while editing (the level's occluders are placed for the skater's view and "
-                   "hide distant things from the flying camera); O turns it on as in play"},
-        {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
-        {"Panels", "Mouse", "over a panel the UI takes the mouse; the keys stay the editor's unless you type"},
+        {"Camera", "RMB + W A S D / Q E", "Fly"},
+        {"", "RMB + Wheel", "Fly speed"},
+        {"", "Alt+drag", "Orbit"},
+        {"", "Wheel", "Dolly; while dragging: push / pull"},
+        {"", "Double-click", "Go to surface"},
+        {"", "Numpad 7 / 1 / 3 / 5", "Top / front / right view, perspective / ortho (Ctrl: opposite)"},
+        {"Select", "Click", "Select; click again to cycle"},
+        {"", "Shift+click", "Add / remove"},
+        {"", "Alt+click", "Single scenery piece"},
+        {"", "Ctrl+click", "Remove part from selection"},
+        {"", "Drag from empty space", "Box select (right: inside, left: crossing)"},
+        {"", "Alt+Wheel", "Cycle items under cursor"},
+        {"Transform", "Drag", "Move (Shift: vertical)"},
+        {"", "Drag an arrow", "Move along axis"},
+        {"", "Ctrl / Ctrl+Shift", "Snap to grid / world grid"},
+        {"", "Alt+Shift / Ctrl+Alt", "Snap to surface / vertex"},
+        {"", "X / Y / Z, digits, Enter", "Constrain axis, type value, apply"},
+        {"", "Alt (while moving)", "Don't carry attached objects"},
+        {"", "Esc", "Cancel"},
+        {"Rails and Paths", "Click / Enter / RMB", "Add point / finish / finish"},
+        {"", "Alt+click", "Add point without edge snapping"},
+        {"Collision", "Shift+click", "Select invisible wall (collision shown)"},
+        {"Panels", "Mouse over a panel", "Panel input; keys stay with the editor unless typing"},
     };
     // (the columns' widths set, not fitted: a long key list would otherwise squeeze the explanations to a letter a
     // line - the keys wrap within theirs)
@@ -1539,7 +1255,7 @@ void BrowserPreview(const Model& model)
         draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
     draw->AddRect(a, b, ImGui::GetColorU32(ImGuiCol_Border));
     if (!preview.texture) {
-        const char* text = preview.index < 0 ? "(nothing highlighted)" : "(no preview)";
+        const char* text = preview.index < 0 ? "(no selection)" : "(no preview)";
         ImVec2 size = ImGui::CalcTextSize(text);
         draw->AddText(ImVec2((a.x + b.x - size.x) * 0.5f, (a.y + b.y - size.y) * 0.5f),
                       ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
@@ -1560,7 +1276,7 @@ void BrowserPreview(const Model& model)
         g_requests.push_back(request);
     }
     if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && preview.texture)
-        ImGui::SetTooltip("Drag to turn it, the wheel to zoom");
+        ImGui::SetTooltip("Drag to rotate, wheel to zoom");
     if (!preview.name.empty()) {
         ImGui::PushFont(g_mono);
         ImGui::TextWrapped("%s", preview.name.c_str());
@@ -1585,7 +1301,7 @@ void Browser(const Model& model)
     ImGui::SetNextWindowSize(ImVec2(360.0f * g_scale, std::min(760.0f * g_scale, g_layout.viewport.height - 16.0f * g_scale)));
     bool open = true;
     char title[64];
-    std::snprintf(title, sizeof(title), "Add  (%d)###browser", static_cast<int>(model.browserItems->size()));
+    std::snprintf(title, sizeof(title), "Add Piece (%d)###browser", static_cast<int>(model.browserItems->size()));
     ImGui::Begin(title, &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                                    ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     BrowserPreview(model);
@@ -1622,15 +1338,15 @@ void Browser(const Model& model)
         Ask(Request::kBrowserPreview, preview);
     }
     ImGui::BeginDisabled(items.empty());
-    if (ImGui::Button("Place (Enter)"))
+    if (ImGui::Button("Place"))
         Ask(Request::kBrowserPlace);
     ImGui::SameLine();
-    if (ImGui::Button("Show me (F)"))
+    if (ImGui::Button("Focus"))
         Ask(Request::kBrowserFocus);
     Arrange::BrowserExtras(g_scale); // (UX7: Replace selection, Click places - level_editor_arrange.h)
     ImGui::EndDisabled();
     ImGui::PushFont(g_small);
-    Muted("Enter places a copy where the cursor points (over a panel: where the view looks).");
+    Muted("Enter: place at the cursor");
     ImGui::PopFont();
     ImGui::End();
     if (!open)
@@ -1644,14 +1360,16 @@ void AutosaveOffer(const Model& model)
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, g_layout.viewport.y + 24.0f * g_scale), ImGuiCond_Always,
                             ImVec2(0.5f, 0.0f));
-    ImGui::Begin("Unsaved changes from a previous session", nullptr,
+    ImGui::Begin("Recover Autosave", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-    ImGui::TextUnformatted("An autosave newer than this level's saved layout was found.");
-    if (ImGui::Button("Restore it (Ctrl+R)"))
+    ImGui::TextUnformatted("An autosave is newer than the saved layout.");
+    if (ImGui::Button("Restore"))
         Ask(Request::kRestoreAutosave);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Restore Autosave  (Ctrl+R)");
     ImGui::SameLine();
-    if (ImGui::Button("Discard it (Ctrl+Shift+R)"))
+    if (ImGui::Button("Discard"))
         Ask(Request::kDiscardAutosave);
     ImGui::SameLine();
     if (ImGui::Button("Later"))
@@ -1670,19 +1388,15 @@ void OnlineWarning(const Model& model)
     ImGui::SetNextWindowSize(ImVec2(460.0f * g_scale, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(0.18f, 0.37f, 0.6f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(0.18f, 0.37f, 0.6f, 1.0f));
-    ImGui::Begin("Online: a level shared with THUGPRO", nullptr,
+    ImGui::Begin("Shared Level", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     ImGui::PopStyleColor(2);
-    ImGui::TextWrapped("This level is ported from %s and THUGPRO's players have it too. Moving, adding, hiding or "
-                       "reordering its spawns, crowns or flags changes where players start and where crowns and flags "
-                       "are (and the crowns' order), against theirs.",
+    ImGui::TextWrapped("This level (ported from %s) is shared with THUGPRO. Changing spawns, crowns or flags makes "
+                       "it differ from other players' copies. Layouts are not used online.",
                        model.nodes.sharedGame);
     ImGui::Spacing();
-    ImGui::TextWrapped("Your layout isn't used in net games, so playing online is unaffected - but a layout baked into "
-                       "the level's files would be. The edit is made; Ctrl+Z puts it back.");
-    ImGui::Spacing();
-    if (ImGui::Button("Understood"))
+    if (ImGui::Button("OK"))
         Ask(Request::kOnlineWarningSeen);
     ImGui::End();
 }
@@ -1698,10 +1412,10 @@ void Place(const Model& model)
                             ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(300.0f * g_scale, 0.0f));
     bool open = true;
-    ImGui::Begin("Place: what to add###place", &open,
+    ImGui::Begin("Place Node###place", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
     ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##placesearch", "spawn\xE2\x80\xA6", g_placeSearch, sizeof(g_placeSearch));
+    ImGui::InputTextWithHint("##placesearch", "Search\xE2\x80\xA6", g_placeSearch, sizeof(g_placeSearch));
     const std::vector<Model::PlaceView::Entry>& entries = model.place.entries;
     // (a list that scrolls: the level's peds, cars, sets, particles and sounds make it long - level_editor_entities.h)
     float listHeight = std::min(static_cast<float>(entries.size()) * ImGui::GetTextLineHeightWithSpacing() + 8.0f,
@@ -1726,8 +1440,7 @@ void Place(const Model& model)
         }
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", can ? "Click, then click in the view to place it (double-click: where the view "
-                                          "looks)"
+            ImGui::SetTooltip("%s", can ? "Click, then click in the view. Double-click: place at view center"
                                         : e.why.c_str());
         ImGui::PopID();
     }
@@ -1735,10 +1448,10 @@ void Place(const Model& model)
     ImGui::Separator();
     ImGui::PushFont(g_small);
     if (model.place.armed >= 0 && model.place.armed < static_cast<int>(entries.size()))
-        ImGui::TextWrapped("Click in the view to place: %s (Shift+click: more). Esc cancels.",
+        ImGui::TextWrapped("Click to place %s. Shift+click: place more. Esc: cancel.",
                            entries[model.place.armed].label.c_str());
     else
-        Muted("Pick one, then click in the view. It's dropped to the ground and faces the way the camera looks.");
+        Muted("Choose an item, then click in the view.");
     ImGui::PopFont();
     ImGui::End();
     if (!open)
@@ -1754,16 +1467,11 @@ void ConfirmReset(const Model& model)
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, g_layout.viewport.y + 60.0f * g_scale), ImGuiCond_Always,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(460.0f * g_scale, 0.0f));
-    ImGui::Begin("Reset the level?###confirmreset", nullptr,
+    ImGui::Begin("Reset Level###confirmreset", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-    ImGui::TextWrapped("Everything in %s goes back as the level has it: moved scenery, objects, rails and nodes go "
-                       "back, hidden things are shown, copies and added nodes are removed.",
-                       model.levelTitle.c_str());
-    ImGui::Spacing();
-    ImGui::TextWrapped("Its saved layout and autosave are deleted - the edited copy leaves the level select. Ctrl+Z "
-                       "brings the changes back while the editor stays in this level, but the files only come back "
-                       "when you save again (Ctrl+S).");
+    ImGui::TextWrapped("Revert all changes to %s and delete its saved layout and autosave?", model.levelTitle.c_str());
+    ImGui::TextDisabled("Undo restores the changes until you leave the level.");
     ImGui::Spacing();
     if (ImGui::Button("Cancel"))
         Ask(Request::kResetCancelled);
@@ -1784,21 +1492,16 @@ void ConfirmHide(const Model& model)
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, g_layout.viewport.y + 60.0f * g_scale), ImGuiCond_Always,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(420.0f * g_scale, 0.0f));
-    ImGui::Begin("Delete an original node?###confirmhide", nullptr,
+    ImGui::Begin("Hide Original Node###confirmhide", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     ImGui::PushFont(g_mono);
     ImGui::TextUnformatted(model.confirm.name.c_str());
     ImGui::PopFont();
     ImGui::SameLine();
-    ImGui::TextWrapped("is part of %s.", model.level.c_str());
-    if (model.confirm.crown)
-        ImGui::TextWrapped("It will be hidden, not removed, so the crowns after it keep their order - each moves up one "
-                           "number while it's hidden (the game counts only the crowns it finds). You can bring it back "
-                           "with Home.");
-    else
-        ImGui::TextWrapped("It will be hidden, not removed: the level's nodes keep their indexes and the game skips it. "
-                           "You can bring it back with Home.");
+    ImGui::TextWrapped("belongs to %s.", model.level.c_str());
+    ImGui::TextWrapped("%s", model.confirm.crown ? "Original nodes are hidden, not deleted. Later crowns move up one."
+                                                 : "Original nodes are hidden, not deleted. Revert shows it again.");
     ImGui::Spacing();
     if (ImGui::Button("Cancel"))
         Ask(Request::kHideCancelled);

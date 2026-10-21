@@ -51,14 +51,13 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
     if (chain.object) {
         ImGui::SeparatorText("Path");
         if (chain.pathStart.empty())
-            ImGui::TextDisabled("No path (it stands, or its script moves it)");
+            ImGui::TextDisabled("No path");
         else
             ImGui::Text("Starts at %s", chain.pathStart.c_str());
-        if (ImGui::Button("Assign a path..."))
+        if (ImGui::Button("Assign Path..."))
             Ask(requests, Chains::kOpAssignArm);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Then click the waypoint its path starts at. It is made again from its node at once\n"
-                              "(the game reads a ped's / car's path when it starts), and the layout keeps it.");
+            ImGui::SetTooltip("Click the first waypoint in the view");
         ImGui::SameLine();
         ImGui::BeginDisabled(chain.pathStart.empty());
         if (ImGui::Button("No path"))
@@ -70,7 +69,7 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
     }
     const char* noun = chain.path ? "path" : chain.ladder ? "ladder" : chain.ledge ? "ledge" : "rail";
     ImGui::SeparatorText(chain.path ? "Path" : chain.ladder ? "Ladder" : chain.ledge ? "Ledge" : "Rail");
-    ImGui::Text("%d point%s%s", chain.points, chain.points == 1 ? "" : "s", chain.added ? " (this one added)" : "");
+    ImGui::Text("%d point%s%s", chain.points, chain.points == 1 ? "" : "s", chain.added ? " (added)" : "");
     if (!chain.prev.empty())
         ImGui::TextDisabled("after %s", chain.prev.c_str());
     if (!chain.next.empty())
@@ -84,36 +83,30 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
         ImGui::Text("Facing %.0f\xC2\xB0%s", static_cast<double>(chain.facingDegrees),
                     chain.turned ? " (turned)" : "");
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("The way a skater on it faces (into the wall). The level's ladders are climbed from the "
-                              "side away from it.");
-        if (ImGui::Button("Turn left (Z)"))
+            ImGui::SetTooltip("Direction the skater faces when climbing");
+        if (ImGui::Button("Turn Left"))
             Ask(requests, Chains::kOpTurn, static_cast<uint32_t>(-1));
         ImGui::SameLine();
-        if (ImGui::Button("Turn right (X)"))
+        if (ImGui::Button("Turn Right"))
             Ask(requests, Chains::kOpTurn, 1u);
         ImGui::SameLine();
-        OpButton("Facing back", chain.turned, "Facing as the level has it (Home does it too)",
-                 "Facing as the level has it", requests, Chains::kOpFacingHome);
-        OpButton("Delete ladder", chain.canDelete, "The whole ladder deleted (Del) - Ctrl+Z brings it back", "",
+        OpButton("Revert Facing", chain.turned, "Restore original facing", "Already original", requests, Chains::kOpFacingHome);
+        OpButton("Delete Ladder", chain.canDelete, "Delete the ladder  (Del)", "",
                  requests, Chains::kOpDelete);
-        ImGui::TextDisabled("Reshape: L off, then move its foot or its top");
+        ImGui::TextDisabled("Turn off Whole Ladder to move the foot or top");
         if (chain.waiting)
             ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
         return;
     }
-    OpButton("Insert", chain.canInsert, "A point halfway to the next one (Insert)",
-             "It's the last point - Extend draws on from it", requests, Chains::kOpInsert);
+    OpButton("Insert", chain.canInsert, "Insert a point after this one  (Insert)", "Last point: use Extend", requests, Chains::kOpInsert);
     ImGui::SameLine();
-    OpButton("Delete", chain.canDelete, "This point deleted, the points either side linked (Del)", "", requests,
+    OpButton("Delete", chain.canDelete, "Delete this point  (Del)", "", requests,
              Chains::kOpDelete);
     ImGui::SameLine();
-    OpButton("Extend", chain.canExtend, "Draw on from this end: click points, Enter finishes (End)",
-             "Only from an end (the first or last point)", requests, Chains::kOpExtend);
-    OpButton("Link to...", chain.canLink, "Then click another chain's end: linked to it (J)",
-             "Only an end can be linked on", requests, Chains::kOpLinkArm);
+    OpButton("Extend", chain.canExtend, "Draw more points from this end  (End)", "Select an end point", requests, Chains::kOpExtend);
+    OpButton("Link To...", chain.canLink, "Link to another chain's end  (J)", "Select an end point", requests, Chains::kOpLinkArm);
     ImGui::SameLine();
-    OpButton("Unlink", chain.canUnlink, "Its link to the next point removed: the chain splits here (U)",
-             "It has no next point", requests, Chains::kOpUnlink);
+    OpButton("Unlink", chain.canUnlink, "Split the chain after this point  (U)", "No next point", requests, Chains::kOpUnlink);
     if (chain.rail && !chain.terrains.empty()) {
         std::string current = chain.terrain >= 0 && chain.terrain < static_cast<int>(chain.terrains.size())
                                   ? TerrainLabel(chain.terrains[chain.terrain])
@@ -127,61 +120,51 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
             ImGui::EndCombo();
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("The sound and sparks of grinding it - for the whole %s, at once", noun);
+            ImGui::SetTooltip("Grind sound and sparks for the whole %s", noun);
     }
     if (chain.rail) {
         // (phase 4b: trick objects, grinding on flat ground - level_editor_chains.h)
         bool trick = chain.trickObject;
         ImGui::BeginDisabled(!chain.canTrickObject);
-        if (ImGui::Checkbox("Trick object", &trick))
+        if (ImGui::Checkbox("Trick Object", &trick))
             Ask(requests, Chains::kOpTrickObject, trick ? 1u : 0u);
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", chain.canTrickObject
-                                        ? "Grinding it counts its cluster among the combo's trick objects (graffiti, "
-                                          "trick-object scoring), as the level's TrickObject rails.\nGaps are scripts "
-                                          "on the level's nodes - a drawn rail has none."
-                                        : "A level rail keeps the level's setting (its TrickObject / Cluster fields).");
+                                        ? "Counts as a trick object for scoring and graffiti"
+                                  : "Original rails keep their setting");
         if (chain.trickObject && !chain.cluster.empty()) {
             ImGui::SameLine();
             ImGui::TextDisabled("cluster %s", chain.cluster.c_str());
         }
         bool flat = chain.grindFlat;
-        if (ImGui::Checkbox("Grindable on flat ground", &flat))
+        if (ImGui::Checkbox("Grind on Flat Ground", &flat))
             Ask(requests, Chains::kOpGrindFlat, flat ? 1u : 0u);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("The game won't let a rail be ground when there's ground at its height on both sides "
-                              "(RailClear) -\nonly the park editor's level skips that check, and no node field "
-                              "switches it off.\nOn: this DLL skips it for this whole rail (saved in the layout; a "
-                              "baked level gets the\nnode flag ed_grind_flat, which only this DLL reads - other "
-                              "players can't grind it).");
+            ImGui::SetTooltip("Allow grinding where ground is level with the rail (this game only)");
     }
     if (chain.ledge) {
         // (the feature map: a ledge's side to hang from - THUG2's HangLeft / HangRight flags, the whole ledge)
-        static const char* const kSides[3] = {"as the game decides", "left (HangLeft)", "right (HangRight)"};
+        static const char* const kSides[3] = {"Auto", "Left", "Right"};
         int side = chain.hang >= 0 && chain.hang <= 2 ? chain.hang : 0;
         ImGui::BeginDisabled(!chain.added);
         if (ImGui::Combo("Hang from", &side, kSides, 3) && side != chain.hang)
             Ask(requests, Chains::kOpHang, static_cast<uint32_t>(side));
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", chain.added ? "Which side of the ledge the skater hangs from (the node flags the "
-                                                  "levels' own ledges carry) - for the whole ledge"
-                                                : "A level's ledge keeps its own flags (its fields, below)");
-        ImGui::TextDisabled("A ClimbingNode chain of Type Ledge: the skater hangs from it and shimmies along");
+            ImGui::SetTooltip("%s", chain.added ? "Side the skater hangs from" : "Original ledges keep their setting");
+        ImGui::TextDisabled("Hang and shimmy ledge");
     }
     if (chain.rail) {
         // (the feature map: a speed-up - THAW's RailAccelerate - on this point's segment, or the whole rail)
         if (chain.levelSpeed)
-            ImGui::TextDisabled("The level's own speed-up: +%.1f%% a frame (its script)",
+            ImGui::TextDisabled("Original speed-up: +%.1f%% per frame",
                                 static_cast<double>(chain.levelRate * 100.0f));
         bool on = chain.speed > 0.0f;
         if (ImGui::Checkbox("Speed-up", &on))
             Ask(requests, Chains::kOpSpeed, on ? static_cast<uint32_t>(Chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("THAW's rail speed-up: while the skater grinds this segment going up, its speed grows "
-                              "each frame.\nIts TriggerScript runs it when the skater lands on it (its own script still "
-                              "runs first).");
+            ImGui::SetTooltip("Speed up the skater while grinding uphill");
         if (on) {
             static float s_percent = -1.0f;
             float percent = s_percent >= 0.0f ? s_percent : chain.speed * 100.0f;
@@ -197,15 +180,15 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
                 s_percent = -1.0f;
             }
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("More speed each frame while climbing on it (THAW's rails: 2 - 10%%)");
+                ImGui::SetTooltip("Speed gain per frame (typical: 2-10%%)");
             ImGui::SameLine();
             if (ImGui::SmallButton("Whole rail"))
                 Ask(requests, Chains::kOpSpeedRail, static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f));
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("This speed-up on every segment of the rail");
+                ImGui::SetTooltip("Apply to the whole rail");
         } else if (chain.points > 1) {
             ImGui::SameLine();
-            if (ImGui::SmallButton("Off on the whole rail"))
+            if (ImGui::SmallButton("Clear Whole Rail"))
                 Ask(requests, Chains::kOpSpeedRail, 0u);
         }
     }
