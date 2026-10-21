@@ -57,6 +57,38 @@ public:
     // triggers are held. PartyMod's PS2 controls take either trigger in the three trigger checks.
     void DoAirPhysics();
 
+    // --- core_jump.cpp: jumping, skitching, the script member functions around them, the wallplant state ---
+    // 0x005092E0: the TriggerScript of the rail node being ground (+0x22C) - or of the nearest one before it (back
+    // along m_prev, stopping at a loop) that has one - run for the three `events` (const int[3]); its name kept
+    // (+0x240 / +0x244), the flag +0xC8 telling whether it's a different node than last time. Nothing without a
+    // rail node, its script node or a TriggerScript.
+    void TriggerRailScript(const int* events);
+    // 0x00509450: jump, by the state: from the ground (the trigger check first: a trigger's script may take over),
+    // from the air or a wall - the jump sound unless `params` has no_sound. The speed from the physics values
+    // (boneless or not, from vert or not) between their min and max by how long the jump was held (+0x378, up to
+    // the max tense time) - or `params`' speed; off vert pushed off the ramp instead (going down: stopped first);
+    // then into the air (+0x4EC the time, the event SkaterJump).
+    void DoJump(Script::CStruct* params);
+    // 0x00509920 / 0x00509990: start skitching on the object at +0x364 (riding it, flag +0x88, the event
+    // 0x35224F25 to it) / stop (the event 0x2739B86D, the pointer and the ride let go).
+    void BeginSkitch();
+    void EndSkitch();
+    // 0x00509050: the wallplant state's update: after Physics_Wallplant_Duration into the air (a feeler along the
+    // facing for a trigger), else carried along by what the skater rides on.
+    void DoWallplantPhysics();
+    // The script member functions (all return 1; neither argument used unless said): 0x00509A40 Jump (DoJump with
+    // `params`), 0x00509A60 StartSkitch, 0x00509A70 StopSkitch, 0x00509A80 SetState (`params`' unnamed checksum:
+    // AIR, Ground or Lip; off a lip runs the rail's TriggerScript, off a rail the up set straight), 0x00509B70
+    // TriggerGrindOff (the rail's TriggerScript for grinding off), 0x00509B90 (0x675CF35E: break out of vert, forced,
+    // and 0x00504DF0), 0x00509BB0 WalkingWallplant (0x00507500 with 0, 0, 1).
+    int Jump(Script::CStruct* params, Script::CScript* script);
+    int StartSkitch(Script::CStruct* params, Script::CScript* script);
+    int StopSkitch(Script::CStruct* params, Script::CScript* script);
+    int SetState(Script::CStruct* params, Script::CScript* script);
+    int TriggerGrindOff(Script::CStruct* params, Script::CScript* script);
+    int ForceBreakVert(Script::CStruct* params, Script::CScript* script);
+    int WalkingWallplant(Script::CStruct* params, Script::CScript* script);
+
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
     // normal as the new up.)
