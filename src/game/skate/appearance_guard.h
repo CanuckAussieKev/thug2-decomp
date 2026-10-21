@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// NOT ORIGINAL - received skater appearances made safe (register: tools/compat/thugpro/README.md "Run time", TP-R5;
+// NOT ORIGINAL - received skater appearances made safe (register: tools/compat/thugpro/README.md "Run time", TP-R9;
 // record: docs/pending/thugpro-guards.md). A skater's appearance is a structure of CAS slots - {skater_m_head =
 // {desc_id = ...} board = {desc_id = ...} ...}; the model is built by looking each desc_id up in the global array named
 // after its slot (0x00485CF0 / 0x00489050), and THUG2 never checks the answer. A THUGPRO player's appearance can name

@@ -358,7 +358,7 @@ bool FilePath(const char* relative, char (&path)[260])
     std::memcpy(path, full.c_str(), full.size() + 1);
     static std::set<std::string> logged;
     if (logged.size() < 1000 && logged.insert(full).second)
-        Log("THUGPRO CAS (TP-R6): %s read from THUGPRO's install (%s)", relative, full.c_str());
+        Log("THUGPRO CAS (TP-R10): %s read from THUGPRO's install (%s)", relative, full.c_str());
     return true;
 }
 
@@ -374,14 +374,14 @@ void LoadOnce()
     s_done = true;
     int setting = ConfigInt("features", "thugpro_parts", 1);
     if (!setting) {
-        Log("THUGPRO CAS (TP-R6): off ([features] thugpro_parts=0) - a THUGPRO player's own parts fall back to THUG2's");
+        Log("THUGPRO CAS (TP-R10): off ([features] thugpro_parts=0) - a THUGPRO player's own parts fall back to THUG2's");
         return;
     }
     std::string folder = InstallFolder();
     std::string archivePath = folder + "\\data\\pre\\thugpro_qb.prx";
     std::vector<uint8_t> archive = ReadWholeFile(archivePath);
     if (archive.empty()) {
-        Log("THUGPRO CAS (TP-R6): no THUGPRO install at %s - a THUGPRO player's own parts fall back to THUG2's "
+        Log("THUGPRO CAS (TP-R10): no THUGPRO install at %s - a THUGPRO player's own parts fall back to THUG2's "
             "([features] thugpro_folder= names another)",
             folder.c_str());
         return;
@@ -390,7 +390,7 @@ void LoadOnce()
     std::vector<std::string> names(std::begin(kFiles), std::end(kFiles));
     std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
     if (!ReadArchive(archive, names, &files)) {
-        Log("THUGPRO CAS (TP-R6): %s isn't an archive we can read - THUGPRO's parts not loaded", archivePath.c_str());
+        Log("THUGPRO CAS (TP-R10): %s isn't an archive we can read - THUGPRO's parts not loaded", archivePath.c_str());
         return;
     }
     // The arrays that are also our part lists, and every path our own parts name (never served from THUGPRO's).
@@ -466,7 +466,7 @@ void LoadOnce()
     }
     Mem::PopContext();
     s_served.store(new std::set<std::string>(s_theirFiles)); // (kept for the game's life)
-    Log("THUGPRO CAS (TP-R6): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
+    Log("THUGPRO CAS (TP-R10): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
         "the install's loose data); %d of its loose files to read from there when asked for",
         added, lists, archivePath.c_str(),
         setting == 1 ? "hidden from our menus" : "offered in our CAS menus too: thugpro_parts=2", skipped,

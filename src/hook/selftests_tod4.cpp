@@ -766,7 +766,7 @@ void TestSkateNetHandlers()
 
 // The object updates: a run of messages for several skaters (first updates, every field and none, the time stamp
 // going round, a missing object, packets flagged late / foreign), the state histories compared after each. In each
-// position scale (TP-R2: THUG2's, and THUGPRO's big / tall levels - the original with THUGPRO's patches).
+// position scale (TP-R6: THUG2's, and THUGPRO's big / tall levels - the original with THUGPRO's patches).
 void TestSkateNetObjectUpdates()
 {
     SaveGlobals();

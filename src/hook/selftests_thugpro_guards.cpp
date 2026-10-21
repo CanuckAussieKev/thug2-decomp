@@ -495,7 +495,7 @@ void TestTrickObjects()
     Compare(traces[0], traces[1], "trick objects 0x00588200-0x005889E0");
 }
 
-// --- the skaters' updates in big levels (TP-R2) -----------------------------------------------------------------
+// --- the skaters' updates in big levels (TP-R6) -----------------------------------------------------------------
 
 // A coordinate: mostly inside THUG2's range, some past it (wrapping there: what a big level is for).
 float RandomCoordinate(bool height)
@@ -870,7 +870,7 @@ void TestLocalNetLogic()
     RestoreAll(saved);
 }
 
-// --- the received-message guards (TP-R4, game/net/net_guards.h: ours only, nothing original to compare) ------------
+// --- the received-message guards (TP-R8, game/net/net_guards.h: ours only, nothing original to compare) ------------
 
 constexpr uint32_t kBadAnim = 0xBAD00001, kBadDetails = 0xBAD00002, kBadMode = 0xBAD00003, kBadLevel = 0xBAD00004;
 std::vector<uint32_t> g_guardCalls;
@@ -1026,7 +1026,7 @@ void TestNetGuards()
     GameNet::Guards::SetLookups(GameNet::Guards::GameLookups());
 }
 
-// --- the appearance guard (TP-R5, game/skate/appearance_guard.h: ours only) ------------------------------------------
+// --- the appearance guard (TP-R9, game/skate/appearance_guard.h: ours only) ------------------------------------------
 
 template <typename R, typename... A>
 using StructMethod = R (Script::CStruct::*)(A...);
@@ -1226,7 +1226,7 @@ void TestAppearanceGuard()
     delete s;
 }
 
-// --- THUGPRO's parts from its install (TP-R6, game/skate/thugpro_cas.h: ours only) ---------------------------------
+// --- THUGPRO's parts from its install (TP-R10, game/skate/thugpro_cas.h: ours only) ---------------------------------
 
 std::vector<std::string> g_foundAsked;
 bool StandInFound(const char* path)

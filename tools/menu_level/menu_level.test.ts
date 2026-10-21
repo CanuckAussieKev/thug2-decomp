@@ -31,7 +31,7 @@ test("mapPosition puts places where THUG2's stars are", () => {
 
 const compatNone = compat.load("none");
 
-test("THUGPRO's big level (TP-R2) is flagged in its level select entry", () => {
+test("THUGPRO's big level (TP-R6) is flagged in its level select entry", () => {
     const manifest = {
         levels: [
             { folder: "Z_MA", level: "z_ma", display: "THAW The Mall", name: "z_ma", level_num: 1 },

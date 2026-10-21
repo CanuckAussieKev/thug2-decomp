@@ -125,7 +125,7 @@ export interface Level {
     sign: string;
     place: string;
     location: readonly [number, number] | null;
-    // Flags added to the entry (the DLL reads them: IsBigLevel / IsTallLevel - TP-R2, src/game/net/thugpro_compat.h).
+    // Flags added to the entry (the DLL reads them: IsBigLevel / IsTallLevel - TP-R6, src/game/net/thugpro_compat.h).
     flags?: string[];
 }
 
@@ -480,7 +480,7 @@ export function signEntry(lv: Level): string {
     );
 }
 
-// TP-R2 (tools/compat/thugpro/README.md): the THAW levels THUGPRO sends skaters' positions of in whole units in
+// TP-R6 (tools/compat/thugpro/README.md): the THAW levels THUGPRO sends skaters' positions of in whole units in
 // network games (its IsBigLevel / IsTallLevel), from thaw_levels.json "net_position_scale" - their level select entries
 // get the same flags, which the DLL reads (src/game/net/thugpro_compat.h).
 export function thawPositionScaleFlags(manifest: Manifest, levels: Level[], profile = compat.load("thugpro")): Level[] {

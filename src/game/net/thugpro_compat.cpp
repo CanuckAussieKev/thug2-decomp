@@ -64,7 +64,7 @@ void RefreshPositionScale()
     s_scaleLevel = level;
     PositionScale scale = netGame ? LevelPositionScale(level) : PositionScale{};
     if (scale.big != s_scale.big || scale.tall != s_scale.tall)
-        Log("THUGPRO big level (TP-R2): network positions %s%s", scale.big ? "x/z in whole units" : "x/z in halves",
+        Log("THUGPRO big level (TP-R6): network positions %s%s", scale.big ? "x/z in whole units" : "x/z in halves",
             scale.tall ? ", y in whole units" : "");
     s_scale = scale;
 }

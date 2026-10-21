@@ -89,20 +89,20 @@ int Sanitise(Script::CStruct* appearance)
             continue; // (not a part)
         Script::CArray* list = PartList(c->name);
         if (!list) {
-            Log("appearance guard (TP-R5): slot 0x%08X isn't one of ours (part 0x%08X): taken out", c->name, desc);
+            Log("appearance guard (TP-R9): slot 0x%08X isn't one of ours (part 0x%08X): taken out", c->name, desc);
             remove.push_back(c->name);
             continue;
         }
         if (ListHas(list, desc))
             continue;
         if (c->name == kBody) {
-            Log("appearance guard (TP-R5): body 0x%08X isn't one of ours: the default custom skater instead", desc);
+            Log("appearance guard (TP-R9): body 0x%08X isn't one of ours: the default custom skater instead", desc);
             resetBody = true;
             break;
         }
         uint32_t to = Fallback(c->name, list);
         if (!to) {
-            Log("appearance guard (TP-R5): slot 0x%08X's part 0x%08X isn't one of ours, nothing fits: taken out",
+            Log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours, nothing fits: taken out",
                 c->name, desc);
             remove.push_back(c->name);
             continue;
@@ -116,7 +116,7 @@ int Sanitise(Script::CStruct* appearance)
         return 1;
     }
     for (const Change& change : changes) {
-        Log("appearance guard (TP-R5): slot 0x%08X's part 0x%08X isn't one of ours: 0x%08X instead", change.slot,
+        Log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours: 0x%08X instead", change.slot,
             change.from, change.to);
         change.part->AddChecksum(kDescId, change.to);
     }

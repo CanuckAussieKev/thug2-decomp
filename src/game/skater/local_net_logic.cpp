@@ -84,7 +84,7 @@ uint32_t CSkaterLocalNetLogicComponent::GetUpdateFlags()
     UpdateState now;
     ReadUpdateState(this, component6C, now);
     for (int k = 0; k < 3; ++k) {
-        // (TP-R2: whole units in a big level)
+        // (TP-R6: whole units in a big level)
         int16_t value = k == 1 ? Thugpro::PackHeight(m_object->m_pos.y) : Thugpro::PackHorizontal((&m_object->m_pos.x)[k]);
         if (value != m_sentPos[k] || force)
             flags |= 1u << k;
@@ -140,7 +140,7 @@ void CSkaterLocalNetLogicComponent::SendUpdate()
         GameVariable<Mth::Vector>(0x007CCDD0) = m_object->m_pos;
     }
     for (int k = 0; k < 3; ++k) {
-        // (TP-R2: whole units in a big level)
+        // (TP-R6: whole units in a big level)
         int16_t value = k == 1 ? Thugpro::PackHeight(m_object->m_pos.y) : Thugpro::PackHorizontal((&m_object->m_pos.x)[k]);
         if (flags & (1u << k))
             stream.WriteBits(static_cast<uint32_t>(static_cast<int>(value)), 16);

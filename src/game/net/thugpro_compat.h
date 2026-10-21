@@ -6,7 +6,7 @@
 // tools/compat/thugpro/README.md, "Run time"; record: docs/pending/thugpro-guards.md). Ideas from Morten1337's
 // thugpro_proxy, used with his permission and written here in this project's own way.
 //
-// TP-R2 - big levels: a skater's position travels as three 16-bit integers (the skater updates, message 0x23: the
+// TP-R6 - big levels: a skater's position travels as three 16-bit integers (the skater updates, message 0x23: the
 // client's own, 0x00512EA0 / 0x005131A0; the server's relay, 0x005696C0 / 0x005698F0; their readers 0x0056BE60 and
 // HandleObjectUpdates 0x0056E470). THUG2 sends x and z in half units and y in quarter units: +-16384 / +-8192 units.
 // THUGPRO's THUGPRO_SetBigLevel (run from its load_level in network games) sends whole units instead in a level with

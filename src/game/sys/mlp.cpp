@@ -208,9 +208,9 @@ void Manager::MainLoop()
         Sio::ReadKeyboard();
         Platform::ProcessWindowEvents();
         ServiceNetwork();
-        // Not original - THUGPRO's big-level positions in network games (TP-R2, game/net/thugpro_compat.h).
+        // Not original - THUGPRO's big-level positions in network games (TP-R6, game/net/thugpro_compat.h).
         GameNet::Thugpro::RefreshPositionScale();
-        // Not original - THUGPRO's own CAS parts from the user's install, once the CAS lists are loaded (TP-R6).
+        // Not original - THUGPRO's own CAS parts from the user's install, once the CAS lists are loaded (TP-R10).
         Obj::ThugproCas::LoadOnce();
         if (!AppActive()) {
             if (!TextEntry()) {

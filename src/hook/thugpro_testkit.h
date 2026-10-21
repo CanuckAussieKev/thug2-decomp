@@ -1,6 +1,6 @@
 #pragma once
 
-// The self-tests' THUGPRO big-level positions (TP-R2, game/net/thugpro_compat.h): the original with THUGPRO's own
+// The self-tests' THUGPRO big-level positions (TP-R6, game/net/thugpro_compat.h): the original with THUGPRO's own
 // patches written in (its THUGPRO_SetBigLevel: the scaling instructions NOPped) against ours with the same scale set,
 // so what ours sends and reads in a big level is proven to be what THUGPRO's does.
 

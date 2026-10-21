@@ -1157,7 +1157,7 @@ bool ConditionMet(Runner& runner)
     return ++runner.counter >= frames;
 }
 
-// `logtricks [count]` (a test of the graffiti change mask, TP-R3 - docs/pending/thugpro-guards.md): one trick by
+// `logtricks [count]` (a test of the graffiti change mask, TP-R7 - docs/pending/thugpro-guards.md): one trick by
 // skater 0 over the level's trick objects (every one, or the first `count` in the table's order), through the trick
 // object manager's LogTrickObjects as a skater's trick goes - more than THUG2's own mask held crashed there.
 std::string LogTricks(int count, std::string* failed)

@@ -63,7 +63,7 @@ public:
     static int __cdecl HandleObjectUpdates(Net::MsgHandlerContext* context);
 
     // The server's side of the skaters' updates (outside this file's range, with them for the big-level positions,
-    // TP-R2 - game/net/thugpro_compat.h): positions in half units (y in quarters), whole units in a big level.
+    // TP-R6 - game/net/thugpro_compat.h): positions in half units (y in quarters), whole units in a big level.
     // 0x0056BE60 (0x23 on the server): a client's own skater's update (a 32-bit time stamp, then the fields as above)
     // into its state history; 4 (dropped) when it's older than the newest. From a player that isn't known or ready
     // (its connection's +0x60 bit 0), or a late / foreign packet: skipped, its length worked out from its fields.

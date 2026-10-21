@@ -98,7 +98,7 @@ void SetUpStandIns(StandIns& s)
         g_stageFirst &= g_trace.empty() && r.args[0] == static_cast<uint32_t>(TestStage::EngineStarted);
         return 0u;
     });
-    // (ours only: THUGPRO's parts loaded once the scripts are - TP-R6, game/skate/thugpro_cas.h; none here)
+    // (ours only: THUGPRO's parts loaded once the scripts are - TP-R10, game/skate/thugpro_cas.h; none here)
     s.At({Resolve(reinterpret_cast<const void*>(&Obj::ThugproCas::LoadOnce))}, 0, [](Regs&) { return 0u; });
     s.At({0x005BDD60, AddressOf(&Sio::ReadKeyboard)}, 0, [](Regs& r) {
         ++g_frame;

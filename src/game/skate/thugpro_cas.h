@@ -5,7 +5,7 @@
 #include <vector>
 
 // NOT ORIGINAL - THUGPRO's own CAS parts and boards, read from the user's THUGPRO install by reference (register:
-// tools/compat/thugpro/README.md "Run time", TP-R6; record: docs/pending/thugpro-guards.md). Nothing of THUGPRO's is
+// tools/compat/thugpro/README.md "Run time", TP-R10; record: docs/pending/thugpro-guards.md). Nothing of THUGPRO's is
 // copied into this repository or the data overlay: each start the game reads them from the install, read only.
 //
 // THUGPRO (Morten1337's THUG2 mod) adds ~110 parts to THUG2's CAS lists (THUG1 / THAW pros' bodies, secret skaters,

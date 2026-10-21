@@ -82,7 +82,7 @@ void LogOnce(uint8_t id, uint32_t name, const char* what)
 {
     static std::unordered_set<uint64_t> logged;
     if (logged.size() < 4096 && logged.insert(static_cast<uint64_t>(id) << 32 | name).second)
-        Log("network guard (THUGPRO, TP-R4): message 0x%02X %s 0x%08X", id, what, name);
+        Log("network guard (THUGPRO, TP-R8): message 0x%02X %s 0x%08X", id, what, name);
 }
 
 uint32_t Read32(const Net::MsgHandlerContext* context, uint32_t offset)

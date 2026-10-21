@@ -109,7 +109,7 @@ void Install(StandIns& s)
         Rec(0x9400, {r.ecx, r.args[0]});
         return r.args[0] + 0x30;
     });
-    // (ours only: the appearance guard after the read - TP-R5, tested in selftests_thugpro_guards.cpp - left out here)
+    // (ours only: the appearance guard after the read - TP-R9, tested in selftests_thugpro_guards.cpp - left out here)
     // (counted: ours calls it once per read, on the appearance just read - the profile's +0x4C)
     s.At({AddressOf(&Obj::AppearanceGuard::Sanitise)}, 0, [](Regs& r) {
         g_sanitised.push_back(r.args[0]);

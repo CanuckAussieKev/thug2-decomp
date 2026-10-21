@@ -97,7 +97,7 @@ bool OverlayPath(const char* name, char (&path)[260])
         if (IsFile(candidate))
             full = candidate;
     }
-    // Last: a THUGPRO part's file from the user's THUGPRO install (TP-R6, game/skate/thugpro_cas.h).
+    // Last: a THUGPRO part's file from the user's THUGPRO install (TP-R10, game/skate/thugpro_cas.h).
     if (full.empty())
         return Obj::ThugproCas::FilePath(relative, path);
     if (full.size() >= sizeof(path))

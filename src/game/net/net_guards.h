@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // NOT ORIGINAL - guards on received network messages, for playing with THUGPRO (Morten1337's THUG2 mod) players
-// (register: tools/compat/thugpro/README.md "Run time", TP-R4; record: docs/pending/thugpro-guards.md). A THUGPRO
+// (register: tools/compat/thugpro/README.md "Run time", TP-R8; record: docs/pending/thugpro-guards.md). A THUGPRO
 // player can name things THUG2 hasn't - an animation from THUGPRO's own set, a special item, a game mode, a level -
 // and THUG2's handlers look them up without checking. Checked here before the dispatcher runs a message's handlers
 // (Net::Dispatcher::DispatchMsg, ours), as THUGPRO's own DLL does in its DispatchMessage hook (the special item and

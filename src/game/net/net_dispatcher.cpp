@@ -101,7 +101,7 @@ MsgHandler* Dispatcher::AddHandler(uint8_t id, MsgHandlerCode code, uint32_t fla
 // 0x0045A750
 int Dispatcher::DispatchMsg(MsgHandlerContext* context)
 {
-    // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R4, net_guards.h).
+    // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R8, net_guards.h).
     int guarded = GameNet::Guards::CheckReceivedMessage(context);
     if (guarded >= 0)
         return guarded;

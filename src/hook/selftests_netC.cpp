@@ -144,7 +144,7 @@ uint32_t g_nodeVtable[1];
 
 void SetUpStandIns(StandIns& s)
 {
-    // (ours only: the received-message guards - TP-R4, tested in selftests_thugpro_guards.cpp - pass everything here)
+    // (ours only: the received-message guards - TP-R8, tested in selftests_thugpro_guards.cpp - pass everything here)
     s.At({AddressOf(&GameNet::Guards::CheckReceivedMessage)}, 0, [](Regs&) { return 0xFFFFFFFFu; });
     auto memManager = reinterpret_cast<uint32_t>(g_memManager);
     // the memory manager

@@ -801,7 +801,7 @@ int SkateNet::HandleObjectUpdates(Net::MsgHandlerContext* context)
             matrix.GetEulerAngles(eulers);
             StateEntry& first = history->entries[0];
             for (int k = 0; k < 3; ++k) {
-                // (TP-R2: in a big level as sent there; THUGPRO's own left this one in halves / quarters)
+                // (TP-R6: in a big level as sent there; THUGPRO's own left this one in halves / quarters)
                 if (k == 1)
                     first.pos[1] = Thugpro::PackHeight(skater->m_pos.y);
                 else
@@ -818,7 +818,7 @@ int SkateNet::HandleObjectUpdates(Net::MsgHandlerContext* context)
         }
         for (int k = 0; k < 3; ++k)
             cur.pos[k] = pos[k];
-        // (TP-R2: whole units in a big level)
+        // (TP-R6: whole units in a big level)
         float position[3] = {Thugpro::UnpackHorizontal(pos[0]), Thugpro::UnpackHeight(pos[1]),
                              Thugpro::UnpackHorizontal(pos[2])};
         for (int k = 0; k < 3; ++k) {
@@ -915,7 +915,7 @@ uint32_t SkateNet::GetRelayFlags(void* sentRecord, void* stateEntry, uint8_t ind
         sent->forcedFrame[index] = ServerFrame();
     float angles[3] = {entry->angles[0], entry->angles[1], entry->angles[2]};
     for (int k = 0; k < 3; ++k) {
-        // (TP-R2: whole units in a big level)
+        // (TP-R6: whole units in a big level)
         int16_t value = k == 1 ? Thugpro::PackHeight((&entry->position.x)[1]) : Thugpro::PackHorizontal((&entry->position.x)[k]);
         if (value != sent->pos[index][k] || force)
             flags |= 1u << k;
@@ -951,7 +951,7 @@ void SkateNet::WriteObjectUpdate(Obj::CObject* object, RelayStream* out)
     uint32_t flags = GetRelayFlags(sent, &entry, index);
     stream.WriteBits(flags, 9);
     for (int k = 0; k < 3; ++k) {
-        // (TP-R2: whole units in a big level)
+        // (TP-R6: whole units in a big level)
         int16_t value = k == 1 ? Thugpro::PackHeight(entry.position.y) : Thugpro::PackHorizontal((&entry.position.x)[k]);
         if (flags & (1u << k))
             stream.WriteBits(static_cast<uint32_t>(static_cast<int>(value)), 16);
@@ -1070,7 +1070,7 @@ int SkateNet::HandleClientObjectUpdate(Net::MsgHandlerContext* context)
     Mth::Matrix matrix;
     matrix.SetFromEulerAngles(angles[0], angles[1], angles[2]);
     cur.matrix = matrix;
-    // (TP-R2: whole units in a big level)
+    // (TP-R6: whole units in a big level)
     cur.position = {Thugpro::UnpackHorizontal(pos[0]), Thugpro::UnpackHeight(pos[1]), Thugpro::UnpackHorizontal(pos[2]),
                     0.0f};
     cur.time = static_cast<uint16_t>(time);

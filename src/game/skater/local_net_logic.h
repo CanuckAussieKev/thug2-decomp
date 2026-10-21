@@ -8,7 +8,7 @@
 // The skater's local network logic component (SkaterLocalNetLogic, type 0x7CD3E6D5, its factory 0x00513630): a local
 // skater's updates to the server (message 0x23) - its position, orientation, state and controls, each sent when it
 // changed (and everything every 15th frame of its client app, unless it's the server's own skater). Only the update
-// is rewritten (0x00512EA0 / 0x005131A0, for the big-level positions, TP-R2 - game/net/thugpro_compat.h); the rest of
+// is rewritten (0x00512EA0 / 0x005131A0, for the big-level positions, TP-R6 - game/net/thugpro_compat.h); the rest of
 // the component (0x00512C60-0x005136E8) isn't yet.
 namespace Obj {
 

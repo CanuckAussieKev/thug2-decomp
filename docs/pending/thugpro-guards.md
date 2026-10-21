@@ -1,12 +1,12 @@
 # THUGPRO guards: The Mall's positions, the graffiti mask, received-message and appearance guards (agent "guards", 2026-10-21)
 
 The user's decision: "Skaters' parts and boards, Mall, graffiti, we should handle this." (docs/thugpro-online.md items
-3, 7 and the plan's 5 / 12 / 13). NOT run in the game yet (offline self-tests only; nothing here ever went online).
+3, 7 and the plan's 5 / 12 / 13). Offline self-tests and two offline workspace runs (below); nothing here ever went online.
 Insights from Morten1337's thugpro_proxy (DispatchMessage hook, THUGPRO_SetBigLevel, Net::InitPatches), used with his
-permission and written in this project's own way; nothing copied. Register entries TP-R2...TP-R5
+permission and written in this project's own way; nothing copied. Register entries TP-R6...TP-R10
 (tools/compat/thugpro/README.md, "Run time").
 
-## 1. The Mall: THUGPRO's big-level positions (TP-R2) - batch "thugpro-guards 1"
+## 1. The Mall: THUGPRO's big-level positions (TP-R6) - batch "thugpro-guards 1"
 
 A skater's position travels as three int16s in the skater updates (message 0x23): THUG2 sends x / z in half units and y
 in quarters (+-16384 / +-8192 units). THUGPRO's `THUGPRO_SetBigLevel` (run from its load_level in network games, for
@@ -35,7 +35,7 @@ Decompiled to source first (original code, then the scale in it):
   the 0x80 bit of a 4-bit write is cleared by the next write; `reader-skip-state` 0xC -> 0xB: the skipped length never
   rounds differently - every total is 5 mod 8).
 
-## 2. The graffiti change mask (TP-R3) and the trick object manager - batch "thugpro-guards 1"
+## 2. The graffiti change mask (TP-R7) and the trick object manager - batch "thugpro-guards 1"
 
 THUG2's LogTrickObjects kept "this cluster changed hands" in a 128-byte global (0x007CE508); a trick over more trick
 objects wrote past it into the trick object code's globals - THUGPRO's "Fix 256 graff tag crash" (Net::InitPatches moves
@@ -57,7 +57,7 @@ it to a 2048-byte buffer). THAW zones have hundreds of clusters.
   free skate's trick objects colour as you skate them when graffiti is the mode) - single-player graffiti isn't
   reachable offline without the network menus, so this one waits for a LAN / online session.
 
-## 3. Received-message guards (TP-R4) - batch "thugpro-guards 2"
+## 3. Received-message guards (TP-R8) - batch "thugpro-guards 2"
 
 `src/game/net/net_guards.cpp` (new), called first by our Net::Dispatcher::DispatchMsg (0x0045A750, already ours - so no
 original code changes; THUGPRO checks in the same place):
@@ -68,14 +68,14 @@ original code changes; THUGPRO checks in the same place):
 - 0x33 / 0x46 change level (+0): a level whose load script doesn't exist (THUGPRO's atlanta, HISCH, z_funpark, oil...)
   -> SkateNet::HandleServerRemovedYou as for message 'V' ("the server moved on": the error box, back to the menus).
 - Shorter than what a check reads -> not checked (nothing read past its end) and passed to THUG2's handlers as it is.
-  Each name logged once ("network guard (THUGPRO, TP-R4): ...").
+  Each name logged once ("network guard (THUGPRO, TP-R8): ...").
 - Message layouts from THUG2's own handlers (0x0056A450, 0x0056D810, 0x005313C0, 0x005311F0 / 0x00569560).
 - Tests: TestNetGuards (ours only - nothing original to compare): every guarded message known / unknown / too short /
   null, other messages untouched, then through DispatchMsg with a stand-in dispatcher (handlers run with the change,
   not run when dropped, the leave's result returned). selftests_netC.cpp's original-vs-ours dispatcher tests stand
   the guard in (it passes everything there). Mutations (out/mut_guards.ts, with section 4's) caught.
 
-## 4. Received appearances (TP-R5) - batch "thugpro-guards 2"
+## 4. Received appearances (TP-R9) - batch "thugpro-guards 2"
 
 `src/game/skate/appearance_guard.cpp` (new), from our CSkaterProfile::ReadFromBuffer (0x00586DC0) right after the
 appearance is read (0x00489400 into the profile's +0x4C): its callers are the player create (0x0052DB80), the join
@@ -83,13 +83,13 @@ request (0x0052FA10, host) and 0x0053A310. THUG2 builds a part by finding its de
 the slot (0x00485CF0 via 0x00489050) and never checks the answer. Per slot with a desc_id: no such list (or not a list of
 structures, or empty) -> slot taken out; part not in the list -> `None` if the list has it, else
 appearance_custom_skater_male's part for the slot if it's in the list, else the list's first; an unknown `body` (the
-full-body pros) -> the whole appearance becomes appearance_custom_skater_male. Logged ("appearance guard (TP-R5)").
+full-body pros) -> the whole appearance becomes appearance_custom_skater_male. Logged ("appearance guard (TP-R9)").
 - Tests: TestAppearanceGuard (hand-built structures and lists: every fallback, wrong-type / empty lists, structure
   pointers and non-part components left alone, the body reset, no defaults); TestProfileRest checks ReadFromBuffer calls
   it once on +0x4C (and stands it in for the original-vs-ours comparison). Mutations (out/mut_guards.ts): 30 of 31
   caught (32 with section 3's); `body-continue` (break -> continue after an unknown body) equivalent.
 
-## 5. THUGPRO's own CAS parts and boards from the user's install (TP-R6) - batch "thugpro-guards 3"
+## 5. THUGPRO's own CAS parts and boards from the user's install (TP-R10) - batch "thugpro-guards 3"
 
 `src/game/skate/thugpro_cas.cpp` (new; not a decompilation - our own code on top of THUG2's script system):
 - LoadOnce, from MainLoop (next to RefreshPositionScale) until master_editable_list exists (at most 600 frames): reads
@@ -106,7 +106,7 @@ full-body pros) -> the whole appearance becomes appearance_custom_skater_male. L
   one of those noted - never one our own parts name, never a file the game has. Published once at the end of the load
   (the file system's threads read it). Each served file logged once.
 - Not covered: THUGPRO's archives (thugpro_models.prx, thugpro_images.prx...) - entries needing those are left out and
-  fall back (TP-R5). THUGPRO's animations (thugpro_anims.prx) are not loaded (TP-R4 plays them as `default`).
+  fall back (TP-R9). THUGPRO's animations (thugpro_anims.prx) are not loaded (TP-R8 plays them as `default`).
 - `[features] thugpro_parts=0` turns it off; `=2` offers THUGPRO's parts in our own CAS menus too (no `hidden` /
   `no_random`: to try them offline - a THUG2 player without them sees such a skater with THUG2's parts);
   `thugpro_folder=` another install folder (default %LOCALAPPDATA%\THUG Pro). (Not in CLAUDE.md's list of settings
@@ -123,7 +123,7 @@ full-body pros) -> the whole appearance becomes appearance_custom_skater_male. L
 
 - `-Level z_ma` with `logtricks; logtricks 150`: "1007 trick objects of 162 clusters in the level logged, 162 changed
   hands" - one trick over 1007 trick objects (THUG2's own mask held 128) - then 150; no crash, the game quit cleanly.
-- Start-up with the user's THUGPRO install: "THUGPRO CAS (TP-R6): 129 of THUGPRO's parts added to 11 of our lists ...
+- Start-up with the user's THUGPRO install: "THUGPRO CAS (TP-R10): 129 of THUGPRO's parts added to 11 of our lists ...
   (hidden from our menus); 1 left out; 102 of its loose files to read from there" - all of them THUGPRO-only paths
   (models\boards\board_*, models\cas_items\*, models\skater_pro\*_thug, models\skater_secret\*, models\peds\ped_eric_thug,
   models\skater_male\thugpro\head_*, textures\custom_boards\*). The front end and free skate in z_ma read none of them
@@ -153,9 +153,9 @@ make_menu_level.ts with `--compat none` (no IsBigLevel flag). THUGPRO's parts: `
 2. Offline: free skate in The Mall, a THAW zone with many trick objects - nothing should change (the scale is only on in
    network games; the log shows no "THUGPRO big level" line).
 3. LAN (two copies, `allow_multiple_instances=1`): host and join in The Mall; the log of both shows "THUGPRO big level
-   (TP-R2): network positions x/z in whole units"; the other skater is drawn where they are, also far out in the mall.
+   (TP-R6): network positions x/z in whole units"; the other skater is drawn where they are, also far out in the mall.
 4. LAN: graffiti in a THAW zone, tag many clusters with one long combo (no crash, colours on both).
-5. THUGPRO's parts (TP-R6), offline: start the game with THUGPRO installed; the log has "THUGPRO CAS (TP-R6): N of
+5. THUGPRO's parts (TP-R10), offline: start the game with THUGPRO installed; the log has "THUGPRO CAS (TP-R10): N of
    THUGPRO's parts added ...". With `[features] thugpro_parts=2`, CREATE-A-SKATER offers them (e.g. the hats / heads /
    bodies THUG2 hasn't, THUGPRO's boards): pick some, skate - "read from THUGPRO's install" lines in the log, the parts
    drawn right. Set it back to 1 (the default) afterwards.
