@@ -12,6 +12,7 @@ from this repo include them, so keep these notices with any distributed `dinput8
 | Inter 4.1 (The Inter Project Authors) - https://github.com/rsms/inter | downloaded at configure time (FetchContent); Inter-Regular and Inter-SemiBold compressed into the DLL (the level editor's UI font) | SIL Open Font License 1.1 - below |
 | JetBrains Mono 2.304 (The JetBrains Mono Project Authors) - https://github.com/JetBrains/JetBrainsMono | downloaded at configure time (FetchContent); JetBrainsMono-Regular compressed into the DLL (the level editor's numbers and names) | SIL Open Font License 1.1 - below |
 | stb_image_write 1.16 and stb_image 2.27 (Sean Barrett) - https://github.com/nothings/stb, commit 1ee679c | downloaded at configure time (FetchContent); built into the DLL: the screenshot key's PNG writer, and the PNG reader for its self-test | public domain or MIT, at the user's choice - MIT below |
+| LZHAM 1.0 (Richard Geldreich, Jr.) - https://github.com/richgel999/lzham_codec, commit d379b1f | downloaded at configure time (FetchContent, SHA-256 checked); built into the DLL: THUGPRO's network compression (method 3, the THUGPRO peer mode) | public domain (dedicated by its author on 2020-09-15; releases before that were MIT) - below |
 | MinHook 1.3.3 (Tsuda Kageyu) | downloaded at configure time (FetchContent) | BSD 2-clause - https://github.com/TsudaKageyu/minhook/blob/v1.3.3/LICENSE.txt |
 | NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript, commit 73fe0f9 | copied into `tools/neverscript/` (a tool, not part of the DLL) | no licence; the original author's permission - below |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |
@@ -239,3 +240,13 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
+
+## LZHAM 1.0 (Richard Geldreich, Jr.) (public domain)
+
+Source: https://github.com/richgel999/lzham_codec (commit d379b1f9121e2197881c61cfc4713c78848bdfe7, LZHAM_DLL_VERSION
+0x1010). Its LICENSE: "THIS SOFTWARE IS IN THE PUBLIC DOMAIN ... EXPLICITLY AND OVERTLY RELEASED AND CONTRIBUTED TO THE
+PUBLIC DOMAIN, PERMANENTLY, IRREVOCABLY AND UNCONDITIONALLY WAIVING ANY AND ALL CLAIM OF COPYRIGHT, IN PERPETUITY ON
+SEPTEMBER 15, 2020", with its fallback clauses ("MAY BE FREELY USED, DERIVED FROM, EXECUTED, LINKED WITH, MODIFIED AND
+DISTRIBUTED FOR ANY PURPOSE ... WITH NO ATTRIBUTION") and no warranty ("THE SOFTWARE IS PROVIDED "AS IS", WITHOUT
+WARRANTY OF ANY KIND"). Earlier releases (the copy THUGPRO builds in) were under the MIT licence; the codec and its
+stream format are the same.

@@ -18,7 +18,8 @@ int RleCompress(const uint8_t* in, int size, uint8_t* out, int outSize);
 // 0x00454C20: `size` bytes of code expanded into `out`, at most *outSize bytes; 0 and *outSize = the expanded
 // size, or -1 (*outSize untouched) if it wouldn't fit.
 int RleDecompress(const uint8_t* in, int size, uint8_t* out, int* outSize);
-// 0x00454E30: the message (*msgId, *length, data) compressed with `method` (1 RLE, 2 LZSS) into a new buffer
+// 0x00454E30: the message (*msgId, *length, data) compressed with `method` (1 RLE, 2 LZSS - NOT ORIGINAL: 3 LZHAM,
+// THUGPRO's, net_lzham.h; and in the THUGPRO peer mode 2 goes as 3) into a new buffer
 // (the default heap), *msgId then 0x12 and *length the new length; null (nothing changed) if it came out no
 // smaller than the data. Debug output gives the sizes.
 uint8_t* CompressMessage(uint8_t* msgId, uint16_t* length, const void* data, char method);
