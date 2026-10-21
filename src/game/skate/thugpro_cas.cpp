@@ -17,6 +17,8 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/file/file.h"
+#include "game/file/pre.h"
+#include "game/front/data_overlay.h"
 #include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
@@ -73,6 +75,20 @@ std::vector<std::string> Candidates(const char* path)
     return {relative, relative + ".xbx", key + ".img.xbx", relative + ".img.xbx"};
 }
 
+// Whether the game has a file: in the data overlay, a loaded archive, or its data folder. (Not File::Exist: on disk
+// it opens the file, and any error but "not found" - a folder that isn't there - is the game's fatal file error.)
+bool GameHas(const std::string& name)
+{
+    char overlay[260];
+    if (Front::DataOverlay::OverlayPath(name.c_str(), overlay))
+        return true;
+    if (Pre::Manager() && Pre::Exist(name.c_str()))
+        return true;
+    char disk[256];
+    File::MakeDiskPath(disk, name.c_str());
+    return IsFile(GameFolderPath(disk));
+}
+
 // Whether a part's path can be loaded: the game's own file (or one of ours), or a loose file of THUGPRO's (then noted
 // as one the overlay serves from the install).
 bool Found(const char* path)
@@ -81,7 +97,7 @@ bool Found(const char* path)
     if (s_theirFiles.count(key))
         return true;
     for (const std::string& candidate : Candidates(path)) {
-        if (File::Exist(candidate.c_str()))
+        if (GameHas(candidate))
             return true;
     }
     if (s_ourKeys.count(key))
@@ -451,7 +467,7 @@ void LoadOnce()
     Mem::PopContext();
     s_served.store(new std::set<std::string>(s_theirFiles)); // (kept for the game's life)
     Log("THUGPRO CAS (TP-R6): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
-        "the install's loose data); %d of its loose files served",
+        "the install's loose data); %d of its loose files to read from there when asked for",
         added, lists, archivePath.c_str(),
         setting == 1 ? "hidden from our menus" : "offered in our CAS menus too: thugpro_parts=2", skipped,
         static_cast<int>(s_theirFiles.size()));

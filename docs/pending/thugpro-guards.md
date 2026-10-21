@@ -119,6 +119,20 @@ full-body pros) -> the whole appearance becomes appearance_custom_skater_male. L
   (out/mut_cas.ts): 26 of 26 caught.
 - The merge itself (ParseArray, Resize, the flags) and the file serving need the game: see "For the user to try".
 
+## Workspace runs (C:\Games\THUG2-3, offline, under its lock; 2026-10-21)
+
+- `-Level z_ma` with `logtricks; logtricks 150`: "1007 trick objects of 162 clusters in the level logged, 162 changed
+  hands" - one trick over 1007 trick objects (THUG2's own mask held 128) - then 150; no crash, the game quit cleanly.
+- Start-up with the user's THUGPRO install: "THUGPRO CAS (TP-R6): 129 of THUGPRO's parts added to 11 of our lists ...
+  (hidden from our menus); 1 left out; 102 of its loose files to read from there" - all of them THUGPRO-only paths
+  (models\boards\board_*, models\cas_items\*, models\skater_pro\*_thug, models\skater_secret\*, models\peds\ped_eric_thug,
+  models\skater_male\thugpro\head_*, textures\custom_boards\*). The front end and free skate in z_ma read none of them
+  (nothing of ours names them). Found on the first run: File::Exist can't be asked about arbitrary paths (its disk
+  side opens the file and a missing folder is the game's fatal file error) - the check now looks in the overlay, the
+  loaded archives and the data folder itself.
+- Not run: a THUGPRO part actually drawn (needs CREATE-A-SKATER with `thugpro_parts=2`, or a THUGPRO player), the guards
+  and the sanitiser on real THUGPRO messages (online only), The Mall's scale (network games only).
+
 ## Checks (all three)
 
 thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all early self-tests pass. check_code_writes: no
