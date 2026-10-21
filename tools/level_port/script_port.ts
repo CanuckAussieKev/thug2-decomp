@@ -929,6 +929,9 @@ export interface TranslatorOptions {
     keptIn?: Iterable<string>;
     // `not` conditions looked into, and a condition naming anything left out is false (THUG1's).
     strictConditions?: boolean;
+    // sector name prefixes (any case) that must stay drawn: Invisible / Kill with a prefix= overlapping one are left
+    // out (THPS3 Warehouse's lit set, kept in place of the dark set its flicker script switched to - PC-THPS3-1).
+    shownPrefixes?: Iterable<string>;
 }
 
 export class Translator {
@@ -944,6 +947,7 @@ export class Translator {
     readonly animCheck: boolean;
     readonly keptIn: Set<string>;
     readonly strictConditions: boolean;
+    readonly shownPrefixes: string[];
     guard: Tok[] | null = null;
     readonly created = new Set<number>(); // objects a kept Create makes (`name:` on them is kept)
     readonly createdPrefixes = new Set<string>(); // and the prefix= of kept Creates (lower case)
@@ -981,6 +985,7 @@ export class Translator {
         // TranslatorOptions.
         this.extraLeftOut = new Set([...(options.leftOut ?? [])].map((n) => n.toLowerCase()));
         this.leftOutPrefixes = [...(options.leftOutPrefixes ?? [])].map((p) => p.toLowerCase());
+        this.shownPrefixes = [...(options.shownPrefixes ?? [])].map((p) => p.toLowerCase());
         this.objectCalls = options.objects !== undefined && options.objects !== null;
         this.objects = new Map(options.objects ?? []);
         this.objectStates = [...this.objects.values()].some((v) => Array.isArray(v)); // THPS4's form
@@ -1154,6 +1159,7 @@ export class Translator {
         if (toks.length > 2 && toks[1]!.t === 0x42) return this.objectCall(toks, discover);
         if (this.animCheck) toks = this.checkedAnims(toks);
         let args = argsOf(toks.slice(1));
+        if ((text === "invisible" || text === "kill") && this.hidesShown(args)) return null;
         if (SECTOR_COMMANDS.has(text) && this.undrawn.size) {
             const kept = this.withoutUndrawn(toks, args);
             if (kept === null) return null;
@@ -1377,6 +1383,24 @@ export class Translator {
         if (kept === null) return null;
         this.guard = this.skaters.has(obj) ? null : toks.slice(0, 1);
         return [...toks.slice(0, 2), ...kept];
+    }
+
+    hidesShown(args: readonly Arg[]): boolean {
+        // An Invisible / Kill whose prefix= covers sectors that must stay drawn (shownPrefixes), or names a part of
+        // them (`prefix=SkWare_Light`, `prefix=SkWare_Light_Wall` or `prefix=SkWare`). name= of one sector is kept (a
+        // glass pane's Kill before its Shatter).
+        if (!this.shownPrefixes.length) return false;
+        for (const [key, value] of args) {
+            if (key === null || this.text(key).toLowerCase() !== "prefix") continue;
+            if (value.t !== 0x1b && value.t !== 0x1c) continue;
+            const prefix = decodeLatin1(qb.rstripNul(value.p)).toLowerCase();
+            const shown = this.shownPrefixes.find((p) => p.startsWith(prefix) || prefix.startsWith(p));
+            if (shown !== undefined) {
+                this.note(`hides sectors kept shown: ${shown}`);
+                return true;
+            }
+        }
+        return false;
     }
 
     withoutUndrawn(toks: Tok[], args: readonly Arg[]): Tok[] | null {

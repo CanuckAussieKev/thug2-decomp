@@ -11823,10 +11823,13 @@
             "ware"
           ]
         },
-        "why": "THPS3's scripts switch between the lit and the dark copies of the same surfaces; drawn both, they fight over them (flicker)",
+        "why": "THPS3's scripts switch between the lit and the dark copies of the same surfaces; drawn both, they fight over them (flicker). The lit copy stays shown: the scripts' Invisible / Kill prefix= of it are left out too (JKU_Ware_RoomFlicker hid it for 10-120 frames at a time with nothing under it - half the level black)",
         "required": false,
         "prefixes": [
           "skware_dark"
+        ],
+        "shown": [
+          "skware_light"
         ]
       },
       {

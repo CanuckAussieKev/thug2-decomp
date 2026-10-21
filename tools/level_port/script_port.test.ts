@@ -129,3 +129,23 @@ test("scriptNeeds: commands only, GotParam branches only when passed", () => {
     // (not known: every branch counts)
     assert.deepEqual(needs(null), ["lockobj", "sound", "vibration"]);
 });
+
+test("hidesShown: Invisible / Kill prefix= of a set kept shown, not name= or other sets", () => {
+    const names = new Map<number, string>([
+        [checksum("prefix"), "prefix"],
+        [checksum("name"), "name"],
+    ]);
+    const tr = Object.create(sp.Translator.prototype) as sp.Translator;
+    Object.assign(tr, { names, shownPrefixes: ["skware_light"], leftOut: new Map() });
+    const str = (s: string): sp.Tok => new sp.Tok(0x1b, Buffer.from(s + "\0", "latin1"), 0);
+    const prefix = (s: string): sp.Arg[] => [[checksum("prefix"), str(s)]];
+    assert.equal(tr.hidesShown(prefix("SkWare_Light")), true);
+    assert.equal(tr.hidesShown(prefix("SkWare_Light_Wall")), true); // (a part of the set)
+    assert.equal(tr.hidesShown(prefix("SkWare")), true); // (covers the set)
+    assert.equal(tr.hidesShown(prefix("SkWare_Dark")), false);
+    const pane = new sp.Tok(0x16, Buffer.from(pack("<I", checksum("SkWare_Light_Glass01"))), 0);
+    assert.equal(tr.hidesShown([[checksum("name"), pane]]), false); // (a glass pane's Kill before its Shatter)
+    assert.equal(tr.leftOut.get("hides sectors kept shown: skware_light"), 3);
+    Object.assign(tr, { shownPrefixes: [] });
+    assert.equal(tr.hidesShown(prefix("SkWare_Light")), false);
+});

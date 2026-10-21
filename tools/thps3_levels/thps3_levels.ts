@@ -869,6 +869,13 @@ export function leftOutPrefixes(pc: PortChanges, base: string): readonly string[
     return (pc.get("PC-THPS3-1", base.toLowerCase())?.prefixes as string[] | undefined) ?? [];
 }
 
+// PC-THPS3-1's `shown`: the copy kept in place of the left-out one (Warehouse's SkWare_Light) - the scripts' Invisible /
+// Kill prefix= of it are left out (script_port TranslatorOptions.shownPrefixes). JKU_Ware_RoomFlicker hides the lit set
+// for 10-120 frames at a time to show the dark one; without the dark set that left the room and the floor black.
+export function shownPrefixes(pc: PortChanges, base: string): readonly string[] {
+    return (pc.get("PC-THPS3-1", base.toLowerCase())?.shown as string[] | undefined) ?? [];
+}
+
 export function createdAtStart(
     q: QbFile,
     globalQbs: readonly QbFile[],
@@ -1551,6 +1558,7 @@ export function portScripts(
     made: PortedNodes,
     undrawn: Iterable<number> = [],
     extra: ExtraScripts = { provided: [], roots: [], replacing: new Map() },
+    shown: readonly string[] = [],
 ): [Map<number, Buffer>, string | null, string, string] {
     // The level's scripts brought along (tools/level_port/script_port.ts) from its nodes' trigger scripts - the
     // sectors' and rails' (run by the skater), the made objects' (run by them) - and its start scripts: the scripts
@@ -1580,7 +1588,7 @@ export function portScripts(
         allNames,
         names,
         // (THPS3's rotation deceleration in THUG2's terms - thps3_rotation.ts)
-        { provided, inheritParams: true, undrawn, rewrites: ROTATION_REWRITES },
+        { provided, inheritParams: true, undrawn, rewrites: ROTATION_REWRITES, shownPrefixes: shown },
     );
     const roots: [number, scriptPort.Context][] = [];
     for (const node of converted) {
@@ -2411,6 +2419,7 @@ export function convertNodeArray(
             made,
             undrawn,
             thugproNew.extraScripts(tpNew, names),
+            shownPrefixes(pc, base), // (PC-THPS3-1)
         );
     }
     // (after the scripts: their trigger scripts are THUG2's Team_Flag, not THPS3 scripts to bring along)
