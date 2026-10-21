@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the level select in sections, one per game, for make_menu_level.ts's data overlay:
-//   - Up / Down switch between the games (THUG2, then THUG1, THPS4, THPS3, THPS2 when converted); Left / Right
-//     move through the section's levels as before. A header above the signs names the section; the helper text
+//   - Up / Down switch between the games (THUG2, then THUG1, THPS4, THPS3, THPS2, THAW, THP8 when converted); Left /
+//     Right move through the section's levels as before. A header above the signs names the section; the helper text
 //     says "Up/Down = Game". Classic mode (its brackets use Up / Down) keeps the game's own list.
 //   - every level we add gets a star (the game's level_dot) at its real-world place on the globe, which turns to it
 //     as to THUG2's own levels; a level with no place (the skate shops, TEST LEVEL) spins the globe, as THUG2's
