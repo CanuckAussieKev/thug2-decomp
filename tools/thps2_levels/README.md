@@ -83,8 +83,7 @@ texels, the newtex BMPs (by the texture's name checksum), the meaning of face fl
   checks). Command points (type 6) are run by the trigger faces of the world model their checksum names.
 - Gaps: GapPolyHit(other, gap) - meeting the trigger after `other` - as THUG2 trigger faces (both windings, flags
   0x1150) in a collision object per trigger, a GenericNode per trigger and a script: EndGap then StartGap (CANCEL_GROUND)
-  for each of its gaps. THPS2's gap names and scores are in its SafeDisc-encrypted executable: named "GAP <number>",
-  250 points (stand-ins).
+  for each of its gaps. Names and scores: below.
 - Kill zones: KillBruce in a trigger's list (or a command point it pulses) - SK3_KillSkater back to the restart it
   pulses (a "Dummy" one becomes a typeless restart node), else the nearest.
 - Level start: SetRestart / SetRestart2 of the start node pick Player1 / Player2. Restarts with no floor at all are
@@ -99,6 +98,23 @@ texels, the newtex BMPs (by the texture's name checksum), the meaning of face fl
   round split along 0-2 (no bowties).
 - Signs: pictograms of their own (tools/menu_level/level_select_icons.ts).
 
-Not yet (phase 3): gap names and scores (the encrypted executable), the scripted objects (waiting for signals, moving
+## Gap names and scores (gap_table.ts)
+
+THPS2's gap table (names, scores) is in its executable, not in ALL.PKR - the .trg files only number the gaps (Hangar
+2700-2721, School II 3300-3503, NY 22400-22440...). `convert` looks in `<thps2>\THawk2.exe`, then `THPS2.exe` (or
+`--thps2-exe <file>`): a readable one's table is found by its records (a gap number the levels use, a name - a pointer
+or the text -, a score; any record size and field order) and its names and scores go into the gaps' EndGap; a gap it
+doesn't name, or no readable executable, keeps the stand-in "GAP <number>", 250 points. `gaps` shows what was found:
+
+    node tools/thps2_levels/thps2_levels.ts gaps [levels...] [--thps2-exe <file>]
+
+The PC release's THawk2.exe is SafeDisc 2.05.030-wrapped: its .text and .data are encrypted on disk (7.99 bits a
+byte, no strings) and decrypted only by the SafeDisc loader at run time, which needs the disc and its driver
+(secdrv.sys - blocked on Windows 10 / 11). PartyMod's THPS2.exe is that file with partypatcher's 35-byte patch, so
+encrypted too (partypatcher expects a THawk2.exe of crc32 d8e631f0 - an unwrapped one; the retail one is 3d908efd).
+Nothing here decrypts anything: with those two, every gap keeps its stand-in. The table's layout is still unknown (no
+readable executable seen): the finder is checked on synthetic executables only.
+
+Not yet (phase 3): gap names and scores (a readable THPS2 executable), the scripted objects (waiting for signals, moving
 along nodes, breaking: C_SHATTER glass, falling roof debris), the cars (Car_* kinds, C_*.psx models), the sound
 emitters (ScriptOnlyBaddy), SetSkyColor / SetFadeColor (layout not decoded), flag 0x400, THPS2's music (Bink audio).

@@ -359,7 +359,7 @@ in THUG1's). Every level loads in free skate (agents' load checks only; nobody h
 | Texture mapping | Original: uvs as texel numbers over the size, repeating textures wrap-addressed (phase 2 - phase 1 clamped them into stripes); layers (decals) given a z bias |
 | Terrain sounds | Original numbers (THPS2's 16 terrains as the nearest THUG2 terrain: metal pole and metal both smooth metal); rails concrete / metal / wood from their flags |
 | Restarts, rails | Original (Player1 / Player2 as the start node names them; 2P / HORSE / generic by name); restarts with no floor at all left out |
-| Gaps | Original triggers and gap numbers; **stand-in names and scores**: "GAP <number>", 250 points (THPS2's gap table is in its SafeDisc-encrypted executable); StartGap with CANCEL_GROUND for every gap |
+| Gaps | Original triggers and gap numbers; **stand-in names and scores**: "GAP <number>", 250 points (THPS2's gap table is in its executable - SafeDisc-encrypted in the PC release; gap_table.ts reads it from a readable one, `--thps2-exe`); StartGap with CANCEL_GROUND for every gap |
 | Kill zones | Original (KillBruce triggers, back to the restart they pulse) |
 | Other trigger commands | Missing: career flags, pulses to objects, sounds, visibility boxes, camera |
 | Moving / breakable objects (the _o models) | Static, bouncy and spinning platform objects as LevelObjects of THPS2's models (bouncy ones not collided with: THPS2 knocks them about); scripted ones (signals, paths, shattering) missing |
