@@ -28,7 +28,7 @@ The range's classes / topics:
 - 0x00422D00-0x004230B0: the model light update component (0xE3FCA939).
 - 0x00423130-0x00423643: the motion component's member-function registration and its first members.
 
-Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp,model_component.cpp,model_component_init.cpp` (any of them alone; the files of later batches are added here).
+Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp,model_component.cpp,model_component_init.cpp,model_component_members.cpp` (any of them alone; the files of later batches are added here).
 
 - [x] Batch OC1-1 (NOT run in the game yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
   (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
@@ -291,3 +291,27 @@ Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_co
   - Mutations: 71 deliberate bugs, all caught (67 at first; the test then constructed on 0xFF bytes, destroyed with
     flags 2, dumped the component after InitModel and made CloneFrom's GEOM missing for some seeds).
   - Found while testing: 0x00494680 (a geom's name) takes one argument - the `1` pushed before it belongs to AddGeom.
+- [x] Batch OC1-9 (NOT run in the game yet; the model component's script members, 1 function of 4.6 KB):
+  src/game/obj/model_component_members.cpp, model_component_nx.h (what the model component's source reaches of Nx and
+  the network, not rewritten yet) (new).
+  - Obj::CModelComponent::CallMemberFunction 0x00421AE0 - 40 members: SwitchOnAtomic / SwitchOffAtomic (HideGeom,
+    sent), AtomicIsHidden (hidden=), Obj_UpdateBrightness, Obj_GetModelName (filename= the model's +0x30),
+    Obj_UpdateModel, Obj_SetVisibility / Obj_ClearVisibility (viewport bits), Obj_EnableScaling / Obj_DisableScaling /
+    Obj_ApplyScaling / Obj_GetScaling (scaling=), Obj_SetLightAmbientColor / Obj_EnableAmbientLight /
+    Obj_DisableAmbientLight, Obj_SetLightDiffuseColor / Obj_EnableDiffuseLight / Obj_DisableDiffuseLight,
+    Obj_SetLightDirection (direction, else heading and pitch), CancelRotateDisplay (message 0x8C), RotateDisplay
+    (duration in ms, seconds or frames; StartAngle, EndAngle, SinePower, RotationOffset, HoldOnLastAngle, dontpause, x /
+    y / z; message 0x76), Enable / DisableDisplayFlip, Obj_SetBoundingSphere / Obj_RestoreBoundingSphere, ClearGeom /
+    Obj_ClearGeoms / AddGeom (Model's file name's checksum as an asset), Obj_SetUVOffset, Obj_SetUVParams (UScale /
+    VScale, rot, uoff / voff into a UV matrix), Obj_ClearColor / Obj_SetColor (h, s, v) / Obj_SetColorRGB,
+    Obj_HasModelLights, Obj_InitModel, Obj_InitModelFromProfile (struct read into an appearance, vtable slot 13),
+    Obj_ReplaceTexture (array= of src / dest / in, or one; the model's 0x00493D10), Obj_ReplaceSpriteTexture (dest a
+    checksum; 0x00493E80), Obj_TestModelCollision (line= start / end; the result's checksum 0xED615AF5) and
+    Obj_GetBoneVolume (bone_volume= - the line test goes on into it too, as the original); any other name: 2.
+    Parameters the original reads without a default (r / g / b, index, material, u / v, pass) are left unset as there.
+  - Tests (selftests_obj_model_members.cpp): TestModelComponentScriptMembers - 24 seeds x the 40 members and one
+    other, each with a random parameter set (the parameters a member reads without a default always given: the
+    original's stack leftovers can't be compared), models / lights / players there or not; the component's own members
+    that have tests of their own stood in for (GetDisplayMatrix, TestCollision, HideGeom, InitModel), the UV matrix's
+    RotateZ too (the rotation matrices aren't compared here).
+  - Mutations: 70 deliberate bugs, all caught (69 at first; the test then picks one time unit - seconds, second, frames or frame - per seed, so frame alone is reached).
