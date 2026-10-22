@@ -235,6 +235,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_viewer19.cpp
     src/hook/selftests_viewer20.cpp
     src/hook/selftests_park_graffiti.cpp
+    src/hook/selftests_park_scene.cpp
     src/hook/selftests_viewer_object.cpp
     src/hook/selftests_viewer21.cpp
     src/hook/selftests_tod3.cpp
@@ -707,6 +708,8 @@ add_library(thug2_code OBJECT
     src/game/ed/gap_manager.cpp
     src/game/ed/park_editor.cpp
     src/game/ed/park_editor_cfuncs.cpp
+    src/game/ed/park_scene.cpp
+    src/game/ed/park_nodes.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/net/online_identity.cpp
