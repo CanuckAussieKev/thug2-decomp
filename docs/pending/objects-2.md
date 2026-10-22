@@ -16,7 +16,7 @@ getters answering from a per-variant scenario; the whole arena compared).
 Shared files touched: CMakeLists.txt (new files listed), src/game/mth/vector.h / .cpp (Vector::operator/=,
 Mth::GetDistance added), src/game/obj/motion.h (the class now derives from CBaseComponent with its whole layout;
 motion.cpp's RotateTo uses m_object; selftests_motion.cpp follows).
-Switch off: `[replacements] disable=motion_component.cpp` (and the later files listed below).
+Switch off: `[replacements] disable=motion_component.cpp,motion_update.cpp,motion_rotate.cpp,motion_ground.cpp,movable_contact.cpp,node_components.cpp,chain_component.cpp,particle_component.cpp,proximity_component.cpp,rigidbody_support.cpp,rigidbody_contacts.cpp,rigidbody_math.cpp` (any of them alone).
 
 - [x] Batch OC2-1 (NOT run in the game yet; the motion component's life, wait and simpler member functions, 19
   functions): src/game/obj/motion_component.cpp (new), motion.h (layout), motion_internal.h (new: checksums, x87
@@ -180,3 +180,7 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
     caught (3 after strengthening; 3 that were equivalent by construction - a double passed through Wide - redone).
 - Range done: every function of 0x00423643-0x0042CECD has source (node out/scripts/starts.mjs --missing lists only
   jump targets inside functions and padding misreads; find_gaps.py: none in the range).
+- [x] Game runs (2026-10-22, workspace C:\Games\THUG2-2, this branch's build after merging main): `-level bo` (the
+  batch's self-tests in the game, then free skate: up / ollie, the skater wall-riding) and `-level ba -FullTests` (698
+  early, 17 late, 3 engine-started self-tests all passed; free skate, the skater moving): 4830 of 4830 replacements
+  installed, no run-time check failure, debug CRT report or exception in the log.
