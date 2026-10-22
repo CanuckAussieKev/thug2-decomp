@@ -20,7 +20,9 @@
 #include "game/sys/main.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/platform.h"
+#include "game/sys/platform_d3d.h"
 #include "game/sys/platform_input.h"
+#include "game/sys/platform_system.h"
 #include "game/sys/registry.h"
 #include "game/sys/sdl_window.h"
 #include "hook/game.h"
@@ -87,10 +89,10 @@ void CExit() { GameFunction<void(__cdecl*)()>(0x00624B20)(); } // _cexit: atexit
 }
 
 // The platform layer's parts without source yet.
-char FindCdDrive(const char* volume) { return GameFunction<char(__cdecl*)(const char*)>(0x005F5740)(volume); }
-void InitDirectSound(HWND window) { GameFunction<void(__cdecl*)(HWND)>(0x005F59D0)(window); }
-void ReleaseDirectSound() { GameFunction<void(__cdecl*)()>(0x005F5A00)(); }
-void ReleaseDirect3D() { GameFunction<void(__cdecl*)()>(0x005F55E0)(); }
+char FindCdDrive(const char* volume) { return Platform::FindCdDrive(volume); }
+void InitDirectSound(HWND window) { Platform::InitDirectSound(window); }
+void ReleaseDirectSound() { Platform::ReleaseDirectSound(); }
+void ReleaseDirect3D() { Platform::ReleaseDirect3D(); }
 // A key's name (at most 14 characters), by its scan code (the table at 0x007D42F8).
 void SetKeyName(unsigned scanCode, const wchar_t* name)
 {

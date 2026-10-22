@@ -2,7 +2,7 @@
 
 Generated 2026-10-22 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: ███████████░░░░░░░░░ 59.3%** of the code rewritten (4,522 of 8,359 functions, 956.8 KB of 1,612.7 KB).
+**Game code: ███████████░░░░░░░░░ 59.7%** of the code rewritten (4,546 of 8,333 functions, 962.0 KB of 1,610.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -34,7 +34,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ████████████████████ 100% | 222 / 222 | 27.1 KB / 27.1 KB |
 | Input devices (SIO) | `0x5bdad0`-`0x5be6f0` | ████████████████████ 100% | 25 / 25 | 2.8 KB / 2.8 KB |
 | Game clock (Tmr) | `0x5be6f0`-`0x5beaae` | ████████████████████ 100% | 15 / 15 | 0.8 KB / 0.8 KB |
-| Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5f2e00`-`0x5f6640` | ████████░░░░░░░░░░░░ 42% | 18 / 68 | 5.3 KB / 12.4 KB |
+| Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5f2e00`-`0x5f6640` | ████████████████████ 100% | 42 / 42 | 10.4 KB / 10.4 KB |
 
 ## Not decompiled (libraries)
 
@@ -44,6 +44,7 @@ Linked as libraries in the final build rather than rewritten:
 - D3DX9 static library (shader assembler/compiler, math helpers) (`0x5beb1a`-`0x5eef20`): 677 functions, 157.8 KB
 - D3DX9's JPEG codec (IJG libjpeg inside the D3DX9 static library) (`0x5eef20`-`0x5f2e00`): 22 functions, 5.1 KB
 - Data in .text (a table of .rdata pointers, offsets and flags; no code) (`0x5f6640`-`0x5f8130`): 1 functions, 0.0 KB
+- C++ library template code inside the game's ranges (`data/library_functions.csv`): 26 functions, 1.9 KB
 - GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` (see `docs/library_ranges.md`)
 
 ## PartyMod

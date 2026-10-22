@@ -357,10 +357,11 @@ void TestRenderTargets()
         return 0u;
     });
     for (uint32_t address : {0x005F4620u, 0x005F4690u}) {
-        s.At({address}, 0, [address](Regs& r) { Record({address, r.args[0]}); return 0u; });
+        s.At({address, Resolve(OursAt(address))}, 0, [address](Regs& r) { Record({address, r.args[0]}); return 0u; });
     }
     for (uint32_t address : {0x005F4650u, 0x005F4670u, 0x005F52D0u, 0x004CD940u, 0x004DD7F0u}) {
-        s.At({address}, 0, [address](Regs&) { Record({address}); return 0u; });
+        uint32_t ours = OursAt(address) ? Resolve(OursAt(address)) : address; // (0x004CD940 isn't ours yet)
+        s.At({address, ours}, 0, [address](Regs&) { Record({address}); return 0u; });
     }
     struct Case {
         uint32_t width, height, depthFormat;

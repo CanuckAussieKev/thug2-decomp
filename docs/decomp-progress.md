@@ -9083,12 +9083,12 @@ belong with the CScript batch.
   - The range first: "0x5EEF20-0x5F8130 Win32 platform layer" was three things. 0x5EEF20-0x5F2E00 is IJG libjpeg
     (jpeg_* error codes, the IDCT / FDCT loops), called only from D3DX9 (0x5EB678-0x5EB6C3: its JPEG texture loader) -
     part of the D3DX9 static library, linked, not decompiled. 0x5F2E00-0x5F6640 is the game's platform layer; Ghidra
-    missed 9 functions in it (0x5F4840, 0x5F4970, 0x5F4BB0, 0x5F4DF0, 0x5F51C0, 0x5F5390, 0x5F5710, 0x5F57D0,
-    0x5F6430; 0x5F3210 is a loop label in 0x5F31D0). 0x5F6640-0x5F8130 is a data table (295 .rdata pointers), not
-    code. data/subsystems.csv, docs/library_ranges.md and docs/subsystems.md split accordingly.
+    missed 7 functions in it (0x5F4840, 0x5F4970, 0x5F4BB0, 0x5F4DF0, 0x5F51C0, 0x5F5390, 0x5F5650; 0x5F3210,
+    0x5F5710, 0x5F57D0 and 0x5F6430 are labels inside others). 0x5F6640-0x5F8130 is a data table (295 .rdata
+    pointers), not code. data/subsystems.csv, docs/library_ranges.md and docs/subsystems.md split accordingly.
   - Rewritten: 0x005F2E00 ReadJoystick (Poll, re-Acquire and Poll once, the last state kept, GetDeviceState
     DIJOYSTATE2), 0x005F2E90 ReadMouse (the same; a still frame keeps the last movement less 2 toward 0, x then y),
-    0x005F2F80 HasKeyBindings / 0x005F2FC0 HasPadD0Bindings (any of 24 not -1), 0x005F3000 JoystickAxis (1-3 X Y Z,
+    0x005F2F80 HasKeyBindings / 0x005F2FC0 HasMouseBindings (any of 24 not -1), 0x005F3000 JoystickAxis (1-3 X Y Z,
     4 / 5 the hat across / down as +-1000, 6-8 Rx Ry Rz, 9 / 10 the sliders), 0x005F30E0 KeyDown (Escape only on the
     frame it goes down; -1 none), 0x005F3120 KeyName, 0x005F3130 AddJoystickAxis (EnumObjects callback: range
     -1000..1000, force-feedback axes counted - at most two - keeping their dwFFForceResolution), 0x005F31D0
@@ -9098,8 +9098,8 @@ belong with the CScript batch.
     (digits and upper-case A-F only), 0x005F34D0 LoadRegistryOptions (HKCU\<key>: distance, options' bits,
     resolution, "pad0" / "pad1" GUIDs as text, "k<port>_<n>" / "gp<port>_<n>" bindings), 0x005F39E0 ReleaseInput,
     0x005F3BF0 SetKeyName, 0x005F3C10 InitKeyNames (256 x "(NONE)", then 104 names). Platform::PortControls
-    (0x130 bytes per port at 0x007D6770: keys +0x00, joystick GUID +0x60, gamepad +0x70, +0xD0 read by the pad
-    read) and Platform::Options (0x007D6434) named. device.cpp, key_names.cpp, winmain.cpp and platform.cpp call
+    (0x130 bytes per port at 0x007D6770: keys +0x00, joystick GUID +0x60, gamepad +0x70, mouse +0xD0 - named in
+    batch 296) and Platform::Options (0x007D6434) named. device.cpp, key_names.cpp, winmain.cpp and platform.cpp call
     these directly now (they went through GameFunction).
   - Quirks kept: the registry loader's value size starts at 1, so its first "distance" read always fails (and sets
     the size to 4) - "distance" is read a second time after "options"; pad0's text buffer isn't cleared first;
@@ -9117,6 +9117,50 @@ belong with the CScript batch.
     too. Mutations (out/scripts/mut_w32a.ts): 53, 48 caught at first, 52 after strengthening (separate failure
     scripts per call, one-axis-still mice, the byte before the keys, a one-byte pad value); the miss is equivalent
     (the decay at y == 2 leaves 0 either way). thug2_check: 0 MISMATCHED, 705 early self-tests pass;
+    check_code_writes clean; the register scan and the call audit flag nothing new.
+- [x] Batch 296 (lead, 2026-10-22; NOT run in the game yet; the Win32 platform layer, part 2 - the pad read, 8 functions):
+  src/game/sys/platform_input.cpp/.h; test TestPlatformPad (selftests_platform_input.cpp).
+  - 0x005F4280 JoystickControlDown (a button 11-39, or an axis past +-200), 0x005F42D0 MouseControlDown (a button's
+    top bit 4-11, or an axis past +-3), 0x005F4330 MouseStickValue / 0x005F4450 JoystickStickValue (-1 from the
+    first control, +1 added from the second, an axis instead: mouse x 6553.4 within -32768..32767, joystick / 1000;
+    the x87 value returned as double, as the pad read multiplies it unrounded), 0x005F5BC0 ReadPad (the keyboard,
+    the port's joystick and the mouse read; nothing for a port without them; the mouse in pad mode 0 only - its
+    sticks scaled twice, x 6553.4 then x 32767, only the low 16 bits kept; the joystick's sticks where they push
+    harder, its d-pad from axes only; then by mode: 2 no keys, 1 the default keys for port 0, 3 always, otherwise
+    the port's keys - action 12 has no key, Escape is the button 0x10 on port 0 only; the default keys' Enter /
+    Escape a pressure button or 0x10 / 0x20, any other value writing that far in), 0x005F6610 SetPadMode,
+    0x005F6620 / 0x005F6630 SetDefaultEnterControl / SetDefaultEscapeControl. PortControls' +0xD0 is the mouse's
+    controls (HasMouseBindings). The mouse's reverse flags (0x007D6A44 / 45) are read but nothing sets them.
+  - Test: 3000 pad reads (every mode and one past, both ports, random controls of every kind, keyboard-only and
+    mouse-only ports, Escape's edge, Enter / Escape anywhere), the helpers over controls -2..42 and threshold edges.
+    Mutations (out/scripts/mut_w32b.ts): 44, 40 caught at first, 44 after strengthening.
+- [x] Batch 297 (lead, 2026-10-22; NOT run in the game yet; the Win32 platform layer, part 3 - its Direct3D side, 12
+  functions): src/game/sys/platform_d3d.cpp/.h (new); test TestPlatformD3D (selftests_platform_d3d.cpp).
+  - 0x005F45E0 ExpandPalette, 0x005F4620 CreateDynamicVertexBuffer, 0x005F4650 / 0x005F4670 the buffers' releases,
+    0x005F4690 CreateQuadIndexBuffer (0 1 2, 2 3 0 per quad), 0x005F4740 LockDynamicVertices (after the last ones,
+    rounded up to a vertex, NOOVERWRITE; or from the start with DISCARD when they don't fit), 0x005F4800
+    UnlockDynamicVertices (the next 32-byte aligned), occlusion queries - 0x005F4840 BeginOcclusionQuery, 0x005F5650
+    EndOcclusionQuery (missed by Ghidra; kept under a key - a failed Issue releases it but keeps it all the same),
+    0x005F4C80 GetOcclusionResult (S_OK: forgotten and released), 0x005F52D0 ReleaseOcclusionQueries - and 0x005F55E0
+    ReleaseDirect3D. The queries' map was a stdext::hash_map (0x007D69FC) touched only by these and the exe's static
+    initialiser / teardown: now a std::unordered_map. Its 31 template functions (hash_map, list and vector internals,
+    length_error, catch funclets: 0x005F4890-0x005F5390) are C++ library code, listed in data/library_functions.csv
+    - tools/progress_report.ts counts them as library.
+  - Test: the palette, 40 buffer sets with 30 locks each (exact fits too), 60 random 400-step query scripts against
+    the original's own hash_map (made with its constructor; releases compared as a set - the two maps go through
+    their queries in different orders). The test kit's CreateQuery entry had 3 arguments (it takes 2): fixed.
+- [x] Batch 298 (lead, 2026-10-22; NOT run in the game yet; the Win32 platform layer, part 4 - its system side, 6
+  functions): src/game/sys/platform_system.cpp/.h (new; dsound linked); test TestPlatformSystem.
+  - 0x005F5740 FindCdDrive (the CD-ROM with the volume name; drives left past Z give back the letter from before),
+    0x005F5860 CreateGameWindow (PartyMod's SDL window replaces it: the class, a captioned window around width x
+    height - centred at -1 - or a topmost full-screen popup; the frame's offsets kept), 0x005F59D0 / 0x005F5A00
+    DirectSound, 0x005F5A20 DecodeAdpcm (IMA-like, the step index moved before the step is taken), 0x005F5AF0
+    Unswizzle (x and y bits interleaved, x first). Ours call them directly now (winmain, sfx_voices, texture_file).
+  - Test: 80 CD searches (scripted drives, types and names), 128 windows, DirectSound made or not, the decoder and the
+    unswizzle on random data. Mutations for 297 / 298 (out/scripts/mut_w32cd.ts): 47, 42 caught at first, 46 after
+    strengthening; the miss is equivalent (MAKEINTRESOURCEA already cuts the icon to 16 bits).
+  - The range is done: every function in 0x5F2E00-0x5F6640 has source or is C++ library code. Existing tests that
+    stand in these addresses stand in ours too. thug2_check: 0 MISMATCHED, 708 early self-tests pass;
     check_code_writes clean; the register scan and the call audit flag nothing new.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
 - [ ] Next: the range is done (find_gaps.py: nothing left in 0x45EFD0-0x47DC40); a final game run.

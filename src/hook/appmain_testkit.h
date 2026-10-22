@@ -66,7 +66,7 @@ inline const uint8_t kDeviceArgs[119] = {
     1, 0, 0, 6, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, // GetDepthStencilSurface .. CreateStateBlock (59)
     0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 1, 2, 2, 1, 1, 1, 1, 1, 0, 1, // BeginStateBlock .. SetNPatchMode (79)
     0, 3, 6, 4, 8, 6, 2, 1, 1, 1, 1, 2, 1, 1, 3, 3, 3, 3, 3, 3, // GetNPatchMode .. GetVertexShaderConstantB (99)
-    4, 4, 2, 2, 1, 1, 2, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 1, 3,    // SetStreamSource .. CreateQuery (118)
+    4, 4, 2, 2, 1, 1, 2, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 1, 2,    // SetStreamSource .. CreateQuery (118)
 };
 inline const uint8_t kDirect3DArgs[17] = {2, 0, 0, 1, 0, 3, 2, 4, 2, 5, 6, 6, 5, 4, 3, 1, 6};
 // IDirect3DVertexBuffer9 / IndexBuffer9 (14), IDirect3DTexture9 (22), IDirect3DSurface9 (17).

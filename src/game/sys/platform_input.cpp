@@ -3,9 +3,11 @@
 #include "game/sys/platform_input.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cwchar>
 
+#include "game/sio/device.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -192,9 +194,9 @@ bool HasKeyBindings(int port)
 }
 
 // 0x005F2FC0
-bool HasPadD0Bindings(int port)
+bool HasMouseBindings(int port)
 {
-    return AnyBinding(Controls()[port].padD0, kBindings);
+    return AnyBinding(Controls()[port].mouse, kBindings);
 }
 
 // 0x005F3000
@@ -474,12 +476,304 @@ void InitKeyNames()
         std::wcscpy(KeyNames()[key.code], key.name);
 }
 
+// --- the pad read ---
+
+namespace {
+
+// The pad mode and the default keys' Enter and Escape.
+int& PadModeSetting() { return GameVariable<int>(0x007D6A3C); }
+int& DefaultEnterControl() { return GameVariable<int>(0x007D6A40); }
+int& DefaultEscapeControl() { return GameVariable<int>(0x0068E244); }
+// The mouse's x / y sticks reversed (nothing sets them).
+bool MouseInvertX() { return GameVariable<uint8_t>(0x007D6A44) != 0; }
+bool MouseInvertY() { return GameVariable<uint8_t>(0x007D6A45) != 0; }
+
+constexpr float kStickMax = 32767.0f;                 // 0x0065BF80
+constexpr float kStickMin = -32768.0f;                // 0x00666B00
+constexpr float kMouseStickScale = 6553.39990234375f; // 0x00666B04
+constexpr float kJoystickStickScale = 0.001f;         // 0x006461D8
+constexpr float kStickMaxReversed = -32767.0f;        // 0x00666B30 (the joystick's y sticks: up is negative)
+constexpr int16_t kStickFull = 32767;
+
+// The original's _ftol: truncated toward zero.
+int32_t Truncate(double value) { return static_cast<int32_t>(value); }
+
+// A mouse axis as a stick: its movement scaled, within the stick's range.
+double MouseAxisStick(const DIMOUSESTATE2* state, int control)
+{
+    LONG value = control == 1 ? state->lX : control == 2 ? state->lY : control == 3 ? state->lZ : 0;
+    double stick = static_cast<double>(value) * kMouseStickScale;
+    if (stick > kStickMax)
+        return kStickMax;
+    if (stick < kStickMin)
+        return kStickMin;
+    return stick;
+}
+
+// One of the pad's eight pressure buttons held.
+void Press(Sio::PadState* pad, int button) { pad->pressure[button] = 0xFF; }
+
+} // namespace
+
+// 0x005F4280
+bool JoystickControlDown(const DIJOYSTATE2* state, int control)
+{
+    if (control >= 11 && control <= 39)
+        return state->rgbButtons[control - 11] != 0;
+    if (control >= 1 && control <= 10) {
+        int value = JoystickAxis(state, control);
+        return value > 200 || value < -200;
+    }
+    return false;
+}
+
+// 0x005F42D0
+bool MouseControlDown(const DIMOUSESTATE2* state, int control)
+{
+    if (control >= 4 && control <= 11)
+        return (state->rgbButtons[control - 4] >> 7) != 0;
+    if (control >= 1 && control <= 3) {
+        LONG value = control == 1 ? state->lX : control == 2 ? state->lY : state->lZ;
+        return value > 3 || value < -3;
+    }
+    return false;
+}
+
+// 0x005F4330
+double MouseStickValue(const DIMOUSESTATE2* state, int negative, int positive)
+{
+    double value = 0.0;
+    if (negative >= 4 && negative <= 11) {
+        if (state->rgbButtons[negative - 4] & 0x80)
+            value = -1.0;
+    } else if (negative >= 1 && negative <= 3) {
+        value = MouseAxisStick(state, negative);
+    }
+    if (positive >= 4 && positive <= 11)
+        return (state->rgbButtons[positive - 4] & 0x80) ? value + 1.0 : value;
+    if (positive >= 1 && positive <= 3)
+        return MouseAxisStick(state, positive); // (in place of the first)
+    return value;
+}
+
+// 0x005F4450
+double JoystickStickValue(const DIJOYSTATE2* state, int negative, int positive)
+{
+    double value = 0.0;
+    if (negative >= 11 && negative <= 39) {
+        if (state->rgbButtons[negative - 11])
+            value = -1.0;
+    } else if (negative >= 1 && negative <= 10) {
+        value = JoystickAxis(state, negative) * static_cast<double>(kJoystickStickScale);
+    }
+    if (positive >= 11 && positive <= 39)
+        return state->rgbButtons[positive - 11] ? value + 1.0 : value;
+    if (positive >= 1 && positive <= 10)
+        return JoystickAxis(state, positive) * static_cast<double>(kJoystickStickScale); // (in place of the first)
+    return value;
+}
+
+// 0x005F5BC0
+int ReadPad(int port, Sio::PadState* pad)
+{
+    --port;
+    ReadKeyboard();
+    DIJOYSTATE2* joystick = ReadJoystick(port);
+    DIMOUSESTATE2* mouse = ReadMouse();
+    pad->buttons = 0;
+    for (int16_t& stick : pad->sticks)
+        stick = 0;
+    std::memset(pad->pressure, 0, sizeof(pad->pressure));
+    if (!joystick && !HasKeyBindings(port) && !HasMouseBindings(port))
+        return 0;
+    const PortControls& controls = Controls()[port];
+
+    if (mouse && PadModeSetting() == kPadKeyBindings) {
+        // The sticks: each mouse axis's movement scaled twice - x 6553.4 within the stick's range, then x 32767 -
+        // and only the low 16 bits kept.
+        const int32_t* m = controls.mouse;
+        auto stick = [&](int index, int negative, int positive, bool reversed) {
+            auto value = static_cast<int16_t>(Truncate(MouseStickValue(mouse, negative, positive) * kStickMax));
+            if (value != 0)
+                pad->sticks[index] = static_cast<int16_t>(reversed ? -value : value);
+        };
+        stick(0, m[2], m[3], MouseInvertX());
+        stick(1, m[0], m[1], MouseInvertY());
+        stick(2, m[6], m[7], MouseInvertX());
+        stick(3, m[4], m[5], MouseInvertY());
+        for (int i = 0; i < 4; ++i) {
+            if (MouseControlDown(mouse, m[8 + i]))
+                Press(pad, i);
+        }
+        for (int i = 0; i < 4; ++i) {
+            if (MouseControlDown(mouse, m[14 + i]))
+                Press(pad, 4 + i);
+        }
+        for (int i = 0; i < 4; ++i) {
+            if (MouseControlDown(mouse, m[20 + i]))
+                pad->buttons |= static_cast<uint16_t>(1 << i);
+        }
+        if (MouseControlDown(mouse, m[12]))
+            pad->buttons |= 0x10;
+        if (MouseControlDown(mouse, m[13]))
+            pad->buttons |= 0x20;
+        if (MouseControlDown(mouse, m[18]))
+            pad->buttons |= 0x40;
+        if (MouseControlDown(mouse, m[19]))
+            pad->buttons |= 0x80;
+    }
+
+    if (joystick) {
+        // The sticks (a larger push than the mouse's wins), the pressure buttons, the d-pad (axes only: a button
+        // there never counts) and the other buttons.
+        const int32_t* g = controls.gamepad;
+        auto stick = [&](int index, int negative, int positive, float scale) {
+            auto value = static_cast<int16_t>(Truncate(JoystickStickValue(joystick, negative, positive) * scale));
+            if (value != 0 && std::abs(static_cast<int>(pad->sticks[index])) < std::abs(static_cast<int>(value)))
+                pad->sticks[index] = value;
+        };
+        stick(0, g[2], g[3], kStickMax);
+        stick(1, g[0], g[1], kStickMaxReversed);
+        stick(2, g[6], g[7], kStickMax);
+        stick(3, g[4], g[5], kStickMaxReversed);
+        for (int i = 0; i < 4; ++i) {
+            if (JoystickControlDown(joystick, g[8 + i]))
+                Press(pad, i);
+        }
+        for (int i = 0; i < 4; ++i) {
+            if (JoystickControlDown(joystick, g[14 + i]))
+                Press(pad, 4 + i);
+        }
+        if (JoystickAxis(joystick, g[20]) < -200)
+            pad->buttons |= 1;
+        if (JoystickAxis(joystick, g[21]) > 200)
+            pad->buttons |= 2;
+        if (JoystickAxis(joystick, g[22]) < -200)
+            pad->buttons |= 4;
+        if (JoystickAxis(joystick, g[23]) > 200)
+            pad->buttons |= 8;
+        if (JoystickControlDown(joystick, g[12]))
+            pad->buttons |= 0x10;
+        if (JoystickControlDown(joystick, g[13]))
+            pad->buttons |= 0x20;
+        if (JoystickControlDown(joystick, g[18]))
+            pad->buttons |= 0x40;
+        if (JoystickControlDown(joystick, g[19]))
+            pad->buttons |= 0x80;
+    }
+
+    int mode = PadModeSetting();
+    if (mode == kPadNoKeys)
+        return 0;
+    auto stick = [&](int index, int key, int16_t value) {
+        if (KeyDown(key))
+            pad->sticks[index] = value;
+    };
+    if (mode != kPadDefaultKeys && !(mode == kPadDefaultKeysPort0 && port == 0)) {
+        // The port's keys (action 12 has none: Escape is the button 0x10, on port 0 only).
+        const int32_t* k = controls.keys;
+        stick(0, k[2], -kStickFull);
+        stick(0, k[3], kStickFull);
+        stick(1, k[0], kStickFull);
+        stick(1, k[1], -kStickFull);
+        stick(2, k[6], -kStickFull);
+        stick(2, k[7], kStickFull);
+        stick(3, k[4], kStickFull);
+        stick(3, k[5], -kStickFull);
+        for (int i = 0; i < 4; ++i) {
+            if (KeyDown(k[20 + i]))
+                pad->buttons |= static_cast<uint16_t>(1 << i);
+        }
+        for (int i = 0; i < 4; ++i) {
+            if (KeyDown(k[14 + i]))
+                Press(pad, 4 + i);
+        }
+        if (KeyDown(k[18]))
+            pad->buttons |= 0x40;
+        if (KeyDown(k[19]))
+            pad->buttons |= 0x80;
+        if (KeyDown(DIK_ESCAPE) && port == 0)
+            pad->buttons |= 0x10;
+        for (int i = 0; i < 4; ++i) {
+            if (KeyDown(k[8 + i]))
+                Press(pad, i);
+        }
+        if (KeyDown(k[13]))
+            pad->buttons |= 0x20;
+        return 0;
+    }
+
+    // The default keys: the arrows, Space, Enter and Escape (as set), S X / Z C, Home End Delete PgDn, Q W E R,
+    // Backspace, - = 1 2, 3 4. Enter and Escape are a pressure button or the button 0x10 / 0x20 (any other value:
+    // the byte that far into the pressures).
+    auto control = [&](int key, int setting) {
+        if (!KeyDown(key))
+            return;
+        if (setting == 0x20 || setting == 0x10)
+            pad->buttons |= static_cast<uint16_t>(setting);
+        else
+            pad->pressure[setting] = 0xFF;
+    };
+    stick(0, DIK_LEFT, -kStickFull);
+    stick(0, DIK_RIGHT, kStickFull);
+    stick(1, DIK_UP, kStickFull);
+    stick(1, DIK_DOWN, -kStickFull);
+    if (KeyDown(DIK_SPACE))
+        pad->buttons |= 0x10;
+    control(DIK_RETURN, DefaultEnterControl());
+    control(DIK_ESCAPE, DefaultEscapeControl());
+    stick(3, DIK_S, kStickFull);
+    stick(3, DIK_X, -kStickFull);
+    stick(2, DIK_Z, -kStickFull);
+    stick(2, DIK_C, kStickFull);
+    const int dpad[] = {DIK_HOME, DIK_END, DIK_DELETE, DIK_NEXT};
+    for (int i = 0; i < 4; ++i) {
+        if (KeyDown(dpad[i]))
+            pad->buttons |= static_cast<uint16_t>(1 << i);
+    }
+    const int pressure[] = {DIK_Q, DIK_W, DIK_E, DIK_R};
+    for (int i = 0; i < 4; ++i) {
+        if (KeyDown(pressure[i]))
+            Press(pad, i);
+    }
+    if (KeyDown(DIK_BACK))
+        pad->buttons |= 0x20;
+    const int morePressure[] = {DIK_MINUS, DIK_EQUALS, DIK_1, DIK_2};
+    for (int i = 0; i < 4; ++i) {
+        if (KeyDown(morePressure[i]))
+            Press(pad, 4 + i);
+    }
+    if (KeyDown(DIK_3))
+        pad->buttons |= 0x40;
+    if (KeyDown(DIK_4))
+        pad->buttons |= 0x80;
+    return 0;
+}
+
+// 0x005F6610
+void SetPadMode(int mode)
+{
+    PadModeSetting() = mode;
+}
+
+// 0x005F6620
+void SetDefaultEnterControl(int control)
+{
+    DefaultEnterControl() = control;
+}
+
+// 0x005F6630
+void SetDefaultEscapeControl(int control)
+{
+    DefaultEscapeControl() = control;
+}
+
 } // namespace Platform
 
 REPLACE(0x005F2E00, Platform::ReadJoystick);
 REPLACE(0x005F2E90, Platform::ReadMouse);
 REPLACE(0x005F2F80, Platform::HasKeyBindings);
-REPLACE(0x005F2FC0, Platform::HasPadD0Bindings);
+REPLACE(0x005F2FC0, Platform::HasMouseBindings);
 REPLACE(0x005F3000, Platform::JoystickAxis);
 REPLACE(0x005F30E0, Platform::KeyDown);
 REPLACE(0x005F3120, Platform::KeyName);
@@ -491,3 +785,11 @@ REPLACE(0x005F34D0, Platform::LoadRegistryOptions);
 REPLACE(0x005F39E0, Platform::ReleaseInput);
 REPLACE(0x005F3BF0, Platform::SetKeyName);
 REPLACE(0x005F3C10, Platform::InitKeyNames);
+REPLACE(0x005F4280, Platform::JoystickControlDown);
+REPLACE(0x005F42D0, Platform::MouseControlDown);
+REPLACE(0x005F4330, Platform::MouseStickValue);
+REPLACE(0x005F4450, Platform::JoystickStickValue);
+REPLACE(0x005F5BC0, Platform::ReadPad);
+REPLACE(0x005F6610, Platform::SetPadMode);
+REPLACE(0x005F6620, Platform::SetDefaultEnterControl);
+REPLACE(0x005F6630, Platform::SetDefaultEscapeControl);

@@ -508,13 +508,13 @@ namespace {
 bool& Flag696D95() { return GameVariable<bool>(0x00696D95); }
 bool& Flag6F1158() { return GameVariable<bool>(0x006F1158); }
 constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
-// The platform layer: three settings it reads (0x005F6610 / 0x005F6620 / 0x005F6630 store them), its
-// window message pump (0x005F56E0), the pad read (0x005F5BC0) and whether a DirectInput key is down.
-void SetPadMode(int mode) { GameFunction<void(__cdecl*)(int)>(0x005F6610)(mode); }
-void SetPadSetting6A40(int value) { GameFunction<void(__cdecl*)(int)>(0x005F6620)(value); }
-void SetPadSettingE244(int value) { GameFunction<void(__cdecl*)(int)>(0x005F6630)(value); }
-void PumpWindowMessages() { GameFunction<void(__cdecl*)()>(0x005F56E0)(); }
-void ReadPadState(int port, PadState* state) { GameFunction<void(__cdecl*)(int, PadState*)>(0x005F5BC0)(port + 1, state); }
+// The platform layer: the pad mode and the default keys' Enter / Escape (Platform::SetPadMode...), its window
+// message pump, the pad read and whether a DirectInput key is down.
+void SetPadMode(int mode) { Platform::SetPadMode(mode); }
+void SetDefaultEnterControl(int control) { Platform::SetDefaultEnterControl(control); }
+void SetDefaultEscapeControl(int control) { Platform::SetDefaultEscapeControl(control); }
+void PumpWindowMessages() { Platform::ProcessWindowEvents(); }
+void ReadPadState(int port, PadState* state) { Platform::ReadPad(port + 1, state); }
 bool KeyDown(int code) { return Platform::KeyDown(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
 int MenuPort() { return GameFunction<int(__thiscall*)(void*)>(0x00553E90)(GameVariable<void*>(0x007CE4B4)); }
@@ -564,8 +564,8 @@ void Device::ReadData(int)
 
     // In menus only the port the front end listens to (or port 0, or both on the skater select) reads.
     int menuPort = MenuPort();
-    SetPadSetting6A40(0);
-    SetPadSettingE244(1);
+    SetDefaultEnterControl(0);  // (the pressure button 0)
+    SetDefaultEscapeControl(1); // (the pressure button 1)
     if (typing) {
         SetPadMode(2);
     } else if (menuMode) {

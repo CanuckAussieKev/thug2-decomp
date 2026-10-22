@@ -11,6 +11,7 @@
 
 #include "game/gfx/render_state.h"
 #include "game/lst/hashtable.h"
+#include "game/sys/platform_d3d.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -25,10 +26,10 @@ uint8_t* QueriesInUse() { return &GameVariable<uint8_t>(0x007BA520); }
 // The quad worked out for the last glow (four positions and colours; nothing draws it).
 float* GlowQuad() { return &GameVariable<float>(0x007CA9F0); }
 
-// The number of pixels a query saw (not rewritten yet; cdecl): 0 when it has the answer, 1 when not yet.
+// The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
 int QueryResult(uint32_t query, uint32_t* pixels)
 {
-    return GameFunction<int(__cdecl*)(uint32_t, uint32_t*)>(0x005F4C80)(query, pixels);
+    return Platform::GetOcclusionResult(query, reinterpret_cast<DWORD*>(pixels));
 }
 
 sGlow* NextGlow()

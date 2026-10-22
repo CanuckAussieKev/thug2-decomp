@@ -25,7 +25,9 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "game/sys/platform_d3d.h"
 #include "game/sys/platform_input.h"
+#include "game/sys/platform_system.h"
 #include "hook/standins.h"
 
 namespace {
@@ -383,12 +385,15 @@ void TestWinMain()
         });
         s->At({0x00625138}, 0, [](Regs& r) { Record({0x7173, r.args[0]}); return 0x5EED0000u + Window(); });
         s->At({0x00623B96}, 0, [](Regs& r) { Record({0x5EED, r.args[0]}); return 0u; });
-        s->At({0x005F5740}, 0, [](Regs& r) {
+        s->At({0x005F5740, AddressOf(&Platform::FindCdDrive)}, 0, [](Regs& r) {
             Record({0xCD, Hash(reinterpret_cast<const char*>(r.args[0]))});
             Window() += 0x10; // (each use of the window reads it again)
             return static_cast<uint32_t>('D');
         });
-        s->At({0x005F59D0}, 0, [](Regs& r) { Record({0xD5, r.args[0]}); return 0u; });
+        s->At({0x005F59D0, AddressOf(&Platform::InitDirectSound)}, 0, [](Regs& r) {
+            Record({0xD5, r.args[0]});
+            return 0u;
+        });
         s->At({0x006234FE}, 0, StandInSprintf);
         s->At({0x004E1810, AddressOf(&Sys::WriteDefaultSetting)}, 0, [](Regs& r) {
             Record({0x1810, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
@@ -425,10 +430,10 @@ void TestWinMain()
             Window() = 0xF000;
             return 0u;
         });
-        s->At({0x005F5A00}, 0, plain(0x5A00));
+        s->At({0x005F5A00, AddressOf(&Platform::ReleaseDirectSound)}, 0, plain(0x5A00));
         s->At({0x005F39E0}, 0, plain(0x39E0));
         s->At({0x004908C0}, 0, plain(0x08C0));
-        s->At({0x005F55E0}, 0, plain(0x55E0));
+        s->At({0x005F55E0, AddressOf(&Platform::ReleaseDirect3D)}, 0, plain(0x55E0));
         s->At({0x00624B20}, 0, plain(0xCE));
         s->At({0x005BC340, AddressOf(&Mem::ShutDownManager)}, 0, plain(0xC340));
         s->At({0x00624B0F}, 0, [](Regs& r) -> uint32_t {

@@ -14,6 +14,7 @@
 
 #include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
+#include "game/sys/platform_d3d.h"
 #include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -155,9 +156,9 @@ D3DADAPTER_IDENTIFIER9& AdapterIdentifier() { return GameVariable<D3DADAPTER_IDE
 // The description of the last sound device DirectSound listed.
 char* SoundDeviceName() { return &GameVariable<char>(0x00786AC8); }
 
-// The dynamic vertex and index buffers (0x005F4620 etc., not rewritten yet; cdecl).
-void CreateDynamicVertexBuffer(uint32_t size) { GameFunction<void(__cdecl*)(uint32_t)>(0x005F4620)(size); }
-void CreateDynamicIndexBuffer(uint32_t size) { GameFunction<void(__cdecl*)(uint32_t)>(0x005F4690)(size); }
+// The dynamic vertex buffer and the quads' index buffer (the platform layer's).
+void CreateDynamicVertexBuffer(uint32_t size) { Platform::CreateDynamicVertexBuffer(size); }
+void CreateDynamicIndexBuffer(uint32_t quads) { Platform::CreateQuadIndexBuffer(quads); }
 
 using DirectSoundEnumerateFn = HRESULT(WINAPI*)(BOOL(CALLBACK*)(GUID*, const char*, const char*, void*), void*);
 
@@ -220,9 +221,9 @@ void __cdecl ReleaseRenderTargets()
         DepthTextureTarget()->Release();
         DepthTextureTarget() = nullptr;
     }
-    GameFunction<void(__cdecl*)()>(0x005F4650)(); // the dynamic vertex and index buffers
-    GameFunction<void(__cdecl*)()>(0x005F4670)();
-    GameFunction<void(__cdecl*)()>(0x005F52D0)();
+    Platform::ReleaseDynamicVertexBuffer();
+    Platform::ReleaseQuadIndexBuffer();
+    Platform::ReleaseOcclusionQueries();
 }
 
 // 0x004D8420

@@ -182,7 +182,7 @@ void TestGlows()
     alignas(16) static Nx::sGlow glows[6];
     static Lst::HashTable::Item items[4];
     Lcg* script = nullptr;
-    s.At({0x005F4C80}, 0, [&](Regs& r) {
+    s.At({0x005F4C80, Resolve(OursAt(0x005F4C80))}, 0, [&](Regs& r) {
         Record({0x4C80, r.args[0]});
         *reinterpret_cast<uint32_t*>(r.args[1]) = script->Below(3) == 0 ? 0 : script->Below(500);
         return script->Below(3);

@@ -120,12 +120,12 @@ struct TextureFixture {
             return bytes;
         });
         s.At({0x005B9EA0, AddressOf(&File::Close)}, 0, [](Regs& r) { Record({0x9EA0, r.args[0]}); return 0u; });
-        s.At({0x005F5AF0}, 0, [](Regs& r) { // unswizzle
+        s.At({0x005F5AF0, Resolve(OursAt(0x005F5AF0))}, 0, [](Regs& r) { // unswizzle
             Record({0x5AF0, TexRelocate(r.args[0]), TexRelocate(r.args[1]), r.args[2], r.args[3], r.args[4]});
             std::memset(reinterpret_cast<void*>(r.args[0]), 0x5A, 16);
             return 0u;
         });
-        s.At({0x005F45E0}, 0, [](Regs& r) { // through the palette
+        s.At({0x005F45E0, Resolve(OursAt(0x005F45E0))}, 0, [](Regs& r) { // through the palette
             Record({0x45E0, TexRelocate(r.args[0]), TexRelocate(r.args[1]), r.args[2],
                     HashBytes(reinterpret_cast<const uint8_t*>(r.args[3]), 0x400)});
             return 0u;

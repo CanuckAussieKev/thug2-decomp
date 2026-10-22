@@ -252,7 +252,7 @@ void TestPlatformInput()
 
     // The bindings: none, one anywhere in the 24 (the last too), one just after them.
     for (int c = 0; c < 60; ++c) {
-        ok &= CompareRuns("HasKeyBindings / HasPadD0Bindings", [&](bool original) {
+        ok &= CompareRuns("HasKeyBindings / HasMouseBindings", [&](bool original) {
             start(0x20000 + c);
             std::memset(reinterpret_cast<void*>(0x007D6770), 0xFF, 0x260);
             if (c % 5)
@@ -262,7 +262,7 @@ void TestPlatformInput()
             for (int port = 0; port < 2; ++port) {
                 bool keys = original ? Original<bool(__cdecl*)(int)>(0x005F2F80)(port) : Platform::HasKeyBindings(port);
                 bool pad = original ? Original<bool(__cdecl*)(int)>(0x005F2FC0)(port)
-                                    : Platform::HasPadD0Bindings(port);
+                                    : Platform::HasMouseBindings(port);
                 Record({keys, pad});
             }
             finish();
@@ -526,6 +526,182 @@ void TestPlatformInput()
               "key names");
 }
 
+// The pad read and its helpers: each device's state (a keyboard always - the read needs one -, a joystick and a
+// mouse or not, failing reads), every pad mode (and one past them), both ports, random controls of every kind
+// (keys, mouse and joystick controls, out of range ones), Escape's edge, the default keys' Enter / Escape as a
+// pressure button, a button or a byte further on, the mouse's reverse flags.
+std::vector<uint8_t> g_padContent[3]; // the keyboard's, the joystick's and the mouse's read
+void TestPlatformPad()
+{
+    g_mismatches = 0;
+    GameMemory memory({{kInputStart, kInputEnd - kInputStart}, {0x007D6A28, 0x20}, {0x0068E244, 4}});
+    StandIns& s = *new StandIns();
+    FakeComSet com(&s);
+    FakeCom* devices[3];
+    for (int i = 0; i < 3; ++i) {
+        uint32_t tag = kDeviceTag + 0x10000 * i;
+        devices[i] = com.Make(tag, kInputDeviceArgs, 32);
+        com.On(tag, kPoll, [](Regs&) { return static_cast<uint32_t>(Script::Next(g_script.poll)); });
+        com.On(tag, kGetDeviceState, [i](Regs& r) {
+            auto* out = reinterpret_cast<uint8_t*>(r.args[2]);
+            for (uint32_t j = 0; j < r.args[1]; ++j)
+                out[j] = g_padContent[i][j % g_padContent[i].size()];
+            return static_cast<uint32_t>(Script::Next(g_script.state));
+        });
+    }
+    UseStandardRelocation(com);
+    Lcg random(0);
+    auto start = [&](uint32_t seed) {
+        random = Lcg(seed * 2654435761u);
+        g_script = Script();
+        memory.Fill(seed);
+        GameVariable<FakeCom*>(0x007D69D4) = devices[0];
+    };
+    alignas(16) uint8_t pad[0x40]; // (Sio::PadState and room after it for Enter / Escape set far out)
+    bool ok = true;
+
+    for (int c = 0; c < 3000; ++c) {
+        ok &= CompareRuns("ReadPad", [&](bool original) {
+            start(0xC0000 + c);
+            int port = 1 + (c & 1);
+            // (quiet: the keyboard alone - nothing else holding the same buttons; mouse only: no keys either)
+            bool quiet = c % 5 == 4, mouseOnly = c % 13 == 11;
+            GameVariable<FakeCom*>(0x007D6318 + 4 * (port - 1)) =
+                (c / 2) % 4 && !quiet && !mouseOnly ? devices[1] : nullptr;
+            GameVariable<FakeCom*>(0x007D69D8) = (c / 8) % 3 && !quiet ? devices[2] : nullptr;
+            GameVariable<int>(0x007D6A3C) = static_cast<int>((c / 24) % 5);
+            const int kSettings[] = {0, 1, 3, 7, 0x10, 0x20, 8, 12, 0x11};
+            GameVariable<int>(0x007D6A40) = kSettings[random.Below(9)];
+            GameVariable<int>(0x0068E244) = kSettings[random.Below(9)];
+            GameVariable<uint8_t>(0x007D6A44) = static_cast<uint8_t>(random.Below(3) == 0);
+            GameVariable<uint8_t>(0x007D6A45) = static_cast<uint8_t>(random.Below(3) == 0);
+            // The controls: none (-1), keys (the default ones half the time), mouse 0-12, joystick 0-41.
+            auto* controls = reinterpret_cast<int32_t*>(0x007D6770);
+            const int kKeys[] = {DIK_LEFT, DIK_RIGHT, DIK_UP, DIK_DOWN, DIK_SPACE, DIK_RETURN, DIK_ESCAPE, DIK_S,
+                                 DIK_X, DIK_Z, DIK_C, DIK_HOME, DIK_END, DIK_DELETE, DIK_NEXT, DIK_Q, DIK_W, DIK_E,
+                                 DIK_R, DIK_BACK, DIK_MINUS, DIK_EQUALS, DIK_1, DIK_2, DIK_3, DIK_4};
+            bool none = c % 13 == 12; // (a port with no controls: nothing held without a joystick)
+            for (int p = 0; p < 2; ++p) {
+                int32_t* block = controls + 0x4C * p;
+                for (int i = 0; i < 24; ++i) {
+                    uint32_t r = random.Below(8);
+                    block[i] = none || r == 0 ? -1
+                               : r < 4     ? kKeys[random.Below(26)]
+                                           : static_cast<int32_t>(random.Below(256));
+                    block[0x1C + i] = none || random.Below(5) == 0 ? -1 : static_cast<int32_t>(random.Below(42));
+                    block[0x34 + i] = none || random.Below(5) == 0 ? -1 : static_cast<int32_t>(random.Below(13));
+                    if (mouseOnly)
+                        block[i] = -1;
+                }
+            }
+            // The keyboard: some keys down this frame (Escape last frame too: set in the current keys, which the read
+            // keeps as the last); the joystick's axes mostly within
+            // -1000..1000, buttons half down, the hat anywhere; the mouse's movement small or large.
+            g_padContent[0].assign(256, 0);
+            for (int i = 0; i < 12; ++i)
+                g_padContent[0][c % 3 ? kKeys[random.Below(26)] : random.Below(256)] = 0x80;
+            GameVariable<uint8_t>(0x007D6671) = static_cast<uint8_t>(random.Below(2) ? 0x80 : 0);
+            DIJOYSTATE2 joystick{};
+            for (LONG* axis : {&joystick.lX, &joystick.lY, &joystick.lZ, &joystick.lRx, &joystick.lRy, &joystick.lRz,
+                               &joystick.rglSlider[0], &joystick.rglSlider[1]})
+                *axis = random.Below(9) == 0 ? static_cast<LONG>(random.Next()) - 0x800000
+                                             : static_cast<LONG>(random.Below(2201)) - 1100;
+            joystick.rgdwPOV[0] = random.Below(4) == 0 ? 0xFFFFFFFF : random.Below(36000);
+            for (BYTE& button : joystick.rgbButtons)
+                button = static_cast<BYTE>(random.Below(2) ? 0x80 : 0);
+            g_padContent[1].assign(reinterpret_cast<uint8_t*>(&joystick), reinterpret_cast<uint8_t*>(&joystick + 1));
+            DIMOUSESTATE2 mouse{};
+            for (LONG* axis : {&mouse.lX, &mouse.lY, &mouse.lZ})
+                *axis = random.Below(5) == 0 ? static_cast<LONG>(random.Below(20001)) - 10000
+                                             : static_cast<LONG>(random.Below(15)) - 7;
+            for (BYTE& button : mouse.rgbButtons)
+                button = static_cast<BYTE>(random.Below(2) ? 0x80 : random.Below(0x80));
+            g_padContent[2].assign(reinterpret_cast<uint8_t*>(&mouse), reinterpret_cast<uint8_t*>(&mouse + 1));
+            if (c % 17 == 16)
+                g_script.state = {S_OK, E_FAIL}; // (the joystick's read failing: no joystick this frame)
+            if (c % 29 == 28) {
+                // The default keys with Escape alone going down (Enter and Escape set apart).
+                GameVariable<int>(0x007D6A3C) = 3;
+                GameVariable<int>(0x007D6A40) = static_cast<int>(c % 8);
+                GameVariable<int>(0x0068E244) = static_cast<int>((c + 3) % 8);
+                g_padContent[0].assign(256, 0);
+                g_padContent[0][DIK_ESCAPE] = 0x80;
+                GameVariable<uint8_t>(0x007D6671) = 0;
+                GameVariable<FakeCom*>(0x007D6318 + 4 * (port - 1)) = nullptr;
+                GameVariable<FakeCom*>(0x007D69D8) = nullptr;
+            }
+            for (size_t i = 0; i < sizeof(pad); ++i)
+                pad[i] = static_cast<uint8_t>(0xA0 + i);
+            int result = original ? Original<int(__cdecl*)(int, void*)>(0x005F5BC0)(port, pad)
+                                  : Platform::ReadPad(port, reinterpret_cast<Sio::PadState*>(pad));
+            Record({static_cast<uint32_t>(result)});
+            for (size_t i = 0; i < sizeof(pad); i += 4)
+                Record({*reinterpret_cast<uint32_t*>(pad + i)});
+            memory.Dump(g_trace);
+        });
+    }
+
+    // The helpers on their own: every control from -2 to 42, pairs of them, states as above.
+    ok &= CompareRuns("pad read helpers", [&](bool original) {
+        start(0xD0000);
+        for (int c = 0; c < 400; ++c) {
+            DIJOYSTATE2 joystick{};
+            auto* bytes = reinterpret_cast<uint8_t*>(&joystick);
+            for (size_t i = 0; i < sizeof(joystick); ++i)
+                bytes[i] = static_cast<uint8_t>(random.Next());
+            const LONG kEdges[] = {200, -200, 201, -201, 199, -199, 3, -3, 4, -4};
+            for (LONG* axis : {&joystick.lX, &joystick.lY, &joystick.lZ, &joystick.lRx})
+                *axis = c % 2 ? kEdges[random.Below(10)] : static_cast<LONG>(random.Below(2201)) - 1100;
+            joystick.rgdwPOV[0] = random.Below(36000);
+            DIMOUSESTATE2 mouse{};
+            for (LONG* axis : {&mouse.lX, &mouse.lY, &mouse.lZ})
+                *axis = c % 3 ? static_cast<LONG>(random.Below(15)) - 7 : static_cast<LONG>(random.Next());
+            if (c % 4 == 1)
+                mouse.lX = kEdges[random.Below(10)];
+            for (BYTE& button : mouse.rgbButtons)
+                button = static_cast<BYTE>(random.Next());
+            for (int control = -2; control <= 42; ++control) {
+                bool j = original ? Original<bool(__cdecl*)(const DIJOYSTATE2*, int)>(0x005F4280)(&joystick, control)
+                                  : Platform::JoystickControlDown(&joystick, control);
+                bool m = original ? Original<bool(__cdecl*)(const DIMOUSESTATE2*, int)>(0x005F42D0)(&mouse, control)
+                                  : Platform::MouseControlDown(&mouse, control);
+                Record({j, m});
+            }
+            for (int pair = 0; pair < 20; ++pair) {
+                int a = static_cast<int>(random.Below(45)) - 2, b = static_cast<int>(random.Below(45)) - 2;
+                double ms = original
+                                ? Original<double(__cdecl*)(const DIMOUSESTATE2*, int, int)>(0x005F4330)(&mouse, a, b)
+                                : Platform::MouseStickValue(&mouse, a, b);
+                double js = original
+                                ? Original<double(__cdecl*)(const DIJOYSTATE2*, int, int)>(0x005F4450)(&joystick, a, b)
+                                : Platform::JoystickStickValue(&joystick, a, b);
+                uint32_t words[4];
+                std::memcpy(words, &ms, 8);
+                std::memcpy(words + 2, &js, 8);
+                Record({words[0], words[1], words[2], words[3]});
+            }
+        }
+        for (int value : {0, 1, 3, -5, 0x10, 0x7FFFFFFF}) {
+            if (original) {
+                Original<void(__cdecl*)(int)>(0x005F6610)(value);
+                Original<void(__cdecl*)(int)>(0x005F6620)(value + 1);
+                Original<void(__cdecl*)(int)>(0x005F6630)(value + 2);
+            } else {
+                Platform::SetPadMode(value);
+                Platform::SetDefaultEnterControl(value + 1);
+                Platform::SetDefaultEscapeControl(value + 2);
+            }
+            Record({GameVariable<uint32_t>(0x007D6A3C), GameVariable<uint32_t>(0x007D6A40),
+                    GameVariable<uint32_t>(0x0068E244)});
+        }
+        memory.Dump(g_trace);
+    });
+    g_relocate = nullptr;
+    delete &s;
+    Check(ok, "platform: the pad read and its helpers");
+}
+
 } // namespace
 
 SELFTEST(Early, TestPlatformInput);
+SELFTEST(Early, TestPlatformPad);

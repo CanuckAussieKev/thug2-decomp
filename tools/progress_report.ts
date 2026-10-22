@@ -1,7 +1,9 @@
 // NOT ORIGINAL - writes docs/PROGRESS.md: decompilation progress per subsystem of THUG2PM.exe.
 //   node tools/progress_report.ts
 // Inputs: data/subsystems.csv (the exe map), data/derived/functions.json (function inventory from
-// tools/ghidra/export_functions.py) and the REPLACE(...) lines under src/game/ (what we have rewritten).
+// tools/ghidra/export_functions.py), data/library_functions.csv (library code inside the game's ranges - C++
+// library template instantiations: counted as library, not game code) and the REPLACE(...) lines under src/game/
+// (what we have rewritten).
 
 import * as fs from "node:fs";
 import { globRecursive, readCsvDicts } from "./lib/files.ts";
@@ -66,13 +68,28 @@ function main(): number {
         }
     }
 
+    // Library code inside the game's ranges (not rewritten: it comes from the C++ library's headers).
+    const libraryFunctions = new Set<number>();
+    if (fs.existsSync("data/library_functions.csv")) {
+        for (const r of readCsvDicts(readTextPy("data/library_functions.csv")))
+            libraryFunctions.add(pyIntHex(r.address!));
+    }
+    let embeddedCount = 0;
+    let embeddedSize = 0;
+
     const rows: Entry[] = [];
     const libraries: [Record<string, string>, number, number][] = [];
     const total = { funcs: 0, doneFuncs: 0, bytes: 0, doneBytes: 0 };
     for (const r of readCsvDicts(readTextPy("data/subsystems.csv"))) {
         const lo = pyIntHex(r.start!);
         const hi = pyIntHex(r.end!);
-        const funcs = [...functions.values()].filter((f) => lo <= f.addr && f.addr < hi);
+        let funcs = [...functions.values()].filter((f) => lo <= f.addr && f.addr < hi);
+        if (r.kind === "game") {
+            const embedded = funcs.filter((f) => libraryFunctions.has(f.addr));
+            embeddedCount += embedded.length;
+            embeddedSize += embedded.reduce((n, f) => n + f.size, 0);
+            funcs = funcs.filter((f) => !libraryFunctions.has(f.addr));
+        }
         const size = funcs.reduce((n, f) => n + f.size, 0);
         if (r.kind !== "game") {
             libraries.push([r, funcs.length, size]);
@@ -122,6 +139,11 @@ function main(): number {
     out.push("Linked as libraries in the final build rather than rewritten:\n");
     for (const [r, n, size] of libraries)
         out.push(`- ${r.subsystem} (\`${r.start}\`-\`${r.end}\`): ${n} functions, ${kb(size)}`);
+    if (embeddedCount)
+        out.push(
+            `- C++ library template code inside the game's ranges (\`data/library_functions.csv\`): ${embeddedCount} ` +
+                `functions, ${kb(embeddedSize)}`,
+        );
     out.push(
         "- GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` " +
             "(see `docs/library_ranges.md`)",

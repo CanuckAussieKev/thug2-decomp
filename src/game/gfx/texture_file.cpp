@@ -12,6 +12,8 @@
 #include "game/core/mem.h"
 #include "game/file/file.h"
 #include "game/gfx/texture.h"
+#include "game/sys/platform_d3d.h"
+#include "game/sys/platform_system.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -46,15 +48,15 @@ void Decode(uint32_t format, uint32_t* bits, bool* palette)
 
 bool PowerOfTwo(uint32_t n) { return (n & (n - 1)) == 0; }
 
-// The swizzled texels into rows (0x005F5AF0) and 8-bit indices through a palette (0x005F45E0) - not rewritten yet.
+// The swizzled texels into rows and 8-bit indices through a palette (the platform layer's).
 void Unswizzle(void* out, const void* in, uint32_t width, uint32_t height, uint32_t bytesPerPixel)
 {
-    GameFunction<void(__cdecl*)(void*, const void*, uint32_t, uint32_t, uint32_t)>(0x005F5AF0)(out, in, width, height,
-                                                                                              bytesPerPixel);
+    Platform::Unswizzle(out, in, static_cast<int>(width), static_cast<int>(height), bytesPerPixel);
 }
 void ExpandPalette(void* out, const void* indices, uint32_t size, const void* palette)
 {
-    GameFunction<void(__cdecl*)(void*, const void*, uint32_t, const void*)>(0x005F45E0)(out, indices, size, palette);
+    Platform::ExpandPalette(static_cast<uint32_t*>(out), static_cast<const uint8_t*>(indices), static_cast<int>(size),
+                            static_cast<const uint32_t*>(palette));
 }
 
 sTexture* NewTexture()

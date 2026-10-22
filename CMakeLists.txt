@@ -174,6 +174,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_left.cpp
     src/hook/selftests_gfx.cpp
     src/hook/selftests_platform.cpp
+    src/hook/selftests_platform_d3d.cpp
     src/hook/selftests_platform_input.cpp
     src/hook/selftests_pc.cpp
     src/hook/selftests_glyph.cpp
@@ -806,7 +807,9 @@ add_library(thug2_code OBJECT
     src/game/skater/tagging.cpp
     src/game/skater/trick_component.cpp
     src/game/sys/platform.cpp
+    src/game/sys/platform_d3d.cpp
     src/game/sys/platform_input.cpp
+    src/game/sys/platform_system.cpp
     src/game/sys/platform_cfuncs.cpp
     src/game/sys/debug_mode.cpp
     src/game/sys/config.cpp
@@ -865,7 +868,8 @@ add_library(thug2_code OBJECT
     src/game/util/bps.cpp
 )
 target_include_directories(thug2_code PUBLIC src PRIVATE ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
-target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32 imgui lzham) # ws2_32: the command line's server address
+target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32 dsound imgui lzham) # ws2_32: the command line's server address;
+# dsound: DirectSoundCreate8 (game/sys/platform_system.cpp)
 # (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them)
 add_dependencies(thug2_code editor_fonts)
 target_include_directories(thug2_code PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")

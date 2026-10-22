@@ -16,6 +16,7 @@
 #include "game/mth/matrix.h"
 #include "game/pcm/music_api.h"
 #include "game/script/struct.h"
+#include "game/sys/platform_system.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -696,7 +697,8 @@ bool PCWave::Load(const char* fileName, uint32_t flags)
     uint32_t size = bytesPerSecond;
     bytesPerSecond = bitsPerSample * samplesPerSecond >> 3;
     auto* converted = static_cast<uint8_t*>(Mem::New(size));
-    GameFunction<void(__cdecl*)(void*, const void*, int)>(0x005F5A20)(converted, samples, static_cast<int>(size) >> 1);
+    Platform::DecodeAdpcm(reinterpret_cast<int16_t*>(converted), static_cast<const uint8_t*>(samples),
+                          static_cast<int>(size) >> 1);
     std::free(samples);
     data = converted;
     dataSize = size;

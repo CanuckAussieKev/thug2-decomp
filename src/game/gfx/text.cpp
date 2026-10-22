@@ -13,6 +13,7 @@
 #include "game/core/str.h"
 #include "game/file/file.h"
 #include "game/gfx/glyphs.h"
+#include "game/sys/platform_d3d.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -604,9 +605,8 @@ SFont* SFont::Load(const char* name, bool fromMemory)
         color = alpha << 24 | (argb & 0xFFFFFF);
     }
     auto* pixels = static_cast<uint32_t*>(Mem::New(size * 4));
-    // palette indices -> colours (not rewritten yet)
-    GameFunction<void(__cdecl*)(uint32_t*, const uint8_t*, uint32_t, const uint32_t*)>(0x005F45E0)(pixels, indices, size,
-                                                                                                  palette);
+    // palette indices -> colours
+    Platform::ExpandPalette(pixels, indices, static_cast<int>(size), palette);
     struct LockedRect {
         int pitch;
         void* bits;
