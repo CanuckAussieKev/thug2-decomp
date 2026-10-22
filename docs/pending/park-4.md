@@ -92,7 +92,11 @@ GameFunction calls) that this code reads.
 - Checks: thug2_check on THUG2PM.exe and the stock THUG2.exe (full: 749 early self-tests) - 0 MISMATCHED, all passed on both; scan_register_assumptions: only the known
   RISK lines (0x4EFF92 PUSH ECX, InitEditedGoalStub's callers), no new ones; audit_game_function_calls: no MISMATCH;
   check_code_writes: No overlaps; find_gaps: nothing in 0x00592740-0x00595030.
-- Game run: see below (not yet).
+- [x] Game run (crash check only; workspace C:\Games\THUG2-4 under the game lock, this branch's verify DLL): `-level
+  Sk5Ed` loaded the park editor - the park built from its pieces and lit, the cursor and the piece menu up (RESTARTS /
+  Player 1 Restart), running after 97 s; `-level BO` with -FullTests: 5407 of 5407 replacements installed, early (749)
+  / late (17) / engine-started (3) self-tests all passed, the skater in Boston, no EXCEPTION / RUN-TIME CHECK FAILURE /
+  DEBUG CRT REPORT. Nothing placed, deleted or test-played in the editor - for the user (below).
 
 ## To try by hand (the park editor)
 The whole park editor goes through this code: every piece placed or deleted, every rebuild, the restart points, the
