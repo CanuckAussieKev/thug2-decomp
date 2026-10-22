@@ -235,6 +235,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_viewer19.cpp
     src/hook/selftests_viewer20.cpp
     src/hook/selftests_park_graffiti.cpp
+    src/hook/selftests_viewer_object.cpp
     src/hook/selftests_viewer21.cpp
     src/hook/selftests_tod3.cpp
     src/hook/selftests_tod4.cpp
@@ -575,6 +576,7 @@ add_library(thug2_code OBJECT
     src/game/skate/skate_net.cpp
     src/game/skate/skate_module.cpp
     src/game/sys/viewer.cpp
+    src/game/sys/viewer_object.cpp
     src/game/obj/game_objects.cpp
     src/game/skater/trick_lists.cpp
     src/game/skate/gap_checklist.cpp

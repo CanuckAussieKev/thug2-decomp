@@ -10011,8 +10011,16 @@ belong with the CScript batch.
   (three, none), clusters added (existing, new, new in a created park), objects added (added, refused, the cluster's
   own name, to the new cluster); tables of 8 empty buckets so nothing is chained. Out of memory isn't covered (the
   kit's allocator can't fail). 16 deliberate bugs caught.
-- [ ] Next: park editor & graffiti 0x005897B0 on (the model viewer's object: kill_viewer_object_panel, an animation,
-  its destructor 0x00589860 ...).
+- [x] Batch 327 (NOT run in the game yet; park editor & graffiti range, part 8 - the model viewer's object, first part):
+  new src/game/sys/viewer_object.cpp / .h - Obj::CViewerObject (0x128 bytes, a CCompositeObject, vtable 0x0064F138;
+  +0x108 its task, +0x120 its model asset's checksum). 0x005897B0 ShutDown (kill_viewer_object_panel run); 0x005897D0
+  PlayAnimation (with an animation component that knows the anim: played from 0 to its length, looping, blend 0.3,
+  speed 1 - the component looked up again for each call, as the original); 0x00589860 DestroyBody (the task's Remove -
+  not null-checked -, the loaded asset unloaded and looked up again, the asset forgotten, the task deleted through its
+  slot 2, then CCompositeObject's); 0x0058A2B0 the scalar deleting destructor. Test (selftests_viewer_object.cpp
+  TestViewerObject1 / 2): original vs ours - shut down; no component / an unknown anim / a known one; destroyed with a
+  loaded asset, an unloaded name, none; flags 0 / 1 / 2. 19 deliberate bugs caught, 1 after strengthening.
+- [ ] Next: park editor & graffiti 0x00589910 on (the viewer object's load, 1705 bytes, ...).
 - [ ] Next: nothing left in the range; hand back.
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag
