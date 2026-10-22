@@ -379,3 +379,4 @@ fold records, install.
   OnlineGameName set (NET1's in-game failure in THUG2-1). Progress 65.02%. NOT installed (the install copy was refused
   by the permission check - the user installs: copy out\build\lead\dinput8.dll + .pdb, make_menu_level.ts); not pushed.
   Nothing tested online: what to try by hand is in docs/pending/net-1..4.md.
+- Installed (2026-10-22): main 052848a in C:\Games\THUG2 (DLL + pdb, overlay regenerated; self-tests still off). Not pushed.
