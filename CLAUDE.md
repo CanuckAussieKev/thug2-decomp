@@ -76,7 +76,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   source now (MIT: notice in `THIRD_PARTY_NOTICES.md`); its DLL isn't loaded and nothing patches rewritten code.
   The only run-time writes into the exe are the GameSpy host names (`src/game/net/online_hosts.cpp`, until
   the SDK is linked), the online identity when OnlineGameName / OnlineGameKey are set (`src/game/net/online_identity.cpp`:
-  the name's address over 6 push operands, the key over its 3 stored copies) and the IsPS2 and (debug mode) CD / NotCD CFunction table entries - `node tools/check_code_writes.ts` checks
+  the name's address over the push operands still in un-rewritten code (kNameUses), the key over its 3 stored copies; rewritten code reads the settings itself) and the IsPS2 and (debug mode) CD / NotCD CFunction table entries - `node tools/check_code_writes.ts` checks
   none lands in a rewritten function.
 - **Tools are TypeScript** (being ported from Python, area by area): `node tools/<x>.ts` (Node 24, no build step;
   `npm install` once; `npm run typecheck` / `lint` / `test`) - conventions, the Python -> JavaScript traps, the parity
