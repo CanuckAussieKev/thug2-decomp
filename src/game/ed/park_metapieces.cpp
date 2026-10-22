@@ -441,8 +441,8 @@ CPiece* CAbstractMetaPiece::GetPiece(uint32_t index)
     if (index >= m_num_used_entries || static_cast<int>(index) < 0)
         return nullptr;
     const SMetaDescriptor* entry = GetDescriptor(static_cast<int>(index));
-    return static_cast<CPiece*>(
-        CParkManager::sInstance()->mp_generator->GetPieceSource(reinterpret_cast<uint32_t>(entry->piece)));
+    CSourcePiece* source = CParkManager::sInstance()->mp_generator->GetPieceSource(reinterpret_cast<uint32_t>(entry->piece));
+    return source ? source->AsPiece() : nullptr;
 }
 
 namespace {

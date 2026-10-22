@@ -67,3 +67,31 @@ without that.
   amount; the palette's nested entries for every outer turn, counts, sources, abstract turns, pieces and metapieces
   added, the script array). 70 deliberate bugs, all caught (10 after strengthening: turns by 3, float rounding of z,
   edges, negative heights, a flat metapiece, a descriptor past the end, w kept, the h clamps, bounds' top).
+- Merge with PE4 (main): PE4's park_scene.h (the generator's data ParkGeneratorData) kept; PE3's engine-call header
+  renamed src/game/ed/park_nx.h. One type per piece: PE4's SourcePiece / ClonedPiece are now aliases of CSourcePiece /
+  CPiece, which took PE4's field and flag names (m_sector, m_id, CSourcePiece* mp_source; m_name, m_size,
+  m_triggerScript, m_numRailPoints / Segments; kCursor 0x4, kInList 0x8, kGap 0x40, kDestroyNow 0x200...).
+  park_scene.cpp's file-local helpers that share names with CParkGenerator members are called qualified (Ed::...).
+- [x] Batch PE3-3 (NOT run in the game yet; park editor & graffiti, part PE3-3 - the generator's first part and the
+  metapiece lists): new src/game/ed/park_generator.cpp (the generator's data through PE4's Data(generator)); park.h:
+  the wrappers of this range declared instead, CMapListTemp::PrintContents / Destroy, CMapListNode::VerifyIntegrity
+  __fastcall. Lists: 0x00590470 VerifyIntegrity, 0x00591450 CMapListTemp::PrintContents, 0x005914B0
+  CMapListNode::Free and 0x00591BE0 DestroyList (park_lists.cpp's, registered now), 0x00591C60 CMapListTemp::Destroy.
+  CParkGenerator: 0x00591C70 DestroyBody (the scenes forgotten, the node array's asset destroyed - 0x00407810, CAsset's
+  body, folded -, the two rail sets' empty destructors), 0x00591CF0 HighlightAllPieces, 0x00591D20 SetMaxPlayers,
+  0x00591D30 GetMaxPlayersPossible ((main heap free + (players - 1) * 585500) / 585500 + 1 - the original's magic
+  division, 32-bit wrap kept), 0x00591D90 GetPieceSource (search only), 0x00591DD0 DeleteSector(name, unused),
+  0x00591DE0 DestroyRails (m_rails cleared and its pools freed), 0x00591E00 SetLights, 0x00591E60 GetRestartSlots
+  (type 1 slot 1, 2 slot 0, 3 slots 2-7, 4 slots 8-13, 5-8 slots 14-17; other types: left as they were),
+  0x00591F50 HasFreeRestartSlot, 0x00591FC0 ClearRestarts, 0x00591FE0 ClearAutomaticRestarts, 0x00592010 SetUpBounds
+  (the cloned scene's box -3360,-768,-3360 to 3360,3168,3360), 0x00592090 RebuildCollision, 0x005920D0 UpdateBounds
+  (the shell's boxes: +-200000, then the park's bounds' cell centres, y +-100000), 0x00592290 SetPiecesHighlighted
+  (the gap pieces' sectors shown / hidden - the old "highlight" name kept), 0x005922D0 SetRestartPiecesActive,
+  0x00592320 CloneSector, 0x00592370 DestroySector, 0x005923C0 CreatePiece (flags & 0x324; the clone's dead colour
+  branch behind 0x0049F4B0, a folded return-false, kept), 0x00592550 AddPiece, 0x00592570 DeletePiece, 0x005925E0
+  ReadPieceFlags (LevelGeometry / GameObject nodes: GameObject -> 0x400, + flag 0x68910AC6 -> 0x800; TriggerScript
+  kept, four scripts -> kRebuilt). Test (selftests_park_generator.cpp, three tests: lists, pools, players, sources,
+  lights, restart slots, destructor; bounds, collision, visibility, pieces made / added / deleted; the node list's
+  flags). 60 deliberate bugs, all caught (6 after strengthening: pools present, flags not preset, a source named 0, a
+  script preset). Tests standing in for these addresses in
+  selftests_parkedA / lfxc3 / parkmax now stand in for ours too (OursOf).

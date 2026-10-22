@@ -239,6 +239,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_viewer_object.cpp
     src/hook/selftests_park_pieces.cpp
     src/hook/selftests_park_metapieces.cpp
+    src/hook/selftests_park_generator.cpp
     src/hook/selftests_viewer21.cpp
     src/hook/selftests_tod3.cpp
     src/hook/selftests_tod4.cpp
@@ -708,6 +709,7 @@ add_library(thug2_code OBJECT
     src/game/ed/park_cfuncs.cpp
     src/game/ed/park_pieces.cpp
     src/game/ed/park_metapieces.cpp
+    src/game/ed/park_generator.cpp
     src/game/ed/park_scene.cpp
     src/game/ed/park_nodes.cpp
     src/game/net/service.cpp

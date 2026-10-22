@@ -41,7 +41,7 @@ void Install(StandIns& s)
         auto it = g_palette.find(r.args[0]);
         return it == g_palette.end() ? 0u : it->second;
     });
-    s.At({0x00591D90}, 4, [](Regs& r) {
+    s.At({0x00591D90, AddressOf(&Ed::CParkGenerator::GetPieceSource)}, 4, [](Regs& r) {
         Rec(0x1D90, {r.ecx, r.args[0]});
         return At(kSources) + (r.args[0] & 3) * 0x30;
     });

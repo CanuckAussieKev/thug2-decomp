@@ -341,7 +341,7 @@ struct CMapListNode {
     // 0x00591BE0: free a list (the nodes, not the metapieces; null is fine)
     static void __fastcall DestroyList(CMapListNode* list); // (__fastcall: the list in ECX, as the original)
     // 0x00590470: walks the list (a debug check with its asserts compiled out; never ends on a cycle).
-    static void VerifyIntegrity(const CMapListNode* list);
+    static void __fastcall VerifyIntegrity(const CMapListNode* list); // (__fastcall: the list in ECX)
 };
 static_assert(sizeof(CMapListNode) == 12, "pool item");
 
@@ -361,6 +361,11 @@ struct MapListHolder {
 // The same holder as plain data, for code that frees the list itself (0x00591C60).
 struct CMapListTemp {
     CMapListNode* list;
+
+    // 0x00591450: debug output of the list (each metapiece's address and cells)
+    void PrintContents();
+    // 0x00591C60: the destructor (the list freed)
+    void Destroy();
 };
 
 // A gap (0x54 bytes; 0x0058CBC0 constructs the two ends): the gap tool's state, and how the gap manager keeps one.
@@ -589,42 +594,68 @@ public:
     uint32_t NextRailNode(Script::CArray* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info, bool* isLoop);
     // 0x005936E0: the source rails from the pieces' node array (each source piece's rail point and segment counts)
     void BuildSourceRails(Script::CArray* nodes);
-    // 0x00592290: show or hide the highlight of every piece
-    void SetPiecesHighlighted(int on) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00592290)(this, on); }
-    // 0x00591D20 (sets +0x20)
-    void SetMaxPlayers(int count) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00591D20)(this, count); }
+    // --- park_generator.cpp (0x00591C70-0x00592740) ---
+    // 0x00591C70: the destructor's body (the scenes forgotten, the node array's asset destroyed)
+    void DestroyBody();
+    void Destroy() { DestroyBody(); }
+    // 0x00591CF0: every piece tinted red, or back to normal
+    void HighlightAllPieces(bool on);
+    // 0x00591D20
+    void SetMaxPlayers(int count);
     // +0x20: the most players the park is set up for (a whole int; the compressed map keeps its low byte)
     int GetMaxPlayers() { return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(this) + 0x20); }
-    // 0x00591D30: the most players the park has room for (from the park memory's use and MaxPlayers)
-    int GetMaxPlayersPossible() { return GameFunction<int(__thiscall*)(CParkGenerator*)>(0x00591D30)(this); }
-    // 0x00591C70: the destructor
-    void Destroy() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591C70)(this); }
-    // 0x00592550: a placed piece into the generator's list (LightPiece, 0x00594410, then lights it)
-    void AddPiece(CPiece* piece) { GameFunction<void(__thiscall*)(CParkGenerator*, CPiece*)>(0x00592550)(this, piece); }
-    // 0x00591D90: a piece type's source (loaded the first time); 0x005923C0: a new piece from a source
-    void* GetPieceSource(uint32_t name) { return GameFunction<void*(__thiscall*)(CParkGenerator*, uint32_t)>(0x00591D90)(this, name); }
-    void* CreatePiece(void* source, uint32_t flags)
-    {
-        return GameFunction<void*(__thiscall*)(CParkGenerator*, void*, uint32_t)>(0x005923C0)(this, source, flags);
-    }
+    // 0x00591D30: the most players the park has room for: one more for each 585500 bytes the main heap has free
+    // (counting those already set up)
+    int GetMaxPlayersPossible();
+    // 0x00591D90: the piece type named `name` (null if none)
+    CSourcePiece* GetPieceSource(uint32_t name);
+    // 0x00591DD0: delete the park's sector `name` (false if there's none)
+    bool DeleteSector(uint32_t name, int unused);
+    // 0x00591DE0: the placed pieces' rails emptied and their pools freed
+    void DestroyRails();
+    // 0x00591E00: the lights' count, ambient and falloff colours and the cursor's ambience
+    void SetLights(int count, float ambientR, float ambientG, float ambientB, float falloffR, float falloffG,
+                   float falloffB, float cursorAmbience);
+    // 0x00591E60: the restart slots (first to last) a restart type uses (unknown types: left as they were)
+    void GetRestartSlots(int type, int* first, int* last);
+    // 0x00591F50: whether a slot of `type`'s is free (or holds one put down automatically)
+    bool HasFreeRestartSlot(int type);
+    // 0x00591FE0: forget the restart points put down automatically; 0x00591FC0: all of them
+    void ClearAutomaticRestarts();
+    void ClearRestarts();
+    // 0x00592010: the "cloned" scene's bounding box (as big as a park can be)
+    void SetUpBounds();
+    // 0x00592090: the super sectors brought up to date (when allowed: 0x0067F398)
+    void RebuildCollision();
+    // 0x005920D0: the shell's two boxes: everything, and the park's bounds (`unused`: the callers' argument)
+    void UpdateBounds(uint32_t unused);
+    // 0x00592290: the gaps' trigger pieces (CPiece::kGap) shown or hidden
+    void SetPiecesHighlighted(int on);
+    // 0x005922D0: the restart points' pieces drawn and collided with, or neither
+    void SetRestartPiecesActive(bool active);
+    // 0x00592320: a copy of the "sk5ed" sector `name` in the "cloned" scene (its name)
+    uint32_t CloneSector(uint32_t name, int a, int b, int unused);
+    // 0x00592370: delete the park's sector `name`, then rebuild the collision (false if there was none)
+    bool DestroySector(uint32_t name, int unused);
+    // 0x005923C0: a new placed piece of `source` (or of its source), with `flags` (0x324 of them)
+    CPiece* CreatePiece(CPiece* source, uint32_t flags);
+    // 0x00592550: a placed piece onto the front of the generator's list (LightPiece, 0x00594410, then lights it)
+    void AddPiece(CPiece* piece);
+    // 0x00592570: a piece taken off the list (not the cursor's), its sector deleted (unless `keepSector`), deleted
+    void DeletePiece(CPiece* piece, int keepSector);
+    // 0x005925E0: the piece types' flags and trigger scripts from the pieces' node array
+    void ReadPieceFlags(Script::CArray* nodes);
     // 0x00593200: a restart point of `type` at `position` (the cells `area`) in the first free slot of its type (or,
     // when `automatic`, one put down automatically before); with `automatic` and `keepPlaced`, where a placed one
     // of the type is. False when there's no room.
     bool AddRestart(Mth::Vector* position, int rot, GridDims* area, int type, int automatic, uint32_t keepPlaced);
     // 0x005933D0: whether there are fewer than `count` restart points of `type`
     bool NeedsRestarts(int type, int count);
-    // 0x00591FE0: forget the restart points put down automatically; 0x00591FC0: all of them
-    void ClearAutomaticRestarts() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591FE0)(this); }
-    void ClearRestarts() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591FC0)(this); }
     // 0x00594EA0: the level's node array from the park (the pieces, their rails, the rail editor's, the restart
     // points, the goal editor's), given to the node manager and parsed
     void BuildNodeArray(CMapListNode* metas);
-    // 0x005920D0: the park's bounding boxes
-    void UpdateBounds(uint32_t value) { GameFunction<void(__thiscall*)(CParkGenerator*, uint32_t)>(0x005920D0)(this, value); }
     // 0x00593580: delete the scene's pieces (`keepRails` 0: the rail editor's rails go out of the scene too)
     void DestroyPieces(int keepRails);
-    // 0x00592090: rebuild the collision (when allowed)
-    void RebuildCollision() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00592090)(this); }
     // 0x00594C70: UnloadPieces, and the source rails freed (the argument unused)
     void CleanUp(int type);
 };
