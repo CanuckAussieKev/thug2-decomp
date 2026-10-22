@@ -72,8 +72,8 @@ uint32_t AreaAt(uint32_t pointer)
 
 void StandInParkEditor(StandIns& s)
 {
-    auto plain = [&s](uint32_t address, uint16_t pop, uint32_t tag, int args) {
-        s.At({address}, pop, [tag, args](Regs& r) {
+    auto plain = [&s](uint32_t address, uint16_t pop, uint32_t tag, int args, uint32_t ours = 0) {
+        s.At(ours ? std::initializer_list<uint32_t>{address, ours} : std::initializer_list<uint32_t>{address}, pop, [tag, args](Regs& r) {
             Record({tag, EdRel(r.ecx)});
             for (int i = 0; i < args; ++i)
                 Record({EdRel(r.args[i])});
@@ -166,7 +166,7 @@ void StandInParkEditor(StandIns& s)
     });
     plain(0x00595450, 4, 0x5450, 1);
     plain(0x0059BC00, 4, 0xBC00, 1);
-    plain(0x0058C200, 0, 0xC200, 0);
+    plain(0x0058C200, 0, 0xC200, 0, AddressOf(&Ed::CClipboard::DestroyMetas));
     plain(0x005954D0, 0, 0x54D0, 0);
 }
 

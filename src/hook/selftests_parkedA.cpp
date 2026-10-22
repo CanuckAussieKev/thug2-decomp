@@ -491,19 +491,19 @@ void StandInEditor(StandIns& s)
             return r.ecx;
         };
     };
-    s.At({0x0058C200}, 0, record(0xC200));     // CClipboard::Hide
-    s.At({0x0058C780}, 4, record1(0xC780));    // CClipboard::ShowAt
-    s.At({0x0058C980}, 0, record(0xC980));     // CClipboard destructor
+    s.At({0x0058C200, AddressOf(&Ed::CClipboard::DestroyMetas)}, 0, record(0xC200));     // CClipboard::Hide
+    s.At({0x0058C780, AddressOf(&Ed::CClipboard::ShowAt)}, 4, record1(0xC780));    // CClipboard::ShowAt
+    s.At({0x0058C980, AddressOf(&Ed::CClipboard::Destroy)}, 0, record(0xC980));     // CClipboard destructor
     s.At({0x005903A0}, 4, record1(0x03A0));    // CMetaPiece visibility
     s.At({0x0058CF30}, 4, record1(0xCF30));    // CGapManager copy
     s.At({0x0058CF20}, 0, record(0xCF20));     // CGapManager destructor
-    s.At({0x0058CCC0}, 4, [](Regs& r) { // CGapManager constructor (makes itself current)
+    s.At({0x0058CCC0, AddressOf(&Ed::CGapManager::Construct)}, 4, [](Regs& r) { // CGapManager constructor (makes itself current)
         Record({0xCCC0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
         GameVariable<uint32_t>(0x007CE5D4) = r.ecx;
         return r.ecx;
     });
     s.At({0x00592290}, 4, record1(0x2290));    // CParkGenerator refresh
-    s.At({0x0058CB70}, 4, record1(0xCB70));    // CGapManager current gap
+    s.At({0x0058CB70, AddressOf(&Ed::CGapManager::SetCurrentGap)}, 4, record1(0xCB70));    // CGapManager current gap
     s.At({0x00591A50}, 8, [](Regs& r) {        // CMetaPiece highlight
         Record({0x1A50, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0] & 0xFF, r.args[1]});
         return 0u;
@@ -512,7 +512,7 @@ void StandInEditor(StandIns& s)
         Record({0xCDA0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], Offset(reinterpret_cast<void*>(r.args[1]))});
         return 0u;
     });
-    s.At({0x0058BF10}, 8, [](Regs& r) { // CClipboard::GetArea
+    s.At({0x0058BF10, AddressOf(&Ed::CClipboard::GetArea)}, 8, [](Regs& r) { // CClipboard::GetArea
         Record({0xBF10, Offset(reinterpret_cast<void*>(r.ecx)), Offset(reinterpret_cast<void*>(r.args[0]))});
         *reinterpret_cast<GridDims*>(r.args[1]) = g_clipboardArea;
         return 0u;
