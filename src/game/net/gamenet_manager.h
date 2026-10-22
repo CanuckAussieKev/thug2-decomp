@@ -358,8 +358,8 @@ public:
     Net::App* m_client;       // +0x08 client 0 (the game's)
     Net::App* m_client1;      // +0x0C client 1
     void* m_lobbyMan;         // +0x10 the GameSpy lobby (its server name +0xB4, its peer +0x34)
-    uint32_t m_unknown14;
-    void* m_buddyMan;         // +0x18 the GameSpy presence (logged in: +0x10)
+    void* m_vaultMan;         // +0x14 the content vault and HTTP transfers (VaultMan)
+    void* m_buddyMan;        // +0x18 the GameSpy presence (logged in: +0x10)
     void* m_statsMan;         // +0x1C the player's rating (+0x14)
     char m_challenge[12];     // +0x20 the host's CD-key challenge
     Net::App* m_matchClient;  // +0x2C the server list's client

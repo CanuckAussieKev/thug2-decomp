@@ -331,7 +331,7 @@ void TestRetrieveTopStats()
 void TestOnlineIdentity()
 {
     // the sites' instructions: push imm32 (0x68) of the name's address, or the stored key bytes
-    const uint32_t nameSites[Net::kGameNameSites] = {0x00542F8B, 0x00542FA0, 0x0054CAD9};
+    const uint32_t nameSites[Net::kGameNameSites] = {0x00542F8B, 0x00542FA0};
     bool layout = true;
     for (int i = 0; i < Net::kGameNameSites; ++i) {
         const auto* at = reinterpret_cast<const uint8_t*>(nameSites[i]);

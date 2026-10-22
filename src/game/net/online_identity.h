@@ -26,11 +26,11 @@ void SetUpOnlineIdentity();
 bool WriteOnlineIdentity(const char* name, const char* key);
 
 // The name / key the game's code uses now (read back from where WriteOnlineIdentity writes; for the self-tests).
-// `site` 0..2: the game name's uses not source yet (peerSetTitle's two, the stats SDK's); the key: 0 qr2, 1 peer,
-// 2 stats (7 bytes out, decoded).
+// `site` 0..1: the game name's uses not source yet (peerSetTitle's two); the key: 0 qr2, 1 peer, 2 stats (7 bytes
+// out, decoded).
 const char* GameNameAt(int site);
 void GameKeyAt(int site, char out[7]);
-constexpr int kGameNameSites = 3;
+constexpr int kGameNameSites = 2;
 constexpr int kGameKeySites = 3;
 
 } // namespace Net
