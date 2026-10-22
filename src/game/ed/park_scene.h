@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include "game/ed/park.h"
+#include "game/ed/park_rails.h"
 #include "game/mth/vector.h"
 
 namespace Script {
@@ -25,80 +26,10 @@ using SourcePiece = CSourcePiece;
 using ClonedPiece = CPiece;
 inline ClonedPiece* Cloned(CPiece* piece) { return piece; }
 
-// The rail sets' parts read here (the rail set's own code is 0x0058AFC0-0x0058B700).
-struct RailPoint {            // 0x30 bytes
-    uint32_t m_type;          // +0x00: a climbing node's type
-    uint32_t m_terrain;       // +0x04: a rail node's TerrainType
-    Mth::Vector m_pos;        // +0x08
-    Mth::Vector m_angles;     // +0x18
-    uint32_t m_cluster;       // +0x28
-    RailPoint* mp_next;       // +0x2C
-};
-static_assert(sizeof(RailPoint) == 0x30, "layout must match the original");
-struct Rail {                 // 0x20 bytes
-    enum : uint8_t {
-        kLoop = 0x1,          // the last point links back to the first
-        kClimbable = 0x2,
-    };
-    uint32_t m_class;         // +0x00: RailNode or ClimbingNode
-    uint8_t m_flags;          // +0x04
-    uint8_t pad05[3];
-    uint32_t m_name;          // +0x08: the piece (sector) it belongs to
-    RailPoint* mp_points;     // +0x0C
-    RailPoint* mp_last;       // +0x10
-    uint16_t m_numPoints;     // +0x14
-    uint8_t pad16[2];
-    Rail* mp_next;            // +0x18
-    void* mp_set;             // +0x1C
-
-    // 0x0058AFC0: `point` added at the end
-    void AddPoint(RailPoint* point) { GameFunction<void(__thiscall*)(Rail*, RailPoint*)>(0x0058AFC0)(this, point); }
-    // 0x0058B040: its segments (the points, one fewer unless it loops)
-    int CountSegments() { return GameFunction<int(__thiscall*)(Rail*)>(0x0058B040)(this); }
-    // 0x0058B420: a copy of `source`'s points (and class, name, flags) moved to `position`, turned `rot` quarter
-    // turns, with `cluster` (a climbing rail's points turned by `angle` more)
-    void CopyFrom(Rail* source, Mth::Vector* position, int rot, uint32_t cluster, float angle)
-    {
-        GameFunction<void(__thiscall*)(Rail*, Rail*, Mth::Vector*, int, uint32_t, float)>(0x0058B420)(
-            this, source, position, rot, cluster, angle);
-    }
-};
-static_assert(sizeof(Rail) == 0x20, "layout must match the original");
-struct RailSet {              // 0x34 bytes
-    Rail* mp_rails;           // +0x00
-    Rail* mp_last;            // +0x04
-    uint16_t m_numRails;      // +0x08
-    uint8_t pad0A[2];
-    void* mp_pointPool;       // +0x0C
-    void* mp_railPool;        // +0x10
-    uint8_t m_name[0x20];     // +0x14
-
-    // 0x0058AFF0: the constructor (empty, no pools)
-    void Construct() { GameFunction<void(__thiscall*)(RailSet*)>(0x0058AFF0)(this); }
-    // 0x0058B0C0: its pools: `points` points and `rails` rails (named "in_..." / "out_..." by `source`)
-    void Init(int points, int rails, int source)
-    {
-        GameFunction<void(__thiscall*)(RailSet*, int, int, int)>(0x0058B0C0)(this, points, rails, source);
-    }
-    // 0x0058B700: every rail freed (back to the pools)
-    void Clear() { GameFunction<void(__thiscall*)(RailSet*)>(0x0058B700)(this); }
-    // 0x0058B280: the pools freed
-    void FreePools() { GameFunction<void(__thiscall*)(RailSet*)>(0x0058B280)(this); }
-    // 0x0058B090: rail `index` of those named `name` (null if there are fewer)
-    Rail* FindRail(uint32_t name, int index)
-    {
-        return GameFunction<Rail*(__thiscall*)(RailSet*, uint32_t, int)>(0x0058B090)(this, name, index);
-    }
-    // 0x0058B370 / 0x0058B2D0: a new empty rail / point from the pools
-    Rail* NewRail() { return GameFunction<Rail*(__thiscall*)(RailSet*)>(0x0058B370)(this); }
-    RailPoint* NewPoint() { return GameFunction<RailPoint*(__thiscall*)(RailSet*)>(0x0058B2D0)(this); }
-    // 0x0058B010: `rail` added at the end; 0x0058B5B0: a rail freed (not in the set)
-    void AddRail(Rail* rail) { GameFunction<void(__thiscall*)(RailSet*, Rail*)>(0x0058B010)(this, rail); }
-    void FreeRail(Rail* rail) { GameFunction<void(__thiscall*)(RailSet*, Rail*)>(0x0058B5B0)(this, rail); }
-    // 0x0058B070: the points of all its rails
-    int CountPoints() { return GameFunction<int(__thiscall*)(RailSet*)>(0x0058B070)(this); }
-};
-static_assert(sizeof(RailSet) == 0x34, "layout must match the original");
+// The rail sets, their rails and points (park_rails.h, 0x0058AFC0-0x0058B700).
+using RailPoint = CParkRailPoint;
+using Rail = CParkRailString;
+using RailSet = CParkRailSet;
 
 // A restart point (0x24 bytes).
 struct RestartPoint {

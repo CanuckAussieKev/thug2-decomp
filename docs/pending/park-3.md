@@ -95,3 +95,29 @@ without that.
   flags). 60 deliberate bugs, all caught (6 after strengthening: pools present, flags not preset, a source named 0, a
   script preset). Tests standing in for these addresses in
   selftests_parkedA / lfxc3 / parkmax now stand in for ours too (OursOf).
+- Merges with PE2 and PE1 (main): this range's park editor code uses PE2's Ed::CParkEditor (park_editor.h: members
+  Construct / Create / LogicTask, kVtable / kListenerVtable and the two script commands added); PE1's rail sets
+  (park_rails.h) used through PE4's aliases. PE1's tests standing in for this range's addresses (selftests_park_clipboard
+  / _gaps) stand in for ours too (OursOf), as do selftests_parkedA / lfxc3 / parkmax. 0x005902E0 (CMetaPiece::Cast, 3
+  bytes, folded with many empty constructors) registered REPLACE_SOURCE_ONLY.
+- [x] Batch PE3-4 (NOT run in the game yet; park editor & graffiti, part PE3-4 - the park editor's state commands):
+  new src/game/ed/park_editor_state.cpp. 0x0058FBD0 SetParkEditorState (regular_play: memory marker, the park manager
+  set up for 0xCD3682C1, then as test_play: the park rebuilt, the cursor deleted, the collision, the node array, the
+  gap checklist, the state; off: the state set and stored, the cursor and the piece menu deleted, the park torn down
+  (Destroy(0)), the gap manager's copy deleted, the node array removed, unpaused, the menu enabled again if there is
+  one, the cursor shown unless placing rails, the menu stick; edit: command 0x27F2117D sets up (marker, Initialize,
+  the menu, the cursor), 0xE76F5250 / 0x1A4E0EF9 / 0x2A907CBC reset or rebuild the park (2 players) - the inner
+  switch's 0x01625EDA case is dead code, kept -; then the cursor made and kept in the park, the state; other states:
+  false), 0x0058FED0 SetParkEditorPauseMode (pause: flag, the script 0x30251D65 and the menu disabled, the cursor
+  hidden, the menu stick; unpause: the reverse; neither: nothing), 0x0058FFC0 CParkEditor::LogicTask (the clock
+  0x007CE5EC moved on by the time since, read again after Tmr::GetTime; then LogicUpdate), 0x0058FFF0
+  CParkEditor::Construct (the module, the listener, the three tasks / handler Calloc'd with their code - ours, aliased
+  in the test -, 480 / 120 / 1400 / 10, state off, the park manager made, the listener registered), 0x00590160
+  CParkEditor::Create (core/singleton.cpp's GameSingleton for it left calling the game address, hooked). Test
+  (selftests_park_editor_state.cpp: every state and edit command with and without the cursor / menu, the cursor placing
+  rails; pause / unpause / neither / both; the clock; the constructor over dirty memory; the singleton's five cases).
+  41 deliberate bugs, 39 caught (1 after presetting the paused flag); 2 equivalent (the clock set to the time - the
+  same unless GetTime moved it; the input handler's index - Calloc'd memory is zero).
+- Range done: every function of 0x0058FBD0-0x00592740 has source (82: 79 Ghidra functions plus 0x0058FFC0, 0x00590360,
+  0x00591DE0 found in the padding); find_gaps lists nothing in it. check_code_writes: no overlaps; register scan and
+  call audit: nothing new.

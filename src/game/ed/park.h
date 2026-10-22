@@ -380,56 +380,91 @@ struct GapInfo {
     int m_numCompleteHalves;   // +0x48: how many of its halves are placed (2 for a whole gap)
     int m_tabIndex;            // +0x4C: the gap manager's index (-1 none)
     uint32_t m_cancelFlags;    // +0x50
+
+    // 0x0058CBC0: the halves' cells cleared (the rest isn't touched). Returns this.
+    GapInfo* Construct();
+    // 0x0058CBF0: the length of half `half` across the gap, in the world's units: its extents and its piece's length
+    // (turned 0 / 2) or width (1 / 3); 0 for another turn.
+    float GetLength(int half);
 };
 static_assert(offsetof(GapInfo, m_text) == 0x24 && offsetof(GapInfo, m_numCompleteHalves) == 0x48 &&
                   sizeof(GapInfo) == 0x54,
               "layout must match the original");
 using GapDescriptor = GapInfo;
 
-// A copied area (0x18 bytes, pooled: the pool pair 0x007CE5B4): the metapieces (and rails) copied from it.
+// A metapiece copied into a clipboard (0x18 bytes, pooled: the pool pair 0x007CE5C4; clipboard.cpp): the palette
+// piece it was made from, its cell and size where it was copied (raised so the lowest piece of the copy is at 0), its
+// turn, and the preview shown at the cursor. `centreX` / `centreZ` below are the copy's centre cell.
+struct CClipboardEntry {
+    CMetaPiece* mp_meta;            // +0x00: the abstract metapiece
+    uint8_t m_x;                    // +0x04
+    int8_t m_y;                     // +0x05
+    uint8_t m_z;                    // +0x06
+    uint8_t pad07;
+    int m_rot;                      // +0x08: quarter turns
+    uint8_t m_w;                    // +0x0C
+    uint8_t m_l;                    // +0x0D
+    uint8_t pad0E[2];
+    CMetaPiece* mp_preview;         // +0x10: shown at the cursor (kCursor)
+    CClipboardEntry* mp_next;       // +0x14
+
+    // 0x0058B800: the cells it would take with the cursor's copy (turned with the cursor; one high, at its height).
+    void GetArea(GridDims* area, uint8_t centreX, uint8_t centreZ, CCursor* cursor);
+    // 0x0058B940: whether the floor under it can be changed there
+    bool CanPlace(uint8_t centreX, uint8_t centreZ, CCursor* cursor);
+    // 0x0058B9C0: pasted: the floor raised to its height plus `height` (at most 15; an inner-shell piece's own height
+    // on top), then (unless it's of the inner shell) a new metapiece turned with the cursor put there
+    void Paste(uint8_t centreX, int height, uint8_t centreZ, CCursor* cursor);
+    // 0x0058BB20: the floor height under it
+    int GetHeight(uint8_t centreX, uint8_t centreZ, CCursor* cursor);
+    // 0x0058BBA0: highlight (or not) the metapieces (not the inner shell's) in its cells
+    void HighlightIntersectingMetas(uint8_t centreX, uint8_t centreZ, CCursor* cursor, int on);
+    // 0x0058BCA0: its preview (made the first time) placed at `position` turned by `angle` degrees
+    void ShowPreview(uint8_t centreX, int height, uint8_t centreZ, Mth::Vector position, float angle);
+};
+static_assert(offsetof(CClipboardEntry, m_rot) == 0x08 && offsetof(CClipboardEntry, mp_preview) == 0x10 &&
+                  sizeof(CClipboardEntry) == 0x18,
+              "pool item");
+
+// A copied area (0x18 bytes, pooled: the pool pair 0x007CE5B4; clipboard.cpp): the metapieces (and rails) copied from
+// it.
 struct CClipboard {
     GridDims m_area;           // +0x00
-    uint8_t m_min_x, m_min_z;  // +0x06
+    uint8_t m_min_x, m_min_z;  // +0x06: the cells its entries cover
     uint8_t m_max_x, m_max_z;  // +0x08
     uint8_t pad0A[2];
-    void* mp_metas;            // +0x0C: its entries (linked by +0x14)
-    void* mp_rails;            // +0x10
+    CClipboardEntry* mp_metas; // +0x0C: its entries (the newest first)
+    void* mp_rails;            // +0x10: the rail editor's copies of the rails over it (linked by their first word)
     CClipboard* mp_next;       // +0x14: the cursor's list
 
     // 0x0058BDF0
-    CClipboard* Construct() { return GameFunction<CClipboard*(__thiscall*)(CClipboard*)>(0x0058BDF0)(this); }
-    // 0x0058C430 (reached through 0x0058C980): the destructor
-    void Destroy() { GameFunction<void(__thiscall*)(CClipboard*)>(0x0058C980)(this); }
+    CClipboard* Construct();
+    // 0x0058C430 (also reached through 0x0058C980): the destructor - its entries (and previews) and rails freed
+    void Destroy();
     // 0x005955C0: give an item back to the clipboard pools (operator delete)
     static void Free(void* item);
     // 0x0058B7E0
-    bool IsEmpty() { return GameFunction<bool(__thiscall*)(CClipboard*)>(0x0058B7E0)(this); }
-    // 0x0058C590: copy the metapieces in `area`; false when they don't fit
-    bool CopySelectionToClipboard(GridDims area)
-    {
-        return GameFunction<bool(__thiscall*)(CClipboard*, GridDims)>(0x0058C590)(this, area);
-    }
-    // 0x0058BE30: the floor height under the copy at the cursor
-    int GetHeight(CCursor* cursor) { return GameFunction<int(__thiscall*)(CClipboard*, CCursor*)>(0x0058BE30)(this, cursor); }
+    bool IsEmpty();
+    // 0x0058C590: copy the metapieces wholly in `area` (not restart points or risers below) and its rails; false
+    // (and emptied) when the entries' pool is full
+    bool CopySelectionToClipboard(GridDims area);
+    // 0x0058C270: `meta` added (raised by `dy`), unless the same piece is in it already; false when the pool is full
+    bool AddEntry(CMetaPiece* meta, int dy);
+    // 0x0058BE30: the floor height under the copy at the cursor (the highest under any entry; 0 without entries)
+    int GetHeight(CCursor* cursor);
     // 0x0058BEB0: highlight the metapieces the copy would replace
-    void HighlightIntersectingMetas(CCursor* cursor, int on)
-    {
-        GameFunction<void(__thiscall*)(CClipboard*, CCursor*, int)>(0x0058BEB0)(this, cursor, on);
-    }
-    // 0x0058C130: show the copy at `position`, turned by `angle`, `height` steps up
-    void ShowMetas(Mth::Vector position, float angle, int height)
-    {
-        GameFunction<void(__thiscall*)(CClipboard*, Mth::Vector, float, int)>(0x0058C130)(this, position, angle, height);
-    }
+    void HighlightIntersectingMetas(CCursor* cursor, int on);
+    // 0x0058C050: the world position of the middle of its centre cell (at its floor). Returns `centre`.
+    Mth::Vector* GetCentre(Mth::Vector* centre);
+    // 0x0058C130: show the copy at `position`, turned by `angle` (its rails too)
+    void ShowMetas(Mth::Vector position, float angle, int height);
     // 0x0058C200: remove what ShowMetas made
-    void DestroyMetas() { GameFunction<void(__thiscall*)(CClipboard*)>(0x0058C200)(this); }
-    // 0x0058C780: show the copy at the cursor
-    void ShowAt(CCursor* cursor) { GameFunction<void(__thiscall*)(CClipboard*, CCursor*)>(0x0058C780)(this, cursor); }
+    void DestroyMetas();
+    // 0x0058C780: paste the copy at the cursor: false (nothing changed) if the park memory has no room for it, the
+    // floor can't be changed under an entry or there aren't enough free rail points
+    bool ShowAt(CCursor* cursor);
     // 0x0058BF10: the area it covers placed at the cursor (turned with it)
-    void GetArea(CCursor* cursor, GridDims* area)
-    {
-        GameFunction<void(__thiscall*)(CClipboard*, CCursor*, GridDims*)>(0x0058BF10)(this, cursor, area);
-    }
+    void GetArea(CCursor* cursor, GridDims* area);
 };
 static_assert(sizeof(CClipboard) == 0x18, "pool item");
 
@@ -492,35 +527,35 @@ class CGapManager {
 public:
     static CGapManager*& Instance() { return GameVariable<CGapManager*>(0x007CE5D4); }
 
-    // 0x0058CA10: the gap `meta` is an end of (its index into `index`)
-    bool GetGapIndex(CMetaPiece* meta, int* index)
-    {
-        return GameFunction<bool(__thiscall*)(CGapManager*, CMetaPiece*, int*)>(0x0058CA10)(this, meta, index);
-    }
-    // 0x0058CB20: gap `index`, and which end (`half`)
-    GapInfo* GetGapInfo(int index, int* half)
-    {
-        return GameFunction<GapInfo*(__thiscall*)(CGapManager*, int, int*)>(0x0058CB20)(this, index, half);
-    }
+    // --- gap_slots.cpp (0x0058C990-0x0058CD3F) ---
+    // 0x0058CBB0 (the getter the game calls)
+    static CGapManager* sInstance();
+    // 0x0058CA10: the gap `meta` is an end of (its slot into `index`, if given)
+    bool GetGapIndex(CMetaPiece* meta, int* index);
+    // 0x0058CA60: the trigger name ("EditorTrgGap<slot>") of the gap end whose trigger piece is `piece` (0 if none);
+    // with the script integer PrintGaps, an odd slot's gap is printed
+    uint32_t GetGapTriggerName(CPiece* piece);
+    // 0x0058CB20: slot `index`'s gap info (null if empty; its name copied into the text first), and which end (`half`)
+    GapInfo* GetGapInfo(int index, int* half);
+    // 0x0058CB70: the gap shown: both ends' trigger pieces highlighted
+    void SetCurrentGap(int index);
+    // 0x0058C990: a free slot (-1 none)
+    int GetFreeGapIndex();
+    // 0x0058C9B0: gap `index`'s second end in a free slot (none free: nothing), given the next GapID
+    void EndGap(void* piece, CMetaPiece* meta, int index);
+    // 0x0058CCC0: the constructor (no gaps, the counter at 2000, in `manager`'s park; makes itself the instance).
+    // Returns this.
+    CGapManager* Construct(CParkManager* manager);
+
     // 0x0058CDA0 (gap_manager.cpp): gap `index`'s info (its name, the rest copied); the checklist made again
     void SetGapInfo(int index, GapInfo* info);
-    // 0x0058CB70: the gap shown
-    void SetCurrentGap(int index) { GameFunction<void(__thiscall*)(CGapManager*, int)>(0x0058CB70)(this, index); }
-    // 0x0058C990: a free slot (-1 none)
-    int GetFreeGapIndex() { return GameFunction<int(__thiscall*)(CGapManager*)>(0x0058C990)(this); }
-    // 0x0058D070 (gap_manager.cpp) / 0x0058C9B0: the gap's first / second half (its trigger piece and metapiece)
+    // 0x0058D070 (gap_manager.cpp): the gap's first end (its trigger piece and metapiece)
     void StartGap(void* piece, CMetaPiece* meta, int index);
-    void EndGap(void* piece, CMetaPiece* meta, int index)
-    {
-        GameFunction<void(__thiscall*)(CGapManager*, void*, CMetaPiece*, int)>(0x0058C9B0)(this, piece, meta, index);
-    }
     // 0x0058CDF0 (gap_manager.cpp): remove gap `index` (its trigger pieces deleted; with `forget`, also from the
     // goal editor's gaps)
     void RemoveGap(int index, bool forget);
     // 0x0058CE90: remove every gap
     void RemoveAllGaps();
-    // 0x0058CCC0: the constructor (makes itself the instance). Returns this.
-    CGapManager* Construct(int unused) { return GameFunction<CGapManager*(__thiscall*)(CGapManager*, int)>(0x0058CCC0)(this, unused); }
     // 0x0058CF30: a copy of `other`'s gaps (without their pieces; no park manager)
     void CopyFrom(CGapManager* other);
     // 0x0058CF20: the destructor (also clears the singleton)

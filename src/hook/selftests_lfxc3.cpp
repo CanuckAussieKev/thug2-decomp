@@ -186,7 +186,7 @@ void StandInCursor(StandIns& s)
             return 0u;
         });
     };
-    s.At({0x0058BF10}, 8, [](Regs& r) {
+    s.At({0x0058BF10, AddressOf(&Ed::CClipboard::GetArea)}, 8, [](Regs& r) {
         Record({0xBF10, CuRel(r.ecx), CuRel(r.args[0])});
         auto* area = reinterpret_cast<uint8_t*>(r.args[1]);
         uint32_t index = (r.ecx - reinterpret_cast<uint32_t>(g_cuClipboards)) / 0x20;
@@ -194,7 +194,7 @@ void StandInCursor(StandIns& s)
         std::memcpy(area, sizes[(index + g_cuVariant) % 4], 6);
         return 0u;
     });
-    plain({0x0058C980}, 0, 0xC980, 0);
+    plain({0x0058C980, AddressOf(&Ed::CClipboard::Destroy)}, 0, 0xC980, 0);
     s.At({0x005BA3B0, AddressOf(&Mem::Pool::Contains)}, 4, [](Regs& r) {
         auto* pool = reinterpret_cast<Mem::Pool*>(r.ecx);
         bool contains = r.args[0] >= reinterpret_cast<uint32_t>(pool->m_start) &&
@@ -277,7 +277,7 @@ void StandInCursor(StandIns& s)
     });
     plain({0x00598B60}, 8, 0x8B60, 2);
     plain({0x0059B280}, 0, 0xB280, 0);
-    plain({0x0058C200}, 0, 0xC200, 0);
+    plain({0x0058C200, AddressOf(&Ed::CClipboard::DestroyMetas)}, 0, 0xC200, 0);
     // the manager's set-up
     s.At({0x0059EC00, AddressOf(&Ed::Init)}, 0, [](Regs& r) { Record({0xEC00, r.args[0]}); return 0u; });
     s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
@@ -290,7 +290,7 @@ void StandInCursor(StandIns& s)
     });
     plain({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, 0xB0E0, 1);
     plain({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110, 0);
-    s.At({0x0058CCC0}, 4, [](Regs& r) { Record({0xCCC0, CuRel(r.ecx), CuRel(r.args[0])}); return r.ecx; });
+    s.At({0x0058CCC0, AddressOf(&Ed::CGapManager::Construct)}, 4, [](Regs& r) { Record({0xCCC0, CuRel(r.ecx), CuRel(r.args[0])}); return r.ecx; });
     plain({0x00594FD0}, 8, 0x4FD0, 2);
     plain({0x005960D0}, 0, 0x60D0, 0);
     plain({0x00596D50}, 0, 0x6D50, 0);

@@ -561,6 +561,7 @@ using Ed::CAbstractMetaPiece;
 using Ed::CConcreteMetaPiece;
 using Ed::CMetaPiece;
 
+REPLACE_SOURCE_ONLY(0x005902E0, &CMetaPiece::Cast); // 3 bytes (folded with many empty constructors)
 REPLACE(0x005902F0, &CMetaPiece::IsRestartPiece);
 REPLACE(0x00590340, &CMetaPiece::GetDescriptor);
 REPLACE(0x00590360, &CConcreteMetaPiece::GetPiece);

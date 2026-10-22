@@ -120,11 +120,11 @@ void Install(StandIns& s)
         Rec(0x7810, {r.ecx});
         return 0u;
     });
-    s.At({0x0058B700}, 0, [](Regs& r) {
+    s.At({0x0058B700, AddressOf(&Ed::CParkRailSet::Clear)}, 0, [](Regs& r) {
         Rec(0xB700, {r.ecx});
         return 0u;
     });
-    s.At({0x0058B280}, 0, [](Regs& r) {
+    s.At({0x0058B280, AddressOf(&Ed::CParkRailSet::FreePools)}, 0, [](Regs& r) {
         Rec(0xB280, {r.ecx});
         return 0u;
     });
