@@ -234,3 +234,11 @@ check_code_writes expects 20 writes). NewPlayerInfo's fields named as NET2's gam
    (flag messages, carriers marked with \s0-\s3), firefight (eliminated players dropped from the list), the crown.
 To switch the work off: [replacements] disable= player_info.cpp, player_flags.cpp, score_list.cpp, lobby.cpp,
 server_list.cpp, server_browser.cpp, buddy_status.cpp (and profile_manager.cpp's 0x00543010 by address).
+
+## Game runs (C:\Games\THUG2-3, under the lock; offline only)
+
+- 2026-10-22, after the merge with NET2 / NET4 (86c1630): to the main menu (ready in 6.8 s) and `-level BO` (the level
+  loads, the skater spawns, ~80 s): 5230 of 5230 replacements installed, no run-time check failure, debug CRT report
+  or exception in the log. (The workspace skips the early self-tests in the game; thug2_check ran all 728 against both
+  exes.) Nothing online was opened: the lobby, server list, buddies and the network game's scores / flags are
+  untested in the game - see "What to try online by hand".
