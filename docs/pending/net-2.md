@@ -37,5 +37,39 @@ Switch off: `[replacements] disable=gamenet_players.cpp` (and gamenet_game_cfunc
     44 deliberate bugs: 43 caught (5 after strengthening: an observer with 0x20, a pending joining observer, a missing
     "team", the 0x007CCDF8 order around task adds, the input device); 1 equivalent (GetInteger's assert flag - asserts
     are compiled out).
-- [ ] Next: the network game's start / end (0x0053AF90, 0x0053B0D0), qr2 reporting (0x0053B9C0-0x0053BEC5), the
-  join-state / auto-serve tasks, player removal (0x0053C6E0-0x0053D120, 0x0053D900).
+- [x] Batch NET2-2 (NOT run in the game yet; the game's course, the manager's tasks and the players' lives,
+  20 functions): src/game/net/gamenet_flow.cpp (new), gamenet_players.cpp, gamenet_observer.h (new: the observer's
+  controls, inlined by EnterSurveyorMode and NewPlayer), gamenet_game_cfuncs.cpp (+ DropPendingPlayers).
+  - Course: 0x0053AF90 ResetToLobby (server: the level preference; netlobby with the teams kept; crown and flags
+    gone; +0x1B0 the lobby time), 0x0053B0D0 StartNetworkGame (message 0x34 StartGameInfo, 0x48 bytes: time limit
+    from horse_time_limit / time_limit "time" - 0 for netgoalattack, king, netking, (net)scorechallenge,
+    (net)firefight and an untimed netctf; target_score, fireball level, stop-at-zero = IsUntimedGame, score_reset,
+    a game id 1-255 other than the last one (Mth::Rnd), the teams, "goals", 0x00535AD0, the crown's spawn point, the
+    start info words; sent to every player - split screen: the first only; +0x10/+0x17/+0x25-27 never written, the
+    test masks them), 0x0053C6E0 CancelJoin (not in states 8-10; message 0x0B, SendData, the apps down, presence back
+    to homie_status_chatting with the lobby's name).
+  - Tasks: 0x0053BED0 ObserverTask, 0x0053BF00 AutoServeTask (2 s after SetHostMode, netlobby, >= 2 players, not
+    waiting, > 5 s in the lobby: LoadPendingPlayers + StartNetworkGame), 0x0053BF90 JoinStateTask (1
+    CreateConnectingDialog -> 0; 2 CreateJoiningDialog unless the client is local -> 0; 3 CreateTryingPasswordDialog
+    -> 4; 6 the local joiner observing: its skater removed, camera off; entered_network_game -> 7; 8 dialog_box_exit,
+    both tasks off; 9 CreateJoinRefusedDialog reason=; 10 the task off), 0x0053C1F0 StartGameTask (players loading:
+    the server's CreateWaitForPlayersDialog when no current_menu_anchor, a client's net_message_game_will_start, once;
+    all ready (0x00538DC0) and the time 0x007CCDF4 reached: StartNetworkGame, the task off).
+  - Players: 0x0053C770 NewPlayer (a local observer gets hide_panel_stuff, the camera on the first player and the
+    observer's controls; a local player clears m_camPlayer - quirk kept; a remote one is watched by an observing local
+    player watching nobody), 0x0053C950 DestroyPlayer, 0x0053CB70 DropPlayer (reasons 0 quit .. 6 left out with their
+    net_message_player_* texts; QUIRK: the server reads the connection before its own null check), 0x0053D120
+    ReAddPendingPlayers (QUIRK kept: its qr2 report tests 0x007CCE1D just after setting it - never), 0x0053D900
+    DestroyAllPlayers, 0x0053E910 RemovePlayers, 0x0053E920 DropPlayersNotReady, 0x0053EE70 RemovePlayersAndApps,
+    0x0053EA20 CFunc DropPendingPlayers. Not original helpers: UpdateLobbyServer, FlagReturned (inlined twice each).
+  - Test (selftests_net_flow.cpp TestNetFlow): 8 cases: lobby on server / client; six start-game variants (horse,
+    timed and untimed CTF, netking with a king, split screen, other); cancel in each state with presence on / off; the
+    observer task, six auto-serve conditions, every join state (-1..11, local / remote client, the joiner observing /
+    playing / absent); the start task on server and client through every branch; new players in all four situations;
+    destroy with the camera on the player (next another / itself / none, with and without a local skater), crown,
+    flag, lobby hosting / not, qr2 on / off; drop for reasons 0-7 in three variants (client; crown and flag; first
+    come first served, stats off) plus an observer and a local player; pending players re-added; all destroyed; the
+    not ready dropped. 62 deliberate bugs, all caught (4 after strengthening: a local player without a skater with a
+    watched player, the crown object without the crown, distinct heaps, the presence logged out).
+- [ ] Next: qr2 reporting (0x0053B9C0, 0x0053BBC0, 0x0053BD90, 0x0053BDC0 - the online identity's write sites
+  0x0053BE86 / 0x0053BA1F / 0x0053F936 to fold in), the manager's constructor 0x0053EE90 and the rest.

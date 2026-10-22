@@ -45,5 +45,7 @@ bool __cdecl CFunc_CancelJoinServer(Script::CStruct* params, Script::CScript* sc
 // 0x0053D780: into surveyor mode (not when the local player observes or surveys already - false): the surveyor task
 // (0x0053BED0) on the logic tasks, an input handler for controller 0 (0x00536890), the surveying flag. True.
 bool __cdecl CFunc_EnterSurveyorMode(Script::CStruct* params, Script::CScript* script);
+// 0x0053EA20: the players not ready dropped (Manager::DropPlayersNotReady). True.
+bool __cdecl CFunc_DropPendingPlayers(Script::CStruct* params, Script::CScript* script);
 
 } // namespace GameNet

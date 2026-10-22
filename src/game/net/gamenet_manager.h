@@ -8,6 +8,9 @@ struct App;
 struct Conn;
 struct MsgHandlerContext;
 } // namespace Net
+namespace Obj {
+class CObject;
+} // namespace Obj
 namespace Prefs {
 class Preferences;
 } // namespace Prefs
@@ -285,6 +288,66 @@ public:
     static constexpr int kHostModeServe = 0;
     static constexpr int kHostModeAutoServe = 1;
     static constexpr int kHostModeFcfs = 2;
+    // 0x0053C770: a new player (PlayerInfo, 0x1F0 bytes from the network heap, constructor 0x00543740 with `flags`)
+    // of `skater` and `conn`. A local observer gets the observer's controls (hide_panel_stuff, the camera onto the
+    // first player); a local player clears m_camPlayer; a remote one is watched if the local player observes and
+    // watches nobody. Returns it.
+    uint8_t* NewPlayer(Obj::CObject* skater, Net::Conn* conn, uint32_t flags);
+    // 0x0053C950: `player` deleted: the camera moved off it, its crown taken off, its flag returned (flag_returned,
+    // hide_ctf_arrow for the local team); the lobby's server details and qr2 told.
+    void DestroyPlayer(uint8_t* player);
+    // 0x0053CB70: `player` out of the game for `reason` (0 quit, 1 timed out, 2 to observe, 3 banned, 4 kicked,
+    // 5 dropped, 6 left out). A client only destroys it. The server: its GameSpy CD key released, message 0x2D to
+    // the remote players, the stats told of an early leave, 'Q' (banned / kicked; banned: its address banned) or 'V'
+    // (left out) to its address, its connection closed (not when observing), the panel message
+    // (net_message_player_*); observing: crown and flag given up; otherwise destroyed - and who serves next chosen
+    // again if it was that one (network_end_game_selected when nobody is left to). Then, when every playing player's
+    // game has ended, message 0x5A (game over) to all.
+    void DropPlayer(uint8_t* player, int reason);
+    // 0x0053D120: the players who joined during the game (flag 8) added back as joining players (20, 30 ... frames
+    // on), their skaters' appearance kept; the remote skaters hidden and reset. The lobby's server details told.
+    void ReAddPendingPlayers();
+    // 0x0053D900: every player destroyed (its skater removed unless it's the first local one).
+    void DestroyAllPlayers();
+    // 0x0053E910 / 0x0053EE70: DestroyAllPlayers and the joining players (0x00536820); and the apps shut down
+    // (0x005399F0).
+    void RemovePlayers();
+    void RemovePlayersAndApps();
+    // 0x0053E920 (DropPendingPlayers): the playing players neither local nor ready (flag 0x20) dropped as left out
+    // (reason 6) and their skaters removed.
+    void DropPlayersNotReady();
+    // NOT ORIGINAL (inlined in DestroyPlayer / ReAddPendingPlayers): the lobby's peer, when hosting, told the game's
+    // details changed (0x005FCCF0).
+    void UpdateLobbyServer();
+    // NOT ORIGINAL (inlined in DestroyPlayer / DropPlayer): `player`'s flag returned (flag_returned with its team,
+    // hide_ctf_arrow when it's the local player's team), the flag bits cleared.
+    void FlagReturned(uint8_t* player);
+
+    // --- The game's course and the manager's tasks (gamenet_flow.cpp) ---
+
+    // 0x0053AF90: back in the lobby: the level preference (the server), the game mode netlobby with the teams kept,
+    // the crown and every flag taken away, the lobby time (+0x1B0) noted.
+    void ResetToLobby();
+    // 0x0053B0D0: the server starts a game: the game type, level and the shuffled starting points; message 0x34 (the
+    // StartGameInfo: time limit, target score, fireball level, a new game id...) to every player (split screen: the
+    // first only); the leaders and the crown forgotten; the stats' game started.
+    void StartNetworkGame();
+    // 0x0053C6E0: the join given up (not when already over: states 8-10): message 0x0B to the server, the apps shut
+    // down, the timeout task off, the joining players gone, the presence back to "chatting" in the lobby.
+    void CancelJoin();
+    // Tasks (Tsk::Task code, cdecl; the task's +0x1C is the manager - the observer's is the player's, unused).
+    // 0x0053BED0: the observer asked for the next player (m_observerCommand 1): the camera onto it.
+    static void __cdecl ObserverTask(void* task);
+    // 0x0053BF00 (+0xF4, auto-serve): 2 s after the host mode was set, in the lobby with two players or more and 5 s
+    // after the lobby began: LoadPendingPlayers and StartNetworkGame, once (m_waitingForGameToStart).
+    static void __cdecl AutoServeTask(void* task);
+    // 0x0053BF90 (+0xE4): the join's state shown (the connecting / joining / password dialogs, entered_network_game,
+    // dialog_box_exit, CreateJoinRefusedDialog with the reason) and moved on.
+    static void __cdecl JoinStateTask(void* task);
+    // 0x0053C1F0 (+0xE8): the start of a game: while players are still loading, the server's
+    // CreateWaitForPlayersDialog (no menu up) or a client's net_message_game_will_start, once; when everyone is ready
+    // and the time has come, StartNetworkGame and the task removed.
+    static void __cdecl StartGameTask(void* task);
 
     // Fields.
     Net::App*& ClientSlot(int index) { return (&m_client)[index]; }

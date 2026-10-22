@@ -11,6 +11,7 @@
 #include "game/core/task.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/gamenet_observer.h"
 #include "game/net/net_app.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -87,7 +88,7 @@ void KickOrBan(Manager* manager, int drop, uint8_t request)
     if (manager->OnServer()) {
         Obj::CObject* skater = PlayerSkater(player);
         bool observer = IsObserver(player);
-        Call(0x0053CB70, manager, player, drop); // the player dropped
+        manager->DropPlayer(player, drop);
         if (!observer)
             Call(0x00565790, Skate(), skater); // its skater removed
         return;
@@ -116,27 +117,6 @@ void DeleteNode(void* node)
 {
     reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(node))[2])(node, 1);
 }
-
-// Tsk::Task<PlayerInfo> (0x20 bytes, vtable 0x006476F0) and Inp::Handler<Manager> (0x2C bytes, vtable 0x0064D7D8).
-struct PlayerTask {
-    uint8_t m_node[0x18];
-    void* m_code;
-    uint8_t* m_data;
-};
-struct InputHandler {
-    uint8_t m_node[0x18];
-    uint8_t* m_controlData; // +0x18
-    uint8_t* m_device;      // +0x1C
-    int m_index;            // +0x20 the controller
-    void* m_code;
-    Manager* m_data;
-};
-static_assert(sizeof(PlayerTask) == 0x20 && sizeof(InputHandler) == 0x2C);
-
-void ConstructNode(void* node, int priority) { GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(node, priority); }
-
-constexpr int kSurveyorTaskPriority = 0;
-constexpr int kInputHandlerPriority = -1000;
 
 } // namespace
 
@@ -283,7 +263,7 @@ bool __cdecl CFunc_BanPlayer(Script::CStruct*, Script::CScript*)
 bool __cdecl CFunc_CancelJoinServer(Script::CStruct*, Script::CScript*)
 {
     Manager* manager = NetManager();
-    Call(0x0053C6E0, manager); // the join cancelled
+    manager->CancelJoin();
     manager->m_joinState = 10;
     return true;
 }
@@ -299,31 +279,16 @@ bool __cdecl CFunc_EnterSurveyorMode(Script::CStruct*, Script::CScript*)
         return false;
     Mem::Manager* memory = Mem::Manager::Get();
     memory->PushContext(memory->m_networkHeap);
-    auto* task = static_cast<PlayerTask*>(Mem::Calloc(sizeof(PlayerTask)));
-    if (task) {
-        ConstructNode(task, kSurveyorTaskPriority);
-        *reinterpret_cast<uint32_t*>(task) = 0x006476F0; // Tsk::Task<PlayerInfo>
-        task->m_code = reinterpret_cast<void*>(0x0053BED0);
-        task->m_data = local;
-    }
-    Field<PlayerTask*>(local, 0x1EC) = task;
-    tasks->AddTask(reinterpret_cast<Tsk::BaseTask*>(task));
-    auto* handler = static_cast<InputHandler*>(Mem::Calloc(sizeof(InputHandler)));
-    if (handler) {
-        ConstructNode(handler, kInputHandlerPriority);
-        handler->m_index = 0;
-        *reinterpret_cast<uint32_t*>(handler) = 0x0064D7D8; // Inp::Handler<Manager>
-        handler->m_code = reinterpret_cast<void*>(0x00536890);
-        handler->m_data = manager;
-    }
-    manager->m_observerInputHandler = handler;
-    // (a null handler is read through, as in the original)
-    uint8_t* server = input + handler->m_index * 0x84;
-    reinterpret_cast<Tsk::Stack*>(server + 8)->AddTask(reinterpret_cast<Tsk::BaseTask*>(handler));
-    handler->m_controlData = server + 0x44;
-    handler->m_device = *reinterpret_cast<uint8_t**>(server + 4);
+    AddObserverControls(manager, local, tasks, input);
     Field<uint32_t>(local, 0x1D0) |= kPlayerSurveying;
     Mem::Manager::Get()->PopContext();
+    return true;
+}
+
+// 0x0053EA20
+bool __cdecl CFunc_DropPendingPlayers(Script::CStruct*, Script::CScript*)
+{
+    NetManager()->DropPlayersNotReady();
     return true;
 }
 
@@ -342,3 +307,4 @@ REPLACE(0x0053D490, GameNet::CFunc_KickPlayer);
 REPLACE(0x0053D5E0, GameNet::CFunc_BanPlayer);
 REPLACE(0x0053D760, GameNet::CFunc_CancelJoinServer);
 REPLACE(0x0053D780, GameNet::CFunc_EnterSurveyorMode);
+REPLACE(0x0053EA20, GameNet::CFunc_DropPendingPlayers);

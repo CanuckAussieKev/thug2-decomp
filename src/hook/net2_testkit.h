@@ -177,7 +177,19 @@ inline void InstallNet2(StandIns& s)
     });
     s.At({0x00457EB0, AddressOf(&Net::App::EnqueueMessage)}, 8, [](Regs& r) {
         Rec(0x7EB0, {r.args[0]});
-        RecordDesc(0x7EB1, r.ecx, reinterpret_cast<const Net::MsgDesc*>(r.args[1]));
+        const auto* desc = reinterpret_cast<const Net::MsgDesc*>(r.args[1]);
+        if (desc->m_id == 0x34 && desc->m_length == 0x48) { // (the start of a game: bytes it never writes masked)
+            uint8_t copy[0x48];
+            std::memcpy(copy, desc->m_data, sizeof(copy));
+            std::memset(copy + 0x10, 0, 4);
+            copy[0x17] = 0;
+            std::memset(copy + 0x25, 0, 3);
+            Net::MsgDesc masked = *desc;
+            masked.m_data = copy;
+            RecordDesc(0x7EB1, r.ecx, &masked);
+        } else {
+            RecordDesc(0x7EB1, r.ecx, desc);
+        }
         return 0u;
     });
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90, [](Regs&) {
@@ -237,6 +249,15 @@ inline void RunNet2Case(const char* what, Scenario scenario, void (*install)(Sta
             install(*s);
         scenario(original);
         delete s;
+        // Our functions stored where the original stores its own (task code...): written back as the original's.
+        const uint32_t aliases[][2] = {
+            {AddressOf(&GameNet::Manager::ObserverTask), 0x0053BED0},
+            {reinterpret_cast<uint32_t>(&GameNet::Manager::ObserverTask), 0x0053BED0}, // (an incremental-link jump)
+        };
+        for (uint32_t i = 0; i < kArenaSize; i += 4)
+            for (const auto& alias : aliases)
+                if (Word<uint32_t>(i) == alias[0])
+                    Word<uint32_t>(i) = alias[1];
         return Finish();
     };
     std::vector<uint32_t> expected = run(true);

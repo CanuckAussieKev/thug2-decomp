@@ -38,9 +38,9 @@ void InstallObjects(StandIns& s)
     Stub(s, {0x00561B40}, 0, 0x1B40, [](Regs&) { return 5u; });
     Stub(s, {0x00561A80}, 4, 0x1A80);
     Stub(s, {0x00539880}, 4, 0x9880, [](Regs& r) { return r.args[0] * 3 + 1; });
-    Stub(s, {0x0053CB70}, 8, 0xCB70);
+    Stub(s, {0x0053CB70, AddressOf(&Manager::DropPlayer)}, 8, 0xCB70);
     Stub(s, {0x00565790}, 4, 0x5790);
-    Stub(s, {0x0053C6E0}, 0, 0xC6E0);
+    Stub(s, {0x0053C6E0, AddressOf(&Manager::CancelJoin)}, 0, 0xC6E0);
     StubCdecl(s, {0x0053BDC0}, 0xBDC0, 1);
     Stub(s, {0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, 0xC4A0,
          [](Regs&) { return At(kStructs + 0x200); });
