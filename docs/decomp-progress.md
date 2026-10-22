@@ -8181,6 +8181,873 @@ belong with the CScript batch.
   GrabLadder in the air - FindRail with CheckRail, FindLadder with the ladder checkers); the level loads the terrain
   sounds, the sun and the lens flare. All 4231 replacements installed; no exception, run-time check, CRT report or
   crash in the log. Not driven: an actual hang, shimmy, pull-up, ladder climb - for the user to try by hand.
+- [x] Batch 263 (OC1-1; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
+  (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
+  - Obj::CBBoxComponent (type 0xB87C8E43 "bbox", vtable 0x00645DC4, 0x4C bytes; every composite object gets one,
+    AddBaseComponents): 0x0041ADC0 Create, 0x0041AAD0 Construct (its box +-10 about the origin and an offset (0, 0, 0,
+    1) - set nowhere else in the exe), 0x0041A810 / 0x0041A880 the destructors, 0x0041B1A0 CallMemberFunction:
+    Obj_ObjectInRect (0x6520B902), Obj_ObjectInRadius (0x67660FE5), Obj_ObjectInRadiusOfNode (0xDCE760A1; no node=:
+    0); 0x0041B0A0 QueryObjects (radius= feet, squared; type= a checksum or an array, asserted), 0x0041AF10
+    AnyObjectNear (skater / ped / gameobj / car - the object types 0xD2DB7F97 / 0xBC0D91D8 / 0x5C0312EB through the
+    object search over the object's manager; anything else false; the params / script arguments unused), 0x0041AE20
+    AnySkaterNear (the skate module's skaters by index), 0x0041A950 InitRect (offset feet, angle degrees, height /
+    dist / width feet), 0x0041AB20 ComputeRect (the object's orientation turned by the angle about Y - D3DX's multiply
+    -, inverted; the box (width / 2, height / 2, dist) to (-width / 2, -height / 2, 0) about the offset, w 1 / -1 + the
+    offset's w), 0x0041A8B0 RectRadiusSqr (cdecl; the largest size + the largest offset component, squared - the first
+    call returns it unrounded from the FPU stack, later calls the stored float), 0x0041AC40 IsInRect (first the
+    bounding distance from the box's middle - x and the middle's z rounded to float where the original stores them -,
+    then the middle of the other object's own box brought into the rect's frame, PointInBox 0x004817D0; the other
+    object's bbox component is read without a null check, as in the original).
+  - 0x0041A850 / 0x0041AA90 / 0x0041AAA0: Obj::CObjectSearch's destructors (its base Lst::Search<CObject>'s vtable
+    0x00645DF8; its own 0x00645DFC). 0x0041AD90 Mdl::Skate::GetNumSkaters (the list head at +0x28; a node's data is
+    checked for -1 before the node for null, as the original). 0x0041A730 Matrix::InitFromAngles (the constructor
+    Matrix(angles): the identity, then RotateX / Y / Z through D3DX - all skipped when all three are exactly 0; -0 counts
+    as 0, NaN not). 0x0041A820 Mth::DistanceSquared ((dx dx + dz dz) + dy dy, unrounded; tracker.cpp has its own copy).
+  - Tests (selftests_obj_bbox.cpp): TestBBoxComponent - 48 seeds: Create (and out of memory), the destructors
+    (flags 0 / 1 / 2), InitRect from random parameter sets, ComputeRect / RectRadiusSqr from six rect states (computed
+    or not, angle 0 / -0 / other, NaN height), IsInRect for six objects (some inside the bounding distance), two at
+    exactly the bounding distance, objects at exactly the radius (13 from the point; 169 and just above), the skaters
+    and each type with and without a rect / point / radius, QueryObjects and the four members (and another) from random
+    parameter sets (radius, type checksum / array / none, node); TestBBoxHelpers - the search destructors, the
+    skater count (0-5), Matrix(angles) (zeros, -0, one angle, NaN), DistanceSquared (unrounded results).
+  - Mutations: 45 deliberate bugs, 44 caught (40 at first; floats in sevenths - values needing more than a float's
+    precision - and exact-distance cases added for 4). 1 equivalent: `>=` for `>` in RectRadiusSqr's largest size (the
+    same value either way).
+
+- [x] Batch 264 (OC1-2; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the colour cycle, camera and car physics components, 31 functions):
+  src/game/obj/color_cycle.{h,cpp}, camera_component.{h,cpp}, car_physics.{h,cpp} (new).
+  - Obj::CColorCycleComponent (type 0xCDC76A22, vtable 0x00645E00, 0x7C bytes): 0x0041B3C0 Create (the constructor
+    inlined), 0x0041B280 RegisterMemberFunctions (the table 0x006845D0; its functions written in by the static
+    initialiser 0x00643D60), 0x0041B2A0 / 0x0041B2E0 the destructors, 0x0041B310 SetColors (up to five; vectors' x, y,
+    z, w 1 - more than five overrun the fields after, as in the original), 0x0041B440 SetOn (off: the object's colour
+    back to 0x808080 through the SetObjectColor helper 0x005A3E80 with name= / color=; on: from the first colour, 0
+    ms), 0x0041B580 Update (the current colour (z << 8 + y) << 8 + x, each _ftol-truncated; milliseconds with slow
+    motion, compared with the period before rounding; then the next colour), the members 0x0041B560 [0x4AF8B9AE] on,
+    0x0041B570 [0x1DE2F35B] off, 0x0041B2B0 [0x4A752AAE] the period (the unnamed float, asserted - the original's slot
+    for it is the params argument: without one the period takes the pointer's bits), 0x0041B390 [0x80D5F732] the
+    colours (the unnamed array, asserted - without one the params pointer is taken for the array).
+  - Obj::CCameraComponent (type 0xC4E311FA, vtable 0x00645E34, 0x1C bytes): 0x0041B840 Create, 0x0041B730 Construct (a
+    Gfx::Camera of its own; null when out of memory), 0x0041B6D0 / 0x0041B7C0 the destructors (the camera deleted
+    through its vtable), 0x0041B7F0 InitFromStructure (the object's priority -1000 with the composite object manager,
+    its slot 4), 0x0041B810 Finalize / 0x0041B8A0 Update (the camera at the object's position and orientation; Update
+    also makes the orientation the display matrix).
+  - Obj::CCarPhysicsComponent (type 0xC695136D, vtable 0x00645E6C, 0x58 bytes): 0x0041BD90 Create, 0x0041B910
+    RegisterMemberFunctions (0x006846A8), 0x0041BAD0 Construct (CreateCar's), 0x0041B930 / 0x0041BB00 the destructors,
+    0x0041B940 InitFromStructure (the tilt's limits / rate / divisor: script globals 0x877DB8DA, 0xFB3464DF,
+    0xFD8BC8D6, 0xB2C7447B, overridden by params), 0x0041BE10 Finalize (the motion, suspend, skeleton and model; the
+    distance between bones 2 and 4, each times bone 0 - D3DX), 0x0041C1B0 Update (not when suspended - the suspend
+    component's +0x30 or 0x00433EA0 -, dead or without a skeleton), 0x0041BB30 UpdateAngles (the spin from the
+    motion's speed, kept in 0-360 by steps on the FPU stack; the steering towards -asin(the bone distance / the
+    distance to the path follower's point) - the game's own _CIasin 0x00623560 - negated for a negative turn, 0
+    without a follower; the tilt towards -acceleration / divisor within the limits - the globals re-read while
+    0x4CF13D8F is set; both through Mth::KeepWithin at 60 degrees a second (times the rate for the tilt)), 0x0041C0B0
+    UpdateBones / 0x0041BF00 UpdateSkeleton (cdecl: the bones' matrices from the model's description, four wheel
+    bones turned about X by the spin, two steering ones about Z by the steering then X by the spin, the body 0x88C21962
+    about X by the tilt, each but the first times its parent; a hidden body's bone 0 scaled to nothing), the members
+    0x0041B9E0 [0xA2331896] the body shown (the unnamed integer), 0x0041BA20 [0xC9F0DB4B] nothing.
+  - Tests: selftests_obj_color_camera.cpp (TestColorCycleComponent - 40 seeds: Create on dirty memory, the
+    destructors, the members with and without their parameters, 10 random on / off / update steps each - periods
+    reached exactly, just short of them before rounding, NaN; structures from the pool or the manager (or none);
+    TestCameraComponent - 8 seeds), selftests_obj_car_physics.cpp (TestCarPhysicsComponent - 40 seeds: Create /
+    Construct on dirty memory, InitFromStructure with and without params, Finalize with and without a skeleton,
+    UpdateAngles from 8 states each (spin past 360 by several turns, exactly 720 / 1080, negative, NaN; no follower,
+    no turn, NaN turn, the bone distance huge / 0 / negative, the follower's point on its own position; divisor 0 /
+    tiny, wide limits, the globals re-read or not), UpdateBones shown / hidden, UpdateSkeleton, Update's early outs; the
+    C runtime's asin stood in - the game's isn't started offline).
+  - Mutations: 63 deliberate bugs, 57 caught (51 at first; dirty Calloc memory, a frame landing just short of the
+    period, exactly 720 / 1080, wide tilt limits added for 6). 6 equivalent: Script::PrintContents removed (empty), the
+    camera's null check folded (null either way), the order of the steering distance's squares and `clamped > 1` for
+    `ratio > 1` (the ratio is rounded to float before use: the same value), `turn <= 0` for `turn < 0` (0 never gets
+    there), the tilt's max compared after rounding (the same value assigned).
+
+- [x] Batch 265 (OC1-3; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the collide-and-die and dynamic light components, the light's radius, the
+  feeler's destructor, a smart pointer's assignment, the game clock's time - 18 functions): src/game/obj/collide_and_die.{h,cpp},
+  dynamic_light.{h,cpp}, src/game/nx/dynamic_light.h (new); feeler.cpp, smtptr.h / .cpp, game_clock.cpp (additions).
+  - Obj::CCollideAndDieComponent (type 0x6259B52B "collideanddie", vtable 0x00645EB4, 0x54 bytes): 0x0041C370 Create,
+    0x0041C210 Construct (made at the game clock's time, the first update to come), 0x0041C1F0 / 0x0041C280 the
+    destructors, 0x0041C2B0 InitFromStructure (radius, scale, death_script, vel - asserted; vel (0, 0, 1) by default,
+    normalised), 0x0041C330 Finalize (the suspend component), 0x0041C3D0 Update: suspended (outside a network game):
+    nothing; ten seconds after it was made (unsigned) it dies; dying, a second after the hit; otherwise a feeler from
+    the last position (the first time: the object's own) 24 up to the position 24 up plus radius along the
+    normalised velocity (x87 roundings where the original stores) - on a hit (movables included) the projectile
+    collision component's 0x004F2F40, dying, death_script run with pos (the hit point), vel and scale. The position kept
+    for the next update.
+  - Obj::CDynamicLightComponent (type 0xD8BFC9F7, vtable 0x00645F58, 0x48 bytes) and Nx::CDynamicLight (layout only;
+    made by 0x0048FB80): 0x0041D0F0 Create, 0x0041CBD0 / 0x0041D0C0 the destructors (the light's owner cleared),
+    0x0041CBF0 InitFromStructure (StartRadius / StartIntensity / StartRGBA, asserted - the array read whether found or
+    not - also the middle and end values unless MidRadius / MidIntensity / MidRGBA / midTime (-1) and EndRadius /
+    EndIntensity / EndRGBA are given; the arrays share the original's one slot), 0x0041CDA0 Finalize (the wait-and-die
+    component), 0x0041CDC0 Update (the light made the first time, owned by the object; the fraction of the life -
+    elapsed / total as unsigned values, FILD's 2^32 correction - from start to end or through the middle (midTime
+    compared as -1's bits); radius, intensity and each colour byte (_ftol) interpolated in double; the light at the
+    object's position), 0x0041CFC0 CallMemberFunction (0xFAAD1C11 radius=, 0x86E1FA56 intensity=, 0x1A0F4C50 rgba= - the
+    light unchecked), 0x0041CB90 CDynamicLight::SetRadius (and 1 / radius; 1e10 for 0).
+  - 0x0041C200 Tmr::GameClockTime (elapsed + the offset), 0x0041C350 Nx::CFeeler::Destruct (the object hit let go: 82
+    callers, unwind code among them), 0x0041D1D0 CSmtPtr<CRefCounted>::AssignObject (Set returning this; 17 callers).
+  - Tests (selftests_obj_collide_light.cpp): TestCollideAndDieComponent - 48 seeds: Create on dirty memory, the
+    destructors, InitFromStructure with and without params, 8 random updates each (suspended / in a network game,
+    elapsed times at and around 500 / 10000, a hit or not, an object hit, a projectile component, a death script; a
+    position 24 below a non-float), the feeler's destructor and the assignment (an object or none, from one or none),
+    the game clock's time; TestDynamicLightComponent - 40 seeds: Create, the destructors with and without a light,
+    InitFromStructure with each optional parameter missing in turn, 8 updates each (no middle, middles 0 / 0.25 / 0.5 /
+    0.7 / 1 / NaN, exactly at the middle, elapsed past 2^31, a total past 2^31), the three members and another,
+    SetRadius (0, -0, 3, NaN).
+  - Mutations: 49 deliberate bugs, 48 caught (39 at first; 6 that first failed to build - a vc140.pdb lock - caught on
+    a rerun; a non-float position and the destructor's results added for 3). 1 equivalent: dropping `&& !m_dying`
+    before the hit's handling (a dying component never gets there).
+
+- [x] Batch 266 (OC1-4; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the fam and flexible particle components, 29 functions):
+  src/game/obj/fam.{h,cpp}, flexible_particle.{h,cpp} (new).
+  - Obj::CFamComponent (type 0x0301D67C "fam", vtable 0x00645F8C, 0x20 bytes): 0x0041D200 Create (constructor inlined),
+    0x0041D170 RegisterMemberFunctions (0x006836E8; filled by 0x00642B30), 0x0041D190 / 0x0041D1A0 the destructors,
+    0x0041D2C0 UnloadFam (fam_play_stream's scripts on the object stopped, RemoveAnimController type=partialAnim
+    id=jawRotation on the animation blender - the object checked -, the asset unloaded), 0x0041D3E0 LoadFam
+    (fam\<name>.fam: Ass::CAssMan::LoadAnim(file, name, anim set), its +0x18 kept across; loaded: the file name's
+    checksum), 0x0041D480 PlayFam (false without the stream; the last stream stopped; fam_play_stream spawned with
+    stream_checksum, vol when not 0, and unless stream-only use_pos_info 0, the fam loaded, the stream preloaded -
+    streamId, kept - and play_anim when the fam's animation (anim set + name) is there; the script's object set),
+    the members 0x0041D660 [Obj_PlayFam] (unnamed checksum, vol, priority 0x66) and 0x0041D280 [Obj_StopLastFam].
+  - Obj::CFlexibleParticleComponent (type 0xC5BCEB9E "flexibleparticle", vtable 0x00645FE4, 0x3C bytes) and
+    Nx::CParticleSystem (layout of the fields used; 0x0041D9C0 SetFlag): 0x0041E1E0 Create, 0x0041D6E0
+    RegisterMemberFunctions (0x00683AC0; filled by 0x00642FD0), 0x0041DA00 Construct, 0x0041DA80 / 0x0041E240 the
+    destructors (the system deleted through its vtable, then let go), 0x0041DB00 InitFromStructure (the system - with
+    perm the particle manager's system of that name, else a new one 0x0049AC60 named by the component's address -
+    and its settings: groupID, emitterIndependent, emit_rate, params with emitscript / UpdateScript, EnableRotate,
+    update_Brightness / ObjID (default: the 0x184197D5 checksum), UseRandomUVQuadrants, FillPath, priority, align_to;
+    the manager's update time from Force_Particle_Update_Time), 0x0041D740 Finalize (the suspend component started),
+    0x0041DF80 Update (no system: the object dies; time added; suspended outside network games only catching up once
+    the time reaches the update time - NaN never does -; else following the object - EnableRotate: the system's
+    rotation times the object's orientation (translation cleared) becomes the display matrix it follows - and given
+    the time, or idle when the suspend component says not to update; a hidden object's system's +0x12F / +0x130
+    cleared), 0x0041D760 Hide, 0x0041D780 CallMemberFunction (IsEmitting - the system unchecked -,
+    ApplyEnvBrightness), 0x0041D700 the member-function-entry runner (vtable slot 11, shared with the animation
+    blender: the entry's member pointer with its this-adjustment and the entry's name, or slot 12), and the members
+    0x0041D7F0 (17 names passed on to the system), 0x0041D820 EmptySystem, 0x0041D840 (0x7F97BAD3 / SetEmitScript),
+    0x0041D8F0 ShouldEmit, 0x0041D920 / 0x0041D940 EmitOn / EmitOff, 0x0041D960 destroy (ifEmpty), 0x0041E190
+    DestroyParticles.
+  - Tests (selftests_obj_fam_particle.cpp): TestFamComponent - 40 seeds: Create, register, destructors, 6 random
+    UnloadFam / LoadFam / PlayFam / Obj_PlayFam / Obj_StopLastFam calls each (streams there or not, assets there or
+    not, load failing, no object, script structures from the pool or the manager); TestFlexibleParticleComponent -
+    48 seeds: Create / Construct (dirty memory), the destructors, InitFromStructure from random parameter sets (perm
+    finding a system or not, the system made or not, update_Brightness without ObjID), 8 updates each (no system,
+    suspended in / out of network games, the update time reached exactly / NaN, idle, EnableRotate, a brightness
+    model, hidden), Hide, every member with and without a system, the entry runner (with an adjustment, through slot
+    12), DestroyParticles, SetFlag.
+  - Mutations: 80 deliberate bugs, all caught (76 at first; the update time reached exactly, an entry adjustment and
+    update_Brightness without ObjID added for 3; one mutation rewritten that didn't compile).
+- [x] Batch 267 (OC1-5; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the floating text and input components, 37 functions):
+  src/game/obj/floating_text.{h,cpp}, input_component.{h,cpp} (new).
+  - Obj::CFloatingTextComponent (type 0xEADA1621, vtable 0x00646018, 0x6C bytes): 0x0041E3C0 Create, 0x0041E5E0 /
+    0x0041E6C0 the destructors (the 3D element destroyed by script 0x2575B406 with id=), 0x0041E2B0 InitFromStructure
+    (id - the object's id minus 0x1525E9DF by default -, string, color, y_offset, duration), 0x0041E3A0 Finalize,
+    0x0041E450 Update (the element made by script 0x6A060CF0 the first time, kept at the object's position raised by
+    y_offset with the text "\c<color><string>" while the model is visible; the end time), 0x0041E270
+    CallMemberFunction; Front::GetScreenElementManager 0x0041E2A0. The text buffer: the original's sprintf into 64
+    bytes overflowed for strings over ~60 characters - ours is cut at 64 (snprintf).
+  - Obj::CInputComponent (type 0x27D7CD28 "input", vtable 0x0064605C, 0x4A0 bytes): 0x0041EEC0 Create, 0x0041E6F0
+    RegisterMemberFunctions, 0x0041E850 Construct, 0x0041E710 / 0x0041E8C0 the destructors (both input handlers out of
+    their lists), 0x0041F390 InitFromStructure (Player / controller), 0x0041F1B0 BindToController (the two handlers,
+    vtable 0x0064D7D8, code 0x0041F170 / 0x0041F190), 0x0041F090 / 0x0041F100 the pad updates (paused objects skipped;
+    disabled, net-disabled or blocked: the pad reset, blocked also clears the events), 0x0041EF20 IsInputBlocked (in
+    network games: the controller-unplugged dialog, the root window's menu_state on, the keyboard anchor), 0x0041ECA0
+    UpdateEvents and 0x0041EBF0 CheckButton (16 buttons: locked ones skipped; down / up events to the object when input
+    events are on and it isn't disabled), 0x0041E7E0 LockButton (locked until now + seconds - _ftol-truncated - and
+    released when asked), and the members 0x0041E8F0 LockButtonFromScript, 0x0041E9A0 / 0x0041E9B0 / 0x0041E9C0 /
+    0x0041E9D0 Disable / Enable / NetDisable / NetEnablePlayerInput, 0x0041E7C0 / 0x0041E7D0 Enable / DisableInputEvents,
+    0x0041E9E0 PlayerInputIsDisabled, 0x0041EA20-0x0041EA50 Left / Right / Up / DownPressed, 0x0041EA60 GetSticks
+    (angles in degrees, lengths), 0x0041EB20 HeldLongerThan (button, time in seconds or frames).
+  - Tests (selftests_obj_text_input.cpp): TestFloatingTextComponent - 40 seeds: Create, InitFromStructure from random
+    parameters (long strings), Finalize, updates (model visible or not, the end passed, no element manager), the
+    destructors; TestInputComponent - 48 seeds: Create / Construct, bound to controllers, the handlers' code on
+    random pad data (disabled / net-disabled / events off, network games with the blocking elements, buttons locked
+    in the past / now / ahead / NaN), LockButton (times past 2^31), every member, the destructors.
+  - Mutations: 71 deliberate bugs, all caught (66 at first; the test then varied the disable flags around the
+    members, dirtied the buttons before LockButtonFromScript and gave clear= negative values and a presence bit of
+    its own). The test also found the lock time's truncation (ours first rounded it).
+- [x] Batch 268 (OC1-6; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the lock's update and the model component's rotations, 11 functions):
+  src/game/obj/lock_obj_update.cpp, src/game/mth/quaternion.{h,cpp} (new); lock_obj.{h,cpp} (the declarations, the
+  update called as a member), vector.h (RotateAboutX / Y / Axis declared).
+  - Obj::CLockObjComponent: 0x0041FF20 Create, 0x0041F500 Construct (not locked), 0x0041F400 / 0x0041F440 the
+    destructors, 0x0041F760 UpdateLock (the target by id, else by name; on a bone: the bone's matrix turned by the
+    target's model matrix - a model with +0x234 set, or a skater (id < 8) - or its display matrix, at its position
+    plus the offset turned by it, "at" pointing to the parent bone, "right" / "up" crossed with the target's up; at
+    the target: its model matrix (the offset turned by it, its translation dropped) or its display matrix; with a lag:
+    part of the way (the roundings where the original stores), then the next lag from the wobble (the update's own
+    2 pi / 1024, 0x0064611C); without: the position plus the model's offset (w gets 1 added - as the original); the
+    target's velocity, Angles' rotation, the display matrix).
+  - Mth::Quat (the model component's): 0x00420AC0 InitFromAxisAngle (FSIN / FCOS; a zero axis gives (0, 0, 0)),
+    0x00420140 operator*=, 0x00420B50 Rotate (q (v, 1) q*); Mth::Vector 0x00420A50 / 0x00420A90 RotateAboutX / Y,
+    0x00421440 RotateAboutAxis.
+  - Tests (selftests_obj_lock_quat.cpp): TestLockObjUpdate - 64 seeds: Create (out of memory too), Construct,
+    the destructors (vtable dirtied first), three updates each (the target by id / name / none, the skeleton component,
+    its skeleton, the bone and its parent there or not, the model followed or not - +0x234, a skater's id -, the lag
+    on and off, Angles); the matrix product (0x00404100: the original's goes through D3DXMatrixMultiply, ours through
+    Mth::Multiply - a few units in the last place apart, compared with a tolerance in selftest.cpp) stood in for in
+    both by the original's D3DXMatrixMultiply. TestModelRotations - 200 seeds of random quaternions, vectors and angles
+    (zero axes, zero and large angles, NaN, infinity; a NaN's sign not compared: the x87 and our build pick different
+    ones). selftests_lock_obj.cpp's stand-in for the lock's update also covers ours.
+  - Mutations: 68 deliberate bugs, 66 caught; 2 equivalent on the test's values: the lag's step x rounded to float
+    before it's added (the sum's rounding hides it) and the quaternion product's w summed in another order (in double).
+- [x] Batch 269 (OC1-7; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the model component's display turns, display matrix and smaller members,
+  18 functions): src/game/obj/model_component.{h,cpp} (new; the class's layout and every member declared), game_clock.h
+  (GameClockTimeSince).
+  - Obj::CModelSpin / CModelSpinAxis (RotateDisplay's turns: up to six per axis): 0x00420590 Angle (off: 0; past its
+    period - a NaN period never ends -: held at base + range or switched off; linear (power 0), eased in
+    (sin(pi/2 t) squared power - 1 times) or out (1 - sin(pi/2 - pi/2 t)); the game clock's time or the real one;
+    left unrounded in ST0), 0x004204F0 Clear, 0x00420520 Add (the first free slot), 0x004213E0 Angle (the sum).
+  - Obj::CModelComponent (type 0x286A8D26 "model", vtable 0x00646128, 0x238 bytes): 0x004215F0 GetDisplayMatrix (the
+    object's display matrix, flipped - rows 0 and 2 negated - with EnableDisplayFlip, turned by the spins about X, Y
+    and Z about the pivot, at the object's position plus the pivot's shift and the display offset), 0x00421960
+    TestCollision (a line against the bone volumes; "No collision data for %s model"), 0x00420070 Hide, 0x00420090
+    SetColorValue, 0x004200C0 UpdateBrightness, 0x004200E0 RebuildFromProfile (vtable slot 13), 0x00420100
+    GetRefObjectName, 0x00420110 ReplaceTexture (the model's 0x00493E80), 0x004202A0 HideGeom (network message 0x3E),
+    0x00420670 ApplyBrightness (a feeler's hit vertex value doubled; lerped or set; the global brightness without model
+    lights), 0x00420700 SetColor (a sector model's geom 0), 0x00420730 RotateDisplay (frames; the pivot (0, 30, 0, 1);
+    message 0x76: period, power, start, range, object, hold, axes), 0x004208D0 CancelRotateDisplay (message 0x8C);
+    Tmr::GameClockTimeSince 0x00420250.
+  - Tests (selftests_obj_model.cpp): TestModelComponentMembers - 64 seeds: every spin's angle (flags, NaN periods,
+    powers -3 to 4, starts past 2^31 and exactly at the end; compared rounded to float - the original's x87 precision is
+    finer than a double's), each axis's angle and activity (axes with no turn on, none active), the display matrix
+    twice (pivots zero / set / NaN; the rotation matrices and D3DXMatrixMultiply's operands stood in for), the line test,
+    Clear and Add (a full axis), every member (models, lights, players there or not).
+  - Mutations: 72 deliberate bugs, 69 caught (63 at first; the test then got spins exactly at their end, inactive
+    axes, no turns and the axis's state after Clear; 2 retried after a build failure); 3 equivalent: GetDisplayMatrix
+    skipping an inactive axis (its angle is 0 anyway), the pivot shift's w (only the position's w gets it, then set
+    to 1), and TestCollision's skeleton check (the original reads through the pointer before it, so never gets there).
+- [x] Batch 270 (OC1-8; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the model component's construction, destruction, initialisation and
+  update, 13 functions): src/game/obj/model_component_init.cpp (new).
+  - Obj::CModelComponent: 0x00421490 Create, 0x00420BF0 Construct (a new model 0x0048BFA0, the spins off, the pivot and
+    display offset (0, 0, 0, 1), brightness 1), 0x00420000 / 0x00420270 the destructors (the model deleted,
+    0x0048C3C0), 0x004204B0 Finalize (skeleton, animation blender, suspend), 0x004214F0 InitFromStructure
+    (UseModelLights: lights made at the object, Max_Scene_Lights - else taken away -; the skeleton; ShadowVolume; then
+    InitModel), 0x00420D10 InitModel (the geoms cleared, the scale; Class=LevelObject: the sector's geometry
+    (InitFromSector); refObjectName: a level object (Update follows its sector's model; active flags 6); assetName
+    (multicolor); CloneFrom: another object's colour values and geoms - GEOM (not there: nothing more, not even the
+    tail), geoms (an array; 0 names skipped, one not there: nothing more) or all of them, each cloned, activated and
+    added under its name; Model / modelname: a file - "none" skipped - with .skin (SkeletonName) or .mdl, lowercased,
+    use_asset_manager, texDictOffset, AllowReplaceTex; 0x354BA8E9: an asset by checksum; Model as a checksum: a
+    sector's geometry; then - finalized objects - Update and the lights' brightness, the bounding sphere, the bone
+    volumes when the script global 0x74FF5CB4 is set), 0x0041FFA0 InitFromSector, 0x00420350 InitBoneVolumes (shared by
+    skeleton name in the Collision heap; a new set is made and registered but not given to the model that made it, as
+    the original), 0x004219F0 Update (a level object: its sector's model placed and skinned; else an active, shown model
+    at the display matrix - not ready without the blender's model (or, without a blender, a skeleton)), 0x00420480
+    Teleport, 0x00421360 SetModel, 0x00421230 InitModelFromProfile (the model builder - an Obj::CObject, 0x004897D0 -
+    with the build script, 0x91C1EC93 by default).
+  - Tests (selftests_obj_model_init.cpp): TestModelComponentInit - 96 seeds: Create / Construct (out of memory, on 0xFF
+    bytes) / the destructors (flags 0-3), InitFromStructure over eleven kinds of parameter sets (each path above; the
+    lights there or not, the scale, shadow, file names and "none", geoms there or not), Finalize, updates (level object
+    or not, the model active / hidden / missing, skeleton and blender there or not), Teleport, SetModel,
+    InitModelFromProfile, InitBoneVolumes (volumes there, found, made or not), InitFromSector. Bool arguments compared
+    by their low byte (the original pushes the whole SETcc register).
+  - Mutations: 71 deliberate bugs, all caught (67 at first; the test then constructed on 0xFF bytes, destroyed with
+    flags 2, dumped the component after InitModel and made CloneFrom's GEOM missing for some seeds).
+  - Found while testing: 0x00494680 (a geom's name) takes one argument - the `1` pushed before it belongs to AddGeom.
+- [x] Batch 271 (OC1-9; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the model component's script members, 1 function of 4.6 KB):
+  src/game/obj/model_component_members.cpp, model_component_nx.h (what the model component's source reaches of Nx and
+  the network, not rewritten yet) (new).
+  - Obj::CModelComponent::CallMemberFunction 0x00421AE0 - 40 members: SwitchOnAtomic / SwitchOffAtomic (HideGeom,
+    sent), AtomicIsHidden (hidden=), Obj_UpdateBrightness, Obj_GetModelName (filename= the model's +0x30),
+    Obj_UpdateModel, Obj_SetVisibility / Obj_ClearVisibility (viewport bits), Obj_EnableScaling / Obj_DisableScaling /
+    Obj_ApplyScaling / Obj_GetScaling (scaling=), Obj_SetLightAmbientColor / Obj_EnableAmbientLight /
+    Obj_DisableAmbientLight, Obj_SetLightDiffuseColor / Obj_EnableDiffuseLight / Obj_DisableDiffuseLight,
+    Obj_SetLightDirection (direction, else heading and pitch), CancelRotateDisplay (message 0x8C), RotateDisplay
+    (duration in ms, seconds or frames; StartAngle, EndAngle, SinePower, RotationOffset, HoldOnLastAngle, dontpause, x /
+    y / z; message 0x76), Enable / DisableDisplayFlip, Obj_SetBoundingSphere / Obj_RestoreBoundingSphere, ClearGeom /
+    Obj_ClearGeoms / AddGeom (Model's file name's checksum as an asset), Obj_SetUVOffset, Obj_SetUVParams (UScale /
+    VScale, rot, uoff / voff into a UV matrix), Obj_ClearColor / Obj_SetColor (h, s, v) / Obj_SetColorRGB,
+    Obj_HasModelLights, Obj_InitModel, Obj_InitModelFromProfile (struct read into an appearance, vtable slot 13),
+    Obj_ReplaceTexture (array= of src / dest / in, or one; the model's 0x00493D10), Obj_ReplaceSpriteTexture (dest a
+    checksum; 0x00493E80), Obj_TestModelCollision (line= start / end; the result's checksum 0xED615AF5) and
+    Obj_GetBoneVolume (bone_volume= - the line test goes on into it too, as the original); any other name: 2.
+    Parameters the original reads without a default (r / g / b, index, material, u / v, pass) are left unset as there.
+  - Tests (selftests_obj_model_members.cpp): TestModelComponentScriptMembers - 24 seeds x the 40 members and one
+    other, each with a random parameter set (the parameters a member reads without a default always given: the
+    original's stack leftovers can't be compared), models / lights / players there or not; the component's own members
+    that have tests of their own stood in for (GetDisplayMatrix, TestCollision, HideGeom, InitModel), the UV matrix's
+    RotateZ too (the rotation matrices aren't compared here).
+  - Mutations: 70 deliberate bugs, all caught (69 at first; the test then picks one time unit - seconds, second, frames or frame - per seed, so frame alone is reached).
+- [x] Batch 272 (OC1-10; objects 1, merged 2026-10-22; run in the game: docs/pending/objects-1.md; NOT judged by a player yet; the model light update component and the motion component's path members,
+  28 functions): src/game/obj/model_light_update.{h,cpp}, src/game/obj/motion_path.{h,cpp} (new).
+  - Obj::CModelLightUpdateComponent (0xE3FCA939, vtable 0x00646198, 0x2C bytes): 0x00422DC0 Create, 0x00422D00 /
+    0x00422D10 the destructors, 0x00422D40 InitFromStructure (flag 0xE7375C4C: sample once; 0x470B8AE9 the interval in
+    frames, the counter starting at the component's address % interval + 1 - an interval of 0 divides by zero, as the
+    original), 0x00422DA0 Finalize (the model component), 0x00422E40 Sample (a feeler down from just above the object
+    - nudged a thousandth along its up vector, 8 up, 4800 down -, then one from 48 higher to just under the hit (or as
+    far down) on faces flagged 0x20; the brightness of whichever hit given to the model component, the second's lerped
+    at the caller's rate, the first's at 1), 0x004230B0 Update (the first sample at once; then the model's lights
+    lerped towards it by 0.02 until the counter passes the interval; then the counter back to 0 and a lerped sample -
+    or, sampling once, the component suspended).
+  - The motion component's (0x0A015E17) members of 0x00423130-0x00423642 as Obj::CMotionPathMembers (its fields by
+    offset, kept apart from motion.h): 0x00423130 the member-function table's registration (0x00681EB8), 0x00423150
+    IsRotating, 0x00423510 the path follower, 0x00423520 the random-link mode, 0x00423530 the speed along a path
+    (stopping over a distance to the minimum stop speed; else accelerating / decelerating to the path velocity, never
+    past it), and the script members (not Ghidra functions; names from the static initialiser 0x00640E30):
+    Obj_IsMoving / Obj_IsRotating / Obj_StopMoving / Obj_StopRotating, Obj_SetPathVelocity / MinStopVel /
+    Acceleration / Deceleration (miles an hour by default; Fps / ips, Fpsps / ipsps), Obj_PathHeading,
+    Obj_RandomPathMode, Obj_StopAlongPath (feet, or inches - then the stop's starting speed isn't noted, as the
+    original), Obj_StartAlongPath, Obj_WaitJumpFinished / WaitRotate / WaitMove / WaitStop (wait types 7, 9, 5, 8).
+  - Tests (selftests_obj_light_motion.cpp): TestModelLightUpdate - 64 seeds: made (out of memory too), destroyed,
+    parameters (interval and counter left random before), 12 updates over random hit patterns, Sample with every
+    combination of the two feelers' hits (objects hit or not), the arena compared. TestMotionPathMembers - 64 seeds: 24
+    random states (zeros, NaNs, the speed at the path velocity, the stop at its end) x 3 speed updates and the getters,
+    then each script member 3 times with random parameters.
+  - Mutations: 67 deliberate bugs, 63 caught; 4 equivalent: dropping the second feeler's Destruct (its smart pointer's
+    C++ destructor lets go of the object at the same point), and three of the path speed's comparisons done on the
+    rounded float or with <= (the path velocity is a float: the result is the same value). (Found while resuming: the
+    previous agent's interrupted mutation run had left the counter's reset out of Update - restored.)
+- [x] Game runs after OC1-10 and the merge of main (C:\Games\THUG2-1, this branch's dinput8.dll, 236 replacements in
+  0x0041A6D0-0x00423643 installed): free skate in BO and NO (New Orleans, peds and cars on paths) - loads, the skater
+  spawns and moves (inputs through the automation channel, 14/14 commands), late and engine-started self-tests pass, no
+  exception / run-time check / debug CRT report in the log. Real skating, model lighting under objects and scripted
+  path movers are for the user to judge.
+- Range done: every function of 0x0041A6D0-0x00423643 has source (225 addresses; find_gaps.py: no gap in the range);
+  scan_register_assumptions: no RISK in the range; audit_game_function_calls: no MISMATCH; check_code_writes: no
+  overlaps.
+- [x] Batch 273 (OC2-1; objects 2, merged 2026-10-22; run in the game: docs/pending/objects-2.md; NOT judged by a player yet; the motion component's life, wait and simpler member functions, 19
+  functions): src/game/obj/motion_component.cpp (new), motion.h (layout), motion_internal.h (new: checksums, x87
+  helpers), vector.cpp (two helpers).
+  - 0x00423650 Mth::Vector::operator/= (a copy among the motion code, also used by the skater: the reciprocal kept
+    unrounded); 0x00423680 Mth::GetDistance (z, x, then y squared; unrounded; cdecl, ST0).
+  - 0x00426650 Create (Mem::Calloc 0x24C, the constructor inlined), 0x00424AA0 Construct (also called by 0x0057B324),
+    0x00424AE0 DestroyBody (path follower deleted through its vtable, the turn's interpolator and the follow trail
+    freed - the trail's destructor is the empty 0x005480A0, the interpolator's none), 0x004266F0 Destroy, 0x00423D00
+    Reset, 0x00423C90 InitPathFollower (game_objects.cpp calls it for peds and cars).
+  - Vtable: 0x00426720 InitFromStructure (Name as both nodes, then 0x00425970 orients to it), 0x004236C0 ProcessWait
+    (slot 6, the script's wait types 5 move, 7 jump, 8 path speed <= 0 or NaN, 9 rotation; 6 never), 0x004274D0
+    CallMemberFunction (only Obj_MoveToNode by name: everything else is in the member table).
+  - 0x00423740 UpdateHover (the clock's doubled count mod the period taken as unsigned; x87 FSIN), member functions
+    Obj_StorePos 0x004237D0, Obj_StoreNode 0x00423810, Obj_SetConstantHeight 0x00423830, Obj_GetRandomLink
+    0x00423890, Obj_Hover 0x004238D0 (period 1000 / Freq truncated, then varied by Rnd(period * 20 / 10) - period /
+    10, at least 1), Obj_GetSpeed 0x004239F0 (moving: the move's speed; locked by a lockobj: this frame's distance /
+    the slomo frame length; else |velocity|; mph unless ips, fps), Obj_Jump 0x00423B30.
+  - Names found by checksum: the member functions Obj_IsMoving, Obj_IsRotating, Obj_StopMoving, Obj_StoreNode,
+    Obj_SetConstantHeight, Obj_LookAtNodeStored, Obj_LookAtPos, Obj_LookAtRelPos, Obj_FollowPathStored,
+    Obj_MoveLeft, Obj_WaitStop, Obj_SkipToRestart, Obj_FollowLeader (0x434EA1FB, 0xE8D121CB, 0x8B669799 unknown);
+    parameters col_dist_above / col_dist_below, randomlink, originalnode, switchobjscript, gameobj, OrientY;
+    0x26AF9DC9 is FLAG_MAX_COORDS (motion.cpp's "name unknown" corrected).
+  - Test (selftests_obj_motion1.cpp): TestMotionLife (200 variants: allocation failing, follower / interpolator /
+    trail there or not), TestMotionWait (3000: wait types 0-11, path speeds incl. -0 and NaN, names), TestMotionHover
+    (periods 1 to 2^31-1, clock offsets; Obj_Hover with Off / Amp / Freq incl. 0, negative, tiny), TestMotionMembers
+    (the member functions, every parameter given or not; GetSpeed's three sources and units), TestMotionVectorHelpers.
+    37 deliberate bugs, 36 caught; the one missed (Obj_GetSpeed's sum order) is equivalent in practice: the double
+    sums differ in the last bit at most and the result is rounded to a float.
+- [x] Batch 274 (OC2-2; objects 2, merged 2026-10-22; run in the game: docs/pending/objects-2.md; NOT judged by a player yet; the motion component's update, moving to points, paths, following a
+  leader, 15 functions): src/game/obj/motion_path.cpp (new; renamed motion_update.cpp at the merge with main - OC1 has a motion_path.cpp of its own).
+  - 0x004270E0 Update (slot 1): the frame length, hover (back to the base height, then the bob), the axes' turns,
+    Obj_Rotate's turn, then move-to / path / leader (the first that applies), the jump (its position copied); the
+    ground offset eased in at 384 per second squared (the speed zeroed on a change of direction or an overshoot -
+    the rest of the offset then); objects with ids over 15 (not skaters) get the matrix as their display matrix.
+  - 0x00424200 UpdateMoveTo (the speed capped only when >= the maximum: a NaN speed stays NaN), 0x00426E70
+    UpdatePath (not for objects with a pedlogic component; the path's speed 0x00423530 is OC1's; heading kept level
+    with flag2 0x400; right / at rebuilt by cross products unless sticking to the ground), 0x004246A0
+    UpdateFollowLeader; the step velocity: x from the unrounded difference and reciprocal, y / z / w rounded.
+  - 0x00423FC0 StartPath, 0x00424020 ArriveAtNode (SpawnObjScript spawned, else switchobjscript), 0x00424180
+    FollowPathLinked, 0x004244C0 GetNextObjOnPath (the group's slots are 12-byte smart pointers; same direction,
+    ahead, same segment, within range, nearest), 0x004246F0 FollowLeader (drops the object's lockobj lock: no null
+    check), and Obj_GetNextObjOnPath (`ob`), Obj_SetPathTurnDist (`inches`), Obj_FollowPath, Obj_FollowPathLinked,
+    Obj_FollowPathStored, Obj_FollowLeader.
+  - Test (selftests_obj_motion2.cpp): TestMotionUpdate (6000 variants: flags, ground offsets incl. exact-step and
+    NaN, ids), TestMotionMoveTo (6000: accelerating, capping exactly, arriving exactly, NaNs), TestMotionUpdatePath,
+    TestMotionLeader, TestMotionPaths (StartPath, ArriveAtNode, FollowPathLinked, the members, GetNextObjOnPath over
+    groups of up to 7 objects - empty slots, itself, NaN facings, distances tying with the range and each other).
+    58 deliberate bugs caught, 7 after strengthening; one real bug found by them (the NaN cap).
+- [x] Batch 275 (OC2-3; objects 2, merged 2026-10-22; run in the game: docs/pending/objects-2.md; NOT judged by a player yet; the motion component's rotation and looking at things, 24 functions):
+  src/game/obj/motion_rotate.cpp (new); motion.h (+0x70 is "height only" for StickToGround, +0x74 the cached
+  ground triangle, +0x1CC a Mth::SlerpInterpolator; the members declared); motion.cpp's RotateTo now calls
+  StartRotation as a member.
+  - 0x00423F10 SetRotationDirection, 0x00424B90 / 0x00424D50 / 0x00424F50 Obj_RotX / RotY / RotZ (Angle in degrees -
+    FLAG_MAX_COORDS swaps Y and Z and flips X's sign -, the deceleration, Acceleration and speed; for ever without an
+    angle or a deceleration), 0x004258B0 RotateAboutAxis (orthonormalised about up first; the turn multiplied in
+    front), 0x00425A80 UpdateAxisRotation (accelerating to the maximum, decelerating to 0 - which then stops it -,
+    the step capped at the target, done when reached), 0x00425C70 UpdateRotations, 0x00425520 StartRotation (a
+    slerp from the matrix to the target over the time given or 1 s: made on first use - the manager made ready -,
+    or straight there), 0x00424440 UpdateTurn (a turn time of 0 or past it: the end).
+  - Looking: 0x004240E0 SetupLookAxis (the angle in the plane, nothing below the threshold), 0x004252E0 LookAt (at
+    once, over a time, or at a speed with an acceleration; the axes from 0xA4AECB20), 0x00425710 LookAtNodeLinked,
+    0x004257A0 LookAtNode, 0x00425800 LookAtPosition, 0x00427500 LookAtObject (skater / ped / car / other types,
+    not itself, the nearest), 0x00425970 OrientToNode (the node's angles: X, Y, Z multiplied in turn; the display
+    matrix too); Obj_Rotate, Obj_LookAtNode, Obj_LookAtNodeLinked, Obj_LookAtNodeStored, Obj_LookAtPos,
+    Obj_LookAtPosStored, Obj_LookAtRelPos, Obj_LookAtObject.
+  - Test (selftests_obj_motion3.cpp): TestMotionRotAxes (4000 variants each), TestMotionAxisUpdate,
+    TestMotionTurn (turn times of 0 with negative elapsed times), TestMotionLookAt (SetupLookAxis, LookAt 8000
+    variants, the look-at members with the position looked at recorded, OrientToNode). 56 deliberate bugs, 55
+    caught (2 after the position looked at was recorded, 1 after negative elapsed turn times were added); the one
+    missed (UpdateAxisRotation's `<` as `<=` when capping at the maximum) only differs when |speed| equals the
+    maximum, where both set the same value.
+- [x] Batch 276 (OC2-4; objects 2, merged 2026-10-22; run in the game: docs/pending/objects-2.md; NOT judged by a player yet; the motion component's jump, sticking to the ground and moving to
+  points, 15 functions): src/game/obj/motion_ground.cpp (new); motion.h (declarations); motion_component.cpp /
+  motion_update.cpp call the members instead of the game's addresses.
+  - 0x00425CB0 GroundHit (register arguments: ECX the cached triangle, EDX the end, the start and the result on the
+    stack, the caller pops - REPLACE_UNCHECKED naked stub over a cdecl body): the cached triangle first, then a
+    feeler (the face hit, 8- or 10-byte faces, becomes the cached triangle). 0x00424870 UpdateJump, 0x00425F40
+    StickToGround (height only: the ground offset; else three feelers 72 back / ahead and 30 to the side give
+    the height and the axes), 0x004269F0 MoveTo (RET 0x1C: the target by value; at once, a time, or a speed in
+    mph / fps / ips with an acceleration; the original reads `time` into the target argument's x), 0x00426C10
+    MoveToNode, 0x00426CB0 MoveToPosition, 0x00426D80 MoveToLink (LinkNum 1-based, randomlink), Obj_StickToGround,
+    Obj_SkipToRestart (its model component updated - none: a crash, as the original), Obj_MoveToPosStored,
+    Obj_MoveForward, Obj_MoveLeft, Obj_MoveToPos, Obj_MoveToRelPos, Obj_MoveToLink.
+  - Test (selftests_obj_motion4.cpp): TestMotionJump (8000 variants, one in seven landing exactly on land_height),
+    TestMotionGroundHit (the original called with its register arguments), TestMotionStick (8000: both GroundHit
+    conventions answered alike), TestMotionMoves. 40 deliberate bugs caught (1 after the exact landing case).
+- [x] Batch 277 (OC2-5; objects 2, merged 2026-10-22; run in the game: docs/pending/objects-2.md; NOT judged by a player yet; the movable contact, node array, object hook manager, rail manager,
+  chain, particle and proximity components, 74 functions): src/game/obj/movable_contact.cpp, node_components.cpp,
+  chain_component.cpp, particle_component.cpp, proximity_component.cpp (+ .h, all new); smtptr.h (CSmtPtr::Construct,
+  the shared in-place default constructor 0x0042B580).
+  - Movable contact (0x004276C0-0x00427DD0, 10): Create / DestroyBody / Destroy, FindContact (a feeler from 400 above
+    to 6 below, nudged up 0.1 and retried up to 10 times while it hits a dead object), FindContactAhead,
+    GetContactPoint, StartRiding / StopRiding (the stop time is the game clock plus its offset 0x00696D60) /
+    IsRiding (stops riding when the contact is gone), UpdateContactPoint.
+  - Node array, object hook manager, rail manager (0x00427EA0-0x00428220, 0x0042B880-0x0042BA90, 14): life,
+    InitFromStructure / RefreshFromStructure (the model path "models\%s" - the original's unbounded strcpy / strcat
+    as a bounded snprintf), UpdateRailMatrix.
+  - Chain (0x00428250-0x004298B0, 14; the 0x6DCFEC46 component): a link's / a chain's constructors and destructor,
+    CLineObject::SetBlendMode 0x00428270, the list's destructor, Create / Destroy / Finalize, InitFromStructure
+    (collision_info, chains, segments, lengths, bones, obj_end), CallMemberFunction, Update (Verlet steps at the
+    chain's rate, the ends on bones / another object, constraint passes, the collision plane, the lines shown when
+    the object isn't hidden), a chain's UpdateLines.
+  - Particle (0x00429940-0x0042B040, 30): RegisterMemberFunctions, life, Hide, the 19 script setters (the unnamed
+    float read into the `params` argument's own slot: not given, the pointer's bits), InitFromStructure (0x15C-byte
+    parameters: oriented to 0x0C4C809E, scaled, coloured with alphas capped at 128, rotated X / Y / Z, local
+    positions, the model followed, the emit script spawned), Update (lifetimes against the clock + offset, the
+    ground value, positions / orientations moved with the object), CallMemberFunction (0x2299A9F2: the system's
+    slot 7; 0x96896315: a ground feeler 4800 down), GetParticleParams (the name, two floats and the colours read
+    straight from the system's +4 after the result structure is made; positions, sizes and boxes through the
+    getter 0x004AAD40, once each).
+  - Proximity (0x0042B570-0x0042B850, 5 + CSmtPtr::Construct): RunScript, Update (in / out by the skater's
+    capsule, the reach test squared in double), Proximity_Init / SetActive / EnterProximityNotHandled.
+  - Test: selftests_obj_contact.cpp (TestContactLife, TestContactFind, TestContactRiding, TestNodeComponents),
+    selftests_obj_particle.cpp (TestParticleLife / Members / Update / Init / GetParams, TestProximity,
+    TestChainLife / Members / Init / Update). 66 deliberate bugs, 65 caught (19 after strengthening: the particle
+    Init and GetParams tests registered - they had been written but never run -, the clock offset given values,
+    lifetimes ending exactly now, the skater exactly the reach away, UpdateLines tested without its own stand-in,
+    0x0C4C809E always given - without it both versions orient by their own stack's leftovers); the one missed
+    (alpha `>` 0x80 as `>=`) is equivalent: both give 0x80. Found by the tests: GetParticleParams' order (rewritten
+    to match).
+- [x] Batch 278 (OC2-6; objects 2, merged 2026-10-22; run in the game: docs/pending/objects-2.md; NOT judged by a player yet; the rigid body's code before its life and physics, 15 functions):
+  src/game/obj/rigidbody_support.cpp, src/game/mth/rigidbody_math.cpp (new); OC3's rigidbody_component.h (the
+  members declared), rigidbody_physics.cpp / rigidbody_component.cpp call them instead of the game's addresses
+  (their tests stand in for ours too); object.h (CBaseComponent::RunMemberFunction), quat.h (Quat::GetMatrix),
+  vector.h (Vector::SetLength) - declarations added.
+  - 0x0042BAC0 ToggleRigidBodyDebug (off, the shapes, the details too, off), 0x0042BB00 RegisterMemberFunctions,
+    0x0042BB20 CBaseComponent::RunMemberFunction (most components' vtable +0x2C: the entry's member function on
+    `this` moved by the entry's adjustment, else +0x30 by name; EAX passed on whole), 0x0042BB60
+    RigidBody_IgnoreSkater (the pushers' cooldown; frames / frame: sixtieths), 0x0042BBB0 RigidBody_Disable,
+    0x0042BBD0 RigidBody_Reset (InitFromStructure again) - names from their checksums -, 0x0042BD60
+    SetRigidBodyPusherReach (0x006939B0 is a float per pusher - OC3's AddRigidBodyPusher clears it as an int),
+    0x0042BD90 Finalize (the sound component; each spring's anchor where its point is), 0x0042BE90 Sleep
+    (SettleScript), 0x0042BF00 UpdateWorldPoints (three different sum groupings, kept), 0x0042C140 FeelPushers (the
+    first pusher in reach pushes it - one per frame; a pusher not moving relative to it ends the look for all;
+    the push's shadow sector "<id>_Shadow" hidden; the collide sound with its mute delays divided unsigned),
+    0x0042C6D0 Damp (velocities: w too), 0x0042C890 CheckSleep (the die timer once 48 from where it woke),
+    0x0042BBF0 Vector::SetLength, 0x0042BC40 Quat::GetMatrix.
+  - Test (selftests_obj_rigidbody_support.cpp): TestRigidBodyMembers, TestRigidBodyWorld (Finalize, Sleep, the world
+    points, Damp with 0 / NaN / exact drags, CheckSleep on the sleep points and 48 exactly), TestRigidBodyPushers
+    (20000: random and exact cases - on the radius, the band's edges, straight at / across / up, negative mute
+    delays, an infinite rotation factor), TestRigidBodyMath (20000 each, zeros and NaNs). 86 deliberate bugs, 76
+    caught (6 after strengthening); the 10 missed are equivalent or below float precision: the double sums'
+    grouping in Finalize / UpdateWorldPoints (4) and GetMatrix (2, one a commuted sum), FeelPushers' mid boost
+    (2s either way), the zero-length replacements (h and g: multiplied by 0; across: the impulse is NaN then).
+- [x] Batch 279 (OC2-7; objects 2, merged 2026-10-22; run in the game: docs/pending/objects-2.md; NOT judged by a player yet; the rigid body's contacts with the world, 1 function):
+  src/game/obj/rigidbody_contacts.cpp (new); rigidbody_physics.cpp calls it as a member (its test stands in for ours).
+  - 0x0042C950 FindContacts: the rigid bodies' collision cache (0x006939E0) refilled for the bounding box (the
+    radius about the centre of mass; w +-1); each contact point (last first) by a feeler line from the centre out to
+    it - a hit is a contact (the point, the hit normal, the depth (1 - distance) * the line along the normal - x and
+    z products from rounded values, the comparison on the unrounded sum -, the point's number as its friction);
+    each sphere (last first) by a sphere query (through the same cache), each face it touches (last first) facing
+    it and not ahead of the centre of mass is one (the hit point; the normal from the hit to the sphere's centre,
+    (0, 1, 0, 1) when they coincide; depth the rounded distance less the radius; the sphere's number as the
+    friction - which ResolveContacts reads as a directed friction index). Touching contacts (depth <= 0) counted in
+    m_unknown191; all in m_contactsHit (more than 24 overrun the array into the world points, as the original).
+    Returns whether any touches.
+  - Test (TestRigidBodyContacts, 20000 variants: the cache update, the feeler's lines, the sphere feelers' spheres
+    and caches recorded; hits scripted - distances 0 / 1, normals across the line, a depth too small for a float,
+    hits at the sphere's centre, level with the body's centre, w varied; bodies near 0). 33 deliberate bugs, 33
+    caught (3 after strengthening; 3 that were equivalent by construction - a double passed through Wide - redone).
+- Range done: every function of 0x00423643-0x0042CECD has source (node out/scripts/starts.mjs --missing lists only
+  jump targets inside functions and padding misreads; find_gaps.py: none in the range).
+- [x] Game runs (2026-10-22, workspace C:\Games\THUG2-2, this branch's build after merging main): `-level bo` (the
+  batch's self-tests in the game, then free skate: up / ollie, the skater wall-riding) and `-level ba -FullTests` (698
+  early, 17 late, 3 engine-started self-tests all passed; free skate, the skater moving): 4830 of 4830 replacements
+  installed, no run-time check failure, debug CRT report or exception in the log.
+- [x] Batch 280 (OC3-1; objects 3, merged 2026-10-22; run in the game: docs/pending/objects-3.md; NOT judged by a player yet; the trigger component, the display matrix and static vehicle components,
+  the vehicle's wheel settings, 19 functions): src/game/obj/trigger_component.* (extended),
+  display_matrix_component.* / static_vehicle.* / vehicle_wheel.* (new).
+  - Trigger component (vtable 0x00646648, 0x2C bytes: +0x18 where the object was at the last update, +0x28 the last
+    trigger's events): Create 0x00434B90, DestroyBody 0x00434900, Destroy 0x00434910, InitFromStructure 0x00434940
+    (the position now), Update 0x00434D90 (moved and not TELEPORTED: a feeler from the last position to the object's,
+    SetIgnore(0, 0x50), movables too, the callback 0x00434D70 with the component at the feeler's +0xA8; NaN counts as
+    moved), CallMemberFunction 0x00434970 (TriggerType: the unnamed integer array - or an array of them, any one -
+    a subset of the last events; a non-integer array is 0; other names 2), CheckFeeler 0x00434BF0 (a trigger face
+    (+0x6D) with a name (+0x58): through the tested movable's / the live hit object's nodearray component 0xC472ECC5
+    (slot 13 gives its node array) with that object as `other`; a dead hit object: no nodes and the name the feeler
+    cleared - 0), TriggerHits 0x00434CE0 (thiscall(events, hits): a list at +0x88 of 0x60-byte entries, +0xC30 the
+    count - each trigger entry from the last, unless its name comes again later), FeelerHit 0x00434D70 (not a Ghidra
+    function; cdecl callback: CheckFeeler with the zero events at 0x0064663C).
+  - CDisplayMatrixComponent (type 0x1BBF844D, name unknown; vtable 0x00646464, 0x18 bytes): Create 0x004312A0,
+    DestroyBody 0x00431240, Destroy 0x00431250, Update 0x00431280 (display matrix = the object's matrix).
+  - CStaticVehicleComponent (0x9649D4F9 "staticvehicle", vtable 0x00646560, 0x58 bytes): Create 0x00433690,
+    DestroyBody 0x00433650, Destroy 0x00433660, Finalize 0x004336F0 (the skeleton's bones from the model's hierarchy
+    (0x00493040: 0x50-byte objects, matrix at +0x10): bone 0 zero, bone 1 the body at the root's translation, the
+    rest wheels at objects 1-4; positions (-x, z, -y, 1). Not original: a 7th bone or more would read past the four
+    wheels (the original's stack) - ours puts it at the origin).
+  - Vehicle: RegisterVehicleMemberFunctions 0x00434F00 (not a Ghidra function; table 0x00684060), ReadWheelSettings
+    0x00434F20 (stdcall(wheel, params), called by the vehicle at 0x004383D5 / 0x00438436: steering left/right/fixed
+    -> +0xB0 1/2/0, drive yes/no -> +0xB4, spring_rate, damping_rate, radius, moment (stored 386.4 / moment),
+    0xD87D0183, the frictions, the three grip velocities (mph -> inches a second, one x87 rounding), 0x3BCCBADC /
+    0x9439D144 (feet -> inches); a steering= that isn't a name leaves the params pointer's value in the slot).
+  - Test (selftests_obj_trigger.cpp TestTriggerComponent): 3000 random cases x the 20 functions, original vs ours,
+    Calloc / the base component / Free / GetComponent / the nodearray slot / the feeler's GetCollision,
+    GetTestedOwner, HitObjectAlive (clearing the name), GetHitObject / RemoveSmartPointer / TriggerNode / the struct
+    getters / RegisterMemberFunctionTable / 0x00493040 / 0x004A2BA0 stood in for; the component, the allocation, the
+    feeler, the wheel and the bones compared. 38 deliberate bugs caught, 7 after strengthening (only-w moves, event
+    0, the wheel's whole record traced, a separate drive answer).
+- [x] Batch 281 (OC3-2; objects 3, merged 2026-10-22; run in the game: docs/pending/objects-3.md; NOT judged by a player yet; the shadow component, 15 functions): src/game/obj/shadow_component.*
+  (new). CShadowComponent (0x8A897DD2 "shadow", vtable 0x00646498, 0x48 bytes: +0x18 the renderer's shadow object,
+  +0x1C its position, +0x2C the ground normal, +0x3C ShadowType, +0x40 the model component, +0x44 follow the object):
+  Create 0x00431800, Construct 0x00431380, DestroyBody 0x00431300, Destroy 0x004313D0, Finalize 0x00431400 (the model
+  and its asset data to shadow slot 7), RefreshShadow 0x00431450 (visible = model flags 0x2 and not 0x4; detailed:
+  SetPosition(pos + up * 36) - after an unused call of the model's +0x2C object's slot 5 (its vector * -1 dropped);
+  simple: scale = model +0x1C then as Volume: Update(pos, matrix, normal); then Show - otherwise Hide), Hide
+  0x00431570, CreateShadow 0x004315A0 (1 detailed 0x004A19C0 (Calloc 0x24), 2 simple 0x004A1750 / 0x004A17E0(name)
+  (Calloc 0x14; written through without a check), 3 Volume 0x004A1F80 (Mem::New 0x68); 2 and 3 updated at once),
+  DestroyShadow 0x00431780 (the model's shadow flag 0x004949B0(false) first), SetPosition 0x004317C0, SetNormal
+  0x004317E0, SetLightDirection 0x00431360 (not a Ghidra function: shadow slot 3), InitFromStructure 0x00431860
+  (ShadowType simple by default, the flag 0x7E773A11 = don't follow; simple: ShadowModel "Ped_Shadow", ShadowScale
+  1), Update 0x004319D0 (following: the display matrix at the object's position, or the model hierarchy root's
+  matrix x the display matrix at pos + its translation, to shadow slot 4; then RefreshShadow), CallMemberFunction
+  0x00431B10 (Obj_ShadowOff / Obj_ShadowOn: ShadowType simple added when missing, InitFromStructure through the
+  vtable, a simple shadow's offset= 0.2 to its +0x10).
+  - Test (selftests_obj_shadow.cpp TestShadowComponent): 4000 random cases over the 15, the shadow object's 8 slots and
+    the fader's slot 5 recording vtables, the three constructors, the allocators (Calloc and the manager's Allocate),
+    the model's shadow flag / hierarchy, the struct getters stood in for; the component and both shadow objects
+    compared. 35 deliberate bugs caught (the two crashes: a shadow updated through null).
+- [x] Batch 282 (OC3-3; objects 3, merged 2026-10-22; run in the game: docs/pending/objects-3.md; NOT judged by a player yet; the skeleton component, 15 functions): src/game/obj/skeleton_component.*
+  (new). CSkeletonComponent (0x222756D5 "skeleton", vtable 0x006464DC, 0x1C bytes: +0x18 the renderer's skeleton):
+  Create 0x00431F60, RegisterMemberFunctions 0x00431BE0 (not a Ghidra function; table 0x00684DE0, filled by
+  0x00644760), DestroyBody 0x00431FE0 (0x004A2CB0 + Free), Destroy 0x00432790, InitSkeleton 0x00431C70 (asset data ->
+  0x004A3D30 on Mem::New(0x1C)), InitFromStructure 0x00431CF0 (CopySkeletonFrom=<id>: 0x004A3E80 copy of that
+  object's skeleton; else skeleton= / skeletonName= (asserted; neither: the params pointer's value), and
+  max_bone_skip_lod= to the skeleton's +0x10), GetLocalBonePosition 0x00431C60 (a jump to the skeleton's 0x004A3870),
+  GetBonePosition 0x00432050 (the bone's position - (0,0,0,1) if not found - through the object's matrix at its
+  position; ALWAYS returns false: the original clears AL), SpawnTextureSplat 0x004320F0 (RET 0x38: the start from
+  the bone or `start`; dropdown: the end straight down by dropdown_length feet; else `end`, or - when its length is 0
+  - that far down the object's up; the start then raised a foot up the up; the end scattered by two rand()s along
+  right / at; x87 detail kept: several products unrounded (x, and x / y of the raise), the second scatter offset
+  unrounded; 0x004928A0 with the bone when `trail`), SpawnCompositeObjectAtBone 0x00432490 (RET 0x1C: the bone's
+  matrix (0x004A36E0) with rows 1 / 2 swapped and the new row 2 negated, moved by the offset (whose w is cleared -
+  the caller's vector), times the object's matrix at its position (rows' w cleared) by D3DX; pos, Orientation (the
+  quaternion 0x0042E1F0, negated unless w > 0), vel (scale * object vel + vel turned) and rotvel (turned) added to
+  `params`; 0x0045F3A0 with finalize). Members (table): Obj_SetBoneActive 0x00431C00 (not a Ghidra function; bone
+  missing: the component's address - the slot PUSH ECX made; active missing: the params pointer), Obj_SetBoneScale
+  0x00431E30 (propagate -> 0x004A2D80's last argument = !propagate; propagate_reverse: every bone from 1 not under it
+  and not it, flag 0x8000000, force_update -> 0x004A4000), obj_GetBonePosition 0x004327C0 (x, y, z added to the
+  script's params; returns GetBonePosition's false), TextureSplat 0x00432860 (size, 0x3786B657 (height?, size by
+  default), radius (spread), lifetime 5, dropdown_length 3, 0x78AAF97F degrees 180 (turn), blendmode (blend), name= /
+  texture= as string (0x0049F560) or checksum (0x0049F540), bone (or forward= along the at), end_pos, spin =
+  rand()*2pi/32767 or - with 0x744E673F - acos(at.z) signed by at.x < 0, trail, dropdown_vertical),
+  Skeleton_SpawnCompositeObject 0x00432B90 (not a Ghidra function). Not original: TextureSplat's size starts at 0 and
+  its start at the object's position when there's neither bone nor forward= (the original's are uninitialised stack);
+  the asserted values of the member functions start at 0.
+  - Test (selftests_obj_skeleton.cpp TestSkeletonComponent): 4000 random cases over the 15 (and SpawnTextureSplat /
+    SpawnCompositeObjectAtBone called directly with every flag), the skeleton's functions, rand(), the splat, D3DX
+    (sometimes a half turn: the quaternion's w = 0), the struct getters / adders, the manager stood in for; values
+    with full mantissas so x87 roundings show. 44 deliberate bugs caught, 6 after strengthening (full-mantissa
+    values, the half turn, the offset checked); 1 equivalent (Create's explicit null skeleton: Calloc zeroes).
+- [x] Batch 283 (OC3-4; objects 3, merged 2026-10-22; run in the game: docs/pending/objects-3.md; NOT judged by a player yet; the sound component, 18 functions): src/game/obj/sound_component.* (new).
+  CSoundComponent (0x07713C7B "sound", vtable 0x00646514, 0xC0 bytes: +0x18 eight sound slots (Obj_SetSound - type
+  8 is accepted and lands on the next field), +0x38 two waiting looping sounds (PlaybackProps + the time to look
+  again), +0x98 position, +0xA8 a frame ago, +0xB8 emitter node, +0xBC proxim node; the sfx manager takes the
+  component as its "object" - sfx_voices.cpp's calls to 0x00432E50 / 0x00432EB0 / 0x00432F10 / 0x00432D40 /
+  0x00432F70 are these): Create 0x00433100, RegisterMemberFunctions 0x00432C80 (not a Ghidra function; table
+  0x00683118), Construct 0x00432D90, DestroyBody 0x00432DF0 (StopObjectSounds), Destroy 0x00433160,
+  InitFromStructure 0x00432CA0 (ProximNode=), Update 0x004335D0, CallMemberFunction 0x00433190 (Obj_AdjustSound,
+  Obj_StopSound - also drops a waiting one -, Obj_SetSound), KeepLoopingSound 0x00432D40 (2 s later),
+  GetSoundPosition 0x00432E50 / GetPreviousSoundPosition 0x00432EB0 (the emitter's nearest point to the camera),
+  GetSoundExtent 0x00432F10 (the proxim node's), UpdateProps 0x00432F70 (`this` unused: pitch / volume towards
+  +0x18 / +0x1C by the steps +0x20 / +0x24 times 60 x the frame's seconds, Mth::KeepWithin), UpdateWaitingSounds
+  0x00433480 (due ones: played - forced - when the nearest camera is within dropoff (0: 1020) + 240 (the sum in
+  double), then faded in from 0 at volume3 / 100 a frame; else looked at again at now - ftol((distance - dropoff) *
+  1000 * -1/600) + 333 ms), PlaySound 0x00433240 (Obj_PlaySound's body: vol / pitch or Percent between min / max,
+  dropoff feet, dropoff_function, NoPosUpdate (not positional), emitter; the slot `Type` when no checksum; vtable
+  slot 13 (empty 0x0048D090) told first; PlayObjectSound with {pitch, volume, dropoff, falloff}), AdjustSound
+  0x00432FF0 (volumePercent / pitchPercent of volume2 / pitch2, at once unless volumeStep / pitchStep), SetSound
+  0x00432CE0, Obj_PlaySound 0x00433630 (not a Ghidra function).
+  - Test (selftests_obj_sound.cpp TestSoundComponent): 5000 random cases over the 18, the sfx manager's four, the
+    cameras, emitter / proxim nodes, the clock (GetSlomoFrameSeconds' double through a naked stand-in), the struct
+    getters stood in for; edges: a sound due exactly now, the camera exactly at the edge of hearing (the float sum
+    rounding below the double one). 42 deliberate bugs caught, 3 after strengthening; 1 equivalent (Construct's
+    explicit null emitter: Calloc zeroes).
+- [x] Batch 284 (OC3-5; objects 3, merged 2026-10-22; run in the game: docs/pending/objects-3.md; NOT judged by a player yet; the stream component, 15 functions): src/game/obj/stream_component.*
+  (new). CStreamComponent (0x0F1641E3 "stream", vtable 0x00646594, 0x2C bytes: +0x18 three stream ids, +0x24
+  emitter node, +0x28 proxim node; Pcm's stream_commands.cpp calls 0x00433CD0 / 0x00433D30): Create 0x00433D90,
+  RegisterMemberFunctions 0x00433870 (not a Ghidra function; table 0x00684E70), Construct 0x00433C10, DestroyBody
+  0x00433890 (Pcm::StopStream of each), Destroy 0x00433C40, InitFromStructure 0x00433900 (ProximNode=),
+  GetStreamPosition 0x00433CD0 (the emitter's nearest point with a camera, else the object's position),
+  GetStreamExtent 0x00433D30, PlayStream 0x00433970 (only with a free place: vol / pitch 100, priority 50,
+  num_loops, id, dropoff feet, dropoff_function, emitter, the unnamed stream, use_pos_info 1 ->
+  Pcm::PlayStreamFromObject; whether it played), AddStream 0x00433B30 (Add=), RemoveStream 0x00433BA0 (remove=), and
+  the members (not Ghidra functions; all true): Obj_PlayStream 0x00433C70, Obj_AddStream 0x00433C90,
+  Obj_RemoveStream 0x00433CB0, Obj_StopStream 0x00433930.
+  - Test (selftests_obj_stream.cpp TestStreamComponent): 4000 random cases over the 15, Pcm's four, the nodes, the
+    camera, the getters stood in for. 21 deliberate bugs caught, 1 after strengthening (Create's record traced before
+    Construct overwrote it).
+- [x] Batch 285 (OC3-6; objects 3, merged 2026-10-22; run in the game: docs/pending/objects-3.md; NOT judged by a player yet; the suspend component and its task, the texture projection component,
+  Mth::Vector::MultiplyBy, 26 functions): src/game/obj/suspend_component.*, texture_projection_component.*,
+  src/game/mth/vector_transform.cpp (new); vector.h: MultiplyBy declared (additive) with a forward declaration of
+  Matrix.
+  - CSuspendComponent (0xCE0CA665 "suspend", vtable 0x006465C8, 0x4C bytes: +0x18 NeverSuspend, +0x1C / +0x20 the
+    suspend distance (inches) and its square, +0x24 the distance squared at the last check, +0x28 frames before the
+    first check, +0x2C the model component, +0x30 far (suspended), +0x34 lod_dist1-4 (inches; 1000000-1000003 = no
+    LOD), +0x44 frames before the LOD checks): Create 0x00434290, RegisterMemberFunctions 0x00434610 (not a Ghidra
+    function; table 0x00684C48, then a tail jump to CreateSuspendTask), Construct 0x00433F50 (NeverSuspend by default,
+    DefaultMovingObjectSuspendDistance), DestroyBody 0x00433E10, Destroy 0x00433FD0, Update 0x00433E50 (suspends
+    itself: the base's Suspend(true)), InitFromStructure 0x00434000 (SuspendDistance - 0: lod_dist1, else the default -
+    clears NeverSuspend; NoLOD script integer; lod_dist1 50, lod_dist2 = lod_dist1 + 75, 3 / 4 1000001 / 1000002, x12,
+    the first two times LOD0 / LOD1DistanceMultiplier; the order checks call 0x005480A0(params, 0): kept as
+    Script::PrintContents), Finalize 0x004341C0, ResetCounts 0x00433E60, DisableLod 0x00433E70, IsFar 0x00433E90
+    (REPLACE_SOURCE_ONLY: 4 bytes), ShouldAnimate 0x00433EA0 (beyond lod_dist1 never - NaN counts as within -;
+    AnimLODInterleave4 (unrounded square) every 4th by 0x006951B8, AnimLODInterleave2 (square rounded to float) every
+    2nd by 0x006951B4; always during the LOD frames), UpdateVisibility 0x004342F0 (the MODEL COMPONENT's +0x234 forces
+    it; within lod_dist2 strictly: the model's bounding sphere 0x00492F30 through MultiplyBy + the position to
+    0x0048C490 (nonzero: out of view); 0x00493C60(visible); newly visible: the model component's Update),
+    Obj_ResetNoSuspendCount 0x004341E0 (not a Ghidra function). NextSuspendFrame 0x00433E20 (the counters
+    0x006951B0-B8), CreateSuspendTask 0x004345B0 (holder at 0x006951BC), SuspendTaskHolder::Construct 0x00434520
+    (Tsk::Task 0x20 bytes, vtable 0x006476F0, priority -1100, added to the main loop's logic tasks - null too),
+    SuspendTask 0x00434420 (not a Ghidra function; quirk kept: a component's check frames are counted down all at
+    once - the original goes round with the same component; camera = the skate module's +0x3DC (flag, position);
+    distance squared in double against the square; Suspend / wake; the model shown during the LOD frames, else
+    UpdateVisibility).
+  - CTextureProjectionComponent (0x7505D7CC - a name for "texture_projections="; vtable 0x00646604, 0x38 bytes: +0x18
+    the list head (vtable 0x00646638 made, 0x00646600 in its destructor), +0x2C / +0x30 / +0x34 the suspend, skeleton
+    and model components): Create 0x00434870, ProjectionList::Destroy 0x00434670, DestroyBody 0x004346B0 (0x0057A2F0
+    then the head unlinked), Destroy 0x00434840, InitFromStructure 0x00434730 (each texture_projections= structure: a
+    0xC8-byte projection (0x004C7E80) with its 0x1EE8B7B9 checksum at +0x14, 0x004A04C0(structure), at the front),
+    Finalize 0x00434630, Update 0x00434810 (each projection's 0x0049FFE0(object); the head test before the null test).
+  - Mth::Vector::MultiplyBy 0x00434200 (14 callers: v = v * M over all four, the sums in the original's order in
+    double).
+  - Test (selftests_obj_suspend.cpp TestSuspendComponent): 5000 random cases over the 26 on chains of four components;
+    Script::GetFloat through a naked stand-in (the float in ST0); edges: distances exactly on the LOD / suspend limits,
+    at AnimLODInterleave2's float square, and a crafted vector / matrix that puts MultiplyBy's sum on a float tie (the
+    order of its two last additions shows). 44 deliberate bugs caught, 6 after strengthening (a hash collision
+    between two answers, the edges, the tie).
+- [x] Batch 286 (OC3-7; objects 3, merged 2026-10-22; run in the game: docs/pending/objects-3.md; NOT judged by a player yet; the rigid body component's life, shapes, set-up and member functions,
+  Mth::Quat, 25 functions): src/game/obj/rigidbody_component.*, src/game/mth/quat.* (new); src/game/mth/random.*:
+  PlusOrMinusExact added (0x00403E80's result unrounded, as the x87 callers use it) and PlusOrMinus now its rounding
+  (it rounded each step before).
+  - CRigidBodyComponent (0xFFB39248 "rigidbody", vtable 0x006463F8, 0x1A0 bytes; the layout in the header: constants
+    +0x18..+0x5C, the contacts +0x60 / capsule +0x64 / directed friction +0x88 / count +0x8C, spheres +0x90 / +0x94,
+    springs +0x98 / +0x9C, centre of mass, model offset, scripts, sound structures, flags +0xF4, state +0x10C, pos /
+    vel / quaternion / rotvel / matrix +0x110..+0x18F, +0x190 contacts hit, +0x198 radius): Create 0x0042EF00,
+    Construct 0x0042E3F0 (the assent's cos / sin of the double 0.43633 by the x87's FCOS / FSIN - inline asm), DestroyBody
+    0x0042EF60, Destroy 0x00430DF0, InitFromStructure 0x0042F050 (its jump table at 0x00430124: Box / Pyramid /
+    Cylinder / Triangle; contacts= or the spheres skip it; the rest as the header says; x87 detail kept throughout:
+    sums in double, the Angles turn's terms in the original's two orders (contacts / spheres), lengths compared
+    unrounded for the radius and rounded for the extent, the offset's x / y unrounded), SetContacts 0x0042D4B0, SetBox
+    0x0042D560, SetPyramid 0x0042D690, SetCylinder 0x0042D790 (cosine of the unrounded angle, sine of the angle rounded
+    to a float - FCOS / FSIN), SetTriangle 0x0042D8A0, SetSpheres 0x0042ED60, SetSounds 0x0042EB10 (RigidBodySounds),
+    members (table 0x00683F28; 0x0042BB60 / 0x0042BBB0 / 0x0042BBD0 are the neighbouring range's): RigidBody_Wake
+    0x0042DCA0, RigidBody_Sleep 0x0042DCF0 (0x0042BE90), Rigidbody_Kick 0x0042DD00, RigidBody_SetVelocities
+    0x0042DEB0, RigidBody_Enable 0x0042EE30, RigidBody_Disable / EnablePlayerCollision 0x0042DFB0 / 0x0042DFC0,
+    [0xD4A0946B] CenterOfMassPos 0x0042DFD0, Rigidbody_MatchVelocityTo 0x0042E020 (the first five are not Ghidra
+    functions), AddRigidBodyPusher 0x0042E380 (the 8 smart pointers at 0x00695150 - skater.cpp's caller).
+  - Mth::Quat::FromMatrix 0x0042E1F0 (the trace branch's 0.5/s rounded to a float, the other branch's not) and
+    Normalize 0x0042E310.
+  - Not original: none. Quirks kept: CallbackParams' old copy leaked, a missing sound type / failed allocation
+    written through null.
+  - Test (selftests_obj_rigidbody.cpp TestRigidBodySetup): 4000 random cases over the 25 (allocations from a stand-in
+    heap - traced -, the struct copies and deletes, the script getters, 0x0041A730, GetAngles, smart pointers stood
+    in for; PlusOrMinus's stream reset per case); edges: crafted points and a crafted turn on a float tie (the order of
+    the Angles sums shows), +-30 points (the size limit), a not-a-number point looked at last, a tie for the largest
+    diagonal, slow objects for MatchVelocityTo. 50 deliberate bugs caught, 11 after strengthening; 1 equivalent (the
+    radius compared rounded: an equal float is stored either way). Builds: this worktree's verify build switched to
+    embedded debug info (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded, out\scripts\reconfig.cmd): the shared vc140.pdb
+    kept breaking during mutation runs (C1033 / C2471).
+- [x] Batch 287 (OC3-8; objects 3, merged 2026-10-22; run in the game: docs/pending/objects-3.md; NOT judged by a player yet; the rigid body component's physics, 8 functions):
+  src/game/obj/rigidbody_physics.cpp (new); rigidbody_component.h (the physics' declarations, the world contact
+  record, names for +0x38 / +0x3C (damping), +0xC0 / +0x194 (the push cooldown), +0xD0 (the stuck script), +0x19C
+  (the sound component)); gfx/debug_lines.h: AddDebugStar / AddDebugSphere (compiled out, as AddDebugLine).
+  - CRigidBodyComponent::Update 0x00430E20 (vtable slot 1: the push cooldown or the pushers 0x0042C140, the die
+    timer (slot 6 MarkAsDead when it runs out), asleep: only the display matrix; awake: up to 5 steps, each a feeler
+    line along the step's path - a hit cuts the step to 6 units before it (not below 0) and collides; the fifth step
+    puts it to sleep (0x0042BE90); the contacts (0x0042C950), springs, damping 0x0042C6D0, sleep check 0x0042C890; the
+    object's position by the turned model offset, matrices, velocity), Integrate 0x0042E540 (gravity's half step left
+    out when +0x191 >= 3; the orientation turned by q * (-rotvel / 2) dt through 0x00420140 and normalised, its matrix
+    0x0042BC40, the world contact / sphere / spring points - each set's sums in its own order), Collide 0x00430BE0
+    (the bounce by 1 + restitution, friction across the normal capped by the bounce's length times the friction),
+    ResolveContacts 0x00430140 (impulses up to 20 rounds - one contact: one round; stuck: the +0xD0 script, else the
+    velocities zeroed with w = 1; friction from the velocities before the impulses, along the turned directed
+    friction where active; the depth springs; OnBounce at the last active contact with the fastest approach),
+    ApplySprings 0x0042CF90 (the spring points' velocities taken out, up to 20 rounds, one spring: one round; then each
+    pulled to its anchor by spring_const), ImpulseScale 0x0042CEE0 (thiscall, the result unrounded in ST0), OnBounce
+    0x0042E980 (BounceScript with CallbackParams and the point 0x43F454D0; the bounce sound at Percent (clamped 0-100)
+    while more than 12 of 48 voices are free), DebugDraw 0x0042D9D0 (the drawing calls compiled out of this build; the
+    switches 0x006939D4 / 0x006939D5 kept).
+  - x87 detail kept throughout: what stays on the FPU stack a double, each store a float rounding, the original's
+    sum orders (the turned points' three orders, ImpulseScale's x rounded / y, z not, its inlined copy in
+    ApplySprings with the normal's x unrounded). Quirks kept: CallbackParams appended through a null structure when
+    the allocation fails.
+  - Test (selftests_obj_rigidbody_physics.cpp TestRigidBodyPhysics): 6000 random cases over the 8 (the feeler,
+    pushers, contacts finder, sleep / damping, scripts, structures, voices and sound stood in for; the quaternion
+    helpers run for real; the world arrays 0x006949B0-0x0069514F traced); edges: crafted points on a float tie (the
+    turned sums' order), speeds exactly at the spring / friction limits, a die timer running out exactly, a point
+    exactly at its anchor, directed friction along the normal, one contact / spring. 66 deliberate bugs caught (5
+    after fixing mutations that didn't build).
+- Range complete: inspect survey 0x42CECD-0x4351B2 shows all 120 Ghidra functions REPLACED; find_gaps.py: no gap
+  in the range.
+- [x] OC3 game run (2026-10-22, workspace C:\Games\THUG2-3, this branch merged with main 6e21460, OC3-1..8): `-Level BO`,
+  teleported next to BO_Bouncy_Ball01 (a rigid body; its Update runs every frame), walked past it twice (posted `up`
+  presses), ~60 s: the level loads, the skater spawns and walks, the range's replacements installed, no exception /
+  run-time check / CRT report in the log. Not driven: a bail (the bail board is a rigid body - bails.qb
+  BailBoardComponents), thrown projectiles (projectiles.qb), make_skater_explode's body chunks (skater_fx.qb), kicking
+  a bouncy object hard. thug2_check after the merge: 0 MISMATCHED, 635 early self-tests pass on THUG2PM.exe and the
+  stock THUG2.exe; check_code_writes: no overlaps.
+- For the user to try: in Boston kick the bouncy balls / trash cans (BO_Bouncy_*) and watch them roll, bounce and
+  settle; bail (the board flies off, tumbles and settles); throw projectiles where the game allows. Off switches
+  (`[replacements] disable=`): rigidbody_physics.cpp (the physics only), rigidbody_component.cpp, and the other files
+  of the range: trigger_component.cpp, display_matrix_component.cpp, static_vehicle.cpp, vehicle_wheel.cpp,
+  vector_transform.cpp, shadow_component.cpp, skeleton_component.cpp, sound_component.cpp,
+  stream_component.cpp, suspend_component.cpp, texture_projection_component.cpp, quat.cpp.
+- [x] Batch 288 (OC4-1; objects 4, merged 2026-10-22; run in the game: docs/pending/objects-4.md; NOT judged by a player yet; the Velocity, Vibration and WaitAndDie components and the feeler's
+  assignment, 21 functions): src/game/obj/velocity_component.cpp, vibration_component.cpp, wait_and_die.cpp (new);
+  src/game/nx/feeler.cpp.
+  - Velocity (type 0x41272956, vtable 0x00646830, 0x1C bytes): 0x0043D430 Create, 0x0043D2B0 / 0x0043D2C0 the
+    destructors, 0x0043D2F0 InitFromStructure (the object's velocity from `vel`), 0x0043D340 Update: the object's
+    position plus HALF its velocity times the frame (each step rounded, w's not) - unless, outside a network game
+    (the manager copy at 0x006FA7D0), the Suspend component's +0x30 flag (0x00433E90) is set. Its Finalize is the
+    shared 0x0041C330 (the Suspend component into +0x18; another range).
+  - Vibration (type 0x404EB936 "vibration", vtable 0x00646864, 0x38 bytes): 0x0043D670 Create, 0x0043D490
+    RegisterMemberFunctions (not a Ghidra function; the table at 0x00684EE8, whose member function pointer the static
+    initialiser 0x006448C0 writes), 0x0043D4B0 / 0x0043D5E0 the destructors (both motors stopped first), 0x0043D610
+    Update (off: suspended through the vtable) and its second half 0x0043D61F (Ghidra split it off; source only: the
+    timed runs - a motor whose duration has passed on the game clock is stopped, `>=` unsigned), 0x0043D520 StopAll,
+    0x0043D550 ResetDevice, 0x0043D560 SetActive (off: StopActuators + DisableActuators, suspended; on: unsuspended,
+    EnableActuators), 0x0043D5C0 SetDevice, and the member function vibrate 0x0043D6F0 (actuator, percent truncated,
+    duration in ms; "off" stops every motor; nothing while the game or the object is paused unless "off"). Quirk
+    kept: an actuator above 1 writes past the two runs (as the original).
+  - WaitAndDie (type 0x03AC8065, vtable 0x00646898, 0x28 bytes; its Create 0x0043D930 is the next range's):
+    0x0043D840 / 0x0043D850 the destructors, 0x0043D880 InitFromStructure (an object id to wait for, 0x1869F559 - or
+    the LifeTime in seconds; with an object the lifetime is 0), 0x0043D8E0 Update (dies - vtable slot 6 - when the
+    object is gone, or past the lifetime, `>` unsigned).
+  - 0x0043A930 CFeeler::Assign (operator=, 10 callers: the skater's core physics, the vehicle): every field, the hit
+    by CollisionHit::CopyFrom, the smart pointer released before it's re-pointed (a feeler assigned to itself loses
+    its object - kept).
+  - Test (src/hook/selftests_obj_small_components.cpp; every call recorded by stand-ins): 4000 random cases over the
+    three components (Create over dirty memory and out of memory, every destructor and flag, the updates with and
+    without a network game / suspension / device / timers exactly over, every vibrate branch, the lifetime exactly
+    reached), and 500 random feeler assignments (null / shared / self). 39 deliberate bugs caught, 2 of them after
+    strengthening the tests (timers and lifetimes exactly reached).
+- [x] Batch 289 (OC4-2; objects 4, merged 2026-10-22; run in the game: docs/pending/objects-4.md; NOT judged by a player yet; the VehicleSound component, 12 functions): src/game/obj/vehicle_sound.cpp
+  (new); src/game/obj/vehicle_component.h (new: the Vehicle component's layout, used from here on).
+  - VehicleSound (type 0x28C97F3C, vtable 0x006467F4, 0xBC bytes): 0x0043CFC0 Create, 0x0043C590 Construct,
+    0x0043C5F0 / 0x0043D020 the destructors (both sounds stopped), 0x0043C670 InitFromStructure (the park editor's
+    level), 0x0043D050 Finalize (the Vehicle and Sound components, then the settings), 0x0043D290 Update, 0x0043C540
+    GetDebugInfo (vtable slot 10), 0x0043CE70 ReadSettings (PlayerVehicleSounds' structure named by the vehicle's
+    `sounds`; EngineSound, TireSound, Gears, CollideSound; the park editor's CAG ones), 0x0043C690 UpdateEngine (the
+    skater's vehicle sound's engine model - game/skater/vehicle_sound.cpp - driven by the slowest driven wheel's
+    |spin| * radius; the gear shifts while a wheel touches and drops to first after 0xC0F451D4 s in the air),
+    0x0043CBC0 UpdateSkid (the fastest slip of a sliding wheel while braking or handbraking), 0x0043D090
+    UpdateCollideSound (after collision_mute_delay, the vehicle's strongest contact impulse / FullCollision over
+    collision_cutoff_factor: CollideSound at that percent through the Sound component's 0x00433240, and event
+    0xC4A60423 to the skater with its Strength clamped to 0-1).
+  - Quirks kept: the wheel loops always look at four wheels; out of memory the event structure's AddFloat is called
+    on null (as the original).
+  - Test (src/hook/selftests_obj_vehicle_sound.cpp): 6000 random components / vehicles (every function, the edge
+    cases at the comparisons: shift points, the air delay, the recovery, the mute delay and the cutoff exactly met;
+    ~2800 sounds played or updated, ~1000 crash sounds). 40 deliberate bugs: 36 caught (2 after strengthening: a
+    shift down at exactly the speed, the air delay exactly met); 4 equivalent (min / max kept on equal values - the
+    same value either way; a float product already float; loudness clamped at exactly 1).
+- [x] Batch 290 (OC4-3; objects 4, merged 2026-10-22; run in the game: docs/pending/objects-4.md; NOT judged by a player yet; the Vehicle component's body and member functions, 20 functions):
+  src/game/obj/vehicle_component.cpp (new).
+  - The wheel: 0x00435870 Construct (its feeler), 0x00437CF0 the destructor (not a Ghidra function). The body:
+    0x00435520 UpdateVelocities, 0x004355B0 GetPointVelocity, 0x00435640 AddForceAtPoint (a debug line's colour,
+    compiled out), 0x00435710 AddForceAtOffset, 0x004357C0 ApplyImpulseAtOffset, 0x00435850 IsKicked, 0x00435890
+    KickRandomlyAlong, 0x004354C0 QuatProduct (cdecl). The wheels: 0x004351C0 UpdateWheelRotations (wrapped by 100 pi
+    above 200 pi and below 0), 0x00435250 GetTyreFriction (returned unrounded in ST0), 0x00435380 GetGear.
+  - Member functions (the table at 0x00684060): 0x00437A60 Vehicle_Kick, 0x004353F0 Vehicle_Wake, 0x00435410
+    Vehicle_AdjustGravity, 0x00435480 Vehicle_HandbrakeActive, 0x00435490 Vehicle_AllWheelsAreInContact, 0x00437BC0
+    (0x4C73526B) KickRandomly, 0x004354B0 Vehicle_IsSkaterVisible (the last four and Wake never made functions by
+    Ghidra).
+  - 0x004351C0 has a naked adapter keeping ECX: the original update 0x0043C1D0 calls UpdateSkeleton right after it
+    without loading ECX again (found by a scan of the range's call sites; the register scanner doesn't see it).
+  - Quirk kept: KickRandomlyAlong spins every axis through the first moment of inertia.
+  - Test (TestVehicleMethods in src/hook/selftests_obj_vehicle.cpp): 6000 random vehicles over every function (the
+    roll exactly at 0 and 200 pi, the grip speeds tied, gears at the upshift speed). 45 deliberate bugs, all caught
+    (one after adding the roll exactly at 200 pi).
+- [x] Batch 291 (OC4-4; objects 4, merged 2026-10-22; run in the game: docs/pending/objects-4.md; NOT judged by a player yet; the Vehicle component's physics step, 19 functions):
+  src/game/obj/vehicle_physics.cpp (new).
+  - 0x0043AE10 UpdateDependents, 0x00438A20 UpdateInertia (R * diag * R^T through D3DXMatrixMultiply), 0x00435DA0
+    UpdateCollisionCache, 0x0043B240 UpdateWheelContacts (the suspension lines; the trigger component told of
+    landings, take-offs, moves to another object and, outside the park editor, trigger faces; stops when a trigger's
+    script takes over or the object dies), 0x00435F00 UpdateSteering (Ackermann), 0x00438AE0 ApplyWheelForces,
+    0x00436280 ApplyGravity, 0x00436340 ApplySuspension (the load averaged over ten steps), 0x00435B60
+    UpdateWheelFriction, 0x004364B0 ApplyTyreForces, 0x00436900 ApplyDriveTorque, 0x004367E0 ApplyEngineBraking,
+    0x00436A90 ApplyBrakes, 0x00436B60 ApplyHandbrake, 0x00436C20 ApplyBrakeExcess, 0x004360C0 ApplyDamping,
+    0x00437550 CheckSleep, 0x004376B0 ReadControls, 0x004378B0 UpdateSkater (the steering animation, sent on every
+    fifteenth time in a network game).
+  - 0x00435F00 has a naked adapter keeping ECX (the original update calls ApplyDamping right after it without loading
+    ECX again).
+  - Test (TestVehiclePhysics): 5000 random vehicles (unit orientations, scripted suspension hits and trigger
+    take-overs, the park editor on and off, network games), every call recorded.
+- [x] Batch 292 (OC4-5; objects 4, merged 2026-10-22; run in the game: docs/pending/objects-4.md; NOT judged by a player yet; the Vehicle component's collision and integration, 9 functions):
+  src/game/obj/vehicle_collision.cpp (new), src/game/obj/vehicle_internal.h (new: what the vehicle's files share -
+  the debug strings, the quaternion and trigger calls not rewritten yet, D3DXMatrixMultiply).
+  - 0x0043BEE0 Integrate (a sub-step: momenta, the move through MoveBy, the turn, the wheels' roll, turning in the air,
+    righting, the dependents), 0x00437120 MoveBy (no tunnelling: a hit puts it at the surface with the rest of the move
+    reflected and the momentum bounced 1.5; nothing within 4800 below puts it back - "uber frig"; else the model lit
+    from the ground through 0x00420670), 0x00438770 UpdateRighting, 0x00439D90 AlignInAir, 0x00438BB0 Collide (rect
+    queries of the two colliders and lines to their corners; contacts in the array at 0x006951C8; impulses with
+    restitution in up to six passes, depth pushes at most 2, friction, the strongest impulse, steering against walls),
+    0x00436CF0 GetPenetration (stdcall), 0x00436E50 FindEdgeContact, 0x00437060 NormalFacesAway, 0x00437450
+    GetImpulseDenominator.
+  - Quirks kept: Collide marks the contact after a feeler's as from a feeler, not the feeler's own; UpdateRighting's
+    target matrix's fourth row is the original's stack (ours the identity's; nothing reads it).
+  - Test (TestVehicleCollision): 4000 random vehicles (rect hits on a grid so that edges meet, opposite and nearly
+    opposite normals, ties at an edge's middle, righting exactly at 300 / 5300 ms, NaNs in the state and the contacts),
+    the slerps stood in (ours and the original's x87 code differ in the last bit - mth/slerp.cpp, not this range).
+- [x] Batch 293 (OC4-6; objects 4, merged 2026-10-22; run in the game: docs/pending/objects-4.md; NOT judged by a player yet; the Vehicle component's life, 13 functions): src/game/obj/vehicle_component.cpp.
+  - 0x0043AA30 Create, 0x00437C00 Construct, 0x0043B990 DestroyBody (the wheels as `delete[]`), 0x0043C1A0 Destroy,
+    0x00437D10 InitFromStructure (debug modes, centre of mass, mass and moments of inertia, the body's settings,
+    colliders - their points' average distance less 48 to the skater's 0x005802C0 -, engine and gear ratios, Wheels made
+    the first time and read through 0x00434F20, all_wheels, drive count, Save's Orientation / Pos, the skater's place
+    and animation, sounds, everything at rest), 0x0043BA20 Finalize (the wheels' places and the skater's bone from the
+    model, wheelbase and track, the suspension's rest extension, the colliders' lowest point, the skater's components -
+    hidden unless shown driving -, everything made relative to the wheels' centre), 0x0043C1D0 Update (the controls;
+    asleep: steering, roll, bones, skater; else up to six sub-steps of at most 1/30 s; the gravity override's end), 0x0043A070
+    UpdateSkeleton, 0x0043A2C0 GetWheelRimPoint, 0x0043A400 DebugDraw (compiled out of this build: nothing touched),
+    0x0043AA90 MoveToNode (not a Ghidra function: on the ground under the node, sixty passive updates through the
+    vtable, asleep, teleported), 0x0043B670 Vehicle_MoveToRestart, 0x0043B720 Vehicle_PlaceBeforeCamera.
+  - Found while testing the whole update: the original's x87 compares keep a NaN on the "not greater" side; twelve
+    compares in batches 4 and 5 written as `!(a <= b)` took the other side with one - now `a > b` (the brakes' caps, the
+    spin damping, CheckSleep's limits, NormalFacesAway, AlignInAir's slow / fast, Collide's depth clamp and friction
+    cap). The tests now put NaNs (and a step of no time) into the state.
+  - Quirks kept: Finalize always reads four wheels from the model, and the wheelbase / track from wheel -1 when there's
+    no wheel of a kind; MoveToNode always averages four wheels and uses wheel -1 with no fixed wheel.
+  - Test (TestVehicleLife, TestVehicleRestart): 3000 random components over the thirteen functions (Create out of
+    memory, wheel arrays made or kept, every structure name there or not, every frame length up to more than six steps
+    and exactly 1/30 s, asleep and passive, bones in debug mode 2, no camera...), whole updates with every call stood in
+    or real; Vehicle_MoveToRestart's three ways over 500 cases. The rotations about an axis / x / z are stood in in these
+    tests: ours (mth/matrix.cpp, float code with the C runtime's cos / sin) and the original's differ in the last bits,
+    and wholly for very large angles - worth a look in that file.
+- [x] Range check (after merging main at 1af6002): find_gaps.py shows no gaps in 0x004351B2-0x0043D929; all 85
+  functions Ghidra knows there are REPLACEd, plus the 9 it doesn't (94 REPLACEs). thug2_check on THUG2PM.exe and the
+  stock THUG2.exe: 0 MISMATCHED, all 635 early self-tests pass; check_code_writes: no overlaps; the register scan and
+  the GameFunction audit flag nothing new in the range.
+- [x] Game runs (workspace C:\Games\THUG2-4 under the lock; all 4408 replacements installed). The Vehicle component
+  only runs with the Anteara mod (the stock player_controlled_vehicle.qb is empty; the mod restores it): with
+  `anteara_mod=1`, BO in free skate, `run goal_initialize_skater control_type=PoliceCar edited_goal` (then JunkerCar
+  in a second run) - the car made under the skater, its camera and sounds, woken; driven with X held ~5 s, steered
+  left and right: it drove about a block, across the street, up the kerb with two wheels on the State House steps,
+  into a traffic car; square / triangle pressed. No exception, run-time check, CRT report or crash in the log.
+  For the user: Anteara mod on, its vehicle menu in the pause menu - drive the cars (gas, brake, handbrake, jumps,
+  crashes into walls, flipping over and righting, restarts). Disable with `[replacements] disable=vehicle_component.cpp,
+  vehicle_physics.cpp,vehicle_collision.cpp,vehicle_sound.cpp,velocity_component.cpp,vibration_component.cpp,wait_and_die.cpp`.
+- [x] Mutations, batches 4-6 (out/scripts/mut4.ts / mut5.ts / mut6.ts): 95 + 75 + 99 deliberate bugs. All caught except 5,
+  each looked at: ApplyDamping's yaw stop `<` -> `<=` (at a tie both give +0), ApplyTyreForces' `>` -> `>=` (a tie
+  random floats don't reach; half of it gives the same result), Collide's depth `<= 0` -> `< 0` (a zero depth pushes
+  by zero), the depth push's w rounded first (the force's w isn't used), the depth clamp's NaN side (a NaN contact has
+  already made the impulse pass's results NaN, which the traces compare as one value). Construct's type store was
+  missed once (TraceLife didn't record the component's type): the life test now records it and sometimes leaves
+  another type there first - caught.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
 - [ ] Next: the range is done (find_gaps.py: nothing left in 0x45EFD0-0x47DC40); a final game run.
 - [ ] Next: nothing left in the range; hand back.
