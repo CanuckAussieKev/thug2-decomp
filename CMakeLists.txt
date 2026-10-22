@@ -341,6 +341,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_netF.cpp
     src/hook/selftests_net_buddies.cpp
     src/hook/selftests_net_vault.cpp
+    src/hook/selftests_net_stats.cpp
     src/hook/selftests_netA.cpp
     src/hook/selftests_netE.cpp
     src/hook/selftests_menulvl.cpp
@@ -643,6 +644,7 @@ add_library(thug2_code OBJECT
     src/game/net/stats.cpp
     src/game/net/buddy_man.cpp
     src/game/net/vault_man.cpp
+    src/game/net/stats_man.cpp
     src/game/net/gamenet_join.cpp
     src/game/net/gamenet_manager.cpp
     src/game/net/gamenet_state.cpp

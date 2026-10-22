@@ -203,6 +203,12 @@ inline void InstallScriptStandIns(StandIns& s)
         Rec(0xC510, {r.ecx, r.args[0], r.args[1]});
         return reinterpret_cast<uint32_t>(text);
     });
+    s.At({0x0046C550, AddressOf(&Preferences::GetPreferenceValue)}, 8, [](Regs& r) {
+        auto it = g_prefChecksums.find({r.args[0], r.args[1]});
+        uint32_t value = it == g_prefChecksums.end() ? 0u : it->second;
+        Rec(0xC550, {r.ecx, r.args[0], r.args[1]});
+        return value;
+    });
     s.At({0x0046C590, AddressOf(&Preferences::GetPreferenceChecksum)}, 8, [](Regs& r) {
         auto it = g_prefChecksums.find({r.args[0], r.args[1]});
         uint32_t value = it == g_prefChecksums.end() ? 0u : it->second;
@@ -235,6 +241,9 @@ inline void InstallCrtStandIns(StandIns& s)
     });
     s.At({0x00623B10}, 0, [](Regs& r) {
         return reinterpret_cast<uint32_t>(std::strstr(reinterpret_cast<char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1])));
+    });
+    s.At({0x00626EFB}, 0, [](Regs& r) {
+        return static_cast<uint32_t>(_stricmp(reinterpret_cast<const char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1])));
     });
     s.At({0x00624E52}, 0, [](Regs& r) {
         return static_cast<uint32_t>(std::atol(reinterpret_cast<const char*>(r.args[0])));

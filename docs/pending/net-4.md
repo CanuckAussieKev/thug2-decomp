@@ -90,3 +90,50 @@ Shared files touched: CMakeLists.txt (new files listed).
     connection: thugonline.com is gone - what its lists looked like is inferred from the parser.
     Mutations (out/net4/mut_vault.ts): 52, 50 caught at first, 52 after strengthening (x87 rounding case, a
     negative ghttp result).
+- [x] Batch NET4-3 (NOT run in the game yet; the online stats - GameNet::StatsMan, 52 functions): src/game/net/
+  stats_man.h / .cpp (new); src/game/net/online_identity.h / .cpp and src/hook/selftests_pc.cpp: the stats SDK's
+  game-name site (0x0054CAD9) dropped from the online identity's writes - kGameNameSites 6 -> 5 (shared file: NET2 /
+  NET3 may drop their own sites from the same list - a small conflict to resolve by hand when merging).
+  - The class (manager +0x1C, 0x200 bytes): 0x0054DBD0 constructor (five top lists, the task on the network heap;
+    the top stats needed), 0x0054D610 destructor body, 0x0054CBE0 LogIn (state 1, script 0x23343580, the thread),
+    0x0054C9D0 LogOff, 0x0054C9B0 UpdateLoggedIn, 0x0054CBA0 OnLoggedIn, 0x0054CE80 StartGame (the SDK's game:
+    hostname, mapname, gametype, mapcrc, gametypecrc, maxplayers, timelimit, fraglimit; each player's name and
+    "pid", the challenge sent to players with a profile as message 0x7C), 0x0054D170 ReportStats (score, combo, the
+    cheat flag as "highscore", the snapshot; final: the game freed), 0x0054C9F0 RemovePlayer (state 6 only),
+    0x0054CA30 SetPlayerAuth, 0x0054CA80 GetPersonalStats (4 bytes: REPLACE_SOURCE_ONLY), 0x0054D2D0 GetRank (rating x
+    0.000286 x 10 truncated, at most 10; x87 order kept), 0x0054D7B0 ParseRatings, 0x0054D910 ParseTopList
+    ("Level" compared caselessly - the game runtime's _stricmp), 0x0054D4A0 StatsTask, 0x0054CAC0 LogInThread,
+    0x0054CCF0 OnPersonalStats, 0x0054DB20 OnTopStats (the top stats' ghttp callback: its param is the VaultMan,
+    whose progress / result / error it sets through the setters folded at 0x0048DF10 / 0x00428270 / 0x004076E0),
+    0x0054D2F0 LevelName (stdcall), 0x0054CA10 GenerateAuth (stdcall wrapper).
+  - The lists: TopList (0x48: levels, entries, title) 0x0054D8B0 / 0x0054D5C0 / 0x0054E920 Free / 0x0054E0D0
+    FillLevelScores (the rating read unsigned there, signed everywhere else) / 0x0054E4A0 FillSortedScores;
+    PersonalStats 0x0054DDB0 Fill; LevelScores 0x0054DFE0 / 0x0054EBB0; TopEntry 0x0054D6E0; SortEntry 0x0054D780;
+    the node destructors 0x0054D8F0 / 0x0054D400 / 0x0054EA20 and scalar deleting ones 0x0054D420 / 0x0054D460 /
+    0x0054D740 / 0x0054D710; the searches' 0x0054CA90 / 0x0054CAA0 / 0x0054CAB0 / 0x0054D370 / 0x0054D3A0 /
+    0x0054D3D0.
+  - CFunctions: 0x0054CC90 StatsLoggedIn, 0x0054CCB0 StatsLogIn, 0x0054CCC0 StatsLogOff, 0x0054CE00
+    RetrievePersonalStats, 0x0054CE70 NeedToRetrieveTopStats, 0x0054D670 ReportStats, 0x0054D6A0 GetRank, 0x0054EA40
+    CleanUpTopStats, 0x0054EB00 FillStatsArrays.
+  - The online identity: the original pushes "thps6pc" for the stats SDK's game name (online_identity.cpp wrote the
+    configured name's address over that push); ours copies Net::GameName() itself, and the key from 0x0064D58C
+    (data the online identity still writes). check_code_writes: no overlaps.
+  - Found 6 functions Ghidra hadn't made: 0x0054CAC0 (thread), 0x0054CCF0 (callback), 0x0054D4A0 (task),
+    0x0054D5C0 / 0x0054D8B0 (the vector iterators' element destructor / constructor).
+  - Original quirks kept and noted: RetrievePersonalStats asks for 16 indexes (0-15) but the answer to 14 ends the
+    wait; LevelName's checksum is read into one variable - an entry without a level matches as the last one read (at
+    first: the level asked for); PersonalStats::Fill's parameters are never freed; ReportStats asks each skater for
+    a component it doesn't use; OnPersonalStats compares a null key when a high score is the last key (a crash).
+  - Tests TestNetStatsLists / TestNetStatsMenus / TestNetStatsSession (selftests_net_stats.cpp): every node /
+    search / list destructor with flags, top lists and the manager built and destroyed, the ratings and top-list
+    parsers over well-formed, caseless, truncated, untitled / titled texts, the download callback for every file and
+    a failure, level names (found, missing, the missing-level quirk), ranks at the edges (3496 / 3497, 34965 /
+    34966, negative); the personal stats, levels' best (negative ratings), sorted lists (ratings or levels; zero
+    scores; more than 50), FillStatsArrays for every list, the clean-up; log in / off, the login thread for every
+    InitStatsConnection result, the task for every state and time edge (PersistThink failing), persistent storage's
+    answers, StartGame with three players, ReportStats (game / final / cheat), the small commands.
+    Untested without a live connection: the stats server's and persistent storage's real answers.
+    Mutations (out/net4/mut_stats.ts): 53, 51 caught at first, 52 after strengthening (the final report's state
+    tested from state 6); the miss - the rank's two products grouped the other way - is equivalent: no rating in the
+    whole 32-bit range gives another rank (out/scripts/rank_search.py, numpy). tools/check_code_writes.ts: 25 writes
+    expected now (5 game-name sites).
