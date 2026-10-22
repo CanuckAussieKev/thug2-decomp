@@ -419,5 +419,6 @@ PE1 0x588180-0x58CD40 (THUG2-1, docs/pending/park-1.md; starts with batch 329's 
 - Optional cleanups left by the agents: other code still calls the new park functions through GameFunction addresses
   (park_io.cpp, park_scene.cpp helpers, core/singleton.cpp) - hooked in the game, direct calls would be tidier;
   ParkGeneratorData (park_scene.h) is the generator's layout, separate from CParkGenerator; SMetaDescriptor::isReal is
-  misnamed (the precise intersect test skips those pieces). Mutation specs from tools/mutate.ts need LF files (the
-  checkout is CRLF) - out/scripts/filter_spec.mjs drops patterns that no longer match.
+  misnamed (the precise intersect test skips those pieces). The lead's mutation re-run converted the file to LF first
+  (the checkout is CRLF and the patterns use \n; not confirmed that mutate.ts needs it) - out/scripts/filter_spec.mjs
+  drops patterns that no longer match the code.
