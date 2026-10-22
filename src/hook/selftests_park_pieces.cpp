@@ -130,7 +130,7 @@ void TestParkPieces2()
         SetUpGeometry();
         MakePieces(240.0f, 48.0f, 120.0f);
         auto* clone = Ptr<CPiece>(kClone);
-        t.push_back(static_cast<uint32_t>(original ? Orig<int>(0x00590250, clone) : clone->GetCloneIndex()));
+        t.push_back(static_cast<uint32_t>(original ? Orig<int>(0x00590250, clone) : clone->GetId()));
         for (int update : {0, 1, 2, -1}) {
             original ? Orig<void>(0x00590260, clone, 3 + update, update) : clone->SetRot(3 + update, update);
             auto* position = Ptr<Mth::Vector>(kOut);
@@ -139,7 +139,7 @@ void TestParkPieces2()
             PushArena(t);
         }
         for (uint32_t sector : {0x2222u, 0x1230u}) {
-            clone->m_sectorChecksum = sector;
+            clone->m_sector = sector;
             for (bool on : {true, false}) {
                 original ? Orig<void>(0x00590290, clone, on) : clone->SetActive(on);
                 original ? Orig<void>(0x005902B0, clone, on) : clone->SetVisible(on);
@@ -157,7 +157,7 @@ void TestParkPieces2()
                 original ? Orig<void>(0x00591510, clone, degrees) : clone->SetAngle(degrees);
             }
             for (uint32_t sector : {0x2222u, 0xDEADu}) {
-                clone->m_sectorChecksum = sector;
+                clone->m_sector = sector;
                 for (int on = 0; on < 2; ++on)
                     for (int gap = 0; gap < 2; ++gap)
                         original ? Orig<void>(0x00591600, clone, on != 0, gap != 0) : clone->SetHighlight(on != 0, gap != 0);

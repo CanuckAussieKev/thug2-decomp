@@ -20,53 +20,10 @@ class CArray;
 
 namespace Ed {
 
-// A piece type (CSourcePiece, 0x30 bytes, vtable 0x0064F3C8; 0x005905C0 constructs it): one sector of the
-// "sk5ed" scene.
-struct SourcePiece {
-    enum : uint32_t {
-        kGameObject = 0x400,       // the node is a GameObject (0x005925E0, from the pieces' node array)
-        kAbsentInNetGames = 0x800, // (with kGameObject)
-        kRebuilt = 0x4000,         // rebuilt by RebuildMarked (a trigger the scripts change)
-    };
-    void** m_vtable;          // slot 1: the scalar deleting destructor
-    uint32_t m_name;          // +0x04: its sector's checksum
-    uint32_t m_flags;         // +0x08 (1 when made)
-    SourcePiece* mp_next;     // +0x0C
-    Mth::Vector m_size;       // +0x10: in world units (x and z whole cells); w = 1
-    int m_20;                 // +0x20 (1 when made)
-    uint32_t m_triggerScript; // +0x24
-    int m_numRailPoints;      // +0x28: the points of the rails its node array gives it
-    int m_numRailSegments;    // +0x2C
-};
-static_assert(offsetof(SourcePiece, m_size) == 0x10 && offsetof(SourcePiece, m_triggerScript) == 0x24 &&
-                  sizeof(SourcePiece) == 0x30,
-              "layout must match the original");
-
-// A placed piece (what CPiece is; 0x2C bytes, made by 0x005923C0): a clone of its source's sector.
-struct ClonedPiece {
-    enum : uint32_t {
-        kCursor = 0x4,         // the cursor's (never in the generator's list: not unlinked when deleted)
-        kInList = 0x8,         // in the generator's list
-        kNoNode20 = 0x20,      // (with 0x80) gets no node in the node array
-        kGap = 0x40,           // a gap's trigger piece
-        kNoNode80 = 0x80,
-        kNoRails = 0x100,      // its rails aren't counted
-        kDestroyNow = 0x200,   // DestroyPiece takes it out at once
-        kDestroy = 0x1000,     // marked: CleanUpOutRefs takes it out
-    };
-    void** m_vtable;          // slot 1: the scalar deleting destructor
-    uint32_t m_sector;        // +0x04: its sector in the "cloned" scene
-    uint32_t m_flags;         // +0x08
-    ClonedPiece* mp_next;     // +0x0C
-    uint32_t m_id;            // +0x10: the generator's piece counter when made (the cluster of its rails)
-    SourcePiece* mp_source;   // +0x14
-    Mth::Vector m_pos;        // +0x18
-    int m_rot;                // +0x28: quarter turns
-};
-static_assert(offsetof(ClonedPiece, m_pos) == 0x18 && offsetof(ClonedPiece, m_rot) == 0x28 &&
-                  sizeof(ClonedPiece) == 0x2C,
-              "layout must match the original");
-inline ClonedPiece* Cloned(CPiece* piece) { return reinterpret_cast<ClonedPiece*>(piece); }
+// The pieces (park.h): a piece type is a CSourcePiece, a placed piece a CPiece (a clone of its source's sector).
+using SourcePiece = CSourcePiece;
+using ClonedPiece = CPiece;
+inline ClonedPiece* Cloned(CPiece* piece) { return piece; }
 
 // The rail sets' parts read here (the rail set's own code is 0x0058AFC0-0x0058B700).
 struct RailPoint {            // 0x30 bytes

@@ -71,18 +71,18 @@ CPiece* CPiece::Destroy(unsigned int flags)
     return this;
 }
 
-int CPiece::GetCloneIndex() { return m_cloneIndex; }
+uint32_t CPiece::GetId() { return m_id; }
 
 void CPiece::SetRot(int rot, int update)
 {
     m_rot = rot;
     if (update == 1)
-        Scene::SetYRotation(Scene::GetSector(m_sectorChecksum), rot);
+        Scene::SetYRotation(Scene::GetSector(m_sector), rot);
 }
 
-void CPiece::SetActive(bool active) { Scene::SetActive(Scene::GetSector(m_sectorChecksum), active); }
+void CPiece::SetActive(bool active) { Scene::SetActive(Scene::GetSector(m_sector), active); }
 
-void CPiece::SetVisible(bool visible) { Scene::SetVisibility(Scene::GetSector(m_sectorChecksum), visible ? 0xFF : 0); }
+void CPiece::SetVisible(bool visible) { Scene::SetVisibility(Scene::GetSector(m_sector), visible ? 0xFF : 0); }
 
 void CPiece::GetCellDims(GridDims* dims)
 {
@@ -95,7 +95,7 @@ void CPiece::GetCellDims(GridDims* dims)
 
 Mth::Vector* CPiece::GetDimsTurned(Mth::Vector* out, int rot)
 {
-    CPiece* source = (m_flags & kSource) ? this : mp_source;
+    CPiece* source = (m_flags & kSource) ? this : mp_source->AsPiece();
     // (The original asks the source three times, once per component; it's a plain getter. Its w: the source's when
     // the turn is odd, a stack leftover when it's even - the source's here.)
     Mth::Vector size;
@@ -115,12 +115,12 @@ void CPiece::SetPosition(Mth::Vector* position, int update)
     m_pos.z = position->z;
     m_pos.w = position->w;
     if (update == 1)
-        Scene::SetWorldPosition(Scene::GetSector(m_sectorChecksum), position);
+        Scene::SetWorldPosition(Scene::GetSector(m_sector), position);
 }
 
 void CPiece::SetLength(float length)
 {
-    uint8_t* sector = Scene::GetSector(m_sectorChecksum);
+    uint8_t* sector = Scene::GetSector(m_sector);
     const bool across = (m_rot & 1) != 0;
     // (w is a stack leftover in the original)
     Mth::Vector scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
@@ -129,7 +129,7 @@ void CPiece::SetLength(float length)
 
 void CPiece::SetAngle(float degrees)
 {
-    uint8_t* geometry = Scene::GetGeometry(Scene::GetSector(m_sectorChecksum));
+    uint8_t* geometry = Scene::GetGeometry(Scene::GetSector(m_sector));
     if (!geometry)
         return;
     Mth::Matrix orientation;
@@ -142,7 +142,7 @@ void CPiece::SetAngle(float degrees)
 
 void CPiece::SetHighlight(bool on, bool gap)
 {
-    uint8_t* sector = Scene::GetSector(m_sectorChecksum);
+    uint8_t* sector = Scene::GetSector(m_sector);
     if (!sector)
         return;
     uint8_t* geometry = Scene::GetGeometry(sector);
@@ -160,24 +160,24 @@ void CPiece::SetHighlight(bool on, bool gap)
 
 CSourcePiece* CSourcePiece::Construct()
 {
-    m_sectorChecksum = 0;
+    m_name = 0;
     mp_next = nullptr;
     m_vtable = reinterpret_cast<void**>(kVtable);
     m_flags = CPiece::kSource;
-    m_dims = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_size = {0.0f, 0.0f, 0.0f, 1.0f};
     m_20 = 1;
-    m_type = 0;
-    m_28 = 0;
-    m_2C = 0;
+    m_triggerScript = 0;
+    m_numRailPoints = 0;
+    m_numRailSegments = 0;
     return this;
 }
 
 Mth::Vector* CSourcePiece::GetDims(Mth::Vector* out)
 {
-    out->x = m_dims.x;
-    out->y = m_dims.y;
-    out->z = m_dims.z;
-    out->w = m_dims.w;
+    out->x = m_size.x;
+    out->y = m_size.y;
+    out->z = m_size.z;
+    out->w = m_size.w;
     return out;
 }
 
@@ -191,10 +191,10 @@ CSourcePiece* CSourcePiece::Destroy(unsigned int flags)
 
 CClonedPiece* CClonedPiece::Construct()
 {
-    m_sectorChecksum = 0;
+    m_sector = 0;
     mp_next = nullptr;
     m_vtable = reinterpret_cast<void**>(kVtable);
-    m_cloneIndex = 0;
+    m_id = 0;
     m_flags = kCloned;
     mp_source = nullptr;
     return this;
@@ -202,7 +202,7 @@ CClonedPiece* CClonedPiece::Construct()
 
 Mth::Vector* CClonedPiece::GetDims(Mth::Vector* out)
 {
-    const Mth::Vector& size = reinterpret_cast<CSourcePiece*>(mp_source)->m_dims;
+    const Mth::Vector& size = mp_source->m_size;
     const bool across = (m_rot & 1) != 0;
     out->x = across ? size.z : size.x;
     out->y = size.y;
@@ -224,7 +224,7 @@ REPLACE(0x005901F0, &GridDims::MakeInfiniteOnY);
 REPLACE(0x00590200, &GridDims::MakeInfinitelyHigh);
 REPLACE(0x00590210, &GridDims::PrintContents);
 REPLACE(0x00590240, &CPiece::DestroyBody);
-REPLACE_SOURCE_ONLY(0x00590250, &CPiece::GetCloneIndex); // 4 bytes (folded: other classes' +0x10 getters too)
+REPLACE_SOURCE_ONLY(0x00590250, &CPiece::GetId); // 4 bytes (folded: other classes' +0x10 getters too)
 REPLACE(0x00590260, &CPiece::SetRot);
 REPLACE(0x00590290, &CPiece::SetActive);
 REPLACE(0x005902B0, &CPiece::SetVisible);

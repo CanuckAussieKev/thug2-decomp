@@ -212,38 +212,39 @@ public:
     SMetaDescriptor* GetEntry(SMetaDescriptor* out, int index);
 };
 
+class CSourcePiece;
+
 // A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds share the first 0x10 bytes: a source
-// piece (CSourcePiece, kSource: one of the park editor's own sectors, loaded once - its name and size) and a cloned
-// piece (kCloned: a copy of a source's sector put in the park's scene - this class's layout). Vtable slot 0: the
-// size (GetDims); slot 1: the scalar deleting destructor.
+// piece (CSourcePiece, kSource: a piece type - one sector of the "sk5ed" scene, its name and size) and a placed
+// piece (kCloned: a clone of its source's sector in the "cloned" scene - this class's layout; park_scene.h calls it
+// ClonedPiece). Vtable slot 0: the size (GetDims); slot 1: the scalar deleting destructor.
 class CPiece {
 public:
+    // m_flags (a placed piece's; CSourcePiece has its own)
     enum : uint32_t {
-        kSource = 0x1,       // a CSourcePiece
-        kCloned = 0x2,       // a cloned piece
-        kNotListed = 0x4,    // (from CreatePiece's flags) not in the generator's list
-        kInPark = 0x8,       // in the generator's list (AddPiece)
-        kInnerShell = 0x20,  // (from CreatePiece's flags) the floor / shell the park builds itself
-        kShowable = 0x40,    // shown and hidden by CParkGenerator::SetPiecesVisible
-        kNoRails = 0x100,    // (from CreatePiece's flags)
-        kCursor = 0x200,     // (from CreatePiece's flags) the cursor's piece
-        kRailPiece = 0x400,  // a source piece listed as a rail piece (ReadPieceFlags)
-        kFlag800 = 0x800,    // ... and flagged 0x68910AC6 there
-        kFloorLocked = 0x4000, // a source piece of one of four types (ReadPieceFlags)
+        kSource = 0x1,         // a CSourcePiece
+        kCloned = 0x2,         // a placed (cloned) piece
+        kCursor = 0x4,         // the cursor's (never in the generator's list: not unlinked when deleted)
+        kInList = 0x8,         // in the generator's list
+        kNoNode20 = 0x20,      // (with 0x80) gets no node in the node array
+        kGap = 0x40,           // a gap's trigger piece
+        kNoNode80 = 0x80,
+        kNoRails = 0x100,      // its rails aren't counted
+        kDestroyNow = 0x200,   // DestroyPiece takes it out at once
+        kDestroy = 0x1000,     // marked: CleanUpOutRefs takes it out
     };
     static constexpr uint32_t kVtable = 0x0064F3B4;
 
     void** m_vtable;
-    uint32_t m_sectorChecksum; // +0x04: its sector (a source piece's: its name)
+    uint32_t m_sector;         // +0x04: its sector in the "cloned" scene
     uint32_t m_flags;          // +0x08
-    CPiece* mp_next;           // +0x0C: the generator's list (pieces or sources)
-    // A cloned piece's (a source piece has its size here: CSourcePiece).
-    int m_cloneIndex;          // +0x10: the generator's count when it was made
-    CPiece* mp_source;         // +0x14
+    CPiece* mp_next;           // +0x0C: the generator's list
+    uint32_t m_id;             // +0x10: the generator's piece counter when made (the cluster of its rails)
+    CSourcePiece* mp_source;   // +0x14
     Mth::Vector m_pos;         // +0x18
     int m_rot;                 // +0x28: quarter turns
 
-    // Vtable slot 0: its size (a cloned piece's turned by its rotation); returns `out`
+    // Vtable slot 0: its size (a placed piece's turned by its rotation); returns `out`
     Mth::Vector* GetDims(Mth::Vector* out)
     {
         return reinterpret_cast<Mth::Vector*(__thiscall*)(CPiece*, Mth::Vector*)>(m_vtable[0])(this, out);
@@ -256,7 +257,7 @@ public:
     // 0x00590490: the scalar deleting destructor (freed if `flags` bit 0). Returns this.
     CPiece* Destroy(unsigned int flags);
     // 0x00590250 (folded with other +0x10 getters)
-    int GetCloneIndex();
+    uint32_t GetId();
     // 0x00590670: put it at `position` (and move its sector if `update` is 1)
     void SetPosition(Mth::Vector* position, int update);
     // 0x00590260: turn it to `rot` quarter turns (and its sector if `update` is 1)
@@ -276,34 +277,40 @@ public:
     // 0x00591600: its sector's geometry tinted (purple for a gap's piece) or back to normal
     void SetHighlight(bool on, bool gap);
 };
-static_assert(offsetof(CPiece, m_cloneIndex) == 0x10 && offsetof(CPiece, mp_source) == 0x14 &&
-                  offsetof(CPiece, m_pos) == 0x18 && offsetof(CPiece, m_rot) == 0x28 && sizeof(CPiece) == 0x2C,
-              "layout must match the original (a cloned piece: 0x2C bytes)");
+static_assert(offsetof(CPiece, m_id) == 0x10 && offsetof(CPiece, mp_source) == 0x14 && offsetof(CPiece, m_pos) == 0x18 &&
+                  offsetof(CPiece, m_rot) == 0x28 && sizeof(CPiece) == 0x2C,
+              "layout must match the original (a placed piece: 0x2C bytes)");
 
-// A source piece (0x30 bytes): one of the park editor's sectors, which the park's pieces are cloned from.
+// A source piece (0x30 bytes; park_scene.h calls it SourcePiece): a piece type, one sector of the "sk5ed" scene.
 class CSourcePiece {
 public:
+    // m_flags (besides CPiece::kSource)
+    enum : uint32_t {
+        kGameObject = 0x400,       // the node is a GameObject (ReadPieceFlags, from the pieces' node array)
+        kAbsentInNetGames = 0x800, // (with kGameObject)
+        kRebuilt = 0x4000,         // rebuilt by RebuildMarked (a trigger the scripts change)
+    };
     static constexpr uint32_t kVtable = 0x0064F3C8;
 
-    void** m_vtable;
-    uint32_t m_sectorChecksum; // +0x04: its name
-    uint32_t m_flags;          // +0x08 (kSource)
-    CPiece* mp_next;           // +0x0C
-    Mth::Vector m_dims;        // +0x10: its size
-    int m_20;                  // +0x20 (1)
-    uint32_t m_type;           // +0x24: its type, from the piece list (ReadPieceFlags)
-    int m_28;
-    int m_2C;
+    void** m_vtable;           // slot 1: the scalar deleting destructor
+    uint32_t m_name;           // +0x04: its sector's checksum
+    uint32_t m_flags;          // +0x08 (1 when made)
+    CSourcePiece* mp_next;     // +0x0C
+    Mth::Vector m_size;        // +0x10: in world units (x and z whole cells); w = 1
+    int m_20;                  // +0x20 (1 when made)
+    uint32_t m_triggerScript;  // +0x24
+    int m_numRailPoints;       // +0x28: the points of the rails its node array gives it
+    int m_numRailSegments;     // +0x2C
 
     CPiece* AsPiece() { return reinterpret_cast<CPiece*>(this); }
     // 0x005905C0: an empty source piece. Returns this.
     CSourcePiece* Construct();
     // 0x00590600 (vtable slot 0): its size; returns `out`
     Mth::Vector* GetDims(Mth::Vector* out);
-    // 0x00590640 (vtable slot 1, also the cloned piece's): the scalar deleting destructor. Returns this.
+    // 0x00590640 (vtable slot 1, also the placed piece's): the scalar deleting destructor. Returns this.
     CSourcePiece* Destroy(unsigned int flags);
 };
-static_assert(offsetof(CSourcePiece, m_dims) == 0x10 && offsetof(CSourcePiece, m_type) == 0x24 &&
+static_assert(offsetof(CSourcePiece, m_size) == 0x10 && offsetof(CSourcePiece, m_triggerScript) == 0x24 &&
                   sizeof(CSourcePiece) == 0x30,
               "layout must match the original");
 

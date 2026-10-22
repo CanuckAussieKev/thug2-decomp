@@ -64,7 +64,7 @@ void CMetaPiece::SetVisibility(bool visible)
 {
     for (uint32_t i = 0; i < m_num_used_entries; ++i) {
         auto* piece = static_cast<CPiece*>(GetDescriptor(static_cast<int>(i))->piece);
-        Scene::SetActive(Scene::GetSector(piece->m_sectorChecksum), visible);
+        Scene::SetActive(Scene::GetSector(piece->m_sector), visible);
     }
 }
 
@@ -335,7 +335,7 @@ void CMetaPiece::SetPosition(Mth::Vector position, float angle)
         piece->m_pos.y = at.y;
         piece->m_pos.z = at.z;
         piece->m_pos.w = at.w;
-        Scene::SetWorldPosition(Scene::GetSector(piece->m_sectorChecksum), &at);
+        Scene::SetWorldPosition(Scene::GetSector(piece->m_sector), &at);
         piece->SetAngle(static_cast<float>(static_cast<double>(entry->rot) * 90.0 + angle));
     }
 }
@@ -465,7 +465,7 @@ void GrowToTake(GridDims& cells, const GridDims* pos)
 
 void CAbstractMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t isReal)
 {
-    CPiece* source = (piece->m_flags & CPiece::kSource) ? piece : nullptr;
+    auto* source = (piece->m_flags & CPiece::kSource) ? reinterpret_cast<CSourcePiece*>(piece) : nullptr;
     SMetaDescriptor* entry = GetDescriptor(static_cast<int>(m_num_used_entries++));
     if (!source)
         return; // (counted all the same)
@@ -474,7 +474,7 @@ void CAbstractMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
     reinterpret_cast<uint8_t&>(entry->isReal) = isReal; // (the byte as given)
-    entry->piece = reinterpret_cast<void*>(source->m_sectorChecksum);
+    entry->piece = reinterpret_cast<void*>(source->m_name);
     GrowToTake(m_cell_area, pos);
     if (m_cell_area.h < 1)
         m_cell_area.h = 1;
