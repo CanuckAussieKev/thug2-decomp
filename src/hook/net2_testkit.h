@@ -27,7 +27,7 @@ namespace Net2Kit {
 using namespace GameNetKit;
 
 // Arena layout (beyond gamenet_testkit.h's): the connection area (0x14000-0x18000) is free here.
-constexpr uint32_t kNodes = 0x14000;     // list nodes, 0x10 apart (0x400)
+constexpr uint32_t kNodes = 0x14000;     // list nodes, 0x20 apart (0x400)
 constexpr uint32_t kStructs = 0x14400;   // hand-built script structures (0x400)
 constexpr uint32_t kScript = 0x14800;    // the stand-in script (+0x14 its params: kScriptParams)
 constexpr uint32_t kScriptParams = 0x14880;
@@ -40,25 +40,29 @@ constexpr uint32_t kFree = 0x15C00;      // a test's own (0x2400)
 
 inline uint32_t g_nextNode;
 
-// A list (Lst::Head at `head`): +4 -1 (the head), +0x0C the first node; each node +4 its item, +0x0C the next.
+// A list (Lst::Head at `head`): +4 -1 (the head), +0x0C the first node, +0x10 the last; each node (0x20 apart) +4
+// its item, +0x0C the next, +0x10 the previous.
 inline void BuildList(uint32_t head, const std::vector<uint32_t>& items)
 {
     Word<uint32_t>(head + 4) = 0xFFFFFFFFu;
     uint32_t previous = head;
     for (uint32_t item : items) {
         uint32_t node = kNodes + g_nextNode;
-        g_nextNode += 0x10;
+        g_nextNode += 0x20;
         Word<uint32_t>(node + 0) = 0x0D0D0000u | g_nextNode;
         Word<uint32_t>(node + 4) = item;
         Word<uint32_t>(previous + 0xC) = At(node);
+        Word<uint32_t>(node + 0x10) = At(previous);
         previous = node;
     }
     Word<uint32_t>(previous + 0xC) = At(head);
+    Word<uint32_t>(head + 0x10) = At(previous);
 }
 inline uint32_t PlayerAt(int i) { return kPlayers + kPlayerSize * static_cast<uint32_t>(i); }
 // The manager's players (by index into the arena's eight), in that order.
 inline void SetPlayers(const std::vector<int>& indexes)
 {
+    g_nextNode = 0; // (the lists built anew: the player list first)
     std::vector<uint32_t> items;
     for (int i : indexes)
         items.push_back(At(PlayerAt(i)));
@@ -209,6 +213,18 @@ inline void InstallNet2(StandIns& s)
         std::memset(reinterpret_cast<void*>(block), 0, r.args[0]);
         return block;
     });
+    // The current heap's malloc / free (script arrays' elements).
+    s.At({0x005BBAE0, AddressOf(&Mem::Malloc)}, 0, [](Regs& r) {
+        Rec(0xBAE0, {r.args[0]});
+        uint32_t block = At(g_heapNext);
+        g_heapNext += (r.args[0] + 15) & ~15u;
+        std::memset(reinterpret_cast<void*>(block), 0xCD, r.args[0]);
+        return block;
+    });
+    s.At({0x005BBB60, AddressOf(&Mem::FreeMalloc)}, 0, [](Regs& r) {
+        Rec(0xBB60, {r.args[0]});
+        return 0u;
+    });
     // The task list node's constructor (priority), recorded; its vtable written as the original's does.
     Stub(s, {0x00406890}, 4, 0x6890, [](Regs& r) {
         Word<uint32_t>(r.ecx - g_base + 4) = r.args[0];
@@ -250,7 +266,7 @@ inline uint32_t Aliased(uint32_t value)
 }
 
 // Each case named in the log as it starts (to find a case that crashes).
-inline bool g_net2Verbose = true;
+inline bool g_net2Verbose = false;
 
 // Run `scenario` on a fresh arena for the original and ours; compare the calls and the arenas. `prepare` sets up
 // what both runs share (after the arena and the stand-ins).
@@ -278,8 +294,14 @@ inline void RunNet2Case(const char* what, Scenario scenario, void (*install)(Sta
             Word<uint32_t>(i) = Aliased(Word<uint32_t>(i));
         return Finish();
     };
+    // An empty symbol table (structures' lookups of unnamed names find nothing - the real one isn't set up offline).
+    static Script::CSymbolTableEntry* emptyTable[0x1000];
+    std::memset(emptyTable, 0, sizeof(emptyTable));
+    auto* savedTable = GameVariable<Script::CSymbolTableEntry**>(0x006F3624);
+    GameVariable<Script::CSymbolTableEntry**>(0x006F3624) = emptyTable;
     std::vector<uint32_t> expected = run(true);
     std::vector<uint32_t> actual = run(false);
+    GameVariable<Script::CSymbolTableEntry**>(0x006F3624) = savedTable;
     Compare(expected, actual, what);
 }
 

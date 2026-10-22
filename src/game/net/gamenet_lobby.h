@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "game/core/alloc.h"
+
 namespace Script {
 class CScript;
 class CStruct;
@@ -17,6 +19,9 @@ class BaseTask;
 }
 
 namespace GameNet {
+
+struct LobbyPlayer;
+struct LobbyRoom;
 
 class LobbyMan {
 public:
@@ -94,6 +99,28 @@ public:
     // server isn't reported: after 90 s CreateNotPostedDialog (once), else its details again every 5 s.
     static void __cdecl QueryTask(void* task);
 
+    // --- gamenet_lobby_menus.cpp: the lobby's menus and chat (`this` unused) ---
+    // 0x00540900: a buddy-list menu item for `player` (make_text_sub_menu_item: its nick, lobby_add_buddy with its
+    // profile / nick / net_name).
+    void AddBuddyMenuItem(LobbyPlayer* player);
+    // 0x00540FB0: a regions menu item for `room` ("<name> - <players>/<most>", "(net_lobby_full)" when full;
+    // choose_selected_lobby with `index` - not focusable when full or out of the room's rating range).
+    void AddRoomMenuItem(LobbyRoom* room, int index);
+    // 0x005411E0: the lobby's player list item for `player`: its nick, rank (rating x 0.000285 x 10, at most 10), id,
+    // and what choosing it does (add as a buddy - with a prompt for each reason it can't) and its colour.
+    void AddPlayerListItem(LobbyPlayer* player);
+    // 0x00540B60 (the peer's room message callback): "<nick>: <message>" to the console (create_console_message).
+    static void __cdecl RoomMessageCallback(void* peer, int roomType, const char* nick, const char* message,
+                                            int messageType, void* param);
+    // 0x00541690 (the peer's group room list callback): each room (a LobbyRoom: its name, players / most - full when
+    // the waiting reach the most -, rating range, "neversoft") added to the list `param` by group (highest first); the
+    // end of the list (group 0) or a failure sets the lobby state (0x005453E0: 15, or 16 on failure / when the lobby
+    // asked for wasn't found).
+    static void __cdecl GroupRoomCallback(void* peer, int success, int groupId, void* server, const char* name,
+                                          int numWaiting, int maxWaiting, int numGames, int numPlaying, void* param);
+    // 0x00540D50: the destructor body: the three tasks deleted, the node at +0x14 and its own node unlinked.
+    void DestroyBody();
+
     uint8_t m_unknown0[0x28];
     int m_unknown28;              // +0x28 (LeaveLobby passes it to the peer SDK's 0x005FC9B0)
     int m_unknown2C;              // +0x2C (CanHostGame: +0x30 must be below it)
@@ -120,6 +147,54 @@ static_assert(offsetof(LobbyMan, m_unknown28) == 0x28 && offsetof(LobbyMan, m_ro
                   offsetof(LobbyMan, m_peer) == 0x140 && offsetof(LobbyMan, m_hostingTask) == 0x150,
               "layout must match the original");
 
+// A group room the peer's room list found (0x6C bytes, constructor 0x00545860; a list node, priority -group).
+struct LobbyRoom {
+    uint8_t m_node[0x14];
+    char m_name[0x40];       // +0x14 (63 characters)
+    int m_groupId;           // +0x54
+    int m_numPlayers;        // +0x58 (the room list's "numGames")
+    int m_maxPlayers;        // +0x5C (its "maxWaiting"; at least m_numPlayers)
+    int m_minRating;         // +0x60
+    int m_maxRating;         // +0x64
+    bool m_full;             // +0x68
+    bool m_outOfRange;       // +0x69 the player's rating outside the room's
+    bool m_neversoft;        // +0x6A
+    uint8_t m_pad6B;
+};
+static_assert(sizeof(LobbyRoom) == 0x6C && offsetof(LobbyRoom, m_groupId) == 0x54 && offsetof(LobbyRoom, m_full) == 0x68);
+
+// A player in the lobby's room (the lobby's player list).
+struct LobbyPlayer {
+    uint8_t m_node[0x14];
+    char m_nick[0x40];       // +0x14
+    int m_profile;           // +0x54 the GameSpy profile
+    int m_rating;            // +0x58
+};
+static_assert(offsetof(LobbyPlayer, m_profile) == 0x54 && offsetof(LobbyPlayer, m_rating) == 0x58);
+
+// The lobby's two list node types (Mem::ListNode's layout): its own base (vtable 0x0064CBE0) and the node at its +0x14
+// (vtable 0x0064CBDC). The destructor bodies unlink them (0x00540840 / 0x00540860); the scalar deleting destructors
+// (each vtable's only slot) also free them (0x00540880 / 0x005408C0); 0x00540F80 is another scalar deleting destructor
+// over the first body.
+struct LobbyNode : Mem::ListNode {
+    void DestroyBody();                         // 0x00540840
+    LobbyNode* Destroy(unsigned int flags);     // 0x00540880
+    LobbyNode* DestroyOther(unsigned int flags); // 0x00540F80
+};
+struct LobbyListNode : Mem::ListNode {
+    void DestroyBody();                         // 0x00540860
+    LobbyListNode* Destroy(unsigned int flags); // 0x005408C0
+};
+
+// Tsk::Task<T>'s scalar deleting destructor (vtable 0x006476F0 slot 2, 0x005407B0: its destructor, then freed).
+struct TaskDeleter {
+    Tsk::BaseTask* Destroy(unsigned int flags); // 0x005407B0
+};
+
+// 0x00540E00 (SendMessage text=): to the lobby's group room - or, with system_message, "<System> <text>" to the
+// console only. True.
+bool __cdecl CFunc_SendMessage(Script::CStruct* params, Script::CScript* script);
+
 // The packets queued by LobbyMan::QueuePacket (0x007CCE50, 199 of 0x1C bytes; the count 0x007CE438).
 struct QueuedPacket {
     int type;          // 1 a qr2 query, 2 NAT negotiation
@@ -131,15 +206,18 @@ static_assert(sizeof(QueuedPacket) == 0x1C);
 
 // The destructor bodies of two list searches the lobby's code keeps on its stack (vtables 0x0064CB6C / 0x0064CB70;
 // called by the exception unwinding): 0x0053F8B0 / 0x0053F8C0 put the vtable back.
+// 0x005407E0 / 0x00540810: their scalar deleting destructors.
 struct LobbySearchA {
     void** m_vtable;
     void* m_node;
-    void DestroyBody(); // 0x0053F8B0
+    void DestroyBody();                        // 0x0053F8B0
+    LobbySearchA* Destroy(unsigned int flags); // 0x005407E0
 };
 struct LobbySearchB {
     void** m_vtable;
     void* m_node;
-    void DestroyBody(); // 0x0053F8C0
+    void DestroyBody();                        // 0x0053F8C0
+    LobbySearchB* Destroy(unsigned int flags); // 0x00540810
 };
 
 // 0x0053F8A0 (ResetConnectionTimer): the connection timer (0x007CCE3C) restarted now. True.

@@ -129,6 +129,28 @@ Switch off: `[replacements] disable=gamenet_players.cpp` (and gamenet_game_cfunc
     failing, twice); the six commands. 58 deliberate bugs: 57 caught (7 after recording the lobby's flags after each
     callback, a padded short NAT packet, an 85 s case, distinct presence texts), 1 equivalent (NatNegotiateCallback's
     second "none going on" check - always true after its early return; kept as the original has it).
-- [ ] Next: the lobby's destructors and list nodes (0x005407B0-0x005408C0, 0x00540D50, 0x00540F80), its menus
-  (0x00540900, 0x00540B60, 0x00540E00 SendMessage, 0x00540FB0, 0x005411E0, 0x00541690), then the manager's
-  constructor 0x0053EE90 / Create 0x0053F520 and 0x0053D9D0, 0x0053E440-0x0053EB70.
+- [x] Batch NET2-5 (NOT run in the game yet; the lobby's menus, chat, group room list and its destructors,
+  21 functions): src/game/net/gamenet_lobby_menus.cpp (new), gamenet_lobby.h (LobbyRoom 0x6C, LobbyPlayer, the two
+  node types, Task<T>'s deleter).
+  - Menus: 0x00540900 AddBuddyMenuItem (make_text_sub_menu_item, lobby_add_buddy), 0x00540FB0 AddRoomMenuItem
+    (regions_menu_add_item "<name> - <players>/<most>" (+ net_lobby_full); choose_selected_lobby + index, or
+    not_focusable), 0x005411E0 AddPlayerListItem (the rank: rating x 0.000285714 (0x0064CC1C) x 10 in double, truncated,
+    at most 10; add_buddy_prompt / cant_add_buddy_prompt_1-3 / cant_add_self_to_buddy_prompt / already_buddy_prompt with
+    their rgba), 0x00540B60 RoomMessageCallback ("<nick>: <message>"), 0x00540E00 CFunc SendMessage (system_message:
+    "<System> <text>" to the console only; else to the group room), 0x00541690 GroupRoomCallback (QUIRK noted: the room's
+    players are the callback's numGames and "full" compares its numWaiting with maxWaiting; the lobby asked for by
+    lobby_num - the CRC of the pending data - decides the end state 15 / 16).
+  - Destructors: 0x00540D50 LobbyMan::DestroyBody (its three tasks deleted, its +0x14 node and its own unlinked),
+    0x00540840 / 0x00540860 the two node types' bodies, 0x00540880 / 0x005408C0 / 0x00540F80 their scalar deleting
+    destructors, 0x005407E0 / 0x00540810 the list searches', 0x005407B0 Tsk::Task<T>'s (vtable 0x006476F0 slot 2 - the
+    linker put it here).
+  - Test (selftests_net_menus.cpp TestNetMenus, 4 cases): every player-list branch (may add / 30 buddies / itself /
+    a buddy / no profile / logged out) with ratings that tell double from float maths and pass the rank's limit; the
+    regions item available / full / out of range; chat and the three SendMessage paths; the room list (failure, the
+    end with and without a lobby asked for / found, a name past 63 characters, above / below the rating range,
+    "neversoft", players above the most); the destructors on rings of nodes, freeing or not (flags 0-3). 41 deliberate
+    bugs, all caught (3 after strengthening: rating 350 - rank 0 in doubles, 1 in floats; a dirty new room for the
+    name's NUL; flags 2). The kit (net2_testkit.h) now builds lists with their back links (Lst::Head::AddNode runs for
+    real), stands in Mem::Malloc / FreeMalloc and an empty symbol table.
+- [ ] Next: the manager's constructor 0x0053EE90 / Create 0x0053F520 and 0x0053D9D0, 0x0053E440-0x0053EB70 (the
+  last of the range).
