@@ -380,3 +380,25 @@ fold records, install.
   by the permission check - the user installs: copy out\build\lead\dinput8.dll + .pdb, make_menu_level.ts); not pushed.
   Nothing tested online: what to try by hand is in docs/pending/net-1..4.md.
 - Installed (2026-10-22): main 052848a in C:\Games\THUG2 (DLL + pdb, overlay regenerated; self-tests still off). Not pushed.
+
+## 2026-10-22 (account change): park editor & graffiti in progress
+- **main 4410186, pushed after this note.** Installed in C:\Games\THUG2 is only up to the online merge (052848a):
+  batches 320-328 are NOT installed and NOT run in the game.
+- **Online & network game modes: done** (NET1-NET4 merged, batches 299-319; 455/457 - the two left are PartyMod's
+  loader cave). See the "2026-10-22: online & network game modes" note above.
+- **Park editor & graffiti (0x588180-0x595030): 11% -> batches 320-328 done** by the lead, small batches, each built,
+  thug2_check on both exes, check_code_writes, register scan, call audit, mutations (records in decomp-progress.md):
+  320-326 the trick objects / graffiti (src/game/obj/trick_objects.cpp, tests src/hook/selftests_park_graffiti.cpp),
+  327-328 the model viewer's object (new src/game/sys/viewer_object.cpp / .h, Obj::CViewerObject; tests
+  src/hook/selftests_viewer_object.cpp). Batches 323+324 share one commit.
+- **Next (batch 329, already read, not written):** 0x00589FD0 CViewerObject::ReloadAnimation(file, anim) - with an
+  animation component: key = anim ? GetAnimSet() + anim : Crc(file); the asset unloaded if there; CAssMan::LoadAnim(file,
+  anim, GetAnimSet(), 0, 0); PlayAnimation(anim); RET 8. 0x0058A2E0 SetRotation(z, x): m_matrix = identity, then
+  D3DXMatrixMultiply(m, m, RotZ(z)) and (m, m, RotX(x)) - Mth::CreateRotateZMatrix / X, D3DX 0x005BFA8C stays a call.
+  0x0058A360 SetAnimSpeed(speed): +0x118 = speed, > 1 -> 1, then < 0 -> 0 (NaN kept); with an animation component:
+  FirstChannel47E850(speed, 0, 0, 0), a pooled CStruct with AddFloat(0xF0D90109, speed) passed to the component's
+  vtable +0x30 with 0xBD4EDD44 and 0, then the struct cleared and deleted; byte +0x124 = 0. Then 0x0058A4A0, 0x0058A720,
+  0x0058A8B0, 0x0058AB30, the constructor 0x0058ADB0 (all viewer object), then the park editor proper.
+- Lead's per-batch check script: `sh out/scripts/batch_checks.sh <tag> <addr>...` (lead build + both exes + code
+  writes + register scan + audit; out/ isn't committed - recreate from this description if missing). Mutation specs in
+  out/mut/*.ts use BUILD out\scripts\build_check.cmd (out/build/verify).
