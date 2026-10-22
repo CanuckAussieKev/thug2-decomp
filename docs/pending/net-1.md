@@ -80,3 +80,36 @@ Switch off: `[replacements] disable=gamenet_members.cpp` (and gamenet_settings.c
     later ones are still -1).
   - Untested without a connection / hardware: the net library's use of the settings (DHCP, dial-up, PPPoE are console
     leftovers on the PC).
+- [x] Batch NET1-C (NOT run in the game yet; the manager's script commands: capture the flag's task, the game's state,
+  the join mode, teams, the lobby's peer, the message of the day, the first-come-first-served requests, the pro set
+  flags, 24 functions): src/game/net/gamenet_commands.cpp + .h (new).
+  - 0x00535DA0 StartCTFGame / 0x00535DC0 EndCTFGame (the task at +0xF8 into the logic tasks / removed),
+    0x00535DE0 DisplayFlagBaseWarning (display_flag_base_warning at most every 3000 ms - unsigned difference, 0x007CCE24),
+    0x00535E20 NetworkGamePending (+0x1B4), 0x00535E30 MarkGameOver, 0x00535E40 SetJoinMode (an unnamed integer:
+    0 plays, anything else watches; SetJoinMode clears 0x007CCA88), 0x00535E90 GetNumTeams (the mode's 0x00553130 into
+    the script's num_teams), 0x00535EB0 ConnectedToPeer (the lobby's peer 0x0053F880, GameSpy's peerIsConnected
+    0x005FC730), 0x00535EE0 InGroupRoom (the lobby's byte +0x134, as it is), 0x00535EF0 IsAutoServing (network game,
+    on the server, host mode 1), 0x00535F20 ChangeLevelPending (the task at +0xEC in a list), 0x00535F30
+    CancelMotdDownload (+0xFE08), 0x00535F40 DownloadMotd (lobby state 6 - 0x005453E0, NET2's range),
+    0x00535F50 ServicesAreAvailable (+0xFE0A = 1: true, services state 0 and lobby state 1 first unless the MOTD
+    (+0xFE09) came; else services state 3, lobby state 1, false), 0x00535FA0 AlreadyGotMotd, 0x00535FB0
+    JoinServerComplete (m_readyToPlay), 0x00535FC0 JustStartedNetGame (under 5000 ms since 0x007CCDF4, unsigned),
+    0x00536240 ReattemptJoinServer, 0x00536460 HasSignedDisclaimer.
+  - The requests to the server (sequenced, group 8): 0x00535FE0 FCFSRequestStartGame (message 0x60, 52 bytes - the
+    game type from the set-up game's preferences, then time_limit, skill_level, fireball_difficulty, player_collision,
+    friendly_fire, +0x18 never written, target_score, stop_at_zero, score_reset, ctf_game_type, goals,
+    team_graffiti_mode: GameNet::StartGameRequest; then the game is pending), 0x00536170 FCFSRequestChangeLevel
+    (level=; for the created park the park map 0x6C - 15000 bytes - and the rail editor's rails 0x88 - 4402 bytes - are
+    streamed first, the rail editor looked up twice as the original does; then 0x62 with the level), 0x00536260
+    FCFSRequestToggleProSet (0x63: param_id, then bit's byte), 0x005362F0 FCFSRequestToggleGoalSelection (0x64:
+    name=; the original's uninitialised local goes when there's none), 0x00536360 ResetProSetFlags (7 times: SetFlag /
+    UnSetFlag {flag = FLAG_PROSET1_GEO_ON + n} by m_proSetFlags' bit n).
+  - Test (selftests_net_commands.cpp TestNetCommands): every command original vs ours with every call stood in for:
+    the flag base warning across the 3-second edge (exactly 3000: not yet), the join modes none/0/1/7/-1, the lobby's
+    peer missing / unconnected / connected, the group room byte 0/1/2 (AL compared as it is), auto serving over
+    net x 4 flag bytes x host modes 0-2, services 3 states x MOTD, just started at 3000/4000 ms and a future start, the
+    start request in and out of a network game (its +0x18 not compared), the level request without a level, a level
+    and the created park, the pro set toggle with bit 0x1FF (its byte), the goal toggle, the pro set flags 0, 0x7F,
+    0x55, 0xFFFFFF80, 0x2A. 41 deliberate bugs caught (1 after recording the game-over byte).
+  - Untested without a connection: the server's handling of the requests (0x005301A0, already rewritten), the lobby /
+    GameSpy peer itself.
