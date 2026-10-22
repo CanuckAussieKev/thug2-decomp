@@ -216,6 +216,14 @@ public:
     void* GetCreatedGoalsMessage();
     uint32_t GetCreatedGoalsSize();
 
+    // --- The scores (score_list.cpp) ---
+    // 0x005435F0: team `team`'s score: the sum of its players' (fully in or local) SkaterScore scores; in net goal
+    // attack, for a player who isn't observing, the goal manager's count for the team (0x00558B10) instead.
+    int GetTeamScore(int team);
+    // 0x005436E0: the score of the player with object id `id` (its SkaterScore's - no null checks); in net goal
+    // attack, for a player who isn't observing, the goal manager's count (0x00558AB0).
+    int GetPlayerScore(uint32_t id);
+
     // --- The join (gamenet_join.cpp) ---
 
     // 0x0052F560: whether the player of connection request `msg` from `conn` may join; if not, `reason` (a

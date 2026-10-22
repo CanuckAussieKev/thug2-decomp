@@ -357,6 +357,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_gamenet5.cpp
     src/hook/selftests_skater_gamenet6.cpp
     src/hook/selftests_net_players.cpp
+    src/hook/selftests_net_scores.cpp
     src/hook/selftests_skater_walk.cpp
     src/hook/selftests_skater_walk2.cpp
     src/hook/selftests_thugpro.cpp
@@ -649,6 +650,8 @@ add_library(thug2_code OBJECT
     src/game/net/gamenet_session_handlers.cpp
     src/game/net/gamenet_tasks.cpp
     src/game/net/player_info.cpp
+    src/game/net/player_flags.cpp
+    src/game/net/score_list.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
     src/game/ed/upper_menu.cpp

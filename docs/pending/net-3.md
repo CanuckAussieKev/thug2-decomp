@@ -47,4 +47,42 @@ Shared files touched (small, additive): CMakeLists.txt (new sources / tests), sr
     components, connection, game mode), results and the arena compared. 40 deliberate bugs: all caught (3 after
     strengthening: the heap used - the stand-in memory manager's fields told apart -, and the ready query's owed id
     recorded after each call).
-- [ ] Next: the flag / crown announcements and the score list (0x005435F0-0x00544340, 0x00544780).
+- [x] Batch NET3-2 (NOT run in the game yet; the announcements and the score list): src/game/net/player_flags.cpp,
+  src/game/net/score_list.{h,cpp} (new); gamenet_manager.h (two declarations), player_info.h. 10 functions.
+  - PlayerInfo::IsInvulnerable 0x00543910 (collisions between skaters leave it alone: connection not ready, skater
+    not in play - 0x00580050 - or under 10 frames of state history, under a second since joining, out of lives in
+    netfirefight, eliminated, the skater's +0x104 bit 2; else the just-joined flag for 5 s, then cleared),
+    MarkAsFullyIn 0x005439D0 (flag 0x20; on the server for a remote player: host mode 1 message 0x5E sequenced in
+    group 8 on the server app - 0x005480C0 is the folded +4 getter: m_server -; host mode 2 starts the game,
+    0x0053AAC0, unless 0x005373D0 holds it).
+  - The flag announcements, names from the game's .qb files: CapturedFlag 0x00543A90 (captured_flag_you /
+    hide_ctf_arrow + captured_your_flag / captured_flag_other; String0, String1 = team_<n+1>_name, team; its flags
+    cleared), StoleFlag 0x00543C70 (stole_flag_you / stole_flag_from_you - the local player carried it, not
+    observing / stole_flag_other; whoever carried that flag loses it), TookFlag 0x00543F00 (took_flag_you /
+    show_ctf_arrow with the local team + took_flag_yours / took_flag_other), RetrievedFlag 0x00544110 (its own
+    team's flag back: hide_ctf_arrow + retrieved_flag_you / retrieved_flag_other; the first carrier of it carries
+    nothing; quirk kept: the parameters structure is never freed). The shift 0x800 << team uses the low 5 bits of
+    the team, as the x86 SHL (-1 shifts by 31).
+  - MarkAsKing 0x00544340 (taken from the previous king - itself too -; NewKingYou with the local skater's
+    hide_crown_arrow player_1 / player_2 by skater number, or show_crown_arrow + NewKingOther; in split screen the
+    other screen's player told with the skater's display name; the crown worn, 0x005782B0; giving it up shows the
+    local player's crown arrow in netking / king).
+  - Manager::GetTeamScore 0x005435F0 / GetPlayerScore 0x005436E0 (SkaterScore sums, no null checks; net goal
+    attack: the goal manager's 0x00558B10 / 0x00558AB0 unless the local player observes).
+  - ScoreUpdateTask 0x00544780 (the score list task, made by 0x0053EE90): once a second (0x007CE43C) clear_scores
+    and up to 8 net_score_<n> lines - per team (team modes other than the lobby, 0x005343E0) or per player (fully
+    in, not eliminated, firefight players with lives), sorted by score with Lst::Head::AddNode (inlined in the
+    original; the lobby appends in player order); the text: the crown abbreviation (used as a sprintf format, as
+    the original) or \s0-\s3 per flag carried, \c colour (team + 2 or skater id + 2), the name ("> " for the local
+    one), the score (king of the hill: m:ss / h:mm:ss from the milliseconds; scavenger hunt: 5 - the player's +0x34,
+    shown only for the local player); each line's element gets SetProperties (virtual slot 1) and update_score the
+    same structure; each line is deleted through its vtable (0x00544720). Our text buffers are bigger than the
+    original's (16 / 64 bytes: a long crown abbreviation or the longest king of the hill line overran them).
+  - Test TestNetScores (src/hook/selftests_net_scores.cpp, the GameNet test kit): every branch above over prepared
+    players, teams, scores and game modes (lobby, plain, team, firefight, king / netking with times either side of an
+    hour, scavenger hunt goal missing / inactive / active, goal attack, the once-a-second edge), elements present or
+    missing; the calls, structures and arena compared. 54 deliberate bugs: 53 caught (9 after strengthening: a local
+    player not marked fully in, the 1000 ms edge, a team flag of team 1, host mode for the local player, the players'
+    flags recorded after each announcement, an observing local player for RetrievedFlag); 1 equivalent (StoleFlag's
+    clearing of the stolen team's bit before clearing all four).
+- [ ] Next: the lobby (GameNet::LobbyMan, 0x00541870-0x00543010 and its GameSpy callbacks).

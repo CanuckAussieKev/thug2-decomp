@@ -150,6 +150,29 @@ public:
     uint32_t GetSkaterValue2BC();
     int IsPendingObserver();   // 0x005434C0
 
+    // --- player_flags.cpp: the game's announcements about the player ---
+    // 0x00543910: whether collisions with other skaters leave it alone (1): its connection not ready, its skater not
+    // in play (0x00580050) or not yet 10 frames into its state history, less than a second since it joined, out of
+    // lives (netfirefight), eliminated, or the skater's +0x104 bit 2; else for 5 seconds after joining the
+    // just-joined flag (then cleared: 0).
+    bool IsInvulnerable();
+    // 0x005439D0: fully in the game (flag 0x20); the server tells a remote player (host mode 1: message 0x5E on
+    // the server app, sequenced group 8) or with host mode 2 starts the game (0x0053AAC0) if nothing holds it
+    // (0x005373D0).
+    void MarkAsFullyIn();
+    // The flag announcements (team_<n>_name for team n's name): 0x00543A90 it captured `team`'s flag (and carries
+    // none now); 0x00543C70 it stole `team`'s flag (from whoever carried it); 0x00543F00 it took `team`'s flag;
+    // 0x00544110 it returned its own team's flag (whoever carried it carries none). Each runs the script for the
+    // local player, for the local player's team (not observing) or for the others, with String0 / String1 / team.
+    void CapturedFlag(int team);
+    void StoleFlag(int team);
+    void TookFlag(int team);
+    void RetrievedFlag();
+    // 0x00544340: the crown (king of the hill): with `king`, taken from the king before it (if any) and announced -
+    // NewKingYou / NewKingOther, the crown arrow - and worn (the crown, 0x005782B0); without, given up (the local
+    // player's crown arrow shown again in netking / king).
+    void MarkAsKing(bool king);
+
     Obj::CSkater* m_skater;             // +0x14
     Net::Conn* m_conn;                  // +0x18
     uint32_t m_eliminatedTime;          // +0x1C
