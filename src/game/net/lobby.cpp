@@ -2,7 +2,7 @@
 //
 // The GameSpy Peer SDK (docs/library_ranges.md) is called by address; what each call does is said where it's made.
 
-#include "game/net/lobby.h"
+#include "game/net/gamenet_lobby.h"
 
 #include <windows.h>
 
@@ -56,7 +56,7 @@ constexpr uint32_t kIndex = 0x7F8C98FE;                   // index
 constexpr int kGroupRoom = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
-inline void** const kLobbyListVtable = reinterpret_cast<void**>(0x0064CBFC);  // Lst::Head<LobbyInfo>, LobbyInfo
+inline void** const kLobbyListVtable = reinterpret_cast<void**>(0x0064CBFC);  // Lst::Head<LobbyRoom>, LobbyRoom
 inline void** const kPlayerListVtable = reinterpret_cast<void**>(0x0064CBF8); // Lst::Head<LobbyPlayer>, LobbyPlayer
 inline void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);       // Tsk::Task<LobbyMan>
 
@@ -107,24 +107,24 @@ LobbyPlayer* AddPlayer(LobbyMan* lobby, void* peer, const char* nick, bool liste
 {
     auto* player = static_cast<LobbyPlayer*>(Mem::Calloc(sizeof(LobbyPlayer)));
     if (player) {
-        player->data = player;
-        player->priority = 0;
-        player->next = player;
-        player->prev = player;
-        player->vtable = kPlayerListVtable;
-        player->m_profileId = 0;
+        player->m_node.data = player;
+        player->m_node.priority = 0;
+        player->m_node.next = &player->m_node;
+        player->m_node.prev = &player->m_node;
+        player->m_node.vtable = kPlayerListVtable;
+        player->m_profile = 0;
         player->m_rating = 0;
         player->m_listed = false;
     }
     std::strcpy(player->m_nick, nick);
-    Sdk(0x005FCBA0, peer, nick, 0, &player->m_profileId); // (the player's profile id)
+    Sdk(0x005FCBA0, peer, nick, 0, &player->m_profile); // (the player's profile id)
     if (listed)
         player->m_listed = true;
     Mem::ListNode* head = &lobby->m_players;
-    player->prev = head->prev;
-    player->next = head;
-    head->prev->next = player;
-    head->prev = player;
+    player->m_node.prev = head->prev;
+    player->m_node.next = head;
+    head->prev->next = &player->m_node;
+    head->prev = &player->m_node;
     return player;
 }
 
@@ -189,40 +189,40 @@ Tsk::BaseTask* NewTask(LobbyMan* lobby, uint32_t code)
 } // namespace
 
 // 0x00545860
-LobbyInfo* LobbyInfo::Construct()
+LobbyRoom* LobbyRoom::Construct()
 {
-    data = this;
-    priority = 0;
-    next = this;
-    prev = this;
-    vtable = kLobbyListVtable;
-    m_unknown68 = false;
-    m_unknown6A = false;
-    m_unknown69 = false;
+    m_node.data = this;
+    m_node.priority = 0;
+    m_node.next = &m_node;
+    m_node.prev = &m_node;
+    m_node.vtable = kLobbyListVtable;
+    m_full = false;
+    m_neversoft = false;
+    m_outOfRange = false;
     return this;
 }
 
 // 0x00541870
 LobbyMan* LobbyMan::Construct()
 {
-    m_lobbies.data = reinterpret_cast<void*>(-1);
-    m_lobbies.priority = 0;
-    m_lobbies.next = &m_lobbies;
-    m_lobbies.prev = &m_lobbies;
-    m_lobbies.vtable = kLobbyListVtable;
+    m_rooms.data = reinterpret_cast<void*>(-1);
+    m_rooms.priority = 0;
+    m_rooms.next = &m_rooms;
+    m_rooms.prev = &m_rooms;
+    m_rooms.vtable = kLobbyListVtable;
     m_players.data = reinterpret_cast<void*>(-1);
     m_players.priority = 0;
     m_players.next = &m_players;
     m_players.prev = &m_players;
     m_players.vtable = kPlayerListVtable;
-    m_pending = 0;
-    m_inLobby = false;
-    m_unknown136 = true;
+    m_negotiations = 0;
+    m_inGroupRoom = false;
+    m_expectingDisconnect = true;
     m_peer = nullptr;
-    m_unknown137 = false;
-    m_tasks[0] = NewTask(this, 0x00540040);
-    m_tasks[1] = NewTask(this, 0x005400B0);
-    m_tasks[2] = NewTask(this, 0x005400E0);
+    m_lostConnection = false;
+    m_thinkTask = NewTask(this, 0x00540040);
+    m_natTask = NewTask(this, 0x005400B0);
+    m_hostingTask = NewTask(this, 0x005400E0);
     // The server-browsing keys (GameSpy's qr2 key registration).
     Sdk(0x005FF660, 0x33, "numobservers");
     Sdk(0x005FF660, 0x34, "maxobservers");
@@ -266,10 +266,10 @@ void LobbyMan::InitPeer()
     callbacks[0x6C / 4] = 0x0053FDA0;
     callbacks[0x70 / 4] = reinterpret_cast<uint32_t>(this); // (their parameter)
     m_peer = Sdk<void*>(0x005FCE60, callbacks); // (the peer made)
-    m_inLobby = false;
-    m_unknown136 = true;
-    m_unknown139 = false;
-    m_unknown135 = false;
+    m_inGroupRoom = false;
+    m_expectingDisconnect = true;
+    m_hosting = false;
+    m_restrictedHosting = false;
     Memory()->PopContext();
 }
 
@@ -292,7 +292,7 @@ void LobbyMan::ClearLobbies()
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
     if (m_peer)
         Sdk(0x005FCA40, m_peer); // (the group list stopped)
-    DeleteAll(&m_lobbies);
+    DeleteAll(&m_rooms);
     Memory()->PopContext();
 }
 
@@ -302,8 +302,8 @@ void LobbyMan::FillLobbyList()
     Run(kDialogBoxExit);
     Run(kCreateLobbyListMenu);
     int index = 0;
-    for (Mem::ListNode* node = FirstNode(&m_lobbies); node; node = NextNode(node)) {
-        auto* lobby = static_cast<LobbyInfo*>(node->data);
+    for (Mem::ListNode* node = FirstNode(&m_rooms); node; node = NextNode(node)) {
+        auto* lobby = static_cast<LobbyRoom*>(node->data);
         if (!lobby)
             break;
         Call(0x00540FB0, this, lobby, index); // (its menu item)
@@ -312,10 +312,10 @@ void LobbyMan::FillLobbyList()
 }
 
 // 0x00542970
-LobbyInfo* LobbyMan::GetLobby(int index)
+LobbyRoom* LobbyMan::GetLobby(int index)
 {
-    for (Mem::ListNode* node = FirstNode(&m_lobbies); node; node = NextNode(node)) {
-        auto* lobby = static_cast<LobbyInfo*>(node->data);
+    for (Mem::ListNode* node = FirstNode(&m_rooms); node; node = NextNode(node)) {
+        auto* lobby = static_cast<LobbyRoom*>(node->data);
         if (!lobby)
             return nullptr;
         if (index == 0)
@@ -355,7 +355,7 @@ void LobbyMan::FillProspectiveBuddyList()
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
-        int profile = player->m_profileId;
+        int profile = player->m_profile;
         if (profile != Field<int>(manager->m_buddyMan, 0x04) && profile > 0 && // (0x005480C0: our own profile)
             !Call<bool>(0x00549CB0, manager->m_buddyMan, profile))           // (a buddy already)
             Call(0x00540900, this, player);                                 // (a prospective buddy)
@@ -378,7 +378,7 @@ void __cdecl LobbyMan::PlayerJoinedCallback(void* peer, int roomType, const char
     (void)roomType;
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
     if (LobbyPlayer* known = FindPlayer(lobby, nick)) {
-        Sdk(0x005FCBA0, peer, nick, 0, &known->m_profileId);
+        Sdk(0x005FCBA0, peer, nick, 0, &known->m_profile);
         Memory()->PopContext();
         known->m_listed = true;
         return;
@@ -403,8 +403,8 @@ void __cdecl LobbyMan::PlayerInfoCallback(void* peer, int roomType, const char* 
     LobbyPlayer* player = FindPlayer(lobby, nick);
     if (!player)
         return;
-    if (player->m_profileId == 0)
-        player->m_profileId = profileId;
+    if (player->m_profile == 0)
+        player->m_profile = profileId;
     player->m_listed = true;
     Call(0x005411E0, lobby, player); // (its menu item)
     Run(kUpdatePlayerList);
@@ -421,7 +421,7 @@ void __cdecl LobbyMan::PlayerLeftCallback(void* peer, int roomType, const char* 
         Script::CStruct* params = NewParams();
         params->AddChecksum(kUserId, Crc::GenerateCRCFromString(nick));
         Run(kDestroyUser, params);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(player->vtable[0])(player, 1);
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(player->m_node.vtable[0])(player, 1);
         DeleteParams(params);
         Run(kUpdatePlayerList);
     }
@@ -491,12 +491,12 @@ void __cdecl LobbyMan::JoinRoomCallback(void* peer, int success, int result, int
     }
     Run(kDialogBoxExit);
     Run(kCreateSelectGamesMenu);
-    lobby->m_inLobby = true;
+    lobby->m_inGroupRoom = true;
     lobby->RequestPlayerList();
     if (!Field<bool>(manager->m_buddyMan, 0x10)) // (0x005480B0: logged in to GameSpy presence)
         return;
     // Our status: chatting in the lobby (0x00548320).
-    Call(0x00548320, manager->m_buddyMan, 4, Script::GetString("homie_status_chatting"), lobby->m_lobbyName);
+    Call(0x00548320, manager->m_buddyMan, 4, Script::GetString("homie_status_chatting"), lobby->m_roomName);
     // Our room key b_rating: the stats' rating (0x0054CA80 of the stats manager, read through its pointer).
     char key[64];
     char value[64];
@@ -532,17 +532,17 @@ bool __cdecl CFunc_LobbyDisconnect(Script::CStruct* params, Script::CScript* scr
     Manager* manager = TheManager();
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
     LobbyMan* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan);
-    while (lobby->m_pending) { // (counted down one at a time, as the original - a negative count takes long)
-        --lobby->m_pending;
+    while (lobby->m_negotiations) { // (counted down one at a time, as the original - a negative count takes long)
+        --lobby->m_negotiations;
         lobby = static_cast<LobbyMan*>(manager->m_lobbyMan);
     }
     static_cast<LobbyMan*>(manager->m_lobbyMan)->ClearLobbies();
     static_cast<LobbyMan*>(manager->m_lobbyMan)->ClearPlayers();
-    static_cast<Tsk::BaseTask*>(static_cast<LobbyMan*>(manager->m_lobbyMan)->m_tasks[0])->Remove();
-    static_cast<Tsk::BaseTask*>(static_cast<LobbyMan*>(manager->m_lobbyMan)->m_tasks[1])->Remove();
+    static_cast<Tsk::BaseTask*>(static_cast<LobbyMan*>(manager->m_lobbyMan)->m_thinkTask)->Remove();
+    static_cast<Tsk::BaseTask*>(static_cast<LobbyMan*>(manager->m_lobbyMan)->m_natTask)->Remove();
     lobby = static_cast<LobbyMan*>(manager->m_lobbyMan);
-    lobby->m_inLobby = false;
-    lobby->m_unknown136 = true;
+    lobby->m_inGroupRoom = false;
+    lobby->m_expectingDisconnect = true;
     if (lobby->m_peer) {
         Sdk(0x005FCCA0, lobby->m_peer); // (the room left)
         Sdk(0x005FC7B0, lobby->m_peer); // (disconnected)
@@ -598,12 +598,12 @@ bool __cdecl CFunc_ChooseLobby(Script::CStruct* params, Script::CScript* script)
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
     params->GetInteger(kIndex, &index, 0);
     LobbyMan* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan);
-    LobbyInfo* chosen = lobby->GetLobby(index);
+    LobbyRoom* chosen = lobby->GetLobby(index);
     lobby->m_groupId = chosen->m_groupId;
-    lobby->m_unknown30 = chosen->m_unknown58;
-    lobby->m_unknown2C = chosen->m_unknown5C;
-    std::strcpy(lobby->m_lobbyName, chosen->m_name);
-    lobby->m_unknown135 = chosen->m_unknown6A;
+    lobby->m_unknown30 = chosen->m_numPlayers;
+    lobby->m_unknown2C = chosen->m_maxPlayers;
+    std::strcpy(lobby->m_roomName, chosen->m_name);
+    lobby->m_restrictedHosting = chosen->m_neversoft;
     Sdk(0x005FD220, lobby->m_peer, lobby->m_groupId, &LobbyMan::JoinRoomCallback, lobby, 0);
     lobby->ClearLobbies();
     Memory()->PopContext();
@@ -641,7 +641,7 @@ bool __cdecl CFunc_LobbyConnect(Script::CStruct* params, Script::CScript* script
                                  manager->m_lobbyMan, CREATE_SUSPENDED, &threadId);
     manager->SetLobbyId(threadId);
     ResumeThread(thread);
-    logic->AddTask(static_cast<Tsk::BaseTask*>(static_cast<LobbyMan*>(manager->m_lobbyMan)->m_tasks[0]));
+    logic->AddTask(static_cast<Tsk::BaseTask*>(static_cast<LobbyMan*>(manager->m_lobbyMan)->m_thinkTask));
     Memory()->PopContext();
     return true;
 }
@@ -649,7 +649,7 @@ bool __cdecl CFunc_LobbyConnect(Script::CStruct* params, Script::CScript* script
 } // namespace GameNet
 
 using GameNet::LobbyMan;
-REPLACE(0x00545860, &GameNet::LobbyInfo::Construct);
+REPLACE(0x00545860, &GameNet::LobbyRoom::Construct);
 REPLACE(0x00541870, &LobbyMan::Construct);
 REPLACE(0x00541AC0, &LobbyMan::Destroy);
 REPLACE(0x00542DF0, &LobbyMan::InitPeer);

@@ -1,429 +1,479 @@
-// Self-tests for the GameSpy lobby (src/game/net/lobby.cpp): the original and ours run on the same stand-in arena
-// (gamenet_testkit.h), the GameSpy SDK and everything else they call stood in for by recording code (callbacks handed
-// to the SDK recorded by their game address); the calls, the results and the arena are compared. Nothing goes online.
+// Self-tests for the GameSpy lobby's connection, hosting and NAT negotiation (src/game/net/gamenet_lobby_peer.cpp)
+// and its script commands (gamenet_lobby_cfuncs.cpp): the original and ours on the same stand-in arena
+// (net2_testkit.h); the peer / NAT negotiation SDKs, the game's C runtime malloc / free and inet_addr stood in for by
+// recording code; the calls, the packet queue and the arenas compared.
 
-#include <windows.h>
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#include <winsock2.h>
 
+#include <cstdarg>
 #include <cstdint>
-#include <cstdlib>
+#include <cstdio>
 #include <cstring>
-#include <map>
-#include <vector>
 
-#include "game/core/task.h"
+#include "game/core/crc.h"
+#include "game/core/dbg.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
-#include "game/net/lobby.h"
-#include "game/net/online_identity.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "hook/gamenet_testkit.h"
+#include "game/net/net_manager.h"
 #include "hook/log.h"
+#include "hook/net2_testkit.h"
+
+#pragma warning(disable : 4996) // (strcpy into the stand-in texts)
 
 namespace {
 
-using namespace GameNetKit;
-using GameNet::LobbyInfo;
+using namespace Net2Kit;
 using GameNet::LobbyMan;
-using GameNet::LobbyPlayer;
+using GameNet::Manager;
 
-constexpr uint32_t kLobby = 0x14000;    // the LobbyMan (0x154)
-constexpr uint32_t kBuddies = 0x14400;  // the buddy list: +0x04 our profile, +0x10 logged in
-constexpr uint32_t kStats = 0x14500;    // the stats manager (its 0x0054CA80 answer at +0x10)
-constexpr uint32_t kLobbies = 0x14600;  // LobbyInfo, 0x80 apart (4)
-constexpr uint32_t kScript = 0x14900;   // a script: +0x14 its parameters (kScript + 0x40)
-constexpr uint32_t kText = 0x14A00;     // strings handed in (nicks, keys), 0x20 apart
-constexpr uint32_t kTasks = 0x14E00;    // (task stand-ins)
+bool g_inNetGame;
+bool g_connected;     // the peer SDK's 0x00603360
+int g_reportResult;   // 0x005FCC70's
+int g_natError;       // 0x005FC090's
+uint32_t g_clock;
 
-std::map<uint32_t, uint32_t> g_ours; // our callbacks -> their game addresses
-uint32_t g_profile;
-int g_failAllocations;
-int g_index;
-uint32_t g_isBuddy;
+constexpr uint32_t kLobby = kFree + 0x1000;
+constexpr uint32_t kBuddy = kFree + 0x1200;
+constexpr uint32_t kConns = kFree + 0x400;
+constexpr uint32_t kTexts = kFree + 0x1800;
+constexpr uint32_t kNet = kFree + 0x1A00;   // Net::Manager (its +0x144 the local address)
+constexpr uint32_t kTask = kFree + 0x1300;  // a task (+0x1C the lobby)
+constexpr uint32_t kServerApp = 0x30000; // (Net::App: its socket at +0x1428)
+constexpr uint32_t kClientApp = 0x32000;
+constexpr uint32_t kQueueAddress = 0x007CCE50;
+constexpr uint32_t kQueueSize = 199 * 0x1C;
 
-const char* TextAt(int i) { return &Word<char>(kText + 0x20 * static_cast<uint32_t>(i)); }
-char* SetText(int i, const char* text)
+uint32_t ConnAt(int i) { return kConns + 0x80 * static_cast<uint32_t>(i); }
+
+// The queue (a global): each entry's type, length, data (text), sender.
+void RecordQueue()
 {
-    char* at = &Word<char>(kText + 0x20 * static_cast<uint32_t>(i));
-    std::memcpy(at, text, std::strlen(text) + 1);
-    return at;
+    int count = GameVariable<int>(0x007CE438);
+    Rec(0xE438, {static_cast<uint32_t>(count)});
+    for (int i = 0; i < count && i < 199; ++i) {
+        const auto& packet = GameVariable<GameNet::QueuedPacket>(kQueueAddress + 0x1C * static_cast<uint32_t>(i));
+        Rec(0xE439, {static_cast<uint32_t>(packet.type), static_cast<uint32_t>(packet.length),
+                     reinterpret_cast<uint32_t>(packet.data), HashBytes(reinterpret_cast<const uint8_t*>(packet.data),
+                                                                        static_cast<size_t>(packet.length) + 1),
+                     HashBytes(packet.from, 16)});
+    }
 }
-uint32_t Code(uint32_t address)
-{
-    auto it = g_ours.find(address);
-    return it == g_ours.end() ? Rel(address) : it->second;
-}
-uint32_t Text(uint32_t text) { return text ? Hash(reinterpret_cast<const char*>(text)) : 0xDEAD0000u; }
-LobbyMan* Lobby() { return &Word<LobbyMan>(kLobby); }
 
 void Install(StandIns& s)
 {
-    InstallCommon(s);
-    g_ours = {{AddressOf(&LobbyMan::PlayerJoinedCallback), 0x00541D50},
-              {AddressOf(&LobbyMan::PlayerLeftCallback), 0x005420C0},
-              {AddressOf(&LobbyMan::PlayerInfoCallback), 0x00541FD0},
-              {AddressOf(&LobbyMan::NewPlayerListCallback), 0x00542B70},
-              {AddressOf(&LobbyMan::RoomKeyChangedCallback), 0x00542650},
-              {AddressOf(&LobbyMan::RoomKeysCallback), 0x00542330},
-              {AddressOf(&LobbyMan::EnumPlayersCallback), 0x005424F0},
-              {AddressOf(&LobbyMan::JoinRoomCallback), 0x00542B80}};
-    // (and the function pointers as the code takes them: maybe an incremental-linking jump)
-    const std::pair<uint32_t, uint32_t> raw[] = {
-        {reinterpret_cast<uint32_t>(&LobbyMan::PlayerJoinedCallback), 0x00541D50},
-        {reinterpret_cast<uint32_t>(&LobbyMan::PlayerLeftCallback), 0x005420C0},
-        {reinterpret_cast<uint32_t>(&LobbyMan::PlayerInfoCallback), 0x00541FD0},
-        {reinterpret_cast<uint32_t>(&LobbyMan::NewPlayerListCallback), 0x00542B70},
-        {reinterpret_cast<uint32_t>(&LobbyMan::RoomKeyChangedCallback), 0x00542650},
-        {reinterpret_cast<uint32_t>(&LobbyMan::RoomKeysCallback), 0x00542330},
-        {reinterpret_cast<uint32_t>(&LobbyMan::EnumPlayersCallback), 0x005424F0},
-        {reinterpret_cast<uint32_t>(&LobbyMan::JoinRoomCallback), 0x00542B80}};
-    for (const auto& entry : raw)
-        g_ours[entry.first] = entry.second;
-    s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
-        Rec(0xAFC0, {r.args[0], r.args[1] & 0xFF, r.args[2]});
-        if (g_failAllocations > 0) {
-            --g_failAllocations;
-            return 0u;
-        }
+    AddAlias(&LobbyMan::QueuePacket, 0x0053F6C0);
+    AddAlias(&LobbyMan::NatNegotiationCompleted, 0x00540300);
+    AddAlias(&LobbyMan::NickErrorCallback, 0x0053FEE0);
+    AddAlias(&LobbyMan::ConnectCallback, 0x0053FFC0);
+    StubCdecl(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0xE970, 0, [](Regs&) { return g_clock += 7; });
+    Stub(s, {0x0044E4F0, AddressOf(&Manager::InNetGame)}, 0, 0xE4F0, [](Regs&) { return g_inNetGame ? 1u : 0u; });
+    // The debug output: the message as printed.
+    s.At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
+        char text[512];
+        std::vsnprintf(text, sizeof(text), reinterpret_cast<const char*>(r.args[0]),
+                       reinterpret_cast<va_list>(&r.args[1]));
+        Rec(0x1C30, {Hash(text)});
+        return 0u;
+    });
+    // The game's C runtime.
+    StubCdecl(s, {0x00624031}, 0x4031, 1, [](Regs& r) {
         uint32_t block = At(g_heapNext);
         g_heapNext += (r.args[0] + 15) & ~15u;
         std::memset(reinterpret_cast<void*>(block), 0xCD, r.args[0]);
         return block;
     });
-    // The C runtime the original calls (not started offline).
-    s.At({0x00626EFB}, 0, [](Regs& r) {
-        return static_cast<uint32_t>(_stricmp(reinterpret_cast<const char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1])));
+    StubCdecl(s, {0x0062411B}, 0x411B, 1);
+    s.At({0x005BEAAE}, 4, [](Regs& r) { return static_cast<uint32_t>(inet_addr(reinterpret_cast<const char*>(r.args[0]))); });
+    // The SDKs.
+    auto sdk = [&s](uint32_t address, int args, std::function<uint32_t(Regs&)> answer = nullptr) {
+        s.At({address}, 0, [address, args, answer](Regs& r) {
+            g_trace.push_back(address);
+            for (int i = 0; i < args; ++i)
+                g_trace.push_back(Rel(Aliased(r.args[i])));
+            return answer ? answer(r) : 0u;
+        });
+    };
+    sdk(0x005FA010, 1, [](Regs& r) {
+        Rec(0xA011, {Str(r.args[1])});
+        return 0u;
     });
-    s.At({0x00624E52}, 0, [](Regs& r) { return static_cast<uint32_t>(std::atol(reinterpret_cast<const char*>(r.args[0]))); });
-    // Script structures by name.
-    s.At({0x00477A90, AddressOf(static_cast<void (Script::CStruct::*)(const char*, const char*)>(&Script::CStruct::AddString))},
-         8, [](Regs& r) {
-             Rec(0x7A90, {r.ecx, Text(r.args[0]), Text(r.args[1])});
-             return 0u;
-         });
-    s.At({0x00477DF0, AddressOf(static_cast<void (Script::CStruct::*)(const char*, uint32_t)>(&Script::CStruct::AddChecksum))},
-         8, [](Regs& r) {
-             Rec(0x7DF0, {r.ecx, Text(r.args[0]), r.args[1]});
-             return 0u;
-         });
-    s.At({0x00476630, AddressOf(static_cast<bool (Script::CStruct::*)(uint32_t, int*, int)>(&Script::CStruct::GetInteger))},
-         12, [](Regs& r) {
-             Rec(0x6630, {r.ecx, r.args[0], r.args[2]});
-             *reinterpret_cast<int*>(r.args[1]) = g_index;
-             return 1u;
-         });
+    sdk(0x005FB350, 2);
+    sdk(0x00603360, 1, [](Regs&) { return g_connected ? 1u : 0u; });
+    sdk(0x005FD1F0, 1);
+    sdk(0x005FC660, 0);
+    sdk(0x005FC970, 4, [](Regs& r) {
+        Rec(0xC971, {Hash(reinterpret_cast<const char*>(r.args[1])), HashBytes(reinterpret_cast<const uint8_t*>(r.args[3]), 16)});
+        return 0u;
+    });
+    sdk(0x005FC3B0, 3, [](Regs& r) {
+        Rec(0xC3B1, {Hash(reinterpret_cast<const char*>(r.args[0])), HashBytes(reinterpret_cast<const uint8_t*>(r.args[2]), 16)});
+        return 0u;
+    });
+    sdk(0x005FCC70, 3, [](Regs&) { return static_cast<uint32_t>(g_reportResult); });
+    sdk(0x005FCCF0, 1);
+    sdk(0x005FC130, 1);
+    sdk(0x005FBCD0, 0);
+    sdk(0x005FC090, 6, [](Regs&) { return static_cast<uint32_t>(g_natError); });
+    sdk(0x005FC9A0, 4);
+    sdk(0x005FD380, 2, [](Regs& r) {
+        Rec(0xD381, {r.args[2]});
+        return 0u;
+    });
+    sdk(0x005FC9B0, 2);
+    sdk(0x005FC960, 2);
+    sdk(0x005FD130, 1);
+    sdk(0x005FC950, 1, [](Regs&) { return 0x0102A8C0u; });
+    sdk(0x005FC940, 1, [](Regs&) { return 0x0302A8C0u; });
+    s.At({0x005FC6F0}, 0, [](Regs& r) {
+        Rec(0xC6F0, {Rel(r.args[0]), Hash(reinterpret_cast<const char*>(r.args[1]))});
+        return 0u;
+    });
+    s.At({0x005FD9F0}, 0, [](Regs& r) { // the nick made valid: "fixed-<nick>"
+        Rec(0xD9F0, {Hash(reinterpret_cast<const char*>(r.args[1]))});
+        std::snprintf(reinterpret_cast<char*>(r.args[0]), 64, "fixed-%s", reinterpret_cast<const char*>(r.args[1]));
+        return 0u;
+    });
+    s.At({0x005FD580}, 0, [](Regs& r) {
+        Rec(0xD580, {Rel(r.args[0]), Hash(reinterpret_cast<const char*>(r.args[1])), r.args[2], Aliased(r.args[3]),
+                     Aliased(r.args[4]), Rel(r.args[5]), r.args[6]});
+        return 0u;
+    });
+    StubCdecl(s, {0x005A1130}, 0x1130, 2);
+    // The manager's and the presence's calls.
+    Stub(s, {0x00534480, AddressOf(&Manager::JoinServer)}, 12, 0x4480);
+    Stub(s, {0x00537220, AddressOf(&Manager::SpawnClient)}, 16, 0x7220, [](Regs&) { return At(kClientApp); });
+    s.At({0x00548320}, 12, [](Regs& r) { // the presence's status (texts by their contents)
+        Rec(0x8320, {r.ecx, r.args[0], Str(r.args[1]), Str(r.args[2])});
+        return 0u;
+    });
     s.At({0x00478FD0, AddressOf(static_cast<const char* (*)(uint32_t)>(&Script::GetString))}, 0, [](Regs& r) {
         Rec(0x8FD0, {r.args[0]});
-        char* text = &Word<char>(kMisc + 0xE40);
+        char* text = &Word<char>(kTexts + 0x100 + (r.args[0] & 0x1E0));
         std::snprintf(text, 32, "<%08X>", r.args[0]);
         return reinterpret_cast<uint32_t>(text);
     });
-    // The lobby's other code (not in this file).
-    Stub(s, {0x005411E0}, 4, 0x11E0);
-    Stub(s, {0x00540900}, 4, 0x0900);
-    Stub(s, {0x00540FB0}, 8, 0x0FB0);
-    Stub(s, {0x00540860}, 0, 0x0860);
-    Stub(s, {0x00540750}, 0, 0x0750);
-    Stub(s, {0x00549CB0}, 4, 0x9CB0, [](Regs& r) { return (g_isBuddy >> (r.args[0] & 31)) & 1; });
-    Stub(s, {0x005453E0}, 4, 0x53E0);
-    Stub(s, {0x00548320}, 12, 0x8320, [](Regs& r) {
-        Rec(0x8321, {Text(r.args[1]), Text(r.args[2])});
-        return 0u;
+    s.At({0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, [](Regs& r) {
+        Rec(0xC4A0, {r.ecx, r.args[0]});
+        return At(kStructs);
     });
-    Stub(s, {0x0054CA80}, 0, 0xCA80, [](Regs&) { return At(kStats + 0x10); });
-    Stub(s, {0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, 0x6890, [](Regs& r) { return r.ecx; });
-    Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);
-    Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
-    StubCdecl(s, {0x0053F520}, 0xF520, 1, [](Regs&) { return At(kManager); });
-    StubCdecl(s, {0x005395C0}, 0x95C0, 0);
-    // The GameSpy SDK.
-    StubCdecl(s, {0x005FF660}, 0xF660, 1, [](Regs& r) {
-        Rec(0xF661, {Text(r.args[1])});
-        return 0u;
-    });
-    s.At({0x005FCBA0}, 0, [](Regs& r) {
-        Rec(0xCBA0, {r.args[0], Text(r.args[1]), r.args[2], r.args[3]});
-        *reinterpret_cast<uint32_t*>(r.args[3]) = ++g_profile;
-        return 1u;
-    });
-    s.At({0x005FCE60}, 0, [](Regs& r) {
-        const uint32_t* callbacks = reinterpret_cast<const uint32_t*>(r.args[0]);
-        g_trace.push_back(0xCE60);
-        for (int i = 0; i < 0x1D; ++i)
-            g_trace.push_back(Code(callbacks[i]));
-        return At(kMisc + 0xA00); // the peer
-    });
-    StubCdecl(s, {0x005FD3E0}, 0xD3E0, 1, [](Regs& r) {
-        Rec(0xD3E1, {Text(r.args[1]), Code(r.args[2]), r.args[3], r.args[4]});
-        return 0u;
-    });
-    StubCdecl(s, {0x005FCA40}, 0xCA40, 1);
-    StubCdecl(s, {0x005FCB10}, 0xCB10, 2, [](Regs& r) {
-        Rec(0xCB11, {Code(r.args[2]), r.args[3]});
-        return 0u;
-    });
-    StubCdecl(s, {0x005FCCA0}, 0xCCA0, 1);
-    StubCdecl(s, {0x005FC7B0}, 0xC7B0, 1);
-    StubCdecl(s, {0x005FD670}, 0xD670, 1);
-    StubCdecl(s, {0x005FD220}, 0xD220, 2, [](Regs& r) {
-        Rec(0xD221, {Code(r.args[2]), r.args[3], r.args[4]});
-        return 0u;
-    });
-    StubCdecl(s, {0x005FC920}, 0xC920, 1, [](Regs&) { return reinterpret_cast<uint32_t>(SetText(7, "OurNick")); });
-    StubCdecl(s, {0x005FCDF0}, 0xCDF0, 2, [](Regs& r) {
-        char** keys = reinterpret_cast<char**>(r.args[4]);
-        char** values = reinterpret_cast<char**>(r.args[5]);
-        Rec(0xCDF1, {Text(r.args[2]), r.args[3], Text(reinterpret_cast<uint32_t>(keys[0])), Text(reinterpret_cast<uint32_t>(values[0]))});
-        return 0u;
-    });
-    StubCdecl(s, {0x005FD4A0}, 0xD4A0, 2, [](Regs& r) {
-        char** keys = reinterpret_cast<char**>(r.args[4]);
-        Rec(0xD4A1, {Text(r.args[2]), r.args[3], Text(reinterpret_cast<uint32_t>(keys[0])), Code(r.args[5]), r.args[6], r.args[7]});
-        return 0u;
-    });
-    StubCdecl(s, {0x005FCF30}, 0xCF30, 1, [](Regs& r) {
-        // (the game name: the original's own text or the configured one)
-        auto name = [](uint32_t text) {
-            const char* p = reinterpret_cast<const char*>(text);
-            return static_cast<uint32_t>(std::strcmp(p, "thps6pc") == 0 || std::strcmp(p, Net::GameName()) == 0);
-        };
-        const uint32_t* pings = reinterpret_cast<const uint32_t*>(r.args[8]);
-        const uint32_t* crossPings = reinterpret_cast<const uint32_t*>(r.args[9]);
-        Rec(0xCF31, {name(r.args[1]), Text(r.args[2]), name(r.args[3]), Text(r.args[4]), r.args[5], r.args[6], r.args[7],
-                     pings[0], pings[1], pings[2], crossPings[0], crossPings[1], crossPings[2]});
-        return 1u;
-    });
-    StandInApi(s, 0x006450C8, reinterpret_cast<const void*>(&CreateThread), 24, [](Regs& r) {
-        Rec(0x7EAD, {r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
-        *reinterpret_cast<DWORD*>(r.args[5]) = 0x1234;
-        return 0x5678u;
-    });
-    StandInApi(s, 0x006450E0, reinterpret_cast<const void*>(&ResumeThread), 4, [](Regs& r) {
-        Rec(0x8E5E, {r.args[0]});
-        return 0u;
+    s.At({0x0046C510, AddressOf(&Prefs::Preferences::GetPreferenceString)}, 8, [](Regs& r) {
+        Rec(0xC510, {r.ecx, r.args[0], r.args[1]});
+        return At(kTexts + 0x40);
     });
 }
 
-using Scenario = void (*)(bool original);
-
-void RunCase(const char* what, Scenario scenario)
+void Prepare()
 {
-    auto run = [&](bool original) {
-        SetUpArena(original ? 0 : 1);
-        g_answers.clear();
-        g_profile = 100;
-        g_failAllocations = 0;
-        g_index = 0;
-        g_isBuddy = 0;
-        Word<uint32_t>(kManager + 0x10) = At(kLobby);
-        Word<uint32_t>(kManager + 0x18) = At(kBuddies);
-        Word<uint32_t>(kManager + 0x1C) = At(kStats);
-        Word<int>(kBuddies + 0x04) = 103;
-        Word<uint8_t>(kBuddies + 0x10) = 1;
-        Word<int>(kStats + 0x10) = 1750;
-        Word<uint32_t>(kScript + 0x14) = At(kScript + 0x40);
-        for (uint32_t i = 0x800; i < 0xDF0; i += 4)
-            Word<uint32_t>(kMisc + i) = 0x6D000000u + i; // the memory manager's fields told apart
-        std::memset(Lobby(), 0xEE, sizeof(LobbyMan));
-        for (uint32_t i = 0; i < 0x154; i += 4)
-            Word<uint32_t>(kLobby + i) = 0x4C000000u + i;
-        for (uint32_t i = 0; i < 4; ++i)
-            Word<uint32_t>(kTasks + 0x40 * i) = 0x7A5C0000u + i;
-        GameVariable<uint32_t>(0x00696D68) = At(kMisc + 0x400);
-        GameVariable<uint32_t>(0x007CE430) = 0x11111111;
-        GameVariable<uint16_t>(0x007CCE38) = 0x2222;
-        StandIns* s = new StandIns;
-        Install(*s);
-        scenario(original);
-        Rec(0xC10B, {GameVariable<uint32_t>(0x007CE430), GameVariable<uint16_t>(0x007CCE38)});
-        delete s;
-        return Finish();
-    };
-    std::vector<uint32_t> expected = run(true);
-    std::vector<uint32_t> actual = run(false);
-    Compare(expected, actual, what);
-    for (size_t i = 0; i < expected.size() && i < actual.size(); ++i) {
-        if (expected[i] == actual[i])
-            continue;
-        for (size_t j = i > 24 ? i - 24 : 0; j < i + 4 && j < expected.size() && j < actual.size(); ++j)
-            Log("    [%u] %08X %08X", static_cast<unsigned>(j), expected[j], actual[j]);
-        break;
+    g_inNetGame = true;
+    g_connected = true;
+    g_reportResult = 1;
+    g_natError = 0;
+    g_clock = 0x10000;
+    std::strcpy(&Word<char>(kTexts + 0x40), "Skater1");
+    ArenaStruct(kStructs).String(Crc::GenerateCRCFromString("ui_string"), "Host Name");
+    Word<uint8_t>(kManager) = 1;
+    Word<uint32_t>(kManager + 0x04) = At(kServerApp);
+    Word<uint32_t>(kManager + 0x08) = At(kClientApp);
+    Word<uint32_t>(kManager + 0x10) = At(kLobby);
+    Word<uint32_t>(kManager + 0x18) = At(kBuddy);
+    Word<uint32_t>(kServerApp + offsetof(Net::App, m_socket)) = 0x50C0;
+    Word<uint32_t>(kClientApp + offsetof(Net::App, m_socket)) = 0x50C1;
+    Word<uint8_t>(kBuddy + 0x10) = 1;
+    Word<uint32_t>(kBuddy + 4) = 0x01A766CC;
+    Word<uint32_t>(kLobby + 0x140) = At(kLobby + 0x180); // the peer
+    std::strcpy(&Word<char>(kLobby + 0x34), "Room");
+    Word<uint32_t>(kLobby + 0x28) = 0x28;
+    Word<uint32_t>(kLobby + 0x148) = At(kMisc + 0x480);
+    Word<uint32_t>(kLobby + 0x14C) = At(kMisc + 0x4A0);
+    Word<uint32_t>(kLobby + 0x150) = At(kMisc + 0x4C0);
+    Word<uint32_t>(kTask + 0x1C) = At(kLobby);
+    Word<uint32_t>(kMisc + 0x800 + 0x13C) = 0xBEE0013Cu;
+    Word<uint32_t>(kMisc + 0x800 + 0x140) = 0xBEE00140u;
+    GameVariable<uint32_t>(0x006EFDD8) = At(kNet);
+    for (int i = 0; i < 8; ++i)
+        PlayerFlags(i) = 0;
+    SetPlayers({0, 1, 2});
+    SetNewPlayers({});
+    GameVariable<int>(0x007CE438) = 0;
+    GameVariable<uint8_t>(0x007CCE48) = 0;
+    GameVariable<uint8_t>(0x007CCE3A) = 0;
+    GameVariable<uint32_t>(0x007CCE40) = 0;
+    GameVariable<uint32_t>(0x007CCE44) = 0;
+    GameVariable<uint32_t>(0x007CCE3C) = 0;
+    GameVariable<uint32_t>(0x007CE434) = 0x8000;
+}
+
+LobbyMan* TheLobby() { return &Word<LobbyMan>(kLobby); }
+void* ThePeer() { return &Word<uint8_t>(kLobby + 0x180); }
+
+void Callbacks(bool original)
+{
+    Prepare();
+    using DiscFn = void(__cdecl*)(void*, const char*, void*);
+    for (int variant = 0; variant < 3; ++variant) {
+        Word<uint8_t>(kLobby + 0x138) = variant == 0;
+        Word<uint8_t>(kLobby + 0x136) = variant == 2;
+        original ? Original<DiscFn>(0x0053F570)(ThePeer(), "a reason", TheLobby())
+                 : LobbyMan::DisconnectedCallback(ThePeer(), "a reason", TheLobby());
+        Rec(0xF570, {Word<uint8_t>(kLobby + 0x136), Word<uint8_t>(kLobby + 0x138)});
+    }
+    using NickFn = void(__cdecl*)(void*, int, const char*, int, const char**, void*);
+    for (int type : {0, 1, 2})
+        original ? Original<NickFn>(0x0053FEE0)(ThePeer(), type, "Taken", 0, nullptr, TheLobby())
+                 : LobbyMan::NickErrorCallback(ThePeer(), type, "Taken", 0, nullptr, TheLobby());
+    using ConnFn = void(__cdecl*)(void*, int, int, void*);
+    for (int success : {1, 0}) {
+        Word<uint8_t>(kLobby + 0x138) = 1;
+        Word<uint8_t>(kLobby + 0x136) = 1;
+        original ? Original<ConnFn>(0x0053FFC0)(ThePeer(), success, 3, TheLobby())
+                 : LobbyMan::ConnectCallback(ThePeer(), success, 3, TheLobby());
+        Rec(0xFFC0, {Word<uint8_t>(kLobby + 0x136), Word<uint8_t>(kLobby + 0x138)});
+    }
+    // The hosted game's address: a client (nothing), no peer, logged out, logged in.
+    using HostFn = void(__cdecl*)(void*, uint32_t, uint16_t, void*);
+    for (int variant = 0; variant < 4; ++variant) {
+        Word<uint8_t>(kManager) = variant == 0 ? 0 : 1;
+        Word<uint32_t>(kLobby + 0x140) = variant == 1 ? 0 : At(kLobby + 0x180);
+        Word<uint8_t>(kBuddy + 0x10) = variant == 3;
+        uint16_t port = static_cast<uint16_t>(0x9000 + variant);
+        original ? Original<HostFn>(0x0053FDA0)(ThePeer(), 0x0A00000Au + variant, port, TheLobby())
+                 : LobbyMan::PublicAddressCallback(ThePeer(), 0x0A00000Au + variant, port, TheLobby());
     }
 }
 
-template <typename R, typename C, typename... P, typename... A>
-void CallRec(bool original, uint32_t address, R (C::*ours)(P...), void* object, A... args)
+void PlayerKeys(bool original)
 {
-    R result = original ? Original<R(__thiscall*)(void*, P...)>(address)(object, static_cast<P>(args)...)
-                        : (static_cast<C*>(object)->*ours)(static_cast<P>(args)...);
-    uint32_t word = 0;
-    std::memcpy(&word, &result, sizeof(result) < 4 ? sizeof(result) : 4);
-    Rec(0xCA11, {address, word});
+    Prepare();
+    SetPlayers({0, 1, 2, 3});
+    PlayerFlags(1) = 4;     // an observer: not counted
+    PlayerFlags(2) = 4 | 8; // an observer counted
+    Word<uint32_t>(PlayerAt(0) + 0x2C) = 1500;
+    Word<uint32_t>(PlayerAt(2) + 0x2C) = 1502;
+    Word<uint32_t>(PlayerAt(3) + 0x2C) = 1503;
+    std::strcpy(&Word<char>(kNewPlayers), "New0");
+    SetNewPlayers({{1, 0}, {2, 4}, {3, 0xC}, {4, 0x14}});
+    std::strcpy(&Word<char>(kNewPlayers + 0x44), "New1");
+    std::strcpy(&Word<char>(kNewPlayers + 0x88), "New2");
+    std::strcpy(&Word<char>(kNewPlayers + 0xCC), "New3");
+    for (int i = 0; i < 4; ++i)
+        Word<uint32_t>(kNewPlayers + 0x44 * static_cast<uint32_t>(i) + 0x30) = 1600u + static_cast<uint32_t>(i);
+    using Fn = void(__cdecl*)(void*, int, int, void*, void*);
+    void* buffer = &Word<uint8_t>(kFree + 0x1F00);
+    for (int key : {21, 57, 24, 22})
+        for (int index = -1; index <= 7; ++index) {
+            GameVariable<uint8_t>(0x007CCE48) = 0;
+            original ? Original<Fn>(0x0053FB80)(ThePeer(), key, index, buffer, nullptr)
+                     : LobbyMan::PlayerKeyCallback(ThePeer(), key, index, buffer, nullptr);
+            Rec(0xFB80, {GameVariable<uint8_t>(0x007CCE48)});
+        }
 }
-template <typename C, typename... P, typename... A>
-void CallVoid(bool original, uint32_t address, void (C::*ours)(P...), void* object, A... args)
+
+void Packets(bool original)
 {
-    if (original)
-        Original<void(__thiscall*)(void*, P...)>(address)(object, static_cast<P>(args)...);
-    else
-        (static_cast<C*>(object)->*ours)(static_cast<P>(args)...);
-    Rec(0xCA11, {address});
+    Prepare();
+    using Fn = void(__cdecl*)(char*, int, const void*);
+    uint8_t from[16] = {2, 0, 0x14, 0x21, 10, 0, 0, 1, 1, 2, 3, 4, 5, 6, 7, 8};
+    auto queue = [&](const char* bytes, int length) {
+        char data[32] = {};
+        std::memcpy(data, bytes, std::strlen(bytes));
+        original ? Original<Fn>(0x0053F6C0)(data, length, from) : LobbyMan::QueuePacket(data, length, from);
+        from[15]++;
+    };
+    queue("\xFE\xFD\x01query", 8);
+    queue("\xFE\x01\x01", 3); // not one
+    queue("\\status\\", 8);
+    queue("\xFD\xFC\x1E\x66\x6A\xB2nn", 8);
+    queue("\xFD\xFC\x1E\x66\x6A\xB2", 5); // too short (even with the magic's last byte after it)
+    queue("\xFD\xFC\x1E\x66\x6A\xB3", 6);
+    queue("hello", 5);
+    RecordQueue();
+    GameVariable<int>(0x007CE438) = 199;
+    queue("\\full\\", 6);
+    GameVariable<int>(0x007CE438) = 3;
+    // The query task hands them on and frees them; the server's reporting watched.
+    using TaskFn = void(__cdecl*)(void*);
+    GameVariable<GameNet::QueuedPacket>(kQueueAddress + 0x1C * 2).type = 5; // (neither kind: only freed)
+    struct Report {
+        bool reported, netGame;
+        uint8_t server;
+        uint32_t since, last;
+        bool shown;
+    };
+    const Report reports[] = {
+        {true, true, 1, 0, 0, false},           // reported
+        {false, false, 1, 0, 0, false},         // not a network game
+        {false, true, 0, 0, 0, false},          // a client
+        {false, true, 1, 0x10000, 0, false},    // 90 s not reported: the dialog
+        {false, true, 1, 0x10000, 0, true},     // ... once
+        {false, true, 1, 0x22007u - 85000u, 0, false}, // 85 s: a report
+        {false, true, 1, 0x21000, 0x10000, false}, // a report again (5 s on)
+        {false, true, 1, 0x21000, 0x21000, false}, // not yet
+    };
+    for (const Report& r : reports) {
+        g_clock = 0x22000;
+        GameVariable<uint8_t>(0x007CCE48) = r.reported;
+        g_inNetGame = r.netGame;
+        Word<uint8_t>(kManager) = r.server;
+        GameVariable<uint32_t>(0x007CCE44) = r.since == 0x10000 ? 0x22007u - 90001u : r.since;
+        GameVariable<uint32_t>(0x007CCE40) = r.last;
+        GameVariable<uint8_t>(0x007CCE3A) = r.shown;
+        original ? Original<TaskFn>(0x005400E0)(&Word<uint8_t>(kTask)) : LobbyMan::QueryTask(&Word<uint8_t>(kTask));
+        Rec(0x00E0, {GameVariable<uint8_t>(0x007CCE3A), GameVariable<uint32_t>(0x007CCE40)});
+        RecordQueue();
+    }
+    // The think and NAT negotiation tasks.
+    for (int variant = 0; variant < 3; ++variant) {
+        g_connected = variant != 1;
+        Word<uint8_t>(kLobby + 0x137) = variant == 2;
+        original ? Original<TaskFn>(0x00540040)(&Word<uint8_t>(kTask)) : LobbyMan::ThinkTask(&Word<uint8_t>(kTask));
+        Rec(0x0040, {Word<uint8_t>(kLobby + 0x137)});
+    }
+    original ? Original<TaskFn>(0x005400B0)(&Word<uint8_t>(kTask)) : LobbyMan::NatNegotiationTask(&Word<uint8_t>(kTask));
 }
-template <typename F, typename... A>
-void CallStatic(bool original, uint32_t address, F ours, A... args)
+
+void Hosting(bool original)
 {
-    original ? Original<F>(address)(args...) : ours(args...);
-    Rec(0xCA12, {address});
+    using Method = void(__thiscall*)(LobbyMan*);
+    for (int result : {1, 0}) {
+        Prepare();
+        g_reportResult = result;
+        GameVariable<int>(0x007CE438) = 2;
+        GameVariable<GameNet::QueuedPacket>(kQueueAddress).data = &Word<char>(kTexts + 0x200);
+        GameVariable<GameNet::QueuedPacket>(kQueueAddress + 0x1C).data = &Word<char>(kTexts + 0x210);
+        GameVariable<uint8_t>(0x007CCE3A) = 1;
+        GameVariable<uint8_t>(0x007CCE48) = 1;
+        original ? Original<Method>(0x00540220)(TheLobby()) : TheLobby()->StartHosting();
+        Rec(0x0220, {GameVariable<uint32_t>(0x007CCE44), GameVariable<uint32_t>(0x007CCE3C), GameVariable<uint32_t>(0x007CCE40),
+                     GameVariable<uint8_t>(0x007CCE3A), GameVariable<uint8_t>(0x007CCE48)});
+        RecordQueue();
+    }
+    for (int peer = 1; peer >= 0; --peer) {
+        Prepare();
+        Word<uint32_t>(kLobby + 0x140) = peer ? At(kLobby + 0x180) : 0;
+        original ? Original<Method>(0x00540750)(TheLobby()) : TheLobby()->Disconnect();
+    }
+    Prepare();
+    using ThreadFn = unsigned long(__stdcall*)(void*);
+    unsigned long code = original ? Original<ThreadFn>(0x00540AB0)(TheLobby()) : LobbyMan::ConnectThread(TheLobby());
+    Rec(0x0AB0, {static_cast<uint32_t>(code)});
 }
+
+void Negotiation(bool original)
+{
+    Prepare();
+    using CompletedFn = void(__cdecl*)(int, int, const void*, void*);
+    uint8_t address[16] = {2, 0, 0x14, 0x22, 192, 168, 2, 9};
+    // A client: success (it joins), failure.
+    Word<uint8_t>(kManager) = 0;
+    for (int result : {0, 2}) {
+        original ? Original<CompletedFn>(0x00540300)(result, 0x50C1, address, reinterpret_cast<void*>(0x77))
+                 : LobbyMan::NatNegotiationCompleted(result, 0x50C1, address, reinterpret_cast<void*>(0x77));
+    }
+    // The server counting down.
+    Word<uint8_t>(kManager) = 1;
+    Word<int>(kLobby + 0x13C) = 2;
+    for (int i = 0; i < 2; ++i) {
+        original ? Original<CompletedFn>(0x00540300)(0, 0x50C0, address, reinterpret_cast<void*>(0x78))
+                 : LobbyMan::NatNegotiationCompleted(0, 0x50C0, address, reinterpret_cast<void*>(0x78));
+        Rec(0x0300, {Word<uint32_t>(kLobby + 0x13C)});
+    }
+    // Asked by a client: one going on (nothing), failing to start, started (twice: the task once).
+    using AskFn = void(__cdecl*)(void*, int, void*);
+    auto ask = [&](int cookie) {
+        original ? Original<AskFn>(0x00540C90)(ThePeer(), cookie, TheLobby())
+                 : LobbyMan::NatNegotiateCallback(ThePeer(), cookie, TheLobby());
+        Rec(0x0C90, {Word<uint32_t>(kLobby + 0x13C)});
+    };
+    Word<int>(kLobby + 0x13C) = 1;
+    ask(0x101);
+    Word<int>(kLobby + 0x13C) = 0;
+    g_natError = 3;
+    ask(0x102);
+    g_natError = 0;
+    ask(0x103);
+    ask(0x104);
+}
+
 using CFunc = bool(__cdecl*)(Script::CStruct*, Script::CScript*);
-void RunCFunc(bool original, uint32_t address, CFunc ours)
+void RunCFunc(bool original, uint32_t address, CFunc ours, Script::CStruct* params)
 {
-    auto* params = &Word<Script::CStruct>(kScript + 0x80);
-    auto* script = &Word<Script::CScript>(kScript);
-    bool result = original ? Original<CFunc>(address)(params, script) : ours(params, script);
+    bool result = original ? Original<CFunc>(address)(params, TestScript()) : ours(params, TestScript());
     Rec(0xCF00, {address, result ? 1u : 0u});
 }
 
-// The lobby made empty (the original's constructor), three lobbies to choose from.
-void Prepare(bool original)
+void Commands(bool original)
 {
-    CallRec(original, 0x00541870, &LobbyMan::Construct, Lobby());
-    Lobby()->m_peer = &Word<uint8_t>(kMisc + 0xA00);
-    for (uint32_t i = 0; i < 3; ++i) {
-        auto* lobby = &Word<LobbyInfo>(kLobbies + 0x80 * i);
-        std::memset(lobby, 0x5D, 0x80);
-        CallRec(original, 0x00545860, &LobbyInfo::Construct, lobby);
-        std::snprintf(lobby->m_name, 64, "Lobby %u", i);
-        lobby->m_groupId = 200 + static_cast<int>(i);
-        lobby->m_unknown58 = 10 + static_cast<int>(i);
-        lobby->m_unknown5C = 20 + static_cast<int>(i);
-        lobby->m_unknown6A = i == 1;
-        lobby->prev = Lobby()->m_lobbies.prev;
-        lobby->next = &Lobby()->m_lobbies;
-        Lobby()->m_lobbies.prev->next = lobby;
-        Lobby()->m_lobbies.prev = lobby;
+    Prepare();
+    ArenaStruct nat(kStructs + 0x100);
+    nat.String(0, "10.0.0.7").Integer(0, 5154).Checksum(0x751F4599, 0xC00C1E5u);
+    for (int error : {0, 4}) {
+        g_natError = error;
+        GameVariable<int>(0x007CE438) = 1;
+        GameVariable<GameNet::QueuedPacket>(kQueueAddress).data = &Word<char>(kTexts + 0x200);
+        RunCFunc(original, 0x00540430, GameNet::CFunc_StartNatNegotiation, nat.Struct());
+        RecordQueue();
+    }
+    RunCFunc(original, 0x005403E0, GameNet::CFunc_CancelNatNegotiation, nullptr);
+    ArenaStruct none(kStructs + 0x180);
+    ArenaStruct preserve(kStructs + 0x200);
+    preserve.Checksum(0xB2AB4DAB, 0);
+    ArenaStruct off(kStructs + 0x280);
+    off.Add(Script::ESYMBOLTYPE_NAME, 0, 0xD443A2BC);
+    for (int variant = 0; variant < 3; ++variant) {
+        Word<uint8_t>(kLobby + 0x134) = 1;
+        Word<uint8_t>(kBuddy + 0x10) = variant != 2;
+        RunCFunc(original, 0x00540590, GameNet::CFunc_LeaveLobby, variant == 1 ? preserve.Struct() : none.Struct());
+    }
+    Word<uint8_t>(kLobby + 0x138) = 1;
+    Word<uint8_t>(kLobby + 0x136) = 0;
+    RunCFunc(original, 0x00540640, GameNet::CFunc_CancelLobbyConnect, nullptr);
+    RunCFunc(original, 0x00540660, GameNet::CFunc_SetQuietMode, none.Struct());
+    RunCFunc(original, 0x00540660, GameNet::CFunc_SetQuietMode, off.Struct());
+    // Who may host.
+    struct Host {
+        bool restricted, loggedIn;
+        uint32_t profile;
+        int a, b;
+    };
+    const Host hosts[] = {{false, true, 0, 3, 4}, {false, true, 0, 4, 4}, {false, true, 0, -1, 4},
+                          {true, false, 0x01A7665B, 0, 0}, {true, true, 0x01A7665B, 0, 0}, {true, true, 0x01A767B1, 0, 0},
+                          {true, true, 0x01A76700, 0, 0}};
+    for (const Host& h : hosts) {
+        Word<uint8_t>(kLobby + 0x135) = h.restricted;
+        Word<uint8_t>(kBuddy + 0x10) = h.loggedIn;
+        Word<uint32_t>(kBuddy + 4) = h.profile;
+        Word<int>(kLobby + 0x30) = h.a;
+        Word<int>(kLobby + 0x2C) = h.b;
+        RunCFunc(original, 0x005406C0, GameNet::CFunc_CanHostGame, nullptr);
     }
 }
 
-void Construction(bool original)
-{
-    Prepare(original);
-    std::memset(&Word<uint8_t>(kLobbies + 0x180), 0x5D, 0x80);
-    CallRec(original, 0x00545860, &LobbyInfo::Construct, &Word<LobbyInfo>(kLobbies + 0x180));
-    g_failAllocations = 1; // the first task not made
-    CallRec(original, 0x00541870, &LobbyMan::Construct, &Word<uint8_t>(kMisc + 0xB00));
-    CallVoid(original, 0x00542DF0, &LobbyMan::InitPeer, Lobby());
-    CallVoid(original, 0x00541A10, &LobbyMan::StartListingGames, Lobby());
-    for (int i : {0, 1, 2, 3, -1})
-        CallRec(original, 0x00542970, &LobbyMan::GetLobby, Lobby(), i);
-    CallVoid(original, 0x005428B0, &LobbyMan::FillLobbyList, Lobby());
-    CallVoid(original, 0x005427E0, &LobbyMan::ClearLobbies, Lobby());
-    CallRec(original, 0x00542970, &LobbyMan::GetLobby, Lobby(), 0);
-    Lobby()->m_peer = nullptr;
-    CallVoid(original, 0x005427E0, &LobbyMan::ClearLobbies, Lobby());
-    CallRec(original, 0x00541AC0, &LobbyMan::Destroy, &Word<uint8_t>(kMisc + 0xB00), 0u);
-    CallRec(original, 0x00541AC0, &LobbyMan::Destroy, &Word<uint8_t>(kMisc + 0xB00), 1u);
-}
+std::vector<uint8_t> g_savedQueue;
 
-void Players(bool original)
+void RestoreLobby()
 {
-    Prepare(original);
-    void* peer = Lobby()->m_peer;
-    using Joined = void(__cdecl*)(void*, int, const char*, LobbyMan*);
-    using Left = void(__cdecl*)(void*, int, const char*, const char*, LobbyMan*);
-    using Info = void(__cdecl*)(void*, int, const char*, uint32_t, int, LobbyMan*);
-    using Enum = void(__cdecl*)(void*, int, int, int, const char*, int, LobbyMan*);
-    using KeyChanged = void(__cdecl*)(void*, int, const char*, const char*, const char*, LobbyMan*);
-    using Keys = void(__cdecl*)(void*, int, int, const char*, int, char**, char**, LobbyMan*);
-    using NewList = void(__cdecl*)(void*, int, LobbyMan*);
-    // Enumerated: two new, one twice, failures ignored.
-    CallStatic<Enum>(original, 0x005424F0, &LobbyMan::EnumPlayersCallback, peer, 1, 1, 0, SetText(0, "Alpha"), 0, Lobby());
-    CallStatic<Enum>(original, 0x005424F0, &LobbyMan::EnumPlayersCallback, peer, 1, 1, 1, SetText(1, "beta"), 0, Lobby());
-    CallStatic<Enum>(original, 0x005424F0, &LobbyMan::EnumPlayersCallback, peer, 1, 1, 2, SetText(2, "ALPHA"), 0, Lobby());
-    CallStatic<Enum>(original, 0x005424F0, &LobbyMan::EnumPlayersCallback, peer, 0, 1, 3, SetText(3, "Gamma"), 0, Lobby());
-    CallStatic<Enum>(original, 0x005424F0, &LobbyMan::EnumPlayersCallback, peer, 1, 1, -1, TextAt(3), 0, Lobby());
-    RunCFunc(original, 0x00542AA0, GameNet::CFunc_FillPlayerList); // (the enumerated ones aren't listed yet)
-    // Joined: one known (listed now), one new.
-    CallStatic<Joined>(original, 0x00541D50, &LobbyMan::PlayerJoinedCallback, peer, 1, SetText(4, "BETA"), Lobby());
-    CallStatic<Joined>(original, 0x00541D50, &LobbyMan::PlayerJoinedCallback, peer, 1, SetText(5, "Delta"), Lobby());
-    // Info: unknown, known with a profile, a null nick.
-    CallStatic<Info>(original, 0x00541FD0, &LobbyMan::PlayerInfoCallback, peer, 1, SetText(6, "Nobody"), 0x0A000001u, 55, Lobby());
-    CallStatic<Info>(original, 0x00541FD0, &LobbyMan::PlayerInfoCallback, peer, 1, TextAt(0), 0x0A000002u, 66, Lobby());
-    CallStatic<Info>(original, 0x00541FD0, &LobbyMan::PlayerInfoCallback, peer, 1, static_cast<const char*>(nullptr), 0u, 77, Lobby());
-    Word<LobbyPlayer>(g_heapNext - 0x60).m_profileId = 0; // (the last one added: no profile)
-    CallStatic<Info>(original, 0x00541FD0, &LobbyMan::PlayerInfoCallback, peer, 1, TextAt(5), 0x0A000003u, 88, Lobby());
-    // Ratings.
-    CallStatic<KeyChanged>(original, 0x00542650, &LobbyMan::RoomKeyChangedCallback, peer, 1, TextAt(1), SetText(8, "x"), SetText(9, "1999"), Lobby());
-    CallStatic<KeyChanged>(original, 0x00542650, &LobbyMan::RoomKeyChangedCallback, peer, 1, TextAt(5), TextAt(8), SetText(10, "999999"), Lobby());
-    CallStatic<KeyChanged>(original, 0x00542650, &LobbyMan::RoomKeyChangedCallback, peer, 1, TextAt(6), TextAt(8), TextAt(9), Lobby());
-    char* keys[1] = {SetText(11, "b_rating")};
-    char* values[1] = {SetText(12, "3500")};
-    CallStatic<Keys>(original, 0x00542330, &LobbyMan::RoomKeysCallback, peer, 1, 1, TextAt(0), 1, keys, values, Lobby());
-    CallStatic<Keys>(original, 0x00542330, &LobbyMan::RoomKeysCallback, peer, 1, 1, TextAt(0), 0, keys, values, Lobby());
-    char* other[1] = {SetText(13, "c_other")};
-    CallStatic<Keys>(original, 0x00542330, &LobbyMan::RoomKeysCallback, peer, 1, 1, TextAt(0), 1, other, values, Lobby());
-    char* unknown[1] = {SetText(15, "zzz")};
-    CallStatic<Keys>(original, 0x00542330, &LobbyMan::RoomKeysCallback, peer, 1, 1, TextAt(0), 1, unknown, values, Lobby());
-    char* none[1] = {nullptr};
-    CallStatic<Keys>(original, 0x00542330, &LobbyMan::RoomKeysCallback, peer, 1, 1, TextAt(0), 1, none, values, Lobby());
-    // The lists.
-    RunCFunc(original, 0x00541A70, GameNet::CFunc_NumPlayersInLobby);
-    RunCFunc(original, 0x00542AA0, GameNet::CFunc_FillPlayerList);
-    g_isBuddy = 1u << (101 & 31);
-    CallStatic<Enum>(original, 0x005424F0, &LobbyMan::EnumPlayersCallback, peer, 1, 1, 4, SetText(16, "Zero"), 0, Lobby());
-    Word<LobbyPlayer>(g_heapNext - 0x60).m_profileId = 0; // (no profile)
-    RunCFunc(original, 0x00542B00, GameNet::CFunc_FillLobbyProspectiveBuddyList);
-    // Left: known, unknown.
-    CallStatic<Left>(original, 0x005420C0, &LobbyMan::PlayerLeftCallback, peer, 1, TextAt(2), SetText(14, "quit"), Lobby());
-    CallStatic<Left>(original, 0x005420C0, &LobbyMan::PlayerLeftCallback, peer, 1, TextAt(6), TextAt(14), Lobby());
-    RunCFunc(original, 0x00541A70, GameNet::CFunc_NumPlayersInLobby);
-    // A new list: everything forgotten, asked for again.
-    CallStatic<NewList>(original, 0x00542B70, &LobbyMan::NewPlayerListCallback, peer, 1, Lobby());
-    RunCFunc(original, 0x00541A70, GameNet::CFunc_NumPlayersInLobby);
-    g_failAllocations = 0;
-}
-
-void Joining(bool original)
-{
-    Prepare(original);
-    void* peer = Lobby()->m_peer;
-    using Joined = void(__cdecl*)(void*, int, int, int, LobbyMan*);
-    g_index = 1;
-    RunCFunc(original, 0x00542D30, GameNet::CFunc_ChooseLobby);
-    RunCFunc(original, 0x00542CE0, GameNet::CFunc_RejoinLobby);
-    CallStatic<Joined>(original, 0x00542B80, &LobbyMan::JoinRoomCallback, peer, 0, 3, 1, Lobby());
-    CallStatic<Joined>(original, 0x00542B80, &LobbyMan::JoinRoomCallback, peer, 1, 0, 1, Lobby());
-    Rec(0x1B, {Lobby()->m_inLobby ? 1u : 0u});
-    Word<uint8_t>(kBuddies + 0x10) = 0; // not logged in to presence
-    CallStatic<Joined>(original, 0x00542B80, &LobbyMan::JoinRoomCallback, peer, 1, 0, 2, Lobby());
-    Lobby()->m_groupId = 0;
-    RunCFunc(original, 0x00542CE0, GameNet::CFunc_RejoinLobby);
-    // Disconnecting: the pending count to 0, the lists, two tasks, the peer.
-    Lobby()->m_pending = 3;
-    Lobby()->m_unknown136 = false;
-    Lobby()->m_tasks[0] = &Word<uint8_t>(kTasks);
-    Lobby()->m_tasks[1] = &Word<uint8_t>(kTasks + 0x40);
-    RunCFunc(original, 0x005429C0, GameNet::CFunc_LobbyDisconnect);
-    Lobby()->m_peer = nullptr;
-    RunCFunc(original, 0x005429C0, GameNet::CFunc_LobbyDisconnect);
-}
-
-void Connecting(bool original)
-{
-    Prepare(original);
-    Lobby()->m_tasks[0] = &Word<uint8_t>(kTasks);
-    RunCFunc(original, 0x00542EE0, GameNet::CFunc_LobbyConnect);
+    if (!g_savedQueue.empty())
+        std::memcpy(reinterpret_cast<void*>(kQueueAddress), g_savedQueue.data(), g_savedQueue.size());
+    Cleanup();
 }
 
 void TestNetLobby()
 {
-    SaveGlobals({{0x00696D68, 4, {}}, {0x007CE430, 4, {}}, {0x007CCE38, 2, {}}});
-    RunCase("GameNet::LobbyMan: made, the peer, the lobbies", Construction);
-    RunCase("GameNet::LobbyMan: the players and their callbacks", Players);
-    RunCase("GameNet::LobbyMan: choosing, joining, leaving a lobby", Joining);
-    RunCase("GameNet::LobbyMan: LobbyConnect", Connecting);
-    Cleanup();
+    SaveGlobals({{0x006F0FB8, 4, {}}, {0x00696D40, 4, {}}, {0x007CCDEC, 4, {}}, {0x006EFDD8, 4, {}},
+                 {0x007CE438, 4, {}}, {0x007CCE48, 1, {}}, {0x007CCE3A, 1, {}}, {0x007CCE40, 4, {}},
+                 {0x007CCE44, 4, {}}, {0x007CCE3C, 4, {}}, {0x007CE434, 4, {}}});
+    g_savedQueue.assign(reinterpret_cast<uint8_t*>(kQueueAddress), reinterpret_cast<uint8_t*>(kQueueAddress) + kQueueSize);
+    RunNet2Case("GameNet lobby: disconnected, nick errors, connected, the hosted game's address", Callbacks, Install);
+    RunNet2Case("GameNet lobby: the hosted game's player keys", PlayerKeys, Install);
+    RunNet2Case("GameNet lobby: packets queued, the query / think / NAT tasks", Packets, Install);
+    RunNet2Case("GameNet lobby: hosting started, disconnected, the connect thread", Hosting, Install);
+    RunNet2Case("GameNet lobby: NAT negotiation asked and completed", Negotiation, Install);
+    RunNet2Case("GameNet lobby: its script commands", Commands, Install);
+    RestoreLobby();
+    g_savedQueue.clear();
 }
 
 } // namespace
 
-SELFTEST(Early, TestNetLobby, GameNetKit::Cleanup);
+SELFTEST(Early, TestNetLobby, RestoreLobby);

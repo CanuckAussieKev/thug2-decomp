@@ -17,9 +17,17 @@ Shared files touched (small, additive): CMakeLists.txt (new sources / tests), sr
 declarations), buddy_man.h (five BuddyMan declarations), online_identity.{h,cpp} + selftests_pc.cpp +
 tools/check_code_writes.ts (two name sites dropped; merged with NET4's change: 3 sites left).
 
-Note for the merge with NET2 (0x00540000-0x00541870): GameNet::LobbyMan's layout and the lobby callbacks are
-declared in src/game/net/lobby.h here; NET2's part of the class (0x00540xxx: its destructor body, menu items, the
-connecting thread, tasks) is called by address from lobby.cpp - one class definition should stay when merging.
+Merged with NET2 / NET4 (main at the time of the last merge): this branch's LobbyMan is folded into NET2's
+src/game/net/gamenet_lobby.h (one class: my members added in a "lobby.cpp" section; NET2's field names kept -
+m_roomName, m_inGroupRoom, m_restrictedHosting, m_expectingDisconnect, m_lostConnection, m_hosting, m_negotiations,
+m_thinkTask / m_natTask / m_hostingTask; its unnamed +0x00-+0x27 became m_rooms / m_players (list heads) and
+m_unknown28 m_groupId; LobbyRoom / LobbyPlayer got a Mem::ListNode m_node, LobbyRoom::Construct and
+LobbyPlayer::m_listed). lobby.h is gone. NET2 used the test file names selftests_net_players.cpp /
+selftests_net_lobby.cpp and the test names TestNetPlayers / TestNetLobby too: this branch's are
+selftests_net3_players.cpp / selftests_net3_lobby.cpp with TestNet3Players / TestNet3Lobby. The online identity:
+with peerSetTitle's two sites source here, no game-name write is left (online_identity.cpp writes only the key;
+WriteOnlineIdentity(key) - GameNameAt / kGameNameSites gone; TestOnlineIdentity checks the key only;
+check_code_writes expects 20 writes). NewPlayerInfo's fields named as NET2's gamenet_players.cpp has them.
 
 ## Batches
 
@@ -47,7 +55,7 @@ connecting thread, tasks) is called by address from lobby.cpp - one class defini
     skater's SkaterScore has no lives), the connection's handle 0x005434A0, the skater's +0x2BC 0x005434B0 (folded).
   - The score lines' list types: Lst::Search 0x00543170 / 0x00543580 (vtable 0x0064CCE0), Lst::Node 0x00544700 /
     0x005435B0 / 0x00544720 (0x0064CCE4).
-  - Test TestNetPlayers (src/hook/selftests_net_players.cpp, the GameNet test kit): every function over prepared
+  - Test TestNet3Players (src/hook/selftests_net3_players.cpp, the GameNet test kit): every function over prepared
     players (dirty memory, list neighbours, failing allocations, the skater / component / connection present or
     not, every flag pattern, hit times around the 5 s edge and wrapped, bandwidth types); the calls (memory, profile,
     components, connection, game mode), results and the arena compared. 40 deliberate bugs: all caught (3 after
@@ -91,7 +99,7 @@ connecting thread, tasks) is called by address from lobby.cpp - one class defini
     player not marked fully in, the 1000 ms edge, a team flag of team 1, host mode for the local player, the players'
     flags recorded after each announcement, an observing local player for RetrievedFlag); 1 equivalent (StoleFlag's
     clearing of the stolen team's bit before clearing all four).
-- [x] Batch NET3-3 (NOT run in the game yet; the GameSpy lobby): src/game/net/lobby.{h,cpp} (new);
+- [x] Batch NET3-3 (NOT run in the game yet; the GameSpy lobby): src/game/net/lobby.cpp (new; its class in NET2's gamenet_lobby.h since the merge);
   online_identity.{h,cpp}, selftests_pc.cpp, tools/check_code_writes.ts (the two peerSetTitle name sites dropped).
   27 functions.
   - GameNet::LobbyMan (the manager's +0x10; the rest of the class, 0x00540xxx, is NET2's range - its calls go by
@@ -117,7 +125,7 @@ connecting thread, tasks) is called by address from lobby.cpp - one class defini
     wrote over; those two sites are gone from its list (4 name sites now; selftests_pc's TestOnlineIdentity and
     check_code_writes' expected count updated; check_code_writes: "No overlaps"). CLAUDE.md still says "6 push
     operands" (for the lead).
-  - Test TestNetLobby (src/hook/selftests_net_lobby.cpp): every function over a stand-in lobby, GameSpy SDK
+  - Test TestNet3Lobby (src/hook/selftests_net3_lobby.cpp): every function over a stand-in lobby, GameSpy SDK
     stand-ins recording every call (callbacks recorded by game address - ours mapped back), CreateThread /
     ResumeThread stood in, the C runtime's _stricmp / atol answered by ours for the original. Nothing goes online.
     54 deliberate bugs: 53 caught (12 after strengthening: unlisted players shown, the heaps told apart, our own
@@ -210,7 +218,7 @@ connecting thread, tasks) is called by address from lobby.cpp - one class defini
   0x00545620, 0x005475C0, 0x00547750, 0x00548100, 0x00548140): this agent wrote 141 (130 + 11); 143 of the range's
   addresses are REPLACEd now.
 - scan_register_assumptions: no new RISK; audit_game_function_calls: no MISMATCH; check_code_writes: "No overlaps"
-  (23 writes: the name sites are 3 now - NET4 took out the stats SDK's, this branch peerSetTitle's two).
+  (20 writes: no game-name site is left - NET2 / NET4 made theirs source, this branch peerSetTitle's two).
 - service.cpp (Net::ServiceTask) still starts the news / MOTD threads by their game addresses (0x00545540 /
   0x00545620), which the hooks send to NewsThread / MotdThread; lobby.cpp passes our callbacks to GameSpy.
 

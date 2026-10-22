@@ -48,15 +48,15 @@ struct NewPlayerInfo {
     uint32_t m_flags;                 // +0x20 PlayerFlag
     uint32_t m_unknown24;
     int m_team;                       // +0x28
-    uint32_t m_unknown2C;
-    uint32_t m_unknown30;
+    int32_t m_profileId;              // +0x2C the GameSpy profile
+    int32_t m_rating;                 // +0x30
     uint32_t m_unknown34;
     uint32_t m_unknown38;
     uint32_t m_unknown3C;
-    uint32_t m_unknown40;
+    int32_t m_vehicleControlType;     // +0x40
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
-    // +0x2C, +0x30, +0x38, +0x40 zeroed (the rest is left). Returns this.
+    // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left). Returns this.
     NewPlayerInfo* Construct();
     // 0x00543560: the destructor: its profile destroyed and freed.
     void DestroyBody();

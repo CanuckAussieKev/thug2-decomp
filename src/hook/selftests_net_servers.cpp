@@ -16,7 +16,7 @@
 #include "game/mth/random.h"
 #include "game/net/net_conn.h"
 #include "game/net/gamenet_manager.h"
-#include "game/net/lobby.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_manager.h"
 #include "game/net/server_list.h"

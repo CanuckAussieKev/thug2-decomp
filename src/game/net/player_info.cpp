@@ -69,10 +69,10 @@ NewPlayerInfo* NewPlayerInfo::Construct()
 {
     m_profile = NewProfile();
     m_unknown24 = 0;
-    m_unknown2C = 0;
-    m_unknown30 = 0;
+    m_profileId = 0;
+    m_rating = 0;
     m_unknown38 = 0;
-    m_unknown40 = 0;
+    m_vehicleControlType = 0;
     Mem::Manager::Get()->PopContext();
     return this;
 }

@@ -13,7 +13,7 @@
 #include "game/core/task.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
-#include "game/net/lobby.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/net_app.h"
 #include "game/net/net_manager.h"
 #include "game/net/player_info.h"
@@ -336,9 +336,9 @@ void Manager::UpdateHostingStatus()
         if (lobby->m_peer) {
             uint32_t publicIp = Sdk<uint32_t>(0x005FC950, lobby->m_peer); // (the peer's public address)
             std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", net->GetLocalAddress(), publicIp, kPort, serverName,
-                         lobby->m_lobbyName);
+                         lobby->m_roomName);
         } else {
-            std::sprintf(location, "10thug211:0:0:0:%s (%s)", serverName, lobby->m_lobbyName);
+            std::sprintf(location, "10thug211:0:0:0:%s (%s)", serverName, lobby->m_roomName);
         }
         Call(0x00548320, m_buddyMan, 2, Script::GetString(kHostingStatus), location);
     }
@@ -607,7 +607,7 @@ bool __cdecl CFunc_PostGame(Script::CStruct* params, Script::CScript* script)
     (void)params;
     (void)script;
     Manager* manager = TheManager();
-    if (!Lobby(manager)->m_unknown139)
+    if (!Lobby(manager)->m_hosting)
         manager->UpdateHostingStatus();
     return true;
 }

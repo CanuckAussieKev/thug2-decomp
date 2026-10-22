@@ -359,9 +359,9 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_gamenet4.cpp
     src/hook/selftests_skater_gamenet5.cpp
     src/hook/selftests_skater_gamenet6.cpp
-    src/hook/selftests_net_players.cpp
+    src/hook/selftests_net3_players.cpp
     src/hook/selftests_net_scores.cpp
-    src/hook/selftests_net_lobby.cpp
+    src/hook/selftests_net3_lobby.cpp
     src/hook/selftests_net_servers.cpp
     src/hook/selftests_net_buddy_status.cpp
     src/hook/selftests_skater_walk.cpp
@@ -369,6 +369,12 @@ add_library(thug2_code OBJECT
     src/hook/selftests_thugpro.cpp
     src/hook/selftests_thugpro_join.cpp
     src/hook/selftests_gamenet_join.cpp
+    src/hook/selftests_net_players.cpp
+    src/hook/selftests_net_flow.cpp
+    src/hook/selftests_net_qr2.cpp
+    src/hook/selftests_net_lobby.cpp
+    src/hook/selftests_net_menus.cpp
+    src/hook/selftests_net_newplayers.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_obj_trigger.cpp
     src/hook/selftests_obj_shadow.cpp
@@ -665,6 +671,16 @@ add_library(thug2_code OBJECT
     src/game/net/server_list.cpp
     src/game/net/server_browser.cpp
     src/game/net/buddy_status.cpp
+    src/game/net/gamenet_players.cpp
+    src/game/net/gamenet_game_cfuncs.cpp
+    src/game/net/gamenet_flow.cpp
+    src/game/net/gamenet_qr2.cpp
+    src/game/net/gamenet_lobby.cpp
+    src/game/net/gamenet_lobby_peer.cpp
+    src/game/net/gamenet_lobby_cfuncs.cpp
+    src/game/net/gamenet_lobby_menus.cpp
+    src/game/net/gamenet_newplayers.cpp
+    src/game/net/gamenet_manager_create.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
     src/game/ed/upper_menu.cpp

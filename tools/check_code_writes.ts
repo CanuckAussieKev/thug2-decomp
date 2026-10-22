@@ -2,9 +2,9 @@
 // functions.
 //
 // Game source that has to change code it doesn't own yet writes into the exe at start-up: the GameSpy SDK's host
-// names (src/game/net/online_hosts.cpp, until the SDK is linked), the online identity's game name and key when
-// [Miscellaneous] OnlineGameName / OnlineGameKey are set (src/game/net/online_identity.cpp: the name's address over 3
-// instructions' operands, the key over its 3 stored copies - data), the CFunction table's IsPS2 entry and (debug mode)
+// names (src/game/net/online_hosts.cpp, until the SDK is linked), the online identity's key when
+// [Miscellaneous] OnlineGameKey is set (src/game/net/online_identity.cpp: over its 3 stored copies - data; the game
+// name needs no write: every use of it is source), the CFunction table's IsPS2 entry and (debug mode)
 // its CD / NotCD entries (src/game/sys/platform_cfuncs.cpp, debug_mode.cpp, until that table is source). Such a write
 //   - inside a rewritten function would be bypassed (the game runs our version, not the code written into), and
 //   - inside the first bytes of a hooked function would be lost from MinHook's trampoline and break our jump.
@@ -51,9 +51,9 @@ export function runtimeWrites(): Write[] {
 
 function main(): number {
     const writes = runtimeWrites();
-    if (writes.length !== 23) {
+    if (writes.length !== 20) {
         print(
-            `expected 23 writes (14 host names, 3 game names, 3 keys, 3 table entries), found ${writes.length}: update this script`,
+            `expected 20 writes (14 host names, 3 keys, 3 table entries), found ${writes.length}: update this script`,
         );
         return 1;
     }

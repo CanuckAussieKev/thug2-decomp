@@ -11,7 +11,7 @@
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
-#include "game/net/lobby.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
@@ -206,7 +206,7 @@ bool __cdecl SetLobbyStatus(Script::CStruct* params, Script::CScript* script)
     (void)params;
     (void)script;
     Manager* manager = TheManager();
-    const char* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan)->m_lobbyName; // (0x0053F820)
+    const char* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan)->m_roomName; // (0x0053F820)
     const char* text = Script::GetString("homie_status_chatting");
     BuddyMan* buddies = static_cast<BuddyMan*>(manager->m_buddyMan);
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
