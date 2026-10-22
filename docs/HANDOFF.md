@@ -383,7 +383,7 @@ fold records, install.
 
 ## 2026-10-22 (account change): park editor & graffiti in progress
 - **main 4410186, pushed after this note.** Installed in C:\Games\THUG2 is only up to the online merge (052848a):
-  batches 320-328 are NOT installed and NOT run in the game.
+  self-tests off) - batches 320-328 included; NOT run in the game yet.
 - **Online & network game modes: done** (NET1-NET4 merged, batches 299-319; 455/457 - the two left are PartyMod's
   loader cave). See the "2026-10-22: online & network game modes" note above.
 - **Park editor & graffiti (0x588180-0x595030): 11% -> batches 320-328 done** by the lead, small batches, each built,
