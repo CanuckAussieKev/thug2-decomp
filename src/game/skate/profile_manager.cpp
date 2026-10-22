@@ -65,6 +65,12 @@ void CSkaterProfile::SetAppearance(Script::CStruct* appearance, bool update)
 {
     GameFunction<void(__thiscall*)(CSkaterProfile*, Script::CStruct*, bool)>(0x00488F40)(this, appearance, update);
 }
+// 0x00543010
+void CSkaterProfile::DestroyBody()
+{
+    InfoStructure()->Clear();
+    GameFunction<void(__thiscall*)(CSkaterProfile*)>(0x004890F0)(this);
+}
 void CSkaterProfile::Delete()
 {
     InfoStructure()->Clear();
@@ -384,3 +390,4 @@ REPLACE(0x0057BC20, &Obj::CPlayerProfileManager::DestroyBody);
 REPLACE(0x0057BD70, &Obj::CPlayerProfileManager::ReadCustomSkater);
 REPLACE(0x0057C0D0, Obj::CPlayerProfileManager::Create);
 REPLACE(0x0057C120, Obj::CPlayerProfileManager::Release);
+REPLACE(0x00543010, &Obj::CSkaterProfile::DestroyBody); // (its address among the network players' code)
