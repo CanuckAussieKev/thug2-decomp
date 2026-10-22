@@ -266,3 +266,16 @@ Switch off: `[replacements] disable=gamenet_members.cpp,gamenet_settings.cpp,gam
     dependent matrix stand-ins, count 2).
   - Untested without a connection: the real tag textures / faces on the wire, the flag on a real skater's head (only
     the matrix calls' order and arguments are compared), the camera in a real game.
+- Game runs (NET1, C:\Games\THUG2-1 under the lock, the branch's build after merging main at dc751f8; stock THUG2.exe):
+  -level BO with this work's self-tests (late / engine-started: none of these names) - BO loaded, skater spawned,
+  5112 of 5112 replacements installed, no exception / run-time check / debug-CRT report. -level NJ with -FullTests (all
+  724 early tests in the game, then 17 late and 3 engine-started): NJ loaded, skater spawned; every NET1 test passed;
+  one failure, NET4's TestNetStatsSession ("stats session ... reporting a game", entries 61853... differing) - it
+  also fails alone in the game and runs before any hook is installed, so it isn't this work's (it passes offline in
+  thug2_check); left for NET4 / the lead. Nothing online was opened.
+- What to try online by hand (the user, once merged): host and join a LAN / internet game (the join, team counts,
+  SetNumTeams, JoinTeam, the player list menu and its options dialog - kick / homies -, start and end games, capture
+  the flag - the flag on the carrier's head - and king of the hill - the crown), observe a game (the observer camera,
+  game over to observers), a late joiner (queued scripts, faces and custom tag textures), the network options screen
+  (UsePreferences: master servers, DNS, the device / connection type), connect / disconnect / cancel connecting, the
+  message of the day. Switch off with the `disable=` list at the top.
