@@ -32,6 +32,7 @@ class CParkGenerator; // the scene side of the park (0x4A4 bytes, 0x00593460 con
 class CCursor;
 class CPiece;
 class CMetaPiece;
+class CParkManager;
 struct RailNodeInfo;
 
 // The grid's cells in the world (the exe's constants): 120 x 48 x 120, the 58 x 58 grid centred on the origin.
@@ -382,35 +383,59 @@ public:
     {
         return GameFunction<GapInfo*(__thiscall*)(CGapManager*, int, int*)>(0x0058CB20)(this, index, half);
     }
-    // 0x0058CDA0: gap `index`'s info (its name, the rest copied)
-    void SetGapInfo(int index, GapInfo* info)
-    {
-        GameFunction<void(__thiscall*)(CGapManager*, int, GapInfo*)>(0x0058CDA0)(this, index, info);
-    }
+    // 0x0058CDA0 (gap_manager.cpp): gap `index`'s info (its name, the rest copied); the checklist made again
+    void SetGapInfo(int index, GapInfo* info);
     // 0x0058CB70: the gap shown
     void SetCurrentGap(int index) { GameFunction<void(__thiscall*)(CGapManager*, int)>(0x0058CB70)(this, index); }
     // 0x0058C990: a free slot (-1 none)
     int GetFreeGapIndex() { return GameFunction<int(__thiscall*)(CGapManager*)>(0x0058C990)(this); }
-    // 0x0058D070 / 0x0058C9B0: the gap's first / second half (its trigger piece and metapiece)
-    void StartGap(void* piece, CMetaPiece* meta, int index)
-    {
-        GameFunction<void(__thiscall*)(CGapManager*, void*, CMetaPiece*, int)>(0x0058D070)(this, piece, meta, index);
-    }
+    // 0x0058D070 (gap_manager.cpp) / 0x0058C9B0: the gap's first / second half (its trigger piece and metapiece)
+    void StartGap(void* piece, CMetaPiece* meta, int index);
     void EndGap(void* piece, CMetaPiece* meta, int index)
     {
         GameFunction<void(__thiscall*)(CGapManager*, void*, CMetaPiece*, int)>(0x0058C9B0)(this, piece, meta, index);
     }
-    // 0x0058CDF0: remove gap `index`
-    void RemoveGap(int index, int flag) { GameFunction<void(__thiscall*)(CGapManager*, int, int)>(0x0058CDF0)(this, index, flag); }
+    // 0x0058CDF0 (gap_manager.cpp): remove gap `index` (its trigger pieces deleted; with `forget`, also from the
+    // goal editor's gaps)
+    void RemoveGap(int index, bool forget);
     // 0x0058CE90: remove every gap
-    void RemoveAllGaps() { GameFunction<void(__thiscall*)(CGapManager*)>(0x0058CE90)(this); }
+    void RemoveAllGaps();
     // 0x0058CCC0: the constructor (makes itself the instance). Returns this.
     CGapManager* Construct(int unused) { return GameFunction<CGapManager*(__thiscall*)(CGapManager*, int)>(0x0058CCC0)(this, unused); }
-    // 0x0058CF30: a copy of `other`'s gaps
-    void CopyFrom(CGapManager* other) { GameFunction<void(__thiscall*)(CGapManager*, CGapManager*)>(0x0058CF30)(this, other); }
+    // 0x0058CF30: a copy of `other`'s gaps (without their pieces; no park manager)
+    void CopyFrom(CGapManager* other);
     // 0x0058CF20: the destructor (also clears the singleton)
-    void Destroy() { GameFunction<void(__thiscall*)(CGapManager*)>(0x0058CF20)(this); }
+    void Destroy();
+
+    // --- gap_manager.cpp (0x0058CD40-0x0058D290) ---
+    // One gap (0xEC bytes, made by StartGap / EndGap): the ids of its two ends, their trigger pieces and
+    // metapieces, its name and its GapInfo.
+    struct Gap {
+        uint32_t m_ids[2];        // +0x00: each end's GapID (the manager's counter when it was made)
+        CPiece* mp_pieces[2];     // +0x08: the trigger pieces
+        CMetaPiece* mp_metas[2];  // +0x10
+        char m_name[0x80];        // +0x18: the text of the gap's EndGap
+        GapInfo m_info;           // +0x98
+    };
+    static constexpr int kMaxGaps = 32;
+
+    // 0x0058CD40: the current level's gap checklist made again from the gaps (each never landed)
+    void UpdateChecklist();
+    // 0x0058CEC0: `piece`'s trigger length (cells) from the gap it's an end of (0 if none)
+    void SetTriggerLength(CPiece* piece);
+    // 0x0058D120: run StartGap / EndGap on `script`'s object for gap `index`'s two ends (GapID, score, text; the
+    // start also with combined_flags), the end placed first first
+    void FireGap(int index, Script::CScript* script);
+
+    uint32_t m_nextId;               // +0x00: the next end's GapID
+    Gap* mp_gaps[kMaxGaps];          // +0x04
+    bool m_startedFirst[kMaxGaps];   // +0x84: the gap's first half (StartGap) was placed first
+    CParkManager* mp_manager;        // +0xA4: the park it's in (null in a copy)
 };
+static_assert(sizeof(CGapManager::Gap) == 0xEC && offsetof(CGapManager::Gap, m_info) == 0x98 &&
+                  offsetof(CGapManager, mp_gaps) == 4 && offsetof(CGapManager, m_startedFirst) == 0x84 &&
+                  offsetof(CGapManager, mp_manager) == 0xA4 && sizeof(CGapManager) == 0xA8,
+              "layout must match the original");
 
 // The park generator (the scene side): what's used of it here.
 class CParkGenerator {
