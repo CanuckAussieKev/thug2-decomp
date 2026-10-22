@@ -110,6 +110,11 @@ struct CTrickObjectCluster {
     // 0x00588D20: every object given graffiti colour `index`; in a created park (the level loaded by
     // load_sk5ed_gameplay) the rail editor's rail of the cluster's name too (0x004F4950). True.
     bool SetGraffitiColor(int index);
+    // 0x00588F40: every object's colour cleared if it's graffiti colour `index` (false at the first that fails); in a
+    // created park the rail editor's rail of the cluster's name cleared too (0x004F3D10). True.
+    bool ClearGraffitiColor(int index);
+    // 0x005891D0: the scalar deleting destructor (vtable slot 0).
+    CTrickObjectCluster* Destroy(unsigned int flags);
 };
 static_assert(offsetof(CTrickObjectCluster, m_objects) == 0x44 && sizeof(CTrickObjectCluster) == 0x58,
               "layout must match the original");
@@ -131,6 +136,22 @@ struct CTrickObjectManager {
     CTrickObjectManager* Construct();
     // 0x00588E90: the destructor's body - every cluster deleted, both tables emptied and their buckets freed.
     void DestroyBody();
+    // 0x00588FF0: trick object `objectName`'s cluster coloured for `player` (colour player + 1; -1 stays -1). False
+    // if it has no cluster.
+    bool SetObjectGraffitiColor(uint32_t objectName, int player);
+    // 0x00589030: every cluster's graffiti colour `index` cleared (in the table's order; false at the first that fails).
+    bool ClearGraffitiColor(int index);
+    // 0x00589080: trick object `objectName` filed under the cluster named `clusterName` (null if there's none). True.
+    bool AddObjectToCluster(uint32_t objectName, uint32_t clusterName);
+    // 0x005890B0: the parameters' arrays Skater0 ... Skater7 (trick object names) - each object's cluster coloured for
+    // that player - then the parameters emptied.
+    void ApplyPlayerGraffiti();
+    // 0x00589230: "Clearing observer state": the parameters emptied; on the server the clusters `player` holds
+    // released (0x00588300; false if none - else the skate module told, 0x0056BB70 with 0); then graffiti colour
+    // player + 1 cleared everywhere. True.
+    bool ReleasePlayerClusters(int player);
+    // 0x00589200: the scalar deleting destructor (vtable slot 0).
+    CTrickObjectManager* Destroy(unsigned int flags);
     // 0x005889F0: every cluster deleted (through its virtual destructor, 0x004B22A0) and both tables emptied. True.
     bool RemoveAllClusters();
     // 0x00588380 / 0x005883C0 (and a jump to it, 0x005889E0): a trick object's cluster / a cluster by name (null if
@@ -178,6 +199,22 @@ struct GraffitiStateWriter {
     uint8_t* buffer;
     CTrickObjectManager* manager;
 };
+// 0x00588300: a cluster held by the player asked for released (no holder, no scores) and its name listed.
+// 0x00588350: a cluster nobody holds listed (at most 32).
+struct HeldClusterRelease {
+    int player;
+    uint32_t count;
+    uint32_t names[CTrickObjectManager::kMaxLoggedClusters]; // (THUG2's room: 128 - see ReleasePlayerClusters)
+};
+struct FreeClusterList {
+    uint32_t names[32];
+    uint32_t count; // +0x80
+};
+void __cdecl ReleaseHeldCluster(CTrickObjectCluster* cluster, HeldClusterRelease* release);
+void __cdecl ListFreeCluster(CTrickObjectCluster* cluster, FreeClusterList* list);
+// 0x00589180: the trick object manager (0x007CE500), made first if there's none and `create` (0x3C bytes, Calloc mode
+// 1 - null if that fails); either way one more count of it (0x007CE504; ReleaseTrickObjectManager gives it back).
+CTrickObjectManager* __cdecl AcquireTrickObjectManager(bool create);
 void __cdecl FindClusterIndex(CTrickObjectCluster* cluster, ClusterIndexSearch* search);
 void __cdecl FindClusterAtIndex(CTrickObjectCluster* cluster, ClusterAtIndex* search);
 void __cdecl WriteHeldCluster(CTrickObjectCluster* cluster, GraffitiStateWriter* writer);

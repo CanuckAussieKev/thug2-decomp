@@ -1,4 +1,4 @@
-// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x00588F3C (the trick objects, the
+// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x005892BA (the trick objects, the
 // manager's lookups, graffiti state and graffiti log).
 // See trick_objects.h.
 
@@ -6,12 +6,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <new>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/net/gamenet_manager.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -533,6 +535,137 @@ void CTrickObjectManager::DestroyBody()
     m_clusters.~HashTable();
 }
 
+// 0x00588F40
+bool CTrickObjectCluster::ClearGraffitiColor(int index)
+{
+    const uint32_t count = CountObjects(m_objects);
+    for (uint32_t i = 0; i < count; ++i) {
+        if (!static_cast<CTrickObject*>(ObjectAt(m_objects, i)->data)->ClearGraffitiColor(index))
+            return false;
+    }
+    if (GameVariable<uint32_t>(GameVariable<uint32_t>(0x007CE478) + 0x378) == kLoadCreatedPark) {
+        void* railEditor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
+        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004F3D10)(railEditor, m_name);
+    }
+    return true;
+}
+
+// 0x00588FF0
+bool CTrickObjectManager::SetObjectGraffitiColor(uint32_t objectName, int player)
+{
+    CTrickObjectCluster* cluster = GetObjectCluster(objectName);
+    if (!cluster)
+        return false;
+    cluster->SetGraffitiColor(player == -1 ? -1 : player + 1);
+    return true;
+}
+
+// 0x00589030
+bool CTrickObjectManager::ClearGraffitiColor(int index)
+{
+    m_clusters.m_iterBucket = -1;
+    m_clusters.m_iterItem = nullptr;
+    while (m_clusters.IterateNext() && m_clusters.m_iterItem && m_clusters.m_iterItem->value) {
+        if (!static_cast<CTrickObjectCluster*>(m_clusters.m_iterItem->value)->ClearGraffitiColor(index))
+            return false;
+    }
+    return true;
+}
+
+// 0x00589080
+bool CTrickObjectManager::AddObjectToCluster(uint32_t objectName, uint32_t clusterName)
+{
+    m_objectClusters.PutItem(objectName, GetCluster(clusterName));
+    return true;
+}
+
+// 0x00588300
+void __cdecl ReleaseHeldCluster(CTrickObjectCluster* cluster, HeldClusterRelease* release)
+{
+    if (!cluster->m_owned || cluster->m_owner != release->player)
+        return;
+    cluster->m_owned = false;
+    cluster->m_bestScore = 0;
+    for (uint32_t& score : cluster->m_scores)
+        score = 0;
+    release->names[release->count++] = cluster->m_name;
+}
+
+// 0x00588350
+void __cdecl ListFreeCluster(CTrickObjectCluster* cluster, FreeClusterList* list)
+{
+    if (list->count < 32 && !cluster->m_owned)
+        list->names[list->count++] = cluster->m_name;
+}
+
+// 0x005890B0
+void CTrickObjectManager::ApplyPlayerGraffiti()
+{
+    for (int player = 0; player < 8; ++player) {
+        char name[32];
+        std::snprintf(name, sizeof(name), "Skater%d", player);
+        Script::CArray* objects;
+        if (!m_params->GetArray(name, &objects, 0))
+            continue;
+        for (int i = 0; i < static_cast<int>(objects->m_size); ++i) {
+            auto* cluster = static_cast<CTrickObjectCluster*>(m_objectClusters.GetItem(objects->GetElement(i)));
+            if (cluster)
+                cluster->SetGraffitiColor(player == -1 ? -1 : player + 1);
+        }
+    }
+    m_params->Clear();
+}
+
+// 0x00589180
+CTrickObjectManager* __cdecl AcquireTrickObjectManager(bool create)
+{
+    auto*& instance = GameVariable<CTrickObjectManager*>(0x007CE500);
+    if (!instance && create) {
+        void* memory = Mem::Calloc(sizeof(CTrickObjectManager), nullptr, 1);
+        instance = memory ? static_cast<CTrickObjectManager*>(memory)->Construct() : nullptr;
+    }
+    ++GameVariable<int>(0x007CE504);
+    return instance;
+}
+
+// 0x005891D0
+CTrickObjectCluster* CTrickObjectCluster::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
+// 0x00589200
+CTrickObjectManager* CTrickObjectManager::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
+// 0x00589230
+bool CTrickObjectManager::ReleasePlayerClusters(int player)
+{
+    Dbg::Printf("Clearing observer state\n");
+    m_params->Clear();
+    if (static_cast<GameNet::Manager*>(NetManager())->OnServer()) {
+        // (THUG2 lists the released clusters' names in a 128-entry buffer on the stack - a player holding more
+        // overran it; the list itself isn't used, only its count.)
+        static HeldClusterRelease release;
+        release.player = player;
+        release.count = 0;
+        m_clusters.HandleCallback(reinterpret_cast<Lst::HashTable::Callback>(&ReleaseHeldCluster), &release);
+        if (release.count == 0)
+            return false;
+        GameFunction<void(__thiscall*)(void*, int)>(0x0056BB70)(GameVariable<void*>(0x007CE478), 0);
+    }
+    ClearGraffitiColor(player + 1);
+    return true;
+}
+
 } // namespace Obj
 
 REPLACE(0x005886C0, &Obj::CTrickObjectManager::LogTrickObjects);
@@ -567,3 +700,14 @@ REPLACE(0x00588C30, &Obj::CTrickObjectCluster::DestroyBody);
 REPLACE(0x00588D20, &Obj::CTrickObjectCluster::SetGraffitiColor);
 REPLACE(0x00588DC0, &Obj::CTrickObjectManager::Construct);
 REPLACE(0x00588E90, &Obj::CTrickObjectManager::DestroyBody);
+REPLACE(0x00588F40, &Obj::CTrickObjectCluster::ClearGraffitiColor);
+REPLACE(0x00588FF0, &Obj::CTrickObjectManager::SetObjectGraffitiColor);
+REPLACE(0x00589030, &Obj::CTrickObjectManager::ClearGraffitiColor);
+REPLACE(0x00589080, &Obj::CTrickObjectManager::AddObjectToCluster);
+REPLACE(0x00588300, Obj::ReleaseHeldCluster);
+REPLACE(0x00588350, Obj::ListFreeCluster);
+REPLACE(0x005890B0, &Obj::CTrickObjectManager::ApplyPlayerGraffiti);
+REPLACE(0x00589180, Obj::AcquireTrickObjectManager);
+REPLACE(0x005891D0, &Obj::CTrickObjectCluster::Destroy);
+REPLACE(0x00589200, &Obj::CTrickObjectManager::Destroy);
+REPLACE(0x00589230, &Obj::CTrickObjectManager::ReleasePlayerClusters);

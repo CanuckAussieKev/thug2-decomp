@@ -9963,7 +9963,32 @@ belong with the CScript batch.
   (TestParkGraffiti3): original vs ours over 0xCD memory, twice - the manager as made, then three clusters deleted
   with it (an empty item skipped) and the buckets freed; the allocator, contexts and structure stood in for. 14
   deliberate bugs caught, 2 after strengthening.
-- [ ] Next: park editor & graffiti 0x00588F40 on.
+- [x] Batch 323 (NOT run in the game yet; park editor & graffiti range, part 4 - clearing and filing graffiti): src/
+  game/obj/trick_objects.cpp / .h. 0x00588F40 CTrickObjectCluster::ClearGraffitiColor (each object's colour cleared if
+  it's colour `index`, false at the first that fails - 0x00588270; in a created park the rail editor's rail cleared too,
+  0x004F3D10; true); 0x00588FF0 CTrickObjectManager::SetObjectGraffitiColor (an object's cluster coloured player + 1,
+  -1 kept; false with no cluster); 0x00589030 ClearGraffitiColor (every cluster in the table's order, stopping - true -
+  at an item with no value, false at the first that fails); 0x00589080 AddObjectToCluster (an object filed under a
+  cluster by name; true). Tests (TestParkGraffiti4 / 4b): original vs ours - three objects cleared with none / the
+  second / the first failing, indexes 1 / 4, a normal level and a created park, an empty cluster; objects coloured for
+  players -1 / 0 / 6 (with no cluster too); every cluster cleared with none / B / A failing and a chained item with no
+  value; three objects filed (one cluster name unknown). 18 deliberate bugs caught, 1 after strengthening.
+- [x] Batch 324 (NOT run in the game yet; park editor & graffiti range, part 5 - the manager's lifetime and a player's
+  graffiti): src/game/obj/trick_objects.cpp / .h. Two cluster-walk callbacks Ghidra never made functions:
+  0x00588300 ReleaseHeldCluster (a cluster the player holds released - no holder, no scores - and its name listed)
+  and 0x00588350 ListFreeCluster (a cluster nobody holds listed, at most 32). 0x005890B0
+  CTrickObjectManager::ApplyPlayerGraffiti (the parameters' arrays Skater0-7 of trick object names: each object's
+  cluster coloured for that player; the parameters emptied); 0x00589180 AcquireTrickObjectManager (made with Calloc
+  mode 1 if there's none and asked for; one more count either way; returns the instance); 0x005891D0 / 0x00589200 the
+  cluster's and manager's scalar deleting destructors; 0x00589230 ReleasePlayerClusters ("Clearing observer state": the
+  parameters emptied; on the server the player's clusters released - false if none, else the skate module told with
+  0x0056BB70(0) -; then graffiti colour player + 1 cleared; true). THUG2 collects the released names in a 128-entry
+  stack buffer (overrun by a player holding more); ours uses a static one of kMaxLoggedClusters - only its count is
+  used. Test (TestParkGraffiti5): original vs ours - the callbacks over held / other / unheld clusters and list counts
+  0 / 31 / 32; Skater0 / 2 / 5 arrays (an unknown object, an empty array); acquiring with and without an instance,
+  creating, out of memory; both destructors with flags 0 / 1; releasing players 2 / 6 as server and client; sprintf,
+  structures, arrays and the callees stood in for. 29 deliberate bugs caught.
+- [ ] Next: park editor & graffiti 0x005892C0 on.
 - [ ] Next: nothing left in the range; hand back.
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag
