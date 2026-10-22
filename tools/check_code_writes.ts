@@ -51,9 +51,9 @@ export function runtimeWrites(): Write[] {
 
 function main(): number {
     const writes = runtimeWrites();
-    if (writes.length !== 26) {
+    if (writes.length !== 25) {
         print(
-            `expected 26 writes (14 host names, 6 game names, 3 keys, 3 table entries), found ${writes.length}: update this script`,
+            `expected 25 writes (14 host names, 5 game names, 3 keys, 3 table entries), found ${writes.length}: update this script`,
         );
         return 1;
     }
