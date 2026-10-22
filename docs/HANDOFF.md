@@ -409,3 +409,15 @@ four agents in worktrees (prompts out/scripts/PE1..4.txt, template park_prompt.t
 PE1 0x588180-0x58CD40 (THUG2-1, docs/pending/park-1.md; starts with batch 329's viewer object notes above), PE2
 0x58CD40-0x58FBD0 (THUG2-2, park-2.md; the park editor CFunctions), PE3 0x58FBD0-0x592740 (THUG2-3, park-3.md), PE4
 0x592740-0x595030 (THUG2-4, park-4.md). Then merge one at a time (build + checks after each), fold, install, push.
+- **Done (2026-10-23): Park editor & graffiti 100% (289/289).** PE4, PE2, PE1, PE3 merged one at a time (each: lead
+  build, thug2_check on both exes 0 MISMATCHED - 771 early self-tests at the end -, check_code_writes no overlaps,
+  register scan 5 known RISK lines, call audit clean), folded as batches 329-341; find_gaps empty over the range.
+  PE1's rail mutations re-run on main's renamed code: 40/42, the 2 equivalents PE1 recorded. Progress 67.85%.
+  **Installed** in C:\Games\THUG2 at a11ce7a (DLL + pdb, overlay regenerated; self-tests off); pushed. NOT played:
+  the per-agent "try in CREATE-A-PARK" lists are in docs/pending/park-1..4.md. PE2 fixed a real crash already on main
+  (deleting a piece: DestroyMetasInAreaAndRebuild's corner buffer). Disable lines: park-1..4.md.
+- Optional cleanups left by the agents: other code still calls the new park functions through GameFunction addresses
+  (park_io.cpp, park_scene.cpp helpers, core/singleton.cpp) - hooked in the game, direct calls would be tidier;
+  ParkGeneratorData (park_scene.h) is the generator's layout, separate from CParkGenerator; SMetaDescriptor::isReal is
+  misnamed (the precise intersect test skips those pieces). Mutation specs from tools/mutate.ts need LF files (the
+  checkout is CRLF) - out/scripts/filter_spec.mjs drops patterns that no longer match.
