@@ -1,4 +1,4 @@
-// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x005892BA (the trick objects, the
+// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x0058966D (the trick objects, the
 // manager's lookups, graffiti state and graffiti log).
 // See trick_objects.h.
 
@@ -14,6 +14,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/net_app.h"
+#include "game/net/net_conn.h"
+#include "game/net/player_info.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -666,6 +669,126 @@ bool CTrickObjectManager::ReleasePlayerClusters(int player)
     return true;
 }
 
+namespace {
+
+// The graffiti messages (the receivers' layouts; bytes the original leaves unset are zero here).
+constexpr uint8_t kMsgTagStolen = 0x4B;
+constexpr uint8_t kMsgTrickObjects = 0x3B;
+constexpr uint8_t kMsgObserverTrickObjects = 0x5B;
+constexpr uint8_t kGroupGame = 8;
+constexpr uint32_t kMaxMessageObjects = CTrickObjectList::kCapacity;
+struct TagStolenMessage {
+    uint8_t gameId;
+    uint8_t pad01[3];
+    int thief;
+    int victim;
+};
+struct TrickObjectsMessage {
+    uint8_t one; // (always 1)
+    uint8_t unknown01[9];
+    uint8_t gameId; // +0x0A
+    uint8_t pad0B;
+    int player;     // +0x0C
+    uint32_t score; // +0x10
+    uint32_t count; // +0x14
+    uint32_t objects[kMaxMessageObjects];
+};
+struct ObserverTrickObjectsMessage {
+    uint8_t gameId;
+    uint8_t pad01[3];
+    int player;
+    uint32_t count;
+    uint32_t objects[kMaxMessageObjects];
+};
+static_assert(sizeof(TagStolenMessage) == 0xC && offsetof(TrickObjectsMessage, objects) == 0x18 &&
+                  offsetof(ObserverTrickObjectsMessage, objects) == 0xC,
+              "layout must match the original");
+
+GameNet::PlayerInfo* AsPlayer(void* player) { return static_cast<GameNet::PlayerInfo*>(player); }
+
+} // namespace
+
+// 0x005892C0
+void __cdecl ScoreTrickObjects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send)
+{
+    auto* net = static_cast<GameNet::Manager*>(NetManager());
+    void* skate = GameVariable<void*>(0x007CE478);
+    Net::MsgDesc desc;
+    desc.Construct();
+    PlayerSearch search;
+    if (send) {
+        auto* server = *reinterpret_cast<Net::App**>(reinterpret_cast<uint8_t*>(net) + 4);
+        Net::Conn* conn = nullptr;
+        if (auto* skater = GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x00566600)(skate, player)) {
+            if (uint8_t* info = net->PlayerByObjectId(static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))))
+                conn = *reinterpret_cast<Net::Conn**>(info + 0x18);
+        }
+        uint8_t stolen[8] = {};
+        count = GameVariable<CTrickObjectManager*>(0x007CE500)->LogTrickObjects(count, objects, stolen, player, score);
+        if (count == 0)
+            return;
+        for (int victim = 0; victim < 8; ++victim) {
+            if (!stolen[victim])
+                continue;
+            Net::MsgDesc stolenDesc;
+            stolenDesc.Construct();
+            TagStolenMessage message = {};
+            message.thief = player;
+            message.victim = victim;
+            message.gameId = net->GetGameId();
+            uint8_t* thief = net->PlayerByObjectId(static_cast<uint16_t>(player));
+            stolenDesc.m_data = &message;
+            stolenDesc.m_length = sizeof(message);
+            stolenDesc.m_id = kMsgTagStolen;
+            server->EnqueueMessage(AsPlayer(thief)->GetConnHandle(), &stolenDesc);
+            message.thief = player;
+            message.victim = victim;
+            message.gameId = net->GetGameId();
+            if (uint8_t* info = net->PlayerByObjectId(static_cast<uint16_t>(victim)))
+                server->EnqueueMessage(AsPlayer(info)->GetConnHandle(), &desc); // (not stolenDesc: as the original)
+        }
+
+        TrickObjectsMessage all = {};
+        all.one = 1;
+        all.player = player;
+        all.score = score;
+        all.count = count;
+        all.gameId = net->GetGameId();
+        std::memcpy(all.objects, objects, count * 4);
+        desc.m_data = &all;
+        desc.m_length = static_cast<uint16_t>(count * 4 + offsetof(TrickObjectsMessage, objects));
+        desc.m_id = kMsgTrickObjects;
+        desc.m_queue = Net::MsgDesc::kQueueSequenced;
+        desc.m_groupId = kGroupGame;
+        for (void* info = net->FirstPlayerInfo(&search, false); info; info = net->NextPlayerInfo(&search, false))
+            server->StreamMessage(AsPlayer(info)->GetConnHandle(), desc.m_id, desc.m_length, desc.m_data,
+                                  "TrickObj Buffer", kGroupGame, true, false);
+
+        ObserverTrickObjectsMessage observed = {};
+        observed.count = count;
+        observed.player = player;
+        observed.gameId = net->GetGameId();
+        std::memcpy(observed.objects, objects, count * 4);
+        desc.m_data = &observed;
+        desc.m_length = static_cast<uint16_t>(count * 4 + offsetof(ObserverTrickObjectsMessage, objects));
+        desc.m_id = kMsgObserverTrickObjects;
+        for (void* info = net->FirstPlayerInfo(&search, true); info; info = net->NextPlayerInfo(&search, true)) {
+            if (AsPlayer(info)->IsObserver())
+                server->StreamMessage(AsPlayer(info)->GetConnHandle(), desc.m_id, desc.m_length, desc.m_data,
+                                      "TrickObj Buffer", kGroupGame, true, false);
+        }
+        GameFunction<void(__thiscall*)(void*, int)>(0x0056BB70)(skate, 0);
+        if (conn->IsLocal()) // (no null check: as the original)
+            return;
+    }
+    for (uint32_t i = 0; i < count; ++i) {
+        auto* cluster = static_cast<CTrickObjectCluster*>(
+            GameVariable<CTrickObjectManager*>(0x007CE500)->m_objectClusters.GetItem(objects[i]));
+        if (cluster)
+            cluster->SetGraffitiColor(player == -1 ? -1 : player + 1);
+    }
+}
+
 } // namespace Obj
 
 REPLACE(0x005886C0, &Obj::CTrickObjectManager::LogTrickObjects);
@@ -711,3 +834,4 @@ REPLACE(0x00589180, Obj::AcquireTrickObjectManager);
 REPLACE(0x005891D0, &Obj::CTrickObjectCluster::Destroy);
 REPLACE(0x00589200, &Obj::CTrickObjectManager::Destroy);
 REPLACE(0x00589230, &Obj::CTrickObjectManager::ReleasePlayerClusters);
+REPLACE(0x005892C0, Obj::ScoreTrickObjects);

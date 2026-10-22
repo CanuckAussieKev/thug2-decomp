@@ -9988,7 +9988,21 @@ belong with the CScript batch.
   0 / 31 / 32; Skater0 / 2 / 5 arrays (an unknown object, an empty array); acquiring with and without an instance,
   creating, out of memory; both destructors with flags 0 / 1; releasing players 2 / 6 as server and client; sprintf,
   structures, arrays and the callees stood in for. 29 deliberate bugs caught.
-- [ ] Next: park editor & graffiti 0x005892C0 on.
+- [x] Batch 325 (NOT run in the game yet; park editor & graffiti range, part 6 - graffiti scored and sent): src/game/
+  obj/trick_objects.cpp / .h. 0x005892C0 ScoreTrickObjects(player, score, count, objects, send) (cdecl): with `send`
+  (the server) the trick logged (LogTrickObjects; nothing more if no cluster changed); for each player whose clusters
+  were taken the thief told (message 0x4B: game id, thief, victim - 12 bytes) and the victim enqueued the outer
+  descriptor while it's still empty (the original's slip: the 0x4B descriptor was surely meant - kept); the changed
+  objects streamed to every player (0x3B "TrickObj Buffer": a 1 at +0, game id +0x0A, player, score, count, objects;
+  group 8, all at once) and to every observer (0x5B: game id, player, count, objects); the skate module told
+  (0x0056BB70 with 0); done if the scorer's connection (its skater's player's, +0x18 - not null-checked) is local.
+  Then each object's cluster coloured for the player. Bytes the original leaves unset in the messages (stack garbage)
+  are zero in ours. Test (TestParkGraffiti6): original vs ours - not sent (players 1 and -1), sent with nothing
+  changed, sent with three changed and victims 2 / 5 / 7 (7 has no player) with the scorer's connection local and
+  remote; the net manager's lookups and player walk, the app's sends, the log and the colouring stood in for; the
+  messages' set bytes compared. 34 deliberate bugs: 33 caught (1 after strengthening), 1 equivalent (the descriptor's
+  queue - nothing reads it after it's set).
+- [ ] Next: park editor & graffiti 0x00589670 on.
 - [ ] Next: nothing left in the range; hand back.
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag

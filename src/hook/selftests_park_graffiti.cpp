@@ -9,6 +9,9 @@
 #include <map>
 #include <vector>
 
+#include "game/net/gamenet_manager.h"
+#include "game/net/net_app.h"
+#include "game/net/player_info.h"
 #include "game/obj/trick_objects.h"
 #include "hook/viewer_testkit.h"
 
@@ -594,6 +597,135 @@ void TestParkGraffiti5()
     Compare(traces[0], traces[1], "park graffiti 5: callbacks, the players' graffiti, the manager acquired / destroyed / released");
 }
 
+// Batch 6: a trick scored on trick objects - not sent (only coloured); sent with nothing changed; sent with two clusters
+// changed and two victims (one with no player), the scorer's connection local (done) and remote (coloured too). The
+// network manager, its players, the server app's sends and the manager's log stood in for; the messages' set bytes
+// recorded.
+uint32_t g_logged;
+uint8_t g_stolen[8];
+int g_playerIndex;
+constexpr uint32_t kNet = 0x7600, kApp = 0x7680, kPlayers = 0x6800, kSkater = 0x6E00, kConn = 0x6C00;
+uint32_t PlayerAt(int i) { return At(kPlayers + 0x40 * i); }
+void RecordMessage(uint32_t id, uint32_t size, uint32_t data)
+{
+    if (!data || !size)
+        return;
+    const auto* bytes = reinterpret_cast<const uint8_t*>(data);
+    const auto* words = reinterpret_cast<const uint32_t*>(data);
+    switch (id) {
+    case 0x4B: Record({bytes[0], words[1], words[2]}); break;
+    case 0x3B:
+        Record({bytes[0], bytes[0xA]});
+        for (uint32_t i = 3; i < size / 4; ++i)
+            Record({words[i]});
+        break;
+    case 0x5B:
+        Record({bytes[0]});
+        for (uint32_t i = 1; i < size / 4; ++i)
+            Record({words[i]});
+        break;
+    default: Record({0xBAD, id});
+    }
+}
+void TestParkGraffiti6()
+{
+    SaveGlobals({{0x007CE500, 4, {}}, {0x007CE478, 4, {}}, {0x007CCE14, 4, {}}});
+    StandIns* s = new StandIns;
+    Install(*s);
+    s->At({0x005886C0, AddressOf(&CTrickObjectManager::LogTrickObjects)}, 20, [](Regs& r) {
+        Rec(0x86C0, {r.ecx, r.args[0], r.args[1], r.args[3], r.args[4]});
+        std::memcpy(reinterpret_cast<void*>(r.args[2]), g_stolen, 8);
+        return g_logged;
+    });
+    s->At({0x00566600}, 4, [](Regs& r) {
+        Rec(0x6600, {r.ecx, r.args[0]});
+        *reinterpret_cast<uint32_t*>(At(kSkater) + 0x14) = r.args[0];
+        return At(kSkater);
+    });
+    s->At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
+        Rec(0xAEA0, {r.ecx, r.args[0] & 0xFFFF});
+        uint32_t id = r.args[0] & 0xFFFF;
+        return id == 0 || id == 1 || id == 5 ? PlayerAt(id == 5 ? 2 : static_cast<int>(id)) : 0u;
+    });
+    s->At({0x005434A0, AddressOf(&GameNet::PlayerInfo::GetConnHandle)}, 0, [](Regs& r) {
+        Rec(0x34A0, {r.ecx});
+        return *reinterpret_cast<uint32_t*>(r.ecx + 0x3C);
+    });
+    s->At({0x00543320, AddressOf(&GameNet::PlayerInfo::IsObserver)}, 0, [](Regs& r) {
+        Rec(0x3320, {r.ecx});
+        return *reinterpret_cast<uint32_t*>(r.ecx + 0x38);
+    });
+    s->At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [](Regs& r) {
+        Rec(0x72C0, {r.ecx, r.args[1] & 0xFF});
+        g_playerIndex = 0;
+        return PlayerAt(0);
+    });
+    s->At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [](Regs& r) {
+        Rec(0x7010, {r.ecx, r.args[1] & 0xFF});
+        return ++g_playerIndex < 3 ? PlayerAt(g_playerIndex) : 0u;
+    });
+    s->At({0x00457EB0, AddressOf(&Net::App::EnqueueMessage)}, 8, [](Regs& r) {
+        const auto* desc = reinterpret_cast<const Net::MsgDesc*>(r.args[1]);
+        Rec(0x7EB0, {r.ecx, r.args[0], desc->m_id, desc->m_length, static_cast<uint32_t>(desc->m_queue), desc->m_groupId,
+                     static_cast<uint32_t>(desc->m_priority)});
+        RecordMessage(desc->m_id, desc->m_length, reinterpret_cast<uint32_t>(desc->m_data));
+        return 0u;
+    });
+    s->At({0x00458AB0, AddressOf(&Net::App::StreamMessage)}, 0x20, [](Regs& r) {
+        Rec(0x8AB0, {r.ecx, r.args[0], r.args[1] & 0xFF, r.args[2] & 0xFFFF, Text(r.args[4]), r.args[5] & 0xFF,
+                     r.args[6] & 0xFF, r.args[7] & 0xFF});
+        RecordMessage(r.args[1] & 0xFF, r.args[2] & 0xFFFF, r.args[3]);
+        return 0u;
+    });
+    s->At({0x00588D20, AddressOf(&CTrickObjectCluster::SetGraffitiColor)}, 4, [](Regs& r) {
+        Rec(0x8D20, {r.ecx, r.args[0]});
+        return 1u;
+    });
+    s->At({0x0056BB70}, 4, [](Regs& r) {
+        Rec(0xBB70, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        const bool original = run == 0;
+        std::vector<uint32_t>& t = traces[run];
+        SetUpArena(run);
+        SetUpManager(true);
+        GameVariable<uint32_t>(0x007CCE14) = At(kNet);
+        GameVariable<uint32_t>(0x007CE478) = At(0x7A00);
+        *Ptr<uint32_t>(kNet + 4) = At(kApp);
+        *Ptr<uint8_t>(kNet + 0x38) = 0x2C; // the game id
+        for (int i = 0; i < 3; ++i) {
+            *reinterpret_cast<uint32_t*>(PlayerAt(i) + 0x18) = At(kConn);
+            *reinterpret_cast<uint32_t*>(PlayerAt(i) + 0x38) = i == 2; // observing
+            *reinterpret_cast<uint32_t*>(PlayerAt(i) + 0x3C) = 0x40 + i; // its connection's handle
+        }
+        uint32_t* objects = Ptr<uint32_t>(0x5000);
+        auto score = [&](int player, uint32_t points, uint32_t count, bool send) {
+            const uint32_t names[] = {0x11, 0x44, 0x22, 0x15};
+            std::memcpy(objects, names, sizeof(names));
+            original ? Original<void(__cdecl*)(int, uint32_t, uint32_t, uint32_t*, bool)>(0x005892C0)(player, points, count,
+                                                                                                    objects, send)
+                     : Obj::ScoreTrickObjects(player, points, count, objects, send);
+        };
+        score(1, 500, 4, false);
+        score(-1, 10, 3, false);
+        g_logged = 0;
+        std::memset(g_stolen, 0, 8);
+        score(0, 700, 4, true);
+        g_logged = 3;
+        g_stolen[2] = g_stolen[5] = g_stolen[7] = 1;
+        for (uint32_t flags : {1u, 0u}) {
+            *Ptr<uint32_t>(kConn + 0x64) = flags;
+            score(1, 1200, 4, true);
+        }
+        PushArena(t);
+        t.insert(t.end(), g_trace.begin(), g_trace.end());
+    }
+    Cleanup();
+    Compare(traces[0], traces[1], "park graffiti 6: a trick scored on trick objects, sent to the players");
+}
+
 } // namespace
 
 SELFTEST(Early, TestParkGraffiti1, ViewerTestKit::Cleanup);
@@ -602,3 +734,4 @@ SELFTEST(Early, TestParkGraffiti3, ViewerTestKit::Cleanup);
 SELFTEST(Early, TestParkGraffiti4, ViewerTestKit::Cleanup);
 SELFTEST(Early, TestParkGraffiti4b, ViewerTestKit::Cleanup);
 SELFTEST(Early, TestParkGraffiti5, ViewerTestKit::Cleanup);
+SELFTEST(Early, TestParkGraffiti6, ViewerTestKit::Cleanup);

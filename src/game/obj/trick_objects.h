@@ -212,6 +212,13 @@ struct FreeClusterList {
 };
 void __cdecl ReleaseHeldCluster(CTrickObjectCluster* cluster, HeldClusterRelease* release);
 void __cdecl ListFreeCluster(CTrickObjectCluster* cluster, FreeClusterList* list);
+// 0x005892C0: a trick (or combo) by `player` scoring `score` on the `count` trick objects named in `objects`. With
+// `send` (the server): logged (CTrickObjectManager::LogTrickObjects - nothing more if no cluster changed); for each
+// player whose clusters were taken, the thief told (message 0x4B: game id, thief, victim) and the victim sent the
+// still-empty descriptor (the original's slip); the changed objects streamed to every player (0x3B, "TrickObj
+// Buffer") and to every observer (0x5B); the skate module told (0x0056BB70 with 0); done if the scoring skater's
+// connection is local. Then (and without `send`) each object's cluster coloured for the player.
+void __cdecl ScoreTrickObjects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send);
 // 0x00589180: the trick object manager (0x007CE500), made first if there's none and `create` (0x3C bytes, Calloc mode
 // 1 - null if that fails); either way one more count of it (0x007CE504; ReleaseTrickObjectManager gives it back).
 CTrickObjectManager* __cdecl AcquireTrickObjectManager(bool create);
