@@ -85,4 +85,39 @@ Shared files touched (small, additive): CMakeLists.txt (new sources / tests), sr
     player not marked fully in, the 1000 ms edge, a team flag of team 1, host mode for the local player, the players'
     flags recorded after each announcement, an observing local player for RetrievedFlag); 1 equivalent (StoleFlag's
     clearing of the stolen team's bit before clearing all four).
-- [ ] Next: the lobby (GameNet::LobbyMan, 0x00541870-0x00543010 and its GameSpy callbacks).
+- [x] Batch NET3-3 (NOT run in the game yet; the GameSpy lobby): src/game/net/lobby.{h,cpp} (new);
+  online_identity.{h,cpp}, selftests_pc.cpp, tools/check_code_writes.ts (the two peerSetTitle name sites dropped).
+  27 functions.
+  - GameNet::LobbyMan (the manager's +0x10; the rest of the class, 0x00540xxx, is NET2's range - its calls go by
+    address): constructor 0x00541870 (the lobby and player list heads, three Tsk::Task<LobbyMan> for 0x00540040 /
+    0x005400B0 / 0x005400E0, the qr2 keys 0x33-0x39 registered), scalar deleting destructor 0x00541AC0, InitPeer
+    0x00542DF0 (the SDK's callback table - ours for the callbacks rewritten here, the game's for the others -,
+    peerInitialize 0x005FCE60), StartListingGames 0x00541A10, ClearLobbies 0x005427E0, FillLobbyList 0x005428B0,
+    GetLobby 0x00542970, ClearPlayers 0x00541AF0, FillPlayerList 0x00541BA0, FillProspectiveBuddyList 0x00541C70,
+    RequestPlayerList 0x00542B10; LobbyInfo's constructor 0x00545860.
+  - The GameSpy callbacks: playerJoined 0x00541D50, playerInfo 0x00541FD0, playerLeft 0x005420C0, the room keys
+    0x00542330 (not a Ghidra function; b_rating), EnumPlayers 0x005424F0, roomKeyChanged 0x00542650 (the rank:
+    rating * 0x0064CC1C * 0x00646710 - 1/3500 and 10 - truncated, at most 10), newPlayerList 0x00542B70 (not a
+    Ghidra function: RequestPlayerList on the parameter), joining the group room 0x00542B80 (not a Ghidra function:
+    the menus, the presence status "chatting", our b_rating room key from the stats manager 0x0054CA80, everyone's
+    asked for). Names (scripts, texts) from the game's .qb files.
+  - The commands NumPlayersInLobby 0x00541A70, LobbyDisconnect 0x005429C0 (quirk kept: +0x13C counted down one at
+    a time), FillPlayerList 0x00542AA0 (the manager's singleton taken / given back), FillLobbyProspectiveBuddyList
+    0x00542B00, RejoinLobby 0x00542CE0, ChooseLobby 0x00542D30 (no null check on the lobby index), LobbyConnect
+    0x00542EE0 (peerSetTitle 0x005FCF30 with the game name - Net::GameName(), OnlineGameName or thps6pc - and the
+    secret key decoded from 0x0067F154, where online_identity.cpp writes OnlineGameKey; the thread 0x00540AB0
+    created suspended so its id becomes the lobby id, then resumed).
+  - Online identity: the original pushed the name's address at 0x00542F8B / 0x00542FA0, which online_identity.cpp
+    wrote over; those two sites are gone from its list (4 name sites now; selftests_pc's TestOnlineIdentity and
+    check_code_writes' expected count updated; check_code_writes: "No overlaps"). CLAUDE.md still says "6 push
+    operands" (for the lead).
+  - Test TestNetLobby (src/hook/selftests_net_lobby.cpp): every function over a stand-in lobby, GameSpy SDK
+    stand-ins recording every call (callbacks recorded by game address - ours mapped back), CreateThread /
+    ResumeThread stood in, the C runtime's _stricmp / atol answered by ours for the original. Nothing goes online.
+    54 deliberate bugs: 53 caught (12 after strengthening: unlisted players shown, the heaps told apart, our own
+    profile among the players, a profile of 0, an unknown room key, flags recorded after joining / disconnecting, a
+    LobbyInfo left as constructed); 1 equivalent (LobbyDisconnect's count-down replaced by zeroing).
+  - Untested without a live connection: the GameSpy side itself (what the SDK does with the calls and when it calls
+    back) - only the calls made and the handling of callbacks fed in are compared.
+- [ ] Next: the server list (0x005451B0-0x00546790, 0x00547320 / 0x00547440 / 0x00547E80 / 0x00547F70, the MOTD
+  download callbacks 0x00545490 / 0x00545540 / 0x00545620).
