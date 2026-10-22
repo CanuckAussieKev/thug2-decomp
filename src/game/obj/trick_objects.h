@@ -152,6 +152,16 @@ struct CTrickObjectManager {
     bool ReleasePlayerClusters(int player);
     // 0x00589200: the scalar deleting destructor (vtable slot 0).
     CTrickObjectManager* Destroy(unsigned int flags);
+    // 0x00589670: up to 32 clusters nobody holds (0x00588350) given to `player` - scored 1000 and sent
+    // (ScoreTrickObjects) - if there are any.
+    void GiveFreeClusters(int player);
+    // 0x005896D0: a cluster named `name` made (0x58 bytes; null if out of memory) and listed by name, counted and filed
+    // as its own trick object; in a created park the rail editor's rail of that name cleared first (0x004F3D10).
+    // False if there's one already.
+    bool AddCluster(uint32_t name);
+    // 0x00589760: trick object `objectName` added to the cluster named `clusterName` (which must exist) and, unless
+    // it's the cluster's own name, filed under it. Whether it was added.
+    bool AddObject(uint32_t objectName, uint32_t clusterName);
     // 0x005889F0: every cluster deleted (through its virtual destructor, 0x004B22A0) and both tables emptied. True.
     bool RemoveAllClusters();
     // 0x00588380 / 0x005883C0 (and a jump to it, 0x005889E0): a trick object's cluster / a cluster by name (null if

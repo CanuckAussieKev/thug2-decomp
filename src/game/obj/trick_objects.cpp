@@ -1,4 +1,4 @@
-// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x0058966D (the trick objects, the
+// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x005897A6 (the trick objects, the
 // manager's lookups, graffiti state and graffiti log).
 // See trick_objects.h.
 
@@ -789,6 +789,41 @@ void __cdecl ScoreTrickObjects(int player, uint32_t score, uint32_t count, uint3
     }
 }
 
+// 0x00589670
+void CTrickObjectManager::GiveFreeClusters(int player)
+{
+    FreeClusterList list;
+    list.count = 0;
+    m_clusters.HandleCallback(reinterpret_cast<Lst::HashTable::Callback>(&ListFreeCluster), &list);
+    if (list.count)
+        ScoreTrickObjects(player, 1000, list.count, list.names, true);
+}
+
+// 0x005896D0
+bool CTrickObjectManager::AddCluster(uint32_t name)
+{
+    if (GetCluster(name))
+        return false;
+    if (GameVariable<uint32_t>(GameVariable<uint32_t>(0x007CE478) + 0x378) == kLoadCreatedPark) {
+        void* railEditor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
+        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004F3D10)(railEditor, name);
+    }
+    void* memory = Mem::Calloc(sizeof(CTrickObjectCluster));
+    m_clusters.PutItem(name, memory ? static_cast<CTrickObjectCluster*>(memory)->Construct(name) : nullptr);
+    ++m_clusterCount;
+    m_objectClusters.PutItem(name, GetCluster(name));
+    return true;
+}
+
+// 0x00589760
+bool CTrickObjectManager::AddObject(uint32_t objectName, uint32_t clusterName)
+{
+    const bool added = GetCluster(clusterName)->AddObject(objectName);
+    if (added && objectName != clusterName)
+        m_objectClusters.PutItem(objectName, GetCluster(clusterName));
+    return added;
+}
+
 } // namespace Obj
 
 REPLACE(0x005886C0, &Obj::CTrickObjectManager::LogTrickObjects);
@@ -835,3 +870,6 @@ REPLACE(0x005891D0, &Obj::CTrickObjectCluster::Destroy);
 REPLACE(0x00589200, &Obj::CTrickObjectManager::Destroy);
 REPLACE(0x00589230, &Obj::CTrickObjectManager::ReleasePlayerClusters);
 REPLACE(0x005892C0, Obj::ScoreTrickObjects);
+REPLACE(0x00589670, &Obj::CTrickObjectManager::GiveFreeClusters);
+REPLACE(0x005896D0, &Obj::CTrickObjectManager::AddCluster);
+REPLACE(0x00589760, &Obj::CTrickObjectManager::AddObject);

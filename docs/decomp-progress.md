@@ -10002,7 +10002,17 @@ belong with the CScript batch.
   remote; the net manager's lookups and player walk, the app's sends, the log and the colouring stood in for; the
   messages' set bytes compared. 34 deliberate bugs: 33 caught (1 after strengthening), 1 equivalent (the descriptor's
   queue - nothing reads it after it's set).
-- [ ] Next: park editor & graffiti 0x00589670 on.
+- [x] Batch 326 (NOT run in the game yet; park editor & graffiti range, part 7 - clusters and objects added): src/game/
+  obj/trick_objects.cpp / .h. 0x00589670 CTrickObjectManager::GiveFreeClusters (up to 32 clusters nobody holds -
+  ListFreeCluster - scored 1000 for the player and sent, if any); 0x005896D0 AddCluster (false if it exists; in a
+  created park the rail editor's rail of the name cleared; made with Calloc, listed, counted, filed as its own object;
+  true); 0x00589760 AddObject (added to the named cluster - not null-checked - and filed under it unless refused or
+  the cluster's own name; returns whether it was added). Test (TestParkGraffiti7): original vs ours - free clusters
+  (three, none), clusters added (existing, new, new in a created park), objects added (added, refused, the cluster's
+  own name, to the new cluster); tables of 8 empty buckets so nothing is chained. Out of memory isn't covered (the
+  kit's allocator can't fail). 16 deliberate bugs caught.
+- [ ] Next: park editor & graffiti 0x005897B0 on (the model viewer's object: kill_viewer_object_panel, an animation,
+  its destructor 0x00589860 ...).
 - [ ] Next: nothing left in the range; hand back.
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag

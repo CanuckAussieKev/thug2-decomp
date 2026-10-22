@@ -726,6 +726,83 @@ void TestParkGraffiti6()
     Compare(traces[0], traces[1], "park graffiti 6: a trick scored on trick objects, sent to the players");
 }
 
+// Batch 7: free clusters given to a player (some free, none free); clusters added (existing, new, in a created park); objects added to clusters (added, refused, the cluster's own name). Tables of 8 empty buckets, so
+// nothing is chained (chained items come from a pool).
+bool g_objectAdded;
+void TestParkGraffiti7()
+{
+    SaveGlobals({{0x007CE500, 4, {}}, {0x007CE478, 4, {}}});
+    StandIns* s = new StandIns;
+    Install(*s);
+    s->At({0x005892C0, AddressOf(&Obj::ScoreTrickObjects)}, 0, [](Regs& r) {
+        Rec(0x92C0, {r.args[0], r.args[1], r.args[2], r.args[4] & 0xFF});
+        for (uint32_t i = 0; i < r.args[2]; ++i)
+            Record({reinterpret_cast<const uint32_t*>(r.args[3])[i]});
+        return 0u;
+    });
+    s->At({0x004F4970}, 0, [](Regs&) {
+        Rec(0x4970, {});
+        return At(0x7900);
+    });
+    s->At({0x004F3D10}, 4, [](Regs& r) {
+        Rec(0x3D10, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    s->At({0x00588630, AddressOf(&CTrickObjectCluster::AddObject)}, 4, [](Regs& r) {
+        Rec(0x8630, {r.ecx, r.args[0]});
+        return g_objectAdded ? 1u : 0u;
+    });
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        const bool original = run == 0;
+        std::vector<uint32_t>& t = traces[run];
+        SetUpArena(run);
+        SetUpManager(false);
+        CTrickObjectManager* m = Manager();
+        GameVariable<uint32_t>(0x007CE478) = At(0x7A00);
+        *Ptr<uint32_t>(0x7A00 + 0x378) = 0x12345678;
+
+        // Free clusters: all three, then (A and B held, C taken too) none.
+        for (int held = 0; held < 2; ++held) {
+            for (int i = 0; i < 3; ++i)
+                Cluster(i)->m_owned = held != 0;
+            original ? Original<void(__thiscall*)(void*, int)>(0x00589670)(m, 3) : m->GiveFreeClusters(3);
+        }
+
+        // New tables of 8 buckets; clusters added.
+        m->m_clusters.m_bits = m->m_objectClusters.m_bits = 3;
+        m->m_clusters.m_buckets = Ptr<Item>(0x5200);
+        m->m_objectClusters.m_buckets = Ptr<Item>(0x5280);
+        m->m_clusters.m_buckets[0] = {0xA0, Cluster(0), nullptr};
+        auto add = [&](uint32_t name) {
+            bool ok = original ? Original<bool(__thiscall*)(void*, uint32_t)>(0x005896D0)(m, name) : m->AddCluster(name);
+            t.push_back(ok);
+            t.push_back(static_cast<uint32_t>(m->m_clusterCount));
+        };
+        add(0xA0);
+        add(0x51);
+        *Ptr<uint32_t>(0x7A00 + 0x378) = 0xB664035D;
+        add(0x52);
+        *Ptr<uint32_t>(0x7A00 + 0x378) = 0x12345678;
+
+        // Objects added: to A (added, then refused), A's own name, to the new 0x51.
+        auto addObject = [&](uint32_t object, uint32_t cluster, bool result) {
+            g_objectAdded = result;
+            bool ok = original ? Original<bool(__thiscall*)(void*, uint32_t, uint32_t)>(0x00589760)(m, object, cluster)
+                               : m->AddObject(object, cluster);
+            t.push_back(ok);
+        };
+        addObject(0x63, 0xA0, true);
+        addObject(0x64, 0xA0, false);
+        addObject(0xA0, 0xA0, true);
+        addObject(0x65, 0x51, true);
+        PushArena(t);
+        t.insert(t.end(), g_trace.begin(), g_trace.end());
+    }
+    Cleanup();
+    Compare(traces[0], traces[1], "park graffiti 7: free clusters given, clusters and objects added");
+}
+
 } // namespace
 
 SELFTEST(Early, TestParkGraffiti1, ViewerTestKit::Cleanup);
@@ -735,3 +812,4 @@ SELFTEST(Early, TestParkGraffiti4, ViewerTestKit::Cleanup);
 SELFTEST(Early, TestParkGraffiti4b, ViewerTestKit::Cleanup);
 SELFTEST(Early, TestParkGraffiti5, ViewerTestKit::Cleanup);
 SELFTEST(Early, TestParkGraffiti6, ViewerTestKit::Cleanup);
+SELFTEST(Early, TestParkGraffiti7, ViewerTestKit::Cleanup);
