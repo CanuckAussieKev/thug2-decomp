@@ -126,6 +126,11 @@ struct CTrickObjectManager {
     Lst::HashTable m_objectClusters;  // +0x20 each trick object's cluster, by the object's name (a cluster's own too)
     Script::CStruct* m_params;        // +0x38 (the graffiti colours' - CTrickCluster::SetParams)
 
+    // 0x00588DC0: the constructor (vtable 0x0064F110): both tables of 256 buckets, the parameters' structure made on
+    // the script heap. (The cluster count isn't set.) Returns this.
+    CTrickObjectManager* Construct();
+    // 0x00588E90: the destructor's body - every cluster deleted, both tables emptied and their buckets freed.
+    void DestroyBody();
     // 0x005889F0: every cluster deleted (through its virtual destructor, 0x004B22A0) and both tables emptied. True.
     bool RemoveAllClusters();
     // 0x00588380 / 0x005883C0 (and a jump to it, 0x005889E0): a trick object's cluster / a cluster by name (null if

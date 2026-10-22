@@ -294,7 +294,48 @@ void TestParkGraffiti2()
     Compare(traces[0], traces[1], "park graffiti 2: a trick object cluster made, coloured, destroyed");
 }
 
+// Batch 3: the manager made (both tables and its structure from the stand-in allocator, on the script heap) and
+// destroyed (three clusters deleted, an empty item skipped, the buckets freed) - twice.
+void TestParkGraffiti3()
+{
+    SaveGlobals({{0x007CE500, 4, {}}});
+    StandIns* s = new StandIns;
+    Install(*s);
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        const bool original = run == 0;
+        std::vector<uint32_t>& t = traces[run];
+        SetUpArena(run);
+        *Ptr<void*>(kVtable) = g_destructor;
+        *Ptr<uint32_t>(0x7000 + 0x124) = At(0x7300); // the script heap
+        for (int variant = 0; variant < 2; ++variant) {
+            auto* manager = Ptr<CTrickObjectManager>(0x4000 + 0x100 * variant);
+            std::memset(manager, 0xCD, 0x40);
+            void* r = original ? Original<void*(__thiscall*)(void*)>(0x00588DC0)(manager) : manager->Construct();
+            t.push_back(Rel(reinterpret_cast<uint32_t>(r)));
+            for (int i = 0; i < 0x10; ++i)
+                t.push_back(Rel(reinterpret_cast<uint32_t*>(manager)[i]));
+            manager->m_vtable = nullptr; // (the destructor puts its own back)
+            // Three clusters (in their buckets: chained items go back to a pool) deleted with it.
+            for (int i = 0; i < 3; ++i) {
+                *reinterpret_cast<uint32_t*>(Cluster(i)) = At(kVtable);
+                manager->m_clusters.m_buckets[i * 5] = {0x100u + i, Cluster(i), nullptr};
+                manager->m_objectClusters.m_buckets[i * 7] = {0x200u + i, Cluster(i), nullptr};
+            }
+            manager->m_clusterCount = 3;
+            if (variant == 1)
+                manager->m_objectClusters.m_buckets[9] = {0x209, nullptr, nullptr};
+            original ? Original<void(__thiscall*)(void*)>(0x00588E90)(manager) : manager->DestroyBody();
+        }
+        PushArena(t);
+        t.insert(t.end(), g_trace.begin(), g_trace.end());
+    }
+    Cleanup();
+    Compare(traces[0], traces[1], "park graffiti 3: the trick object manager made and destroyed");
+}
+
 } // namespace
 
 SELFTEST(Early, TestParkGraffiti1, ViewerTestKit::Cleanup);
 SELFTEST(Early, TestParkGraffiti2, ViewerTestKit::Cleanup);
+SELFTEST(Early, TestParkGraffiti3, ViewerTestKit::Cleanup);

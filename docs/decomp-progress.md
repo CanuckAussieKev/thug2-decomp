@@ -9956,7 +9956,14 @@ belong with the CScript batch.
   objects, with a first object with no data, with none; an empty cluster coloured; 0x00588200, the rail editor and
   the objects' destructor stood in for. 24 deliberate bugs: 23 caught, 1 equivalent (the destructor's first vtable
   write - its last unlink writes the node vtable over it).
-- [ ] Next: park editor & graffiti 0x00588DC0 on.
+- [x] Batch 322 (NOT run in the game yet; park editor & graffiti range, part 3 - the trick object manager): src/game/
+  obj/trick_objects.cpp / .h. 0x00588DC0 CTrickObjectManager::Construct (vtable 0x0064F110; both tables of 256
+  buckets; its parameters' structure made with the script heap pushed; the cluster count isn't set; returns this);
+  0x00588E90 DestroyBody (RemoveAllClusters inlined, then both tables' destructors - objects' first). Test
+  (TestParkGraffiti3): original vs ours over 0xCD memory, twice - the manager as made, then three clusters deleted
+  with it (an empty item skipped) and the buckets freed; the allocator, contexts and structure stood in for. 14
+  deliberate bugs caught, 2 after strengthening.
+- [ ] Next: park editor & graffiti 0x00588F40 on.
 - [ ] Next: nothing left in the range; hand back.
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag

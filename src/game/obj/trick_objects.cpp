@@ -1,4 +1,4 @@
-// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x00588DB7 (the trick objects, the
+// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x00588F3C (the trick objects, the
 // manager's lookups, graffiti state and graffiti log).
 // See trick_objects.h.
 
@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -186,6 +187,7 @@ void** const kTrickObjectVtable = reinterpret_cast<void**>(0x0064F0D8);
 void** const kTrickObjectNodeVtable = reinterpret_cast<void**>(0x0064F0D4);
 void** const kTrickClusterNodeVtable = reinterpret_cast<void**>(0x0064F0D0);
 void** const kTrickClusterVtable = reinterpret_cast<void**>(0x0064F10C);
+void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(0x0064F110);
 constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the skate module's level, +0x378)
 
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
@@ -508,6 +510,29 @@ bool CTrickObjectCluster::SetGraffitiColor(int index)
     return true;
 }
 
+// 0x00588DC0
+CTrickObjectManager* CTrickObjectManager::Construct()
+{
+    m_vtable = kTrickObjectManagerVtable;
+    new (&m_clusters) Lst::HashTable(8);
+    new (&m_objectClusters) Lst::HashTable(8);
+    Mem::Manager* memory = Mem::Manager::Get();
+    memory->PushContext(memory->m_scriptHeap);
+    Script::CStruct* params = Script::NewStruct();
+    m_params = params ? params->Init() : nullptr;
+    memory->PopContext();
+    return this;
+}
+
+// 0x00588E90
+void CTrickObjectManager::DestroyBody()
+{
+    m_vtable = kTrickObjectManagerVtable;
+    RemoveAllClusters();
+    m_objectClusters.~HashTable();
+    m_clusters.~HashTable();
+}
+
 } // namespace Obj
 
 REPLACE(0x005886C0, &Obj::CTrickObjectManager::LogTrickObjects);
@@ -540,3 +565,5 @@ REPLACE(0x00588BB0, &Obj::CTrickObject::DestroyBody);
 REPLACE(0x00588BD0, &Obj::CTrickObjectCluster::Construct);
 REPLACE(0x00588C30, &Obj::CTrickObjectCluster::DestroyBody);
 REPLACE(0x00588D20, &Obj::CTrickObjectCluster::SetGraffitiColor);
+REPLACE(0x00588DC0, &Obj::CTrickObjectManager::Construct);
+REPLACE(0x00588E90, &Obj::CTrickObjectManager::DestroyBody);
