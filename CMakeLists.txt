@@ -365,6 +365,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_suspend.cpp
     src/hook/selftests_obj_rigidbody.cpp
     src/hook/selftests_obj_rigidbody_physics.cpp
+    src/hook/selftests_obj_rigidbody_support.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_editor_ui.cpp
     src/hook/selftests_editor_nodes.cpp
@@ -739,7 +740,9 @@ add_library(thug2_code OBJECT
     src/game/obj/texture_projection_component.cpp
     src/game/obj/rigidbody_component.cpp
     src/game/obj/rigidbody_physics.cpp
+    src/game/obj/rigidbody_support.cpp
     src/game/mth/quat.cpp
+    src/game/mth/rigidbody_math.cpp
     src/game/mth/vector_transform.cpp
     src/game/skater/rotation.cpp
     src/game/skater/local_net_logic.cpp

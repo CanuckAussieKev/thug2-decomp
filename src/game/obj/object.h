@@ -233,6 +233,9 @@ public:
     // 0x0045D720 (vtable +0x2C): a member function table entry, run by its name (vtable +0x30) - a component
     // ignores the entry's member function pointer.
     int CallMemberFunction(Script::CMemberFunctionEntry* entry, Script::CStruct* params, Script::CScript* script);
+    // 0x0042BB20 (vtable +0x2C of most components, shared): the entry's member function pointer (on `this` moved by
+    // the entry's adjustment), or, with none, vtable +0x30 by the entry's name. Returns what that returns.
+    int RunMemberFunction(Script::CMemberFunctionEntry* entry, Script::CStruct* params, Script::CScript* script);
 
     // --- the vtable ---
     CBaseComponent* VirtualDestroy(unsigned int flags)

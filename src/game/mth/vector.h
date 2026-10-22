@@ -44,6 +44,8 @@ public:
     float Length() const;
     // Scales x, y, z to length 1. A zero-length vector is left unchanged.
     Vector& Normalize();
+    // 0x0042BBF0: x, y and z scaled to `length` (left alone at length 0 or not a number). Returns this.
+    Vector* SetLength(float length);
 
     // Rotate about the Y axis by 1, 2 or 3 quarter turns (other values do nothing).
     Vector& RotateY90(int quarter_turns);

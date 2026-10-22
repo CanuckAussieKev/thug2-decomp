@@ -138,3 +138,27 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
     0x0C4C809E always given - without it both versions orient by their own stack's leftovers); the one missed
     (alpha `>` 0x80 as `>=`) is equivalent: both give 0x80. Found by the tests: GetParticleParams' order (rewritten
     to match).
+- [x] Batch OC2-6 (NOT run in the game yet; the rigid body's code before its life and physics, 15 functions):
+  src/game/obj/rigidbody_support.cpp, src/game/mth/rigidbody_math.cpp (new); OC3's rigidbody_component.h (the
+  members declared), rigidbody_physics.cpp / rigidbody_component.cpp call them instead of the game's addresses
+  (their tests stand in for ours too); object.h (CBaseComponent::RunMemberFunction), quat.h (Quat::GetMatrix),
+  vector.h (Vector::SetLength) - declarations added.
+  - 0x0042BAC0 ToggleRigidBodyDebug (off, the shapes, the details too, off), 0x0042BB00 RegisterMemberFunctions,
+    0x0042BB20 CBaseComponent::RunMemberFunction (most components' vtable +0x2C: the entry's member function on
+    `this` moved by the entry's adjustment, else +0x30 by name; EAX passed on whole), 0x0042BB60
+    RigidBody_IgnoreSkater (the pushers' cooldown; frames / frame: sixtieths), 0x0042BBB0 RigidBody_Disable,
+    0x0042BBD0 RigidBody_Reset (InitFromStructure again) - names from their checksums -, 0x0042BD60
+    SetRigidBodyPusherReach (0x006939B0 is a float per pusher - OC3's AddRigidBodyPusher clears it as an int),
+    0x0042BD90 Finalize (the sound component; each spring's anchor where its point is), 0x0042BE90 Sleep
+    (SettleScript), 0x0042BF00 UpdateWorldPoints (three different sum groupings, kept), 0x0042C140 FeelPushers (the
+    first pusher in reach pushes it - one per frame; a pusher not moving relative to it ends the look for all;
+    the push's shadow sector "<id>_Shadow" hidden; the collide sound with its mute delays divided unsigned),
+    0x0042C6D0 Damp (velocities: w too), 0x0042C890 CheckSleep (the die timer once 48 from where it woke),
+    0x0042BBF0 Vector::SetLength, 0x0042BC40 Quat::GetMatrix.
+  - Test (selftests_obj_rigidbody_support.cpp): TestRigidBodyMembers, TestRigidBodyWorld (Finalize, Sleep, the world
+    points, Damp with 0 / NaN / exact drags, CheckSleep on the sleep points and 48 exactly), TestRigidBodyPushers
+    (20000: random and exact cases - on the radius, the band's edges, straight at / across / up, negative mute
+    delays, an infinite rotation factor), TestRigidBodyMath (20000 each, zeros and NaNs). 85 deliberate bugs, 74
+    caught (6 after strengthening); the 11 missed are equivalent or below float precision: the double sums'
+    grouping in Finalize / UpdateWorldPoints (4) and GetMatrix (2, one a commuted sum), FeelPushers' mid boost
+    (2s either way), the zero-length replacements (h and g: multiplied by 0; across: the impulse is NaN then).

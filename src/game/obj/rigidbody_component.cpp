@@ -76,11 +76,8 @@ float X87SinTimes(double angle, float value)
     return result;
 }
 
-// The quaternion's matrix (0x0042BC40, on the quaternion; not rewritten yet).
-void QuatToMatrix(const Mth::Quat* quat, Mth::Matrix* matrix)
-{
-    GameFunction<void(__thiscall*)(const Mth::Quat*, Mth::Matrix*)>(0x0042BC40)(quat, matrix);
-}
+// The quaternion's matrix.
+void QuatToMatrix(const Mth::Quat* quat, Mth::Matrix* matrix) { quat->GetMatrix(matrix); }
 
 // A structure copied into a new one (from the script pools), and one deleted.
 Script::CStruct* CopyOf(Script::CStruct* source)
@@ -606,7 +603,7 @@ bool CRigidBodyComponent::RigidBody_Wake(Script::CStruct* /*params*/, Script::CS
 // 0x0042DCF0
 bool CRigidBodyComponent::RigidBody_Sleep(Script::CStruct* /*params*/, Script::CScript* /*script*/)
 {
-    GameFunction<void(__thiscall*)(CRigidBodyComponent*)>(0x0042BE90)(this);
+    Sleep();
     return true;
 }
 

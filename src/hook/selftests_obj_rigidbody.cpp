@@ -174,7 +174,7 @@ void StandIn(StandIns& s)
         return reinterpret_cast<uint32_t>(g_world.structs[0]);
     });
     // Other game code.
-    s.At({0x0042BE90}, 0, [](Regs& r) {
+    s.At({0x0042BE90, AddressOf(&Obj::CRigidBodyComponent::Sleep)}, 0, [](Regs& r) {
         Record({0xBE90, Rel(r.ecx)});
         return 0u;
     });

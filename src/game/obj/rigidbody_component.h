@@ -119,6 +119,19 @@ public:
     // Awake from now (where the object is) unless it already is (the inlined end of the member functions).
     void Wake();
 
+    // --- the rest of its script member functions (rigidbody_support.cpp) ---
+    // 0x0042BB00 (cdecl): its member function table (0x00683F28) registered.
+    static void __cdecl RegisterMemberFunctions();
+    // 0x0042BB60 RigidBody_IgnoreSkater: the pushers aren't felt for the unnamed float's seconds (asserted; with
+    // frames / frame, that many sixtieths).
+    bool RigidBody_IgnoreSkater(Script::CStruct* params, Script::CScript* script);
+    bool RigidBody_Disable(Script::CStruct* params, Script::CScript* script); // 0x0042BBB0: disabled
+    bool RigidBody_Reset(Script::CStruct* params, Script::CScript* script);   // 0x0042BBD0: InitFromStructure again
+    // 0x0042BD90 (vtable slot 3): the sound component found; each spring's anchor is where its point is now.
+    void Finalize();
+    // 0x0042BE90: asleep (SettleScript run first, CallbackParams its parameters): no velocity, no turning.
+    void Sleep();
+
     // --- the physics (rigidbody_physics.cpp) ---
     // A contact with the world this frame (0x30 bytes; found by 0x0042C950 into the array at 0x006949B0, its count
     // m_contactsHit): where (from the centre of mass, world axes), the surface's normal, the impulse a unit change of
@@ -171,6 +184,19 @@ public:
     void OnBounce(float speed, const Mth::Vector* point);
     // 0x0042D9D0: the shape, spheres and springs drawn (compiled out of this build: nothing is drawn).
     void DebugDraw();
+
+    // (rigidbody_support.cpp)
+    // 0x0042BF00: the contact points, the spheres' centres and the active springs' points turned to the world
+    // (WorldContactPoints / WorldSphereCenters / WorldSpringPoints; w as the body's).
+    void UpdateWorldPoints();
+    // 0x0042C140: the first pusher (AddRigidBodyPusher's) touching it and moving at it pushes it.
+    void FeelPushers();
+    // 0x0042C6D0: the velocity and the rotational velocity slowed by m_unknown38 / m_unknown3C (each a speed taken
+    // off; slower than that: stopped - w 1).
+    void Damp();
+    // 0x0042C890: settled 3 frames or more and slower than both sleep points: asleep - and, dying upon settling, the
+    // die timer started (1.5 s) once 48 or more from where it woke.
+    void CheckSleep();
 
     float m_massOverMoment;                // +0x18 mass_over_moment (0.003)
     Mth::Vector m_constAcc;                // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
@@ -250,5 +276,10 @@ static_assert(sizeof(CRigidBodyComponent::Spring) == 0x24 && sizeof(CRigidBodyCo
 // 0x0042E380: `object` (a skater) added to the objects rigid bodies feel (8 places, 0x00695150: the last free one
 // from the end; none free: nothing), its timer (0x006939B0) reset.
 void __cdecl AddRigidBodyPusher(CCompositeObject* object);
+// 0x0042BD60 (cdecl; skater.cpp's 0x005802C0): `object`'s extra reach as a pusher (0x006939B0, one float for each
+// of the 8) - nothing if it isn't one.
+void __cdecl SetRigidBodyPusherReach(CCompositeObject* object, float reach);
+// 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
+bool __cdecl CFunc_ToggleRigidBodyDebug(Script::CStruct* params, Script::CScript* script);
 
 } // namespace Obj

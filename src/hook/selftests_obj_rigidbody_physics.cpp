@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "game/core/manager.h"
@@ -131,12 +132,24 @@ void StandIn(StandIns& s)
         Record({0xAFC0, r.args[0], r.args[1], r.args[2]});
         return reinterpret_cast<uint32_t>(HeapBlock(r.args[0]));
     });
-    // The rigid body's code before this range (not rewritten yet).
-    for (uint32_t address : {0x0042C140u, 0x0042BF00u, 0x0042BE90u, 0x0042C6D0u, 0x0042C890u})
-        s.At({address}, 0, [address](Regs& r) {
+    // The rigid body's code before this range (the original's and ours: rigidbody_support.cpp).
+    using Obj::CRigidBodyComponent;
+    const std::pair<uint32_t, uint32_t> before[] = {
+        {0x0042C140u, AddressOf(&CRigidBodyComponent::FeelPushers)},
+        {0x0042BF00u, AddressOf(&CRigidBodyComponent::UpdateWorldPoints)},
+        {0x0042BE90u, AddressOf(&CRigidBodyComponent::Sleep)},
+        {0x0042C6D0u, AddressOf(&CRigidBodyComponent::Damp)},
+        {0x0042C890u, AddressOf(&CRigidBodyComponent::CheckSleep)}};
+    for (const auto& [address, ours] : before) {
+        auto record = [address](Regs& r) {
             Record({address, Rel(r.ecx)});
             return 0u;
-        });
+        };
+        if (ours)
+            s.At({address, ours}, 0, record);
+        else
+            s.At({address}, 0, record);
+    }
     s.At({0x0042C950}, 0, [](Regs& r) {
         Record({0xC950, Rel(r.ecx)});
         return static_cast<uint32_t>(g_a.contacts);

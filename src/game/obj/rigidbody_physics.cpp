@@ -44,29 +44,19 @@ float Sub(float a, float b) { return Narrow(Wide(a) - b); }
 bool DrawShape() { return GameVariable<bool>(0x006939D4); }
 bool DrawDetails() { return GameVariable<bool>(0x006939D5); }
 
-// The rigid body's code in the range before this one (not rewritten yet; thiscall on the component).
-void FeelPushers(CRigidBodyComponent* body) { GameFunction<void(__thiscall*)(CRigidBodyComponent*)>(0x0042C140)(body); }
-void UpdateWorldPoints(CRigidBodyComponent* body)
-{
-    GameFunction<void(__thiscall*)(CRigidBodyComponent*)>(0x0042BF00)(body);
-}
-void Sleep(CRigidBodyComponent* body) { GameFunction<void(__thiscall*)(CRigidBodyComponent*)>(0x0042BE90)(body); }
+// The rigid body's code in the range before this one (thiscall on the component; 0x0042C950 not rewritten
+// yet).
 bool FindContacts(CRigidBodyComponent* body)
 {
     return GameFunction<bool(__thiscall*)(CRigidBodyComponent*)>(0x0042C950)(body);
 }
-void Damp(CRigidBodyComponent* body) { GameFunction<void(__thiscall*)(CRigidBodyComponent*)>(0x0042C6D0)(body); }
-void CheckSleep(CRigidBodyComponent* body) { GameFunction<void(__thiscall*)(CRigidBodyComponent*)>(0x0042C890)(body); }
 
-// Quaternions: `quat` times `other`, in place (0x00420140); the matrix of one (0x0042BC40). Not rewritten yet.
+// Quaternions: `quat` times `other`, in place (0x00420140, not rewritten yet); the matrix of one.
 void QuatMultiply(Mth::Quat* quat, const Mth::Quat* other)
 {
     GameFunction<void(__thiscall*)(Mth::Quat*, const Mth::Quat*)>(0x00420140)(quat, other);
 }
-void QuatToMatrix(const Mth::Quat* quat, Mth::Matrix* matrix)
-{
-    GameFunction<void(__thiscall*)(const Mth::Quat*, Mth::Matrix*)>(0x0042BC40)(quat, matrix);
-}
+void QuatToMatrix(const Mth::Quat* quat, Mth::Matrix* matrix) { quat->GetMatrix(matrix); }
 
 void MarkAsDead(CCompositeObject* object)
 {
@@ -489,7 +479,7 @@ void CRigidBodyComponent::Update()
     if (m_pushCooldown > kZero)
         m_pushCooldown = Sub(m_pushCooldown, frame);
     else if (!(m_flags & FLAG_NO_PLAYER_COLLISION))
-        FeelPushers(this);
+        FeelPushers();
     if (m_dieTimer >= kZero) {
         if (m_dieTimer <= frame)
             MarkAsDead(m_object);
@@ -501,7 +491,7 @@ void CRigidBodyComponent::Update()
         return;
     }
 
-    UpdateWorldPoints(this);
+    UpdateWorldPoints();
     // The frame in steps: each to the frame's end, or to just before what the path hits.
     float remaining = frame;
     for (int step = 0;;) {
@@ -532,7 +522,7 @@ void CRigidBodyComponent::Update()
             Collide(&feeler);
         remaining = Sub(remaining, length);
         if (++step == kMaxSteps) {
-            Sleep(this);
+            Sleep();
             break;
         }
         if (!hit)
@@ -543,8 +533,8 @@ void CRigidBodyComponent::Update()
         ResolveContacts();
     if (m_springCount)
         ApplySprings();
-    Damp(this);
-    CheckSleep(this);
+    Damp();
+    CheckSleep();
 
     Mth::Vector offset;
     m_matrix.RotateVector(offset, m_modelOffset);
