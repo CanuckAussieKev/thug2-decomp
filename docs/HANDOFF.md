@@ -362,3 +362,10 @@ OC1-OC4 resumed in their own worktrees (same branches as above; prompts out/scri
 - Batch 294 (2026-10-22): the maths library's x87 rounding fixed (rotations, Euler angles, perspective, sine table, FastAtan2, determinant / inverse, axis-angle) - bit for bit with the originals; 704 self-tests pass. NOT run in the game yet; not installed.
 - Batches 295-298 (2026-10-22): the Win32 platform layer 0x5F2E00-0x5F6640 done (100%; D3DX9 libjpeg and a data table split off the old range; 31 C++ library template functions in data/library_functions.csv). NOT run in the game yet; not installed.
 - Installed (2026-10-22): main 5cb798e in C:\Games\THUG2 (DLL + pdb, overlay regenerated) - batches 294-298 included.
+
+## 2026-10-22: online & network game modes (0x533F20-0x54EF60)
+The user asked for the whole "Online & network game modes" range (457 functions, 20 done before) end to end. Four agents
+in worktrees, split by size (prompts out/scripts/NET1..4.txt, template net_prompt.txt): NET1 0x533F20-0x53A910
+(THUG2-1, docs/pending/net-1.md), NET2 0x53A910-0x541870 (THUG2-2, net-2.md), NET3 0x541870-0x548560 (THUG2-3, net-3.md),
+NET4 0x548560-0x54EF60 (THUG2-4, net-4.md). Offline self-tests only; no online or LAN runs. Then merge one at a time,
+fold records, install.
