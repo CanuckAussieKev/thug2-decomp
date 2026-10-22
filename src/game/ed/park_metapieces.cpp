@@ -6,7 +6,7 @@
 #include "game/ed/park.h"
 
 #include "game/core/mem.h"
-#include "game/ed/park_scene.h"
+#include "game/ed/park_nx.h"
 #include "game/mth/matrix.h"
 #include "game/script/struct.h"
 #include "hook/game.h"

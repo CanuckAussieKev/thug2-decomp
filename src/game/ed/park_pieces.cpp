@@ -6,7 +6,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
-#include "game/ed/park_scene.h"
+#include "game/ed/park_nx.h"
 #include "game/mth/matrix.h"
 #include "hook/game.h"
 #include "hook/hook.h"
