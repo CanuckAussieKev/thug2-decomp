@@ -3,12 +3,13 @@
 // Where the game passes them (THUG2 PC, the same in THUG2PM.exe and the stock no-CD THUG2.exe):
 //   - the game name "thps6pc" (plain text at 0x0064B1CC) is pushed as an address by: WinMain's availability check
 //     (our source: GameName()), qr2_init (0x0053BE86), the qr2 server key callbacks' "gamename" key (0x0053BA1F,
-//     0x0053F936) and the stats SDK's game name (strcpy at 0x0054CAD9 into 0x007D7A78). peerSetTitle's title and
-//     server-browsing name (once pushed at 0x00542F8B / 0x00542FA0) are source now: CFunc_LobbyConnect
-//     (game/net/lobby.cpp) passes GameName() itself, and reads the key from 0x0067F154 (written here).
+//     0x0053F936). peerSetTitle's title and server-browsing name (once pushed at 0x00542F8B / 0x00542FA0) are source
+//     now: CFunc_LobbyConnect (game/net/lobby.cpp) passes GameName() itself and reads the key from 0x0067F154 (written
+//     here); the stats SDK's game name (copied into 0x007D7A78 by StatsMan::LogInThread, our source: it uses
+//     GameName() itself).
 //   - the secret key "AdLWaZ" is stored twice bitwise-NOT (6 bytes each, decoded onto the stack at the call): at
 //     0x0067F120 for qr2_init, at 0x0067F154 for peerSetTitle (both keys); and once plain at 0x0064D58C for the
-//     stats SDK (strcpy at 0x0054CAE8 into 0x007D7B78).
+//     stats SDK (copied into 0x007D7B78 by StatsMan::LogInThread from there).
 // Not changed here (THUGPRO doesn't either): the online service task's own availability check with "mototrax"
 // (0x0064CDF0, Net::ServiceTask - the SDK keeps the last checked name for NAT negotiation, GP logins and the
 // MOTD URL), the product id 10368 (the MOTD), the CD key game id 1003, GP's "10thug211" location strings and the
@@ -46,7 +47,9 @@ constexpr NameUse kNameUses[kGameNameSites] = {
     {0x0053BE86, 1}, // push: qr2_init's game name
     {0x0053BA1F, 1}, // push: the server key callback's "gamename" key
     {0x0053F936, 1}, // push: the other server key callback's "gamename" key
-    {0x0054CAD9, 1}, // push: the stats SDK's game name (strcpy)
+    // (peerSetTitle's server-browsing name and title, once pushed at 0x00542F8B / 0x00542FA0, are our source now:
+    // CFunc_LobbyConnect passes GameName() - lobby.cpp; the stats SDK's game name, once pushed at 0x0054CAD9, too:
+    // StatsMan::LogInThread copies GameName() - stats_man.cpp)
 };
 
 // 6 key bytes at `address`, stored bitwise-NOT or not.

@@ -331,7 +331,7 @@ void TestRetrieveTopStats()
 void TestOnlineIdentity()
 {
     // the sites' instructions: push imm32 (0x68) of the name's address, or the stored key bytes
-    const uint32_t nameSites[Net::kGameNameSites] = {0x0053BE86, 0x0053BA1F, 0x0053F936, 0x0054CAD9};
+    const uint32_t nameSites[Net::kGameNameSites] = {0x0053BE86, 0x0053BA1F, 0x0053F936};
     bool layout = true;
     for (int i = 0; i < Net::kGameNameSites; ++i) {
         const auto* at = reinterpret_cast<const uint8_t*>(nameSites[i]);
@@ -395,7 +395,7 @@ void TestOnlineIdentity()
     // only the key: the name stays
     static const char other[] = "othername";
     Net::WriteOnlineIdentity(other, nullptr);
-    bool keyKept = Net::GameNameAt(3) == other && std::strcmp(reinterpret_cast<const char*>(0x0064D58C), "Xy12#z") == 0;
+    bool keyKept = Net::GameNameAt(2) == other && std::strcmp(reinterpret_cast<const char*>(0x0064D58C), "Xy12#z") == 0;
     Net::WriteOnlineIdentity(nullptr, "AdLWaZ");
     keyKept = keyKept && Net::GameNameAt(0) == other && std::memcmp(reinterpret_cast<const void*>(0x0067F120), inverted, 6) == 0;
 
