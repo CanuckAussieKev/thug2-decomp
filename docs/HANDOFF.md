@@ -402,3 +402,10 @@ fold records, install.
 - Lead's per-batch check script: `sh out/scripts/batch_checks.sh <tag> <addr>...` (lead build + both exes + code
   writes + register scan + audit; out/ isn't committed - recreate from this description if missing). Mutation specs in
   out/mut/*.ts use BUILD out\scripts\build_check.cmd (out/build/verify).
+
+## 2026-10-23 (new account): park editor & graffiti - four agents
+The user asked for "Park editor & graffiti" (0x588180-0x595030) end to end. 243 functions left, split by size between
+four agents in worktrees (prompts out/scripts/PE1..4.txt, template park_prompt.txt; numbered tags PE<n>-<k>):
+PE1 0x588180-0x58CD40 (THUG2-1, docs/pending/park-1.md; starts with batch 329's viewer object notes above), PE2
+0x58CD40-0x58FBD0 (THUG2-2, park-2.md; the park editor CFunctions), PE3 0x58FBD0-0x592740 (THUG2-3, park-3.md), PE4
+0x592740-0x595030 (THUG2-4, park-4.md). Then merge one at a time (build + checks after each), fold, install, push.
