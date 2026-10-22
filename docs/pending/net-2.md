@@ -184,5 +184,13 @@ Switch off: `[replacements] disable=gamenet_players.cpp` (and gamenet_game_cfunc
     broadband, qr2 off, the link check's boundary, an always-true rewrite of a mutation that didn't build).
   - The kit (net2_testkit.h): a vehicle component, message 0x22 recorded by its fields (the pad bytes and the name's tail
     are the stack's).
+- Game run (C:\Games\THUG2-2 under the lock, the branch's DLL at NET2-6): `-level BO` with the automation channel -
+  BO loaded in free skate, the skater spawned, no run-time check / CRT report / exception in the log; 5093 of 5093
+  replacements installed. (The network code itself is only reached offline through the manager's construction and its
+  tasks; a run with every in-game self-test was cut off by the machine's load before the menu - thug2_check ran all
+  723 early self-tests on both exes, passing.)
+- Untested without a live connection (try online by hand): hosting (qr2 reporting, the lobby's hosting and its
+  details, NAT negotiation both ways), joining / cancelling / timeouts, players joining mid-game and the new-player
+  messages, kick / ban, CTF flags, surveyor / observe mode, lobby chat, the room and player lists, buddies from the list.
 - [ ] Next: nothing left in 0x0053A910-0x00541870 (98 functions with source: 76 Ghidra knows + 22 reached only by
   pointer - callbacks and tasks it never made functions of). The lead: fold, merge, game crash check.
