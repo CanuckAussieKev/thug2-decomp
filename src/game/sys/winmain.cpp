@@ -20,6 +20,7 @@
 #include "game/sys/main.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/platform.h"
+#include "game/sys/platform_input.h"
 #include "game/sys/registry.h"
 #include "game/sys/sdl_window.h"
 #include "hook/game.h"
@@ -93,7 +94,7 @@ void ReleaseDirect3D() { GameFunction<void(__cdecl*)()>(0x005F55E0)(); }
 // A key's name (at most 14 characters), by its scan code (the table at 0x007D42F8).
 void SetKeyName(unsigned scanCode, const wchar_t* name)
 {
-    GameFunction<void(__cdecl*)(unsigned, const wchar_t*)>(0x005F3BF0)(scanCode, name);
+    Platform::SetKeyName(static_cast<int>(scanCode), name);
 }
 
 const char kSettingsKey[] = "Software\\Activision\\Tony Hawk's Underground 2\\Settings";

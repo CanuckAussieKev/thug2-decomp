@@ -20,6 +20,7 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "game/sys/platform_input.h"
 #include "hook/standins.h"
 
 namespace {
@@ -279,7 +280,7 @@ void TestTextureLoaders()
 void TestKeyNames()
 {
     StandIns& s = *new StandIns();
-    s.At({0x005F3BF0}, 0, [](Regs& r) {
+    s.At({0x005F3BF0, AddressOf(&Platform::SetKeyName)}, 0, [](Regs& r) {
         uint32_t hash = 2166136261u;
         for (auto* c = reinterpret_cast<const wchar_t*>(r.args[1]); *c; ++c)
             hash = (hash ^ static_cast<uint32_t>(*c)) * 16777619u;

@@ -9078,6 +9078,46 @@ belong with the CScript batch.
   - thug2_check: 0 MISMATCHED, 704 early self-tests pass; check_code_writes: no overlaps. Duplicates left:
     three private x87 sine helpers (obj/motion_internal.h, skater/core_physics_fields.h, skater/skater_x87.h)
     could move to mth/x87_math.h.
+- [x] Batch 295 (lead, 2026-10-22; NOT run in the game yet; the Win32 platform layer, part 1 - its DirectInput side, 15
+  functions): src/game/sys/platform_input.cpp/.h (new); test src/hook/selftests_platform_input.cpp.
+  - The range first: "0x5EEF20-0x5F8130 Win32 platform layer" was three things. 0x5EEF20-0x5F2E00 is IJG libjpeg
+    (jpeg_* error codes, the IDCT / FDCT loops), called only from D3DX9 (0x5EB678-0x5EB6C3: its JPEG texture loader) -
+    part of the D3DX9 static library, linked, not decompiled. 0x5F2E00-0x5F6640 is the game's platform layer; Ghidra
+    missed 9 functions in it (0x5F4840, 0x5F4970, 0x5F4BB0, 0x5F4DF0, 0x5F51C0, 0x5F5390, 0x5F5710, 0x5F57D0,
+    0x5F6430; 0x5F3210 is a loop label in 0x5F31D0). 0x5F6640-0x5F8130 is a data table (295 .rdata pointers), not
+    code. data/subsystems.csv, docs/library_ranges.md and docs/subsystems.md split accordingly.
+  - Rewritten: 0x005F2E00 ReadJoystick (Poll, re-Acquire and Poll once, the last state kept, GetDeviceState
+    DIJOYSTATE2), 0x005F2E90 ReadMouse (the same; a still frame keeps the last movement less 2 toward 0, x then y),
+    0x005F2F80 HasKeyBindings / 0x005F2FC0 HasPadD0Bindings (any of 24 not -1), 0x005F3000 JoystickAxis (1-3 X Y Z,
+    4 / 5 the hat across / down as +-1000, 6-8 Rx Ry Rz, 9 / 10 the sliders), 0x005F30E0 KeyDown (Escape only on the
+    frame it goes down; -1 none), 0x005F3120 KeyName, 0x005F3130 AddJoystickAxis (EnumObjects callback: range
+    -1000..1000, force-feedback axes counted - at most two - keeping their dwFFForceResolution), 0x005F31D0
+    AddInputDevice (EnumDevices callback: a joystick / gamepad whose GUID a port names - the last port that names it
+    - with its axes, a constant-force effect when it has force feedback, acquired; the first keyboard and mouse),
+    0x005F3400 ReadKeyboard (lost / not acquired: acquired again and read, or all keys up), 0x005F3470 ParseHex
+    (digits and upper-case A-F only), 0x005F34D0 LoadRegistryOptions (HKCU\<key>: distance, options' bits,
+    resolution, "pad0" / "pad1" GUIDs as text, "k<port>_<n>" / "gp<port>_<n>" bindings), 0x005F39E0 ReleaseInput,
+    0x005F3BF0 SetKeyName, 0x005F3C10 InitKeyNames (256 x "(NONE)", then 104 names). Platform::PortControls
+    (0x130 bytes per port at 0x007D6770: keys +0x00, joystick GUID +0x60, gamepad +0x70, +0xD0 read by the pad
+    read) and Platform::Options (0x007D6434) named. device.cpp, key_names.cpp, winmain.cpp and platform.cpp call
+    these directly now (they went through GameFunction).
+  - Quirks kept: the registry loader's value size starts at 1, so its first "distance" read always fails (and sets
+    the size to 4) - "distance" is read a second time after "options"; pad0's text buffer isn't cleared first;
+    ReleaseInput leaves the effects' pointers set and never releases the mouse; the axis callback keeps the force
+    resolution, not the axis. PartyMod: InitInput doesn't call the loader or EnumDevices (SDL input and the ini),
+    so in the game most of these find no devices.
+  - Test (TestPlatformInput): original vs ours over the globals 0x007D42C8-0x007D69DC and the window, with
+    recording stand-ins for IDirectInput8 / its devices / effects (polls, acquires, reads, device creation and
+    effects failing or not; EnumObjects calling whichever callback it's given): 64 read cases, 60 binding layouts,
+    every control at every hat boundary, all keys with Escape down / up / held, 48 axis-callback and 224
+    device-callback cases (every device type, GUIDs named by neither / either / both ports, devices already there),
+    16 keyboard reads, 11 hex strings, 64 releases, the key names, and 40 registry layouts under a stand-in
+    HKEY_CURRENT_USER (the original's sprintf / isdigit stood in: the game's C runtime isn't started offline).
+    Existing tests that stand in these addresses (pad read, input set-up, WinMain, the key names) now stand in ours
+    too. Mutations (out/scripts/mut_w32a.ts): 53, 48 caught at first, 52 after strengthening (separate failure
+    scripts per call, one-axis-still mice, the byte before the keys, a one-byte pad value); the miss is equivalent
+    (the decay at y == 2 leaves 0 either way). thug2_check: 0 MISMATCHED, 705 early self-tests pass;
+    check_code_writes clean; the register scan and the call audit flag nothing new.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
 - [ ] Next: the range is done (find_gaps.py: nothing left in 0x45EFD0-0x47DC40); a final game run.
 - [ ] Next: nothing left in the range; hand back.

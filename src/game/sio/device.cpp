@@ -16,6 +16,7 @@
 #include "game/core/crc.h"
 #include "game/front/screen_element.h"
 #include "game/sys/platform.h"
+#include "game/sys/platform_input.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
@@ -35,10 +36,10 @@ namespace {
 void** const kDeviceVtable = reinterpret_cast<void**>(0x00658A6C);
 void** const kDeviceNodeVtable = reinterpret_cast<void**>(0x00658A70); // Lst::Node<Device>
 
-// The platform layer (0x005F2E00 / 0x005F2F80): a port's DirectInput joystick read for this frame (null if
-// none), and whether the port has any keyboard bindings (the keyboard counts as a pad then).
-bool PollJoystick(int port) { return GameFunction<void*(__cdecl*)(int)>(0x005F2E00)(port) != nullptr; }
-bool HasKeyBindings(int port) { return GameFunction<bool(__cdecl*)(int)>(0x005F2F80)(port); }
+// The platform layer: a port's DirectInput joystick read for this frame (none: null), and whether the port has
+// any keyboard bindings (the keyboard counts as a pad then).
+bool PollJoystick(int port) { return Platform::ReadJoystick(port) != nullptr; }
+bool HasKeyBindings(int port) { return Platform::HasKeyBindings(port); }
 bool PadPresent(int port) { return PollJoystick(port) || HasKeyBindings(port); }
 
 } // namespace
@@ -324,8 +325,8 @@ bool& MenuActive() { return GameVariable<bool>(0x007CE46C); }
 bool& QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
 int KeyBinding(int action) { return GameVariable<int>(0x007D6770 + 4 * action); }
-// The platform layer's key names (0x005F3120: 30 bytes - 15 wide characters - per key code, at 0x007D42F8).
-const wchar_t* KeyNameW(int code) { return GameFunction<const wchar_t*(__cdecl*)(int)>(0x005F3120)(code); }
+// The platform layer's key names.
+const wchar_t* KeyNameW(int code) { return Platform::KeyName(code); }
 char (&NameBuffer())[256] { return GameVariable<char[256]>(0x007D1AD8); }
 char (&KeyNameResult())[256] { return GameVariable<char[256]>(0x007D19D8); }
 
@@ -514,7 +515,7 @@ void SetPadSetting6A40(int value) { GameFunction<void(__cdecl*)(int)>(0x005F6620
 void SetPadSettingE244(int value) { GameFunction<void(__cdecl*)(int)>(0x005F6630)(value); }
 void PumpWindowMessages() { GameFunction<void(__cdecl*)()>(0x005F56E0)(); }
 void ReadPadState(int port, PadState* state) { GameFunction<void(__cdecl*)(int, PadState*)>(0x005F5BC0)(port + 1, state); }
-bool KeyDown(int code) { return GameFunction<bool(__cdecl*)(int)>(0x005F30E0)(code); }
+bool KeyDown(int code) { return Platform::KeyDown(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
 int MenuPort() { return GameFunction<int(__thiscall*)(void*)>(0x00553E90)(GameVariable<void*>(0x007CE4B4)); }
 

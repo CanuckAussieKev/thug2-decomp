@@ -27,4 +27,6 @@ start,end,kind,subsystem,evidence
 0x5be6f0,0x5beaae,game,Game clock (Tmr),"vblank and render frame counters, frame length, slow motion"
 0x5beaae,0x5beb1a,library,Import thunks (Winsock / Direct3DCreate9),"jmp [IAT]"
 0x5beb1a,0x5eef20,library,"D3DX9 static library (shader assembler/compiler, math helpers)","D3DX9 Shader Assembler, D3DX_VERSION; mostly non-16-aligned functions"
-0x5eef20,0x5f8130,game,"Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options)","SIO_SetActuators, ProcessWindowEvents, Direct3DCreate9"
+0x5eef20,0x5f2e00,library,"D3DX9's JPEG codec (IJG libjpeg inside the D3DX9 static library)","called only from D3DX9 (0x5EB678-0x5EB6C3); libjpeg's error codes, IDCT / FDCT"
+0x5f2e00,0x5f6640,game,"Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options)","SIO_SetActuators, ProcessWindowEvents, DirectInput8Create, CreateWindowExA"
+0x5f6640,0x5f8130,library,"Data in .text (a table of .rdata pointers, offsets and flags; no code)","no code: 295 pointers into .rdata"

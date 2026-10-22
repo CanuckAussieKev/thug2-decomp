@@ -5,6 +5,7 @@
 #include "game/front/screen_element.h"
 #include "game/obj/smtptr.h"
 #include "game/sio/device.h"
+#include "game/sys/platform_input.h"
 #include "game/sys/registry.h"
 #include "game/sys/timer.h"
 #include "game/script/eval.h"
@@ -14,6 +15,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/selftest.h"
+#include "hook/standins.h"
 
 #include <cmath>
 #include <cstdint>
@@ -7398,6 +7400,7 @@ void TestSioReadData()
     TestDetour readPad(0x005F5BC0, reinterpret_cast<void*>(&StandInReadPad));
     TestDetour pump(0x005F56E0, reinterpret_cast<void*>(&StandInPump));
     TestDetour keyDown(0x005F30E0, reinterpret_cast<void*>(&StandInKeyDown));
+    TestDetour ourKeyDown(TestStandIns::AddressOf(&Platform::KeyDown), reinterpret_cast<void*>(&StandInKeyDown));
     for (int i = 0; i < 4; ++i)
         GameVariable<void*>(0x007D6318 + 4 * i) = nullptr; // no joysticks: present through key bindings
     static StandInElements standIn;

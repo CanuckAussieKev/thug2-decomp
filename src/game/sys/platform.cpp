@@ -8,18 +8,12 @@
 
 #include "game/gfx/settings.h"
 #include "game/sio/sdl_input.h"
+#include "game/sys/platform_input.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
 namespace Platform {
-
-namespace {
-
-// 0x005F3C10: fills the keyboard's key-name table (not rewritten yet).
-void InitKeyNames() { GameFunction<void(__cdecl*)()>(0x005F3C10)(); }
-
-} // namespace
 
 // 0x005F3A50. Originally from PartyMod Fixes: rumble on the SDL game controller playing as `port` (PartyMod jumped from here). The
 // original drove the port's DirectInput force-feedback effect (0x007D6668[port]):

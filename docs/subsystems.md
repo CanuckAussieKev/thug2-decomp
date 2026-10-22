@@ -37,7 +37,9 @@ Not decompiled: GameSpy SDK, D3DX9, MSVC CRT, STL helpers, compiler funclets (se
 | 0x5be6f0-0x5beaae | Game clock (Tmr) | 16 | 1 KB | - |
 | 0x5beaae-0x5beb1a | *Import thunks (Winsock, Direct3DCreate9)* | 18 | - | - |
 | 0x5beb1a-0x5eef20 | *Library: D3DX9 (shader assembler/compiler, math)* | 694 | 158 KB | - |
-| 0x5eef20-0x5f8130 | Win32 platform layer (window, D3D9/DSound/DInput setup, registry options) | 91 | 17 KB | 5% |
+| 0x5eef20-0x5f2e00 | *Library: D3DX9's JPEG codec (IJG libjpeg)* | ~25 | 16 KB | - |
+| 0x5f2e00-0x5f6640 | Win32 platform layer (window, D3D9/DSound/DInput setup, registry options) | ~80 | 14 KB | - |
+| 0x5f6640-0x5f8130 | *Data in .text (no code)* | - | 7 KB | - |
 
 ## Suggested order for the hook DLL
 

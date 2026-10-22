@@ -25,6 +25,7 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "game/sys/platform_input.h"
 #include "hook/standins.h"
 
 namespace {
@@ -410,7 +411,7 @@ void TestWinMain()
             }
             return count;
         });
-        s->At({0x005F3BF0}, 0, [](Regs& r) {
+        s->At({0x005F3BF0, AddressOf(&Platform::SetKeyName)}, 0, [](Regs& r) {
             Record({0x3BF0, r.args[0], HashWide(reinterpret_cast<const wchar_t*>(r.args[1]))});
             return 0u;
         });

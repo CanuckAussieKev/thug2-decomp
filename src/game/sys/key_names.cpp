@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "game/sys/platform_input.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -12,10 +13,10 @@ namespace Sys {
 
 namespace {
 
-// A key's name (at most 14 characters, copied into the table 0x007D42F8; not rewritten yet).
+// A key's name (at most 14 characters).
 void SetKeyName(unsigned scanCode, const wchar_t* name)
 {
-    GameFunction<void(__cdecl*)(unsigned, const wchar_t*)>(0x005F3BF0)(scanCode, name);
+    Platform::SetKeyName(static_cast<int>(scanCode), name);
 }
 
 struct KeyName {

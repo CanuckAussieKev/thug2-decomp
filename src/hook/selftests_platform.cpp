@@ -14,6 +14,7 @@
 #include "game/sio/sdl_input.h"
 #include "game/sys/platform.h"
 #include "game/sys/platform_cfuncs.h"
+#include "game/sys/platform_input.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -176,6 +177,8 @@ void TestPlatformInitInput()
         TestDetour config(Resolve(reinterpret_cast<const void*>(&Nx::WriteGraphicsSettings)),
                           reinterpret_cast<const void*>(&StandInWriteConfigValues));
         TestDetour keyNames(0x005F3C10, reinterpret_cast<const void*>(&StandInKeyNames));
+        TestDetour ourKeyNames(Resolve(reinterpret_cast<const void*>(&Platform::InitKeyNames)),
+                               reinterpret_cast<const void*>(&StandInKeyNames));
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             std::vector<uint32_t>& trace = traces[run];

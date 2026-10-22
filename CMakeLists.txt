@@ -174,6 +174,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_left.cpp
     src/hook/selftests_gfx.cpp
     src/hook/selftests_platform.cpp
+    src/hook/selftests_platform_input.cpp
     src/hook/selftests_pc.cpp
     src/hook/selftests_glyph.cpp
     src/hook/selftests_skaterA.cpp
@@ -805,6 +806,7 @@ add_library(thug2_code OBJECT
     src/game/skater/tagging.cpp
     src/game/skater/trick_component.cpp
     src/game/sys/platform.cpp
+    src/game/sys/platform_input.cpp
     src/game/sys/platform_cfuncs.cpp
     src/game/sys/debug_mode.cpp
     src/game/sys/config.cpp
