@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { test } from "node:test";
 import { Float } from "../lib/py.ts";
-import { fixProfiles, supportStreams, useModelLights } from "./nodes.ts";
+import { fixProfiles, nameValue, supportStreams, useModelLights } from "./nodes.ts";
 import * as pedRigs from "./ped_rigs.ts";
 import { Thug2Assets } from "./peds_cars.ts";
 import { lzssDecode } from "./prx.ts";
@@ -65,6 +65,9 @@ test("toNs: ints, Floats, vectors, flags, names", () => {
     );
     // (a keyword as a name is written as its checksum - NeverScript's #: the bytes in file order)
     assert.equal(nameText(checksum("script"), new Map([[checksum("script"), "script"]])), "#C5787EE3");
+    // (and nodes.nameValue reads it back the same: an unnamed Name= / TriggerScript= in the node text)
+    assert.equal(nameValue(nameText(0x1ca1ff20, new Map())), 0x1ca1ff20);
+    assert.equal(nameValue("script"), checksum("script"));
 });
 
 test("QbFile reads globals, negative numbers and floats", () => {

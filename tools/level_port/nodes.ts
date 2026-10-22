@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { getCloseMatches } from "../lib/difflib.ts";
-import { decodeLatin1, intFromBytesLE, pyIntHex, pyMinBy, pyParseFloat, pySum } from "../lib/py.ts";
+import { decodeLatin1, intFromBytesLE, pyMinBy, pyParseFloat, pySum } from "../lib/py.ts";
 import { findall, type Match, search, sub } from "../lib/re.ts";
 import { pack } from "../lib/struct.ts";
 import { FormatError } from "./binio.ts";
@@ -768,7 +768,8 @@ export const PATH_COMMANDS = ["Obj_FollowPath", "Obj_FollowPathLinked", "Obj_Fol
 const PATH_COMMAND_SET: ReadonlySet<number> = new Set(PATH_COMMANDS.map(checksum));
 
 export function nameValue(text: string): number {
-    return text.startsWith("#") ? pyIntHex(text.slice(1)) : checksum(text);
+    // (#xxxxxxxx as qb.nameText writes it - NeverScript's: the checksum's bytes in file order, little-endian)
+    return text.startsWith("#") ? Buffer.from(text.slice(1), "hex").readUInt32LE(0) : checksum(text);
 }
 
 const SCRIPT_BLOCK = /(?:^|\n)script (#?\w+) \{(.*?)\n\}/s;
