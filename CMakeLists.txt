@@ -706,6 +706,7 @@ add_library(thug2_code OBJECT
     src/game/ed/park_cfuncs.cpp
     src/game/ed/gap_manager.cpp
     src/game/ed/park_editor.cpp
+    src/game/ed/park_editor_cfuncs.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/net/online_identity.cpp

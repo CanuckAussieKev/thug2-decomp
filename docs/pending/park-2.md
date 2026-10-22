@@ -71,3 +71,34 @@ Switch off: `[replacements] disable=gap_manager.cpp` (and park_editor.cpp, park_
     distance limits, paused, no camera object), LogicUpdate over 11, IsInsidePark on each edge exactly. 124 deliberate
     bugs (65 module + 59 Update): all caught, 13 after strengthening (the edges exactly, SetState(0) with a cursor,
     the limits just past them); 1 equivalent (the dead zone `>= 50` - zero either way at 50).
+- [x] Batch PE2-3 (NOT run in the game yet; the park editor's script commands and resizing, 40 functions):
+  src/game/ed/park_editor_cfuncs.cpp (new).
+  - The CFunctions 0x0058D730 FreeUpMemoryForPlayingPark, IsParkUnsaved, SetEditedParkGapInfo (name, score = -1,
+    cancel_flags), ParkEditorSelectionAreaTooBigToCopy, CopyParkEditorSelectionToClipboard, CutParkEditorAreaSelection,
+    ParkEditorAreaSelectionDeletePieces, ContinueParkEditorAreaSelection, SetEditorTheme (theme -> the shell size),
+    SetCustomParkName, OptimizeParkGeometry, GetParkEdMemStats (compiled out), ParkEdMemSnapshot (Ed::Marker),
+    EnableParkEdCursor, ExitParkEdTestPlay, ParkUpdateUsageInfo, 0x0058DFB0 SetParkEditorTimeOfDay /
+    GetParkEditorTimeOfDayScript (tod_script, the editor's +0x78; false when none), RebuildParkNodeArray,
+    GetParkEditorCursorPos (pos), CustomParkMode (editing / testing / just_using), SetParkEditorMaxPlayers (default 1),
+    CanCleanlyResizePark, ResizePark, GetCurrentParkBounds (x, z, w, l), CanChangeParkDimension ([w l], or up / width
+    flags against the shell and 16), SaveParkToDisk / LoadParkFromDisk (slot, block_rebuild), FireCustomParkGap
+    (gap_index), GetEditedParkGapName, GetEditorTheme (the shell size), GetEditorMaxThemes (5), GetCustomParkName (an
+    unnamed integer: that many characters; "unnamed park" when none - its copy into a 64-byte buffer isn't bounded, as
+    in the original), IsCustomPark, IsParkFull, SwitchParkEditorMenuPieceToMostRecentClipboard,
+    0x0058F750 SwitchToParkEditorCamera (parked_cam made from parkedcam_composite_structure if missing),
+    0x0058F870 BindParkEditorToController.
+  - Resizing: 0x0058E170 GetResizeArea (cdecl, returns `out`: w= / l= or inc_w= / inc_l=, the corner moved by half
+    the change), 0x0058E490 ResizeTo (cdecl, the area by value: the collision flag 0x0067F398 off, the shell and the
+    park rebuilt, the rails' points 10 inside the park kept (0x004F74B0) and the goals inside it (0x004E8390), the
+    clipboards too big deleted, the cursor hidden, the collision rebuilt). ResizePark: an area structure (0xB4F88771:
+    x z w l, one step high) or GetResizeArea; flag 0x937EB5C8 keeps the area in a static (0x007CE5E0, guard
+    0x007CE5E8), 0x6F2C496C uses the kept one; no memory for it: script 0xA9967819 and false. CanCleanlyResizePark:
+    no pieces, rail points or goals would be cut off.
+  - Kept / changed: values the original reads without a default from an uninitialised local (the area's x z w l,
+    FireCustomParkGap's gap_index, BindParkEditorToController's controller) are 0 here when the script leaves them out.
+    The parameter names the original passes as the exe's strings are string literals (as park_cfuncs.cpp).
+  - Test (TestParkEditorCommands): every command, original vs ours, on hand-built parameter structures (the real
+    getters) with everything they call stood in for: each flag / state / branch, resizing by structure, w / l,
+    inc_w / inc_l (odd, negative), kept and reused areas, no memory, no cursor; CanChangeParkDimension at each limit;
+    GetCustomParkName with 0, 1, 7, 20 characters and none. 65 deliberate bugs: all caught, 2 after recording the
+    collision flag while the shell is rebuilt and testing IsCustomPark in test play.

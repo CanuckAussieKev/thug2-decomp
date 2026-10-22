@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
@@ -256,7 +257,10 @@ void StandInGame(StandIns& s)
     });
     Rec(s, {0x00595140}, 4, 1);
     Rec(s, {0x005958B0}, 8, 2, 3);
-    Rec(s, {0x0059BED0}, 8, 2, 3);
+    Rec(s, {0x0059BED0}, 8, 2, 3, [](Regs&) {
+        Record({GameVariable<uint8_t>(0x0067F398)}); // (the collision flag while the shell is rebuilt)
+        return 0u;
+    });
     Rec(s, {0x0059CC70}, 8, 2, 0, nullptr, false, 2);
     Rec(s, {0x00595990}, 8, 2, 3);
     RecC(s, {0x00599C70}, 0);
@@ -1094,8 +1098,243 @@ void TestParkEditorUpdate()
     RestoreAll(saved);
 }
 
+// --- the script commands -------------------------------------------------------------------------------------
+
+using CFunc = bool(__cdecl*)(Script::CStruct*, Script::CScript*);
+
+// A command, original or ours, on `params` (built by `build` in each run) and the stand-in script.
+void RunCommand(const char* what, uint32_t address, CFunc ours, std::function<void(Params&)> build, Setup setup = [] {},
+                std::function<void(StandIns&)> more = nullptr)
+{
+    RunCase(what, setup, [&](bool original) {
+        Params params;
+        build(params);
+        auto* script = reinterpret_cast<Script::CScript*>(g_world.script);
+        bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+        return result ? 1u : 0u;
+    }, more);
+}
+void NoParams(Params&) {}
+
+constexpr uint32_t kName = 0xA1DC81F9; // name
+uint32_t Key(const char* name) { return Crc::GenerateCRCFromString(name); }
+constexpr uint32_t kX = 0x7323E97C, kZ = 0x9D2D8850, kW = 0xE39CF4ED, kL = 0x69F93D01;
+
+void TestParkEditorCommands()
+{
+    std::vector<Saved> saved = ParkGlobals();
+    SaveAll(saved);
+    std::strcpy(reinterpret_cast<char*>(g_world.name), "x"); // (the world is cleared for each run)
+
+    RunCommand("park commands: FreeUpMemoryForPlayingPark", 0x0058D730, CFunc_FreeUpMemoryForPlayingPark, NoParams);
+    for (uint32_t answer : {0u, 1u, 0x100u})
+        RunCommand("park commands: IsParkUnsaved", 0x0058D760, CFunc_IsParkUnsaved, NoParams,
+                   [=] { g_script[0x00595090] = {answer}; });
+    // SetEditedParkGapInfo: everything / nothing given.
+    static Params flags;
+    RunCommand("park commands: SetEditedParkGapInfo", 0x0058D780, CFunc_SetEditedParkGapInfo, [](Params& p) {
+        p.String(kName, "the big gap").Integer(0xCD66C8AE, 250).Structure(0x049EC3F9, flags.Struct());
+    });
+    RunCommand("park commands: SetEditedParkGapInfo", 0x0058D780, CFunc_SetEditedParkGapInfo, [](Params& p) {
+        p.String(0x1234, "other").Integer(0x4321, 9);
+    });
+    for (uint32_t r : {0u, 1u})
+        RunCommand("park commands: ParkEditorSelectionAreaTooBigToCopy", 0x0058D820,
+                   CFunc_ParkEditorSelectionAreaTooBigToCopy, NoParams, [=] { g_script[0x0059A610] = {r}; });
+    for (uint32_t r : {0u, 1u}) {
+        RunCommand("park commands: CopyParkEditorSelectionToClipboard", 0x0058D840,
+                   CFunc_CopyParkEditorSelectionToClipboard, NoParams, [=] { g_script[0x0059A6D0] = {r}; });
+        RunCommand("park commands: CutParkEditorAreaSelection", 0x0058D870, CFunc_CutParkEditorAreaSelection, NoParams,
+                   [=] { g_script[0x0059A6D0] = {r}; });
+        RunCommand("park commands: ParkEditorAreaSelectionDeletePieces", 0x0058D8C0,
+                   CFunc_ParkEditorAreaSelectionDeletePieces, NoParams, [=] { g_script[0x0059D8E0] = {r}; });
+    }
+    RunCommand("park commands: ContinueParkEditorAreaSelection", 0x0058D8E0, CFunc_ContinueParkEditorAreaSelection,
+               NoParams, [] {
+                   Cur()->m_areaSelect = 2;
+                   Cur()->m_areaHighlighted = true;
+               });
+    RunCommand("park commands: SetEditorTheme", 0x0058D900, CFunc_SetEditorTheme,
+               [](Params& p) { p.Integer(0x688A18F7, 3); });
+    RunCommand("park commands: SetEditorTheme", 0x0058D900, CFunc_SetEditorTheme, NoParams);
+    RunCommand("park commands: SetCustomParkName", 0x0058D940, CFunc_SetCustomParkName,
+               [](Params& p) { p.String(kName, "Skate Land"); });
+    RunCommand("park commands: OptimizeParkGeometry", 0x0058D980, CFunc_OptimizeParkGeometry, NoParams);
+    RunCommand("park commands: GetParkEdMemStats", 0x0058D9A0, CFunc_GetParkEdMemStats, NoParams);
+    RunCommand("park commands: ParkEdMemSnapshot", 0x0058D9B0, CFunc_ParkEdMemSnapshot,
+               [](Params& p) { p.Checksum(0, 0xCC63F828); });
+    RunCommand("park commands: ParkEdMemSnapshot", 0x0058D9B0, CFunc_ParkEdMemSnapshot,
+               [](Params& p) { p.Integer(0, 5); });
+    for (int c = 0; c < 4; ++c)
+        RunCommand("park commands: EnableParkEdCursor", 0x0058D9E0, CFunc_EnableParkEdCursor, [=](Params& p) {
+            if (c & 1)
+                p.Integer(0, c == 3 ? 256 : 0);
+        }, [=] {
+            if (c == 2)
+                NoCursor();
+        });
+    RunCommand("park commands: EnableParkEdCursor", 0x0058D9E0, CFunc_EnableParkEdCursor,
+               [](Params& p) { p.Integer(0, 1); }, [] { NoCursor(); });
+    RunCommand("park commands: ExitParkEdTestPlay", 0x0058DA40, CFunc_ExitParkEdTestPlay, NoParams);
+    RunCommand("park commands: ParkUpdateUsageInfo", 0x0058DA70, CFunc_ParkUpdateUsageInfo, NoParams);
+    RunCommand("park commands: SetParkEditorTimeOfDay", 0x0058DFB0, CFunc_SetParkEditorTimeOfDay,
+               [](Params& p) { p.Checksum(0x4C72ED98, 0x7EA70D); });
+    RunCommand("park commands: SetParkEditorTimeOfDay", 0x0058DFB0, CFunc_SetParkEditorTimeOfDay, NoParams,
+               [] { TheEditor()->m_timeOfDayScript = 5; });
+    for (uint32_t tod : {0u, 0x7EA70Du})
+        RunCommand("park commands: GetParkEditorTimeOfDayScript", 0x0058DFE0, CFunc_GetParkEditorTimeOfDayScript,
+                   NoParams, [=] { TheEditor()->m_timeOfDayScript = tod; });
+    RunCommand("park commands: RebuildParkNodeArray", 0x0058E010, CFunc_RebuildParkNodeArray, NoParams);
+    RunCommand("park commands: GetParkEditorCursorPos", 0x0058E020, CFunc_GetParkEditorCursorPos, NoParams);
+    // CustomParkMode: each flag in each state, none.
+    for (const char* flag : {"editing", "testing", "just_using", "other"}) {
+        for (uint32_t state : {CParkEditor::kStateEdit, CParkEditor::kStateTestPlay, CParkEditor::kStateOff,
+                               CParkEditor::kStateRegularPlay}) {
+            RunCommand("park commands: CustomParkMode", 0x0058E070, CFunc_CustomParkMode,
+                       [=](Params& p) { p.Flag(Key(flag)); }, [=] { TheEditor()->m_state = state; });
+        }
+    }
+    RunCommand("park commands: CustomParkMode", 0x0058E070, CFunc_CustomParkMode,
+               [](Params& p) { p.Flag(Key("testing")).Flag(Key("editing")); },
+               [] { TheEditor()->m_state = CParkEditor::kStateTestPlay; });
+    RunCommand("park commands: SetParkEditorMaxPlayers", 0x0058E0F0, CFunc_SetParkEditorMaxPlayers,
+               [](Params& p) { p.Integer(0, 8); });
+    RunCommand("park commands: SetParkEditorMaxPlayers", 0x0058E0F0, CFunc_SetParkEditorMaxPlayers, NoParams);
+
+    // Resizing: by an area structure, by w / l / inc_w / inc_l (odd and negative changes), saved and reused.
+    static Params area;
+    auto areaParams = [](Params& p) {
+        new (&area) Params();
+        area.Integer(kX, 8).Integer(kZ, 9).Integer(kW, 33).Integer(kL, 31);
+        p.Structure(0xB4F88771, area.Struct());
+    };
+    for (int c = 0; c < 8; ++c) {
+        RunCommand("park commands: CanCleanlyResizePark", 0x0058E2D0, CFunc_CanCleanlyResizePark,
+                   c == 7 ? std::function<void(Params&)>(NoParams) : std::function<void(Params&)>(areaParams), [=] {
+                       g_script[0x005958B0] = {static_cast<uint32_t>(c & 1)};
+                       g_script[0x004F4600] = {static_cast<uint32_t>((c >> 1) & 1)};
+                       g_script[0x004E8300] = {static_cast<uint32_t>((c >> 2) & 1)};
+                   });
+    }
+    std::vector<std::function<void(Params&)>> resizes = {
+        areaParams,
+        [](Params& p) { p.Integer(Key("w"), 36).Integer(Key("l"), 25); },
+        [](Params& p) { p.Integer(Key("inc_w"), 3).Integer(Key("inc_l"), -5); },
+        [](Params& p) { p.Integer(Key("w"), 20).Integer(Key("inc_l"), 7); },
+        [](Params& p) { p.Integer(Key("inc_w"), -1); },
+        NoParams,
+    };
+    for (size_t i = 0; i < resizes.size(); ++i) {
+        for (uint32_t room : {1u, 0u}) {
+            RunCommand("park commands: ResizePark", 0x0058E5E0, CFunc_ResizePark, resizes[i],
+                       [=] { g_script[0x00595990] = {room}; });
+        }
+        RunCommand("park commands: ResizePark (kept)", 0x0058E5E0, CFunc_ResizePark, [&, i](Params& p) {
+            resizes[i](p);
+            p.Flag(0x937EB5C8);
+        });
+    }
+    RunCommand("park commands: ResizePark (the kept area)", 0x0058E5E0, CFunc_ResizePark,
+               [](Params& p) { p.Integer(Key("w"), 36).Flag(0x6F2C496C); }, [] {
+                   GameVariable<uint32_t>(0x007CE5E8) = 1;
+                   GameVariable<GridDims>(0x007CE5E0) = GridDims::Make(3, 0, 4, 22, 1, 23);
+                   g_script[0x00595990] = {1};
+               });
+    RunCommand("park commands: ResizePark (no cursor)", 0x0058E5E0, CFunc_ResizePark, areaParams, [] {
+        NoCursor();
+        g_script[0x00595990] = {1};
+    });
+    RunCommand("park commands: GetCurrentParkBounds", 0x0058E7E0, CFunc_GetCurrentParkBounds, NoParams);
+    // CanChangeParkDimension: [w l] (the same, either different), up / down width / length at their limits.
+    static uint32_t elements[2];
+    static Script::CArray size;
+    auto sizeArray = [](uint32_t w, uint32_t l) {
+        return [=](Params& p) {
+            elements[0] = w;
+            elements[1] = l;
+            size.m_type = Script::ESYMBOLTYPE_INTEGER;
+            size.m_size = 2;
+            size.m_elements = elements;
+            p.Array(0, &size);
+        };
+    };
+    RunCommand("park commands: CanChangeParkDimension", 0x0058E870, CFunc_CanChangeParkDimension, sizeArray(30, 28));
+    RunCommand("park commands: CanChangeParkDimension", 0x0058E870, CFunc_CanChangeParkDimension, sizeArray(31, 28));
+    RunCommand("park commands: CanChangeParkDimension", 0x0058E870, CFunc_CanChangeParkDimension, sizeArray(30, 27));
+    struct DimCase {
+        bool width, up;
+        uint8_t w, l;
+    };
+    const DimCase dims[] = {{true, true, 39, 28},  {true, true, 40, 28},  {true, false, 17, 28}, {true, false, 16, 28},
+                            {false, true, 30, 43}, {false, true, 30, 44}, {false, false, 30, 17}, {false, false, 30, 16}};
+    for (const DimCase& d : dims) {
+        RunCommand("park commands: CanChangeParkDimension", 0x0058E870, CFunc_CanChangeParkDimension, [=](Params& p) {
+            if (d.width)
+                p.Flag(0x73E5BAD0);
+            if (d.up)
+                p.Flag(0xBC6B118F);
+        }, [=] {
+            g_world.manager.m_parkBounds.w = d.w;
+            g_world.manager.m_parkBounds.l = d.l;
+        });
+    }
+    // Saving and loading.
+    RunCommand("park commands: SaveParkToDisk", 0x0058E9A0, CFunc_SaveParkToDisk,
+               [](Params& p) { p.Integer(0x53F1DF98, 4); });
+    RunCommand("park commands: LoadParkFromDisk", 0x0058E9E0, CFunc_LoadParkFromDisk,
+               [](Params& p) { p.Integer(0x53F1DF98, 2); }, [] {
+                   TheEditor()->m_state = CParkEditor::kStateOff;
+               });
+    RunCommand("park commands: LoadParkFromDisk", 0x0058E9E0, CFunc_LoadParkFromDisk,
+               [](Params& p) { p.Integer(0x53F1DF98, 3).Flag(Key("block_rebuild")); });
+    // Gaps.
+    RunCommand("park commands: FireCustomParkGap", 0x0058EA40, CFunc_FireCustomParkGap,
+               [](Params& p) { p.Integer(Key("gap_index"), 9); });
+    RunCommand("park commands: GetEditedParkGapName", 0x0058EA70, CFunc_GetEditedParkGapName, NoParams,
+               [] { std::strcpy(Cur()->m_gap.m_text, "gap7"); });
+    RunCommand("park commands: GetEditorTheme", 0x0058EAA0, CFunc_GetEditorTheme, NoParams,
+               [] { g_script[0x005950B0] = {2}; });
+    RunCommand("park commands: GetEditorMaxThemes", 0x0058EAD0, CFunc_GetEditorMaxThemes, NoParams);
+    // GetCustomParkName: the whole name, none (unnamed park), the first n, none of it.
+    for (int length : {-2, 0, 1, 7, 20}) {
+        RunCommand("park commands: GetCustomParkName", 0x0058EAF0, CFunc_GetCustomParkName, [=](Params& p) {
+            if (length != -2)
+                p.Integer(0, length);
+        }, [] {
+            std::strcpy(reinterpret_cast<char*>(g_world.name), "Kevin's Fancy Skate Park");
+            g_script[0x005950D0] = {U(g_world.name)};
+        });
+    }
+    RunCommand("park commands: GetCustomParkName", 0x0058EAF0, CFunc_GetCustomParkName, NoParams);
+    for (uint32_t state : {CParkEditor::kStateOff, CParkEditor::kStateEdit, CParkEditor::kStateTestPlay})
+        RunCommand("park commands: IsCustomPark", 0x0058EB90, CFunc_IsCustomPark, NoParams,
+                   [=] { TheEditor()->m_state = state; });
+    for (float usage : {0.25f, 1.0f, 3.0f})
+        RunCommand("park commands: IsParkFull", 0x0058EBB0, CFunc_IsParkFull, NoParams,
+                   [=] { g_script[0x0059E730] = {F(usage)}; });
+    RunCommand("park commands: SwitchParkEditorMenuPieceToMostRecentClipboard", 0x0058ED00,
+               CFunc_SwitchParkEditorMenuPieceToMostRecentClipboard, NoParams,
+               [] { g_script[0x00595210] = {U(g_world.buffer)}; });
+    // SwitchToParkEditorCamera: the camera object there or made; placing rails; no cursor.
+    for (int c = 0; c < 4; ++c) {
+        RunCommand("park commands: SwitchToParkEditorCamera", 0x0058F750, CFunc_SwitchToParkEditorCamera, NoParams, [=] {
+            if (c == 0)
+                g_script[0x004619F0] = {U(g_world.cameraObject)};
+            g_script[0x00479090] = {U(g_world.array)};
+            if (c == 2)
+                Cur()->m_mode = CCursor::kModeRailPlacement;
+            if (c == 3)
+                NoCursor();
+        });
+    }
+    RunCommand("park commands: BindParkEditorToController", 0x0058F870, CFunc_BindParkEditorToController,
+               [](Params& p) { p.Integer(0, 1); });
+    RestoreAll(saved);
+}
+
 } // namespace
 
 SELFTEST(Early, TestParkGapManager, RemoveStandIns);
 SELFTEST(Early, TestParkEditorModule, RemoveStandIns);
 SELFTEST(Early, TestParkEditorUpdate, RemoveStandIns);
+SELFTEST(Early, TestParkEditorCommands, RemoveStandIns);
