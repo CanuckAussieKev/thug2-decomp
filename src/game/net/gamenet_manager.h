@@ -262,6 +262,30 @@ public:
     // connection's {app, manager, connection}, freed here): join proceed, or refused (reason 8).
     static void __cdecl ClientAuthorized(int gameId, int localId, int authenticated, char* error, void* instance);
 
+    // --- The players and the observer's camera (gamenet_players.cpp; players are PlayerInfo, not rewritten yet) ---
+
+    // 0x0053A910: the observer's camera onto `player`'s skater (m_camPlayer): someone else's - the skater camera; the
+    // local skater - the walk camera while it walks, else the skater camera; none (or no skater) - neither.
+    void ObservePlayer(uint8_t* player);
+    // 0x0053AA70: message 0x4A (observe) to the server, unless the local player observes already.
+    void SendObserveRequest();
+    // 0x0053AAC0: the first remote player with flag 0x20 gets "first come, first served" (flag 0x200 and message 0x5F
+    // with the checksum of the network preference 0x043EE978's text).
+    void AssignFirstComeFirstServed();
+    // 0x0053AC40: the lowest object id (0-15) no player's skater has and no joining player (observers aside) was
+    // given; 16 if none.
+    int NextPlayerObjectId();
+    // 0x0053AE10: the player (observers too) of connection `conn`, or null.
+    uint8_t* PlayerByConnection(Net::Conn* conn);
+    // 0x0053AEA0: the player (not an observer) whose skater has object id `id`, or null.
+    uint8_t* PlayerByObjectId(uint16_t id);
+    // 0x0053C320: the host mode (kHostMode*): auto-serve observes (message 0x4A) and starts its task (+0xF4) with
+    // the time noted (0x007CCDEC); first come first served observes and chooses who serves. Unchanged: nothing.
+    void SetHostMode(int mode);
+    static constexpr int kHostModeServe = 0;
+    static constexpr int kHostModeAutoServe = 1;
+    static constexpr int kHostModeFcfs = 2;
+
     // Fields.
     Net::App*& ClientSlot(int index) { return (&m_client)[index]; }
 

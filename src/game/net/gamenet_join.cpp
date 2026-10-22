@@ -154,7 +154,6 @@ int MaxPlayers(Manager* m) { return Call<int>(0x00532C50, m); }
 int RankLimit(Manager* m) { return Call<int>(0x00532B30, m); }
 int RankTest(Manager* m) { return Call<int>(0x00532AE0, m); }
 const char* Password(Manager* m) { return Call<const char*>(0x00534310, m); }
-int NextPlayerObjectId(Manager* m) { return Call<int>(0x0053AC40, m); }
 void DeferredNewPlayer(Manager* m, NewPlayerInfo* player, int frames) { Call<void>(0x0053A310, m, player, frames); }
 void SetReadyToPlay(Manager* m, bool ready) { Call<void>(0x00537140, m, ready); }
 void RandomizeSkaterStartingPoints(Manager* m) { Call<void>(0x005359F0, m); }
@@ -684,7 +683,7 @@ int Manager::HandleJoinRequest(MsgHandlerContext* context)
     auto* player = memory ? Call<NewPlayerInfo*>(0x005434D0, memory) : nullptr;
     std::strncpy(player->name, msg->name, kNameSize - 1);
     player->name[kNameSize - 1] = '\0';
-    player->objId = static_cast<int8_t>(NextPlayerObjectId(manager));
+    player->objId = static_cast<int8_t>(manager->NextPlayerObjectId());
     player->conn = context->m_Conn;
     player->flags = 0;
     player->profileId = msg->profile;
