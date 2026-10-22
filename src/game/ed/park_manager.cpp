@@ -118,7 +118,7 @@ void CParkManager::AddMetaPieceToPark(GridDims pos, CMetaPiece* meta)
         piece->SetPosition(&position, 1);
         piece->SetRot((piece->m_rot + meta->m_rot) & 3, 1);
         mp_generator->AddPiece(piece);
-        mp_generator->AddCollision(piece);
+        mp_generator->LightPiece(piece);
     }
     SetMetaInCells(meta, 1);
     AddMetaToCells(meta);
