@@ -225,6 +225,30 @@ inline std::vector<Saved> NetGlobals(std::initializer_list<Saved> extra)
 
 using Scenario = void (*)(bool original);
 
+// Our functions the code under test hands on or stores (callbacks, task code) and the original's own addresses for
+// them: recorded / compared as the original's.
+inline std::vector<std::pair<uint32_t, uint32_t>> g_aliases;
+template <typename F>
+void AddAlias(F function, uint32_t original)
+{
+    uint32_t raw;
+    std::memcpy(&raw, &function, sizeof(raw));
+    g_aliases.push_back({raw, original}); // (an incremental-link jump)
+    g_aliases.push_back({AddressOf(function), original});
+}
+inline bool g_aliasesReady;
+inline uint32_t Aliased(uint32_t value)
+{
+    if (!g_aliasesReady) {
+        g_aliasesReady = true;
+        AddAlias(&GameNet::Manager::ObserverTask, 0x0053BED0);
+    }
+    for (const auto& alias : g_aliases)
+        if (value == alias.first)
+            return alias.second;
+    return value;
+}
+
 // Each case named in the log as it starts (to find a case that crashes).
 inline bool g_net2Verbose = true;
 
@@ -250,14 +274,8 @@ inline void RunNet2Case(const char* what, Scenario scenario, void (*install)(Sta
         scenario(original);
         delete s;
         // Our functions stored where the original stores its own (task code...): written back as the original's.
-        const uint32_t aliases[][2] = {
-            {AddressOf(&GameNet::Manager::ObserverTask), 0x0053BED0},
-            {reinterpret_cast<uint32_t>(&GameNet::Manager::ObserverTask), 0x0053BED0}, // (an incremental-link jump)
-        };
         for (uint32_t i = 0; i < kArenaSize; i += 4)
-            for (const auto& alias : aliases)
-                if (Word<uint32_t>(i) == alias[0])
-                    Word<uint32_t>(i) = alias[1];
+            Word<uint32_t>(i) = Aliased(Word<uint32_t>(i));
         return Finish();
     };
     std::vector<uint32_t> expected = run(true);

@@ -98,6 +98,37 @@ Switch off: `[replacements] disable=gamenet_players.cpp` (and gamenet_game_cfunc
     variants; the counts, key lists; the lobby members, the searches, the timer. 37 deliberate bugs: 35 caught (1 after
     adding an observer as the first player), 2 equivalent (an index equal to the player count reported "" either way -
     the quirk; GetString's assert flag).
-- [ ] Next: the lobby's peer callbacks and tasks (0x0053F570, 0x0053F6C0, 0x0053FDA0, 0x0053FEE0, 0x0053FFC0,
-  0x00540040-0x005400E0, 0x00540AB0, 0x00540C90), NAT negotiation (0x0053FB80-0x00540430), the rest of 0x00540590+,
-  the manager's constructor 0x0053EE90 / Create 0x0053F520, 0x0053D9D0, 0x0053E440-0x0053EB70.
+- [x] Batch NET2-4 (NOT run in the game yet; the GameSpy lobby's connection, hosting, NAT negotiation and its script
+  commands, 20 functions): src/game/net/gamenet_lobby_peer.cpp, gamenet_lobby_cfuncs.cpp (new), gamenet_lobby.h
+  (LobbyMan's +0x135 restricted hosting, +0x13C NAT negotiations, +0x144 the client's cookie, +0x148 / +0x14C / +0x150
+  the think / NAT negotiation / query tasks - as the constructor 0x00541870 sets them; the packet queue 0x007CCE50).
+  - Peer callbacks: 0x0053F570 DisconnectedCallback, 0x0053FEE0 NickErrorCallback (in use: retried as
+    "a<time>_<network_id>"; invalid: made valid by 0x005FD9F0), 0x0053FFC0 ConnectCallback (the peer's public address
+    into Net::Manager, StartLobbyList, the connected time 0x007CE434), 0x0053FB80 PlayerKeyCallback (players counted:
+    playing ones and observers with flag 8, then joining ones unless observers without 0x18; player_ name / rating
+    57; ping_ ""), 0x0053FDA0 PublicAddressCallback (join ip = the address given, private ip = the peer's 0x005FC950;
+    presence "homie_status_hosting" with "10thug211:..."), 0x00540C90 NatNegotiateCallback, 0x00540300
+    NatNegotiationCompleted (success on a client: JoinServer at the sockaddr's address / port; server: counted down;
+    client: cleaned up, failure show_nat_timeout), 0x0053F6C0 QueuePacket (qr2 queries and NAT negotiation packets
+    copied with the game's C runtime malloc).
+  - Tasks: 0x00540040 ThinkTask, 0x005400B0 NatNegotiationTask, 0x005400E0 QueryTask (the queue handed on and freed;
+    not reported: CreateNotPostedDialog after 90 s once, else the details again every 5 s). 0x00540220 StartHosting,
+    0x00540750 Disconnect, 0x00540AB0 ConnectThread (stdcall, 0).
+  - Script commands: 0x00540430 StartNatNegotiation, 0x005403E0 CancelNatNegotiation, 0x00540590 LeaveLobby
+    (preserve_status keeps the presence), 0x00540640 CancelLobbyConnect, 0x00540660 SetQuietMode (off), 0x005406C0
+    CanHostGame (restricted: ten hard-coded GameSpy profile ids).
+  - Not original: our ntohs is a byte swap (the original calls ws2_32's through its import thunk 0x005BEB02); inet_addr
+    is ws2_32's called directly (the original: 0x005BEAAE). The queue's copies still use the game's C runtime malloc /
+    free (0x00624031 / 0x0062411B), so the original's and our code can share the queue.
+  - Test (selftests_net_lobby.cpp TestNetLobby, 6 cases): every callback's branches (disconnect x3, nick error x3,
+    connect ok / failed, the public address on a client / without a peer / logged out / in); the player keys for 4
+    keys x 9 indexes over playing / observing / counted players and joining players of each flag kind; packets of
+    every kind (queue full, a short NAT packet with the magic's last byte after it); the query task in 8 reporting
+    situations; think / NAT tasks; hosting (report result 1 / 0, a non-empty queue), disconnect with / without a peer,
+    the connect thread; NAT negotiation completed (client success / failure, server counting down) and asked (busy,
+    failing, twice); the six commands. 58 deliberate bugs: 57 caught (7 after recording the lobby's flags after each
+    callback, a padded short NAT packet, an 85 s case, distinct presence texts), 1 equivalent (NatNegotiateCallback's
+    second "none going on" check - always true after its early return; kept as the original has it).
+- [ ] Next: the lobby's destructors and list nodes (0x005407B0-0x005408C0, 0x00540D50, 0x00540F80), its menus
+  (0x00540900, 0x00540B60, 0x00540E00 SendMessage, 0x00540FB0, 0x005411E0, 0x00541690), then the manager's
+  constructor 0x0053EE90 / Create 0x0053F520 and 0x0053D9D0, 0x0053E440-0x0053EB70.
