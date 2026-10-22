@@ -224,6 +224,45 @@ public:
     // attack, for a player who isn't observing, the goal manager's count (0x00558AB0).
     int GetPlayerScore(uint32_t id);
 
+    // --- The server list (server_list.cpp) ---
+    // 0x005451B0 / 0x005451C0: the online service's next state (+0x1BC) / its state (+0x1B8).
+    void SetNextServiceState(int state);
+    int GetServiceState();
+    // 0x005453E0: the state; 1 (wake): the service task added to the logic tasks and the next state taken (the
+    // time 0x007CE444 cleared); 2: the task removed.
+    void SetServiceState(int state);
+    // 0x005451E0 (PostGame): the lobby's 0x00540220; logged in to presence, the status "hosting" with the
+    // location "10thug211:<local address>:<public address>:5153:<server name> (<lobby>)" (all 0 without a peer).
+    void UpdateHostingStatus();
+    // 0x00545300: in LAN mode the server-list client restarted (0x00534D50, SpawnMatchClient - false if that
+    // fails) and its task (+0xF0) added to the logic tasks if not in a list. True.
+    bool StartServerList();
+    // 0x00545370: the browsing stopped: on the internet GameSpy's (0x005FCA40, with a peer), else the server-list
+    // client's handlers deleted and its task removed.
+    void StopServerList();
+    // 0x005456B0: destroy_server_menu_children and add_no_servers_found_message (with refocus).
+    void ShowNoServersFound(bool refocus);
+    // 0x00546010: no server chosen (+0x8B) / 0x00546070: the servers in the menu (+0x8A).
+    void ClearChosenServers();
+    int NumServersInMenu();
+    // 0x005460D0: `server` added to the server list menu (the first one clears the "none found" message):
+    // server_list_menu_add_item with its name, mode, id (internet: its SBServer; LAN: itself), the menu's
+    // scripts and their parameters. (`index` isn't used.)
+    void AddServerToMenu(void* server, int index);
+    // 0x005462F0: every server (waiting and listed) deleted; in LAN mode 0x00534D50.
+    void ClearServerList();
+    // 0x00546400: whether a server named `name` (case ignored) at `ip` is listed or waiting.
+    bool HasServer(const char* name, uint32_t ip);
+    // 0x005464D0: the listed server with id `id` (internet: its SBServer; LAN: itself), or null.
+    void* GetServer(uint32_t id);
+    // 0x00547320: the "none found" message, then each waiting server moved to the list and the menu;
+    // update_lobby_server_list.
+    void ShowFoundServers();
+    // 0x00547E80: (at most every 5 s unless `force`) the list cleared and the search started again: on the internet
+    // GameSpy's server browser (0x005FC9D0 with the keys 8, 10, 4, 6 and the callback 0x00547750), on the LAN
+    // FindServersOnLan.
+    void RefreshServerList(bool force);
+
     // --- The join (gamenet_join.cpp) ---
 
     // 0x0052F560: whether the player of connection request `msg` from `conn` may join; if not, `reason` (a

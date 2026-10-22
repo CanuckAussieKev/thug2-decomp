@@ -119,5 +119,38 @@ Shared files touched (small, additive): CMakeLists.txt (new sources / tests), sr
     LobbyInfo left as constructed); 1 equivalent (LobbyDisconnect's count-down replaced by zeroing).
   - Untested without a live connection: the GameSpy side itself (what the SDK does with the calls and when it calls
     back) - only the calls made and the handling of callbacks fed in are compared.
-- [ ] Next: the server list (0x005451B0-0x00546790, 0x00547320 / 0x00547440 / 0x00547E80 / 0x00547F70, the MOTD
-  download callbacks 0x00545490 / 0x00545540 / 0x00545620).
+- [x] Batch NET3-4 (NOT run in the game yet; the server list and the online service's downloads):
+  src/game/net/server_list.{h,cpp} (new); gamenet_manager.h (declarations). 31 functions.
+  - ServerInfo (0xA8, vtable 0x0064CDFC): constructor 0x00545F60, destructor body 0x00546640 / scalar deleting
+    0x00547F70, AddPlayer 0x00545790 (a PlayerInfo with the name - strncpy 15 - and rating), ClearPlayers
+    0x005465A0 (0x0053C950 per player), GetPlayerName 0x005466D0 / GetPlayerRating 0x00546730; the
+    Lst::Search<ServerInfo> destructors 0x005451D0 / 0x00545460.
+  - Manager: SetNextServiceState 0x005451B0 / GetServiceState 0x005451C0 / SetServiceState 0x005453E0 (the online
+    service task's state, +0x1B8: 1 wakes - the task into the logic tasks, the next state taken -, 2 stops),
+    UpdateHostingStatus 0x005451E0 (PostGame: presence status homie_status_hosting with the GameSpy location
+    "10thug211:<local>:<public>:5153:<server_name> (<lobby>)"), StartServerList 0x00545300 / StopServerList
+    0x00545370, ShowNoServersFound 0x005456B0, ClearChosenServers 0x00546010, NumServersInMenu 0x00546070,
+    AddServerToMenu 0x005460D0 (server_list_menu_add_item; its index argument unused), ClearServerList 0x005462F0,
+    HasServer 0x00546400, GetServer 0x005464D0 (the id: the SBServer online, the ServerInfo on the LAN),
+    ShowFoundServers 0x00547320, RefreshServerList 0x00547E80 (at most every 5 s unless forced; GameSpy's server
+    browser update with the keys 8, 10, 4, 6 - written over the argument's slot in the original - and the callback
+    0x00547750, or FindServersOnLan).
+  - ServerListTask 0x00547440 (quirk kept: the 3-second clock restarts and returns when it runs out; within it,
+    a pending refresh older than 500 ms shows the waiting servers).
+  - The online service's threads (stdcall, started by Net::ServiceTask - service.cpp still passes their game
+    addresses, which the hooks send here): NewsThread 0x00545540 (motd.dat / testmotd.dat from www.thug2online.com
+    into the manager's buffer; state 7), MotdThread 0x00545620 (GameSpy's patch check, product 10368, "1.0"; the
+    unique_id preference read and not passed, as the original; state 9), NewsCallback 0x00545490 (XOR 0x6D, the
+    checksum - Crc::GenerateCRCCaseless - checked: state 8 or 11; the text and what follows noted). None of the
+    three are Ghidra functions.
+  - IsThug2Location 0x00548040 (the location's first ':' field is 10thug211), PostGame 0x00545440,
+    NumServersInLobby 0x00545F20.
+  - Test TestNetServers (src/hook/selftests_net_servers.cpp): every function over stand-in servers in both lists
+    (LAN and internet ids), the service states, the refresh and task clocks at their edges, news downloads of
+    several lengths with good and bad checksums; GameSpy, the C runtime's _stricmp / strncpy / strtok stood in.
+    54 deliberate bugs: 53 caught (5 after strengthening: the delete flag, the pending refresh recorded, the 3000 ms
+    edge, the states after each thread); 1 equivalent (AddServerToMenu's index - unused).
+  - Untested without a live connection: the downloads and the server browser themselves.
+- [ ] Next: describing / choosing servers and the browser callbacks (0x00546790 DescribeServer, 0x005470D0
+  ChooseServer, 0x005475C0 the LAN server reply, 0x00547750 the server browser callback, 0x00547FA0
+  RetrieveServerInfo), then the buddy messages and lobby status (0x00548200-0x00548560) and the folded getters.
