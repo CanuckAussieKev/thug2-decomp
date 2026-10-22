@@ -71,5 +71,33 @@ Switch off: `[replacements] disable=gamenet_players.cpp` (and gamenet_game_cfunc
     come first served, stats off) plus an observer and a local player; pending players re-added; all destroyed; the
     not ready dropped. 62 deliberate bugs, all caught (4 after strengthening: a local player without a skater with a
     watched player, the crown object without the crown, distinct heaps, the presence logged out).
-- [ ] Next: qr2 reporting (0x0053B9C0, 0x0053BBC0, 0x0053BD90, 0x0053BDC0 - the online identity's write sites
-  0x0053BE86 / 0x0053BA1F / 0x0053F936 to fold in), the manager's constructor 0x0053EE90 and the rest.
+- [x] Batch NET2-3 (NOT run in the game yet; the server's qr2 reporting, the lobby's small members and hosting
+  callbacks, 19 functions): src/game/net/gamenet_qr2.cpp (+ .h), gamenet_lobby.cpp (+ .h) (new; GameNet::LobbyMan,
+  the manager's m_lobbyMan, layout +0x34 room name, +0xB4 server name, +0x134 in a group room, +0x136 expecting a
+  disconnect, +0x137 lost connection to report, +0x138 connecting, +0x139 hosting, +0x140 the PEER, +0x150 the
+  hosting task). Shared files: src/game/net/online_identity.cpp / .h (three name sites dropped, kGameNameSites 3),
+  tools/check_code_writes.ts (23 writes), src/hook/selftests_pc.cpp (TestOnlineIdentity's site list). CLAUDE.md still
+  says "6 push operands" for the identity (now 3) - for the lead to update.
+  - qr2 (Ghidra has no functions there: reached by pointer): 0x0053B9C0 ServerKeyCallback, 0x0053BBC0
+    PlayerKeyCallback (QUIRK kept: the index is never counted down, so only player 0 is ever reported - the others get
+    ""), 0x0053BD90 CountCallback, 0x0053BDC0 StartQueryReporting (the level's ui_string strcpy'd into 0x0067F0A0 - the
+    mapname fallback; qr2_init on port 5155 with the decoded secret key, once).
+  - Lobby: 0x0053F7E0 StopHosting, 0x0053F810 IsHosting, 0x0053F820 GetRoomName (REPLACE_SOURCE_ONLY, 4 bytes),
+    0x0053F830 / 0x0053F850 Set/GetServerName, 0x0053F860 / 0x0053F870 Clear/SetLostConnection, 0x0053F880 GetPeer,
+    0x0053F890 InGroupRoom, 0x0053F8B0 / 0x0053F8C0 two list searches' destructor bodies (vtables 0x0064CB6C /
+    0x0064CB70), 0x0053F8A0 CFunc ResetConnectionTimer, 0x0053F8D0 ServerKeyCallback (the peer SDK's: THUG2's keys
+    51-56 too; mapname without a fallback; gamemode = gametype; every key sets 0x007CCE48), 0x0053FEC0 CountCallback
+    (servers 16), 0x0053F620 KeyListCallback.
+  - The online identity: the game name pushes at 0x0053BE86 (qr2_init), 0x0053BA1F and 0x0053F936 (the two
+    "gamename" keys) are in these functions - ours report Net::GameName(), and online_identity.cpp no longer writes
+    there (disabling gamenet_qr2.cpp / gamenet_lobby.cpp then reports "thps6pc" in those places). The secret key is
+    still read from 0x0067F120 (data the identity writes). check_code_writes: "No overlaps".
+  - Test (selftests_net_qr2.cpp TestNetQr2): every server key -1..22 and the variants (no level name, a password,
+    the gamemode flags), the player keys for indexes -1..3 x 5 keys, ping local / not, an observer first, no players;
+    the counts; qr2 started (failing, the name noted, once, keeping the name); the peer server keys -1..58 and
+    variants; the counts, key lists; the lobby members, the searches, the timer. 37 deliberate bugs: 35 caught (1 after
+    adding an observer as the first player), 2 equivalent (an index equal to the player count reported "" either way -
+    the quirk; GetString's assert flag).
+- [ ] Next: the lobby's peer callbacks and tasks (0x0053F570, 0x0053F6C0, 0x0053FDA0, 0x0053FEE0, 0x0053FFC0,
+  0x00540040-0x005400E0, 0x00540AB0, 0x00540C90), NAT negotiation (0x0053FB80-0x00540430), the rest of 0x00540590+,
+  the manager's constructor 0x0053EE90 / Create 0x0053F520, 0x0053D9D0, 0x0053E440-0x0053EB70.

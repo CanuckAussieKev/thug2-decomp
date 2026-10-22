@@ -363,6 +363,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gamenet_join.cpp
     src/hook/selftests_net_players.cpp
     src/hook/selftests_net_flow.cpp
+    src/hook/selftests_net_qr2.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_obj_trigger.cpp
     src/hook/selftests_obj_shadow.cpp
@@ -652,6 +653,8 @@ add_library(thug2_code OBJECT
     src/game/net/gamenet_players.cpp
     src/game/net/gamenet_game_cfuncs.cpp
     src/game/net/gamenet_flow.cpp
+    src/game/net/gamenet_qr2.cpp
+    src/game/net/gamenet_lobby.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
     src/game/ed/upper_menu.cpp

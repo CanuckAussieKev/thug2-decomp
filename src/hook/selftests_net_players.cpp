@@ -9,6 +9,7 @@
 #include "game/core/crc.h"
 #include "game/net/gamenet_game_cfuncs.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/gamenet_qr2.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
 
@@ -41,7 +42,7 @@ void InstallObjects(StandIns& s)
     Stub(s, {0x0053CB70, AddressOf(&Manager::DropPlayer)}, 8, 0xCB70);
     Stub(s, {0x00565790}, 4, 0x5790);
     Stub(s, {0x0053C6E0, AddressOf(&Manager::CancelJoin)}, 0, 0xC6E0);
-    StubCdecl(s, {0x0053BDC0}, 0xBDC0, 1);
+    StubCdecl(s, {0x0053BDC0, AddressOf(&GameNet::StartQueryReporting)}, 0xBDC0, 1);
     Stub(s, {0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, 0xC4A0,
          [](Regs&) { return At(kStructs + 0x200); });
 }

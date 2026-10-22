@@ -3,7 +3,7 @@
 //
 // Game source that has to change code it doesn't own yet writes into the exe at start-up: the GameSpy SDK's host
 // names (src/game/net/online_hosts.cpp, until the SDK is linked), the online identity's game name and key when
-// [Miscellaneous] OnlineGameName / OnlineGameKey are set (src/game/net/online_identity.cpp: the name's address over 6
+// [Miscellaneous] OnlineGameName / OnlineGameKey are set (src/game/net/online_identity.cpp: the name's address over 3
 // instructions' operands, the key over its 3 stored copies - data), the CFunction table's IsPS2 entry and (debug mode)
 // its CD / NotCD entries (src/game/sys/platform_cfuncs.cpp, debug_mode.cpp, until that table is source). Such a write
 //   - inside a rewritten function would be bypassed (the game runs our version, not the code written into), and
@@ -51,9 +51,9 @@ export function runtimeWrites(): Write[] {
 
 function main(): number {
     const writes = runtimeWrites();
-    if (writes.length !== 26) {
+    if (writes.length !== 23) {
         print(
-            `expected 26 writes (14 host names, 6 game names, 3 keys, 3 table entries), found ${writes.length}: update this script`,
+            `expected 23 writes (14 host names, 3 game names, 3 keys, 3 table entries), found ${writes.length}: update this script`,
         );
         return 1;
     }

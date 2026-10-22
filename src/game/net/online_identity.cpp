@@ -1,10 +1,10 @@
 // The game's online identity: its GameSpy game name and secret key (see online_identity.h).
 //
 // Where the game passes them (THUG2 PC, the same in THUG2PM.exe and the stock no-CD THUG2.exe):
-//   - the game name "thps6pc" (plain text at 0x0064B1CC) is pushed as an address by: WinMain's availability check
-//     (our source: GameName()), qr2_init (0x0053BE86), the qr2 server key callbacks' "gamename" key (0x0053BA1F,
-//     0x0053F936), peerSetTitle's title and server-browsing name (0x00542F8B, 0x00542FA0) and the stats SDK's game
-//     name (strcpy at 0x0054CAD9 into 0x007D7A78).
+//   - the game name "thps6pc" (plain text at 0x0064B1CC) is pushed as an address by: WinMain's availability check,
+//     qr2_init (0x0053BE86) and the qr2 / peer server key callbacks' "gamename" key (0x0053BA1F, 0x0053F936) - all
+//     source now, using GameName() -, peerSetTitle's title and server-browsing name (0x00542F8B, 0x00542FA0) and the
+//     stats SDK's game name (strcpy at 0x0054CAD9 into 0x007D7A78).
 //   - the secret key "AdLWaZ" is stored twice bitwise-NOT (6 bytes each, decoded onto the stack at the call): at
 //     0x0067F120 for qr2_init, at 0x0067F154 for peerSetTitle (both keys); and once plain at 0x0064D58C for the
 //     stats SDK (strcpy at 0x0054CAE8 into 0x007D7B78).
@@ -42,9 +42,6 @@ struct NameUse {
     uint32_t offset;
 };
 constexpr NameUse kNameUses[kGameNameSites] = {
-    {0x0053BE86, 1}, // push: qr2_init's game name
-    {0x0053BA1F, 1}, // push: the server key callback's "gamename" key
-    {0x0053F936, 1}, // push: the other server key callback's "gamename" key
     {0x00542F8B, 1}, // push: peerSetTitle's server-browsing name
     {0x00542FA0, 1}, // push: peerSetTitle's title
     {0x0054CAD9, 1}, // push: the stats SDK's game name (strcpy)

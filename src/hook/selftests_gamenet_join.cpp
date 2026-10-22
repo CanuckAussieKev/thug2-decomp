@@ -312,7 +312,7 @@ void StandInWorld(StandIns& s)
         Record({0x0B59, Rel(r.ecx)});
         return g_script.gameMode;
     });
-    s.At({0x0053AC40}, 0, [](Regs& r) {
+    s.At({0x0053AC40, AddressOf(&GameNet::Manager::NextPlayerObjectId)}, 0, [](Regs& r) {
         Record({0x0B5A, Rel(r.ecx)});
         return 5u;
     });

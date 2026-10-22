@@ -12,6 +12,7 @@
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_observer.h"
+#include "game/net/gamenet_qr2.h"
 #include "game/net/net_app.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -233,7 +234,7 @@ bool __cdecl CFunc_EnteredNetworkGame(Script::CStruct*, Script::CScript*)
 {
     Manager* manager = NetManager();
     if (GameVariable<bool>(0x007CCA82)) // (on the internet: the server's GameSpy reporting)
-        GameFunction<void(__cdecl*)(bool)>(0x0053BDC0)(false);
+        StartQueryReporting(false);
     Tsk::Stack* tasks = LogicTasks();
     tasks->AddTask(Field<Tsk::BaseTask*>(manager, 0xD4));
     GameVariable<bool>(0x007CCDF8) = true;
