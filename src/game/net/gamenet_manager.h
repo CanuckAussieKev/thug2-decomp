@@ -216,6 +216,45 @@ public:
     void* GetCreatedGoalsMessage();
     uint32_t GetCreatedGoalsSize();
 
+    // --- gamenet_members.cpp: the network mode, the team flags, preferences, the server's end (0x00533F20-0x00534FC0)
+    // 0x00533F20: the network mode (flags bits 2-3): 1 LAN (bit 3), 2 internet (bit 2), else neither.
+    void SetNetworkMode(int mode);
+    // 0x00533F50: the server's side (flags bit 0) on or off.
+    void SetServerMode(bool on);
+    // 0x00533F70: LAN play (flags bit 3).
+    int InLanMode();
+    // 0x00533FA0: the client's side (flags bit 1).
+    int OnClient();
+    // 0x00533FB0: Kill_Team_Flags, then (with teams) create_team_flags {num_teams = n}.
+    void CreateTeamFlags(int numTeams);
+    // 0x00534090 / 0x005341B0: the network preference num_players / num_observers set to `count` - its ui_string
+    // ("<n> <netmenu_str_players>"; for observers "no observers", "1 observer", "<n> observers") and checksum
+    // (num_<n>). The parameters are never freed (a leak the original has).
+    void SetMaxPlayersPreference(int count);
+    void SetMaxObserversPreference(int count);
+    // 0x00534310: the network preference password's ui_string.
+    const char* GetPassword();
+    // 0x00534340: whether skaters collide with each other: never in a finished game, free skate or horse (unless in
+    // the lobby); always in split screen, with player_collision on, and in (net)slap.
+    bool PlayerCollisionEnabled();
+    // 0x005343E0: a team game's scores shown by team (score_display = score_teams; never in the lobby).
+    bool ShowTeamScores();
+    // 0x00534CF0: the server destroyed (an internet one's GameSpy reporting stopped first), its two tasks removed;
+    // flags bit 0 cleared.
+    void DestroyServer();
+    // 0x00534D50: the server list's client destroyed.
+    void DestroyMatchClient();
+    // 0x00534D70: a client (not a modem) with a custom tag texture streams its palette (0x98) and texture (0x97) to
+    // the server over a broadband connection, then tells which CAS logos it has (0x9A, 4 bytes). True if the skater
+    // has a custom tag texture at all.
+    bool SendCustomTagTexture();
+    // 0x00534F40 (4 bytes: source only): the level's load script.
+    uint32_t GetLevel();
+    // 0x00534F50 / 0x00534FC0: in the global array `list` (structures), the `name` string / the integer `field` of
+    // the entry whose checksum is `choice` (the last such; null / 0 if none).
+    const char* GetChoiceName(uint32_t list, uint32_t choice);
+    int GetChoiceInteger(uint32_t list, uint32_t choice, uint32_t field);
+
     // --- The join (gamenet_join.cpp) ---
 
     // 0x0052F560: whether the player of connection request `msg` from `conn` may join; if not, `reason` (a
