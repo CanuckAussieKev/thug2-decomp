@@ -29,6 +29,7 @@ import * as portedLevels from "../level_port/ported_levels.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, Struct } from "../level_port/qb.ts";
+import * as scriptCheck from "../level_port/script_check.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import * as tex from "../level_port/tex.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
@@ -823,6 +824,7 @@ export function convertLevelNodes(
 
     let newReported = false;
     let sharedReported = false;
+    let idleReported = false;
     const writeQb = (source: string): void => {
         common.nsCompile(ns, source, qbPath);
         if (scripts.size) fs.writeFileSync(qbPath, scriptPort.appendScripts(fs.readFileSync(qbPath), scripts, names));
@@ -832,6 +834,15 @@ export function convertLevelNodes(
             fs.writeFileSync(qbPath, data);
             if (!newReported) report.push(...lines);
             newReported = true;
+        }
+        // (idle loops that would spin: `while { Obj_WaitAnimFinished }` with no animation playing ends its wait at once
+        // and never yields - THUGPRO's SE_ATVDriver02 / 04 in Hotter Than Hell, on our THUG1 riders, hung the game.
+        // The wait made a frame's: script_check.yieldingIdleLoops)
+        const [idle, spun] = scriptCheck.yieldingIdleLoops(fs.readFileSync(qbPath));
+        if (spun) {
+            fs.writeFileSync(qbPath, idle);
+            if (!idleReported) report.push(`  ${spun} idle loop(s) on Obj_WaitAnimFinished made to wait a frame`);
+            idleReported = true;
         }
         // PC-THUG1-17 (required): the node fields shared, every node kind - the last step, after everything that reads
         // the nodes' own fields (the text passes above, groundRestartsAt's rewrite through this): nodes.shareNodeFields

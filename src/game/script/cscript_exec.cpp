@@ -50,6 +50,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace Script {
 
@@ -306,7 +307,7 @@ bool CScript::ExecuteCommand()
         return reinterpret_cast<CFunction>(symbol->raw)(m_functionParams, this);
     case ESYMBOLTYPE_MEMBERFUNCTION: {
         auto* entry = reinterpret_cast<CMemberFunctionEntry*>(symbol->raw);
-        Obj::CObject* object = m_object.Get();
+        Obj::CObject* object = m_object.mp_object;
         if (entry) {
             if (object)
                 return Script::CallMemberFunction(entry, m_functionParams, object, this);
@@ -495,7 +496,27 @@ void CScript::ExecuteBreak()
 EScriptReturnVal CScript::Update()
 {
     m_flags &= ~SCRIPT_RUN_WAIT_UPDATED;
+    // (NOT ORIGINAL, log only: a script that runs this many steps in one Update never yields - a loop whose wait
+    // ends at once, e.g. `while { Obj_WaitAnimFinished }` with no animation playing: the game hangs here, as the
+    // original does. Logged once per script, with its name and its object's id, before the hang.)
+    uint32_t steps = 0;
     while (m_pc) {
+        if (++steps == 5000000u) {
+            static uint32_t s_logged[16];
+            static int s_count;
+            bool seen = false;
+            for (int i = 0; i < s_count; ++i)
+                seen = seen || s_logged[i] == m_scriptName;
+            if (!seen) {
+                if (s_count < 16)
+                    s_logged[s_count++] = m_scriptName;
+                Obj::CObject* object = m_object.mp_object;
+                // (the object's id as a number: FindChecksumNameOrUnknown's text for an unknown name is one buffer)
+                Log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "
+                    "yields (the game hangs here)",
+                    FindChecksumNameOrUnknown(m_scriptName), object ? object->m_id : 0u, steps);
+            }
+        }
         CurrentScriptVar() = this;
         if (!(m_flags & SCRIPT_RUN_WAIT_UPDATED))
             UpdateWait();

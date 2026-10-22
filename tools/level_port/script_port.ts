@@ -1647,17 +1647,16 @@ export class Translator {
                     return;
                 }
                 if (this.guard !== null) {
-                    // (a member of one of the level's objects: only while it is alive)
+                    // (a member of one of the level's objects: only while it is alive. A node's object: `IsAlive
+                    // name=<node>`. An object the script was handed (`<ObjID>:member`): `ObjectExists id=<ObjID>` -
+                    // the object tracker's lookup, the one the call itself makes (THUG2's own scripts' guard).
+                    // IsAlive would look the id up as a node (0x005A4EF0 -> GetNode, which asserts): THAW's
+                    // `Obj_GetID` `<ObjID>:Obj_GetPosition` run by the skater hands it 0 - IsAlive crashed on the
+                    // missing node (Hollywood's scaffolding / roof shatter scripts).)
                     counter += 1;
                     const number = counter;
                     items.push({ kind: "if", n: number, orig });
-                    tokItems([
-                        nameTok(checksum("IsAlive"), orig),
-                        nameTok(checksum("name"), orig),
-                        new Tok(0x07, Buffer.alloc(0), orig),
-                        ...(this.guard as Tok[]),
-                        new Tok(0x01, Buffer.alloc(0), orig),
-                    ]);
+                    tokItems([...Translator.guardCondition(this.guard, orig), new Tok(0x01, Buffer.alloc(0), orig)]);
                     tokItems([...kept, new Tok(0x01, Buffer.alloc(0), orig)]);
                     items.push({ kind: "label", key: `else:${number}`, orig });
                     items.push({ kind: "label", key: `end:${number}`, orig });
@@ -1673,6 +1672,17 @@ export class Translator {
         if (ifs.length) throw new RangeError(`${this.text(name)}: if without endif`);
         if (switches.length) throw new RangeError(`${this.text(name)}: switch without endswitch`);
         return this.assemble(name, items);
+    }
+
+    // The condition guarding `object:member` (this.guard: the object's tokens - a node's name, or `<param>`).
+    static guardCondition(guard: readonly Tok[], orig: number): Tok[] {
+        const byId = guard[0]!.t === 0x2d;
+        return [
+            nameTok(checksum(byId ? "ObjectExists" : "IsAlive"), orig),
+            nameTok(checksum(byId ? "id" : "name"), orig),
+            new Tok(0x07, Buffer.alloc(0), orig),
+            ...guard,
+        ];
     }
 
     static closeCase(sw: Switch, items: Item[], orig: number): void {
