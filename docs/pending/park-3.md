@@ -121,3 +121,15 @@ without that.
 - Range done: every function of 0x0058FBD0-0x00592740 has source (82: 79 Ghidra functions plus 0x0058FFC0, 0x00590360,
   0x00591DE0 found in the padding); find_gaps lists nothing in it. check_code_writes: no overlaps; register scan and
   call audit: nothing new.
+- Final checks (85f15b9 + this record): thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, 771 early
+  self-tests passed. All four mutation specs re-run on the final code: PE3-1 38/39 (1 equivalent), PE3-2 70/70, PE3-3
+  60/60, PE3-4 39/41 (2 equivalent).
+- Game runs (C:\Games\THUG2-3, under the lock, this build's DLL; 5628 of 5628 replacements installed): `-level BO` -
+  the level loads, the skater spawns, no exception / run-time check in the log; `-level sk5ed` - the park editor comes
+  up (state edit: the piece menu, the cursor, the empty park, the memory bar), no exception. Nothing played by hand.
+- For the user to try by hand (CREATE-A-PARK): place, turn (both ways, all four turns) and delete pieces of every set,
+  multi-piece palette entries (ramps with rails, the shell / floor pieces), raise / lower the floor under and beside
+  pieces, copy / paste an area (turned), place and turn gaps (the gap piece's purple tint, its stretch), restart
+  points and CTF flags (the slots per type), pause / unpause (the menu and cursor hidden / back), test play and back,
+  save and load a park, resize it (the shell's bounds), max players. Switch off with `[replacements] disable=`
+  park_pieces.cpp, park_metapieces.cpp, park_generator.cpp, park_editor_state.cpp.
