@@ -12,6 +12,8 @@
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
+#include "game/net/net_conn.h"
+#include "game/net/net_lists.h"
 #include "game/obj/smtptr.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
@@ -63,6 +65,20 @@ constexpr uint32_t kCurrentMenuAnchor = 0xF53D1D83;        // current_menu_ancho
 constexpr uint32_t kCreateWaitForPlayersDialog = 0xEF32B8DE; // CreateWaitForPlayersDialog
 constexpr uint32_t kGameWillStart = 0x9DB2FD76;            // net_message_game_will_start
 constexpr uint32_t kHomieStatusChatting = 4; // (the presence status while in the lobby)
+
+constexpr uint32_t kLinkLostDialogAnchor = 0xE8E406BC;      // link_lost_dialog_anchor
+constexpr uint32_t kDialogBoxAnchor = 0x3B56E746;           // dialog_box_anchor
+constexpr uint32_t kCreateLinkUnpluggedDialog = 0x751DE012; // create_link_unplugged_dialog
+constexpr uint32_t kCreateLinkUnpluggedFrontEndDialog = 0xCFA1CF26; // create_link_unplugged_front_end_dialog
+constexpr uint32_t kShowJoinTimeoutNotice = 0x3F7009B4;     // ShowJoinTimeoutNotice
+constexpr uint32_t kCreateLostConnectionDialog = 0xDA9AFFBF; // CreateLostConnectionDialog
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;              // (the skate module's next level: the main menu)
+constexpr uint32_t kLinkCheckInterval = 1000;
+constexpr uint32_t kSilentTimeout = 20000;  // ms without a word from a connection in the game
+constexpr uint32_t kJoiningTimeout = 60000; // ... from one still joining
+constexpr int kMaxResends = 20;
+constexpr int kDropTimedOut = 1;
+constexpr int kDropDropped = 5;
 
 constexpr uint32_t kAutoServeWait = 2000;    // ms after the host mode is set
 constexpr uint32_t kAutoServeIdle = 5000;    // ms in the lobby
@@ -328,8 +344,77 @@ void __cdecl Manager::StartGameTask(void* task)
     }
 }
 
+// 0x0053EB70
+void __cdecl Manager::ConnectionTask(void* task)
+{
+    Manager* manager = TaskManager(task);
+    uint8_t* skate = Skate();
+    void* net = GameVariable<void*>(0x006EFDD8);
+    uint32_t& checked = GameVariable<uint32_t>(0x007CCE30); // the link checked last
+    if (manager->InNetMode() && Tmr::GetTime() - checked > kLinkCheckInterval) {
+        bool netGame = manager->InNetGame();
+        checked = Tmr::GetTime();
+        if (GameFunction<bool(__thiscall*)(void*)>(0x005B9E50)(net)) { // the network cable unplugged
+            Front::ElementPtr dialog;
+            Front::CScreenElementManager::Instance()->GetElement(&dialog, netGame ? kLinkLostDialogAnchor : kDialogBoxAnchor, 0);
+            if (!dialog.Get()) {
+                Run(netGame ? kCreateLinkUnpluggedDialog : kCreateLinkUnpluggedFrontEndDialog);
+                return;
+            }
+        }
+    }
+    if (manager->OnServer()) { // the players' connections watched
+        PlayerSearch search;
+        uint8_t* player = FirstPlayer(manager, &search, true);
+        while (player) {
+            uint8_t* next = NextPlayer(manager, &search, true);
+            Net::Conn* conn = Field<Net::Conn*>(player, 0x18);
+            if (!conn->IsLocal()) {
+                int reason = -1;
+                if (conn->m_status & 1) { // (in the game)
+                    if (conn->GetTimeElapsedSinceCommunication() > kSilentTimeout)
+                        reason = kDropTimedOut;
+                    else if (conn->GetHighestResendCount() > kMaxResends)
+                        reason = kDropDropped;
+                } else if (conn->GetTimeElapsedSinceCommunication() > kJoiningTimeout) {
+                    reason = kDropTimedOut;
+                }
+                if (reason >= 0) {
+                    Obj::CObject* skater = PlayerSkater(player);
+                    bool observer = IsObserver(player);
+                    manager->DropPlayer(player, reason);
+                    if (!observer)
+                        Call(0x00565790, skate, skater);
+                }
+            }
+            player = next;
+        }
+        return;
+    }
+    // A client: the server silent too long while joining or joined.
+    Net::ConnSearch search = {reinterpret_cast<void**>(0x0064759C), nullptr};
+    Net::App* client = manager->m_client;
+    if (!client)
+        return;
+    Net::Conn* conn = client->FirstConnection(&search);
+    if (!conn || !(manager->m_joinState == 8 || manager->m_joinState == 7 || manager->m_joinState == 6) ||
+        conn->GetTimeElapsedSinceCommunication() <= kSilentTimeout)
+        return;
+    if (Field<uint32_t>(skate, 0x378) == kLoadMainMenu) {
+        Run(kShowJoinTimeoutNotice);
+        manager->m_joinStateTask->Remove();
+        manager->m_joinState = 10;
+    } else {
+        Run(kCreateLostConnectionDialog);
+        manager->DestroyAllPlayers();
+        Call(0x00536820, manager); // the joining players gone
+        Call(0x005399F0, manager); // the apps shut down
+    }
+}
+
 } // namespace GameNet
 
+REPLACE(0x0053EB70, GameNet::Manager::ConnectionTask);
 REPLACE(0x0053AF90, &GameNet::Manager::ResetToLobby);
 REPLACE(0x0053B0D0, &GameNet::Manager::StartNetworkGame);
 REPLACE(0x0053C6E0, &GameNet::Manager::CancelJoin);

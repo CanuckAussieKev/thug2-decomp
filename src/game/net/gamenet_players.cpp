@@ -500,6 +500,46 @@ void Manager::FlagReturned(uint8_t* player)
     Call(0x00543410, player); // carries no flag
 }
 
+// 0x0053E650
+void Manager::EnterObserveMode()
+{
+    uint8_t* skate = Skate();
+    Tsk::Stack* tasks = LogicTasks();
+    uint8_t* input = GameVariable<uint8_t*>(0x00696D40);
+    uint8_t* local = LocalPlayer(this);
+    if (IsObserver(local))
+        return;
+    if (OnServer())
+        DropPlayer(local, kDropObserving);
+    if (Call<bool>(0x00543490, local)) { // its crown given up
+        Call(0x00544340, local, false);
+        if (Field<void*>(this, 0x6C))
+            Call(0x005782D0, Field<void*>(this, 0x6C));
+    }
+    if (Call<bool>(0x005433B0, local)) { // its flag returned (hide_ctf_arrow whatever the team, unlike FlagReturned)
+        int team = Call<int>(0x005433D0, local);
+        char key[64];
+        TeamNameKey(key, team);
+        Script::CStruct* params = NewParams();
+        params->AddInteger(kTeam, team);
+        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, Script::GetString(key));
+        Run(kFlagReturned, params);
+        DeleteParams(params);
+        Run(kHideCtfArrow);
+        Call(0x00543410, local);
+    }
+    Field<uint32_t>(local, 0x1D0) |= 4; // an observer
+    Call(0x00565790, skate, PlayerSkater(local));
+    Field<Obj::CObject*>(local, 0x14) = nullptr;
+    Mem::Manager* memory = Mem::Manager::Get();
+    memory->PushContext(memory->m_skaterHeaps[0]);
+    ObservePlayer(Call<uint8_t*>(0x0053A580, this)); // the first player to watch
+    AddObserverControls(this, local, tasks, input, -1);
+    m_observerCommand = 0;
+    Run(kHidePanelStuff);
+    Mem::Manager::Get()->PopContext();
+}
+
 // 0x0053C320
 void Manager::SetHostMode(int mode)
 {
@@ -533,3 +573,4 @@ REPLACE(0x0053D900, &GameNet::Manager::DestroyAllPlayers);
 REPLACE(0x0053E910, &GameNet::Manager::RemovePlayers);
 REPLACE(0x0053E920, &GameNet::Manager::DropPlayersNotReady);
 REPLACE(0x0053EE70, &GameNet::Manager::RemovePlayersAndApps);
+REPLACE(0x0053E650, &GameNet::Manager::EnterObserveMode);

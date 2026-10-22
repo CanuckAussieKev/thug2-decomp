@@ -36,7 +36,9 @@ inline void ConstructTaskNode(void* node, int priority)
 }
 
 // `tasks`: the logic tasks; `input`: the input manager (0x00696D40), both read by the callers before anything else.
-inline void AddObserverControls(Manager* manager, uint8_t* player, Tsk::Stack* tasks, uint8_t* input)
+// The handler's priority: -1000 (EnterSurveyorMode, NewPlayer), -1 (EnterObserveMode).
+inline void AddObserverControls(Manager* manager, uint8_t* player, Tsk::Stack* tasks, uint8_t* input,
+                                int handlerPriority = -1000)
 {
     auto* task = static_cast<ObserverTaskNode*>(Mem::Calloc(sizeof(ObserverTaskNode)));
     if (task) {
@@ -49,7 +51,7 @@ inline void AddObserverControls(Manager* manager, uint8_t* player, Tsk::Stack* t
     tasks->AddTask(reinterpret_cast<Tsk::BaseTask*>(task));
     auto* handler = static_cast<ObserverInputHandler*>(Mem::Calloc(sizeof(ObserverInputHandler)));
     if (handler) {
-        ConstructTaskNode(handler, -1000);
+        ConstructTaskNode(handler, handlerPriority);
         handler->m_index = 0;
         *reinterpret_cast<uint32_t*>(handler) = 0x0064D7D8;
         handler->m_code = reinterpret_cast<void*>(0x00536890);

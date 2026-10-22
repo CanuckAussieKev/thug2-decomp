@@ -38,7 +38,7 @@ Switch off: `[replacements] disable=gamenet_players.cpp` (and gamenet_game_cfunc
     "team", the 0x007CCDF8 order around task adds, the input device); 1 equivalent (GetInteger's assert flag - asserts
     are compiled out).
 - [x] Batch NET2-2 (NOT run in the game yet; the game's course, the manager's tasks and the players' lives,
-  20 functions): src/game/net/gamenet_flow.cpp (new), gamenet_players.cpp, gamenet_observer.h (new: the observer's
+  16 functions): src/game/net/gamenet_flow.cpp (new), gamenet_players.cpp, gamenet_observer.h (new: the observer's
   controls, inlined by EnterSurveyorMode and NewPlayer), gamenet_game_cfuncs.cpp (+ DropPendingPlayers).
   - Course: 0x0053AF90 ResetToLobby (server: the level preference; netlobby with the teams kept; crown and flags
     gone; +0x1B0 the lobby time), 0x0053B0D0 StartNetworkGame (message 0x34 StartGameInfo, 0x48 bytes: time limit
@@ -130,7 +130,7 @@ Switch off: `[replacements] disable=gamenet_players.cpp` (and gamenet_game_cfunc
     callback, a padded short NAT packet, an 85 s case, distinct presence texts), 1 equivalent (NatNegotiateCallback's
     second "none going on" check - always true after its early return; kept as the original has it).
 - [x] Batch NET2-5 (NOT run in the game yet; the lobby's menus, chat, group room list and its destructors,
-  21 functions): src/game/net/gamenet_lobby_menus.cpp (new), gamenet_lobby.h (LobbyRoom 0x6C, LobbyPlayer, the two
+  15 functions): src/game/net/gamenet_lobby_menus.cpp (new), gamenet_lobby.h (LobbyRoom 0x6C, LobbyPlayer, the two
   node types, Task<T>'s deleter).
   - Menus: 0x00540900 AddBuddyMenuItem (make_text_sub_menu_item, lobby_add_buddy), 0x00540FB0 AddRoomMenuItem
     (regions_menu_add_item "<name> - <players>/<most>" (+ net_lobby_full); choose_selected_lobby + index, or
@@ -152,5 +152,37 @@ Switch off: `[replacements] disable=gamenet_players.cpp` (and gamenet_game_cfunc
     bugs, all caught (3 after strengthening: rating 350 - rank 0 in doubles, 1 in floats; a dirty new room for the
     name's NUL; flags 2). The kit (net2_testkit.h) now builds lists with their back links (Lst::Head::AddNode runs for
     real), stands in Mem::Malloc / FreeMalloc and an empty symbol table.
-- [ ] Next: the manager's constructor 0x0053EE90 / Create 0x0053F520 and 0x0053D9D0, 0x0053E440-0x0053EB70 (the
-  last of the range).
+- [x] Batch NET2-6 (NOT run in the game yet; the joining players made real, observe mode, the connection task, the
+  manager's construction, 7 functions - the range complete): src/game/net/gamenet_newplayers.cpp,
+  gamenet_manager_create.cpp (new), gamenet_players.cpp (EnterObserveMode), gamenet_flow.cpp (ConnectionTask),
+  gamenet_observer.h (the handler's priority a parameter).
+  - 0x0053E440 AddNewPlayer (a client's NewPlayerInfo: the skater - none for an observer, AddSkater with the local
+    profile (split screen: by object id), a remote one's profile with the skater count, or the counted skaters outside a
+    network game; a vehicle control type into the vehicle component's +0x1104; an existing player of that object id kept;
+    flag 0x10 resyncs: the old (or local) player destroyed, then 0x0053A040 / 0x00534D70 / the trick objects and
+    0x1D02CE3B; the crown (flag 0x80); a remote player's skater hidden and its score set), 0x0053EA30
+    ClientAddNewPlayersTask, 0x0053D9D0 ServerAddNewPlayersTask (the NewPlayerMessage, 0x30 + appearance: 0x79 then
+    its own details (flags 1 / 0x11, |4 observing; priority 0xFF, LZSS) to a remote new player; its details to every
+    other remote player; a resync gets its group's (+0x1D8) players, otherwise every playing player - QUIRK kept: that
+    loop tests whether the NEW player is local, not the other - with its score (0x005436E0), the created park (15000
+    bytes) and rails (0x1132) streamed, and 0x53 with the level; its skater (AddSkater, SetSkater 0x005438D0), 0x25 with
+    the time all round; the lobby's server details and qr2), 0x0053E650 EnterObserveMode (hide_ctf_arrow for any team -
+    unlike DestroyPlayer's; the input handler at priority -1; the first skater heap), 0x0053EB70 ConnectionTask (the
+    link each second, create_link_unplugged_(front_end_)dialog; the server drops after 20 s silence / 20 resends in the
+    game, 60 s joining; a client's server silent 20 s in states 6-8: ShowJoinTimeoutNotice going to the main menu, else
+    CreateLostConnectionDialog and everything shut), 0x0053EE90 Construct (the five list heads, both preferences loaded,
+    the fifteen tasks - our own task functions where they are source - the lobby (0x00541870), vault, presence and stats
+    managers, gcd_init(1003), the challenge from the game's C runtime srand(time(0)) / rand), 0x0053F520 Create.
+  - Test (selftests_net_newplayers.cpp TestNetNewPlayers, 6 cases): AddNewPlayer in 8 situations (observer, local split
+    screen, remote with a vehicle, outside a network game, crown, existing, resync of an existing player / of nobody);
+    the client task (empty, not yet, all ready, the third waiting, a second client); the server task in 6 situations
+    (remote, created park with network broadband, resync broadband / narrowband with qr2 off, observer, the host's own);
+    observe mode (observing already, server, crown + flag, client); the connection task (link checks at the 1000 ms
+    boundary, unplugged with / without a dialog in a game and in the front end; a server's players silent / resending /
+    joining / local / observing; a client in each join state, going to the main menu or not, without a client); Create
+    (there, none, made with the constructor). 58 deliberate bugs, all caught (4 after strengthening: the network's own
+    broadband, qr2 off, the link check's boundary, an always-true rewrite of a mutation that didn't build).
+  - The kit (net2_testkit.h): a vehicle component, message 0x22 recorded by its fields (the pad bytes and the name's tail
+    are the stack's).
+- [ ] Next: nothing left in 0x0053A910-0x00541870 (98 functions with source: 76 Ghidra knows + 22 reached only by
+  pointer - callbacks and tasks it never made functions of). The lead: fold, merge, game crash check.

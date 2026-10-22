@@ -316,6 +316,13 @@ public:
     // 0x0053E920 (DropPendingPlayers): the playing players neither local nor ready (flag 0x20) dropped as left out
     // (reason 6) and their skaters removed.
     void DropPlayersNotReady();
+    // 0x0053E650: the local player becomes an observer (not again): dropped as observing on the server, its crown and
+    // flag given up, its skater removed, the observer's controls (its handler at priority -1), hide_panel_stuff.
+    void EnterObserveMode();
+    // 0x0053E440 (gamenet_newplayers.cpp): a client's joining player (a NewPlayerInfo) made real: its skater (none for
+    // an observer; the local one / a remote one / split screen's), the player (an existing one kept; with flag 0x10
+    // the old one destroyed and the players resynced), its score.
+    void AddNewPlayer(uint8_t* info);
     // NOT ORIGINAL (inlined in DestroyPlayer / ReAddPendingPlayers): the lobby's peer, when hosting, told the game's
     // details changed (0x005FCCF0).
     void UpdateLobbyServer();
@@ -344,6 +351,24 @@ public:
     // 0x0053BF90 (+0xE4): the join's state shown (the connecting / joining / password dialogs, entered_network_game,
     // dialog_box_exit, CreateJoinRefusedDialog with the reason) and moved on.
     static void __cdecl JoinStateTask(void* task);
+    // 0x0053EB70 (+0xC0, priority -2000): the link checked each second (create_link_unplugged_dialog /
+    // _front_end_dialog when unplugged and no dialog is up); the server drops a remote player silent for 20 s (in the
+    // game; 60 s joining) or resending over 20 times; a client joining or joined whose server is silent for 20 s gives
+    // up (ShowJoinTimeoutNotice while going to the main menu, else CreateLostConnectionDialog and everything shut).
+    static void __cdecl ConnectionTask(void* task);
+    // 0x0053EA30 (+0xD0, gamenet_newplayers.cpp): the joining players whose time has come added (AddNewPlayer), then
+    // the connections' silence forgiven, the skaters reset, the ready response sent.
+    static void __cdecl ClientAddNewPlayersTask(void* task);
+    // 0x0053D9D0 (+0xCC, gamenet_newplayers.cpp): the server's: each joining player whose time has come becomes a
+    // player; its details (message 0x22) to the others and theirs to it, the created park and rails, joined (0x53),
+    // its skater, the ready query (0x25) all round; the lobby's server details and qr2 told.
+    static void __cdecl ServerAddNewPlayersTask(void* task);
+    // 0x0053EE90 (gamenet_manager_create.cpp): the constructor: the preferences (loaded), the player lists, fifteen
+    // tasks (the connection task started), the lobby / vault / presence / stats managers, the CD-key challenge (eight
+    // random letters and digits). Returns this.
+    Manager* Construct();
+    // 0x0053F520: the manager (made if `create` and there's none, 0xFE0C bytes); a reference counted (0x007CCE18).
+    static Manager* __cdecl Create(bool create);
     // 0x0053C1F0 (+0xE8): the start of a game: while players are still loading, the server's
     // CreateWaitForPlayersDialog (no menu up) or a client's net_message_game_will_start, once; when everyone is ready
     // and the time has come, StartNetworkGame and the task removed.

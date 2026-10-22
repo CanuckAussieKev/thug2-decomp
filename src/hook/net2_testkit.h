@@ -163,6 +163,7 @@ inline void InstallNet2(StandIns& s)
         case 0xC7D37EC2: return At(kObjects + 0x40 * (base + 1)); // WalkCamera
         case 0xD9151D4D: return At(kObjects + 0x40 * (base + 2)); // SkaterPhysicsControl
         case 0xD262802F: return At(kObjects + 0x40 * (base + 3)); // the score
+        case 0x18223FD6: return At(0x36000);                       // the vehicle (its +0x1104)
         default: return 0u;
         }
     });
@@ -182,7 +183,14 @@ inline void InstallNet2(StandIns& s)
     s.At({0x00457EB0, AddressOf(&Net::App::EnqueueMessage)}, 8, [](Regs& r) {
         Rec(0x7EB0, {r.args[0]});
         const auto* desc = reinterpret_cast<const Net::MsgDesc*>(r.args[1]);
-        if (desc->m_id == 0x34 && desc->m_length == 0x48) { // (the start of a game: bytes it never writes masked)
+        if (desc->m_id == 0x22 && desc->m_length >= 0x30 && desc->m_data) { // (a new player: its fields, name, appearance)
+            const auto* msg = static_cast<const uint8_t*>(desc->m_data);
+            Net::MsgDesc copy = *desc;
+            copy.m_data = nullptr;
+            RecordDesc(0x7EB1, r.ecx, &copy);
+            Rec(0x7EB2, {HashBytes(msg, 0x1A), HashBytes(msg + 0x1C, 4), Hash(reinterpret_cast<const char*>(msg + 0x20)),
+                         HashBytes(msg + 0x30, desc->m_length - 0x30u)});
+        } else if (desc->m_id == 0x34 && desc->m_length == 0x48) { // (the start of a game: bytes it never writes masked)
             uint8_t copy[0x48];
             std::memcpy(copy, desc->m_data, sizeof(copy));
             std::memset(copy + 0x10, 0, 4);
