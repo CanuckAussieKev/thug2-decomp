@@ -370,6 +370,13 @@ add_library(thug2_code OBJECT
     src/hook/selftests_net_lobby.cpp
     src/hook/selftests_net_menus.cpp
     src/hook/selftests_net_newplayers.cpp
+    src/hook/selftests_net_commands.cpp
+    src/hook/selftests_net_counts.cpp
+    src/hook/selftests_net_game_commands.cpp
+    src/hook/selftests_net_lists.cpp
+    src/hook/selftests_net_members.cpp
+    src/hook/selftests_net_player_lists.cpp
+    src/hook/selftests_net_settings.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_obj_trigger.cpp
     src/hook/selftests_obj_shadow.cpp
@@ -653,6 +660,12 @@ add_library(thug2_code OBJECT
     src/game/net/stats_man.cpp
     src/game/net/gamenet_join.cpp
     src/game/net/gamenet_manager.cpp
+    src/game/net/gamenet_commands.cpp
+    src/game/net/gamenet_game_commands.cpp
+    src/game/net/gamenet_lists.cpp
+    src/game/net/gamenet_members.cpp
+    src/game/net/gamenet_player_lists.cpp
+    src/game/net/gamenet_settings.cpp
     src/game/net/gamenet_state.cpp
     src/game/net/gamenet_handlers.cpp
     src/game/net/gamenet_game_handlers.cpp

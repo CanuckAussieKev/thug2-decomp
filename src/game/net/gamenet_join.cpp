@@ -511,7 +511,7 @@ App* Manager::SpawnClient(bool broadcast, bool local, bool secure, int index)
         m_latestReadyQuery = 0;
         m_proSetFlags = 0;
         m_camPlayer = nullptr;
-        SetReadyToPlay(this, false);
+        GameNet::SetReadyToPlay(this, false); // (the helper: 0x00537140 through the hook)
     }
     m_observerInputHandler = nullptr;
     m_gameOver = false;
