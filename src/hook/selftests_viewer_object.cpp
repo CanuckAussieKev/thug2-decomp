@@ -3,11 +3,15 @@
 // the calls, results and whole arena compared.
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <map>
 #include <vector>
 
 #include "game/ass/assman.h"
 #include "game/core/task.h"
+#include "game/obj/game_objects.h"
+#include "game/script/struct.h"
 #include "game/obj/anim_blender.h"
 #include "game/sys/viewer_object.h"
 #include "hook/fe_testkit.h"
@@ -138,7 +142,131 @@ void TestViewerObject2()
     Compare(traces[0], traces[1], "viewer object: the scalar deleting destructor");
 }
 
+// The loader: model0 and model2 named, then modelname / model / neither (profile looked up); the CAS artist flag on and
+// off; skeletonFileName with the skeleton loaded or not; ViewerObjPos given or not; the debug heap or not. The struct
+// getters, assets, components, scripts, the object manager and Finalize stood in for; the path helpers (0x004879D0,
+// 0x0048BFE0) and the strings run for real.
+std::map<uint32_t, const char*> g_strings; // by key text hash or checksum
+int g_artist;
+uint32_t g_loadedSkeleton;
+bool g_hasPosition;
+void* g_registerThunk;
+void* g_finalizeThunk;
+
+void TestViewerObject3()
+{
+    SaveGlobals({{0x006918DC, 4, {}}, {0x006F0FB8, 4, {}}, {0x007CEFAC, 1, {}}});
+    StandIns* s = new StandIns;
+    InstallCommon(*s);
+    s->At({0x006234FE}, 0, [](Regs& r) {
+        return static_cast<uint32_t>(std::snprintf(reinterpret_cast<char*>(r.args[0]), 260,
+                                                   reinterpret_cast<const char*>(r.args[1]), r.args[2], r.args[3], r.args[4]));
+    });
+    auto getString = [](Regs& r, uint32_t key) {
+        Rec(0x0C60, {r.ecx, key, r.args[2] & 0xFF});
+        auto it = g_strings.find(key);
+        *reinterpret_cast<const char**>(r.args[1]) = it == g_strings.end() ? nullptr : it->second;
+        return it == g_strings.end() ? 0u : 1u;
+    };
+    s->At({0x00476C80, AddressOf(static_cast<bool (CStruct::*)(const char*, const char**, int)>(&CStruct::GetString))}, 12,
+          [getString](Regs& r) { return getString(r, Hash(reinterpret_cast<const char*>(r.args[0]))); });
+    s->At({0x00476C60, 0x00476590, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
+          12, [getString](Regs& r) { return getString(r, r.args[0]); });
+    s->At({0x00476E70, AddressOf(static_cast<bool (CStruct::*)(uint32_t, CStruct**, int)>(&CStruct::GetStructure))}, 12,
+          [](Regs& r) {
+              Rec(0x6E70, {r.ecx, r.args[0], r.args[2] & 0xFF});
+              return 0u;
+          });
+    s->At({0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))}, 12,
+          [](Regs& r) {
+              Rec(0x6950, {r.ecx, r.args[0], r.args[2] & 0xFF});
+              *reinterpret_cast<uint32_t*>(r.args[1]) = 0x5E1E;
+              return 1u;
+          });
+    s->At({0x00477040, AddressOf(static_cast<bool (CStruct::*)(uint32_t, Script::VectorValue*, int)>(&CStruct::GetVector))},
+          12, [](Regs& r) {
+              Rec(0x7040, {r.ecx, r.args[0], r.args[2] & 0xFF});
+              if (g_hasPosition)
+                  *reinterpret_cast<Script::VectorValue*>(r.args[1]) = {10.0f, 20.0f, 30.0f, 0.5f};
+              return g_hasPosition ? 1u : 0u;
+          });
+    s->At({0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 0, [](Regs& r) {
+        Rec(0x8F60, {r.args[0]});
+        return static_cast<uint32_t>(g_artist);
+    });
+    s->At({0x00407B90, AddressOf(&Ass::CAssMan::GetAsset)}, 8, [](Regs& r) {
+        Rec(0x7B90, {r.ecx, r.args[0], r.args[1]});
+        return r.args[0] == g_loadedSkeleton || (r.args[0] & 1) ? At(0x4500) : 0u; // (some files "cached")
+    });
+    s->At({0x00407B20, AddressOf(&Ass::CAssMan::UnloadAsset)}, 4, [](Regs& r) {
+        Rec(0x7B20, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    s->At({0x00408440, AddressOf(&Ass::CAssMan::LoadAsset)}, 0x24, [](Regs& r) {
+        Rec(0x8440, {r.ecx, Text(r.args[0]), r.args[1], r.args[2], r.args[3], r.args[4] & 0xFF, r.args[5] & 0xFF,
+                     r.args[6] & 0xFF, r.args[7], r.args[8]});
+        return 0u;
+    });
+    s->At({0x0057B2F0, AddressOf(&Obj::AddMotionComponents)}, 0, [](Regs& r) {
+        Rec(0xB2F0, {r.args[0]});
+        return 0u;
+    });
+    s->At({0x0057B420, AddressOf(&Obj::AddNodeComponents)}, 0, [](Regs& r) {
+        Rec(0xB420, {r.args[0], r.args[1]});
+        return 0u;
+    });
+    s->At({0x005897D0, AddressOf(&CViewerObject::PlayAnimation)}, 4, [](Regs& r) {
+        Rec(0x97D0, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    g_registerThunk = s->Thunk(4, [](Regs& r) {
+        Rec(0x0EE1, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    g_finalizeThunk = s->Thunk(0, [](Regs& r) {
+        Rec(0x0F17, {r.ecx});
+        return 0u;
+    });
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        const bool original = run == 0;
+        std::vector<uint32_t>& t = traces[run];
+        SetUpArena(run);
+        GameVariable<uint32_t>(0x006918DC) = At(kAssets);
+        GameVariable<uint32_t>(0x006F0FB8) = At(0x4600);
+        *Ptr<uint32_t>(0x4600) = At(0x4680);
+        reinterpret_cast<void**>(At(0x4680))[1] = g_registerThunk;
+        reinterpret_cast<void**>(At(0x4700))[8] = g_finalizeThunk;
+        *Ptr<uint32_t>(0x7000 + 0x114) = At(0x7180); // the bottom-up heap
+        *Ptr<uint32_t>(0x7000 + 0x154) = At(0x71C0); // the debug heap
+        auto* object = Ptr<CViewerObject>(kObject);
+        auto* params = Ptr<CStruct>(0x4800);
+        for (int variant = 0; variant < 5; ++variant) {
+            std::memset(object, 0xCD, sizeof(CViewerObject));
+            object->m_vtable = Ptr<void*>(0x4700);
+            g_strings.clear();
+            g_strings[Hash("model0")] = "board";
+            g_strings[Hash("model2")] = "skins\\deck"; // (a path: "models\<name>" only)
+            if (variant == 0)
+                g_strings[0xB974F2FC] = "ped_a";
+            if (variant == 1)
+                g_strings[0x286A8D26] = "ped_b";
+            if (variant != 4)
+                g_strings[0xF679DB13] = "skel.ske";
+            g_artist = variant != 2;
+            g_loadedSkeleton = variant == 3 ? 0x5E1E : 0;
+            g_hasPosition = variant & 1;
+            GameVariable<bool>(0x007CEFAC) = variant == 1;
+            original ? Original<void(__thiscall*)(void*, void*)>(0x00589910)(object, params) : object->Load(params);
+            PushArena(t);
+        }
+        t.insert(t.end(), g_trace.begin(), g_trace.end());
+    }
+    Cleanup();
+    Compare(traces[0], traces[1], "viewer object: loaded from its parameters");
+}
 } // namespace
 
 SELFTEST(Early, TestViewerObject1, ViewerTestKit::Cleanup);
 SELFTEST(Early, TestViewerObject2, ViewerTestKit::Cleanup);
+SELFTEST(Early, TestViewerObject3, ViewerTestKit::Cleanup);

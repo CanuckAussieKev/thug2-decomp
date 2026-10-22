@@ -10020,7 +10020,19 @@ belong with the CScript batch.
   slot 2, then CCompositeObject's); 0x0058A2B0 the scalar deleting destructor. Test (selftests_viewer_object.cpp
   TestViewerObject1 / 2): original vs ours - shut down; no component / an unknown anim / a known one; destroyed with a
   loaded asset, an unloaded name, none; flags 0 / 1 / 2. 19 deliberate bugs caught, 1 after strengthening.
-- [ ] Next: park editor & graffiti 0x00589910 on (the viewer object's load, 1705 bytes, ...).
+- [x] Batch 328 (NOT run in the game yet; park editor & graffiti range, part 9 - the model viewer's object loaded):
+  src/game/sys/viewer_object.cpp / .h. 0x00589910 CViewerObject::Load(params): registered with the composite object
+  manager, its motion and node components; the debug heap (0x007CEFAC) or the bottom-up heap pushed; for model0-3 and
+  modelname / model (else profile is looked up, unused) a CAS artist's (cas_artist) cached .col, .skin, .mdl and .tex
+  files dropped - the paths from 0x004879D0 (models\<name>\<name><ext>) and 0x0048BFE0 (the extension cut), both CAS
+  code left as calls; skeletonFileName loaded as skeletonName (type 6) unless it is, and kept in +0x120 (the field is
+  the skeleton - the destructor unloads it); ViewerObjPos or (0, 0, 0, 1); an identity matrix;
+  viewerobj_add_components, Finalize (vtable +0x20), viewerobj_init_model; the idle animation; the heap popped. The
+  model path is assigned in place, as the original, so the strings' allocations match. Test (TestViewerObject3):
+  original vs ours over five set-ups (model0 and a path-named model2; modelname / model / neither; cas_artist on and
+  off; the skeleton loaded or not, or none; a position or not; either heap), the path helpers and strings for real.
+  27 deliberate bugs caught, 1 after strengthening.
+- [ ] Next: park editor & graffiti 0x00589FD0 on (the viewer object's other members, its constructor 0x0058ADB0 ...).
 - [ ] Next: nothing left in the range; hand back.
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag
