@@ -18,6 +18,7 @@
 #include "game/net/net_manager.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
+#include "hook/online_identity_testkit.h"
 
 #pragma warning(disable : 4996) // (strcpy into the stand-in texts)
 
@@ -460,6 +461,7 @@ void RestoreLobby()
 
 void TestNetLobby()
 {
+    OnlineIdentityKit::ConfiguredGameName name; // the original reports the configured name, as ours does
     SaveGlobals({{0x006F0FB8, 4, {}}, {0x00696D40, 4, {}}, {0x007CCDEC, 4, {}}, {0x006EFDD8, 4, {}},
                  {0x007CE438, 4, {}}, {0x007CCE48, 1, {}}, {0x007CCE3A, 1, {}}, {0x007CCE40, 4, {}},
                  {0x007CCE44, 4, {}}, {0x007CCE3C, 4, {}}, {0x007CE434, 4, {}}});

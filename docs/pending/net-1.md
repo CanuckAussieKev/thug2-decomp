@@ -166,7 +166,7 @@ Switch off: `[replacements] disable=gamenet_members.cpp,gamenet_settings.cpp,gam
     0x007CCE1D is cleared just before), 0x00536C10 CancelConnectToInternet (by the modem state: 0/1, 2, 5, 9; the jump
     table read).
   - 0x00537100 CFunc FoundServers (counts the server list's nodes).
-  - Tests (selftests_net_lists.cpp TestNetLists, selftests_net_player_lists.cpp TestNetPlayerLists): original vs ours on real
+  - Tests (selftests_net_lists.cpp TestNetManagerLists, selftests_net_player_lists.cpp TestNetPlayerLists): original vs ours on real
     lists in the arena: each list type's destructors on middle / last / head nodes with flags 0, 1, 2, 3; the
     destructor with every part / task present and with none; joining players removed (all; one: absent, first, last,
     without a connection; server and client); all 11 modem states; server searches with and without a client and

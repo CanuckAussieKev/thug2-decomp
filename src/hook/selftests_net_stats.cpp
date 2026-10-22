@@ -20,6 +20,7 @@
 #include "game/net/vault_man.h"
 #include "game/obj/object.h"
 #include "hook/net4_testkit.h"
+#include "hook/online_identity_testkit.h"
 
 namespace {
 
@@ -624,6 +625,7 @@ void RunTask(bool original)
 
 void TestNetStatsSession()
 {
+    OnlineIdentityKit::ConfiguredGameName name; // the original reports the configured name, as ours does
     std::vector<Case> cases;
     for (bool inList : {false, true}) {
         cases.push_back([inList](bool original) {

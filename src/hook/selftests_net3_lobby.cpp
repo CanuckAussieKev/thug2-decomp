@@ -18,6 +18,7 @@
 #include "game/script/struct.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
+#include "hook/online_identity_testkit.h"
 
 namespace {
 
@@ -416,6 +417,7 @@ void Connecting(bool original)
 
 void TestNet3Lobby()
 {
+    OnlineIdentityKit::ConfiguredGameName name; // the original reports the configured name, as ours does
     SaveGlobals({{0x00696D68, 4, {}}, {0x007CE430, 4, {}}, {0x007CCE38, 2, {}}});
     RunCase("GameNet::LobbyMan: made, the peer, the lobbies", Construction);
     RunCase("GameNet::LobbyMan: the players and their callbacks", Players);

@@ -12,6 +12,7 @@
 #include "game/net/net_conn.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
+#include "hook/online_identity_testkit.h"
 
 #pragma warning(disable : 4996) // (strcpy into the stand-in texts)
 
@@ -246,6 +247,7 @@ void RestoreQr2() { Cleanup(); }
 
 void TestNetQr2()
 {
+    OnlineIdentityKit::ConfiguredGameName name; // the original reports the configured name, as ours does
     SaveGlobals({{0x006F0FB8, 4, {}}, {0x00696D40, 4, {}}, {0x007CCDEC, 4, {}}, {0x007CCE1E, 1, {}},
                  {0x007CCE1D, 1, {}}, {0x007CC264, 4, {}}, {0x007CCE1C, 1, {}}, {0x007CCE48, 1, {}},
                  {0x0067F0A0, 0x40, {}}, {0x007CCE3C, 4, {}}});

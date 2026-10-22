@@ -1,5 +1,5 @@
 // Self-tests for the network manager's list types, its destructor, the joining players' removal and the server
-// search / GameSpy / level members (src/game/net/gamenet_lists.cpp, gamenet_players.cpp, gamenet_members.cpp,
+// search / GameSpy / level members (src/game/net/gamenet_lists.cpp, gamenet_player_lists.cpp, gamenet_members.cpp,
 // gamenet_settings.cpp) and the input handler's scalar deleting destructor (src/game/sys/viewer.cpp): the original and
 // ours on the same stand-in arena (gamenet_testkit.h), everything they call outside stood in for by recording code;
 // the calls, results and arena are compared, case by case.
@@ -373,7 +373,7 @@ void GameTypeName(bool original)
     }
 }
 
-void TestNetLists()
+void TestNetManagerLists()
 {
     SaveGlobals({{0x006EFDD8, 4, {}}, {0x007CCE1C, 2, {}}, {0x007CCA82, 1, {}}, {0x007CCA84, 4, {}}, {0x007CCA88, 1, {}}});
     RunCase("GameNet list types and the input handler's destructor", Lists);
@@ -386,4 +386,4 @@ void TestNetLists()
 
 } // namespace
 
-SELFTEST(Early, TestNetLists, GameNetKit::Cleanup);
+SELFTEST(Early, TestNetManagerLists, GameNetKit::Cleanup);
