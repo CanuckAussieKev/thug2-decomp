@@ -38,3 +38,32 @@ without that.
   sector / geometry null paths, both colours; the whole arena and the calls compared. 39 deliberate bugs, 38 caught
   (1 after adding flags 2 to the destructor cases); 1 equivalent (SetAngle given the rotation instead of identity times
   it - the same matrix).
+- [x] Batch PE3-2 (NOT run in the game yet; park editor & graffiti, part PE3-2 - the metapieces): new
+  src/game/ed/park_metapieces.cpp; park.h: CMetaPiece's methods out of line (the GameFunction wrappers gone),
+  kConcrete / kAbstract flags, new classes CConcreteMetaPiece (vtable 0x0064F3D8) and CAbstractMetaPiece (0x0064F3E4).
+  CMetaPiece: 0x005902F0 IsRestartPiece (the eight restart pieces' names), 0x00590340 GetDescriptor (signed index),
+  0x005903A0 SetVisibility (each piece's sector SetActive), 0x00590400 CountPieces (palette entries: 1 for a single
+  piece - flag 0x80 -, else its count), 0x00590750 IsCompletelyWithinArea (x and z only), 0x005907B0 SetRot (w and l
+  swapped on an odd turn; every descriptor turned about the corner into new storage, its own size in cells from the
+  palette (abstract) or GetCellDims (concrete); the original copies two uninitialised stack descriptors over the
+  unused inline ones - here they keep what they were), 0x005909C0 GetRelativePosition (y read unsigned; z rounded to
+  float before the half length comes off; w a stack leftover in the original, 1 here), 0x00590AD0 Initialize (the
+  extra entries copied only when growing), 0x00590B90 GetBounds(max, min), 0x00590CE0 Intersects(area, precise) -
+  NB the precise test skips the pieces whose descriptor +4 ("isReal", from the palette's flag 0x0CD75A3F) is SET:
+  the field's name is the reverse of what it means there -, 0x00591670 the base's scalar deleting destructor,
+  0x005916B0 GetPieceList (an array of structures: each piece's checksum and relative position), 0x005917E0 the
+  destructor body, 0x00591800 SetPosition(position, angle) (each piece: identity with its offset in row 3, times
+  RotY, through D3DXMatrixMultiply, plus the position (w too); then its angle desc.rot * 90 + angle; y read unsigned),
+  0x00591A50 Highlight (cloned pieces only), 0x00591AB0 FinishPieces (cells from the bounds, h at least 1; pieces
+  centred - z by the float-rounded size). CConcreteMetaPiece: 0x00590B60 constructor, 0x00590360 GetPiece,
+  0x00590ED0 AddPiece (isReal normalised), 0x00591BB0 scalar deleting destructor (also the abstract one's).
+  CAbstractMetaPiece: 0x00590FA0 constructor, 0x00590FD0 GetPiece (the generator's source by name), 0x00591020
+  AddPiece (a source by name; anything else counted but its descriptor left alone; the byte as given; h at least 1),
+  0x00591100 AddMetaPiece (no h clamp), 0x005911D0 GetEntry(out, index) (nested palette metapieces' pieces counted
+  one by one, placed by the outer turn - the turn sum not wrapped; turns above 3 not placed; past the end the original
+  returns a stack leftover - an empty entry here). Test (selftests_park_metapieces.cpp, three tests: names /
+  descriptors / areas / visibility / storage / destructors; pieces added, bounds, positions, world placement,
+  intersection - areas at every edge, flagged and unflagged pieces, the precise flag's high bytes - and every turn
+  amount; the palette's nested entries for every outer turn, counts, sources, abstract turns, pieces and metapieces
+  added, the script array). 70 deliberate bugs, all caught (10 after strengthening: turns by 3, float rounding of z,
+  edges, negative heights, a flat metapiece, a descriptor past the end, w kept, the h clamps, bounds' top).

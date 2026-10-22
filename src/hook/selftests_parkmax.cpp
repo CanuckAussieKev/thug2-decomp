@@ -15,9 +15,18 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "hook/appmain_testkit.h"
 #include "hook/standins.h"
 
 namespace {
+
+// Our replacement of a game function: stood in for too (our code calls it directly).
+inline uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? TestStandIns::Resolve(ours) : address;
+}
+
 
 using namespace TestStandIns;
 using Script::CScript;
@@ -59,7 +68,7 @@ void Install(StandIns& s)
              return 0u;
          });
     // (the room left in the park memory is read by 0x0059E730: stood in for, an answer from the generator's count)
-    s.At({0x00591D30}, 0, [](Regs& r) {
+    s.At({0x00591D30, OursOf(0x00591D30)}, 0, [](Regs& r) {
         Record({0x1D30, Rel(r.ecx)});
         int maxPlayers;
         std::memcpy(&maxPlayers, reinterpret_cast<void*>(r.ecx + 0x20), 4);

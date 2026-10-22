@@ -20,9 +20,18 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "hook/appmain_testkit.h"
 #include "hook/standins.h"
 
 namespace {
+
+// Our replacement of a game function: stood in for too (our code calls it directly).
+inline uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? TestStandIns::Resolve(ours) : address;
+}
+
 
 using namespace TestStandIns;
 using Ed::CMapListNode;
@@ -494,7 +503,7 @@ void StandInEditor(StandIns& s)
     s.At({0x0058C200}, 0, record(0xC200));     // CClipboard::Hide
     s.At({0x0058C780}, 4, record1(0xC780));    // CClipboard::ShowAt
     s.At({0x0058C980}, 0, record(0xC980));     // CClipboard destructor
-    s.At({0x005903A0}, 4, record1(0x03A0));    // CMetaPiece visibility
+    s.At({0x005903A0, OursOf(0x005903A0)}, 4, record1(0x03A0));    // CMetaPiece visibility
     s.At({0x0058CF30}, 4, record1(0xCF30));    // CGapManager copy
     s.At({0x0058CF20}, 0, record(0xCF20));     // CGapManager destructor
     s.At({0x0058CCC0}, 4, [](Regs& r) { // CGapManager constructor (makes itself current)
@@ -502,9 +511,9 @@ void StandInEditor(StandIns& s)
         GameVariable<uint32_t>(0x007CE5D4) = r.ecx;
         return r.ecx;
     });
-    s.At({0x00592290}, 4, record1(0x2290));    // CParkGenerator refresh
+    s.At({0x00592290, OursOf(0x00592290)}, 4, record1(0x2290));    // CParkGenerator refresh
     s.At({0x0058CB70}, 4, record1(0xCB70));    // CGapManager current gap
-    s.At({0x00591A50}, 8, [](Regs& r) {        // CMetaPiece highlight
+    s.At({0x00591A50, OursOf(0x00591A50)}, 8, [](Regs& r) {        // CMetaPiece highlight
         Record({0x1A50, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0] & 0xFF, r.args[1]});
         return 0u;
     });
@@ -855,53 +864,53 @@ void BuildMap(Random& r)
 
 void StandInMap(StandIns& s)
 {
-    s.At({0x00590CE0}, 12, [](Regs& r) { // CMetaPiece::Intersects
+    s.At({0x00590CE0, OursOf(0x00590CE0)}, 12, [](Regs& r) { // CMetaPiece::Intersects
         uint32_t h = HashBytes(reinterpret_cast<const uint8_t*>(&r.args[0]), 6) ^ (r.args[2] & 0xFF);
         h ^= static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))) * 0x9E3779B1u;
         Record({0x0CE0, static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))), h});
         return g_intersectAll ? 1u : (h >> 7) & 1;
     });
-    s.At({0x005907B0}, 4, [](Regs& r) { // CMetaPiece::SetRot
+    s.At({0x005907B0, OursOf(0x005907B0)}, 4, [](Regs& r) { // CMetaPiece::SetRot
         Record({0x07B0, static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))), r.args[0]});
         return 0u;
     });
-    s.At({0x00590400}, 0, [](Regs& r) { // CMetaPiece::CountPieces
+    s.At({0x00590400, OursOf(0x00590400)}, 0, [](Regs& r) { // CMetaPiece::CountPieces
         return reinterpret_cast<CMetaPiece*>(r.ecx)->m_num_used_entries;
     });
-    s.At({0x00590AD0}, 4, [](Regs& r) { // CMetaPiece::Initialize
+    s.At({0x00590AD0, OursOf(0x00590AD0)}, 4, [](Regs& r) { // CMetaPiece::Initialize
         Record({0x0AD0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
         return 0u;
     });
-    s.At({0x00591AB0}, 0, [](Regs& r) { // CMetaPiece::FinishPieces
+    s.At({0x00591AB0, OursOf(0x00591AB0)}, 0, [](Regs& r) { // CMetaPiece::FinishPieces
         Record({0x1AB0, Offset(reinterpret_cast<void*>(r.ecx))});
         return 0u;
     });
-    s.At({0x005911D0}, 8, [](Regs& r) { // the abstract metapiece's entry, copied
+    s.At({0x005911D0, OursOf(0x005911D0)}, 8, [](Regs& r) { // the abstract metapiece's entry, copied
         auto* meta = reinterpret_cast<CMetaPiece*>(r.ecx);
         int i = static_cast<int>(r.args[1]);
         *reinterpret_cast<Ed::SMetaDescriptor*>(r.args[0]) = i < 2 ? meta->m_desc[i] : meta->mp_extra_desc[i - 2];
         return r.args[0];
     });
-    s.At({0x00591D90}, 4, [](Regs& r) { // CParkGenerator: a piece's source
+    s.At({0x00591D90, OursOf(0x00591D90)}, 4, [](Regs& r) { // CParkGenerator: a piece's source
         Record({0x1D90, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
         return r.args[0] ^ 0x5A5A;
     });
-    s.At({0x005923C0}, 8, [](Regs& r) { // CParkGenerator: a new piece
+    s.At({0x005923C0, OursOf(0x005923C0)}, 8, [](Regs& r) { // CParkGenerator: a new piece
         Record({0x23C0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], r.args[1]});
         return reinterpret_cast<uint32_t>(&g_arena.pieces[r.args[0] & 7]);
     });
-    s.At({0x00590260}, 8, [](Regs& r) { // a piece's rotation
+    s.At({0x00590260, OursOf(0x00590260)}, 8, [](Regs& r) { // a piece's rotation
         Record({0x0260, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00590B60}, 0, [](Regs& r) { // the concrete metapiece's constructor
+    s.At({0x00590B60, OursOf(0x00590B60)}, 0, [](Regs& r) { // the concrete metapiece's constructor
         auto* meta = reinterpret_cast<CMetaPiece*>(r.ecx);
         std::memset(meta, 0, sizeof(CMetaPiece));
         meta->m_vtable = g_vtable;
         Record({0x0B60, Offset(meta)});
         return r.ecx;
     });
-    s.At({0x005904C0}, 4, [](Regs& r) { // a piece's size in cells
+    s.At({0x005904C0, OursOf(0x005904C0)}, 4, [](Regs& r) { // a piece's size in cells
         auto* dims = reinterpret_cast<GridDims*>(r.args[0]);
         uint32_t k = Offset(reinterpret_cast<void*>(r.ecx));
         dims->Set(static_cast<uint8_t>(k), 0, static_cast<uint8_t>(k >> 3), static_cast<uint8_t>(1 + (k >> 2) % 3),
@@ -1351,25 +1360,25 @@ void StandInIo(StandIns& s)
              return 1u;
          });
     // the generator, pieces and metapieces
-    s.At({0x00591D90}, 4, [](Regs& r) { // a piece's source (+4: its name)
+    s.At({0x00591D90, OursOf(0x00591D90)}, 4, [](Regs& r) { // a piece's source (+4: its name)
         Record({0x1D90, r.args[0]});
         uint32_t (&source)[2] = g_io.sources[r.args[0] & 15];
         source[1] = r.args[0];
         return reinterpret_cast<uint32_t>(&source);
     });
-    s.At({0x00590FA0}, 0, [](Regs& r) { // the abstract metapiece's constructor
+    s.At({0x00590FA0, OursOf(0x00590FA0)}, 0, [](Regs& r) { // the abstract metapiece's constructor
         auto* meta = reinterpret_cast<CMetaPiece*>(r.ecx);
         std::memset(meta, 0, sizeof(CMetaPiece));
         meta->m_vtable = g_vtable;
         Record({0x0FA0, Offset(meta)});
         return r.ecx;
     });
-    s.At({0x00591100}, 16, [](Regs& r) { // add a metapiece's pieces
+    s.At({0x00591100, OursOf(0x00591100)}, 16, [](Regs& r) { // add a metapiece's pieces
         Record({0x1100, Offset(reinterpret_cast<void*>(r.ecx)), Offset(reinterpret_cast<void*>(r.args[0])),
                 HashBytes(reinterpret_cast<const uint8_t*>(r.args[1]), 6), r.args[2], r.args[3] & 0xFF});
         return 0u;
     });
-    s.At({0x00591E00}, 32, [](Regs& r) { // the lights
+    s.At({0x00591E00, OursOf(0x00591E00)}, 32, [](Regs& r) { // the lights
         Record({0x1E00, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], r.args[1], r.args[2], r.args[3], r.args[4],
                 r.args[5], r.args[6], r.args[7]});
         return 0u;
@@ -1445,7 +1454,7 @@ void StandInIo(StandIns& s)
         Record({0x3500, v[0], v[1], v[2], r.args[1], r.args[2]});
         return reinterpret_cast<uint32_t>(&g_arena.pieces[3]);
     });
-    s.At({0x005906B0}, 4, [](Regs& r) {
+    s.At({0x005906B0, OursOf(0x005906B0)}, 4, [](Regs& r) {
         Record({0x06B0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
         return 0u;
     });

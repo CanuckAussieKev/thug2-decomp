@@ -76,19 +76,23 @@ struct SMetaDescriptor {
     int8_t y;
     uint8_t z;
     uint8_t rot;
-    bool isReal;     // +0x04: fills cells (not just a marker)
+    bool isReal;     // +0x04: from the palette entry's flag 0x0CD75A3F (CMetaPiece::Intersects' precise test leaves
+                     //        the flagged pieces out)
     uint8_t pad5[3];
     void* piece;     // +0x08: the scene piece (its +0x08 flags); in an abstract metapiece, the piece's name
 };
 static_assert(sizeof(SMetaDescriptor) == 12, "layout must match the original");
 
-// A metapiece (abstract or concrete; 0x3C bytes). Vtable slot 0: piece `index` (__thiscall); slot 1: the scalar
-// deleting destructor; slot 2: add a piece.
+// A metapiece (abstract or concrete; 0x3C bytes; park_metapieces.cpp). Vtable slot 0: piece `index` (__thiscall);
+// slot 1: the scalar deleting destructor; slot 2: add a piece. The base's vtable is 0x0064F3BC.
 class CMetaPiece {
 public:
+    static constexpr uint32_t kVtable = 0x0064F3BC;
     // The flags (m_flags).
     enum : uint32_t {
-        kFlag1 = 0x1,               // (only these are highlighted by an area selection)
+        kConcrete = 0x1,            // a CConcreteMetaPiece (only these are highlighted by an area selection)
+        kFlag1 = kConcrete,
+        kAbstract = 0x2,            // a CAbstractMetaPiece (a palette entry)
         kInPark = 0x4,              // placed in the park (not the cursor's own piece)
         kInnerShell = 0x8,          // part of the floor / shell the park builds itself (risers, walls); is_riser
         kFlag20 = 0x20,             // being moved by a floor change (kept when an area is cleared with flag 4)
@@ -117,51 +121,44 @@ public:
     uint32_t m_num_used_entries;     // +0x34
     uint32_t m_name_checksum;        // +0x38: the abstract metapiece's name
 
-    // 0x005902E0 (returns this): a metapiece as a concrete one
+    // 0x005902E0 (returns this; folded with many empty constructors): a metapiece as a concrete one
     CMetaPiece* CastToConcreteMeta() { return this; }
     CMetaPiece* Cast() { return this; }
-    // 0x00590340: descriptor `index`
-    SMetaDescriptor* GetDescriptor(uint32_t index)
-    {
-        return index < 2 ? &m_desc[index] : &mp_extra_desc[index - 2];
-    }
-    // 0x00591A50: highlight (or not) each of its pieces that can be
-    void Highlight(int on, int flag) { GameFunction<void(__thiscall*)(CMetaPiece*, int, int)>(0x00591A50)(this, on, flag); }
-    // 0x00591800: put its pieces at `position` turned by `angle` degrees
-    void SetPosition(Mth::Vector position, float angle)
-    {
-        GameFunction<void(__thiscall*)(CMetaPiece*, Mth::Vector, float)>(0x00591800)(this, position, angle);
-    }
-    // 0x005907B0: turn to `rot` quarter turns
-    void SetRot(int rot) { GameFunction<void(__thiscall*)(CMetaPiece*, int)>(0x005907B0)(this, rot); }
-    // 0x005909C0: piece `index`'s position relative to the metapiece (returns `out`)
-    Mth::Vector* GetRelativePosition(Mth::Vector* out, uint32_t index)
-    {
-        return GameFunction<Mth::Vector*(__thiscall*)(CMetaPiece*, Mth::Vector*, uint32_t)>(0x005909C0)(this, out, index);
-    }
-    // 0x00590750: whether the metapiece lies within `area`
-    bool IsCompletelyWithinArea(GridDims* area)
-    {
-        return GameFunction<bool(__thiscall*)(CMetaPiece*, GridDims*)>(0x00590750)(this, area);
-    }
-    // 0x00590340 (the game's own, for a test of the descriptors)
-    SMetaDescriptor* GetEntry(int index)
-    {
-        return GameFunction<SMetaDescriptor*(__thiscall*)(CMetaPiece*, int)>(0x00590340)(this, index);
-    }
-    // 0x00590400: how many pieces
-    int CountPieces() { return GameFunction<int(__thiscall*)(CMetaPiece*)>(0x00590400)(this); }
-    // 0x00590AD0: room for `count` pieces
-    void Initialize(int count) { GameFunction<void(__thiscall*)(CMetaPiece*, int)>(0x00590AD0)(this, count); }
-    // 0x00591AB0: its cell area from its pieces
-    void FinishPieces() { GameFunction<void(__thiscall*)(CMetaPiece*)>(0x00591AB0)(this); }
-    // 0x005903A0: show or hide its pieces
-    void SetVisibility(bool visible) { GameFunction<void(__thiscall*)(CMetaPiece*, bool)>(0x005903A0)(this, visible); }
-    // 0x00590CE0: does it take up any of `area` (with `precise`, by its real pieces' cells)?
-    bool Intersects(GridDims area, uint32_t precise)
-    {
-        return GameFunction<bool(__thiscall*)(CMetaPiece*, GridDims, uint32_t)>(0x00590CE0)(this, area, precise);
-    }
+    // 0x005902F0: one of the eight restart pieces (by its name)
+    bool IsRestartPiece();
+    // 0x00590340: descriptor `index` (signed: below 2 the first two)
+    SMetaDescriptor* GetDescriptor(int index);
+    // 0x00591A50: each of its cloned pieces tinted (purple with `gap`) or back to normal
+    void Highlight(int on, int gap);
+    // 0x00591800: its pieces put at `position`, turned by `angle` degrees about it
+    void SetPosition(Mth::Vector position, float angle);
+    // 0x005907B0: turned to `rot` quarter turns: its area and every descriptor turned about its corner
+    void SetRot(int rot);
+    // 0x005909C0: piece `index`'s centre relative to the metapiece's (returns `out`)
+    Mth::Vector* GetRelativePosition(Mth::Vector* out, uint32_t index);
+    // 0x00590750: whether the metapiece lies within `area` (x and z)
+    bool IsCompletelyWithinArea(GridDims* area);
+    // 0x00590340 (as GetDescriptor)
+    SMetaDescriptor* GetEntry(int index) { return GetDescriptor(index); }
+    // 0x00590400: how many pieces, a palette entry of several pieces counted by its pieces (an abstract metapiece)
+    int CountPieces();
+    // 0x00590AD0: room for `count` pieces (the extra ones kept when it grows)
+    void Initialize(int count);
+    // 0x00591AB0: its cell area from its pieces' bounds, and the pieces centred on it
+    void FinishPieces();
+    // 0x005903A0: its pieces' sectors drawn and collided with, or neither
+    void SetVisibility(bool visible);
+    // 0x00590CE0: does it take up any of `area`? With `precise` (its low byte), by the cells of its pieces that
+    // aren't flagged isReal (when any is)
+    bool Intersects(GridDims area, uint32_t precise);
+    // 0x00590B90: the box round its pieces (from each one's position and size)
+    void GetBounds(Mth::Vector* max, Mth::Vector* min);
+    // 0x00591670: the scalar deleting destructor of the base (the extra descriptors freed)
+    CMetaPiece* Destroy(unsigned int flags);
+    // 0x005917E0: the destructor's body
+    void DestroyBody();
+    // 0x005916B0: its pieces as an array of structures (each piece's checksum and position)
+    void GetPieceList(Script::CArray* out);
     // Vtable slot 0: piece `index` (its scene piece)
     CPiece* GetPiece(uint32_t index)
     {
@@ -180,6 +177,39 @@ static_assert(offsetof(CMetaPiece, m_flags) == 0x0C && offsetof(CMetaPiece, m_de
                   offsetof(CMetaPiece, mp_extra_desc) == 0x2C && offsetof(CMetaPiece, m_num_used_entries) == 0x34 &&
                   offsetof(CMetaPiece, m_name_checksum) == 0x38 && sizeof(CMetaPiece) == 0x3C,
               "layout must match the original");
+
+// A metapiece placed in the park or held by the cursor: its pieces are cloned pieces.
+class CConcreteMetaPiece : public CMetaPiece {
+public:
+    static constexpr uint32_t kVtable = 0x0064F3D8;
+    // 0x00590B60: an empty one (kConcrete, unturned). Returns this.
+    CConcreteMetaPiece* Construct();
+    // 0x00590360 (vtable slot 0): piece `index` (null past the end)
+    CPiece* GetPiece(uint32_t index);
+    // 0x00590ED0 (vtable slot 2): `piece` added at the cells `pos` (x y z), turned `rot`; the piece's position set to
+    // its centre there
+    void AddPiece(CPiece* piece, GridDims* pos, int rot, bool isReal);
+    // 0x00591BB0 (vtable slot 1, also the abstract metapiece's): the scalar deleting destructor
+    CConcreteMetaPiece* Destroy(unsigned int flags);
+};
+
+// A palette entry: its descriptors name source pieces or other palette entries.
+class CAbstractMetaPiece : public CMetaPiece {
+public:
+    static constexpr uint32_t kVtable = 0x0064F3E4;
+    // 0x00590FA0: an empty one (kAbstract). Returns this.
+    CAbstractMetaPiece* Construct();
+    // 0x00590FD0 (vtable slot 0): piece `index`'s source piece (from the generator; null past the end)
+    CPiece* GetPiece(uint32_t index);
+    // 0x00591020 (vtable slot 2): a source piece added by name (anything else only counted), the area grown to take
+    // it in (at least 1 high)
+    void AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t isReal);
+    // 0x00591100: a palette metapiece added by name (null only counted), the area grown to take it in
+    void AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, uint8_t isReal);
+    // 0x005911D0: entry `index` counting the pieces of the palette metapieces it's made of one by one (each placed
+    // and turned in this one); returns `out`
+    SMetaDescriptor* GetEntry(SMetaDescriptor* out, int index);
+};
 
 // A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds share the first 0x10 bytes: a source
 // piece (CSourcePiece, kSource: one of the park editor's own sectors, loaded once - its name and size) and a cloned

@@ -21,9 +21,18 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "hook/appmain_testkit.h"
 #include "hook/standins.h"
 
 namespace {
+
+// Our replacement of a game function: stood in for too (our code calls it directly).
+inline uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? TestStandIns::Resolve(ours) : address;
+}
+
 
 using namespace TestStandIns;
 using Ed::GapDescriptor;
@@ -206,7 +215,7 @@ void StandInCursor(StandIns& s)
             *reinterpret_cast<char*>(r.args[2]) = g_cuLevel;
         return static_cast<uint32_t>(g_cuHeight);
     });
-    s.At({0x00591F50}, 4, [](Regs& r) { Record({0x1F50, r.ecx, r.args[0]}); return g_cuFreeSlot ? 1u : 0u; });
+    s.At({0x00591F50, OursOf(0x00591F50)}, 4, [](Regs& r) { Record({0x1F50, r.ecx, r.args[0]}); return g_cuFreeSlot ? 1u : 0u; });
     s.At({0x00401C30, AddressOf(static_cast<int (*)(const char*, ...)>(&Dbg::Printf))}, 0, [](Regs& r) {
         Record({0x1C30, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0xFFFFFFFFu;
@@ -214,7 +223,7 @@ void StandInCursor(StandIns& s)
     s.At({0x005BA1D0}, 0, [](Regs& r) { Record({0xA1D0, r.args[0]}); return 0u; }); // (cdecl: ECX is anything)
     s.At({0x00595620}, 8, [](Regs& r) { Record({0x5620, CuRel(r.ecx), r.args[0], r.args[1]}); return 0x5620000u; });
     s.At({0x00595670}, 8, [](Regs& r) { Record({0x5670, CuRel(r.ecx), r.args[0], r.args[1]}); return 0x5670000u; });
-    plain({0x005907B0}, 4, 0x07B0, 1);
+    plain({0x005907B0, OursOf(0x005907B0)}, 4, 0x07B0, 1);
     s.At({0x00599A20}, 0xC, [](Regs& r) { Record({0x9A20, CuRel(r.ecx), CuArea(r, 0), r.args[2]}); return 0u; });
     s.At({0x0059CC70, AddressOf(&Ed::CParkManager::RebuildArea)}, 8, [](Regs& r) {
         Record({0xCC70, CuRel(r.ecx), CuRel(r.args[0]), CuAreaAt(r.args[0]), r.args[1] & 0xFF});
@@ -228,16 +237,16 @@ void StandInCursor(StandIns& s)
         Record({0xCEC0, CuRel(r.ecx), CuArea(r, 0)});
         return 0u;
     });
-    s.At({0x00590160}, 0, [](Regs& r) { Record({0x0160, r.args[0] & 0xFF}); return 0x5E1F0000u; });
+    s.At({0x00590160, OursOf(0x00590160)}, 0, [](Regs& r) { Record({0x0160, r.args[0] & 0xFF}); return 0x5E1F0000u; });
     s.At({0x0058DDC0}, 0, [](Regs& r) { Record({0xDDC0, r.ecx}); return g_cuFull ? 1u : 0u; });
     s.At({0x0058D290}, 0, [](Regs&) { Record({0xD290}); return 0u; }); // (cdecl)
     s.At({0x00597740}, 0x14, [](Regs& r) {
         Record({0x7740, CuRel(r.ecx), CuArea(r, 0), r.args[2], r.args[3], r.args[4]});
         return CuList();
     });
-    plain({0x00591C60}, 0, 0x1C60, 0);
-    plain({0x00591BE0}, 0, 0x1BE0, 0);
-    s.At({0x00590210}, 0, [](Regs& r) { Record({0x0210, CuRel(r.ecx), CuAreaAt(r.ecx)}); return 0u; });
+    plain({0x00591C60, OursOf(0x00591C60)}, 0, 0x1C60, 0);
+    plain({0x00591BE0, OursOf(0x00591BE0)}, 0, 0x1BE0, 0);
+    s.At({0x00590210, OursOf(0x00590210)}, 0, [](Regs& r) { Record({0x0210, CuRel(r.ecx), CuAreaAt(r.ecx)}); return 0u; });
     s.At({0x00597AC0}, 8, [](Regs& r) {
         Record({0x7AC0, CuRel(r.ecx), CuRel(r.args[0]), CuAreaAt(r.args[0])});
         *reinterpret_cast<int*>(r.args[1]) = g_cuHalf;
@@ -254,8 +263,8 @@ void StandInCursor(StandIns& s)
     s.At({0x0059C600}, 8, [](Regs& r) { Record({0xC600, CuRel(r.ecx), CuAreaAt(r.args[0]), r.args[1]}); return 0u; });
     plain({0x00595CB0}, 8, 0x5CB0, 2);
     s.At({0x006234FE}, 0, StandInSprintf);
-    plain({0x00591A50}, 8, 0x1A50, 2);
-    plain({0x00592290}, 4, 0x2290, 1);
+    plain({0x00591A50, OursOf(0x00591A50)}, 8, 0x1A50, 2);
+    plain({0x00592290, OursOf(0x00592290)}, 4, 0x2290, 1);
     s.At({0x00597110}, 4, [](Regs& r) {
         Record({0x7110, CuRel(r.ecx)});
         const uint8_t area[6] = {4, 1, 5, static_cast<uint8_t>(3 + g_cuVariant), 2, static_cast<uint8_t>(12 - g_cuVariant)};
