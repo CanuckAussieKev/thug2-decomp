@@ -11,7 +11,7 @@ files listed). Nothing here was run online (never): what needs a live connection
 Switch off: `[replacements] disable=gamenet_members.cpp,gamenet_settings.cpp,gamenet_commands.cpp,gamenet_game_commands.cpp,gamenet_lists.cpp,gamenet_player_lists.cpp`
 (any one of them alone; 0x00536670 is in viewer.cpp - disabling that file also switches the model viewer's code off).
 
-- [x] Batch NET1-A (NOT run in the game yet; the manager's network mode flags, team flags, player / observer count
+- [x] Batch NET1-1 (NET1-A; NOT run in the game yet; the manager's network mode flags, team flags, player / observer count
   preferences, password, collision and team-score rules, the server's end, the custom tag texture, the choice lists,
   18 functions): src/game/net/gamenet_members.cpp (new).
   - 0x00533F20 SetNetworkMode (flags bits 2-3: 1 LAN bit 3, 2 internet bit 2, else neither - the CFunc
@@ -45,7 +45,7 @@ Switch off: `[replacements] disable=gamenet_members.cpp,gamenet_settings.cpp,gam
     checksum. 46 deliberate bugs caught, 1 (bandwidth type == 0 vs != 1) after adding a bandwidth type 2 case.
   - Untested without a connection: what the server does with the tag texture (the stream itself is the net library's,
     already rewritten).
-- [x] Batch NET1-B (NOT run in the game yet; the network preferences handed to the net library, the set-up game's
+- [x] Batch NET1-2 (NET1-B; NOT run in the game yet; the network preferences handed to the net library, the set-up game's
   preferences, connecting / disconnecting, the starting points, the metrics / scores toggles, the score rule, 11
   functions): src/game/net/gamenet_settings.cpp (new), gamenet_members.cpp.
   - 0x00535040 UseNetworkPreferences (the CFunc UsePreferences'): the master server names at +0x9954 (ten of 16 bytes,
@@ -84,7 +84,7 @@ Switch off: `[replacements] disable=gamenet_members.cpp,gamenet_settings.cpp,gam
     later ones are still -1).
   - Untested without a connection / hardware: the net library's use of the settings (DHCP, dial-up, PPPoE are console
     leftovers on the PC).
-- [x] Batch NET1-C (NOT run in the game yet; the manager's script commands: capture the flag's task, the game's state,
+- [x] Batch NET1-3 (NET1-C; NOT run in the game yet; the manager's script commands: capture the flag's task, the game's state,
   the join mode, teams, the lobby's peer, the message of the day, the first-come-first-served requests, the pro set
   flags, 24 functions): src/game/net/gamenet_commands.cpp + .h (new).
   - 0x00535DA0 StartCTFGame / 0x00535DC0 EndCTFGame (the task at +0xF8 into the logic tasks / removed),
@@ -117,7 +117,7 @@ Switch off: `[replacements] disable=gamenet_members.cpp,gamenet_settings.cpp,gam
     0x55, 0xFFFFFF80, 0x2A. 41 deliberate bugs caught (1 after recording the game-over byte).
   - Untested without a connection: the server's handling of the requests (0x005301A0, already rewritten), the lobby /
     GameSpy peer itself.
-- [x] Batch NET1-D (NOT run in the game yet; the manager's list types, its destructor, the player / joining-player
+- [x] Batch NET1-4 (NET1-D; NOT run in the game yet; the manager's list types, its destructor, the player / joining-player
   records, the queued scripts, the server search, GameSpy's think, the panel message, 38 functions; committed together
   with NET1-E and NET1-F):
   src/game/net/gamenet_lists.cpp + .h, gamenet_player_lists.cpp (new), gamenet_members.cpp, gamenet_settings.cpp,
@@ -180,7 +180,7 @@ Switch off: `[replacements] disable=gamenet_members.cpp,gamenet_settings.cpp,gam
     the two server heads' destruction order, GetGameTypeName's slot reuse - only seen with an uninitialised first read).
   - Untested without a connection: the server lists themselves (outside this range), GameSpy's think / peer calls, the
     late joiners' queued scripts in a real level, the panel message's display.
-- [x] Batch NET1-E (NOT run in the game yet; the manager's script commands, second part: capture the flag's flags,
+- [x] Batch NET1-5 (NET1-E; NOT run in the game yet; the manager's script commands, second part: capture the flag's flags,
   the crown, starting and ending network games, teams, the host, readiness, the player list menu and its options
   dialog, 15 functions): src/game/net/gamenet_game_commands.cpp (new), declarations in gamenet_commands.h.
   (Committed together with NET1-D and NET1-F.)
@@ -222,7 +222,7 @@ Switch off: `[replacements] disable=gamenet_members.cpp,gamenet_settings.cpp,gam
     strengthening: distinct teams, exactly 150 ms, host mode 2, a name differing only in its first letter, the flags
     recorded after each options call, the two heaps told apart).
   - Untested without a connection: the server's side of each request, the menus and the crown in a real level.
-- [x] Batch NET1-F (NOT run in the game yet; player counts, the clients' end, the tag texture / face exchange, the
+- [x] Batch NET1-6 (NET1-F; NOT run in the game yet; player counts, the clients' end, the tag texture / face exchange, the
   joining player's record, the observer camera, the carried flags, the manager's release, 11 functions):
   src/game/net/gamenet_player_lists.cpp. (Committed together with NET1-D and NET1-E.)
   - 0x00539880 CountTeamPlayers(team), 0x00539B00 CountPlayers (quirk kept: the joining players are compared with the
