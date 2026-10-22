@@ -32,6 +32,7 @@ class CParkGenerator; // the scene side of the park (0x4A4 bytes, 0x00593460 con
 class CCursor;
 class CPiece;
 class CMetaPiece;
+struct RailNodeInfo;
 
 // The grid's cells in the world (the exe's constants): 120 x 48 x 120, the 58 x 58 grid centred on the origin.
 constexpr float kCellWidth = 120.0f;  // 0x0064F41C
@@ -448,18 +449,66 @@ public:
 // The park generator (the scene side): what's used of it here.
 class CParkGenerator {
 public:
-    // 0x005933F0: take away player `player`'s restart point at `area`
-    void RemoveRestart(GridDims* area, int player)
-    {
-        GameFunction<void(__thiscall*)(CParkGenerator*, GridDims*, int)>(0x005933F0)(this, area, player);
-    }
-    // 0x005935F0: delete a piece
-    void DestroyPiece(void* piece) { GameFunction<void(__thiscall*)(CParkGenerator*, void*)>(0x005935F0)(this, piece); }
-    // 0x00593610: finish removing what was destroyed
-    void CleanUpOutRefs() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00593610)(this); }
-    // 0x005947D0: rebuild every piece; 0x00594910: the pieces marked for it
-    void RebuildAll() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x005947D0)(this); }
-    void RebuildMarked() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00594910)(this); }
+    // --- park_scene.cpp, park_nodes.cpp (0x00592740-0x00595030; the data: park_scene.h) ---
+    // 0x005933F0: take away the restart point of type `player` at `area` (its cell x, y, z)
+    void RemoveRestart(GridDims* area, int player);
+    // 0x005935F0: mark a piece for CleanUpOutRefs (taken out at once if it has ClonedPiece::kDestroyNow)
+    void DestroyPiece(void* piece);
+    // 0x00593610: take out and delete the pieces marked by DestroyPiece
+    void CleanUpOutRefs();
+    // 0x005947D0: every piece's sector deleted and cloned again (the node array dropped); 0x00594910: those of the
+    // pieces whose type has SourcePiece::kRebuilt
+    void RebuildAll();
+    void RebuildMarked();
+    // 0x00593460: the constructor (no pieces, restarts or rails; 2 players). Returns this.
+    CParkGenerator* Construct();
+    // 0x00592FE0: light `index` at `position`
+    void SetLightPosition(const Mth::Vector* position, int index);
+    // 0x00593010: `rgba`'s red, green and blue (0-255) lit at `position`: the ambient part plus the falloff part of
+    // the lights' sum of 1 / (160000 + squared distance in x and z); over 255 is 255.
+    void CalculateLighting(const Mth::Vector* position, uint8_t* rgba);
+    // 0x00594410: a piece's vertex colours (from its source's) and its collision's vertex intensities lit
+    void LightPiece(CPiece* piece);
+    // 0x00593370: how many restart points of `type` there are
+    int CountRestarts(int type);
+    // 0x00593500: a gap's trigger piece (the type 0xC0341DF7) at `position` turned `rot` quarter turns, added
+    void* CreateGapPiece(Mth::Vector* position, float length, int rot);
+    // 0x00594730: a piece's sector cloned from its source into the scene, placed, lit (a gap piece told the gap
+    // manager)
+    void AddPieceToScene(CPiece* piece);
+    // 0x00594610: every piece taken out and deleted (with the rail editor's rails taken out of the scene first),
+    // then every source piece deleted
+    void UnloadPieces();
+    // 0x00594C90: the source pieces from the "sk5ed" scene's sectors (their sizes from their boxes), the "cloned"
+    // scene, the bounds; the restart points freed (the argument unused)
+    void LoadSourcePieces(int unused);
+    // 0x00594FD0: LoadSourcePieces, then the source pieces' flags and rails from the pieces' node array (the
+    // rails on the top-down heap for the park editor's own level 0xCD3682C1)
+    void LoadPieces(uint32_t level, int unused);
+    // 0x00592A10: the point of the placed pieces' rails nearest to `position` (and the squared distance); false if
+    // none is nearer than 1e8 squared units
+    bool FindNearestRailPoint(const Mth::Vector* position, Mth::Vector* point, float* distanceSquared);
+    // 0x00592AB0: the node array's sizes: [0] nodes, [1] rail points, [2] rail segments, [3] / [4] memory
+    // estimates, [5] rail points again
+    void GetNodeCounts(int* counts);
+    // 0x00592C10: a node array of the goal editor's nodes only, the node manager's
+    void BuildGoalNodeArray();
+    // 0x00592C90: the node array dropped from the node manager and the symbol table
+    static void RemoveNodeArray();
+    // 0x00592CD0: the placed pieces' rails (m_rails) made from the source rails of the metapieces in `metas`
+    void BuildRails(CMapListNode* metas);
+    // 0x00592ED0 / 0x005949F0 / 0x00593AC0: the pieces', the rails', the restart points' nodes written into `nodes`
+    // from node `*index` on (`*index` counts them)
+    void WritePieceNodes(Script::CArray* nodes, int* index);
+    void WriteRailNodes(Script::CArray* nodes, int* index);
+    void WriteRestartNodes(Script::CArray* nodes, int* index);
+    // 0x00592740: the name of the next LevelGeometry node from `*index` on (0 at the end); `*index` past it
+    uint32_t NextGeometryNode(Script::CArray* nodes, int* index);
+    // 0x005927D0: the next unused rail node of the piece `geometry` (after the node named `previous`, or a first
+    // one: one with no links, else a linked one - `*isLoop` set); its name (0 if none)
+    uint32_t NextRailNode(Script::CArray* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info, bool* isLoop);
+    // 0x005936E0: the source rails from the pieces' node array (each source piece's rail point and segment counts)
+    void BuildSourceRails(Script::CArray* nodes);
     // 0x00592290: show or hide the highlight of every piece
     void SetPiecesHighlighted(int on) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00592290)(this, on); }
     // 0x00591D20 (sets +0x20)
@@ -470,42 +519,34 @@ public:
     int GetMaxPlayersPossible() { return GameFunction<int(__thiscall*)(CParkGenerator*)>(0x00591D30)(this); }
     // 0x00591C70: the destructor
     void Destroy() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591C70)(this); }
-    // 0x00592550 / 0x00594410: a placed piece into the scene and into the collision
+    // 0x00592550: a placed piece into the generator's list (LightPiece, 0x00594410, then lights it)
     void AddPiece(CPiece* piece) { GameFunction<void(__thiscall*)(CParkGenerator*, CPiece*)>(0x00592550)(this, piece); }
-    void AddCollision(CPiece* piece) { GameFunction<void(__thiscall*)(CParkGenerator*, CPiece*)>(0x00594410)(this, piece); }
     // 0x00591D90: a piece type's source (loaded the first time); 0x005923C0: a new piece from a source
     void* GetPieceSource(uint32_t name) { return GameFunction<void*(__thiscall*)(CParkGenerator*, uint32_t)>(0x00591D90)(this, name); }
     void* CreatePiece(void* source, uint32_t flags)
     {
         return GameFunction<void*(__thiscall*)(CParkGenerator*, void*, uint32_t)>(0x005923C0)(this, source, flags);
     }
-    // 0x00593200: a restart point of `type` at `position` (the cells `area`). False when there's no room.
-    bool AddRestart(Mth::Vector* position, int rot, GridDims* area, int type, int automatic, uint32_t flag)
-    {
-        return GameFunction<bool(__thiscall*)(CParkGenerator*, Mth::Vector*, int, GridDims*, int, int, uint32_t)>(
-            0x00593200)(this, position, rot, area, type, automatic, flag);
-    }
+    // 0x00593200: a restart point of `type` at `position` (the cells `area`) in the first free slot of its type (or,
+    // when `automatic`, one put down automatically before); with `automatic` and `keepPlaced`, where a placed one
+    // of the type is. False when there's no room.
+    bool AddRestart(Mth::Vector* position, int rot, GridDims* area, int type, int automatic, uint32_t keepPlaced);
     // 0x005933D0: whether there are fewer than `count` restart points of `type`
-    bool NeedsRestarts(int type, int count)
-    {
-        return GameFunction<bool(__thiscall*)(CParkGenerator*, int, int)>(0x005933D0)(this, type, count);
-    }
+    bool NeedsRestarts(int type, int count);
     // 0x00591FE0: forget the restart points put down automatically; 0x00591FC0: all of them
     void ClearAutomaticRestarts() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591FE0)(this); }
     void ClearRestarts() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591FC0)(this); }
-    // 0x00594EA0: the level's node array from the park
-    void BuildNodeArray(CMapListNode* metas)
-    {
-        GameFunction<void(__thiscall*)(CParkGenerator*, CMapListNode*)>(0x00594EA0)(this, metas);
-    }
+    // 0x00594EA0: the level's node array from the park (the pieces, their rails, the rail editor's, the restart
+    // points, the goal editor's), given to the node manager and parsed
+    void BuildNodeArray(CMapListNode* metas);
     // 0x005920D0: the park's bounding boxes
     void UpdateBounds(uint32_t value) { GameFunction<void(__thiscall*)(CParkGenerator*, uint32_t)>(0x005920D0)(this, value); }
-    // 0x00593580: delete the scene's pieces (`keepRails` 0: the rails go too)
-    void DestroyPieces(int keepRails) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00593580)(this, keepRails); }
+    // 0x00593580: delete the scene's pieces (`keepRails` 0: the rail editor's rails go out of the scene too)
+    void DestroyPieces(int keepRails);
     // 0x00592090: rebuild the collision (when allowed)
     void RebuildCollision() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00592090)(this); }
-    // 0x00594C70
-    void CleanUp(int type) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00594C70)(this, type); }
+    // 0x00594C70: UnloadPieces, and the source rails freed (the argument unused)
+    void CleanUp(int type);
 };
 
 // What RebuildFloorPiece is asked (0x1C bytes): the cell and its floor height; it says where the top piece went.
