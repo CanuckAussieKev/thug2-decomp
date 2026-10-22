@@ -48,6 +48,9 @@ struct ViewerInputHandler {
     void DestroyBody();
     // 0x00577290: a jump to the list node's destructor (0x00406930).
     void DestroyNode();
+    // 0x00536670 (vtable slot 2 of Inp::Handler<T> and Inp::BaseHandler, 0x0064D7E0 / 0x00646098): the scalar deleting
+    // destructor - DestroyBody, then freed with flag 1.
+    ViewerInputHandler* Destroy(unsigned int flags);
 };
 static_assert(sizeof(ViewerInputHandler) == 0x2C && offsetof(ViewerInputHandler, m_code) == 0x24);
 

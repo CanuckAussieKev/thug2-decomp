@@ -8,9 +8,11 @@
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
 #include "game/core/crc.h"
+#include "game/core/manager.h"
 #include "game/core/task.h"
 #include "game/mth/random.h"
 #include "game/net/gamenet_handler_util.h"
+#include "game/net/gamenet_lists.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -397,6 +399,44 @@ bool Manager::KeepsScore()
 // 0x00535D90
 void Manager::SetProSetFlags(char flags) { m_proSetFlags = static_cast<uint32_t>(static_cast<int>(flags)); }
 
+// 0x00536D70
+void Manager::DestroyBody()
+{
+    // GameSpy shut down (the SDK's), its reporting if it's up.
+    GameFunction<void(__cdecl*)(int)>(0x005F9900)(1003);
+    GameFunction<void(__cdecl*)()>(0x005F9BE0)();
+    if (GameVariable<bool>(0x007CCE1C)) {
+        GameFunction<void(__cdecl*)(int)>(0x005FBB20)(0);
+        GameVariable<bool>(0x007CCE1C) = false;
+    }
+    // The lobby, +0x14, the presence and the stats: each one's destructor, then freed.
+    const struct {
+        uint32_t offset, destructor;
+    } parts[] = {{0x10, 0x00540D50}, {0x14, 0x0054B470}, {0x18, 0x005488B0}, {0x1C, 0x0054D610}};
+    for (const auto& part : parts) {
+        void* object = Field<void*>(this, part.offset);
+        if (object) {
+            Call(part.destructor, object);
+            Mem::Manager::Get()->Free(object);
+        }
+    }
+    // The tasks, deleted through their vtables (slot 2), in the original's order.
+    for (uint32_t offset : {0xD0u, 0xCCu, 0xC0u, 0xC4u, 0xD4u, 0xE0u, 0xE4u, 0xE8u, 0xECu, 0xF0u}) {
+        void* task = Field<void*>(this, offset);
+        if (task)
+            reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(task))[2])(task, 1);
+    }
+    // The lists: the players' nodes unlinked (0x00588B70), then each head's destructor.
+    Call(0x00588B70, &Field<uint8_t>(this, 0x11C));
+    Field<ServerNode>(this, 0x16C).DestroyBody();
+    Field<ServerNode>(this, 0x158).DestroyBody();
+    Field<QueuedScriptNode>(this, 0x144).DestroyBody();
+    Field<NewPlayerNode>(this, 0x130).DestroyBody();
+    Field<PlayerNode>(this, 0x11C).DestroyBody();
+    GetTauntPreferences()->Deinit();
+    GetNetworkPreferences()->Deinit();
+}
+
 REPLACE(0x00533F20, &Manager::SetNetworkMode);
 REPLACE(0x00533F50, &Manager::SetServerMode);
 REPLACE(0x00533F70, &Manager::InLanMode);
@@ -420,5 +460,6 @@ REPLACE(0x00535BC0, &Manager::ToggleNetMetrics);
 REPLACE(0x00535BF0, &Manager::ToggleScores);
 REPLACE(0x00535D00, &Manager::KeepsScore);
 REPLACE(0x00535D90, &Manager::SetProSetFlags);
+REPLACE(0x00536D70, &Manager::DestroyBody);
 
 } // namespace GameNet

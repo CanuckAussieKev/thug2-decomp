@@ -141,6 +141,15 @@ void ViewerInputHandler::DestroyBody()
 // 0x00577290
 void ViewerInputHandler::DestroyNode() { DestroyListNode(this); }
 
+// 0x00536670
+ViewerInputHandler* ViewerInputHandler::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
 // 0x00576CB0
 Script::CScript* SpawnScriptIfExists(uint32_t name)
 {
@@ -633,6 +642,7 @@ REPLACE(0x00577260, &Mdl::Viewer::AddCommands);
 REPLACE(0x00577270, &Mdl::ViewerInputHandler::Handle);
 REPLACE(0x00577280, &Mdl::ViewerInputHandler::DestroyBody);
 REPLACE(0x00577290, &Mdl::ViewerInputHandler::DestroyNode);
+REPLACE(0x00536670, &Mdl::ViewerInputHandler::Destroy);
 REPLACE(0x005772E0, Mdl::MoveObjectLocal);
 REPLACE(0x00577380, Mdl::SelectComboTask);
 REPLACE(0x005774C0, Mdl::HandleAddToScene);

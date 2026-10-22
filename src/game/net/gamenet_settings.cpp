@@ -10,10 +10,12 @@
 #include "game/core/task.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/net_app.h"
 #include "game/net/net_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -30,6 +32,8 @@ constexpr uint32_t kConnectTask = 0xD8;      // Tsk::BaseTask* (the online state
 constexpr uint32_t kOnlineState = 0x1A8;     // int (-1: starting)
 constexpr uint32_t kOnlineScript = 0x1C4;    // uint32_t: run once online
 constexpr uint32_t kOfflineScript = 0x1C8;   // uint32_t: run when connecting fails / after disconnecting
+constexpr uint8_t kMsgFindServer = 0x11;
+constexpr uint16_t kLanPort = 5153;          // the LAN lobby's port
 
 // Checksums.
 constexpr uint32_t kChecksum = 0x21902065;            // checksum
@@ -67,6 +71,7 @@ constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;    // team_graffiti_mode
 constexpr uint32_t kGraffitiIndividualScoring = 0xC8059823; // graffiti_individual_scoring
 constexpr uint32_t kGoals = 0x38DBE1D0;               // goals
 constexpr uint32_t kGameType = 0x9834C4FA;            // game_type
+constexpr uint32_t kModeInfo = 0xCA5F7FFB;            // mode_info
 // Global strings overriding the preferences (their names aren't known).
 constexpr uint32_t kIpAddressOverride = 0x5F6FDED5;
 constexpr uint32_t kGatewayOverride = 0x3E683519;
@@ -313,11 +318,111 @@ void Manager::DisconnectFromInternet(uint32_t script)
     net->DisconnectFromInternet();
 }
 
+// 0x00536C10
+void __cdecl Manager::CancelConnectToInternet()
+{
+    Manager* manager = GameVariable<Manager*>(0x007CCE14);
+    Net::Manager* net = Net::Manager::Instance();
+    Tsk::BaseTask* task = Field<Tsk::BaseTask*>(manager, kConnectTask);
+    switch (net->GetModemState()) {
+    case 0:
+    case 1:
+        task->Remove();
+        Field<int>(manager, kOnlineState) = -1;
+        LogicTasks()->AddTask(Field<Tsk::BaseTask*>(manager, kConnectTask));
+        Call(0x005453E0, manager, 2);
+        Net::Manager::Instance()->DisconnectFromInternet();
+        break;
+    case 2:
+        net->SetModemState(6);
+        break;
+    case 5:
+        task->Remove();
+        Run(Field<uint32_t>(manager, kOfflineScript));
+        break;
+    case 9:
+        task->Remove();
+        break;
+    default:
+        break;
+    }
+}
+
+// 0x00536490
+void Manager::FindServerAt(uint32_t ip)
+{
+    Call(0x00545370, this); // (the server lists cleared)
+    Call(0x005462F0, this);
+    Call(0x00545300, this);
+    GameVariable<bool>(0x007CCA88) = false;
+    if (!m_matchClient)
+        SpawnMatchClient();
+    if (!ip) {
+        GameVariable<uint32_t>(0x007CCA84) = 0;
+        return;
+    }
+    if (m_matchClient) {
+        uint32_t request[3]; // (the time; the rest is the original's stack)
+        request[0] = Tmr::GetTime();
+        request[1] = request[2] = 0;
+        GameVariable<uint32_t>(0x007CCA84) = ip;
+        m_matchClient->SendMessageTo(kMsgFindServer, sizeof(request), request, ip, kLanPort, 0);
+    }
+}
+
+// 0x00536640
+void __cdecl Manager::ServiceGameSpy()
+{
+    GameFunction<void(__cdecl*)()>(0x005F9C40)();
+    if (GameVariable<bool>(0x007CCA82) && GameVariable<Manager*>(0x007CCE14)->InNetGame() &&
+        GameVariable<bool>(0x007CCE1C))
+        GameFunction<void(__cdecl*)(int)>(0x005FBBA0)(0);
+}
+
+// 0x00536A40
+const char* Manager::GetGameTypeName()
+{
+    Script::CArray* modes = Script::GetArray(kModeInfo);
+    // (the original's locals, reused: a missing checksum compares the last value read - uninitialised at first)
+    uint32_t type = 0;
+    uint32_t mode = 0;
+    for (int i = 0; i < static_cast<int>(modes->m_size); ++i) {
+        auto* entry = reinterpret_cast<Script::CStruct*>(modes->GetElement(i));
+        GetGamePreferences()->GetPreference(kGameType)->GetChecksum(kChecksum, &type, 1);
+        entry->GetChecksum(kChecksum, &mode, 0);
+        if (type == mode) {
+            const char* name = reinterpret_cast<const char*>(type);
+            entry->GetString(kName, &name, 1);
+            return name;
+        }
+    }
+    return nullptr;
+}
+
+// 0x00536B90
+void Manager::SetLevel(uint32_t level)
+{
+    m_level = level;
+    void* peer = Call<void*>(0x0053F880, m_lobbyMan);
+    if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && Call<bool>(0x0053F810, m_lobbyMan))
+        GameFunction<void(__cdecl*)(void*)>(0x005FCCF0)(peer); // (the peer's state changed: the GameSpy SDK)
+    // (cleared just before it's tested: the reporting's state-changed call below never happens)
+    GameVariable<bool>(0x007CCE1D) = false;
+    if (GameVariable<bool>(0x007CCA82) && GameVariable<Manager*>(0x007CCE14)->InNetGame() &&
+        GameVariable<bool>(0x007CCE1C) && GameVariable<bool>(0x007CCE1D))
+        GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0);
+}
+
 REPLACE(0x00535040, &Manager::UseNetworkPreferences);
 REPLACE(0x00535AD0, &Manager::GetTeamGraffitiMode);
 REPLACE(0x00535B20, &Manager::GetGoalsPreference);
 REPLACE(0x00535B70, &Manager::GetGameTypePreference);
 REPLACE(0x00535C10, &Manager::ConnectToInternet);
 REPLACE(0x00535CB0, &Manager::DisconnectFromInternet);
+REPLACE(0x00536C10, Manager::CancelConnectToInternet);
+REPLACE(0x00536490, &Manager::FindServerAt);
+REPLACE(0x00536640, Manager::ServiceGameSpy);
+REPLACE(0x00536A40, &Manager::GetGameTypeName);
+REPLACE(0x00536B90, &Manager::SetLevel);
 
 } // namespace GameNet

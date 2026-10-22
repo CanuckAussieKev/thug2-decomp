@@ -40,6 +40,23 @@ bool __cdecl CFunc_ResetProSetFlags(Script::CStruct* params, Script::CScript* sc
 bool __cdecl CFunc_HasSignedDisclaimer(Script::CStruct* params, Script::CScript* script);    // 0x00536460
 bool __cdecl CFunc_FoundServers(Script::CStruct* params, Script::CScript* script);          // 0x00537100
 
+// --- gamenet_game_commands.cpp: 0x00538050-0x00539570 ---
+bool __cdecl CFunc_TeamFlagTaken(Script::CStruct* params, Script::CScript* script);         // 0x00538050
+bool __cdecl CFunc_SpawnCrown(Script::CStruct* params, Script::CScript* script);            // 0x00538170
+bool __cdecl CFunc_StartNetworkGame(Script::CStruct* params, Script::CScript* script);      // 0x00538280
+bool __cdecl CFunc_SendGameOverToObservers(Script::CStruct* params, Script::CScript* script); // 0x00538620
+bool __cdecl CFunc_EndNetworkGame(Script::CStruct* params, Script::CScript* script);        // 0x00538720
+bool __cdecl CFunc_GetMyTeam(Script::CStruct* params, Script::CScript* script);             // 0x005388C0
+bool __cdecl CFunc_SetNumTeams(Script::CStruct* params, Script::CScript* script);           // 0x005388F0
+bool __cdecl CFunc_JoinTeam(Script::CStruct* params, Script::CScript* script);              // 0x00538C90
+bool __cdecl CFunc_IsHost(Script::CStruct* params, Script::CScript* script);                // 0x00538D70
+bool __cdecl CFunc_AllPlayersAreReady(Script::CStruct* params, Script::CScript* script);    // 0x00538DC0
+bool __cdecl CFunc_CreatePlayerOptions(Script::CStruct* params, Script::CScript* script);   // 0x00538E70
+bool __cdecl CFunc_FillPlayerListMenu(Script::CStruct* params, Script::CScript* script);    // 0x00539080
+bool __cdecl CFunc_RemovePlayer(Script::CStruct* params, Script::CScript* script);          // 0x00539470
+bool __cdecl CFunc_CancelRemovePlayer(Script::CStruct* params, Script::CScript* script);    // 0x00539480
+bool __cdecl CFunc_ToggleProSet(Script::CStruct* params, Script::CScript* script);          // 0x00539570
+
 // The first-come-first-served start request (message 0x60, 52 bytes): the host's game options, from the network
 // preferences (the game type from the set-up game's).
 struct StartGameRequest {

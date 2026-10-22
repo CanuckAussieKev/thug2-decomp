@@ -288,6 +288,107 @@ public:
     // 0x00535CB0: go offline: the online state task added (state -1; `script`, if any, for when it's done), the lobby
     // left (0x005453E0 with 2), Net::Manager::DisconnectFromInternet.
     void DisconnectFromInternet(uint32_t script);
+    // 0x00536C10 (the CFunc CancelConnectToInternet's; no `this`): by the net library's modem state - 0 / 1 (dialling):
+    // the online task restarted, the lobby left (state 2), offline; 2: modem state 6; 5: the online task removed and
+    // the fail script (+0x1C8) run; 9: the online task removed; else nothing.
+    static void __cdecl CancelConnectToInternet();
+    // 0x00536490: look for a server at `ip`: the server lists cleared (0x00545370, 0x005462F0, 0x00545300; the
+    // join-by-address flag 0x007CCA88 too), the server-list client made if there's none, then (an address given) the
+    // find-server message 0x11 (the time, 12 bytes) sent to ip:5153 and the address kept (0x007CCA84; 0 with none).
+    void FindServerAt(uint32_t ip);
+    // 0x00536640 (from the main loop; no `this`): GameSpy's think (0x005F9C40); in a network game with its query /
+    // reporting up (0x007CCA82, 0x007CCE1C), its reporting's think (0x005FBBA0) too.
+    static void __cdecl ServiceGameSpy();
+    // 0x00536A40: the `name` of the set-up game's game type in mode_info (null if it isn't there).
+    const char* GetGameTypeName();
+    // 0x00536B90: the level (m_level); the lobby's GameSpy peer (connected, the lobby hosting - 0x0053F810) told its
+    // state changed (0x005FCCF0).
+    void SetLevel(uint32_t level);
+
+    // --- gamenet_players.cpp: the players' records (0x00536820-0x00537F40) ---
+    // 0x00536820: every joining player (the list at +0x130) removed: its connection terminated on the server, its node
+    // and record (0x00543560) deleted.
+    void RemoveAllNewPlayers();
+    // 0x00536B10: the joining player `player` removed (its connection terminated on the server, or on client 0 if it
+    // has one).
+    void RemoveNewPlayer(void* player);
+    // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search` (a Lst::Search -
+    // {vtable, node}); without `observers`, observers are skipped. Null at the end.
+    void* FirstPlayerInfo(void* search, bool observers);
+    void* NextPlayerInfo(void* search, bool observers);
+    // 0x00537070: the first joining player (+0x130) through `search` (then the lists' generic next, 0x004573D0).
+    void* FirstNewPlayerInfo(void* search);
+    // 0x005370A0: the joining player whose object id (+0x10, a signed byte) is `id`.
+    void* GetNewPlayerInfoByObjectId(uint16_t id);
+    // 0x00537140: ready to play (m_readyToPlay) or not; when it changes, every skater of the skate module (+0x28's
+    // list) told - its virtual slot 12 when ready, 11 when not.
+    void SetReadyToPlay(bool ready);
+    // 0x00537320 / 0x005373D0 / 0x00537480: the first player (observers too) that is local (flags bit 0) / the server's
+    // (bit 9) / has the crown (0x00543490). Null if none.
+    void* GetLocalPlayer();
+    void* GetServerPlayer();
+    void* GetKingOfTheHill();
+    // 0x00537530: the players (no observers) with neither flag 0x21 (bit 0 local; bit 5) set.
+    int CountOtherPlayers();
+    // 0x00537620: every player's flags 0x100 / 0x20000 and +0x1C, +0x20, +0x34 cleared, its skater's score reset
+    // (the SkaterScore component's +0x18 - 0x00564A10).
+    void ResetPlayers();
+    // 0x005376F0: a panel message: with `broadcast`, message 0x3F to every player through the server (the CRC of
+    // `properties`, `text`, `time`, string 1 and 2 - 16 bytes each; sequenced in group 8 when `important`); else locally:
+    // create_net_panel_message {text (the global text `text`, its "%s0" replaced by string 1), id = net_panel_msg,
+    // msg_time = time}. `object` isn't used.
+    void CreateNetPanelMessage(bool broadcast, uint32_t text, const char* string1, const char* string2, void* object,
+                               const char* properties, bool important, int time);
+    // 0x00537A10: a script queued to spawn once the level is up (+0x144; in the network heap) - unless one of the same
+    // name is queued already.
+    void QueueScript(int node, uint32_t objectId, uint32_t script);
+    // 0x00537B30: every queued script dropped.
+    void ClearQueuedScripts();
+    // 0x00537D90: every queued script spawned at its node on its object and run to its end (in the bottom-up heap,
+    // the main volume off, between PreRunQueuedScripts and PostRunQueuedScripts and the skate module's 0x00569580 /
+    // 0x00569590), then dropped.
+    void LaunchQueuedScripts();
+    // 0x00537F40: pro set `bit` toggled (m_proSetFlags) and told to every remote player (message 0x70: `param`, the
+    // bit's byte; sequenced in group 8).
+    void ToggleProSet(uint8_t bit, uint32_t param);
+    // 0x00539880: the players (no observers) on `team` plus the joining players who will play (+0x20 flags 0x18, or
+    // not 4) on it (+0x28).
+    int CountTeamPlayers(int team);
+    // 0x00539B00: the players (non-observers, and observers with flags bit 3) plus the joining players who will play
+    // and aren't among them - the original's check compares each with the byte after the ids it noted (zero), so
+    // only joining players with object id 0 are left out.
+    int CountPlayers();
+    // 0x00539C70: the observers (not flags bit 3; the local one only in host mode 0) plus the joining observers (+0x20
+    // flags 4 without 8).
+    int CountObservers();
+    // 0x005399F0: the clients destroyed (client 0's task +0xD0 removed unless it's local), the observer input handler
+    // deleted, 0x007CCDF8 cleared, GameSpy's reporting shut down (0x005FBB20) and 0x005F9900(1003), the tasks +0xD4,
+    // +0xC8, +0xEC removed, the queued scripts dropped, and no longer ready to play (the skaters' slot 11).
+    void DisconnectClients();
+    // 0x00539DA0: `player`'s custom tag texture (and its CAS logos: 0x96 its skater id, 0x98 the palette, 0x97 the
+    // pixels, 0x9A the logos - group 10) streamed through the server to every other remote player who has one... (not
+    // on a modem; nothing when `player` is local) - see the source for the exact conditions.
+    void SendTagTexturesTo(void* player);
+    // 0x0053A040: the local skater's face texture (the profile's +0x54, if it has one - 0x00487510): on the server
+    // kept on the local player (+0x1E8: a byte 0, then 0x4498 bytes); on a broadband client streamed to the server
+    // (0x7E "Face Data", 0x4498 bytes). False on a modem, without a face, or a narrowband client.
+    bool PrepareLocalFace();
+    // 0x0053A1B0: every other player's face (+0x1E8; the local one's prepared first) streamed to `player` through the
+    // server (0x7E, 0x4499 bytes), unless `player` is on a modem connection.
+    void SendFacesTo(void* player);
+    // 0x0053A310: a joining player's record made from `info` (unless one with its object id is listed): copied (the
+    // appearance through a 0x1000-byte buffer for those who will play), its time-out base (+0x18) the app's time plus
+    // `timeout`; on the server the join announced (net_message_joining locally, or net_message_observing /
+    // net_message_join_pending to everyone); listed (+0x130), in the network heap.
+    void AddNewPlayer(void* info, int timeout);
+    // 0x0053A580: the next player the observer camera can follow after m_camPlayer (from the start if there's none or
+    // it's gone; wrapping round), skipping those with 0x00543330 / 0x00543440 set. Null if none.
+    void* NextCamPlayer();
+
+    // 0x00536D70: the destructor body: GameSpy shut down (0x005F9900 with 1003, 0x005F9BE0, its reporting if up), the
+    // lobby, +0x14, the presence and the stats deleted, the tasks (+0xC0 ... +0xF0) deleted, the lists emptied, the
+    // two preference sets destroyed.
+    void DestroyBody();
 
     // --- The join (gamenet_join.cpp) ---
 
@@ -392,5 +493,12 @@ static_assert(offsetof(Manager, m_level) == 0x34 && offsetof(Manager, m_joinMode
                   offsetof(Manager, m_joinStartTime) == 0x1AC && offsetof(Manager, m_gamePending) == 0x1B4 &&
                   offsetof(Manager, m_camPlayer) == 0x1CC,
               "layout must match the original");
+
+// --- gamenet_players.cpp: outside the class ---
+// 0x00539610: the flag task's code (registered by the manager's constructor): in capture the flag, the carried flags
+// put on their carriers' heads.
+void __cdecl CarriedFlagsTask(void* task);
+// 0x005395C0: the manager released (its reference count 0x007CCE18; the last one destroys it).
+void __cdecl ReleaseManager();
 
 } // namespace GameNet
