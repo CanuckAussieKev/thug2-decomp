@@ -394,6 +394,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_fam_particle.cpp
     src/hook/selftests_obj_text_input.cpp
     src/hook/selftests_obj_lock_quat.cpp
+    src/hook/selftests_mth_x87.cpp
     src/hook/selftests_obj_model.cpp
     src/hook/selftests_obj_model_init.cpp
     src/hook/selftests_obj_model_members.cpp

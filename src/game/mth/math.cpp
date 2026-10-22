@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "game/mth/x87_math.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
@@ -45,12 +46,14 @@ constexpr float kAtanC9 = Bits(0x3DC577DF);  //  0.09642004
 constexpr float kAtanC11 = Bits(0x3D6501C4); //  0.05590989 (subtracted)
 constexpr float kAtanC13 = Bits(0x3CB31652); //  0.02186123
 constexpr float kAtanC15 = Bits(0xBB84D7E7); // -0.00405406
+// Its quadrant offsets (0x006453F0, 0x006453F4, 0x006453F8; pi 0x006453D8).
+constexpr float kMinusQuarterPi = Bits(0xBF490FDB), kThreeQuarterPi = Bits(0x4016CBE4),
+                kQuarterPi = Bits(0x3F490FDB), kPiF = Bits(0x40490FDB);
 
 SinCosEntry* SinTable() { return &GameVariable<SinCosEntry>(0x00690FE0); }
 
 } // namespace
 
-// 0x004022C0
 float Clamp(float value, float min, float max)
 {
     if (value > max)
@@ -76,27 +79,29 @@ float FastACos(float value)
     return value < 0.0f ? kPi - positive(-value) : positive(value);
 }
 
-// 0x004049B0
+// 0x004049B0 (x87: the arctangent FPATAN's, the polynomial worked on the FPU and rounded once, as the callers store)
 float FastAtan2(float y, float x)
 {
     if (std::fabs(x) < std::fabs(y))
-        return std::atan2(y, x);
+        return X87::Atan2F(y, x);
 
     // atan(r) = pi/4 + atan((r - 1) / (r + 1)), with r = |y / x| <= 1, so the polynomial only needs t in [-1, 0].
     bool x_negative = x < 0.0f;
     bool y_not_positive = y <= 0.0f;
-    float ratio = std::fabs(y) / std::fabs(x);
-    float t = (ratio - 1.0f) / (ratio + 1.0f);
-    float t2 = t * t;
-    float p = (t * kAtanC13 + t * kAtanC15 * t2) * t2 - t * kAtanC11;
-    p = (t * kAtanC9 + p * t2) * t2 - t * kAtanC7;
-    p = (t * kAtanC5 + p * t2) * t2 - t * kAtanC3;
-    p = t * kAtanC1 + p * t2;
+    double ratio = X87::Divide(y_not_positive ? -static_cast<double>(y) : y, x_negative ? -static_cast<double>(x) : x);
+    double t = (ratio - 1.0) / (ratio + 1.0);
+    double t2 = t * t;
+    double p = (t * kAtanC15 * t2 + t * kAtanC13) * t2 - t * kAtanC11;
+    p = (p * t2 + t * kAtanC9) * t2 - t * kAtanC7;
+    p = (p * t2 + t * kAtanC5) * t2 - t * kAtanC3;
+    p = p * t2 + t * kAtanC1;
 
-    constexpr float kQuarterPi = kPi / 4.0f;
+    double result;
     if (x_negative)
-        return y_not_positive ? (p + kQuarterPi) - kPi : 3.0f * kQuarterPi - p;
-    return y_not_positive ? -kQuarterPi - p : p + kQuarterPi;
+        result = y_not_positive ? (p + kQuarterPi) - kPiF : kThreeQuarterPi - p;
+    else
+        result = y_not_positive ? kMinusQuarterPi - p : p + kQuarterPi;
+    return static_cast<float>(result);
 }
 
 // 0x00404010
@@ -115,8 +120,8 @@ float KeepWithin(float value, float target, float distance)
 // 0x004058B0
 void CreateRotate2D(float out[4], float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    float s = X87::SinF(angle);
+    float c = X87::CosF(angle);
     out[0] = c;
     out[1] = s;
     out[2] = -s;
@@ -153,9 +158,9 @@ void InitSinLookupTable()
 {
     SinCosEntry* table = SinTable();
     for (int i = 0; i < kSinTableSize; ++i) {
-        float angle = static_cast<float>(i) * kSinTableStep;
-        table[i].sin = std::sin(angle);
-        table[i].cos = std::cos(angle);
+        double angle = static_cast<double>(i) * kSinTableStep; // (the FPU's product, not rounded to float)
+        table[i].sin = X87::SinF(angle);
+        table[i].cos = X87::CosF(angle);
     }
     for (int i = 0; i < kSinTableSize - 1; ++i) {
         table[i].sin_delta = table[i + 1].sin - table[i].sin;

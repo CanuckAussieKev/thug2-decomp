@@ -670,7 +670,7 @@ void TestBatch10()
 {
     using Mth::Matrix;
     using Mth::Vector;
-    using DetFn = float(__thiscall*)(const Matrix*);
+    using DetFn = double(__thiscall*)(const Matrix*);
     using AdjFn = Matrix*(__thiscall*)(Matrix*, const Matrix*);
     using InvFn = Matrix*(__thiscall*)(Matrix*);
     using EulerFn = Vector*(__thiscall*)(const Matrix*, Vector*);
@@ -694,7 +694,8 @@ void TestBatch10()
     samples[2].row[3] = {1.0f, 2.0f, 3.0f, 1.0f};
 
     for (const Matrix& m : samples) {
-        CheckFloat(Original<DetFn>(0x004041E0)(&m), m.Determinant(), "Matrix::Determinant");
+        CheckFloat(static_cast<float>(Original<DetFn>(0x004041E0)(&m)), static_cast<float>(m.Determinant()),
+                   "Matrix::Determinant");
 
         Matrix expected{}, actual{};
         Original<AdjFn>(0x004043A0)(&expected, &m);

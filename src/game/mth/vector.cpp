@@ -4,6 +4,7 @@
 #include <new>
 
 #include "game/core/dbg.h"
+#include "game/mth/x87_math.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
 
@@ -315,7 +316,7 @@ bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees)
     if (lengthB < 0.5)
         return false;
     cosine /= lengthB;
-    double limit = std::cos(static_cast<double>(degrees) * 0.01745329238474369); // (the float at 0x00645464)
+    double limit = X87::Cos(static_cast<double>(degrees) * 0.01745329238474369); // (the float at 0x00645464)
     if (!(cosine >= 0.0) && limit >= 0.0) // (more than 90 degrees apart, a limit of 90 or less)
         return true;
     return cosine < limit;

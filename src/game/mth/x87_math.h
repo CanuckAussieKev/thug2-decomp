@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-// The x87 instructions and C runtime math the skater's and the cameras' code uses (0x00521BA0-0x00529F62), so
-// results round exactly as the original's do. FSIN / FCOS / FPATAN give 64-bit results whatever the precision
-// control (it only rounds + - * / and FSQRT to 53 bits): what the original computes from them in registers is
-// computed here in registers too, and only rounded where the original stores. The game's own C runtime's
-// _CIacos / _CIasin (0x00623630 / 0x00623560: the argument and the result in ST0) are called until the C runtime
-// is linked.
+// The x87 instructions and C runtime math the originals use (the maths library's rotations, the skater's and the
+// cameras' code...), so results round exactly as the original's do. FSIN / FCOS / FPATAN give 64-bit results whatever
+// the precision control (it only rounds + - * / and FSQRT to 53 bits): what the original computes from them in
+// registers is computed here in registers too, and only rounded where the original stores. The game's own C
+// runtime's _CIacos / _CIasin (0x00623630 / 0x00623560: the argument and the result in ST0) are called until the C
+// runtime is linked.
 namespace X87 {
 
 // FSQRT (53 bits: the same as a double square root).
@@ -17,6 +17,97 @@ inline double Sqrt(double value)
     __asm {
         fld value
         fsqrt
+        fstp result
+    }
+    return result;
+}
+
+// sin / cos rounded to 53 bits (for a value the original stores as a float or uses once: rounding the 64-bit result
+// to 53 bits first changes a float only in a tie, practically never).
+inline double Sin(double angle)
+{
+    double result;
+    __asm {
+        fld angle
+        fsin
+        fstp result
+    }
+    return result;
+}
+
+inline double Cos(double angle)
+{
+    double result;
+    __asm {
+        fld angle
+        fcos
+        fstp result
+    }
+    return result;
+}
+
+// a / b by FDIV (two NaNs: the FPU's choice of which comes out - the larger significand - not SSE's, the first).
+inline double Divide(double a, double b)
+{
+    double result;
+    __asm {
+        fld a
+        fdiv b
+        fstp result
+    }
+    return result;
+}
+
+// a * b by FMUL with a in ST0, rounded to float (two NaNs: the FPU's choice, not SSE's).
+inline float MultiplyF(float a, float b)
+{
+    float result;
+    __asm {
+        fld a
+        fmul b
+        fstp result
+    }
+    return result;
+}
+
+// sin(angle) * factor and sin(a) * sin(b), from the full-precision sines (the product rounded to 53 bits).
+inline double SinTimes(double angle, double factor)
+{
+    double result;
+    __asm {
+        fld angle
+        fsin
+        fmul factor
+        fstp result
+    }
+    return result;
+}
+
+inline double SinProduct(double a, double b)
+{
+    double result;
+    __asm {
+        fld a
+        fsin
+        fld b
+        fsin
+        fmulp st(1), st
+        fstp result
+    }
+    return result;
+}
+
+// cos(angle) / sin(angle) from the full-precision cosine and sine.
+inline double Cot(double angle)
+{
+    double result;
+    __asm {
+        fld angle
+        fld st(0)
+        fcos
+        fxch st(1)
+        fsin
+        fdivp st(1), st
         fstp result
     }
     return result;
@@ -131,6 +222,39 @@ inline float AcosF(double value, float limit, bool* aboveLimit)
     }
     *aboveLimit = (status & 0x4100) == 0;
     return result;
+}
+
+// -asin(value) (the game's _CIasin, 0x00623560) rounded to float, and from its full-precision cosine: whether that
+// cosine's size is above `limit`, and 1 / cos, -1 / cos (to 53 bits).
+inline float NegAsinCos(double value, float limit, bool* above, double* inverse, double* negInverse)
+{
+    float angle;
+    double inv, negInv;
+    uint16_t status;
+    uint32_t function = 0x00623560;
+    const float one = 1.0f, minusOne = -1.0f;
+    __asm {
+        fld value
+        call function
+        fchs
+        fst angle
+        fcos               // cos
+        fld st(0)
+        fabs
+        fcomp limit
+        fnstsw status
+        fld one
+        fdiv st, st(1)
+        fstp inv
+        fld minusOne
+        fdiv st, st(1)
+        fstp negInv
+        fstp st(0)
+    }
+    *above = (status & 0x4100) == 0;
+    *inverse = inv;
+    *negInverse = negInv;
+    return angle;
 }
 
 // _CIacos / _CIasin (0x00623560) to 53 bits.

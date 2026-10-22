@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "game/mth/matrix.h"
+#include "game/mth/x87_math.h"
 #include "hook/hook.h"
 
 namespace Mth {
@@ -15,28 +16,6 @@ namespace {
 
 // The matrix's element at row `r`, column `c`.
 double At(const Matrix& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
-
-// The FPU's sine and cosine (FSIN / FCOS), as the originals take them.
-double X87Sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-double X87Cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
 
 } // namespace
 
@@ -47,11 +26,11 @@ Quat* Quat::InitFromAxisAngle(const Vector& axis, float angle)
     float length = static_cast<float>(std::sqrt(ax * ax + ay * ay + az * az));
     double half = static_cast<double>(angle) * 0.5;
     double inverse = length > 0.0f ? 1.0 / length : 0.0;
-    float s = static_cast<float>(X87Sin(half) * inverse);
+    float s = static_cast<float>(X87::Sin(half) * inverse);
     z = s * axis.z;
     y = s * axis.y;
     x = s * axis.x;
-    w = static_cast<float>(X87Cos(half));
+    w = static_cast<float>(X87::Cos(half));
     return this;
 }
 
@@ -88,8 +67,8 @@ Vector* Quat::Rotate(Vector* out, const Vector& v) const
 // 0x00420A50
 Vector& Vector::RotateAboutX(float angle)
 {
-    double s = X87Sin(angle);
-    double c = X87Cos(angle);
+    double s = X87::Sin(angle);
+    double c = X87::Cos(angle);
     double oldY = y;
     y = static_cast<float>(c * y - s * z);
     z = static_cast<float>(c * z + oldY * s);
@@ -99,8 +78,8 @@ Vector& Vector::RotateAboutX(float angle)
 // 0x00420A90
 Vector& Vector::RotateAboutY(float angle)
 {
-    double s = X87Sin(angle);
-    double c = X87Cos(angle);
+    double s = X87::Sin(angle);
+    double c = X87::Cos(angle);
     double oldX = x;
     x = static_cast<float>(s * z + c * x);
     z = static_cast<float>(-(oldX * s) + c * z);

@@ -16,7 +16,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/script/struct.h"
 #include "game/skater/walk_physics.h"
-#include "game/skater/x87_math.h"
+#include "game/mth/x87_math.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"

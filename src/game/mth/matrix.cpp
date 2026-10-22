@@ -5,6 +5,7 @@
 
 #include "game/core/dbg.h"
 #include "game/mth/math.h"
+#include "game/mth/x87_math.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
@@ -25,11 +26,11 @@ Vector& Matrix::operator[](int index)
     return row[index];
 }
 
-// 0x00404DD0
+// 0x00404DD0 (the FPU's FSIN / FCOS, as for Y, Z and the axis number below)
 Matrix& CreateRotateXMatrix(Matrix& m, float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    float s = X87::SinF(angle);
+    float c = X87::CosF(angle);
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, c, s, 0.0f};
     m.row[2] = {0.0f, -s, c, 0.0f};
@@ -40,8 +41,8 @@ Matrix& CreateRotateXMatrix(Matrix& m, float angle)
 // 0x00404E20
 Matrix& CreateRotateYMatrix(Matrix& m, float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    float s = X87::SinF(angle);
+    float c = X87::CosF(angle);
     m.row[0] = {c, 0.0f, -s, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m.row[2] = {s, 0.0f, c, 0.0f};
@@ -52,8 +53,8 @@ Matrix& CreateRotateYMatrix(Matrix& m, float angle)
 // 0x00404E70
 Matrix& CreateRotateZMatrix(Matrix& m, float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    float s = X87::SinF(angle);
+    float c = X87::CosF(angle);
     m.row[0] = {c, s, 0.0f, 0.0f};
     m.row[1] = {-s, c, 0.0f, 0.0f};
     m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -315,36 +316,40 @@ float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal
     return cross_positive == normal_positive ? angle : -angle;
 }
 
-// 0x00405310
+// 0x00405310 (x87: the trace and the length stay on the FPU; the three differences are stored as floats - z's unrounded
+// difference squared against its float - and the angle is FPATAN's)
 void Matrix::GetRotationAxisAngle(Vector& axis, float& angle) const
 {
-    const float trace = (row[1].y + row[0].x + row[2].z) - 1.0f; // 2 cos(angle)
-    const float x = row[1].z - row[2].y;
-    const float y = row[2].x - row[0].z;
-    const float z = row[0].y - row[1].x;
-    const float length = std::sqrt(y * y + x * x + z * z); // 2 sin(angle)
+    const double trace = ((static_cast<double>(row[1].y) + row[0].x) + row[2].z) - 1.0; // 2 cos(angle)
+    const float x = static_cast<float>(static_cast<double>(row[1].z) - row[2].y);
+    const float y = static_cast<float>(static_cast<double>(row[2].x) - row[0].z);
+    const double z_difference = static_cast<double>(row[0].y) - row[1].x;
+    const float z = static_cast<float>(z_difference);
+    const double length = // 2 sin(angle)
+        X87::Sqrt((z_difference * z + static_cast<double>(x) * x) + static_cast<double>(y) * y);
 
-    if (length <= 0.0f) {
+    if (length > 0.0) {
+        double inv = 1.0 / length;
+        axis = {static_cast<float>(x * inv), static_cast<float>(y * inv), static_cast<float>(z * inv),
+                static_cast<float>(inv)};
+    } else { // (also a NaN length)
         axis = {0.0f, 0.0f, 0.0f, 1.0f};
-    } else {
-        float inv = 1.0f / length;
-        axis = {x * inv, y * inv, z * inv, inv};
     }
-    angle = std::atan2(length, trace);
+    angle = X87::Atan2F(length, trace);
 
-    if (!(length <= 0.01f) || !(trace <= 0.0f))
+    if (!(length <= 0.01f) || !(trace <= 0.0))
         return;
 
     // Near 180 degrees the differences above vanish: rebuild the axis from the largest diagonal element.
-    // (Nested exactly as in the original so NaNs choose the same case.)
+    // (Compared as in the original, so NaNs choose the same case.)
     const float m00 = row[0].x, m11 = row[1].y, m22 = row[2].z;
     const Vector y_largest{row[1].x + row[0].y, m11 + 1.0f + m11 + 1.0f, row[1].z + row[2].y, 1.0f};
     const Vector x_largest{m00 + 1.0f + m00 + 1.0f, row[1].x + row[0].y, row[0].z + row[2].x, 1.0f};
     const Vector z_largest{row[0].z + row[2].x, row[1].z + row[2].y, m22 + 1.0f + m22 + 1.0f, 1.0f};
-    if (m00 <= m11)
-        axis = m22 < m11 ? y_largest : z_largest;
+    if (!(m00 > m11))
+        axis = m11 > m22 ? y_largest : z_largest;
     else
-        axis = m22 < m00 ? x_largest : z_largest;
+        axis = m00 > m22 ? x_largest : z_largest;
     axis.Normalize();
 }
 
@@ -406,8 +411,8 @@ Matrix& Matrix::OrthoNormalizeAbout(int axis)
 // 0x00404EC0
 Matrix& CreateRotateMatrix(Matrix& m, int axis, float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    float s = X87::SinF(angle);
+    float c = X87::CosF(angle);
     int a = (axis + 1) % 3;
     int b = (axis + 2) % 3;
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
@@ -457,12 +462,13 @@ Matrix& CreateOrthographicMatrix(Matrix& m, float width, float height, float nea
 // 0x004050F0
 Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float near_z, float far_z)
 {
-    float q = far_z / (far_z - near_z);
-    float cot = std::cos(fov * 0.5f) / std::sin(fov * 0.5f);
-    m.row[0] = {aspect * cot, 0.0f, 0.0f, 0.0f};
-    m.row[1] = {0.0f, cot, 0.0f, 0.0f};
-    m.row[2] = {0.0f, 0.0f, q, 1.0f};
-    m.row[3] = {0.0f, 0.0f, -(q * near_z), 0.0f};
+    // (x87: q and the cotangent of FSIN / FCOS kept on the FPU until stored)
+    double q = far_z / (static_cast<double>(far_z) - near_z);
+    double cot = X87::Cot(static_cast<double>(fov) * 0.5f);
+    m.row[0] = {static_cast<float>(aspect * cot), 0.0f, 0.0f, 0.0f};
+    m.row[1] = {0.0f, static_cast<float>(cot), 0.0f, 0.0f};
+    m.row[2] = {0.0f, 0.0f, static_cast<float>(q), 1.0f};
+    m.row[3] = {0.0f, 0.0f, static_cast<float>(-(q * near_z)), 0.0f};
     return m;
 }
 
@@ -480,12 +486,14 @@ Matrix& Matrix::RotateLocal(const Vector& axis, float angle)
     return Multiply(*this, CreateRotateMatrix(rotation, axis, angle), *this);
 }
 
-// 0x00404120
+// 0x00404120 (each element as scale * element on the FPU: a NaN times a NaN gives the FPU's NaN)
 Matrix& Matrix::operator*=(float scale)
 {
     if (scale != 1.0f) {
-        for (Vector& r : row)
-            r *= scale;
+        for (Vector& r : row) {
+            for (float* e : {&r.x, &r.y, &r.z, &r.w})
+                *e = X87::MultiplyF(scale, *e);
+        }
     }
     return *this;
 }
@@ -493,12 +501,18 @@ Matrix& Matrix::operator*=(float scale)
 // 0x004048D0
 Matrix& Matrix::SetFromEulerAngles(float x, float y, float z)
 {
-    float cx = std::cos(x), sx = std::sin(x);
-    float cy = std::cos(y), sy = std::sin(y);
-    float cz = std::cos(z), sz = std::sin(z);
-    row[0] = {cz * cy, -(sz * cy), -sy, 0.0f};
-    row[1] = {sz * cx - sy * sx * cz, cz * cx + sy * sx * sz, -(cy * sx), 0.0f};
-    row[2] = {sz * sx + cx * sy * cz, cz * sx - cx * sy * sz, cy * cx, 0.0f};
+    // As the original's x87 code: the cosines and sin z stored as floats, sin x and sin y kept on the FPU at full
+    // precision (their products rounded to 53 bits), the sums too until each element is stored; cos x * sin y stored
+    // once and reused.
+    float cx = X87::CosF(x), cy = X87::CosF(y), cz = X87::CosF(z), sz = X87::SinF(z);
+    float cxsy = static_cast<float>(X87::SinTimes(y, cx));
+    double sysx = X87::SinProduct(y, x);
+    auto f = [](double v) { return static_cast<float>(v); };
+    row[0] = {f(static_cast<double>(cz) * cy), f(-(static_cast<double>(sz) * cy)), -X87::SinF(y), 0.0f};
+    row[1] = {f(static_cast<double>(sz) * cx - sysx * cz), f(sysx * sz + static_cast<double>(cz) * cx),
+              f(-X87::SinTimes(x, cy)), 0.0f};
+    row[2] = {f(static_cast<double>(cxsy) * cz + X87::SinTimes(x, sz)),
+              f(X87::SinTimes(x, cz) - static_cast<double>(cxsy) * sz), f(static_cast<double>(cy) * cx), 0.0f};
     row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     return *this;
 }
@@ -512,8 +526,9 @@ float At(const Matrix& m, int r, int c)
 }
 
 // Determinant of the 3x3 matrix left after removing row `skip_row` and column `skip_col`, expanded along its
-// first row in the same order as the original: a(ei - fh) - b(di - fg) + c(dh - eg).
-float Minor(const Matrix& m, int skip_row, int skip_col)
+// first row in the same order as the original: a(ei - fh) - b(di - fg) + c(dh - eg) - on the FPU (53 bits; the
+// float products are exact).
+double Minor(const Matrix& m, int skip_row, int skip_col)
 {
     int r[3], c[3];
     for (int i = 0, n = 0; i < 4; ++i)
@@ -522,16 +537,16 @@ float Minor(const Matrix& m, int skip_row, int skip_col)
     for (int i = 0, n = 0; i < 4; ++i)
         if (i != skip_col)
             c[n++] = i;
-    float a = At(m, r[0], c[0]), b = At(m, r[0], c[1]), cc = At(m, r[0], c[2]);
-    float d = At(m, r[1], c[0]), e = At(m, r[1], c[1]), f = At(m, r[1], c[2]);
-    float g = At(m, r[2], c[0]), h = At(m, r[2], c[1]), i = At(m, r[2], c[2]);
+    double a = At(m, r[0], c[0]), b = At(m, r[0], c[1]), cc = At(m, r[0], c[2]);
+    double d = At(m, r[1], c[0]), e = At(m, r[1], c[1]), f = At(m, r[1], c[2]);
+    double g = At(m, r[2], c[0]), h = At(m, r[2], c[1]), i = At(m, r[2], c[2]);
     return a * (e * i - f * h) - b * (d * i - f * g) + cc * (d * h - e * g);
 }
 
 } // namespace
 
 // 0x004041E0
-float Matrix::Determinant() const
+double Matrix::Determinant() const
 {
     return At(*this, 0, 0) * Minor(*this, 0, 0) - At(*this, 0, 1) * Minor(*this, 0, 1) +
            At(*this, 0, 2) * Minor(*this, 0, 2) - At(*this, 0, 3) * Minor(*this, 0, 3);
@@ -542,7 +557,7 @@ Matrix& Matrix::Adjugate(const Matrix& source)
 {
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
-            float cofactor = Minor(source, c, r);
+            float cofactor = static_cast<float>(Minor(source, c, r));
             (&row[r].x)[c] = ((r + c) & 1) ? -cofactor : cofactor;
         }
     }
@@ -567,9 +582,9 @@ Matrix& Matrix::Invert()
 {
     Matrix adjugate;
     adjugate.Adjugate(*this);
-    float determinant = Determinant();
-    if (determinant != 1.0f)
-        adjugate *= 1.0f / determinant;
+    double determinant = Determinant();
+    if (determinant != 1.0) // (a NaN scales too)
+        adjugate *= static_cast<float>(1.0 / determinant);
     *this = adjugate;
     return *this;
 }
@@ -578,17 +593,20 @@ Matrix& Matrix::Invert()
 Vector& Matrix::GetEulerAngles(Vector& out) const
 {
     float sin_y = row[0].z;
-    if (!(sin_y <= 1.0f)) // also catches NaN, as the original does
+    if (sin_y > 1.0f) // (a NaN passes, as in the original: its asin is NaN)
         sin_y = 1.0f;
     else if (sin_y < -1.0f)
         sin_y = -1.0f;
 
-    float y = -std::asin(sin_y);
-    float cos_y = std::cos(y);
+    // (the original: -asin (its C runtime's), FCOS of it unrounded; the cosine and its reciprocals stay on the FPU
+    // until stored)
+    bool above;
+    double inverse, neg_inverse;
+    float y = X87::NegAsinCos(sin_y, 0.005f, &above, &inverse, &neg_inverse);
     float x, z;
-    if (std::fabs(cos_y) > 0.005f) {
-        float inv = 1.0f / cos_y;
-        float neg_inv = -1.0f / cos_y;
+    if (above) {
+        float inv = static_cast<float>(inverse);
+        float neg_inv = static_cast<float>(neg_inverse);
         x = FastAtan2(neg_inv * row[1].z, inv * row[2].z);
         z = FastAtan2(neg_inv * row[0].y, inv * row[0].x);
     } else {

@@ -82,8 +82,8 @@ public:
     // the Y angle is near +/-90 degrees (gimbal lock), X is reported as 0 and the rotation goes into Z.
     Vector& GetEulerAngles(Vector& out) const;
 
-    // Full 4x4 determinant.
-    float Determinant() const;
+    // Full 4x4 determinant (to 53 bits: the original returns it unrounded in ST0, and Invert divides by that).
+    double Determinant() const;
     // this = adjugate of `source` (transposed cofactors). `source` must not be this matrix.
     Matrix& Adjugate(const Matrix& source);
     // Invert in place: adjugate / determinant. Like the original, a zero determinant isn't checked for.

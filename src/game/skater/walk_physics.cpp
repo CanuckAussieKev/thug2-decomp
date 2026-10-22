@@ -18,7 +18,7 @@
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skater/walk_fields.h"
-#include "game/skater/x87_math.h"
+#include "game/mth/x87_math.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"

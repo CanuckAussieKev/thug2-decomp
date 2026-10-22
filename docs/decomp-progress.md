@@ -9048,6 +9048,36 @@ belong with the CScript batch.
   already made the impulse pass's results NaN, which the traces compare as one value). Construct's type store was
   missed once (TraceLife didn't record the component's type): the life test now records it and sometimes leaves
   another type there first - caught.
+- [x] Batch 294 (lead, 2026-10-22; NOT run in the game yet; the maths library's x87 rounding - follow-up to batch 293's
+  note): src/game/mth/matrix.cpp, math.cpp, vector.cpp, quat.cpp; src/game/mth/x87_math.h (moved from skater/, shared
+  now); test src/hook/selftests_mth_x87.cpp.
+  - Ours took sines and cosines from the C runtime and worked in float (SSE); the originals take FSIN / FCOS / FPATAN
+    (64-bit results, no range reduction past 2^63 - the angle is left as it is, so very large angles differed wholly)
+    and keep products and sums on the FPU until they store. Now as the originals: the rotation matrices about x / y / z
+    / an axis number (0x00404DD0, 0x00404E20, 0x00404E70, 0x00404EC0) and through them RotateX/Y/Z(Local) and Rotate
+    (axis); SetFromEulerAngles 0x004048D0 (sin x / sin y in registers: X87::SinTimes / SinProduct); GetEulerAngles
+    0x00404AB0 (FCOS of the unrounded -asin, the game's _CIasin - X87::NegAsinCos); CreatePerspectiveMatrix
+    0x004050F0 (X87::Cot, q unrounded); CreateRotate2D 0x004058B0; InitSinLookupTable 0x00403F70 (the angle
+    unrounded); IsAngleBeyond 0x00406560; FastAtan2 0x004049B0 (FPATAN; the polynomial in double, the ratio by FDIV);
+    Determinant 0x004041E0 (now returns double: the original returns ST0 unrounded) with Minor in double, so Adjugate
+    0x004043A0 and Invert 0x00405600 (1 / the unrounded determinant); Matrix *= float 0x00404120 (scale * element by
+    FMUL); GetRotationAxisAngle 0x00405310 (trace and length on the FPU, z's unrounded difference, FPATAN).
+  - Found: GetEulerAngles' clamp let a NaN through in the original (ours made it 1: -pi/2 instead of NaN);
+    GetRotationAxisAngle gives a NaN length the zero axis and picks the diagonal with `!(m00 > m11)`. The Slerp
+    tests (TestBatch17) build their inputs with these rotations: with the exact 180-degree matrices they failed until
+    Invert / GetRotationAxisAngle were exact too - the old float code took the other diagonal element (axis
+    (0.707, 0, 0.707) for the original's (0, 0, 1)).
+  - Test (TestTrigRotations, TestTrigMatrixRotations, TestTrigEuler, TestTrigAtan2, TestTrigOthers, TestMatrixX87):
+    original vs ours bit for bit over 23 special angles (zeros, multiples of pi, 9.2e18 and past 2^63, 3.4e38,
+    denormals, infinities, NaNs) and 20000 random float bit patterns each; 3000 matrices (Euler rotations, near and at
+    180 degrees about axes and diagonals, a NaN or infinity in one element, general ones) for the determinant,
+    adjugate, inverse and axis / angle. D3DXMatrixMultiply and our Multiply agree bit for bit. Mutations
+    (out/scripts/mut_trig.ts, mut_x87b.ts): 27 caught of 32; the misses are equivalent - sin x * sin y from 53-bit
+    sines (differs only in a float tie), std::atan2 for FPATAN twice (both correctly rounded: same float in every
+    case), and `m00 <= m11` for `!(m00 > m11)` (a NaN diagonal makes the trace NaN, which returns before that compare).
+  - thug2_check: 0 MISMATCHED, 704 early self-tests pass; check_code_writes: no overlaps. Duplicates left:
+    three private x87 sine helpers (obj/motion_internal.h, skater/core_physics_fields.h, skater/skater_x87.h)
+    could move to mth/x87_math.h.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
 - [ ] Next: the range is done (find_gaps.py: nothing left in 0x45EFD0-0x47DC40); a final game run.
 - [ ] Next: nothing left in the range; hand back.
