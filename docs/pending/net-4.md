@@ -137,3 +137,10 @@ Shared files touched: CMakeLists.txt (new files listed).
     tested from state 6); the miss - the rank's two products grouped the other way - is equivalent: no rating in the
     whole 32-bit range gives another rank (out/scripts/rank_search.py, numpy). tools/check_code_writes.ts: 25 writes
     expected now (5 game-name sites).
+- Game runs (NET4, C:\Games\THUG2-4 under the lock, the branch's build after NET4-3): main menu up in 6.8 s; -level bo:
+  BO loaded, skater spawned, 300 frames of free skate; 4997 of 4997 replacements installed; no exception, run-time
+  check or debug-CRT report in the log. Nothing online was opened (the code runs only behind the network menus).
+- What to try online by hand (the user, once merged): profile log in / create profile, the homie list (add, remove,
+  messages, join a buddy's game), the stats login, personal stats and top lists, and reporting a hosted game.
+  thugonline.com (the content vault) no longer exists - its menus can only fail (the fail script after 25 s).
+  To switch the work off: [replacements] disable=buddy_man.cpp,vault_man.cpp,stats_man.cpp.
