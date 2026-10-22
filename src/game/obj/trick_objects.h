@@ -36,19 +36,32 @@ struct CTrickCluster {
 };
 
 // A list in the skater's trick component (its +0x13B4): 0x00588170 the constructor (no entries; its count at +0x800);
-// 0x00588180 emptied (true).
+// 0x00588180 emptied (true). Its entries are the names of the clusters the skater's current trick (or combo) hit -
+// a ring of 0x200: past that the oldest are written over.
 struct CTrickObjectList {
-    uint32_t m_items[0x200];
+    static constexpr uint32_t kCapacity = 0x200;
+    uint32_t m_items[kCapacity];
     int m_count; // +0x800
     CTrickObjectList* Construct();
     bool Clear();
+    // 0x00588A20: the cluster of trick object `objectName` listed, unless it has none (or no name) or is listed
+    // already; the goal manager is told first (0x00559150). Always false.
+    bool Add(uint32_t objectName);
+    // 0x00588AA0: the listed clusters that still exist (in the manager's table of objects' clusters, with a name)
+    // copied to `out` in order, until `maxBytes` bytes are written. Returns the bytes written.
+    uint32_t CopyClusterNames(uint32_t* out, uint32_t maxBytes);
 };
 
-// A trick object (0x18 bytes, vtable 0x0064F0D8 - its destructor 0x00588B40): a node in its cluster's list (data
-// itself) with the name of its level sector, which graffiti colours.
+// A trick object (0x18 bytes, vtable 0x0064F0D8): a node in its cluster's list (data itself) with the name of its
+// level sector, which graffiti colours.
 struct CTrickObject {
     Mem::ListNode m_node;  // +0x00
     uint32_t m_name;       // +0x14 (its sector's)
+
+    // 0x00588BB0: the destructor's body - out of its list (the node's vtable 0x0064F0D0 put back first).
+    void DestroyBody();
+    // 0x00588B40: the scalar deleting destructor (vtable slot 0): the body, then freed with flags bit 0.
+    CTrickObject* Destroy(unsigned int flags);
 
     // 0x00588200: its sector coloured as graffiti colour `index` (graffitiColors[index]: r, g, b; alpha 0x80 - the
     // sector's mesh, when it has one, vtable +0x18). True.
@@ -66,6 +79,11 @@ struct TrickObjectNode : Mem::ListNode {
 };
 struct TrickClusterNode : Mem::ListNode {
     TrickClusterNode* Destroy(unsigned int flags);
+};
+
+// 0x00588B70: every node after this head taken out of the list (each linked to itself; none freed).
+struct TrickObjectHead : Mem::ListNode {
+    void UnlinkAll();
 };
 
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
@@ -100,6 +118,8 @@ struct CTrickObjectManager {
     Lst::HashTable m_objectClusters;  // +0x20 each trick object's cluster, by the object's name (a cluster's own too)
     Script::CStruct* m_params;        // +0x38 (the graffiti colours' - CTrickCluster::SetParams)
 
+    // 0x005889F0: every cluster deleted (through its virtual destructor, 0x004B22A0) and both tables emptied. True.
+    bool RemoveAllClusters();
     // 0x00588380 / 0x005883C0 (and a jump to it, 0x005889E0): a trick object's cluster / a cluster by name (null if
     // none).
     CTrickObjectCluster* GetObjectCluster(uint32_t objectName);

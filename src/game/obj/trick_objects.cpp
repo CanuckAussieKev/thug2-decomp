@@ -1,4 +1,4 @@
-// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x005889E0 (the trick objects, the
+// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x00588BCF (the trick objects, the
 // manager's lookups, graffiti state and graffiti log).
 // See trick_objects.h.
 
@@ -360,6 +360,81 @@ int CTrickObjectManager::WriteGraffitiState(uint8_t* buffer)
     return writer.count + 8;
 }
 
+// 0x005889F0
+bool CTrickObjectManager::RemoveAllClusters()
+{
+    m_clusters.HandleCallback(reinterpret_cast<Lst::HashTable::Callback>(0x004B22A0), nullptr); // (Nx::DeleteObject)
+    m_clusters.FlushAllItems();
+    m_clusterCount = 0;
+    m_objectClusters.FlushAllItems();
+    return true;
+}
+
+// 0x00588A20
+bool CTrickObjectList::Add(uint32_t objectName)
+{
+    const uint32_t listed = static_cast<uint32_t>(m_count) > kCapacity ? kCapacity : static_cast<uint32_t>(m_count);
+    CTrickObjectCluster* cluster = GameVariable<CTrickObjectManager*>(0x007CE500)->GetObjectCluster(objectName);
+    if (!cluster || !cluster->m_name)
+        return false;
+    for (uint32_t i = 0; i < listed; ++i) {
+        if (m_items[i] == cluster->m_name)
+            return false;
+    }
+    void* goals = GameFunction<void*(__cdecl*)()>(0x005591B0)(); // the goal manager
+    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00559150)(goals, cluster->m_name);
+    m_items[m_count & (kCapacity - 1)] = cluster->m_name;
+    ++m_count;
+    return false;
+}
+
+// 0x00588AA0
+uint32_t CTrickObjectList::CopyClusterNames(uint32_t* out, uint32_t maxBytes)
+{
+    const uint32_t listed = static_cast<uint32_t>(m_count) > kCapacity ? kCapacity : static_cast<uint32_t>(m_count);
+    const CTrickObjectManager* manager = GameVariable<CTrickObjectManager*>(0x007CE500);
+    uint32_t bytes = 0;
+    for (uint32_t i = 0; i < listed; ++i) {
+        auto* cluster = static_cast<CTrickObjectCluster*>(manager->m_objectClusters.GetItem(m_items[i]));
+        if (cluster && cluster->m_name) {
+            *out++ = m_items[i];
+            bytes += 4;
+        }
+        if (bytes >= maxBytes)
+            break;
+    }
+    return bytes;
+}
+
+// 0x00588BB0
+void CTrickObject::DestroyBody() { m_node.UnlinkAs(kTrickClusterNodeVtable); }
+
+// 0x00588B40
+CTrickObject* CTrickObject::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
+// 0x00588B70
+void TrickObjectHead::UnlinkAll()
+{
+    // (The original reads the first node's data before checking the node for null.)
+    ListNode* node = next;
+    if (node->data == reinterpret_cast<void*>(-1) || !node)
+        return;
+    while (node) {
+        ListNode* following = node->next;
+        node->prev->next = following;
+        following->prev = node->prev;
+        node->next = node;
+        node->prev = node;
+        node = following->data == reinterpret_cast<void*>(-1) ? nullptr : following;
+    }
+}
+
 } // namespace Obj
 
 REPLACE(0x005886C0, &Obj::CTrickObjectManager::LogTrickObjects);
@@ -383,3 +458,9 @@ REPLACE(0x00588120, Obj::CountObjectInCluster);
 REPLACE(0x00588150, &Obj::CTrickCluster::SetParams);
 REPLACE(0x00588170, &Obj::CTrickObjectList::Construct);
 REPLACE(0x00588180, &Obj::CTrickObjectList::Clear);
+REPLACE(0x005889F0, &Obj::CTrickObjectManager::RemoveAllClusters);
+REPLACE(0x00588A20, &Obj::CTrickObjectList::Add);
+REPLACE(0x00588AA0, &Obj::CTrickObjectList::CopyClusterNames);
+REPLACE(0x00588B40, &Obj::CTrickObject::Destroy);
+REPLACE(0x00588B70, &Obj::TrickObjectHead::UnlinkAll);
+REPLACE(0x00588BB0, &Obj::CTrickObject::DestroyBody);
