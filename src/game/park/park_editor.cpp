@@ -138,7 +138,7 @@ bool CParkManager::DestroyMetasInAreaAndRebuild(GridDims area, bool skipRestarts
         }
         // The area's corner and size in the world (0x00595A90), and the scene updated over it.
         float size[3];
-        float corner[3];
+        float corner[4]; // (a whole Mth::Vector: w = 1 is written too)
         const float* position = GameFunction<const float*(__thiscall*)(CParkManager*, float*, const GridDims*, float*)>(
             0x00595A90)(Instance(), corner, &area, size);
         float x0 = position[0];

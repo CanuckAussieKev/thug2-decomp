@@ -102,3 +102,18 @@ Switch off: `[replacements] disable=gap_manager.cpp` (and park_editor.cpp, park_
     inc_w / inc_l (odd, negative), kept and reused areas, no memory, no cursor; CanChangeParkDimension at each limit;
     GetCustomParkName with 0, 1, 7, 20 characters and none. 65 deliberate bugs: all caught, 2 after recording the
     collision flag while the shell is rebuilt and testing IsCustomPark in test play.
+- Game runs (C:\Games\THUG2-2, under the lock, our build's DLL): BO loaded in free skate; CREATE-A-PARK opened from the
+  main menu (menu_createamodes -> menu_parked) - the park editor up (camera, cursor, piece menu), then X / d-pad /
+  Square / L1 / Triangle / L2 pressed through the automation channel. The first such run stopped on a RUN-TIME CHECK
+  in CParkManager::DestroyMetasInAreaAndRebuild (src/game/park/park_editor.cpp, 0x0059CD20, not this range): its
+  `corner` buffer was 3 floats for GridCoordinatesToWorld's whole Mth::Vector (w = 1 written past it) - fixed (4
+  floats); the next run did everything without an error in the log. (Running launch_park_editor straight from the main
+  menu crashes the original too - BindParkEditorToController before the editor exists - not a way in.)
+- To try by hand in the park editor: move the cursor and turn / tilt / zoom the camera (right stick, the zoom
+  buttons) - the limits 10-90 degrees, 500-1500; place / rotate / delete pieces (X, Square / Circle, Triangle) and
+  raise / lower the floor (L1 / L2) with their sounds; change sets and pieces (d-pad: up / down sets, left / right
+  pieces); place a gap (both halves, its name and score, widen its sides), then test-play the park and land the gap
+  (StartGap / EndGap, the gap in the gap list); area selection copy / cut / paste; resize the park (Park options: both
+  dimensions, grow and shrink - rails and goals outside go); save / load a park (slots); the time of day and theme;
+  rail placement mode (the Raileditor camera, SwitchOn / Off). Switch off: `[replacements] disable=gap_manager.cpp,
+  park_editor.cpp,park_editor_cfuncs.cpp`.
