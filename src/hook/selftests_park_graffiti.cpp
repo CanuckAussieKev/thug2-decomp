@@ -202,6 +202,99 @@ void TestParkGraffiti1()
     Compare(traces[0], traces[1], "park graffiti 1: trick object lists, destructors, clusters removed");
 }
 
+// Batch 2: a cluster made, its objects coloured (in a created park and not), destroyed (objects deleted through a
+// recording destructor that takes them out of the list; one with no data is never deleted).
+void* g_objectDestructor;
+
+void TestParkGraffiti2()
+{
+    SaveGlobals({{0x007CE500, 4, {}}, {0x007CE478, 4, {}}});
+    StandIns* s = new StandIns;
+    Install(*s);
+    s->At({0x00588200, AddressOf(&CTrickObject::SetGraffitiColor)}, 4, [](Regs& r) {
+        Rec(0x8200, {r.ecx, r.args[0]});
+        return 1u;
+    });
+    s->At({0x004F4970}, 0, [](Regs&) {
+        Rec(0x4970, {});
+        return At(0x7900);
+    });
+    s->At({0x004F4950}, 8, [](Regs& r) {
+        Rec(0x4950, {r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    g_objectDestructor = s->Thunk(4, [](Regs& r) {
+        Rec(0x0E00, {r.ecx, r.args[0]});
+        reinterpret_cast<Mem::ListNode*>(r.ecx)->UnlinkAs(reinterpret_cast<void**>(0x0064F0D0));
+        return r.ecx;
+    });
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        const bool original = run == 0;
+        std::vector<uint32_t>& t = traces[run];
+        SetUpArena(run);
+        std::memset(Ptr<void>(0x4000), 0xCD, 0x400);
+        auto* cluster = Ptr<CTrickObjectCluster>(0x4000);
+        void* r = original ? Original<void*(__thiscall*)(void*, uint32_t)>(0x00588BD0)(cluster, 0xA0) : cluster->Construct(0xA0);
+        t.push_back(Rel(reinterpret_cast<uint32_t>(r)));
+        PushArena(t);
+
+        // Three objects (their vtable's slot 0 the recording destructor) and, second, one with no data.
+        *Ptr<void*>(kVtable) = g_objectDestructor;
+        auto addObjects = [&](int count, bool nullSecond) {
+            for (int i = 0; i < count; ++i) {
+                auto* n = Ptr<Mem::ListNode>(0x4100 + 0x20 * i);
+                n->vtable = Ptr<void*>(kVtable);
+                n->data = nullSecond && i == 1 ? nullptr : n;
+                n->priority = 0;
+                n->next = &cluster->m_objects;
+                n->prev = cluster->m_objects.prev;
+                cluster->m_objects.prev->next = n;
+                cluster->m_objects.prev = n;
+            }
+        };
+        addObjects(3, false);
+        *Ptr<uint32_t>(0x7A00 + 0x378) = 0x12345678;
+        GameVariable<uint32_t>(0x007CE478) = At(0x7A00);
+        for (uint32_t level : {0x12345678u, 0xB664035Du}) {
+            *Ptr<uint32_t>(0x7A00 + 0x378) = level;
+            for (int index : {0, 3}) {
+                bool ok = original ? Original<bool(__thiscall*)(void*, int)>(0x00588D20)(cluster, index)
+                                   : cluster->SetGraffitiColor(index);
+                t.push_back(ok);
+            }
+        }
+        // Destroyed: three objects; then (made again) a first object with no data and two others; then none.
+        for (int variant = 0; variant < 3; ++variant) {
+            if (variant > 0) {
+                cluster->Construct(0xB2);
+                addObjects(variant == 1 ? 3 : 0, variant == 1);
+                if (variant == 1) { // (the one with no data first)
+                    auto* first = Ptr<Mem::ListNode>(0x4120);
+                    first->prev->next = first->next;
+                    first->next->prev = first->prev;
+                    first->next = cluster->m_objects.next;
+                    first->prev = &cluster->m_objects;
+                    cluster->m_objects.next->prev = first;
+                    cluster->m_objects.next = first;
+                }
+            }
+            original ? Original<void(__thiscall*)(void*)>(0x00588C30)(cluster) : cluster->DestroyBody();
+            PushArena(t);
+        }
+        // An empty cluster coloured: nothing but the created-park rail.
+        cluster->Construct(0xC3);
+        bool ok = original ? Original<bool(__thiscall*)(void*, int)>(0x00588D20)(cluster, 1) : cluster->SetGraffitiColor(1);
+        t.push_back(ok);
+
+        PushArena(t);
+        t.insert(t.end(), g_trace.begin(), g_trace.end());
+    }
+    Cleanup();
+    Compare(traces[0], traces[1], "park graffiti 2: a trick object cluster made, coloured, destroyed");
+}
+
 } // namespace
 
 SELFTEST(Early, TestParkGraffiti1, ViewerTestKit::Cleanup);
+SELFTEST(Early, TestParkGraffiti2, ViewerTestKit::Cleanup);

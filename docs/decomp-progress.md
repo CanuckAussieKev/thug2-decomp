@@ -9944,8 +9944,19 @@ belong with the CScript batch.
   (both tables, a chained item), three clusters with a recording destructor, the list (repeats, a name past the count,
   a full ring wrapping, names past the ring), byte limits 100 / 8 / 9 / 4 / 0, lists of 3 / 1 / 0 nodes; the goal
   manager stood in for. 24 deliberate bugs caught, 2 after strengthening.
-- [ ] Next: park editor & graffiti 0x00588BD0 on (the cluster's constructor 0x00588BD0, destructor body 0x00588C30,
-  graffiti colour 0x00588D20, ...).
+- [x] Batch 321 (NOT run in the game yet; park editor & graffiti range, part 2 - the trick object cluster): src/game/
+  obj/trick_objects.cpp / .h. 0x00588BD0 CTrickObjectCluster::Construct (its own node - vtable 0x0064F10C, data itself
+  - and its objects' head - vtable 0x0064F0D8, data -1; named, no scores / holder; returns this); 0x00588C30
+  DestroyBody (each object deleted through slot 0 with 1, the first one each time - one with no data is never deleted
+  and stays first; then the list emptied, the head and the cluster's node out of their lists); 0x00588D20
+  SetGraffitiColor (each object coloured - 0x00588200 -; when the skate module's level is load_sk5ed_gameplay, a
+  created park, the rail editor's rail of the cluster's name too - 0x004F4970 / 0x004F4950; true). The cluster's
+  first 0x14 bytes are now its Mem::ListNode m_node. Test (TestParkGraffiti2): original vs ours - made over 0xCD
+  memory; three objects coloured with indexes 0 / 3 in a normal level and a created park; destroyed with three
+  objects, with a first object with no data, with none; an empty cluster coloured; 0x00588200, the rail editor and
+  the objects' destructor stood in for. 24 deliberate bugs: 23 caught, 1 equivalent (the destructor's first vtable
+  write - its last unlink writes the node vtable over it).
+- [ ] Next: park editor & graffiti 0x00588DC0 on.
 - [ ] Next: nothing left in the range; hand back.
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag

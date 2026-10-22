@@ -1,4 +1,4 @@
-// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x00588BCF (the trick objects, the
+// Pieces of the trick object code, 0x005880E0-0x0058818C and 0x00588200-0x00588DB7 (the trick objects, the
 // manager's lookups, graffiti state and graffiti log).
 // See trick_objects.h.
 
@@ -185,6 +185,8 @@ namespace {
 void** const kTrickObjectVtable = reinterpret_cast<void**>(0x0064F0D8);
 void** const kTrickObjectNodeVtable = reinterpret_cast<void**>(0x0064F0D4);
 void** const kTrickClusterNodeVtable = reinterpret_cast<void**>(0x0064F0D0);
+void** const kTrickClusterVtable = reinterpret_cast<void**>(0x0064F10C);
+constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the skate module's level, +0x378)
 
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
 // (r, g, b, a; zero without a mesh), the mesh's (+0x14) vtable +0x18 set.
@@ -435,6 +437,77 @@ void TrickObjectHead::UnlinkAll()
     }
 }
 
+// 0x00588BD0
+CTrickObjectCluster* CTrickObjectCluster::Construct(uint32_t name)
+{
+    m_node.data = this;
+    m_node.priority = 0;
+    m_node.next = &m_node;
+    m_node.prev = &m_node;
+    m_node.vtable = kTrickClusterVtable;
+    m_objects.vtable = kTrickObjectVtable;
+    m_objects.data = reinterpret_cast<void*>(-1); // (the head)
+    m_objects.priority = 0;
+    m_objects.next = &m_objects;
+    m_objects.prev = &m_objects;
+    m_name = name;
+    for (uint32_t& score : m_scores)
+        score = 0;
+    m_bestScore = 0;
+    m_owner = 0;
+    m_owned = false;
+    return this;
+}
+
+namespace {
+
+// The objects in a cluster's list, and the one at `index` (null past the end). (The original reads each node's data
+// before checking it for null.)
+uint32_t CountObjects(const Mem::ListNode& head)
+{
+    uint32_t count = 0;
+    for (const Mem::ListNode* node = head.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+        ++count;
+    return count;
+}
+Mem::ListNode* ObjectAt(const Mem::ListNode& head, uint32_t index)
+{
+    for (Mem::ListNode* node = head.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
+        if (index-- == 0)
+            return node;
+    }
+    return nullptr;
+}
+
+} // namespace
+
+// 0x00588C30
+void CTrickObjectCluster::DestroyBody()
+{
+    m_node.vtable = kTrickClusterVtable;
+    for (uint32_t count = CountObjects(m_objects); count != 0; --count) {
+        void* object = ObjectAt(m_objects, 0)->data;
+        if (object)
+            reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(object))[0])(object, 1);
+    }
+    static_cast<TrickObjectHead&>(m_objects).UnlinkAll();
+    m_objects.UnlinkAs(kTrickClusterNodeVtable);
+    m_node.UnlinkAs(kTrickObjectNodeVtable);
+}
+
+// 0x00588D20
+bool CTrickObjectCluster::SetGraffitiColor(int index)
+{
+    const uint32_t count = CountObjects(m_objects);
+    for (uint32_t i = 0; i < count; ++i)
+        static_cast<CTrickObject*>(ObjectAt(m_objects, i)->data)->SetGraffitiColor(index);
+    if (GameVariable<uint32_t>(GameVariable<uint32_t>(0x007CE478) + 0x378) == kLoadCreatedPark) {
+        void* railEditor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
+        GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x004F4950)(railEditor, m_name, index);
+    }
+    return true;
+}
+
 } // namespace Obj
 
 REPLACE(0x005886C0, &Obj::CTrickObjectManager::LogTrickObjects);
@@ -464,3 +537,6 @@ REPLACE(0x00588AA0, &Obj::CTrickObjectList::CopyClusterNames);
 REPLACE(0x00588B40, &Obj::CTrickObject::Destroy);
 REPLACE(0x00588B70, &Obj::TrickObjectHead::UnlinkAll);
 REPLACE(0x00588BB0, &Obj::CTrickObject::DestroyBody);
+REPLACE(0x00588BD0, &Obj::CTrickObjectCluster::Construct);
+REPLACE(0x00588C30, &Obj::CTrickObjectCluster::DestroyBody);
+REPLACE(0x00588D20, &Obj::CTrickObjectCluster::SetGraffitiColor);

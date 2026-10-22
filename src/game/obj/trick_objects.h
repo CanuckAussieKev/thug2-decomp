@@ -89,7 +89,7 @@ struct TrickObjectHead : Mem::ListNode {
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.
 struct CTrickObjectCluster {
-    uint8_t m_unknown00[0x14];
+    Mem::ListNode m_node;     // +0x00 (data itself; its vtable 0x0064F10C is the cluster's)
     uint32_t m_name;          // +0x14
     uint32_t m_bestScore;     // +0x18
     uint32_t m_scores[8];     // +0x1C
@@ -102,6 +102,14 @@ struct CTrickObjectCluster {
     // cleared first (and, with show_all_trick_objects set outside the 0x00684FA8 mode, given graffiti colour 2).
     // False (nothing made) when out of memory.
     bool AddObject(uint32_t name);
+    // 0x00588BD0: the constructor - named `name`, no scores, holder or objects. Returns this.
+    CTrickObjectCluster* Construct(uint32_t name);
+    // 0x00588C30: the destructor's body - each object deleted (its virtual destructor, slot 0: the first one each
+    // time), the list emptied, the head and the cluster's own node out of their lists.
+    void DestroyBody();
+    // 0x00588D20: every object given graffiti colour `index`; in a created park (the level loaded by
+    // load_sk5ed_gameplay) the rail editor's rail of the cluster's name too (0x004F4950). True.
+    bool SetGraffitiColor(int index);
 };
 static_assert(offsetof(CTrickObjectCluster, m_objects) == 0x44 && sizeof(CTrickObjectCluster) == 0x58,
               "layout must match the original");
