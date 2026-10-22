@@ -382,7 +382,7 @@ fold records, install.
 - Installed (2026-10-22): main 052848a in C:\Games\THUG2 (DLL + pdb, overlay regenerated; self-tests still off). Not pushed.
 
 ## 2026-10-22 (account change): park editor & graffiti in progress
-- **main 4410186, pushed after this note.** Installed in C:\Games\THUG2 is only up to the online merge (052848a):
+- **main 4410186, pushed after this note.** Installed in C:\Games\THUG2 at 4410186 (DLL + pdb, overlay regenerated;
   self-tests off) - batches 320-328 included; NOT run in the game yet.
 - **Online & network game modes: done** (NET1-NET4 merged, batches 299-319; 455/457 - the two left are PartyMod's
   loader cave). See the "2026-10-22: online & network game modes" note above.
