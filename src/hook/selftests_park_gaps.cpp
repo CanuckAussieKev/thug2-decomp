@@ -52,8 +52,8 @@ void TestParkGaps()
         auto* manager = Ptr<CGapManager>(kManager);
         std::memset(manager, 0xCD, 0xA8);
         GameVariable<uint32_t>(0x007CE5D4) = 0;
-        rec(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*, int)>(0x0058CCC0)(manager, 0x77)
-                                                : manager->Construct(0x77)));
+        rec(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*, void*)>(0x0058CCC0)(manager, Ptr<void>(0x7700))
+                                                : manager->Construct(Ptr<Ed::CParkManager>(0x7700))));
         rec(GameVariable<uint32_t>(0x007CE5D4));
         rec(reinterpret_cast<uint32_t>(original ? Original<void*(__cdecl*)()>(0x0058CBB0)() : CGapManager::sInstance()));
         auto* words = Ptr<uint32_t>(kManager);

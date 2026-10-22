@@ -10,8 +10,12 @@ selftests_park_gaps.cpp (new), on the viewer test kit (src/hook/viewer_testkit.h
 struct CClipboardEntry; CClipboard's GameFunction wrappers became declarations (implemented in clipboard.cpp), its
 mp_metas typed CClipboardEntry*, ShowAt returns bool (the original's AL; the one caller ignores it); GapInfo got
 Construct / GetLength; CGapManager's wrappers for 0x0058C990-0x0058CCC0 became declarations (gap_slots.cpp) plus
-sInstance (0x0058CBB0) and GetGapTriggerName (0x0058CA60). The gap manager's fields are not declared in park.h (PE2 has
-the rest of the class): gap_slots.cpp reads them through a local layout struct (GapSlots / GapRecord, static_asserted).
+sInstance (0x0058CBB0) and GetGapTriggerName (0x0058CA60); Construct takes the park manager (PE2's mp_manager, +0xA4).
+gap_slots.cpp uses PE2's layout of the class (CGapManager::Gap, m_startedFirst...; merged from main). The rail classes
+are the one layout of the park generator's rails: src/game/ed/park_scene.h's RailSet / Rail / RailPoint (PE4's views)
+are now aliases of CParkRailSet / CParkRailString / CParkRailPoint, with PE4's field and method names (Init, Clear,
+FreePools, FindRail, NewRail, AddRail, FreeRail, CountSegments; m_class, m_name, mp_points, m_numPoints, m_angles,
+m_cluster...), so the generator calls ours directly (its tests stand in for ours through OursAt).
 Switch off: `[replacements] disable=viewer_object.cpp,park_rails.cpp,clipboard.cpp,gap_slots.cpp` (any of them alone;
 viewer_object.cpp also switches off batches 327-328's viewer object code).
 
@@ -53,15 +57,15 @@ viewer_object.cpp also switches off batches 327-328's viewer object code).
     pre-multiplied: identity times R either way).
 
 - [x] Batch PE1-2 (NOT run in the game yet; the park generator's rail sets, strings and points, 15 functions):
-  src/game/ed/park_rails.cpp / .h (Ed::CParkRailSet / CParkRailString / CParkRailPoint - our names; the strings
-  "In set" / "Out set", "%s RailPoint" / "%s RailString" are the game's).
-  - 0x0058AFC0 AddPoint, 0x0058AFF0 the set's constructor (the last string isn't cleared), 0x0058B010 AddString,
-    0x0058B040 GetSegmentCount (a loop's points, else points - 1), 0x0058B070 CountPoints, 0x0058B090 FindString(id,
-    index), 0x0058B0C0 CreatePools(points, strings, in), 0x0058B280 DestroyPools, 0x0058B2D0 NewPoint / 0x0058B370
-    NewString (the set's pool lent to the class's pool pair - 0x007CE5A4 / 0x007CE594 - for the allocation, then taken
-    back; the "owned" byte per pool at +4 of the pair), 0x0058B220 the strings' CPoolable delete, 0x0058B420 CopyFrom
-    (the points turned 0-3 quarter turns about y and moved; ClimbingNode strings' headings + pi/2, pi, 3pi/2), 0x0058B5B0
-    DeleteString, 0x0058B620 DeletePoints, 0x0058B700 DeleteStrings.
+  src/game/ed/park_rails.cpp / .h (Ed::CParkRailSet / CParkRailString / CParkRailPoint = park_scene.h's RailSet /
+  Rail / RailPoint; the strings "In set" / "Out set", "%s RailPoint" / "%s RailString" are the game's).
+  - 0x0058AFC0 AddPoint, 0x0058AFF0 the set's constructor (the last rail isn't cleared), 0x0058B010 AddRail,
+    0x0058B040 CountSegments (a loop's points, else points - 1), 0x0058B070 CountPoints, 0x0058B090 FindRail(name,
+    index), 0x0058B0C0 Init(points, rails, in), 0x0058B280 FreePools, 0x0058B2D0 NewPoint / 0x0058B370 NewRail (the
+    set's pool lent to the class's pool pair - 0x007CE5A4 / 0x007CE594 - for the allocation, then taken back; the
+    "owned" byte per pool at +4 of the pair), 0x0058B220 the rails' CPoolable delete, 0x0058B420 CopyFrom (the points
+    turned 0-3 quarter turns about y and moved; ClimbingNode rails' headings + pi/2, pi, 3pi/2), 0x0058B5B0 FreeRail,
+    0x0058B620 DeletePoints, 0x0058B700 Clear.
   - Test TestParkRails (real item pools, the memory manager stood in: three source strings, copies at every turn, every
     delete path, a heap string freed, pairs with current pool 1). 42 deliberate bugs, 38 caught, 40 after
     strengthening; 2 equivalent (GetSegmentCount's "> 1" as ">= 1": 1 - 1 = 0; the copy also copying the link: every
@@ -113,3 +117,8 @@ risers, a restart point and rails; turn the paste with the cursor through all fo
 too); check the preview follows the cursor smoothly and the rails come along; make a gap (both halves), look at its name
 / score, remove it. Model viewer: only with the PC tool (not available) - the pad's viewer buttons in a viewer object
 mode (frame steps, speed, the info panel) if the viewer can be launched.
+
+- [x] Game run (workspace C:\Games\THUG2-1, under the lock; the verify build after merging PE4): every replacement
+  installed, `-level BO` into free skate and `-level Sk5Ed` into the park editor (the piece menu and cursor up, the cursor
+  moved with the d-pad), no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT, closed cleanly. Not driven: the
+  clipboard (area select, copy, paste), gaps, the model viewer's object - for the user (above).

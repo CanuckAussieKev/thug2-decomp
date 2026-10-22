@@ -57,11 +57,11 @@ void TestParkRails()
         for (int i = 0; i < 6; ++i) // (the last string isn't cleared)
             rec(reinterpret_cast<uint32_t*>(set)[i]);
         original ? Original<void(__thiscall*)(void*, int, int, bool)>(0x0058B0C0)(set, 12, 5, true)
-                 : set->CreatePools(12, 5, true);
+                 : set->Init(12, 5, true);
         original ? Original<void(__thiscall*)(void*, int, int, bool)>(0x0058B0C0)(set2, 40, 12, false)
-                 : set2->CreatePools(40, 12, false);
+                 : set2->Init(40, 12, false);
         auto newString = [&](CParkRailSet* in) {
-            return original ? Original<CParkRailString*(__thiscall*)(void*)>(0x0058B370)(in) : in->NewString();
+            return original ? Original<CParkRailString*(__thiscall*)(void*)>(0x0058B370)(in) : in->NewRail();
         };
         auto newPoint = [&](CParkRailSet* in) {
             return original ? Original<CParkRailPoint*(__thiscall*)(void*)>(0x0058B2D0)(in) : in->NewPoint();
@@ -70,11 +70,11 @@ void TestParkRails()
             original ? Original<void(__thiscall*)(void*, void*)>(0x0058AFC0)(string, point) : string->AddPoint(point);
         };
         auto addString = [&](CParkRailSet* in, CParkRailString* string) {
-            original ? Original<void(__thiscall*)(void*, void*)>(0x0058B010)(in, string) : in->AddString(string);
+            original ? Original<void(__thiscall*)(void*, void*)>(0x0058B010)(in, string) : in->AddRail(string);
         };
         auto segments = [&](CParkRailString* string) {
             rec(static_cast<uint32_t>(original ? Original<int(__thiscall*)(void*)>(0x0058B040)(string)
-                                               : string->GetSegmentCount()));
+                                               : string->CountSegments()));
         };
         // Three source strings: a climbing one (3 points), a loop of 4 (id 7), one of a single point (id 7).
         const int counts[3] = {3, 4, 1};
@@ -82,9 +82,9 @@ void TestParkRails()
             CParkRailString* string = newString(set);
             ptr(string);
             rec(string->m_flags);
-            string->m_type = i == 0 ? CParkRailString::kClimbingNode : 0x1234 + i;
+            string->m_class = i == 0 ? CParkRailString::kClimbingNode : 0x1234 + i;
             string->m_flags = static_cast<uint8_t>(i == 1 ? 0xF5 : 0xF8 | (i == 2 ? 2 : 0));
-            string->m_id = i == 0 ? 3 : 7;
+            string->m_name = i == 0 ? 3 : 7;
             for (int j = 0; j < counts[i]; ++j) {
                 CParkRailPoint* point = newPoint(set);
                 ptr(point);
@@ -105,12 +105,12 @@ void TestParkRails()
         for (uint32_t id : {3u, 7u, 9u})
             for (int index = 0; index < 3; ++index)
                 ptr(original ? Original<void*(__thiscall*)(void*, uint32_t, int)>(0x0058B090)(set, id, index)
-                             : set->FindString(id, index));
+                             : set->FindRail(id, index));
         // Copied into the second set: turned 0-4 (and -1), at an offset, climbing and not.
         const Mth::Vector offset = {100.5f, -20.25f, 340.75f, 1.0f};
         for (int rot : {0, 1, 2, 3, 4, -1}) {
             for (int which = 0; which < 3; which += 2) {
-                CParkRailString* from = set->mp_first;
+                CParkRailString* from = set->mp_rails;
                 for (int k = 0; k < which; ++k)
                     from = from->mp_next;
                 CParkRailString* copy = newString(set2);
@@ -123,22 +123,22 @@ void TestParkRails()
         }
         PushArena(t);
         // Taken apart: a string's points, a string (and null, and one from the heap), every string, the pools.
-        original ? Original<void(__thiscall*)(void*)>(0x0058B620)(set->mp_first) : set->mp_first->DeletePoints();
-        CParkRailString* second = set->mp_first->mp_next;
-        original ? Original<void(__thiscall*)(void*, void*)>(0x0058B5B0)(set, nullptr) : set->DeleteString(nullptr);
-        set->mp_first->mp_next = second->mp_next; // (unlinked first, as the park generator does)
-        original ? Original<void(__thiscall*)(void*, void*)>(0x0058B5B0)(set, second) : set->DeleteString(second);
+        original ? Original<void(__thiscall*)(void*)>(0x0058B620)(set->mp_rails) : set->mp_rails->DeletePoints();
+        CParkRailString* second = set->mp_rails->mp_next;
+        original ? Original<void(__thiscall*)(void*, void*)>(0x0058B5B0)(set, nullptr) : set->FreeRail(nullptr);
+        set->mp_rails->mp_next = second->mp_next; // (unlinked first, as the park generator does)
+        original ? Original<void(__thiscall*)(void*, void*)>(0x0058B5B0)(set, second) : set->FreeRail(second);
         original ? Original<void(__thiscall*)(void*, void*)>(0x0058B5B0)(set, Ptr<void>(kLoose))
-                 : set->DeleteString(Ptr<CParkRailString>(kLoose));
+                 : set->FreeRail(Ptr<CParkRailString>(kLoose));
         original ? Original<void(__cdecl*)(void*)>(0x0058B220)(Ptr<void>(kLoose + 0x40))
                  : CParkRailString::Free(Ptr<void>(kLoose + 0x40));
         PushArena(t);
-        original ? Original<void(__thiscall*)(void*)>(0x0058B700)(set2) : set2->DeleteStrings();
-        original ? Original<void(__thiscall*)(void*)>(0x0058B700)(set) : set->DeleteStrings();
-        original ? Original<void(__thiscall*)(void*)>(0x0058B280)(set) : set->DestroyPools();
+        original ? Original<void(__thiscall*)(void*)>(0x0058B700)(set2) : set2->Clear();
+        original ? Original<void(__thiscall*)(void*)>(0x0058B700)(set) : set->Clear();
+        original ? Original<void(__thiscall*)(void*)>(0x0058B280)(set) : set->FreePools();
         set2->mp_pointPool = nullptr; // (strings' pool only)
-        original ? Original<void(__thiscall*)(void*)>(0x0058B280)(set2) : set2->DestroyPools();
-        original ? Original<void(__thiscall*)(void*)>(0x0058B280)(set2) : set2->DestroyPools(); // (none)
+        original ? Original<void(__thiscall*)(void*)>(0x0058B280)(set2) : set2->FreePools();
+        original ? Original<void(__thiscall*)(void*)>(0x0058B280)(set2) : set2->FreePools(); // (none)
         for (uint32_t a : {0x007CE594u, 0x007CE5A4u})
             for (int i = 0; i < 4; ++i)
                 rec(reinterpret_cast<uint32_t*>(a)[i]);
