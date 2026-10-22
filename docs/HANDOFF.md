@@ -369,3 +369,13 @@ in worktrees, split by size (prompts out/scripts/NET1..4.txt, template net_promp
 (THUG2-1, docs/pending/net-1.md), NET2 0x53A910-0x541870 (THUG2-2, net-2.md), NET3 0x541870-0x548560 (THUG2-3, net-3.md),
 NET4 0x548560-0x54EF60 (THUG2-4, net-4.md). Offline self-tests only; no online or LAN runs. Then merge one at a time,
 fold records, install.
+- Done (2026-10-22): NET1-NET4 merged into main (one at a time; each built + thug2_check on both exes, 0 MISMATCHED; final
+  735 early self-tests, check_code_writes 20 writes / no overlaps, 318 TS tests), folded as batches 299-319. The range is
+  455/457: the two left (0x005480A1, 0x005480B4) are PartyMod's LoadLibrary cave in THUG2PM.exe's padding, not game code.
+  Merge fixes: NET1's gamenet_players.cpp / selftests_net_players.cpp -> gamenet_player_lists.cpp /
+  selftests_net_player_lists.cpp (NET2 had the names); NET1's AddNewPlayer (0x0053A310) -> AddJoiningPlayer;
+  server_list.cpp uses Manager::InLanMode; TestNetLists -> TestNetManagerLists. Every game-name use is source now:
+  online_identity.cpp writes only the key; the net tests use hook/online_identity_testkit.h so they pass with
+  OnlineGameName set (NET1's in-game failure in THUG2-1). Progress 65.02%. NOT installed (the install copy was refused
+  by the permission check - the user installs: copy out\build\lead\dinput8.dll + .pdb, make_menu_level.ts); not pushed.
+  Nothing tested online: what to try by hand is in docs/pending/net-1..4.md.
