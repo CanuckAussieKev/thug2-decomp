@@ -4,16 +4,22 @@ Agent "NET3". Branch worktree-agent-a83db81d2c24c3271, game workspace C:\Games\T
 
 ## The range
 
-131 Ghidra functions, 2 rewritten before this agent (0x00545880, the empty 0x005480A0); and 9 functions Ghidra never
-made (GameSpy / task callbacks and a setter, found between the Ghidra functions: 0x00542330, 0x00542B70, 0x00542B80,
-0x00543110, 0x00545490, 0x00545540, 0x00545620, 0x005475C0, 0x00547750). 0x005480A1 / 0x005480B4 are PartyMod's
+134 Ghidra functions, 2 rewritten before this agent (0x00545880, the empty 0x005480A0); and 11 functions Ghidra never
+made (GameSpy / task callbacks, threads and a setter, found between the Ghidra functions: 0x00542330, 0x00542B70,
+0x00542B80, 0x00543110, 0x00545490, 0x00545540, 0x00545620, 0x005475C0, 0x00547750, 0x00548100, 0x00548140). 0x005480A1 / 0x005480B4 are PartyMod's
 DLL-loading cave (not game code - see core/stubs.cpp). The range holds: the GameSpy lobby (GameNet::LobbyMan, the
 manager's +0x10), the players (GameNet::PlayerInfo / NewPlayerInfo), the capture-the-flag and crown announcements,
 the score list, the server list (the manager's server browsing, ServerInfo), PostGame / the MOTD download, the buddy
 messages and lobby status, and some linker-folded getters.
 
 Shared files touched (small, additive): CMakeLists.txt (new sources / tests), src/game/skate/profile_manager.{h,cpp}
-(CSkaterProfile::DestroyBody, 0x00543010 - its address is in this range).
+(CSkaterProfile::DestroyBody, 0x00543010 - its address is in this range), gamenet_manager.h (Manager member
+declarations), buddy_man.h (five BuddyMan declarations), online_identity.{h,cpp} + selftests_pc.cpp +
+tools/check_code_writes.ts (two name sites dropped; merged with NET4's change: 3 sites left).
+
+Note for the merge with NET2 (0x00540000-0x00541870): GameNet::LobbyMan's layout and the lobby callbacks are
+declared in src/game/net/lobby.h here; NET2's part of the class (0x00540xxx: its destructor body, menu items, the
+connecting thread, tasks) is called by address from lobby.cpp - one class definition should stay when merging.
 
 ## Batches
 
@@ -175,5 +181,48 @@ Shared files touched (small, additive): CMakeLists.txt (new sources / tests), sr
     or not, direct or not -, updates, removal, clearing, an unknown message). 51 deliberate bugs: 50 caught (2 after
     strengthening: ping 9998, a reply of 0xE1 bytes); 1 equivalent (AddServerToMenu's index again).
   - Untested without a live connection: what GameSpy's server browser really returns.
-- [ ] Next: the buddy messages and lobby status (0x00548100 / 0x00548140 - not Ghidra functions - and
-  0x00548200-0x00548560) and the folded getters 0x005480B0-0x005480F0.
+- [x] Batch NET3-6 (NOT run in the game yet; the buddy list's requests, messages and status, the folded getters):
+  src/game/net/buddy_status.{h,cpp} (new); buddy_man.h (NET4's class: five member declarations added). 19 functions.
+  - BuddyMan: OnBuddyRequest 0x00548100 (not a Ghidra function: gpAuthBuddyRequest 0x006001A0 for the request's
+    profile), LoginThread 0x00548140 (not a Ghidra function: gpConnect 0x005FFDE0 for "proskater" with the
+    profile_email / profile_password preferences, or the command line's 0x007CCA90 / 0x007CCB90 when 0x007CC260 or
+    0x007CCA80 is set; NET4's OnConnectNewUser for the answer), SendBuddyMessage 0x00548200 ("<network_id>\n<text>"
+    to gpSendBuddyMessage 0x006005D0), SetLoggedIn 0x005482A0 (NET4's buddy_man.cpp calls it by address as
+    LoggedIn: our member is SetLoggedIn so the names don't clash; profile_logged_in, status online "logging in"),
+    SetStatus 0x00548320 (gpSetStatus 0x00600330).
+  - The commands ProfileLoggedIn 0x00548360, SendBuddyMessage 0x00548370 (false for no / an empty string),
+    SetLobbyStatus 0x005483E0 (chatting in the lobby).
+  - The list types: Lst::Search<Buddy> 0x005480D0 / 0x00548440, Lst::Search<BuddyMessage> 0x005480E0 / 0x00548470,
+    Lst::Node<Buddy> 0x005484A0 / 0x005484E0, Lst::Node<BuddyMessage> 0x005484C0 / 0x00548520 (NET4 calls the two
+    node bodies by address).
+  - The linker-folded getters (4 bytes: source only) 0x005480B0 (byte +0x10), 0x005480C0 (word +4, 203 callers),
+    0x005480F0 (word +0x18), as GameNet::FoldedGetters.
+  - Test TestNetBuddyStatus (src/hook/selftests_net_buddy_status.cpp). 21 deliberate bugs: all caught (3 after
+    strengthening: the logged-in flag recorded raw, the status texts in separate buffers, a node freed with flag 1).
+  - Untested without a live connection: GP itself.
+
+## The range at the end
+
+- find_gaps.py: the only un-replaced functions in 0x00541870-0x00548560 are 0x005480A1 / 0x005480B4 - PartyMod's
+  DLL-loading code cave in THUG2PM.exe's padding (int3 bytes in the stock THUG2.exe; our WinMain never reaches it),
+  not game code. The range has 134 Ghidra functions (2 done before this agent: 0x00545880, 0x005480A0; 2 the cave)
+  and 11 functions Ghidra never made (0x00542330, 0x00542B70, 0x00542B80, 0x00543110, 0x00545490, 0x00545540,
+  0x00545620, 0x005475C0, 0x00547750, 0x00548100, 0x00548140): this agent wrote 141 (130 + 11); 143 of the range's
+  addresses are REPLACEd now.
+- scan_register_assumptions: no new RISK; audit_game_function_calls: no MISMATCH; check_code_writes: "No overlaps"
+  (23 writes: the name sites are 3 now - NET4 took out the stats SDK's, this branch peerSetTitle's two).
+- service.cpp (Net::ServiceTask) still starts the news / MOTD threads by their game addresses (0x00545540 /
+  0x00545620), which the hooks send to NewsThread / MotdThread; lobby.cpp passes our callbacks to GameSpy.
+
+## What to try online by hand (the user; agents never go online)
+
+1. Internet: log in to a profile (presence), open the lobby list, choose a lobby (Beenox on OpenSpy): the player
+   list fills, players joining / leaving show in the console, ranks appear; the server list fills and refreshes;
+   focus a server: its description (ping, mode, skill, level, ranked, players with ranks); join one; leave the lobby.
+2. Host a game: PostGame / the hosting status; buddies see "hosting" and can join.
+3. Send a buddy message; the status "chatting" in the lobby.
+4. LAN: the server list finds a LAN host (two machines), its description, joining.
+5. A network game: the score list (net_score_1..8) in free skate, king of the hill (times), capture the flag
+   (flag messages, carriers marked with \s0-\s3), firefight (eliminated players dropped from the list), the crown.
+To switch the work off: [replacements] disable= player_info.cpp, player_flags.cpp, score_list.cpp, lobby.cpp,
+server_list.cpp, server_browser.cpp, buddy_status.cpp (and profile_manager.cpp's 0x00543010 by address).

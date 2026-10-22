@@ -122,6 +122,20 @@ public:
     // preferences. Returns 0.
     static unsigned long __stdcall CreateProfileThread(void* man);
 
+    // --- buddy_status.cpp (0x00548100-0x00548560) ---
+    // 0x00548100 (GP's buddy request callback): the request accepted (gpAuthBuddyRequest, 0x006001A0).
+    static void __cdecl OnBuddyRequest(void* connection, const void* arg, BuddyMan* man);
+    // 0x00548140 (thread, stdcall): gpConnect for nick "proskater" with the profile_email / profile_password
+    // preferences (or the command line's, 0x007CCA90 / 0x007CCB90, when 0x007CC260 or 0x007CCA80 is set),
+    // OnConnectNewUser for the answer. Returns 0.
+    static unsigned long __stdcall LoginThread(void* man);
+    // 0x00548200: "<our network_id>\n<text>" sent to `profile` (gpSendBuddyMessage, 0x006005D0).
+    void SendBuddyMessage(int profile, const char* text);
+    // 0x005482A0: logged in as `profile` (state 4): profile_logged_in, the status online ("logging in").
+    void SetLoggedIn(int profile);
+    // 0x00548320: the presence status (gpSetStatus, 0x00600330: status, its text, the location).
+    void SetStatus(int status, const char* text, const char* location);
+
     void* m_connection;       // +0x00 GPConnection (this object is passed as its address)
     int m_profile;            // +0x04 the logged-in profile id
     int m_state;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in

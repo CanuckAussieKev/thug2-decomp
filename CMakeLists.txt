@@ -363,6 +363,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_net_scores.cpp
     src/hook/selftests_net_lobby.cpp
     src/hook/selftests_net_servers.cpp
+    src/hook/selftests_net_buddy_status.cpp
     src/hook/selftests_skater_walk.cpp
     src/hook/selftests_skater_walk2.cpp
     src/hook/selftests_thugpro.cpp
@@ -663,6 +664,7 @@ add_library(thug2_code OBJECT
     src/game/net/lobby.cpp
     src/game/net/server_list.cpp
     src/game/net/server_browser.cpp
+    src/game/net/buddy_status.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
     src/game/ed/upper_menu.cpp
