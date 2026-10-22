@@ -55,29 +55,18 @@ struct GridDims {
     uint8_t h;
     uint8_t l;
 
-    // 0x005901B0 (the constructor; inline here)
     static GridDims Make(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t h, uint8_t l) { return {x, y, z, w, h, l}; }
-    GridDims* Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_)
-    {
-        x = x_;
-        y = y_;
-        z = z_;
-        w = w_;
-        h = h_;
-        l = l_;
-        return this;
-    }
+    // 0x005901B0 (the constructor): returns this. (park_pieces.cpp, like the rest.)
+    GridDims* Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_);
     // 0x005901E0: byte `index` (x y z w h l)
     uint8_t& operator[](int index) { return reinterpret_cast<uint8_t*>(this)[index]; }
-    uint8_t* Byte(int index) { return reinterpret_cast<uint8_t*>(this) + index; }
+    uint8_t* Byte(int index);
     // 0x005901F0: make the box reach the top of the world (h = 127 - y)
-    void MakeInfiniteOnY() { h = static_cast<uint8_t>(0x7F - y); }
+    void MakeInfiniteOnY();
     // 0x00590200: every height (-100 up 200)
-    void MakeInfinitelyHigh()
-    {
-        y = -100;
-        h = 200;
-    }
+    void MakeInfinitelyHigh();
+    // 0x00590210: debug output ("pos=(x,y,z) dims=(w,h,l)")
+    void PrintContents() const;
 };
 static_assert(sizeof(GridDims) == 6, "passed by value in two stack slots");
 
@@ -192,21 +181,109 @@ static_assert(offsetof(CMetaPiece, m_flags) == 0x0C && offsetof(CMetaPiece, m_de
                   offsetof(CMetaPiece, m_name_checksum) == 0x38 && sizeof(CMetaPiece) == 0x3C,
               "layout must match the original");
 
-// A piece of the scene (what a metapiece is made of).
+// A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds share the first 0x10 bytes: a source
+// piece (CSourcePiece, kSource: one of the park editor's own sectors, loaded once - its name and size) and a cloned
+// piece (kCloned: a copy of a source's sector put in the park's scene - this class's layout). Vtable slot 0: the
+// size (GetDims); slot 1: the scalar deleting destructor.
 class CPiece {
 public:
-    // 0x00590670: put it at `position` (and move its scene object if `update`)
-    void SetPosition(Mth::Vector* position, int update)
-    {
-        GameFunction<void(__thiscall*)(CPiece*, Mth::Vector*, int)>(0x00590670)(this, position, update);
-    }
-    // 0x00590260: turn it to `rot` quarter turns (and its scene object if `update`)
-    void SetRot(int rot, int update) { GameFunction<void(__thiscall*)(CPiece*, int, int)>(0x00590260)(this, rot, update); }
-    // 0x005904C0: its size in cells
-    void GetCellDims(GridDims* dims) { GameFunction<void(__thiscall*)(CPiece*, GridDims*)>(0x005904C0)(this, dims); }
+    enum : uint32_t {
+        kSource = 0x1,       // a CSourcePiece
+        kCloned = 0x2,       // a cloned piece
+        kNotListed = 0x4,    // (from CreatePiece's flags) not in the generator's list
+        kInPark = 0x8,       // in the generator's list (AddPiece)
+        kInnerShell = 0x20,  // (from CreatePiece's flags) the floor / shell the park builds itself
+        kShowable = 0x40,    // shown and hidden by CParkGenerator::SetPiecesVisible
+        kNoRails = 0x100,    // (from CreatePiece's flags)
+        kCursor = 0x200,     // (from CreatePiece's flags) the cursor's piece
+        kRailPiece = 0x400,  // a source piece listed as a rail piece (ReadPieceFlags)
+        kFlag800 = 0x800,    // ... and flagged 0x68910AC6 there
+        kFloorLocked = 0x4000, // a source piece of one of four types (ReadPieceFlags)
+    };
+    static constexpr uint32_t kVtable = 0x0064F3B4;
 
-    uint8_t unknown00[0x28];
-    int m_rot; // +0x28
+    void** m_vtable;
+    uint32_t m_sectorChecksum; // +0x04: its sector (a source piece's: its name)
+    uint32_t m_flags;          // +0x08
+    CPiece* mp_next;           // +0x0C: the generator's list (pieces or sources)
+    // A cloned piece's (a source piece has its size here: CSourcePiece).
+    int m_cloneIndex;          // +0x10: the generator's count when it was made
+    CPiece* mp_source;         // +0x14
+    Mth::Vector m_pos;         // +0x18
+    int m_rot;                 // +0x28: quarter turns
+
+    // Vtable slot 0: its size (a cloned piece's turned by its rotation); returns `out`
+    Mth::Vector* GetDims(Mth::Vector* out)
+    {
+        return reinterpret_cast<Mth::Vector*(__thiscall*)(CPiece*, Mth::Vector*)>(m_vtable[0])(this, out);
+    }
+    // Vtable slot 1: the scalar deleting destructor
+    void Delete() { reinterpret_cast<void(__thiscall*)(CPiece*, int)>(m_vtable[1])(this, 1); }
+
+    // 0x00590240: the destructor's body (only the vtable)
+    void DestroyBody();
+    // 0x00590490: the scalar deleting destructor (freed if `flags` bit 0). Returns this.
+    CPiece* Destroy(unsigned int flags);
+    // 0x00590250 (folded with other +0x10 getters)
+    int GetCloneIndex();
+    // 0x00590670: put it at `position` (and move its sector if `update` is 1)
+    void SetPosition(Mth::Vector* position, int update);
+    // 0x00590260: turn it to `rot` quarter turns (and its sector if `update` is 1)
+    void SetRot(int rot, int update);
+    // 0x00590290: its sector drawn and collided with (or neither)
+    void SetActive(bool active);
+    // 0x005902B0: its sector shown in every viewport (or none)
+    void SetVisible(bool visible);
+    // 0x005904C0: its size in cells (w h l; the rest of `dims` as it was)
+    void GetCellDims(GridDims* dims);
+    // 0x00590530: its source's size with x and z swapped for an odd `rot`; returns `out`
+    Mth::Vector* GetDimsTurned(Mth::Vector* out, int rot);
+    // 0x005906B0: its sector stretched to `length` along its own x (z when turned a quarter)
+    void SetLength(float length);
+    // 0x00591510: its sector's geometry turned `degrees` about y
+    void SetAngle(float degrees);
+    // 0x00591600: its sector's geometry tinted (purple for a gap's piece) or back to normal
+    void SetHighlight(bool on, bool gap);
+};
+static_assert(offsetof(CPiece, m_cloneIndex) == 0x10 && offsetof(CPiece, mp_source) == 0x14 &&
+                  offsetof(CPiece, m_pos) == 0x18 && offsetof(CPiece, m_rot) == 0x28 && sizeof(CPiece) == 0x2C,
+              "layout must match the original (a cloned piece: 0x2C bytes)");
+
+// A source piece (0x30 bytes): one of the park editor's sectors, which the park's pieces are cloned from.
+class CSourcePiece {
+public:
+    static constexpr uint32_t kVtable = 0x0064F3C8;
+
+    void** m_vtable;
+    uint32_t m_sectorChecksum; // +0x04: its name
+    uint32_t m_flags;          // +0x08 (kSource)
+    CPiece* mp_next;           // +0x0C
+    Mth::Vector m_dims;        // +0x10: its size
+    int m_20;                  // +0x20 (1)
+    uint32_t m_type;           // +0x24: its type, from the piece list (ReadPieceFlags)
+    int m_28;
+    int m_2C;
+
+    CPiece* AsPiece() { return reinterpret_cast<CPiece*>(this); }
+    // 0x005905C0: an empty source piece. Returns this.
+    CSourcePiece* Construct();
+    // 0x00590600 (vtable slot 0): its size; returns `out`
+    Mth::Vector* GetDims(Mth::Vector* out);
+    // 0x00590640 (vtable slot 1, also the cloned piece's): the scalar deleting destructor. Returns this.
+    CSourcePiece* Destroy(unsigned int flags);
+};
+static_assert(offsetof(CSourcePiece, m_dims) == 0x10 && offsetof(CSourcePiece, m_type) == 0x24 &&
+                  sizeof(CSourcePiece) == 0x30,
+              "layout must match the original");
+
+// A cloned piece's own functions (its layout is CPiece's).
+class CClonedPiece : public CPiece {
+public:
+    static constexpr uint32_t kVtable = 0x0064F3D0;
+    // 0x00590620: an empty cloned piece. Returns this.
+    CClonedPiece* Construct();
+    // 0x00590710 (vtable slot 0): the source's size, x and z swapped when turned a quarter; returns `out`
+    Mth::Vector* GetDims(Mth::Vector* out);
 };
 
 // A node of a metapiece list (12 bytes, pooled: the pool pair 0x007CE5F0).
