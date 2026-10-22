@@ -151,6 +151,29 @@ Shared files touched (small, additive): CMakeLists.txt (new sources / tests), sr
     54 deliberate bugs: 53 caught (5 after strengthening: the delete flag, the pending refresh recorded, the 3000 ms
     edge, the states after each thread); 1 equivalent (AddServerToMenu's index - unused).
   - Untested without a live connection: the downloads and the server browser themselves.
-- [ ] Next: describing / choosing servers and the browser callbacks (0x00546790 DescribeServer, 0x005470D0
-  ChooseServer, 0x005475C0 the LAN server reply, 0x00547750 the server browser callback, 0x00547FA0
-  RetrieveServerInfo), then the buddy messages and lobby status (0x00548200-0x00548560) and the folded getters.
+- [x] Batch NET3-5 (NOT run in the game yet; describing / choosing servers, the browsing callbacks):
+  src/game/net/server_browser.cpp (new), server_list.h. 5 functions.
+  - DescribeServer 0x00546790 (destroy_server_desc_children, then net_game_info_add_item lines: game in progress,
+    auto serve / first come first served, ping - "..." for 9999 -, mode, skill - skill_level_info[skill]'s name -,
+    level, ranked yes / no on the internet; net_game_info_update_player_title ": n/max"; net_game_info_add_player
+    per player with its rank - one past the players a null name, printed "(null)" by both C runtimes).
+  - ChooseServer 0x005470D0 (full for how we join - players / observers -: CreateJoinRefusedDialog with
+    net_reason_full / net_reason_full_observers, the join-state task removed; else net_chosen_join_server with the
+    port, address - inet_ntoa -, MaxPlayers and a random cookie for a server only NAT negotiation reaches;
+    presence told the server's name, 0x0053F830).
+  - RetrieveServerInfo 0x00547FA0 (LAN: true; the full details here: true; else asked of GameSpy, 0x005FCA60:
+    false).
+  - HandleServerResponse 0x005475C0 (not a Ghidra function: the server-list client's handler of a LAN server's
+    224-byte reply - the join-by-address search notes the address; a new server goes to the waiting servers with
+    the reply's details and players; 4 = done for another size or a known server, else 1).
+  - ListingGamesCallback 0x00547750 (not a Ghidra function: GameSpy's game listing callback - add / update /
+    remove / clear, as described in the source; the address chosen from the SBServer's public / private addresses).
+    The test found a first-draft bug here: on failure the original calls the lobby's 0x0053F870 (it sets the lobby's
+    +0x137) - added.
+  - Test: TestNetServers' new cases (describing over three variants, choosing over five, retrieving, LAN replies of
+    several sizes and a known server, the listing callback over six SBServer kinds - same network, private address
+    or not, direct or not -, updates, removal, clearing, an unknown message). 51 deliberate bugs: 50 caught (2 after
+    strengthening: ping 9998, a reply of 0xE1 bytes); 1 equivalent (AddServerToMenu's index again).
+  - Untested without a live connection: what GameSpy's server browser really returns.
+- [ ] Next: the buddy messages and lobby status (0x00548100 / 0x00548140 - not Ghidra functions - and
+  0x00548200-0x00548560) and the folded getters 0x005480B0-0x005480F0.

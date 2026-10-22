@@ -13,6 +13,8 @@
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/task.h"
+#include "game/mth/random.h"
+#include "game/net/net_conn.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/lobby.h"
 #include "game/net/net_dispatcher.h"
@@ -155,6 +157,9 @@ void Install(StandIns& s)
     });
 }
 
+void InstallBrowsing(StandIns& s);
+uint32_t g_rnd;
+
 using Scenario = void (*)(bool original);
 
 void RunCase(const char* what, Scenario scenario)
@@ -198,6 +203,10 @@ void RunCase(const char* what, Scenario scenario)
         GameVariable<uint8_t>(0x007CE441) = 0;
         StandIns* s = new StandIns;
         Install(*s);
+        InstallBrowsing(*s);
+        g_rnd = 7;
+        GameVariable<uint32_t>(0x007CCA84) = 0;
+        GameVariable<uint8_t>(0x007CCA88) = 0;
         scenario(original);
         Rec(0xC10B, {GameVariable<uint32_t>(0x007CE444), GameVariable<uint32_t>(0x007CE448),
                      GameVariable<uint8_t>(0x007CE44C), GameVariable<uint32_t>(0x007CE450)});
@@ -433,15 +442,259 @@ void Downloads(bool original)
     deliver(0, "NewsNews", "ab", true, 0);
 }
 
+// --- the browsing (server_browser.cpp) ---
+
+constexpr uint32_t kSb = 0x16600; // SBServer stand-ins, 0x40 apart (6): +0 ping, +4 direct, +8 public ip, +0xC private
+                                  // ip, +0x10 has private, +0x14 port, +0x18 basic keys, +0x1C full keys, +0x20 players
+constexpr uint32_t kContext = 0x16800; // a message context (0x100) and its reply (kContext + 0x100, 0xE0)
+
+uint32_t Count(Mem::ListNode* head)
+{
+    uint32_t count = 0;
+    for (Mem::ListNode* node = head->next; node != head; node = node->next)
+        ++count;
+    return count;
+}
+uint32_t SbAt(int i) { return kSb + 0x40 * static_cast<uint32_t>(i); }
+uint32_t SbField(uint32_t sb, uint32_t offset) { return *reinterpret_cast<uint32_t*>(sb + offset); }
+
+void InstallBrowsing(StandIns& s)
+{
+    s.At({0x00476950, AddressOf(static_cast<bool (Script::CStruct::*)(uint32_t, uint32_t*, int)>(&Script::CStruct::GetChecksum))},
+         12, [](Regs& r) {
+             Rec(0x6950, {r.ecx, r.args[0], r.args[2]});
+             *reinterpret_cast<uint32_t*>(r.args[1]) = Word<uint32_t>(kScript + 0x90); // (the id asked for)
+             return 1u;
+         });
+    StubCdecl(s, {0x00479070, AddressOf(static_cast<Script::CArray* (*)(uint32_t)>(&Script::GetArray))}, 0x9070, 1,
+              [](Regs&) { return At(kPrefs + 0x20); });
+    Stub(s, {0x0046CC30, AddressOf(&Script::CArray::GetElement)}, 4, 0xCC30, [](Regs&) { return At(kPrefs + 0x30); });
+    Stub(s, {0x0053F830}, 4, 0xF830);
+    Stub(s, {0x0053F870}, 0, 0xF870);
+    s.At({0x005BEAB4}, 4, [](Regs& r) {
+        Rec(0xEAB4, {r.args[0]});
+        char* text = &Word<char>(kMisc + 0xE80);
+        std::snprintf(text, 32, "ip%08X", r.args[0]);
+        return reinterpret_cast<uint32_t>(text);
+    });
+    StubCdecl(s, {0x00403DE0, AddressOf(&Mth::Rnd)}, 0x3DE0, 1, [](Regs&) { return g_rnd++; });
+    s.At({0x0054B6B0}, 4, [](Regs& r) {
+        Mem::ListNode* head = reinterpret_cast<Mem::ListNode*>(r.args[0]);
+        Mem::ListNode* node = head->next->data == reinterpret_cast<void*>(-1) ? nullptr : head->next;
+        reinterpret_cast<uint32_t*>(r.ecx)[1] = reinterpret_cast<uint32_t>(node);
+        Rec(0xB6B0, {r.args[0]});
+        return node ? reinterpret_cast<uint32_t>(node->data) : 0u;
+    });
+    s.At({0x0047DD10}, 0, [](Regs& r) {
+        Mem::ListNode* head = reinterpret_cast<Mem::ListNode*>(r.ecx);
+        uint32_t count = 0;
+        for (Mem::ListNode* node = head->next; node != head; node = node->next)
+            ++count;
+        Rec(0xDD10, {r.ecx, count});
+        return count;
+    });
+    // GameSpy's server browsing.
+    auto field = [&s](uint32_t address, uint32_t tag, uint32_t offset) {
+        StubCdecl(s, {address}, tag, 1, [offset](Regs& r) { return SbField(r.args[0], offset); });
+    };
+    field(0x005FF410, 0xF410, 0x00);
+    field(0x005FEF30, 0xEF30, 0x04);
+    field(0x00603360, 0x3360, 0x08);
+    field(0x005FEF70, 0xEF70, 0x0C);
+    field(0x005FEF50, 0xEF50, 0x10);
+    field(0x005FEF00, 0xEF00, 0x14);
+    field(0x005FEEC0, 0xEEC0, 0x18);
+    field(0x005FEEE0, 0xEEE0, 0x1C);
+    StubCdecl(s, {0x005FC940}, 0xC940, 1, [](Regs&) { return 0x0A0B0C0Du; });
+    StubCdecl(s, {0x005FCA60}, 0xCA60, 3);
+    StubCdecl(s, {0x005FED50}, 0xED50, 1, [](Regs& r) {
+        Rec(0xED51, {Text(r.args[1]), Text(r.args[2])});
+        char* text = &Word<char>(kMisc + 0xEC0);
+        std::snprintf(text, 32, "%s-%u", reinterpret_cast<const char*>(r.args[1]), (r.args[0] - At(kSb)) / 0x40);
+        return reinterpret_cast<uint32_t>(text);
+    });
+    s.At({0x005FF560}, 0, [](Regs& r) {
+        Rec(0xF560, {Rel(r.args[0]), Text(r.args[1]), r.args[2]});
+        uint32_t h = Hash(reinterpret_cast<const char*>(r.args[1]));
+        if (h == Hash("numplayers"))
+            return SbField(r.args[0], 0x20);
+        return (h & 0x7) + ((r.args[0] - At(kSb)) / 0x40);
+    });
+    s.At({0x005FEDD0}, 0, [](Regs& r) {
+        Rec(0xEDD0, {Rel(r.args[0]), Text(r.args[1]), r.args[2]});
+        return (Hash(reinterpret_cast<const char*>(r.args[1])) >> 3) & 1;
+    });
+    s.At({0x005FF5C0}, 0, [](Regs& r) {
+        Rec(0xF5C0, {Rel(r.args[0]), r.args[1], Text(r.args[2]), r.args[3]});
+        return 1000 + 500 * r.args[1];
+    });
+    s.At({0x005FEE30}, 0, [](Regs& r) {
+        Rec(0xEE30, {Rel(r.args[0]), r.args[1], Text(r.args[2]), Text(r.args[3])});
+        char* text = &Word<char>(kMisc + 0xF00 + 0x20 * (r.args[1] & 3));
+        std::snprintf(text, 32, "Player%u", r.args[1]);
+        return reinterpret_cast<uint32_t>(text);
+    });
+}
+
+void Describing(bool original)
+{
+    for (uint32_t i = 0; i < 0x10; ++i)
+        Word<uint32_t>(kPrefs + 0x20 + 4 * i) = 0; // (the skill array and its structure: stand-ins)
+    MakeServer(original, 0, 0x158, "Alpha", 0x04030201);
+    CallVoid(original, 0x00545790, &ServerInfo::AddPlayer, Server(0), "One", 100);
+    CallVoid(original, 0x00545790, &ServerInfo::AddPlayer, Server(0), "Two", 99999);
+    Server(0)->m_numPlayers = 3; // (one past the players: a null name)
+    Server(0)->m_maxPlayers = 6;
+    Server(0)->m_ping = 9999;
+    Word<uint32_t>(kScript + 0x90) = At(ServerAt(0));
+    using CFuncAt = void (*)(bool);
+    struct Variant {
+        bool started;
+        int hostMode;
+        int ping;
+        bool internet;
+        bool ranked;
+    };
+    for (const Variant& v : {Variant{true, 1, 9999, false, false}, Variant{false, 2, 120, true, true},
+                             Variant{false, 3, 9998, true, false}}) {
+        Server(0)->m_started = v.started;
+        Server(0)->m_hostMode = v.hostMode;
+        Server(0)->m_ping = v.ping;
+        Server(0)->m_ranked = v.ranked;
+        Server(0)->m_skillLevel = static_cast<int8_t>(v.hostMode);
+        Word<uint8_t>(kManager) = v.internet ? 4 : 0;
+        Word<uint32_t>(kScript + 0x90) = v.internet ? At(kMisc + 0xB00) : At(ServerAt(0));
+        RunCFunc(original, 0x00546790, GameNet::CFunc_DescribeServer);
+    }
+    // Choosing: to play (full / not), to watch (full / not), another mode; reachable or not; logged in or not.
+    Word<uint8_t>(kManager) = 0;
+    Word<uint32_t>(kScript + 0x90) = At(ServerAt(0));
+    Word<uint32_t>(kManager + 0xE4) = At(kTasks + 0xC0);
+    struct Choice {
+        int joinMode;
+        int players, maxPlayers, observers, maxObservers;
+        bool reach;
+        bool loggedIn;
+    };
+    for (const Choice& c : {Choice{0, 6, 6, 0, 0, true, true}, Choice{0, 5, 6, 9, 0, false, true},
+                            Choice{1, 9, 0, 2, 2, true, false}, Choice{1, 9, 0, 1, 2, true, true},
+                            Choice{2, 9, 0, 9, 0, false, false}}) {
+        Word<int>(kManager + 0x3C) = c.joinMode;
+        Server(0)->m_numPlayers = c.players;
+        Server(0)->m_maxPlayers = c.maxPlayers;
+        Server(0)->m_numObservers = c.observers;
+        Server(0)->m_maxObservers = c.maxObservers;
+        Server(0)->m_canReach = c.reach;
+        Server(0)->m_port = 5153 + c.joinMode;
+        Word<uint8_t>(kBuddies + 0x10) = c.loggedIn ? 1 : 0;
+        RunCFunc(original, 0x005470D0, GameNet::CFunc_ChooseServer);
+    }
+    // Retrieving: LAN (nothing), details here, asked for.
+    Word<uint8_t>(kManager) = 8;
+    RunCFunc(original, 0x00547FA0, GameNet::CFunc_RetrieveServerInfo);
+    Word<uint8_t>(kManager) = 4;
+    Word<uint32_t>(kScript + 0x90) = At(kMisc + 0xB00);
+    Server(0)->m_detailed = true;
+    RunCFunc(original, 0x00547FA0, GameNet::CFunc_RetrieveServerInfo);
+    Server(0)->m_detailed = false;
+    Server(0)->m_chosen = false;
+    RunCFunc(original, 0x00547FA0, GameNet::CFunc_RetrieveServerInfo);
+    Rec(0x8B, {Server(0)->m_chosen ? 1u : 0u});
+}
+
+void LanReplies(bool original)
+{
+    auto* context = &Word<Net::MsgHandlerContext>(kContext);
+    char* reply = &Word<char>(kContext + 0x100);
+    auto handle = [&](uint32_t length) {
+        std::memset(context, 0, sizeof(Net::MsgHandlerContext));
+        context->m_Msg = reply;
+        context->m_MsgLength = length;
+        context->m_Conn = &Word<Net::Conn>(kConn);
+        context->m_data = TheManager();
+        using ReplyHandler = int(__cdecl*)(Net::MsgHandlerContext*);
+        int r = original ? Original<ReplyHandler>(0x005475C0)(context) : GameNet::HandleServerResponse(context);
+        Rec(0x75C0, {static_cast<uint32_t>(r), GameVariable<uint32_t>(0x007CCA84), GameVariable<uint8_t>(0x007CCA88)});
+    };
+    std::memset(reply, 0, 0xE0);
+    const int8_t numbers[8] = {3, 8, 1, 4, 1, 0, 2, 5};
+    std::memcpy(reply, numbers, 8);
+    std::memcpy(reply + 0x08, "LanServer", 10);
+    std::memcpy(reply + 0x18, "Level", 6);
+    std::memcpy(reply + 0x38, "Mode", 5);
+    reply[0x58] = -2;
+    Word<uint32_t>(kContext + 0x100 + 0x5C) = g_now - 37;
+    for (int i = 0; i < 3; ++i)
+        std::snprintf(reply + 0x60 + 0x10 * i, 16, "LanPlayer%d", i);
+    Word<uint32_t>(kConn + 0x40) = 0xC0A80005;
+    handle(0xDF);
+    handle(0xE1);
+    GameVariable<uint32_t>(0x007CCA84) = 0x11223344; // (joining by address)
+    GameVariable<uint8_t>(0x007CCA88) = 0;
+    handle(0xE0);
+    handle(0xE0); // known now
+    GameVariable<uint32_t>(0x007CCA84) = 0;
+    reply[0] = 0;
+    std::memcpy(reply + 0x08, "Other", 6);
+    handle(0xE0);
+}
+
+void Listing(bool original)
+{
+    using Callback = void(__cdecl*)(void*, int, const char*, void*, int, int, int, Manager*);
+    auto call = [&](int success, const char* name, int sb, int message) {
+        void* server = sb >= 0 ? &Word<uint8_t>(SbAt(sb)) : nullptr;
+        void* peer = &Word<uint8_t>(kMisc + 0xA00);
+        original ? Original<Callback>(0x00547750)(peer, success, name, server, 0, message, 50, TheManager())
+                 : GameNet::ListingGamesCallback(peer, success, name, server, 0, message, 50, TheManager());
+        Rec(0x7750, {static_cast<uint32_t>(message), static_cast<uint32_t>(Count(&Word<Mem::ListNode>(kManager + 0x158)))});
+    };
+    // The SBServers: same network; direct with a private address; direct without; not direct with / without.
+    const uint32_t sbs[6][9] = {{40, 1, 0x0A0B0C0D, 0xC0A80001, 0, 0x1500, 1, 0, 2},
+                                {50, 1, 0x01010101, 0xC0A80002, 1, 0x1501, 0, 1, 1},
+                                {60, 1, 0x02020202, 0xC0A80003, 0, 0x11502, 1, 1, 0},
+                                {70, 0, 0x03030303, 0xC0A80004, 1, 0x1503, 1, 0, 3},
+                                {80, 0, 0x04040404, 0xC0A80005, 0, 0x1504, 0, 0, 1},
+                                {90, 0, 0x05050505, 0, 0, 0x1505, 1, 1, 0}};
+    for (int i = 0; i < 6; ++i)
+        std::memcpy(&Word<uint8_t>(SbAt(i)), sbs[i], sizeof(sbs[i]));
+    call(0, "failed", 0, 0);
+    for (int i = 0; i < 5; ++i) {
+        char name[32];
+        std::snprintf(name, sizeof(name), i == 2 ? "AVeryLongServerName%d" : "Server%d", i);
+        call(1, name, i, 0);
+    }
+    call(1, "x", 0, 7); // (an unknown message)
+    // Updates: an unknown server; one shown now; one getting its full keys while chosen; another.
+    call(1, "Gone", 5, 1);
+    Word<uint32_t>(SbAt(1) + 0x18) = 1;
+    call(1, "Renamed1", 1, 1);
+    auto* first = reinterpret_cast<ServerInfo*>(Word<Mem::ListNode>(kManager + 0x158).next);
+    first->m_chosen = true;
+    Word<uint32_t>(SbAt(0) + 0x1C) = 1;
+    call(1, "Renamed0", 0, 1);
+    call(1, "Again0", 0, 1);
+    Word<uint32_t>(SbAt(4) + 0x20) = 2;
+    call(1, "Renamed4", 4, 1);
+    // Removed: one listed, one unknown; then cleared.
+    call(1, "", 3, 2);
+    call(1, "", 5, 2);
+    Word<uint8_t>(kManager) = 4;
+    call(1, "", -1, 3);
+}
+
 void TestNetServers()
 {
     SaveGlobals({{0x006EFDD8, 4, {}}, {0x00696D68, 4, {}}, {0x007CE444, 4, {}}, {0x007CE448, 4, {}}, {0x007CE44C, 1, {}},
-                 {0x007CE450, 4, {}}, {0x007CE441, 1, {}}});
+                 {0x007CE450, 4, {}}, {0x007CE441, 1, {}}, {0x007CCA84, 4, {}}, {0x007CCA88, 1, {}}});
     RunCase("GameNet: the server list", Servers);
     RunCase("GameNet: the online service's states", States);
     RunCase("GameNet: browsing, refreshing, the list task", Browsing);
     RunCase("GameNet: the hosting status, PostGame, locations", Hosting);
     RunCase("GameNet: the news and message of the day", Downloads);
+    RunCase("GameNet: describing, choosing, retrieving a server", Describing);
+    RunCase("GameNet: LAN servers' replies", LanReplies);
+    RunCase("GameNet: GameSpy's game listing callback", Listing);
     Cleanup();
 }
 

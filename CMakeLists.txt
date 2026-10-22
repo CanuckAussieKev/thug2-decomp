@@ -662,6 +662,7 @@ add_library(thug2_code OBJECT
     src/game/net/score_list.cpp
     src/game/net/lobby.cpp
     src/game/net/server_list.cpp
+    src/game/net/server_browser.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
     src/game/ed/upper_menu.cpp

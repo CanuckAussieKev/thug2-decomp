@@ -9,6 +9,9 @@ namespace Script {
 class CScript;
 class CStruct;
 } // namespace Script
+namespace Net {
+struct MsgHandlerContext;
+} // namespace Net
 
 // The network manager's server list (0x005451B0-0x00548040): the servers found (on the LAN through the server-list
 // client, on the internet through GameSpy's server browser - the SDK is a library, called by address), shown in
@@ -98,5 +101,17 @@ bool __cdecl IsThug2Location(const char* location);
 // The script commands.
 bool __cdecl CFunc_PostGame(Script::CStruct* params, Script::CScript* script);            // 0x00545440
 bool __cdecl CFunc_NumServersInLobby(Script::CStruct* params, Script::CScript* script);   // 0x00545F20
+
+// --- server_browser.cpp ---
+class Manager;
+// 0x00546790 / 0x005470D0 / 0x00547FA0: the chosen server described / joined / its details asked for (see the .cpp).
+bool __cdecl CFunc_DescribeServer(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_ChooseServer(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_RetrieveServerInfo(Script::CStruct* params, Script::CScript* script);
+// 0x005475C0: the server-list client's handler for a LAN server's reply (a Net message handler).
+int __cdecl HandleServerResponse(Net::MsgHandlerContext* context);
+// 0x00547750: GameSpy's game listing callback (add / update / remove / clear), the manager its parameter.
+void __cdecl ListingGamesCallback(void* peer, int success, const char* name, void* sb, int staging, int message,
+                                  int progress, Manager* manager);
 
 } // namespace GameNet
