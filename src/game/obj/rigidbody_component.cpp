@@ -709,7 +709,7 @@ void __cdecl AddRigidBodyPusher(CCompositeObject* object)
         if (pushers[i].mp_object)
             continue;
         pushers[i].Set(object);
-        GameVariable<int[8]>(0x006939B0)[i] = 0;
+        GameVariable<float[8]>(0x006939B0)[i] = 0.0f; // (its extra reach: SetRigidBodyPusherReach)
         return;
     }
 }

@@ -1,6 +1,6 @@
 // Self-tests for the lockobj component's construction, destruction and the lock's update
 // (src/game/obj/lock_obj_update.cpp: 0x0041FF20, 0x0041F500, 0x0041F400, 0x0041F440, 0x0041F760) and the model
-// component's quaternion and vector rotations (src/game/mth/quaternion.cpp: 0x00420140, 0x00420A50, 0x00420A90,
+// component's quaternion and vector rotations (src/game/mth/quat.cpp: 0x00420140, 0x00420A50, 0x00420A90,
 // 0x00420AC0, 0x00420B50, 0x00421440): the original and ours, every call into the rest of the game stood in for and
 // recorded (the object lookup, the components, the skeleton's bones, the model's matrix, the clock, memory).
 
@@ -14,7 +14,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/quaternion.h"
+#include "game/mth/quat.h"
 #include "game/mth/vector.h"
 #include "game/obj/lock_obj.h"
 #include "game/obj/object.h"

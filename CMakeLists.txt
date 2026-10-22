@@ -857,7 +857,6 @@ add_library(thug2_code OBJECT
     src/game/mth/random.cpp
     src/game/mth/slerp.cpp
     src/game/mth/vector.cpp
-    src/game/mth/quaternion.cpp
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
     src/game/util/bps.cpp

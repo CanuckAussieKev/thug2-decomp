@@ -19,7 +19,7 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/controls.h"
-#include "game/skater/trick_queue.h"
+#include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
 #include "game/sio/inpman.h"
 #include "game/skater/skater.h"

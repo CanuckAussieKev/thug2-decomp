@@ -57,7 +57,7 @@ public:
     void NegateXRotateX90();
 
     // Turn by `angle` radians about the X / Y axis (the FPU's sine and cosine; w unchanged) - 0x00420A50 / 0x00420A90
-    // (src/game/mth/quaternion.cpp).
+    // (src/game/mth/quat.cpp).
     Vector& RotateAboutX(float angle);
     Vector& RotateAboutY(float angle);
     // 0x00421440: turn by `angle` radians about `axis` (through a quaternion: w becomes what Quat::Rotate leaves).

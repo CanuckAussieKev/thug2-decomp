@@ -277,7 +277,7 @@ static_assert(sizeof(CRigidBodyComponent::Spring) == 0x24 && sizeof(CRigidBodyCo
               "layout must match the original");
 
 // 0x0042E380: `object` (a skater) added to the objects rigid bodies feel (8 places, 0x00695150: the last free one
-// from the end; none free: nothing), its timer (0x006939B0) reset.
+// from the end; none free: nothing), its extra reach (0x006939B0) back to 0.
 void __cdecl AddRigidBodyPusher(CCompositeObject* object);
 // 0x0042BD60 (cdecl; skater.cpp's 0x005802C0): `object`'s extra reach as a pusher (0x006939B0, one float for each
 // of the 8) - nothing if it isn't one.

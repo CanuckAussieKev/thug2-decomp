@@ -1,7 +1,7 @@
-// The Trick component's tricks, button buffer and trick object list (Obj::CTrickComponent): see trick_queue.h. From
+// The Trick component's tricks, button buffer and trick object list (Obj::CTrickComponent): see trick_component.h. From
 // the disassembly of 0x00521BA0-0x00524411 (0x005222F0 and 0x005232E0 aren't Ghidra functions).
 
-#include "game/skater/trick_queue.h"
+#include "game/skater/trick_component.h"
 
 #include <cstdint>
 #include <cstring>
@@ -58,7 +58,7 @@ constexpr uint32_t kState = 0x30;           // SkaterState (+0x1C, +0xE0 a trick
 constexpr uint32_t kComponent34 = 0x34;     // 0x4FF8DAC6
 // The button buffer: 100 events of 0x18 bytes from +0x38 (+0 the time, +4 1 pressed / 2 released, +8 the button,
 // +0x14 the masks of who used it); +0x998 their count, +0x99A the newest's index.
-constexpr uint32_t kEvents = 0x38;
+constexpr uint32_t kEventRing = 0x38;
 constexpr uint32_t kEventCount = 0x998;
 constexpr uint32_t kEventNewest = 0x99A;
 constexpr uint32_t kButtonsHeld = 0xA18;    // (the balance trick's buttons: a count, then the buttons)
@@ -171,7 +171,7 @@ void ForRecentEvents(CTrickComponent* self, uint32_t period, Visit visit)
 {
     int index = At<uint16_t>(self, kEventNewest);
     for (int i = 0; i < At<uint16_t>(self, kEventCount); ++i) {
-        uint8_t* event = reinterpret_cast<uint8_t*>(self) + kEvents + index * 0x18;
+        uint8_t* event = reinterpret_cast<uint8_t*>(self) + kEventRing + index * 0x18;
         if (Tmr::GetTime() - At<uint32_t>(event, 0) >= period)
             break;
         visit(event);
@@ -252,9 +252,9 @@ void CTrickComponent::UpdateButtons()
     static const struct {
         int button;
         int bit;
-    } kButtons[] = {{9, 9},     {0xA, 0xB},  {0xC, 8},    {0xB, 0xA},  {0xD, 0xC},  {0xE, 0xE},  {0xF, 0x10},
-                    {0x10, 0xD}, {0x11, 0xF}, {0x12, 0x11}, {0x13, 0x16}, {0x14, 0x17}, {0x15, 0x18}};
-    for (const auto& b : kButtons)
+    } kButtonBits[] = {{9, 9},     {0xA, 0xB},  {0xC, 8},    {0xB, 0xA},  {0xD, 0xC},  {0xE, 0xE},  {0xF, 0x10},
+                       {0x10, 0xD}, {0x11, 0xF}, {0x12, 0x11}, {0x13, 0x16}, {0x14, 0x17}, {0x15, 0x18}};
+    for (const auto& b : kButtonBits)
         SetButton(this, b.button, bit(b.bit));
 }
 

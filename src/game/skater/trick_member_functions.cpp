@@ -1,5 +1,5 @@
 // The Trick component's script member functions (Obj::CTrickComponent::CallMemberFunction, 0x00523560, vtable
-// +0x30): see trick_queue.h.
+// +0x30): see trick_component.h.
 
 #include <cmath>
 #include <cstdint>
@@ -12,7 +12,7 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/skater/skater.h"
-#include "game/skater/trick_queue.h"
+#include "game/skater/trick_component.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -45,7 +45,8 @@ constexpr uint32_t kSpazzFactor = 0x679B2500, kX = 0x7323E97C, kSpinCountSlop = 
                    kSkaterExitCombo = 0x4B3CE1FE, kSkaterGap = 0x11B4C67F, kSkaterLanded = 0xC98BA111,
                    kSkaterBailed = 0x6045A960, kSkaterTrickDisplayed = 0x11D8BC9E, kSpin = 0xEDF5DB70,
                    kSpecial = 0xB394C01C, kDuration = 0x79A07F3F, kUsedBy = 0x9694FC41, kRegular = 0xB58EFC2B,
-                   kExtra = 0xB2C0F29A, kManual = 0xEF24413B, kUsedByEC066B6A = 0xEC066B6A, kButtons = 0xBCA37A49,
+                   kExtra = 0xB2C0F29A, kManual = 0xEF24413B, kUsedByEC066B6A = 0xEC066B6A,
+                   kButtonsName = 0xBCA37A49,
                    kOlderThan = 0xCDCFEE8A, kSlot = 0x53F1DF98, kTrick = 0x270F56E1, kNoQueue = 0x9E22D268,
                    kDeferred = 0x5C9B1765, kAddSpin = 0x83CB0082, kBlockspin = 0xC2150BB0, kNoDegrade = 0x3C24AC46,
                    kNoSpecial = 0x559BE3ED, kCat = 0x61A1BC57, kNatas = 0x7A57EB44, kNoMult = 0x62F7C401,
@@ -297,7 +298,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
     case kClearEventBuffer: {
         // buttons= with OlderThan=: each button's events (0x0051F610); else the whole buffer (0x0051EB00).
         Script::CArray* buttons = nullptr;
-        if (params->GetArray(kButtons, &buttons, 0)) {
+        if (params->GetArray(kButtonsName, &buttons, 0)) {
             int olderThan = 0;
             params->GetInteger(kOlderThan, &olderThan, 0);
             int count = static_cast<int>(buttons->m_size);
@@ -391,7 +392,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
     case kHeld: {
         // buttons=: whether any is held; else the unnamed button's state (0x0051ECF0).
         Script::CArray* buttons = nullptr;
-        if (params->GetArray(kButtons, &buttons, 0)) {
+        if (params->GetArray(kButtonsName, &buttons, 0)) {
             int count = static_cast<int>(buttons->m_size);
             for (int i = 0; i < count; ++i) {
                 if (At<bool>(this, kHeldButtons + Inp::ButtonIndex(buttons->GetElement(i))))
