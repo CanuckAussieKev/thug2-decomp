@@ -11,9 +11,18 @@
 
 #include "game/core/pool.h"
 #include "game/ed/park.h"
+#include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
+
+// Our replacement of a game function: stood in for too (our code calls it directly).
+inline uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? TestStandIns::Resolve(ours) : address;
+}
+
 
 using namespace ViewerTestKit;
 using Ed::CClipboard;
@@ -79,7 +88,7 @@ void Install(StandIns& s)
         reinterpret_cast<CMetaPiece*>(made)->m_flags = 0x11;
         return made;
     });
-    s.At({0x005907B0}, 4, [](Regs& r) {
+    s.At({0x005907B0, OursOf(0x005907B0)}, 4, [](Regs& r) {
         Rec(0x07B0, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -95,11 +104,11 @@ void Install(StandIns& s)
         Rec(0x1BE0, {r.ecx});
         return 0u;
     });
-    s.At({0x00591A50}, 8, [](Regs& r) {
+    s.At({0x00591A50, OursOf(0x00591A50)}, 8, [](Regs& r) {
         Rec(0x1A50, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00591800}, 0x14, [](Regs& r) {
+    s.At({0x00591800, OursOf(0x00591800)}, 0x14, [](Regs& r) {
         Rec(0x1800, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[4]}); // (w left out: the original's is garbage)
         return 0u;
     });
@@ -120,7 +129,7 @@ void Install(StandIns& s)
         auto it = g_cells.find(r.args[0] << 8 | r.args[1]);
         return it == g_cells.end() ? 0u : At(it->second);
     });
-    s.At({0x00590750}, 4, [](Regs& r) {
+    s.At({0x00590750, OursOf(0x00590750)}, 4, [](Regs& r) {
         Rec(0x0750, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), *reinterpret_cast<uint16_t*>(r.args[0] + 4)});
         return (reinterpret_cast<CMetaPiece*>(r.ecx)->m_flags & 0x40) ? 0u : 1u; // (0x40: "not within")
     });
@@ -182,7 +191,7 @@ void Install(StandIns& s)
             return 0u;
         });
     // The park memory.
-    s.At({0x00590160}, 0, [](Regs& r) {
+    s.At({0x00590160, OursOf(0x00590160)}, 0, [](Regs& r) {
         Rec(0x0160, {r.args[0] & 0xFF});
         return At(kMemory);
     });

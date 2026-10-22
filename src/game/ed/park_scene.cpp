@@ -347,7 +347,7 @@ void CParkGenerator::CleanUpOutRefs()
     for (ClonedPiece* piece = d.mp_pieces; piece;) {
         ClonedPiece* next = piece->mp_next;
         if (piece->m_flags & ClonedPiece::kDestroy)
-            DeletePiece(d, piece);
+            Ed::DeletePiece(d, piece);
         piece = next;
     }
 }
@@ -360,7 +360,7 @@ void CParkGenerator::UnloadPieces()
         RailEditorRemoveB();
         for (ClonedPiece* piece = d.mp_pieces; piece;) {
             ClonedPiece* next = piece->mp_next;
-            DeletePiece(d, piece);
+            Ed::DeletePiece(d, piece);
             piece = next;
         }
         d.m_flags &= ~(ParkGeneratorData::kPiecesCreated | ParkGeneratorData::kHasPieces);
@@ -381,7 +381,7 @@ void CParkGenerator::AddPieceToScene(CPiece* p)
     ClonedPiece* piece = Cloned(p);
     d.m_flags |= ParkGeneratorData::kSceneChanged;
     const int cursor = (piece->m_flags & ClonedPiece::kCursor) ? 1 : 0;
-    piece->m_sector = CloneSector(d.mp_sourceScene, piece->mp_source->m_name, d.mp_scene, cursor, !cursor);
+    piece->m_sector = Ed::CloneSector(d.mp_sourceScene, piece->mp_source->m_name, d.mp_scene, cursor, !cursor);
     void* sector = GetSector(piece->m_sector);
     Mth::Vector position = piece->m_pos;
     SetWorldPosition(sector, &position);
@@ -396,7 +396,7 @@ void CParkGenerator::RebuildAll()
     ParkGeneratorData& d = Data(this);
     SceneUpdates() = false;
     for (ClonedPiece* piece = d.mp_pieces; piece; piece = piece->mp_next)
-        DeleteSector(d.mp_scene, piece->m_sector);
+        Ed::DeleteSector(d.mp_scene, piece->m_sector);
     RailEditorRemoveA();
     RailEditorRemoveB();
     CParkManager::sInstance(); // (the result unused)
@@ -420,7 +420,7 @@ void CParkGenerator::RebuildMarked()
     SceneUpdates() = false;
     for (ClonedPiece* piece = d.mp_pieces; piece; piece = piece->mp_next) {
         if (piece->mp_source->m_flags & SourcePiece::kRebuilt) {
-            DeleteSector(d.mp_scene, piece->m_sector);
+            Ed::DeleteSector(d.mp_scene, piece->m_sector);
             if (SceneUpdates())
                 UpdateSuperSectors(d);
         }
@@ -478,7 +478,7 @@ void CParkGenerator::LoadSourcePieces(int /*unused*/)
             source->m_size.y = kCellHeight; // (at least a step high)
     }
     d.mp_scene = CloneScene("cloned", *reinterpret_cast<void**>(static_cast<uint8_t*>(d.mp_sourceScene) + 0x88), 1);
-    SetUpBounds(this);
+    Ed::SetUpBounds(this);
     for (RestartPoint& restart : d.m_restarts)
         restart.m_type = RestartPoint::kFree;
 }
@@ -487,7 +487,7 @@ void CParkGenerator::LoadPieces(uint32_t level, int unused)
 {
     LoadSourcePieces(unused);
     Script::CArray* nodes = SkateScript::GetLastNodeArray();
-    ReadPieceFlags(this, nodes);
+    Ed::ReadPieceFlags(this, nodes);
     if (level == kParkEditorLevel) {
         Mem::PushContext(Mem::TopDownHeap());
         BuildSourceRails(nodes);

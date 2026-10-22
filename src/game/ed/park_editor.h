@@ -155,6 +155,18 @@ public:
     // stick.
     void SetState(uint32_t state);
 
+    // --- park_editor_state.cpp (0x0058FBD0-0x005901AA) ---
+    static constexpr uint32_t kVtable = 0x0064F234;
+    static constexpr uint32_t kListenerVtable = 0x0064F22C;
+    // 0x0058FFF0: the constructor (state off; the logic task, the empty display task, the input handler, the
+    // listener; the park manager made). Returns this.
+    CParkEditor* Construct();
+    // 0x00590160: Spt::SingletonPtr<CParkEditor>'s Create: the first call with `create` makes the instance; every
+    // call takes a reference and returns it (null if there is none).
+    static CParkEditor* __cdecl Create(bool create);
+    // 0x0058FFC0: the logic task's code: the park editor's clock (0x007CE5EC) moved on, then LogicUpdate.
+    static void __cdecl LogicTask(ParkEditorTask* task);
+
     // The listener's vtable (0x0064F22C), `this` the listener (+0x14).
     struct Listener : Obj::CEventListener {
         CParkEditor* Editor() { return reinterpret_cast<CParkEditor*>(reinterpret_cast<uint8_t*>(this) - 0x14); }
@@ -242,5 +254,11 @@ bool __cdecl CFunc_SwitchParkEditorMenuPieceToMostRecentClipboard(Script::CStruc
                                                                   Script::CScript* script);           // 0x0058ED00
 bool __cdecl CFunc_SwitchToParkEditorCamera(Script::CStruct* params, Script::CScript* script);         // 0x0058F750
 bool __cdecl CFunc_BindParkEditorToController(Script::CStruct* params, Script::CScript* script);       // 0x0058F870
+// (park_editor_state.cpp)
+// 0x0058FBD0 SetParkEditorState state=<off|edit|test_play|regular_play> [command=...]: the park set up for the state
+// and the editor's state changed. False for an unknown state.
+bool __cdecl CFunc_SetParkEditorState(Script::CStruct* params, Script::CScript* script);
+// 0x0058FED0 SetParkEditorPauseMode pause | unpause: the editor paused (its menu and cursor hidden) or not.
+bool __cdecl CFunc_SetParkEditorPauseMode(Script::CStruct* params, Script::CScript* script);
 
 } // namespace Ed

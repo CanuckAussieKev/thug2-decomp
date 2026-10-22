@@ -9,9 +9,18 @@
 
 #include "game/core/crc.h"
 #include "game/ed/park.h"
+#include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
+
+// Our replacement of a game function: stood in for too (our code calls it directly).
+inline uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? TestStandIns::Resolve(ours) : address;
+}
+
 
 using namespace ViewerTestKit;
 using Ed::CGapManager;
@@ -37,7 +46,7 @@ void TestParkGaps()
         auto it = g_integers.find(Crc::GenerateCRCFromString(reinterpret_cast<const char*>(r.args[0])));
         return it == g_integers.end() ? 0u : static_cast<uint32_t>(it->second);
     });
-    s->At({0x005902B0}, 4, [](Regs& r) {
+    s->At({0x005902B0, OursOf(0x005902B0)}, 4, [](Regs& r) {
         Rec(0x02B0, {r.ecx, r.args[0] & 0xFF});
         return 0u;
     });

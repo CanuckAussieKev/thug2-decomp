@@ -237,6 +237,10 @@ add_library(thug2_code OBJECT
     src/hook/selftests_park_graffiti.cpp
     src/hook/selftests_park_scene.cpp
     src/hook/selftests_viewer_object.cpp
+    src/hook/selftests_park_pieces.cpp
+    src/hook/selftests_park_metapieces.cpp
+    src/hook/selftests_park_generator.cpp
+    src/hook/selftests_park_editor_state.cpp
     src/hook/selftests_park_rails.cpp
     src/hook/selftests_park_clipboard.cpp
     src/hook/selftests_park_gaps.cpp
@@ -711,6 +715,10 @@ add_library(thug2_code OBJECT
     src/game/ed/park_lists.cpp
     src/game/ed/park_io.cpp
     src/game/ed/park_cfuncs.cpp
+    src/game/ed/park_pieces.cpp
+    src/game/ed/park_metapieces.cpp
+    src/game/ed/park_generator.cpp
+    src/game/ed/park_editor_state.cpp
     src/game/ed/gap_manager.cpp
     src/game/ed/park_editor.cpp
     src/game/ed/park_editor_cfuncs.cpp

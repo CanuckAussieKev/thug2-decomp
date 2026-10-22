@@ -57,29 +57,18 @@ struct GridDims {
     uint8_t h;
     uint8_t l;
 
-    // 0x005901B0 (the constructor; inline here)
     static GridDims Make(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t h, uint8_t l) { return {x, y, z, w, h, l}; }
-    GridDims* Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_)
-    {
-        x = x_;
-        y = y_;
-        z = z_;
-        w = w_;
-        h = h_;
-        l = l_;
-        return this;
-    }
+    // 0x005901B0 (the constructor): returns this. (park_pieces.cpp, like the rest.)
+    GridDims* Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_);
     // 0x005901E0: byte `index` (x y z w h l)
     uint8_t& operator[](int index) { return reinterpret_cast<uint8_t*>(this)[index]; }
-    uint8_t* Byte(int index) { return reinterpret_cast<uint8_t*>(this) + index; }
+    uint8_t* Byte(int index);
     // 0x005901F0: make the box reach the top of the world (h = 127 - y)
-    void MakeInfiniteOnY() { h = static_cast<uint8_t>(0x7F - y); }
+    void MakeInfiniteOnY();
     // 0x00590200: every height (-100 up 200)
-    void MakeInfinitelyHigh()
-    {
-        y = -100;
-        h = 200;
-    }
+    void MakeInfinitelyHigh();
+    // 0x00590210: debug output ("pos=(x,y,z) dims=(w,h,l)")
+    void PrintContents() const;
 };
 static_assert(sizeof(GridDims) == 6, "passed by value in two stack slots");
 
@@ -89,19 +78,23 @@ struct SMetaDescriptor {
     int8_t y;
     uint8_t z;
     uint8_t rot;
-    bool isReal;     // +0x04: fills cells (not just a marker)
+    bool isReal;     // +0x04: from the palette entry's flag 0x0CD75A3F (CMetaPiece::Intersects' precise test leaves
+                     //        the flagged pieces out)
     uint8_t pad5[3];
     void* piece;     // +0x08: the scene piece (its +0x08 flags); in an abstract metapiece, the piece's name
 };
 static_assert(sizeof(SMetaDescriptor) == 12, "layout must match the original");
 
-// A metapiece (abstract or concrete; 0x3C bytes). Vtable slot 0: piece `index` (__thiscall); slot 1: the scalar
-// deleting destructor; slot 2: add a piece.
+// A metapiece (abstract or concrete; 0x3C bytes; park_metapieces.cpp). Vtable slot 0: piece `index` (__thiscall);
+// slot 1: the scalar deleting destructor; slot 2: add a piece. The base's vtable is 0x0064F3BC.
 class CMetaPiece {
 public:
+    static constexpr uint32_t kVtable = 0x0064F3BC;
     // The flags (m_flags).
     enum : uint32_t {
-        kFlag1 = 0x1,               // (only these are highlighted by an area selection)
+        kConcrete = 0x1,            // a CConcreteMetaPiece (only these are highlighted by an area selection)
+        kFlag1 = kConcrete,
+        kAbstract = 0x2,            // a CAbstractMetaPiece (a palette entry)
         kInPark = 0x4,              // placed in the park (not the cursor's own piece)
         kInnerShell = 0x8,          // part of the floor / shell the park builds itself (risers, walls); is_riser
         kFlag20 = 0x20,             // being moved by a floor change (kept when an area is cleared with flag 4)
@@ -130,53 +123,44 @@ public:
     uint32_t m_num_used_entries;     // +0x34
     uint32_t m_name_checksum;        // +0x38: the abstract metapiece's name
 
-    // 0x005902E0 (returns this): a metapiece as a concrete one
+    // 0x005902E0 (returns this; folded with many empty constructors): a metapiece as a concrete one
     CMetaPiece* CastToConcreteMeta() { return this; }
     CMetaPiece* Cast() { return this; }
-    // 0x00590340: descriptor `index`
-    SMetaDescriptor* GetDescriptor(uint32_t index)
-    {
-        return index < 2 ? &m_desc[index] : &mp_extra_desc[index - 2];
-    }
-    // 0x00591A50: highlight (or not) each of its pieces that can be
-    void Highlight(int on, int flag) { GameFunction<void(__thiscall*)(CMetaPiece*, int, int)>(0x00591A50)(this, on, flag); }
-    // 0x00591800: put its pieces at `position` turned by `angle` degrees
-    void SetPosition(Mth::Vector position, float angle)
-    {
-        GameFunction<void(__thiscall*)(CMetaPiece*, Mth::Vector, float)>(0x00591800)(this, position, angle);
-    }
-    // 0x005907B0: turn to `rot` quarter turns
-    void SetRot(int rot) { GameFunction<void(__thiscall*)(CMetaPiece*, int)>(0x005907B0)(this, rot); }
-    // 0x005909C0: piece `index`'s position relative to the metapiece (returns `out`)
-    Mth::Vector* GetRelativePosition(Mth::Vector* out, uint32_t index)
-    {
-        return GameFunction<Mth::Vector*(__thiscall*)(CMetaPiece*, Mth::Vector*, uint32_t)>(0x005909C0)(this, out, index);
-    }
-    // 0x00590750: whether the metapiece lies within `area`
-    bool IsCompletelyWithinArea(GridDims* area)
-    {
-        return GameFunction<bool(__thiscall*)(CMetaPiece*, GridDims*)>(0x00590750)(this, area);
-    }
-    // 0x00590340 (the game's own, for a test of the descriptors)
-    SMetaDescriptor* GetEntry(int index)
-    {
-        return GameFunction<SMetaDescriptor*(__thiscall*)(CMetaPiece*, int)>(0x00590340)(this, index);
-    }
-    // 0x005902F0: whether it's one of the restart pieces (by its name)
-    bool IsRestartPiece() { return GameFunction<bool(__thiscall*)(CMetaPiece*)>(0x005902F0)(this); }
-    // 0x00590400: how many pieces
-    int CountPieces() { return GameFunction<int(__thiscall*)(CMetaPiece*)>(0x00590400)(this); }
-    // 0x00590AD0: room for `count` pieces
-    void Initialize(int count) { GameFunction<void(__thiscall*)(CMetaPiece*, int)>(0x00590AD0)(this, count); }
-    // 0x00591AB0: its cell area from its pieces
-    void FinishPieces() { GameFunction<void(__thiscall*)(CMetaPiece*)>(0x00591AB0)(this); }
-    // 0x005903A0: show or hide its pieces
-    void SetVisibility(bool visible) { GameFunction<void(__thiscall*)(CMetaPiece*, bool)>(0x005903A0)(this, visible); }
-    // 0x00590CE0: does it take up any of `area` (with `precise`, by its real pieces' cells)?
-    bool Intersects(GridDims area, uint32_t precise)
-    {
-        return GameFunction<bool(__thiscall*)(CMetaPiece*, GridDims, uint32_t)>(0x00590CE0)(this, area, precise);
-    }
+    // 0x005902F0: one of the eight restart pieces (by its name)
+    bool IsRestartPiece();
+    // 0x00590340: descriptor `index` (signed: below 2 the first two)
+    SMetaDescriptor* GetDescriptor(int index);
+    // 0x00591A50: each of its cloned pieces tinted (purple with `gap`) or back to normal
+    void Highlight(int on, int gap);
+    // 0x00591800: its pieces put at `position`, turned by `angle` degrees about it
+    void SetPosition(Mth::Vector position, float angle);
+    // 0x005907B0: turned to `rot` quarter turns: its area and every descriptor turned about its corner
+    void SetRot(int rot);
+    // 0x005909C0: piece `index`'s centre relative to the metapiece's (returns `out`)
+    Mth::Vector* GetRelativePosition(Mth::Vector* out, uint32_t index);
+    // 0x00590750: whether the metapiece lies within `area` (x and z)
+    bool IsCompletelyWithinArea(GridDims* area);
+    // 0x00590340 (as GetDescriptor)
+    SMetaDescriptor* GetEntry(int index) { return GetDescriptor(index); }
+    // 0x00590400: how many pieces, a palette entry of several pieces counted by its pieces (an abstract metapiece)
+    int CountPieces();
+    // 0x00590AD0: room for `count` pieces (the extra ones kept when it grows)
+    void Initialize(int count);
+    // 0x00591AB0: its cell area from its pieces' bounds, and the pieces centred on it
+    void FinishPieces();
+    // 0x005903A0: its pieces' sectors drawn and collided with, or neither
+    void SetVisibility(bool visible);
+    // 0x00590CE0: does it take up any of `area`? With `precise` (its low byte), by the cells of its pieces that
+    // aren't flagged isReal (when any is)
+    bool Intersects(GridDims area, uint32_t precise);
+    // 0x00590B90: the box round its pieces (from each one's position and size)
+    void GetBounds(Mth::Vector* max, Mth::Vector* min);
+    // 0x00591670: the scalar deleting destructor of the base (the extra descriptors freed)
+    CMetaPiece* Destroy(unsigned int flags);
+    // 0x005917E0: the destructor's body
+    void DestroyBody();
+    // 0x005916B0: its pieces as an array of structures (each piece's checksum and position)
+    void GetPieceList(Script::CArray* out);
     // Vtable slot 0: piece `index` (its scene piece)
     CPiece* GetPiece(uint32_t index)
     {
@@ -196,21 +180,149 @@ static_assert(offsetof(CMetaPiece, m_flags) == 0x0C && offsetof(CMetaPiece, m_de
                   offsetof(CMetaPiece, m_name_checksum) == 0x38 && sizeof(CMetaPiece) == 0x3C,
               "layout must match the original");
 
-// A piece of the scene (what a metapiece is made of).
+// A metapiece placed in the park or held by the cursor: its pieces are cloned pieces.
+class CConcreteMetaPiece : public CMetaPiece {
+public:
+    static constexpr uint32_t kVtable = 0x0064F3D8;
+    // 0x00590B60: an empty one (kConcrete, unturned). Returns this.
+    CConcreteMetaPiece* Construct();
+    // 0x00590360 (vtable slot 0): piece `index` (null past the end)
+    CPiece* GetPiece(uint32_t index);
+    // 0x00590ED0 (vtable slot 2): `piece` added at the cells `pos` (x y z), turned `rot`; the piece's position set to
+    // its centre there
+    void AddPiece(CPiece* piece, GridDims* pos, int rot, bool isReal);
+    // 0x00591BB0 (vtable slot 1, also the abstract metapiece's): the scalar deleting destructor
+    CConcreteMetaPiece* Destroy(unsigned int flags);
+};
+
+// A palette entry: its descriptors name source pieces or other palette entries.
+class CAbstractMetaPiece : public CMetaPiece {
+public:
+    static constexpr uint32_t kVtable = 0x0064F3E4;
+    // 0x00590FA0: an empty one (kAbstract). Returns this.
+    CAbstractMetaPiece* Construct();
+    // 0x00590FD0 (vtable slot 0): piece `index`'s source piece (from the generator; null past the end)
+    CPiece* GetPiece(uint32_t index);
+    // 0x00591020 (vtable slot 2): a source piece added by name (anything else only counted), the area grown to take
+    // it in (at least 1 high)
+    void AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t isReal);
+    // 0x00591100: a palette metapiece added by name (null only counted), the area grown to take it in
+    void AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, uint8_t isReal);
+    // 0x005911D0: entry `index` counting the pieces of the palette metapieces it's made of one by one (each placed
+    // and turned in this one); returns `out`
+    SMetaDescriptor* GetEntry(SMetaDescriptor* out, int index);
+};
+
+class CSourcePiece;
+
+// A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds share the first 0x10 bytes: a source
+// piece (CSourcePiece, kSource: a piece type - one sector of the "sk5ed" scene, its name and size) and a placed
+// piece (kCloned: a clone of its source's sector in the "cloned" scene - this class's layout; park_scene.h calls it
+// ClonedPiece). Vtable slot 0: the size (GetDims); slot 1: the scalar deleting destructor.
 class CPiece {
 public:
-    // 0x00590670: put it at `position` (and move its scene object if `update`)
-    void SetPosition(Mth::Vector* position, int update)
-    {
-        GameFunction<void(__thiscall*)(CPiece*, Mth::Vector*, int)>(0x00590670)(this, position, update);
-    }
-    // 0x00590260: turn it to `rot` quarter turns (and its scene object if `update`)
-    void SetRot(int rot, int update) { GameFunction<void(__thiscall*)(CPiece*, int, int)>(0x00590260)(this, rot, update); }
-    // 0x005904C0: its size in cells
-    void GetCellDims(GridDims* dims) { GameFunction<void(__thiscall*)(CPiece*, GridDims*)>(0x005904C0)(this, dims); }
+    // m_flags (a placed piece's; CSourcePiece has its own)
+    enum : uint32_t {
+        kSource = 0x1,         // a CSourcePiece
+        kCloned = 0x2,         // a placed (cloned) piece
+        kCursor = 0x4,         // the cursor's (never in the generator's list: not unlinked when deleted)
+        kInList = 0x8,         // in the generator's list
+        kNoNode20 = 0x20,      // (with 0x80) gets no node in the node array
+        kGap = 0x40,           // a gap's trigger piece
+        kNoNode80 = 0x80,
+        kNoRails = 0x100,      // its rails aren't counted
+        kDestroyNow = 0x200,   // DestroyPiece takes it out at once
+        kDestroy = 0x1000,     // marked: CleanUpOutRefs takes it out
+    };
+    static constexpr uint32_t kVtable = 0x0064F3B4;
 
-    uint8_t unknown00[0x28];
-    int m_rot; // +0x28
+    void** m_vtable;
+    uint32_t m_sector;         // +0x04: its sector in the "cloned" scene
+    uint32_t m_flags;          // +0x08
+    CPiece* mp_next;           // +0x0C: the generator's list
+    uint32_t m_id;             // +0x10: the generator's piece counter when made (the cluster of its rails)
+    CSourcePiece* mp_source;   // +0x14
+    Mth::Vector m_pos;         // +0x18
+    int m_rot;                 // +0x28: quarter turns
+
+    // Vtable slot 0: its size (a placed piece's turned by its rotation); returns `out`
+    Mth::Vector* GetDims(Mth::Vector* out)
+    {
+        return reinterpret_cast<Mth::Vector*(__thiscall*)(CPiece*, Mth::Vector*)>(m_vtable[0])(this, out);
+    }
+    // Vtable slot 1: the scalar deleting destructor
+    void Delete() { reinterpret_cast<void(__thiscall*)(CPiece*, int)>(m_vtable[1])(this, 1); }
+
+    // 0x00590240: the destructor's body (only the vtable)
+    void DestroyBody();
+    // 0x00590490: the scalar deleting destructor (freed if `flags` bit 0). Returns this.
+    CPiece* Destroy(unsigned int flags);
+    // 0x00590250 (folded with other +0x10 getters)
+    uint32_t GetId();
+    // 0x00590670: put it at `position` (and move its sector if `update` is 1)
+    void SetPosition(Mth::Vector* position, int update);
+    // 0x00590260: turn it to `rot` quarter turns (and its sector if `update` is 1)
+    void SetRot(int rot, int update);
+    // 0x00590290: its sector drawn and collided with (or neither)
+    void SetActive(bool active);
+    // 0x005902B0: its sector shown in every viewport (or none)
+    void SetVisible(bool visible);
+    // 0x005904C0: its size in cells (w h l; the rest of `dims` as it was)
+    void GetCellDims(GridDims* dims);
+    // 0x00590530: its source's size with x and z swapped for an odd `rot`; returns `out`
+    Mth::Vector* GetDimsTurned(Mth::Vector* out, int rot);
+    // 0x005906B0: its sector stretched to `length` along its own x (z when turned a quarter)
+    void SetLength(float length);
+    // 0x00591510: its sector's geometry turned `degrees` about y
+    void SetAngle(float degrees);
+    // 0x00591600: its sector's geometry tinted (purple for a gap's piece) or back to normal
+    void SetHighlight(bool on, bool gap);
+};
+static_assert(offsetof(CPiece, m_id) == 0x10 && offsetof(CPiece, mp_source) == 0x14 && offsetof(CPiece, m_pos) == 0x18 &&
+                  offsetof(CPiece, m_rot) == 0x28 && sizeof(CPiece) == 0x2C,
+              "layout must match the original (a placed piece: 0x2C bytes)");
+
+// A source piece (0x30 bytes; park_scene.h calls it SourcePiece): a piece type, one sector of the "sk5ed" scene.
+class CSourcePiece {
+public:
+    // m_flags (besides CPiece::kSource)
+    enum : uint32_t {
+        kGameObject = 0x400,       // the node is a GameObject (ReadPieceFlags, from the pieces' node array)
+        kAbsentInNetGames = 0x800, // (with kGameObject)
+        kRebuilt = 0x4000,         // rebuilt by RebuildMarked (a trigger the scripts change)
+    };
+    static constexpr uint32_t kVtable = 0x0064F3C8;
+
+    void** m_vtable;           // slot 1: the scalar deleting destructor
+    uint32_t m_name;           // +0x04: its sector's checksum
+    uint32_t m_flags;          // +0x08 (1 when made)
+    CSourcePiece* mp_next;     // +0x0C
+    Mth::Vector m_size;        // +0x10: in world units (x and z whole cells); w = 1
+    int m_20;                  // +0x20 (1 when made)
+    uint32_t m_triggerScript;  // +0x24
+    int m_numRailPoints;       // +0x28: the points of the rails its node array gives it
+    int m_numRailSegments;     // +0x2C
+
+    CPiece* AsPiece() { return reinterpret_cast<CPiece*>(this); }
+    // 0x005905C0: an empty source piece. Returns this.
+    CSourcePiece* Construct();
+    // 0x00590600 (vtable slot 0): its size; returns `out`
+    Mth::Vector* GetDims(Mth::Vector* out);
+    // 0x00590640 (vtable slot 1, also the placed piece's): the scalar deleting destructor. Returns this.
+    CSourcePiece* Destroy(unsigned int flags);
+};
+static_assert(offsetof(CSourcePiece, m_size) == 0x10 && offsetof(CSourcePiece, m_triggerScript) == 0x24 &&
+                  sizeof(CSourcePiece) == 0x30,
+              "layout must match the original");
+
+// A cloned piece's own functions (its layout is CPiece's).
+class CClonedPiece : public CPiece {
+public:
+    static constexpr uint32_t kVtable = 0x0064F3D0;
+    // 0x00590620: an empty cloned piece. Returns this.
+    CClonedPiece* Construct();
+    // 0x00590710 (vtable slot 0): the source's size, x and z swapped when turned a quarter; returns `out`
+    Mth::Vector* GetDims(Mth::Vector* out);
 };
 
 // A node of a metapiece list (12 bytes, pooled: the pool pair 0x007CE5F0).
@@ -230,7 +342,7 @@ struct CMapListNode {
     // 0x00591BE0: free a list (the nodes, not the metapieces; null is fine)
     static void __fastcall DestroyList(CMapListNode* list); // (__fastcall: the list in ECX, as the original)
     // 0x00590470: walks the list (a debug check with its asserts compiled out; never ends on a cycle).
-    static void VerifyIntegrity(const CMapListNode* list);
+    static void __fastcall VerifyIntegrity(const CMapListNode* list); // (__fastcall: the list in ECX)
 };
 static_assert(sizeof(CMapListNode) == 12, "pool item");
 
@@ -250,6 +362,11 @@ struct MapListHolder {
 // The same holder as plain data, for code that frees the list itself (0x00591C60).
 struct CMapListTemp {
     CMapListNode* list;
+
+    // 0x00591450: debug output of the list (each metapiece's address and cells)
+    void PrintContents();
+    // 0x00591C60: the destructor (the list freed)
+    void Destroy();
 };
 
 // A gap (0x54 bytes; 0x0058CBC0 constructs the two ends): the gap tool's state, and how the gap manager keeps one.
@@ -537,42 +654,68 @@ public:
     uint32_t NextRailNode(Script::CArray* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info, bool* isLoop);
     // 0x005936E0: the source rails from the pieces' node array (each source piece's rail point and segment counts)
     void BuildSourceRails(Script::CArray* nodes);
-    // 0x00592290: show or hide the highlight of every piece
-    void SetPiecesHighlighted(int on) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00592290)(this, on); }
-    // 0x00591D20 (sets +0x20)
-    void SetMaxPlayers(int count) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00591D20)(this, count); }
+    // --- park_generator.cpp (0x00591C70-0x00592740) ---
+    // 0x00591C70: the destructor's body (the scenes forgotten, the node array's asset destroyed)
+    void DestroyBody();
+    void Destroy() { DestroyBody(); }
+    // 0x00591CF0: every piece tinted red, or back to normal
+    void HighlightAllPieces(bool on);
+    // 0x00591D20
+    void SetMaxPlayers(int count);
     // +0x20: the most players the park is set up for (a whole int; the compressed map keeps its low byte)
     int GetMaxPlayers() { return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(this) + 0x20); }
-    // 0x00591D30: the most players the park has room for (from the park memory's use and MaxPlayers)
-    int GetMaxPlayersPossible() { return GameFunction<int(__thiscall*)(CParkGenerator*)>(0x00591D30)(this); }
-    // 0x00591C70: the destructor
-    void Destroy() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591C70)(this); }
-    // 0x00592550: a placed piece into the generator's list (LightPiece, 0x00594410, then lights it)
-    void AddPiece(CPiece* piece) { GameFunction<void(__thiscall*)(CParkGenerator*, CPiece*)>(0x00592550)(this, piece); }
-    // 0x00591D90: a piece type's source (loaded the first time); 0x005923C0: a new piece from a source
-    void* GetPieceSource(uint32_t name) { return GameFunction<void*(__thiscall*)(CParkGenerator*, uint32_t)>(0x00591D90)(this, name); }
-    void* CreatePiece(void* source, uint32_t flags)
-    {
-        return GameFunction<void*(__thiscall*)(CParkGenerator*, void*, uint32_t)>(0x005923C0)(this, source, flags);
-    }
+    // 0x00591D30: the most players the park has room for: one more for each 585500 bytes the main heap has free
+    // (counting those already set up)
+    int GetMaxPlayersPossible();
+    // 0x00591D90: the piece type named `name` (null if none)
+    CSourcePiece* GetPieceSource(uint32_t name);
+    // 0x00591DD0: delete the park's sector `name` (false if there's none)
+    bool DeleteSector(uint32_t name, int unused);
+    // 0x00591DE0: the placed pieces' rails emptied and their pools freed
+    void DestroyRails();
+    // 0x00591E00: the lights' count, ambient and falloff colours and the cursor's ambience
+    void SetLights(int count, float ambientR, float ambientG, float ambientB, float falloffR, float falloffG,
+                   float falloffB, float cursorAmbience);
+    // 0x00591E60: the restart slots (first to last) a restart type uses (unknown types: left as they were)
+    void GetRestartSlots(int type, int* first, int* last);
+    // 0x00591F50: whether a slot of `type`'s is free (or holds one put down automatically)
+    bool HasFreeRestartSlot(int type);
+    // 0x00591FE0: forget the restart points put down automatically; 0x00591FC0: all of them
+    void ClearAutomaticRestarts();
+    void ClearRestarts();
+    // 0x00592010: the "cloned" scene's bounding box (as big as a park can be)
+    void SetUpBounds();
+    // 0x00592090: the super sectors brought up to date (when allowed: 0x0067F398)
+    void RebuildCollision();
+    // 0x005920D0: the shell's two boxes: everything, and the park's bounds (`unused`: the callers' argument)
+    void UpdateBounds(uint32_t unused);
+    // 0x00592290: the gaps' trigger pieces (CPiece::kGap) shown or hidden
+    void SetPiecesHighlighted(int on);
+    // 0x005922D0: the restart points' pieces drawn and collided with, or neither
+    void SetRestartPiecesActive(bool active);
+    // 0x00592320: a copy of the "sk5ed" sector `name` in the "cloned" scene (its name)
+    uint32_t CloneSector(uint32_t name, int a, int b, int unused);
+    // 0x00592370: delete the park's sector `name`, then rebuild the collision (false if there was none)
+    bool DestroySector(uint32_t name, int unused);
+    // 0x005923C0: a new placed piece of `source` (or of its source), with `flags` (0x324 of them)
+    CPiece* CreatePiece(CPiece* source, uint32_t flags);
+    // 0x00592550: a placed piece onto the front of the generator's list (LightPiece, 0x00594410, then lights it)
+    void AddPiece(CPiece* piece);
+    // 0x00592570: a piece taken off the list (not the cursor's), its sector deleted (unless `keepSector`), deleted
+    void DeletePiece(CPiece* piece, int keepSector);
+    // 0x005925E0: the piece types' flags and trigger scripts from the pieces' node array
+    void ReadPieceFlags(Script::CArray* nodes);
     // 0x00593200: a restart point of `type` at `position` (the cells `area`) in the first free slot of its type (or,
     // when `automatic`, one put down automatically before); with `automatic` and `keepPlaced`, where a placed one
     // of the type is. False when there's no room.
     bool AddRestart(Mth::Vector* position, int rot, GridDims* area, int type, int automatic, uint32_t keepPlaced);
     // 0x005933D0: whether there are fewer than `count` restart points of `type`
     bool NeedsRestarts(int type, int count);
-    // 0x00591FE0: forget the restart points put down automatically; 0x00591FC0: all of them
-    void ClearAutomaticRestarts() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591FE0)(this); }
-    void ClearRestarts() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591FC0)(this); }
     // 0x00594EA0: the level's node array from the park (the pieces, their rails, the rail editor's, the restart
     // points, the goal editor's), given to the node manager and parsed
     void BuildNodeArray(CMapListNode* metas);
-    // 0x005920D0: the park's bounding boxes
-    void UpdateBounds(uint32_t value) { GameFunction<void(__thiscall*)(CParkGenerator*, uint32_t)>(0x005920D0)(this, value); }
     // 0x00593580: delete the scene's pieces (`keepRails` 0: the rail editor's rails go out of the scene too)
     void DestroyPieces(int keepRails);
-    // 0x00592090: rebuild the collision (when allowed)
-    void RebuildCollision() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00592090)(this); }
     // 0x00594C70: UnloadPieces, and the source rails freed (the argument unused)
     void CleanUp(int type);
 };
