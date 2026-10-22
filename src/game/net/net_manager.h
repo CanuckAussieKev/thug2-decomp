@@ -73,7 +73,7 @@ public:
     void SetDeviceType(int type);
     // 0x004547F0
     void SetDHCP(bool useDHCP);
-    // 0x00454810 (from a network preference whose name isn't known: checksum 0xE5ADE642 being 0xF81BC89B)
+    // 0x00454810 (the network preference dialup_authentication - checksum 0xE5ADE642 - being boolean_true)
     void SetFlag2E6(bool on) { m_flag2E6 = on; }
     // 0x00454820: copied only if it differs.
     void SetDNSServer(int index, const char* ip);

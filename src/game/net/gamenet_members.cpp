@@ -9,6 +9,7 @@
 
 #include "game/core/crc.h"
 #include "game/core/task.h"
+#include "game/mth/random.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
@@ -35,6 +36,11 @@ constexpr uint32_t kFlagsInternet = 4; // bit 2
 constexpr uint32_t kFlagsLan = 8;      // bit 3
 
 constexpr uint32_t kServerTask2 = 0xE8; // Tsk::BaseTask* (removed with the server)
+constexpr uint32_t kStartPoints = 0x48; // int[8]: the starting points
+constexpr uint32_t kCrownStart = 0x68;  // int: the crown's
+constexpr uint32_t kShowMetrics = 0x45; // bool
+constexpr uint32_t kShowScores = 0x46;  // bool
+constexpr uint32_t kMetricsTask = 0xC4; // Tsk::BaseTask*
 
 // Checksums.
 constexpr uint32_t kKillTeamFlags = 0xEBB3642E;     // Kill_Team_Flags
@@ -64,6 +70,13 @@ constexpr uint32_t kHorse = 0x9D65D0E7;             // horse
 constexpr uint32_t kNetLobby = 0x1C471C60;          // netlobby
 constexpr uint32_t kNetSlap = 0xF9D5D933;           // netslap
 constexpr uint32_t kSlap = 0xCA1F360F;              // slap
+constexpr uint32_t kNetFirefight = 0xBFF33600;      // netfirefight
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;     // netgoalattack
+constexpr uint32_t kNetCtf = 0x6C5FF266;            // netctf
+constexpr uint32_t kNetScavengerHunt = 0xFC13B531;  // netscavengerhunt
+constexpr uint32_t kNetElimiskate = 0x10F84276;     // netelimiskate
+constexpr uint32_t kIsHorse = 0xD1993397;           // is_horse
+constexpr uint32_t kOff = 0xD443A2BC;               // off
 
 // Messages.
 constexpr uint8_t kMsgTagTexture = 0x97;
@@ -73,6 +86,16 @@ constexpr uint8_t kGroupTag = 10;
 
 const char* const kTagPaletteDesc = reinterpret_cast<const char*>(0x0064C974); // "CAG Palette"
 const char* const kTagTextureDesc = reinterpret_cast<const char*>(0x0064C968); // "CAG Texture"
+
+// The game mode's members (not rewritten): its max_players, the flags accumulate_score / track_best_combo /
+// is_elimiskate, a property set (IsTrue).
+int ModeMaxPlayers() { return Call<int>(0x005531D0, GameMode()); }
+bool AccumulatesScore() { return Call<bool>(0x00552FB0, GameMode()); }
+bool TracksBestCombo() { return Call<bool>(0x00552FD0, GameMode()); }
+bool IsElimiskate() { return Call<bool>(0x00553910, GameMode()); }
+bool ModeIsTrue(uint32_t property) { return Call<bool>(0x00553220, GameMode(), property); }
+
+Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 4); }
 
 // The CFunction InSplitScreenGame (0x005A1180), called with no parameters.
 bool InSplitScreenGame() { return GameFunction<bool(__cdecl*)(void*, void*)>(0x005A1180)(nullptr, nullptr); }
@@ -310,6 +333,70 @@ int Manager::GetChoiceInteger(uint32_t list, uint32_t choice, uint32_t field)
     return value;
 }
 
+// 0x005359F0
+void Manager::ChooseStartPoints()
+{
+    int* points = &Field<int>(this, kStartPoints);
+    int offset = Mth::Rnd(256);
+    int count;
+    if (InNetGame()) {
+        count = 8;
+    } else {
+        count = ModeMaxPlayers();
+        if (Field<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) != kOff && !ModeIsTrue(kIsHorse)) {
+            count = 2;
+            offset = 0;
+        }
+    }
+    // (no bounds check: a mode with more than 8 players writes past the eight words, as in the original)
+    for (int i = 0; i < count; ++i)
+        points[i] = -1;
+    for (int i = 0; i < count; ++i) {
+        // Drawn again until it's one no other slot has.
+        bool taken;
+        do {
+            points[i] = Mth::Rnd(count);
+            taken = false;
+            for (int j = 0; j < count && !taken; ++j)
+                taken = i != j && points[i] == points[j];
+        } while (taken);
+    }
+    for (int i = 0; i < count; ++i)
+        points[i] += offset;
+    Field<int>(this, kCrownStart) = Mth::Rnd(10);
+}
+
+// 0x00535BC0
+void Manager::ToggleNetMetrics()
+{
+    Tsk::Stack* tasks = LogicTasks();
+    uint8_t& show = Field<uint8_t>(this, kShowMetrics); // (a byte flipped by its bit 0, as in the original)
+    show ^= 1;
+    if (show)
+        tasks->AddTask(Field<Tsk::BaseTask*>(this, kMetricsTask));
+    else
+        Field<Tsk::BaseTask*>(this, kMetricsTask)->Remove();
+}
+
+// 0x00535BF0
+void Manager::ToggleScores()
+{
+    AccumulatesScore(); // (asked and not used)
+    Field<uint8_t>(this, kShowScores) ^= 1;
+}
+
+// 0x00535D00
+bool Manager::KeepsScore()
+{
+    if (!AccumulatesScore() && !TracksBestCombo() && GameType() != kNetFirefight && GameType() != kNetGoalAttack &&
+        GameType() != kNetCtf && GameType() != kNetScavengerHunt)
+        return false;
+    return !IsElimiskate() || GameType() == kNetFirefight || GameType() == kNetElimiskate;
+}
+
+// 0x00535D90
+void Manager::SetProSetFlags(char flags) { m_proSetFlags = static_cast<uint32_t>(static_cast<int>(flags)); }
+
 REPLACE(0x00533F20, &Manager::SetNetworkMode);
 REPLACE(0x00533F50, &Manager::SetServerMode);
 REPLACE(0x00533F70, &Manager::InLanMode);
@@ -328,5 +415,10 @@ REPLACE(0x00534D70, &Manager::SendCustomTagTexture);
 REPLACE_SOURCE_ONLY(0x00534F40, &Manager::GetLevel);
 REPLACE(0x00534F50, &Manager::GetChoiceName);
 REPLACE(0x00534FC0, &Manager::GetChoiceInteger);
+REPLACE(0x005359F0, &Manager::ChooseStartPoints);
+REPLACE(0x00535BC0, &Manager::ToggleNetMetrics);
+REPLACE(0x00535BF0, &Manager::ToggleScores);
+REPLACE(0x00535D00, &Manager::KeepsScore);
+REPLACE(0x00535D90, &Manager::SetProSetFlags);
 
 } // namespace GameNet

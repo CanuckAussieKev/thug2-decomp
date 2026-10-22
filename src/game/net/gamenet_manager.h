@@ -254,6 +254,40 @@ public:
     // the entry whose checksum is `choice` (the last such; null / 0 if none).
     const char* GetChoiceName(uint32_t list, uint32_t choice);
     int GetChoiceInteger(uint32_t list, uint32_t choice, uint32_t field);
+    // 0x005359F0: the starting points (the eight words at +0x48): a random order of 0 ... n-1 plus a random offset
+    // (0-255) - n 8 in a network game, else the game mode's max_players, or 2 (offset 0) when the park editor's +0x40
+    // isn't `off` and the mode isn't horse; the crown's (+0x68) random 0-9.
+    void ChooseStartPoints();
+    // 0x00535BC0: the net metrics (+0x45) toggled - their task (+0xC4) added to the logic tasks or removed.
+    void ToggleNetMetrics();
+    // 0x00535BF0: the scores' display (+0x46) toggled.
+    void ToggleScores();
+    // 0x00535D00: whether the game keeps a score: modes accumulating score or tracking the best combo, firefight, goal
+    // attack, CTF, scavenger hunt - but not elimiskate (unless the net firefight / elimiskate modes).
+    bool KeepsScore();
+    // 0x00535D90: m_proSetFlags (a signed byte, widened).
+    void SetProSetFlags(char flags);
+
+    // --- gamenet_settings.cpp: the network settings and the connection (0x00535040-0x00535CB0) ---
+    // 0x00535040: the network preferences handed to the net library (Net::Manager): the master servers (+0x9954, ten
+    // names of 16 bytes: the two set, unless "0.0.0.0", then default_master_servers - or only those), DHCP or the
+    // addresses, DNS, dial-up, the device and connection type (modems: at most 3 players, no observers),
+    // dialup_authentication. Four global strings (names unknown) override the address, gateway, subnet mask and DNS
+    // server (an address of our own means no DHCP and the USB adaptor set-up script).
+    void UseNetworkPreferences();
+    // 0x00535AD0: team_graffiti_mode in a network team game, else graffiti_individual_scoring.
+    uint32_t GetTeamGraffitiMode();
+    // NOT ORIGINAL (inline in both below): the network preferences in a network game, else the skate module's.
+    Prefs::Preferences* GetGamePreferences();
+    // 0x00535B20 / 0x00535B70: the goals / game_type preference's checksum (the manager's address on a miss).
+    uint32_t GetGoalsPreference();
+    uint32_t GetGameTypePreference();
+    // 0x00535C10: go online (Net::Manager::ConnectToInternet unless already); then `onlineScript` runs. If it fails, a
+    // modem or PPPoE connection (types 1 / 3) carries on in the online state task (+0xD8), `failScript` kept (+0x1C8).
+    bool ConnectToInternet(uint32_t onlineScript, uint32_t failScript);
+    // 0x00535CB0: go offline: the online state task added (state -1; `script`, if any, for when it's done), the lobby
+    // left (0x005453E0 with 2), Net::Manager::DisconnectFromInternet.
+    void DisconnectFromInternet(uint32_t script);
 
     // --- The join (gamenet_join.cpp) ---
 

@@ -41,3 +41,42 @@ Switch off: `[replacements] disable=gamenet_members.cpp` (and gamenet_settings.c
     checksum. 46 deliberate bugs caught, 1 (bandwidth type == 0 vs != 1) after adding a bandwidth type 2 case.
   - Untested without a connection: what the server does with the tag texture (the stream itself is the net library's,
     already rewritten).
+- [x] Batch NET1-B (NOT run in the game yet; the network preferences handed to the net library, the set-up game's
+  preferences, connecting / disconnecting, the starting points, the metrics / scores toggles, the score rule, 11
+  functions): src/game/net/gamenet_settings.cpp (new), gamenet_members.cpp.
+  - 0x00535040 UseNetworkPreferences (the CFunc UsePreferences'): the master server names at +0x9954 (ten of 16 bytes,
+    cleared first): master_server1 / 2 unless "0.0.0.0" (the original's REPE CMPSB over 8 bytes = a string compare),
+    then default_master_servers' names - or only those with use_default_master_servers (no bounds check: more than 10
+    run on, kept). broadband_type ip_dhcp = DHCP. Four global strings (names not known: 0x5F6FDED5 address, 0x3E683519
+    gateway, 0x676BC0CB subnet mask, 0x93CF2232 DNS server) override the preferences (set into them; a non-empty address
+    means no DHCP; gateway / subnet only with an address; an empty address counts as none). Then Net::Manager:
+    SetDHCP, host / domain name (DHCP) or local IP / gateway / subnet mask; DNS: three empty with auto_dns and no address
+    of our own, the two defaults 205.147.0.100 / .102 with an address but no DNS override, else dns_server /
+    dns_server2; the three dial-up numbers, user name, password; the device (two more globals, 0x504ACA1F /
+    0xF3780073, force the PCMCIA settings): broadband PC 3/2, USB 1/2 (the spoof scripts with an address of our own),
+    USB PPPoE 1/3, USB modem 2/1 and Sony modem 4/1 (both: at most 3 players, no observers), PC PPPoE 3/3, else 0/0;
+    dialup_authentication -> SetFlag2E6 (the name now known: net_manager.h's comment updated). The original's stack
+    slots reused for missing values are kept (one `text`, one `check` - auto_dns missing takes use_default's).
+  - 0x00535AD0 GetTeamGraffitiMode, 0x00535B20 GetGoalsPreference (GetChecksum by the name "checksum"),
+    0x00535B70 GetGameTypePreference: the network preferences in a network game, else the skate module's (+0x58);
+    the manager's address back on a miss (the original's pushed ECX slot).
+  - 0x00535C10 ConnectToInternet(online script, fail script) (+0x1C4 / +0x1C8; state +0x1A8 = -1; a failing modem /
+    PPPoE connection adds the online task +0xD8), 0x00535CB0 DisconnectFromInternet(script) (0x005453E0 with 2: the
+    lobby's state, NET2's range).
+  - 0x005359F0 ChooseStartPoints (Mth::Rnd: offset 0-255; 8 in a network game, else the mode's max_players - 2 with
+    offset 0 when the park editor's +0x40 isn't `off` and the mode isn't horse; each slot drawn again until unique;
+    no bounds check; +0x68 = Rnd(10)), 0x00535BC0 ToggleNetMetrics (the byte at +0x45 XOR 1, then tested: a 0xFF byte
+    becomes 0xFE - still on), 0x00535BF0 ToggleScores (the mode's accumulate_score asked and ignored, +0x46 XOR 1),
+    0x00535D00 KeepsScore, 0x00535D90 SetProSetFlags (sign-extended).
+  - Test (selftests_net_settings.cpp TestNetSettings): original vs ours with every call stood in for (preferences
+    answered per name, the net library's setters recorded, the global strings scripted): 32 preference sets (master
+    servers kept / skipped / defaults 0-4, DHCP, auto_dns, a missing auto_dns, each override alone and together, empty
+    and null ones, all 7 devices with and without an address of our own, the modem's player limit, both forcing
+    globals), the server names' bytes after each; the graffiti / goals / game type over net x team x found; connecting
+    online / succeeding / failing on types 0-4, disconnecting with and without a script; start points for a network
+    game and 1/3/4/0/9 players x editor off / horse / neither (a stand-in LCG for Rnd); toggles from 0 and 0xFF; the
+    score rule over 6 modes x 8 flag sets. 54 deliberate bugs caught (3 after recording the server names after every
+    call - the arena alone only kept the last case's), 1 equivalent (comparing only earlier slots in ChooseStartPoints:
+    later ones are still -1).
+  - Untested without a connection / hardware: the net library's use of the settings (DHCP, dial-up, PPPoE are console
+    leftovers on the PC).
