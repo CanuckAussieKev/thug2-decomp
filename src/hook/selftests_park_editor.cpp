@@ -35,6 +35,8 @@
 #include "hook/selftest.h"
 #include "hook/standins.h"
 
+#pragma warning(disable : 4996) // (strcpy: the stand-in gaps' names)
+
 namespace {
 
 using namespace TestStandIns;
@@ -68,7 +70,11 @@ struct World {
     uint8_t upperMenu[0x10];
     uint8_t buffer[0x80];
     uint8_t cameraObject[0x100];
-    CompressedMap* map;
+    uint8_t objectManager[0x10];
+    uint8_t tracker[0x10];
+    void* editorVtable[4];
+    uint8_t array[0x10];
+    uint8_t name[0x50];
 };
 alignas(16) World g_world;
 int g_nextGap;
@@ -122,13 +128,13 @@ uint32_t OursAt(uint32_t address)
 // arguments (those whose bit is set in `words` are GridDims halves: only their low 16 bits count), then return
 // `result` (or the scripted value).
 void Rec(StandIns& s, std::initializer_list<uint32_t> at, uint16_t pop, int n, uint32_t words = 0,
-         std::function<uint32_t(Regs&)> result = nullptr, bool noEcx = false)
+         std::function<uint32_t(Regs&)> result = nullptr, bool noEcx = false, uint32_t bytes = 0)
 {
     uint32_t id = *at.begin();
     void* thunk = s.Thunk(pop, [=](Regs& r) {
         Record({id, noEcx ? 0u : Norm(r.ecx)});
         for (int i = 0; i < n; ++i)
-            Record({(words >> i) & 1 ? r.args[i] & 0xFFFF : Norm(r.args[i])});
+            Record({(words >> i) & 1 ? r.args[i] & 0xFFFF : (bytes >> i) & 1 ? r.args[i] & 0xFF : Norm(r.args[i])});
         return result ? result(r) : Next(id);
     });
     for (uint32_t address : at) {
@@ -136,6 +142,11 @@ void Rec(StandIns& s, std::initializer_list<uint32_t> at, uint16_t pop, int n, u
         if (uint32_t ours = OursAt(address))
             s.Bytes(ours, Branch(0xE9, ours, thunk));
     }
+}
+// A thiscall function taking one bool.
+void RecBool(StandIns& s, std::initializer_list<uint32_t> at)
+{
+    Rec(s, at, 4, 1, 0, nullptr, false, 1);
 }
 // The same for a cdecl function (no ECX).
 void RecC(StandIns& s, std::initializer_list<uint32_t> at, int n, std::function<uint32_t(Regs&)> result = nullptr)
@@ -210,7 +221,138 @@ void StandInGame(StandIns& s)
     // the generator, pieces
     Rec(s, {0x005935F0}, 4, 1);
     Rec(s, {0x005906B0}, 4, 1);
+    Rec(s, {0x00591CF0}, 4, 1);
+    RecBool(s, {0x00592290});
+    RecBool(s, {0x005922D0});
+    Rec(s, {0x00592C90}, 0, 0);
+    Rec(s, {0x00592C10}, 0, 0);
+    Rec(s, {0x00592A10}, 0xC, 3);
+    Rec(s, {0x00592090}, 0, 0);
+    Rec(s, {0x00591D20}, 4, 1);
+
+    // the park manager
+    Rec(s, {0x00599140}, 8, 2, 0, nullptr, false, 1);
+    Rec(s, {0x005950B0}, 0, 0);
+    Rec(s, {0x0059CB10}, 4, 1);
+    Rec(s, {0x00595CB0}, 8, 2, 0, nullptr, false, 1);
+    Rec(s, {0x00595050}, 8, 2, 0, nullptr, false, 2);
+    Rec(s, {0x005975B0}, 4, 1);
+    Rec(s, {0x00598FC0}, 8, 2, 0, nullptr, false, 2);
+    Rec(s, {0x00595250}, 0x1C, 7);
+    Rec(s, {0x005975A0}, 0, 0);
+    Rec(s, {0x00595030}, 4, 1, 0, nullptr, false, 1);
+    Rec(s, {0x00595170}, 0, 0);
+    Rec(s, {0x005950D0}, 0, 0);
+    Rec(s, {0x00595210}, 8, 2);
+    Rec(s, {0x0059BD40}, 4, 1);
+    Rec(s, {0x00595C80}, 0, 0);
+    Rec(s, {0x00595BC0}, 0, 0);
+    Rec(s, {0x00595C70}, 0, 0);
+    Rec(s, {0x00595090}, 0, 0);
+    Rec(s, {0x00597720}, 4, 1);
+    Rec(s, {0x005950F0}, 4, 0, 0, [](Regs& r) {
+        Record({Text(r.args[0])});
+        return 0u;
+    });
+    Rec(s, {0x00595140}, 4, 1);
+    Rec(s, {0x005958B0}, 8, 2, 3);
+    Rec(s, {0x0059BED0}, 8, 2, 3);
+    Rec(s, {0x0059CC70}, 8, 2, 0, nullptr, false, 2);
+    Rec(s, {0x00595990}, 8, 2, 3);
+    RecC(s, {0x00599C70}, 0);
+    RecC(s, {0x00596FB0}, 0);
+    Rec(s, {0x00595A90}, 0xC, 3, 0, [](Regs& r) {
+        auto* out = reinterpret_cast<float*>(r.args[0]);
+        auto* area = reinterpret_cast<GridDims*>(r.args[1]);
+        auto* size = reinterpret_cast<float*>(r.args[2]);
+        Record({HashBytes(reinterpret_cast<uint8_t*>(area), 6)});
+        out[0] = (area->x - 29) * 120.0f + 0.3f;
+        out[1] = area->y * 48.0f + 0.01f;
+        out[2] = (area->z - 29) * 120.0f - 0.7f;
+        out[3] = 1.0f;
+        if (size) {
+            size[0] = area->w * 120.0f + 0.1f;
+            size[1] = area->h * 48.0f;
+            size[2] = area->l * 120.0f + 0.2f;
+        }
+        return r.args[0];
+    });
+
+    // the cursor
+    Rec(s, {0x0059BAC0}, 0, 0);
+    Rec(s, {0x00595340}, 0, 0);
+    Rec(s, {0x0059C950}, 4, 1);
+    Rec(s, {0x0059C9B0}, 4, 1);
+    RecBool(s, {0x005954A0});
+    Rec(s, {0x005954D0}, 0, 0);
+    Rec(s, {0x00598A60}, 4, 1);
+    RecC(s, {0x0059C900}, 0);
+    Rec(s, {0x00595360}, 8, 0, 0, [](Regs& r) {
+        Record({Text(r.args[0]), r.args[1]});
+        return 0u;
+    });
+    Rec(s, {0x005953C0}, 4, 1);
+    Rec(s, {0x0059A610}, 0, 0);
+    Rec(s, {0x0059A6D0}, 0, 0);
+    Rec(s, {0x0059A5A0}, 0, 0);
+    Rec(s, {0x0059D8E0}, 0, 0);
+    Rec(s, {0x0059D980}, 0, 0);
+    Rec(s, {0x0059BAF0}, 0, 0);
+    Rec(s, {0x0059D120}, 0, 0);
+    Rec(s, {0x0059D6B0}, 0xC, 3);
+    Rec(s, {0x0059D410}, 0, 0);
+    Rec(s, {0x00598B40}, 0, 0);
+    Rec(s, {0x005989C0}, 0, 0);
+    Rec(s, {0x00595440}, 0, 0);
+    Rec(s, {0x0059D240}, 0, 0);
+    Rec(s, {0x0059D600}, 0, 0);
+    Rec(s, {0x0059D380}, 0, 0);
+    Rec(s, {0x0059DAA0}, 4, 1);
+    Rec(s, {0x0059A1F0}, 0xC, 3);
+    Rec(s, {0x0059A8D0}, 0, 0);
+    // the piece menu
+    Rec(s, {0x0059A9E0}, 0xC, 3);
+    RecC(s, {0x00598DA0}, 0);
+    // the module, the listener, the tasks, the front end, the cameras, the objects, the tracker
+    Rec(s, {0x0045FAC0}, 0, 0);
+    Rec(s, {0x0044F790}, 0, 0);
+    Rec(s, {0x00406C90}, 4, 1);
+    Rec(s, {0x004068F0}, 0, 0);
+    RecBool(s, {0x0054F900});
+    RecC(s, {0x0059F890}, 3);
+    Rec(s, {0x00564F20}, 0, 0);
+    RecC(s, {0x005A53A0}, 2, [](Regs& r) {
+        // (the structure's first component)
+        auto* params = reinterpret_cast<Script::CStruct*>(r.args[0]);
+        if (params && params->m_head)
+            Record({params->m_head->name, params->m_head->raw});
+        return 1u;
+    });
+    RecC(s, {0x005A5420}, 2);
+    Rec(s, {0x004619F0}, 4, 1);
+    Rec(s, {0x0045F3A0}, 0xC, 3, 0, nullptr, false, 4);
+    Rec(s, {0x00462F00}, 0x18, 6, 0, nullptr, false, 0x10);
+    RecC(s, {0x005BE970}, 0);
+    // the park's memory
+    RecC(s, {0x0059E730}, 1, [](Regs& r) {
+        std::memset(reinterpret_cast<void*>(r.args[0]), 0x3C, 0x6C);
+        uint32_t usage = Next(0x0059E730);
+        std::memcpy(reinterpret_cast<uint8_t*>(0x007CE618) + 0x2C, &usage, 4);
+        return r.args[0];
+    });
+    RecC(s, {0x0059E390}, 1);
+    RecC(s, {0x0059EAD0}, 2);
+    // the rail and goal editors
+    Rec(s, {0x004F6510}, 0, 0);
+    Rec(s, {0x004F65A0}, 0, 0);
+    Rec(s, {0x004F6600}, 0, 0);
+    Rec(s, {0x004EA780}, 0, 0);
+    Rec(s, {0x004F4600}, 0x10, 4);
+    Rec(s, {0x004F74B0}, 0x14, 5);
+    Rec(s, {0x004E8300}, 0x10, 4);
+    Rec(s, {0x004E8390}, 0x10, 4);
 }
+
 
 using Setup = std::function<void()>;
 using Call = std::function<uint32_t(bool original)>;
@@ -262,7 +404,35 @@ void BasicWorld()
     GameVariable<void*>(0x007D1800) = w.memManager;
     GameVariable<uint8_t>(0x007CC979) = 1;
     std::memset(reinterpret_cast<void*>(0x006F3614), 0, 16); // the structure pools: from the manager
+    CParkEditor& e = w.editor;
+    e.m_vtable = w.editorVtable;
+    e.mp_logicTask = reinterpret_cast<ParkEditorTask*>(w.tasks[0]);
+    e.mp_displayTask = reinterpret_cast<ParkEditorTask*>(w.tasks[1]);
+    e.mp_inputHandler = reinterpret_cast<ParkEditorInputHandler*>(w.tasks[2]);
+    e.mp_inputHandler->m_index = 1;
+    e.m_state = CParkEditor::kStateEdit;
+    e.m_moveSpeed = 480.0f;
+    e.m_turnSpeed = 120.0f;
+    e.m_cameraAngle = 33.0f;
+    e.m_cameraTilt = 40.0f;
+    e.m_cameraDistance = 1400.0f;
+    e.m_lastTime = 1000;
+    *reinterpret_cast<int*>(w.generator + 0x20) = 4;
+    for (int i = 0; i < 2; ++i)
+        w.input.m_servers[i].m_device = reinterpret_cast<Sio::Device*>(w.buffer + 0x10 * i);
+    GameVariable<void*>(0x007CE464) = w.frontEnd;
+    GameVariable<uint32_t>(0x007CE468) = 3;
+    GameVariable<void*>(0x00696D40) = &w.input;
+    GameVariable<uint32_t>(0x00696D44) = 3;
+    GameVariable<void*>(0x00696D68) = w.mainLoop;
+    GameVariable<void*>(0x006F0FB8) = w.objectManager;
+    GameVariable<void*>(0x006F0FC0) = w.tracker;
+    GameVariable<uint32_t>(0x007CE5DC) = 1;
+    std::memset(reinterpret_cast<void*>(0x007CE5E0), 0, 12);
+    GameVariable<uint8_t>(0x0067F398) = 1;
+    std::memset(reinterpret_cast<void*>(0x007CE618), 0, 0x6C);
 }
+
 
 // Run `call` on the original and on ours from the same `setup`; compare calls, results and the world.
 void RunCase(const char* what, Setup setup, Call call, std::function<void(StandIns&)> more = nullptr)
@@ -324,7 +494,9 @@ CGapManager::Gap* GapAt(int i) { return reinterpret_cast<CGapManager::Gap*>(g_wo
 std::vector<Saved> ParkGlobals()
 {
     return {{0x007CE604, 12, {}}, {0x007CE5D4, 12, {}}, {0x007CE478, 4, {}}, {0x007D1800, 4, {}},
-            {0x007CC979, 1, {}},  {0x006F3614, 16, {}}, {0x006F3624, 4, {}}};
+            {0x007CC979, 1, {}},  {0x006F3614, 16, {}}, {0x006F3624, 4, {}}, {0x007CE464, 8, {}},
+            {0x00696D40, 8, {}},  {0x00696D68, 4, {}},  {0x006F0FB8, 4, {}}, {0x006F0FC0, 4, {}},
+            {0x007CE5E0, 12, {}}, {0x0067F398, 1, {}},  {0x007CE618, 0x6C, {}}, {0x00684FE4, 4, {}}};
 }
 
 // --- the gap manager --------------------------------------------------------------------------------------------
@@ -429,6 +601,501 @@ void TestParkGapManager()
     RestoreAll(saved);
 }
 
+// --- the park editor module -------------------------------------------------------------------------------------
+
+CParkEditor* TheEditor() { return &g_world.editor; }
+CCursor* Cur() { return &g_world.cursor; }
+void NoCursor() { GameVariable<CCursor*>(0x007CE608) = nullptr; }
+
+// A void() member of the editor: the original at `address`, or ours.
+uint32_t EdCall(bool original, uint32_t address, void (CParkEditor::*ours)())
+{
+    if (original)
+        return Game<void(__thiscall*)(CParkEditor*)>(address, TheEditor());
+    (TheEditor()->*ours)();
+    return 0;
+}
+
+void TestParkEditorModule()
+{
+    std::vector<Saved> saved = ParkGlobals();
+    SaveAll(saved);
+    using Thiscall = void(__thiscall*)(CParkEditor*);
+
+    // Release: a reference dropped; the last deletes the instance (or there's none).
+    for (int c = 0; c < 3; ++c) {
+        RunCase("park editor: Release", [&] {
+            GameVariable<uint32_t>(0x007CE5DC) = c == 0 ? 2 : 1;
+            if (c == 2)
+                GameVariable<void*>(0x007CE5D8) = nullptr;
+        }, [&](bool original) {
+            return original ? Game<void(__cdecl*)()>(0x0058D290) : (CParkEditor::Release(), 0u);
+        }, [](StandIns& s) {
+            g_world.editorVtable[0] = s.Thunk(4, [](Regs& r) {
+                Record({0xDE1E, r.ecx, r.args[0]});
+                return r.ecx;
+            });
+        });
+    }
+    // The destructors.
+    RunCase("park editor: DestroyBody", [] {}, [&](bool original) {
+        return EdCall(original, 0x0058D2D0, &CParkEditor::DestroyBody);
+    });
+    for (int flagsValue : {0, 1, 3}) {
+        uint8_t flags = static_cast<uint8_t>(flagsValue);
+        RunCase("park editor: Destroy", [] {}, [&](bool original) {
+            return original ? Game<CParkEditor*(__thiscall*)(CParkEditor*, uint8_t)>(0x0058DAA0, TheEditor(), flags)
+                            : U(TheEditor()->Destroy(flags));
+        });
+        RunCase("park editor: the listener's Destroy", [] {}, [&](bool original) {
+            auto* listener = &TheEditor()->m_listener;
+            return original
+                       ? Game<CParkEditor*(__thiscall*)(CParkEditor::Listener*, uint8_t)>(0x0058DA90, listener, flags)
+                       : U(listener->DestroyEditor(flags));
+        });
+    }
+    // Start, stop, leave.
+    RunCase("park editor: StartCallback", [] {}, [&](bool original) {
+        return EdCall(original, 0x0058DAD0, &CParkEditor::StartCallback);
+    });
+    RunCase("park editor: StopCallback", [] {}, [&](bool original) {
+        return EdCall(original, 0x0058D340, &CParkEditor::StopCallback);
+    });
+    RunCase("park editor: Leave", [] {}, [&](bool original) { return EdCall(original, 0x0058DB30, &CParkEditor::Leave); });
+
+    // AccessDisk: save; load in a normal level, with blockRebuild, without a cursor, the shell the same / changed.
+    struct DiskCase {
+        bool save;
+        uint32_t state;
+        bool block;
+        bool cursor;
+        uint32_t shell1, shell2;
+    };
+    const DiskCase disks[] = {
+        {true, CParkEditor::kStateEdit, false, true, 1, 1},     {false, CParkEditor::kStateOff, false, true, 2, 2},
+        {false, CParkEditor::kStateEdit, true, true, 1, 1},     {false, CParkEditor::kStateOff, true, false, 1, 2},
+        {false, CParkEditor::kStateEdit, false, true, 3, 3},    {false, CParkEditor::kStateTestPlay, false, true, 3, 4},
+        {false, CParkEditor::kStateEdit, true, false, 0, 5},
+    };
+    for (const DiskCase& d : disks) {
+        RunCase("park editor: AccessDisk", [&] {
+            TheEditor()->m_state = d.state;
+            if (!d.cursor)
+                NoCursor();
+            g_script[0x005950B0] = {d.shell1, d.shell2};
+        }, [&](bool original) {
+            return original ? Game<void(__thiscall*)(CParkEditor*, bool, int, bool)>(0x0058D360, TheEditor(), d.save, 6, d.block)
+                            : (TheEditor()->AccessDisk(d.save, 6, d.block), 0u);
+        });
+    }
+    // ApplyMap: editing / test play (the shell the same / changed), off, regular play; without a cursor.
+    struct MapCase {
+        uint32_t state;
+        bool cursor;
+        uint32_t shell;
+    };
+    const MapCase maps[] = {{CParkEditor::kStateEdit, true, 7},        {CParkEditor::kStateTestPlay, true, 8},
+                            {CParkEditor::kStateOff, true, 7},         {CParkEditor::kStateRegularPlay, false, 7},
+                            {CParkEditor::kStateTestPlay, false, 9}};
+    for (const MapCase& mc : maps) {
+        RunCase("park editor: ApplyMap", [&] {
+            TheEditor()->m_state = mc.state;
+            if (!mc.cursor)
+                NoCursor();
+            g_script[0x005950B0] = {7};
+        }, [&](bool original) {
+            auto* map = reinterpret_cast<const CompressedMap*>(g_world.buffer);
+            return original ? Game<void(__thiscall*)(CParkEditor*, const CompressedMap*, int)>(0x0058D4E0, TheEditor(), map,
+                                                                                               static_cast<int>(mc.shell))
+                            : (TheEditor()->ApplyMap(map, static_cast<int>(mc.shell)), 0u);
+        });
+    }
+    // The pass-throughs.
+    RunCase("park editor: WriteIntoStructure", [] {}, [&](bool original) {
+        auto* params = reinterpret_cast<Script::CStruct*>(g_world.structs[0]);
+        return original ? Game<void(__thiscall*)(CParkEditor*, Script::CStruct*)>(0x0058D600, TheEditor(), params)
+                        : (TheEditor()->WriteIntoStructure(params), 0u);
+    });
+    RunCase("park editor: ReadFromStructure", [] {}, [&](bool original) {
+        auto* params = reinterpret_cast<Script::CStruct*>(g_world.structs[1]);
+        return original ? Game<void(__thiscall*)(CParkEditor*, Script::CStruct*, bool)>(0x0058D620, TheEditor(), params, true)
+                        : (TheEditor()->ReadFromStructure(params, true), 0u);
+    });
+    RunCase("park editor: GetMapInfo", [] {}, [&](bool original) {
+        auto* b = reinterpret_cast<uint32_t*>(g_world.buffer);
+        auto* map = reinterpret_cast<const CompressedMap*>(g_world.name);
+        using Fn = void(__thiscall*)(CParkEditor*, const CompressedMap*, int*, int*, uint16_t*, uint32_t*, int*, int*);
+        return original ? Game<Fn>(0x0058D640, TheEditor(), map, reinterpret_cast<int*>(b), reinterpret_cast<int*>(b + 1),
+                                   reinterpret_cast<uint16_t*>(b + 2), b + 3, reinterpret_cast<int*>(b + 4),
+                                   reinterpret_cast<int*>(b + 5))
+                        : (TheEditor()->GetMapInfo(map, reinterpret_cast<int*>(b), reinterpret_cast<int*>(b + 1),
+                                            reinterpret_cast<uint16_t*>(b + 2), b + 3, reinterpret_cast<int*>(b + 4),
+                                            reinterpret_cast<int*>(b + 5)),
+                           0u);
+    });
+    RunCase("park editor: WriteCompressedMapIfBuilt", [] {}, [&](bool original) {
+        return EdCall(original, 0x0058D680, &CParkEditor::WriteCompressedMapIfBuilt);
+    });
+    RunCase("park editor: GetCompressedMapBuffer", [] { g_script[0x00595030] = {0x12345678}; }, [&](bool original) {
+        return original ? Game<CompressedMap*(__thiscall*)(CParkEditor*, bool)>(0x0058D690, TheEditor(), true)
+                        : U(TheEditor()->GetCompressedMapBuffer(true));
+    });
+    RunCase("park editor: SetCompressedMapBuffer", [] {}, [&](bool original) {
+        auto* map = reinterpret_cast<const CompressedMap*>(g_world.name);
+        return original ? Game<void(__thiscall*)(CParkEditor*, const CompressedMap*, bool)>(0x0058D6B0, TheEditor(), map, true)
+                        : (TheEditor()->SetCompressedMapBuffer(map, true), 0u);
+    });
+    for (uint32_t room : {0u, 1u}) {
+        RunCase("park editor: MainHeapHasRoom", [&] { g_script[0x0059EAD0] = {room}; }, [&](bool original) {
+            return original ? Game<bool(__thiscall*)(CParkEditor*, int, int)>(0x0058D6D0, TheEditor(), 11, 3)
+                            : static_cast<uint32_t>(TheEditor()->MainHeapHasRoom(11, 3));
+        });
+    }
+    RunCase("park editor: GetCursorPos", [] {}, [&](bool original) {
+        return original ? Game<Mth::Vector*(__thiscall*)(CParkEditor*)>(0x0058D6F0, TheEditor()) : U(TheEditor()->GetCursorPos());
+    });
+    RunCase("park editor: SetTimeOfDayScript", [] {}, [&](bool original) {
+        return original ? Game<void(__thiscall*)(CParkEditor*, uint32_t)>(0x0058D700, TheEditor(), 0xAABBCCDDu)
+                        : (TheEditor()->SetTimeOfDayScript(0xAABBCCDD), 0u);
+    });
+    RunCase("park editor: GetShellChecksum", [] { g_script[0x00595170] = {0x5E11}; }, [&](bool original) {
+        return original ? Game<uint32_t(__cdecl*)()>(0x0058D710) : CParkEditor::GetShellChecksum();
+    });
+    RunCase("park editor: GetParkName", [] { g_script[0x005950D0] = {U(g_world.name)}; }, [&](bool original) {
+        return original ? Game<const char*(__cdecl*)()>(0x0058D720) : U(CParkEditor::GetParkName());
+    });
+    // ShowEditorView, SwitchCamera, IsParkFull, RefreshPieceMenu
+    for (bool on : {false, true}) {
+        RunCase("park editor: ShowEditorView", [] {}, [&](bool original) {
+            return original ? Game<void(__thiscall*)(CParkEditor*, bool)>(0x0058DCB0, TheEditor(), on)
+                            : (TheEditor()->ShowEditorView(on), 0u);
+        });
+    }
+    for (int c = 0; c < 3; ++c) {
+        RunCase("park editor: SwitchCamera", [&] {
+            if (c == 0)
+                NoCursor();
+            else
+                Cur()->m_mode = c == 1 ? CCursor::kModeRailPlacement : CCursor::kModeGap;
+        }, [&](bool original) {
+            return original ? Game<void(__cdecl*)()>(0x0058DD70) : (CParkEditor::SwitchCamera(), 0u);
+        });
+    }
+    for (float usage : {0.5f, 0.99999994f, 1.0f, 1.5f, -0.0f}) {
+        RunCase("park editor: IsParkFull", [&] { std::memcpy(reinterpret_cast<uint8_t*>(0x007CE618) + 0x2C, &usage, 4); },
+                [&](bool original) {
+                    return original ? Game<int(__thiscall*)(CParkEditor*)>(0x0058DDC0, TheEditor())
+                                    : static_cast<uint32_t>(TheEditor()->IsParkFull());
+                });
+    }
+    for (int c = 0; c < 2; ++c) {
+        RunCase("park editor: RefreshPieceMenu", [&] {
+            if (c == 0)
+                NoCursor();
+            g_script[0x00595210] = {U(g_world.buffer)};
+        }, [&](bool original) { return EdCall(original, 0x0058DDE0, &CParkEditor::RefreshPieceMenu); });
+    }
+    // The listener: each pad event, another event, another target, paused, not editing, no cursor.
+    struct EventCase {
+        uint32_t type, target;
+        uint32_t state;
+        uint32_t flags;
+        bool cursor;
+    };
+    const uint32_t root = 0x56A1EAE3;
+    const EventCase events[] = {
+        {0x30A4F836, root, CParkEditor::kStateEdit, 0, true}, {0x05DDD87C, root, CParkEditor::kStateEdit, 0, true},
+        {0x0FD1AC26, root, CParkEditor::kStateEdit, 0, true}, {0x6949DB75, root, CParkEditor::kStateEdit, 0, true},
+        {0x1E3E253B, root, CParkEditor::kStateEdit, 0, true}, {0x30A4F836, 0x1234, CParkEditor::kStateEdit, 0, true},
+        {0x30A4F836, root, CParkEditor::kStateEdit, 2, true}, {0x30A4F836, root, CParkEditor::kStateEdit, 0xFD, true},
+        {0x30A4F836, root, CParkEditor::kStateTestPlay, 0, true}, {0x30A4F836, root, CParkEditor::kStateEdit, 0, false},
+    };
+    for (const EventCase& ev : events) {
+        RunCase("park editor: the listener's events", [&] {
+            TheEditor()->m_state = ev.state;
+            TheEditor()->m_flags = ev.flags;
+            TheEditor()->m_commands = 0x1;
+            if (!ev.cursor)
+                NoCursor();
+        }, [&](bool original) {
+            Obj::CEvent event = {ev.type, 0, ev.target, 0, nullptr};
+            auto* listener = &TheEditor()->m_listener;
+            return original ? Game<void(__thiscall*)(CParkEditor::Listener*, Obj::CEvent*)>(0x0058DE40, listener, &event)
+                            : (listener->ListenTo(&event), 0u);
+        });
+    }
+    // IsInsidePark: points round the park's corner (-2280.3 .. +1319.8 in x with the stand-in's corner) and edges.
+    // (the stand-in's corner and size of the park's bounds 10, 12, 30 x 28)
+    const float cx = -19 * 120.0f + 0.3f, cz = -17 * 120.0f - 0.7f;
+    const float x1 = static_cast<float>(static_cast<double>(30 * 120.0f + 0.1f) + cx);
+    const float z1 = static_cast<float>(static_cast<double>(28 * 120.0f + 0.2f) + cz);
+    const float points[][3] = {{0.0f, 0.0f, 0.0f},      {cx + 10.0f, 0.0f, 0.0f},  {cx + 5.0f, 5.0f, -1000.0f},
+                               {cx + 10.5f, 0.0f, 0.0f}, {x1 - 10.0f, 0.0f, 100.0f}, {x1 - 5.0f, 0.0f, 100.0f},
+                               {x1 - 10.5f, 0.0f, 0.0f}, {0.0f, 0.0f, cz + 10.0f},  {0.0f, 0.0f, cz + 5.0f},
+                               {0.0f, 0.0f, cz + 10.5f}, {0.0f, 0.0f, z1 - 10.0f},  {0.0f, 0.0f, z1 - 5.0f},
+                               {0.0f, 0.0f, z1 - 10.5f}, {-5000.0f, 0.0f, 0.0f},    {0.0f, 0.0f, 9000.0f}};
+    for (const auto& pt : points) {
+        for (float margin : {10.0f, 0.0f}) {
+            RunCase("park editor: IsInsidePark", [] {}, [&](bool original) {
+                Mth::Vector pos = {pt[0], pt[1], pt[2], 1.0f};
+                return original ? Game<bool(__cdecl*)(Mth::Vector, float)>(0x0058DEC0, pos, margin)
+                                : static_cast<uint32_t>(CParkEditor::IsInsidePark(pos, margin));
+            });
+        }
+    }
+    RunCase("park editor: FindRestart", [] { g_script[0x00592A10] = {1}; }, [&](bool original) {
+        void* a = g_world.buffer;
+        void* b = g_world.name;
+        void* c = g_world.array;
+        return original ? Game<bool(__cdecl*)(void*, void*, void*)>(0x0058DF80, a, b, c)
+                        : static_cast<uint32_t>(CParkEditor::FindRestart(a, b, c));
+    });
+    RunCase("park editor: GetMaxPlayers", [] {}, [&](bool original) {
+        return original ? Game<int(__cdecl*)()>(0x0058DFA0) : static_cast<uint32_t>(CParkEditor::GetMaxPlayers());
+    });
+    // HandleInput: the sticks and each button.
+    const uint32_t buttons[][2] = {{0x80, 0}, {0x20, 0}, {0x40, 0}, {0x10, 0}, {0x04, 0}, {0x01, 0},
+                                   {0x10000, 0}, {0x20000, 0}, {0, 0x10000}, {0, 0x20000}, {0xFFFFFFFF, 0xFFFFFFFF},
+                                   {0x0802, 0x30000}};
+    for (const auto& b : buttons) {
+        RunCase("park editor: HandleInput", [&] {
+            auto* data = reinterpret_cast<Inp::Data*>(g_world.buffer);
+            data->m_event[0] = 0x00;
+            data->m_event[1] = 0xFF;
+            data->m_event[2] = 0x81;
+            data->m_event[3] = 0x7F;
+            data->m_makes = b[0];
+            data->m_buttons = b[1];
+            ParkEditorInputHandler* handler = TheEditor()->mp_inputHandler;
+            handler->m_controlData = data;
+            handler->m_data = TheEditor();
+            TheEditor()->m_commands = 0xFFFFFFFF;
+        }, [&](bool original) {
+            ParkEditorInputHandler* handler = TheEditor()->mp_inputHandler;
+            return original ? Game<void(__cdecl*)(ParkEditorInputHandler*)>(0x0058DB70, handler) : (HandleInput(handler), 0u);
+        });
+    }
+    // ChangeSelection: each of the four commands, all of them.
+    for (uint32_t commands : {0x200u, 0x400u, 0x8u, 0x10u, 0x618u, 0xFFFFF9E7u}) {
+        RunCase("park editor: ChangeSelection", [&] {
+            TheEditor()->m_commands = commands;
+            g_script[0x00595210] = {U(g_world.buffer), U(g_world.name), U(g_world.array), U(g_world.object)};
+        }, [&](bool original) { return EdCall(original, 0x0058EBE0, &CParkEditor::ChangeSelection); });
+    }
+    // UpdateMenuStick: editing (paused or not), test play.
+    for (int c = 0; c < 3; ++c) {
+        RunCase("park editor: UpdateMenuStick", [&] {
+            TheEditor()->m_state = c == 2 ? CParkEditor::kStateTestPlay : CParkEditor::kStateEdit;
+            TheEditor()->m_flags = c == 1 ? 2 : 0xFFFFFFFD;
+        }, [&](bool original) { return EdCall(original, 0x0058F640, &CParkEditor::UpdateMenuStick); });
+    }
+    for (int controller : {0, 1}) {
+        RunCase("park editor: BindToController", [] {}, [&](bool original) {
+            return original ? Game<void(__thiscall*)(CParkEditor*, int)>(0x0058F6C0, TheEditor(), controller)
+                            : (TheEditor()->BindToController(controller), 0u);
+        });
+    }
+    // SetState: 0 (as it is), each state; without a cursor.
+    struct StateCase {
+        uint32_t before, state;
+        bool cursor;
+    };
+    const StateCase states[] = {{CParkEditor::kStateTestPlay, 0, true},
+                                {CParkEditor::kStateOff, CParkEditor::kStateEdit, true},
+                                {CParkEditor::kStateEdit, CParkEditor::kStateTestPlay, true},
+                                {CParkEditor::kStateEdit, CParkEditor::kStateRegularPlay, false},
+                                {CParkEditor::kStateEdit, CParkEditor::kStateOff, true},
+                                {CParkEditor::kStateEdit, 0, false},
+                                {CParkEditor::kStateEdit, 0, true},
+                                {CParkEditor::kStateTestPlay, CParkEditor::kStateEdit, false}};
+    for (const StateCase& sc : states) {
+        RunCase("park editor: SetState", [&] {
+            TheEditor()->m_state = sc.before;
+            TheEditor()->m_commands = 0x77;
+            if (!sc.cursor)
+                NoCursor();
+            g_script[0x00584110] = {U(g_world.checklist)};
+        }, [&](bool original) {
+            return original ? Game<void(__thiscall*)(CParkEditor*, uint32_t)>(0x0058FA50, TheEditor(), sc.state)
+                            : (TheEditor()->SetState(sc.state), 0u);
+        });
+    }
+    RestoreAll(saved);
+}
+
+// --- the editor's frame: Update, LogicUpdate ---------------------------------------------------------------------
+
+struct UpdateCase {
+    int mode;
+    uint32_t commands;
+    float sticks[4]; // right x, right y, left x, left y
+    float angle, tilt, distance;
+    uint32_t flags;
+    bool camera;
+    std::map<uint32_t, std::deque<uint32_t>> answers; // the cursor's, by function
+    int halves;
+    uint32_t now;
+};
+
+void TestParkEditorUpdate()
+{
+    std::vector<Saved> saved = ParkGlobals();
+    SaveAll(saved);
+    const int regular = CCursor::kModeRegular, gap = CCursor::kModeGap, adjust = CCursor::kModeGapAdjust,
+              area = CCursor::kModeAreaSelect, paste = CCursor::kModePaste, rail = CCursor::kModeRailPlacement;
+    const uint32_t kAdd = 0x0059D410, kOver = 0x00598B40, kAdvance = 0x005989C0, kPlace = 0x0059D240,
+                   kRemoveGap = 0x0059D600, kDestroy = 0x0059D380, kRaise = 0x0059DAA0;
+    const std::vector<UpdateCase> cases = {
+        // paused: only the camera
+        {regular, 0x20, {90, 90, 90, 90}, 33, 40, 1400, 2, true, {}, 0, 1500},
+        {regular, 0, {0, 0, 0, 0}, 33, 40, 1400, 0, false, {}, 0, 1016},
+        // the sticks (dead zones both ways, exactly 50), the move turned by the angle
+        {regular, 0, {60, -70, 100, -128}, 33, 40, 1400, 0, true, {}, 0, 1033},
+        {regular, 0, {50, -50, -51, 127}, 271.5f, 72.25f, 777, 0, true, {}, 0, 1100},
+        {regular, 0, {-120, 30, 75.5f, 64}, 0.0f, 10.0f, 500, 0, true, {}, 0, 999},
+        // the angle past 360 / below 0, the tilt below 10 / over 90
+        {regular, 0, {127, 0, 0, 0}, 359.5f, 40, 1400, 0, true, {}, 0, 1700},
+        {regular, 0, {-128, 0, 0, 0}, 0.5f, 40, 1400, 0, true, {}, 0, 1700},
+        {regular, 0, {0, 127, 0, 0}, 33, 11.0f, 1400, 0, true, {}, 0, 1500},
+        {regular, 0, {0, -128, 0, 0}, 33, 89.0f, 1400, 0, true, {}, 0, 1500},
+        // just past the limits
+        {regular, 0, {45, -45, 45, -45}, 33, 40, 1400, 0, true, {}, 0, 1500},
+        {regular, 0, {-60, 0, 0, 0}, 0.5f, 40, 1400, 0, true, {}, 0, 1050},
+        {regular, 0, {0, 0, 0, 0}, 360.0f, 40, 1400, 0, true, {}, 0, 1050},
+        {regular, 0, {0, 60, 0, 0}, 33, 12.0f, 1400, 0, true, {}, 0, 1500},
+        {regular, 0, {0, -60, 0, 0}, 33, 89.0f, 1400, 0, true, {}, 0, 1050},
+        {regular, 0x2000, {}, 33, 40, 1484.5f, 0, true, {}, 0, 1016},
+        {regular, 0x4000, {}, 33, 40, 515.5f, 0, true, {}, 0, 1016},
+        // turning: the piece, the gap
+        {regular, 0x2, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {regular, 0x4, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {regular, 0x6, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {gap, 0x2, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {adjust, 0x4, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        // placing: a gap's half (placed, over a gap, completing nothing), the area's corners, the paste, a piece
+        {gap, 0x20, {}, 33, 40, 1400, 0, true, {{kAdd, {1}}}, 2, 1016},
+        {gap, 0x20, {}, 33, 40, 1400, 0, true, {{kOver, {1}}}, 0, 1016},
+        {adjust, 0x20, {}, 33, 40, 1400, 0, true, {{kOver, {1}}}, 1, 1016},
+        {gap, 0x20, {}, 33, 40, 1400, 0, true, {{kAdd, {1}}, {kOver, {1}}}, 1, 1016},
+        {gap, 0x20, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {area, 0x20, {}, 33, 40, 1400, 0, true, {{kAdvance, {1}}}, 0, 1016},
+        {area, 0x20, {}, 33, 40, 1400, 0, true, {{kAdvance, {2}}}, 0, 1016},
+        {area, 0x20, {}, 33, 40, 1400, 0, true, {{kAdvance, {3}}}, 0, 1016},
+        {paste, 0x20, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {regular, 0x20, {}, 33, 40, 1400, 0, true, {{kPlace, {1}}}, 0, 1016},
+        {regular, 0x20, {}, 33, 40, 1400, 0, true, {{kRaise, {1}}}, 0, 1016},
+        // removing: a gap's half (yes / no), the area, the piece (yes / no)
+        {gap, 0x40, {}, 33, 40, 1400, 0, true, {{kRemoveGap, {1}}}, 0, 1016},
+        {adjust, 0x40, {}, 33, 40, 1400, 0, true, {{kDestroy, {1}}}, 0, 1016},
+        {area, 0x40, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {regular, 0x40, {}, 33, 40, 1400, 0, true, {{kDestroy, {1}}}, 0, 1016},
+        {paste, 0x40, {}, 33, 40, 1400, 0, true, {{kRemoveGap, {1}}}, 0, 1016},
+        // raising and lowering (not with a gap)
+        {regular, 0x80, {}, 33, 40, 1400, 0, true, {{kRaise, {1}}}, 0, 1016},
+        {regular, 0x100, {}, 33, 40, 1400, 0, true, {{kRaise, {1}}}, 0, 1016},
+        {regular, 0x180, {}, 33, 40, 1400, 0, true, {{kRaise, {0, 1}}}, 0, 1016},
+        {gap, 0x180, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        // zooming (clamped; not with a gap)
+        {regular, 0x2000, {}, 33, 40, 1490, 0, true, {}, 0, 1016},
+        {regular, 0x2000, {}, 33, 40, 1484, 0, true, {}, 0, 1016},
+        {regular, 0x4000, {}, 33, 40, 510, 0, true, {}, 0, 1016},
+        {regular, 0x4000, {}, 33, 40, 516, 0, true, {}, 0, 1016},
+        {regular, 0x6000, {}, 33, 40, 1000, 0, true, {}, 0, 1016},
+        {adjust, 0x6000, {}, 33, 40, 1000, 0, true, {}, 0, 1016},
+        // a gap's extents (only with a gap)
+        {gap, 0x8000, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {gap, 0x800, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {adjust, 0x10000, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {gap, 0x1000, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {regular, 0x19800, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        // the menu commands, everything at once, the modes at the end
+        {regular, 0x618, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {gap, 0xFFFFFFFF, {10, 80, -90, 55}, 120, 50, 900, 0xFFFFFFFD, true, {{kAdd, {1}}, {kRemoveGap, {1}}}, 0, 1200},
+        {regular, 0xFFFFFFFF, {10, 80, -90, 55}, 120, 50, 900, 0, true, {{kPlace, {1}}, {kDestroy, {0}}, {kRaise, {1, 0}}}, 0, 1200},
+        {area, 0, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+        {rail, 0, {}, 33, 40, 1400, 0, true, {}, 0, 1016},
+    };
+    for (const UpdateCase& uc : cases) {
+        RunCase("park editor: Update", [&] {
+            CParkEditor* e = TheEditor();
+            e->m_commands = uc.commands;
+            e->m_rightX = uc.sticks[0];
+            e->m_rightY = uc.sticks[1];
+            e->m_leftX = uc.sticks[2];
+            e->m_leftY = uc.sticks[3];
+            e->m_cameraAngle = uc.angle;
+            e->m_cameraTilt = uc.tilt;
+            e->m_cameraDistance = uc.distance;
+            e->m_flags = uc.flags;
+            Cur()->m_mode = uc.mode;
+            Cur()->m_gap.m_numCompleteHalves = uc.halves;
+            if (uc.camera)
+                g_script[0x004619F0] = {U(g_world.cameraObject)};
+            g_script[0x005BE970] = {uc.now};
+            g_script[0x00595210] = {U(g_world.buffer), U(g_world.name), U(g_world.array), U(g_world.object)};
+            g_script[0x00584110] = {U(g_world.checklist)};
+            for (const auto& answer : uc.answers)
+                g_script[answer.first] = answer.second;
+        }, [&](bool original) { return EdCall(original, 0x0058ED50, &CParkEditor::Update); });
+    }
+
+    // LogicUpdate: editing (the skaters paused), test play (unpaused), regular play; paused; no cursor; placing
+    // rails (the rail editor's bit set or not, leaving the mode); the mode becoming rail placement.
+    struct LogicCase {
+        uint32_t state;
+        uint32_t flags;
+        bool cursor;
+        int mode;
+        uint8_t railBit;
+        int modeAfter; // set by the stand-in of the cursor's Update / ChangeSet (-1: unchanged)
+    };
+    const int none = -1;
+    const LogicCase logic[] = {
+        {CParkEditor::kStateEdit, 0, true, regular, 0, none},
+        {CParkEditor::kStateEdit, 0, true, regular, 1, none},
+        {CParkEditor::kStateEdit, 0, true, regular, 0, rail},
+        {CParkEditor::kStateTestPlay, 0, true, regular, 0, none},
+        {CParkEditor::kStateRegularPlay, 0, true, regular, 0, none},
+        {CParkEditor::kStateEdit, 2, true, regular, 0, none},
+        {CParkEditor::kStateTestPlay, 2, true, regular, 0, none},
+        {CParkEditor::kStateEdit, 0, false, regular, 0, none},
+        {CParkEditor::kStateEdit, 0, true, rail, 1, none},
+        {CParkEditor::kStateEdit, 0, true, rail, 0, none},
+        {CParkEditor::kStateEdit, 0x10, true, rail, 0, regular},
+    };
+    for (const LogicCase& lc : logic) {
+        RunCase("park editor: LogicUpdate", [&] {
+            CParkEditor* e = TheEditor();
+            e->m_state = lc.state;
+            e->m_flags = lc.flags;
+            e->m_commands = 0x618;
+            if (!lc.cursor)
+                NoCursor();
+            Cur()->m_mode = lc.mode;
+            g_world.railEditor[8] = lc.railBit;
+            g_script[0x004619F0] = {U(g_world.cameraObject)};
+            g_script[0x005BE970] = {1033};
+            g_script[0x00595210] = {U(g_world.buffer), U(g_world.name), U(g_world.array), U(g_world.object)};
+        }, [&](bool original) { return EdCall(original, 0x0058F8A0, &CParkEditor::LogicUpdate); },
+                [&](StandIns& s) {
+                    if (lc.modeAfter == none)
+                        return;
+                    int mode = lc.modeAfter;
+                    Rec(s, {0x0059A1F0}, 0xC, 3, 0, [mode](Regs&) {
+                        g_world.cursor.m_mode = mode;
+                        return 0u;
+                    });
+                    Rec(s, {0x0059C9B0}, 4, 1, 0, [mode](Regs&) {
+                        g_world.cursor.m_mode = mode;
+                        return 0u;
+                    });
+                });
+    }
+    RestoreAll(saved);
+}
+
 } // namespace
 
 SELFTEST(Early, TestParkGapManager, RemoveStandIns);
+SELFTEST(Early, TestParkEditorModule, RemoveStandIns);
+SELFTEST(Early, TestParkEditorUpdate, RemoveStandIns);

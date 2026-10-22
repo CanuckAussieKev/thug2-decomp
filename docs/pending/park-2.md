@@ -32,3 +32,42 @@ Switch off: `[replacements] disable=gap_manager.cpp` (and park_editor.cpp, park_
     found / a null piece / a record in two slots, the trigger length for each end / none / a piece in two gaps, a copy
     over stale slots, FireGap both orders. 33 deliberate bugs: 30 caught, 2 more after adding the two-gaps piece and
     the singletons to the compared state; 1 equivalent (the inline constructor's m_cancelFlags = 0 after a Calloc).
+- [x] Batch PE2-2 (NOT run in the game yet; the park editor module Ed::CParkEditor, 35 functions):
+  src/game/ed/park_editor.h / park_editor.cpp (new).
+  - The class (0x7C bytes; Mdl::Module, vtable 0x0064F234 = the scalar deleting destructor 0x0058DAA0, start
+    0x0058DAD0, stop 0x0058D340; an Obj::CEventListener at +0x14, vtable 0x0064F22C = the adjustor 0x0058DA90 and the
+    event filter 0x0058DE40): +0x30 a command was carried out, +0x34 the logic task (0x0058FFC0, priority 0), +0x38 an
+    empty display task (priority -1000), +0x3C the input handler (0x0058DB70), +0x40 the state (off 0xD443A2BC, edit
+    0x7ECA21E5, test_play 0xA40F0B8A, regular_play 0xCD3682C1), +0x44 the frame's commands, +0x48 flags (2: paused),
+    +0x4C / +0x50 move 480 / turn 120 speeds, +0x54-+0x60 the sticks, +0x68 / +0x6C / +0x70 the camera's angle, tilt
+    (10-90) and distance (500-1500), +0x74 the last time, +0x78 tod_script. The singleton 0x007CE5D8 / 0x007CE5DC:
+    0x0058D290 is Spt::SingletonPtr's Release (singleton.cpp's Singleton590160).
+  - The module: 0x0058D2D0 destructor body (the park manager deleted; the tasks and the handler are leaked, as in the
+    original), 0x0058DAA0 / 0x0058DA90 the deleting destructors, 0x0058DAD0 / 0x0058D340 start / stop (stop leaves the
+    display task in its list), 0x0058DB30 Leave (back to a normal level), 0x0058D360 AccessDisk (save / load; after a
+    load in the editor the park rebuilt, or change_level level=load_sk5ed if the shell size changed; blockRebuild),
+    0x0058D4E0 ApplyMap (a received map; the same while editing / test playing), the pass-throughs 0x0058D600-0x0058D720
+    (thiscall members not using `this`, or cdecl), 0x0058DCB0 ShowEditorView, 0x0058DD70 SwitchCamera, 0x0058DDC0
+    IsParkFull, 0x0058DDE0 RefreshPieceMenu, 0x0058DEC0 IsInsidePark (cdecl: a Vector by value and a margin),
+    0x0058DF80 FindRestart, 0x0058DFA0 GetMaxPlayers.
+  - The controls: 0x0058DB70 HandleInput (Square / Circle turn, X place, Triangle remove, L1 / L2 raise / lower and
+    widen / narrow a gap's right side, the extra buttons 0x10000 / 0x20000 its left side when pressed and zoom when
+    held; the commands cleared each frame), 0x0058DE40 the menus' pad_up / down / left / right to root_window (sets /
+    pieces), 0x0058EBE0 ChangeSelection, 0x0058ED50 Update (the parked_cam camera: (0, 0, distance) through
+    D3DXMatrixMultiply with X(-tilt) and Y(angle) rotations, over the cursor 300 up; then the sticks: dead zone 50 and
+    1/78, the left stick's move turned by the angle - the sine stored as a float, the cosine kept on the FPU, done in
+    inline x87 as the original -, the right stick turning (wrapped 0-360) and tilting (10-90); the commands with their
+    sounds; the rail editor's and goal editor's refreshes after a change; the cursor's Update and highlights),
+    0x0058F640 UpdateMenuStick, 0x0058F6C0 BindToController, 0x0058F8A0 LogicUpdate (PauseSkaters {Hide} while editing,
+    UnPauseSkaters in test play; the rail editor's SwitchOn / SwitchOffRailEditor scripts around rail placement - as
+    the original, SwitchOnRailEditor runs when the rail editor's flag bit 0 is set), 0x0058FA50 SetState (the state
+    compared is the argument; 0 keeps the state; the front end's auto-repeat 320 ms with 100 ms editing, else 50).
+  - Found by Ghidra's gaps: 0x0058DB70 (the input handler, only reached by address) and 0x0058F8A0 (reached by a tail
+    jump from 0x0058FFC0) - neither was a Ghidra function.
+  - Tests (TestParkEditorModule, TestParkEditorUpdate): every function, original vs ours, every called park /
+    cursor / generator / menu / tracker / camera / task / rail and goal editor function stood in for by recording code;
+    the singletons (front end, input manager) real with stand-in instances; D3DXMatrixMultiply and the rotation
+    matrices real. Update over 57 cases (each mode and command, the sticks round the dead zones, the angle and tilt and
+    distance limits, paused, no camera object), LogicUpdate over 11, IsInsidePark on each edge exactly. 124 deliberate
+    bugs (65 module + 59 Update): all caught, 13 after strengthening (the edges exactly, SetState(0) with a cursor,
+    the limits just past them); 1 equivalent (the dead zone `>= 50` - zero either way at 50).
