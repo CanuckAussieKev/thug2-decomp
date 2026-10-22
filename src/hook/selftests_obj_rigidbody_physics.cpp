@@ -150,7 +150,7 @@ void StandIn(StandIns& s)
         else
             s.At({address}, 0, record);
     }
-    s.At({0x0042C950}, 0, [](Regs& r) {
+    s.At({0x0042C950, AddressOf(&CRigidBodyComponent::FindContacts)}, 0, [](Regs& r) {
         Record({0xC950, Rel(r.ecx)});
         return static_cast<uint32_t>(g_a.contacts);
     });

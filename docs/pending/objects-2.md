@@ -158,7 +158,25 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
   - Test (selftests_obj_rigidbody_support.cpp): TestRigidBodyMembers, TestRigidBodyWorld (Finalize, Sleep, the world
     points, Damp with 0 / NaN / exact drags, CheckSleep on the sleep points and 48 exactly), TestRigidBodyPushers
     (20000: random and exact cases - on the radius, the band's edges, straight at / across / up, negative mute
-    delays, an infinite rotation factor), TestRigidBodyMath (20000 each, zeros and NaNs). 85 deliberate bugs, 74
-    caught (6 after strengthening); the 11 missed are equivalent or below float precision: the double sums'
+    delays, an infinite rotation factor), TestRigidBodyMath (20000 each, zeros and NaNs). 86 deliberate bugs, 76
+    caught (6 after strengthening); the 10 missed are equivalent or below float precision: the double sums'
     grouping in Finalize / UpdateWorldPoints (4) and GetMatrix (2, one a commuted sum), FeelPushers' mid boost
     (2s either way), the zero-length replacements (h and g: multiplied by 0; across: the impulse is NaN then).
+- [x] Batch OC2-7 (NOT run in the game yet; the rigid body's contacts with the world, 1 function):
+  src/game/obj/rigidbody_contacts.cpp (new); rigidbody_physics.cpp calls it as a member (its test stands in for ours).
+  - 0x0042C950 FindContacts: the rigid bodies' collision cache (0x006939E0) refilled for the bounding box (the
+    radius about the centre of mass; w +-1); each contact point (last first) by a feeler line from the centre out to
+    it - a hit is a contact (the point, the hit normal, the depth (1 - distance) * the line along the normal - x and
+    z products from rounded values, the comparison on the unrounded sum -, the point's number as its friction);
+    each sphere (last first) by a sphere query (through the same cache), each face it touches (last first) facing
+    it and not ahead of the centre of mass is one (the hit point; the normal from the hit to the sphere's centre,
+    (0, 1, 0, 1) when they coincide; depth the rounded distance less the radius; the sphere's number as the
+    friction - which ResolveContacts reads as a directed friction index). Touching contacts (depth <= 0) counted in
+    m_unknown191; all in m_contactsHit (more than 24 overrun the array into the world points, as the original).
+    Returns whether any touches.
+  - Test (TestRigidBodyContacts, 20000 variants: the cache update, the feeler's lines, the sphere feelers' spheres
+    and caches recorded; hits scripted - distances 0 / 1, normals across the line, a depth too small for a float,
+    hits at the sphere's centre, level with the body's centre, w varied; bodies near 0). 33 deliberate bugs, 33
+    caught (3 after strengthening; 3 that were equivalent by construction - a double passed through Wide - redone).
+- Range done: every function of 0x00423643-0x0042CECD has source (node out/scripts/starts.mjs --missing lists only
+  jump targets inside functions and padding misreads; find_gaps.py: none in the range).

@@ -191,6 +191,9 @@ public:
     void UpdateWorldPoints();
     // 0x0042C140: the first pusher (AddRigidBodyPusher's) touching it and moving at it pushes it.
     void FeelPushers();
+    // 0x0042C950 (rigidbody_contacts.cpp): the contacts with the world this frame (Contacts(), m_contactsHit of
+    // them, m_unknown191 touching): the contact points' lines and the spheres' queries. Whether any is touching.
+    bool FindContacts();
     // 0x0042C6D0: the velocity and the rotational velocity slowed by m_unknown38 / m_unknown3C (each a speed taken
     // off; slower than that: stopped - w 1).
     void Damp();

@@ -741,6 +741,7 @@ add_library(thug2_code OBJECT
     src/game/obj/rigidbody_component.cpp
     src/game/obj/rigidbody_physics.cpp
     src/game/obj/rigidbody_support.cpp
+    src/game/obj/rigidbody_contacts.cpp
     src/game/mth/quat.cpp
     src/game/mth/rigidbody_math.cpp
     src/game/mth/vector_transform.cpp

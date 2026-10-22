@@ -6,12 +6,16 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 #include <vector>
 
 #include "game/mth/matrix.h"
 #include "game/mth/quat.h"
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
+#include "game/nx/coll_cache.h"
+#include "game/nx/coll_sphere.h"
+#include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/obj/rigidbody_component.h"
 #include "game/obj/sound_component.h"
@@ -38,9 +42,9 @@ constexpr uint32_t kVtable = kMine + 0x500;    // a stand-in vtable (16 slots)
 constexpr uint32_t kEntry = kMine + 0x580;     // a member function table entry
 constexpr uint32_t kSound = kMine + 0x600;     // the sound component
 
-// The globals the code reads and writes: the world arrays and the pushers (0x00694E30-0x006951B0), their reach and
+// The globals the code reads and writes: the contacts, the world arrays and the pushers (0x006949B0-0x006951B0), their reach and
 // the two float / time globals after it (0x006939B0-0x006939DC).
-constexpr uint32_t kWorldStart = 0x00694E30, kWorldEnd = 0x006951B0;
+constexpr uint32_t kWorldStart = 0x006949B0, kWorldEnd = 0x006951B0;
 constexpr uint32_t kPusherStart = 0x006939B0, kPusherEnd = 0x006939DC;
 std::vector<uint8_t> g_world, g_pusher;            // this variant's
 std::vector<uint8_t> g_savedWorld, g_savedPusher;  // the real ones (put back at the end)
@@ -81,6 +85,8 @@ void RandomGlobals()
         std::memcpy(&g_pusher[i], &f, 4);
     }
 }
+
+float Pick(std::initializer_list<float> values) { return values.begin()[Next() % values.size()]; }
 
 CRigidBodyComponent* Body() { return reinterpret_cast<CRigidBodyComponent*>(ArenaPtr(kComp)); }
 
@@ -401,8 +407,8 @@ void RandomPushers()
         ArenaAt<float>(kComp + 0x40) = 48.0f;
         ArenaAt<float>(kComp + 0x44) = 12.0f;
         std::memset(g_pusher.data(), 0, 0x20);
-        float height = 77.0f;
-        std::memcpy(&g_pusher[0x20], &height, 4);
+        float standard = 77.0f;
+        std::memcpy(&g_pusher[0x20], &standard, 4);
         static const float kVel[][3] = {{-5.0f, 300.0f, 0.0f}, {0.0f, 0.0f, 5.0f}, {20.0f, 0.0f, 0.0f},
                                         {0.0f, 60.0f, 0.0f}, {200.0f, 0.0f, 0.0f}, {75.0f, 0.0f, 0.0f},
                                         {40.0f, -90.0f, 0.0f}};
@@ -448,6 +454,93 @@ void TestRigidBodyPushers()
     Check(ok, "rigid body: FeelPushers (original vs ours)");
 }
 
+// FindContacts: up to 8 contact points and 4 spheres (each query up to 3 hits: at most 20 contacts, inside the
+// array), the feeler's and the sphere feeler's answers scripted.
+void RandomContacts()
+{
+    RandomBody();
+    ArenaAt<uint16_t>(kComp + 0x8C) = static_cast<uint16_t>(Next() % 9);
+    ArenaAt<uint16_t>(kComp + 0x94) = static_cast<uint16_t>(Next() % 5);
+    ArenaAt<float>(kComp + 0x198) = std::fabs(RichFloat(80.0f));
+    for (uint32_t i = 0; i < 24; ++i)
+        ArenaAt<float>(kSpheres + i * 0x14 + 0x10) = Next() % 8 ? std::fabs(RichFloat(30.0f)) : 0.0f;
+    if (Next() % 4 == 0) // (the centre on whole numbers)
+        for (uint32_t k = 0; k < 16; k += 4)
+            ArenaAt<float>(kComp + 0x110 + k) = static_cast<float>(static_cast<int>(Next() % 200) - 100);
+    if (Next() % 4 == 0) // (the centre near 0: the lines' ends far bigger)
+        for (uint32_t k = 0; k < 16; k += 4)
+            ArenaAt<float>(kComp + 0x110 + k) = RichFloat(0.01f);
+}
+
+StandIn CacheUpdate()
+{
+    return {0x0040ABA0, 4, 0, Ret::None, true, 0, {Ours(&Nx::CCollCache::Update)}, [](Frame& f, Result&) {
+                for (int i = 0; i < 8; ++i)
+                    Record(reinterpret_cast<const uint32_t*>(f.args[0])[i]);
+            }};
+}
+// The feeler's query: its line recorded; a hit (or not) at a distance along it, with a normal.
+StandIn FeelerQuery()
+{
+    return {0x004172F0, 8, 2, Ret::Int, true, 3, {Ours(&Nx::CFeeler::GetCollision)}, [](Frame& f, Result& r) {
+                auto* feeler = reinterpret_cast<Nx::CFeeler*>(f.ecx);
+                for (int i = 0; i < 8; ++i)
+                    Record(reinterpret_cast<const uint32_t*>(feeler)[i]);
+                Record(reinterpret_cast<uint32_t>(feeler->mp_cache));
+                r.eax = Next() % 4 != 0;
+                feeler->m_distance = Next() % 6 == 0 ? Pick({0.0f, 1.0f, 0.5f}) : std::fabs(RichFloat(1.0f));
+                feeler->m_normal = {RichFloat(1.0f), RichFloat(1.0f), RichFloat(1.0f), Next() % 2 ? 1.0f : 0.0f};
+                if (Next() % 6 == 0) // (exactly across the line: depth 0)
+                    feeler->m_normal = {0.0f, 0.0f, 0.0f, 1.0f};
+                if (Next() % 10 == 0) { // (a depth too small for a float: 0 as one, not as a double)
+                    feeler->m_normal = {0.0f, 1e-40f, 0.0f, 1.0f};
+                    feeler->m_distance = 0.99999994f;
+                }
+            }};
+}
+// The sphere feeler's query: its sphere and cache recorded; up to 3 hits about the centre.
+StandIn SphereQuery()
+{
+    return {0x00418300, 4, 1, Ret::Bool, true, 0, {Ours(&Nx::CSphereFeeler::Query)}, [](Frame& f, Result& r) {
+                auto* feeler = reinterpret_cast<Nx::CSphereFeeler*>(f.ecx);
+                for (int i = 0; i < 5; ++i)
+                    Record(reinterpret_cast<const uint32_t*>(feeler)[i]);
+                Record(reinterpret_cast<uint32_t>(feeler->mp_cache));
+                r.eax = Next() % 4 != 0;
+                feeler->m_hits.count = static_cast<int>(Next() % 4);
+                const Mth::Vector& c = feeler->m_sphere.centre;
+                for (int k = 0; k < feeler->m_hits.count; ++k) {
+                    Nx::SphereHit& hit = feeler->m_hits.hits[k];
+                    float range = Next() % 2 ? 40.0f : 5.0f;
+                    hit.point = {c.x + RichFloat(range), c.y + RichFloat(range), c.z + RichFloat(range), c.w};
+                    if (Next() % 8 == 0)
+                        hit.point = c; // (at the centre: no direction)
+                    hit.t = RichFloat(1.0f);
+                    hit.normal = {RichFloat(1.0f), RichFloat(1.0f), RichFloat(1.0f), 0.0f};
+                    if (Next() % 8 == 0) { // (the sphere straight above a level face, and the face's normal across it)
+                        hit.point = {c.x, c.y - 3.0f, c.z, c.w};
+                        hit.normal = {Next() % 2 ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
+                    }
+                    if (Next() % 8 == 0) // (level with the body's centre, straight below or above the sphere's)
+                        hit.point = {c.x, ArenaAt<float>(kComp + 0x114), c.z, c.w};
+                    if (Next() % 3 == 0)
+                        hit.point.w = RichFloat(2.0f);
+                }
+            }};
+}
+
+void TestRigidBodyContacts()
+{
+    Save();
+    StandIns standIns({CacheUpdate(), FeelerQuery(), SphereQuery()});
+    bool ok = CompareRuns(
+        "RigidBody FindContacts", 20000, [](int) { RandomContacts(); },
+        [] { return Original<uint32_t(__thiscall*)(void*)>(0x0042C950)(Body()) & 0xFF; },
+        [] { return static_cast<uint32_t>(Body()->FindContacts()); });
+    Restore();
+    Check(ok, "rigid body: FindContacts (original vs ours)");
+}
+
 void TestRigidBodyMath()
 {
     bool ok = true;
@@ -487,4 +580,5 @@ void TestRigidBodyMath()
 SELFTEST(Early, TestRigidBodyMembers);
 SELFTEST(Early, TestRigidBodyWorld);
 SELFTEST(Early, TestRigidBodyPushers);
+SELFTEST(Early, TestRigidBodyContacts);
 SELFTEST(Early, TestRigidBodyMath);

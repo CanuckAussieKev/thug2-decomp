@@ -44,13 +44,6 @@ float Sub(float a, float b) { return Narrow(Wide(a) - b); }
 bool DrawShape() { return GameVariable<bool>(0x006939D4); }
 bool DrawDetails() { return GameVariable<bool>(0x006939D5); }
 
-// The rigid body's code in the range before this one (thiscall on the component; 0x0042C950 not rewritten
-// yet).
-bool FindContacts(CRigidBodyComponent* body)
-{
-    return GameFunction<bool(__thiscall*)(CRigidBodyComponent*)>(0x0042C950)(body);
-}
-
 // Quaternions: `quat` times `other`, in place (0x00420140, not rewritten yet); the matrix of one.
 void QuatMultiply(Mth::Quat* quat, const Mth::Quat* other)
 {
@@ -529,7 +522,7 @@ void CRigidBodyComponent::Update()
             break;
     }
 
-    if (FindContacts(this))
+    if (FindContacts())
         ResolveContacts();
     if (m_springCount)
         ApplySprings();
