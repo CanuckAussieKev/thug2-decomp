@@ -47,3 +47,46 @@ Shared files touched: CMakeLists.txt (new files listed).
     Untested without a live connection: what GameSpy really answers (GP's structures are filled by hand here).
     Mutations (out/net4/mut_buddies.ts): 44, 43 caught; the miss (OnBuddyStatus' location parse with the
     unchecked strchr chain) differs only where both crash.
+- [x] Batch NET4-2 (NOT run in the game yet; the content vault and HTTP transfers - GameNet::VaultMan, 38 functions):
+  src/game/net/vault_man.h / .cpp (new); gamenet_manager.h: the manager's +0x14 named m_vaultMan (was m_unknown14).
+  - The class (manager +0x14, 0x3C8 bytes; www.thugonline.com: <folder>/dir_list.txt the categories,
+    <folder>/<category>/dir_list.txt their items, cgi-bin/upload2.pl the uploads): 0x0054C1D0 constructor (the
+    task, a semaphore of 1/10), 0x0054B470 destructor body, 0x0054A910 Download (thiscall, `this` unused: the
+    manager's object is used; the top stats download through it too - stats.cpp's StatsRequest is this
+    DownloadRequest: its "timeout" is the buffer size, +0x108..0x114 the fail / done / progress / error scripts),
+    0x0054B370 StartList, 0x0054B400 ListItems, 0x0054B500 ListCategories, 0x0054C130 FreeDirectoryListing,
+    0x0054B6E0 VaultTask (25 s without progress cancels; the progress script with "%d%%" for downloads; the lists
+    parsed line by line - categories and items are put at the front, so they end up in reverse order; an item line
+    is file:name:creator[:size:pieces:gaps:goals:theme:tod for parks | :score tricks | :is_male skaters |
+    :num_goals goals]:<field>:description; after the last category, net_vault_menu_create; an empty category list
+    leaves the transfer as it is - read again each frame), the threads 0x0054A7B0 ListThread (100000-byte zeroed
+    buffer), 0x0054A860 DownloadThread (frees the goastrdup'd URL with the game runtime's free), 0x0054AAC0
+    UploadThread (the data structure written with WriteToBuffer, its caseless CRC as "checksum", the type's fields;
+    a trick / skater / goal gets "filetype" twice), the ghttp callbacks 0x0054A660 OnProgress (received / total *
+    100 truncated, x87 order kept: 29 / 100 gives 28), 0x0054A740 OnTransferDone, 0x0054A6B0 OnFileDownloaded
+    (0x005A8EB0 with the type's script).
+  - Items (0x214) / categories (0x44) / their searches: 0x0054B570 / 0x0054B670 constructors, 0x0054B5E0 /
+    0x0054C980 scalar deleting destructors, 0x0054C890 the category's destructor body, 0x0054B2B0 / 0x0054B2D0
+    the node destructors, 0x0054B2F0 / 0x0054B330 / 0x0054B610 their scalar deleting ones, 0x0054B6B0 /
+    0x0054B640 the search's First / NextItem, 0x0054A760 / 0x0054A770 / 0x0054A780 / 0x0054B280 the searches'
+    destructors.
+  - CFunctions: 0x0054AA10 DownloadFile, 0x0054B060 UploadFile, 0x0054B240 CancelFileTransfer, 0x0054C290
+    DownloadDirectoryList (profile 0x011B0C16 - one particular GameSpy profile - first gets the uploads list as an
+    "Uploads" category), 0x0054C460 FreeDirectoryListing, 0x0054C470 FillVaultMenu, 0x0054C770 / 0x0054C800
+    Next / PrevVaultCategory (into the script's own parameters).
+  - Found 4 functions Ghidra hadn't made: 0x0054A660, 0x0054A6B0, 0x0054A740 (ghttp callbacks), 0x0054AAC0 (the
+    upload thread).
+  - Original quirks kept and noted: URLs and file names as sprintf formats (ours "%s"); lines with too few ':'
+    write through null (strstr unchecked); UploadThread's file name is an unset local for an unknown type (here
+    empty; not compared by the test); the item's URL is sprintf'd without a limit (ours bounded to the item's URL
+    and name fields).
+  - Tests TestNetVaultLists / TestNetVaultTransfers / TestNetVaultTask (selftests_net_vault.cpp): every node /
+    search / destructor function with flags, the walk over 0-3 categories, next / previous from each category, the
+    menu for every type and 0-2 items; Download, DownloadFile, lists, DownloadDirectoryList (each type x the uploads
+    profile), UploadFile, Cancel, the three threads (each type), OnProgress over states and totals (0, negative,
+    past 32 bits, x87 rounding), the completed callbacks (results 0 / 1 / 11 / -1, each type); the task: timeouts,
+    progress, downloads / uploads x result x error, the category lists (lines, one, blank, failed, skipped first),
+    the items of each type x next / skipped / last category, the uploads list. Untested without a live
+    connection: thugonline.com is gone - what its lists looked like is inferred from the parser.
+    Mutations (out/net4/mut_vault.ts): 52, 50 caught at first, 52 after strengthening (x87 rounding case, a
+    negative ghttp result).

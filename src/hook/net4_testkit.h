@@ -67,6 +67,7 @@ inline Key KeyOf(uint32_t structure, const char* name) { return {Rel(structure),
 inline Key KeyOf(uint32_t structure, uint32_t checksum) { return {Rel(structure), checksum}; }
 // Preference answers: arrays by name, strings and checksums by (name, field).
 inline std::map<uint32_t, uint32_t> g_prefArrays;
+inline std::map<uint32_t, uint32_t> g_prefStructs;
 inline std::map<Key, const char*> g_prefStrings;
 inline std::map<Key, uint32_t> g_prefChecksums;
 // Array elements by (array, index).
@@ -82,6 +83,7 @@ inline void ResetAnswers()
     g_checksums.clear();
     g_structures.clear();
     g_prefArrays.clear();
+    g_prefStructs.clear();
     g_prefStrings.clear();
     g_prefChecksums.clear();
     g_elements.clear();
@@ -156,12 +158,29 @@ inline void InstallScriptStandIns(StandIns& s)
         Rec(0x6B40, {r.ecx, r.args[0], found});
         return static_cast<uint32_t>(found);
     });
-    s.At({0x004765F0, AddressOf(static_cast<bool (CStruct::*)(const char*, const char**, int)>(&CStruct::GetString))},
+    // (each with the original's bool-assert wrapper of it: 0x00476C60...)
+    s.At({0x004765F0, 0x00476C80,
+          AddressOf(static_cast<bool (CStruct::*)(const char*, const char**, int)>(&CStruct::GetString))},
          12, Getter(0x65F0, g_strings, true));
-    s.At({0x00476680, AddressOf(static_cast<bool (CStruct::*)(const char*, int*, int)>(&CStruct::GetInteger))}, 12,
-         Getter(0x6680, g_ints, true));
-    s.At({0x00476630, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))}, 12,
-         Getter(0x6630, g_ints, false));
+    s.At({0x00476C60, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
+         12, Getter(0x6C60, g_strings, false));
+    s.At({0x00476680, 0x00476D00, AddressOf(static_cast<bool (CStruct::*)(const char*, int*, int)>(&CStruct::GetInteger))},
+         12, Getter(0x6680, g_ints, true));
+    s.At({0x00476630, 0x00476CB0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))},
+         12, Getter(0x6630, g_ints, false));
+    s.At({0x00476950, 0x00476EC0,
+          AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},
+         12, Getter(0x6950, g_checksums, false));
+    s.At({0x00476EE0, AddressOf(static_cast<bool (CStruct::*)(const char*, uint32_t*, int)>(&CStruct::GetChecksum))},
+         12, Getter(0x6EE0, g_checksums, true));
+    s.At({0x00476810, AddressOf(static_cast<bool (CStruct::*)(const char*, CStruct**, int)>(&CStruct::GetStructure))},
+         12, Getter(0x6810, g_structures, true));
+    s.At({0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, [](Regs& r) {
+        auto it = g_prefStructs.find(r.args[0]);
+        uint32_t value = it == g_prefStructs.end() ? 0u : it->second;
+        Rec(0xC4A0, {r.ecx, r.args[0]});
+        return value;
+    });
 
     using Prefs::Preferences;
     s.At({0x0046C4D0, AddressOf(&Preferences::GetPreferenceArray)}, 4, [](Regs& r) {
@@ -214,6 +233,9 @@ inline void InstallCrtStandIns(StandIns& s)
         return reinterpret_cast<uint32_t>(
             strtok_s(reinterpret_cast<char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1]), &position));
     });
+    s.At({0x00623B10}, 0, [](Regs& r) {
+        return reinterpret_cast<uint32_t>(std::strstr(reinterpret_cast<char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1])));
+    });
     s.At({0x00624E52}, 0, [](Regs& r) {
         return static_cast<uint32_t>(std::atol(reinterpret_cast<const char*>(r.args[0])));
     });
@@ -256,6 +278,28 @@ inline void InstallSystemStandIns(StandIns& s)
     StandInApi(s, 0x006450E0, reinterpret_cast<const void*>(&ResumeThread), 4, [](Regs& r) {
         Rec(0x7E5, {r.args[0]});
         return 0u;
+    });
+}
+
+// The semaphore calls (only the test's own thread recorded: the stand-in is the Windows function itself).
+inline DWORD g_testThread;
+inline void InstallSemaphoreStandIns(StandIns& s)
+{
+    g_testThread = GetCurrentThreadId();
+    StandInApi(s, 0x006450BC, reinterpret_cast<const void*>(&WaitForSingleObject), 8, [](Regs& r) {
+        if (GetCurrentThreadId() == g_testThread)
+            Rec(0x50BC, {r.args[0], r.args[1]});
+        return 0u; // WAIT_OBJECT_0
+    });
+    StandInApi(s, 0x006450E4, reinterpret_cast<const void*>(&ReleaseSemaphore), 12, [](Regs& r) {
+        if (GetCurrentThreadId() == g_testThread)
+            Rec(0x50E4, {r.args[0], r.args[1], r.args[2]});
+        return 1u;
+    });
+    StandInApi(s, 0x006450E8, reinterpret_cast<const void*>(&CreateSemaphoreA), 16, [](Regs& r) {
+        if (GetCurrentThreadId() == g_testThread)
+            Rec(0x50E8, {r.args[0], r.args[1], r.args[2], r.args[3]});
+        return 0x5E3Au;
     });
 }
 
