@@ -21,16 +21,13 @@ const char* GameName();
 // start-up; nothing is written for the defaults).
 void SetUpOnlineIdentity();
 
-// What SetUpOnlineIdentity writes: `name` (kept: its address is written; null = leave the name) and `key`
-// (exactly 6 characters; null = leave the key). Returns false (and writes nothing) for a key of another length.
-bool WriteOnlineIdentity(const char* name, const char* key);
+// What SetUpOnlineIdentity writes: `key` (exactly 6 characters; null = leave the key) - the name needs no write: every
+// use of it is source and asks GameName(). Returns false (and writes nothing) for a key of another length.
+bool WriteOnlineIdentity(const char* key);
 
-// The name / key the game's code uses now (read back from where WriteOnlineIdentity writes; for the self-tests).
-// `site` 0..1: the game name's uses not source yet (peerSetTitle's two); the key: 0 qr2, 1 peer, 2 stats (7 bytes
-// out, decoded).
-const char* GameNameAt(int site);
+// The key the game's code uses now (read back from where WriteOnlineIdentity writes; for the self-tests): 0 qr2,
+// 1 peer, 2 stats (7 bytes out, decoded).
 void GameKeyAt(int site, char out[7]);
-constexpr int kGameNameSites = 2;
 constexpr int kGameKeySites = 3;
 
 } // namespace Net

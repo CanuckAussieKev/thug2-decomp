@@ -117,7 +117,7 @@ bool __cdecl CFunc_LeaveLobby(Script::CStruct* params, Script::CScript*)
         const char* status = Script::GetString(kHomieStatusOnline);
         Call(0x00548320, buddy, kStatusOnline, status, text); // the presence's status
     }
-    Sdk(0x005FC9B0, lobby->m_peer, lobby->m_unknown28);
+    Sdk(0x005FC9B0, lobby->m_peer, lobby->m_groupId);
     PopHeap();
     return true;
 }

@@ -307,7 +307,7 @@ void LobbyMan::DestroyBody()
     for (Tsk::BaseTask* task : {m_thinkTask, m_natTask, m_hostingTask})
         if (task) // (the scalar deleting destructor, vtable slot 2)
             reinterpret_cast<void(__thiscall*)(Tsk::BaseTask*, unsigned int)>(task->m_vtable[2])(task, 1);
-    reinterpret_cast<Mem::ListNode*>(m_unknown0 + 0x14)->UnlinkAs(reinterpret_cast<void**>(0x0064CBDC));
+    m_players.UnlinkAs(reinterpret_cast<void**>(0x0064CBDC));
     reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x0064CBE0));
 }
 
