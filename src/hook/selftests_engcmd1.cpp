@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/gfx/lens_flare.h"
 #include "game/script/cfuncs_engine.h"
 #include "game/script/struct.h"
 #include "hook/cfunc_testkit.h"
@@ -47,7 +48,7 @@ void StandInCalls(StandIns& s)
         Record({0x8670, r.ecx == ScriptParams() ? 1u : r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004426D0}, 0, [](Regs& r) {
+    s.At({0x004426D0, AddressOf(&Sun::SetSun)}, 0, [](Regs& r) {
         auto* props = reinterpret_cast<const uint32_t*>(r.args[0]);
         uint32_t mask = r.args[1];
         Record({0x26D0, mask});

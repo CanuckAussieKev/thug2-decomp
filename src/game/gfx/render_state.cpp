@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "game/gfx/device.h"
+#include "game/gfx/pixel_shaders.h"
 #include "game/gfx/view_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -565,7 +566,7 @@ void __cdecl ApplyRenderState()
     Device()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
     Device()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
     GameFunction<void(__cdecl*)()>(0x004CD940)();
-    GameFunction<void(__cdecl*)()>(0x004DD7F0)(); // the shaders
+    CreatePixelShaders();
     Device()->SetRenderState(D3DRS_FOGENABLE, Fog());
     Device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
     Device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);

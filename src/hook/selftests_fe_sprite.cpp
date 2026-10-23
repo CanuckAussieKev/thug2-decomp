@@ -4,6 +4,7 @@
 
 #include "game/front/sprite_element.h"
 #include "game/gfx/engine_glue.h"
+#include "game/gfx/occlusion.h"
 #include "game/mth/vector.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
@@ -267,19 +268,19 @@ void TestEngineGlue()
             Rec(0x3CA0, {r.args[0]});
             return 0u;
         });
-        s.At({0x004D8D70}, 0, [](Regs& r) {
+        s.At({0x004D8D70, AddressOf(&Nx::AddOcclusionPoly)}, 0, [](Regs& r) {
             Rec(0x8D70, {r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
             return 0u;
         });
-        s.At({0x004D8C90}, 0, [](Regs& r) {
+        s.At({0x004D8C90, AddressOf(&Nx::EnableOcclusionPoly)}, 0, [](Regs& r) {
             Rec(0x8C90, {r.args[0], r.args[1] & 0xFF});
             return 0u;
         });
-        s.At({0x004D8CC0}, 0, [](Regs&) {
+        s.At({0x004D8CC0, AddressOf(&Nx::RemoveAllOcclusionPolys)}, 0, [](Regs&) {
             Rec(0x8CC0, {});
             return 0u;
         });
-        s.At({0x004DB570}, 0, [](Regs& r) {
+        s.At({0x004DB570, AddressOf(&Nx::SphereOutsideView)}, 0, [](Regs& r) {
             Rec(0xB570, {r.args[0], r.args[1]});
             return r.args[1] == Bits(2.0f) ? 1u : 0u;
         });

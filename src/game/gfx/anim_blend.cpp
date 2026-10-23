@@ -6,6 +6,8 @@
 #include <cstring>
 
 #include "game/gfx/anim_controller.h"
+#include "game/mth/vector.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -16,10 +18,11 @@ namespace {
 
 constexpr float kMinWeight = 9.99999975e-06f; // (0x006453B8)
 
-// 0x0043D990 (not rewritten yet): a + (b - a) * t.
+// a + (b - a) * t (Walk::Lerp).
 void LerpVector(float* out, const float* a, const float* b, float t)
 {
-    GameFunction<float*(__cdecl*)(float*, const float*, const float*, float)>(0x0043D990)(out, a, b, t);
+    Walk::Lerp(reinterpret_cast<Mth::Vector*>(out), reinterpret_cast<const Mth::Vector*>(a),
+               reinterpret_cast<const Mth::Vector*>(b), t);
 }
 
 void Copy4(float* to, const float* from)

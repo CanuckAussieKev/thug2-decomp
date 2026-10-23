@@ -29,7 +29,10 @@ CFont* LoadFontFile(const char* name) { return GameFunction<CFont*(__cdecl*)(con
 // Nx::CFont's setters (each calls the platform font's virtual).
 void SetSpacings(CFont* font, int charSpacing, int spaceSpacing)
 {
-    GameFunction<void(__thiscall*)(CFont*, int, int)>(0x004E3F90)(font, charSpacing, spaceSpacing);
+    // The original calls 0x004E3F90, a shared tail jump to vtable slot 2 (Obj::RefreshFromStructure, a naked stub):
+    // the slot called here.
+    using Slot = void(__thiscall*)(CFont*, int, int);
+    (*reinterpret_cast<Slot**>(font))[2](font, charSpacing, spaceSpacing);
 }
 void SetColorTable(CFont* font, uint32_t* colors)
 {

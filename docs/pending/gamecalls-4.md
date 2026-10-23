@@ -39,3 +39,40 @@ both; OpenUserTrack declared), src/hook tests listed per batch.
   volume, StreamExists' music flag, the user track, the percentage adjustment dropped, InitPlatform dropped, the
   stream extent dropped, LoadStream's plays, the fam checksum, IsPaused inverted, the platform's sound volume, the Bink
   open's offset, NewOverlapped's result.
+- [x] Batch GC4-2 (NOT run in the game yet; GameFunction cleanup - src/game/gfx, 80 calls): every call from src/game/gfx
+  into rewritten code is direct now - the renderer's state (render_state.h: SetState, SetTexture, SetBlendMode,
+  SetVertexFormat, SetPixelShader, SetWorldTransform) from render.cpp, flash.cpp, movie.cpp, text.cpp; render.cpp's
+  Draw2D, Bloom, the camera's GetAdjustedHFOV / GetPos / GetMatrix (GetPos / GetMatrix are source-only 4-byte
+  getters: now inline reads of m_pos / m_matrix, +0x5C / +0x6C as the originals), RenderScene, BuildOccluders,
+  Sun::Render, UpdateGlows, Tmr::GetTime, RenderShadowTextures, BeginScreenEffects, CopyScreenQuarter;
+  render_state.cpp's CreatePixelShaders; text.cpp's Sio::GetButtonKeyName and SDraw2D's Construct / DestroyBody;
+  movie.cpp's sound manager, main / music volumes, StopMusic, StopStreams; engine_glue.cpp (the occlusion polygons,
+  below); lens_flare.cpp (GameClockTime / TimeSince, Mth::Vector::MultiplyBy); anim_controller.cpp
+  (CAnimBlenderComponent::GetAnimSet / GetValue, GameClockElapsed); anim_blend.cpp (Walk::Lerp); device.cpp
+  (Tmr::SetFlags; the debug font through Stubs::ReturnZero, the shared stub the original calls); tod_manager.cpp
+  (Sun::SetSun - the local SunParams reinterpreted as Sun::Settings, same offsets; CModelComponent::SetColor);
+  font.cpp. movie.cpp's anonymous D3D enum kCullMode / kLighting renamed kD3DCullMode / kD3DLighting (they clashed
+  with render_state.h's RenderStateId).
+  Not called by their REPLACE names (linker-folded): font.cpp's SetSpacings went through 0x004E3F90 (REPLACEd as
+  Obj::RefreshFromStructure, a naked tail jump to vtable slot 2): it calls the font's slot 2 itself now;
+  lens_flare.cpp's Prim::SetBlendMode / SetUnknown14 went through 0x00428270 (CLineObject::SetBlendMode) and
+  0x00407A50 (CAssMan::SetPermanentByDefault): now the field writes those do (the dword at +0x0C, the byte at +0x14).
+  Odd: engine_glue.h's names don't say what the calls reach - AddDebugShape(4, ...) is occlusion.h's
+  AddOcclusionPoly (its "colour" is the polygon's checksum: coll_tri.cpp passes a checksum), FlagDebugLines is
+  EnableOcclusionPoly, ClearDebugLines RemoveAllOcclusionPolys, and SphereVisible is SphereOutsideView (1 when
+  OUTSIDE the view, not visible). Names kept for their callers; the header's comment says so now. SetTexture's
+  third argument (0, or the font's unknown17C) and the "vertex shader" (0, 0) calls: ours takes (stage, texture)
+  and SetPixelShader(shader, material) - the 0x004DAA80 callers were calling the pixel shader set with nulls.
+  Tests: stand-ins now over ours too in selftests_gfx2 (blur pass, world render: a patch over each of ours),
+  selftests_pc (TestDrawFlash, TestDrawMovieFrame, TestPlayMovieFile: patches / JumpBoth over ours), gapsA
+  (TestSTextDrawing), selftests_text (TestQueryString, TestDrawText: GetButtonKeyName; TestInitDirect3D:
+  Stubs::ReturnZero - the shared stub, only for that test - and Tmr::SetFlags), fe_sprite (engine glue),
+  obj_lens_flare, tod (SetSun, SetColor), engcmd1 (SetSun), fe_anim, appmain (CreatePixelShaders). Stand-ins that
+  recorded SetTexture's third argument (BlurTexture, StandInState3, MovieSetTexture, PmRendererTexture, gapsA's) and
+  PmSoundVolume's ECX no longer record them (ours doesn't pass them; unused by the callee).
+  Mutations (out/scripts/mut_gc4_2.ts): 19 / 20 caught - RenderScene's pass, UpdateGlows' flag, BuildOccluders'
+  frame, the camera angle, the flash's blend mode, the movie's address mode and music volume, the text's texture
+  stage, SDraw2D's hidden flag, the key name's button, EnableOcclusionPoly's flag, the lens flare's TimeSince and
+  its +0x14 byte, the partial anim's length, the model colour, SetFlags dropped, the font spacings swapped, Lerp's
+  t, CreatePixelShaders dropped. Not caught: Draw2D dropped in Draw2DWithBlackBars - the world render test runs
+  ours in both runs there (PartyMod's call at 0x004B341D into ours): untested.

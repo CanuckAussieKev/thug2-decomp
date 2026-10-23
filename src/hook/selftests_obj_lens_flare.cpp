@@ -17,6 +17,7 @@
 #include "game/front/screen_element_manager.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/lens_flare.h"
+#include "game/sys/game_clock.h"
 #include "game/mth/matrix.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
@@ -258,8 +259,8 @@ void StandInCalls(StandIns& s)
         return 0u;
     });
     s.At({0x004A0F20}, 0, [](Regs& r) { Record({0x0F20, r.args[0] & 0xFF}); return g_visible; });
-    s.At({0x0041C200}, 0, [](Regs&) { Record({0xC200}); return g_now++; });
-    s.At({0x00420250}, 0, [](Regs& r) { Record({0x0250, r.args[0]}); return g_since; });
+    s.At({0x0041C200, AddressOf(&Tmr::GameClockTime)}, 0, [](Regs&) { Record({0xC200}); return g_now++; });
+    s.At({0x00420250, AddressOf(&Tmr::GameClockTimeSince)}, 0, [](Regs& r) { Record({0x0250, r.args[0]}); return g_since; });
 }
 
 // The sun's state, recorded (pointers made run-relative).

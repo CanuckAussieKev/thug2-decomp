@@ -14,6 +14,8 @@
 #include "game/core/manager.h"
 #include "game/file/file.h"
 #include "game/gfx/device.h"
+#include "game/gfx/draw2d.h"
+#include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
@@ -98,24 +100,25 @@ Nx::SText* Text() { return reinterpret_cast<Nx::SText*>(g_text); }
 
 void StandInDrawing(StandIns& s)
 {
-    s.At({0x004DFA70}, 8, [](Regs& r) {
+    s.At({0x004DFA70, AddressOf(&Nx::SDraw2D::Construct)}, 8, [](Regs& r) {
         Record({kBaseCtor, Rel(r.ecx), r.args[0], r.args[1] & 0xFF});
         return r.ecx;
     });
-    s.At({0x004DFAA0}, 0, [](Regs& r) {
+    s.At({0x004DFAA0, AddressOf(&Nx::SDraw2D::DestroyBody)}, 0, [](Regs& r) {
         Record({kBaseDtor, Rel(r.ecx), *reinterpret_cast<uint32_t*>(r.ecx)});
         return 0x0BAD0BADu;
     });
-    s.At({0x004DAA80}, 0, [](Regs& r) {
+    s.At({0x004DAA80, AddressOf(&Nx::SetPixelShader)}, 0, [](Regs& r) {
         Record({kShader, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004D9DB0}, 0, [](Regs& r) {
+    s.At({0x004D9DB0, AddressOf(&Nx::SetVertexFormat)}, 0, [](Regs& r) {
         Record({kFvf, r.args[0]});
         return 0u;
     });
-    s.At({0x004DA730}, 0, [](Regs& r) {
-        Record({kSetTexture, r.args[0], r.args[1], r.args[2]});
+    // (the original also passes the font's unknown17C, which SetTexture doesn't take: not recorded)
+    s.At({0x004DA730, AddressOf(&Nx::SetTexture)}, 0, [](Regs& r) {
+        Record({kSetTexture, r.args[0], r.args[1]});
         return 0u;
     });
     g_deviceVtable[0x10C / 4] = s.Thunk(16, [](Regs& r) {

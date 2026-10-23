@@ -19,9 +19,11 @@
 #include "game/core/mem.h"
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
+#include "game/gfx/lens_flare.h"
 #include "game/gfx/tod_manager.h"
 #include "game/lst/hashtable.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/model_component.h"
 #include "game/script/cscript.h"
 #include "game/script/node_prefixes.h"
 #include "game/script/struct.h"
@@ -288,7 +290,7 @@ void InstallStandIns(StandIns& s)
         Rec(0xED70, {r.args[0], v[0], v[1], v[2], v[3]});
         return 0u;
     });
-    s.At({0x004426D0}, 0, [](Regs& r) {
+    s.At({0x004426D0, AddressOf(&Sun::SetSun)}, 0, [](Regs& r) {
         auto* v = reinterpret_cast<uint32_t*>(r.args[0]);
         Rec(0x26D0, {r.args[1], v[0], v[1], v[6], v[7], v[8], v[9], v[16] & 0xFF});
         return 0u;
@@ -336,7 +338,7 @@ void InstallStandIns(StandIns& s)
         auto it = g_tod_namedSectors.find(r.args[0]);
         return it == g_tod_namedSectors.end() ? 0u : At(it->second);
     });
-    s.At({0x00420700}, 4, [](Regs& r) {
+    s.At({0x00420700, AddressOf(&Obj::CModelComponent::SetColor)}, 4, [](Regs& r) {
         Rec(0x0700, {r.ecx, Colour(r.args[0])});
         return 0u;
     });
