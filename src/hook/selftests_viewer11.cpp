@@ -3,6 +3,7 @@
 // is a recording stand-in (by address: its this, its arguments, a scripted answer), and the calls, results and the
 // whole arena are compared.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -13,6 +14,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -54,27 +56,49 @@ uint32_t ComponentFor(uint32_t type)
 
 // A stand-in recording its this and `pop` / 4 arguments, answering `answer` (with `block`: block `answer`'s address
 // in the current arena).
+// Our replacement of a game function (stood in for too: our code calls it directly); the address itself if none.
+uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? Resolve(ours) : address;
+}
+// A stand-in's thunk written over our replacements of `addresses` as well.
+void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
+{
+    // (only the functions skater.cpp calls directly now: others' replacements may run for real)
+    static const uint32_t kDirect[] = {0x00511420, 0x00518630, 0x0046BC60, 0x00511310, 0x00519650, 0x0043D520, 0x00419A20, 0x005144D0, 0x00513AB0, 0x00431780, 0x0047B2A0, 0x005178B0, 0x004202A0, 0x00420110, 0x00511390, 0x0053AEA0, 0x00532EA0, 0x00419A90, 0x00420480, 0x0051D830, 0x0051D9C0, 0x0051DA20, 0x00407A60, 0x00511570, 0x0042BBF0, 0x00524C50, 0x00525E60, 0x00419B30, 0x0043D560, 0x00522410, 0x00512030, 0x0051BF00, 0x00506BE0, 0x00510F80, 0x0043D550, 0x00543340};
+    for (uint32_t address : addresses) {
+        if (std::find(std::begin(kDirect), std::end(kDirect), address) == std::end(kDirect))
+            continue;
+        uint32_t ours = OursOf(address);
+        if (ours != address)
+            s.Bytes(ours, Branch(0xE9, ours, thunk));
+    }
+}
+
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0, bool block = false)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer, block](Regs& r) {
+    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer, block](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
             g_trace.push_back(Rel(r.args[i]));
         return block ? Block(static_cast<int>(answer)) : answer;
     });
+    AlsoOurs(s, addresses, thunk);
 }
 // The same for a cdecl function of `count` arguments.
 void SimpleCdecl(StandIns& s, std::initializer_list<uint32_t> addresses, int count, uint32_t answer = 0)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    s.At(addresses, 0, [tag, count, answer](Regs& r) {
+    void* thunk = s.At(addresses, 0, [tag, count, answer](Regs& r) {
         g_trace.push_back(tag);
         for (int i = 0; i < count; ++i)
             g_trace.push_back(Rel(r.args[i]));
         return answer;
     });
+    AlsoOurs(s, addresses, thunk);
 }
 
 void Install(StandIns& s)
@@ -108,7 +132,7 @@ void Install(StandIns& s)
         Rec(0x3220, {r.ecx, r.args[0]});
         return g_classic ? 1u : 0u;
     });
-    s.At({0x00584540}, 4, [](Regs& r) {
+    s.At({0x00584540, OursOf(0x00584540)}, 4, [](Regs& r) {
         Rec(0x4540, {r.ecx, r.args[0]});
         return 5u + (r.args[0] & 3);
     });
@@ -136,7 +160,7 @@ void Install(StandIns& s)
         Rec(0xECE0, {});
         return static_cast<uint32_t>(g_clock += 3);
     });
-    s.At({0x0044E4F0}, 0, [](Regs& r) {
+    s.At({0x0044E4F0, OursOf(0x0044E4F0)}, 0, [](Regs& r) {
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });
@@ -151,7 +175,7 @@ void Install(StandIns& s)
                              0x0051EF00u, 0x0051EB00u, 0x0051ED10u, 0x005232E0u, 0x00519650u, 0x0043D520u, 0x00419A20u,
                              0x0048E4C0u, 0x005144D0u, 0x00513AB0u, 0x00431780u, 0x0047B2A0u})
         Simple(s, {address}, 0, address == 0x00419A20u ? 0x419A2u : 0u);
-    s.At({0x0041A730}, 4, [](Regs& r) {
+    s.At({0x0041A730, OursOf(0x0041A730)}, 4, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         Rec(0xA730, {r.ecx, v[0], v[1], v[2]});
         return r.ecx;
@@ -164,7 +188,7 @@ void Install(StandIns& s)
         Simple(s, {address}, 12);
     Simple(s, {0x00511390}, 16);
     for (uint32_t address : {0x004317C0u, 0x004317E0u})
-        s.At({address}, 4, [address](Regs& r) {
+        s.At({address, OursOf(address)}, 4, [address](Regs& r) {
             const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
             Rec(address & 0xFFFF, {r.ecx, r.args[0], v[0], v[1], v[2], v[3]});
             return 0u;

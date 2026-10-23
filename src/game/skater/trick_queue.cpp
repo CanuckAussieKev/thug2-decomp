@@ -17,6 +17,8 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/controls.h"
+#include "game/skater/flip_and_rotate.h"
+#include "game/skater/stats_manager.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -88,38 +90,32 @@ constexpr float kFrameMs = 16.66666603088379f; // 0x006460DC
 constexpr float kPercent = 0.01f;              // 0x0064544C (0.0099999998f)
 constexpr double kMashedFastEnough = 1.5;      // 0x0064C578
 
-// The rest of the component (0x0051EA90-0x00521B8F, not rewritten here).
-bool TrickHasScript(CTrickComponent* self, Script::CStruct* trick)
-{
-    return GameFunction<bool(__thiscall*)(void*, Script::CStruct*)>(0x0051EE10)(self, trick);
-}
+// The rest of the component (trick_component.cpp), under the names this code uses.
+bool TrickHasScript(CTrickComponent* self, Script::CStruct* trick) { return self->IsTrickEntry(trick); }
 bool TriggerDone(CTrickComponent* self, Script::CStruct* trigger, uint32_t kind, int ignore, bool option)
 {
-    return GameFunction<bool(__thiscall*)(void*, Script::CStruct*, uint32_t, int, bool)>(0x0051FDA0)(
-        self, trigger, kind, ignore, option);
+    return self->CheckTrigger(trigger, kind, static_cast<uint32_t>(ignore), option);
 }
+// (TrickNamed: `ignore` is the trick name to compare, a string pointer kept in a word)
 bool MatchesIgnore(CTrickComponent* self, Script::CStruct* trick, uint32_t ignore)
 {
-    return GameFunction<bool(__thiscall*)(void*, Script::CStruct*, uint32_t)>(0x0051EF50)(self, trick, ignore);
+    return self->TrickNamed(trick, reinterpret_cast<const char*>(static_cast<uintptr_t>(ignore)));
 }
-void SetButton(CTrickComponent* self, int button, bool pressed)
-{
-    GameFunction<void(__thiscall*)(void*, int, bool)>(0x0051F8F0)(self, button, pressed);
-}
+void SetButton(CTrickComponent* self, int button, bool pressed) { self->UpdateButton(button, pressed); }
 void CheckManualTricks(CTrickComponent* self, uint32_t array, int ignore, bool special)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t, int, bool)>(0x00521A80)(self, array, ignore, special);
+    self->SetPendingTrick(array, static_cast<uint32_t>(ignore), special);
 }
 bool PressedWithin(CTrickComponent* self, uint32_t button, int ms, int ignore)
 {
-    return GameFunction<bool(__thiscall*)(void*, uint32_t, int, int)>(0x0051F6B0)(self, button, ms, ignore);
+    return self->FindPress(button, static_cast<uint32_t>(ms), static_cast<uint32_t>(ignore));
 }
 
 void* Component(CTrickComponent* self, uint32_t offset) { return At<void*>(self, offset); }
-// SkaterFlipAndRotate's 0x00511570 (before a trick's script starts).
+// SkaterFlipAndRotate's DoAfterAnim (before a trick's script starts).
 void PrepareFlipAndRotate(CTrickComponent* self)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x00511570)(Component(self, kFlipAndRotate));
+    static_cast<CSkaterFlipAndRotateComponent*>(Component(self, kFlipAndRotate))->DoAfterAnim();
 }
 // The state component told a trick started.
 void TrickStarted(CTrickComponent* self) { At<bool>(Component(self, kState), 0xE0) = true; }
@@ -201,7 +197,7 @@ CTrickComponent* CTrickComponent::Construct()
     At<void*>(this, kTrickMappings) = nullptr;
     for (uint32_t offset = 0x1C; offset <= 0x34; offset += 4)
         At<void*>(this, offset) = nullptr;
-    GameFunction<void(__thiscall*)(void*)>(0x0051F320)(this);
+    Reset();
     return this;
 }
 
@@ -370,7 +366,7 @@ bool CTrickComponent::TryTrick(Script::CStruct* trick, uint32_t flag, Script::CS
     }
     Script::CStruct* params;
     if (trick->GetStructure(kParams, &params, 0) && !params->ContainsComponentNamed(kIsExtra))
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0051CAE0)(Component(this, kComponent34), script);
+        static_cast<CStatsManagerComponent*>(Component(this, kComponent34))->Count(script);
     if (!script)
         return false;
     ++At<int>(this, kBusy);
@@ -777,7 +773,7 @@ void CTrickComponent::Update()
     GameFunction<void(__thiscall*)(void*, void*, void*)>(0x004F8E20)(
         Component(this, kBalanceTrick), &At<int>(this, kButtonsHeld), &At<int>(this, kButtonsHeld + 4));
     UpdateExtraTricks();
-    GameFunction<void(__thiscall*)(void*)>(0x00521A10)(this);
+    QueueAllDoneTricks();
     UpdateManualTricks();
     if (At<bool>(this, kManualPending) && At<int>(this, kManualDuration) != -1 &&
         static_cast<uint32_t>(Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - At<int>(this, kManualTime))) >

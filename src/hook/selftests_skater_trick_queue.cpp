@@ -19,6 +19,8 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/controls.h"
+#include "game/skater/flip_and_rotate.h"
+#include "game/skater/stats_manager.h"
 #include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
 #include "game/sio/inpman.h"
@@ -276,17 +278,17 @@ void StandIns(Kit& kit, bool trickFunctions)
     }, {Code(&Tmr::GameClockElapsed)});
     // --- the rest of the skater ---
     kit.Recorder(0x0046BA50, {0, 4, Ret::Int, false, -1, -1, 0, 0xF}, {Code(&Obj::DPadDirection)});
-    kit.Recorder(0x0051F8F0, {8, 2, Ret::None, true, -1, -1, 0, 2});
-    kit.Recorder(0x0051EE10, {4, 1, Ret::Bool, true});
-    kit.Recorder(0x0051FDA0, {16, 4, Ret::Bool, true, -1, -1, 0, 8});
-    kit.Recorder(0x0051EF50, {8, 2, Ret::Bool, true});
-    kit.Recorder(0x00521A80, {12, 3, Ret::None, true, -1, -1, 0, 4});
-    kit.Recorder(0x0051F6B0, {12, 3, Ret::Bool, true});
-    kit.Recorder(0x0051CAE0, {4, 1, Ret::None, true});
-    kit.Recorder(0x00511570, {0, 0, Ret::None, true});
+    kit.Recorder(0x0051F8F0, {8, 2, Ret::None, true, -1, -1, 0, 2}, {Code(&Obj::CTrickComponent::UpdateButton)});
+    kit.Recorder(0x0051EE10, {4, 1, Ret::Bool, true}, {Code(&Obj::CTrickComponent::IsTrickEntry)});
+    kit.Recorder(0x0051FDA0, {16, 4, Ret::Bool, true, -1, -1, 0, 8}, {Code(&Obj::CTrickComponent::CheckTrigger)});
+    kit.Recorder(0x0051EF50, {8, 2, Ret::Bool, true}, {Code(&Obj::CTrickComponent::TrickNamed)});
+    kit.Recorder(0x00521A80, {12, 3, Ret::None, true, -1, -1, 0, 4}, {Code(&Obj::CTrickComponent::SetPendingTrick)});
+    kit.Recorder(0x0051F6B0, {12, 3, Ret::Bool, true}, {Code(&Obj::CTrickComponent::FindPress)});
+    kit.Recorder(0x0051CAE0, {4, 1, Ret::None, true}, {Code(&Obj::CStatsManagerComponent::Count)});
+    kit.Recorder(0x00511570, {0, 0, Ret::None, true}, {Code(&Obj::CSkaterFlipAndRotateComponent::DoAfterAnim)});
     kit.Recorder(0x004F8E20, {8, 2, Ret::None, true});
-    kit.Recorder(0x00521A10, {0, 0, Ret::None, true});
-    kit.Recorder(0x0051F320, {0, 0, Ret::None, true});
+    kit.Recorder(0x00521A10, {0, 0, Ret::None, true}, {Code(&Obj::CTrickComponent::QueueAllDoneTricks)});
+    kit.Recorder(0x0051F320, {0, 0, Ret::None, true}, {Code(&Obj::CTrickComponent::Reset)});
     kit.Add({0x005591B0}, 0, [](Frame&) {
         Record(0x5591B0);
         return Int(reinterpret_cast<uint32_t>(Arena() + 0x5F00));
