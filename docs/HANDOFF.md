@@ -432,3 +432,13 @@ PE1 0x588180-0x58CD40 (THUG2-1, docs/pending/park-1.md; starts with batch 329's 
   clean. NOT run in the game yet; not installed or pushed.
 - tools/mutate.ts needs no LF conversion (it reads with universal newlines and restores the bytes).
 - Still open (wider): 942 GameFunction calls elsewhere in src/game reach rewritten functions at their game addresses.
+
+## 2026-10-23: GameFunction calls into rewritten code -> direct calls (four agents)
+The user asked for the "942 GameFunction calls" cleanup (953 counted by the new `node tools/find_game_calls.ts`, which
+lists calls under src/game whose address has a REPLACE line; `--list [filter]` per call). Four agents in worktrees,
+split by calling directory (prompts out/scripts/GC1..4.txt, template gfc_prompt.txt; no game runs):
+GC1 skater/core_* + skate + ed + park + script (~231, docs/pending/gamecalls-1.md), GC2 the other skater files + sfx +
+file + sio (~247, gamecalls-2.md), GC3 obj + net + sys + core + nx + mc (~265, gamecalls-3.md), GC4 front + gfx + pcm
+(~210, gamecalls-4.md). Then merge one at a time (build + thug2_check both exes + code writes after each), fold, install.
+Found while sampling: folded identical functions mean a REPLACE name can be wrong for some callers (skater.cpp's light
+lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equivalent instead of calling a misnamed one.
