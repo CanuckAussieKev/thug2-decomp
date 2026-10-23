@@ -4,13 +4,18 @@
 //   node tools/level_port/ramp_check.ts <col.xbx | level folder | levels folder>...
 //       per level: faces, concave ramp edges (both faces facing up) by bend in 10-degree steps, those over THUG2's
 //       Ground_stick_angle (30), and what ramp_collision would still change - steep faces left walls inside a ramp
-//       ("ramp walls") and faces lying on a more rideable one with other flags ("overlays"). 0 / 0 after the fix.
+//       ("ramp walls"), faces lying on a more rideable one with other flags ("overlays"), vert faces flatter than 40
+//       degrees ("low vert") and ramp faces of 45 or more left unflagged under a vert face ("band"). 0 after the fix.
+//   node tools/level_port/ramp_check.ts --flags <col.xbx | folder | THUG2 <level>col.prx>...
+//       how a level flags its up-facing faces by slope (10-degree steps): vert / skatable / nothing / wall - THUG2's
+//       own levels (Data\pre\<level>col.prx) against a port.
 //   node tools/level_port/ramp_check.ts --spot <col.xbx> <x,y,z> [radius]
 //       the collision faces near a point (THUG2 inches, a screenshot sidecar's position): object, face, slope, height,
 //       normal, flags; the bends between joined ones.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as prx from "./prx.ts";
 import { type RampTri, rampFlags, rideRank } from "./ramp_collision.ts";
 import * as col from "./thug2_col.ts";
 
@@ -34,8 +39,8 @@ interface Tri extends RampTri {
     n: Vec;
 }
 
-function trisOf(file: string): Tri[] {
-    const c = col.readCol(fs.readFileSync(file), file);
+function trisOf(file: string, data: Buffer = fs.readFileSync(file)): Tri[] {
+    const c = col.readCol(data, file);
     const out: Tri[] = [];
     c.objects.forEach((o, oi) => {
         o.faces.forEach(([flags, , a, b, cc], fi) => {
@@ -56,6 +61,8 @@ export interface RampStats {
     buckets: number[];
     rampWalls: number;
     overlays: number;
+    lowVert: number;
+    band: number;
 }
 
 export function rampStats(tris: readonly Tri[]): RampStats {
@@ -80,6 +87,8 @@ export function rampStats(tris: readonly Tri[]): RampStats {
         buckets: Array(9).fill(0),
         rampWalls: 0,
         overlays: 0,
+        lowVert: 0,
+        band: 0,
     };
     for (const [e, list] of edges) {
         if (list.length !== 2) continue;
@@ -104,6 +113,8 @@ export function rampStats(tris: readonly Tri[]): RampStats {
     const fixed = rampFlags(tris);
     stats.rampWalls = fixed.promoted.length;
     stats.overlays = fixed.overlays.length;
+    stats.lowVert = fixed.lowVert.length;
+    stats.band = fixed.band.length;
     return stats;
 }
 
@@ -116,6 +127,28 @@ function colFiles(arg: string): string[] {
         else if (entry.name.endsWith(".col.xbx")) out.push(full);
     }
     return out.sort();
+}
+
+// Up-facing faces by slope (10-degree steps): how many are vert, skatable, unflagged, walls.
+export function flagTable(tris: readonly Tri[]): string[] {
+    const kinds = ["vert", "skatable", "none", "wall"] as const;
+    const table = Array.from({ length: 10 }, () => [0, 0, 0, 0]);
+    for (const t of tris) {
+        if (t.flags & IGNORED || t.n[1] < -0.01) continue;
+        const bucket = Math.min(9, Math.floor(degrees(t.n[1]) / 10));
+        const kind =
+            t.flags & col.FACE_VERT
+                ? 0
+                : t.flags & col.FACE_SKATABLE
+                  ? 1
+                  : t.flags & (col.FACE_WALL_RIDABLE | col.FACE_NOT_SKATABLE)
+                    ? 3
+                    : 2;
+        table[bucket]![kind]!++;
+    }
+    return table.map(
+        (row, b) => `${String(b * 10).padStart(2)}-${b * 10 + 10}: ${row.map((n, k) => `${kinds[k]} ${n}`).join("  ")}`,
+    );
 }
 
 function flagText(flags: number): string {
@@ -182,6 +215,8 @@ function main(argv: string[]): number {
             for (const [what, list] of [
                 ["ramp", fixed.promoted],
                 ["overlay", fixed.overlays],
+                ["low vert", fixed.lowVert],
+                ["band", fixed.band],
             ] as const)
                 for (const i of list) {
                     const t = tris[i]!;
@@ -193,12 +228,24 @@ function main(argv: string[]): number {
         }
         return 0;
     }
+    if (argv[0] === "--flags") {
+        for (const arg of argv.slice(1)) {
+            const sources: [string, Buffer][] = arg.toLowerCase().endsWith(".prx")
+                ? [...prx.entries(arg, (n) => n.toLowerCase().endsWith(".col.xbx"))]
+                : colFiles(arg).map((f): [string, Buffer] => [f, fs.readFileSync(f)]);
+            for (const [name, data] of sources) {
+                console.log(path.basename(name));
+                for (const line of flagTable(trisOf(name, data))) console.log(`   ${line}`);
+            }
+        }
+        return 0;
+    }
     if (!argv.length) return usage();
     for (const file of argv.flatMap(colFiles)) {
         const s = rampStats(trisOf(file));
         const share = ((s.over30 / Math.max(1, s.concave)) * 100).toFixed(1);
         console.log(
-            `${path.basename(file)}: ${s.faces} faces, concave ramp edges ${s.concave}, >30 deg ${s.over30} (${share}%, ${Math.round(s.over30Feet)} ft); ramp walls ${s.rampWalls}, overlays ${s.overlays}`,
+            `${path.basename(file)}: ${s.faces} faces, concave ramp edges ${s.concave}, >30 deg ${s.over30} (${share}%, ${Math.round(s.over30Feet)} ft); ramp walls ${s.rampWalls}, overlays ${s.overlays}, low vert ${s.lowVert}, band ${s.band}`,
         );
         console.log(`   ${s.buckets.map((n, b) => `${b * 10}-${b * 10 + 10}:${n}`).join(" ")}`);
     }
@@ -206,7 +253,9 @@ function main(argv: string[]): number {
 }
 
 function usage(): number {
-    console.error("usage: ramp_check.ts <col.xbx | folder>... | --spot <col.xbx> <x,y,z> [radius]");
+    console.error(
+        "usage: ramp_check.ts <col.xbx | folder>... | --list <col.xbx | folder>... | --flags <col.xbx | folder | col.prx>... | --spot <col.xbx> <x,y,z> [radius]",
+    );
     return 2;
 }
 

@@ -60,6 +60,8 @@ constexpr int kPartialLineFrames = 30;
 constexpr int kMaxCaptureFrames = Sys::Screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
 constexpr int kMaxTraceFrames = 36000;   // trace: ten minutes at 60 frames a second
 constexpr uint32_t kSkaterStateComponent = 0x43686585; // SkaterState
+constexpr uint32_t kSkaterScoreComponent = 0xD262802F; // SkaterScore
+constexpr uint32_t kSkaterCorePhysicsComponent = 0x5BD63B29; // SkaterCorePhysics
 
 uint32_t Checksum(const std::string& name) { return Crc::GenerateCRCFromString(name.c_str()); }
 
@@ -815,7 +817,7 @@ std::string StartTrace(int frames)
     FILE* file = std::fopen(path.c_str(), "w");
     if (!file)
         return "can't write " + path;
-    std::fprintf(file, "# frame x y z vx vy vz up_y state physics\n");
+    std::fprintf(file, "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
     std::fflush(file);
     TraceState().file = file;
     TraceState().left = frames;
@@ -833,11 +835,24 @@ void TraceFrame()
         auto* state = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterStateComponent));
         int where = state ? *reinterpret_cast<int*>(state + 0x18) : -1;
         int physics = state ? *reinterpret_cast<int*>(state + 0x1C) : -1;
-        std::fprintf(trace.file, "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d\n", Mlp::FramesRun(),
-                     static_cast<double>(skater->m_pos.x), static_cast<double>(skater->m_pos.y),
+        int bailing = state ? state[0x70] : -1;
+        int trick = state ? state[0xE0] : -1;
+        // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
+        auto* scoreComponent = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterScoreComponent));
+        uint8_t* score = scoreComponent ? *reinterpret_cast<uint8_t**>(scoreComponent + 0x18) : nullptr;
+        int pot = score ? *reinterpret_cast<int*>(score + 0x14) : -1;
+        float multiplier = score ? *reinterpret_cast<float*>(score + 0x60) : 0.0f;
+        int landed = score ? *reinterpret_cast<int*>(score + 0x20) : -1;
+        // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
+        auto* core = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterCorePhysicsComponent));
+        unsigned groundFlags = core ? *reinterpret_cast<uint16_t*>(core + 0x158 + 0x50) : 0;
+        unsigned groundObject = core ? *reinterpret_cast<uint32_t*>(core + 0x158 + 0x58) : 0;
+        std::fprintf(trace.file, "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
+                     Mlp::FramesRun(), static_cast<double>(skater->m_pos.x), static_cast<double>(skater->m_pos.y),
                      static_cast<double>(skater->m_pos.z), static_cast<double>(skater->m_vel.x),
                      static_cast<double>(skater->m_vel.y), static_cast<double>(skater->m_vel.z),
-                     static_cast<double>(skater->m_matrix.row[1].y), where, physics);
+                     static_cast<double>(skater->m_matrix.row[1].y), where, physics, bailing, trick, pot,
+                     static_cast<double>(multiplier), landed, groundFlags, groundObject);
         std::fflush(trace.file);
     }
     if (--trace.left <= 0)
@@ -1351,6 +1366,10 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
         }
         char result[96];
         std::snprintf(result, sizeof(result), "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
+        if (FILE* traceFile = TraceState().file) { // (a trace marks each teleport: the rides it holds)
+            std::fprintf(traceFile, "# %s -> %s\n", runner.text.c_str(), result);
+            std::fflush(traceFile);
+        }
         Finish(runner, result);
         return true;
     }

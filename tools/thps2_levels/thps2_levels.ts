@@ -372,12 +372,14 @@ export function collisionFlags(face: thps2.PsxFace, up: number): number | null {
 
 // THPS2's ramps in THUG2's collision (level_port/ramp_collision.ts): THPS2 rides the steep faces at the top of its
 // non-vert quarter pipes (67 - 73 degrees: Skate Heaven, Chopper Drop) that THUG2 takes as walls when nothing flags
-// them - those continuing a ramp are flagged skatable; and decal models over vert walls (NY) take the vert flag of
-// the face under them. `surfaces`: each collision face's THPS2 surface. The objects' flags are changed in place.
+// them - those continuing a ramp are flagged vert, as THUG2's own quarter pipes, and so are the ramp faces of 45
+// degrees and more under a vert face; THPS2's vert bit on faces flatter than 40 degrees (NY's low transitions) is
+// left out; and decal models over vert walls (NY) take the vert flag of the face under them. `surfaces`: each
+// collision face's THPS2 surface. The objects' flags are changed in place.
 export function rampCollision(
     objects: readonly geometry.SourceColObject[],
     surfaces: (object: geometry.SourceColObject) => readonly number[],
-): { promoted: number; overlays: number } {
+): { promoted: number; overlays: number; lowVert: number; band: number } {
     return rampCollisionFix.fixRampObjects(objects, (o, f) => thps2RampFace(surfaces(objects[o]!)[f] ?? 0));
 }
 
@@ -606,8 +608,10 @@ export interface ConvertedWorld {
         triggers: number;
         duplicates: number;
         layers: number;
-        ramps: number; // steep faces continuing a ramp, made skatable (level_port/ramp_collision.ts)
+        ramps: number; // steep faces continuing a ramp, made vert (level_port/ramp_collision.ts)
         overlays: number; // faces lying on a more rideable one, given its flags
+        lowVert: number; // vert faces flatter than 40 degrees, vert taken off
+        vertBand: number; // ramp faces of 45 degrees or more under a vert face, made vert
     };
 }
 
@@ -642,6 +646,8 @@ export function convertWorld(
         layers: 0,
         ramps: 0,
         overlays: 0,
+        lowVert: 0,
+        vertBand: 0,
     };
     // (drawn triangles already drawn by an earlier face: THPS2's worlds have exact copies - 44 in Hangar, some
     // with other uvs - that THUG2's depth buffer would draw flickering over each other. The PlayStation drew the one
@@ -822,6 +828,8 @@ export function convertWorld(
     const ramps = rampCollision(worldCol, (o) => colSurfaces.get(o) ?? []);
     counts.ramps = ramps.promoted;
     counts.overlays = ramps.overlays;
+    counts.lowVert = ramps.lowVert;
+    counts.vertBand = ramps.band;
     counts.triggers = triggerObjects.size;
     for (const t of triggerObjects.values()) {
         const lo = [0, 1, 2].map((k) => Math.min(...t.verts.map((v) => v[k]!)));
@@ -1879,7 +1887,8 @@ export function cmdConvert(args: Args): number {
         report.push(
             `  ${c.objects} objects, ${c.faces} faces (${c.hidden} not drawn, ${c.noCollision} not collided with), ` +
                 `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${c.layers} faces lying on others given a z bias, ` +
-                `${c.duplicates} duplicate triangles left out, ${c.ramps} steep ramp faces made skatable, ${c.overlays} faces over a ramp given its flags`,
+                `${c.duplicates} duplicate triangles left out, ${c.ramps} steep ramp faces and ${c.vertBand} under vert made vert, ${c.lowVert} low vert faces not vert, ` +
+                `${c.overlays} faces over a ramp given its flags`,
         );
         const noFloor = restartsWithoutFloor(trg, done.col);
         const setupName = logic.setup.length ? `${name}_setup` : null;
