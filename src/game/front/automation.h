@@ -57,6 +57,12 @@ class CStruct;
 //   capture <frames> [folder]             the next <frames> rendered frames (1-600), every one, as frame_0001.png ...
 //                                         in the screenshot folder's <folder> (default series_<time>), with one
 //                                         series.txt (game/sys/screenshot.h StartSeries); done once all are written
+//   trace <frames>                        the local skater traced for the next <frames> game frames (1-36000) into
+//                                         thug2-decomp-trace.txt (rewritten): a line a frame - frame, position,
+//                                         velocity, the up row's y, the SkaterState state (0 ground, 1 air, 2 wall,
+//                                         3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking). Done at
+//                                         once: the trace runs on under the next commands (`press up 120`...); a
+//                                         new trace replaces a running one
 //   echo <text>                           logged and shown as the result (a marker for tools)
 //   quit                                  the game closes (as its window's close button)
 //   crash <kind>                          a deliberate fault, to check the crash handling (hook/crash.h): access, rtc,
@@ -105,7 +111,7 @@ void AddPadButtons(int port, uint8_t* data);
 
 // --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
 
-enum class Op { Run, Choose, Focus, Press, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture, LogTricks, Crash };
+enum class Op { Run, Choose, Focus, Press, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture, LogTricks, Crash, Trace };
 enum class Condition { None, Ready, FrontEnd, InGame, Level, Menu, Focus };
 
 struct Param {

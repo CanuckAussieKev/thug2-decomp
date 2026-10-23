@@ -58,6 +58,8 @@ constexpr int kDefaultWaitSeconds = 90;
 constexpr int kSettleFrames = 60;      // waitfor level / ingame: how long the condition must hold
 constexpr int kPartialLineFrames = 30;
 constexpr int kMaxCaptureFrames = Sys::Screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
+constexpr int kMaxTraceFrames = 36000;   // trace: ten minutes at 60 frames a second
+constexpr uint32_t kSkaterStateComponent = 0x43686585; // SkaterState
 
 uint32_t Checksum(const std::string& name) { return Crc::GenerateCRCFromString(name.c_str()); }
 
@@ -415,6 +417,10 @@ ParseResult ParseCommand(const std::string& line, Command* out, std::string* err
                 return fail("capture: a folder name (no ..)");
             command.target = folder;
         }
+    } else if (keyword == "trace") {
+        command.op = Op::Trace;
+        if (count != 2 || !ReadCount(tokens[1], 1, kMaxTraceFrames, &command.frames))
+            return fail("trace <frames 1-" + std::to_string(kMaxTraceFrames) + ">");
     } else if (keyword == "logtricks") {
         command.op = Op::LogTricks;
         command.frames = 0; // (every trick object)
@@ -566,6 +572,7 @@ std::string Describe(const Command& command)
     }
     case Op::Capture: return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
     case Op::LogTricks: return "logtricks" + (command.frames ? " " + std::to_string(command.frames) : std::string());
+    case Op::Trace: return "trace " + std::to_string(command.frames);
     }
     return "?";
 }
@@ -779,6 +786,63 @@ bool MainMenuUp()
 }
 
 bool SkaterUp() { return Obj::FindObject(kSkater) != nullptr; }
+
+// --- trace: the skater frame by frame ---------------------------------------------------------------------------
+
+struct Trace {
+    FILE* file = nullptr;
+    int left = 0;
+};
+Trace& TraceState()
+{
+    static Trace trace;
+    return trace;
+}
+
+void StopTrace()
+{
+    Trace& trace = TraceState();
+    if (trace.file)
+        std::fclose(trace.file);
+    trace.file = nullptr;
+    trace.left = 0;
+}
+
+std::string StartTrace(int frames)
+{
+    StopTrace();
+    std::string path = GameFolderPath("thug2-decomp-trace.txt");
+    FILE* file = std::fopen(path.c_str(), "w");
+    if (!file)
+        return "can't write " + path;
+    std::fprintf(file, "# frame x y z vx vy vz up_y state physics\n");
+    std::fflush(file);
+    TraceState().file = file;
+    TraceState().left = frames;
+    return {};
+}
+
+// Once a frame: the skater's line (nothing while there's none - a level loading).
+void TraceFrame()
+{
+    Trace& trace = TraceState();
+    if (!trace.file)
+        return;
+    auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
+    if (skater) {
+        auto* state = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterStateComponent));
+        int where = state ? *reinterpret_cast<int*>(state + 0x18) : -1;
+        int physics = state ? *reinterpret_cast<int*>(state + 0x1C) : -1;
+        std::fprintf(trace.file, "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d\n", Mlp::FramesRun(),
+                     static_cast<double>(skater->m_pos.x), static_cast<double>(skater->m_pos.y),
+                     static_cast<double>(skater->m_pos.z), static_cast<double>(skater->m_vel.x),
+                     static_cast<double>(skater->m_vel.y), static_cast<double>(skater->m_vel.z),
+                     static_cast<double>(skater->m_matrix.row[1].y), where, physics);
+        std::fflush(trace.file);
+    }
+    if (--trace.left <= 0)
+        StopTrace();
+}
 
 // --- the command file -------------------------------------------------------------------------------------------
 
@@ -1312,6 +1376,14 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
         }
         return false; // (Continue: done once written)
     }
+    case Op::Trace: {
+        std::string failed = StartTrace(command.frames);
+        if (failed.empty())
+            Finish(runner, "ok");
+        else
+            Fail(runner, failed, false);
+        return true;
+    }
     case Op::LogTricks: {
         if (!LevelLoad() || InFrontEnd() || !SkaterUp()) {
             Fail(runner, "not in a level with the skater", false);
@@ -1557,6 +1629,7 @@ void Update(Mdl::FrontEnd* frontEnd)
     UpdateRun(runner);
     if (!Enabled())
         return;
+    TraceFrame();
     PollFile(runner);
     if (runner.active)
         Continue(runner, frontEnd);

@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
+import type { SourceColObject } from "../level_port/geometry.ts";
 import { checksum as qbChecksum } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import { Pkr, readPkrDirectory, writePkr } from "./pkr.ts";
@@ -313,6 +314,63 @@ test("collision flags: vert, wallride on steep faces, triggers and vert walls le
     assert.equal(conv.collisionFlags(face(0, thps2.SURFACE_TRIGGER), 1), 0);
 });
 
+test("rampCollision: a steep face continuing another object's transition rides; a trigger plane doesn't", () => {
+    // object 1: the floor (z 0..100) and a 45 degree transition 50 high; object 2: two 70 degree quads above it, the
+    // second with THPS2's trigger bit (visible faces with it collide)
+    const transition = [
+        [0, 0, 100],
+        [100, 0, 100],
+        [0, 0, 0],
+        [100, 0, 0],
+        [0, 0, 0],
+        [100, 0, 0],
+        [0, 50, -50],
+        [100, 50, -50],
+    ];
+    const top = [
+        [0, 50, -50],
+        [50, 50, -50],
+        [0, 150, -86.4],
+        [50, 150, -86.4],
+        [50, 50, -50],
+        [100, 50, -50],
+        [50, 150, -86.4],
+        [100, 150, -86.4],
+    ];
+    // (each quad a, b, c, d as the triangles a b d, a d c: facing up / +z)
+    const faces = (flags: number): thug2Col.Face[] =>
+        [0, 1].flatMap((q): thug2Col.Face[] => [
+            [flags, 0, q * 4, q * 4 + 1, q * 4 + 3],
+            [flags, 0, q * 4, q * 4 + 3, q * 4 + 2],
+        ]);
+    const object = (verts: number[][], f: thug2Col.Face[]): SourceColObject => ({
+        checksum: 1,
+        flags: 0,
+        bbox: [],
+        verts,
+        intensities: [],
+        faces: f,
+    });
+    const lower = object(transition, faces(0));
+    const upper = object(top, faces(thug2Col.FACE_WALL_RIDABLE));
+    const surfaces = new Map([
+        [lower, [0, 0, 0, 0]],
+        [upper, [0, 0, thps2.SURFACE_TRIGGER, thps2.SURFACE_TRIGGER]],
+    ]);
+    assert.deepEqual(
+        conv.rampCollision([lower, upper], (o) => surfaces.get(o) ?? []),
+        { promoted: 2, overlays: 0 },
+    );
+    assert.deepEqual(
+        upper.faces.map((f) => f[0]),
+        [thug2Col.FACE_SKATABLE, thug2Col.FACE_SKATABLE, thug2Col.FACE_WALL_RIDABLE, thug2Col.FACE_WALL_RIDABLE],
+    );
+    assert.deepEqual(
+        lower.faces.map((f) => f[0]),
+        [0, 0, 0, 0],
+    );
+});
+
 test("convertWorld: a sector and a collision object per object; invisible faces collide but aren't drawn", () => {
     const psx = thps2.readPsx(worldPsx(), "test");
     const textures: conv.LevelTextures = {
@@ -340,6 +398,8 @@ test("convertWorld: a sector and a collision object per object; invisible faces 
         triggers: 0,
         duplicates: 0,
         layers: 0,
+        ramps: 0,
+        overlays: 0,
     });
     // placed: the object's position, THUG2's space
     // (z: the model's 0..64 at 300, turned: -364 .. -300)
