@@ -17,13 +17,20 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/menu_element.h"
 #include "game/front/screen_element.h"
+#include "game/front/screen_element_manager.h"
+#include "game/front/text_element.h"
 #include "game/mth/random.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
+#include "game/skate/profile_manager.h"
 #include "game/skate/trick_goals.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -344,7 +351,7 @@ void Install(StandIns& s)
         Rec(0x6520, {r.ecx});
         return g_tg_localSkater ? At(g_tg_localSkater) : 0u;
     });
-    s.At({0x00580480}, 0, [](Regs& r) {
+    s.At({0x00580480, AddressOf(&Obj::CSkater::GetScore)}, 0, [](Regs& r) {
         Rec(0x0480, {r.ecx});
         return At(kScore);
     });
@@ -365,11 +372,11 @@ void Install(StandIns& s)
         Rec(0x4F80, {r.ecx, r.args[0]});
         return At(kMisc + 0x20);
     });
-    s.At({0x00586110}, 4, [](Regs& r) {
+    s.At({0x00586110, AddressOf(&Obj::CSkaterProfile::GetInfoStructure)}, 4, [](Regs& r) {
         Rec(0x6110, {r.ecx, r.args[0]});
         return At(StructAt(40)); // the trick mapping
     });
-    s.At({0x0045DB90}, 4, [](Regs& r) {
+    s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
         Rec(0xDB90, {r.ecx, r.args[0]});
         return At(kMisc + (r.args[0] == 0x43686585u ? 0x40u : 0x60u)); // the state (+0xE0), the score (+0x18)
     });
@@ -378,7 +385,7 @@ void Install(StandIns& s)
         Rec(0x3DE0, {r.args[0]});
         return r.args[0] ? (g_tg_random++ * 7u) % r.args[0] : 0u;
     });
-    s.At({0x0044ECE0}, 0, [](Regs&) {
+    s.At({0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, [](Regs&) {
         Rec(0xECE0, {});
         return static_cast<uint32_t>(g_tg_clock);
     });
@@ -389,7 +396,7 @@ void Install(StandIns& s)
     ours = AddressOf(&Tmr::GetSlomoFrameSeconds);
     s.Bytes(ours, Branch(0xE9, ours, reinterpret_cast<void*>(&StandInFrameSeconds)));
     // The screen elements.
-    s.At({0x004AAE20}, 12, [](Regs& r) {
+    s.At({0x004AAE20, AddressOf(&Front::CScreenElementManager::GetElement)}, 12, [](Regs& r) {
         Rec(0xAE20, {r.ecx, r.args[1], r.args[2]});
         auto* out = reinterpret_cast<Front::ElementPtr*>(r.args[0]);
         auto it = g_tg_elements.find(r.args[1]);
@@ -400,24 +407,24 @@ void Install(StandIns& s)
             out->Set(Ptr<Front::CScreenElement>(it->second));
         return r.args[0];
     });
-    s.At({0x004A8630}, 8, [](Regs& r) {
+    s.At({0x004A8630, AddressOf(&Front::CScreenElement::SetAlpha)}, 8, [](Regs& r) {
         Rec(0x8630, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004A8940}, 4, [](Regs& r) {
+    s.At({0x004A8940, AddressOf(&Front::CScreenElement::SetFocusSent)}, 4, [](Regs& r) {
         Rec(0x8940, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x004ABBE0}, 12, [](Regs& r) {
+    s.At({0x004ABBE0, AddressOf(&Front::CScreenElementManager::SetParent)}, 12, [](Regs& r) {
         Rec(0xBBE0, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), *reinterpret_cast<uint32_t*>(r.args[1]), r.args[2]});
         return 0u;
     });
-    s.At({0x004AD100}, 16, [](Regs& r) {
+    s.At({0x004AD100, AddressOf(&Front::CScreenElementManager::DestroyElement)}, 16, [](Regs& r) {
         Rec(0xD100, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
         return 0u;
     });
-    auto element = [&](uint32_t address, uint32_t tag) {
-        s.At({address}, 0, [tag](Regs& r) {
+    auto element = [&](uint32_t address, uint32_t ours, uint32_t tag) {
+        s.At({address, ours}, 0, [tag](Regs& r) {
             Rec(tag, {r.ecx});
             *reinterpret_cast<void***>(r.ecx) = g_tg_elementVtable;
             *reinterpret_cast<uint32_t*>(r.ecx + 4) = 0; // (no smart pointers)
@@ -427,14 +434,14 @@ void Install(StandIns& s)
             return r.ecx;
         });
     };
-    element(0x004AAC20, 0xAC20);
-    element(0x004B0920, 0x0920);
+    element(0x004AAC20, AddressOf(&Front::CContainerElement::Construct), 0xAC20);
+    element(0x004B0920, AddressOf(&Front::CTextElement::Construct), 0x0920);
     s.At({0x00461930, AddressOf(&Obj::CObject::SetID)}, 4, [](Regs& r) {
         Rec(0x1930, {r.ecx, r.args[0]});
         return 0u;
     });
     // Sounds (the volume structure is the caller's local).
-    s.At({0x0047B030}, 0, [](Regs& r) {
+    s.At({0x0047B030, AddressOf(&Sfx::sVolume::Init)}, 0, [](Regs& r) {
         g_tg_volume = r.ecx; // (a local of the caller's: only whether the same one is used is compared)
         Rec(0xB030, {});
         auto* volume = reinterpret_cast<float*>(r.ecx);
@@ -442,12 +449,12 @@ void Install(StandIns& s)
             volume[i] = 50.0f + i;
         return r.ecx;
     });
-    s.At({0x0047AD60}, 0, [](Regs& r) {
+    s.At({0x0047AD60, AddressOf(&Sfx::sVolume::SetSilent)}, 0, [](Regs& r) {
         Rec(0xAD60, {r.ecx == g_tg_volume});
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 0x14);
         return 0u;
     });
-    s.At({0x0047BD20}, 0x18, [](Regs& r) {
+    s.At({0x0047BD20, AddressOf(&Sfx::CSfxManager::PlaySound)}, 0x18, [](Regs& r) {
         auto* volume = reinterpret_cast<uint32_t*>(r.args[1]);
         Rec(0xBD20, {r.ecx, r.args[0], r.args[1] == g_tg_volume, volume[0], volume[1], volume[2], r.args[2], r.args[3], r.args[4], r.args[5]});
         return 0u;

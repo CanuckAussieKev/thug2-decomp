@@ -57,7 +57,7 @@ CSkaterProfile* NewProfile()
 
 // The face texture object of a model appearance (its +0x54; 0x00576E60, folded with Mdl::Viewer's getter), told a
 // face texture (0x004875F0) and whether there is one (0x00487520).
-void* FaceOf(CSkaterProfile* profile) { return GameFunction<void*(__thiscall*)(CSkaterProfile*)>(0x00576E60)(profile); }
+void* FaceOf(CSkaterProfile* profile) { return *reinterpret_cast<void**>(profile->m_appearance + 0x54); }
 
 } // namespace
 

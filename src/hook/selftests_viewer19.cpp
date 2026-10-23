@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "game/obj/object.h"
+#include "game/script/struct_buffer.h"
 #include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"
 #include "hook/viewer_testkit.h"
@@ -82,11 +83,11 @@ void Install(StandIns& s)
         return r.ecx + 0x40 + 0x20 * r.args[0];
     });
     // The buffer coders: a structure written (some bytes) / read back (the end).
-    s.At({0x00479E20}, 0, [](Regs& r) {
+    s.At({0x00479E20, AddressOf(&Script::WriteToBuffer)}, 0, [](Regs& r) {
         Rec(0x9E20, {r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
         return static_cast<uint32_t>(g_written += 0x11);
     });
-    s.At({0x0047A0C0}, 0, [](Regs& r) {
+    s.At({0x0047A0C0, AddressOf(&Script::ReadFromBuffer)}, 0, [](Regs& r) {
         Rec(0xA0C0, {r.args[0], r.args[1]});
         return r.args[1] + 0x23;
     });
@@ -119,10 +120,8 @@ void Install(StandIns& s)
         Rec(0x96A0, {r.ecx, r.args[0], r.args[1], r.args[2]});
         return 0x29u;
     });
-    s.At({0x00576E60}, 0, [](Regs& r) {
-        Rec(0x6E60, {r.ecx});
-        return g_face ? At(0x0D00) : 0u;
-    });
+    // (0x00576E60, the face, is the folded getter `mov eax, [ecx + 0x54]`: ours reads the appearance's +0x54
+    // itself - set by SetFace for both)
     s.At({0x00487510}, 0, [](Regs& r) {
         Rec(0x7510, {r.ecx});
         return g_faceValid ? 1u : 0u;
@@ -231,11 +230,14 @@ void TestProfileRest()
             else
                 p->WriteToSave(Ptr<CStruct>(kSave));
         };
+        auto setFace = [&] { *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(p) + 0x54) = g_face ? At(0x0D00) : 0u; };
         g_face = false;
+        setFace();
         write();
         mark(8);
         g_answers[{info, 0xD82F8AC8}] = 0;
         g_face = true;
+        setFace();
         g_faceValid = false;
         write();
         mark(9);

@@ -18,11 +18,14 @@
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/skate/victory_conditions.h"
+#include "game/skater/skater.h"
 #include "game/sys/module.h"
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
@@ -139,7 +142,7 @@ void Install(StandIns& s)
         Rec(0x65C0, {r.ecx, r.args[0]});
         return r.args[0] < 6 ? At(kSkaters + 0x40 * r.args[0]) : 0u;
     });
-    s.At({0x00580480}, 0, [](Regs& r) {
+    s.At({0x00580480, AddressOf(&Obj::CSkater::GetScore)}, 0, [](Regs& r) {
         Rec(0x0480, {r.ecx});
         return r.ecx ? *reinterpret_cast<uint32_t*>(r.ecx + 0x20) : 0u;
     });
@@ -156,7 +159,7 @@ void Install(StandIns& s)
         return static_cast<uint32_t>(g_vc_teams);
     });
     // The network players (a search: +4 the next player's offset).
-    s.At({0x005372C0}, 8, [](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [](Regs& r) {
         Rec(0x72C0, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), r.args[1]});
         auto* search = reinterpret_cast<uint32_t*>(r.args[0]);
         search[1] = g_vc_firstPlayer;
@@ -166,7 +169,7 @@ void Install(StandIns& s)
         search[1] = *reinterpret_cast<uint32_t*>(player + 0x3C);
         return player;
     });
-    s.At({0x00537010}, 8, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [](Regs& r) {
         Rec(0x7010, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), r.args[1]});
         auto* search = reinterpret_cast<uint32_t*>(r.args[0]);
         if (!search[1])
@@ -175,19 +178,19 @@ void Install(StandIns& s)
         search[1] = *reinterpret_cast<uint32_t*>(player + 0x3C);
         return player;
     });
-    s.At({0x00537320}, 0, [](Regs& r) {
+    s.At({0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, [](Regs& r) {
         Rec(0x7320, {r.ecx});
         return g_vc_localPlayer ? At(g_vc_localPlayer) : 0u;
     });
-    s.At({0x00543440}, 0, [](Regs& r) {
+    s.At({0x00543440, AddressOf(&GameNet::PlayerInfo::IsEliminated)}, 0, [](Regs& r) {
         Rec(0x3440, {r.ecx});
         return static_cast<uint32_t>(*reinterpret_cast<uint8_t*>(r.ecx + 0x38));
     });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return At(kPlayers + 0x40 * (r.args[0] % 4));
     });
-    s.At({0x005435F0}, 4, [](Regs& r) {
+    s.At({0x005435F0, AddressOf(&GameNet::Manager::GetTeamScore)}, 4, [](Regs& r) {
         Rec(0x35F1, {r.ecx, r.args[0]});
         return static_cast<uint32_t>(g_vc_teamGoals[r.args[0] & 3]);
     });
@@ -200,10 +203,8 @@ void Install(StandIns& s)
         Rec(0x8200, {r.ecx});
         return static_cast<uint32_t>(g_vc_goalsNeeded);
     });
-    s.At({0x00469490}, 0, [](Regs& r) {
-        Rec(0x9490, {r.ecx});
-        return g_vc_goalCount;
-    });
+    // (0x00469490, the goal count, is the folded getter `mov eax, [ecx]`: ours reads the goal manager's first word
+    // itself - the original's real code reads the arena's, set with g_vc_goalCount)
     s.At({0x00557FB0}, 4, [](Regs& r) {
         Rec(0x7FB0, {r.ecx, r.args[0]});
         return At(kGoals + 0x40 * r.args[0]);
@@ -440,6 +441,7 @@ void TestVictoryConditions()
         g_vc_team = false;
         for (uint32_t count : {4u, 2u, 0u}) {
             g_vc_goalCount = count;
+            *Ptr<uint32_t>(kMisc) = count; // (the goal manager's first word: what 0x00469490 returns)
             for (std::vector<int> scores : {std::vector<int>{1, 1, 1}, {1, 1}, {}})
                 SetSkaters(scores), completeGoals();
         }
