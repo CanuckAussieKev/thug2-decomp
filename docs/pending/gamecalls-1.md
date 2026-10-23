@@ -37,3 +37,18 @@ machine runs a 33-test selection in ~110 s).
     `required` changed: ours ignores it - the assert is compiled out).
   - Built, thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, 771 early self-tests pass;
     check_code_writes: no overlaps.
+- [x] Batch GC1-2 (NOT run in the game yet; the rest of src/game/skater/core_* - 85 GameFunction calls, plus 7
+  `Call(0x...)` in core_ground.cpp): core_grind, core_physics_wallplant, _feelers, _state, _walls, core_rail,
+  core_states, core_wallride, _turning, _skitch, _acid_drop, core_ground, _speed. No call into rewritten code is left
+  in skater/core_* (find_game_calls and a scan for literal addresses of rewritten functions).
+  - Odd / found: core_states.cpp read the point from GetContactPoint's return value (EAX: the original 0x00427A00
+    returns `out`), but our CMovableContactComponent::GetContactPoint is `void` - through the hook the caller (ours)
+    read whatever EAX held. Now the point is read from the out parameter. **If any original game code reads 0x00427A00's
+    EAX, our void version breaks it in the game** - obj/movable_contact (not my file) should return `out`.
+    0x00476EC0 (BoolAssertGetters::GetChecksum, the bool-assert wrapper) -> CStruct::GetChecksum(name, out, 1).
+    0x0043DA70 (CWalkComponent::Param) for the grind's jump-adjust walk parameter - correctly named (a walk parameter).
+    StartGrindTrick's fourth argument was passed as the raw byte +0x34C (only ever 0 / 1) - now `!= 0` for the bool.
+    core_physics_walls passes PlayBonk a terrain word whose upper bytes are the angle's (as the original): kept.
+  - Tests: 35 + 28 more stand-ins for ours (same files as GC1-1).
+  - 15 deliberate bugs (out/scripts/mut2.ts): all caught.
+  - Built, thug2_check both exes: 0 MISMATCHED, 771 early self-tests pass; check_code_writes: no overlaps.

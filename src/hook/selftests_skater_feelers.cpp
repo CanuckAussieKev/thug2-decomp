@@ -6,14 +6,21 @@
 #include <cstring>
 #include <vector>
 
+#include "game/mth/quat.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/control_pad.h"
+#include "game/obj/model_component.h"
 #include "game/obj/object.h"
+#include "game/obj/rail_manager.h"
+#include "game/obj/shadow_component.h"
+#include "game/obj/smtptr.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/flip_and_rotate.h"
 #include "game/skater/skater.h"
+#include "game/skater/skitch.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -52,36 +59,36 @@ std::vector<StandIn> FeelerStandIns()
         {0x004170F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Nx::CFeeler::SetIgnore), nullptr, 0, 3},
         {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 1, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,
          0x74, 0, 8}, // (the line recorded, the hit's distance filled in)
-        {0x0057CB60, 8, 2, Ret::FirstArg, true, 0, -1, 0, 4, nullptr, nullptr, 0, 0, -1, -1, 0, 8.0f}, // a rail node's position
+        {0x0057CB60, 8, 2, Ret::FirstArg, true, 0, -1, 0, 4, CodeAddress(&Obj::CRailManager::GetWorldPos), nullptr, 0, 0, -1, -1, 0, 8.0f}, // a rail node's position
         {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::SetLength), nullptr, 1}, // SetLength (a float)
         {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0, CodeAddress(&Obj::GetPhysicsFloat)},  // PhysicsFloat
         // (members)
         {0x00476A90, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Script::CStruct::FindComponent)},
         {0x0045DB90, 4, 1, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::GetComponent),
          &g_pointerA},
-        {0x004317C0, 4, 1, Ret::None, true, 0, -1, -1, 0},    // (the shadow placed)
-        {0x004317E0, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x004317C0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CShadowComponent::SetPosition)},    // (the shadow placed)
+        {0x004317E0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CShadowComponent::SetNormal)},
         {0x0045E4C0, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::SetTeleported)},
-        {0x00580880, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, nullptr, &g_pointerB}, // (the skater's camera)
+        {0x00580880, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkater::GetSkaterCamera), &g_pointerB}, // (the skater's camera)
         {0x0045D920, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::Update)},
         {0x00476B40, 4, 1, Ret::Bool, true, 0, -1, -1, 0,
          CodeAddress(static_cast<bool (Script::CStruct::*)(uint32_t)>(&Script::CStruct::ContainsFlag))},
         {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},   // SetState
-        {0x00511420, 0, 0, Ret::None, true, 0, -1, -1, 0},
-        {0x004215F0, 4, 1, Ret::None, true, 0, -1, -1, 0},   // (the model's rotations onto a matrix)
-        {0x004213E0, 0, 0, Ret::Float, true, 0, -1, -1, 0},
-        {0x00420AC0, 8, 2, Ret::Int, true, 0, 0, -1, 4, nullptr, nullptr, 2},
-        {0x00420B50, 8, 2, Ret::FirstArg, true, 0, 1, 0, 4},
-        {0x004204F0, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00511420, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterFlipAndRotateComponent::ApplyFlipToAnims)},
+        {0x004215F0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CModelComponent::GetDisplayMatrix)},   // (the model's rotations onto a matrix)
+        {0x004213E0, 0, 0, Ret::Float, true, 0, -1, -1, 0, CodeAddress(&Obj::CModelSpinAxis::Angle)},
+        {0x00420AC0, 8, 2, Ret::Int, true, 0, 0, -1, 4, CodeAddress(&Mth::Quat::InitFromAxisAngle), nullptr, 2},
+        {0x00420B50, 8, 2, Ret::FirstArg, true, 0, 1, 0, 4, CodeAddress(&Mth::Quat::Rotate)},
+        {0x004204F0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CModelSpinAxis::Clear)},
         // (skitching)
         {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::GetPressedTime)},    // TimeSincePress
         {0x0046B7E0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::ClearTrigger)},   // TakePress
         {0x0045F2D0, 4, 1, Ret::Fixed, true, 0, -1, -1, 0,
          CodeAddress(&Obj::CCompositeObjectManager::GetFirstComponentByType), &g_pointerB},
-        {0x0051BA70, 8, 2, Ret::Fixed, true, 0, 1, 0, 4, nullptr, &g_skitchIndex}, // the nearest skitch point
-        {0x0041D1D0, 4, 1, Ret::Int, true, 0, -1, -1, 0},    // (a smart pointer set)
+        {0x0051BA70, 8, 2, Ret::Fixed, true, 0, 1, 0, 4, CodeAddress(&Obj::CSkitchComponent::GetNearestHookPoint), &g_skitchIndex}, // the nearest skitch point
+        {0x0041D1D0, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CSmtPtr<Obj::CRefCounted>::AssignObject)},    // (a smart pointer set)
         {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
-        {0x0051BC70, 8, 2, Ret::Bool, true, 0, -1, 0, 4},    // a skitch point's position
+        {0x0051BC70, 8, 2, Ret::Bool, true, 0, -1, 0, 4, CodeAddress(&Obj::CSkitchComponent::GetHookPoint)},    // a skitch point's position
     };
 }
 

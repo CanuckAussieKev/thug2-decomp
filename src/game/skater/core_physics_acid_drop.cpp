@@ -10,14 +10,17 @@
 
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
+#include "game/mth/quat.h"
 #include "game/mth/slerp.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -210,7 +213,7 @@ bool CorePhysicsComponent::FindAcidDrop(bool pop, const Mth::Vector* position, c
         std::sqrt(static_cast<double>(velocity->z) * velocity->z + static_cast<double>(velocity->x) * velocity->x));
     if (WalkingState(this, 1)) {
         // (walking: at least the walk's speed - 0x0043DAA0)
-        float least = static_cast<float>(GameFunction<double(__thiscall*)(void*)>(0x0043DAA0)(At<void*>(this, kWalkState)));
+        float least = static_cast<float>(At<Obj::CWalkComponent*>(this, kWalkState)->RunSpeed());
         if (horizontal < least) {
             void* walk = SkaterObject(this)->GetComponent(kWalk);
             velocity->x = static_cast<float>(static_cast<double>(least) * At<float>(walk, 0x48));
@@ -453,10 +456,10 @@ bool CorePhysicsComponent::TrySpineTransfer()
         }
     }
     alignas(16) uint8_t rotation[0x10]; // (a quaternion, it seems)
-    GameFunction<void*(__thiscall*)(void*, Mth::Vector*, float)>(0x00420AC0)(rotation, &across, kQuarterTurn);
+    auto* quat = reinterpret_cast<Mth::Quat*>(rotation);
+    quat->InitFromAxisAngle(across, kQuarterTurn);
     Mth::Vector turned;
-    Mth::Vector target = *GameFunction<Mth::Vector*(__thiscall*)(void*, Mth::Vector*, Mth::Vector*)>(0x00420B50)(
-        rotation, &turned, &down);
+    Mth::Vector target = *quat->Rotate(&turned, down);
 
     // A feeler straight down from half a unit that way: the wall the skater is on.
     bool hip = false, objectHit = false;

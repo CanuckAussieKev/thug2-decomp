@@ -16,6 +16,7 @@
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
+#include "game/skater/tagging.h"
 #include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
@@ -53,22 +54,22 @@ std::vector<StandIn> WallplantStandIns()
         {0x00479070, 0, 1, Ret::Fixed, false, 0, -1, -1, 0,
          CodeAddress(static_cast<Script::CArray* (*)(uint32_t)>(&Script::GetArray)), &g_array},
         {0x0046CC30, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Script::CArray::GetElement)},
-        {0x0051FDA0, 16, 4, Ret::Bool, true, 0, -1, -1, 0},  // (a trick pressed)
+        {0x0051FDA0, 16, 4, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::CheckTrigger)},  // (a trick pressed)
         {0x00401C30, 0, 1, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Dbg::Printf)},
-        {0x0051DDF0, 12, 3, Ret::Bool, true, 0, -1, -1, 0},
+        {0x0051DDF0, 12, 3, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTaggingControlComponent::SlapSticker)},
         {0x00434BF0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTriggerComponent::CheckFeeler)},   // a trigger check
-        {0x00427CB0, 0, 0, Ret::Bool, true, 0, -1, -1, 0},   // (riding)
+        {0x00427CB0, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CMovableContactComponent::IsRiding)},   // (riding)
         {0x00427C70, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CMovableContactComponent::StopRiding)},
         {0x0043EB80, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Walk::MovableContact::StartRiding)},
         {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::SetLength), nullptr, 1, 0, -1, 0, 4}, // SetLength (the vector recorded)
         {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
-        {0x00522370, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x00522370, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::PassToTrickObjects)},
         {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},   // SetState
-        {0x0051ECF0, 4, 1, Ret::Bool, true, 0, -1, -1, 0},   // (a button pressed)
-        {0x0051F6B0, 12, 3, Ret::Bool, true, 0, -1, -1, 0},  // (... within a time)
+        {0x0051ECF0, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::IsButtonDown)},   // (a button pressed)
+        {0x0051F6B0, 12, 3, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::FindPress)},  // (... within a time)
         {0x005232A0, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::SetTrickObjects)},
         {0x0043A930, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Nx::CFeeler::Assign)},    // (a feeler copied)
-        {0x00427CD0, 4, 1, Ret::Bool, true, 0, -1, -1, 0},   // (a ride started)
+        {0x00427CD0, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CMovableContactComponent::StartRiding)},   // (a ride started)
     };
 }
 

@@ -16,8 +16,11 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/flip_and_rotate.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_sound.h"
+#include "game/skater/tagging.h"
+#include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -55,12 +58,12 @@ std::vector<StandIn> WallStandIns()
         {0x004170F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Nx::CFeeler::SetIgnore), nullptr, 0, 3},
         {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 9, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,
          0x74, 0, 8}, // (the line recorded; the hit's distance, point and normal filled in)
-        {0x0051ECF0, 4, 1, Ret::Bool, true, 0, -1, -1, 0},   // (a button pressed)
-        {0x0051F6B0, 12, 3, Ret::Bool, true, 0, -1, -1, 0},  // (... within a time)
-        {0x0051DDF0, 12, 3, Ret::Bool, true, 0, -1, -1, 0},  // (a trick allowed)
+        {0x0051ECF0, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::IsButtonDown)},   // (a button pressed)
+        {0x0051F6B0, 12, 3, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::FindPress)},  // (... within a time)
+        {0x0051DDF0, 12, 3, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTaggingControlComponent::SlapSticker)},  // (a trick allowed)
         {0x00434BF0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTriggerComponent::CheckFeeler)},   // a trigger check
         {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
-        {0x00522370, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x00522370, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::PassToTrickObjects)},
         {0x004FF670, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
         {0x00518DD0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterSoundComponent::PlayBonk), nullptr, 1},
         {0x00475790, 0, 5, Ret::None, false, 8, -1, -1, 0, RunScriptAddress()},
@@ -71,7 +74,7 @@ std::vector<StandIn> WallStandIns()
         {0x0046CC30, 4, 1, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Script::CArray::GetElement), &g_pointer},
         {0x0045DB90, 4, 1, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::GetComponent),
          &g_pointer},
-        {0x00511570, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00511570, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterFlipAndRotateComponent::DoAfterAnim)},
         {0x004747A0, 12, 3, Ret::None, true, 0, -1, -1, 0,
          CodeAddress(static_cast<void (Script::CScript::*)(uint32_t, Script::CStruct*, Obj::CObject*)>(
              &Script::CScript::SetScript))},

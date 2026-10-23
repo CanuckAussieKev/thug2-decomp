@@ -11,15 +11,18 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/movable_contact.h"
+#include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
 #include "game/skater/skater.h"
+#include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -97,7 +100,7 @@ std::vector<StandIn> RailStandIns(bool transferStoodIn)
         {0x00416F00, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CRideTracker::Update)}},
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
          [](Frame&, Result& r) { r.eax = 0x0C0C0000; }},
-        {0x0042BA10, 4, 1, Ret::None, true, 0, {}, [](Frame& f, Result&) {
+        {0x0042BA10, 4, 1, Ret::None, true, 0, {Ours(&Obj::CRailManagerComponent::UpdateRailMatrix)}, [](Frame& f, Result&) {
              std::memset(reinterpret_cast<void*>(f.args[0]), 0, 64);
          }},
         {0x005BFA8C, 12, 3, Ret::Int, false},
@@ -106,8 +109,8 @@ std::vector<StandIn> RailStandIns(bool transferStoodIn)
         {0x00579CC0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CBalance::Update)}},
         {0x00584CC0, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CSkaterCareer::GetCheat)}},
         {0x005843A0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CSkaterCareer::SetGlobalFlag)}},
-        {0x00504730, 0, 0, Ret::None, true},
-        {0x0043D990, 0, 4, Ret::Int, false, 0, {}, [](Frame& f, Result& r) {
+        {0x00504730, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::NatasSpin)}},
+        {0x0043D990, 0, 4, Ret::Int, false, 0, {Ours(&Walk::Lerp)}, [](Frame& f, Result& r) {
              const float* a = reinterpret_cast<const float*>(f.args[1]);
              const float* b = reinterpret_cast<const float*>(f.args[2]);
              float* out = reinterpret_cast<float*>(f.args[0]);
@@ -127,7 +130,7 @@ std::vector<StandIn> RailStandIns(bool transferStoodIn)
              r.eax = 1;
              *reinterpret_cast<uint32_t*>(f.args[1]) = 0x6000 + Next() % 4;
          }},
-        {0x00522370, 4, 1, Ret::None, true},
+        {0x00522370, 4, 1, Ret::None, true, 0, {Ours(&Obj::CTrickComponent::PassToTrickObjects)}},
         {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, [](Frame&, Result& r) { r.eax = Next() % 3 == 0; }},
         {0x004FDED0, 4, 1, Ret::None, true},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},

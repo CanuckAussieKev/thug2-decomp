@@ -80,7 +80,7 @@ void TestDoWallRidePhysics()
              static const float values[] = {0.0f, 0.05f, 1.5f, -30.0f, 6.0f, 200.0f, 0.5f};
              r.st0 = values[Next() % 7];
          }},
-        {0x00421440, 8, 2, Ret::None, true, 0, {}, [](Frame& f, Result&) {
+        {0x00421440, 8, 2, Ret::None, true, 0, {Ours(&Mth::Vector::RotateAboutAxis)}, [](Frame& f, Result&) {
              float* v = reinterpret_cast<float*>(f.ecx);
              for (int i = 0; i < 4; ++i)
                  RecordFloat(v[i]);
@@ -98,12 +98,12 @@ void TestDoWallRidePhysics()
         {0x004FDED0, 4, 1, Ret::None, true},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
         {0x00460A20, 12, 3, Ret::None, true, 0, {Ours(&Obj::CObject::BroadcastEvent)}},
-        {0x005051B0, 0, 0, Ret::Bool, true, 0, {}, [](Frame&, Result& r) { r.eax = Next() % 6 == 0; }},
+        {0x005051B0, 0, 0, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::KeepOffCeilingAtWall)}, [](Frame&, Result& r) { r.eax = Next() % 6 == 0; }},
         {0x00434BF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CTriggerComponent::CheckFeeler)}},
         {0x005232A0, 4, 1, Ret::None, true, 1, {Ours(&Obj::CTrickComponent::SetTrickObjects)}},
         {0x0043A930, 4, 1, Ret::Int, true, 0, {Ours(&Nx::CFeeler::Assign)}, [](Frame& f, Result& r) { r.eax = f.ecx; }},
         {0x004FFB10, 0, 0, Ret::Bool, true},
-        {0x00522370, 4, 1, Ret::None, true},
+        {0x00522370, 4, 1, Ret::None, true, 0, {Ours(&Obj::CTrickComponent::PassToTrickObjects)}},
     });
     UseOurs vectors({
         {0x004060F0, Ours(&Vector::RotateToPlane)},

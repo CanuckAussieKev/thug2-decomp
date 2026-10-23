@@ -6,15 +6,19 @@
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
+#include "game/skater/skater.h"
+#include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -190,7 +194,7 @@ void CorePhysicsComponent::DoRailPhysics()
         } else {
             void* rails = static_cast<Obj::CCompositeObject*>(Tracker(this)->m_object.mp_object)->GetComponent(kRailManagerType);
             Mth::Matrix matrix;
-            GameFunction<void(__thiscall*)(void*, Mth::Matrix*)>(0x0042BA10)(rails, &matrix);
+            static_cast<Obj::CRailManagerComponent*>(rails)->UpdateRailMatrix(&matrix);
             tracker = Tracker(this);
             if (tracker) {
                 if (!tracker->m_object.mp_object || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
@@ -244,7 +248,7 @@ void CorePhysicsComponent::DoRailPhysics()
     Obj::CRailNode* goOnTo = nullptr;
     if (!next) {
         // The rail's last node.
-        GameFunction<void(__thiscall*)(void*)>(0x00504730)(this);
+        NatasSpin();
         return;
     }
 
@@ -378,8 +382,7 @@ void CorePhysicsComponent::GrindAlong(Obj::CRailNode* startNode, Obj::CRailNode*
     Mth::Vector facing = {direction.x * way, direction.y * way, direction.z * way, way * direction.w};
     Mth::Vector& display = VectorAt(this, 0x38);
     Mth::Vector turned;
-    GameFunction<Mth::Vector*(__cdecl*)(Mth::Vector*, const Mth::Vector*, const Mth::Vector*, float)>(0x0043D990)(
-        &turned, &display, &facing, kTurnFacing);
+    Walk::Lerp(&turned, &display, &facing, kTurnFacing);
     display = turned;
     display.Normalize();
     Mth::Vector& right = VectorAt(this, 0x18);
@@ -500,11 +503,10 @@ void CorePhysicsComponent::FinishRail()
     GameFunction<void(__thiscall*)(void*, int)>(0x00564270)(score, time);
     if (At<Obj::CRailManager*>(this, kRailManager)->m_nodeArray) {
         Script::CStruct* script = SkateScript::GetNode(At<Obj::CRailNode*>(this, kRailNode)->m_name, true);
-        // (0x00476EC0: GetChecksum with a bool for its last argument)
-        GameFunction<bool(__thiscall*)(void*, uint32_t, uint32_t*, bool)>(0x00476EC0)(
-            script, kName, &At<uint32_t>(this, kRailScriptNode), true);
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00522370)(At<void*>(this, kSkaterComponent),
-                                                                     At<uint32_t>(this, kRailScriptNode));
+        // (0x00476EC0: GetChecksum with a bool for its last argument - the wrapper passes it on as 1)
+        script->GetChecksum(kName, &At<uint32_t>(this, kRailScriptNode), 1);
+        static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))
+            ->PassToTrickObjects(At<uint32_t>(this, kRailScriptNode));
     }
 }
 

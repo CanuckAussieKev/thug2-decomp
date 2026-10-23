@@ -15,10 +15,14 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
 #include "game/obj/control_pad.h"
+#include "game/obj/model_component.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
+#include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/flip_and_rotate.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
@@ -57,9 +61,9 @@ std::vector<StandIn> StateStandIns()
         {0x004FC3C0, 0, 0, Ret::Bool, true, 0, -1, -1, 0},  // (a throw)
         {0x004FC420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},  // (walking)
         {0x0045DB90, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::GetComponent)},
-        {0x004208D0, 0, 0, Ret::None, true, 0, -1, -1, 0},  // (the model's rotations reset)
-        {0x005114F0, 0, 0, Ret::None, true, 0, -1, -1, 0},
-        {0x00580480, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, nullptr, &g_pointerResult}, // (the score)
+        {0x004208D0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CModelComponent::CancelRotateDisplay)},  // (the model's rotations reset)
+        {0x005114F0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterFlipAndRotateComponent::Flip)},
+        {0x00580480, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkater::GetScore), &g_pointerResult}, // (the score)
         {0x00409030, 0, 0, Ret::Fixed, false, 0, -1, -1, 0, CodeAddress(&Script::NewStruct), &g_pointerResult},
         {0x00476410, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Script::CStruct::Init), &g_pointerResult},
         {0x00477D40, 8, 2, Ret::None, true, 0, -1, -1, 0,
@@ -72,7 +76,7 @@ std::vector<StandIn> StateStandIns()
         {0x0043A930, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Nx::CFeeler::Assign)},   // (a feeler copied)
         {0x0044E4F0, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&GameNet::Manager::InNetGame)},
         {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},  // SetState
-        {0x00416DD0, 0, 0, Ret::None, true, 0, -1, -1, 0},  // (a smart pointer released)
+        {0x00416DD0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSmtPtr<Obj::CRefCounted>::Release)},  // (a smart pointer released)
         {0x005BABA0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Mem::Manager::Free)},
         {0x004FC500, 0, 0, Ret::None, true, 0, -1, -1, 0},  // (the destructor body)
         {0x0045D730, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CBaseComponent::Construct)},
@@ -88,9 +92,9 @@ std::vector<StandIn> StateStandIns()
         {0x004FE1F0, 4, 1, Ret::None, true, 0, -1, -1, 0, nullptr, nullptr, 1}, // the air friction (a float)
         {0x004FE420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
         {0x004FE6A0, 0, 0, Ret::None, true, 0, -1, -1, 0},
-        {0x00501B00, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
+        {0x00501B00, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::TurnDownSlope)},
         {0x004FE730, 0, 0, Ret::None, true, 0, -1, -1, 0},
-        {0x00427CD0, 4, 1, Ret::Bool, true, 0, -1, -1, 0},
+        {0x00427CD0, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CMovableContactComponent::StartRiding)},
     };
 }
 

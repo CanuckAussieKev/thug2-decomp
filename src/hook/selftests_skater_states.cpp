@@ -12,6 +12,7 @@
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/movable_contact.h"
+#include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"
@@ -22,6 +23,7 @@
 #include "game/skate/career.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
+#include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -52,7 +54,7 @@ std::vector<StandIn> LipStandIns()
         {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
         {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00416F00, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CRideTracker::Update)}},
-        {0x00427A00, 4, 1, Ret::Int, true, 0, {}, [](Frame& f, Result& r) {
+        {0x00427A00, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CMovableContactComponent::GetContactPoint)}, [](Frame& f, Result& r) {
              float* out = reinterpret_cast<float*>(f.args[0]);
              for (int i = 0; i < 4; ++i)
                  out[i] = RandomFloat(9.0f);
@@ -73,7 +75,7 @@ std::vector<StandIn> LipStandIns()
              r.eax = 1;
              *reinterpret_cast<uint32_t*>(f.args[1]) = 0x6000 + Next() % 4;
          }},
-        {0x00522370, 4, 1, Ret::None, true},
+        {0x00522370, 4, 1, Ret::None, true, 0, {Ours(&Obj::CTrickComponent::PassToTrickObjects)}},
     };
 }
 
@@ -200,7 +202,7 @@ void TestTryGrind()
          }},
         {0x004FC4A0, 0, 3, Ret::None, false},
         {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
-        {0x00500020, 12, 3, Ret::Bool, true},
+        {0x00500020, 12, 3, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CanGrindRail)}},
         {0x0050A770, 0x14, 5, Ret::None, true, 0x18, {Ours(&CorePhysicsComponent::StartGrind)},
          [](Frame& f, Result&) {
              for (int i = 0; i < 4; ++i)
@@ -208,7 +210,7 @@ void TestTryGrind()
          }},
         {0x0045F2D0, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObjectManager::GetFirstComponentByType)},
          [](Frame&, Result& r) { r.eax = ArenaAt<uint32_t>(kComponents + 0x40); }},
-        {0x0042BA10, 4, 1, Ret::None, true, 0, {}, [](Frame& f, Result&) {
+        {0x0042BA10, 4, 1, Ret::None, true, 0, {Ours(&Obj::CRailManagerComponent::UpdateRailMatrix)}, [](Frame& f, Result&) {
              // (the object's matrix: a turn and a move, invertible)
              float* m = reinterpret_cast<float*>(f.args[0]);
              static const float matrix[16] = {0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 10, -4, 2.5f, 1};
@@ -216,7 +218,7 @@ void TestTryGrind()
              m[12] = RandomFloat(20.0f);
          }},
         {0x0043EB80, 4, 1, Ret::None, true, 0, {Ours(&Walk::MovableContact::StartRiding)}},
-        {0x00427DD0, 0, 0, Ret::None, true},
+        {0x00427DD0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::UpdateContactPoint)}},
     });
     // The components' vtable: slot 13 returns the component's rail manager (+0x1C).
     static void* vtable[16];

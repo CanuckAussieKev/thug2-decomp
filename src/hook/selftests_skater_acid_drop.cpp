@@ -15,6 +15,7 @@
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
+#include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -81,7 +82,7 @@ std::vector<StandIn> AcidDropStandIns()
         {0x0040AB50, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Nx::CCollCache::Construct)},
         {0x0040ABA0, 4, 1, Ret::None, true, 0, 0, -1, 8, CodeAddress(&Nx::CCollCache::Update)}, // (the box recorded)
         {0x0040AB40, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Nx::CCollCache::Destruct)},
-        {0x0043DAA0, 0, 0, Ret::Double, true, 0, -1, -1, 0}, // (the walk's speed)
+        {0x0043DAA0, 0, 0, Ret::Double, true, 0, -1, -1, 0, CodeAddress(&Obj::CWalkComponent::RunSpeed)}, // (the walk's speed)
         {0x0045DB90, 4, 1, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::GetComponent),
          &g_pointer},
         {0x005BA3D0, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Mem::Pool::Allocate), &g_pointer},

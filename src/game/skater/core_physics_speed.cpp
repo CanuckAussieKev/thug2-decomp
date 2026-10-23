@@ -6,6 +6,9 @@
 #include <cmath>
 #include <cstdint>
 
+#include "game/mth/vector.h"
+#include "game/nx/feeler.h"
+#include "game/obj/movable_contact.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
@@ -125,7 +128,7 @@ void CorePhysicsComponent::ApplyGroundFriction()
         At<float>(this, kRollingFrictionNow) == PhysicsFloat(kRollingFriction, object))
         return;
     GameFunction<void(__thiscall*)(void*)>(0x004FE6A0)(this); // (the friction: crouched or standing)
-    if (GameFunction<bool(__thiscall*)(void*)>(0x00501B00)(this)) // (turned down the slope)
+    if (TurnDownSlope()) // (turned down the slope)
         return;
     GameFunction<void(__thiscall*)(void*)>(0x004FE730)(this); // (the rolling friction)
 }
@@ -136,7 +139,7 @@ void CorePhysicsComponent::StartRidingHitObject()
     if (FlagsOf(this)[0x88])
         return;
     void* ride = At<void*>(this, kRide);
-    if (!GameFunction<bool(__thiscall*)(void*, void*)>(0x00427CD0)(ride, &At<uint8_t>(this, kFeeler)))
+    if (!static_cast<Obj::CMovableContactComponent*>(ride)->StartRiding(&At<Nx::CFeeler>(this, kFeeler)))
         return;
     void* rideObject = *At<void**>(At<void*>(this, kRide), 0x18); // (the smart pointer's object)
     const Mth::Vector& rideVelocity = VectorAt(rideObject, kVelocity);

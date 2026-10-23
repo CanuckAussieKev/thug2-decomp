@@ -10,11 +10,17 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
 #include "game/obj/object.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
+#include "game/skater/skater.h"
+#include "game/skater/skater_sound.h"
+#include "game/skater/tagging.h"
+#include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -74,11 +80,11 @@ constexpr float kPi = 3.14159274f;            // 0x0064BB7C
 
 Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::CCompositeObject*>(ObjectOf(component)); }
 
-// 0x00434BF0 (the trigger component's, not rewritten yet): the triggers of what the feeler hit, for `kind`.
+// 0x00434BF0 (Obj::CTriggerComponent::CheckFeeler): the triggers of what the feeler hit, for `kind`.
 void CheckTriggers(void* component, uint32_t kind)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t, void*)>(0x00434BF0)(At<void*>(component, kTriggerComponent), kind,
-                                                                      &At<uint8_t>(component, kFeeler));
+    static_cast<Obj::CTriggerComponent*>(At<void*>(component, kTriggerComponent))
+        ->CheckFeeler(reinterpret_cast<const int*>(kind), &At<Nx::CFeeler>(component, kFeeler));
 }
 
 // Whether a trigger's script took over (+0x1530's +0x26).
@@ -102,10 +108,10 @@ bool CorePhysicsComponent::VertWallplant()
         return false;
     // The trick button pressed (or pressed within Wall_Ride_Triangle_Window).
     void* skater = At<void*>(this, kSkaterComponent);
-    if (!GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x0051ECF0)(skater, kTrickButton)) {
+    if (!static_cast<Obj::CTrickComponent*>(skater)->IsButtonDown(kTrickButton)) {
         uint32_t window = Ftol(static_cast<double>(Script::GetFloat(kWallRideWindow)) * kToMilliseconds);
-        if (!GameFunction<bool(__thiscall*)(void*, uint32_t, uint32_t, int)>(0x0051F6B0)(
-                At<void*>(this, kSkaterComponent), kTrickButton, window, -1))
+        if (!static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))
+                 ->FindPress(kTrickButton, window, 0xFFFFFFFFu))
             return false;
     }
     uint8_t* flags = FlagsOf(this);
@@ -132,7 +138,7 @@ bool CorePhysicsComponent::VertWallplant()
         return false;
     if (!(At<uint16_t>(this, kHitFlags) & 8) && std::fabs(VectorAt(this, kHitNormal).y) > kMaxWallplantTilt)
         return false;
-    if (!GameFunction<bool(__thiscall*)(void*, int, int, int)>(0x0051DDF0)(At<void*>(this, 0x1538), 1, 0, 0))
+    if (!static_cast<Obj::CTaggingControlComponent*>(At<void*>(this, 0x1538))->SlapSticker(true, false, false))
         return false;
     CheckTriggers(this, 0x0064BB8C);
     if (TriggerTookOver(this))
@@ -142,8 +148,8 @@ bool CorePhysicsComponent::VertWallplant()
         VectorAt(object, kVelocity).y = static_cast<float>(Script::GetInteger(kWallplantBoost) +
                                                           static_cast<double>(VectorAt(object, kVelocity).y));
     SkaterObject(this)->SelfEvent(kVertWallPlant, nullptr);
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00522370)(At<void*>(this, kSkaterComponent),
-                                                                At<uint32_t>(this, kHitObjectChecksum));
+    static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))
+        ->PassToTrickObjects(At<uint32_t>(this, kHitObjectChecksum));
     SetTimedFlag(this, 0xC0, 0);
     SetTimedFlag(this, 0xB0, 0);
     At<uint8_t>(this, kWallplanted) = 1;
@@ -397,8 +403,8 @@ void CorePhysicsComponent::BounceOffWallAhead(const Mth::Vector* normal)
                 std::memcpy(&angleBits, &angle, 4);
                 uint32_t surface = (angleBits & 0xFFFFFF00u) | At<uint8_t>(this, kSurface);
                 float impact = static_cast<float>(speed / StatValue(ObjectOf(this), kMaxMaxSpeedStat));
-                GameFunction<void(__thiscall*)(void*, float, uint32_t)>(0x00518DD0)(At<void*>(this, kOtherComponent),
-                                                                                  impact, surface);
+                static_cast<Obj::CSkaterSoundComponent*>(At<void*>(this, kOtherComponent))
+                    ->PlayBonk(impact, static_cast<int>(surface));
             } else {
                 Script::RunScript(kVehicleLandSound, nullptr, SkaterObject(this), false, nullptr);
             }
