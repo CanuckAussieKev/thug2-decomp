@@ -10,9 +10,11 @@
 #include "game/core/crc.h"
 #include "game/front/screen_element_manager.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_game_cfuncs.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_conn.h"
+#include "game/net/player_info.h"
 #include "game/obj/smtptr.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
@@ -88,16 +90,16 @@ void Install(StandIns& s)
     Stub(s, {0x00544340}, 4, 0x4340);
     Stub(s, {0x00537B30}, 0, 0x7B30);
     Stub(s, {0x00536820}, 0, 0x6820);
-    Stub(s, {0x005359F0}, 0, 0x59F0);
+    Stub(s, {0x005359F0, AddressOf(&GameNet::Manager::ChooseStartPoints)}, 0, 0x59F0);
     Stub(s, {0x00535AD0}, 0, 0x5AD0, [](Regs&) { return 0x5AD05AD0u; });
     Stub(s, {0x005399F0}, 0, 0x99F0);
     Stub(s, {0x0053A580}, 0, 0xA580, [](Regs&) { return g_nextPlayer ? At(g_nextPlayer) : 0u; });
     Stub(s, {0x005373D0}, 0, 0x73D0, [](Regs&) { return g_fcfsHost ? At(g_fcfsHost) : 0u; });
     Stub(s, {0x00537530}, 0, 0x7530, [](Regs&) { return static_cast<uint32_t>(g_loading); });
     StubCdecl(s, {0x00538DC0}, 0x8DC0, 2, [](Regs&) { return g_allReady ? 1u : 0u; });
-    Stub(s, {0x00539B00}, 0, 0x9B00, [](Regs&) { return static_cast<uint32_t>(g_numPlayers); });
+    Stub(s, {0x00539B00, AddressOf(&GameNet::Manager::CountPlayers)}, 0, 0x9B00, [](Regs&) { return static_cast<uint32_t>(g_numPlayers); });
     // The deferred new player (a NewPlayerInfo on the caller's stack, `frames`): its fields recorded.
-    s.At({0x0053A310}, 8, [](Regs& r) {
+    s.At({0x0053A310, AddressOf(&GameNet::Manager::AddJoiningPlayer)}, 8, [](Regs& r) {
         const auto* info = reinterpret_cast<const uint8_t*>(r.args[0]);
         auto word = [info](uint32_t offset) { return *reinterpret_cast<const uint32_t*>(info + offset); };
         Rec(0xA310, {r.ecx, r.args[1], Hash(reinterpret_cast<const char*>(info)), info[0x10], word(0x14), word(0x1C),
@@ -116,12 +118,12 @@ void Install(StandIns& s)
         Word<uint32_t>(r.ecx - g_base + 0x1EC) = 0;
         return r.ecx;
     });
-    s.At({0x005434D0}, 0, [](Regs& r) { // (on the stack: not recorded)
+    s.At({0x005434D0, AddressOf(&GameNet::NewPlayerInfo::Construct)}, 0, [](Regs& r) { // (on the stack: not recorded)
         g_trace.push_back(0x34D0);
         reinterpret_cast<uint32_t*>(r.ecx)[0x1C / 4] = At(kProfile);
         return r.ecx;
     });
-    s.At({0x00543560}, 0, [](Regs&) {
+    s.At({0x00543560, AddressOf(&GameNet::NewPlayerInfo::DestroyBody)}, 0, [](Regs&) {
         g_trace.push_back(0x3560);
         return 0u;
     });
@@ -130,7 +132,7 @@ void Install(StandIns& s)
     Stub(s, {0x0054C9B0}, 0, 0xC9B0, answer(g_statsOn));
     Stub(s, {0x0054CE80}, 0, 0xCE80);
     Stub(s, {0x0054C9F0}, 4, 0xC9F0);
-    Stub(s, {0x00548320}, 12, 0x8320, [](Regs& r) {
+    Stub(s, {0x00548320, AddressOf(&GameNet::BuddyMan::SetStatus)}, 12, 0x8320, [](Regs& r) {
         Rec(0x8321, {Str(r.args[1]), Str(r.args[2])});
         return 0u;
     });

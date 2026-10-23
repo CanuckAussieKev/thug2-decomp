@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/online_identity.h"
@@ -125,8 +126,8 @@ void Install(StandIns& s)
     Stub(s, {0x00540860}, 0, 0x0860);
     Stub(s, {0x00540750}, 0, 0x0750);
     Stub(s, {0x00549CB0}, 4, 0x9CB0, [](Regs& r) { return (g_isBuddy >> (r.args[0] & 31)) & 1; });
-    Stub(s, {0x005453E0}, 4, 0x53E0);
-    Stub(s, {0x00548320}, 12, 0x8320, [](Regs& r) {
+    Stub(s, {0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0);
+    Stub(s, {0x00548320, AddressOf(&GameNet::BuddyMan::SetStatus)}, 12, 0x8320, [](Regs& r) {
         Rec(0x8321, {Text(r.args[1]), Text(r.args[2])});
         return 0u;
     });

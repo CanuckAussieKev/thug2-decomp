@@ -15,6 +15,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/mth/matrix.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
@@ -23,6 +24,7 @@
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "game/skate/skate_net.h"
 #include "game/util/bitstream.h"
 #include "hook/game.h"
@@ -268,7 +270,7 @@ void Install(StandIns& s)
         return 0u;
     });
     simple(0x00406C90, 4, 0x6C90);
-    s.At({0x00406890}, 4, [](Regs& r) {
+    s.At({0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, [](Regs& r) {
         Rec(0x6890, {r.ecx, r.args[0]});
         std::memset(reinterpret_cast<void*>(r.ecx), 0x11, 0x18);
         return r.ecx;
@@ -386,7 +388,7 @@ void Install(StandIns& s)
              Rec(0x6EE0, {r.ecx, name, r.args[2] & 0xFF});
              return answer(r.ecx, name, r.args[1]);
          });
-    s.At({0x0047A0C0}, 0, [](Regs& r) {
+    s.At({0x0047A0C0, AddressOf(&Script::ReadFromBuffer)}, 0, [](Regs& r) {
         Rec(0xA0C0, {r.args[0], r.args[1]});
         return r.args[1];
     });

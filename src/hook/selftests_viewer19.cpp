@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "game/obj/object.h"
+#include "game/script/struct_buffer.h"
 #include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"
 #include "hook/viewer_testkit.h"
@@ -86,7 +87,7 @@ void Install(StandIns& s)
         Rec(0x9E20, {r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
         return static_cast<uint32_t>(g_written += 0x11);
     });
-    s.At({0x0047A0C0}, 0, [](Regs& r) {
+    s.At({0x0047A0C0, AddressOf(&Script::ReadFromBuffer)}, 0, [](Regs& r) {
         Rec(0xA0C0, {r.args[0], r.args[1]});
         return r.args[1] + 0x23;
     });

@@ -13,6 +13,7 @@
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
@@ -144,7 +145,7 @@ void Install(StandIns& s)
     // The manager's and the presence's calls.
     Stub(s, {0x00534480, AddressOf(&Manager::JoinServer)}, 12, 0x4480);
     Stub(s, {0x00537220, AddressOf(&Manager::SpawnClient)}, 16, 0x7220, [](Regs&) { return At(kClientApp); });
-    s.At({0x00548320}, 12, [](Regs& r) { // the presence's status (texts by their contents)
+    s.At({0x00548320, AddressOf(&GameNet::BuddyMan::SetStatus)}, 12, [](Regs& r) { // the presence's status (texts by their contents)
         Rec(0x8320, {r.ecx, r.args[0], Str(r.args[1]), Str(r.args[2])});
         return 0u;
     });

@@ -15,6 +15,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
@@ -228,9 +229,9 @@ void InstallStandIns(StandIns& s)
     record({0x0045DAD0, AddressOf(&Obj::CCompositeObject::InitFromStructure)}, 4, 0xDAD0, 1, true, 0);
     record({0x0045DA90, AddressOf(&Obj::CCompositeObject::CreateComponentsFromArray)}, 8, 0xDA90, 2, true, 0);
     // The task system.
-    record({0x00406890}, 4, 0x6890, 1, true, 0xEC);
-    record({0x00406C90}, 4, 0x6C90, 1, true, 0);
-    record({0x004068F0}, 0, 0x68F0, 0, true, 0);
+    record({0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, 0x6890, 1, true, 0xEC);
+    record({0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90, 1, true, 0);
+    record({0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0, 0, true, 0);
     // Virtual functions.
     for (void*& slot : g_coim_objectVtable)
         slot = nullptr;

@@ -18,6 +18,7 @@
 #include "game/core/alloc.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
+#include "game/core/task.h"
 #include "game/net/net_app.h"
 #include "game/net/net_compress.h"
 #include "game/net/net_dispatcher.h"
@@ -258,7 +259,7 @@ void TestNetManager()
     SaveGlobals({{0x00696D68, 4, {}}});
     auto* s = new StandIns;
     StandInWinsock(*s);
-    s->At({0x00406C90}, 4, [](Regs& r) {
+    s->At({0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, [](Regs& r) {
         Record({0x6C90, r.ecx - reinterpret_cast<uint32_t>(g_mlp), r.args[0]});
         return 0u;
     });

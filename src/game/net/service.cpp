@@ -9,6 +9,10 @@
 #include <cstdio>
 
 #include "game/core/manager.h"
+#include "game/core/task.h"
+#include "game/net/gamenet_lobby.h"
+#include "game/net/gamenet_manager.h"
+#include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -54,13 +58,14 @@ const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(0x00545620);
 
 void SetState(uint8_t* manager, int state)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, int)>(0x005453E0)(manager, state);
+    reinterpret_cast<GameNet::Manager*>(manager)->SetServiceState(state);
 }
 // Take this task out of the task list (Tsk::BaseTask::Remove).
 void RemoveServiceTask(uint8_t* manager)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004068F0)(Field<void*>(manager, kServiceTaskField));
+    Field<Tsk::BaseTask*>(manager, kServiceTaskField)->Remove();
 }
+GameNet::LobbyMan* LobbyList(uint8_t* manager) { return Field<GameNet::LobbyMan*>(manager, kLobbyList); }
 
 void PushInternetHeap()
 {
@@ -90,7 +95,7 @@ void DeleteParams(Script::CStruct* params)
 }
 
 // Pause (1), unpause (0) or restore (-1) the music streams.
-void PauseStream(int pause) { GameFunction<void(__cdecl*)(int)>(0x00451010)(pause); }
+void PauseStream(int pause) { Pcm::PauseStream(pause); }
 
 // GameSpy (library code, not decompiled).
 void GsiStartAvailableCheck(const char* game) { GameFunction<void(__cdecl*)(const char*)>(0x005F8690)(game); }
@@ -104,7 +109,7 @@ void StartThread(uint8_t* manager, LPTHREAD_START_ROUTINE thread)
 {
     DWORD id;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, manager, CREATE_SUSPENDED, &id);
-    GameFunction<void(__thiscall*)(uint8_t*, DWORD)>(0x00533240)(manager, id); // (+0x9950 = id)
+    reinterpret_cast<GameNet::Manager*>(manager)->SetLobbyId(id); // (+0x9950 = id)
     ResumeThread(handle);
 }
 
@@ -236,15 +241,15 @@ void __cdecl ServiceTask(const uint8_t* task)
         break;
     case 0xD:
         RunScript(0xF68F8A86);
-        GameFunction<void(__thiscall*)(void*)>(0x005427E0)(Field<void*>(manager, kLobbyList));
-        GameFunction<void(__thiscall*)(void*)>(0x00541A10)(Field<void*>(manager, kLobbyList));
+        LobbyList(manager)->ClearLobbies();
+        LobbyList(manager)->StartListingGames();
         break;
     case 0xE:
         Field<int>(manager, kState) = 0;
         Field<uint32_t>(manager, kWakeTime) = 0;
         break;
     case 0xF: // the lobby list: empty or not
-        if (!GameFunction<void*(__thiscall*)(void*, int)>(0x00542970)(Field<void*>(manager, kLobbyList), 0)) {
+        if (!LobbyList(manager)->GetLobby(0)) {
             ShowNoServers();
             Finish(manager);
         } else {
@@ -253,12 +258,12 @@ void __cdecl ServiceTask(const uint8_t* task)
         PauseStream(0);
         break;
     case 0x10:
-        GameFunction<void(__thiscall*)(void*)>(0x005427E0)(Field<void*>(manager, kLobbyList));
+        LobbyList(manager)->ClearLobbies();
         ShowNoServers();
         Finish(manager);
         break;
     case 0x11:
-        GameFunction<void(__thiscall*)(void*)>(0x005428B0)(Field<void*>(manager, kLobbyList));
+        LobbyList(manager)->FillLobbyList();
         Finish(manager);
         break;
     default: // 1, 2: nothing to do

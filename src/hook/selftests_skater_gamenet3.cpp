@@ -13,6 +13,7 @@
 #include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
 #include "game/obj/game_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
@@ -55,7 +56,7 @@ void Install(StandIns& s)
         uint32_t i = id - 0x10;
         return i < 8 && ((g_presentIds >> i) & 1) ? At(PlayerAt(static_cast<int>(i))) : 0u;
     });
-    Stub(s, {0x00537320}, 0, 0x7320, [](Regs&) { return g_local ? At(g_local) : 0u; });
+    Stub(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_local ? At(g_local) : 0u; });
     Stub(s, {0x00537480}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
     Stub(s, {0x00544340}, 4, 0x4340);
     s.At({0x005376F0}, 0x20, [](Regs& r) {
@@ -89,18 +90,18 @@ void Install(StandIns& s)
         return 0u;
     });
     // NewPlayerInfo: its constructor (a profile at +0x1C), destructor; the profile's appearance; the new player.
-    s.At({0x005434D0}, 0, [](Regs& r) {
+    s.At({0x005434D0, AddressOf(&GameNet::NewPlayerInfo::Construct)}, 0, [](Regs& r) {
         Rec(0x34D0, {});
         std::memset(reinterpret_cast<void*>(r.ecx + 0x18), 0, 0x2C);
         *reinterpret_cast<uint32_t*>(r.ecx + 0x1C) = At(kMisc + 0xA00);
         return r.ecx;
     });
-    s.At({0x00543560}, 0, [](Regs& r) {
+    s.At({0x00543560, AddressOf(&GameNet::NewPlayerInfo::DestroyBody)}, 0, [](Regs& r) {
         Rec(0x3560, {*reinterpret_cast<uint32_t*>(r.ecx + 0x1C)});
         return 0u;
     });
     Stub(s, {0x00586DC0}, 4, 0x6DC0);
-    s.At({0x0053A310}, 8, [](Regs& r) {
+    s.At({0x0053A310, AddressOf(&GameNet::Manager::AddJoiningPlayer)}, 8, [](Regs& r) {
         auto* info = reinterpret_cast<uint8_t*>(r.args[0]);
         g_trace.push_back(0xA310);
         g_trace.push_back(Rel(r.ecx));

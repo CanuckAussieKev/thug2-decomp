@@ -20,6 +20,7 @@
 #include "game/obj/object.h"
 #include "game/core/crc.h"
 #include "game/core/mem.h"
+#include "game/obj/path_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/node_manager.h"
 #include "game/script/node_prefixes.h"
@@ -334,7 +335,7 @@ void InstallStandIns(StandIns& s)
         Rec(0xBE40, {r.args[0]});
         return 0xBE400000u + (Rel(r.args[0]) & 0xFFFF);
     });
-    s.At({0x004694E0}, 0, [](Regs& r) {
+    s.At({0x004694E0, AddressOf(&Obj::CPathManager::Instance)}, 0, [](Regs& r) {
         Rec(0x94E0, {});
         (void)r;
         return g_cobj_base + 0x2B00;

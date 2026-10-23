@@ -13,6 +13,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/pool.h"
+#include "game/net/net_client.h"
 #include "game/obj/event.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
@@ -606,7 +607,7 @@ void StandInNet(StandIns& s, bool messagesToo)
         Record({0x2EA0, Id(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(g_client);
     });
-    s.At({0x00459E50}, 4, [](Regs& r) {
+    s.At({0x00459E50, AddressOf(&Net::Client::EnqueueMessageToServer)}, 4, [](Regs& r) {
         uint8_t desc[0x1D];
         std::memcpy(desc, reinterpret_cast<void*>(r.args[0]), sizeof(desc));
         auto* data = *reinterpret_cast<uint8_t**>(desc + 4);

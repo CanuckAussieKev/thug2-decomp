@@ -234,7 +234,7 @@ inline void InstallNet2(StandIns& s)
         return 0u;
     });
     // The task list node's constructor (priority), recorded; its vtable written as the original's does.
-    Stub(s, {0x00406890}, 4, 0x6890, [](Regs& r) {
+    Stub(s, {0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, 0x6890, [](Regs& r) {
         Word<uint32_t>(r.ecx - g_base + 4) = r.args[0];
         return r.ecx;
     });

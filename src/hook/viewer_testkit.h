@@ -201,7 +201,7 @@ inline void InstallCommon(StandIns& s, bool deleteStruct = true)
         auto it = g_integers.find(r.args[0]);
         return it == g_integers.end() ? 0u : static_cast<uint32_t>(it->second);
     });
-    s.At({0x00472DE0}, 0, [](Regs& r) {
+    s.At({0x00472DE0, AddressOf(&Script::ScriptExists)}, 0, [](Regs& r) {
         Rec(0x2DE0, {r.args[0]});
         return g_scripts[r.args[0]] ? 1u : 0u;
     });

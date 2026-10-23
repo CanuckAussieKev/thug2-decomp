@@ -14,13 +14,16 @@
 #include <vector>
 
 #include "game/core/stubs.h"
+#include "game/core/task.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_handlers.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_manager.h"
 #include "game/net/net_messages.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
+#include "game/script/struct_buffer.h"
 #include "game/sys/module.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer.h"
@@ -115,7 +118,7 @@ void Install(StandIns& s)
         Rec(0x7170, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0047A0C0}, 0, [](Regs& r) {
+    s.At({0x0047A0C0, AddressOf(&Script::ReadFromBuffer)}, 0, [](Regs& r) {
         Rec(0xA0C0, {r.args[0], r.args[1]});
         return 0u;
     });
@@ -123,11 +126,11 @@ void Install(StandIns& s)
         Rec(0xA5C0, {r.ecx, r.args[0] & 0xFF, r.args[1], r.args[2], r.args[3], r.args[4]});
         return At(0x7E00);
     });
-    s.At({0x00406C90}, 4, [](Regs& r) {
+    s.At({0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, [](Regs& r) {
         Rec(0x6C90, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00406890}, 4, [](Regs& r) {
+    s.At({0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, [](Regs& r) {
         Rec(0x6890, {r.ecx, r.args[0]});
         reinterpret_cast<uint32_t*>(r.ecx)[1] = 0x40DE0000u + r.args[0];
         return r.ecx;
@@ -170,6 +173,7 @@ void Aliases()
     Alias(&Mdl::HandleCreateViewerObject, 0x005775A0);
     Alias(&Mdl::HandleRemoveViewerObject, 0x00577140);
     Alias(&Mdl::HandleRunScript, 0x00577670);
+    Alias(&GameNet::HandleNothing, 0x0052DAC0);
 }
 
 void PushCamera(std::vector<uint32_t>& t)

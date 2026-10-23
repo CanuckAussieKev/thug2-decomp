@@ -14,6 +14,7 @@
 #include "game/core/dbg.h"
 #include "game/core/task.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_man.h"
 #include "game/net/net_conn.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_lobby.h"
@@ -123,7 +124,7 @@ void Install(StandIns& s)
     s.At({0x00476C60}, 12, getString);
     // The game's other code.
     Stub(s, {0x00540220}, 0, 0x0220);
-    s.At({0x00548320}, 12, [](Regs& r) {
+    s.At({0x00548320, AddressOf(&GameNet::BuddyMan::SetStatus)}, 12, [](Regs& r) {
         Rec(0x8321, {r.ecx, r.args[0], Text(r.args[1]), Text(r.args[2])});
         return 0u;
     });

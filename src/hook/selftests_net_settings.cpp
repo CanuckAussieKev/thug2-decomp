@@ -124,7 +124,7 @@ void Install(StandIns& s)
     NetSetter(s, 0x00454770, AddressOf(&Net::Manager::SetConnectionType), 1, false);
     Stub(s, {0x00454580, AddressOf(&Net::Manager::ConnectToInternet)}, 0, 0x4580, [](Regs&) { return g_connects ? 1u : 0u; });
     Stub(s, {0x00454590, AddressOf(&Net::Manager::DisconnectFromInternet)}, 0, 0x4590, [](Regs&) { return 1u; });
-    Stub(s, {0x005453E0}, 4, 0x53E0);
+    Stub(s, {0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0);
     Stub(s, {0x00532C50, AddressOf(&Manager::GetMaxPlayers)}, 0, 0x2C50, [](Regs&) { return static_cast<uint32_t>(g_maxPlayers); });
     Stub(s, {0x00534090, AddressOf(&Manager::SetMaxPlayersPreference)}, 4, 0x4090);
     Stub(s, {0x005341B0, AddressOf(&Manager::SetMaxObserversPreference)}, 4, 0x41B0);

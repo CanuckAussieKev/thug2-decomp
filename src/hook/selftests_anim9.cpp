@@ -17,6 +17,7 @@
 #include "game/nx/coll_static.h"
 #include "game/gfx/engine_glue.h"
 #include "game/nx/coll_tri.h"
+#include "game/nx/coll_world.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -109,8 +110,9 @@ void TestAnimCollTurnScale()
         Record({0x414FE000u, r.ecx});
         return 0u;
     });
-    s.At({0x004177B0}, 0, [](Regs& r) {
-        Record({0x4177B000u, r.args[0], r.args[1]});
+    // (the original's second argument - `value`, unused by RegisterMovable - isn't passed by ours: not recorded)
+    s.At({0x004177B0, AddressOf(&Nx::RegisterMovable)}, 0, [](Regs& r) {
+        Record({0x4177B000u, r.args[0]});
         return 0u;
     });
     auto runOnce = [&](bool original) {

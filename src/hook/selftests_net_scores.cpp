@@ -67,7 +67,7 @@ void Install(StandIns& s)
         ++index;
         return index < g_players.size() ? At(PlayerAt(g_players[index])) : 0u;
     });
-    Stub(s, {0x00537320}, 0, 0x7320, [](Regs&) { return g_local < 0 ? 0u : At(PlayerAt(g_local)); });
+    Stub(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_local < 0 ? 0u : At(PlayerAt(g_local)); });
     Stub(s, {0x00537480}, 0, 0x7480, [](Regs&) { return g_king < 0 ? 0u : At(PlayerAt(g_king)); });
     Stub(s, {0x0053AEA0}, 4, 0xAEA0, [](Regs& r) {
         uint32_t id = r.args[0] & 0xFFFF;

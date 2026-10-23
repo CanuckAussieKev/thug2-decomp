@@ -25,6 +25,7 @@
 #include "game/file/file.h"
 #include "game/obj/smtptr.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -354,7 +355,7 @@ void StandInGame(StandIns& s)
     Rec(s, {0x005B9E00, AddressOf(&File::GetFileSize)}, 0, 1, 0, [](Regs&) { return 0x2A; }, true);
     Rec(s, {0x0047A070}, 0, 2, 0, [](Regs&) { return 0x30u; }, true);
     Rec(s, {0x00479E20}, 0, 5, 0, nullptr, true);
-    Rec(s, {0x0047A0C0}, 0, 2, 0, nullptr, true);
+    Rec(s, {0x0047A0C0, AddressOf(&Script::ReadFromBuffer)}, 0, 2, 0, nullptr, true);
     Rec(s, {0x00595E80}, 8, 2, 0, [](Regs& r) {
         // unlink it (or the head), so the original's loop ends
         auto** list = reinterpret_cast<CMapListNode**>(r.args[1]);

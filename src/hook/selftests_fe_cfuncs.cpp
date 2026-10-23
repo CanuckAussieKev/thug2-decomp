@@ -10,6 +10,7 @@
 #include "game/front/screen_element_manager.h"
 #include "game/front/scrolling_menu.h"
 #include "game/front/sprite_element.h"
+#include "game/script/struct.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
 
@@ -174,7 +175,7 @@ void InstallCfuncStandIns(StandIns& s, bool createElement)
              Rec(0x79D0, {r.ecx, r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
              return 0u;
          });
-    s.At({0x004779D0}, 8, [](Regs& r) {
+    s.At({0x004779D0, AddressOf(static_cast<void (Script::CStruct::*)(uint32_t, const char*)>(&Script::CStruct::AddString))}, 8, [](Regs& r) {
         Rec(0x79D0, {r.ecx, r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
         return 0u;
     });

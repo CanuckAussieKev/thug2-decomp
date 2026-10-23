@@ -9,9 +9,13 @@
 #include <cstdio>
 
 #include "game/core/mem.h"
+#include "game/core/stubs.h"
 #include "game/mc/memcard.h"
+#include "game/pcm/music.h"
+#include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -70,8 +74,8 @@ namespace {
 int Platform() { return GameVariable<int>(0x007CEFA8); }
 
 // Pause (1), unpause (0) or restore (-1) the music and the music streams.
-void PauseMusic(int pause) { GameFunction<void(__cdecl*)(int)>(0x00450F70)(pause); }
-void PauseStream(int pause) { GameFunction<void(__cdecl*)(int)>(0x00451010)(pause); }
+void PauseMusic(int pause) { Pcm::PauseMusic(pause); }
+void PauseStream(int pause) { Pcm::PauseStream(pause); }
 
 Script::CStruct* NewParams()
 {
@@ -98,7 +102,7 @@ struct SaveHeader {
 static_assert(sizeof(SaveHeader) == 0x14, "the structures follow at +0x14");
 uint8_t* ReadStructure(Script::CStruct* into, uint8_t* data)
 {
-    return GameFunction<uint8_t*(__cdecl*)(Script::CStruct*, uint8_t*)>(0x0047A0C0)(into, data);
+    return const_cast<uint8_t*>(Script::ReadFromBuffer(into, data));
 }
 
 // The save type's helpers (register arguments, so called through inline assembly).
@@ -202,8 +206,8 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
     int noApply = 0;
     params->GetInteger(kNoApply, &noApply, 0);
     Card* card = GameVariable<Manager*>(0x007D1890)->GetCard(0, 0);
-    // (the second test is a card method that's the shared always-true stub)
-    if (card && GameFunction<bool(__thiscall*)(Card*)>(0x005B9760)(card)) {
+    // (the second test is a card method that's the shared always-true stub, 0x005B9760: always true)
+    if (card && Stubs::ReturnTrue()) {
         params->GetString("Name", &name, 0);
         params->GetChecksum("Type", &type, 0);
         char path[104];

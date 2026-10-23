@@ -13,7 +13,11 @@
 #include <vector>
 
 #include "game/core/dbg.h"
+#include "game/core/task.h"
+#include "game/gfx/device.h"
 #include "game/gfx/screen.h"
+#include "game/gfx/texture.h"
+#include "game/net/gamenet_manager.h"
 #include "game/sio/device.h"
 #include "game/skate/thugpro_cas.h"
 #include "game/sys/mlp.h"
@@ -110,13 +114,13 @@ void SetUpStandIns(StandIns& s)
         ++g_eventsCalls;
         return Event(kEvents, r);
     });
-    s.At({0x00536640}, 0, On(kNetwork));
-    s.At({0x004E0320}, 0, On(kRelease1));
+    s.At({0x00536640, AddressOf(&GameNet::Manager::ServiceGameSpy)}, 0, On(kNetwork));
+    s.At({0x004E0320, AddressOf(&Nx::ReleaseRenderTargetTextures)}, 0, On(kRelease1));
     s.At({0x004D67F0}, 0, On(kRelease2));
-    s.At({0x004D7AF0}, 0, On(kRelease3));
-    s.At({0x004E0440}, 0, On(kRestore1));
+    s.At({0x004D7AF0, AddressOf(&Nx::ReleaseRenderTargets)}, 0, On(kRelease3));
+    s.At({0x004E0440, AddressOf(&Nx::RestoreRenderTargetTextures)}, 0, On(kRestore1));
     s.At({0x004D68C0}, 0, On(kRestore2));
-    s.At({0x004D8420}, 0, On(kRestore3));
+    s.At({0x004D8420, AddressOf(&Nx::CreateRenderTargets)}, 0, On(kRestore3));
     s.At({0x005BE700, AddressOf(&Tmr::CountVblank)}, 0, On(kVblank));
     s.At({0x005BE740, AddressOf(&Tmr::OncePerRender)}, 0, On(kRendered));
     s.At({0x005BE7F0, AddressOf(&Tmr::UpdateFrameLength)}, 0, On(kFrameLength));
@@ -124,7 +128,7 @@ void SetUpStandIns(StandIns& s)
         Record({Hash(reinterpret_cast<const char*>(r.args[0]))});
         return Event(kPrintf, r);
     });
-    s.At({0x004070A0}, 4, [](Regs& r) {
+    s.At({0x004070A0, AddressOf(&Tsk::Stack::Process)}, 4, [](Regs& r) {
         Record({r.ecx - reinterpret_cast<uint32_t>(g_mlp), r.args[0] & 0xFF});
         return Event(kTasks, r);
     });

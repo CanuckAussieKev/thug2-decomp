@@ -22,6 +22,7 @@
 #include "game/net/net_client.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_manager.h"
+#include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
 #include "hook/gamenet_testkit.h"
@@ -151,7 +152,7 @@ void Install(StandIns& s)
     Stub(s, {0x00537B30, AddressOf(&Manager::ClearQueuedScripts)}, 0, 0x7B30);
     Stub(s, {0x005665C0}, 4, 0x65C0, [](Regs& r) { return r.args[0] == 1 ? 0u : At(Obj(5) + 0x10 * r.args[0]); });
     // The joining player.
-    Stub(s, {0x005434D0}, 0, 0x34D0, [](Regs& r) { return r.ecx; });
+    Stub(s, {0x005434D0, AddressOf(&GameNet::NewPlayerInfo::Construct)}, 0, 0x34D0, [](Regs& r) { return r.ecx; });
     Stub(s, {0x00587050, AddressOf(&Obj::CSkaterProfile::WriteToBuffer)}, 12, 0x7050);
     Stub(s, {0x00586DC0, AddressOf(&Obj::CSkaterProfile::ReadFromBuffer)}, 4, 0x6DC0);
     s.At({0x005376F0, AddressOf(&Manager::CreateNetPanelMessage)}, 32, [](Regs& r) {

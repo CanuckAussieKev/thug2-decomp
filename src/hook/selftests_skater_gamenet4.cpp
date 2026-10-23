@@ -11,6 +11,7 @@
 #include "game/mth/random.h"
 #include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
 #include "game/sys/timer.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
@@ -51,7 +52,7 @@ void Install(StandIns& s)
         uint32_t i = id - 0x10;
         return i < 8 && ((g_presentIds >> i) & 1) ? At(PlayerAt(static_cast<int>(i))) : 0u;
     });
-    Stub(s, {0x00537320}, 0, 0x7320, [](Regs&) { return g_local ? At(g_local) : 0u; });
+    Stub(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_local ? At(g_local) : 0u; });
     auto first = [](Regs& r) {
         reinterpret_cast<uint32_t*>(r.args[0])[1] = 0;
         return g_playerCount > 0 ? At(PlayerAt(0)) : 0u;
@@ -88,7 +89,7 @@ void Install(StandIns& s)
     });
     Stub(s, {0x00458CA0, AddressOf(&Net::App::SendData)}, 4, 0x8CA0);
     Stub(s, {0x00457300, AddressOf(&Net::App::TerminateConnection)}, 4, 0x7300);
-    Stub(s, {0x00539C70}, 0, 0x9C70, [](Regs&) { return static_cast<uint32_t>(g_observers); });
+    Stub(s, {0x00539C70, AddressOf(&GameNet::Manager::CountObservers)}, 0, 0x9C70, [](Regs&) { return static_cast<uint32_t>(g_observers); });
     Stub(s, {0x00532D60, AddressOf(&Manager::GetMaxObservers)}, 0, 0x2D60,
          [](Regs&) { return static_cast<uint32_t>(g_maxObservers); });
     Stub(s, {0x0053CB70}, 8, 0xCB70);
@@ -125,7 +126,7 @@ void Install(StandIns& s)
     });
     Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
     Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
-    Stub(s, {0x00543560}, 0, 0x3560);
+    Stub(s, {0x00543560, AddressOf(&GameNet::NewPlayerInfo::DestroyBody)}, 0, 0x3560);
     Stub(s, {0x00544340}, 4, 0x4340);
     StubCdecl(s, {0x00403DE0, AddressOf(&Mth::Rnd)}, 0x3DE0, 1, [](Regs&) { return 0xFFFFFF07u; });
 }

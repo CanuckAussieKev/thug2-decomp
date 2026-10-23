@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "game/core/task.h"
+
 // The main loop's task manager (Mlp::Manager, the singleton 0x0044F260 creates). Sys::Main hands it the engine's
 // tasks and then runs its loop (MainLoop), which returns only when the game is quit or the loop is told to stop.
 namespace Mlp {
@@ -10,9 +12,9 @@ namespace Mlp {
 struct Manager {
     uint8_t m_done;             // +0x00: (a bool) ends the loop after the current frame
     uint8_t pad01[3];
-    uint8_t m_logicTasks[0x3C];   // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
-    uint8_t m_displayTasks[0x3C]; // +0x40 (not run by the loop)
-    uint8_t m_systemTasks[0x3C];  // +0x7C: the module manager's and the input devices' tasks
+    Tsk::Stack m_logicTasks;     // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
+    Tsk::Stack m_displayTasks;   // +0x40 (not run by the loop)
+    Tsk::Stack m_systemTasks;    // +0x7C: the module manager's and the input devices' tasks
     uint32_t m_unknownB8;       // +0xB8 (cleared by the constructor, otherwise unused here)
     uint32_t m_unknownBC;       // +0xBC (the same)
     uint8_t padC0[0x04];

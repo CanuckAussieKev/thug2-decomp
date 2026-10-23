@@ -16,6 +16,7 @@
 #include "game/core/alloc.h"
 #include "game/core/task.h"
 #include "game/net/gamenet_commands.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -91,7 +92,7 @@ void Install(StandIns& s)
         Rec(0x6850, {r.ecx});
         return (r.ecx == At(kMisc + 0x500) ? g_inList1 : g_inList2) ? 1u : 0u;
     });
-    Stub(s, {0x0053F880}, 0, 0xF880, [](Regs&) { return g_peer ? At(kMisc + 0x480) : 0u; });
+    Stub(s, {0x0053F880, AddressOf(&GameNet::LobbyMan::GetPeer)}, 0, 0xF880, [](Regs&) { return g_peer ? At(kMisc + 0x480) : 0u; });
     StubCdecl(s, {0x005FC730}, 0xC730, 1, [](Regs&) { return 1u; });
     Stub(s, {0x0053F810}, 0, 0xF810, [](Regs&) { return 1u; });
     StubCdecl(s, {0x005FCCF0}, 0xCCF0, 1);

@@ -9,6 +9,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/nx/coll_tri.h"
+#include "game/nx/coll_world.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -473,7 +474,7 @@ CCollObj* CreateMovableCollision(int type, CCollObjTriData* geometries, int coun
     }
     if (made) {
         made->Call<void>(11, value);
-        GameFunction<void(__cdecl*)(CCollObj*, int)>(0x004177B0)(made, value);
+        RegisterMovable(made); // (the original also pushes `value`, which RegisterMovable doesn't use)
     }
     return made;
 }

@@ -10,7 +10,9 @@
 #include "game/core/pool.h"
 #include "game/core/crc.h"
 #include "game/gfx/screen.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
+#include "game/net/net_client.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/thugpro_peer.h"
 #include "game/obj/object.h"
@@ -34,8 +36,7 @@ constexpr uint8_t kObserverColor = 8;
 // but the text renderer reads a single hex digit after \c - so only 0..7 work (the game's own observer
 // colour 8 comes out as colour 1 followed by a stray "0").
 constexpr uint8_t kServerColor = 7;
-constexpr int kNameSize = 16;
-constexpr int kMaxTextSize = 131;
+constexpr int kMaxTextSize = 131; // (the name: GameNet::kNameSize, 16)
 
 // What travels over the network: the receiver (0x00532050) shows "\c<color+2><name>\c0 : <text>". The
 // server relays it unchanged to every other player (0x0056A000).
@@ -56,7 +57,7 @@ void InitMsgDesc(MsgDesc* desc) { desc->Construct(); }
 struct PlayerInfo;
 PlayerInfo* LocalPlayer(Manager* manager)
 {
-    return GameFunction<PlayerInfo*(__thiscall*)(Manager*)>(0x00537320)(manager);
+    return static_cast<PlayerInfo*>(manager->GetLocalPlayer());
 }
 const char* PlayerName(PlayerInfo* player) { return reinterpret_cast<const char*>(player) + 0x38; }
 bool IsObserver(PlayerInfo* player)
@@ -72,33 +73,29 @@ uint8_t TeamColor(PlayerInfo* player)
 // The manager's client connection (+0x08) queues a message for the server.
 void SendToServer(Manager* manager, MsgDesc* desc)
 {
-    void* client = *reinterpret_cast<void**>(reinterpret_cast<char*>(manager) + 0x08);
-    GameFunction<void(__thiscall*)(void*, MsgDesc*)>(0x00459E50)(client, desc);
+    static_cast<Net::Client*>(manager->m_client)->EnqueueMessageToServer(desc);
 }
 
-// Script::CStruct (8 bytes, from the current script struct pool when there is one) - not decompiled yet.
-struct ScriptStruct;
+// Script::CStruct (8 bytes, from the current script struct pool when there is one).
+using ScriptStruct = Script::CStruct;
 ScriptStruct* NewScriptStruct()
 {
     int current = GameVariable<int>(0x006F3614);
     Mem::Pool* pool = GameVariable<Mem::Pool* [2]>(0x006F361C)[current];
     void* memory = pool ? pool->Allocate() : Mem::New(8);
-    return memory ? GameFunction<ScriptStruct*(__thiscall*)(void*)>(0x00476410)(memory) : nullptr;
+    return memory ? static_cast<ScriptStruct*>(memory)->Init() : nullptr;
 }
 void DeleteScriptStruct(ScriptStruct* s)
 {
     if (!s)
         return;
-    GameFunction<void(__thiscall*)(ScriptStruct*)>(0x00477130)(s);
-    GameFunction<void(__cdecl*)(void*)>(0x00409070)(s);
+    s->Clear();
+    Script::DeleteStruct(s);
 }
-void AddString(ScriptStruct* s, uint32_t name, const char* value)
-{
-    GameFunction<void(__thiscall*)(ScriptStruct*, uint32_t, const char*)>(0x004779D0)(s, name, value);
-}
+void AddString(ScriptStruct* s, uint32_t name, const char* value) { s->AddString(name, value); }
 void RunScript(uint32_t script, ScriptStruct* params)
 {
-    Script::RunScript(script, reinterpret_cast<Script::CStruct*>(params), nullptr, false, nullptr);
+    Script::RunScript(script, params, nullptr, false, nullptr);
 }
 
 constexpr uint32_t kText = 0xC4745838;              // checksum of "text"

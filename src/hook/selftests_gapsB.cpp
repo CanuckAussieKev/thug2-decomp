@@ -13,15 +13,22 @@
 #include <memory>
 #include <vector>
 
+#include "game/ass/assman.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/singleton.h"
+#include "game/core/task.h"
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
 #include "game/front/front_end.h"
+#include "game/front/screen_element_manager.h"
+#include "game/gfx/device.h"
+#include "game/gfx/texture.h"
+#include "game/gfx/tod_manager.h"
 #include "game/mc/memcard.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
 #include "game/obj/flip_rotate.h"
 #include "game/obj/compositemgr.h"
@@ -29,8 +36,11 @@
 #include "game/obj/trick_objects.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "game/sio/device.h"
 #include "game/sio/inpman.h"
+#include "game/skate/profile_manager.h"
+#include "game/skate/records.h"
 #include "game/sys/mlp.h"
 #include "game/sys/module.h"
 #include "game/sys/winmain.h"
@@ -99,7 +109,7 @@ struct Instance {
 std::vector<Instance> Instances()
 {
     return {
-        {0x0044FD40, 0x0044FD60, 0x006472B4, 0x0047C6C0, 0},
+        {0x0044FD40, 0x0044FD60, 0x006472B4, 0x0047C6C0, AddressOf(&Sfx::ReleaseManager)},
         {0x0044FD50, 0x0044FD90, 0x006472B8, 0x005BDCF0, AddressOf(&Sio::ReleaseManager)},
         {0x004B2230, 0x004B2240, 0x0064A2EC, 0x0044F2B0, AddressOf(&Mlp::ReleaseManager)},
         {0x004E1980, 0x004E1B00, 0x0064AFB0, 0x005B9510, AddressOf(&Pre::DestroyManager)},
@@ -109,20 +119,20 @@ std::vector<Instance> Instances()
         {0x004E19C0, 0x004E1BC0, 0x0064AFC0, 0x0044E6B0, AddressOf(&Inp::ReleaseManager)},
         {0x004E19D0, 0x004E1BF0, 0x0064AFC4, 0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)},
         {0x004E19E0, 0x004E1C20, 0x0064AFC8, 0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
-        {0x004E19F0, 0x004E1C50, 0x0064AFCC, 0x00407980, 0},
+        {0x004E19F0, 0x004E1C50, 0x0064AFCC, 0x00407980, AddressOf(&Ass::ReleaseAssetManager)},
         {0x004E1A00, 0x004E1C80, 0x0064AFD0, 0x004558D0, AddressOf(&Net::ReleaseManager)},
         {0x004E1A10, 0x004E1CB0, 0x0064AFD4, 0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
         {0x004E1A20, 0x004E1CE0, 0x0064AFD8, 0x005880E0, AddressOf(&Obj::ReleaseTrickObjectManager)},
         {0x004E1A30, 0x004E1D10, 0x0064AFDC, 0x00552F70, 0},
-        {0x004E1A40, 0x004E1D40, 0x0064AFE0, 0x0057C120, 0},
-        {0x004E1A50, 0x004E1D70, 0x0064AFE4, 0x0057FDB0, 0},
+        {0x004E1A40, 0x004E1D40, 0x0064AFE0, 0x0057C120, AddressOf(&Obj::CPlayerProfileManager::Release)},
+        {0x004E1A50, 0x004E1D70, 0x0064AFE4, 0x0057FDB0, AddressOf(&Records::CGameRecords::Release)},
         {0x004E1A60, 0x004E1DA0, 0x0064AFE8, 0x00564C10, 0},
         {0x004E1A70, 0x004E1DD0, 0x0064AFEC, 0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
-        {0x004E1A80, 0x004E1E00, 0x0064AFF0, 0x005395C0, 0},
+        {0x004E1A80, 0x004E1E00, 0x0064AFF0, 0x005395C0, AddressOf(&GameNet::ReleaseManager)},
         {0x004E1AC0, 0x004E1E30, 0x0064AFF4, 0x0058D290, AddressOf(&Ed::CParkEditor::Release)},
-        {0x004E1AD0, 0x004E1E60, 0x0064AFF8, 0x004AACF0, 0},
+        {0x004E1AD0, 0x004E1E60, 0x0064AFF8, 0x004AACF0, AddressOf(&Front::DeleteScreenElementManager)},
         {0x004E1AE0, 0x004E1E90, 0x0064AFFC, 0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)},
-        {0x004E1AF0, 0x004E1EC0, 0x0064B000, 0x00574910, 0},
+        {0x004E1AF0, 0x004E1EC0, 0x0064B000, 0x00574910, AddressOf(&Gfx::ReleaseTODManager)},
     };
 }
 
@@ -301,13 +311,21 @@ void TestMlpManager()
     std::vector<uint32_t> singletonTraces[2];
     {
         auto* s = new StandIns();
-        s->At({0x00406E80}, 0, [](Regs& r) { Record({0x6E80, MlpOffset(r.ecx)}); return r.ecx; });
-        s->At({0x004070E0}, 0, [](Regs& r) { Record({0x70E0, MlpOffset(r.ecx)}); return 0u; });
-        for (uint32_t address : {0x004E0320u, 0x004D67F0u, 0x004D7AF0u, 0x004E0440u, 0x004D68C0u, 0x004D8420u}) {
-            s->At({address}, 0, [address](Regs&) {
+        s->At({0x00406E80, AddressOf(&Tsk::Stack::Construct)}, 0, [](Regs& r) { Record({0x6E80, MlpOffset(r.ecx)}); return r.ecx; });
+        s->At({0x004070E0, AddressOf(&Tsk::Stack::Destruct)}, 0, [](Regs& r) { Record({0x70E0, MlpOffset(r.ecx)}); return 0u; });
+        const std::pair<uint32_t, uint32_t> deviceObjects[] = {
+            {0x004E0320u, AddressOf(&Nx::ReleaseRenderTargetTextures)}, {0x004D67F0u, 0},
+            {0x004D7AF0u, AddressOf(&Nx::ReleaseRenderTargets)}, {0x004E0440u, AddressOf(&Nx::RestoreRenderTargetTextures)},
+            {0x004D68C0u, 0}, {0x004D8420u, AddressOf(&Nx::CreateRenderTargets)}};
+        for (auto [address, ours] : deviceObjects) {
+            Handler handler = [address](Regs&) {
                 Record({address});
                 return 0u;
-            });
+            };
+            if (ours)
+                s->At({address, ours}, 0, handler);
+            else
+                s->At({address}, 0, handler);
         }
         for (void*& entry : g_deviceVtable)
             entry = s->Thunk(0, [](Regs&) {

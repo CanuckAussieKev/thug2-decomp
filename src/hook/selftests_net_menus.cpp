@@ -67,7 +67,7 @@ void Install(StandIns& s)
         Rec(0xCA81, {r.args[2] ? Hash(reinterpret_cast<const char*>(r.args[2])) : 0u, r.args[3]});
         return 0u;
     });
-    Stub(s, {0x005453E0}, 4, 0x53E0);
+    Stub(s, {0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0);
     Stub(s, {0x00545860}, 0, 0x5860, [](Regs& r) {
         std::memset(reinterpret_cast<void*>(r.ecx), 0xCC, sizeof(LobbyRoom));
         std::memset(reinterpret_cast<uint8_t*>(r.ecx) + 0x68, 0, 4); // (the flags clear)

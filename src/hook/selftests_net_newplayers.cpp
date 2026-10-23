@@ -15,6 +15,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_lists.h"
+#include "game/net/player_info.h"
 #include "game/net/service.h"
 #include "game/net/stats_man.h"
 #include "game/net/vault_man.h"
@@ -87,7 +88,7 @@ void Install(StandIns& s)
         return 0u;
     });
     Stub(s, {0x00544670}, 4, 0x4670);
-    Stub(s, {0x00543560}, 0, 0x3560);
+    Stub(s, {0x00543560, AddressOf(&GameNet::NewPlayerInfo::DestroyBody)}, 0, 0x3560);
     Stub(s, {0x00543740}, 4, 0x3740, [](Regs& r) {
         Word<uint32_t>(r.ecx - g_base + 0x1D0) = r.args[0];
         Word<uint32_t>(r.ecx - g_base + 0x1EC) = 0;

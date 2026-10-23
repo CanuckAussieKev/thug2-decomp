@@ -53,7 +53,7 @@ void Install(StandIns& s)
     InstallCommon(s);
     Stub(s, {0x0053AE10}, 4, 0xAE10, [](Regs&) { return g_sender ? At(g_sender) : 0u; });
     Stub(s, {0x005373D0}, 0, 0x73D0, [](Regs&) { return g_host ? At(g_host) : 0u; });
-    Stub(s, {0x00537320}, 0, 0x7320, [](Regs&) { return g_local ? At(g_local) : 0u; });
+    Stub(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_local ? At(g_local) : 0u; });
     Stub(s, {0x00537480}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
     s.At({0x005372C0}, 8, [](Regs& r) {
         Rec(0x72C0, {r.ecx, r.args[1] & 0xFF});
@@ -79,12 +79,12 @@ void Install(StandIns& s)
         return static_cast<int>(index) < g_newCount ? At(kItems + 0x40 * index) : 0u;
     });
     Stub(s, {0x005434C0}, 0, 0x34C0, [](Regs&) { return g_observerPlays ? 1u : 0u; });
-    Stub(s, {0x00539B00}, 0, 0x9B00, [](Regs&) { return static_cast<uint32_t>(g_numPlayers); });
-    Stub(s, {0x00539C70}, 0, 0x9C70, [](Regs&) { return static_cast<uint32_t>(g_numObservers); });
+    Stub(s, {0x00539B00, AddressOf(&GameNet::Manager::CountPlayers)}, 0, 0x9B00, [](Regs&) { return static_cast<uint32_t>(g_numPlayers); });
+    Stub(s, {0x00539C70, AddressOf(&GameNet::Manager::CountObservers)}, 0, 0x9C70, [](Regs&) { return static_cast<uint32_t>(g_numObservers); });
     Stub(s, {0x00532C50, AddressOf(&Manager::GetMaxPlayers)}, 0, 0x2C50, [](Regs&) { return static_cast<uint32_t>(g_maxPlayers); });
     Stub(s, {0x00532D60, AddressOf(&Manager::GetMaxObservers)}, 0, 0x2D60, [](Regs&) { return static_cast<uint32_t>(g_maxObservers); });
     Stub(s, {0x00532BE0, AddressOf(&Manager::GetSkillLevel)}, 0, 0x2BE0, [](Regs&) { return static_cast<uint32_t>(g_skill); });
-    Stub(s, {0x00534310}, 0, 0x4310, [](Regs&) { return At(String(1)); });
+    Stub(s, {0x00534310, AddressOf(&GameNet::Manager::GetPassword)}, 0, 0x4310, [](Regs&) { return At(String(1)); });
     Stub(s, {0x005369A0, AddressOf(&Manager::GetLevelName)}, 4, 0x69A0, [](Regs& r) { return At(String(2 + (r.args[0] & 1))); });
     Stub(s, {0x00536A40}, 0, 0x6A40, [](Regs&) { return At(String(4)); });
     s.At({0x00457280, AddressOf(&Net::App::SendMessageTo)}, 24, [](Regs& r) {
@@ -223,7 +223,7 @@ void Install(StandIns& s)
     Stub(s, {0x00534F40}, 0, 0x4F40, [](Regs&) { return 0x4F40CCCCu; });
     Stub(s, {0x00535B20}, 0, 0x5B20, [](Regs&) { return 0x5B20DDDDu; });
     Stub(s, {0x00535AD0}, 0, 0x5AD0, [](Regs&) { return 0x5AD0EEEEu; });
-    Stub(s, {0x00537140}, 4, 0x7140);
+    Stub(s, {0x00537140, AddressOf(&GameNet::Manager::SetReadyToPlay)}, 4, 0x7140);
     Stub(s, {0x0056B990}, 4, 0xB990);
     s.At({0x00588520}, 4, [](Regs& r) { // (the buffer: a local in the original - not recorded)
         Rec(0x8520, {r.ecx});

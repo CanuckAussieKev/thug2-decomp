@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "game/mth/matrix.h"
+#include "game/net/gamenet_manager.h"
 #include "game/nx/feeler.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -202,7 +203,7 @@ void StandIn(StandIns& s, bool update)
     Rec(s, {0x00515360, AddressOf(&CSkaterNonLocalNetLogicComponent::Extrapolate)}, 0, 0x5360);
     Rec(s, {0x00516E00, AddressOf(&CSkaterNonLocalNetLogicComponent::ExtrapolateOnRail)}, 0, 0x6E00);
     Rec(s, {0x00516180, AddressOf(&CSkaterNonLocalNetLogicComponent::PlayHistoryEvents)}, 0, 0x6180);
-    Rec(s, {0x00537320}, 0, 0x7320, [](Regs&) { return Addr(kPlayer); });
+    Rec(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return Addr(kPlayer); });
     Rec(s, {0x00543320}, 0, 0x3320, [](Regs&) { return g_a.observing ? 1u : 0u; });
     Rec(s, {0x00543330}, 0, 0x3330, [](Regs&) { return g_a.waiting ? 1u : 0u; });
     Rec(s, {0x00534340}, 0, 0x4340, [](Regs&) { return g_a.extrapolates ? 1u : 0u; });

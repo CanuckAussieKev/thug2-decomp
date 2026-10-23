@@ -80,7 +80,7 @@ void Install(StandIns& s)
         return 0u;
     });
     Stub(s, {0x0056EB50}, 8, 0xEB50);
-    Stub(s, {0x00537140}, 4, 0x7140);
+    Stub(s, {0x00537140, AddressOf(&GameNet::Manager::SetReadyToPlay)}, 4, 0x7140);
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
     Stub(s, {0x0058D6B0}, 8, 0xD6B0);
     Stub(s, {0x0058D690}, 4, 0xD690, [](Regs&) { return At(kManager); });

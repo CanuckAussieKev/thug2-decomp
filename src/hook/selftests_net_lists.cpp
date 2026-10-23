@@ -14,6 +14,7 @@
 #include "game/core/alloc.h"
 #include "game/core/task.h"
 #include "game/net/gamenet_lists.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_manager.h"
@@ -86,7 +87,7 @@ void Install(StandIns& s)
     StubCdecl(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0xE970, 0, [](Regs&) { return 0x00ABCDEFu; });
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
     Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);
-    Stub(s, {0x005453E0}, 4, 0x53E0);
+    Stub(s, {0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0);
     Stub(s, {0x00454590, AddressOf(&Net::Manager::DisconnectFromInternet)}, 0, 0x4590, [](Regs&) { return 1u; });
     for (uint32_t a : {0x00545370u, 0x005462F0u, 0x00545300u, 0x00543560u, 0x00540D50u, 0x0054B470u, 0x005488B0u,
                        0x0054D610u, 0x00588B70u})
@@ -107,7 +108,7 @@ void Install(StandIns& s)
         StubCdecl(s, {a}, a & 0xFFFF, 0);
     for (uint32_t a : {0x005FBBA0u, 0x005F9900u, 0x005FBB20u, 0x005FCCF0u, 0x005FBAD0u})
         StubCdecl(s, {a}, a & 0xFFFF, 1);
-    Stub(s, {0x0053F880}, 0, 0xF880, [](Regs&) { return g_peer ? At(kNetMgr + 0x380) : 0u; });
+    Stub(s, {0x0053F880, AddressOf(&GameNet::LobbyMan::GetPeer)}, 0, 0xF880, [](Regs&) { return g_peer ? At(kNetMgr + 0x380) : 0u; });
     StubCdecl(s, {0x005FC730}, 0xC730, 1, [](Regs&) { return g_peerConnected ? 1u : 0u; });
     Stub(s, {0x0053F810}, 0, 0xF810, [](Regs&) { return g_lobbyHosting ? 1u : 0u; });
     Stub(s, {0x00564D80}, 0, 0x4D80, [](Regs&) { return At(kMisc + 0x600); });
