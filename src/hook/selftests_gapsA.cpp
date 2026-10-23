@@ -14,8 +14,12 @@
 #include "game/core/manager.h"
 #include "game/file/file.h"
 #include "game/gfx/device.h"
+#include "game/gfx/draw2d.h"
+#include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
 #include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
+#include "game/pcm/stream.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -96,24 +100,25 @@ Nx::SText* Text() { return reinterpret_cast<Nx::SText*>(g_text); }
 
 void StandInDrawing(StandIns& s)
 {
-    s.At({0x004DFA70}, 8, [](Regs& r) {
+    s.At({0x004DFA70, AddressOf(&Nx::SDraw2D::Construct)}, 8, [](Regs& r) {
         Record({kBaseCtor, Rel(r.ecx), r.args[0], r.args[1] & 0xFF});
         return r.ecx;
     });
-    s.At({0x004DFAA0}, 0, [](Regs& r) {
+    s.At({0x004DFAA0, AddressOf(&Nx::SDraw2D::DestroyBody)}, 0, [](Regs& r) {
         Record({kBaseDtor, Rel(r.ecx), *reinterpret_cast<uint32_t*>(r.ecx)});
         return 0x0BAD0BADu;
     });
-    s.At({0x004DAA80}, 0, [](Regs& r) {
+    s.At({0x004DAA80, AddressOf(&Nx::SetPixelShader)}, 0, [](Regs& r) {
         Record({kShader, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004D9DB0}, 0, [](Regs& r) {
+    s.At({0x004D9DB0, AddressOf(&Nx::SetVertexFormat)}, 0, [](Regs& r) {
         Record({kFvf, r.args[0]});
         return 0u;
     });
-    s.At({0x004DA730}, 0, [](Regs& r) {
-        Record({kSetTexture, r.args[0], r.args[1], r.args[2]});
+    // (the original also passes the font's unknown17C, which SetTexture doesn't take: not recorded)
+    s.At({0x004DA730, AddressOf(&Nx::SetTexture)}, 0, [](Regs& r) {
+        Record({kSetTexture, r.args[0], r.args[1]});
         return 0u;
     });
     g_deviceVtable[0x10C / 4] = s.Thunk(16, [](Regs& r) {
@@ -522,7 +527,7 @@ void ResetMusicGlobals(std::vector<Saved>& saved)
 
 void StandInChannels(StandIns& s)
 {
-    s.At({0x00453270}, 0, [](Regs& r) {
+    s.At({0x00453270, AddressOf(&Pcm::StreamStatus)}, 0, [](Regs& r) {
         Record({0xC4A, r.args[0]});
         int channel = static_cast<int>(r.args[0]);
         return channel >= -1 && channel < 7 && g_channelPlaying[channel + 1] ? 2u : 1u;
@@ -541,23 +546,23 @@ void TestMusicStreams()
     {
         auto* s = new StandIns;
         StandInChannels(*s);
-        s->At({0x004531A0}, 0, [](Regs&) {
+        s->At({0x004531A0, AddressOf(&Pcm::StopStreamThread)}, 0, [](Regs&) {
             Record({0x5709});
             return 0x77u;
         });
-        s->At({0x004542D0}, 0, [](Regs&) {
+        s->At({0x004542D0, AddressOf(&Pcm::UserSoundtrackCount)}, 0, [](Regs&) {
             Record({0x4E4D});
             return 7u;
         });
-        s->At({0x00454320}, 0, [](Regs& r) {
+        s->At({0x00454320, AddressOf(&Pcm::UserSoundtrackTracks)}, 0, [](Regs& r) {
             Record({0x7C7, r.args[0]});
             return r.args[0] < 4 ? g_soundtrackTracks[r.args[0]] : 0u;
         });
-        s->At({0x00454300}, 0, [](Regs& r) {
+        s->At({0x00454300, AddressOf(&Pcm::UserSoundtrackName)}, 0, [](Regs& r) {
             Record({0x4A3E, r.args[0]});
             return r.args[0] < 8 ? reinterpret_cast<uint32_t>(g_soundtrackNames[r.args[0]]) : 0u;
         });
-        s->At({0x00453400}, 0, [](Regs& r) {
+        s->At({0x00453400, AddressOf(&Pcm::PlatformSetMusicVolume)}, 0, [](Regs& r) {
             Record({0x701, r.args[0]});
             return 1u;
         });
@@ -743,15 +748,15 @@ alignas(16) uint32_t g_listeners[3][2];
 
 void StandInTrackStart(StandIns& s)
 {
-    s.At({0x00453250}, 0, [](Regs&) {
+    s.At({0x00453250, AddressOf(&Pcm::MusicStatus)}, 0, [](Regs&) {
         Record({0x5757});
         return static_cast<uint32_t>(g_streamState);
     });
-    s.At({0x00451400}, 0, [](Regs&) {
+    s.At({0x00451400, AddressOf(&Pcm::ApplyTrackVolume)}, 0, [](Regs&) {
         Record({0x7011});
         return 0u;
     });
-    s.At({0x004520D0}, 0, [](Regs& r) {
+    s.At({0x004520D0, AddressOf(&Pcm::PlayTrack)}, 0, [](Regs& r) {
         Record({0x91A7, r.args[0] - 0x0069806C, r.args[1]});
         return 0u;
     });
@@ -917,19 +922,19 @@ void TestMusicUpdate()
     {
         auto* s = new StandIns;
         StandInChannels(*s);
-        s->At({0x00453940}, 0, [](Regs&) {
+        s->At({0x00453940, AddressOf(&Pcm::UpdateStreams)}, 0, [](Regs&) {
             Record({0x5940});
             return static_cast<uint32_t>(g_streamsResult);
         });
-        s->At({0x00453BD0}, 0, [](Regs&) {
+        s->At({0x00453BD0, AddressOf(static_cast<void(__cdecl*)()>(&Pcm::StopStreams))}, 0, [](Regs&) {
             Record({0x5BD0});
             return 0u;
         });
-        s->At({0x00450650}, 0, [](Regs&) {
+        s->At({0x00450650, AddressOf(&Pcm::StopMusic)}, 0, [](Regs&) {
             Record({0x0650});
             return 0u;
         });
-        s->At({0x00450BE0}, 0, [](Regs& r) {
+        s->At({0x00450BE0, AddressOf(&Pcm::UpdateStreamVolume)}, 0, [](Regs& r) {
             Record({0x0BE0, r.args[0]});
             return r.args[0] < 3 && g_streamStillOn[r.args[0]] ? 0xFFFFFF01u : 0xFFFFFF00u;
         });

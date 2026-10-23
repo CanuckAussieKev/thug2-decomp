@@ -108,11 +108,8 @@ void StandInCalls(StandIns& s)
         Record({0xC3B0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_pools[13]);
     });
-    s.At({0x0047AE10}, 0, [](Regs& r) {
-        Record({0xAE10, r.ecx});
-        g_soundFree += 0x2F1;
-        return static_cast<uint32_t>(g_soundFree);
-    });
+    // (0x0047AE10, the sound manager's free memory, is `xor eax, eax; ret` - folded with Stubs::ReturnZero, which
+    // ours calls: it runs as it is, 0 for both)
 }
 
 const uint32_t kPairs[13] = {0x006F3614, 0x006F2338, 0x006F362C, 0x006F3654, 0x006F3644, 0x006F22B4, 0x006F3548,

@@ -9,8 +9,10 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/ed/park_editor.h"
+#include "game/gfx/lens_flare.h"
 #include "game/lst/hashtable.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/model_component.h"
 #include "game/script/cscript.h"
 #include "game/script/node_prefixes.h"
 #include "game/script/struct.h"
@@ -208,7 +210,11 @@ struct SunParams {
 };
 static_assert(offsetof(SunParams, color) == 0x18 && offsetof(SunParams, shown) == 0x40, "0x004426D0's layout");
 constexpr int kSunAngles = 0x01 | 0x02, kSunColor = 0x10, kSunShown = 0x80;
-void SetSun(const SunParams* sun, int mask) { GameFunction<void(__cdecl*)(const SunParams*, int)>(0x004426D0)(sun, mask); }
+void SetSun(const SunParams* sun, int mask)
+{
+    static_assert(offsetof(SunParams, shown) == offsetof(Sun::Settings, shown), "the sun's settings (SetSun reads 0x44 bytes)");
+    Sun::SetSun(reinterpret_cast<const Sun::Settings*>(sun), static_cast<uint32_t>(mask));
+}
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
 void SetLevelColor(const float* color)
 {
@@ -260,7 +266,7 @@ uint8_t* GetSector(uint32_t name) { return GameFunction<uint8_t*(__cdecl*)(uint3
 // A model component's colour (0x00420700).
 void SetModelColor(Obj::CBaseComponent* model, uint32_t color)
 {
-    GameFunction<void(__thiscall*)(Obj::CBaseComponent*, uint32_t)>(0x00420700)(model, color);
+    static_cast<Obj::CModelComponent*>(model)->SetColor(color);
 }
 
 TODSystem& SystemAt(CTODManager* manager, int index)

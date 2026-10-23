@@ -7,6 +7,7 @@
 #include "game/pcm/stream_commands.h"
 
 #include "game/core/dbg.h"
+#include "game/pcm/stream.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -50,9 +51,8 @@ constexpr uint32_t kBinkFromMemory = 0x04000000;
 constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
 bool& BinkSoundSet() { return GameVariable<bool>(0x0069CB99); }
 
-// 0x004535E0: the next of the platform's 256 stream buffers (0x14 bytes each, at 0x0069CBB8) not in use (not
-// rewritten yet).
-void* NextStreamBuffer() { return GameFunction<void*(__cdecl*)()>(0x004535E0)(); }
+// The next of the platform's 256 OVERLAPPED blocks (0x14 bytes each, at 0x0069CBB8) not in use.
+void* NextStreamBuffer() { return NewOverlapped(); }
 
 } // namespace
 

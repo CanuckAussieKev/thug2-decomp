@@ -16,6 +16,7 @@
 #include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -25,7 +26,7 @@ namespace Script {
 namespace {
 
 // The game clock in ms (0x0044ECE0) and the offset added to it (0x00696D60).
-int GameClock() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)(); }
+int GameClock() { return Tmr::GameClockElapsed(); }
 int& GameClockOffset() { return GameVariable<int>(0x00696D60); }
 
 // Wait n seconds: the milliseconds as seconds (0.001f, 0x3A83126F at 0x006461D8).

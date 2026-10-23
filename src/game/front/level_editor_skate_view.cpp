@@ -15,6 +15,7 @@
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
 #include "game/obj/rail_manager.h"
+#include "game/script/struct.h"
 #include "hook/game.h"
 #include "imgui.h"
 
@@ -113,7 +114,7 @@ float GameThreshold()
 {
     if (g_threshold < 0.0f) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
-        float angle = GameFunction<float(__cdecl*)(uint32_t, int)>(0x00478F00)(0x3EEDE4D3, 1);
+        float angle = Script::GetFloat(0x3EEDE4D3u); // (the original also passes 1, unused)
         float factor = *reinterpret_cast<const float*>(0x00645464);
         g_threshold = Threshold(angle, factor);
     }

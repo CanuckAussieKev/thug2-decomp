@@ -8,6 +8,7 @@
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
@@ -119,10 +120,10 @@ Placement PlacementOf(uint32_t sector)
 uint32_t FirstHit(V3 from, V3 to, V3* point)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    ray->Construct();
     Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(feeler, &start,
-                                                                                                        &end, 0))
+    if (!ray->GetCollisionAlong(&start, &end, false))
         return 0;
     if (!*reinterpret_cast<void* const*>(feeler + 0x54))
         return 0;

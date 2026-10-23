@@ -2,11 +2,11 @@
 // 0x005840E0): the original and ours run on a stand-in skater in an arena; what they call outside is a recording
 // stand-in, and the calls and the whole arena are compared.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <vector>
 
-#include "game/net/gamenet_manager.h"
 #include "game/net/net_client.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
@@ -15,6 +15,7 @@
 #include "game/sio/device.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -35,16 +36,37 @@ bool g_net, g_node, g_trigger, g_camera, g_player;
 uint32_t g_mode;
 int g_clock;
 
+// Our replacement of a game function (stood in for too: our code calls it directly); the address itself if none.
+uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? Resolve(ours) : address;
+}
+// A stand-in's thunk written over our replacements of `addresses` as well.
+void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
+{
+    // (only the functions skater.cpp calls directly now: others' replacements may run for real)
+    static const uint32_t kDirect[] = {0x00511420, 0x00518630, 0x0046BC60, 0x00511310, 0x00519650, 0x0043D520, 0x00419A20, 0x005144D0, 0x00513AB0, 0x00431780, 0x0047B2A0, 0x005178B0, 0x004202A0, 0x00420110, 0x00511390, 0x0053AEA0, 0x00532EA0, 0x00419A90, 0x00420480, 0x0051D830, 0x0051D9C0, 0x0051DA20, 0x00407A60, 0x00511570, 0x0042BBF0, 0x00524C50, 0x00525E60, 0x00419B30, 0x0043D560, 0x00522410, 0x00512030, 0x0051BF00, 0x00506BE0, 0x00510F80, 0x0043D550, 0x00543340};
+    for (uint32_t address : addresses) {
+        if (std::find(std::begin(kDirect), std::end(kDirect), address) == std::end(kDirect))
+            continue;
+        uint32_t ours = OursOf(address);
+        if (ours != address)
+            s.Bytes(ours, Branch(0xE9, ours, thunk));
+    }
+}
+
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
+    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
             g_trace.push_back(Rel(r.args[i]));
         return answer;
     });
+    AlsoOurs(s, addresses, thunk);
 }
 
 void Install(StandIns& s)
@@ -54,7 +76,7 @@ void Install(StandIns& s)
         Rec(0xDB90, {r.ecx, r.args[0]});
         return Block(1) + (r.args[0] & 0x70);
     });
-    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) {
+    s.At({0x0044E4F0, OursOf(0x0044E4F0)}, 0, [](Regs& r) {
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });
@@ -97,11 +119,11 @@ void Install(StandIns& s)
         Rec(0x32A0, {r.ecx});
         return g_mode;
     });
-    s.At({0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 4, [](Regs& r) {
+    s.At({0x00532EA0, OursOf(0x00532EA0)}, 4, [](Regs& r) {
         Rec(0x2EA0, {r.ecx, r.args[0]});
         return Block(12);
     });
-    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, OursOf(0x0053AEA0)}, 4, [](Regs& r) {
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return g_player ? Block(13) : 0u;
     });

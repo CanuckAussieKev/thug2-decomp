@@ -12,6 +12,7 @@
 #include "game/front/automation.h"
 #include "game/front/level_editor.h"
 #include "game/front/mouse_menus.h"
+#include "game/front/screen_element_manager.h"
 #include "game/sio/device.h"
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
@@ -271,22 +272,14 @@ void ReadStick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8
 }
 
 // Whether the park editor is up: the screen element 0x5999551E exists (the screen element manager 0x00701440's
-// GetElement 0x004AAE20 - it returns a smart pointer, released through 0x004637E0).
+// GetElement 0x004AAE20 - it returns a smart pointer, released by its destructor).
 uint8_t InParkEditor()
 {
-    void* manager = GameVariable<void*>(0x00701440);
+    Front::CScreenElementManager* manager = Front::CScreenElementManager::Instance();
     if (!manager)
         return 0;
-    int element[4] = {0, 0, 0, 0};
-    // (thiscall: PartyMod calls them as fastcall with a null EDX, which they don't read)
-    auto* found = GameFunction<uint32_t*(__thiscall*)(void*, void*, uint32_t, uint32_t)>(0x004AAE20)(
-        manager, element, 0x5999551E, 0);
-    if (found && *found) {
-        if (element[0])
-            GameFunction<void(__thiscall*)(void*, void*)>(0x004637E0)(reinterpret_cast<void*>(element[0]), element);
-        return 1;
-    }
-    return 0;
+    Front::ElementPtr element;
+    return manager->GetElement(&element, 0x5999551E, 0)->Get() ? 1 : 0;
 }
 
 uint8_t s_inMenu = 0;

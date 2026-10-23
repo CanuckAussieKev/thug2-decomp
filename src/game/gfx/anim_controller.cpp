@@ -7,10 +7,12 @@
 
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/obj/anim_blender.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/script/names.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -79,7 +81,7 @@ uint8_t* SkeletonOf(CAnimController* c) { return GameFunction<uint8_t*(__thiscal
 uint32_t AnimSet(Obj::CCompositeObject* object)
 {
     Obj::CBaseComponent* blender = object->GetComponent(kAnimBlender);
-    return GameFunction<uint32_t(__thiscall*)(void*)>(0x00419AB0)(blender);
+    return static_cast<Obj::CAnimBlenderComponent*>(blender)->GetAnimSet();
 }
 
 // The timeline's pieces (thiscall, not rewritten yet).
@@ -137,7 +139,7 @@ void SetBoneCount(void* source, const uint8_t* skeleton)
 }
 
 // The game clock (ms) plus its offset.
-int Clock() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
+int Clock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 
 // The play-anim member function's parameters (the original leaves a missing one uninitialised: 0 here).
 struct PlayParams {
@@ -606,7 +608,8 @@ void CPartialAnimController::InitFromStructure(Script::CStruct* params)
     params->GetChecksum(kAnimName, &anim, 1);
     float start = 0.0f, end = 0.0f, current = 0.0f;
     Obj::CBaseComponent* blender = ObjectOf(this)->GetComponent(kAnimBlender);
-    float duration = GameFunction<float(__thiscall*)(void*, uint32_t)>(0x00419AF0)(blender, anim);
+    // (the blender's GetValue: the anim set's entry for the animation - its length)
+    float duration = static_cast<Obj::CAnimBlenderComponent*>(blender)->GetValue(anim);
     // the times and loop type given (0x004877E0, 0x00487770; cdecl)
     GameFunction<void(__cdecl*)(float*, float*, float, float, CStruct*, int)>(0x004877E0)(&start, &end, current,
                                                                                           duration, params, 0);

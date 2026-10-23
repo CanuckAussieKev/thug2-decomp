@@ -40,6 +40,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/net/gamenet_manager.h"
 #include "game/obj/object.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
@@ -93,7 +94,7 @@ Obj::CBaseComponent* GetComponent(Obj::CObject* object, uint32_t type)
 Obj::CObject* FindObject(uint32_t name) { return Obj::FindObject(name); }
 // 0x0044E4F0 on GameNet::Manager (0x007CCE14): called where a member function has no object to run on, its
 // result unused - what is left of a compiled-out assert.
-void NoObjectCheck() { GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(GameVariable<void*>(0x007CCE14)); }
+void NoObjectCheck() { GameVariable<GameNet::Manager*>(0x007CCE14)->InNetGame(); }
 
 
 // A component made and freed around one expression / switch value.

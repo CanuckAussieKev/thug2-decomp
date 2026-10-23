@@ -11,10 +11,13 @@
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
+#include "game/skater/skater_sound.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -60,8 +63,8 @@ void RecordVector(uint32_t address)
 std::vector<StandIn> CollisionStandIns()
 {
     return {
-        {0x0044ECE0, 0, 0, Ret::Int, false},
-        {0x00580400, 0, 3, Ret::Float, false, 0, {}, [](Frame&, Result& r) {
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
+        {0x00580400, 0, 3, Ret::Float, false, 0, {Ours(&Obj::GetPhysicsFloat)}, [](Frame&, Result& r) {
              static const float values[] = {0.0f, 1.0f, 2.5f, 3.0f, 4.0f, 6.0f, 9.0f, 12.0f, 0.5f};
              r.st0 = values[Next() % 9];
          }},
@@ -70,12 +73,12 @@ std::vector<StandIn> CollisionStandIns()
              static const float values[] = {0.0f, 1.0f, 2.5f, 6.0f, 12.0f, 0.5f, 30.0f};
              r.st0 = values[Next() % 7];
          }},
-        {0x005003A0, 8, 2, Ret::Bool, true, 0, {}, [](Frame&, Result& r) { r.eax = Next() % 5 != 0; }},
+        {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, [](Frame&, Result& r) { r.eax = Next() % 5 != 0; }},
         {0x004F8200, 4, 1, Ret::Int, true, 0, {}, [](Frame& f, Result& r) {
              std::memcpy(reinterpret_cast<void*>(f.ecx), reinterpret_cast<void*>(f.args[0]), 0xB0);
              r.eax = f.ecx;
          }},
-        {0x0043A930, 4, 1, Ret::Int, true, 0, {}, [](Frame& f, Result& r) {
+        {0x0043A930, 4, 1, Ret::Int, true, 0, {Ours(&Nx::CFeeler::Assign)}, [](Frame& f, Result& r) {
              std::memcpy(reinterpret_cast<void*>(f.ecx), reinterpret_cast<void*>(f.args[0]), 0xB0);
              r.eax = f.ecx;
          }},
@@ -96,19 +99,19 @@ std::vector<StandIn> CollisionStandIns()
              RecordVector(f.args[1]);
              r.eax = f.ecx;
          }},
-        {0x0041C350, 0, 0, Ret::None, true},
-        {0x00507500, 12, 3, Ret::Bool, true},
-        {0x00508140, 0, 0, Ret::Bool, true},
-        {0x00434BF0, 8, 2, Ret::None, true},
+        {0x0041C350, 0, 0, Ret::None, true, 0, {Ours(&Nx::CFeeler::Destruct)}},
+        {0x00507500, 12, 3, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::WallPlant)}},
+        {0x00508140, 0, 0, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::StartWallRide)}},
+        {0x00434BF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CTriggerComponent::CheckFeeler)}},
         {0x00580790, 4, 1, Ret::Float, true, 0, {Ours(&Obj::CSkater::GetScaledPhysics)}},
-        {0x00518DD0, 8, 2, Ret::None, true, 2},
+        {0x00518DD0, 8, 2, Ret::None, true, 2, {Ours(&Obj::CSkaterSoundComponent::PlayBonk)}},
         {0x00475790, 0, 5, Ret::None, false, 8,
          {Ours(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript))}},
         {0x00417210, 0, 0, Ret::Bool, true, 0, {Ours(&Nx::CFeeler::HitObjectAlive)}},
         {0x00417240, 0, 0, Ret::Int, true, 0, {Ours(&Nx::CFeeler::GetHitObject)},
          [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kHitObject)); }},
-        {0x0042BBF0, 4, 1, Ret::None, true, 0, {}, [](Frame& f, Result&) { RecordVector(f.ecx); }},
-        {0x005039F0, 12, 3, Ret::Float, true, 0, {}, [](Frame& f, Result&) { RecordVector(f.args[0]); }},
+        {0x0042BBF0, 4, 1, Ret::None, true, 0, {Ours(&Mth::Vector::SetLength)}, [](Frame& f, Result&) { RecordVector(f.ecx); }},
+        {0x005039F0, 12, 3, Ret::Float, true, 0, {Ours(&Skater::CorePhysicsComponent::BounceOffWall)}, [](Frame& f, Result&) { RecordVector(f.args[0]); }},
     };
 }
 

@@ -269,7 +269,7 @@ void TestInpManager()
             Record({0x70A0, Rel(r.ecx, g_server, sizeof(g_server)), r.args[0] & 0xFF, HashBytes(d, 0x34)});
             return 0u;
         });
-        s->At({0x0044E620}, 0, [](Regs& r) {
+        s->At({0x0044E620, AddressOf(&Inp::Manager::OverridePadWithStick)}, 0, [](Regs& r) {
             Record({0xE620, r.ecx});
             return g_override;
         });
@@ -310,7 +310,7 @@ void TestInpManager()
             Record({0xE700, r.ecx});
             return r.ecx + 4;
         });
-        s->At({0x0044E530}, 0, [](Regs& r) {
+        s->At({0x0044E530, AddressOf(&Inp::Manager::Destruct)}, 0, [](Regs& r) {
             Record({0xE530, r.ecx});
             return 0u;
         });

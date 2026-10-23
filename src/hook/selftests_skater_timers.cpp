@@ -17,6 +17,8 @@
 #include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/skate/career.h"
+#include "game/skater/skater.h"
 #include "game/skater/rotate_component.h"
 #include "game/skater/run_timer.h"
 #include "game/skater/skater_score.h"
@@ -125,7 +127,7 @@ void StandIn(StandIns& s)
         [](Regs&) { return g_a.spawned ? 0x5C000000u : 0u; }, false, true);
     Rec(s, {0x00462F00, AddressOf(&Obj::CTracker::LaunchEvent)}, 6, 0x2F00);
     Rec(s, {0x004609F0, AddressOf(&Obj::CObject::SelfEvent)}, 2, 0x09F0);
-    RecFloat(s, {0x00580790}, 1, 0x0790, [](Regs&) { return g_a.physicsValue; });
+    RecFloat(s, {0x00580790, AddressOf(&Obj::CSkater::GetScaledPhysics)}, 1, 0x0790, [](Regs&) { return g_a.physicsValue; });
     Rec(s, {0x00477D40, AddressOf(static_cast<void (Script::CStruct::*)(uint32_t, uint32_t)>(&Script::CStruct::AddChecksum))},
         2, 0x7D40);
     Rec(s, {0x00477C60, AddressOf(static_cast<void (Script::CStruct::*)(uint32_t, float)>(&Script::CStruct::AddFloat))},
@@ -133,16 +135,17 @@ void StandIn(StandIns& s)
     Rec(s, {0x00477B80, AddressOf(static_cast<void (Script::CStruct::*)(uint32_t, int)>(&Script::CStruct::AddInteger))},
         2, 0x7B80);
     Rec(s, {0x0046F060, AddressOf(&Script::RegisterMemberFunctionTable)}, 3, 0xF060, nullptr, false, true);
-    Rec(s, {0x005BAB90}, 1, 0xAB90);
+    // (0x005BAB90, the base's empty GetDebugInfo: run as it is - ours leaves the call out)
     // The score's.
     Rec(s, {0x00563440}, 0, 0x3440, [](Regs& r) { return r.ecx; });
-    for (uint32_t address : {0x00561290u, 0x005843A0u, 0x00564270u, 0x00561A80u})
+    for (uint32_t address : {0x00561290u, 0x00564270u, 0x00561A80u})
         Rec(s, {address}, 1, address & 0xFFFF);
+    Rec(s, {0x005843A0, AddressOf(&Obj::CSkaterCareer::SetGlobalFlag)}, 1, 0x43A0);
     for (uint32_t address : {0x00564B80u, 0x00563580u, 0x00562DF0u, 0x00564A10u})
         Rec(s, {address}, 0, address & 0xFFFF);
     for (uint32_t address : {0x00563370u, 0x00563390u})
         Rec(s, {address}, 2, address & 0xFFFF);
-    Rec(s, {0x00584CC0}, 1, 0x4CC0, [](Regs&) { return g_a.alwaysSpecial ? 1u : 0u; });
+    Rec(s, {0x00584CC0, AddressOf(&Obj::CSkaterCareer::GetCheat)}, 1, 0x4CC0, [](Regs&) { return g_a.alwaysSpecial ? 1u : 0u; });
     Rec(s, {0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 1, 0x8F60,
         [](Regs& r) { return r.args[0] ^ 0x1234u; }, false, true);
     Rec(s, {0x00561B40}, 0, 0x1B40, [](Regs&) { return static_cast<uint32_t>(g_a.total); });

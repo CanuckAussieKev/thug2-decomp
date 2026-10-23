@@ -24,10 +24,13 @@
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
+#include "game/net/net_client.h"
 #include "game/script/cscript.h"
 #include "game/script/load.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -84,25 +87,25 @@ bool ObjectRunsScripts(Obj::CObject* object)
 // +0x14: the object's id (sent to the other players).
 uint32_t ObjectId(Obj::CObject* object) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(object) + 0x14); }
 
-// The network game (GameNet::Manager 0x007CCE14, not decompiled yet).
-struct NetManager;
+// The network game (GameNet::Manager 0x007CCE14).
+using NetManager = GameNet::Manager;
 NetManager* Net() { return GameVariable<NetManager*>(0x007CCE14); }
 // 0x0044E4F0: whether a network game is on.
-bool InNetGame(NetManager* net) { return GameFunction<bool(__thiscall*)(NetManager*)>(0x0044E4F0)(net); }
+bool InNetGame(NetManager* net) { return net->InNetGame(); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).
-void* GetClient(NetManager* net, int index) { return GameFunction<void*(__thiscall*)(NetManager*, int)>(0x00532EA0)(net, index); }
+void* GetClient(NetManager* net, int index) { return net->GetClient(index); }
 // Net::MsgDesc (net_app.h): a message to be sent; the constructor 0x004549F0 sets the defaults.
 using ::Net::MsgDesc;
 void InitMsgDesc(MsgDesc* desc) { desc->Construct(); }
 // 0x00459E50: queue a message for the server.
 void EnqueueMessageToServer(void* client, MsgDesc* desc)
 {
-    GameFunction<void(__thiscall*)(void*, MsgDesc*)>(0x00459E50)(client, desc);
+    static_cast<::Net::Client*>(client)->EnqueueMessageToServer(desc);
 }
 // 0x00479E20: `params` written into `buffer` (at most `size` bytes); returns the bytes written.
 int WriteToBuffer(CStruct* params, uint8_t* buffer, int size)
 {
-    return GameFunction<int(__cdecl*)(CStruct*, uint8_t*, int, int, int)>(0x00479E20)(params, buffer, size, 1, 0);
+    return static_cast<int>(Script::WriteToBuffer(params, buffer, static_cast<uint32_t>(size), 1, nullptr));
 }
 constexpr uint8_t MSG_ID_RUN_SCRIPT = 0x48;
 constexpr uint8_t MSG_ID_SPAWN_SCRIPT = 0x49;

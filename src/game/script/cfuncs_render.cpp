@@ -15,6 +15,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
+#include "game/obj/skeleton_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -492,8 +493,7 @@ bool __cdecl CFunc_GetBonePosition(CStruct* params, CScript* script)
         uint32_t bone = 0;
         params->GetChecksum(kBone, &bone, 1);
         Obj::CBaseComponent* skeleton = static_cast<Obj::CCompositeObject*>(object)->GetComponent(kSkeleton);
-        found = GameFunction<bool(__thiscall*)(Obj::CBaseComponent*, uint32_t, Mth::Vector*)>(0x00432050)(skeleton, bone,
-                                                                                                    &position);
+        found = static_cast<Obj::CSkeletonComponent*>(skeleton)->GetBonePosition(bone, &position);
     }
     script->m_params->AddFloat(kX, position.x);
     script->m_params->AddFloat(kY, position.y);

@@ -9,11 +9,16 @@
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/ride_tracker.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
+#include "game/skater/skater.h"
+#include "game/skater/skater_state.h"
+#include "game/skater/trick_component.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -58,41 +63,41 @@ void GroundStandIn(Frame&, Result&)
 void TestDoGroundPhysics()
 {
     StandIns standIns({
-        {0x0044ECE0, 0, 0, Ret::Int, false},
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
         {0x00403EF0, 0, 1, Ret::Float, false, 0, {Ours(&Mth::FastACos)},
          [](Frame&, Result& r) { r.st0 = static_cast<float>(static_cast<double>(Next()) / 4294967296.0 * 3.14159); }},
-        {0x00580400, 0, 3, Ret::Float, false},
+        {0x00580400, 0, 3, Ret::Float, false, 0, {Ours(&Obj::GetPhysicsFloat)}},
         {0x00478F00, 0, 1, Ret::Float, false, 0, {Ours(static_cast<float (*)(uint32_t)>(&Script::GetFloat))}},
         {0x00478F60, 0, 1, Ret::Int, false, 0, {Ours(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}},
         {0x004FE320, 0, 0, Ret::Bool, true},
-        {0x005019E0, 0, 0, Ret::None, true},
+        {0x005019E0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::Brake)}},
         {0x004FE490, 0, 0, Ret::Bool, true},
         {0x004FE530, 0, 0, Ret::None, true},
         {0x00579CC0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CBalance::Update)}},
         {0x00584CC0, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CSkaterCareer::GetCheat)}},
         {0x005843A0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CSkaterCareer::SetGlobalFlag)}},
-        {0x005232A0, 4, 1, Ret::None, true, 1},
-        {0x00506DF0, 0, 0, Ret::None, true},
-        {0x005055B0, 0, 0, Ret::None, true},
-        {0x00501DB0, 0, 0, Ret::None, true},
-        {0x00427C70, 0, 0, Ret::None, true},
+        {0x005232A0, 4, 1, Ret::None, true, 1, {Ours(&Obj::CTrickComponent::SetTrickObjects)}},
+        {0x00506DF0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::ApplyGroundFriction)}},
+        {0x005055B0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckSideFeelers)}},
+        {0x00501DB0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::Skitch)}},
+        {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00416F00, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CRideTracker::Update)}},
         {0x005BFA8C, 12, 3, Ret::Int, false},
-        {0x00506E50, 0, 0, Ret::None, true},
-        {0x005003A0, 8, 2, Ret::Bool, true, 0, {}, [](Frame& f, Result&) {
+        {0x00506E50, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckWallAhead)}},
+        {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, [](Frame& f, Result&) {
              for (int i = 0; i < 8; ++i) // (the feeler's own line, set before)
                  RecordFloat(reinterpret_cast<float*>(f.ecx + 0xA8)[i]);
          }},
-        {0x005196A0, 4, 1, Ret::None, true, 1},
+        {0x005196A0, 4, 1, Ret::None, true, 1, {Ours(&Obj::CSkaterStateComponent::SetTerrain)}},
         {0x00509BD0, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::CheckForGround)}, GroundStandIn},
-        {0x00503560, 0, 0, Ret::None, true},
+        {0x00503560, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::TurnOnGround)}},
         {0x004FF590, 4, 1, Ret::None, true},
         {0x0050C930, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::CheckSideCollisions)}},
-        {0x00503B30, 0, 0, Ret::None, true},
+        {0x00503B30, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::LeanPushOffWall)}},
         {0x004FF920, 0, 0, Ret::None, true},
         {0x004FFB10, 0, 0, Ret::Bool, true},
         {0x004FEBA0, 0, 0, Ret::None, true},
-        {0x00522370, 4, 1, Ret::None, true},
+        {0x00522370, 4, 1, Ret::None, true, 0, {Ours(&Obj::CTrickComponent::PassToTrickObjects)}},
     });
     UseOurs vectors({{0x004060F0, Ours(&Vector::RotateToPlane)}, {0x00406080, Ours(&Vector::ProjectToPlane)}});
     ClockOffsetZero clock;

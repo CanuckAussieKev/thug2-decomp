@@ -16,6 +16,7 @@
 #include "game/net/net_conn.h"
 #include "game/net/player_info.h"
 #include "game/obj/anim_blender.h"
+#include "game/obj/model_component.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -89,10 +90,14 @@ void StandIn(StandIns& s, bool railMoves)
     Rec(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, 0xECE0, [](Regs&) { return 0x1000u + g_a.clock++; },
         false);
     Rec(s, {0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 1, 0x2EA0, [](Regs&) { return g_a.noApp ? 0u : Addr(kApp); });
-    Rec(s, {0x00533F90}, 0, 0x3F90, [](Regs&) { return g_a.onServer ? 0xABCD01u : 0xABCD00u; });
-    Rec(s, {0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 1, 0xAEA0, [](Regs&) { return Addr(kPlayer); });
+    Rec(s, {0x00533F90, AddressOf(&GameNet::Manager::OnServer)}, 0, 0x3F90, [](Regs&) { return g_a.onServer ? 0xABCD01u : 0xABCD00u; });
+    // (the object id: only its low 16 bits are read - the original passes the skater's whole id)
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
+        g_trace.insert(g_trace.end(), {0xAEA0u, Rel(r.ecx), r.args[0] & 0xFFFF});
+        return Addr(kPlayer);
+    });
     Rec(s, {0x00543380, AddressOf(&GameNet::PlayerInfo::IsFullyIn)}, 0, 0x3380, [](Regs&) { return NextBit() ? 1u : 0u; });
-    Rec(s, {0x005439D0}, 0, 0x39D0);
+    Rec(s, {0x005439D0, AddressOf(&GameNet::PlayerInfo::MarkAsFullyIn)}, 0, 0x39D0);
     Rec(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_a.noLocal ? 0u : Addr(kLocal); });
     Rec(s, {0x00455A20, AddressOf(&Net::Conn::IsLocal)}, 0, 0x5A20, [](Regs&) { return g_a.localConn ? 1u : 0u; });
     s.At({0x00458BE0, AddressOf(&Net::App::FirstConnection)}, 4, [](Regs& r) {
@@ -175,9 +180,18 @@ void StandIn(StandIns& s, bool railMoves)
     Rec(s, {0x0047E850}, 4, 0xE850);
     Rec(s, {0x00511390, AddressOf(&Obj::CSkaterFlipAndRotateComponent::SetBoardRotated)}, 4, 0x1390,
         [](Regs& r) { return r.args[1] & 0xFF; });
-    Rec(s, {0x004202A0}, 3, 0x02A0);
-    Rec(s, {0x00420520}, 7, 0x0520);
-    Rec(s, {0x004204F0}, 0, 0x04F0);
+    // (their bool arguments - HideGeom's hide, Add's hold - as truth values: the original passes the message's byte,
+    // ours that byte != 0)
+    s.At({0x004202A0, AddressOf(&Obj::CModelComponent::HideGeom)}, 12, [](Regs& r) {
+        g_trace.insert(g_trace.end(), {0x02A0u, Rel(r.ecx), r.args[0], (r.args[1] & 0xFF) != 0 ? 1u : 0u, r.args[2] & 0xFF});
+        return 0u;
+    });
+    s.At({0x00420520, AddressOf(&Obj::CModelSpinAxis::Add)}, 28, [](Regs& r) {
+        g_trace.insert(g_trace.end(), {0x0520u, Rel(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3], r.args[4],
+                                       (r.args[5] & 0xFF) != 0 ? 1u : 0u, r.args[6] & 0xFF});
+        return 0u;
+    });
+    Rec(s, {0x004204F0, AddressOf(&Obj::CModelSpinAxis::Clear)}, 0, 0x04F0);
     Rec(s, {0x00479020, AddressOf(static_cast<Script::CStruct* (*)(uint32_t)>(&Script::GetStructure))}, 1,
         0x9020, [](Regs& r) { return 0x5700000u + (r.args[0] & 0xFFFF); }, false, true);
     Rec(s, {0x0051BF80, AddressOf(&Obj::CSpecialItemComponent::CreateItem)}, 2, 0xBF80,

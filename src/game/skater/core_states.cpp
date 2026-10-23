@@ -5,16 +5,20 @@
 #include "game/core/manager.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
+#include "game/skater/skater.h"
+#include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -46,11 +50,14 @@ void CorePhysicsComponent::DoLipPhysics()
         if (!tracker->m_object.mp_object || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
             StopRiding(this);
         } else {
-            auto carried = GameFunction<Mth::Vector*(__thiscall*)(void*, Mth::Vector*)>(0x00427A00);
+            // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
+            auto* contact = At<Obj::CMovableContactComponent*>(this, kRide);
             Mth::Vector where;
             void* object = ObjectOf(this);
-            VectorAt(object, kPosition) = *carried(At<void*>(this, kRide), &where);
-            VectorAt(this, 0x258) = *carried(At<void*>(this, kRide), &where);
+            contact->GetContactPoint(&where);
+            VectorAt(object, kPosition) = where;
+            At<Obj::CMovableContactComponent*>(this, kRide)->GetContactPoint(&where);
+            VectorAt(this, 0x258) = where;
             if (Tracker(this)->m_turned) {
                 auto multiply =
                     GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C);
@@ -83,8 +90,8 @@ void CorePhysicsComponent::DoLipPhysics()
     if (node && At<Obj::CRailManager*>(this, kRailManager)->m_nodeArray) {
         Script::CStruct* script = SkateScript::GetNode(node->m_name, true);
         script->GetChecksum(kName, &At<uint32_t>(this, kRailScriptNode), 1);
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00522370)(At<void*>(this, kSkaterComponent),
-                                                                     At<uint32_t>(this, kRailScriptNode));
+        static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))
+            ->PassToTrickObjects(At<uint32_t>(this, kRailScriptNode));
     }
     At<int>(this, 0x238) = Now();
 }
@@ -140,13 +147,13 @@ void CorePhysicsComponent::ResumeSkating(bool onGround, const uint8_t* grind, vo
             At<int>(ride, 0x70) = Now();
         }
         if (void* object = At<void*>(rail, 0x18))
-            GameFunction<void(__thiscall*)(void*, void*)>(0x0043EB80)(At<void*>(this, kRide), object);
+            At<Walk::MovableContact*>(this, kRide)->StartRiding(static_cast<Obj::CCompositeObject*>(object));
         StartGrind(reinterpret_cast<const Mth::Vector*>(grind), At<Obj::CRailNode*>(rail, 0x14),
                    At<Obj::CRailManager*>(rail, 0x10), true, true);
         VectorAt(this, 0x98) = VectorAt(ObjectOf(this), kPosition);
         VectorAt(ObjectOf(this), kOldPosition) = VectorAt(this, 0x98);
     } else if (acidDrop) {
-        GameFunction<void(__thiscall*)(void*, void*)>(0x00502F20)(this, acidDrop);
+        StartAcidDrop(static_cast<const AcidDrop*>(acidDrop));
     }
 }
 

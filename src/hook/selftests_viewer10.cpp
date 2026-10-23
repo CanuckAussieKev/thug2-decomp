@@ -15,6 +15,12 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/player_info.h"
 #include "game/obj/objman.h"
+#include "game/obj/rigidbody_component.h"
+#include "game/obj/shadow_component.h"
+#include "game/obj/walk_hang.h"
+#include "game/skate/career.h"
+#include "game/skater/physics_control.h"
+#include "game/skater/stats_manager.h"
 #include "game/skater/skater.h"
 #include "hook/viewer_testkit.h"
 
@@ -40,6 +46,7 @@ uint32_t Params(int i) { return At(kParams + 0x10 * i); }
 
 void* g_skaterVtable[20];
 void* g_listVtable[8];
+void* g_lightVtable[8];
 std::map<std::pair<uint32_t, uint32_t>, std::pair<float, float>> g_pairs;
 std::map<std::pair<uint32_t, uint32_t>, float> g_paramFloats;
 std::map<uint32_t, float> g_globalFloats;
@@ -158,7 +165,7 @@ void Install(StandIns& s)
         return g_net ? 1u : 0u;
     });
     s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
-        Rec(0xAEA0, {r.ecx, r.args[0]});
+        Rec(0xAEA0, {r.ecx, r.args[0] & 0xFFFF}); // (the id's low 16 bits: all it reads)
         return g_player;
     });
     s.At({0x00543490, AddressOf(&GameNet::PlayerInfo::IsKing)}, 0, [](Regs& r) {
@@ -169,7 +176,7 @@ void Install(StandIns& s)
         Rec(0x33B0, {r.ecx});
         return g_playerKind == 2 ? 1u : 0u;
     });
-    s.At({0x00584CC0}, 4, [](Regs& r) {
+    s.At({0x00584CC0, AddressOf(&Obj::CSkaterCareer::GetCheat)}, 4, [](Regs& r) {
         Rec(0x4CC0, {r.ecx, r.args[0]});
         return g_cheat ? 1u : 0u;
     });
@@ -201,15 +208,15 @@ void Install(StandIns& s)
         Rec(0x09C0, {r.args[0]});
         return Block(31) + r.args[0];
     });
-    s.At({0x0042BD60}, 0, [](Regs& r) {
+    s.At({0x0042BD60, AddressOf(&Obj::SetRigidBodyPusherReach)}, 0, [](Regs& r) {
         Rec(0xBD60, {r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0051C480}, 8, [](Regs& r) {
+    s.At({0x0051C480, AddressOf(&Obj::CStatsManagerComponent::SetGoalStatus)}, 8, [](Regs& r) {
         Rec(0xC480, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x005178B0}, 4, [](Regs& r) {
+    s.At({0x005178B0, AddressOf(&Obj::CSkaterPhysicsControlComponent::SetPaused)}, 4, [](Regs& r) {
         Rec(0x78B0, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -217,16 +224,13 @@ void Install(StandIns& s)
         Rec(0xF960, {r.ecx, r.args[0] & 0xFF});
         return 0u;
     });
-    // The shadow.
-    s.At({0x00532EB0}, 0, [](Regs& r) {
-        Rec(0x2EB0, {r.ecx});
-        return g_noLights ? 0u : Block(32);
-    });
-    s.At({0x00456B30}, 4, [](Regs& r) {
+    // The shadow: the model's light object (its +0x2C: Block(32) or none, read by the original through the folded
+    // getter 0x00532EB0, by ours directly) and its vtable slot 5 (the original through the jump 0x00456B30).
+    g_lightVtable[5] = s.Thunk(4, [](Regs& r) {
         Rec(0x6B30, {r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_light);
     });
-    s.At({0x0043D990}, 0, [](Regs& r) {
+    s.At({0x0043D990, AddressOf(&Walk::Lerp)}, 0, [](Regs& r) {
         const auto* a = reinterpret_cast<const uint32_t*>(r.args[1]);
         const auto* b = reinterpret_cast<const uint32_t*>(r.args[2]);
         Rec(0xD990, {a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3], r.args[3]});
@@ -234,7 +238,7 @@ void Install(StandIns& s)
         out[0] = a[0], out[1] = b[1], out[2] = r.args[3], out[3] = 0x3F800000;
         return r.args[0];
     });
-    s.At({0x00431360}, 4, [](Regs& r) {
+    s.At({0x00431360, AddressOf(&Obj::CShadowComponent::SetLightDirection)}, 4, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         Rec(0x1360, {r.ecx, v[0], v[1], v[2], v[3]});
         return 0u;
@@ -305,6 +309,8 @@ void TestSkater()
         skater->m_list28C = Ptr<void>(kBlocks + 0x40 * 8);
         *Ptr<void**>(kBlocks + 0x40 * 8) = g_listVtable;
         Word(At(kModel), 0x208) = Block(9);
+        Word(Block(9), 0x2C) = Block(32);
+        *Ptr<void**>(kBlocks + 0x40 * 32) = g_lightVtable;
         for (int i = 0; i < 10; ++i)
             skater->m_statOverrides[i] = i % 3 == 0 ? -1.0f : 1.5f * i;
         skater->m_skaterNumber = 3;
@@ -598,8 +604,10 @@ void TestSkater()
         shadow();
         Word(At(kModel), 0x208) = Block(9);
         g_noLights = true;
+        Word(Block(9), 0x2C) = 0;
         shadow();
         g_noLights = false;
+        Word(Block(9), 0x2C) = Block(32);
         const float lights[][4] = {{0.3f, 0.9f, -0.2f, 1.0f}, {0.1f, -0.2f, 0.7f, 0.5f}, {0.0f, -0.5f, 0.0f, 1.0f},
                                    {-0.6f, 0.4f, 0.6f, 0.0f}};
         for (const auto& l : lights) {

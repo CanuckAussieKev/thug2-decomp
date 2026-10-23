@@ -13,6 +13,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/control_pad.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/trigger_component.h"
@@ -20,7 +21,14 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/flip_and_rotate.h"
+#include "game/skater/gap.h"
 #include "game/skater/skater.h"
+#include "game/skater/skater_sound.h"
+#include "game/skater/skater_state.h"
+#include "game/skater/trick_component.h"
+#include "game/skater/walk_physics.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -50,18 +58,18 @@ std::vector<StandIn> GrindStandIns()
         r.eax = f.args[0];
     };
     return {
-        {0x0044ECE0, 0, 0, Ret::Int, false},
-        {0x00580400, 0, 3, Ret::Float, false},
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
+        {0x00580400, 0, 3, Ret::Float, false, 0, {Ours(&Obj::GetPhysicsFloat)}},
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
          [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kComponents)); }},
-        {0x00511570, 0, 0, Ret::None, true},
+        {0x00511570, 0, 0, Ret::None, true, 0, {Ours(&Obj::CSkaterFlipAndRotateComponent::DoAfterAnim)}},
         {0x005627B0, 4, 1, Ret::None, true},
         {0x00478F00, 0, 1, Ret::Float, false, 0, {Ours(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
          [](Frame&, Result& r) {
              static const float values[] = {0.0f, 30.0f, 45.0f, 60.0f, 80.0f, 89.0f, 2.5f, 0.5f, 12.0f, 6.0f, 0.25f};
              r.st0 = values[Next() % 11];
          }},
-        {0x005003A0, 8, 2, Ret::Bool, true, 0, {}, [](Frame&, Result& r) { r.eax = Next() % 3 == 0; }},
+        {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, [](Frame&, Result& r) { r.eax = Next() % 3 == 0; }},
         {0x0045C1B0, 0, 2, Ret::Int, false, 0, {Ours(&SkateScript::GetNode)},
          [](Frame&, Result& r) { r.eax = 0x51000000u; }},
         {0x00476950, 12, 3, Ret::Bool, true, 0,
@@ -74,15 +82,15 @@ std::vector<StandIn> GrindStandIns()
                  *reinterpret_cast<uint32_t*>(f.args[1]) = 0x9000 + Next() % 4;
              }
          }},
-        {0x00522370, 4, 1, Ret::None, true},
-        {0x00427C70, 0, 0, Ret::None, true},
+        {0x00522370, 4, 1, Ret::None, true, 0, {Ours(&Obj::CTrickComponent::PassToTrickObjects)}},
+        {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00434A60, 16, 4, Ret::Bool, true, 0, {Ours(&Obj::CTriggerComponent::TriggerNode)}},
         {0x004FE860, 16, 4, Ret::None, true},
         {0x004FDED0, 4, 1, Ret::None, true},
-        {0x005196A0, 4, 1, Ret::None, true, 1},
+        {0x005196A0, 4, 1, Ret::None, true, 1, {Ours(&Obj::CSkaterStateComponent::SetTerrain)}},
         {0x00580790, 4, 1, Ret::Float, true, 0, {Ours(&Obj::CSkater::GetScaledPhysics)}},
-        {0x00518CF0, 8, 2, Ret::None, true},
-        {0x0043DA70, 0, 1, Ret::Float, false, 0, {}, [](Frame&, Result& r) {
+        {0x00518CF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CSkaterSoundComponent::PlayLand)}},
+        {0x0043DA70, 0, 1, Ret::Float, false, 0, {Ours(&Obj::CWalkComponent::Param)}, [](Frame&, Result& r) {
              static const float values[] = {0.0f, 1.0f, 3.0f, 10.0f, 30.0f};
              r.st0 = values[Next() % 5];
          }},
@@ -90,7 +98,7 @@ std::vector<StandIn> GrindStandIns()
         {0x005092E0, 4, 1, Ret::None, true, 0, {Ours(&CorePhysicsComponent::TriggerRailScript)}},
         {0x004FC470, 4, 1, Ret::None, true},
         {0x004F8EE0, 0, 0, Ret::None, true},
-        {0x00511F60, 8, 2, Ret::None, true},
+        {0x00511F60, 8, 2, Ret::None, true, 0, {Ours(&Obj::CSkaterGapComponent::CheckGaps)}},
         {0x00449970, 0, 1, Ret::Int, false, 0, {Ours(&Script::CScript::operator new)},
          [](Frame&, Result& r) { r.eax = Next() % 4 ? reinterpret_cast<uint32_t>(ArenaPtr(kScriptMemory)) : 0; }},
         {0x004738E0, 0, 0, Ret::Int, true, 0, {Ours(&Script::CScript::Construct)},
@@ -108,9 +116,9 @@ std::vector<StandIn> GrindStandIns()
          }},
         {0x00403DE0, 0, 1, Ret::Int, false, 0, {Ours(&Mth::Rnd)},
          [](Frame&, Result& r) { r.eax = Next() & 1; }},
-        {0x00522E80, 16, 4, Ret::Bool, true, 0xF},
+        {0x00522E80, 16, 4, Ret::Bool, true, 0xF, {Ours(&Obj::CTrickComponent::DoExtraGrindTrick)}},
         {0x0046BA50, 0, 4, Ret::Int, false, 0xF, {Ours(&Obj::DPadDirection)}},
-        {0x005004B0, 0x14, 5, Ret::None, true, 0x16},
+        {0x005004B0, 0x14, 5, Ret::None, true, 0x16, {Ours(&Skater::CorePhysicsComponent::StartGrindTrick)}},
     };
 }
 

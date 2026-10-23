@@ -13,6 +13,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/player_info.h"
 #include "game/nx/feeler.h"
+#include "game/obj/shadow_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/looping_sound.h"
@@ -29,7 +30,7 @@ using Obj::CSkaterNonLocalNetLogicComponent;
 // Arena layout
 constexpr uint32_t kComponent = 0x0000, kObject = 0x0400, kState = 0x0600, kHistory = 0x0800, kModel = 0x2000,
                    kShadow = 0x2400, kSound = 0x2600, kLight = 0x2800, kPlayer = 0x2A00, kOthers = 0x2C00,
-                   kHeap = 0x4000;
+                   kNxModel = 0x2300, kHeap = 0x4000;
 
 struct Answers {
     uint32_t calloc, heap;
@@ -148,19 +149,22 @@ void StandIn(StandIns& s, bool update)
         }
         return static_cast<uint32_t>(hit);
     });
-    Rec(s, {0x00417120, AddressOf(&Nx::CFeeler::IsHitTriangleCollision)}, 0, 0x7120,
-        [](Regs&) { return NextBit(g_a.triangles) ? 1u : 0u; }, false);
+    Rec(s, {0x00417120, AddressOf(&Nx::CFeeler::IsHitTriangleCollision)}, 0, 0x7120, [](Regs&) {
+        // (the model's light object, its +0x2C, read next - the original through the folded getter 0x00532EB0, ours
+        // directly)
+        F<uint32_t>(kNxModel + 0x2C) = NextBit(g_a.lights) ? Addr(kLight) : 0u;
+        return NextBit(g_a.triangles) ? 1u : 0u;
+    }, false);
     RecFloat(s, {0x004174A0, AddressOf(&Nx::CFeeler::GetHitVertexValue)}, 0, 0x74A0,
              [](Regs&) { return g_a.vertexValue; }, false);
-    Rec(s, {0x00532EB0}, 0, 0x2EB0, [](Regs&) { return NextBit(g_a.lights) ? Addr(kLight) : 0u; });
     Rec(s, {0x0048E830}, 2, 0xE830);
     Rec(s, {0x0048EDB0}, 1, 0xEDB0, nullptr, false, true);
-    s.At({0x004317C0}, 4, [](Regs& r) {
+    s.At({0x004317C0, AddressOf(&Obj::CShadowComponent::SetPosition)}, 4, [](Regs& r) {
         Record({0x17C0, Rel(r.ecx)});
         RecordVector(reinterpret_cast<const void*>(r.args[0]));
         return 0u;
     });
-    s.At({0x004317E0}, 4, [](Regs& r) {
+    s.At({0x004317E0, AddressOf(&Obj::CShadowComponent::SetNormal)}, 4, [](Regs& r) {
         Record({0x17E0, Rel(r.ecx)});
         RecordVector(reinterpret_cast<const void*>(r.args[0]));
         return 0u;
@@ -207,7 +211,7 @@ void StandIn(StandIns& s, bool update)
     Rec(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return Addr(kPlayer); });
     Rec(s, {0x00543320, AddressOf(&GameNet::PlayerInfo::IsObserver)}, 0, 0x3320, [](Regs&) { return g_a.observing ? 1u : 0u; });
     Rec(s, {0x00543330, AddressOf(&GameNet::PlayerInfo::IsSurveying)}, 0, 0x3330, [](Regs&) { return g_a.waiting ? 1u : 0u; });
-    Rec(s, {0x00534340}, 0, 0x4340, [](Regs&) { return g_a.extrapolates ? 1u : 0u; });
+    Rec(s, {0x00534340, AddressOf(&GameNet::Manager::PlayerCollisionEnabled)}, 0, 0x4340, [](Regs&) { return g_a.extrapolates ? 1u : 0u; });
     Rec(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_a.gameMode; });
     // (a new structure: the original's own pool allocation inlined in one place, NewStruct in the other)
     Rec(s, {0x00409030, AddressOf(&Script::NewStruct)}, 0, 0x9030, [](Regs&) { return Allocate(0x20); }, false, true);
@@ -237,7 +241,7 @@ void ResetWorld(uint32_t seed)
     F<uint32_t>(kComponent + 0x2AC) = Addr(kModel);
     F<uint32_t>(kComponent + 0x2B0) = Addr(kState);
     F<uint32_t>(kComponent + 0x2BC) = Addr(kShadow);
-    F<uint32_t>(kModel + 0x208) = Addr(kModel + 0x100);
+    F<uint32_t>(kModel + 0x208) = Addr(kNxModel); // (the Nx model: +0x2C its light object)
     F<uint32_t>(kSound) = reinterpret_cast<uint32_t>(g_vtable);
     F<uint32_t>(kObject + 0x14) = 0x0B1E0000 + seed;
 }

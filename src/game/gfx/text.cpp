@@ -12,7 +12,10 @@
 #include "game/core/mem.h"
 #include "game/core/str.h"
 #include "game/file/file.h"
+#include "game/gfx/draw2d.h"
 #include "game/gfx/glyphs.h"
+#include "game/gfx/render_state.h"
+#include "game/sio/device.h"
 #include "game/sys/platform_d3d.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -41,8 +44,8 @@ SFont*& TextureFont() { return GameVariable<SFont*>(0x00780FE0); }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).
 char MetaButton(const char* digit) { return GameFunction<char(__cdecl*)(const char*)>(0x0048D6A0)(digit); }
-// The name of the key a button is mapped to (not rewritten yet).
-const char* ButtonKeyName(int button) { return GameFunction<const char*(__cdecl*)(int)>(0x005BCD50)(button); }
+// The name of the key a button is mapped to.
+const char* ButtonKeyName(int button) { return Sio::GetButtonKeyName(button); }
 
 // "\b<d>" / "\m<d>" (the pointer at d): which button.
 int ButtonIndex(char tag, const char* digit)
@@ -405,14 +408,6 @@ F TextureMethod(void* texture, int offset)
     return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[offset / 4]);
 }
 
-// The renderer's state calls (not rewritten yet; cdecl).
-void SetVertexShader(int shader, int unknown) { GameFunction<void(__cdecl*)(int, int)>(0x004DAA80)(shader, unknown); }
-void SetVertexFormat(uint32_t fvf) { GameFunction<void(__cdecl*)(uint32_t)>(0x004D9DB0)(fvf); }
-void SetTexture(int stage, void* texture, uint32_t unknown)
-{
-    GameFunction<void(__cdecl*)(int, void*, uint32_t)>(0x004DA730)(stage, texture, unknown);
-}
-
 // The vertices' store (BeginDraw points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
 TextVertex* VertexStore() { return reinterpret_cast<TextVertex*>(0x00779FD8); }
@@ -441,7 +436,7 @@ uint32_t U32(const uint8_t* p)
 // 0x004CEED0
 SText* SText::Construct(float priority)
 {
-    GameFunction<void*(__thiscall*)(SText*, float, bool)>(0x004DFA70)(this, priority, true);
+    reinterpret_cast<SDraw2D*>(this)->Construct(priority, true);
     vtable = reinterpret_cast<void**>(0x0064A89C);
     return this;
 }
@@ -450,7 +445,7 @@ SText* SText::Construct(float priority)
 void SText::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(0x0064A89C);
-    GameFunction<void(__thiscall*)(SText*)>(0x004DFAA0)(this);
+    reinterpret_cast<SDraw2D*>(this)->DestroyBody();
 }
 
 // 0x004CFAF0
@@ -485,7 +480,7 @@ void SText::DrawVertices()
     if (count <= 0)
         return;
     SFont* textureFont = TextureFont() ? TextureFont() : font;
-    SetVertexShader(0, 0);
+    SetPixelShader(nullptr, nullptr); // (no pixel shader)
     SetTextureStageState(0, 1, 5); // colour: texture x diffuse, doubled
     SetTextureStageState(0, 2, 2);
     SetTextureStageState(0, 3, 1);
@@ -494,7 +489,7 @@ void SText::DrawVertices()
     SetTextureStageState(0, 6, 1);
     SetTextureStageState(1, 1, 1); // stage 1 off
     SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
-    SetTexture(0, textureFont->texture, textureFont->unknown17C);
+    SetTexture(0, textureFont->texture); // (the original also passes unknown17C, which SetTexture doesn't take)
     DeviceMethod<long(__stdcall*)(void*, int, int)>(0xE4)(Device(), 22, 1); // D3DRS_CULLMODE: none
     if (!GameVariable<bool>(0x007D1EC0)) { // (rendering not skipped)
         ++GameVariable<int>(0x00786EBC);            // draw calls

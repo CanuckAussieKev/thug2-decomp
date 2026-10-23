@@ -10,6 +10,7 @@
 
 #include "game/core/crc.h"
 #include "game/gfx/movie.h"
+#include "game/sfx/sfx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -28,13 +29,11 @@ void* StreamBuffer(int slot) { return reinterpret_cast<uint8_t*>(0x0069DFB8) + s
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
 const char* DataRoot() { return GameFunction<const char*(__cdecl*)()>(0x005B6250)(); }
-// 0x0047C790: a user soundtrack track's file (none on PC: -1).
-Handle OpenUserTrack(int soundtrack, int track) { return GameFunction<Handle(__cdecl*)(int, int)>(0x0047C790)(soundtrack, track); }
-
-// The sound effects manager (a reference-counted singleton: 0x0047BA60 / 0x0047C6C0) and its volume (0x0047AFD0).
-void* CreateSoundManager() { return GameFunction<void*(__cdecl*)(bool)>(0x0047BA60)(false); }
-void ReleaseSoundManager() { GameFunction<void(__cdecl*)()>(0x0047C6C0)(); }
-float SoundVolume(void* manager) { return GameFunction<float(__thiscall*)(void*)>(0x0047AFD0)(manager); }
+// The sound effects manager (a reference-counted singleton) and its main volume (the original calls it as a
+// method of the manager; it reads a global).
+void CreateSoundManager() { Sfx::CreateManager(false); }
+void ReleaseSoundManager() { Sfx::ReleaseManager(); }
+float SoundVolume() { return Sfx::GetMainVolume(); }
 
 void BinkGoto(Nx::Bink* bink, uint32_t frame, int flags)
 {
@@ -81,6 +80,9 @@ void Stop(StreamSlot& slot)
 }
 
 } // namespace
+
+// The original calls 0x0047C790, a linker-folded `return -1` (also Sfx::GroupCount).
+Handle __cdecl OpenUserTrack(int, int) { return INVALID_HANDLE_VALUE; }
 
 // --- The music ---------------------------------------------------------------------------------------------
 
@@ -168,7 +170,7 @@ void __cdecl PlatformStopMusic()
 }
 
 // 0x00453400
-int __cdecl SetMusicVolume(float volume)
+int __cdecl PlatformSetMusicVolume(float volume)
 {
     WaitForSingleObject(StreamLock(), INFINITE);
     StreamSlot& music = MusicSlot();
@@ -207,7 +209,7 @@ bool __cdecl SetStreamVolume(const StreamVolume* volume, int slotIndex)
     WaitForSingleObject(StreamLock(), INFINITE);
     StreamSlot& slot = StreamSlots()[slotIndex];
     if (slot.Playing()) {
-        void* sound = CreateSoundManager();
+        CreateSoundManager();
         switch (volume->type) {
         case 2: {
             // Five channels; the slot's volume is their mean (the last added unrounded, as the original's x87
@@ -215,7 +217,7 @@ bool __cdecl SetStreamVolume(const StreamVolume* volume, int slotIndex)
             float level[5];
             double last = 0;
             for (int i = 0; i < 5; ++i) {
-                double scaled = static_cast<double>(SoundVolume(sound)) * volume->level[i] * kPercent;
+                double scaled = static_cast<double>(SoundVolume()) * volume->level[i] * kPercent;
                 level[i] = static_cast<float>(scaled);
                 last = scaled;
             }
@@ -232,8 +234,8 @@ bool __cdecl SetStreamVolume(const StreamVolume* volume, int slotIndex)
         case 3: {
             // Left and right (the original has this twice: through StreamSlot::SetVolumeAndPan for 1, inline
             // for 0 and 3).
-            float left = static_cast<float>(static_cast<double>(SoundVolume(sound)) * volume->level[0] * kPercent);
-            float right = static_cast<float>(static_cast<double>(SoundVolume(sound)) * volume->level[1] * kPercent);
+            float left = static_cast<float>(static_cast<double>(SoundVolume()) * volume->level[0] * kPercent);
+            float right = static_cast<float>(static_cast<double>(SoundVolume()) * volume->level[1] * kPercent);
             slot.volume = left;
             slot.SetVolumeAndPan(left, right);
             break;
@@ -316,7 +318,7 @@ REPLACE(0x00453DB0, Pcm::PlayMusicTrack);
 REPLACE(0x00453BF0, Pcm::StartPreloadedMusic);
 REPLACE(0x00453850, Pcm::PlayUserTrack);
 REPLACE(0x00453AA0, Pcm::PlatformStopMusic);
-REPLACE(0x00453400, Pcm::SetMusicVolume);
+REPLACE(0x00453400, Pcm::PlatformSetMusicVolume);
 REPLACE(0x00453470, Pcm::SyncMusicToTime);
 REPLACE(0x00453DF0, Pcm::SetStreamVolume);
 REPLACE(0x00454080, Pcm::LoadStream);

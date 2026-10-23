@@ -6,14 +6,18 @@
 #include <vector>
 
 #include "game/core/manager.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/trigger_component.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
+#include "game/skater/skater_sound.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -26,9 +30,9 @@ using namespace SkaterCoreKit;
 using Skater::CorePhysicsComponent;
 
 // --- stand-ins shared by the tests ---
-StandIn Clock() { return {0x0044ECE0, 0, 0, Ret::Int, false}; }
+StandIn Clock() { return {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}}; }
 StandIn SetStateCall() { return {0x004FDED0, 4, 1, Ret::None, true}; }
-StandIn TriggerFeelerCall() { return {0x00434BF0, 8, 2, Ret::None, true}; }
+StandIn TriggerFeelerCall() { return {0x00434BF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CTriggerComponent::CheckFeeler)}}; }
 StandIn GetScaled()
 {
     return {0x00580790, 4, 1, Ret::Float, true, 0, {Ours(&Obj::CSkater::GetScaledPhysics)}};
@@ -52,7 +56,7 @@ StandIn RailScript()
 }
 StandIn SelfEvent() { return {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}}; }
 StandIn BroadcastEvent() { return {0x00460A20, 12, 3, Ret::None, true, 0, {Ours(&Obj::CObject::BroadcastEvent)}}; }
-StandIn StopRiding() { return {0x00427C70, 0, 0, Ret::None, true}; }
+StandIn StopRiding() { return {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}}; }
 
 // The script nodes TriggerRailScript looks at: rail node i's script node is the fake pointer 0x51000000 + i * 0x100
 // (none when `missing`), with a TriggerScript or not, and its Name.
@@ -177,9 +181,9 @@ void TestDoJump()
 {
     StandIns standIns({Clock(), ContainsFlag(), TriggerFeelerCall(), GetScaled(), ScriptGetInteger(), SetStateCall(),
                        RailScript(), BroadcastEvent(),
-                       {0x00518EE0, 8, 2, Ret::None, true, 2},
+                       {0x00518EE0, 8, 2, Ret::None, true, 2, {Ours(&Obj::CSkaterSoundComponent::PlayJumpInState)}},
                        {0x004FEBA0, 0, 0, Ret::None, true},
-                       {0x005002D0, 0, 0, Ret::None, true},
+                       {0x005002D0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::TurnForRailJump)}},
                        {0x004766D0, 12, 3, Ret::Bool, true, 0,
                         {Ours(static_cast<bool (Script::CStruct::*)(uint32_t, float*, int)>(&Script::CStruct::GetFloat))},
                         [](Frame& f, Result& r) {
@@ -235,8 +239,8 @@ void TestDoJump()
 void TestSkitch()
 {
     StandIns standIns({Clock(), SelfEvent(),
-                       {0x0043EB80, 4, 1, Ret::None, true},
-                       {0x00501DB0, 0, 0, Ret::None, true},
+                       {0x0043EB80, 4, 1, Ret::None, true, 0, {Ours(&Walk::MovableContact::StartRiding)}},
+                       {0x00501DB0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::Skitch)}},
                        {0x004637E0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CRefCounted::RemoveSmartPointer)}},
                        {0x00416DD0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CSmtPtr<Obj::CRefCounted>::Release)}},
                        {0x005BABA0, 4, 1, Ret::None, true, 0, {Ours(&Mem::Manager::Free)}}});
@@ -278,7 +282,7 @@ void TestDoWallplantPhysics()
         r.st0 = values[Next() % 7];
     };
     StandIns standIns({Clock(), duration, SetStateCall(), TriggerFeelerCall(), StopRiding(),
-                       {0x005003A0, 8, 2, Ret::Bool, true},
+                       {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}},
                        {0x00416F00, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CRideTracker::Update)}},
                        {0x005BFA8C, 12, 3, Ret::Int, false}});
     ClockOffsetZero clock;
@@ -321,8 +325,8 @@ void TestCoreMemberFunctions()
                        {0x00509920, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::BeginSkitch)}},
                        {0x00509990, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::EndSkitch)}},
                        {0x00507120, 4, 1, Ret::None, true, 1, {Ours(&CorePhysicsComponent::BreakVert)}},
-                       {0x00504DF0, 0, 0, Ret::None, true},
-                       {0x00507500, 12, 3, Ret::Bool, true},
+                       {0x00504DF0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::KeepUpright)}},
+                       {0x00507500, 12, 3, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::WallPlant)}},
                        {0x004FE860, 16, 4, Ret::None, true},
                        {0x00476950, 12, 3, Ret::Bool, true,
                         0,

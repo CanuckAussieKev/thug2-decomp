@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skate/career.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -118,10 +119,10 @@ void CSkaterScoreComponent::Update()
     }
     ScoreCall(0x00563580, m_score);
     bool alwaysSpecial = Field<uint8_t>(m_object, 0x168) != 0 ||
-                         GameFunction<bool(__thiscall*)(uint8_t*, uint32_t)>(0x00584CC0)(Career(), kCheatAlwaysSpecial);
+                         reinterpret_cast<CSkaterCareer*>(Career())->GetCheat(kCheatAlwaysSpecial);
     if (alwaysSpecial) {
         uint8_t* career = Career();
-        GameFunction<void(__thiscall*)(uint8_t*, int)>(0x005843A0)(career, Script::GetInteger(kCheatAlwaysSpecial));
+        reinterpret_cast<CSkaterCareer*>(career)->SetGlobalFlag(Script::GetInteger(kCheatAlwaysSpecial));
         ScoreCall(0x00562DF0, m_score);
         GameVariable<uint8_t>(0x007CE4FD) = 1;
     }

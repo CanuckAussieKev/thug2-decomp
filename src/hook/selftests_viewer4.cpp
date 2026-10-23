@@ -15,9 +15,13 @@
 #include "game/mth/random.h"
 #include "game/net/buddy_status.h"
 #include "game/net/gamenet_manager.h"
+#include "game/obj/anim_blender.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/object.h"
+#include "game/obj/rail_manager.h"
 #include "game/script/cscript.h"
 #include "game/skater/manual.h"
+#include "game/skater/stats_manager.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/viewer_testkit.h"
@@ -100,10 +104,6 @@ void Install(StandIns& s)
         Rec(0xDB90, {r.ecx, r.args[0]});
         return ComponentFor(r.args[0]);
     });
-    s.At({0x005480C0, AddressOf(&GameNet::FoldedGetters::Word04)}, 0, [](Regs& r) {
-        Rec(0x80C0, {r.ecx});
-        return g_netGame ? 1u : 0u;
-    });
     s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return 0u;
@@ -112,11 +112,11 @@ void Install(StandIns& s)
         Rec(0x4270, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0051D6A0}, 12, [](Regs& r) {
+    s.At({0x0051D6A0, AddressOf(&Obj::CStatsManagerComponent::CheckBalanceTime)}, 12, [](Regs& r) {
         Rec(0xD6A0, {r.ecx, r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x0046C270}, 4, [](Regs& r) {
+    s.At({0x0046C270, AddressOf(&Obj::CControlPad::GetButton)}, 4, [](Regs& r) {
         Rec(0xC270, {r.ecx, r.args[0]});
         return At(kButtons + (r.args[0] & 0xFF));
     });
@@ -140,7 +140,7 @@ void Install(StandIns& s)
         Rec(0x09F0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00419BD0}, 8, [](Regs& r) {
+    s.At({0x00419BD0, AddressOf(&Obj::CAnimBlenderComponent::FirstChannel47E280)}, 8, [](Regs& r) {
         Rec(0x9BD0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
@@ -152,7 +152,7 @@ void Install(StandIns& s)
         Rec(0x3390, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0057C200}, 4, [](Regs& r) {
+    s.At({0x0057C200, AddressOf(&Obj::CRailNode::IsNamed)}, 4, [](Regs& r) {
         Rec(0xC200, {r.ecx, r.args[0]});
         return g_sameRail ? 1u : 0u;
     });
@@ -264,6 +264,7 @@ void TestBalance()
                 hold(right, frame % 4 == 2 || frame % 7 == 3);
                 g_clock = 5000 + frame * (set == 2 ? 10 : 60);
                 g_netGame = frame % 5 == 0;
+                *Ptr<uint32_t>(0x7E00 + 4) = g_netGame ? 1u : 0u; // the network manager's server app (read by both)
                 g_blender = frame % 3 != 0;
                 b->m_showMeter = frame % 4 != 3;
                 b->m_hideDisplay = frame % 9 == 4;

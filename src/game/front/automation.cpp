@@ -22,6 +22,7 @@
 #include "game/front/screen_element_manager.h"
 #include "game/front/start_level.h"
 #include "game/front/test_view.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
 #include "game/obj/event.h"
 #include "game/lst/hashtable.h"
@@ -750,7 +751,7 @@ std::string NetRefusal()
         if (net->IsOnline())
             return "the game is online";
     if (void* gameNet = GameVariable<void*>(0x007CCE14))
-        if (GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(gameNet))
+        if (static_cast<GameNet::Manager*>(gameNet)->InNetGame())
             return "a network game runs";
     if (void* mode = GameVariable<void*>(0x007CE470)) {
         std::string name = NameOf(GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(mode));

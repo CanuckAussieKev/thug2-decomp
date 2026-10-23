@@ -10,10 +10,14 @@
 #include "game/core/mem.h"
 #include "game/mth/geometry.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/player_info.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/skater.h"
+#include "game/skater/walk_physics.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -61,39 +65,43 @@ T& Field(const void* object, uint32_t offset)
 }
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---
-void* NetManager() { return GameVariable<void*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 void* GameMode() { return GameVariable<void*>(0x007CE470); }
 void* SkaterManager() { return GameVariable<void*>(0x007CE478); }
 
-uint8_t* PlayerByObjectId(int id) { return GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x0053AEA0)(NetManager(), id); }
+uint8_t* PlayerByObjectId(int id) { return NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)); }
 uint8_t* FirstPlayer(PlayerSearchDestructors* search)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, PlayerSearchDestructors*, int)>(0x005372C0)(NetManager(), search, 1);
+    return static_cast<uint8_t*>(NetManager()->FirstPlayerInfo(search, true));
 }
 uint8_t* NextPlayer(PlayerSearchDestructors* search)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, PlayerSearchDestructors*, int)>(0x00537010)(NetManager(), search, 1);
+    return static_cast<uint8_t*>(NetManager()->NextPlayerInfo(search, true));
 }
-bool OnServer() { return GameFunction<bool(__thiscall*)(void*)>(0x00533F90)(NetManager()); }
-bool ManagerFlag4() { return GameFunction<bool(__thiscall*)(void*)>(0x00533F80)(NetManager()); }
-bool ManagerMayCollide() { return GameFunction<bool(__thiscall*)(void*)>(0x00534340)(NetManager()); }
-bool ManagerFlag3A() { return GameFunction<bool(__thiscall*)(void*)>(0x005332B0)(NetManager()); }
-CCompositeObject* LocalSkater() { return GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00533210)(NetManager()); }
-Net::App* ManagerApp() { return GameFunction<Net::App*(__thiscall*)(void*)>(0x005480C0)(NetManager()); }
+bool OnServer() { return NetManager()->OnServer(); }
+bool ManagerFlag4() { return NetManager()->InInternetMode(); }
+bool ManagerMayCollide() { return NetManager()->PlayerCollisionEnabled(); }
+bool ManagerFlag3A() { return NetManager()->IsGameOver(); }
+// The manager's +0x6C (the network code's GetCrown, 0x00533210).
+CCompositeObject* LocalSkater() { return static_cast<CCompositeObject*>(NetManager()->GetCrown()); }
+// The manager's server app (+0x04: the folded getter 0x005480C0).
+Net::App* ManagerApp() { return NetManager()->m_server; }
 
-// A player (PlayerInfo): its object (+0x14), team field (+0x30) and flags (+0x1D0: 0x1 local, 0x80 "it", 0x7800 a
-// team).
+// A player (PlayerInfo): its object (+0x14), team field (+0x30) and flags (+0x1D0: 0x1 local, 0x80 "it" - IsKing,
+// 0x7800 a team - IsCarryingFlag / GetFlagTeam). Its announcements: MarkAsKing makes it "it", RetrievedFlag tags it
+// on its own team, StoleFlag converts it to another.
+GameNet::PlayerInfo* Info(uint8_t* player) { return reinterpret_cast<GameNet::PlayerInfo*>(player); }
 CCompositeObject* PlayerObject(uint8_t* player) { return Field<CCompositeObject*>(player, 0x14); }
-bool IsObserving(uint8_t* player) { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x00543910)(player); }
-bool IsIt(uint8_t* player) { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x00543490)(player); }
-bool OnATeam(uint8_t* player) { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x005433B0)(player); }
-int Team(uint8_t* player) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x005433D0)(player); }
-bool IsLocal(uint8_t* player) { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x00543300)(player); }
-int Connection(uint8_t* player) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x005434A0)(player); }
-void MarkTagTime(uint8_t* player) { GameFunction<void(__thiscall*)(uint8_t*)>(0x00543350)(player); }
-void MakeIt(uint8_t* player, bool it) { GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x00544340)(player, it); }
-void TagOnTeam(uint8_t* player) { GameFunction<void(__thiscall*)(uint8_t*)>(0x00544110)(player); }
-void ConvertToTeam(uint8_t* player, int team) { GameFunction<void(__thiscall*)(uint8_t*, int)>(0x00543C70)(player, team); }
+bool IsObserving(uint8_t* player) { return Info(player)->IsInvulnerable(); }
+bool IsIt(uint8_t* player) { return Info(player)->IsKing() != 0; }
+bool OnATeam(uint8_t* player) { return Info(player)->IsCarryingFlag() != 0; }
+int Team(uint8_t* player) { return Info(player)->GetFlagTeam(); }
+bool IsLocal(uint8_t* player) { return Info(player)->IsLocalPlayer() != 0; }
+int Connection(uint8_t* player) { return Info(player)->GetConnHandle(); }
+void MarkTagTime(uint8_t* player) { Info(player)->MarkJustJoined(); }
+void MakeIt(uint8_t* player, bool it) { Info(player)->MarkAsKing(it); }
+void TagOnTeam(uint8_t* player) { Info(player)->RetrievedFlag(); }
+void ConvertToTeam(uint8_t* player, int team) { Info(player)->StoleFlag(team); }
 
 uint32_t GameType() { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameMode()); }
 bool TeamGame() { return GameFunction<bool(__thiscall*)(void*)>(0x005535F0)(GameMode()); }
@@ -104,7 +112,7 @@ CCompositeObject* SkaterByIndex(int index)
 {
     return GameFunction<CCompositeObject*(__thiscall*)(void*, int)>(0x005665C0)(SkaterManager(), index);
 }
-const char* SkaterName(CCompositeObject* skater) { return GameFunction<const char*(__thiscall*)(CCompositeObject*)>(0x00581580)(skater); }
+const char* SkaterName(CCompositeObject* skater) { return static_cast<CSkater*>(skater)->GetDisplayName(); }
 // A skater's score (its +0x278's +0x18).
 void* SkaterScore(CCompositeObject* skater) { return Field<void*>(Field<void*>(skater, 0x278), 0x18); }
 int GetScore(void* score) { return GameFunction<int(__thiscall*)(void*)>(0x00561B40)(score); }
@@ -117,7 +125,7 @@ void KnockDown(CBaseComponent* physics, CCompositeObject* other)
 }
 void KnockDownWalking(CBaseComponent* walk, CCompositeObject* other)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, CCompositeObject*)>(0x0052C2B0)(walk, other);
+    static_cast<CWalkComponent*>(walk)->GoToAirFor(other);
 }
 
 // A vector's length as 0x004023C0 leaves it on the x87 stack (x, y, then z; unrounded).

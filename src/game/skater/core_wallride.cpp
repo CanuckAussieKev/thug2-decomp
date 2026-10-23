@@ -10,6 +10,7 @@
 #include "game/script/struct.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -168,8 +169,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
             turn = -turn;
         void* o = ObjectOf(this);
         VectorAt(o, kVelocity).w = 1.0f;
-        GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Vector*, float)>(0x00421440)(
-            &VectorAt(ObjectOf(this), kVelocity), &VectorAt(this, kWallNormal), turn); // (turned about the wall)
+        VectorAt(ObjectOf(this), kVelocity).RotateAboutAxis(VectorAt(this, kWallNormal), turn); // (about the wall)
         o = ObjectOf(this);
         VectorAt(o, kFacing) = VectorAt(o, kVelocity);
         VectorAt(ObjectOf(this), kFacing).Normalize();
@@ -258,7 +258,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
             OffWallEdge(false);
         }
     }
-    if (GameFunction<bool(__thiscall*)(void*)>(0x005051B0)(this))
+    if (KeepOffCeilingAtWall())
         OffWallEdge(false);
 
     // A feeler down the skater's up: still on the wall?
@@ -310,7 +310,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
             }
             void* skater = At<void*>(this, kSkaterComponent);
             if (!At<uint8_t>(skater, 0x13B0))
-                GameFunction<void(__thiscall*)(void*, bool)>(0x005232A0)(skater, false);
+                static_cast<Obj::CTrickComponent*>(skater)->SetTrickObjects(false);
             AssignFeeler(&At<uint8_t>(this, kOtherFeeler), &At<uint8_t>(this, kFeeler));
             At<uint8_t>(At<void*>(this, kSoundComponent), 0x1D) = At<uint8_t>(this, 0x1AA);
         }
@@ -347,8 +347,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
         VectorAt(this, kGroundNormal) = VectorAt(this, 0x58);
         VectorAt(this, 0x78) = VectorAt(this, 0x58);
     }
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00522370)(At<void*>(this, kSkaterComponent),
-                                                                 At<uint32_t>(this, 0x1B0));
+    static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(this, 0x1B0));
 }
 
 } // namespace Skater

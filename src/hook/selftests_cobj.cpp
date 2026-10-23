@@ -341,7 +341,7 @@ void InstallStandIns(StandIns& s)
         (void)r;
         return g_cobj_base + 0x2B00;
     });
-    s.At({0x004696C0}, 0, [](Regs& r) {
+    s.At({0x004696C0, AddressOf(&Obj::CPathManager::NumberPaths)}, 0, [](Regs& r) {
         Rec(0x96C0, {r.ecx});
         return 0u;
     });

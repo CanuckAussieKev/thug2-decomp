@@ -32,16 +32,13 @@ constexpr uint32_t kLabelIds[8] = {0xE797A186, 0x90909110, 0x0999C0AA, 0x7E9EF03
 constexpr float kLocalHeight = 96.0f;  // above this machine's player's skater
 constexpr float kOtherHeight = 120.0f; // above the others'
 
-// The network manager (0x007CCE14; not rewritten yet): a network game on (0x0044E4F0), its show_names preference
-// on (0x00533140), the player with an object id (0x0053AEA0), this machine's player (0x00532EC0: its +0x1CC).
-void* NetManager() { return GameVariable<void*>(0x007CCE14); }
-bool InNetGame() { return static_cast<GameNet::Manager*>(NetManager())->InNetGame(); }
-bool ShowNames() { return GameFunction<bool(__thiscall*)(void*)>(0x00533140)(NetManager()); }
-uint8_t* PlayerByObjectId(uint32_t id)
-{
-    return GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(NetManager(), id);
-}
-uint8_t* LocalPlayer() { return GameFunction<uint8_t*(__thiscall*)(void*)>(0x00532EC0)(NetManager()); }
+// The network manager (0x007CCE14): a network game on, its show_names preference on, the player with an object id,
+// this machine's player (GetCamPlayer: its +0x1CC).
+GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+bool InNetGame() { return NetManager()->InNetGame(); }
+bool ShowNames() { return NetManager()->ShouldDrawPlayerNames(); }
+uint8_t* PlayerByObjectId(uint32_t id) { return NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)); }
+uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetManager()->GetCamPlayer()); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
 bool IsTeamGame() { return GameFunction<bool(__thiscall*)(void*)>(0x005535F0)(GameVariable<void*>(0x007CE470)); }
 

@@ -44,7 +44,7 @@ void* Engine() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
 // A meta piece of a list node (0x005480C0: the node's +4; then the concrete piece - the same pointer).
 void* NodeMeta(CMapListNode* node)
 {
-    void* meta = GameFunction<void*(__thiscall*)(CMapListNode*)>(0x005480C0)(node);
+    void* meta = node->GetMeta();
     return static_cast<CMetaPiece*>(meta)->Cast();
 }
 void DestroyList(CMapListTemp& temp) { temp.Destroy(); }
@@ -130,14 +130,12 @@ bool CParkManager::DestroyMetasInAreaAndRebuild(GridDims area, bool skipRestarts
             destroyed = true;
         }
         // The area's corner and size in the world (0x00595A90), and the scene updated over it.
-        float size[3];
-        float corner[4]; // (a whole Mth::Vector: w = 1 is written too)
-        const float* position = GameFunction<const float*(__thiscall*)(CParkManager*, float*, const GridDims*, float*)>(
-            0x00595A90)(Instance(), corner, &area, size);
-        float x0 = position[0];
-        float z0 = position[2];
-        float z1 = static_cast<float>(static_cast<double>(size[2]) + z0);
-        float x1 = static_cast<float>(static_cast<double>(size[0]) + x0);
+        Mth::Vector size; // (x, y and z written)
+        Mth::Vector corner = Instance()->GridCoordinatesToWorld(area, &size);
+        float x0 = corner.x;
+        float z0 = corner.z;
+        float z1 = static_cast<float>(static_cast<double>(size.z) + z0);
+        float x1 = static_cast<float>(static_cast<double>(size.x) + x0);
         GameFunction<void(__thiscall*)(void*, float, float, float, float, int)>(0x004F74B0)(Engine(), x0, z0, x1, z1, 1);
         UpdatePieces(Generator());
         if (destroyed) {

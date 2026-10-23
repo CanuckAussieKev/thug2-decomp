@@ -19,6 +19,7 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -597,7 +598,7 @@ void StandInNet(StandIns& s, bool messagesToo)
             return 0u;
         });
     }
-    s.At({0x00479E20}, 0, [](Regs& r) {
+    s.At({0x00479E20, AddressOf(&Script::WriteToBuffer)}, 0, [](Regs& r) {
         Record({0x9E20, Id(r.args[0]), r.args[2], r.args[3], r.args[4]});
         auto* buffer = reinterpret_cast<uint8_t*>(r.args[1]);
         for (int i = 0; i < g_writeSize; ++i)

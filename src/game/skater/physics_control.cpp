@@ -10,7 +10,10 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
+#include "game/skater/skater_state.h"
+#include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -43,21 +46,22 @@ float Seconds(int ms) { return static_cast<float>(static_cast<double>(static_cas
 
 void SuspendComponent(CBaseComponent* component, bool suspend) { component->VirtualSuspend(suspend); }
 
-// Calls into components not rewritten yet: the core physics told it's leaving (0x004FDD50) / given the walk's
-// state on coming back (0x0050C670), the state component's walking flag (0x00519680), the walk component told it's
-// starting (0x0052AF40) / leaving (0x005260C0), the cameras' state handed over (the skater camera's 0x004FA420 /
-// 0x004F9A40, the walk camera's 0x00524FF0 / 0x00525060).
+// Calls into the other components: the core physics told it's leaving (0x004FDD50, not rewritten yet) / given the
+// walk's state on coming back (ResumeSkating), the state component's physics mode (1: walking), the walk component
+// told it's starting (Begin) / leaving (its model offset cleared), the cameras' state handed over (the skater
+// camera's 0x004FA420 / 0x004F9A40, the walk camera's 0x00524FF0 / 0x00525060).
 void CoreLeaving(uint8_t* core) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004FDD50)(core); }
 void CoreReturning(uint8_t* core, bool onGround, void* hold1, void* hold2)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, bool, void*, void*)>(0x0050C670)(core, onGround, hold1, hold2);
+    reinterpret_cast<Skater::CorePhysicsComponent*>(core)->ResumeSkating(onGround, static_cast<const uint8_t*>(hold1),
+                                                                         hold2);
 }
-void SetWalking(uint8_t* state, bool walking) { GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x00519680)(state, walking); }
-void WalkStarting(CBaseComponent* walk, bool fromGround)
+void SetWalking(uint8_t* state, bool walking)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, bool)>(0x0052AF40)(walk, fromGround);
+    reinterpret_cast<CSkaterStateComponent*>(state)->SetPhysicsMode(walking ? 1 : 0);
 }
-void WalkLeaving(CBaseComponent* walk) { GameFunction<void(__thiscall*)(CBaseComponent*)>(0x005260C0)(walk); }
+void WalkStarting(CBaseComponent* walk, bool fromGround) { static_cast<CWalkComponent*>(walk)->Begin(fromGround); }
+void WalkLeaving(CBaseComponent* walk) { static_cast<CWalkComponent*>(walk)->ClearModelOffset(); }
 void CameraCall(uint32_t address, CBaseComponent* camera, void* state)
 {
     GameFunction<void(__thiscall*)(CBaseComponent*, void*)>(address)(camera, state);

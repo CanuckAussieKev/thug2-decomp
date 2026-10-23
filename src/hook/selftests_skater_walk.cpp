@@ -14,6 +14,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
+#include "game/obj/anim_blender.h"
 #include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
@@ -104,7 +105,7 @@ void Install(StandIns& s)
              RecFloat(0x7C61, reinterpret_cast<const float*>(&r.args[1]), 1);
              return 0u;
          });
-    s.At({0x00419B90}, 16, [](Regs& r) {
+    s.At({0x00419B90, AddressOf(&Obj::CAnimBlenderComponent::FirstChannel47E850)}, 16, [](Regs& r) {
         Rec(0x9B90, {r.ecx, r.args[1], r.args[2], r.args[3]});
         RecFloat(0x9B91, reinterpret_cast<const float*>(&r.args[0]), 1);
         return 0u;

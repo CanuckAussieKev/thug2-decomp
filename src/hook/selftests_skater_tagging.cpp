@@ -23,6 +23,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/tagging.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -133,6 +134,8 @@ void StandInAll(StandIns& s)
     for (uint32_t address : {0x00478F00u, AddressOf(static_cast<float (*)(uint32_t)>(&Script::GetFloat))})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&StandInFloat)));
     s.Bytes(0x0043DA70, Branch(0xE9, 0x0043DA70, reinterpret_cast<void*>(&StandInTagSetting)));
+    const uint32_t ourParam = AddressOf(&Obj::CWalkComponent::Param); // (called directly by ours)
+    s.Bytes(ourParam, Branch(0xE9, ourParam, reinterpret_cast<void*>(&StandInTagSetting)));
     // Textures.
     s.At({0x0049F9B0}, 0x10, [](Regs& r) {
         Record({0x49F9, Id(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2], r.args[3]});

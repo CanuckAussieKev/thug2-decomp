@@ -3,10 +3,13 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
+#include "game/core/stubs.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"
+#include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -62,11 +65,11 @@ void FreeStruct(Script::CStruct* s)
 // The script structure written to / read from a buffer (0x00479E20 returns the bytes, 0x0047A0C0 the end).
 int WriteStruct(Script::CStruct* s, uint8_t* buffer, int size)
 {
-    return GameFunction<int(__cdecl*)(Script::CStruct*, uint8_t*, int, int, int)>(0x00479E20)(s, buffer, size, 1, 0);
+    return static_cast<int>(Script::WriteToBuffer(s, buffer, static_cast<uint32_t>(size), 1, nullptr));
 }
 uint8_t* ReadStruct(Script::CStruct* s, uint8_t* buffer)
 {
-    return GameFunction<uint8_t*(__cdecl*)(Script::CStruct*, uint8_t*)>(0x0047A0C0)(s, buffer);
+    return const_cast<uint8_t*>(Script::ReadFromBuffer(s, buffer));
 }
 
 void PushSkaterInfoHeap() { Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_skaterInfoHeap); }
@@ -220,8 +223,9 @@ CSkaterProfile::SpecialTrick* CSkaterProfile::GetSpecialTrick(SpecialTrick* out,
     specials->GetArray(0u, &slots, 1);
     if (index < 0 || index >= static_cast<int>(slots->m_size)) {
         // (asserts, compiled out)
-        GameFunction<void(__cdecl*)(void*, int)>(0x005480A0)(InfoStructure(), 0);
-        GameFunction<void(__cdecl*)(void*, int)>(0x005480A0)(specials, 0);
+        // (0x005480A0, an empty function, given the info structure and the specials)
+        Stubs::DoNothing();
+        Stubs::DoNothing();
     }
     auto* slot = reinterpret_cast<Script::CStruct*>(slots->GetElement(static_cast<uint32_t>(index)));
     slot->GetChecksum(kTrickSlot, &trick.trick, 1);
@@ -257,7 +261,7 @@ bool CSkaterProfile::SetSpecialTrick(int index, SpecialTrick* trick, bool apply)
         // The current skater's trick state told.
         auto* skater = GameFunction<CCompositeObject*(__thiscall*)(uint8_t*)>(0x00566520)(GameVariable<uint8_t*>(0x007CE478));
         if (skater)
-            GameFunction<void(__thiscall*)(void*, CSkaterProfile*)>(0x00522410)(skater->GetComponent(0x270F56E1), this);
+            static_cast<CTrickComponent*>(skater->GetComponent(0x270F56E1))->SetTrickMappings(this);
     }
     return true;
 }
@@ -420,7 +424,7 @@ void CSkaterProfile::WriteToSave(Script::CStruct* save)
         appearance->AppendStructureIfAny(reinterpret_cast<Script::CStruct*>(m_appearance + 0x4C));
         mine->AddComponentOfType(kAppearance, kOwnedStructure, reinterpret_cast<uint32_t>(appearance));
     }
-    void* face = GameFunction<void*(__thiscall*)(CSkaterProfile*)>(0x00576E60)(this);
+    void* face = *reinterpret_cast<void**>(m_appearance + 0x54); // (the appearance's face: 0x00576E60, a folded getter)
     if (face && GameFunction<bool(__thiscall*)(void*)>(0x00487510)(face)) {
         Script::CStruct* texture = NewEmptyStruct();
         GameFunction<void(__thiscall*)(void*, Script::CStruct*)>(0x00487680)(face, texture);

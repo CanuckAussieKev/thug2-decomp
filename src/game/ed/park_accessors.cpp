@@ -9,6 +9,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/park/park_memory.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -171,8 +172,7 @@ CMetaPiece* CParkManager::GetAbstractMetaPiece(uint32_t name, int* index)
 bool CParkManager::CanResizeTo(GridDims area)
 {
     // 0x0059EB30: the park memory check for going from one floor area to another
-    return GameFunction<bool(__cdecl*)(int, int)>(0x0059EB30)(m_parkBounds.w * m_parkBounds.l,
-                                                             area.w * area.l);
+    return PiecesFit(m_parkBounds.w * m_parkBounds.l, area.w * area.l);
 }
 
 int CParkManager::GetFloorHeight(GridDims area, bool* uniform)

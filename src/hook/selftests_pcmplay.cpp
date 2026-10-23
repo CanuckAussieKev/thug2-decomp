@@ -15,6 +15,8 @@
 #include "game/core/manager.h"
 #include "game/gfx/movie.h"
 #include "game/pcm/stream.h"
+#include "game/pcm/stream_commands.h"
+#include "game/sfx/sfx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -86,12 +88,12 @@ void StandInPlatform(StandIns& s)
         return 0u;
     });
     // The stream classes.
-    s.At({0x00452C00}, 8, [](Regs& r) {
+    s.At({0x00452C00, AddressOf(&Pcm::BinkStreamView::Construct)}, 8, [](Regs& r) {
         Record({0xC7B, Rel(r.ecx), r.args[0] & 0xFF, r.args[1]});
         reinterpret_cast<BinkStream*>(r.ecx)->m_unknown6B = true; // (as the constructor)
         return r.ecx;
     });
-    s.At({0x00452C60}, 0x10, [](Regs& r) {
+    s.At({0x00452C60, AddressOf(&Pcm::BinkStreamView::Open)}, 0x10, [](Regs& r) {
         Record({0x0B0, Rel(r.ecx), r.args[0], Hash(reinterpret_cast<const char*>(r.args[1])), r.args[2], r.args[3]});
         return g_openResult;
     });
@@ -145,19 +147,21 @@ void StandInPlatform(StandIns& s)
         Record({0x5B62});
         return reinterpret_cast<uint32_t>("ROOT\\");
     });
-    s.At({0x0047C790}, 0, [](Regs& r) {
+    s.At({0x0047C790, AddressOf(&Pcm::OpenUserTrack)}, 0, [](Regs& r) {
         Record({0x47C7, r.args[0], r.args[1]});
         return g_openResult == 0 ? 0x4321u : 0xFFFFFFFFu;
     });
-    s.At({0x0047BA60}, 0, [](Regs& r) {
+    s.At({0x0047BA60, AddressOf(&Sfx::CreateManager)}, 0, [](Regs& r) {
         Record({0xBA60, r.args[0] & 0xFF});
         return 0x50C0u;
     });
-    s.At({0x0047C6C0}, 0, [](Regs&) {
+    s.At({0x0047C6C0, AddressOf(&Sfx::ReleaseManager)}, 0, [](Regs&) {
         Record({0xC6C0});
         return 0u;
     });
     s.Bytes(0x0047AFD0, Branch(0xE9, 0x0047AFD0, reinterpret_cast<const void*>(&FakeSoundVolume)));
+    const uint32_t mainVolume = AddressOf(&Sfx::GetMainVolume);
+    s.Bytes(mainVolume, Branch(0xE9, mainVolume, reinterpret_cast<const void*>(&FakeSoundVolume)));
     s.At({0x006234FE}, 0, [](Regs& r) { // sprintf
         return StandInSprintf(r); // (ours uses its own C runtime: the paths are compared where they're used)
     });
@@ -594,7 +598,7 @@ void TestStreamPlay()
                 bool started = original ? Original<bool(__cdecl*)()>(0x00453BF0)() : Pcm::StartPreloadedMusic();
                 Record({0x112, started});
                 RecordState();
-                uint32_t v = static_cast<uint32_t>(original ? Original<int(__cdecl*)(float)>(0x00453400)(61.5f) : Pcm::SetMusicVolume(61.5f));
+                uint32_t v = static_cast<uint32_t>(original ? Original<int(__cdecl*)(float)>(0x00453400)(61.5f) : Pcm::PlatformSetMusicVolume(61.5f));
                 Record({0x113, v});
                 RecordState();
                 if (original)

@@ -20,6 +20,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/front/element3d.h"
+#include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
 #include "game/mth/matrix.h"
 #include "game/obj/compositemgr.h"
@@ -457,11 +458,11 @@ void InstallStandIns(StandIns& s)
         Rec(0xDE80, {r.ecx});
         return r.ecx + 0x10; // (the model at +0x360: its geometry +0x370, the box +0x380)
     });
-    s.At({0x0045C1B0, AddressOf(SkateScript::GetNode)}, 0, [](Regs& r) {
-        Rec(0xC1B0, {r.args[0], r.args[1]});
+    s.At({0x0045C1B0, AddressOf(&SkateScript::GetNode)}, 0, [](Regs& r) {
+        Rec(0xC1B0, {r.args[0], r.args[1] & 0xFF});
         return At(kNode);
     });
-    s.At({0x0045C050, AddressOf(static_cast<bool (*)(Script::CStruct*, Mth::Vector*)>(SkateScript::GetPosition))}, 0, [](Regs& r) {
+    s.At({0x0045C050, AddressOf(static_cast<bool (*)(Script::CStruct*, Mth::Vector*)>(&SkateScript::GetPosition))}, 0, [](Regs& r) {
         Rec(0xC050, {r.args[0], InArena(r.args[1]) ? r.args[1] : 0x57ACu}); // (a local: on the stack)
         const float pos[4] = {17.5f, -3.25f, 400.0625f, 1.0f};
         std::memcpy(reinterpret_cast<void*>(r.args[1]), pos, sizeof(pos));
@@ -484,6 +485,8 @@ void InstallStandIns(StandIns& s)
         return g_el3d_time;
     });
     s.Bytes(0x00485B10, Branch(0xE9, 0x00485B10, reinterpret_cast<void*>(&StandInCameraAngle)));
+    const uint32_t angle = AddressOf(&Gfx::Camera::GetAdjustedHFOV); // (ours calls ours)
+    s.Bytes(angle, Branch(0xE9, angle, reinterpret_cast<void*>(&StandInCameraAngle)));
 
     for (void*& slot : g_el3d_objectVtable)
         slot = nullptr;

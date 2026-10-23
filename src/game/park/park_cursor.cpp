@@ -11,6 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/core/stubs.h"
 #include "game/ed/park_editor.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
@@ -35,7 +36,7 @@ inline void MemoryMarker(const char* /*what*/) {}
 
 void* NodeMeta(CMapListNode* node)
 {
-    void* meta = GameFunction<void*(__thiscall*)(CMapListNode*)>(0x005480C0)(node);
+    void* meta = node->GetMeta();
     return static_cast<CMetaPiece*>(meta)->Cast();
 }
 CMetaPiece* AsMeta(void* meta) { return static_cast<CMetaPiece*>(meta); }
@@ -62,7 +63,8 @@ int FloorHeight(CParkManager* manager, GridDims area, char* level)
 CParkEditor* ParkEditor() { return CParkEditor::Create(false); }
 bool ParkFull(CParkEditor* editor) { return editor->IsParkFull() != 0; }
 void ReleaseParkEditor() { CParkEditor::Release(); }
-void SetDefaultHeap(Mem::Heap* heap) { GameFunction<void(__cdecl*)(Mem::Heap*)>(0x005BA1D0)(heap); }
+// (0x005BA1D0: `xor eax, eax; ret` - compiled out of this build, folded with Stubs::ReturnZero)
+void SetDefaultHeap(Mem::Heap* /*heap*/) { Stubs::ReturnZero(); }
 
 } // namespace
 
@@ -356,7 +358,7 @@ bool CCursor::RaiseLower(int dir)
     GridDims above = {area.x, area.y, area.z, area.w, 16, area.l};
     CMapListNode* list = MetasWithin(CParkManager::Instance(), above);
     for (CMapListNode* node = list; node; node = node->mp_next) {
-        void* meta = GameFunction<void*(__thiscall*)(CMapListNode*)>(0x005480C0)(node);
+        void* meta = node->GetMeta();
         GridDims at = MetaArea(meta);
         if (at.h > area.h)
             top = at.h + height + dir;

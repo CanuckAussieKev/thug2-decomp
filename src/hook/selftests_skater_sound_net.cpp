@@ -15,6 +15,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
+#include "game/sfx/terrain.h"
 #include "game/skater/local_net_logic.h"
 #include "game/skater/looping_sound.h"
 #include "game/skater/skater.h"
@@ -64,7 +65,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x005651F0}, 0, 0x51F0, [](Regs&) { return g_a.multiplayer ? 1u : 0u; });
     Rec(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_a.localPlayer ? 0x9999u : 0u; });
     Rec(s, {0x005131A0, AddressOf(&Obj::CSkaterLocalNetLogicComponent::SendUpdate)}, 0, 0x31A0);
-    Rec(s, {0x00533070}, 0, 0x3070, [](Regs&) { return static_cast<uint32_t>(g_a.runCount); });
+    Rec(s, {0x00533070, AddressOf(&GameNet::Manager::GetGameId)}, 0, 0x3070, [](Regs&) { return static_cast<uint32_t>(g_a.runCount); });
     Rec(s, {0x00566600}, 1, 0x6600, [](Regs& r) {
         if (r.args[0] == 0xA1)
             return g_a.haveA ? Addr(kSkaterA) : 0u;
@@ -130,8 +131,8 @@ void StandIn(StandIns& s)
     Rec(s, {0x0047BD20, AddressOf(&CSfxManager::PlaySound)}, 6, 0xBD20, [](Regs&) { return g_a.soundId; });
     Rec(s, {0x0047B7C0, AddressOf(&CSfxManager::SetSoundParamsScaled)}, 3, 0xB7C0, [](Regs&) { return 1u; });
     RecFloat(s, {0x005BEAA0, AddressOf(&Tmr::GetSlomoFrameSeconds)}, 0, 0xEAA0, [](Regs&) { return g_a.slomo; }, false);
-    Rec(s, {0x004443B0}, 1, 0x43B0, [](Regs&) { return Addr(kTable); }, false, true);
-    Rec(s, {0x00444B10}, 4, 0x4B10, [](Regs& r) {
+    Rec(s, {0x004443B0, AddressOf(&Terrain::GetTableIndex)}, 1, 0x43B0, [](Regs&) { return 0x2Bu; }, false, true); // (a table index: a byte)
+    Rec(s, {0x00444B10, AddressOf(&Terrain::GetTerrainSound)}, 4, 0x4B10, [](Regs& r) {
         auto* entry = reinterpret_cast<uint8_t*>(r.args[0]);
         if (g_a.terrainFound) {
             for (int i = 0; i < 0x84; ++i)
@@ -142,7 +143,7 @@ void StandIn(StandIns& s)
         }
         return g_a.terrainFound ? 1u : 0u;
     }, false, true);
-    RecFloat(s, {0x00444710}, 3, 0x4710, [](Regs&) { return g_a.terrainVolume; }, false, true);
+    RecFloat(s, {0x00444710, AddressOf(&Terrain::GetScaledVolume)}, 3, 0x4710, [](Regs&) { return g_a.terrainVolume; }, false, true);
     for (int i = 0; i < 16; ++i)
         g_vtable[i] = RecThunk(s, 1, 0x7AB00 + i);
 }

@@ -19,14 +19,20 @@
 #include "game/mth/matrix.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
+#include "game/net/net_conn.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/player_info.h"
 #include "game/net/thugpro_peer.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/skate/skate_net.h"
+#include "game/skater/local_net_logic.h"
+#include "game/skater/skater.h"
+#include "game/skater/state_history.h"
 #include "game/util/bitstream.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -131,6 +137,38 @@ uint32_t Element(uint32_t array, uint32_t index)
     return a->m_size == 1 ? a->m_single : a->m_elements[index];
 }
 
+// Our rewrite of a stood-in callee that ours calls directly (stood in the same way), or 0.
+uint32_t OurRewrite(uint32_t address)
+{
+    using GameNet::Manager;
+    using GameNet::PlayerInfo;
+    static const std::map<uint32_t, uint32_t> ours = {
+        {0x005331F0, AddressOf(&Manager::SetJoinState)}, {0x00533060, AddressOf(&Manager::SetGameId)},
+        {0x00536B90, AddressOf(&Manager::SetLevel)}, {0x00533230, AddressOf(&Manager::SetCrownSpawnPoint)},
+        {0x00532F90, AddressOf(&Manager::SetStartInfoWords)}, {0x00535D90, AddressOf(&Manager::SetProSetFlags)},
+        {0x005331D0, AddressOf(&Manager::SetFinalScoresReceived)}, {0x00533180, AddressOf(&Manager::SetLastLeader)},
+        {0x00543420, AddressOf(&PlayerInfo::MarkEliminated)}, {0x005462F0, AddressOf(&Manager::ClearServerList)},
+        {0x0053C6E0, AddressOf(&Manager::CancelJoin)}, {0x0053E910, AddressOf(&Manager::RemovePlayers)},
+        {0x005399F0, AddressOf(&Manager::DisconnectClients)}, {0x005332F0, AddressOf(&Manager::NoteCheating)},
+        {0x0053A040, AddressOf(&Manager::PrepareLocalFace)}, {0x00534D70, AddressOf(&Manager::SendCustomTagTexture)},
+        {0x00533F90, AddressOf(&Manager::OnServer)}, {0x0044E4F0, AddressOf(&Manager::InNetGame)},
+        {0x0044E4E0, AddressOf(&Manager::InNetMode)}, {0x00532AC0, AddressOf(&Manager::GetJoinMode)},
+        {0x005332E0, AddressOf(&Manager::CheatingNoted)}, {0x005332B0, AddressOf(&Manager::IsGameOver)},
+        {0x005331A0, AddressOf(&Manager::GetLastLeadingTeam)}, {0x00533190, AddressOf(&Manager::GetLastLeader)},
+        {0x005435F0, AddressOf(&Manager::GetTeamScore)}, {0x005436E0, AddressOf(&Manager::GetPlayerScore)},
+        {0x0053C380, AddressOf(&Manager::SpawnServer)}, {0x00537320, AddressOf(&Manager::GetLocalPlayer)},
+        {0x00543300, AddressOf(&PlayerInfo::IsLocalPlayer)}, {0x00543320, AddressOf(&PlayerInfo::IsObserver)},
+        {0x00543380, AddressOf(&PlayerInfo::IsFullyIn)}, {0x0057FEC0, AddressOf(&Obj::CSkater::GetSkaterNumber)},
+        {0x00580480, AddressOf(&Obj::CSkater::GetScore)}, {0x00581580, AddressOf(&Obj::CSkater::GetDisplayName)},
+        {0x00588480, AddressOf(&Obj::CTrickObjectManager::GetClusterName)},
+        {0x00588150, AddressOf(&Obj::CTrickCluster::SetParams)},
+        {0x005890B0, AddressOf(&Obj::CTrickObjectManager::ApplyPlayerGraffiti)},
+        {0x00455A40, AddressOf(&Net::Conn::SetBandwidthType)}, {0x00455960, AddressOf(&Net::Conn::SetSendInterval)},
+        {0x00455920, AddressOf(&Net::Conn::UpdateCommTime)}, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}};
+    auto it = ours.find(address);
+    return it == ours.end() ? 0 : it->second;
+}
+
 void Install(StandIns& s)
 {
     for (void*& slot : g_sn_goalVtable)
@@ -138,7 +176,7 @@ void Install(StandIns& s)
     g_sn_goalVtable[3] = reinterpret_cast<void*>(&StandInGoalActive);
     g_sn_goalVtable[5] = reinterpret_cast<void*>(&StandInGoalUpdate);
     auto simple = [&](uint32_t address, uint16_t pop, uint32_t tag, std::function<uint32_t(Regs&)> answer = nullptr) {
-        s.At({address}, pop, [tag, pop, answer](Regs& r) {
+        auto handler = [tag, pop, answer](Regs& r) {
             std::vector<uint32_t> values = {r.ecx};
             for (int i = 0; i < pop / 4; ++i)
                 values.push_back(r.args[i]);
@@ -146,11 +184,17 @@ void Install(StandIns& s)
             for (uint32_t v : values)
                 g_trace.push_back(Rel(v));
             return answer ? answer(r) : 0u;
-        });
+        };
+        if (uint32_t ours = OurRewrite(address))
+            s.At({address, ours}, pop, handler);
+        else
+            s.At({address}, pop, handler);
     };
     // The network manager.
+    // (0x005430D0, the last leading team set, isn't stood in: ours writes the field itself - the original's real code
+    // writes the network manager's +0x1D4 in the arena too)
     for (uint32_t a : {0x005331F0u, 0x00533060u, 0x00536B90u, 0x00533230u, 0x00532F90u, 0x00535D90u, 0x005331D0u,
-                       0x005430D0u, 0x00533180u, 0x00543420u})
+                       0x00533180u, 0x00543420u})
         simple(a, a == 0x00543420 ? 0 : 4, a & 0xFFFF);
     for (uint32_t a : {0x005462F0u, 0x0053C6E0u, 0x0053E910u, 0x005399F0u, 0x005332F0u, 0x0053A040u, 0x00534D70u})
         simple(a, 0, a & 0xFFFF);
@@ -249,7 +293,10 @@ void Install(StandIns& s)
             {SkateNet::HandleScavengerKillObject, 0x0056CDF0}, {SkateNet::HandleScavengerDropObjects, 0x0056CEC0},
             {SkateNet::HandleGraffitiColors, 0x0056D030}, {SkateNet::HandleScores, 0x0056D250},
             {SkateNet::HandleStartInfo, 0x0056D810}, {SkateNet::HandleRunScript, 0x0056E380},
-            {SkateNet::HandleObjectUpdates, 0x0056E470}};
+            {SkateNet::HandleObjectUpdates, 0x0056E470}, {SkateNet::HandleClientObjectUpdate, 0x0056BE60},
+            {Obj::CSkaterStateHistoryComponent::HandleCollisionMessages, 0x00519C10},
+            {Obj::CSkaterStateHistoryComponent::HandleHitMessages, 0x00519870},
+            {Obj::CSkaterLocalNetLogicComponent::HandleGraffitiSteal, 0x005136F0}};
         // (the THUGPRO peer mode's own, which the original doesn't have: kThugproHandler | their message id)
         static const std::pair<MsgCode, uint32_t> thugpro[] = {
             {GameNet::Thugpro::HandleServerInfo, kThugproHandler | GameNet::Thugpro::kMsgServerInfo},

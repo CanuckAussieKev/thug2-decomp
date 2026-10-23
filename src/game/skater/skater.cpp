@@ -2,6 +2,7 @@
 
 #include "game/skater/skater.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
@@ -28,6 +29,37 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/ass/assman.h"
+#include "game/front/front_end.h"
+#include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
+#include "game/obj/anim_blender.h"
+#include "game/obj/control_pad.h"
+#include "game/obj/model_component.h"
+#include "game/obj/proxim.h"
+#include "game/obj/rigidbody_component.h"
+#include "game/obj/shadow_component.h"
+#include "game/obj/skeleton_component.h"
+#include "game/obj/vibration_component.h"
+#include "game/obj/walk_hang.h"
+#include "game/sfx/sfx.h"
+#include "game/skate/career.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/end_run.h"
+#include "game/skater/flip_and_rotate.h"
+#include "game/skater/gap.h"
+#include "game/skater/looping_sound.h"
+#include "game/skater/nonlocal_net_logic.h"
+#include "game/skater/physics_control.h"
+#include "game/skater/skater_score.h"
+#include "game/skater/skater_state.h"
+#include "game/skater/special_item.h"
+#include "game/skater/stats_manager.h"
+#include "game/skater/tagging.h"
+#include "game/skater/trick_component.h"
+#include "game/skater/walk_camera.h"
+#include "game/skater/walk_physics.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -75,7 +107,7 @@ constexpr uint32_t kModelComponent = 0x286A8D26; // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;     // (a physics integer: pausing freezes the whole game)
 
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
-void* Net() { return GameVariable<void*>(0x007CCE14); }
+GameNet::Manager* Net() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 bool Rule5A1180() { return GameFunction<bool(__cdecl*)(int, int)>(0x005A1180)(0, 0); }
 
 template <typename T>
@@ -170,7 +202,7 @@ void CSkater::LoadList44B66A9F(Script::CStruct* params)
     Script::CArray* entries = nullptr;
     params->GetArray(kList44B66A9F, &entries, 0);
     for (int i = 0; i < 0x46; ++i)
-        GameFunction<void(__thiscall*)(void*, int, uint32_t)>(0x0051C480)(m_list28C, i, entries->GetElement(i));
+        static_cast<CStatsManagerComponent*>(m_list28C)->SetGoalStatus(i, static_cast<int>(entries->GetElement(i)));
 }
 
 // 0x005801B0
@@ -194,7 +226,7 @@ void CSkater::ReadChapterInfo(Script::CStruct* save)
 }
 
 // 0x005802C0
-void CSkater::Set42BD60(float value) { GameFunction<void(__cdecl*)(void*, float)>(0x0042BD60)(this, value); }
+void CSkater::Set42BD60(float value) { SetRigidBodyPusherReach(this, value); }
 
 // 0x005802E0
 Script::CStruct* __cdecl GetPhysicsStructure(CCompositeObject* skater)
@@ -254,24 +286,25 @@ float CSkater::GetStat(int index)
         stat = bits == 0xBF800000 ? Script::GetFloat(kSkaterDefaultStats) : m_statOverrides[index];
     }
     // Online: the server's rules for this player.
-    if (GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(Net())) {
-        uint8_t* player = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(Net(), m_id);
+    if (Net()->InNetGame()) {
+        auto* player = reinterpret_cast<GameNet::PlayerInfo*>(Net()->PlayerByObjectId(static_cast<uint16_t>(m_id)));
         if (!player)
             stat = 10.0f;
-        else if (GameFunction<bool(__thiscall*)(uint8_t*)>(0x00543490)(player))
+        else if (player->IsKing())
             stat = 1.0f;
-        else if (GameFunction<bool(__thiscall*)(uint8_t*)>(0x005433B0)(player))
+        else if (player->IsCarryingFlag())
             stat = 6.0f;
         else
             stat = 10.0f;
     } else if (Rule5A1180()) {
-        uint8_t* player = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(Net(), m_id);
-        if (player && GameFunction<bool(__thiscall*)(uint8_t*)>(0x00543490)(player))
+        auto* player = reinterpret_cast<GameNet::PlayerInfo*>(Net()->PlayerByObjectId(static_cast<uint16_t>(m_id)));
+        if (player && player->IsKing())
             stat = 1.0f;
     }
     void* cheats = At<void*>(Skate(), 0x20);
-    float result = GameFunction<bool(__thiscall*)(void*, int)>(0x00584CC0)(cheats, Script::GetInteger(kCheatStats13)) ? 15.0f
-                                                                                                                     : stat;
+    float result = static_cast<CSkaterCareer*>(cheats)->GetCheat(static_cast<uint32_t>(Script::GetInteger(kCheatStats13)))
+                       ? 15.0f
+                       : stat;
     if (At<bool>(At<uint8_t*>(m_scoreHolder, 0x18), 0x74))
         result = static_cast<float>(result + 3.0);
     return result;
@@ -373,10 +406,10 @@ void CSkater::SetPauseState(int state)
         return;
     m_pauseState = state;
     auto pauseGame = [frontEnd](bool pause) {
-        GameFunction<void(__thiscall*)(void*, bool)>(0x0054F960)(frontEnd, pause);
+        static_cast<Mdl::FrontEnd*>(frontEnd)->PauseGame(pause);
     };
     auto control = [](void* physicsControl, int paused) {
-        GameFunction<void(__thiscall*)(void*, int)>(0x005178B0)(physicsControl, paused);
+        static_cast<CSkaterPhysicsControlComponent*>(physicsControl)->SetPaused(paused != 0);
     };
     switch (state) {
     case 0:
@@ -421,9 +454,11 @@ void CSkater::UpdateShadowLight(int, int)
     }
     // The model's light, reversed; kept at least 0.65 below the horizon.
     if (GetComponent(kModelComponent) && At<void*>(GetComponent(kModelComponent), 0x208)) {
-        void* lights = GameFunction<void*(__thiscall*)(void*)>(0x00532EB0)(At<void*>(GetComponent(kModelComponent), 0x208));
+        // (the model's +0x2C - read through the folded getter 0x00532EB0 - and its virtual slot 5 - through the jump
+        // 0x00456B30)
+        void* lights = At<void*>(At<void*>(GetComponent(kModelComponent), 0x208), 0x2C);
         if (lights) {
-            const float* v = GameFunction<float*(__thiscall*)(void*, int)>(0x00456B30)(lights, 0);
+            const float* v = reinterpret_cast<float*(__thiscall*)(void*, int)>((*static_cast<void***>(lights))[5])(lights, 0);
             double x = v[0] * -1.0, y = v[1] * -1.0, z = v[2] * -1.0, w = v[3] * -1.0;
             light[0] = static_cast<float>(x);
             light[1] = static_cast<float>(y);
@@ -453,9 +488,9 @@ void CSkater::UpdateShadowLight(int, int)
     else
         m_shadowFade = m_shadowFade < 16 ? m_shadowFade + 1 : 16;
     Mth::Vector direction;
-    GameFunction<void(__cdecl*)(Mth::Vector*, const float*, const float*, float)>(0x0043D990)(
-        &direction, light, down, static_cast<float>(m_shadowFade * 0.0625f));
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x00431360)(m_shadow, &direction);
+    Walk::Lerp(&direction, reinterpret_cast<const Mth::Vector*>(light), reinterpret_cast<const Mth::Vector*>(down),
+               static_cast<float>(m_shadowFade * 0.0625f));
+    static_cast<CShadowComponent*>(m_shadow)->SetLightDirection(&direction);
 }
 
 namespace {
@@ -467,7 +502,7 @@ constexpr uint32_t kSkateStyle = 0x76FD33E8;         // skatestyle
 constexpr uint32_t kFirstName = 0x562E3ECD;          // first_name
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // SkaterFlipAndRotate (a component)
 
-int Clock() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
+int Clock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 
 // The score's two balance displays off (0x00563370 / 0x00563390).
 void BalanceDisplaysOff(void* score)
@@ -495,7 +530,7 @@ void CSkater::SetStatsFromProfile(CSkaterProfile* profile)
     void* classicStats = At<void*>(Skate(), 0x20);
     if (GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameVariable<void*>(0x007CE470), kIsClassic)) {
         for (int i = 0; i < 10; ++i)
-            SetStatOverride(i, static_cast<float>(GameFunction<int(__thiscall*)(void*, uint32_t)>(0x00584540)(classicStats, kStatNames[i])));
+            SetStatOverride(i, static_cast<float>(static_cast<CSkaterCareer*>(classicStats)->GetInfoInteger(kStatNames[i])));
         return;
     }
     for (int i = 0; i < 10; ++i)
@@ -508,7 +543,7 @@ void CSkater::UpdateFromProfile(CSkaterProfile* profile)
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_skaterHeaps[m_skaterNumber]);
     auto checksum = [profile](uint32_t name) {
-        return GameFunction<uint32_t(__thiscall*)(CSkaterProfile*, uint32_t)>(0x005860C0)(profile, name);
+        return profile->GetChecksumValue(name);
     };
     m_pushStyle = checksum(kPushStyle);
     m_goofy = checksum(kStance) == kGoofy;
@@ -526,7 +561,7 @@ void CSkater::UpdateFromProfile(CSkaterProfile* profile)
     if (m_unknownBC) {
         uint8_t* stanceFlag = At<uint8_t*>(m_corePhysics, 0x1528) + 0x28;
         SetInputFlag(stanceFlag, m_goofy ? 0 : 1);
-        GameFunction<void(__thiscall*)(void*)>(0x00511420)(GetComponent(kSkaterFlipAndRotate));
+        static_cast<CSkaterFlipAndRotateComponent*>(GetComponent(kSkaterFlipAndRotate))->ApplyFlipToAnims();
     }
     Mem::Manager::Get()->PopContext();
 }
@@ -534,7 +569,7 @@ void CSkater::UpdateFromProfile(CSkaterProfile* profile)
 // 0x00580FF0
 void CSkater::ResetInput()
 {
-    GameFunction<void(__thiscall*)(void*)>(0x00518630)(m_scoreHolder);
+    reinterpret_cast<CSkaterScoreComponent*>(m_scoreHolder)->ResetScore();
     GameFunction<void(__thiscall*)(void*)>(0x004F8D80)(GetComponent(0x589E5FB3));
     reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x48 / 4])(this);
     for (int i = 0; i < 24; ++i) {
@@ -545,7 +580,7 @@ void CSkater::ResetInput()
         if (i == 7)
             At<uint8_t>(At<uint8_t*>(m_corePhysics, 0x1514), 0x1E) = 0;
     }
-    GameFunction<void(__thiscall*)(void*)>(0x0046BC60)(m_unknown264 + 0x20);
+    reinterpret_cast<CControlPad*>(m_unknown264 + 0x20)->Clear();
     Script::RunScript(0xAE5438AF, nullptr, this, false, nullptr);
 }
 
@@ -554,30 +589,29 @@ void CSkater::ResetState()
 {
     auto* physicsControl = reinterpret_cast<uint8_t*>(GetComponent(kSkaterPhysicsControl));
     if (physicsControl[0x18])
-        GameFunction<void(__thiscall*)(void*, int)>(0x005178B0)(physicsControl, 0);
-    GameFunction<void(__thiscall*)(void*)>(0x00511310)(GetComponent(kSkaterFlipAndRotate));
+        reinterpret_cast<CSkaterPhysicsControlComponent*>(physicsControl)->SetPaused(false);
+    static_cast<CSkaterFlipAndRotateComponent*>(GetComponent(kSkaterFlipAndRotate))->ClearAfterFlags();
     for (uint32_t reset : {0x0051EAB0u, 0x0051EB30u, 0x0051EF00u, 0x0051EB00u, 0x0051ED10u, 0x005232E0u})
         GameFunction<void(__thiscall*)(void*)>(reset)(m_unknown258);
-    GameFunction<void(__thiscall*)(void*)>(0x00519650)(GetComponent(0x43686585));
+    static_cast<CSkaterStateComponent*>(GetComponent(0x43686585))->ClearDoingTrick();
     m_unknown250[0x1F4] = 0;
     BalanceDisplaysOff(At<void*>(m_scoreHolder, 0x18));
     if (m_unknown25C)
-        GameFunction<void(__thiscall*)(void*)>(0x0043D520)(m_unknown25C);
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317C0)(m_shadow, &m_pos);
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317E0)(m_shadow, &m_matrix.row[1]);
+        static_cast<CVibrationComponent*>(m_unknown25C)->StopAll();
+    static_cast<CShadowComponent*>(m_shadow)->SetPosition(&m_pos);
+    static_cast<CShadowComponent*>(m_shadow)->SetNormal(&m_matrix.row[1]);
     At<int>(GetComponent(0x21FC3301), 0x18) = -1;
 }
 
 // 0x005811E0
 void CSkater::SetUpNetwork()
 {
-    uint8_t* client = GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x00532EA0)(Net(), m_skaterNumber);
-    CBaseComponent* flipAndRotate = GetComponent(kSkaterFlipAndRotate);
-    GameFunction<void(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t)>(0x00511390)(
-        flipAndRotate, m_id, 0, At<uint32_t>(client, 8), m_unknownBC);
-    GameFunction<void(__thiscall*)(void*)>(0x00511420)(flipAndRotate);
-    GameFunction<void(__thiscall*)(void*, uint32_t, int, uint32_t)>(0x004202A0)(m_unknown250, 0xA7A9D4B8, 0, m_unknownBC);
-    GameFunction<void(__thiscall*)(void*)>(0x00419A20)(m_unknown24C);
+    auto* client = reinterpret_cast<uint8_t*>(Net()->GetClient(m_skaterNumber));
+    auto* flipAndRotate = static_cast<CSkaterFlipAndRotateComponent*>(GetComponent(kSkaterFlipAndRotate));
+    flipAndRotate->SetBoardRotated(m_id, false, At<uint32_t>(client, 8), m_unknownBC != 0);
+    flipAndRotate->ApplyFlipToAnims();
+    reinterpret_cast<CModelComponent*>(m_unknown250)->HideGeom(0xA7A9D4B8, false, m_unknownBC != 0);
+    static_cast<CAnimBlenderComponent*>(m_unknown24C)->ResetChannels();
 }
 
 // 0x00581260
@@ -632,8 +666,9 @@ void CSkater::ShowBoardElement(uint32_t type)
     GameFunction<void(__thiscall*)(void*, int, int)>(0x0048DE30)(element, 1, 0);
     const char* model;
     params->GetString(0x49B318FD, &model, 1);
-    GameFunction<void(__thiscall*)(void*, uint32_t, const char*, uint32_t)>(0x00420110)(GetComponent(kModelComponent), modelSwap,
-                                                                                        model, modelSwap2);
+    // (the third is a checksum where ReplaceTexture takes a texture name: passed on as it is)
+    static_cast<CModelComponent*>(GetComponent(kModelComponent))
+        ->ReplaceTexture(modelSwap, model, reinterpret_cast<const char*>(static_cast<uintptr_t>(modelSwap2)));
     if (second)
         GameFunction<void(__thiscall*)(void*, void*)>(0x0049F500)(Elements(), overlay);
     GameFunction<void(__thiscall*)(void*, void*)>(0x0049F500)(Elements(), element);
@@ -645,7 +680,7 @@ void CSkater::ShowBoardElement(uint32_t type)
 void CSkater::Reset27C()
 {
     if (!m_unknownBC)
-        GameFunction<void(__thiscall*)(void*)>(0x005144D0)(GetComponent(0x850EEF66));
+        static_cast<CSkaterNonLocalNetLogicComponent*>(GetComponent(0x850EEF66))->ResetPlayback();
     At<uint32_t>(m_unknown27C, 0x18) = 0;
 }
 
@@ -653,8 +688,8 @@ void CSkater::Reset27C()
 void CSkater::HideSkater()
 {
     if (m_unknownBC)
-        GameFunction<void(__thiscall*)(void*)>(0x00513AB0)(GetComponent(0xB5F1E9D2));
-    GameFunction<void(__thiscall*)(void*)>(0x00431780)(m_shadow);
+        static_cast<CSkaterLoopingSoundComponent*>(GetComponent(0xB5F1E9D2))->StopSound();
+    static_cast<CShadowComponent*>(m_shadow)->DestroyShadow();
     Hide(true);
     m_flag2C4 = false;
 }
@@ -670,10 +705,8 @@ void CSkater::ShowSkater()
 // 0x00581580
 const char* CSkater::GetDisplayName()
 {
-    if (GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(Net()))
-        return reinterpret_cast<const char*>(
-                   GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(Net(), static_cast<uint16_t>(m_id))) +
-               0x38;
+    if (Net()->InNetGame())
+        return reinterpret_cast<const char*>(Net()->PlayerByObjectId(static_cast<uint16_t>(m_id))) + 0x38;
     return m_displayName.c_str();
 }
 
@@ -686,7 +719,7 @@ void CSkater::MoveToNode(uint32_t name)
     m_matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     if (!name)
         return;
-    Script::CStruct* node = SkateScript::GetNode(name, !GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(Net()));
+    Script::CStruct* node = SkateScript::GetNode(name, !Net()->InNetGame());
     if (!node)
         return;
     SkateScript::GetPosition(name, &m_pos);
@@ -695,14 +728,14 @@ void CSkater::MoveToNode(uint32_t name)
     SetTeleported(true);
     Mth::Vector angles;
     SkateScript::GetAngles(node, &angles);
-    GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(&m_matrix, &angles);
+    m_matrix.InitFromAngles(angles);
     auto* object = At<CCompositeObject*>(m_corePhysics, 0xC);
     At<Mth::Matrix>(m_corePhysics, 0x18) = object->m_matrix;
     At<Mth::Vector>(m_corePhysics, 0x68) = m_matrix.row[1];
     At<Mth::Vector>(m_corePhysics, 0x78) = At<Mth::Vector>(m_corePhysics, 0x68);
     At<Mth::Vector>(m_corePhysics, 0x58) = At<Mth::Vector>(m_corePhysics, 0x78);
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317C0)(m_shadow, &m_pos);
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317E0)(m_shadow, &m_matrix.row[1]);
+    static_cast<CShadowComponent*>(m_shadow)->SetPosition(&m_pos);
+    static_cast<CShadowComponent*>(m_shadow)->SetNormal(&m_matrix.row[1]);
     m_displayMatrix = At<Mth::Matrix>(m_corePhysics, 0x18);
 }
 
@@ -717,7 +750,7 @@ void CSkater::Pause()
     Script::RunScript(0x1277E3FD, nullptr, nullptr, false, nullptr);
     if (uint8_t* input = m_unknown264)
         At<Sio::Device*>(At<uint8_t*>(input, 0x490), 0x1C)->PauseActuators();
-    GameFunction<void(__thiscall*)(void*)>(0x0047B2A0)(GameVariable<void*>(0x006F85A8));
+    GameVariable<Sfx::CSfxManager*>(0x006F85A8)->UpdateVoiceVolumes();
 }
 
 // 0x005817F0
@@ -769,7 +802,7 @@ void CSkater::Init(CSkaterProfile* profile)
         if (camera) {
             GameFunction<void(__thiscall*)(void*, CSkater*)>(0x004FA3C0)(camera->GetComponent(0x5E43A604), this); // skatercamera
             auto* walkCamera = reinterpret_cast<uint8_t*>(camera->GetComponent(0xC7D37EC2));                     // walkcamera
-            GameFunction<void(__thiscall*)(void*, CSkater*)>(0x00524C50)(walkCamera, this);
+            reinterpret_cast<CWalkCameraComponent*>(walkCamera)->SetSkater(this);
             *reinterpret_cast<int*>(walkCamera + 0x18) = 3;
         } else {
             Script::CStruct* memory = Script::NewStruct();
@@ -783,7 +816,7 @@ void CSkater::Init(CSkaterProfile* profile)
                 Script::DeleteStruct(params);
             }
         }
-        GameFunction<void(__thiscall*)(void*, CCompositeObject*)>(0x00525E60)(GetComponent(0x726E85AA), camera); // Walk
+        static_cast<CWalkComponent*>(GetComponent(0x726E85AA))->SetCamera(camera); // Walk
         GameFunction<void(__cdecl*)(uint32_t, int, int)>(0x0059F890)(cameraName, m_viewport, 0);
         At<uint32_t>(camera, 8) |= 2;
         GameFunction<void(__thiscall*)(void*, int, int)>(0x004F9AE0)(camera->GetComponent(0x5E43A604), 2, 0);
@@ -807,7 +840,7 @@ void CSkater::Init(CSkaterProfile* profile)
         params->AddChecksum(0x222756D5, skeleton);
         params->AddInteger(0xD3982061, 0); // max_bone_skip_lod
     });
-    GameFunction<void(__thiscall*)(void*, int)>(0x00419B30)(m_unknown24C, 1);
+    static_cast<CAnimBlenderComponent*>(m_unknown24C)->SetFlag4C(true);
     bool local = m_unknownBC != 0;
     AddComponentFromStructure(this, [local](Script::CStruct* params) {
         params->AddChecksum(0u, 0x10079F2D);       // UseModelLights
@@ -818,12 +851,12 @@ void CSkater::Init(CSkaterProfile* profile)
     m_unknown250 = reinterpret_cast<uint8_t*>(GetComponent(kModelComponent));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
     Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_skaterGeomHeaps[m_skaterNumber]);
-    void* assets = GameVariable<void*>(0x006918DC);
-    bool flag = GameFunction<bool(__thiscall*)(void*)>(0x00407A60)(assets);
-    GameFunction<void(__thiscall*)(void*, bool)>(0x00407A50)(assets, false);
+    auto* assets = GameVariable<Ass::CAssMan*>(0x006918DC);
+    bool flag = assets->GetPermanentByDefault();
+    assets->SetPermanentByDefault(false);
     reinterpret_cast<void(__thiscall*)(void*, CSkaterProfile*, int, int, int)>((*reinterpret_cast<void***>(m_unknown250))[0x34 / 4])(
         m_unknown250, profile, 0, m_skaterNumber, 0);
-    GameFunction<void(__thiscall*)(void*, bool)>(0x00407A50)(assets, flag);
+    assets->SetPermanentByDefault(flag);
     Mem::Manager::Get()->PopContext();
     AddComponentFromStructure(this, [](Script::CStruct* params) {
         params->AddChecksum(kComponentName, 0x8A897DD2); // shadow
@@ -848,7 +881,7 @@ void CSkater::Init(CSkaterProfile* profile)
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
         At<uint8_t>(m_corePhysics, 0x2D9) = skate[0x395 + 8 * m_viewport];
         At<uint8_t>(m_corePhysics, 0x2DA) = skate[0x396 + 8 * m_viewport];
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0043D560)(m_unknown25C, skate[0x394 + 8 * m_viewport]);
+        static_cast<CVibrationComponent*>(m_unknown25C)->SetActive(skate[0x394 + 8 * m_viewport] != 0);
         if (m_unknownBC)
             m_script->SetScript("SkaterInit", nullptr, this);
     }
@@ -859,7 +892,7 @@ void CSkater::Init(CSkaterProfile* profile)
         At<float>(GetComponent(0x187574FA), 0x20) = maxSpeed;
     }
     if (void* state = m_unknown258) {
-        GameFunction<void(__thiscall*)(void*, CSkaterProfile*)>(0x00522410)(state, profile);
+        static_cast<CTrickComponent*>(state)->SetTrickMappings(profile);
         for (uint32_t reset : {0x0051EB00u, 0x0051ED10u, 0x0051EB30u, 0x0051EF00u})
             GameFunction<void(__thiscall*)(void*)>(reset)(m_unknown258);
         At<void*>(m_unknown258, 0x1C) = At<void*>(m_scoreHolder, 0x18);
@@ -867,12 +900,13 @@ void CSkater::Init(CSkaterProfile* profile)
     if (uint8_t* other = m_unknown270)
         At<void*>(other, 0x44) = At<void*>(m_scoreHolder, 0x18);
     if (CBaseComponent* collision = GetComponent(0xA432DC41)) {
-        if (GameFunction<uint8_t*(__thiscall*)(CBaseComponent*)>(0x005480F0)(collision))
-            GameFunction<uint8_t*(__thiscall*)(CBaseComponent*)>(0x005480F0)(collision)[8] |= 2;
+        // (its +0x18, read through the folded getter 0x005480F0)
+        if (At<uint8_t*>(collision, 0x18))
+            At<uint8_t*>(collision, 0x18)[8] |= 2;
     }
-    GameFunction<void(__thiscall*)(void*)>(0x00420480)(m_unknown250); // the model's update
+    reinterpret_cast<CModelComponent*>(m_unknown250)->Teleport(); // the model's update
     Script::RunScript(0xAE5438AF, nullptr, this, false, nullptr);
-    GameFunction<void(__thiscall*)(void*, uint32_t, float)>(0x00419A90)(m_unknown24C, 0x1CA1FF20, 0.3f); // default
+    static_cast<CAnimBlenderComponent*>(m_unknown24C)->PlayAnimation(0x1CA1FF20, std::bit_cast<uint32_t>(0.3f)); // default
     if (m_unknownBC) {
         for (int i = 0; i < 11; ++i) {
             void* memory = Mem::New(0x10);
@@ -887,7 +921,7 @@ void CSkater::Init(CSkaterProfile* profile)
             m_projectiles[i].active = false;
         }
     }
-    GameFunction<void(__cdecl*)(CSkater*)>(0x0042E380)(this);
+    AddRigidBodyPusher(this);
     // Its controls' tag (a custom skater's own, if it has one) and sticker.
     Script::CStruct* info = profile->InfoStructure();
     const char* tag;
@@ -897,25 +931,25 @@ void CSkater::Init(CSkaterProfile* profile)
         int hasCustomTag;
         info->GetInteger(0xB78D4AAE, &hasCustomTag, 1);
         if (hasCustomTag)
-            GameFunction<void(__thiscall*)(void*)>(0x0051D830)(controls);
+            static_cast<CTaggingComponent*>(controls)->ApplyCustomTagTexture();
         else
-            GameFunction<void(__thiscall*)(void*, const char*)>(0x0051D9C0)(controls, tag);
+            static_cast<CTaggingComponent*>(controls)->SetGraffitiTexture(tag);
     } else {
-        GameFunction<void(__thiscall*)(void*, const char*)>(0x0051D9C0)(controls, tag);
+        static_cast<CTaggingComponent*>(controls)->SetGraffitiTexture(tag);
     }
     const char* sticker;
     if (info->GetString(0x130618A0, &sticker, 0)) // sticker_texture
-        GameFunction<void(__thiscall*)(void*, const char*)>(0x0051DA20)(controls, sticker);
+        static_cast<CTaggingComponent*>(controls)->SetStickerTexture(sticker);
 }
 
 // 0x005822A0
 void CSkater::InitFromProfile(CSkaterProfile* profile)
 {
     Init(profile);
-    void* net = Net();
+    GameNet::Manager* net = Net();
     if (m_unknownBC && GameFunction<bool(__cdecl*)(int, int)>(0x005A11B0)(0, 0)) {
         // Its network messages.
-        uint8_t* client = GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x00532EA0)(net, m_viewport);
+        auto* client = reinterpret_cast<uint8_t*>(net->GetClient(m_viewport));
         auto* dispatcher = reinterpret_cast<Net::Dispatcher*>(client + 0xC);
         const struct {
             uint8_t id;
@@ -967,7 +1001,7 @@ void CSkater::SwitchToScript(uint32_t name, Script::CStruct* params)
         m_script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
     }
     if (CBaseComponent* flipAndRotate = GetComponent(kSkaterFlipAndRotate))
-        GameFunction<void(__thiscall*)(void*)>(0x00511570)(flipAndRotate);
+        static_cast<CSkaterFlipAndRotateComponent*>(flipAndRotate)->DoAfterAnim();
     m_script->SetScript(name, params, this);
     m_script->Update();
 }
@@ -997,7 +1031,7 @@ void CSkater::WriteList44B66A9F(Script::CStruct* save)
     Script::CArray* entries = memory ? memory->Init() : nullptr;
     entries->SetSizeAndType(0x46, Script::ESYMBOLTYPE_INTEGER);
     for (int i = 0; i < 0x46; ++i)
-        entries->SetElement(i, GameFunction<uint32_t(__thiscall*)(void*, int)>(0x0051C470)(m_list28C, i));
+        entries->SetElement(i, static_cast<uint32_t>(static_cast<CStatsManagerComponent*>(m_list28C)->GetGoalStatus(i)));
     save->AddArrayPointer(kList44B66A9F, entries);
 }
 
@@ -1021,9 +1055,8 @@ void CSkater::LaunchProjectile()
     bool walk = !At<bool>(walking, 0x118) && At<int>(walking, 0x1C) == 1;
     uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
     Mth::Vector bone, rotated;
-    GameFunction<void(__thiscall*)(void*, uint32_t, Mth::Vector*)>(0x00431C60)(GetComponent(0x222756D5), wrist, &bone);
-    const Mth::Vector* turned = GameFunction<Mth::Vector*(__thiscall*)(Mth::Matrix*, Mth::Vector*, const Mth::Vector*)>(0x0040B090)(
-        &m_matrix, &rotated, &bone);
+    static_cast<CSkeletonComponent*>(GetComponent(0x222756D5))->GetLocalBonePosition(wrist, &bone);
+    const Mth::Vector* turned = &m_matrix.RotateVector(rotated, bone);
     const Mth::Vector origin = {static_cast<float>(static_cast<double>(turned->x) + m_pos.x),
                                 static_cast<float>(static_cast<double>(turned->y) + m_pos.y),
                                 static_cast<float>(static_cast<double>(turned->z) + m_pos.z),
@@ -1074,9 +1107,11 @@ void CSkater::LaunchProjectile()
             Script::RunScript(0x5DB74F79, nullptr, nullptr, false, nullptr); // choose_projectile_target_bone
             uint32_t targetBone = Script::GetSymbolValue(0x07A15639);       // target_bone
             Mth::Vector at;
-            GameFunction<void(__thiscall*)(void*, uint32_t, Mth::Vector*)>(0x00431C60)(object->GetComponent(0x222756D5),
-                                                                                       targetBone, &at);
-            GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Matrix*)>(0x00411840)(&at, &object->m_matrix);
+            static_cast<CSkeletonComponent*>(object->GetComponent(0x222756D5))->GetLocalBonePosition(targetBone, &at);
+            // (turned by the object's rotation in place: 0x00411840, Nx's VectorTurn::TurnBy)
+            Mth::Vector turnedAt;
+            object->m_matrix.RotateVector(turnedAt, at);
+            at = turnedAt;
             aim = {static_cast<float>(static_cast<double>(at.x) + object->m_pos.x),
                    static_cast<float>(static_cast<double>(at.y) + object->m_pos.y),
                    static_cast<float>(static_cast<double>(at.z) + object->m_pos.z),
@@ -1219,11 +1254,11 @@ CSkater* CSkater::Construct(int viewport, CCompositeObjectManager* manager, bool
 void CSkater::ResetComponents()
 {
     if (m_unknownBC) {
-        GameFunction<void(__thiscall*)(void*)>(0x00512030)(m_unknown270);
+        reinterpret_cast<CSkaterGapComponent*>(m_unknown270)->ClearGaps();
         GameFunction<void(__thiscall*)(void*)>(0x004F91D0)(GetComponent(0x589E5FB3));
     }
-    GameFunction<void(__thiscall*)(void*)>(0x0051BF00)(GetComponent(0xF27A294D));
-    GameFunction<void(__thiscall*)(void*)>(0x00419A20)(m_unknown24C);
+    static_cast<CSpecialItemComponent*>(GetComponent(0xF27A294D))->DestroyItems();
+    static_cast<CAnimBlenderComponent*>(m_unknown24C)->ResetChannels();
     if (Script::CScript* script = m_script) {
         script->Destroy();
         Script::CScript::operator delete(script);
@@ -1248,14 +1283,14 @@ void CSkater::Restart(uint32_t a, uint32_t b)
     }
     if (m_script)
         m_script->RunOnExitScripts();
-    GameFunction<void(__thiscall*)(void*)>(0x00506BE0)(m_corePhysics);
+    reinterpret_cast<Skater::CorePhysicsComponent*>(m_corePhysics)->Reset();
     auto* camera = static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(m_viewport == 1 ? kSkaterCam1 : kSkaterCam0));
     GameFunction<void(__thiscall*)(void*)>(0x004FA7C0)(camera->GetComponent(0x5E43A604));
     reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x44 / 4])(this);
     ResetComponents();
     reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x48 / 4])(this);
     reinterpret_cast<void(__thiscall*)(CSkater*, uint32_t, uint32_t)>(m_vtable[0x4C / 4])(this, a, b);
-    GameFunction<void(__thiscall*)(void*)>(0x00510F80)(GetComponent(0xB1D5A3E1));
+    static_cast<CSkaterEndRunComponent*>(GetComponent(0xB1D5A3E1))->ClearForced();
 }
 
 namespace {
@@ -1284,8 +1319,8 @@ void CSkater::SkipToCustomRestart()
     At<Mth::Vector>(m_corePhysics, 0x68) = m_matrix.row[1];
     At<Mth::Vector>(m_corePhysics, 0x78) = At<Mth::Vector>(m_corePhysics, 0x68);
     At<Mth::Vector>(m_corePhysics, 0x58) = At<Mth::Vector>(m_corePhysics, 0x78);
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317C0)(m_shadow, &m_pos);
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317E0)(m_shadow, &m_matrix.row[1]);
+    static_cast<CShadowComponent*>(m_shadow)->SetPosition(&m_pos);
+    static_cast<CShadowComponent*>(m_shadow)->SetNormal(&m_matrix.row[1]);
 }
 
 // 0x005835D0
@@ -1315,7 +1350,7 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
         int i = 0;
         for (; i < count; ++i) {
             uint32_t link = SkateScript::GetLink(from, i);
-            if (GameFunction<bool(__cdecl*)(uint32_t)>(0x0046B680)(link)) {
+            if (IsRestartNode(link)) {
                 SkipToRestartVirtual(this, link, walking);
                 break;
             }
@@ -1374,7 +1409,7 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
     case 0x7015BC33: // IsLocalSkater
         return m_unknownBC != 0;
     case 0x72AECFC0: // ResetRigidBodyCollisionRadiusBoost
-        GameFunction<void(__cdecl*)(void*, float)>(0x0042BD60)(this, 0.0f);
+        SetRigidBodyPusherReach(this, 0.0f);
         return true;
     case 0x97C8285A: // GetCameraId
         ScriptResults(script)->AddChecksum(0x7A039889, m_viewport == 1 ? kSkaterCam1 : kSkaterCam0);
@@ -1415,11 +1450,11 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
         At<Mth::Vector>(m_corePhysics, 0x68) = m_matrix.row[1];
         At<Mth::Vector>(m_corePhysics, 0x78) = At<Mth::Vector>(m_corePhysics, 0x68);
         At<Mth::Vector>(m_corePhysics, 0x58) = At<Mth::Vector>(m_corePhysics, 0x78);
-        GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317C0)(m_shadow, &m_pos);
-        GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317E0)(m_shadow, &m_matrix.row[1]);
+        static_cast<CShadowComponent*>(m_shadow)->SetPosition(&m_pos);
+        static_cast<CShadowComponent*>(m_shadow)->SetNormal(&m_matrix.row[1]);
         m_vel = -*cameraPos;
         m_vel.y = 0.0f;
-        GameFunction<Mth::Vector*(__thiscall*)(Mth::Vector*, float)>(0x0042BBF0)(&m_vel, 10.0f);
+        m_vel.SetLength(10.0f);
         SetTeleported(false);
         return true;
     }
@@ -1436,14 +1471,14 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
 // 0x00583DA0 (vtable +0x3C)
 void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
 {
-    void* net = Net();
+    GameNet::Manager* net = Net();
     At<uint8_t>(GetComponent(kSkaterPhysicsControl), 0x26) = 1;
     if (m_unknownBC) {
         m_unknown264[0x498] = 0;
         reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x30 / 4])(this);
         if (void* list = m_list28C)
             At<uint8_t>(list, 0x18) = 1;
-        if (GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(net)) {
+        if (net->InNetGame()) {
             GameFunction<void(__cdecl*)(int, int)>(0x005A1050)(0, 0);
             uint8_t* flag = At<uint8_t*>(m_corePhysics, 0x1528) + 0x70;
             if (flag[0]) {
@@ -1453,12 +1488,12 @@ void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
         }
     }
     if (m_unknown25C)
-        GameFunction<void(__thiscall*)(void*)>(0x0043D550)(m_unknown25C);
+        static_cast<CVibrationComponent*>(m_unknown25C)->ResetDevice();
     if (node)
         reinterpret_cast<void(__thiscall*)(CSkater*, uint32_t)>(m_vtable[0x40 / 4])(this, node);
     Restart(walking, 0);
     if (m_unknownBC) {
-        GameFunction<void(__thiscall*)(void*)>(0x00511420)(GetComponent(kSkaterFlipAndRotate));
+        static_cast<CSkaterFlipAndRotateComponent*>(GetComponent(kSkaterFlipAndRotate))->ApplyFlipToAnims();
         if (m_unknownBC) {
             if (m_pauseState == 0) {
                 SetTeleported(false);
@@ -1468,7 +1503,7 @@ void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
                     camera->Update();
             }
             // The restart node's TriggerScript, run on it.
-            if (node && SkateScript::GetNode(node, !GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(Net()))) {
+            if (node && SkateScript::GetNode(node, !Net()->InNetGame())) {
                 uint32_t script;
                 if (SkateScript::GetNode(node, true)->GetChecksum(0x2CA8A299, &script, 0))
                     SpawnAndRunScript(script, static_cast<int>(node), false, false, nullptr);
@@ -1481,9 +1516,9 @@ void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
     if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
         Net::MsgDesc message;
         message.Construct();
-        auto* client = static_cast<Net::Client*>(GameFunction<void*(__thiscall*)(void*, int)>(0x00532EA0)(net, m_viewport));
-        if (uint8_t* player = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(net, m_id))
-            GameFunction<void(__thiscall*)(uint8_t*)>(0x00543340)(player);
+        auto* client = static_cast<Net::Client*>(net->GetClient(m_viewport));
+        if (uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(m_id)))
+            reinterpret_cast<GameNet::PlayerInfo*>(player)->MarkFaceTextureSent();
         message.m_id = 0x57;
         message.m_queue = Net::MsgDesc::kQueueSequenced;
         message.m_groupId = 8;

@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "game/core/mem.h"
+#include "game/pcm/stream_commands.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -38,15 +39,14 @@ uint8_t* Soundtrack(int index) { return reinterpret_cast<uint8_t*>(0x006EE024 + 
 
 constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 
-// 0x00452C00 / 0x00452C60 (not rewritten here): the BinkStream constructor, and its open of a pcm.wad entry.
+// The BinkStream constructor and its open of a pcm.wad entry (written over BinkStreamView, stream_commands.h).
 BinkStream* ConstructBinkStream(void* memory, bool unknown, int plays)
 {
-    return GameFunction<BinkStream*(__thiscall*)(void*, bool, int)>(0x00452C00)(memory, unknown, plays);
+    return reinterpret_cast<BinkStream*>(static_cast<BinkStreamView*>(memory)->Construct(unknown, plays));
 }
 Result OpenBinkFromWad(BinkStream* bink, uint32_t checksum, const char* path, uint32_t offset, uint32_t size)
 {
-    return GameFunction<Result(__thiscall*)(BinkStream*, uint32_t, const char*, uint32_t, uint32_t)>(0x00452C60)(
-        bink, checksum, path, offset, size);
+    return reinterpret_cast<BinkStreamView*>(bink)->Open(checksum, path, static_cast<long>(offset), size);
 }
 
 // Whether the slot's stream uses this OVERLAPPED block.

@@ -445,3 +445,13 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
 - Stopped once by the weekly limit and resumed. Branches (worktrees under .claude/worktrees): GC1
   worktree-agent-acc27e85c77dda5ca, GC2 worktree-agent-a9f64278608fad003, GC3 worktree-agent-aeaa04eadf21befa3, GC4
   worktree-agent-ad5c087c3daa7a0b6.
+- GC4, GC2, GC1 merged (each built + checked on main). GC1 found GetContactPoint (0x00427A00) is void but the
+  original returns `out` in EAX - GC3 asked to fix it. Follow-up batch: calls through address-taking helpers
+  (walk_moves.cpp Call(0x...), trick_member_functions Call / CallOn ...) that find_game_calls.ts doesn't count.
+- Queued (user said yes): name the script checksums used as bare hex in src/game (decompile every .qb with
+  NeverScript, checksum every symbol, match literals used as checksums - e.g. core_physics.cpp's 0xEF161C2A =
+  Ground_stick_angle). After GC3 merges.
+- THPS2 quarter pipes (user report + screenshots 2026-10-23 23:14): steep non-vert ramp faces are walls in THUG2
+  (Wall_Non_Skatable_Angle 25 / the converter's WALL_RIDABLE), coarse vert steps > Ground_stick_angle 30, coplanar
+  duplicate faces without VERT. Agent fixing the converter in a worktree (record docs/pending/thps2-quarterpipes.md,
+  workspace THUG2-1).

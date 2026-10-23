@@ -11,9 +11,11 @@
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
+#include "game/obj/smtptr.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
+#include "game/skater/skitch.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -45,11 +47,11 @@ constexpr float kSkitchLostDistanceSqr = 32400.0f; // 0x0064BD28 (180 squared)
 
 Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::CCompositeObject*>(ObjectOf(component)); }
 
-// 0x0051BA70 (the skitch component's, not rewritten yet): the index of its skitch point nearest `from` (-1 if none),
+// 0x0051BA70 (Obj::CSkitchComponent::GetNearestHookPoint): the index of its skitch point nearest `from` (-1 if none),
 // its position in `point`.
 int NearestSkitchPoint(void* skitch, Mth::Vector* point, Mth::Vector* from)
 {
-    return GameFunction<int(__thiscall*)(void*, Mth::Vector*, Mth::Vector*)>(0x0051BA70)(skitch, point, from);
+    return static_cast<Obj::CSkitchComponent*>(skitch)->GetNearestHookPoint(point, from);
 }
 
 } // namespace
@@ -91,7 +93,7 @@ void CorePhysicsComponent::TryStartSkitch()
     TakePress(button + 0x80);
     TakePress(button + 0xE0);
     // (0x0041D1D0: the smart pointer set)
-    GameFunction<void*(__thiscall*)(void*, void*)>(0x0041D1D0)(&At<uint8_t>(this, kSkitchCar), found);
+    At<Obj::CSmtPtr<Obj::CRefCounted>>(this, kSkitchCar).AssignObject(reinterpret_cast<Obj::CRefCounted*>(found));
     found->SelfEvent(kSkitched, nullptr);
     SkaterObject(this)->SelfEvent(kSkitched, nullptr);
 }
@@ -166,8 +168,7 @@ void CorePhysicsComponent::Skitch()
     if (!At<void*>(At<void*>(this, kRide), 0x18) || !FlagsOf(this)[0x88])
         return;
     Mth::Vector point;
-    if (!GameFunction<bool(__thiscall*)(void*, Mth::Vector*, int)>(0x0051BC70)(skitch, &point,
-                                                                              At<int>(this, kSkitchPoint)))
+    if (!static_cast<Obj::CSkitchComponent*>(skitch)->GetHookPoint(&point, At<int>(this, kSkitchPoint)))
         return;
     void* object = ObjectOf(this);
     VectorAt(object, kPosition).w = 0.0f;

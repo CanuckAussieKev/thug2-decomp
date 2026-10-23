@@ -92,7 +92,7 @@ void StandInAll(StandIns& s, bool standInCheck)
         Record({0x713E, g_now});
         return g_now;
     });
-    s.At({0x0044ECE0, AddressOf(Tmr::GameClockElapsed)}, 0, [](Regs&) { Record({0xC10C}); return 777u; });
+    s.At({0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, [](Regs&) { Record({0xC10C}); return 777u; });
     s.At({0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))}, 12,
          [](Regs& r) {
              bool found = g_found[(r.args[0] ^ (r.args[0] >> 7) ^ Id(r.ecx)) & 7];

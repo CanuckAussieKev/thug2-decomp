@@ -8,10 +8,14 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/movable_contact.h"
+#include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -43,7 +47,7 @@ void TestCorePhysicsUpdate()
     };
     StandIns standIns({
         {0x005BEAA0, 0, 0, Ret::Float, false, 0, {Ours(&Tmr::GetSlomoFrameSeconds)}},
-        {0x0044ECE0, 0, 0, Ret::Int, false},
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
         {0x00501850, 0, 0, Ret::None, true, 0, {Ours(&CorePhysicsComponent::LimitSpeed)}},
         {0x00500670, 0, 0, Ret::None, true, 0, {}, [](Frame&, Result&) {
              GameVariable<uint32_t>(0x00691974) = 0x0B0C5000;
@@ -68,7 +72,7 @@ void TestCorePhysicsUpdate()
         // TryGrind's
         {0x00478F60, 0, 1, Ret::Int, false, 0, {Ours(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}},
         {0x00478F00, 0, 1, Ret::Float, false, 0, {Ours(static_cast<float (*)(uint32_t)>(&Script::GetFloat))}},
-        {0x00420250, 0, 1, Ret::Int, false},
+        {0x00420250, 0, 1, Ret::Int, false, 0, {Ours(&Tmr::GameClockTimeSince)}},
         {0x0057E2D0, 0x1C, 7, Ret::Bool, true, 0, {Ours(&Obj::CRailManager::FindGrindRail)},
          [](Frame& f, Result& r) {
              for (int i = 0; i < 4; ++i) {
@@ -82,8 +86,8 @@ void TestCorePhysicsUpdate()
              *reinterpret_cast<uint32_t*>(f.args[3]) = 0x0DE00000 + s_finds;
          }},
         {0x004FC4A0, 0, 3, Ret::None, false},
-        {0x00427C70, 0, 0, Ret::None, true},
-        {0x00500020, 12, 3, Ret::Bool, true},
+        {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
+        {0x00500020, 12, 3, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CanGrindRail)}},
         {0x0050A770, 0x14, 5, Ret::None, true, 0x18, {Ours(&CorePhysicsComponent::StartGrind)},
          [](Frame& f, Result&) {
              for (int i = 0; i < 4; ++i)
@@ -91,14 +95,14 @@ void TestCorePhysicsUpdate()
          }},
         {0x0045F2D0, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObjectManager::GetFirstComponentByType)},
          [](Frame&, Result& r) { r.eax = ArenaAt<uint32_t>(kComponents + 0x40); }},
-        {0x0042BA10, 4, 1, Ret::None, true, 0, {}, [](Frame& f, Result&) {
+        {0x0042BA10, 4, 1, Ret::None, true, 0, {Ours(&Obj::CRailManagerComponent::UpdateRailMatrix)}, [](Frame& f, Result&) {
              float* m = reinterpret_cast<float*>(f.args[0]);
              static const float matrix[16] = {0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 10, -4, 2.5f, 1};
              std::memcpy(m, matrix, sizeof(matrix));
              m[12] = RandomFloat(20.0f);
          }},
-        {0x0043EB80, 4, 1, Ret::None, true},
-        {0x00427DD0, 0, 0, Ret::None, true},
+        {0x0043EB80, 4, 1, Ret::None, true, 0, {Ours(&Walk::MovableContact::StartRiding)}},
+        {0x00427DD0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::UpdateContactPoint)}},
     });
     static void* vtable[16];
     struct Slot {

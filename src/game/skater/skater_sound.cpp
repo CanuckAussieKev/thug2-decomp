@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/mth/vector.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -29,13 +30,11 @@ constexpr uint32_t kTableLand = 0x1D296AEC, kTableGrindLand = 0x80E4427E, kTable
 constexpr int kStateGround = 0, kStateAir = 1, kStateRail = 4;
 constexpr float kPercent = 100.0f; // 0x006463D4
 
-// The terrain sounds (not rewritten yet): a table by name (0x004443B0); `terrain`'s sound in it played at `pos`
-// (0x00444BB0).
-void* SoundTable(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x004443B0)(name); }
+// The terrain sounds: a table by name; `terrain`'s sound in it played at `pos` (and sent to the other players).
+uint8_t SoundTable(uint32_t name) { return Terrain::GetTableIndex(name); }
 void PlayTerrainSound(uint32_t table, int terrain, const Mth::Vector* pos, float volume, float percent)
 {
-    GameFunction<void(__cdecl*)(void*, int, const Mth::Vector*, float, float, float, int)>(0x00444BB0)(
-        SoundTable(table), terrain, pos, volume, percent, percent, 1);
+    Terrain::PlayTerrainSound(SoundTable(table), static_cast<uint8_t>(terrain), pos, volume, percent, percent, true);
 }
 
 bool OnGroundOrInAir(int state) { return state == kStateGround || state == kStateAir; }

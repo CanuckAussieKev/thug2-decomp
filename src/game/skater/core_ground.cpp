@@ -12,6 +12,9 @@
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
+#include "game/skater/skater.h"
+#include "game/skater/skater_state.h"
+#include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -93,7 +96,7 @@ void CorePhysicsComponent::DoGroundPhysics()
     uint32_t kind = At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18);
     if (kind == 0) {
         if (Ask(0x004FE320, this)) {
-            Call(0x005019E0, this);
+            Brake();
         } else {
             At<uint8_t>(this, 0x324) = 0;
             if (Ask(0x004FE490, this))
@@ -110,11 +113,11 @@ void CorePhysicsComponent::DoGroundPhysics()
                 Call(0x004FE530, this);
         }
         reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x24)->Update();
-        GameFunction<void(__thiscall*)(void*, bool)>(0x005232A0)(At<void*>(this, kSkaterComponent), true);
+        static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))->SetTrickObjects(true);
         PerfectCheat(this, kPerfectManual, 0x54);
     }
-    Call(0x00506DF0, this);
-    Call(0x005055B0, this);
+    ApplyGroundFriction();
+    CheckSideFeelers();
 
     // The move this frame - skitching, none of its own: the skitched object's velocity (scaled), 0x00501DB0.
     Mth::Vector step;
@@ -133,7 +136,7 @@ void CorePhysicsComponent::DoGroundPhysics()
                                                    match * theirs.w};
         }
         step = {0.0f, 0.0f, 0.0f, 1.0f};
-        Call(0x00501DB0, this);
+        Skitch();
     }
     // Carried by what the skater rides on (not while skitching - that's the ride).
     if (Obj::CRideTracker* tracker = Tracker(this)) {
@@ -160,12 +163,12 @@ void CorePhysicsComponent::DoGroundPhysics()
 
     // Still on the ground.
     if (!At<uint8_t>(this, 0x2D8))
-        Call(0x00503560, this);
+        TurnOnGround();
     if (!At<uint8_t>(this, 0x388))
         GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004FF590)(this, &VectorAt(ObjectOf(this), kVelocity));
     if (!Flag(this, 0x88)) {
         CheckSideCollisions();
-        Call(0x00503B30, this);
+        LeanPushOffWall();
     }
     if (!At<uint8_t>(this, 0x388))
         Call(0x004FF920, this);
@@ -174,8 +177,7 @@ void CorePhysicsComponent::DoGroundPhysics()
         SetFlag(this, 0x48, 1);
         SetFlag(this, 0xD8, 1);
     }
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00522370)(At<void*>(this, kSkaterComponent),
-                                                                 At<uint32_t>(this, 0x1B0));
+    static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(this, 0x1B0));
     At<int>(this, 0x30C) = 0;
 }
 
@@ -193,7 +195,7 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
         p.z = step.z + p.z;
         p.w = step.w + p.w;
         if (!Flag(this, 0x88))
-            Call(0x00506E50, this);
+            CheckWallAhead();
         if (Flag(this, 0x88)) {
             // Skitching: a feeler from 36 above to 200 below, along the up, for the ground's terrain.
             void* object = ObjectOf(this);
@@ -213,7 +215,7 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
             end.y = position.y - downY;
             if (Feel(this, 0x10, 0)) {
                 uint8_t terrain = At<uint8_t>(this, kSurfaceFlags);
-                GameFunction<void(__thiscall*)(void*, uint8_t)>(0x005196A0)(FlagsOf(this), terrain);
+                reinterpret_cast<Obj::CSkaterStateComponent*>(FlagsOf(this))->SetTerrain(terrain);
                 At<uint8_t>(At<void*>(this, kSoundComponent), 0x1C) = terrain;
             }
         } else {

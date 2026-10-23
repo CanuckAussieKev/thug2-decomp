@@ -7,7 +7,10 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
 #include "game/script/struct.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -55,7 +58,7 @@ uint8_t* GetSkater(uint8_t* skate, uint32_t index)
     return GameFunction<uint8_t*(__thiscall*)(uint8_t*, uint32_t)>(0x005665C0)(skate, index);
 }
 // A skater's score object (Mdl::Score) and its total.
-uint8_t* ScoreOf(uint8_t* skater) { return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x00580480)(skater); }
+uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<Obj::CSkater*>(skater)->GetScore()); }
 int TotalScore(uint8_t* score) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x00561B40)(score); }
 
 // The game mode (0x007CE470).
@@ -65,21 +68,21 @@ int NumTeams() { return GameFunction<int(__thiscall*)(void*)>(0x00553130)(GameMo
 
 // The network manager's players (0x007CCE14): PlayerInfo +0x14 the skater, +0x30 the team, +0x34 the objects
 // collected. Walked with a Lst::Search<PlayerInfo> (vtable 0x0064C1A8).
-void* NetManager() { return GameVariable<void*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 struct PlayerSearch {
     void* m_vtable = reinterpret_cast<void*>(0x0064C1A8);
     void* m_node = nullptr;
 };
 uint8_t* FirstPlayer(PlayerSearch* search)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, PlayerSearch*, int)>(0x005372C0)(NetManager(), search, 0);
+    return static_cast<uint8_t*>(NetManager()->FirstPlayerInfo(search, false));
 }
 uint8_t* NextPlayer(PlayerSearch* search)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, PlayerSearch*, int)>(0x00537010)(NetManager(), search, 0);
+    return static_cast<uint8_t*>(NetManager()->NextPlayerInfo(search, false));
 }
-uint8_t* LocalPlayer() { return GameFunction<uint8_t*(__thiscall*)(void*)>(0x00537320)(NetManager()); }
-bool IsEliminated(uint8_t* player) { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x00543440)(player); }
+uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetManager()->GetLocalPlayer()); }
+bool IsEliminated(uint8_t* player) { return reinterpret_cast<GameNet::PlayerInfo*>(player)->IsEliminated(); }
 
 } // namespace
 
@@ -162,18 +165,18 @@ bool CBestComboVictoryCondition::Print()
 // 0x00576B80
 bool CCompleteGoalsVictoryCondition::ConditionComplete()
 {
-    void* net = NetManager();
+    GameNet::Manager* net = NetManager();
     uint8_t* skate = Skate();
     void* goals = GameFunction<void*(__cdecl*)()>(0x005591B0)(); // the skate module's goal manager
     if (IsTeamGame()) {
         int needed = GameFunction<int(__thiscall*)(void*)>(0x00558200)(goals);
         for (int team = 0; team < NumTeams(); ++team) {
-            if (GameFunction<int(__thiscall*)(void*, int)>(0x005435F0)(net, team) >= needed)
+            if (net->GetTeamScore(team) >= needed)
                 return true;
         }
         return false;
     }
-    uint32_t count = GameFunction<uint32_t(__thiscall*)(void*)>(0x00469490)(goals); // (the goals there are)
+    uint32_t count = *static_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < SkaterCount(skate); ++i) {
         uint8_t* skater = GetSkater(skate, i);
         if (count == 0)
@@ -226,12 +229,12 @@ bool CEliminationVictoryCondition::ConditionComplete()
 // 0x00576700
 bool CEliminationVictoryCondition::IsWinner(uint32_t player)
 {
-    void* net = NetManager();
+    GameNet::Manager* net = NetManager();
     uint8_t* skater = GetSkater(Skate(), player);
     if (!skater)
         return false;
-    uint8_t* info = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(
-        net, *reinterpret_cast<uint32_t*>(skater + 0x14)); // the player with the skater's id
+    uint8_t* info = net->PlayerByObjectId(
+        static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))); // the player with the skater's id
     return !IsEliminated(info);
 }
 

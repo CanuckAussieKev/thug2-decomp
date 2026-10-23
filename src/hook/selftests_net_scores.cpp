@@ -8,6 +8,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/front/screen_element_manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
@@ -117,7 +118,7 @@ void Install(StandIns& s)
         return reinterpret_cast<uint32_t>(text);
     });
     // The score lines' elements.
-    s.At({0x004AAE20}, 12, [](Regs& r) {
+    s.At({0x004AAE20, AddressOf(&Front::CScreenElementManager::GetElement)}, 12, [](Regs& r) {
         Rec(0xAE20, {r.ecx, r.args[1], r.args[2]});
         uint32_t element = 0;
         for (uint32_t i = 0; i < 8; ++i) {

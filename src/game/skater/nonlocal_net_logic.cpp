@@ -11,7 +11,10 @@
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
 #include "game/nx/feeler.h"
+#include "game/obj/shadow_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/looping_sound.h"
@@ -178,9 +181,10 @@ void CSkaterNonLocalNetLogicComponent::UpdateGroundLighting()
     if (!feeler.GetCollision(true, false))
         return;
     if (Field<int>(m_state, 0x18) != kStateRail && feeler.IsHitTriangleCollision()) {
-        // The model's light from the face's vertex values (the model's light object, 0x00532EB0; else the global).
+        // The model's light from the face's vertex values (the model's light object, its +0x2C - read through the
+        // folded getter 0x00532EB0; else the global).
         void* model = Field<void*>(m_model, 0x208);
-        void* light = GameFunction<void*(__thiscall*)(void*)>(0x00532EB0)(model);
+        void* light = Field<void*>(model, 0x2C);
         if (light)
             GameFunction<void(__thiscall*)(void*, float, float)>(0x0048E830)(
                 light, static_cast<float>(feeler.GetHitVertexValue()), kLightTime);
@@ -188,8 +192,8 @@ void CSkaterNonLocalNetLogicComponent::UpdateGroundLighting()
             GameFunction<void(__cdecl*)(float)>(0x0048EDB0)(static_cast<float>(feeler.GetHitVertexValue()));
     }
     // The shadow at the hit.
-    GameFunction<void(__thiscall*)(CBaseComponent*, const Mth::Vector*)>(0x004317C0)(m_shadow, &feeler.m_point);
-    GameFunction<void(__thiscall*)(CBaseComponent*, const Mth::Vector*)>(0x004317E0)(m_shadow, &feeler.m_normal);
+    static_cast<CShadowComponent*>(m_shadow)->SetPosition(&feeler.m_point);
+    static_cast<CShadowComponent*>(m_shadow)->SetNormal(&feeler.m_normal);
 }
 
 // 0x00514850
@@ -421,7 +425,7 @@ void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, 
 // 0x00517270
 void CSkaterNonLocalNetLogicComponent::Update()
 {
-    void* netManager = GameVariable<void*>(0x007CCE14);
+    auto* netManager = GameVariable<GameNet::Manager*>(0x007CCE14);
     m_frameSeconds = static_cast<float>(Tmr::GetFrameSeconds());
     int state = Field<int>(m_state, 0x18);
     bool wasLip = state == kStateLip;
@@ -435,11 +439,10 @@ void CSkaterNonLocalNetLogicComponent::Update()
     m_object->m_oldPos = m_object->m_pos;
     Interpolate();
     // Extrapolated when this machine plays (not observing or waiting) in a game that wants it.
-    void* player = GameFunction<void*(__thiscall*)(void*)>(0x00537320)(netManager);
-    if (!GameFunction<bool(__thiscall*)(void*)>(0x00543320)(player) &&
-        !GameFunction<bool(__thiscall*)(void*)>(0x00543330)(player)) {
+    auto* player = static_cast<GameNet::PlayerInfo*>(netManager->GetLocalPlayer());
+    if (!player->IsObserver() && !player->IsSurveying()) {
         void* gameMode = GameVariable<void*>(0x007CE470);
-        bool extrapolate = GameFunction<bool(__thiscall*)(void*)>(0x00534340)(GameVariable<void*>(0x007CCE14)) ||
+        bool extrapolate = GameVariable<GameNet::Manager*>(0x007CCE14)->PlayerCollisionEnabled() ||
                            GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(gameMode) == kNetFirefight ||
                            GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(gameMode) == kFirefight;
         if (extrapolate && Field<int>(m_history, 0x18) >= kHistory) {

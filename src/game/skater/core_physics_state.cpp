@@ -10,14 +10,19 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/net/gamenet_manager.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
+#include "game/obj/model_component.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
+#include "game/skater/flip_and_rotate.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -119,8 +124,8 @@ CorePhysicsComponent* CorePhysicsComponent::Destroy(unsigned int flags)
 // 0x00506BE0
 void CorePhysicsComponent::Reset()
 {
-    void* gameNet = GameVariable<void*>(0x007CCE14);
-    if (!GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(gameNet)) {
+    auto* gameNet = GameVariable<GameNet::Manager*>(0x007CCE14);
+    if (!gameNet->InNetGame()) {
         // (Off line: the old position, and the one kept at +0x98, are where the skater is now.)
         VectorAt(ObjectOf(this), kOldPosition) = VectorAt(ObjectOf(this), kPosition);
         VectorAt(this, kSafePosition) = VectorAt(ObjectOf(this), kPosition);
@@ -146,7 +151,7 @@ void CorePhysicsComponent::Reset()
     auto* rider = At<Obj::CSmtPtr<Obj::CRefCounted>*>(ride, 0x18);
     if (rider) {
         At<void*>(ride, 0x6C) = rider->mp_object;
-        GameFunction<void(__thiscall*)(void*)>(0x00416DD0)(rider); // (Release)
+        rider->Release();
         Mem::Manager::Get()->Free(rider);
         At<void*>(ride, 0x18) = nullptr;
         At<int>(ride, 0x70) = Now();
@@ -175,7 +180,7 @@ void CorePhysicsComponent::Reset()
 // 0x00506BA0
 void CorePhysicsComponent::SetLastGroundFeeler(const void* feeler)
 {
-    GameFunction<void*(__thiscall*)(void*, const void*)>(0x0043A930)(&At<uint8_t>(this, kLastGroundFeeler), feeler);
+    At<Nx::CFeeler>(this, kLastGroundFeeler).Assign(*static_cast<const Nx::CFeeler*>(feeler));
     At<uint8_t>(At<void*>(this, kOtherComponent), 0x1D) = At<uint8_t>(this, 0x1AA);
 }
 
@@ -241,10 +246,10 @@ void CorePhysicsComponent::UpdateModelRotation()
 {
     if (!At<uint8_t>(this, kModelRotating))
         return;
-    void* model = SkaterObject(this)->GetComponent(kModel);
+    auto* model = static_cast<Obj::CModelComponent*>(SkaterObject(this)->GetComponent(kModel));
     double left = static_cast<double>(At<float>(this, kModelRotationLeft)) - At<float>(this, kModelRotationStep);
     At<float>(this, kModelRotationLeft) = static_cast<float>(left); // (compared below unrounded)
-    auto resetRotations = [model] { GameFunction<void(__thiscall*)(void*)>(0x004208D0)(model); };
+    auto resetRotations = [model] { model->CancelRotateDisplay(); };
     if (At<int>(FlagsOf(this), kState) != 1) {
         resetRotations();
         At<uint8_t>(this, kModelRotating) = 0;
@@ -259,8 +264,7 @@ void CorePhysicsComponent::UpdateModelRotation()
         At<uint8_t>(this, kModelRotating) = 0;
         At<uint32_t>(this, kModelRotationLeft) = 0;
         if (At<uint8_t>(this, kModelFlipped)) {
-            void* flip = SkaterObject(this)->GetComponent(kSkaterFlipAndRotate);
-            GameFunction<void(__thiscall*)(void*)>(0x005114F0)(flip);
+            static_cast<Obj::CSkaterFlipAndRotateComponent*>(SkaterObject(this)->GetComponent(kSkaterFlipAndRotate))->Flip();
         }
         resetRotations();
     }
@@ -271,7 +275,7 @@ void CorePhysicsComponent::UpdateSpecialTime()
 {
     if (!At<uint8_t>(this, kSpecialTimed))
         return;
-    float* time = GameFunction<float*(__thiscall*)(void*)>(0x00580480)(ObjectOf(this)); // (the score)
+    auto* time = static_cast<float*>(static_cast<Obj::CSkater*>(ObjectOf(this))->GetScore()); // (the score)
     if (!time)
         return;
     if (*time > 0.0f) {
@@ -332,8 +336,8 @@ void CorePhysicsComponent::StartGrindTrick(uint32_t railType, bool trick1, bool 
         if (trick4)
             buttons |= 8;
         At<uint32_t>(this, 0x3A8) = 0;
-        void* flipAndRotate = SkaterObject(this)->GetComponent(kSkaterFlipAndRotate);
-        GameFunction<void(__thiscall*)(void*)>(0x00511570)(flipAndRotate);
+        static_cast<Obj::CSkaterFlipAndRotateComponent*>(SkaterObject(this)->GetComponent(kSkaterFlipAndRotate))
+            ->DoAfterAnim();
         object = SkaterObject(this);
         object->m_script->SetScript(tricks->GetElement(buttons), nullptr, object);
     }

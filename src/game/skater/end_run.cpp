@@ -6,6 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/net/gamenet_manager.h"
 #include "game/script/cscript.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -37,12 +38,12 @@ bool GameModeEndsRuns()
     return GameFunction<bool(__thiscall*)(void*)>(0x00553550)(GameVariable<void*>(0x007CE470));
 }
 // The network manager (0x007CCE14): whether it has told the server the local run is over (0x005332A0: its +0x39
-// matches +0x38), and telling it (0x00533250). Not rewritten yet.
+// matches +0x38), and telling it (0x00533250).
 bool ServerToldRunEnded()
 {
-    return GameFunction<bool(__thiscall*)(void*)>(0x005332A0)(GameVariable<void*>(0x007CCE14));
+    return GameVariable<GameNet::Manager*>(0x007CCE14)->GameEndedSent();
 }
-void TellServerRunEnded() { GameFunction<void(__thiscall*)(void*)>(0x00533250)(GameVariable<void*>(0x007CCE14)); }
+void TellServerRunEnded() { GameVariable<GameNet::Manager*>(0x007CCE14)->SendGameEnded(); }
 
 // The skater object's +0xBC: a local skater (this machine's player).
 bool IsLocalSkater(CCompositeObject* object) { return object->m_unknownBC != 0; }

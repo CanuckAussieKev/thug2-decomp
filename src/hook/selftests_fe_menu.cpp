@@ -4,6 +4,7 @@
 // stand-ins too.
 
 #include "game/front/menu_element.h"
+#include "game/front/screen_element_manager.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
 
@@ -54,11 +55,11 @@ void InstallMenuStandIns(StandIns& s)
         Rec(0xF9B0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004AAD50}, 4, [](Regs& r) {
+    s.At({0x004AAD50, AddressOf(&Front::CScreenElementManager::IsPadEvent)}, 4, [](Regs& r) {
         Rec(0xAD50, {r.ecx, r.args[0]});
         return g_priorityEvent ? 1u : 0u;
     });
-    s.At({0x004AB7C0}, 4, [](Regs& r) {
+    s.At({0x004AB7C0, AddressOf(&Front::CScreenElementManager::IsTopPriority)}, 4, [](Regs& r) {
         Rec(0xB7C0, {r.ecx, r.args[0]});
         return r.args[0] == g_topPriority ? 1u : 0u;
     });

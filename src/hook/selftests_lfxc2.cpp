@@ -123,7 +123,7 @@ void StandInParkEditor(StandIns& s)
         Record({0x02F0, EdRel(r.ecx)});
         return g_edRestartEvery && type % g_edRestartEvery == 0 ? 1u : 0u;
     });
-    s.At({0x00595A90}, 12, [](Regs& r) {
+    s.At({0x00595A90, AddressOf(&Ed::CParkManager::GridCoordinatesToWorld)}, 12, [](Regs& r) {
         Record({0x5A90, EdRel(r.ecx), AreaAt(r.args[1])});
         auto* out = reinterpret_cast<float*>(r.args[0]);
         auto* size = reinterpret_cast<float*>(r.args[2]);

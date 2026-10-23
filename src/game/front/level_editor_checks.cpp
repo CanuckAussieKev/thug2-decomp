@@ -29,6 +29,7 @@
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_walls.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -229,10 +230,10 @@ bool Cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     // (a CFeeler: constructor 0x00417760; 0x00417710 casts it - thiscall, true on a hit; the hit's normal at +0x24, its
     // point at +0x34, the collision object at +0x54 and its checksum at +0x58 - as the editor's other modules read it)
     alignas(16) uint8_t feeler[0x100] = {};
-    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    ray->Construct();
     Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(feeler, &start,
-                                                                                                        &end, 0))
+    if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* n = reinterpret_cast<const float*>(feeler + 0x24);
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);

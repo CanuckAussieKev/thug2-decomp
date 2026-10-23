@@ -3,6 +3,7 @@
 // recording stand-in (floats from C++ functions jumped to), and the calls, results and the whole arena are compared.
 
 #include <cmath>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -10,9 +11,9 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
 #include "game/obj/object.h"
-#include "game/obj/skeleton_component.h"
 #include "game/obj/tracker.h"
 #include "game/skater/skater.h"
+#include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -39,16 +40,37 @@ float __cdecl GetFloatStandIn(uint32_t name)
     return name == 0x39186247 ? g_targetingDistance : (name == 0x195A7DBA ? g_targetingAngle : 0.0f);
 }
 
+// Our replacement of a game function (stood in for too: our code calls it directly); the address itself if none.
+uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? Resolve(ours) : address;
+}
+// A stand-in's thunk written over our replacements of `addresses` as well.
+void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
+{
+    // (only the functions skater.cpp calls directly now: others' replacements may run for real)
+    static const uint32_t kDirect[] = {0x00511420, 0x00518630, 0x0046BC60, 0x00511310, 0x00519650, 0x0043D520, 0x00419A20, 0x005144D0, 0x00513AB0, 0x00431780, 0x0047B2A0, 0x005178B0, 0x004202A0, 0x00420110, 0x00511390, 0x0053AEA0, 0x00532EA0, 0x00419A90, 0x00420480, 0x0051D830, 0x0051D9C0, 0x0051DA20, 0x00407A60, 0x00511570, 0x0042BBF0, 0x00524C50, 0x00525E60, 0x00419B30, 0x0043D560, 0x00522410, 0x00512030, 0x0051BF00, 0x00506BE0, 0x00510F80, 0x0043D550, 0x00543340};
+    for (uint32_t address : addresses) {
+        if (std::find(std::begin(kDirect), std::end(kDirect), address) == std::end(kDirect))
+            continue;
+        uint32_t ours = OursOf(address);
+        if (ours != address)
+            s.Bytes(ours, Branch(0xE9, ours, thunk));
+    }
+}
+
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
+    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
             g_trace.push_back(Rel(r.args[i]));
         return answer;
     });
+    AlsoOurs(s, addresses, thunk);
 }
 
 void Install(StandIns& s)
@@ -66,13 +88,13 @@ void Install(StandIns& s)
         }
         return Block(1) + (r.args[0] & 0xF0);
     });
-    s.At({0x00431C60, AddressOf(&Obj::CSkeletonComponent::GetLocalBonePosition)}, 8, [](Regs& r) {
+    s.At({0x00431C60, OursOf(0x00431C60)}, 8, [](Regs& r) {
         Rec(0x1C60, {r.ecx, r.args[0]});
         auto* v = reinterpret_cast<float*>(r.args[1]);
         v[0] = 1.5f, v[1] = 4.25f, v[2] = -0.75f + (r.args[0] & 1), v[3] = 0.0f;
         return 0u;
     });
-    s.At({0x0040B090}, 8, [](Regs& r) {
+    s.At({0x0040B090, OursOf(0x0040B090)}, 8, [](Regs& r) {
         const auto* m = reinterpret_cast<const float*>(r.ecx);
         const auto* in = reinterpret_cast<const float*>(r.args[1]);
         auto* out = reinterpret_cast<float*>(r.args[0]);
@@ -81,12 +103,8 @@ void Install(StandIns& s)
             out[i] = in[0] * m[i] + in[1] * m[4 + i] + in[2] * m[8 + i] + in[3] * m[12 + i];
         return r.args[0];
     });
-    s.At({0x00411840}, 4, [](Regs& r) {
-        Rec(0x1840, {r.args[0]});
-        auto* v = reinterpret_cast<float*>(r.ecx);
-        v[0] += 0.5f, v[2] -= 0.5f;
-        return r.ecx;
-    });
+    // (0x00411840, the vector turned by a matrix: run as it is - it calls 0x0040B090, stood in; ours calls
+    // RotateVector the same way)
     s.At({0x0045F2D0, AddressOf(&Obj::CCompositeObjectManager::GetFirstComponentByType)}, 4, [](Regs& r) {
         Rec(0xF2D0, {r.ecx, r.args[0]});
         return g_firstTarget < 0 ? 0u : Target(g_firstTarget) + 0x100;

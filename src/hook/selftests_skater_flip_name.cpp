@@ -81,7 +81,7 @@ void StandIn(StandIns& s)
         0x6B40, [](Regs&) { return g_a.normal ? 1u : 0u; });
     // The floating name's.
     Rec(s, {0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, 0xE4F0, [](Regs&) { return g_a.netGame ? 1u : 0u; });
-    Rec(s, {0x00533140}, 0, 0x3140, [](Regs&) { return g_a.showNames ? 1u : 0u; });
+    Rec(s, {0x00533140, AddressOf(&GameNet::Manager::ShouldDrawPlayerNames)}, 0, 0x3140, [](Regs&) { return g_a.showNames ? 1u : 0u; });
     Rec(s, {0x004AAE20, AddressOf(&Front::CScreenElementManager::GetElement)}, 3, 0xAE20, [](Regs& r) {
         auto* out = reinterpret_cast<uint32_t*>(r.args[0]);
         out[0] = g_a.haveLabel ? Addr(kLabel) : 0u;
@@ -89,7 +89,7 @@ void StandIn(StandIns& s)
     });
     Rec(s, {0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 1, 0x37E0);
     Rec(s, {0x00580050, AddressOf(&Obj::CSkater::GetFlag2C4)}, 0, 0x0050, [](Regs&) { return g_a.shown ? 1u : 0u; });
-    Rec(s, {0x00532EC0}, 0, 0x2EC0, [](Regs&) { return g_a.playerIsLocal ? Addr(kPlayer) : Addr(kLocalPlayer); });
+    Rec(s, {0x00532EC0, AddressOf(&GameNet::Manager::GetCamPlayer)}, 0, 0x2EC0, [](Regs&) { return g_a.playerIsLocal ? Addr(kPlayer) : Addr(kLocalPlayer); });
     Rec(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_a.teams ? 1u : 0u; });
     Rec(s, {0x00581580, AddressOf(&Obj::CSkater::GetDisplayName)}, 0, 0x1580,
         [](Regs&) { return reinterpret_cast<uint32_t>("Tony Hawk"); });
