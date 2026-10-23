@@ -442,3 +442,6 @@ file + sio (~247, gamecalls-2.md), GC3 obj + net + sys + core + nx + mc (~265, g
 (~210, gamecalls-4.md). Then merge one at a time (build + thug2_check both exes + code writes after each), fold, install.
 Found while sampling: folded identical functions mean a REPLACE name can be wrong for some callers (skater.cpp's light
 lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equivalent instead of calling a misnamed one.
+- Stopped once by the weekly limit and resumed. Branches (worktrees under .claude/worktrees): GC1
+  worktree-agent-acc27e85c77dda5ca, GC2 worktree-agent-a9f64278608fad003, GC3 worktree-agent-aeaa04eadf21befa3, GC4
+  worktree-agent-ad5c087c3daa7a0b6.
