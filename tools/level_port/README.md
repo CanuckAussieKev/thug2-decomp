@@ -29,6 +29,12 @@ Used by `tools/thps4_levels` (THPS4), `tools/thug1_levels` (THUG1), `tools/thps3
   select signs, copying into the overlay.
 - `col_check.ts`, `script_diff.ts` - CLIs: a collision file's BSP check; converted scripts compared between two
   staging folders.
+- `ramp_collision.ts` - collision flags for ramps of ports whose source decides skatability itself (THPS2): steep
+  faces continuing a ramp made skatable, faces lying on a more rideable one given its flags (THUG2's rules in its
+  header). `ramp_check.ts` - CLI: per level, concave ramp joins by bend and what ramp_collision would still change
+  (`node tools/level_port/ramp_check.ts <col.xbx | folder>...`; `--list` face by face; `--spot <col.xbx> <x,y,z>
+  [radius]` the faces near a screenshot sidecar's position). Faces of LevelObjects (each in its own space) are
+  counted as if in the level's.
 
 These were Python until 2026-10-20 (docs/typescript.md); tools/parity/level_port has the cases that proved the
 TypeScript equal to the Python on the games' data (check out commit 57d7b5e, the last with the Python, to run them).

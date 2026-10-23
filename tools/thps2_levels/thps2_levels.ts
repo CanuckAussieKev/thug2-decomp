@@ -29,6 +29,7 @@ import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
+import * as rampCollisionFix from "../level_port/ramp_collision.ts";
 import type * as tex from "../level_port/tex.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
@@ -369,6 +370,22 @@ export function collisionFlags(face: thps2.PsxFace, up: number): number | null {
     return flags;
 }
 
+// THPS2's ramps in THUG2's collision (level_port/ramp_collision.ts): THPS2 rides the steep faces at the top of its
+// non-vert quarter pipes (67 - 73 degrees: Skate Heaven, Chopper Drop) that THUG2 takes as walls when nothing flags
+// them - those continuing a ramp are flagged skatable; and decal models over vert walls (NY) take the vert flag of
+// the face under them. `surfaces`: each collision face's THPS2 surface. The objects' flags are changed in place.
+export function rampCollision(
+    objects: readonly geometry.SourceColObject[],
+    surfaces: (object: geometry.SourceColObject) => readonly number[],
+): { promoted: number; overlays: number } {
+    return rampCollisionFix.fixRampObjects(objects, (o, f) => thps2RampFace(surfaces(objects[o]!)[f] ?? 0));
+}
+
+// Whether a THPS2 face may be made a ramp face: not one of its trigger planes.
+export function thps2RampFace(surface: number): boolean {
+    return !(surface & thps2.SURFACE_TRIGGER);
+}
+
 // --- textures ------------------------------------------------------------------------------------------------------
 
 export interface Bmp {
@@ -589,6 +606,8 @@ export interface ConvertedWorld {
         triggers: number;
         duplicates: number;
         layers: number;
+        ramps: number; // steep faces continuing a ramp, made skatable (level_port/ramp_collision.ts)
+        overlays: number; // faces lying on a more rideable one, given its flags
     };
 }
 
@@ -612,7 +631,18 @@ export function convertWorld(
     const warnings: string[] = [];
     const layers = faceLayers(world, localFrom);
     const triggerObjects = new Map<number, geometry.SourceColObject>();
-    const counts = { objects: 0, faces: 0, hidden: 0, noCollision: 0, bmps: 0, triggers: 0, duplicates: 0, layers: 0 };
+    const counts = {
+        objects: 0,
+        faces: 0,
+        hidden: 0,
+        noCollision: 0,
+        bmps: 0,
+        triggers: 0,
+        duplicates: 0,
+        layers: 0,
+        ramps: 0,
+        overlays: 0,
+    };
     // (drawn triangles already drawn by an earlier face: THPS2's worlds have exact copies - 44 in Hangar, some
     // with other uvs - that THUG2's depth buffer would draw flickering over each other. The PlayStation drew the one
     // put into its ordering table first on top (a slot's list is drawn from the last added): the first one is kept.)
@@ -641,6 +671,8 @@ export function convertWorld(
     };
     const sectors: geometry.SourceSector[] = [];
     const colObjects: geometry.SourceColObject[] = [];
+    const worldCol: geometry.SourceColObject[] = []; // (the world objects' - one space - for the ramp pass)
+    const colSurfaces = new Map<geometry.SourceColObject, number[]>(); // each face's THPS2 surface
     world.objects.forEach((object, index) => {
         const model = world.models[object.model]!;
         const own = named.get(index);
@@ -657,6 +689,7 @@ export function convertWorld(
         const verts = model.vertices.map(place);
         const intensity = new Array<number>(verts.length).fill(-1);
         const faces: thug2Col.Face[] = [];
+        const surfaces: number[] = [];
         const triggerName = triggers.get(world.modelNames[object.model] ?? 0);
         model.faces.forEach((face, faceIndex) => {
             counts.faces++;
@@ -685,8 +718,10 @@ export function convertWorld(
             if (flags !== null && own?.passThrough) flags = thug2Col.FACE_NON_COLLIDABLE | thug2Col.FACE_CAMERA_PASSES;
             if (flags === null) counts.noCollision++;
             else
-                for (const [a, b, c] of faceTriangles(face, model.vertices))
+                for (const [a, b, c] of faceTriangles(face, model.vertices)) {
                     faces.push([flags, faceTerrain(face), face.vertices[a]!, face.vertices[b]!, face.vertices[c]!]);
+                    surfaces.push(face.surface);
+                }
             if (face.flags & thps2.FACE_INVISIBLE) {
                 counts.hidden++;
                 return;
@@ -770,16 +805,23 @@ export function convertWorld(
         if (faces.length && (own === undefined || own.collide)) {
             const lo = [0, 1, 2].map((k) => Math.min(...verts.map((v) => v[k]!)));
             const hi = [0, 1, 2].map((k) => Math.max(...verts.map((v) => v[k]!)));
-            colObjects.push({
+            const colObject: geometry.SourceColObject = {
                 checksum,
                 flags: 0,
                 verts,
                 intensities: Buffer.from(intensity.map((i) => (i < 0 ? 128 : i))),
                 faces,
                 bbox: [lo[0]!, lo[1]!, lo[2]!, 1.0, hi[0]!, hi[1]!, hi[2]!, 1.0],
-            });
+            };
+            colObjects.push(colObject);
+            colSurfaces.set(colObject, surfaces);
+            if (index < localFrom) worldCol.push(colObject);
         }
     });
+    // (THPS2's ramps: its steep non-vert transitions ride, THUG2 would take them as walls - rampCollision)
+    const ramps = rampCollision(worldCol, (o) => colSurfaces.get(o) ?? []);
+    counts.ramps = ramps.promoted;
+    counts.overlays = ramps.overlays;
     counts.triggers = triggerObjects.size;
     for (const t of triggerObjects.values()) {
         const lo = [0, 1, 2].map((k) => Math.min(...t.verts.map((v) => v[k]!)));
@@ -1837,7 +1879,7 @@ export function cmdConvert(args: Args): number {
         report.push(
             `  ${c.objects} objects, ${c.faces} faces (${c.hidden} not drawn, ${c.noCollision} not collided with), ` +
                 `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${c.layers} faces lying on others given a z bias, ` +
-                `${c.duplicates} duplicate triangles left out`,
+                `${c.duplicates} duplicate triangles left out, ${c.ramps} steep ramp faces made skatable, ${c.overlays} faces over a ramp given its flags`,
         );
         const noFloor = restartsWithoutFloor(trg, done.col);
         const setupName = logic.setup.length ? `${name}_setup` : null;
