@@ -10,6 +10,8 @@
 #include "game/net/gamenet_game_cfuncs.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_qr2.h"
+#include "game/net/player_info.h"
+#include "game/skater/walk_camera.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
 
@@ -32,13 +34,13 @@ void InstallObjects(StandIns& s)
     Word<uint32_t>(kObjects + 0x40 * 6 + 0x2C) = At(kFree); // the physics control's state
     Word<uint32_t>(kObjects + 0x40 * 7 + 0x18) = At(kFree + 0x200); // the score's counters
     Stub(s, {0x004FA3C0}, 4, 0xA3C0);
-    Stub(s, {0x00524C50}, 4, 0x4C50);
-    Stub(s, {0x00524C30}, 0, 0x4C30);
-    Stub(s, {0x00543F00}, 4, 0x3F00);
-    Stub(s, {0x00543A90}, 4, 0x3A90);
+    Stub(s, {0x00524C50, AddressOf(&Obj::CWalkCameraComponent::SetSkater)}, 4, 0x4C50);
+    Stub(s, {0x00524C30, AddressOf(&Obj::CWalkCameraComponent::ResetNow)}, 0, 0x4C30);
+    Stub(s, {0x00543F00, AddressOf(&GameNet::PlayerInfo::TookFlag)}, 4, 0x3F00);
+    Stub(s, {0x00543A90, AddressOf(&GameNet::PlayerInfo::CapturedFlag)}, 4, 0x3A90);
     Stub(s, {0x00561B40}, 0, 0x1B40, [](Regs&) { return 5u; });
     Stub(s, {0x00561A80}, 4, 0x1A80);
-    Stub(s, {0x00539880}, 4, 0x9880, [](Regs& r) { return r.args[0] * 3 + 1; });
+    Stub(s, {0x00539880, AddressOf(&GameNet::Manager::CountTeamPlayers)}, 4, 0x9880, [](Regs& r) { return r.args[0] * 3 + 1; });
     Stub(s, {0x0053CB70, AddressOf(&Manager::DropPlayer)}, 8, 0xCB70);
     Stub(s, {0x00565790}, 4, 0x5790);
     Stub(s, {0x0053C6E0, AddressOf(&Manager::CancelJoin)}, 0, 0xC6E0);

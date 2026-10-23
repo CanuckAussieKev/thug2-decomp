@@ -6,6 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/lst/search.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -78,7 +79,7 @@ Manager* Manager::Construct()
     m_modules.vtable = kHeadVtable;
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (task) {
-        GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, -1000); // Tsk::BaseTask
+        reinterpret_cast<Tsk::BaseTask*>(task)->Construct(-1000);             // Tsk::BaseTask
         task[0] = 0x006476F0;                                                // Tsk::Task<Manager>
         task[6] = reinterpret_cast<uint32_t>(&ProcessModules);
         task[7] = reinterpret_cast<uint32_t>(this);

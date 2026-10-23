@@ -17,6 +17,7 @@
 #include "game/nx/feeler.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/trigger_component.h"
@@ -239,7 +240,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // The feeler copied (its line and hit; recorded by content).
-    s.At({0x0043A930}, 4, [](Regs& r) {
+    s.At({0x0043A930, AddressOf(&Nx::CFeeler::Assign)}, 4, [](Regs& r) {
         auto* from = reinterpret_cast<const uint8_t*>(r.args[0]);
         Rec(0xA930, {r.ecx, Where(r.args[0]), *reinterpret_cast<const uint32_t*>(from + 0x54)});
         RecFloat(0xA931, reinterpret_cast<const float*>(from), 8);
@@ -254,7 +255,7 @@ void Install(StandIns& s)
             effect->second();
         return 0u;
     });
-    s.At({0x00427CD0}, 4, [](Regs& r) {
+    s.At({0x00427CD0, AddressOf(&Obj::CMovableContactComponent::StartRiding)}, 4, [](Regs& r) {
         Rec(0x7CD0, {r.ecx, Where(r.args[0])});
         return 0u;
     });
@@ -289,7 +290,7 @@ void Install(StandIns& s)
     });
     S(s, {0x0040AB40, AddressOf(&Nx::CCollCache::Destruct)}, 0, 0xAB40, true);
     // AnimWait's.
-    S(s, {0x00427C70}, 0, 0x7C70);
+    S(s, {0x00427C70, AddressOf(&Obj::CMovableContactComponent::StopRiding)}, 0, 0x7C70);
     s.At({0x00416F00, AddressOf(&Obj::CRideTracker::Update)}, 4, [](Regs& r) {
         Rec(0x6F00, {r.ecx, r.args[0]});
         return g_answers[0x6F00];

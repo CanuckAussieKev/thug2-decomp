@@ -13,10 +13,15 @@
 
 #include "game/core/alloc.h"
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_lists.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_manager.h"
+#include "game/net/player_info.h"
+#include "game/net/stats_man.h"
+#include "game/net/vault_man.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -86,11 +91,16 @@ void Install(StandIns& s)
     StubCdecl(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0xE970, 0, [](Regs&) { return 0x00ABCDEFu; });
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
     Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);
-    Stub(s, {0x005453E0}, 4, 0x53E0);
+    Stub(s, {0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0);
     Stub(s, {0x00454590, AddressOf(&Net::Manager::DisconnectFromInternet)}, 0, 0x4590, [](Regs&) { return 1u; });
-    for (uint32_t a : {0x00545370u, 0x005462F0u, 0x00545300u, 0x00543560u, 0x00540D50u, 0x0054B470u, 0x005488B0u,
-                       0x0054D610u, 0x00588B70u})
-        Stub(s, {a}, 0, a & 0xFFFF);
+    const std::pair<uint32_t, uint32_t> stubs[] = {
+        {0x00545370u, AddressOf(&Manager::StopServerList)},        {0x005462F0u, AddressOf(&Manager::ClearServerList)},
+        {0x00545300u, AddressOf(&Manager::StartServerList)},       {0x00543560u, AddressOf(&GameNet::NewPlayerInfo::DestroyBody)},
+        {0x00540D50u, AddressOf(&GameNet::LobbyMan::DestroyBody)}, {0x0054B470u, AddressOf(&GameNet::VaultMan::DestroyBody)},
+        {0x005488B0u, AddressOf(&GameNet::BuddyMan::DestroyBody)}, {0x0054D610u, AddressOf(&GameNet::StatsMan::DestroyBody)},
+        {0x00588B70u, AddressOf(&Manager::UnlinkAllNodes)}};
+    for (auto [a, ours] : stubs)
+        Stub(s, {a, ours}, 0, a & 0xFFFF);
     Stub(s, {0x00534430, AddressOf(&Manager::SpawnMatchClient)}, 0, 0x4430, [](Regs& r) {
         if (g_spawnSetsClient)
             *reinterpret_cast<uint32_t*>(r.ecx + 0x2C) = At(kApp);
@@ -107,9 +117,9 @@ void Install(StandIns& s)
         StubCdecl(s, {a}, a & 0xFFFF, 0);
     for (uint32_t a : {0x005FBBA0u, 0x005F9900u, 0x005FBB20u, 0x005FCCF0u, 0x005FBAD0u})
         StubCdecl(s, {a}, a & 0xFFFF, 1);
-    Stub(s, {0x0053F880}, 0, 0xF880, [](Regs&) { return g_peer ? At(kNetMgr + 0x380) : 0u; });
+    Stub(s, {0x0053F880, AddressOf(&GameNet::LobbyMan::GetPeer)}, 0, 0xF880, [](Regs&) { return g_peer ? At(kNetMgr + 0x380) : 0u; });
     StubCdecl(s, {0x005FC730}, 0xC730, 1, [](Regs&) { return g_peerConnected ? 1u : 0u; });
-    Stub(s, {0x0053F810}, 0, 0xF810, [](Regs&) { return g_lobbyHosting ? 1u : 0u; });
+    Stub(s, {0x0053F810, AddressOf(&GameNet::LobbyMan::IsHosting)}, 0, 0xF810, [](Regs&) { return g_lobbyHosting ? 1u : 0u; });
     Stub(s, {0x00564D80}, 0, 0x4D80, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, 0xC4A0, [](Regs& r) { return r.args[0]; });
     Stub(s, {0x0046C490, AddressOf(&Prefs::Preferences::Deinit)}, 0, 0xC490);

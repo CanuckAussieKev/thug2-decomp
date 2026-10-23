@@ -18,6 +18,7 @@
 #include "game/obj/object.h"
 #include "game/sys/game_clock.h"
 #include "game/script/cscript.h"
+#include "game/sys/game_clock.h"
 #include "hook/fe_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"

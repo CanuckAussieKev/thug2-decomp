@@ -18,6 +18,9 @@ class Preferences;
 namespace Tsk {
 class BaseTask;
 }
+namespace Mem {
+struct ListNode;
+}
 
 // The game's network manager GameNet::Manager (0x00533F20-0x0054EF60; the singleton at 0x007CCE14): the network
 // game itself - the players, the levels and modes the server picks, the lobby. Partly rewritten: the join path
@@ -321,6 +324,9 @@ public:
     void* NextPlayerInfo(void* search, bool observers);
     // 0x00537070: the first joining player (+0x130) through `search` (then the lists' generic next, 0x004573D0).
     void* FirstNewPlayerInfo(void* search);
+    // The next joining player through `search` (null at the end). No address of its own: the original calls the lists'
+    // generic next, folded at 0x004573D0 (Net::App::NextConnection), with the manager as its unused `this`.
+    void* NextNewPlayerInfo(void* search);
     // 0x005370A0: the joining player whose object id (+0x10, a signed byte) is `id`.
     void* GetNewPlayerInfoByObjectId(uint16_t id);
     // 0x00537140: ready to play (m_readyToPlay) or not; when it changes, every skater of the skate module (+0x28's
@@ -392,6 +398,10 @@ public:
     // lobby, +0x14, the presence and the stats deleted, the tasks (+0xC0 ... +0xF0) deleted, the lists emptied, the
     // two preference sets destroyed.
     void DestroyBody();
+    // Every node after `head` taken out of its list (each linked to itself; none freed). No address of its own: the
+    // original calls the list code folded at 0x00588B70 (Obj::TrickObjectHead::UnlinkAll).
+    // (__fastcall: `head` in ECX, as the original's call passes it.)
+    static void __fastcall UnlinkAllNodes(Mem::ListNode* head);
 
     // --- The scores (score_list.cpp) ---
     // 0x005435F0: team `team`'s score: the sum of its players' (fully in or local) SkaterScore scores; in net goal

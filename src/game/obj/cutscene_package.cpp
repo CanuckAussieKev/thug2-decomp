@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "game/ass/asset.h"
+#include "game/ass/assman.h"
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/file/asset_bundle.h"
@@ -51,18 +53,16 @@ constexpr uint32_t kTypeExtra = 0xFFC529F4;
 constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE;
 constexpr uint32_t kColourNames[4] = {0xA28FAB7F, 0xB90F08D0, 0x1DBCFAE8, 0x0442D3C1};
 
-void* Assets() { return GameVariable<void*>(0x006918DC); }
-// The asset manager's load (0x00408060), unload (0x00407B90 + 0x00407B20) and find.
+Ass::CAssMan* Assets() { return GameVariable<Ass::CAssMan*>(0x006918DC); }
+// The asset manager's load (0x00408060: not permanent, copied), unload (0x00407B90 + 0x00407B20) and find.
 void* LoadAssetData(uint32_t name, int type, uint32_t textures, const void* data, uint32_t size, void* params)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, const void*, uint32_t, int, int, void*,
-                                           int)>(0x00408060)(Assets(), name, type, textures, data, size, 0, 1, params,
-                                                             0);
+    return Assets()->LoadAssetFromStream(name, type, textures, const_cast<void*>(data), size, false, true, params, 0);
 }
 void UnloadAsset(uint32_t name)
 {
-    void* asset = GameFunction<void*(__thiscall*)(void*, uint32_t, int)>(0x00407B90)(Assets(), name, 1);
-    GameFunction<void(__thiscall*)(void*, void*)>(0x00407B20)(Assets(), asset);
+    Ass::CAsset* asset = Assets()->GetAsset(name, 1);
+    Assets()->UnloadAsset(asset);
 }
 void DeleteVirtual(void* object)
 {
@@ -146,7 +146,7 @@ bool CCutsceneDetails::InitFromStructure(Script::CStruct* params)
     bool loaded = false;
     if (!m_ownsData) {
         m_data = static_cast<CCutsceneData*>(
-            GameFunction<void*(__thiscall*)(void*, uint32_t, int)>(0x00407C00)(Assets(), name, 0));
+            Assets()->GetAssetData(name, 0));
         loaded = m_data != nullptr;
     } else {
         // the loading screen; the music volumes kept to give back at the end, then muted
@@ -158,8 +158,8 @@ bool CCutsceneDetails::InitFromStructure(Script::CStruct* params)
         GameFunction<void(__cdecl*)(int, float, int)>(0x0048E990)(0, 0.0f, 0);
         GameFunction<void(__cdecl*)(int, float, int)>(0x0048E990)(1, 0.0f, 0);
         GameFunction<void(__cdecl*)()>(0x004904E0)();
-        void* assets = Assets();
-        if (!GameFunction<void*(__thiscall*)(void*, const char*, int)>(0x00407C70)(assets, fileName, 0)) {
+        Ass::CAssMan* assets = Assets();
+        if (!assets->GetAssetDataByName(fileName, 0)) {
             int music = m_params->ContainsFlag(kNoMusicFlag) ? 0 : 1;
             int streams = m_params->ContainsFlag(kNoMusicFlag) ? 0 : 1;
             if (params->ContainsFlag(kForceFlag)) {
@@ -174,9 +174,7 @@ bool CCutsceneDetails::InitFromStructure(Script::CStruct* params)
             Run(0x722D9CA7);
             GameFunction<void(__cdecl*)()>(0x00487D20)();
             Run(0xE1CE826A, m_params);
-            m_data = static_cast<CCutsceneData*>(
-                GameFunction<void*(__thiscall*)(void*, const char*, int, int, int, int, int, int, uint32_t*, int)>(
-                    0x00408440)(assets, fileName, 0, 0, 0, 0, 0, 0, m_settings, 0));
+            m_data = static_cast<CCutsceneData*>(assets->LoadAsset(fileName, 0, 0, 0, false, false, false, m_settings, 0));
             float start;
             if (params->GetFloat(kStartTime, &start, 0)) {
                 CCutsceneData* data = m_data;
@@ -372,7 +370,7 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
 {
     uint32_t modelName = entry->name + kTypeModel; // (the original prints name + type, compiled out)
     LoadParams params;
-    GameFunction<void(__thiscall*)(LoadParams*)>(0x00409E90)(&params);
+    reinterpret_cast<Ass::SkinParams*>(&params)->Clear(); // (the skinned model's load parameters, 0x14 bytes)
     void* textureData = mp_bundle->FindAsset(entry->name, kTypeTextures, 1);
     File::AssetBundle::Entry* textures = mp_bundle->FindEntry(entry->name, kTypeTextures, 1);
     uint32_t textureSize = textures->size;
@@ -431,7 +429,7 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
             male = true;
             hasFace = false;
         }
-        void* face = GameFunction<void*(__thiscall*)(void*)>(0x00576E60)(m_unknown34A8);
+        void* face = AppearanceFace(m_unknown34A8);
         int skaterFace = face && GameFunction<bool(__thiscall*)(void*)>(0x00487510)(face) ? 1 : 0;
         int skaterMale;
         static_cast<Script::CStruct*>(m_unknown34AC)->GetInteger(0x3F813177, &skaterMale, 1);
@@ -443,10 +441,10 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
         params.extra = mp_bundle->FindAsset(entry->name, kTypeExtra, 0);
         if (params.extra)
             params.extraSize = mp_bundle->FindEntry(entry->name, kTypeExtra, 1)->size;
-        GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, const void*, uint32_t, int, int, void*, int)>(
-            0x00408060)(assets, texturesName, 3, 0, textureData, textureSize, 0, 1, &textureParams, 0);
-        GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, const void*, uint32_t, int, int, void*, int)>(
-            0x00408060)(assets, modelName, 7, texturesName, data, entry->size, 0, 1, &params, 0);
+        static_cast<Ass::CAssMan*>(assets)->LoadAssetFromStream(texturesName, 3, 0, textureData, textureSize, false, true,
+                                                                 &textureParams, 0);
+        static_cast<Ass::CAssMan*>(assets)->LoadAssetFromStream(modelName, 7, texturesName, data, entry->size, false, true,
+                                                                 &params, 0);
         m_assets[m_assetCount] = modelName;
         ++m_assetCount;
         m_assets[m_assetCount] = texturesName;

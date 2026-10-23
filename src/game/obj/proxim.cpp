@@ -6,6 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/object.h"
@@ -49,7 +50,8 @@ const Mth::Matrix* SectorWorldMatrix(void* sector)
 // the node, which it may use).
 bool SectorContains(void* sector, const Mth::Vector* point, Mth::Vector* offset)
 {
-    void* collision = GameFunction<void*(__thiscall*)(void*)>(0x005480F0)(sector);
+    // (the sector's +0x18, its collision, through the getter folded at 0x005480F0)
+    auto* collision = reinterpret_cast<void*>(static_cast<GameNet::FoldedGetters*>(sector)->Word18());
     void** vtable = *reinterpret_cast<void***>(collision);
     return reinterpret_cast<bool(__thiscall*)(void*, const Mth::Vector*, Mth::Vector*)>(vtable[0x48 / 4])(
         collision, point, offset);

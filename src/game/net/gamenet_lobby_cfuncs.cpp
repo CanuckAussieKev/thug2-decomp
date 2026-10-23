@@ -8,6 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
@@ -115,7 +116,7 @@ bool __cdecl CFunc_LeaveLobby(Script::CStruct* params, Script::CScript*)
     if (Field<bool>(buddy, 0x10) && !params->ContainsComponentNamed(kPreserveStatus)) {
         const char* text = Script::GetString(kHomieStatusLoggingIn);
         const char* status = Script::GetString(kHomieStatusOnline);
-        Call(0x00548320, buddy, kStatusOnline, status, text); // the presence's status
+        static_cast<BuddyMan*>(buddy)->SetStatus(kStatusOnline, status, text); // the presence's status (its text, location)
     }
     Sdk(0x005FC9B0, lobby->m_peer, lobby->m_groupId);
     PopHeap();

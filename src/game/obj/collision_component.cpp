@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
+#include "game/net/buddy_status.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_static.h"
@@ -32,7 +33,10 @@ uint8_t* ModelOf(CBaseComponent* model) { return *reinterpret_cast<uint8_t**>(re
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
 uint8_t* GetSector(uint32_t name) { return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
-Nx::CCollObj* SectorCollision(uint8_t* sector) { return GameFunction<Nx::CCollObj*(__thiscall*)(uint8_t*)>(0x005480F0)(sector); }
+Nx::CCollObj* SectorCollision(uint8_t* sector)
+{
+    return reinterpret_cast<Nx::CCollObj*>(reinterpret_cast<GameNet::FoldedGetters*>(sector)->Word18());
+}
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).

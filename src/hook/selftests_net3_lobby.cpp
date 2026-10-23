@@ -11,9 +11,11 @@
 #include <vector>
 
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/online_identity.h"
+#include "game/net/stats_man.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/gamenet_testkit.h"
@@ -119,23 +121,23 @@ void Install(StandIns& s)
         return reinterpret_cast<uint32_t>(text);
     });
     // The lobby's other code (not in this file).
-    Stub(s, {0x005411E0}, 4, 0x11E0);
-    Stub(s, {0x00540900}, 4, 0x0900);
-    Stub(s, {0x00540FB0}, 8, 0x0FB0);
-    Stub(s, {0x00540860}, 0, 0x0860);
-    Stub(s, {0x00540750}, 0, 0x0750);
-    Stub(s, {0x00549CB0}, 4, 0x9CB0, [](Regs& r) { return (g_isBuddy >> (r.args[0] & 31)) & 1; });
-    Stub(s, {0x005453E0}, 4, 0x53E0);
-    Stub(s, {0x00548320}, 12, 0x8320, [](Regs& r) {
+    Stub(s, {0x005411E0, AddressOf(&GameNet::LobbyMan::AddPlayerListItem)}, 4, 0x11E0);
+    Stub(s, {0x00540900, AddressOf(&GameNet::LobbyMan::AddBuddyMenuItem)}, 4, 0x0900);
+    Stub(s, {0x00540FB0, AddressOf(&GameNet::LobbyMan::AddRoomMenuItem)}, 8, 0x0FB0);
+    Stub(s, {0x00540860, AddressOf(&GameNet::LobbyListNode::DestroyBody)}, 0, 0x0860);
+    Stub(s, {0x00540750, AddressOf(&GameNet::LobbyMan::Disconnect)}, 0, 0x0750);
+    Stub(s, {0x00549CB0, AddressOf(&GameNet::BuddyMan::IsBuddy)}, 4, 0x9CB0, [](Regs& r) { return (g_isBuddy >> (r.args[0] & 31)) & 1; });
+    Stub(s, {0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0);
+    Stub(s, {0x00548320, AddressOf(&GameNet::BuddyMan::SetStatus)}, 12, 0x8320, [](Regs& r) {
         Rec(0x8321, {Text(r.args[1]), Text(r.args[2])});
         return 0u;
     });
-    Stub(s, {0x0054CA80}, 0, 0xCA80, [](Regs&) { return At(kStats + 0x10); });
+    Stub(s, {0x0054CA80, AddressOf(&GameNet::StatsMan::GetPersonalStats)}, 0, 0xCA80, [](Regs&) { return At(kStats + 0x10); });
     Stub(s, {0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, 0x6890, [](Regs& r) { return r.ecx; });
     Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
-    StubCdecl(s, {0x0053F520}, 0xF520, 1, [](Regs&) { return At(kManager); });
-    StubCdecl(s, {0x005395C0}, 0x95C0, 0);
+    StubCdecl(s, {0x0053F520, AddressOf(&GameNet::Manager::Create)}, 0xF520, 1, [](Regs&) { return At(kManager); });
+    StubCdecl(s, {0x005395C0, AddressOf(&GameNet::ReleaseManager)}, 0x95C0, 0);
     // The GameSpy SDK.
     StubCdecl(s, {0x005FF660}, 0xF660, 1, [](Regs& r) {
         Rec(0xF661, {Text(r.args[1])});

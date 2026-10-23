@@ -9,7 +9,9 @@
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
 #include "game/nx/feeler.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
@@ -41,8 +43,8 @@ float UnnamedFloat(Script::CStruct* params)
     return value;
 }
 
-// Its parameters (0x004AAD40: the particle system's +4).
-const uint8_t* Params(void* particle) { return GameFunction<uint8_t*(__thiscall*)(void*)>(0x004AAD40)(particle); }
+// Its parameters (particle_component.h).
+const uint8_t* Params(void* particle) { return ParticleSystemParams(particle); }
 // 0x00494EE0: its +0x38 set (the model's +0x22C, or the ground test's value), then its vtable slot 6.
 void SetGroundValue(void* particle, float value) { Particle(0x00494EE0, particle, value); }
 
@@ -215,7 +217,7 @@ bool CParticleComponent::SetMidPointPct(Script::CStruct* params, Script::CScript
 {
     float value = UnnamedFloat(params);
     if (mp_particle) {
-        Particle(0x004076F0, mp_particle, value); // (a setter the linker folded with others)
+        SetParticleValue34(mp_particle, value);
         Refresh(mp_particle);
     }
     return true;
@@ -464,9 +466,9 @@ void CParticleComponent::InitFromStructure(Script::CStruct* params)
 void CParticleComponent::Update()
 {
     // (suspended: nothing - unless a network game runs and it has a lifetime)
-    if (mp_suspend && GameFunction<bool(__thiscall*)(CBaseComponent*)>(0x00433E90)(mp_suspend)) {
+    if (mp_suspend && static_cast<CSuspendComponent*>(mp_suspend)->IsFar()) {
         void* net = GameVariable<void*>(0x006FA7D0);
-        if (!GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(net) || m_lifetime == 0)
+        if (!static_cast<GameNet::Manager*>(net)->InNetGame() || m_lifetime == 0)
             return;
     }
     if (m_lifetime != 0) {
@@ -573,6 +575,13 @@ bool CParticleComponent::GetParticleParams(Script::CStruct*, Script::CScript* sc
         Script::DeleteStruct(result);
     }
     return true;
+}
+
+// (no addresses: the code folded at 0x004AAD40 / 0x004076F0 - particle_component.h)
+const uint8_t* __fastcall ParticleSystemParams(void* particle) { return static_cast<const uint8_t*>(particle) + 4; }
+void __fastcall SetParticleValue34(void* particle, float value)
+{
+    *reinterpret_cast<float*>(static_cast<uint8_t*>(particle) + 0x34) = value;
 }
 
 } // namespace Obj

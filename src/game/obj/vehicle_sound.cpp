@@ -8,6 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/sound_component.h"
 #include "game/obj/vehicle_component.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
@@ -72,7 +73,7 @@ float Fraction(double value)
 // The Sound component's 0x00433240 (not rewritten yet): the sound a structure describes played.
 void PlaySoundFromStructure(CBaseComponent* sound, Script::CStruct* description)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, Script::CStruct*)>(0x00433240)(sound, description);
+    static_cast<CSoundComponent*>(sound)->PlaySound(description);
 }
 
 } // namespace

@@ -12,12 +12,18 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/task.h"
+#include "game/ed/park_editor.h"
+#include "game/net/gamenet_game_cfuncs.h"
 #include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
+#include "game/net/stats_man.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
+#include "game/skate/skate_net.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -34,18 +40,22 @@ uint32_t g_gameType;
 
 void Install(StandIns& s)
 {
-    Stub(s, {0x0053AE10}, 4, 0xAE10, [](Regs&) { return g_conn2Player ? At(g_conn2Player) : 0u; });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    Stub(s, {0x0053AE10, AddressOf(&GameNet::Manager::PlayerByConnection)}, 4, 0xAE10, [](Regs&) { return g_conn2Player ? At(g_conn2Player) : 0u; });
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         uint32_t id = r.args[0] & 0xFFFF; // (pushed as 16 bits)
         Rec(0xAEA0, {r.ecx, id});
         uint32_t i = id - 0x10;
         return i < 8 && ((g_presentIds >> i) & 1) ? At(kPlayers + kPlayerSize * i) : 0u;
     });
-    for (uint32_t a : {0x005446C0u, 0x00543C70u, 0x00543F00u, 0x00543A90u})
-        Stub(s, {a}, 4, a & 0xFFFF);
-    Stub(s, {0x00544110}, 0, 0x4110);
-    StubCdecl(s, {0x0053B940}, 0xB940, 2);
-    Stub(s, {0x0053E650}, 0, 0xE650);
+    const std::pair<uint32_t, uint32_t> players[] = {{0x005446C0u, AddressOf(&GameNet::PlayerInfo::ReceiveReadyResponse)},
+                                                     {0x00543C70u, AddressOf(&GameNet::PlayerInfo::StoleFlag)},
+                                                     {0x00543F00u, AddressOf(&GameNet::PlayerInfo::TookFlag)},
+                                                     {0x00543A90u, AddressOf(&GameNet::PlayerInfo::CapturedFlag)}};
+    for (auto [a, ours] : players)
+        Stub(s, {a, ours}, 4, a & 0xFFFF);
+    Stub(s, {0x00544110, AddressOf(&GameNet::PlayerInfo::RetrievedFlag)}, 0, 0x4110);
+    StubCdecl(s, {0x0053B940, AddressOf(&GameNet::CFunc_ExitSurveyorMode)}, 0xB940, 2);
+    Stub(s, {0x0053E650, AddressOf(&GameNet::Manager::EnterObserveMode)}, 0, 0xE650);
     Stub(s, {0x00456210, AddressOf(&Net::Conn::DestroyImportantMessages)}, 0, 0x6210);
     Stub(s, {0x00455920, AddressOf(&Net::Conn::UpdateCommTime)}, 4, 0x5920);
     s.At({0x00475790, AddressOf(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(
@@ -54,7 +64,7 @@ void Install(StandIns& s)
              Rec(0x5790, {r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, r.args[4]});
              return 0u;
          });
-    s.At({0x005376F0}, 0x20, [](Regs& r) {
+    s.At({0x005376F0, AddressOf(&GameNet::Manager::CreateNetPanelMessage)}, 0x20, [](Regs& r) {
         Rec(0x76F0, {r.ecx, r.args[0] & 0xFF, r.args[1], Str(r.args[2]), Str(r.args[3]), r.args[4], r.args[5],
                      r.args[6] & 0xFF, r.args[7]});
         return 0u;
@@ -63,13 +73,14 @@ void Install(StandIns& s)
         Rec(0xC510, {r.ecx, r.args[0], r.args[1]});
         return At(kMisc + 0xF00);
     });
-    s.At({0x0054CA10}, 12, [](Regs& r) {
-        Rec(0xCA10, {r.ecx, r.args[0], Str(r.args[1])});
+    s.At({0x0054CA10, AddressOf(&GameNet::StatsMan::GenerateAuth)}, 12, [](Regs& r) {
+        // (stdcall: the original's ECX - the online service - isn't used, ours leaves anything there: not recorded)
+        Rec(0xCA10, {r.args[0], Str(r.args[1])});
         std::memset(reinterpret_cast<void*>(r.args[2]), 0x41, 0x20);
         reinterpret_cast<char*>(r.args[2])[0x20] = 0;
         return 0u;
     });
-    Stub(s, {0x0054CA30}, 8, 0xCA30);
+    Stub(s, {0x0054CA30, AddressOf(&GameNet::StatsMan::SetPlayerAuth)}, 8, 0xCA30);
     s.At({0x00459E50, AddressOf(&Net::Client::EnqueueMessageToServer)}, 4, [](Regs& r) {
         RecordDesc(0x9E50, r.ecx, reinterpret_cast<Net::MsgDesc*>(r.args[0]));
         return 0u;
@@ -79,17 +90,17 @@ void Install(StandIns& s)
                      r.args[5] & 0xFF, r.args[6] & 0xFF, r.args[7] & 0xFF});
         return 0u;
     });
-    Stub(s, {0x0056EB50}, 8, 0xEB50);
-    Stub(s, {0x00537140}, 4, 0x7140);
+    Stub(s, {0x0056EB50, AddressOf(&Mdl::SkateNet::AddClientHandlers)}, 8, 0xEB50);
+    Stub(s, {0x00537140, AddressOf(&GameNet::Manager::SetReadyToPlay)}, 4, 0x7140);
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
-    Stub(s, {0x0058D6B0}, 8, 0xD6B0);
-    Stub(s, {0x0058D690}, 4, 0xD690, [](Regs&) { return At(kManager); });
+    Stub(s, {0x0058D6B0, AddressOf(&Ed::CParkEditor::SetCompressedMapBuffer)}, 8, 0xD6B0);
+    Stub(s, {0x0058D690, AddressOf(&Ed::CParkEditor::GetCompressedMapBuffer)}, 4, 0xD690, [](Regs&) { return At(kManager); });
     StubCdecl(s, {0x005A0D90}, 0x0D90, 2, [](Regs&) { return g_observing ? 1u : 0u; });
     Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
     Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
     Stub(s, {0x005535A0}, 4, 0x35A0);
-    Stub(s, {0x005889F0}, 0, 0x89F0);
-    Stub(s, {0x00537620}, 0, 0x7620);
+    Stub(s, {0x005889F0, AddressOf(&Obj::CTrickObjectManager::RemoveAllClusters)}, 0, 0x89F0);
+    Stub(s, {0x00537620, AddressOf(&GameNet::Manager::ResetPlayers)}, 0, 0x7620);
     Stub(s, {0x00566520}, 0, 0x6520, [](Regs&) { return g_localSkater ? At(kSkaters + 0x300) : 0u; });
     Stub(s, {0x00566370}, 12, 0x6370);
     Stub(s, {0x005695A0}, 0, 0x95A0, [](Regs&) { return 0xC0FFEE11u; });

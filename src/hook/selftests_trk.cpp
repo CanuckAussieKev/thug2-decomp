@@ -18,6 +18,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/front/screen_element_manager.h"
 #include "game/obj/objman.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/tracker.h"
@@ -239,7 +240,7 @@ void InstallStandIns(StandIns& s)
             reinterpret_cast<uint32_t*>(r.args[0])[3] |= 2;
         return 0u;
     });
-    s.At({0x004AC120}, 12, [](Regs& r) {
+    s.At({0x004AC120, AddressOf(&Front::CScreenElementManager::ResolveId)}, 12, [](Regs& r) {
         Rec(0xC120, {r.ecx, r.args[0], r.args[1]});
         uint32_t value;
         if (!Find(r.args[0], r.args[1], OBJECT_ID, &value))

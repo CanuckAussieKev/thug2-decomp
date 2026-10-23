@@ -130,7 +130,7 @@ int Manager::GetPlayerScore(uint32_t id)
     PlayerInfo* local = reinterpret_cast<PlayerInfo*>(LocalPlayer(this));
     if (GameType() == kNetGoalAttack && !(local->m_flags & kPlayerObserver))
         return Call<int>(0x00558AB0, GoalManager(), id);
-    auto* player = reinterpret_cast<PlayerInfo*>(Call<uint8_t*, uint32_t>(0x0053AEA0, this, id));
+    auto* player = reinterpret_cast<PlayerInfo*>(PlayerByObjectId(static_cast<uint16_t>(id)));
     return PointsOf(ScoreOf(player));
 }
 
@@ -164,11 +164,11 @@ void __cdecl ScoreUpdateTask(void* task)
     LastScoreUpdate() = now;
     Run(kClearScores);
 
-    if (notLobby && Call<bool>(0x005343E0, manager)) {
+    if (notLobby && manager->ShowTeamScores()) {
         // A line per team with players: the team's name, its players' marks.
         ScoreEntry* teams[4];
         for (int team = 0; team < Call<int>(0x00553130, GameMode()); ++team) {
-            if (Call<int>(0x00539880, manager, team) <= 0)
+            if (manager->CountTeamPlayers(team) <= 0)
                 continue;
             uint32_t name = team < 4 ? kTeamNames[team] : 0;
             ScoreEntry* entry = NewEntry();
@@ -199,7 +199,7 @@ void __cdecl ScoreUpdateTask(void* task)
             }
         }
         for (int team = 0; team < Call<int>(0x00553130, GameMode()); ++team) {
-            if (Call<int>(0x00539880, manager, team) <= 0)
+            if (manager->CountTeamPlayers(team) <= 0)
                 continue;
             ScoreEntry* entry = teams[team];
             entry->priority = entry->m_teamScore;

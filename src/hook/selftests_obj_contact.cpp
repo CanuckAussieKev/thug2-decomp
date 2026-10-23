@@ -259,12 +259,12 @@ void TestContactRiding()
         ok = ok && CompareRuns(
                        "MovableContact GetContactPoint", 1000, [](int) { RandomRide(); },
                        [] {
-                           Original<void(__thiscall*)(void*, void*)>(0x00427A00)(Contact(), ArenaPtr(kMine + 0x500));
-                           return 0u;
+                           return reinterpret_cast<uint32_t>(Original<void*(__thiscall*)(void*, void*)>(0x00427A00)(
+                               Contact(), ArenaPtr(kMine + 0x500)));
                        },
                        [] {
-                           Contact()->GetContactPoint(reinterpret_cast<Mth::Vector*>(ArenaPtr(kMine + 0x500)));
-                           return 0u;
+                           return reinterpret_cast<uint32_t>(
+                               Contact()->GetContactPoint(reinterpret_cast<Mth::Vector*>(ArenaPtr(kMine + 0x500))));
                        });
     }
     GameVariable<int>(0x00696D60) = 0;

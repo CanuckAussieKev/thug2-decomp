@@ -11,10 +11,14 @@
 #include <cstring>
 #include <vector>
 
+#include "game/ass/assman.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
 #include "game/file/asset_bundle.h"
+#include "game/mth/matrix.h"
+#include "game/obj/matrix_component.h"
+#include "game/obj/model_component.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
 #include "game/script/load.h"
@@ -210,7 +214,7 @@ void StandInObjects(StandIns& s)
         Record({0x45DB9000, r.ecx, r.args[0], component});
         return component;
     });
-    s.At({0x00420100}, 0, [](Regs& r) {
+    s.At({0x00420100, AddressOf(&Obj::CModelComponent::GetRefObjectName)}, 0, [](Regs& r) {
         Record({0x42010000, r.ecx});
         return 0x1D000000 + (r.ecx & 0xFFF);
     });
@@ -285,7 +289,7 @@ void StandInObjects(StandIns& s)
         return 0u;
     });
     // assets
-    s.At({0x00408060}, 0x24, [](Regs& r) {
+    s.At({0x00408060, AddressOf(&Ass::CAssMan::LoadAssetFromStream)}, 0x24, [](Regs& r) {
         Record({0x40806000, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5], r.args[6],
                 Rel(r.args[7]), r.args[8]});
         // (the load parameters' fields: a model's, a texture set's)
@@ -620,12 +624,12 @@ void StandInLoading(StandIns& s)
         Record({0x56652000, r.ecx, skater});
         return skater;
     });
-    s.At({0x00407C00}, 8, [](Regs& r) {
+    s.At({0x00407C00, AddressOf(&Ass::CAssMan::GetAssetData)}, 8, [](Regs& r) {
         uint32_t asset = Hash(15, r.args[0], 0) % 2 ? 0xA55E0001 : 0;
         Record({0x407C0000, r.ecx, r.args[0], r.args[1], asset});
         return asset;
     });
-    s.At({0x00576E60}, 0, [](Regs& r) {
+    s.At({0x00576E60, AddressOf(&Obj::AppearanceFace)}, 0, [](Regs& r) {
         uint32_t face = Hash(16, r.ecx, 0) % 3 ? 0xFACE0000 : 0;
         Record({0x576E6000, r.ecx, face});
         return face;
@@ -649,7 +653,7 @@ void StandInLoading(StandIns& s)
         Record({0x492F3000, r.ecx});
         return r.args[0];
     });
-    s.At({0x004200C0}, 0, [](Regs& r) {
+    s.At({0x004200C0, AddressOf(&Obj::CModelComponent::UpdateBrightness)}, 0, [](Regs& r) {
         Record({0x4200C000, r.ecx});
         return 0u;
     });
@@ -822,7 +826,7 @@ void StandInUpdating(StandIns& s)
         Record({0x482F1000, r.ecx});
         return 0u;
     });
-    s.At({0x00532EB0}, 0, [](Regs& r) {
+    s.At({0x00532EB0, AddressOf(&Obj::ModelFader)}, 0, [](Regs& r) {
         uint32_t fader = Hash(21, r.ecx, 0) % 3 ? 0xFADE0000 + (r.ecx & 0xFFF) : 0;
         Record({0x532EB000, r.ecx, fader});
         return fader;
@@ -831,7 +835,7 @@ void StandInUpdating(StandIns& s)
         Record({0x48E83000, r.ecx, r.args[0], r.args[1]});
         return 1u;
     });
-    s.At({0x00404090}, 4, [](Regs& r) {
+    s.At({0x00404090, AddressOf(static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::Matrix&)>(&Mth::Matrix::operator=))}, 4, [](Regs& r) {
         std::memcpy(reinterpret_cast<void*>(r.ecx), reinterpret_cast<const void*>(r.args[0]), 64);
         Record({0x40409000, r.args[0]});
         return r.ecx;
@@ -840,7 +844,7 @@ void StandInUpdating(StandIns& s)
         Record({0x49309000, r.ecx, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 64), r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x0041CAC0}, 4, [](Regs& r) {
+    s.At({0x0041CAC0, AddressOf(&Obj::CMatrixComponent::SetMatrix)}, 4, [](Regs& r) {
         Record({0x41CAC000, r.ecx, r.args[0]});
         return 0u;
     });
@@ -854,7 +858,7 @@ void StandInUpdating(StandIns& s)
         });
     }
     // a vector by a matrix, a matrix by a matrix (the out's contents from the inputs)
-    s.At({0x0041F470}, 0, [](Regs& r) {
+    s.At({0x0041F470, AddressOf(static_cast<Mth::Vector (*)(const Mth::Vector&, const Mth::Matrix&)>(&Mth::operator*))}, 0, [](Regs& r) {
         auto* out = reinterpret_cast<float*>(r.args[0]);
         const auto* v = reinterpret_cast<const float*>(r.args[1]);
         const auto* m = reinterpret_cast<const float*>(r.args[2]);
@@ -882,11 +886,11 @@ void StandInUpdating(StandIns& s)
         Record({0x46923000, r.ecx});
         return 0u;
     });
-    s.At({0x00407B90}, 8, [](Regs& r) {
+    s.At({0x00407B90, AddressOf(&Ass::CAssMan::GetAsset)}, 8, [](Regs& r) {
         Record({0x407B9000, r.ecx, r.args[0], r.args[1]});
         return 0xA55E0B90u;
     });
-    s.At({0x00407B20}, 4, [](Regs& r) {
+    s.At({0x00407B20, AddressOf(&Ass::CAssMan::UnloadAsset)}, 4, [](Regs& r) {
         Record({0x407B2000, r.ecx, r.args[0]});
         return 0u;
     });
@@ -1164,13 +1168,13 @@ void StandInPackage(StandIns& s)
                 HashBytes(&GameVariable<uint8_t>(0x0067D860), 0x50)});
         return 0u;
     });
-    s.At({0x00408440}, 0x24, [](Regs& r) {
+    s.At({0x00408440, AddressOf(&Ass::CAssMan::LoadAsset)}, 0x24, [](Regs& r) {
         uint32_t data = reinterpret_cast<uint32_t>(g_data2); // (used unchecked)
         Record({0x40844000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1],
                 r.args[7] - reinterpret_cast<uint32_t>(g_details), r.args[8], data});
         return data;
     });
-    s.At({0x00407C70}, 8, [](Regs& r) {
+    s.At({0x00407C70, AddressOf(&Ass::CAssMan::GetAssetDataByName)}, 8, [](Regs& r) {
         uint32_t found = Hash(25, 0, 0) % 3 == 0;
         Record({0x407C7000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], found});
         return found;

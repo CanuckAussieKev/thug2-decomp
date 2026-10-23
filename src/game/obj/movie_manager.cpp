@@ -4,10 +4,14 @@
 
 #include <cstdint>
 
+#include "game/ass/assman.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
+#include "game/obj/anim_movies.h"
+#include "game/obj/cutscene.h"
+#include "game/obj/node_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -38,8 +42,9 @@ R Virtual(CMovie* movie, int offset, A... args)
 void DeleteMovie(CMovie* movie) { Virtual<void*, int>(movie, 0, 1); }
 bool HasCamera(CMovie* movie) { return Virtual<bool>(movie, 0x1C); }
 void Stop(CMovie* movie) { Virtual<void>(movie, 0x20); }
-// The movie's name (0x00543150).
-uint32_t NameOf(CMovie* movie) { return GameFunction<uint32_t(__thiscall*)(CMovie*)>(0x00543150)(movie); }
+// The movie details' (node_objects.h) part of a movie.
+CMovieDetails* Details(CMovie* movie) { return reinterpret_cast<CMovieDetails*>(movie); }
+uint32_t NameOf(CMovie* movie) { return MovieName(movie); }
 // The game's camera (0x004A0970).
 void SetGameCamera(Gfx::Camera* camera) { GameFunction<void(__cdecl*)(int, Gfx::Camera*)>(0x004A0970)(0, camera); }
 
@@ -287,11 +292,11 @@ bool CMovieManager::MovieCall468F40(uint32_t name, uint32_t value)
     if (!Count())
         return false;
     if (!name) {
-        GameFunction<void(__thiscall*)(CMovie*, uint32_t)>(0x00468F40)(GetMovie(0), value);
+        Details(GetMovie(0))->SetFlag19(static_cast<uint8_t>(value)); // (the setter takes the low byte)
         return true;
     }
     if (CMovie* movie = FindMovie(name))
-        GameFunction<void(__thiscall*)(CMovie*, uint32_t)>(0x00468F40)(movie, value);
+        Details(movie)->SetFlag19(static_cast<uint8_t>(value));
     return true;
 }
 
@@ -301,11 +306,11 @@ bool CMovieManager::MovieCall468F50(uint32_t name, uint32_t value)
     if (!Count())
         return false;
     if (!name) {
-        GameFunction<void(__thiscall*)(CMovie*, uint32_t)>(0x00468F50)(GetMovie(0), value);
+        Details(GetMovie(0))->SetFlag1B(static_cast<uint8_t>(value)); // (the setter takes the low byte)
         return true;
     }
     if (CMovie* movie = FindMovie(name))
-        GameFunction<void(__thiscall*)(CMovie*, uint32_t)>(0x00468F50)(movie, value);
+        Details(movie)->SetFlag1B(static_cast<uint8_t>(value));
     return true;
 }
 
@@ -369,11 +374,13 @@ bool CMovieManager::AddMovie(uint32_t name, Script::CStruct* params, uint32_t ty
     };
     auto newObjectCamera = [](CameraContext* context) -> CMovie* {
         void* memory = Mem::Calloc(100);
-        return memory ? GameFunction<CMovie*(__thiscall*)(void*, CameraContext*)>(0x00466490)(memory, context) : nullptr;
+        // (CCutsceneDetails::Construct reads the context as its three settings' words)
+        return memory ? reinterpret_cast<CMovie*>(static_cast<CCutsceneDetails*>(memory)->Construct(
+                            reinterpret_cast<const uint32_t*>(context)))
+                      : nullptr;
     };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
-        void* asset = GameFunction<void*(__thiscall*)(void*, uint32_t, int)>(0x00407B90)(GameVariable<void*>(0x006918DC),
-                                                                                       name, 0);
+        void* asset = GameVariable<Ass::CAssMan*>(0x006918DC)->GetAsset(name, 0);
         if (!asset)
             return false; // (m_keepCamera stays cleared)
         while (KillMovie(name)) {
@@ -381,14 +388,14 @@ bool CMovieManager::AddMovie(uint32_t name, Script::CStruct* params, uint32_t ty
         int kind = reinterpret_cast<int(__thiscall*)(void*)>((*static_cast<void***>(asset))[0])(asset);
         if (kind == 5) {
             void* memory = Mem::Calloc(100);
-            movie = memory ? GameFunction<CMovie*(__thiscall*)(void*)>(0x005871B0)(memory) : nullptr;
+            movie = memory ? reinterpret_cast<CMovie*>(static_cast<CObjectAnimMovie*>(memory)->Construct()) : nullptr;
         } else if (kind == 9) {
             CameraContext context = skaterContext(false);
             movie = newObjectCamera(&context);
         }
     } else if (type == kCutscene) {
         void* memory = Mem::Calloc(0x94);
-        movie = memory ? GameFunction<CMovie*(__thiscall*)(void*)>(0x005873F0)(memory) : nullptr;
+        movie = memory ? reinterpret_cast<CMovie*>(static_cast<CCameraAnimMovie*>(memory)->Construct()) : nullptr;
     } else if (type == kSkaterCamera) {
         if (Count()) {
             for (int i = 0; i < Count(); ++i) {
@@ -402,7 +409,7 @@ bool CMovieManager::AddMovie(uint32_t name, Script::CStruct* params, uint32_t ty
         CameraContext context = skaterContext(true);
         movie = newObjectCamera(&context);
     }
-    GameFunction<void(__thiscall*)(CMovie*, uint32_t)>(0x00468F60)(movie, name); // its name
+    Details(movie)->SetValue20(name); // its name
     if (!Virtual<bool, Script::CStruct*>(movie, 0x04, params)) {
         DeleteMovie(movie);
         m_keepCamera = keptCamera;
@@ -448,7 +455,7 @@ uint32_t CMovieManager::MovieValue(uint32_t name)
     CMovie* movie = name ? FindMovie(name) : GetMovie(0);
     if (!movie)
         return 0;
-    return GameFunction<uint32_t(__thiscall*)(CMovie*)>(0x00469180)(movie);
+    return reinterpret_cast<uint32_t>(Details(movie)->GetSettings());
 }
 
 // 0x0057AFC0
@@ -504,6 +511,9 @@ CMovieManager* CMovieManager::Destroy(unsigned int flags)
         Mem::Manager::Get()->Free(this);
     return this;
 }
+
+// (no address: the getter folded at 0x00543150 - movie_manager.h)
+uint32_t __fastcall MovieName(const void* movie) { return reinterpret_cast<const CMovieDetails*>(movie)->m_value20; }
 
 } // namespace Obj
 

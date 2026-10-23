@@ -7,6 +7,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/camera.h"
 #include "game/mth/math.h"
 #include "game/obj/emitter.h"
 #include "game/obj/proxim.h"
@@ -46,7 +47,7 @@ void* NearestCamera(const Mth::Vector* position, float* distance)
 }
 const Mth::Vector* CameraPosition(void* camera)
 {
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera);
+    return static_cast<Gfx::Camera*>(camera)->GetPos();
 }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.

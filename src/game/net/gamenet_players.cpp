@@ -7,6 +7,12 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
+#include "game/net/stats_man.h"
+#include "game/obj/game_objects.h"
+#include "game/obj/trick_objects.h"
+#include "game/skate/profile_manager.h"
+#include "game/skater/skater.h"
+#include "game/skater/walk_camera.h"
 #include "game/sys/timer.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
@@ -86,26 +92,7 @@ constexpr uint32_t kString0 = 0xA4B08520;               // String0
 constexpr uint32_t kFlagReturned = 0x3B1F2478;          // flag_returned
 constexpr uint32_t kHideCtfArrow = 0x1C318F8C;          // hide_ctf_arrow
 
-// The joining player's record (GameNet::NewPlayerInfo, 0x44 bytes; constructor 0x005434D0, destructor 0x00543560 -
-// as in gamenet_join.cpp).
-struct NewPlayerInfo {
-    char name[kNameSize];   // +0x00
-    int8_t objId;           // +0x10
-    uint8_t pad11[3];
-    Net::Conn* conn;        // +0x14
-    uint32_t unknown18;
-    void* profile;          // +0x1C (a CSkaterProfile)
-    uint32_t flags;         // +0x20
-    uint32_t unknown24[2];
-    int32_t profileId;      // +0x2C
-    int32_t rating;         // +0x30
-    uint32_t unknown34;
-    uint32_t unknown38;
-    uint32_t unknown3C;
-    int32_t vehicleControlType; // +0x40
-};
-static_assert(sizeof(NewPlayerInfo) == 0x44 && offsetof(NewPlayerInfo, flags) == 0x20 &&
-              offsetof(NewPlayerInfo, vehicleControlType) == 0x40);
+// (The joining player's record: GameNet::NewPlayerInfo, player_info.h.)
 constexpr uint32_t kNewPlayerRejoining = 0x10; // (a pending player added back)
 
 Tsk::Stack* LogicTasks()
@@ -120,9 +107,9 @@ void SetCameraSkater(Obj::CBaseComponent* camera, void* skater)
 }
 void SetWalkCameraSkater(Obj::CBaseComponent* camera, void* skater)
 {
-    GameFunction<void(__thiscall*)(void*, void*)>(0x00524C50)(camera, skater);
+    static_cast<Obj::CWalkCameraComponent*>(camera)->SetSkater(static_cast<Obj::CCompositeObject*>(skater));
 }
-void ResetWalkCamera(Obj::CBaseComponent* camera) { GameFunction<void(__thiscall*)(void*)>(0x00524C30)(camera); }
+void ResetWalkCamera(Obj::CBaseComponent* camera) { static_cast<Obj::CWalkCameraComponent*>(camera)->ResetNow(); }
 
 } // namespace
 
@@ -190,7 +177,7 @@ void Manager::AssignFirstComeFirstServed()
     for (uint8_t* player = FirstPlayer(this, &search, false); player; player = NextPlayer(this, &search, false)) {
         if (IsLocalPlayer(player) || !(Field<uint32_t>(player, 0x1D0) & kPlayerFcfsCandidate))
             continue;
-        Call(0x00543390, player); // (its flag 0x200: first come, first served)
+        AsPlayer(player)->MarkAsServerPlayer(); // (its flag 0x200: first come, first served)
         uint32_t text;
         reinterpret_cast<Prefs::Preferences*>(m_networkPreferences)
             ->GetPreference(kFcfsPreference)
@@ -255,7 +242,7 @@ uint8_t* Manager::NewPlayer(Obj::CObject* skater, Net::Conn* conn, uint32_t flag
     Mem::Manager* memory = Mem::Manager::Get();
     memory->PushContext(memory->m_networkHeap);
     void* block = Mem::Calloc(kPlayerInfoSize);
-    uint8_t* player = block ? Call<uint8_t*>(0x00543740, block, flags) : nullptr; // (its constructor)
+    auto* player = reinterpret_cast<uint8_t*>(block ? static_cast<PlayerInfo*>(block)->Construct(flags) : nullptr);
     Field<Obj::CObject*>(player, 0x14) = skater; // (out of memory: written through null, as the original)
     Field<Net::Conn*>(player, 0x18) = conn;
     if (IsLocalPlayer(player)) {
@@ -263,7 +250,7 @@ uint8_t* Manager::NewPlayer(Obj::CObject* skater, Net::Conn* conn, uint32_t flag
             uint8_t* input = GameVariable<uint8_t*>(0x00696D40);
             Tsk::Stack* tasks = LogicTasks();
             Run(kHidePanelStuff);
-            ObservePlayer(Call<uint8_t*>(0x0053A580, this)); // the first player to watch
+            ObservePlayer(static_cast<uint8_t*>(NextCamPlayer())); // the first player to watch
             AddObserverControls(this, player, tasks, input);
         } else {
             m_camPlayer = nullptr;
@@ -279,15 +266,15 @@ uint8_t* Manager::NewPlayer(Obj::CObject* skater, Net::Conn* conn, uint32_t flag
 void Manager::DestroyPlayer(uint8_t* player)
 {
     if (player == m_camPlayer) { // the camera onto the next player (the local skater's if there is one)
-        m_camPlayer = Call<uint8_t*>(0x0053A580, this);
+        m_camPlayer = NextCamPlayer();
         if (player == m_camPlayer)
             m_camPlayer = nullptr;
         uint8_t* local = LocalPlayer(this);
         ObservePlayer(local && PlayerSkater(local) ? local : static_cast<uint8_t*>(m_camPlayer));
     }
-    if (Call<bool>(0x00543490, player) && Field<void*>(this, 0x6C)) // it had the crown: taken off
-        Call(0x005782D0, Field<void*>(this, 0x6C));
-    if (Call<bool>(0x005433B0, player)) // it carried a flag: returned
+    if (AsPlayer(player)->IsKing() && Field<void*>(this, 0x6C)) // it had the crown: taken off
+        Field<Obj::CCrownObject*>(this, 0x6C)->TakeOff();
+    if (AsPlayer(player)->IsCarryingFlag()) // it carried a flag: returned
         FlagReturned(player);
     if (player)
         reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(player))[0])(player, 1);
@@ -303,7 +290,7 @@ void Manager::DropPlayer(uint8_t* player, int reason)
     char name[kNameSize];
     std::strcpy(name, PlayerName(player));
     if (!IsObserver(player) && Call<bool>(0x00553220, GameMode(), kShouldModulateColor))
-        Call(0x00589230, GameVariable<void*>(0x007CE500), SkaterId(PlayerSkater(player))); // its colours off the trick objects
+        GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->ReleasePlayerClusters(static_cast<int>(SkaterId(PlayerSkater(player)))); // its colours off the trick objects
     if (!OnServer()) {
         DestroyPlayer(player);
         return;
@@ -326,8 +313,8 @@ void Manager::DropPlayer(uint8_t* player, int reason)
             m_server->EnqueueMessage(PlayerHandle(other), &desc);
         }
         if ((reason == kDropQuit || reason == kDropTimedOut || reason == kDropDropped) &&
-            Call<bool>(0x0054C9B0, m_statsMan)) // (a rated game left early)
-            Call(0x0054C9F0, m_statsMan, SkaterId(PlayerSkater(player)));
+            static_cast<StatsMan*>(m_statsMan)->UpdateLoggedIn()) // (a rated game left early)
+            static_cast<StatsMan*>(m_statsMan)->RemovePlayer(static_cast<int>(SkaterId(PlayerSkater(player))));
     }
     bool close = true;
     if (reason == kDropBanned || reason == kDropKicked) {
@@ -349,22 +336,21 @@ void Manager::DropPlayer(uint8_t* player, int reason)
                         ? kDropTexts[reason]
                         : kNetMessagePlayerTimedOut;
     if (!IsLocalPlayer(player))
-        Call(0x005376F0, this, true, text, static_cast<const char*>(name), static_cast<const char*>(nullptr),
-             static_cast<void*>(nullptr), static_cast<const char*>(nullptr), false, kPanelTime);
+        CreateNetPanelMessage(true, text, name, nullptr, nullptr, nullptr, false, kPanelTime);
     if (reason == kDropObserving) {
-        if (Call<bool>(0x00543490, player)) { // the crown taken off
+        if (AsPlayer(player)->IsKing()) { // the crown taken off
             if (Field<void*>(this, 0x6C))
-                Call(0x005782D0, Field<void*>(this, 0x6C));
-            Call(0x00544340, player, false);
+                Field<Obj::CCrownObject*>(this, 0x6C)->TakeOff();
+            AsPlayer(player)->MarkAsKing(false);
         }
-        if (Call<bool>(0x005433B0, player))
+        if (AsPlayer(player)->IsCarryingFlag())
             FlagReturned(player);
     } else {
-        bool fcfs = Call<bool>(0x00543310, player);
+        bool fcfs = AsPlayer(player)->IsServerPlayer() != 0;
         DestroyPlayer(player);
         if (fcfs) { // it was to serve next: someone else
             AssignFirstComeFirstServed();
-            if (!Call<uint8_t*>(0x005373D0, this) && GameType() != kNetLobby)
+            if (!GetServerPlayer() && GameType() != kNetLobby)
                 Run(kNetworkEndGameSelected);
         }
     }
@@ -397,32 +383,32 @@ void Manager::ReAddPendingPlayers()
         uint8_t* next = NextPlayer(this, &search, true); // (before the player is destroyed)
         if (Field<uint32_t>(player, 0x1D0) & kPlayerPending) {
             NewPlayerInfo info;
-            Call(0x005434D0, &info); // (its constructor: a skater profile)
+            info.Construct(); // (a skater profile)
             frames += 10;
-            std::strcpy(info.name, PlayerName(player));
-            info.objId = static_cast<int8_t>(NextPlayerObjectId());
-            info.conn = Field<Net::Conn*>(player, 0x18);
-            info.flags = kNewPlayerRejoining;
-            info.profileId = Field<int32_t>(player, 0x28);
-            info.rating = Field<int32_t>(player, 0x2C);
-            info.unknown38 = 0;
-            info.unknown3C = 0;
-            info.unknown34 = 0;
-            info.vehicleControlType = Field<int32_t>(player, 0x48);
+            std::strcpy(info.m_name, PlayerName(player));
+            info.m_objectId = static_cast<uint8_t>(NextPlayerObjectId());
+            info.m_conn = Field<Net::Conn*>(player, 0x18);
+            info.m_flags = kNewPlayerRejoining;
+            info.m_profileId = Field<int32_t>(player, 0x28);
+            info.m_rating = Field<int32_t>(player, 0x2C);
+            info.m_unknown38 = 0;
+            info.m_unknown3C = 0;
+            info.m_unknown34 = 0;
+            info.m_vehicleControlType = Field<int32_t>(player, 0x48);
             Mem::Manager* memory = Mem::Manager::Get();
             memory->PushContext(memory->m_skaterInfoHeap);
-            Call(0x00585ED0, info.profile, Field<void*>(player, 0x4C)); // its appearance
+            info.m_profile->CopyFrom(Field<Obj::CSkaterProfile*>(player, 0x4C)); // its appearance
             Mem::Manager::Get()->PopContext();
             DestroyPlayer(player);
-            Call(0x0053A310, this, &info, frames); // (added back in `frames` frames, 10 apart)
-            Call(0x00543560, &info);               // (its destructor)
+            AddJoiningPlayer(&info, frames); // (added back in `frames` frames, 10 apart)
+            info.DestroyBody();
         }
         player = next;
     }
     for (uint8_t* p = FirstPlayer(this, &search, false); p; p = NextPlayer(this, &search, false)) {
         if (!IsLocalPlayer(p)) {
-            Call(0x00581510, PlayerSkater(p)); // hidden
-            Call(0x005814D0, PlayerSkater(p)); // reset
+            static_cast<Obj::CSkater*>(PlayerSkater(p))->HideSkater(); // hidden
+            static_cast<Obj::CSkater*>(PlayerSkater(p))->Reset27C();   // reset
         }
     }
 }
@@ -436,7 +422,7 @@ void Manager::DestroyAllPlayers()
     while (player) {
         uint8_t* next = NextPlayer(this, &search, true);
         Obj::CObject* skater = PlayerSkater(player);
-        if (skater && (Call<int>(0x0057FEC0, skater) != 0 || !IsLocalPlayer(player))) // (not the first local skater)
+        if (skater && (static_cast<Obj::CSkater*>(skater)->GetSkaterNumber() != 0 || !IsLocalPlayer(player))) // (not the first local skater)
             Call(0x00565790, skate, skater);
         DestroyPlayer(player);
         player = next;
@@ -447,7 +433,7 @@ void Manager::DestroyAllPlayers()
 void Manager::RemovePlayers()
 {
     DestroyAllPlayers();
-    Call(0x00536820, this); // the joining players too
+    RemoveAllNewPlayers(); // the joining players too
 }
 
 // 0x0053E920
@@ -471,8 +457,8 @@ void Manager::DropPlayersNotReady()
 void Manager::RemovePlayersAndApps()
 {
     DestroyAllPlayers();
-    Call(0x00536820, this);
-    Call(0x005399F0, this); // the apps shut down
+    RemoveAllNewPlayers();
+    DisconnectClients(); // the apps shut down
 }
 
 // (inline in DestroyPlayer / ReAddPendingPlayers)
@@ -486,7 +472,7 @@ void Manager::UpdateLobbyServer()
 // (inline in DestroyPlayer / DropPlayer)
 void Manager::FlagReturned(uint8_t* player)
 {
-    int team = Call<int>(0x005433D0, player); // the flag's team
+    int team = AsPlayer(player)->GetFlagTeam(); // the flag's team
     char key[64];
     TeamNameKey(key, team);
     Script::CStruct* params = NewParams();
@@ -497,7 +483,7 @@ void Manager::FlagReturned(uint8_t* player)
     uint8_t* local = LocalPlayer(this);
     if (local && !IsObserver(local) && PlayerTeam(local) == team)
         Run(kHideCtfArrow);
-    Call(0x00543410, player); // carries no flag
+    AsPlayer(player)->ClearFlags(); // carries no flag
 }
 
 // 0x0053E650
@@ -511,13 +497,13 @@ void Manager::EnterObserveMode()
         return;
     if (OnServer())
         DropPlayer(local, kDropObserving);
-    if (Call<bool>(0x00543490, local)) { // its crown given up
-        Call(0x00544340, local, false);
+    if (AsPlayer(local)->IsKing()) { // its crown given up
+        AsPlayer(local)->MarkAsKing(false);
         if (Field<void*>(this, 0x6C))
-            Call(0x005782D0, Field<void*>(this, 0x6C));
+            Field<Obj::CCrownObject*>(this, 0x6C)->TakeOff();
     }
-    if (Call<bool>(0x005433B0, local)) { // its flag returned (hide_ctf_arrow whatever the team, unlike FlagReturned)
-        int team = Call<int>(0x005433D0, local);
+    if (AsPlayer(local)->IsCarryingFlag()) { // its flag returned (hide_ctf_arrow whatever the team, unlike FlagReturned)
+        int team = AsPlayer(local)->GetFlagTeam();
         char key[64];
         TeamNameKey(key, team);
         Script::CStruct* params = NewParams();
@@ -526,14 +512,14 @@ void Manager::EnterObserveMode()
         Run(kFlagReturned, params);
         DeleteParams(params);
         Run(kHideCtfArrow);
-        Call(0x00543410, local);
+        AsPlayer(local)->ClearFlags();
     }
     Field<uint32_t>(local, 0x1D0) |= 4; // an observer
     Call(0x00565790, skate, PlayerSkater(local));
     Field<Obj::CObject*>(local, 0x14) = nullptr;
     Mem::Manager* memory = Mem::Manager::Get();
     memory->PushContext(memory->m_skaterHeaps[0]);
-    ObservePlayer(Call<uint8_t*>(0x0053A580, this)); // the first player to watch
+    ObservePlayer(static_cast<uint8_t*>(NextCamPlayer())); // the first player to watch
     AddObserverControls(this, local, tasks, input, -1);
     m_observerCommand = 0;
     Run(kHidePanelStuff);

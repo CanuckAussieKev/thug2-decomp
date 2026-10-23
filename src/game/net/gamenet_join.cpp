@@ -12,7 +12,9 @@
 #include "game/core/mem.h"
 #include "game/core/singleton.h"
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
 #include "game/net/chat.h"
+#include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -21,6 +23,9 @@
 #include "game/net/net_lists.h"
 #include "game/net/net_manager.h"
 #include "game/net/net_server.h"
+#include "game/net/player_info.h"
+#include "game/net/server_list.h"
+#include "game/net/stats_man.h"
 #include "game/net/thugpro_join.h"
 #include "game/net/thugpro_peer.h"
 #include "game/script/cscript.h"
@@ -28,6 +33,7 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/sys/mlp.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -95,26 +101,9 @@ constexpr int kNormalPriority = 0x80;
 constexpr int kHighestPriority = 0xFF;
 constexpr int kLowestPriority = 0;
 
-// The player info being made (GameNet::NewPlayerInfo, 0x44 bytes; 0x005434D0 / 0x00543560).
-struct NewPlayerInfo {
-    char name[kNameSize];   // +0x00
-    int8_t objId;           // +0x10
-    uint8_t pad11[3];
-    Conn* conn;             // +0x14
-    uint32_t unknown18;
-    Obj::CSkaterProfile* profile; // +0x1C
-    uint32_t flags;         // +0x20 (1 local player, 4 observer, 8 pending)
-    uint32_t unknown24[2];
-    int32_t profileId;      // +0x2C
-    int32_t rating;         // +0x30
-    uint32_t unknown34[3];
-    int32_t vehicleControlType; // +0x40
-};
-static_assert(sizeof(NewPlayerInfo) == kPlayerInfoSize && offsetof(NewPlayerInfo, flags) == 0x20 &&
-              offsetof(NewPlayerInfo, vehicleControlType) == 0x40);
-constexpr uint32_t kPlayerLocal = 1;
-constexpr uint32_t kPlayerObserver = 4;
-constexpr uint32_t kPlayerPending = 8;
+// The player info being made (GameNet::NewPlayerInfo, player_info.h; flags: 1 local player, 4 observer, 8 pending).
+static_assert(sizeof(NewPlayerInfo) == kPlayerInfoSize);
+constexpr uint32_t kPlayerPending = kPlayerPendingObserver; // (kPlayerLocal, kPlayerObserver: player_info.h)
 
 // GameSpy CD-key's instance data for ClientAuthorized (12 bytes, operator new).
 // (the join request being sent: the original's is on its stack)
@@ -135,37 +124,38 @@ Tsk::Stack* LogicTasks()
 {
     return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<Mlp::Manager*>(0x00696D68)) + 4);
 }
-int MilliSeconds() { return GameFunction<int(__cdecl*)()>(0x005BE970)(); }
+int MilliSeconds() { return static_cast<int>(Tmr::GetTime()); }
 uint32_t LocalAddress()
 {
     return GameFunction<uint32_t(__stdcall*)(const char*)>(0x005BEAAE)(NetManager()->GetLocalIP()); // inet_addr
 }
 
-// The manager's methods that aren't source yet.
+// Calls into code that isn't source yet (thiscall).
 template <typename R, typename... A>
 R Call(uint32_t address, const void* object, A... args)
 {
     return GameFunction<R(__thiscall*)(const void*, A...)>(address)(object, args...);
 }
-int NumObservers(Manager* m) { return Call<int>(0x00539C70, m); }
-int MaxObservers(Manager* m) { return Call<int>(0x00532D60, m); }
-int NumPlayers(Manager* m) { return Call<int>(0x00539B00, m); }
-int MaxPlayers(Manager* m) { return Call<int>(0x00532C50, m); }
-int RankLimit(Manager* m) { return Call<int>(0x00532B30, m); }
-int RankTest(Manager* m) { return Call<int>(0x00532AE0, m); }
-const char* Password(Manager* m) { return Call<const char*>(0x00534310, m); }
-void DeferredNewPlayer(Manager* m, NewPlayerInfo* player, int frames) { Call<void>(0x0053A310, m, player, frames); }
-void SetReadyToPlay(Manager* m, bool ready) { Call<void>(0x00537140, m, ready); }
-void RandomizeSkaterStartingPoints(Manager* m) { Call<void>(0x005359F0, m); }
-void CancelJoinServer(Manager* m) { Call<void>(0x0053C6E0, m); }
+// The manager's methods.
+int NumObservers(Manager* m) { return m->CountObservers(); }
+int MaxObservers(Manager* m) { return m->GetMaxObservers(); }
+int NumPlayers(Manager* m) { return m->CountPlayers(); }
+int MaxPlayers(Manager* m) { return m->GetMaxPlayers(); }
+int RankLimit(Manager* m) { return m->GetRankLimit(); }
+int RankTest(Manager* m) { return m->GetRankTest(); }
+const char* Password(Manager* m) { return m->GetPassword(); }
+void DeferredNewPlayer(Manager* m, NewPlayerInfo* player, int frames) { m->AddJoiningPlayer(player, frames); }
+void SetReadyToPlay(Manager* m, bool ready) { m->SetReadyToPlay(ready); }
+void RandomizeSkaterStartingPoints(Manager* m) { m->ChooseStartPoints(); }
+void CancelJoinServer(Manager* m) { m->CancelJoin(); }
 uint32_t GameModeName() { return Call<uint32_t>(0x005532A0, GameVariable<void*>(0x007CE470)); }
 void SetMaximumPlayers(int count) { Call<void>(0x005531B0, GameVariable<void*>(0x007CE470), count); }
-int8_t Rank(Manager* m) { return static_cast<int8_t>(Call<int>(0x0054D2D0, m->m_statsMan)); }
+int8_t Rank(Manager* m) { return static_cast<int8_t>(static_cast<StatsMan*>(m->m_statsMan)->GetRank()); }
 int32_t Rating(Manager* m)
 {
-    // (the stats' +0x14 through its pointer member, 0x0054CA80 / 0x00469490)
-    auto* member = Call<Spt::PointerMember*>(0x0054CA80, m->m_statsMan);
-    return static_cast<int32_t>(reinterpret_cast<uintptr_t>(member->Get()));
+    // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
+    // Spt::PointerMember::Get)
+    return static_cast<StatsMan*>(m->m_statsMan)->GetPersonalStats()->m_rating;
 }
 bool GameInProgress(Manager* m) { return GameModeName() != kNetLobby && !m->m_gameOver; }
 
@@ -179,15 +169,14 @@ const char* PreferenceText(Manager* m, uint32_t name)
 
 // The presence (GameSpy) and the lobby (not source yet).
 bool PresenceLoggedIn(Manager* m) { return *(static_cast<uint8_t*>(m->m_buddyMan) + 0x10) != 0; }
-void SetPresence(Manager* m, int status, const char* location, const char* text)
+void SetPresence(Manager* m, int status, const char* text, const char* location)
 {
-    Call<void>(0x00548320, m->m_buddyMan, status, location, text);
+    static_cast<BuddyMan*>(m->m_buddyMan)->SetStatus(status, text, location);
 }
 char* LobbyServerName(Manager* m) { return static_cast<char*>(m->m_lobbyMan) + 0xB4; }
 char* LobbyPeerName(Manager* m) { return static_cast<char*>(m->m_lobbyMan) + 0x34; }
 
 // GameSpy's CD-key SDK (gcd) and THUG2's key.
-void GetCdKey(char* key) { GameFunction<void(__cdecl*)(char*)>(0x0052D6A0)(key); }
 void ComputeCdKeyResponse(const char* key, const char* challenge, char* response)
 {
     GameFunction<void(__cdecl*)(const char*, const char*, char*)>(0x005F8950)(key, challenge, response);
@@ -527,7 +516,7 @@ App* Manager::SpawnMatchClient()
                                           static_cast<int>(LocalAddress()),
                                           kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure);
     m_matchClient = client;
-    client->m_dispatcher.AddHandler(kMsgServerResponse, reinterpret_cast<MsgHandlerCode>(0x005475C0),
+    client->m_dispatcher.AddHandler(kMsgServerResponse, &HandleServerResponse,
                                     kHandleForeign | kHandleLate, this, kNormalPriority);
     return m_matchClient;
 }
@@ -680,32 +669,32 @@ int Manager::HandleJoinRequest(MsgHandlerContext* context)
         return Net::kHandlerHalt;
     }
     void* memory = Mem::Calloc(kPlayerInfoSize);
-    auto* player = memory ? Call<NewPlayerInfo*>(0x005434D0, memory) : nullptr;
-    std::strncpy(player->name, msg->name, kNameSize - 1);
-    player->name[kNameSize - 1] = '\0';
-    player->objId = static_cast<int8_t>(manager->NextPlayerObjectId());
-    player->conn = context->m_Conn;
-    player->flags = 0;
-    player->profileId = msg->profile;
-    player->rating = msg->rating;
-    player->vehicleControlType = msg->vehicleControlType;
-    player->unknown34[0] = 0;
+    auto* player = memory ? static_cast<NewPlayerInfo*>(memory)->Construct() : nullptr;
+    std::strncpy(player->m_name, msg->name, kNameSize - 1);
+    player->m_name[kNameSize - 1] = '\0';
+    player->m_objectId = static_cast<uint8_t>(manager->NextPlayerObjectId());
+    player->m_conn = context->m_Conn;
+    player->m_flags = 0;
+    player->m_profileId = msg->profile;
+    player->m_rating = msg->rating;
+    player->m_vehicleControlType = msg->vehicleControlType;
+    player->m_unknown34 = 0;
     if (msg->observer)
-        player->flags = kPlayerObserver;
+        player->m_flags = kPlayerObserver;
     else if (GameInProgress(manager))
-        player->flags |= kPlayerPending | kPlayerObserver;
+        player->m_flags |= kPlayerPending | kPlayerObserver;
     if (context->m_Conn->IsLocal()) {
         // The host's own player: its profile copied through a buffer.
         if (!GameVariable<bool>(0x007CC979))
             Mem::EnsureManager();
         auto* buffer = static_cast<uint8_t*>(Mem::Manager::Get()->Allocate(kAppearanceSize, true, nullptr));
-        auto* profile = Call<Obj::CSkaterProfile*>(0x00564FC0, skate, static_cast<int>(player->objId));
+        auto* profile = Call<Obj::CSkaterProfile*>(0x00564FC0, skate, static_cast<int>(static_cast<int8_t>(player->m_objectId)));
         profile->WriteToBuffer(buffer, kAppearanceSize, 0);
-        player->profile->ReadFromBuffer(buffer);
+        player->m_profile->ReadFromBuffer(buffer);
         Mem::Manager::Get()->Free(buffer);
-        player->flags = kPlayerLocal;
+        player->m_flags = kPlayerLocal;
         DeferredNewPlayer(manager, player, 0);
-        Call<void>(0x00543560, player);
+        player->DestroyBody();
         Mem::Manager::Get()->Free(player);
         // On the internet the host checks its own CD key too: an answer nobody reads (no instance). NOT ORIGINAL:
         // not in the THUGPRO peer mode (TP-R12).
@@ -727,10 +716,10 @@ int Manager::HandleJoinRequest(MsgHandlerContext* context)
             size = kAppearanceSize;
         std::memset(appearance, 0, kAppearanceSize);
         std::memcpy(appearance, msg->appearance, size);
-        player->profile->ReadFromBuffer(appearance);
+        player->m_profile->ReadFromBuffer(appearance);
     }
     DeferredNewPlayer(manager, player, kDeferredJoinFrames);
-    Call<void>(0x00543560, player);
+    player->DestroyBody();
     Mem::Manager::Get()->Free(player);
     // Busy until it's in: no game messages meanwhile.
     context->m_Conn->m_status = (context->m_Conn->m_status & ~Conn::kStatusReady) | Conn::kStatus2;

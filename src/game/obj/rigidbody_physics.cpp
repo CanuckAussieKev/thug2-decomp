@@ -9,6 +9,7 @@
 
 #include "game/gfx/debug_lines.h"
 #include "game/mth/math.h"
+#include "game/mth/quat.h"
 #include "game/nx/feeler.h"
 #include "game/obj/rigidbody_component.h"
 #include "game/obj/sound_component.h"
@@ -44,11 +45,8 @@ float Sub(float a, float b) { return Narrow(Wide(a) - b); }
 bool DrawShape() { return GameVariable<bool>(0x006939D4); }
 bool DrawDetails() { return GameVariable<bool>(0x006939D5); }
 
-// Quaternions: `quat` times `other`, in place (0x00420140, not rewritten yet); the matrix of one.
-void QuatMultiply(Mth::Quat* quat, const Mth::Quat* other)
-{
-    GameFunction<void(__thiscall*)(Mth::Quat*, const Mth::Quat*)>(0x00420140)(quat, other);
-}
+// Quaternions: `quat` times `other`, in place (0x00420140); the matrix of one.
+void QuatMultiply(Mth::Quat* quat, const Mth::Quat* other) { *quat *= *other; }
 void QuatToMatrix(const Mth::Quat* quat, Mth::Matrix* matrix) { quat->GetMatrix(matrix); }
 
 void MarkAsDead(CCompositeObject* object)

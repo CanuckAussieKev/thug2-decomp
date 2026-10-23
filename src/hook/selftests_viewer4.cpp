@@ -13,6 +13,7 @@
 
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_status.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"

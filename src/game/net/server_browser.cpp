@@ -19,6 +19,7 @@
 #include "game/net/net_dispatcher.h"
 #include "game/net/player_info.h"
 #include "game/net/server_list.h"
+#include "game/net/vault_man.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -145,14 +146,15 @@ void ReadServerPlayers(ServerInfo* server, void* sb)
     }
 }
 
-// The listed server whose SBServer is `sb` (the original walks it with a Lst::Search<ServerInfo>, 0x0054B6B0).
+// The listed server whose SBServer is `sb` (the original walks it with a Lst::Search<ServerInfo>; its first item is
+// the searches' shared code, VaultSearch::FirstItem - the same layout).
 ServerInfo* FindBySb(Manager* manager, void* sb)
 {
     ServerSearch search;
     search.m_vtable = reinterpret_cast<void**>(0x0064CD70);
     search.m_node = nullptr;
-    auto* server = GameFunction<ServerInfo*(__thiscall*)(ServerSearch*, Mem::ListNode*)>(0x0054B6B0)(
-        &search, Head(manager, kServers)); // (the first)
+    auto* server = static_cast<ServerInfo*>(
+        reinterpret_cast<VaultSearch*>(&search)->FirstItem(Head(manager, kServers))); // (the first)
     while (server) {
         Mem::ListNode* next = search.m_node->next;
         Mem::ListNode* node = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
@@ -261,7 +263,7 @@ bool __cdecl CFunc_ChooseServer(Script::CStruct* params, Script::CScript* script
         Run(kJoinRefusedDialog, reply);
     } else {
         if (Field<bool>(manager->m_buddyMan, 0x10)) // (0x005480B0: logged in to presence)
-            Call(0x0053F830, manager->m_lobbyMan, server->m_name);
+            static_cast<LobbyMan*>(manager->m_lobbyMan)->SetServerName(server->m_name);
         in_addr address;
         address.s_addr = server->m_ip;
         const char* ip = GameFunction<const char*(__stdcall*)(in_addr)>(0x005BEAB4)(address); // (inet_ntoa)
@@ -351,7 +353,7 @@ void __cdecl ListingGamesCallback(void* peer, int success, const char* name, voi
     (void)staging;
     (void)progress;
     if (!success) {
-        Call(0x0053F870, TheManager()->m_lobbyMan); // (the lobby told the listing failed)
+        static_cast<LobbyMan*>(TheManager()->m_lobbyMan)->SetLostConnection(); // (the lobby told the listing failed)
         return;
     }
     switch (message) {

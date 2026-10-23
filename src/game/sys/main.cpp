@@ -8,32 +8,44 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/ass/assman.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/memory_sizes.h"
 #include "game/core/pool.h"
 #include "game/core/stubs.h"
+#include "game/core/task.h"
 #include "game/ed/park_editor.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
 #include "game/front/career_complete.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
+#include "game/front/screen_element_manager.h"
 #include "game/front/test_view.h"
 #include "game/gfx/tod_manager.h"
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
+#include "game/obj/component_types.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
+#include "game/obj/path_manager.h"
 #include "game/obj/tracker.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "game/sio/device.h"
+#include "game/sio/inpman.h"
+#include "game/skate/profile_manager.h"
+#include "game/skate/records.h"
+#include "game/sys/key_names.h"
 #include "game/sys/mlp.h"
+#include "game/sys/module.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
 #include "game/script/node_manager.h"
@@ -54,18 +66,16 @@ uint8_t* Create(uint32_t create) { return GameFunction<uint8_t*(__cdecl*)(bool)>
 void Release(uint32_t release) { GameFunction<void(__cdecl*)()>(release)(); }
 
 // The main loop's task manager (Mlp::Manager): three task lists, at +0x04, +0x40 and +0x7C.
-void AddTask(uint8_t* mlp, uint32_t list, void* task)
-{
-    GameFunction<void(__thiscall*)(uint8_t*, void*)>(0x00406C90)(mlp + list, task);
-}
-void RemoveAllTasks(uint8_t* mlp, uint32_t list) { GameFunction<void(__thiscall*)(uint8_t*)>(0x00406CB0)(mlp + list); }
-void MainLoop(uint8_t* mlp) { reinterpret_cast<Mlp::Manager*>(mlp)->MainLoop(); }
+void AddTask(Tsk::Stack& list, void* task) { list.AddTask(static_cast<Tsk::BaseTask*>(task)); }
+void RemoveAllTasks(Tsk::Stack& list) { list.RemoveAllTasks(); }
+void MainLoop(Mlp::Manager* mlp) { mlp->MainLoop(); }
 
-// The module manager (Mdl::Manager, 0x0044F6F0).
-void RegisterModule(uint8_t* mdl, void* module) { GameFunction<void(__thiscall*)(uint8_t*, void*)>(0x0044F3C0)(mdl, module); }
-void StartModule(uint8_t* mdl, void* module) { GameFunction<void(__thiscall*)(uint8_t*, void*)>(0x0044F310)(mdl, module); }
-void StopAllModules(uint8_t* mdl) { GameFunction<void(__thiscall*)(uint8_t*)>(0x0044F530)(mdl); }
-void UnregisterModule(uint8_t* mdl, void* module) { GameFunction<void(__thiscall*)(uint8_t*, void*)>(0x0044F3E0)(mdl, module); }
+// The module manager (Mdl::Manager, 0x0044F6F0). (The modules are passed as they were made: not all of their types
+// derive from Mdl::Module in our source yet.)
+void RegisterModule(Mdl::Manager* mdl, void* module) { mdl->RegisterModule(static_cast<Mdl::Module*>(module)); }
+void StartModule(Mdl::Manager* mdl, void* module) { mdl->StartModule(static_cast<Mdl::Module*>(module)); }
+void StopAllModules(Mdl::Manager* mdl) { mdl->StopAllModules(); }
+void UnregisterModule(Mdl::Manager* mdl, void* module) { mdl->UnregisterModule(static_cast<Mdl::Module*>(module)); }
 
 // The bottom-up heap's virtual PushContext / PopContext (slots 0 and 1).
 void PushBottomUpHeap()
@@ -91,13 +101,13 @@ int __cdecl Main(int argc, char** argv)
     Mem::Manager::Get()->InitStandardHeaps();
     switch (GameVariable<int>(0x007CEFA0)) { // the language's start-up (German has its own)
     case 3: // French
-        GameFunction<void(__cdecl*)()>(0x004E0DA0)();
+        SetKeyNames();
         break;
     case 5: // German
-        GameFunction<void(__cdecl*)()>(0x004E0FE0)();
+        SetGermanKeyNames();
         break;
     default:
-        GameFunction<void(__cdecl*)()>(0x004E0DA0)();
+        SetKeyNames();
         break;
     }
     Dbg::Printf("\n Start of main()\n");
@@ -133,14 +143,14 @@ int __cdecl Main(int argc, char** argv)
 
         Mem::PushMemProfile("System Singletons");
         Obj::CreateTracker(true);
-        auto* mlp = reinterpret_cast<uint8_t*>(Mlp::CreateManager(true));
-        uint8_t* mdl = Create(0x0044F6F0);
-        auto* sio = reinterpret_cast<uint8_t*>(Sio::CreateManager(true));
+        Mlp::Manager* mlp = Mlp::CreateManager(true);
+        Mdl::Manager* mdl = Mdl::CreateManager(true);
+        Sio::Manager* sio = Sio::CreateManager(true);
         Mc::CreateManager(true);
-        uint8_t* singleton44E7F0 = Create(0x0044E7F0);
+        Inp::Manager* input = Inp::CreateManager(true);
         File::AsyncLoaderModule* asyncLoader = File::CreateAsyncLoaderModule(true);
         Mem::PopMemProfile();
-        GameFunction<void(__thiscall*)(void*, bool)>(0x0044E610)(GameVariable<void*>(0x00696D40), true); // (+0x10C)
+        GameVariable<Inp::Manager*>(0x00696D40)->SetOverridePadWithStick(true); // (+0x10C)
         GameFunction<void(__cdecl*)()>(0x005A5E70)();
         // Not original - the level editor (game/front/level_editor.h) and CREATE 100% CAS
         // (game/front/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
@@ -152,43 +162,43 @@ int __cdecl Main(int argc, char** argv)
         GameFunction<void(__cdecl*)()>(0x005A5B20)();
 
         Mem::PushMemProfile("Game Singletons");
-        GameFunction<void(__cdecl*)()>(0x004694E0)();
+        Obj::CPathManager::Instance();
         Script::CScriptCache* scriptCache = Script::CreateScriptCache(true);
-        uint8_t* module4088E0 = Create(0x004088E0);
-        Create(0x0047BA60);
+        Ass::CAssMan* assets = Ass::CreateAssetManager(true);
+        Sfx::CreateManager(true);
         Net::CreateManager(true);
         Obj::CreateCompositeObjectManager(true);
-        GameFunction<void(__cdecl*)()>(0x004E4860)();
+        Obj::RegisterComponentTypes();
         Obj::AcquireTrickObjectManager(true);
         Create(0x00553DB0);
-        Create(0x0057C0D0);
-        Create(0x0057EED0);
+        Obj::CPlayerProfileManager::Create(true);
+        Records::CGameRecords::Create(true);
         uint8_t* module5691A0 = Create(0x005691A0);
         auto* frontEnd = reinterpret_cast<uint8_t*>(Mdl::CreateFrontEnd(true));
-        Create(0x0053F520);
+        GameNet::Manager::Create(true);
         GameVariable<void*>(0x006FA7D0) = GameVariable<void*>(0x007CCE14); // (the network manager)
         auto* parkEditor = reinterpret_cast<uint8_t*>(Ed::CParkEditor::Create(true));
-        Create(0x004ACAF0);
+        Front::CreateScreenElementManager(true);
         SkateScript::CreateNodeManager(true);
         Gfx::CreateTODManager(true);
         Mem::PopMemProfile();
 
         Mem::PushMemProfile("Resgistering and starting modules");
-        AddTask(mlp, 0x7C, *reinterpret_cast<void**>(mdl));
-        AddTask(mlp, 0x7C, *reinterpret_cast<void**>(sio + 0x18));
-        AddTask(mlp, 0x04, *reinterpret_cast<void**>(singleton44E7F0));
+        AddTask(mlp->m_systemTasks, mdl->m_task);
+        AddTask(mlp->m_systemTasks, sio->m_task);
+        AddTask(mlp->m_logicTasks, input->m_task);
         RegisterModule(mdl, scriptCache);
         RegisterModule(mdl, parkEditor);
         RegisterModule(mdl, frontEnd);
         RegisterModule(mdl, module5691A0);
         RegisterModule(mdl, asyncLoader);
-        RegisterModule(mdl, module4088E0);
+        RegisterModule(mdl, assets);
         StartModule(mdl, scriptCache);
         StartModule(mdl, frontEnd);
         StartModule(mdl, module5691A0);
         StartModule(mdl, parkEditor);
         StartModule(mdl, asyncLoader);
-        StartModule(mdl, module4088E0);
+        StartModule(mdl, assets);
         Mem::PopMemProfile();
         Mem::PushMemProfile("sStartEngine");
         GameFunction<void(__cdecl*)(int)>(0x0048C1D0)(350); // start the engine
@@ -207,31 +217,31 @@ int __cdecl Main(int argc, char** argv)
         UnregisterModule(mdl, frontEnd);
         UnregisterModule(mdl, parkEditor);
         UnregisterModule(mdl, asyncLoader);
-        UnregisterModule(mdl, module4088E0);
-        RemoveAllTasks(mlp, 0x40);
-        RemoveAllTasks(mlp, 0x04);
-        RemoveAllTasks(mlp, 0x7C);
+        UnregisterModule(mdl, assets);
+        RemoveAllTasks(mlp->m_displayTasks);
+        RemoveAllTasks(mlp->m_logicTasks);
+        RemoveAllTasks(mlp->m_systemTasks);
         Gfx::ReleaseTODManager();
         SkateScript::ReleaseNodeManager();
-        Release(0x004AACF0);
+        Front::DeleteScreenElementManager();
         Ed::CParkEditor::Release();
-        Release(0x005395C0);
+        GameNet::ReleaseManager();
         Mdl::ReleaseFrontEnd();
         Release(0x00564C10);
-        Release(0x0057FDB0);
-        Release(0x0057C120);
+        Records::CGameRecords::Release();
+        Obj::CPlayerProfileManager::Release();
         Release(0x00552F70);
         Obj::ReleaseTrickObjectManager();
         Obj::ReleaseCompositeObjectManager();
         Net::ReleaseManager();
-        Release(0x0047C6C0);
-        Release(0x00407980);
+        Sfx::ReleaseManager();
+        Ass::ReleaseAssetManager();
         Script::ReleaseScriptCache();
         File::DestroyAsyncLoaderModule();
-        Release(0x0044E6B0);
+        Inp::ReleaseManager();
         Mc::ReleaseManager();
         Sio::ReleaseManager();
-        Release(0x0044F740);
+        Mdl::ReleaseManager();
         Mlp::ReleaseManager();
         Obj::ReleaseTracker();
         Pre::DestroyManager();

@@ -10,10 +10,14 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/mth/quat.h"
+#include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -57,26 +61,28 @@ struct Feeler {
     uint32_t m_links[2];
     uint8_t m_unknownA4[0xC];
 
-    Feeler* Construct() { return GameFunction<Feeler*(__thiscall*)(Feeler*)>(0x00417760)(this); }
-    void SetLine(const Mth::Vector* from, const Mth::Vector* to)
+    // (Nx::CFeeler, seen by its fields here)
+    Nx::CFeeler* AsFeeler() { return reinterpret_cast<Nx::CFeeler*>(this); }
+    Feeler* Construct()
     {
-        GameFunction<void(__thiscall*)(Feeler*, const Mth::Vector*, const Mth::Vector*)>(0x004171D0)(this, from, to);
+        AsFeeler()->Construct();
+        return this;
     }
-    bool GetCollision(int a, int b) { return GameFunction<bool(__thiscall*)(Feeler*, int, int)>(0x004172F0)(this, a, b); }
+    void SetLine(const Mth::Vector* from, const Mth::Vector* to) { AsFeeler()->SetLine(from, to); }
+    bool GetCollision(int a, int b) { return AsFeeler()->GetCollision(a != 0, b != 0) != 0; }
     void ReleaseObject()
     {
         if (m_object)
             m_object->RemoveSmartPointer(reinterpret_cast<Obj::CSmtPtr<Obj::CRefCounted>*>(&m_object));
     }
-    void Destroy() { GameFunction<void(__thiscall*)(Feeler*)>(0x0041C350)(this); }
+    void Destroy() { AsFeeler()->Destruct(); }
 };
 static_assert(offsetof(Feeler, m_point) == 0x78 && offsetof(Feeler, m_object) == 0x98 && sizeof(Feeler) == 0xB0);
 
 // The matrix times `in` (all four components; 0x0040AF60, returns `out`).
 Mth::Vector* Transform(const Mth::Matrix* matrix, Mth::Vector* out, const Mth::Vector* in)
 {
-    return GameFunction<Mth::Vector*(__thiscall*)(const Mth::Matrix*, Mth::Vector*, const Mth::Vector*)>(0x0040AF60)(
-        matrix, out, in);
+    return &matrix->Transform(*out, *in);
 }
 
 } // namespace
@@ -264,7 +270,7 @@ bool __cdecl RailClear(Mth::Vector a, Mth::Vector b)
     Mth::Vector along = {static_cast<float>(static_cast<double>(b.x) - a.x), 0.0f,
                          static_cast<float>(static_cast<double>(b.z) - a.z),
                          static_cast<float>(static_cast<double>(b.w) - a.w)};
-    GameFunction<void(__thiscall*)(Mth::Vector*, float)>(0x0042BBF0)(&along, 7.0f);
+    along.SetLength(7.0f);
     const float acrossX = along.z, acrossY = along.y, acrossZ = static_cast<float>(-static_cast<double>(along.x)),
                 acrossW = along.w;
     auto sub = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
@@ -428,7 +434,7 @@ int CRailNode::GetWallSide(const Mth::Vector* direction)
 Mth::Matrix* CRailManager::GetClimbMatrix(Mth::Matrix* out, const CRailNode* node)
 {
     Mth::Matrix local;
-    GameFunction<void(__thiscall*)(const Mth::Vector*, Mth::Matrix*)>(0x0042BC40)(&node->m_climb, &local); // the quaternion's
+    reinterpret_cast<const Mth::Quat*>(&node->m_climb)->GetMatrix(&local); // the quaternion's
     local.row[0].w = 0.0f;
     local.row[1].w = 0.0f;
     local.row[2].w = 0.0f;
@@ -486,15 +492,15 @@ void CRailManager::AddNode(uint32_t name, Script::CStruct* params)
         Mth::Vector angles;
         SkateScript::GetAngles(params, &angles);
         Mth::Matrix matrix;
-        Mth::Matrix* built = GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(&matrix, &angles);
+        Mth::Matrix* built = &matrix.InitFromAngles(angles);
         Mth::Vector quat;
-        GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Matrix*)>(0x0042E1F0)(&quat, built);
+        reinterpret_cast<Mth::Quat*>(&quat)->FromMatrix(*built);
         node->m_climb = quat;
     } else {
         node->m_terrain = 0;
         uint32_t terrain = 0; // (the original's: its params argument's slot, the low byte the climbing flag)
         params->GetChecksum(kTerrainType, &terrain, 1);
-        node->m_terrain = GameFunction<uint8_t(__cdecl*)(uint32_t)>(0x004442C0)(terrain);
+        node->m_terrain = static_cast<uint8_t>(Terrain::GetTerrainIndex(terrain));
     }
     BoxOf(&node->m_pos, &node->m_pos, &node->m_min, &node->m_max);
 }
@@ -649,15 +655,15 @@ bool CRailManager::FindLadder(const Mth::Vector* pos, float radius, float height
         Mth::Matrix matrix;
         if (up) {
             Mth::Matrix* orientation = GetClimbMatrix(&matrix, node);
-            if (GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, Mth::Matrix*, uint32_t)>(0x004418B0)(
-                    checker, &node->m_pos, &other->m_pos, orientation, extra)) {
+            if (static_cast<CWalkComponent*>(checker)->CheckLadderBottom(&node->m_pos, &other->m_pos, orientation,
+                                                                          reinterpret_cast<Record24*>(extra))) {
                 *found = node;
                 return true;
             }
         } else {
             Mth::Matrix* orientation = GetClimbMatrix(&matrix, other);
-            if (GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, Mth::Matrix*, uint32_t)>(0x00441260)(
-                    checker, &other->m_pos, &node->m_pos, orientation, extra)) {
+            if (static_cast<CWalkComponent*>(checker)->CheckLadderTop(&other->m_pos, &node->m_pos, orientation,
+                                                                       reinterpret_cast<Record24*>(extra))) {
                 *found = other;
                 return true;
             }
@@ -712,16 +718,14 @@ bool CRailManager::FindLadderOnLine(const Mth::Vector* start, const Mth::Vector*
         if (node->m_pos.y < next->m_pos.y) {
             // Climbing up from this node.
             Mth::Matrix* orientation = GetClimbMatrix(&matrix, node);
-            if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, Mth::Matrix*,
-                                                const Mth::Vector*, float, Record24*)>(0x004413E0)(
-                    checker, &node->m_pos, &next->m_pos, orientation, &onRail, t, &record))
+            if (!static_cast<CWalkComponent*>(checker)->CheckLadderLine(&node->m_pos, &next->m_pos, orientation, &onRail, t,
+                                                                         &record))
                 continue;
             *found = node;
         } else {
             Mth::Matrix* orientation = GetClimbMatrix(&matrix, next);
-            if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, Mth::Matrix*,
-                                                const Mth::Vector*, float, Record24*)>(0x004413E0)(
-                    checker, &next->m_pos, &node->m_pos, orientation, &onRail, static_cast<float>(1.0 - t), &record))
+            if (!static_cast<CWalkComponent*>(checker)->CheckLadderLine(&next->m_pos, &node->m_pos, orientation, &onRail,
+                                                                         static_cast<float>(1.0 - t), &record))
                 continue;
             *found = next;
         }
@@ -789,9 +793,7 @@ bool CRailManager::FindRail(const Mth::Vector* start, const Mth::Vector* end, co
         Mth::Vector* railAt = ToWorld(&railWorld, &onRail);
         Mth::Vector* nextPos = GetWorldPos(&nextAt, next);
         Mth::Vector* nodePos = GetWorldPos(&nodeAt, node);
-        if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, const Mth::Vector*,
-                                            const Mth::Vector*, float, Record34*, int)>(0x00440690)(
-                checker, nodePos, nextPos, railAt, lineAt, t, &record, 0))
+        if (!static_cast<CWalkComponent*>(checker)->CheckRail(nodePos, nextPos, railAt, lineAt, t, &record, false))
             continue;
         best = distanceSquared;
         result->Assign(&record);

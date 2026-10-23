@@ -6,10 +6,12 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/core/alloc.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/player_info.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -62,22 +64,24 @@ inline uint32_t GameType() { return Call<uint32_t>(0x005532A0, GameMode()); }
 inline uint8_t* GoalManager() { return GameFunction<uint8_t*(__cdecl*)()>(0x005591B0)(); }
 inline uint8_t* GetGoal(uint8_t* goals, uint32_t name) { return Call<uint8_t*>(0x00557F90, goals, name, 1); }
 
-// The manager's players (GameNet::PlayerInfo, not rewritten yet): +0x14 the skater, +0x18 the connection, +0x30 the
-// team, +0x38 the name, +0x1D0 flags.
+// The manager's players (GameNet::PlayerInfo, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the
+// connection, +0x30 the team, +0x38 the name, +0x1D0 flags.
+inline PlayerInfo* AsPlayer(const uint8_t* player) { return reinterpret_cast<PlayerInfo*>(const_cast<uint8_t*>(player)); }
 inline uint8_t* PlayerByConnection(Manager* manager, Net::Conn* conn)
 {
-    return Call<uint8_t*>(0x0053AE10, manager, conn);
+    return manager->PlayerByConnection(conn);
 }
 // (the original pushes the id as 16 bits)
-inline uint8_t* PlayerByObjectId(Manager* manager, uint16_t id) { return Call<uint8_t*, uint16_t>(0x0053AEA0, manager, id); }
+inline uint8_t* PlayerByObjectId(Manager* manager, uint16_t id) { return manager->PlayerByObjectId(id); }
 inline uint8_t* PlayerByObjectId(Manager* manager, const uint8_t* id) // a signed byte, widened
 {
     return PlayerByObjectId(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
 }
-inline uint8_t* LocalPlayer(Manager* manager) { return Call<uint8_t*>(0x00537320, manager); }
-inline uint8_t* KingOfTheHill(Manager* manager) { return Call<uint8_t*>(0x00537480, manager); }
-inline bool IsLocalPlayer(const uint8_t* player) { return Call<bool>(0x00543300, player); }
-inline bool IsObserver(const uint8_t* player) { return Call<bool>(0x00543320, player); }
+inline uint8_t* LocalPlayer(Manager* manager) { return static_cast<uint8_t*>(manager->GetLocalPlayer()); }
+inline uint8_t* KingOfTheHill(Manager* manager) { return static_cast<uint8_t*>(manager->GetKingOfTheHill()); }
+// (0 or 1 in EAX: the original's callers test AL)
+inline bool IsLocalPlayer(const uint8_t* player) { return AsPlayer(player)->IsLocalPlayer() != 0; }
+inline bool IsObserver(const uint8_t* player) { return AsPlayer(player)->IsObserver() != 0; }
 inline Obj::CObject* PlayerSkater(const uint8_t* player) { return Field<Obj::CObject*>(player, 0x14); }
 inline uint32_t SkaterId(const void* skater) { return Field<uint32_t>(skater, 0x14); }
 inline const char* PlayerName(uint8_t* player) { return reinterpret_cast<const char*>(player + 0x38); }
@@ -95,24 +99,23 @@ struct NewPlayerSearch {
 };
 inline uint8_t* FirstPlayer(Manager* manager, PlayerSearch* search, bool observers)
 {
-    return Call<uint8_t*>(0x005372C0, manager, search, observers);
+    return static_cast<uint8_t*>(manager->FirstPlayerInfo(search, observers));
 }
 inline uint8_t* NextPlayer(Manager* manager, PlayerSearch* search, bool observers)
 {
-    return Call<uint8_t*>(0x00537010, manager, search, observers);
+    return static_cast<uint8_t*>(manager->NextPlayerInfo(search, observers));
 }
 inline uint8_t* FirstNewPlayer(Manager* manager, NewPlayerSearch* search)
 {
-    return Call<uint8_t*>(0x00537070, manager, search);
+    return static_cast<uint8_t*>(manager->FirstNewPlayerInfo(search));
 }
-// (0x004573D0 is the lists' generic next item - App::NextConnection; the manager is passed as its `this`)
 inline uint8_t* NextNewPlayer(Manager* manager, NewPlayerSearch* search)
 {
-    return Call<uint8_t*>(0x004573D0, manager, search);
+    return static_cast<uint8_t*>(manager->NextNewPlayerInfo(search));
 }
 
 // A player's connection's handle, for App::EnqueueMessage (0x005434A0: 0 without a connection).
-inline int PlayerHandle(uint8_t* player) { return Call<int>(0x005434A0, player); }
+inline int PlayerHandle(uint8_t* player) { return AsPlayer(player)->GetConnHandle(); }
 
 // A message for the server through `app` (a client).
 inline void SendToServer(Net::App* app, Net::MsgDesc* desc)

@@ -10,9 +10,11 @@
 #include "game/front/screen_element.h"
 #include "game/front/screen_element_manager.h"
 #include "game/net/gamenet_manager.h"
+#include "game/obj/vibration_component.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/sio/inpman.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -81,7 +83,7 @@ void PlaceHandler(CInputComponent::Handler* handler, uint8_t* manager, int serve
 }
 int PlayerController(int player)
 {
-    return GameFunction<int(__thiscall*)(uint8_t*, int)>(0x0044E630)(InputManager(), player);
+    return reinterpret_cast<Inp::Manager*>(InputManager())->GetPlayerController(player);
 }
 
 // A new handler (on the current heap).
@@ -197,7 +199,7 @@ void CInputComponent::BindToController(int controller)
     ServerHandlers(manager, 1)->AddTask(handler2);
     PlaceHandler(handler2, manager, 1);
     if (CBaseComponent* vibration = m_object->GetComponent(kVibration))
-        GameFunction<void(__thiscall*)(CBaseComponent*, void*)>(0x0043D5C0)(vibration, mp_handler->m_device);
+        static_cast<CVibrationComponent*>(vibration)->SetDevice(reinterpret_cast<Sio::Device*>(mp_handler->m_device));
 }
 
 // 0x0041F170

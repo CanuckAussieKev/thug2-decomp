@@ -8,7 +8,11 @@
 #include <map>
 #include <vector>
 
+#include "game/ass/assman.h"
+#include "game/gfx/camera.h"
 #include "game/obj/anim_movies.h"
+#include "game/obj/movie_manager.h"
+#include "game/obj/node_objects.h"
 #include "game/obj/trick_objects.h"
 #include "hook/viewer_testkit.h"
 
@@ -58,28 +62,28 @@ void Install(StandIns& s)
         return r.ecx;
     });
     // The base movie.
-    s.At({0x00468FB0}, 0, [](Regs& r) {
+    s.At({0x00468FB0, AddressOf(&Obj::CMovieDetails::Construct)}, 0, [](Regs& r) {
         Rec(0x8FB0, {r.ecx});
         std::memset(reinterpret_cast<void*>(r.ecx), 0x11, 0x2C);
         return r.ecx;
     });
-    s.At({0x00469230}, 0, [](Regs& r) {
+    s.At({0x00469230, AddressOf(&Obj::CMovieDetails::DestroyBody)}, 0, [](Regs& r) {
         Rec(0x9230, {r.ecx, *reinterpret_cast<uint32_t*>(r.ecx)});
         return 0u;
     });
-    s.At({0x00469050}, 4, [](Regs& r) {
+    s.At({0x00469050, AddressOf(&Obj::CMovieDetails::InitFromStructure)}, 4, [](Regs& r) {
         Rec(0x9050, {r.ecx, r.args[0]});
         return 1u;
     });
-    s.At({0x00468F50}, 4, [](Regs& r) {
+    s.At({0x00468F50, AddressOf(&Obj::CMovieDetails::SetFlag1B)}, 4, [](Regs& r) {
         Rec(0x8F50, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00543150}, 0, [](Regs& r) {
+    s.At({0x00543150, AddressOf(&Obj::MovieName)}, 0, [](Regs& r) {
         Rec(0x3150, {r.ecx});
         return 0x4A11E0u;
     });
-    s.At({0x00407C00}, 8, [](Regs& r) {
+    s.At({0x00407C00, AddressOf(&Ass::CAssMan::GetAssetData)}, 8, [](Regs& r) {
         Rec(0x7C00, {r.ecx, r.args[0], r.args[1]});
         return g_asset ? At(kAsset) : 0u;
     });
@@ -120,11 +124,11 @@ void Install(StandIns& s)
         Rec(0x2F40, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF});
         return 0u;
     });
-    s.At({0x00485B20}, 4, [](Regs& r) {
+    s.At({0x00485B20, AddressOf(&Gfx::Camera::SetHFOV)}, 4, [](Regs& r) {
         Rec(0x5B20, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00485A50}, 0, [](Regs& r) {
+    s.At({0x00485A50, AddressOf(&Gfx::Camera::StoreOldPos)}, 0, [](Regs& r) {
         Rec(0x5A50, {r.ecx});
         return 0u;
     });

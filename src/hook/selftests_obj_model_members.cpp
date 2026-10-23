@@ -15,7 +15,9 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
 #include "game/obj/model_component.h"
+#include "game/obj/model_component_nx.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
@@ -168,7 +170,7 @@ void StandIn(StandIns& s)
     RecBools(s, {0x0048DE30}, 1, 0xDE30, 1);
     Rec(s, {0x0048E480}, 2, 0xE480, [](Regs& r) { return g_trace.push_back(*reinterpret_cast<uint32_t*>(r.args[1])), 0u; });
     RecBools(s, {0x0048E4C0}, 2, 0xE4C0, 2);
-    Rec(s, {0x004E3F90}, 2, 0x3F90, [](Regs& r) {
+    Rec(s, {0x004E3F90, AddressOf(&Obj::ModelNx::SetLightsDirection)}, 2, 0x3F90, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[1]);
         g_trace.insert(g_trace.end(), {v[0], v[1], v[2], v[3]});
         return 0u;
@@ -177,9 +179,9 @@ void StandIn(StandIns& s)
     Rec(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, 0xECE0,
         [](Regs&) { return static_cast<uint32_t>(g_a.clock); }, false);
     Rec(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0, 0xE970, [](Regs&) { return g_a.time; }, false);
-    Rec(s, {0x0053AEA0}, 1, 0xAEA0, [](Regs&) { return g_a.havePlayer ? Addr(kPlayer) : 0u; });
-    Rec(s, {0x00543300}, 0, 0x3300, [](Regs&) { return g_a.localPlayer ? 1u : 0u; });
-    Rec(s, {0x005434B0}, 0, 0x34B0, [](Regs&) { return 2u; });
+    Rec(s, {0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 1, 0xAEA0, [](Regs&) { return g_a.havePlayer ? Addr(kPlayer) : 0u; });
+    Rec(s, {0x00543300, AddressOf(&GameNet::PlayerInfo::IsLocalPlayer)}, 0, 0x3300, [](Regs&) { return g_a.localPlayer ? 1u : 0u; });
+    Rec(s, {0x005434B0, AddressOf(&GameNet::PlayerInfo::GetSkaterValue2BC)}, 0, 0x34B0, [](Regs&) { return 2u; });
     Rec(s, {0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 1, 0x2EA0, [](Regs&) { return Addr(kApp); });
     Rec(s, {0x004549F0, AddressOf(&Net::MsgDesc::Construct)}, 0, 0x49F0, [](Regs& r) {
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 0x20);

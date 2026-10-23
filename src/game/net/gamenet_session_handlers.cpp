@@ -7,15 +7,19 @@
 
 #include "game/core/manager.h"
 #include "game/core/task.h"
+#include "game/net/gamenet_commands.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_manager.h"
+#include "game/obj/object.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
+#include "game/skater/skater.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -167,28 +171,28 @@ int __cdecl HandleFindServer(Net::MsgHandlerContext* context)
     CopyName(name, serverName);
     Net::App* server = manager->m_server;
     info.skillLevel = static_cast<uint8_t>(manager->GetSkillLevel());
-    info.numPlayers = static_cast<int8_t>(Call<int>(0x00539B00, manager));
+    info.numPlayers = static_cast<int8_t>(manager->CountPlayers());
     info.maxPlayers = static_cast<int8_t>(manager->GetMaxPlayers());
-    info.numObservers = static_cast<int8_t>(Call<int>(0x00539C70, manager));
+    info.numObservers = static_cast<int8_t>(manager->CountObservers());
     info.maxObservers = static_cast<int8_t>(manager->GetMaxObservers());
     if (info.maxPlayers < info.numPlayers)
         info.maxPlayers = info.numPlayers;
     if (info.maxObservers < info.numObservers)
         info.maxObservers = info.numObservers;
-    info.password = *Call<const char*>(0x00534310, manager) != '\0';
+    info.password = *manager->GetPassword() != '\0';
     info.inGame = GameType() != kNetLobby;
     info.hostMode = static_cast<uint8_t>(manager->GetHostMode());
     info.loggedIn = manager->InInternetMode() && Field<bool>(manager->m_buddyMan, 0x10);
     CopyName(info.name, name);
     std::sprintf(info.level, "%s", manager->GetLevelName(true));
-    std::sprintf(info.mode, "%s", Call<const char*>(0x00536A40, manager));
+    std::sprintf(info.mode, "%s", manager->GetGameTypeName());
     // The players' names (not observers, unless 0x005434C0), then the new players' not among them yet.
     uint8_t ids[8] = {};
     int idCount = 0;
     info.time = Field<uint32_t>(msg, 0);
     int named = 0;
     for (uint8_t* player = FirstPlayer(manager, &players, true); player; player = NextPlayer(manager, &players, true)) {
-        if (IsObserver(player) && !Call<bool>(0x005434C0, player))
+        if (IsObserver(player) && !AsPlayer(player)->IsPendingObserver())
             continue;
         if (PlayerSkater(player))
             ids[idCount++] = static_cast<uint8_t>(SkaterId(PlayerSkater(player)));
@@ -218,17 +222,15 @@ int __cdecl HandleFindServer(Net::MsgHandlerContext* context)
 int __cdecl HandleHostOptions(Net::MsgHandlerContext* context)
 {
     Manager* manager = ManagerOf(context);
-    uint8_t* host = Call<uint8_t*>(0x005373D0, manager); // (the host's own player)
+    auto* host = static_cast<uint8_t*>(manager->GetServerPlayer()); // (the host's own player)
     if (!host || Field<Net::Conn*>(host, 0x18) != context->m_Conn)
         return kDone;
     const uint8_t* msg = Message(context);
     auto word = [msg](uint32_t offset) { return Field<uint32_t>(msg, offset); };
-    // (0x00534F50 / 0x00534FC0: the text / a field of the entry with that checksum in a global list)
-    auto optionText = [manager](uint32_t list, uint32_t value) {
-        return Call<const char*>(0x00534F50, manager, list, value);
-    };
+    // (the text / a field of the entry with that checksum in a global list)
+    auto optionText = [manager](uint32_t list, uint32_t value) { return manager->GetChoiceName(list, value); };
     auto optionField = [manager](uint32_t list, uint32_t value, uint32_t field) {
-        return Call<int>(0x00534FC0, manager, list, value, field);
+        return manager->GetChoiceInteger(list, value, field);
     };
     switch (context->m_MsgId) {
     case 0x60: {
@@ -301,7 +303,7 @@ int __cdecl HandleHostOptions(Net::MsgHandlerContext* context)
             return kDone;
         Obj::CObject* skater = PlayerSkater(player);
         bool observer = IsObserver(player);
-        Call(0x0053CB70, manager, player, msg[0] == 1 ? 3 : 4);
+        manager->DropPlayer(player, msg[0] == 1 ? 3 : 4);
         if (!observer)
             Call(0x00565790, Skate(), skater);
         break;
@@ -348,7 +350,7 @@ int __cdecl HandleHostOptions(Net::MsgHandlerContext* context)
         }
         NetworkPreferences(manager)->SetPreference(kTeamMode, params);
         DeleteParams(params);
-        GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x005388F0)(count, nullptr); // SetNumTeams
+        CFunc_SetNumTeams(count, nullptr);
         DeleteParams(count);
         break;
     }
@@ -365,7 +367,7 @@ int __cdecl HandleChangeLevel(Net::MsgHandlerContext* context)
 {
     Manager* manager = ManagerOf(context);
     const uint8_t* msg = Message(context);
-    Call(0x00537B30, manager);
+    manager->ClearQueuedScripts();
     manager->m_gameOver = false;
     if (!msg[4])
         return kContinue;
@@ -391,8 +393,8 @@ int __cdecl HandleChangeLevel(Net::MsgHandlerContext* context)
         Call(0x004F7550, GameFunction<void*(__cdecl*)()>(0x004F4970)()); // the created park's rails gone
     }
     logicTasks->AddTask(changeTask);
-    Call(0x005376F0, manager, false, kChangingLevels, manager->GetLevelName(true), static_cast<const char*>(nullptr),
-         0, 0, false, 5000);
+    manager->CreateNetPanelMessage(false, kChangingLevels, manager->GetLevelName(true), nullptr, nullptr, nullptr, false,
+                                   5000);
     Run(kHideConsoleWindow);
     return kDone;
 }
@@ -412,8 +414,8 @@ int __cdecl HandleStartGame(Net::MsgHandlerContext* context)
     Field<bool>(manager, 0x1B5) = false;
     for (uint8_t* p = FirstPlayer(manager, &search, false); p; p = NextPlayer(manager, &search, false)) {
         if (!IsLocalPlayer(p)) {
-            Call(0x00581510, PlayerSkater(p));
-            Call(0x005814D0, PlayerSkater(p));
+            static_cast<Obj::CSkater*>(PlayerSkater(p))->HideSkater();
+            static_cast<Obj::CSkater*>(PlayerSkater(p))->Reset27C();
         }
     }
     Call(0x00553AD0, GameMode(), word(0));
@@ -452,28 +454,30 @@ int __cdecl HandleStartGame(Net::MsgHandlerContext* context)
     DeleteParams(victory);
     Run(kStartingNewNetGame);
     Call(0x00566A60, skate);
-    Call(0x00537620, manager);
+    manager->ResetPlayers();
     Field<bool>(manager, 0x1B4) = false;
     Field<bool>(manager, 0x3B) = false;
     manager->SetFinalScoresReceived(false);
     manager->SetLastLeader(nullptr);
-    Call(0x005430D0, manager, -1);
+    // The last leading team (+0x1D4) none: the original calls the setter folded at 0x005430D0 (PlayerInfo's
+    // SetReadyQueryOwed, the same offset) on the manager.
+    Field<int>(manager, 0x1D4) = -1;
     manager->SetGameId(msg[0x16]);
     if (word(0) == kNetGoalAttack)
         Run(kInitSelectedGoals);
     manager->m_gameOver = false;
     // Every player's flags and score reset.
     for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true)) {
-        Call(0x00543410, p);
-        Call(0x00543100, p);
+        AsPlayer(p)->ClearFlags();
+        AsPlayer(p)->ClearLastHitTime();
         if (Obj::CObject* skater = PlayerSkater(p)) {
-            uint8_t* score = Call<uint8_t*>(0x0045DB90, skater, kSkaterScore); // its score component
+            auto* score = reinterpret_cast<uint8_t*>(static_cast<Obj::CCompositeObject*>(skater)->GetComponent(kSkaterScore)); // its score component
             if (Field<void*>(score, 0x18))
                 Call(0x00564A10, Field<void*>(score, 0x18));
         }
     }
     if (uint8_t* king = KingOfTheHill(manager))
-        Call(0x00544340, king, false);
+        AsPlayer(king)->MarkAsKing(false);
     // The mode's goal script. (The original reads each type's checksum into its argument's slot, holding the type
     // info array at first: a type without one compares that - or the previous type's checksum.)
     auto checksum = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(types));
@@ -517,7 +521,7 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
     info.variant = 0;
     Net::App* server = manager->m_server;
     if (IsLocalPlayer(player)) {
-        Call(0x00537140, manager, true); // (ready to play)
+        manager->SetReadyToPlay(true); // (ready to play)
     } else {
         if (manager->IsGameOver()) {
             info.gameType = kNetLobby;
@@ -541,10 +545,10 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
             }
         }
         info.gameId = manager->GetGameId();
-        info.level = Call<uint32_t>(0x00534F40, manager);
+        info.level = manager->GetLevel();
         info.teams = Call<uint32_t>(0x00553130, GameMode());
-        info.value18 = Call<uint32_t>(0x00535B20, manager);
-        info.value1C = Call<uint32_t>(0x00535AD0, manager);
+        info.value18 = manager->GetGoalsPreference();
+        info.value1C = manager->GetTeamGraffitiMode();
         info.proSetFlags = Field<uint8_t>(manager, 0x194);
         info.crownSpawnPoint = Field<uint8_t>(manager, 0x68);
         std::memcpy(info.startInfo, &Field<uint32_t>(manager, 0x48), sizeof(info.startInfo));
@@ -556,7 +560,7 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
         desc.m_groupId = kGroupGame;
         server->EnqueueMessage(PlayerHandle(player), &desc);
         if (manager->HasCreatedGoals()) {
-            manager->PrepareCreatedGoals(Call<uint32_t>(0x00534F40, manager));
+            manager->PrepareCreatedGoals(manager->GetLevel());
             void* goals = manager->GetCreatedGoalsMessage();
             auto size = static_cast<uint16_t>(manager->GetCreatedGoalsSize());
             server->StreamMessage(PlayerHandle(player), kMsgGoalsData, size, goals, "goals data", kGroupGame, false,
@@ -586,7 +590,7 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
             // An observer of graffiti: the trick objects' state.
             desc.Construct();
             static uint8_t buffer[0x1100]; // (the original's is on its stack)
-            int size = Call<int>(0x00588520, GameVariable<void*>(0x007CE500), buffer);
+            int size = GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->WriteGraffitiState(buffer);
             server->StreamMessage(PlayerHandle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer,
                                   "TrickObj Buffer", kGroupGame, true, false);
         }
@@ -596,7 +600,7 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
         static uint8_t selected[0x1000];
         selected[0] = 0;
         uint8_t* out = selected + 1;
-        int count = Call<int>(0x00469490, goals);
+        int count = Field<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             uint8_t* goal = Call<uint8_t*>(0x00557FB0, goals, i);
             if (Call<bool>(0x005542F0, goal)) {
@@ -631,8 +635,8 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
     done.m_groupId = kGroupGame;
     server->EnqueueMessage(PlayerHandle(player), &done);
     if (manager->InNetGame()) {
-        Call(0x0053A1B0, manager, player);
-        Call(0x00539DA0, manager, player);
+        manager->SendFacesTo(player);
+        manager->SendTagTexturesTo(player);
     }
     return kContinue;
 }

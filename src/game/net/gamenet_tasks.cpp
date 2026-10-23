@@ -90,9 +90,9 @@ void __cdecl LevelChangeTask(void* task)
         return;
     Call(0x00565A00, Skate(), manager->m_level); // the level changed
     if (uint8_t* king = KingOfTheHill(manager))
-        Call(0x00544340, king, false);
+        AsPlayer(king)->MarkAsKing(false);
     for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true))
-        Call(0x00543410, p); // carries no flag
+        AsPlayer(p)->ClearFlags(); // carries no flag
     Field<Tsk::BaseTask*>(manager, 0xEC)->Remove();
 }
 

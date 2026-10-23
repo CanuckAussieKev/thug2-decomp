@@ -8,6 +8,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/stubs.h"
 #include "game/file/asset_bundle.h"
 #include "game/gfx/camera.h"
 #include "game/obj/cutscene.h"
@@ -139,7 +140,7 @@ bool CCutsceneData::Load(const char* path, int a2, int /*unused*/, const uint32_
     }
     if (m_flag34B0)
         Pcm::StopMusic();
-    GameFunction<bool(__cdecl*)()>(0x005B6570)(); // (a stub: true)
+    Stubs::ReturnTrue(); // (0x005B6570: a jump to the shared stub, true)
     const char* name = CutsceneNameFromPath(path);
     if (m_flag34B0)
         std::memcpy(ShotName(), name, std::strlen(name) + 1);

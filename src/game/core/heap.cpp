@@ -3,7 +3,9 @@
 
 #include "game/core/alloc.h"
 #include "game/core/dbg.h"
+#include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/script/cfuncs_engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -35,12 +37,12 @@ uint8_t* EndOf(BlockHeader* header)
     return reinterpret_cast<uint8_t*>(header) + kBlockHeaderSize + header->size;
 }
 
-// The memory manager's heap lookup by name checksum (not rewritten yet), and the heap dump.
+// The memory manager's heap lookup by name checksum, and the heap dump (the script command, without parameters).
 Heap* FindHeap(uint32_t name)
 {
-    return GameFunction<Heap*(__thiscall*)(void*, uint32_t, int)>(0x005BAF50)(GameVariable<void*>(0x007D1800), name, 0);
+    return Manager::Get()->GetNamedHeap(name, 0);
 }
-void DumpHeaps() { GameFunction<bool(__cdecl*)(void*, void*)>(0x00448840)(nullptr, nullptr); }
+void DumpHeaps() { CFuncs::CFunc_DumpHeaps(nullptr, nullptr); }
 
 } // namespace
 

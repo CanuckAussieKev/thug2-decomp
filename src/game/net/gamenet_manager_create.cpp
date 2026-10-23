@@ -10,6 +10,7 @@
 #include "game/net/chat.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_handlers.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
 #include "game/net/service.h"
@@ -42,7 +43,7 @@ Tsk::BaseTask* NewTask(Manager* manager, void* code, int priority)
 {
     auto* task = static_cast<ManagerTask*>(Mem::Calloc(sizeof(ManagerTask)));
     if (task) {
-        GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, priority);
+        reinterpret_cast<Tsk::BaseTask*>(task)->Construct(priority);
         *reinterpret_cast<uint32_t*>(task) = 0x006476F0;
         task->m_code = code;
         task->m_data = manager;
@@ -127,7 +128,7 @@ Manager* Manager::Construct()
     m_joinMode = 0;
     Field<bool>(this, 0xFE09) = false;
     void* memory = Allocate(0x154);
-    m_lobbyMan = memory ? GameFunction<void*(__thiscall*)(void*)>(0x00541870)(memory) : nullptr; // LobbyMan's constructor
+    m_lobbyMan = memory ? static_cast<LobbyMan*>(memory)->Construct() : nullptr;
     memory = Allocate(0x3C8);
     m_vaultMan = memory ? static_cast<VaultMan*>(memory)->Construct() : nullptr;
     memory = Allocate(0x3C);

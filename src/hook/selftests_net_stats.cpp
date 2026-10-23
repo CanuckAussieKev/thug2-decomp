@@ -16,6 +16,7 @@
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
+#include "game/net/player_info.h"
 #include "game/net/stats_man.h"
 #include "game/net/vault_man.h"
 #include "game/obj/object.h"
@@ -180,10 +181,10 @@ void Install(StandIns& s)
         }));
     }
     // The manager.
-    Stub(s, {0x00536A40}, 0, 0x6A40, [](Regs&) { return reinterpret_cast<uint32_t>("Trick Attack"); });
-    Stub(s, {0x00534F40}, 0, 0x4F40, [](Regs&) { return 0xABCDu; });
-    Stub(s, {0x00535B70}, 0, 0x5B70, [](Regs&) { return 0xDCBAu; });
-    Stub(s, {0x005436E0}, 4, 0x36E0, [](Regs& r) { return 10000u + r.args[0]; });
+    Stub(s, {0x00536A40, AddressOf(&GameNet::Manager::GetGameTypeName)}, 0, 0x6A40, [](Regs&) { return reinterpret_cast<uint32_t>("Trick Attack"); });
+    Stub(s, {0x00534F40, AddressOf(&GameNet::Manager::GetLevel)}, 0, 0x4F40, [](Regs&) { return 0xABCDu; });
+    Stub(s, {0x00535B70, AddressOf(&GameNet::Manager::GetGameTypePreference)}, 0, 0x5B70, [](Regs&) { return 0xDCBAu; });
+    Stub(s, {0x005436E0, AddressOf(&GameNet::Manager::GetPlayerScore)}, 4, 0x36E0, [](Regs& r) { return 10000u + r.args[0]; });
     Stub(s, {0x005369A0, AddressOf(&GameNet::Manager::GetLevelName)}, 4, 0x69A0,
          [](Regs&) { return reinterpret_cast<uint32_t>("The Level"); });
     Stub(s, {0x00532C50, AddressOf(&GameNet::Manager::GetMaxPlayers)}, 0, 0x2C50, [](Regs&) { return 6u; });
@@ -194,17 +195,17 @@ void Install(StandIns& s)
         RecordDesc(0x7EB1, r.ecx, reinterpret_cast<Net::MsgDesc*>(r.args[1]));
         return 0u;
     });
-    Stub(s, {0x005434A0}, 0, 0x34A0, [](Regs& r) { return 0x700u + (Rel(r.ecx) & 0xFFF); });
+    Stub(s, {0x005434A0, AddressOf(&GameNet::PlayerInfo::GetConnHandle)}, 0, 0x34A0, [](Regs& r) { return 0x700u + (Rel(r.ecx) & 0xFFF); });
     // The players.
     auto next = [](Regs& r) {
         Rec(0x72C0, {r.ecx, r.args[1]});
         return g_playerIndex < g_players.size() ? At(g_players[g_playerIndex++]) : 0u;
     };
-    s.At({0x005372C0}, 8, [next](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [next](Regs& r) {
         g_playerIndex = 0;
         return next(r);
     });
-    s.At({0x00537010}, 8, next);
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, next);
     // The script arrays.
     s.At({0x00479070, AddressOf(static_cast<Script::CArray* (*)(uint32_t)>(&Script::GetArray))}, 0, [](Regs& r) {
         Rec(0x9070, {r.args[0]});

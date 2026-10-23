@@ -9,6 +9,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
+#include "game/mth/quat.h"
 #include "game/obj/compositemgr.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
@@ -251,7 +252,7 @@ void CSkeletonComponent::SpawnCompositeObjectAtBone(uint32_t bone, Script::CArra
 
     params->AddVector(0x7F261953, ToValue(boneMatrix.row[3])); // pos
     Mth::Vector quat;
-    GameFunction<Mth::Vector*(__thiscall*)(Mth::Vector*, const Mth::Matrix*)>(0x0042E1F0)(&quat, &boneMatrix);
+    reinterpret_cast<Mth::Quat*>(&quat)->FromMatrix(boneMatrix);
     if (quat.w > 0.0f)
         params->AddVector(0xC97F3AA9, ToValue(quat)); // Orientation (w kept positive)
     else

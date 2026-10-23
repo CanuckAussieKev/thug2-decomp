@@ -18,9 +18,12 @@
 #include "game/core/task.h"
 #include "game/lst/search.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_status.h"
 #include "game/net/gamenet_handler_util.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/online_text.h"
+#include "game/net/server_list.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
@@ -137,22 +140,19 @@ struct GpRecvBuddyMessageArg {
     char* message;
 };
 
-// The lobby code before this class (not rewritten here).
+// The lobby code before this class (server_list.cpp, buddy_status.cpp).
 // 0x00548040: whether a GP location string is a THUG2 game's: "10thug211:<ip>:<private ip>:<port>:<name>".
-bool IsThug2Location(const char* location) { return GameFunction<bool(__cdecl*)(const char*)>(0x00548040)(location); }
+// (IsThug2Location itself, from server_list.h)
 // 0x005482A0: logged in as `profile` (state 4, the status set online).
-void LoggedIn(BuddyMan* man, int profile) { GameFunction<void(__thiscall*)(BuddyMan*, int)>(0x005482A0)(man, profile); }
+void LoggedIn(BuddyMan* man, int profile) { man->SetLoggedIn(profile); }
 // 0x005484A0 / 0x005484C0: Lst::Node<Buddy> / Lst::Node<BuddyMessage>'s destructors (unlinked).
-void DestroyBuddyNode(Buddy* buddy) { GameFunction<void(__thiscall*)(Buddy*)>(0x005484A0)(buddy); }
-void DestroyMessageNode(BuddyMessage* message)
-{
-    GameFunction<void(__thiscall*)(BuddyMessage*)>(0x005484C0)(message);
-}
+void DestroyBuddyNode(Buddy* buddy) { static_cast<BuddyNode*>(&buddy->m_node)->DestroyBody(); }
+void DestroyMessageNode(BuddyMessage* message) { static_cast<BuddyMessageNode*>(&message->m_node)->DestroyBody(); }
 // 0x00548100: GP's buddy request callback (the request accepted); 0x00548140: the login thread.
 const void* const kOnBuddyRequest = reinterpret_cast<const void*>(0x00548100);
 const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(0x00548140);
 // The lobby (m_lobbyMan): its peer (0x0053F880), and the peer SDK's public address of this machine (0x005FC940).
-void* LobbyPeer(void* lobby) { return GameFunction<void*(__thiscall*)(void*)>(0x0053F880)(lobby); }
+void* LobbyPeer(void* lobby) { return static_cast<LobbyMan*>(lobby)->GetPeer(); }
 uint32_t PeerPublicIp(void* peer) { return GameFunction<uint32_t(__cdecl*)(void*)>(0x005FC940)(peer); }
 
 // A node deleted through its vtable (the scalar deleting destructor, slot 0).

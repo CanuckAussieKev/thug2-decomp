@@ -8,6 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
 #include "game/sys/timer.h"
@@ -41,8 +42,7 @@ void ConstructAppTask(App* app)
 {
     void* task = Mem::Calloc(kTaskSize);
     if (task) {
-        // Tsk::Task's constructor (not decompiled yet)
-        GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, kAppTaskPriority);
+        static_cast<Tsk::BaseTask*>(task)->Construct(kAppTaskPriority); // (Tsk::Task's base)
         Field<App*>(task, 0x1C) = app;
         Field<void**>(task, 0x0) = kAppTaskVtable;
         Field<void*>(task, 0x18) = reinterpret_cast<void*>(&App::SendNetworkData);

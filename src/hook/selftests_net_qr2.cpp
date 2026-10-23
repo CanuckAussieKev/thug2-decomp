@@ -37,7 +37,7 @@ uint32_t ConnAt(int i) { return kConns + 0x80 * static_cast<uint32_t>(i); }
 void Install(StandIns& s)
 {
     StubCdecl(s, {0x005FA010}, 0xA010, 1, [](Regs& r) {
-        Rec(0xA011, {Str(r.args[1])});
+        Rec(0xA011, {GameNetKit::Str(r.args[1])});
         return 0u;
     });
     StubCdecl(s, {0x005FB350}, 0xB350, 2);
@@ -59,7 +59,7 @@ void Install(StandIns& s)
                     return o[1];
             return code;
         };
-        Rec(0xB231, {r.args[0], r.args[1], r.args[2], Str(r.args[3]), Str(r.args[4]), r.args[5], r.args[6],
+        Rec(0xB231, {r.args[0], r.args[1], r.args[2], GameNetKit::Str(r.args[3]), GameNetKit::Str(r.args[4]), r.args[5], r.args[6],
                      callback(r.args[7]), callback(r.args[8]), r.args[9], r.args[10], callback(r.args[11]),
                      r.args[12], r.args[13]});
         return static_cast<uint32_t>(g_qrError);
@@ -70,14 +70,14 @@ void Install(StandIns& s)
     });
     Stub(s, {0x005369A0, AddressOf(&Manager::GetLevelName)}, 4, 0x69A0,
          [](Regs&) { return g_levelNamed ? At(kTexts) : 0u; });
-    Stub(s, {0x00536A40}, 0, 0x6A40, [](Regs&) { return At(kTexts + 0x40); });
-    Stub(s, {0x00539B00}, 0, 0x9B00, [](Regs&) { return 3u; });
-    Stub(s, {0x00539C70}, 0, 0x9C70, [](Regs&) { return 2u; });
+    Stub(s, {0x00536A40, AddressOf(&GameNet::Manager::GetGameTypeName)}, 0, 0x6A40, [](Regs&) { return At(kTexts + 0x40); });
+    Stub(s, {0x00539B00, AddressOf(&GameNet::Manager::CountPlayers)}, 0, 0x9B00, [](Regs&) { return 3u; });
+    Stub(s, {0x00539C70, AddressOf(&GameNet::Manager::CountObservers)}, 0, 0x9C70, [](Regs&) { return 2u; });
     Stub(s, {0x00532CF0, AddressOf(&Manager::GetNumTeams)}, 0, 0x2CF0, [](Regs&) { return 4u; });
     Stub(s, {0x00532C50, AddressOf(&Manager::GetMaxPlayers)}, 0, 0x2C50, [](Regs&) { return 8u; });
     Stub(s, {0x00532D60, AddressOf(&Manager::GetMaxObservers)}, 0, 0x2D60, [](Regs&) { return 6u; });
     Stub(s, {0x00532BE0, AddressOf(&Manager::GetSkillLevel)}, 0, 0x2BE0, [](Regs&) { return 1u; });
-    Stub(s, {0x00534310}, 0, 0x4310, [](Regs&) { return reinterpret_cast<uint32_t>(g_password); });
+    Stub(s, {0x00534310, AddressOf(&GameNet::Manager::GetPassword)}, 0, 0x4310, [](Regs&) { return reinterpret_cast<uint32_t>(g_password); });
     Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
 }
 

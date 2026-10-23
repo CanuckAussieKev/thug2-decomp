@@ -7,11 +7,14 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
+#include "game/mth/quat.h"
+#include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
+#include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -70,31 +73,16 @@ void** const kObjectSearchVtable = reinterpret_cast<void**>(0x00645DFC);
 void RegisterComponent(CBaseComponent* component) { CompositeObjectManager()->AddComponentByType(component); }
 void UnregisterComponent(CBaseComponent* component) { CompositeObjectManager()->RemoveComponentByType(component); }
 CBaseComponent* CreateComponent(uint32_t type) { return CompositeObjectManager()->CreateComponent(type); }
-// The position (pos=) / orientation in a structure, if it has them (cdecl; not rewritten yet).
-void GetPositionFromStructure(CStruct* params, Mth::Vector* pos)
-{
-    GameFunction<void(__cdecl*)(CStruct*, Mth::Vector*)>(0x0045C050)(params, pos);
-}
-void GetOrientationFromStructure(CStruct* params, Mth::Matrix* matrix)
-{
-    GameFunction<void(__cdecl*)(CStruct*, Mth::Matrix*)>(0x0045C0B0)(params, matrix);
-}
+// The position (pos=) / orientation in a structure, if it has them (SkateScript, nodes.h).
+void GetPositionFromStructure(CStruct* params, Mth::Vector* pos) { SkateScript::GetPosition(params, pos); }
+void GetOrientationFromStructure(CStruct* params, Mth::Matrix* matrix) { SkateScript::GetOrientation(params, matrix); }
 
-// The node named `name` (SkateScript, cdecl; not rewritten yet).
-CStruct* GetNode(uint32_t name, int assert)
-{
-    return GameFunction<CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(name, assert);
-}
-// Quaternions (x, y, z, w; not rewritten yet): to a rotation matrix (0x0042BC40, on the quaternion), from one
-// (0x0042E1F0, constructing the quaternion).
-void QuatToMatrix(const float* quat, Mth::Matrix* matrix)
-{
-    GameFunction<void(__thiscall*)(const float*, Mth::Matrix*)>(0x0042BC40)(quat, matrix);
-}
-void MatrixToQuat(float* quat, const Mth::Matrix* matrix)
-{
-    GameFunction<void(__thiscall*)(float*, const Mth::Matrix*)>(0x0042E1F0)(quat, matrix);
-}
+// The node named `name` (SkateScript).
+CStruct* GetNode(uint32_t name, int assert) { return SkateScript::GetNode(name, assert != 0); }
+// Quaternions (x, y, z, w): to a rotation matrix (0x0042BC40, on the quaternion), from one (0x0042E1F0, constructing
+// the quaternion).
+void QuatToMatrix(const float* quat, Mth::Matrix* matrix) { reinterpret_cast<const Mth::Quat*>(quat)->GetMatrix(matrix); }
+void MatrixToQuat(float* quat, const Mth::Matrix* matrix) { reinterpret_cast<Mth::Quat*>(quat)->FromMatrix(*matrix); }
 // A manager's object list (its vtable +0x18).
 Mem::ListNode* ManagerObjectList(CBaseManager* manager)
 {
@@ -162,7 +150,7 @@ inline void PrintObjectDetails(const char* /*text*/) {}
 // from +0x00 to +0x10, tested by 0x004172F0; what it hit is held by a smart pointer at +0x98, its only destructor.
 class CollisionFeeler {
 public:
-    CollisionFeeler() { GameFunction<void*(__thiscall*)(void*)>(0x00417760)(m_bytes); }
+    CollisionFeeler() { reinterpret_cast<Nx::CFeeler*>(m_bytes)->Construct(); }
     ~CollisionFeeler()
     {
         reinterpret_cast<Obj::CSmtPtr<Obj::CRefCounted>*>(m_bytes + 0x98)->~CSmtPtr();
@@ -173,7 +161,7 @@ public:
     Mth::Vector& End() { return *reinterpret_cast<Mth::Vector*>(m_bytes + 0x10); }
     bool GetCollision(bool a, bool b)
     {
-        return GameFunction<bool(__thiscall*)(void*, int, int)>(0x004172F0)(m_bytes, a, b);
+        return reinterpret_cast<Nx::CFeeler*>(m_bytes)->GetCollision(a, b) != 0;
     }
 
 private:

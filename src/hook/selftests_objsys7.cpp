@@ -15,6 +15,8 @@
 #include "game/mth/matrix.h"
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
+#include "game/obj/motion.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/object.h"
 #include "game/obj/path_follower.h"
 #include "game/script/nodes.h"
@@ -100,12 +102,12 @@ void StandInPathWorld(StandIns& s)
         Record({0xC0390000, r.args[0]});
         return 0xC0C0C000u;
     });
-    s.At({0x00423520}, 0, [](Regs&) {
+    s.At({0x00423520, AddressOf(&Obj::CMotionPathMembers::PicksRandomLink)}, 0, [](Regs&) {
         uint32_t random = g_pathAnswers.Below(2);
         Record({0x4A4D0000, random});
         return random;
     });
-    s.At({0x00424020}, 4, [](Regs& r) {
+    s.At({0x00424020, AddressOf(&Obj::CMotionComponent::ArriveAtNode)}, 4, [](Regs& r) {
         Record({0x9A55ED00, r.ecx, r.args[0]});
         return 0u;
     });

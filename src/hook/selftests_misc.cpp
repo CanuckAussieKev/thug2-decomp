@@ -14,14 +14,17 @@
 #include <initializer_list>
 #include <vector>
 
+#include "game/ass/assman.h"
 #include "game/core/memory_sizes.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/core/task.h"
 #include "game/file/async.h"
 #include "game/ed/park_editor.h"
 #include "game/file/pre.h"
+#include "game/front/screen_element_manager.h"
 #include "game/gfx/tod_manager.h"
 #include "game/front/career_complete.h"
 #include "game/front/test_view.h"
@@ -31,18 +34,31 @@
 #include "game/mc/memcard_cfuncs.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/gamenet_lobby.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
 #include "game/net/service.h"
+#include "game/obj/component_types.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
+#include "game/obj/path_manager.h"
 #include "game/obj/tracker.h"
 #include "game/obj/trick_objects.h"
+#include "game/pcm/music.h"
+#include "game/pcm/stream_commands.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
+#include "game/sfx/sfx.h"
 #include "game/sio/device.h"
+#include "game/sio/inpman.h"
+#include "game/skate/profile_manager.h"
+#include "game/skate/records.h"
+#include "game/sys/key_names.h"
 #include "game/sys/main.h"
 #include "game/sys/mlp.h"
+#include "game/sys/module.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
 #include "game/script/node_manager.h"
@@ -114,8 +130,8 @@ void TestServiceTask()
         auto manager = reinterpret_cast<uint32_t>(g_netManager);
         auto memManager = reinterpret_cast<uint32_t>(g_memManager);
         auto self = [=](uint32_t ecx) { return ecx == manager ? 0x3A3Au : ecx; };
-        s->At({0x005453E0}, 4, [=](Regs& r) { Record({0x5E7, self(r.ecx), r.args[0]}); return 0u; });
-        s->At({0x004068F0}, 0, [](Regs& r) { Record({0x4E3, r.ecx}); return 0u; });
+        s->At({0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, [=](Regs& r) { Record({0x5E7, self(r.ecx), r.args[0]}); return 0u; });
+        s->At({0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, [](Regs& r) { Record({0x4E3, r.ecx}); return 0u; });
         s->At({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, [=](Regs& r) {
             Record({0x9054, r.ecx == memManager, r.args[0]});
             return 0u;
@@ -153,17 +169,17 @@ void TestServiceTask()
             Record({0x6E75, r.args[0]});
             return reinterpret_cast<uint32_t>(r.args[0] == 0x78D25623 ? g_messages : "no servers");
         });
-        s->At({0x00451010}, 0, [](Regs& r) { Record({0x9A05, r.args[0]}); return 0u; });
+        s->At({0x00451010, AddressOf(&Pcm::PauseStream)}, 0, [](Regs& r) { Record({0x9A05, r.args[0]}); return 0u; });
         s->At({0x005F8690}, 0, [](Regs& r) { Record({0x6510, Hash(reinterpret_cast<const char*>(r.args[0]))}); return 0u; });
         s->At({0x005F8840}, 0, [](Regs&) { Record({0x6511}); return static_cast<uint32_t>(g_gsiAnswer); });
         s->At({0x005FFB10}, 0, [](Regs&) { Record({0x7417}); return 0u; });
         s->At({0x005FFB20}, 0, [](Regs& r) { Record({0x7CA7, r.args[0]}); return 0u; });
         s->At({0x005FF860}, 0, [](Regs&) { Record({0x7C1E}); return 0u; });
-        s->At({0x00533240}, 4, [=](Regs& r) { Record({0x71D, self(r.ecx), r.args[0]}); return 0u; });
-        s->At({0x005427E0}, 0, [](Regs& r) { Record({0x427E, r.ecx}); return 0u; });
-        s->At({0x005428B0}, 0, [](Regs& r) { Record({0x428B, r.ecx}); return 0u; });
-        s->At({0x00541A10}, 0, [](Regs& r) { Record({0x41A1, r.ecx}); return 0u; });
-        s->At({0x00542970}, 4, [](Regs& r) {
+        s->At({0x00533240, AddressOf(&GameNet::Manager::SetLobbyId)}, 4, [=](Regs& r) { Record({0x71D, self(r.ecx), r.args[0]}); return 0u; });
+        s->At({0x005427E0, AddressOf(&GameNet::LobbyMan::ClearLobbies)}, 0, [](Regs& r) { Record({0x427E, r.ecx}); return 0u; });
+        s->At({0x005428B0, AddressOf(&GameNet::LobbyMan::FillLobbyList)}, 0, [](Regs& r) { Record({0x428B, r.ecx}); return 0u; });
+        s->At({0x00541A10, AddressOf(&GameNet::LobbyMan::StartListingGames)}, 0, [](Regs& r) { Record({0x41A1, r.ecx}); return 0u; });
+        s->At({0x00542970, AddressOf(&GameNet::LobbyMan::GetLobby)}, 4, [](Regs& r) {
             Record({0x4297, r.ecx, r.args[0]});
             return g_lobbyItem;
         });
@@ -298,8 +314,8 @@ void TestLoadFromMemoryCard()
             return p == params ? 0x9A9Au : p == reinterpret_cast<uint32_t>(g_resultParams) ? 0x9E5u : StructId(p);
         };
         auto data = reinterpret_cast<uint32_t>(g_fileData);
-        s->At({0x00450F70}, 0, [](Regs& r) { Record({0x9A05, r.args[0]}); return 0u; });
-        s->At({0x00451010}, 0, [](Regs& r) { Record({0x9A06, r.args[0]}); return 0u; });
+        s->At({0x00450F70, AddressOf(&Pcm::PauseMusic)}, 0, [](Regs& r) { Record({0x9A05, r.args[0]}); return 0u; });
+        s->At({0x00451010, AddressOf(&Pcm::PauseStream)}, 0, [](Regs& r) { Record({0x9A06, r.args[0]}); return 0u; });
         s->At({0x00476630, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))}, 12,
               [=](Regs& r) {
                   Record({0x6E71, id(r.ecx), r.args[0], *reinterpret_cast<uint32_t*>(r.args[1]), r.args[2]});
@@ -383,7 +399,7 @@ void TestLoadFromMemoryCard()
             Record({0x6210, r.eax});
             return static_cast<uint32_t>(g_load.typeVersion);
         });
-        s->At({0x0047A0C0}, 0, [=](Regs& r) {
+        s->At({0x0047A0C0, AddressOf(&Script::ReadFromBuffer)}, 0, [=](Regs& r) {
             uint32_t offset = r.args[1] - data;
             Record({0x47A0, id(r.args[0]), offset, HashBytes(reinterpret_cast<uint8_t*>(r.args[1]), 0x100 - offset)});
             return r.args[1] + 0x30;
@@ -535,8 +551,8 @@ void TestMain()
             Record({0x5EA9, r.ecx == memManager});
             return 0u;
         });
-        s->At({0x004E0DA0}, 0, plain(0xDA0));
-        s->At({0x004E0FE0}, 0, plain(0xFE0));
+        s->At({0x004E0DA0, AddressOf(&Sys::SetKeyNames)}, 0, plain(0xDA0));
+        s->At({0x004E0FE0, AddressOf(&Sys::SetGermanKeyNames)}, 0, plain(0xFE0));
         s->At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
             Record({0xDB6, Hash(reinterpret_cast<const char*>(r.args[0]))});
             const char* format = reinterpret_cast<const char*>(r.args[0]);
@@ -578,13 +594,13 @@ void TestMain()
             uint32_t ours;
         };
         const Create creates[] = {
-            {0x00463730, AddressOf(&Obj::CreateTracker)}, {0x0044F260, AddressOf(&Mlp::CreateManager)}, {0x0044F6F0, 0},
+            {0x00463730, AddressOf(&Obj::CreateTracker)}, {0x0044F260, AddressOf(&Mlp::CreateManager)}, {0x0044F6F0, AddressOf(&Mdl::CreateManager)},
             {0x005BE670, AddressOf(&Sio::CreateManager)},
-            {0x005BC900, AddressOf(&Mc::CreateManager)}, {0x0044E7F0, 0},
+            {0x005BC900, AddressOf(&Mc::CreateManager)}, {0x0044E7F0, AddressOf(&Inp::CreateManager)},
             {0x005B6CA0, AddressOf(&File::CreateAsyncLoaderModule)},
-            {0x00476040, AddressOf(&Script::CreateScriptCache)}, {0x004088E0, 0},
-            {0x0047BA60, 0}, {0x00455880, AddressOf(&Net::CreateManager)}, {0x0045F7A0, AddressOf(&Obj::CreateCompositeObjectManager)}, {0x00589180, AddressOf(&Obj::AcquireTrickObjectManager)}, {0x00553DB0, 0}, {0x0057C0D0, 0},
-            {0x0057EED0, 0}, {0x005691A0, 0}, {0x0054FF80, AddressOf(&Mdl::CreateFrontEnd)}, {0x0053F520, 0}, {0x00590160, AddressOf(&Ed::CParkEditor::Create)}, {0x004ACAF0, 0},
+            {0x00476040, AddressOf(&Script::CreateScriptCache)}, {0x004088E0, AddressOf(&Ass::CreateAssetManager)},
+            {0x0047BA60, AddressOf(&Sfx::CreateManager)}, {0x00455880, AddressOf(&Net::CreateManager)}, {0x0045F7A0, AddressOf(&Obj::CreateCompositeObjectManager)}, {0x00589180, AddressOf(&Obj::AcquireTrickObjectManager)}, {0x00553DB0, 0}, {0x0057C0D0, AddressOf(&Obj::CPlayerProfileManager::Create)},
+            {0x0057EED0, AddressOf(&Records::CGameRecords::Create)}, {0x005691A0, 0}, {0x0054FF80, AddressOf(&Mdl::CreateFrontEnd)}, {0x0053F520, AddressOf(&GameNet::Manager::Create)}, {0x00590160, AddressOf(&Ed::CParkEditor::Create)}, {0x004ACAF0, AddressOf(&Front::CreateScreenElementManager)},
             {0x0045D690, AddressOf(&SkateScript::CreateNodeManager)}, {0x00574540, AddressOf(&Gfx::CreateTODManager)}};
         int index = 0;
         for (const Create& c : creates) {
@@ -599,12 +615,12 @@ void TestMain()
             ++index;
         }
         const Create releases[] = {
-            {0x00574910, AddressOf(&Gfx::ReleaseTODManager)}, {0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)}, {0x004AACF0, 0}, {0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, {0x005395C0, 0}, {0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
-            {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, AddressOf(&Obj::ReleaseTrickObjectManager)}, {0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
-            {0x004558D0, AddressOf(&Net::ReleaseManager)}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
-            {0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)}, {0x0044E6B0, 0},
+            {0x00574910, AddressOf(&Gfx::ReleaseTODManager)}, {0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)}, {0x004AACF0, AddressOf(&Front::DeleteScreenElementManager)}, {0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, {0x005395C0, AddressOf(&GameNet::ReleaseManager)}, {0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
+            {0x00564C10, 0}, {0x0057FDB0, AddressOf(&Records::CGameRecords::Release)}, {0x0057C120, AddressOf(&Obj::CPlayerProfileManager::Release)}, {0x00552F70, 0}, {0x005880E0, AddressOf(&Obj::ReleaseTrickObjectManager)}, {0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
+            {0x004558D0, AddressOf(&Net::ReleaseManager)}, {0x0047C6C0, AddressOf(&Sfx::ReleaseManager)}, {0x00407980, AddressOf(&Ass::ReleaseAssetManager)}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
+            {0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)}, {0x0044E6B0, AddressOf(&Inp::ReleaseManager)},
             {0x005BC950, AddressOf(&Mc::ReleaseManager)}, {0x005BDCF0, AddressOf(&Sio::ReleaseManager)},
-            {0x0044F740, 0}, {0x0044F2B0, AddressOf(&Mlp::ReleaseManager)}, {0x00461FA0, AddressOf(&Obj::ReleaseTracker)},
+            {0x0044F740, AddressOf(&Mdl::ReleaseManager)}, {0x0044F2B0, AddressOf(&Mlp::ReleaseManager)}, {0x00461FA0, AddressOf(&Obj::ReleaseTracker)},
             {0x005B9510, AddressOf(&Pre::DestroyManager)}};
         index = 0;
         for (const Create& c : releases) {
@@ -615,7 +631,7 @@ void TestMain()
                 s->At({c.address}, 0, handler);
             ++index;
         }
-        s->At({0x0044E610}, 4, [](Regs& r) { Record({0xE610, SingletonId(r.ecx), r.args[0] & 0xFF}); return 0u; });
+        s->At({0x0044E610, AddressOf(&Inp::Manager::SetOverridePadWithStick)}, 4, [](Regs& r) { Record({0xE610, SingletonId(r.ecx), r.args[0] & 0xFF}); return 0u; });
         s->At({0x005A5E70}, 0, plain(0x5E70));
         s->At({0x005A5B20}, 0, plain(0x5B20));
         // (not original - the level editor's script commands, registered after 0x005A5E70: ours only, not recorded)
@@ -627,14 +643,14 @@ void TestMain()
         // (and the test views' - game/front/test_view.h)
         s->At({Resolve(reinterpret_cast<const void*>(&Front::TestView::RegisterScriptFunctions))}, 0,
               [](Regs&) { return 0u; });
-        s->At({0x004694E0}, 0, plain(0x94E0));
-        s->At({0x004E4860}, 0, plain(0x4860));
-        s->At({0x00406C90}, 4, recordArg(0x6C90));
-        s->At({0x00406CB0}, 0, record(0x6CB0));
-        s->At({0x0044F3C0}, 4, recordArg(0xF3C0));
-        s->At({0x0044F310}, 4, recordArg(0xF310));
-        s->At({0x0044F3E0}, 4, recordArg(0xF3E0));
-        s->At({0x0044F530}, 0, record(0xF530));
+        s->At({0x004694E0, AddressOf(&Obj::CPathManager::Instance)}, 0, plain(0x94E0));
+        s->At({0x004E4860, AddressOf(&Obj::RegisterComponentTypes)}, 0, plain(0x4860));
+        s->At({0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, recordArg(0x6C90));
+        s->At({0x00406CB0, AddressOf(&Tsk::Stack::RemoveAllTasks)}, 0, record(0x6CB0));
+        s->At({0x0044F3C0, AddressOf(&Mdl::Manager::RegisterModule)}, 4, recordArg(0xF3C0));
+        s->At({0x0044F310, AddressOf(&Mdl::Manager::StartModule)}, 4, recordArg(0xF310));
+        s->At({0x0044F3E0, AddressOf(&Mdl::Manager::UnregisterModule)}, 4, recordArg(0xF3E0));
+        s->At({0x0044F530, AddressOf(&Mdl::Manager::StopAllModules)}, 0, record(0xF530));
         s->At({0x0048C1D0}, 0, [](Regs& r) { Record({0xC1D0, r.args[0]}); return 0u; });
         s->At({0x0044EEF0, AddressOf(&Mlp::Manager::MainLoop)}, 0, record(0xEEF0));
         void* exitThunk = s->At({Resolve(reinterpret_cast<const void*>(&Sys::FastExit))}, 0, plain(0xFA57));

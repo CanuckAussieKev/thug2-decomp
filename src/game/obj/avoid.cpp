@@ -10,6 +10,9 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/nx/feeler.h"
+#include "game/obj/anim_blender.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/smtptr.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
@@ -54,30 +57,28 @@ CCompositeObject* LocalSkater()
     return GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00566520)(GameVariable<void*>(0x007CE478));
 }
 
-// The animation blender's (component 0x7149B753; not rewritten yet).
+// The animation blender's (component 0x7149B753).
+CAnimBlenderComponent* Blender(CBaseComponent* blender) { return static_cast<CAnimBlenderComponent*>(blender); }
 void PlayAnim(CBaseComponent* blender, uint32_t anim, int unknown)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, uint32_t, int)>(0x00419A90)(blender, anim, unknown);
+    Blender(blender)->PlayAnimation(anim, static_cast<uint32_t>(unknown));
 }
-float AnimDuration(CBaseComponent* blender, uint32_t anim)
-{
-    return GameFunction<float(__thiscall*)(CBaseComponent*, uint32_t)>(0x00419AF0)(blender, anim);
-}
+float AnimDuration(CBaseComponent* blender, uint32_t anim) { return Blender(blender)->GetValue(anim); }
+// (each channel's 0x0047DC40 with these: AnyChannel - its result unused here)
 void FlipAnims(CBaseComponent* blender, uint32_t objectId, bool flip, int a, int b)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, uint32_t, bool, int, int)>(0x00419C10)(blender, objectId, flip, a,
-                                                                                         b);
+    Blender(blender)->AnyChannel(objectId, flip ? 1u : 0u, static_cast<uint32_t>(a), static_cast<uint32_t>(b));
 }
-bool AnimComplete(CBaseComponent* blender) { return GameFunction<bool(__thiscall*)(CBaseComponent*)>(0x00419CD0)(blender); }
-// The motion component's (0x0A015E17) 0x00423510 (null, or something with a point at +0x74).
-uint8_t* MotionPath(CBaseComponent* motion) { return GameFunction<uint8_t*(__thiscall*)(CBaseComponent*)>(0x00423510)(motion); }
+bool AnimComplete(CBaseComponent* blender) { return Blender(blender)->IsAnimComplete(); }
+// The motion component's (0x0A015E17) path follower, 0x00423510 (null, or something with a point at +0x74).
+uint8_t* MotionPath(CBaseComponent* motion)
+{
+    return static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
+}
 uint32_t& MotionFlags(CBaseComponent* motion) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(motion) + 0x1C); }
 
-// `out` = `in` (all four) times `m`, summed as 0x0040AF60 does (not rewritten yet).
-void Transform(const Mth::Matrix& m, Mth::Vector& out, const Mth::Vector& in)
-{
-    GameFunction<void(__thiscall*)(const Mth::Matrix*, Mth::Vector*, const Mth::Vector*)>(0x0040AF60)(&m, &out, &in);
-}
+// `out` = `in` (all four) times `m`, summed as 0x0040AF60 does.
+void Transform(const Mth::Matrix& m, Mth::Vector& out, const Mth::Vector& in) { m.Transform(out, in); }
 // D3DXMatrixMultiply (linked library code).
 void D3dxMultiply(Mth::Matrix& out, const Mth::Matrix& a, const Mth::Matrix& b)
 {
@@ -88,13 +89,13 @@ void D3dxMultiply(Mth::Matrix& out, const Mth::Matrix& a, const Mth::Matrix& b)
 // by 0x004172F0; what it hit is held by a smart pointer at +0x98.
 class Feeler {
 public:
-    Feeler() { GameFunction<void*(__thiscall*)(void*)>(0x00417760)(m_bytes); }
+    Feeler() { reinterpret_cast<Nx::CFeeler*>(m_bytes)->Construct(); }
     ~Feeler() { reinterpret_cast<CSmtPtr<CRefCounted>*>(m_bytes + 0x98)->~CSmtPtr(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     Mth::Vector& Start() { return *reinterpret_cast<Mth::Vector*>(m_bytes); }
     Mth::Vector& End() { return *reinterpret_cast<Mth::Vector*>(m_bytes + 0x10); }
-    bool GetCollision(int a, int b) { return GameFunction<bool(__thiscall*)(void*, int, int)>(0x004172F0)(m_bytes, a, b); }
+    bool GetCollision(int a, int b) { return reinterpret_cast<Nx::CFeeler*>(m_bytes)->GetCollision(a != 0, b != 0) != 0; }
 
 private:
     alignas(16) uint8_t m_bytes[0xB0];

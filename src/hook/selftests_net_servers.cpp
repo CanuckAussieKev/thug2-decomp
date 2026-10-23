@@ -14,12 +14,14 @@
 #include "game/core/dbg.h"
 #include "game/core/task.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_man.h"
 #include "game/net/net_conn.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_manager.h"
 #include "game/net/server_list.h"
+#include "game/net/vault_man.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
@@ -122,21 +124,21 @@ void Install(StandIns& s)
          12, getString);
     s.At({0x00476C60}, 12, getString);
     // The game's other code.
-    Stub(s, {0x00540220}, 0, 0x0220);
-    s.At({0x00548320}, 12, [](Regs& r) {
+    Stub(s, {0x00540220, AddressOf(&GameNet::LobbyMan::StartHosting)}, 0, 0x0220);
+    s.At({0x00548320, AddressOf(&GameNet::BuddyMan::SetStatus)}, 12, [](Regs& r) {
         Rec(0x8321, {r.ecx, r.args[0], Text(r.args[1]), Text(r.args[2])});
         return 0u;
     });
     Stub(s, {0x004548F0, AddressOf(&Net::Manager::GetLocalAddress)}, 0, 0x48F0, [](Regs&) { return 0x0100007Fu; });
-    Stub(s, {0x00534D50}, 0, 0x4D50);
+    Stub(s, {0x00534D50, AddressOf(&GameNet::Manager::DestroyMatchClient)}, 0, 0x4D50);
     Stub(s, {0x00534430, AddressOf(&Manager::SpawnMatchClient)}, 0, 0x4430, [](Regs&) { return g_spawned; });
     Stub(s, {0x00406850, AddressOf(&Tsk::BaseTask::InList)}, 0, 0x6850, [](Regs&) { return g_inList ? 1u : 0u; });
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
     Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);
     Stub(s, {0x0045A690, AddressOf(&Net::Dispatcher::Deinit)}, 0, 0xA690);
     Stub(s, {0x00532ED0, AddressOf(&Manager::FindServersOnLan)}, 0, 0x2ED0);
-    Stub(s, {0x0053F860}, 0, 0xF860);
-    Stub(s, {0x0053C950}, 4, 0xC950);
+    Stub(s, {0x0053F860, AddressOf(&GameNet::LobbyMan::ClearLostConnection)}, 0, 0xF860);
+    Stub(s, {0x0053C950, AddressOf(&GameNet::Manager::DestroyPlayer)}, 4, 0xC950);
     // GameSpy.
     StubCdecl(s, {0x005FC950}, 0xC950, 1, [](Regs&) { return 0x0A0B0C0Du; });
     StubCdecl(s, {0x005FCA40}, 0xCA40, 1);
@@ -469,8 +471,8 @@ void InstallBrowsing(StandIns& s)
     StubCdecl(s, {0x00479070, AddressOf(static_cast<Script::CArray* (*)(uint32_t)>(&Script::GetArray))}, 0x9070, 1,
               [](Regs&) { return At(kPrefs + 0x20); });
     Stub(s, {0x0046CC30, AddressOf(&Script::CArray::GetElement)}, 4, 0xCC30, [](Regs&) { return At(kPrefs + 0x30); });
-    Stub(s, {0x0053F830}, 4, 0xF830);
-    Stub(s, {0x0053F870}, 0, 0xF870);
+    Stub(s, {0x0053F830, AddressOf(&GameNet::LobbyMan::SetServerName)}, 4, 0xF830);
+    Stub(s, {0x0053F870, AddressOf(&GameNet::LobbyMan::SetLostConnection)}, 0, 0xF870);
     s.At({0x005BEAB4}, 4, [](Regs& r) {
         Rec(0xEAB4, {r.args[0]});
         char* text = &Word<char>(kMisc + 0xE80);
@@ -478,7 +480,7 @@ void InstallBrowsing(StandIns& s)
         return reinterpret_cast<uint32_t>(text);
     });
     StubCdecl(s, {0x00403DE0, AddressOf(&Mth::Rnd)}, 0x3DE0, 1, [](Regs&) { return g_rnd++; });
-    s.At({0x0054B6B0}, 4, [](Regs& r) {
+    s.At({0x0054B6B0, AddressOf(&GameNet::VaultSearch::FirstItem)}, 4, [](Regs& r) {
         Mem::ListNode* head = reinterpret_cast<Mem::ListNode*>(r.args[0]);
         Mem::ListNode* node = head->next->data == reinterpret_cast<void*>(-1) ? nullptr : head->next;
         reinterpret_cast<uint32_t*>(r.ecx)[1] = reinterpret_cast<uint32_t>(node);

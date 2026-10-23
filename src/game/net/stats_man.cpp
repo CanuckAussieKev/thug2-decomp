@@ -130,11 +130,11 @@ char* GcdSecretKey() { return &GameVariable<char>(0x007D7B78); }
 // The secret key (data the online identity writes over when OnlineGameKey is set: online_identity.cpp).
 const char* StatsKey() { return reinterpret_cast<const char*>(0x0064D58C); }
 
-// The manager's calls not rewritten here.
-const char* GameModeName(Manager* manager) { return Detail::Call<const char*>(0x00536A40, manager); }
-uint32_t LevelChecksum(Manager* manager) { return Detail::Call<uint32_t>(0x00534F40, manager); }
-uint32_t GameModeChecksum(Manager* manager) { return Detail::Call<uint32_t>(0x00535B70, manager); }
-int PlayerScore(Manager* manager, int id) { return Detail::Call<int>(0x005436E0, manager, id); }
+// The manager's calls.
+const char* GameModeName(Manager* manager) { return manager->GetGameTypeName(); }
+uint32_t LevelChecksum(Manager* manager) { return manager->GetLevel(); }
+uint32_t GameModeChecksum(Manager* manager) { return manager->GetGameTypePreference(); }
+int PlayerScore(Manager* manager, int id) { return manager->GetPlayerScore(static_cast<uint32_t>(id)); }
 
 void DeleteNode(void* node)
 {

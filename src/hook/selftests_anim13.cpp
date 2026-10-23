@@ -14,8 +14,10 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/anim_blend.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/object.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/anim_testkit.h"
@@ -226,7 +228,8 @@ void TestAnimBlenderComponent()
                               {0x0047D640, 4, 1, AddressOf(&Gfx::CBlendChannel::HasValue)},  {0x0047D420, 4, 0, AddressOf(&Gfx::CBlendChannel::SetFlag4C)},    {0x0047F260, 32, 0}, {0x0047E850, 16, 0},
                               {0x0047E810, 4, 0},  {0x0047E280, 8, 0},    {0x0047E450, 8, 0},  {0x0047DC40, 16, 0},
                               {0x0047E210, 0, 1},  {0x0047EA80, 4, 0},    {0x0047E030, 0, 0},  {0x0047E1B0, 0, 0},
-                              {0x0047D430, 8, 0},  {0x00433EA0, 4, 0x101}, {0x004A44E0, 4, 0}};
+                              {0x0047D430, 8, 0, AddressOf(&Gfx::CBlendChannel::BlendTo)},
+                              {0x00433EA0, 4, 0x101, AddressOf(&Obj::CSuspendComponent::ShouldAnimate)}, {0x004A44E0, 4, 0}};
     for (const Method& m : methods) {
         uint32_t address = m.address, pop = m.pop, answer = m.answer;
         void* thunk = s.At({address}, m.pop, [address, pop, answer](Regs& r) {
@@ -263,7 +266,7 @@ void TestAnimBlenderComponent()
         *reinterpret_cast<uint32_t*>(channel + 0x20) = g_channelsMade == 1 ? P(g_bl.timelines[0]) : P(g_bl.timelines[1]);
         return r.ecx;
     });
-    s.At({0x005480F0}, 0, [](Regs& r) {
+    s.At({0x005480F0, AddressOf(&GameNet::FoldedGetters::Word18)}, 0, [](Regs& r) {
         Record({0x5480F000u, r.ecx});
         return 0x5E1E0000u;
     });

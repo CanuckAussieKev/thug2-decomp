@@ -113,7 +113,7 @@ CCompositeObject* CMovableContactComponent::FindContactAhead(Mth::Vector* pos, c
 }
 
 // 0x00427A00
-void CMovableContactComponent::GetContactPoint(Mth::Vector* out)
+Mth::Vector* CMovableContactComponent::GetContactPoint(Mth::Vector* out)
 {
     Mth::Vector point = m_contactPoint;
     if (mp_lastObject) {
@@ -125,6 +125,7 @@ void CMovableContactComponent::GetContactPoint(Mth::Vector* out)
         point = {turned.x + at.x, turned.y + at.y, turned.z + at.z, turned.w + at.w};
     }
     *out = point;
+    return out;
 }
 
 // 0x00427C70

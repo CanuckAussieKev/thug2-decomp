@@ -13,7 +13,10 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/front/level_editor_ui.h"
+#include "game/gfx/device.h"
+#include "game/gfx/texture.h"
 #include "game/gfx/screen.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/thugpro_compat.h"
 #include "game/skate/thugpro_cas.h"
 #include "game/sio/device.h"
@@ -48,24 +51,24 @@ D3DPRESENT_PARAMETERS* PresentParameters() { return &GameVariable<D3DPRESENT_PAR
 int& SkippedInARow() { return GameVariable<int>(0x00696D74); }
 int& SkippedTotal() { return GameVariable<int>(0x00696D70); }
 
-void ServiceNetwork() { GameFunction<void(__cdecl*)()>(0x00536640)(); }
+void ServiceNetwork() { GameNet::Manager::ServiceGameSpy(); }
 // Around a device Reset: the device objects released first (default pool) and made again after.
 void ReleaseDeviceObjects()
 {
-    GameFunction<void(__cdecl*)()>(0x004E0320)();
+    Nx::ReleaseRenderTargetTextures();
     GameFunction<void(__cdecl*)()>(0x004D67F0)();
-    GameFunction<void(__cdecl*)()>(0x004D7AF0)();
+    Nx::ReleaseRenderTargets();
 }
 void RestoreDeviceObjects()
 {
-    GameFunction<void(__cdecl*)()>(0x004E0440)();
+    Nx::RestoreRenderTargetTextures();
     GameFunction<void(__cdecl*)()>(0x004D68C0)();
-    GameFunction<void(__cdecl*)()>(0x004D8420)();
+    Nx::CreateRenderTargets();
 }
-// A task list's tasks, in order (0x004070A0).
-void RunTasks(uint8_t* list, bool profiling)
+// A task list's tasks, in order (0x004070A0; the profiling flag is passed but unused).
+void RunTasks(Tsk::Stack& list, bool profiling)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x004070A0)(list, profiling);
+    list.Process(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
 }
 void BeginScene() { GameFunction<void(__cdecl*)()>(0x0048BF10)(); }      // the device's BeginScene
 void RenderFrame() { GameFunction<void(__cdecl*)()>(0x0048C330)(); }     // the world, then the 2D
@@ -93,8 +96,8 @@ void RenderFrameLetterboxed()
 namespace {
 
 // The task lists (Lst-style lists of tasks, 0x3C bytes each).
-void ConstructTaskList(uint8_t* list) { GameFunction<void*(__thiscall*)(uint8_t*)>(0x00406E80)(list); }
-void DestroyTaskList(uint8_t* list) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004070E0)(list); }
+void ConstructTaskList(Tsk::Stack& list) { list.Construct(); }
+void DestroyTaskList(Tsk::Stack& list) { list.Destruct(); }
 
 Manager*& Instance() { return GameVariable<Manager*>(0x00696D68); }
 uint32_t& References() { return GameVariable<uint32_t>(0x00696D6C); }

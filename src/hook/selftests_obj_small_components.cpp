@@ -15,6 +15,7 @@
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/suspend_component.h"
 #include "game/obj/velocity_component.h"
 #include "game/obj/vibration_component.h"
 #include "game/obj/wait_and_die.h"
@@ -130,7 +131,7 @@ void StandInAll(StandIns& s)
         Record({0x4E4F, Id(r.ecx)});
         return static_cast<uint32_t>(g_inNet);
     });
-    s.At({0x00433E90}, 0, [](Regs& r) {
+    s.At({0x00433E90, AddressOf(&Obj::CSuspendComponent::IsFar)}, 0, [](Regs& r) {
         Record({0x433E, Id(r.ecx)});
         return static_cast<uint32_t>(g_suspended);
     });

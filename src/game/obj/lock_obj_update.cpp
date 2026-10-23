@@ -12,6 +12,7 @@
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/lock_obj.h"
+#include "game/obj/model_component.h"
 #include "game/obj/objman.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -59,7 +60,7 @@ uint32_t ParentBone(void* skeleton, int index)
 // The model component's 0x004215F0: its matrix into `out`.
 void ModelMatrix(CBaseComponent* model, Mth::Matrix* out)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, Mth::Matrix*)>(0x004215F0)(model, out);
+    static_cast<CModelComponent*>(model)->GetDisplayMatrix(out);
 }
 // Whether the target's model is to be followed: a model with its +0x234 set, or a skater.
 bool FollowModel(CBaseComponent* model, CCompositeObject* target)

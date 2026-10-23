@@ -253,13 +253,13 @@ void InstallStandIns(StandIns& s)
         component->m_type = g_cobj_nextType;
         return reinterpret_cast<uint32_t>(component);
     });
-    s.At({0x0045C050}, 0, [](Regs& r) {
+    s.At({0x0045C050, AddressOf(static_cast<bool (*)(Script::CStruct*, Mth::Vector*)>(SkateScript::GetPosition))}, 0, [](Regs& r) {
         Rec(0xC050, {r.args[0], InArena(r.args[1]) ? r.args[1] : 0x57ACu});
         const float pos[4] = {7.5f, -3.25f, 100.0625f, 1.0f};
         std::memcpy(reinterpret_cast<void*>(r.args[1]), pos, sizeof(pos));
         return 0u;
     });
-    s.At({0x0045C1B0}, 0, [](Regs& r) {
+    s.At({0x0045C1B0, AddressOf(SkateScript::GetNode)}, 0, [](Regs& r) {
         Rec(0xC1B0, {r.args[0], r.args[1]});
         return g_cobj_base + 0x3F00;
     });
@@ -271,7 +271,7 @@ void InstallStandIns(StandIns& s)
             m[i] = 0.25f * static_cast<float>(i) - 1.0f;
         return 0u;
     });
-    s.At({0x0042E1F0}, 4, [](Regs& r) {
+    s.At({0x0042E1F0, AddressOf(&Mth::Quat::FromMatrix)}, 4, [](Regs& r) {
         Rec(0xE1F0, {InArena(r.ecx) ? r.ecx : 0x57ACu, r.args[0]});
         const float q[4] = {0.125f, -0.5f, 0.75f, g_cobj_quatW};
         std::memcpy(reinterpret_cast<void*>(r.ecx), q, sizeof(q));
@@ -286,7 +286,7 @@ void InstallStandIns(StandIns& s)
     });
     for (uint32_t address : {0x004062D0u, AddressOf(&Mth::GetAngleInPlane)})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&StandInAngleInPlane)));
-    s.At({0x0045C0B0}, 0, [](Regs& r) {
+    s.At({0x0045C0B0, AddressOf(SkateScript::GetOrientation)}, 0, [](Regs& r) {
         Rec(0xC0B0, {r.args[0], r.args[1]});
         return 0u;
     });

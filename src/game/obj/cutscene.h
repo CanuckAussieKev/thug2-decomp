@@ -29,6 +29,12 @@ void __cdecl AnimSourceFree(void* item);
 // 0x00463AA0: a matrix from a rotation (quaternion: its x, y and z negated in place - the original's) and a
 // translation (w 1).
 void __cdecl QuatToMatrix(float* quat, const float* translation, float* matrix);
+// The skater appearance's face (its +0x54). No address of its own: the original reads it through the getter folded at
+// 0x00576E60 (Mdl::Viewer::GetViewerObject). (__fastcall: the appearance in ECX, as the original's call passes it.)
+void* __fastcall AppearanceFace(void* appearance);
+// A model's fader (its +0x2C). No address of its own: the original reads it through the getter folded at 0x00532EB0
+// (GameNet::Manager::GetMatchClient). (__fastcall: the model in ECX.)
+void* __fastcall ModelFader(void* model);
 // 0x00464340 (code Ghidra missed; nothing calls it): an identity rotation (0, 0, 0, 1).
 struct IdentityQuat {
     void Set();

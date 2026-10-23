@@ -17,11 +17,13 @@
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/mth/matrix.h"
+#include "game/net/buddy_status.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_manager.h"
+#include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
 #include "hook/gamenet_testkit.h"
@@ -94,7 +96,7 @@ void Install(StandIns& s)
 {
     InstallCommon(s);
     Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
-    s.At({0x005434A0}, 0, [](Regs& r) {
+    s.At({0x005434A0, AddressOf(&GameNet::PlayerInfo::GetConnHandle)}, 0, [](Regs& r) {
         Rec(0x34A0, {r.ecx});
         return (r.ecx - g_base) / 0x10;
     });
@@ -122,11 +124,11 @@ void Install(StandIns& s)
         Rec(0x8BE0, {r.ecx, search[0], search[1]});
         return At(kObjs); // (an even address: bandwidth type g_bandwidth)
     });
-    Stub(s, {0x005430B0}, 0, 0x30B0, [](Regs& r) {
+    Stub(s, {0x005430B0, AddressOf(&GameNet::PlayerInfo::GetGraffitiTexture)}, 0, 0x30B0, [](Regs& r) {
         return (g_textures >> PlayerIndex(r.ecx)) & 1 ? At(Obj(1)) : 0u;
     });
-    Stub(s, {0x00543090}, 0, 0x3090, [](Regs& r) { return (g_customTags >> PlayerIndex(r.ecx)) & 1; });
-    Stub(s, {0x00543060}, 0, 0x3060, [](Regs& r) {
+    Stub(s, {0x00543090, AddressOf(&GameNet::PlayerInfo::HasCustomTag)}, 0, 0x3090, [](Regs& r) { return (g_customTags >> PlayerIndex(r.ecx)) & 1; });
+    Stub(s, {0x00543060, AddressOf(&GameNet::PlayerInfo::GetFaceTextureData)}, 0, 0x3060, [](Regs& r) {
         return (g_faces >> PlayerIndex(r.ecx)) & 1 ? At(Obj(2) + 4 * static_cast<uint32_t>(PlayerIndex(r.ecx))) : 0u;
     });
     StubCdecl(s, {0x00485CB0}, 0x5CB0, 2, [](Regs& r) { return (r.args[1] >> 3) & 1; });
@@ -151,7 +153,7 @@ void Install(StandIns& s)
     Stub(s, {0x00537B30, AddressOf(&Manager::ClearQueuedScripts)}, 0, 0x7B30);
     Stub(s, {0x005665C0}, 4, 0x65C0, [](Regs& r) { return r.args[0] == 1 ? 0u : At(Obj(5) + 0x10 * r.args[0]); });
     // The joining player.
-    Stub(s, {0x005434D0}, 0, 0x34D0, [](Regs& r) { return r.ecx; });
+    Stub(s, {0x005434D0, AddressOf(&GameNet::NewPlayerInfo::Construct)}, 0, 0x34D0, [](Regs& r) { return r.ecx; });
     Stub(s, {0x00587050, AddressOf(&Obj::CSkaterProfile::WriteToBuffer)}, 12, 0x7050);
     Stub(s, {0x00586DC0, AddressOf(&Obj::CSkaterProfile::ReadFromBuffer)}, 4, 0x6DC0);
     s.At({0x005376F0, AddressOf(&Manager::CreateNetPanelMessage)}, 32, [](Regs& r) {
@@ -160,14 +162,14 @@ void Install(StandIns& s)
         return 0u;
     });
     // The camera.
-    Stub(s, {0x00543330}, 0, 0x3330, [](Regs& r) { return (g_watch1 >> PlayerIndex(r.ecx)) & 1; });
-    Stub(s, {0x00543440}, 0, 0x3440, [](Regs& r) { return (g_watch2 >> PlayerIndex(r.ecx)) & 1; });
+    Stub(s, {0x00543330, AddressOf(&GameNet::PlayerInfo::IsSurveying)}, 0, 0x3330, [](Regs& r) { return (g_watch1 >> PlayerIndex(r.ecx)) & 1; });
+    Stub(s, {0x00543440, AddressOf(&GameNet::PlayerInfo::IsEliminated)}, 0, 0x3440, [](Regs& r) { return (g_watch2 >> PlayerIndex(r.ecx)) & 1; });
     // The flags.
-    Stub(s, {0x005433D0}, 0, 0x33D0, [](Regs& r) { return static_cast<uint32_t>(PlayerIndex(r.ecx)); });
+    Stub(s, {0x005433D0, AddressOf(&GameNet::PlayerInfo::GetFlagTeam)}, 0, 0x33D0, [](Regs& r) { return static_cast<uint32_t>(PlayerIndex(r.ecx)); });
     StubCdecl(s, {0x00460AD0, AddressOf(&Obj::FindObject)}, 0x0AD0, 1,
               [](Regs& r) { return r.args[0] == 0x85E38F38 ? 0u : At(Obj(6)); });
     Stub(s, {0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, 0xDB90, [](Regs&) { return At(Obj(7)); });
-    Stub(s, {0x005480F0}, 0, 0x80F0, [](Regs&) { return At(Obj(7) + 0x80); });
+    Stub(s, {0x005480F0, AddressOf(&GameNet::FoldedGetters::Word18)}, 0, 0x80F0, [](Regs&) { return At(Obj(7) + 0x80); });
     Stub(s, {0x004A36E0}, 8, 0x36E0);
     s.At({0x00404DD0, AddressOf(&Mth::CreateRotateXMatrix)}, 0, [](Regs& r) {
         Rec(0x4DD0, {r.args[1]});

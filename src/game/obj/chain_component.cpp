@@ -7,6 +7,8 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
+#include "game/net/buddy_status.h"
+#include "game/obj/skeleton_component.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -79,16 +81,16 @@ void SetLineVertex(void* line, int vertex, const Mth::Vector& pos) { LineCall(li
 // The skeleton component's bone positions (no source yet): in the world (0x00432050), in the object (0x00431C60).
 void BoneWorldPosition(CBaseComponent* skeleton, uint32_t bone, Mth::Vector* out)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, uint32_t, Mth::Vector*)>(0x00432050)(skeleton, bone, out);
+    static_cast<CSkeletonComponent*>(skeleton)->GetBonePosition(bone, out);
 }
 void BonePosition(CBaseComponent* skeleton, uint32_t bone, Mth::Vector* out)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, uint32_t, Mth::Vector*)>(0x00431C60)(skeleton, bone, out);
+    static_cast<CSkeletonComponent*>(skeleton)->GetLocalBonePosition(bone, out);
 }
 // The skeleton component's skeleton (its +0x18, the shared getter 0x005480F0) and that skeleton's bone matrix.
 void BoneMatrix(CBaseComponent* skeleton, uint32_t bone, Mth::Matrix* out)
 {
-    void* data = GameFunction<void*(__thiscall*)(CBaseComponent*)>(0x005480F0)(skeleton);
+    auto* data = reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(skeleton)->Word18());
     GameFunction<bool(__thiscall*)(void*, uint32_t, Mth::Matrix*)>(0x004A36E0)(data, bone, out);
 }
 

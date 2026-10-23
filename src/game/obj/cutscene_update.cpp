@@ -4,8 +4,13 @@
 #include <cmath>
 #include <cstring>
 
+#include "game/ass/assman.h"
 #include "game/core/mem.h"
+#include "game/mth/matrix.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/cutscene.h"
+#include "game/obj/matrix_component.h"
+#include "game/obj/model_component.h"
 #include "game/obj/node_objects.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -21,7 +26,7 @@ namespace {
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kModelComponent = 0x286A8D26;
 constexpr uint32_t kSkeletonComponent = 0x222756D5;
-constexpr uint32_t kSoundComponent = 0x208353AC; // (the component told of the object's new matrix)
+constexpr uint32_t kMatrixComponent = 0x208353AC; // (told the object's new matrix: a CMatrixComponent)
 constexpr uint32_t kVersion = 0x40E32C3C;
 constexpr uint32_t kObjects = 0x4DE5330C;
 constexpr uint32_t kName = 0x2BFC2486;
@@ -70,10 +75,11 @@ void* ModelOf(CBaseComponent* component)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
 }
-// The model's fader (+0x2C) fading to `target` by 0.02 a frame.
+// The model's fader (cutscene.h) fading to `target` by 0.02 a frame.
+void* FaderOf(void* model) { return ModelFader(model); }
 void FadeModel(void* model, float target)
 {
-    void* fader = GameFunction<void*(__thiscall*)(void*)>(0x00532EB0)(model);
+    void* fader = FaderOf(model);
     GameFunction<bool(__thiscall*)(void*, float, float)>(0x0048E830)(fader, target, 0.02f);
 }
 uint8_t* Bytes(void* object)
@@ -204,29 +210,29 @@ void CCutsceneData::UpdateStandIn(CCompositeObject* object)
         if (Bytes(component)[0x234]) {
             // the level object it stands in for: faded out, moved along
             auto* level = static_cast<CCompositeObject*>(
-                FindObject(GameFunction<uint32_t(__thiscall*)(CBaseComponent*)>(0x00420100)(component)));
+                FindObject(static_cast<CModelComponent*>(component)->GetRefObjectName()));
             CBaseComponent* levelComponent = level->GetComponent(kModelComponent);
             void* levelModel = ModelOf(levelComponent);
             FadeModel(levelModel, 0.0f);
-            GameFunction<void(__thiscall*)(CBaseComponent*)>(0x004200C0)(levelComponent);
+            static_cast<CModelComponent*>(levelComponent)->UpdateBrightness();
             CBaseComponent* skeleton = object->GetComponent(kSkeletonComponent);
             float matrix[16];
-            GameFunction<void(__thiscall*)(float*, const void*)>(0x00404090)(matrix, Bytes(object) + 0xC0);
+            *reinterpret_cast<Mth::Matrix*>(matrix) = *reinterpret_cast<const Mth::Matrix*>(Bytes(object) + 0xC0);
             std::memcpy(matrix + 12, Bytes(object) + 0x4C, 16);
             GameFunction<void(__thiscall*)(void*, const float*, int, void*)>(0x00493090)(
-                levelModel, matrix, 0, GameFunction<void*(__thiscall*)(CBaseComponent*)>(0x005480F0)(skeleton));
+                levelModel, matrix, 0, reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(skeleton)->Word18()));
             std::memcpy(Bytes(level) + 0x4C, Bytes(object) + 0x4C, 16);
         } else {
-            if (GameFunction<void*(__thiscall*)(void*)>(0x00532EB0)(model)) {
+            if (FaderOf(model)) {
                 FadeModel(ModelOf(component), 1.0f);
-                GameFunction<void(__thiscall*)(CBaseComponent*)>(0x004200C0)(component);
+                static_cast<CModelComponent*>(component)->UpdateBrightness();
             }
             reinterpret_cast<void(__thiscall*)(CBaseComponent*)>((*reinterpret_cast<void***>(component))[1])(
                 component);
         }
     }
-    if (CBaseComponent* sound = object->GetComponent(kSoundComponent))
-        GameFunction<void(__thiscall*)(CBaseComponent*, void*)>(0x0041CAC0)(sound, Bytes(object) + 0xC0);
+    if (CBaseComponent* matrix = object->GetComponent(kMatrixComponent))
+        static_cast<CMatrixComponent*>(matrix)->SetMatrix(reinterpret_cast<const Mth::Matrix*>(Bytes(object) + 0xC0));
 }
 
 // 0x00465C00
@@ -261,12 +267,13 @@ void CCutsceneData::UpdateObjectTransforms()
         CCompositeObject* object = entry.object;
         if (CCompositeObject* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
-            void* skeleton = GameFunction<void*(__thiscall*)(CBaseComponent*)>(0x005480F0)(
-                parent->GetComponent(kSkeletonComponent));
+            auto* skeleton = reinterpret_cast<void*>(
+                reinterpret_cast<GameNet::FoldedGetters*>(parent->GetComponent(kSkeletonComponent))->Word18());
             float bone[4], turned[4];
             GameFunction<void(__thiscall*)(void*, uint32_t, float*)>(0x004A3870)(skeleton, kAttachBone, bone);
-            const float* offset = GameFunction<const float*(__cdecl*)(float*, const float*, const void*)>(0x0041F470)(
-                turned, bone, Bytes(parent) + 0xC0);
+            *reinterpret_cast<Mth::Vector*>(turned) =
+                *reinterpret_cast<const Mth::Vector*>(bone) * *reinterpret_cast<const Mth::Matrix*>(Bytes(parent) + 0xC0);
+            const float* offset = turned;
             const float* at = reinterpret_cast<const float*>(Bytes(parent) + 0x4C);
             auto* position = reinterpret_cast<float*>(Bytes(object) + 0x4C);
             position[2] = static_cast<float>(static_cast<double>(at[2]) + offset[2]);
@@ -344,9 +351,9 @@ void CCutsceneDetails::DestroyBody()
     }
     if (m_ownsData) {
         if (m_data) {
-            void* assets = GameVariable<void*>(0x006918DC);
-            void* asset = GameFunction<void*(__thiscall*)(void*, uint32_t, int)>(0x00407B90)(assets, m_asset, 1);
-            GameFunction<void(__thiscall*)(void*, void*)>(0x00407B20)(assets, asset);
+            auto* assets = GameVariable<Ass::CAssMan*>(0x006918DC);
+            Ass::CAsset* asset = assets->GetAsset(m_asset, 1);
+            assets->UnloadAsset(asset);
             m_data = nullptr;
         }
         GameFunction<void(__cdecl*)(float, int)>(0x0048E970)(m_musicVolume, 0);

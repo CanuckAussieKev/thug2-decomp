@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "game/net/online_hosts.h"
+#include "game/net/vault_man.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -55,7 +56,9 @@ bool __cdecl RetrieveTopStats(Script::CStruct* params, Script::CScript*)
     request.timeout = 0x25800;
     request.callback = 0x0054DB20;
     request.unknown10C = current == 4 ? 0x7346E8E7 : 0xD932B07B;
-    GameFunction<void(__thiscall*)(void*, StatsRequest*)>(0x0054A910)(*reinterpret_cast<void**>(manager + 0x14), &request);
+    // (the vault, +0x14; the request is its DownloadRequest - the same 0x118 bytes)
+    static_cast<GameNet::VaultMan*>(*reinterpret_cast<void**>(manager + 0x14))
+        ->Download(reinterpret_cast<const GameNet::DownloadRequest*>(&request));
     stats[0x1FC] = 0;
     return true;
 }

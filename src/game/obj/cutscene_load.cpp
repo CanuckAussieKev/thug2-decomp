@@ -2,10 +2,13 @@
 
 #include <cstring>
 
+#include "game/ass/assman.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/cutscene.h"
+#include "game/obj/model_component.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -73,11 +76,20 @@ bool StandsIn(CBaseComponent* model)
 }
 uint32_t StandInId(CBaseComponent* model)
 {
-    return GameFunction<uint32_t(__thiscall*)(CBaseComponent*)>(0x00420100)(model);
+    return static_cast<CModelComponent*>(model)->GetRefObjectName();
 }
+} // namespace
+
+// (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
+void* __fastcall ModelFader(void* model) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x2C); }
+void* __fastcall AppearanceFace(void* appearance) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(appearance) + 0x54); }
+
+namespace {
+
 void* SkeletonOf(CBaseComponent* component)
 {
-    return GameFunction<void*(__thiscall*)(CBaseComponent*)>(0x005480F0)(component);
+    // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
+    return reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(component)->Word18());
 }
 // The level object a cutscene object stands in for.
 CCompositeObject* LevelObjectOf(CCompositeObject* object)
@@ -213,9 +225,7 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
         bool skater = isSkater && isSkater2;
         bool add = true;
         if (!special) {
-            void* asset =
-                GameFunction<void*(__thiscall*)(void*, uint32_t, int)>(0x00407C00)(GameVariable<void*>(0x006918DC),
-                                                                                  modelFile, 0);
+            void* asset = GameVariable<Ass::CAssMan*>(0x006918DC)->GetAssetData(modelFile, 0);
             if (!asset && !skater)
                 params2->AddChecksum(kUnnamed, kNoModelFile);
             if (object->ContainsFlag(kKeepSkeleton)) {
@@ -225,7 +235,7 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
                 anim = 0;
             }
             if (skater) {
-                void* face = GameFunction<void*(__thiscall*)(void*)>(0x00576E60)(m_unknown34A8);
+                void* face = AppearanceFace(m_unknown34A8);
                 if (face && GameFunction<bool(__thiscall*)(void*)>(0x00487510)(face))
                     ++modelFile;
                 int male = 0;
@@ -290,7 +300,7 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
                     uint32_t theirs = GameFunction<uint32_t(__thiscall*)(void*)>(0x00492E50)(ModelOf(standIn));
                     GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00493460)(model2, theirs);
                     GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00493460)(ModelOf(standIn), mine);
-                    GameFunction<void(__thiscall*)(CBaseComponent*)>(0x004200C0)(levelModel);
+                    static_cast<CModelComponent*>(levelModel)->UpdateBrightness();
                 }
                 reinterpret_cast<void(__thiscall*)(CBaseComponent*, int)>((*reinterpret_cast<void***>(standIn))[7])(
                     standIn, 1);

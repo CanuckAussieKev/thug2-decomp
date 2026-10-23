@@ -9,8 +9,10 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/sys/mlp.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -51,14 +53,13 @@ void Finalize(CCompositeObject* object) // its vtable +0x20
     reinterpret_cast<void(__thiscall*)(CCompositeObject*)>(object->m_vtable[0x20 / 4])(object);
 }
 
-// The task system (Tsk, not rewritten yet): a task's constructor (priority), its removal from its list, and the
-// main loop's logic task list's add.
-void ConstructTask(void* task, int priority) { GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, priority); }
-void RemoveTask(void* task) { GameFunction<void(__thiscall*)(void*)>(0x004068F0)(task); }
+// The task system (Tsk): a task's constructor (priority), its removal from its list, and the main loop's logic task
+// list's add.
+void ConstructTask(void* task, int priority) { static_cast<Tsk::BaseTask*>(task)->Construct(priority); }
+void RemoveTask(void* task) { static_cast<Tsk::BaseTask*>(task)->Remove(); }
 void AddLogicTask(void* task)
 {
-    auto* mlp = GameVariable<uint8_t*>(0x00696D68); // Mlp::Manager: m_logicTasks at +0x04
-    GameFunction<void(__thiscall*)(void*, void*)>(0x00406C90)(mlp + 0x04, task);
+    GameVariable<Mlp::Manager*>(0x00696D68)->m_logicTasks.AddTask(static_cast<Tsk::BaseTask*>(task));
 }
 
 // The node after `node`, or null at the head; a node's object (null for none).

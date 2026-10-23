@@ -20,7 +20,10 @@
 #include "game/core/stubs.h"
 #include "game/mth/random.h"
 #include "game/net/buddy_man.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
+#include "game/net/server_list.h"
 #include "hook/net4_testkit.h"
 
 namespace {
@@ -169,14 +172,14 @@ void Install(StandIns& s)
         return 0u;
     });
     // The lobby code around this class.
-    s.At({0x00548040}, 0, [](Regs& r) {
+    s.At({0x00548040, AddressOf(&GameNet::IsThug2Location)}, 0, [](Regs& r) {
         const char* location = reinterpret_cast<const char*>(r.args[0]);
         bool ok = std::strncmp(location, "10thug211:", 10) == 0;
         Rec(0x8040, {Str(r.args[0]), ok});
         return static_cast<uint32_t>(ok);
     });
-    Stub(s, {0x005482A0}, 4, 0x82A0);
-    Stub(s, {0x0053F880}, 0, 0xF880, [](Regs&) { return At(kLobby + 0x40); });
+    Stub(s, {0x005482A0, AddressOf(&GameNet::BuddyMan::SetLoggedIn)}, 4, 0x82A0);
+    Stub(s, {0x0053F880, AddressOf(&GameNet::LobbyMan::GetPeer)}, 0, 0xF880, [](Regs&) { return At(kLobby + 0x40); });
     StubCdecl(s, {0x005FC940}, 0xC940, 1, [](Regs&) { return g_publicIp; });
     StandInApi(s, 0x006452A4, reinterpret_cast<const void*>(&inet_ntoa), 4, [](Regs& r) {
         Rec(0x52A4, {r.args[0]});
@@ -194,12 +197,12 @@ void Install(StandIns& s)
         Rec(0x72C0, {r.ecx, r.args[1]}); // (args[0]: the caller's search, a local)
         return g_playerIndex < g_players.size() ? At(g_players[g_playerIndex++]) : 0u;
     };
-    s.At({0x005372C0}, 8, [next](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [next](Regs& r) {
         g_playerIndex = 0;
         return next(r);
     });
-    s.At({0x00537010}, 8, next);
-    s.At({0x00543300}, 0, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, next);
+    s.At({0x00543300, AddressOf(&GameNet::PlayerInfo::IsLocalPlayer)}, 0, [](Regs& r) {
         bool local = g_localPlayers.count(Rel(r.ecx)) != 0;
         Rec(0x3300, {r.ecx, local});
         return static_cast<uint32_t>(local);

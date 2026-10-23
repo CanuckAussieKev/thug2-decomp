@@ -20,6 +20,7 @@
 #include "game/net/chat.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
+#include "game/net/net_client.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/thugpro_peer.h"
 #include "game/script/cscript.h"
@@ -690,6 +691,12 @@ void TestThugproChatHandler()
     standIn(0x004779D0, reinterpret_cast<const void*>(&StandInAddString));
     standIn(0x00477130, reinterpret_cast<const void*>(&StandInDestruct));
     standIn(0x00409070, reinterpret_cast<const void*>(&StandInFree));
+    // (and ours: the chat code calls them directly)
+    standIn(AddressOf(&Script::CStruct::Init), reinterpret_cast<const void*>(&StandInConstruct));
+    standIn(AddressOf(static_cast<void (Script::CStruct::*)(uint32_t, const char*)>(&Script::CStruct::AddString)),
+            reinterpret_cast<const void*>(&StandInAddString));
+    standIn(AddressOf(&Script::CStruct::Clear), reinterpret_cast<const void*>(&StandInDestruct));
+    standIn(AddressOf(&Script::DeleteStruct), reinterpret_cast<const void*>(&StandInFree));
     standIn(0x00475790, reinterpret_cast<const void*>(&StandInRunScript));
     standIn(AddressOf(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(
                 &Script::RunScript)),
@@ -766,6 +773,8 @@ void TestThugproChatHandler()
     // THUG2's otherwise; the line shown here is what was sent.
     {
         Patch send(0x00459E50, Branch(0xE9, 0x00459E50, &StandInSendToServer));
+        Patch sendOurs(AddressOf(&Net::Client::EnqueueMessageToServer),
+                       Branch(0xE9, AddressOf(&Net::Client::EnqueueMessageToServer), &StandInSendToServer));
         g_tp_sent.clear();
         g_tp_chat.clear();
         alignas(16) static uint8_t manager[0x40];

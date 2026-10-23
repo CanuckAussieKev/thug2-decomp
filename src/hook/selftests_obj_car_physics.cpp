@@ -16,7 +16,9 @@
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
 #include "game/obj/car_physics.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/object.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -213,11 +215,11 @@ void StandIn(StandIns& s)
     s.Bytes(0x00404010, Branch(0xE9, 0x00404010, reinterpret_cast<void*>(&StandInKeepWithin)));
     uint32_t oursKeep = AddressOf(Mth::KeepWithin);
     s.Bytes(oursKeep, Branch(0xE9, oursKeep, reinterpret_cast<void*>(&StandInKeepWithin)));
-    s.At({0x00423510}, 0, [](Regs& r) {
+    s.At({0x00423510, AddressOf(&Obj::CMotionPathMembers::GetPathFollower)}, 0, [](Regs& r) {
         Record({0x3510, Rel(r.ecx)});
         return g_a.haveFollower ? reinterpret_cast<uint32_t>(g_world.follower) : 0u;
     });
-    s.At({0x00433EA0}, 4, [](Regs& r) {
+    s.At({0x00433EA0, AddressOf(&Obj::CSuspendComponent::ShouldAnimate)}, 4, [](Regs& r) {
         Record({0x3EA0, Rel(r.ecx), r.args[0]});
         return g_a.shouldUpdate ? 1u : 0u;
     });

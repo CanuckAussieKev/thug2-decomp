@@ -6,6 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/anim_blender.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/model_component.h"
 #include "game/obj/objman.h"
@@ -207,7 +208,7 @@ void CModelComponent::Update()
     void* skeleton = mp_skeleton ? SkeletonOf(mp_skeleton) : nullptr;
     bool ready = mp_skeleton != nullptr;
     if (mp_animBlender)
-        ready = GameFunction<bool(__thiscall*)(CBaseComponent*)>(0x00419CA0)(mp_animBlender);
+        ready = static_cast<CAnimBlenderComponent*>(mp_animBlender)->ModelReady();
     ModelCall<void>(0x00493090, mp_model, &matrix, !ready, skeleton);
 }
 

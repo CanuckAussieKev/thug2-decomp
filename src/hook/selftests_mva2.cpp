@@ -10,6 +10,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/sys/module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -243,7 +244,7 @@ void TestModules()
             Record({0xCC0, r.args[0]});
             return g_callocResult;
         });
-        s->At({0x00406890}, 4, [](Regs& r) {
+        s->At({0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, [](Regs& r) {
             Record({0x6890, Rel(r.ecx), r.args[0]});
             return r.ecx;
         });

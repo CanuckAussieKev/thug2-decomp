@@ -7,8 +7,10 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "hook/game.h"
 
@@ -76,9 +78,23 @@ inline void UpdateLightsBrightness(void* lights) { ThisCall<void>(0x0048E660, li
 // The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
 // machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
 inline void* NetManager() { return GameVariable<void*>(0x007CCE14); }
-inline void* PlayerByObjectId(void* manager, uint32_t id) { return ThisCall<void*>(0x0053AEA0, manager, id); }
-inline bool IsLocalPlayer(void* player) { return ThisCall<bool>(0x00543300, player); }
-inline int PlayerSkaterIndex(void* player) { return ThisCall<int>(0x005434B0, player); }
-inline Net::Client* ClientApp(void* manager, int index) { return ThisCall<Net::Client*>(0x00532EA0, manager, index); }
+inline void* PlayerByObjectId(void* manager, uint32_t id)
+{
+    return static_cast<GameNet::Manager*>(manager)->PlayerByObjectId(static_cast<uint16_t>(id));
+}
+inline bool IsLocalPlayer(void* player) { return static_cast<GameNet::PlayerInfo*>(player)->IsLocalPlayer() != 0; }
+inline int PlayerSkaterIndex(void* player)
+{
+    return static_cast<int>(static_cast<GameNet::PlayerInfo*>(player)->GetSkaterValue2BC());
+}
+inline Net::Client* ClientApp(void* manager, int index)
+{
+    return static_cast<Net::Client*>(static_cast<GameNet::Manager*>(manager)->GetClient(index));
+}
+
+// The model's lights' direction setter: their vtable slot 2 with (index, direction). No address of its own: the
+// original calls the tail jump to slot 2 folded at 0x004E3F90 (Obj::RefreshFromStructure). (__fastcall with an unused
+// second argument: the lights in ECX and the two on the stack, popped - the original call's layout.)
+void __fastcall SetLightsDirection(void* lights, void* unused, int index, const Mth::Vector* direction);
 
 } // namespace Obj::ModelNx

@@ -7,8 +7,10 @@
 #include <cstring>
 #include <vector>
 
+#include "game/mth/quat.h"
 #include "game/obj/flip_rotate.h"
 #include "game/obj/object.h"
+#include "game/obj/vehicle_component.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -39,7 +41,7 @@ void TestFlipRotatePose()
         Record({0x2B60, r.ecx == reinterpret_cast<uint32_t>(skeleton), r.args[0]});
         return seedNow % 4 == 1 ? 0xFFFFFFFFu : (seedNow == 8 ? 0u : seedNow % 7); // (8: bone 0)
     });
-    s.At({0x004354C0}, 0, [](Regs& r) {
+    s.At({0x004354C0, AddressOf(Obj::QuatProduct)}, 0, [](Regs& r) {
         auto* out = reinterpret_cast<float*>(r.args[0]);
         const auto* a = reinterpret_cast<const float*>(r.args[1]);
         const auto* b = reinterpret_cast<const float*>(r.args[2]);
@@ -48,7 +50,7 @@ void TestFlipRotatePose()
             out[i] = a[i] * 0.5f + b[3 - i];
         return r.args[0];
     });
-    s.At({0x0042E310}, 4, [](Regs& r) {
+    s.At({0x0042E310, AddressOf(&Mth::Quat::Normalize)}, 4, [](Regs& r) {
         Record({0xE310, r.args[0]});
         reinterpret_cast<float*>(r.ecx)[1] += 1.0f;
         return r.ecx;

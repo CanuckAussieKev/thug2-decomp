@@ -6,6 +6,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -82,7 +83,7 @@ uint32_t ParticleGroup(Obj::CBaseComponent* component)
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
 void AnglesToMatrix(Mth::Matrix* matrix, const Script::VectorValue* angles)
 {
-    GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Script::VectorValue*)>(0x0041A730)(matrix, angles);
+    matrix->InitFromAngles(*reinterpret_cast<const Mth::Vector*>(angles));
 }
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
@@ -95,7 +96,8 @@ void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b
 // `out` untouched - if it has no such bone).
 void* SkeletonOf(Obj::CBaseComponent* component)
 {
-    return GameFunction<void*(__thiscall*)(Obj::CBaseComponent*)>(0x005480F0)(component);
+    // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
+    return reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(component)->Word18());
 }
 bool GetBoneMatrix(void* skeleton, uint32_t bone, Mth::Matrix* out)
 {

@@ -11,6 +11,8 @@
 #include "game/core/mem.h"
 #include "game/mth/math.h"
 #include "game/mth/vector.h"
+#include "game/obj/motion_path.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -80,7 +82,7 @@ int SkeletonBoneCount(void* skeleton) { return *reinterpret_cast<int*>(static_ca
 float MotionSpeed(uint8_t* motion) { return *reinterpret_cast<float*>(motion + 0x30); }
 uint8_t* MotionPathFollower(uint8_t* motion)
 {
-    return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x00423510)(motion);
+    return static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
 }
 
 // The suspend component (no source yet): suspended (+0x30, the getter 0x00433E90), and whether its object should be
@@ -88,7 +90,7 @@ uint8_t* MotionPathFollower(uint8_t* motion)
 bool SuspendSuspended(uint8_t* suspend) { return suspend[0x30] != 0; }
 bool SuspendShouldUpdate(uint8_t* suspend, float* distance)
 {
-    return GameFunction<bool(__thiscall*)(uint8_t*, float*)>(0x00433EA0)(suspend, distance);
+    return reinterpret_cast<CSuspendComponent*>(suspend)->ShouldAnimate(distance);
 }
 
 } // namespace

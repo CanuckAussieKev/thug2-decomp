@@ -9,9 +9,11 @@
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/lst/head.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/stats_man.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -201,14 +203,13 @@ void LobbyMan::AddPlayerListItem(LobbyPlayer* player)
     uint32_t script;
     if (player->m_profile && LoggedIn(buddy)) {
         if (player->m_profile != OwnProfile(buddy) &&
-            !GameFunction<bool(__thiscall*)(void*, int)>(0x00549CB0)(buddy, player->m_profile)) { // not a buddy yet
+            !static_cast<BuddyMan*>(buddy)->IsBuddy(player->m_profile)) { // not a buddy yet
             SetRgba(rgba, 0, 128, 0, 128);
             choose->AddInteger(kProfile, player->m_profile);
             choose->AddString(kNick, player->m_nick);
             choose->AddString(kNetName, player->m_nick);
             params->AddStructure(kPadChooseParams, choose);
-            script = GameFunction<int(__thiscall*)(void*)>(0x00548E10)(buddy) < kMaxBuddies ? kAddBuddyPrompt
-                                                                                            : kCantAddBuddyPrompt3;
+            script = static_cast<BuddyMan*>(buddy)->CountBuddies() < kMaxBuddies ? kAddBuddyPrompt : kCantAddBuddyPrompt3;
         } else if (OwnProfile(buddy) == player->m_profile) {
             SetRgba(rgba, 0, 0, 128, 128);
             script = kCantAddSelfPrompt;
@@ -246,7 +247,7 @@ void __cdecl LobbyMan::GroupRoomCallback(void*, int success, int groupId, void* 
                                          int numWaiting, int maxWaiting, int numGames, int, void* param)
 {
     Manager* manager = NetManager();
-    auto setState = [manager](int state) { GameFunction<void(__thiscall*)(Manager*, int)>(0x005453E0)(manager, state); };
+    auto setState = [manager](int state) { manager->SetServiceState(state); };
     if (!success) {
         setState(kLobbyStateFailed);
         return;
@@ -260,7 +261,7 @@ void __cdecl LobbyMan::GroupRoomCallback(void*, int success, int groupId, void* 
     Mem::Manager* memory = Mem::Manager::Get();
     memory->PushContext(memory->m_internetBottomUpHeap);
     void* block = Mem::Calloc(sizeof(LobbyRoom));
-    auto* room = block ? GameFunction<LobbyRoom*(__thiscall*)(void*)>(0x00545860)(block) : nullptr;
+    auto* room = block ? static_cast<LobbyRoom*>(block)->Construct() : nullptr;
     std::strncpy(room->m_name, name, sizeof(room->m_name) - 1);
     room->m_name[sizeof(room->m_name) - 1] = '\0';
     room->m_numPlayers = numGames;
@@ -282,9 +283,9 @@ void __cdecl LobbyMan::GroupRoomCallback(void*, int success, int groupId, void* 
     room->m_maxRating = serverInt("maxrating", 100000);
     room->m_minRating = serverInt("minrating", 0);
     auto rating = [manager] {
-        // (the stats' +0x14 through its pointer member, 0x0054CA80 / 0x00469490)
-        void* member = Call<void*>(0x0054CA80, manager->m_statsMan);
-        return Call<int>(0x00469490, member);
+        // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
+        // Spt::PointerMember::Get)
+        return static_cast<StatsMan*>(manager->m_statsMan)->GetPersonalStats()->m_rating;
     };
     if (rating() > room->m_maxRating)
         room->m_outOfRange = true;

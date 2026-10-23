@@ -99,4 +99,10 @@ static_assert(offsetof(CParticleComponent, m_emitTarget) == 0x18 && offsetof(CPa
                   sizeof(CParticleComponent) == 0x30,
               "layout must match the original (0x0042A000 allocates 0x30 bytes)");
 
+// The particle system's (Nx, not rewritten) parameters - its +4 - and its +0x34 set. No addresses of their own: the
+// original reaches them through code folded at 0x004AAD40 (CScreenElementManager::GetObjectList: the address of +4)
+// and 0x004076F0 (Ass::CAsset::SetGroup). (__fastcall: the particle system in ECX, as the original's calls pass it.)
+const uint8_t* __fastcall ParticleSystemParams(void* particle);
+void __fastcall SetParticleValue34(void* particle, float value);
+
 } // namespace Obj

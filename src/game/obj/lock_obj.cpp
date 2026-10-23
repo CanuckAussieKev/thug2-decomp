@@ -5,6 +5,7 @@
 
 #include <cstring>
 
+#include "game/mth/matrix.h"
 #include "game/mth/random.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
@@ -52,7 +53,7 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
 void AnglesToMatrix(Mth::Matrix* matrix, const Mth::Vector* angles)
 {
-    GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(matrix, angles);
+    matrix->InitFromAngles(*angles);
 }
 
 } // namespace

@@ -8,8 +8,10 @@
 #include "game/core/crc.h"
 #include "game/core/task.h"
 #include "game/lst/head.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/stats_man.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
 
@@ -61,14 +63,14 @@ void Install(StandIns& s)
         std::snprintf(text, 32, "<%08X>", r.args[0]);
         return reinterpret_cast<uint32_t>(text);
     });
-    Stub(s, {0x00549CB0}, 4, 0x9CB0, [](Regs&) { return g_isBuddy ? 1u : 0u; });
-    Stub(s, {0x00548E10}, 0, 0x8E10, [](Regs&) { return static_cast<uint32_t>(g_buddies); });
+    Stub(s, {0x00549CB0, AddressOf(&GameNet::BuddyMan::IsBuddy)}, 4, 0x9CB0, [](Regs&) { return g_isBuddy ? 1u : 0u; });
+    Stub(s, {0x00548E10, AddressOf(&GameNet::BuddyMan::CountBuddies)}, 0, 0x8E10, [](Regs&) { return static_cast<uint32_t>(g_buddies); });
     StubCdecl(s, {0x005FCA80}, 0xCA80, 2, [](Regs& r) {
         Rec(0xCA81, {r.args[2] ? Hash(reinterpret_cast<const char*>(r.args[2])) : 0u, r.args[3]});
         return 0u;
     });
-    Stub(s, {0x005453E0}, 4, 0x53E0);
-    Stub(s, {0x00545860}, 0, 0x5860, [](Regs& r) {
+    Stub(s, {0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0);
+    Stub(s, {0x00545860, AddressOf(&GameNet::LobbyRoom::Construct)}, 0, 0x5860, [](Regs& r) {
         std::memset(reinterpret_cast<void*>(r.ecx), 0xCC, sizeof(LobbyRoom));
         std::memset(reinterpret_cast<uint8_t*>(r.ecx) + 0x68, 0, 4); // (the flags clear)
         reinterpret_cast<uint32_t*>(r.ecx)[0] = 0x0064CBE0;
@@ -85,8 +87,12 @@ void Install(StandIns& s)
             return 1000u;
         return static_cast<uint32_t>(g_neversoft);
     });
-    Stub(s, {0x0054CA80}, 0, 0xCA80, [](Regs&) { return At(kFree + 0x1900); });
-    Stub(s, {0x00469490}, 0, 0x9490, [](Regs&) { return static_cast<uint32_t>(g_rating); });
+    // (the stats' rating: the original reads it through the getter folded at 0x00469490, ours as the field - the rating
+    // is put there, not answered by a stand-in)
+    Stub(s, {0x0054CA80, AddressOf(&GameNet::StatsMan::GetPersonalStats)}, 0, 0xCA80, [](Regs&) {
+        Word<int>(kFree + 0x1900) = g_rating;
+        return At(kFree + 0x1900);
+    });
     Stub(s, {0x00577290, AddressOf(&Tsk::BaseTask::Destruct)}, 0, 0x7290);
     s.At({0x006239E0}, 0, [](Regs& r) { // (the game's C runtime strncpy, not started offline)
         std::strncpy(reinterpret_cast<char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1]), r.args[2]);

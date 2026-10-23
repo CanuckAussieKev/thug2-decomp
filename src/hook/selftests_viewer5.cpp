@@ -9,8 +9,12 @@
 #include <cstring>
 #include <vector>
 
+#include "game/ass/assman.h"
 #include "game/gfx/camera.h"
+#include "game/obj/anim_movies.h"
+#include "game/obj/cutscene.h"
 #include "game/obj/movie_manager.h"
+#include "game/obj/node_objects.h"
 #include "game/obj/object.h"
 #include "game/sys/timer.h"
 #include "hook/viewer_testkit.h"
@@ -87,25 +91,26 @@ void Install(StandIns& s)
         }
         return 0u;
     });
-    s.At({0x00543150}, 0, [](Regs& r) {
+    s.At({0x00543150, AddressOf(&Obj::MovieName)}, 0, [](Regs& r) {
         Rec(0x3150, {r.ecx});
         return *reinterpret_cast<uint32_t*>(r.ecx + kName);
     });
-    s.At({0x00468F60}, 4, [](Regs& r) {
+    s.At({0x00468F60, AddressOf(&Obj::CMovieDetails::SetValue20)}, 4, [](Regs& r) {
         Rec(0x8F60, {r.ecx, r.args[0]});
         *reinterpret_cast<uint32_t*>(r.ecx + kName) = r.args[0];
         return 0u;
     });
-    for (uint32_t address : {0x00468F40u, 0x00468F50u})
-        s.At({address}, 4, [address](Regs& r) {
+    for (auto [address, ours] : {std::pair<uint32_t, uint32_t>{0x00468F40u, AddressOf(&Obj::CMovieDetails::SetFlag19)},
+                                 std::pair<uint32_t, uint32_t>{0x00468F50u, AddressOf(&Obj::CMovieDetails::SetFlag1B)}})
+        s.At({address, ours}, 4, [address](Regs& r) {
             Rec(address & 0xFFFF, {r.ecx, r.args[0]});
             return 0u;
         });
-    s.At({0x00469180}, 0, [](Regs& r) {
+    s.At({0x00469180, AddressOf(&Obj::CMovieDetails::GetSettings)}, 0, [](Regs& r) {
         Rec(0x9180, {r.ecx});
         return 0x700000u + (r.ecx & 0xFFF);
     });
-    s.At({0x00407B90}, 8, [](Regs& r) {
+    s.At({0x00407B90, AddressOf(&Ass::CAssMan::GetAsset)}, 8, [](Regs& r) {
         Rec(0x7B90, {r.ecx, r.args[0], r.args[1]});
         uint32_t asset = g_assets[r.args[0] & 7];
         return asset ? At(asset) : 0u;
@@ -114,16 +119,16 @@ void Install(StandIns& s)
         Rec(0x4FC0, {r.ecx, r.args[0]});
         return At(kSkaterInfo);
     });
-    s.At({0x00466490}, 4, [](Regs& r) {
+    s.At({0x00466490, AddressOf(&Obj::CCutsceneDetails::Construct)}, 4, [](Regs& r) {
         const auto* context = reinterpret_cast<const uint32_t*>(r.args[0]);
         Rec(0x6490, {r.ecx, context[0], context[1], context[2] & 0xFF});
         return MakeMovie(r.ecx, 9);
     });
-    s.At({0x005871B0}, 0, [](Regs& r) {
+    s.At({0x005871B0, AddressOf(&Obj::CObjectAnimMovie::Construct)}, 0, [](Regs& r) {
         Rec(0x71B0, {r.ecx});
         return MakeMovie(r.ecx, 5);
     });
-    s.At({0x005873F0}, 0, [](Regs& r) {
+    s.At({0x005873F0, AddressOf(&Obj::CCameraAnimMovie::Construct)}, 0, [](Regs& r) {
         Rec(0x73F0, {r.ecx});
         return MakeMovie(r.ecx, 0xC0);
     });

@@ -15,6 +15,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/obj/smtptr.h"
@@ -279,8 +280,8 @@ void InstallStandIns(StandIns& s)
         return 0u;
     });
     // --- tasks ---
-    record({0x00406890}, 4, 0x7A50, 1, true, 0xEC);
-    record({0x00406C90}, 4, 0x7A51, 1, true, 0);
+    record({0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, 0x7A50, 1, true, 0xEC);
+    record({0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x7A51, 1, true, 0);
 
     // --- virtual functions ---
     for (void*& slot : g_obj_objectVtable)

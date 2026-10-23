@@ -4,6 +4,7 @@
 // 0x00438770-0x00438A16, 0x00438BB0-0x00439D86, 0x00439D90-0x0043A066 and 0x0043BEE0-0x0043C19A. Float arithmetic
 // follows the original's x87 code: double (53 bits) where it stays on the stack, rounded to float where stored.
 
+#include "game/obj/model_component.h"
 #include "game/obj/vehicle_component.h"
 
 #include <bit>
@@ -50,7 +51,7 @@ const int* const kCrossing = reinterpret_cast<const int*>(0x00646698); // trigge
 // The model component's 0x00420670 (not rewritten yet): its lighting from what a feeler hit.
 void LightFromFeeler(CBaseComponent* model, Nx::CFeeler* feeler, bool b, float c)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, Nx::CFeeler*, bool, float)>(0x00420670)(model, feeler, b, c);
+    static_cast<CModelComponent*>(model)->ApplyBrightness(feeler, b, c);
 }
 
 bool Interrupted(const CVehicleComponent* vehicle)

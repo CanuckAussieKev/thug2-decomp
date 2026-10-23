@@ -168,7 +168,7 @@ void PlayerInfo::SetSkater(Obj::CSkater* skater)
     Manager* manager = TheManager();
     m_skater = skater;
     if (!(m_flags & kPlayerLocal) && manager->GetCamPlayer() == this)
-        Call(0x0053A910, manager, this); // (the camera follows it again)
+        manager->ObservePlayer(reinterpret_cast<uint8_t*>(this)); // (the camera follows it again)
 }
 
 // 0x00543270

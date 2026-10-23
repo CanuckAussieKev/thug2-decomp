@@ -13,17 +13,22 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/camera.h"
 #include "game/mth/random.h"
 #include "game/mth/slerp.h"
+#include "game/net/buddy_status.h"
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_rect.h"
 #include "game/nx/feeler.h"
 #include "game/obj/anim_blender.h"
+#include "game/obj/model_component.h"
 #include "game/obj/object.h"
 #include "game/obj/proxim.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/trigger_component.h"
 #include "game/obj/vehicle_component.h"
+#include "game/obj/vehicle_wheel.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
@@ -553,7 +558,7 @@ void StandInPhysics(StandIns& s)
         feeler->m_hit.object = reinterpret_cast<Nx::CCollObj*>(g_hitObject[k]);
         return 1u;
     });
-    s.At({0x00434BF0}, 8, [](Regs& r) {
+    s.At({0x00434BF0, AddressOf(&Obj::CTriggerComponent::CheckFeeler)}, 8, [](Regs& r) {
         Record({0x4BF0, PhysicsId(r.ecx), r.args[0], Stable(r.args[1])});
         if (g_triggerCalls++ == g_interruptAt) {
             if (g_interruptAt & 1)
@@ -898,7 +903,7 @@ void StandInCollision(StandIns& s)
         Record({0x7150, Stable(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3]});
         return 0u;
     });
-    s.At({0x00434CE0}, 8, [](Regs& r) {
+    s.At({0x00434CE0, AddressOf(&Obj::CTriggerComponent::TriggerHits)}, 8, [](Regs& r) {
         Record({0x4CE0, PhysicsId(r.ecx), r.args[0], Stable(r.args[1])});
         if (g_triggerCalls++ == g_interruptAt) {
             if (g_interruptAt & 1)
@@ -936,7 +941,7 @@ void StandInCollision(StandIns& s)
             }
         return 0u;
     });
-    s.At({0x00420670}, 12, [](Regs& r) {
+    s.At({0x00420670, AddressOf(&Obj::CModelComponent::ApplyBrightness)}, 12, [](Regs& r) {
         auto* feeler = reinterpret_cast<Nx::CFeeler*>(r.args[0]);
         Record({0x0670, Id(r.ecx), Stable(r.args[0]), r.args[1] & 0xFF, r.args[2], Bits(feeler->m_distance)});
         return 0u;
@@ -1260,7 +1265,7 @@ void StandInLife(StandIns& s)
         Record({0x7CF0, LifeId(r.ecx)});
         return 0u;
     });
-    s.At({0x00434F20}, 8, [](Regs& r) {
+    s.At({0x00434F20, AddressOf(Obj::ReadWheelSettings)}, 8, [](Regs& r) {
         Record({0x4F20, LifeId(r.args[0]), LifeId(r.args[1])});
         return 0u;
     });
@@ -1300,11 +1305,11 @@ void StandInLife(StandIns& s)
         Record({0xD990, LifeId(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x005480F0}, 0, [](Regs& r) {
+    s.At({0x005480F0, AddressOf(&GameNet::FoldedGetters::Word18)}, 0, [](Regs& r) {
         Record({0x80F0, LifeId(r.ecx)});
         return reinterpret_cast<uint32_t>(g_skeletonData) + 4;
     });
-    s.At({0x005480C0}, 0, [](Regs& r) {
+    s.At({0x005480C0, AddressOf(&GameNet::FoldedGetters::Word04)}, 0, [](Regs& r) {
         Record({0x80C0, LifeId(r.ecx)});
         return reinterpret_cast<uint32_t>(g_bones);
     });
@@ -1366,11 +1371,11 @@ void StandInLife(StandIns& s)
         Record({0x09C0, r.args[0]});
         return g_haveCamera ? reinterpret_cast<uint32_t>(g_camera) : 0u;
     });
-    s.At({0x00485A00}, 0, [](Regs& r) {
+    s.At({0x00485A00, AddressOf(&Gfx::Camera::GetPos)}, 0, [](Regs& r) {
         Record({0x5A00, LifeId(r.ecx)});
         return r.ecx + 0x40;
     });
-    s.At({0x00485A10}, 0, [](Regs& r) {
+    s.At({0x00485A10, AddressOf(&Gfx::Camera::GetMatrix)}, 0, [](Regs& r) {
         Record({0x5A10, LifeId(r.ecx)});
         return r.ecx;
     });

@@ -20,6 +20,7 @@
 #include "game/net/gamenet_lists.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
+#include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/obj/smtptr.h"
@@ -94,7 +95,7 @@ void Flags(int player, uint32_t flags) { Word<uint32_t>(Player(player) + 0x1D0) 
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    s.At({0x005434A0}, 0, [](Regs& r) { // (a player's connection handle)
+    s.At({0x005434A0, AddressOf(&GameNet::PlayerInfo::GetConnHandle)}, 0, [](Regs& r) { // (a player's connection handle)
         Rec(0x34A0, {r.ecx});
         return (r.ecx - g_base) / 0x10;
     });

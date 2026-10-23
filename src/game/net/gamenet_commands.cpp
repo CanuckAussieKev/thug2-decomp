@@ -6,8 +6,10 @@
 
 #include "game/core/alloc.h"
 #include "game/core/task.h"
+#include "game/ed/park_editor.h"
 #include "game/net/gamenet_commands.h"
 #include "game/net/gamenet_handler_util.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -83,12 +85,12 @@ uint32_t& NetGameStartTime() { return GameVariable<uint32_t>(0x007CCDF4); }
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 4); }
 Manager* Net() { return GameVariable<Manager*>(0x007CCE14); }
 
-// The lobby (GameNet's GameSpy peer side, not rewritten): its peer, whether it's in a group room; the lobby's state
-// (0x005453E0) and services state (0x005451B0).
-void* LobbyPeer(Manager* manager) { return Call<void*>(0x0053F880, manager->m_lobbyMan); }
-bool InGroupRoom(Manager* manager) { return Call<bool>(0x0053F890, manager->m_lobbyMan); }
-void SetLobbyState(Manager* manager, int state) { Call(0x005453E0, manager, state); }
-void SetServicesState(Manager* manager, int state) { Call(0x005451B0, manager, state); }
+// The lobby (GameNet's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
+// SetServiceState, 0x005453E0) and services state (SetNextServiceState, 0x005451B0).
+void* LobbyPeer(Manager* manager) { return static_cast<LobbyMan*>(manager->m_lobbyMan)->GetPeer(); }
+bool InGroupRoom(Manager* manager) { return static_cast<LobbyMan*>(manager->m_lobbyMan)->InGroupRoom(); }
+void SetLobbyState(Manager* manager, int state) { manager->SetServiceState(state); }
+void SetServicesState(Manager* manager, int state) { manager->SetNextServiceState(state); }
 
 // A message for the server through client 0, sequenced in the game's group.
 void SendRequest(Manager* manager, uint8_t id, void* data, uint16_t length)
@@ -260,7 +262,7 @@ bool __cdecl CFunc_FCFSRequestChangeLevel(CStruct* params, CScript*)
     params->GetChecksum(kLevel, &level, 0);
     auto* client = static_cast<Net::Client*>(manager->m_client);
     if (level == kCreatedPark) {
-        void* map = Call<void*>(0x0058D690, GameVariable<void*>(0x007CE5D8), 0);
+        void* map = Ed::CParkEditor::Instance()->GetCompressedMapBuffer(false);
         client->StreamMessageToServer(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);
         GameFunction<void*(__cdecl*)()>(0x004F4970)(); // (the rail editor looked up once for nothing)
         void* rails = Call<void*>(0x004F45B0, GameFunction<void*(__cdecl*)()>(0x004F4970)());

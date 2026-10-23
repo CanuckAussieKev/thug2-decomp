@@ -19,6 +19,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/lst/head.h"
 #include "game/net/net_access_c.h"
 #include "game/net/net_app_messages.h"
@@ -259,7 +260,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x94C0, Rel(r.ecx), r.args[0]});
         return r.ecx;
     });
-    s.At({0x00406890}, 4, [](Regs& r) {
+    s.At({0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, [](Regs& r) {
         Record({0x6890, Rel(r.ecx), r.args[0]});
         return r.ecx;
     });

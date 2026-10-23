@@ -19,19 +19,25 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
 #include "game/net/chat.h"
+#include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_manager.h"
+#include "game/net/player_info.h"
+#include "game/net/server_list.h"
+#include "game/net/stats_man.h"
 #include "game/net/thugpro_join.h"
 #include "game/net/thugpro_peer.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -139,7 +145,7 @@ uint32_t HandlerAddress(uint32_t code)
     const Pair pairs[] = {
         {&Manager::HandleJoinRefused, 0x0052E1E0}, {&Manager::HandleJoinProceed, 0x0052E490},
         {&GameNet::HandleChat, 0x00532050},       {&Manager::HandleConnection, 0x0052F790},
-        {&Manager::HandleJoinRequest, 0x0052FA10},
+        {&Manager::HandleJoinRequest, 0x0052FA10}, {&GameNet::HandleServerResponse, 0x005475C0},
     };
     for (const Pair& pair : pairs)
         if (Resolve(reinterpret_cast<const void*>(pair.ours)) == Resolve(reinterpret_cast<const void*>(code)))
@@ -290,21 +296,21 @@ void StandInWorld(StandIns& s)
         return g_script.createFails ? 0u : reinterpret_cast<uint32_t>(At(kNewApp));
     });
 
-    // The GameNet manager's own (not source yet).
-    auto answer = [&](uint32_t address, uint32_t tag, int* value) {
-        s.At({address}, 0, [tag, value](Regs& r) {
+    // The GameNet manager's own (the original's calls and ours).
+    auto answer = [&](uint32_t address, uint32_t ours, uint32_t tag, int* value) {
+        s.At({address, ours}, 0, [tag, value](Regs& r) {
             Record({tag, Rel(r.ecx)});
             return static_cast<uint32_t>(*value);
         });
     };
-    answer(0x00539C70, 0x0B51, &g_script.numObservers);
-    answer(0x00532D60, 0x0B52, &g_script.maxObservers);
-    answer(0x00539B00, 0x0B53, &g_script.numPlayers);
-    answer(0x00532C50, 0x0B54, &g_script.maxPlayers);
-    answer(0x00532B30, 0x0B55, &g_script.rankLimit);
-    answer(0x00532AE0, 0x0B56, &g_script.rankTest);
-    answer(0x0054D2D0, 0x0B57, &g_script.rank);
-    s.At({0x00534310}, 0, [](Regs& r) {
+    answer(0x00539C70, AddressOf(&GameNet::Manager::CountObservers), 0x0B51, &g_script.numObservers);
+    answer(0x00532D60, AddressOf(&GameNet::Manager::GetMaxObservers), 0x0B52, &g_script.maxObservers);
+    answer(0x00539B00, AddressOf(&GameNet::Manager::CountPlayers), 0x0B53, &g_script.numPlayers);
+    answer(0x00532C50, AddressOf(&GameNet::Manager::GetMaxPlayers), 0x0B54, &g_script.maxPlayers);
+    answer(0x00532B30, AddressOf(&GameNet::Manager::GetRankLimit), 0x0B55, &g_script.rankLimit);
+    answer(0x00532AE0, AddressOf(&GameNet::Manager::GetRankTest), 0x0B56, &g_script.rankTest);
+    answer(0x0054D2D0, AddressOf(&GameNet::StatsMan::GetRank), 0x0B57, &g_script.rank);
+    s.At({0x00534310, AddressOf(&GameNet::Manager::GetPassword)}, 0, [](Regs& r) {
         Record({0x0B58, Rel(r.ecx)});
         return reinterpret_cast<uint32_t>(g_script.password);
     });
@@ -316,7 +322,7 @@ void StandInWorld(StandIns& s)
         Record({0x0B5A, Rel(r.ecx)});
         return 5u;
     });
-    s.At({0x0053A310}, 8, [](Regs& r) {
+    s.At({0x0053A310, AddressOf(&GameNet::Manager::AddJoiningPlayer)}, 8, [](Regs& r) {
         const uint8_t* p = reinterpret_cast<const uint8_t*>(r.args[0]);
         Record({0xDEFE, Rel(r.ecx), Rel(r.args[0]), HashBytes(p, 16), p[0x10], Rel(*reinterpret_cast<const uint32_t*>(p + 0x14)),
                 *reinterpret_cast<const uint32_t*>(p + 0x20), *reinterpret_cast<const uint32_t*>(p + 0x2C),
@@ -324,15 +330,15 @@ void StandInWorld(StandIns& s)
                 *reinterpret_cast<const uint32_t*>(p + 0x40), r.args[1]});
         return 0u;
     });
-    s.At({0x00537140}, 4, [](Regs& r) {
+    s.At({0x00537140, AddressOf(&GameNet::Manager::SetReadyToPlay)}, 4, [](Regs& r) {
         Record({0x4EAD, Rel(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x005359F0}, 0, [](Regs& r) {
+    s.At({0x005359F0, AddressOf(&GameNet::Manager::ChooseStartPoints)}, 0, [](Regs& r) {
         Record({0x4A2D, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x0053C6E0}, 0, [](Regs& r) {
+    s.At({0x0053C6E0, AddressOf(&GameNet::Manager::CancelJoin)}, 0, [](Regs& r) {
         Record({0xCA2C, Rel(r.ecx)});
         return 0u;
     });
@@ -340,12 +346,12 @@ void StandInWorld(StandIns& s)
         Record({0x3A85, Rel(r.ecx), r.args[0]});
         return 0u;
     });
-    s.At({0x005434D0}, 0, [](Regs& r) {
+    s.At({0x005434D0, AddressOf(&GameNet::NewPlayerInfo::Construct)}, 0, [](Regs& r) {
         Record({0xC702, Rel(r.ecx)});
         *reinterpret_cast<uint32_t*>(r.ecx + 0x1C) = reinterpret_cast<uint32_t>(At(kProfileNew));
         return r.ecx;
     });
-    s.At({0x00543560}, 0, [](Regs& r) {
+    s.At({0x00543560, AddressOf(&GameNet::NewPlayerInfo::DestroyBody)}, 0, [](Regs& r) {
         Record({0xD702, Rel(r.ecx)});
         return 0u;
     });
@@ -364,13 +370,13 @@ void StandInWorld(StandIns& s)
         Record({0x4EAF, Rel(r.ecx), HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), GameNet::kAppearanceSize)});
         return r.args[0];
     });
-    s.At({0x00548320}, 12, [](Regs& r) {
+    s.At({0x00548320, AddressOf(&GameNet::BuddyMan::SetStatus)}, 12, [](Regs& r) {
         Record({0x9E5E, Rel(r.ecx), r.args[0], Hash(reinterpret_cast<const char*>(r.args[1])),
                 Hash(reinterpret_cast<const char*>(r.args[2]))});
         return 0u;
     });
     // GameSpy's CD-key SDK.
-    s.At({0x0052D6A0}, 0, [](Regs& r) {
+    s.At({0x0052D6A0, AddressOf(&GameNet::GetCdKey)}, 0, [](Regs& r) {
         Record({0xCDC0});
         std::strcpy(reinterpret_cast<char*>(r.args[0]), "CDKEY-1234-5678");
         return 0u;
@@ -446,7 +452,7 @@ void StandInWorld(StandIns& s)
              return 0u;
          });
     // The main loop's tasks and time.
-    s.At({0x005BE970}, 0, [](Regs&) {
+    s.At({0x005BE970, AddressOf(&Tmr::GetTime)}, 0, [](Regs&) {
         Record({0x7143});
         return 4242u;
     });

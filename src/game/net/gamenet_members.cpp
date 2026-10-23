@@ -11,14 +11,18 @@
 #include "game/core/manager.h"
 #include "game/core/task.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lists.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_lists.h"
 #include "game/net/net_manager.h"
+#include "game/net/stats_man.h"
+#include "game/net/vault_man.h"
 #include "game/obj/object.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
@@ -231,7 +235,7 @@ void Manager::DestroyServer()
     Net::Manager* net = Net::Manager::Instance();
     if (m_server) {
         if (!m_server->IsLocal() && (m_flags & kFlagsInternet)) {
-            Call(0x0053F7E0, m_lobbyMan);                    // the lobby's reporting stopped
+            static_cast<LobbyMan*>(m_lobbyMan)->StopHosting(); // the lobby's reporting stopped
             GameFunction<void(__cdecl*)()>(0x005FBCD0)();    // (GameSpy)
         }
         net->DestroyApp(m_server);
@@ -399,6 +403,23 @@ bool Manager::KeepsScore()
 // 0x00535D90
 void Manager::SetProSetFlags(char flags) { m_proSetFlags = static_cast<uint32_t>(static_cast<int>(flags)); }
 
+// (no address: the list code folded at 0x00588B70 - see the header; the first node's data read before the null check,
+// as there)
+void __fastcall Manager::UnlinkAllNodes(Mem::ListNode* head)
+{
+    Mem::ListNode* node = head->next;
+    if (node->data == reinterpret_cast<void*>(-1) || !node)
+        return;
+    while (node) {
+        Mem::ListNode* following = node->next;
+        node->prev->next = following;
+        following->prev = node->prev;
+        node->next = node;
+        node->prev = node;
+        node = following->data == reinterpret_cast<void*>(-1) ? nullptr : following;
+    }
+}
+
 // 0x00536D70
 void Manager::DestroyBody()
 {
@@ -409,16 +430,22 @@ void Manager::DestroyBody()
         GameFunction<void(__cdecl*)(int)>(0x005FBB20)(0);
         GameVariable<bool>(0x007CCE1C) = false;
     }
-    // The lobby, +0x14, the presence and the stats: each one's destructor, then freed.
-    const struct {
-        uint32_t offset, destructor;
-    } parts[] = {{0x10, 0x00540D50}, {0x14, 0x0054B470}, {0x18, 0x005488B0}, {0x1C, 0x0054D610}};
-    for (const auto& part : parts) {
-        void* object = Field<void*>(this, part.offset);
-        if (object) {
-            Call(part.destructor, object);
-            Mem::Manager::Get()->Free(object);
-        }
+    // The lobby, the vault, the presence and the stats: each one's destructor, then freed.
+    if (auto* lobby = static_cast<LobbyMan*>(m_lobbyMan)) {
+        lobby->DestroyBody();
+        Mem::Manager::Get()->Free(lobby);
+    }
+    if (auto* vault = static_cast<VaultMan*>(m_vaultMan)) {
+        vault->DestroyBody();
+        Mem::Manager::Get()->Free(vault);
+    }
+    if (auto* buddies = static_cast<BuddyMan*>(m_buddyMan)) {
+        buddies->DestroyBody();
+        Mem::Manager::Get()->Free(buddies);
+    }
+    if (auto* stats = static_cast<StatsMan*>(m_statsMan)) {
+        stats->DestroyBody();
+        Mem::Manager::Get()->Free(stats);
     }
     // The tasks, deleted through their vtables (slot 2), in the original's order.
     for (uint32_t offset : {0xD0u, 0xCCu, 0xC0u, 0xC4u, 0xD4u, 0xE0u, 0xE4u, 0xE8u, 0xECu, 0xF0u}) {
@@ -426,8 +453,8 @@ void Manager::DestroyBody()
         if (task)
             reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(task))[2])(task, 1);
     }
-    // The lists: the players' nodes unlinked (0x00588B70), then each head's destructor.
-    Call(0x00588B70, &Field<uint8_t>(this, 0x11C));
+    // The lists: the players' nodes unlinked, then each head's destructor.
+    UnlinkAllNodes(&Field<Mem::ListNode>(this, 0x11C));
     Field<ServerNode>(this, 0x16C).DestroyBody();
     Field<ServerNode>(this, 0x158).DestroyBody();
     Field<QueuedScriptNode>(this, 0x144).DestroyBody();

@@ -60,17 +60,18 @@ public:
     Script::CStruct* GetSettings();
     // 0x00468F20: done when `playing` is false or +0x19 is set (and stays done); returns whether it's done.
     bool CheckDone(bool playing);
-    // 0x00468F40 / 0x00468F50 / 0x00468F60: setters (true).
-    bool SetFlag19(bool value);
-    bool SetFlag1B(bool value);
+    // 0x00468F40 / 0x00468F50 / 0x00468F60: setters (true). The two flags take the argument's low byte as it is (the
+    // movie manager passes a script's integer).
+    bool SetFlag19(uint8_t value);
+    bool SetFlag1B(uint8_t value);
     bool SetValue20(uint32_t value);
 
     Mem::ListNode m_node;          // +0x00 (vtable, data = this, priority 0, links)
     Gfx::Camera* m_camera;         // +0x14
     bool m_flag18;                 // +0x18 (0xEB300C29)
-    bool m_flag19;                 // +0x19 (0x8DDE72C0)
+    uint8_t m_flag19;              // +0x19 (0x8DDE72C0; a flag, any byte)
     bool m_done;                   // +0x1A
-    bool m_flag1B;                 // +0x1B
+    uint8_t m_flag1B;              // +0x1B (a flag, any byte)
     bool m_flag1C;                 // +0x1C (0xB8CA12C5)
     uint8_t m_unknown1D[3];
     uint32_t m_value20;            // +0x20

@@ -41,7 +41,7 @@ constexpr uint32_t kSkaterScore = 0xD262802F; // the skater's score component
 // PlayerInfo flags (+0x1D0).
 constexpr uint32_t kPlayerCaptureBlocked = 0x8000;
 constexpr uint32_t kPlayerMarked = 0x400; // chosen in the kick / ban menu
-constexpr uint32_t kPlayerSurveying = 0x10000;
+// (kPlayerSurveying, 0x10000: player_info.h)
 
 // Why a player is dropped (0x0053CB70).
 constexpr int kDropBanned = 3;
@@ -131,7 +131,7 @@ bool __cdecl CFunc_PlayerTookFlag(Script::CStruct* params, Script::CScript*)
     params->GetInteger(kFlagTeam, &team, 0);
     uint8_t* taker = manager->PlayerByObjectId(static_cast<uint16_t>(player));
     if (taker)
-        SendFlagMessage(manager, kMsgTookFlag, player, team, [&] { Call(0x00543F00, taker, team); });
+        SendFlagMessage(manager, kMsgTookFlag, player, team, [&] { AsPlayer(taker)->TookFlag(team); });
     return true;
 }
 
@@ -144,12 +144,12 @@ bool __cdecl CFunc_PlayerCapturedFlag(Script::CStruct* params, Script::CScript*)
     uint8_t* capturer = manager->PlayerByObjectId(static_cast<uint16_t>(player));
     if (!capturer || (Field<uint32_t>(capturer, 0x1D0) & kPlayerCaptureBlocked))
         return true;
-    int team = Call<int>(0x005433D0, capturer); // the flag it carries
+    int team = AsPlayer(capturer)->GetFlagTeam(); // the flag it carries
     SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] {
         auto* skater = reinterpret_cast<Obj::CCompositeObject*>(PlayerSkater(capturer));
         uint8_t* score = Field<uint8_t*>(skater->GetComponent(kSkaterScore), 0x18);
         Call(0x00561A80, score, Call<int>(0x00561B40, score) + 1); // its captures
-        Call(0x00543A90, capturer, team);
+        AsPlayer(capturer)->CapturedFlag(team);
     });
     return true;
 }
@@ -164,7 +164,7 @@ bool __cdecl CFunc_PlayerRetrievedFlag(Script::CStruct* params, Script::CScript*
     params->GetInteger("flag_team", &team, 0);
     uint8_t* retriever = manager->PlayerByObjectId(static_cast<uint16_t>(player));
     if (retriever) // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
-        SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] { Call(0x00543A90, retriever, team); });
+        SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] { AsPlayer(retriever)->CapturedFlag(team); });
     return true;
 }
 
@@ -176,7 +176,7 @@ bool __cdecl CFunc_PlayerHasFlag(Script::CStruct* params, Script::CScript*)
     uint8_t* found = NetManager()->PlayerByObjectId(static_cast<uint16_t>(player));
     if (!found)
         return true;
-    return Call<bool>(0x005433B0, found); // (flags 0x7800: a team's flag)
+    return AsPlayer(found)->IsCarryingFlag() != 0; // (flags 0x7800: a team's flag)
 }
 
 // 0x0053B8A0
@@ -185,7 +185,7 @@ bool __cdecl CFunc_GetNumPlayersOnTeam(Script::CStruct* params, Script::CScript*
     Manager* manager = NetManager();
     int team = 0;
     params->GetInteger("team", &team, 1);
-    script->m_params->AddInteger("num_members", Call<int>(0x00539880, manager, team));
+    script->m_params->AddInteger("num_members", manager->CountTeamPlayers(team));
     return true;
 }
 

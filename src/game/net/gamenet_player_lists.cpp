@@ -12,6 +12,7 @@
 #include "game/core/task.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/buddy_status.h"
 #include "game/net/net_client.h"
 #include "game/net/net_lists.h"
 #include "game/net/net_manager.h"
@@ -156,11 +157,11 @@ void D3DXMatrixMultiply(void* out, const void* a, const void* b)
     GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
 }
 
-// The first player (observers too) for whom the PlayerInfo member at `test` is true.
-void* FindPlayer(Manager* manager, uint32_t test)
+// The first player (observers too) for whom the PlayerInfo member `test` is true (0 / 1 in EAX: tested as AL).
+void* FindPlayer(Manager* manager, int (PlayerInfo::*test)())
 {
     for (Mem::ListNode* node = NextNode(PlayerList(manager)); uint8_t* player = DataOf(node); node = NextNode(node)) {
-        if (Call<bool>(test, player))
+        if ((AsPlayer(player)->*test)() != 0)
             return player;
     }
     return nullptr;
@@ -172,7 +173,7 @@ void DeleteNode(Mem::ListNode* node) { reinterpret_cast<void(__thiscall*)(Mem::L
 // A joining player's record deleted (NewPlayerInfo's destructor body 0x00543560, then freed).
 void DeleteNewPlayer(void* player)
 {
-    Call(0x00543560, player);
+    static_cast<NewPlayerInfo*>(player)->DestroyBody();
     Mem::Manager::Get()->Free(player);
 }
 
@@ -254,6 +255,15 @@ void* Manager::FirstNewPlayerInfo(void* search)
     return DataOf(node);
 }
 
+// (no address: the lists' generic next, folded at 0x004573D0 - see the header)
+void* Manager::NextNewPlayerInfo(void* search)
+{
+    auto* s = static_cast<NewPlayerSearch*>(search);
+    Mem::ListNode* next = static_cast<Mem::ListNode*>(s->m_node)->next;
+    s->m_node = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return s->m_node ? next->data : nullptr;
+}
+
 // 0x005370A0
 void* Manager::GetNewPlayerInfoByObjectId(uint16_t id)
 {
@@ -282,13 +292,13 @@ void Manager::SetReadyToPlay(bool ready)
 }
 
 // 0x00537320
-void* Manager::GetLocalPlayer() { return FindPlayer(this, 0x00543300); }
+void* Manager::GetLocalPlayer() { return FindPlayer(this, &PlayerInfo::IsLocalPlayer); }
 
 // 0x005373D0
-void* Manager::GetServerPlayer() { return FindPlayer(this, 0x00543310); }
+void* Manager::GetServerPlayer() { return FindPlayer(this, &PlayerInfo::IsServerPlayer); }
 
 // 0x00537480
-void* Manager::GetKingOfTheHill() { return FindPlayer(this, 0x00543490); }
+void* Manager::GetKingOfTheHill() { return FindPlayer(this, &PlayerInfo::IsKing); }
 
 // 0x00537530
 int Manager::CountOtherPlayers()
@@ -296,7 +306,7 @@ int Manager::CountOtherPlayers()
     PlayerSearch search;
     int count = 0;
     for (void* player = FirstPlayerInfo(&search, false); player; player = NextPlayerInfo(&search, false)) {
-        if (!Call<bool>(0x00543380, player)) // (flags 0x21)
+        if (!static_cast<PlayerInfo*>(player)->IsFullyIn()) // (flags 0x21)
             ++count;
     }
     return count;
@@ -511,7 +521,7 @@ int Manager::CountObservers()
 {
     int count = 0;
     for (Mem::ListNode* node = NextNode(PlayerList(this)); uint8_t* player = DataOf(node); node = NextNode(node)) {
-        if (IsObserver(player) && !Call<bool>(0x005434C0, player) && (!IsLocalPlayer(player) || m_hostMode == 0))
+        if (IsObserver(player) && !AsPlayer(player)->IsPendingObserver() && (!IsLocalPlayer(player) || m_hostMode == 0))
             ++count;
     }
     for (Mem::ListNode* node = NextNode(NewPlayerList(this)); uint8_t* info = DataOf(node); node = NextNode(node)) {
@@ -569,8 +579,8 @@ void Manager::SendTagTexturesTo(void* target)
         return;
     for (auto* other = static_cast<uint8_t*>(FirstPlayerInfo(&search, false)); other;
          other = static_cast<uint8_t*>(NextPlayerInfo(&search, false))) {
-        void* texture = Call<void*>(0x005430B0, other); // its custom tag texture
-        if (!texture || other == player || PlayerConn(player)->GetBandwidthType() == 1 || !Call<bool>(0x00543090, other))
+        void* texture = AsPlayer(other)->GetGraffitiTexture(); // its custom tag texture
+        if (!texture || other == player || PlayerConn(player)->GetBandwidthType() == 1 || !AsPlayer(other)->HasCustomTag())
             continue;
         // (the logos are read from the receiving player's profile, as in the original)
         void* profile = Field<void*>(player, kPlayerProfileInfo);
@@ -650,9 +660,9 @@ void Manager::SendFacesTo(void* target)
          other = static_cast<uint8_t*>(NextPlayerInfo(&search, false))) {
         if (other == player || PlayerConn(player)->GetBandwidthType() == 1)
             continue;
-        if (!Call<void*>(0x00543060, other) && !(IsLocalPlayer(other) && PrepareLocalFace()))
+        if (!AsPlayer(other)->GetFaceTextureData() && !(IsLocalPlayer(other) && PrepareLocalFace()))
             continue;
-        m_server->StreamMessageToConn(PlayerConn(player), kMsgFace, kFaceSize + 1, Call<void*>(0x00543060, other),
+        m_server->StreamMessageToConn(PlayerConn(player), kMsgFace, kFaceSize + 1, AsPlayer(other)->GetFaceTextureData(),
                                       kFaceDesc, kGroupFace, false, true);
     }
 }
@@ -669,7 +679,7 @@ void Manager::AddJoiningPlayer(void* message, int timeout)
     Mem::Manager* memory = Mem::Manager::Get();
     memory->PushContext(memory->m_networkHeap);
     void* recordMemory = Mem::Calloc(kNewPlayerSize);
-    auto* record = recordMemory ? Call<uint8_t*>(0x005434D0, recordMemory) : nullptr; // NewPlayerInfo's constructor
+    auto* record = reinterpret_cast<uint8_t*>(recordMemory ? static_cast<NewPlayerInfo*>(recordMemory)->Construct() : nullptr);
     std::strcpy(reinterpret_cast<char*>(record), reinterpret_cast<const char*>(info));
     Field<uint32_t>(record, 0x14) = Field<uint32_t>(info, 0x14);
     Field<uint8_t>(record, kNewPlayerObjectId) = Field<uint8_t>(info, kNewPlayerObjectId);
@@ -721,7 +731,9 @@ void Manager::AddJoiningPlayer(void* message, int timeout)
 void* Manager::NextCamPlayer()
 {
     PlayerSearch search;
-    auto canWatch = [](void* player) { return !Call<bool>(0x00543330, player) && !Call<bool>(0x00543440, player); };
+    auto canWatch = [](void* player) {
+        return !static_cast<PlayerInfo*>(player)->IsSurveying() && !static_cast<PlayerInfo*>(player)->IsEliminated();
+    };
     if (m_camPlayer) {
         void* player = FirstPlayerInfo(&search, false);
         while (player && player != m_camPlayer)
@@ -755,10 +767,10 @@ void __cdecl CarriedFlagsTask(void*)
         return;
     for (auto* player = static_cast<uint8_t*>(manager->FirstPlayerInfo(&search, false)); player;
          player = static_cast<uint8_t*>(manager->NextPlayerInfo(&search, false))) {
-        if (!Call<bool>(0x005433B0, player)) // (carries a flag)
+        if (!AsPlayer(player)->IsCarryingFlag()) // (carries a flag)
             continue;
         uint32_t name;
-        switch (Call<int>(0x005433D0, player)) {
+        switch (AsPlayer(player)->GetFlagTeam()) {
         case 0: name = kTrgCtfRed; break;
         case 1: name = kTrgCtfBlue; break;
         case 2: name = kTrgCtfGreen; break;
@@ -769,7 +781,8 @@ void __cdecl CarriedFlagsTask(void*)
         if (!flag)
             return;
         auto* skater = reinterpret_cast<Obj::CCompositeObject*>(PlayerSkater(player));
-        auto* skeleton = Call<void*>(0x005480F0, skater->GetComponent(kSkeleton)); // (the component's +0x18)
+        // (the component's +0x18, CSkeletonComponent::mp_skeleton, through the getter folded at 0x005480F0)
+        auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<FoldedGetters*>(skater->GetComponent(kSkeleton))->Word18());
         auto* matrix = reinterpret_cast<Mth::Matrix*>(flag + 0x6C);
         Call(0x004A36E0, skeleton, kBoneHead, matrix); // the head bone's matrix
         Mth::Matrix turn;

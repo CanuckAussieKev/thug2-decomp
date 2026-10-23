@@ -10,15 +10,20 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/task.h"
+#include "game/ed/park_editor.h"
+#include "game/net/gamenet_game_cfuncs.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/stats_man.h"
 #include "game/obj/object.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
+#include "game/skate/skate_net.h"
 #include "game/util/bitstream.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -118,7 +123,7 @@ int __cdecl HandleReadyResponse(Net::MsgHandlerContext* context)
 {
     context->m_Acknowledge = true;
     if (uint8_t* player = PlayerByConnection(ManagerOf(context), context->m_Conn))
-        Call(0x005446C0, player, MessageWord(context, 0));
+        AsPlayer(player)->ReceiveReadyResponse(MessageWord(context, 0));
     return kContinue;
 }
 
@@ -126,8 +131,8 @@ int __cdecl HandleReadyResponse(Net::MsgHandlerContext* context)
 int __cdecl HandleObserve(Net::MsgHandlerContext* context)
 {
     Manager* manager = ManagerOf(context);
-    GameFunction<int(__cdecl*)(void*, void*)>(0x0053B940)(nullptr, nullptr); // ExitSurveyorMode
-    Call(0x0053E650, manager); // observe
+    CFunc_ExitSurveyorMode(nullptr, nullptr); // (the script command, without parameters)
+    manager->EnterObserveMode();
     return kContinue;
 }
 
@@ -141,25 +146,25 @@ int __cdecl HandleFlushImportant(Net::MsgHandlerContext* context)
 
 namespace {
 // msg[0] the player's object id, msg[1] the team (both signed bytes).
-int FlagHandler(Net::MsgHandlerContext* context, uint32_t method)
+int FlagHandler(Net::MsgHandlerContext* context, void (PlayerInfo::*method)(int))
 {
     const uint8_t* msg = Message(context);
     if (uint8_t* player = PlayerByObjectId(ManagerOf(context), msg))
-        Call(method, player, static_cast<int>(static_cast<int8_t>(msg[1])));
+        (AsPlayer(player)->*method)(static_cast<int>(static_cast<int8_t>(msg[1])));
     return kContinue;
 }
 } // namespace
 
 // 0x0052D850 / 0x0052D880 / 0x0052D8B0
-int __cdecl HandleStoleFlag(Net::MsgHandlerContext* context) { return FlagHandler(context, 0x00543C70); }
-int __cdecl HandleTookFlag(Net::MsgHandlerContext* context) { return FlagHandler(context, 0x00543F00); }
-int __cdecl HandleCapturedFlag(Net::MsgHandlerContext* context) { return FlagHandler(context, 0x00543A90); }
+int __cdecl HandleStoleFlag(Net::MsgHandlerContext* context) { return FlagHandler(context, &PlayerInfo::StoleFlag); }
+int __cdecl HandleTookFlag(Net::MsgHandlerContext* context) { return FlagHandler(context, &PlayerInfo::TookFlag); }
+int __cdecl HandleCapturedFlag(Net::MsgHandlerContext* context) { return FlagHandler(context, &PlayerInfo::CapturedFlag); }
 
 // 0x0052D8E0
 int __cdecl HandleRetrievedFlag(Net::MsgHandlerContext* context)
 {
     if (uint8_t* player = PlayerByObjectId(ManagerOf(context), Message(context)))
-        Call(0x00544110, player);
+        AsPlayer(player)->RetrievedFlag();
     return kContinue;
 }
 
@@ -180,8 +185,8 @@ int __cdecl HandlePanelMessage(Net::MsgHandlerContext* context)
 {
     const char* msg = context->m_Msg;
     // 0x005376F0: (broadcast, text, string 1, string 2, object, properties, important, time)
-    Call(0x005376F0, ManagerOf(context), false, MessageWord(context, 4), msg + 0x0C, msg + 0x1C, 0, 0, false,
-         MessageWord(context, 8));
+    ManagerOf(context)->CreateNetPanelMessage(false, MessageWord(context, 4), msg + 0x0C, msg + 0x1C, nullptr, nullptr,
+                                              false, static_cast<int>(MessageWord(context, 8)));
     return kContinue;
 }
 
@@ -226,8 +231,9 @@ int __cdecl HandleCdKeyChallenge(Net::MsgHandlerContext* context)
     Manager* manager = ManagerOf(context);
     const char* password = manager->GetNetworkPreferences()->GetPreferenceString(kProfilePassword, kUiString);
     char answer[36];
-    // 0x0054CA10 (the online service at +0x1C): the answer to the challenge (the message itself)
-    Call(0x0054CA10, Field<void*>(manager, 0x1C), context->m_Msg, password, answer);
+    // 0x0054CA10: the answer to the challenge (the message itself). (Static: the original passes the online service,
+    // +0x1C, in ECX, unused.)
+    StatsMan::GenerateAuth(context->m_Msg, password, answer);
     desc.m_id = kMsgCdKeyAnswer;
     desc.m_queue = Net::MsgDesc::kQueueSequenced;
     desc.m_groupId = kGroupGame;
@@ -259,7 +265,7 @@ int __cdecl HandleJoinAccepted(Net::MsgHandlerContext* context)
     if (!manager->OnServer()) {
         for (int i = 0; i < 2; ++i) {
             if (Net::App* client = manager->GetClient(i))
-                Call(0x0056EB50, skate, client, i); // the skate module's handlers for that client
+                reinterpret_cast<Mdl::SkateNet*>(skate)->AddClientHandlers(client, i); // the skate module's handlers for that client
         }
     }
     return kContinue;
@@ -270,7 +276,7 @@ int __cdecl HandleReadyToPlay(Net::MsgHandlerContext* context)
 {
     auto* logicTasks = reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04);
     Manager* manager = ManagerOf(context);
-    Call(0x00537140, manager, true); // (m_readyToPlay set, the skaters told)
+    manager->SetReadyToPlay(true); // (m_readyToPlay set, the skaters told)
     if (!context->m_App->IsLocal())
         logicTasks->AddTask(manager->m_clientAddNewPlayersTask);
     return kContinue;
@@ -279,8 +285,8 @@ int __cdecl HandleReadyToPlay(Net::MsgHandlerContext* context)
 // 0x0052EB70
 int __cdecl HandleParkMap(Net::MsgHandlerContext* context)
 {
-    Call(0x0058D6B0, GameVariable<void*>(0x007CE5D8), context->m_Msg, 1);
-    void* map = Call<void*>(0x0058D690, GameVariable<void*>(0x007CE5D8), 0);
+    Ed::CParkEditor::Instance()->SetCompressedMapBuffer(reinterpret_cast<const Ed::CompressedMap*>(context->m_Msg), true);
+    void* map = Ed::CParkEditor::Instance()->GetCompressedMapBuffer(false);
     Crc::GenerateCRCFromBuffer(map, kParkMapSize); // (not used)
     return kContinue;
 }
@@ -298,9 +304,9 @@ int __cdecl HandleGameOver(Net::MsgHandlerContext* context)
 int __cdecl HandleGameEnded(Net::MsgHandlerContext* context)
 {
     Manager* manager = ManagerOf(context);
-    Call(0x005889F0, GameVariable<void*>(0x007CE500));
+    GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->RemoveAllClusters();
     Run(kCreateGameEndedDialog);
-    Call(0x00537620, manager);
+    manager->ResetPlayers();
     return kContinue;
 }
 
@@ -367,7 +373,7 @@ int __cdecl HandleCdKeyAnswer(Net::MsgHandlerContext* context)
     Manager* manager = ManagerOf(context);
     uint8_t* player = PlayerByConnection(manager, context->m_Conn);
     uint32_t id = Field<uint32_t>(Field<void*>(player, 0x14), 0x14); // its skater's id
-    Call(0x0054CA30, Field<void*>(manager, 0x1C), id, context->m_Msg);
+    Field<StatsMan*>(manager, 0x1C)->SetPlayerAuth(static_cast<int>(id), context->m_Msg);
     return kContinue;
 }
 

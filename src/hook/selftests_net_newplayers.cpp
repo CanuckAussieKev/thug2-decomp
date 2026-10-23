@@ -8,17 +8,27 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/core/stubs.h"
+#include "game/ed/park_editor.h"
 #include "game/front/screen_element_manager.h"
 #include "game/net/buddy_man.h"
 #include "game/net/chat.h"
 #include "game/net/gamenet_handlers.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_lists.h"
+#include "game/net/player_info.h"
 #include "game/net/service.h"
 #include "game/net/stats_man.h"
 #include "game/net/vault_man.h"
+#include "game/obj/game_objects.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/trick_objects.h"
+#include "game/skate/profile_manager.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/skater.h"
+#include "game/skater/walk_camera.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
 
@@ -72,30 +82,30 @@ void Install(StandIns& s)
     Stub(s, {0x00564FC0}, 4, 0x4FC0, [](Regs& r) { return At(kProfiles + 0x40 * (r.args[0] & 7)); });
     Stub(s, {0x00567180}, 16, 0x7180, [](Regs& r) { return At(kSkaters + 0x100 * (r.args[2] & 7)); });
     Stub(s, {0x00566520}, 0, 0x6520, [](Regs&) { return At(kSkaters + 0x700); });
-    Stub(s, {0x0041AD90}, 0, 0xAD90, [](Regs&) { return 6u; });
+    Stub(s, {0x0041AD90, AddressOf(&Mdl::Skate::GetNumSkaters)}, 0, 0xAD90, [](Regs&) { return 6u; });
     Stub(s, {0x00566370}, 12, 0x6370);
     Stub(s, {0x00565790}, 4, 0x5790);
     Stub(s, {0x005665C0}, 4, 0x65C0, [](Regs& r) { return r.args[0] % 3 == 1 ? 0u : At(kSkaters + 0x100 * r.args[0]); });
     // Players and skaters.
-    Stub(s, {0x00581510}, 0, 0x1510);
-    Stub(s, {0x005814D0}, 0, 0x14D0);
+    Stub(s, {0x00581510, AddressOf(&Obj::CSkater::HideSkater)}, 0, 0x1510);
+    Stub(s, {0x005814D0, AddressOf(&Obj::CSkater::Reset27C)}, 0, 0x14D0);
     Stub(s, {0x00561A80}, 4, 0x1A80);
-    Stub(s, {0x00544340}, 4, 0x4340);
-    Stub(s, {0x00543270}, 4, 0x3270);
-    Stub(s, {0x005438D0}, 4, 0x38D0, [](Regs& r) {
+    Stub(s, {0x00544340, AddressOf(&GameNet::PlayerInfo::MarkAsKing)}, 4, 0x4340);
+    Stub(s, {0x00543270, AddressOf(&GameNet::PlayerInfo::SetProfile)}, 4, 0x3270);
+    Stub(s, {0x005438D0, AddressOf(&GameNet::PlayerInfo::SetSkater)}, 4, 0x38D0, [](Regs& r) {
         reinterpret_cast<uint32_t*>(r.ecx)[0x14 / 4] = r.args[0];
         return 0u;
     });
-    Stub(s, {0x00544670}, 4, 0x4670);
-    Stub(s, {0x00543560}, 0, 0x3560);
-    Stub(s, {0x00543740}, 4, 0x3740, [](Regs& r) {
+    Stub(s, {0x00544670, AddressOf(&GameNet::PlayerInfo::AwaitReadyResponse)}, 4, 0x4670);
+    Stub(s, {0x00543560, AddressOf(&GameNet::NewPlayerInfo::DestroyBody)}, 0, 0x3560);
+    Stub(s, {0x00543740, AddressOf(&GameNet::PlayerInfo::Construct)}, 4, 0x3740, [](Regs& r) {
         Word<uint32_t>(r.ecx - g_base + 0x1D0) = r.args[0];
         Word<uint32_t>(r.ecx - g_base + 0x1EC) = 0;
         Word<uint32_t>(r.ecx - g_base + 0) = At(kVtables + 0x2C0);
         return r.ecx;
     });
-    Stub(s, {0x005436E0}, 4, 0x36E0, [](Regs& r) { return r.args[0] * 100; });
-    s.At({0x00587050}, 12, [](Regs& r) { // the appearance written: a few bytes naming the profile
+    Stub(s, {0x005436E0, AddressOf(&GameNet::Manager::GetPlayerScore)}, 4, 0x36E0, [](Regs& r) { return r.args[0] * 100; });
+    s.At({0x00587050, AddressOf(&Obj::CSkaterProfile::WriteToBuffer)}, 12, [](Regs& r) { // the appearance written: a few bytes naming the profile
         Rec(0x7050, {r.ecx, r.args[1], r.args[2] & 0xFF});
         auto* out = reinterpret_cast<uint8_t*>(r.args[0]);
         uint32_t profile = Rel(r.ecx);
@@ -104,23 +114,23 @@ void Install(StandIns& s)
         return 5u + (profile & 3);
     });
     // The manager's own calls not rewritten here.
-    Stub(s, {0x0053A580}, 0, 0xA580, [](Regs&) { return At(PlayerAt(1)); });
-    Stub(s, {0x0053A040}, 0, 0xA040);
-    Stub(s, {0x00534D70}, 0, 0x4D70);
-    Stub(s, {0x005889F0}, 0, 0x89F0);
-    Stub(s, {0x00536820}, 0, 0x6820);
-    Stub(s, {0x005399F0}, 0, 0x99F0);
-    Stub(s, {0x005782D0}, 0, 0x82D0);
+    Stub(s, {0x0053A580, AddressOf(&GameNet::Manager::NextCamPlayer)}, 0, 0xA580, [](Regs&) { return At(PlayerAt(1)); });
+    Stub(s, {0x0053A040, AddressOf(&GameNet::Manager::PrepareLocalFace)}, 0, 0xA040);
+    Stub(s, {0x00534D70, AddressOf(&GameNet::Manager::SendCustomTagTexture)}, 0, 0x4D70);
+    Stub(s, {0x005889F0, AddressOf(&Obj::CTrickObjectManager::RemoveAllClusters)}, 0, 0x89F0);
+    Stub(s, {0x00536820, AddressOf(&GameNet::Manager::RemoveAllNewPlayers)}, 0, 0x6820);
+    Stub(s, {0x005399F0, AddressOf(&GameNet::Manager::DisconnectClients)}, 0, 0x99F0);
+    Stub(s, {0x005782D0, AddressOf(&Obj::CCrownObject::TakeOff)}, 0, 0x82D0);
     StubCdecl(s, {0x005FC730}, 0xC730, 1, [](Regs&) { return 1u; });
     StubCdecl(s, {0x005FCCF0}, 0xCCF0, 1);
     StubCdecl(s, {0x005FBAD0}, 0xBAD0, 1);
     // The created park and the rails.
-    Stub(s, {0x0058D680}, 0, 0xD680);
-    Stub(s, {0x0058D690}, 4, 0xD690, [](Regs&) { return At(kFree + 0x1F00); });
+    Stub(s, {0x0058D680, AddressOf(&Ed::CParkEditor::WriteCompressedMapIfBuilt)}, 0, 0xD680);
+    Stub(s, {0x0058D690, AddressOf(&Ed::CParkEditor::GetCompressedMapBuffer)}, 4, 0xD690, [](Regs&) { return At(kFree + 0x1F00); });
     StubCdecl(s, {0x004F4970}, 0x4970, 0, [](Regs&) { return At(kFree + 0x1F40); });
     Stub(s, {0x004F45B0}, 0, 0x45B0, [](Regs&) { return At(kFree + 0x1F80); });
     s.At({0x00458AB0, AddressOf(&Net::App::StreamMessage)}, 32, [](Regs& r) {
-        Rec(0x8AB0, {r.ecx, r.args[0], r.args[1] & 0xFF, r.args[2] & 0xFFFF, r.args[3], Str(r.args[4]), r.args[5] & 0xFF,
+        Rec(0x8AB0, {r.ecx, r.args[0], r.args[1] & 0xFF, r.args[2] & 0xFFFF, r.args[3], GameNetKit::Str(r.args[4]), r.args[5] & 0xFF,
                      r.args[6] & 0xFF, r.args[7] & 0xFF});
         return 0u;
     });
@@ -141,7 +151,9 @@ void Install(StandIns& s)
         return r.ecx == At(kClientApp) ? At(ConnAt(7)) : 0u;
     });
     // The link and its dialogs.
-    Stub(s, {0x005B9E50}, 0, 0x9E50, [](Regs&) { return g_unplugged ? 1u : 0u; });
+    // (the network object's "cable unplugged" method, the shared return-false stub on the PC: ours calls the stub
+    // directly, without the object in ECX - not recorded)
+    StubCdecl(s, {0x005B9E50, AddressOf(&Stubs::ReturnFalse)}, 0x9E50, 0, [](Regs&) { return g_unplugged ? 1u : 0u; });
     s.At({0x004AAE20, AddressOf(&Front::CScreenElementManager::GetElement)}, 12, [](Regs& r) {
         Rec(0xAE20, {r.args[1], r.args[2]});
         reinterpret_cast<uint32_t*>(r.args[0])[0] = g_dialog ? At(g_dialog) : 0u;
@@ -166,8 +178,8 @@ void Install(StandIns& s)
     RecordingObject(s, 0, {{7, 4}});
     RecordingObject(s, 1, {{7, 4}});
     Stub(s, {0x004FA3C0}, 4, 0xA3C0);
-    Stub(s, {0x00524C50}, 4, 0x4C50);
-    Stub(s, {0x00524C30}, 0, 0x4C30);
+    Stub(s, {0x00524C50, AddressOf(&Obj::CWalkCameraComponent::SetSkater)}, 4, 0x4C50);
+    Stub(s, {0x00524C30, AddressOf(&Obj::CWalkCameraComponent::ResetNow)}, 0, 0x4C30);
 }
 
 void Prepare()
@@ -442,7 +454,7 @@ void InstallConstruction(StandIns& s)
     Install(s);
     Stub(s, {0x0046C470, AddressOf(&Prefs::Preferences::Init)}, 0, 0xC470, [](Regs& r) { return r.ecx; });
     Stub(s, {0x0046C650, AddressOf(&Prefs::Preferences::Load)}, 4, 0xC650, [](Regs&) { return 1u; });
-    Stub(s, {0x00541870}, 0, 0x1870, [](Regs& r) { return r.ecx; });
+    Stub(s, {0x00541870, AddressOf(&GameNet::LobbyMan::Construct)}, 0, 0x1870, [](Regs& r) { return r.ecx; });
     Stub(s, {0x0054C1D0, AddressOf(&GameNet::VaultMan::Construct)}, 0, 0xC1D0, [](Regs& r) { return r.ecx; });
     Stub(s, {0x0054A480, AddressOf(&GameNet::BuddyMan::Construct)}, 0, 0xA480, [](Regs& r) { return r.ecx; });
     Stub(s, {0x0054DBD0, AddressOf(&GameNet::StatsMan::Construct)}, 0, 0xDBD0, [](Regs& r) { return r.ecx; });

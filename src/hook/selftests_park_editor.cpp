@@ -25,10 +25,12 @@
 #include "game/ed/park_editor.h"
 #include "game/ed/piece_menu.h"
 #include "game/front/front_end.h"
+#include "game/obj/objman.h"
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
+#include "game/sys/timer.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -171,11 +173,11 @@ void StandInGame(StandIns& s)
     RecC(s, {0x00409070, AddressOf(&Script::DeleteStruct)}, 1);
     s.At({0x006234FE}, 0, StandInSprintf);
     // structures
-    Rec(s, {0x00476410}, 0, 0, 0, [](Regs& r) {
+    Rec(s, {0x00476410, AddressOf(&Script::CStruct::Init)}, 0, 0, 0, [](Regs& r) {
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 8);
         return r.ecx;
     });
-    Rec(s, {0x00477130}, 0, 0);
+    Rec(s, {0x00477130, AddressOf(&Script::CStruct::Clear)}, 0, 0);
     Rec(s, {0x00477D40}, 8, 2);
     Rec(s, {0x00477DF0}, 8, 0, 0, [](Regs& r) {
         Record({Text(r.args[0]), r.args[1]});
@@ -186,7 +188,7 @@ void StandInGame(StandIns& s)
         Record({Text(r.args[0]), r.args[1]});
         return 0u;
     });
-    Rec(s, {0x004779D0}, 8, 1, 0, [](Regs& r) {
+    Rec(s, {0x004779D0, AddressOf(static_cast<void (Script::CStruct::*)(uint32_t, const char*)>(&Script::CStruct::AddString))}, 8, 1, 0, [](Regs& r) {
         Record({Text(r.args[1])});
         return 0u;
     });
@@ -320,8 +322,8 @@ void StandInGame(StandIns& s)
     // the module, the listener, the tasks, the front end, the cameras, the objects, the tracker
     Rec(s, {0x0045FAC0}, 0, 0);
     Rec(s, {0x0044F790}, 0, 0);
-    Rec(s, {0x00406C90}, 4, 1);
-    Rec(s, {0x004068F0}, 0, 0);
+    Rec(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 1);
+    Rec(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0);
     RecBool(s, {0x0054F900});
     RecC(s, {0x0059F890}, 3);
     Rec(s, {0x00564F20}, 0, 0);
@@ -333,10 +335,10 @@ void StandInGame(StandIns& s)
         return 1u;
     });
     RecC(s, {0x005A5420}, 2);
-    Rec(s, {0x004619F0}, 4, 1);
+    Rec(s, {0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, 1);
     Rec(s, {0x0045F3A0}, 0xC, 3, 0, nullptr, false, 4);
     Rec(s, {0x00462F00}, 0x18, 6, 0, nullptr, false, 0x10);
-    RecC(s, {0x005BE970}, 0);
+    RecC(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0);
     // the park's memory
     RecC(s, {0x0059E730}, 1, [](Regs& r) {
         std::memset(reinterpret_cast<void*>(r.args[0]), 0x3C, 0x6C);

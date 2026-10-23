@@ -16,9 +16,11 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/net_dispatcher.h"
 #include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -268,7 +270,7 @@ void Install(StandIns& s)
              Rec(0x5420, {r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5]});
              return At(kMisc + 0x100);
          });
-    s.At({0x00472DE0}, 0, [](Regs& r) {
+    s.At({0x00472DE0, AddressOf(&Script::ScriptExists)}, 0, [](Regs& r) {
         Rec(0x2DE0, {r.args[0]});
         return g_vc_scriptExists ? 1u : 0u;
     });
@@ -299,15 +301,15 @@ void Install(StandIns& s)
         Rec(0x9910, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x004068F0}, 0, [](Regs& r) {
+    s.At({0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, [](Regs& r) {
         Rec(0x68F0, {r.ecx});
         return 0u;
     });
-    s.At({0x00406930}, 0, [](Regs& r) {
+    s.At({0x00406930, AddressOf(&Tsk::BaseTask::Destruct)}, 0, [](Regs& r) {
         Rec(0x6930, {r.ecx, *reinterpret_cast<uint32_t*>(r.ecx)});
         return 0u;
     });
-    s.At({0x0045A690}, 0, [](Regs& r) {
+    s.At({0x0045A690, AddressOf(&Net::Dispatcher::Deinit)}, 0, [](Regs& r) {
         Rec(0xA690, {r.ecx});
         return 0u;
     });

@@ -12,8 +12,10 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
+#include "game/core/task.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_handlers.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_manager.h"
@@ -22,8 +24,10 @@
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "game/sio/inpman.h"
 #include "game/sys/debug_mode.h"
+#include "game/sys/mlp.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer_object.h"
 #include "hook/game.h"
@@ -48,9 +52,9 @@ int& ViewModeValue() { return GameVariable<int>(0x007CE4A4); }
 Viewer*& Instance() { return GameVariable<Viewer*>(0x007CE4A8); }
 bool& RunNowLoaded() { return GameVariable<bool>(0x007CE4A0); }
 
-// A node of a task or handler list off its list (0x004068F0), and a list node's destructor (0x00406930).
-void RemoveNode(void* node) { GameFunction<void(__thiscall*)(void*)>(0x004068F0)(node); }
-void DestroyListNode(void* node) { GameFunction<void(__thiscall*)(void*)>(0x00406930)(node); }
+// A task or input handler (a Tsk::BaseTask) off its list (0x004068F0), and its destructor (0x00406930).
+void RemoveNode(void* node) { static_cast<Tsk::BaseTask*>(node)->Remove(); }
+void DestroyListNode(void* node) { static_cast<Tsk::BaseTask*>(node)->Destruct(); }
 // An object's scalar deleting destructor, through its vtable slot `slot`.
 void Delete(void* object, int slot)
 {
@@ -80,10 +84,10 @@ float& RotateVelocity() { return GameVariable<float>(0x007CE498); }
 uint32_t& LastTime() { return GameVariable<uint32_t>(0x007CE4AC); }
 bool DebugChecks() { return GameVariable<bool>(0x00684FA8); }
 uint8_t* InputManager() { return GameVariable<uint8_t*>(0x00696D40); }    // Inp::Manager
-uint8_t* MainLoopManager() { return GameVariable<uint8_t*>(0x00696D68); } // Mlp::Manager (+4 its task list)
+Mlp::Manager* MainLoopManager() { return GameVariable<Mlp::Manager*>(0x00696D68); }
 
-void ConstructNode(void* node, int priority) { GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(node, priority); }
-void AddNode(void* list, void* node) { GameFunction<void(__thiscall*)(void*, void*)>(0x00406C90)(list, node); }
+void ConstructNode(void* node, int priority) { static_cast<Tsk::BaseTask*>(node)->Construct(priority); }
+void AddNode(Tsk::Stack& list, void* node) { list.AddTask(static_cast<Tsk::BaseTask*>(node)); }
 
 Script::CStruct* NewStructure()
 {
@@ -121,7 +125,7 @@ void Roll(Obj::CCompositeObject* object, float angle)
 void AddInputHandler(ViewerInputHandler* handler)
 {
     uint8_t* server = InputManager() + handler->m_index * 0x84;
-    AddNode(server + 8, handler);
+    AddNode(*reinterpret_cast<Tsk::Stack*>(server + 8), handler); // (the server's handler list)
     handler->m_controlData = reinterpret_cast<Inp::Data*>(server + 0x44);
     handler->m_device = *reinterpret_cast<uint8_t**>(server + 4);
 }
@@ -153,7 +157,7 @@ ViewerInputHandler* ViewerInputHandler::Destroy(unsigned int flags)
 // 0x00576CB0
 Script::CScript* SpawnScriptIfExists(uint32_t name)
 {
-    if (!GameFunction<bool(__cdecl*)(uint32_t)>(0x00472DE0)(name)) // (a script of that name)
+    if (!Script::ScriptExists(name)) // (a script of that name)
         return nullptr;
     return Script::SpawnScript(name, nullptr, 0, nullptr, 0, 0, false, false, false, false);
 }
@@ -190,7 +194,7 @@ void Viewer::StopCallback()
     RemoveNode(m_task1C);
     RemoveNode(m_task20);
     RemoveNode(m_shiftHandler);
-    GameFunction<void(__thiscall*)(void*)>(0x0045A690)(static_cast<uint8_t*>(m_netHandler) + 0xC);
+    static_cast<Net::App*>(m_netHandler)->m_dispatcher.Deinit();
 }
 
 // 0x00576DC0
@@ -423,7 +427,7 @@ int __cdecl HandleRunScript(Net::MsgHandlerContext* context)
     const char* message = context->m_Msg;
     uint32_t name = *reinterpret_cast<const uint32_t*>(message);
     Script::CStruct* params = NewStructure();
-    GameFunction<void(__cdecl*)(Script::CStruct*, const void*)>(0x0047A0C0)(params, message + 4); // the script reader
+    Script::ReadFromBuffer(params, reinterpret_cast<const uint8_t*>(message + 4)); // the script reader
     Script::RunScript(name, params, nullptr, false, nullptr);
     DeleteStructure(params);
     return 1;
@@ -548,18 +552,18 @@ void Viewer::StartCallback()
     if (!DebugChecks()) {
         Net::Dispatcher& dispatcher = static_cast<Net::App*>(m_netHandler)->m_dispatcher;
         dispatcher.AddHandler(0x20, &HandleReloadScene, 3, nullptr, 0x80);
-        dispatcher.AddHandler(0x21, GameFunction<Net::MsgHandlerCode>(0x0052DAC0), 3, nullptr, 0x80);
+        dispatcher.AddHandler(0x21, &GameNet::HandleNothing, 3, nullptr, 0x80);
         dispatcher.AddHandler(0x22, reinterpret_cast<Net::MsgHandlerCode>(&ReloadScriptFile), 3, nullptr, 0x80);
         dispatcher.AddHandler(0x2A, &HandleAddToScene, 3, nullptr, 0x80);
         dispatcher.AddHandler(0x23, &HandleCreateViewerObject, 3, this, 0x80);
         dispatcher.AddHandler(0x24, reinterpret_cast<Net::MsgHandlerCode>(&HandleRemoveViewerObject), 3, this, 0x80);
         dispatcher.AddHandler(0x2B, &HandleRunScript, 3, this, 0x80);
     }
-    AddNode(MainLoopManager() + 4, m_task1C);
+    AddNode(MainLoopManager()->m_logicTasks, m_task1C);
     AddInputHandler(m_inputHandler);
     Dbg::Printf("Adding shift input handlers\n)");
     AddInputHandler(m_shiftHandler);
-    AddNode(MainLoopManager() + 4, m_task20);
+    AddNode(MainLoopManager()->m_logicTasks, m_task20);
     Mem::Manager::Get()->PopContext();
 }
 

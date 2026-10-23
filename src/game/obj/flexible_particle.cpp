@@ -8,6 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/net/gamenet_manager.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
@@ -138,9 +139,9 @@ void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b
 // getter 0x00433E90), told to start (0x00433E70).
 bool SuspendShouldUpdate(uint8_t* suspend)
 {
-    return GameFunction<bool(__thiscall*)(uint8_t*, float*)>(0x00433EA0)(suspend, nullptr);
+    return reinterpret_cast<CSuspendComponent*>(suspend)->ShouldAnimate(nullptr);
 }
-void SuspendStart(uint8_t* suspend) { GameFunction<void(__thiscall*)(uint8_t*)>(0x00433E70)(suspend); }
+void SuspendStart(uint8_t* suspend) { reinterpret_cast<CSuspendComponent*>(suspend)->DisableLod(); }
 
 // The object dies (its vtable slot 6, MarkAsDead).
 void Kill(CCompositeObject* object) { reinterpret_cast<void(__thiscall*)(CCompositeObject*)>(object->m_vtable[6])(object); }

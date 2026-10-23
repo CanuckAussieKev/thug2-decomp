@@ -196,7 +196,7 @@ void StandIn(StandIns& s)
              v[3] = 1.0f;
              return 1u;
          });
-    s.At({0x0041A730}, 4, [](Regs& r) {
+    s.At({0x0041A730, AddressOf(&Mth::Matrix::InitFromAngles)}, 4, [](Regs& r) {
         const float* angles = reinterpret_cast<const float*>(r.args[0]);
         Record({0xA730, Bits(angles[0]), Bits(angles[1]), Bits(angles[2])});
         auto* m = reinterpret_cast<float*>(r.ecx);
