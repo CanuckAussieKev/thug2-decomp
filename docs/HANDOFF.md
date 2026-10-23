@@ -471,3 +471,8 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   CArray/HashItem pools; `[memory] original_sizes=1` undoes) + a `memory in <level>` log line. Load-checked in THUG2-2
   only; LAN hosting and play NOT tested. Not done: CTF flag names, THP8's two-player levels.
 - Installed (2026-10-24 04:34): main c209dea in C:\Games\THUG2 - DLL + pdb, THP8 reconverted (22 levels), overlay regenerated. Main not pushed.
+- THP8 levels 2 merged + installed (2026-10-24 09:03; docs/pending/thp8-network-unified.md): per-zone levels removed
+  (user: our own split), 13 network levels thp8_net_* (BEAVER VALLEY + 12) in free skate and the host list, TRAINING /
+  SKATE SHOP / BEDROOM kept; other zones' low-detail stand-ins drawn instead of void; zone seam walls (invisible
+  edge walls THP8 switches off at run time) left out in multi-zone levels. Not confirmed in the game: whether the
+  walls the user hit in BEAVER VALLEY are gone (no spot given). Main not pushed.
