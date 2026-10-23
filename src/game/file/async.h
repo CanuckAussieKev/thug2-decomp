@@ -122,14 +122,13 @@ inline void AsyncSetCallback(AsyncFileHandle* file, AsyncCallback callback, void
 inline void AsyncRead(AsyncFileHandle* file, void* buffer, int size) { file->Read(buffer, 1, size); }
 inline void AsyncWaitForIO() { AsyncWaitForIO(false); }
 // Whether asynchronous loading can be used at all (a stub: always true on PC).
-inline bool AsyncLoadingAvailable() { return GameFunction<bool(__cdecl*)()>(0x005B6570)(); }
+// (0x005B6570: a jump to the folded stub returning true)
+inline bool AsyncLoadingAvailable() { return true; }
 
-// Loading from a CD cache: both are stubs on PC (size 0, load fails).
-inline int CachedFileSize(const char* name) { return GameFunction<int(__cdecl*)(const char*)>(0x005BA1D0)(name); }
-inline bool LoadCachedFile(const char* name, void* buffer)
-{
-    return GameFunction<bool(__cdecl*)(const char*, void*)>(0x005B9E50)(name, buffer);
-}
+// Loading from a CD cache: both are stubs on PC (size 0, load fails) - the folded stubs at 0x005BA1D0 (returns 0)
+// and 0x005B9E50 (returns false).
+inline int CachedFileSize(const char*) { return 0; }
+inline bool LoadCachedFile(const char*, void*) { return false; }
 
 // The old name, for existing callers.
 using AsyncFile = AsyncFileHandle;

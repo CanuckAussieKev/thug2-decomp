@@ -8,9 +8,11 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/file/file.h"
 #include "game/file/pre.h"
 #include "game/front/data_overlay.h"
+#include "game/sys/module.h"
 #include "hook/hook.h"
 
 namespace File {
@@ -722,15 +724,15 @@ namespace {
 AsyncLoaderModule*& LoaderModule() { return GameVariable<AsyncLoaderModule*>(0x007CF190); }
 uint32_t& LoaderModuleRefs() { return GameVariable<uint32_t>(0x007CF194); }
 
-// Engine framework pieces (not rewritten yet).
-void ConstructModule(void* module) { GameFunction<void*(__thiscall*)(void*)>(0x0044F7E0)(module); }
-void DestroyModule(void* module) { GameFunction<void(__thiscall*)(void*)>(0x0044F790)(module); }
-void* ConstructTask(void* task) { return GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, 0); }
+// Engine framework pieces.
+void ConstructModule(void* module) { static_cast<Mdl::Module*>(module)->Construct(); }
+void DestroyModule(void* module) { static_cast<Mdl::Module*>(module)->DestroyBody(); }
+void* ConstructTask(void* task) { return static_cast<Tsk::BaseTask*>(task)->Construct(0); }
 void AddLogicTask(void* task)
 {
     // The main loop manager's logic task list.
     auto* manager = GameVariable<uint8_t*>(0x00696D68);
-    GameFunction<void(__thiscall*)(void*, void*)>(0x00406C90)(manager + 4, task);
+    reinterpret_cast<Tsk::Stack*>(manager + 4)->AddTask(static_cast<Tsk::BaseTask*>(task));
 }
 
 } // namespace

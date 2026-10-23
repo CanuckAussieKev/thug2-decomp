@@ -430,7 +430,7 @@ void CSfxManager::SetPitch(float pitch, int /*unused1*/, int /*unused2*/)
         pitch = 0.0099999998f;
     Pitch() = pitch;
     SetVoicePitch(pitch);
-    GameFunction<bool(__cdecl*)(float)>(0x004504F0)(pitch); // (a stub: false)
+    // (then a call with the pitch to 0x004504F0, a jump to the folded stub returning false: nothing to do)
 }
 
 // 0x0047B6B0
