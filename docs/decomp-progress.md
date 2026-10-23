@@ -10359,6 +10359,420 @@ mode (frame steps, speed, the info panel) if the viewer can be launched.
   points and CTF flags (the slots per type), pause / unpause (the menu and cursor hidden / back), test play and back,
   save and load a park, resize it (the shell's bounds), max players. Switch off with `[replacements] disable=`
   park_pieces.cpp, park_metapieces.cpp, park_generator.cpp, park_editor_state.cpp.
+- [x] Batch 343 (GC4-1; GameFunction cleanup agent GC4, merged 2026-10-24; run in the game: docs/pending/gamecalls-4.md; NOT judged by a player yet; GameFunction cleanup - src/game/pcm, 61 calls): every call from
+  src/game/pcm into rewritten code is direct now - music.cpp (21: the platform's stream / music status, pause,
+  volume, update, stop, the user soundtrack queries, PlayTrack, PlayTrackByName, ApplyTrackVolume, StopMusic,
+  UpdateStreamVolume, Sfx::GetMainVolume), music_api.cpp (22: the platform layer, StreamExists, LoadMusicTrackByName,
+  PlayUserTrack, PlayMusicTrack, the preload checks / starts, InitPlatform; UpdateStreamVolume's sound volume is a
+  real Sfx::sVolume now - Init / SetSilent / PercentageAdjustment, CSfxManager::GetVolume, CStreamComponent's
+  GetStreamExtent / GetStreamPosition - in place of a local copy of the struct), stream_commands.cpp (13: the same
+  platform calls, FamData::Load, sVolume's methods and CSfxManager::IsPaused / GetVolume - the local `Volume` struct is
+  Sfx::sVolume), stream_play.cpp (4), stream.cpp (2: BinkStreamView::Construct / Open over the BinkStream),
+  bink_stream_files.cpp (NewOverlapped). Left in pcm: 0x004A09E0 (the nearest emitter, not rewritten).
+  Behaviour notes: the original passes PlatformStopMusic (0x00453AA0) 1 or 0 and StartPreloadedStream (0x00454270)
+  the pitch - neither takes them (our versions have no such parameter); LoadStream's two unused arguments still get
+  the pitch's bits and the `stopped` flag. Names that don't say what the caller does: the platform's PlayStream
+  (0x00454200) is what the front end's StartStream uses to preload (it loads without starting - the helper keeps the
+  name PreloadOnChannel); CSfxManager::IsPaused is what PlayStreamFromObject calls "no sound please" (kept as a
+  helper of that name). 0x0047C790 (Sfx::GroupCount, a linker-folded `return -1`) was stream_play's "open the user
+  soundtrack's track": not called as GroupCount - a new Pcm::OpenUserTrack returns INVALID_HANDLE_VALUE (declared in
+  stream.h so the platform test still stands in for it). Sfx::GetMainVolume and CreateManager were called through a
+  "manager" pointer the original passes in ECX (GetMainVolume reads a global): our calls take none. Overloads now
+  visible together (music_api.h / stream.h / stream_commands.h: StreamExists, StopStreams, StopStream,
+  SetStreamVolume, PlayStream) made five REPLACE lines and four test Picks name the overload with a static_cast.
+  Tests: the stand-ins for every converted address in selftests_mva3 (music API), mvb (playlists, stream commands,
+  Bink stream files), gapsA (music streams, track start, per-frame update), pcmplay (stream platform / play: the
+  Bink stream view, OpenUserTrack, the sound manager and its main volume - FakeSoundVolume written over ours too) and
+  selftests_pc's TestPlayNextTrack (JumpBoth to MusicStatus / ApplyTrackVolume / PlayTrack) cover our functions too.
+  Two mva3 stand-ins record fewer arguments (0x00453AA0: none, 0x00454270: two) - the original's extra ones are
+  unused and our direct calls don't pass them. Mutations (out/scripts/mut_gc4_1.ts): 16 / 16 caught - a stream's
+  channel status, the update's StopStreams dropped, playlist 1's track looping, a soundtrack name's index, the sfx
+  volume, StreamExists' music flag, the user track, the percentage adjustment dropped, InitPlatform dropped, the
+  stream extent dropped, LoadStream's plays, the fam checksum, IsPaused inverted, the platform's sound volume, the Bink
+  open's offset, NewOverlapped's result.
+- [x] Batch 344 (GC4-2; GameFunction cleanup agent GC4, merged 2026-10-24; run in the game: docs/pending/gamecalls-4.md; NOT judged by a player yet; GameFunction cleanup - src/game/gfx, 80 calls): every call from src/game/gfx
+  into rewritten code is direct now - the renderer's state (render_state.h: SetState, SetTexture, SetBlendMode,
+  SetVertexFormat, SetPixelShader, SetWorldTransform) from render.cpp, flash.cpp, movie.cpp, text.cpp; render.cpp's
+  Draw2D, Bloom, the camera's GetAdjustedHFOV / GetPos / GetMatrix (GetPos / GetMatrix are source-only 4-byte
+  getters: now inline reads of m_pos / m_matrix, +0x5C / +0x6C as the originals), RenderScene, BuildOccluders,
+  Sun::Render, UpdateGlows, Tmr::GetTime, RenderShadowTextures, BeginScreenEffects, CopyScreenQuarter;
+  render_state.cpp's CreatePixelShaders; text.cpp's Sio::GetButtonKeyName and SDraw2D's Construct / DestroyBody;
+  movie.cpp's sound manager, main / music volumes, StopMusic, StopStreams; engine_glue.cpp (the occlusion polygons,
+  below); lens_flare.cpp (GameClockTime / TimeSince, Mth::Vector::MultiplyBy); anim_controller.cpp
+  (CAnimBlenderComponent::GetAnimSet / GetValue, GameClockElapsed); anim_blend.cpp (Walk::Lerp); device.cpp
+  (Tmr::SetFlags; the debug font through Stubs::ReturnZero, the shared stub the original calls); tod_manager.cpp
+  (Sun::SetSun - the local SunParams reinterpreted as Sun::Settings, same offsets; CModelComponent::SetColor);
+  font.cpp. movie.cpp's anonymous D3D enum kCullMode / kLighting renamed kD3DCullMode / kD3DLighting (they clashed
+  with render_state.h's RenderStateId).
+  Not called by their REPLACE names (linker-folded): font.cpp's SetSpacings went through 0x004E3F90 (REPLACEd as
+  Obj::RefreshFromStructure, a naked tail jump to vtable slot 2): it calls the font's slot 2 itself now;
+  lens_flare.cpp's Prim::SetBlendMode / SetUnknown14 went through 0x00428270 (CLineObject::SetBlendMode) and
+  0x00407A50 (CAssMan::SetPermanentByDefault): now the field writes those do (the dword at +0x0C, the byte at +0x14).
+  Odd: engine_glue.h's names don't say what the calls reach - AddDebugShape(4, ...) is occlusion.h's
+  AddOcclusionPoly (its "colour" is the polygon's checksum: coll_tri.cpp passes a checksum), FlagDebugLines is
+  EnableOcclusionPoly, ClearDebugLines RemoveAllOcclusionPolys, and SphereVisible is SphereOutsideView (1 when
+  OUTSIDE the view, not visible). Names kept for their callers; the header's comment says so now. SetTexture's
+  third argument (0, or the font's unknown17C) and the "vertex shader" (0, 0) calls: ours takes (stage, texture)
+  and SetPixelShader(shader, material) - the 0x004DAA80 callers were calling the pixel shader set with nulls.
+  Tests: stand-ins now over ours too in selftests_gfx2 (blur pass, world render: a patch over each of ours),
+  selftests_pc (TestDrawFlash, TestDrawMovieFrame, TestPlayMovieFile: patches / JumpBoth over ours), gapsA
+  (TestSTextDrawing), selftests_text (TestQueryString, TestDrawText: GetButtonKeyName; TestInitDirect3D:
+  Stubs::ReturnZero - the shared stub, only for that test - and Tmr::SetFlags), fe_sprite (engine glue),
+  obj_lens_flare, tod (SetSun, SetColor), engcmd1 (SetSun), fe_anim, appmain (CreatePixelShaders). Stand-ins that
+  recorded SetTexture's third argument (BlurTexture, StandInState3, MovieSetTexture, PmRendererTexture, gapsA's) and
+  PmSoundVolume's ECX no longer record them (ours doesn't pass them; unused by the callee).
+  Mutations (out/scripts/mut_gc4_2.ts): 19 / 20 caught - RenderScene's pass, UpdateGlows' flag, BuildOccluders'
+  frame, the camera angle, the flash's blend mode, the movie's address mode and music volume, the text's texture
+  stage, SDraw2D's hidden flag, the key name's button, EnableOcclusionPoly's flag, the lens flare's TimeSince and
+  its +0x14 byte, the partial anim's length, the model colour, SetFlags dropped, the font spacings swapped, Lerp's
+  t, CreatePixelShaders dropped. Not caught: Draw2D dropped in Draw2DWithBlackBars - the world render test runs
+  ours in both runs there (PartyMod's call at 0x004B341D into ours): untested.
+- [x] Batch 345 (GC4-3; GameFunction cleanup agent GC4, merged 2026-10-24; run in the game: docs/pending/gamecalls-4.md; NOT judged by a player yet; GameFunction cleanup - src/game/front, 69 calls): every call from
+  src/game/front into rewritten code is direct now - the level editor's 13 collision rays (CFeeler::Construct /
+  GetCollisionAlong over the same 0x100-byte buffer, read back at +0x34 as before; GetCollisionAlong's int result
+  tested for non-zero where the GameFunction read AL - it returns 0 / 1), its render states (SetTexture /
+  SetVertexFormat / SetPixelShader), Terrain::GetTerrainIndex, Matrix::InitFromAngles, Quat::FromMatrix / GetMatrix
+  (the chains' quaternions are Mth::Vectors: reinterpreted), SkateScript::GetNode / GetPosition, the camera's getters,
+  Script::GetFloat (the original passes 1 as a second argument our GetFloat doesn't take), GameNet::Manager::InNetGame
+  (automation, layout); front_end.cpp (Mdl::Module's Construct / DestroyBody, Tsk::BaseTask's Construct / Remove,
+  Tsk::Stack::AddTask, Inp::CreateManager / ReleaseManager / SetOverridePadWithStick, Sfx::UpdateVoiceStates - the
+  original calls it as a method of the sound manager, it takes none - and CSfxManager::UpdatePositionalSounds,
+  Tmr::PauseGameClock, CScreenElementManager::SetPausedAll / Update); menu_element / screen_element / mouse_menus
+  (the screen element manager's HasPriorities, IsPadEvent, IsTopPriority, GetElement, ResolveId, SetParent,
+  DestroyElement); screen_element_cfuncs (the text / text block methods, and both constructors - GameConstruct gone);
+  screen_element_manager (Inp::Manager::GetPlayerController, CTextElement::SetText); element3d; menu_backdrop
+  (CMovieManager::GetPlayingName); text_block / text_element (the blur's destructor: Stubs::DoNothing, the shared
+  empty stub the original calls). The named-address helpers (sprite_element's / text_element's Set(address, ...),
+  level_editor_goals' GoalCommand) reach no rewritten function: left.
+  Tests: stand-ins over ours too in selftests_menu (front end: the thiscall helpers take ours; 0x0047B000's no longer
+  records ECX), fe_element_fixture.h, fe_menu, fe_manager, fe_cfuncs (the text helpers and the two constructors),
+  fe_text (0x005480A0 over Stubs::DoNothing too, ECX not recorded), el3d, menulvl, net_scores (GetElement: the score
+  list reaches it through Front::GetElement now). Mutations (out/scripts/mut_gc4_3.ts): 17 / 17 caught - a task's
+  priority, the stick override, the clock pause, the voices update dropped, the input manager's release dropped, the
+  top priority id, DestroyElement's recurse, ResolveId's name, a text block's last-line flag, the text length, the
+  block string's size, GetNode's assert, element3d's camera angle, the player's controller, the score text, the blur
+  destructor dropped, the backdrop's playing name. Untested: the level editor's rays (snap-movables: no test reaches
+  them - the editor is UI, tested by hand); one mutation (text-ctor) didn't build. Odd: with the test filter
+  "Menu,FrontEnd,ScreenElement,Text,Element3d,NetScores,Backdrop,Sprite,LevelEditor,Editor" TestEditorUnproject
+  hangs (45 s watchdog) even without a mutation - it passes alone and in full runs (D3DX's first-call dispatch after
+  other tests?); not from this work, worth a look.
+- [x] Batch 346 (GC2-1; GameFunction cleanup agent GC2, merged 2026-10-24; run in the game: docs/pending/gamecalls-2.md; NOT judged by a player yet; file, sfx, sio - 31 calls).
+  - file/async.cpp: Mdl::Module Construct / DestroyBody, Tsk::BaseTask::Construct, Tsk::Stack::AddTask. async.h's three
+    stubs (0x005B6570 true, 0x005BA1D0 0, 0x005B9E50 false - folded, source only) are written as their values
+    (`AsyncLoadingAvailable` true, `CachedFileSize` 0, `LoadCachedFile` false). file.cpp: Nx::ShowDiscError (the error
+    code it was pushed is unused). pre.cpp: Pcm::UsingCD, Tmr::GetTime.
+  - sfx.cpp: the call to the folded stub 0x004504F0 (returns false) after setting the pitch is left out (a comment
+    says so). sfx_voices.cpp: the cameras' GetPos / GetMatrix (source only - checked: lea +0x5C / +0x6C), Mth::GetDistance,
+    Mth::GetAngle, Vector::RotateAboutY, and the object sound calls - the "object" the sound manager is handed is the
+    object's CSoundComponent (sound_component.cpp passes AsSoundObject(this)), so they call GetSoundExtent /
+    GetSoundPosition / GetPreviousSoundPosition / KeepLoopingSound / UpdateProps on it. terrain.cpp: GameNet::Manager::GetClient.
+  - sio: inpman.cpp (Tsk::Stack Construct / Process / Destruct, BaseTask::Construct, Inp::Manager OverridePadWithStick /
+    Destruct), device.cpp (BaseTask::Construct), sdl_input.cpp's InParkEditor (CScreenElementManager::GetElement into an
+    ElementPtr; its destructor releases it as 0x004637E0 did).
+  - Tests: selftests_objsys9.cpp (TestSfxPositional / TestSfxVoices: the sound component stand-ins, and the
+    GetDistance / GetAngle byte jumps, now over ours too), selftests_mva.cpp (TestInpManager), selftests_obj_terrain.cpp.
+- [x] Batch 347 (GC2-2; GameFunction cleanup agent GC2, merged 2026-10-24; run in the game: docs/pending/gamecalls-2.md; NOT judged by a player yet; the skater's smaller components - 61 calls): controls, end_run,
+  finalize_physics, flip_and_rotate, floating_name, local_net_logic, looping_sound, manual, physics_control, rotation,
+  run_timer, skater_score, skater_sound, special_item, tagging, trick_component, trick_member_functions, vehicle_sound.
+  - Folded / odd ones: manual.cpp's 0x005480C0 (FoldedGetters::Word04) is the network manager's m_server; run_timer's
+    call of 0x005BAB90 (the base's empty GetDebugInfo) is left out with a comment, as vehicle_sound.cpp already did;
+    tagging.cpp's tag settings come from walk_parameters (0x6775E538 is kWalkParameters) - CWalkComponent::Param.
+  - controls.cpp's field constants were misnamed: kSound (0x177C) is the walk component's trigger component,
+    kTrickComponent (0x1784) its movable contact component, kTrickName (0x17B4) its trigger feeler (walk_fields.h has
+    them right) - renamed kTrigger / kMovableContact / kTriggerFeeler; the calls are CorePhysicsComponent::FindAcidDrop,
+    CMovableContactComponent::StartRiding, CTriggerComponent::CheckFeeler, CWalkComponent::SetState / Param.
+  - Types: the terrain table index is a byte (GetTableIndex returns uint8_t; callers held it as a pointer - only its
+    byte was ever read); physics_control's SetWalking passes 0 / 1 to SetPhysicsMode (an int; the original pushes 1 / 0);
+    the folded PlayerInfo getters return 0 / 1 ints (compared != 0 where callers want bools).
+  - GetScaledPhysics (0x00580790) returns a float in ours; callers that kept the original's unrounded x87 value
+    (rotation.cpp's StatValue, finalize_physics, run_timer) now get it rounded - as they already did through the hook.
+    Not a change made here, but worth knowing.
+  - Tests: selftests_skaterB.cpp (break vert / spin: our GetPhysicsFloat / Int, GetScaledPhysics, GameClockElapsed,
+    GetAngleAbout patched too), selftests_viewer4.cpp (TestBalance: the 0x005480C0 stand-in replaced by the fake
+    manager's +4 word set per frame, read by both), selftests_skater_end_run / flip_name / physics_control / sound_net /
+    state_component / tagging / timers / trick / trick_queue / vehicle_sound.cpp, selftests_pc.cpp (TestSkaterAcidDrops:
+    CodePatches over ours too). The terrain stand-ins record the table's byte (state_component) / answer a byte
+    (sound_net); timers no longer stands in for 0x005BAB90.
+- [x] Batch 348 (GC2-3; GameFunction cleanup agent GC2, merged 2026-10-24; run in the game: docs/pending/gamecalls-2.md; NOT judged by a player yet; state history, non-local net logic, walk - 67 calls): state_history.cpp,
+  nonlocal_net_logic.cpp, nonlocal_playback.cpp, walk_collision / movement / moves / physics.cpp.
+  - state_history.cpp's helper names don't all match what the functions are: IsObserving calls
+    PlayerInfo::IsInvulnerable, IsIt IsKing, OnATeam IsCarryingFlag, Team GetFlagTeam, MarkTagTime MarkJustJoined, MakeIt
+    MarkAsKing, TagOnTeam RetrievedFlag, ConvertToTeam StoleFlag, ManagerFlag4 InInternetMode, ManagerFlag3A IsGameOver
+    (source only: mov al,[ecx+0x3A] - checked), LocalSkater the manager's +0x6C - what the network code calls GetCrown
+    (source only: mov eax,[ecx+0x6C] - checked; `IsNearLocalSkater` may really be "near the crown"). Kept the local
+    names, documented what they call. ManagerApp is the manager's m_server (folded 0x005480C0).
+  - nonlocal_net_logic.cpp: 0x00532EB0 ("Manager::GetMatchClient", source only) read the Nx model's +0x2C (its light
+    object) - written as that field read (the folded getter the HANDOFF warned of).
+  - nonlocal_playback.cpp: the model's three parts are the model component's m_spin axes (CModelSpinAxis Add / Clear);
+    Add's base / range were passed as raw words: read as floats now (the same bits). HideGeom's hide and Add's hold are
+    bools: the message's byte (any value) is passed as `!= 0` - the original passes the byte; both functions only use it
+    as a truth value (HideGeom passes it on to the model's 0x00493xxx, not rewritten - a byte above 1 would be stored
+    as 1 now: the network messages carry 0 / 1).
+  - walk_moves.cpp: FirstChannel47E850's int "send" argument is passed as its bits (std::bit_cast, as walk_physics /
+    trick_queue already do); GameClockTimeSince read as unsigned as before.
+  - Tests: selftests_skater_state_history.cpp, selftests_skater_nonlocal.cpp (0x00532EB0's stand-in replaced by the Nx
+    model's +0x2C set in IsHitTriangleCollision's stand-in, the model moved to its own arena slot kNxModel),
+    selftests_skater_nonlocal_playback.cpp (0x0053AEA0 records the id's low 16 bits - the original passes the whole id,
+    PlayerByObjectId reads 16; HideGeom / Add record their bools as truth values), selftests_skater_walk /
+    walk2 / walk_collision / walk_pieces.cpp (sk5 kit: `{Code(&ours)}` added).
+- [x] Batch 349 (GC2-4; GameFunction cleanup agent GC2, merged 2026-10-24; run in the game: docs/pending/gamecalls-2.md; NOT judged by a player yet; skater.cpp 86 calls, trick_queue.cpp 10).
+  - skater.cpp: the lights 0x00532EB0 (Nx model +0x2C) and 0x00456B30 (a naked jump through vtable slot 5 -
+    Net::VirtualSlot5Jump, REPLACE_UNCHECKED) are a field read and a vtable call; 0x005480F0 (FoldedGetters::Word18) on
+    the collision component is its +0x18; 0x00411840 (Nx's VectorTurn::TurnBy, a struct local to coll_rect.cpp) is
+    written out as the RotateVector it calls. PlayAnimation's second word was passed as 0.3f: bit_cast to uint32_t (the
+    same bits). ReplaceTexture: skater.cpp passes a checksum (modelSwap2) where ours declares `const char* dest` - passed
+    on as the same bits; one of the two is misnamed (not resolved here). SetActive / SetBoardRotated / HideGeom get
+    `byte != 0` where the original passed the byte: the original 0x0043D560 compares the byte with its stored 0 / 1 and
+    tests it - the same outcome (checked in its disassembly).
+  - trick_queue.cpp: MatchesIgnore's `ignore` word goes to TrickNamed's `const char* name` (a string pointer kept in a
+    word) - passed as the same bits.
+  - Tests: selftests_viewer10.cpp (TestSkater: the lights' getter / jump stand-ins replaced by the model's +0x2C and a
+    stand-in vtable whose slot 5 records the same), selftests_viewer11-15.cpp (an `OursOf` / `AlsoOurs` helper: each
+    `Simple` stand-in also covers ours for the addresses skater.cpp now calls directly - only those: covering every
+    Simple address hung TestSkaterProfile; viewer12's 0x005480F0 stand-in replaced by the collision component's +0x18,
+    its SetActive stand-in records the bool as a truth value; viewer13's 0x00411840 stand-in removed - the original's
+    runs and calls the stood-in 0x0040B090 as ours does), selftests_skater_trick_queue.cpp.
+- Checks after each batch: thug2_check on THUG2PM.exe and the stock THUG2.exe - 0 MISMATCHED, 771 early self-tests all
+  passed (main's count); check_code_writes "No overlaps". At the end on C:\Games\THUG2-ghidra-snapshot-gc2:
+  scan_register_assumptions 5 RISK (the 5 known), audit_game_function_calls 0 MISMATCH.
+- Mutations: 26 converted call sites over the four batches (a wrong argument or the call dropped), each with only the
+  tests that cover it (out/scripts/gc2_mutations.ts + gc2_mutrun.sh in the worktree; GC2_GROUP picks the tests) - all
+  26 caught. GC2-1: GetDistance's arguments swapped, RotateAboutY dropped (sfx positional / voices), GetClient(1)
+  (terrain manager), OverridePadWithStick dropped, a task's priority + 1 (Inp). GC2-2: GetAngleAbout's arguments
+  swapped (spin), CheckBalanceTime's last argument (balance), SendGameEnded dropped (end run), the physics mode
+  reversed (physics control), AnyChannel's last argument (flip and rotate), ExpireButton's ms (trick member
+  functions), SetState(0) (acid drops), PlayTerrainSound's propagate (skater sound). GC2-3: FirstPlayerInfo without
+  observers, MarkAsKing(!it) (state history collisions), the light field +0x30 (non-local lighting), MarkAsFullyIn
+  dropped (non-local interpolate), WallPlant's checkOnly (walk collision), the send word converted instead of
+  bit-cast (walk animation speed). GC2-4: PlayAnimation's word 0 (skater init), the light's slot-5 argument
+  (TestSkater), the collision flag 4 (skater init), SetGoalStatus(i, 0) (TestSkater), SetActive's truth reversed
+  (skater init; `SetActive(true)` survives - every test byte is nonzero, an equivalent mutation for that data),
+  SetPendingTrick's flag, QueueAllDoneTricks dropped (trick queue). Four (expire-ms, lights-slot, goal-status,
+  fully-in) were run by hand (out/scripts/gc2_mutone.py): their test sets take longer than mutate.ts's 60 s timeout
+  with four agents' checks running (TestSkater* is 42 tests, ~77 s), which mutate.ts reports as a hang.
+- Left for later (not GameFunction calls, so not counted by find_game_calls.ts): about 95 calls in these files still go
+  to rewritten functions through address-taking helpers - walk_moves.cpp's `Call(0x..., ...)` (~75: the walk
+  component's own methods, StartRiding / StopRiding, CheckFeeler, Assign...), trick_member_functions.cpp's
+  `Call` / `CallOn` (11), skater.cpp's reset loops over trick component addresses (2 loops), physics_control.cpp's
+  CameraCall (2: the walk camera's Save / RestoreState). skater.cpp's network handler table holds addresses as data
+  (registered with the dispatcher) - fine until the exe goes.
+- [x] Batch 350 (GC1-1; GameFunction cleanup agent GC1, merged 2026-10-24; run in the game: docs/pending/gamecalls-1.md; NOT judged by a player yet; the skater core's shared helpers, core_physics.cpp, core_collision.cpp,
+  core_jump.cpp - 59 GameFunction calls as the tool counts them, plus 15 `CallThis(0x...)` calls into rewritten
+  functions):
+  - core_physics_fields.h / core_fields.h (every core_* file uses them): the clock (Tmr::GameClockElapsed), the
+    physics values (Obj::GetPhysicsFloat / GetPhysicsInt), the stat value (CSkater::GetScaledPhysics), Vector::SetLength,
+    the pad buttons' times (CControlButton::GetPressedTime / GetReleasedTime / ClearTrigger), the trigger component's
+    feeler check (CTriggerComponent::CheckFeeler), the feeler's assignment / destructor body (Nx::CFeeler::Assign /
+    Destruct), the ride let go of (CMovableContactComponent::StopRiding) and the core's own feeler
+    (CorePhysicsComponent::CheckFeeler).
+  - core_physics.cpp (DoGroundPhysics' landing check, DoAirPhysics, LandFromAir): its own copies of those helpers, and
+    SetTerrain, StartRidingHitObject, SetTrickObjects, FindAcidDrop / StartAcidDrop, WallPlant, CRideTracker::Update,
+    CheckAirForwardCollision, KeepOffCeiling, GameClockTimeSince (still compared unsigned), PlayLand, SetLastGroundFeeler;
+    the `CallThis` calls of LeanInAir, RotateInAcidDrop, RecoverInAir, KeepUpright, StopRiding, CheckSideCollisions,
+    VertWallplant, StartRidingHitObject, FindNearestWallSide. Left: the unrewritten 0x004FE860, 0x004FEA50, 0x004FDED0,
+    0x004FEBA0, 0x004FF470, 0x004FFB90, 0x004FE730, 0x004FFDB0, 0x004FC400, 0x004FFB10, 0x004FC470, 0x004FF590,
+    0x004FC370.
+  - core_collision.cpp: the helpers CheckLip / TryWallplant / Call5039F0 went - they were StartWallRide (0x00508140),
+    WallPlant and BounceOffWall (0x005039F0; "not known yet" in the old comment); PlayBonk, Vector::SetLength.
+    core_jump.cpp: PlayJumpInState, TurnForRailJump, Walk::MovableContact::StartRiding, Skitch, KeepUpright, WallPlant.
+  - Types kept: bools where the callee takes bools (WallPlant(true, false, false) for the original's 1, 0, 0);
+    GetScaledPhysics returns a float (StatValue's comment said the original's result is unrounded - through the hook
+    our float version was already what callers got).
+  - Tests: the stand-ins for these callees in selftests_skaterA, skater_acid_drop, _collision, _core_update,
+    _feelers, _grind, _ground, _jump, _rail, _state, _states, _turning, _wallplant, _wallride, _walls stand in for
+    ours too (`also` / `Ours(...)`; 76 + 58 entries, written by out/scripts/add_also.py / add_ours.py).
+  - 23 deliberate bugs (out/scripts/mut1.ts, the 33 skater core tests): 22 caught; 1 equivalent (GetPhysicsInt's
+    `required` changed: ours ignores it - the assert is compiled out).
+  - Built, thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, 771 early self-tests pass;
+    check_code_writes: no overlaps.
+- [x] Batch 351 (GC1-2; GameFunction cleanup agent GC1, merged 2026-10-24; run in the game: docs/pending/gamecalls-1.md; NOT judged by a player yet; the rest of src/game/skater/core_* - 85 GameFunction calls, plus 7
+  `Call(0x...)` in core_ground.cpp): core_grind, core_physics_wallplant, _feelers, _state, _walls, core_rail,
+  core_states, core_wallride, _turning, _skitch, _acid_drop, core_ground, _speed. No call into rewritten code is left
+  in skater/core_* (find_game_calls and a scan for literal addresses of rewritten functions).
+  - Odd / found: core_states.cpp read the point from GetContactPoint's return value (EAX: the original 0x00427A00
+    returns `out`), but our CMovableContactComponent::GetContactPoint is `void` - through the hook the caller (ours)
+    read whatever EAX held. Now the point is read from the out parameter. **If any original game code reads 0x00427A00's
+    EAX, our void version breaks it in the game** - obj/movable_contact (not my file) should return `out`.
+    0x00476EC0 (BoolAssertGetters::GetChecksum, the bool-assert wrapper) -> CStruct::GetChecksum(name, out, 1).
+    0x0043DA70 (CWalkComponent::Param) for the grind's jump-adjust walk parameter - correctly named (a walk parameter).
+    StartGrindTrick's fourth argument was passed as the raw byte +0x34C (only ever 0 / 1) - now `!= 0` for the bool.
+    core_physics_walls passes PlayBonk a terrain word whose upper bytes are the angle's (as the original): kept.
+  - Tests: 35 + 28 more stand-ins for ours (same files as GC1-1).
+  - 15 deliberate bugs (out/scripts/mut2.ts): all caught.
+  - Built, thug2_check both exes: 0 MISMATCHED, 771 early self-tests pass; check_code_writes: no overlaps.
+- [x] Batch 352 (GC1-3; GameFunction cleanup agent GC1, merged 2026-10-24; run in the game: docs/pending/gamecalls-1.md; NOT judged by a player yet; src/game/skate/ - 40 GameFunction calls as the tool counts them, plus
+  51 `Call(0x...)` calls and 7 handler addresses in skate_net.cpp): trick_goals.cpp (the screen element manager and
+  elements, the text / container constructors, SetID, the profile's info structures, the clock, the beat goal's sound
+  volume - Sfx::sVolume over the file's own SoundVolume layout - and PlaySound, GetComponent, CSkater::GetScore),
+  victory_conditions.cpp (the network manager's player lists, local player, team score, PlayerByObjectId,
+  PlayerInfo::IsEliminated, GetScore), gap_checklist.cpp (the career's checklist / level), skater_profile.cpp
+  (WriteToBuffer / ReadFromBuffer, SetTrickMappings, the empty asserts as Stubs::DoNothing), profile_manager.cpp,
+  skate_net.cpp (every GameNet::Manager / PlayerInfo / Net::Conn / CSkater / trick object manager call; the task's
+  constructor and Tsk::Stack::AddTask; the handlers registered by address - HandleClientObjectUpdate, the state
+  history's HandleCollisionMessages / HandleHitMessages, the local net logic's HandleGraffitiSteal - are our functions).
+  - Folded getters written as what they do (the REPLACE name doesn't describe these callers): 0x00469490
+    (Spt::PointerMember::Get) for the goal manager's goal count -> its first word; 0x00576E60 (Viewer::GetViewerObject)
+    for a profile's face -> the appearance's +0x54; 0x005480C0 (FoldedGetters::Word04) for the server app -> the
+    network manager's m_server; 0x005430D0 (PlayerInfo::SetReadyQueryOwed) called on the network manager -> its last
+    leading team (+0x1D4, the field GetLastLeadingTeam 0x005331A0 reads) set.
+  - int-returning callees read as bool (InNetMode, PlayerInfo::IsLocalPlayer / IsObserver / IsFullyIn): all return
+    0 / 1, so `!= 0` keeps the AL reads. The source-only CheatingNoted / IsGameOver / GetJoinMode checked against the
+    game's bytes (fields +0x3B, +0x3A, +0x3C).
+  - Tests: tod2 / tod3 / tod4 / viewer3 / viewer18 / viewer19 stand in for ours too (29 `s.At` entries, tod4's
+    `simple` helper takes ours from a table; its AddHandler stand-in maps the four newly direct handlers to their
+    game addresses). Folded getters aren't stood in any more where ours reads the field: tod2 sets the goal manager's
+    first word, viewer19 the profile's face word; viewer18's empty-function stand-in (0x005480A0) went (both run an
+    empty function); tod4 lets 0x005430D0 run (it writes the arena's network manager +0x1D4, as ours does).
+  - 14 deliberate bugs (out/scripts/mut3.ts): all caught.
+  - Built, thug2_check both exes: 0 MISMATCHED, 771 early self-tests pass (checked together with GC1-4).
+- [x] Batch 353 (GC1-4; GameFunction cleanup agent GC1, merged 2026-10-24; run in the game: docs/pending/gamecalls-1.md; NOT judged by a player yet; src/game/script/, src/game/ed/, src/game/park/ - 51 GameFunction calls,
+  plus the park editor's display task code): script/cache (Mdl::Module's constructor / destructor body),
+  cfuncs_lighting (Sun::HideFlare / UnhideFlare / SetSun - the file's SunProps as Sun::Settings -,
+  Terrain::GetTerrainIndex / GetTerrainStructureInto), cfuncs_memory, cfuncs_render (GetBonePosition), cscript_exec /
+  cscript_manager (GameNet::Manager::InNetGame / GetClient, Net::Client::EnqueueMessageToServer, WriteToBuffer),
+  cscript_wait (the clock), node_manager (CPathManager::Instance()->NumberPaths()), nodes (Quat::GetMatrix),
+  skate_cfuncs (Inp::ButtonIndex, the viewer's getter / velocities / RemoveViewerObject, GetPrefixedNodes, NodeExists,
+  GetLastNodeArray); ed/cursor, park_accessors, park_floor (its Feeler is driven through Nx::CFeeler),
+  park_io, park_manager, park_map, piece_menu (the tracker, the screen element manager and elements),
+  park_editor_state (the display task's code: Stubs::DoNothing); park/park_cursor, park_editor
+  (GridCoordinatesToWorld returns the corner by value: `Mth::Vector` locals instead of the float arrays).
+  - Folded functions: 0x0047AE10 (the sound manager's free memory) and 0x005BA1D0 (setting the default heap) are
+    `xor eax, eax; ret` - Stubs::ReturnZero; 0x005480C0 on a CMapListNode -> CMapListNode::GetMeta.
+  - 0x0045BF90 (GetPrefixedNodes) was called with a third argument (exact or prefix) it never reads (its bytes:
+    two arguments passed on) - ours doesn't pass it; lfxc's stand-in no longer records it.
+  - Left (not a call): script/nodes.cpp compares a CFunction token with 0x0044AB20 (SetEventHandler's game address,
+    what the game's CFunction table holds) - now also with our CFunc_SetEventHandler, for a table of ours.
+  - Tests: stand-ins for ours in lfxc, lfxc2, csC, csD, nodes, cobj, engcmd1, engcmd2, parkedA, thugpro_guards
+    (PlayerByConnection etc. from GC1-3), csB, park_editor_state (Stubs::DoNothing aliased to 0x005480A0); the
+    `xor eax, eax` stand-ins in engcmd4 / lfxc3 went (both run the empty function).
+  - 14 deliberate bugs (out/scripts/mut4.ts): all caught.
+  - Built, thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all 771 early self-tests pass;
+    check_code_writes: no overlaps; scan_register_assumptions on a snapshot copy: the 5 known RISK lines;
+    audit_game_function_calls: 0 MISMATCH.
+- [x] Batch 354 (GC3-1; GameFunction cleanup agent GC3, merged 2026-10-24; run in the game: docs/pending/gamecalls-3.md; NOT judged by a player yet; sys / core / mc / nx and the first net files - 96 calls):
+  - sys/main.cpp: the singletons with source made and released directly (Mdl::CreateManager / ReleaseManager,
+    Inp::Create/ReleaseManager, Ass::CreateAssetManager / ReleaseAssetManager, Sfx::CreateManager / ReleaseManager,
+    CPlayerProfileManager / CGameRecords Create / Release, GameNet::Manager::Create / GameNet::ReleaseManager,
+    Front::Create / DeleteScreenElementManager), SetKeyNames / SetGermanKeyNames, CPathManager::Instance,
+    RegisterComponentTypes, Inp::Manager::SetOverridePadWithStick, the task lists (Tsk::Stack::AddTask /
+    RemoveAllTasks) and the module manager's Register / Start / StopAll / Unregister. The four singletons without
+    source (0x00553DB0 / 0x00552F70, 0x005691A0 / 0x00564C10) keep `Create(0x...)` / `Release(0x...)`.
+  - sys/mlp.h: Mlp::Manager's three task lists are Tsk::Stack now (were 0x3C-byte arrays; only obj/compositemgr.cpp
+    and obj/objman.cpp read them, by offset). sys/mlp.cpp: ServiceGameSpy, the render targets' release / restore
+    (Nx::ReleaseRenderTargetTextures, ReleaseRenderTargets, RestoreRenderTargetTextures, CreateRenderTargets; the two
+    at 0x004D67F0 / 0x004D68C0 have no source yet), Tsk::Stack Construct / Destruct / Process (the profiling flag
+    passed as the unused argument, as the original).
+  - sys/viewer.cpp: BaseTask::Remove / Destruct / Construct, Stack::AddTask (the main loop's logic list, an input
+    server's handler list), Script::ScriptExists, the app's Dispatcher::Deinit, Script::ReadFromBuffer, and the
+    handler for message 0x21 is &GameNet::HandleNothing (was the game's address). sys/module.cpp: BaseTask::Construct.
+  - core/singleton.cpp: the SingletonPtr types for the sound, asset, profile, records, network game, screen element
+    and time-of-day managers are real types calling ours (the two whose Create returns nothing - Sfx, the screen
+    element manager - have `Type = void`: no SingletonPtr of them is ever constructed). core/heap.cpp:
+    Mem::Manager::GetNamedHeap, the heap dump is CFuncs::CFunc_DumpHeaps(nullptr, nullptr).
+  - mc/memcard_cfuncs.cpp: Pcm::PauseMusic / PauseStream, Script::ReadFromBuffer; the card's "always true" method
+    (folded into 0x005B9760) is Stubs::ReturnTrue(). nx/coll_static.cpp: Nx::RegisterMovable (the original pushes a
+    second argument RegisterMovable never reads; ours passes one - anim9's stand-in no longer records it).
+  - net/service.cpp: SetServiceState, BaseTask::Remove, Pcm::PauseStream, SetLobbyId (called with a thread id - the
+    name is established, its other callers use it the same way), the lobby's ClearLobbies / StartListingGames /
+    GetLobby / FillLobbyList. net/buddy_man.cpp: GameNet::IsThug2Location (server_list.h), SetLoggedIn, the buddy /
+    message nodes' DestroyBody, LobbyMan::GetPeer. net/chat.cpp (PartyMod's chat): GetLocalPlayer, the client's
+    EnqueueMessageToServer, CStruct::Init / Clear / AddString, Script::DeleteStruct (its local "ScriptStruct" is
+    Script::CStruct now; its own kNameSize dropped for GameNet's - the same 16).
+  - net/gamenet_join.cpp: the manager's counts / limits / password / AddJoiningPlayer / SetReadyToPlay /
+    ChooseStartPoints / CancelJoin, StatsMan::GetRank, the rating (the original reads it through
+    GetPersonalStats + the folded getter 0x00469490, Spt::PointerMember::Get: ours reads GetPersonalStats()->m_rating),
+    BuddyMan::SetStatus, GetCdKey, Tmr::GetTime, NewPlayerInfo::Construct / DestroyBody, and the match client's
+    handler is &HandleServerResponse. Its local copy of the NewPlayerInfo layout is gone (GameNet::NewPlayerInfo from
+    player_info.h; the object id passed on sign-extended as before) and kPlayerLocal / kPlayerObserver come from
+    player_info.h.
+  - Odd: gamenet_join's SetPresence(m, status, location, text) passed its arguments on as SetStatus(status, text,
+    location) - the names were swapped, not the order (every caller passes the status text second, the location
+    third, which is what BuddyMan::SetStatus's names say): renamed SetPresence's parameters to match.
+  - Tests changed: TestMain (every converted Create / Release, the key names, task and module calls), TestMlpManager,
+    TestMainLoop, TestSingletonPtrs, TestServiceTask, TestLoadFromMemoryCard, TestViewerModule (and HandleNothing
+    aliased to 0x0052DAC0), TestViewer (tod2), TestModules (mva2), TestAnimCollTurnScale (anim9), the buddy tests,
+    TestThugproChatHandler (its stand-ins also patched over our CStruct::Init / AddString / Clear, DeleteStruct and
+    Client::EnqueueMessageToServer), TestGameNetJoin (the answers stand in for ours; HandleServerResponse mapped to
+    0x005475C0); plus the `{address}` lists of every other test touching these addresses (out/gc3/stand_in.py).
+  - Checks: thug2_check on both exes 0 MISMATCHED, 771 early self-tests all passed (as main); check_code_writes no
+    overlaps. Mutations (out/scripts/mut1.ts): 47, 44 caught; missed: heap-dump and heap-named (TestHeap has no named
+    heap 0x502D3FD2 and no failed allocation that asks for the dump - untested, as before the change), join-objid-sign
+    (the object ids in the join tests are below 0x80, so the sign extension isn't exercised - untested).
+- [x] Batch 355 (GC3-2; GameFunction cleanup agent GC3, merged 2026-10-24; run in the game: docs/pending/gamecalls-3.md; NOT judged by a player yet; the rest of net): every call into rewritten code in src/game/net is direct
+  now - the handler helpers (gamenet_handler_util.h: PlayerByConnection / PlayerByObjectId / LocalPlayer /
+  KingOfTheHill, PlayerInfo's IsLocalPlayer / IsObserver / GetConnHandle through AsPlayer(), the player list
+  searches), gamenet_flow / handlers / game_handlers / game_cfuncs / game_commands / commands / lobby /
+  lobby_cfuncs / lobby_menus / lobby_peer / manager_create / members / newplayers / players / player_lists / qr2 /
+  server_handlers / session_handlers / settings / tasks, lobby.cpp, player_flags, player_info, score_list,
+  server_browser, server_list, stats, stats_man, net_app, net_client, net_manager, gamenet_observer.h. The calls go
+  to PlayerInfo, Manager, LobbyMan, BuddyMan, StatsMan, VaultMan, the skater (CSkater), the crown, the trick object
+  manager, the park editor, the skater profile, the walk camera and the skate module's AddClientHandlers.
+  - New (no addresses of their own, both declared in gamenet_manager.h): Manager::NextNewPlayerInfo - the joining
+    players' next, which the original reaches through the lists' generic next folded at 0x004573D0
+    (Net::App::NextConnection, with the manager as its unused this) - and Manager::UnlinkAllNodes (__fastcall, head
+    in ECX) - the original's call to the list code folded at 0x00588B70 (Obj::TrickObjectHead::UnlinkAll) from
+    Manager::DestroyBody. Their stand-ins: 0x004573D0 / 0x00588B70's tests cover them.
+  - Folded functions whose names don't fit the caller, written as what they do (no call): the manager's last leading
+    team (+0x1D4) set to -1 in HandleStartGame (the original calls PlayerInfo::SetReadyQueryOwed's 0x005430D0 on the
+    manager); the goal count and the stats' rating read as their first words (the original: Spt::PointerMember::Get,
+    0x00469490) - the tests now put the value in the arena instead of standing in for 0x00469490. The folded getters
+    with neutral names (GameNet::FoldedGetters::Byte10 / Word04 / Word18) are called directly. The network cable
+    check is Stubs::ReturnFalse() (0x005B9E50, the network object's method on the PC).
+  - Kept as they are (function addresses passed as data, not calls): the GameSpy callbacks and threads
+    (buddy_man.cpp kOnBuddyRequest / kLoginThread, service.cpp's news / motd threads, lobby.cpp's peer callbacks,
+    ConnectThread, the tasks' codes, qr2's key callbacks, stats.cpp's OnTopStats, gamenet_lobby_cfuncs / _peer's
+    "no progress" 0x005480A0) and the join's handler table (gamenet_join.cpp) - they reach our code through the hooks;
+    for a game without the exe they're to become &Function too.
+  - Odd: lobby.cpp's LobbyMan::Destroy calls LobbyListNode's destructor body (0x00540860) on the lobby itself (the
+    header says so; kept). gamenet_commands.cpp's SetLobbyState / SetServicesState call the manager's SetServiceState
+    / SetNextServiceState (names differ, behaviour as before). StatsMan::GenerateAuth is stdcall but the original
+    passes the online service in ECX too (unused). gamenet_players.cpp kept its own copy of NewPlayerInfo's layout
+    (now GameNet::NewPlayerInfo, player_info.h, as in gamenet_join.cpp). GetPlayerScore passes its 32-bit id to
+    PlayerByObjectId, which reads 16 bits: the test records the 16.
+  - Tests changed: every {address} stand-in list for the converted addresses (out/gc3/map2.txt, map2b.txt), the loops
+    of plain addresses in selftests_net_lists.cpp, selftests_skater_gamenet2.cpp and _gamenet5.cpp made pairs,
+    TestRetrieveTopStats patches our VaultMan::Download too, the 0x005B9E50 stub in net_newplayers is cdecl (no ECX),
+    GenerateAuth's stub doesn't record ECX, GameNetKit::Str qualified where skater.h's namespace Str now clashes.
+  - Checks: thug2_check on both exes 0 MISMATCHED, 771 early self-tests all passed; check_code_writes no overlaps. Mutations (out/scripts/mut2.ts): 40, all caught.
+- [x] Batch 356 (GC3-3; GameFunction cleanup agent GC3, merged 2026-10-24; run in the game: docs/pending/gamecalls-3.md; NOT judged by a player yet; obj): every GameFunction call into rewritten code in src/game/obj is direct
+  now - the movies (anim_movies, movie_manager: CMovieDetails, the camera, the asset manager), the cutscenes
+  (update / load / package / data / play), game_objects (components made through their constructors - NewComponent<T>;
+  the object proximity one, 0x004EC370, has no source yet), rail_manager (the feeler, the walk component's checkers,
+  the terrain), the feeler wrappers (avoid, composite, camera_util, editor_camera: Nx::CFeeler), walk_hang, the anim
+  blender, the suspend / skeleton / trigger / sound / matrix / model / vibration / motion components, the quaternion
+  and matrix helpers (vehicle_internal.h and others), the task lists (compositemgr / objman: Mlp::Manager's lists),
+  the network manager's players (model_component(_nx), trick_objects, particle_component), the screen element
+  manager's ResolveId (tracker).
+  - New helpers with no addresses of their own (the original calls folded code whose name doesn't fit), each
+    __fastcall so the object is in ECX as in the original's call, so tests can stand in for them at the folded
+    address: Obj::MovieName (a movie's +0x20, via 0x00543150 PlayerInfo::GetAccumulatedScore), Obj::AppearanceFace
+    (+0x54, via 0x00576E60 Mdl::Viewer::GetViewerObject), Obj::ModelFader (+0x2C, via 0x00532EB0
+    GameNet::Manager::GetMatchClient), Obj::ParticleSystemParams (the address of +4, via 0x004AAD40
+    CScreenElementManager::GetObjectList), Obj::SetParticleValue34 (via 0x004076F0 Ass::CAsset::SetGroup),
+    Obj::ModelNx::SetLightsDirection (the lights' slot 2, via the tail jump 0x004E3F90 Obj::RefreshFromStructure).
+    The FoldedGetters (Word04 / Word18) are called directly for the skeleton / sector words.
+  - CMovieDetails::SetFlag19 / SetFlag1B take a uint8_t and the two flags are bytes: the original stores the
+    argument's low byte as it is (the movie manager passes a script's integer - e.g. 7 - and GetSettings returns it);
+    our bool setters stored 1. (The setters' callers: movie_manager.cpp, anim_movies.cpp.)
+  - Odd: cutscene_update.cpp's kSoundComponent (0x208353AC) is the matrix component (component_types: 0x0041CB20
+    CMatrixComponent::Create) - renamed kMatrixComponent. Two layouts of the movie base: CMovie (movie_manager.h: +0x24
+    m_endScript) and CMovieDetails (node_objects.h: +0x20 m_value20 - the movie's name -, +0x24 m_name); the manager
+    reads the name at +0x20. CCutsceneDetails::Construct(const uint32_t* settings) is handed the movie manager's
+    camera context {skater info, +0x5C, bool}. avoid.cpp's FlipAnims is CAnimBlenderComponent::AnyChannel.
+  - Kept (addresses as data): editor_camera.cpp's feeler callback 0x004E5320, trick_objects.cpp's Nx::DeleteObject
+    callback 0x004B22A0, walk_hang.cpp's animation-end callbacks (SetAnimDone), component_types.cpp's table.
+  - Tests changed: the {address} lists (out/gc3/map3.txt), the kit tables' Ours (obj_walk_hang, obj_particle - and
+    BoneOut takes ours -, obj_motion2), anim13's channel methods table, viewer9's constructor loop, viewer5's flag
+    setters loop, the stand-ins at the folded addresses above.
+  - Checks: thug2_check on both exes 0 MISMATCHED, 771 early self-tests all passed; check_code_writes no overlaps;
+    audit_game_function_calls 0 MISMATCH (1798 uses); scan_register_assumptions the 5 known RISK lines (snapshot copy
+    C:\Games\THUG2-ghidra-snapshot-gc3).
+  - Mutations (out/scripts/mut3.ts, mut5.ts): 35 of 36 caught. Missed: trick_objects.cpp's NextPlayer (the
+    network manager's NextPlayerInfo) - the multi-player loop isn't reached by TestTrickObjects.
+- [x] Batch 357 (GC3-4; GameFunction cleanup agent GC3, merged 2026-10-24; run in the game: docs/pending/gamecalls-3.md; NOT judged by a player yet; fix found by GC1): Obj::CMovableContactComponent::GetContactPoint (0x00427A00)
+  returns `out` now - the original's both paths end `mov eax, [esp+0x68]` (out), `ret 4`, and callers read EAX (the
+  skater's lip-state update, 0x0050BF50: core_states.cpp). Ours was void. The self-test compares EAX too; mutations
+  returning `out + 1` / null caught.
 - [ ] Next: nothing left in 0x0053A910-0x00541870 (98 functions with source: 76 Ghidra knows + 22 reached only by
   pointer - callbacks and tasks it never made functions of). The lead: fold, merge, game crash check.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).

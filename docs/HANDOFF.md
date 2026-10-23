@@ -455,3 +455,9 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   (Wall_Non_Skatable_Angle 25 / the converter's WALL_RIDABLE), coarse vert steps > Ground_stick_angle 30, coplanar
   duplicate faces without VERT. Agent fixing the converter in a worktree (record docs/pending/thps2-quarterpipes.md,
   workspace THUG2-1).
+- Done (2026-10-24): GC1-GC4 merged (GC4, GC2, GC1, GC3; each built + thug2_check both exes 0 MISMATCHED / 771 early
+  self-tests, code writes, register scan 5 known, audit 0), folded as batches 343-357 (GC3-4 = 357: GetContactPoint
+  returns `out`). find_game_calls.ts: 0 calls into rewritten code left. Still open: calls through address-taking
+  helpers in some files (GC2 listed ~95 in gamecalls-2.md: walk_moves.cpp Call(0x...), trick_member_functions,
+  physics_control CameraCall, skater.cpp's reset loops) and the 35 named-constant GameFunction calls. NOT run in the game.
+- THPS2 quarter pipes merged (tools/level_port/ramp_collision.ts; docs/pending/thps2-quarterpipes.md; automation `trace`).
