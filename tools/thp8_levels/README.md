@@ -10,78 +10,82 @@ Nothing of either game is in the repo: the files are made from your copies each 
 Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\build_neverscript.ps1` ->
 `out\neverscript\ns.exe`) and, to install the levels, tools/menu_level/make_menu_level.ts.
 
-    node tools/thp8_levels/thp8_levels.ts convert [zones...] [--thp8 C:\Games\THP8] [--thug2 C:\Games\THUG2]
+    node tools/thp8_levels/thp8_levels.ts convert [levels...] [--thp8 C:\Games\THP8] [--thug2 C:\Games\THUG2]
     node tools/menu_level/make_menu_level.ts [--game C:\Games\THUG2]
 
-`convert` writes `<thug2>\thug2-decomp-thp8\` (not read by the game): `levels\thp8_<zone>\thp8_<zone>.scn.xbx /
-.tex.xbx / .col.xbx / .qb` (the network levels: `thp8_net_<id>`), `levels\thp8_sky` (THP8's default sky) and
-`levels.json`. Name levels to convert only some (`convert houses shops net_skatecentral` - `z_houses`, `houses` or
-`thp8_houses`; `net_capitol`, `capitol` or `thp8_net_capitol` all work); the default is all twenty-two (~2.5 min; the
-whole town ~1 min of it). Converting only
-some updates their entries in `levels.json` and keeps the others. `--no-mips` skips the mip levels (faster).
-`make_menu_level.ts` then copies them into the data overlay and adds them to Levels.qb and the level select.
+`convert` writes `<thug2>\thug2-decomp-thp8\` (not read by the game): `levels\thp8_<level>\thp8_<level>.scn.xbx /
+.tex.xbx / .col.xbx / .qb`, `levels\thp8_sky` (THP8's default sky) and `levels.json`. Name levels to convert only some
+(`convert net_skatecentral training` - `net_capitol`, `capitol` or `thp8_net_capitol`; `z_training`, `training` or
+`thp8_training` all work); the default is all fifteen (~2.5 min; the whole town ~1 min of it). Converting only some
+updates their entries in `levels.json` and keeps the others; every convert removes the levels it no longer makes (the
+city's zones as levels of their own, from before 2026-10-24: `thp8_houses` ... - their staging folders and levels.json
+entries; make_menu_level makes the overlay again from the staging folders, so they leave it too). `--no-mips` skips the
+mip levels (faster). `make_menu_level.ts` then copies them into the data overlay and adds them to Levels.qb and the
+level select.
 
     node tools/thp8_levels/thp8_levels.ts selfcheck
     node tools/thp8_levels/thp8_levels.ts list
 
 `selfcheck` reads every file of every zone archive (scenes and their strips, textures' base levels untiled,
-collision, qb / node arrays) and round-trips THUG2's LA / TestLevel files; `list` shows the levels (zones and network
-levels, what each is made of).
+collision, qb / node arrays) and round-trips THUG2's LA / TestLevel files; `list` shows the levels (what each is made
+of).
 
-| Zone | THUG2 level (Load_...) | Sign text | Pictogram | Level select | Network barriers added |
+THP8's levels as THUG2's - THP8's own set: its network levels (its own list: qb.pak's
+`online_level_select_menu_level_info`, each a `multiplayer_level_<x>` structure - text, the zones whose network spawns it
+uses, `spawn_in`, its barrier archive, `area_pak`), the first of them BEAVER VALLEY, the whole town (THP8's open world),
+and its standalone levels. Each network level is its zones merged in THP8's shared frame, with its barriers (collision
+only) and its zones' network spawns; the city's other zones around it as THP8 shows them from afar (their `_lod`
+stand-ins, drawn only). All are in the level select's THP8 section - free skate and the network level select alike.
+
+| THP8 level | THUG2 level (Load_...) | Zones (the first's lights) | Barriers | Pictogram | Level select |
 |---|---|---|---|---|---|
-| z_houses | thp8_houses | SUBURBIA | mailbox | 110 | z_online_suburbs |
-| z_outschool | thp8_outschool | SCHOOL | schoolbell | 111 | |
-| z_inschool | thp8_inschool | SCHOOL INSIDE | locker | 112 | |
-| z_shops | thp8_shops | MAIN STREET | trafficlight | 113 | z_online_shops |
-| z_ghetto | thp8_ghetto | SLUMS | bricks | 114 | z_online_ghetto |
-| z_factory | thp8_factory | FACTORY | gear | 115 | z_online_factory |
-| z_center | thp8_center | THE CAPITOL | capitolflag | 116 | |
-| z_citypark | thp8_citypark | CITY PARK | bench | 117 | |
-| z_cretepark | thp8_cretepark | SKATE PARK | bowl | 118 | z_online_skatepark |
-| z_funpark | thp8_funpark | FUN PARK | coaster | 119 | |
-| z_parking | thp8_parking | HILL TOP | parking | 120 | |
-| z_training | thp8_training | TRAINING | target | 121 | |
-| z_cartoon | thp8_cartoon | CARTOON | cloud | 122 | |
-| z_skateshop | thp8_skateshop | SKATE SHOP | skatetool | 123 | |
-| z_bedroom | thp8_bedroom | BEDROOM | bed | 124 | |
+| BEAVER VALLEY (the whole town) | thp8_net_beavervalley | houses, cretepark, shops, center, citypark, ghetto, funpark, cartoon, factory, parking, inschool, outschool | none (THP8 has none) | citymap | 113 |
+| SKATE PARK | thp8_net_skatepark | cretepark | z_online_skatepark | bowl | 114 |
+| FACTORY | thp8_net_factory | factory | z_online_factory | gear | 115 |
+| SLUMS | thp8_net_slums | ghetto | z_online_ghetto | bricks | 116 |
+| SUBURBIA | thp8_net_suburbia | houses | z_online_suburbs | mailbox | 117 |
+| MAIN STREET | thp8_net_mainstreet | shops | z_online_shops | trafficlight | 118 |
+| FUN PARK | thp8_net_funpark | funpark, cartoon | z_online_funpark | balloon | 119 |
+| SCHOOL | thp8_net_school | outschool, inschool | z_online_school | books | 120 |
+| INDUSTRIAL ZONE | thp8_net_industrial | factory, ghetto | z_online_industrial | chimneys | 121 |
+| CAPITOL BUILDING | thp8_net_capitol | citypark, center, parking | z_online_capitol | pediment | 122 |
+| SKATE & FUN PARKS | thp8_net_skatefunparks | funpark, cretepark, cartoon | z_online_funskatepark | ticket | 123 |
+| SKATE CENTRAL | thp8_net_skatecentral | center, houses, shops, citypark, parking | z_online_central | compass | 124 |
+| TRAINING | thp8_training | training | | target | 110 |
+| SKATE SHOP | thp8_skateshop | skateshop (a menu set: a restart is made) | | skatetool | 111 |
+| BEDROOM | thp8_bedroom | bedroom | | bed | 112 |
 
-THP8's network levels come from its own list (qb.pak's `online_level_select_menu_level_info`, each a
-`multiplayer_level_<x>` structure: text, the zones whose network spawns it uses - `spawn_in` -, its barrier archive -
-`area_pak`). Those of one zone are that zone's level above (SKATE PARK, FACTORY, SLUMS, SUBURBIA, MAIN STREET: its
-barriers added). Those of several are levels of their own, the zones merged in THP8's shared frame:
+The standalone ones are levels of their own in THP8 too (Level_Z_Training / _Skateshop / _Bedroom, loaded alone, in
+no network level's spawn_in); the city's zones (and the cartoon world, part of the fun park) are THP8's streamed open
+world, not levels by themselves - until 2026-10-24 they were levels here, our own split, cut off at the zone's edge.
 
-| THP8 network level | THUG2 level (Load_...) | Zones (the first's lights) | Barriers | Pictogram | Level select |
-|---|---|---|---|---|---|
-| BEAVER VALLEY (the whole town) | thp8_net_beavervalley | houses, cretepark, shops, center, citypark, ghetto, funpark, cartoon, factory, parking, inschool, outschool | none (THP8 has none) | citymap | 125 |
-| FUN PARK (sign FUN PARK AREA) | thp8_net_funpark | funpark, cartoon | z_online_funpark | balloon | 126 |
-| SCHOOL (sign SCHOOL AREA) | thp8_net_school | outschool, inschool | z_online_school | books | 127 |
-| INDUSTRIAL ZONE | thp8_net_industrial | factory, ghetto | z_online_industrial | chimneys | 128 |
-| CAPITOL BUILDING | thp8_net_capitol | citypark, center, parking | z_online_capitol | pediment | 129 |
-| SKATE & FUN PARKS | thp8_net_skatefunparks | funpark, cretepark, cartoon | z_online_funskatepark | ticket | 130 |
-| SKATE CENTRAL | thp8_net_skatecentral | center, houses, shops, citypark, parking | z_online_central | compass | 131 |
-
-All are in the level select's THP8 section - free skate and the network level select alike. BEAVER VALLEY reaches
-~21,000 units from its middle, past the half units THUG2 sends network positions in (+-16,384): its entry gets
-IsBigLevel (whole units - src/game/net/thugpro_compat.h). It needs this project's bigger limits
+BEAVER VALLEY reaches ~21,000 units from its middle, past the half units THUG2 sends network positions in (+-16,384):
+its entry gets IsBigLevel (whole units - src/game/net/thugpro_compat.h). It needs this project's bigger limits
 (src/game/core/memory_sizes.h: the node name hash, the rail table, the script heap, the pools) - with the original's
 sizes (`[memory] original_sizes=1`) it can't load. It takes ~7 minutes to load in the Debug build.
 
-The city's sign texts are THP8's own English area names (qb.pak's `zone_info`, its map's labels; the school's inside
-zone gets " INSIDE"); training, the cartoon world, the skate shop and the bedroom have none there: ours. The
-pictograms are ours (tools/menu_level/level_select_icons.ts, THP8_LEVELS in level_select.ts).
+The sign texts are THP8's; the pictograms are ours (tools/menu_level/level_select_icons.ts, THP8_LEVELS in
+level_select.ts).
 
 ## The world and how it's cut
 
 THP8's world is one city streamed in zones: each `ZONES\z_<zone>.pak.xen` has a far-away stand-in `z_<zone>_lod`, and
-the zones share one frame (metres, y up). Each zone is a level of its own (as THAW's areas are), moved so the middle of
-its collision is at the origin; a network level merges its zones in the shared frame, moved as one. Merging: a
+the zones share one frame (metres, y up). A network level merges its zones in the shared frame, moved as one (the
+middle of their collision at the origin), and draws the city's other zones' `_lod` stand-ins around it. Merging: a
 material of one checksum that two zones define differently (other light maps: 53 of the 276 shared across the town)
 is made twice; each zone's light maps are lit by its own sun; the node arrays follow one another (Links moved up; no
 node name repeats across the zones); a texture of one checksum is made once. The whole town as converted: 1.26 million
 drawn triangles, 8,781 sectors, 2,791 textures, 3,346 collision objects; 81 MB scene + 64 MB textures + 3.5 MB
 collision + 4.8 MB qb. THP8's network areas (`z_online_<x>`) are barrier walls, added as collision only (THP8 draws
-them as a shimmer when the skater is near). The separate zones: training,
+them as a shimmer when the skater is near).
+
+**Seam walls.** Each zone's collision has invisible walls (every face 0x1000, most also 0x80 - the camera passes)
+along its edges where the next zone begins (z_houses: a 115 m long, 70 m high plane at x = 0, where z_shops starts).
+No node or sector owns them: THP8 must switch them off when the neighbour is streamed in. In a level of several zones
+they stood across the streets (the user, BEAVER VALLEY 2026-10-24): `seamWalls` leaves out every all-invisible, mostly
+steep body with another of the level's zones' ground 4 m beyond its faces at half or more of the places looked at
+(43 in the whole town; 1-8 in the other levels of several zones). Kept: one-zone levels' (their edge) and the town's
+outer ones. The separate zones: training,
 cartoon, the skate shop (a menu scene: a restart is made for it), the bedroom. Not converted: z_mainmenu, z_mocap,
 z_navmesh, z_peds, z_anim, z_world, z_viewer and the test levels (`z_testlevel*`).
 

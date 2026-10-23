@@ -378,33 +378,27 @@ export function manifestLevels(manifest: Manifest, table: ReadonlyMap<string, Ta
     });
 }
 
-// THP8's zones (tools/thp8_levels' manifest, by zone): THP8's city's areas in its own map order (qb.pak's zone_info -
-// the sign's text comes from the manifest, THP8's own area names), then the separate zones. No stars: THP8's city
-// is fictional.
+// THP8's levels (tools/thp8_levels' manifest, by folder): its network levels in its own order (qb.pak's
+// online_level_select_menu_level_info - BEAVER VALLEY, the whole town, first; the sign's text is THP8's), then its
+// standalone levels. No stars: THP8's city is fictional. (Until 2026-10-24 the city's zones were levels of their own -
+// our split, retired; their signs - schoolbell, locker, capitolflag, bench, coaster, parking, cloud - are unused.)
+const THP8_CITY = "THP8's city (fictional)";
 export const THP8_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, TableEntry>([
-    ["z_houses", { icon: "mailbox", place: "THP8's city (fictional)", location: null }],
-    ["z_outschool", { icon: "schoolbell", place: "THP8's city (fictional)", location: null }],
-    ["z_inschool", { icon: "locker", place: "THP8's city (fictional)", location: null }],
-    ["z_shops", { icon: "trafficlight", place: "THP8's city (fictional)", location: null }],
-    ["z_ghetto", { icon: "bricks", place: "THP8's city (fictional)", location: null }],
-    ["z_factory", { icon: "gear", place: "THP8's city (fictional)", location: null }],
-    ["z_center", { icon: "capitolflag", place: "THP8's city (fictional)", location: null }],
-    ["z_citypark", { icon: "bench", place: "THP8's city (fictional)", location: null }],
-    ["z_cretepark", { icon: "bowl", place: "THP8's city (fictional)", location: null }],
-    ["z_funpark", { icon: "coaster", place: "THP8's city (fictional)", location: null }],
-    ["z_parking", { icon: "parking", place: "THP8's city (fictional)", location: null }],
+    ["net_beavervalley", { icon: "citymap", place: `${THP8_CITY}: the whole town`, location: null }],
+    ["net_skatepark", { icon: "bowl", place: THP8_CITY, location: null }],
+    ["net_factory", { icon: "gear", place: THP8_CITY, location: null }],
+    ["net_slums", { icon: "bricks", place: THP8_CITY, location: null }],
+    ["net_suburbia", { icon: "mailbox", place: THP8_CITY, location: null }],
+    ["net_mainstreet", { icon: "trafficlight", place: THP8_CITY, location: null }],
+    ["net_funpark", { icon: "balloon", place: THP8_CITY, location: null }],
+    ["net_school", { icon: "books", place: THP8_CITY, location: null }],
+    ["net_industrial", { icon: "chimneys", place: THP8_CITY, location: null }],
+    ["net_capitol", { icon: "pediment", place: THP8_CITY, location: null }],
+    ["net_skatefunparks", { icon: "ticket", place: THP8_CITY, location: null }],
+    ["net_skatecentral", { icon: "compass", place: THP8_CITY, location: null }],
     ["z_training", { icon: "target", place: "THP8's training area (no place)", location: null }],
-    ["z_cartoon", { icon: "cloud", place: "THP8's cartoon world (no place)", location: null }],
     ["z_skateshop", { icon: "skatetool", place: "THP8's skate shop (no place)", location: null }],
     ["z_bedroom", { icon: "bed", place: "THP8's bedroom (no place)", location: null }],
-    // THP8's network levels of several zones (tools/thp8_levels networkAreas), in its own order
-    ["net_beavervalley", { icon: "citymap", place: "THP8's city (fictional): the whole town", location: null }],
-    ["net_funpark", { icon: "balloon", place: "THP8's city (fictional)", location: null }],
-    ["net_school", { icon: "books", place: "THP8's city (fictional)", location: null }],
-    ["net_industrial", { icon: "chimneys", place: "THP8's city (fictional)", location: null }],
-    ["net_capitol", { icon: "pediment", place: "THP8's city (fictional)", location: null }],
-    ["net_skatefunparks", { icon: "ticket", place: "THP8's city (fictional)", location: null }],
-    ["net_skatecentral", { icon: "compass", place: "THP8's city (fictional)", location: null }],
 ]);
 
 // THUG2's own list (level_select_menu_level_info) with what make_menu_level adds to it: SKATE SHOP and TEST LEVEL

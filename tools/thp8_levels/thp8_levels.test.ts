@@ -29,14 +29,17 @@ import {
     NET_LEVEL_NUM,
     netSpecs,
     place,
+    RETIRED,
     readNetworkAreas,
     refineBudget,
     rotate,
     SCALE,
+    seamWalls,
     soloRestarts,
     thug2Terrain,
     toThug,
     triggerVolumes,
+    ZONES,
 } from "./thp8_levels.ts";
 import * as xenos from "./xenos.ts";
 
@@ -561,17 +564,65 @@ test("network levels: THP8's list read - text, id, spawn zones, barrier pak, its
         specs.map((s) => [s.level, s.folder, s.zones, s.barriers, s.sign, s.levelNum]),
         [
             ["thp8_net_beavervalley", "net_beavervalley", ["z_houses", "z_shops"], [], "BEAVER VALLEY", NET_LEVEL_NUM],
-            // (the area's own zone first; " AREA" where a zone level has the sign already)
+            // (every network level, one zone or several)
+            [
+                "thp8_net_skatepark",
+                "net_skatepark",
+                ["z_cretepark"],
+                ["z_online_skatepark"],
+                "SKATE PARK",
+                NET_LEVEL_NUM + 1,
+            ],
+            // (the area's own zone first; " AREA" where a standalone level has the sign already)
             [
                 "thp8_net_school",
                 "net_school",
                 ["z_outschool", "z_inschool"],
                 ["z_online_school"],
                 "SCHOOL AREA",
-                NET_LEVEL_NUM + 1,
+                NET_LEVEL_NUM + 2,
             ],
         ],
     );
+});
+
+test("the city's zones aren't levels by themselves: only THP8's standalone ones are; the old ones are retired", () => {
+    assert.deepEqual(
+        ZONES.filter((z) => z.standalone).map((z) => z.zone),
+        ["z_training", "z_skateshop", "z_bedroom"],
+    );
+    assert.ok(RETIRED.includes("thp8_houses") && RETIRED.includes("thp8_cartoon") && RETIRED.length === 12);
+    assert.ok(!RETIRED.includes("thp8_training"));
+});
+
+test("seam walls: an invisible wall with another zone's ground beyond is left out, others kept", () => {
+    const tri = (a: number[], b: number[], c: number[], material: number) => ({ a, b, c, material, owner: 0 });
+    // ground: a 20 x 20 m square at y 0, from x0
+    const ground = (x0: number): havok.HkBody => ({
+        index: 0,
+        triangles: [
+            tri([x0, 0, -10], [x0 + 20, 0, -10], [x0 + 20, 0, 10], 0),
+            tri([x0, 0, -10], [x0 + 20, 0, 10], [x0, 0, 10], 0),
+        ],
+    });
+    // a wall at x (10 m high, z -10..10)
+    const wall = (index: number, x: number, material: number): havok.HkBody => ({
+        index,
+        triangles: [
+            tri([x, 0, -10], [x, 10, -10], [x, 10, 10], material),
+            tri([x, 0, -10], [x, 10, 10], [x, 0, 10], material),
+        ],
+    });
+    const a = [ground(-20), wall(1, 0, 0x1080), wall(2, -10, 0x1080), wall(3, 0, 0x0000)];
+    a[0]!.index = 0;
+    const b = [ground(0)];
+    const [seamsA, seamsB] = seamWalls([a, b]);
+    // (1: invisible, zone b's ground beyond - left out; 2: invisible but only its own zone's ground about - kept; 3: a
+    // seen wall - kept)
+    assert.deepEqual([...seamsA!], [1]);
+    assert.equal(seamsB!.size, 0);
+    // one zone: its edge walls stay
+    assert.equal(seamWalls([a])[0]!.size, 0);
 });
 
 test("zones merged: node arrays one after the other, each one's Links moved up by the nodes before it", () => {
