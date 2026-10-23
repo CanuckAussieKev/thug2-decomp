@@ -13,12 +13,19 @@
 #include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/control_pad.h"
+#include "game/obj/model_component.h"
+#include "game/obj/node_components.h"
+#include "game/obj/shadow_component.h"
+#include "game/obj/trigger_component.h"
+#include "game/obj/walk_hang.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/trick_component.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
@@ -153,8 +160,8 @@ void StandIns(Kit& kit)
             Record(f.args[i]);
         return Int(0xFFFFFFFFu);
     }, {Code(&Dbg::Printf)});
-    kit.Recorder(0x00507500, {12, 3, Ret::Bool, true});
-    kit.Recorder(0x00500020, {12, 3, Ret::Bool, true});
+    kit.Recorder(0x00507500, {12, 3, Ret::Bool, true}, {Code(&Skater::CorePhysicsComponent::WallPlant)});
+    kit.Recorder(0x00500020, {12, 3, Ret::Bool, true}, {Code(&Skater::CorePhysicsComponent::CanGrindRail)});
     kit.Recorder(0x00475790, {0, 5, Ret::None},
                  {Code(static_cast<void (*)(uint32_t, CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript))});
     kit.Add({0x0046B920}, 0, [](Frame& f) {
@@ -165,11 +172,11 @@ void StandIns(Kit& kit)
         Record(static_cast<uint32_t>(t));
         return Int(static_cast<uint32_t>(t));
     }, {Code(&Obj::CControlButton::GetPressedTime)});
-    kit.Recorder(0x00420670, {12, 3, Ret::None, true, -1, -1, 0, 2});
-    kit.Recorder(0x004317C0, {4, 1, Ret::None, true, 0, -1, 4});
-    kit.Recorder(0x004317E0, {4, 1, Ret::None, true, 0, -1, 4});
-    kit.Recorder(0x00434BF0, {8, 2, Ret::None, true});
-    kit.Recorder(0x00522370, {4, 1, Ret::None, true});
+    kit.Recorder(0x00420670, {12, 3, Ret::None, true, -1, -1, 0, 2}, {Code(&Obj::CModelComponent::ApplyBrightness)});
+    kit.Recorder(0x004317C0, {4, 1, Ret::None, true, 0, -1, 4}, {Code(&Obj::CShadowComponent::SetPosition)});
+    kit.Recorder(0x004317E0, {4, 1, Ret::None, true, 0, -1, 4}, {Code(&Obj::CShadowComponent::SetNormal)});
+    kit.Recorder(0x00434BF0, {8, 2, Ret::None, true}, {Code(&Obj::CTriggerComponent::CheckFeeler)});
+    kit.Recorder(0x00522370, {4, 1, Ret::None, true}, {Code(&Obj::CTrickComponent::PassToTrickObjects)});
     kit.Add({0x005284C0}, 0, [](Frame&) {
         Record(0x5284C0);
         static const double values[] = {1.0, 0.5, -0.25, 2.0 / 3.0, 0.0};
@@ -210,7 +217,7 @@ void StandIns(Kit& kit)
         m[13] = RandomFloat(20.0f);
         m[14] = RandomFloat(20.0f);
         return Int(f.args[0]);
-    });
+    }, {Code(&Obj::CRailManagerComponent::UpdateRailMatrix)});
     // Matrix::Invert (ours isn't bit-exact with the original's x87 adjugate and determinant - outside this range):
     // a stand-in that records the matrix and changes it in a fixed way.
     kit.Add({0x00405600}, 0, [](Frame& f) {
@@ -256,13 +263,13 @@ void StandIns(Kit& kit)
         for (int j = 0; j < 4; ++j)
             out[j] = RandomFloat(2.0f);
         return Int(f.args[0]);
-    });
+    }, {Code(&Walk::Lerp)});
     kit.Add({0x0043DAA0}, 0, [](Frame& f) {
         Record(0x43DAA0);
         Record(Relative(f.ecx));
         static const double values[] = {0.0, 1.0, 2.0 / 3.0, 300.5, 12.000000000000002};
         return Float(values[Next() % 5]);
-    });
+    }, {Code(&Obj::CWalkComponent::RunSpeed)});
 }
 
 // The globals: the skate module pointer.
