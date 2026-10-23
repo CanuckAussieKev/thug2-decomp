@@ -465,3 +465,8 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   per ramp (native THUG2's pattern); seam theory ruled out; the user's ~50% manual breaks not reproduced (likely the
   low-vert cause) - waiting on the user's play test (docs/pending/thps2-quarterpipes.md). Main not pushed.
 - THPS2 quarter pipes 1+2: tested in the game by the user (2026-10-24) - all three areas feel good.
+- THP8 network levels + the whole town merged (2026-10-24; docs/pending/thp8-network-unified.md): the 7 multi-zone
+  network areas as levels thp8_net_* (level select 125-131), BEAVER VALLEY = all 12 zones (IsBigLevel); limits raised in
+  C++ (node name hash 65,536 slots / 32-bit indices, rail name table, script heap +16 MB, CComponent/CStruct/CVector/
+  CArray/HashItem pools; `[memory] original_sizes=1` undoes) + a `memory in <level>` log line. Load-checked in THUG2-2
+  only; LAN hosting and play NOT tested. Not done: CTF flag names, THP8's two-player levels.
