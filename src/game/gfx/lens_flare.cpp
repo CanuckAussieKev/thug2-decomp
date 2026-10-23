@@ -13,6 +13,7 @@
 #include "game/mth/vector.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -75,9 +76,9 @@ void DeleteTexture(void* texture)
     (*reinterpret_cast<Destructor**>(texture))[0](texture, 1);
 }
 
-// The game's clock with its offset (0x0041C200), and the milliseconds since `time` (0x00420250).
-uint32_t Now() { return GameFunction<uint32_t(__cdecl*)()>(0x0041C200)(); }
-uint32_t Since(uint32_t time) { return GameFunction<uint32_t(__cdecl*)(uint32_t)>(0x00420250)(time); }
+// The game's clock with its offset, and the milliseconds since `time`.
+uint32_t Now() { return static_cast<uint32_t>(Tmr::GameClockTime()); }
+uint32_t Since(uint32_t time) { return static_cast<uint32_t>(Tmr::GameClockTimeSince(static_cast<int>(time))); }
 
 // The first viewport's camera (Nx, 0x004A06D0): its vtable slot 1 (through 0x004A1090) projects a point to the
 // screen (the depth scale returned), slot 3 (through 0x004A10A0) issues an occlusion query over a screen
@@ -108,8 +109,10 @@ struct Prim {
         GameFunction<void(__thiscall*)(Prim*, void*, int, int)>(0x004A1090)(this, texture, 0, 0);
     }
     void SetUnknown(int a, int b, int c) { GameFunction<void(__thiscall*)(Prim*, int, int, int)>(0x004A10A0)(this, a, b, c); }
-    void SetBlendMode(uint32_t mode) { GameFunction<void(__thiscall*)(Prim*, uint32_t)>(0x00428270)(this, mode); }
-    void SetUnknown14(bool value) { GameFunction<void(__thiscall*)(Prim*, uint32_t)>(0x00407A50)(this, value); }
+    // (the original calls linker-folded setters of other classes: 0x00428270, CLineObject::SetBlendMode, writes the
+    // dword at +0x0C; 0x00407A50, CAssMan::SetPermanentByDefault, the byte at +0x14)
+    void SetBlendMode(uint32_t mode) { std::memcpy(storage + 0x0C, &mode, 4); }
+    void SetUnknown14(bool value) { storage[0x14] = value; }
     void Ready() { GameFunction<void(__thiscall*)(Prim*)>(0x0049C6C0)(this); }
     void Draw(const float* corners, const uint8_t* colors, const float* uvs)
     {
@@ -137,7 +140,7 @@ uint32_t QueryResult(uint8_t query) { return GameFunction<uint32_t(__cdecl*)(uin
 // `v` times `m` in place (all four components; 0x00434200).
 void TransformInPlace(Mth::Vector* v, const Mth::Matrix* m)
 {
-    GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Matrix*)>(0x00434200)(v, m);
+    v->MultiplyBy(*m);
 }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.

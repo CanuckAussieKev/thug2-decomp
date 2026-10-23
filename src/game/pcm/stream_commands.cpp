@@ -2,13 +2,19 @@
 
 #include "game/pcm/stream_commands.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 
 #include "game/core/stubs.h"
+#include "game/mth/vector.h"
+#include "game/obj/stream_component.h"
 #include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
+#include "game/pcm/stream.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -36,59 +42,48 @@ int& LastStream() { return GameVariable<int>(0x0069BA94); }
 FrameAmp* FrameAmps() { return reinterpret_cast<FrameAmp*>(0x0069BAC8); }
 constexpr int kFrameAmps = 1;
 
-// The platform's streams (not rewritten yet): whether a channel is free (0x00453270: 1), pause (0x004532C0:
-// streams 0), stop a channel (0x00453B30), preload (0x00454200) or play (0x00454080) a stream on one.
-int ChannelStatus(int channel) { return GameFunction<int(__cdecl*)(int)>(0x00453270)(channel); }
-void PlatformPause(bool pause, int music) { GameFunction<void(__cdecl*)(bool, int)>(0x004532C0)(pause, music); }
-void StopChannel(int channel) { GameFunction<void(__cdecl*)(int, int)>(0x00453B30)(channel, 1); }
-bool PreloadOnChannel(uint32_t checksum, int channel, int stopped)
-{
-    return GameFunction<bool(__cdecl*)(uint32_t, int, int)>(0x00454200)(checksum, channel, stopped);
-}
+// The platform's streams (stream.h): whether a channel is free (StreamStatus: 1), pause (streams: 0), stop a
+// channel, preload (the platform's PlayStream: loaded, not started) or play (LoadStream) a stream on one.
+int ChannelStatus(int channel) { return StreamStatus(channel); }
+void PlatformPause(bool pause, int music) { PauseStreams(pause, music); }
+void StopChannel(int channel) { StopStream(channel, 1); } // (the second argument is unused)
+bool PreloadOnChannel(uint32_t checksum, int channel, int stopped) { return PlayStream(checksum, channel, stopped); }
 bool PlayOnChannel(uint32_t checksum, int channel, const void* volume, float pitch, int stopped, int unknown, int option)
 {
-    return GameFunction<bool(__cdecl*)(uint32_t, int, const void*, float, int, int, int)>(0x00454080)(
-        checksum, channel, volume, pitch, stopped, unknown, option);
+    // (the pitch and `stopped` reach two unused arguments; `unknown` is the preload flag, `option` the plays)
+    return LoadStream(checksum, channel, static_cast<const StreamVolume*>(volume), std::bit_cast<int>(pitch), stopped,
+                      unknown != 0, option);
 }
-// 0x00450540 (FrameAmp's load, a method: data\fam\<checksum>.fam into the slot; not rewritten yet).
-bool LoadFrameAmp(FrameAmp* slot, uint32_t checksum)
-{
-    return GameFunction<bool(__thiscall*)(FrameAmp*, uint32_t)>(0x00450540)(slot, checksum);
-}
+// FrameAmp's load (FamData::Load: data\fam\<checksum>.fam into the slot).
+bool LoadFrameAmp(FrameAmp* slot, uint32_t checksum) { return reinterpret_cast<FamData*>(slot)->Load(checksum); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
 void ReadDebugFlag() { Script::GetInteger(0xD7BB618Du); }
 
-// The sound effects manager (0x006F85A8) and its Sfx::sVolume (24 bytes: five channel volumes and their kind),
-// not rewritten yet: the constructor, SetSilent, the loudest channel, whether sound is off (the manager's
-// NoSoundPlease), and the volume of a sound at a position (SetVolumeFromPos). sVolume's destructor is empty.
-void* SoundManager() { return GameVariable<void*>(0x006F85A8); }
-// A sound's volume (Sfx::sVolume, 0x2C bytes: its constructor 0x0047B030 writes all of them - with 0x18 here the
-// run-time checks caught it overrunning the local; the first two words are the channels set below).
-struct Volume {
-    uint32_t words[11];
-};
-static_assert(sizeof(Volume) == 0x2C, "Sfx::sVolume is 0x2C bytes");
-void ConstructVolume(Volume* volume) { GameFunction<void(__thiscall*)(Volume*)>(0x0047B030)(volume); }
-void SetSilent(Volume* volume) { GameFunction<void(__thiscall*)(Volume*)>(0x0047AD60)(volume); }
-float LoudestChannel(Volume* volume) { return GameFunction<float(__thiscall*)(Volume*)>(0x0047B080)(volume); }
+// The sound effects manager (0x006F85A8) and its volumes (Sfx::sVolume, 0x2C bytes; the first two channels are
+// set below). sVolume's destructor is empty.
+Sfx::CSfxManager* SoundManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+using Volume = Sfx::sVolume;
+void ConstructVolume(Volume* volume) { volume->Init(); }
+void SetSilent(Volume* volume) { volume->SetSilent(); }
+float LoudestChannel(Volume* volume) { return volume->GetLoudestChannel(); }
 inline void DestroyVolume(Volume*) {} // (0x005480A0)
-bool NoSoundPlease(void* manager) { return GameFunction<bool(__thiscall*)(void*)>(0x0047B340)(manager); }
-bool SetVolumeFromPos(void* manager, Volume* volume, const float* position, float dropoff, int dropoffFunction,
-                      void* emitter, const float* emitterDirection)
+// Whether sound is off (the manager's IsPaused).
+bool NoSoundPlease(Sfx::CSfxManager* manager) { return manager->IsPaused(); }
+bool SetVolumeFromPos(Sfx::CSfxManager* manager, Volume* volume, const Mth::Vector* position, float dropoff,
+                      int dropoffFunction, void* emitter, Mth::Vector* emitterDirection)
 {
-    return GameFunction<bool(__thiscall*)(void*, Volume*, const float*, float, int, void*, const float*)>(0x0047BE10)(
-        manager, volume, position, dropoff, dropoffFunction, emitter, emitterDirection);
+    return manager->GetVolume(volume, position, dropoff, dropoffFunction, emitter, emitterDirection);
 }
-// The emitter nearest to a position (0x004A09E0; its distance through the second argument), and the stream
-// component's position for it and its emitter's direction (0x00433CD0 / 0x00433D30, methods; not rewritten yet).
+// The emitter nearest to a position (0x004A09E0, not rewritten yet; its distance through the second argument),
+// and the stream component's position for it and its emitter's extent.
 void* NearestEmitter(const float* position) { return GameFunction<void*(__cdecl*)(const float*, float*)>(0x004A09E0)(position, nullptr); }
-float* SoundPosition(void* component, float* out, void* emitter)
+Mth::Vector* SoundPosition(void* component, Mth::Vector* out, void* emitter)
 {
-    return GameFunction<float*(__thiscall*)(void*, float*, void*)>(0x00433CD0)(component, out, emitter);
+    return static_cast<Obj::CStreamComponent*>(component)->GetStreamPosition(out, emitter);
 }
-bool EmitterDirection(void* component, void* emitter, float* out)
+bool EmitterDirection(void* component, void* emitter, Mth::Vector* out)
 {
-    return GameFunction<bool(__thiscall*)(void*, void*, float*)>(0x00433D30)(component, emitter, out);
+    return static_cast<Obj::CStreamComponent*>(component)->GetStreamExtent(emitter, out);
 }
 
 // A new stream's record: volume 100, dropoff 1020, one name (the stream's own).
@@ -285,7 +280,7 @@ bool __cdecl AddStream(uint32_t stream, uint32_t name, void* owner)
 uint32_t __cdecl PlayStreamFromObject(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
                                       int option, int priority, int usePosInfo, int dropoffFunction, uint32_t id)
 {
-    void* manager = SoundManager();
+    Sfx::CSfxManager* manager = SoundManager();
     if (NoSoundPlease(manager) || !StreamsOn())
         return 0;
     Volume streamVolume;
@@ -296,10 +291,10 @@ uint32_t __cdecl PlayStreamFromObject(void* component, uint32_t checksum, float 
         void* emitter = NearestEmitter(reinterpret_cast<const float*>(static_cast<uint8_t*>(object) + 0x4C));
         bool audible = true;
         if (emitter) {
-            float direction[4];
-            const float* towards = EmitterDirection(component, emitter, direction) ? direction : nullptr;
-            float position[4];
-            audible = SetVolumeFromPos(manager, &streamVolume, SoundPosition(component, position, emitter), dropoff,
+            Mth::Vector direction;
+            Mth::Vector* towards = EmitterDirection(component, emitter, &direction) ? &direction : nullptr;
+            Mth::Vector position;
+            audible = SetVolumeFromPos(manager, &streamVolume, SoundPosition(component, &position, emitter), dropoff,
                                        dropoffFunction, emitter, towards);
         } else {
             SetSilent(&streamVolume);
@@ -312,8 +307,8 @@ uint32_t __cdecl PlayStreamFromObject(void* component, uint32_t checksum, float 
             }
         }
     } else {
-        std::memcpy(&streamVolume.words[0], &volume, 4);
-        std::memcpy(&streamVolume.words[1], &volume, 4);
+        std::memcpy(&streamVolume.m_channels[0], &volume, 4);
+        std::memcpy(&streamVolume.m_channels[1], &volume, 4);
     }
     uint32_t playing = PlayStream(checksum, &streamVolume, pitch, option, priority, id);
     if (playing) {
@@ -356,7 +351,7 @@ REPLACE(0x004516A0, Pcm::LoadStreamFrameAmp);
 REPLACE(0x004516E0, Pcm::GetStreamFrameAmp);
 REPLACE(0x00451720, Pcm::FreeStreamFrameAmp);
 REPLACE(0x00451770, Pcm::StartStream);
-REPLACE(0x00451960, Pcm::PlayStream);
+REPLACE(0x00451960, static_cast<uint32_t(__cdecl*)(uint32_t, const void*, float, int, int, uint32_t)>(Pcm::PlayStream));
 REPLACE(0x00451A50, Pcm::PreLoadStream);
 REPLACE(0x00451B80, Pcm::AddStream);
 REPLACE(0x00451E20, Pcm::PlayStreamFromObject);

@@ -19,6 +19,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/gfx/screen.h"
+#include "game/obj/movie_manager.h"
 #include "game/obj/object.h"
 #include "game/core/str.h"
 #include "game/front/menu_backdrop.h"
@@ -584,7 +585,7 @@ void TestMenuBackdropState()
     g_menulvl_saved = {{0x007CE478, 4, {}}, {0x006FA7EC, 4, {}}, {0x00701348, 4, {}}};
     SaveAll(g_menulvl_saved);
     auto* s = new StandIns;
-    s->At({0x0057B030}, 0, [](Regs&) { return g_ms_anim; });
+    s->At({0x0057B030, AddressOf(&Obj::CMovieManager::GetPlayingName)}, 0, [](Regs&) { return g_ms_anim; });
     s->At({0x004A09C0}, 0, [](Regs& r) { return r.args[0] == 0 ? reinterpret_cast<uint32_t>(g_ms_viewport) : 0u; });
     s->At({0x00485AA0, AddressOf(&Camera::UpdateAdjustedHFOV)}, 0, [](Regs& r) {
         ++g_ms_recomputes;

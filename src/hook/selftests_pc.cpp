@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <initializer_list>
+#include <memory>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -21,7 +22,11 @@
 #include "game/gfx/flash.h"
 #include "game/core/dbg.h"
 #include "game/gfx/movie.h"
+#include "game/gfx/render_state.h"
 #include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
+#include "game/sfx/sfx.h"
+#include "game/pcm/stream.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
 #include "game/sys/platform.h"
@@ -422,7 +427,8 @@ const float* __cdecl StandInViewport(int index)
     g_flash_log.insert(g_flash_log.end(), {0x7E3u, static_cast<uint32_t>(index)});
     return views[index % 4];
 }
-void __cdecl StandInState3(int a, int b, int c) { g_flash_log.insert(g_flash_log.end(), {0x7A3u, static_cast<uint32_t>(a), static_cast<uint32_t>(b), static_cast<uint32_t>(c)}); }
+// (SetTexture: the original also passes 0, which ours doesn't take - not recorded)
+void __cdecl StandInState3(int a, int b) { g_flash_log.insert(g_flash_log.end(), {0x7A3u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
 void __cdecl StandInState2(int a, int b) { g_flash_log.insert(g_flash_log.end(), {0x5A2u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
 void __cdecl StandInBlend(int a) { g_flash_log.insert(g_flash_log.end(), {0xB1Du, static_cast<uint32_t>(a)}); }
 void __cdecl StandInState2b(int a, int b) { g_flash_log.insert(g_flash_log.end(), {0xAA8u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
@@ -439,6 +445,16 @@ void TestDrawFlash()
     CodePatch blend(0x004DA760, JumpTo(0x004DA760, reinterpret_cast<void*>(&StandInBlend)));
     CodePatch other(0x004DAA80, JumpTo(0x004DAA80, reinterpret_cast<void*>(&StandInState2b)));
     CodePatch format(0x004D9DB0, JumpTo(0x004D9DB0, reinterpret_cast<void*>(&StandInFormat)));
+    // (ours calls ours directly: the same stand-ins over them)
+    std::vector<std::unique_ptr<CodePatch>> ours;
+    for (auto [code, to] : {std::pair<void*, void*>{CodeAddress(&Nx::SetTexture), reinterpret_cast<void*>(&StandInState3)},
+                            {CodeAddress(&Nx::SetState), reinterpret_cast<void*>(&StandInState2)},
+                            {CodeAddress(&Nx::SetBlendMode), reinterpret_cast<void*>(&StandInBlend)},
+                            {CodeAddress(&Nx::SetPixelShader), reinterpret_cast<void*>(&StandInState2b)},
+                            {CodeAddress(&Nx::SetVertexFormat), reinterpret_cast<void*>(&StandInFormat)}}) {
+        auto at = reinterpret_cast<uint32_t>(code);
+        ours.push_back(std::make_unique<CodePatch>(at, JumpTo(at, to)));
+    }
     struct Saved {
         uint32_t address;
         uint32_t value;
@@ -534,7 +550,8 @@ void __cdecl MovieState1(int a) { g_movie_log.insert(g_movie_log.end(), {0x51u, 
 void __cdecl MovieState2(int a, int b) { g_movie_log.insert(g_movie_log.end(), {0x52u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
 void __cdecl MovieState2b(int a, int b) { g_movie_log.insert(g_movie_log.end(), {0x62u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
 void __cdecl MovieFormat(int a) { g_movie_log.insert(g_movie_log.end(), {0x7Fu, static_cast<uint32_t>(a)}); }
-void __cdecl MovieSetTexture(int a, void* t, int c) { g_movie_log.insert(g_movie_log.end(), {0x7E7u, static_cast<uint32_t>(a), reinterpret_cast<uint32_t>(t) & 0xFFF, static_cast<uint32_t>(c)}); }
+// (SetTexture: the original also passes 0, which ours doesn't take - not recorded)
+void __cdecl MovieSetTexture(int a, void* t) { g_movie_log.insert(g_movie_log.end(), {0x7E7u, static_cast<uint32_t>(a), reinterpret_cast<uint32_t>(t) & 0xFFF}); }
 
 // The movie frame: no texture, positions/sizes/fades, back buffers wider, narrower and 4:3 (PartyMod's fit),
 // the device lost or not - the original with PartyMod's two calls written in.
@@ -546,6 +563,16 @@ void TestDrawMovieFrame()
     CodePatch other(0x004DAA80, JumpTo(0x004DAA80, reinterpret_cast<void*>(&MovieState2b)));
     CodePatch texture(0x004DA730, JumpTo(0x004DA730, reinterpret_cast<void*>(&MovieSetTexture)));
     CodePatch print(0x006234FE, JumpTo(0x006234FE, reinterpret_cast<void*>(&StandInSprintf)));
+    // (ours calls ours directly: the same stand-ins over them)
+    std::vector<std::unique_ptr<CodePatch>> ours;
+    for (auto [code, to] : {std::pair<void*, void*>{CodeAddress(&Nx::SetBlendMode), reinterpret_cast<void*>(&MovieState1)},
+                            {CodeAddress(&Nx::SetState), reinterpret_cast<void*>(&MovieState2)},
+                            {CodeAddress(&Nx::SetVertexFormat), reinterpret_cast<void*>(&MovieFormat)},
+                            {CodeAddress(&Nx::SetPixelShader), reinterpret_cast<void*>(&MovieState2b)},
+                            {CodeAddress(&Nx::SetTexture), reinterpret_cast<void*>(&MovieSetTexture)}}) {
+        auto at = reinterpret_cast<uint32_t>(code);
+        ours.push_back(std::make_unique<CodePatch>(at, JumpTo(at, to)));
+    }
     std::vector<std::pair<uint32_t, uint32_t>> saved;
     for (uint32_t a : {0x007D69E0u, 0x00786D6Cu, 0x00786D70u, 0x00696D9Cu})
         saved.push_back({a, GameVariable<uint32_t>(a)});
@@ -767,7 +794,8 @@ BOOL __stdcall PmSystemParametersInfo(UINT action, UINT param, PVOID value, UINT
 }
 void* __cdecl PmCreateSound(bool create) { PmNote({0x5C0u, create}); return reinterpret_cast<void*>(0x5D05D0); }
 void __cdecl PmReleaseSound() { PmNote({0x5DEu}); }
-float __fastcall PmSoundVolume(void* self) { PmNote({0x5F0u, reinterpret_cast<uint32_t>(self)}); return g_mr.effects; }
+// (the original passes the manager in ECX, which the main volume doesn't use - not recorded: ours passes none)
+float __cdecl PmSoundVolume() { PmNote({0x5F0u}); return g_mr.effects; }
 float __cdecl PmMusicVolume() { PmNote({0x3F0u}); return g_mr.music; }
 void __cdecl PmPauseMusic() { PmNote({0xA05u}); }
 void __cdecl PmStopStreams(int which) { PmNote({0x575u, static_cast<uint32_t>(which)}); }
@@ -828,7 +856,8 @@ void* __fastcall PmSioDevice(void* self, void*, int index)
     return g_pm_devices[index];
 }
 void __cdecl PmSampler(int a, int b) { PmNote({0x5A3u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
-void __cdecl PmRendererTexture(int a, void* t, int c) { PmNote({0x7E8u, static_cast<uint32_t>(a), PmRelative(t, g_pm_texture), static_cast<uint32_t>(c)}); }
+// (SetTexture: the original also passes 0, which ours doesn't take - not recorded)
+void __cdecl PmRendererTexture(int a, void* t) { PmNote({0x7E8u, static_cast<uint32_t>(a), PmRelative(t, g_pm_texture)}); }
 int __cdecl PmPrintf(const char* format, ...)
 {
     va_list args;
@@ -924,17 +953,18 @@ void TestPlayMovieFile()
     // Ours calls SystemParametersInfoA through its own imports: the function itself, stood in.
     auto spi = reinterpret_cast<uint32_t>(GetProcAddress(GetModuleHandleA("user32.dll"), "SystemParametersInfoA"));
     add({new CodePatch(spi, JumpTo(spi, reinterpret_cast<const void*>(&PmSystemParametersInfo)))});
-    add(JumpBoth(0x0047BA60, nullptr, reinterpret_cast<const void*>(&PmCreateSound)));
-    add(JumpBoth(0x0047C6C0, nullptr, reinterpret_cast<const void*>(&PmReleaseSound)));
-    add(JumpBoth(0x0047AFD0, nullptr, reinterpret_cast<const void*>(&PmSoundVolume)));
-    add(JumpBoth(0x00450440, nullptr, reinterpret_cast<const void*>(&PmMusicVolume)));
-    add(JumpBoth(0x00450650, nullptr, reinterpret_cast<const void*>(&PmPauseMusic)));
-    add(JumpBoth(0x00450690, nullptr, reinterpret_cast<const void*>(&PmStopStreams)));
+    add(JumpBoth(0x0047BA60, CodeAddress(&Sfx::CreateManager), reinterpret_cast<const void*>(&PmCreateSound)));
+    add(JumpBoth(0x0047C6C0, CodeAddress(&Sfx::ReleaseManager), reinterpret_cast<const void*>(&PmReleaseSound)));
+    add(JumpBoth(0x0047AFD0, CodeAddress(&Sfx::GetMainVolume), reinterpret_cast<const void*>(&PmSoundVolume)));
+    add(JumpBoth(0x00450440, CodeAddress(&Pcm::GetMusicVolume), reinterpret_cast<const void*>(&PmMusicVolume)));
+    add(JumpBoth(0x00450650, CodeAddress(&Pcm::StopMusic), reinterpret_cast<const void*>(&PmPauseMusic)));
+    add(JumpBoth(0x00450690, CodeAddress(static_cast<void(__cdecl*)(int)>(&Pcm::StopStreams)),
+                 reinterpret_cast<const void*>(&PmStopStreams)));
     add(JumpBoth(0x00490DE0, nullptr, reinterpret_cast<const void*>(&PmSetFog)));
     add(JumpBoth(0x0044F250, reinterpret_cast<const void*>(&Mlp::Manager::ResetDeviceIfLost),
                  reinterpret_cast<const void*>(&PmResetDevice)));
-    add(JumpBoth(0x004DAB60, nullptr, reinterpret_cast<const void*>(&PmSampler)));
-    add(JumpBoth(0x004DA730, nullptr, reinterpret_cast<const void*>(&PmRendererTexture)));
+    add(JumpBoth(0x004DAB60, CodeAddress(&Nx::SetState), reinterpret_cast<const void*>(&PmSampler)));
+    add(JumpBoth(0x004DA730, CodeAddress(&Nx::SetTexture), reinterpret_cast<const void*>(&PmRendererTexture)));
     add(JumpBoth(0x005F56E0, reinterpret_cast<const void*>(&Platform::ProcessWindowEvents), reinterpret_cast<const void*>(&PmEvents)));
     add(JumpBoth(0x0044FA80, reinterpret_cast<const void*>(&Nx::DrawMovieFrame), reinterpret_cast<const void*>(&PmFrame)));
     add(JumpBoth(0x00401C30, reinterpret_cast<const void*>(&Dbg::Printf), reinterpret_cast<const void*>(&PmPrintf)));
@@ -1111,9 +1141,9 @@ void TestPlayNextTrack()
         bytes[0] = 0xE8;
         add({new CodePatch(call, bytes)});
     }
-    add(JumpBoth(0x00453250, nullptr, reinterpret_cast<const void*>(&PlStreamStateResult)));
-    add(JumpBoth(0x00451400, nullptr, reinterpret_cast<const void*>(&PlVolume)));
-    add(JumpBoth(0x004520D0, nullptr, reinterpret_cast<const void*>(&PlPlayTrack)));
+    add(JumpBoth(0x00453250, CodeAddress(&Pcm::MusicStatus), reinterpret_cast<const void*>(&PlStreamStateResult)));
+    add(JumpBoth(0x00451400, CodeAddress(&Pcm::ApplyTrackVolume), reinterpret_cast<const void*>(&PlVolume)));
+    add(JumpBoth(0x004520D0, CodeAddress(&Pcm::PlayTrack), reinterpret_cast<const void*>(&PlPlayTrack)));
     add(JumpBoth(0x00475790, CodeAddress(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript)),
                  reinterpret_cast<const void*>(&PlRunScript)));
     add(JumpBoth(0x00478F60, CodeAddress(static_cast<int (*)(uint32_t)>(&Script::GetInteger)), reinterpret_cast<const void*>(&PlGetInteger)));

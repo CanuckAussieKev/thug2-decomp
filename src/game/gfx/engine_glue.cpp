@@ -2,6 +2,7 @@
 
 #include "game/gfx/engine_glue.h"
 
+#include "game/gfx/occlusion.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -40,26 +41,25 @@ void __cdecl SetScreenClip(const void* rect)
 void __cdecl AddDebugShape(int type, const Mth::Vector* points, uint32_t colour)
 {
     if (type == 4)
-        GameFunction<void(__cdecl*)(const Mth::Vector*, const Mth::Vector*, const Mth::Vector*, const Mth::Vector*,
-                                    uint32_t)>(0x004D8D70)(points, points + 1, points + 2, points + 3, colour);
+        AddOcclusionPoly(points, points + 1, points + 2, points + 3, colour);
 }
 
 // 0x004B22F0
 void __cdecl FlagDebugLines(uint32_t id, bool flag)
 {
-    GameFunction<void(__cdecl*)(uint32_t, bool)>(0x004D8C90)(id, flag);
+    EnableOcclusionPoly(id, flag);
 }
 
 // 0x004B2300
 void __cdecl ClearDebugLines()
 {
-    GameFunction<void(__cdecl*)()>(0x004D8CC0)();
+    RemoveAllOcclusionPolys();
 }
 
 // 0x004B2310
 int __cdecl SphereVisible(const Mth::Vector* centre, float radius)
 {
-    return GameFunction<int(__cdecl*)(const Mth::Vector*, float)>(0x004DB570)(centre, radius);
+    return SphereOutsideView(centre, radius);
 }
 
 // 0x004B2320

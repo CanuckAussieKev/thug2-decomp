@@ -10,9 +10,19 @@
 #include <memory>
 #include <vector>
 
+#include "game/gfx/camera.h"
+#include "game/gfx/draw2d.h"
+#include "game/gfx/glow.h"
+#include "game/gfx/lens_flare.h"
+#include "game/gfx/occlusion.h"
 #include "game/gfx/render.h"
+#include "game/gfx/scene_render.h"
+#include "game/gfx/shadow.h"
+#include "game/gfx/render_state.h"
+#include "game/gfx/screen_fx.h"
 #include "game/gfx/screen.h"
 #include "game/sys/sdl_window.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -201,6 +211,13 @@ void TestSetCamera()
 
 // --- the blur pass ------------------------------------------------------------------------------------------
 
+// The code address of our function (as CodeAddress).
+template <typename F>
+uint32_t Ours(F f)
+{
+    return reinterpret_cast<uint32_t>(CodeAddress(f));
+}
+
 uint32_t g_sampler[4][8];
 uint32_t g_texture_size[2][2];
 void* g_texture[2];
@@ -252,7 +269,8 @@ unsigned long __stdcall BlurRelease(void* surface) { Record({0x2E1u, reinterpret
 // (0x00490DE0 and 0x004B8E40 read only the low byte; the world render passes garbage above it)
 void __cdecl BlurFog(int on) { Record({0xF06u, static_cast<uint32_t>(on) & 0xFF}); }
 void __cdecl BlurState(int state, int value) { Record({0x5A7u, static_cast<uint32_t>(state), static_cast<uint32_t>(value)}); }
-void __cdecl BlurTexture(int stage, void* texture, int unknown) { Record({0x7E7u, static_cast<uint32_t>(stage), reinterpret_cast<uint32_t>(texture), static_cast<uint32_t>(unknown)}); }
+// (the original also passes 0, which SetTexture doesn't take: not recorded - ours calls it directly)
+void __cdecl BlurTexture(int stage, void* texture) { Record({0x7E7u, static_cast<uint32_t>(stage), reinterpret_cast<uint32_t>(texture)}); }
 void __cdecl BlurBlend(int mode) { Record({0xB1Du, static_cast<uint32_t>(mode)}); }
 void __cdecl BlurFormat(uint32_t fvf) { Record({0xF7Fu, fvf}); }
 void __cdecl BlurShader(int a, int b) { Record({0x5AAu, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
@@ -271,6 +289,13 @@ struct BlurStandIns {
     CodePatch format{0x004D9DB0, JumpTo(0x004D9DB0, reinterpret_cast<void*>(&BlurFormat))};
     CodePatch shader{0x004DAA80, JumpTo(0x004DAA80, reinterpret_cast<void*>(&BlurShader))};
     CodePatch extra{0x004DEB70, JumpTo(0x004DEB70, reinterpret_cast<void*>(&BlurExtra))};
+    // (our render pass calls ours directly: the same stand-ins over them)
+    CodePatch oursState{Ours(&Nx::SetState), JumpTo(Ours(&Nx::SetState), reinterpret_cast<void*>(&BlurState))};
+    CodePatch oursTexture{Ours(&Nx::SetTexture), JumpTo(Ours(&Nx::SetTexture), reinterpret_cast<void*>(&BlurTexture))};
+    CodePatch oursBlend{Ours(&Nx::SetBlendMode), JumpTo(Ours(&Nx::SetBlendMode), reinterpret_cast<void*>(&BlurBlend))};
+    CodePatch oursFormat{Ours(&Nx::SetVertexFormat), JumpTo(Ours(&Nx::SetVertexFormat), reinterpret_cast<void*>(&BlurFormat))};
+    CodePatch oursShader{Ours(&Nx::SetPixelShader), JumpTo(Ours(&Nx::SetPixelShader), reinterpret_cast<void*>(&BlurShader))};
+    CodePatch oursExtra{Ours(&Nx::Bloom), JumpTo(Ours(&Nx::Bloom), reinterpret_cast<void*>(&BlurExtra))};
     void** vtable;
     BlurStandIns()
     {
@@ -447,6 +472,18 @@ void TestRenderWorld()
     standIn(0x00491910, reinterpret_cast<void*>(&Rec2<0x491910>));
     standIn(0x004DE980, reinterpret_cast<void*>(&Rec0<0x4DE980>));
     standIn(0x004DFB90, reinterpret_cast<void*>(&Rec0<0x4DFB90>));
+    // (our render calls ours directly: the same stand-ins over them)
+    standIn(Ours(&Tmr::GetTime), reinterpret_cast<void*>(&WorldTime));
+    standIn(Ours(&Nx::RenderShadowTextures), reinterpret_cast<void*>(&Rec0<0x4DBBD0>));
+    standIn(Ours(&Nx::BeginScreenEffects), reinterpret_cast<void*>(&Rec0<0x4DEA80>));
+    standIn(Ours(&Nx::SetWorldTransform), reinterpret_cast<void*>(&Rec1<0x4DB620>));
+    standIn(Ours(&Gfx::Camera::GetAdjustedHFOV), reinterpret_cast<void*>(&WorldAngle));
+    standIn(Ours(&Nx::BuildOccluders), reinterpret_cast<void*>(&Rec2<0x4D8ED0>));
+    standIn(Ours(&Nx::RenderScene), reinterpret_cast<void*>(&Rec3<0x4DC700>));
+    standIn(Ours(&Sun::Render), reinterpret_cast<void*>(&Rec1<0x443870>));
+    standIn(Ours(&Nx::UpdateGlows), reinterpret_cast<void*>(&Rec1<0x4DCC70>));
+    standIn(Ours(&Nx::CopyScreenQuarter), reinterpret_cast<void*>(&Rec0<0x4DE980>));
+    standIn(Ours(&Nx::Draw2D), reinterpret_cast<void*>(&Rec0<0x4DFB90>));
     blur.vtable[0xB0 / 4] = reinterpret_cast<void*>(&CameraSetTransform);
     blur.vtable[0xBC / 4] = reinterpret_cast<void*>(&WorldSetViewport);
     blur.vtable[0xE4 / 4] = reinterpret_cast<void*>(&WorldDeviceState);

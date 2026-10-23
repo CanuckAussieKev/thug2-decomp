@@ -12,10 +12,12 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/core/stubs.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
 #include "game/sys/platform_d3d.h"
 #include "game/sys/sdl_window.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -139,8 +141,9 @@ void InitDirect3D()
     // Originally from PartyMod Fixes (its jump at 0x004D8989): the cursor is left alone. The original hid it when full screen:
     //   if (!pp.Windowed) while (ShowCursor(FALSE) > 0) {}
     LoadGamma();
-    GameVariable<void*>(0x00786D90) = GameFunction<void*(__cdecl*)()>(0x005BA1D0)(); // the debug font (none on PC)
-    GameFunction<void(__cdecl*)()>(0x005BE7C0)();
+    // the debug font (none on PC: the original calls the shared `return 0` stub)
+    GameVariable<void*>(0x00786D90) = reinterpret_cast<void*>(static_cast<uintptr_t>(Stubs::ReturnZero()));
+    Tmr::SetFlags();
 }
 
 namespace {

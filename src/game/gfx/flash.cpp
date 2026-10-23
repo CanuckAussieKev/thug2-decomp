@@ -5,6 +5,7 @@
 
 #include <cstdint>
 
+#include "game/gfx/render_state.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -19,9 +20,8 @@ struct FlashVertex {
 };
 static_assert(sizeof(FlashVertex) == 0x1C, "the draw's stride");
 
-// The renderer's state calls (not rewritten yet; cdecl).
-void SetTexture(int stage, void* texture, int unknown) { GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(stage, texture, unknown); }
-void SetSamplerState(int state, int value) { GameFunction<void(__cdecl*)(int, int)>(0x004DAB60)(state, value); }
+// A render state by the renderer's numbering (SetState).
+void SetSamplerState(int state, int value) { SetState(state, static_cast<uint32_t>(value)); }
 
 } // namespace
 
@@ -48,16 +48,16 @@ void DrawFlash(const Flash* flash)
     if (uint8_t* texture = flash->texture) {
         uint8_t* image = (texture[8] & 1) ? **reinterpret_cast<uint8_t***>(texture + 0x10)
                                           : *reinterpret_cast<uint8_t**>(texture + 0x10);
-        SetTexture(0, *reinterpret_cast<void**>(image + 0x10), 0);
+        SetTexture(0, *reinterpret_cast<void**>(image + 0x10)); // (the original also passes 0, unused)
         SetSamplerState(4, 0x10001);
     } else {
-        SetTexture(0, nullptr, 0);
+        SetTexture(0, nullptr);
     }
-    GameFunction<void(__cdecl*)(int)>(0x004DA760)(5); // blend mode
+    SetBlendMode(5);
     SetSamplerState(1, 0);
     SetSamplerState(2, 0);
-    GameFunction<void(__cdecl*)(int, int)>(0x004DAA80)(0, 0);
-    GameFunction<void(__cdecl*)(int)>(0x004D9DB0)(0x144); // the vertex format
+    SetPixelShader(nullptr, nullptr); // (no pixel shader)
+    SetVertexFormat(0x144);
     ++GameVariable<int>(0x00786EBC); // draw calls
     GameVariable<int>(0x00786EC0) += 2; // triangles
     // Originally from PartyMod Fixes (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the

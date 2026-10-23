@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "game/gfx/device.h"
+#include "game/gfx/pixel_shaders.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
 #include "hook/appmain_testkit.h"
@@ -189,7 +190,7 @@ void TestRenderStateDefaults()
         return 0u;
     });
     s.At({0x004CD940}, 0, [](Regs&) { Record({0xD940}); return 0u; });
-    s.At({0x004DD7F0}, 0, [](Regs&) { Record({0xD7F0}); return 0u; });
+    s.At({0x004DD7F0, AddressOf(&Nx::CreatePixelShaders)}, 0, [](Regs&) { Record({0xD7F0}); return 0u; });
     struct Case {
         int height;
         uint32_t anisotropy;

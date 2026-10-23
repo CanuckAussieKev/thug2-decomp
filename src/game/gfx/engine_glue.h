@@ -19,6 +19,9 @@ void __cdecl DeleteObject(void* object);
 // 0x004B22B0: a jump to 0x004D3CA0 - the 2D clip rectangle (four values) set and turned on.
 void __cdecl SetScreenClip(const void* rect);
 // 0x004B22C0: a debug shape: type 4 is a quad (four points, 0x004D8D70) in `colour`; others nothing.
+// (What it reaches is occlusion.h's AddOcclusionPoly - `colour` is the polygon's checksum; the two below are
+// EnableOcclusionPoly and RemoveAllOcclusionPolys, and SphereVisible is SphereOutsideView: 1 when the sphere is
+// outside the view. The names here are kept for their callers.)
 void __cdecl AddDebugShape(int type, const Mth::Vector* points, uint32_t colour);
 // 0x004B22F0 / 0x004B2300: jumps to 0x004D8C90 (the debug lines with this id get `flag` in their byte at +0)
 // and 0x004D8CC0 (all debug lines cleared).

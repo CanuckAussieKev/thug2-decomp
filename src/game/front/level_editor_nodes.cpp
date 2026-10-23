@@ -211,7 +211,7 @@ V3 HeadingOf(V3 angles)
     matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     Mth::Vector vector = {angles.x, angles.y, angles.z, 1.0f};
-    GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(&matrix, &vector);
+    matrix.InitFromAngles(vector);
     V3 at = {matrix.row[2].x, 0.0f, matrix.row[2].z};
     float length = std::sqrt(at.x * at.x + at.z * at.z);
     return length > 1e-4f ? V3{at.x / length, 0.0f, at.z / length} : V3{0.0f, 0.0f, 1.0f};
