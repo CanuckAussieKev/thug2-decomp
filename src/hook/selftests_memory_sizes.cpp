@@ -39,12 +39,29 @@ void TestOriginalPoolSizes()
                   Mem::Sizes::MainBlockSize() == 0x4000000,
               "memory sizes: the original sizes give the original script region and main block");
     }
-    // THUGPRO's (the defaults): CComponent 184,000 and so on; the region grows by at least what they take more.
-    const Mem::Sizes::Pools& d = Mem::Sizes::Defaults();
-    Check(d.components == 184000 && d.structs == 49600 && d.vectors == 19000 && d.arrays == 16000 && d.pairs == 1600 &&
-              d.symbols == 45000 && d.scripts == 1200 && d.scriptCacheEntries == 1200 && d.storedRandoms == 100 &&
-              d.stringBytes == 0x100000 && d.strings == 28000 && d.hashItems == 40000,
+    // THUGPRO's: CComponent 184,000 and so on; ours (the defaults) the same but four pools bigger (THP8's whole town);
+    // the region grows by at least what they take more.
+    const Mem::Sizes::Pools& t = Mem::Sizes::Thugpro();
+    Check(t.components == 184000 && t.structs == 49600 && t.vectors == 19000 && t.arrays == 16000 && t.pairs == 1600 &&
+              t.symbols == 45000 && t.scripts == 1200 && t.scriptCacheEntries == 1200 && t.storedRandoms == 100 &&
+              t.stringBytes == 0x100000 && t.strings == 28000 && t.hashItems == 40000,
           "memory sizes: THUGPRO's counts");
+    const Mem::Sizes::Pools& d = Mem::Sizes::Defaults();
+    Check(d.components == 360000 && d.structs == 64000 && d.vectors == 48000 && d.arrays == 26000 &&
+              d.pairs == t.pairs && d.symbols == t.symbols && d.scripts == t.scripts &&
+              d.scriptCacheEntries == t.scriptCacheEntries && d.storedRandoms == t.storedRandoms &&
+              d.stringBytes == t.stringBytes && d.strings == t.strings && d.hashItems == 56000,
+          "memory sizes: our counts (THUGPRO's, CComponent / CStruct / CVector / CArray / HashItem bigger)");
+    // (this run's: the defaults, 0x10000 and 16 MB, unless the ini says otherwise)
+    uint32_t slots = Mem::Sizes::NodeHashSlots();
+    Check(slots >= Mem::Sizes::kOriginalNodeHashSlots && (slots & (slots - 1)) == 0 &&
+              Mem::Sizes::ScriptHeapExtra() % (1u << 20) == 0,
+          "memory sizes: the node name hash a power of two, at least the original's; the script heap's extra in MB");
+    {
+        Mem::Sizes::UseOriginal original;
+        Check(Mem::Sizes::NodeHashSlots() == Mem::Sizes::kOriginalNodeHashSlots && Mem::Sizes::ScriptHeapExtra() == 0,
+              "memory sizes: the original's node name hash and script heap");
+    }
     const Mem::Sizes::Pools& c = Mem::Sizes::Current();
     uint32_t grownBy = Mem::Sizes::ScriptPoolBytes(c) > Mem::Sizes::ScriptPoolBytes(o)
                            ? Mem::Sizes::ScriptPoolBytes(c) - Mem::Sizes::ScriptPoolBytes(o)

@@ -13,6 +13,7 @@
 #include <string>
 
 #include "game/core/crc.h"
+#include "game/core/memory_report.h"
 #include "game/file/file.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
@@ -303,6 +304,7 @@ void Update(Mdl::FrontEnd* frontEnd)
             if (s_poolFrames >= kLevelSettleFrames) {
                 s_poolsLogged = true;
                 Script::LogScriptPoolUse((std::string("in ") + Requested()).c_str());
+                Mem::LogMemoryUse((std::string("in ") + Requested()).c_str());
             }
         }
         if (AtUpdate(frontEnd))

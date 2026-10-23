@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
+import { checksum, Local, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thaw from "../thaw_levels/thaw.ts";
 import * as dxt from "./dxt.ts";
 import * as geom from "./geom.ts";
@@ -20,9 +20,17 @@ import {
     GLOW_DEFAULT,
     glowMaterials,
     glowScale,
+    horizontalReach,
+    MAX_TRIANGLES,
     materialColour,
+    materialKey,
     memberCalls,
+    mergeNodeArrays,
+    NET_LEVEL_NUM,
+    netSpecs,
     place,
+    readNetworkAreas,
+    refineBudget,
     rotate,
     SCALE,
     soloRestarts,
@@ -499,4 +507,109 @@ test("props: GO_ game objects made at the start become bouncy LevelObjects with 
     const tris = boxTriangles([0, 0, 0, 1, 2, 3], 42);
     assert.equal(tris.length, 12);
     assert.ok(tris.every((t) => t.owner === 42));
+});
+
+// --- network levels / zones merged ----------------------------------------------------------------------------------
+
+test("network levels: THP8's list read - text, id, spawn zones, barrier pak, its zone; only several zones become levels", () => {
+    const names = new Map<number, string>();
+    const n = (text: string): Name => {
+        names.set(checksum(text), text);
+        return new Name(checksum(text));
+    };
+    const level = (id: string, text: string, pak: string, zone: string, zones: string[]): Struct =>
+        new Struct([
+            [n("text"), new Local(text)],
+            [n("area_pak"), new Local(pak)],
+            [n("area_pak_zone"), new Local(zone)],
+            [n("checksum"), n(id)],
+            [n("spawn_in"), zones.map(n)],
+            [null, n("multiplayer_level")],
+            [n("ui_struct"), n(`ui_${id}`)],
+        ]);
+    const globals = new Map<number, QbValue>([
+        [checksum("mp_park"), level("Skatepark", "Skate Park", "z_online_skatepark", "Z_Cretepark", ["z_cretepark"])],
+        [
+            checksum("mp_school"),
+            level("School", "SCHOOL", "z_online_school", "Z_Outschool", ["z_inschool", "Z_Outschool"]),
+        ],
+        [checksum("mp_town"), level("BeaverValley", "BEAVER VALLEY", "", "", ["z_houses", "z_shops"])],
+        [checksum("ui_School"), new Struct([[n("description"), new Local("School's not out")]])],
+        [
+            checksum("online_level_select_menu_level_info"),
+            ["mp_town", "mp_park", "mp_school"].map(
+                (x) =>
+                    new Struct([
+                        [null, n(x)],
+                        [n("level"), n(`load_${x}`)],
+                    ]),
+            ),
+        ],
+    ]);
+    const areas = readNetworkAreas(globals, names);
+    assert.deepEqual(
+        areas.map((a) => [a.id, a.text, a.zones, a.barriers, a.mainZone]),
+        [
+            ["BeaverValley", "BEAVER VALLEY", ["z_houses", "z_shops"], "", ""],
+            ["Skatepark", "SKATE PARK", ["z_cretepark"], "z_online_skatepark", "z_cretepark"],
+            ["School", "SCHOOL", ["z_inschool", "z_outschool"], "z_online_school", "z_outschool"],
+        ],
+    );
+    assert.equal(areas[2]!.description, "School's not out");
+    const specs = netSpecs(areas, new Set(["SCHOOL"]));
+    assert.deepEqual(
+        specs.map((s) => [s.level, s.folder, s.zones, s.barriers, s.sign, s.levelNum]),
+        [
+            ["thp8_net_beavervalley", "net_beavervalley", ["z_houses", "z_shops"], [], "BEAVER VALLEY", NET_LEVEL_NUM],
+            // (the area's own zone first; " AREA" where a zone level has the sign already)
+            [
+                "thp8_net_school",
+                "net_school",
+                ["z_outschool", "z_inschool"],
+                ["z_online_school"],
+                "SCHOOL AREA",
+                NET_LEVEL_NUM + 1,
+            ],
+        ],
+    );
+});
+
+test("zones merged: node arrays one after the other, each one's Links moved up by the nodes before it", () => {
+    const links = (...l: number[]): Struct => new Struct([[new Name(checksum("Links")), l]]);
+    const a: QbValue[] = [links(1), new Struct([]), links(0)];
+    const b: QbValue[] = [links(1, 2), links(0), new Struct([])];
+    const merged = mergeNodeArrays([a, b]);
+    assert.equal(merged.length, 6);
+    assert.deepEqual(
+        merged.map((x) => (x as Struct).get("Links") ?? null),
+        [[1], null, [0], [4, 5], [3], null],
+    );
+});
+
+test("zones merged: a material is one only when its definition agrees (light maps, parameters)", () => {
+    const m = (textures: number[], p = 0): geom.GeomMaterial =>
+        ({
+            checksum: 7,
+            flags: 0,
+            template: 1,
+            textures,
+            terrain: 0,
+            state: 0,
+            params: Buffer.from([p]),
+        }) as geom.GeomMaterial;
+    assert.equal(materialKey(m([1, 2, 3])), materialKey(m([1, 2, 3])));
+    assert.notEqual(materialKey(m([1, 2, 3])), materialKey(m([1, 2, 4]))); // (another zone's shadow map)
+    assert.notEqual(materialKey(m([1, 2, 3])), materialKey(m([1, 2, 3], 1)));
+});
+
+test("zones merged: the light's triangle budget per zone; the reach from the middle for network positions", () => {
+    const counts = { triangles: 100000, refined: 0, refinedFrom: 0 } as Parameters<typeof refineBudget>[0];
+    assert.equal(refineBudget({ ...counts, triangles: 180000 }), MAX_TRIANGLES);
+    assert.equal(refineBudget({ ...counts, triangles: 360000 }, 2), 2 * MAX_TRIANGLES);
+    const tri = (x: number, z: number) => ({ a: [x, 0, z], b: [x, 0, z], c: [0, 0, 0], material: 0, owner: 0 });
+    // (metres in inches, moved by the shift)
+    assert.equal(
+        Math.round(horizontalReach([{ index: 0, triangles: [tri(100, -300)] }], [0, 0, 1000])),
+        Math.round(300 * SCALE - 1000),
+    );
 });

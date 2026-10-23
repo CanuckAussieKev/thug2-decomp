@@ -91,6 +91,11 @@ static_assert(offsetof(CNodeManager, m_walk) == 0x10000 && offsetof(CNodeManager
                   sizeof(CNodeManager) == 0x100FC,
               "layout must match the original (allocated as 0x100FC bytes)");
 
+// NOT ORIGINAL - `manager`'s name hash `slots` big (a power of two), kept beside it with 32-bit node indices, its walk
+// too (null / 0: none - every manager its own m_slots, as the original). CreateNodeManager gives the game's one
+// Mem::Sizes::NodeHashSlots() when that's more than kSlots; the self-tests give theirs one.
+void UseBigNameHash(CNodeManager* manager, uint32_t slots);
+
 // 0x0045D2A0 (cdecl): `out` = the file name of `path` (after its last \ or /) with its extension replaced by
 // "_nodearray" (sprintf). True.
 bool MakeNodeArrayName(const char* path, char* out);

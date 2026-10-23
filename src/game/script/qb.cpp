@@ -411,6 +411,13 @@ void LogScriptPoolUse(const char* when)
                       count);
         line += part;
     }
+    // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)
+    if (Mem::Pool* items = Mem::PoolManager::GetPool(0)) {
+        char part[96];
+        std::snprintf(part, sizeof(part), ", HashItem %d (peak %d) of %d", items->m_used, items->m_peakUsed,
+                      items->m_count);
+        line += part;
+    }
     Log("script pools in use %s: %s", when, line.c_str());
 }
 
