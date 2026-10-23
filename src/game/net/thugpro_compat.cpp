@@ -21,6 +21,8 @@ constexpr uint32_t kIsTallLevel = 0x7C793877; // IsTallLevel
 constexpr const char* kLevelLists[] = {
     "level_select_menu_level_info",       "level_select_menu_thug1_level_info", "level_select_menu_thps4_level_info",
     "level_select_menu_thps3_level_info", "level_select_menu_thaw_level_info",
+    // (not THUGPRO's: our THP8 levels wider than half units reach - tools/thp8_levels, NET_HALF_REACH)
+    "level_select_menu_thps2_level_info", "level_select_menu_thp8_level_info",
 };
 
 PositionScale s_scale;
