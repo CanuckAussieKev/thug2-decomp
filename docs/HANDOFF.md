@@ -461,3 +461,6 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   helpers in some files (GC2 listed ~95 in gamecalls-2.md: walk_moves.cpp Call(0x...), trick_member_functions,
   physics_control CameraCall, skater.cpp's reset loops) and the 35 named-constant GameFunction calls. NOT run in the game.
 - THPS2 quarter pipes merged (tools/level_port/ramp_collision.ts; docs/pending/thps2-quarterpipes.md; automation `trace`).
+- THPS2 quarter pipes 2 merged + installed (2026-10-24 01:43): no vert under 40 deg, steep ramp faces vert, one vert band
+  per ramp (native THUG2's pattern); seam theory ruled out; the user's ~50% manual breaks not reproduced (likely the
+  low-vert cause) - waiting on the user's play test (docs/pending/thps2-quarterpipes.md). Main not pushed.
