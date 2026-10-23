@@ -42,8 +42,8 @@ public:
     // up.
     CCompositeObject* FindContactAhead(Mth::Vector* pos, const Mth::Vector* next);
     // 0x00427A00: the contact point in the world (relative to the last object ridden, by its orientation and
-    // position; none: as kept).
-    void GetContactPoint(Mth::Vector* out);
+    // position; none: as kept); returns `out` (callers read it).
+    Mth::Vector* GetContactPoint(Mth::Vector* out);
     // 0x00427C70: no longer riding: the ride's object becomes the last ridden, the tracker freed, the time noted.
     void StopRiding();
     // 0x00427CB0: whether riding an object that's still there (one that's gone: stops riding).

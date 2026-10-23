@@ -132,3 +132,7 @@ src/hook/viewer_testkit.h (ScriptExists' stand-in).
   - Checks: thug2_check on both exes 0 MISMATCHED, 771 early self-tests all passed; check_code_writes no overlaps;
     audit_game_function_calls 0 MISMATCH (1798 uses); scan_register_assumptions the 5 known RISK lines (snapshot copy
     C:\Games\THUG2-ghidra-snapshot-gc3).
+- [x] GC3-4 (NOT run in the game yet; fix found by GC1): Obj::CMovableContactComponent::GetContactPoint (0x00427A00)
+  returns `out` now - the original's both paths end `mov eax, [esp+0x68]` (out), `ret 4`, and callers read EAX (the
+  skater's lip-state update, 0x0050BF50: core_states.cpp). Ours was void. The self-test compares EAX too; mutations
+  returning `out + 1` / null caught.
