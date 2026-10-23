@@ -94,7 +94,7 @@ void SetEntry(CMetaPiece* meta, int i, uint8_t x, int8_t y, uint8_t z, uint8_t r
     d->y = y;
     d->z = z;
     d->rot = rot;
-    d->isReal = flagged;
+    d->setsFloor = flagged;
     d->piece = reinterpret_cast<void*>(piece);
 }
 
@@ -223,8 +223,8 @@ void TestParkMetaPieces2()
                      : static_cast<CConcreteMetaPiece*>(meta)->AddPiece(Ptr<CPiece>(kPieces + i * 0x30), Ptr<GridDims>(kOut),
                                                                        i * 5, flag != 0);
         }
-        // (isReal from the flag's low byte in the original: 0x100 reads 0 there; ours takes a bool - set as it would be)
-        meta->mp_extra_desc[2].isReal = false;
+        // (setsFloor from the flag's low byte in the original: 0x100 reads 0 there; ours takes a bool - set as it would be)
+        meta->mp_extra_desc[2].setsFloor = false;
         PushArena(t);
         original ? Orig<void>(0x00591AB0, meta) : meta->FinishPieces();
         PushArena(t);
@@ -271,7 +271,7 @@ void TestParkMetaPieces2()
                                      : meta->Intersects(area, 0));
         }
         for (int i = 0; i < 6; ++i) // (none flagged: every piece counts)
-            (i < 2 ? meta->m_desc[i] : meta->mp_extra_desc[i - 2]).isReal = false;
+            (i < 2 ? meta->m_desc[i] : meta->mp_extra_desc[i - 2]).setsFloor = false;
         for (const GridDims& area : areas)
             t.push_back(original ? Orig<bool>(0x00590CE0, meta, *reinterpret_cast<const uint32_t*>(&area),
                                               static_cast<uint32_t>(area.h | (area.l << 8)), 1u)

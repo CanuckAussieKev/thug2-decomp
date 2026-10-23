@@ -241,7 +241,7 @@ void CaseRebuild(bool original, Random& r, std::vector<uint32_t>& t, StandIns& s
 {
     CParkManager& p = g_arena.park;
     for (uint32_t address : {0x00593610u, 0x005947D0u, 0x00594910u})
-        s.At({address}, 0, [address](Regs& regs) {
+        s.At({address, OursOf(address)}, 0, [address](Regs& regs) {
             Record({address, Offset(reinterpret_cast<void*>(regs.ecx))});
             return 0u;
         });
@@ -504,8 +504,8 @@ void StandInEditor(StandIns& s)
     s.At({0x0058C780, AddressOf(&Ed::CClipboard::ShowAt)}, 4, record1(0xC780));    // CClipboard::ShowAt
     s.At({0x0058C980, AddressOf(&Ed::CClipboard::Destroy)}, 0, record(0xC980));     // CClipboard destructor
     s.At({0x005903A0, OursOf(0x005903A0)}, 4, record1(0x03A0));    // CMetaPiece visibility
-    s.At({0x0058CF30}, 4, record1(0xCF30));    // CGapManager copy
-    s.At({0x0058CF20}, 0, record(0xCF20));     // CGapManager destructor
+    s.At({0x0058CF30, AddressOf(&Ed::CGapManager::CopyFrom)}, 4, record1(0xCF30));    // CGapManager copy
+    s.At({0x0058CF20, AddressOf(&Ed::CGapManager::Destroy)}, 0, record(0xCF20));     // CGapManager destructor
     s.At({0x0058CCC0, AddressOf(&Ed::CGapManager::Construct)}, 4, [](Regs& r) { // CGapManager constructor (makes itself current)
         Record({0xCCC0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
         GameVariable<uint32_t>(0x007CE5D4) = r.ecx;
@@ -517,7 +517,7 @@ void StandInEditor(StandIns& s)
         Record({0x1A50, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0] & 0xFF, r.args[1]});
         return 0u;
     });
-    s.At({0x0058CDA0}, 8, [](Regs& r) { // CGapManager::SetGapInfo
+    s.At({0x0058CDA0, AddressOf(&Ed::CGapManager::SetGapInfo)}, 8, [](Regs& r) { // CGapManager::SetGapInfo
         Record({0xCDA0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], Offset(reinterpret_cast<void*>(r.args[1]))});
         return 0u;
     });
@@ -808,7 +808,7 @@ void BuildMap(Random& r)
             entry.y = static_cast<int8_t>(r.Range(-1, 2));
             entry.z = static_cast<uint8_t>(r.Range(0, 2));
             entry.rot = static_cast<uint8_t>(r.Range(0, 3));
-            entry.isReal = r.Range(0, 3) != 0;
+            entry.setsFloor = r.Range(0, 3) != 0;
             entry.piece = reinterpret_cast<void*>(static_cast<uintptr_t>(kNames[r.Range(0, 4)]));
         }
     }
@@ -917,12 +917,12 @@ void StandInMap(StandIns& s)
                   static_cast<uint8_t>(1 + (k >> 4) % 3), static_cast<uint8_t>(1 + (k >> 3) % 2));
         return 0u;
     });
-    s.At({0x0058CA10}, 8, [](Regs& r) { // CGapManager: the gap a metapiece is a half of
+    s.At({0x0058CA10, AddressOf(&Ed::CGapManager::GetGapIndex)}, 8, [](Regs& r) { // CGapManager: the gap a metapiece is a half of
         Record({0xCA10, Offset(reinterpret_cast<void*>(r.ecx)), static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.args[0])))});
         *reinterpret_cast<int*>(r.args[1]) = MetaIndex(reinterpret_cast<void*>(r.args[0])) % 5;
         return static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.args[0])) % 3 != 0);
     });
-    s.At({0x0058CB20}, 8, [](Regs& r) { // CGapManager: a gap's info
+    s.At({0x0058CB20, AddressOf(&Ed::CGapManager::GetGapInfo)}, 8, [](Regs& r) { // CGapManager: a gap's info
         Record({0xCB20, r.args[0]});
         *reinterpret_cast<int*>(r.args[1]) = 1;
         return reinterpret_cast<uint32_t>(&g_arena.gaps[r.args[0] % 3]);
@@ -1383,7 +1383,7 @@ void StandInIo(StandIns& s)
                 r.args[5], r.args[6], r.args[7]});
         return 0u;
     });
-    s.At({0x00592FE0}, 8, [](Regs& r) { // a light's position
+    s.At({0x00592FE0, AddressOf(&Ed::CParkGenerator::SetLightPosition)}, 8, [](Regs& r) { // a light's position
         auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0x2FE0, v[0], v[1], v[2], v[3], r.args[1]});
         return 0u;
@@ -1435,7 +1435,7 @@ void StandInIo(StandIns& s)
         return 0u;
     });
     // gaps
-    s.At({0x0058C990}, 0, [](Regs& r) {
+    s.At({0x0058C990, AddressOf(&Ed::CGapManager::GetFreeGapIndex)}, 0, [](Regs& r) {
         Record({0xC990, Offset(reinterpret_cast<void*>(r.ecx))});
         return g_gapLength > 600.0f ? 0xFFFFFFFFu : static_cast<uint32_t>(static_cast<int>(g_gapLength) % 7);
     });
@@ -1444,12 +1444,13 @@ void StandInIo(StandIns& s)
         length.push_back(b);
     length.insert(length.end(), {0xC2, 0x04, 0x00});
     s.Bytes(0x0058CBF0, length);
-    s.At({0x0058CB20}, 8, [](Regs& r) { // CGapManager: gap i's info (first halves only every other time)
+    s.Bytes(OursOf(0x0058CBF0), length); // (our AddGap calls ours)
+    s.At({0x0058CB20, AddressOf(&Ed::CGapManager::GetGapInfo)}, 8, [](Regs& r) { // CGapManager: gap i's info (first halves only every other time)
         Record({0xCB20, r.args[0]});
         *reinterpret_cast<int*>(r.args[1]) = (r.args[0] % 3 == 0) ? 0 : 1;
         return r.args[0] % 5 == 4 ? 0u : reinterpret_cast<uint32_t>(&g_arena.gaps[r.args[0] % 3]);
     });
-    s.At({0x00593500}, 12, [](Regs& r) { // the gap's trigger piece
+    s.At({0x00593500, AddressOf(&Ed::CParkGenerator::CreateGapPiece)}, 12, [](Regs& r) { // the gap's trigger piece
         auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0x3500, v[0], v[1], v[2], r.args[1], r.args[2]});
         return reinterpret_cast<uint32_t>(&g_arena.pieces[3]);
@@ -1458,17 +1459,17 @@ void StandInIo(StandIns& s)
         Record({0x06B0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
         return 0u;
     });
-    s.At({0x0058C9B0}, 12, [](Regs& r) {
+    s.At({0x0058C9B0, AddressOf(&Ed::CGapManager::EndGap)}, 12, [](Regs& r) {
         Record({0xC9B0, Offset(reinterpret_cast<void*>(r.ecx)), Offset(reinterpret_cast<void*>(r.args[0])),
                 Offset(reinterpret_cast<void*>(r.args[1])), r.args[2]});
         return 0u;
     });
-    s.At({0x0058D070}, 12, [](Regs& r) {
+    s.At({0x0058D070, AddressOf(&Ed::CGapManager::StartGap)}, 12, [](Regs& r) {
         Record({0xD070, Offset(reinterpret_cast<void*>(r.ecx)), Offset(reinterpret_cast<void*>(r.args[0])),
                 Offset(reinterpret_cast<void*>(r.args[1])), r.args[2]});
         return 0u;
     });
-    s.At({0x0058CDF0}, 8, [](Regs& r) {
+    s.At({0x0058CDF0, AddressOf(&Ed::CGapManager::RemoveGap)}, 8, [](Regs& r) {
         Record({0xCDF0, r.args[0], r.args[1]});
         return 0u;
     });

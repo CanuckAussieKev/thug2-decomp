@@ -11,6 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -884,9 +885,9 @@ void CRailManager::AddFromNodeArray(Script::CArray* nodes)
             node->GetChecksum(kName, &nodeName, 1);
             uint32_t cluster = nodeName;
             node->GetChecksum(kCluster, &cluster, 1);
-            void* trickObjects = GameVariable<void*>(0x007CE500);
-            GameFunction<void(__thiscall*)(void*, uint32_t)>(0x005896D0)(trickObjects, cluster);
-            GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t)>(0x00589080)(trickObjects, nodeName, cluster);
+            auto* trickObjects = GameVariable<CTrickObjectManager*>(0x007CE500);
+            trickObjects->AddCluster(cluster);
+            trickObjects->AddObjectToCluster(nodeName, cluster);
         }
         ++m_adding;
     }

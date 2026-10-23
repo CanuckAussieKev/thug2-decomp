@@ -12,12 +12,8 @@ namespace Ed {
 
 namespace {
 
-// The gap manager in use (CGapManager::sInstance, 0x0058CBB0) and its SetGapInfo (0x0058CDA0).
-void* GapManager() { return GameVariable<void*>(0x007CE5D4); }
-void SetGapInfo(int tab, GapInfo* info)
-{
-    GameFunction<void(__thiscall*)(void*, int, GapInfo*)>(0x0058CDA0)(GapManager(), tab, info);
-}
+// The gap manager in use's SetGapInfo.
+void SetGapInfo(int tab, GapInfo* info) { CGapManager::Instance()->SetGapInfo(tab, info); }
 
 } // namespace
 
@@ -77,8 +73,8 @@ void CCursor::SelectClipboard(int index)
 
 void CCursor::SetVisibility(bool visible)
 {
-    if (mp_meta) // 0x005903A0: the pieces' visibility
-        GameFunction<void(__thiscall*)(CMetaPiece*, bool)>(0x005903A0)(mp_meta, visible);
+    if (mp_meta)
+        mp_meta->SetVisibility(visible);
     if (!visible && mp_clipboard)
         mp_clipboard->DestroyMetas();
     m_areaHighlighted = false;

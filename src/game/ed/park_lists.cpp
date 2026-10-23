@@ -17,14 +17,11 @@ Mem::PoolPair& NodePools() { return GameVariable<Mem::PoolPair>(0x007CE5F0); }
 // The park editor's heap (0x0059E100).
 Mem::Heap* ParkHeap() { return GameVariable<Mem::Heap*>(0x007CE688); }
 
-// The generator's piece making (CParkGenerator, not rewritten yet).
-void* GetPieceSource(void* generator, uint32_t name)
-{
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x00591D90)(generator, name);
-}
+// The generator's piece making.
+void* GetPieceSource(void* generator, uint32_t name) { return static_cast<CParkGenerator*>(generator)->GetPieceSource(name); }
 void* CreatePiece(void* generator, void* source, uint32_t flags)
 {
-    return GameFunction<void*(__thiscall*)(void*, void*, uint32_t)>(0x005923C0)(generator, source, flags);
+    return static_cast<CParkGenerator*>(generator)->CreatePiece(static_cast<CPiece*>(source), flags);
 }
 
 // One floor slide step for a cell or metapiece at `current`.
@@ -82,8 +79,7 @@ CMetaPiece* CParkManager::CreateConcreteMeta(CMetaPiece* abstractMeta, uint32_t 
 {
     Mem::PushContext(ParkHeap());
     void* memory = Mem::New(sizeof(CMetaPiece));
-    // 0x00590B60: the concrete metapiece's constructor
-    auto* meta = memory ? GameFunction<CMetaPiece*(__thiscall*)(void*)>(0x00590B60)(memory) : nullptr;
+    CMetaPiece* meta = memory ? static_cast<CConcreteMetaPiece*>(memory)->Construct() : nullptr;
     Mem::PopContext();
 
     int count = abstractMeta->CountPieces();
@@ -101,14 +97,13 @@ CMetaPiece* CParkManager::CreateConcreteMeta(CMetaPiece* abstractMeta, uint32_t 
         meta->m_flags |= CMetaPiece::kFloorLocked;
     for (int i = 0; i < count; ++i) {
         SMetaDescriptor entry;
-        // 0x005911D0: the abstract metapiece's entry `i`, copied
-        GameFunction<void(__thiscall*)(CMetaPiece*, SMetaDescriptor*, int)>(0x005911D0)(abstractMeta, &entry, i);
+        static_cast<CAbstractMetaPiece*>(abstractMeta)->GetEntry(&entry, i); // entry `i`, copied
         void* source = GetPieceSource(sInstance()->mp_generator, reinterpret_cast<uint32_t>(entry.piece));
         void* piece = CreatePiece(mp_generator, source, pieceFlags);
-        GameFunction<void(__thiscall*)(void*, int, int)>(0x00590260)(piece, entry.rot, 0); // turn it
+        static_cast<CPiece*>(piece)->SetRot(entry.rot, 0); // turn it
         GridDims pos;
         pos.Set(entry.x, entry.y, entry.z, 0, 0, 0);
-        meta->AddPiece(piece, &pos, entry.rot, entry.isReal);
+        meta->AddPiece(piece, &pos, entry.rot, entry.setsFloor);
     }
     meta->FinishPieces();
 
@@ -266,10 +261,10 @@ GapInfo* CParkManager::GetGapInfo(GridDims* cell, int* half)
         return nullptr;
     CMetaPiece* meta = metas.list->GetMeta()->Cast();
     int gap;
-    // CGapManager: the gap a metapiece is a half of (0x0058CA10), and its info (0x0058CB20)
-    if (!GameFunction<bool(__thiscall*)(void*, CMetaPiece*, int*)>(0x0058CA10)(mp_gapManager, meta, &gap))
+    // The gap a metapiece is a half of, and its info
+    if (!mp_gapManager->GetGapIndex(meta, &gap))
         return nullptr;
-    return GameFunction<GapInfo*(__thiscall*)(void*, int, int*)>(0x0058CB20)(mp_gapManager, gap, half);
+    return mp_gapManager->GetGapInfo(gap, half);
 }
 
 bool CParkManager::HasFloorLockedMeta(GridDims area)
@@ -326,11 +321,11 @@ void CParkManager::SetMetaInCells(CMetaPiece* meta, int add)
     for (uint32_t i = 0; i < meta->m_num_used_entries; ++i) {
         void* piece = meta->GetPiece(static_cast<int>(i)); // (and the cast to a concrete piece: 0x005902E0)
         SMetaDescriptor* entry = meta->GetEntry(static_cast<int>(i));
-        if (!entry->isReal)
+        if (!entry->setsFloor)
             continue;
         GridDims dims;
         dims.Set(0, 0, 0, 0, 0, 0);
-        GameFunction<void(__thiscall*)(void*, GridDims*)>(0x005904C0)(piece, &dims); // the piece's size in cells
+        static_cast<CPiece*>(piece)->GetCellDims(&dims); // the piece's size in cells
         dims.x = static_cast<uint8_t>(entry->x + meta->m_cell_area.x);
         dims.y = static_cast<int8_t>(entry->y + meta->m_cell_area.y);
         dims.z = static_cast<uint8_t>(entry->z + meta->m_cell_area.z);

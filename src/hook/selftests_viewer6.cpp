@@ -19,6 +19,7 @@
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/nodes.h"
 #include "hook/viewer_testkit.h"
 
@@ -208,11 +209,11 @@ void Install(StandIns& s)
         Rec(0x5BB0, {r.ecx, r.args[0]});
         return g_skippedNodes.count(r.args[0]) ? 1u : 0u;
     });
-    s.At({0x005896D0}, 4, [](Regs& r) {
+    s.At({0x005896D0, AddressOf(&Obj::CTrickObjectManager::AddCluster)}, 4, [](Regs& r) {
         Rec(0x96D0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00589080}, 8, [](Regs& r) {
+    s.At({0x00589080, AddressOf(&Obj::CTrickObjectManager::AddObjectToCluster)}, 8, [](Regs& r) {
         Rec(0x9080, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });

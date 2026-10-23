@@ -54,7 +54,7 @@ void CMapListTemp::Destroy()
         CMapListNode::DestroyList(list);
 }
 
-// --- CParkGenerator (its data: park_scene.h's ParkGeneratorData) -------------------------------------------------
+// --- CParkGenerator ---------------------------------------------------------------------------------------------
 
 namespace {
 
@@ -64,27 +64,26 @@ uint8_t* SceneOf(void* scene) { return static_cast<uint8_t*>(scene); }
 
 void CParkGenerator::DestroyBody()
 {
-    ParkGeneratorData& d = Data(this);
-    if (d.mp_scene)
-        d.mp_scene = nullptr;
-    if (d.mp_sourceScene)
-        d.mp_sourceScene = nullptr;
+    if (mp_scene)
+        mp_scene = nullptr;
+    if (mp_sourceScene)
+        mp_sourceScene = nullptr;
     // (the node array's owner: 0x00407810 is CAsset's destructor body, folded with CNodeArrayAsset's)
-    reinterpret_cast<Ass::CAsset*>(d.m_nodeArray)->Destruct();
-    DestroyEmptyMember(&d.m_rails);
-    DestroyEmptyMember(&d.m_sourceRails);
+    reinterpret_cast<Ass::CAsset*>(m_nodeArray)->Destruct();
+    DestroyEmptyMember(&m_rails);
+    DestroyEmptyMember(&m_sourceRails);
 }
 
 void CParkGenerator::HighlightAllPieces(bool on)
 {
-    for (CPiece* piece = Data(this).mp_pieces; piece;) {
+    for (CPiece* piece = mp_pieces; piece;) {
         CPiece* next = piece->mp_next;
         piece->SetHighlight(on, false);
         piece = next;
     }
 }
 
-void CParkGenerator::SetMaxPlayers(int count) { Data(this).m_maxPlayers = count; }
+void CParkGenerator::SetMaxPlayers(int count) { m_maxPlayers = count; }
 
 int CParkGenerator::GetMaxPlayersPossible()
 {
@@ -92,7 +91,7 @@ int CParkGenerator::GetMaxPlayersPossible()
     GetMemoryStats(&stats);
     // (the original's 32-bit arithmetic, wrapping)
     const int memory = static_cast<int>(static_cast<uint32_t>(stats.mainHeapFree) +
-                                        static_cast<uint32_t>(Data(this).m_maxPlayers) *
+                                        static_cast<uint32_t>(m_maxPlayers) *
                                             static_cast<uint32_t>(kMemoryPerPlayer) -
                                         static_cast<uint32_t>(kMemoryPerPlayer));
     return memory / kMemoryPerPlayer + 1;
@@ -100,7 +99,7 @@ int CParkGenerator::GetMaxPlayersPossible()
 
 CSourcePiece* CParkGenerator::GetPieceSource(uint32_t name)
 {
-    for (CSourcePiece* source = Data(this).mp_sources; source; source = source->mp_next) {
+    for (CSourcePiece* source = mp_sources; source; source = source->mp_next) {
         if (source->m_name == name)
             return source;
     }
@@ -109,28 +108,26 @@ CSourcePiece* CParkGenerator::GetPieceSource(uint32_t name)
 
 bool CParkGenerator::DeleteSector(uint32_t name, int /*unused*/)
 {
-    return Scene::DeleteSector(SceneOf(Data(this).mp_scene), name);
+    return Scene::DeleteSector(SceneOf(mp_scene), name);
 }
 
 void CParkGenerator::DestroyRails()
 {
-    ParkGeneratorData& d = Data(this);
-    d.m_rails.Clear();
-    d.m_rails.FreePools();
+    m_rails.Clear();
+    m_rails.FreePools();
 }
 
 void CParkGenerator::SetLights(int count, float ambientR, float ambientG, float ambientB, float falloffR,
                                float falloffG, float falloffB, float cursorAmbience)
 {
-    ParkGeneratorData& d = Data(this);
-    d.m_numLights = count;
-    d.m_ambient[0] = ambientR;
-    d.m_ambient[1] = ambientG;
-    d.m_ambient[2] = ambientB;
-    d.m_falloff[0] = falloffR;
-    d.m_falloff[1] = falloffG;
-    d.m_falloff[2] = falloffB;
-    std::memcpy(&d.m_43C, &cursorAmbience, 4); // (the cursor's ambience)
+    m_numLights = count;
+    m_ambient[0] = ambientR;
+    m_ambient[1] = ambientG;
+    m_ambient[2] = ambientB;
+    m_falloff[0] = falloffR;
+    m_falloff[1] = falloffG;
+    m_falloff[2] = falloffB;
+    std::memcpy(&m_43C, &cursorAmbience, 4); // (the cursor's ambience)
 }
 
 void CParkGenerator::GetRestartSlots(int type, int* first, int* last)
@@ -169,9 +166,8 @@ bool CParkGenerator::HasFreeRestartSlot(int type)
     int first = 0;
     int last = 0;
     GetRestartSlots(type, &first, &last);
-    ParkGeneratorData& d = Data(this);
     for (int i = first; i <= last; ++i) {
-        if (!d.m_restarts[i].m_type || d.m_restarts[i].m_automatic)
+        if (!m_restarts[i].m_type || m_restarts[i].m_automatic)
             return true;
     }
     return false;
@@ -179,13 +175,13 @@ bool CParkGenerator::HasFreeRestartSlot(int type)
 
 void CParkGenerator::ClearRestarts()
 {
-    for (RestartPoint& slot : Data(this).m_restarts)
+    for (RestartPoint& slot : m_restarts)
         slot.m_type = RestartPoint::kFree;
 }
 
 void CParkGenerator::ClearAutomaticRestarts()
 {
-    for (RestartPoint& slot : Data(this).m_restarts) {
+    for (RestartPoint& slot : m_restarts) {
         if (slot.m_automatic)
             slot.m_type = RestartPoint::kFree;
     }
@@ -199,19 +195,18 @@ void CParkGenerator::SetUpBounds()
     box.AddPoint(low);
     Mth::Vector high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
     box.AddPoint(high);
-    Scene::SetBoundingBox(SceneOf(Data(this).mp_scene), &box);
+    Scene::SetBoundingBox(SceneOf(mp_scene), &box);
 }
 
 void CParkGenerator::RebuildCollision()
 {
     if (!RebuildsCollision())
         return;
-    ParkGeneratorData& d = Data(this);
-    d.m_flags &= ~ParkGeneratorData::kSceneChanged;
+    m_flags &= ~CParkGenerator::kSceneChanged;
     Mem::PushContext(Mem::BottomUpHeap());
-    Scene::UpdateSuperSectors(SceneOf(d.mp_scene), nullptr);
+    Scene::UpdateSuperSectors(SceneOf(mp_scene), nullptr);
     Mem::PopContext();
-    d.m_flags |= ParkGeneratorData::kSuperSectorsUpdated;
+    m_flags |= CParkGenerator::kSuperSectorsUpdated;
 }
 
 void CParkGenerator::UpdateBounds(uint32_t /*unused*/)
@@ -245,7 +240,7 @@ void CParkGenerator::UpdateBounds(uint32_t /*unused*/)
 
 void CParkGenerator::SetPiecesHighlighted(int on)
 {
-    for (CPiece* piece = Data(this).mp_pieces; piece;) {
+    for (CPiece* piece = mp_pieces; piece;) {
         CPiece* next = piece->mp_next;
         if (piece->m_flags & CPiece::kGap)
             piece->SetVisible(on != 0);
@@ -255,7 +250,7 @@ void CParkGenerator::SetPiecesHighlighted(int on)
 
 void CParkGenerator::SetRestartPiecesActive(bool active)
 {
-    for (CPiece* piece = Data(this).mp_pieces; piece;) {
+    for (CPiece* piece = mp_pieces; piece;) {
         CPiece* next = piece->mp_next;
         if (CParkManager::sInstance()->GetRestartIndex(piece->mp_source->m_name))
             piece->SetActive(active);
@@ -265,34 +260,32 @@ void CParkGenerator::SetRestartPiecesActive(bool active)
 
 uint32_t CParkGenerator::CloneSector(uint32_t name, int a, int b, int /*unused*/)
 {
-    ParkGeneratorData& d = Data(this);
-    d.m_flags |= ParkGeneratorData::kSceneChanged;
+    m_flags |= CParkGenerator::kSceneChanged;
     Mem::PushContext(Mem::BottomUpHeap());
-    uint32_t clone = Scene::CloneSector(SceneOf(d.mp_sourceScene), name, SceneOf(d.mp_scene), a, b, 0);
+    uint32_t clone = Scene::CloneSector(SceneOf(mp_sourceScene), name, SceneOf(mp_scene), a, b, 0);
     Mem::PopContext();
     return clone;
 }
 
 bool CParkGenerator::DestroySector(uint32_t name, int /*unused*/)
 {
-    bool deleted = Scene::DeleteSector(SceneOf(Data(this).mp_scene), name);
+    bool deleted = Scene::DeleteSector(SceneOf(mp_scene), name);
     RebuildCollision();
     return deleted;
 }
 
 CPiece* CParkGenerator::CreatePiece(CPiece* source, uint32_t flags)
 {
-    ParkGeneratorData& d = Data(this);
     flags &= CPiece::kCursor | CPiece::kNoNode20 | CPiece::kNoRails | CPiece::kDestroyNow;
     CSourcePiece* from = (source->m_flags & CPiece::kSource) ? reinterpret_cast<CSourcePiece*>(source) : source->mp_source;
     // The source's sector copied into the park's scene (on the bottom-up heap).
     CloningPiece() = 1;
     const uint32_t name = from->m_name;
-    d.m_flags |= ParkGeneratorData::kSceneChanged;
+    m_flags |= CParkGenerator::kSceneChanged;
     Mem::PushContext(Mem::BottomUpHeap());
     uint32_t clone = (flags & CPiece::kCursor)
-                         ? Scene::CloneSector(SceneOf(d.mp_sourceScene), name, SceneOf(d.mp_scene), 1, 0, 0)
-                         : Scene::CloneSector(SceneOf(d.mp_sourceScene), name, SceneOf(d.mp_scene), 0, 1, 0);
+                         ? Scene::CloneSector(SceneOf(mp_sourceScene), name, SceneOf(mp_scene), 1, 0, 0)
+                         : Scene::CloneSector(SceneOf(mp_sourceScene), name, SceneOf(mp_scene), 0, 1, 0);
     Mem::PopContext();
     CloningPiece() = 0;
     // The piece itself on the park editor's heap.
@@ -301,7 +294,7 @@ CPiece* CParkGenerator::CreatePiece(CPiece* source, uint32_t flags)
     CClonedPiece* piece = memory ? static_cast<CClonedPiece*>(memory)->Construct() : nullptr;
     Mem::PopContext();
     piece->m_sector = clone; // (out of memory crashes, as in the original)
-    piece->m_id = d.m_nextPieceId++;
+    piece->m_id = m_nextPieceId++;
     piece->mp_source = from;
     piece->SetRot(0, 0);
     piece->m_flags |= flags;
@@ -313,31 +306,29 @@ CPiece* CParkGenerator::CreatePiece(CPiece* source, uint32_t flags)
         }
     }
     SetCountsDirty();
-    d.m_flags |= ParkGeneratorData::kPiecesCreated;
+    m_flags |= CParkGenerator::kPiecesCreated;
     return piece;
 }
 
 void CParkGenerator::AddPiece(CPiece* piece)
 {
-    ParkGeneratorData& d = Data(this);
     piece->m_flags |= CPiece::kInList;
-    piece->mp_next = d.mp_pieces;
-    d.mp_pieces = piece;
-    d.m_flags |= ParkGeneratorData::kHasPieces;
+    piece->mp_next = mp_pieces;
+    mp_pieces = piece;
+    m_flags |= CParkGenerator::kHasPieces;
 }
 
 void CParkGenerator::DeletePiece(CPiece* piece, int keepSector)
 {
-    ParkGeneratorData& d = Data(this);
     if (!(piece->m_flags & CPiece::kCursor)) {
         CPiece* previous = nullptr;
-        for (CPiece* p = d.mp_pieces; p; previous = p, p = p->mp_next) {
+        for (CPiece* p = mp_pieces; p; previous = p, p = p->mp_next) {
             if (p != piece)
                 continue;
             if (previous)
                 previous->mp_next = p->mp_next;
             else
-                d.mp_pieces = p->mp_next;
+                mp_pieces = p->mp_next;
             break;
         }
     }
@@ -345,8 +336,8 @@ void CParkGenerator::DeletePiece(CPiece* piece, int keepSector)
         DestroySector(piece->m_sector, static_cast<int>(piece->m_flags));
     SetCountsDirty();
     piece->Delete();
-    if (!d.mp_pieces)
-        d.m_flags &= ~ParkGeneratorData::kHasPieces;
+    if (!mp_pieces)
+        m_flags &= ~CParkGenerator::kHasPieces;
 }
 
 void CParkGenerator::ReadPieceFlags(Script::CArray* nodes)

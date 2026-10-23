@@ -45,7 +45,7 @@ struct NodeSpec {
 
 // Everything the code under test touches.
 struct World {
-    ParkGeneratorData gen;
+    CParkGenerator gen;
     ClonedPiece pieces[8];
     SourcePiece sources[6];
     Rail rails[8];
@@ -418,7 +418,7 @@ void StandInGame(StandIns& s)
 void BasicWorld()
 {
     World& w = g_world;
-    ParkGeneratorData& d = w.gen;
+    CParkGenerator& d = w.gen;
     for (int i = 0; i < 6; ++i) {
         SourcePiece& s = w.sources[i];
         s.m_vtable = w.vtable;
@@ -458,7 +458,7 @@ void BasicWorld()
     d.m_falloff[2] = 3000.0f;
     for (int i = 0; i < 16; ++i)
         d.m_lights[i] = {-400.0f + 210.0f * i, 50.0f, 300.0f - 150.0f * i, 1.0f};
-    for (int i = 0; i < ParkGeneratorData::kNumRestarts; ++i) {
+    for (int i = 0; i < CParkGenerator::kNumRestarts; ++i) {
         RestartPoint& r = d.m_restarts[i];
         r.m_pos = {10.0f * i + 0.5f, -4.0f * i, 7.25f * i, 1.0f};
         r.m_rot = i % 4;
@@ -627,7 +627,7 @@ void TestParkGeneratorRestarts()
     };
     for (const AddCase& c : adds) {
         RunCase("park generator: AddRestart", [&] {
-            for (int i = 0; i < ParkGeneratorData::kNumRestarts; ++i) {
+            for (int i = 0; i < CParkGenerator::kNumRestarts; ++i) {
                 RestartPoint& r = w.gen.m_restarts[i];
                 int type = i == 0 ? 2 : i == 1 ? 1 : i < 8 ? 3 : i < 14 ? 4 : i - 9;
                 r.m_type = (c.taken >> i) & 1 ? type : 0;
@@ -645,7 +645,7 @@ void TestParkGeneratorRestarts()
     // CountRestarts / NeedsRestarts / RemoveRestart
     for (int type = 0; type <= 9; ++type) {
         auto fill = [&] {
-            for (int i = 0; i < ParkGeneratorData::kNumRestarts; ++i)
+            for (int i = 0; i < CParkGenerator::kNumRestarts; ++i)
                 w.gen.m_restarts[i].m_type = (i * 7 + type) % 3 ? 1 + (i + type) % 4 : 0;
             for (int i : {0, 1, 5, 9, 14, 15, 16, 17})
                 w.gen.m_restarts[i].m_type = 2 + i % 3;
@@ -859,7 +859,7 @@ void TestParkGeneratorScene()
             w.boxes[5][1].z = w.boxes[5][0].z + 238.0f;
             w.boxes[0][1].y = w.boxes[0][0].y + 47.9f;
             w.boxes[3][1].y = w.boxes[3][0].y + 48.0f; // (exactly a step)
-            for (int i = 0; i < ParkGeneratorData::kNumRestarts; ++i)
+            for (int i = 0; i < CParkGenerator::kNumRestarts; ++i)
                 w.gen.m_restarts[i].m_type = i % 5;
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(G, int)>(0x00594C90, Gen(), 9) : (Gen()->LoadSourcePieces(9), 0u);
@@ -1026,7 +1026,7 @@ void TestParkGeneratorNodes()
     for (int c = 0; c < 2; ++c) {
         RunCase("park generator: GetNodeCounts", [&] {
             g_script[0x004F3C70] = {17};
-            for (int i = 0; i < ParkGeneratorData::kNumRestarts; ++i)
+            for (int i = 0; i < CParkGenerator::kNumRestarts; ++i)
                 w.gen.m_restarts[i].m_type = c ? (i * 5) % 10 : (i % 9);
         }, [&](bool original) {
             int counts[6] = {9, 9, 9, 9, 9, 9};
@@ -1097,7 +1097,7 @@ void TestParkGeneratorNodes()
     // WriteRestartNodes: every restart type (a player 1 one for the high score or not)
     for (int c = 0; c < 3; ++c) {
         RunCase("park generator: WriteRestartNodes", [&] {
-            for (int i = 0; i < ParkGeneratorData::kNumRestarts; ++i)
+            for (int i = 0; i < CParkGenerator::kNumRestarts; ++i)
                 w.gen.m_restarts[i].m_type = c == 0 ? (i % 10) : c == 1 ? (i * 7) % 10 : (i % 3 == 0 ? 0 : 9);
             if (c == 1) {
                 w.gen.m_restarts[2].m_type = 1;
@@ -1121,7 +1121,7 @@ void TestParkGeneratorNodes()
             g_script[0x004F6920 + 1] = {4};
             for (int i = 0; i < 16; ++i)
                 g_script[0x0058B370 + 1].push_back(6u + i % 2); // (rails 0-2 stay the rails written)
-            for (int i = 0; i < ParkGeneratorData::kNumRestarts; ++i)
+            for (int i = 0; i < CParkGenerator::kNumRestarts; ++i)
                 w.gen.m_restarts[i].m_type = i % 10;
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(G, CMapListNode*)>(0x00594EA0, Gen(), &w.list[0])

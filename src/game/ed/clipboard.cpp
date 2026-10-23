@@ -7,6 +7,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 #include "game/mth/x87_math.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -63,16 +64,6 @@ void HideRail(void* rail)
 void DestroyRail(void* rail) { GameFunction<void(__thiscall*)(void*)>(0x004F70F0)(rail); }
 Mem::PoolPair& RailPools() { return GameVariable<Mem::PoolPair>(0x007CCD40); }
 const Mth::Vector* RailOrigin() { return &GameVariable<Mth::Vector>(0x007CCD30); } // (zero)
-
-// The park memory's check object (0x00590160 makes / counts it, 0x0058D290 lets go), its "is there room for a w x l
-// copy" (0x0058D6D0) and the cursor's position (0x0058D6F0).
-void* HoldParkMemory() { return GameFunction<void*(__cdecl*)(bool)>(0x00590160)(false); }
-void ReleaseParkMemory() { GameFunction<void(__cdecl*)()>(0x0058D290)(); }
-bool HasRoomFor(void* memory, int width, int length)
-{
-    return GameFunction<bool(__thiscall*)(void*, int, int)>(0x0058D6D0)(memory, width, length);
-}
-Mth::Vector* CursorPosition(void* memory) { return GameFunction<Mth::Vector*(__thiscall*)(void*)>(0x0058D6F0)(memory); }
 
 // A preview metapiece taken out of the park.
 void DestroyPreview(CClipboardEntry* entry)
@@ -501,16 +492,16 @@ bool CClipboard::CopySelectionToClipboard(GridDims area)
 // 0x0058C780
 bool CClipboard::ShowAt(CCursor* cursor)
 {
-    void* memory = HoldParkMemory();
-    if (!HasRoomFor(memory, m_max_x - m_min_x + 1, m_max_z - m_min_z + 1)) {
-        ReleaseParkMemory();
+    CParkEditor* editor = CParkEditor::Create(false);
+    if (!editor->MainHeapHasRoom(m_max_x - m_min_x + 1, m_max_z - m_min_z + 1)) {
+        CParkEditor::Release();
         return false;
     }
     const uint8_t centreX = static_cast<uint8_t>((m_min_x + m_max_x) / 2);
     const uint8_t centreZ = static_cast<uint8_t>((m_min_z + m_max_z) / 2);
     for (CClipboardEntry* entry = mp_metas; entry; entry = entry->mp_next) {
         if (!entry->CanPlace(centreX, centreZ, cursor)) {
-            ReleaseParkMemory();
+            CParkEditor::Release();
             return false;
         }
     }
@@ -518,14 +509,14 @@ bool CClipboard::ShowAt(CCursor* cursor)
     for (void* rail = mp_rails; rail; rail = NextRail(rail))
         railPoints += RailPointCount(rail);
     if (railPoints > FreeRailPoints(RailEditor())) {
-        ReleaseParkMemory();
+        CParkEditor::Release();
         return false;
     }
     for (CClipboardEntry* entry = mp_metas; entry; entry = entry->mp_next)
         entry->Paste(centreX, cursor->m_clipboardHeight, centreZ, cursor);
     Mth::Vector centre;
     GetCentre(&centre);
-    Mth::Vector at = *CursorPosition(memory);
+    Mth::Vector at = *editor->GetCursorPos();
     for (void* rail = mp_rails; rail; rail = NextRail(rail)) {
         void* copy = NewRail(RailEditor());
         CopyRail(copy, rail);
@@ -533,7 +524,7 @@ bool CClipboard::ShowAt(CCursor* cursor)
         TransformRail1(copy, RailOrigin(), RailOrigin(), 0.0f);
         TransformRail2(copy, RailOrigin(), RailOrigin(), 0.0f);
     }
-    ReleaseParkMemory();
+    CParkEditor::Release();
     return true;
 }
 

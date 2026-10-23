@@ -14,6 +14,8 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/pool.h"
+#include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 #include "game/park/park_editor.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
@@ -208,8 +210,8 @@ void StandInCursor(StandIns& s)
         Record({0xC950, CuRel(r.ecx), r.args[0]});
         return 0u;
     });
-    s.At({0x00599CD0}, 0xC, [](Regs& r) { Record({0x9CD0, CuRel(r.ecx), CuArea(r, 0), r.args[2]}); return g_cuFits ? 1u : 0u; });
-    s.At({0x005959D0}, 0xC, [](Regs& r) {
+    s.At({0x00599CD0, AddressOf(&Ed::CParkManager::CanChangeFloorHere)}, 0xC, [](Regs& r) { Record({0x9CD0, CuRel(r.ecx), CuArea(r, 0), r.args[2]}); return g_cuFits ? 1u : 0u; });
+    s.At({0x005959D0, AddressOf(&Ed::CParkManager::GetFloorHeight)}, 0xC, [](Regs& r) {
         Record({0x59D0, CuRel(r.ecx), CuArea(r, 0), r.args[2] ? 1u : 0u});
         if (r.args[2])
             *reinterpret_cast<char*>(r.args[2]) = g_cuLevel;
@@ -221,10 +223,10 @@ void StandInCursor(StandIns& s)
         return 0xFFFFFFFFu;
     });
     s.At({0x005BA1D0}, 0, [](Regs& r) { Record({0xA1D0, r.args[0]}); return 0u; }); // (cdecl: ECX is anything)
-    s.At({0x00595620}, 8, [](Regs& r) { Record({0x5620, CuRel(r.ecx), r.args[0], r.args[1]}); return 0x5620000u; });
-    s.At({0x00595670}, 8, [](Regs& r) { Record({0x5670, CuRel(r.ecx), r.args[0], r.args[1]}); return 0x5670000u; });
+    s.At({0x00595620, AddressOf(&Ed::CParkManager::GetAbstractMetaPiece)}, 8, [](Regs& r) { Record({0x5620, CuRel(r.ecx), r.args[0], r.args[1]}); return 0x5620000u; });
+    s.At({0x00595670, AddressOf(&Ed::CParkManager::CreateConcreteMeta)}, 8, [](Regs& r) { Record({0x5670, CuRel(r.ecx), r.args[0], r.args[1]}); return 0x5670000u; });
     plain({0x005907B0, OursOf(0x005907B0)}, 4, 0x07B0, 1);
-    s.At({0x00599A20}, 0xC, [](Regs& r) { Record({0x9A20, CuRel(r.ecx), CuArea(r, 0), r.args[2]}); return 0u; });
+    s.At({0x00599A20, AddressOf(&Ed::CParkManager::AddMetaPieceToPark)}, 0xC, [](Regs& r) { Record({0x9A20, CuRel(r.ecx), CuArea(r, 0), r.args[2]}); return 0u; });
     s.At({0x0059CC70, AddressOf(&Ed::CParkManager::RebuildArea)}, 8, [](Regs& r) {
         Record({0xCC70, CuRel(r.ecx), CuRel(r.args[0]), CuAreaAt(r.args[0]), r.args[1] & 0xFF});
         return g_cuMemoryOk || !(r.args[1] & 0xFF) ? 1u : 0u;
@@ -238,45 +240,45 @@ void StandInCursor(StandIns& s)
         return 0u;
     });
     s.At({0x00590160, OursOf(0x00590160)}, 0, [](Regs& r) { Record({0x0160, r.args[0] & 0xFF}); return 0x5E1F0000u; });
-    s.At({0x0058DDC0}, 0, [](Regs& r) { Record({0xDDC0, r.ecx}); return g_cuFull ? 1u : 0u; });
-    s.At({0x0058D290}, 0, [](Regs&) { Record({0xD290}); return 0u; }); // (cdecl)
-    s.At({0x00597740}, 0x14, [](Regs& r) {
+    s.At({0x0058DDC0, AddressOf(&Ed::CParkEditor::IsParkFull)}, 0, [](Regs& r) { Record({0xDDC0, r.ecx}); return g_cuFull ? 1u : 0u; });
+    s.At({0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, 0, [](Regs&) { Record({0xD290}); return 0u; }); // (cdecl)
+    s.At({0x00597740, AddressOf(&Ed::CParkManager::GetIntersectingMetas)}, 0x14, [](Regs& r) {
         Record({0x7740, CuRel(r.ecx), CuArea(r, 0), r.args[2], r.args[3], r.args[4]});
         return CuList();
     });
     plain({0x00591C60, OursOf(0x00591C60)}, 0, 0x1C60, 0);
     plain({0x00591BE0, OursOf(0x00591BE0)}, 0, 0x1BE0, 0);
     s.At({0x00590210, OursOf(0x00590210)}, 0, [](Regs& r) { Record({0x0210, CuRel(r.ecx), CuAreaAt(r.ecx)}); return 0u; });
-    s.At({0x00597AC0}, 8, [](Regs& r) {
+    s.At({0x00597AC0, AddressOf(&Ed::CParkManager::GetGapInfo)}, 8, [](Regs& r) {
         Record({0x7AC0, CuRel(r.ecx), CuRel(r.args[0]), CuAreaAt(r.args[0])});
         *reinterpret_cast<int*>(r.args[1]) = g_cuHalf;
         return g_cuGapFound ? reinterpret_cast<uint32_t>(&g_cuGap) : 0u;
     });
-    s.At({0x00597FC0}, 4, [](Regs& r) {
+    s.At({0x00597FC0, AddressOf(&Ed::CParkManager::RemoveGap)}, 4, [](Regs& r) {
         Record({0x7FC0, CuRel(r.ecx), CuRel(r.args[0]), HashBytes(reinterpret_cast<uint8_t*>(r.args[0]), 0x54)});
         return 0u;
     });
-    s.At({0x00597BD0}, 4, [](Regs& r) {
+    s.At({0x00597BD0, AddressOf(&Ed::CParkManager::AddGap)}, 4, [](Regs& r) {
         Record({0x7BD0, CuRel(r.ecx), CuRel(r.args[0]), HashBytes(reinterpret_cast<uint8_t*>(r.args[0]), 0x54)});
         return g_cuGapAdded ? 1u : 0u;
     });
-    s.At({0x0059C600}, 8, [](Regs& r) { Record({0xC600, CuRel(r.ecx), CuAreaAt(r.args[0]), r.args[1]}); return 0u; });
-    plain({0x00595CB0}, 8, 0x5CB0, 2);
+    s.At({0x0059C600, AddressOf(&Ed::CParkManager::RebuildFloor)}, 8, [](Regs& r) { Record({0xC600, CuRel(r.ecx), CuAreaAt(r.args[0]), r.args[1]}); return 0u; });
+    plain({0x00595CB0, AddressOf(&Ed::CParkManager::HighlightGapPieces)}, 8, 0x5CB0, 2);
     s.At({0x006234FE}, 0, StandInSprintf);
     plain({0x00591A50, OursOf(0x00591A50)}, 8, 0x1A50, 2);
     plain({0x00592290, OursOf(0x00592290)}, 4, 0x2290, 1);
-    s.At({0x00597110}, 4, [](Regs& r) {
+    s.At({0x00597110, AddressOf(&Ed::CCursor::GetAreaSelectDims)}, 4, [](Regs& r) {
         Record({0x7110, CuRel(r.ecx)});
         const uint8_t area[6] = {4, 1, 5, static_cast<uint8_t>(3 + g_cuVariant), 2, static_cast<uint8_t>(12 - g_cuVariant)};
         std::memcpy(reinterpret_cast<void*>(r.args[0]), area, 6);
         return 0u;
     });
-    s.At({0x0059C520}, 0x18, [](Regs& r) {
+    s.At({0x0059C520, AddressOf(static_cast<bool (Ed::CParkManager::*)(Ed::GridDims, int, int, bool, bool)>(&Ed::CParkManager::ChangeFloorHeight))}, 0x18, [](Regs& r) {
         Record({0xC520, CuRel(r.ecx), CuArea(r, 0), r.args[2], r.args[3], r.args[4] & 0xFF, r.args[5] & 0xFF});
         return g_cuRaise ? 1u : 0u;
     });
-    plain({0x00598B60}, 8, 0x8B60, 2);
-    plain({0x0059B280}, 0, 0xB280, 0);
+    plain({0x00598B60, AddressOf(&Ed::CCursor::Move)}, 8, 0x8B60, 2);
+    plain({0x0059B280, AddressOf(&Ed::CParkManager::UndoFloorChange)}, 0, 0xB280, 0);
     plain({0x0058C200, AddressOf(&Ed::CClipboard::DestroyMetas)}, 0, 0xC200, 0);
     // the manager's set-up
     s.At({0x0059EC00, AddressOf(&Ed::Init)}, 0, [](Regs& r) { Record({0xEC00, r.args[0]}); return 0u; });
@@ -291,12 +293,12 @@ void StandInCursor(StandIns& s)
     plain({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, 0xB0E0, 1);
     plain({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110, 0);
     s.At({0x0058CCC0, AddressOf(&Ed::CGapManager::Construct)}, 4, [](Regs& r) { Record({0xCCC0, CuRel(r.ecx), CuRel(r.args[0])}); return r.ecx; });
-    plain({0x00594FD0}, 8, 0x4FD0, 2);
-    plain({0x005960D0}, 0, 0x60D0, 0);
-    plain({0x00596D50}, 0, 0x6D50, 0);
-    plain({0x00596CD0}, 0, 0x6CD0, 0);
+    plain({0x00594FD0, AddressOf(&Ed::CParkGenerator::LoadPieces)}, 8, 0x4FD0, 2);
+    plain({0x005960D0, AddressOf(&Ed::CParkManager::SetUpAbstractMetas)}, 0, 0x60D0, 0);
+    plain({0x00596D50, AddressOf(&Ed::CParkManager::SetUpRoadMask)}, 0, 0x6D50, 0);
+    plain({0x00596CD0, AddressOf(&Ed::CParkManager::SetDefaultBounds)}, 0, 0x6CD0, 0);
     plain({0x0059CB10, AddressOf(&Ed::CParkManager::RebuildPark)}, 4, 0xCB10, 1);
-    plain({0x00592C10}, 0, 0x2C10, 0);
+    plain({0x00592C10, AddressOf(&Ed::CParkGenerator::BuildGoalNodeArray)}, 0, 0x2C10, 0);
     s.At({0x00479090, AddressOf(static_cast<Script::CArray* (*)(const char*)>(&Script::GetArray))}, 0, [](Regs& r) {
         auto* name = reinterpret_cast<const char*>(r.args[0]);
         Record({0x9090, Hash(name)});

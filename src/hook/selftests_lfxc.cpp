@@ -17,6 +17,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/ed/park.h"
 #include "game/file/file.h"
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
@@ -412,9 +413,9 @@ void StandInParkMemory(StandIns& s)
         Record({0xE5C0, Hash(name), r.args[1]});
         return static_cast<uint32_t>(MemoryValue(name, static_cast<int>(r.args[1])));
     });
-    s.At({0x00595200}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_fakeParkManager); });
-    s.At({0x005950B0}, 0, [](Regs& r) { Record({0x50B0, ParkRel(r.ecx)}); return static_cast<uint32_t>(g_themeArg); });
-    s.At({0x00592AB0}, 4, [](Regs& r) {
+    s.At({0x00595200, AddressOf(&Ed::CParkManager::sInstance)}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_fakeParkManager); });
+    s.At({0x005950B0, AddressOf(&Ed::CParkManager::GetShellSize)}, 0, [](Regs& r) { Record({0x50B0, ParkRel(r.ecx)}); return static_cast<uint32_t>(g_themeArg); });
+    s.At({0x00592AB0, AddressOf(&Ed::CParkGenerator::GetNodeCounts)}, 4, [](Regs& r) {
         Record({0x2AB0, ParkRel(r.ecx), r.args[0]});
         auto* counts = reinterpret_cast<int*>(r.args[0]);
         for (int i = 0; i < 6; ++i)

@@ -25,6 +25,7 @@
 #include "game/lst/hashtable.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/load.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
@@ -1163,8 +1164,9 @@ void RegisterTrickObjects()
         auto it = g_trick.find(entry.first);
         if (it != g_trick.end() && it->second == entry.second)
             continue;
-        GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x005896D0)(manager, entry.second); // (false: there already)
-        GameFunction<bool(__thiscall*)(void*, uint32_t, uint32_t)>(0x00589080)(manager, entry.first, entry.second);
+        auto* trickObjects = reinterpret_cast<Obj::CTrickObjectManager*>(manager);
+        trickObjects->AddCluster(entry.second); // (false: there already)
+        trickObjects->AddObjectToCluster(entry.first, entry.second);
     }
     if (DebugEnabled() && want != g_trick)
         Log("level editor: %u drawn rail points are trick objects", static_cast<unsigned>(want.size()));

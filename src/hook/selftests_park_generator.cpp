@@ -165,24 +165,24 @@ void SetUp(int run)
     auto* generator = Ptr<CParkGenerator>(kGenerator);
     for (uint32_t i = 0; i < 0x4A4; i += 4)
         *Ptr<uint32_t>(kGenerator + i) = 0x11110000 + i;
-    Ed::Data(generator).m_flags = 0x26;
-    Ed::Data(generator).mp_sourceScene = Ptr<uint8_t>(kSourceScene);
-    Ed::Data(generator).mp_scene = Ptr<uint8_t>(kParkScene);
-    Ed::Data(generator).m_nextPieceId = 40;
-    Ed::Data(generator).m_maxPlayers = 2;
+    generator->m_flags = 0x26;
+    generator->mp_sourceScene = Ptr<uint8_t>(kSourceScene);
+    generator->mp_scene = Ptr<uint8_t>(kParkScene);
+    generator->m_nextPieceId = 40;
+    generator->m_maxPlayers = 2;
     // Four sources (listed), five cloned pieces of them (listed: 0..4).
     for (uint32_t i = 0; i < 4; ++i) {
         MakeSource(kSources + i * 0x30, 0x5000 + i, 120.0f * (i + 1), 48.0f, 120.0f);
         Ptr<Ed::CSourcePiece>(kSources + i * 0x30)->mp_next = i < 3 ? Ptr<Ed::CSourcePiece>(kSources + (i + 1) * 0x30) : nullptr;
     }
-    Ed::Data(generator).mp_sources = Ptr<Ed::CSourcePiece>(kSources);
+    generator->mp_sources = Ptr<Ed::CSourcePiece>(kSources);
     for (uint32_t i = 0; i < 5; ++i) {
         MakeClone(kPieces + i * 0x30, kSources + (i % 4) * 0x30, 0x7000 + i * 0x10, static_cast<int>(i), 0.0f, 0.0f, 0.0f);
         auto* piece = Ptr<CPiece>(kPieces + i * 0x30);
         piece->m_flags = CPiece::kCloned | CPiece::kInList | (i & 1 ? CPiece::kGap : 0u);
         piece->mp_next = i < 4 ? Ptr<CPiece>(kPieces + (i + 1) * 0x30) : nullptr;
     }
-    Ed::Data(generator).mp_pieces = Ptr<CPiece>(kPieces);
+    generator->mp_pieces = Ptr<CPiece>(kPieces);
 }
 
 void TestParkGenerator1()
@@ -236,7 +236,7 @@ void TestParkGenerator1()
         // Players, sources, sectors, rails, lights.
         for (int players : {1, 2, 8, 0}) {
             for (int free : {0, 585499, 585500, 1171000, 7000000, -5}) {
-                Ed::Data(generator).m_maxPlayers = players;
+                generator->m_maxPlayers = players;
                 g_mainHeapFree = free;
                 t.push_back(static_cast<uint32_t>(original ? Orig<int>(0x00591D30, generator) : generator->GetMaxPlayersPossible()));
             }
@@ -255,11 +255,11 @@ void TestParkGenerator1()
                  : generator->SetLights(5, 0.5f, 0.25f, 0.125f, 1.5f, 2.5f, 3.5f, 0.75f);
         PushArena(t);
         // The restart slots: the range of each type, whether a slot is free, cleared.
-        for (int i = 0; i < Ed::ParkGeneratorData::kNumRestarts; ++i) {
-            Ed::Data(generator).m_restarts[i].m_type = i % 3 ? 4 : 0;
-            Ed::Data(generator).m_restarts[i].m_automatic = i % 4 == 1;
+        for (int i = 0; i < Ed::CParkGenerator::kNumRestarts; ++i) {
+            generator->m_restarts[i].m_type = i % 3 ? 4 : 0;
+            generator->m_restarts[i].m_automatic = i % 4 == 1;
         }
-        Ed::Data(generator).m_restarts[17].m_type = 1;
+        generator->m_restarts[17].m_type = 1;
         for (int type = 0; type < 10; ++type) {
             int range[2] = {-1, -1};
             original ? Orig<void>(0x00591E60, generator, type, &range[0], &range[1])
@@ -302,7 +302,7 @@ void TestParkGenerator2()
                 g_deleted = deleted;
                 t.push_back(original ? Orig<bool>(0x00592370, generator, 0x7010u, 3) : generator->DestroySector(0x7010, 3));
             }
-            t.push_back(Ed::Data(generator).m_flags);
+            t.push_back(generator->m_flags);
         }
         GameVariable<bool>(0x0067F398) = true;
         for (bool shell : {true, false}) {
@@ -340,11 +340,11 @@ void TestParkGenerator2()
             keep ^= 1;
             PushArena(t);
         }
-        for (CPiece* piece = Ed::Data(generator).mp_pieces; piece; piece = piece->mp_next)
+        for (CPiece* piece = generator->mp_pieces; piece; piece = piece->mp_next)
             piece->m_flags &= ~CPiece::kCursor;
-        while (CPiece* piece = Ed::Data(generator).mp_pieces) {
+        while (CPiece* piece = generator->mp_pieces) {
             original ? Orig<void>(0x00592570, generator, piece, 0) : generator->DeletePiece(piece, 0);
-            t.push_back(Ed::Data(generator).m_flags);
+            t.push_back(generator->m_flags);
         }
         PushArena(t);
         t.insert(t.end(), g_trace.begin(), g_trace.end());

@@ -86,23 +86,12 @@ bool HaveCursor() { return CCursor::sInstance() != nullptr; } // (the original a
 bool InGapMode(CCursor* cursor) { return cursor->m_mode == CCursor::kModeGap || cursor->m_mode == CCursor::kModeGapAdjust; }
 
 void RunScript(uint32_t name) { Script::RunScript(name, nullptr, nullptr, false, nullptr); }
-// 0x0058CBB0: the gap manager in use.
-CGapManager* GapManager() { return GameFunction<CGapManager*(__cdecl*)()>(0x0058CBB0)(); }
+CGapManager* GapManager() { return CGapManager::sInstance(); }
 
 // The rail editor (0x004F4970 looks it up) and the goal editor (0x004E8470).
 void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
 void* GoalEditor() { return GameFunction<void*(__cdecl*)()>(0x004E8470)(); }
 
-// The generator's pieces each told `value` (0x00591CF0, each piece's 0x00591600).
-void SetPiecesValue(CParkGenerator* generator, int value)
-{
-    GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00591CF0)(generator, value);
-}
-// 0x005922D0: the restart points' flags shown or hidden.
-void ShowRestartFlags(CParkGenerator* generator, bool show)
-{
-    GameFunction<void(__thiscall*)(CParkGenerator*, bool)>(0x005922D0)(generator, show);
-}
 
 // The level changed to load_sk5ed again (the park's shell changed).
 void ReloadParkLevel()
@@ -235,8 +224,7 @@ void CParkEditor::Leave()
     CParkManager* manager = Manager();
     manager->Destroy(0);
     manager->DestroyGapManagerCopy();
-    // 0x00592C90: the park's node array taken away
-    GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00592C90)(manager->mp_generator);
+    CParkGenerator::RemoveNodeArray(); // the park's node array taken away
 }
 
 // 0x0058D360
@@ -305,9 +293,9 @@ const char* CParkEditor::GetParkName() { return Manager()->GetParkName(); }
 // 0x0058DCB0
 void CParkEditor::ShowEditorView(bool on)
 {
-    SetPiecesValue(Manager()->mp_generator, 0);
+    Manager()->mp_generator->HighlightAllPieces(false);
     Manager()->mp_generator->SetPiecesHighlighted(on);
-    ShowRestartFlags(Manager()->mp_generator, on);
+    Manager()->mp_generator->SetRestartPiecesActive(on);
     if (on) {
         RunScript(kPauseTrickText);
         RunScript(kEditorViewOn);
@@ -389,8 +377,8 @@ bool CParkEditor::IsInsidePark(Mth::Vector pos, float margin)
 // 0x0058DF80
 bool CParkEditor::FindRestart(void* a, void* b, void* c)
 {
-    return GameFunction<bool(__thiscall*)(CParkGenerator*, void*, void*, void*)>(0x00592A10)(Manager()->mp_generator,
-                                                                                            a, b, c);
+    return Manager()->mp_generator->FindNearestRailPoint(static_cast<const Mth::Vector*>(a), static_cast<Mth::Vector*>(b),
+                                                         static_cast<float*>(c));
 }
 
 // 0x0058DFA0

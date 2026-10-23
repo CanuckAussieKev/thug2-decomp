@@ -292,8 +292,8 @@ void StandIns(Kit& kit, bool trickFunctions)
         return Int(reinterpret_cast<uint32_t>(Arena() + 0x5F00));
     });
     kit.Recorder(0x0055E790, {4, 1, Ret::None, true});
-    kit.Recorder(0x00588A20, {4, 1, Ret::None, true});
-    kit.Recorder(0x00588AA0, {8, 2, Ret::Int, true});
+    kit.Recorder(0x00588A20, {4, 1, Ret::None, true}, {Code(&Obj::CTrickObjectList::Add)});
+    kit.Recorder(0x00588AA0, {8, 2, Ret::Int, true}, {Code(&Obj::CTrickObjectList::CopyClusterNames)});
     kit.Recorder(0x00588170, {0, 0, Ret::None, true}, {Code(&Obj::CTrickObjectList::Construct)});
     kit.Recorder(0x00588180, {0, 0, Ret::Bool, true}, {Code(&Obj::CTrickObjectList::Clear)});
     kit.Add({0x0051F4C0}, 4, [](Frame& f) {

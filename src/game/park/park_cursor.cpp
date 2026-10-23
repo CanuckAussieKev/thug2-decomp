@@ -11,6 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/ed/park_editor.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -35,45 +36,32 @@ inline void MemoryMarker(const char* /*what*/) {}
 void* NodeMeta(CMapListNode* node)
 {
     void* meta = GameFunction<void*(__thiscall*)(CMapListNode*)>(0x005480C0)(node);
-    return GameFunction<void*(__thiscall*)(void*)>(0x005902E0)(meta);
+    return static_cast<CMetaPiece*>(meta)->Cast();
 }
+CMetaPiece* AsMeta(void* meta) { return static_cast<CMetaPiece*>(meta); }
+CClipboard* AsClipboard(uint8_t* clipboard) { return reinterpret_cast<CClipboard*>(clipboard); }
+CParkGenerator* AsGenerator(void* generator) { return static_cast<CParkGenerator*>(generator); }
 uint8_t* NextClipboard(uint8_t* clipboard) { return *reinterpret_cast<uint8_t**>(clipboard + 0x14); }
-// A clipboard's area where the cursor would paste it (0x0058BF10).
-void ClipboardArea(uint8_t* clipboard, CCursor* cursor, GridDims* area)
-{
-    GameFunction<void(__thiscall*)(uint8_t*, CCursor*, GridDims*)>(0x0058BF10)(clipboard, cursor, area);
-}
-// The gap manager's (0x00597AC0): the gap with a half at `area` (and which half), or null.
-GapDescriptor* GapAt(CParkManager* manager, GridDims* area, int* half)
-{
-    return GameFunction<GapDescriptor*(__thiscall*)(CParkManager*, GridDims*, int*)>(0x00597AC0)(manager, area, half);
-}
-void RemoveGap(CParkManager* manager, GapDescriptor* gap)
-{
-    GameFunction<void(__thiscall*)(CParkManager*, GapDescriptor*)>(0x00597FC0)(manager, gap);
-}
-bool AddGap(CParkManager* manager, GapDescriptor* gap)
-{
-    return GameFunction<bool(__thiscall*)(CParkManager*, GapDescriptor*)>(0x00597BD0)(manager, gap);
-}
-// The metas within an area (0x00597740; the flags: 0, 0, 1) - the caller owns the list.
+// A clipboard's area where the cursor would paste it.
+void ClipboardArea(uint8_t* clipboard, CCursor* cursor, GridDims* area) { AsClipboard(clipboard)->GetArea(cursor, area); }
+// The gap with a half at `area` (and which half), or null.
+GapDescriptor* GapAt(CParkManager* manager, GridDims* area, int* half) { return manager->GetGapInfo(area, half); }
+void RemoveGap(CParkManager* manager, GapDescriptor* gap) { manager->RemoveGap(gap); }
+bool AddGap(CParkManager* manager, GapDescriptor* gap) { return manager->AddGap(gap); }
+// The metas within an area (the flags: 0, 0, 1) - the caller owns the list.
 CMapListNode* MetasWithin(CParkManager* manager, GridDims area)
 {
-    return GameFunction<CMapListNode*(__thiscall*)(CParkManager*, GridDims, int, int, int)>(0x00597740)(manager, area, 0,
-                                                                                                    0, 1);
+    return manager->GetIntersectingMetas(area, 0, nullptr, 1);
 }
-// The area selected (0x00597110).
-void SelectedArea(CCursor* cursor, GridDims* area)
-{
-    GameFunction<void(__thiscall*)(CCursor*, GridDims*)>(0x00597110)(cursor, area);
-}
+// The area selected.
+void SelectedArea(CCursor* cursor, GridDims* area) { cursor->GetAreaSelectDims(area); }
 int FloorHeight(CParkManager* manager, GridDims area, char* level)
 {
-    return GameFunction<int(__thiscall*)(CParkManager*, GridDims, char*)>(0x005959D0)(manager, area, level);
+    return manager->GetFloorHeight(area, reinterpret_cast<bool*>(level));
 }
-void* ParkEditor() { return GameFunction<void*(__cdecl*)(bool)>(0x00590160)(false); }
-bool ParkFull(void* editor) { return GameFunction<bool(__thiscall*)(void*)>(0x0058DDC0)(editor); }
-void ReleaseParkEditor() { GameFunction<void(__cdecl*)()>(0x0058D290)(); }
+CParkEditor* ParkEditor() { return CParkEditor::Create(false); }
+bool ParkFull(CParkEditor* editor) { return editor->IsParkFull() != 0; }
+void ReleaseParkEditor() { CParkEditor::Release(); }
 void SetDefaultHeap(Mem::Heap* heap) { GameFunction<void(__cdecl*)(Mem::Heap*)>(0x005BA1D0)(heap); }
 
 } // namespace
@@ -95,7 +83,7 @@ void CCursor::RemoveClipboardsTooBig()
                 *reinterpret_cast<uint8_t**>(previous + 0x14) = next;
             if (clipboard == Clipboards())
                 Clipboards() = next;
-            GameFunction<void(__thiscall*)(uint8_t*)>(0x0058C980)(clipboard); // ~CClipboard
+            AsClipboard(clipboard)->Destroy();
             ClipboardPools().Free(clipboard);
         } else {
             previous = clipboard;
@@ -110,7 +98,7 @@ void CCursor::RemoveClipboardsTooBig()
 bool CCursor::PlacePiece()
 {
     CParkManager* manager = Manager();
-    if (!GameFunction<bool(__thiscall*)(CParkManager*, GridDims, int)>(0x00599CD0)(manager, Area(), 0))
+    if (!manager->CanChangeFloorHere(Area(), false))
         return false;
     if (Area().h + FloorHeight(manager, Area(), nullptr) > 17)
         return false;
@@ -118,7 +106,7 @@ bool CCursor::PlacePiece()
     uint32_t type = MetaType(Meta());
     for (int slot = 1; slot < 9; ++slot) {
         if (type == manager->At<uint32_t>(0x177A4 + (slot - 1) * 4)) {
-            if (!GameFunction<bool(__thiscall*)(void*, int)>(0x00591F50)(manager->Generator(), slot)) {
+            if (!AsGenerator(manager->Generator())->HasFreeRestartSlot(slot)) {
                 Dbg::Printf(reinterpret_cast<const char*>(0x0064F85C)); // "No free slots exist for this type of restart point\n"
                 return false;
             }
@@ -126,10 +114,10 @@ bool CCursor::PlacePiece()
         }
     }
     SetDefaultHeap(GetMainHeap());
-    void* source = GameFunction<void*(__thiscall*)(CParkManager*, uint32_t, int)>(0x00595620)(manager, MetaType(Meta()), 0);
-    void* piece = GameFunction<void*(__thiscall*)(CParkManager*, void*, int)>(0x00595670)(manager, source, 0);
-    GameFunction<void(__thiscall*)(void*, int)>(0x005907B0)(piece, Rotation());
-    GameFunction<void(__thiscall*)(CParkManager*, GridDims, void*)>(0x00599A20)(manager, Area(), piece);
+    CMetaPiece* source = manager->GetAbstractMetaPiece(MetaType(Meta()), nullptr);
+    CMetaPiece* piece = manager->CreateConcreteMeta(source, 0);
+    piece->SetRot(Rotation());
+    manager->AddMetaPieceToPark(Area(), piece);
     SetDefaultHeap(GetMainHeap());
     manager->RebuildArea(&Area(), false);
     MemoryMarker(reinterpret_cast<const char*>(0x0064F890)); // "After placing a piece"
@@ -153,7 +141,7 @@ bool CCursor::DestroyUnderCursor()
 // 0x0059D410
 bool CCursor::AddGapHalf()
 {
-    void* editor = ParkEditor();
+    CParkEditor* editor = ParkEditor();
     if (ParkFull(editor)) {
         ReleaseParkEditor();
         return false;
@@ -162,7 +150,7 @@ bool CCursor::AddGapHalf()
     bool added = false;
     if (metas.list) {
         void* meta = NodeMeta(metas.list);
-        GameFunction<void(__thiscall*)(GridDims*)>(0x00590210)(&Area()); // (prints the area)
+        Area().PrintContents();
         int half;
         if (!GapAt(Manager(), &Area(), &half) && meta) {
             GapDescriptor& gap = Gap();
@@ -188,16 +176,16 @@ bool CCursor::AddGapHalf()
                 ++GapCounter();
             }
             if (AddGap(Manager(), &gap)) {
-                GameFunction<void(__thiscall*)(CParkManager*, const GridDims*, int)>(0x0059C600)(Manager(), &Area(), 0);
+                Manager()->RebuildFloor(&Area(), 0);
                 if (gap.m_numCompleteHalves > 0)
-                    GameFunction<void(__thiscall*)(CParkManager*, int, GapDescriptor*)>(0x00595CB0)(Manager(), 1, &gap);
+                    Manager()->HighlightGapPieces(true, &gap);
                 added = true;
             } else {
                 gap.m_numCompleteHalves = 0;
             }
         }
     }
-    GameFunction<void(__thiscall*)(CMapListTemp*)>(0x00591C60)(&metas);
+    metas.Destroy();
     ReleaseParkEditor();
     return added;
 }
@@ -218,13 +206,13 @@ bool CCursor::RemoveGapHalf()
         return false;
     RemoveGap(Manager(), gap);
     Manager()->RebuildArea(&Area(), false);
-    // The pieces that had gaps are told to look again (0x00591A50).
+    // The pieces that had gaps are told to look again.
     manager = Manager();
     for (auto* node = manager->At<CMapListNode*>(0x7C); node; node = node->mp_next) {
         if (MetaFlags(NodeMeta(node)) & kMetaHasGap)
-            GameFunction<void(__thiscall*)(void*, int, int)>(0x00591A50)(NodeMeta(node), 1, 1);
+            AsMeta(NodeMeta(node))->Highlight(1, 1);
     }
-    GameFunction<void(__thiscall*)(void*, int)>(0x00592290)(manager->Generator(), 0);
+    AsGenerator(manager->Generator())->SetPiecesHighlighted(0);
     return true;
 }
 
@@ -331,15 +319,14 @@ bool CCursor::RaiseArea(GridDims area, int height, int dir, char level)
 {
     if (area.w > 10 || area.l > 10)
         return false;
-    if (!GameFunction<bool(__thiscall*)(CParkManager*, GridDims, int, int, bool, bool)>(0x0059C520)(
-            Manager(), area, area.y, height, dir > 0, level == 0))
+    if (!Manager()->ChangeFloorHeight(area, area.y, height, dir > 0, level == 0))
         return false;
-    GameFunction<void(__thiscall*)(CCursor*, int, int)>(0x00598B60)(this, 0, 0);
+    Move(0, 0);
     if (Manager()->RebuildArea(&area, true)) {
-        GameFunction<void(__thiscall*)(CParkManager*, int, int)>(0x00595CB0)(Manager(), 0, 0);
+        Manager()->HighlightGapPieces(false, nullptr);
         return true;
     }
-    GameFunction<void(__thiscall*)(CParkManager*)>(0x0059B280)(Manager()); // undone
+    Manager()->UndoFloorChange(); // undone
     Manager()->RebuildArea(&area, false);
     return false;
 }
@@ -382,11 +369,11 @@ bool CCursor::RaiseLower(int dir)
         if (at.l > area.l)
             area.l = at.l;
     }
-    GameFunction<void(__thiscall*)(CMapListNode*)>(0x00591BE0)(list); // the list freed
+    CMapListNode::DestroyList(list);
     if (top > 17)
         return false;
     if (Mode() == 5 && CurrentClipboard())
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x0058C200)(CurrentClipboard());
+        AsClipboard(CurrentClipboard())->DestroyMetas();
     bool raised = RaiseArea(area, height, dir, level);
     if (Mode() == 4)
         At<bool>(0x55) = false;
@@ -407,22 +394,22 @@ void CParkManager::Initialize(uint32_t level)
             *reinterpret_cast<uint32_t*>(cell + 0xC) = 0;
         }
     }
-    // The park's map (0xA8 bytes, 0x0058CCC0), in the top-down heap for that level.
+    // The park's gap manager (0xA8 bytes), in the top-down heap for that level.
     Mem::Manager* memory = Mem::Manager::Get();
     if (level == kTopDownLevel)
         memory->PushContext(memory->m_topDownHeap);
     void* block = Mem::New(0xA8);
-    At<void*>(0x177C4) = block ? GameFunction<void*(__thiscall*)(void*, CParkManager*)>(0x0058CCC0)(block, this) : nullptr;
+    mp_gapManager = block ? static_cast<CGapManager*>(block)->Construct(this) : nullptr;
     if (level == kTopDownLevel)
         Mem::Manager::Get()->PopContext();
     int theme = (Flags() & 2) ? At<uint16_t>(0x13C98) : 0;
-    GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x00594FD0)(Generator(), level, theme);
-    GameFunction<void(__thiscall*)(CParkManager*)>(0x005960D0)(this);
-    GameFunction<void(__thiscall*)(CParkManager*)>(0x00596D50)(this);
-    GameFunction<void(__thiscall*)(CParkManager*)>(0x00596CD0)(this);
+    mp_generator->LoadPieces(level, theme);
+    SetUpAbstractMetas();
+    SetUpRoadMask();
+    SetDefaultBounds();
     RebuildPark(0);
     if (level == kParkEditorLevel)
-        GameFunction<void(__thiscall*)(void*)>(0x00592C10)(Generator());
+        mp_generator->BuildGoalNodeArray();
 
     // The palette's sets (Ed_piece_sets): each a run of the standard meta pieces (Ed_standard_metapieces) from its
     // `first` up to the next set's, or the clipboards.

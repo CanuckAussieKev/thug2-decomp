@@ -34,7 +34,7 @@ CParkManager* CParkManager::Construct()
     for (GridDims& area : m_blockedAreas)
         area = GridDims::Make(0, 0, 0, 0, 0, 0);
     void* memory = Mem::New(0x4A4);
-    mp_generator = memory ? GameFunction<CParkGenerator*(__thiscall*)(void*)>(0x00593460)(memory) : nullptr;
+    mp_generator = memory ? static_cast<CParkGenerator*>(memory)->Construct() : nullptr;
     mp_concrete_metas = nullptr;
     mp_abstract_metas = nullptr;
     m_numConcreteMetas = 0;
@@ -232,7 +232,7 @@ CMetaPiece* CParkManager::RelocateMetaPiece(CMetaPiece* meta, int dx, int dy, in
     int half;
     GapInfo* gap = GetGapInfo(&pos, &half);
     GapInfo moved;
-    GameFunction<GapInfo*(__thiscall*)(GapInfo*)>(0x0058CBC0)(&moved);
+    moved.Construct();
     if (gap) {
         moved = *gap;
         hadGap = true;

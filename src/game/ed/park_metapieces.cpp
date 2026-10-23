@@ -244,13 +244,13 @@ bool CMetaPiece::Intersects(GridDims area, uint32_t precise)
         return false;
     if (!static_cast<uint8_t>(precise))
         return true;
-    // Precisely (when any piece is flagged isReal): by the cells of the pieces that are NOT flagged.
-    bool anyReal = false;
+    // Precisely (when any piece is flagged setsFloor): by the cells of the pieces that are NOT flagged.
+    bool anySetsFloor = false;
     for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        if (GetDescriptor(static_cast<int>(i))->isReal)
-            anyReal = true;
+        if (GetDescriptor(static_cast<int>(i))->setsFloor)
+            anySetsFloor = true;
     }
-    if (!anyReal)
+    if (!anySetsFloor)
         return true;
     for (uint32_t i = 0; i < m_num_used_entries; ++i) {
         const SMetaDescriptor* entry = GetDescriptor(static_cast<int>(i));
@@ -262,7 +262,7 @@ bool CMetaPiece::Intersects(GridDims area, uint32_t precise)
         const uint8_t x = static_cast<uint8_t>(entry->x + cells.x);
         const int8_t y = static_cast<int8_t>(entry->y + cells.y);
         const uint8_t z = static_cast<uint8_t>(entry->z + cells.z);
-        if (entry->isReal)
+        if (entry->setsFloor)
             continue;
         if (x + size.w > xStart && y + size.h > yStart && z + size.l > zStart && x < xEnd && y < yEnd && z < zEnd)
             return true;
@@ -394,7 +394,7 @@ CPiece* CConcreteMetaPiece::GetPiece(uint32_t index)
     return static_cast<CPiece*>(GetDescriptor(static_cast<int>(index))->piece);
 }
 
-void CConcreteMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, bool isReal)
+void CConcreteMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, bool setsFloor)
 {
     SMetaDescriptor* entry = GetDescriptor(static_cast<int>(m_num_used_entries++));
     Mth::Vector size;
@@ -412,7 +412,7 @@ void CConcreteMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, bool is
     entry->y = pos->y;
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
-    entry->isReal = isReal;
+    entry->setsFloor = setsFloor;
 }
 
 CConcreteMetaPiece* CConcreteMetaPiece::Destroy(unsigned int flags)
@@ -463,7 +463,7 @@ void GrowToTake(GridDims& cells, const GridDims* pos)
 
 } // namespace
 
-void CAbstractMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t isReal)
+void CAbstractMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t setsFloor)
 {
     auto* source = (piece->m_flags & CPiece::kSource) ? reinterpret_cast<CSourcePiece*>(piece) : nullptr;
     SMetaDescriptor* entry = GetDescriptor(static_cast<int>(m_num_used_entries++));
@@ -473,14 +473,14 @@ void CAbstractMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t
     entry->y = pos->y;
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
-    reinterpret_cast<uint8_t&>(entry->isReal) = isReal; // (the byte as given)
+    reinterpret_cast<uint8_t&>(entry->setsFloor) = setsFloor; // (the byte as given)
     entry->piece = reinterpret_cast<void*>(source->m_name);
     GrowToTake(m_cell_area, pos);
     if (m_cell_area.h < 1)
         m_cell_area.h = 1;
 }
 
-void CAbstractMetaPiece::AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, uint8_t isReal)
+void CAbstractMetaPiece::AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, uint8_t setsFloor)
 {
     SMetaDescriptor* entry = GetDescriptor(static_cast<int>(m_num_used_entries++));
     if (!meta)
@@ -489,7 +489,7 @@ void CAbstractMetaPiece::AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, 
     entry->y = pos->y;
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
-    reinterpret_cast<uint8_t&>(entry->isReal) = isReal;
+    reinterpret_cast<uint8_t&>(entry->setsFloor) = setsFloor;
     entry->piece = reinterpret_cast<void*>(meta->m_name_checksum);
     GrowToTake(m_cell_area, pos);
 }

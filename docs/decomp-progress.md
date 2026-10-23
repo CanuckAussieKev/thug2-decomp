@@ -10312,6 +10312,20 @@ mode (frame steps, speed, the info panel) if the viewer can be launched.
   (park_rails.h) used through PE4's aliases. PE1's tests standing in for this range's addresses (selftests_park_clipboard
   / _gaps) stand in for ours too (OursOf), as do selftests_parkedA / lfxc3 / parkmax. 0x005902E0 (CMetaPiece::Cast, 3
   bytes, folded with many empty constructors) registered REPLACE_SOURCE_ONLY.
+- [x] Batch 342 (2026-10-23; NOT run in the game yet; park editor & graffiti cleanup from the handoff - no new functions):
+  every call from src/game into the rewritten park editor / graffiti / viewer object code (0x00588180-0x0059E100) is a
+  direct C++ call now instead of GameFunction at the game's address (205 calls: ed/*, park/*, core/singleton.cpp's
+  SingletonPtrs for the trick object manager and the park editor - now real types -, sys/main.cpp's Create / Release
+  of both, sys/viewer.cpp, gfx/tod_manager.cpp, obj/rail_manager.cpp, the level editor's clusters / chains, the
+  trick component's trick object list). Ed::CParkGenerator holds its own fields (park_scene.h's ParkGeneratorData and
+  Data() gone; RestartPoint moved to park.h). SMetaDescriptor::isReal -> setsFloor (the flag 0x0CD75A3F: only those
+  pieces set the cells' floor heights, the precise intersect test skips them, their metapiece is kFloorLocked).
+  park_memory.cpp's ParkTheme was the generator's max players (renamed). Self-tests that stood in for a game address
+  now stand in for ours too (AddressOf / OursOf); two stubs no longer record ECX for functions that don't take it
+  (CParkEditor::Release, CParkGenerator::RemoveNodeArray - our direct calls leave a different ECX); our
+  GapInfo::GetLength gets the same FLD patch as the game's. Also settled: tools/mutate.ts reads files with universal
+  newlines and puts the original bytes back - converting a file to LF before a mutation run isn't needed. Left: 942
+  GameFunction calls elsewhere in src/game still reach rewritten functions at their game addresses.
 - [x] Batch 341 (PE3-4; agent PE3, merged 2026-10-23; run in the game: docs/pending/park-3.md; NOT judged by a player yet; park editor & graffiti, part PE3-4 - the park editor's state commands):
   new src/game/ed/park_editor_state.cpp. 0x0058FBD0 SetParkEditorState (regular_play: memory marker, the park manager
   set up for 0xCD3682C1, then as test_play: the park rebuilt, the cursor deleted, the collision, the node array, the
@@ -10449,8 +10463,6 @@ mode (frame steps, speed, the info panel) if the viewer can be launched.
   original vs ours over five set-ups (model0 and a path-named model2; modelname / model / neither; cas_artist on and
   off; the skeleton loaded or not, or none; a position or not; either heap), the path helpers and strings for real.
   27 deliberate bugs caught, 1 after strengthening.
-- [ ] Next: park editor & graffiti 0x00589FD0 on (the viewer object's other members, its constructor 0x0058ADB0 ...).
-- [ ] Next: nothing left in the range; hand back.
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag
       (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?). Widescreen follow-up: if the user still sees

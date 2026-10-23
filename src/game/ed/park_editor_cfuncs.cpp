@@ -50,8 +50,7 @@ CParkManager* Manager() { return CParkManager::sInstance(); }
 CCursor* Cursor() { return CCursor::sInstance(); }
 CParkEditor* Editor() { return CParkEditor::Instance(); }
 bool HaveCursor() { return CCursor::sInstance() != nullptr; }
-// 0x0058CBB0: the gap manager in use.
-CGapManager* GapManager() { return GameFunction<CGapManager*(__cdecl*)()>(0x0058CBB0)(); }
+CGapManager* GapManager() { return CGapManager::sInstance(); }
 void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
 void* GoalEditor() { return GameFunction<void*(__cdecl*)()>(0x004E8470)(); }
 
@@ -261,8 +260,7 @@ bool __cdecl CFunc_GetParkEditorTimeOfDayScript(Script::CStruct*, Script::CScrip
 // 0x0058E010
 bool __cdecl CFunc_RebuildParkNodeArray(Script::CStruct*, Script::CScript*)
 {
-    // 0x00592C10: the generator's node array of the park made again
-    GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00592C10)(Manager()->mp_generator);
+    Manager()->mp_generator->BuildGoalNodeArray(); // the park's node array made again
     return true;
 }
 

@@ -14,6 +14,7 @@
 #include "game/core/memory_sizes.h"
 #include "game/core/pool.h"
 #include "game/core/stubs.h"
+#include "game/ed/park_editor.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
 #include "game/front/career_complete.h"
@@ -28,6 +29,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
@@ -157,7 +159,7 @@ int __cdecl Main(int argc, char** argv)
         Net::CreateManager(true);
         Obj::CreateCompositeObjectManager(true);
         GameFunction<void(__cdecl*)()>(0x004E4860)();
-        Create(0x00589180);
+        Obj::AcquireTrickObjectManager(true);
         Create(0x00553DB0);
         Create(0x0057C0D0);
         Create(0x0057EED0);
@@ -165,7 +167,7 @@ int __cdecl Main(int argc, char** argv)
         auto* frontEnd = reinterpret_cast<uint8_t*>(Mdl::CreateFrontEnd(true));
         Create(0x0053F520);
         GameVariable<void*>(0x006FA7D0) = GameVariable<void*>(0x007CCE14); // (the network manager)
-        uint8_t* module590160 = Create(0x00590160);
+        auto* parkEditor = reinterpret_cast<uint8_t*>(Ed::CParkEditor::Create(true));
         Create(0x004ACAF0);
         SkateScript::CreateNodeManager(true);
         Gfx::CreateTODManager(true);
@@ -176,7 +178,7 @@ int __cdecl Main(int argc, char** argv)
         AddTask(mlp, 0x7C, *reinterpret_cast<void**>(sio + 0x18));
         AddTask(mlp, 0x04, *reinterpret_cast<void**>(singleton44E7F0));
         RegisterModule(mdl, scriptCache);
-        RegisterModule(mdl, module590160);
+        RegisterModule(mdl, parkEditor);
         RegisterModule(mdl, frontEnd);
         RegisterModule(mdl, module5691A0);
         RegisterModule(mdl, asyncLoader);
@@ -184,7 +186,7 @@ int __cdecl Main(int argc, char** argv)
         StartModule(mdl, scriptCache);
         StartModule(mdl, frontEnd);
         StartModule(mdl, module5691A0);
-        StartModule(mdl, module590160);
+        StartModule(mdl, parkEditor);
         StartModule(mdl, asyncLoader);
         StartModule(mdl, module4088E0);
         Mem::PopMemProfile();
@@ -203,7 +205,7 @@ int __cdecl Main(int argc, char** argv)
         StopAllModules(mdl);
         UnregisterModule(mdl, module5691A0); // (the script cache isn't unregistered)
         UnregisterModule(mdl, frontEnd);
-        UnregisterModule(mdl, module590160);
+        UnregisterModule(mdl, parkEditor);
         UnregisterModule(mdl, asyncLoader);
         UnregisterModule(mdl, module4088E0);
         RemoveAllTasks(mlp, 0x40);
@@ -212,14 +214,14 @@ int __cdecl Main(int argc, char** argv)
         Gfx::ReleaseTODManager();
         SkateScript::ReleaseNodeManager();
         Release(0x004AACF0);
-        Release(0x0058D290);
+        Ed::CParkEditor::Release();
         Release(0x005395C0);
         Mdl::ReleaseFrontEnd();
         Release(0x00564C10);
         Release(0x0057FDB0);
         Release(0x0057C120);
         Release(0x00552F70);
-        Release(0x005880E0);
+        Obj::ReleaseTrickObjectManager();
         Obj::ReleaseCompositeObjectManager();
         Net::ReleaseManager();
         Release(0x0047C6C0);

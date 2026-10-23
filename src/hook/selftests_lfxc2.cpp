@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "game/core/manager.h"
+#include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 #include "game/park/park_editor.h"
 #include "game/park/park_memory.h"
 #include "hook/game.h"
@@ -80,9 +82,9 @@ void StandInParkEditor(StandIns& s)
             return 0u;
         });
     };
-    plain(0x0059AE90, 8, 0xAE90, 2);  // DestroyConcreteMeta
-    s.At({0x0059C600}, 8, [](Regs& r) { Record({0xC600, EdRel(r.ecx), AreaAt(r.args[0]), r.args[1]}); return 0u; });
-    s.At({0x00597A00}, 8, [](Regs& r) {
+    plain(0x0059AE90, 8, 0xAE90, 2, AddressOf(&Ed::CParkManager::DestroyConcreteMeta));  // DestroyConcreteMeta
+    s.At({0x0059C600, AddressOf(&Ed::CParkManager::RebuildFloor)}, 8, [](Regs& r) { Record({0xC600, EdRel(r.ecx), AreaAt(r.args[0]), r.args[1]}); return 0u; });
+    s.At({0x00597A00, AddressOf(&Ed::CParkManager::GetAreaMetaPieces)}, 8, [](Regs& r) {
         Record({0x7A00, EdRel(r.ecx), Area(r, 0)});
         // a list of g_edListLength nodes over the metas
         for (int i = 0; i < 12; ++i) {
@@ -92,31 +94,31 @@ void StandInParkEditor(StandIns& s)
         }
         return g_edListLength ? reinterpret_cast<uint32_t>(g_edNodes[0]) : 0u;
     });
-    plain(0x00593610, 0, 0x3610, 0);
-    plain(0x00592090, 0, 0x2090, 0);
+    plain(0x00593610, 0, 0x3610, 0, AddressOf(&Ed::CParkGenerator::CleanUpOutRefs));
+    plain(0x00592090, 0, 0x2090, 0, AddressOf(&Ed::CParkGenerator::RebuildCollision));
     s.At({0x004F4970}, 0, [](Regs&) { Record({0x4970}); return g_edEngine; });
-    s.At({0x00591C60}, 0, [](Regs& r) {
+    s.At({0x00591C60, AddressOf(&Ed::CMapListTemp::Destroy)}, 0, [](Regs& r) {
         Record({0x1C60, *reinterpret_cast<uint32_t*>(r.ecx) ? EdRel(*reinterpret_cast<uint32_t*>(r.ecx)) : 0u});
         return 0u;
     });
-    plain(0x00596E50, 0, 0x6E50, 0);
-    plain(0x00596980, 0, 0x6980, 0);
-    plain(0x0059B020, 4, 0xB020, 1);
+    plain(0x00596E50, 0, 0x6E50, 0, AddressOf(&Ed::CParkManager::SetUpLights));
+    plain(0x00596980, 0, 0x6980, 0, AddressOf(&Ed::CParkManager::WriteCompressedMap));
+    plain(0x0059B020, 4, 0xB020, 1, AddressOf(&Ed::CParkManager::DestroyConcreteMetas));
     s.At({0x0059E110, AddressOf(&Ed::ClearStats)}, 0, [](Regs&) { Record({0xE110}); return 0u; });
-    plain(0x0059B750, 0, 0xB750, 0);
-    s.At({0x0059BED0}, 8, [](Regs& r) {
+    plain(0x0059B750, 0, 0xB750, 0, AddressOf(&Ed::CParkManager::ReadFromCompressedMap));
+    s.At({0x0059BED0, AddressOf(&Ed::CParkManager::RebuildInnerShell)}, 8, [](Regs& r) {
         Record({0xBED0, EdRel(r.ecx), Area(r, 0), GameVariable<uint8_t>(0x0067F398)});
         return 0u;
     });
     plain(0x004F6650, 0, 0x6650, 0);
-    s.At({0x00590160}, 0, [](Regs& r) { Record({0x0160, r.args[0] & 0xFF}); return 0x5E1F0000u; });
-    s.At({0x0058DDC0}, 0, [](Regs& r) { Record({0xDDC0, r.ecx}); return g_edFull ? 1u : 0u; });
-    plain(0x0058D290, 0, 0xD290, 0);
+    s.At({0x00590160, AddressOf(&Ed::CParkEditor::Create)}, 0, [](Regs& r) { Record({0x0160, r.args[0] & 0xFF}); return 0x5E1F0000u; });
+    s.At({0x0058DDC0, AddressOf(&Ed::CParkEditor::IsParkFull)}, 0, [](Regs& r) { Record({0xDDC0, r.ecx}); return g_edFull ? 1u : 0u; });
+    s.At({0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, 0, [](Regs&) { Record({0xD290}); return 0u; }); // (cdecl: ECX unused)
     s.At({0x0059E730, AddressOf(&Ed::GetMemoryStats)}, 0, [](Regs& r) {
         Record({0xE730});
         return r.args[0];
     });
-    s.At({0x005902F0}, 0, [](Regs& r) {
+    s.At({0x005902F0, AddressOf(&Ed::CMetaPiece::IsRestartPiece)}, 0, [](Regs& r) {
         uint32_t type = *reinterpret_cast<uint32_t*>(r.ecx + 0x38);
         Record({0x02F0, EdRel(r.ecx)});
         return g_edRestartEvery && type % g_edRestartEvery == 0 ? 1u : 0u;
@@ -137,37 +139,37 @@ void StandInParkEditor(StandIns& s)
         Record({0x74B0, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
         return 0u;
     });
-    s.At({0x0059B090}, 0x10, [](Regs& r) {
+    s.At({0x0059B090, AddressOf(&Ed::CParkManager::RelocateMetaPiece)}, 0x10, [](Regs& r) {
         Record({0xB090, EdRel(r.ecx), EdRel(r.args[0]), r.args[1], r.args[2], r.args[3]});
         // (it changes the piece's height: the cells cleared must be from the copy taken before)
         reinterpret_cast<uint8_t*>(r.args[0])[4] ^= 1;
         reinterpret_cast<uint8_t*>(r.args[0])[7] ^= 1;
         return 0u;
     });
-    s.At({0x005959D0}, 0xC, [](Regs& r) {
+    s.At({0x005959D0, AddressOf(&Ed::CParkManager::GetFloorHeight)}, 0xC, [](Regs& r) {
         Record({0x59D0, EdRel(r.ecx), Area(r, 0)});
         *reinterpret_cast<char*>(r.args[2]) = g_edLevel;
         return static_cast<uint32_t>(g_edHeight);
     });
-    s.At({0x0059C520}, 0x18, [](Regs& r) {
+    s.At({0x0059C520, AddressOf(static_cast<bool (Ed::CParkManager::*)(Ed::GridDims, int, int, bool, bool)>(&Ed::CParkManager::ChangeFloorHeight))}, 0x18, [](Regs& r) {
         Record({0xC520, EdRel(r.ecx), Area(r, 0), r.args[2], r.args[3], r.args[4] & 0xFF, r.args[5] & 0xFF});
         return static_cast<uint32_t>(g_edC520);
     });
-    plain(0x00595CB0, 8, 0x5CB0, 2);
-    plain(0x0059B280, 0, 0xB280, 0);
-    plain(0x005988A0, 0, 0x88A0, 0);
+    plain(0x00595CB0, 8, 0x5CB0, 2, AddressOf(&Ed::CParkManager::HighlightGapPieces));
+    plain(0x0059B280, 0, 0xB280, 0, AddressOf(&Ed::CParkManager::UndoFloorChange));
+    plain(0x005988A0, 0, 0x88A0, 0, AddressOf(&Ed::CCursor::DestroyClipboards));
     s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
         Record({0xABA0, EdRel(r.args[0])});
         return 0u;
     });
-    s.At({0x00595210}, 8, [](Regs& r) {
+    s.At({0x00595210, AddressOf(&Ed::CParkManager::GetPieceSet)}, 8, [](Regs& r) {
         Record({0x5210, EdRel(r.ecx), r.args[0], EdRel(r.args[1])});
         return reinterpret_cast<uint32_t>(Ed::Sets(reinterpret_cast<Ed::CParkManager*>(r.ecx)) + r.args[0]);
     });
-    plain(0x00595450, 4, 0x5450, 1);
-    plain(0x0059BC00, 4, 0xBC00, 1);
+    plain(0x00595450, 4, 0x5450, 1, AddressOf(&Ed::CCursor::SelectClipboard));
+    plain(0x0059BC00, 4, 0xBC00, 1, AddressOf(&Ed::CCursor::ChangePiece));
     plain(0x0058C200, 0, 0xC200, 0, AddressOf(&Ed::CClipboard::DestroyMetas));
-    plain(0x005954D0, 0, 0x54D0, 0);
+    plain(0x005954D0, 0, 0x54D0, 0, AddressOf(&Ed::CCursor::OnModeChanged));
 }
 
 // The manager, the cursor, the pieces and clipboards of one case (the same for both runs).

@@ -25,6 +25,7 @@
 #include "game/sio/inpman.h"
 #include "game/sys/debug_mode.h"
 #include "game/sys/timer.h"
+#include "game/sys/viewer_object.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -55,8 +56,7 @@ void Delete(void* object, int slot)
 {
     reinterpret_cast<void*(__thiscall*)(void*, int)>((*static_cast<void***>(object))[slot])(object, 1);
 }
-// The viewer object's shut down (0x005897B0).
-void ShutDownObject(void* object) { GameFunction<void(__thiscall*)(void*)>(0x005897B0)(object); }
+void ShutDownObject(void* object) { static_cast<Obj::CViewerObject*>(object)->ShutDown(); }
 
 void RunScript(uint32_t name) { Script::RunScript(name, nullptr, nullptr, false, nullptr); }
 
@@ -332,8 +332,8 @@ void Viewer::CreateViewerObject(void* data)
                                                          : static_cast<Mem::Allocator*>(manager->m_bottomUpHeap));
     RemoveViewerObject();
     void* memory = Mem::Calloc(0x128);
-    m_object = memory ? GameFunction<void*(__thiscall*)(void*, void*)>(0x0058ADB0)(memory, m_netHandler) : nullptr;
-    GameFunction<void(__thiscall*)(void*, void*)>(0x00589910)(m_object, data);
+    m_object = memory ? static_cast<Obj::CViewerObject*>(memory)->Construct(static_cast<Net::App*>(m_netHandler)) : nullptr;
+    static_cast<Obj::CViewerObject*>(m_object)->Load(static_cast<Script::CStruct*>(data));
     Mem::Manager::Get()->PopContext();
 }
 
@@ -496,8 +496,7 @@ void __cdecl FreeCameraTask(ViewerTask* task)
                 camera->m_matrix = matrix;
             }
         } else if (viewer->m_mode == 1) {
-            GameFunction<void(__thiscall*)(void*, float, float)>(0x0058A2E0)(viewer->m_object, viewer->m_leftX,
-                                                                            viewer->m_leftY);
+            static_cast<Obj::CViewerObject*>(viewer->m_object)->SetRotation(viewer->m_leftX, viewer->m_leftY);
         }
         if (viewer->m_rightX != 0.0f || viewer->m_rightY != 0.0f) {
             double step = static_cast<double>(MovementVelocity()) * seconds;

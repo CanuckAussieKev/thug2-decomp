@@ -11,6 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/ed/park.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -49,11 +50,9 @@ Mem::Pool* CurrentPool(Mem::PoolPair& pair) { return pair.pools[pair.current]; }
 
 int& Unknown7CE68C() { return GameVariable<int>(0x007CE68C); }
 
-// The park manager (0x007CE604, through its getter 0x00595200); its first field is the park's map, whose
-// +0x20 is the theme.
-void* ParkManager() { return GameFunction<void*(__cdecl*)()>(0x00595200)(); }
-void* ParkMap() { return *static_cast<void**>(ParkManager()); }
-int ParkTheme() { return *reinterpret_cast<int*>(static_cast<uint8_t*>(ParkMap()) + 0x20); }
+// The park manager and its generator, whose +0x20 is the most players the park is set up for.
+Ed::CParkGenerator* ParkGenerator() { return Ed::CParkManager::sInstance()->mp_generator; }
+int ParkMaxPlayers() { return ParkGenerator()->GetMaxPlayers(); }
 
 // A heap's free memory: its region's unclaimed space and its free blocks.
 int FreeMemory(Mem::Heap* heap) { return heap->m_region->MemAvailable() + heap->m_freeSize; }
@@ -250,13 +249,13 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
     MemoryStats& stats = Stats();
     if (CountsDirty()) {
         CountsDirty() = false;
-        GameFunction<void(__thiscall*)(void*, int*)>(0x00592AB0)(ParkMap(), stats.pieceCounts);
+        ParkGenerator()->GetNodeCounts(stats.pieceCounts);
     }
     Mem::Heap* mainHeap = Mem::Manager::Get()->m_bottomUpHeap;
     Mem::Region* mainRegion = mainHeap->m_region;
-    // The main heap's pad grows by 0x8EF1C bytes for each theme after the first.
+    // The main heap's pad grows by 0x8EF1C bytes for each player after the first.
     int mainPad = GetMemoryValue(reinterpret_cast<const char*>(0x0064FA00), -1); // "main_heap_pad"
-    mainPad += ParkTheme() * 0x8EF1C - 0x8EF1C;
+    mainPad += ParkMaxPlayers() * 0x8EF1C - 0x8EF1C;
     stats.mainHeapFree = mainRegion->MemAvailable() + mainHeap->m_freeSize;
     stats.mainHeapFree -= GetMemoryValue(reinterpret_cast<const char*>(0x0064F9F0), -1) + mainPad; // "anim_set_mem"
     int parkPad = GetMemoryValue(reinterpret_cast<const char*>(0x0064F9E0), -1); // "park_heap_pad"
@@ -271,7 +270,7 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
     } else {
         stats.mainHeapFragmented = false;
     }
-    int theme = GameFunction<int(__thiscall*)(void*)>(0x005950B0)(ParkManager());
+    int theme = Ed::CParkManager::sInstance()->GetShellSize();
     stats.mainHeapFree -= GetMemoryValue(reinterpret_cast<const char*>(0x0064F9D4), theme); // "theme_pad"
 
     float mainUsage = 1.0f;

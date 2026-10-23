@@ -74,11 +74,8 @@ void SetText(Front::CScreenElement* element, const char* text)
     GameFunction<void(__thiscall*)(Front::CScreenElement*, const char*)>(0x004AF8C0)(element, text);
 }
 
-// 0x005916B0: the names of a metapiece's sectors, into `out`
-void GetSectorNames(CMetaPiece* meta, Script::CArray* out)
-{
-    GameFunction<void(__thiscall*)(CMetaPiece*, Script::CArray*)>(0x005916B0)(meta, out);
-}
+// The names of a metapiece's sectors, into `out`
+void GetSectorNames(CMetaPiece* meta, Script::CArray* out) { meta->GetPieceList(out); }
 
 } // namespace
 

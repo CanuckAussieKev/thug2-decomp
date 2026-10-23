@@ -103,15 +103,12 @@ void GoalEditorWriteNodes(CArray* nodes, int* index, Mem::Heap* heap)
 {
     GameFunction<void(__cdecl*)(CArray*, int*, Mem::Heap*)>(0x004E8F50)(nodes, index, heap);
 }
-// The gap manager: the trigger script of a gap's piece (0x0058CA60)
-uint32_t GapTriggerScript(ClonedPiece* piece)
-{
-    return GameFunction<uint32_t(__thiscall*)(CGapManager*, ClonedPiece*)>(0x0058CA60)(CGapManager::Instance(), piece);
-}
+// The gap manager: the trigger script of a gap's piece
+uint32_t GapTriggerScript(ClonedPiece* piece) { return CGapManager::Instance()->GetGapTriggerName(piece); }
 // CFunc_ParseNodeArray (0x005A34E0): the node manager's node array parsed (its objects made).
 void ParseNodeArray() { GameFunction<bool(__cdecl*)(CStruct*, Script::CScript*)>(0x005A34E0)(nullptr, nullptr); }
 
-Ass::CNodeArrayAsset* NodeArrayAsset(ParkGeneratorData& d) { return reinterpret_cast<Ass::CNodeArrayAsset*>(d.m_nodeArray); }
+Ass::CNodeArrayAsset* NodeArrayAsset(CParkGenerator& d) { return reinterpret_cast<Ass::CNodeArrayAsset*>(d.m_nodeArray); }
 CStruct* Node(CArray* nodes, int index) { return reinterpret_cast<CStruct*>(nodes->GetElement(static_cast<uint32_t>(index))); }
 Script::VectorValue Value(const Mth::Vector& v) { return {v.x, v.y, v.z, v.w}; }
 Script::VectorValue* Out(Mth::Vector* v) { return reinterpret_cast<Script::VectorValue*>(v); }
@@ -157,11 +154,10 @@ uint32_t CParkGenerator::NextGeometryNode(CArray* nodes, int* index)
 uint32_t CParkGenerator::NextRailNode(CArray* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info,
                                       bool* isLoop)
 {
-    ParkGeneratorData& d = Data(this);
-    auto used = [&d](int node) {
+    auto used = [this](int node) {
         bool found = false;
-        for (int i = 0; i < d.m_numUsedNodes; ++i) {
-            if (d.mp_usedNodes[i] == node)
+        for (int i = 0; i < m_numUsedNodes; ++i) {
+            if (mp_usedNodes[i] == node)
                 found = true;
         }
         return found;
@@ -177,7 +173,7 @@ uint32_t CParkGenerator::NextRailNode(CArray* nodes, uint32_t geometry, uint32_t
     }
     const int count = static_cast<int>(nodes->m_size);
     for (int i = from; i < count; ++i) {
-        const PieceNodeInfo& node = d.mp_nodeInfo[i];
+        const PieceNodeInfo& node = mp_nodeInfo[i];
         if (node.m_class != kRailNode && node.m_class != kClimbingNode)
             continue;
         uint32_t link = 0;
@@ -214,7 +210,7 @@ uint32_t CParkGenerator::NextRailNode(CArray* nodes, uint32_t geometry, uint32_t
     }
     if (found == -1)
         return 0;
-    d.mp_usedNodes[d.m_numUsedNodes++] = found;
+    mp_usedNodes[m_numUsedNodes++] = found;
     CStruct* node = Node(nodes, found);
     std::memset(info, 0, sizeof(RailNodeInfo));
     node->GetVector(kPos, Out(&info->m_pos), 1);
@@ -231,8 +227,7 @@ uint32_t CParkGenerator::NextRailNode(CArray* nodes, uint32_t geometry, uint32_t
 
 void CParkGenerator::BuildSourceRails(CArray* nodes)
 {
-    ParkGeneratorData& d = Data(this);
-    RailSet& rails = d.m_sourceRails;
+    RailSet& rails = m_sourceRails;
     int strings = GetMemoryValue("in_railstring_pool", -1);
     int points = GetMemoryValue("in_railpoint_pool", -1);
     rails.Init(points, strings, 1);
@@ -242,12 +237,12 @@ void CParkGenerator::BuildSourceRails(CArray* nodes)
 
     // what's needed of each node
     const int count = static_cast<int>(nodes->m_size);
-    d.mp_usedNodes = static_cast<int*>(Mem::New(0x400)); // (room for 256)
-    d.m_numUsedNodes = 0;
-    d.mp_nodeInfo = static_cast<PieceNodeInfo*>(Mem::New(count * sizeof(PieceNodeInfo)));
+    mp_usedNodes = static_cast<int*>(Mem::New(0x400)); // (room for 256)
+    m_numUsedNodes = 0;
+    mp_nodeInfo = static_cast<PieceNodeInfo*>(Mem::New(count * sizeof(PieceNodeInfo)));
     for (int i = 0; i < static_cast<int>(nodes->m_size); ++i) {
         CStruct* node = Node(nodes, i);
-        PieceNodeInfo& info = d.mp_nodeInfo[i];
+        PieceNodeInfo& info = mp_nodeInfo[i];
         info.m_class = 0;
         node->GetChecksum(kClass, &info.m_class, 0);
         info.m_cluster = 0;
@@ -260,7 +255,7 @@ void CParkGenerator::BuildSourceRails(CArray* nodes)
     int index = 0;
     uint32_t geometry = NextGeometryNode(nodes, &index);
     while (index < static_cast<int>(nodes->m_size)) {
-        d.m_numUsedNodes = 0;
+        m_numUsedNodes = 0;
         bool isLoop = false;
         RailNodeInfo info;
         uint32_t node = NextRailNode(nodes, geometry, 0, &info, &isLoop);
@@ -292,11 +287,11 @@ void CParkGenerator::BuildSourceRails(CArray* nodes)
         }
         geometry = NextGeometryNode(nodes, &index);
     }
-    Mem::Free(d.mp_usedNodes);
-    Mem::Free(d.mp_nodeInfo);
+    Mem::Free(mp_usedNodes);
+    Mem::Free(mp_nodeInfo);
 
     // each source piece's rail points and segments
-    for (SourcePiece* source = d.mp_sources; source; source = source->mp_next) {
+    for (SourcePiece* source = mp_sources; source; source = source->mp_next) {
         source->m_numRailPoints = 0;
         source->m_numRailSegments = 0;
         for (int i = 0; Rail* rail = rails.FindRail(source->m_name, i); ++i) {
@@ -310,7 +305,7 @@ bool CParkGenerator::FindNearestRailPoint(const Mth::Vector* position, Mth::Vect
 {
     bool found = false;
     float best = 1e8f;
-    for (Rail* rail = Data(this).m_rails.mp_rails; rail; rail = rail->mp_next) {
+    for (Rail* rail = m_rails.mp_rails; rail; rail = rail->mp_next) {
         for (RailPoint* point = rail->mp_points; point; point = point->mp_next) {
             const double dx = static_cast<double>(point->m_pos.x) - position->x;
             const double dy = static_cast<double>(point->m_pos.y) - position->y;
@@ -332,10 +327,9 @@ bool CParkGenerator::FindNearestRailPoint(const Mth::Vector* position, Mth::Vect
 
 void CParkGenerator::GetNodeCounts(int* counts)
 {
-    ParkGeneratorData& d = Data(this);
     for (int i = 0; i < 6; ++i)
         counts[i] = 0;
-    for (ClonedPiece* piece = d.mp_pieces; piece; piece = piece->mp_next) {
+    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->mp_next) {
         if (!(piece->m_flags & (ClonedPiece::kNoNode20 | ClonedPiece::kNoNode80)))
             ++counts[0];
         if (!(piece->m_flags & ClonedPiece::kCursor) && !(piece->m_flags & ClonedPiece::kNoRails)) {
@@ -346,7 +340,7 @@ void CParkGenerator::GetNodeCounts(int* counts)
     const int points = counts[1] + RailEditorPoints();
     ++counts[0]; // (the high score restart)
     counts[1] = points;
-    for (const RestartPoint& restart : d.m_restarts) {
+    for (const RestartPoint& restart : m_restarts) {
         const int type = restart.m_type;
         if (type != RestartPoint::kFree)
             ++counts[0];
@@ -364,16 +358,15 @@ void CParkGenerator::GetNodeCounts(int* counts)
 
 void CParkGenerator::BuildGoalNodeArray()
 {
-    ParkGeneratorData& d = Data(this);
     int count = GoalEditorConstant82();
     int index = 0;
-    auto* nodes = static_cast<CArray*>(NodeArrayAsset(d)->CreateNodeArray(kParkNodeArray, count));
+    auto* nodes = static_cast<CArray*>(NodeArrayAsset(*this)->CreateNodeArray(kParkNodeArray, count));
     GoalEditorWriteNodes(nodes, &index, Mem::TopDownHeap());
     SkateScript::CNodeManager* manager = SkateScript::NodeManagerInstance();
     if (manager->HasNodeArray(kParkNodeArray))
         manager->RemoveNodeArray(kParkNodeArray);
     manager->AddNodeArray(kParkNodeArray, true);
-    manager->SetOwner(d.m_nodeArray);
+    manager->SetOwner(m_nodeArray);
 }
 
 void CParkGenerator::RemoveNodeArray()
@@ -388,8 +381,7 @@ void CParkGenerator::RemoveNodeArray()
 
 void CParkGenerator::BuildRails(CMapListNode* metas)
 {
-    ParkGeneratorData& d = Data(this);
-    RailSet& rails = d.m_rails;
+    RailSet& rails = m_rails;
     rails.Clear();
     rails.FreePools();
     Mem::PushContext(Mem::TopDownHeap());
@@ -406,7 +398,7 @@ void CParkGenerator::BuildRails(CMapListNode* metas)
             ClonedPiece* piece = Cloned(meta->GetPiece(static_cast<uint32_t>(i)));
             for (int j = 0;; ++j) {
                 const uint32_t name = piece->mp_source->m_name;
-                Rail* source = d.m_sourceRails.FindRail(name, j);
+                Rail* source = m_sourceRails.FindRail(name, j);
                 if (!source)
                     break;
                 Rail* rail = rails.NewRail();
@@ -431,7 +423,7 @@ void CParkGenerator::BuildRails(CMapListNode* metas)
 
 void CParkGenerator::WritePieceNodes(CArray* nodes, int* index)
 {
-    for (ClonedPiece* piece = Data(this).mp_pieces; piece; piece = piece->mp_next) {
+    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->mp_next) {
         if (piece->m_flags & (ClonedPiece::kNoNode20 | ClonedPiece::kNoNode80))
             continue;
         CStruct* node = Node(nodes, *index);
@@ -456,7 +448,7 @@ void CParkGenerator::WritePieceNodes(CArray* nodes, int* index)
 
 void CParkGenerator::WriteRailNodes(CArray* nodes, int* index)
 {
-    RailSet& rails = Data(this).m_rails;
+    RailSet& rails = m_rails;
     const int count = rails.CountPoints();
     if (!count)
         return;
@@ -505,11 +497,10 @@ void CParkGenerator::WriteRailNodes(CArray* nodes, int* index)
 
 void CParkGenerator::WriteRestartNodes(CArray* nodes, int* index)
 {
-    ParkGeneratorData& d = Data(this);
     uint32_t name = kFirstRestartNode;
 
     // the high score restart, at the first player 1 restart
-    for (const RestartPoint& restart : d.m_restarts) {
+    for (const RestartPoint& restart : m_restarts) {
         if (restart.m_type != RestartPoint::kPlayer1)
             continue;
         CStruct* node = Node(nodes, *index);
@@ -527,7 +518,7 @@ void CParkGenerator::WriteRestartNodes(CArray* nodes, int* index)
         break;
     }
 
-    for (const RestartPoint& restart : d.m_restarts) {
+    for (const RestartPoint& restart : m_restarts) {
         const int type = restart.m_type;
         if (type == RestartPoint::kFree)
             continue;
@@ -616,29 +607,28 @@ void CParkGenerator::WriteRestartNodes(CArray* nodes, int* index)
 
 void CParkGenerator::BuildNodeArray(CMapListNode* metas)
 {
-    ParkGeneratorData& d = Data(this);
     int counts[6];
     GetNodeCounts(counts);
     const int railEditorPoints = RailEditorPoints();
     int total = counts[0] + (GoalEditorConstant82() + railEditorPoints);
     BuildRails(metas);
-    total += d.m_rails.CountPoints();
+    total += m_rails.CountPoints();
     SkateScript::CNodeManager* manager = SkateScript::NodeManagerInstance();
     if (manager->HasNodeArray(kParkNodeArray))
         manager->RemoveNodeArray(kParkNodeArray);
-    auto* nodes = static_cast<CArray*>(NodeArrayAsset(d)->CreateNodeArray(kParkNodeArray, total));
+    auto* nodes = static_cast<CArray*>(NodeArrayAsset(*this)->CreateNodeArray(kParkNodeArray, total));
     int index = 0;
     WritePieceNodes(nodes, &index);
     WriteRailNodes(nodes, &index);
     RailEditorWriteNodes(nodes, &index, kFirstRailEditorNode);
     WriteRestartNodes(nodes, &index);
-    d.m_rails.Clear();
-    d.m_rails.FreePools();
+    m_rails.Clear();
+    m_rails.FreePools();
     GoalEditorWriteNodes(nodes, &index, Mem::TopDownHeap());
     manager->AddNodeArray(kParkNodeArray, true);
-    manager->SetOwner(d.m_nodeArray);
+    manager->SetOwner(m_nodeArray);
     ParseNodeArray();
-    d.m_flags |= ParkGeneratorData::kNodeArrayBuilt;
+    m_flags |= CParkGenerator::kNodeArrayBuilt;
 }
 
 } // namespace Ed

@@ -20,6 +20,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/file/async.h"
+#include "game/ed/park_editor.h"
 #include "game/file/pre.h"
 #include "game/gfx/tod_manager.h"
 #include "game/front/career_complete.h"
@@ -35,6 +36,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -581,8 +583,8 @@ void TestMain()
             {0x005BC900, AddressOf(&Mc::CreateManager)}, {0x0044E7F0, 0},
             {0x005B6CA0, AddressOf(&File::CreateAsyncLoaderModule)},
             {0x00476040, AddressOf(&Script::CreateScriptCache)}, {0x004088E0, 0},
-            {0x0047BA60, 0}, {0x00455880, AddressOf(&Net::CreateManager)}, {0x0045F7A0, AddressOf(&Obj::CreateCompositeObjectManager)}, {0x00589180, 0}, {0x00553DB0, 0}, {0x0057C0D0, 0},
-            {0x0057EED0, 0}, {0x005691A0, 0}, {0x0054FF80, AddressOf(&Mdl::CreateFrontEnd)}, {0x0053F520, 0}, {0x00590160, 0}, {0x004ACAF0, 0},
+            {0x0047BA60, 0}, {0x00455880, AddressOf(&Net::CreateManager)}, {0x0045F7A0, AddressOf(&Obj::CreateCompositeObjectManager)}, {0x00589180, AddressOf(&Obj::AcquireTrickObjectManager)}, {0x00553DB0, 0}, {0x0057C0D0, 0},
+            {0x0057EED0, 0}, {0x005691A0, 0}, {0x0054FF80, AddressOf(&Mdl::CreateFrontEnd)}, {0x0053F520, 0}, {0x00590160, AddressOf(&Ed::CParkEditor::Create)}, {0x004ACAF0, 0},
             {0x0045D690, AddressOf(&SkateScript::CreateNodeManager)}, {0x00574540, AddressOf(&Gfx::CreateTODManager)}};
         int index = 0;
         for (const Create& c : creates) {
@@ -597,8 +599,8 @@ void TestMain()
             ++index;
         }
         const Create releases[] = {
-            {0x00574910, AddressOf(&Gfx::ReleaseTODManager)}, {0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)}, {0x004AACF0, 0}, {0x0058D290, 0}, {0x005395C0, 0}, {0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
-            {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, 0}, {0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
+            {0x00574910, AddressOf(&Gfx::ReleaseTODManager)}, {0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)}, {0x004AACF0, 0}, {0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, {0x005395C0, 0}, {0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
+            {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, AddressOf(&Obj::ReleaseTrickObjectManager)}, {0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
             {0x004558D0, AddressOf(&Net::ReleaseManager)}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
             {0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)}, {0x0044E6B0, 0},
             {0x005BC950, AddressOf(&Mc::ReleaseManager)}, {0x005BDCF0, AddressOf(&Sio::ReleaseManager)},

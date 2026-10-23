@@ -82,13 +82,13 @@ void CParkManager::RebuildParkGeometry(int how)
     // CParkGenerator's three updates
     switch (how) {
     case 0:
-        GameFunction<void(__thiscall*)(void*)>(0x00593610)(mp_generator); // take out the removed pieces
+        mp_generator->CleanUpOutRefs(); // take out the removed pieces
         break;
     case 1:
-        GameFunction<void(__thiscall*)(void*)>(0x005947D0)(mp_generator); // rebuild everything
+        mp_generator->RebuildAll();
         break;
     case 2:
-        GameFunction<void(__thiscall*)(void*)>(0x00594910)(mp_generator); // rebuild the marked pieces
+        mp_generator->RebuildMarked();
         break;
     }
 }
@@ -229,9 +229,9 @@ void CParkManager::CreateGapManagerCopy()
     void* current = GapManagerInstance();
     Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
     void* memory = Mem::New(0xA8);
-    void* copy = memory ? GameFunction<void*(__thiscall*)(void*, int)>(0x0058CCC0)(memory, 0) : nullptr;
-    mp_gapManagerCopy = static_cast<CGapManager*>(copy);
-    GameFunction<void(__thiscall*)(void*, void*)>(0x0058CF30)(copy, current); // (null if out of memory)
+    CGapManager* copy = memory ? static_cast<CGapManager*>(memory)->Construct(nullptr) : nullptr;
+    mp_gapManagerCopy = copy;
+    copy->CopyFrom(static_cast<CGapManager*>(current)); // (null if out of memory)
     Mem::PopContext();
     GapManagerInstance() = current; // (the constructor made the copy current)
 }
@@ -240,10 +240,10 @@ void CParkManager::UseGapManagerCopy() { GapManagerInstance() = mp_gapManagerCop
 
 void CParkManager::DestroyGapManagerCopy()
 {
-    void* copy = mp_gapManagerCopy;
+    CGapManager* copy = mp_gapManagerCopy;
     if (!copy)
         return;
-    GameFunction<void(__thiscall*)(void*)>(0x0058CF20)(copy); // the destructor
+    copy->Destroy();
     Mem::Manager::Get()->Free(copy);
     mp_gapManagerCopy = nullptr;
 }
@@ -251,16 +251,15 @@ void CParkManager::DestroyGapManagerCopy()
 void CParkManager::HighlightGapPieces(bool on, GapInfo* gap)
 {
     for (CMapListNode* node = mp_concrete_metas; node; node = node->mp_next) {
-        if (node->GetMeta()->Cast()->m_flags & CMetaPiece::kHighlightable) // 0x00591A50: highlight its pieces
-            GameFunction<void(__thiscall*)(CMetaPiece*, bool, int)>(0x00591A50)(node->GetMeta()->Cast(), on, 1);
+        if (node->GetMeta()->Cast()->m_flags & CMetaPiece::kHighlightable)
+            node->GetMeta()->Cast()->Highlight(on, 1);
     }
-    auto refresh = GameFunction<void(__thiscall*)(void*, int)>(0x00592290); // CParkGenerator
-    refresh(mp_generator, 0);
+    mp_generator->SetPiecesHighlighted(0);
     if (on) {
-        if (gap && gap->m_tabIndex >= 0) // 0x0058CB70: the gap manager's current gap
-            GameFunction<void(__thiscall*)(void*, int)>(0x0058CB70)(mp_gapManager, gap->m_tabIndex);
+        if (gap && gap->m_tabIndex >= 0)
+            mp_gapManager->SetCurrentGap(gap->m_tabIndex);
     } else {
-        refresh(mp_generator, 0);
+        mp_generator->SetPiecesHighlighted(0);
     }
 }
 

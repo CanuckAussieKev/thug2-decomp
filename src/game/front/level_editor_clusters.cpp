@@ -17,6 +17,7 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/lst/hashtable.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/log.h"
@@ -108,10 +109,11 @@ Script::CStruct* NodeOf(uint32_t sector)
     return GameFunction<Script::CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(sector, 0);
 }
 
-// The manager's cluster of that name (0x005883C0, its cluster table), null for none.
+Obj::CTrickObjectManager* TrickObjects(uint8_t* manager) { return reinterpret_cast<Obj::CTrickObjectManager*>(manager); }
+// The manager's cluster of that name, null for none.
 uint8_t* ClusterObject(uint8_t* manager, uint32_t cluster)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x005883C0)(manager, cluster);
+    return reinterpret_cast<uint8_t*>(TrickObjects(manager)->GetCluster(cluster));
 }
 
 // Registered as the load registers a TrickObject node (0x005A37A9-0x005A37C9).
@@ -120,9 +122,9 @@ void Register(uint32_t name, uint32_t cluster)
     uint8_t* manager = Manager();
     if (!manager || !cluster)
         return;
-    GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x005896D0)(manager, cluster); // (false: there already)
+    TrickObjects(manager)->AddCluster(cluster); // (false: there already)
     if (ClusterObject(manager, cluster))
-        GameFunction<bool(__thiscall*)(void*, uint32_t, uint32_t)>(0x00589760)(manager, name, cluster);
+        TrickObjects(manager)->AddObject(name, cluster);
 }
 
 // Taken out: its node unlinked from the cluster's object list (+0x44: a circular list, the head a sentinel; +0x0C next,

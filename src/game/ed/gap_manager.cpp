@@ -51,7 +51,7 @@ CGapManager::Gap* NewGap()
 {
     auto* gap = static_cast<CGapManager::Gap*>(Mem::Calloc(sizeof(CGapManager::Gap)));
     if (gap) {
-        GameFunction<GapInfo*(__thiscall*)(GapInfo*)>(0x0058CBC0)(&gap->m_info); // GapInfo's constructor
+        gap->m_info.Construct();
         gap->mp_pieces[0] = gap->mp_pieces[1] = nullptr;
         gap->mp_metas[0] = gap->mp_metas[1] = nullptr;
         gap->m_info.m_cancelFlags = 0;
@@ -134,12 +134,11 @@ void CGapManager::SetTriggerLength(CPiece* piece)
             half = 1;
         else
             continue;
-        // 0x0058CBF0: the gap's length on this half
-        length = GameFunction<float(__thiscall*)(GapInfo*, int)>(0x0058CBF0)(&mp_gaps[i]->m_info, half);
+        length = mp_gaps[i]->m_info.GetLength(half);
         break;
     }
-    // 0x005906B0: the trigger piece's length in cells
-    GameFunction<void(__thiscall*)(CPiece*, float)>(0x005906B0)(piece, static_cast<float>(static_cast<double>(length) / kCellWidth));
+    // the trigger piece's length in cells
+    piece->SetLength(static_cast<float>(static_cast<double>(length) / kCellWidth));
 }
 
 // 0x0058CF20

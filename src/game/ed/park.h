@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "game/ed/park_rails.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
 
@@ -78,8 +79,9 @@ struct SMetaDescriptor {
     int8_t y;
     uint8_t z;
     uint8_t rot;
-    bool isReal;     // +0x04: from the palette entry's flag 0x0CD75A3F (CMetaPiece::Intersects' precise test leaves
-                     //        the flagged pieces out)
+    bool setsFloor;  // +0x04: from the palette entry's flag 0x0CD75A3F: the piece counts as floor - only
+                     //        these set the cells' floor heights (SetMetaInCells), CMetaPiece::Intersects' precise
+                     //        test leaves them out, and their metapiece is kFloorLocked
     uint8_t pad5[3];
     void* piece;     // +0x08: the scene piece (its +0x08 flags); in an abstract metapiece, the piece's name
 };
@@ -151,7 +153,7 @@ public:
     // 0x005903A0: its pieces' sectors drawn and collided with, or neither
     void SetVisibility(bool visible);
     // 0x00590CE0: does it take up any of `area`? With `precise` (its low byte), by the cells of its pieces that
-    // aren't flagged isReal (when any is)
+    // aren't flagged setsFloor (when any is)
     bool Intersects(GridDims area, uint32_t precise);
     // 0x00590B90: the box round its pieces (from each one's position and size)
     void GetBounds(Mth::Vector* max, Mth::Vector* min);
@@ -169,10 +171,10 @@ public:
     // Vtable slot 1: the scalar deleting destructor
     void Delete() { reinterpret_cast<void(__thiscall*)(CMetaPiece*, int)>(m_vtable[1])(this, 1); }
     // Vtable slot 2: add a piece at `pos`
-    void AddPiece(void* piece, GridDims* pos, int rot, bool isReal)
+    void AddPiece(void* piece, GridDims* pos, int rot, bool setsFloor)
     {
         reinterpret_cast<void(__thiscall*)(CMetaPiece*, void*, GridDims*, int, bool)>(m_vtable[2])(this, piece, pos, rot,
-                                                                                                  isReal);
+                                                                                                    setsFloor);
     }
 };
 static_assert(offsetof(CMetaPiece, m_flags) == 0x0C && offsetof(CMetaPiece, m_desc) == 0x14 &&
@@ -190,7 +192,7 @@ public:
     CPiece* GetPiece(uint32_t index);
     // 0x00590ED0 (vtable slot 2): `piece` added at the cells `pos` (x y z), turned `rot`; the piece's position set to
     // its centre there
-    void AddPiece(CPiece* piece, GridDims* pos, int rot, bool isReal);
+    void AddPiece(CPiece* piece, GridDims* pos, int rot, bool setsFloor);
     // 0x00591BB0 (vtable slot 1, also the abstract metapiece's): the scalar deleting destructor
     CConcreteMetaPiece* Destroy(unsigned int flags);
 };
@@ -205,9 +207,9 @@ public:
     CPiece* GetPiece(uint32_t index);
     // 0x00591020 (vtable slot 2): a source piece added by name (anything else only counted), the area grown to take
     // it in (at least 1 high)
-    void AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t isReal);
+    void AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t setsFloor);
     // 0x00591100: a palette metapiece added by name (null only counted), the area grown to take it in
-    void AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, uint8_t isReal);
+    void AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, uint8_t setsFloor);
     // 0x005911D0: entry `index` counting the pieces of the palette metapieces it's made of one by one (each placed
     // and turned in this one); returns `out`
     SMetaDescriptor* GetEntry(SMetaDescriptor* out, int index);
@@ -591,10 +593,48 @@ static_assert(sizeof(CGapManager::Gap) == 0xEC && offsetof(CGapManager::Gap, m_i
                   offsetof(CGapManager, mp_manager) == 0xA4 && sizeof(CGapManager) == 0xA8,
               "layout must match the original");
 
-// The park generator (the scene side): what's used of it here.
+// A restart point of the park generator (0x24 bytes).
+struct RestartPoint {
+    enum Type {
+        kFree = 0,
+        kPlayer1 = 1,
+        kPlayer2 = 2,
+        kHorse = 3,
+        kKingOfTheHill = 4,
+        kRedFlag = 5, // 5-8 the CTF flags: red, green, blue, yellow
+        kYellowFlag = 8,
+    };
+    Mth::Vector m_pos;        // +0x00
+    int m_rot;                // +0x10
+    GridDims m_area;          // +0x14
+    uint8_t pad1A[2];
+    int m_type;               // +0x1C
+    uint8_t m_automatic;      // +0x20: put down by the park itself (GenerateNodeArray), not placed (the byte given)
+    uint8_t pad21[3];
+};
+static_assert(offsetof(RestartPoint, m_area) == 0x14 && offsetof(RestartPoint, m_type) == 0x1C &&
+                  sizeof(RestartPoint) == 0x24,
+              "layout must match the original");
+
+// What BuildSourceRails keeps of each node of the pieces' node array (park_scene.h).
+struct PieceNodeInfo;
+
+// The park generator (0x4A4 bytes): the scene side of the park editor (park_scene.h).
 class CParkGenerator {
 public:
-    // --- park_scene.cpp, park_nodes.cpp (0x00592740-0x00595030; the data: park_scene.h) ---
+    // m_flags
+    enum : uint32_t {
+        kSourcesLoaded = 0x2,      // LoadSourcePieces done
+        kPiecesCreated = 0x4,      // (CreatePiece sets it)
+        kHasPieces = 0x8,
+        kSuperSectorsUpdated = 0x10,
+        kNodeArrayBuilt = 0x20,
+        kSceneChanged = 0x40,      // sectors added or deleted since the last update of the super sectors
+    };
+    static constexpr int kNumRestarts = 18;
+    static constexpr int kMaxLights = 16;
+
+    // --- park_scene.cpp, park_nodes.cpp (0x00592740-0x00595030; their types: park_scene.h) ---
     // 0x005933F0: take away the restart point of type `player` at `area` (its cell x, y, z)
     void RemoveRestart(GridDims* area, int player);
     // 0x005935F0: mark a piece for CleanUpOutRefs (taken out at once if it has ClonedPiece::kDestroyNow)
@@ -662,8 +702,8 @@ public:
     void HighlightAllPieces(bool on);
     // 0x00591D20
     void SetMaxPlayers(int count);
-    // +0x20: the most players the park is set up for (a whole int; the compressed map keeps its low byte)
-    int GetMaxPlayers() { return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(this) + 0x20); }
+    // The most players the park is set up for (a whole int; the compressed map keeps its low byte)
+    int GetMaxPlayers() { return m_maxPlayers; }
     // 0x00591D30: the most players the park has room for: one more for each 585500 bytes the main heap has free
     // (counting those already set up)
     int GetMaxPlayersPossible();
@@ -718,7 +758,35 @@ public:
     void DestroyPieces(int keepRails);
     // 0x00594C70: UnloadPieces, and the source rails freed (the argument unused)
     void CleanUp(int type);
+
+    uint32_t m_flags;               // +0x000
+    uint32_t m_04;
+    CPiece* mp_pieces;              // +0x008
+    CSourcePiece* mp_sources;       // +0x00C
+    void* mp_sourceScene;           // +0x010: "sk5ed"
+    void* mp_scene;                 // +0x014: "cloned"
+    uint32_t m_18;
+    uint32_t m_nextPieceId;         // +0x01C (from 0x20)
+    int m_maxPlayers;               // +0x020
+    CParkRailSet m_sourceRails;     // +0x024: the pieces' rails, from their node array
+    CParkRailSet m_rails;           // +0x058: the placed pieces' rails, while the node array is built
+    PieceNodeInfo* mp_nodeInfo;     // +0x08C: (while BuildSourceRails runs)
+    int* mp_usedNodes;              // +0x090: (likewise) the rail nodes taken
+    int m_numUsedNodes;             // +0x094
+    RestartPoint m_restarts[kNumRestarts]; // +0x098: by type - 0 player 2, 1 player 1, 2-7 horse, 8-13 king of
+                                    // the hill, 14-17 the flags (RestartSlots)
+    int m_numLights;                // +0x320
+    float m_ambient[3];             // +0x324 (rgb)
+    float m_falloff[3];             // +0x330 (rgb)
+    Mth::Vector m_lights[kMaxLights]; // +0x33C
+    uint32_t m_43C;
+    uint8_t m_nodeArray[0x64];      // +0x440: an Ass::CNodeArrayAsset (the node array's owner)
 };
+static_assert(offsetof(CParkGenerator, m_sourceRails) == 0x24 && offsetof(CParkGenerator, m_rails) == 0x58 &&
+                  offsetof(CParkGenerator, mp_nodeInfo) == 0x8C && offsetof(CParkGenerator, m_restarts) == 0x98 &&
+                  offsetof(CParkGenerator, m_numLights) == 0x320 && offsetof(CParkGenerator, m_lights) == 0x33C &&
+                  offsetof(CParkGenerator, m_nodeArray) == 0x440 && sizeof(CParkGenerator) == 0x4A4,
+              "layout must match the original");
 
 // What RebuildFloorPiece is asked (0x1C bytes): the cell and its floor height; it says where the top piece went.
 struct FloorPieceRequest {

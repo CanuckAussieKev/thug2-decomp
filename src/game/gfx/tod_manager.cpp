@@ -8,6 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/ed/park_editor.h"
 #include "game/lst/hashtable.h"
 #include "game/obj/compositemgr.h"
 #include "game/script/cscript.h"
@@ -242,10 +243,10 @@ struct SceneNode {
 bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 SceneNode* FirstScene() { return GameFunction<SceneNode*(__cdecl*)()>(0x0048C7F0)(); }
 uint8_t* SkyScene() { return GameFunction<uint8_t*(__cdecl*)()>(0x0048C7B0)(); }
-// The scene of the level being played (0x0058D710's checksum, looked up by 0x0048C700).
+// The scene of the level being played (the park editor's shell checksum, looked up by 0x0048C700).
 uint8_t* LevelScene()
 {
-    uint32_t name = GameFunction<uint32_t(__cdecl*)()>(0x0058D710)();
+    uint32_t name = Ed::CParkEditor::GetShellChecksum();
     return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C700)(name);
 }
 // A scene's own colour (vtable +0x20).

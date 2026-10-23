@@ -17,6 +17,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 #include "game/gfx/tod_manager.h"
 #include "game/lst/hashtable.h"
 #include "game/obj/compositemgr.h"
@@ -321,7 +323,7 @@ void InstallStandIns(StandIns& s)
         Rec(0xC7B0, {});
         return g_tod_skyScene ? At(g_tod_skyScene) : 0u;
     });
-    s.At({0x0058D710}, 0, [](Regs&) {
+    s.At({0x0058D710, AddressOf(&Ed::CParkEditor::GetShellChecksum)}, 0, [](Regs&) {
         Rec(0xD710, {});
         return 0x1E5E1u;
     });

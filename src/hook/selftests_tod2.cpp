@@ -25,6 +25,7 @@
 #include "game/skate/victory_conditions.h"
 #include "game/sys/module.h"
 #include "game/sys/viewer.h"
+#include "game/sys/viewer_object.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -284,16 +285,16 @@ void Install(StandIns& s)
         return 0u;
     });
     // The viewer object, the task / handler lists, the module.
-    s.At({0x005897B0}, 0, [](Regs& r) {
+    s.At({0x005897B0, AddressOf(&Obj::CViewerObject::ShutDown)}, 0, [](Regs& r) {
         Rec(0x97B0, {r.ecx});
         return 0u;
     });
-    s.At({0x0058ADB0}, 4, [](Regs& r) {
+    s.At({0x0058ADB0, AddressOf(&Obj::CViewerObject::Construct)}, 4, [](Regs& r) {
         Rec(0xADB0, {r.ecx, r.args[0]});
         *reinterpret_cast<void***>(r.ecx) = g_vc_objectVtable;
         return r.ecx;
     });
-    s.At({0x00589910}, 4, [](Regs& r) {
+    s.At({0x00589910, AddressOf(&Obj::CViewerObject::Load)}, 4, [](Regs& r) {
         Rec(0x9910, {r.ecx, r.args[0]});
         return 0u;
     });

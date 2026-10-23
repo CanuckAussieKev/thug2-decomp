@@ -19,6 +19,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 #include "game/ed/piece_menu.h"
 #include "game/script/cscript.h"
 #include "game/file/file.h"
@@ -144,22 +145,22 @@ void StandInGame(StandIns& s)
             cursor->m_cell_area.x = 50;
         return 0u;
     });
-    Rec(s, {0x005954D0}, 0, 0);
-    Rec(s, {0x00597110}, 4, 1, 0, [](Regs& r) {
+    Rec(s, {0x005954D0, AddressOf(&Ed::CCursor::OnModeChanged)}, 0, 0);
+    Rec(s, {0x00597110, AddressOf(&Ed::CCursor::GetAreaSelectDims)}, 4, 1, 0, [](Regs& r) {
         auto* out = reinterpret_cast<uint8_t*>(r.args[0]);
         for (int i = 0; i < 6; ++i)
             out[i] = static_cast<uint8_t>(Next(0x00597110 + 1));
         return 0u;
     });
     Rec(s, {0x00597190}, 0, 0);
-    Rec(s, {0x00597740}, 0x14, 5, 2);
-    Rec(s, {0x00597A00}, 8, 2, 2);
-    Rec(s, {0x005959D0}, 0xC, 3, 2, [](Regs& r) {
+    Rec(s, {0x00597740, AddressOf(&Ed::CParkManager::GetIntersectingMetas)}, 0x14, 5, 2);
+    Rec(s, {0x00597A00, AddressOf(&Ed::CParkManager::GetAreaMetaPieces)}, 8, 2, 2);
+    Rec(s, {0x005959D0, AddressOf(&Ed::CParkManager::GetFloorHeight)}, 0xC, 3, 2, [](Regs& r) {
         if (r.args[2])
             *reinterpret_cast<uint8_t*>(r.args[2]) = static_cast<uint8_t>(Next(0x005959D0 + 1));
         return Next(0x005959D0);
     });
-    Rec(s, {0x00597AC0}, 8, 2, 0, [](Regs& r) {
+    Rec(s, {0x00597AC0, AddressOf(&Ed::CParkManager::GetGapInfo)}, 8, 2, 0, [](Regs& r) {
         auto* pos = reinterpret_cast<GridDims*>(r.args[0]);
         Record({pos->x, static_cast<uint32_t>(pos->y), pos->z});
         pos->w = pos->h = pos->l = 1;
@@ -182,33 +183,33 @@ void StandInGame(StandIns& s)
         }
         return r.args[0];
     });
-    Rec(s, {0x00595CB0}, 8, 2);
-    Rec(s, {0x00595210}, 8, 2, 0, [](Regs& r) {
+    Rec(s, {0x00595CB0, AddressOf(&Ed::CParkManager::HighlightGapPieces)}, 8, 2);
+    Rec(s, {0x00595210, AddressOf(&Ed::CParkManager::GetPieceSet)}, 8, 2, 0, [](Regs& r) {
         *reinterpret_cast<int*>(r.args[1]) = 5;
         return U(&g_world.manager.m_sets[r.args[0] + 1]);
     });
-    Rec(s, {0x00595670}, 8, 2);
-    Rec(s, {0x00591A50}, 8, 2);
+    Rec(s, {0x00595670, AddressOf(&Ed::CParkManager::CreateConcreteMeta)}, 8, 2);
+    Rec(s, {0x00591A50, AddressOf(&Ed::CMetaPiece::Highlight)}, 8, 2);
     Rec(s, {0x00591800}, 0x14, 5);
-    Rec(s, {0x00590750}, 4, 1, 0, [](Regs& r) {
+    Rec(s, {0x00590750, AddressOf(&Ed::CMetaPiece::IsCompletelyWithinArea)}, 4, 1, 0, [](Regs& r) {
         Record({HashBytes(reinterpret_cast<uint8_t*>(r.args[0]), 6)});
         return Next(0x00590750);
     });
     Rec(s, {0x0058BDF0}, 0, 0, 0, [](Regs& r) { return r.ecx; });
-    Rec(s, {0x0058C980}, 0, 0);
+    Rec(s, {0x0058C980, AddressOf(&Ed::CClipboard::Destroy)}, 0, 0);
     Rec(s, {0x0058B7E0}, 0, 0);
     Rec(s, {0x0058C590}, 8, 2, 2);
     Rec(s, {0x0058BE30}, 4, 1);
     Rec(s, {0x0058BEB0}, 8, 2);
     Rec(s, {0x0058C130}, 0x18, 6);
-    Rec(s, {0x0058C200}, 0, 0);
-    Rec(s, {0x00593610}, 0, 0);
-    Rec(s, {0x00592290}, 4, 1);
-    Rec(s, {0x00591BE0}, 0, 0);
-    Rec(s, {0x005955C0}, 0, 1, 0, nullptr, true);
-    Rec(s, {0x00590160}, 0, 1, 0, [](Regs&) { return U(g_world.editor); }, true);
-    Rec(s, {0x0058D6D0}, 8, 2);
-    Rec(s, {0x0058D290}, 0, 0, 0, nullptr, true);
+    Rec(s, {0x0058C200, AddressOf(&Ed::CClipboard::DestroyMetas)}, 0, 0);
+    Rec(s, {0x00593610, AddressOf(&Ed::CParkGenerator::CleanUpOutRefs)}, 0, 0);
+    Rec(s, {0x00592290, AddressOf(&Ed::CParkGenerator::SetPiecesHighlighted)}, 4, 1);
+    Rec(s, {0x00591BE0, AddressOf(&Ed::CMapListNode::DestroyList)}, 0, 0);
+    Rec(s, {0x005955C0, AddressOf(&Ed::CClipboard::Free)}, 0, 1, 0, nullptr, true);
+    Rec(s, {0x00590160, AddressOf(&Ed::CParkEditor::Create)}, 0, 1, 0, [](Regs&) { return U(g_world.editor); }, true);
+    Rec(s, {0x0058D6D0, AddressOf(&Ed::CParkEditor::MainHeapHasRoom)}, 8, 2);
+    Rec(s, {0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, 0, 0, 0, nullptr, true);
     Rec(s, {0x004F4970}, 0, 0, 0, [](Regs&) { return U(g_world.rails); }, true);
     Rec(s, {0x004F4690}, 0x10, 4);
     Rec(s, {0x004F6BF0}, 0, 0);
@@ -217,14 +218,14 @@ void StandInGame(StandIns& s)
     Rec(s, {0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0);
     Rec(s, {0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 0xC, 3);
     Rec(s, {0x005BA3D0, AddressOf(&Mem::Pool::Allocate)}, 0, 0);
-    Rec(s, {0x0058CBC0}, 0, 0, 0, [](Regs& r) { return r.ecx; });
+    Rec(s, {0x0058CBC0, AddressOf(&Ed::GapInfo::Construct)}, 0, 0, 0, [](Regs& r) { return r.ecx; });
     Rec(s, {0x00598940}, 4, 1);
-    Rec(s, {0x0058CA10}, 8, 2, 0, [](Regs& r) {
+    Rec(s, {0x0058CA10, AddressOf(&Ed::CGapManager::GetGapIndex)}, 8, 2, 0, [](Regs& r) {
         *reinterpret_cast<int*>(r.args[1]) = 3;
         return Next(0x0058CA10);
     });
-    Rec(s, {0x0058CB20}, 8, 2, 0, [](Regs&) { return U(&g_world.gaps[1]); });
-    Rec(s, {0x00597FC0}, 4, 1);
+    Rec(s, {0x0058CB20, AddressOf(&Ed::CGapManager::GetGapInfo)}, 8, 2, 0, [](Regs&) { return U(&g_world.gaps[1]); });
+    Rec(s, {0x00597FC0, AddressOf(&Ed::CParkManager::RemoveGap)}, 4, 1);
     Rec(s, {0x00598150}, 8, 2);
     Rec(s, {0x00595FC0}, 4, 1);
     Rec(s, {0x00595EE0}, 4, 1);
@@ -234,7 +235,7 @@ void StandInGame(StandIns& s)
     Rec(s, {0x0059E1E0}, 0, 1, 0, nullptr, true);
 
     // the park manager's own calls
-    Rec(s, {0x00593460}, 0, 0, 0, [](Regs& r) { return r.ecx; });
+    Rec(s, {0x00593460, AddressOf(&Ed::CParkGenerator::Construct)}, 0, 0, 0, [](Regs& r) { return r.ecx; });
     Rec(s, {0x005987A0}, 0, 0);
     s.At({0x006234FE}, 0, StandInSprintf);
     Rec(s, {0x00591C70}, 0, 0);
@@ -246,7 +247,7 @@ void StandInGame(StandIns& s)
         Record({F(v[0]), F(v[1]), F(v[2]), r.args[1]});
         return 0u;
     });
-    Rec(s, {0x00590260}, 8, 2);
+    Rec(s, {0x00590260, AddressOf(&Ed::CPiece::SetRot)}, 8, 2);
     Rec(s, {0x00592550}, 4, 1);
     Rec(s, {0x00594410}, 4, 1);
     Rec(s, {0x005909C0}, 8, 2, 0, [](Regs& r) {
@@ -269,15 +270,15 @@ void StandInGame(StandIns& s)
         return 0u;
     });
     Rec(s, {0x00591FC0}, 0, 0);
-    Rec(s, {0x00592090}, 0, 0, 0, [](Regs&) {
+    Rec(s, {0x00592090, AddressOf(&Ed::CParkGenerator::RebuildCollision)}, 0, 0, 0, [](Regs&) {
         Record({GameVariable<uint8_t>(0x0067F398)});
         return 0u;
     });
     Rec(s, {0x00594C70}, 4, 1);
-    Rec(s, {0x0058CF20}, 0, 0);
+    Rec(s, {0x0058CF20, AddressOf(&Ed::CGapManager::Destroy)}, 0, 0);
     Rec(s, {0x0059E4E0}, 0, 0, 0, nullptr, true);
-    Rec(s, {0x00596980}, 0, 0);
-    Rec(s, {0x00597BD0}, 4, 1, 0, [](Regs& r) {
+    Rec(s, {0x00596980, AddressOf(&Ed::CParkManager::WriteCompressedMap)}, 0, 0);
+    Rec(s, {0x00597BD0, AddressOf(&Ed::CParkManager::AddGap)}, 4, 1, 0, [](Regs& r) {
         auto* gap = reinterpret_cast<GapInfo*>(r.args[0]);
         Record({HashBytes(reinterpret_cast<uint8_t*>(gap), 0x24), Hash(gap->m_text),
                 static_cast<uint32_t>(gap->m_score), static_cast<uint32_t>(gap->m_numCompleteHalves)});
@@ -286,7 +287,7 @@ void StandInGame(StandIns& s)
             Record({static_cast<uint32_t>(gap->m_cancelFlags)});
         return 1u;
     });
-    Rec(s, {0x005907B0}, 4, 1);
+    Rec(s, {0x005907B0, AddressOf(&Ed::CMetaPiece::SetRot)}, 4, 1);
     Rec(s, {0x005950F0}, 4, 1, 0, [](Regs& r) {
         Record({Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
@@ -301,8 +302,8 @@ void StandInGame(StandIns& s)
         Record({GameVariable<uint8_t>(0x0067F000)});
         return 0u;
     });
-    Rec(s, {0x0058D4E0}, 8, 2);
-    Rec(s, {0x0058D700}, 4, 1);
+    Rec(s, {0x0058D4E0, AddressOf(&Ed::CParkEditor::ApplyMap)}, 8, 2);
+    Rec(s, {0x0058D700, AddressOf(&Ed::CParkEditor::SetTimeOfDayScript)}, 4, 1);
     Rec(s, {0x004767C0, AddressOf(static_cast<bool (Script::CStruct::*)(uint32_t, Script::CStruct**, int)>(
                             &Script::CStruct::GetStructure))},
         0xC, 1, 0, [](Regs& r) {
@@ -391,7 +392,7 @@ void StandInGame(StandIns& s)
     });
     Rec(s, {0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 4, 1);
     Rec(s, {0x00594EA0}, 4, 1);
-    Rec(s, {0x0058DDC0}, 0, 0, 0, nullptr, true);
+    Rec(s, {0x0058DDC0, AddressOf(&Ed::CParkEditor::IsParkFull)}, 0, 0, 0, nullptr, true);
     Rec(s, {0x00595B30}, 8, 2, 2);
     Rec(s, {0x005952B0}, 0, 0);
     Rec(s, {0x00595D40}, 0, 0);
@@ -415,7 +416,7 @@ void StandInGame(StandIns& s)
     Rec(s, {0x0046CAA0, AddressOf(&Script::CArray::Init)}, 0, 0, 0, [](Regs& r) { return r.ecx; });
     Rec(s, {0x0046CAB0, AddressOf(&Script::CArray::Clear)}, 0, 0);
     Rec(s, {0x00477140, AddressOf(&Script::CleanUpArray)}, 0, 1, 0, nullptr, true);
-    Rec(s, {0x005916B0}, 4, 1);
+    Rec(s, {0x005916B0, AddressOf(&Ed::CMetaPiece::GetPieceList)}, 4, 1);
     Rec(s, {0x00462120}, 4, 1);
     Rec(s, {0x00462F00}, 0x18, 6);
     Rec(s, {0x004AAE20}, 0xC, 3, 0, [](Regs& r) {
@@ -735,7 +736,7 @@ void TestParkCursor()
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CCursor*, float, float, int)>(0x0059A1F0, Cur(), uc.x, uc.z, uc.rot)
                             : (Cur()->Update(uc.x, uc.z, uc.rot), 0u);
-        }, {0x00598B60});
+        }, {0x00598B60, AddressOf(&Ed::CCursor::Move)});
     }
 
     // ClearAreaSelection; IsAreaSelectionInvalid (too wide, too long, the editor's answer)
@@ -821,7 +822,7 @@ void TestParkCursor()
                 w.cursor.mp_meta = nullptr;
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CCursor*)>(0x0059BAC0, Cur()) : (Cur()->DestroyCursorMeta(), 0u);
-        }, {0x0059AE90});
+        }, {0x0059AE90, AddressOf(&Ed::CParkManager::DestroyConcreteMeta)});
     }
 
     // SwitchToClipboard: no clipboards; to paste mode; already pasting (with a piece / without)
@@ -835,7 +836,7 @@ void TestParkCursor()
                 w.cursor.mp_meta = nullptr;
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CCursor*)>(0x0059BAF0, Cur()) : (Cur()->SwitchToClipboard(), 0u);
-        }, {0x0059AE90});
+        }, {0x0059AE90, AddressOf(&Ed::CParkManager::DestroyConcreteMeta)});
     }
 
     // ChangePiece: each kind of piece, the mode already set or not, turned or not
@@ -866,7 +867,7 @@ void TestParkCursor()
     // Construct; CreateInstance (made / already there / no memory)
     RunCase("park cursor: Construct", [&] { std::memset(&w.cursor, 0xCD, sizeof(w.cursor)); }, [&](bool original) {
         return original ? Game<CCursor*(__thiscall*)(CCursor*)>(0x0059C7A0, Cur()) : U(Cur()->Construct());
-    }, {0x0059BC00});
+    }, {0x0059BC00, AddressOf(&Ed::CCursor::ChangePiece)});
     for (int c = 0; c < 3; ++c) {
         RunCase("park cursor: CreateInstance", [&] {
             if (c != 1)
@@ -897,7 +898,7 @@ void TestParkManagerMetas()
                 GridDims area = GridDims::Make(4, -2, 9, 3, 7, 5);
                 return original ? Game<uint32_t(__thiscall*)(CParkManager*, GridDims, uint32_t)>(0x00599880, Man(), area, flags)
                                 : Man()->DestroyMetasInArea(area, flags);
-            }, {0x0059AE90});
+            }, {0x0059AE90, AddressOf(&Ed::CParkManager::DestroyConcreteMeta)});
         }
     }
     // HighlightMetasWithinArea: a null metapiece, without flag 1, outside, inside
@@ -1021,7 +1022,7 @@ void TestParkManagerBuild()
         RunCase("park manager: DestroyConcreteMetas", [&] { GameVariable<uint8_t>(0x0067F398) = 0x77; }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CParkManager*, int)>(0x0059B020, Man(), keep)
                             : (Man()->DestroyConcreteMetas(keep), 0u);
-        }, {0x0059AE90});
+        }, {0x0059AE90, AddressOf(&Ed::CParkManager::DestroyConcreteMeta)});
     }
 
     // RelocateMetaPiece: no gap; a gap at either end
@@ -1061,7 +1062,7 @@ void TestParkManagerBuild()
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CParkManager*, int)>(0x0059BD40, Man(), c & 1)
                             : (Man()->Destroy(c & 1), 0u);
-        }, {0x0059B020});
+        }, {0x0059B020, AddressOf(&Ed::CParkManager::DestroyConcreteMetas)});
     }
 
     // ReadFromStructure
@@ -1155,7 +1156,7 @@ void TestParkManagerBuild()
             std::memset(w.manager.m_floor, 0x5A, sizeof(w.manager.m_floor));
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CParkManager*)>(0x0059B750, Man()) : (Man()->ReadFromCompressedMap(), 0u);
-        }, {0x00599A20});
+        }, {0x00599A20, AddressOf(&Ed::CParkManager::AddMetaPieceToPark)});
     }
     // (the older reader directly)
     RunCase("park manager: ReadFromOldCompressedMap", [&] {
@@ -1167,7 +1168,7 @@ void TestParkManagerBuild()
         GameVariable<void*>(0x007CE5D8) = w.editor;
     }, [&](bool original) {
         return original ? Game<void(__thiscall*)(CParkManager*)>(0x00599EB0, Man()) : (Man()->ReadFromOldCompressedMap(), 0u);
-    }, {0x00599A20});
+    }, {0x00599A20, AddressOf(&Ed::CParkManager::AddMetaPieceToPark)});
 
     // ResetPark: this version / older
     for (int c = 0; c < 2; ++c) {
@@ -1178,7 +1179,7 @@ void TestParkManagerBuild()
             w.manager.m_flags = 0xE;
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CParkManager*)>(0x0059BE20, Man()) : (Man()->ResetPark(), 0u);
-        }, {0x0059B020});
+        }, {0x0059B020, AddressOf(&Ed::CParkManager::DestroyConcreteMetas)});
     }
     RestoreAll(saved);
 }
@@ -1268,7 +1269,7 @@ void TestParkFloor()
             g_script[0x0059B090] = {U(&w.metas[7]), U(&w.metas[8]), U(&w.metas[6])};
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CParkManager*)>(0x0059B280, Man()) : (Man()->UndoFloorChange(), 0u);
-        }, {0x0059B090});
+        }, {0x0059B090, AddressOf(&Ed::CParkManager::RelocateMetaPiece)});
     }
     RunCase("park floor: MoveRiserList", [&] {
         w.nodes[9].m_dy = 2;

@@ -24,8 +24,8 @@ namespace {
 // Which end slot `slot` is of its gap: 0 its first (StartGap's), 1 its second.
 int Half(const CGapManager* manager, int slot) { return manager->m_startedFirst[slot] ? 0 : 1; }
 
-// 0x005902B0: a piece's highlight (its sector's).
-void HighlightPiece(CPiece* piece, bool on) { GameFunction<void(__thiscall*)(CPiece*, bool)>(0x005902B0)(piece, on); }
+// A piece's highlight (its sector's).
+void HighlightPiece(CPiece* piece, bool on) { piece->SetVisible(on); }
 
 } // namespace
 

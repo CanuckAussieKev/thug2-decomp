@@ -2,6 +2,7 @@
 // selection and the clipboards.
 
 #include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 
 #include <new>
 
@@ -26,15 +27,14 @@ constexpr int kMaxClipboards = 6;
 
 // The pooled clipboards (0x007CE5B4): new from the current pool or the heap; 0x005955C0 frees one.
 Mem::PoolPair& ClipboardPools() { return GameVariable<Mem::PoolPair>(0x007CE5B4); }
-void FreeClipboard(CClipboard* clipboard) { GameFunction<void(__cdecl*)(CClipboard*)>(0x005955C0)(clipboard); }
+void FreeClipboard(CClipboard* clipboard) { CClipboard::Free(clipboard); }
 
 // The park editor (the singleton 0x00590160 makes, 0x0058D290 releases): whether an area of w x l cells fits
 // the clipboard (0x0058D6D0).
 bool EditorAllowsCopy(int w, int l)
 {
-    void* editor = GameFunction<void*(__cdecl*)(bool)>(0x00590160)(false);
-    bool allowed = GameFunction<bool(__thiscall*)(void*, int, int)>(0x0058D6D0)(editor, w, l);
-    GameFunction<void(__cdecl*)()>(0x0058D290)();
+    bool allowed = CParkEditor::Create(false)->MainHeapHasRoom(w, l);
+    CParkEditor::Release();
     return allowed;
 }
 
@@ -426,7 +426,7 @@ CCursor* CCursor::Construct()
     mp_meta = nullptr;
     m_areaStart = GridDims::Make(0, 0, 0, 0, 0, 0);
     m_areaLast = GridDims::Make(0, 0, 0, 0, 0, 0);
-    GameFunction<GapInfo*(__thiscall*)(GapInfo*)>(0x0058CBC0)(&m_gap); // the gap's constructor
+    m_gap.Construct();
     m_areaSelect = 0;
     m_areaHighlighted = false;
     mp_clipboards = nullptr;

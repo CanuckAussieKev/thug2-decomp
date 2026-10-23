@@ -34,20 +34,14 @@ uint32_t EditorValue78()
 }
 uint8_t GeneratorMaxPlayers(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
 
-void* PieceSource(void* generator, uint32_t name)
-{
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x00591D90)(generator, name);
-}
-void GetCellDims(void* piece, GridDims* dims)
-{
-    GameFunction<void(__thiscall*)(void*, GridDims*)>(0x005904C0)(piece, dims);
-}
-// A new palette metapiece (0x00590FA0: CAbstractMetaPiece's constructor) on the park heap.
+void* PieceSource(void* generator, uint32_t name) { return static_cast<CParkGenerator*>(generator)->GetPieceSource(name); }
+void GetCellDims(void* piece, GridDims* dims) { static_cast<CPiece*>(piece)->GetCellDims(dims); }
+// A new palette metapiece on the park heap.
 CMetaPiece* NewAbstractMeta()
 {
     Mem::PushContext(ParkHeap());
     void* memory = Mem::New(sizeof(CMetaPiece));
-    auto* meta = memory ? GameFunction<CMetaPiece*(__thiscall*)(void*)>(0x00590FA0)(memory) : nullptr;
+    CMetaPiece* meta = memory ? static_cast<CAbstractMetaPiece*>(memory)->Construct() : nullptr;
     Mem::PopContext();
     return meta;
 }
@@ -180,9 +174,8 @@ void CParkManager::SetUpAbstractMetas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
                 int rot = at->m_size > 3 ? static_cast<int>(at->GetElement(3)) : 0;
-                // 0x00591100: add a metapiece's pieces
-                GameFunction<void(__thiscall*)(CMetaPiece*, CMetaPiece*, GridDims*, int, bool)>(0x00591100)(
-                    meta, part, &pos, rot, entry->ContainsFlag(0x0CD75A3Fu));
+                static_cast<CAbstractMetaPiece*>(meta)->AddMetaPiece(part, &pos, rot,
+                                                                     entry->ContainsFlag(0x0CD75A3Fu));
             }
         }
         if (desc->GetChecksum("name", &meta->m_name_checksum, 0))
@@ -277,8 +270,7 @@ void CParkManager::WriteCompressedMap()
     int numGaps = 0;
     for (int i = 0; i < 32; ++i) {
         int half = 0;
-        // CGapManager: gap `i`'s info (0x0058CB20)
-        auto* gap = GameFunction<GapInfo*(__thiscall*)(void*, int, int*)>(0x0058CB20)(mp_gapManager, i, &half);
+        GapInfo* gap = mp_gapManager->GetGapInfo(i, &half);
         if (gap && half == 0 && gap->m_numCompleteHalves == 2)
             gaps[numGaps++] = gap;
     }
@@ -352,11 +344,10 @@ void CParkManager::SetUpLights()
     info->GetVector("falloff_rgb", &falloff, 1);
     info->GetFloat("cursor_ambience", &cursorAmbience, 1);
     info->GetArray("pos", &positions, 1);
-    // CParkGenerator's lights (0x00591E00) and their positions (0x00592FE0)
-    GameFunction<void(__thiscall*)(void*, uint32_t, float, float, float, float, float, float, float)>(0x00591E00)(
-        mp_generator, positions->m_size, ambient.x * ambientConst, ambient.y * ambientConst,
-        ambient.z * ambientConst, falloff.x * falloffConst, falloff.y * falloffConst, falloff.z * falloffConst,
-        cursorAmbience);
+    // The generator's lights and their positions
+    mp_generator->SetLights(static_cast<int>(positions->m_size), ambient.x * ambientConst, ambient.y * ambientConst,
+                            ambient.z * ambientConst, falloff.x * falloffConst, falloff.y * falloffConst,
+                            falloff.z * falloffConst, cursorAmbience);
     for (int i = 0; i < static_cast<int>(positions->m_size); ++i) {
         auto* v = reinterpret_cast<float*>(positions->GetElement(static_cast<uint32_t>(i))); // a CVector (x at +4)
         Mth::Vector pos;
@@ -364,7 +355,7 @@ void CParkManager::SetUpLights()
         pos.y = CellSizeY() * v[2];
         pos.z = CellSizeZ() * v[3];
         pos.w = 1.0f;
-        GameFunction<void(__thiscall*)(void*, Mth::Vector*, int)>(0x00592FE0)(mp_generator, &pos, i);
+        mp_generator->SetLightPosition(&pos, i);
     }
 }
 
@@ -457,8 +448,7 @@ void CParkManager::ClearCompressedMap()
 
 bool CParkManager::AddGap(GapInfo* gap)
 {
-    // CGapManager: a free slot (0x0058C990)
-    int tab = GameFunction<int(__thiscall*)(void*)>(0x0058C990)(mp_gapManager);
+    int tab = mp_gapManager->GetFreeGapIndex();
     if (tab == -1)
         return false;
     // The trigger's position (x87 arithmetic: x is stored as a float on the way, z isn't). For a rotation past 3
@@ -476,8 +466,7 @@ bool CParkManager::AddGap(GapInfo* gap)
         meta->m_flags |= CMetaPiece::kHighlightable;
         pos = meta->m_cell_area;
         GridDims d = meta->m_cell_area;
-        // 0x0058CBF0: the gap's length on this half
-        float length = GameFunction<float(__thiscall*)(GapInfo*, int)>(0x0058CBF0)(gap, half);
+        float length = gap->GetLength(half);
         const double w = CellSizeX(), l = CellSizeZ();
         const double y = static_cast<double>(d.y) * CellSizeY();
         int alongX = 0;
@@ -509,17 +498,16 @@ bool CParkManager::AddGap(GapInfo* gap)
         }
         at.x = static_cast<float>(x - w * GapGridOffset());
         at.z = static_cast<float>(z - l * GapGridOffset());
-        // CParkGenerator: the gap's trigger piece (0x00593500), its length in cells (0x005906B0)
-        void* piece = GameFunction<void*(__thiscall*)(void*, Mth::Vector*, float, int)>(0x00593500)(mp_generator, &at,
-                                                                                               length, alongX);
-        GameFunction<void(__thiscall*)(void*, float)>(0x005906B0)(piece, static_cast<float>(length / w));
-        if (half == 0) // CGapManager: the first half (0x0058D070), the second (0x0058C9B0)
-            GameFunction<void(__thiscall*)(void*, void*, CMetaPiece*, int)>(0x0058D070)(mp_gapManager, piece, meta, tab);
+        // The gap's trigger piece, its length in cells
+        void* piece = mp_generator->CreateGapPiece(&at, length, alongX);
+        static_cast<CPiece*>(piece)->SetLength(static_cast<float>(length / w));
+        if (half == 0)
+            mp_gapManager->StartGap(piece, meta, tab);
         else
-            GameFunction<void(__thiscall*)(void*, void*, CMetaPiece*, int)>(0x0058C9B0)(mp_gapManager, piece, meta, tab);
+            mp_gapManager->EndGap(piece, meta, tab);
     }
     gap->m_tabIndex = tab;
-    GameFunction<void(__thiscall*)(void*, int, GapInfo*)>(0x0058CDA0)(mp_gapManager, tab, gap);
+    mp_gapManager->SetGapInfo(tab, gap);
     return true;
 }
 
@@ -538,13 +526,13 @@ void CParkManager::RemoveGap(GapInfo* gap)
                 break;
         }
         CMetaPiece* meta = halves[half];
-        GameFunction<void(__thiscall*)(CMetaPiece*, bool, int)>(0x00591A50)(meta, false, 0); // not highlighted
+        meta->Highlight(false, 0);
         meta->m_flags &= ~CMetaPiece::kHighlightable;
     }
     int index;
-    // CGapManager: the gap of the first half (0x0058CA10), removed (0x0058CDF0)
-    if (GameFunction<bool(__thiscall*)(void*, CMetaPiece*, int*)>(0x0058CA10)(mp_gapManager, halves[0], &index))
-        GameFunction<void(__thiscall*)(void*, int, int)>(0x0058CDF0)(mp_gapManager, index, 1);
+    // The gap of the first half, removed
+    if (mp_gapManager->GetGapIndex(halves[0], &index))
+        mp_gapManager->RemoveGap(index, true);
     gap->m_tabIndex = -1;
     gap->m_cancelFlags = static_cast<uint32_t>(Script::GetInteger(0x9A27E74Du)); // CANCEL_GROUND
 }

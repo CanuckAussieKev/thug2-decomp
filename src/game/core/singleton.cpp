@@ -6,12 +6,14 @@
 #include <cstdint>
 
 #include "game/file/async.h"
+#include "game/ed/park_editor.h"
 #include "game/file/pre.h"
 #include "game/front/front_end.h"
 #include "game/mc/memcard.h"
 #include "game/net/net_manager.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
+#include "game/obj/trick_objects.h"
 #include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/node_manager.h"
@@ -124,13 +126,23 @@ struct CompositeObjectManager {
     static Type* Create(bool create) { return Obj::CreateCompositeObjectManager(create); }
     static void Release() { Obj::ReleaseCompositeObjectManager(); }
 };
-using Singleton589180 = GameSingleton<0x00589180, 0x005880E0, 0x0064AFD8>;
+struct TrickObjectManager {
+    using Type = Obj::CTrickObjectManager;
+    static constexpr uint32_t kVtable = 0x0064AFD8;
+    static Type* Create(bool create) { return Obj::AcquireTrickObjectManager(create); }
+    static void Release() { Obj::ReleaseTrickObjectManager(); }
+};
 using Singleton553DB0 = GameSingleton<0x00553DB0, 0x00552F70, 0x0064AFDC>;
 using Singleton57C0D0 = GameSingleton<0x0057C0D0, 0x0057C120, 0x0064AFE0>;
 using Singleton57EED0 = GameSingleton<0x0057EED0, 0x0057FDB0, 0x0064AFE4>;
 using Singleton5691A0 = GameSingleton<0x005691A0, 0x00564C10, 0x0064AFE8>;
 using Singleton53F520 = GameSingleton<0x0053F520, 0x005395C0, 0x0064AFF0>;
-using Singleton590160 = GameSingleton<0x00590160, 0x0058D290, 0x0064AFF4>;
+struct ParkEditor {
+    using Type = Ed::CParkEditor;
+    static constexpr uint32_t kVtable = 0x0064AFF4;
+    static Type* Create(bool create) { return Ed::CParkEditor::Create(create); }
+    static void Release() { Ed::CParkEditor::Release(); }
+};
 using Singleton4ACAF0 = GameSingleton<0x004ACAF0, 0x004AACF0, 0x0064AFF8>;
 struct NodeManager {
     using Type = SkateScript::CNodeManager;
@@ -172,8 +184,8 @@ REPLACE(0x004E1A00, &Spt::SingletonPtr<Spt::NetManager>::DestroyBody);
 REPLACE(0x004E1C80, &Spt::SingletonPtr<Spt::NetManager>::Destroy);
 REPLACE(0x004E1A10, &Spt::SingletonPtr<Spt::CompositeObjectManager>::DestroyBody);
 REPLACE(0x004E1CB0, &Spt::SingletonPtr<Spt::CompositeObjectManager>::Destroy);
-REPLACE(0x004E1A20, &Spt::SingletonPtr<Spt::Singleton589180>::DestroyBody);
-REPLACE(0x004E1CE0, &Spt::SingletonPtr<Spt::Singleton589180>::Destroy);
+REPLACE(0x004E1A20, &Spt::SingletonPtr<Spt::TrickObjectManager>::DestroyBody);
+REPLACE(0x004E1CE0, &Spt::SingletonPtr<Spt::TrickObjectManager>::Destroy);
 REPLACE(0x004E1A30, &Spt::SingletonPtr<Spt::Singleton553DB0>::DestroyBody);
 REPLACE(0x004E1D10, &Spt::SingletonPtr<Spt::Singleton553DB0>::Destroy);
 REPLACE(0x004E1A40, &Spt::SingletonPtr<Spt::Singleton57C0D0>::DestroyBody);
@@ -186,8 +198,8 @@ REPLACE(0x004E1A70, &Spt::SingletonPtr<Spt::FrontEnd>::DestroyBody);
 REPLACE(0x004E1DD0, &Spt::SingletonPtr<Spt::FrontEnd>::Destroy);
 REPLACE(0x004E1A80, &Spt::SingletonPtr<Spt::Singleton53F520>::DestroyBody);
 REPLACE(0x004E1E00, &Spt::SingletonPtr<Spt::Singleton53F520>::Destroy);
-REPLACE(0x004E1AC0, &Spt::SingletonPtr<Spt::Singleton590160>::DestroyBody);
-REPLACE(0x004E1E30, &Spt::SingletonPtr<Spt::Singleton590160>::Destroy);
+REPLACE(0x004E1AC0, &Spt::SingletonPtr<Spt::ParkEditor>::DestroyBody);
+REPLACE(0x004E1E30, &Spt::SingletonPtr<Spt::ParkEditor>::Destroy);
 REPLACE(0x004E1AD0, &Spt::SingletonPtr<Spt::Singleton4ACAF0>::DestroyBody);
 REPLACE(0x004E1E60, &Spt::SingletonPtr<Spt::Singleton4ACAF0>::Destroy);
 REPLACE(0x004E1AE0, &Spt::SingletonPtr<Spt::Singleton45D690>::DestroyBody);
@@ -196,6 +208,6 @@ REPLACE(0x004E1AF0, &Spt::SingletonPtr<Spt::Singleton574540>::DestroyBody);
 REPLACE(0x004E1EC0, &Spt::SingletonPtr<Spt::Singleton574540>::Destroy);
 
 // The one constructor out of line (called by 0x004F75F0; it builds the instance pointer through 0x004E1970).
-REPLACE(0x004E1A90, &Spt::SingletonPtr<Spt::Singleton590160>::Construct);
+REPLACE(0x004E1A90, &Spt::SingletonPtr<Spt::ParkEditor>::Construct);
 REPLACE(0x004E1970, &Spt::PointerMember::Construct);
 REPLACE_SOURCE_ONLY(0x00469490, &Spt::PointerMember::Get); // 3 bytes

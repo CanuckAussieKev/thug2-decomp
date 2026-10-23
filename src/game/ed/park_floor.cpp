@@ -2,6 +2,7 @@
 // park, changing the floor's height, and the restart points put on a new park.
 
 #include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 
 #include <cstdio>
 
@@ -35,14 +36,9 @@ struct Feeler {
 static_assert(offsetof(Feeler, m_object) == 0x98);
 static_assert(sizeof(Feeler) == 0xB0);
 
-// The park editor (the singleton 0x00590160 makes, 0x0058D290 releases): whether the park is full (0x0058DDC0:
-// its meter at 0x007CE644 has reached 1).
-bool ParkIsFull()
-{
-    GameFunction<void*(__cdecl*)(bool)>(0x00590160)(false);
-    return GameFunction<bool(__cdecl*)()>(0x0058DDC0)();
-}
-void ReleaseParkEditor() { GameFunction<void(__cdecl*)()>(0x0058D290)(); }
+// The park editor (a reference taken here, let go by ReleaseParkEditor): whether the park is full.
+bool ParkIsFull() { return CParkEditor::Create(false)->IsParkFull() != 0; }
+void ReleaseParkEditor() { CParkEditor::Release(); }
 
 } // namespace
 

@@ -219,7 +219,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         uint32_t value;
         params->GetChecksum(0u, &value, 1);
         if (At<bool>(this, kTrickObjectsOn))
-            GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00588A20)(&At<CTrickObjectList>(this, kTrickObjects), value);
+            At<CTrickObjectList>(this, kTrickObjects).Add(value);
         return 1;
     }
     case kNoQuickGetup:

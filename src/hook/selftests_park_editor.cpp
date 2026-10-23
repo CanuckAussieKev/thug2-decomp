@@ -221,21 +221,21 @@ void StandInGame(StandIns& s)
     Rec(s, {0x004E8420}, 4, 1);
     // the generator, pieces
     Rec(s, {0x005935F0}, 4, 1);
-    Rec(s, {0x005906B0}, 4, 1);
-    Rec(s, {0x00591CF0}, 4, 1);
-    RecBool(s, {0x00592290});
-    RecBool(s, {0x005922D0});
-    Rec(s, {0x00592C90}, 0, 0);
-    Rec(s, {0x00592C10}, 0, 0);
-    Rec(s, {0x00592A10}, 0xC, 3);
-    Rec(s, {0x00592090}, 0, 0);
+    Rec(s, {0x005906B0, AddressOf(&Ed::CPiece::SetLength)}, 4, 1);
+    Rec(s, {0x00591CF0, AddressOf(&Ed::CParkGenerator::HighlightAllPieces)}, 4, 1);
+    RecBool(s, {0x00592290, AddressOf(&Ed::CParkGenerator::SetPiecesHighlighted)});
+    RecBool(s, {0x005922D0, AddressOf(&Ed::CParkGenerator::SetRestartPiecesActive)});
+    Rec(s, {0x00592C90, AddressOf(&Ed::CParkGenerator::RemoveNodeArray)}, 0, 0, 0, nullptr, true); // (static: ECX unused)
+    Rec(s, {0x00592C10, AddressOf(&Ed::CParkGenerator::BuildGoalNodeArray)}, 0, 0);
+    Rec(s, {0x00592A10, AddressOf(&Ed::CParkGenerator::FindNearestRailPoint)}, 0xC, 3);
+    Rec(s, {0x00592090, AddressOf(&Ed::CParkGenerator::RebuildCollision)}, 0, 0);
     Rec(s, {0x00591D20}, 4, 1);
 
     // the park manager
     Rec(s, {0x00599140}, 8, 2, 0, nullptr, false, 1);
-    Rec(s, {0x005950B0}, 0, 0);
+    Rec(s, {0x005950B0, AddressOf(&Ed::CParkManager::GetShellSize)}, 0, 0);
     Rec(s, {0x0059CB10}, 4, 1);
-    Rec(s, {0x00595CB0}, 8, 2, 0, nullptr, false, 1);
+    Rec(s, {0x00595CB0, AddressOf(&Ed::CParkManager::HighlightGapPieces)}, 8, 2, 0, nullptr, false, 1);
     Rec(s, {0x00595050}, 8, 2, 0, nullptr, false, 2);
     Rec(s, {0x005975B0}, 4, 1);
     Rec(s, {0x00598FC0}, 8, 2, 0, nullptr, false, 2);
@@ -244,7 +244,7 @@ void StandInGame(StandIns& s)
     Rec(s, {0x00595030}, 4, 1, 0, nullptr, false, 1);
     Rec(s, {0x00595170}, 0, 0);
     Rec(s, {0x005950D0}, 0, 0);
-    Rec(s, {0x00595210}, 8, 2);
+    Rec(s, {0x00595210, AddressOf(&Ed::CParkManager::GetPieceSet)}, 8, 2);
     Rec(s, {0x0059BD40}, 4, 1);
     Rec(s, {0x00595C80}, 0, 0);
     Rec(s, {0x00595BC0}, 0, 0);
@@ -257,7 +257,7 @@ void StandInGame(StandIns& s)
     });
     Rec(s, {0x00595140}, 4, 1);
     Rec(s, {0x005958B0}, 8, 2, 3);
-    Rec(s, {0x0059BED0}, 8, 2, 3, [](Regs&) {
+    Rec(s, {0x0059BED0, AddressOf(&Ed::CParkManager::RebuildInnerShell)}, 8, 2, 3, [](Regs&) {
         Record({GameVariable<uint8_t>(0x0067F398)}); // (the collision flag while the shell is rebuilt)
         return 0u;
     });
@@ -288,7 +288,7 @@ void StandInGame(StandIns& s)
     Rec(s, {0x0059C950}, 4, 1);
     Rec(s, {0x0059C9B0}, 4, 1);
     RecBool(s, {0x005954A0});
-    Rec(s, {0x005954D0}, 0, 0);
+    Rec(s, {0x005954D0, AddressOf(&Ed::CCursor::OnModeChanged)}, 0, 0);
     Rec(s, {0x00598A60}, 4, 1);
     RecC(s, {0x0059C900}, 0);
     Rec(s, {0x00595360}, 8, 0, 0, [](Regs& r) {

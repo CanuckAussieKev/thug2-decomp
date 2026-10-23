@@ -422,3 +422,13 @@ PE1 0x588180-0x58CD40 (THUG2-1, docs/pending/park-1.md; starts with batch 329's 
   misnamed (the precise intersect test skips those pieces). The lead's mutation re-run converted the file to LF first
   (the checkout is CRLF and the patterns use \n; not confirmed that mutate.ts needs it) - out/scripts/filter_spec.mjs
   drops patterns that no longer match the code.
+
+## 2026-10-23: the park cleanups from the note above - done (batch 342)
+- Every call from src/game into the rewritten park editor / graffiti / viewer object code (0x00588180-0x0059E100)
+  is a direct C++ call now (205 GameFunction calls; core/singleton.cpp's and sys/main.cpp's trick object manager and
+  park editor singletons included). CParkGenerator holds its own fields (ParkGeneratorData / Data() gone);
+  SMetaDescriptor::isReal -> setsFloor. Tests that stood in for a game address now stand in for ours too.
+  Built, thug2_check on both exes 0 MISMATCHED / 771 early self-tests, code writes, register scan (5 known), audit
+  clean. NOT run in the game yet; not installed or pushed.
+- tools/mutate.ts needs no LF conversion (it reads with universal newlines and restores the bytes).
+- Still open (wider): 942 GameFunction calls elsewhere in src/game reach rewritten functions at their game addresses.

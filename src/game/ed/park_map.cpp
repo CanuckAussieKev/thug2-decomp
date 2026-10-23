@@ -2,6 +2,7 @@
 // map itself, and a new empty park.
 
 #include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 
 #include <cstdio>
 #include <cstring>
@@ -44,19 +45,8 @@ void ReadRails(Script::CStruct* params)
 // A flag the rail editor reads (cleared while rails are read outside the park editor's level).
 bool& RailEditorFlag() { return GameVariable<bool>(0x0067F000); }
 
-// The park editor (the singleton 0x00590160 makes, 0x0058D290 releases; 0x007CE5D8 holds it): its level (+0x40),
-// the map's goals handed to it (0x0058D4E0), the theme set (0x0058D700).
-void* CreateParkEditor() { return GameFunction<void*(__cdecl*)(bool)>(0x00590160)(false); }
-void ReleaseParkEditor() { GameFunction<void(__cdecl*)()>(0x0058D290)(); }
-uint32_t EditorLevel(void* editor) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(editor) + 0x40); }
-void ReadMapGoals(void* editor, CompressedMap* map, uint16_t size)
-{
-    GameFunction<void(__thiscall*)(void*, CompressedMap*, uint32_t)>(0x0058D4E0)(editor, map, size);
-}
-void SetTheme(uint32_t theme)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0058D700)(GameVariable<void*>(0x007CE5D8), theme);
-}
+// The park editor's theme.
+void SetTheme(uint32_t theme) { CParkEditor::Instance()->SetTimeOfDayScript(theme); }
 
 // The script structure written to a buffer and read back (0x0047A070 sizes it, 0x00479E20 writes it,
 // 0x0047A0C0 reads it).
@@ -104,8 +94,8 @@ void CParkManager::ReadFromStructure(Script::CStruct* params, bool applyToEditor
     if (params->GetStructure(kParkEditorGoals, &goals, 0))
         ReadGoals(goalEditor, goals, 1);
 
-    void* editor = CreateParkEditor();
-    if (EditorLevel(editor) != kEditLevel)
+    CParkEditor* editor = CParkEditor::Create(false);
+    if (editor->m_state != kEditLevel)
         RailEditorFlag() = false;
     ReadRails(params);
     RailEditorFlag() = true;
@@ -122,12 +112,11 @@ void CParkManager::ReadFromStructure(Script::CStruct* params, bool applyToEditor
         for (int i = 0; i < static_cast<int>(sizeof(CompressedMap) / 4); ++i)
             reinterpret_cast<uint32_t*>(&m_map)[i] = map->GetElement(i);
         if (applyToEditor) {
-            void* editorAgain = CreateParkEditor();
-            ReadMapGoals(editorAgain, &m_map, mapSize);
-            ReleaseParkEditor();
+            CParkEditor::Create(false)->ApplyMap(&m_map, mapSize);
+            CParkEditor::Release();
         }
     }
-    ReleaseParkEditor();
+    CParkEditor::Release();
 }
 
 // 0x00599140

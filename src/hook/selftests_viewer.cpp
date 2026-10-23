@@ -24,6 +24,7 @@
 #include "game/sys/module.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer.h"
+#include "game/sys/viewer_object.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -98,7 +99,7 @@ void Install(StandIns& s)
         Rec(0xE970, {});
         return g_time;
     });
-    s.At({0x0058A2E0}, 8, [](Regs& r) {
+    s.At({0x0058A2E0, AddressOf(&Obj::CViewerObject::SetRotation)}, 8, [](Regs& r) {
         Rec(0xA2E0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });

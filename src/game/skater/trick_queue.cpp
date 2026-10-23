@@ -321,7 +321,7 @@ void CTrickComponent::CountTrick()
 void CTrickComponent::PassToTrickObjects(uint32_t value)
 {
     if (At<bool>(this, kTrickObjectsOn))
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00588A20)(&At<CTrickObjectList>(this, kTrickObjects), value);
+        At<CTrickObjectList>(this, kTrickObjects).Add(value);
 }
 
 // 0x005232A0
@@ -333,7 +333,7 @@ void CTrickComponent::SetTrickObjects(bool on)
         list.Clear();
         return;
     }
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00588A20)(&list, At<uint32_t>(Component(this, kCorePhysics), 0x1B0));
+    list.Add(At<uint32_t>(Component(this, kCorePhysics), 0x1B0));
 }
 
 // 0x005232E0
@@ -352,7 +352,7 @@ void CTrickComponent::ResetTrickObjects()
 uint32_t CTrickComponent::EndTrickObjects(uint32_t a, uint32_t b)
 {
     CTrickObjectList& list = At<CTrickObjectList>(this, kTrickObjects);
-    uint32_t result = GameFunction<uint32_t(__thiscall*)(void*, uint32_t, uint32_t)>(0x00588AA0)(&list, a, b);
+    uint32_t result = list.CopyClusterNames(reinterpret_cast<uint32_t*>(a), b);
     At<bool>(this, kTrickObjectsOn) = false;
     list.Clear();
     return result;

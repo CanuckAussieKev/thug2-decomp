@@ -11,6 +11,7 @@
 
 #include "game/core/pool.h"
 #include "game/ed/park.h"
+#include "game/ed/park_editor.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -195,15 +196,15 @@ void Install(StandIns& s)
         Rec(0x0160, {r.args[0] & 0xFF});
         return At(kMemory);
     });
-    s.At({0x0058D290}, 0, [](Regs&) {
+    s.At({0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, 0, [](Regs&) {
         Rec(0xD290, {});
         return 0u;
     });
-    s.At({0x0058D6D0}, 8, [](Regs& r) {
+    s.At({0x0058D6D0, AddressOf(&Ed::CParkEditor::MainHeapHasRoom)}, 8, [](Regs& r) {
         Rec(0xD6D0, {r.ecx, r.args[0], r.args[1]});
         return g_room ? 1u : 0u;
     });
-    s.At({0x0058D6F0}, 0, [](Regs& r) {
+    s.At({0x0058D6F0, AddressOf(&Ed::CParkEditor::GetCursorPos)}, 0, [](Regs& r) {
         Rec(0xD6F0, {r.ecx});
         return At(kCursorPos);
     });
