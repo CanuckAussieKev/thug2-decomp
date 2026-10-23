@@ -462,6 +462,7 @@ add_library(thug2_code OBJECT
     src/game/core/manager.cpp
     src/game/core/mem.cpp
     src/game/core/memory_sizes.cpp
+    src/game/core/memory_report.cpp
     src/game/core/pool.cpp
     src/game/core/singleton.cpp
     src/game/core/stubs.cpp
