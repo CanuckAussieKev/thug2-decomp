@@ -16,6 +16,8 @@
 #include "game/gfx/device.h"
 #include "game/gfx/text.h"
 #include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
+#include "game/pcm/stream.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -522,7 +524,7 @@ void ResetMusicGlobals(std::vector<Saved>& saved)
 
 void StandInChannels(StandIns& s)
 {
-    s.At({0x00453270}, 0, [](Regs& r) {
+    s.At({0x00453270, AddressOf(&Pcm::StreamStatus)}, 0, [](Regs& r) {
         Record({0xC4A, r.args[0]});
         int channel = static_cast<int>(r.args[0]);
         return channel >= -1 && channel < 7 && g_channelPlaying[channel + 1] ? 2u : 1u;
@@ -541,23 +543,23 @@ void TestMusicStreams()
     {
         auto* s = new StandIns;
         StandInChannels(*s);
-        s->At({0x004531A0}, 0, [](Regs&) {
+        s->At({0x004531A0, AddressOf(&Pcm::StopStreamThread)}, 0, [](Regs&) {
             Record({0x5709});
             return 0x77u;
         });
-        s->At({0x004542D0}, 0, [](Regs&) {
+        s->At({0x004542D0, AddressOf(&Pcm::UserSoundtrackCount)}, 0, [](Regs&) {
             Record({0x4E4D});
             return 7u;
         });
-        s->At({0x00454320}, 0, [](Regs& r) {
+        s->At({0x00454320, AddressOf(&Pcm::UserSoundtrackTracks)}, 0, [](Regs& r) {
             Record({0x7C7, r.args[0]});
             return r.args[0] < 4 ? g_soundtrackTracks[r.args[0]] : 0u;
         });
-        s->At({0x00454300}, 0, [](Regs& r) {
+        s->At({0x00454300, AddressOf(&Pcm::UserSoundtrackName)}, 0, [](Regs& r) {
             Record({0x4A3E, r.args[0]});
             return r.args[0] < 8 ? reinterpret_cast<uint32_t>(g_soundtrackNames[r.args[0]]) : 0u;
         });
-        s->At({0x00453400}, 0, [](Regs& r) {
+        s->At({0x00453400, AddressOf(&Pcm::PlatformSetMusicVolume)}, 0, [](Regs& r) {
             Record({0x701, r.args[0]});
             return 1u;
         });
@@ -743,15 +745,15 @@ alignas(16) uint32_t g_listeners[3][2];
 
 void StandInTrackStart(StandIns& s)
 {
-    s.At({0x00453250}, 0, [](Regs&) {
+    s.At({0x00453250, AddressOf(&Pcm::MusicStatus)}, 0, [](Regs&) {
         Record({0x5757});
         return static_cast<uint32_t>(g_streamState);
     });
-    s.At({0x00451400}, 0, [](Regs&) {
+    s.At({0x00451400, AddressOf(&Pcm::ApplyTrackVolume)}, 0, [](Regs&) {
         Record({0x7011});
         return 0u;
     });
-    s.At({0x004520D0}, 0, [](Regs& r) {
+    s.At({0x004520D0, AddressOf(&Pcm::PlayTrack)}, 0, [](Regs& r) {
         Record({0x91A7, r.args[0] - 0x0069806C, r.args[1]});
         return 0u;
     });
@@ -917,19 +919,19 @@ void TestMusicUpdate()
     {
         auto* s = new StandIns;
         StandInChannels(*s);
-        s->At({0x00453940}, 0, [](Regs&) {
+        s->At({0x00453940, AddressOf(&Pcm::UpdateStreams)}, 0, [](Regs&) {
             Record({0x5940});
             return static_cast<uint32_t>(g_streamsResult);
         });
-        s->At({0x00453BD0}, 0, [](Regs&) {
+        s->At({0x00453BD0, AddressOf(static_cast<void(__cdecl*)()>(&Pcm::StopStreams))}, 0, [](Regs&) {
             Record({0x5BD0});
             return 0u;
         });
-        s->At({0x00450650}, 0, [](Regs&) {
+        s->At({0x00450650, AddressOf(&Pcm::StopMusic)}, 0, [](Regs&) {
             Record({0x0650});
             return 0u;
         });
-        s->At({0x00450BE0}, 0, [](Regs& r) {
+        s->At({0x00450BE0, AddressOf(&Pcm::UpdateStreamVolume)}, 0, [](Regs& r) {
             Record({0x0BE0, r.args[0]});
             return r.args[0] < 3 && g_streamStillOn[r.args[0]] ? 0xFFFFFF01u : 0xFFFFFF00u;
         });

@@ -13,8 +13,11 @@
 #include "game/core/dbg.h"
 #include "game/core/stubs.h"
 #include "game/mth/random.h"
+#include "game/pcm/music_api.h"
+#include "game/pcm/stream.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -49,9 +52,8 @@ bool StreamsOn()
 
 Stream* Streams() { return reinterpret_cast<Stream*>(0x0069B938); }
 constexpr int kStreams = 3;
-// 1 if the platform's stream `channel` (-1: all three) isn't playing, 2 if it is (0x00453270, not rewritten yet).
-int ChannelStatus(int channel) { return GameFunction<int(__cdecl*)(int)>(0x00453270)(channel); }
-bool Playing(const Stream& stream) { return ChannelStatus(stream.channel) != 1; }
+// Whether the platform's stream `channel` is playing (StreamStatus: 1 free, 2 playing).
+bool Playing(const Stream& stream) { return StreamStatus(stream.channel) != 1; }
 // The objects that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
 uint32_t** StreamOwners() { return reinterpret_cast<uint32_t**>(0x00698060); }
 int& FrameCount() { return GameVariable<int>(0x0067D7F0); }
@@ -77,12 +79,10 @@ bool IsOff(const Playlist& list, int track)
     return track < 64 ? (Bit(track) & list.off[0]) != 0 : (Bit(track - 64) & list.off[1]) != 0;
 }
 
-void PlayTrack(void* track, int special) { GameFunction<void(__cdecl*)(void*, int)>(0x004520D0)(track, special); }
-
 // The track's start: the stream played, and the script told which track it is.
 void StartTrack(Playlist& list, int track)
 {
-    PlayTrack(list.tracks[track], 0);
+    PlayTrack(reinterpret_cast<const char*>(list.tracks[track]), false);
     CurrentTrack() = track;
     Script::CStruct* params = Script::NewStruct();
     params = params ? params->Init() : nullptr;
@@ -111,18 +111,11 @@ char* Title(int track) { return reinterpret_cast<char*>(0x006999F8 + 100 * track
 // A global ClearPlaylist clears (just past the three streams; nothing else uses it).
 int& ClearedByClearPlaylist() { return GameVariable<int>(0x0069BAA4); }
 
-// The platform's music: its volume (0x00453400), pause (0x004532C0: music 1 / streams 0), and the end of the
-// track playing (0x00450650, StopMusic).
-void SetPlatformVolume(float volume) { GameFunction<int(__cdecl*)(float)>(0x00453400)(volume); }
-void PlatformPause(bool pause, int music) { GameFunction<void(__cdecl*)(bool, int)>(0x004532C0)(pause, music); }
-void StopMusic() { GameFunction<void(__cdecl*)()>(0x00450650)(); }
-// The sound effects manager's volume (0x0047AFD0, a method of 0x006F85A8 that reads a global).
-float SfxVolume() { return GameFunction<float(__thiscall*)(void*)>(0x0047AFD0)(GameVariable<void*>(0x006F85A8)); }
-// 0x00450820: start the track's stream at `volume` (false if it can't; not rewritten yet).
-bool StartTrackStream(const char* name, float volume)
-{
-    return GameFunction<bool(__cdecl*)(const char*, float)>(0x00450820)(name, volume);
-}
+// The platform's music: its volume and pause (music 1 / streams 0).
+void SetPlatformVolume(float volume) { PlatformSetMusicVolume(volume); }
+void PlatformPause(bool pause, int music) { PauseStreams(pause, music); }
+// The sound effects manager's volume (the original calls it as a method of 0x006F85A8; it reads a global).
+float SfxVolume() { return Sfx::GetMainVolume(); }
 // 0x005B9760 (the shared `return true` stub): whether the file is there (the PS2's check, nothing on the PC).
 bool FileThere(const char*, int) { return Stubs::ReturnTrue(); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
@@ -263,7 +256,7 @@ void __cdecl ApplyTrackVolume()
 // 0x00451450
 bool __cdecl IsTrackPlaying(int list, int track)
 {
-    if (!MusicOn() || GameFunction<int(__cdecl*)()>(0x00453250)() == 1) // 1: no stream playing
+    if (!MusicOn() || MusicStatus() == 1) // 1: no stream playing
         return false;
     if (track >= Playlists()[list].count)
         return false;
@@ -355,7 +348,7 @@ void __cdecl PlayTrack(const char* name, bool loop)
     bool atMusicVolume = OtherListsAtMusicVolume();
     float volume = list != 0 && !atMusicVolume ? SfxVolume() : MusicVolume();
     Looping() = loop;
-    if (StartTrackStream(playing, volume) || GameVariable<bool>(0x00684FA8)) // (the debug checks)
+    if (PlayTrackByName(playing, volume) || GameVariable<bool>(0x00684FA8)) // (the debug checks)
         return;
     // It doesn't play: switch it off.
     Playlist& playlist = Playlists()[list];
@@ -385,18 +378,18 @@ void __cdecl PlayNextTrack()
     Playlist& list = Playlists()[CurrentPlaylist()];
     if (!MusicOn() || list.unknownCA8)
         return;
-    if (GameFunction<int(__cdecl*)()>(0x00453250)() != 1) // 1: no stream playing
+    if (MusicStatus() != 1) // 1: no stream playing
         return;
     GameVariable<int>(0x0069BAAC) = 0;
-    GameFunction<void(__cdecl*)()>(0x00451400)(); // the music volume
+    ApplyTrackVolume(); // the music volume
     if (CurrentPlaylist() == 1) {
         int track = Script::GetInteger(0xF18AB1F9u);
         if (track < Playlists()[1].count)
-            PlayTrack(Playlists()[1].tracks[track], 0);
+            PlayTrack(reinterpret_cast<const char*>(Playlists()[1].tracks[track]), false);
         return;
     }
     if (Looping()) {
-        PlayTrack(SpecialTrack(), 1);
+        PlayTrack(static_cast<const char*>(SpecialTrack()), true);
         return;
     }
     if (list.count == 0)
@@ -462,12 +455,12 @@ void __cdecl PlayNextTrackInOrder()
     Playlist& list = Playlists()[CurrentPlaylist()];
     if (list.unknownCA8)
         return;
-    if (GameFunction<int(__cdecl*)()>(0x00453250)() != 1) // 1: no stream playing
+    if (MusicStatus() != 1) // 1: no stream playing
         return;
     GameVariable<int>(0x0069BAAC) = 0;
-    GameFunction<void(__cdecl*)()>(0x00451400)(); // the music volume
+    ApplyTrackVolume(); // the music volume
     if (Looping()) {
-        PlayTrack(SpecialTrack(), 1);
+        PlayTrack(static_cast<const char*>(SpecialTrack()), true);
         return;
     }
     for (int track = 0; track < list.count; ++track) {
@@ -493,17 +486,17 @@ void __cdecl Update()
         return;
     if (!GameVariable<bool>(0x0067D7E0) && !GameVariable<bool>(0x0067D7E1))
         return;
-    int streams = GameFunction<int(__cdecl*)()>(0x00453940)(); // the stream system's update
+    int streams = UpdateStreams(); // the stream system's update
     if (streams != 0) {
         if (StreamsOn())
-            GameFunction<void(__cdecl*)()>(0x00453BD0)();
+            StopStreams();
         if (streams < 0)
-            GameFunction<void(__cdecl*)()>(0x00450650)(); // pause the music
+            StopMusic(); // pause the music
     }
     ++FrameCount();
     for (int i = 0; i < kStreams; ++i) {
         uint32_t*& owner = StreamOwners()[i];
-        if (owner && !GameFunction<bool(__cdecl*)(int)>(0x00450BE0)(i)) { // (false: the stream is over)
+        if (owner && !UpdateStreamVolume(i)) { // (false: the stream is over)
             owner[6 + i] = 0;
             owner = nullptr;
         }
@@ -567,7 +560,7 @@ uint32_t __cdecl FreeStreamId(uint32_t id)
 // 0x00450310 (with the game's random numbers: PartyMod's shuffle change is only in PlayNextTrack's)
 void __cdecl ShuffleUserSoundtrack()
 {
-    int count = GameFunction<int(__cdecl*)(int)>(0x00454320)(UserSoundtrack()); // the soundtrack's tracks
+    int count = UserSoundtrackTracks(UserSoundtrack()); // the soundtrack's tracks
     if (count == 0)
         return;
     if (count > kUserOrderSize)
@@ -608,17 +601,16 @@ void __cdecl UseUserSoundtrack(int soundtrack)
 void __cdecl UseStandardSoundtrack() { UsingUserSoundtrack() = false; }
 
 // 0x00450420
-void __cdecl StopUserSoundtrack() { GameFunction<void(__cdecl*)()>(0x004531A0)(); }
+void __cdecl StopUserSoundtrack() { StopStreamThread(); }
 
 // 0x004B2350
-int __cdecl GetNumSoundtracks() { return GameFunction<int(__cdecl*)()>(0x004542D0)(); }
+int __cdecl GetNumSoundtracks() { return UserSoundtrackCount(); }
 
 // 0x004B2360
 const char* __cdecl GetSoundtrackName(int index)
 {
     char* name = reinterpret_cast<char*>(0x00701590);
-    // the soundtrack's name (0x00454300, not rewritten yet; null past the last)
-    const wchar_t* wide = GameFunction<const wchar_t*(__cdecl*)(int)>(0x00454300)(index);
+    const wchar_t* wide = UserSoundtrackName(index); // (null past the last)
     if (wide) {
         char* out = name;
         int length = 0;
@@ -677,7 +669,7 @@ void __cdecl SetTracksOff(uint64_t low, uint64_t high)
 void __cdecl SetUserSoundtrackVolume(float volume)
 {
     if (CurrentPlaylist() == 1)
-        GameFunction<int(__cdecl*)(float)>(0x00453400)(volume);
+        PlatformSetMusicVolume(volume);
 }
 
 } // namespace Pcm

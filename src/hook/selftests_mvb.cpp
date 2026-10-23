@@ -13,8 +13,12 @@
 
 #include "game/core/dbg.h"
 #include "game/core/stubs.h"
+#include "game/obj/stream_component.h"
 #include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
+#include "game/pcm/stream.h"
 #include "game/pcm/stream_commands.h"
+#include "game/sfx/sfx.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -68,23 +72,23 @@ int g_scriptFlag;     // Script::GetInteger(0x450BAE2D)
 
 void StandInPlatformMusic(StandIns& s)
 {
-    s.At({0x00453400}, 0, [](Regs& r) {
+    s.At({0x00453400, AddressOf(&Pcm::PlatformSetMusicVolume)}, 0, [](Regs& r) {
         Record({0x3400, r.args[0]});
         return 1u;
     });
-    s.At({0x004532C0}, 0, [](Regs& r) {
+    s.At({0x004532C0, AddressOf(&Pcm::PauseStreams)}, 0, [](Regs& r) {
         Record({0x32C0, r.args[0] & 0xFF, r.args[1]});
         return 0u;
     });
-    s.At({0x00450650}, 0, [](Regs&) {
+    s.At({0x00450650, AddressOf(&Pcm::StopMusic)}, 0, [](Regs&) {
         Record({0x0650});
         return 0u;
     });
-    s.At({0x00453250}, 0, [](Regs&) {
+    s.At({0x00453250, AddressOf(&Pcm::MusicStatus)}, 0, [](Regs&) {
         Record({0x3250});
         return static_cast<uint32_t>(g_streamState);
     });
-    s.At({0x00450820}, 0, [](Regs& r) {
+    s.At({0x00450820, AddressOf(&Pcm::PlayTrackByName)}, 0, [](Regs& r) {
         Record({0x0820, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return g_startOk ? 1u : 0u;
     });
@@ -411,29 +415,29 @@ alignas(16) float g_soundPos[4] = {1.5f, -2.0f, 3.25f, 1.0f};
 
 void StandInStreams(StandIns& s)
 {
-    s.At({0x00453270}, 0, [](Regs& r) {
+    s.At({0x00453270, AddressOf(&Pcm::StreamStatus)}, 0, [](Regs& r) {
         Record({0x3270, r.args[0]});
         return r.args[0] < 4 && g_channelBusy[r.args[0]] ? 2u : 1u;
     });
-    s.At({0x004532C0}, 0, [](Regs& r) {
+    s.At({0x004532C0, AddressOf(&Pcm::PauseStreams)}, 0, [](Regs& r) {
         Record({0x32C0, r.args[0] & 0xFF, r.args[1]});
         return 0u;
     });
-    s.At({0x00453B30}, 0, [](Regs& r) {
+    s.At({0x00453B30, AddressOf(static_cast<void(__cdecl*)(int, int)>(&Pcm::StopStream))}, 0, [](Regs& r) {
         Record({0x3B30, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00454200}, 0, [](Regs& r) {
+    s.At({0x00454200, AddressOf(static_cast<bool(__cdecl*)(uint32_t, int, int)>(&Pcm::PlayStream))}, 0, [](Regs& r) {
         Record({0x4200, r.args[0], r.args[1], r.args[2]});
         return g_platformOk ? 1u : 0u;
     });
-    s.At({0x00454080}, 0, [](Regs& r) {
+    s.At({0x00454080, AddressOf(&Pcm::LoadStream)}, 0, [](Regs& r) {
         const uint32_t* volume = reinterpret_cast<const uint32_t*>(r.args[2]);
         Record({0x4080, r.args[0], r.args[1], volume[0], volume[1], volume[2], volume[5], r.args[3], r.args[4],
                 r.args[5] & 0xFF, r.args[6]});
         return g_platformOk ? 1u : 0u;
     });
-    s.At({0x00450540}, 4, [](Regs& r) {
+    s.At({0x00450540, AddressOf(&Pcm::FamData::Load)}, 4, [](Regs& r) {
         Record({0x0540, r.ecx, r.args[0]});
         if (g_famOk) {
             reinterpret_cast<uint32_t*>(r.ecx)[0] = r.args[0];
@@ -453,7 +457,7 @@ void StandInStreams(StandIns& s)
         Record({0x9760});
         return g_fileThere ? 1u : 0u;
     });
-    s.At({0x0047B340}, 0, [](Regs& r) {
+    s.At({0x0047B340, AddressOf(&Sfx::CSfxManager::IsPaused)}, 0, [](Regs& r) {
         Record({0xB340, r.ecx == reinterpret_cast<uint32_t>(g_soundManager)});
         return g_noSound ? 1u : 0u;
     });
@@ -461,18 +465,18 @@ void StandInStreams(StandIns& s)
         Record({0x09E0, r.args[0] - reinterpret_cast<uint32_t>(g_object), r.args[1]});
         return g_emitter;
     });
-    s.At({0x00433D30}, 8, [](Regs& r) {
+    s.At({0x00433D30, AddressOf(&Obj::CStreamComponent::GetStreamExtent)}, 8, [](Regs& r) {
         Record({0x3D30, r.ecx == reinterpret_cast<uint32_t>(g_component), r.args[0]});
         if (g_direction)
             std::memcpy(reinterpret_cast<void*>(r.args[1]), g_soundPos, 16);
         return g_direction ? 1u : 0u;
     });
-    s.At({0x00433CD0}, 8, [](Regs& r) {
+    s.At({0x00433CD0, AddressOf(&Obj::CStreamComponent::GetStreamPosition)}, 8, [](Regs& r) {
         Record({0x3CD0, r.ecx == reinterpret_cast<uint32_t>(g_component), r.args[1]});
         std::memcpy(reinterpret_cast<void*>(r.args[0]), g_soundPos, 16);
         return r.args[0];
     });
-    s.At({0x0047BE10}, 0x18, [](Regs& r) {
+    s.At({0x0047BE10, AddressOf(&Sfx::CSfxManager::GetVolume)}, 0x18, [](Regs& r) {
         const float* pos = reinterpret_cast<const float*>(r.args[1]);
         const float* direction = reinterpret_cast<const float*>(r.args[5]);
         Record({0xBE10, r.ecx == reinterpret_cast<uint32_t>(g_soundManager), Bits(pos[0]), Bits(pos[2]), r.args[2],
@@ -808,7 +812,7 @@ void TestBinkStreamFiles()
             Record({0x9F, Hash(reinterpret_cast<const char*>(r.args[0]))});
             return 0u;
         });
-        s->At({0x004535E0}, 0, [](Regs&) {
+        s->At({0x004535E0, AddressOf(&Pcm::NewOverlapped)}, 0, [](Regs&) {
             Record({0x35E0});
             return 0xBBBBu;
         });

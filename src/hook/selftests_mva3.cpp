@@ -12,8 +12,11 @@
 #include "game/core/stubs.h"
 #include "game/file/async.h"
 #include "game/pcm/music.h"
+#include "game/obj/stream_component.h"
 #include "game/pcm/music_api.h"
+#include "game/pcm/stream.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -188,7 +191,7 @@ std::vector<uint32_t> RunMusicApi(bool original)
         switch (which) {
         case 0: result(0x05F0, reinterpret_cast<Fn0>(Pick(original, 0x004505F0, &Pcm::NoMusicPlease))(), true); break;
         case 1: result(0x0620, reinterpret_cast<Fn0>(Pick(original, 0x00450620, &Pcm::StreamsDisabled))(), true); break;
-        case 2: result(0x0500, reinterpret_cast<Fn1>(Pick(original, 0x00450500, &Pcm::StreamExists))(a), true); break;
+        case 2: result(0x0500, reinterpret_cast<Fn1>(Pick(original, 0x00450500, static_cast<bool(__cdecl*)(uint32_t)>(&Pcm::StreamExists)))(a), true); break;
         case 3:
             result(0x0520, reinterpret_cast<Fn0>(Pick(original, 0x00450520, &Pcm::GetCurrentTrack))(), false);
             reinterpret_cast<Fn1>(Pick(original, 0x00450530, &Pcm::SetCurrentTrack))(seed * 3);
@@ -216,12 +219,12 @@ std::vector<uint32_t> RunMusicApi(bool original)
             result(0x0A80, reinterpret_cast<Fn1>(Pick(original, 0x00450A80, &Pcm::StartPreLoadedMusicStream))(bits(volume)), true);
             break;
         case 10:
-            reinterpret_cast<Fn1>(Pick(original, 0x00450690, &Pcm::StopStreams))(Next() % 3 ? static_cast<uint32_t>(-1 - static_cast<int>(Next() % 2)) : Next() % 3);
+            reinterpret_cast<Fn1>(Pick(original, 0x00450690, static_cast<void(__cdecl*)(int)>(&Pcm::StopStreams)))(Next() % 3 ? static_cast<uint32_t>(-1 - static_cast<int>(Next() % 2)) : Next() % 3);
             result(0x0690, 0, false);
             break;
-        case 11: reinterpret_cast<Fn1>(Pick(original, 0x004506D0, &Pcm::StopStream))(a); result(0x06D0, 0, false); break;
+        case 11: reinterpret_cast<Fn1>(Pick(original, 0x004506D0, static_cast<void(__cdecl*)(uint32_t)>(&Pcm::StopStream)))(a); result(0x06D0, 0, false); break;
         case 12:
-            result(0x0780, reinterpret_cast<Fn2>(Pick(original, 0x00450780, &Pcm::SetStreamVolume))(a, reinterpret_cast<uint32_t>(g_volume)), true);
+            result(0x0780, reinterpret_cast<Fn2>(Pick(original, 0x00450780, static_cast<bool(__cdecl*)(uint32_t, void*)>(&Pcm::SetStreamVolume)))(a, reinterpret_cast<uint32_t>(g_volume)), true);
             break;
         case 13:
             result(0x07D0, reinterpret_cast<Fn2>(Pick(original, 0x004507D0, &Pcm::SetStreamPitch))(a, bits(volume)), true);
@@ -285,62 +288,65 @@ void TestMusicApi()
         auto* s = new StandIns();
         auto none = [](uint32_t, Regs&) { return 0u; };
         auto flag = [](uint32_t v, Regs&) { return (v & 1) | 0xAB00u; }; // (only AL counts)
-        Standin(*s, {0x00453AA0}, 0, 0x3AA0, 1, none);
-        Standin(*s, {0x00453BD0}, 0, 0x3BD0, 0, none);
-        Standin(*s, {0x00453B30}, 0, 0x3B30, 2, none);
-        Standin(*s, {0x00453400}, 0, 0x3400, 1, none);
-        Standin(*s, {0x00453DF0}, 0, 0x3DF0, 0, [](uint32_t, Regs& r) {
+        // (the music's stop: the original passes it 1 or 0, unused - not recorded: ours passes nothing)
+        Standin(*s, {0x00453AA0, AddressOf(&Pcm::PlatformStopMusic)}, 0, 0x3AA0, 0, none);
+        Standin(*s, {0x00453BD0, AddressOf(static_cast<void(__cdecl*)()>(&Pcm::StopStreams))}, 0, 0x3BD0, 0, none);
+        Standin(*s, {0x00453B30, AddressOf(static_cast<void(__cdecl*)(int, int)>(&Pcm::StopStream))}, 0, 0x3B30, 2, none);
+        Standin(*s, {0x00453400, AddressOf(&Pcm::PlatformSetMusicVolume)}, 0, 0x3400, 1, none);
+        Standin(*s, {0x00453DF0, AddressOf(static_cast<bool(__cdecl*)(const Pcm::StreamVolume*, int)>(&Pcm::SetStreamVolume))}, 0, 0x3DF0, 0, [](uint32_t, Regs& r) {
             Record({HashBytes(reinterpret_cast<uint8_t*>(r.args[0]), 24), r.args[1]});
             return 0u;
         });
-        Standin(*s, {0x00453270}, 0, 0x3270, 1, [](uint32_t v, Regs&) { return 1 + v % 2; });
-        Standin(*s, {0x00454320}, 0, 0x4320, 1, [](uint32_t v, Regs&) { return v % 5; });
-        Standin(*s, {0x00453D70}, 0, 0x3D70, 1, flag);
-        Standin(*s, {0x00453850}, 0, 0x3850, 2, flag);
+        Standin(*s, {0x00453270, AddressOf(&Pcm::StreamStatus)}, 0, 0x3270, 1, [](uint32_t v, Regs&) { return 1 + v % 2; });
+        Standin(*s, {0x00454320, AddressOf(&Pcm::UserSoundtrackTracks)}, 0, 0x4320, 1, [](uint32_t v, Regs&) { return v % 5; });
+        Standin(*s, {0x00453D70, AddressOf(&Pcm::LoadMusicTrackByName)}, 0, 0x3D70, 1, flag);
+        Standin(*s, {0x00453850, AddressOf(&Pcm::PlayUserTrack)}, 0, 0x3850, 2, flag);
         Standin(*s, {0x00450310, AddressOf(&Pcm::ShuffleUserSoundtrack)}, 0, 0x0310, 0, none);
-        Standin(*s, {0x00453DB0}, 0, 0x3DB0, 1, flag);
-        Standin(*s, {0x00453220}, 0, 0x3220, 0, flag);
-        Standin(*s, {0x00453BF0}, 0, 0x3BF0, 0, flag);
-        Standin(*s, {0x004531D0}, 0, 0x31D0, 1, flag);
-        Standin(*s, {0x00454270}, 0, 0x4270, 3, flag);
-        Standin(*s, {0x004533E0}, 0, 0x33E0, 2, [](uint32_t v, Regs&) { return v % 3 ? v : 0; });
+        Standin(*s, {0x00453DB0, AddressOf(&Pcm::PlayMusicTrack)}, 0, 0x3DB0, 1, flag);
+        Standin(*s, {0x00453220, AddressOf(&Pcm::MusicPreloadDone)}, 0, 0x3220, 0, flag);
+        Standin(*s, {0x00453BF0, AddressOf(&Pcm::StartPreloadedMusic)}, 0, 0x3BF0, 0, flag);
+        Standin(*s, {0x004531D0, AddressOf(&Pcm::StreamPreloadDone)}, 0, 0x31D0, 1, flag);
+        // (the original also passes the pitch, which the platform's start doesn't take: not recorded)
+        Standin(*s, {0x00454270, AddressOf(&Pcm::StartPreloadedStream)}, 0, 0x4270, 2, flag);
+        Standin(*s, {0x004533E0, AddressOf(static_cast<uint32_t(__cdecl*)(uint32_t, int)>(&Pcm::StreamExists))}, 0, 0x33E0, 2,
+                [](uint32_t v, Regs&) { return v % 3 ? v : 0; });
         Standin(*s, {0x005B9760, AddressOf(&Stubs::ReturnTrue)}, 0, 0x9760, 0, flag);
         Standin(*s, {0x00450260, AddressOf(&Pcm::FindPlayingStream)}, 0, 0x0260, 1, // (the second argument, 1, is unused)
                 [](uint32_t v, Regs&) { return static_cast<uint32_t>(static_cast<int>(v % 5) - 2); });
-        Standin(*s, {0x0047B030}, 0, 0xB030, 0, [](uint32_t v, Regs& r) {
+        Standin(*s, {0x0047B030, AddressOf(&Sfx::sVolume::Init)}, 0, 0xB030, 0, [](uint32_t v, Regs& r) {
             auto* p = reinterpret_cast<uint32_t*>(r.ecx);
             for (int i = 0; i < 6; ++i)
                 p[i] = v + i;
             return r.ecx;
         });
-        Standin(*s, {0x0047AD60}, 0, 0xAD60, 0, [](uint32_t, Regs& r) {
+        Standin(*s, {0x0047AD60, AddressOf(&Sfx::sVolume::SetSilent)}, 0, 0xAD60, 0, [](uint32_t, Regs& r) {
             std::memset(reinterpret_cast<void*>(r.ecx), 0, 20);
             return 0u;
         });
-        Standin(*s, {0x0047AC50}, 4, 0xAC50, 1, [](uint32_t, Regs& r) {
+        Standin(*s, {0x0047AC50, AddressOf(&Sfx::sVolume::PercentageAdjustment)}, 4, 0xAC50, 1, [](uint32_t, Regs& r) {
             Record({HashBytes(reinterpret_cast<uint8_t*>(r.ecx), 24)});
             return 0u;
         });
         Standin(*s, {0x004A09E0}, 0, 0x09E0, 2,
                 [](uint32_t v, Regs&) { return v % 3 ? reinterpret_cast<uint32_t>(g_object) : 0u; });
-        Standin(*s, {0x00433D30}, 8, 0x3D30, 1, [](uint32_t v, Regs& r) {
+        Standin(*s, {0x00433D30, AddressOf(&Obj::CStreamComponent::GetStreamExtent)}, 8, 0x3D30, 1, [](uint32_t v, Regs& r) {
             Record({Rel(r.ecx)});
             std::memset(reinterpret_cast<void*>(r.args[1]), 0x11, 16);
             return v & 1;
         });
-        Standin(*s, {0x00433CD0}, 8, 0x3CD0, 0, [](uint32_t, Regs& r) {
+        Standin(*s, {0x00433CD0, AddressOf(&Obj::CStreamComponent::GetStreamPosition)}, 8, 0x3CD0, 0, [](uint32_t, Regs& r) {
             Record({Rel(r.ecx), Rel(r.args[1])});
             std::memset(reinterpret_cast<void*>(r.args[0]), 0x22, 16);
             return r.args[0];
         });
-        Standin(*s, {0x0047BE10}, 24, 0xBE10, 0, [](uint32_t, Regs& r) {
+        Standin(*s, {0x0047BE10, AddressOf(&Sfx::CSfxManager::GetVolume)}, 24, 0xBE10, 0, [](uint32_t, Regs& r) {
             Record({r.ecx, r.args[2], r.args[3], Rel(r.args[4]), r.args[5] != 0, HashBytes(reinterpret_cast<uint8_t*>(r.args[0]), 24), HashBytes(reinterpret_cast<uint8_t*>(r.args[1]), 16)});
             if (r.args[5])
                 Record({HashBytes(reinterpret_cast<uint8_t*>(r.args[5]), 16)});
             std::memset(reinterpret_cast<void*>(r.args[0]), 0x5E, 0x2C); // (the whole Sfx::sVolume, as the original)
             return 1u;
         });
-        Standin(*s, {0x00453670}, 0, 0x3670, 0, none);
+        Standin(*s, {0x00453670, AddressOf(&Pcm::InitPlatform)}, 0, 0x3670, 0, none);
         Standin(*s, {0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 0, 0x8F60, 1,
                 [](uint32_t v, Regs&) { return v % 3 ? v % 200 : 0; });
         // The file functions.

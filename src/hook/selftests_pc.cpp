@@ -22,6 +22,7 @@
 #include "game/core/dbg.h"
 #include "game/gfx/movie.h"
 #include "game/pcm/music.h"
+#include "game/pcm/stream.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
 #include "game/sys/platform.h"
@@ -1111,9 +1112,9 @@ void TestPlayNextTrack()
         bytes[0] = 0xE8;
         add({new CodePatch(call, bytes)});
     }
-    add(JumpBoth(0x00453250, nullptr, reinterpret_cast<const void*>(&PlStreamStateResult)));
-    add(JumpBoth(0x00451400, nullptr, reinterpret_cast<const void*>(&PlVolume)));
-    add(JumpBoth(0x004520D0, nullptr, reinterpret_cast<const void*>(&PlPlayTrack)));
+    add(JumpBoth(0x00453250, CodeAddress(&Pcm::MusicStatus), reinterpret_cast<const void*>(&PlStreamStateResult)));
+    add(JumpBoth(0x00451400, CodeAddress(&Pcm::ApplyTrackVolume), reinterpret_cast<const void*>(&PlVolume)));
+    add(JumpBoth(0x004520D0, CodeAddress(&Pcm::PlayTrack), reinterpret_cast<const void*>(&PlPlayTrack)));
     add(JumpBoth(0x00475790, CodeAddress(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript)),
                  reinterpret_cast<const void*>(&PlRunScript)));
     add(JumpBoth(0x00478F60, CodeAddress(static_cast<int (*)(uint32_t)>(&Script::GetInteger)), reinterpret_cast<const void*>(&PlGetInteger)));

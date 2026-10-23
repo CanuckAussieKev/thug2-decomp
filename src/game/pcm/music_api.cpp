@@ -2,13 +2,19 @@
 
 #include "game/pcm/music_api.h"
 
+#include <bit>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 
 #include "game/core/stubs.h"
 #include "game/file/async.h"
+#include "game/mth/vector.h"
+#include "game/obj/stream_component.h"
 #include "game/pcm/music.h"
+#include "game/pcm/stream.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -69,26 +75,20 @@ uint32_t& UserPosition() { return GameVariable<uint32_t>(0x0069BAC0); }
 bool ShuffleUser() { return GameVariable<bool>(0x0069BABC); }
 int CurrentPlaylist() { return GameVariable<int>(0x0069BA9C); }
 
-// The platform layer (PCMAudio_*, not rewritten yet).
-void PlatformStopMusic(bool wait) { GameFunction<void(__cdecl*)(int)>(0x00453AA0)(wait ? 1 : 0); }
-void PlatformStopStreams() { GameFunction<void(__cdecl*)()>(0x00453BD0)(); }
-void PlatformStopStream(int index) { GameFunction<void(__cdecl*)(int, int)>(0x00453B30)(index, 1); }
-void PlatformSetMusicVolume(float volume) { GameFunction<void(__cdecl*)(float)>(0x00453400)(volume); }
-void PlatformSetStreamVolume(void* volume, int index) { GameFunction<void(__cdecl*)(void*, int)>(0x00453DF0)(volume, index); }
-int ChannelStatus(int channel) { return GameFunction<int(__cdecl*)(int)>(0x00453270)(channel); }
-uint32_t NumUserTracks(int soundtrack) { return GameFunction<uint32_t(__cdecl*)(int)>(0x00454320)(soundtrack); }
+// The platform layer (stream.h). The original passes the music's stop 1 (StopMusic) or 0 (the music streams),
+// which it doesn't use; the stream's stop is given 1 (unused too).
+void PlatformStopStreams() { Pcm::StopStreams(); }
+void PlatformStopStream(int index) { Pcm::StopStream(index, 1); }
+void PlatformSetStreamVolume(const void* volume, int index)
+{
+    // (an sVolume starts with the platform's StreamVolume: five channels and the type)
+    Pcm::SetStreamVolume(static_cast<const StreamVolume*>(volume), index);
+}
+int ChannelStatus(int channel) { return StreamStatus(channel); }
+uint32_t NumUserTracks(int soundtrack) { return static_cast<uint32_t>(UserSoundtrackTracks(soundtrack)); }
 
-// A sound's volume (Sfx::sVolume, 0x2C bytes): five channels and a type from the sound manager (the constructor
-// sets these), then a direction and a float the positional volume (0x0047BE10) sets.
-struct SfxVolume {
-    uint32_t channels[5]; // (floats, copied as bits)
-    int type;
-    float direction[4]; // +0x18
-    float unknown28;
-};
-static_assert(sizeof(SfxVolume) == 0x2C, "the original's frame keeps 0x2C bytes for it");
 constexpr uint32_t kHundredPercent = 0x42C80000; // 100.0f
-void* SoundManager() { return GameVariable<void*>(0x006F85A8); }
+Sfx::CSfxManager* SoundManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
 
 } // namespace
 
@@ -99,7 +99,7 @@ bool __cdecl NoMusicPlease() { return !MusicOn(); }
 bool __cdecl StreamsDisabled() { return !StreamsOn(); }
 
 // 0x00450500
-bool __cdecl StreamExists(uint32_t name) { return GameFunction<int(__cdecl*)(uint32_t, int)>(0x004533E0)(name, 0) != 0; }
+bool __cdecl StreamExists(uint32_t name) { return StreamExists(name, 0) != 0; }
 
 // 0x00450520
 int __cdecl GetCurrentTrack() { return CurrentTrackIndex(); }
@@ -114,7 +114,7 @@ void __cdecl StopMusic()
         return;
     FrameCount() = 1;
     MusicStreamType() = kMusicStreamNone;
-    PlatformStopMusic(true);
+    PlatformStopMusic();
 }
 
 // 0x00450820
@@ -123,14 +123,14 @@ bool __cdecl PlayTrackByName(const char* name, float volume)
     if (!MusicOn())
         return false;
     if (!UsingUserSoundtrack() || CurrentPlaylist() == 1) {
-        if (!GameFunction<bool(__cdecl*)(const char*)>(0x00453D70)(name))
+        if (!LoadMusicTrackByName(name))
             return false;
         PlatformSetMusicVolume(volume);
         return true;
     }
     if (!NumUserTracks(UserSoundtrack()))
         return false;
-    if (!GameFunction<bool(__cdecl*)(int, uint32_t)>(0x00453850)(UserSoundtrack(), UserTrack()))
+    if (!PlayUserTrack(UserSoundtrack(), static_cast<int>(UserTrack())))
         return false;
     if (ShuffleUser()) {
         if (++UserPosition() >= NumUserTracks(UserSoundtrack())) {
@@ -150,7 +150,7 @@ void __cdecl PlayMusicStream(uint32_t /*name*/, float volume)
 {
     if (!MusicOn())
         return;
-    PlatformStopMusic(false);
+    PlatformStopMusic();
     if (volume < Zero())
         volume = DefaultMusicVolume();
     if (MusicOn())
@@ -163,10 +163,10 @@ bool __cdecl PreLoadMusicStream(uint32_t name)
 {
     if (!MusicOn())
         return false;
-    PlatformStopMusic(false);
+    PlatformStopMusic();
     if (!MusicOn())
         return false;
-    bool loading = GameFunction<bool(__cdecl*)(uint32_t)>(0x00453DB0)(name);
+    bool loading = PlayMusicTrack(name);
     if (loading)
         MusicStreamType() = kMusicStreamPreload;
     return loading;
@@ -177,7 +177,7 @@ bool __cdecl PreLoadMusicStreamDone()
 {
     if (!MusicOn())
         return false;
-    return GameFunction<bool(__cdecl*)()>(0x00453220)();
+    return MusicPreloadDone();
 }
 
 // 0x00450A80
@@ -187,7 +187,7 @@ bool __cdecl StartPreLoadedMusicStream(float volume)
         return false;
     if (volume < Zero())
         volume = DefaultMusicVolume();
-    if (!GameFunction<bool(__cdecl*)()>(0x00453BF0)())
+    if (!StartPreloadedMusic())
         return false;
     PlatformSetMusicVolume(volume);
     return true;
@@ -261,7 +261,7 @@ bool __cdecl PreLoadStreamDone(uint32_t idOrName)
     int index = FindPlayingStream(idOrName);
     if (index < 0)
         return false;
-    return GameFunction<bool(__cdecl*)(int)>(0x004531D0)(index);
+    return StreamPreloadDone(index);
 }
 
 // 0x00450980
@@ -273,7 +273,8 @@ bool __cdecl StartPreLoadedStream(uint32_t idOrName, void* volume, float pitch, 
     if (index < 0)
         return false;
     StreamAt(index)->priority = priority;
-    return GameFunction<bool(__cdecl*)(int, void*, float)>(0x00454270)(index, volume, pitch);
+    (void)pitch; // (the original passes it on; the platform's start doesn't take it)
+    return StartPreloadedStream(index, static_cast<const StreamVolume*>(volume));
 }
 
 // 0x00450AE0
@@ -328,29 +329,31 @@ bool __cdecl UpdateStreamVolume(int slot)
     if (ChannelStatus(StreamAt(slot)->channel) == 1)
         return false;
     StreamFields* stream = StreamAt(index);
-    SfxVolume volume;
-    GameFunction<void(__thiscall*)(SfxVolume*)>(0x0047B030)(&volume);
-    void* manager = SoundManager();
+    Sfx::sVolume volume;
+    volume.Init();
+    Sfx::CSfxManager* manager = SoundManager();
     if (stream->positional) {
+        // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = GameFunction<void*(__cdecl*)(void*, int)>(0x004A09E0)(*reinterpret_cast<uint8_t**>(owner + 0xC) + 0x4C, 0);
         if (object) {
-            uint8_t velocity[16];
-            uint8_t* velocityOrNull = nullptr;
-            if (GameFunction<bool(__thiscall*)(void*, void*, void*)>(0x00433D30)(owner, object, velocity))
-                velocityOrNull = velocity;
-            uint8_t position[16];
-            void* where = GameFunction<void*(__thiscall*)(void*, void*, void*)>(0x00433CD0)(owner, position, object);
-            GameFunction<void(__thiscall*)(void*, SfxVolume*, void*, uint32_t, int, void*, void*)>(0x0047BE10)(
-                manager, &volume, where, stream->dropoff, stream->dropoffFunction, object, velocityOrNull);
+            auto* component = reinterpret_cast<Obj::CStreamComponent*>(owner);
+            Mth::Vector extent;
+            Mth::Vector* extentOrNull = nullptr;
+            if (component->GetStreamExtent(object, &extent))
+                extentOrNull = &extent;
+            Mth::Vector position;
+            Mth::Vector* where = component->GetStreamPosition(&position, object);
+            manager->GetVolume(&volume, where, std::bit_cast<float>(stream->dropoff), stream->dropoffFunction, object,
+                               extentOrNull);
         } else {
-            GameFunction<void(__thiscall*)(SfxVolume*)>(0x0047AD60)(&volume); // silent
+            volume.SetSilent();
         }
     } else {
-        volume.channels[0] = stream->volume;
-        volume.channels[1] = stream->volume;
+        std::memcpy(&volume.m_channels[0], &stream->volume, 4);
+        std::memcpy(&volume.m_channels[1], &stream->volume, 4);
     }
     if (stream->volume != kHundredPercent)
-        GameFunction<void(__thiscall*)(SfxVolume*, uint32_t)>(0x0047AC50)(&volume, stream->volume);
+        volume.PercentageAdjustment(std::bit_cast<float>(stream->volume));
     PlatformSetStreamVolume(&volume, stream->channel);
     return true;
 }
@@ -360,7 +363,7 @@ void __cdecl Init()
 {
     Owners()[0] = Owners()[1] = Owners()[2] = nullptr;
     if (SoundAvailable() && (GameVariable<bool>(0x0067D7E0) || StreamsOn())) {
-        GameFunction<void(__cdecl*)()>(0x00453670)();
+        InitPlatform();
         Initialised() = true;
         DefaultStreamVolume() = static_cast<float>(Script::GetInteger(0xABD4A575u));
         if (DefaultStreamVolume() == Zero())
@@ -418,7 +421,7 @@ bool FamData::Load(uint32_t famName)
 
 REPLACE(0x004505F0, Pcm::NoMusicPlease);
 REPLACE(0x00450620, Pcm::StreamsDisabled);
-REPLACE(0x00450500, Pcm::StreamExists);
+REPLACE(0x00450500, static_cast<bool(__cdecl*)(uint32_t)>(Pcm::StreamExists));
 REPLACE(0x00450520, Pcm::GetCurrentTrack);
 REPLACE(0x00450530, Pcm::SetCurrentTrack);
 REPLACE(0x00450650, Pcm::StopMusic);
@@ -427,9 +430,9 @@ REPLACE(0x00450EF0, Pcm::PlayMusicStream);
 REPLACE(0x004509E0, Pcm::PreLoadMusicStream);
 REPLACE(0x00450A50, Pcm::PreLoadMusicStreamDone);
 REPLACE(0x00450A80, Pcm::StartPreLoadedMusicStream);
-REPLACE(0x00450690, Pcm::StopStreams);
-REPLACE(0x004506D0, Pcm::StopStream);
-REPLACE(0x00450780, Pcm::SetStreamVolume);
+REPLACE(0x00450690, static_cast<void(__cdecl*)(int)>(Pcm::StopStreams));
+REPLACE(0x004506D0, static_cast<void(__cdecl*)(uint32_t)>(Pcm::StopStream));
+REPLACE(0x00450780, static_cast<bool(__cdecl*)(uint32_t, void*)>(Pcm::SetStreamVolume));
 REPLACE(0x004507D0, Pcm::SetStreamPitch);
 REPLACE(0x00450940, Pcm::PreLoadStreamDone);
 REPLACE(0x00450980, Pcm::StartPreLoadedStream);
