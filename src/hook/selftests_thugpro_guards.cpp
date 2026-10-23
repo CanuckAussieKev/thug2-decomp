@@ -13,6 +13,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/net_dispatcher.h"
@@ -156,7 +157,7 @@ void StandInGraffiti(StandIns& s)
         Record({0xD5, r.ecx});
         return g_gwTeamMode;
     });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Record({0xD6, r.ecx, r.args[0]});
         int id = static_cast<int>(r.args[0]);
         if (id == g_gwUnknownOnce) {
@@ -166,7 +167,7 @@ void StandInGraffiti(StandIns& s)
         return reinterpret_cast<uint32_t>(g_gw.players[static_cast<uint32_t>(id) % g_gw.playerCount]);
     });
     // The player walk: the search's node holds the next index + 1.
-    s.At({0x005372C0}, 8, [](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [](Regs& r) {
         Record({0xD7, r.ecx, r.args[1]});
         auto* search = reinterpret_cast<uint32_t*>(r.args[0]);
         Record({search[0]});
@@ -175,7 +176,7 @@ void StandInGraffiti(StandIns& s)
         search[1] = 1;
         return reinterpret_cast<uint32_t>(g_gw.players[0]);
     });
-    s.At({0x00537010}, 8, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [](Regs& r) {
         Record({0xD8, r.ecx, r.args[1]});
         auto* search = reinterpret_cast<uint32_t*>(r.args[0]);
         uint32_t next = search[1];
@@ -560,11 +561,11 @@ void BuildUpdateWorld(uint32_t seed)
 
 void StandInUpdates(StandIns& s)
 {
-    s.At({0x0053AE10}, 4, [](Regs& r) {
+    s.At({0x0053AE10, AddressOf(&GameNet::Manager::PlayerByConnection)}, 4, [](Regs& r) {
         Record({0xB0, r.args[0]});
         return g_uwPlayer < 0 ? 0u : reinterpret_cast<uint32_t>(g_uw.players[g_uwPlayer]);
     });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Record({0xB1, r.args[0]});
         return reinterpret_cast<uint32_t>(g_uw.players[r.args[0] & 7]);
     });
