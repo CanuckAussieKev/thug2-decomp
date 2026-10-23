@@ -8,12 +8,17 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
+#include "game/ed/park_editor.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_lists.h"
 #include "game/net/net_manager.h"
+#include "game/obj/trick_objects.h"
+#include "game/skate/profile_manager.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/skater.h"
 #include "game/sys/timer.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -82,7 +87,8 @@ void Manager::AddNewPlayer(uint8_t* info)
         } else if (Field<uint32_t>(info, kInfoFlags) & kNewLocal) {
             skater = Call<Obj::CObject*>(0x00567180, skate, profile, true, static_cast<int>(objId), 0);
         } else {
-            int count = Call<void*>(0x00566520, skate) ? Call<int>(0x0041AD90, skate) : (Call<int>(0x0041AD90, skate) + 1) & 7;
+            auto* skaters = reinterpret_cast<Mdl::Skate*>(skate);
+            int count = Call<void*>(0x00566520, skate) ? skaters->GetNumSkaters() : (skaters->GetNumSkaters() + 1) & 7;
             skater = Call<Obj::CObject*>(0x00567180, skate, Field<void*>(info, kInfoProfile), false,
                                          static_cast<int>(objId), count);
             if (Field<int>(info, kInfoVehicle)) // its vehicle control type
@@ -116,18 +122,18 @@ void Manager::AddNewPlayer(uint8_t* info)
         head->prev->next = node;
         head->prev = node;
         if (Field<uint8_t>(info, kInfoFlags) & kNewHasCrown)
-            Call(0x00544340, player, true);
+            AsPlayer(player)->MarkAsKing(true);
     }
     if (Field<uint32_t>(info, kInfoFlags) & kNewResync) {
-        Call(0x0053A040, this);
-        Call(0x00534D70, this);
-        Call(0x005889F0, GameVariable<void*>(0x007CE500)); // the trick objects
+        PrepareLocalFace();
+        SendCustomTagTexture();
+        GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->RemoveAllClusters(); // the trick objects
         Run(kResyncedPlayers);
     }
     if (!IsLocalPlayer(player)) {
         auto* object = static_cast<Obj::CCompositeObject*>(skater);
         uint8_t* score = Field<uint8_t*>(object->GetComponent(kSkaterScore), 0x18);
-        Call(0x00581510, skater); // hidden
+        static_cast<Obj::CSkater*>(skater)->HideSkater(); // hidden
         Call(0x00561A80, score, Field<int>(info, kInfoScore));
     }
 }
@@ -149,7 +155,7 @@ void __cdecl Manager::ClientAddNewPlayersTask(void* task)
             if (Field<uint32_t>(info, kInfoTime) > Field<uint32_t>(manager->m_client, 0x1410))
                 break; // (its time hasn't come: the rest wait too)
             manager->AddNewPlayer(info);
-            Call(0x00543560, info); // (its destructor)
+            reinterpret_cast<NewPlayerInfo*>(info)->DestroyBody(); // (its destructor)
             Mem::Manager::Get()->Free(info);
             reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(node))[0])(node, 1);
             added = true;
@@ -163,7 +169,7 @@ void __cdecl Manager::ClientAddNewPlayersTask(void* task)
             }
             for (int i = 0; i < 8; ++i)
                 if (void* skater = Call<void*>(0x005665C0, skate, i))
-                    Call(0x005814D0, skater);
+                    static_cast<Obj::CSkater*>(skater)->Reset27C();
             manager->SendReadyResponse();
         }
     }
@@ -219,9 +225,7 @@ uint16_t FillNewPlayerMessage(NewPlayerMessage& msg, uint8_t* player, int8_t obj
     msg.value14 = 0;
     msg.value10 = 0;
     std::strcpy(msg.name, reinterpret_cast<const char*>(player + 0x38));
-    int size = GameFunction<int(__thiscall*)(void*, uint8_t*, int, bool)>(0x00587050)(Field<void*>(player, 0x4C),
-                                                                                       msg.appearance, kAppearanceSize,
-                                                                                       broadband); // WriteToBuffer
+    int size = Field<Obj::CSkaterProfile*>(player, 0x4C)->WriteToBuffer(msg.appearance, kAppearanceSize, broadband ? 1 : 0);
     return static_cast<uint16_t>(size + kNewPlayerHeader);
 }
 
@@ -278,7 +282,7 @@ void __cdecl Manager::ServerAddNewPlayersTask(void* task)
             uint8_t* player = manager->NewPlayer(nullptr, conn, Field<uint32_t>(info, kInfoFlags));
             Mem::Manager::Get()->PopContext();
             std::strcpy(reinterpret_cast<char*>(player + 0x38), reinterpret_cast<const char*>(info));
-            Call(0x00543270, player, Field<void*>(info, kInfoProfile)); // its appearance (a copy of the profile)
+            AsPlayer(player)->SetProfile(Field<Obj::CSkaterProfile*>(info, kInfoProfile)); // its appearance (a copy of the profile)
             Field<uint32_t>(player, 0x1D8) = Field<uint32_t>(info, 0x24);
             Field<int>(player, 0x28) = Field<int>(info, kInfoProfileId);
             Field<int>(player, 0x2C) = Field<int>(info, kInfoRating);
@@ -350,20 +354,20 @@ void __cdecl Manager::ServerAddNewPlayersTask(void* task)
                     msg.profileId = Field<int32_t>(other, 0x28);
                     msg.rating = Field<int32_t>(other, 0x2C);
                     msg.vehicleControlType = Field<int32_t>(other, 0x48);
-                    msg.score = Call<int>(0x005436E0, manager, SkaterId(PlayerSkater(other))); // (its score)
+                    msg.score = manager->GetPlayerScore(SkaterId(PlayerSkater(other))); // (its score)
                     msg.value14 = Field<uint32_t>(other, 0x20);
                     msg.value10 = Field<uint32_t>(other, 0x1C);
                     std::strcpy(msg.name, reinterpret_cast<const char*>(other + 0x38));
-                    int size = GameFunction<int(__thiscall*)(void*, uint8_t*, int, bool)>(0x00587050)(
-                        Field<void*>(other, 0x4C), msg.appearance, kAppearanceSize, broadband);
+                    int size = Field<Obj::CSkaterProfile*>(other, 0x4C)->WriteToBuffer(msg.appearance, kAppearanceSize,
+                                                                                       broadband ? 1 : 0);
                     SendNewPlayer(server, desc, player, msg, static_cast<uint16_t>(size + kNewPlayerHeader));
                 }
                 uint32_t level = manager->m_level;
                 if (!IsLocalPlayer(player) && level == kLoadParkLevel) {
-                    void* park = GameVariable<void*>(0x007CE5D8);
-                    Call(0x0058D680, park);
+                    auto* park = Ed::CParkEditor::Instance();
+                    park->WriteCompressedMapIfBuilt();
                     server->StreamMessage(PlayerHandle(player), kMsgParkMap, kParkMapSize,
-                                          Call<void*>(0x0058D690, park, 0), "level data", kGroupGame, false, true);
+                                          park->GetCompressedMapBuffer(false), "level data", kGroupGame, false, true);
                     GameFunction<void*(__cdecl*)()>(0x004F4970)(); // (called twice, the first result unused)
                     void* rails = Call<void*>(0x004F45B0, GameFunction<void*(__cdecl*)()>(0x004F4970)());
                     server->StreamMessage(PlayerHandle(player), kMsgRails, kRailsSize, rails, "rail data", kGroupGame,
@@ -376,22 +380,22 @@ void __cdecl Manager::ServerAddNewPlayersTask(void* task)
                 bool localConn = Field<Net::Conn*>(player, 0x18)->IsLocal();
                 auto* skater = Call<Obj::CObject*>(0x00567180, skate, Field<void*>(info, kInfoProfile), localConn,
                                                    static_cast<int>(objId), count);
-                Call(0x005438D0, player, skater);
+                AsPlayer(player)->SetSkater(static_cast<Obj::CSkater*>(skater));
                 if (!IsLocalPlayer(player))
-                    Call(0x00581510, skater); // hidden
+                    static_cast<Obj::CSkater*>(skater)->HideSkater(); // hidden
                 for (uint8_t* other = FirstPlayer(manager, &search, true); other; other = NextPlayer(manager, &search, true)) {
                     if (other == player)
                         continue;
                     SendWord(server, desc, other, kMsgReadyQuery, &now);
                     if (!IsLocalPlayer(other) && !IsObserver(other)) {
-                        Call(0x005814D0, PlayerSkater(other)); // reset
-                        Call(0x00544670, other, now);
+                        static_cast<Obj::CSkater*>(PlayerSkater(other))->Reset27C(); // reset
+                        AsPlayer(other)->AwaitReadyResponse(now);
                     }
                 }
             }
             SendWord(server, desc, player, kMsgReadyQuery, &now);
-            Call(0x00544670, player, now);
-            Call(0x00543560, info); // (its destructor)
+            AsPlayer(player)->AwaitReadyResponse(now);
+            reinterpret_cast<NewPlayerInfo*>(info)->DestroyBody(); // (its destructor)
             Mem::Manager::Get()->Free(info);
             reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(node))[0])(node, 1);
             node = next;

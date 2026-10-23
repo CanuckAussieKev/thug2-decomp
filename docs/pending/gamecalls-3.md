@@ -63,3 +63,39 @@ src/hook/viewer_testkit.h (ScriptExists' stand-in).
     overlaps. Mutations (out/scripts/mut1.ts): 47, 44 caught; missed: heap-dump and heap-named (TestHeap has no named
     heap 0x502D3FD2 and no failed allocation that asks for the dump - untested, as before the change), join-objid-sign
     (the object ids in the join tests are below 0x80, so the sign extension isn't exercised - untested).
+- [x] Batch GC3-2 (NOT run in the game yet; the rest of net): every call into rewritten code in src/game/net is direct
+  now - the handler helpers (gamenet_handler_util.h: PlayerByConnection / PlayerByObjectId / LocalPlayer /
+  KingOfTheHill, PlayerInfo's IsLocalPlayer / IsObserver / GetConnHandle through AsPlayer(), the player list
+  searches), gamenet_flow / handlers / game_handlers / game_cfuncs / game_commands / commands / lobby /
+  lobby_cfuncs / lobby_menus / lobby_peer / manager_create / members / newplayers / players / player_lists / qr2 /
+  server_handlers / session_handlers / settings / tasks, lobby.cpp, player_flags, player_info, score_list,
+  server_browser, server_list, stats, stats_man, net_app, net_client, net_manager, gamenet_observer.h. The calls go
+  to PlayerInfo, Manager, LobbyMan, BuddyMan, StatsMan, VaultMan, the skater (CSkater), the crown, the trick object
+  manager, the park editor, the skater profile, the walk camera and the skate module's AddClientHandlers.
+  - New (no addresses of their own, both declared in gamenet_manager.h): Manager::NextNewPlayerInfo - the joining
+    players' next, which the original reaches through the lists' generic next folded at 0x004573D0
+    (Net::App::NextConnection, with the manager as its unused this) - and Manager::UnlinkAllNodes (__fastcall, head
+    in ECX) - the original's call to the list code folded at 0x00588B70 (Obj::TrickObjectHead::UnlinkAll) from
+    Manager::DestroyBody. Their stand-ins: 0x004573D0 / 0x00588B70's tests cover them.
+  - Folded functions whose names don't fit the caller, written as what they do (no call): the manager's last leading
+    team (+0x1D4) set to -1 in HandleStartGame (the original calls PlayerInfo::SetReadyQueryOwed's 0x005430D0 on the
+    manager); the goal count and the stats' rating read as their first words (the original: Spt::PointerMember::Get,
+    0x00469490) - the tests now put the value in the arena instead of standing in for 0x00469490. The folded getters
+    with neutral names (GameNet::FoldedGetters::Byte10 / Word04 / Word18) are called directly. The network cable
+    check is Stubs::ReturnFalse() (0x005B9E50, the network object's method on the PC).
+  - Kept as they are (function addresses passed as data, not calls): the GameSpy callbacks and threads
+    (buddy_man.cpp kOnBuddyRequest / kLoginThread, service.cpp's news / motd threads, lobby.cpp's peer callbacks,
+    ConnectThread, the tasks' codes, qr2's key callbacks, stats.cpp's OnTopStats, gamenet_lobby_cfuncs / _peer's
+    "no progress" 0x005480A0) and the join's handler table (gamenet_join.cpp) - they reach our code through the hooks;
+    for a game without the exe they're to become &Function too.
+  - Odd: lobby.cpp's LobbyMan::Destroy calls LobbyListNode's destructor body (0x00540860) on the lobby itself (the
+    header says so; kept). gamenet_commands.cpp's SetLobbyState / SetServicesState call the manager's SetServiceState
+    / SetNextServiceState (names differ, behaviour as before). StatsMan::GenerateAuth is stdcall but the original
+    passes the online service in ECX too (unused). gamenet_players.cpp kept its own copy of NewPlayerInfo's layout
+    (now GameNet::NewPlayerInfo, player_info.h, as in gamenet_join.cpp). GetPlayerScore passes its 32-bit id to
+    PlayerByObjectId, which reads 16 bits: the test records the 16.
+  - Tests changed: every {address} stand-in list for the converted addresses (out/gc3/map2.txt, map2b.txt), the loops
+    of plain addresses in selftests_net_lists.cpp, selftests_skater_gamenet2.cpp and _gamenet5.cpp made pairs,
+    TestRetrieveTopStats patches our VaultMan::Download too, the 0x005B9E50 stub in net_newplayers is cdecl (no ECX),
+    GenerateAuth's stub doesn't record ECX, GameNetKit::Str qualified where skater.h's namespace Str now clashes.
+  - Checks: thug2_check on both exes 0 MISMATCHED, 771 early self-tests all passed; check_code_writes no overlaps. Mutations (out/scripts/mut2.ts): 40, all caught.

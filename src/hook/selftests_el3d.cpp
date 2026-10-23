@@ -26,6 +26,7 @@
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
+#include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/sdl_window.h"
 #include "game/sys/timer.h"
@@ -460,7 +461,7 @@ void InstallStandIns(StandIns& s)
         Rec(0xC1B0, {r.args[0], r.args[1]});
         return At(kNode);
     });
-    s.At({0x0045C050}, 0, [](Regs& r) {
+    s.At({0x0045C050, AddressOf(static_cast<bool (*)(Script::CStruct*, Mth::Vector*)>(SkateScript::GetPosition))}, 0, [](Regs& r) {
         Rec(0xC050, {r.args[0], InArena(r.args[1]) ? r.args[1] : 0x57ACu}); // (a local: on the stack)
         const float pos[4] = {17.5f, -3.25f, 400.0625f, 1.0f};
         std::memcpy(reinterpret_cast<void*>(r.args[1]), pos, sizeof(pos));

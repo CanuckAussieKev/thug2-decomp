@@ -12,6 +12,7 @@
 #include "game/ass/assman.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/net/buddy_status.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_world.h"
@@ -118,7 +119,7 @@ void StandIn(StandIns& s)
         Record({0xC510, r.args[0]});
         return reinterpret_cast<uint32_t>(g_world.sector);
     });
-    s.At({0x005480F0}, 0, [](Regs& r) {
+    s.At({0x005480F0, AddressOf(&GameNet::FoldedGetters::Word18)}, 0, [](Regs& r) {
         Record({0x80F0, Rel(r.ecx)});
         return g_a.sectorHasCollision ? reinterpret_cast<uint32_t>(g_world.sectorCollision) : 0u;
     });

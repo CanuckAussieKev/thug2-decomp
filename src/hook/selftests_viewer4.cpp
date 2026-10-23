@@ -13,6 +13,7 @@
 
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/gamenet_manager.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/skater/manual.h"
@@ -102,7 +103,7 @@ void Install(StandIns& s)
         Rec(0x80C0, {r.ecx});
         return g_netGame ? 1u : 0u;
     });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return 0u;
     });

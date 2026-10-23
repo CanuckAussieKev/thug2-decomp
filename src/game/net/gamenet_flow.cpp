@@ -5,15 +5,19 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/core/stubs.h"
 #include "game/core/task.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_element_manager.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_man.h"
+#include "game/net/gamenet_commands.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_lists.h"
+#include "game/net/stats_man.h"
 #include "game/obj/smtptr.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
@@ -145,13 +149,13 @@ void Manager::ResetToLobby()
     Call(0x00553AD0, GameMode(), kNetLobby); // the game mode
     Call(0x005535A0, GameMode(), teams);
     m_gameOver = false;
-    Call(0x00537620, this);
+    ResetPlayers();
     if (uint8_t* king = KingOfTheHill(this))
-        Call(0x00544340, king, false);
+        AsPlayer(king)->MarkAsKing(false);
     PlayerSearch search;
     for (uint8_t* p = FirstPlayer(this, &search, true); p; p = NextPlayer(this, &search, true))
-        Call(0x00543410, p); // carries no flag
-    Call(0x00537B30, this);
+        AsPlayer(p)->ClearFlags(); // carries no flag
+    ClearQueuedScripts();
     Field<uint32_t>(this, 0x1B0) = Tmr::GetTime(); // (back in the lobby: auto-serve waits from here)
 }
 
@@ -163,9 +167,9 @@ void Manager::StartNetworkGame()
     desc.Construct();
     Prefs::Preferences* prefs = GamePreferences(this);
     Net::App* server = m_server;
-    Call(0x00536820, this);
+    RemoveAllNewPlayers();
     Field<uint32_t>(this, 0x30) = PreferenceChecksum(GamePreferences(this), kGameType, kChecksum);
-    Call(0x005359F0, this); // the skaters' starting points shuffled
+    ChooseStartPoints(); // the skaters' starting points shuffled
     std::memset(&Field<uint8_t>(this, 0x70), 0, 0x50);
     uint32_t gameType = Field<uint32_t>(this, 0x30);
     uint32_t timeLimit =
@@ -190,7 +194,7 @@ void Manager::StartNetworkGame()
     uint32_t value = 0;
     GamePreferences(this)->GetPreference(kGoals)->GetChecksum("checksum", &value, 1);
     info.goals = value;
-    info.value20 = Call<uint32_t>(0x00535AD0, this);
+    info.value20 = GetTeamGraffitiMode();
     do
         info.gameId = static_cast<uint8_t>(Mth::Rnd(0xFF) + 1);
     while (info.gameId == Field<uint8_t>(this, 0x39));
@@ -203,21 +207,21 @@ void Manager::StartNetworkGame()
     desc.m_groupId = kGroupGame;
     for (uint8_t* p = FirstPlayer(this, &search, true); p; p = NextPlayer(this, &search, true)) {
         Field<uint32_t>(p, 0x24) = 0;
-        Call(0x00543410, p); // carries no flag
+        AsPlayer(p)->ClearFlags(); // carries no flag
         Field<uint32_t>(p, 0x1D0) &= ~kPlayerCaptureBlocked;
         server->EnqueueMessage(PlayerHandle(p), &desc);
         if (!InNetGame())
             break; // (split screen: the first player only)
     }
     if (uint8_t* king = KingOfTheHill(this))
-        Call(0x00544340, king, false);
+        AsPlayer(king)->MarkAsKing(false);
     Field<void*>(this, 0x1D0) = nullptr;   // the last leader
     Field<int>(this, 0x1D4) = -1;          // the last leading team
-    Call(0x00537B30, this);
-    Call(0x00537620, this);
+    ClearQueuedScripts();
+    ResetPlayers();
     GameVariable<bool>(0x007CE4FD) = false;
-    if (Call<bool>(0x0054C9B0, m_statsMan))
-        Call(0x0054CE80, m_statsMan);
+    if (static_cast<StatsMan*>(m_statsMan)->UpdateLoggedIn())
+        static_cast<StatsMan*>(m_statsMan)->StartGame();
 }
 
 // 0x0053C6E0
@@ -231,12 +235,12 @@ void Manager::CancelJoin()
     desc.m_id = kMsgDisconnect;
     SendToServer(client, &desc);
     client->SendData(false);
-    Call(0x005399F0, this);
+    DisconnectClients();
     m_joinTimeoutTask->Remove();
-    Call(0x00536820, this);
+    RemoveAllNewPlayers();
     if (Field<bool>(m_buddyMan, 0x10)) // (logged in to the presence)
-        Call(0x00548320, m_buddyMan, kHomieStatusChatting, Script::GetString("homie_status_chatting"),
-             static_cast<char*>(m_lobbyMan) + 0x34);
+        static_cast<BuddyMan*>(m_buddyMan)->SetStatus(kHomieStatusChatting, Script::GetString("homie_status_chatting"),
+                                                      static_cast<char*>(m_lobbyMan) + 0x34);
 }
 
 // 0x0053BED0
@@ -244,7 +248,7 @@ void __cdecl Manager::ObserverTask(void*)
 {
     Manager* manager = GameVariable<Manager*>(0x007CCE14);
     if (manager->m_observerCommand == 1) { // (the next player asked for)
-        manager->ObservePlayer(Call<uint8_t*>(0x0053A580, manager));
+        manager->ObservePlayer(static_cast<uint8_t*>(manager->NextCamPlayer()));
         manager->m_observerCommand = 0;
     }
 }
@@ -254,7 +258,7 @@ void __cdecl Manager::AutoServeTask(void* task)
 {
     Manager* manager = TaskManager(task);
     if (Tmr::GetTime() - GameVariable<uint32_t>(0x007CCDEC) < kAutoServeWait || GameType() != kNetLobby ||
-        Call<int>(0x00539B00, manager) < 2 || manager->m_waitingForGameToStart ||
+        manager->CountPlayers() < 2 || manager->m_waitingForGameToStart ||
         Tmr::GetTime() - Field<uint32_t>(manager, 0x1B0) <= kAutoServeIdle)
         return;
     Run(kLoadPendingPlayers);
@@ -319,7 +323,7 @@ void __cdecl Manager::StartGameTask(void* task)
 {
     Manager* manager = TaskManager(task);
     bool& waitingShown = GameVariable<bool>(0x007CCE2C);
-    if (Call<int>(0x00537530, manager) > 0) { // players still loading
+    if (manager->CountOtherPlayers() > 0) { // players still loading
         if (manager->OnServer()) {
             if (!waitingShown) {
                 Front::ElementPtr menu;
@@ -330,13 +334,13 @@ void __cdecl Manager::StartGameTask(void* task)
                 }
             }
         } else if (!waitingShown) {
-            Call(0x005376F0, manager, true, kGameWillStart, static_cast<const char*>(nullptr),
-                 static_cast<const char*>(nullptr), static_cast<void*>(nullptr), "netexceptionprops", false, kPanelTime);
+            manager->CreateNetPanelMessage(true, kGameWillStart, nullptr, nullptr, nullptr, "netexceptionprops", false,
+                                           kPanelTime);
             waitingShown = true;
         }
         return;
     }
-    if (GameFunction<bool(__cdecl*)(int, int)>(0x00538DC0)(0, 0) &&
+    if (CFunc_AllPlayersAreReady(nullptr, nullptr) && // (the script command, without parameters)
         Tmr::GetTime() >= GameVariable<uint32_t>(0x007CCDF4)) { // every one ready, and the time has come
         waitingShown = false;
         manager->StartNetworkGame();
@@ -349,12 +353,13 @@ void __cdecl Manager::ConnectionTask(void* task)
 {
     Manager* manager = TaskManager(task);
     uint8_t* skate = Skate();
-    void* net = GameVariable<void*>(0x006EFDD8);
     uint32_t& checked = GameVariable<uint32_t>(0x007CCE30); // the link checked last
     if (manager->InNetMode() && Tmr::GetTime() - checked > kLinkCheckInterval) {
         bool netGame = manager->InNetGame();
         checked = Tmr::GetTime();
-        if (GameFunction<bool(__thiscall*)(void*)>(0x005B9E50)(net)) { // the network cable unplugged
+        // the network cable unplugged: a method of the network object (0x006EFDD8) - on the PC the shared
+        // return-false stub 0x005B9E50
+        if (Stubs::ReturnFalse()) {
             Front::ElementPtr dialog;
             Front::CScreenElementManager::Instance()->GetElement(&dialog, netGame ? kLinkLostDialogAnchor : kDialogBoxAnchor, 0);
             if (!dialog.Get()) {
@@ -407,8 +412,8 @@ void __cdecl Manager::ConnectionTask(void* task)
     } else {
         Run(kCreateLostConnectionDialog);
         manager->DestroyAllPlayers();
-        Call(0x00536820, manager); // the joining players gone
-        Call(0x005399F0, manager); // the apps shut down
+        manager->RemoveAllNewPlayers(); // the joining players gone
+        manager->DisconnectClients();   // the apps shut down
     }
 }
 

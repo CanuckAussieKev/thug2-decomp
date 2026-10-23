@@ -369,7 +369,7 @@ void Install(StandIns& s)
         Rec(0x6110, {r.ecx, r.args[0]});
         return At(StructAt(40)); // the trick mapping
     });
-    s.At({0x0045DB90}, 4, [](Regs& r) {
+    s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
         Rec(0xDB90, {r.ecx, r.args[0]});
         return At(kMisc + (r.args[0] == 0x43686585u ? 0x40u : 0x60u)); // the state (+0xE0), the score (+0x18)
     });

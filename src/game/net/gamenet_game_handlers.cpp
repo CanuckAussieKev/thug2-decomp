@@ -17,6 +17,7 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/skate/profile_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -73,7 +74,7 @@ constexpr int kPanelTime = 2000;
 // 0x005376F0: a panel message (broadcast, text, string 1, string 2, object, properties, important, time).
 void PanelMessage(Manager* manager, uint32_t text, const char* string1, Obj::CObject* object)
 {
-    Call(0x005376F0, manager, false, text, string1, static_cast<const char*>(nullptr), object, 0, false, kPanelTime);
+    manager->CreateNetPanelMessage(false, text, string1, nullptr, object, nullptr, false, kPanelTime);
 }
 
 // The rail editor (0x004F4970) and the goal editor (0x004E8470).
@@ -106,7 +107,7 @@ int __cdecl HandleNewPlayer(Net::MsgHandlerContext* context)
     const uint8_t* msg = Message(context);
     Manager* manager = ManagerOf(context);
     alignas(4) uint8_t info[0x44]; // a NewPlayerInfo
-    Call(0x005434D0, info);        // (its constructor: a skater profile at +0x1C)
+    reinterpret_cast<NewPlayerInfo*>(info)->Construct(); // (its constructor: a skater profile at +0x1C)
     // (strncpy: 15 characters at most, the rest of the 15 zeroed)
     size_t length = strnlen(reinterpret_cast<const char*>(msg + 0x20), 15);
     std::memcpy(info, msg + 0x20, length);
@@ -122,15 +123,15 @@ int __cdecl HandleNewPlayer(Net::MsgHandlerContext* context)
     Field<uint32_t>(info, 0x40) = Field<uint32_t>(msg, 0x1C);
     Field<uint32_t>(info, 0x34) = Field<uint32_t>(msg, 0x0C);
     if (!(Field<uint32_t>(info, 0x20) & 5))
-        Call(0x00586DC0, Field<void*>(info, 0x1C), msg + 0x30); // the appearance into its profile
+        Field<Obj::CSkaterProfile*>(info, 0x1C)->ReadFromBuffer(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
     int delay = 0;
     if (manager->m_readyToPlay) {
-        Call(0x005376F0, manager, false, kNetMessageNewPlayer, reinterpret_cast<const char*>(info),
-             static_cast<const char*>(nullptr), 0, 0, false, kPanelTime);
+        manager->CreateNetPanelMessage(false, kNetMessageNewPlayer, reinterpret_cast<const char*>(info), nullptr, nullptr,
+                                       nullptr, false, kPanelTime);
         delay = 10;
     }
-    Call(0x0053A310, manager, info, delay); // the new player (added in `delay` frames)
-    Call(0x00543560, info);                 // (its destructor)
+    manager->AddJoiningPlayer(info, delay);                   // the new player (added in `delay` frames)
+    reinterpret_cast<NewPlayerInfo*>(info)->DestroyBody(); // (its destructor)
     return kContinue;
 }
 
@@ -141,7 +142,7 @@ int __cdecl HandleCrownSpawn(Net::MsgHandlerContext* context)
     uint8_t* king = KingOfTheHill(manager);
     char spot = static_cast<char>(Message(context)[0]);
     if (king) {
-        Call(0x00544340, king, false); // no longer the king
+        AsPlayer(king)->MarkAsKing(false); // no longer the king
     }
     if (king && IsLocalPlayer(king)) {
         PanelMessage(manager, kDroppedCrownYou, nullptr, PlayerSkater(king));
@@ -167,7 +168,7 @@ int __cdecl HandleCrownSpawn(Net::MsgHandlerContext* context)
                 continue;
             if (spot == 0) {
                 Mth::Vector position;
-                GameFunction<void(__cdecl*)(Script::CStruct*, Mth::Vector*)>(0x0045C050)(node, &position);
+                SkateScript::GetPosition(node, &position);
                 crown->m_pos = position;
                 placed = true;
                 break;
@@ -185,7 +186,7 @@ int __cdecl HandleFcfsNotice(Net::MsgHandlerContext* context)
 {
     uint8_t* local = LocalPlayer(ManagerOf(context));
     const uint8_t* msg = Message(context);
-    Call(0x00543390, local); // (its flag 0x200 set)
+    AsPlayer(local)->MarkAsServerPlayer(); // (its flag 0x200 set)
     Script::CStruct* params = NewParams();
     params->AddChecksum(kChecksum, Field<uint32_t>(msg, 0));
     Run(kLaunchFcfsNotification, params);
@@ -198,9 +199,9 @@ int __cdecl HandleFlagReturned(Net::MsgHandlerContext* context)
 {
     Manager* manager = ManagerOf(context);
     uint8_t* player = PlayerByObjectId(manager, Message(context));
-    if (!player || !Call<bool>(0x005433B0, player)) // (carrying a flag)
+    if (!player || !AsPlayer(player)->IsCarryingFlag()) // (carrying a flag: 0 / 1)
         return kContinue;
-    int team = Call<int>(0x005433D0, player); // the flag's team
+    int team = AsPlayer(player)->GetFlagTeam(); // the flag's team
     char name[64];
     TeamNameKey(name, team);
     Script::CStruct* params = NewParams();
@@ -213,7 +214,7 @@ int __cdecl HandleFlagReturned(Net::MsgHandlerContext* context)
     uint8_t* local = LocalPlayer(manager);
     if (local && !IsObserver(local) && PlayerTeam(local) == team)
         Run(kHideCtfArrow);
-    Call(0x00543410, player); // carries no flag
+    AsPlayer(player)->ClearFlags(); // carries no flag
     return kContinue;
 }
 
@@ -279,7 +280,7 @@ int __cdecl HandleNewKing(Net::MsgHandlerContext* context)
     NewPlayerSearch search;
     // The crown off the old king - or off a new player waiting to be added.
     if (uint8_t* king = KingOfTheHill(manager)) {
-        Call(0x00544340, king, false);
+        AsPlayer(king)->MarkAsKing(false);
     } else {
         for (uint8_t* added = FirstNewPlayer(manager, &search); added; added = NextNewPlayer(manager, &search)) {
             if (Field<uint32_t>(added, 0x20) & 0x80) {
@@ -290,7 +291,7 @@ int __cdecl HandleNewKing(Net::MsgHandlerContext* context)
     }
     // Onto the player of object id msg[0] - or the new player of that id.
     if (uint8_t* player = PlayerByObjectId(manager, msg)) {
-        Call(0x00544340, player, true);
+        AsPlayer(player)->MarkAsKing(true);
         return kContinue;
     }
     for (uint8_t* added = FirstNewPlayer(manager, &search); added; added = NextNewPlayer(manager, &search)) {
@@ -467,7 +468,7 @@ int __cdecl HandleEliminated(Net::MsgHandlerContext* context)
     if (!player)
         return kContinue;
     uint8_t* skate = Skate();
-    Call(0x00543420, player);
+    AsPlayer(player)->MarkEliminated();
     Call(0x00564C60, skate, PlayerSkater(player), 1);
     if (IsLocalPlayer(player)) {
         Run(kEliminatedYou);

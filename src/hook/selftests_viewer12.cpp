@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/net/buddy_status.h"
 #include "game/net/net_dispatcher.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
@@ -150,7 +151,7 @@ void Install(StandIns& s)
     for (uint32_t address : {0x0051EB00u, 0x0051ED10u, 0x0051EB30u, 0x0051EF00u, 0x00420480u, 0x0051D830u})
         Simple(s, {address}, 0);
     Simple(s, {0x00407A60}, 0, 1);
-    s.At({0x005480F0}, 0, [](Regs& r) {
+    s.At({0x005480F0, AddressOf(&GameNet::FoldedGetters::Word18)}, 0, [](Regs& r) {
         Rec(0x80F0, {r.ecx});
         return r.ecx == Block(12) ? 0u : Block(18);
     });

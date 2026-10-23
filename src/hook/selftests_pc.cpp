@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/net/vault_man.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/gfx/flash.h"
@@ -34,6 +35,7 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "hook/standins.h"
 
 
 namespace {
@@ -267,6 +269,10 @@ int __cdecl StandInSprintf(char* out, const char* format, ...)
 void TestRetrieveTopStats()
 {
     CodePatch send(0x0054A910, JumpTo(0x0054A910, reinterpret_cast<void*>(&StandInSendStatsRequest)));
+    // (and ours: RetrieveTopStats calls VaultMan::Download directly)
+    CodePatch sendOurs(TestStandIns::AddressOf(&GameNet::VaultMan::Download),
+                       JumpTo(TestStandIns::AddressOf(&GameNet::VaultMan::Download),
+                              reinterpret_cast<void*>(&StandInSendStatsRequest)));
     CodePatch print(0x006234FE, JumpTo(0x006234FE, reinterpret_cast<void*>(&StandInSprintf)));
     void* savedManager = GameVariable<void*>(0x007CCE14);
     const char* savedHost = Net::GamestatsHost();

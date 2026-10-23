@@ -9,6 +9,7 @@
 
 #include "game/core/task.h"
 #include "game/net/gamenet_handler_util.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_manager.h"
@@ -314,7 +315,7 @@ void Manager::DisconnectFromInternet(uint32_t script)
     if (script)
         Field<uint32_t>(this, kOfflineScript) = script;
     tasks->AddTask(Field<Tsk::BaseTask*>(this, kConnectTask));
-    Call(0x005453E0, this, 2);
+    SetServiceState(2);
     net->DisconnectFromInternet();
 }
 
@@ -330,7 +331,7 @@ void __cdecl Manager::CancelConnectToInternet()
         task->Remove();
         Field<int>(manager, kOnlineState) = -1;
         LogicTasks()->AddTask(Field<Tsk::BaseTask*>(manager, kConnectTask));
-        Call(0x005453E0, manager, 2);
+        manager->SetServiceState(2);
         Net::Manager::Instance()->DisconnectFromInternet();
         break;
     case 2:
@@ -351,9 +352,9 @@ void __cdecl Manager::CancelConnectToInternet()
 // 0x00536490
 void Manager::FindServerAt(uint32_t ip)
 {
-    Call(0x00545370, this); // (the server lists cleared)
-    Call(0x005462F0, this);
-    Call(0x00545300, this);
+    StopServerList(); // (the server lists cleared)
+    ClearServerList();
+    StartServerList();
     GameVariable<bool>(0x007CCA88) = false;
     if (!m_matchClient)
         SpawnMatchClient();
@@ -403,8 +404,8 @@ const char* Manager::GetGameTypeName()
 void Manager::SetLevel(uint32_t level)
 {
     m_level = level;
-    void* peer = Call<void*>(0x0053F880, m_lobbyMan);
-    if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && Call<bool>(0x0053F810, m_lobbyMan))
+    void* peer = static_cast<LobbyMan*>(m_lobbyMan)->GetPeer();
+    if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && static_cast<LobbyMan*>(m_lobbyMan)->IsHosting())
         GameFunction<void(__cdecl*)(void*)>(0x005FCCF0)(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
     GameVariable<bool>(0x007CCE1D) = false;

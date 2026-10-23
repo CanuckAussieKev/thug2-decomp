@@ -18,6 +18,7 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/skate/profile_manager.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -50,16 +51,16 @@ uint32_t PlayerAt(int i) { return kPlayers + kPlayerSize * static_cast<uint32_t>
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         uint32_t id = r.args[0] & 0xFFFF;
         Rec(0xAEA0, {r.ecx, id});
         uint32_t i = id - 0x10;
         return i < 8 && ((g_presentIds >> i) & 1) ? At(PlayerAt(static_cast<int>(i))) : 0u;
     });
     Stub(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_local ? At(g_local) : 0u; });
-    Stub(s, {0x00537480}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
-    Stub(s, {0x00544340}, 4, 0x4340);
-    s.At({0x005376F0}, 0x20, [](Regs& r) {
+    Stub(s, {0x00537480, AddressOf(&GameNet::Manager::GetKingOfTheHill)}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
+    Stub(s, {0x00544340, AddressOf(&GameNet::PlayerInfo::MarkAsKing)}, 4, 0x4340);
+    s.At({0x005376F0, AddressOf(&GameNet::Manager::CreateNetPanelMessage)}, 0x20, [](Regs& r) {
         Rec(0x76F0, {r.ecx, r.args[0] & 0xFF, r.args[1], Str(r.args[2]), Str(r.args[3]), r.args[4], r.args[5],
                      r.args[6] & 0xFF, r.args[7]});
         return 0u;
@@ -80,7 +81,7 @@ void Install(StandIns& s)
              *reinterpret_cast<uint32_t*>(r.args[1]) = g_nodeTypes[node];
              return 1u;
          });
-    StubCdecl(s, {0x0045C050}, 0xC050, 1, [](Regs& r) { // (the out vector is a local: not recorded)
+    StubCdecl(s, {0x0045C050, AddressOf(static_cast<bool (*)(Script::CStruct*, Mth::Vector*)>(SkateScript::GetPosition))}, 0xC050, 1, [](Regs& r) { // (the out vector is a local: not recorded)
         auto* out = reinterpret_cast<float*>(r.args[1]);
         uint32_t node = (r.args[0] - At(kNodes)) / 0x10;
         out[0] = 1.5f * node;
@@ -100,7 +101,7 @@ void Install(StandIns& s)
         Rec(0x3560, {*reinterpret_cast<uint32_t*>(r.ecx + 0x1C)});
         return 0u;
     });
-    Stub(s, {0x00586DC0}, 4, 0x6DC0);
+    Stub(s, {0x00586DC0, AddressOf(&Obj::CSkaterProfile::ReadFromBuffer)}, 4, 0x6DC0);
     s.At({0x0053A310, AddressOf(&GameNet::Manager::AddJoiningPlayer)}, 8, [](Regs& r) {
         auto* info = reinterpret_cast<uint8_t*>(r.args[0]);
         g_trace.push_back(0xA310);
@@ -156,12 +157,12 @@ void Install(StandIns& s)
         });
     }
     // Players and the game mode.
-    s.At({0x005372C0}, 8, [](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [](Regs& r) {
         Rec(0x72C0, {r.ecx, r.args[1] & 0xFF});
         reinterpret_cast<uint32_t*>(r.args[0])[1] = 0;
         return g_playerCount > 0 ? At(PlayerAt(0)) : 0u;
     });
-    s.At({0x00537010}, 8, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [](Regs& r) {
         uint32_t& index = reinterpret_cast<uint32_t*>(r.args[0])[1];
         Rec(0x7010, {r.args[1] & 0xFF, index});
         ++index;
@@ -169,14 +170,14 @@ void Install(StandIns& s)
     });
     Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
     Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_teamCount); });
-    Stub(s, {0x00543420}, 0, 0x3420);
+    Stub(s, {0x00543420, AddressOf(&GameNet::PlayerInfo::MarkEliminated)}, 0, 0x3420);
     // The new players waiting to be added: infos at kNewInfos, 0x40 apart.
-    s.At({0x00537070}, 4, [](Regs& r) {
+    s.At({0x00537070, AddressOf(&GameNet::Manager::FirstNewPlayerInfo)}, 4, [](Regs& r) {
         Rec(0x7070, {r.ecx});
         reinterpret_cast<uint32_t*>(r.args[0])[1] = 0;
         return g_newCount > 0 ? At(kNewInfos) : 0u;
     });
-    s.At({0x004573D0}, 4, [](Regs& r) {
+    s.At({0x004573D0, AddressOf(&GameNet::Manager::NextNewPlayerInfo)}, 4, [](Regs& r) {
         uint32_t& index = reinterpret_cast<uint32_t*>(r.args[0])[1];
         Rec(0x73D0, {r.ecx, index});
         ++index;

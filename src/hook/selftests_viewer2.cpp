@@ -13,6 +13,7 @@
 #include "game/core/string.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
 #include "game/obj/object.h"
@@ -133,7 +134,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // The crown's update.
-    s.At({0x005480F0}, 0, [](Regs& r) {
+    s.At({0x005480F0, AddressOf(&GameNet::FoldedGetters::Word18)}, 0, [](Regs& r) {
         Rec(0x80F0, {r.ecx});
         return At(kComponents + 0x700);
     });

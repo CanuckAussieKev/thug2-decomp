@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/net/gamenet_manager.h"
 #include "game/obj/object.h"
 #include "game/script/nodes.h"
 #include "game/sio/device.h"
@@ -140,7 +141,7 @@ void Install(StandIns& s)
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });
-    Simple(s, {0x0053AEA0}, 4, 30, true);
+    Simple(s, {0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, 30, true);
     Simple(s, {0x00532EA0}, 4, 31, true);
     s.At({0x0049F9B0}, 16, [](Regs& r) {
         Rec(0xF9B0, {r.ecx, Text(r.args[0]), r.args[1], r.args[2], r.args[3]});

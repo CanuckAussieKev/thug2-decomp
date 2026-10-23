@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "game/core/task.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -102,7 +103,7 @@ void Install(StandIns& s)
     StubCdecl(s, {0x00479070, AddressOf(static_cast<CArray* (*)(uint32_t)>(&Script::GetArray))}, 0x9070, 1,
               [](Regs&) { return g_arrayAnswer ? At(g_arrayAnswer) : 0u; });
     // The server's end.
-    Stub(s, {0x0053F7E0}, 0, 0xF7E0);
+    Stub(s, {0x0053F7E0, AddressOf(&GameNet::LobbyMan::StopHosting)}, 0, 0xF7E0);
     StubCdecl(s, {0x005FBCD0}, 0xBCD0, 0);
     Stub(s, {0x00455550, AddressOf(&Net::Manager::DestroyApp)}, 4, 0x5550);
     Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);

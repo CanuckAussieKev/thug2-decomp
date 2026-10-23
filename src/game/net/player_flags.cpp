@@ -8,9 +8,11 @@
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
 #include "game/net/player_info.h"
+#include "game/obj/game_objects.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/skater.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -85,7 +87,7 @@ void TakeFlagFromCarriers(Manager* manager, int team, bool stopAtFirst)
 // 0x00543910
 bool PlayerInfo::IsInvulnerable()
 {
-    if (!(m_conn->m_status & Net::Conn::kStatusReady) || !Call<bool>(0x00580050, m_skater))
+    if (!(m_conn->m_status & Net::Conn::kStatusReady) || !m_skater->GetFlag2C4())
         return true;
     if (Field<int>(Field<void*>(m_skater, 0x27C), 0x18) < 10) // (its state history's frames)
         return true;
@@ -123,8 +125,8 @@ void PlayerInfo::MarkAsFullyIn()
         break;
     }
     case 2:
-        if (!Call<int>(0x005373D0, manager))
-            Call(0x0053AAC0, manager); // (the game starts)
+        if (!manager->GetServerPlayer())
+            manager->AssignFirstComeFirstServed(); // (the game starts)
         break;
     }
 }
@@ -252,7 +254,7 @@ void PlayerInfo::MarkAsKing(bool king)
         m_flags |= kPlayerKing;
         if (m_flags & kPlayerLocal) {
             Script::CStruct* params = NewParams();
-            uint32_t player = Call<int>(0x0057FEC0, m_skater) == 0 ? kPlayer1 : kPlayer2; // (its skater number)
+            uint32_t player = m_skater->GetSkaterNumber() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
             params->AddChecksum(player, player);
             Run(kHideCrownArrow, params);
             DeleteParams(params);
@@ -267,16 +269,16 @@ void PlayerInfo::MarkAsKing(bool king)
         }
         // Split screen: the other screen's player is told too.
         if (!manager->InNetGame() &&
-            Call<uint8_t*, uint32_t>(0x0053AEA0, manager, SkaterId(m_skater) == 0 ? 1u : 0u)) {
+            manager->PlayerByObjectId(SkaterId(m_skater) == 0 ? 1 : 0)) {
             Script::CStruct* params = NewParams();
-            params->AddString(kString0, Call<const char*>(0x00581580, m_skater)); // (its display name)
+            params->AddString(kString0, m_skater->GetDisplayName()); // (its display name)
             Run(kNewKingOther, params);
             DeleteParams(params);
         }
         m_flags |= kPlayerKing;
     }
     if (void* crown = manager->GetCrown())
-        Call(0x005782B0, crown, m_skater); // (worn by the skater)
+        static_cast<Obj::CCrownObject*>(crown)->PutOn(m_skater); // (worn by the skater)
 }
 
 } // namespace GameNet

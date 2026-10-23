@@ -15,11 +15,14 @@
 
 #include "game/core/alloc.h"
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
+#include "game/net/buddy_status.h"
 #include "game/net/gamenet_commands.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
 #include "game/script/cscript.h"
@@ -94,7 +97,7 @@ void Install(StandIns& s)
     });
     Stub(s, {0x0053F880, AddressOf(&GameNet::LobbyMan::GetPeer)}, 0, 0xF880, [](Regs&) { return g_peer ? At(kMisc + 0x480) : 0u; });
     StubCdecl(s, {0x005FC730}, 0xC730, 1, [](Regs&) { return 1u; });
-    Stub(s, {0x0053F810}, 0, 0xF810, [](Regs&) { return 1u; });
+    Stub(s, {0x0053F810, AddressOf(&GameNet::LobbyMan::IsHosting)}, 0, 0xF810, [](Regs&) { return 1u; });
     StubCdecl(s, {0x005FCCF0}, 0xCCF0, 1);
     StubCdecl(s, {0x005FBAD0}, 0xBAD0, 1);
     Stub(s, {0x00535B70, AddressOf(&Manager::GetGameTypePreference)}, 0, 0x5B70, [](Regs&) { return g_gameType; });
@@ -104,7 +107,7 @@ void Install(StandIns& s)
                      r.args[6] & 0xFF, r.args[7]});
         return 0u;
     });
-    s.At({0x005434A0}, 0, [](Regs& r) {
+    s.At({0x005434A0, AddressOf(&GameNet::PlayerInfo::GetConnHandle)}, 0, [](Regs& r) {
         Rec(0x34A0, {r.ecx});
         return (r.ecx - g_base) / 0x10;
     });
@@ -122,8 +125,12 @@ void Install(StandIns& s)
         return 0u;
     });
     // Goals.
-    StubCdecl(s, {0x005591B0}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x700); });
-    Stub(s, {0x00469490}, 0, 0x9490, [](Regs&) { return static_cast<uint32_t>(g_goalCount); });
+    // (the goal count is the goal manager's first word: the original reads it through the getter folded at
+    // 0x00469490, ours as the field - it's put there, not answered by a stand-in)
+    StubCdecl(s, {0x005591B0}, 0x91B0, 0, [](Regs&) {
+        Word<int>(kMisc + 0x700) = g_goalCount;
+        return At(kMisc + 0x700);
+    });
     Stub(s, {0x00557FB0}, 4, 0x7FB0, [](Regs& r) { return At(kGoals + 0x20 * r.args[0]); });
     Stub(s, {0x005542F0}, 0, 0x42F0, [](Regs& r) { return ((r.ecx - At(kGoals)) / 0x20) % 3 != 1 ? 1u : 0u; });
     Stub(s, {0x00554280}, 0, 0x4280, [](Regs& r) { return 0x60A10000u + (r.ecx - At(kGoals)) / 0x20; });
@@ -132,13 +139,13 @@ void Install(StandIns& s)
     Stub(s, {0x005535A0}, 4, 0x35A0);
     Stub(s, {0x00566520}, 0, 0x6520, [](Regs&) { return g_localSkater ? At(g_localSkater) : 0u; });
     Stub(s, {0x00566370}, 12, 0x6370);
-    s.At({0x005433D0}, 0, [](Regs& r) { // (the flag a player carries)
+    s.At({0x005433D0, AddressOf(&GameNet::PlayerInfo::GetFlagTeam)}, 0, [](Regs& r) { // (the flag a player carries)
         Rec(0x33D0, {r.ecx});
         return ((r.ecx - At(kPlayers)) / kPlayerSize) % 3;
     });
     // GameSpy presence.
-    Stub(s, {0x005480B0}, 0, 0x80B0, [](Regs&) { return g_loggedIn ? 1u : 0u; });
-    Stub(s, {0x00549CB0}, 4, 0x9CB0, [](Regs& r) { return r.args[0] % 2; });
+    Stub(s, {0x005480B0, AddressOf(&GameNet::FoldedGetters::Byte10)}, 0, 0x80B0, [](Regs&) { return g_loggedIn ? 1u : 0u; });
+    Stub(s, {0x00549CB0, AddressOf(&GameNet::BuddyMan::IsBuddy)}, 4, 0x9CB0, [](Regs& r) { return r.args[0] % 2; });
     s.At({0x00626EFB}, 0, [](Regs& r) { // _stricmp (the game's C runtime; ours uses the DLL's: not recorded)
         return static_cast<uint32_t>(_stricmp(reinterpret_cast<const char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1])));
     });

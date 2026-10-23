@@ -6,6 +6,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_client.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
@@ -100,7 +101,7 @@ void Install(StandIns& s)
         Rec(0x2EA0, {r.ecx, r.args[0]});
         return Block(12);
     });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return g_player ? Block(13) : 0u;
     });

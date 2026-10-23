@@ -15,6 +15,7 @@
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_manager.h"
+#include "game/net/player_info.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/gamenet_testkit.h"
@@ -43,14 +44,14 @@ void Install(StandIns& s)
     InstallCommon(s);
     StubCdecl(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0xE970, 0, [](Regs&) { return g_now; });
     Stub(s, {0x00565A00}, 4, 0x5A00);
-    Stub(s, {0x00537480}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
-    Stub(s, {0x00544340}, 4, 0x4340);
-    s.At({0x005372C0}, 8, [](Regs& r) {
+    Stub(s, {0x00537480, AddressOf(&GameNet::Manager::GetKingOfTheHill)}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
+    Stub(s, {0x00544340, AddressOf(&GameNet::PlayerInfo::MarkAsKing)}, 4, 0x4340);
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [](Regs& r) {
         Rec(0x72C0, {r.ecx, r.args[1] & 0xFF});
         reinterpret_cast<uint32_t*>(r.args[0])[1] = 0;
         return g_playerCount > 0 ? At(kPlayers) : 0u;
     });
-    s.At({0x00537010}, 8, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [](Regs& r) {
         uint32_t& index = reinterpret_cast<uint32_t*>(r.args[0])[1];
         Rec(0x7010, {r.args[1] & 0xFF, index});
         ++index;

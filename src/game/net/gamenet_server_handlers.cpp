@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "game/core/manager.h"
+#include "game/ed/park_editor.h"
 #include "game/mth/random.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_handlers.h"
@@ -87,7 +88,7 @@ int __cdecl HandleObserveRequest(Net::MsgHandlerContext* context)
         return kDone;
     Net::MsgDesc desc;
     if (!IsLocalPlayer(player) &&
-        Call<int>(0x00539C70, manager) >= manager->GetMaxObservers()) { // the observers so far
+        manager->CountObservers() >= manager->GetMaxObservers()) { // the observers so far
         desc.Construct();
         desc.m_id = kMsgObserversFull;
         manager->m_server->EnqueueMessage(context->m_Conn->m_handle, &desc);
@@ -96,19 +97,19 @@ int __cdecl HandleObserveRequest(Net::MsgHandlerContext* context)
     desc.Construct();
     if (!IsLocalPlayer(player)) {
         Obj::CObject* skater = PlayerSkater(player);
-        Call(0x0053CB70, manager, player, 2);   // the player out of the game (2: to observe)
+        manager->DropPlayer(player, 2);         // the player out of the game (2: to observe)
         Call(0x00565790, skate, skater);        // its skater gone
         Field<uint32_t>(player, 0x1D0) |= 4;    // an observer now
         Field<Obj::CObject*>(player, 0x14) = nullptr;
-        if (Call<bool>(0x00543310, player)) {
-            Call(0x005433A0, player);
-            Call(0x0053AAC0, manager);
+        if (AsPlayer(player)->IsServerPlayer()) {
+            AsPlayer(player)->ClearServerPlayer();
+            manager->AssignFirstComeFirstServed();
         }
         if (player == manager->m_camPlayer) { // the camera onto the next player (none if that's this one again)
-            manager->m_camPlayer = Call<void*>(0x0053A580, manager);
+            manager->m_camPlayer = manager->NextCamPlayer();
             if (player == manager->m_camPlayer)
                 manager->m_camPlayer = nullptr;
-            Call(0x0053A910, manager, manager->m_camPlayer);
+            manager->ObservePlayer(static_cast<uint8_t*>(manager->m_camPlayer));
         }
     }
     desc.m_id = kMsgObserve;
@@ -124,7 +125,7 @@ int __cdecl HandleRequestGameData(Net::MsgHandlerContext* context)
     const uint8_t* msg = Message(context);
     Net::App* app = context->m_App;
     int handle = context->m_Conn->m_handle;
-    void* parkMap = Call<void*>(0x0058D690, GameVariable<void*>(0x007CE5D8), 0);
+    void* parkMap = Ed::CParkEditor::Instance()->GetCompressedMapBuffer(false);
     app->StreamMessage(handle, kMsgParkMap, kParkMapSize, parkMap, "level data", kGroupGame, false, true);
     handle = context->m_Conn->m_handle;
     auto railEditor = [] { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); };
@@ -156,7 +157,7 @@ int __cdecl HandleRequestGameData(Net::MsgHandlerContext* context)
     desc.m_length = 4;
     desc.m_id = kMsgAckQuery;
     app->EnqueueMessage(PlayerHandle(player), &desc);
-    Call(0x00544670, player, query); // (the query it owes)
+    AsPlayer(player)->AwaitReadyResponse(query); // (the query it owes)
     app->SendData(false);
     return kContinue;
 }
@@ -302,7 +303,7 @@ int __cdecl HandleDisconnect(Net::MsgHandlerContext* context)
         if (!IsLocalPlayer(player)) {
             Obj::CObject* skater = PlayerSkater(player);
             bool observer = IsObserver(player);
-            Call(0x0053CB70, manager, player, 0); // the player out of the game
+            manager->DropPlayer(player, 0); // the player out of the game
             if (!observer)
                 Call(0x00565790, skate, skater);
         }
@@ -318,7 +319,7 @@ int __cdecl HandleDisconnect(Net::MsgHandlerContext* context)
         if (Field<Net::Conn*>(info, 0x14) == context->m_Conn) {
             context->m_App->TerminateConnection(Field<Net::Conn*>(info, 0x14));
             reinterpret_cast<void(__thiscall*)(Mem::ListNode*, int)>(node->vtable[0])(node, 1); // the node deleted
-            Call(0x00543560, info);
+            reinterpret_cast<NewPlayerInfo*>(info)->DestroyBody();
             Mem::Manager::Get()->Free(info);
             return kKeep;
         }
@@ -338,10 +339,10 @@ int __cdecl HandleDropCarried(Net::MsgHandlerContext* context)
     Net::MsgDesc desc;
     if (GameType() == kNetCtf) {
         // Its flag returned.
-        if (!player || !Call<bool>(0x005433B0, player))
+        if (!player || !AsPlayer(player)->IsCarryingFlag())
             return kContinue;
         desc.Construct();
-        int team = Call<int>(0x005433D0, player);
+        int team = AsPlayer(player)->GetFlagTeam();
         char name[64];
         TeamNameKey(name, team);
         Script::CStruct* params = NewParams();
@@ -355,7 +356,7 @@ int __cdecl HandleDropCarried(Net::MsgHandlerContext* context)
         uint8_t* local = LocalPlayer(manager);
         if (local && !IsObserver(local) && PlayerTeam(local) == team)
             Run(kHideCtfArrow);
-        Call(0x00543410, player); // carries no flag
+        AsPlayer(player)->ClearFlags(); // carries no flag
         desc.m_data = returned;
         desc.m_length = 2;
         desc.m_id = kMsgFlagReturned;
@@ -370,10 +371,10 @@ int __cdecl HandleDropCarried(Net::MsgHandlerContext* context)
     if (GameType() != kNetKing && GameType() != kKing)
         return kContinue;
     // The crown dropped: a new spot for it.
-    if (!player || !Call<bool>(0x00543490, player)) // (has the crown)
+    if (!player || !AsPlayer(player)->IsKing()) // (has the crown)
         return kContinue;
     desc.Construct();
-    Call(0x00544340, player, false);
+    AsPlayer(player)->MarkAsKing(false);
     int spot = Mth::Rnd(10);
     Field<int>(manager, 0x68) = spot;
     uint8_t message = static_cast<uint8_t>(spot);

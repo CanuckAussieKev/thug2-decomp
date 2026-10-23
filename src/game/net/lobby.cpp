@@ -2,6 +2,7 @@
 //
 // The GameSpy Peer SDK (docs/library_ranges.md) is called by address; what each call does is said where it's made.
 
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_lobby.h"
 
 #include <windows.h>
@@ -18,6 +19,7 @@
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/online_identity.h"
+#include "game/net/stats_man.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -237,7 +239,7 @@ LobbyMan* LobbyMan::Construct()
 // 0x00541AC0
 LobbyMan* LobbyMan::Destroy(unsigned int flags)
 {
-    Call(0x00540860, this); // (the destructor body)
+    reinterpret_cast<LobbyListNode*>(this)->DestroyBody(); // (the destructor body: 0x00540860, its base node unlinked)
     if (flags & 1)
         Memory()->Free(this);
     return this;
@@ -278,7 +280,7 @@ void LobbyMan::StartListingGames()
 {
     Manager* manager = TheManager();
     Memory()->PushContext(Memory()->m_internetBottomUpHeap);
-    Call(0x005453E0, manager, 14); // (the server list's state)
+    manager->SetServiceState(14); // (the server list's state)
     GameVariable<uint32_t>(0x007CE430) = 0;
     GameVariable<uint8_t>(0x007CCE38) = 0;
     GameVariable<uint8_t>(0x007CCE39) = 0;
@@ -306,7 +308,7 @@ void LobbyMan::FillLobbyList()
         auto* lobby = static_cast<LobbyRoom*>(node->data);
         if (!lobby)
             break;
-        Call(0x00540FB0, this, lobby, index); // (its menu item)
+        AddRoomMenuItem(lobby, index); // (its menu item)
         ++index;
     }
 }
@@ -341,7 +343,7 @@ void LobbyMan::FillPlayerList()
         if (!player)
             break;
         if (player->m_listed)
-            Call(0x005411E0, this, player); // (its menu item)
+            AddPlayerListItem(player); // (its menu item)
     }
     Run(kUpdatePlayerList);
 }
@@ -357,8 +359,8 @@ void LobbyMan::FillProspectiveBuddyList()
             break;
         int profile = player->m_profile;
         if (profile != Field<int>(manager->m_buddyMan, 0x04) && profile > 0 && // (0x005480C0: our own profile)
-            !Call<bool>(0x00549CB0, manager->m_buddyMan, profile))           // (a buddy already)
-            Call(0x00540900, this, player);                                 // (a prospective buddy)
+            !static_cast<BuddyMan*>(manager->m_buddyMan)->IsBuddy(profile)) // (a buddy already)
+            AddBuddyMenuItem(player);                                        // (a prospective buddy)
     }
 }
 
@@ -385,7 +387,7 @@ void __cdecl LobbyMan::PlayerJoinedCallback(void* peer, int roomType, const char
     }
     LobbyPlayer* player = AddPlayer(lobby, peer, nick, true);
     Run(kPrepareUserList);
-    Call(0x005411E0, lobby, player); // (its menu item)
+    lobby->AddPlayerListItem(player); // (its menu item)
     Run(kUpdatePlayerList);
     ConsoleMessage(nick, kStatusJoined, true);
     Memory()->PopContext();
@@ -406,7 +408,7 @@ void __cdecl LobbyMan::PlayerInfoCallback(void* peer, int roomType, const char* 
     if (player->m_profile == 0)
         player->m_profile = profileId;
     player->m_listed = true;
-    Call(0x005411E0, lobby, player); // (its menu item)
+    lobby->AddPlayerListItem(player); // (its menu item)
     Run(kUpdatePlayerList);
 }
 
@@ -496,12 +498,12 @@ void __cdecl LobbyMan::JoinRoomCallback(void* peer, int success, int result, int
     if (!Field<bool>(manager->m_buddyMan, 0x10)) // (0x005480B0: logged in to GameSpy presence)
         return;
     // Our status: chatting in the lobby (0x00548320).
-    Call(0x00548320, manager->m_buddyMan, 4, Script::GetString("homie_status_chatting"), lobby->m_roomName);
+    static_cast<BuddyMan*>(manager->m_buddyMan)->SetStatus(4, Script::GetString("homie_status_chatting"), lobby->m_roomName);
     // Our room key b_rating: the stats' rating (0x0054CA80 of the stats manager, read through its pointer).
     char key[64];
     char value[64];
     std::sprintf(key, "b_rating");
-    int* rating = Call<int*>(0x0054CA80, manager->m_statsMan);
+    int* rating = &static_cast<StatsMan*>(manager->m_statsMan)->GetPersonalStats()->m_rating;
     std::sprintf(value, "%d", *rating);
     char* keys[1] = {key};
     char* values[1] = {value};
@@ -548,7 +550,7 @@ bool __cdecl CFunc_LobbyDisconnect(Script::CStruct* params, Script::CScript* scr
         Sdk(0x005FC7B0, lobby->m_peer); // (disconnected)
         Sdk(0x005FD670, lobby->m_peer); // (shut down)
     }
-    Call(0x00540750, manager->m_lobbyMan);
+    static_cast<LobbyMan*>(manager->m_lobbyMan)->Disconnect();
     Memory()->PopContext();
     return true;
 }
@@ -559,9 +561,9 @@ bool __cdecl CFunc_FillPlayerList(Script::CStruct* params, Script::CScript* scri
 {
     (void)params;
     (void)script;
-    Manager* manager = GameFunction<Manager*(__cdecl*)(bool)>(0x0053F520)(false);
+    Manager* manager = Manager::Create(false);
     static_cast<LobbyMan*>(manager->m_lobbyMan)->FillPlayerList();
-    GameFunction<void(__cdecl*)()>(0x005395C0)();
+    ReleaseManager();
     return true;
 }
 

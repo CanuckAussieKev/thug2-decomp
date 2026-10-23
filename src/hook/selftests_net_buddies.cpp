@@ -22,6 +22,7 @@
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
 #include "game/net/server_list.h"
 #include "hook/net4_testkit.h"
 
@@ -196,12 +197,12 @@ void Install(StandIns& s)
         Rec(0x72C0, {r.ecx, r.args[1]}); // (args[0]: the caller's search, a local)
         return g_playerIndex < g_players.size() ? At(g_players[g_playerIndex++]) : 0u;
     };
-    s.At({0x005372C0}, 8, [next](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [next](Regs& r) {
         g_playerIndex = 0;
         return next(r);
     });
-    s.At({0x00537010}, 8, next);
-    s.At({0x00543300}, 0, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, next);
+    s.At({0x00543300, AddressOf(&GameNet::PlayerInfo::IsLocalPlayer)}, 0, [](Regs& r) {
         bool local = g_localPlayers.count(Rel(r.ecx)) != 0;
         Rec(0x3300, {r.ecx, local});
         return static_cast<uint32_t>(local);

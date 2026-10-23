@@ -15,6 +15,7 @@
 #include "game/core/mem.h"
 #include "game/mth/random.h"
 #include "game/mth/slerp.h"
+#include "game/net/buddy_status.h"
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_rect.h"
@@ -1300,7 +1301,7 @@ void StandInLife(StandIns& s)
         Record({0xD990, LifeId(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x005480F0}, 0, [](Regs& r) {
+    s.At({0x005480F0, AddressOf(&GameNet::FoldedGetters::Word18)}, 0, [](Regs& r) {
         Record({0x80F0, LifeId(r.ecx)});
         return reinterpret_cast<uint32_t>(g_skeletonData) + 4;
     });

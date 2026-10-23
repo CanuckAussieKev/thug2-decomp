@@ -12,6 +12,8 @@
 
 #include "game/front/front_end.h"
 #include "game/mth/random.h"
+#include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
 #include "game/obj/objman.h"
 #include "game/skater/skater.h"
 #include "hook/viewer_testkit.h"
@@ -155,15 +157,15 @@ void Install(StandIns& s)
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return g_player;
     });
-    s.At({0x00543490}, 0, [](Regs& r) {
+    s.At({0x00543490, AddressOf(&GameNet::PlayerInfo::IsKing)}, 0, [](Regs& r) {
         Rec(0x3490, {r.ecx});
         return g_playerKind == 1 ? 1u : 0u;
     });
-    s.At({0x005433B0}, 0, [](Regs& r) {
+    s.At({0x005433B0, AddressOf(&GameNet::PlayerInfo::IsCarryingFlag)}, 0, [](Regs& r) {
         Rec(0x33B0, {r.ecx});
         return g_playerKind == 2 ? 1u : 0u;
     });

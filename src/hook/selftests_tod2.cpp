@@ -21,6 +21,7 @@
 #include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -159,7 +160,7 @@ void Install(StandIns& s)
         return static_cast<uint32_t>(g_vc_teams);
     });
     // The network players (a search: +4 the next player's offset).
-    s.At({0x005372C0}, 8, [](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [](Regs& r) {
         Rec(0x72C0, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), r.args[1]});
         auto* search = reinterpret_cast<uint32_t*>(r.args[0]);
         search[1] = g_vc_firstPlayer;
@@ -169,7 +170,7 @@ void Install(StandIns& s)
         search[1] = *reinterpret_cast<uint32_t*>(player + 0x3C);
         return player;
     });
-    s.At({0x00537010}, 8, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [](Regs& r) {
         Rec(0x7010, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), r.args[1]});
         auto* search = reinterpret_cast<uint32_t*>(r.args[0]);
         if (!search[1])
@@ -182,11 +183,11 @@ void Install(StandIns& s)
         Rec(0x7320, {r.ecx});
         return g_vc_localPlayer ? At(g_vc_localPlayer) : 0u;
     });
-    s.At({0x00543440}, 0, [](Regs& r) {
+    s.At({0x00543440, AddressOf(&GameNet::PlayerInfo::IsEliminated)}, 0, [](Regs& r) {
         Rec(0x3440, {r.ecx});
         return static_cast<uint32_t>(*reinterpret_cast<uint8_t*>(r.ecx + 0x38));
     });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return At(kPlayers + 0x40 * (r.args[0] % 4));
     });

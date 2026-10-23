@@ -32,7 +32,7 @@ static_assert(sizeof(ObserverTaskNode) == 0x20 && sizeof(ObserverInputHandler) =
 
 inline void ConstructTaskNode(void* node, int priority)
 {
-    GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(node, priority);
+    static_cast<Tsk::BaseTask*>(node)->Construct(priority);
 }
 
 // `tasks`: the logic tasks; `input`: the input manager (0x00696D40), both read by the callers before anything else.

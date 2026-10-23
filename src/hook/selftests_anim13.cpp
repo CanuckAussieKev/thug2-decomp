@@ -14,6 +14,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/anim_blend.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -263,7 +264,7 @@ void TestAnimBlenderComponent()
         *reinterpret_cast<uint32_t*>(channel + 0x20) = g_channelsMade == 1 ? P(g_bl.timelines[0]) : P(g_bl.timelines[1]);
         return r.ecx;
     });
-    s.At({0x005480F0}, 0, [](Regs& r) {
+    s.At({0x005480F0, AddressOf(&GameNet::FoldedGetters::Word18)}, 0, [](Regs& r) {
         Record({0x5480F000u, r.ecx});
         return 0x5E1E0000u;
     });

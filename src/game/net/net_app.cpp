@@ -8,6 +8,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/lst/head.h"
 #include "game/lst/search.h"
 #include "game/net/net_manager.h"
@@ -207,7 +208,7 @@ void* NewTask(int priority, void* callback, App* app)
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (!task)
         return nullptr;
-    GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, priority);
+    reinterpret_cast<Tsk::BaseTask*>(task)->Construct(priority);
     task[0] = reinterpret_cast<uint32_t>(kTaskVtable);
     task[6] = reinterpret_cast<uint32_t>(callback);
     task[7] = reinterpret_cast<uint32_t>(app);

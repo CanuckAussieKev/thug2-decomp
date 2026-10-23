@@ -8,11 +8,15 @@
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/mth/vector.h"
+#include "game/net/buddy_man.h"
+#include "game/net/buddy_status.h"
 #include "game/net/gamenet_commands.h"
 #include "game/net/gamenet_handler_util.h"
+#include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
 #include "game/obj/object.h"
@@ -126,8 +130,9 @@ void InitDesc(Net::MsgDesc& desc, uint8_t id)
 // game is on / off (once, as `on` changes).
 void ReportGameState(Manager* manager, bool on)
 {
-    void* peer = Call<void*>(0x0053F880, manager->m_lobbyMan);
-    if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && Call<bool>(0x0053F810, manager->m_lobbyMan))
+    auto* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan);
+    void* peer = lobby->GetPeer();
+    if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && lobby->IsHosting())
         GameFunction<void(__cdecl*)(void*)>(0x005FCCF0)(peer);
     // (the byte compared with 1 when starting, tested for non-zero when ending, as in the original)
     uint8_t& reported = GameReported();
@@ -139,9 +144,10 @@ void ReportGameState(Manager* manager, bool on)
         GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0);
 }
 
-// The GameSpy presence (+0x18): logged in (0x005480B0), `profile` a buddy (0x00549CB0).
-bool LoggedIn(Manager* manager) { return Call<bool>(0x005480B0, manager->m_buddyMan); }
-bool IsBuddy(Manager* manager, int profile) { return Call<bool>(0x00549CB0, manager->m_buddyMan, profile); }
+// The GameSpy presence (+0x18): logged in (its flag at +0x10, through the getter folded at 0x005480B0), `profile` a
+// buddy (0x00549CB0).
+bool LoggedIn(Manager* manager) { return static_cast<FoldedGetters*>(manager->m_buddyMan)->Byte10(); }
+bool IsBuddy(Manager* manager, int profile) { return static_cast<BuddyMan*>(manager->m_buddyMan)->IsBuddy(profile); }
 
 } // namespace
 
@@ -154,7 +160,7 @@ bool __cdecl CFunc_TeamFlagTaken(CStruct* params, CScript*)
     params->GetInteger(kTeam, &team, 0);
     for (void* player = manager->FirstPlayerInfo(&search, false); player;
          player = manager->NextPlayerInfo(&search, false)) {
-        if (Call<int>(0x005433D0, player) == team)
+        if (static_cast<PlayerInfo*>(player)->GetFlagTeam() == team)
             return true;
     }
     return false;
@@ -233,7 +239,7 @@ bool __cdecl CFunc_StartNetworkGame(CStruct*, CScript*)
         Net::App* server = manager->m_server;
         buffer[0] = 1;
         uint8_t* end = buffer + 1;
-        int count = Call<int>(0x00469490, goals);
+        int count = Field<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             uint8_t* goal = Call<uint8_t*>(0x00557FB0, goals, i);
             if (Call<bool>(0x005542F0, goal)) {
@@ -396,7 +402,7 @@ bool __cdecl CFunc_IsHost(CStruct*, CScript*)
     if (manager->m_flags & kFlagsServer)
         return manager->m_hostMode == 0;
     void* local = manager->GetLocalPlayer();
-    return local && Call<bool>(0x00543310, local);
+    return local && static_cast<PlayerInfo*>(local)->IsServerPlayer() != 0;
 }
 
 // 0x00538DC0: AllPlayersAreReady - on the server, every player's connection is ready (+0x60 bit 0); true elsewhere.

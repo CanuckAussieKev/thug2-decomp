@@ -11,11 +11,15 @@
 #include <vector>
 
 #include "game/core/task.h"
+#include "game/net/gamenet_commands.h"
 #include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
 #include "game/obj/object.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
+#include "game/skater/skater.h"
 #include "game/sys/timer.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
@@ -51,34 +55,34 @@ std::map<std::pair<uint32_t, uint32_t>, uint32_t> g_answer;
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    Stub(s, {0x0053AE10}, 4, 0xAE10, [](Regs&) { return g_sender ? At(g_sender) : 0u; });
-    Stub(s, {0x005373D0}, 0, 0x73D0, [](Regs&) { return g_host ? At(g_host) : 0u; });
+    Stub(s, {0x0053AE10, AddressOf(&GameNet::Manager::PlayerByConnection)}, 4, 0xAE10, [](Regs&) { return g_sender ? At(g_sender) : 0u; });
+    Stub(s, {0x005373D0, AddressOf(&GameNet::Manager::GetServerPlayer)}, 0, 0x73D0, [](Regs&) { return g_host ? At(g_host) : 0u; });
     Stub(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_local ? At(g_local) : 0u; });
-    Stub(s, {0x00537480}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
-    s.At({0x005372C0}, 8, [](Regs& r) {
+    Stub(s, {0x00537480, AddressOf(&GameNet::Manager::GetKingOfTheHill)}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [](Regs& r) {
         Rec(0x72C0, {r.ecx, r.args[1] & 0xFF});
         reinterpret_cast<uint32_t*>(r.args[0])[1] = 0;
         return g_playerCount > 0 ? At(PlayerAt(0)) : 0u;
     });
-    s.At({0x00537010}, 8, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [](Regs& r) {
         uint32_t& index = reinterpret_cast<uint32_t*>(r.args[0])[1];
         Rec(0x7010, {r.args[1] & 0xFF, index});
         ++index;
         return static_cast<int>(index) < g_playerCount ? At(PlayerAt(static_cast<int>(index))) : 0u;
     });
     // The new players: infos at kItems (0x40 apart).
-    s.At({0x00537070}, 4, [](Regs& r) {
+    s.At({0x00537070, AddressOf(&GameNet::Manager::FirstNewPlayerInfo)}, 4, [](Regs& r) {
         Rec(0x7070, {r.ecx});
         reinterpret_cast<uint32_t*>(r.args[0])[1] = 0;
         return g_newCount > 0 ? At(kItems) : 0u;
     });
-    s.At({0x004573D0}, 4, [](Regs& r) {
+    s.At({0x004573D0, AddressOf(&GameNet::Manager::NextNewPlayerInfo)}, 4, [](Regs& r) {
         uint32_t& index = reinterpret_cast<uint32_t*>(r.args[0])[1];
         Rec(0x73D0, {index});
         ++index;
         return static_cast<int>(index) < g_newCount ? At(kItems + 0x40 * index) : 0u;
     });
-    Stub(s, {0x005434C0}, 0, 0x34C0, [](Regs&) { return g_observerPlays ? 1u : 0u; });
+    Stub(s, {0x005434C0, AddressOf(&GameNet::PlayerInfo::IsPendingObserver)}, 0, 0x34C0, [](Regs&) { return g_observerPlays ? 1u : 0u; });
     Stub(s, {0x00539B00, AddressOf(&GameNet::Manager::CountPlayers)}, 0, 0x9B00, [](Regs&) { return static_cast<uint32_t>(g_numPlayers); });
     Stub(s, {0x00539C70, AddressOf(&GameNet::Manager::CountObservers)}, 0, 0x9C70, [](Regs&) { return static_cast<uint32_t>(g_numObservers); });
     Stub(s, {0x00532C50, AddressOf(&Manager::GetMaxPlayers)}, 0, 0x2C50, [](Regs&) { return static_cast<uint32_t>(g_maxPlayers); });
@@ -86,7 +90,7 @@ void Install(StandIns& s)
     Stub(s, {0x00532BE0, AddressOf(&Manager::GetSkillLevel)}, 0, 0x2BE0, [](Regs&) { return static_cast<uint32_t>(g_skill); });
     Stub(s, {0x00534310, AddressOf(&GameNet::Manager::GetPassword)}, 0, 0x4310, [](Regs&) { return At(String(1)); });
     Stub(s, {0x005369A0, AddressOf(&Manager::GetLevelName)}, 4, 0x69A0, [](Regs& r) { return At(String(2 + (r.args[0] & 1))); });
-    Stub(s, {0x00536A40}, 0, 0x6A40, [](Regs&) { return At(String(4)); });
+    Stub(s, {0x00536A40, AddressOf(&GameNet::Manager::GetGameTypeName)}, 0, 0x6A40, [](Regs&) { return At(String(4)); });
     s.At({0x00457280, AddressOf(&Net::App::SendMessageTo)}, 24, [](Regs& r) {
         auto* info = reinterpret_cast<const uint8_t*>(r.args[2]);
         g_trace.push_back(0x7280);
@@ -117,19 +121,24 @@ void Install(StandIns& s)
          });
     Stub(s, {0x0046C5D0, AddressOf(&Prefs::Preferences::SetPreference)}, 8, 0xC5D0);
     Stub(s, {0x0046C550, AddressOf(&Prefs::Preferences::GetPreferenceValue)}, 8, 0xC550, [](Regs&) { return 77u; });
-    Stub(s, {0x00534F50}, 8, 0x4F50, [](Regs& r) {
+    Stub(s, {0x00534F50, AddressOf(&GameNet::Manager::GetChoiceName)}, 8, 0x4F50, [](Regs& r) {
         uint32_t value = r.args[1];
         return value == 0xDEAD ? 0u : At(String(5 + (value & 3)));
     });
-    Stub(s, {0x00534FC0}, 12, 0x4FC0, [](Regs& r) { return r.args[1] == 0 ? 0u : r.args[1] * 3 + (r.args[2] & 0xF); });
+    Stub(s, {0x00534FC0, AddressOf(&GameNet::Manager::GetChoiceInteger)}, 12, 0x4FC0, [](Regs& r) { return r.args[1] == 0 ? 0u : r.args[1] * 3 + (r.args[2] & 0xF); });
     s.At({0x00626EFB}, 0, [](Regs& r) { // _stricmp (the game's C runtime; ours uses the DLL's: not recorded)
         return static_cast<uint32_t>(_stricmp(reinterpret_cast<const char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1])));
     });
-    Stub(s, {0x0053CB70}, 8, 0xCB70);
+    Stub(s, {0x0053CB70, AddressOf(&GameNet::Manager::DropPlayer)}, 8, 0xCB70);
     Stub(s, {0x00565790}, 4, 0x5790);
     Stub(s, {0x00558960}, 4, 0x8960);
-    StubCdecl(s, {0x005388F0}, 0x88F0, 2);
-    StubCdecl(s, {0x005591B0}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x700); });
+    StubCdecl(s, {0x005388F0, AddressOf(&GameNet::CFunc_SetNumTeams)}, 0x88F0, 2);
+    // (the goal count is the goal manager's first word: the original reads it through the getter folded at
+    // 0x00469490, ours as the field - it's put there, not answered by a stand-in)
+    StubCdecl(s, {0x005591B0}, 0x91B0, 0, [](Regs&) {
+        Word<uint32_t>(kMisc + 0x700) = static_cast<uint32_t>(g_goalCount);
+        return At(kMisc + 0x700);
+    });
     s.At({0x00457EB0, AddressOf(&Net::App::EnqueueMessage)}, 8, [](Regs& r) {
         auto* desc = reinterpret_cast<Net::MsgDesc*>(r.args[1]);
         uint8_t data[0x60] = {};
@@ -150,26 +159,26 @@ void Install(StandIns& s)
     });
     s.At({0x00458AB0, AddressOf(&Net::App::StreamMessage)}, 32, [](Regs& r) {
         Rec(0x8AB0, {r.ecx, r.args[0], r.args[1] & 0xFF, r.args[2] & 0xFFFF,
-                     HashBytes(reinterpret_cast<const uint8_t*>(r.args[3]), r.args[2] & 0xFFFF), Str(r.args[4]),
+                     HashBytes(reinterpret_cast<const uint8_t*>(r.args[3]), r.args[2] & 0xFFFF), GameNetKit::Str(r.args[4]),
                      r.args[5] & 0xFF, r.args[6] & 0xFF, r.args[7] & 0xFF});
         return 0u;
     });
     // The level change.
-    Stub(s, {0x00537B30}, 0, 0x7B30);
+    Stub(s, {0x00537B30, AddressOf(&GameNet::Manager::ClearQueuedScripts)}, 0, 0x7B30);
     Stub(s, {0x00406850, AddressOf(&Tsk::BaseTask::InList)}, 0, 0x6850, [](Regs&) { return g_taskInList ? 1u : 0u; });
     StubCdecl(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0xE970, 0, [](Regs&) { return 0x00010000u; });
     StubCdecl(s, {0x004F4970}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
     Stub(s, {0x004F7550}, 0, 0x7550);
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
-    s.At({0x005376F0}, 0x20, [](Regs& r) {
-        Rec(0x76F0, {r.ecx, r.args[0] & 0xFF, r.args[1], Str(r.args[2]), Str(r.args[3]), r.args[4], r.args[5],
+    s.At({0x005376F0, AddressOf(&GameNet::Manager::CreateNetPanelMessage)}, 0x20, [](Regs& r) {
+        Rec(0x76F0, {r.ecx, r.args[0] & 0xFF, r.args[1], GameNetKit::Str(r.args[2]), GameNetKit::Str(r.args[3]), r.args[4], r.args[5],
                      r.args[6] & 0xFF, r.args[7]});
         return 0u;
     });
     Stub(s, {0x0044E4F0, AddressOf(&Manager::InNetGame)}, 0, 0xE4F0, [](Regs&) { return g_netGame ? 1u : 0u; });
     // The start of a game.
-    Stub(s, {0x00581510}, 0, 0x1510);
-    Stub(s, {0x005814D0}, 0, 0x14D0);
+    Stub(s, {0x00581510, AddressOf(&Obj::CSkater::HideSkater)}, 0, 0x1510);
+    Stub(s, {0x005814D0, AddressOf(&Obj::CSkater::Reset27C)}, 0, 0x14D0);
     Stub(s, {0x00553AD0}, 4, 0x3AD0);
     Stub(s, {0x00564D90}, 4, 0x4D90, [](Regs&) { return At(kMisc + 0x780); });
     Stub(s, {0x00558250}, 0, 0x8250);
@@ -193,15 +202,24 @@ void Install(StandIns& s)
     });
     Stub(s, {0x00478C80, 0x00478B00, AddressOf(static_cast<void (CStruct::*)(uint32_t, CArray*)>(&CStruct::AddArray))}, 8,
          0x8C80);
-    for (uint32_t a : {0x00564D50u, 0x00553BE0u, 0x005535A0u, 0x005530A0u, 0x00553080u, 0x005430D0u})
+    // (0x005430D0, the setter of +0x1D4 the original calls on the manager - its last leading team -, isn't stood in:
+    // ours writes the field itself)
+    for (uint32_t a : {0x00564D50u, 0x00553BE0u, 0x005535A0u, 0x005530A0u, 0x00553080u})
         Stub(s, {a}, 4, a & 0xFFFF);
-    for (uint32_t a : {0x00566A60u, 0x00537620u, 0x00543100u, 0x00564A10u})
-        Stub(s, {a}, 0, a & 0xFFFF);
+    const std::pair<uint32_t, uint32_t> noArgs[] = {{0x00566A60u, 0}, {0x00537620u, AddressOf(&GameNet::Manager::ResetPlayers)},
+                                                    {0x00543100u, AddressOf(&GameNet::PlayerInfo::ClearLastHitTime)},
+                                                    {0x00564A10u, 0}};
+    for (auto [a, ours] : noArgs) {
+        if (ours)
+            Stub(s, {a, ours}, 0, a & 0xFFFF);
+        else
+            Stub(s, {a}, 0, a & 0xFFFF);
+    }
     Stub(s, {0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, 0xDB90, [](Regs& r) {
         // (skater 2's has nothing at +0x18; the original doesn't check for no component)
         return r.ecx == At(kSkaters + 0x200) ? At(kMisc + 0x8E0) : At(kMisc + 0x880);
     });
-    Stub(s, {0x00544340}, 4, 0x4340);
+    Stub(s, {0x00544340, AddressOf(&GameNet::PlayerInfo::MarkAsKing)}, 4, 0x4340);
     auto answer = [](Regs& r) {
         auto it = g_answer.find({r.ecx - g_base, r.args[0]});
         if (it == g_answer.end())
@@ -220,17 +238,16 @@ void Install(StandIns& s)
     Stub(s, {0x00553170}, 0, 0x3170, [](Regs&) { return 0x3170BBBBu; });
     Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
     Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return 3u; });
-    Stub(s, {0x00534F40}, 0, 0x4F40, [](Regs&) { return 0x4F40CCCCu; });
-    Stub(s, {0x00535B20}, 0, 0x5B20, [](Regs&) { return 0x5B20DDDDu; });
-    Stub(s, {0x00535AD0}, 0, 0x5AD0, [](Regs&) { return 0x5AD0EEEEu; });
+    Stub(s, {0x00534F40, AddressOf(&GameNet::Manager::GetLevel)}, 0, 0x4F40, [](Regs&) { return 0x4F40CCCCu; });
+    Stub(s, {0x00535B20, AddressOf(&GameNet::Manager::GetGoalsPreference)}, 0, 0x5B20, [](Regs&) { return 0x5B20DDDDu; });
+    Stub(s, {0x00535AD0, AddressOf(&GameNet::Manager::GetTeamGraffitiMode)}, 0, 0x5AD0, [](Regs&) { return 0x5AD0EEEEu; });
     Stub(s, {0x00537140, AddressOf(&GameNet::Manager::SetReadyToPlay)}, 4, 0x7140);
     Stub(s, {0x0056B990}, 4, 0xB990);
-    s.At({0x00588520}, 4, [](Regs& r) { // (the buffer: a local in the original - not recorded)
+    s.At({0x00588520, AddressOf(&Obj::CTrickObjectManager::WriteGraffitiState)}, 4, [](Regs& r) { // (the buffer: a local in the original - not recorded)
         Rec(0x8520, {r.ecx});
         std::memset(reinterpret_cast<void*>(r.args[0]), 0x5C, 0x30);
         return 0x30u;
     });
-    Stub(s, {0x00469490}, 0, 0x9490, [](Regs&) { return g_goalCount; });
     Stub(s, {0x00557FB0}, 4, 0x7FB0, [](Regs& r) { return At(kGoals + 0x40 * r.args[0]); });
     Stub(s, {0x005542F0}, 0, 0x42F0, [](Regs& r) { return ((r.ecx - At(kGoals)) / 0x40) % 2 == 1 ? 1u : 0u; });
     Stub(s, {0x00554280}, 0, 0x4280, [](Regs& r) { return 0x60A10000u + (r.ecx - At(kGoals)) / 0x40; });
@@ -239,8 +256,8 @@ void Install(StandIns& s)
         Rec(0x60A3, {r.ecx});
         return r.ecx == At(kGoals + 0x40 * (g_runningGoal & 7)) ? 1u : 0u;
     });
-    Stub(s, {0x0053A1B0}, 4, 0xA1B0);
-    Stub(s, {0x00539DA0}, 4, 0x9DA0);
+    Stub(s, {0x0053A1B0, AddressOf(&GameNet::Manager::SendFacesTo)}, 4, 0xA1B0);
+    Stub(s, {0x00539DA0, AddressOf(&GameNet::Manager::SendTagTexturesTo)}, 4, 0x9DA0);
     StubCdecl(s, {0x004E8470}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x004E7E50}, 4, 0x7E50, [](Regs&) { return g_answers[0x7E50]; });
     Stub(s, {0x004EBB70}, 12, 0xBB70, [](Regs&) { return 0x30u; });

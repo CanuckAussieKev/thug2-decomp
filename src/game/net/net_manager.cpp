@@ -8,7 +8,9 @@
 
 #include <cstring>
 
+#include "game/core/task.h"
 #include "game/net/net_app.h"
+#include "game/sys/mlp.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -30,10 +32,10 @@ void CopyIfDifferent(char* out, const char* source)
         CopyString(out, source);
 }
 
-// Adds a task to the main loop's logic tasks (Mlp::Manager +0x04, a Tsk list: 0x00406C90).
+// Adds a task to the main loop's logic tasks (Mlp::Manager +0x04).
 void AddLogicTask(uint8_t* mlp, void* task)
 {
-    GameFunction<void(__thiscall*)(void*, void*)>(0x00406C90)(mlp + 0x04, task);
+    reinterpret_cast<Mlp::Manager*>(mlp)->m_logicTasks.AddTask(static_cast<Tsk::BaseTask*>(task));
 }
 
 } // namespace

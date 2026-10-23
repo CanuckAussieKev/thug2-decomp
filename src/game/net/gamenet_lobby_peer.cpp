@@ -8,6 +8,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
@@ -218,7 +219,7 @@ void __cdecl LobbyMan::PublicAddressCallback(void*, uint32_t ip, uint16_t port, 
     char location[1024];
     std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", ip, PeerPrivateIp(lobby->m_peer), port, name, lobby->m_roomName);
     if (Field<bool>(buddy, 0x10)) // (logged in to the presence)
-        Call(0x00548320, buddy, kStatusHosting, Script::GetString(kHomieStatusHosting), static_cast<const char*>(location));
+        static_cast<BuddyMan*>(buddy)->SetStatus(kStatusHosting, Script::GetString(kHomieStatusHosting), location);
 }
 
 // 0x0053FEE0

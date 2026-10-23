@@ -104,10 +104,10 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
         return;
     }
     case kKeyGametype:
-        BufferAdd(buffer, Call<const char*>(0x00536A40, manager)); // the game type's name
+        BufferAdd(buffer, manager->GetGameTypeName()); // the game type's name
         return;
     case kKeyNumplayers:
-        BufferAddInt(buffer, Call<int>(0x00539B00, manager));
+        BufferAddInt(buffer, manager->CountPlayers());
         return;
     case kKeyNumteams:
         BufferAddInt(buffer, manager->GetNumTeams());
@@ -124,7 +124,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
             BufferAdd(buffer, "closedwaiting");
         return;
     case kKeyPassword:
-        BufferAddInt(buffer, *Call<const char*>(0x00534310, manager) != '\0' ? 1 : 0);
+        BufferAddInt(buffer, *manager->GetPassword() != '\0' ? 1 : 0);
         return;
     case kKeyGroupid:
         BufferAddInt(buffer, GameVariable<int>(0x007CC264)); // (the lobby's group room)
@@ -139,7 +139,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
 void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
 {
     Manager* manager = NetManager();
-    if (index >= Call<int>(0x00539B00, manager)) {
+    if (index >= manager->CountPlayers()) {
         BufferAdd(buffer, "");
         return;
     }
@@ -176,7 +176,7 @@ void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
 int __cdecl CountCallback(int type, void*)
 {
     if (type == kKeyTypePlayer)
-        return Call<int>(0x00539B00, NetManager());
+        return NetManager()->CountPlayers();
     if (type == kKeyTypeTeam)
         return NetManager()->GetNumTeams();
     return 0;

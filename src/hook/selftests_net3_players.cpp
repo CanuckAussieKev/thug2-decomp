@@ -66,7 +66,7 @@ void Install(StandIns& s)
     Stub(s, {0x00586D60, AddressOf(&Obj::CSkaterProfile::Construct)}, 0, 0x6D60, [](Regs& r) { return r.ecx; });
     Stub(s, {0x00585ED0, AddressOf(&Obj::CSkaterProfile::CopyFrom)}, 4, 0x5ED0, [](Regs& r) { return r.ecx; });
     Stub(s, {0x004890F0}, 0, 0x90F0);
-    Stub(s, {0x0053A910}, 4, 0xA910);
+    Stub(s, {0x0053A910, AddressOf(&GameNet::Manager::ObservePlayer)}, 4, 0xA910);
     Stub(s, {0x00455A30, AddressOf(&Net::Conn::IsRemote)}, 0, 0x5A30, [](Regs&) { return g_remote; });
     Stub(s, {0x00456630, AddressOf(&Net::Conn::ClearResendCounts)}, 0, 0x6630);
     Stub(s, {0x004559A0, AddressOf(&Net::Conn::GetBandwidthType)}, 0, 0x59A0, [](Regs&) { return g_bandwidth; });

@@ -11,6 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
+#include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_lobby.h"
@@ -261,7 +262,7 @@ void ServerInfo::ClearPlayers()
     while (player) {
         node = NextNode(node);
         auto* following = DataOf<PlayerInfo>(node);
-        Call(0x0053C950, manager, player); // (the player destroyed)
+        manager->DestroyPlayer(reinterpret_cast<uint8_t*>(player)); // (the player destroyed)
         player = following;
     }
 }
@@ -326,7 +327,7 @@ void Manager::UpdateHostingStatus()
 {
     Net::Manager* net = GameVariable<Net::Manager*>(0x006EFDD8);
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
-    Call(0x00540220, m_lobbyMan);
+    static_cast<LobbyMan*>(m_lobbyMan)->StartHosting();
     if (Field<bool>(m_buddyMan, 0x10)) { // (0x005480B0: logged in to presence)
         const char* serverName;
         GetNetworkPreferences()->GetPreference(kServerName)->GetString(kUiString, &serverName, 1);
@@ -339,7 +340,7 @@ void Manager::UpdateHostingStatus()
         } else {
             std::sprintf(location, "10thug211:0:0:0:%s (%s)", serverName, lobby->m_roomName);
         }
-        Call(0x00548320, m_buddyMan, 2, Script::GetString(kHostingStatus), location);
+        static_cast<BuddyMan*>(m_buddyMan)->SetStatus(2, Script::GetString(kHostingStatus), location);
     }
     Memory()->PopContext();
 }
@@ -350,7 +351,7 @@ bool Manager::StartServerList()
     Tsk::Stack* logic = LogicTasks();
     if (!InLanMode())
         return true;
-    Call(0x00534D50, this);
+    DestroyMatchClient();
     Memory()->PushContext(Memory()->m_networkHeap);
     Net::App* client = SpawnMatchClient();
     Memory()->PopContext();
@@ -448,7 +449,7 @@ void Manager::ClearServerList()
     DeleteAll(Head(this, kWaitingServers));
     DeleteAll(Head(this, kServers));
     if (InLanMode())
-        Call(0x00534D50, this);
+        DestroyMatchClient();
 }
 
 // 0x00546400
@@ -505,7 +506,7 @@ void Manager::RefreshServerList(bool force)
     Manager* manager = TheManager();
     uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
     Memory()->PushContext(Memory()->m_internetBottomUpHeap);
-    Call(0x0053F860, manager->m_lobbyMan);
+    static_cast<LobbyMan*>(manager->m_lobbyMan)->ClearLostConnection();
     Sdk(0x005FC9D0, Lobby(this)->m_peer, keys, 4, 0, 0x00547750u, this); // (the server browser updated)
     Memory()->PopContext();
     Memory()->PopContext();

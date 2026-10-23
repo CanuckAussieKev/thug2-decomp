@@ -14,6 +14,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
+#include "game/net/player_info.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/cscript.h"
@@ -89,8 +90,8 @@ void StandIn(StandIns& s, bool railMoves)
         false);
     Rec(s, {0x00532EA0}, 1, 0x2EA0, [](Regs&) { return g_a.noApp ? 0u : Addr(kApp); });
     Rec(s, {0x00533F90}, 0, 0x3F90, [](Regs&) { return g_a.onServer ? 0xABCD01u : 0xABCD00u; });
-    Rec(s, {0x0053AEA0}, 1, 0xAEA0, [](Regs&) { return Addr(kPlayer); });
-    Rec(s, {0x00543380}, 0, 0x3380, [](Regs&) { return NextBit() ? 1u : 0u; });
+    Rec(s, {0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 1, 0xAEA0, [](Regs&) { return Addr(kPlayer); });
+    Rec(s, {0x00543380, AddressOf(&GameNet::PlayerInfo::IsFullyIn)}, 0, 0x3380, [](Regs&) { return NextBit() ? 1u : 0u; });
     Rec(s, {0x005439D0}, 0, 0x39D0);
     Rec(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_a.noLocal ? 0u : Addr(kLocal); });
     Rec(s, {0x00455A20, AddressOf(&Net::Conn::IsLocal)}, 0, 0x5A20, [](Regs&) { return g_a.localConn ? 1u : 0u; });

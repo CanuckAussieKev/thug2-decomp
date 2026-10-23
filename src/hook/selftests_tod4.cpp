@@ -17,6 +17,7 @@
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/mth/matrix.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/thugpro_peer.h"
@@ -165,7 +166,7 @@ void Install(StandIns& s)
     simple(0x005436E0, 4, 0x36E0, [](Regs& r) { return static_cast<uint32_t>(g_sn_playerScores[r.args[0] & 7]); });
     simple(0x0053C380, 8, 0xC380, [](Regs&) { return g_sn_serverMade ? At(kApp) : 0u; });
     simple(0x00537320, 0, 0x7320, [](Regs&) { return g_sn_localPlayer ? At(g_sn_localPlayer) : 0u; });
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         uint32_t id = r.args[0] & 0xFFFF; // (the original pushes a 16-bit value)
         Rec(0xAEA0, {r.ecx, id});
         return id < 8 && id != 3 ? At(kPlayers + 0x60 * id) : 0u;
@@ -181,13 +182,13 @@ void Install(StandIns& s)
         search[1] = *reinterpret_cast<uint32_t*>(player + 0x54);
         return player;
     };
-    s.At({0x005372C0}, 8, [nextPlayer](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [nextPlayer](Regs& r) {
         Rec(0x72C0, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), *reinterpret_cast<uint32_t*>(r.args[0] + 4),
                      r.args[1]});
         reinterpret_cast<uint32_t*>(r.args[0])[1] = g_sn_firstPlayer;
         return nextPlayer(r);
     });
-    s.At({0x00537010}, 8, [nextPlayer](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [nextPlayer](Regs& r) {
         Rec(0x7010, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), r.args[1]});
         return nextPlayer(r);
     });

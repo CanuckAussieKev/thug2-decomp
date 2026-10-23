@@ -252,7 +252,7 @@ void InstallStandIns(StandIns& s)
         component->m_type = g_cobj_nextType;
         return reinterpret_cast<uint32_t>(component);
     });
-    s.At({0x0045C050}, 0, [](Regs& r) {
+    s.At({0x0045C050, AddressOf(static_cast<bool (*)(Script::CStruct*, Mth::Vector*)>(SkateScript::GetPosition))}, 0, [](Regs& r) {
         Rec(0xC050, {r.args[0], InArena(r.args[1]) ? r.args[1] : 0x57ACu});
         const float pos[4] = {7.5f, -3.25f, 100.0625f, 1.0f};
         std::memcpy(reinterpret_cast<void*>(r.args[1]), pos, sizeof(pos));

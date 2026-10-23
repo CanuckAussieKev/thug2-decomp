@@ -124,10 +124,10 @@ void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
         break;
     case kKeyGametype:
     case kKeyGamemode:
-        BufferAdd(buffer, Call<const char*>(0x00536A40, manager)); // the game type's name
+        BufferAdd(buffer, manager->GetGameTypeName()); // the game type's name
         break;
     case kKeyNumplayers:
-        BufferAddInt(buffer, Call<int>(0x00539B00, manager));
+        BufferAddInt(buffer, manager->CountPlayers());
         break;
     case kKeyMaxplayers:
         BufferAddInt(buffer, manager->GetMaxPlayers());
@@ -136,10 +136,10 @@ void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
         BufferAddInt(buffer, 0);
         break;
     case kKeyPassword:
-        BufferAddInt(buffer, *Call<const char*>(0x00534310, manager) != '\0' ? 1 : 0);
+        BufferAddInt(buffer, *manager->GetPassword() != '\0' ? 1 : 0);
         break;
     case kKeyObservers:
-        BufferAddInt(buffer, Call<int>(0x00539C70, manager));
+        BufferAddInt(buffer, manager->CountObservers());
         break;
     case kKeyMaxObservers:
         BufferAddInt(buffer, manager->GetMaxObservers());
@@ -169,7 +169,7 @@ int __cdecl LobbyMan::CountCallback(void*, int type, void*)
     if (type == kKeyTypeServer)
         return kServerKeyCount;
     if (type == kKeyTypePlayer)
-        return Call<int>(0x00539B00, GameVariable<Manager*>(0x007CCE14));
+        return GameVariable<Manager*>(0x007CCE14)->CountPlayers();
     return 0;
 }
 
