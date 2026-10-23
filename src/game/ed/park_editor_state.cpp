@@ -4,6 +4,7 @@
 #include "game/ed/park_editor.h"
 
 #include "game/core/mem.h"
+#include "game/core/stubs.h"
 #include "game/core/task.h"
 #include "game/ed/park.h"
 #include "game/ed/piece_menu.h"
@@ -188,7 +189,8 @@ CParkEditor* CParkEditor::Construct()
     if (display) {
         reinterpret_cast<Tsk::BaseTask*>(display)->Construct(-1000);
         *reinterpret_cast<uint32_t*>(display) = kTaskVtable;
-        display->m_code = reinterpret_cast<void(__cdecl*)(ParkEditorTask*)>(0x005480A0); // (the empty function)
+        // (0x005480A0, the empty function - Stubs::DoNothing; a cdecl task code: the argument is the caller's)
+        display->m_code = reinterpret_cast<void(__cdecl*)(ParkEditorTask*)>(&Stubs::DoNothing);
         display->m_data = this;
     }
     mp_displayTask = display;

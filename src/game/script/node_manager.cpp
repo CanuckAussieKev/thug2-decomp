@@ -8,6 +8,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/path_manager.h"
 #include "game/script/node_prefixes.h"
 #include "game/script/names.h"
 #include "game/script/nodes.h"
@@ -266,8 +267,7 @@ bool CNodeManager::AddNodeArray(uint32_t name, bool flag)
     }
     ResolveLinks(nodes);
     if (flag) {
-        void* object = GameFunction<void*(__cdecl*)()>(0x004694E0)();
-        GameFunction<void(__thiscall*)(void*)>(0x004696C0)(object);
+        Obj::CPathManager::Instance()->NumberPaths();
     }
     // NOT ORIGINAL: the level editor's edited copy (see node_manager.h).
     if (g_addedHook)

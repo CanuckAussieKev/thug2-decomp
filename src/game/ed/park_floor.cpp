@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "game/core/crc.h"
+#include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
 #include "hook/hook.h"
 
@@ -19,7 +20,7 @@ constexpr uint32_t kRiserFloorBelow = 0x14FD33E4; // "riser_floor_below"
 constexpr uint32_t kRiserBelow = 0x4A0D22DB;      // "riser_below"
 constexpr uint32_t kFence = 0x771994FF;           // "Sk4Ed_Fence_20x20"
 
-// A collision probe along a line (Nx's feeler, 0xB0 bytes): constructed by 0x00417760, its ends set by
+// A collision probe along a line (Nx::CFeeler, 0xB0 bytes): constructed by 0x00417760, its ends set by
 // 0x00417190 / 0x004171B0, tested by 0x004172F0; what it hit is held by a smart pointer.
 struct Feeler {
     uint8_t unknown00[0x78];
@@ -28,10 +29,12 @@ struct Feeler {
     Obj::CSmtPtr<Obj::CRefCounted> m_object; // +0x98
     uint8_t unknownA4[0xC];
 
-    Feeler* Construct() { return GameFunction<Feeler*(__thiscall*)(Feeler*)>(0x00417760)(this); }
-    void SetStart(Mth::Vector* start) { GameFunction<void(__thiscall*)(Feeler*, Mth::Vector*)>(0x00417190)(this, start); }
-    void SetEnd(Mth::Vector* end) { GameFunction<void(__thiscall*)(Feeler*, Mth::Vector*)>(0x004171B0)(this, end); }
-    bool GetCollision(int a, int b) { return GameFunction<bool(__thiscall*)(Feeler*, int, int)>(0x004172F0)(this, a, b); }
+    Nx::CFeeler* Ours() { return reinterpret_cast<Nx::CFeeler*>(this); }
+    Feeler* Construct() { return reinterpret_cast<Feeler*>(Ours()->Construct()); }
+    void SetStart(Mth::Vector* start) { Ours()->SetStart(start); }
+    void SetEnd(Mth::Vector* end) { Ours()->SetEnd(end); }
+    // (the original's result is read from AL)
+    bool GetCollision(bool movables, bool farthest) { return Ours()->GetCollision(movables, farthest) != 0; }
 };
 static_assert(offsetof(Feeler, m_object) == 0x98);
 static_assert(sizeof(Feeler) == 0xB0);
@@ -114,7 +117,7 @@ void CParkManager::GenerateNodeArray()
         Mth::Vector end = {point.x, static_cast<float>(static_cast<double>(point.y) - 1000.0), point.z,
                            static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.SetEnd(&end);
-        if (feeler.GetCollision(1, 0)) {
+        if (feeler.GetCollision(true, false)) {
             if (i >= 2 && i <= 5)
                 point.y = feeler.m_point.y;
             else

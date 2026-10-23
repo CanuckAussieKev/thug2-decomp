@@ -7,8 +7,10 @@
 
 #include <cstdint>
 
+#include "game/gfx/lens_flare.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -85,14 +87,14 @@ static_assert(sizeof(SunProps) == 0x44, "layout must match the original");
 // 0x00445B50: HideLensFlare (0x00442DF0 with the same arguments). Always true.
 bool __cdecl CFunc_HideLensFlare(CStruct* params, CScript* script)
 {
-    GameFunction<void(__cdecl*)(CStruct*, CScript*)>(0x00442DF0)(params, script);
+    Sun::HideFlare(params, script);
     return true;
 }
 
 // 0x00445B70: UnhideLensFlare (0x00443030). Always true.
 bool __cdecl CFunc_UnhideLensFlare(CStruct* params, CScript* script)
 {
-    GameFunction<void(__cdecl*)(CStruct*, CScript*)>(0x00443030)(params, script);
+    Sun::UnhideFlare(params, script);
     return true;
 }
 
@@ -106,13 +108,13 @@ bool __cdecl CFunc_GetTerrainTypeParam(CStruct* params, CScript* script)
     params->GetChecksum(kParam, &param, 1);
     uint8_t terrain;
     if (params->GetChecksum(kTerrain, &terrainName, 0)) {
-        terrain = GameFunction<uint8_t(__cdecl*)(uint32_t)>(0x004442C0)(terrainName);
+        terrain = Terrain::GetTerrainIndex(terrainName);
     } else {
         params->GetInteger(kTerrainIndex, &terrainIndex, 1);
         terrain = static_cast<uint8_t>(terrainIndex);
     }
     CStruct* value = nullptr; // (uninitialised in the original: the callee sets it)
-    if (!GameFunction<bool(__cdecl*)(CStruct**, uint8_t, uint32_t)>(0x00444480)(&value, terrain, param))
+    if (!Terrain::GetTerrainStructureInto(&value, terrain, param))
         return false;
     script->m_params->AddStructure(param, value);
     return true;
@@ -143,7 +145,7 @@ bool __cdecl CFunc_SetSunProps(CStruct* params, CScript*)
         props.enabled = false;
         mask |= 0x80;
     }
-    GameFunction<void(__cdecl*)(SunProps*, uint32_t)>(0x004426D0)(&props, mask);
+    Sun::SetSun(reinterpret_cast<const Sun::Settings*>(&props), mask);
     return true;
 }
 

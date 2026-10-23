@@ -18,7 +18,9 @@
 #include "game/core/mem.h"
 #include "game/lst/hashtable.h"
 #include "game/mth/matrix.h"
+#include "game/mth/quat.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cache.h"
@@ -159,7 +161,7 @@ void InstallStandIns(StandIns& s)
         auto it = g_nodes_arrays.find(r.args[0]);
         return it == g_nodes_arrays.end() ? 0u : it->second;
     });
-    s.At({0x0042BC40}, 4, [](Regs& r) {
+    s.At({0x0042BC40, AddressOf(&Mth::Quat::GetMatrix)}, 4, [](Regs& r) {
         const auto* q = reinterpret_cast<const uint32_t*>(r.ecx);
         Rec(0xBC40, {q[0], q[1], q[2], q[3], r.args[0]});
         auto* m = reinterpret_cast<float*>(r.args[0]);
@@ -330,7 +332,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x6B40, {r.ecx, r.args[0]});
         return Lookup('L', r.ecx, r.args[0]) ? 1u : 0u;
     });
-    s.At({0x00417760}, 0, [](Regs& r) {
+    s.At({0x00417760, AddressOf(static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct))}, 0, [](Regs& r) {
         Rec(0x7760, {});
         auto* feeler = reinterpret_cast<uint32_t*>(r.ecx);
         for (uint32_t i = 0; i < 0xB0 / 4; ++i)
@@ -338,7 +340,7 @@ void InstallStandIns(StandIns& s)
         feeler[0x98 / 4] = g_nodes_feelerHit;
         return r.ecx;
     });
-    s.At({0x004172F0}, 8, [](Regs& r) {
+    s.At({0x004172F0, AddressOf(&Nx::CFeeler::GetCollision)}, 8, [](Regs& r) {
         const auto* line = reinterpret_cast<const uint32_t*>(r.ecx);
         Rec(0x72F0, {line[0], line[1], line[2], line[3], line[4], line[5], line[6], line[7], r.args[0] & 0xFF,
                      r.args[1] & 0xFF, line[8]});

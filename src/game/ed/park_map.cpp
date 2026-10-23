@@ -12,6 +12,7 @@
 #include "game/core/mem.h"
 #include "game/file/file.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "hook/hook.h"
 
 namespace Ed {
@@ -52,15 +53,15 @@ void SetTheme(uint32_t theme) { CParkEditor::Instance()->SetTimeOfDayScript(them
 // 0x0047A0C0 reads it).
 uint32_t StructureBufferSize(Script::CStruct* structure, uint32_t maximum)
 {
-    return GameFunction<uint32_t(__cdecl*)(Script::CStruct*, uint32_t)>(0x0047A070)(structure, maximum);
+    return Script::CalculateBufferSize(structure, maximum);
 }
 void WriteStructure(Script::CStruct* structure, void* buffer, uint32_t size, int a, int b)
 {
-    GameFunction<void(__cdecl*)(Script::CStruct*, void*, uint32_t, int, int)>(0x00479E20)(structure, buffer, size, a, b);
+    Script::WriteToBuffer(structure, static_cast<uint8_t*>(buffer), size, a, reinterpret_cast<void (*)()>(b));
 }
 void ReadStructure(Script::CStruct* structure, void* buffer)
 {
-    GameFunction<void(__cdecl*)(Script::CStruct*, void*)>(0x0047A0C0)(structure, buffer);
+    Script::ReadFromBuffer(structure, static_cast<const uint8_t*>(buffer));
 }
 
 // strcpy (inline in the original: no limit).

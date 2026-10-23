@@ -10,6 +10,7 @@
 #include "game/lst/hashtable.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/sys/module.h"
 #include "game/util/lzss.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -28,9 +29,9 @@ CScriptCache*& TheCache() { return GameVariable<CScriptCache*>(0x006F3558); }
 uint32_t& CacheReferences() { return GameVariable<uint32_t>(0x006F355C); }
 Mem::PoolPair& EntryPools() { return GameVariable<Mem::PoolPair>(0x006F3560); }
 
-// Engine framework pieces (not rewritten yet): Mdl::Module's constructor and destructor body.
-void ConstructModule(void* module) { GameFunction<void*(__thiscall*)(void*)>(0x0044F7E0)(module); }
-void DestroyModule(void* module) { GameFunction<void(__thiscall*)(void*)>(0x0044F790)(module); }
+// Mdl::Module's constructor (0x0044F7E0) and destructor body (0x0044F790).
+void ConstructModule(void* module) { static_cast<Mdl::Module*>(module)->Construct(); }
+void DestroyModule(void* module) { static_cast<Mdl::Module*>(module)->DestroyBody(); }
 
 // Scripts in the symbol table: {checksum, size, stored size, code - LZSS-compressed when stored < size}.
 struct StoredScript {

@@ -9,8 +9,12 @@
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/script/cscript.h"
+#include "game/script/node_prefixes.h"
+#include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/sio/inpman.h"
 #include "game/sys/timer.h"
+#include "game/sys/viewer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -35,7 +39,7 @@ constexpr uint32_t kOmnigon = 0xAE94C183;        // (name unknown) the Omnigon's
 constexpr uint32_t kDumpScriptsFlag = 0x2AB71EEF; // (name unknown) passed to DumpScripts' compiled-out dump
 
 // The button's index in the button table (0x0067D6D8, entries 1-21; 0 if it isn't one).
-int ButtonIndex(uint32_t button) { return GameFunction<int(__cdecl*)(uint32_t)>(0x0044E5A0)(button); }
+int ButtonIndex(uint32_t button) { return Inp::ButtonIndex(button); }
 
 // The last Omnigon checksum sent to the other players (0x007CEBC8).
 uint32_t& LastBroadcastedOmnigon() { return GameVariable<uint32_t>(0x007CEBC8); }
@@ -45,7 +49,7 @@ char* NodeArrayName() { return &GameVariable<char>(0x007CE6D8); }
 char* LevelName() { return &GameVariable<char>(0x007CE698); }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
-void* Viewer() { return GameFunction<void*(__cdecl*)()>(0x00576EA0)(); }
+void* Viewer() { return Mdl::GetViewer(); }
 
 // DumpScripts' list of the running scripts - compiled out of this build (an empty call, 0x005480A0).
 inline void DumpScriptsList(bool /*flag*/) {}
@@ -122,7 +126,9 @@ bool __cdecl CFunc_FakeLights(Script::CStruct* params, Script::CScript*)
         return false;
     uint32_t count = 0; // a 16-bit count in a zeroed 32-bit slot
     bool isPrefix = !params->ContainsFlag(kFakeLightsExact);
-    uint32_t* nodes = GameFunction<uint32_t*(__cdecl*)(uint32_t, uint32_t*, bool)>(0x0045BF90)(prefix, &count, isPrefix);
+    // (the original passes isPrefix too: 0x0045BF90 takes two arguments and ignores it)
+    (void)isPrefix;
+    uint32_t* nodes = SkateScript::GetPrefixedNodes(prefix, reinterpret_cast<uint16_t*>(&count));
     GameFunction<void(__cdecl*)(uint32_t*, int, int, Script::CStruct*)>(0x0048FE40)(
         nodes, static_cast<uint16_t>(count), time, params);
     return true;
@@ -141,7 +147,7 @@ bool __cdecl CFunc_NodeExists(Script::CStruct* params, Script::CScript*)
 {
     uint32_t name = 0;
     params->GetChecksum(0u, &name, 1);
-    return GameFunction<bool(__cdecl*)(uint32_t)>(0x0045BE70)(name);
+    return SkateScript::NodeExists(name);
 }
 
 // 0x0059F1F0: LoadNodeArray "<file>": kill the session's spawned scripts, note the name (0x007CE6D8, copied
@@ -156,7 +162,7 @@ bool __cdecl CFunc_LoadNodeArray(Script::CStruct* params, Script::CScript*)
     for (const char* in = name; (*out++ = *in++) != '\0';) {
     }
     GameFunction<void(__cdecl*)(const char*, int)>(0x005A5960)(name, 0);
-    GameFunction<void(__cdecl*)()>(0x0045C210)();
+    SkateScript::GetLastNodeArray();
     Mem::PopMemProfile();
     return true;
 }
@@ -177,7 +183,7 @@ bool __cdecl CFunc_SetMovementVelocity(Script::CStruct* params, Script::CScript*
 {
     float speed = 400.0f;
     params->GetFloat(0u, &speed, 0);
-    GameFunction<void(__cdecl*)(float)>(0x00576E80)(speed);
+    Mdl::SetMovementVelocity(speed);
     return true;
 }
 
@@ -186,7 +192,7 @@ bool __cdecl CFunc_SetRotateVelocity(Script::CStruct* params, Script::CScript*)
 {
     float speed = 120.0f;
     params->GetFloat(0u, &speed, 0);
-    GameFunction<void(__cdecl*)(float)>(0x00576E90)(speed);
+    Mdl::SetRotateVelocity(speed);
     return true;
 }
 
@@ -194,7 +200,7 @@ bool __cdecl CFunc_SetRotateVelocity(Script::CStruct* params, Script::CScript*)
 bool __cdecl CFunc_ClearViewerObject(Script::CStruct*, Script::CScript*)
 {
     if (void* viewer = Viewer())
-        GameFunction<void(__thiscall*)(void*)>(0x00576D40)(viewer);
+        static_cast<Mdl::Viewer*>(viewer)->RemoveViewerObject();
     return true;
 }
 

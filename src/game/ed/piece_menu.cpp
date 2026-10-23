@@ -4,6 +4,9 @@
 
 #include "game/core/mem.h"
 #include "game/front/screen_element.h"
+#include "game/front/screen_element_manager.h"
+#include "game/front/text_element.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/hook.h"
@@ -43,35 +46,34 @@ void RunScript(uint32_t name, Script::CStruct* params = nullptr)
 void* Tracker() { return GameVariable<void*>(0x006F0FC0); }
 bool ObjectExists(void* tracker, uint32_t id)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x00462120)(tracker, id) != nullptr;
+    return static_cast<Obj::CTracker*>(tracker)->LookUpObject(id) != nullptr;
 }
 void LaunchEvent(void* tracker, uint32_t type, uint32_t target, uint32_t source)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t, uint32_t, void*, int, float)>(0x00462F00)(
-        tracker, type, target, source, nullptr, 0, -1.0f);
+    static_cast<Obj::CTracker*>(tracker)->LaunchEvent(type, target, source, nullptr, false, -1.0f);
 }
 
 // The screen elements (the manager 0x00701440's lookup, asserting; 0x004A87C0 their position, 0x004A9100 set it,
 // 0x004A94A0 their scale, 0x004AF8C0 a text element's text).
 void GetElement(void* manager, Front::ElementPtr* out, uint32_t id)
 {
-    GameFunction<Front::ElementPtr*(__thiscall*)(void*, Front::ElementPtr*, uint32_t, int)>(0x004AAE20)(manager, out, id, 1);
+    static_cast<Front::CScreenElementManager*>(manager)->GetElement(out, id, 1);
 }
 void GetPos(Front::CScreenElement* element, float* x, float* y)
 {
-    GameFunction<void(__thiscall*)(Front::CScreenElement*, float*, float*)>(0x004A87C0)(element, x, y);
+    element->GetPos(x, y);
 }
 void SetPos(Front::CScreenElement* element, float x, float y, int flag)
 {
-    GameFunction<void(__thiscall*)(Front::CScreenElement*, float, float, int)>(0x004A9100)(element, x, y, flag);
+    element->SetPos(x, y, flag);
 }
 void SetScale(Front::CScreenElement* element, float x, float y, int a, int b)
 {
-    GameFunction<void(__thiscall*)(Front::CScreenElement*, float, float, int, int)>(0x004A94A0)(element, x, y, a, b);
+    element->SetScale(x, y, a != 0, b);
 }
 void SetText(Front::CScreenElement* element, const char* text)
 {
-    GameFunction<void(__thiscall*)(Front::CScreenElement*, const char*)>(0x004AF8C0)(element, text);
+    static_cast<Front::CTextElement*>(element)->SetText(text);
 }
 
 // The names of a metapiece's sectors, into `out`

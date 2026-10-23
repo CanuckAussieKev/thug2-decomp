@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "game/core/mem.h"
+#include "game/core/stubs.h"
 #include "game/core/task.h"
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
@@ -139,6 +140,7 @@ void SetUp(int run)
     SetUpArena(run);
     Alias(&Ed::CParkEditor::LogicTask, 0x0058FFC0);
     Alias(&Ed::HandleInput, 0x0058DB70);
+    Alias(&Stubs::DoNothing, 0x005480A0); // (the display task's code)
     GameVariable<uint32_t>(0x007CE5D8) = At(kEditor);
     GameVariable<uint32_t>(0x007CE5DC) = 3;
     GameVariable<uint32_t>(0x007CE604) = At(kManager);

@@ -8,6 +8,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/park/park_memory.h"
 #include "hook/hook.h"
 
 namespace Ed {
@@ -15,14 +16,14 @@ namespace Ed {
 namespace {
 
 // The park's cost (0x0059E190 adds a metapiece's, 0x0059E1E0 takes it away).
-void AddPieceCost(CMetaPiece* meta) { GameFunction<void(__cdecl*)(CMetaPiece*)>(0x0059E190)(meta); }
-void RemovePieceCost(CMetaPiece* meta) { GameFunction<void(__cdecl*)(CMetaPiece*)>(0x0059E1E0)(meta); }
+void AddPieceCost(CMetaPiece* meta) { AddPieceDma(meta); }
+void RemovePieceCost(CMetaPiece* meta) { RemovePieceDma(meta); }
 
 // Whether the generator rebuilds its collision (0x00592090 looks): off while every piece is deleted.
 bool& GeneratorRebuildsCollision() { return GameVariable<bool>(0x0067F398); }
 
 // The park editor's pools (the clipboards', the lists'...) freed (0x0059E4E0).
-void DestroyParkPools() { GameFunction<void(__cdecl*)()>(0x0059E4E0)(); }
+void DestroyParkPools() { ShutDown(); }
 
 } // namespace
 
