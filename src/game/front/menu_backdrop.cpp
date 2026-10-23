@@ -13,6 +13,7 @@
 #include "game/gfx/camera.h"
 #include "game/gfx/scene.h"
 #include "game/gfx/screen.h"
+#include "game/obj/movie_manager.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/log.h"
@@ -61,7 +62,7 @@ uint32_t PlayingCameraAnim()
     void* movies = *reinterpret_cast<void**>(skate + 0x368);
     if (!movies)
         return 0;
-    return GameFunction<uint32_t(__thiscall*)(void*)>(0x0057B030)(movies);
+    return static_cast<Obj::CMovieManager*>(movies)->GetPlayingName();
 }
 
 bool On(int setting) { return ViewFor(setting) != nullptr; }

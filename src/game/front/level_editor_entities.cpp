@@ -19,6 +19,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
+#include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
 #include "game/mth/matrix.h"
 #include "game/obj/compositemgr.h"
@@ -526,7 +527,7 @@ void* NearestCamera(const Mth::Vector* position, float* distance)
 }
 const Mth::Vector* CameraPosition(void* camera)
 {
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera);
+    return static_cast<Gfx::Camera*>(camera)->GetPos();
 }
 Obj::EmitterNode* Emitter(uint32_t name)
 {

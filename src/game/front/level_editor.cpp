@@ -65,7 +65,9 @@
 #include "game/front/mouse_menus.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/occlusion.h"
+#include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
+#include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -2623,10 +2625,10 @@ namespace {
 bool Cast(V3 from, V3 to, V3* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    ray->Construct();
     Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(
-            feeler, &start, &end, 0))
+    if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* point = reinterpret_cast<const float*>(feeler + 0x34);
     *hit = {point[0], point[1], point[2]};
@@ -6434,9 +6436,9 @@ void Draw()
     int count = static_cast<int>(lines.size());
     LineVertex* lineData = lines.data();
     // The renderer's own (cached) state: no texture, pre-transformed vertices with a colour.
-    GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(0, nullptr, 0); // SetTexture
-    GameFunction<void(__cdecl*)(uint32_t)>(0x004D9DB0)(0x144);                // XYZRHW | DIFFUSE | TEX1
-    GameFunction<void(__cdecl*)(int, int)>(0x004DAA80)(0, 0);                  // no vertex shader
+    Nx::SetTexture(0, nullptr);
+    Nx::SetVertexFormat(0x144);          // XYZRHW | DIFFUSE | TEX1
+    Nx::SetPixelShader(nullptr, nullptr); // no pixel shader
     // Stage 0 takes the vertex colour (put back after: the renderer doesn't know of this).
     const int kStates[4] = {1, 2, 4, 5};      // colour op / arg 1, alpha op / arg 1
     const uint32_t kValues[4] = {2, 0, 2, 0}; // select arg 1, diffuse

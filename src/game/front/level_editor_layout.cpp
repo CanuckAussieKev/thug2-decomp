@@ -20,6 +20,7 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scale.h"
 #include "game/gfx/screen.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -652,7 +653,7 @@ int g_switchWait;
 bool InNetGame()
 {
     void* net = GameVariable<void*>(0x007CCE14);
-    return net && GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(net);
+    return net && static_cast<GameNet::Manager*>(net)->InNetGame();
 }
 
 // The level loaded: its load script (the skate module 0x007CE478, +0x378 - as automation.h and the node layer read it).

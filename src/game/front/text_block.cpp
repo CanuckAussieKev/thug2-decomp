@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
+#include "game/core/stubs.h"
 #include "game/front/screen_element_manager.h"
 #include "game/front/text_element.h"
 #include "game/script/struct.h"
@@ -71,7 +72,7 @@ void* FrontEndNew(unsigned int size)
 void DeleteBlur(CBlurEffect* blur)
 {
     if (blur) {
-        GameFunction<void(__thiscall*)(void*)>(0x005480A0)(blur);
+        Stubs::DoNothing(); // (its destructor: the shared empty stub the original calls)
         Mem::Free(blur);
     }
 }

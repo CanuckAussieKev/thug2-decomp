@@ -10,6 +10,8 @@
 #include "game/front/screen_element_manager.h"
 #include "game/front/scrolling_menu.h"
 #include "game/front/sprite_element.h"
+#include "game/front/text_block.h"
+#include "game/front/text_element.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
 
@@ -103,8 +105,8 @@ void InstallCfuncStandIns(StandIns& s, bool createElement)
     ctor({0x004AE1C0, AddressOf(&Front::CScrollingMenu::ConstructHorizontal)}, 0xC002);
     ctor({0x004AED90, AddressOf(&Front::CTextureElement::Construct)}, 0xC003);
     ctor({0x004A75C0, AddressOf(&Front::CBaseMenu::ConstructVMenu)}, 0xC004);
-    ctor({0x004B0810}, 0xC005);
-    ctor({0x004B0920}, 0xC006);
+    ctor({0x004B0810, AddressOf(&Front::CTextBlockElement::Construct)}, 0xC005);
+    ctor({0x004B0920, AddressOf(&Front::CTextElement::Construct)}, 0xC006);
     ctor({0x004B2060, AddressOf(&Front::CWindowElement::Construct)}, 0xC007);
     ctor({0x004A6060, AddressOf(&Front::CElement3d::Construct)}, 0xC008);
     ctor({0x004AE170, AddressOf(&Front::CScrollingMenu::ConstructVertical)}, 0xC009);
@@ -151,20 +153,20 @@ void InstallCfuncStandIns(StandIns& s, bool createElement)
         return reinterpret_cast<uint32_t>(ById(r.args[0]));
     });
     // the text elements
-    auto text = [&s](uint32_t address, uint16_t pop, uint32_t tag, uint32_t result) {
-        s.At({address}, pop, [tag, result, pop](Regs& r) {
+    auto text = [&s](uint32_t address, uint32_t ours, uint16_t pop, uint32_t tag, uint32_t result) {
+        s.At({address, ours}, pop, [tag, result, pop](Regs& r) {
             // (only the arguments it takes: 0x004B16D0's text and two flags, 0x004AFD00's text)
             Rec(tag, {r.ecx, pop >= 4 ? r.args[0] : 0u, pop >= 8 ? r.args[1] & 0xFF : 0u, pop >= 12 ? r.args[2] & 0xFF : 0u});
             return result;
         });
     };
-    text(0x004B16D0, 12, 0x16D0, 1);
-    text(0x004AFD00, 4, 0xFD00, 0x101);
-    text(0x004B14A0, 0, 0x14A0, 1);
-    text(0x004AFDD0, 0, 0xFDD0, 0);
-    text(0x004B1390, 0, 0x1390, 17);
-    text(0x004AF650, 0, 0xF650, 5);
-    s.At({0x004B11C0}, 8, [](Regs& r) {
+    text(0x004B16D0, AddressOf(&Front::CTextBlockElement::Concatenate), 12, 0x16D0, 1);
+    text(0x004AFD00, AddressOf(&Front::CTextElement::Concatenate), 4, 0xFD00, 0x101);
+    text(0x004B14A0, AddressOf(&Front::CTextBlockElement::Backspace), 0, 0x14A0, 1);
+    text(0x004AFDD0, AddressOf(&Front::CTextElement::Backspace), 0, 0xFDD0, 0);
+    text(0x004B1390, AddressOf(&Front::CTextBlockElement::GetLength), 0, 0x1390, 17);
+    text(0x004AF650, AddressOf(&Front::CTextElement::GetLength), 0, 0xF650, 5);
+    s.At({0x004B11C0, AddressOf(&Front::CTextBlockElement::GetText)}, 8, [](Regs& r) {
         Rec(0x11C0, {r.ecx, r.args[1]});
         CopyText(reinterpret_cast<char*>(r.args[0]), "block text");
         return 1u;

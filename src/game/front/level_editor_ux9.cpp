@@ -20,6 +20,7 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_skate_view.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
 #include "hook/game.h"
 #include "hook/log.h"
 #include "imgui.h"
@@ -49,10 +50,10 @@ V3 Snapped(V3 p) { return {Ground::SnapTo(p.x, g_grid), p.y, Ground::SnapTo(p.z,
 bool Cast(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    ray->Construct();
     Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(feeler, &start,
-                                                                                                        &end, 0))
+    if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
     *hit = {p[0], p[1], p[2]};

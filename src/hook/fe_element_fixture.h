@@ -14,6 +14,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/front/screen_element.h"
+#include "game/front/screen_element_manager.h"
 #include "game/obj/event.h"
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
@@ -182,11 +183,11 @@ inline void InstallElementStandIns(StandIns& s, bool manager = true)
     if (!manager)
         return;
     // the screen element manager
-    s.At({0x004AAD80}, 0, [](Regs& r) {
+    s.At({0x004AAD80, AddressOf(&Front::CScreenElementManager::HasPriorities)}, 0, [](Regs& r) {
         Rec(0xAD80, {r.ecx});
         return g_usesPriorities ? 1u : 0u;
     });
-    s.At({0x004AC120}, 12, [](Regs& r) {
+    s.At({0x004AC120, AddressOf(&Front::CScreenElementManager::ResolveId)}, 12, [](Regs& r) {
         Rec(0xC120, {r.ecx, r.args[0], r.args[1]});
         const std::vector<uint32_t>* value = Lookup('E', r.args[0], r.args[1]);
         if (!value)
@@ -194,7 +195,7 @@ inline void InstallElementStandIns(StandIns& s, bool manager = true)
         *reinterpret_cast<uint32_t*>(r.args[2]) = (*value)[0];
         return 1u;
     });
-    s.At({0x004AAE20}, 12, [](Regs& r) {
+    s.At({0x004AAE20, AddressOf(&Front::CScreenElementManager::GetElement)}, 12, [](Regs& r) {
         Rec(0xAE20, {r.ecx, r.args[1], r.args[2]});
         auto* out = reinterpret_cast<ElementPtr*>(r.args[0]);
         out->mp_object = nullptr;
@@ -202,12 +203,12 @@ inline void InstallElementStandIns(StandIns& s, bool manager = true)
         out->Set(ById(r.args[1]));
         return r.args[0];
     });
-    s.At({0x004ABBE0}, 12, [](Regs& r) {
+    s.At({0x004ABBE0, AddressOf(&Front::CScreenElementManager::SetParent)}, 12, [](Regs& r) {
         Rec(0xBBE0, {r.ecx, *reinterpret_cast<uint32_t*>(r.args[0]), *reinterpret_cast<uint32_t*>(r.args[1]),
                      r.args[2]});
         return 0u;
     });
-    s.At({0x004AD100}, 16, [](Regs& r) {
+    s.At({0x004AD100, AddressOf(&Front::CScreenElementManager::DestroyElement)}, 16, [](Regs& r) {
         Rec(0xD100, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
         return 0u;
     });

@@ -15,6 +15,8 @@
 #include "game/front/screen_element_manager.h"
 #include "game/front/scrolling_menu.h"
 #include "game/front/sprite_element.h"
+#include "game/front/text_block.h"
+#include "game/front/text_element.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -54,10 +56,6 @@ uint32_t UnassignedId() { return GameVariable<uint32_t>(0x0064780C); }
 void* NewMemory(unsigned int size) { return Mem::Calloc(size); }
 template <typename T>
 CScreenElement* Made(T* element) { return element; }
-CScreenElement* GameConstruct(uint32_t address, void* memory)
-{
-    return GameFunction<CScreenElement*(__thiscall*)(void*)>(address)(memory);
-}
 
 void VSetProperties(CScreenElement* e, CStruct* params)
 {
@@ -77,24 +75,19 @@ void VSetMorph(CScreenElement* e, CStruct* params)
     reinterpret_cast<void(__thiscall*)(CScreenElement*, CStruct*)>(e->m_vtable[9])(e, params);
 }
 
-// The text elements' pieces (not rewritten yet; thiscall).
+// The text elements' pieces.
+CTextBlockElement* TextBlock(CScreenElement* e) { return static_cast<CTextBlockElement*>(e); }
+CTextElement* Text(CScreenElement* e) { return static_cast<CTextElement*>(e); }
 bool TextBlockConcatenate(CScreenElement* e, const char* text, bool enforceMaxWidth, bool lastLine)
 {
-    return GameFunction<bool(__thiscall*)(CScreenElement*, const char*, bool, bool)>(0x004B16D0)(e, text,
-                                                                                               enforceMaxWidth, lastLine);
+    return TextBlock(e)->Concatenate(text, enforceMaxWidth, lastLine);
 }
-bool TextConcatenate(CScreenElement* e, const char* text)
-{
-    return GameFunction<bool(__thiscall*)(CScreenElement*, const char*)>(0x004AFD00)(e, text);
-}
-bool TextBlockBackspace(CScreenElement* e) { return GameFunction<bool(__thiscall*)(CScreenElement*)>(0x004B14A0)(e); }
-bool TextBackspace(CScreenElement* e) { return GameFunction<bool(__thiscall*)(CScreenElement*)>(0x004AFDD0)(e); }
-bool TextBlockString(CScreenElement* e, char* out, int size)
-{
-    return GameFunction<bool(__thiscall*)(CScreenElement*, char*, int)>(0x004B11C0)(e, out, size);
-}
-int TextBlockLength(CScreenElement* e) { return GameFunction<int(__thiscall*)(CScreenElement*)>(0x004B1390)(e); }
-int TextLength(CScreenElement* e) { return GameFunction<int(__thiscall*)(CScreenElement*)>(0x004AF650)(e); }
+bool TextConcatenate(CScreenElement* e, const char* text) { return Text(e)->Concatenate(text); }
+bool TextBlockBackspace(CScreenElement* e) { return TextBlock(e)->Backspace(); }
+bool TextBackspace(CScreenElement* e) { return Text(e)->Backspace(); }
+bool TextBlockString(CScreenElement* e, char* out, int size) { return TextBlock(e)->GetText(out, size); }
+int TextBlockLength(CScreenElement* e) { return TextBlock(e)->GetLength(); }
+int TextLength(CScreenElement* e) { return Text(e)->GetLength(); }
 
 // A font (0x0048D760, cdecl) and the size of a string in it (0x0048D060, thiscall).
 void* GetFont(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048D760)(name); }
@@ -187,11 +180,11 @@ ElementPtr* CScreenElementManager::CreateElement(ElementPtr* out, uint32_t type,
         break;
     case kTextBlockElement:
         m = NewMemory(0x1C4);
-        element.Set(m ? GameConstruct(0x004B0810, m) : nullptr);
+        element.Set(m ? static_cast<CTextBlockElement*>(m)->Construct() : nullptr);
         break;
     case kTextElement:
         m = NewMemory(0x1B0);
-        element.Set(m ? GameConstruct(0x004B0920, m) : nullptr);
+        element.Set(m ? static_cast<CTextElement*>(m)->Construct() : nullptr);
         break;
     case kWindowElement:
         m = NewMemory(sizeof(CWindowElement));

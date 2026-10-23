@@ -6,6 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/stubs.h"
 #include "game/front/sprite_element.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -118,7 +119,7 @@ void TextString(void* t, const char* text) { Set(0x0048D530, t, text); }
 void DeleteBlur(CBlurEffect* blur)
 {
     if (blur) {
-        GameFunction<void(__thiscall*)(void*)>(0x005480A0)(blur);
+        Stubs::DoNothing(); // (its destructor: the shared empty stub the original calls)
         Mem::Free(blur);
     }
 }

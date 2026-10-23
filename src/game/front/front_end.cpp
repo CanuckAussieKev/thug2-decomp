@@ -10,13 +10,19 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/front/mouse_menus.h"
+#include "game/front/screen_element_manager.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/tracker.h"
 #include "game/pcm/music.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "game/sio/device.h"
+#include "game/sio/inpman.h"
+#include "game/sys/game_clock.h"
+#include "game/sys/module.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -92,11 +98,12 @@ bool ObjectExists(Script::CStruct* params) // the script command ObjectExists
 {
     return Obj::CFunc_ObjectExists(params, nullptr);
 }
-void ConstructModule(void* module) { GameFunction<void*(__thiscall*)(void*)>(0x0044F7E0)(module); }
-void DestroyModule(void* module) { GameFunction<void(__thiscall*)(void*)>(0x0044F790)(module); }
-void ConstructNode(void* node, int priority) { GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(node, priority); }
-void AddNode(void* list, void* node) { GameFunction<void(__thiscall*)(void*, void*)>(0x00406C90)(list, node); }
-void RemoveNode(void* node) { GameFunction<void(__thiscall*)(void*)>(0x004068F0)(node); }
+// The module base, and the tasks (the logic and input handlers) in the main loop's / input manager's stacks.
+void ConstructModule(void* module) { static_cast<Module*>(module)->Construct(); }
+void DestroyModule(void* module) { static_cast<Module*>(module)->DestroyBody(); }
+void ConstructNode(void* node, int priority) { static_cast<Tsk::BaseTask*>(node)->Construct(priority); }
+void AddNode(void* list, void* node) { static_cast<Tsk::Stack*>(list)->AddTask(static_cast<Tsk::BaseTask*>(node)); }
+void RemoveNode(void* node) { static_cast<Tsk::BaseTask*>(node)->Remove(); }
 
 // A task list node's scalar deleting destructor (vtable slot 2).
 void DeleteNode(void* node)
@@ -107,8 +114,8 @@ void DeleteNode(void* node)
 // A reference to the input manager (Spt::SingletonPtr<Inp::Manager>, 0x0044E7F0 / 0x0044E6B0), not making it.
 struct InputManagerRef {
     uint8_t* m_manager;
-    InputManagerRef() : m_manager(GameFunction<uint8_t*(__cdecl*)(bool)>(0x0044E7F0)(false)) {}
-    ~InputManagerRef() { GameFunction<void(__cdecl*)()>(0x0044E6B0)(); }
+    InputManagerRef() : m_manager(reinterpret_cast<uint8_t*>(Inp::CreateManager(false))) {}
+    ~InputManagerRef() { Inp::ReleaseManager(); }
     InputManagerRef(const InputManagerRef&) = delete;
     InputManagerRef& operator=(const InputManagerRef&) = delete;
 };
@@ -426,12 +433,14 @@ void FrontEnd::Update(bool gamePaused)
     MenuOnScreen() = menuUp;
 
     Pcm::Update();
-    void* objects = GameVariable<void*>(0x006F85A8); // (the sound manager: 0x0047B000 / 0x0047C560 update its voices / streams)
-    GameFunction<void(__thiscall*)(void*)>(0x0047B000)(objects);
+    // (the sound manager: its voices' states, and its positional sounds; the original calls the first - which
+    // takes no manager - as its method)
+    auto* objects = GameVariable<Sfx::CSfxManager*>(0x006F85A8);
+    Sfx::UpdateVoiceStates();
     Mem::Manager* memory = Mem::Manager::Get();
     if (!gamePaused) {
         memory->PushContext(memory->m_bottomUpHeap);
-        GameFunction<void(__thiscall*)(void*)>(0x0047C560)(objects);
+        objects->UpdatePositionalSounds();
         Mem::Manager::Get()->PopContext();
     }
     Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_bottomUpHeap);
@@ -494,7 +503,7 @@ uint32_t FrontEnd::GrabControlEvent(uint32_t makes, int index, int deviceIndex, 
 void FrontEnd::SetAnalogStickActiveForMenus(bool active)
 {
     InputManagerRef input;
-    GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x0044E610)(input.m_manager, active);
+    reinterpret_cast<Inp::Manager*>(input.m_manager)->SetOverridePadWithStick(active);
 }
 
 // 0x0054F960
@@ -527,8 +536,8 @@ void FrontEnd::PauseGame(bool pause)
             reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x30 / 4])(skater);
     }
     Obj::CompositeObjectManager()->Pause(pause);
-    GameFunction<void(__cdecl*)(bool)>(0x0044ED10)(pause);
-    GameFunction<void(__thiscall*)(void*, bool)>(0x004AAEE0)(GameVariable<void*>(0x00701440), pause);
+    Tmr::PauseGameClock(pause);
+    Front::CScreenElementManager::Instance()->SetPausedAll(pause);
     GamePaused() = pause;
     m_paused = pause;
     // The main loop's logic tasks: while paused those of the 0xC kinds (a task's +0x14 bits) are skipped
@@ -599,7 +608,7 @@ void __cdecl FrontEnd::LogicTask(FrontEndTask* task)
 {
     Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_frontEndHeap);
     task->m_data->Update(task->m_data->m_paused);
-    GameFunction<void(__thiscall*)(void*)>(0x004ABD00)(GameVariable<void*>(0x00701440));
+    Front::CScreenElementManager::Instance()->Update();
     Mem::Manager::Get()->PopContext();
 }
 

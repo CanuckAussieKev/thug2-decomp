@@ -76,3 +76,32 @@ both; OpenUserTrack declared), src/hook tests listed per batch.
   its +0x14 byte, the partial anim's length, the model colour, SetFlags dropped, the font spacings swapped, Lerp's
   t, CreatePixelShaders dropped. Not caught: Draw2D dropped in Draw2DWithBlackBars - the world render test runs
   ours in both runs there (PartyMod's call at 0x004B341D into ours): untested.
+- [x] Batch GC4-3 (NOT run in the game yet; GameFunction cleanup - src/game/front, 69 calls): every call from
+  src/game/front into rewritten code is direct now - the level editor's 13 collision rays (CFeeler::Construct /
+  GetCollisionAlong over the same 0x100-byte buffer, read back at +0x34 as before; GetCollisionAlong's int result
+  tested for non-zero where the GameFunction read AL - it returns 0 / 1), its render states (SetTexture /
+  SetVertexFormat / SetPixelShader), Terrain::GetTerrainIndex, Matrix::InitFromAngles, Quat::FromMatrix / GetMatrix
+  (the chains' quaternions are Mth::Vectors: reinterpreted), SkateScript::GetNode / GetPosition, the camera's getters,
+  Script::GetFloat (the original passes 1 as a second argument our GetFloat doesn't take), GameNet::Manager::InNetGame
+  (automation, layout); front_end.cpp (Mdl::Module's Construct / DestroyBody, Tsk::BaseTask's Construct / Remove,
+  Tsk::Stack::AddTask, Inp::CreateManager / ReleaseManager / SetOverridePadWithStick, Sfx::UpdateVoiceStates - the
+  original calls it as a method of the sound manager, it takes none - and CSfxManager::UpdatePositionalSounds,
+  Tmr::PauseGameClock, CScreenElementManager::SetPausedAll / Update); menu_element / screen_element / mouse_menus
+  (the screen element manager's HasPriorities, IsPadEvent, IsTopPriority, GetElement, ResolveId, SetParent,
+  DestroyElement); screen_element_cfuncs (the text / text block methods, and both constructors - GameConstruct gone);
+  screen_element_manager (Inp::Manager::GetPlayerController, CTextElement::SetText); element3d; menu_backdrop
+  (CMovieManager::GetPlayingName); text_block / text_element (the blur's destructor: Stubs::DoNothing, the shared
+  empty stub the original calls). The named-address helpers (sprite_element's / text_element's Set(address, ...),
+  level_editor_goals' GoalCommand) reach no rewritten function: left.
+  Tests: stand-ins over ours too in selftests_menu (front end: the thiscall helpers take ours; 0x0047B000's no longer
+  records ECX), fe_element_fixture.h, fe_menu, fe_manager, fe_cfuncs (the text helpers and the two constructors),
+  fe_text (0x005480A0 over Stubs::DoNothing too, ECX not recorded), el3d, menulvl, net_scores (GetElement: the score
+  list reaches it through Front::GetElement now). Mutations (out/scripts/mut_gc4_3.ts): 17 / 17 caught - a task's
+  priority, the stick override, the clock pause, the voices update dropped, the input manager's release dropped, the
+  top priority id, DestroyElement's recurse, ResolveId's name, a text block's last-line flag, the text length, the
+  block string's size, GetNode's assert, element3d's camera angle, the player's controller, the score text, the blur
+  destructor dropped, the backdrop's playing name. Untested: the level editor's rays (snap-movables: no test reaches
+  them - the editor is UI, tested by hand); one mutation (text-ctor) didn't build. Odd: with the test filter
+  "Menu,FrontEnd,ScreenElement,Text,Element3d,NetScores,Backdrop,Sprite,LevelEditor,Editor" TestEditorUnproject
+  hangs (45 s watchdog) even without a mutation - it passes alone and in full runs (D3DX's first-call dispatch after
+  other tests?); not from this work, worth a look.

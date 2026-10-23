@@ -6,10 +6,12 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/text_element.h"
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sio/inpman.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -497,8 +499,8 @@ void CScreenElementManager::ListenerReceive(Obj::CEvent* event)
     if (manager->m_checkDevice && event->mp_data) {
         int device;
         if (event->mp_data->GetInteger(kDeviceNum, &device, 0)) {
-            void* sio = GameVariable<void*>(0x00696D40);
-            if (GameFunction<int(__thiscall*)(void*, int)>(0x0044E630)(sio, 0) != device)
+            auto* input = GameVariable<Inp::Manager*>(0x00696D40); // (the input manager)
+            if (input->GetPlayerController(0) != device)
                 return;
         }
     }
@@ -712,7 +714,7 @@ void SetScoreText(const char* text, int player)
     ElementPtr element;
     CScreenElementManager::Instance()->GetElement(&element, kTheScore + player, 0);
     if (element)
-        GameFunction<void(__thiscall*)(CScreenElement*, const char*)>(0x004AF8C0)(element.mp_object, text);
+        static_cast<CTextElement*>(element.mp_object)->SetText(text);
 }
 
 } // namespace Front

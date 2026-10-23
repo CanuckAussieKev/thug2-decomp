@@ -192,7 +192,7 @@ void ApplyLive(const Nodes::Node* node, uint32_t name, const Values& values)
         state.pos = pos;
         Mth::Matrix matrix;
         Mth::Vector angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
-        GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(&matrix, &angles);
+        matrix.InitFromAngles(angles);
         for (int r = 0; r < 3; ++r)
             state.matrix.row[r] = state.displayMatrix.row[r] = matrix.row[r];
         Objects::Restore(state);
