@@ -13,7 +13,10 @@
 #include "game/net/net_conn.h"
 #include "game/net/net_lists.h"
 #include "game/nx/feeler.h"
+#include "game/net/gamenet_manager.h"
+#include "game/net/player_info.h"
 #include "game/obj/anim_blender.h"
+#include "game/obj/model_component.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -25,6 +28,7 @@
 #include "game/skater/special_item.h"
 #include "game/skater/skater_x87.h"
 #include "game/skater/state_history.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -38,7 +42,7 @@ T& Field(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-// The model's three parts the messages 0x76 / 0x8C start and stop (names unknown).
+// The model component's three spin axes (its m_spin, about X, Y, Z) the messages 0x76 / 0x8C start and stop.
 constexpr uint32_t kModelParts[3] = {0x38, 0xCC, 0x160};
 // Message 0x77: the made item's structure and component
 constexpr uint32_t kItemName = 0xCAB94088, kItemOwner = 0x40C698AF, kItemComponent = 0x5CB5CB7E;
@@ -67,11 +71,11 @@ uint32_t FrameTime(uint8_t* frame) { return reinterpret_cast<SkaterStateHistoryF
 Mth::Matrix& FrameMatrix(uint8_t* frame) { return Field<Mth::Matrix>(frame, 0x08); }
 Mth::Vector& FramePosition(uint8_t* frame) { return Field<Mth::Vector>(frame, 0x48); }
 
-void* NetManager() { return GameVariable<void*>(0x007CCE14); }
-// The network manager's client app (0x00532EA0): +8 its frame count.
-uint8_t* ClientApp() { return GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x00532EA0)(NetManager(), 0); }
+GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+// The network manager's client app: +8 its frame count.
+uint8_t* ClientApp() { return reinterpret_cast<uint8_t*>(NetManager()->GetClient(0)); }
 int FrameRate() { return GameVariable<int>(0x00684FB4); }
-int Now() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
+int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 // The level's rails (the skate module's +0x24).
 CRailManager* LevelRails() { return Field<CRailManager*>(GameVariable<uint8_t*>(0x007CE478), 0x24); }
 
@@ -81,10 +85,10 @@ CRailManager* LevelRails() { return Field<CRailManager*>(GameVariable<uint8_t*>(
 // left out: it never is.)
 float ConnectionLag(uint8_t* app, CCompositeObject* skater, int frameMs)
 {
-    void* net = NetManager();
+    GameNet::Manager* net = NetManager();
     Net::Conn* conn;
-    if (GameFunction<uint32_t(__thiscall*)(void*)>(0x00533F90)(net) & 0xFF) {
-        uint8_t* player = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(net, skater->m_id);
+    if (net->OnServer()) {
+        uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(skater->m_id));
         conn = Field<Net::Conn*>(player, 0x18);
     } else {
         Net::ConnSearch search;
@@ -125,15 +129,15 @@ void CSkaterNonLocalNetLogicComponent::Interpolate()
             return;
         skater->ShowSkater();
         Script::RunScript(kSkaterAppeared, nullptr, skater, false, nullptr);
-        GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(NetManager(), static_cast<uint16_t>(skater->m_id));
+        NetManager()->PlayerByObjectId(static_cast<uint16_t>(skater->m_id)); // (its result unused)
         UpdateGroundLighting();
         return;
     }
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
-    void* player = GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(NetManager(), skater->m_id);
-    if (!GameFunction<bool(__thiscall*)(void*)>(0x00543380)(player))
-        GameFunction<void(__thiscall*)(void*)>(0x005439D0)(player);
+    auto* player = reinterpret_cast<GameNet::PlayerInfo*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(skater->m_id)));
+    if (!player->IsFullyIn())
+        player->MarkAsFullyIn();
     int count = Field<int>(m_history, 0x18);
     int oldest = count % kHistory; // (the next to be written)
     uint32_t now = Field<uint32_t>(app, 8) - m_syncFrame + m_syncTime;
@@ -243,7 +247,7 @@ void CSkaterNonLocalNetLogicComponent::Interpolate()
 // 0x00515360
 void CSkaterNonLocalNetLogicComponent::Extrapolate()
 {
-    void* net = NetManager();
+    GameNet::Manager* net = NetManager();
     uint8_t* app = ClientApp();
     int frameMs = static_cast<int>(static_cast<double>(m_frameSeconds) * kMsPerSecond);
     float lag = ConnectionLag(app, m_object, frameMs);
@@ -255,7 +259,7 @@ void CSkaterNonLocalNetLogicComponent::Extrapolate()
     float dirX = dx, dirZ = dz;
     // How well the move lines up with this machine's skater's (0 to 1; 0 without one).
     double alignment = 0.0;
-    uint8_t* local = GameFunction<uint8_t*(__thiscall*)(void*)>(0x00537320)(net);
+    auto* local = static_cast<uint8_t*>(net->GetLocalPlayer());
     if (local && Field<CCompositeObject*>(local, 0x14)) {
         Mth::Vector theirs = Field<CCompositeObject*>(local, 0x14)->m_vel;
         Mth::Vector mine = {dx, dy, dz, dw};
@@ -467,7 +471,7 @@ CRailNode* CSkaterNonLocalNetLogicComponent::MoveAlongRail(CRailNode* node, floa
 void CSkaterNonLocalNetLogicComponent::ExtrapolateOnRail()
 {
     CRailManager* rails = LevelRails();
-    void* net = NetManager();
+    GameNet::Manager* net = NetManager();
     uint8_t* app = ClientApp();
     int frameMs = static_cast<int>(static_cast<double>(m_frameSeconds) * kMsPerSecond);
     float lag = ConnectionLag(app, m_object, frameMs);
@@ -477,7 +481,7 @@ void CSkaterNonLocalNetLogicComponent::ExtrapolateOnRail()
     float dz = m_playPos.z - m_lastPlayPos.z;
     float dw = m_playPos.w - m_lastPlayPos.w;
     double alignment = 0.0;
-    uint8_t* local = GameFunction<uint8_t*(__thiscall*)(void*)>(0x00537320)(net);
+    auto* local = static_cast<uint8_t*>(net->GetLocalPlayer());
     if (local) { // (its skater isn't checked here)
         Mth::Vector theirs = Field<CCompositeObject*>(local, 0x14)->m_vel;
         Mth::Vector mine = {dx, dy, dz, dw};
@@ -570,8 +574,8 @@ void CSkaterNonLocalNetLogicComponent::PlayHistoryEvents()
                     GameFunction<void(__thiscall*)(void*, int, int)>(0x0047E740)(channel, Field<int8_t>(m, 0x02), 0);
                 break;
             case 0x3E:
-                GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t, int)>(0x004202A0)(
-                    m_model, Field<uint32_t>(m, 0x20), Field<uint8_t>(m, 0x0A), 0);
+                reinterpret_cast<CModelComponent*>(m_model)->HideGeom(Field<uint32_t>(m, 0x20),
+                                                                      Field<uint8_t>(m, 0x0A) != 0, false);
                 break;
             case 0x41:
                 if (Gfx::CBlendChannel* channel = blender->FindChannel(0))
@@ -583,10 +587,10 @@ void CSkaterNonLocalNetLogicComponent::PlayHistoryEvents()
                 int time = Now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (Field<uint8_t>(m, 0x03) & (1u << bit))
-                        GameFunction<void(__thiscall*)(void*, float, int, uint32_t, uint32_t, uint32_t, uint32_t, int)>(
-                            0x00420520)(m_model + kModelParts[bit], static_cast<float>(Field<int>(m, 0x3C)), time,
-                                        Field<uint32_t>(m, 0x48), Field<uint32_t>(m, 0x4C), Field<uint32_t>(m, 0x40),
-                                        Field<uint8_t>(m, 0x50), 0);
+                        reinterpret_cast<CModelSpinAxis*>(m_model + kModelParts[bit])
+                            ->Add(static_cast<float>(Field<int>(m, 0x3C)), static_cast<uint32_t>(time),
+                                  Field<float>(m, 0x48), Field<float>(m, 0x4C), Field<int>(m, 0x40),
+                                  Field<uint8_t>(m, 0x50) != 0, false);
                 }
                 break;
             }
@@ -612,7 +616,7 @@ void CSkaterNonLocalNetLogicComponent::PlayHistoryEvents()
                 break;
             case 0x8C:
                 for (uint32_t part : kModelParts)
-                    GameFunction<void(__thiscall*)(void*)>(0x004204F0)(m_model + part);
+                    reinterpret_cast<CModelSpinAxis*>(m_model + part)->Clear();
                 break;
             default:
                 break;

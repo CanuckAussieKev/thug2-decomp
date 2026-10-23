@@ -18,9 +18,12 @@
 #include "game/nx/feeler.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/object.h"
+#include "game/obj/skeleton_component.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/tagging.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -131,6 +134,8 @@ void StandInAll(StandIns& s)
     for (uint32_t address : {0x00478F00u, AddressOf(static_cast<float (*)(uint32_t)>(&Script::GetFloat))})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&StandInFloat)));
     s.Bytes(0x0043DA70, Branch(0xE9, 0x0043DA70, reinterpret_cast<void*>(&StandInTagSetting)));
+    const uint32_t ourParam = AddressOf(&Obj::CWalkComponent::Param); // (called directly by ours)
+    s.Bytes(ourParam, Branch(0xE9, ourParam, reinterpret_cast<void*>(&StandInTagSetting)));
     // Textures.
     s.At({0x0049F9B0}, 0x10, [](Regs& r) {
         Record({0x49F9, Id(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2], r.args[3]});
@@ -223,7 +228,7 @@ void StandInAll(StandIns& s)
         return 0u;
     });
     // The skater.
-    s.At({0x00432050}, 8, [](Regs& r) {
+    s.At({0x00432050, AddressOf(&Obj::CSkeletonComponent::GetBonePosition)}, 8, [](Regs& r) {
         Record({0x4320, Id(r.ecx), r.args[0]});
         *reinterpret_cast<Mth::Vector*>(r.args[1]) = g_bone;
         return 1u;
@@ -232,7 +237,7 @@ void StandInAll(StandIns& s)
         Record({0x46B9, r.ecx - reinterpret_cast<uint32_t>(g_input)});
         return static_cast<uint32_t>(g_pressedTime);
     });
-    s.At({0x00434BF0}, 8, [](Regs& r) {
+    s.At({0x00434BF0, AddressOf(&Obj::CTriggerComponent::CheckFeeler)}, 8, [](Regs& r) {
         Record({0x434B, Id(r.ecx), r.args[0]});
         return 0u;
     });

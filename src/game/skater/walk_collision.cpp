@@ -9,12 +9,18 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
+#include "game/obj/model_component.h"
+#include "game/obj/node_components.h"
+#include "game/obj/shadow_component.h"
+#include "game/obj/trigger_component.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/trick_component.h"
 #include "game/skater/walk_fields.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
@@ -202,7 +208,7 @@ void CWalkComponent::CheckStickerSlap()
     float sinceState = sinceAsFloat(At<int>(this, kStateTime));
     if (Script::GetFloat(kLateJumpSlop) > sinceState)
         return;
-    if (!GameFunction<bool(__thiscall*)(void*, int, int, int)>(0x00507500)(At<void*>(this, kCorePhysics), 0, 1, 0))
+    if (!At<Skater::CorePhysicsComponent*>(this, kCorePhysics)->WallPlant(false, true, false))
         return;
     Dbg::Printf(Text(kSlapMessage));
     Script::RunScript(kWalkingWallplantSwitch, nullptr, m_object, false, nullptr);
@@ -236,11 +242,8 @@ void CWalkComponent::UpdateGroundBelow()
     else
         shade.m_line.end = {point.x, static_cast<float>(static_cast<double>(shade.m_line.start.y) - depth), point.z,
                             point.w};
-    // 0x00420670: the model shaded by the face hit (its vertex value).
-    auto shadeModel = [this](Nx::CFeeler* feeler) {
-        GameFunction<void(__thiscall*)(void*, Nx::CFeeler*, bool, float)>(0x00420670)(At<void*>(this, kModel), feeler,
-                                                                                      true, kOne);
-    };
+    // The model shaded by the face hit (its vertex value).
+    auto shadeModel = [this](Nx::CFeeler* feeler) { At<CModelComponent*>(this, kModel)->ApplyBrightness(feeler, true, kOne); };
     if (shade.GetCollision(true, false))
         shadeModel(&shade);
     else if (below)
@@ -249,9 +252,9 @@ void CWalkComponent::UpdateGroundBelow()
     if (below) {
         // The height above it (the skater state's +0x11C), the shadow on it.
         At<float>(At<uint8_t*>(this, kSkaterState), 0x11C) = static_cast<float>(static_cast<double>(pos.y) - down.m_point.y);
-        void* shadow = m_object->GetComponent(kShadow);
-        GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x004317C0)(shadow, &down.m_point);
-        GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x004317E0)(shadow, &down.m_normal);
+        auto* shadow = static_cast<CShadowComponent*>(m_object->GetComponent(kShadow));
+        shadow->SetPosition(&down.m_point);
+        shadow->SetNormal(&down.m_normal);
         return;
     }
 
@@ -434,13 +437,11 @@ void CWalkComponent::TryWallplant()
     }
     PlanJumpOverObstruction();
     // The trigger told (events 0x0064C63C); a trigger's script may take over.
-    GameFunction<void(__thiscall*)(void*, const int*, Nx::CFeeler*)>(0x00434BF0)(
-        At<void*>(this, kTrigger), reinterpret_cast<const int*>(0x0064C63C), &feeler);
+    At<CTriggerComponent*>(this, kTrigger)->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C), &feeler);
     if (At<bool>(At<uint8_t*>(this, kPhysicsControl), 0x26))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
-    GameFunction<void(__thiscall*)(CBaseComponent*, uint32_t)>(0x00522370)(m_object->GetComponent(kTrick),
-                                                                          At<uint32_t>(contact, 0x74));
+    static_cast<CTrickComponent*>(m_object->GetComponent(kTrick))->PassToTrickObjects(At<uint32_t>(contact, 0x74));
     At<int>(At<uint8_t*>(this, kCorePhysics), 0x4E0) = Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60);
     At<uint32_t>(this, kAnimState) = kWallplant;
 }
@@ -470,7 +471,7 @@ bool CWalkComponent::TryGrind()
         auto railsOf = [](CBaseComponent* c) { return reinterpret_cast<CRailManager*(__thiscall*)(CBaseComponent*)>(c->m_vtable[13])(c); };
         for (; component && !found; component = component->mp_nextOfType) {
             Mth::Matrix world;
-            GameFunction<void(__thiscall*)(CBaseComponent*, Mth::Matrix*)>(0x0042BA10)(component, &world);
+            static_cast<CRailManagerComponent*>(component)->UpdateRailMatrix(&world);
             Mth::Matrix inverse = world;
             inverse.Invert();
             Mth::Vector localOld, localPos;
@@ -487,9 +488,9 @@ bool CWalkComponent::TryGrind()
         if (!found)
             return false;
     }
-    // The core physics' say (0x00500020), and nothing in the way to it (a wall within 6 of the rail is fine).
-    if (!GameFunction<bool(__thiscall*)(void*, CRailNode*, CRailManager*, int)>(0x00500020)(
-            At<void*>(this, kCorePhysics), node, At<CRailManager*>(this, kGrindRails), 1))
+    // The core physics' say, and nothing in the way to it (a wall within 6 of the rail is fine).
+    if (!At<Skater::CorePhysicsComponent*>(this, kCorePhysics)->CanGrindRail(node, At<CRailManager*>(this, kGrindRails),
+                                                                             true))
         return false;
     Nx::CFeeler feeler;
     feeler.Construct(&pos, &point);

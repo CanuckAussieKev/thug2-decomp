@@ -6,8 +6,11 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
+#include "game/obj/anim_blender.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
@@ -37,20 +40,16 @@ T& Field(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-// The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
-// whether a player is this machine's (0x00543300), a player's skater's index (0x005434B0) and the client app of an
-// index (0x00532EA0).
-void* NetManager() { return GameVariable<void*>(0x007CCE14); }
-void* PlayerByObjectId(uint32_t id)
+// The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this
+// machine's, a player's skater's index (its +0x2BC) and the client app of an index.
+GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::PlayerInfo* PlayerByObjectId(uint32_t id)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(NetManager(), id);
+    return reinterpret_cast<GameNet::PlayerInfo*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)));
 }
-bool IsLocalPlayer(void* player) { return GameFunction<bool(__thiscall*)(void*)>(0x00543300)(player); }
-int PlayerSkaterIndex(void* player) { return GameFunction<int(__thiscall*)(void*)>(0x005434B0)(player); }
-Net::Client* ClientApp(int index)
-{
-    return GameFunction<Net::Client*(__thiscall*)(void*, int)>(0x00532EA0)(NetManager(), index);
-}
+bool IsLocalPlayer(GameNet::PlayerInfo* player) { return player->IsLocalPlayer() != 0; }
+int PlayerSkaterIndex(GameNet::PlayerInfo* player) { return static_cast<int>(player->GetSkaterValue2BC()); }
+Net::Client* ClientApp(int index) { return static_cast<Net::Client*>(NetManager()->GetClient(index)); }
 // A client app's +0x08 (passed to the animation blender and to SetBoardRotated, which doesn't use it).
 uint32_t AppValue8(Net::Client* app) { return Field<uint32_t>(app, 0x08); }
 
@@ -62,8 +61,7 @@ bool FlipNeeded(uint8_t* corePhysics) { return GameFunction<bool(__thiscall*)(ui
 // The animation blender's 0x00419C10: its animations mirrored or not (`flip`: the state component's byte as it is).
 void FlipAnims(CBaseComponent* blender, uint32_t objectId, uint32_t flip, uint32_t a, int b)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, uint32_t, uint32_t, uint32_t, int)>(0x00419C10)(blender, objectId,
-                                                                                                   flip, a, b);
+    static_cast<CAnimBlenderComponent*>(blender)->AnyChannel(objectId, flip, a, static_cast<uint32_t>(b));
 }
 
 // The skater's index (+0x2BC of the skater object).
@@ -115,7 +113,7 @@ void CSkaterFlipAndRotateComponent::Finalize()
 bool CSkaterFlipAndRotateComponent::SetBoardRotated(uint32_t objectId, bool rotated, uint32_t /*unused*/, bool send)
 {
     if (send) {
-        void* player = PlayerByObjectId(objectId);
+        GameNet::PlayerInfo* player = PlayerByObjectId(objectId);
         if (player && IsLocalPlayer(player)) {
             Net::MsgDesc message;
             message.Construct();

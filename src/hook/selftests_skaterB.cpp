@@ -19,6 +19,8 @@
 #include "game/script/struct.h"
 #include "game/sio/sdl_input.h"
 #include "game/skater/rotation.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -55,6 +57,12 @@ std::vector<uint8_t> Jump(uint32_t from, const void* to)
     int32_t relative = static_cast<int32_t>(reinterpret_cast<uintptr_t>(to) - (from + 5));
     std::memcpy(&bytes[1], &relative, 4);
     return bytes;
+}
+// Our rewrite of a function (stood in for too: our code calls it directly).
+template <typename F>
+uint32_t OurCode(F function)
+{
+    return reinterpret_cast<uint32_t>(CodeAddress(function));
 }
 
 // A small deterministic generator (the same sequence for both runs).
@@ -169,6 +177,15 @@ struct SkaterStandIns {
     Patch stuckOurs{reinterpret_cast<uint32_t>(CodeAddress(&Skater::CorePhysicsComponent::TrySpineTransfer)),
                     Jump(reinterpret_cast<uint32_t>(CodeAddress(&Skater::CorePhysicsComponent::TrySpineTransfer)),
                          reinterpret_cast<void*>(&StandInStuck))};
+    // (and ours calls our rewrites of the others directly)
+    Patch timeOurs{OurCode(&Tmr::GameClockElapsed), Jump(OurCode(&Tmr::GameClockElapsed), reinterpret_cast<void*>(&StandInTime))};
+    Patch physicsFloatOurs{OurCode(&Obj::GetPhysicsFloat),
+                           Jump(OurCode(&Obj::GetPhysicsFloat), reinterpret_cast<void*>(&StandInPhysicsFloat))};
+    Patch physicsIntOurs{OurCode(&Obj::GetPhysicsInt),
+                         Jump(OurCode(&Obj::GetPhysicsInt), reinterpret_cast<void*>(&StandInPhysicsInt))};
+    Patch statOurs{OurCode(&Obj::CSkater::GetScaledPhysics),
+                   Jump(OurCode(&Obj::CSkater::GetScaledPhysics), reinterpret_cast<void*>(&StandInStatValue))};
+    Patch offsetOurs{OurCode(&Mth::GetAngleAbout), Jump(OurCode(&Mth::GetAngleAbout), reinterpret_cast<void*>(&StandInRampOffset))};
 };
 
 // The math helpers break vert uses, in the original redirected to ours: they're tested on their own (with a

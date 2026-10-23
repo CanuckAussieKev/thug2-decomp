@@ -19,6 +19,7 @@
 #include "game/obj/control_pad.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/struct.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
@@ -188,9 +189,9 @@ void Install(StandIns& s)
     });
     // Air's.
     ReturnFloat(s, {0x005284C0}, &g_gravity);
-    ReturnFloat(s, {0x0043DA70}, &g_rehang);
-    StubCdecl(s, {0x00420250}, 0x0250, 1, [](Regs&) { return g_since; });
-    s.At({0x0043F030}, 0x20, [](Regs& r) {
+    ReturnFloat(s, {0x0043DA70, AddressOf(&Obj::CWalkComponent::Param)}, &g_rehang);
+    StubCdecl(s, {0x00420250, AddressOf(&Tmr::GameClockTimeSince)}, 0x0250, 1, [](Regs&) { return g_since; });
+    s.At({0x0043F030, AddressOf(&Obj::CWalkComponent::GrabRail)}, 0x20, [](Regs& r) {
         Rec(0xF030, {r.ecx});
         RecFloat(0xF031, reinterpret_cast<const float*>(&r.args[0]), 8);
         return g_answers[0xF030];
@@ -246,7 +247,7 @@ void Install(StandIns& s)
         std::memcpy(reinterpret_cast<void*>(r.ecx), from, 0x98);
         return r.ecx;
     });
-    s.At({0x00434BF0}, 8, [](Regs& r) {
+    s.At({0x00434BF0, AddressOf(&Obj::CTriggerComponent::CheckFeeler)}, 8, [](Regs& r) {
         Rec(0x4BF0, {r.ecx, r.args[0], Where(r.args[1])});
         auto effect = g_effects.find(0x4BF0);
         if (effect != g_effects.end())
@@ -270,11 +271,11 @@ void Install(StandIns& s)
     S(s, {0x00417210, AddressOf(&Nx::CFeeler::HitObjectAlive)}, 0, 0x7210, true);
     S(s, {0x00417240, AddressOf(&Nx::CFeeler::GetHitObject)}, 0, 0x7240, true);
     S(s, {0x0043EB80}, 4, 0xEB80);
-    S(s, {0x0041C350}, 0, 0xC350, true);
+    S(s, {0x0041C350, AddressOf(&Nx::CFeeler::Destruct)}, 0, 0xC350, true);
     // Jump's, the barrier jump's and the contacts'.
     S(s, {0x0046B920, AddressOf(&Obj::CControlButton::GetPressedTime)}, 0, 0xB920);
     ReturnFloat(s, {0x00528120}, &g_push);
-    ReturnDouble(s, {0x0043DAA0}, &g_divisor);
+    ReturnDouble(s, {0x0043DAA0, AddressOf(&Obj::CWalkComponent::RunSpeed)}, &g_divisor);
     S(s, {0x00529160}, 0, 0x9160);
     S(s, {0x00441DE0}, 4, 0x1DE0);
     S(s, {0x004607A0, AddressOf(&Obj::CObject::ClearEventHandler)}, 4, 0x47A0);

@@ -13,7 +13,10 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/camera.h"
 #include "game/mth/matrix.h"
+#include "game/mth/vector.h"
+#include "game/obj/sound_component.h"
 #include "game/pcm/music_api.h"
 #include "game/script/struct.h"
 #include "game/sys/platform_system.h"
@@ -64,41 +67,31 @@ void* NearestCamera(const Mth::Vector* position, float* distance)
     return GameFunction<void*(__cdecl*)(const Mth::Vector*, float*)>(0x004A09E0)(position, distance);
 }
 void* ViewportCamera(int viewport) { return GameFunction<void*(__cdecl*)(int)>(0x004A0950)(viewport); }
-const Mth::Vector* CameraPosition(void* camera)
-{
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera);
-}
-const Mth::Matrix* CameraMatrix(void* camera)
-{
-    return GameFunction<const Mth::Matrix*(__thiscall*)(void*)>(0x00485A10)(camera);
-}
-// The objects' sound parts (not rewritten yet).
+const Mth::Vector* CameraPosition(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetPos(); }
+const Mth::Matrix* CameraMatrix(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetMatrix(); }
+// The objects' sound parts: the "object" the sound manager is given is the object's sound component.
+Obj::CSoundComponent* SoundComponent(Obj::CObject* object) { return reinterpret_cast<Obj::CSoundComponent*>(object); }
 double Extent(void* extent, const Mth::Vector* from)
 {
-    return GameFunction<double(__cdecl*)(void*, const Mth::Vector*)>(0x00423680)(extent, from);
+    return Mth::GetDistance(*static_cast<const Mth::Vector*>(extent), *from);
 }
 bool ObjectSoundExtent(Obj::CObject* object, void* camera, void* out)
 {
-    return GameFunction<bool(__thiscall*)(Obj::CObject*, void*, void*)>(0x00432F10)(object, camera, out);
+    return SoundComponent(object)->GetSoundExtent(camera, static_cast<Mth::Vector*>(out));
 }
 Mth::Vector* ObjectSoundPosition(Obj::CObject* object, Mth::Vector* out, void* camera)
 {
-    return GameFunction<Mth::Vector*(__thiscall*)(Obj::CObject*, Mth::Vector*, void*)>(0x00432E50)(object, out,
-                                                                                                    camera);
+    return SoundComponent(object)->GetSoundPosition(out, camera);
 }
 Mth::Vector* ObjectSoundPrevious(Obj::CObject* object, Mth::Vector* out, void* camera)
 {
-    return GameFunction<Mth::Vector*(__thiscall*)(Obj::CObject*, Mth::Vector*, void*)>(0x00432EB0)(object, out,
-                                                                                                    camera);
+    return SoundComponent(object)->GetPreviousSoundPosition(out, camera);
 }
 void KeepLoopingSound(Obj::CObject* object, PlaybackProps* props, uint32_t time)
 {
-    GameFunction<void(__thiscall*)(Obj::CObject*, PlaybackProps*, uint32_t)>(0x00432D40)(object, props, time);
+    SoundComponent(object)->KeepLoopingSound(props, time);
 }
-void NoteSoundUpdate(Obj::CObject* object, PlaybackProps* props)
-{
-    GameFunction<void(__thiscall*)(Obj::CObject*, PlaybackProps*)>(0x00432F70)(object, props);
-}
+void NoteSoundUpdate(Obj::CObject* object, PlaybackProps* props) { SoundComponent(object)->UpdateProps(props); }
 const Mth::Vector* ObjectPosition(Obj::CObject* object)
 {
     return reinterpret_cast<const Mth::Vector*>(reinterpret_cast<uint8_t*>(object) + 0x98);
@@ -767,11 +760,8 @@ void SetVoiceParameters(int index, sVolume* volume, float pitch)
             Com<long>(Listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // SetOrientation
             Mth::Vector heard = -CameraMatrix(camera)->row[2];
             Mth::Vector seen = -CameraMatrix(viewport)->row[2];
-            double angle = GameFunction<double(__cdecl*)(const Mth::Vector*, const Mth::Vector*)>(0x00406460)(
-                &heard, &seen);
-            const Mth::Vector* turned = GameFunction<const Mth::Vector*(__thiscall*)(Mth::Vector*, float)>(
-                0x00420A90)(&relative, static_cast<float>(angle * 0.017453292f));
-            relative = *turned;
+            double angle = Mth::GetAngle(heard, seen);
+            relative.RotateAboutY(static_cast<float>(angle * 0.017453292f));
         } else {
             Mth::Vector front = -CameraMatrix(camera)->row[2];
             Com<long>(Listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // SetOrientation

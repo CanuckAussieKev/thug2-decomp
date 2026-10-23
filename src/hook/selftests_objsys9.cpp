@@ -21,6 +21,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/mth/vector.h"
+#include "game/obj/sound_component.h"
 #include "game/pcm/music_api.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
@@ -291,8 +293,10 @@ void StandInPositionalWorld(StandIns& s)
 {
     StandInCameras(s, true);
     s.Bytes(0x00423680, Branch(0xE9, 0x00423680, reinterpret_cast<void*>(&ExtentStandIn)));
+    const uint32_t ourExtent = AddressOf(&Mth::GetDistance); // (called directly by ours)
+    s.Bytes(ourExtent, Branch(0xE9, ourExtent, reinterpret_cast<void*>(&ExtentStandIn)));
     // the object's sound parts (thiscall)
-    s.At({0x00432F10}, 8, [](Regs& r) {
+    s.At({0x00432F10, AddressOf(&Obj::CSoundComponent::GetSoundExtent)}, 8, [](Regs& r) {
         uint32_t has = g_answers.Below(3) == 0;
         if (has) {
             auto* out = reinterpret_cast<float*>(r.args[1]);
@@ -302,8 +306,11 @@ void StandInPositionalWorld(StandIns& s)
         Record({0x432F1000, r.ecx, r.args[0], has});
         return has;
     });
-    for (uint32_t address : {0x00432E50u, 0x00432EB0u}) {
-        s.At({address}, 8, [address](Regs& r) {
+    const std::pair<uint32_t, uint32_t> positions[] = {
+        {0x00432E50u, AddressOf(&Obj::CSoundComponent::GetSoundPosition)},
+        {0x00432EB0u, AddressOf(&Obj::CSoundComponent::GetPreviousSoundPosition)}};
+    for (auto [address, ours] : positions) {
+        s.At({address, ours}, 8, [address](Regs& r) {
             auto* out = reinterpret_cast<float*>(r.args[0]);
             const auto* at = reinterpret_cast<const float*>(r.ecx + 0x98);
             for (int i = 0; i < 4; ++i)
@@ -312,13 +319,13 @@ void StandInPositionalWorld(StandIns& s)
             return r.args[0];
         });
     }
-    s.At({0x00432D40}, 8, [](Regs& r) {
+    s.At({0x00432D40, AddressOf(&Obj::CSoundComponent::KeepLoopingSound)}, 8, [](Regs& r) {
         Record({0x432D4000, r.ecx, Rel(r.args[0]), r.args[1]});
         for (int i = 0; i < 0x2C; i += 4)
             Record({FBAt(r.args[0] + i)});
         return 0u;
     });
-    s.At({0x00432F70}, 4, [](Regs& r) {
+    s.At({0x00432F70, AddressOf(&Obj::CSoundComponent::UpdateProps)}, 4, [](Regs& r) {
         Record({0x432F7000, r.ecx, r.args[0]});
         return 0u;
     });
@@ -701,6 +708,8 @@ void StandInVoiceWorld(StandIns& s)
         return pick == 3 ? 0u : Camera(static_cast<int>(pick));
     });
     s.Bytes(0x00406460, Branch(0xE9, 0x00406460, reinterpret_cast<void*>(&AngleStandIn)));
+    const uint32_t ourAngle = AddressOf(&Mth::GetAngle); // (called directly by ours)
+    s.Bytes(ourAngle, Branch(0xE9, ourAngle, reinterpret_cast<void*>(&AngleStandIn)));
     s.At({0x00450650, AddressOf(&Pcm::StopMusic)}, 0, [](Regs&) {
         Record({0x9C350000});
         return 0u;

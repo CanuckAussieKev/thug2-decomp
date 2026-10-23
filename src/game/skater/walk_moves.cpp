@@ -4,6 +4,7 @@
 
 #include "game/skater/walk_physics.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -21,6 +22,7 @@
 #include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/object.h"
+#include "game/obj/walk_hang.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
 #include "game/script/struct.h"
@@ -370,7 +372,7 @@ void CWalkComponent::UpdateCameraOverride()
     }
     case kHangMoveLeft: {
         Mth::Vector turned = facing;
-        GameFunction<Mth::Vector*(__thiscall*)(Mth::Vector*, float)>(0x00420A90)(&turned, kHangTurnBack); // about y
+        turned.RotateAboutY(kHangTurnBack);
         SetCameraOverride(camera, &turned, kCameraRate);
         return;
     }
@@ -396,7 +398,8 @@ void CWalkComponent::UpdateAnimSpeed()
     void* animation = At<void*>(this, kAnimation);
     // 0x00419B90: the animation's first channel's speed (and whether to send it over the network).
     auto setSpeed = [animation](float speed, int send) {
-        GameFunction<void(__thiscall*)(void*, float, int, int, int)>(0x00419B90)(animation, speed, send, 0, 0);
+        // (the other three are passed as integers: their bits)
+        static_cast<CAnimBlenderComponent*>(animation)->FirstChannel47E850(speed, std::bit_cast<float>(send), 0.0f, 0.0f);
     };
     // The animation component's member function 0xBD4EDD44 with speed = `speed`.
     auto tell = [animation](float speed) {
@@ -721,11 +724,10 @@ void CWalkComponent::UpdateAir()
         bool grab = true;
         if (previous == 2 || previous == 3 || previous == 4) {
             auto since = static_cast<float>(
-                static_cast<double>(GameFunction<uint32_t(__cdecl*)(int)>(0x00420250)(At<int>(this, kStateTime))));
-            grab = GameFunction<float(__cdecl*)(uint32_t)>(0x0043DA70)(kRehangDelay) < since;
+                static_cast<double>(static_cast<uint32_t>(Tmr::GameClockTimeSince(At<int>(this, kStateTime)))));
+            grab = Param(kRehangDelay) < since;
         }
-        if (grab && (GameFunction<bool(__thiscall*)(void*, Mth::Vector, Mth::Vector)>(0x0043F030)(
-                         this, oldPosition, position) ||
+        if (grab && (GrabRail(oldPosition, position) ||
                      Call<bool>(0x00442170, this, &oldPosition, &position))) {
             ClearCurrentCache();
             return;
@@ -763,7 +765,7 @@ void CWalkComponent::UpdateAir()
     VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     vertical = 0.0f;
     CollideAirMove(&position, &start);
-    GameFunction<void(__thiscall*)(Nx::CFeeler*)>(0x0041C350)(feeler); // (its destructor)
+    feeler->Destruct();
 }
 
 // 0x0052AD10
@@ -802,8 +804,7 @@ void CWalkComponent::UpdateAnimWait()
     reinterpret_cast<CAnimBlenderComponent*>(At<void*>(this, kAnimation))->GetTimes(&start, &current, &end);
     auto t = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
     Mth::Vector between;
-    GameFunction<Mth::Vector*(__cdecl*)(Mth::Vector*, const Mth::Vector*, const Mth::Vector*, float)>(0x0043D990)(
-        &between, &VectorAt(this, kWaitFrom), &VectorAt(this, kWaitTo), t);
+    Walk::Lerp(&between, &VectorAt(this, kWaitFrom), &VectorAt(this, kWaitTo), t);
     const Mth::Vector& carried = VectorAt(this, kWaitCarried);
     Mth::Vector& position = VectorAt(this, kPosition);
     position.x = between.x + carried.x;
@@ -895,7 +896,7 @@ void CWalkComponent::CollideAirMove(const Mth::Vector* from, const Mth::Vector* 
                 auto speed = static_cast<float>(std::sqrt(static_cast<double>(velocity.x) * velocity.x +
                                                           static_cast<double>(velocity.y) * velocity.y +
                                                           static_cast<double>(velocity.z) * velocity.z));
-                stop = GameFunction<float(__cdecl*)(uint32_t)>(0x0043DA70)(kStickyLandThresholdSpeed) > speed;
+                stop = Param(kStickyLandThresholdSpeed) > speed;
             }
         }
         if (stop)
@@ -936,13 +937,13 @@ void CWalkComponent::SnapToGround()
             if (At<bool>(this, kHasGround)) {
                 Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C660), ground);
                 if (Halted(this)) {
-                    GameFunction<void(__thiscall*)(Nx::CFeeler*)>(0x0041C350)(feeler); // (its destructor)
+                    feeler->Destruct();
                     return;
                 }
             }
             Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C654), feeler);
             if (Halted(this)) {
-                GameFunction<void(__thiscall*)(Nx::CFeeler*)>(0x0041C350)(feeler); // (its destructor)
+                feeler->Destruct();
                 return;
             }
         }
@@ -1004,8 +1005,7 @@ void CWalkComponent::Begin(bool onGround)
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
         if (SkaterFlags(this)[0x30] && !(At<float>(this, kVertTurnSpeed) == 0.0f)) {
             Mth::Vector forward = VectorAt(m_object, kObjectForward);
-            GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Vector*, float)>(0x00421440)(
-                &forward, &VectorAt(this, kVertTurnAxis), At<float>(this, kVertTurn));
+            forward.RotateAboutAxis(VectorAt(this, kVertTurnAxis), At<float>(this, kVertTurn));
             double boost = WalkParameter(kInitialVertVelBoost);
             Mth::Vector& velocity = m_object->m_vel;
             auto z = static_cast<float>(forward.z * boost);
@@ -1103,8 +1103,8 @@ void CWalkComponent::Jump()
             heading = facing;
         } else {
             float push = Call<float>(0x00528120, this); // (how far the control is pushed, 0 - 1)
-            float scaled = GameFunction<float(__cdecl*)(uint32_t)>(0x0043DA70)(kJumpHorizSpeed) * push;
-            auto speed = static_cast<float>(scaled / GameFunction<double(__thiscall*)(const void*)>(0x0043DAA0)(this));
+            float scaled = Param(kJumpHorizSpeed) * push;
+            auto speed = static_cast<float>(scaled / RunSpeed());
             const Mth::Vector& direction = VectorAt(this, kControlDirection);
             double along = (static_cast<double>(velocity.z) * direction.z + static_cast<double>(velocity.y) * direction.y) +
                            static_cast<double>(velocity.x) * direction.x;
@@ -1114,7 +1114,7 @@ void CWalkComponent::Jump()
                                            static_cast<double>(velocity.y) * velocity.y) +
                                           static_cast<double>(velocity.z) * velocity.z);
                 if (length < speed)
-                    GameFunction<Mth::Vector*(__thiscall*)(Mth::Vector*, float)>(0x0042BBF0)(&velocity, speed); // (its length set)
+                    velocity.SetLength(speed);
             } else {
                 velocity = speed * direction;
             }
@@ -1126,8 +1126,7 @@ void CWalkComponent::Jump()
                            static_cast<double>(velocity.z) * velocity.z;
         if (lengthSqr > kMovingSqr) {
             heading = velocity;
-            GameFunction<Mth::Vector*(__thiscall*)(Mth::Vector*, float)>(0x00423650)(
-                &heading, static_cast<float>(std::sqrt(lengthSqr))); // (divided by it)
+            heading /= static_cast<float>(std::sqrt(lengthSqr));
         } else {
             heading = facing;
         }

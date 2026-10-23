@@ -15,6 +15,7 @@
 #include "game/obj/objman.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
@@ -170,7 +171,7 @@ void StandIns(Kit& kit)
     kit.Recorder(0x0040AB40, {0, 0, Ret::None, true}, {Code(&Nx::CCollCache::Destruct)});
     kit.Recorder(0x004637E0, {4, 1, Ret::None, true}, {Code(&Obj::CRefCounted::RemoveSmartPointer)});
     kit.Recorder(0x0045D740, {0, 0, Ret::None, true}, {Code(&Obj::CBaseComponent::DestroyBody)});
-    kit.Recorder(0x0043DB90, {0, 0, Ret::None, true});
+    kit.Recorder(0x0043DB90, {0, 0, Ret::None, true}, {Code(&Obj::CWalkComponent::EndDropFromHang)});
     kit.Recorder(0x00419B90, {16, 4, Ret::None, true}, {Code(&Obj::CAnimBlenderComponent::FirstChannel47E850)});
 }
 
@@ -395,7 +396,7 @@ void MovementStandIns(Kit& kit)
         for (int j = 0; j < 4; ++j)
             out[j] = RandomFloat(2.0f);
         return Int(f.args[0]);
-    });
+    }, {Code(&Walk::Lerp)});
     kit.Add({0x0040ABA0}, 4, [](Frame& f) {
         Record(0x40ABA0);
         Record(Relative(f.ecx));
@@ -430,7 +431,7 @@ void MovementStandIns(Kit& kit)
         Record(Relative(f.ecx));
         static const double values[] = {0.0, 1.0, 2.0 / 3.0, 300.5, 12.000000000000002};
         return Float(values[Next() % 5]);
-    });
+    }, {Code(&Obj::CWalkComponent::RunSpeed)});
 }
 
 void FillMovement()

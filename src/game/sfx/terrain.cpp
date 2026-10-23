@@ -10,6 +10,7 @@
 #include "game/lst/hashtable.h"
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/script/struct.h"
@@ -364,7 +365,7 @@ void __cdecl PlayTerrainSound(uint8_t table, uint8_t terrain, const Mth::Vector*
     if (propagate) {
         Net::MsgDesc desc;
         desc.Construct();
-        auto* client = GameFunction<Net::Client*(__thiscall*)(void*, int)>(0x00532EA0)(net, 0);
+        auto* client = static_cast<Net::Client*>(static_cast<GameNet::Manager*>(net)->GetClient(0));
         SoundMessage message;
         message.table = table;
         message.terrain = terrain;

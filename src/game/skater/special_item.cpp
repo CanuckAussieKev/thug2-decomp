@@ -80,7 +80,7 @@ void SendToServer(uint8_t id, void* data)
         return;
     Net::MsgDesc msg;
     msg.Construct();
-    auto* client = GameFunction<Net::Client*(__thiscall*)(GameNet::Manager*, int)>(0x00532EA0)(manager, 0);
+    auto* client = static_cast<Net::Client*>(manager->GetClient(0));
     msg.m_data = data;
     msg.m_length = 0xC;
     msg.m_id = id;

@@ -15,6 +15,7 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/skater/vehicle_sound.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -155,7 +156,7 @@ void StandInAll(StandIns& s)
         Record({0x6E1E, Id(r.ecx), r.args[0]});
         return g_gearList[r.args[0] & 7];
     });
-    s.At({0x0044ECE0}, 0, [](Regs&) {
+    s.At({0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, [](Regs&) {
         g_clock += g_clockStep;
         Record({0xC10C, static_cast<uint32_t>(g_clock)});
         return static_cast<uint32_t>(g_clock);

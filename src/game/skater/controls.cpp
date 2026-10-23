@@ -5,8 +5,14 @@
 
 #include <cstring>
 
+#include "game/mth/vector.h"
+#include "game/nx/feeler.h"
+#include "game/obj/movable_contact.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/struct.h"
 #include "game/sio/sdl_input.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -31,19 +37,19 @@ constexpr uint32_t kDisabled = 0x9B;   // (a bool that stops it)
 constexpr uint32_t kMode = 0x748;
 constexpr uint32_t kInput = 0x1770;    // the pad: +0xC0 and +0x120 are held buttons
 constexpr uint32_t kFlags = 0x1780;    // +0x24 / +0x26: bools
-constexpr uint32_t kSound = 0x177C;
-constexpr uint32_t kTrickComponent = 0x1784;
-constexpr uint32_t kPhysics = 0x178C;
-constexpr uint32_t kTrickName = 0x17B4;
+constexpr uint32_t kTrigger = 0x177C;        // the trigger component
+constexpr uint32_t kMovableContact = 0x1784; // the movable contact component
+constexpr uint32_t kPhysics = 0x178C;        // the core physics component
+constexpr uint32_t kTriggerFeeler = 0x17B4;  // (an Nx::CFeeler)
 constexpr uint32_t kWalking = 0x1864;
 constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 
-// The physics' acid drop search (0x00502240): fills `velocity` if there's somewhere to drop in.
+// The physics' acid drop search: fills `velocity` if there's somewhere to drop in.
 bool FindAcidDrop(void* skater, float* velocity)
 {
-    return GameFunction<bool(__thiscall*)(void*, int, void*, void*, float*, void*)>(0x00502240)(
-        At<void*>(skater, kPhysics), 0, static_cast<uint8_t*>(skater) + 0x24, static_cast<uint8_t*>(skater) + 0x68,
-        velocity, static_cast<uint8_t*>(skater) + 0x768);
+    return At<CorePhysicsComponent*>(skater, kPhysics)->FindAcidDrop(
+        false, &At<Mth::Vector>(skater, 0x24), &At<Mth::Vector>(skater, 0x68), reinterpret_cast<Mth::Vector*>(velocity),
+        &At<AcidDrop>(skater, 0x768));
 }
 
 // The two buttons; PartyMod's PS2 controls skip the first (its NOP at 0x00527546 / 0x00527636).
@@ -100,8 +106,7 @@ bool Component::TryWalkAcidDrop()
                          1.0f};
     if (!FindAcidDrop(this, velocity))
         return false;
-    GameFunction<void(__thiscall*)(void*, void*)>(0x00427CD0)(At<void*>(this, kTrickComponent),
-                                                              static_cast<uint8_t*>(static_cast<void*>(this)) + kTrickName);
+    At<Obj::CMovableContactComponent*>(this, kMovableContact)->StartRiding(&At<Nx::CFeeler>(this, kTriggerFeeler));
     EnterAcidDrop(this, velocity);
     return true;
 }
@@ -114,17 +119,16 @@ bool Component::TryAcidDrop()
     float velocity[4] = {At<float>(this, kVelocity), At<float>(this, kVelocity + 4), At<float>(this, kVelocity + 8),
                          At<float>(this, kVelocity + 12)};
     // (a physics value, 0xC0491D2E, as the second component)
-    velocity[1] = GameFunction<float(__cdecl*)(uint32_t)>(0x0043DA70)(0xC0491D2E);
+    velocity[1] = Obj::CWalkComponent::Param(0xC0491D2E);
     if (!FindAcidDrop(this, velocity))
         return false;
     if (At<bool>(this, kWalking)) {
-        GameFunction<void(__thiscall*)(void*, const void*, void*)>(0x00434BF0)(
-            At<void*>(this, kSound), reinterpret_cast<const void*>(0x0064C63C),
-            static_cast<uint8_t*>(static_cast<void*>(this)) + kTrickName);
+        At<Obj::CTriggerComponent*>(this, kTrigger)->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C),
+                                                                 &At<Nx::CFeeler>(this, kTriggerFeeler));
         if (At<bool>(At<uint8_t*>(this, kFlags), 0x26))
             return true;
     }
-    GameFunction<void(__thiscall*)(void*, int)>(0x005260E0)(this, 1);
+    reinterpret_cast<Obj::CWalkComponent*>(this)->SetState(1);
     EnterAcidDrop(this, velocity);
     return true;
 }

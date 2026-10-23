@@ -35,6 +35,10 @@
 #include "game/net/stats.h"
 #include "game/sio/sdl_input.h"
 #include "game/skater/controls.h"
+#include "game/obj/movable_contact.h"
+#include "game/obj/trigger_component.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -183,6 +187,18 @@ void TestSkaterAcidDrops()
     CodePatch physicsFloat(0x0043DA70, JumpTo(0x0043DA70, reinterpret_cast<void*>(&StandInPhysicsFloat)));
     CodePatch sound(0x00434BF0, JumpTo(0x00434BF0, reinterpret_cast<void*>(&StandInSound)));
     CodePatch setState(0x005260E0, JumpTo(0x005260E0, reinterpret_cast<void*>(&StandInSetState)));
+    // (ours calls our rewrites of them directly: stood in for the same way)
+    auto ours = [](auto function) { return reinterpret_cast<uint32_t>(CodeAddress(function)); };
+    const uint32_t ourFind = ours(&Skater::CorePhysicsComponent::FindAcidDrop);
+    const uint32_t ourTrick = ours(&Obj::CMovableContactComponent::StartRiding);
+    const uint32_t ourPhysicsFloat = ours(&Obj::CWalkComponent::Param);
+    const uint32_t ourSound = ours(&Obj::CTriggerComponent::CheckFeeler);
+    const uint32_t ourSetState = ours(&Obj::CWalkComponent::SetState);
+    CodePatch findOurs(ourFind, JumpTo(ourFind, reinterpret_cast<void*>(&StandInFindAcidDrop)));
+    CodePatch trickOurs(ourTrick, JumpTo(ourTrick, reinterpret_cast<void*>(&StandInTrick)));
+    CodePatch physicsFloatOurs(ourPhysicsFloat, JumpTo(ourPhysicsFloat, reinterpret_cast<void*>(&StandInPhysicsFloat)));
+    CodePatch soundOurs(ourSound, JumpTo(ourSound, reinterpret_cast<void*>(&StandInSound)));
+    CodePatch setStateOurs(ourSetState, JumpTo(ourSetState, reinterpret_cast<void*>(&StandInSetState)));
     alignas(16) static uint8_t skater[0x1900];
     alignas(16) static uint8_t input[0x140];
     alignas(16) static uint8_t flags[0x40];

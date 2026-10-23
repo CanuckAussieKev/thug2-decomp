@@ -12,12 +12,16 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/skater.h"
 #include "game/skater/state_history.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -157,17 +161,17 @@ void StandInWorld(StandIns& s)
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&StandInGetFloat)));
     for (uint32_t address : {0x00478F30u, AddressOf(static_cast<float (*)(const char*)>(&Script::GetFloat))})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&StandInGetFloatByName)));
-    s.At({0x0053AEA0}, 4, [](Regs& r) {
+    s.At({0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, [](Regs& r) {
         Record({0x53AE, Id(r.ecx), r.args[0] & 0xFFFF});
         int player = g_playerOfId[r.args[0] & 0x7F];
         return player >= 0 ? reinterpret_cast<uint32_t>(g_players[player]) : 0u;
     });
-    s.At({0x00543910}, 0, [](Regs& r) {
+    s.At({0x00543910, AddressOf(&GameNet::PlayerInfo::IsInvulnerable)}, 0, [](Regs& r) {
         Record({0x5439, Id(r.ecx)});
         uint32_t index = (r.ecx - reinterpret_cast<uint32_t>(g_players)) / 0x200;
         return index < kPlayers ? static_cast<uint32_t>(g_observing[index]) : 0xDEADu;
     });
-    s.At({0x00534340}, 0, [](Regs& r) { Record({0x5343, Id(r.ecx)}); return static_cast<uint32_t>(g_mayCollide) | 0x1200; });
+    s.At({0x00534340, AddressOf(&GameNet::Manager::PlayerCollisionEnabled)}, 0, [](Regs& r) { Record({0x5343, Id(r.ecx)}); return static_cast<uint32_t>(g_mayCollide) | 0x1200; });
     s.At({0x005B3470}, 0, [](Regs& r) { Record({0x5B34, r.args[0], r.args[1]}); return static_cast<uint32_t>(g_slapGame); });
     s.At({0x005532A0}, 0, [](Regs& r) { Record({0x5532, Id(r.ecx)}); return g_gameType; });
     s.At({0x005535F0}, 0, [](Regs& r) { Record({0x5535, Id(r.ecx)}); return static_cast<uint32_t>(g_teamGame); });
@@ -177,7 +181,7 @@ void StandInWorld(StandIns& s)
         int slot = g_slots[r.args[0] & 7];
         return slot >= 0 ? reinterpret_cast<uint32_t>(g_skaters[slot]) : 0u;
     });
-    s.At({0x00581580}, 0, [](Regs& r) {
+    s.At({0x00581580, AddressOf(&Obj::CSkater::GetDisplayName)}, 0, [](Regs& r) {
         Record({0x5815, Id(r.ecx)});
         static const char* names[] = {"Tony", "a name of exactly thirty-two chs", "Bob",
                                       "", "Elissa", "a name that runs well past thirty-two characters"};
@@ -193,18 +197,18 @@ void StandInWorld(StandIns& s)
         return 0u;
     });
     s.At({0x004FE1D0}, 4, [](Regs& r) { Record({0x4FE1, Id(r.ecx), Id(r.args[0])}); return 0u; });
-    s.At({0x0052C2B0}, 4, [](Regs& r) { Record({0x52C2, Id(r.ecx), Id(r.args[0])}); return 0u; });
-    s.At({0x00543350}, 0, [](Regs& r) { Record({0x5433, Id(r.ecx)}); return 0u; });
-    s.At({0x00544340}, 4, [](Regs& r) { Record({0x5443, Id(r.ecx), r.args[0] & 0xFF}); return 0u; });
-    s.At({0x00544110}, 0, [](Regs& r) { Record({0x5441, Id(r.ecx)}); return 0u; });
-    s.At({0x00543C70}, 4, [](Regs& r) { Record({0x543C, Id(r.ecx), r.args[0]}); return 0u; });
+    s.At({0x0052C2B0, AddressOf(&Obj::CWalkComponent::GoToAirFor)}, 4, [](Regs& r) { Record({0x52C2, Id(r.ecx), Id(r.args[0])}); return 0u; });
+    s.At({0x00543350, AddressOf(&GameNet::PlayerInfo::MarkJustJoined)}, 0, [](Regs& r) { Record({0x5433, Id(r.ecx)}); return 0u; });
+    s.At({0x00544340, AddressOf(&GameNet::PlayerInfo::MarkAsKing)}, 4, [](Regs& r) { Record({0x5443, Id(r.ecx), r.args[0] & 0xFF}); return 0u; });
+    s.At({0x00544110, AddressOf(&GameNet::PlayerInfo::RetrievedFlag)}, 0, [](Regs& r) { Record({0x5441, Id(r.ecx)}); return 0u; });
+    s.At({0x00543C70, AddressOf(&GameNet::PlayerInfo::StoleFlag)}, 4, [](Regs& r) { Record({0x543C, Id(r.ecx), r.args[0]}); return 0u; });
     // The player searches: the search's node counts the players handed out.
-    s.At({0x005372C0}, 8, [](Regs& r) {
+    s.At({0x005372C0, AddressOf(&GameNet::Manager::FirstPlayerInfo)}, 8, [](Regs& r) {
         Record({0x5372, Id(r.ecx), r.args[1], At<uint32_t>(reinterpret_cast<void*>(r.args[0]), 0)});
         At<uint32_t>(reinterpret_cast<void*>(r.args[0]), 4) = 1;
         return reinterpret_cast<uint32_t>(g_players[0]);
     });
-    s.At({0x00537010}, 8, [](Regs& r) {
+    s.At({0x00537010, AddressOf(&GameNet::Manager::NextPlayerInfo)}, 8, [](Regs& r) {
         uint32_t& next = At<uint32_t>(reinterpret_cast<void*>(r.args[0]), 4);
         Record({0x5370, Id(r.ecx), r.args[1], next});
         return next < kPlayers ? reinterpret_cast<uint32_t>(g_players[next++]) : 0u;

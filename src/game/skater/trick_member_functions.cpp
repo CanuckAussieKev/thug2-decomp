@@ -85,7 +85,7 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 // The rest of the component (0x0051EA90-0x00521B8F) and its neighbours, not rewritten here.
 bool IsHeld(CTrickComponent* self, uint32_t button)
 {
-    return GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x0051ECF0)(self, button);
+    return self->IsButtonDown(button);
 }
 void Call(CTrickComponent* self, uint32_t address) { GameFunction<void(__thiscall*)(void*)>(address)(self); }
 void CallOn(void* object, uint32_t address) { GameFunction<void(__thiscall*)(void*)>(address)(object); }
@@ -303,7 +303,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
             params->GetInteger(kOlderThan, &olderThan, 0);
             int count = static_cast<int>(buttons->m_size);
             for (int i = 0; i < count; ++i)
-                GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x0051F610)(this, buttons->GetElement(i), olderThan);
+                ExpireButton(buttons->GetElement(i), static_cast<uint32_t>(olderThan));
             return 1;
         }
         Call(this, 0x0051EB00);
@@ -360,7 +360,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
     case kClearTricksFrom:
         for (Script::CComponent* c = params->GetNextComponent(nullptr); c; c = params->GetNextComponent(c)) {
             if (c->name == 0 && (c->typeAndFlag & 0xFE) == Script::ESYMBOLTYPE_NAME << 1)
-                GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0051ED90)(this, c->checksum);
+                RemoveTrickList(c->checksum);
         }
         return 1;
     case kSetTrickScore:
