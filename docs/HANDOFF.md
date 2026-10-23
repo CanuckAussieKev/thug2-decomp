@@ -470,3 +470,4 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   C++ (node name hash 65,536 slots / 32-bit indices, rail name table, script heap +16 MB, CComponent/CStruct/CVector/
   CArray/HashItem pools; `[memory] original_sizes=1` undoes) + a `memory in <level>` log line. Load-checked in THUG2-2
   only; LAN hosting and play NOT tested. Not done: CTF flag names, THP8's two-player levels.
+- Installed (2026-10-24 04:34): main c209dea in C:\Games\THUG2 - DLL + pdb, THP8 reconverted (22 levels), overlay regenerated. Main not pushed.
