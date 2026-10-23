@@ -4,10 +4,12 @@
 
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/memory_sizes.h"
 #include "game/obj/path_manager.h"
 #include "game/script/node_prefixes.h"
 #include "game/script/names.h"
@@ -57,6 +59,63 @@ uint32_t g_editorArray;
 NodeArrayRemovedHook g_removedHook;
 NodeArrayAddedHook g_addedHook;
 
+// NOT ORIGINAL - the name hash, bigger than the original's (Mem::Sizes::NodeHashSlots): the game's node manager (the one
+// CreateNodeManager made) keeps its slots here, node indices in 32 bits (a node array may hold more than 32,767), its
+// walk too; its own m_slots / m_walk are left unused. Any other manager (the self-tests' own) uses its m_slots as the
+// original does.
+struct BigSlot {
+    uint32_t m_array;
+    int32_t m_node; // -1: empty
+};
+std::vector<BigSlot> g_bigSlots;
+BigSlot g_bigWalk = {0, -1};
+const CNodeManager* g_bigOwner;
+
+bool IsBig(const CNodeManager* m) { return m == g_bigOwner && !g_bigSlots.empty(); }
+
+// The slots of a manager, whichever kind.
+class Slots {
+public:
+    explicit Slots(CNodeManager* m)
+        : m_small(m->m_slots), m_big(IsBig(m) ? g_bigSlots.data() : nullptr),
+          m_mask(m_big ? static_cast<uint32_t>(g_bigSlots.size()) - 1 : CNodeManager::kSlots - 1)
+    {
+    }
+    uint32_t Mask() const { return m_mask; }
+    bool Empty(uint32_t i) const { return Node(i) == -1; }
+    int Node(uint32_t i) const { return m_big ? m_big[i].m_node : m_small[i].m_node; }
+    uint32_t Array(uint32_t i) const { return m_big ? m_big[i].m_array : m_small[i].m_array; }
+    void Set(uint32_t i, uint32_t array, int node)
+    {
+        if (m_big)
+            m_big[i] = {array, node};
+        else
+            m_small[i] = {static_cast<uint16_t>(array), static_cast<int16_t>(node)};
+    }
+    void Clear(uint32_t i) { Set(i, Array(i), -1); }
+
+private:
+    NodeSlot* m_small;
+    BigSlot* m_big;
+    uint32_t m_mask;
+};
+
+// The walk's place, whichever kind (as the slots).
+struct Walk {
+    explicit Walk(CNodeManager* m) : big(IsBig(m)), small(m->m_walk) {}
+    int Node() const { return big ? g_bigWalk.m_node : small.m_node; }
+    uint32_t Array() const { return big ? g_bigWalk.m_array : small.m_array; }
+    void Set(uint32_t array, int node)
+    {
+        if (big)
+            g_bigWalk = {array, node};
+        else
+            small = {static_cast<uint16_t>(array), static_cast<int16_t>(node)};
+    }
+    bool big;
+    NodeSlot& small;
+};
+
 } // namespace
 
 void SetEditorNodeArray(uint32_t name) { g_editorArray = name; }
@@ -74,42 +133,58 @@ void CNodeManager::HashNode(uint32_t array, uint32_t index, CStruct* node)
     uint32_t name = 0;
     if (!node->GetChecksum(kName, &name, 0))
         return;
-    uint32_t slot = name & (kSlots - 1);
-    while (m_slots[slot].m_node != -1)
-        slot = (slot + 1) & (kSlots - 1);
-    m_slots[slot].m_node = static_cast<int16_t>(index);
-    m_slots[slot].m_array = static_cast<uint16_t>(array);
+    Slots slots(this);
+    uint32_t slot = name & slots.Mask();
+    while (!slots.Empty(slot)) {
+        slot = (slot + 1) & slots.Mask();
+        // NOT ORIGINAL: a full hash - the original went round it for ever (a level of more named nodes than slots) -
+        // logged, the node left out.
+        if (slot == (name & slots.Mask())) {
+            static bool logged;
+            if (!logged)
+                Log("nodes: the node name hash is full (%u slots - [memory] node_hash_slots): node %u of array %u "
+                    "and later ones not hashed",
+                    slots.Mask() + 1, index, array);
+            logged = true;
+            return;
+        }
+    }
+    slots.Set(slot, array, static_cast<int>(index));
 }
 
 // 0x0045CEF0
 void CNodeManager::UnhashNodeArray(uint32_t array)
 {
-    for (NodeSlot& slot : m_slots) {
-        if (slot.m_node != -1 && slot.m_array == array)
-            slot.m_node = -1;
+    Slots slots(this);
+    for (uint32_t i = 0; i <= slots.Mask(); ++i) {
+        if (!slots.Empty(i) && slots.Array(i) == array)
+            slots.Clear(i);
     }
     // (A node may land in a later slot and be met - and moved - again.)
-    for (NodeSlot& slot : m_slots) {
-        if (slot.m_node == -1)
+    for (uint32_t i = 0; i <= slots.Mask(); ++i) {
+        if (slots.Empty(i))
             continue;
-        NodeSlot moved = slot;
-        slot.m_node = -1;
-        auto* node = reinterpret_cast<CStruct*>(m_arrays[moved.m_array].mp_nodes->GetElement(moved.m_node));
+        uint32_t movedArray = slots.Array(i);
+        int movedNode = slots.Node(i);
+        slots.Clear(i);
+        auto* node = reinterpret_cast<CStruct*>(m_arrays[movedArray].mp_nodes->GetElement(movedNode));
         uint32_t name = 0;
         node->GetChecksum(kName, &name, 1);
-        uint32_t to = name & (kSlots - 1);
-        while (m_slots[to].m_node != -1)
-            to = (to + 1) & (kSlots - 1);
-        m_slots[to] = moved;
+        uint32_t to = name & slots.Mask();
+        while (!slots.Empty(to))
+            to = (to + 1) & slots.Mask();
+        slots.Set(to, movedArray, movedNode);
     }
 }
 
 // 0x0045CFC0
 CStruct* CNodeManager::GetNode(uint32_t name, bool assert)
 {
-    for (uint32_t slot = name & (kSlots - 1); m_slots[slot].m_node != -1; slot = (slot + 1) & (kSlots - 1)) {
-        const NodeSlot& s = m_slots[slot];
-        auto* node = reinterpret_cast<CStruct*>(m_arrays[s.m_array].mp_nodes->GetElement(s.m_node));
+    Slots slots(this);
+    // (NOT ORIGINAL: at most every slot once - a full hash without the name went round for ever)
+    uint32_t tries = slots.Mask() + 1;
+    for (uint32_t slot = name & slots.Mask(); tries-- && !slots.Empty(slot); slot = (slot + 1) & slots.Mask()) {
+        auto* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].mp_nodes->GetElement(slots.Node(slot)));
         uint32_t nodeName = 0;
         node->GetChecksum(kName, &nodeName, 1);
         if (nodeName == name)
@@ -133,40 +208,49 @@ CNodeManager* CNodeManager::Construct()
 // 0x0045D050
 void CNodeManager::StartWalk(uint32_t name)
 {
-    m_walk.m_array = 0;
-    m_walk.m_node = 0;
+    Walk walk(this);
+    walk.Set(0, 0);
     if (!name)
         return;
-    uint32_t slot = name & (kSlots - 1);
+    Slots slots(this);
+    uint32_t slot = name & slots.Mask();
     for (;;) {
-        const NodeSlot& s = m_slots[slot];
-        CStruct* node = reinterpret_cast<CStruct*>(m_arrays[s.m_array].mp_nodes->GetElement(s.m_node));
+        CStruct* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].mp_nodes->GetElement(slots.Node(slot)));
         uint32_t nodeName = 0;
         node->GetChecksum(kName, &nodeName, 1);
         if (nodeName == name)
             break;
-        slot = (slot + 1) & (kSlots - 1);
+        slot = (slot + 1) & slots.Mask();
     }
-    m_walk = m_slots[slot];
+    walk.Set(slots.Array(slot), slots.Node(slot));
 }
 
 // 0x0045D110
-void CNodeManager::EndWalk() { m_walk.m_node = -1; }
+void CNodeManager::EndWalk()
+{
+    Walk walk(this);
+    walk.Set(walk.Array(), -1);
+}
 
 // 0x0045D3F0
 CStruct* CNodeManager::NextNode()
 {
-    if (m_walk.m_node == -1)
+    Walk walk(this);
+    if (walk.Node() == -1)
         return nullptr;
-    CArray* nodes = m_arrays[m_walk.m_array].mp_nodes;
-    auto* node = reinterpret_cast<CStruct*>(nodes->GetElement(m_walk.m_node));
-    ++m_walk.m_node;
-    if (m_walk.m_node >= static_cast<int>(nodes->m_size)) {
-        ++m_walk.m_array;
-        m_walk.m_node = 0;
-        if (m_walk.m_array >= m_count)
-            m_walk.m_node = -1;
+    uint32_t array = walk.Array();
+    CArray* nodes = m_arrays[array].mp_nodes;
+    auto* node = reinterpret_cast<CStruct*>(nodes->GetElement(walk.Node()));
+    int next = walk.Node() + 1;
+    if (!walk.big)
+        next = static_cast<int16_t>(next); // (the original's 16-bit count)
+    if (next >= static_cast<int>(nodes->m_size)) {
+        ++array;
+        next = 0;
+        if (array >= m_count)
+            next = -1;
     }
+    walk.Set(array, next);
     return node;
 }
 
@@ -288,9 +372,10 @@ bool CNodeManager::RemoveNodeArray(uint32_t name)
     --m_count;
     if (index != m_count) {
         m_arrays[index] = m_arrays[m_count];
-        for (NodeSlot& slot : m_slots) {
-            if (slot.m_array == m_count)
-                slot.m_array = static_cast<uint16_t>(index);
+        Slots slots(this);
+        for (uint32_t i = 0; i <= slots.Mask(); ++i) {
+            if (slots.Array(i) == m_count)
+                slots.Set(i, index, slots.Node(i));
         }
     }
     // NOT ORIGINAL: the level editor's overlay array leaves with the level it was added after.
@@ -330,12 +415,25 @@ uint32_t NodeArrayChecksum(const char* path)
     return Crc::GenerateCRCFromString(name);
 }
 
+// NOT ORIGINAL (see BigSlot)
+void UseBigNameHash(CNodeManager* manager, uint32_t slots)
+{
+    g_bigOwner = manager;
+    std::vector<BigSlot>().swap(g_bigSlots);
+    if (manager && slots)
+        g_bigSlots.assign(slots, BigSlot{0, -1});
+    g_bigWalk = {0, -1};
+}
+
 // 0x0045D690
 CNodeManager* CreateNodeManager(bool create)
 {
     if (!Instance() && create) {
         void* memory = Mem::Calloc(sizeof(CNodeManager), nullptr, 1);
         Instance() = memory ? static_cast<CNodeManager*>(memory)->Construct() : nullptr;
+        // NOT ORIGINAL: its name hash bigger than the original's (Mem::Sizes::NodeHashSlots - see BigSlot).
+        if (Instance() && Mem::Sizes::NodeHashSlots() > static_cast<uint32_t>(CNodeManager::kSlots))
+            UseBigNameHash(Instance(), Mem::Sizes::NodeHashSlots());
     }
     ++References();
     return Instance();
@@ -350,6 +448,9 @@ void ReleaseNodeManager()
     }
     if (Instance())
         Mem::Manager::Get()->Free(Instance());
+    // NOT ORIGINAL: its bigger name hash goes with it.
+    if (Instance() == g_bigOwner)
+        UseBigNameHash(nullptr, 0);
     Instance() = nullptr;
     References() = 0;
 }

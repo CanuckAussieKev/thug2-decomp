@@ -865,9 +865,20 @@ void CRailManager::AddFromNodeArray(Script::CArray* nodes)
     manager->PushContext(manager->m_bottomUpHeap);
     m_nodes = static_cast<CRailNode*>(Mem::Malloc(m_count * sizeof(CRailNode)));
     // A hash table of the nodes' names (0x4000 slots, linear probing) to their indexes.
-    auto* table = static_cast<int16_t*>(Mem::Malloc(0x8000));
+    // NOT ORIGINAL: with 0x2000 rail nodes or more (THP8's whole town has ~18,000; past 0x4000 the original's table
+    // was full and adding went round it for ever) a bigger one, 32-bit indexes, at most a quarter full. Original
+    // behaviour: 0x4000 16-bit slots whatever the count.
+    const bool big = m_count >= 0x2000;
+    uint32_t slots = 0x4000;
+    while (big && slots < static_cast<uint32_t>(m_count) * 4)
+        slots <<= 1;
+    const uint32_t mask = slots - 1;
+    void* tableMemory = Mem::Malloc(big ? slots * 4 : 0x8000);
     Mem::Manager::Get()->PopContext();
-    std::memset(table, 0xFF, 0x8000);
+    std::memset(tableMemory, 0xFF, big ? slots * 4 : 0x8000);
+    auto* small = static_cast<int16_t*>(tableMemory);
+    auto* wide = static_cast<int32_t*>(tableMemory);
+    auto entry = [&](uint32_t slot) { return big ? wide[slot] : small[slot]; };
     m_adding = 0;
     bool allTrickObjects = Script::GetInteger(kAllRailsTrickObjects) != 0;
     for (uint32_t i = 0; i < nodes->m_size; ++i) {
@@ -876,10 +887,13 @@ void CRailManager::AddFromNodeArray(Script::CArray* nodes)
             continue;
         uint32_t name = SkateScript::GetNodeName(node);
         AddNode(name, node);
-        uint16_t slot = static_cast<uint16_t>(name & 0x3FFF);
-        while (table[slot] != -1)
-            slot = static_cast<uint16_t>((slot + 1) & 0x3FFF);
-        table[slot] = static_cast<int16_t>(m_adding);
+        uint32_t slot = name & mask;
+        while (entry(slot) != -1)
+            slot = (slot + 1) & mask;
+        if (big)
+            wide[slot] = m_adding;
+        else
+            small[slot] = static_cast<int16_t>(m_adding);
         bool trickObject = node->ContainsComponentNamed(kTrickObject);
         if (allTrickObjects || trickObject) {
             // A trick object of its cluster (the park / trick object manager 0x007CE500).
@@ -904,11 +918,11 @@ void CRailManager::AddFromNodeArray(Script::CArray* nodes)
         int linkCount = static_cast<int>(links->m_size);
         for (int l = 0; l < linkCount; ++l) {
             uint32_t link = links->GetElement(l);
-            uint16_t slot = static_cast<uint16_t>(link & 0x3FFF);
-            CRailNode* other = &m_nodes[table[slot]];
+            uint32_t slot = link & mask;
+            CRailNode* other = &m_nodes[entry(slot)];
             while (other->m_name != link) {
-                slot = static_cast<uint16_t>((slot + 1) & 0x3FFF);
-                other = &m_nodes[table[slot]];
+                slot = (slot + 1) & mask;
+                other = &m_nodes[entry(slot)];
             }
             if (!node->m_next || (other->m_flags & RAIL_FLAG_DEFAULT_LINE)) {
                 node->m_next = other;
@@ -918,7 +932,7 @@ void CRailManager::AddFromNodeArray(Script::CArray* nodes)
                 other->m_prev = node;
         }
     }
-    Mem::FreeMalloc(table);
+    Mem::FreeMalloc(tableMemory);
 }
 
 // 0x0057E2D0

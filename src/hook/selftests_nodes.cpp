@@ -869,6 +869,90 @@ std::vector<uint32_t> RunCollisionTest(bool original)
     return EndRun(arena);
 }
 
+// --- NOT ORIGINAL: the bigger name hash (SkateScript::UseBigNameHash, Mem::Sizes::NodeHashSlots) ---------------------
+// The original's hash (0x4000 slots in the manager) against ours 0x10000 slots beside it: names that share a slot in
+// the original's (0x100, 0x4100, 0x8100, 0xC100; 0x3FFF / 0x7FFF wrapping round) and don't in ours - every lookup
+// finds the same node, the absent ones none, the walk goes the same way, before and after an array is unhashed. Only
+// what the calls return is compared (the slots differ by design).
+std::vector<uint32_t> RunBigHashTest(bool original)
+{
+    uint8_t* arena = BeginRun(original);
+    std::vector<uint32_t> out; // (only what the calls return: the stand-ins' trace differs by the probes)
+    auto* m = reinterpret_cast<CNodeManager*>(arena + kManagerAt);
+    for (auto& slot : m->m_slots)
+        slot = {0, -1};
+    m->m_walk.m_node = -1;
+    GameVariable<CNodeManager*>(0x006F0D84) = m;
+    if (!original)
+        SkateScript::UseBigNameHash(m, 0x10000);
+    const uint32_t names[9] = {0x100, 0x4100, 0x3FFF, 0x8100, 0x7FFF, 0xC100, 0x200, 0x10100, 0x14100};
+    CStruct* n[9];
+    for (int i = 0; i < 9; ++i) {
+        n[i] = Struct(arena, i);
+        Answer('K', n[i], kName, {names[i]});
+    }
+    CArray* a = Array(arena, 0x2000, {P(n[0]), P(n[1]), P(n[2]), P(n[3]), P(n[4])});
+    CArray* b = Array(arena, 0x2080, {P(n[5]), P(n[6]), P(n[7]), P(n[8])});
+    m->m_count = 2;
+    m->m_arrays[0] = {0xAAAA, a, false, {}};
+    m->m_arrays[1] = {0xBBBB, b, false, {}};
+    using M = CNodeManager;
+    for (int i = 0; i < 5; ++i)
+        Call<void>(0x0045CE60, &M::HashNode, m, 0u, static_cast<uint32_t>(i), n[i]);
+    for (int i = 0; i < 4; ++i)
+        Call<void>(0x0045CE60, &M::HashNode, m, 1u, static_cast<uint32_t>(i), n[5 + i]);
+    using GetM = CStruct* (M::*)(uint32_t, bool);
+    const uint32_t asked[13] = {0x100, 0x4100, 0x8100, 0xC100, 0x3FFF, 0x7FFF, 0x200, 0x10100, 0x14100,
+                                0x5100, 0x18100, 0x300, 0xBFFF};
+    auto lookups = [&] {
+        for (uint32_t name : asked)
+            out.push_back(Rel(Call<CStruct*>(0x0045CFC0, static_cast<GetM>(&M::GetNode), m, name, false)));
+    };
+    lookups();
+    // the walk: from the start (every node, both arrays), from a name, ended
+    Call<void>(0x0045D050, &M::StartWalk, m, 0u);
+    for (int i = 0; i < 10; ++i)
+        out.push_back(Rel(Call<CStruct*>(0x0045D3F0, &M::NextNode, m)));
+    Call<void>(0x0045D050, &M::StartWalk, m, 0x8100u);
+    for (int i = 0; i < 3; ++i)
+        out.push_back(Rel(Call<CStruct*>(0x0045D3F0, &M::NextNode, m)));
+    Call<void>(0x0045D110, &M::EndWalk, m);
+    out.push_back(Rel(Call<CStruct*>(0x0045D3F0, &M::NextNode, m)));
+    // array 0 unhashed: its names gone, array 1's still found (moved back towards their own slots)
+    Call<void>(0x0045CEF0, &M::UnhashNodeArray, m, 0u);
+    lookups();
+    if (!original)
+        SkateScript::UseBigNameHash(nullptr, 0);
+    return out;
+}
+
+// Ours only: a hash with no free slot left. The original went round it for ever (HashNode looking for a free slot,
+// GetNode for a name it hasn't); ours leaves the node out (logged) and finds nothing.
+void TestFullHash()
+{
+    uint8_t* arena = BeginRun(false);
+    auto* m = reinterpret_cast<CNodeManager*>(arena + kManagerAt);
+    GameVariable<CNodeManager*>(0x006F0D84) = m;
+    SkateScript::UseBigNameHash(m, 4);
+    CStruct* n[5];
+    for (int i = 0; i < 5; ++i) {
+        n[i] = Struct(arena, i);
+        Answer('K', n[i], kName, {static_cast<uint32_t>(0x10 + i)});
+    }
+    CArray* a = Array(arena, 0x2000, {P(n[0]), P(n[1]), P(n[2]), P(n[3]), P(n[4])});
+    m->m_count = 1;
+    m->m_arrays[0] = {0xAAAA, a, false, {}};
+    for (uint32_t i = 0; i < 5; ++i)
+        m->HashNode(0, i, n[i]);
+    bool found = true;
+    for (int i = 0; i < 4; ++i)
+        found = found && m->GetNode(static_cast<uint32_t>(0x10 + i), false) == n[i];
+    Check(found, "node name hash (ours, 4 slots): the four nodes that fit are found");
+    Check(m->GetNode(0x14, false) == nullptr && m->GetNode(0x99, false) == nullptr,
+          "node name hash (ours, full): a node left out and an absent name come back null (no endless search)");
+    SkateScript::UseBigNameHash(nullptr, 0);
+}
+
 void RunPair(std::vector<uint32_t> (*run)(bool), const char* what)
 {
     std::vector<uint32_t> expected = run(true);
@@ -885,6 +969,8 @@ void TestNodes()
     RunPair(RunPrefixTest, "SkateScript nodes: prefix tables, prefixed nodes, the nearest by prefix");
     RunPair(RunScanTest, "SkateScript nodes: the calls in scripts and in the nodes' scripts");
     RunPair(RunCollisionTest, "CCompositeObject::Obj_GetCollision");
+    RunPair(RunBigHashTest, "SkateScript nodes: the bigger name hash (ours, 0x10000 slots) finds what the original's does");
+    TestFullHash();
     Cleanup();
 }
 

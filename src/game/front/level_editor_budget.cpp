@@ -9,6 +9,7 @@
 #include "game/core/alloc.h"
 #include "game/core/crc.h"
 #include "game/core/manager.h"
+#include "game/core/memory_sizes.h"
 #include "game/core/pool.h"
 #include "game/front/level_editor_checks.h"
 #include "game/front/level_editor_layout.h"
@@ -239,8 +240,9 @@ std::vector<Meter> Meters()
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");
     count("Dynamic lights", counts.dynamicLights, NodeCreate::kMaxDynamicLights, 0,
           "the light manager's dynamic light list (count 0x006FAEF0)");
-    count("Nodes", static_cast<double>(nodes.size()), SkateScript::CNodeManager::kSlots, addedNodes,
-          "the node manager's name hash 0x006F0D84: 0x4000 slots (HashNode 0x0045CE60)");
+    count("Nodes", static_cast<double>(nodes.size()), static_cast<double>(Mem::Sizes::NodeHashSlots()), addedNodes,
+          "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
+          "node_hash_slots");
     if (SkateScript::CNodeManager* manager = SkateScript::NodeManagerInstance())
         count("Node arrays", manager->m_count, SkateScript::CNodeManager::kMaxArrays, 0,
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
