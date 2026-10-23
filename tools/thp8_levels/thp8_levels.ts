@@ -48,8 +48,10 @@ export interface ZoneInfo {
     online?: string; // the network area whose barriers close it off (z_online_<x>)
 }
 
-// The city's zones (a name each from THP8's network areas: z_online_suburbs is the houses' barriers...), then the
-// separate ones. Level select numbers 110...
+// The city's zones, then the separate ones. Level select numbers 110... A zone that is a THP8 network level by itself
+// (z_online_suburbs: the houses' barriers...) gets that level's barriers; the network levels of several zones (the
+// school: z_inschool + z_outschool; the capitol: z_center + z_parking + z_citypark; the fun park: z_funpark +
+// z_cartoon...) are levels of their own (networkAreas) - their barriers go there.
 export const ZONES: readonly ZoneInfo[] = [
     {
         zone: "z_houses",
@@ -63,7 +65,6 @@ export const ZONES: readonly ZoneInfo[] = [
         sign: "SCHOOL",
         location: "THP8's city: the high school",
         levelNum: 111,
-        online: "z_online_school",
     },
     {
         zone: "z_inschool",
@@ -86,7 +87,6 @@ export const ZONES: readonly ZoneInfo[] = [
         sign: "CAPITOL",
         location: "THP8's city: the capitol",
         levelNum: 116,
-        online: "z_online_capitol",
     },
     { zone: "z_citypark", sign: "CITY PARK", location: "THP8's city: the city park", levelNum: 117 },
     {
@@ -101,7 +101,6 @@ export const ZONES: readonly ZoneInfo[] = [
         sign: "FUN PARK",
         location: "THP8's city: the fun park",
         levelNum: 119,
-        online: "z_online_funpark",
     },
     { zone: "z_parking", sign: "PARKING", location: "THP8's city: the parking lot", levelNum: 120 },
     { zone: "z_training", sign: "TRAINING", location: "THP8's training area", levelNum: 121 },
@@ -469,7 +468,8 @@ export interface SceneParts {
 interface Plan {
     plan: mats.MaterialPlan;
     slots: number[];
-    light?: { ambient: mats.Decoded; shadow: mats.Decoded; lighting: mats.Lighting };
+    // (inside: an interior's lighting - interiorLighting - else the part's own: its zone's sun)
+    light?: { ambient: mats.Decoded; shadow: mats.Decoded; inside: boolean };
     vertexMask: { slot: number; mask: mats.Decoded; opacity: number } | null;
 }
 
@@ -509,7 +509,13 @@ export function glowScale(m: geom.GeomMaterial): number[] {
     return [c[0]! * c[3]!, c[1]! * c[3]!, c[2]! * c[3]!].map((x) => Math.min(1, x));
 }
 
-const BILLBOARD = checksum("billboard"); // the shader template of THP8's camera-facing quads
+const BILLBOARD = checksum("billboard");
+
+// What a material is (its textures, template and parameter block): two zones' materials of one checksum are one
+// material only when these agree.
+export function materialKey(m: geom.GeomMaterial): string {
+    return `${m.template}|${m.flags}|${m.terrain}|${m.state}|${m.textures.join(",")}|${m.params.toString("hex")}`;
+} // the shader template of THP8's camera-facing quads
 
 const SECTOR_FLAGS = (0x80002000 | thug2Scene.SEC_TEXCOORDS | thug2Scene.SEC_COLORS) >>> 0;
 
@@ -563,8 +569,20 @@ export function convertScenes(
         refinedFrom: 0,
     };
     const plans = new Map<number, Plan>();
-    for (const part of parts) {
+    const defined = new Map<number, string>(); // material -> its definition (materialKey): the first part's
+    parts.forEach((part, partIndex) => {
         const g = part.geom;
+        // (zones merged into one level: a material of a later part whose checksum an earlier part defined otherwise -
+        // other light maps, another tint - is made under a checksum of its own; the same material is shared)
+        const rename = new Map<number, number>();
+        for (const m of g.materials) {
+            const key = materialKey(m);
+            const seen = defined.get(m.checksum);
+            if (seen === undefined) defined.set(m.checksum, key);
+            else if (seen !== key)
+                rename.set(m.checksum, checksum(`thp8_material_${thp8.hex(m.checksum)}_${partIndex}`));
+        }
+        const matOf = (c: number): number => rename.get(c) ?? c;
         const maps = mats.lightMaps(g.materials);
         const decoded = new Map<number, mats.Decoded | null>();
         const decode = (t: number): mats.Decoded | null => {
@@ -587,8 +605,9 @@ export function convertScenes(
         };
         // materials
         for (const m of g.materials) {
-            if (materials.has(m.checksum) || !m.checksum) continue;
-            if (m.template === BILLBOARD) billboards.add(m.checksum);
+            const id = matOf(m.checksum);
+            if (materials.has(id) || !m.checksum) continue;
+            if (m.template === BILLBOARD) billboards.add(id);
             const used = meshesOf.get(m.checksum) ?? [];
             const slots = used.length ? geom.uvSlots(used[0]!.layout).length : 0;
             const plan =
@@ -602,15 +621,15 @@ export function convertScenes(
             const t = texOut.get(texture);
             const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);
             const alpha = !add && t !== undefined && (t.dxt === 5 || t.dxt === 2);
-            if (alpha) transparent.add(m.checksum);
-            const mat = makeMaterial(m.checksum, texture, add ? "add" : alpha, true);
+            if (alpha) transparent.add(id);
+            const mat = makeMaterial(id, texture, add ? "add" : alpha, true);
             if (alpha || add) mat.noBackfaceCulling = 1;
             if (add) {
                 // (in the transparent bucket, after the opaque scene: drawn there without it, a halo's black
                 // square stood on the floor)
                 mat.passes[0]!.flags |= thug2Scene.PASS_TRANSPARENT;
                 mat.drawOrder = 1500.0;
-                glows.set(m.checksum, glowScale(m));
+                glows.set(id, glowScale(m));
             }
             if (plan && texture && plan.layers.length) {
                 const out: Plan = { plan, slots: [plan.layers[0]!.slot], vertexMask: null };
@@ -683,12 +702,12 @@ export function convertScenes(
                     const inside =
                         (part.techniques ? mats.interior(m, part.techniques) : false) || (standIn(s) && !standIn(a));
                     if (a && s) {
-                        out.light = { ambient: a, shadow: s, lighting: inside ? interiorLighting() : part.lighting };
+                        out.light = { ambient: a, shadow: s, inside };
                     }
                 }
-                plans.set(m.checksum, out);
+                plans.set(id, out);
             }
-            materials.set(m.checksum, mat);
+            materials.set(id, mat);
         }
         const bySector = new Map(g.sectors.map((s) => [s.checksum, s]));
         const masters = new Set([...part.placed.values()].map((p) => p.master));
@@ -699,31 +718,33 @@ export function convertScenes(
             const uvs: number[][] = [];
             const meshes: { flags: number; material: number; strip: number[] }[] = [];
             // (one uv set per pass: the sector's vertices carry as many as its materials' most)
-            const sets = Math.max(1, ...s.meshes.map((m) => plans.get(m.material)?.slots.length ?? 1));
+            const sets = Math.max(1, ...s.meshes.map((m) => plans.get(matOf(m.material))?.slots.length ?? 1));
             for (const m of s.meshes) {
-                if (!materials.has(m.material)) {
+                const id = matOf(m.material);
+                if (!materials.has(id)) {
                     counts.skipped++;
                     continue;
                 }
-                if (billboards.has(m.material)) {
+                if (billboards.has(id)) {
                     // (every corner at the pivot, spread by THP8's billboard shader to face the camera: left out, as
                     // THAW's are)
                     counts.billboards++;
                     continue;
                 }
                 const base = positions.length;
-                const blend = transparent.has(m.material);
-                const glow = glows.get(m.material);
-                const dome = part.dome && !materials.get(m.material)!.passes[0]!.texture;
-                const plan = plans.get(m.material);
+                const blend = transparent.has(id);
+                const glow = glows.get(id);
+                const dome = part.dome && !materials.get(id)!.passes[0]!.texture;
+                const plan = plans.get(id);
                 const verts = geom.readVertices(m);
                 let meshTris = geom.triangles(m);
                 // (light maps: the mesh's last two uv fields - a mesh with fewer fields than its material's first isn't
                 // lit)
                 const lit = plan?.light && part.lighting && (verts[0]?.uvs.length ?? 0) >= 3 ? plan.light : null;
-                if (lit && part.lighting) {
+                const lighting = lit?.inside ? interiorLighting() : part.lighting;
+                if (lit && lighting) {
                     counts.refinedFrom += meshTris.length;
-                    meshTris = refineLit(verts, meshTris, lit, lit.lighting, refineOptions);
+                    meshTris = refineLit(verts, meshTris, lit, lighting, refineOptions);
                     counts.refined += meshTris.length;
                 }
                 for (const v of verts) {
@@ -745,13 +766,13 @@ export function convertScenes(
                         return uv.map((x) => (Number.isFinite(x) ? x : 0));
                     };
                     const n = v.uvs.length;
-                    if (lit && part.lighting) {
+                    if (lit && lighting) {
                         // THP8's light maps baked into the vertex colour
                         const am = lit.ambient;
                         const sh = lit.shadow;
                         const [au, av] = uvOf(n - 2) as [number, number];
                         const [su, sv] = uvOf(n - 1) as [number, number];
-                        k = mats.light(mats.sample(am, au, av), mats.sample(sh, su, sv), lit.lighting);
+                        k = mats.light(mats.sample(am, au, av), mats.sample(sh, su, sv), lighting);
                         counts.lit++;
                     }
                     let alpha = blend ? Math.round((a >> 1) * fade) : 128;
@@ -780,7 +801,7 @@ export function convertScenes(
                     tris = tris.filter((t) => t.some((i) => positions[i]![1]! > 0));
                 }
                 counts.triangles += tris.length;
-                if (tris.length) meshes.push({ flags: 0, material: m.material, strip: trisToStrip(tris) });
+                if (tris.length) meshes.push({ flags: 0, material: id, strip: trisToStrip(tris) });
             }
             if (!meshes.length) return;
             const [lo, hi, center, radius] = geometry.bounds(positions);
@@ -819,7 +840,7 @@ export function convertScenes(
             emit(name, master, p.at);
             counts.instances++;
         }
-    }
+    });
     const scene = geometry.convertScene({ sectors }, warnings, [...materials.values()]);
     // (meshes of more than 65,535 vertices can't be: split long sectors? - THP8's meshes are far smaller)
     return {
@@ -994,9 +1015,13 @@ export function boxTriangles(box: readonly number[], owner: number): havok.HkTri
 // tried).
 export const MAX_TRIANGLES = 190000;
 export const REFINE_EXTRA = 40000;
-export function refineBudget(counts: ConvertedScene["counts"]): number {
+// (zones: a level of several zones gets each one's budget)
+export function refineBudget(counts: ConvertedScene["counts"], zones = 1): number {
     const before = counts.triangles - counts.refined + counts.refinedFrom;
-    return Math.max(before, Math.min(MAX_TRIANGLES, before + Math.max(REFINE_EXTRA, Math.round(before * 0.5))));
+    return Math.max(
+        before,
+        Math.min(MAX_TRIANGLES * zones, before + Math.max(REFINE_EXTRA * zones, Math.round(before * 0.5))),
+    );
 }
 
 // --- collision ----------------------------------------------------------------------------------------------------
@@ -1501,9 +1526,38 @@ export function movePositions(array: readonly QbValue[], shift: readonly number[
     }
 }
 
+// A zone's node array (`<zone>_NodeArray`), its includes (the compressed nodes) put in the nodes - a new copy each time.
+export function nodeArrayOf(nqb: thaw.QbItems, zone: string): QbValue[] {
+    const key = checksum(`${zone}_NodeArray`);
+    const raw = nqb.globals.find(([n]) => n.value === key)?.[1];
+    if (!Array.isArray(raw)) pyExit(`${zone}: no ${zone}_NodeArray`);
+    return nodes.expandIncludes(raw, new Map(nqb.globals.map(([k, v]) => [k.value, v])));
+}
+
+// Zones' node arrays as one (zones merged into one level): one after the other, each one's Links (indices into its own
+// array) moved up by the nodes before it. THP8's node names are the zone's (Z_Houses_...): none repeats across the
+// city's zones.
+export function mergeNodeArrays(arrays: readonly QbValue[][]): QbValue[] {
+    const LINKS = checksum("Links");
+    const out: QbValue[] = [];
+    for (const array of arrays) {
+        const base = out.length;
+        for (const node of array) {
+            if (base && node instanceof Struct) {
+                node.entries = node.entries.map(([k, v]) =>
+                    k !== null && k.value === LINKS && Array.isArray(v)
+                        ? [k, v.map((i) => (typeof i === "number" ? i + base : i))]
+                        : [k, v],
+                );
+            }
+            out.push(node);
+        }
+    }
+    return out;
+}
+
 export function zoneNodes(
-    nqb: thaw.QbItems,
-    zone: string,
+    nodeArray: QbValue[], // the zone's (zones') node array: nodeArrayOf / mergeNodeArrays
     level: string,
     names: Map<number, string>,
     shift: readonly number[],
@@ -1515,11 +1569,7 @@ export function zoneNodes(
     moreQbs: readonly thaw.QbItems[] = [], // more scripts the zone's may call (sub-zones', other zones')
     props: ReadonlyMap<number, PropModel> = new Map(), // the zone's prop models (propModels)
 ): NodeResult {
-    const key = checksum(`${zone}_NodeArray`);
-    const raw = nqb.globals.find(([n]) => n.value === key)?.[1];
-    if (!Array.isArray(raw)) pyExit(`${zone}: no ${zone}_NodeArray`);
-    const globals = new Map(nqb.globals.map(([k, v]) => [k.value, v]));
-    let array = nodes.expandIncludes(raw, globals);
+    let array = nodeArray;
     applyNodeFlags(array, flags);
     bouncyProps(array, names, props);
     movePositions(array, shift);
@@ -1746,224 +1796,437 @@ export class ZoneScripts {
     }
 }
 
+// A THUG2 level made of THP8 zones: one zone (the zone levels: ZONES), or several in THP8's shared frame (its network
+// levels: networkAreas). `zones` first is the level's own: its lights.
+export interface LevelSpec {
+    level: string; // thp8_houses, thp8_net_skatecentral
+    folder: string; // the manifest's folder (level_select.ts's THP8_LEVELS key): z_houses, net_skatecentral
+    zones: readonly string[];
+    barriers: readonly string[]; // network areas (z_online_<x>) whose barrier walls are added, as collision only
+    sign: string;
+    location: string;
+    levelNum: number;
+    big?: boolean; // wider than THUG2's network positions reach: IsBigLevel (level_select.ts)
+}
+
+export function zoneSpec(info: ZoneInfo, areaNames: ReadonlyMap<string, string>): LevelSpec {
+    return {
+        level: levelName(info),
+        folder: info.zone,
+        zones: [info.zone],
+        barriers: info.online ? [info.online] : [],
+        sign: signText(info, areaNames),
+        location: info.location,
+        levelNum: info.levelNum,
+    };
+}
+
+// --- THP8's network levels ----------------------------------------------------------------------------------------
+
+// THP8's network levels as its own data has them (qb.pak's online_level_select_menu_level_info, each entry naming a
+// multiplayer_level_<x> structure): its text, its id (`checksum`), the zones whose network spawns it uses
+// (`spawn_in` - the zones it is made of), the network area whose barriers close it off (`area_pak`: z_online_<x>; none
+// for the whole town, BEAVER VALLEY) and the zone that area belongs to (`area_pak_zone`).
+export interface NetArea {
+    id: string; // THP8's checksum name: SkateCentral
+    text: string; // SKATE CENTRAL
+    zones: string[]; // spawn_in, lower case: z_houses...
+    barriers: string; // area_pak: z_online_central, or ""
+    mainZone: string; // area_pak_zone, lower case, or ""
+    description: string; // the level select's (level_select_ui_<x>)
+}
+
+export const NET_LEVEL_LIST = "online_level_select_menu_level_info";
+
+export function networkAreas(compressed: string, names: Map<number, string>): NetArea[] {
+    const pak = thp8.openPak(findCaseless(compressed, "PAK", "qb.pak.xen")!);
+    const globals = new Map<number, QbValue>();
+    for (const e of pak.entries) {
+        if (e.extension !== ".qb") continue;
+        for (const [k, v] of new thaw.QbItems(thp8.entryData(pak, e), "qb.pak", names, ">").globals)
+            globals.set(k.value, v);
+    }
+    return readNetworkAreas(globals, names);
+}
+
+export function readNetworkAreas(globals: ReadonlyMap<number, QbValue>, names: ReadonlyMap<number, string>): NetArea[] {
+    const list = globals.get(checksum(NET_LEVEL_LIST));
+    if (!Array.isArray(list)) pyExit(`qb.pak: no ${NET_LEVEL_LIST}`);
+    const name = (v: QbValue | undefined): string =>
+        v instanceof Name ? (names.get(v.value) ?? thp8.hex(v.value)) : "";
+    const text = (v: QbValue | undefined): string => (v instanceof qb.Local ? v.text : typeof v === "string" ? v : "");
+    const out: NetArea[] = [];
+    for (const entry of list) {
+        if (!(entry instanceof Struct)) continue;
+        // (the entry's unnamed Name: the multiplayer_level_<x> structure)
+        const ref = entry.entries.find(([k, v]) => k === null && v instanceof Name)?.[1];
+        const level = ref instanceof Name ? globals.get(ref.value) : undefined;
+        if (!(level instanceof Struct)) continue;
+        const spawn = level.get("spawn_in");
+        const ui = level.get("ui_struct");
+        const uiStruct = ui instanceof Name ? globals.get(ui.value) : undefined;
+        out.push({
+            id: name(level.get("checksum")),
+            text: text(level.get("text"))
+                .toUpperCase()
+                .replace(/[^ -~]/g, ""),
+            zones: Array.isArray(spawn) ? spawn.map((z) => name(z).toLowerCase()).filter((z) => z) : [],
+            barriers: text(level.get("area_pak")).toLowerCase(),
+            mainZone: text(level.get("area_pak_zone")).toLowerCase(),
+            description: uiStruct instanceof Struct ? text(uiStruct.get("description")) : "",
+        });
+    }
+    return out;
+}
+
+// THP8's network levels of one zone are that zone's level (its barriers added: ZoneInfo.online); those of several
+// zones become levels of their own, numbered from NET_LEVEL_NUM in THP8's order. The sign is THP8's text, " AREA"
+// added where a zone level has the same.
+export const NET_LEVEL_NUM = 125;
+// THUG2 sends a skater's x / z in network games in half units (+-16384 units: src/game/net/thugpro_compat.h); a level
+// reaching past this from its middle gets IsBigLevel (whole units).
+export const NET_HALF_REACH = 16000;
+
+export function netLevelName(area: NetArea): string {
+    return `thp8_net_${area.id.toLowerCase()}`;
+}
+
+export function netSpecs(areas: readonly NetArea[], zoneSigns: ReadonlySet<string>): LevelSpec[] {
+    const out: LevelSpec[] = [];
+    for (const area of areas.filter((a) => a.zones.length > 1)) {
+        // (the area's own zone first: its lights; the others in THP8's order)
+        const zones = area.zones.includes(area.mainZone)
+            ? [area.mainZone, ...area.zones.filter((z) => z !== area.mainZone)]
+            : [...area.zones];
+        out.push({
+            level: netLevelName(area),
+            folder: `net_${area.id.toLowerCase()}`,
+            zones,
+            barriers: area.barriers ? [area.barriers] : [],
+            sign: zoneSigns.has(area.text) ? `${area.text} AREA` : area.text,
+            location: `THP8's network level ${area.text}: ${zones.join(" + ")}`,
+            levelNum: NET_LEVEL_NUM + out.length,
+        });
+    }
+    return out;
+}
+
+// --- converting ---------------------------------------------------------------------------------------------------
+
+// What every level's conversion shares (read once).
+interface Shared {
+    args: Args;
+    compressed: string;
+    out: string;
+    names: Map<number, string>;
+    terrains: string[];
+    flags: Map<number, boolean>;
+    managers: Map<number, Struct>;
+    techniques: Map<number, string[]>;
+    port: ScriptPort;
+    zoneScripts: ZoneScripts;
+    globalProps: Map<number, PropModel>;
+    sky: string | null;
+    report: string[];
+}
+
+// One zone of a level as read and prepared: its scene part, its collision set, its node array's pieces.
+interface ZonePart {
+    zone: string;
+    zoneName: string; // THP8's spelling (Z_Houses)
+    data: ZoneData;
+    array: QbValue[];
+    placed: Map<number, { master: number; at: Placement }>;
+    hidden: Set<number>;
+    local: Set<number>;
+    made: Map<number, number>; // props: node -> type
+    props: Map<number, PropModel>;
+    flagged: number;
+}
+
+function readPart(zone: string, ctx: Shared, warnings: string[]): ZonePart | null {
+    const file = zonePak(ctx.compressed, zone);
+    if (file === null) return null;
+    const data = readZone(file, ctx.names, warnings);
+    if (data.geom === null || data.nqb === null) return null;
+    const zoneName = ctx.names.get(checksum(zone)) ?? zone;
+    const array = nodeArrayOf(data.nqb, zoneName);
+    // (the node flags first: they decide which instances and sectors are made)
+    const flagged = applyNodeFlags(array, ctx.flags);
+    const placed = new Map<number, { master: number; at: Placement }>();
+    for (const [k, v] of instances(array)) {
+        const node = array.find((n) => n instanceof Struct && nodeName(n) === k) as Struct | undefined;
+        if (node?.hasFlag("CreatedAtStart")) placed.set(k, v);
+    }
+    // (the props first: they become LevelObjects - local, drawn and collided as theirs)
+    const props = new Map([...ctx.globalProps, ...propModels(data.pak)]);
+    const made = bouncyProps(array, ctx.names, props);
+    const hidden = notMade(array, ctx.names);
+    const local = localObjects(array, ctx.names);
+    if (ctx.args.leaveOut) {
+        for (const s of data.geom.sectors)
+            if (ctx.args.leaveOut.test(ctx.names.get(s.checksum) ?? "")) hidden.add(s.checksum);
+    }
+    return { zone, zoneName, data, array, placed, hidden, local, made, props, flagged };
+}
+
+// The scene parts of a zone: the zone's own, then its props' models (each drawn under its node's name, in its own
+// space).
+function sceneParts(p: ZonePart, ctx: Shared): SceneParts[] {
+    const g = p.data.geom!;
+    return [
+        {
+            geom: g,
+            textures: p.data.textures,
+            placed: p.placed,
+            hidden: p.hidden,
+            additive: glowMaterials(g, ctx.names),
+            lighting: zoneLighting(zoneTod(ctx.managers, p.zoneName)),
+            techniques: ctx.techniques,
+            local: p.local,
+        },
+        ...[...new Set(p.made.values())].map(
+            (type): SceneParts => ({
+                geom: p.props.get(type)!.geom,
+                textures: p.props.get(type)!.textures,
+                placed: new Map(
+                    [...p.made]
+                        .filter(([, t]) => t === type)
+                        .map(([node]) => [
+                            node,
+                            {
+                                master: p.props.get(type)!.geom.sectors[0]!.checksum,
+                                at: { pos: [0, 0, 0], angles: [0, 0, 0], scale: [1, 1, 1] },
+                            },
+                        ]),
+                ),
+                local: new Set(p.made.keys()),
+            }),
+        ),
+    ];
+}
+
+// The level's furthest reach from its middle on x / z (inches), its collision moved by `shift`.
+export function horizontalReach(bodies: readonly havok.HkBody[], shift: readonly number[]): number {
+    let reach = 0;
+    for (const b of bodies) {
+        for (const t of b.triangles) {
+            for (const p of [t.a, t.b, t.c]) {
+                const q = toThug(p, shift);
+                reach = Math.max(reach, Math.abs(q[0]), Math.abs(q[2]));
+            }
+        }
+    }
+    return reach;
+}
+
+// One level: its zones' scenes, collision and node arrays as one, in THP8's shared frame moved so the middle of the
+// collision is at the origin. Returns its manifest entry, or null (skipped).
+function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | null {
+    const { names, report } = ctx;
+    const warnings: string[] = [];
+    const parts: ZonePart[] = [];
+    for (const zone of spec.zones) {
+        const p = readPart(zone, ctx, warnings);
+        if (p === null) {
+            report.push(
+                `${spec.level}: ${zone} not in ${ctx.compressed}\\ZONES or without a scene / node array - skipped`,
+            );
+            return null;
+        }
+        parts.push(p);
+    }
+    const barriers: ZoneData[] = [];
+    for (const area of spec.barriers) {
+        const file = zonePak(ctx.compressed, area);
+        const b = file ? readZone(file, names, warnings) : null;
+        if (b?.geom) barriers.push(b);
+        else report.push(`${spec.level}: ${area} not found - no barriers`);
+    }
+    const name = spec.level;
+    const allBodies = parts.flatMap((p) => p.data.bodies);
+    const shift = centreShift(allBodies);
+    const tod = zoneTod(ctx.managers, parts[0]!.zoneName);
+    const scene = (options: mats.RefineOptions): ConvertedScene =>
+        convertScenes(
+            parts.flatMap((p) => sceneParts(p, ctx)),
+            shift,
+            warnings,
+            !ctx.args.noMips,
+            SCALE,
+            options,
+        );
+    // (refining the light keeps to a budget: the threshold raised until the level fits)
+    let refineOptions = { ...REFINE };
+    let done = scene(refineOptions);
+    for (let tries = 0; tries < 4 && done.counts.triangles > refineBudget(done.counts, parts.length); tries++) {
+        refineOptions = { ...refineOptions, threshold: refineOptions.threshold * 1.6 };
+        done = scene(refineOptions);
+    }
+    if (refineOptions.threshold !== REFINE.threshold) {
+        report.push(`  light refined at a threshold of ${refineOptions.threshold.toFixed(2)} (the triangle budget)`);
+    }
+    // nodes (the kill zones' trigger faces kept): the zones' arrays as one, a fresh copy (zoneNodes makes it THUG2's)
+    const inLevel = new Set(spec.zones);
+    const scriptQbs = parts.flatMap((p) => [p.data.nqb!, ...p.data.qbs]);
+    const moreQbs = [
+        ...parts.flatMap((p) => p.data.subQbs),
+        ...ZONES.filter((x) => !inLevel.has(x.zone)).flatMap((x) => ctx.zoneScripts.of(x.zone)),
+    ];
+    const props = new Map(parts.flatMap((p) => [...p.props]));
+    const nodeResult = zoneNodes(
+        mergeNodeArrays(parts.map((p) => nodeArrayOf(p.data.nqb!, p.zoneName))),
+        name,
+        names,
+        shift,
+        done.sectors,
+        scriptQbs,
+        allBodies,
+        ctx.flags,
+        ctx.port,
+        moreQbs,
+        props,
+    );
+    // collision: each zone's bodies, its props' boxes (in their own space), the barriers
+    const sets: Parameters<typeof convertCollision>[0][number][] = [];
+    for (const p of parts) {
+        const g = p.data.geom!;
+        sets.push({
+            bodies: p.data.bodies,
+            sectors: g.sectors,
+            hidden: p.hidden,
+            local: p.local,
+            volumes: triggerVolumes(p.array, names, new Set(g.sectors.map((x) => x.checksum))),
+        });
+        sets.push({
+            bodies: [...p.made].map(([node, type], i) => ({
+                index: -1 - i,
+                triangles: boxTriangles(p.props.get(type)!.box, node),
+            })),
+            sectors: [],
+            hidden: new Set(),
+            local: new Set(p.made.keys()),
+            volumes: [],
+        });
+    }
+    // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
+    for (const b of barriers) {
+        sets.push({ bodies: b.bodies, sectors: b.geom!.sectors, hidden: new Set(), local: new Set(), volumes: [] });
+    }
+    const col = convertCollision(sets, name, shift, ctx.terrains, (c) => nodeResult.triggers.has(c), warnings);
+    const levelDir = pyJoin(ctx.out, "levels", name);
+    common.writeLevel(levelDir, name, done.scene, done.textures, col.col);
+    common.reportLevel(report, name, done.scene, done.textures, col.col, [...new Set(warnings)].sort());
+    const c = done.counts;
+    const made = parts.flatMap((p) => [...p.made.values()]);
+    if (made.length) {
+        report.push(
+            `  ${made.length} props as bouncy objects (${[...new Set(made.map((t) => names.get(t)))].join(", ")})`,
+        );
+    }
+    const reach = horizontalReach(allBodies, shift);
+    const big = spec.big ?? reach > NET_HALF_REACH;
+    report.push(
+        `  ${spec.zones.join(" + ")}${spec.barriers.length ? ` + ${spec.barriers.join(" + ")}` : ""}: ${c.sectors} sectors, ` +
+            `${c.instances} instances of ${c.masters} masters, ${c.billboards} billboard meshes left out, ` +
+            `${c.triangles} triangles, ${c.layers} further layers, ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.named} ` +
+            `named after their sector / node; ${col.hidden} of nodes not made left out); ` +
+            `${parts.reduce((n, p) => n + p.flagged, 0)} nodes made from THP8's non-story node flags, ` +
+            `${parts.reduce((n, p) => n + p.hidden.size, 0)} not made; moved by (${shift.map((x) => x.toFixed(1)).join(", ")}); ` +
+            `reaches ${reach.toFixed(0)} units from the middle${big ? " (IsBigLevel: network positions in whole units)" : ""}`,
+    );
+    const qbFile = pyJoin(levelDir, `${name}.qb`);
+    // restarts: THP8's network spawns usable in single play too (soloRestarts); against the collision just made -
+    // restarts over nothing / a kill zone are no network spawns, kills go to grounded ones (nodes.groundRestarts);
+    // network games' needs (nodes.netGameNodes: Player1 restarts as spawns where a zone has none)
+    const [soloText, solo] = soloRestarts(nodeResult.text);
+    const [groundedText, grounded] = nodes.groundRestarts(soloText, col.col);
+    const [text] = nodes.netGameNodes(groundedText, nodeResult.scripts);
+    if (solo) report.push(`  ${solo} network restarts also single-player ones`);
+    report.push(...grounded);
+    common.nsCompile(ctx.args.ns, text, qbFile);
+    if (nodeResult.scripts.size) {
+        fs.writeFileSync(qbFile, scriptPort.appendScripts(fs.readFileSync(qbFile), nodeResult.scripts, names));
+    }
+    if (nodeResult.scriptReport) report.push(`  ${nodeResult.scriptReport}`);
+    report.push(
+        `  nodes: ${nodeResult.restarts} restarts${nodeResult.added ? " (one made: it had none)" : ""}, ` +
+            `${nodeResult.rails} rail nodes, ${nodeResult.kills} kill zones ` +
+            `(${[...nodeResult.stats].map(([k, v]) => `${k} ${v}`).join(", ")})`,
+    );
+    return {
+        folder: spec.folder,
+        level: name,
+        sky: ctx.sky,
+        display: `THP8 ${spec.sign}`,
+        name: spec.sign.toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase()),
+        game: "THP8",
+        location: spec.location,
+        icon: "sign_training",
+        level_num: spec.levelNum,
+        default_stats: 6,
+        lighting: tod ? common.lighting(tod) : {},
+        ...(big ? { flags: ["IsBigLevel"] } : {}),
+    };
+}
+
+// Every level this converter makes: the zones', then THP8's network levels of several zones.
+export function allSpecs(compressed: string, names: Map<number, string>): LevelSpec[] {
+    const areaNames = zoneNames(compressed, names);
+    const zones = ZONES.map((z) => zoneSpec(z, areaNames));
+    return [...zones, ...netSpecs(networkAreas(compressed, names), new Set(zones.map((z) => z.sign)))];
+}
+
+export function findSpec(specs: readonly LevelSpec[], name: string): LevelSpec | undefined {
+    const n = name.toLowerCase();
+    const zone = findZone(n);
+    if (zone) return specs.find((s) => s.folder === zone.zone);
+    return specs.find((s) => s.level === n || s.folder === n || s.level === `thp8_net_${n}` || s.level === `thp8_${n}`);
+}
+
 export function cmdConvert(args: Args): number {
     const compressed = compressedFolder(args.thp8);
     const out = args.out || pyJoin(args.thug2, STAGING);
     if (!fs.existsSync(args.ns)) pyExit(`${args.ns} not found: build it with tools\\build_neverscript.ps1`);
-    const wanted: ZoneInfo[] = [];
-    for (const name of args.levels.length ? args.levels : ZONES.map((z) => z.zone)) {
-        const info = findZone(name);
-        if (info === undefined) pyExit(`${name}: not a THP8 zone (${ZONES.map((z) => z.zone).join(", ")})`);
-        wanted.push(info);
-    }
     const names = thp8.loadNames(findCaseless(compressed, "PAK", "dbg.pak.xen")!);
-    const terrains = terrainTable(compressed, names);
-    const flags = nonStoryNodeFlags(compressed, names);
-    const managers = todManagers(compressed, names);
-    const areaNames = zoneNames(compressed, names);
+    const specs = allSpecs(compressed, names);
+    const wanted: LevelSpec[] = [];
+    for (const name of args.levels.length ? args.levels : specs.map((s) => s.level)) {
+        const spec = findSpec(specs, name);
+        if (spec === undefined)
+            pyExit(`${name}: not a THP8 zone or network level (${specs.map((s) => s.level).join(", ")})`);
+        wanted.push(spec);
+    }
     const library = findCaseless(compressed, "FXFILES", "MaterialLibrary.bin.xen");
-    const techniques = library ? mats.readTechniques(thp8.unpack(library)) : new Map<number, string[]>();
-    const port = makeScriptPort(args.thug2, compressed, names);
-    const zoneScripts = new ZoneScripts(compressed, names);
     const globalPak = zonePak(compressed, "global");
-    const globalProps = globalPak ? propModels(thp8.openPak(globalPak)) : new Map<number, PropModel>();
     // (only the levels converted now are made again: a partial convert keeps the others, as levels.json does -
     // ported_levels.writeManifest)
-    for (const info of wanted) {
-        fs.rmSync(pyJoin(out, "levels", levelName(info)), { recursive: true, force: true });
-    }
+    for (const spec of wanted) fs.rmSync(pyJoin(out, "levels", spec.level), { recursive: true, force: true });
     fs.mkdirSync(out, { recursive: true });
-    const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
     const report: string[] = [];
-    const sky = convertSky(compressed, out, report, !args.noMips, args.leaveOut, names);
-    for (const info of wanted) {
-        const file = zonePak(compressed, info.zone);
-        if (file === null) {
-            report.push(`${info.zone}: not in ${compressed}\\ZONES - skipped`);
-            continue;
-        }
-        const name = levelName(info);
-        const warnings: string[] = [];
-        const z = readZone(file, names, warnings);
-        if (z.geom === null || z.nqb === null) {
-            report.push(`${info.zone}: no scene or node array - skipped`);
-            continue;
-        }
-        const zoneName = names.get(checksum(info.zone)) ?? info.zone;
-        const onlineFile = info.online ? zonePak(compressed, info.online) : null;
-        const online = onlineFile ? readZone(onlineFile, names, warnings) : null;
-        const shift = centreShift(z.bodies);
-        const tod = zoneTod(managers, zoneName);
-        // scene
-        const placed = new Map<number, { master: number; at: Placement }>();
-        const key = checksum(`${zoneName}_NodeArray`);
-        const rawArray = z.nqb.globals.find(([n]) => n.value === key)?.[1];
-        const array = Array.isArray(rawArray)
-            ? nodes.expandIncludes(rawArray, new Map(z.nqb.globals.map(([k, v]) => [k.value, v])))
-            : [];
-        // (the node flags first: they decide which instances and sectors are made)
-        const flagged = applyNodeFlags(array, flags);
-        for (const [k, v] of instances(array)) {
-            const node = array.find((n) => n instanceof Struct && nodeName(n) === k) as Struct | undefined;
-            if (node?.hasFlag("CreatedAtStart")) placed.set(k, v);
-        }
-        // (the props first: they become LevelObjects - local, drawn and collided as theirs)
-        const props = new Map([...globalProps, ...propModels(z.pak)]);
-        const made = bouncyProps(array, names, props);
-        const hidden = notMade(array, names);
-        const local = localObjects(array, names);
-        if (args.leaveOut) {
-            for (const s of z.geom.sectors) if (args.leaveOut.test(names.get(s.checksum) ?? "")) hidden.add(s.checksum);
-        }
-        // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
-        const zoneGeom = z.geom;
-        const scene = (options: mats.RefineOptions): ConvertedScene =>
-            convertScenes(
-                [
-                    {
-                        geom: zoneGeom,
-                        textures: z.textures,
-                        placed,
-                        hidden,
-                        additive: glowMaterials(zoneGeom, names),
-                        lighting: zoneLighting(tod),
-                        techniques,
-                        local,
-                    },
-                    // (the props: their model's sector drawn under each node's name, in its own space)
-                    ...[...new Set(made.values())].map(
-                        (type): SceneParts => ({
-                            geom: props.get(type)!.geom,
-                            textures: props.get(type)!.textures,
-                            placed: new Map(
-                                [...made]
-                                    .filter(([, t]) => t === type)
-                                    .map(([node]) => [
-                                        node,
-                                        {
-                                            master: props.get(type)!.geom.sectors[0]!.checksum,
-                                            at: { pos: [0, 0, 0], angles: [0, 0, 0], scale: [1, 1, 1] },
-                                        },
-                                    ]),
-                            ),
-                            local: new Set(made.keys()),
-                        }),
-                    ),
-                ],
-                shift,
-                warnings,
-                !args.noMips,
-                SCALE,
-                options,
-            );
-        // (refining the light keeps to a budget: the threshold raised until the zone fits)
-        let refineOptions = { ...REFINE };
-        let done = scene(refineOptions);
-        for (let tries = 0; tries < 4 && done.counts.triangles > refineBudget(done.counts); tries++) {
-            refineOptions = { ...refineOptions, threshold: refineOptions.threshold * 1.6 };
-            done = scene(refineOptions);
-        }
-        if (refineOptions.threshold !== REFINE.threshold) {
-            report.push(
-                `  light refined at a threshold of ${refineOptions.threshold.toFixed(2)} (the triangle budget)`,
-            );
-        }
-        // nodes (the kill zones' trigger faces kept)
-        const scriptQbs = [z.nqb, ...z.qbs];
-        const moreQbs = [
-            ...z.subQbs,
-            ...ZONES.filter((x) => x.zone !== info.zone).flatMap((x) => zoneScripts.of(x.zone)),
-        ];
-        const nodeResult = zoneNodes(
-            z.nqb,
-            zoneName,
-            name,
-            names,
-            shift,
-            done.sectors,
-            scriptQbs,
-            z.bodies,
-            flags,
-            port,
-            moreQbs,
-            props,
-        );
-        // collision
-        const volumes = triggerVolumes(array, names, new Set(z.geom.sectors.map((x) => x.checksum)));
-        const sets = [{ bodies: z.bodies, sectors: z.geom.sectors, hidden, local, volumes }];
-        // (the props' boxes, in their own space)
-        sets.push({
-            bodies: [...made].map(([node, type], i) => ({
-                index: -1 - i,
-                triangles: boxTriangles(props.get(type)!.box, node),
-            })),
-            sectors: [],
-            hidden: new Set(),
-            local: new Set(made.keys()),
-            volumes: [],
-        });
-        if (online?.geom) {
-            sets.push({
-                bodies: online.bodies,
-                sectors: online.geom.sectors,
-                hidden: new Set(),
-                local: new Set(),
-                volumes: [],
-            });
-        }
-        const col = convertCollision(sets, name, shift, terrains, (c) => nodeResult.triggers.has(c), warnings);
-        const levelDir = pyJoin(out, "levels", name);
-        common.writeLevel(levelDir, name, done.scene, done.textures, col.col);
-        common.reportLevel(report, name, done.scene, done.textures, col.col, [...new Set(warnings)].sort());
-        const c = done.counts;
-        if (made.size)
-            report.push(
-                `  ${made.size} props as bouncy objects (${[...new Set([...made.values()].map((t) => names.get(t)))].join(", ")})`,
-            );
-        report.push(
-            `  ${info.zone}${online ? ` + ${info.online}` : ""}: ${c.sectors} sectors, ${c.instances} instances of ` +
-                `${c.masters} masters, ${c.billboards} billboard meshes left out, ` +
-                `${c.triangles} triangles, ${c.layers} further layers, ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.named} ` +
-                `named after their sector / node; ${col.hidden} of nodes not made left out); ${flagged} nodes made ` +
-                `from THP8's non-story node flags, ${hidden.size} not made; moved by (${shift.map((x) => x.toFixed(1)).join(", ")})`,
-        );
-        const qbFile = pyJoin(levelDir, `${name}.qb`);
-        // restarts: THP8's network spawns usable in single play too (soloRestarts); against the collision just made -
-        // restarts over nothing / a kill zone are no network spawns, kills go to grounded ones (nodes.groundRestarts);
-        // network games' needs (nodes.netGameNodes: Player1 restarts as spawns where a zone has none)
-        const [soloText, solo] = soloRestarts(nodeResult.text);
-        const [groundedText, grounded] = nodes.groundRestarts(soloText, col.col);
-        const [text] = nodes.netGameNodes(groundedText, nodeResult.scripts);
-        if (solo) report.push(`  ${solo} network restarts also single-player ones`);
-        report.push(...grounded);
-        common.nsCompile(args.ns, text, qbFile);
-        if (nodeResult.scripts.size) {
-            fs.writeFileSync(qbFile, scriptPort.appendScripts(fs.readFileSync(qbFile), nodeResult.scripts, names));
-        }
-        if (nodeResult.scriptReport) report.push(`  ${nodeResult.scriptReport}`);
-        report.push(
-            `  nodes: ${nodeResult.restarts} restarts${nodeResult.added ? " (one made: it had none)" : ""}, ` +
-                `${nodeResult.rails} rail nodes, ${nodeResult.kills} kill zones ` +
-                `(${[...nodeResult.stats].map(([k, v]) => `${k} ${v}`).join(", ")})`,
-        );
-        manifest.levels.push({
-            folder: info.zone,
-            level: name,
-            sky,
-            display: `THP8 ${signText(info, areaNames)}`,
-            name: signText(info, areaNames)
-                .toLowerCase()
-                .replace(/\b\w/g, (c) => c.toUpperCase()),
-            game: "THP8",
-            location: info.location,
-            icon: "sign_training",
-            level_num: info.levelNum,
-            default_stats: 6,
-            lighting: tod ? common.lighting(tod) : {},
-        });
+    const ctx: Shared = {
+        args,
+        compressed,
+        out,
+        names,
+        terrains: terrainTable(compressed, names),
+        flags: nonStoryNodeFlags(compressed, names),
+        managers: todManagers(compressed, names),
+        techniques: library ? mats.readTechniques(thp8.unpack(library)) : new Map<number, string[]>(),
+        port: makeScriptPort(args.thug2, compressed, names),
+        zoneScripts: new ZoneScripts(compressed, names),
+        globalProps: globalPak ? propModels(thp8.openPak(globalPak)) : new Map<number, PropModel>(),
+        sky: convertSky(compressed, out, report, !args.noMips, args.leaveOut, names),
+        report,
+    };
+    const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
+    for (const spec of wanted) {
+        const entry = convertLevel(spec, ctx);
+        if (entry) manifest.levels.push(entry);
+        // (the report as it goes: the whole town takes minutes)
+        print(report.splice(0).join("\n"));
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
-    print(report.join("\n"));
     print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
     return 0;
 }
@@ -2081,10 +2344,11 @@ export function cmdSelfcheck(args: Args): number {
 
 function cmdList(args: Args): number {
     const compressed = compressedFolder(args.thp8);
-    for (const info of ZONES) {
-        const file = zonePak(compressed, info.zone);
+    const names = thp8.loadNames(findCaseless(compressed, "PAK", "dbg.pak.xen")!);
+    for (const spec of allSpecs(compressed, names)) {
+        const missing = spec.zones.filter((z) => zonePak(compressed, z) === null);
         print(
-            `${levelName(info).padEnd(18)} ${info.sign.padEnd(14)} ${info.zone}${file ? "" : " (missing)"}${info.online ? ` + ${info.online}` : ""}`,
+            `${spec.level.padEnd(26)} ${String(spec.levelNum).padEnd(4)} ${spec.sign.padEnd(20)} ${[...spec.zones, ...spec.barriers].join(" + ")}${missing.length ? ` (missing ${missing.join(", ")})` : ""}`,
         );
     }
     return 0;

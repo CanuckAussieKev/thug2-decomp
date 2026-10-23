@@ -370,6 +370,10 @@ export function manifestLevels(manifest: Manifest, table: ReadonlyMap<string, Ta
             sign: `sign_${entry.level.toLowerCase()}`,
             place,
             location,
+            // (flags the converter set on its manifest entry: tools/thp8_levels' IsBigLevel)
+            ...(Array.isArray(entry.flags)
+                ? { flags: entry.flags.filter((f): f is string => typeof f === "string") }
+                : {}),
         };
     });
 }
@@ -393,6 +397,14 @@ export const THP8_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tabl
     ["z_cartoon", { icon: "cloud", place: "THP8's cartoon world (no place)", location: null }],
     ["z_skateshop", { icon: "skatetool", place: "THP8's skate shop (no place)", location: null }],
     ["z_bedroom", { icon: "bed", place: "THP8's bedroom (no place)", location: null }],
+    // THP8's network levels of several zones (tools/thp8_levels networkAreas), in its own order
+    ["net_beavervalley", { icon: "citymap", place: "THP8's city (fictional): the whole town", location: null }],
+    ["net_funpark", { icon: "balloon", place: "THP8's city (fictional)", location: null }],
+    ["net_school", { icon: "books", place: "THP8's city (fictional)", location: null }],
+    ["net_industrial", { icon: "chimneys", place: "THP8's city (fictional)", location: null }],
+    ["net_capitol", { icon: "pediment", place: "THP8's city (fictional)", location: null }],
+    ["net_skatefunparks", { icon: "ticket", place: "THP8's city (fictional)", location: null }],
+    ["net_skatecentral", { icon: "compass", place: "THP8's city (fictional)", location: null }],
 ]);
 
 // THUG2's own list (level_select_menu_level_info) with what make_menu_level adds to it: SKATE SHOP and TEST LEVEL

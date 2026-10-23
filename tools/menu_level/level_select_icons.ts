@@ -1868,6 +1868,123 @@ function bed(): Layer[] {
     ];
 }
 
+// --- THP8's network levels of several zones (tools/thp8_levels networkAreas) ----------------------------------------
+
+// BEAVER VALLEY (the whole town): a town map - blocks between streets, one street bent.
+function citymap(): Layer[] {
+    return scaleAll(
+        [
+            [INK, rrect(16, 16, 48, 48, 3)],
+            [CUT, rect(16, 29, 48, 32)],
+            [CUT, rect(30, 16, 33, 48)],
+            [CUT, line(33, 40, 48, 25, 3)],
+            [CUT, rect(19, 19, 27, 26)],
+        ],
+        32,
+        32,
+        0.75,
+    );
+}
+
+// The fun park with the cartoon world: a balloon on its string.
+function balloon(): Layer[] {
+    return [
+        [INK, ellipse(32, 25, 9, 11)],
+        [INK, poly([30, 35], [34, 35], [32, 38])],
+        [
+            INK,
+            polyline(
+                [
+                    [32, 38],
+                    [30, 42],
+                    [33, 45],
+                    [31, 49],
+                ],
+                1.5,
+            ),
+        ],
+        [CUT, ellipse(28.5, 21, 2, 3.5, -20)],
+    ];
+}
+
+// The school inside and out: a stack of books.
+function books(): Layer[] {
+    return scaleAll(
+        [
+            [INK, rect(17, 38, 47, 45)],
+            [CUT, rect(19, 40, 45, 41)],
+            [INK, rect(20, 30, 44, 37)],
+            [CUT, rect(22, 32, 42, 33)],
+            [INK, turned(rect(22, 21, 42, 28), 32, 24.5, -8)],
+        ],
+        32,
+        32,
+        0.88,
+    );
+}
+
+// The industrial zone (slums + factory): a works with two smoking chimneys.
+function chimneys(): Layer[] {
+    return scaleAll(
+        [
+            [INK, poly([16, 46], [16, 34], [24, 29], [24, 34], [32, 29], [32, 34], [48, 34], [48, 46])],
+            [INK, rect(36, 18, 40, 34)],
+            [INK, rect(42, 22, 46, 34)],
+            [INK, circle(38, 13, 2.5)],
+            [INK, circle(42, 10, 2)],
+            [CUT, rect(20, 38, 24, 42)],
+            [CUT, rect(28, 38, 32, 42)],
+        ],
+        33,
+        33,
+        0.72,
+    );
+}
+
+// The capitol building with the hill top and the city park: a pediment on columns.
+function pediment(): Layer[] {
+    return scaleAll(
+        [
+            [INK, poly([14, 25], [32, 15], [50, 25])],
+            [INK, rect(16, 26, 48, 29)],
+            [INK, rect(18, 30, 21, 42)],
+            [INK, rect(25, 30, 28, 42)],
+            [INK, rect(36, 30, 39, 42)],
+            [INK, rect(43, 30, 46, 42)],
+            [INK, rect(14, 43, 50, 47)],
+        ],
+        32,
+        32,
+        0.74,
+    );
+}
+
+// The skate park with the fun park: an admission ticket.
+function ticket(): Layer[] {
+    return scaleAll(
+        [
+            [INK, turned(rrect(14, 24, 50, 40, 2), 32, 32, -15)],
+            [CUT, turned(circle(14, 32, 3), 32, 32, -15)],
+            [CUT, turned(circle(50, 32, 3), 32, 32, -15)],
+            [CUT, turned(rect(38, 24, 39, 40), 32, 32, -15)],
+            [CUT, turned(rect(20, 30, 33, 34), 32, 32, -15)],
+        ],
+        32,
+        32,
+        0.85,
+    );
+}
+
+// SKATE CENTRAL (the middle of town): a compass rose.
+function compass(): Layer[] {
+    return [
+        [INK, ring(32, 32, 15, 2)],
+        [INK, poly([32, 14], [35, 32], [32, 50], [29, 32])],
+        [INK, poly([14, 32], [32, 29], [50, 32], [32, 35])],
+        [CUT, circle(32, 32, 1.5)],
+    ];
+}
+
 export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
     [
         skateboard,
@@ -1953,6 +2070,13 @@ export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
         cloud,
         skatetool,
         bed,
+        citymap,
+        balloon,
+        books,
+        chimneys,
+        pediment,
+        ticket,
+        compass,
     ].map((f) => [f.name, f]),
 );
 
@@ -2076,7 +2200,7 @@ async function main(): Promise<number> {
     const groups: [Img[], string[]][] = [];
     const ours = (names: string[]): [Img[], string[]] => [names.map((name) => readImg(makeSign(frame, name))), names];
     if (values.sheet) {
-        // THUG2's own signs, then ours section by section (THUG2's added two, THUG1, THPS4, THPS3, THAW), in yellow
+        // THUG2's own signs, then ours section by section (THUG2's added two, THUG1, THPS4, THPS3, THAW, THP8), in yellow
         const own = [...prxFiles(prx, ".img.xbx")].filter(([name]) => /\\sign_/i.test(name));
         groups.push([
             own.map(([, data]) => readImg(data)),
@@ -2088,6 +2212,7 @@ async function main(): Promise<number> {
             levelSelect.THPS4_LEVELS,
             levelSelect.THPS3_LEVELS,
             levelSelect.THAW_LEVELS,
+            levelSelect.THP8_LEVELS,
         ]) {
             groups.push(ours([...table.values()].map((e) => e.icon!).filter((icon) => !icon.startsWith("texture:"))));
         }
