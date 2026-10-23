@@ -464,3 +464,4 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
 - THPS2 quarter pipes 2 merged + installed (2026-10-24 01:43): no vert under 40 deg, steep ramp faces vert, one vert band
   per ramp (native THUG2's pattern); seam theory ruled out; the user's ~50% manual breaks not reproduced (likely the
   low-vert cause) - waiting on the user's play test (docs/pending/thps2-quarterpipes.md). Main not pushed.
+- THPS2 quarter pipes 1+2: tested in the game by the user (2026-10-24) - all three areas feel good.

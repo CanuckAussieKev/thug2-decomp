@@ -230,3 +230,7 @@ longer vert. npm test 327 pass, lint / typecheck clean, thug2_check 771 early se
    on THUG2's own ramps).
 4. Known: on Chopper Drop's giant drop-in ramp, stalling high up rolls the skater sideways off its edge; and leaving
    the west ramp's vert at its open end lands on the floor and bails.
+
+## Tested in the game (2026-10-24, the user)
+Both fixes as installed at 0388943: the user played the THPS2 quarter pipes (NY, Skate Heaven, Chopper Drop) - "all of
+those areas feel good". Steep ramp faces ride, no bails on angled ollies, manuals / combos up the ramps hold.
