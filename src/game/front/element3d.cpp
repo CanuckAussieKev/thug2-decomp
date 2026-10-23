@@ -9,11 +9,13 @@
 #include <new>
 
 #include "game/core/manager.h"
+#include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
+#include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -88,13 +90,13 @@ void BaseSetMorph(CScreenElement* e, CStruct* params) { e->CScreenElement::SetMo
 void* ViewportCamera(int viewport) { return GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(viewport); }
 const Mth::Matrix* CameraMatrix(void* camera)
 {
-    return GameFunction<const Mth::Matrix*(__thiscall*)(void*)>(0x00485A10)(camera);
+    return static_cast<Gfx::Camera*>(camera)->GetMatrix();
 }
 const Mth::Vector* CameraPosition(void* camera)
 {
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera);
+    return static_cast<Gfx::Camera*>(camera)->GetPos();
 }
-float CameraAngle(void* camera) { return GameFunction<float(__thiscall*)(void*)>(0x00485B10)(camera); }
+float CameraAngle(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetAdjustedHFOV(); }
 
 // A model's model (the model component's +0x208) and that model's bounding box (min x y z w, max x y z w): the
 // model's 0x00493CD0(0), then its 0x0048DE80 (thiscall).
@@ -122,8 +124,8 @@ void SetModelViewports(Obj::CBaseComponent* component, uint32_t mask)
 }
 
 // The node `name`'s structure (0x0045C1B0, asserting) and its position (0x0045C050).
-CStruct* NodeStructure(uint32_t name) { return GameFunction<CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(name, 1); }
-void NodePosition(CStruct* node, Mth::Vector* out) { GameFunction<void(__cdecl*)(CStruct*, Mth::Vector*)>(0x0045C050)(node, out); }
+CStruct* NodeStructure(uint32_t name) { return SkateScript::GetNode(name, true); }
+void NodePosition(CStruct* node, Mth::Vector* out) { SkateScript::GetPosition(node, out); }
 
 // The composite objects' vtable slots used here.
 void MarkObjectDead(Obj::CCompositeObject* object)

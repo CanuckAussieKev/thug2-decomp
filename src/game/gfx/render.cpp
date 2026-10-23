@@ -14,8 +14,17 @@
 #include "game/front/menu_backdrop.h"
 #include "game/front/test_view.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/draw2d.h"
+#include "game/gfx/glow.h"
+#include "game/gfx/lens_flare.h"
+#include "game/gfx/occlusion.h"
+#include "game/gfx/render_state.h"
+#include "game/gfx/scene_render.h"
 #include "game/gfx/screen.h"
+#include "game/gfx/screen_fx.h"
+#include "game/gfx/shadow.h"
 #include "game/sys/screenshot.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -23,14 +32,10 @@ namespace Nx {
 
 namespace {
 
-// --- the renderer's state (not rewritten yet; cdecl) ---------------------------------------------------------
+// --- the renderer's state (render_state.h) ---------------------------------------------------------------------
 
 // A render state by the renderer's own numbering (1-0x24), cached.
-void SetRenderState(int state, int value) { GameFunction<void(__cdecl*)(int, int)>(0x004DAB60)(state, value); }
-void SetTexture(int stage, void* texture, int unknown) { GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(stage, texture, unknown); }
-void SetBlendMode(int mode) { GameFunction<void(__cdecl*)(int)>(0x004DA760)(mode); }
-void SetVertexFormat(uint32_t fvf) { GameFunction<void(__cdecl*)(uint32_t)>(0x004D9DB0)(fvf); }
-void SetVertexShader(int shader, int unknown) { GameFunction<void(__cdecl*)(int, int)>(0x004DAA80)(shader, unknown); }
+void SetRenderState(int state, int value) { SetState(state, static_cast<uint32_t>(value)); }
 // Fog on or off (the request is kept in 0x007004C8; the device's D3DRS_FOGENABLE follows).
 void SetFog(bool on) { GameFunction<void(__cdecl*)(int)>(0x00490DE0)(on); }
 
@@ -189,7 +194,7 @@ void Draw2DWithBlackBars()
         uint32_t color;
         float u, v;
     };
-    GameFunction<void(__cdecl*)()>(0x004DFB90)(); // the 2D pass
+    Draw2D(); // the 2D pass
     // (widescreen_menus: in the front end the 3D scene fills the sides, so no bars over it.)
     if (FrontEndWidescreen())
         return;
@@ -202,7 +207,7 @@ void Draw2DWithBlackBars()
         // bars left and right
         auto width = static_cast<uint32_t>(std::round(static_cast<double>(GameVariable<float>(0x00786D80) * 640.0f)));
         uint32_t barWidth = (backBufferWidth - width) / 2;
-        SetTexture(0, nullptr, 0);
+        SetTexture(0, nullptr);
         BarVertex bar[4] = {
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
             {-0.5f, static_cast<float>(backBufferHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
@@ -217,7 +222,7 @@ void Draw2DWithBlackBars()
         // bars top and bottom
         auto height = static_cast<uint32_t>(std::round(static_cast<double>(GameVariable<float>(0x00786D84) * 480.0f)));
         uint32_t barHeight = (backBufferHeight - height) / 2;
-        SetTexture(0, nullptr, 0);
+        SetTexture(0, nullptr);
         BarVertex bar[4] = {
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
             {-0.5f, static_cast<float>(barHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
@@ -336,7 +341,7 @@ void DrawScreenBlur()
             SetSamplerState(i, 5, 2);
     }
     if (GameVariable<void*>(0x00705720))
-        GameFunction<void(__cdecl*)()>(0x004DEB70)();
+        Bloom();
     SetRenderState(4, 0x10001);
     SetRenderState(1, 0);
     SetRenderState(2, 0);
@@ -389,13 +394,13 @@ void DrawScreenBlur()
     SetDepthStencilSurface(depth);
     Method<unsigned long(__stdcall*)(void*)>(surface, 8)(surface); // Release
     SetVertexFormat(0x144);                                       // XYZRHW | DIFFUSE | TEX1
-    SetVertexShader(0, 0);
+    SetPixelShader(nullptr, nullptr); // (no pixel shader)
     SetTextureStageState(0, 1, 2); // colour op: select arg 1
     SetTextureStageState(0, 2, 2); // colour arg 1: texture
     SetTextureStageState(0, 4, 1); // alpha op: disable
     if (GameVariable<uint32_t>(0x0078732C) > 2) {
         SetRenderState(0x11, 1);
-        SetTexture(0, other, 0);
+        SetTexture(0, other);
         DrawPrimitiveUP(5 /* triangle strip */, 2, quad, sizeof(ScreenVertex));
         ++GameVariable<int>(0x00786EBC); // draw calls
         GameVariable<int>(0x00786EC0) += 2; // triangles
@@ -407,7 +412,7 @@ void DrawScreenBlur()
     bool fogColour = GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A);
     ClearTarget(fogColour ? GameVariable<uint32_t>(0x0078733C) : GameVariable<uint32_t>(0x00786CC0));
     SetRenderState(0x11, 0);
-    SetTexture(0, texture, 0);
+    SetTexture(0, texture);
     DrawPrimitiveUP(5, 2, quad, sizeof(ScreenVertex));
     SetRenderState(0x11, 1);
     ++GameVariable<int>(0x00786EBC);
@@ -502,17 +507,18 @@ void FullScreenViewport()
     TheViewport() = {0, 0, GameVariable<uint32_t>(0x00786D6C), GameVariable<uint32_t>(0x00786D70), 0.0f, 1.0f};
 }
 
-// The camera (a game object; its getters aren't rewritten yet, thiscall).
-float CameraAngle(void* camera) { return GameFunction<float(__thiscall*)(void*)>(0x00485B10)(camera); }
-const Mth::Vector* CameraPosition(void* camera) { return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera); }
-const Mth::Matrix* CameraMatrix(void* camera) { return GameFunction<const Mth::Matrix*(__thiscall*)(void*)>(0x00485A10)(camera); }
+// The camera (a game object).
+float CameraAngle(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetAdjustedHFOV(); }
+const Mth::Vector* CameraPosition(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetPos(); }
+const Mth::Matrix* CameraMatrix(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetMatrix(); }
 
 void DrawSceneGroup(Scene* scene, int pass, int viewport)
 {
-    GameFunction<void(__cdecl*)(MeshGroup*, int, int)>(0x004DC700)(scene->group, pass, viewport);
+    RenderScene(reinterpret_cast<sScene*>(scene->group), static_cast<uint32_t>(pass), viewport);
 }
 void SetPass(int pass) { GameFunction<void(__cdecl*)(int, int)>(0x004D1760)(pass, 0); }
-void SetLightingMode(int mode) { GameFunction<void(__cdecl*)(int)>(0x004DB620)(mode); }
+// No world transform (SetWorldTransform's null: the original passes 0).
+void ClearWorldTransform() { SetWorldTransform(nullptr); }
 
 void RenderViewport(int index)
 {
@@ -552,7 +558,7 @@ void RenderViewport(int index)
         SetDisplayRegion();
     }
     SetViewport();
-    SetLightingMode(0);
+    ClearWorldTransform();
     float aspect = GameFunction<float(__thiscall*)(const Viewport*)>(0x004A0D20)(view);
 
     // Not original - the level editor's ortho views (game/front/level_editor_camera.h): its camera's field of view
@@ -579,7 +585,7 @@ void RenderViewport(int index)
     ForEachScene([&](Scene* scene) {
         if (scene->sky || Hidden(scene))
             return;
-        GameFunction<void(__cdecl*)(const Mth::Vector*, int)>(0x004D8ED0)(CameraPosition(camera), index);
+        BuildOccluders(CameraPosition(camera), index);
         SetRenderState(1, 1);
         SetRenderState(2, 1);
         MeshGroup* group = scene->group;
@@ -596,7 +602,7 @@ void RenderViewport(int index)
     SetRenderState(1, 1);
     GameFunction<void(__thiscall*)(void*)>(0x0048E370)(GameVariable<void*>(0x006FA7BC));
     SetPass(1);
-    SetLightingMode(0);
+    ClearWorldTransform();
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
@@ -632,7 +638,7 @@ void RenderViewport(int index)
     SetRenderState(1, 1);
     SetRenderState(1, 0);
     if (GameVariable<bool>(0x00786AB5))
-        GameFunction<void(__cdecl*)(void*)>(0x00443870)(camera);
+        Sun::Render(static_cast<Gfx::Camera*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     fogStart = savedFogStart;
@@ -666,13 +672,13 @@ void RenderViewport(int index)
     GameFunction<void(__cdecl*)()>(0x004920E0)();
     SetRenderState(1, 0);
     if (!GameVariable<bool>(0x00786AB5))
-        GameFunction<void(__cdecl*)(void*)>(0x00443870)(camera);
+        Sun::Render(static_cast<Gfx::Camera*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     GameFunction<void(__cdecl*)()>(0x0049C840)();
     SetRenderState(1, 1);
     SetRenderState(2, 1);
-    GameFunction<void(__cdecl*)(int)>(0x004DCC70)(0);
+    UpdateGlows(false);
     GameFunction<void(__cdecl*)(int, int)>(0x00491910)(index, 0);
 }
 
@@ -687,11 +693,11 @@ void RenderWorld()
     Front::LevelEditor::Update();
     ++GameVariable<int>(0x00786AC4); // frames rendered
     if (!GameVariable<bool>(0x00786D04)) { // (nothing while the device is lost)
-        GameVariable<int>(0x00786D00) = GameFunction<int(__cdecl*)()>(0x005BE970)();
+        GameVariable<int>(0x00786D00) = static_cast<int>(Tmr::GetTime());
         SetRenderState(1, 1);
         SetRenderState(2, 1);
-        GameFunction<void(__cdecl*)()>(0x004DBBD0)();
-        GameFunction<void(__cdecl*)()>(0x004DEA80)();
+        RenderShadowTextures();
+        BeginScreenEffects();
         int count = GameVariable<int>(0x00701378);
         // Not original - the wireframe render mode (game/gfx/wireframe.h): the 3D passes in wireframe when asked.
         // Original behaviour: the render mode (0x006FA734) isn't read.
@@ -712,7 +718,7 @@ void RenderWorld()
             SetDisplayRegion();
         }
         SetViewport();
-        GameFunction<void(__cdecl*)()>(0x004DE980)();
+        CopyScreenQuarter();
         DrawScreenBlur();
         bool fog = GameVariable<uint32_t>(0x00787338) != 0;
         SetFog(false);

@@ -12,7 +12,10 @@
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/control_pad.h"
 #include "game/skater/controls.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -93,8 +96,8 @@ static_assert(std::bit_cast<uint32_t>(kPi) == 0x40490FDB && std::bit_cast<uint32
                   std::bit_cast<uint32_t>(kRadiansToDegrees) == 0x42652EE0,
               "the original's constants");
 
-// The game clock (ms, 0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.
-int Now() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
+// The game clock (ms) plus the offset at 0x00696D60: the time a flag or button changed.
+int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 
 // Clear a state flag (noting when).
 void ClearFlag(void* component, uint32_t flag)
@@ -106,28 +109,28 @@ void ClearFlag(void* component, uint32_t flag)
     }
 }
 
-// A physics value from script (0x00580400 / 0x00580440): the skater's physics structure's `name`, else the
-// global (asserted when `required`). Floats come back on the x87 stack - as doubles here.
+// A physics value from script: the skater's physics structure's `name`, else the
+// global (asserted when `required`).
 double PhysicsFloat(uint32_t name, int required, void* object)
 {
-    return GameFunction<double(__cdecl*)(uint32_t, int, void*)>(0x00580400)(name, required, object);
+    return Obj::GetPhysicsFloat(name, required, static_cast<Obj::CCompositeObject*>(object));
 }
 int PhysicsInt(uint32_t name, int required, void* object)
 {
-    return GameFunction<int(__cdecl*)(uint32_t, int, void*)>(0x00580440)(name, required, object);
+    return Obj::GetPhysicsInt(name, required, static_cast<Obj::CCompositeObject*>(object));
 }
 // A value set by the skater's stats (0x00580790: script range scaled by the stat level, unrounded).
 double StatValue(void* object, uint32_t name)
 {
-    return GameFunction<double(__thiscall*)(void*, uint32_t)>(0x00580790)(object, name);
+    return static_cast<Obj::CSkater*>(object)->GetScaledPhysics(name); // (rounded to a float by ours)
 }
 
-// How long a button has been down (0x0046B920) - read as unsigned by the first pair of spin buttons, signed by
+// How long a button has been down - read as unsigned by the first pair of spin buttons, signed by
 // the second.
-int HeldTime(uint8_t* button) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x0046B920)(button); }
+int HeldTime(uint8_t* button) { return reinterpret_cast<Obj::CControlButton*>(button)->GetPressedTime(); }
 float HeldSeconds(uint8_t* button) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(HeldTime(button)))); }
-// Forget a button's press this frame (0x0046B7E0).
-void TakePress(uint8_t* button) { GameFunction<void(__thiscall*)(uint8_t*)>(0x0046B7E0)(button); }
+// Forget a button's press this frame.
+void TakePress(uint8_t* button) { reinterpret_cast<Obj::CControlButton*>(button)->ClearTrigger(); }
 
 Mth::Matrix& ObjectMatrix(void* object) { return At<Mth::Matrix>(object, kMatrix); }
 
@@ -244,9 +247,9 @@ void CorePhysicsComponent::Spin()
             if (PhysicsFloat(kFaceRampMaxTilt, 1, object) * kDegreesToRadians > angle) {
                 ClearFlag(this, kCanFaceRamp);
             } else {
-                float off = static_cast<float>(GameFunction<double(__cdecl*)(void*, void*, void*)>(0x00406630)(
-                    static_cast<uint8_t*>(object) + kForward, static_cast<uint8_t*>(static_cast<void*>(this)) + kRampDirection,
-                    static_cast<uint8_t*>(object) + kUp));
+                float off = static_cast<float>(Mth::GetAngleAbout(At<Mth::Vector>(object, kForward),
+                                                                  At<Mth::Vector>(this, kRampDirection),
+                                                                  At<Mth::Vector>(object, kUp)));
                 float rate = static_cast<float>(PhysicsFloat(kFaceRampSpeed, 1, object));
                 double turn = static_cast<double>(Mth::Sign(off)) * rate;
                 speed = static_cast<float>(turn);

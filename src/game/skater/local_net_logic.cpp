@@ -8,6 +8,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/core/manager.h"
@@ -18,6 +19,7 @@
 #include "game/net/thugpro_compat.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/end_run.h"
 #include "game/skater/skater.h"
 #include "game/util/bitstream.h"
 #include "hook/game.h"
@@ -31,7 +33,7 @@ namespace Thugpro = GameNet::Thugpro;
 
 constexpr uint32_t kComponent6C = 0xB1D5A3E1; // the component whose +0x18 goes out as the 0x80 field's 3 bits
 
-void* NetManager() { return GameVariable<void*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 
 void** const kVtable = reinterpret_cast<void**>(0x0064BEF0);
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
@@ -47,9 +49,9 @@ CSkater* SkaterById(uint32_t id)
 {
     return GameFunction<CSkater*(__thiscall*)(void*, uint32_t)>(0x00566600)(GameVariable<void*>(0x007CE478), id);
 }
-// The network manager's first local player (0x00537320) and its run count (0x00533070: +0x38). Not rewritten yet.
-void* LocalPlayer() { return GameFunction<void*(__thiscall*)(void*)>(0x00537320)(NetManager()); }
-uint8_t RunCount() { return GameFunction<uint8_t(__thiscall*)(void*)>(0x00533070)(NetManager()); }
+// The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
+void* LocalPlayer() { return NetManager()->GetLocalPlayer(); }
+uint8_t RunCount() { return NetManager()->GetGameId(); }
 
 template <typename T>
 T& Field(const void* object, uint32_t offset)
@@ -59,8 +61,8 @@ T& Field(const void* object, uint32_t offset)
 
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the
 // server (0x00533F90: its flags' bit 0).
-Net::App* ClientApp(int index) { return GameFunction<Net::App*(__thiscall*)(void*, int)>(0x00532EA0)(NetManager(), index); }
-bool OnServer() { return GameFunction<uint32_t(__thiscall*)(void*)>(0x00533F90)(NetManager()) & 0xFF; }
+Net::App* ClientApp(int index) { return NetManager()->GetClient(index); }
+bool OnServer() { return NetManager()->OnServer(); }
 
 // What the update reads of the skater: its orientation as angles, the core component's state and controls, the two
 // other components' values.
@@ -96,7 +98,7 @@ static void ReadUpdateState(CSkaterLocalNetLogicComponent* self, CBaseComponent*
     }
     out.controls = controls;
     uint32_t value;
-    out.value6C = *GameFunction<uint32_t*(__thiscall*)(CBaseComponent*, uint32_t*)>(0x00510D30)(component6C, &value);
+    out.value6C = *static_cast<CSkaterEndRunComponent*>(component6C)->GetFlags(&value); // (SkaterEndRun)
 }
 
 // 0x00512EA0

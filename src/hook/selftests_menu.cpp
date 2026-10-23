@@ -20,13 +20,19 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/string.h"
+#include "game/core/task.h"
+#include "game/front/screen_element_manager.h"
 #include "game/front/front_end.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/tracker.h"
 #include "game/pcm/music.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "game/sio/device.h"
+#include "game/sio/inpman.h"
+#include "game/sys/game_clock.h"
+#include "game/sys/module.h"
 #include "game/skate/competition.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -350,25 +356,31 @@ void InstallStandIns(StandIns& s, bool autoRepeat)
         return 0u;
     });
     // The engine (without source yet).
-    auto thiscall0 = [&s](uint32_t address, uint32_t tag, uint32_t (*answer)()) {
-        s.At({address}, 0, [tag, answer](Regs& r) {
+    // (`ours`: our version, which the front end now calls directly - stood in for too)
+    auto thiscall0 = [&s](uint32_t address, uint32_t tag, uint32_t (*answer)(), uint32_t ours = 0) {
+        s.At({address, ours ? ours : address}, 0, [tag, answer](Regs& r) {
             Record({tag, Id(r.ecx)});
             return answer ? answer() : 0u;
         });
     };
-    auto thiscall1 = [&s](uint32_t address, uint32_t tag, uint32_t (*answer)(uint32_t)) {
-        s.At({address}, 4, [tag, answer](Regs& r) {
+    auto thiscall1 = [&s](uint32_t address, uint32_t tag, uint32_t (*answer)(uint32_t), uint32_t ours = 0) {
+        s.At({address, ours ? ours : address}, 4, [tag, answer](Regs& r) {
             Record({tag, Id(r.ecx), Id(r.args[0])});
             return answer ? answer(r.args[0]) : 0u;
         });
     };
-    thiscall0(0x0047B000, 0xB000, nullptr);
-    thiscall0(0x0047C560, 0xC560, nullptr);
+    // (the voices' states: the original calls it with the sound manager in ECX, which it doesn't use - ours calls
+    // it without: ECX not recorded)
+    s.At({0x0047B000, AddressOf(&Sfx::UpdateVoiceStates)}, 0, [](Regs&) {
+        Record({0xB000});
+        return 0u;
+    });
+    thiscall0(0x0047C560, 0xC560, nullptr, AddressOf(&Sfx::CSfxManager::UpdatePositionalSounds));
     thiscall0(0x00564D60, 0x4D60, nullptr);
     thiscall0(0x00566520, 0x6520, [] { return reinterpret_cast<uint32_t>(g_localSkater); });
-    thiscall0(0x004ABD00, 0xBD00, nullptr);
+    thiscall0(0x004ABD00, 0xBD00, nullptr, AddressOf(&Front::CScreenElementManager::Update));
     s.At({0x00462B70, AddressOf(&Obj::CTracker::LogFrame)}, 0, [](Regs& r) { Record({0x2B70, Id(r.ecx)}); return 0u; });
-    thiscall0(0x004068F0, 0x68F0, nullptr);
+    thiscall0(0x004068F0, 0x68F0, nullptr, AddressOf(&Tsk::BaseTask::Remove));
     thiscall1(0x00564F60, 0x4F60, nullptr);
     thiscall1(0x005665C0, 0x65C0,
               [](uint32_t i) { return i < 4 ? reinterpret_cast<uint32_t>(g_skaterAt[i]) : 0u; });
@@ -376,16 +388,16 @@ void InstallStandIns(StandIns& s, bool autoRepeat)
         Record({0xF5D0, Id(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    thiscall1(0x004AAEE0, 0xAEE0, nullptr);
-    thiscall1(0x0044E610, 0xE610, nullptr);
-    thiscall1(0x00406C90, 0x6C90, nullptr);
-    thiscall1(0x00406890, 0x6890, nullptr);
-    s.At({0x0044F7E0}, 0, [](Regs& r) { // Mdl::Module's constructor
+    thiscall1(0x004AAEE0, 0xAEE0, nullptr, AddressOf(&Front::CScreenElementManager::SetPausedAll));
+    thiscall1(0x0044E610, 0xE610, nullptr, AddressOf(&Inp::Manager::SetOverridePadWithStick));
+    thiscall1(0x00406C90, 0x6C90, nullptr, AddressOf(&Tsk::Stack::AddTask));
+    thiscall1(0x00406890, 0x6890, nullptr, AddressOf(&Tsk::BaseTask::Construct));
+    s.At({0x0044F7E0, AddressOf(&Mdl::Module::Construct)}, 0, [](Regs& r) { // Mdl::Module's constructor
         Record({0xF7E0, Id(r.ecx)});
         std::memset(reinterpret_cast<void*>(r.ecx), 0x11, 0x14);
         return r.ecx;
     });
-    s.At({0x0044ED10}, 0, [](Regs& r) {
+    s.At({0x0044ED10, AddressOf(&Tmr::PauseGameClock)}, 0, [](Regs& r) {
         Record({0xED10, r.args[0] & 0xFF});
         return 0u;
     });
@@ -407,7 +419,7 @@ void InstallStandIns(StandIns& s, bool autoRepeat)
         Record({0x2DC0, Id(r.args[0])});
         return 0u;
     });
-    s.At({0x0044F790}, 0, [](Regs& r) { // Mdl::Module's destructor body
+    s.At({0x0044F790, AddressOf(&Mdl::Module::DestroyBody)}, 0, [](Regs& r) { // Mdl::Module's destructor body
         Record({0xF790, Id(r.ecx)});
         return 0u;
     });
@@ -419,11 +431,11 @@ void InstallStandIns(StandIns& s, bool autoRepeat)
         Record({0x2F00, Id(r.ecx), r.args[0], r.args[1], r.args[2], Id(r.args[3]), r.args[4], r.args[5]});
         return 0u;
     });
-    s.At({0x0044E7F0}, 0, [](Regs& r) {
+    s.At({0x0044E7F0, AddressOf(&Inp::CreateManager)}, 0, [](Regs& r) {
         Record({0xE7F0, r.args[0] & 0xFF});
         return reinterpret_cast<uint32_t>(g_input);
     });
-    s.At({0x0044E6B0}, 0, [](Regs&) {
+    s.At({0x0044E6B0, AddressOf(&Inp::ReleaseManager)}, 0, [](Regs&) {
         Record({0xE6B0});
         return 0u;
     });

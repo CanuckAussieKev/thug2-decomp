@@ -3,6 +3,7 @@
 // the memory manager (a bump allocator), the text objects (made, freed, every setter), fonts and button glyphs
 // are recording stand-ins.
 
+#include "game/core/stubs.h"
 #include "game/front/screen_element_manager.h"
 #include "game/front/text_block.h"
 #include "game/front/text_element.h"
@@ -89,8 +90,10 @@ void InstallTextStandIns(StandIns& s)
         std::memset(Ptr<uint8_t>(block), 0xC5, r.args[0]);
         return At(block);
     });
-    s.At({0x005480A0}, 0, [](Regs& r) {
-        Rec(0x80A0, {r.ecx});
+    // (the blur's empty destructor: the original calls the shared stub with the blur in ECX, ours calls
+    // Stubs::DoNothing without - ECX not recorded)
+    s.At({0x005480A0, AddressOf(&Stubs::DoNothing)}, 0, [](Regs&) {
+        Rec(0x80A0, {});
         return 0u;
     });
     // text objects

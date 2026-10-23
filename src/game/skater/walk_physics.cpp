@@ -352,7 +352,7 @@ bool CWalkComponent::Walk_ScaleAnimSpeed(Script::CStruct* params, Script::CScrip
 // 0x00525F60
 bool CWalkComponent::Walk_ReleaseHang(Script::CStruct* /*params*/, Script::CScript* /*script*/)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x0043DB90)(this);
+    EndDropFromHang();
     return true;
 }
 

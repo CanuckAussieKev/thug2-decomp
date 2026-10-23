@@ -39,7 +39,7 @@ constexpr float kPi = 3.14159265f;
 // The node of that name (0x0045C1B0: by name).
 Script::CStruct* NodeOf(uint32_t name)
 {
-    return GameFunction<Script::CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(name, 0);
+    return SkateScript::GetNode(name, false);
 }
 
 uint32_t NodeClass(Script::CStruct* node)

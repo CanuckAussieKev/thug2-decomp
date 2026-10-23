@@ -22,7 +22,9 @@
 #include "game/front/level_editor_walls.h"
 #include "game/gfx/mesh.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
 #include "game/script/names.h"
+#include "game/script/nodes.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -447,7 +449,7 @@ uint32_t ClusterOf(uint32_t checksum)
     auto it = g_clusters.find(checksum);
     if (it != g_clusters.end())
         return it->second;
-    auto* node = GameFunction<Script::CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(checksum, 0);
+    auto* node = SkateScript::GetNode(checksum, false);
     uint32_t cluster = 0;
     if (node)
         node->GetChecksum(kCluster, &cluster, 0);
@@ -828,10 +830,10 @@ std::vector<uint32_t> g_hoverGroup;
 bool CastStatic(V3 from, V3 to, V3* point, uint32_t* checksum)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    ray->Construct();
     Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(
-            feeler, &start, &end, 0))
+    if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* hit = reinterpret_cast<const float*>(feeler + 0x34);
     *point = {hit[0], hit[1], hit[2]};

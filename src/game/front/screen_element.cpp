@@ -2,6 +2,7 @@
 // the layout pass, its properties and member functions).
 
 #include "game/front/screen_element.h"
+#include "game/front/screen_element_manager.h"
 
 #include <cmath>
 #include <cstddef>
@@ -91,24 +92,24 @@ void LaunchEvent(uint32_t type, uint32_t target)
 
 void* Manager() { return GameVariable<void*>(0x00701440); }
 
-// The screen element manager's pieces (not rewritten yet; thiscall).
-bool ManagerUsesPriorities(void* manager) { return GameFunction<bool(__thiscall*)(void*)>(0x004AAD80)(manager); }
+// The screen element manager's pieces.
+CScreenElementManager* Elements(void* manager) { return static_cast<CScreenElementManager*>(manager); }
+bool ManagerUsesPriorities(void* manager) { return Elements(manager)->HasPriorities(); }
 bool ResolveElementId(void* manager, CStruct* params, uint32_t name, uint32_t* id)
 {
-    return GameFunction<bool(__thiscall*)(void*, CStruct*, uint32_t, uint32_t*)>(0x004AC120)(manager, params, name, id);
+    return Elements(manager)->ResolveId(params, name, id);
 }
 ElementPtr* LookUp(void* manager, ElementPtr* out, uint32_t id, int assert)
 {
-    return GameFunction<ElementPtr*(__thiscall*)(void*, ElementPtr*, uint32_t, int)>(0x004AAE20)(manager, out, id, assert);
+    return Elements(manager)->GetElement(out, id, assert);
 }
 void ManagerSetParent(void* manager, ElementPtr* parent, ElementPtr* child, int unknown)
 {
-    GameFunction<void(__thiscall*)(void*, ElementPtr*, ElementPtr*, int)>(0x004ABBE0)(manager, parent, child, unknown);
+    Elements(manager)->SetParent(parent, child, unknown);
 }
 void ManagerDestroyElement(void* manager, uint32_t id, int recurse, int unknown, Script::CScript* script)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t, int, int, Script::CScript*)>(0x004AD100)(manager, id, recurse,
-                                                                                            unknown, script);
+    Elements(manager)->DestroyElement(id, recurse, unknown, script);
 }
 
 // The element's vtable slots (0x0064A090).

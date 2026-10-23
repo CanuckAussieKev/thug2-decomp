@@ -12,8 +12,12 @@
 #include "game/core/dbg.h"
 #include "game/core/crc.h"
 #include "game/front/start_level.h"
+#include "game/gfx/render_state.h"
+#include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
 #include "game/sys/platform.h"
@@ -54,7 +58,8 @@ void SetMovieTexture(int stage, void* texture, int unknown)
         texture, 0, desc);
     s_movieWidth = desc[6];
     s_movieHeight = desc[7];
-    GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(stage, texture, unknown);
+    (void)unknown; // (passed on by the original; SetTexture doesn't take it)
+    SetTexture(stage, texture);
 }
 
 void __stdcall DrawMovieQuad(void* device, int type, uint32_t count, void* vertices, uint32_t stride)
@@ -94,18 +99,18 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
 {
     if (!texture)
         return;
-    GameFunction<void(__cdecl*)(int)>(0x004DA760)(0);                 // blend mode
-    GameFunction<void(__cdecl*)(int, int)>(0x004DAB60)(4, 0x10001);
-    GameFunction<void(__cdecl*)(int)>(0x004D9DB0)(0x144);             // the vertex format
+    SetBlendMode(0);
+    SetState(kAddressMode0, 0x10001); // (clamp)
+    SetVertexFormat(0x144);
     Method<long(__stdcall*)(void*, int, int)>(0xE4 / 4)(Device(), 22, 1); // D3DRS_CULLMODE: none
     Method<long(__stdcall*)(void*, uint32_t)>(0x164 / 4)(Device(), 0x144); // SetFVF
-    GameFunction<void(__cdecl*)(int, int)>(0x004DAA80)(0, 0);
+    SetPixelShader(nullptr, nullptr); // (no pixel shader)
     SetTextureStageState(0, 1, 5); // colour: modulate
     SetTextureStageState(0, 2, 2);
     SetTextureStageState(0, 3, 1);
     SetTextureStageState(0, 4, 3);
     SetTextureStageState(1, 1, 1); // stage 1 off
-    GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(0, nullptr, 0);
+    SetTexture(0, nullptr); // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
     char dumpName[256];
     std::snprintf(dumpName, sizeof(dumpName), "e:\\movietest\\movie%04d.bmp", GameVariable<int>(0x00696D9C));
@@ -168,13 +173,13 @@ void SetSamplerState(int sampler, int type, uint32_t value)
 {
     Method<long(__stdcall*)(void*, int, int, uint32_t)>(0x114 / 4)(Device(), sampler, type, value);
 }
-enum { kCullMode = 22, kMultisampleAntialias = 161, kLighting = 137, kMinFilter = 6 };
+enum { kD3DCullMode = 22, kMultisampleAntialias = 161, kD3DLighting = 137, kMinFilter = 6 };
 // The states BeginMovie changes, for EndMovie.
 uint32_t& SavedCullMode() { return GameVariable<uint32_t>(0x00696D88); }
 uint32_t& SavedAntialias() { return GameVariable<uint32_t>(0x00696D84); }
 uint32_t& SavedMinFilter() { return GameVariable<uint32_t>(0x00696D80); }
-// The renderer's cached sampler state (0x004DAB60: an address mode?) and texture (0x004DA730).
-void SetRendererSampler(int sampler, int value) { GameFunction<void(__cdecl*)(int, int)>(0x004DAB60)(sampler, value); }
+// The renderer's cached states (SetState: 1 the z write, 2 the z test).
+void SetRendererSampler(int state, int value) { SetState(state, static_cast<uint32_t>(value)); }
 
 // A texture's methods (IDirect3DTexture9: Release, LockRect, UnlockRect).
 template <typename F>
@@ -189,11 +194,11 @@ struct LockedRect {
 // 0x0044F8C0
 void* __cdecl BeginMovie(uint32_t width, uint32_t height)
 {
-    GetRenderState(kCullMode, &SavedCullMode());
-    SetRenderState(kCullMode, 1); // none
+    GetRenderState(kD3DCullMode, &SavedCullMode());
+    SetRenderState(kD3DCullMode, 1); // none
     GetRenderState(kMultisampleAntialias, &SavedAntialias());
     SetRenderState(kMultisampleAntialias, 0);
-    SetRenderState(kLighting, 0);
+    SetRenderState(kD3DLighting, 0);
     SetRendererSampler(1, 0);
     SetRendererSampler(2, 0);
     GetSamplerState(0, kMinFilter, &SavedMinFilter());
@@ -218,14 +223,14 @@ void* __cdecl BeginMovie(uint32_t width, uint32_t height)
 void __cdecl EndMovie(void* texture)
 {
     MoviePlaying() = false;
-    SetRenderState(kCullMode, SavedCullMode());
+    SetRenderState(kD3DCullMode, SavedCullMode());
     SetRenderState(kMultisampleAntialias, SavedAntialias());
     SetSamplerState(0, kMinFilter, SavedMinFilter());
     SetRendererSampler(1, 1);
     SetRendererSampler(2, 1);
     if (texture)
         TextureMethod<unsigned long(__stdcall*)(void*)>(texture, 2)(texture); // Release
-    GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(0, nullptr, 0);
+    SetTexture(0, nullptr); // (the original also passes 0, unused)
 }
 
 // 0x0044FCC0
@@ -266,12 +271,12 @@ __declspec(naked) void ButtonPressedAgainStub()
 }
 
 namespace {
-// The sound effects manager (a reference-counted singleton: 0x0047BA60 / 0x0047C6C0) and its volume (0x0047AFD0),
-// and the music's (0x00450440). 0-100.
-void* CreateSoundManager() { return GameFunction<void*(__cdecl*)(bool)>(0x0047BA60)(false); }
-void ReleaseSoundManager() { GameFunction<void(__cdecl*)()>(0x0047C6C0)(); }
-float SoundVolume(void* manager) { return GameFunction<float(__thiscall*)(void*)>(0x0047AFD0)(manager); }
-float MusicVolume() { return GameFunction<float(__cdecl*)()>(0x00450440)(); }
+// The sound effects manager (a reference-counted singleton) and its main volume (the original calls it as a method
+// of the manager; it reads a global), and the music's. 0-100.
+void CreateSoundManager() { Sfx::CreateManager(false); }
+void ReleaseSoundManager() { Sfx::ReleaseManager(); }
+float SoundVolume() { return Sfx::GetMainVolume(); }
+float MusicVolume() { return Pcm::GetMusicVolume(); }
 void SetFogEnabled(bool on) { GameFunction<void(__cdecl*)(bool)>(0x00490DE0)(on); }
 bool AppActive() { return GameVariable<bool>(0x007CCBE4); }
 bool QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
@@ -285,9 +290,9 @@ void __cdecl PlayMovieFile(const char* name)
 {
     if (!BinkSetSoundSystem(BinkOpenDirectSound(), GameVariable<void*>(0x007D6A38)))
         Dbg::Printf(reinterpret_cast<const char*>(0x006472D4)); // "Bink can't use DSound\n"
-    void* sound = CreateSoundManager();
+    CreateSoundManager();
     float music = MusicVolume();
-    float effects = SoundVolume(sound);
+    float effects = SoundVolume();
     float volume = music > effects ? music : effects;
 
     // data\movies\bik\ + the name after its last backslash + .bik (the original only looks for a backslash
@@ -305,8 +310,8 @@ void __cdecl PlayMovieFile(const char* name)
     std::strncpy(path + 16, name + start, length - start);
     std::memcpy(path + std::strlen(path), ".bik", 5);
 
-    GameFunction<void(__cdecl*)()>(0x00450650)();    // pause the music
-    GameFunction<void(__cdecl*)(int)>(0x00450690)(-1); // stop the streams
+    Pcm::StopMusic();
+    Pcm::StopStreams(-1); // (all of them)
     CurrentMovie() = BinkOpen(path, 0);
     if (!CurrentMovie()) {
         ReleaseSoundManager();

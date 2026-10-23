@@ -23,6 +23,9 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/lst/hashtable.h"
+#include "game/mth/matrix.h"
+#include "game/mth/quat.h"
+#include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/trick_objects.h"
@@ -30,6 +33,7 @@
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -917,7 +921,7 @@ bool TerrainByte(const std::string& name, uint8_t* value)
     uint32_t terrain = Checksum(name);
     if (!KnownTerrain(terrain))
         return false;
-    *value = GameFunction<uint8_t(__cdecl*)(uint32_t)>(0x004442C0)(terrain);
+    *value = Terrain::GetTerrainIndex(terrain);
     return true;
 }
 
@@ -1072,10 +1076,9 @@ Mth::Vector ClimbOf(float facing)
     matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     Mth::Vector angles = {0.0f, facing, 0.0f, 1.0f};
-    Mth::Matrix* built =
-        GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(&matrix, &angles);
+    Mth::Matrix* built = &matrix.InitFromAngles(angles);
     Mth::Vector quat = {};
-    GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Matrix*)>(0x0042E1F0)(&quat, built);
+    reinterpret_cast<Mth::Quat*>(&quat)->FromMatrix(*built);
     return quat;
 }
 
@@ -1083,7 +1086,7 @@ Mth::Vector ClimbOf(float facing)
 float HeadingOfClimb(const Mth::Vector& climb)
 {
     Mth::Matrix matrix;
-    GameFunction<void(__thiscall*)(const Mth::Vector*, Mth::Matrix*)>(0x0042BC40)(&climb, &matrix);
+    reinterpret_cast<const Mth::Quat*>(&climb)->GetMatrix(&matrix);
     return std::atan2(matrix.row[2].x, matrix.row[2].z);
 }
 
@@ -1268,7 +1271,7 @@ void RebuildRails()
         Script::CStruct* params = NodeCreate::IsAdded(node->m_name) ? NodeStruct(node->m_name) : nullptr;
         if (params && !(node->m_flags & Obj::RAIL_FLAG_CLIMBING) && params->GetChecksum(kTerrainType, &terrain, 0) &&
             KnownTerrain(terrain))
-            node->m_terrain = GameFunction<uint8_t(__cdecl*)(uint32_t)>(0x004442C0)(terrain);
+            node->m_terrain = Terrain::GetTerrainIndex(terrain);
     }
     for (const auto& entry : g_terrains) {
         auto it = index.find(entry.first);
@@ -2444,10 +2447,10 @@ namespace {
 bool CastRay(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    ray->Construct();
     Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(feeler, &start,
-                                                                                                        &end, 0))
+    if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* n = reinterpret_cast<const float*>(feeler + 0x24);
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);

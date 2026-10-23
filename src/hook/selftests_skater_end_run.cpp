@@ -14,6 +14,9 @@
 #include "game/script/cscript.h"
 #include "game/skater/end_run.h"
 #include "game/skater/finalize_physics.h"
+#include "game/skater/looping_sound.h"
+#include "game/skater/skater.h"
+#include "game/net/gamenet_manager.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -37,8 +40,8 @@ void StandIn(StandIns& s)
     StandInComponentBase(s, &g_a.calloc);
     Rec(s, {0x005651F0}, 0, 0x51F0, [](Regs&) { return g_a.multiplayer ? 1u : 0u; });
     Rec(s, {0x00553550}, 0, 0x3550, [](Regs&) { return g_a.modeEndsRuns ? 1u : 0u; });
-    Rec(s, {0x005332A0}, 0, 0x32A0, [](Regs&) { return g_a.serverTold ? 1u : 0u; });
-    Rec(s, {0x00533250}, 0, 0x3250);
+    Rec(s, {0x005332A0, AddressOf(&GameNet::Manager::GameEndedSent)}, 0, 0x32A0, [](Regs&) { return g_a.serverTold ? 1u : 0u; });
+    Rec(s, {0x00533250, AddressOf(&GameNet::Manager::SendGameEnded)}, 0, 0x3250);
     Rec(s, {0x004609F0, AddressOf(&Obj::CObject::SelfEvent)}, 2, 0x09F0);
     Rec(s, {0x00475790, AddressOf(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(
                             &Script::RunScript))},
@@ -70,8 +73,8 @@ void StandIn(StandIns& s)
         g_trace.push_back(HashBytes(reinterpret_cast<const uint8_t*>(r.ecx), 64));
         return g_a.patched ? 1u : 0u;
     });
-    RecFloat(s, {0x00580790}, 1, 0x0790, [](Regs&) { return g_a.maxSpeed; });
-    Rec(s, {0x005138B0}, 1, 0x38B0);
+    RecFloat(s, {0x00580790, AddressOf(&Obj::CSkater::GetScaledPhysics)}, 1, 0x0790, [](Regs&) { return g_a.maxSpeed; });
+    Rec(s, {0x005138B0, AddressOf(&Obj::CSkaterLoopingSoundComponent::SetSpeedFraction)}, 1, 0x38B0);
     // The component's Suspend (vtable +0x1C).
     for (int i = 0; i < 16; ++i)
         g_vtable[i] = RecThunk(s, 1, 0x7AB00 + i);

@@ -20,6 +20,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
+#include "game/core/task.h"
 #include "game/lst/search.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
@@ -695,7 +696,7 @@ Manager::Manager()
     m_devices.vtable = reinterpret_cast<void**>(0x00658A70);
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (task) {
-        GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, 0); // Tsk::BaseTask(priority 0)
+        reinterpret_cast<Tsk::BaseTask*>(task)->Construct(0);                 // Tsk::BaseTask(priority 0)
         task[0] = 0x006476F0;                                             // Tsk::Task<Lst::Head<Device>>
         task[6] = reinterpret_cast<uint32_t>(&ProcessTask);
         task[7] = reinterpret_cast<uint32_t>(&m_devices);

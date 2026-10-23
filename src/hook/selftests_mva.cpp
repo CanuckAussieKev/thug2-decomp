@@ -11,6 +11,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/sio/device.h"
 #include "game/sio/inpman.h"
 #include "game/sys/game_clock.h"
@@ -259,16 +260,16 @@ void TestInpManager()
     }
     {
         auto* s = new StandIns();
-        s->At({0x00406E80}, 0, [](Regs& r) {
+        s->At({0x00406E80, AddressOf(&Tsk::Stack::Construct)}, 0, [](Regs& r) {
             Record({0x6E80, Rel(r.ecx, g_server, sizeof(g_server))});
             return r.ecx;
         });
-        s->At({0x004070A0}, 4, [](Regs& r) {
+        s->At({0x004070A0, AddressOf(&Tsk::Stack::Process)}, 4, [](Regs& r) {
             auto* d = reinterpret_cast<uint8_t*>(r.ecx) + 0x3C; // the data the handlers see
             Record({0x70A0, Rel(r.ecx, g_server, sizeof(g_server)), r.args[0] & 0xFF, HashBytes(d, 0x34)});
             return 0u;
         });
-        s->At({0x0044E620}, 0, [](Regs& r) {
+        s->At({0x0044E620, AddressOf(&Inp::Manager::OverridePadWithStick)}, 0, [](Regs& r) {
             Record({0xE620, r.ecx});
             return g_override;
         });
@@ -278,7 +279,7 @@ void TestInpManager()
     }
     {
         auto* s = new StandIns();
-        s->At({0x00406E80}, 0, [](Regs& r) {
+        s->At({0x00406E80, AddressOf(&Tsk::Stack::Construct)}, 0, [](Regs& r) {
             Record({0x6E80, Rel(r.ecx, g_inpManager, sizeof(g_inpManager))});
             return r.ecx;
         });
@@ -286,7 +287,7 @@ void TestInpManager()
             Record({0xCC0, r.args[0]});
             return reinterpret_cast<uint32_t>(g_taskMemory);
         });
-        s->At({0x00406890}, 4, [](Regs& r) {
+        s->At({0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, [](Regs& r) {
             Record({0x6890, r.ecx == reinterpret_cast<uint32_t>(g_taskMemory), r.args[0]});
             return r.ecx;
         });
@@ -309,7 +310,7 @@ void TestInpManager()
             Record({0xE700, r.ecx});
             return r.ecx + 4;
         });
-        s->At({0x0044E530}, 0, [](Regs& r) {
+        s->At({0x0044E530, AddressOf(&Inp::Manager::Destruct)}, 0, [](Regs& r) {
             Record({0xE530, r.ecx});
             return 0u;
         });

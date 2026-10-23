@@ -16,6 +16,7 @@
 #include "game/lst/hashtable.h"
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_client.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
@@ -190,7 +191,7 @@ void StandInCalls(StandIns& s)
                 Hash(reinterpret_cast<const char*>(r.args[5]))});
         return 0x77u;
     });
-    s.At({0x00532EA0}, 4, [](Regs& r) {
+    s.At({0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 4, [](Regs& r) {
         Record({0x2EA0, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_client);
     });

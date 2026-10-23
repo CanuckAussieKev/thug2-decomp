@@ -11,8 +11,11 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/skater/core_physics.h"
 #include "game/skater/physics_control.h"
 #include "game/skater/skater.h"
+#include "game/skater/skater_state.h"
+#include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
 #include "hook/skater3_testkit.h"
 
@@ -54,19 +57,19 @@ void StandIn(StandIns& s)
         [](Regs&) { return static_cast<uint32_t>(g_a.clock += 0x111); }, false);
     Rec(s, {0x004FDD50}, 0, 0xDD50);
     // (bool arguments: only their low byte is read - the original passes SETcc results with stale upper bytes)
-    s.At({0x0050C670}, 12, [](Regs& r) {
+    s.At({0x0050C670, AddressOf(&Skater::CorePhysicsComponent::ResumeSkating)}, 12, [](Regs& r) {
         Record({0xC670, Rel(r.ecx), r.args[0] & 0xFF, Rel(r.args[1]), Rel(r.args[2])});
         return 0u;
     });
-    s.At({0x00519680}, 4, [](Regs& r) {
+    s.At({0x00519680, AddressOf(&Obj::CSkaterStateComponent::SetPhysicsMode)}, 4, [](Regs& r) {
         Record({0x9680, Rel(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x0052AF40}, 4, [](Regs& r) {
+    s.At({0x0052AF40, AddressOf(&Obj::CWalkComponent::Begin)}, 4, [](Regs& r) {
         Record({0xAF40, Rel(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    Rec(s, {0x005260C0}, 0, 0x60C0);
+    Rec(s, {0x005260C0, AddressOf(&Obj::CWalkComponent::ClearModelOffset)}, 0, 0x60C0);
     // The cameras' state: written by one, read (hashed) by the other.
     for (uint32_t address : {0x004FA420u, 0x00525060u}) {
         Rec(s, {address}, 1, address & 0xFFFF, [](Regs& r) {

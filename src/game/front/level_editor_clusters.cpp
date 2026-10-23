@@ -18,6 +18,7 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/lst/hashtable.h"
 #include "game/obj/trick_objects.h"
+#include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/log.h"
@@ -106,7 +107,7 @@ uint8_t* Manager() { return GameVariable<uint8_t*>(0x007CE500); }
 
 Script::CStruct* NodeOf(uint32_t sector)
 {
-    return GameFunction<Script::CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(sector, 0);
+    return SkateScript::GetNode(sector, false);
 }
 
 Obj::CTrickObjectManager* TrickObjects(uint8_t* manager) { return reinterpret_cast<Obj::CTrickObjectManager*>(manager); }

@@ -28,6 +28,7 @@
 #include "game/nx/coll_movable.h"
 #include "game/nx/coll_tri.h"
 #include "game/nx/coll_world.h"
+#include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/obj/proxim.h"
 #include "game/script/load.h"
@@ -1685,10 +1686,10 @@ std::string NearestRestart(V3 pos)
 bool Cast(V3 from, V3 to, V3* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    ray->Construct();
     Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(
-            feeler, &start, &end, 0))
+    if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* point = reinterpret_cast<const float*>(feeler + 0x34);
     *hit = {point[0], point[1], point[2]};

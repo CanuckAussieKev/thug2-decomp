@@ -3,6 +3,7 @@
 // recording stand-in (floats from C++ functions jumped to), and the calls, results and the whole arena are compared.
 
 #include <cmath>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <map>
@@ -15,6 +16,7 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/skater/skater.h"
+#include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -46,16 +48,37 @@ float __fastcall ScaledStandIn(void* self, void*, CStruct* params)
     return 7.75f;
 }
 
+// Our replacement of a game function (stood in for too: our code calls it directly); the address itself if none.
+uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? Resolve(ours) : address;
+}
+// A stand-in's thunk written over our replacements of `addresses` as well.
+void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
+{
+    // (only the functions skater.cpp calls directly now: others' replacements may run for real)
+    static const uint32_t kDirect[] = {0x00511420, 0x00518630, 0x0046BC60, 0x00511310, 0x00519650, 0x0043D520, 0x00419A20, 0x005144D0, 0x00513AB0, 0x00431780, 0x0047B2A0, 0x005178B0, 0x004202A0, 0x00420110, 0x00511390, 0x0053AEA0, 0x00532EA0, 0x00419A90, 0x00420480, 0x0051D830, 0x0051D9C0, 0x0051DA20, 0x00407A60, 0x00511570, 0x0042BBF0, 0x00524C50, 0x00525E60, 0x00419B30, 0x0043D560, 0x00522410, 0x00512030, 0x0051BF00, 0x00506BE0, 0x00510F80, 0x0043D550, 0x00543340};
+    for (uint32_t address : addresses) {
+        if (std::find(std::begin(kDirect), std::end(kDirect), address) == std::end(kDirect))
+            continue;
+        uint32_t ours = OursOf(address);
+        if (ours != address)
+            s.Bytes(ours, Branch(0xE9, ours, thunk));
+    }
+}
+
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
+    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
             g_trace.push_back(Rel(r.args[i]));
         return answer;
     });
+    AlsoOurs(s, addresses, thunk);
 }
 
 void Install(StandIns& s)
@@ -125,7 +148,7 @@ void Install(StandIns& s)
         Rec(0xC3E0, {r.args[0], r.args[1]});
         return 0x111u + r.args[1];
     });
-    s.At({0x0046B680}, 0, [](Regs& r) {
+    s.At({0x0046B680, OursOf(0x0046B680)}, 0, [](Regs& r) {
         Rec(0xB680, {r.args[0]});
         return g_restartLink && r.args[0] == 0x112u ? 1u : 0u;
     });
@@ -139,7 +162,7 @@ void Install(StandIns& s)
         Rec(0xC420, {r.ecx});
         return g_flag4FC ? 1u : 0u;
     });
-    s.At({0x0042BD60}, 0, [](Regs& r) {
+    s.At({0x0042BD60, OursOf(0x0042BD60)}, 0, [](Regs& r) {
         Rec(0xBD60, {r.args[0], r.args[1]});
         return 0u;
     });
@@ -148,7 +171,7 @@ void Install(StandIns& s)
         return g_camera ? Block(21) : 0u;
     });
     for (uint32_t address : {0x004317C0u, 0x004317E0u})
-        s.At({address}, 4, [address](Regs& r) {
+        s.At({address, OursOf(address)}, 4, [address](Regs& r) {
             const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
             Rec(address & 0xFFFF, {r.ecx, r.args[0], v[0], v[1], v[2], v[3]});
             return 0u;

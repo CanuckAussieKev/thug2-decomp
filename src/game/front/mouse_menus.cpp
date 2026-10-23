@@ -18,6 +18,7 @@
 #include "game/front/start_level.h"
 #include "game/sys/debug_mode.h"
 #include "game/front/screen_element.h"
+#include "game/front/screen_element_manager.h"
 #include "game/gfx/screen.h"
 #include "game/net/thugpro_peer.h"
 #include "game/obj/event.h"
@@ -535,7 +536,7 @@ bool MenuTakesPadEvents(CScreenElement* menu)
         if (listed) {
             if (!FlagInChain(menu, kFlagPriority))
                 return false;
-            if (!GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x004AB7C0)(manager, Id(menu)))
+            if (!reinterpret_cast<Front::CScreenElementManager*>(manager)->IsTopPriority(Id(menu)))
                 return false;
         }
     }

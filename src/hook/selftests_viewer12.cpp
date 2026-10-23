@@ -3,6 +3,7 @@
 // manager, the profile and stats pieces, scripts...) is a recording stand-in, and the calls and the whole arena are
 // compared.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -14,6 +15,7 @@
 #include "game/script/cscript.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
+#include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -54,16 +56,37 @@ uint32_t ComponentFor(uint32_t type)
     }
 }
 
+// Our replacement of a game function (stood in for too: our code calls it directly); the address itself if none.
+uint32_t OursOf(uint32_t address)
+{
+    void* ours = AppMainTests::OursAt(address);
+    return ours ? Resolve(ours) : address;
+}
+// A stand-in's thunk written over our replacements of `addresses` as well.
+void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
+{
+    // (only the functions skater.cpp calls directly now: others' replacements may run for real)
+    static const uint32_t kDirect[] = {0x00511420, 0x00518630, 0x0046BC60, 0x00511310, 0x00519650, 0x0043D520, 0x00419A20, 0x005144D0, 0x00513AB0, 0x00431780, 0x0047B2A0, 0x005178B0, 0x004202A0, 0x00420110, 0x00511390, 0x0053AEA0, 0x00532EA0, 0x00419A90, 0x00420480, 0x0051D830, 0x0051D9C0, 0x0051DA20, 0x00407A60, 0x00511570, 0x0042BBF0, 0x00524C50, 0x00525E60, 0x00419B30, 0x0043D560, 0x00522410, 0x00512030, 0x0051BF00, 0x00506BE0, 0x00510F80, 0x0043D550, 0x00543340};
+    for (uint32_t address : addresses) {
+        if (std::find(std::begin(kDirect), std::end(kDirect), address) == std::end(kDirect))
+            continue;
+        uint32_t ours = OursOf(address);
+        if (ours != address)
+            s.Bytes(ours, Branch(0xE9, ours, thunk));
+    }
+}
+
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0, bool block = false)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer, block](Regs& r) {
+    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer, block](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
             g_trace.push_back(Rel(r.args[i]));
         return block ? Block(static_cast<int>(answer)) : answer;
     });
+    AlsoOurs(s, addresses, thunk);
 }
 
 float __fastcall ScaledStandIn(void* self, void*, uint32_t name)
@@ -127,7 +150,7 @@ void Install(StandIns& s)
              Rec(0x47C0, {r.ecx, Text(r.args[0]), r.args[1], r.args[2]});
              return 0u;
          });
-    s.At({0x00407A50}, 4, [](Regs& r) {
+    s.At({0x00407A50, OursOf(0x00407A50)}, 4, [](Regs& r) {
         Rec(0x7A50, {r.ecx, r.args[0] & 0xFF}); // (a bool: the original passes a reused stack word)
         return 0u;
     });
@@ -142,18 +165,20 @@ void Install(StandIns& s)
         Rec(0x7D40, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    for (uint32_t address : {0x004FA3C0u, 0x00524C50u, 0x00525E60u, 0x00419B30u, 0x0043D560u, 0x00522410u,
+    for (uint32_t address : {0x004FA3C0u, 0x00524C50u, 0x00525E60u, 0x00419B30u, 0x00522410u,
                              0x0051D9C0u, 0x0051DA20u})
         Simple(s, {address}, 4);
+    // (the vibration's SetActive: a bool - the original passes the skate module's byte, ours that byte != 0; the
+    // original only tests and compares it as a truth value)
+    s.At({0x0043D560, OursOf(0x0043D560)}, 4, [](Regs& r) {
+        Rec(0xD560, {Rel(r.ecx), (r.args[0] & 0xFF) != 0 ? 1u : 0u});
+        return 0u;
+    });
     for (uint32_t address : {0x004F9AE0u, 0x00419A90u})
         Simple(s, {address}, 8);
     for (uint32_t address : {0x0051EB00u, 0x0051ED10u, 0x0051EB30u, 0x0051EF00u, 0x00420480u, 0x0051D830u})
         Simple(s, {address}, 0);
     Simple(s, {0x00407A60}, 0, 1);
-    s.At({0x005480F0}, 0, [](Regs& r) {
-        Rec(0x80F0, {r.ecx});
-        return r.ecx == Block(12) ? 0u : Block(18);
-    });
     s.At({0x00552560}, 0, [](Regs& r) {
         Rec(0x2560, {r.ecx});
         return r.ecx;
@@ -162,7 +187,7 @@ void Install(StandIns& s)
         Rec(0xF890, {r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x0042E380}, 0, [](Regs& r) {
+    s.At({0x0042E380, OursOf(0x0042E380)}, 0, [](Regs& r) {
         Rec(0xE380, {r.args[0]});
         return 0u;
     });
@@ -189,7 +214,7 @@ void Install(StandIns& s)
     Simple(s, {0x00478670, AddressOf(static_cast<void (CStruct::*)(uint32_t, CStruct*)>(&CStruct::AddStructure))}, 8);
     Simple(s, {0x00478B00, AddressOf(static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArray))}, 8);
     Simple(s, {0x004780D0, AddressOf(static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArrayPointer))}, 8);
-    s.At({0x0051C470}, 4, [](Regs& r) {
+    s.At({0x0051C470, OursOf(0x0051C470)}, 4, [](Regs& r) {
         Rec(0xC470, {r.ecx, r.args[0]});
         return r.args[0] * 3 + 1;
     });
@@ -257,6 +282,10 @@ void TestSkaterInit()
             g_cameraFound = c.camera;
             g_assetInfo = c.assetInfo;
             g_noCollisionData = c.noCollisionData;
+            // The collision component's +0x18 (its data; read by the original through the folded getter 0x005480F0,
+            // by ours directly): Block(18), none for the stand-in component without data.
+            *Ptr<uint32_t>(kBlocks + 0x100 * 7 + 0x18) = Block(18);
+            *Ptr<uint32_t>(kBlocks + 0x100 * 12 + 0x18) = 0;
             g_customTag = c.customTag;
             g_sticker = c.sticker;
             if (original)

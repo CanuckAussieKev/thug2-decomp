@@ -13,8 +13,10 @@
 #include "game/file/async.h"
 #include "game/file/file.h"
 #include "game/lst/hashtable.h"
+#include "game/pcm/music_api.h"
 #include "game/script/params.h"
 #include "game/script/struct.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -318,8 +320,8 @@ bool PreLoadingBlocked()
     return Script::GetInteger("block_pre_loading") != 0;
 }
 // Always false in this build; only does debugging work when the debug flag is set.
-bool SkipSynchronousLoad() { return GameFunction<bool(__cdecl*)()>(0x00450EB0)(); }
-int TimeMilliseconds() { return GameFunction<int(__cdecl*)()>(0x005BE970)(); }
+bool SkipSynchronousLoad() { return Pcm::UsingCD(); }
+int TimeMilliseconds() { return static_cast<int>(Tmr::GetTime()); }
 bool DebugChecks() { return GameVariable<bool>(0x00684FA8); }
 
 Mem::Heap* LoadHeap(bool bottom_up) { return bottom_up ? Mem::BottomUpHeap() : Mem::TopDownHeap(); }

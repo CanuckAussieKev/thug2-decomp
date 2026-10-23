@@ -10,6 +10,7 @@
 #include "game/core/mem.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -42,16 +43,17 @@ T& Field(void* object, uint32_t offset)
 
 Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
 
-// The terrain sounds (not rewritten yet): a table by name (0x004443B0), the terrain's entry in it copied into
-// `entry` (0x00444B10: false if it has none), the entry's volume for a percentage (0x00444710).
-void* SoundTable(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x004443B0)(name); }
-bool TerrainSound(uint8_t* entry, int terrain, void* table)
+// The terrain sounds: a table by name, the terrain's entry in it copied into `entry` (false if it has none), the
+// entry's volume for a percentage.
+uint8_t SoundTable(uint32_t name) { return Terrain::GetTableIndex(name); }
+bool TerrainSound(uint8_t* entry, int terrain, uint8_t table)
 {
-    return GameFunction<bool(__cdecl*)(uint8_t*, int, void*, int)>(0x00444B10)(entry, terrain, table, 0);
+    return Terrain::GetTerrainSound(reinterpret_cast<Terrain::SoundInfo*>(entry), static_cast<uint8_t>(terrain), table,
+                                    0.0f);
 }
 double SoundVolume(uint8_t* entry, float percent)
 {
-    return GameFunction<double(__cdecl*)(uint8_t*, float, int)>(0x00444710)(entry, percent, 0);
+    return Terrain::GetScaledVolume(reinterpret_cast<const Terrain::SoundInfo*>(entry), percent, false);
 }
 
 uint32_t SoundChecksum(uint8_t* entry) { return Field<uint32_t>(entry, 0x68); }

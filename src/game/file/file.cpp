@@ -7,6 +7,7 @@
 #include "game/core/dbg.h"
 #include "game/file/pre.h"
 #include "game/front/data_overlay.h"
+#include "game/gfx/device.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -40,7 +41,8 @@ uint32_t ArchiveGetFileSize(Handle file) { return static_cast<uint32_t>(Pre::Get
 // Shows the fatal file error screen; never returns.
 [[noreturn]] void FatalFileError(DWORD error)
 {
-    GameFunction<void(__cdecl*)(DWORD)>(0x004D89C0)(error);
+    (void)error; // (pushed to it; unused)
+    Nx::ShowDiscError();
     __assume(0);
 }
 

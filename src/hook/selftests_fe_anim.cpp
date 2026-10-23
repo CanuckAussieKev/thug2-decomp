@@ -14,7 +14,9 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/gfx/anim_controller.h"
+#include "game/obj/anim_blender.h"
 #include "game/obj/object.h"
+#include "game/sys/game_clock.h"
 #include "game/script/cscript.h"
 #include "hook/fe_testkit.h"
 #include "hook/game.h"
@@ -58,11 +60,11 @@ void InstallStandIns(StandIns& s)
 {
     StandInStructGetters(s);
     StandInStructAdders(s);
-    s.At({0x00419AB0}, 0, [](Regs& r) {
+    s.At({0x00419AB0, AddressOf(&Obj::CAnimBlenderComponent::GetAnimSet)}, 0, [](Regs& r) {
         Rec(0x9AB0, {r.ecx});
         return 0x10000u;
     });
-    AtFloat(s, {0x00419AF0}, 4, [](Regs& r) {
+    AtFloat(s, {0x00419AF0, AddressOf(&Obj::CAnimBlenderComponent::GetValue)}, 4, [](Regs& r) {
         Rec(0x9AF0, {r.ecx, r.args[0]});
         return 30.5f;
     });
@@ -142,7 +144,7 @@ void InstallStandIns(StandIns& s)
         *reinterpret_cast<int*>(r.args[0]) = 2;
         return 0u;
     });
-    s.At({0x0044ECE0}, 0, [](Regs&) {
+    s.At({0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, [](Regs&) {
         Rec(0xECE0, {});
         return static_cast<uint32_t>(123457 + 7919 * g_clockCalls++);
     });

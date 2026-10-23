@@ -8,6 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/sio/device.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -31,22 +32,22 @@ struct DigitalToAnalog {
 };
 const DigitalToAnalog* DigitalToAnalogTable() { return reinterpret_cast<const DigitalToAnalog*>(0x0067D730); }
 
-void ConstructTaskList(uint8_t* list) { GameFunction<void*(__thiscall*)(void*)>(0x00406E80)(list); }
-void RunTaskList(uint8_t* list) { GameFunction<void(__thiscall*)(void*, bool)>(0x004070A0)(list, false); }
+void ConstructTaskList(uint8_t* list) { reinterpret_cast<Tsk::Stack*>(list)->Construct(); }
+void RunTaskList(uint8_t* list) { reinterpret_cast<Tsk::Stack*>(list)->Process(nullptr); }
 // Tsk::Task<Manager>: the base task (with the priority), then its vtable, code and data.
 void* NewTask(int priority, uint32_t code, void* data)
 {
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (!task)
         return nullptr;
-    GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, priority);
+    reinterpret_cast<Tsk::BaseTask*>(task)->Construct(priority);
     task[0] = 0x006476F0;
     task[6] = code;
     task[7] = reinterpret_cast<uint32_t>(data);
     return task;
 }
 
-bool OverridePadWithStick(Manager* manager) { return GameFunction<bool(__thiscall*)(Manager*)>(0x0044E620)(manager); }
+bool OverridePadWithStick(Manager* manager) { return manager->OverridePadWithStick(); }
 
 int Distance(uint8_t value)
 {
@@ -251,7 +252,7 @@ void ReleaseManager()
         return;
     }
     if (Manager* manager = Instance()) {
-        GameFunction<void(__thiscall*)(Manager*)>(0x0044E530)(manager); // the destructor
+        manager->Destruct();
         Mem::Manager::Get()->Free(manager);
     }
     Instance() = nullptr;
@@ -259,7 +260,7 @@ void ReleaseManager()
 }
 
 // 0x0044E520
-void Server::Destruct() { GameFunction<void(__thiscall*)(void*)>(0x004070E0)(m_handlers); }
+void Server::Destruct() { reinterpret_cast<Tsk::Stack*>(m_handlers)->Destruct(); }
 
 // 0x0044E530
 void Manager::Destruct()

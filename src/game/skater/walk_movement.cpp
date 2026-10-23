@@ -12,6 +12,7 @@
 #include "game/nx/feeler.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/object.h"
+#include "game/obj/walk_hang.h"
 #include "game/skater/walk_fields.h"
 #include "game/skater/walk_physics.h"
 #include "game/mth/x87_math.h"
@@ -70,12 +71,8 @@ float AcosDegrees(float value)
     return result;
 }
 
-// 0x0043D990 (not rewritten yet): a + (b - a) * t.
-Mth::Vector* Lerp(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b, float t)
-{
-    return GameFunction<Mth::Vector*(__cdecl*)(Mth::Vector*, const Mth::Vector*, const Mth::Vector*, float)>(0x0043D990)(
-        out, a, b, t);
-}
+// a + (b - a) * t.
+Mth::Vector* Lerp(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b, float t) { return Walk::Lerp(out, a, b, t); }
 
 double FrameLength(void* walk) { return At<float>(walk, kFrameLength); }
 
@@ -334,7 +331,7 @@ double CWalkComponent::GetControlSpeed()
     At<bool>(this, kRunning) = true;
     float walkSpeed = WalkParameter(kWalkSpeed);
     float t = static_cast<float>((static_cast<double>(magnitude) - walkPoint) / (static_cast<double>(kOne) - walkPoint));
-    double runSpeed = GameFunction<double(__thiscall*)(CWalkComponent*)>(0x0043DAA0)(this);
+    double runSpeed = RunSpeed();
     return (runSpeed - walkSpeed) * t + walkSpeed;
 }
 

@@ -13,12 +13,15 @@
 #include <utility>
 #include <vector>
 
+#include "game/core/stubs.h"
 #include "game/gfx/device.h"
 #include "game/gfx/glyphs.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
+#include "game/sio/device.h"
 #include "game/sio/sdl_input.h"
 #include "game/sys/sdl_window.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -202,6 +205,7 @@ void TestQueryString()
     Save(0x006FA808, 32);
     bool savedKeyboard = Sio::UsingKeyboard(), savedForce = Nx::PreferGlyphs();
     JumpTo(0x005BCD50, reinterpret_cast<void*>(&StandInKeyName));
+    JumpTo(TestStandIns::AddressOf(&Sio::GetButtonKeyName), reinterpret_cast<void*>(&StandInKeyName)); // (ours calls ours)
     WritePartyModGlyphs(0x004CED4B, 0x004CED6D, 0x5B);
     BuildFonts();
     FillMetaMap();
@@ -277,6 +281,7 @@ void TestDrawText()
     Save(0x006FA808, 32);
     bool savedKeyboard = Sio::UsingKeyboard(), savedForce = Nx::PreferGlyphs();
     JumpTo(0x005BCD50, reinterpret_cast<void*>(&StandInKeyName));
+    JumpTo(TestStandIns::AddressOf(&Sio::GetButtonKeyName), reinterpret_cast<void*>(&StandInKeyName)); // (ours calls ours)
     WritePartyModGlyphs(0x004CFF0C, 0x004CFF36, 0x63);
     BuildFonts();
     FillMetaMap();
@@ -478,6 +483,9 @@ void TestInitDirect3D()
     JumpTo(TestStandIns::AddressOf(&Nx::LoadGamma), reinterpret_cast<void*>(&StandInRegistry));
     JumpTo(0x005BA1D0, reinterpret_cast<void*>(&StandInDebugFont));
     JumpTo(0x005BE7C0, reinterpret_cast<void*>(&StandInLast));
+    // (ours calls them directly - the debug font is the shared `return 0` stub)
+    JumpTo(TestStandIns::AddressOf(&Stubs::ReturnZero), reinterpret_cast<void*>(&StandInDebugFont));
+    JumpTo(TestStandIns::AddressOf(&Tmr::SetFlags), reinterpret_cast<void*>(&StandInLast));
     // PartyMod's bytes that don't depend on the run: no ShowWindow, no SetWindowPos, no ShowCursor loop.
     Write(0x004D869C, {0xEB});
     Write(0x004D8891, std::vector<uint8_t>(14, 0x90));

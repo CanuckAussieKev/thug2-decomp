@@ -252,10 +252,13 @@ bool __cdecl StartPreloadedMusic();
 // soundtracks on PC: the file never opens, so this is always false - after leaving a WadStream in the music's
 // slot).
 bool __cdecl PlayUserTrack(int soundtrack, int track);
+// The file of track `track` of user soundtrack `soundtrack`: none on PC (INVALID_HANDLE_VALUE).
+Handle __cdecl OpenUserTrack(int soundtrack, int track);
 // 0x00453AA0: stop the music (freed now, or asked to stop if it can't go yet).
 void __cdecl PlatformStopMusic();
-// 0x00453400: the music's volume (0-100), if music is loaded. 1.
-int __cdecl SetMusicVolume(float volume);
+// 0x00453400: the music's volume (0-100), if music is loaded. 1. (Not SetMusicVolume: music.h's front-end call
+// has that name.)
+int __cdecl PlatformSetMusicVolume(float volume);
 // 0x00453470: keep the music within 5 frames of `seconds` in (cutscenes) - a Bink stream with a Bink open is
 // assumed.
 void __cdecl SyncMusicToTime(float seconds);

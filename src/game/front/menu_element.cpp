@@ -1,6 +1,7 @@
 // The menus (vmenu / hmenu) and the container element: see menu_element.h.
 
 #include "game/front/menu_element.h"
+#include "game/front/screen_element_manager.h"
 
 #include <cstring>
 
@@ -37,20 +38,15 @@ void Launch(uint32_t type, uint32_t target, CStruct* data)
     Obj::Tracker()->LaunchEvent(type, target, kSystem, data, false, -1.0f);
 }
 
-// The screen element manager (0x00701440) and its pieces (not rewritten yet; thiscall).
+// The screen element manager (0x00701440) and its pieces.
 void* Manager() { return GameVariable<void*>(0x00701440); }
-bool UsesPriorities(void* manager) { return GameFunction<bool(__thiscall*)(void*)>(0x004AAD80)(manager); }
-bool IsPriorityEvent(void* manager, uint32_t type)
-{
-    return GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x004AAD50)(manager, type);
-}
-bool IsTopPriority(void* manager, uint32_t id)
-{
-    return GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x004AB7C0)(manager, id);
-}
+CScreenElementManager* Elements(void* manager) { return static_cast<CScreenElementManager*>(manager); }
+bool UsesPriorities(void* manager) { return Elements(manager)->HasPriorities(); }
+bool IsPriorityEvent(void* manager, uint32_t type) { return Elements(manager)->IsPadEvent(type); }
+bool IsTopPriority(void* manager, uint32_t id) { return Elements(manager)->IsTopPriority(id); }
 ElementPtr* LookUp(void* manager, ElementPtr* out, uint32_t id, int assert)
 {
-    return GameFunction<ElementPtr*(__thiscall*)(void*, ElementPtr*, uint32_t, int)>(0x004AAE20)(manager, out, id, assert);
+    return Elements(manager)->GetElement(out, id, assert);
 }
 
 // The controller an event came from (its data's `controller`; 0x0045F9E0, cdecl).
