@@ -13,10 +13,13 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/pool.h"
+#include "game/net/gamenet_manager.h"
+#include "game/net/net_client.h"
 #include "game/obj/event.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/script/struct_buffer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -581,7 +584,7 @@ void StandInSetScript(StandIns& s)
 
 void StandInNet(StandIns& s, bool messagesToo)
 {
-    s.At({0x0044E4F0}, 0, [](Regs& r) {
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) {
         Record({0x4E7, Id(r.ecx)});
         return static_cast<uint32_t>(g_inNetGame);
     });
@@ -595,18 +598,18 @@ void StandInNet(StandIns& s, bool messagesToo)
             return 0u;
         });
     }
-    s.At({0x00479E20}, 0, [](Regs& r) {
+    s.At({0x00479E20, AddressOf(&Script::WriteToBuffer)}, 0, [](Regs& r) {
         Record({0x9E20, Id(r.args[0]), r.args[2], r.args[3], r.args[4]});
         auto* buffer = reinterpret_cast<uint8_t*>(r.args[1]);
         for (int i = 0; i < g_writeSize; ++i)
             buffer[i] = static_cast<uint8_t>(0x40 + i * 7);
         return static_cast<uint32_t>(g_writeSize);
     });
-    s.At({0x00532EA0}, 4, [](Regs& r) {
+    s.At({0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 4, [](Regs& r) {
         Record({0x2EA0, Id(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(g_client);
     });
-    s.At({0x00459E50}, 4, [](Regs& r) {
+    s.At({0x00459E50, AddressOf(&Net::Client::EnqueueMessageToServer)}, 4, [](Regs& r) {
         uint8_t desc[0x1D];
         std::memcpy(desc, reinterpret_cast<void*>(r.args[0]), sizeof(desc));
         auto* data = *reinterpret_cast<uint8_t**>(desc + 4);

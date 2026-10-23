@@ -9,12 +9,19 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/menu_element.h"
 #include "game/front/screen_element.h"
+#include "game/front/screen_element_manager.h"
+#include "game/front/text_element.h"
 #include "game/mth/random.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sfx/sfx.h"
+#include "game/skate/profile_manager.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -142,7 +149,7 @@ void LoseGoal(void* manager, uint32_t id) { GameFunction<void(__thiscall*)(void*
 // The skate module (0x007CE478): the local skater, its score (Mdl::Score), the tricks the score has seen.
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
 uint8_t* LocalSkater() { return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x00566520)(Skate()); }
-uint8_t* ScoreOf(uint8_t* skater) { return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x00580480)(skater); }
+uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<Obj::CSkater*>(skater)->GetScore()); }
 int TotalScore(uint8_t* score) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x00561B40)(score); }
 // How often the trick (by name / key combo) has been done with this spin, perfect, taps.
 int TrickCount(uint8_t* score, uint32_t trick, int spin, bool perfect, int taps)
@@ -160,29 +167,30 @@ int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, bool perfect, int
 // makes is let go at once, as in the original), the containers and text elements made for the tricks.
 using Front::ElementPtr;
 void* ElementManager() { return GameVariable<void*>(0x00701440); }
+Front::CScreenElementManager* Manager(void* manager) { return static_cast<Front::CScreenElementManager*>(manager); }
 Front::CScreenElement* ElementById(void* manager, uint32_t id)
 {
     ElementPtr element;
-    GameFunction<ElementPtr*(__thiscall*)(void*, ElementPtr*, uint32_t, int)>(0x004AAE20)(manager, &element, id, 1);
+    Manager(manager)->GetElement(&element, id, 1);
     Front::CScreenElement* raw = element.Get();
     element.Release();
     return raw;
 }
 void SetAlpha(Front::CScreenElement* element, float alpha)
 {
-    GameFunction<void(__thiscall*)(Front::CScreenElement*, float, int)>(0x004A8630)(element, alpha, 1);
+    element->SetAlpha(alpha, 1);
 }
 void* NewContainer()
 {
     void* memory = Mem::Calloc(0x17C);
-    return memory ? GameFunction<void*(__thiscall*)(void*)>(0x004AAC20)(memory) : nullptr;
+    return memory ? static_cast<Front::CContainerElement*>(memory)->Construct() : nullptr;
 }
 void* NewText()
 {
     void* memory = Mem::Calloc(0x1B0);
-    return memory ? GameFunction<void*(__thiscall*)(void*)>(0x004B0920)(memory) : nullptr;
+    return memory ? static_cast<Front::CTextElement*>(memory)->Construct() : nullptr;
 }
-void SetId(void* element, uint32_t id) { GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00461930)(element, id); }
+void SetId(void* element, uint32_t id) { static_cast<Obj::CObject*>(element)->SetID(id); }
 // The manager's +4 (adds an element) / an element's +4 (its properties from a structure).
 void AddToManager(void* manager, void* element)
 {
@@ -199,7 +207,7 @@ void SetParent(void* manager, void* parent, void* child)
     childPtr.Set(static_cast<Front::CScreenElement*>(child));
     ElementPtr parentPtr;
     parentPtr.Set(static_cast<Front::CScreenElement*>(parent));
-    GameFunction<void(__thiscall*)(void*, ElementPtr*, ElementPtr*, int)>(0x004ABBE0)(manager, &parentPtr, &childPtr, 1);
+    Manager(manager)->SetParent(&parentPtr, &childPtr, 1);
     parentPtr.Release();
     childPtr.Release();
 }
@@ -414,7 +422,7 @@ void CTetrisGoal::ClearTricksAndMenu()
         m_groupUsed[i] = false;
     }
     m_params->RemoveFlag(kTricksAdded);
-    GameFunction<void(__thiscall*)(void*, uint32_t, int, int, int)>(0x004AD100)(ElementManager(), kTetrisMenu, 1, 1, 0);
+    Manager(ElementManager())->DestroyElement(kTetrisMenu, 1, 1, nullptr);
 }
 
 // 0x0056F610
@@ -434,7 +442,7 @@ void CTetrisGoal::RemoveTrick(int index)
     uint32_t id = m_tricks[index].element;
     void* manager = ElementManager();
     ElementPtr element;
-    GameFunction<ElementPtr*(__thiscall*)(void*, ElementPtr*, uint32_t, int)>(0x004AAE20)(manager, &element, id, 1);
+    Manager(manager)->GetElement(&element, id, 1);
     Script::CStruct* params = NewStructure();
     params->AddChecksum(kId, id);
     Run(kResetContainer, params);
@@ -570,7 +578,7 @@ void CTetrisGoal::AddTricks(int count)
                     t.taps = taps;
             }
             void* profile = GameFunction<void*(__thiscall*)(uint8_t*, int)>(0x00564F80)(Skate(), 0);
-            auto* mapping = GameFunction<Script::CStruct*(__thiscall*)(void*, uint32_t)>(0x00586110)(profile, kTrickMapping);
+            auto* mapping = static_cast<Obj::CSkaterProfile*>(profile)->GetInfoStructure(kTrickMapping);
             const char* trickText = nullptr;
             if (!mapping->GetChecksum(keyCombo, &trickName, 0)) {
                 // A special trick slot: the skater's trick in it.
@@ -625,7 +633,7 @@ void CTetrisGoal::AddTricks(int count)
         params->AddPair(kDims, 100.0f, static_cast<float>(height));
         SetProperties(container, params);
         Front::CScreenElement* menu = ElementById(manager, kTetrisMenu);
-        GameFunction<void(__thiscall*)(Front::CScreenElement*, int)>(0x004A8940)(menu, 0);
+        menu->SetFocusSent(0);
         SetParent(manager, menu, container);
         DeleteStructure(params);
 
@@ -901,7 +909,7 @@ void CTrickBeatGoal::Deactivate(int a, int b)
 }
 
 namespace {
-int GameClock() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
+int GameClock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 } // namespace
 
 // 0x00574A10
@@ -1012,7 +1020,7 @@ void CTrickBeatGoal::RemoveTrick(int index)
 {
     uint32_t id = m_tricks[index].element;
     ElementPtr element;
-    GameFunction<ElementPtr*(__thiscall*)(void*, ElementPtr*, uint32_t, int)>(0x004AAE20)(ElementManager(), &element, id, 1);
+    Manager(ElementManager())->GetElement(&element, id, 1);
     Script::CStruct* params = NewStructure();
     params->AddChecksum(kId, id);
     Run(kBeatResetContainer, params);
@@ -1063,7 +1071,7 @@ void CTrickBeatGoal::UpdateBeat()
 {
     float slomo = Tmr::GetSlomo();
     int last = m_lastTime;
-    int elapsed = GameFunction<int(__cdecl*)()>(0x0044ECE0)() + (GameVariable<int>(0x00696D60) - last);
+    int elapsed = Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - last);
     m_beatTime += elapsed;
     m_lastTime += elapsed;
     double time = static_cast<double>(m_beatTime);
@@ -1088,12 +1096,12 @@ void CTrickBeatGoal::UpdateBeat()
                 sound->GetFloat(kPitch, &pitch, 0);
                 pitch = static_cast<float>(static_cast<double>(pitch) * slomo);
                 SoundVolume level;
-                GameFunction<void(__thiscall*)(SoundVolume*)>(0x0047B030)(&level);
-                GameFunction<void(__thiscall*)(SoundVolume*)>(0x0047AD60)(&level);
+                auto* volumeOf = reinterpret_cast<Sfx::sVolume*>(&level);
+                volumeOf->Init();
+                volumeOf->SetSilent();
                 level.channels[0] = volume;
                 level.channels[1] = volume;
-                GameFunction<void(__thiscall*)(void*, uint32_t, SoundVolume*, float, int, int, int)>(0x0047BD20)(
-                    GameVariable<void*>(0x006F85A8), name, &level, pitch, 0, 0, 0);
+                GameVariable<Sfx::CSfxManager*>(0x006F85A8)->PlaySound(name, volumeOf, pitch, 0, nullptr, 0);
                 DestroySoundVolume(&level);
             }
         }
@@ -1192,7 +1200,7 @@ void CTrickBeatGoal::AddTricks(int count)
                     t.taps = taps;
             }
             void* profile = GameFunction<void*(__thiscall*)(uint8_t*, int)>(0x00564F80)(Skate(), 0);
-            auto* mapping = GameFunction<Script::CStruct*(__thiscall*)(void*, uint32_t)>(0x00586110)(profile, kTrickMapping);
+            auto* mapping = static_cast<Obj::CSkaterProfile*>(profile)->GetInfoStructure(kTrickMapping);
             const char* trickText = nullptr;
             if (!mapping->GetChecksum(keyCombo, &trickName, 0)) {
                 int specialSlot;
@@ -1243,7 +1251,7 @@ void CTrickBeatGoal::AddTricks(int count)
         params->AddPair(kDims, 100.0f, 20.0f);
         SetProperties(container, params);
         Front::CScreenElement* menu = ElementById(manager, kBeatMenu);
-        GameFunction<void(__thiscall*)(Front::CScreenElement*, int)>(0x004A8940)(menu, 0);
+        menu->SetFocusSent(0);
         SetParent(manager, menu, container);
         DeleteStructure(params);
 
@@ -1413,7 +1421,7 @@ void CTrickObjectsGoal::ObjectHit(uint32_t cluster)
     if (!skater)
         return;
     auto component = [skater](uint32_t type) {
-        return GameFunction<uint8_t*(__thiscall*)(uint8_t*, uint32_t)>(0x0045DB90)(skater, type);
+        return reinterpret_cast<uint8_t*>(reinterpret_cast<Obj::CCompositeObject*>(skater)->GetComponent(type));
     };
     uint8_t* state = component(kSkaterState);
     uint8_t* scoreComponent = component(kSkaterScore);

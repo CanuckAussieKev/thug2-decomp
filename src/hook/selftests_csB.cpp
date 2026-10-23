@@ -22,6 +22,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/net/gamenet_manager.h"
 #include "game/script/cache.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -754,7 +755,7 @@ void TestScriptInterpreter()
             return reinterpret_cast<uint32_t>(&g_objZ);
         return 0;
     });
-    s.At({0x0044E4F0}, 0, [](Regs& r) -> uint32_t {
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) -> uint32_t {
         Record({0x4E70, r.ecx});
         return 0x55;
     });

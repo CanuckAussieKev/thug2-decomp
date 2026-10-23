@@ -222,7 +222,8 @@ void StandInCursor(StandIns& s)
         Record({0x1C30, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0xFFFFFFFFu;
     });
-    s.At({0x005BA1D0}, 0, [](Regs& r) { Record({0xA1D0, r.args[0]}); return 0u; }); // (cdecl: ECX is anything)
+    // (0x005BA1D0, setting the default heap, is `xor eax, eax; ret` in this build - folded with Stubs::ReturnZero,
+    // which ours calls: it runs as it is)
     s.At({0x00595620, AddressOf(&Ed::CParkManager::GetAbstractMetaPiece)}, 8, [](Regs& r) { Record({0x5620, CuRel(r.ecx), r.args[0], r.args[1]}); return 0x5620000u; });
     s.At({0x00595670, AddressOf(&Ed::CParkManager::CreateConcreteMeta)}, 8, [](Regs& r) { Record({0x5670, CuRel(r.ecx), r.args[0], r.args[1]}); return 0x5670000u; });
     plain({0x005907B0, OursOf(0x005907B0)}, 4, 0x07B0, 1);

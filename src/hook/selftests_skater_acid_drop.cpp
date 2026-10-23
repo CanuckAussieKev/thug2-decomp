@@ -14,6 +14,9 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/skater.h"
+#include "game/skater/walk_physics.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -66,11 +69,11 @@ void RecordCopy()
 std::vector<StandIn> AcidDropStandIns()
 {
     return {
-        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0}, // the clock
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Tmr::GameClockElapsed)}, // the clock
         {0x00478F00, 0, 1, Ret::Float, false, 0, -1, -1, 0,
          CodeAddress(static_cast<float (*)(uint32_t)>(&Script::GetFloat)), nullptr, 0, 0, -1, -1, 0, 4.0f,
          &PickScriptFloat},
-        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0}, // PhysicsFloat
+        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0, CodeAddress(&Obj::GetPhysicsFloat)}, // PhysicsFloat
         {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0}, // the gravity
         {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 18, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,
          0x50, 0, 8, 4.0f, nullptr, &AfterGetCollision}, // (the line recorded; the hit's flags, distance, point and normal
@@ -79,7 +82,7 @@ std::vector<StandIn> AcidDropStandIns()
         {0x0040AB50, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Nx::CCollCache::Construct)},
         {0x0040ABA0, 4, 1, Ret::None, true, 0, 0, -1, 8, CodeAddress(&Nx::CCollCache::Update)}, // (the box recorded)
         {0x0040AB40, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Nx::CCollCache::Destruct)},
-        {0x0043DAA0, 0, 0, Ret::Double, true, 0, -1, -1, 0}, // (the walk's speed)
+        {0x0043DAA0, 0, 0, Ret::Double, true, 0, -1, -1, 0, CodeAddress(&Obj::CWalkComponent::RunSpeed)}, // (the walk's speed)
         {0x0045DB90, 4, 1, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::GetComponent),
          &g_pointer},
         {0x005BA3D0, 0, 0, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Mem::Pool::Allocate), &g_pointer},
@@ -281,7 +284,7 @@ void AfterFindTarget(uint8_t*, uint32_t* args)
 std::vector<StandIn> SpineStandIns()
 {
     return {
-        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0}, // the clock
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Tmr::GameClockElapsed)}, // the clock
         {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0}, // the gravity
         {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 18, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,
          0x50, 0, 8, 6.0f, nullptr, &AfterSpineFeeler}, // (the line recorded; the hit filled in)

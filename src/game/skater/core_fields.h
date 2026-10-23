@@ -9,7 +9,13 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/ride_tracker.h"
+#include "game/obj/trigger_component.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 
 namespace Skater::CoreFields {
@@ -72,13 +78,13 @@ inline uint8_t* InputOf(void* component) { return At<uint8_t*>(component, kInput
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
 inline int Now()
 {
-    int time = GameFunction<int(__cdecl*)()>(0x0044ECE0)();
+    int time = Tmr::GameClockElapsed();
     return time + GameVariable<int>(0x00696D60);
 }
 // The time since `stamp` (the clock's elapsed time, as the original works it out).
 inline uint32_t Since(uint32_t stamp)
 {
-    uint32_t now = static_cast<uint32_t>(GameFunction<int(__cdecl*)()>(0x0044ECE0)());
+    uint32_t now = static_cast<uint32_t>(Tmr::GameClockElapsed());
     return now + (static_cast<uint32_t>(GameVariable<int>(0x00696D60)) - stamp);
 }
 
@@ -98,18 +104,18 @@ inline uint8_t Flag(void* component, uint32_t offset) { return At<uint8_t>(Flags
 // value).
 inline float PhysicsFloat(uint32_t name, void* object)
 {
-    return GameFunction<float(__cdecl*)(uint32_t, int, void*)>(0x00580400)(name, 1, object);
+    return Obj::GetPhysicsFloat(name, 1, static_cast<Obj::CCompositeObject*>(object));
 }
 inline int PhysicsInteger(uint32_t name, void* object)
 {
-    return GameFunction<int(__cdecl*)(uint32_t, int, void*)>(0x00580440)(name, 1, object);
+    return Obj::GetPhysicsInt(name, 1, static_cast<Obj::CCompositeObject*>(object));
 }
 
 // 0x00434BF0: the trigger component told the feeler `feeler` hit something, for the three `events` (const int[3]).
 inline void TriggerFeeler(void* component, uint32_t events, uint32_t feelerOffset)
 {
-    GameFunction<void(__thiscall*)(void*, const int*, void*)>(0x00434BF0)(
-        At<void*>(component, kTriggerComponent), reinterpret_cast<const int*>(events), &At<uint8_t>(component, feelerOffset));
+    static_cast<Obj::CTriggerComponent*>(At<void*>(component, kTriggerComponent))
+        ->CheckFeeler(reinterpret_cast<const int*>(events), &At<Nx::CFeeler>(component, feelerOffset));
 }
 // Whether a trigger's script took over (+0x1530's +0x26).
 inline bool TriggerTookOver(void* component) { return At<uint8_t>(At<uint8_t*>(component, kTriggerState), 0x26) != 0; }
@@ -131,19 +137,22 @@ inline void CopyFeeler(void* to, const void* from)
 }
 inline void AssignFeeler(void* to, const void* from)
 {
-    GameFunction<void*(__thiscall*)(void*, const void*)>(0x0043A930)(to, from);
+    static_cast<Nx::CFeeler*>(to)->Assign(*static_cast<const Nx::CFeeler*>(from));
 }
 // The ride tracker (+0x152C's +0x18) and what its smart pointer points at; 0x00427C70: stop riding.
 inline Obj::CRideTracker*& Tracker(void* component) { return At<Obj::CRideTracker*>(At<void*>(component, kRide), 0x18); }
-inline void StopRiding(void* component) { GameFunction<void(__thiscall*)(void*)>(0x00427C70)(At<void*>(component, kRide)); }
+inline void StopRiding(void* component)
+{
+    static_cast<Obj::CMovableContactComponent*>(At<void*>(component, kRide))->StopRiding();
+}
 
-inline void DestroyFeeler(void* feeler) { GameFunction<void(__thiscall*)(void*)>(0x0041C350)(feeler); }
+inline void DestroyFeeler(void* feeler) { static_cast<Nx::CFeeler*>(feeler)->Destruct(); }
 
 // 0x005003A0: the collision feeler from kFeelerStart to kFeelerEnd: true on a hit (kHitPoint, kHitNormal, ...).
 // (`a` and `b`: two face-flag masks - 0x10, 0 for the ground checks; 0, 8 across a wall.)
 inline bool Feel(void* component, uint32_t a, uint32_t b)
 {
-    return GameFunction<bool(__thiscall*)(void*, uint32_t, uint32_t)>(0x005003A0)(component, a, b);
+    return static_cast<CorePhysicsComponent*>(component)->CheckFeeler(a, b);
 }
 
 } // namespace Skater::CoreFields

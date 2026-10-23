@@ -12,11 +12,13 @@
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/trigger_component.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
+#include "game/skater/skater_sound.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -69,8 +71,7 @@ void PlayJumpSound(void* component, uint8_t terrain)
     float speed = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y +
                                                static_cast<double>(v.z) * v.z));
     float fraction = speed / ScaledPhysics(object, kMaxMaxSpeed);
-    GameFunction<void(__thiscall*)(void*, float, uint8_t)>(0x00518EE0)(At<void*>(component, kSoundComponent), fraction,
-                                                                       terrain);
+    static_cast<Obj::CSkaterSoundComponent*>(At<void*>(component, kSoundComponent))->PlayJumpInState(fraction, terrain);
 }
 
 } // namespace
@@ -193,7 +194,7 @@ void CorePhysicsComponent::DoJump(Script::CStruct* params)
     }
     int state = StateOf(this);
     if (state == kRail || (state == kAir && At<int>(this, 0x94) == kRail))
-        GameFunction<void(__thiscall*)(void*)>(0x005002D0)(this);
+        TurnForRailJump();
     if (At<uint8_t>(this, 0x2EC))
         TriggerRailScript(reinterpret_cast<const int*>(kJumpEvents));
     GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, kAir);
@@ -207,10 +208,10 @@ void CorePhysicsComponent::BeginSkitch()
     auto* object = At<Obj::CCompositeObject*>(this, kSkitched);
     if (!object)
         return;
-    GameFunction<void(__thiscall*)(void*, void*)>(0x0043EB80)(At<void*>(this, kRide), object); // (ride it)
+    At<Walk::MovableContact*>(this, kRide)->StartRiding(object);
     SetFlag(this, 0x88, 1);
     At<uint8_t>(this, 0x24A) = 1;
-    GameFunction<void(__thiscall*)(void*)>(0x00501DB0)(this);
+    Skitch();
     if (auto* skitched = At<Obj::CObject*>(this, kSkitched))
         skitched->SelfEvent(0x35224F25, nullptr);
 }
@@ -339,14 +340,14 @@ int CorePhysicsComponent::TriggerGrindOff(Script::CStruct*, Script::CScript*)
 int CorePhysicsComponent::ForceBreakVert(Script::CStruct*, Script::CScript*)
 {
     BreakVert(true);
-    GameFunction<void(__thiscall*)(void*)>(0x00504DF0)(this);
+    KeepUpright();
     return 1;
 }
 
 // 0x00509BB0
 int CorePhysicsComponent::WalkingWallplant(Script::CStruct*, Script::CScript*)
 {
-    GameFunction<bool(__thiscall*)(void*, int, int, int)>(0x00507500)(this, 0, 0, 1);
+    WallPlant(false, false, true);
     return 1;
 }
 

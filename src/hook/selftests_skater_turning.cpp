@@ -7,8 +7,13 @@
 #include <vector>
 
 #include "game/nx/feeler.h"
+#include "game/obj/control_pad.h"
 #include "game/script/struct.h"
+#include "game/skate/career.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/manual.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -33,18 +38,18 @@ float NotANumber()
 std::vector<StandIn> TurningStandIns()
 {
     return {
-        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0}, // the clock
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Tmr::GameClockElapsed)}, // the clock
         {0x00478F00, 0, 1, Ret::Float, false, 0, -1, -1, 0,
          CodeAddress(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
         {0x00478F60, 0, 1, Ret::Int, false, 0, -1, -1, 0,
          CodeAddress(static_cast<int (*)(uint32_t)>(&Script::GetInteger))},
-        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0},  // PhysicsFloat
-        {0x00580790, 4, 1, Ret::Double, true, 0, -1, -1, 0},  // StatValue
-        {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0},     // TimeSincePress
+        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0, CodeAddress(&Obj::GetPhysicsFloat)},  // PhysicsFloat
+        {0x00580790, 4, 1, Ret::Double, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkater::GetScaledPhysics)},  // StatValue
+        {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::GetPressedTime)},     // TimeSincePress
         {0x004FE420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},    // (may turn on the slope)
-        {0x00584CC0, 4, 1, Ret::Bool, true, 0, -1, -1, 0},    // (a cheat on)
-        {0x005843A0, 4, 1, Ret::None, true, 0, -1, -1, 0},
-        {0x00579CC0, 0, 0, Ret::None, true, 0, -1, -1, 0},    // (the balance meter)
+        {0x00584CC0, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterCareer::GetCheat)},    // (a cheat on)
+        {0x005843A0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterCareer::SetGlobalFlag)},
+        {0x00579CC0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CBalance::Update)},    // (the balance meter)
         {0x004F8F20, 0, 0, Ret::Double, true, 0, -1, -1, 0},  // (how far off balance)
         {0x00564BE0, 4, 1, Ret::None, true, 0, -1, -1, 0},    // (the rotation shown)
         {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 16, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,

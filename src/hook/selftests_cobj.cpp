@@ -16,10 +16,12 @@
 
 #include "game/core/manager.h"
 #include "game/mth/matrix.h"
+#include "game/mth/quat.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/core/crc.h"
 #include "game/core/mem.h"
+#include "game/obj/path_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/node_manager.h"
 #include "game/script/node_prefixes.h"
@@ -261,7 +263,7 @@ void InstallStandIns(StandIns& s)
         Rec(0xC1B0, {r.args[0], r.args[1]});
         return g_cobj_base + 0x3F00;
     });
-    s.At({0x0042BC40}, 4, [](Regs& r) {
+    s.At({0x0042BC40, AddressOf(&Mth::Quat::GetMatrix)}, 4, [](Regs& r) {
         const auto* q = reinterpret_cast<const uint32_t*>(r.ecx);
         Rec(0xBC40, {q[0], q[1], q[2], q[3], InArena(r.ecx) ? r.ecx : 0x57ACu, r.args[0]});
         auto* m = reinterpret_cast<float*>(r.args[0]);
@@ -334,12 +336,12 @@ void InstallStandIns(StandIns& s)
         Rec(0xBE40, {r.args[0]});
         return 0xBE400000u + (Rel(r.args[0]) & 0xFFFF);
     });
-    s.At({0x004694E0}, 0, [](Regs& r) {
+    s.At({0x004694E0, AddressOf(&Obj::CPathManager::Instance)}, 0, [](Regs& r) {
         Rec(0x94E0, {});
         (void)r;
         return g_cobj_base + 0x2B00;
     });
-    s.At({0x004696C0}, 0, [](Regs& r) {
+    s.At({0x004696C0, AddressOf(&Obj::CPathManager::NumberPaths)}, 0, [](Regs& r) {
         Rec(0x96C0, {r.ecx});
         return 0u;
     });

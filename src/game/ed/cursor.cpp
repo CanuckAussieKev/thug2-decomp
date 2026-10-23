@@ -9,6 +9,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/park/park_memory.h"
 #include "hook/hook.h"
 
 namespace Ed {
@@ -25,8 +26,8 @@ constexpr float kTurnStep = 15.0f;         // 0x0064F640: degrees per frame
 constexpr float kShowInset = 1.5f;         // 0x00646744
 constexpr int kMaxClipboards = 6;
 
-// The pooled clipboards (0x007CE5B4): new from the current pool or the heap; 0x005955C0 frees one.
-Mem::PoolPair& ClipboardPools() { return GameVariable<Mem::PoolPair>(0x007CE5B4); }
+// The pooled clipboards (ClipboardPools, park_memory.h - 0x007CE5B4): new from the current pool or the heap;
+// 0x005955C0 frees one.
 void FreeClipboard(CClipboard* clipboard) { CClipboard::Free(clipboard); }
 
 // The park editor (the singleton 0x00590160 makes, 0x0058D290 releases): whether an area of w x l cells fits
@@ -48,7 +49,7 @@ int CountRailPoints(float x0, float z0, float x1, float z1)
 int FreeRailPoints() { return GameFunction<int(__thiscall*)(void*)>(0x004F6BF0)(RailEditor()); }
 
 // The heap the park editor allocates from (0x0059E180).
-Mem::Allocator* ParkEditorHeap() { return GameFunction<Mem::Allocator*(__cdecl*)()>(0x0059E180)(); }
+Mem::Allocator* ParkEditorHeap() { return GetMainHeap(); }
 
 // Swap the box's w and l (a quarter turn).
 void SwapWidthAndLength(GridDims& area)

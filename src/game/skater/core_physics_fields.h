@@ -9,6 +9,9 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/control_pad.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 
 namespace Skater::Physics {
@@ -61,11 +64,11 @@ inline uint8_t* FlagsOf(void* component) { return At<uint8_t*>(component, kTimed
 inline uint8_t* InputOf(void* component) { return At<uint8_t*>(component, kInput); }
 
 // The game's clock (0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.
-inline int Now() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
+inline int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 // The time since `stamp` (unsigned, as the original compares it): the clock, plus (the offset - stamp).
 inline uint32_t Since(uint32_t stamp)
 {
-    uint32_t now = static_cast<uint32_t>(GameFunction<int(__cdecl*)()>(0x0044ECE0)());
+    uint32_t now = static_cast<uint32_t>(Tmr::GameClockElapsed());
     return now + (static_cast<uint32_t>(GameVariable<int>(0x00696D60)) - stamp);
 }
 
@@ -83,17 +86,17 @@ inline void SetTimedFlag(void* component, uint32_t flag, uint8_t value)
 // (asserted when `required`). The float comes back on the x87 stack, rounded (it's a stored float).
 inline float PhysicsFloat(uint32_t name, void* object, int required = 1)
 {
-    return GameFunction<float(__cdecl*)(uint32_t, int, void*)>(0x00580400)(name, required, object);
+    return Obj::GetPhysicsFloat(name, required, static_cast<Obj::CCompositeObject*>(object));
 }
 inline int PhysicsInteger(uint32_t name, void* object, int required = 1)
 {
-    return GameFunction<int(__cdecl*)(uint32_t, int, void*)>(0x00580440)(name, required, object);
+    return Obj::GetPhysicsInt(name, required, static_cast<Obj::CCompositeObject*>(object));
 }
 // A value set by the skater's stats (0x00580790, thiscall on the object: a script range scaled by the stat level).
-// Returned unrounded.
+// (Ours returns a float.)
 inline double StatValue(void* object, uint32_t name)
 {
-    return GameFunction<double(__thiscall*)(void*, uint32_t)>(0x00580790)(object, name);
+    return static_cast<Obj::CSkater*>(object)->GetScaledPhysics(name);
 }
 // 0x004FF470: the gravity (a physics value over a script one; in some states times another). It may come back
 // unrounded (a product left on the x87 stack).
@@ -104,17 +107,17 @@ inline void SetState(void* component, int state)
     GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(component, state);
 }
 
-// 0x0042BBF0 (a vector member, not rewritten yet): x, y and z scaled to `length` (left alone at length 0).
-inline void SetLength(Mth::Vector& v, float length)
-{
-    GameFunction<Mth::Vector*(__thiscall*)(Mth::Vector*, float)>(0x0042BBF0)(&v, length);
-}
+// 0x0042BBF0 (Mth::Vector::SetLength): x, y and z scaled to `length` (left alone at length 0).
+inline void SetLength(Mth::Vector& v, float length) { v.SetLength(length); }
 
 // A button's times: since it was last pressed (0x0046B920) / released (0x0046B900); its press this frame taken
 // (0x0046B7E0).
-inline int TimeSincePress(uint8_t* button) { return GameFunction<int(__thiscall*)(void*)>(0x0046B920)(button); }
-inline int TimeSinceRelease(uint8_t* button) { return GameFunction<int(__thiscall*)(void*)>(0x0046B900)(button); }
-inline void TakePress(uint8_t* button) { GameFunction<void(__thiscall*)(void*)>(0x0046B7E0)(button); }
+inline int TimeSincePress(uint8_t* button) { return reinterpret_cast<Obj::CControlButton*>(button)->GetPressedTime(); }
+inline int TimeSinceRelease(uint8_t* button)
+{
+    return reinterpret_cast<Obj::CControlButton*>(button)->GetReleasedTime();
+}
+inline void TakePress(uint8_t* button) { reinterpret_cast<Obj::CControlButton*>(button)->ClearTrigger(); }
 
 // x87 sine and cosine (fsin / fcos), as the original computes them inline.
 inline double X87Sin(double angle)

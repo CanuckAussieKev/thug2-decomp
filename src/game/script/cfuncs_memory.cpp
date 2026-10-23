@@ -14,6 +14,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/core/stubs.h"
 #include "game/gfx/engine_glue.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -54,11 +55,9 @@ uint32_t HeapName(CStruct* params)
     return name;
 }
 
-// The sound manager's free memory (0x0047AE10 on 0x006F85A8; that returns 0 in this build).
-int FreeSoundMemory()
-{
-    return GameFunction<int(__thiscall*)(void*)>(0x0047AE10)(GameVariable<void*>(0x006F85A8));
-}
+// The sound manager's free memory (0x0047AE10 on 0x006F85A8: `xor eax, eax; ret`, folded with Stubs::ReturnZero -
+// 0 in this build).
+int FreeSoundMemory() { return Stubs::ReturnZero(); }
 
 } // namespace
 

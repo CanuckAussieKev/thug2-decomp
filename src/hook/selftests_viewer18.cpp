@@ -9,6 +9,7 @@
 
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
+#include "game/skater/trick_component.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -73,10 +74,8 @@ void Install(StandIns& s)
         Rec(0x8F40, {r.ecx, r.args[0], r.args[1] & 0xFF});
         return 0u;
     });
-    s.At({0x005480A0}, 0, [](Regs& r) {
-        Rec(0x80A0, {r.args[0], r.args[1]});
-        return 0u;
-    });
+    // (0x005480A0 is the empty function - the original's asserts, compiled out: it runs as it is, ours calls
+    // Stubs::DoNothing)
     s.At({0x0046CC30, AddressOf(&Script::CArray::GetElement)}, 4, [](Regs& r) {
         Rec(0xCC30, {r.ecx, r.args[0]});
         uint32_t element = r.ecx + 0x40 + 0x20 * r.args[0];
@@ -94,7 +93,7 @@ void Install(StandIns& s)
         Rec(0xDB90, {r.ecx, r.args[0]});
         return At(0x0B00);
     });
-    s.At({0x00522410}, 4, [](Regs& r) {
+    s.At({0x00522410, AddressOf(&Obj::CTrickComponent::SetTrickMappings)}, 4, [](Regs& r) {
         Rec(0x2410, {r.ecx, r.args[0]});
         return 0u;
     });

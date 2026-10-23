@@ -13,8 +13,11 @@
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "game/script/struct.h"
+#include "game/skate/career.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
+#include "game/skater/manual.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -189,16 +192,16 @@ bool CorePhysicsComponent::TurnDownSlope()
 // 0x00504730
 void CorePhysicsComponent::NatasSpin()
 {
-    void* career = At<void*>(GameVariable<void*>(0x007CE478), 0x20);
-    if (GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00584CC0)(career, kPerfectRail)) {
+    auto* career = At<Obj::CSkaterCareer*>(GameVariable<void*>(0x007CE478), 0x20);
+    if (career->GetCheat(kPerfectRail)) {
         // (the perfect rail cheat: the balance held)
-        career = At<void*>(GameVariable<void*>(0x007CE478), 0x20);
-        GameFunction<void(__thiscall*)(void*, int)>(0x005843A0)(career, Script::GetInteger(kPerfectRail));
+        career = At<Obj::CSkaterCareer*>(GameVariable<void*>(0x007CE478), 0x20);
+        career->SetGlobalFlag(Script::GetInteger(kPerfectRail));
         At<uint32_t>(At<void*>(this, kBalance), 0x104) = 0;
         At<uint32_t>(At<void*>(this, kBalance), 0x108) = 0;
         GameVariable<uint8_t>(0x007CE4FD) = 1;
     }
-    GameFunction<void(__thiscall*)(void*)>(0x00579CC0)(&At<uint8_t>(At<void*>(this, kBalance), 0xD4));
+    At<Obj::CBalance>(At<void*>(this, kBalance), 0xD4).Update();
     float factor = Script::GetFloat(kNatasSpinFactor);
     double balance = std::fabs(GameFunction<double(__thiscall*)(void*)>(0x004F8F20)(At<void*>(this, kBalance)));
     // The spin slows the further off balance.

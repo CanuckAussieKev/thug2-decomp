@@ -14,6 +14,7 @@
 #include "game/ed/park.h"
 #include "game/ed/piece_menu.h"
 #include "game/ed/park.h"
+#include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -373,7 +374,7 @@ void CaseFloor(bool original, Random& r, std::vector<uint32_t>& t, StandIns& s)
         break;
     }
     case 5: {
-        s.At({0x0059EB30}, 0, [](Regs& regs) {
+        s.At({0x0059EB30, AddressOf(&Ed::PiecesFit)}, 0, [](Regs& regs) {
             Record({0xEB30, regs.args[0], regs.args[1]});
             return (regs.args[0] ^ regs.args[1]) & 0x101u;
         });
@@ -1389,7 +1390,7 @@ void StandInIo(StandIns& s)
         return 0u;
     });
     // the memory bar
-    s.At({0x0059E730}, 0, [](Regs& r) {
+    s.At({0x0059E730, AddressOf(&Ed::GetMemoryStats)}, 0, [](Regs& r) {
         std::memcpy(reinterpret_cast<void*>(r.args[0]), g_io.stats, sizeof(g_io.stats));
         return r.args[0];
     });

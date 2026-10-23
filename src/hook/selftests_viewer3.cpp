@@ -11,6 +11,7 @@
 #include "game/core/string.h"
 #include "game/mth/vector.h"
 #include "game/script/nodes.h"
+#include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
 #include "hook/viewer_testkit.h"
 
@@ -115,11 +116,11 @@ void Install(StandIns& s)
         Rec(0x56C0, {r.ecx});
         return At(kChecklist);
     });
-    s.At({0x00584110}, 4, [](Regs& r) {
+    s.At({0x00584110, AddressOf(&Obj::CSkaterCareer::GetGapChecklist)}, 4, [](Regs& r) {
         Rec(0x4110, {r.ecx, r.args[0]});
         return g_levelChecklist;
     });
-    s.At({0x00584130}, 0, [](Regs& r) {
+    s.At({0x00584130, AddressOf(&Obj::CSkaterCareer::GetLevel)}, 0, [](Regs& r) {
         Rec(0x4130, {r.ecx});
         return static_cast<uint32_t>(g_currentLevel);
     });

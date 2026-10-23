@@ -9,6 +9,7 @@
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -363,7 +364,7 @@ void CParkManager::UpdatePercentBar()
 {
     uint8_t stats[0x6C];
     // 0x0059E730: the park's memory use (fills the stats at 0x007CE618, returns them)
-    auto* use = GameFunction<uint8_t*(__cdecl*)(void*)>(0x0059E730)(stats);
+    auto* use = reinterpret_cast<uint8_t*>(GetMemoryStats(reinterpret_cast<MemoryStats*>(stats)));
     float full;
     std::memcpy(&full, use + 0x2C, 4);
     float percent = full;

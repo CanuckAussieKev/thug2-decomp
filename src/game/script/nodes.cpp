@@ -7,12 +7,14 @@
 #include <cstdint>
 
 #include "game/mth/matrix.h"
+#include "game/mth/quat.h"
 #include "game/mth/vector.h"
 #include "game/script/node_manager.h"
 #include "game/script/cache.h"
 #include "game/script/node_prefixes.h"
 #include "game/script/parse.h"
 #include "game/script/qb.h"
+#include "game/script/script_cfuncs.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -54,11 +56,8 @@ CNodeManager* Manager() { return NodeManagerInstance(); }
 
 VectorValue* AsValue(Mth::Vector* v) { return reinterpret_cast<VectorValue*>(v); }
 
-// A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, on the quaternion; not rewritten yet).
-void QuatToMatrix(const float* quat, Mth::Matrix* matrix)
-{
-    GameFunction<void(__thiscall*)(const float*, Mth::Matrix*)>(0x0042BC40)(quat, matrix);
-}
+// A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, Mth::Quat::GetMatrix).
+void QuatToMatrix(const float* quat, Mth::Matrix* matrix) { reinterpret_cast<const Mth::Quat*>(quat)->GetMatrix(matrix); }
 
 } // namespace
 
@@ -272,7 +271,9 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
             // A C function already looked up: SetEventHandler's scr= is followed.
             uint32_t function = Script::Read4Bytes(token + 1);
             token += 5;
-            if (function != kSetEventHandler) {
+            // (the game's CFunction table holds the game's address; a table of ours would hold our function)
+            if (function != kSetEventHandler &&
+                function != reinterpret_cast<uint32_t>(&CFuncs::CFunc_SetEventHandler)) {
                 token = Script::SkipToEndOfStatement(token);
                 break;
             }

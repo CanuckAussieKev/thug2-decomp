@@ -9,13 +9,19 @@
 
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
+#include "game/mth/quat.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
+#include "game/obj/model_component.h"
 #include "game/obj/object.h"
+#include "game/obj/rail_manager.h"
+#include "game/obj/shadow_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
+#include "game/skater/flip_and_rotate.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -75,11 +81,11 @@ constexpr float kRailEndDistance = 6.0f;           // 0x00646284
 
 Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::CCompositeObject*>(ObjectOf(component)); }
 
-// 0x0057CB60 (the rail manager's, not rewritten yet): a rail node's position.
+// 0x0057CB60 (Obj::CRailManager::GetWorldPos): a rail node's position.
 Mth::Vector RailNodePosition(void* manager, const void* node)
 {
     Mth::Vector position;
-    GameFunction<Mth::Vector*(__thiscall*)(void*, Mth::Vector*, const void*)>(0x0057CB60)(manager, &position, node);
+    static_cast<Obj::CRailManager*>(manager)->GetWorldPos(&position, static_cast<const Obj::CRailNode*>(node));
     return position;
 }
 
@@ -223,15 +229,15 @@ int CorePhysicsComponent::CallMemberFunction(uint32_t name, Script::CStruct* par
     Obj::CBaseComponent* motion = object->GetComponent(kMotion);
     bool moved = motion->CallMemberFunction(kObjMoveToNode, params, script) != 0;
     At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
-    void* shadow = SkaterObject(this)->GetComponent(kShadow);
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317C0)(shadow, &VectorAt(ObjectOf(this), kPosition));
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317E0)(shadow, &VectorAt(ObjectOf(this), kUp));
+    auto* shadow = static_cast<Obj::CShadowComponent*>(SkaterObject(this)->GetComponent(kShadow));
+    shadow->SetPosition(&VectorAt(ObjectOf(this), kPosition));
+    shadow->SetNormal(&VectorAt(ObjectOf(this), kUp));
     VectorAt(this, kSafePosition) = VectorAt(ObjectOf(this), kPosition);
     VectorAt(ObjectOf(this), kOldPosition) = VectorAt(ObjectOf(this), kPosition);
     SkaterObject(this)->SetTeleported(true);
     if (At<uint8_t>(ObjectOf(this), 0xBC)) {
         // (the skater's camera follows at once)
-        void* camera = GameFunction<void*(__thiscall*)(void*)>(0x00580880)(ObjectOf(this));
+        void* camera = static_cast<Obj::CSkater*>(ObjectOf(this))->GetSkaterCamera();
         if (camera)
             static_cast<Obj::CCompositeObject*>(camera)->Update();
     }
@@ -240,8 +246,8 @@ int CorePhysicsComponent::CallMemberFunction(uint32_t name, Script::CStruct* par
         VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         Physics::SetState(this, 0);
         SetTimedFlag(this, 0x28, At<uint8_t>(ObjectOf(this), 0x110) == 0);
-        void* flipAndRotate = SkaterObject(this)->GetComponent(kSkaterFlipAndRotate);
-        GameFunction<void(__thiscall*)(void*)>(0x00511420)(flipAndRotate);
+        static_cast<Obj::CSkaterFlipAndRotateComponent*>(SkaterObject(this)->GetComponent(kSkaterFlipAndRotate))
+            ->ApplyFlipToAnims();
     } else if (params->ContainsFlag(kOrient)) {
         // The horizontal speed kept, along the new facing.
         Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
@@ -385,22 +391,21 @@ bool CorePhysicsComponent::ApplyModelRotations()
         return false;
     void* object = ObjectOf(this);
     Mth::Vector axis = VectorAt(object, kUp);
-    GameFunction<void(__thiscall*)(void*, Mth::Matrix*)>(0x004215F0)(model, &At<Mth::Matrix>(object, kMatrix));
-    uint8_t* yRotation = &At<uint8_t>(model, 0xCC);
-    float angle = GameFunction<float(__thiscall*)(void*)>(0x004213E0)(yRotation);
+    static_cast<Obj::CModelComponent*>(model)->GetDisplayMatrix(&At<Mth::Matrix>(object, kMatrix));
+    auto* yRotation = &At<Obj::CModelSpinAxis>(model, 0xCC);
+    float angle = yRotation->Angle();
     if (angle != 0.0f) {
         // The velocity turned with the model about the up axis.
         Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
         alignas(16) uint8_t rotation[0x10]; // (a quaternion, it seems)
-        GameFunction<void*(__thiscall*)(void*, Mth::Vector*, float)>(0x00420AC0)(rotation, &axis, angle);
-        velocity = *GameFunction<Mth::Vector*(__thiscall*)(void*, Mth::Vector*, Mth::Vector*)>(0x00420B50)(
-            rotation, &axis, &velocity);
+        auto* quat = reinterpret_cast<Mth::Quat*>(rotation);
+        quat->InitFromAxisAngle(axis, angle);
+        velocity = *quat->Rotate(&axis, velocity);
     }
     At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
-    auto reset = GameFunction<void(__thiscall*)(void*)>(0x004204F0);
-    reset(&At<uint8_t>(model, 0x38));
-    reset(yRotation);
-    reset(&At<uint8_t>(model, 0x160));
+    At<Obj::CModelSpinAxis>(model, 0x38).Clear();
+    yRotation->Clear();
+    At<Obj::CModelSpinAxis>(model, 0x160).Clear();
     return true;
 }
 

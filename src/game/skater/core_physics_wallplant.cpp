@@ -11,10 +11,16 @@
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "game/obj/anim_blender.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
+#include "game/obj/trigger_component.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
+#include "game/skater/tagging.h"
+#include "game/skater/trick_component.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -80,8 +86,8 @@ Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::C
 
 void CheckTriggers(void* component, uint32_t kind, uint32_t feeler)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t, void*)>(0x00434BF0)(At<void*>(component, kTriggerComponent), kind,
-                                                                      &At<uint8_t>(component, feeler));
+    static_cast<Obj::CTriggerComponent*>(At<void*>(component, kTriggerComponent))
+        ->CheckFeeler(reinterpret_cast<const int*>(kind), &At<Nx::CFeeler>(component, feeler));
 }
 
 bool TriggerTookOver(void* component) { return At<uint8_t>(At<void*>(component, kStateComponent), 0x26) != 0; }
@@ -90,11 +96,11 @@ bool TriggerTookOver(void* component) { return At<uint8_t>(At<void*>(component, 
 // skater component).
 bool ButtonPressed(void* component, uint32_t button)
 {
-    if (GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x0051ECF0)(At<void*>(component, kSkaterComponent), button))
+    auto* skater = static_cast<Obj::CTrickComponent*>(At<void*>(component, kSkaterComponent));
+    if (skater->IsButtonDown(button))
         return true;
     uint32_t window = Ftol(static_cast<double>(Script::GetFloat(kWallRideWindow)) * kToMilliseconds);
-    return GameFunction<bool(__thiscall*)(void*, uint32_t, uint32_t, int)>(0x0051F6B0)(
-        At<void*>(component, kSkaterComponent), button, window, -1);
+    return static_cast<Obj::CTrickComponent*>(At<void*>(component, kSkaterComponent))->FindPress(button, window, 0xFFFFFFFFu);
 }
 
 // Moving up the wall: whether there's wall 6 either side of the hit point raised by 0.15 of the upward speed (along
@@ -138,7 +144,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
         if (Script::GetFloat(kDisallowRewallplant) > sincePlantFloat)
             return false;
         float sinceRide =
-            static_cast<float>(GameFunction<int(__cdecl*)(uint32_t)>(0x00420250)(At<uint32_t>(this, kWallRideTime)));
+            static_cast<float>(Tmr::GameClockTimeSince(At<int>(this, kWallRideTime)));
         if (static_cast<double>(Script::GetFloat(kWallplantDelay)) * kToMilliseconds > sinceRide)
             return false;
         if (Script::GetFloat(kMinWallplantHeight) > At<float>(FlagsOf(this), kTakeOffHeight))
@@ -152,8 +158,8 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
         bool pressed = false;
         for (uint32_t i = 0; i < tricks->m_size; ++i) {
             uint32_t trick = tricks->GetElement(i);
-            if (GameFunction<bool(__thiscall*)(void*, uint32_t, int, int, int)>(0x0051FDA0)(
-                    At<void*>(this, kSkaterComponent), trick, 0, 0, 1)) {
+            if (static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))
+                    ->CheckTrigger(reinterpret_cast<Script::CStruct*>(trick), 0, 0, true)) {
                 pressed = true;
                 break;
             }
@@ -248,7 +254,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
     }
     if (VectorAt(ObjectOf(this), kVelocity).y > 0.0f && InputOf(this)[0x1A0] && !WallAboveHit(this))
         return false;
-    GameFunction<bool(__thiscall*)(void*, int, int, int)>(0x0051DDF0)(At<void*>(this, 0x1538), 0, walking, late);
+    static_cast<Obj::CTaggingControlComponent*>(At<void*>(this, 0x1538))->SlapSticker(false, walking, late);
     VectorAt(ObjectOf(this), kVelocity).y = 0.0f;
     CheckTriggers(this, 0x0064BBEC, kFeeler);
     if (TriggerTookOver(this))
@@ -281,10 +287,10 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
     // Riding what was hit (if it's an object still there).
     auto* feeler = reinterpret_cast<Nx::CFeeler*>(&At<uint8_t>(this, kFeeler));
     if (feeler->HitObjectAlive()) {
-        bool riding = GameFunction<bool(__thiscall*)(void*)>(0x00427CB0)(At<void*>(this, kRide));
+        bool riding = At<Obj::CMovableContactComponent*>(this, kRide)->IsRiding();
         if (!riding || *At<void**>(At<void*>(this, kRide), 0x18) != feeler->GetHitObject()) {
-            GameFunction<void(__thiscall*)(void*)>(0x00427C70)(At<void*>(this, kRide));
-            GameFunction<void(__thiscall*)(void*, void*)>(0x0043EB80)(At<void*>(this, kRide), feeler->GetHitObject());
+            At<Obj::CMovableContactComponent*>(this, kRide)->StopRiding();
+            At<Walk::MovableContact*>(this, kRide)->StartRiding(feeler->GetHitObject());
         }
     }
     if (!walking) {
@@ -310,8 +316,8 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
     At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
     At<int>(this, kWallplantTime) = Now();
     SkaterObject(this)->SelfEvent(kWallplant, nullptr);
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00522370)(At<void*>(this, kSkaterComponent),
-                                                                At<uint32_t>(this, kHitObjectChecksum));
+    static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))
+        ->PassToTrickObjects(At<uint32_t>(this, kHitObjectChecksum));
     SetTimedFlag(this, 0xC0, 0);
     SetTimedFlag(this, 0xB0, 0);
     SetTimedFlag(this, 0xA0, 1);
@@ -364,7 +370,7 @@ bool CorePhysicsComponent::StartWallRide()
         return false;
     void* skater = At<void*>(this, kSkaterComponent);
     if (!At<uint8_t>(skater, 0x13B0))
-        GameFunction<void(__thiscall*)(void*, bool)>(0x005232A0)(skater, false);
+        static_cast<Obj::CTrickComponent*>(skater)->SetTrickObjects(false);
     SetLastGroundFeeler(&At<uint8_t>(this, kFeeler));
     CheckTriggers(this, 0x0064BB98, kLastGroundFeeler);
     if (TriggerTookOver(this))

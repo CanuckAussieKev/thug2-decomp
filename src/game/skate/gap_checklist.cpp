@@ -13,6 +13,7 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/skate/career.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -81,9 +82,9 @@ CGapChecklist* SkateChecklist()
 void* Career() { return *reinterpret_cast<void**>(GameVariable<uint8_t*>(0x007CE478) + 0x20); }
 CGapChecklist* LevelChecklist(void* career, int level)
 {
-    return GameFunction<CGapChecklist*(__thiscall*)(void*, int)>(0x00584110)(career, level);
+    return static_cast<Obj::CSkaterCareer*>(career)->GetGapChecklist(level);
 }
-int CurrentLevel(void* career) { return GameFunction<int(__thiscall*)(void*)>(0x00584130)(career); }
+int CurrentLevel(void* career) { return static_cast<Obj::CSkaterCareer*>(career)->GetLevel(); }
 
 } // namespace
 
