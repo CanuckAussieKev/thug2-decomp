@@ -10,13 +10,17 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -42,13 +46,13 @@ const void* RunScriptAddress()
 std::vector<StandIn> StateStandIns()
 {
     return {
-        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0},  // the clock
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Tmr::GameClockElapsed)},  // the clock
         {0x00478F00, 0, 1, Ret::Float, false, 0, -1, -1, 0,
          CodeAddress(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
         {0x00478F60, 0, 1, Ret::Int, false, 0, -1, -1, 0,
          CodeAddress(static_cast<int (*)(uint32_t)>(&Script::GetInteger))},
         {0x00401C30, 0, 4, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Dbg::Printf)},
-        {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0},   // TimeSincePress
+        {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::GetPressedTime)},   // TimeSincePress
         {0x00475790, 0, 5, Ret::None, false, 8, -1, -1, 0, RunScriptAddress()},
         {0x004FC3C0, 0, 0, Ret::Bool, true, 0, -1, -1, 0},  // (a throw)
         {0x004FC420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},  // (walking)
@@ -65,7 +69,7 @@ std::vector<StandIn> StateStandIns()
         {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0},  // the gravity
         {0x00477C60, 8, 2, Ret::None, true, 0, -1, -1, 0,
          CodeAddress(static_cast<void (Script::CStruct::*)(uint32_t, float)>(&Script::CStruct::AddFloat)), nullptr, 2},
-        {0x0043A930, 4, 1, Ret::Int, true, 0, -1, -1, 0},   // (a feeler copied)
+        {0x0043A930, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Nx::CFeeler::Assign)},   // (a feeler copied)
         {0x0044E4F0, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&GameNet::Manager::InNetGame)},
         {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},  // SetState
         {0x00416DD0, 0, 0, Ret::None, true, 0, -1, -1, 0},  // (a smart pointer released)
@@ -78,9 +82,9 @@ std::vector<StandIn> StateStandIns()
         {0x00401CC0, 0, 1, Ret::Fixed, false, 0, -1, -1, 0,
          CodeAddress(static_cast<void* (*)(unsigned int)>(&Mem::Calloc)), &g_pointerResult},
         // (speed)
-        {0x00580790, 4, 1, Ret::Double, true, 0, -1, -1, 0},  // StatValue
-        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0},  // PhysicsFloat
-        {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, nullptr, nullptr, 1}, // SetLength (a float)
+        {0x00580790, 4, 1, Ret::Double, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkater::GetScaledPhysics)},  // StatValue
+        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0, CodeAddress(&Obj::GetPhysicsFloat)},  // PhysicsFloat
+        {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::SetLength), nullptr, 1}, // SetLength (a float)
         {0x004FE1F0, 4, 1, Ret::None, true, 0, -1, -1, 0, nullptr, nullptr, 1}, // the air friction (a float)
         {0x004FE420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
         {0x004FE6A0, 0, 0, Ret::None, true, 0, -1, -1, 0},

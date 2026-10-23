@@ -9,10 +9,16 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/skater.h"
+#include "game/skater/trick_component.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -64,11 +70,11 @@ void FeelStandIn(Frame& f, Result& r)
 void TestDoWallRidePhysics()
 {
     StandIns standIns({
-        {0x0044ECE0, 0, 0, Ret::Int, false},
-        {0x00427C70, 0, 0, Ret::None, true},
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
+        {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00416F00, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CRideTracker::Update)}},
         {0x005BFA8C, 12, 3, Ret::Int, false},
-        {0x00580400, 0, 3, Ret::Float, false},
+        {0x00580400, 0, 3, Ret::Float, false, 0, {Ours(&Obj::GetPhysicsFloat)}},
         {0x00478F00, 0, 1, Ret::Float, false, 0, {Ours(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
          [](Frame&, Result& r) {
              static const float values[] = {0.0f, 0.05f, 1.5f, -30.0f, 6.0f, 200.0f, 0.5f};
@@ -81,7 +87,7 @@ void TestDoWallRidePhysics()
              RecordFloat(*reinterpret_cast<float*>(&f.args[1]));
              v[0] += 0.5f, v[2] -= 0.25f; // (turned)
          }},
-        {0x005003A0, 8, 2, Ret::Bool, true, 0, {}, FeelStandIn},
+        {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, FeelStandIn},
         {0x004FE860, 16, 4, Ret::None, true},
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
          [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kQueries)); }},
@@ -93,9 +99,9 @@ void TestDoWallRidePhysics()
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
         {0x00460A20, 12, 3, Ret::None, true, 0, {Ours(&Obj::CObject::BroadcastEvent)}},
         {0x005051B0, 0, 0, Ret::Bool, true, 0, {}, [](Frame&, Result& r) { r.eax = Next() % 6 == 0; }},
-        {0x00434BF0, 8, 2, Ret::None, true},
-        {0x005232A0, 4, 1, Ret::None, true, 1},
-        {0x0043A930, 4, 1, Ret::Int, true, 0, {}, [](Frame& f, Result& r) { r.eax = f.ecx; }},
+        {0x00434BF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CTriggerComponent::CheckFeeler)}},
+        {0x005232A0, 4, 1, Ret::None, true, 1, {Ours(&Obj::CTrickComponent::SetTrickObjects)}},
+        {0x0043A930, 4, 1, Ret::Int, true, 0, {Ours(&Nx::CFeeler::Assign)}, [](Frame& f, Result& r) { r.eax = f.ecx; }},
         {0x004FFB10, 0, 0, Ret::Bool, true},
         {0x00522370, 4, 1, Ret::None, true},
     });

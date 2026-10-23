@@ -31,7 +31,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { decodeCp1252, isMain, print, pyStrip, readTextPy, runMain, writeTextPy } from "./lib/py.ts";
 
 const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const TIMEOUT_MS = 60_000;
+// (MUTATE_TIMEOUT_MS overrides it: a busy machine runs a large test selection slower)
+const TIMEOUT_MS = Number(process.env.MUTATE_TIMEOUT_MS ?? 60_000);
 
 export type Mutation = readonly [file: string, name: string, oldText: string, newText: string];
 

@@ -11,15 +11,18 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/walk_hang.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -46,8 +49,8 @@ constexpr uint32_t kRideObject = kFree + 0x300; // what the skater ends up ridin
 std::vector<StandIn> LipStandIns()
 {
     return {
-        {0x0044ECE0, 0, 0, Ret::Int, false},
-        {0x00427C70, 0, 0, Ret::None, true},
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
+        {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00416F00, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CRideTracker::Update)}},
         {0x00427A00, 4, 1, Ret::Int, true, 0, {}, [](Frame& f, Result& r) {
              float* out = reinterpret_cast<float*>(f.args[0]);
@@ -129,15 +132,15 @@ void TestDoLipPhysics()
 // object or not, riding something before or not) or an acid drop or neither.
 void TestResumeSkating()
 {
-    StandIns standIns({{0x0044ECE0, 0, 0, Ret::Int, false},
+    StandIns standIns({{0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
                        {0x004FDE40, 0, 0, Ret::None, true},
                        {0x004FDED0, 4, 1, Ret::None, true},
                        {0x00416DD0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CSmtPtr<Obj::CRefCounted>::Release)}},
                        {0x005BABA0, 4, 1, Ret::None, true, 0, {Ours(&Mem::Manager::Free)}},
-                       {0x0043EB80, 4, 1, Ret::None, true},
+                       {0x0043EB80, 4, 1, Ret::None, true, 0, {Ours(&Walk::MovableContact::StartRiding)}},
                        {0x0050A770, 0x14, 5, Ret::None, true, 0x18, {Ours(&CorePhysicsComponent::StartGrind)},
                         [](Frame&, Result&) { ArenaAt<float>(kObject + 0x4C) += 3.0f; }},
-                       {0x00502F20, 4, 1, Ret::None, true}});
+                       {0x00502F20, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::StartAcidDrop)}}});
     UseOurs matrices({{0x00404090, Ours(static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::Matrix&)>(&Mth::Matrix::operator=))}});
     ClockOffsetZero clock;
     bool same = true;
@@ -179,10 +182,10 @@ void TestTryGrind()
     static int s_found; // which FindGrindRail call finds one (1-based; 0 none)
     static int s_finds;
     StandIns standIns({
-        {0x0044ECE0, 0, 0, Ret::Int, false},
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
         {0x00478F60, 0, 1, Ret::Int, false, 0, {Ours(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}},
         {0x00478F00, 0, 1, Ret::Float, false, 0, {Ours(static_cast<float (*)(uint32_t)>(&Script::GetFloat))}},
-        {0x00420250, 0, 1, Ret::Int, false},
+        {0x00420250, 0, 1, Ret::Int, false, 0, {Ours(&Tmr::GameClockTimeSince)}},
         {0x0057E2D0, 0x1C, 7, Ret::Bool, true, 0, {Ours(&Obj::CRailManager::FindGrindRail)},
          [](Frame& f, Result& r) {
              for (int i = 0; i < 4; ++i) {
@@ -196,7 +199,7 @@ void TestTryGrind()
              *reinterpret_cast<uint32_t*>(f.args[3]) = 0x0DE00000 + s_finds;
          }},
         {0x004FC4A0, 0, 3, Ret::None, false},
-        {0x00427C70, 0, 0, Ret::None, true},
+        {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00500020, 12, 3, Ret::Bool, true},
         {0x0050A770, 0x14, 5, Ret::None, true, 0x18, {Ours(&CorePhysicsComponent::StartGrind)},
          [](Frame& f, Result&) {
@@ -212,7 +215,7 @@ void TestTryGrind()
              std::memcpy(m, matrix, sizeof(matrix));
              m[12] = RandomFloat(20.0f);
          }},
-        {0x0043EB80, 4, 1, Ret::None, true},
+        {0x0043EB80, 4, 1, Ret::None, true, 0, {Ours(&Walk::MovableContact::StartRiding)}},
         {0x00427DD0, 0, 0, Ret::None, true},
     });
     // The components' vtable: slot 13 returns the component's rail manager (+0x1C).

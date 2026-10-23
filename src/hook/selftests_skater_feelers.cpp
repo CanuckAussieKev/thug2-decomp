@@ -9,9 +9,12 @@
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -40,7 +43,7 @@ float NotANumber()
 std::vector<StandIn> FeelerStandIns()
 {
     return {
-        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0}, // the clock
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Tmr::GameClockElapsed)}, // the clock
         {0x00478F00, 0, 1, Ret::Float, false, 0, -1, -1, 0,
          CodeAddress(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
         {0x00478F60, 0, 1, Ret::Int, false, 0, -1, -1, 0,
@@ -50,8 +53,8 @@ std::vector<StandIn> FeelerStandIns()
         {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 1, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,
          0x74, 0, 8}, // (the line recorded, the hit's distance filled in)
         {0x0057CB60, 8, 2, Ret::FirstArg, true, 0, -1, 0, 4, nullptr, nullptr, 0, 0, -1, -1, 0, 8.0f}, // a rail node's position
-        {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, nullptr, nullptr, 1}, // SetLength (a float)
-        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0},  // PhysicsFloat
+        {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::SetLength), nullptr, 1}, // SetLength (a float)
+        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0, CodeAddress(&Obj::GetPhysicsFloat)},  // PhysicsFloat
         // (members)
         {0x00476A90, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Script::CStruct::FindComponent)},
         {0x0045DB90, 4, 1, Ret::Fixed, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::GetComponent),
@@ -71,8 +74,8 @@ std::vector<StandIn> FeelerStandIns()
         {0x00420B50, 8, 2, Ret::FirstArg, true, 0, 1, 0, 4},
         {0x004204F0, 0, 0, Ret::None, true, 0, -1, -1, 0},
         // (skitching)
-        {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0},    // TimeSincePress
-        {0x0046B7E0, 0, 0, Ret::None, true, 0, -1, -1, 0},   // TakePress
+        {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::GetPressedTime)},    // TimeSincePress
+        {0x0046B7E0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::ClearTrigger)},   // TakePress
         {0x0045F2D0, 4, 1, Ret::Fixed, true, 0, -1, -1, 0,
          CodeAddress(&Obj::CCompositeObjectManager::GetFirstComponentByType), &g_pointerB},
         {0x0051BA70, 8, 2, Ret::Fixed, true, 0, 1, 0, 4, nullptr, &g_skitchIndex}, // the nearest skitch point

@@ -10,6 +10,7 @@
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"
@@ -18,6 +19,8 @@
 #include "game/skate/career.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
+#include "game/skater/skater.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -60,8 +63,8 @@ UseOurs* RailVectorFunctions()
 std::vector<StandIn> RailStandIns(bool transferStoodIn)
 {
     std::vector<StandIn> list = {
-        {0x0044ECE0, 0, 0, Ret::Int, false},
-        {0x00580400, 0, 3, Ret::Float, false},
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
+        {0x00580400, 0, 3, Ret::Float, false, 0, {Ours(&Obj::GetPhysicsFloat)}},
         {0x00478F00, 0, 1, Ret::Float, false, 0, {Ours(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
          [](Frame&, Result& r) {
              static const float values[] = {0.0f, 20.0f, 45.0f, 60.0f, 89.0f, 200.0f, 1000.0f, 2.5f};
@@ -90,7 +93,7 @@ std::vector<StandIn> RailStandIns(bool transferStoodIn)
              *reinterpret_cast<uint8_t**>(f.args[3]) = which < 0 ? nullptr : ArenaPtr(kNodes + which * 0x54);
              r.eax = g_findMode % 9 != 8;
          }},
-        {0x00427C70, 0, 0, Ret::None, true},
+        {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00416F00, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CRideTracker::Update)}},
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
          [](Frame&, Result& r) { r.eax = 0x0C0C0000; }},
@@ -125,7 +128,7 @@ std::vector<StandIn> RailStandIns(bool transferStoodIn)
              *reinterpret_cast<uint32_t*>(f.args[1]) = 0x6000 + Next() % 4;
          }},
         {0x00522370, 4, 1, Ret::None, true},
-        {0x005003A0, 8, 2, Ret::Bool, true, 0, {}, [](Frame&, Result& r) { r.eax = Next() % 3 == 0; }},
+        {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, [](Frame&, Result& r) { r.eax = Next() % 3 == 0; }},
         {0x004FDED0, 4, 1, Ret::None, true},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
         {0x004FC470, 4, 1, Ret::None, true},

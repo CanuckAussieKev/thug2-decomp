@@ -12,6 +12,7 @@
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
+#include "game/skater/skater_sound.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -45,21 +46,6 @@ void ReleaseFeelerObject(FeelerStorage& feeler)
     auto& object = reinterpret_cast<Obj::CSmtPtr<Obj::CRefCounted>&>(feeler->m_object);
     if (object.mp_object)
         object.mp_object->RemoveSmartPointer(&object);
-}
-
-// 0x00508140 / 0x00507500(a, b, c): two checks the original makes before bonking (a lip trick or a wallplant,
-// it seems); true when they took over.
-bool CheckLip(void* component) { return GameFunction<bool(__thiscall*)(void*)>(0x00508140)(component); }
-bool TryWallplant(void* component, int a, int b, int c)
-{
-    return GameFunction<bool(__thiscall*)(void*, int, int, int)>(0x00507500)(component, a, b, c);
-}
-
-// 0x005039F0: (not known yet) with a wall's normal and an overlap; returns a float nobody uses.
-void Call5039F0(void* component, const Mth::Vector* normal, float* overlap, float scale)
-{
-    GameFunction<float(__thiscall*)(void*, const Mth::Vector*, float*, float)>(0x005039F0)(component, normal, overlap,
-                                                                                           scale);
 }
 
 } // namespace
@@ -189,9 +175,9 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Mth::Vector* from)
     // A bonk - unless a wallplant (not with +0x302) or 0x00508140 takes over.
     bool done = false;
     if (!Flag(this, 0xE0) && !Flag(this, 0x70)) {
-        if (!At<uint8_t>(this, 0x302) && TryWallplant(this, 0, 0, 0))
+        if (!At<uint8_t>(this, 0x302) && WallPlant(false, false, false))
             done = true;
-        else if (CheckLip(this))
+        else if (StartWallRide())
             done = true;
     }
     if (!done) {
@@ -207,8 +193,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Mth::Vector* from)
                 void* skater = ObjectOf(this);
                 float speed = static_cast<float>(LengthOf(VectorAt(skater, kVelocity)));
                 float fraction = speed / static_cast<Obj::CSkater*>(skater)->GetScaledPhysics(kMaxMaxSpeed);
-                GameFunction<void(__thiscall*)(void*, float, uint8_t)>(0x00518DD0)(At<void*>(this, kSoundComponent),
-                                                                                   fraction, terrain);
+                static_cast<Obj::CSkaterSoundComponent*>(At<void*>(this, kSoundComponent))->PlayBonk(fraction, terrain);
             } else {
                 Script::RunScript(kVehicleLandSound, nullptr, static_cast<Obj::CObject*>(ObjectOf(this)), false,
                                   nullptr);
@@ -293,7 +278,7 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
     Mth::Vector normal = VectorAt(this, kHitNormal);
     float overlap = 0.0f; // (uninitialised in the original when not in the air)
     if (StateOf(this) == kAir) {
-        if (!Flag(this, 0xE0) && !Flag(this, 0x70) && CheckLip(this))
+        if (!Flag(this, 0xE0) && !Flag(this, 0x70) && StartWallRide())
             return true;
         // Pushed out of it by a tenth of how far into it the skater is (the hit's distance under the reach, less
         // the extra air reach).
@@ -305,11 +290,11 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
         overlap = static_cast<float>(depth);
         if (!(depth > 0.0))
             return false;
-        GameFunction<void(__thiscall*)(Mth::Vector*, float)>(0x0042BBF0)(&into, overlap); // (its length set)
+        into.SetLength(overlap);
         VectorAt(ObjectOf(this), kPosition) -= into / 10.0f;
         const uint8_t* input = InputOf(this);
         if (StateOf(this) != kAir && !input[0x100] && !input[0xA0] && !input[0x60] && !input[0x80])
-            Call5039F0(this, &normal, &overlap, 0.2f); // (never: the state is the air's)
+            BounceOffWall(&normal, &overlap, 0.2f); // (never: the state is the air's)
         return false;
     }
     // On the ground: a near-vertical wall puts the skater back where it was (+0x98) ...
@@ -318,7 +303,7 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
     if (!(facingUp < static_cast<double>(0.25f)) || !(facingUp > static_cast<double>(-0.25f)))
         return false;
     VectorAt(ObjectOf(this), kPosition) = VectorAt(this, 0x98);
-    Call5039F0(this, &normal, &overlap, 0.2f);
+    BounceOffWall(&normal, &overlap, 0.2f);
     // ... then, unless there's something between (a feeler from just off the hit out to the length) or a trigger's
     // script takes over, onto the wall: at that feeler's end, lowered by the side height.
     const Mth::Vector& point = VectorAt(this, kHitPoint);
