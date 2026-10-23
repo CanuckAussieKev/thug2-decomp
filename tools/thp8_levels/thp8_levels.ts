@@ -3,10 +3,11 @@
 // are made from the user's own copies each time. README.md has how to run it and what is converted.
 //
 // THP8's world is one city streamed in zones (game\DATA\COMPRESSED\ZONES\z_<zone>.pak.xen, each with its _lod
-// stand-in); each zone becomes a THUG2 level here (the whole city is ~10 times what THUG2's memory takes). A zone's
+// stand-in); each zone becomes a THUG2 level here, and each of THP8's network levels of several zones one more (the
+// zones merged in their shared frame: networkAreas / convertLevel - BEAVER VALLEY is the whole town). A zone's
 // archive holds the zone and its _gfx / _sfx sub-zones; the main one (pak flags 0) is converted: its scene (.geom),
 // textures (.tex), collision (.hkc, Havok) and node array (.nqb). The network areas' barriers (z_online_<x>.pak.xen)
-// are added to the zone they close off.
+// are added to the level they close off.
 //
 // Space: THP8's metres (y up) as THUG2's inches (x 39.37); each zone moved (x / z, whole sixteenths of an inch) so the
 // middle of its collision is at the origin.
