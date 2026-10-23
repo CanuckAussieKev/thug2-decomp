@@ -17,8 +17,11 @@
 #include "game/net/net_client.h"
 #include "game/nx/feeler.h"
 #include "game/obj/control_pad.h"
+#include "game/obj/skeleton_component.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -125,8 +128,8 @@ double X87Cos(double angle)
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// A float of the tag settings (the global structure 0x6775E538).
-float TagSetting(uint32_t name) { return GameFunction<float(__cdecl*)(uint32_t)>(0x0043DA70)(name); }
+// A float of the tag settings (in the global structure 0x6775E538, walk_parameters).
+float TagSetting(uint32_t name) { return CWalkComponent::Param(name); }
 
 } // namespace
 
@@ -265,7 +268,7 @@ void CTaggingComponent::PlaceTag(bool sticker, Mth::Vector start, Mth::Vector en
     msg.m_id = 0x99;
     msg.m_groupId = 0xA;
     msg.m_queue = Net::MsgDesc::kQueueSequenced;
-    GameFunction<Net::Client*(__thiscall*)(GameNet::Manager*, int)>(0x00532EA0)(manager, 0)->EnqueueMessageToServer(&msg);
+    static_cast<Net::Client*>(manager->GetClient(0))->EnqueueMessageToServer(&msg);
 }
 
 // --- CTaggingControlComponent ---
@@ -362,7 +365,7 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
             facing.w = skater->m_vel.w;
         } else {
             Mth::Vector heading;
-            const Mth::Vector* got = GameFunction<Mth::Vector*(__thiscall*)(CBaseComponent*, Mth::Vector*)>(0x00528560)(m_walk, &heading);
+            const Mth::Vector* got = static_cast<CWalkComponent*>(m_walk)->GetFacing(&heading);
             facing.x = got->x;
             facing.z = got->z;
             facing.w = got->w;
@@ -452,7 +455,7 @@ bool CTaggingControlComponent::Update()
     Nx::CFeeler feeler;
     feeler.Construct();
     Mth::Vector bonePos;
-    GameFunction<bool(__thiscall*)(CBaseComponent*, uint32_t, Mth::Vector*)>(0x00432050)(skeleton, bone, &bonePos);
+    static_cast<CSkeletonComponent*>(skeleton)->GetBonePosition(bone, &bonePos);
     if (Field<int>(m_walk, 0x18) == 2)
         bonePos.y = static_cast<float>(bonePos.y - 10.0); // 0x00646710
     Mth::Vector hits[6];
@@ -481,8 +484,7 @@ bool CTaggingControlComponent::Update()
             hits[i] = feeler.m_point;
             distances[i] = std::fabs(feeler.m_distance);
             found = true;
-            GameFunction<void(__thiscall*)(CBaseComponent*, const char*, Nx::CFeeler*)>(0x00434BF0)(
-                m_trigger, reinterpret_cast<const char*>(0x0064C388), &feeler);
+            static_cast<CTriggerComponent*>(m_trigger)->CheckFeeler(reinterpret_cast<const int*>(0x0064C388), &feeler);
         } else {
             distances[i] = 1000.0f;
         }

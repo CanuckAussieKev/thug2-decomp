@@ -13,6 +13,8 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
+#include "game/obj/anim_blender.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -53,10 +55,10 @@ void StandIn(StandIns& s)
         default: return 0u;
         }
     });
-    Rec(s, {0x0053AEA0}, 1, 0xAEA0, [](Regs&) { return g_a.havePlayer ? Addr(kPlayer) : 0u; });
-    Rec(s, {0x00543300}, 0, 0x3300, [](Regs&) { return g_a.localPlayer ? 1u : 0u; });
-    Rec(s, {0x005434B0}, 0, 0x34B0, [](Regs& r) { return 0x100u + (Rel(r.ecx) & 0xFFF); });
-    Rec(s, {0x00532EA0}, 1, 0x2EA0, [](Regs&) { return Addr(kApp); });
+    Rec(s, {0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 1, 0xAEA0, [](Regs&) { return g_a.havePlayer ? Addr(kPlayer) : 0u; });
+    Rec(s, {0x00543300, AddressOf(&GameNet::PlayerInfo::IsLocalPlayer)}, 0, 0x3300, [](Regs&) { return g_a.localPlayer ? 1u : 0u; });
+    Rec(s, {0x005434B0, AddressOf(&GameNet::PlayerInfo::GetSkaterValue2BC)}, 0, 0x34B0, [](Regs& r) { return 0x100u + (Rel(r.ecx) & 0xFFF); });
+    Rec(s, {0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 1, 0x2EA0, [](Regs&) { return Addr(kApp); });
     Rec(s, {0x004549F0, AddressOf(&Net::MsgDesc::Construct)}, 0, 0x49F0, [](Regs& r) {
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 0x20);
         return r.ecx;
@@ -72,14 +74,14 @@ void StandIn(StandIns& s)
     });
     Rec(s, {0x004FE120}, 0, 0xE120);
     Rec(s, {0x004FC440}, 0, 0xC440, [](Regs&) { return g_a.flipNeeded ? 1u : 0u; });
-    Rec(s, {0x00419C10}, 4, 0x9C10);
+    Rec(s, {0x00419C10, AddressOf(&Obj::CAnimBlenderComponent::AnyChannel)}, 4, 0x9C10);
     Rec(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, 0xECE0, [](Regs&) { return static_cast<uint32_t>(g_a.clock); },
         false);
     Rec(s, {0x00476B40, AddressOf(static_cast<bool (Script::CStruct::*)(uint32_t)>(&Script::CStruct::ContainsFlag))}, 1,
         0x6B40, [](Regs&) { return g_a.normal ? 1u : 0u; });
     // The floating name's.
     Rec(s, {0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, 0xE4F0, [](Regs&) { return g_a.netGame ? 1u : 0u; });
-    Rec(s, {0x00533140}, 0, 0x3140, [](Regs&) { return g_a.showNames ? 1u : 0u; });
+    Rec(s, {0x00533140, AddressOf(&GameNet::Manager::ShouldDrawPlayerNames)}, 0, 0x3140, [](Regs&) { return g_a.showNames ? 1u : 0u; });
     Rec(s, {0x004AAE20, AddressOf(&Front::CScreenElementManager::GetElement)}, 3, 0xAE20, [](Regs& r) {
         auto* out = reinterpret_cast<uint32_t*>(r.args[0]);
         out[0] = g_a.haveLabel ? Addr(kLabel) : 0u;
@@ -87,7 +89,7 @@ void StandIn(StandIns& s)
     });
     Rec(s, {0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 1, 0x37E0);
     Rec(s, {0x00580050, AddressOf(&Obj::CSkater::GetFlag2C4)}, 0, 0x0050, [](Regs&) { return g_a.shown ? 1u : 0u; });
-    Rec(s, {0x00532EC0}, 0, 0x2EC0, [](Regs&) { return g_a.playerIsLocal ? Addr(kPlayer) : Addr(kLocalPlayer); });
+    Rec(s, {0x00532EC0, AddressOf(&GameNet::Manager::GetCamPlayer)}, 0, 0x2EC0, [](Regs&) { return g_a.playerIsLocal ? Addr(kPlayer) : Addr(kLocalPlayer); });
     Rec(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_a.teams ? 1u : 0u; });
     Rec(s, {0x00581580, AddressOf(&Obj::CSkater::GetDisplayName)}, 0, 0x1580,
         [](Regs&) { return reinterpret_cast<uint32_t>("Tony Hawk"); });

@@ -9,6 +9,8 @@
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/skater/looping_sound.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -36,15 +38,15 @@ constexpr int kStateAir = 1, kStateLip = 3;
 
 // 0x00405480: zero-length rows of the matrix repaired; whether any was. Not rewritten yet.
 bool PatchOrthogonality(Mth::Matrix& m) { return GameFunction<bool(__thiscall*)(Mth::Matrix*)>(0x00405480)(&m); }
-// The skater's physics value `name` (Obj::CSkater 0x00580790, as GetScaledValue). Not rewritten yet.
+// The skater's physics value `name` (as GetScaledValue).
 double ScaledPhysicsValue(CCompositeObject* skater, uint32_t name)
 {
-    return GameFunction<double(__thiscall*)(CCompositeObject*, uint32_t)>(0x00580790)(skater, name);
+    return static_cast<CSkater*>(skater)->GetScaledPhysics(name);
 }
-// The looping sound component's 0x005138B0: the speed as a fraction of the top speed.
+// The looping sound component: the speed as a fraction of the top speed.
 void SetLoopingSoundSpeed(CBaseComponent* sound, float fraction)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, float)>(0x005138B0)(sound, fraction);
+    static_cast<CSkaterLoopingSoundComponent*>(sound)->SetSpeedFraction(fraction);
 }
 
 // `value` into `stored`, `changed` set if it differs.

@@ -10,6 +10,7 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/skater/skater.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -36,10 +37,10 @@ const uint32_t* StateNames() { return &GameVariable<uint32_t>(0x0064C080); }
 uint32_t SkaterIndex(CCompositeObject* skater) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC); }
 uint32_t TimerScriptId(CCompositeObject* skater) { return SkaterIndex(skater) + kRunTimerScriptId; }
 
-// The skater's physics value `name` (CSkater 0x00580790). Not rewritten yet.
+// The skater's physics value `name`.
 double PhysicsValue(CCompositeObject* skater, uint32_t name)
 {
-    return GameFunction<double(__thiscall*)(CCompositeObject*, uint32_t)>(0x00580790)(skater, name);
+    return static_cast<CSkater*>(skater)->GetScaledPhysics(name);
 }
 
 // An event of `type` to the run timer's script (no data, not broadcast).
@@ -94,8 +95,7 @@ void CSkaterRunTimerComponent::GetDebugInfo(Script::CStruct* params)
 {
     params->AddChecksum(kMState, StateNames()[m_state]);
     params->AddFloat(kMTimer, m_timeLeft);
-    // (the base's: 0x005BAB90, empty)
-    GameFunction<void(__thiscall*)(CBaseComponent*, Script::CStruct*)>(0x005BAB90)(this, params);
+    // (then the base's GetDebugInfo, which is empty: 0x005BAB90)
 }
 
 // 0x00518300

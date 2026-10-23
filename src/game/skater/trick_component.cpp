@@ -10,6 +10,7 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/skater/controls.h"
+#include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -1059,7 +1060,7 @@ void CTrickComponent::SetPendingTrick(uint32_t list, uint32_t mask, bool flag)
         Field<uint32_t>(this, 0x126C) = list;
         Field<int>(this, 0x1270) = i;
         Field<int>(this, 0x1274) = static_cast<int>(
-            static_cast<uint32_t>(GameFunction<int(__cdecl*)()>(0x0044ECE0)()) + static_cast<uint32_t>(GameVariable<int>(0x00696D60)));
+            static_cast<uint32_t>(Tmr::GameClockElapsed()) + static_cast<uint32_t>(GameVariable<int>(0x00696D60)));
         Field<bool>(this, 0x127C) = flag;
         Field<int>(this, 0x1278) = -1;
         trick->GetInteger(0x79A07F3Fu, &Field<int>(this, 0x1278), 0);

@@ -8,9 +8,14 @@
 #include "game/core/manager.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/gamenet_manager.h"
+#include "game/obj/anim_blender.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/object.h"
+#include "game/obj/rail_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/stats_manager.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -72,10 +77,10 @@ void* ScoreDisplay(uint8_t* score) { return *reinterpret_cast<void**>(score + 0x
 // The score's two balance displays (0x00563370 / 0x00563390): on or off, and the lean shown.
 void ShowLean(void* score, int on, float lean) { GameFunction<void(__thiscall*)(void*, int, float)>(0x00563370)(score, on, lean); }
 void ShowLean2(void* score, int on, float lean) { GameFunction<void(__thiscall*)(void*, int, float)>(0x00563390)(score, on, lean); }
-// A button of the input component's control data held (0x0046C270: its byte).
+// A button of the input component's control data held (its first byte).
 bool Held(uint8_t* input, uint32_t button)
 {
-    return *GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0046C270)(input + 0x20, button) != 0;
+    return reinterpret_cast<CControlPad*>(input + 0x20)->GetButton(button)->m_pressed != 0;
 }
 
 void ResetState(CBalance* b)
@@ -175,7 +180,7 @@ void CBalance::Start(uint32_t leftButton, uint32_t rightButton, uint32_t trick, 
         uint8_t* core = reinterpret_cast<uint8_t*>(m_skater->GetComponent(kSkaterCorePhysics));
         void* rail = *reinterpret_cast<void**>(core + 0x22C);
         if (m_rail != -1) {
-            if (GameFunction<bool(__thiscall*)(void*, int)>(0x0057C200)(rail, m_rail)) { // the same rail
+            if (static_cast<CRailNode*>(rail)->IsNamed(static_cast<uint32_t>(m_rail))) { // the same rail
                 m_railTime = static_cast<float>(Physics(m_balanceTrick, kSameGrindAddTime) + m_railTime);
             } else {
                 double time = m_railTime - Physics(m_balanceTrick, kNewGrindSubTime);
@@ -237,9 +242,9 @@ void CBalance::Update()
     float frame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
     if (!m_leftButton || !m_rightButton)
         return;
-    void* net = GameVariable<void*>(0x007CCE14); // GameNet::Manager
-    if (GameFunction<void*(__thiscall*)(void*)>(0x005480C0)(net))
-        GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(net, m_skater->m_id); // (its result unused)
+    auto* net = GameVariable<GameNet::Manager*>(0x007CCE14);
+    if (net->m_server) // (the folded getter 0x005480C0)
+        net->PlayerByObjectId(static_cast<uint16_t>(m_skater->m_id)); // (its result unused)
     // The cheese wears off.
     if (m_cheese > 0.01f) {
         float cheese = static_cast<float>(Physics(m_balanceTrick, kCheese));
@@ -253,7 +258,7 @@ void CBalance::Update()
     m_time = static_cast<float>(static_cast<double>(frame) + m_time);
     m_railTime = static_cast<float>(static_cast<double>(frame) + m_railTime);
     CBaseComponent* stats = m_skater->GetComponent(kStatsManager);
-    GameFunction<void(__thiscall*)(void*, uint32_t, float, int)>(0x0051D6A0)(stats, TrickType(m_balanceTrick), m_time, 0);
+    static_cast<CStatsManagerComponent*>(stats)->CheckBalanceTime(TrickType(m_balanceTrick), m_time, 0);
     // The lean speeds up.
     float gravity = static_cast<float>(Physics(m_balanceTrick, kLeanGravityStat));
     float instableRate = static_cast<float>(Physics(m_balanceTrick, kInstableRate));
@@ -313,8 +318,8 @@ void CBalance::Update()
         }
         if (CBaseComponent* blender = m_skater->GetComponent(kAnimBlender)) {
             double position = flip ? 4096.0 - m_lean : m_lean + 4096.0;
-            GameFunction<void(__thiscall*)(void*, float, int)>(0x00419BD0)(
-                blender, static_cast<float>(position * 0.0001220703125f), 1);
+            static_cast<CAnimBlenderComponent*>(blender)->FirstChannel47E280(
+                static_cast<float>(position * 0.0001220703125f), 1);
         }
     }
     float shown = static_cast<float>(m_lean * -0.000244140625f);

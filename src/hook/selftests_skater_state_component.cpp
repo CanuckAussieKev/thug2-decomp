@@ -16,6 +16,7 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_sound.h"
 #include "game/skater/skater_state.h"
@@ -44,10 +45,10 @@ void StandIn(StandIns& s)
     StandInStructGetters(s);
     Rec(s, {0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 1, 0xDB90, [](Regs&) { return Addr(kCore); });
     // The sound's.
-    Rec(s, {0x004443B0}, 1, 0x43B0, [](Regs& r) { return 0x7AB00000u ^ r.args[0]; }, false, true);
-    s.At({0x00444BB0}, 0, [](Regs& r) {
-        // (the terrain: only its byte counts - the original passes stale upper bytes)
-        Record({0x4BB0, r.args[0], r.args[1] & 0xFF, Rel(r.args[2]), r.args[3], r.args[4], r.args[5], r.args[6]});
+    Rec(s, {0x004443B0, AddressOf(&Terrain::GetTableIndex)}, 1, 0x43B0, [](Regs& r) { return 0x7AB00000u ^ r.args[0]; }, false, true);
+    s.At({0x00444BB0, AddressOf(&Terrain::PlayTerrainSound)}, 0, [](Regs& r) {
+        // (the table and the terrain: only their bytes count - the original passes stale upper bytes)
+        Record({0x4BB0, r.args[0] & 0xFF, r.args[1] & 0xFF, Rel(r.args[2]), r.args[3], r.args[4], r.args[5], r.args[6]});
         return 0u;
     });
     RecFloat(s, {0x004023C0, AddressOf(&Mth::Vector::Length)}, 0, 0x23C0, [](Regs&) { return g_a.length; });

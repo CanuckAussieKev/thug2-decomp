@@ -345,12 +345,12 @@ void StandIns(Kit& kit, bool trickFunctions)
     kit.Recorder(0x0045D740, {0, 0, Ret::None, true}, {Code(&Obj::CBaseComponent::DestroyBody)});
     kit.Recorder(0x005BABA0, {4, 1, Ret::None, true}, {Code(&Mem::Manager::Free)});
     // CallMemberFunction's callees.
-    kit.Recorder(0x0051ECF0, {4, 1, Ret::Bool, true});
-    kit.Recorder(0x0051F610, {8, 2, Ret::None, true});
+    kit.Recorder(0x0051ECF0, {4, 1, Ret::Bool, true}, {Code(&Obj::CTrickComponent::IsButtonDown)});
+    kit.Recorder(0x0051F610, {8, 2, Ret::None, true}, {Code(&Obj::CTrickComponent::ExpireButton)});
     for (uint32_t address : {0x0051EB00u, 0x0051EB30u, 0x0051EF00u, 0x0051F010u, 0x005587F0u, 0x00511C30u, 0x00511C10u,
                              0x0051CBF0u, 0x0051CA00u, 0x004F8DB0u, 0x004F8DE0u, 0x00509990u, 0x00564330u})
         kit.Recorder(address, {0, 0, Ret::None, true});
-    kit.Recorder(0x0051ED90, {4, 1, Ret::None, true});
+    kit.Recorder(0x0051ED90, {4, 1, Ret::None, true}, {Code(&Obj::CTrickComponent::RemoveTrickList)});
     kit.Recorder(0x004FC440, {0, 0, Ret::Bool, true});
     kit.Recorder(0x00563F30, {4, 1, Ret::None, true});
     kit.Recorder(0x00564860, {4, 1, Ret::None, true});

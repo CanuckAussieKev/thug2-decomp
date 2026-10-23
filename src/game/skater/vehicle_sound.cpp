@@ -11,6 +11,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
+#include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -42,7 +43,7 @@ T& Field(const void* object, uint32_t offset)
 Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
 
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
-int Clock() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)(); }
+int Clock() { return Tmr::GameClockElapsed(); }
 int ClockOffset() { return GameVariable<int>(0x00696D60); }
 
 // A float of the global structure kRates (asserted).
