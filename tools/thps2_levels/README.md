@@ -68,10 +68,13 @@ texels, the newtex BMPs (by the texture's name checksum), the meaning of face fl
   sounds: THUG2's default (THPS2's terrain numbers not mapped yet). Ramps (2026-10-23, level_port/ramp_collision.ts):
   THUG2 takes an unflagged face steeper than ~65 degrees as a wall, so the tops of THPS2's non-vert quarter pipes
   (67 - 73 degrees) stopped the skater; a steep face (up to ~84 degrees) joined concavely to a rideable face below it
-  with a bend of 40 degrees or less - across objects too - is flagged skatable (and so on up the ramp), and a face
-  lying on a more rideable one (NY's decal models over its vert walls) takes that face's flags. Only flags change: the
-  drawn scene and the geometry are the same. `node tools/level_port/ramp_check.ts <levels folder>` measures it
-  (docs/pending/thps2-quarterpipes.md).
+  with a bend of 40 degrees or less - across objects too - is flagged vert (and so on up the ramp), and a face
+  lying on a more rideable one (NY's decal models over its vert walls) takes that face's flags. Vert as THUG2's own
+  quarter pipes have it (2026-10-24): from ~45 degrees up across the whole ramp (unflagged ramp faces of 45 degrees
+  or more under a vert face are vert too), never under 40 (THPS2's vert bit on low transitions is left out - an ollie
+  there was vert air and a bail). Only flags change: the drawn scene and the geometry are the same.
+  `node tools/level_port/ramp_check.ts <levels folder>` measures it, `--flags` compares a port's flags by slope with
+  THUG2's own levels' (docs/pending/thps2-quarterpipes.md).
 - Nodes: restarts (the level's start first as Player1; 2P, HORSE and the rest as THUG2's types; THPS2's "Dummy" ones
   left out) and rails (every rail point a RailNode linked to the next ones). `convert` reports restarts with no floor
   under them or high above it.

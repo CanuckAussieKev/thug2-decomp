@@ -315,7 +315,7 @@ test("collision flags: vert, wallride on steep faces, triggers and vert walls le
 });
 
 test("rampCollision: a steep face continuing another object's transition rides; a trigger plane doesn't", () => {
-    // object 1: the floor (z 0..100) and a 45 degree transition 50 high; object 2: two 70 degree quads above it, the
+    // object 1: the floor (z 0..100) and a 48 degree transition 50 high; object 2: two 70 degree quads above it, the
     // second with THPS2's trigger bit (visible faces with it collide)
     const transition = [
         [0, 0, 100],
@@ -324,18 +324,18 @@ test("rampCollision: a steep face continuing another object's transition rides; 
         [100, 0, 0],
         [0, 0, 0],
         [100, 0, 0],
-        [0, 50, -50],
-        [100, 50, -50],
+        [0, 50, -45],
+        [100, 50, -45],
     ];
     const top = [
-        [0, 50, -50],
-        [50, 50, -50],
-        [0, 150, -86.4],
-        [50, 150, -86.4],
-        [50, 50, -50],
-        [100, 50, -50],
-        [50, 150, -86.4],
-        [100, 150, -86.4],
+        [0, 50, -45],
+        [50, 50, -45],
+        [0, 150, -81.4],
+        [50, 150, -81.4],
+        [50, 50, -45],
+        [100, 50, -45],
+        [50, 150, -81.4],
+        [100, 150, -81.4],
     ];
     // (each quad a, b, c, d as the triangles a b d, a d c: facing up / +z)
     const faces = (flags: number): thug2Col.Face[] =>
@@ -359,15 +359,16 @@ test("rampCollision: a steep face continuing another object's transition rides; 
     ]);
     assert.deepEqual(
         conv.rampCollision([lower, upper], (o) => surfaces.get(o) ?? []),
-        { promoted: 2, overlays: 0 },
+        { promoted: 2, overlays: 0, lowVert: 0, band: 2 },
     );
+    // (vert as THUG2's quarter pipes: the 70-degree half and the 48-degree transition under it; the floor not)
     assert.deepEqual(
         upper.faces.map((f) => f[0]),
-        [thug2Col.FACE_SKATABLE, thug2Col.FACE_SKATABLE, thug2Col.FACE_WALL_RIDABLE, thug2Col.FACE_WALL_RIDABLE],
+        [thug2Col.FACE_VERT, thug2Col.FACE_VERT, thug2Col.FACE_WALL_RIDABLE, thug2Col.FACE_WALL_RIDABLE],
     );
     assert.deepEqual(
         lower.faces.map((f) => f[0]),
-        [0, 0, 0, 0],
+        [0, 0, thug2Col.FACE_VERT, thug2Col.FACE_VERT],
     );
 });
 
@@ -386,9 +387,10 @@ test("convertWorld: a sector and a collision object per object; invisible faces 
     assert.equal(mesh.vertexCount, 4);
     assert.equal(done.col.objects.length, 1);
     const o = done.col.objects[0]!;
-    // the quad's two triangles (vert); the trigger triangle left out
+    // the quad's two triangles (vert in THPS2, but flat: not vert in THUG2 - rampCollision); the trigger triangle left
+    // out
     assert.equal(o.faces.length, 2);
-    for (const f of o.faces) assert.equal(f[0], thug2Col.FACE_VERT);
+    for (const f of o.faces) assert.equal(f[0], 0);
     assert.deepEqual(done.counts, {
         objects: 1,
         faces: 2,
@@ -400,6 +402,8 @@ test("convertWorld: a sector and a collision object per object; invisible faces 
         layers: 0,
         ramps: 0,
         overlays: 0,
+        lowVert: 2,
+        vertBand: 0,
     });
     // placed: the object's position, THUG2's space
     // (z: the model's 0..64 at 300, turned: -364 .. -300)

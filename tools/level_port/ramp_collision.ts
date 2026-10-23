@@ -10,11 +10,19 @@
 //
 // Here such faces are found from the geometry: a face too steep to be ground by itself (but still facing up) whose
 // lower neighbour - a face joined along an edge, of any object - is ground, the join concave (the steep face rises in
-// front of it) and the bend between them no more than kMaxRampBend, continues that ramp: it is flagged skatable, and
-// in turn the ground of the face above it. A wall standing on a floor bends 65 - 90 degrees from it and stays a wall.
+// front of it) and the bend between them no more than kMaxRampBend, continues that ramp: it is flagged vert, and in
+// turn the ground of the face above it. A wall standing on a floor bends 65 - 90 degrees from it and stays a wall.
 // And a face lying on another (coplanar, within kOverlayTolerance of its plane, its centre inside it: a decal model
 // over a ramp - NY's graffiti over a vert wall) takes the flags of the face under it when those make it more
 // rideable (vert over skatable over none over a wall): the skater meets the decal first.
+//
+// Vert, as THUG2's own quarter pipes have it (2026-10-24; tools/level_port/ramp_check.ts --flags on a level's
+// collision: their faces are vert from ~45 degrees up, never under 40, and no face steeper than 65 rides without
+// it): the steep ramp faces above are vert (flagged skatable, the skater left a 73-degree face into ordinary air
+// pitched over and landed on the deck behind on his back); the unflagged faces of 45 degrees and more concave under
+// a vert face are vert too (one vert band across the ramp); and vert is taken off faces flatter than kMinVertSlope -
+// THUG2 sends a skater leaving any vert face into vert air, so an ollie on NY's 22-degree vert transition stood him
+// upright over it and he bailed when he came down.
 
 import type { SourceColObject } from "./geometry.ts";
 import * as thug2Col from "./thug2_col.ts";
@@ -27,6 +35,8 @@ export const kMinRampUp = 0.1; // a steep face's normal y at least this (sloped 
 export const kEdgeTolerance = 0.5; // inches off another edge's line that still count as joined along it
 export const kMinJoin = 1.0; // inches two edges must share along their line
 export const kOverlayTolerance = 1.0; // inches off the other face's plane that still count as lying on it
+export const kMinVertSlope = 40; // degrees: vert only on faces at least this steep (THUG2's own levels' lowest)
+export const kVertBandSlope = 45; // degrees: a ramp face this steep under a vert face is vert too
 const kSamePlane = Math.cos(Math.PI / 180); // normals within a degree: the same surface
 
 const SKATE_BITS =
@@ -40,8 +50,10 @@ export interface RampTri {
 
 export interface RampResult {
     flags: number[]; // per triangle, the flags it should have
-    promoted: number[]; // triangles made skatable as ramp faces
+    promoted: number[]; // steep triangles made vert as ramp faces
     overlays: number[]; // triangles that took the flags of a face under them
+    lowVert: number[]; // triangles whose vert flag was taken off: flatter than kMinVertSlope
+    band: number[]; // triangles made vert below a vert face (the ramp's vert part down to kVertBandSlope)
 }
 
 function sub(a: Vec, b: Vec): Vec {
@@ -181,6 +193,20 @@ export function rampFlags(
     const live = (i: number): boolean => infos[i] !== null && !(flags[i]! & IGNORED);
     const promoted: number[] = [];
     const overlays: number[] = [];
+    const lowVert: number[] = [];
+    const band: number[] = [];
+
+    // 0. vert on low transitions off: THUG2 sends a skater leaving a vert face into vert air - an ollie on NY's
+    // 22-degree vert transition came down upright on it and bailed. THUG2's own levels have vert from ~40 degrees.
+    const maxVertUp = Math.cos((kMinVertSlope * Math.PI) / 180);
+    tris.forEach((_, i) => {
+        const a = infos[i];
+        if (!a || !live(i) || !(flags[i]! & thug2Col.FACE_VERT) || !canRamp(i)) return;
+        if (a.n[1] > maxVertUp) {
+            flags[i] = flags[i]! & ~thug2Col.FACE_VERT;
+            lowVert.push(i);
+        }
+    });
 
     // 1. faces lying on others
     const triGrid = new Grid(64);
@@ -278,19 +304,45 @@ export function rampFlags(
         done.add(g);
         for (const i of neighbours(g)) {
             if (!isCandidate(i) || !continues(i, g)) continue;
-            flags[i] = (flags[i]! & ~thug2Col.FACE_WALL_RIDABLE) | thug2Col.FACE_SKATABLE;
+            flags[i] = (flags[i]! & ~thug2Col.FACE_WALL_RIDABLE) | thug2Col.FACE_VERT;
             promoted.push(i);
             queue.push(i);
         }
     }
-    return { flags, promoted, overlays };
+
+    // 3. the vert part of a ramp down to kVertBandSlope: an unflagged face that steep, concave under a vert face
+    // (and so on down) - THUG2's quarter pipes are vert from ~45 degrees up, one band across the ramp
+    const bandUp = Math.cos((kVertBandSlope * Math.PI) / 180);
+    const isBandCandidate = (i: number): boolean => {
+        const a = infos[i];
+        if (!a || !live(i) || !canRamp(i) || flags[i]! & SKATE_BITS) return false;
+        return a.n[1] <= bandUp && a.n[1] >= kMinRampUp;
+    };
+    const vertQueue: number[] = [];
+    tris.forEach((_, i) => {
+        if (live(i) && flags[i]! & thug2Col.FACE_VERT) vertQueue.push(i);
+    });
+    const bandDone = new Set<number>();
+    while (vertQueue.length) {
+        const v = vertQueue.pop()!;
+        if (bandDone.has(v)) continue;
+        bandDone.add(v);
+        for (const i of neighbours(v)) {
+            // (i the flatter face below v: v continues i)
+            if (!isBandCandidate(i) || !continues(v, i)) continue;
+            flags[i] = flags[i]! | thug2Col.FACE_VERT;
+            band.push(i);
+            vertQueue.push(i);
+        }
+    }
+    return { flags, promoted, overlays, lowVert, band };
 }
 
 // The same over collision objects (all in one space): their faces' flags changed in place. `canRamp(object, face)`.
 export function fixRampObjects(
     objects: readonly SourceColObject[],
     canRamp: (object: number, face: number) => boolean = () => true,
-): { promoted: number; overlays: number } {
+): { promoted: number; overlays: number; lowVert: number; band: number } {
     const tris: RampTri[] = [];
     const where: [number, number][] = [];
     objects.forEach((o, oi) => {
@@ -304,5 +356,10 @@ export function fixRampObjects(
         const [oi, fi] = where[i]!;
         objects[oi]!.faces[fi]![0] = flags;
     });
-    return { promoted: result.promoted.length, overlays: result.overlays.length };
+    return {
+        promoted: result.promoted.length,
+        overlays: result.overlays.length,
+        lowVert: result.lowVert.length,
+        band: result.band.length,
+    };
 }

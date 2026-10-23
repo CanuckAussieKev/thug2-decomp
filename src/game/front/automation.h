@@ -60,7 +60,10 @@ class CStruct;
 //   trace <frames>                        the local skater traced for the next <frames> game frames (1-36000) into
 //                                         thug2-decomp-trace.txt (rewritten): a line a frame - frame, position,
 //                                         velocity, the up row's y, the SkaterState state (0 ground, 1 air, 2 wall,
-//                                         3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking). Done at
+//                                         3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking), bailing,
+//                                         doing a trick, the score's combo so far, multiplier and +0x20, the last
+//                                         ground face's flags and collision object; a `teleport` while it runs
+//                                         adds a "# teleport ..." line (tools/game/trace_summary.ts). Done at
 //                                         once: the trace runs on under the next commands (`press up 120`...); a
 //                                         new trace replaces a running one
 //   echo <text>                           logged and shown as the result (a marker for tools)

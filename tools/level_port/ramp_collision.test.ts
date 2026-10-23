@@ -48,7 +48,7 @@ test("the test quarter pipe faces up", () => {
         assert.ok(up(t) > 0);
 });
 
-test("a steep unflagged face at the top of a transition becomes skatable", () => {
+test("a steep unflagged face at the top of a transition becomes vert, and the 45-degree face under it", () => {
     // Skate Heaven's: 26.9 -> 45.7 -> 67.6 degrees
     const tris = quarterPipe([
         [0, 100],
@@ -58,11 +58,11 @@ test("a steep unflagged face at the top of a transition becomes skatable", () =>
     ]);
     assert.equal(rideRank(tris[6]!.flags, up(tris[6]!)), 1); // (a wall in THUG2 as it is)
     const r = rampFlags(tris);
+    const V = thug2Col.FACE_VERT;
     assert.deepEqual(r.promoted.sort(), [6, 7]);
-    assert.equal(r.flags[6], thug2Col.FACE_SKATABLE);
-    assert.equal(r.flags[7], thug2Col.FACE_SKATABLE);
-    // the rest untouched
-    for (let i = 0; i < 6; i++) assert.equal(r.flags[i], 0);
+    assert.deepEqual(r.band.sort(), [4, 5]);
+    // (the floor and the 26.9-degree face untouched)
+    assert.deepEqual(r.flags, [0, 0, 0, 0, V, V, V, V]);
 });
 
 test("a wallridable steep face continuing a ramp loses the wall flag; chains go on upwards", () => {
@@ -85,10 +85,16 @@ test("a wallridable steep face continuing a ramp loses the wall flag; chains go 
         r.promoted.sort((a, b) => a - b),
         [8, 9, 10, 11],
     );
-    for (const i of [8, 9, 10, 11]) assert.equal(r.flags[i], thug2Col.FACE_SKATABLE);
+    for (const i of [8, 9, 10, 11]) assert.equal(r.flags[i], thug2Col.FACE_VERT);
+    // the vert band down to the 57.8-degree face; 33.8 is under kVertBandSlope
+    assert.deepEqual(
+        r.band.sort((a, b) => a - b),
+        [6, 7],
+    );
+    assert.equal(r.flags[4], 0);
 });
 
-test("a wall standing on a floor, a bend over the limit, a face past 84 degrees and vert stay as they are", () => {
+test("a wall on a floor, a bend over the limit, a face past 84 degrees stay; vert under 40 degrees is taken off", () => {
     const wall = rampFlags(
         quarterPipe([
             [0, 100],
@@ -126,7 +132,24 @@ test("a wall standing on a floor, a bend over the limit, a face past 84 degrees 
         ),
     );
     assert.deepEqual(vert.promoted, []);
-    assert.deepEqual(vert.flags, [0, 0, V, V, V, V]);
+    // (NY's: the 22.4-degree vert transition no longer vert - an ollie there was vert air)
+    assert.deepEqual(vert.lowVert.sort(), [2, 3]);
+    assert.deepEqual(vert.flags, [0, 0, 0, 0, V, V]);
+    // a trigger plane's (canRamp false) keeps its flags
+    assert.deepEqual(
+        rampFlags(
+            quarterPipe(
+                [
+                    [0, 100],
+                    [22.4, 50],
+                ],
+                100,
+                [0, V],
+            ),
+            () => false,
+        ).lowVert,
+        [],
+    );
 });
 
 test("a convex join (a steep face hanging off a deck's edge) is no ramp", () => {
@@ -248,11 +271,14 @@ test("fixRampObjects changes the objects' faces in place", () => {
         faces.push([t.flags, 0, base, base + 1, base + 2]);
     }
     const object: SourceColObject = { checksum: 1, flags: 0, bbox: [], verts, intensities: [], faces };
-    assert.deepEqual(fixRampObjects([object]), { promoted: 2, overlays: 0 });
-    assert.equal(object.faces[6]![0], thug2Col.FACE_SKATABLE);
-    assert.equal(object.faces[7]![0], thug2Col.FACE_SKATABLE);
+    assert.deepEqual(fixRampObjects([object]), { promoted: 2, overlays: 0, lowVert: 0, band: 2 });
+    // (72 degrees vert, the 55-degree face under it too; 30 not)
+    assert.deepEqual(
+        object.faces.map((f) => f[0]),
+        [0, 0, 0, 0, thug2Col.FACE_VERT, thug2Col.FACE_VERT, thug2Col.FACE_VERT, thug2Col.FACE_VERT],
+    );
     assert.deepEqual(
         fixRampObjects([object], () => false),
-        { promoted: 0, overlays: 0 },
+        { promoted: 0, overlays: 0, lowVert: 0, band: 0 },
     );
 });

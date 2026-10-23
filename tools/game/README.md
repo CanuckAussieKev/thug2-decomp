@@ -60,11 +60,15 @@ TypeScript tools' --game / --thug2 the same, tools/lib/install.ts).
     `-Level foun -Commands "waitfor level foun 150;teleport -4087.3 -390 2386.6 -177.3;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949;wait 60;capture 120 still;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949 0.05 0 0;capture 120 side"`.
   - **Following the skater:** `trace <frames>` writes `<folder>\thug2-decomp-trace.txt` - a line every game frame
     for the next 1-36000 frames: frame, position, velocity, the up row's y, the SkaterState state (0 ground, 1 air,
-    2 wall, 3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking). It's done at once and runs on under the
-    next commands, so `teleport <x> <y> <z> <heading> board;trace 600;press up 60;wait 300` pushes off and records
-    the ride. `node tools/game/trace_summary.ts <trace.txt> [--every N]` gives the runs of one state (where, the
-    highest point, the top speed) and the frames where the skater bounced off something or stopped
-    (docs/pending/thps2-quarterpipes.md: riding at quarter pipes).
+    2 wall, 3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking), bailing, doing a trick, the combo so far
+    and its multiplier, the score's +0x20, and the last ground face's flags and collision object; each `teleport`
+    while it runs adds a `# teleport ...` line. It's done at once and runs on under the next commands, so
+    `teleport <x> <y> <z> <heading> board;trace 600;press up 60;wait 300` pushes off and records the ride (a manual:
+    `press up 2;press down 2`; `run client_toggle_cheat cheat_flag=CHEAT_PERFECT_MANUAL on` holds its balance).
+    `node tools/game/trace_summary.ts <trace.txt> [--every N | --trials]` gives the runs of one state (where, the
+    highest point, the top speed), the frames where the skater bounced off something, stopped, bailed, ended or lost
+    a combo, was in the air for 3 frames or less, or crossed onto another collision object; `--trials` a line per
+    ride between teleports (docs/pending/thps2-quarterpipes.md: riding at quarter pipes).
   - `node tools/game/frame_diff.ts <series folder> [--threshold N] [--region name:x,y,w,h]... [--heatmap out.png]`:
     how much a series flickers - per pixel the frame-to-frame changes over the threshold (summed |dRGB|, default 24),
     the share of pixels that flicker (>= 2% of the steps) per region, the mean difference, and a heat map. With the

@@ -126,3 +126,107 @@ Install (the lead): convert the THPS2 levels and make_menu_level.ts into the mai
 3. NY, `try_spot.ts thps2_ny -26052.4,-311.4,-7782.2,4.1`: back off and ride the vert wall - no stop at the bottom
    crease or on the graffiti. Its vertical part is tall: say whether the skater should go into vert air earlier.
 4. Anywhere: walls that should stay walls (slanted building fronts, kerb bevels) - say if one became rideable.
+
+## Follow-up (2026-10-24): bails at some angles, combos breaking
+
+The user, after the first fix was installed: the quarter pipes are skatable now, "but at certain angles, it causes
+bails. Also, around 50% of the time, it fails to keep a combo going (e.g. doing a manual up the ramp). I think the
+reason is because it doesn't consider it a single piece like most quarter pipes."
+
+### How it was looked at
+
+- The automation `trace` now also records bailing, doing a trick, the combo so far (score +0x14) and its multiplier,
+  the score's +0x20, and the last ground hit's face flags and collision object (core physics' feeler copy at
+  +0x158). Each `teleport` while a trace runs adds a `# teleport` line, and `tools/game/trace_summary.ts --trials`
+  gives a line per ride: bail (where, in what state, up y), how the combo ended, air blips (in the air for 3 frames or
+  less between ground), seams (the ground's collision object changing).
+- The rides in THUG2-1 were at the three spots, 5 approach angles (0, +-25/30, +-45/50 degrees), and these modes:
+  plain push, manual (up, down; perfect manual on - `run client_toggle_cheat cheat_flag=CHEAT_PERFECT_MANUAL on` - so
+  the balance doesn't decide), square presses, manual + square, an early / late ollie. About 270 rides in all, plus
+  the same set at a native THUG2 halfpipe (Kona, SC obj 107). The scripts are the worktree's out\scripts\trials.ps1
+  and ride2.ps1 (one-off, not committed).
+- The native levels' flags, offline: `node tools/level_port/ramp_check.ts --flags C:\Games\THUG2-1\Data\pre\BOcol.prx`
+  (also SC, BA, TR, Sk5Ed). Up-facing faces by slope: vert almost only from 40 degrees up (BO 0-40: 34 of 7,490 faces,
+  40-90: 775). No face is ever flagged skatable (0x1). Steep (65+) unflagged faces are plentiful, and they are walls.
+  Kona's halfpipe, one object of 184 faces, goes 19.3 (unflagged) -> 37.7 (unflagged) -> 52.8 vert -> 83.9 vert.
+
+### Causes
+
+1. **Bail, confirmed: vert on low transitions.** THPS2 sets its vert bit (0x20) on whole vert ramps, down to their
+   low transition (NY's 22.4-degree faces; 0x20 appears from 10 degrees up in the data). THUG2 sends a skater leaving
+   any vert face into vert air: locked over the ramp, upright (up y 0), the velocity across the ramp taken away. An
+   ollie on NY's transition at 25 / -25 / 45 degrees across it went straight into vert air, and he bailed when he
+   came down on the transition (trace: up y 0.00 in the air, bail at landing, height ~60). THUG2's own levels never
+   have vert there. That's also a likely way for a manual to end on a ramp - any hop on the transition is a vert air,
+   and landing from it ends the manual.
+2. **Not native: steep faces flagged skatable.** The first fix's promoted faces (67-84 degrees) were skatable, which
+   THUG2's own levels never use: a steep face rides there only with vert. As skatable, leaving them is ordinary air
+   with the skater pitched over. Made vert, with the ramp faces of 45 degrees and more under them, each ramp now has
+   one vert band, as native ones do. This is what wasn't "one piece": the flags along a ramp - skatable next to vert
+   next to unflagged, and vert on low transitions.
+3. **Ruled out: seams between objects / unshared edges.** Over all the rides: 0 air blips. The ground's collision
+   object changed 1-13 times a ride (ramp panels, NY's decal models over its vert faces) without ever ending a manual
+   or a combo. In THUG2's physics nothing is per object for static collision; the feelers just hit the nearest face.
+4. **Manual breaks:** with the balance held (perfect manual), manuals up the ramps held in every ride - up the
+   ramp, back down, through the seams. They ended only where the skater hit a real wall: NY's ramp-end side walls at
+   -45 degrees, the same in THPS2. Without the cheat the automation can't balance a manual, so the user's ~50% wasn't
+   reproduced directly; cause 1 is the likely one.
+5. **Left alone (THUG2 physics on THPS2's geometry, not flags):**
+   - Chopper Drop's drop-in ramp is 448 inches tall with a 170-inch vert part at 75 degrees. Pushing up it the
+     skater stalls; THUG2's TurnDownSlope (core_physics_turning.cpp, Skater_Slow_Turn_on_slopes) turns him sideways
+     on the near-vertical face, and he rolls along it, off its edge onto the deck, and bails. Same before and after
+     the vert change.
+   - On Chopper Drop's west ramp, approached from the side at -25 / -45 degrees, the skater reaches its vert face
+     right at the ramp's end (x -528). Vert air carries him along the lip past the end, and he lands on the floor
+     upright and bails. That's the ramp's shape - THUG2's own vert ramps do the same off an open end.
+
+### The rule now (tools/level_port/ramp_collision.ts rampFlags, in this order)
+
+0. Vert off faces flatter than kMinVertSlope (40 degrees) - not THPS2's trigger planes (canRamp).
+1. Faces lying on a more rideable one take its flags (unchanged).
+2. Steep faces continuing a ramp (unchanged rule) are flagged **vert** (was skatable).
+3. The vert band: unflagged faces of kVertBandSlope (45 degrees) or more, concave under a vert face with a bend of 40
+   or less (or coplanar with one), become vert, and so on down.
+
+Converter counts (triangles; steep made vert / band / low vert off / overlays):
+
+| Level | Steep made vert | Band | Low vert off | Overlays |
+|---|---|---|---|---|
+| Hangar | 25 | 12 | 48 | 34 |
+| School II | 17 | 33 | 21 | 90 |
+| Marseille | 33 | 31 | 45 | 8 |
+| NY | 14 | 17 | 53 | 14 |
+| Venice | 19 | 65 | 0 | 114 |
+| Skatestreet | 22 | 32 | 48 | 29 |
+| Philadelphia | 7 | 30 | 17 | 4 |
+| Bullring | 41 | 161 | 2 | 12 |
+| Chopper Drop | 24 | 13 | 0 | 5 |
+| Skate Heaven | 156 | 164 | 52 | 0 |
+
+NY's flags by slope (`ramp_check.ts --flags`) now look like a native level's: vert 0 below 40 degrees (was 53
+triangles), and from 40 up 22 / 16 / 63 / 31 per 10 degrees. The drawn scene and the geometry are unchanged.
+
+### Checked in the game (one short run, THUG2-1, under its lock)
+
+NY, the three ollie approaches that bailed (teleports at headings 25, -25 and 45, 380 inches before the user's spot):
+3 of 3 bailed before, 0 of 3 after. The ollie is ordinary air now (up y 0.93), onto the 67.6-degree vert face, and he
+rides on. The log was clean, and the lock's release put the workspace DLL and ini back. Not run again after that, by
+the lead's instruction - the user judges the feel by hand.
+
+### Tests
+
+ramp_collision.test.ts: vert on the steep faces, the band down to 45 degrees (Skate Heaven's 45.7, Chopper Drop's
+57.8; 33.8 not), low vert taken off (22.4), canRamp keeping a trigger plane's flags. thps2_levels.test.ts:
+rampCollision across two objects (the 48-degree transition becomes the band), and convertWorld's flat vert quad no
+longer vert. npm test 327 pass, lint / typecheck clean, thug2_check 771 early self-tests pass.
+
+### For the user to try by hand
+
+1. NY's vert ramp, `node tools/game/try_spot.ts thps2_ny -26052.4,-311.4,-7782.2,4.1`: ollie on the low transition
+   at an angle, and manual up the ramp and back, several times - no bails from the transition, combos kept.
+2. Skate Heaven's and Chopper Drop's quarter pipes: air out of them and land back in - it should feel like THUG2's own
+   vert ramps (vert from the steep part up).
+3. Say whether faces between 45 and 65 degrees going vert feels wrong anywhere (an ollie there is a vert air now, as
+   on THUG2's own ramps).
+4. Known: on Chopper Drop's giant drop-in ramp, stalling high up rolls the skater sideways off its edge; and leaving
+   the west ramp's vert at its open end lands on the floor and bails.
