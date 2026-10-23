@@ -8,7 +8,10 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
+#include "game/obj/bbox_component.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/lock_obj.h"
+#include "game/obj/model_component.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
@@ -42,12 +45,12 @@ void Finalize(CCompositeObject* object)
 CBaseComponent* NewGameObjectComponentA()
 {
     void* memory = Mem::Calloc(0x90);
-    return memory ? GameFunction<CBaseComponent*(__thiscall*)(void*)>(0x0041F500)(memory) : nullptr;
+    return memory ? static_cast<CLockObjComponent*>(memory)->Construct() : nullptr;
 }
 CBaseComponent* NewGameObjectComponentB()
 {
     void* memory = Mem::Calloc(0x4C);
-    return memory ? GameFunction<CBaseComponent*(__thiscall*)(void*)>(0x0041AAD0)(memory) : nullptr;
+    return memory ? static_cast<CBBoxComponent*>(memory)->Construct() : nullptr;
 }
 
 // The creation script 0x413B766D with the node's name and its integer 0x99A9B716 (if it has one).
@@ -115,7 +118,7 @@ CCompositeObject* CreateGameObject(Script::CStruct* params, int /*unused*/)
     Finalize(object);
     RunCreationScript(object, params);
     if (CBaseComponent* component = object->GetComponent(kGameObjectComponentType))
-        GameFunction<void(__thiscall*)(CBaseComponent*)>(0x00420480)(component);
+        static_cast<CModelComponent*>(component)->Teleport();
     SwitchToNodeScript(object, params);
     return object;
 }
@@ -231,14 +234,14 @@ bool CMovieDetails::CheckDone(bool playing)
 }
 
 // 0x00468F40
-bool CMovieDetails::SetFlag19(bool value)
+bool CMovieDetails::SetFlag19(uint8_t value)
 {
     m_flag19 = value;
     return true;
 }
 
 // 0x00468F50
-bool CMovieDetails::SetFlag1B(bool value)
+bool CMovieDetails::SetFlag1B(uint8_t value)
 {
     m_flag1B = value;
     return true;
@@ -287,8 +290,7 @@ Mth::Vector* CClassNodeList::Transform(Mth::Vector* out, const Mth::Vector* poin
         return out;
     }
     Mth::Vector result;
-    GameFunction<void(__thiscall*)(const Mth::Matrix*, Mth::Vector*, const Mth::Vector*)>(0x0040AF60)(
-        &m_transform, &result, point);
+    m_transform.Transform(result, *point);
     *out = result;
     return out;
 }

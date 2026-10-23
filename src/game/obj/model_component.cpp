@@ -9,8 +9,10 @@
 #include <cstring>
 
 #include "game/mth/matrix.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
+#include "game/net/player_info.h"
 #include "game/nx/feeler.h"
 #include "game/script/names.h"
 #include "game/core/dbg.h"
@@ -103,13 +105,13 @@ void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b
 void* NetManager() { return GameVariable<void*>(0x007CCE14); }
 void* PlayerByObjectId(uint32_t id)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(NetManager(), id);
+    return static_cast<GameNet::Manager*>(NetManager())->PlayerByObjectId(static_cast<uint16_t>(id));
 }
-bool IsLocalPlayer(void* player) { return GameFunction<bool(__thiscall*)(void*)>(0x00543300)(player); }
-int PlayerSkaterIndex(void* player) { return GameFunction<int(__thiscall*)(void*)>(0x005434B0)(player); }
+bool IsLocalPlayer(void* player) { return static_cast<GameNet::PlayerInfo*>(player)->IsLocalPlayer() != 0; }
+int PlayerSkaterIndex(void* player) { return static_cast<int>(static_cast<GameNet::PlayerInfo*>(player)->GetSkaterValue2BC()); }
 Net::Client* ClientApp(void* manager, int index)
 {
-    return GameFunction<Net::Client*(__thiscall*)(void*, int)>(0x00532EA0)(manager, index);
+    return static_cast<Net::Client*>(static_cast<GameNet::Manager*>(manager)->GetClient(index));
 }
 
 // A message about `object` to the server, when its player is this machine's.

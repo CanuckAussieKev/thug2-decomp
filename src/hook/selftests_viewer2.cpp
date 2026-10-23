@@ -14,8 +14,12 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/buddy_status.h"
+#include "game/obj/car_physics.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
+#include "game/obj/model_component.h"
+#include "game/obj/motion.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/nodes.h"
@@ -89,7 +93,7 @@ void Install(StandIns& s)
         Rec(0x1930, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0041BAD0}, 0, [](Regs& r) {
+    s.At({0x0041BAD0, AddressOf(&Obj::CCarPhysicsComponent::Construct)}, 0, [](Regs& r) {
         Rec(0xBAD0, {r.ecx});
         return r.ecx;
     });
@@ -108,15 +112,15 @@ void Install(StandIns& s)
              v[0] = 10.5f, v[1] = -20.25f, v[2] = 30.0f, v[3] = 1.0f;
              return 1u;
          });
-    s.At({0x00423C90}, 4, [](Regs& r) {
+    s.At({0x00423C90, AddressOf(&Obj::CMotionComponent::InitPathFollower)}, 4, [](Regs& r) {
         Rec(0x3C90, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00423510}, 0, [](Regs& r) {
+    s.At({0x00423510, AddressOf(&Obj::CMotionPathMembers::GetPathFollower)}, 0, [](Regs& r) {
         Rec(0x3510, {r.ecx});
         return At(kComponents + 0x600);
     });
-    s.At({0x00420480}, 0, [](Regs& r) {
+    s.At({0x00420480, AddressOf(&Obj::CModelComponent::Teleport)}, 0, [](Regs& r) {
         Rec(0x0480, {r.ecx});
         return 0u;
     });

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "game/net/buddy_status.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_dispatcher.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
@@ -172,7 +173,7 @@ void Install(StandIns& s)
         Rec(0x11B0, {r.args[0], r.args[1]});
         return g_netRule ? 1u : 0u;
     });
-    Simple(s, {0x00532EA0}, 4, 28, true);
+    Simple(s, {0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 4, 28, true);
     Simple(s, {0x0045A5C0, AddressOf(&Net::Dispatcher::AddHandler)}, 20);
     Simple(s, {0x004747A0, AddressOf(static_cast<void (Script::CScript::*)(uint32_t, CStruct*, Obj::CObject*)>(&Script::CScript::SetScript))}, 12);
     Simple(s, {0x004750B0, AddressOf(&Script::CScript::Update)}, 0);

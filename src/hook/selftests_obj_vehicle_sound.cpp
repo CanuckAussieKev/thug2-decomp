@@ -12,6 +12,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/obj/object.h"
+#include "game/obj/sound_component.h"
 #include "game/obj/vehicle_component.h"
 #include "game/obj/vehicle_sound.h"
 #include "game/script/struct.h"
@@ -219,7 +220,7 @@ void StandInAll(StandIns& s)
         Record({0xADDF, Id(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00433240}, 4, [](Regs& r) {
+    s.At({0x00433240, AddressOf(&Obj::CSoundComponent::PlaySound)}, 4, [](Regs& r) {
         Record({0x3324, Id(r.ecx), Id(r.args[0])});
         return 0u;
     });

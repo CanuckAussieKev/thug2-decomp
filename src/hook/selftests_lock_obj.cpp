@@ -9,6 +9,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/mth/matrix.h"
 #include "game/mth/random.h"
 #include "game/obj/lock_obj.h"
 #include "game/obj/object.h"
@@ -168,7 +169,7 @@ void StandIn(StandIns& s)
              out[3] = 1.0f;
              return 1u;
          });
-    s.At({0x0041A730}, 4, [](Regs& r) {
+    s.At({0x0041A730, AddressOf(&Mth::Matrix::InitFromAngles)}, 4, [](Regs& r) {
         const auto* a = reinterpret_cast<const float*>(r.args[0]);
         Record({0xA730, Rel(r.ecx), Rel(r.args[0]), Bits(a[0]), Bits(a[1]), Bits(a[2]), Bits(a[3])});
         auto* m = reinterpret_cast<float*>(r.ecx);

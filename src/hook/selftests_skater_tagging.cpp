@@ -18,6 +18,8 @@
 #include "game/nx/feeler.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/object.h"
+#include "game/obj/skeleton_component.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/tagging.h"
@@ -223,7 +225,7 @@ void StandInAll(StandIns& s)
         return 0u;
     });
     // The skater.
-    s.At({0x00432050}, 8, [](Regs& r) {
+    s.At({0x00432050, AddressOf(&Obj::CSkeletonComponent::GetBonePosition)}, 8, [](Regs& r) {
         Record({0x4320, Id(r.ecx), r.args[0]});
         *reinterpret_cast<Mth::Vector*>(r.args[1]) = g_bone;
         return 1u;
@@ -232,7 +234,7 @@ void StandInAll(StandIns& s)
         Record({0x46B9, r.ecx - reinterpret_cast<uint32_t>(g_input)});
         return static_cast<uint32_t>(g_pressedTime);
     });
-    s.At({0x00434BF0}, 8, [](Regs& r) {
+    s.At({0x00434BF0, AddressOf(&Obj::CTriggerComponent::CheckFeeler)}, 8, [](Regs& r) {
         Record({0x434B, Id(r.ecx), r.args[0]});
         return 0u;
     });

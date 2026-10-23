@@ -9,8 +9,13 @@
 #include <map>
 #include <vector>
 
+#include "game/gfx/camera.h"
+#include "game/mth/matrix.h"
+#include "game/mth/vector.h"
 #include "game/obj/anim_movies.h"
+#include "game/obj/node_objects.h"
 #include "game/obj/object.h"
+#include "game/obj/objman.h"
 #include "game/script/names.h"
 #include "hook/viewer_testkit.h"
 
@@ -72,7 +77,7 @@ void Install(StandIns& s)
         auto it = g_objects.find(r.args[0]);
         return it == g_objects.end() ? 0u : it->second;
     });
-    s.At({0x004619F0}, 4, [](Regs& r) {
+    s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
         Rec(0x19F0, {r.ecx, r.args[0]});
         auto it = g_objects.find(r.args[0]);
         return it == g_objects.end() ? 0u : it->second;
@@ -85,11 +90,11 @@ void Install(StandIns& s)
         Rec(0x0C01, {r.ecx});
         return 0u;
     });
-    s.At({0x00405FA0}, 0, [](Regs& r) {
+    s.At({0x00405FA0, AddressOf(&Mth::Vector::Print)}, 0, [](Regs& r) {
         Rec(0x5FA0, {r.ecx});
         return 0u;
     });
-    s.At({0x00404BA0}, 0, [](Regs& r) {
+    s.At({0x00404BA0, AddressOf(&Mth::Matrix::Print)}, 0, [](Regs& r) {
         Rec(0x4BA0, {r.ecx});
         return 0u;
     });
@@ -98,19 +103,19 @@ void Install(StandIns& s)
         return reinterpret_cast<uint32_t>("an object");
     });
     // The camera.
-    s.At({0x00485A00}, 0, [](Regs& r) {
+    s.At({0x00485A00, AddressOf(&Gfx::Camera::GetPos)}, 0, [](Regs& r) {
         Rec(0x5A00, {r.ecx});
         return At(kCamPos);
     });
-    s.At({0x00485A10}, 0, [](Regs& r) {
+    s.At({0x00485A10, AddressOf(&Gfx::Camera::GetMatrix)}, 0, [](Regs& r) {
         Rec(0x5A10, {r.ecx});
         return At(kCamMatrix);
     });
-    s.At({0x00485B20}, 4, [](Regs& r) {
+    s.At({0x00485B20, AddressOf(&Gfx::Camera::SetHFOV)}, 4, [](Regs& r) {
         Rec(0x5B20, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00468F20}, 4, [](Regs& r) {
+    s.At({0x00468F20, AddressOf(&Obj::CMovieDetails::CheckDone)}, 4, [](Regs& r) {
         Rec(0x8F20, {r.ecx, r.args[0]});
         return 0u;
     });

@@ -14,6 +14,7 @@
 #include "game/gfx/screen.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
+#include "game/obj/skeleton_component.h"
 #include "game/script/cfuncs_engine.h"
 #include "game/script/struct.h"
 #include "hook/cfunc_testkit.h"
@@ -128,7 +129,7 @@ void StandInCalls(StandIns& s)
         Record({0xDB90, r.ecx, r.args[0]});
         return g_component;
     });
-    s.At({0x00432050}, 8, [](Regs& r) {
+    s.At({0x00432050, AddressOf(&Obj::CSkeletonComponent::GetBonePosition)}, 8, [](Regs& r) {
         Record({0x2050, r.ecx, r.args[0]});
         auto* position = reinterpret_cast<float*>(r.args[1]);
         position[0] = 1.5f;

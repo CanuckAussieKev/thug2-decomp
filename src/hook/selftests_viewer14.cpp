@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
@@ -153,7 +154,7 @@ void Install(StandIns& s)
             Rec(address & 0xFFFF, {r.ecx, r.args[0], v[0], v[1], v[2], v[3]});
             return 0u;
         });
-    Simple(s, {0x0042BBF0}, 4);
+    Simple(s, {0x0042BBF0, AddressOf(&Mth::Vector::SetLength)}, 4);
     Simple(s, {0x0045E4C0, AddressOf(&Obj::CCompositeObject::SetTeleported)}, 4);
     Simple(s, {0x0045E450, AddressOf(static_cast<bool (Obj::CCompositeObject::*)(uint32_t, CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction))}, 12, 0x77);
     Simple(s, {0x00580830, AddressOf(&CSkater::MoveToRandomRestart)}, 0);

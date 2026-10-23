@@ -13,6 +13,7 @@
 
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_status.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -99,7 +100,7 @@ void Install(StandIns& s)
         Rec(0xDB90, {r.ecx, r.args[0]});
         return ComponentFor(r.args[0]);
     });
-    s.At({0x005480C0}, 0, [](Regs& r) {
+    s.At({0x005480C0, AddressOf(&GameNet::FoldedGetters::Word04)}, 0, [](Regs& r) {
         Rec(0x80C0, {r.ecx});
         return g_netGame ? 1u : 0u;
     });

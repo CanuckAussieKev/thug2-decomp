@@ -14,6 +14,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/front/screen_element.h"
+#include "game/front/screen_element_manager.h"
 #include "game/obj/event.h"
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
@@ -186,7 +187,7 @@ inline void InstallElementStandIns(StandIns& s, bool manager = true)
         Rec(0xAD80, {r.ecx});
         return g_usesPriorities ? 1u : 0u;
     });
-    s.At({0x004AC120}, 12, [](Regs& r) {
+    s.At({0x004AC120, AddressOf(&Front::CScreenElementManager::ResolveId)}, 12, [](Regs& r) {
         Rec(0xC120, {r.ecx, r.args[0], r.args[1]});
         const std::vector<uint32_t>* value = Lookup('E', r.args[0], r.args[1]);
         if (!value)

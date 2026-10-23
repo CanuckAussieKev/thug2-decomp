@@ -14,14 +14,18 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/movable_contact.h"
+#include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/walk_camera.h"
 #include "game/skater/walk_physics.h"
+#include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -183,14 +187,14 @@ static_assert(sizeof(FoundRail) == sizeof(Obj::Record34), "the rail manager's re
 // A feeler copied (its assignment 0x0043A930).
 void AssignFeeler(Nx::CFeeler* to, const Nx::CFeeler* from)
 {
-    GameFunction<void*(__thiscall*)(Nx::CFeeler*, const Nx::CFeeler*)>(0x0043A930)(to, from);
+    to->Assign(*from);
 }
 // The movable contact: no ride any more (0x00427C70).
-void StopRiding(void* walk) { GameFunction<void(__thiscall*)(void*)>(0x00427C70)(At<void*>(walk, kContact)); }
+void StopRiding(void* walk) { At<Obj::CMovableContactComponent*>(walk, kContact)->StopRiding(); }
 // A rail manager component's object's matrix (0x0042BA10) and its rail manager (vtable +0x34).
 void ObjectMatrixOf(Obj::CBaseComponent* component, Mth::Matrix* matrix)
 {
-    GameFunction<void(__thiscall*)(Obj::CBaseComponent*, Mth::Matrix*)>(0x0042BA10)(component, matrix);
+    static_cast<Obj::CRailManagerComponent*>(component)->UpdateRailMatrix(matrix);
 }
 Obj::CRailManager* RailManagerOf(Obj::CBaseComponent* component)
 {
@@ -296,16 +300,15 @@ void SetHangOffset(Obj::CWalkComponent* walk)
 // The trigger component told a feeler hit something (for `events`), and the movable contact the feeler's hit.
 void TriggerFeeler(void* walk, uint32_t events, Nx::CFeeler* feeler)
 {
-    GameFunction<void(__thiscall*)(void*, const int*, Nx::CFeeler*)>(0x00434BF0)(
-        At<void*>(walk, kTrigger), reinterpret_cast<const int*>(events), feeler);
+    At<Obj::CTriggerComponent*>(walk, kTrigger)->CheckFeeler(reinterpret_cast<const int*>(events), feeler);
 }
 void ContactFeeler(void* walk, Nx::CFeeler* feeler)
 {
-    GameFunction<void(__thiscall*)(void*, Nx::CFeeler*)>(0x00427CD0)(At<void*>(walk, kContact), feeler);
+    At<Obj::CMovableContactComponent*>(walk, kContact)->StartRiding(feeler);
 }
 
 // The game's clock with its offset.
-int Now() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
+int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 
 // The movable contact's ride let go (its object kept at +0x6C, the time at +0x70).
 void LetGoOfRide(void* contact)

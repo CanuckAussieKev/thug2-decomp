@@ -24,6 +24,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/trick_goals.h"
+#include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -378,7 +379,7 @@ void Install(StandIns& s)
         Rec(0x3DE0, {r.args[0]});
         return r.args[0] ? (g_tg_random++ * 7u) % r.args[0] : 0u;
     });
-    s.At({0x0044ECE0}, 0, [](Regs&) {
+    s.At({0x0044ECE0, AddressOf(Tmr::GameClockElapsed)}, 0, [](Regs&) {
         Rec(0xECE0, {});
         return static_cast<uint32_t>(g_tg_clock);
     });

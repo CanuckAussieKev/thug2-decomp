@@ -141,4 +141,9 @@ struct CameraAssignment {
     Gfx::Camera* Assign(const Gfx::Camera* other);
 };
 
+// A movie's name: its +0x20 (CMovieDetails::m_value20, set by SetValue20). No address of its own: the original reads it
+// through the getter folded at 0x00543150 (GameNet::PlayerInfo::GetAccumulatedScore). (__fastcall: the movie in ECX,
+// as the original's calls pass it.)
+uint32_t __fastcall MovieName(const void* movie);
+
 } // namespace Obj

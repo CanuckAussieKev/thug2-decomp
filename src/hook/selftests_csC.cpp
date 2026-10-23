@@ -23,6 +23,7 @@
 #include "game/script/cscript.h"
 #include "game/script/parse.h"
 #include "game/script/struct.h"
+#include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -147,7 +148,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x0BDA, {r.ecx});
         return g_csc_update;
     });
-    s.At({0x0044ECE0}, 0, [](Regs&) {
+    s.At({0x0044ECE0, AddressOf(Tmr::GameClockElapsed)}, 0, [](Regs&) {
         Rec(0xC10C, {});
         return static_cast<uint32_t>(g_csc_clock);
     });

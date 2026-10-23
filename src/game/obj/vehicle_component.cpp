@@ -14,10 +14,13 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/camera.h"
 #include "game/gfx/debug_lines.h"
 #include "game/mth/random.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/proxim.h"
 #include "game/obj/vehicle_internal.h"
+#include "game/obj/vehicle_wheel.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
@@ -380,7 +383,7 @@ double Unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
 // 0x00434F20 (the previous range; stdcall): a wheel's parameters from a structure.
 void ReadWheel(CVehicleComponent::Wheel* wheel, Script::CStruct* params)
 {
-    GameFunction<void(__stdcall*)(CVehicleComponent::Wheel*, Script::CStruct*)>(0x00434F20)(wheel, params);
+    ReadWheelSettings(reinterpret_cast<uint8_t*>(wheel), params);
 }
 // The skate module's local skater (0x00566520) and a restart node's name (0x00566100).
 CCompositeObject* LocalSkater()
@@ -400,13 +403,16 @@ const uint8_t* ModelGeometry(CBaseComponent* model)
 }
 const float* WheelPlace(const uint8_t* geometry, int i) { return reinterpret_cast<const float*>(geometry + 0xE0 + i * 0x50); }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
-void* SkeletonOf(CBaseComponent* skeleton) { return GameFunction<void*(__thiscall*)(CBaseComponent*)>(0x005480F0)(skeleton); }
+void* SkeletonOf(CBaseComponent* skeleton)
+{
+    return reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(skeleton)->Word18());
+}
 // The viewport's camera (0x004A09C0; null if none), its position (0x00485A00) and matrix (0x00485A10).
 void* ViewportCamera(int viewport) { return GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(viewport); }
 // 0x0041A730 (not rewritten yet): the rotation of a node's angles.
 void MatrixFromAngles(Mth::Matrix* matrix, const Mth::Vector* angles)
 {
-    GameFunction<void(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(matrix, angles);
+    matrix->InitFromAngles(*angles);
 }
 
 void ClearToW1(Mth::Vector& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
@@ -849,7 +855,8 @@ void CVehicleComponent::UpdateSkeleton()
 {
     if (GameVariable<bool>(0x007D1EC0)) // (rendering off)
         return;
-    auto* bones = GameFunction<Mth::Matrix*(__thiscall*)(void*)>(0x005480C0)(SkeletonOf(mp_skeleton));
+    // (the skeleton's +0x04, through the getter folded at 0x005480C0)
+    auto* bones = reinterpret_cast<Mth::Matrix*>(static_cast<GameNet::FoldedGetters*>(SkeletonOf(mp_skeleton))->Word04());
     int count = GameFunction<int(__thiscall*)(void*)>(0x004A2BA0)(SkeletonOf(mp_skeleton));
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place
     // with the suspension's extension, but no lower than maxDrawnY. In debug mode 2 all of them nothing.
@@ -1054,8 +1061,8 @@ bool CVehicleComponent::PlaceBeforeCamera(Script::CStruct*, Script::CScript*)
     void* camera = ViewportCamera(0);
     if (!camera)
         return true;
-    const Mth::Vector& eye = *GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera);
-    const Mth::Matrix& view = *GameFunction<const Mth::Matrix*(__thiscall*)(void*)>(0x00485A10)(camera);
+    const Mth::Vector& eye = *static_cast<Gfx::Camera*>(camera)->GetPos();
+    const Mth::Matrix& view = *static_cast<Gfx::Camera*>(camera)->GetMatrix();
     m_pos = eye;
     // 144 along the camera's up, then 144 back along its at (12 feet each, scaled twice - as the original).
     const Mth::Vector& up = view.row[1];

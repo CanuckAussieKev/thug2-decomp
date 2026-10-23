@@ -153,7 +153,7 @@ void Install(StandIns& s)
         Rec(0x1180, {r.args[0], r.args[1]});
         return g_rule ? 1u : 0u;
     });
-    s.At({0x0044E4F0}, 0, [](Regs& r) {
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) {
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });

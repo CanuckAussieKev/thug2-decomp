@@ -5,6 +5,7 @@
 // stand-ins.
 
 #include "game/front/screen_element_manager.h"
+#include "game/sio/inpman.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
 
@@ -56,7 +57,7 @@ void InstallManagerStandIns(StandIns& s)
         Rec(0x9090, {Hash(reinterpret_cast<const char*>(r.args[0]))});
         return At(kPadTypes);
     });
-    s.At({0x0044E630}, 4, [](Regs& r) {
+    s.At({0x0044E630, AddressOf(&Inp::Manager::GetPlayerController)}, 4, [](Regs& r) {
         Rec(0xE630, {r.ecx, r.args[0]});
         return static_cast<uint32_t>(g_device);
     });

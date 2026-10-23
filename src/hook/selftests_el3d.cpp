@@ -457,7 +457,7 @@ void InstallStandIns(StandIns& s)
         Rec(0xDE80, {r.ecx});
         return r.ecx + 0x10; // (the model at +0x360: its geometry +0x370, the box +0x380)
     });
-    s.At({0x0045C1B0}, 0, [](Regs& r) {
+    s.At({0x0045C1B0, AddressOf(SkateScript::GetNode)}, 0, [](Regs& r) {
         Rec(0xC1B0, {r.args[0], r.args[1]});
         return At(kNode);
     });

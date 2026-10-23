@@ -48,15 +48,15 @@ struct PlayerSearch {
 };
 uint8_t* FirstPlayer(PlayerSearch* search)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, PlayerSearch*, int)>(0x005372C0)(NetManager(), search, 0);
+    return static_cast<uint8_t*>(static_cast<GameNet::Manager*>(NetManager())->FirstPlayerInfo(search, false));
 }
 uint8_t* NextPlayer(PlayerSearch* search)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, PlayerSearch*, int)>(0x00537010)(NetManager(), search, 0);
+    return static_cast<uint8_t*>(static_cast<GameNet::Manager*>(NetManager())->NextPlayerInfo(search, false));
 }
 uint8_t* PlayerByObjectId(int id)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x0053AEA0)(NetManager(), id);
+    return static_cast<GameNet::Manager*>(NetManager())->PlayerByObjectId(static_cast<uint16_t>(id));
 }
 int Team(uint8_t* player) { return *reinterpret_cast<int*>(player + 0x30); }
 uint8_t* SkaterOf(uint8_t* player) { return *reinterpret_cast<uint8_t**>(player + 0x14); }

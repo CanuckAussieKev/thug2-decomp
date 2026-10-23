@@ -6,9 +6,17 @@
 #include <cstring>
 #include <vector>
 
+#include "game/obj/bbox_component.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
+#include "game/obj/lock_obj.h"
+#include "game/obj/model_component.h"
+#include "game/obj/motion.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/object.h"
+#include "game/obj/sound_component.h"
+#include "game/obj/stream_component.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/nodes.h"
 #include "hook/viewer_testkit.h"
 
@@ -46,12 +54,22 @@ void Install(StandIns& s)
         return r.ecx;
     });
     // The component constructors (each records which and returns the memory).
-    for (uint32_t address : {0x00433F50u, 0x0041AAD0u, 0x00424AA0u, 0x004EC370u, 0x00432D90u, 0x00433C10u, 0x0041F500u})
-        s.At({address}, 0, [address](Regs& r) {
+    const std::pair<uint32_t, uint32_t> constructors[] = {
+        {0x00433F50u, AddressOf(&Obj::CSuspendComponent::Construct)}, {0x0041AAD0u, AddressOf(&Obj::CBBoxComponent::Construct)},
+        {0x00424AA0u, AddressOf(&Obj::CMotionComponent::Construct)},  {0x004EC370u, 0},
+        {0x00432D90u, AddressOf(&Obj::CSoundComponent::Construct)},   {0x00433C10u, AddressOf(&Obj::CStreamComponent::Construct)},
+        {0x0041F500u, AddressOf(&Obj::CLockObjComponent::Construct)}};
+    for (auto [address, ours] : constructors) {
+        Handler handler = [address](Regs& r) {
             Rec(address & 0xFFFFF, {r.ecx});
             *reinterpret_cast<uint32_t*>(r.ecx) = address;
             return r.ecx;
-        });
+        };
+        if (ours)
+            s.At({address, ours}, 0, handler);
+        else
+            s.At({address}, 0, handler);
+    }
     s.At({0x0045DA30, AddressOf(&Obj::CCompositeObject::AddComponent)}, 4, [](Regs& r) {
         Rec(0xDA30, {r.ecx, r.args[0]});
         return 0u;
@@ -72,7 +90,7 @@ void Install(StandIns& s)
         Rec(0x1350, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00425970}, 4, [](Regs& r) {
+    s.At({0x00425970, AddressOf(&Obj::CMotionComponent::OrientToNode)}, 4, [](Regs& r) {
         Rec(0x5970, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -99,15 +117,15 @@ void Install(StandIns& s)
          [getter](Regs& r) { return getter(r, 0x6950); });
     s.At({0x004767C0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, CStruct**, int)>(&CStruct::GetStructure))}, 12,
          [getter](Regs& r) { return getter(r, 0x67C0); });
-    s.At({0x00423C90}, 4, [](Regs& r) {
+    s.At({0x00423C90, AddressOf(&Obj::CMotionComponent::InitPathFollower)}, 4, [](Regs& r) {
         Rec(0x3C90, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00423510}, 0, [](Regs& r) {
+    s.At({0x00423510, AddressOf(&Obj::CMotionPathMembers::GetPathFollower)}, 0, [](Regs& r) {
         Rec(0x3510, {r.ecx});
         return At(kComponents + 0x600);
     });
-    s.At({0x00420480}, 0, [](Regs& r) {
+    s.At({0x00420480, AddressOf(&Obj::CModelComponent::Teleport)}, 0, [](Regs& r) {
         Rec(0x0480, {r.ecx});
         return 0u;
     });

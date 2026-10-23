@@ -11,6 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
+#include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cache.h"
 #include "game/script/nodes.h"
@@ -47,17 +48,18 @@ uint32_t* Seen() { return &GameVariable<uint32_t>(0x007CCBE8); }
 // +0x20, the hit's point at +0x78 and normal at +0x88; what it hit held by a smart pointer at +0x98.
 class Feeler {
 public:
-    Feeler() { GameFunction<void*(__thiscall*)(void*)>(0x00417760)(m_bytes); }
+    Feeler() { AsFeeler()->Construct(); }
     ~Feeler() { reinterpret_cast<CSmtPtr<CRefCounted>*>(m_bytes + 0x98)->~CSmtPtr(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     void SetIgnore(uint32_t skip, uint32_t need)
     {
-        GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t)>(0x004170F0)(m_bytes, skip, need);
+        AsFeeler()->SetIgnore(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
     }
-    void SetStart(const Mth::Vector& v) { GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x00417190)(m_bytes, &v); }
-    void SetEnd(const Mth::Vector& v) { GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x004171B0)(m_bytes, &v); }
-    bool GetCollision(int a, int b) { return GameFunction<bool(__thiscall*)(void*, int, int)>(0x004172F0)(m_bytes, a, b); }
+    void SetStart(const Mth::Vector& v) { AsFeeler()->SetStart(&v); }
+    void SetEnd(const Mth::Vector& v) { AsFeeler()->SetEnd(&v); }
+    bool GetCollision(int a, int b) { return AsFeeler()->GetCollision(a != 0, b != 0) != 0; }
+    Nx::CFeeler* AsFeeler() { return reinterpret_cast<Nx::CFeeler*>(m_bytes); }
     Mth::Vector& Start() { return *reinterpret_cast<Mth::Vector*>(m_bytes); }
     Mth::Vector& End() { return *reinterpret_cast<Mth::Vector*>(m_bytes + 0x10); }
     void*& Callback() { return *reinterpret_cast<void**>(m_bytes + 0x20); }

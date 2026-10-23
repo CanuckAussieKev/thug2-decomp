@@ -15,7 +15,10 @@
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
 #include "game/mth/matrix.h"
+#include "game/obj/bbox_component.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/lock_obj.h"
+#include "game/obj/model_component.h"
 #include "game/obj/node_objects.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -193,15 +196,15 @@ void StandInNodeWorld(StandIns& s)
         Record({0xC0390000, NoReloc(r.ecx), r.args[0], component});
         return component;
     });
-    s.At({0x00420480}, 0, [](Regs& r) {
+    s.At({0x00420480, AddressOf(&Obj::CModelComponent::Teleport)}, 0, [](Regs& r) {
         Record({0x42048000, r.ecx});
         return 0u;
     });
-    s.At({0x0041F500}, 0, [](Regs& r) {
+    s.At({0x0041F500, AddressOf(&Obj::CLockObjComponent::Construct)}, 0, [](Regs& r) {
         Record({0x41F50000, NoReloc(r.ecx)});
         return r.ecx;
     });
-    s.At({0x0041AAD0}, 0, [](Regs& r) {
+    s.At({0x0041AAD0, AddressOf(&Obj::CBBoxComponent::Construct)}, 0, [](Regs& r) {
         Record({0x41AAD000, NoReloc(r.ecx)});
         return r.ecx;
     });

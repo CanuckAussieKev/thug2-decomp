@@ -15,12 +15,16 @@
 
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
+#include "game/mth/quat.h"
 #include "game/mth/vector.h"
+#include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/nodes.h"
+#include "game/sfx/terrain.h"
+#include "game/skater/walk_physics.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -75,13 +79,13 @@ void Install(StandIns& s)
     // and then)
     s.Bytes(0x00402F00, Branch(0xE9, 0x00402F00, reinterpret_cast<void*>(AddressOf(&Mth::ClosestPointsBetweenLines))));
     // The feeler.
-    s.At({0x00417760}, 0, [](Regs& r) {
+    s.At({0x00417760, AddressOf(static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct))}, 0, [](Regs& r) {
         Rec(0x7760, {});
         std::memset(reinterpret_cast<void*>(r.ecx), 0x5A, 0xB0);
         *reinterpret_cast<uint32_t*>(r.ecx + 0x98) = 0;
         return r.ecx;
     });
-    s.At({0x004171D0}, 8, [](Regs& r) {
+    s.At({0x004171D0, AddressOf(&Nx::CFeeler::SetLine)}, 8, [](Regs& r) {
         Rec(0x71D0, {});
         RecVector(r.args[0]);
         RecVector(r.args[1]);
@@ -89,7 +93,7 @@ void Install(StandIns& s)
         std::memcpy(reinterpret_cast<void*>(r.ecx + 0x10), reinterpret_cast<void*>(r.args[1]), 16);
         return 0u;
     });
-    s.At({0x004172F0}, 8, [](Regs& r) {
+    s.At({0x004172F0, AddressOf(&Nx::CFeeler::GetCollision)}, 8, [](Regs& r) {
         Rec(0x72F0, {r.args[0], r.args[1]});
         RecVector(r.ecx);
         RecVector(r.ecx + 0x10);
@@ -109,7 +113,7 @@ void Install(StandIns& s)
         }
         return hit ? 1u : 0u;
     });
-    s.At({0x0041C350}, 0, [](Regs& r) {
+    s.At({0x0041C350, AddressOf(&Nx::CFeeler::Destruct)}, 0, [](Regs& r) {
         Rec(0xC350, {*reinterpret_cast<uint32_t*>(r.ecx + 0x98)});
         return 0u;
     });
@@ -117,14 +121,14 @@ void Install(StandIns& s)
         Rec(0x37E0, {r.ecx});
         return 0u;
     });
-    s.At({0x0042BBF0}, 4, [](Regs& r) {
+    s.At({0x0042BBF0, AddressOf(&Mth::Vector::SetLength)}, 4, [](Regs& r) {
         Rec(0xBBF0, {r.args[0]});
         RecVector(r.ecx);
         auto* v = reinterpret_cast<float*>(r.ecx);
         v[0] = v[0] * 0.25f + 1.0f, v[2] = v[2] * 0.5f - 2.0f;
         return 0u;
     });
-    s.At({0x0042BC40}, 4, [](Regs& r) {
+    s.At({0x0042BC40, AddressOf(&Mth::Quat::GetMatrix)}, 4, [](Regs& r) {
         Rec(0xBC40, {});
         RecVector(r.ecx);
         auto* m = reinterpret_cast<float*>(r.args[0]);
@@ -132,7 +136,7 @@ void Install(StandIns& s)
             m[i] = reinterpret_cast<float*>(r.ecx)[i % 4] * (i + 1) + 0.5f;
         return 0u;
     });
-    s.At({0x0041A730}, 4, [](Regs& r) {
+    s.At({0x0041A730, AddressOf(&Mth::Matrix::InitFromAngles)}, 4, [](Regs& r) {
         Rec(0xA730, {});
         RecVector(r.args[0]);
         auto* m = reinterpret_cast<float*>(r.ecx);
@@ -140,14 +144,14 @@ void Install(StandIns& s)
             m[i] = reinterpret_cast<float*>(r.args[0])[i % 3] + i;
         return r.ecx;
     });
-    s.At({0x0042E1F0}, 4, [](Regs& r) {
+    s.At({0x0042E1F0, AddressOf(&Mth::Quat::FromMatrix)}, 4, [](Regs& r) {
         Rec(0xE1F0, {});
         auto* q = reinterpret_cast<float*>(r.ecx);
         const auto* m = reinterpret_cast<float*>(r.args[0]);
         q[0] = m[0], q[1] = m[5], q[2] = m[10], q[3] = m[15];
         return 0u;
     });
-    s.At({0x004442C0}, 0, [](Regs& r) {
+    s.At({0x004442C0, AddressOf(Terrain::GetTerrainIndex)}, 0, [](Regs& r) {
         Rec(0x42C0, {r.args[0]});
         return (r.args[0] >> 4) & 0x7Fu;
     });
@@ -243,9 +247,9 @@ void Install(StandIns& s)
             return static_cast<uint32_t>(answer);
         };
     };
-    s.At({0x004418B0}, 16, checker(0x18B0, 2, 1));
-    s.At({0x00441260}, 16, checker(0x1260, 2, 1));
-    s.At({0x004413E0}, 24, [](Regs& r) {
+    s.At({0x004418B0, AddressOf(&Obj::CWalkComponent::CheckLadderBottom)}, 16, checker(0x18B0, 2, 1));
+    s.At({0x00441260, AddressOf(&Obj::CWalkComponent::CheckLadderTop)}, 16, checker(0x1260, 2, 1));
+    s.At({0x004413E0, AddressOf(&Obj::CWalkComponent::CheckLadderLine)}, 24, [](Regs& r) {
         Rec(0x13E0, {r.ecx});
         RecVector(r.args[0]);
         RecVector(r.args[1]);
@@ -261,7 +265,7 @@ void Install(StandIns& s)
             answer = g_checks.front(), g_checks.pop_front();
         return static_cast<uint32_t>(answer);
     });
-    s.At({0x00440690}, 28, [](Regs& r) {
+    s.At({0x00440690, AddressOf(&Obj::CWalkComponent::CheckRail)}, 28, [](Regs& r) {
         Rec(0x0690, {r.ecx});
         for (int i = 0; i < 4; ++i)
             RecVector(r.args[i]);

@@ -17,8 +17,10 @@
 #include "game/nx/feeler.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
+#include "game/obj/trigger_component.h"
 #include "game/script/struct.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
@@ -238,7 +240,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // The feeler copied (its line and hit; recorded by content).
-    s.At({0x0043A930}, 4, [](Regs& r) {
+    s.At({0x0043A930, AddressOf(&Nx::CFeeler::Assign)}, 4, [](Regs& r) {
         auto* from = reinterpret_cast<const uint8_t*>(r.args[0]);
         Rec(0xA930, {r.ecx, Where(r.args[0]), *reinterpret_cast<const uint32_t*>(from + 0x54)});
         RecFloat(0xA931, reinterpret_cast<const float*>(from), 8);
@@ -246,14 +248,14 @@ void Install(StandIns& s)
         std::memcpy(reinterpret_cast<void*>(r.ecx), from, 0x98);
         return r.ecx;
     });
-    s.At({0x00434BF0}, 8, [](Regs& r) {
+    s.At({0x00434BF0, AddressOf(&Obj::CTriggerComponent::CheckFeeler)}, 8, [](Regs& r) {
         Rec(0x4BF0, {r.ecx, r.args[0], Where(r.args[1])});
         auto effect = g_effects.find(0x4BF0);
         if (effect != g_effects.end())
             effect->second();
         return 0u;
     });
-    s.At({0x00427CD0}, 4, [](Regs& r) {
+    s.At({0x00427CD0, AddressOf(&Obj::CMovableContactComponent::StartRiding)}, 4, [](Regs& r) {
         Rec(0x7CD0, {r.ecx, Where(r.args[0])});
         return 0u;
     });
@@ -270,7 +272,7 @@ void Install(StandIns& s)
     S(s, {0x00417210, AddressOf(&Nx::CFeeler::HitObjectAlive)}, 0, 0x7210, true);
     S(s, {0x00417240, AddressOf(&Nx::CFeeler::GetHitObject)}, 0, 0x7240, true);
     S(s, {0x0043EB80}, 4, 0xEB80);
-    S(s, {0x0041C350}, 0, 0xC350, true);
+    S(s, {0x0041C350, AddressOf(&Nx::CFeeler::Destruct)}, 0, 0xC350, true);
     // Jump's, the barrier jump's and the contacts'.
     S(s, {0x0046B920, AddressOf(&Obj::CControlButton::GetPressedTime)}, 0, 0xB920);
     ReturnFloat(s, {0x00528120}, &g_push);
@@ -288,7 +290,7 @@ void Install(StandIns& s)
     });
     S(s, {0x0040AB40, AddressOf(&Nx::CCollCache::Destruct)}, 0, 0xAB40, true);
     // AnimWait's.
-    S(s, {0x00427C70}, 0, 0x7C70);
+    S(s, {0x00427C70, AddressOf(&Obj::CMovableContactComponent::StopRiding)}, 0, 0x7C70);
     s.At({0x00416F00, AddressOf(&Obj::CRideTracker::Update)}, 4, [](Regs& r) {
         Rec(0x6F00, {r.ecx, r.args[0]});
         return g_answers[0x6F00];

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -17,28 +18,26 @@ namespace {
 // fraction of it at +0x74 and point at +0x78; what it hit held by a smart pointer at +0x98.
 class Feeler {
 public:
-    Feeler() { GameFunction<void*(__thiscall*)(void*)>(0x00417760)(m_bytes); }
+    Feeler() { AsFeeler()->Construct(); }
     ~Feeler() { reinterpret_cast<CSmtPtr<CRefCounted>*>(m_bytes + 0x98)->~CSmtPtr(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     // 0x004170F0: faces with any of `skip` (or without all of `need`) are passed through.
     void SetIgnore(uint32_t skip, uint32_t need)
     {
-        GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t)>(0x004170F0)(m_bytes, skip, need);
+        AsFeeler()->SetIgnore(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
     }
     // 0x004171D0
     void SetLine(const Mth::Vector& start, const Mth::Vector& end)
     {
-        GameFunction<void(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*)>(0x004171D0)(m_bytes, &start,
-                                                                                                  &end);
+        AsFeeler()->SetLine(&start, &end);
     }
     // 0x004172F0
-    bool GetCollision(int a, int b) { return GameFunction<bool(__thiscall*)(void*, int, int)>(0x004172F0)(m_bytes, a, b); }
+    bool GetCollision(int a, int b) { return AsFeeler()->GetCollision(a != 0, b != 0) != 0; }
     // 0x00417710: the line set, then GetCollision.
     bool GetCollision(const Mth::Vector& start, const Mth::Vector& end, int a)
     {
-        return GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(
-            m_bytes, &start, &end, a);
+        return AsFeeler()->GetCollisionAlong(&start, &end, a != 0) != 0;
     }
     const Mth::Vector& Start() const { return *reinterpret_cast<const Mth::Vector*>(m_bytes); }
     const Mth::Vector& End() const { return *reinterpret_cast<const Mth::Vector*>(m_bytes + 0x10); }
@@ -46,14 +45,12 @@ public:
     const Mth::Vector& Point() const { return *reinterpret_cast<const Mth::Vector*>(m_bytes + 0x78); }
 
 private:
+    Nx::CFeeler* AsFeeler() { return reinterpret_cast<Nx::CFeeler*>(m_bytes); }
     alignas(16) uint8_t m_bytes[0xB0];
 };
 
-// 0x0042BBF0 (not rewritten yet; thiscall): x, y and z scaled to `length` (left alone at length 0).
-void SetLength(Mth::Vector& v, float length)
-{
-    GameFunction<Mth::Vector*(__thiscall*)(Mth::Vector*, float)>(0x0042BBF0)(&v, length);
-}
+// 0x0042BBF0: x, y and z scaled to `length` (left alone at length 0).
+void SetLength(Mth::Vector& v, float length) { v.SetLength(length); }
 
 // 0x00402550's maths (each component in double precision; w 0).
 Mth::Vector Cross(const Mth::Vector& a, const Mth::Vector& b)

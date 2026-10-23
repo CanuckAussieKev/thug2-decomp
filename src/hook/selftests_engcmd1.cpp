@@ -14,6 +14,7 @@
 #include "game/core/crc.h"
 #include "game/script/cfuncs_engine.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -36,7 +37,7 @@ void StandInCalls(StandIns& s)
 {
     s.At({0x00442DF0}, 0, [](Regs& r) { Record({0x2DF0, r.args[0], r.args[1]}); return 0u; });
     s.At({0x00443030}, 0, [](Regs& r) { Record({0x3030, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x004442C0}, 0, [](Regs& r) { Record({0x42C0, r.args[0]}); return 0x1100u | ((r.args[0] * 7) & 0xFF); });
+    s.At({0x004442C0, AddressOf(Terrain::GetTerrainIndex)}, 0, [](Regs& r) { Record({0x42C0, r.args[0]}); return 0x1100u | ((r.args[0] * 7) & 0xFF); });
     s.At({0x00444480}, 0, [](Regs& r) {
         Record({0x4480, r.args[1] & 0xFF, r.args[2]});
         *reinterpret_cast<uint32_t*>(r.args[0]) = 0x57A0000 + (r.args[1] & 0xFF);

@@ -25,6 +25,7 @@
 #include "game/ed/park_editor.h"
 #include "game/ed/piece_menu.h"
 #include "game/front/front_end.h"
+#include "game/obj/objman.h"
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -334,7 +335,7 @@ void StandInGame(StandIns& s)
         return 1u;
     });
     RecC(s, {0x005A5420}, 2);
-    Rec(s, {0x004619F0}, 4, 1);
+    Rec(s, {0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, 1);
     Rec(s, {0x0045F3A0}, 0xC, 3, 0, nullptr, false, 4);
     Rec(s, {0x00462F00}, 0x18, 6, 0, nullptr, false, 0x10);
     RecC(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0);

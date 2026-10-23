@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/net/gamenet_manager.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -21,7 +22,7 @@ constexpr uint32_t kVel = 0x0C4C809E;
 const float kHalf = 0.5f; // 0x006453BC
 
 // The Suspend component's flag at +0x30 (0x00433E90; not rewritten yet).
-bool SuspendFlag(CBaseComponent* suspend) { return GameFunction<bool(__thiscall*)(CBaseComponent*)>(0x00433E90)(suspend); }
+bool SuspendFlag(CBaseComponent* suspend) { return static_cast<CSuspendComponent*>(suspend)->IsFar(); }
 
 } // namespace
 

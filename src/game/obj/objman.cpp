@@ -7,7 +7,9 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/task.h"
 #include "game/lst/head.h"
+#include "game/sys/mlp.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -27,12 +29,11 @@ uint32_t& TrackerReferences() { return GameVariable<uint32_t>(0x006F0FC4); }
 
 // Lst::Head<CObject>'s insert by priority (the highest first, equal ones newest first).
 void AddNodeByPriority(Mem::ListNode* head, Mem::ListNode* node) { reinterpret_cast<Lst::Head*>(head)->AddNode(node); }
-// Not rewritten yet: Tsk::Task's constructor and the main loop's system task list's add.
-void ConstructTask(void* task, int priority) { GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, priority); }
+// Tsk::Task's constructor and the main loop's system task list's add.
+void ConstructTask(void* task, int priority) { static_cast<Tsk::BaseTask*>(task)->Construct(priority); }
 void AddSystemTask(void* task)
 {
-    auto* mlp = GameVariable<uint8_t*>(0x00696D68); // Mlp::Manager: m_systemTasks at +0x7C
-    GameFunction<void(__thiscall*)(void*, void*)>(0x00406C90)(mlp + 0x7C, task);
+    GameVariable<Mlp::Manager*>(0x00696D68)->m_systemTasks.AddTask(static_cast<Tsk::BaseTask*>(task));
 }
 
 // The node after `node`, or null at the head.

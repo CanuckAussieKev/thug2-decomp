@@ -21,6 +21,7 @@
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
 #include "game/ed/piece_menu.h"
+#include "game/nx/feeler.h"
 #include "game/script/cscript.h"
 #include "game/file/file.h"
 #include "game/obj/smtptr.h"
@@ -371,23 +372,23 @@ void StandInGame(StandIns& s)
     });
     Rec(s, {0x00591FE0}, 0, 0);
     Rec(s, {0x005933D0}, 8, 2);
-    Rec(s, {0x00417760}, 0, 0, 0, [](Regs& r) {
+    Rec(s, {0x00417760, AddressOf(static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct))}, 0, 0, 0, [](Regs& r) {
         auto* feeler = reinterpret_cast<uint8_t*>(r.ecx);
         std::memset(feeler, 0, 0xB0);
         *reinterpret_cast<uint32_t*>(feeler + 0x98) = Next(0x00417760 + 1);
         return r.ecx;
     });
-    Rec(s, {0x00417190}, 4, 0, 0, [](Regs& r) {
+    Rec(s, {0x00417190, AddressOf(&Nx::CFeeler::SetStart)}, 4, 0, 0, [](Regs& r) {
         auto* v = reinterpret_cast<float*>(r.args[0]);
         Record({F(v[0]), F(v[1]), F(v[2]), F(v[3])});
         return 0u;
     });
-    Rec(s, {0x004171B0}, 4, 0, 0, [](Regs& r) {
+    Rec(s, {0x004171B0, AddressOf(&Nx::CFeeler::SetEnd)}, 4, 0, 0, [](Regs& r) {
         auto* v = reinterpret_cast<float*>(r.args[0]);
         Record({F(v[0]), F(v[1]), F(v[2]), F(v[3])});
         return 0u;
     });
-    Rec(s, {0x004172F0}, 8, 2, 0, [](Regs& r) {
+    Rec(s, {0x004172F0, AddressOf(&Nx::CFeeler::GetCollision)}, 8, 2, 0, [](Regs& r) {
         *reinterpret_cast<float*>(r.ecx + 0x7C) = 33.375f;
         return Next(0x004172F0);
     });

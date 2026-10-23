@@ -88,7 +88,7 @@ void StandIn(StandIns& s, bool railMoves)
     });
     Rec(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, 0xECE0, [](Regs&) { return 0x1000u + g_a.clock++; },
         false);
-    Rec(s, {0x00532EA0}, 1, 0x2EA0, [](Regs&) { return g_a.noApp ? 0u : Addr(kApp); });
+    Rec(s, {0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 1, 0x2EA0, [](Regs&) { return g_a.noApp ? 0u : Addr(kApp); });
     Rec(s, {0x00533F90}, 0, 0x3F90, [](Regs&) { return g_a.onServer ? 0xABCD01u : 0xABCD00u; });
     Rec(s, {0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 1, 0xAEA0, [](Regs&) { return Addr(kPlayer); });
     Rec(s, {0x00543380, AddressOf(&GameNet::PlayerInfo::IsFullyIn)}, 0, 0x3380, [](Regs&) { return NextBit() ? 1u : 0u; });

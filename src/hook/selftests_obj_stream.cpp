@@ -10,6 +10,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/camera.h"
 #include "game/obj/emitter.h"
 #include "game/obj/object.h"
 #include "game/obj/proxim.h"
@@ -159,7 +160,7 @@ void StandIn(StandIns& s)
         std::memcpy(reinterpret_cast<void*>(r.args[0]), g_world.closest, 16);
         return r.args[0];
     });
-    s.At({0x00485A00}, 0, [](Regs& r) {
+    s.At({0x00485A00, AddressOf(&Gfx::Camera::GetPos)}, 0, [](Regs& r) {
         Record({0x5A00, Rel(r.ecx)});
         return reinterpret_cast<uint32_t>(g_world.cameraPos);
     });

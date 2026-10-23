@@ -17,6 +17,7 @@
 #include "game/mth/quat.h"
 #include "game/mth/vector.h"
 #include "game/obj/lock_obj.h"
+#include "game/obj/model_component.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/sys/timer.h"
@@ -135,7 +136,7 @@ void StandIn(StandIns& s)
         Record({0x2C50, r.ecx, r.args[0]});
         return 0xBA0000u + g_a.seed;
     });
-    s.At({0x004215F0}, 4, [](Regs& r) { // the model's matrix
+    s.At({0x004215F0, AddressOf(&Obj::CModelComponent::GetDisplayMatrix)}, 4, [](Regs& r) { // the model's matrix
         Record({0x15F0, Rel(r.ecx), Rel(r.args[0])});
         FillMatrix(reinterpret_cast<float*>(r.args[0]), g_a.seed * 4 + 2);
         return r.args[0];

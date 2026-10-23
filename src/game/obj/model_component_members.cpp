@@ -118,7 +118,7 @@ void SetDiffuseColor(void* lights, int index, const uint8_t* rgba) { ThisCall<vo
 void EnableDiffuse(void* lights, int index, bool on) { ThisCall<void>(0x0048E4C0, lights, index, on); }
 void SetLightDirection(void* lights, int index, const Mth::Vector* direction)
 {
-    ThisCall<void>(0x004E3F90, lights, index, direction);
+    ModelNx::SetLightsDirection(lights, nullptr, index, direction);
 }
 
 // The model appearance a profile is read into (0x00488EA0 constructor, 0x00488F40 loaded from a structure, 0x004890F0
@@ -511,6 +511,13 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         return 2;
     }
     return result ? 1 : 0;
+}
+
+// (no address: the tail jump folded at 0x004E3F90 - model_component_nx.h)
+void __fastcall ModelNx::SetLightsDirection(void* lights, void*, int index, const Mth::Vector* direction)
+{
+    reinterpret_cast<void(__thiscall*)(void*, int, const Mth::Vector*)>((*static_cast<void***>(lights))[2])(lights, index,
+                                                                                                      direction);
 }
 
 } // namespace Obj

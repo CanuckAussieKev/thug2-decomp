@@ -12,6 +12,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/front/screen_element_manager.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
@@ -71,8 +72,7 @@ CObject* FindObjectById(uint32_t id) { return GameVariable<CBaseManager*>(0x006F
 // of screen elements and aliases). False if there is none.
 bool GetObjectId(Script::CStruct* params, uint32_t name, uint32_t* id)
 {
-    return GameFunction<bool(__thiscall*)(void*, Script::CStruct*, uint32_t, uint32_t*)>(0x004AC120)(
-        GameVariable<void*>(0x00701440), params, name, id);
+    return GameVariable<Front::CScreenElementManager*>(0x00701440)->ResolveId(params, name, id);
 }
 
 // 0x004A1090: give an event listener the event (its vtable +0x04, the subclass's filter).

@@ -9,8 +9,18 @@
 #include "game/core/string.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/buddy_status.h"
+#include "game/obj/bbox_component.h"
+#include "game/obj/car_physics.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/lock_obj.h"
+#include "game/obj/model_component.h"
+#include "game/obj/motion.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/objman.h"
+#include "game/obj/sound_component.h"
+#include "game/obj/stream_component.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -42,8 +52,15 @@ constexpr uint32_t kPedAddComponents = 0xF3EEC45E; // ped_add_components (a scri
 constexpr uint32_t kPedInitModel = 0x955A2767;     // ped_init_model (a script)
 constexpr uint32_t kPedDisableBones = 0x48CA2D26;  // ped_disable_bones (a script)
 
-// A new component of `size` bytes from its constructor at `constructor` (null if there's no memory).
-CBaseComponent* NewComponent(unsigned int size, uint32_t constructor)
+// A new component of `size` bytes from T's constructor (null if there's no memory).
+template <typename T>
+CBaseComponent* NewComponent(unsigned int size)
+{
+    void* memory = Mem::Calloc(size);
+    return memory ? static_cast<T*>(memory)->Construct() : nullptr;
+}
+// The same with a constructor not rewritten yet (at `constructor`).
+CBaseComponent* NewGameComponent(unsigned int size, uint32_t constructor)
 {
     void* memory = Mem::Calloc(size);
     return memory ? GameFunction<CBaseComponent*(__thiscall*)(void*)>(constructor)(memory) : nullptr;
@@ -55,7 +72,7 @@ void InitComponentFromStructure(CBaseComponent* component, Script::CStruct* para
         component, params);
 }
 // The model component's update after the object is finished (0x00420480).
-void UpdateModel(CBaseComponent* model) { GameFunction<void(__thiscall*)(CBaseComponent*)>(0x00420480)(model); }
+void UpdateModel(CBaseComponent* model) { static_cast<CModelComponent*>(model)->Teleport(); }
 // The composite object's Finalize (vtable +0x20).
 void VirtualFinalize(CCompositeObject* object)
 {
@@ -80,18 +97,18 @@ void DeleteStructure(Script::CStruct* structure)
 // 0x0057B250
 void AddBaseComponents(CCompositeObject* object)
 {
-    object->AddComponent(NewComponent(0x4C, 0x00433F50)); // suspend
-    object->AddComponent(NewComponent(0x4C, 0x0041AAD0)); // (type 0xB87C8E43)
+    object->AddComponent(NewComponent<CSuspendComponent>(0x4C)); // suspend
+    object->AddComponent(NewComponent<CBBoxComponent>(0x4C));    // (type 0xB87C8E43)
 }
 
 // 0x0057B2F0
 void AddMotionComponents(CCompositeObject* object)
 {
-    object->AddComponent(NewComponent(0x24C, 0x00424AA0)); // motion
-    object->AddComponent(NewComponent(0x30, 0x004EC370));  // objectproximity
-    object->AddComponent(NewComponent(0xC0, 0x00432D90));  // sound
-    object->AddComponent(NewComponent(0x2C, 0x00433C10));  // stream
-    object->AddComponent(NewComponent(0x90, 0x0041F500));  // lockobj
+    object->AddComponent(NewComponent<CMotionComponent>(0x24C)); // motion
+    object->AddComponent(NewGameComponent(0x30, 0x004EC370));    // objectproximity
+    object->AddComponent(NewComponent<CSoundComponent>(0xC0));   // sound
+    object->AddComponent(NewComponent<CStreamComponent>(0x2C));  // stream
+    object->AddComponent(NewComponent<CLockObjComponent>(0x90)); // lockobj
 }
 
 // 0x0057B420
@@ -100,7 +117,7 @@ void AddNodeComponents(CCompositeObject* object, Script::CStruct* node)
     CBaseComponent* motion = object->GetComponent(kMotion);
     if (!motion)
         AddMotionComponents(object); // (sic: not looked up again - the motion stays null below)
-    GameFunction<void(__thiscall*)(CBaseComponent*, Script::CStruct*)>(0x00425970)(motion, node);
+    static_cast<CMotionComponent*>(motion)->OrientToNode(node);
     if (uint32_t name = SkateScript::GetNodeName(node))
         object->SetID(name);
     uint32_t script = 0;
@@ -132,8 +149,8 @@ void CreatePed(Script::CStruct* params)
     *reinterpret_cast<float*>(motion + 0x24) = 48.0f;
     *reinterpret_cast<float*>(motion + 0x28) = 12.0f;
     *reinterpret_cast<float*>(motion + 0x34) = 24.0f;
-    GameFunction<void(__thiscall*)(void*, CCompositeObject*)>(0x00423C90)(motion, ped);
-    auto* path = GameFunction<uint8_t*(__thiscall*)(void*)>(0x00423510)(motion);
+    reinterpret_cast<CMotionComponent*>(motion)->InitPathFollower(ped);
+    auto* path = static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
     *reinterpret_cast<float*>(path + 0x94) = 24.0f;
     *reinterpret_cast<uint32_t*>(motion + 0x1C) |= 0x400;
     UpdateModel(ped->GetComponent(kModel));
@@ -150,8 +167,8 @@ void InitCar(CCompositeObject* car, Script::CStruct* params)
     *reinterpret_cast<float*>(motion + 0x24) = 216.0f;
     *reinterpret_cast<float*>(motion + 0x28) = 384.0f;
     motion[0x70] = 0;
-    GameFunction<void(__thiscall*)(void*, CCompositeObject*)>(0x00423C90)(motion, car);
-    auto* extra = GameFunction<uint8_t*(__thiscall*)(void*)>(0x00423510)(motion);
+    reinterpret_cast<CMotionComponent*>(motion)->InitPathFollower(car);
+    auto* extra = static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
     *reinterpret_cast<float*>(extra + 0x94) = 240.0f;
     Script::RunScript(kCarAddComponents, params, car, false, nullptr);
     VirtualFinalize(car);
@@ -166,7 +183,7 @@ void CreateCar(Script::CStruct* params)
     AddBaseComponents(car);
     car->SetType(kObjectTypeCar);
     void* component = Mem::Calloc(0x58);
-    car->AddComponent(component ? GameFunction<CBaseComponent*(__thiscall*)(void*)>(0x0041BAD0)(component) : nullptr);
+    car->AddComponent(component ? static_cast<CCarPhysicsComponent*>(component)->Construct() : nullptr);
     SkateScript::GetPosition(params, &car->m_pos);
     CompositeObjectManager()->VirtualRegisterObject(car);
     InitCar(car, params);
@@ -210,7 +227,8 @@ void CCrownObject::OwnUpdate()
 {
     if (!m_worn)
         return;
-    void* skeleton = GameFunction<void*(__thiscall*)(CBaseComponent*)>(0x005480F0)(m_skater->GetComponent(kSkeleton));
+    // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
+    auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(m_skater->GetComponent(kSkeleton))->Word18());
     GameFunction<void(__thiscall*)(void*, uint32_t, Mth::Matrix*)>(0x004A36E0)(skeleton, kBoneHead, &m_matrix);
     Mth::Matrix turn;
     Mth::Multiply(m_matrix, Mth::CreateRotateXMatrix(turn, 90.0f), m_matrix);
@@ -220,8 +238,7 @@ void CCrownObject::OwnUpdate()
     m_matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     Mth::Multiply(m_matrix, m_matrix, m_skater->m_matrix);
     Mth::Vector moved;
-    m_pos = *GameFunction<Mth::Vector*(__thiscall*)(const Mth::Matrix*, Mth::Vector*, const Mth::Vector*)>(0x0040AF60)(
-        &m_skater->m_matrix, &moved, &offset); // (the matrix times the offset, w too)
+    m_pos = m_skater->m_matrix.Transform(moved, offset); // (the matrix times the offset, w too)
     const Mth::Vector& at = m_skater->m_pos;
     m_pos.x = static_cast<float>(static_cast<double>(at.x) + m_pos.x);
     m_pos.y = static_cast<float>(static_cast<double>(at.y) + m_pos.y);

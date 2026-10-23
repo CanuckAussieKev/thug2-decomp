@@ -2,10 +2,14 @@
 
 #include "game/obj/anim_blender.h"
 
+#include <cstring>
+
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/anim_blend.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/movie_manager.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
@@ -138,7 +142,7 @@ void CAnimBlenderComponent::Update()
     int count = 0;
     bool changed = false;
     Channel* channel = Masked(m_channels.next);
-    bool ready = GameFunction<bool(__thiscall*)(CBaseComponent*, uint32_t*)>(0x00433EA0)(mp_component18, &m_unknown24);
+    bool ready = static_cast<CSuspendComponent*>(mp_component18)->ShouldAnimate(reinterpret_cast<float*>(&m_unknown24));
     if (!channel)
         return;
     do {
@@ -166,7 +170,8 @@ void CAnimBlenderComponent::Update()
     } while (true);
     if (!changed)
         return;
-    auto skeleton = [this]() { return GameFunction<void*(__thiscall*)(CBaseComponent*)>(0x005480F0)(mp_skeleton); };
+    // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
+    auto skeleton = [this]() { return reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(mp_skeleton)->Word18()); };
     if (count == 1) {
         NotifyObservers(s_blendPose);
     } else {
@@ -300,7 +305,9 @@ int CAnimBlenderComponent::BlendChannel(uint32_t, Script::CStruct* params, Scrip
     float a = 0.0f, b = 0.0f;
     params->GetFloat(0x4D786F62, &a, 1);
     params->GetFloat(0xBF237659, &b, 0);
-    ChannelMethod<void>(0x0047D430, channel, a, b); // BlendTo (the target a float here)
+    uint32_t target; // (BlendTo's target is a float here: its bits passed on)
+    std::memcpy(&target, &a, sizeof(target));
+    channel->BlendTo(target, b);
     return 1;
 }
 

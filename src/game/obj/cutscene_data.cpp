@@ -2,10 +2,13 @@
 
 #include <cstring>
 
+#include "game/ass/assman.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
+#include "game/net/buddy_status.h"
 #include "game/obj/cutscene.h"
+#include "game/obj/model_component.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
@@ -50,14 +53,14 @@ void ModelSet(void* model, uint32_t value)
 }
 
 // The asset manager (0x006918DC).
-void* AssetManager()
+Ass::CAssMan* AssetManager()
 {
-    return GameVariable<void*>(0x006918DC);
+    return GameVariable<Ass::CAssMan*>(0x006918DC);
 }
+// (from memory, a2 the data and a3 its size: not permanent, copied)
 void LoadAssetFile(uint32_t name, uint32_t a2, uint32_t a3)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, int, uint32_t, uint32_t, int, int, int, int)>(0x00408060)(
-        AssetManager(), name, 5, 0, a2, a3, 0, 1, 0, 0);
+    AssetManager()->LoadAssetFromStream(name, 5, 0, reinterpret_cast<void*>(a2), a3, false, true, nullptr, 0);
 }
 
 } // namespace
@@ -193,7 +196,7 @@ void CCutsceneData::DestroyObjects()
         if (entry.active) {
             // the level's object it stood in for gets its model's settings back
             CBaseComponent* standIn = static_cast<CCompositeObject*>(entry.object)->GetComponent(kModelComponent);
-            uint32_t id = GameFunction<uint32_t(__thiscall*)(CBaseComponent*)>(0x00420100)(standIn);
+            uint32_t id = static_cast<CModelComponent*>(standIn)->GetRefObjectName();
             auto* original = static_cast<CCompositeObject*>(FindObject(id));
             void* model = ModelOf(original->GetComponent(kModelComponent));
             GameFunction<void(__thiscall*)(void*, void*)>(0x00492E80)(model, m_lent2C);
@@ -284,8 +287,8 @@ void CCutsceneData::UpdateCamera(void* camera)
     if (!m_flag34B0)
         return;
     static_cast<Gfx::Camera*>(camera)->StoreOldPos();
-    auto* position = GameFunction<float*(__thiscall*)(void*)>(0x00485A00)(camera);
-    auto* matrix = GameFunction<float*(__thiscall*)(void*)>(0x00485A10)(camera);
+    auto* position = reinterpret_cast<float*>(static_cast<Gfx::Camera*>(camera)->GetPos());
+    auto* matrix = reinterpret_cast<float*>(static_cast<Gfx::Camera*>(camera)->GetMatrix());
     float rotation[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     float translation[4];
     bool flag = false;
@@ -316,7 +319,8 @@ void CCutsceneData::UpdateObjectPoses()
         CBaseComponent* component = entry.object->GetComponent(kSkeletonComponent);
         if (!component)
             continue;
-        uint8_t* skeleton = GameFunction<uint8_t*(__thiscall*)(CBaseComponent*)>(0x005480F0)(component);
+        // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
+        auto* skeleton = reinterpret_cast<uint8_t*>(reinterpret_cast<GameNet::FoldedGetters*>(component)->Word18());
         auto* source = static_cast<uint8_t*>(entry.animation->source);
         void* animation = entry.animation->data;
         GameFunction<void(__thiscall*)(void*, int)>(0x004A3090)(skeleton, 0);

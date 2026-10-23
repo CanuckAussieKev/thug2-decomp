@@ -8,6 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/control_pad.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -34,8 +35,8 @@ constexpr float kHeadingScale = 3.0f;               // 0x006467A8
 constexpr float kNear = 0.0010000000474974513f;    // 0x006461D8
 constexpr float kEase = 3.75f;                     // 0x0064B2C0
 
-// A button's press this frame forgotten (not rewritten yet; thiscall).
-void TakePress(uint8_t* button) { GameFunction<void(__thiscall*)(uint8_t*)>(0x0046B7E0)(button); }
+// A button's press this frame forgotten.
+void TakePress(uint8_t* button) { reinterpret_cast<CControlButton*>(button)->ClearTrigger(); }
 
 // One angle eased toward `target` (the original's x87 sequence: the difference rounded, its size unrounded).
 void Ease(float& angle, double target, float frame)

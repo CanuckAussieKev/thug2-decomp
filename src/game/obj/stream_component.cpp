@@ -6,6 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/camera.h"
 #include "game/obj/emitter.h"
 #include "game/obj/proxim.h"
 #include "game/pcm/music_api.h"
@@ -25,7 +26,7 @@ constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 
 const Mth::Vector* CameraPosition(void* camera)
 {
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera);
+    return static_cast<Gfx::Camera*>(camera)->GetPos();
 }
 
 } // namespace

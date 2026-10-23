@@ -24,9 +24,11 @@
 #include "game/obj/input_component.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/vibration_component.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/sio/inpman.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/appmain_testkit.h"
@@ -358,11 +360,11 @@ void StandIn(StandIns& s)
         Record({0xB110, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x0044E630}, 4, [](Regs& r) {
+    s.At({0x0044E630, AddressOf(&Inp::Manager::GetPlayerController)}, 4, [](Regs& r) {
         Record({0xE630, Rel(r.ecx), r.args[0]});
         return 1u - (r.args[0] & 1);
     });
-    s.At({0x0043D5C0}, 4, [](Regs& r) {
+    s.At({0x0043D5C0, AddressOf(&Obj::CVibrationComponent::SetDevice)}, 4, [](Regs& r) {
         Record({0xD5C0, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });

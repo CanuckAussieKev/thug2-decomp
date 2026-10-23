@@ -15,10 +15,13 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/movable_contact.h"
+#include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/trigger_component.h"
 #include "game/obj/walk_hang.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
@@ -104,8 +107,8 @@ std::vector<StandIn> WalkStandIns()
         {0x005092E0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::TriggerRailScript)}},
         {0x0052AB90, 8, 2, Ret::None, true, 0, {Ours(&Obj::CWalkComponent::LeaveRide)}},
         {0x00527720, 8, 2, Ret::None, true, 0, {Ours(&Obj::CWalkComponent::SetTransitionFacing)}},
-        {0x00434BF0, 8, 2, Ret::None, true},
-        {0x00427CD0, 4, 1, Ret::None, true},
+        {0x00434BF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CTriggerComponent::CheckFeeler)}},
+        {0x00427CD0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StartRiding)}},
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
          [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kTagging)); }},
         {0x0057CB60, 8, 2, Ret::Int, true, 0, {Ours(&CRailManager::GetWorldPos)}, [](Frame& f, Result& r) {
@@ -161,15 +164,15 @@ std::vector<StandIn> WalkStandIns()
              for (int i = 0; i < 4; ++i)
                  feeler[0x88 / 4 + i] = RandomFloat(1.0f);
          }},
-        {0x0043A930, 4, 0, Ret::Int, true, 0, {}, [](Frame& f, Result& r) {
+        {0x0043A930, 4, 0, Ret::Int, true, 0, {Ours(&Nx::CFeeler::Assign)}, [](Frame& f, Result& r) {
              // (the normal the stand-in set; the rest of a stack feeler is unset)
              std::memcpy(reinterpret_cast<uint8_t*>(f.ecx) + 0x88, reinterpret_cast<uint8_t*>(f.args[0]) + 0x88, 0x10);
              r.eax = f.ecx;
          }},
-        {0x00427C70, 0, 0, Ret::None, true},
+        {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x0045F2D0, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObjectManager::GetFirstComponentByType)},
          [](Frame&, Result& r) { r.eax = g_walkMode % 4 ? reinterpret_cast<uint32_t>(ArenaPtr(kRailComps)) : 0u; }},
-        {0x0042BA10, 4, 1, Ret::None, true, 0, {}, [](Frame& f, Result&) {
+        {0x0042BA10, 4, 1, Ret::None, true, 0, {Ours(&Obj::CRailManagerComponent::UpdateRailMatrix)}, [](Frame& f, Result&) {
              float* m = reinterpret_cast<float*>(f.args[0]);
              for (int i = 0; i < 16; ++i)
                  m[i] = (i % 5 == 0) ? 1.0f + RandomFloat(0.25f) : RandomFloat(0.5f);

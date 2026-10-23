@@ -23,6 +23,7 @@
 #include "game/obj/flexible_particle.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/suspend_component.h"
 #include "game/pcm/music_api.h"
 #include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
@@ -401,11 +402,11 @@ void StandIn(StandIns& s)
         Record({0x0AD0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_world.otherObject);
     });
-    s.At({0x00433EA0}, 4, [](Regs& r) {
+    s.At({0x00433EA0, AddressOf(&Obj::CSuspendComponent::ShouldAnimate)}, 4, [](Regs& r) {
         Record({0x3EA0, Rel(r.ecx), r.args[0]});
         return g_a.shouldUpdate ? 1u : 0u;
     });
-    s.At({0x00433E70}, 0, [](Regs& r) {
+    s.At({0x00433E70, AddressOf(&Obj::CSuspendComponent::DisableLod)}, 0, [](Regs& r) {
         Record({0x3E70, Rel(r.ecx)});
         return 0u;
     });

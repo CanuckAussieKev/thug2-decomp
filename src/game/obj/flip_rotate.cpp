@@ -5,7 +5,9 @@
 #include <cstring>
 
 #include "game/core/manager.h"
+#include "game/mth/quat.h"
 #include "game/obj/object.h"
+#include "game/obj/vehicle_component.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -86,10 +88,11 @@ bool CFlipRotateComponent::GetPose(uint8_t* pose)
             auto* rotation = reinterpret_cast<float*>(pose + 0x10 * bone);
             const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
             float product[4];
-            const float* result = GameFunction<const float*(__cdecl*)(float*, const float*, const float*)>(0x004354C0)(
-                product, turn, rotation);
+            const float* result = reinterpret_cast<const float*>(QuatProduct(reinterpret_cast<Mth::Vector*>(product),
+                                                                             reinterpret_cast<const Mth::Vector*>(turn),
+                                                                             reinterpret_cast<const Mth::Vector*>(rotation)));
             std::memcpy(rotation, result, 16);
-            GameFunction<void(__thiscall*)(float*, float)>(0x0042E310)(rotation, 1.0f); // (to length 1)
+            reinterpret_cast<Mth::Quat*>(rotation)->Normalize(1.0f); // (to length 1)
         }
     }
     if (!m_flipped)

@@ -14,6 +14,7 @@
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/player_info.h"
+#include "game/obj/anim_blender.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -56,8 +57,8 @@ void StandIn(StandIns& s)
     });
     Rec(s, {0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 1, 0xAEA0, [](Regs&) { return g_a.havePlayer ? Addr(kPlayer) : 0u; });
     Rec(s, {0x00543300, AddressOf(&GameNet::PlayerInfo::IsLocalPlayer)}, 0, 0x3300, [](Regs&) { return g_a.localPlayer ? 1u : 0u; });
-    Rec(s, {0x005434B0}, 0, 0x34B0, [](Regs& r) { return 0x100u + (Rel(r.ecx) & 0xFFF); });
-    Rec(s, {0x00532EA0}, 1, 0x2EA0, [](Regs&) { return Addr(kApp); });
+    Rec(s, {0x005434B0, AddressOf(&GameNet::PlayerInfo::GetSkaterValue2BC)}, 0, 0x34B0, [](Regs& r) { return 0x100u + (Rel(r.ecx) & 0xFFF); });
+    Rec(s, {0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 1, 0x2EA0, [](Regs&) { return Addr(kApp); });
     Rec(s, {0x004549F0, AddressOf(&Net::MsgDesc::Construct)}, 0, 0x49F0, [](Regs& r) {
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 0x20);
         return r.ecx;
@@ -73,7 +74,7 @@ void StandIn(StandIns& s)
     });
     Rec(s, {0x004FE120}, 0, 0xE120);
     Rec(s, {0x004FC440}, 0, 0xC440, [](Regs&) { return g_a.flipNeeded ? 1u : 0u; });
-    Rec(s, {0x00419C10}, 4, 0x9C10);
+    Rec(s, {0x00419C10, AddressOf(&Obj::CAnimBlenderComponent::AnyChannel)}, 4, 0x9C10);
     Rec(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, 0xECE0, [](Regs&) { return static_cast<uint32_t>(g_a.clock); },
         false);
     Rec(s, {0x00476B40, AddressOf(static_cast<bool (Script::CStruct::*)(uint32_t)>(&Script::CStruct::ContainsFlag))}, 1,

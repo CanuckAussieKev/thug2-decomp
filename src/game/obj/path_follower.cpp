@@ -8,6 +8,8 @@
 #include <cmath>
 
 #include "game/core/manager.h"
+#include "game/obj/motion.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/object.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -27,17 +29,17 @@ CBaseComponent* PathComponent(CCompositeObject* owner) { return owner->GetCompon
 // The component's choice: a random link (true) or the first (not rewritten yet).
 bool PicksRandomLink(CBaseComponent* component)
 {
-    return GameFunction<bool(__thiscall*)(CBaseComponent*)>(0x00423520)(component);
+    return reinterpret_cast<CMotionPathMembers*>(component)->PicksRandomLink();
 }
 // The component told that `node` has been passed (not rewritten yet).
 void NodePassed(CBaseComponent* component, uint32_t node)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, uint32_t)>(0x00424020)(component, node);
+    static_cast<CMotionComponent*>(component)->ArriveAtNode(node);
 }
 // x, y and z scaled to `length` (0x0042BBF0, not rewritten yet).
 void SetLength(Mth::Vector& v, float length)
 {
-    GameFunction<Mth::Vector*(__thiscall*)(Mth::Vector*, float)>(0x0042BBF0)(&v, length);
+    v.SetLength(length);
 }
 // D3DXMatrixMultiply (linked library code).
 void D3dxMultiply(Mth::Matrix& out, const Mth::Matrix& a, const Mth::Matrix& b)

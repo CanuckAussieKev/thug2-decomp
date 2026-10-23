@@ -17,6 +17,10 @@
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
 #include "game/mth/slerp.h"
+#include "game/nx/feeler.h"
+#include "game/obj/anim_blender.h"
+#include "game/obj/control_pad.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/object.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
@@ -258,39 +262,39 @@ inline void StandInComponentWorld(StandIns& s)
         return r.args[0];
     });
     // The animation blender, the motion component's path.
-    s.At({0x00419A90}, 8, [](Regs& r) { Record({0x9A90, WorldRelocate(r.ecx), r.args[0], r.args[1]}); return 0u; });
-    AtFloatResult(s, {0x00419AF0}, 4, [](Regs& r) {
+    s.At({0x00419A90, AddressOf(&Obj::CAnimBlenderComponent::PlayAnimation)}, 8, [](Regs& r) { Record({0x9A90, WorldRelocate(r.ecx), r.args[0], r.args[1]}); return 0u; });
+    AtFloatResult(s, {0x00419AF0, AddressOf(&Obj::CAnimBlenderComponent::GetValue)}, 4, [](Regs& r) {
         Record({0x9AF0, WorldRelocate(r.ecx), r.args[0]});
         return g_answers.duration;
     });
-    s.At({0x00419C10}, 16, [](Regs& r) {
+    s.At({0x00419C10, AddressOf(&Obj::CAnimBlenderComponent::AnyChannel)}, 16, [](Regs& r) {
         Record({0x9C10, WorldRelocate(r.ecx), r.args[0], r.args[1] & 0xFF, r.args[2], r.args[3]});
         return 0u;
     });
-    s.At({0x00419CD0}, 0, [](Regs& r) {
+    s.At({0x00419CD0, AddressOf(&Obj::CAnimBlenderComponent::IsAnimComplete)}, 0, [](Regs& r) {
         Record({0x9CD0, WorldRelocate(r.ecx)});
         return static_cast<uint32_t>(g_answers.animComplete());
     });
-    s.At({0x00423510}, 0, [](Regs& r) {
+    s.At({0x00423510, AddressOf(&Obj::CMotionPathMembers::GetPathFollower)}, 0, [](Regs& r) {
         Record({0x3510, WorldRelocate(r.ecx)});
         return reinterpret_cast<uint32_t>(g_answers.motionPath());
     });
     // The collision feeler.
-    s.At({0x00417760}, 0, [](Regs& r) {
+    s.At({0x00417760, AddressOf(static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct))}, 0, [](Regs& r) {
         Record({0x7760});
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 0xB0);
         return r.ecx;
     });
-    s.At({0x004170F0}, 8, [](Regs& r) { Record({0x70F0, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x00417190}, 4, [](Regs& r) {
+    s.At({0x004170F0, AddressOf(&Nx::CFeeler::SetIgnore)}, 8, [](Regs& r) { Record({0x70F0, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x00417190, AddressOf(&Nx::CFeeler::SetStart)}, 4, [](Regs& r) {
         std::memcpy(reinterpret_cast<void*>(r.ecx), reinterpret_cast<void*>(r.args[0]), 16);
         return 0u;
     });
-    s.At({0x004171B0}, 4, [](Regs& r) {
+    s.At({0x004171B0, AddressOf(&Nx::CFeeler::SetEnd)}, 4, [](Regs& r) {
         std::memcpy(reinterpret_cast<void*>(r.ecx + 0x10), reinterpret_cast<void*>(r.args[0]), 16);
         return 0u;
     });
-    s.At({0x004171D0}, 8, [](Regs& r) {
+    s.At({0x004171D0, AddressOf(&Nx::CFeeler::SetLine)}, 8, [](Regs& r) {
         std::memcpy(reinterpret_cast<void*>(r.ecx), reinterpret_cast<void*>(r.args[0]), 16);
         std::memcpy(reinterpret_cast<void*>(r.ecx + 0x10), reinterpret_cast<void*>(r.args[1]), 16);
         return 0u;
@@ -301,8 +305,8 @@ inline void StandInComponentWorld(StandIns& s)
         Record({hit, HashBytes(feeler + 0x58, 0x40)});
         return static_cast<uint32_t>(hit);
     };
-    s.At({0x004172F0}, 8, [collide](Regs& r) { return collide(reinterpret_cast<uint8_t*>(r.ecx), r.args[0], r.args[1]); });
-    s.At({0x00417710}, 12, [collide](Regs& r) {
+    s.At({0x004172F0, AddressOf(&Nx::CFeeler::GetCollision)}, 8, [collide](Regs& r) { return collide(reinterpret_cast<uint8_t*>(r.ecx), r.args[0], r.args[1]); });
+    s.At({0x00417710, AddressOf(&Nx::CFeeler::GetCollisionAlong)}, 12, [collide](Regs& r) {
         std::memcpy(reinterpret_cast<void*>(r.ecx), reinterpret_cast<void*>(r.args[0]), 16);
         std::memcpy(reinterpret_cast<void*>(r.ecx + 0x10), reinterpret_cast<void*>(r.args[1]), 16);
         return collide(reinterpret_cast<uint8_t*>(r.ecx), r.args[2], 0x7710);
@@ -370,7 +374,7 @@ inline void StandInComponentWorld(StandIns& s)
     // The park editor's rail editor, a pad button taken.
     s.At({0x004F4970}, 0, [](Regs&) { Record({0x4970}); return 0x4A1E0000u; });
     s.At({0x004F3D30}, 4, [](Regs& r) { Record({0x3D30, r.ecx, r.args[0]}); return 0u; });
-    s.At({0x0046B7E0}, 0, [](Regs& r) { Record({0xB7E0, WorldRelocate(r.ecx)}); return 0u; });
+    s.At({0x0046B7E0, AddressOf(&Obj::CControlButton::ClearTrigger)}, 0, [](Regs& r) { Record({0xB7E0, WorldRelocate(r.ecx)}); return 0u; });
     // The script cache and nodes.
     s.At({0x00475E80, AddressOf(&Script::CScriptCache::GetScript)}, 4, [](Regs& r) {
         Record({0x5E80, r.ecx, r.args[0]});

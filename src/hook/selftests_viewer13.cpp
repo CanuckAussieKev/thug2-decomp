@@ -10,6 +10,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
 #include "game/obj/object.h"
+#include "game/obj/skeleton_component.h"
 #include "game/obj/tracker.h"
 #include "game/skater/skater.h"
 #include "hook/viewer_testkit.h"
@@ -65,7 +66,7 @@ void Install(StandIns& s)
         }
         return Block(1) + (r.args[0] & 0xF0);
     });
-    s.At({0x00431C60}, 8, [](Regs& r) {
+    s.At({0x00431C60, AddressOf(&Obj::CSkeletonComponent::GetLocalBonePosition)}, 8, [](Regs& r) {
         Rec(0x1C60, {r.ecx, r.args[0]});
         auto* v = reinterpret_cast<float*>(r.args[1]);
         v[0] = 1.5f, v[1] = 4.25f, v[2] = -0.75f + (r.args[0] & 1), v[3] = 0.0f;

@@ -13,11 +13,15 @@
 #include "game/core/pool.h"
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
+#include "game/net/buddy_status.h"
+#include "game/net/gamenet_manager.h"
 #include "game/nx/feeler.h"
 #include "game/obj/chain_component.h"
 #include "game/obj/particle_component.h"
 #include "game/obj/proximity_component.h"
+#include "game/obj/skeleton_component.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/suspend_component.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
@@ -253,7 +257,7 @@ void TestParticleMembers()
          {0x00494E90, 4, 1, Ret::None, true, 0},
          {0x00494EA0, 4, 1, Ret::None, true, 0},
          {0x00494EF0, 4, 1, Ret::None, true, 0},
-         {0x004076F0, 4, 1, Ret::None, true, 0},
+         {0x004076F0, 4, 1, Ret::None, true, 0, {Ours(&Obj::SetParticleValue34)}},
          {0x00494EB0, 8, 2, Ret::None, true, 0},
          Pointing(0x00496030, 8, 2, 1, 4),
          Pointing(0x00496160, 8, 2, 1, 4),
@@ -305,8 +309,8 @@ void TestParticleMembers()
 void TestParticleUpdate()
 {
     StandIns standIns(
-        {{0x00433E90, 0, 0, Ret::Bool, true, 0},
-         {0x0044E4F0, 0, 0, Ret::Bool, true, 0},
+        {{0x00433E90, 0, 0, Ret::Bool, true, 0, {Ours(&Obj::CSuspendComponent::IsFar)}},
+         {0x0044E4F0, 0, 0, Ret::Bool, true, 0, {Ours(&GameNet::Manager::InNetGame)}},
          // (now and then exactly the end of its lifetime)
          {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)},
           [](Frame&, Result& r) {
@@ -316,7 +320,7 @@ void TestParticleUpdate()
           }},
          {0x0045D7C0, 0, 0, Ret::None, true, 0},
          {0x00494EE0, 4, 1, Ret::None, true, 0},
-         {0x004AAD40, 0, 0, Ret::Int, true, 0, {},
+         {0x004AAD40, 0, 0, Ret::Int, true, 0, {Ours(&Obj::ParticleSystemParams)},
           [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kParticleParams)); }},
          Pointing(0x00496030, 8, 2, 1, 4),
          Pointing(0x00496060, 8, 2, 1, 16),
@@ -461,7 +465,7 @@ void TestParticleInit()
 void TestParticleGetParams()
 {
     StandIns standIns(
-        {{0x004AAD40, 0, 0, Ret::Int, true, 0, {},
+        {{0x004AAD40, 0, 0, Ret::Int, true, 0, {Ours(&Obj::ParticleSystemParams)},
           [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kParticleParams)); }},
          {0x005BA3D0, 0, 0, Ret::Int, true, 0, {Ours(&Mem::Pool::Allocate)}, [](Frame&, Result& r) {
               r.eax = reinterpret_cast<uint32_t>(ArenaPtr(g_blockNext));
@@ -657,9 +661,9 @@ void RandomChains()
 }
 
 StandIn LineSlot(uint32_t address, uint8_t pop, uint8_t args) { return {address, pop, args, Ret::None, true, 0}; }
-StandIn BoneOut(uint32_t address)
+StandIn BoneOut(uint32_t address, uint32_t ours)
 {
-    return {address, 8, 2, Ret::Bool, true, 0, {}, [](Frame& f, Result&) {
+    return {address, 8, 2, Ret::Bool, true, 0, {ours}, [](Frame& f, Result&) {
                 auto* out = reinterpret_cast<float*>(f.args[1]);
                 for (int i = 0; i < 4; ++i)
                     out[i] = RichFloat(i == 3 ? 1.0f : 60.0f);
@@ -854,8 +858,9 @@ void TestChainUpdate()
     bool ok;
     {
         StandIns standIns(
-            {FrameSeconds(), BoneOut(0x00432050), BoneOut(0x00431C60),
-             {0x005480F0, 0, 0, Ret::Int, true, 0, {}, [](Frame&, Result& r) {
+            {FrameSeconds(), BoneOut(0x00432050, Ours(&Obj::CSkeletonComponent::GetBonePosition)),
+             BoneOut(0x00431C60, Ours(&Obj::CSkeletonComponent::GetLocalBonePosition)),
+             {0x005480F0, 0, 0, Ret::Int, true, 0, {Ours(&GameNet::FoldedGetters::Word18)}, [](Frame&, Result& r) {
                   r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kSkeleton));
               }},
              {0x004A36E0, 8, 2, Ret::Bool, true, 0, {}, [](Frame& f, Result&) {

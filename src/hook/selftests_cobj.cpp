@@ -16,6 +16,7 @@
 
 #include "game/core/manager.h"
 #include "game/mth/matrix.h"
+#include "game/mth/quat.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/core/crc.h"
@@ -258,11 +259,11 @@ void InstallStandIns(StandIns& s)
         std::memcpy(reinterpret_cast<void*>(r.args[1]), pos, sizeof(pos));
         return 0u;
     });
-    s.At({0x0045C1B0}, 0, [](Regs& r) {
+    s.At({0x0045C1B0, AddressOf(SkateScript::GetNode)}, 0, [](Regs& r) {
         Rec(0xC1B0, {r.args[0], r.args[1]});
         return g_cobj_base + 0x3F00;
     });
-    s.At({0x0042BC40}, 4, [](Regs& r) {
+    s.At({0x0042BC40, AddressOf(&Mth::Quat::GetMatrix)}, 4, [](Regs& r) {
         const auto* q = reinterpret_cast<const uint32_t*>(r.ecx);
         Rec(0xBC40, {q[0], q[1], q[2], q[3], InArena(r.ecx) ? r.ecx : 0x57ACu, r.args[0]});
         auto* m = reinterpret_cast<float*>(r.args[0]);
@@ -270,7 +271,7 @@ void InstallStandIns(StandIns& s)
             m[i] = 0.25f * static_cast<float>(i) - 1.0f;
         return 0u;
     });
-    s.At({0x0042E1F0}, 4, [](Regs& r) {
+    s.At({0x0042E1F0, AddressOf(&Mth::Quat::FromMatrix)}, 4, [](Regs& r) {
         Rec(0xE1F0, {InArena(r.ecx) ? r.ecx : 0x57ACu, r.args[0]});
         const float q[4] = {0.125f, -0.5f, 0.75f, g_cobj_quatW};
         std::memcpy(reinterpret_cast<void*>(r.ecx), q, sizeof(q));
@@ -285,7 +286,7 @@ void InstallStandIns(StandIns& s)
     });
     for (uint32_t address : {0x004062D0u, AddressOf(&Mth::GetAngleInPlane)})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&StandInAngleInPlane)));
-    s.At({0x0045C0B0}, 0, [](Regs& r) {
+    s.At({0x0045C0B0, AddressOf(SkateScript::GetOrientation)}, 0, [](Regs& r) {
         Rec(0xC0B0, {r.args[0], r.args[1]});
         return 0u;
     });

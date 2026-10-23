@@ -10,6 +10,7 @@
 #include "game/obj/lock_obj.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_internal.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/path_follower.h"
 #include "game/obj/path_manager.h"
 #include "game/script/cscript.h"
@@ -36,8 +37,8 @@ constexpr uint32_t kDistance = 0xE36D657E;        // distance
 constexpr uint32_t kOrientY = 0xE19E310A;         // OrientY
 constexpr uint32_t kPedLogic = 0x6EFDDFB8;        // the pedlogic component
 
-// The rest of the update (no source yet).
-void UpdatePathSpeed(CMotionComponent* motion) { GameFunction<void(__thiscall*)(CMotionComponent*)>(0x00423530)(motion); }
+// The speed along a path (motion_path.h).
+void UpdatePathSpeed(CMotionComponent* motion) { reinterpret_cast<CMotionPathMembers*>(motion)->UpdatePathSpeed(); }
 
 // The velocity of a step from where the object was (`back`: minus that position) to where it is now: x from the
 // unrounded difference and reciprocal, the others from the rounded ones (as the original's x87 code).

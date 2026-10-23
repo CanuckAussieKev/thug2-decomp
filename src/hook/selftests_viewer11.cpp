@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/mth/matrix.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/object.h"
 #include "game/script/nodes.h"
@@ -137,12 +138,12 @@ void Install(StandIns& s)
         Rec(0xECE0, {});
         return static_cast<uint32_t>(g_clock += 3);
     });
-    s.At({0x0044E4F0}, 0, [](Regs& r) {
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) {
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });
     Simple(s, {0x0053AEA0, AddressOf(&GameNet::Manager::PlayerByObjectId)}, 4, 30, true);
-    Simple(s, {0x00532EA0}, 4, 31, true);
+    Simple(s, {0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 4, 31, true);
     s.At({0x0049F9B0}, 16, [](Regs& r) {
         Rec(0xF9B0, {r.ecx, Text(r.args[0]), r.args[1], r.args[2], r.args[3]});
         return Block(40 + g_elements++);
@@ -152,7 +153,7 @@ void Install(StandIns& s)
                              0x0051EF00u, 0x0051EB00u, 0x0051ED10u, 0x005232E0u, 0x00519650u, 0x0043D520u, 0x00419A20u,
                              0x0048E4C0u, 0x005144D0u, 0x00513AB0u, 0x00431780u, 0x0047B2A0u})
         Simple(s, {address}, 0, address == 0x00419A20u ? 0x419A2u : 0u);
-    s.At({0x0041A730}, 4, [](Regs& r) {
+    s.At({0x0041A730, AddressOf(&Mth::Matrix::InitFromAngles)}, 4, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         Rec(0xA730, {r.ecx, v[0], v[1], v[2]});
         return r.ecx;

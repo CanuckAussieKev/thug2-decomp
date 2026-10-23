@@ -99,3 +99,36 @@ src/hook/viewer_testkit.h (ScriptExists' stand-in).
     TestRetrieveTopStats patches our VaultMan::Download too, the 0x005B9E50 stub in net_newplayers is cdecl (no ECX),
     GenerateAuth's stub doesn't record ECX, GameNetKit::Str qualified where skater.h's namespace Str now clashes.
   - Checks: thug2_check on both exes 0 MISMATCHED, 771 early self-tests all passed; check_code_writes no overlaps. Mutations (out/scripts/mut2.ts): 40, all caught.
+- [x] Batch GC3-3 (NOT run in the game yet; obj): every GameFunction call into rewritten code in src/game/obj is direct
+  now - the movies (anim_movies, movie_manager: CMovieDetails, the camera, the asset manager), the cutscenes
+  (update / load / package / data / play), game_objects (components made through their constructors - NewComponent<T>;
+  the object proximity one, 0x004EC370, has no source yet), rail_manager (the feeler, the walk component's checkers,
+  the terrain), the feeler wrappers (avoid, composite, camera_util, editor_camera: Nx::CFeeler), walk_hang, the anim
+  blender, the suspend / skeleton / trigger / sound / matrix / model / vibration / motion components, the quaternion
+  and matrix helpers (vehicle_internal.h and others), the task lists (compositemgr / objman: Mlp::Manager's lists),
+  the network manager's players (model_component(_nx), trick_objects, particle_component), the screen element
+  manager's ResolveId (tracker).
+  - New helpers with no addresses of their own (the original calls folded code whose name doesn't fit), each
+    __fastcall so the object is in ECX as in the original's call, so tests can stand in for them at the folded
+    address: Obj::MovieName (a movie's +0x20, via 0x00543150 PlayerInfo::GetAccumulatedScore), Obj::AppearanceFace
+    (+0x54, via 0x00576E60 Mdl::Viewer::GetViewerObject), Obj::ModelFader (+0x2C, via 0x00532EB0
+    GameNet::Manager::GetMatchClient), Obj::ParticleSystemParams (the address of +4, via 0x004AAD40
+    CScreenElementManager::GetObjectList), Obj::SetParticleValue34 (via 0x004076F0 Ass::CAsset::SetGroup),
+    Obj::ModelNx::SetLightsDirection (the lights' slot 2, via the tail jump 0x004E3F90 Obj::RefreshFromStructure).
+    The FoldedGetters (Word04 / Word18) are called directly for the skeleton / sector words.
+  - CMovieDetails::SetFlag19 / SetFlag1B take a uint8_t and the two flags are bytes: the original stores the
+    argument's low byte as it is (the movie manager passes a script's integer - e.g. 7 - and GetSettings returns it);
+    our bool setters stored 1. (The setters' callers: movie_manager.cpp, anim_movies.cpp.)
+  - Odd: cutscene_update.cpp's kSoundComponent (0x208353AC) is the matrix component (component_types: 0x0041CB20
+    CMatrixComponent::Create) - renamed kMatrixComponent. Two layouts of the movie base: CMovie (movie_manager.h: +0x24
+    m_endScript) and CMovieDetails (node_objects.h: +0x20 m_value20 - the movie's name -, +0x24 m_name); the manager
+    reads the name at +0x20. CCutsceneDetails::Construct(const uint32_t* settings) is handed the movie manager's
+    camera context {skater info, +0x5C, bool}. avoid.cpp's FlipAnims is CAnimBlenderComponent::AnyChannel.
+  - Kept (addresses as data): editor_camera.cpp's feeler callback 0x004E5320, trick_objects.cpp's Nx::DeleteObject
+    callback 0x004B22A0, walk_hang.cpp's animation-end callbacks (SetAnimDone), component_types.cpp's table.
+  - Tests changed: the {address} lists (out/gc3/map3.txt), the kit tables' Ours (obj_walk_hang, obj_particle - and
+    BoneOut takes ours -, obj_motion2), anim13's channel methods table, viewer9's constructor loop, viewer5's flag
+    setters loop, the stand-ins at the folded addresses above.
+  - Checks: thug2_check on both exes 0 MISMATCHED, 771 early self-tests all passed; check_code_writes no overlaps;
+    audit_game_function_calls 0 MISMATCH (1798 uses); scan_register_assumptions the 5 known RISK lines (snapshot copy
+    C:\Games\THUG2-ghidra-snapshot-gc3).

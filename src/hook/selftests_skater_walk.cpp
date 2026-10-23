@@ -14,6 +14,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
+#include "game/obj/movable_contact.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
@@ -117,7 +118,7 @@ void Install(StandIns& s)
     Word<uint32_t>(kAnim) = At(kAnim + 0x40);
     Word<uint32_t>(kAnim + 0x40 + 0x30) = reinterpret_cast<uint32_t>(member);
     // Riding.
-    Stub(s, {0x00427C70}, 0, 0x7C70);
+    Stub(s, {0x00427C70, AddressOf(&Obj::CMovableContactComponent::StopRiding)}, 0, 0x7C70);
     s.At({0x00416F00, AddressOf(&Obj::CRideTracker::Update)}, 4, [](Regs& r) {
         Rec(0x6F00, {r.ecx, r.args[0]});
         return g_updateOk ? 1u : 0u;

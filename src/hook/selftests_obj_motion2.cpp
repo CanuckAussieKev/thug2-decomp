@@ -12,6 +12,7 @@
 #include "game/mth/random.h"
 #include "game/obj/emitter.h"
 #include "game/obj/motion.h"
+#include "game/obj/motion_path.h"
 #include "game/obj/path_follower.h"
 #include "game/obj/path_manager.h"
 #include "game/script/cscript.h"
@@ -199,7 +200,7 @@ void TestMotionMoveTo()
 // --- along a path ---
 void TestMotionUpdatePath()
 {
-    StandIns standIns({GetComponent(), Game(0x00423530, 0, 0),
+    StandIns standIns({GetComponent(), Own(0x00423530, Ours(&Obj::CMotionPathMembers::UpdatePathSpeed), 0, 0),
                        {0x0046A640, 8, 2, Ret::Bool, true, 0, {Ours(&Obj::CPathFollower::Update)}},
                        {0x0046A1B0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CPathFollower::GetHeading)},
                         [](Frame& f, Result&) {

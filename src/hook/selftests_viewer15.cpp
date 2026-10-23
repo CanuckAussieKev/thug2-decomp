@@ -54,7 +54,7 @@ void Install(StandIns& s)
         Rec(0xDB90, {r.ecx, r.args[0]});
         return Block(1) + (r.args[0] & 0x70);
     });
-    s.At({0x0044E4F0}, 0, [](Regs& r) {
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) {
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });
@@ -97,7 +97,7 @@ void Install(StandIns& s)
         Rec(0x32A0, {r.ecx});
         return g_mode;
     });
-    s.At({0x00532EA0}, 4, [](Regs& r) {
+    s.At({0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 4, [](Regs& r) {
         Rec(0x2EA0, {r.ecx, r.args[0]});
         return Block(12);
     });

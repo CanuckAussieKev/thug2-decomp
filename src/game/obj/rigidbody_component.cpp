@@ -7,6 +7,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/mth/matrix.h"
 #include "game/mth/random.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/smtptr.h"
@@ -476,7 +477,7 @@ void CRigidBodyComponent::InitFromStructure(Script::CStruct* params)
         Mth::Vector angles;
         SkateScript::GetAngles(params, &angles);
         Mth::Matrix turn;
-        GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(&turn, &angles);
+        turn.InitFromAngles(angles);
         auto m = [&turn](int r, int c) { return static_cast<double>(reinterpret_cast<const float*>(&turn.row[r])[c]); };
         for (int i = m_contactCount; i != 0;) {
             Mth::Vector& p = mp_contacts[--i];

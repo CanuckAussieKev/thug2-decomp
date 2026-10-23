@@ -13,6 +13,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/pool.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/net_client.h"
 #include "game/obj/event.h"
 #include "game/obj/tracker.h"
@@ -582,7 +583,7 @@ void StandInSetScript(StandIns& s)
 
 void StandInNet(StandIns& s, bool messagesToo)
 {
-    s.At({0x0044E4F0}, 0, [](Regs& r) {
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) {
         Record({0x4E7, Id(r.ecx)});
         return static_cast<uint32_t>(g_inNetGame);
     });
@@ -603,7 +604,7 @@ void StandInNet(StandIns& s, bool messagesToo)
             buffer[i] = static_cast<uint8_t>(0x40 + i * 7);
         return static_cast<uint32_t>(g_writeSize);
     });
-    s.At({0x00532EA0}, 4, [](Regs& r) {
+    s.At({0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 4, [](Regs& r) {
         Record({0x2EA0, Id(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(g_client);
     });
