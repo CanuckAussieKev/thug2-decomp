@@ -159,3 +159,69 @@ CSymbolTableEntry 14,514 (45,000, unchanged). Main block: 71.5 MB -> 89.7 MB (th
 - THP8's lod stand-ins (`z_<zone>_lod`), lower-resolution textures: not used - nothing had to be cut.
 - CTF flag names, THP8's 2P levels, the per-level game mode descriptions (ui_struct description) - not ported.
 - Load time: the town's ~7 min is the Debug build's (the user's x86-debug too); a Release build should be far faster.
+
+# Follow-up (2026-10-24, branch thp8-net-2 from main f95c862; workspace THUG2-2)
+
+The user played main: "In each of these levels, there is still the bugs. Also, looks like 'Beaver Valley' level now
+loads the entire map, but there are invisible collision walls preventing us from skating it. For the levels with the
+screenshots, are these just our interpretation of levels? if so, they don't need to exist - we only need to have the
+main open world level, and the network levels (all playable in free skate & network)". The screenshots were of the
+twelve per-zone levels, each ending in void at the zone's edge.
+
+## 1. The set: THP8's own levels only
+
+- Yes, the per-zone levels were our own split: in THP8 the city's zones are one streamed open world (its
+  Level_Z_<zone> entries only pick where the world starts). Removed (`RETIRED`: thp8_houses, _outschool, _inschool,
+  _shops, _ghetto, _factory, _center, _citypark, _cretepark, _funpark, _parking, _cartoon). Every convert now deletes
+  the staging folders and levels.json entries of levels it no longer makes (`pruneStaging`); make_menu_level makes the
+  overlay again from the staging, so they leave the overlay too (checked in THUG2-2: no old thp8_<zone> folder left).
+- Now: the 12 network levels + BEAVER VALLEY (the open world) = 13, all `thp8_net_<id>` (the five one-zone ones too:
+  thp8_net_skatepark, _factory, _slums, _suburbia, _mainstreet - their z_online barriers and the zone's network
+  spawns), in THP8's order, level select 113-124; signs reuse the zones' pictograms for the five (bowl, gear, bricks,
+  mailbox, trafficlight). All in the PROJECT 8 section, which free skate and the network level select share.
+- Kept, standalone in THP8 too: TRAINING (z_training), SKATE SHOP (z_skateshop), BEDROOM (z_bedroom) - THP8 has a
+  level structure and load script of their own for each (Level_Z_Training / _Skateshop / _Bedroom), they are in no
+  network level's spawn_in and lie outside the city. The cartoon world is part of the city (the fun park's and the
+  whole town's spawn_in): no level of its own now.
+- The void at the edges: every level of the city now also draws the city's other zones' `_lod` stand-ins (THP8's
+  far-away versions, ~0.3 MB scene + 1 MB textures each; drawn only, no collision) - what THP8 shows beyond a network
+  level's barriers.
+
+## 2. BEAVER VALLEY's invisible walls
+
+- Offline survey (out of the converted collision vs the drawn sectors, and of THP8's Havok bodies): 676 collision
+  objects in the town have no drawn sector; the ones that matter are the **seam walls**: each zone's collision has
+  invisible walls (all faces 0x1000 invisible, most 0x1080 - the camera passes) along its edge where the next zone
+  begins: z_houses' 115 m x 70 m plane at x = 0 (z_shops starts there), z_parking's at x = -50 (the fun park), z_ghetto's
+  at x = 277 (the factory), z_shops' / z_inschool's at x = 1, z_outschool's at x = -125 (the skate park)... No node and
+  no sector owns them (no Name on the Havok bodies, no LevelGeometry node near them; their bodies are in the zone's
+  main collision like any other) - THP8 must switch them off at run time when the neighbouring zone is streamed in;
+  nothing in its data says so. Not the z_online barriers (the town has none) nor the overlay.
+- Fix (tools/thp8_levels seamWalls): in a level of several zones, a body whose collidable faces are all invisible and
+  mostly steep, with another of the level's zones' ground 4 m beyond its faces at half or more of the (up to 9) places
+  looked at, is left out. 43 in the town (houses 3, cretepark 4, shops 5, citypark 1, ghetto 2, funpark 3, cartoon 7,
+  factory 1, parking 12, inschool 3, outschool 2); 1-8 in each other multi-zone level; none in one-zone levels (their
+  edges stay walls, with the barriers). Kept: invisible walls with only their own zone about (roof blockers, the
+  houses' Grecian roof wall...) and the town's outer edge.
+- Not confirmed: whether these were the walls the user hit (no spot given). Invisible walls that stay and could still
+  block (largest; THP8 coordinates): z_shops' plane x 106..141 z -148..16 (own ground both sides - the slums side?),
+  z_houses' x -59..14 z 2..21 (y -8..38), z_cartoon's x -196..-170, z_factory's x 278..337 z -109. If the user hits a
+  wall, a screenshot (its sidecar has the position) pins it.
+- The one diagnosis run (SKATE CENTRAL, teleport onto the houses side of the x = 0 seam, push towards the shops with a
+  trace): inconclusive - the skater stayed hovering at the teleport spot (state "air", y fixed, 600 frames), so the
+  crossing wasn't seen. Load fine (memory line as before, private 403 MB).
+
+## Checks
+
+Tests (seam walls: an invisible wall with the other zone's ground beyond left out, one with only its own zone about
+kept, a seen wall kept, one zone none - mutations caught; the set: standalone zones, RETIRED; network specs with a
+one-zone level); npm test 333 pass, typecheck, lint, selfcheck (1132 files). Converted and installed in THUG2-2 (15
+levels).
+
+## For the user
+
+1. BEAVER VALLEY: skate across the zone seams (houses -> main street at the big gate, the hill top -> fun park, slums
+   -> factory, school grounds -> skate park): no invisible wall? If one is still there, a screenshot there.
+2. The one-zone network levels (SKATE PARK ... MAIN STREET): the zone's barriers hold you in, the other zones visible
+   beyond (low detail) instead of void.
+3. TRAINING, SKATE SHOP, BEDROOM still there; no old per-zone signs.

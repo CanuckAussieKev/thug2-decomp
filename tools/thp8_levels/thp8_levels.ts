@@ -3,8 +3,9 @@
 // are made from the user's own copies each time. README.md has how to run it and what is converted.
 //
 // THP8's world is one city streamed in zones (game\DATA\COMPRESSED\ZONES\z_<zone>.pak.xen, each with its _lod
-// stand-in); each zone becomes a THUG2 level here, and each of THP8's network levels of several zones one more (the
-// zones merged in their shared frame: networkAreas / convertLevel - BEAVER VALLEY is the whole town). A zone's
+// stand-in). THP8's own levels are made: each of its network levels (its zones merged in their shared frame, the
+// other zones' _lod stand-ins around: networkAreas / convertLevel - BEAVER VALLEY is the whole town) and its
+// standalone levels (training, skate shop, bedroom); the city's zones aren't levels by themselves (RETIRED). A zone's
 // archive holds the zone and its _gfx / _sfx sub-zones; the main one (pak flags 0) is converted: its scene (.geom),
 // textures (.tex), collision (.hkc, Havok) and node array (.nqb). The network areas' barriers (z_online_<x>.pak.xen)
 // are added to the level they close off.
@@ -46,68 +47,37 @@ export interface ZoneInfo {
     suffix?: string; // added to THP8's area name: a second zone of the same area
     location: string;
     levelNum: number;
-    online?: string; // the network area whose barriers close it off (z_online_<x>)
+    standalone?: boolean; // a level of its own in THP8 too (not part of the city's open world)
 }
 
-// The city's zones, then the separate ones. Level select numbers 110... A zone that is a THP8 network level by itself
-// (z_online_suburbs: the houses' barriers...) gets that level's barriers; the network levels of several zones (the
-// school: z_inschool + z_outschool; the capitol: z_center + z_parking + z_citypark; the fun park: z_funpark +
-// z_cartoon...) are levels of their own (networkAreas) - their barriers go there.
+// THP8's zones: the city's (its open world, streamed - parts of the network levels, not levels by themselves), then
+// the separate ones that are levels of their own in THP8 too (standalone: the training area, the skate shop and the
+// skater's bedroom - THP8 loads each alone: Level_Z_Training / _Skateshop / _Bedroom, none in any network level's
+// spawn_in). The cartoon world is part of the city (the fun park's and the whole town's spawn_in). Level select
+// numbers 110... (the standalone ones; the network levels from NET_LEVEL_NUM).
+const city = (zone: string, sign: string, location: string, suffix?: string): ZoneInfo => ({
+    zone,
+    sign,
+    location: `THP8's city: ${location}`,
+    levelNum: 0,
+    ...(suffix ? { suffix } : {}),
+});
 export const ZONES: readonly ZoneInfo[] = [
-    {
-        zone: "z_houses",
-        sign: "SUBURBS",
-        location: "THP8's city: the suburbs",
-        levelNum: 110,
-        online: "z_online_suburbs",
-    },
-    {
-        zone: "z_outschool",
-        sign: "SCHOOL",
-        location: "THP8's city: the high school",
-        levelNum: 111,
-    },
-    {
-        zone: "z_inschool",
-        sign: "SCHOOL INSIDE",
-        suffix: " INSIDE",
-        location: "THP8's city: inside the high school",
-        levelNum: 112,
-    },
-    { zone: "z_shops", sign: "SHOPS", location: "THP8's city: the shops", levelNum: 113, online: "z_online_shops" },
-    { zone: "z_ghetto", sign: "SLUMS", location: "THP8's city: the slums", levelNum: 114, online: "z_online_ghetto" },
-    {
-        zone: "z_factory",
-        sign: "FACTORY",
-        location: "THP8's city: the factory",
-        levelNum: 115,
-        online: "z_online_factory",
-    },
-    {
-        zone: "z_center",
-        sign: "CAPITOL",
-        location: "THP8's city: the capitol",
-        levelNum: 116,
-    },
-    { zone: "z_citypark", sign: "CITY PARK", location: "THP8's city: the city park", levelNum: 117 },
-    {
-        zone: "z_cretepark",
-        sign: "SKATE PARK",
-        location: "THP8's city: the skate park",
-        levelNum: 118,
-        online: "z_online_skatepark",
-    },
-    {
-        zone: "z_funpark",
-        sign: "FUN PARK",
-        location: "THP8's city: the fun park",
-        levelNum: 119,
-    },
-    { zone: "z_parking", sign: "PARKING", location: "THP8's city: the parking lot", levelNum: 120 },
-    { zone: "z_training", sign: "TRAINING", location: "THP8's training area", levelNum: 121 },
-    { zone: "z_cartoon", sign: "CARTOON", location: "THP8's cartoon world", levelNum: 122 },
-    { zone: "z_skateshop", sign: "SKATE SHOP", location: "THP8's skate shop", levelNum: 123 },
-    { zone: "z_bedroom", sign: "BEDROOM", location: "THP8's bedroom", levelNum: 124 },
+    city("z_houses", "SUBURBS", "the suburbs"),
+    city("z_outschool", "SCHOOL", "the high school"),
+    city("z_inschool", "SCHOOL INSIDE", "inside the high school", " INSIDE"),
+    city("z_shops", "SHOPS", "the shops"),
+    city("z_ghetto", "SLUMS", "the slums"),
+    city("z_factory", "FACTORY", "the factory"),
+    city("z_center", "CAPITOL", "the capitol"),
+    city("z_citypark", "CITY PARK", "the city park"),
+    city("z_cretepark", "SKATE PARK", "the skate park"),
+    city("z_funpark", "FUN PARK", "the fun park"),
+    city("z_parking", "PARKING", "the parking lot"),
+    city("z_cartoon", "CARTOON", "the cartoon world"),
+    { zone: "z_training", sign: "TRAINING", location: "THP8's training area", levelNum: 110, standalone: true },
+    { zone: "z_skateshop", sign: "SKATE SHOP", location: "THP8's skate shop", levelNum: 111, standalone: true },
+    { zone: "z_bedroom", sign: "BEDROOM", location: "THP8's bedroom", levelNum: 112, standalone: true },
 ];
 
 // THP8's English names of its city's areas (qb.pak's zone_info: {id=[z_center] Name="THE CAPITOL"} - its map's
@@ -1064,6 +1034,114 @@ export function triggerVolumes(
     return out;
 }
 
+// --- the walls between zones ---------------------------------------------------------------------------------------
+
+// Each THP8 zone's collision carries invisible walls (every face 0x1000 invisible, collidable; most also 0x80, the
+// camera passes) along its edges where it meets the next zone - z_houses' 115 m long, 70 m high plane at x = 0 where
+// z_shops begins. They aren't tied to any node (no sector, no node at them: THP8 must turn them off at run time when the
+// neighbour is streamed in - not in its data). In a level of several zones they stood across the streets as invisible
+// walls (the user, BEAVER VALLEY 2026-10-24). A seam wall: a body all of whose collidable faces are invisible, mostly
+// steep, with another of the level's zones' ground on its far side (probes SEAM_PROBE metres either side of its faces)
+// at half or more of the places looked at. Kept in one-zone levels (the zone's edge) and where nothing of another zone
+// is beyond (the town's outer edge).
+export const FACE_INVISIBLE = 0x1000;
+export const SEAM_PROBE = 4; // metres either side of the wall
+export const SEAM_SAMPLES = 9;
+const SEAM_CELL = 8; // metres: the ground index's cells
+
+// The upward-facing collidable triangles of some bodies by x / z cell, for "is there ground here".
+export class GroundIndex {
+    private readonly cells = new Map<string, havok.HkTriangle[]>();
+    constructor(bodies: readonly havok.HkBody[]) {
+        for (const b of bodies) {
+            for (const t of b.triangles) {
+                if (t.material & (thug2Col.FACE_NON_COLLIDABLE | 0x40)) continue;
+                const n = normalOf(t);
+                if (n[1]! < 0.5) continue;
+                const lo = [Math.min(t.a[0]!, t.b[0]!, t.c[0]!), Math.min(t.a[2]!, t.b[2]!, t.c[2]!)];
+                const hi = [Math.max(t.a[0]!, t.b[0]!, t.c[0]!), Math.max(t.a[2]!, t.b[2]!, t.c[2]!)];
+                for (let x = Math.floor(lo[0]! / SEAM_CELL); x <= Math.floor(hi[0]! / SEAM_CELL); x++) {
+                    for (let z = Math.floor(lo[1]! / SEAM_CELL); z <= Math.floor(hi[1]! / SEAM_CELL); z++) {
+                        const k = `${x},${z}`;
+                        const list = this.cells.get(k);
+                        if (list) list.push(t);
+                        else this.cells.set(k, [t]);
+                    }
+                }
+            }
+        }
+    }
+
+    // Whether there's ground under (x, z) between heights lo and hi.
+    groundAt(x: number, z: number, lo: number, hi: number): boolean {
+        const list = this.cells.get(`${Math.floor(x / SEAM_CELL)},${Math.floor(z / SEAM_CELL)}`) ?? [];
+        return list.some((t) => {
+            const y = heightIn(t, x, z);
+            return y !== null && y >= lo && y <= hi;
+        });
+    }
+}
+
+function normalOf(t: havok.HkTriangle): number[] {
+    const u = [0, 1, 2].map((k) => t.b[k]! - t.a[k]!);
+    const v = [0, 1, 2].map((k) => t.c[k]! - t.a[k]!);
+    const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+    const len = Math.hypot(n[0]!, n[1]!, n[2]!) || 1;
+    // (THP8's windings vary: "up" is the y-positive one)
+    const s = n[1]! < 0 ? -1 : 1;
+    return n.map((x) => (s * x) / len);
+}
+
+function heightIn(t: havok.HkTriangle, x: number, z: number): number | null {
+    const [a, p, c] = [t.a, t.b, t.c];
+    const d = (p[0]! - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (p[2]! - a[2]!);
+    if (Math.abs(d) < 1e-9) return null;
+    const u = ((x - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (z - a[2]!)) / d;
+    const v = ((p[0]! - a[0]!) * (z - a[2]!) - (x - a[0]!) * (p[2]! - a[2]!)) / d;
+    if (u < 0 || v < 0 || u + v > 1) return null;
+    return a[1]! + u * (p[1]! - a[1]!) + v * (c[1]! - a[1]!);
+}
+
+const triArea = (t: havok.HkTriangle): number => {
+    const u = [0, 1, 2].map((k) => t.b[k]! - t.a[k]!);
+    const v = [0, 1, 2].map((k) => t.c[k]! - t.a[k]!);
+    return Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
+};
+
+// The seam walls of each zone of a level (indexes into its bodies), given every zone's bodies. One zone: none.
+export function seamWalls(zones: readonly havok.HkBody[][]): Set<number>[] {
+    const out = zones.map(() => new Set<number>());
+    if (zones.length < 2) return out;
+    const grounds = zones.map((bodies) => new GroundIndex(bodies));
+    zones.forEach((bodies, z) => {
+        bodies.forEach((body, i) => {
+            const solid = body.triangles.filter((t) => !(t.material & (thug2Col.FACE_NON_COLLIDABLE | 0x40)));
+            if (!solid.length || !solid.every((t) => t.material & FACE_INVISIBLE)) return;
+            const steep = solid.filter((t) => Math.abs(normalOf(t)[1]!) < 0.3);
+            const area = solid.reduce((s, t) => s + triArea(t), 0);
+            if (steep.reduce((s, t) => s + triArea(t), 0) < 0.6 * area) return;
+            // probes either side of the largest steep faces' middles
+            const looked = [...steep].sort((a, b) => triArea(b) - triArea(a)).slice(0, SEAM_SAMPLES);
+            let seams = 0;
+            for (const t of looked) {
+                const n = normalOf(t);
+                const h = Math.hypot(n[0]!, n[2]!) || 1;
+                const mid = [0, 1, 2].map((k) => (t.a[k]! + t.b[k]! + t.c[k]!) / 3);
+                const lo = Math.min(t.a[1]!, t.b[1]!, t.c[1]!) - 15;
+                const hi = Math.max(t.a[1]!, t.b[1]!, t.c[1]!) + 2;
+                const beyond = [-1, 1].some((side) => {
+                    const x = mid[0]! + (side * SEAM_PROBE * n[0]!) / h;
+                    const zz = mid[2]! + (side * SEAM_PROBE * n[2]!) / h;
+                    return grounds.some((g, other) => other !== z && g.groundAt(x, zz, lo, hi));
+                });
+                if (beyond) seams++;
+            }
+            if (seams * 2 >= looked.length) out[z]!.add(i);
+        });
+    });
+    return out;
+}
+
 export interface CollisionResult {
     col: thug2Col.ColFile;
     objects: Map<number, number>; // checksum -> faces
@@ -1096,6 +1174,7 @@ export function convertCollision(
         hidden?: ReadonlySet<number>;
         local?: ReadonlySet<number>; // bodies in their own space (localObjects): not moved
         volumes?: readonly Volume[]; // collision-only trigger nodes (triggerVolumes)
+        drop?: ReadonlySet<number>; // bodies left out, by index (seamWalls)
     }[],
     level: string,
     shift: readonly number[],
@@ -1108,7 +1187,8 @@ export function convertCollision(
     let named = 0;
     let n = 0;
     let hiddenBodies = 0;
-    for (const { bodies: whole, sectors, hidden, local, volumes } of sets) {
+    for (const { bodies: unsorted, sectors, hidden, local, volumes, drop } of sets) {
+        const whole = drop?.size ? unsorted.filter((b) => !drop.has(b.index)) : unsorted;
         // (a body holding trigger-volume faces and others - the Capitol's lake kill inside its reflection's body - as
         // two: the volume's faces their own object, named after the volume's node)
         const isVolume = (t: havok.HkTriangle): boolean =>
@@ -1815,7 +1895,7 @@ export function zoneSpec(info: ZoneInfo, areaNames: ReadonlyMap<string, string>)
         level: levelName(info),
         folder: info.zone,
         zones: [info.zone],
-        barriers: info.online ? [info.online] : [],
+        barriers: [],
         sign: signText(info, areaNames),
         location: info.location,
         levelNum: info.levelNum,
@@ -1880,10 +1960,10 @@ export function readNetworkAreas(globals: ReadonlyMap<number, QbValue>, names: R
     return out;
 }
 
-// THP8's network levels of one zone are that zone's level (its barriers added: ZoneInfo.online); those of several
-// zones become levels of their own, numbered from NET_LEVEL_NUM in THP8's order. The sign is THP8's text, " AREA"
-// added where a zone level has the same.
-export const NET_LEVEL_NUM = 125;
+// Every one of THP8's network levels is a level of its own (one zone or several), numbered from NET_LEVEL_NUM in
+// THP8's order (BEAVER VALLEY, the whole town, first); the sign is THP8's text (" AREA" added where a standalone
+// level has the same - none do).
+export const NET_LEVEL_NUM = 113;
 // THUG2 sends a skater's x / z in network games in half units (+-16384 units: src/game/net/thugpro_compat.h); a level
 // reaching past this from its middle gets IsBigLevel (whole units).
 export const NET_HALF_REACH = 16000;
@@ -1894,7 +1974,7 @@ export function netLevelName(area: NetArea): string {
 
 export function netSpecs(areas: readonly NetArea[], zoneSigns: ReadonlySet<string>): LevelSpec[] {
     const out: LevelSpec[] = [];
-    for (const area of areas.filter((a) => a.zones.length > 1)) {
+    for (const area of areas.filter((a) => a.zones.length)) {
         // (the area's own zone first: its lights; the others in THP8's order)
         const zones = area.zones.includes(area.mainZone)
             ? [area.mainZone, ...area.zones.filter((z) => z !== area.mainZone)]
@@ -2048,9 +2128,27 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     const allBodies = parts.flatMap((p) => p.data.bodies);
     const shift = centreShift(allBodies);
     const tod = zoneTod(ctx.managers, parts[0]!.zoneName);
+    // (a level of the city: the city's other zones as THP8 shows them from afar - their _lod stand-ins, drawn only -
+    // instead of the void beyond the barriers)
+    const lods: SceneParts[] = [];
+    if (spec.zones.some((z) => ZONES.some((x) => x.zone === z && !x.standalone))) {
+        for (const info of ZONES.filter((x) => !x.standalone && !spec.zones.includes(x.zone))) {
+            const file = zonePak(ctx.compressed, `${info.zone}_lod`);
+            const lod = file ? readZone(file, names, warnings) : null;
+            if (!lod?.geom) continue;
+            lods.push({
+                geom: lod.geom,
+                textures: lod.textures,
+                placed: new Map(),
+                additive: glowMaterials(lod.geom, names),
+                lighting: zoneLighting(zoneTod(ctx.managers, names.get(checksum(info.zone)) ?? info.zone)),
+                techniques: ctx.techniques,
+            });
+        }
+    }
     const scene = (options: mats.RefineOptions): ConvertedScene =>
         convertScenes(
-            parts.flatMap((p) => sceneParts(p, ctx)),
+            [...parts.flatMap((p) => sceneParts(p, ctx)), ...lods],
             shift,
             warnings,
             !ctx.args.noMips,
@@ -2088,9 +2186,11 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
         moreQbs,
         props,
     );
-    // collision: each zone's bodies, its props' boxes (in their own space), the barriers
+    // collision: each zone's bodies (but the invisible walls at its seams with the level's other zones: seamWalls),
+    // its props' boxes (in their own space), the barriers
+    const seams = seamWalls(parts.map((p) => p.data.bodies));
     const sets: Parameters<typeof convertCollision>[0][number][] = [];
-    for (const p of parts) {
+    parts.forEach((p, k) => {
         const g = p.data.geom!;
         sets.push({
             bodies: p.data.bodies,
@@ -2098,6 +2198,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
             hidden: p.hidden,
             local: p.local,
             volumes: triggerVolumes(p.array, names, new Set(g.sectors.map((x) => x.checksum))),
+            drop: seams[k]!,
         });
         sets.push({
             bodies: [...p.made].map(([node, type], i) => ({
@@ -2109,6 +2210,12 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
             local: new Set(p.made.keys()),
             volumes: [],
         });
+    });
+    const seamCount = seams.reduce((n, x) => n + x.size, 0);
+    if (seamCount) {
+        report.push(
+            `  ${seamCount} invisible walls at the seams between its zones left out (${parts.map((p, k) => `${p.zone} ${seams[k]!.size}`).join(", ")})`,
+        );
     }
     // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
     for (const b of barriers) {
@@ -2172,17 +2279,49 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
 }
 
 // Every level this converter makes: the zones', then THP8's network levels of several zones.
+// Every level this converter makes: THP8's standalone levels (ZoneInfo.standalone), then its network levels - BEAVER
+// VALLEY (the whole town) and the twelve areas. The city's zones aren't levels by themselves (until 2026-10-24 they
+// were: our own split, cut off at the zone's edge - RETIRED).
 export function allSpecs(compressed: string, names: Map<number, string>): LevelSpec[] {
     const areaNames = zoneNames(compressed, names);
-    const zones = ZONES.map((z) => zoneSpec(z, areaNames));
-    return [...zones, ...netSpecs(networkAreas(compressed, names), new Set(zones.map((z) => z.sign)))];
+    const standalone = ZONES.filter((z) => z.standalone).map((z) => zoneSpec(z, areaNames));
+    return [...standalone, ...netSpecs(networkAreas(compressed, names), new Set(standalone.map((z) => z.sign)))];
 }
+
+// The levels this converter made before that it doesn't any more (the city's zones as levels of their own): their
+// staging folders and levels.json entries are removed by convert.
+export const RETIRED: readonly string[] = ZONES.filter((z) => !z.standalone).map(levelName);
 
 export function findSpec(specs: readonly LevelSpec[], name: string): LevelSpec | undefined {
     const n = name.toLowerCase();
     const zone = findZone(n);
     if (zone) return specs.find((s) => s.folder === zone.zone);
     return specs.find((s) => s.level === n || s.folder === n || s.level === `thp8_net_${n}` || s.level === `thp8_${n}`);
+}
+
+// levels.json without the entries of levels this converter no longer makes (RETIRED, or not in `specs` at all), and
+// their staging folders deleted. Returns their names.
+export function pruneStaging(out: string, specs: readonly LevelSpec[]): string[] {
+    const file = pyJoin(out, portedLevels.MANIFEST);
+    const made = new Set(specs.map((x) => x.level.toLowerCase()));
+    const old = portedLevels.readManifest(file);
+    const gone = new Set<string>(RETIRED);
+    for (const e of old?.levels ?? []) {
+        const level = String(e.level).toLowerCase();
+        if (level !== SKY && !made.has(level)) gone.add(level);
+    }
+    const removed: string[] = [];
+    for (const level of gone) {
+        const dir = pyJoin(out, "levels", level);
+        const listed = (old?.levels ?? []).some((e) => String(e.level).toLowerCase() === level);
+        if (fs.existsSync(dir) || listed) removed.push(level);
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+    if (old) {
+        old.levels = old.levels.filter((e) => !gone.has(String(e.level).toLowerCase()));
+        fs.writeFileSync(file, JSON.stringify(old, null, 1));
+    }
+    return removed.sort();
 }
 
 export function cmdConvert(args: Args): number {
@@ -2203,6 +2342,9 @@ export function cmdConvert(args: Args): number {
     // (only the levels converted now are made again: a partial convert keeps the others, as levels.json does -
     // ported_levels.writeManifest)
     for (const spec of wanted) fs.rmSync(pyJoin(out, "levels", spec.level), { recursive: true, force: true });
+    // (the city's zones as levels of their own, from before: gone - make_menu_level's overlay is made again from the
+    // staging folders, so they leave it on its next run)
+    const pruned = pruneStaging(out, specs);
     fs.mkdirSync(out, { recursive: true });
     const report: string[] = [];
     const ctx: Shared = {
@@ -2228,6 +2370,7 @@ export function cmdConvert(args: Args): number {
         print(report.splice(0).join("\n"));
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
+    if (pruned.length) print(`removed (no longer made): ${pruned.join(", ")}`);
     print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
     return 0;
 }
