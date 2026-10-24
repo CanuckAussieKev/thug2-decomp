@@ -572,3 +572,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   43.6 MB, mainstreet similar (REACH_SLACK / reach cap in edges.ts shrink it). Lead load checks: slums, mainstreet,
   school (127 s run), skatecentral loaded, pools fine. THUG2-1's thug2-decomp-thp8 net_skatepark staging was overwritten
   by that agent (harmless). User's THP8 recomp save: Documents\thps_p8.
+- THP8 unmade-node collision fix installed (2026-10-25 ~00:00): border zones' collision now skips bodies of nodes THP8
+  never makes in network games (skatefunparks' invisible fence = Z_Outschool_g_jeffedit_68, CreatedFromVariable
+  NODEFLAG_Z_SHOPS_UNLOCKSCHOOL_PRE). Running: THP8 env maps (round 5, THUG2-4), loading screens 4x DXT (THUG2-3),
+  THP8 save 100% editor, renderer decomp (~73%).
