@@ -59,6 +59,7 @@ import {
     toThug,
     triggerVolumes,
     trimShells,
+    undrawnBodies,
     ZONES,
     zoneDuplicates,
 } from "./thp8_levels.ts";
@@ -1480,4 +1481,16 @@ test("stand-ins: a triangle level with or over the border zones' drawn ground go
     assert.equal(standInClear(at(-0.5), ground), false); // just under: still fights
     assert.equal(standInClear(at(-30), ground), true); // far under: the backdrop
     assert.equal(standInClear(at(0, 50), ground), true); // elsewhere
+});
+
+test("undrawnBodies: a collision body with no drawn triangle near it and no drawn sector of its owner's name is listed", () => {
+    const body = (owner: number, x: number): havok.HkBody => ({
+        index: owner,
+        triangles: [{ a: [x, 0, 0], b: [x + 1, 0, 0], c: [x, 5, 0], material: 4, owner }],
+    });
+    const seen: havok.HkTriangle[] = [{ a: [0, 0, 0], b: [1, 0, 0], c: [0, 5, 0], material: 0, owner: 0 }];
+    // 1: a drawn triangle on it; 2: its sector drawn elsewhere; 3: nothing; 99: no owner
+    const left = undrawnBodies([body(1, 0), body(2, 10), body(3, 20), body(0, 50)], seen, new Set([2]));
+    assert.equal(left.length, 2);
+    assert.ok(left[0]!.includes("body 3") && left[1]!.includes("body 0"));
 });

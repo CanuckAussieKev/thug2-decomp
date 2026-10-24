@@ -116,3 +116,46 @@ Load check (THUG2-2, lead build, selftests off): thp8_net_skatefunparks loaded, 
 CStruct peak 19945 / 64000; thp8_net_skatepark loaded, peak 66008 / 360000, 15026 / 64000. Other levels not load-checked.
 Screenshot: C:\Games\THUG2-2\Screenshots\thp8_border_drawn.png (outschool's asphalt, building and the kerb at the skater's feet
 drawn instead of the grey plane). try_spot: `node tools/game/try_spot.ts thp8_net_skatefunparks -1032,346,-8407,79`.
+
+## The fence you hear but don't see (round 3, 2026-10-24)
+
+The user: "there is still a missing fence. I can hear the fence, but don't see it." (thug2_2026-10-24_23-34-51, skater
+(-1083, 346, -8457) heading +x, thp8_net_skatefunparks.)
+
+- **What the fence is**: z_outschool collision body 141 = the collision of node `Z_Outschool_g_jeffedit_68`
+  (LevelGeometry, `CreatedFromVariable = NODEFLAG_Z_SHOPS_UNLOCKSCHOOL_PRE`; its siblings g_jeffedit_70 / _73 / _74 / _76 /
+  _71 and the sponsor banners 01 / 02 on the same line, x ~ -124.5 m THP8). It is the school's fence *before the school
+  is unlocked*: THP8's non-story / network games set that flag false (game_progress_set_non_story_mode_nodeflags), so the
+  node is never made - **neither drawn nor collided**. Its scene sectors exist in the zone's scene, but notMade hides them
+  (own zones: `hidden`), and own zones' collision drops its bodies too (`convertCollision` `hidden`). The town
+  (thp8_net_beavervalley) therefore has no fence there - the ground is continuous, as the first round found.
+- **Why we had it**: edges.ts's border-zone collision took the zone's *raw* hkc bodies (`ZoneBodies.of`) and passed
+  `hidden: new Set()` - the not-made filter that own zones get was never applied to the other zones. So collision of nodes
+  THP8 does not create stood in the level with nothing to draw (drawnBorder correctly skipped the hidden sectors). Not a
+  sampling / window miss, not an instance, not a cut-out material: the fence does not exist in THP8's net games.
+  (Round 1's "case (b) plus a wall at the floor's edge" was wrong about the wall: it was this body, an artefact of reading
+  raw bodies.)
+- **Fix** (collision changes - the invisible wall goes; scenes byte-identical, checked with cmp on all 11): `ZoneBodies`
+  takes `unmade(zone, file)` = `unmadeNodes` (nodes of the zone's array after the non-story flags, notMade) and drops
+  bodies whose every triangle is owned by one (`edges.withoutUnmade`); the reached cells / ground are computed without
+  them too. Border zones' report line gives how many bodies of the zone are of such nodes.
+- **Across the 11 barrier levels**: bodies left out - z_outschool 3 (jeffedit_68 and two more), z_inschool 2, z_houses 1,
+  z_ghetto 1, z_citypark 1, z_cretepark 1 (zone totals; only those inside the reached cells matter). Collision
+  differs in 9 of 11 levels (funpark, capitol: same), e.g. factory 634202 -> 553990 bytes, skatepark 559194 -> 550874,
+  mainstreet 2021594 -> 1999118, skatefunparks 1662788 -> 1661516; .scn / .tex identical in all 11.
+- **Collision brought in with nothing drawn** (new report: `undrawnBodies`: under 25 % of the body's triangles within 1 m of a
+  triangle drawnBorder draws, and the body's owner sector not drawn): per level 0-15 bodies, nearly all tiny or at the
+  zone's origin (0,0: moving objects / props in their own space, e.g. z_ghetto 198 / 209 / 330-333, z_inschool 205 / 206,
+  z_funpark 0, z_cartoon 0 / 11, z_citypark 8), plus a few large ones that are not fences: z_outschool body 191 (63 m x 43 m
+  high, material 0x1080 = THP8's own invisible wall, no owner - same in THP8), z_cretepark Z_CretePark_g_hillside_locked1
+  (19 x 134 m, a locked-area slope), z_inschool body 1 (71 x 11 m), z_parking construction / Entrance_Grounds00 (ground),
+  z_shops body 235 (35 x 164 m), z_factory body 69 / 199, z_citypark Z_Citypark_TRG_killcollide (a trigger). The first
+  version of this audit (sector name / box match only) listed 5-70 per zone and was mostly noise (a body is often many
+  sectors' collision). Not looked at one by one: hillside_locked1 and the few big ground ones are the candidates if
+  another invisible wall is reported. Nothing else fence-like (thin tall body with a sector of the same name undrawn)
+  was found.
+- Tests: edges.test.ts withoutUnmade (mutation `every` -> `some`: 1 fails), thp8_levels.test.ts undrawnBodies.
+- Run (THUG2-2, lock held and released; lead build, selftests off): thp8_net_skatefunparks loaded and ran (CComponent peak
+  103146 / 360000, CStruct peak 19941 / 64000); the user's spot: C:\Games\THUG2-2\Screenshots\thp8_fence_gone.png (open
+  outschool asphalt, the Beavers building; the skater can roll on east past x -1037).
+- Install: `node tools/thp8_levels/thp8_levels.ts convert` (the 11 barrier levels) + make_menu_level.

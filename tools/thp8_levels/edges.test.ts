@@ -166,3 +166,19 @@ test("triangleInCells: a corner, the middle or a stretch of a big triangle over 
         false,
     );
 });
+
+test("withoutUnmade: bodies owned only by nodes that are not made go (the school's pre-unlock fence)", () => {
+    const owned = (index: number, owner: number): havok.HkBody => ({
+        index,
+        triangles: [{ a: [0, 0, 0], b: [0, 1, 0], c: [1, 0, 0], material: 4, owner }],
+    });
+    const mixed: havok.HkBody = { index: 3, triangles: [...owned(3, 7).triangles, ...owned(3, 8).triangles] };
+    const kept = edges.withoutUnmade(
+        [owned(0, 7), owned(1, 9), owned(2, 0), mixed, { index: 4, triangles: [] }],
+        new Set([7]),
+    );
+    assert.deepEqual(
+        kept.map((b) => b.index),
+        [1, 2, 3, 4],
+    );
+});

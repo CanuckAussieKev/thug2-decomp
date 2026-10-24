@@ -339,6 +339,24 @@ export function notMade(array: readonly QbValue[], names: ReadonlyMap<number, st
     return out;
 }
 
+// The nodes a zone's archive has that THP8's network games do not make (notMade after the node flags): for a zone that is
+// not in a level, whose collision edges.ts takes in (the school's pre-unlock fence, z_outschool's g_jeffedit_68..76,
+// 2026-10-24: a wall with nothing drawn - its node isn't made).
+export function unmadeNodes(
+    file: string,
+    zone: string,
+    flags: ReadonlyMap<number, boolean>,
+    names: Map<number, string>,
+): Set<number> {
+    const pak = thp8.openPak(file);
+    const n = pak.entries.find((e) => e.flags === 0 && e.extension === ".nqb");
+    if (!n) return new Set();
+    const nqb = new thaw.QbItems(thp8.entryData(pak, n), `${file} nqb`, names, ">");
+    const array = nodeArrayOf(nqb, names.get(checksum(zone)) ?? zone);
+    applyNodeFlags(array, flags);
+    return notMade(array, names);
+}
+
 // THP8's moving objects (LevelObject: the gym's roof fans, doors): their sectors and collision are in their own space
 // (centred on the origin) and THUG2 puts them at the node's Pos - left there, not moved with the zone. The ones made.
 export function localObjects(array: readonly QbValue[], names: ReadonlyMap<number, string>): Set<number> {
@@ -3346,6 +3364,52 @@ export function standInClear(corners: readonly (readonly number[])[], ground: Gr
     return true;
 }
 
+// The collision bodies added from a border zone (edges.ts) with nothing drawn for them: fewer than UNDRAWN_SHARE of the
+// body's triangles (the middle of each) lie within UNDRAWN_NEAR metres of a triangle drawnBorder draws (`seen`), and the
+// scene sector named like the body's owner (a node of the zone) is not drawn either (`drawn`: sector checksums). Each as
+// "owner-name (size in metres, x z)".
+export const UNDRAWN_NEAR = 1;
+export const UNDRAWN_SHARE = 0.25;
+export function undrawnBodies(
+    kept: readonly havok.HkBody[],
+    seen: readonly havok.HkTriangle[],
+    drawn: ReadonlySet<number>,
+    names?: ReadonlyMap<number, string>,
+): string[] {
+    const CELL = 4;
+    const grid = new Map<string, havok.HkTriangle[]>();
+    const lo = (t: havok.HkTriangle, k: number): number => Math.min(t.a[k]!, t.b[k]!, t.c[k]!) - UNDRAWN_NEAR;
+    const hi = (t: havok.HkTriangle, k: number): number => Math.max(t.a[k]!, t.b[k]!, t.c[k]!) + UNDRAWN_NEAR;
+    for (const t of seen) {
+        for (let x = Math.floor(lo(t, 0) / CELL); x <= Math.floor(hi(t, 0) / CELL); x++) {
+            for (let z = Math.floor(lo(t, 2) / CELL); z <= Math.floor(hi(t, 2) / CELL); z++) {
+                const key = `${x},${z}`;
+                const list = grid.get(key);
+                if (list) list.push(t);
+                else grid.set(key, [t]);
+            }
+        }
+    }
+    const near = (c: readonly number[]): boolean =>
+        (grid.get(`${Math.floor(c[0]! / CELL)},${Math.floor(c[2]! / CELL)}`) ?? []).some((t) =>
+            [0, 1, 2].every((k) => c[k]! >= lo(t, k) && c[k]! <= hi(t, k)),
+        );
+    const out: string[] = [];
+    for (const b of kept) {
+        if (!b.triangles.length) continue;
+        const owner = b.triangles.find((t) => t.owner)?.owner;
+        if (owner !== undefined && drawn.has(owner)) continue;
+        const covered = b.triangles.filter((t) => near([0, 1, 2].map((k) => (t.a[k]! + t.b[k]! + t.c[k]!) / 3))).length;
+        if (covered >= UNDRAWN_SHARE * b.triangles.length) continue;
+        const box = boxOf(b.triangles);
+        const name = (owner !== undefined ? names?.get(owner) : undefined) ?? `body ${b.index}`;
+        out.push(
+            `${name} (${[0, 2].map((k) => (box[3 + k]! - box[k]!).toFixed(0)).join("x")} m at ${((box[0]! + box[3]!) / 2).toFixed(0)},${((box[2]! + box[5]!) / 2).toFixed(0)})`,
+        );
+    }
+    return out;
+}
+
 // A border zone's sectors drawn where the skater rolls to (edges.ts reached cells): a sector with a triangle over the
 // cells - whole when it is small (BORDER_WHOLE metres: a house, a fence, a prop is not cut in half), else only the
 // triangles over the cells (the ground). The instances placed (the masters aren't drawn alone), the zone's moving
@@ -3487,6 +3551,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     );
     const seamed = seamWalls([...parts.map((p) => p.data.bodies), ...border.map((x) => x.all)]);
     const borderParts: ZonePart[] = [];
+    const borderPartOf = new Map<string, ZonePart>();
     const borderDrawn: ReturnType<typeof drawnBorder>[] = [];
     border.forEach((x, k) => {
         const drop = seamed[parts.length + k]!;
@@ -3501,6 +3566,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
         if (p === null) return;
         borderDrawn.push(drawnBorder(p, x.cells));
         borderParts.push(p);
+        borderPartOf.set(x.zone, p);
     });
     const borderGround = new GroundIndex([{ index: 0, triangles: borderDrawn.flatMap((d) => d.seen) }]);
     let standInsUnderBorder = 0;
@@ -3755,9 +3821,31 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
             local: new Set(),
             volumes: [],
         });
+        const bp = borderPartOf.get(x.zone);
+        const undrawn = bp
+            ? undrawnBodies(
+                  kept,
+                  borderDrawn[borderParts.indexOf(bp)]!.seen,
+                  new Set([
+                      ...bp.data.geom!.sectors.map((s) => s.checksum).filter((c) => !bp.hidden.has(c)),
+                      ...bp.placed.keys(),
+                  ]),
+                  names,
+              )
+            : kept.map((b) => `body ${b.index}`);
         report.push(
             `  ${kept.reduce((n, b) => n + b.triangles.length, 0)} collision triangles of ${x.zone} where the skater rolls to inside the barrier added ` +
-                `(${drop.size} of its seam walls left out)`,
+                `(${drop.size} of its seam walls left out` +
+                (ctx.zoneBodies.left.get(x.zone)
+                    ? `, ${ctx.zoneBodies.left.get(x.zone)} bodies of the zone are of nodes THP8 doesn't make: not taken`
+                    : "") +
+                `)` +
+                (undrawn.length
+                    ? `; ${undrawn.length} of its ${kept.length} bodies with nothing drawn for them: ${undrawn
+                          .slice(0, 6)
+                          .map((u) => u.toString())
+                          .join(", ")}`
+                    : ""),
         );
     });
     // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
@@ -3912,6 +4000,7 @@ export function cmdConvert(args: Args): number {
     }
     const library = findCaseless(compressed, "FXFILES", "MaterialLibrary.bin.xen");
     const globalPak = zonePak(compressed, "global");
+    const nodeFlags = nonStoryNodeFlags(compressed, names);
     // (only the levels converted now are made again: a partial convert keeps the others, as levels.json does -
     // ported_levels.writeManifest)
     for (const spec of wanted)
@@ -3930,12 +4019,15 @@ export function cmdConvert(args: Args): number {
         out,
         names,
         terrains: terrainTable(compressed, names),
-        flags: nonStoryNodeFlags(compressed, names),
+        flags: nodeFlags,
         managers: todManagers(compressed, names),
         techniques: library ? mats.readTechniques(thp8.unpack(library)) : new Map<number, string[]>(),
         port: makeScriptPort(args.thug2, compressed, names),
         zoneScripts: new ZoneScripts(compressed, names),
-        zoneBodies: new edges.ZoneBodies((zone) => zonePak(compressed, zone)),
+        zoneBodies: new edges.ZoneBodies(
+            (zone) => zonePak(compressed, zone),
+            (zone, file) => unmadeNodes(file, zone, nodeFlags, names),
+        ),
         globalProps: globalPak ? propModels(thp8.openPak(globalPak)) : new Map<number, PropModel>(),
         sky: convertSky(compressed, out, report, !args.noMips, args.leaveOut, names),
         report,

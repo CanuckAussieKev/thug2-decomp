@@ -212,11 +212,24 @@ export function inCells(bodies: readonly havok.HkBody[], cells: ReadonlySet<numb
 }
 
 // A zone's collision bodies alone (not its scene or textures), read once.
+// The bodies without those owned only by nodes THP8 does not make (`gone`: node names).
+export function withoutUnmade(bodies: readonly havok.HkBody[], gone: ReadonlySet<number>): havok.HkBody[] {
+    return bodies.filter((b) => !b.triangles.length || !b.triangles.every((t) => gone.has(t.owner)));
+}
+
 export class ZoneBodies {
     private readonly cache = new Map<string, havok.HkBody[]>();
     private readonly zonePak: (zone: string) => string | null;
-    constructor(zonePak: (zone: string) => string | null) {
+    // THP8 does not make some nodes in its network games (CreatedFromVariable flags that are false there: the school's
+    // fence before it is unlocked): `unmade` names a zone's nodes, and bodies owned only by them are left out.
+    private readonly unmade: (zone: string, file: string) => ReadonlySet<number>;
+    readonly left = new Map<string, number>(); // per zone: bodies left out for it
+    constructor(
+        zonePak: (zone: string) => string | null,
+        unmade: (zone: string, file: string) => ReadonlySet<number> = () => new Set(),
+    ) {
         this.zonePak = zonePak;
+        this.unmade = unmade;
     }
 
     of(zone: string, warnings: string[]): havok.HkBody[] {
@@ -228,6 +241,12 @@ export class ZoneBodies {
                 const pak = thp8.openPak(file);
                 const h = pak.entries.find((e) => e.flags === 0 && e.extension === ".hkc");
                 if (h) bodies = havok.readCollision(new havok.Packfile(thp8.entryData(pak, h), file), warnings);
+                const gone = this.unmade(zone, file);
+                if (gone.size) {
+                    const kept = withoutUnmade(bodies, gone);
+                    this.left.set(zone, bodies.length - kept.length);
+                    bodies = kept;
+                }
             }
             this.cache.set(zone, bodies);
         }
