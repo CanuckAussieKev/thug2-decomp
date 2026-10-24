@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "game/core/mem.h"
@@ -14,6 +15,7 @@
 #include "game/file/file.h"
 #include "game/gfx/draw2d.h"
 #include "game/gfx/glyphs.h"
+#include "game/gfx/hd_ui.h"
 #include "game/gfx/render_state.h"
 #include "game/sio/device.h"
 #include "game/sys/platform_d3d.h"
@@ -584,24 +586,42 @@ SFont* SFont::Load(const char* name, bool fromMemory)
     read(buffer, 0x10, 1, true);
     uint32_t width = U16(buffer + 4);
     uint32_t height = U16(buffer + 6);
+#if THUG2_HD_UI
+    // Not original - HD menu UI (game/gfx/hd_ui.h): an upscaled page (marked at +8, the scale at +0xC) has 32-bit
+    // BGRA texels and no palette; its glyph rectangles are in the original page's pixels.
+    uint32_t hdScale = HdUi::FontScale(U32(buffer + 8), U32(buffer + 0xC));
+    if (hdScale != 1)
+        HdUi::NoteFont(fromMemory ? nullptr : name, hdScale, width, height);
+#else
+    constexpr uint32_t hdScale = 1;
+#endif
     using CreateTexture = long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**, void*);
     if (DeviceMethod<CreateTexture>(0x5C)(Device(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
                                          &font->texture, nullptr) != 0)
         return nullptr;
     uint32_t size = (height * width + 3) & ~3u;
-    auto* indices = static_cast<uint8_t*>(Mem::New(size));
-    uint32_t palette[256];
-    read(indices, static_cast<int>(size), 1, true);
-    read(palette, 0x400, 1, true);
-    for (uint32_t& color : palette) {
-        uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
-        uint32_t alpha = argb >> 24;
-        alpha = alpha >= 0x80 ? 0xFF : alpha << 1;
-        color = alpha << 24 | (argb & 0xFFFFFF);
+    uint8_t* indices = nullptr;
+    uint32_t* pixels;
+    if (hdScale != 1) {
+        // (not original - HD menu UI: the texels as they are, in a buffer from the C runtime's heap - 4-16 MB, more
+        // than the game's heap may have free while the front end loads)
+        pixels = static_cast<uint32_t*>(std::malloc(size * 4));
+        read(pixels, static_cast<int>(size * 4), 1, true);
+    } else {
+        indices = static_cast<uint8_t*>(Mem::New(size));
+        uint32_t palette[256];
+        read(indices, static_cast<int>(size), 1, true);
+        read(palette, 0x400, 1, true);
+        for (uint32_t& color : palette) {
+            uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
+            uint32_t alpha = argb >> 24;
+            alpha = alpha >= 0x80 ? 0xFF : alpha << 1;
+            color = alpha << 24 | (argb & 0xFFFFFF);
+        }
+        pixels = static_cast<uint32_t*>(Mem::New(size * 4));
+        // palette indices -> colours
+        Platform::ExpandPalette(pixels, indices, static_cast<int>(size), palette);
     }
-    auto* pixels = static_cast<uint32_t*>(Mem::New(size * 4));
-    // palette indices -> colours
-    Platform::ExpandPalette(pixels, indices, static_cast<int>(size), palette);
     struct LockedRect {
         int pitch;
         void* bits;
@@ -611,13 +631,18 @@ SFont* SFont::Load(const char* name, bool fromMemory)
         return nullptr;
     std::memcpy(locked.bits, pixels, size * 4);
     TextureMethod<long(__stdcall*)(void*, uint32_t)>(font->texture, 0x50)(font->texture, 0);
-    Mem::Free(indices);
-    Mem::Free(pixels);
+    if (indices) {
+        Mem::Free(indices);
+        Mem::Free(pixels);
+    } else {
+        std::free(pixels); // (not original - HD menu UI)
+    }
 
     // The glyphs' rectangles: texture coordinates (the right/bottom ones from the unrounded left/top) and sizes.
     read(buffer, count * 8 + 4, 1, false);
-    double textureWidth = static_cast<int>(width);
-    double textureHeight = static_cast<int>(height);
+    // (not original - HD menu UI: an upscaled page's size divided by its scale, the rectangles' own pixels)
+    double textureWidth = static_cast<int>(width / hdScale);
+    double textureHeight = static_cast<int>(height / hdScale);
     for (int i = 0; i < count; ++i) {
         const uint8_t* rect = buffer + 4 + 8 * i;
         SChar& glyph = font->chars[i];
