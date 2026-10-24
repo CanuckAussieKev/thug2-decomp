@@ -918,6 +918,7 @@ add_library(thug2_code OBJECT
     src/game/script/struct.cpp
     src/game/script/skate_cfuncs.cpp
     src/game/script/game_cfuncs.cpp
+    src/game/script/game_flow_cfuncs.cpp
     src/game/script/script_util_cfuncs.cpp
     src/game/script/math_cfuncs.cpp
     src/game/script/debug_cfuncs.cpp

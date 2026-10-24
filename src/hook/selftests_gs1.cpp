@@ -5,10 +5,23 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
 #include "game/ass/assman.h"
+#include "game/core/crc.h"
+#include "game/core/manager.h"
+#include "game/core/stubs.h"
+#include "game/ed/park_editor.h"
+#include "game/file/pip.h"
+#include "game/front/front_end.h"
+#include "game/gfx/tod_manager.h"
+#include "game/obj/compositemgr.h"
+#include "game/obj/path_manager.h"
+#include "game/script/cfuncs_scene.h"
+#include "game/script/node_prefixes.h"
+#include "game/sfx/sfx.h"
 #include "game/core/dbg.h"
 #include "game/file/async.h"
 #include "game/net/gamenet_manager.h"
@@ -54,7 +67,9 @@ struct Fakes {
     uint8_t handlers[2][0x2C];
     uint8_t controlData[2][0x40];
     uint8_t profile[0x64];
-    uint8_t skaters[8][0x10];
+    uint8_t skater[0x330];
+    uint8_t flagObjects[3][0x4C];
+    uint32_t skaterVtable[16];
     uint32_t vtable[4];
 };
 Fakes* g_fakes;
@@ -101,7 +116,8 @@ void StandInCalls(StandIns& s)
     });
     s.At({0x0048C8F0}, 0, [](Regs&) { Record({0xC8F0}); return 0u; });
     s.At({0x00401C30, AddressOf(static_cast<int (*)(const char*, ...)>(&Dbg::Printf))}, 0, [](Regs& r) {
-        Record({0x1C30, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
+        const char* format = reinterpret_cast<const char*>(r.args[0]);
+        Record({0x1C30, Hash(format), std::strchr(format, '%') ? r.args[1] : 0u});
         return 0u;
     });
     s.At({0x005B6580, AddressOf(&File::AsyncBusy)}, 0, [](Regs&) { Record({0x6580}); return g_asyncBusy ? 1u : 0u; });
@@ -115,7 +131,9 @@ void StandInCalls(StandIns& s)
     });
     using RunFn = void (*)(uint32_t, CStruct*, Obj::CObject*, bool, const char*);
     s.At({0x00475790, AddressOf(static_cast<RunFn>(&Script::RunScript))}, 0, [](Regs& r) {
-        Record({0x5790, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, r.args[4]});
+        Record({0x5790, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, r.args[4], g_fakes ? g_fakes->script[0xCC] : 0u});
+        if (g_fakes && r.args[0] == 0xDCA9A9A0)
+            g_fakes->script[0xCC] |= 1; // (Cleanup's second script: something setting the flag meanwhile)
         return 0u;
     });
     s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
@@ -196,7 +214,7 @@ void StandInCalls(StandIns& s)
     s.At({0x00576E70, AddressOf(&Mdl::SetViewMode)}, 0, [](Regs& r) { Record({0x6E70, r.args[0]}); return 0u; });
     s.At({0x005665C0}, 4, [](Regs& r) {
         Record({0x65C0, r.ecx, r.args[0]});
-        return (g_skaterMask >> r.args[0]) & 1 ? reinterpret_cast<uint32_t>(g_fakes->skaters[r.args[0] & 7]) : 0u;
+        return (g_skaterMask >> r.args[0]) & 1 ? reinterpret_cast<uint32_t>(g_fakes->skater) : 0u;
     });
     s.At({0x005808A0, AddressOf(&Obj::CSkater::SetPauseState)}, 4, [](Regs& r) {
         Record({0x08A0, Rel(r.ecx), r.args[0]});
@@ -430,6 +448,409 @@ void TestGameCFuncs()
     Compare(traces[0], traces[1], "game script commands (0x0059F610-0x0059FE50)");
 }
 
+// --- 0x0059FE50-0x005A0880, 0x005A3B00-0x005A3B75 (game_flow_cfuncs.cpp) ------------------------------------
+
+bool g_hasSymbol, g_netHeaps, g_internetHeaps;
+const char* g_pres[4];
+uint32_t g_prefixCount;
+uint32_t g_prefixNodes[3];
+
+void StandInFlowCalls(StandIns& s)
+{
+    // mode: 1 records ECX (a member function), 2 the first argument, 4 its low byte (a bool)
+    auto simple = [&s](std::initializer_list<uint32_t> at, uint16_t pop, uint32_t tag, int mode, uint32_t result = 0) {
+        s.At(at, pop, [tag, mode, result](Regs& r) {
+            Record({tag, mode & 1 ? Rel(r.ecx) : 0u, mode & 2 ? Rel(r.args[0]) : mode & 4 ? r.args[0] & 0xFF : 0u});
+            return result;
+        });
+    };
+    simple({0x0048C1B0, AddressOf(&Stubs::DoNothing)}, 0, 0xC1B0, 0);
+    simple({0x005591B0}, 0, 0x91B0, 0, 0x00517F00);
+    simple({0x00558250}, 4, 0x8250, 3);
+    simple({0x0055BEF0}, 0, 0xBEF0, 1);
+    simple({0x00572BD0, AddressOf(&Gfx::CTODManager::ClearDeadObjects)}, 0, 0x2BD0, 1);
+    simple({0x0058DB30, AddressOf(&Ed::CParkEditor::Leave)}, 0, 0xDB30, 1);
+    simple({0x005666A0}, 0, 0x66A0, 1);
+    simple({0x0048E260}, 0, 0xE260, 1);
+    simple({0x00492340}, 0, 0x2340, 0);
+    simple({0x00480660}, 0, 0x0660, 0, 0x00FA2700);
+    simple({0x00480DB0}, 4, 0x0DB0, 3);
+    simple({0x00490DE0}, 0, 0x0DE0, 4);
+    simple({0x00475700, AddressOf(&Script::DeleteFinishedScripts)}, 0, 0x5700, 0);
+    simple({0x0048FB60}, 0, 0xFB60, 0);
+    simple({0x0047B1B0, AddressOf(&Sfx::CSfxManager::CleanUp)}, 0, 0xB1B0, 1);
+    s.At({0x00407F50, AddressOf(&Ass::CAssMan::UnloadAllAssetsOfType)}, 8, [](Regs& r) {
+        Record({0x7F50, r.ecx, r.args[0] & 0xFF, r.args[1]});
+        return 0u;
+    });
+    s.At({0x00407F20, AddressOf(&Ass::CAssMan::UnloadAllAssets)}, 4, [](Regs& r) {
+        Record({0x7F20, r.ecx, r.args[0] & 0xFF});
+        return 0u;
+    });
+    simple({0x005A59B0}, 0, 0x59B0, 2);
+    s.At({0x00445120, AddressOf(&CFuncs::CFunc_UnloadAllLevelGeometry)}, 0, [](Regs& r) {
+        Record({0x5120, r.args[0], r.args[1]});
+        return 1u;
+    });
+    simple({0x005BACF0, AddressOf(&Mem::Manager::DeleteExtraSkaterHeaps)}, 0, 0xACF0, 1);
+    s.At({0x005B7300, AddressOf(&Pip::GetNextLoadedPre)}, 0, [](Regs& r) {
+        Record({0x7300, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        for (int i = 0; i < 3; ++i) {
+            if (reinterpret_cast<const char*>(r.args[0]) == (i ? g_pres[i - 1] : nullptr))
+                return reinterpret_cast<uint32_t>(g_pres[i]);
+        }
+        return 0u;
+    });
+    s.At({0x005B7370, AddressOf(&Pip::PreFileIsInUse)}, 0, [](Regs& r) {
+        Record({0x7370, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        return reinterpret_cast<const char*>(r.args[0])[0] == 'u' && reinterpret_cast<const char*>(r.args[0])[1] == 's'
+                   ? 1u
+                   : 0u;
+    });
+    s.At({0x005B7130, AddressOf(&Pip::UnloadPre)}, 0, [](Regs& r) {
+        Record({0x7130, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        return 1u;
+    });
+    simple({0x004A0760}, 0, 0x0760, 0);
+    simple({0x0048FDE0}, 0, 0xFDE0, 0);
+    simple({0x0049EFB0}, 0, 0xEFB0, 2);
+    simple({0x004694E0, AddressOf(&Obj::CPathManager::Instance)}, 0, 0x94E0, 0, 0x00BA7000);
+    simple({0x00469820, AddressOf(&Obj::CPathManager::Free)}, 0, 0x9820, 1);
+    s.At({0x005656D0}, 0, [](Regs& r) { Record({0x56D0, r.ecx}); return g_netHeaps ? 1u : 0u; });
+    s.At({0x00565700}, 0, [](Regs& r) { Record({0x5701, r.ecx}); return g_internetHeaps ? 1u : 0u; });
+    simple({0x0045EFD0, AddressOf(&Obj::DestroyCoimHeap)}, 0, 0xEFD0, 0);
+    simple({0x005BB560, AddressOf(&Mem::Manager::InitNetMiscHeap)}, 0, 0xB560, 1);
+    simple({0x005BB660, AddressOf(&Mem::Manager::InitInternetHeaps)}, 0, 0xB660, 1);
+    simple({0x005BAC50, AddressOf(&Mem::Manager::DeleteNetMiscHeap)}, 0, 0xAC50, 1);
+    StandInApi(s, 0x006450EC, reinterpret_cast<const void*>(&GlobalMemoryStatus), 4, [](Regs& r) {
+        auto* status = reinterpret_cast<MEMORYSTATUS*>(r.args[0]);
+        Record({0x50EC});
+        status->dwTotalPhys = 0x7FF12345;
+        status->dwAvailPhys = 0x12345678;
+        return 0u;
+    });
+    StandInApi(s, 0x00645218, reinterpret_cast<const void*>(&wsprintfA), 0, [](Regs& r) {
+        Record({0x5218, Hash(reinterpret_cast<const char*>(r.args[1])), r.args[2]});
+        return static_cast<uint32_t>(std::snprintf(reinterpret_cast<char*>(r.args[0]), 64, "<%u>", r.args[2]));
+    });
+    StandInApi(s, 0x006450A4, reinterpret_cast<const void*>(&OutputDebugStringA), 4, [](Regs& r) {
+        Record({0x50A4, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        return 0u;
+    });
+    // the object flag commands
+    s.At({0x00461CC0, AddressOf(&Obj::CBaseManager::ForEach)}, 8, [](Regs& r) {
+        Record({0x1CC0, r.ecx});
+        for (auto& object : g_fakes->flagObjects)
+            reinterpret_cast<Obj::ObjectCallback>(r.args[0])(reinterpret_cast<Obj::CObject*>(object),
+                                                              reinterpret_cast<void*>(r.args[1]));
+        return 0u;
+    });
+    s.At({0x004609F0, AddressOf(&Obj::CObject::SelfEvent)}, 8, [](Regs& r) {
+        Record({0x09F0, Rel(r.ecx), r.args[0], r.args[1]});
+        return 0u;
+    });
+    using PrefixedFn = uint32_t* (*)(const char*, uint16_t*);
+    s.At({0x0045BFB0, AddressOf(static_cast<PrefixedFn>(&SkateScript::GetPrefixedNodes))}, 0, [](Regs& r) {
+        Record({0xBFB0, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        *reinterpret_cast<uint16_t*>(r.args[1]) = static_cast<uint16_t>(g_prefixCount);
+        return reinterpret_cast<uint32_t>(g_prefixNodes);
+    });
+    // skater scripts
+    s.At({0x00566520}, 0, [](Regs& r) {
+        Record({0x6520, r.ecx});
+        return (g_skaterMask >> 8) & 1 ? reinterpret_cast<uint32_t>(g_fakes->skater) : 0u;
+    });
+    s.At({0x00582510, AddressOf(&Obj::CSkater::SwitchToScript)}, 8, [](Regs& r) {
+        Record({0x2510, Rel(r.ecx), r.args[0], Rel(r.args[1])});
+        return 0u;
+    });
+    s.At({0x00461500, AddressOf(&Obj::CObject::CallScript)}, 8, [](Regs& r) {
+        Record({0x1500, Rel(r.ecx), r.args[0], Rel(r.args[1])});
+        return 0u;
+    });
+    s.At({0x00472E00, AddressOf(&Script::GetSpawnId)}, 0, [](Regs& r) { Record({0x2E00, Rel(r.args[0])}); return 0x5150u; });
+    s.At({0x00461410, AddressOf(&Obj::CObject::SpawnScript)}, 0x10, [](Regs& r) {
+        Record({0x1410, Rel(r.ecx), r.args[0], Rel(r.args[1]), r.args[2], r.args[3] & 0xFF});
+        return 0x00599000u;
+    });
+    s.At({0x00472F90, AddressOf(&Script::CScript::SetSpawnerFile)}, 4, [](Regs& r) {
+        Record({0x2F90, r.ecx, Rel(r.args[0])});
+        return 0u;
+    });
+    s.At({0x0059F330, AddressOf(&CFuncs::CFunc_SpawnScript)}, 0, [](Regs& r) {
+        Record({0xF330, Rel(r.args[0]), Rel(r.args[1])});
+        return 0x100u; // (its result passed on: only AL is read)
+    });
+    s.At({0x0045D990, AddressOf(&Obj::CCompositeObject::Hide)}, 4, [](Regs& r) {
+        Record({0xD990, Rel(r.ecx), r.args[0] & 0xFF});
+        return 0u;
+    });
+    // pausing, the clock, the flash
+    s.At({0x0054F960, AddressOf(&Mdl::FrontEnd::PauseGame)}, 4, [](Regs& r) {
+        Record({0xF960, Rel(r.ecx), r.args[0] & 0xFF});
+        return 0u;
+    });
+    s.At({0x00472DC0, AddressOf(&Script::UnpauseSpawnedScript)}, 0, [](Regs& r) { Record({0x2DC0, Rel(r.args[0])}); return 0u; });
+    s.At({0x0045F5D0, AddressOf(&Obj::CCompositeObjectManager::Pause)}, 4, [](Regs& r) {
+        Record({0xF5D0, r.ecx, r.args[0] & 0xFF});
+        return 0u;
+    });
+    s.At({0x00553170}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
+    s.At({0x00564D50}, 4, [](Regs& r) { Record({0x4D50, r.ecx, r.args[0]}); return 0u; });
+    s.At({0x0054ECA0, AddressOf(&Mdl::FrontEnd::PadsPluggedIn)}, 0, [](Regs& r) { Record({0xECA0, Rel(r.ecx)}); return 0x100u; });
+    s.At({0x004923E0}, 0, [](Regs& r) {
+        Record({0x23E0, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5],
+                Hash(reinterpret_cast<const char*>(r.args[6]))});
+        return 0u;
+    });
+}
+
+std::vector<Saved> SavedFlowGlobals()
+{
+    return {{0x007CE490, 4, {}}, {0x007CE5D8, 4, {}}, {0x006FA7BC, 4, {}}, {0x006F85A8, 4, {}},
+            {0x007D1800, 4, {}}, {0x00696900, 0x3C, {}}, {0x007CE470, 4, {}}, {0x006FA7D4, 1, {}}};
+}
+
+uint32_t CrcOf(const char* name) { return Crc::GenerateCRCFromString(name); }
+
+// On a difference, the traces around the first one (to find which call it is).
+void LogAroundFirstDifference(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b)
+{
+    size_t i = 0;
+    while (i < a.size() && i < b.size() && a[i] == b[i])
+        ++i;
+    if (i == a.size() && i == b.size())
+        return;
+    for (size_t k = i > 12 ? i - 12 : 0; k < i + 12; ++k)
+        Log("  [%u] original %08X ours %08X", static_cast<unsigned>(k), k < a.size() ? a[k] : 0xEEEEEEEEu,
+            k < b.size() ? b[k] : 0xEEEEEEEEu);
+}
+
+void TestGameFlowCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> flowSaved = SavedFlowGlobals();
+    SaveAll(saved);
+    SaveAll(flowSaved);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInFlowCalls(*standIns);
+    g_slot1 = standIns->Thunk(0, [](Regs& r) { Record({0x5107, Rel(r.ecx)}); return 0u; });
+    g_slot2 = standIns->Thunk(4, [](Regs& r) { Record({0x5207, Rel(r.ecx), r.args[0]}); return 0u; });
+    void* pauseSlot = standIns->Thunk(0, [](Regs& r) { Record({0x2C2C, Rel(r.ecx)}); return 0u; });
+    void* unpauseSlot = standIns->Thunk(0, [](Regs& r) { Record({0x3030, Rel(r.ecx)}); return 0u; });
+    static uint8_t gameNet[0x10];
+    const uint32_t kName = 0xA1DC81F9, kPrefix = 0x6C4E7971, kSkater = 0x5B8AB877;
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        auto* skater = g_fakes->skater;
+        reinterpret_cast<uint32_t*>(skater)[0] = reinterpret_cast<uint32_t>(g_fakes->skaterVtable);
+        g_fakes->skaterVtable[0x2C / 4] = reinterpret_cast<uint32_t>(pauseSlot);
+        g_fakes->skaterVtable[0x30 / 4] = reinterpret_cast<uint32_t>(unpauseSlot);
+        reinterpret_cast<uint32_t*>(skater)[0x18 / 4] = 0xBAF9B341; // a skater
+        reinterpret_cast<int*>(skater)[0x2BC / 4] = 1;               // its viewport
+        GameVariable<uint32_t>(0x007CE490) = 0x00700490;
+        GameVariable<uint32_t>(0x007CE5D8) = 0x007005D8;
+        GameVariable<uint32_t>(0x006FA7BC) = 0x007007BC;
+        GameVariable<uint32_t>(0x006F85A8) = 0x007005A8;
+        GameVariable<uint32_t>(0x007D1800) = 0x00701800;
+        GameVariable<uint32_t>(0x007CE470) = 0x00700470;
+        GameVariable<void*>(0x007CCE14) = gameNet;
+        auto call = [&](uint32_t address, CFunc ours, Params& params, bool withScript = true) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            auto* script = withScript ? reinterpret_cast<Script::CScript*>(g_fakes->script) : nullptr;
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        auto setObject = [&](void* object) { reinterpret_cast<void**>(g_fakes->script)[0xBC / 4] = object; };
+        Params none;
+
+        // Cleanup: no params; an unrelated flag; preserve_skaters; no script; the symbol; the network heaps; the
+        // .pre files (in use or not)
+        static const char* pres[] = {"used.pre", "unused.pre", "used2.pre"};
+        for (int state = 0; state < 5; ++state) {
+            g_hasSymbol = state & 1;
+            {
+                // the global 0xC472ECC5 (its value at +8: a .qb file) in the stand-in symbol table, or not
+                static uint32_t entry[5] = {1, 0xC472ECC5, 0x0F11E5, 0, 0};
+                GameVariable<void**>(0x006F3624)[0xC472ECC5 & 0xFFF] = g_hasSymbol ? entry : nullptr;
+            }
+            g_netHeaps = state == 1 || state == 3;
+            g_internetHeaps = state >= 2;
+            for (int i = 0; i < 4; ++i)
+                g_pres[i] = i < 3 && state != 4 ? pres[i] : nullptr;
+            for (int i = 0; i < 15; ++i)
+                GameVariable<uint32_t>(0x00696900 + 4 * i) = (i + state) % 4 ? 0xF00 + i : 0;
+            g_fakes->script[0xCC] = static_cast<uint8_t>(state & 1 ? 0x0B : 0x0E);
+            Params p;
+            if (state == 1)
+                p.Flag(0xC2E5C1B5);
+            if (state == 3)
+                p.Flag(0x7F07D3D4); // preserve_skaters
+            CStruct* params = state == 2 ? nullptr : p.Struct();
+            auto* script = state == 4 ? nullptr : reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<CFunc>(0x0059FE50)(params, script) : CFuncs::CFunc_Cleanup(params, script);
+            Record({0xC1EA, result ? 1u : 0u, g_fakes->script[0xCC]});
+            for (int i = 0; i < 15; ++i)
+                Record({GameVariable<uint32_t>(0x00696900 + 4 * i)});
+        }
+
+        // the object flag commands: by name (set, clear, test set / unset, an unknown id, an exception), by prefix
+        // (no nodes, three), neither; actions 3, 4 and an unknown one; the 0x005A0120 stub alone
+        auto* objects = g_fakes->flagObjects;
+        for (int i = 0; i < 3; ++i) {
+            reinterpret_cast<uint32_t*>(objects[i])[0x14 / 4] = 0x0B10 + i;
+            reinterpret_cast<uint32_t*>(objects[i])[0x24 / 4] = 0x80000010u >> i;
+            reinterpret_cast<uint32_t*>(objects[i])[0x08 / 4] = 0x100u << i;
+        }
+        auto recordObjects = [&] {
+            for (int k = 0; k < 3; ++k)
+                Record({reinterpret_cast<uint32_t*>(objects[k])[0x24 / 4], reinterpret_cast<uint32_t*>(objects[k])[0x08 / 4]});
+        };
+        {
+            Params a; a.Integer(0, 52).Checksum(kName, 0x0B11); call(0x005A3B20, CFuncs::CFunc_SendFlag, a);
+            Params a2; a2.Integer(0, 5).Checksum(kName, 0x0B10); call(0x005A3B00, CFuncs::CFunc_ClearFlag, a2);
+            Params b; b.Integer(0, 4).Checksum(kName, 0x0B10).Flag(0x2E7D5EE7); call(0x005A3B00, CFuncs::CFunc_ClearFlag, b);
+            Params c; c.Integer(0, 31).Checksum(kName, 0x0B10); call(0x005A3B40, CFuncs::CFunc_QueryFlag, c);
+            Params d; d.Integer(0, 30).Checksum(kName, 0x0B10); call(0x005A3B40, CFuncs::CFunc_QueryFlag, d);
+            Params e; e.Integer(0, 2).Checksum(kName, 0x0B99); call(0x005A3B40, CFuncs::CFunc_QueryFlag, e);
+            Params f; f.Checksum(0, 0xE8C3).Integer(0, 9).Checksum(kName, 0x0B12); call(0x005A3B60, CFuncs::CFunc_SendException, f);
+            recordObjects();
+            g_prefixCount = 0;
+            Params g; g.Integer(0, 3).String(kPrefix, "TRG_Door"); call(0x005A3B20, CFuncs::CFunc_SendFlag, g);
+            g_prefixCount = 3;
+            g_prefixNodes[0] = 0x0B12;
+            g_prefixNodes[1] = 0x0B77;
+            g_prefixNodes[2] = 0x0B10;
+            call(0x005A3B20, CFuncs::CFunc_SendFlag, g);
+            g_prefixNodes[0] = 0x0B12;
+            g_prefixNodes[2] = 0x0B11;
+            Params h; h.Integer(0, 2).String(kPrefix, "TRG_Door"); call(0x005A3B40, CFuncs::CFunc_QueryFlag, h);
+            Params i; i.Integer(0, 4); call(0x005A3B40, CFuncs::CFunc_QueryFlag, i);
+            recordObjects();
+            using CommandFn = bool(__cdecl*)(CStruct*, Script::CScript*, int);
+            for (int action : {3, 4, 6}) {
+                Params j; j.Integer(0, 0x00F0F00F).Checksum(kName, 0x0B11);
+                bool result = original ? Original<CommandFn>(0x005A01D0)(j.Struct(), nullptr, action)
+                                       : CFuncs::FlagCommandByName(j.Struct(), nullptr, action);
+                Record({0x01D0, result ? 1u : 0u});
+                recordObjects();
+            }
+            uint32_t data[3] = {0x00F0, 4, 0x0000AAAA};
+            void* stub = original ? reinterpret_cast<void*>(0x005A0120) : reinterpret_cast<void*>(&CFuncs::ApplyFlagCommandStub);
+            void* object = objects[2];
+            __asm {
+                push esi
+                lea esi, data
+                mov eax, object
+                call stub
+                pop esi
+            }
+            Record({data[0], data[1], data[2]});
+            recordObjects();
+        }
+
+        // MakeSkaterGoto / Gosub: the calling script's skater; another object; skater=n; the local skater; none;
+        // not local; no script
+        for (int state = 0; state < 6; ++state) {
+            setObject(state == 0 ? static_cast<void*>(g_fakes->skater) : state == 1 ? g_fakes->object : nullptr);
+            g_skaterMask = state == 4 ? 0 : 0x1FF;
+            g_fakes->skater[0xBC] = static_cast<uint8_t>(state != 5);
+            Params inner; inner.Integer(0x1234, 5);
+            Params p; p.Checksum(0, 0x5C417).Structure(0x7031F10C, inner.Struct());
+            if (state == 2)
+                p.Integer(kSkater, 1);
+            call(0x005A0300, CFuncs::CFunc_MakeSkaterGoto, p);
+            call(0x005A03C0, CFuncs::CFunc_MakeSkaterGosub, p);
+        }
+        g_fakes->skater[0xBC] = 1;
+        Params noScript; noScript.Checksum(0, 0x5C418).Integer(kSkater, 0);
+        call(0x005A0300, CFuncs::CFunc_MakeSkaterGoto, noScript, false);
+        call(0x005A03C0, CFuncs::CFunc_MakeSkaterGosub, noScript, false);
+
+        // SpawnSound: no object (SpawnScript); no name; a name; everything with the keep-spawner flag
+        setObject(nullptr);
+        Params sound; sound.Checksum(0, 0x50D);
+        call(0x005A0460, CFuncs::CFunc_SpawnSound, sound);
+        setObject(g_fakes->object);
+        Params soundId; soundId.Integer(0, 2);
+        call(0x005A0460, CFuncs::CFunc_SpawnSound, soundId);
+        call(0x005A0460, CFuncs::CFunc_SpawnSound, sound);
+        Params inner; inner.Integer(0x99, 1);
+        Params soundAll;
+        soundAll.Checksum(0, 0x50E).Checksum(CrcOf("Id"), 0x1D).Structure(CrcOf("Params"), inner.Struct()).Flag(0x01917DF2);
+        call(0x005A0460, CFuncs::CFunc_SpawnSound, soundAll);
+        Params soundSome; soundSome.Checksum(0, 0x50F).Structure(CrcOf("Params"), inner.Struct());
+        call(0x005A0460, CFuncs::CFunc_SpawnSound, soundSome);
+
+        // PauseSkater / UnPauseSkater: hidden or not; no skater
+        for (int state = 0; state < 3; ++state) {
+            g_skaterMask = state == 2 ? 0 : 0x0F;
+            Params p; p.Integer(0, 3);
+            if (state == 1)
+                p.Flag(CrcOf("hide"));
+            call(0x005A0520, CFuncs::CFunc_PauseSkater, p);
+            call(0x005A0580, CFuncs::CFunc_UnPauseSkater, p);
+        }
+        call(0x005A05C0, CFuncs::CFunc_PauseGame, none);
+        call(0x005A05E0, CFuncs::CFunc_UnPauseGame, none);
+        for (uint8_t paused : {uint8_t(0), uint8_t(1)}) {
+            GameVariable<uint8_t>(0x006FA7D4) = paused;
+            call(0x005A05F0, CFuncs::CFunc_GameIsPaused, none);
+        }
+        call(0x005A0620, CFuncs::CFunc_PauseObjects, none);
+        call(0x005A0630, CFuncs::CFunc_UnPauseObjects, none);
+        for (uint8_t flags : {uint8_t(0), uint8_t(1), uint8_t(4)}) {
+            gameNet[0] = flags;
+            call(0x005A0640, CFuncs::CFunc_ResetClock, none);
+        }
+        call(0x005A0670, CFuncs::CFunc_PadsPluggedIn, none);
+
+        // DoFlash: no duration; zero; everything; the viewport from the object; the colours partly missing; the
+        // flag combinations
+        setObject(g_fakes->skater);
+        call(0x005A0680, CFuncs::CFunc_DoFlash, none);
+        Params zero; zero.Float(CrcOf("duration"), 0.0f).Integer(kSkater, 0);
+        call(0x005A0680, CFuncs::CFunc_DoFlash, zero);
+        Params all;
+        all.Float(CrcOf("duration"), 1.5f).String(CrcOf("texture"), "white").Float(CrcOf("z"), -3.25f).Integer(kSkater, 0)
+            .Integer(CrcOf("start_r"), 0x111).Integer(CrcOf("start_g"), 0x22).Integer(CrcOf("start_b"), 0x33)
+            .Integer(CrcOf("start_a"), 0x44).Flag(0x70FFC649).Flag(0x19C43CF6).Flag(0xDF6436D2);
+        call(0x005A0680, CFuncs::CFunc_DoFlash, all);
+        Params ends;
+        ends.Float(CrcOf("duration"), 2.0f).Integer(CrcOf("end_r"), 0x55).Integer(CrcOf("end_g"), 0x66)
+            .Integer(CrcOf("end_b"), 0x77).Integer(CrcOf("end_a"), 0x88).Integer(kSkater, 3);
+        call(0x005A0680, CFuncs::CFunc_DoFlash, ends);
+        for (int flags = 0; flags < 8; ++flags) {
+            Params p;
+            p.Float(CrcOf("duration"), 0.25f).Integer(CrcOf("start_g"), 0x20 + flags).Integer(CrcOf("end_b"), 0x90);
+            if (flags & 1)
+                p.Flag(0x70FFC649);
+            if (flags & 2)
+                p.Flag(0x387C9ED6);
+            if (flags & 4)
+                p.Flag(flags & 1 ? 0xDF6436D2 : 0x19C43CF6);
+            call(0x005A0680, CFuncs::CFunc_DoFlash, p);
+        }
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(flowSaved);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    Check(traces[0].size() > 400, "game flow commands: the original reached its calls");
+    Compare(traces[0], traces[1], "game flow commands (0x0059FE50-0x005A0880, 0x005A3B00)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
 SELFTEST(Early, TestGameCFuncs, RemoveStandIns);
+SELFTEST(Early, TestGameFlowCFuncs, RemoveStandIns);

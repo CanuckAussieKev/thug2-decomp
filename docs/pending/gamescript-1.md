@@ -27,3 +27,24 @@ Shared files touched: CMakeLists.txt (new files listed).
   - Test TestGameCFuncs: original vs ours with every called function stood in for (the viewer, objects, devices,
     profiles, the structure adders, the pad, the asset and node managers, preferences, skaters...), each branch above.
     29 of 29 deliberate bugs caught (1 after strengthening: DestroyObjectWithId's id test).
+- [x] Batch GS1-2 (NOT run in the game yet; cleaning up, object flags by name / prefix, skater scripts, pausing, the
+  clock, the screen flash - 21 functions): src/game/script/game_flow_cfuncs.cpp (new).
+  - 0x0059FE50 Cleanup (everything of a level unloaded; the calling script's SCRIPT_FLAG_SPAWNED off while two
+    scripts run; the level's 15 .qb files (0x00696900) and the one the global 0xC472ECC5 names; the unused .pre files;
+    without preserve_skaters the extra skater heaps; the network heaps rebuilt as the skate module says; the physical
+    memory logged through wsprintfA / OutputDebugStringA), 0x005A0120 (register arguments: the command structure from
+    its value in ESI, the object in EAX - a naked stub: 0 / 1 / 2 set / clear / test one of the 32 script flags
+    (+0x24; the shift by the value's low 5 bits, as the CPU does), 3 / 4 object flag bits (+0x08), 5 an exception),
+    0x005A01B0 (never made by Ghidra: its manager walk's callback), 0x005A01D0 FlagCommandByName (name= or the nodes of
+    prefix=; the flags 0x2E7D5EE7 / 0xBCEB479A looked for and ignored), 0x005A0300 MakeSkaterGoto (only a local
+    skater: +0xBC), 0x005A03C0 MakeSkaterGosub, 0x005A0460 SpawnSound (on the script's object; without one,
+    SpawnScript's result), 0x005A0520 PauseSkater (vtable +0x2C, then Hide(hide)), 0x005A0580 UnPauseSkater (+0x30,
+    shown), 0x005A05C0 PauseGame (the calling script unpaused), 0x005A05E0 UnPauseGame, 0x005A05F0 GameIsPaused (the
+    flag 0x3BA1FDB9 added to the command's own parameters), 0x005A0620 / 0x005A0630 PauseObjects / UnPauseObjects,
+    0x005A0640 ResetClock (on the server: the mode's time limit), 0x005A0670 PadsPluggedIn, 0x005A0680 DoFlash (the
+    eight colour values read into one shared integer: a missing one repeats the one before - kept), 0x005A3B00
+    ClearFlag, 0x005A3B20 SendFlag, 0x005A3B40 QueryFlag, 0x005A3B60 SendException.
+  - Test TestGameFlowCFuncs: original vs ours with every call stood in for (Win32's GlobalMemoryStatus / wsprintfA /
+    OutputDebugStringA too; the manager walk over three stand-in objects; the 0x005A0120 stub driven through inline
+    asm). 44 of 44 deliberate bugs caught (5 after strengthening: the spawned flag's restore, flag numbers past 15,
+    clearing an unset flag, a prefix query whose last node lacks the flag).

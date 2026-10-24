@@ -53,4 +53,46 @@ bool __cdecl MakeCameraActive(uint32_t id, int viewport, bool takeCurrentView);
 // 0x0059FB10: a manager walk's callback: the object deletes itself (unless locked) if its id is `*id`.
 void __cdecl DestroyObjectWithId(Obj::CObject* object, void* id);
 
+// --- cleaning up, object flags, skater scripts, pausing, the flash (game_flow_cfuncs.cpp) --------------------------
+
+bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script);         // 0x0059FE50
+bool __cdecl CFunc_MakeSkaterGoto(Script::CStruct* params, Script::CScript* script);  // 0x005A0300
+bool __cdecl CFunc_MakeSkaterGosub(Script::CStruct* params, Script::CScript* script); // 0x005A03C0
+bool __cdecl CFunc_SpawnSound(Script::CStruct* params, Script::CScript* script);      // 0x005A0460
+bool __cdecl CFunc_PauseSkater(Script::CStruct* params, Script::CScript* script);     // 0x005A0520
+bool __cdecl CFunc_UnPauseSkater(Script::CStruct* params, Script::CScript* script);   // 0x005A0580
+bool __cdecl CFunc_PauseGame(Script::CStruct* params, Script::CScript* script);       // 0x005A05C0
+bool __cdecl CFunc_UnPauseGame(Script::CStruct* params, Script::CScript* script);     // 0x005A05E0
+bool __cdecl CFunc_GameIsPaused(Script::CStruct* params, Script::CScript* script);    // 0x005A05F0
+bool __cdecl CFunc_PauseObjects(Script::CStruct* params, Script::CScript* script);    // 0x005A0620
+bool __cdecl CFunc_UnPauseObjects(Script::CStruct* params, Script::CScript* script);  // 0x005A0630
+bool __cdecl CFunc_ResetClock(Script::CStruct* params, Script::CScript* script);      // 0x005A0640
+bool __cdecl CFunc_PadsPluggedIn(Script::CStruct* params, Script::CScript* script);   // 0x005A0670
+bool __cdecl CFunc_DoFlash(Script::CStruct* params, Script::CScript* script);         // 0x005A0680
+bool __cdecl CFunc_ClearFlag(Script::CStruct* params, Script::CScript* script);       // 0x005A3B00
+bool __cdecl CFunc_SendFlag(Script::CStruct* params, Script::CScript* script);        // 0x005A3B20
+bool __cdecl CFunc_QueryFlag(Script::CStruct* params, Script::CScript* script);       // 0x005A3B40
+bool __cdecl CFunc_SendException(Script::CStruct* params, Script::CScript* script);   // 0x005A3B60
+
+// What FlagCommandByName does to the objects: set / clear / test a script flag (of 32), set / clear object flag
+// bits, send an exception.
+enum : int {
+    kFlagActionSet = 0,
+    kFlagActionClear = 1,
+    kFlagActionTest = 2,
+    kFlagActionSetObjectFlags = 3,
+    kFlagActionClearObjectFlags = 4,
+    kFlagActionException = 5,
+};
+// 0x005A01D0: the flag (a number) or exception (a checksum) of `params`, done to the objects with the id name= or
+// those of the nodes prefix=; false without either. Whether it was done (for a test: whether one has the flag).
+bool __cdecl FlagCommandByName(Script::CStruct* params, Script::CScript* script, int action);
+// 0x005A01B0: its manager walk's callback (`data`: {id, value, action, result, found}): the command done if the
+// object has the id.
+void __cdecl ApplyFlagCommandToObject(Obj::CObject* object, void* data);
+// 0x005A0120: the command done to an object (`data` from the value on, in ESI; the object in EAX): the naked
+// adapter, and our code behind it.
+void ApplyFlagCommandStub();
+void __cdecl ApplyFlagCommandRegisters(void* data, Obj::CObject* object);
+
 } // namespace CFuncs
