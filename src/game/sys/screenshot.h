@@ -39,6 +39,11 @@ void NoteView(int viewport, const float position[3], const float forward[3]);
 // game/skater/collision_events.h): the frame being drawn, taken as the key's, `note` added to the sidecar and the
 // log's "saved" line; no message on screen. Dropped while another is being written.
 bool RequestEventShot(const std::string& note); // (false: dropped)
+// A short message on screen for 2 s (the "Screenshot saved" one's panel: a newer one replaces it; no sound, the game
+// carries on) - our debugging aids' notices (collision_events.h). Works with the key off too.
+void ShowNotice(const std::string& text);
+// Viewport 0's camera as last drawn (NoteView), if drawn within the last 10 frames.
+bool LastView(float position[3], float forward[3]);
 
 // A frame series (the test-automation channel's `capture` - game/front/automation.h; works with the key off too):
 // the next `frames` rendered frames (at most kMaxSeriesFrames), every one, as frame_0001.png ... in `folder`

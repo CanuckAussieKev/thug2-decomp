@@ -10,11 +10,15 @@ import { checksum } from "../level_port/qb.ts";
 import type * as col from "../level_port/thug2_col.ts";
 import {
     describeFace,
+    fileMismatches,
     findCol,
     groupSpots,
+    parseDetailLine,
     parseEventLine,
     parseFace,
+    playerTurn,
     readEvents,
+    spotDetails,
     spotRows,
     table,
     verdict,
@@ -33,7 +37,16 @@ const LINE =
     "n:-0.71,0.71,0.00;at:-6560.0,10.5,3452.5 " +
     "probe_down_beyond=object:0xABCDEF01;face:0;flags:0x0001;decoded:skatable;terrain:0;n:0.00,0.00,0.00;" +
     "at:0.0,0.0,0.0 " +
-    "probe_down_beyond_all=none probe_ahead=none probe_ahead_all=none flipped=ground-check>off-ground@21080 screenshot=requested";
+    "probe_down_beyond_all=none probe_ahead=none probe_ahead_all=none probe_dir=1.00,0.00,0.00 flipped=ground-check>off-ground@21080 repeats=2 " +
+    "screenshot=requested";
+
+// The DLL's self-test detail line (TestCollisionEventDetailFormat).
+const DETAIL =
+    "collision-event-detail: n=3 state=ground physics=skating speed=326.4 trick=0 balance=manual input=up " +
+    "input_window=up+down+x stick=0.00,-1.00 ray=-6519.8,7.1,3453.1>-6519.8,-1193.0,3453.1 " +
+    "corners=-6530.0,7.0,3440.0;-6513.0,7.0,3440.0;-6513.0,7.0,3460.0 " +
+    "col_box=-6600.0,7.0,3300.0>-6513.0,7.0,3640.0 edge=1 edge_dist=6.8 open_edge=1 " +
+    "col_file=4140376@2026-10-24T12:58:51 scn_file=- approach=-6599,7,3453,g;-6520,7,3453,g camera=-";
 
 test("the DLL's line parses", () => {
     const e = parseEventLine(`[14:50:48.123] ${LINE}`)!;
@@ -60,6 +73,7 @@ test("the DLL's line parses", () => {
     assert.equal(e.probes.probe_down_beyond?.kind, "object");
     assert.equal(e.probes.probe_down_beyond?.name, "0xABCDEF01");
     assert.equal(parseEventLine("level editor: level picked"), null);
+    assert.equal(parseEventLine("collision-event: logging on in thp8_net_beavervalley"), null);
     assert.equal(parseFace("none"), null);
 });
 
@@ -100,8 +114,9 @@ test("events group by level and spot", () => {
     );
     const rows = spotRows(spots);
     assert.equal(rows[0]![3], "wall-ahead x2");
-    assert.equal(rows[0]![4], "Z_Houses_Road01 #17");
-    const lines = table(rows, ["level", "spot", "n", "reason", "face", "flags", "probes"]);
+    assert.equal(rows[0]![2], "6"); // (2 events, each with 2 left out before it)
+    assert.equal(rows[0]![5], "Z_Houses_Road01 #17");
+    const lines = table(rows, ["level", "spot", "n", "reason", "state", "face", "flags", "probes"]);
     assert.equal(lines.length, 5);
     assert.ok(lines[0]!.startsWith("level  spot"));
 });
@@ -132,4 +147,32 @@ test("the collision file names the object, the zone and the face", () => {
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }
+});
+
+test("the detail line joins its event; open edges, player turns and file changes are told", () => {
+    const [e] = readEvents(`${LINE}\n[x] ${DETAIL}\n`);
+    assert.equal(e!.detail?.state, "ground");
+    assert.equal(e!.detail?.open_edge, "1");
+    assert.equal(e!.repeats, 2);
+    assert.equal(parseDetailLine(LINE), null);
+    assert.match(verdict(e!), /an open edge 6\.8 from the spot \(a dropped piece\?\)/);
+    const details = spotDetails(groupSpots([e!])[0]!);
+    assert.match(
+        details[0]!,
+        /^n=3 wall-ahead; probe_dir 1\.00,0\.00,0\.00; \+2 left out before it; ground\/manual speed 326\.4/,
+    );
+    assert.match(details[0]!, /ray -6519\.8,7\.1,3453\.1>-6519\.8,-1193\.0,3453\.1/);
+
+    // A slope with the down button held in the window: perhaps the player's; flat ground: the player's.
+    const slope = readEvents(`${LINE.replace("reason=wall-ahead", "reason=slope")}\n${DETAIL}`)[0]!;
+    assert.equal(playerTurn(slope), "player turn? (down held)");
+    const flat = parseEventLine(
+        LINE.replace("reason=wall-ahead", "reason=slope").replace("ground_min_y=0.98", "ground_min_y=1.00"),
+    )!;
+    assert.equal(playerTurn(flat), "flat ground: the player's own turn");
+    assert.equal(playerTurn(e!), null);
+
+    const level = "thp8_net_beavervalley";
+    assert.deepEqual(fileMismatches([e!], "4140376@2026-10-24T12:58:51", level), []);
+    assert.equal(fileMismatches([e!], "4200000@2026-10-24T17:00:00", level).length, 1);
 });

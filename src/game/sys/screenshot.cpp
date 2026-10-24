@@ -75,6 +75,7 @@ std::shared_ptr<Job> g_job;
 // The message for the player, held while a loading screen is up (for up to 10 s).
 std::string g_message;
 uint32_t g_messageSince;
+float g_messageY = 40.0f; // (ShowNotice's lower, clear of the score: 100)
 
 // --- the game's state ---
 
@@ -230,7 +231,7 @@ void ShowMessage(const std::string& text)
     Script::CStruct* params = Script::NewStruct()->Init();
     params->AddString(crc("text"), text.c_str());
     params->AddChecksum(crc("id"), crc("thug2_decomp_screenshot_message"));
-    params->AddPair(crc("pos"), 320.0f, 40.0f);
+    params->AddPair(crc("pos"), 320.0f, g_messageY);
     params->AddInteger(crc("time"), static_cast<int>(kMessageMs));
     Script::SpawnScript(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
     params->Clear();
@@ -249,6 +250,7 @@ void TickMessage()
         return;
     ShowMessage(g_message);
     g_message.clear();
+    g_messageY = 40.0f;
 }
 
 // --- taking and writing ---
@@ -551,7 +553,7 @@ void BeforePresent(bool rendering)
 {
     // Not original either - a frame series (StartSeries), also with the key off.
     TickSeries(rendering);
-    if (!g_key && !g_requested && !g_job) // (with the key off: only RequestEventShot's)
+    if (!g_key && !g_requested && !g_job && g_message.empty()) // (key off: only RequestEventShot's and ShowNotice's)
         return;
     if (g_job && g_job->done) {
         std::shared_ptr<Job> job = std::move(g_job);
@@ -617,6 +619,13 @@ std::string StartSeries(int frames, const std::string& folder)
     return {};
 }
 
+void ShowNotice(const std::string& text)
+{
+    g_message = text;
+    g_messageSince = SDL_GetTicks();
+    g_messageY = 100.0f;
+}
+
 bool RequestEventShot(const std::string& note)
 {
     if (g_job || g_requested)
@@ -629,6 +638,17 @@ bool RequestEventShot(const std::string& note)
 bool SeriesRunning() { return g_series != nullptr; }
 
 std::string SeriesResult() { return g_seriesResult; }
+
+bool LastView(float position[3], float forward[3])
+{
+    if (!g_view.noted || Mlp::FramesRun() - g_view.frame >= 10)
+        return false;
+    for (int i = 0; i < 3; ++i) {
+        position[i] = g_view.pos[i];
+        forward[i] = g_view.forward[i];
+    }
+    return true;
+}
 
 void NoteView(int viewport, const float position[3], const float forward[3])
 {

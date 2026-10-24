@@ -310,8 +310,8 @@ The ini sits next to the exe. Every key is optional; the default applies when it
 
 | Key | Default | Effect |
 |---|---|---|
-| `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (a wall bounce, rolled back by the ground's slope...): the physics path that did it, the face, probe lines down and ahead - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot (src/game/skater/collision_events.h) |
-| `collision_event_screenshots` | 0 | With `collision_events`: a screenshot of each event's frame too (in `Screenshots`, named in the log) |
+| `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (a wall bounce, rolled back by the ground's slope...): the physics path that did it, the face, probe lines down and ahead (along the way the skater was going before it), and a `collision-event-detail:` line (state, input, the deciding ray, the face's corners and open edge, the level files, the approach, the camera) - for finding broken collision in converted levels; turns on flat ground with no collision involved (the player's own) aren't logged; each also shows `collision event <n>: <reason>` on screen for 2 s, and a level's load logs `collision-event: logging on in <level>`; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot (src/game/skater/collision_events.h) |
+| `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too (in `Screenshots`, named in the log); 0 turns them off |
 
 **`[Graphics]`** - from PartyMod, plus `OcclusionCulling`
 
