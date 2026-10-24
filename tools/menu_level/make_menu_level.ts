@@ -1307,9 +1307,13 @@ async function main(): Promise<number> {
         options: {
             game: { type: "string", default: "C:\\Games\\THUG2\\Game" },
             out: { type: "string" }, // the overlay folder (default: <game>\thug2-decomp-data)
-            ns: { type: "string", default: path.join(REPO, "out", "neverscript", "ns.exe") },
+            ns: {
+                type: "string",
+                default: path.join(REPO, "out", "neverscript", "ns.exe"),
+            },
             "hd-ui": { type: "string" }, // 2 or 4: the menus' images and fonts upscaled (tools/hd_textures/ui.ts)
             "hd-ui-model": { type: "string" },
+            "hd-ui-loading-model": { type: "string" }, // the loading screens only (default: the same)
         },
     });
     const hdScale = values["hd-ui"] === undefined ? 0 : Number(values["hd-ui"]);
@@ -1518,7 +1522,7 @@ async function main(): Promise<number> {
         if (hdScale) {
             const options = hdUi.uiOptions(hdScale);
             if (values["hd-ui-model"]) options.model = values["hd-ui-model"];
-            for (const line of hdUi.install(game, out, options)) print(line);
+            for (const line of hdUi.install(game, out, options, undefined, values["hd-ui-loading-model"])) print(line);
         }
     } finally {
         fs.rmSync(work, { recursive: true, force: true });

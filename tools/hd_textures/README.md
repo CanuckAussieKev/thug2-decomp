@@ -86,7 +86,8 @@ upscaled files carry a marker (`.img.xbx` header +0x14 = 0x4844000s, `.fnt.xbx` 
 the scale) and the DLL reports the original's sizes (src/game/gfx/hd_ui.h).
 
 Files: every image and font in mainmenusprites / panelsprites / Levelselect / multiplayersprites / Themes / fonts.prx
-and the overlay's own level select signs. Not: the loading screens, Create-A-Graphic pieces, PermTex / Bits, level
+and the overlay's own level select signs; the loose loading screens at x4 with realesrgan-x4plus as DXT1 (header format
+"DXT1", `--loading-model M` / make_menu_level `--hd-ui-loading-model M` to change the model). Not: Create-A-Graphic pieces, PermTex / Bits, level
 textures (`.tex.xbx`, also the front end's THPS4 skate shop). `node tools/hd_textures/ui.ts <game> <out> [--scale N]`
 writes them anywhere. Measurements and what was seen: docs/pending/hd-ui.md.
 
