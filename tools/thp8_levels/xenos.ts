@@ -161,11 +161,38 @@ export function unconverted(t: XenosTexture): string | null {
 }
 
 // THUG2's texture: DXT1 / DXT5 kept compressed (mips made by dxt.ts), DXT3 and 8:8:8:8 as 32-bit; DXN (normal maps)
-// left out. `mips`: make the mip chain down to 4 x 4.
-export function toThug2(t: XenosTexture, mips = true): Converted {
+// left out. `mips`: make the mip chain down to 4 x 4. `alphaTest`: THP8's alpha test reference (a material that
+// discards texels under it and draws the rest solid): the alpha is made 0 / 255 by it before the mips are made, for a
+// texture THUG2 then blends (DXT5, or 32-bit).
+export function toThug2(t: XenosTexture, mips = true, alphaTest = 0): Converted {
     const note = unconverted(t);
     if (note !== null) return { texture: null, note };
     const base = baseLevel(t);
+    if (alphaTest > 0 && (t.format === FMT_DXT1 || t.format === FMT_DXT5)) {
+        const kind = t.format === FMT_DXT1 ? 1 : 5;
+        let rgba = dxt.decode(base, t.width, t.height, kind);
+        for (let i = 3; i < rgba.length; i += 4) rgba[i] = rgba[i]! >= alphaTest ? 255 : 0;
+        let [w, h] = [t.width, t.height];
+        const levels = [dxt.encode(rgba, w, h, 5)];
+        while (mips && Math.min(w, h) > 4) {
+            rgba = dxt.halve(rgba, w, h);
+            w = Math.max(1, w >> 1);
+            h = Math.max(1, h >> 1);
+            levels.push(dxt.encode(rgba, w, h, 5));
+        }
+        return {
+            texture: {
+                checksum: t.checksum,
+                width: t.width,
+                height: t.height,
+                texelDepth: 32,
+                paletteDepth: 32,
+                dxt: 5,
+                palette: Buffer.alloc(0),
+                levels,
+            },
+        };
+    }
     if (t.format === FMT_DXT1 || t.format === FMT_DXT5) {
         const kind = t.format === FMT_DXT1 ? 1 : 5;
         const levels = [base];
@@ -193,6 +220,10 @@ export function toThug2(t: XenosTexture, mips = true): Converted {
         };
     }
     let bgra = t.format === FMT_8888 ? base : dxt.decode(base, t.width, t.height, 3);
+    if (alphaTest > 0) {
+        bgra = Buffer.from(bgra);
+        for (let i = 3; i < bgra.length; i += 4) bgra[i] = bgra[i]! >= alphaTest ? 255 : 0;
+    }
     const levels = [bgra];
     let [w, h] = [t.width, t.height];
     while (mips && Math.min(w, h) > 4) {

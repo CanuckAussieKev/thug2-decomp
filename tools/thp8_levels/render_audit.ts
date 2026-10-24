@@ -301,7 +301,7 @@ export function auditMaterials(parts: readonly AuditPart[], templates: ReadonlyM
                 continue;
             }
             if (plan.layers.length > 1) {
-                const drops = layerDrops(plan, x, u.meshes, part.textures, look);
+                const drops = layerDrops(plan, x, u.meshes, part.textures, look, mats.drawsAlpha(m));
                 if (drops.dropped) out.push({ ...base, cause: "layers dropped", pickedLook: l, where: drops.why });
                 if (drops.stipple !== undefined) {
                     const layer = drops.stipple;
@@ -324,7 +324,7 @@ export function auditMaterials(parts: readonly AuditPart[], templates: ReadonlyM
     return out;
 }
 
-// What convertScenes does with a plan's further layers (pass 1...): a blended base keeps none (its vertex alpha is its
+// What convertScenes does with a plan's further layers (pass 1...): a base that is drawn blended keeps none (its vertex alpha is its
 // own); a layer whose mask shares its uvs is a texture made of both (dropped when either doesn't decode); one whose mask
 // has uvs of its own goes into the vertex alpha - one layer a material can (the others dropped).
 export function layerDrops(
@@ -333,11 +333,12 @@ export function layerDrops(
     meshes: readonly geom.GeomMesh[],
     textures: ReadonlyMap<number, xenos.XenosTexture>,
     look: (t: number) => textureCheck.Look | null,
+    drawsAlpha = true, // the material blends / alpha-tests (mats.drawsAlpha): else the base's alpha isn't drawn
 ): { dropped: number; stipple?: number; flat?: number; why: string } {
     const layers = plan.layers.slice(1);
     const blended =
         base.format === xenos.FMT_DXT5 || (base.format === xenos.FMT_DXT1 && dxt.hasAlpha1(xenos.baseLevel(base)));
-    if (blended) return { dropped: layers.length, why: "base texture has alpha" };
+    if (blended && drawsAlpha) return { dropped: layers.length, why: "base texture has alpha" };
     const decodes = (t: number | null): boolean =>
         t !== null && textures.has(t) && mats.decode(textures.get(t)!) !== null;
     const converts = (t: number): boolean => textures.has(t) && xenos.unconverted(textures.get(t)!) === null;
@@ -581,6 +582,12 @@ export function spotReport(
                     return `${thp8.hex(x)}${xt ? ` ${xt.width}x${xt.height}${xt.format === xenos.FMT_DXN ? " normal" : ""}` : " -"}`;
                 });
                 lines.push(`      THP8 lists: ${list.join(", ")}`);
+                const alpha = mats.alphaState(o.m);
+                const blended = mat?.passes[0] ? (mat.passes[0].flags & thug2Scene.PASS_TRANSPARENT) !== 0 : false;
+                if (alpha)
+                    lines.push(
+                        `      alpha state: blend word ${alpha.blend}, test reference ${alpha.ref} - drawn ${blended ? "blended" : "solid"}`,
+                    );
             }
         });
     }

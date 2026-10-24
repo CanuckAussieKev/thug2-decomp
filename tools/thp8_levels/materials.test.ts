@@ -4,6 +4,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { checksum } from "../level_port/qb.ts";
 import type * as geom from "./geom.ts";
 import * as mats from "./materials.ts";
 import * as xenos from "./xenos.ts";
@@ -215,4 +216,45 @@ test("refine: triangles split where the light inside differs; shared edges split
         { threshold: 0.1, minLength: 1, depth: 3, maxVertices: 100 },
     );
     assert.deepEqual(flat, [[0, 1, 2]]);
+});
+
+test("alpha use: a diffuse alpha is transparency only with a blend word or an alpha reference (or a decal / water template)", () => {
+    const withState = (template: number, blend: number, ref: number): geom.GeomMaterial => {
+        const m = material(template, [1]);
+        m.params.writeUInt32BE(blend, mats.PARAM_BLEND);
+        m.params.writeUInt32BE((ref << 24) >>> 0, mats.PARAM_ALPHA_REF);
+        return m;
+    };
+    const solid = checksum("NormalMapEnvMap_3Pass");
+    assert.equal(mats.drawsAlpha(withState(solid, 0, 0)), false); // (the gold piles: alpha is a mask)
+    assert.equal(mats.drawsAlpha(withState(solid, mats.BLEND_ALPHA, 0)), true); // glass
+    assert.equal(mats.drawsAlpha(withState(solid, 0, 0x96)), true); // alpha-tested: leaves, fences
+    assert.equal(mats.drawsAlpha(withState(solid, mats.BLEND_ADD, 0)), true);
+    assert.equal(mats.drawsAlpha(withState(checksum("Decal"), 0, 0)), true); // a decal by its nature
+    assert.equal(mats.drawsAlpha(withState(checksum("WaterCubeRefraction"), 0, 0)), true);
+    // (a block too short to hold the state words: kept, as before)
+    const short = material(solid, []);
+    short.params = short.params.subarray(0, 0x30);
+    assert.equal(mats.drawsAlpha(short), true);
+});
+
+test("alpha test: a texture's alpha is made 0 / 255 by the reference before its mips", () => {
+    const bgra = Buffer.alloc(8 * 8 * 4, 200);
+    for (let i = 0; i < 64; i++) bgra[4 * i + 3] = i < 32 ? 100 : 200; // (top half under 150, bottom over)
+    const t: xenos.XenosTexture = {
+        checksum: 5,
+        width: 8,
+        height: 8,
+        format: xenos.FMT_8888,
+        endian: 0,
+        tiled: false,
+        pitch: 8,
+        data: bgra,
+    };
+    const kept = xenos.toThug2(t, true).texture!;
+    assert.equal(kept.levels[0]![3], 100); // (untouched without a reference)
+    const cut = xenos.toThug2(t, true, 150).texture!;
+    assert.equal(cut.levels[0]![3], 0);
+    assert.equal(cut.levels[0]![4 * 40 + 3], 255);
+    assert.equal(cut.levels.length, 2); // (8 -> 4)
 });

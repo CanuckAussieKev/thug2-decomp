@@ -527,3 +527,115 @@ Under the lock on C:\Games\THUG2-2 with out\build\lead\dinput8.dll (+.pdb), `[se
 - Elevator panels: `... 6210,1248,3429,270`.
 - Capitol roof pools: `... -401,1007,10033,0`. Park wall / reflection: `... 4943,-387,13676,180`.
 - Crete school hills: `... -14280,231,3299,0`.
+
+## Fix round 4 (2026-10-24): see-through coins - what THP8's alpha words mean
+
+The user: "in P8 levels, there is an issue with some textures being transparent and seeing the background through it" -
+screenshot thug2_2026-10-24_21-59-21 (BEAVER VALLEY, the fun park's pirate treasure, skater at (-7983, 1017, 11901)): the
+gold coin piles on the stairs see-through (stairs and water showing), a coin patch over water too. Converter only
+(tools/thp8_levels); `.col.xbx` of all 15 levels unchanged (the converter at HEAD gives the same SHA-256 for
+thp8_net_skatepark; the diff touches no collision code), selfcheck 1132 files / 0 failures, npm test 372 pass,
+typecheck / lint clean.
+
+### The cause, with evidence
+
+convertScenes drew every material whose base texture is DXT5 (or DXT1 with alpha) blended by that alpha. THP8's materials
+say otherwise: the parameter block's header holds the alpha state (found by comparing the header words of fences, leaves,
+glass, decals, glows and solid materials - `node tools/thp8_levels/alpha_census.ts`):
+
+- `+0x30` the blend mode: 0 none, 1 add (glows / light shafts: TheWibbler / Billboard / the "...Glow" sectors), 3 alpha
+  blend (glass, decals, paint shells, water templates, flowers).
+- `+0x38` top byte: the alpha test reference (0 = no test): leaves, fences, wire, banners (0x32, 0x64, 0x96, 0xAF...).
+
+The fun park's coins (GoldPile01 / 06 / Rocks) are NOT blended: 0DE7EB68 (E72B1199, mean alpha 196), 84A47F95 (CD3B9480,
+104) and 8D1233BE (6974CA25, 59) have blend word 0 and test reference 150 (THP8 discards texels under 150 and draws the
+rest solid); 9364C6E6 (E72B1199 again) has neither word - its alpha is only a mask. We blended them by their alpha:
+every texel between 150 and 255 half see-through. (`render_audit.ts spot` now prints "alpha state: blend word, test
+reference - drawn blended / solid".) The lead's hypothesis (alpha = a gloss mask on opaque templates) holds for the second
+kind; the first is an alpha test. The template doesn't decide - one template has all kinds (NormalMapEnvMap_3Pass in
+BEAVER VALLEY: 80 blend, 8 tested, 8 solid with alpha).
+
+### What the converter does now
+
+1. `mats.drawsAlpha(material)` (materials.ts): a diffuse alpha is drawn only when the blend word is not 0 or the alpha
+   reference is not 0, or the template is a layer by nature (`ALPHA_BY_NATURE`: Decal, NormalMapEnvMap_Decal, the water
+   templates, Billboard, TranslucentFloatyShadow, SoftEdge..., Atmosphere, particle ones); a block too short to read keeps
+   its alpha. Otherwise the material is **solid**: no blend, no PASS_TRANSPARENT, and (no longer "blended") its further
+   layers are now drawn too. Used by convertScenes, `materialFacts` (the one-sided / repeated-surface rules) and the
+   audit's `layerDrops`.
+2. **Alpha-tested materials (reference > 0, no blend word)**: the texture alpha is made 0 / 255 by the reference in a copy
+   of the texture (`thp8_atest_<texture>_<ref>`, xenos.toThug2's new `alphaTest`; mips made after), and the material stays
+   two-sided in THUG2's blended bucket - clear texels vanish, the rest is solid, as THP8's test does. (THUG2's material has
+   an alphaCutoff field, but the renderer side is still original code we did not read; baking is the converter-only way.)
+   This fixes the coins on the stairs; it also hardens leaves, fences, wire and flowers, which were blended by a soft alpha
+   ramp before.
+3. Blend word 3 (with or without a reference), word 1 (still by sector name) and the by-nature templates: unchanged.
+
+### Per template (BEAVER VALLEY's materials with an alpha channel)
+
+| Template | blend | add | tested | solid (soft / cut-out alpha) | decision |
+|---|---|---|---|---|---|
+| DiffuseTerrain_3Pass | 120 | 0 | 222 | 56 (4 / 49) | blend word: blended; reference: test baked; neither: solid (atlas padding, masks) |
+| DiffuseSpecTerrain_3Pass | 15 | 0 | 22 | 8 (3 / 5) | same |
+| NormalMapEnvMap_3Pass | 80 | 0 | 8 | 8 (7 / 1) | same: glass blended, gold piles tested or solid |
+| NormalMapTerrain_3Pass / _4Pass | 41 / 6 | 0 | 15 / 9 | 6 / 7 | same |
+| VertexColorOnly | 80 | 3 | 96 | 7 (0 / 7) | trees, flowers tested; glass blended |
+| EnvironmentMap | 10 | 0 | 1 | 5 (4 / 1) | same (house windows with blend 0: solid) |
+| NormalMap_SeperateChannels | 3 | 0 | 21 | 1 | same |
+| TheWibbler | 3 | 2 | 3 | 1 | same; blend 1 not by glow name as before |
+| Decal / NormalMapEnvMap_Decal | 152 | 0 | 17 | 0 (3 by nature) | by nature: alpha kept |
+| Water* / Billboard | all | | | 0 | by nature |
+| NormalMapRoad / Poster / Parallax | few | 0 | few | 0 | same rule, none solid with alpha |
+
+### Counts per level (materials of a level's zones and stand-ins with an alpha channel in their base texture)
+
+| Level | with alpha | still blended / tested | made solid | alpha test baked |
+|---|---|---|---|---|
+| thp8_net_beavervalley | 1035 | 936 | 99 | 397 |
+| thp8_net_skatepark | 142 | 122 | 20 | 64 |
+| thp8_net_factory | 169 | 145 | 24 | 73 |
+| thp8_net_slums | 222 | 200 | 22 | 123 |
+| thp8_net_suburbia | 212 | 187 | 25 | 96 |
+| thp8_net_mainstreet | 232 | 189 | 43 | 90 |
+| thp8_net_funpark | 216 | 196 | 20 | 84 |
+| thp8_net_school | 314 | 284 | 30 | 137 |
+| thp8_net_industrial | 287 | 256 | 31 | 141 |
+| thp8_net_capitol | 256 | 236 | 20 | 115 |
+| thp8_net_skatefunparks | 254 | 229 | 25 | 93 |
+| thp8_net_skatecentral | 492 | 434 | 58 | 191 |
+| thp8_training | 34 | 29 | 5 | 9 |
+| thp8_skateshop | 5 | 1 | 4 | 0 |
+| thp8_bedroom | 9 | 8 | 1 | 1 |
+
+(A material once per level; "baked" = the tested ones, one texture copy per texture and reference.)
+
+### Audit after
+
+One-sided list (round 3): unchanged, BEAVER VALLEY 13 meshes (all blend-word glass / paint), the other levels as before.
+Z-fight flicker pairs: BEAVER VALLEY 469 / 496 m2 / 73 coplanar, as round 3's after-table; elsewhere +-1 (school 108 ->
+109, industrial 124 -> 123, skatecentral 187 -> 188, bedroom 2 -> 1; the rest equal). The z bias / floater handling reads
+the converted passes and is unchanged; only the solid-made materials changed (they gained their further layers).
+
+### Unsure
+
+- The 3 Decal-template materials with blend 0 and no reference (cheese interior / sign textures), and blend word 1
+  materials not named like glows: kept as before.
+- Blend word 1 (additive) is still decided by the sectors' names (GLOW_SECTOR); the word could replace it - not done.
+- DXT5 textures of solid materials keep their alpha in the file; the engine ignores it with blend mode 0 (the screenshot
+  shows it does). Blend 3 plus a reference stays soft-blended (no baking).
+- A dark round patch right of the coins in the screenshot - not investigated (a pile mesh with a dark texture or a
+  leftover); worth a look by the user.
+
+### Load check and screenshot
+
+Under the lock on C:\Games\THUG2-2 with out\build\lead\dinput8.dll (+.pdb), `[selftests] enabled=0`: `load_check.ps1
+-Levels thp8_net_beavervalley`: loaded=True, responding after 159 s, CComponent 256065 / 360000, CStruct 43340 / 64000;
+no exception / check failure in the log. One screenshot at the user's spot (`run_game.ps1 -Level thp8_net_beavervalley
+-Commands "waitfor level thp8_net_beavervalley 300;teleport -7982.9 1016.9 11901.1 -179;camera -7983.6 1074.1 11757.2
+0.005 -0.039 0.999;wait 120"`, the sidecar's own camera): solid coin piles, the stairs no longer showing through
+(C:\Users\kevin\AppData\Local\Temp\thp8_coins_fix4.png). Lock released.
+
+### For the user (try_spot)
+
+- The user's spot: `node tools/game/try_spot.ts thp8_net_beavervalley -7983,1017,11901,-179`; the coins at the dragon ride:
+  `... -8148,1012,11932,0`.

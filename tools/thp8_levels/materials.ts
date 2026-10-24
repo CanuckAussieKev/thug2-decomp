@@ -198,6 +198,63 @@ export function planMaterial(
     return { layers, ambient, shadow };
 }
 
+// --- what a material does with its diffuse map's alpha ------------------------------------------------------------------
+
+// The parameter block's header holds the material's alpha state (read from the data: leaves / fences / decals have an
+// alpha reference, glass / decals / water a blend word, everything solid has neither - checked over all 15 levels'
+// materials, see docs/pending/thp8-render-audit.md "Fix round 4"):
+//   +0x30  the blend mode: 0 none, 1 add (glows, light shafts), 3 alpha blend (glass, decals, water, paint shells)
+//   +0x38  top byte: the alpha test reference (0 = no alpha test): leaves, fences, wire, flowers, banners
+// A texture's alpha in a material with neither is not transparency - the specular / gloss mask of the NormalMap /
+// EnvMap templates, atlas padding or nothing at all (the fun park's gold piles: DXT5 maps of mean alpha 196 / 104 / 59
+// on opaque DiffuseTerrain / DiffuseSpec / NormalMapEnvMap materials).
+export const PARAM_BLEND = 0x30;
+export const PARAM_ALPHA_REF = 0x38;
+export const BLEND_ADD = 1;
+export const BLEND_ALPHA = 3;
+
+export interface AlphaState {
+    blend: number;
+    ref: number; // 0 = off
+}
+
+export function alphaState(m: geom.GeomMaterial): AlphaState | null {
+    if (m.params.length < PARAM_ALPHA_REF + 4) return null;
+    return { blend: m.params.readUInt32BE(PARAM_BLEND), ref: m.params.readUInt32BE(PARAM_ALPHA_REF) >>> 24 };
+}
+
+// Templates that are layers over a surface by their nature (decals, water, billboards, shadows, soft edges): their
+// alpha is kept whatever their state words say.
+export const ALPHA_BY_NATURE: ReadonlySet<number> = new Set(
+    [
+        "Decal",
+        "NormalMapEnvMap_Decal",
+        "Texture_Decal",
+        "Color_and_Texture_Decal",
+        "Diffuse_Cubemap_Decal",
+        "Water",
+        "WaterCubeRefraction",
+        "WaterCubeRefractionInteractive",
+        "WaterCubeRefractionNonInteractive",
+        "WaterRealRefraction",
+        "WaterRippleDecomposeNormal",
+        "Billboard",
+        "TranslucentFloatyShadow",
+        "SoftEdge",
+        "SoftEdgeWithDepthMap",
+        "ParticleCubemap",
+        "ParticleLighting",
+        "Atmosphere",
+    ].map(checksum),
+);
+
+// Whether the material's diffuse alpha is transparency (blended or alpha-tested, kept) - else the material is solid and
+// its alpha is not drawn. A block too short to read keeps its alpha (as before).
+export function drawsAlpha(m: geom.GeomMaterial): boolean {
+    const a = alphaState(m);
+    return a === null || ALPHA_BY_NATURE.has(m.template) || a.blend !== 0 || a.ref !== 0;
+}
+
 // --- the material library ----------------------------------------------------------------------------------------
 
 // FXFILES\MaterialLibrary.bin (big-endian): "MATL", u32 2, u32 template count, ..., from 0x108 0x28 bytes per
