@@ -8,6 +8,7 @@
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/front/front_end.h"
+#include "game/gfx/texture_cfuncs.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/objman.h"
 #include "game/pcm/music.h"
@@ -102,28 +103,14 @@ CSkaterProfile* ProfileFor(CStruct* params)
     return GameFunction<CSkaterProfile*(__thiscall*)(Mdl::Skate*, CStruct*)>(0x00564F80)(Skate(), params);
 }
 
-// 0x005A9D90 (no source yet): the key combo in `mapping` bound to `trick` (0 if none).
-uint32_t KeyComboForTrick(CStruct* mapping, uint32_t trick)
-{
-    return GameFunction<uint32_t(__cdecl*)(CStruct*, uint32_t, int)>(0x005A9D90)(mapping, trick, 0);
-}
+// 0x005A9D90 (CFuncs::FindNameOfValue): the key combo in `mapping` bound to `trick` (0 if none).
+uint32_t KeyComboForTrick(CStruct* mapping, uint32_t trick) { return CFuncs::FindNameOfValue(mapping, trick, 0); }
 
-// 0x005A9E30 (no source yet; the structure in EBX, the CAT number on the stack, caller-popped): the key combo in
-// `mapping` bound to the created trick `cat` (the name of its last integer component of that value; 0 if none).
+// 0x005A9E30 (CFuncs::FindNameOfInteger; in the original the structure goes in EBX): the key combo in `mapping` bound
+// to the created trick `cat` (the name of its last integer component of that value; 0 if none).
 uint32_t KeyComboForCat(CStruct* mapping, int cat)
 {
-    uint32_t result;
-    __asm {
-        push ebx
-        mov ebx, mapping
-        push cat
-        mov eax, 0x005A9E30
-        call eax
-        add esp, 4
-        pop ebx
-        mov result, eax
-    }
-    return result;
+    return CFuncs::FindNameOfInteger(mapping, static_cast<uint32_t>(cat));
 }
 
 // `new Script::CArray` (the array pool, constructed).

@@ -9,6 +9,7 @@
 
 #include "game/ed/park_editor.h"
 #include "game/gfx/debug_lines.h"
+#include "game/gfx/texture_cfuncs.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
 #include "game/script/cscript.h"
@@ -67,11 +68,11 @@ uint32_t GameModeName() { return GameFunction<uint32_t(__thiscall*)(void*)>(0x00
 // The rail editor (0x004F4970 finds it).
 void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
 
-// 0x005A9E80 (no source yet): an angle brought into the range (-pi, pi] by whole turns (cdecl; the result in ST0,
-// read at full precision as the original's callers use it).
-double WrapAngle(float angle) { return GameFunction<double(__cdecl*)(float)>(0x005A9E80)(angle); }
-// The constants it compares and turns with (0x0064B278 pi, 0x00645EA8 a whole turn).
-float Pi() { return GameVariable<float>(0x0064B278); }
+// 0x005A9E80 (CFuncs::WrapAngle, texture_cfuncs.cpp): an angle in degrees brought into 0..360. The original reads
+// its x87 result unrounded; ours is the float it returns (the last bits can differ when it adds or takes a turn).
+double WrappedDegrees(float angle) { return CFuncs::WrapAngle(angle); }
+// The half and whole turns compared and turned with (0x0064B278 180, 0x00645EA8 360).
+float HalfTurn() { return GameVariable<float>(0x0064B278); }
 float WholeTurn() { return GameVariable<float>(0x00645EA8); }
 
 // Whether `array` (if any) has the element `name`.
@@ -93,7 +94,7 @@ bool ArrayHas(CArray* array, uint32_t name)
 // 0x005B1B60: InterpolateParameters A={...} B={...} 0x404E690D=t [ignore=[names]] [Angles=[names]]: 0xFF6F3872, a new
 // structure with each named integer or float of A (unless ignored) interpolated towards B's value of that name (an
 // integer or a float; skipped if B has neither): A + (B - A) * t - for the Angles the shorter way round (the
-// difference and the result wrapped). An integer stays an integer (truncated) only if both were integers. Always
+// difference and the result wrapped into 0-360 degrees). An integer stays an integer (truncated) only if both were integers. Always
 // true.
 bool __cdecl CFunc_InterpolateParameters(Script::CStruct* params, Script::CScript* script)
 {
@@ -141,10 +142,10 @@ bool __cdecl CFunc_InterpolateParameters(Script::CStruct* params, Script::CScrip
         float value;
         if (ArrayHas(angles, name)) {
             // x87: the wrapped difference, less a whole turn above pi, scaled and added in double
-            double difference = WrapAngle(static_cast<float>(static_cast<double>(to) - from));
-            if (difference > Pi())
+            double difference = WrappedDegrees(static_cast<float>(static_cast<double>(to) - from));
+            if (difference > HalfTurn())
                 difference = -(WholeTurn() - difference);
-            value = static_cast<float>(WrapAngle(static_cast<float>(difference * t + from)));
+            value = static_cast<float>(WrappedDegrees(static_cast<float>(difference * t + from)));
         } else {
             value = static_cast<float>((static_cast<double>(to) - from) * t + from);
         }

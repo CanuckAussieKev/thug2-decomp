@@ -14,6 +14,7 @@
 #include "game/obj/suspend_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skate/profile_cfuncs.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "hook/game.h"
@@ -47,8 +48,8 @@ static_assert(sizeof(SwapEntry) == 12, "layout must match the original");
 SwapEntry* Swaps() { return &GameVariable<SwapEntry>(0x007CEDE0); }
 constexpr int kSwapCount = 5;
 
-// 0x005AA930 (no source yet): the swap of the objects `a` and `b` recorded in the table.
-void RecordSwap(uint32_t a, uint32_t b) { GameFunction<void(__cdecl*)(uint32_t, uint32_t)>(0x005AA930)(a, b); }
+// 0x005AA930 (CFuncs::SwapMapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.
+void RecordSwap(uint32_t a, uint32_t b) { CFuncs::SwapMapping(a, b); }
 
 // A skeleton (the skeleton component's +0x18): 0x004A3D30 constructs one in `memory` from the asset at another's +8,
 // 0x004A2E20 copies one into another, 0x004A2CB0 is its destructor body.

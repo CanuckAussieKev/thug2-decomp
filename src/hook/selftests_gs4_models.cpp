@@ -18,6 +18,7 @@
 #include "game/obj/object.h"
 #include "game/obj/shadow_component.h"
 #include "game/obj/suspend_component.h"
+#include "game/skate/profile_cfuncs.h"
 #include "game/skater/skater.h"
 #include "game/skater/tagging.h"
 #include "hook/gs4_testkit.h"
@@ -119,7 +120,7 @@ void StandInModelCalls(StandIns& s)
                 return g_mHas[i][t] ? reinterpret_cast<uint32_t>(g_mComponents[i][t]) : 0u;
         return 0u;
     });
-    s.At({0x005AA930}, 0, [](Regs& r) {
+    s.At({0x005AA930, AddressOf(&CFuncs::SwapMapping)}, 0, [](Regs& r) {
         Record({0xA930, r.args[0], r.args[1]});
         return 0u;
     });

@@ -1,4 +1,4 @@
-// Script commands (CFunctions) 0x005B2420-0x005B2FC0: face textures, changing textures, HSV / RGB (see
+// Script commands (CFunctions) and helpers 0x005A9D80-0x005AA92F: textures and a few neighbours (see
 // texture_cfuncs.h).
 
 #include "game/gfx/texture_cfuncs.h"
@@ -6,10 +6,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/script/cscript.h"
+#include "game/core/dbg.h"
+#include "game/obj/object.h"
 #include "game/script/struct.h"
-#include "game/skate/profile_manager.h"
-#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -17,334 +16,471 @@ namespace CFuncs {
 
 namespace {
 
-using Script::CArray;
+using Script::CComponent;
+using Script::CScript;
 using Script::CStruct;
 
-constexpr uint32_t kChecksum = 0x21902065;        // "checksum"
-constexpr uint32_t kCapturedTexture = 0xD7C087AF; // "captured_texture"
-constexpr uint32_t kXOffset = 0xD83D589E;         // (name unknown) OffsetTexture: the x offset
-constexpr uint32_t kYOffset = 0x14975800;         // "y_offset"
-constexpr uint32_t kColour0 = 0xB7A78C53;         // (names unknown) Offset / PushTextureToPoint: the colour's bytes
-constexpr uint32_t kColour1 = 0xDA7A68B8;
-constexpr uint32_t kColour2 = 0xAA109C37;
-constexpr uint32_t kColour3 = 0x3319CD8D;
-constexpr uint32_t kAngle = 0xFF7EBAF6;           // "angle"
-constexpr uint32_t kPushPoint = 0x485A0CDB;       // (name unknown) PushTextureToPoint: the point
-constexpr uint32_t kAxis = 0x7AF07905;            // "Axis"
-constexpr uint32_t kPushAmount = 0x88CF948C;      // (name unknown) PushTextureToPoint: how far
-constexpr uint32_t kR = 0x93F60062;               // "r"
-constexpr uint32_t kG = 0xFE2BE489;               // "g"
-constexpr uint32_t kB = 0x8E411006;               // "b"
-constexpr uint32_t kA = 0x174841BC;               // "a"
-constexpr uint32_t kTintMode = 0xC164842A;        // (name unknown) ApplyRGBAToTexture: 1 = the second mode
-constexpr uint32_t kHsv = 0xFB0E4249;             // "hsv"
-constexpr uint32_t kRgb = 0xDECB67C7;             // "rgb"
+// The names of the texture commands' parameters.
+constexpr uint32_t kWidth = 0x73E5BAD0;  // "width"
+constexpr uint32_t kHeight = 0x0AB21AF0; // "height"
+constexpr uint32_t kSrc = 0x9FBBDB72;    // "src"
+constexpr uint32_t kNew = 0x941CBBBA;    // "new"
+constexpr uint32_t kSetsPaletteFlag = 0xC164842A; // (name unknown) brightness / HSV: an integer, 1 = the flag on
 
-// The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
-void* TextureDictionary() { return GameVariable<void*>(0x00700F1C); }
-void* FindTexture(uint32_t name) { return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(TextureDictionary(), name); }
+// The texture dictionaries (Nx): the level's / scripts' (0x00700F1C) and the particles' (0x00700F20).
+void* Textures() { return GameVariable<void*>(0x00700F1C); }
+void* ParticleTextures() { return GameVariable<void*>(0x00700F20); }
 
-// The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the
-// skate module's 0x00564F80 with no params is the current profile.
-void* FaceTexture()
+// A dictionary's calls (no source yet).
+void* LoadTextureFile(void* dictionary, const char* file, bool flag1, bool allocateVram, bool flag3)
 {
-    auto* profile = GameFunction<Obj::CSkaterProfile*(__thiscall*)(Mdl::Skate*, CStruct*)>(0x00564F80)(
-        Mdl::Skate::Instance(), nullptr);
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(profile) + 0x54);
+    return GameFunction<void*(__thiscall*)(void*, const char*, bool, bool, bool)>(0x0049F9B0)(dictionary, file, flag1,
+                                                                                             allocateVram, flag3);
+}
+void* GetTexture(void* dictionary, uint32_t checksum)
+{
+    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(dictionary, checksum);
+}
+void* GetTextureByName(void* dictionary, const char* file)
+{
+    return GameFunction<void*(__thiscall*)(void*, const char*)>(0x0049F560)(dictionary, file);
+}
+void UnloadTextureFrom(void* dictionary, void* texture)
+{
+    GameFunction<bool(__thiscall*)(void*, void*)>(0x0049F500)(dictionary, texture);
 }
 
-// A texture's methods (each a jump through its vtable).
-template <typename R, typename... A>
-R TextureCall(uint32_t thunk, void* texture, A... args)
+// A texture's own calls (thunks into its vtable).
+template <typename Fn, typename... Args>
+void TextureCall(uint32_t thunk, void* texture, Args... args)
 {
-    return GameFunction<R(__thiscall*)(void*, A...)>(thunk)(texture, args...);
+    GameFunction<Fn>(thunk)(texture, args...);
 }
 
-// A colour as the textures take it: four bytes (the first in the low byte).
-uint32_t PackColour(int c0, int c1, int c2, int c3)
-{
-    return static_cast<uint8_t>(c0) | static_cast<uint8_t>(c1) << 8 | static_cast<uint8_t>(c2) << 16 |
-           static_cast<uint32_t>(static_cast<uint8_t>(c3)) << 24;
-}
-
-// The four optional colour components (0x80 each by default) and whether any was given (every one is read).
-uint32_t ReadColour(CStruct* params, bool* given)
-{
-    int c[4] = {0x80, 0x80, 0x80, 0x80};
-    bool any = params->GetInteger(kColour0, &c[0], 0);
-    if (params->GetInteger(kColour1, &c[1], 0))
-        any = true;
-    if (params->GetInteger(kColour2, &c[2], 0))
-        any = true;
-    if (params->GetInteger(kColour3, &c[3], 0))
-        any = true;
-    *given = any;
-    return PackColour(c[0], c[1], c[2], c[3]);
-}
-
-// The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
-int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-
-// A new integer array for the converted colour: 3 elements, or 4 with the source's fourth copied.
-CArray* NewColourArray(CArray* source)
-{
-    CArray* memory = Script::NewArray();
-    CArray* colour = memory ? memory->Init() : nullptr;
-    if (source->m_size == 4) {
-        colour->SetSizeAndType(4, Script::ESYMBOLTYPE_INTEGER);
-        colour->SetElement(3, source->GetElement(3));
-    } else {
-        colour->SetSizeAndType(3, Script::ESYMBOLTYPE_INTEGER);
-    }
-    return colour;
-}
+// A component's raw value.
+uint32_t RawValue(const CComponent* component) { return component->raw; }
 
 } // namespace
 
-// 0x005B2420: LoadFaceTextureFromProfile checksum=<name>: the texture dictionary given the current profile's face
-// texture image (0x0049FA20) as `name`. Whether a texture was made.
-bool __cdecl CFunc_LoadFaceTextureFromProfile(Script::CStruct* params, Script::CScript*)
+// 0x005A9D80
+bool __cdecl CFunc_SceAltPt(CStruct*, CScript*)
+{
+    GameVariable<bool>(0x007CE441) = true;
+    return true;
+}
+
+// 0x005A9D90
+uint32_t __cdecl FindNameOfValue(CStruct* structure, uint32_t value, int depth)
+{
+    if (depth > 10)
+        return 0;
+    uint32_t found = 0;
+    for (CComponent* component = structure->GetNextComponent(nullptr); component;) {
+        // (the global structure the component's value names, looked up for every component)
+        CStruct* named = Script::GetStructure(RawValue(component));
+        CComponent* next = structure->GetNextComponent(component);
+        if (!found) {
+            if (component->Type() == Script::ESYMBOLTYPE_STRUCTURE)
+                found = FindNameOfValue(component->structure, value, depth + 1);
+            else if (named)
+                found = FindNameOfValue(named, value, depth + 1);
+        }
+        if (component->Type() == Script::ESYMBOLTYPE_NAME && component->checksum == value)
+            found = component->name;
+        component = next;
+    }
+    return found;
+}
+
+// 0x005A9E30
+uint32_t FindNameOfInteger(CStruct* structure, uint32_t value)
+{
+    uint32_t found = 0;
+    for (CComponent* component = structure->GetNextComponent(nullptr); component;) {
+        CComponent* next = structure->GetNextComponent(component);
+        if (component->Type() == Script::ESYMBOLTYPE_INTEGER && component->raw == value) {
+            Dbg::Printf(reinterpret_cast<const char*>(0x00657ADC), value); // "s_find_cat_in_mapping found %i"
+            found = component->name;
+        }
+        component = next;
+    }
+    return found;
+}
+
+namespace {
+uint32_t __cdecl FindNameOfIntegerRegisters(CStruct* structure, uint32_t value)
+{
+    return FindNameOfInteger(structure, value);
+}
+} // namespace
+
+// 0x005A9E30: the structure in EBX, the value on the stack (the caller pops it).
+__declspec(naked) void FindNameOfIntegerStub()
+{
+    __asm {
+        push dword ptr [esp + 4]
+        push ebx
+        call FindNameOfIntegerRegisters
+        add esp, 8
+        ret
+    }
+}
+
+// 0x005A9E80
+float __cdecl WrapAngle(float degrees)
+{
+    double angle = degrees; // (kept in an x87 register, double precision)
+    while (angle < 0.0)
+        angle += 360.0;
+    while (angle > 360.0)
+        angle -= 360.0;
+    return static_cast<float>(angle);
+}
+
+// 0x005A9ED0
+bool __cdecl CFunc_CompositeObjectExists(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0xA1DC81F9u, &id, 1); // name (asserted: the id is used as it is)
+    return Obj::FindObject(id) != nullptr;
+}
+
+// 0x005A9F00
+bool __cdecl CFunc_LoadTexture(CStruct* params, CScript*)
+{
+    const char* file;
+    params->GetString(0u, &file, 0);
+    bool allocateVram = !params->ContainsFlag(0x3955FF2Eu); // no_vram_alloc
+    return LoadTextureFile(Textures(), file, true, allocateVram, true) != nullptr;
+}
+
+// 0x005A9F60
+bool __cdecl CFunc_CreateTexture(CStruct* params, CScript*)
 {
     uint32_t name;
-    params->GetChecksum(kChecksum, &name, 1);
-    void* face = FaceTexture();
-    int size = GameFunction<int(__thiscall*)(void*)>(0x00487540)(face);         // (0x4420)
-    void* data = GameFunction<void*(__thiscall*)(void*)>(0x00487530)(face);     // (its +0x3C)
-    void* texture = GameFunction<void*(__thiscall*)(void*, void*, int, uint32_t, bool, bool, bool, bool)>(0x0049FA20)(
-        TextureDictionary(), data, size, name, true, true, true, true);
+    params->GetChecksum(0u, &name, 0);
+    int width;
+    int height;
+    int bitDepth;
+    int paletteBitDepth = 0; // (not initialised in the original: only read when needed)
+    bool valid = params->GetInteger(kWidth, &width, 0);
+    valid = params->GetInteger(kHeight, &height, 0) && valid;
+    valid = params->GetInteger(0xBA0F2AC5u, &bitDepth, 0) && valid; // bitdepth
+    if (bitDepth <= 8 && !params->GetInteger(0x51533ECBu, &paletteBitDepth, 0)) // palette_bitdepth
+        return false;
+    if (!valid)
+        return false;
+    return GameFunction<void*(__thiscall*)(void*, uint32_t, int, int, int, int, bool, bool)>(0x0049FAA0)(
+               Textures(), name, width, height, bitDepth, paletteBitDepth, true, true) != nullptr;
+}
+
+// 0x005AA040
+bool __cdecl CFunc_UnloadTexture(CStruct* params, CScript*)
+{
+    void* texture = nullptr;
+    const char* file;
+    uint32_t checksum;
+    if (params->GetString(0u, &file, 0))
+        texture = GetTextureByName(Textures(), file);
+    else if (params->GetChecksum(0u, &checksum, 0))
+        texture = GetTexture(Textures(), checksum);
+    if (texture) {
+        UnloadTextureFrom(Textures(), texture);
+        return true;
+    }
+    params->ContainsFlag(0x3D92465Eu); // dont_assert (the assert is compiled out)
+    return true;
+}
+
+// 0x005AA0C0
+bool __cdecl CFunc_Generate32BitImage(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    void* texture = GetTexture(Textures(), id);
+    if (texture) {
+        bool renderable = false;
+        bool storeOriginal = false;
+        int value;
+        if (params->GetInteger(0xA5D7CFAAu, &value, 0) && value == 1) // renderable
+            renderable = true;
+        if (params->GetInteger(0xEEFAF080u, &value, 0) && value == 1) // store_original
+            storeOriginal = true;
+        TextureCall<void(__thiscall*)(void*, bool, bool)>(0x0048D060, texture, renderable, storeOriginal);
+    }
+    return true;
+}
+
+// 0x005AA160
+bool __cdecl CFunc_Put32BitImageIntoTexture(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    void* texture = GetTexture(Textures(), id);
+    if (texture) {
+        bool paletteGen = false;
+        int value = 0;
+        params->GetInteger(0xC313FDFFu, &value, 0); // palette_gen
+        if (value == 1)
+            paletteGen = true;
+        TextureCall<void(__thiscall*)(void*, bool, bool)>(0x0048DE30, texture, paletteGen, false);
+    }
+    return true;
+}
+
+// 0x005AA1E0
+bool __cdecl CFunc_FlipTexture(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    int horizontal = 0;
+    int vertical = 0;
+    void* texture = GetTexture(Textures(), id);
+    if (texture) {
+        params->GetInteger(0xA04027C9u, &horizontal, 0); // horiz
+        params->GetInteger(0x94927839u, &vertical, 0);   // vert
+        if (horizontal)
+            TextureCall<void(__thiscall*)(void*)>(0x0048DE60, texture);
+        if (vertical)
+            TextureCall<void(__thiscall*)(void*)>(0x0048DE70, texture);
+    }
+    return true;
+}
+
+// 0x005AA270
+bool __cdecl CFunc_ResizeTextureInto(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    uint32_t source; // (not initialised without src=, as in the original)
+    params->GetChecksum(kSrc, &source, 0);
+    void* texture = GetTexture(Textures(), id);
+    if (texture) {
+        if (void* sourceTexture = GetTexture(Textures(), source))
+            TextureCall<void(__thiscall*)(void*, void*, int)>(0x0048DE80, texture, sourceTexture, 0);
+    }
+    return true;
+}
+
+// 0x005AA2E0
+bool __cdecl CFunc_ScaleTexture(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    float scale; // (not initialised without scale=, as in the original)
+    params->GetFloat(0x13B9DA7Bu, &scale, 0);
+    if (void* texture = GetTexture(Textures(), id))
+        TextureCall<void(__thiscall*)(void*, float, float)>(0x0048DEB0, texture, scale, scale);
+    return true;
+}
+
+// 0x005AA340
+bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    void* texture = GetTexture(Textures(), id);
+    if (texture) {
+        int x = 0;
+        int y = 0;
+        int width = GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3C0)(texture);  // its width
+        int height = GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3D0)(texture); // its height
+        int value5 = 0;
+        int value6 = 0;
+        int value7 = 0;
+        params->GetInteger(0x0FA8972Eu, &x, 0); // xpos
+        params->GetInteger(0xB714F04Bu, &y, 0); // ypos
+        params->GetInteger(kWidth, &width, 0);
+        params->GetInteger(kHeight, &height, 0);
+        params->GetInteger(0xE679982Eu, &value5, 0); // (names unknown)
+        params->GetInteger(0x3D0F162Au, &value6, 0);
+        params->GetInteger(0x39C54BDEu, &value7, 0);
+        TextureCall<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(0x0048DEE0, texture, x, y, width,
+                                                                                 height, value5, value6, value7);
+    }
+    return true;
+}
+
+// 0x005AA460
+bool __cdecl CFunc_PullTextureToEdge(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    void* texture = GetTexture(Textures(), id);
+    if (texture) {
+        int edge = 0;
+        int axis = 0;
+        int pixels = 0;
+        params->GetInteger(0x485A0CDBu, &edge, 0);   // (name unknown)
+        params->GetInteger(0x7AF07905u, &axis, 0);   // Axis
+        params->GetInteger(0x88CF948Cu, &pixels, 0); // num_pixels
+        TextureCall<void(__thiscall*)(void*, int, int, int)>(0x0049F370, texture, edge, axis, pixels);
+    }
+    return true;
+}
+
+// 0x005AA500
+bool __cdecl CFunc_AdjustTextureBrightness(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    void* texture = GetTexture(Textures(), id);
+    if (texture) {
+        float brightness = 1.0f;
+        int value = 0;
+        bool flag = false;
+        params->GetFloat(0x2689291Cu, &brightness, 1); // Brightness
+        params->GetInteger(kSetsPaletteFlag, &value, 0);
+        if (value == 1)
+            flag = true;
+        TextureCall<void(__thiscall*)(void*, float, bool)>(0x0049F380, texture, brightness, flag);
+    }
+    return true;
+}
+
+// 0x005AA590
+bool __cdecl CFunc_AdjustTextureHSV(CStruct* params, CScript*)
+{
+    uint32_t id;
+    params->GetChecksum(0u, &id, 0);
+    void* texture = GetTexture(Textures(), id);
+    if (texture) {
+        float hue = 0.0f;
+        float saturation = 1.0f;
+        float value = 1.0f;
+        int flagValue = 0;
+        bool flag = false;
+        params->GetFloat(0x6E94F918u, &hue, 0);        // h
+        params->GetFloat(0xE4F130F4u, &saturation, 0); // s
+        params->GetFloat(0x949BC47Bu, &value, 0);      // v
+        params->GetInteger(kSetsPaletteFlag, &flagValue, 0);
+        if (flagValue == 1)
+            flag = true;
+        TextureCall<void(__thiscall*)(void*, float, float, float, bool)>(0x0049F390, texture, hue, saturation, value,
+                                                                         flag);
+        TextureCall<void(__thiscall*)(void*, bool, bool)>(0x0048DE30, texture, false, false);
+    }
+    return true;
+}
+
+// 0x005AA670
+bool __cdecl CFunc_CopyTexture(CStruct* params, CScript*)
+{
+    uint32_t source;
+    params->GetChecksum(kSrc, &source, 0);
+    void* texture = GetTexture(Textures(), source);
+    uint32_t copy;
+    if (texture && params->GetChecksum(kNew, &copy, 0))
+        GameFunction<void*(__thiscall*)(void*, uint32_t, void*)>(0x0049FBE0)(Textures(), copy, texture);
+    return true;
+}
+
+// 0x005AA6E0
+bool __cdecl CFunc_CombineTextures(CStruct* params, CScript*)
+{
+    uint32_t source; // (src and top are not initialised when missing, as in the original)
+    uint32_t top;
+    uint32_t combined = 0;
+    bool paletteGen = true;
+    params->GetChecksum(kSrc, &source, 0);
+    params->GetChecksum(0xE126E035u, &top, 0); // top
+    params->GetChecksum(kNew, &combined, 0);
+    if (params->ContainsFlag(0x5905256Bu)) // no_palette_gen
+        paletteGen = false;
+    void* sourceTexture = GetTexture(Textures(), source);
+    if (!sourceTexture)
+        return true;
+    void* topTexture = GetTexture(Textures(), top);
+    if (!topTexture)
+        return true;
+    if (combined) {
+        // a new texture of the two
+        GameFunction<void*(__thiscall*)(void*, uint32_t, void*, void*, bool)>(0x0049FC20)(
+            Textures(), combined, sourceTexture, topTexture, paletteGen);
+        return true;
+    }
+    TextureCall<void(__thiscall*)(void*, void*, bool)>(0x0049F420, sourceTexture, topTexture, paletteGen);
+    return true;
+}
+
+// 0x005AA7B0
+bool __cdecl CFunc_LoadParticleTexture(CStruct* params, CScript*)
+{
+    const char* file;
+    params->GetString(0u, &file, 0);
+    if (file[0] == '\0')
+        return false;
+    void* texture = GetTextureByName(ParticleTextures(), file);
+    bool permanent = params->ContainsFlag(0xD5928F25u); // perm
+    if (!texture)
+        texture = LoadTextureFile(ParticleTextures(), file, true, true, permanent);
     return texture != nullptr;
 }
 
-// 0x005B2480: SetFaceTextureFromVideoCapture captured_texture=<name>: the current profile's face texture made from
-// the captured texture: a 0x4420-byte image (zeroed) - the texture's header (+0x78), its palette (+0x74: header size
-// / bytes per pixel entries, after 0x20 bytes) and its pixels (+0x64, +0x68 bytes) after it - copied in (0x00487420).
-// The texture isn't checked for null. Always true.
-bool __cdecl CFunc_SetFaceTextureFromVideoCapture(Script::CStruct* params, Script::CScript*)
+// 0x005AA830
+bool __cdecl CFunc_UnloadParticleTexture(CStruct* params, CScript*)
 {
-    uint32_t name;
-    params->GetChecksum(kCapturedTexture, &name, 1);
-    void* face = FaceTexture();
-    void* texture = FindTexture(name);
-    uint8_t image[0x4420];
-    std::memset(image, 0, sizeof(image));
-    TextureCall<void>(0x0048DF50, texture, static_cast<void*>(image));
-    int paletteSize = TextureCall<int>(0x0048DF30, texture);
-    uint8_t bitsPerPixel = TextureCall<uint8_t>(0x0049F3E0, texture);
-    TextureCall<void>(0x0048DF40, texture, static_cast<void*>(image + 0x20), paletteSize / (bitsPerPixel >> 3));
-    const void* pixels = TextureCall<const void*>(0x0048DF00, texture);
-    int pixelSize = TextureCall<int>(0x0049F3A0, texture);
-    std::memcpy(image + 0x20 + paletteSize, pixels, pixelSize);
-    GameFunction<void*(__thiscall*)(void*, void*, int)>(0x00487420)(face, image, pixelSize + paletteSize + 0x20);
-    return true;
-}
-
-// 0x005B2570: OffsetTexture <texture> [0xD83D589E=x] [y_offset=y] [colour bytes]: the texture's image shifted
-// (+0x48: x, y, whether a colour was given, the colour - 0x80 for each byte not given). Always true.
-bool __cdecl CFunc_OffsetTexture(Script::CStruct* params, Script::CScript*)
-{
-    uint32_t name = 0; // (uninitialised in the original without one)
-    params->GetChecksum(0u, &name, 0);
-    void* texture = FindTexture(name);
-    if (!texture)
-        return true;
-    int x = 0;
-    int y = 0;
-    params->GetInteger(kXOffset, &x, 0);
-    params->GetInteger(kYOffset, &y, 0);
-    bool given;
-    uint32_t colour = ReadColour(params, &given);
-    TextureCall<void>(0x0048DEC0, texture, x, y, given, colour);
-    return true;
-}
-
-// 0x005B26B0: RotateTexture <texture> angle=degrees: the texture's image rotated (+0x44: radians, -1, -1). Always
-// true.
-bool __cdecl CFunc_RotateTexture(Script::CStruct* params, Script::CScript*)
-{
-    uint32_t name = 0; // (both uninitialised in the original when missing)
-    params->GetChecksum(0u, &name, 0);
-    float angle = 0.0f;
-    params->GetFloat(kAngle, &angle, 0);
-    void* texture = FindTexture(name);
-    if (texture) {
-        // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
-        float radians = static_cast<float>(static_cast<double>(angle) * GameVariable<float>(0x00645464));
-        TextureCall<void>(0x0049F360, texture, radians, -1.0f, -1.0f);
+    const char* file;
+    params->GetString(0u, &file, 0);
+    if (void* texture = GetTextureByName(ParticleTextures(), file)) {
+        TextureCall<void(__thiscall*)(void*)>(0x0049F3B0, texture); // (its vtable +0x80 first)
+        UnloadTextureFrom(ParticleTextures(), texture);
     }
     return true;
 }
 
-// 0x005B2720: PushTextureToPoint <texture> [0x485A0CDB=point] [Axis=n] [0x88CF948C=amount] [colour bytes]: the
-// texture's image pushed towards a point (+0x58: point, axis, amount, whether a colour was given, the colour).
-// Always true.
-bool __cdecl CFunc_PushTextureToPoint(Script::CStruct* params, Script::CScript*)
+// 0x005AA880
+bool __cdecl CFunc_LoadSFPTexture(CStruct* params, CScript*)
 {
-    uint32_t name = 0; // (uninitialised in the original without one)
-    params->GetChecksum(0u, &name, 0);
-    void* texture = FindTexture(name);
-    if (!texture)
-        return true;
-    int point = 0;
-    int axis = 0;
-    int amount = 0;
-    params->GetInteger(kPushPoint, &point, 0);
-    params->GetInteger(kAxis, &axis, 0);
-    params->GetInteger(kPushAmount, &amount, 0);
-    bool given;
-    uint32_t colour = ReadColour(params, &given);
-    TextureCall<void>(0x0048DEF0, texture, point, axis, amount, given, colour);
+    const char* file;
+    params->GetString(0u, &file, 0);
+    return LoadTextureFile(ParticleTextures(), file, false, true, true) != nullptr;
+}
+
+// 0x005AA8B0
+bool __cdecl CFunc_UnloadSFPTexture(CStruct* params, CScript*)
+{
+    const char* file;
+    params->GetString(0u, &file, 0);
+    if (void* texture = GetTextureByName(ParticleTextures(), file))
+        UnloadTextureFrom(ParticleTextures(), texture);
     return true;
 }
 
-// 0x005B2880: ApplyRGBAToTexture <texture> r= g= b= [a=a (0x80)] [0xC164842A=mode]: the texture tinted (+0x30: the
-// colour, whether the mode is 1). Always true.
-bool __cdecl CFunc_ApplyRGBAToTexture(Script::CStruct* params, Script::CScript*)
+// 0x005AA8F0
+bool __cdecl CFunc_SetParkName(CStruct* params, CScript*)
 {
-    uint32_t name = 0; // (uninitialised in the original without one)
-    params->GetChecksum(0u, &name, 0);
-    void* texture = FindTexture(name);
-    if (!texture)
-        return true;
-    int r = 0; // (r, g and b uninitialised in the original when missing)
-    int g = 0;
-    int b = 0;
-    int a = 0x80;
-    params->GetInteger(kR, &r, 0);
-    params->GetInteger(kG, &g, 0);
-    params->GetInteger(kB, &b, 0);
-    params->GetInteger(kA, &a, 0);
-    int mode = 0;
-    params->GetInteger(kTintMode, &mode, 0);
-    bool second = mode == 1;
-    TextureCall<void>(0x0048DE50, texture, PackColour(r, g, b, a), second);
-    return true;
-}
-
-// 0x005B2970: HSVtoRGB hsv=[h s v (alpha)]: rgb, the colour in RGB (0-128 each; the fourth element copied). Hue is
-// taken in 60ths (wrapped into 0-6), saturation in 90ths (kept to 0.01-1), value in 60ths (kept to 0.01-1) - the
-// value stays at the x87's precision until stored. Always true.
-bool __cdecl CFunc_HSVtoRGB(Script::CStruct* params, Script::CScript* script)
-{
-    float r = 0.0f;
-    float g = 0.0f;
-    float b = 0.0f;
-    CArray* hsv = nullptr;
-    params->GetArray(kHsv, &hsv, 1);
-
-    constexpr float kSixtieth = 0x1.111112p-6f; // 0x006463B8
-    constexpr float kNinetieth = 0x1.6c16c2p-7f; // 0x00657CC4
-    double hue = static_cast<int>(hsv->GetElement(0)) * static_cast<double>(kSixtieth);
-    float h = static_cast<float>(hue);
-    if (!(hue < 6.0)) {
-        do
-            hue -= 6.0;
-        while (!(hue < 6.0));
-        h = static_cast<float>(hue);
+    const char* name = reinterpret_cast<const char*>(0x006469B4); // ""
+    params->GetString(0u, &name, 0);
+    char* parkName = &GameVariable<char>(0x007CED58);
+    while ((*parkName++ = *name++) != '\0') { // (no length limit, as in the original)
     }
-    if (hue < 0.0) {
-        do
-            hue += 6.0;
-        while (hue < 0.0);
-        h = static_cast<float>(hue);
-    }
-    float s = static_cast<float>(static_cast<int>(hsv->GetElement(1)) * static_cast<double>(kNinetieth));
-    if (!(s > 0.0f))
-        s = 0.01f;
-    else if (s > 1.0f)
-        s = 1.0f;
-    double v = static_cast<int>(hsv->GetElement(2)) * static_cast<double>(kSixtieth);
-    if (!(v > 0.0))
-        v = 0.01f;
-    else if (v > 1.0)
-        v = 1.0;
-
-    int sector = Ftol(h);
-    double f = h - static_cast<double>(sector);
-    float p = static_cast<float>((1.0 - s) * v);
-    float q = static_cast<float>((1.0 - s * f) * v);
-    float t = static_cast<float>((1.0 - (1.0 - f) * s) * v);
-    float value = static_cast<float>(v);
-    switch (static_cast<uint32_t>(Ftol(static_cast<double>(sector)))) {
-    case 0: r = value; g = t; b = p; break;
-    case 1: r = q; g = value; b = p; break;
-    case 2: r = p; g = value; b = t; break;
-    case 3: r = p; g = q; b = value; break;
-    case 4: r = t; g = p; b = value; break;
-    case 5: r = value; g = p; b = q; break;
-    default: break;
-    }
-
-    CArray* rgb = NewColourArray(hsv);
-    rgb->SetElement(0, static_cast<uint32_t>(Ftol(static_cast<double>(r) * 128.0f)));
-    rgb->SetElement(1, static_cast<uint32_t>(Ftol(static_cast<double>(g) * 128.0f)));
-    rgb->SetElement(2, static_cast<uint32_t>(Ftol(static_cast<double>(b) * 128.0f)));
-    script->m_params->AddArrayPointer(kRgb, rgb);
-    return true;
-}
-
-// 0x005B2CD0: RGBtoHSV rgb=[r g b (alpha)]: hsv, the colour in HSV (hue 0-360, saturation 0-90, value 0-60; the
-// fourth element copied). Always true.
-bool __cdecl CFunc_RGBtoHSV(Script::CStruct* params, Script::CScript* script)
-{
-    float h = 0.0f;
-    CArray* rgbArray = nullptr;
-    params->GetArray(kRgb, &rgbArray, 1);
-    constexpr float kScale = 1.0f / 128.0f; // 0x0064A2FC
-    float r = static_cast<float>(static_cast<int>(rgbArray->GetElement(0)) * static_cast<double>(kScale));
-    float g = static_cast<float>(static_cast<int>(rgbArray->GetElement(1)) * static_cast<double>(kScale));
-    float b = static_cast<float>(static_cast<int>(rgbArray->GetElement(2)) * static_cast<double>(kScale));
-    float max = r;
-    float min = r;
-    if (g < r)
-        min = g;
-    if (g > max)
-        max = g;
-    if (b < min)
-        min = b;
-    if (b > max)
-        max = b;
-    float delta = static_cast<float>(static_cast<double>(max) - min);
-
-    float s;
-    double hue;
-    if (max == 0.0f) {
-        hue = 0.0;
-        s = 0.0f;
-    } else {
-        s = static_cast<float>(static_cast<double>(delta) / max);
-        if (s == 0.0f)
-            hue = 0.0;
-        else if (r == max)
-            hue = (static_cast<double>(g) - b) / delta;
-        else if (g == max)
-            hue = (static_cast<double>(b) - r) / delta + 2.0;
-        else if (b == max)
-            hue = (static_cast<double>(r) - g) / delta + 4.0;
-        else
-            hue = h;
-    }
-    hue *= 60.0f;
-    h = static_cast<float>(hue);
-    if (hue < 0.0)
-        h = static_cast<float>(static_cast<double>(h) + 360.0f);
-    if (h > 360.0f)
-        h = static_cast<float>(static_cast<double>(h) - 360.0f);
-
-    CArray* hsv = NewColourArray(rgbArray);
-    hsv->SetElement(0, static_cast<uint32_t>(Ftol(h)));
-    hsv->SetElement(1, static_cast<uint32_t>(Ftol(static_cast<double>(s) * 90.0f)));
-    hsv->SetElement(2, static_cast<uint32_t>(Ftol(static_cast<double>(max) * 60.0f)));
-    script->m_params->AddArrayPointer(kHsv, hsv);
-    return true;
+    return false;
 }
 
 } // namespace CFuncs
 
-REPLACE(0x005B2420, CFuncs::CFunc_LoadFaceTextureFromProfile);
-REPLACE(0x005B2480, CFuncs::CFunc_SetFaceTextureFromVideoCapture);
-REPLACE(0x005B2570, CFuncs::CFunc_OffsetTexture);
-REPLACE(0x005B26B0, CFuncs::CFunc_RotateTexture);
-REPLACE(0x005B2720, CFuncs::CFunc_PushTextureToPoint);
-REPLACE(0x005B2880, CFuncs::CFunc_ApplyRGBAToTexture);
-REPLACE(0x005B2970, CFuncs::CFunc_HSVtoRGB);
-REPLACE(0x005B2CD0, CFuncs::CFunc_RGBtoHSV);
+REPLACE(0x005A9D80, CFuncs::CFunc_SceAltPt);
+REPLACE(0x005A9D90, CFuncs::FindNameOfValue);
+REPLACE_UNCHECKED(0x005A9E30, CFuncs::FindNameOfIntegerStub); // the structure in EBX, the value on the stack
+REPLACE(0x005A9E80, CFuncs::WrapAngle);
+REPLACE(0x005A9ED0, CFuncs::CFunc_CompositeObjectExists);
+REPLACE(0x005A9F00, CFuncs::CFunc_LoadTexture);
+REPLACE(0x005A9F60, CFuncs::CFunc_CreateTexture);
+REPLACE(0x005AA040, CFuncs::CFunc_UnloadTexture);
+REPLACE(0x005AA0C0, CFuncs::CFunc_Generate32BitImage);
+REPLACE(0x005AA160, CFuncs::CFunc_Put32BitImageIntoTexture);
+REPLACE(0x005AA1E0, CFuncs::CFunc_FlipTexture);
+REPLACE(0x005AA270, CFuncs::CFunc_ResizeTextureInto);
+REPLACE(0x005AA2E0, CFuncs::CFunc_ScaleTexture);
+REPLACE(0x005AA340, CFuncs::CFunc_AdjustTextureRegion);
+REPLACE(0x005AA460, CFuncs::CFunc_PullTextureToEdge);
+REPLACE(0x005AA500, CFuncs::CFunc_AdjustTextureBrightness);
+REPLACE(0x005AA590, CFuncs::CFunc_AdjustTextureHSV);
+REPLACE(0x005AA670, CFuncs::CFunc_CopyTexture);
+REPLACE(0x005AA6E0, CFuncs::CFunc_CombineTextures);
+REPLACE(0x005AA7B0, CFuncs::CFunc_LoadParticleTexture);
+REPLACE(0x005AA830, CFuncs::CFunc_UnloadParticleTexture);
+REPLACE(0x005AA880, CFuncs::CFunc_LoadSFPTexture);
+REPLACE(0x005AA8B0, CFuncs::CFunc_UnloadSFPTexture);
+REPLACE(0x005AA8F0, CFuncs::CFunc_SetParkName);

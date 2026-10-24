@@ -8,9 +8,12 @@
 #include <cstdint>
 #include <cstdio>
 
+#include "game/core/dbg.h"
 #include "game/core/mem.h"
+#include "game/core/pool.h"
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
+#include "game/mc/save_types.h"
 #include "game/pcm/music.h"
 #include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
@@ -105,9 +108,10 @@ uint8_t* ReadStructure(Script::CStruct* into, uint8_t* data)
     return const_cast<uint8_t*>(Script::ReadFromBuffer(into, data));
 }
 
-// The save type's helpers (register arguments, so called through inline assembly).
+// The save type's helpers (register arguments, so called through inline assembly at their game addresses - our
+// save_types.cpp in the game; the LoadFromMemoryCard self-test stands in for them there).
 // 0x005A5F70: 8 letters made from the name's checksum, the last replaced by the type's letter; returns `buffer`.
-void MakeFileName(const char* name, char* buffer, uint32_t saveType)
+void GameMakeFileName(const char* name, char* buffer, uint32_t saveType)
 {
     uint32_t code = 0x005A5F70;
     __asm {
@@ -118,7 +122,7 @@ void MakeFileName(const char* name, char* buffer, uint32_t saveType)
     }
 }
 // 0x005A6390: that file name with the save folder in front (console builds).
-void MakeFolderFileName(uint32_t saveType, const char* name, char* buffer)
+void GameMakeFolderFileName(uint32_t saveType, const char* name, char* buffer)
 {
     uint32_t code = 0x005A6390;
     __asm {
@@ -130,7 +134,7 @@ void MakeFolderFileName(uint32_t saveType, const char* name, char* buffer)
     }
 }
 // 0x005A62A0: the type's file name pattern filled in with the name (into a shared buffer, 0x007CECE8).
-const char* TypeFileName(uint32_t saveType, const char* name)
+const char* GameTypeFileName(uint32_t saveType, const char* name)
 {
     uint32_t code = 0x005A62A0;
     const char* result;
@@ -143,7 +147,7 @@ const char* TypeFileName(uint32_t saveType, const char* name)
     return result;
 }
 // 0x005A6210: the type's file version (-1 for an unknown type).
-int TypeVersion(uint32_t saveType)
+int GameTypeVersion(uint32_t saveType)
 {
     uint32_t code = 0x005A6210;
     int result;
@@ -155,7 +159,7 @@ int TypeVersion(uint32_t saveType)
     return result;
 }
 // 0x005A7340: the size of a save of this type.
-int TypeFileSize(uint32_t saveType)
+int GameTypeFileSize(uint32_t saveType)
 {
     uint32_t code = 0x005A7340;
     int result;
@@ -219,19 +223,19 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
         case 3: { // console folders: /<dir><file>/<dir><file>
             const char* folder = GameFunction<const char*(__cdecl*)()>(0x005B5F10)();
             char file[20];
-            MakeFileName(name, file, type);
+            GameMakeFileName(name, file, type);
             std::snprintf(path, sizeof(path), "/%s%s/%s%s", folder, file, folder, file);
             break;
         }
         case 5: {
             char file[104];
-            MakeFolderFileName(type, name, file);
+            GameMakeFolderFileName(type, name, file);
             std::snprintf(path, sizeof(path), "%s%s", file, file);
             break;
         }
         case 4:
         case 7: {
-            const char* converted = card->ConvertFilename(TypeFileName(type, name));
+            const char* converted = card->ConvertFilename(GameTypeFileName(type, name));
             if (!converted)
                 named = false;
             else
@@ -245,7 +249,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
         File* file = named ? card->Open(path, 1, 0) : nullptr;
         if (file) {
             int size = static_cast<int>(file->Seek(0, 2));
-            bool bad = size != TypeFileSize(type);
+            bool bad = size != GameTypeFileSize(type);
             if (!bad) {
                 data = static_cast<uint8_t*>(Mem::Malloc(size));
                 file->Seek(0, 0);
@@ -255,7 +259,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
                     // The original also rejected the file unless
                     //     Crc::GenerateCRCFromBuffer(data, fileHeader->size) == <the checksum read>
                     // - the test PartyMod NOPs (its patch at 0x005A8A01).
-                    bad = fileHeader->size > 500000 || fileHeader->version != TypeVersion(type);
+                    bad = fileHeader->size > 500000 || fileHeader->version != GameTypeVersion(type);
                     if (!bad) {
                         uint8_t* rest = ReadStructure(header, data + sizeof(SaveHeader));
                         if (type == kObfuscatedType) {
@@ -298,7 +302,176 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
     return loaded;
 }
 
+// --- the save state flags -----------------------------------------------------------------------------------
+
+// 0x005A6550
+bool SaveFailedDueToInsufficientSpace(Script::CStruct*, Script::CScript*) { return GameVariable<bool>(0x007CECD0); }
+
+// 0x005A6560
+bool SetSectionsToApplyWhenLoading(Script::CStruct* params, Script::CScript*)
+{
+    Dbg::Printf(reinterpret_cast<const char*>(0x00657848)); // "ScriptSetSectionsToApplyWhenLoading was called..."
+    uint32_t& sections = SectionsToApplyWhenLoading();
+    sections = 0;
+    if (params->ContainsFlag(0x16B506C0u)) // ApplyCustomSkater
+        sections |= 8;
+    if (params->ContainsFlag(0xDC7EA3CEu)) // ApplyStorySkater
+        sections |= 4;
+    if (params->ContainsFlag(0x33EC233Fu)) // ApplyStory
+        sections |= 2;
+    if (params->ContainsFlag(0xB39D7CC4u)) // (name unknown)
+        sections |= 1;
+    if (params->ContainsFlag(0xC4E78E22u)) // all
+        sections = 0xFFFFFFFF;
+    return true;
+}
+
+// 0x005A6600
+bool LoadedCustomSkater(Script::CStruct*, Script::CScript*) { return GameVariable<bool>(0x007CECE0); }
+
+uint32_t& SectionsToApplyWhenLoading() { return GameVariable<uint32_t>(0x007CECDC); }
+
+// --- the card and the saves' summaries ----------------------------------------------------------------------
+
+namespace {
+
+Card* TheCard() { return GameVariable<Manager*>(0x007D1890)->GetCard(0, 0); }
+
+// The script pools' pairs whose current pool the temporary pools switch: components, structures, vectors.
+Mem::PoolPair& ComponentPools() { return GameVariable<Mem::PoolPair>(0x006F2338); }
+Mem::PoolPair& StructPools() { return GameVariable<Mem::PoolPair>(0x006F3614); }
+Mem::PoolPair& VectorPools() { return GameVariable<Mem::PoolPair>(0x006F3654); }
+
+} // namespace
+
+// 0x005A6D30
+bool GetMostRecentSave(Script::CStruct* params, Script::CScript* script)
+{
+    ResultParams(script)->RemoveComponent("MostRecentSave");
+    Script::CArray* saves = nullptr;
+    params->GetArray(0u, &saves, 0);
+    if (!saves)
+        return false;
+    uint32_t type = 0;
+    params->GetChecksum(0u, &type, 0);
+    Script::CStruct* best = nullptr;
+    for (uint32_t i = 0; i < saves->m_size; ++i) {
+        auto* save = reinterpret_cast<Script::CStruct*>(saves->GetElement(i));
+        uint32_t fileType = 0;
+        save->GetChecksum("file_type", &fileType, 0);
+        if (type != 0 && fileType != type) // (any type when none is asked for)
+            continue;
+        // a bad save only counts on the PC (4) and platform 5
+        if ((save->ContainsFlag("BadVersion") || save->ContainsFlag("Corrupt")) && Platform() != 4 && Platform() != 5)
+            continue;
+        if (!best || IsLater(save, best))
+            best = save;
+    }
+    if (!best)
+        return false;
+    ResultParams(script)->AddStructure("MostRecentSave", best);
+    return true;
+}
+
+// 0x005A7210
+bool FormatCard(Script::CStruct*, Script::CScript*)
+{
+    PauseMusic(1);
+    PauseStream(1);
+    bool formatted = false;
+    if (TheCard())
+        formatted = Stubs::ReturnFalse(); // (the card's Format: the shared always-false stub, 0x005B9E50)
+    PauseMusic(-1);
+    PauseStream(-1);
+    return formatted;
+}
+
+// 0x005A7260
+bool CardIsInSlot(Script::CStruct*, Script::CScript*) { return TheCard() != nullptr; }
+
+// 0x005A7280
+bool CardIsFormatted(Script::CStruct*, Script::CScript*)
+{
+    if (!TheCard())
+        return false;
+    return Stubs::ReturnTrue(); // (the card's IsFormatted: the shared always-true stub, 0x005B9760)
+}
+
+// 0x005A72A0
+bool GetSummaryInfo(Script::CStruct* params, Script::CScript* script)
+{
+    constexpr uint32_t kVaultData = 0xC78DABF6; // "VaultData": the kept contents' summary
+    uint32_t type = 0;
+    params->GetChecksum(0u, &type, 0);
+    int vaultData = 0;
+    params->GetInteger(kVaultData, &vaultData, 0);
+    if (vaultData) {
+        WriteSummary(GameVariable<Script::CStruct*>(0x007CECD4), ResultParams(script), GameVariable<uint32_t>(0x007CECD8));
+        return true;
+    }
+    if (type == kSaveOptionsAndPros) {
+        // the goal manager's totals brought up to date (0x0055C090, no source yet)
+        void* goalManager = GameFunction<void*(__cdecl*)()>(0x005591B0)();
+        GameFunction<void(__thiscall*)(void*)>(0x0055C090)(goalManager);
+    }
+    WriteSummary(nullptr, ResultParams(script), type);
+    return true;
+}
+
+// 0x005A7430
+bool GetMemCardDataForUpload(Script::CStruct*, Script::CScript* script)
+{
+    ResultParams(script)->AddChecksum(0x7321A8D6u, GameVariable<uint32_t>(0x007CECD8)); // type
+    return true;
+}
+
+// 0x005A7450
+bool GetMaxTHPS4FilesAllowed(Script::CStruct*, Script::CScript* script)
+{
+    ResultParams(script)->AddInteger(0x7CC9E431u, 75); // MaxTHPS4FilesAllowed
+    return true;
+}
+
+// 0x005A7470
+bool SwitchToTempPoolsIfTheyExist(Script::CStruct*, Script::CScript*)
+{
+    ++ComponentPools().current;
+    ++StructPools().current;
+    ++VectorPools().current;
+    if (ComponentPools().pools[ComponentPools().current] && StructPools().pools[StructPools().current] &&
+        VectorPools().pools[VectorPools().current])
+        return true;
+    --ComponentPools().current;
+    --StructPools().current;
+    --VectorPools().current;
+    return false;
+}
+
+// 0x005A74F0
+bool SwitchToRegularPools(Script::CStruct*, Script::CScript*)
+{
+    if (ComponentPools().current || StructPools().current || VectorPools().current) {
+        --ComponentPools().current;
+        --StructPools().current;
+        --VectorPools().current;
+    }
+    return true;
+}
+
 } // namespace Mc
 
+REPLACE(0x005A6D30, Mc::GetMostRecentSave);
+REPLACE(0x005A7210, Mc::FormatCard);
+REPLACE(0x005A7260, Mc::CardIsInSlot);
+REPLACE(0x005A7280, Mc::CardIsFormatted);
+REPLACE(0x005A72A0, Mc::GetSummaryInfo);
+REPLACE(0x005A7430, Mc::GetMemCardDataForUpload);
+REPLACE(0x005A7450, Mc::GetMaxTHPS4FilesAllowed);
+REPLACE(0x005A7470, Mc::SwitchToTempPoolsIfTheyExist);
+REPLACE(0x005A74F0, Mc::SwitchToRegularPools);
+
+REPLACE(0x005A6550, Mc::SaveFailedDueToInsufficientSpace);
+REPLACE(0x005A6560, Mc::SetSectionsToApplyWhenLoading);
+REPLACE(0x005A6600, Mc::LoadedCustomSkater);
 REPLACE(0x005A6E40, Mc::GetMemCardSpaceAvailable);
 REPLACE(0x005A8730, Mc::LoadFromMemoryCard);

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "game/front/front_end.h"
+#include "game/gfx/texture_cfuncs.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
@@ -128,12 +129,16 @@ void StandInGameCalls(StandIns& s)
         Record({0x6710, ProfileIndex(r.ecx), r.args[0], trick->trick, trick->keys, trick->flag, r.args[2] & 0xFF});
         return 1u;
     });
-    s.At({0x005A9D90}, 0, [](Regs& r) {
+    s.At({0x005A9D90, AddressOf(&CFuncs::FindNameOfValue)}, 0, [](Regs& r) {
         Record({0x9D90, r.args[0] == reinterpret_cast<uint32_t>(g_mapping.Struct()), r.args[1], r.args[2]});
         return r.args[1] == 0x7E1C0001 ? 0x4E700001u : r.args[1] == 0x7E1C0002 ? 0x4E700002u : 0u;
     });
-    s.At({0x005A9E30}, 0, [](Regs& r) {
+    s.At({0x005A9E30}, 0, [](Regs& r) { // (the structure in EBX)
         Record({0x9E30, r.ebx == reinterpret_cast<uint32_t>(g_mapping.Struct()), r.args[0]});
+        return g_catKey;
+    });
+    s.At({AddressOf(&CFuncs::FindNameOfInteger)}, 0, [](Regs& r) {
+        Record({0x9E30, r.args[0] == reinterpret_cast<uint32_t>(g_mapping.Struct()), r.args[1]});
         return g_catKey;
     });
     s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) {

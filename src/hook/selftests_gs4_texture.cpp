@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "game/ed/park_editor.h"
-#include "game/gfx/texture_cfuncs.h"
+#include "game/gfx/face_texture_cfuncs.h"
 #include "game/script/game_util_cfuncs.h"
 #include "game/skate/records.h"
 #include "game/skater/skater.h"
