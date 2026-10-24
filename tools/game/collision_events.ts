@@ -7,13 +7,19 @@
 // Each line "collision-event: key=value ..." is one reversal: the level, the reason (the physics path that ran, or
 // "slope" when none did - the ground's own gravity), the face involved and six probe lines. The events are grouped by
 // level and spot (within --radius, default 80 inches - about 2 m) and printed as a table: level, spot (x,y,z), count,
-// the reasons, the face (sector / object, face index), its flags, and what the probes say (the verdict below).
+// the reasons, the skater's state, the face (sector / object, face index), its flags, and what the probes say (the
+// verdict below: invisible / trigger / unskatable faces, nothing under the next step, an open edge of the face's
+// object - a dropped piece - and turns the player probably made himself). Then a line per event: probe_dir (the
+// travel BEFORE the reversal - the probes and the screenshot face that way), the deciding ray, the face's nearest
+// edge, the input held and the approach (from the collision-event-detail line with the same n=). The count includes
+// the events the DLL's rate limit left out (repeats=).
 //
 // --col: also read that level's converted collision (.col.xbx - read only): the converters' staging folders
 // (<root>\thug2-decomp-<game>\levels\<level>\) or a game folder's overlay (<root>[\Game]\thug2-decomp-data\levels\
 // <level>\), the roots being --root folders or C:\Games\THUG2-1..4 and C:\Games\THUG2. For each spot: the collision
 // object (by the sector's checksum: index, name, the source zone its name starts with), the face's flags in the file
-// and whether its normal is the one the game saw, and - when the face isn't found - the faces nearest the spot.
+// and whether its normal is the one the game saw, and - when the face isn't found - the faces nearest the spot. A
+// warning when the file isn't the one the game loaded (col_file: its size and time).
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -45,6 +51,8 @@ export interface CollisionEvent {
     spot: Vec3;
     face: FaceInfo | null;
     probes: Record<string, FaceInfo | null>;
+    repeats: number; // events the DLL's rate limit left out at this spot before this one
+    detail: Record<string, string> | null; // the collision-event-detail line with the same n
 }
 
 export const PROBES = [
@@ -57,6 +65,23 @@ export const PROBES = [
 ] as const;
 
 const TAG = "collision-event:";
+const DETAIL_TAG = "collision-event-detail:";
+
+function fieldsOf(text: string): Record<string, string> {
+    const fields: Record<string, string> = {};
+    for (const word of text.trim().split(/\s+/)) {
+        const eq = word.indexOf("=");
+        if (eq > 0) fields[word.slice(0, eq)] = word.slice(eq + 1);
+    }
+    return fields;
+}
+
+// A collision-event-detail line's fields (n=, state=, input=, ray=, corners=, open_edge=, col_file=, approach=,
+// camera=...); null if it isn't one.
+export function parseDetailLine(line: string): Record<string, string> | null {
+    const at = line.indexOf(DETAIL_TAG);
+    return at < 0 ? null : fieldsOf(line.slice(at + DETAIL_TAG.length));
+}
 
 function vec(text: string | undefined): Vec3 {
     const parts = (text ?? "").split(",").map(Number);
@@ -88,14 +113,7 @@ export function parseFace(text: string | undefined): FaceInfo | null {
 export function parseEventLine(line: string): CollisionEvent | null {
     const at = line.indexOf(TAG);
     if (at < 0) return null;
-    const fields: Record<string, string> = {};
-    for (const word of line
-        .slice(at + TAG.length)
-        .trim()
-        .split(/\s+/)) {
-        const eq = word.indexOf("=");
-        if (eq > 0) fields[word.slice(0, eq)] = word.slice(eq + 1);
-    }
+    const fields = fieldsOf(line.slice(at + TAG.length));
     if (!("reason" in fields)) return null;
     const probes: Record<string, FaceInfo | null> = {};
     for (const p of PROBES) probes[p] = parseFace(fields[p]);
@@ -109,12 +127,20 @@ export function parseEventLine(line: string): CollisionEvent | null {
         spot: vec(fields.spot),
         face: parseFace(fields.face),
         probes,
+        repeats: Number(fields.repeats ?? 0),
+        detail: null,
     };
 }
 
 export function readEvents(text: string): CollisionEvent[] {
     const out: CollisionEvent[] = [];
     for (const line of text.split(/\r?\n/)) {
+        const detail = parseDetailLine(line);
+        if (detail) {
+            const last = out[out.length - 1];
+            if (last && String(last.n) === detail.n) last.detail = detail;
+            continue;
+        }
         const e = parseEventLine(line);
         if (e) out.push(e);
     }
@@ -148,7 +174,32 @@ export function verdict(e: CollisionEvent): string {
         say.push("turned round between frames, outside the core physics");
     const ahead = e.probes.probe_ahead ?? null;
     if (ahead && ahead.flags & col.FACE_INVISIBLE) say.push("invisible face ahead");
+    if (e.detail?.open_edge === "1")
+        say.push(`an open edge ${e.detail.edge_dist ?? "?"} from the spot (a dropped piece?)`);
+    const player = playerTurn(e);
+    if (player) say.push(player);
     return say.length ? say.join(", ") : "-";
+}
+
+// Whether the player made the turn, not the collision: the DLL logs "slope" only on ground steeper than 5 degrees
+// (older logs: on any ground); with turning / braking held, a trick or a balance trick in the window it may still be
+// the player's own.
+export function playerTurn(e: CollisionEvent): string | null {
+    if (e.reason !== "slope") return null;
+    if (Number(e.fields.ground_min_y ?? 0) >= 0.996) return "flat ground: the player's own turn";
+    const d = e.detail;
+    if (!d) return null;
+    const held = (d.input_window ?? "-").split("+").filter((b) => ["left", "right", "down"].includes(b));
+    if (held.length) return `player turn? (${held.join("+")} held)`;
+    if (d.trick === "1") return "player turn? (trick)";
+    if ((d.balance ?? "-") !== "-") return `player turn? (${d.balance})`;
+    return null;
+}
+
+export function stateOf(e: CollisionEvent): string {
+    if (!e.detail) return "-";
+    const balance = e.detail.balance ?? "-";
+    return `${e.detail.state ?? "-"}${balance !== "-" ? `/${balance}` : ""}`;
 }
 
 export function slopeOf(n: Vec3): number {
@@ -191,8 +242,9 @@ export function spotRows(spots: readonly Spot[]): string[][] {
         return [
             s.level,
             fmt(s.at),
-            String(s.events.length),
+            String(s.events.reduce((n, e) => n + 1 + e.repeats, 0)),
             count(s.events.map((e) => e.reason)),
+            count(s.events.map(stateOf)),
             f ? `${f.kind === "object" ? "object " : ""}${f.name} #${f.face}` : "-",
             f ? `0x${f.flags.toString(16).padStart(4, "0")} ${f.decoded}` : "-",
             count(s.events.map(verdict)),
@@ -321,6 +373,45 @@ const unit = (a: Vec3): Vec3 => {
     return l ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 0];
 };
 
+// A spot's events, one line each: the probes' direction (the travel before the reversal: the probes and the
+// screenshot face that way), the deciding ray, the face's edge, the input and the approach.
+export function spotDetails(s: Spot): string[] {
+    return s.events.map((e) => {
+        const d = e.detail;
+        const parts = [`n=${e.n} ${e.reason}`, `probe_dir ${e.fields.probe_dir ?? "-"}`];
+        if (e.repeats) parts.push(`+${e.repeats} left out before it`);
+        if (d) {
+            parts.push(
+                `${stateOf(e)} speed ${d.speed ?? "-"}`,
+                `input ${d.input ?? "-"} (window ${d.input_window ?? "-"})`,
+            );
+            parts.push(`ray ${d.ray ?? "-"}`);
+            if ((d.edge ?? "-") !== "-") parts.push(`edge ${d.edge} at ${d.edge_dist} open ${d.open_edge}`);
+            parts.push(`approach ${d.approach ?? "-"}`);
+        }
+        return parts.join("; ");
+    });
+}
+
+// A file's size and time as the DLL writes them ("<size>@YYYY-MM-DDTHH:MM:SS", local time).
+export function fileStamp(file: string): string {
+    const st = fs.statSync(file);
+    const t = st.mtime;
+    const p = (n: number): string => String(n).padStart(2, "0");
+    return `${st.size}@${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}T${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}`;
+}
+
+// The events whose level's collision file (col_file, as the game loaded it) isn't the file being compared.
+export function fileMismatches(events: readonly CollisionEvent[], stamp: string, level: string): string[] {
+    const seen = new Set<string>();
+    for (const e of events)
+        if (e.level === level && e.detail?.col_file && e.detail.col_file !== "-" && e.detail.col_file !== stamp)
+            seen.add(e.detail.col_file);
+    return [...seen].map(
+        (s) => `the game loaded ${level}'s collision as ${s}, this file is ${stamp}: converted again since?`,
+    );
+}
+
 function main(argv: string[]): number {
     const { values, positionals } = parseArgs({
         args: argv,
@@ -348,8 +439,12 @@ function main(argv: string[]): number {
         return 0;
     }
     console.log(`${events.length} collision events, ${spots.length} spots`);
-    const head = ["level", "spot", "n", "reason", "face", "flags", "probes"];
+    const head = ["level", "spot", "n", "reason", "state", "face", "flags", "probes"];
     for (const line of table(spotRows(spots), head)) console.log(line);
+    for (const s of spots) {
+        console.log(`\n${s.level} at ${fmt(s.at)}:`);
+        for (const line of spotDetails(s)) console.log(`  ${line}`);
+    }
     if (values.col) {
         const level = values.col;
         const file = findCol(level, values.root ?? DEFAULT_ROOTS);
@@ -357,7 +452,9 @@ function main(argv: string[]): number {
             console.error(`no ${level}.col.xbx found`);
             return 1;
         }
-        console.log(`\ncollision: ${file}`);
+        console.log(`\ncollision: ${file} (${fileStamp(file)})`);
+        for (const warning of fileMismatches(events, fileStamp(file), path.basename(file).replace(/\.col\.xbx$/i, "")))
+            console.log(`WARNING: ${warning}`);
         const c = col.readCol(fs.readFileSync(file), file);
         const name = path.basename(file).replace(/\.col\.xbx$/i, "");
         const names = converterNames(name);

@@ -1,6 +1,7 @@
 // Self-tests for [debug] collision_events (game/skater/collision_events.cpp - not original): its hooks change nothing
 // in the skater's component, and the log line's format (the same line tools/game/collision_events.test.ts parses).
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -87,6 +88,8 @@ void TestCollisionEventFormat()
     e.probes[2].index = 0;
     e.probes[2].flags = 0x0001;
     e.flipped = "ground-check>off-ground@21080";
+    e.probeDir[0] = 1.0f;
+    e.repeats = 2;
     e.screenshot = "requested";
     std::string line = FormatEvent(e, &TestName);
     const char* expected =
@@ -102,9 +105,75 @@ void TestCollisionEventFormat()
         "probe_down_beyond=object:0xABCDEF01;face:0;flags:0x0001;decoded:skatable;terrain:0;n:0.00,0.00,0.00;"
         "at:0.0,0.0,0.0 "
         "probe_down_beyond_all=none probe_ahead=none probe_ahead_all=none "
-        "flipped=ground-check>off-ground@21080 screenshot=requested";
+        "probe_dir=1.00,0.00,0.00 flipped=ground-check>off-ground@21080 repeats=2 screenshot=requested";
     Check(line == expected, "collision events: the log line's format");
 }
 SELFTEST(Early, TestCollisionEventFormat);
+void TestCollisionEventDetailFormat()
+{
+    Detail d;
+    d.number = 3;
+    d.state = "ground";
+    d.physics = "skating";
+    d.speed = 326.4f;
+    d.balance = "manual";
+    d.input = ButtonNames(0x0001);
+    d.inputWindow = ButtonNames(0x2003);
+    d.stick[1] = -1.0f;
+    d.ray = true;
+    const float start[3] = {-6519.8f, 7.1f, 3453.1f}, end[3] = {-6519.8f, -1193.0f, 3453.1f};
+    std::memcpy(d.rayStart, start, sizeof(start));
+    std::memcpy(d.rayEnd, end, sizeof(end));
+    d.geometry = true;
+    const float corners[3][3] = {{-6530.0f, 7.0f, 3440.0f}, {-6513.0f, 7.0f, 3440.0f}, {-6513.0f, 7.0f, 3460.0f}};
+    std::memcpy(d.corners, corners, sizeof(corners));
+    const float lo[3] = {-6600.0f, 7.0f, 3300.0f}, hi[3] = {-6513.0f, 7.0f, 3640.0f};
+    std::memcpy(d.boxMin, lo, sizeof(lo));
+    std::memcpy(d.boxMax, hi, sizeof(hi));
+    d.edge = 1;
+    d.edgeDistance = 6.8f;
+    d.edgeOpen = 1;
+    d.colFile = "4140376@2026-10-24T12:58:51";
+    d.approach = "-6599,7,3453,g;-6520,7,3453,g";
+    Check(FormatDetail(d) ==
+              "collision-event-detail: n=3 state=ground physics=skating speed=326.4 trick=0 balance=manual input=up "
+              "input_window=up+down+x stick=0.00,-1.00 ray=-6519.8,7.1,3453.1>-6519.8,-1193.0,3453.1 "
+              "corners=-6530.0,7.0,3440.0;-6513.0,7.0,3440.0;-6513.0,7.0,3460.0 "
+              "col_box=-6600.0,7.0,3300.0>-6513.0,7.0,3640.0 edge=1 edge_dist=6.8 open_edge=1 "
+              "col_file=4140376@2026-10-24T12:58:51 scn_file=- approach=-6599,7,3453,g;-6520,7,3453,g camera=-",
+          "collision events: the detail line's format");
+}
+SELFTEST(Early, TestCollisionEventDetailFormat);
+
+// The reversal and its reason: a skater braking to a stop and pushing back on flat ground is found as a reversal,
+// but with no path and the ground flat it isn't logged; on a 10-degree slope it's "slope"; a smooth 180-degree turn
+// (6 degrees a frame) isn't a reversal at all.
+void TestCollisionEventReversal()
+{
+    Motion brake[40];
+    for (int i = 0; i < 40; ++i) {
+        brake[i].frame = 100u + static_cast<uint32_t>(i);
+        brake[i].vel[0] = 300.0f - 20.0f * static_cast<float>(i); // (through zero at frame 15)
+    }
+    int found = FindReversal(brake, 40);
+    Check(found == 0, "collision events: braking and pushing back is a reversal");
+    Check(ChooseReason(false, nullptr, 1.0f) == nullptr, "collision events: on flat ground, no path - not logged");
+    Check(ChooseReason(false, nullptr, 0.985f) != nullptr &&
+              std::strcmp(ChooseReason(false, nullptr, 0.985f), "slope") == 0,
+          "collision events: on a 10-degree slope - slope");
+    Check(std::strcmp(ChooseReason(true, "no-ground", 1.0f), "uber-frig") == 0 &&
+              std::strcmp(ChooseReason(false, "wall-ahead", 1.0f), "wall-ahead") == 0,
+          "collision events: the uber frig first, then the path");
+    Motion turn[40];
+    for (int i = 0; i < 40; ++i) {
+        float angle = 0.10472f * static_cast<float>(i); // (6 degrees a frame)
+        turn[i].frame = 200u + static_cast<uint32_t>(i);
+        turn[i].vel[0] = 300.0f * std::cos(angle);
+        turn[i].vel[2] = 300.0f * std::sin(angle);
+    }
+    Check(FindReversal(turn, 40) < 0, "collision events: a smooth turn isn't a reversal");
+    Check(FindReversal(brake, 1) < 0, "collision events: one frame isn't a reversal");
+}
+SELFTEST(Early, TestCollisionEventReversal);
 
 } // namespace

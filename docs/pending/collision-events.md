@@ -91,3 +91,39 @@ from behind the skater, the event's frame), checkpoints place the flip between f
 
 ## To switch it off
 It's off by default. `[replacements] disable=` isn't needed: with `[debug] collision_events=0` the hooks return at once.
+
+## Follow-up (2026-10-24, evening): notice, false positives, richer data
+- On screen: `collision event <n>: <reason>` (+ " (screenshot)") for 2 s through the screenshot code's message panel
+  (`Sys::Screenshot::ShowNotice`, at y 100 so the score panel doesn't cover it; a newer one replaces it; no sound, the
+  game carries on). Shown after that frame's event screenshot is taken, so it isn't in the picture.
+- A level's first frame logs `collision-event: logging on in <level> (col <size@time>, scn <size@time>)`.
+- `collision_event_screenshots` defaults to 1 with the switch on (0 turns them off).
+- `slope` only when the ground was steeper than 5 degrees somewhere in the window (ChooseReason, kSlopeNormalY): the
+  user's Training event 2 (flat ground, velocity -502 -> +217, no path) was the player turning round and isn't logged
+  now. The reversal test is pure now (FindReversal over Motion frames) and self-tested: braking and pushing back is a
+  reversal, flat ground with no path isn't logged, 10 degrees is `slope`, a smooth 6-degrees-a-frame turn isn't one.
+- Rate limit: the same spot (40 inches) is left out only within 1 s of its last line (was 5 s); the next line there
+  carries `repeats=<n>` (the tool adds them to the spot's count).
+- Main line: `probe_dir=x,y,z` (the beyond / ahead probes' direction: the travel before the reversal - the probes and
+  the screenshot face the way the skater was going, not the way he turned), `repeats=`.
+- `collision-event-detail: n=<same> state= physics= speed= trick= balance= input= input_window= stick= ray=a>b
+  corners=a;b;c col_box=min>max edge= edge_dist= open_edge= col_file= scn_file= approach= camera=pos>dir`:
+  - state: the SkaterState state, physics (skating / walking: +0x1C), trick (+0xE0), the balance trick's kind;
+    input: the CControlPad's buttons held at the event and at any frame of the window (up down left right l1 l2 l3 r1
+    r2 r3 circle square triangle x start select), the first stick;
+  - ray: the feeler that decided it - for a path the component's feeler line when the path ran; for the uber frig its
+    own down feeler (the core's feeler line at the next frame's start: the adjust-physics component uses the core's
+    feeler); for slope the last ground feeler;
+  - the face (for the uber frig: the last ground the skater stood on): its three corners (CCollObj slot 9), its object's
+    box, the edge nearest the spot and whether it's open - no other face of the object shares both corners and (for
+    ground, normal y > 0.5) a probe 6 inches beyond the edge's middle finds nothing; walls' edges stay "-";
+  - col_file / scn_file: the level's .col / .scn (the overlay's .xbx, else Data\pre\<level>col.prx) size@time;
+  - approach: the skater's position and state letter (g a w l r p) every 10 frames over the last 50;
+  - camera: viewport 0's camera (Sys::Screenshot::LastView).
+- Tool: parses the detail lines; a `state` column; per event probe_dir / ray / edge / input / approach; verdicts
+  "an open edge ... (a dropped piece?)", "flat ground: the player's own turn" (old logs), "player turn? (down held)" /
+  (trick / manual) for slopes; with --col a WARNING when the file's size@time isn't the col_file the game loaded.
+- Checked in the game (THUG2-2, THP8 SKATE PARK, a push at a quarter pipe; two short runs): the
+  logging-on line with the file stamps, the event and detail lines, the notice on screen (gone after 2 s), the
+  screenshot on by default. The open-edge test then also flagged a barrier wall's bottom edge - walls are no longer
+  judged (`open_edge=-`), not re-run in the game after that change.
