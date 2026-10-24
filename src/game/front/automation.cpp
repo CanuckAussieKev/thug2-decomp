@@ -2,6 +2,7 @@
 
 #include "game/front/automation.h"
 
+#include <share.h>
 #include <windows.h>
 
 #include <SDL2/SDL.h>
@@ -814,7 +815,7 @@ std::string StartTrace(int frames)
 {
     StopTrace();
     std::string path = GameFolderPath("thug2-decomp-trace.txt");
-    FILE* file = std::fopen(path.c_str(), "w");
+    FILE* file = _fsopen(path.c_str(), "w", _SH_DENYWR);
     if (!file)
         return "can't write " + path;
     std::fprintf(file, "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
