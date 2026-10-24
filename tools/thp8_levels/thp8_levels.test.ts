@@ -879,8 +879,8 @@ test("narrow holes: void between ground and a wall standing on it is floored (un
     };
     assert.equal(at(150, 50), 97);
     assert.ok(fills.every((o) => o.faces.length <= GAP_MOST));
-    // THP8's invisible trigger volumes: not solid
-    assert.equal(faceFlags(0x1140) & 0x10, 0x10);
+    // THP8's 0x40 faces stay solid, invisible or not (the roundabout's skirt: 0x1140)
+    assert.equal(faceFlags(0x1140) & 0x10, 0);
     assert.equal(faceFlags(0x0040) & 0x10, 0);
 });
 

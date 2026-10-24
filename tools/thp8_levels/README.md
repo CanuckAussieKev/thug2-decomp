@@ -109,8 +109,9 @@ non-collidable): until round 5 a solid body could take a trigger node's name and
 **Invisible shells and trigger volumes.** Some buildings' only wall collision is an invisible open-top shell inside the
 drawn walls, its top at the roof's eaves and gables (the Grecian houses); THUG2's skater caught on its edge under the
 roof. `trimShells` cuts every all-invisible body's steep faces 6 inches under the seen roof faces over them (221 shells
-in the town). THP8's invisible trigger volumes (faces 0x1040 without 0x10: z_houses' 0.9 m wedges across the suburb
-road) are made non-collidable - THUG2's skater collided with them as invisible ramps.
+in the town). THP8's 0x40 faces stay solid, invisible or not: they are ground that also triggers (the suburb roundabout's skirt is
+four invisible 0x1140 ramps; 81 bodies in the town are made only of 0x40 faces). Round 4 made the invisible ones
+non-collidable and the skater went through the skirt into the planter and the tree's roots (round 6) - undone.
 
 **Stand-ins and barriers.** A zone's `_lod` stand-in also covers places of other zones (z_citypark_lod's Box03 stands
 where the factory is; z_center_lod's lake plane, two triangles 900 m across, passes over the factory's floor): the
