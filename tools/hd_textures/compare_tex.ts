@@ -2,15 +2,18 @@
 // (tools/level_port/hd_textures.ts): each texture's original (scaled up to the new size, nearest texel) left, the
 // upscaled one right, over a checkerboard where they're transparent.
 //
-//     node tools/hd_textures/compare_tex.ts <original.tex.xbx> <upscaled.tex.xbx> <out folder> [--count N] [--min N]
+//     node tools/hd_textures/compare_tex.ts <original.tex.xbx> <upscaled.tex.xbx> <out folder> [--count N] [--min N] [--per-kind N] [--height N]
 //
 // Writes <out>\<checksum>.png for the N largest textures (default 24) whose longer side is at least --min (default
-// 64) in the original, and <out>\sheet.png - all of them, each pair 256 pixels high, one under the other.
+// 64) in the original, and <out>\sheet.png - all of them, each pair 256 pixels high (--height), one under the other.
+// --per-kind N: instead the N largest of each alpha kind (opaque / cut-out / soft alpha), for comparing two builds of
+// the same pass (e.g. 32-bit against DXT-compressed, --hd-no-compress): each pair's mean colour and alpha error is
+// printed too.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { encodePng, type Image } from "../game/frame_diff.ts";
-import { topLevel } from "../level_port/hd_textures.ts";
+import { alphaKind, topLevel } from "../level_port/hd_textures.ts";
 import * as tex from "../level_port/tex.ts";
 import { hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
 
@@ -65,27 +68,55 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const positional: string[] = [];
     let count = 24;
     let min = 64;
+    let perKind = 0;
+    let height = 256;
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i]!;
         if (arg === "--count") count = Number(argv[++i]);
         else if (arg === "--min") min = Number(argv[++i]);
+        else if (arg === "--per-kind") perKind = Number(argv[++i]);
+        else if (arg === "--height") height = Number(argv[++i]);
         else positional.push(arg);
     }
     if (positional.length !== 3 || !(count > 0) || !(min > 0))
-        pyExit("usage: compare_tex.ts <original.tex.xbx> <upscaled.tex.xbx> <out folder> [--count N] [--min N]");
+        pyExit(
+            "usage: compare_tex.ts <original.tex.xbx> <upscaled.tex.xbx> <out folder> [--count N] [--min N] [--per-kind N] [--height N]",
+        );
     const [origFile, hdFile, outDir] = positional as [string, string, string];
     const orig = tex.readTex(fs.readFileSync(origFile), origFile);
     const hd = new Map(tex.readTex(fs.readFileSync(hdFile), hdFile).textures.map((t) => [t.checksum, t]));
-    const chosen = orig.textures
+    const bySize = orig.textures
         .filter((t) => Math.max(t.width, t.height) >= min && hd.has(t.checksum))
-        .sort((p, q) => q.width * q.height - p.width * p.height || p.checksum - q.checksum)
-        .slice(0, count);
+        .sort((p, q) => q.width * q.height - p.width * p.height || p.checksum - q.checksum);
+    const chosen = perKind
+        ? (["opaque", "binary", "smooth"] as const).flatMap((kind) =>
+              bySize.filter((t) => alphaKind(topLevel(t)) === kind).slice(0, perKind),
+          )
+        : bySize.slice(0, count);
     fs.mkdirSync(outDir, { recursive: true });
     const rows: Image[] = [];
     for (const t of chosen) {
         const u = hd.get(t.checksum)!;
         fs.writeFileSync(path.join(outDir, `${hex8(t.checksum)}.png`), encodePng(pair(t, u)));
-        rows.push(pair(t, u, 256));
+        rows.push(pair(t, u, height));
+        if (perKind) {
+            const a = topLevel(t);
+            const b = topLevel(u);
+            let colour = 0;
+            let alpha = 0;
+            let seen = 0;
+            for (let i = 0; i < a.length; i += 4) {
+                alpha += Math.abs(a[i + 3]! - b[i + 3]!);
+                if (a[i + 3]! < 8) continue; // (the colour under a transparent texel isn't seen)
+                seen += 1;
+                for (let k = 0; k < 3; k++) colour += Math.abs(a[i + k]! - b[i + k]!);
+            }
+            print(
+                `${hex8(t.checksum)} ${t.width}x${t.height} ${alphaKind(a)}: DXT ${t.dxt} -> ${u.dxt}, mean error ` +
+                    `(visible texels) colour ${(colour / (3 * Math.max(1, seen))).toFixed(2)}, ` +
+                    `alpha ${(alpha / (a.length / 4)).toFixed(2)}`,
+            );
+        }
     }
     if (rows.length) fs.writeFileSync(path.join(outDir, "sheet.png"), encodePng(stack(rows)));
     print(`${chosen.length} textures compared in ${outDir}`);

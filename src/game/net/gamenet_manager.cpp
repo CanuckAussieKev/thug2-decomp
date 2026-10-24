@@ -27,6 +27,7 @@ constexpr const char* kPortedLevelLists[] = {
     "level_select_menu_thps4_level_info",
     "level_select_menu_thps3_level_info",
     "level_select_menu_thaw_level_info",
+    "level_select_menu_misc_level_info", // (the skate shops, tutorials, test levels: tools/menu_level MISCELLANEOUS)
 };
 
 // The entry of `levels` whose level is `level` (null if none). An entry without one keeps `entryLevel` from

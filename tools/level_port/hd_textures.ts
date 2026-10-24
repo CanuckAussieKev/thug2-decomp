@@ -17,7 +17,9 @@
 //   model sees the neighbours a tiled texture has in the game, so tiling shows no seams;
 // - the model always scales by 4 (realesrgan-x4plus / -anime are 4x models); scale 2 is the 4x result 2 x 2
 //   averaged;
-// - written back in the format it came in (32-bit stays 32-bit, DXT1 / DXT5 re-encoded) with a full mip chain: as many
+// - written back in the format it came in (DXT1 / DXT5 re-encoded) with a full mip chain; a 32-bit texture is made
+//   DXT1 (opaque), DXT1 with 1-bit alpha (cut-out) or DXT5 (soft alpha) unless --hd-no-compress (compressFormat; the
+//   cache holds the 32-bit texels, so it is not part of the cache key); as many
 //   levels as before plus the ones the larger size adds (a texture written with one level keeps one).
 //
 // Results are cached by the source texture's hash and every setting that changes the output (model, the scale used,
@@ -58,6 +60,7 @@ export interface HdOptions {
     cacheDir: string;
     gpu: string | null; // realesrgan's -g (null: its own choice)
     match: boolean; // pulled back to the original's colours and contrast (matchOriginal; --hd-no-match: the model's own)
+    compress: boolean; // upscaled 32-bit textures written as DXT1 / DXT5 (--hd-no-compress: 32-bit as they were)
 }
 
 export function defaultOptions(scale = 4): HdOptions {
@@ -70,7 +73,60 @@ export function defaultOptions(scale = 4): HdOptions {
         cacheDir: defaultCacheDir(),
         gpu: null,
         match: true,
+        compress: true,
     };
+}
+
+// The --hd-* command-line options as HdOptions, for the converters that use parseCli (THPS2): `textures` is the
+// --hd-textures value ("2" / "4"; undefined: the pass is off, null is returned). `fail` reports a bad value and exits.
+export interface HdCliValues {
+    textures?: string | undefined;
+    model?: string | undefined;
+    max?: string | undefined;
+    min?: string | undefined;
+    cache?: string | undefined;
+    tool?: string | undefined;
+    gpu?: string | undefined;
+    noMatch?: boolean | undefined;
+    noCompress?: boolean | undefined;
+}
+
+export function optionsFromCli(v: HdCliValues, fail: (message: string) => never): HdOptions | null {
+    if (v.textures === undefined) return null;
+    if (v.textures !== "2" && v.textures !== "4")
+        fail(`argument --hd-textures: invalid choice: '${v.textures}' (choose from 2, 4)`);
+    const hd = defaultOptions(Number(v.textures));
+    if (v.model !== undefined) {
+        if (!(MODELS as readonly string[]).includes(v.model))
+            fail(`argument --hd-model: invalid choice: '${v.model}' (choose from ${MODELS.join(", ")})`);
+        hd.model = v.model;
+    }
+    for (const [name, text, key] of [
+        ["--hd-max", v.max, "maxSize"],
+        ["--hd-min", v.min, "minSize"],
+    ] as const) {
+        if (text === undefined) continue;
+        const n = Number(text);
+        if (!Number.isInteger(n) || n < 1) fail(`argument ${name}: invalid int value: '${text}'`);
+        hd[key] = n;
+    }
+    if (v.cache !== undefined) hd.cacheDir = path.resolve(v.cache);
+    if (v.tool !== undefined) hd.tool = path.resolve(v.tool);
+    if (v.gpu !== undefined) hd.gpu = v.gpu;
+    hd.match = !v.noMatch;
+    hd.compress = !v.noCompress;
+    return hd;
+}
+
+// `--hd-textures` takes an optional 2 / 4 (default 4): parseArgs wants a value, so a bare one gets "4" inserted.
+export function fillHdTexturesArg(argv: readonly string[]): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i]!;
+        out.push(a);
+        if (a === "--hd-textures" && !(i + 1 < argv.length && /^\d+$/.test(argv[i + 1]!))) out.push("4");
+    }
+    return out;
 }
 
 export interface HdStats {
@@ -78,6 +134,7 @@ export interface HdStats {
     upscaled: number;
     cacheHits: number;
     generated: number;
+    compressed: number; // upscaled textures written as DXT
     skipped: Map<string, number>;
     bytesBefore: number;
     bytesAfter: number;
@@ -91,6 +148,7 @@ export function newStats(): HdStats {
         upscaled: 0,
         cacheHits: 0,
         generated: 0,
+        compressed: 0,
         skipped: new Map(),
         bytesBefore: 0,
         bytesAfter: 0,
@@ -469,8 +527,20 @@ export function jobResult(
     return out;
 }
 
-// The texture rewritten at its new size: format kept, mip chain regenerated.
-export function rebuild(t: Texture, bgra: Buffer, scale: number): void {
+// The DXT format an upscaled 32-bit texture is written in: 1 (opaque), 2 (DXT1 with 1-bit alpha: a cut-out - the
+// game's loader makes both D3DFMT_DXT1 and the alpha test still sees the 0 / 255 alpha), 5 (soft alpha). 0: stays
+// 32-bit - not asked for, not 32-bit before, or a side that isn't a multiple of 4 (a DXT texture's blocks).
+// The compression comes after the cache: the cache holds the 32-bit result, so --hd-no-compress and the default share
+// its entries and a better encoder never needs the cache rebuilt (the format is chosen from the cached texels).
+export function compressFormat(t: Texture, kind: AlphaKind, options: HdOptions, scale: number): number {
+    if (!options.compress || t.dxt !== 0) return 0;
+    if ((t.width * scale) % 4 || (t.height * scale) % 4) return 0;
+    return kind === "opaque" ? 1 : kind === "binary" ? 2 : 5;
+}
+
+// The texture rewritten at its new size: format kept (or `format`: a 32-bit one made DXT), mip chain regenerated.
+export function rebuild(t: Texture, bgra: Buffer, scale: number, format = 0): void {
+    if (format) t.dxt = format;
     const w = t.width * scale;
     const h = t.height * scale;
     const count =
@@ -577,7 +647,9 @@ export function upscaleTexFile(
             const original = job.kind === "opaque" ? job.bgra : fillHidden(job.bgra, w, h, job.wrapU, job.wrapV);
             bgra = matchOriginal(bgra, original, w, h, job.scale, job.wrapU, job.wrapV, job.kind === "smooth");
         }
-        rebuild(job.texture, bgra, job.scale);
+        const format = compressFormat(job.texture, job.kind, options, job.scale);
+        rebuild(job.texture, bgra, job.scale, format);
+        if (format) stats.compressed += 1;
         stats.upscaled += 1;
     }
     stats.bytesAfter += texBytes(tex);
@@ -623,7 +695,7 @@ export function report(stats: HdStats, options: HdOptions): string[] {
     const skipped = [...stats.skipped].map(([why, n]) => `${n} ${why}`).join(", ");
     return [
         `HD textures (${options.model}, x${options.scale}, cap ${options.maxSize}): ${stats.upscaled} of ${stats.textures} upscaled ` +
-            `(${stats.cacheHits} from the cache, ${stats.generated} made)${skipped ? `; left as they were: ${skipped}` : ""}`,
+            `(${stats.cacheHits} from the cache, ${stats.generated} made, ${stats.compressed} DXT-compressed)${skipped ? `; left as they were: ${skipped}` : ""}`,
         `  texture data ${mb(stats.bytesBefore)} MB -> ${mb(stats.bytesAfter)} MB; ${stats.seconds.toFixed(1)} s ` +
             `(upscaler ${stats.toolSeconds.toFixed(1)} s); cache ${options.cacheDir}`,
     ];

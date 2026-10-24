@@ -6,7 +6,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
+import type { Image as hdImage } from "../game/frame_diff.ts";
 import type { SourceColObject } from "../level_port/geometry.ts";
+import * as hdTextures from "../level_port/hd_textures.ts";
 import { checksum as qbChecksum } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import { Pkr, readPkrDirectory, writePkr } from "./pkr.ts";
@@ -820,4 +822,128 @@ test("trisToStrip: the joins draw nothing - every triangle but the given ones ha
     }
     // (a stray (last, a, b) at every other join: what the strips had until 2026-10-22)
     assert.deepEqual(drawn, tris);
+});
+
+// --- --hd-textures (the AI upscaling pass, tools/level_port/hd_textures.ts) -----------------------------------------
+
+// A stand-in for the model: nearest-neighbour x4 of each image; `seen` keeps what it was given.
+function fakeModel(seen: Map<string, hdImage>): hdTextures.Upscaler {
+    return (images) => {
+        const out = new Map<string, hdImage>();
+        for (const [name, img] of images) {
+            seen.set(name, img);
+            const w = img.width * 4;
+            const h = img.height * 4;
+            const rgb = new Uint8Array(w * h * 3);
+            for (let y = 0; y < h; y++)
+                for (let x = 0; x < w; x++)
+                    for (let k = 0; k < 3; k++)
+                        rgb[(y * w + x) * 3 + k] = img.rgb[((y >> 2) * img.width + (x >> 2)) * 3 + k]!;
+            out.set(name, { width: w, height: h, rgb });
+        }
+        return out;
+    };
+}
+
+function hdWorld(tiles: boolean) {
+    const psx = thps2.readPsx(worldPsx(), "test");
+    if (tiles) psx.models[0]!.faces[0]!.uvs = psx.models[0]!.faces[0]!.uvs.map((u) => u + 200);
+    const t = psx.textures[0]!; // 4 x 2
+    // a PC newtex-style bitmap of the same size: red grows to the right (the alpha is the PlayStation texture's)
+    const rgb = Buffer.alloc(t.width * t.height * 3);
+    for (let i = 0; i < t.width * t.height; i++) rgb.set([40 + 60 * (i % t.width), 90, 30], i * 3);
+    const textures: conv.LevelTextures = {
+        byName: new Map(psx.textures.map((x) => [psx.textureNames[x.index]!, x])),
+        bmps: new Map([[0x11111111, { width: t.width, height: t.height, rgb }]]),
+    };
+    return { psx, textures };
+}
+
+function hdPass(cache: string, seen: Map<string, hdImage>): conv.HdPass {
+    const options = hdTextures.defaultOptions(4);
+    options.cacheDir = cache;
+    options.minSize = 1;
+    options.compress = false; // (these tests read the 32-bit texels)
+    return { options, stats: hdTextures.newStats(), upscaler: fakeModel(seen) };
+}
+
+test("convertWorld with the HD pass: textures x4, a repeated one padded with its other edge, else its own edge", () => {
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "thps2-hd-"));
+    try {
+        const plain = hdWorld(false);
+        const base = conv.convertWorld(plain.psx, "thps2_test", plain.textures, false);
+        assert.equal(base.textures.textures[0]!.width, 4); // (off: untouched)
+        const seenClamp = new Map<string, hdImage>();
+        const clamped = hdWorld(false);
+        const done = conv.convertWorld(
+            clamped.psx,
+            "thps2_test",
+            clamped.textures,
+            false,
+            new Map(),
+            new Map(),
+            Number.POSITIVE_INFINITY,
+            hdPass(cache, seenClamp),
+        );
+        const t = done.textures.textures[0]!;
+        assert.equal(t.width, 16);
+        assert.equal(t.height, 8);
+        assert.equal(t.levels[0]!.length, 16 * 8 * 4);
+        const seenWrap = new Map<string, hdImage>();
+        const wrapped = hdWorld(true);
+        const pass = hdPass(cache, seenWrap);
+        conv.convertWorld(
+            wrapped.psx,
+            "thps2_test",
+            wrapped.textures,
+            false,
+            new Map(),
+            new Map(),
+            Number.POSITIVE_INFINITY,
+            pass,
+        );
+        assert.equal(pass.stats.upscaled, 1);
+        // the colour input: 16 texels of padding round the 4 x 2 texture; its row 1, the column left of the texture
+        const left = (seen: Map<string, hdImage>): number[] => {
+            const img = [...seen.values()][0]!;
+            assert.equal(img.width, 4 + 32);
+            const o = (16 + 1) * img.width * 3 + 15 * 3;
+            return [...img.rgb.subarray(o, o + 3)];
+        };
+        assert.deepEqual(left(seenWrap), [40 + 60 * 3, 90, 30]); // wrapped: the right edge's texel
+        assert.notDeepEqual(left(seenClamp), left(seenWrap)); // clamped: the left edge's (hidden, filled in)
+    } finally {
+        fs.rmSync(cache, { recursive: true, force: true });
+    }
+});
+
+test("parseCommandLine: --hd-textures is optional-valued and off by default", () => {
+    const base = ["convert", "hang"];
+    assert.equal(conv.parseCommandLine(base).hd, null);
+    assert.equal(conv.parseCommandLine([...base, "--hd-textures"]).hd!.scale, 4);
+    assert.equal(conv.parseCommandLine(["--hd-textures", ...base]).hd!.scale, 4);
+    assert.deepEqual(conv.parseCommandLine(["convert", "--hd-textures", "2", "hang"]).levels, ["hang"]);
+    const hd = conv.parseCommandLine([
+        ...base,
+        "--hd-textures=2",
+        "--hd-model",
+        "realesrgan-x4plus-anime",
+        "--hd-max",
+        "512",
+        "--hd-min",
+        "8",
+        "--hd-no-match",
+        "--hd-no-compress",
+        "--hd-gpu",
+        "1",
+    ]).hd!;
+    assert.equal(hd.scale, 2);
+    assert.equal(hd.model, "realesrgan-x4plus-anime");
+    assert.equal(hd.maxSize, 512);
+    assert.equal(hd.minSize, 8);
+    assert.equal(hd.match, false);
+    assert.equal(hd.compress, false);
+    assert.equal(conv.parseCommandLine(["convert", "--hd-textures", "hang"]).hd!.compress, true);
+    assert.equal(hd.gpu, "1");
+    assert.equal(conv.parseCommandLine([...base, "--hd-cache-clear"]).hdCacheClear, true);
 });

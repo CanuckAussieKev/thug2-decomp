@@ -89,3 +89,10 @@ Files: every image and font in mainmenusprites / panelsprites / Levelselect / mu
 and the overlay's own level select signs. Not: the loading screens, Create-A-Graphic pieces, PermTex / Bits, level
 textures (`.tex.xbx`, also the front end's THPS4 skate shop). `node tools/hd_textures/ui.ts <game> <out> [--scale N]`
 writes them anywhere. Measurements and what was seen: docs/pending/hd-ui.md.
+
+## DXT compression
+
+Upscaled textures that were 32-bit are written as DXT1 (opaque), DXT1 with 1-bit alpha (cut-out) or DXT5 (soft alpha)
+with full mips - about 1/8 (DXT1) or 1/4 (DXT5) of the 32-bit size - unless `--hd-no-compress`. THPS2 at x4: 1.37 GB
+-> 171 MB; THPS3 1.56 GB -> 241 MB; mean error against the 32-bit x4 about 1-4 of 255. Never applied to the HD menu UI.
+`node tools/hd_textures/compare_tex.ts a.tex.xbx b.tex.xbx <out> --per-kind 3` compares two builds per alpha kind.
