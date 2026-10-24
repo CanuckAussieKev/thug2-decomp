@@ -34,6 +34,7 @@ import { applyNodeFlags, nodeFlagScript } from "../thaw_levels/thaw_levels.ts";
 import * as thawScripts from "../thaw_levels/thaw_scripts.ts";
 import { makeMaterial, THUG2_TERRAIN_TYPES, trisToStrip } from "../thps2_levels/thps2_levels.ts";
 import * as dxt from "./dxt.ts";
+import * as edges from "./edges.ts";
 import * as geom from "./geom.ts";
 import * as havok from "./havok.ts";
 import * as mats from "./materials.ts";
@@ -2678,6 +2679,7 @@ interface Shared {
     techniques: Map<number, string[]>;
     port: ScriptPort;
     zoneScripts: ZoneScripts;
+    zoneBodies: edges.ZoneBodies;
     globalProps: Map<number, PropModel>;
     sky: string | null;
     report: string[];
@@ -2817,7 +2819,12 @@ export function surfaceTri(p: [Vec3, Vec3, Vec3]): SurfaceTri | null {
     const len = Math.hypot(c[0]!, c[1]!, c[2]!);
     if (len < 1e-9) return null;
     const n: Vec3 = [c[0]! / len, c[1]! / len, c[2]! / len];
-    return { p, n, d: n[0] * p[0][0] + n[1] * p[0][1] + n[2] * p[0][2], area: len / 2 };
+    return {
+        p,
+        n,
+        d: n[0] * p[0][0] + n[1] * p[0][1] + n[2] * p[0][2],
+        area: len / 2,
+    };
 }
 
 interface SurfaceEntry {
@@ -3029,7 +3036,10 @@ const SOFT_SHARE = 0.25; // of a texture's texels with a partial alpha: soft (gl
 
 // A texture's alpha: the share of texels (every 3rd one each way) that are clear (alpha < 32) and partial (32-223).
 const alphaStats = new WeakMap<xenos.XenosTexture, { clear: number; partial: number }>();
-export function textureAlpha(t: xenos.XenosTexture): { clear: number; partial: number } {
+export function textureAlpha(t: xenos.XenosTexture): {
+    clear: number;
+    partial: number;
+} {
     let stats = alphaStats.get(t);
     if (stats === undefined) {
         stats = { clear: 0, partial: 0 };
@@ -3305,6 +3315,30 @@ export function horizontalReach(bodies: readonly havok.HkBody[], shift: readonly
 
 // One level: its zones' scenes, collision and node arrays as one, in THP8's shared frame moved so the middle of the
 // collision is at the origin. Returns its manifest entry, or null (skipped).
+// The city's zones that aren't in a level but have collision where its skater can roll to (edges.ts): their bodies and
+// the cells of the ground reached (none for a level without barriers).
+function borderZones(
+    spec: LevelSpec,
+    barriers: readonly ZoneData[],
+    own: readonly (readonly havok.HkBody[])[],
+    ctx: Shared,
+    warnings: string[],
+): { zone: string; all: havok.HkBody[]; cells: Set<number> }[] {
+    if (!barriers.length) return [];
+    const others = ZONES.filter((z) => !z.standalone && !spec.zones.includes(z.zone)).map((z) => ({
+        zone: z.zone,
+        all: ctx.zoneBodies.of(z.zone, warnings),
+    }));
+    const seeds = edges.groundCells(own);
+    const ground = edges.groundCells(
+        others.map((x) => x.all),
+        edges.groundCells(own),
+    );
+    const walls = edges.wallCells(barriers.flatMap((b) => b.bodies));
+    const cells = edges.withRoom(edges.reached(ground, seeds, walls, edges.barrierReach(seeds, walls)));
+    return others.map((x) => ({ ...x, cells }));
+}
+
 function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | null {
     const { names, report } = ctx;
     const warnings: string[] = [];
@@ -3503,7 +3537,17 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     );
     // collision: each zone's bodies (but the invisible walls at its seams with the level's other zones: seamWalls),
     // its props' boxes (in their own space), the barriers
-    const seams = seamWalls(parts.map((p) => p.data.bodies));
+    // (the network barrier stands beyond the level's own zones: the city's other zones' collision inside it is the
+    // level's too - THP8's skater rides on over it - but not their seam walls: edges.ts)
+    const border = borderZones(
+        spec,
+        barriers,
+        parts.map((p) => p.data.bodies),
+        ctx,
+        warnings,
+    );
+    const seamed = seamWalls([...parts.map((p) => p.data.bodies), ...border.map((x) => x.all)]);
+    const seams = seamed.slice(0, parts.length);
     const sets: Parameters<typeof convertCollision>[0][number][] = [];
     parts.forEach((p, k) => {
         const g = p.data.geom!;
@@ -3532,6 +3576,25 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
             `  ${seamCount} invisible walls at the seams between its zones left out (${parts.map((p, k) => `${p.zone} ${seams[k]!.size}`).join(", ")})`,
         );
     }
+    border.forEach((x, k) => {
+        const drop = seamed[parts.length + k]!;
+        const kept = edges.inCells(
+            x.all.filter((_, i) => !drop.has(i)),
+            x.cells,
+        );
+        if (!kept.length) return;
+        sets.push({
+            bodies: kept,
+            sectors: [],
+            hidden: new Set(),
+            local: new Set(),
+            volumes: [],
+        });
+        report.push(
+            `  ${kept.reduce((n, b) => n + b.triangles.length, 0)} collision triangles of ${x.zone} where the skater rolls to inside the barrier added ` +
+                `(${drop.size} of its seam walls left out)`,
+        );
+    });
     // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
     for (const b of barriers) {
         sets.push({
@@ -3707,6 +3770,7 @@ export function cmdConvert(args: Args): number {
         techniques: library ? mats.readTechniques(thp8.unpack(library)) : new Map<number, string[]>(),
         port: makeScriptPort(args.thug2, compressed, names),
         zoneScripts: new ZoneScripts(compressed, names),
+        zoneBodies: new edges.ZoneBodies((zone) => zonePak(compressed, zone)),
         globalProps: globalPak ? propModels(thp8.openPak(globalPak)) : new Map<number, PropModel>(),
         sky: convertSky(compressed, out, report, !args.noMips, args.leaveOut, names),
         report,
