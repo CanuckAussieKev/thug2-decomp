@@ -500,3 +500,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   collision_event_screenshots=1 log `collision-event:` lines (reason, face, probes); tools/game/collision_events.ts
   groups them (--col names the converter object). User's 14:50 road spot: a 40 m x 4 m hole in BEAVER VALLEY's road
   collision (uber frig 0x004F8420 flips the velocity) - THP8 round 5 fixing it. Asked the user about an on-screen notice.
+- GS4 merged (813 early self-tests, 0 MISMATCHED), folded as 384-390: the whole "Game script commands" range done;
+  progress 73.16%. THP8 levels 5 merged: the suburb road's collision piece restored (named after a story-only trigger
+  node and dropped with it), narrow slits floored, a drawn-ground-without-collision audit per level. Installed
+  (DLL + THP8 + overlay). Follow-up: GS2's WrapAngle returns float where the original kept x87 precision.
