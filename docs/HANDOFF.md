@@ -488,3 +488,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   gaps floored, invisible trigger faces non-collidable (road wedges, the 12:42 spot), fill collision split under the
   2,048-face line-test buffer. Confirmed by one workspace trace run (roof + road); the other 220 shells offline only.
 - Running: loading console ([features] loading_console, docs/pending/loading-console.md, workspace THUG2-3 shared).
+- Loading console merged + installed (2026-10-24; DLL only): [features] loading_console=1 (default), bottom-left panel
+  on the loading screen (files, load scripts / commands, log lines; "last activity", orange after 10 s idle); the
+  loading screen's 29 ms timer callback 0x004B6FF0 rewritten (src/game/gfx/loading_bar.cpp). Checks: 773 early
+  self-tests, 0 MISMATCHED. Orange idle state and BEAVER VALLEY not seen in the game yet.
