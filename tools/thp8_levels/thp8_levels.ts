@@ -33,6 +33,7 @@ import * as thaw from "../thaw_levels/thaw.ts";
 import { applyNodeFlags, nodeFlagScript } from "../thaw_levels/thaw_levels.ts";
 import * as thawScripts from "../thaw_levels/thaw_scripts.ts";
 import { makeMaterial, THUG2_TERRAIN_TYPES, trisToStrip } from "../thps2_levels/thps2_levels.ts";
+import * as dxt from "./dxt.ts";
 import * as geom from "./geom.ts";
 import * as havok from "./havok.ts";
 import * as mats from "./materials.ts";
@@ -452,6 +453,8 @@ export interface SceneParts {
     placed: Map<number, { master: number; at: Placement }>;
     hidden?: ReadonlySet<number>; // sectors not made (notMade)
     hiddenMeshes?: ReadonlySet<geom.GeomMesh>; // meshes not drawn (repeatedSurfaces): a surface another mesh draws
+    hiddenTriangles?: ReadonlyMap<geom.GeomMesh, ReadonlySet<number>>; // triangles of meshes not drawn (repeatedSurfaces)
+    oneSided?: ReadonlySet<geom.GeomMesh>; // meshes drawn with a one-sided copy of their material (oneSidedMeshes)
     dome?: boolean; // untextured materials coloured as a clear sky (THP8's atmosphere shader - the sky's dome)
     additive?: ReadonlySet<number>; // materials drawn adding (glowMaterials)
     lighting?: mats.Lighting; // THP8's light maps baked into the vertex colours (materials.ts)
@@ -758,6 +761,20 @@ export function convertScenes(
             }
             materials.set(id, mat);
         }
+        const oneSidedCopy = (id: number): number => {
+            const copy = checksum(`thp8_onesided_${thp8.hex(id)}`);
+            if (!materials.has(copy)) {
+                const mat = structuredClone(materials.get(id)!);
+                mat.checksum = copy;
+                mat.nameChecksum = copy;
+                mat.noBackfaceCulling = 0;
+                materials.set(copy, mat);
+                const plan = plans.get(id);
+                if (plan) plans.set(copy, plan);
+                if (transparent.has(id)) transparent.add(copy);
+            }
+            return copy;
+        };
         const bySector = new Map(g.sectors.map((s) => [s.checksum, s]));
         const templateOf = new Map(g.materials.map((m) => [m.checksum, m.template]));
         const masters = new Set([...part.placed.values()].map((p) => p.master));
@@ -771,7 +788,7 @@ export function convertScenes(
             const sets = Math.max(1, ...s.meshes.map((m) => plans.get(matOf(m.material))?.slots.length ?? 1));
             for (const m of s.meshes) {
                 if (part.hiddenMeshes?.has(m)) continue;
-                const id = matOf(m.material);
+                let id = matOf(m.material);
                 if (!materials.has(id)) {
                     counts.skipped++;
                     continue;
@@ -782,6 +799,9 @@ export function convertScenes(
                     counts.billboards++;
                     continue;
                 }
+                // (a mesh lying back to back with another: a copy of its material that culls the back - the mesh
+                // alone, the material's other meshes stay two-sided; oneSidedMeshes)
+                if (part.oneSided?.has(m)) id = oneSidedCopy(id);
                 const base = positions.length;
                 const blend = transparent.has(id);
                 const glow = glows.get(id);
@@ -789,6 +809,8 @@ export function convertScenes(
                 const plan = plans.get(id);
                 const verts = geom.readVertices(m);
                 let meshTris = geom.triangles(m);
+                const gone = part.hiddenTriangles?.get(m);
+                if (gone) meshTris = meshTris.filter((_t, k) => !gone.has(k));
                 if (part.keepTriangle) {
                     const keep = part.keepTriangle;
                     const before = meshTris.length;
@@ -2648,6 +2670,8 @@ interface ZonePart {
     placed: Map<number, { master: number; at: Placement }>;
     hidden: Set<number>;
     hiddenMeshes: Set<geom.GeomMesh>; // meshes drawing a surface another does (repeatedSurfaces): not drawn
+    hiddenTriangles: Map<geom.GeomMesh, Set<number>>; // triangles drawing a surface another mesh draws (repeatedSurfaces)
+    oneSided: Set<geom.GeomMesh>; // meshes lying back to back with another (oneSidedMeshes): their material culls the back
     duplicate: Set<number>; // sectors drawn by an earlier zone under its prefix (zoneDuplicates): not drawn, collision kept
     local: Set<number>;
     made: Map<number, number>; // props: node -> type
@@ -2686,6 +2710,8 @@ function readPart(zone: string, ctx: Shared, warnings: string[]): ZonePart | nul
         placed,
         hidden,
         hiddenMeshes: new Set(),
+        hiddenTriangles: new Map(),
+        oneSided: new Set(),
         duplicate: new Set(),
         local,
         made,
@@ -2772,17 +2798,29 @@ export function surfaceTri(p: [Vec3, Vec3, Vec3]): SurfaceTri | null {
     return { p, n, d: n[0] * p[0][0] + n[1] * p[0][1] + n[2] * p[0][2], area: len / 2 };
 }
 
+interface SurfaceEntry {
+    t: SurfaceTri;
+    tag: boolean;
+    owner?: unknown;
+}
+export interface CoverOptions {
+    opposite?: boolean;
+    plane?: number;
+    exclude?: unknown;
+}
+
 // Triangles drawn so far, looked up by place: which of a triangle's sample points lie on (in the plane of, and inside)
 // one of them.
 export class SurfaceIndex {
     // (grids of 4, 64 and 1024 m cells: a triangle goes in the finest where it touches few cells - a backdrop
     // kilometres across in the coarsest)
     private static readonly SIZES = [REPEAT_CELL, 64, 1024];
-    private readonly grids = SurfaceIndex.SIZES.map(() => new Map<string, { t: SurfaceTri; tag: boolean }[]>());
-    private readonly large: { t: SurfaceTri; tag: boolean }[] = [];
+    private readonly grids = SurfaceIndex.SIZES.map(() => new Map<string, SurfaceEntry[]>());
+    private readonly large: SurfaceEntry[] = [];
 
-    // `tag`: marks the triangle (a floater's) for `covered`.
-    add(t: SurfaceTri, tag = false): void {
+    // `tag`: marks the triangle (a floater's) for `covered`. `owner`: whose it is (oneSidedMeshes leaves a mesh's own
+    // triangles out of its partner search).
+    add(t: SurfaceTri, tag = false, owner?: unknown): void {
         const lo = [0, 1, 2].map((k) => Math.min(t.p[0][k]!, t.p[1][k]!, t.p[2][k]!));
         const hi = [0, 1, 2].map((k) => Math.max(t.p[0][k]!, t.p[1][k]!, t.p[2][k]!));
         for (const [level, size] of SurfaceIndex.SIZES.entries()) {
@@ -2794,17 +2832,20 @@ export class SurfaceIndex {
                     for (let z = c0[2]!; z <= c1[2]!; z++) {
                         const key = `${x},${y},${z}`;
                         const list = this.grids[level]!.get(key);
-                        if (list) list.push({ t, tag });
-                        else this.grids[level]!.set(key, [{ t, tag }]);
+                        if (list) list.push({ t, tag, owner });
+                        else this.grids[level]!.set(key, [{ t, tag, owner }]);
                     }
             return;
         }
-        this.large.push({ t, tag });
+        this.large.push({ t, tag, owner });
     }
 
     // null: q isn't on a triangle (facing the way of `n`; `either`: or the opposite); true: on a tagged one; false: on
     // another.
-    covered(q: readonly number[], n: readonly number[], either = false): boolean | null {
+    // `opts.opposite`: only triangles facing the other way; `plane`: how far off its plane q may lie (REPEAT_PLANE);
+    // `exclude`: triangles of this owner don't count.
+    covered(q: readonly number[], n: readonly number[], either = false, opts: CoverOptions = {}): boolean | null {
+        const plane = opts.plane ?? REPEAT_PLANE;
         const lists = SurfaceIndex.SIZES.map(
             (size, level) =>
                 this.grids[level]!.get(
@@ -2813,10 +2854,11 @@ export class SurfaceIndex {
         );
         lists.push(this.large);
         let by: boolean | null = null;
-        for (const { t, tag } of lists.flat()) {
+        for (const { t, tag, owner } of lists.flat()) {
+            if (opts.exclude !== undefined && owner === opts.exclude) continue;
             const dot = t.n[0] * n[0]! + t.n[1] * n[1]! + t.n[2] * n[2]!;
-            if (either ? Math.abs(dot) < 0.99 : dot < 0.99) continue;
-            if (Math.abs(t.n[0] * q[0]! + t.n[1] * q[1]! + t.n[2] * q[2]! - t.d) > REPEAT_PLANE) continue;
+            if (opts.opposite ? dot > -0.99 : either ? Math.abs(dot) < 0.99 : dot < 0.99) continue;
+            if (Math.abs(t.n[0] * q[0]! + t.n[1] * q[1]! + t.n[2] * q[2]! - t.d) > plane) continue;
             const [a, b, c] = t.p;
             // (inside, by the barycentric weights, a little over the edges)
             const v0 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
@@ -2841,7 +2883,7 @@ export class SurfaceIndex {
 
     // The area of the triangles `tris` lying on drawn ones (sampled at 7 points each) and whether all of it is on
     // tagged ones.
-    coverage(tris: readonly SurfaceTri[], either = false): { area: number; tagged: boolean } {
+    coverage(tris: readonly SurfaceTri[], either = false, opts: CoverOptions = {}): { area: number; tagged: boolean } {
         let area = 0;
         let tagged = true;
         for (const t of tris) {
@@ -2849,7 +2891,7 @@ export class SurfaceIndex {
             let hit = 0;
             for (const [wa, wb, wc] of REPEAT_SAMPLES) {
                 const q = [0, 1, 2].map((k) => wa * a[k]! + wb * b[k]! + wc * c[k]!);
-                const by = this.covered(q, t.n, either);
+                const by = this.covered(q, t.n, either, opts);
                 if (by !== null) {
                     hit++;
                     if (!by) tagged = false;
@@ -2864,14 +2906,26 @@ export class SurfaceIndex {
 export function repeatedSurfaces(
     zones: readonly { geom: geom.Geom; skip: ReadonlySet<number> }[],
     names: ReadonlyMap<number, string>,
-): { hide: Set<geom.GeomMesh>[]; meshes: number; floaters: number } {
+    // what makes two meshes "the same surface": the material (default), or e.g. the converted pass-0 texture
+    keyOf: (zone: number, mesh: geom.GeomMesh) => string | number = (_zone, mesh) => mesh.material,
+): {
+    hide: Set<geom.GeomMesh>[];
+    // triangles (indices into geom.triangles(mesh)) of meshes drawn otherwise: the parts another mesh draws
+    hideTriangles: Map<geom.GeomMesh, Set<number>>[];
+    meshes: number;
+    floaters: number;
+    triangles: number;
+} {
     const hide = zones.map(() => new Set<geom.GeomMesh>());
+    const hideTriangles = zones.map(() => new Map<geom.GeomMesh, Set<number>>());
     const isFloater = (n: string): boolean => /^z_[a-z0-9]+?_f_/i.test(n);
     interface Candidate {
         zone: number;
         mesh: geom.GeomMesh;
         floater: boolean;
+        key: string | number;
         tris: SurfaceTri[];
+        ids: number[]; // each triangle's index in the mesh
         area: number;
     }
     const candidates: Candidate[] = [];
@@ -2882,16 +2936,23 @@ export function repeatedSurfaces(
             if (name.includes("__MASTERNODE_")) continue;
             for (const mesh of s.meshes) {
                 const verts = geom.readVertices(mesh);
-                const tris = geom
-                    .triangles(mesh)
-                    .map((t) => surfaceTri(t.map((i) => verts[i]!.position) as [Vec3, Vec3, Vec3]))
-                    .filter((t): t is SurfaceTri => t !== null);
+                const tris: SurfaceTri[] = [];
+                const ids: number[] = [];
+                geom.triangles(mesh).forEach((t, k) => {
+                    const st = surfaceTri(t.map((i) => verts[i]!.position) as [Vec3, Vec3, Vec3]);
+                    if (st !== null) {
+                        tris.push(st);
+                        ids.push(k);
+                    }
+                });
                 if (tris.length) {
                     candidates.push({
                         zone,
                         mesh,
                         floater: isFloater(name),
+                        key: keyOf(zone, mesh),
                         tris,
+                        ids,
                         area: tris.reduce((n, t) => n + t.area, 0),
                     });
                 }
@@ -2900,12 +2961,13 @@ export function repeatedSurfaces(
     });
     // (floaters first, then the larger; a stable sort keeps the zone and sector order within each)
     candidates.sort((a, b) => Number(b.floater) - Number(a.floater) || b.area - a.area);
-    const drawn = new Map<number, SurfaceIndex>(); // by material
+    const drawn = new Map<string | number, SurfaceIndex>(); // by key (the material)
     let meshes = 0;
     let floaters = 0;
+    let triangles = 0;
     for (const c of candidates) {
-        const index = drawn.get(c.mesh.material) ?? new SurfaceIndex();
-        drawn.set(c.mesh.material, index);
+        const index = drawn.get(c.key) ?? new SurfaceIndex();
+        drawn.set(c.key, index);
         const cover = index.coverage(c.tris);
         if (cover.area >= REPEAT_SHARE * c.area) {
             hide[c.zone]!.add(c.mesh);
@@ -2913,9 +2975,214 @@ export function repeatedSurfaces(
             if (!c.floater && cover.tagged) floaters++;
             continue;
         }
-        for (const t of c.tris) index.add(t, c.floater);
+        // (not as a whole: the triangles that lie wholly on earlier ones - two tessellations of one wall overlapping
+        // in part, the pirate shop's interior - go, the rest is drawn)
+        const gone = new Set<number>();
+        c.tris.forEach((t, k) => {
+            if (index.coverage([t]).area >= REPEAT_SHARE * t.area) gone.add(c.ids[k]!);
+            else index.add(t, c.floater);
+        });
+        if (gone.size) {
+            hideTriangles[c.zone]!.set(c.mesh, gone);
+            triangles += gone.size;
+        }
     }
-    return { hide, meshes, floaters };
+    return { hide, hideTriangles, meshes, floaters, triangles };
+}
+
+// --- back-to-back surfaces: one-sided copies of blended materials ------------------------------------------------------
+//
+// convertScenes draws every blended material two-sided (THP8's cull flag, in its shader technique, isn't decoded).
+// Where two surfaces lie back to back - the factory's paint shells (_inside / _outside, one wall seen from either
+// side), the capitol's roof pools over the decks under them - the two-sided one's back face fights the other's front.
+// The fix is per mesh and guarded: only a mesh most of whose area lies against an opposite-facing surface gets a
+// one-sided copy of its material; every other mesh of the material stays two-sided, and nothing cut-out or
+// foliage-like is ever touched (grass, leaves, fences are two-sided cards for good reason).
+
+export const FOLIAGE_NAME =
+    /(^|[^a-z])(leaf|leaves|tree|grass|bush|plant|ivy|hedge|foliage|vine|flower|shrub|palm|branch|weed|fern|cactus|bamboo)/i;
+export const BACK_TO_BACK_SHARE = 0.9; // of a mesh's area that lies against an opposite-facing surface
+export const BACK_TO_BACK_PLANE = 0.001; // metres (0.04 inch): the gap between the two faces
+const SOFT_SHARE = 0.25; // of a texture's texels with a partial alpha: soft (glass, haze), else binary (cut-out)
+
+// A texture's alpha: the share of texels (every 3rd one each way) that are clear (alpha < 32) and partial (32-223).
+const alphaStats = new WeakMap<xenos.XenosTexture, { clear: number; partial: number }>();
+export function textureAlpha(t: xenos.XenosTexture): { clear: number; partial: number } {
+    let stats = alphaStats.get(t);
+    if (stats === undefined) {
+        stats = { clear: 0, partial: 0 };
+        if (t.format === xenos.FMT_DXT1 && !dxt.hasAlpha1(xenos.baseLevel(t))) {
+            // (no alpha channel)
+        } else {
+            let d: mats.Decoded | null = null;
+            try {
+                d = mats.decode(t);
+            } catch {
+                // (data too short: no alpha known)
+            }
+            if (d) {
+                let clear = 0;
+                let partial = 0;
+                let n = 0;
+                for (let y = 0; y < d.height; y += 3) {
+                    for (let x = 0; x < d.width; x += 3) {
+                        const a = d.bgra[(y * d.width + x) * 4 + 3]!;
+                        if (a < 32) clear++;
+                        else if (a < 224) partial++;
+                        n++;
+                    }
+                }
+                stats = { clear: n ? clear / n : 0, partial: n ? partial / n : 0 };
+            }
+        }
+        alphaStats.set(t, stats);
+    }
+    return stats;
+}
+
+// What convertScenes makes of a material, in the terms of the two rules above.
+export interface MaterialFacts {
+    base: number | undefined; // pass 0's texture (baseTexture)
+    blended: boolean; // drawn blended (the base is DXT5, or DXT1 with alpha), not additive
+    cutout: boolean; // the base or a layer texture has binary alpha (alpha tested): leaves, grass, fences, wire
+    soft: boolean; // ... or partial alpha (glass, haze, paint)
+    foliage: string | null; // the name (material, texture) that looks like foliage
+}
+
+export function materialFacts(
+    g: geom.Geom,
+    textures: ReadonlyMap<number, xenos.XenosTexture>,
+    names: ReadonlyMap<number, string>,
+    additive?: ReadonlySet<number>,
+): Map<number, MaterialFacts> {
+    const maps = mats.lightMaps(g.materials);
+    const first = new Map<number, geom.GeomMesh>();
+    for (const s of g.sectors) for (const m of s.meshes) if (!first.has(m.material)) first.set(m.material, m);
+    const out = new Map<number, MaterialFacts>();
+    for (const m of g.materials) {
+        const used = first.get(m.checksum);
+        const add = additive?.has(m.checksum) ?? false;
+        const plan = add ? null : mats.planMaterial(m, textures, maps, used ? geom.uvSlots(used.layout).length : 0);
+        const base = baseTexture(m, plan, textures, maps);
+        const t = base === undefined ? undefined : textures.get(base);
+        const blended =
+            !add &&
+            t !== undefined &&
+            (t.format === xenos.FMT_DXT5 || (t.format === xenos.FMT_DXT1 && dxt.hasAlpha1(xenos.baseLevel(t))));
+        let cutout = false;
+        let soft = false;
+        for (const id of [base, ...(plan?.layers ?? []).flatMap((l) => [l.diffuse, l.mask])]) {
+            const x = id === undefined || id === null ? undefined : textures.get(id);
+            if (x === undefined || x.format === xenos.FMT_DXN) continue;
+            const a = textureAlpha(x);
+            if (a.partial >= SOFT_SHARE) soft = true;
+            else if (a.clear > 0.02) cutout = true;
+        }
+        let foliage: string | null = null;
+        for (const [c, label] of [
+            [m.checksum, "material"],
+            ...m.textures.map((x): [number, string] => [x, "texture"]),
+        ] as [number, string][]) {
+            const n = names.get(c);
+            if (n !== undefined && FOLIAGE_NAME.test(n)) {
+                foliage = `${label} ${n}`;
+                break;
+            }
+        }
+        out.set(m.checksum, { base, blended, cutout, soft, foliage });
+    }
+    return out;
+}
+
+export interface OneSidedMesh {
+    zone: number;
+    sector: number;
+    mesh: geom.GeomMesh;
+    material: number;
+    base: number | undefined;
+    area: number; // m2
+    share: number; // of it against the opposite-facing surface
+    review: string[]; // why it wants a look: soft alpha, vertex alpha, a foliage-like name
+}
+
+export function oneSidedMeshes(
+    zones: readonly {
+        geom: geom.Geom;
+        skip: ReadonlySet<number>;
+        hidden: ReadonlySet<geom.GeomMesh>;
+        facts: ReadonlyMap<number, MaterialFacts>;
+    }[],
+    names: ReadonlyMap<number, string>,
+): { sets: Set<geom.GeomMesh>[]; list: OneSidedMesh[] } {
+    const sets = zones.map(() => new Set<geom.GeomMesh>());
+    interface Item {
+        zone: number;
+        sector: geom.GeomSector;
+        mesh: geom.GeomMesh;
+        facts: MaterialFacts;
+        tris: SurfaceTri[];
+        area: number;
+        excluded: boolean;
+    }
+    const items: Item[] = [];
+    const index = new SurfaceIndex();
+    zones.forEach((z, zone) => {
+        for (const s of z.geom.sectors) {
+            if (z.skip.has(s.checksum)) continue;
+            const name = names.get(s.checksum) ?? "";
+            if (name.includes("__MASTERNODE_")) continue;
+            for (const mesh of s.meshes) {
+                if (z.hidden.has(mesh)) continue;
+                const facts = z.facts.get(mesh.material);
+                if (facts === undefined) continue;
+                const verts = geom.readVertices(mesh);
+                const tris = geom
+                    .triangles(mesh)
+                    .map((t) => surfaceTri(t.map((i) => verts[i]!.position) as [Vec3, Vec3, Vec3]))
+                    .filter((t): t is SurfaceTri => t !== null);
+                if (!tris.length) continue;
+                // (a cut-out or foliage-like surface is neither changed nor taken as a partner: its holes are
+                // somebody's else's business)
+                const excluded = facts.cutout || facts.foliage !== null || FOLIAGE_NAME.test(name);
+                const item: Item = {
+                    zone,
+                    sector: s,
+                    mesh,
+                    facts,
+                    tris,
+                    area: tris.reduce((n, t) => n + t.area, 0),
+                    excluded,
+                };
+                items.push(item);
+                if (!excluded) for (const t of tris) index.add(t, false, mesh);
+            }
+        }
+    });
+    const list: OneSidedMesh[] = [];
+    for (const it of items) {
+        if (it.excluded || !it.facts.blended) continue;
+        const cover = index.coverage(it.tris, false, {
+            opposite: true,
+            plane: BACK_TO_BACK_PLANE,
+            exclude: it.mesh,
+        });
+        if (cover.area < BACK_TO_BACK_SHARE * it.area) continue;
+        sets[it.zone]!.add(it.mesh);
+        const review: string[] = [];
+        if (it.facts.soft) review.push("soft alpha texture");
+        if (geom.readVertices(it.mesh).some((v) => (v.color[3] ?? 255) < 240)) review.push("vertex alpha below full");
+        list.push({
+            zone: it.zone,
+            sector: it.sector.checksum,
+            mesh: it.mesh,
+            material: it.mesh.material,
+            base: it.facts.base,
+            area: it.area,
+            share: cover.area / it.area,
+            review,
+        });
+    }
+    return { sets, list };
 }
 
 // The scene parts of a zone: the zone's own, then its props' models (each drawn under its node's name, in its own
@@ -2929,6 +3196,8 @@ function sceneParts(p: ZonePart, ctx: Shared): SceneParts[] {
             placed: p.placed,
             hidden: new Set([...p.hidden, ...p.duplicate]),
             hiddenMeshes: p.hiddenMeshes,
+            hiddenTriangles: p.hiddenTriangles,
+            oneSided: p.oneSided,
             additive: glowMaterials(g, ctx.names),
             lighting: zoneLighting(zoneTod(ctx.managers, p.zoneName)),
             techniques: ctx.techniques,
@@ -3043,17 +3312,34 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     // stands where the factory is, z_center_lod's LakeKill_02 is a lake plane reaching over the factory's floor: the
     // stand-ins' triangles over the level's own ground are left out, standInOutside)
     const lods: SceneParts[] = [];
+    const lodOneSided: OneSidedMesh[] = [];
     const ownGround = new GroundIndex(allBodies);
     if (spec.zones.some((z) => ZONES.some((x) => x.zone === z && !x.standalone))) {
         for (const info of ZONES.filter((x) => !x.standalone && !spec.zones.includes(x.zone))) {
             const file = zonePak(ctx.compressed, `${info.zone}_lod`);
             const lod = file ? readZone(file, names, warnings) : null;
             if (!lod?.geom) continue;
+            const placed = standInPlaced(lod.nqb, `${info.zone}_lod`);
+            const additive = glowMaterials(lod.geom, names);
+            // (a stand-in's blended meshes lying back to back too: the same rule as the zones')
+            const lodBack = oneSidedMeshes(
+                [
+                    {
+                        geom: lod.geom,
+                        skip: new Set([...placed.keys(), ...[...placed.values()].map((x) => x.master)]),
+                        hidden: new Set(),
+                        facts: materialFacts(lod.geom, lod.textures, names, additive),
+                    },
+                ],
+                names,
+            );
+            lodOneSided.push(...lodBack.list);
             lods.push({
                 geom: lod.geom,
                 textures: lod.textures,
-                placed: standInPlaced(lod.nqb, `${info.zone}_lod`),
-                additive: glowMaterials(lod.geom, names),
+                placed,
+                oneSided: lodBack.sets[0]!,
+                additive,
                 lighting: zoneLighting(zoneTod(ctx.managers, names.get(checksum(info.zone)) ?? info.zone)),
                 techniques: ctx.techniques,
                 keepTriangle: (corners, drawn) => standInOutside(corners, ownGround) && !standInOnDrawn(corners, drawn),
@@ -3077,10 +3363,9 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     for (const [k, p] of parts.entries()) p.duplicate = dup.duplicates[k]!;
     const dupCount = dup.duplicates.reduce((n, x) => n + x.size, 0);
     if (dupCount) report.push(`  ${dupCount} sectors a later zone repeats from an earlier one left out of the scene`);
-    const rep = repeatedSurfaces(
-        parts.map((p) => ({
-            geom: p.data.geom!,
-            skip: new Set([
+    const skips = parts.map(
+        (p) =>
+            new Set([
                 ...p.hidden,
                 ...p.duplicate,
                 ...p.local,
@@ -3088,15 +3373,63 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
                 ...p.placed.keys(),
                 ...[...p.placed.values()].map((x) => x.master),
             ]),
-        })),
-        names,
     );
-    for (const [k, p] of parts.entries()) p.hiddenMeshes = rep.hide[k]!;
+    const facts = parts.map((p) =>
+        materialFacts(p.data.geom!, p.data.textures, names, glowMaterials(p.data.geom!, names)),
+    );
+    // (the same surface: the same material, or - another material of the same converted pass-0 texture, drawn the
+    // same way, blended or not: the factory's elevator panels over their shaft, the park wall over its reflection)
+    const surfaceKey = (zone: number, mesh: geom.GeomMesh): string | number => {
+        const f = facts[zone]!.get(mesh.material);
+        return f?.base === undefined ? mesh.material : `${thp8.hex(f.base)}${f.blended ? "b" : "o"}`;
+    };
+    const rep = repeatedSurfaces(
+        parts.map((p, k) => ({ geom: p.data.geom!, skip: skips[k]! })),
+        names,
+        surfaceKey,
+    );
+    for (const [k, p] of parts.entries()) {
+        p.hiddenMeshes = rep.hide[k]!;
+        p.hiddenTriangles = rep.hideTriangles[k]!;
+    }
     if (rep.meshes) {
         report.push(
             `  ${rep.meshes} meshes drawing a surface another sector draws too (THP8's floaters F_ over their g_ twin, ` +
-                `VC_ / G_ twins: same material, same triangles) left out of the scene, ${rep.floaters} of them for a floater's`,
+                `VC_ / G_ twins: same texture, same triangles) left out of the scene, ${rep.floaters} of them for a floater's`,
         );
+    }
+    if (rep.triangles) {
+        report.push(
+            `  ${rep.triangles} triangles lying wholly on a surface of the same texture another mesh draws left out ` +
+                `(two tessellations of one wall overlapping in part)`,
+        );
+    }
+    // (blended meshes lying back to back with another surface: a one-sided copy of their material)
+    const back = oneSidedMeshes(
+        parts.map((p, k) => ({
+            geom: p.data.geom!,
+            skip: skips[k]!,
+            hidden: p.hiddenMeshes,
+            facts: facts[k]!,
+        })),
+        names,
+    );
+    for (const [k, p] of parts.entries()) p.oneSided = back.sets[k]!;
+    const oneSidedList = [...back.list, ...lodOneSided];
+    if (oneSidedList.length) {
+        const label = (c: number | undefined): string => (c === undefined ? "-" : (names.get(c) ?? thp8.hex(c)));
+        report.push(
+            `  ${oneSidedList.length} meshes lying back to back with an opposite-facing surface made one-sided ` +
+                `(their own copy of a blended material; ${oneSidedList.filter((x) => x.review.length).length} to review, ` +
+                `${lodOneSided.length} of them in stand-ins):`,
+        );
+        for (const x of oneSidedList) {
+            report.push(
+                `    one-sided: ${spec.level} ${label(x.sector)} material ${label(x.material)} base texture ` +
+                    `${label(x.base)} ${x.area.toFixed(1)} m2 (${Math.round(x.share * 100)}% against the other side)` +
+                    (x.review.length ? `  REVIEW: ${x.review.join(", ")}` : ""),
+            );
+        }
     }
     const scene = (options: mats.RefineOptions): ConvertedScene =>
         convertScenes(
@@ -3122,7 +3455,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     }
     // (THP8 draws its decals with a depth bias of its own, not decoded: the layers lying on other surfaces get a z bias
     // here, or they shimmer - level_port/overlay_bias.ts, as THPS3 / THPS4)
-    const biased = overlayBias.biasOverlays(done.scene);
+    const biased = overlayBias.biasOverlays(done.scene, true);
     if (biased) report.push(`  ${biased} layer materials given a z bias over the surfaces under them`);
     // nodes (the kill zones' trigger faces kept): the zones' arrays as one, a fresh copy (zoneNodes makes it THUG2's)
     const inLevel = new Set(spec.zones);

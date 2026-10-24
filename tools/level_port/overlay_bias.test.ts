@@ -165,3 +165,20 @@ test("THPS3's textures get mip levels down to a shorter side of 4, each 2 x 2 av
         1,
     );
 });
+
+test("lookAlikes (THP8): same-looking copies and surfaces covering each other alike get a bias too, one over the other", () => {
+    // (two copies of one surface overlapping in part: one goes over the other)
+    const copies = scene(
+        [material(1, thug2Scene.PASS_TEXTURED, 0, 9), material(2, thug2Scene.PASS_TEXTURED, 0, 9)],
+        [quad(1, 0, 0, 100, 100), quad(2, 40, 40, 160, 160)],
+    );
+    assert.equal(biasOverlays(copies, true), 1);
+    assert.equal(Math.max(...zBiases(copies)), 1);
+    // (other looks, neither clearly on top: still told apart)
+    const alike = scene([material(1), material(2)], [quad(1, 0, 0, 100, 100), quad(2, 40, 40, 160, 160)]);
+    assert.equal(biasOverlays(alike, true), 1);
+    assert.equal(Math.max(...zBiases(alike)), 1);
+    // (off by default)
+    const off = scene([material(1), material(2)], [quad(1, 0, 0, 100, 100), quad(2, 40, 40, 160, 160)]);
+    assert.equal(biasOverlays(off), 0);
+});

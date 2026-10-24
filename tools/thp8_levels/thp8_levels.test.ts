@@ -11,6 +11,7 @@ import * as geom from "./geom.ts";
 import * as havok from "./havok.ts";
 import { readPak, readToc, readTocList } from "./thp8.ts";
 import {
+    BACK_TO_BACK_SHARE,
     bouncyProps,
     boxTriangles,
     clipBelow,
@@ -18,6 +19,7 @@ import {
     convertCollision,
     emptyScript,
     endlessLoop,
+    FOLIAGE_NAME,
     faceFlags,
     GAP_MOST,
     GLOW_DEFAULT,
@@ -27,12 +29,14 @@ import {
     glowScale,
     horizontalReach,
     MAX_TRIANGLES,
+    type MaterialFacts,
     materialColour,
     materialKey,
     memberCalls,
     mergeNodeArrays,
     NET_LEVEL_NUM,
     netSpecs,
+    oneSidedMeshes,
     place,
     RETIRED,
     readNetworkAreas,
@@ -48,6 +52,7 @@ import {
     standInOutside,
     standInPlaced,
     surfaceTri,
+    textureAlpha,
     thug2Terrain,
     toThug,
     triggerVolumes,
@@ -1155,4 +1160,175 @@ test("stand-ins: a triangle lying on a triangle the level draws is left out, eit
         ),
         false,
     );
+});
+
+// A flat mesh at height z (corners x, y) as one strip; layout 0 = no uv fields, colour at 12, vertex alpha `alpha`.
+function flatMesh(material: number, z: number, corners: number[][], strip: number[], alpha = 255): geom.GeomMesh {
+    const vertices = Buffer.alloc(16 * corners.length);
+    corners.forEach(([x, y], i) => {
+        vertices.writeFloatBE(x!, 16 * i);
+        vertices.writeFloatBE(y!, 16 * i + 4);
+        vertices.writeFloatBE(z, 16 * i + 8);
+        vertices[16 * i + 12] = alpha;
+    });
+    const indices = Buffer.alloc(2 * strip.length);
+    strip.forEach((v, i) => {
+        indices.writeUInt16BE(v, 2 * i);
+    });
+    return {
+        sphere: [0, 0, 0, 0],
+        material,
+        layout: 0,
+        flags: 0,
+        colorOffset: 12,
+        uvOffset: 16,
+        vertexCount: corners.length,
+        indexCount: strip.length,
+        stride: 16,
+        vertices,
+        indices,
+    };
+}
+
+const flatSector = (checksum: number, meshes: geom.GeomMesh[]): geom.GeomSector => ({
+    checksum,
+    flags: 0,
+    bbox: [0, 0, 0, 4, 4, 4],
+    sphere: [0, 0, 0, 0],
+    meshes,
+});
+
+const flatZone = (sectors: geom.GeomSector[]): { geom: geom.Geom; skip: Set<number> } => ({
+    geom: { materials: [], bbox: [0, 0, 0, 0, 0, 0], sectors },
+    skip: new Set(),
+});
+
+test("repeated surfaces: of a mesh lying partly on an earlier one only the triangles on it go", () => {
+    const right = [
+        [0, 0],
+        [0, 2],
+        [2, 0],
+        [2, 2],
+        [4, 0],
+        [4, 2],
+    ];
+    const left = [
+        [-2, 0],
+        [-2, 2],
+        [0, 0],
+        [0, 2],
+        [2, 0],
+        [2, 2],
+    ];
+    const a = flatMesh(7, 1, right, [0, 1, 2, 3, 4, 5]);
+    const b = flatMesh(7, 1, left, [0, 1, 2, 3, 4, 5]);
+    const r = repeatedSurfaces([flatZone([flatSector(1, [a]), flatSector(2, [b])])], new Map());
+    assert.equal(r.hide[0]!.size, 0);
+    assert.deepEqual([...r.hideTriangles[0]!.get(b)!].sort(), [2, 3]);
+    assert.equal(r.hideTriangles[0]!.has(a), false);
+    assert.equal(r.triangles, 2);
+    // (another key for the second - another texture - and it stays whole)
+    const keyed = repeatedSurfaces([flatZone([flatSector(1, [a]), flatSector(2, [b])])], new Map(), (_zone, mesh) =>
+        mesh === b ? "other" : "same",
+    );
+    assert.equal(keyed.triangles, 0);
+});
+
+test("one-sided copies: a blended mesh against an opposite-facing surface; lone, foliage and cut-out ones stay two-sided", () => {
+    const square = [
+        [0, 0],
+        [0, 2],
+        [2, 0],
+        [2, 2],
+    ];
+    const front = [0, 1, 2, 3];
+    const back = [0, 2, 1, 3]; // (wound the other way)
+    const facts = (over: Partial<MaterialFacts> = {}): MaterialFacts => ({
+        base: 5,
+        blended: true,
+        cutout: false,
+        soft: false,
+        foliage: null,
+        ...over,
+    });
+    const shell = flatMesh(1, 1, square, front); // (blended, a partner behind it)
+    const shellBack = flatMesh(1, 1, square, back);
+    const lone = flatMesh(1, 3, square, front);
+    const leaves = flatMesh(2, 5, square, front); // (a cut-out card with a partner)
+    const leavesBack = flatMesh(3, 5, square, back);
+    const wall = flatMesh(4, 7, square, front); // (a blended wall named like a tree, with a partner)
+    const wallBack = flatMesh(3, 7, square, back);
+    const across = flatMesh(1, 9, square, front); // (the partner covers half of it)
+    const half = flatMesh(
+        3,
+        9,
+        [
+            [0, 0],
+            [0, 2],
+            [2, 0],
+        ],
+        [0, 2, 1],
+    );
+    const sideways = flatMesh(1, 11, square, front);
+    const names = new Map([[40, "Z_Shops_g_Park_Tree01"]]);
+    const zone = {
+        ...flatZone([
+            flatSector(10, [shell, shellBack, lone]),
+            flatSector(20, [leaves, leavesBack]),
+            flatSector(40, [wall, wallBack]),
+            flatSector(50, [across, half]),
+            flatSector(60, [sideways]),
+        ]),
+        hidden: new Set<geom.GeomMesh>(),
+        facts: new Map<number, MaterialFacts>([
+            [1, facts({ soft: true })],
+            [2, facts({ cutout: true })],
+            [3, facts({ blended: false })], // (opaque: culled already; a partner, never changed)
+            [4, facts()],
+        ]),
+    };
+    const r = oneSidedMeshes([zone], names);
+    const picked = (m: geom.GeomMesh): boolean => r.sets[0]!.has(m);
+    assert.equal(picked(shell), true);
+    assert.equal(picked(shellBack), true);
+    assert.equal(picked(lone), false);
+    assert.equal(picked(leaves), false);
+    assert.equal(picked(leavesBack), false);
+    assert.equal(picked(wall), false); // (the sector's name says tree)
+    assert.equal(picked(wallBack), false);
+    assert.equal(picked(across), false); // (half its area against the other side: under BACK_TO_BACK_SHARE)
+    assert.equal(picked(sideways), false);
+    assert.ok(BACK_TO_BACK_SHARE > 0.5);
+    assert.deepEqual(r.list[0]!.review, ["soft alpha texture"]);
+    // (a hidden mesh is no partner)
+    const hiddenPartner = oneSidedMeshes([{ ...zone, hidden: new Set([shellBack]) }], names);
+    assert.equal(hiddenPartner.sets[0]!.has(shell), false);
+});
+
+test("foliage names: leaves, trees, grass, bushes - not streets or paint", () => {
+    for (const n of [
+        "Z_Houses_g_Tree_01",
+        "z_cartoon_I_JP_bush_round_39",
+        "GrassBlendnew",
+        "F_JAD_pile_of_leaves_nn",
+        "z_x_palm01",
+        "Z_Ghetto_g_LT_plant_Inner",
+    ])
+        assert.equal(FOLIAGE_NAME.test(n), true, n);
+    for (const n of ["Z_Shops_g_TM_Street04", "Z_Factory_G_RMM_paint_shell_outside", "Z_x_Pavement"])
+        assert.equal(FOLIAGE_NAME.test(n), false, n);
+});
+
+test("texture alpha: clear and partial shares; a cut-out is clear + opaque, glass is partial", () => {
+    const make = (alphaOf: (x: number) => number): xenos.XenosTexture => {
+        const data = Buffer.alloc(8 * 8 * 4, 255);
+        for (let i = 0; i < 64; i++) data[4 * i + 3] = alphaOf(i % 8);
+        return { checksum: 1, width: 8, height: 8, format: xenos.FMT_8888, endian: 0, tiled: false, pitch: 8, data };
+    };
+    const cut = textureAlpha(make((x) => (x < 4 ? 0 : 255)));
+    assert.ok(cut.clear > 0.3 && cut.partial === 0);
+    const glass = textureAlpha(make(() => 128));
+    assert.ok(glass.partial === 1 && glass.clear === 0);
+    const solid = textureAlpha(make(() => 255));
+    assert.deepEqual(solid, { clear: 0, partial: 0 });
 });
