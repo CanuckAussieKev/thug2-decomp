@@ -555,3 +555,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   the new list name in gamenet_manager / thugpro_compat / level_editor_layout / level_editor_nodes), THPS2 at
   --hd-textures 4 --hd-model realesrgan-x4plus-anime (1.37 GB). Main install now: THPS2 + THPS3 4x, HD UI. Gap noted:
   gamenet_manager's net lookup list lacks the thps2 / thp8 arrays. Next: DXT compression of upscaled 32-bit textures.
+- HD UI part 2 merged + installed (2026-10-24 ~22:20; overlay only): 64 loading screens (x2, cap) + 155 menu model
+  textures in hd_ui (476 MB). Globe / arrows were already HD (16-colour 64 px art). Running: THP8 see-through opaque
+  materials (round 4, THUG2-2), THP8 skatefunparks edge uber-frig (docs/pending/thp8-edges.md, THUG2-4), DXT compression
+  (THUG2-4), graphics step 1 MSAA/AF/distance (docs/pending/graphics-basics.md, THUG2-2), renderer decomp.
