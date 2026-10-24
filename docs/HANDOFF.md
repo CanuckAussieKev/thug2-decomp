@@ -476,3 +476,8 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   SKATE SHOP / BEDROOM kept; other zones' low-detail stand-ins drawn instead of void; zone seam walls (invisible
   edge walls THP8 switches off at run time) left out in multi-zone levels. Not confirmed in the game: whether the
   walls the user hit in BEAVER VALLEY are gone (no spot given). Main not pushed.
+- Running (2026-10-24): "Game script commands" 0x59F610-0x5B6560 (574 fns, ~21 done) end to end, four agents in
+  worktrees (prompts out/scripts/GS1..4.txt, template gs_prompt.txt): GS1 0x59F610-0x5A5360 (THUG2-1), GS2
+  -0x5AAEF0 weather / memcard / textures / profiles (THUG2-3), GS3 -0x5B0A40 appearance / skater queries / cutscenes
+  (THUG2-4), GS4 -0x5B6560 tricks / input / theme (THUG2-1, shared). Records docs/pending/gamescript-1..4.md. One crash
+  check each at the end. Also running: THP8 round 3 (the user's 11 screenshot spots) on THUG2-2.
