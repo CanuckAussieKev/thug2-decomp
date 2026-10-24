@@ -11,6 +11,8 @@ class CScript;
 // script's `if` should be taken (true where nothing is asked).
 namespace CFuncs {
 
+bool __cdecl CFunc_RestoreTemporaryAppearance(Script::CStruct* params, Script::CScript* script); // 0x005AAEF0
+bool __cdecl CFunc_SyncPlayer2Profile(Script::CStruct* params, Script::CScript* script);      // 0x005AAF90
 bool __cdecl CFunc_ResetAllToDefaultStats(Script::CStruct* params, Script::CScript* script);  // 0x005ABBF0
 bool __cdecl CFunc_ResetToDefaultProfile(Script::CStruct* params, Script::CScript* script);   // 0x005ABE30
 bool __cdecl CFunc_ResetAllToDefaultProfile(Script::CStruct* params, Script::CScript* script); // 0x005ABF00

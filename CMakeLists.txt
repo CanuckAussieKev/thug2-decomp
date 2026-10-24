@@ -276,6 +276,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_profile_cfuncs.cpp
     src/hook/selftests_appearance_cfuncs.cpp
     src/hook/selftests_profile_list_cfuncs.cpp
+    src/hook/selftests_preload_cfuncs.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
@@ -586,6 +587,7 @@ add_library(thug2_code OBJECT
     src/game/skate/competition_cfuncs.cpp
     src/game/skate/skater_profile_cfuncs.cpp
     src/game/skate/appearance_cfuncs.cpp
+    src/game/skate/preload_cfuncs.cpp
     src/game/gfx/anim_controller.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/settings.cpp

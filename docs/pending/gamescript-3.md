@@ -159,3 +159,29 @@ src/game/skate/records.h / .cpp (three record commands added).
     (SetFromParams, Reset, SetAppearance, SetStat...), the career's, GetArray, the skate module's and the structure
     adds / appends stood in for. 29 of 29 deliberate bugs caught. The test kit's pool stand-ins now record a
     structure freed straight into its pool as DeleteStruct.
+- [x] Batch GS3-8 (NOT run in the game yet; preloading, the random pedestrians, car textures, the temporary
+  appearance - 6 CFunctions): src/game/skate/preload_cfuncs.h / .cpp (new), skater_profile_cfuncs.cpp.
+  - 0x005AAEF0 RestoreTemporaryAppearance (NoFaceTexture: only the appearance structure, cleared and copied; else
+    the whole appearance through 0x004893A0), 0x005AAF90 SyncPlayer2Profile, 0x005AAFA0 PreloadModels (vehicle and
+    GameObject nodes not skipped by the skate module's 0x00565BB0; the capture-the-flag types only in a game of more
+    than one player; "none" skipped; the model loaded with AllowReplaceTex and dropped; unless nocollision, a path
+    holding ".mdl" (lower-cased) loads <base>.col as asset type 8 grouped by the path's checksum; a vehicle also
+    loads <base>.qb as type 0xA), 0x005AB300 PreloadPedestrians (not in a network game nor with the global
+    0x2CAA92ED - name unknown - set; the eight ped_m / ped_f part lists through gamescript-2's 0x005AAAA0 (the list
+    in EAX: an inline asm call) unless no_random; each pedestrian node's .skin model, its second model 0x545F8172 -
+    name unknown -, and the model its profile's appearance builds with preload_model_from_appearance), 0x005AB690
+    PreselectRandomPedestrians (candidates: not no_random, level_specific naming the skate module's +0x374 or not
+    excluded by exclude_from_levels; the nodes' own parts taken; one option of any kind - failing that a light, a
+    tan and a dark - then the rest at random among the candidates, num capped by the candidates, numbered by
+    random_index; the original's endless loop when no candidate is left is kept), 0x005ABB20 ReplaceCarTextures
+    (each car whose geoms use a texture dictionary not met in the walk runs Obj_ReplaceTexture).
+  - Deviation (noted in the code): ReplaceCarTextures keeps at most 32 dictionaries as the original's stack array
+    does, but doesn't write past it (the original would overwrite its own frame).
+  - Test TestPreloadCFuncs: original vs ours on a stand-in node array (vehicles, game objects, a skipped node,
+    "NONE", nocollision, a flag, an extension other than .mdl, pedestrians with and without profiles), six CAS
+    options covering every candidate rule, three car components; the node walk, Nx's models, the asset manager,
+    the CAS look-ups, the appearance and builder, the original's _stricmp / strstr (the C runtime isn't started
+    offline), Rnd and the structure changes stood in for; stack pointers recorded by the order first seen. 47 of 47
+    deliberate bugs caught (2 after strengthening: a path without .mdl, a car with no new dictionary).
+  - tools/ghidra/audit_game_function_calls.py: a Str::String passed by value counts 12 bytes (it flagged the
+    horse word's call as a mismatch).

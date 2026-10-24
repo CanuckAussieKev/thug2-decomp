@@ -74,6 +74,7 @@ constexpr uint32_t kNodeName = 0x66780C6F;         // node_name
 constexpr uint32_t kRestartWalking = 0xD6F06BF6;   // RestartWalking
 constexpr uint32_t kOn = 0xF649D637;               // on
 constexpr uint32_t kOff = 0xD443A2BC;              // off
+constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;     // NoFaceTexture
 
 // The profile manager's templates (its table, 0x00557FB0 by index) and each one's info structure.
 uint32_t TemplateCount() { return ProfileManager()->m_templates.m_count; }
@@ -113,6 +114,35 @@ void DeleteParams(Script::CStruct* params)
 }
 
 } // namespace
+
+// 0x005AAEF0: RestoreTemporaryAppearance name=<id> player=<n> [NoFaceTexture] - player n's profile's appearance
+// back from the temporary profile `name` (RememberTemporaryAppearance's): with NoFaceTexture only its structure
+// (cleared and copied), else the whole appearance (0x004893A0).
+bool __cdecl CFunc_RestoreTemporaryAppearance(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0; // (uninitialised in the original when missing, as the player)
+    params->GetChecksum(kName, &name, 1);
+    int player = 0;
+    params->GetInteger(kPlayer, &player, 1);
+    Obj::CPlayerProfileManager* manager = ProfileManager();
+    Obj::CSkaterProfile* profile = manager->GetProfile(player);
+    Obj::CSkaterProfile* remembered = manager->GetExtraProfile(name);
+    if (params->ContainsFlag(kNoFaceTexture)) {
+        auto* appearance = reinterpret_cast<Script::CStruct*>(profile->m_appearance + 0x4C);
+        appearance->Clear();
+        appearance->AppendStructureIfAny(reinterpret_cast<Script::CStruct*>(remembered->m_appearance + 0x4C));
+        return true;
+    }
+    GameFunction<void*(__thiscall*)(void*, void*)>(0x004893A0)(profile, remembered); // (the appearance copied)
+    return true;
+}
+
+// 0x005AAF90: SyncPlayer2Profile - the second player's profile copied again from its template.
+bool __cdecl CFunc_SyncPlayer2Profile(Script::CStruct*, Script::CScript*)
+{
+    ProfileManager()->ResetSecondProfile();
+    return true;
+}
 
 // 0x005ABBF0: ResetAllToDefaultStats - every skater of master_skater_list: its stats (the stat_names) and
 // points_available put back into the template of its name.
@@ -562,3 +592,5 @@ REPLACE(0x005AC470, CFuncs::CFunc_GetSkaterProfileInfo);
 REPLACE(0x005AC4B0, CFuncs::CFunc_SetSkaterProfileProperty);
 REPLACE(0x005AC520, CFuncs::CFunc_SetClassicStat);
 REPLACE(0x005AC570, CFuncs::CFunc_ToggleAlwaysSpecial);
+REPLACE(0x005AAEF0, CFuncs::CFunc_RestoreTemporaryAppearance);
+REPLACE(0x005AAF90, CFuncs::CFunc_SyncPlayer2Profile);
