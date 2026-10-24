@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "game/core/manager.h"
+#include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/player_info.h"
@@ -39,6 +41,7 @@ constexpr uint32_t kIsMale = 0x3F813177;            // is_male
 constexpr uint32_t kObjId = 0x0830ECAF;             // objID
 constexpr uint32_t kIntId = 0xDB1E28CD;             // intId
 constexpr uint8_t kMsgEliminated = 0x8D;            // the player of an object id eliminated (-1: none, a tie)
+constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; // vel_x, vel_y, vel_z
 
 // The network manager and its player lists (Lst::Search<PlayerInfo>, vtable 0x0064C1A8; NewPlayerInfo's 0x0064C82C).
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
@@ -559,8 +562,58 @@ bool __cdecl CFunc_GetCurrentSkaterID(Script::CStruct*, Script::CScript* script)
     return true;
 }
 
+// 0x005B0070: GetSkaterPosition - the script's object's position as integers x, y, z (truncated); false without an
+// object.
+bool __cdecl CFunc_GetSkaterPosition(Script::CStruct*, Script::CScript* script)
+{
+    auto* object = static_cast<Obj::CCompositeObject*>(script->m_object.Get());
+    if (!object)
+        return false;
+    float y = object->m_pos.y, z = object->m_pos.z;
+    script->m_params->AddInteger("x", static_cast<int>(static_cast<int64_t>(object->m_pos.x))); // (the original's _ftol)
+    script->m_params->AddInteger("y", static_cast<int>(static_cast<int64_t>(y)));
+    script->m_params->AddInteger("z", static_cast<int>(static_cast<int64_t>(z)));
+    return true;
+}
+
+// 0x005B00F0: SetSkaterVelocity <speed> | vel_x= vel_y= vel_z= - the script's object's velocity: its direction kept
+// at the speed given (all four components scaled), or the vector given (w 1; built on the heap and freed, as the
+// original's new Mth::Vector). False without an object.
+bool __cdecl CFunc_SetSkaterVelocity(Script::CStruct* params, Script::CScript* script)
+{
+    auto* object = static_cast<Obj::CCompositeObject*>(script->m_object.Get());
+    if (!object)
+        return false;
+    float speed = 0.0f;
+    if (params->GetFloat(0u, &speed, 0)) {
+        Mth::Vector direction = object->m_vel;
+        direction.Normalize();
+        object->m_vel.x = direction.x * speed;
+        object->m_vel.y = direction.y * speed;
+        object->m_vel.z = direction.z * speed;
+        object->m_vel.w = direction.w * speed;
+        return true;
+    }
+    float x = 0.0f, y = 0.0f, z = 0.0f;
+    params->GetFloat(kVelX, &x, 1);
+    params->GetFloat(kVelY, &y, 1);
+    params->GetFloat(kVelZ, &z, 1);
+    if (!GameVariable<bool>(0x007CC979))
+        Mem::EnsureManager();
+    auto* velocity = static_cast<Mth::Vector*>(Mem::Manager::Get()->Allocate(sizeof(Mth::Vector), 1, nullptr));
+    velocity->x = x;
+    velocity->y = y;
+    velocity->z = z;
+    velocity->w = 1.0f;
+    object->m_vel = *velocity;
+    Mem::Manager::Get()->Free(velocity);
+    return true;
+}
+
 } // namespace CFuncs
 
+REPLACE(0x005B0070, CFuncs::CFunc_GetSkaterPosition);
+REPLACE(0x005B00F0, CFuncs::CFunc_SetSkaterVelocity);
 REPLACE(0x005AC5F0, CFuncs::CFunc_SkaterSpeedGreaterThan);
 REPLACE(0x005AC660, CFuncs::CFunc_SkaterSpeedLessThan);
 REPLACE(0x005AC6D0, CFuncs::CFunc_SkaterLastScoreLandedGreaterThan);

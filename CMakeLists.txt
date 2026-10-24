@@ -274,6 +274,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_query_cfuncs.cpp
     src/hook/selftests_movie_cfuncs.cpp
     src/hook/selftests_profile_cfuncs.cpp
+    src/hook/selftests_appearance_cfuncs.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp

@@ -36,5 +36,7 @@ bool __cdecl CFunc_GetSkaterID(Script::CStruct* params, Script::CScript* script)
 bool __cdecl CFunc_SkaterExists(Script::CStruct* params, Script::CScript* script);                    // 0x005AD730
 bool __cdecl CFunc_GetSkaterSex(Script::CStruct* params, Script::CScript* script);                    // 0x005AD780
 bool __cdecl CFunc_GetCurrentSkaterID(Script::CStruct* params, Script::CScript* script);              // 0x005AD7E0
+bool __cdecl CFunc_GetSkaterPosition(Script::CStruct* params, Script::CScript* script);               // 0x005B0070
+bool __cdecl CFunc_SetSkaterVelocity(Script::CStruct* params, Script::CScript* script);               // 0x005B00F0
 
 } // namespace CFuncs

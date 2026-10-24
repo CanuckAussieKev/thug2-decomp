@@ -22,5 +22,14 @@ bool __cdecl CFunc_SpinTapsOn(Script::CStruct* params, Script::CScript* script);
 bool __cdecl CFunc_SpinTapsOff(Script::CStruct* params, Script::CScript* script);             // 0x005AE4F0
 bool __cdecl CFunc_GetCurrentProDisplayInfo(Script::CStruct* params, Script::CScript* script); // 0x005AE520
 bool __cdecl CFunc_SelectCurrentSkater(Script::CStruct* params, Script::CScript* script);     // 0x005AE900
+bool __cdecl CFunc_AwardStatPoint(Script::CStruct* params, Script::CScript* script);          // 0x005AF950
+bool __cdecl CFunc_AwardSpecialTrickSlot(Script::CStruct* params, Script::CScript* script);   // 0x005AF9F0
+bool __cdecl CFunc_UpdateSkaterStats(Script::CStruct* params, Script::CScript* script);       // 0x005AFAA0
+bool __cdecl CFunc_GetCurrentSkaterProfileIndex(Script::CStruct* params, Script::CScript* script); // 0x005AFFE0
+bool __cdecl CFunc_GetCustomSkaterName(Script::CStruct* params, Script::CScript* script);     // 0x005B0000
+bool __cdecl CFunc_GetCurrentPedProName(Script::CStruct* params, Script::CScript* script);    // 0x005B0030
+bool __cdecl CFunc_GetStatValue(Script::CStruct* params, Script::CScript* script);            // 0x005B0280
+bool __cdecl CFunc_GetNumStatPointsAvailable(Script::CStruct* params, Script::CScript* script); // 0x005B0360
+bool __cdecl CFunc_UnlockSkater(Script::CStruct* params, Script::CScript* script);            // 0x005B03B0
 
 } // namespace CFuncs

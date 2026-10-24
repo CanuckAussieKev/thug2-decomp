@@ -112,3 +112,33 @@ src/game/skate/records.h / .cpp (three record commands added).
     own parameters with and without a current_face_points structure (CallCommand's g_scriptParamsOverride, new in
     the test kit). 23 of 24 deliberate bugs caught; the miss is equivalent (writing the points from the scratch copy
     instead of the copy made of it).
+- [x] Batch GS3-6 (NOT run in the game yet; model refreshes, appearance parts, stats, profile queries, position and
+  velocity - 24 CFunctions): appearance_cfuncs.cpp, profile_cfuncs.cpp, skater_query_cfuncs.cpp.
+  - appearance: 0x005AF750 / 0x005AF7D0 / 0x005AF850 / 0x005AF8D0 RefreshSkaterColors / Scale / Visibility / UV
+    (RebuildFromProfile with color_model_ / scale_model_ / hide_model_from_appearance / set_uv_from_appearance),
+    0x005AFD80 RefreshSkaterModel (the unnamed index is both indexes' default; the first viewport's skater: the
+    BailBoard object marked dead and the dead flushed; the model rebuilt through vtable slot 13 in the skater's
+    geometry heap - with the compiled-out call 0x0048C1B0 kept as an empty inline -, then its stats, trick mappings
+    and looks in its own heap; no_board= (a checksum parameter, not a flag): the board geom hidden and the model
+    updated through its vtable), 0x005AFF30 EditPlayerAppearance (the target script run with the profile passed as
+    its object, as the original), 0x005B0420 GetActualCASOptionStruct (always false), 0x005B0480 / 0x005B0500
+    GetActualPlayerAppearancePart / GetPlayerAppearancePart, 0x005B0580 GetPlayerAppearance (a copy as profile),
+    0x005B0670 / 0x005B0780 / 0x005B0920 SetPlayerAppearanceColor / Scale (a missing slot made) / UV (floats
+    truncated as _ftol for colour and scale; UV kept as floats).
+  - profile: 0x005AF950 AwardStatPoint (classic: the career's points_available, else the current profile's;
+    stat_play_win_sound), 0x005AF9F0 AwardSpecialTrickSlot (all / profile= / current), 0x005AFAA0
+    UpdateSkaterStats, 0x005AFFE0 GetCurrentSkaterProfileIndex, 0x005B0000 GetCustomSkaterName, 0x005B0030
+    GetCurrentPedProName (the global 0x09EEBCB8 - name unknown - looked up through name links: a structure gives its
+    name as 0xF054556D; no null check), 0x005B0280 GetStatValue (the skate module's forced value +0x3D0 unless 0:
+    stat_value and the overridden flag), 0x005B0360 GetNumStatPointsAvailable, 0x005B03B0 UnlockSkater.
+  - skater queries: 0x005B0070 GetSkaterPosition (x, y, z truncated), 0x005B00F0 SetSkaterVelocity (a speed: the
+    velocity's direction scaled, all four components; else vel_x / vel_y / vel_z with w 1 through a heap vector
+    allocated and freed, as the original).
+  - Found while testing: CModelComponent has an Update of its own, so the model's update after hiding the board is
+    made through the base's vtable call (slot 1), as the original.
+  - Test TestAppearanceCFuncs: original vs ours with stand-in skaters whose model / trick components have recorded
+    virtual calls, the bail board and the object manager, the appearance's part look-ups, the career's / profiles' /
+    profile manager's calls, real symbol table entries for the ped pro global (a structure, a name of one, a name of
+    nothing, an integer), the velocities recorded after each call. 50 of 50 deliberate bugs caught (5 after
+    strengthening: a use_default_hsv other than 1, a negative forced stat, a z that rounds differently, the
+    velocities recorded after each call).
