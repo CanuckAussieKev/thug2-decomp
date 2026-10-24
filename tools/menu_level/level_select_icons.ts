@@ -1189,8 +1189,13 @@ function cart(): Layer[] {
 
 // THAW's Minneapolis: the Stone Arch Bridge - a long stone deck on a row of round arches, the river under it.
 function stonearch(): Layer[] {
+    return scaleAll(stonearchDrawn(), 32, 33, 0.9);
+}
+
+function stonearchDrawn(): Layer[] {
     const shapes: Layer[] = [[INK, rect(13, 25, 51, 39)]];
-    for (const x of [18, 27.3, 36.7, 46]) shapes.push([CUT, circle(x, 33.5, 3.7)], [CUT, rect(x - 3.7, 33.5, x + 3.7, 39.5)]);
+    for (const x of [18, 27.3, 36.7, 46])
+        shapes.push([CUT, circle(x, 33.5, 3.7)], [CUT, rect(x - 3.7, 33.5, x + 3.7, 39.5)]);
     shapes.push([CUT, rect(13, 27.2, 51, 28)]);
     shapes.push([
         INK,
