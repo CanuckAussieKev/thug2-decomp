@@ -12,6 +12,7 @@ import { nsString } from "./career_complete.ts";
 import {
     type Level,
     mapPosition,
+    sections,
     signEntry,
     THAW_LEVELS,
     THP8_LEVELS,
@@ -115,4 +116,55 @@ test("a sign written upright is stored the way the game draws THUG2's own: botto
     assert.notEqual(stored[order[1 * w + 2]!], 1);
     // and reading gives the upright picture back
     assert.deepEqual(readImg(data).indices, indices);
+});
+
+test("the skate shops, tutorials and test levels are in a last MISCELLANEOUS section, THP8 right after THAW", () => {
+    const level = (folder: string, display: string, level_num: number) => ({
+        folder,
+        level: folder.toLowerCase(),
+        display,
+        name: folder.toLowerCase(),
+        level_num,
+    });
+    const manifest = (...levels: ReturnType<typeof level>[]) => ({ levels }) as unknown as Manifest;
+    const list = sections({
+        thps3: manifest(
+            level("Foun", "THPS3 Foundry", 70),
+            level("SkateShop", "THPS3 Skate Shop", 73),
+            level("Tut", "THPS3 Tutorials", 72),
+        ),
+        thps4: manifest(level("SkateShop", "THPS4 Skateshop", 29), level("Motox", "THPS4 Motox", 31)),
+        thug1: manifest(level("NJ_Skateshop", "THUG1 Skateshop", 55)),
+        thaw: manifest(level("Z_CH", "THAW Chicago", 90)),
+        thp8: manifest(level("z_bedroom", "THP8 Bedroom", 100), level("net_skatepark", "THP8 Skate Park", 101)),
+    });
+    // (THUG1 and THPS4 had only misc levels: their sections are gone)
+    assert.deepEqual(
+        list.map((s) => s[0]),
+        ["thug2", "thps3", "thaw", "thp8", "misc"],
+    );
+    assert.deepEqual(
+        list[1]![3]!.map((lv) => lv.text),
+        ["FOUNDRY"],
+    );
+    const misc = list[4]![3]!;
+    assert.deepEqual(
+        misc.map((lv) => lv.text),
+        [
+            "THUG2 SKATE SHOP",
+            "THUG2 TEST LEVEL",
+            "P8 BEDROOM",
+            "THPS3 SKATE SHOP",
+            "THPS3 TUTORIALS",
+            "THPS4 MOTOX",
+            "THPS4 SKATE SHOP",
+            "THUG SKATE SHOP",
+        ],
+    );
+    assert.equal(new Set(misc.map((lv) => lv.levelNum)).size, 8);
+    assert.match(signEntry(misc[3]!), / game_tag="THPS3"\} \n$/);
+    assert.deepEqual(
+        sections({}).map((s) => s[0]),
+        ["thug2", "misc"],
+    );
 });

@@ -1637,7 +1637,8 @@ bool __cdecl CFunc_EditedLevels(Script::CStruct*, Script::CScript* script)
                           kSignLabel = Crc::GenerateCRCFromString("sign_label");
     static const char* const kLists[] = {"level_select_menu_level_info", "level_select_menu_thug1_level_info",
                                          "level_select_menu_thps4_level_info", "level_select_menu_thps3_level_info",
-                                         "level_select_menu_thaw_level_info"};
+                                         "level_select_menu_thaw_level_info",
+                                         "level_select_menu_misc_level_info"};
     static const char* const kDropped[] = {"new_vmenu", "hold_vmenu"}; // (columns of the level's own section)
     std::unordered_map<uint32_t, LevelInfo> levels = LevelsByLoad();
     std::vector<Script::CStruct*> entries;
