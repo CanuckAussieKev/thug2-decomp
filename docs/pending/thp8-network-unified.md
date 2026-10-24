@@ -225,3 +225,73 @@ levels).
 2. The one-zone network levels (SKATE PARK ... MAIN STREET): the zone's barriers hold you in, the other zones visible
    beyond (low detail) instead of void.
 3. TRAINING, SKATE SHOP, BEDROOM still there; no old per-zone signs.
+
+# Round 3 (2026-10-24, branch thp8-net-3 from main ff3e0b6; workspace THUG2-2)
+
+The user's spots (screenshots 12-07-00 ... 12-11-24, positions turned into THP8's metres per level's shift). Tools
+used offline (scratch, not committed): rays along the heading / down / up through the converted .col, a vertical
+profile through every collision face along a line, a ground-hole map, THP8's own Havok bodies under a point, the
+drawn sectors' mesh boxes over a point.
+
+| # | Level, THP8 spot | What was there | Cause | Fix | In the game |
+|---|---|---|---|---|---|
+| 1 | BEAVER VALLEY (-46.6, -2.0, -59.0) hanging under a kerb | a slit 0.6 m wide with nothing below, between the kerb (z_houses body 186, top 0.32 m) and the road's box (body 4, top 0.18 m) - in THP8's own data too | THP8's skater is a Havok shape that rides over such slits; THUG2's skater stands on one point and falls through, out of the world | `gapFills`: void cells (10-inch grid) with ground no more than 5 cells away on both sides, steps of 24 inches or less, floored at the lower side's height (BEAVER VALLEY 2,400 faces; 0-1,386 in the others) | **confirmed**: teleported onto that kerb, pushed off towards the road with a trace - onto the fill (y 7), then the road, no fall; frames on: 0 falls |
+| 2 | BEAVER VALLEY (-44.0, 0.3, -57.9) "invisible wall" | nothing solid within 15 m in 8 directions at 3 heights (rays) - the skater stood at the same kerb, the slit at his feet | as 1 (what the user felt: the skater dropping into the slit / snagging at the kerb) | as 1 | as 1 (same kerb) |
+| 3, 4 | BEAVER VALLEY (-76.4, 9.4, -35.9) on a roof; (-75.1, 7.0, -37.6) inside the house under the roof, no floor | the Grecian house's only wall collision is an invisible open-top hull (z_houses body 101: all faces 0x1000, walls to the eaves at 9.30 m, gables to 10.75 m); the roof (Grecian_House16) has collision, the house no walls / floor of its own | the hull's top edge meets the roof's eave (9.30 vs 9.37 m): THUG2's skater snags on it (THP8's Havok shape slides over) and can drop between hull and house, where there's no floor | **not fixed** - removing the hull would leave the house without walls; capping it would need the roof's shape. Listed for later | not run |
+| 6 | SKATE PARK (-125.8, 8.8, -160.4) | the stand-ins of the neighbouring zones beyond, an undrawn wall | the network barrier was collision only; THP8 draws it (z_online_<x>'s geometry with a distortion "shimmer" material, its texture a DXN normal map) | barriers drawn: `veil` parts, a faint see-through blue (VEIL_COLOUR); THP8 also shows the other zones beyond (it streams them), so the stand-ins stay | not run (visual) |
+| 7 | FACTORY (278.1, -1.1, -138.1) | Z_Online_Factory_g_barrier_00, undrawn, 16 in ahead | as 6 | as 6 | not run |
+| 8, 9 | FACTORY (319.7, -9.5, 48.6) "floor above my head" | z_center_lod's Center_LakeKill_02 (a lake plane, two triangles 900 m across, at -9.4 m - just over the factory's lower floor) and z_citypark_lod's Box03 (a box standing where the factory is) | a stand-in covers places of other zones; we drew whole stand-ins | `standInOutside`: a stand-in triangle with any point (every 4 m) over the level's own ground is left out | not run (visual; checked offline: the plane's triangles over the factory are gone) |
+| 10 | SLUMS (127.1, 2.2, -190.9) | an undrawn wall 16 in ahead (z_online_ghetto barrier_01's collision) | as 6 | as 6 | not run |
+| 11 | SCHOOL (103.5, 2.5, -148.4) | Z_Online_School_g_barrier_00, undrawn | as 6 | as 6 | not run |
+
+Checks: tests (the slit filled at the road's height, not over ground, no fill for a 33-inch step or a 5 m gap; a
+stand-in triangle over the ground / far away / huge with only its inside over it - mutations caught); npm test 335
+pass, typecheck, lint, selfcheck. Converted and installed in THUG2-2.
+
+For the user: 1-2 the kerbs (ride off them anywhere in the suburbs); 6, 7, 10, 11 the barriers should now show as a
+faint blue wall; 8-9 the factory's lower floor without the plane over it; 3-4 still as they were (the house hulls).
+
+# Round 4 (2026-10-24, branch thp8-net-4 from main 0029a88; workspace THUG2-2)
+
+## Spots 3 / 4 - the Grecian house's roof (BEAVER VALLEY)
+
+- Geometry (converted collision, THUG2 inches): the house's only wall collision is an invisible open-top shell (z_houses
+  body 101 -> 0x8e400f02: walls to y 366 = the eaves, gables to 423 under the ridge, faces 0x1004 / 0x1000), the roof
+  a slab of its own (Grecian_House16: top 366-434, underside 355-423), overhanging the shell by ~40 inches; no floor
+  inside the house, and the yard's ground (97) ends ~3 m short of the shell (a void strip under the eaves).
+- Causes: the shell's top edge sits at the roof's surface at the eaves (366 vs 366-378) - THUG2's skater catches on it
+  (spot 3); sliding off the eave drops into the void strip beside the shell, out of the world (spot 4 - the user
+  hanging from the power line there).
+- Fixes: `trimShells` - every all-invisible body's steep faces cut 6 inches under the seen roof faces over them (the
+  roof face's footprint holding the face's highest point, within 4 feet): 221 shells in the town (houses' and others'
+  under roofs / decks), 11-106 per network level. The gap filler now also floors void between ground and a wall
+  standing on it, up to 16 cells (4 m), along x, z and the diagonals - the eave strips (BEAVER VALLEY's fill 2,400 ->
+  22,326 faces). No way into the houses: inside a shell is void between walls (not filled, no floor), and the cut
+  leaves a slit of at most 6 inches + the roof's thickness under the roof.
+- Found on the way: the fill objects were one per 30,000 faces, town-wide; with the bigger fill a BSP leaf overran
+  THUG2's line-test buffer (0x800 faces - CCollStatic::CollideWithLine) and the game crashed in the first confirm
+  run. Fill objects are now 1,600-inch squares of at most 1,500 faces (largest leaf in any level: 1,356) and convert
+  warns of any leaf past 0x800.
+
+## The new spot - the suburb road (BEAVER VALLEY (-6554.6, 7.0, 3518.4), THP8 (-40.2, -48.1))
+
+- Faces: 253 and 288 inches -x along the road, two undrawn objects (z_houses bodies 166 / 167 -> 0xdfb6c95b,
+  0xa8b1f9cd): 0.9 m high wedges, 39-degree sides, across the road, faces 0x1140 in THP8 (invisible, trigger, no
+  shadow). They are THP8's trigger volumes: its skater passes through. We took the trigger bit off (convertCol does
+  where the node's script isn't brought along) and left them solid: invisible ramps / walls.
+- Missed by the seam-wall rule because they are neither steep (ny 0.78) nor at a seam.
+- Fix: faces 0x1040 (invisible + trigger) without 0x10 are made non-collidable (`faceFlags`, TRIGGER_VOLUME).
+
+## Confirmed in the game (one trace run, BEAVER VALLEY)
+
+- The road: teleported at the user's spot facing -x, pushed: rode on to (-8349, 164, 2696), past the wedges, no stop.
+- The roof: teleported onto it at (-7800, 411, 4035) heading for spot 3: rode down to the eave corner (-7986, 366,
+  3995) - the user's spot - on across the roof and over the ridge (top y 434), off the far eave to the yard (97),
+  rode on; no stop, no fall into the house.
+
+Checks: tests (shell cut 6 under its roof, one without a roof kept, the clip; eave void floored, fill objects small,
+trigger volumes not solid - mutations caught); npm test 337 pass, typecheck, lint, selfcheck. Converted and installed
+in THUG2-2.
+
+For the user: the Grecian houses' roofs (ride off the eaves), the suburb road past the roundabout, and anywhere a
+roof meets an invisible wall.
