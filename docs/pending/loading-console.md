@@ -65,8 +65,21 @@
 - thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all early self-tests pass; check_code_writes: no
   overlaps.
 
-## Game runs (C:\Games\THUG2-3)
-- (see below)
+## Game runs (C:\Games\THUG2-3, 1280x720 window, `-level`)
+- loading_console=1, BO and z_ho (no THP8 level installed there): the panel shows in the bottom-left corner, clear of the
+  bar (it ends ~15 px left of the bar's frame), and updates: PrintWindow pictures a second apart show the front end's
+  screen (`LOADING 2.5 s`, `open rank_4.img.xbx 1.1 KB`..., `read skaterparts.prx 5.3 MB`, the log's `automation:
+  waitfor level z_ho`) and z_ho's (`LOADING 0.7 s`, `read ped_*.skin.Xbx`, `read z_ho.col.Xbx 1.0 MB`,
+  `read unloadableanims.pre 2.9 MB`), "last activity 0.0 / 0.1 s ago". Log: `loading console: on ... JetBrains Mono
+  15 px`, `the loading screen was up N s` per screen; no run-time check failures, late / engine-started tests pass.
+  The first run showed most lines as `script 0x...` (the retail scripts carry few names): unnamed scripts are no
+  longer shown.
+- loading_console=0, z_ho: the original screen - the picture and the bar filling (through the rewritten frame), no
+  panel, no `loading console:` log line.
+- Not seen in the game: the orange "NO ACTIVITY" state (no load here is idle for 10 s: these loads take 1-3 s) and a
+  screen without a loading bar (every screen in these runs had one). For the user: load THP8's BEAVER VALLEY (or any
+  slow level) and watch the panel; a hang shows as the newest line staying while "last activity" grows and turns
+  orange; a frozen panel (the times not counting) means the game itself is stuck.
 
 ## To switch it off
 - `[features] loading_console=0`. The frame rewrite alone: `[replacements] disable=loading_bar.cpp` (the original

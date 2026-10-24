@@ -445,9 +445,9 @@ void NoteScriptCall(uint32_t name, bool cfunction, Script::CStruct* params)
             Note("%s", text);
     } else if (text) {
         Note("script %s", text);
-    } else {
-        Note("script 0x%08X", name);
     }
+    // (a script whose name the game doesn't know - most of them, the retail scripts carry few names - isn't shown:
+    // a checksum says nothing)
 }
 
 void NoteLogLine(const char* line)

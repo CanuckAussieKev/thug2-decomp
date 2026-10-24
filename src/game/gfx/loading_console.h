@@ -16,7 +16,7 @@
 // files loaded whole (the PIP loader: from an archive, the cache or disk, with their size), .prx archives loaded,
 // the script commands that load or build things (Load* / Add* scene and collision / Create* / Parse* / Init* /
 // Preload*: scenes, collision, node arrays, QB files, assets, objects, the skater), the scripts called meanwhile
-// (the level's load script and what it calls), and the game log's own lines (thug2-decomp.log; not the data
+// whose names the game knows (the level's load script and what it calls), and the game log's own lines (thug2-decomp.log; not the data
 // overlay's - its files are already there as opened). A line repeated (the same file opened again) counts up as
 // "(xN)" instead of filling the panel.
 //
