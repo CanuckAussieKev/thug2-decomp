@@ -23,6 +23,16 @@ bool MemCardFileExists(Script::CStruct* params, Script::CScript* script);
 // with their sizes (MainStructureSize, SummaryInfoSize, MaxSummaryInfoSize 100, TotalSize with the header,
 // MaxTotalSize the type's file size) in the script's parameters. True.
 bool GetSaveInfo(Script::CStruct* params, Script::CScript* script);
+// 0x005A8F70: GetMemCardDirectoryListing [FileType=<type>]: DirectoryListing - a structure per save of the game
+// (75 at most; newest first): file_type, index, the date, actual_file_name, total_file_size and the summary, or
+// corrupt with the damaged-file text - TotalTHPS4FilesOnCard and FilesLimitReached in the script's parameters. True.
+bool GetMemCardDirectoryListing(Script::CStruct* params, Script::CScript* script);
+// 0x005A97E0: SaveToMemoryCard Name= Type= [savevaultdata=n]: the save (or the kept contents) written - the header,
+// the summary, the contents (NetworkSettings' stored plus 0x69) and the padding up to the type's size. Whether it
+// was; SaveFailedDueToInsufficientSpace's flag set from the card.
+bool SaveToMemoryCard(Script::CStruct* params, Script::CScript* script);
+// 0x005A7420: the summary writer's callback on the PC: the music and sounds updated.
+void __cdecl KeepSoundGoing();
 // 0x005A8BB0: the kept loaded contents (and their type) dropped. True.
 bool ClearMemCardDataForUpload(Script::CStruct* params, Script::CScript* script);
 // 0x005A8DA0: unless they exist, the second (reserve) pools of components (50000), structures (50000) and

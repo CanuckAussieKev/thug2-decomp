@@ -279,6 +279,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gs2_files.cpp
     src/hook/selftests_gs2_contents.cpp
     src/hook/selftests_gs2_textures.cpp
+    src/hook/selftests_gs2_saving.cpp
     src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_obj_scene_cmds.cpp

@@ -129,3 +129,27 @@ src/hook/selftests_gs2_*.cpp. Shared files touched: CMakeLists.txt (new files li
     defaults missing, the swap table through 10 swaps (new, existing, back, full), the level steps over 8 ranges.
     45 deliberate bugs: 45 caught (8 after strengthening: a name match before a structure, palette_gen 2, no
     Brightness, the level steps reordered to reach equal / short / goal-flag / break cases).
+- [x] Batch GS2-7 (NOT run in the game yet; the directory listing and saving - 3 functions): save_files_cfuncs.cpp.
+  - 0x005A8F70 GetMemCardDirectoryListing (the card's files on a stack Lst::Head, vtable 0x00658A60; the component and
+    structure temporary pools if they exist; only names starting with the save folder count (TotalTHPS4FilesOnCard,
+    FilesLimitReached at 75); the type from the letter after the folder (platforms 1-3, 5) or the extension
+    (_stricmp: 4, 7, 8 - with Pcm::Update / Sfx::UpdateVoiceStates for each file); FileType= filters; 75 entries at
+    most: file_type, index, the date, actual_file_name ("Save/%s", "%s" on platform 5), total_file_size, then the
+    first 0x78 bytes read into 0x007CEC58 - a summary over 100 bytes, a wrong summary CRC or another version make it
+    corrupt with DamagedFile / NGCDamagedFile (platform 5), else the summary appended; a file that won't open is
+    corrupt; the nodes deleted; newest first by a bubble sort), 0x005A97E0 SaveToMemoryCard (the three temporary
+    pools; vault data or WriteSaveContents; the summary with filename; padding 0x69 up to the type's size; PC /
+    platform 7 by TypeFileName, platform 5 by the folder name (written nothing: it stops after opening, as in the
+    original); the header, the summary (with the callback on the PC), the contents (NetworkSettings +0x69), CRCs;
+    SaveFailedDueToInsufficientSpace's flag from the card's error 2 after the open and each write), 0x005A7420
+    KeepSoundGoing (found by scanning the padding: only SaveToMemoryCard refers to it).
+  - Test TestSaveToMemoryCard: original vs ours with the card, its file list, files (open / seek / read the header /
+    write - the bytes hashed - / flush / close / delete), the save helpers (by their register entry points for the
+    original, their C++ arguments for ours), _stricmp, sprintf, the pools and IsLater (by the years recorded)
+    stood in for: platforms 2/4/5/6/8, each corrupt case (size 101 / 100, CRC, version, won't open), names outside the
+    folder or one letter off it, FileType filter, the 75-file limits, 16 save cases (types, vault, no padding, no
+    card, no file, short header / padding writes, flush failing, the card full with and without a file, platforms
+    2/5/6/7) with and without temporary pools. 43 deliberate bugs: 43 caught (5 after strengthening: a name one
+    letter off the folder, platform 8, a 100-byte summary, the 75-file limits, the card full without a file).
+- Range done: every function 0x005A5360-0x005AAEF0 (121 of Ghidra's + 0x005A6560 SetSectionsToApplyWhenLoading and
+  0x005A7420 KeepSoundGoing, which Ghidra never made) has source; find_gaps.py shows no gap in the range.
