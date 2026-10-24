@@ -152,3 +152,20 @@ Shared files touched: CMakeLists.txt (new files listed).
     real one: the original counts it inline), the skaters' vtable, scores and SetScoreText stood in for; a calling
     script's symbol in the stand-in table. 44 of 44 deliberate bugs caught (2 after strengthening: a skater kept out
     only by its height, a radius whose square rounds differently before and after - found by search).
+- [x] Batch GS4-7 (NOT run in the game yet; the game's own configuration - 13 functions): src/game/sys/game_config.h /
+  .cpp (new; namespace GameConfig - not the hook's sys/config.h ini settings).
+  - 0x005B5C90 ArgumentStartsWith (ECX / EBX: a naked stub returning AL; the argument copied unbounded into 100
+    bytes, as the original), 0x005B5D30 GetArgumentValue (option=value, option= value, option =value, option = value;
+    the last one wins), 0x005B5DD0 GotArgument (case-insensitive through tolower; 256-byte copies, unbounded),
+    0x005B5F10 GetPathPrefix (0x007CEE20), 0x005B5F20 / 0x005B5F90 / 0x005B5FC0 / 0x005B6020 / 0x005B6040 the
+    language, territory, hardware, display type and platform-extension names (the jump tables' cases), 0x005B6090
+    SetNtscFlag (NTSC only), 0x005B60B0 Init (CD / NotCD, NoExtraMem, Bootstrap with its return target and argument -
+    "THUG2" by default -, NotBootstrap, Pal / NTSC, FrameRate=50|60 compared with the terminator), 0x005B6250
+    GetBootstrapPrefix, 0x005B6270 ReadRegistry (Win32, English, no extra memory; the language from HKCU's
+    ...\Install key, else HKLM's - opened with RegCreateKeyA, as the original (the import at 0x00645000) -: 2 French,
+    3 German, else English).
+  - Test TestGameConfig: original vs ours with RegCreateKeyA / RegQueryValueExA / RegCloseKey (StandInApi), the C
+    runtime's tolower / strcmp / sprintf and the debug output stood in for; the register stub driven through inline
+    asm; 13 command lines (with arguments past argc present, so reading them would show) through GetArgumentValue,
+    GotArgument and Init over four registry cases; every name for -1..10. 33 of 33 deliberate bugs caught (5 after
+    strengthening: arguments past argc, Bootstrap with 3 and 4 arguments, FrameRate=500).
