@@ -37,13 +37,17 @@ import {
     RETIRED,
     readNetworkAreas,
     refineBudget,
+    repeatedSurfaces,
     rotate,
     SCALE,
     SHELL_CLEAR,
+    SurfaceIndex,
     seamWalls,
     soloRestarts,
+    standInOnDrawn,
     standInOutside,
     standInPlaced,
+    surfaceTri,
     thug2Terrain,
     toThug,
     triggerVolumes,
@@ -983,4 +987,172 @@ test("zone duplicates: a later zone's sector under another prefix with the same 
 
 test("stand-in placements: a _lod archive without a node array has none", () => {
     assert.equal(standInPlaced(null, "z_houses_lod").size, 0);
+});
+
+test("repeated surfaces: a floater's twin and a re-tessellated copy are left out, other surfaces stay", () => {
+    // (a mesh of one flat polygon: its corners as one strip; layout 0 = no uv fields, colour at 12)
+    const mesh = (material: number, z: number, corners: number[][], strip: number[]): geom.GeomMesh => {
+        const vertices = Buffer.alloc(16 * corners.length);
+        corners.forEach(([x, y], i) => {
+            vertices.writeFloatBE(x!, 16 * i);
+            vertices.writeFloatBE(y!, 16 * i + 4);
+            vertices.writeFloatBE(z, 16 * i + 8);
+        });
+        const indices = Buffer.alloc(2 * strip.length);
+        strip.forEach((v, i) => {
+            indices.writeUInt16BE(v, 2 * i);
+        });
+        return {
+            sphere: [0, 0, 0, 0],
+            material,
+            layout: 0,
+            flags: 0,
+            colorOffset: 12,
+            uvOffset: 16,
+            vertexCount: corners.length,
+            indexCount: strip.length,
+            stride: 16,
+            vertices,
+            indices,
+        };
+    };
+    const sector = (checksum: number, meshes: geom.GeomMesh[]): geom.GeomSector => ({
+        checksum,
+        flags: 0,
+        bbox: [0, 0, 0, 4, 4, 4],
+        sphere: [0, 0, 0, 0],
+        meshes,
+    });
+    const square = [
+        [0, 0],
+        [0, 2],
+        [2, 0],
+        [2, 2],
+    ];
+    const g = mesh(7, 1, square, [0, 1, 2, 3]);
+    const f = mesh(7, 1, square, [0, 1, 2, 3]); // (the floater's: the same sheet)
+    // (the same wall cut into more triangles)
+    const fine = mesh(
+        7,
+        1,
+        [
+            [0, 0],
+            [0, 1],
+            [0, 2],
+            [1, 0],
+            [1, 1],
+            [1, 2],
+            [2, 0],
+            [2, 1],
+            [2, 2],
+        ],
+        [0, 1, 3, 4, 6, 7, 0xffff, 1, 2, 4, 5, 7, 8],
+    );
+    const other = mesh(8, 1, square, [0, 1, 2, 3]); // (another material: stays)
+    const higher = mesh(7, 1.5, square, [0, 1, 2, 3]); // (another plane: stays)
+    const names = new Map([
+        [1, "Z_Shops_g_TM_Shops830"],
+        [2, "Z_Shops_F_G_TM_Shops830"],
+        [3, "Z_Shops_g_TM_Wall"],
+        [4, "Z_Shops_G_TM_Wall"],
+        [5, "Z_Shops_g_TM_Other"],
+        [6, "Z_Shops_g_TM_Higher"],
+        [9, "Z_Shops__MASTERNODE_I_x"],
+    ]);
+    const zone = (skip: number[] = []): { geom: geom.Geom; skip: Set<number> } => ({
+        geom: {
+            materials: [],
+            bbox: [0, 0, 0, 4, 4, 4],
+            sectors: [
+                sector(1, [g]),
+                sector(2, [f]),
+                sector(3, [fine]),
+                sector(4, [mesh(7, 3, square, [0, 1, 2, 3])]),
+                sector(5, [other]),
+                sector(6, [higher]),
+                sector(9, [mesh(7, 1, square, [0, 1, 2, 3])]), // (an instance master: neither hides nor is hidden)
+            ],
+        },
+        skip: new Set(skip),
+    });
+    const r = repeatedSurfaces([zone()], names);
+    // (the floater is kept - drawn first - so the g_ sheet goes, and the finer cut of the same plane; the mesh at z 3
+    // is another plane)
+    assert.equal(r.hide[0]!.has(g), true);
+    assert.equal(r.hide[0]!.has(f), false);
+    assert.equal(r.hide[0]!.has(fine), true);
+    assert.equal(r.hide[0]!.has(other), false);
+    assert.equal(r.hide[0]!.has(higher), false);
+    assert.equal(r.floaters, 2);
+    // (a sector in `skip` hides nothing: with the floater skipped, g_ stays)
+    const s = repeatedSurfaces([zone([2])], names);
+    assert.equal(s.hide[0]!.has(g), false);
+});
+
+test("stand-ins: a triangle lying on a triangle the level draws is left out, either way round; one beside it stays", () => {
+    const drawn = new SurfaceIndex();
+    const t = surfaceTri([
+        [0, 0, 0],
+        [0, 0, 10],
+        [10, 0, 0],
+    ])!;
+    drawn.add(t);
+    // (the same corners in another order, and turned over)
+    assert.equal(
+        standInOnDrawn(
+            [
+                [10, 0, 0],
+                [0, 0, 0],
+                [0, 0, 10],
+            ],
+            drawn,
+        ),
+        true,
+    );
+    assert.equal(
+        standInOnDrawn(
+            [
+                [0, 0, 0],
+                [10, 0, 0],
+                [0, 0, 10],
+            ],
+            drawn,
+        ),
+        true,
+    );
+    // (a smaller one inside it)
+    assert.equal(
+        standInOnDrawn(
+            [
+                [1, 0, 1],
+                [1, 0, 3],
+                [3, 0, 1],
+            ],
+            drawn,
+        ),
+        true,
+    );
+    // (above it, beside it)
+    assert.equal(
+        standInOnDrawn(
+            [
+                [0, 1, 0],
+                [0, 1, 10],
+                [10, 1, 0],
+            ],
+            drawn,
+        ),
+        false,
+    );
+    assert.equal(
+        standInOnDrawn(
+            [
+                [20, 0, 0],
+                [20, 0, 10],
+                [30, 0, 0],
+            ],
+            drawn,
+        ),
+        false,
+    );
 });

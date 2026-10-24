@@ -359,3 +359,100 @@ in `done.sectors`). Not diagnosed further (one check allowed): rerun with a curr
 - The gym's basketball lines (z bias): `try_spot thp8_net_beavervalley -5739,0,-377,0`.
 - Stand-in trees (SKATE PARK, was stacked at the origin): `try_spot thp8_net_skatepark 5519,282,2820,185`.
 - Dotted overlays gone, e.g. the capitol top deck (778B446B layers) and shops street04.
+
+## Fix round 2 (2026-10-24)
+
+The user after round 1: "Still getting some z fighting" (BEAVER VALLEY, the shops alley, skater at (-2221,-197,3207)
+looking -x: the corrugated sheet at the feet flickers in dark patches, the "NO DUMPING" sign on the wooden ramp half
+eaten by a black triangle). Branch of this round: draw only, `.col.xbx` of all 15 levels byte-identical before / after
+(SHA-256), `thp8_levels.ts selfcheck` 1132 files / 0 failures, npm test 358 pass, typecheck and lint clean. Offline plus
+one load check; NOT looked at in the game.
+
+### What the twin prefixes are (evidence)
+
+- **`F_` = floater.** The names: Z_Shops_F_G_TM_BlendedAsphalt, _GrassBlendnew, _grassbits, _BlendFloaterDustyPath,
+  _FloaterSignFence, _CheeseFloaterSign, _ZumiezFloaters, _StereoBanner, _ZumiezStencils, _Trash, F_JAD_pile_of_leaves_nn,
+  F_JAD_stains (z_shops 43 sectors, z_center 27 ...): geometry laid over a surface - sign cells, blend patches, leaves.
+  They are not LODs: the node arrays give both twins the same `Class=LevelGeometry CreatedAtStart` (+ TrickObject /
+  Cluster / CollisionMode=Geometry) with the same Pos / Angles; the sector flags (0x80042007) and mesh flags are equal; no
+  script names any of them (searched every .qb / .nqb of the install for their checksums: only the node arrays do), no
+  LOD distance is on them. So THP8 draws both.
+- **What differs between `Z_Shops_g_TM_Shops830` and `Z_Shops_F_G_TM_Shops830`** (the sheet): the same 4 vertices, same
+  material 09E400E6, same colours, same diffuse uv; only the last two uv fields (the ambient / shadow light map
+  coordinates) differ - the floater has its own light map bake. THP8 draws the two with the same vertices through the
+  same shader (equal depth, the later wins); THUG2 triangulates and lights each copy on its own (vertex colours, refined
+  triangles), the depths round apart: gap 0.0000 inch and still a flicker (the audit's "same triangles: little or no
+  shimmer" was wrong).
+- **The sign**: `Z_Shops_g_TM_Shops808_to` (2 meshes: base 9A9D958F, layer 1E24B995) and `Z_Shops_F_G_TM_Shops808_to`
+  (only the layer 1E24B995). Same layer positions; the g_ one's diffuse uv is the whole 512 x 512 sign atlas (0..1) -
+  that is the half-eaten look - the floater's is the 1/8 x 1/8 cell of the NO DUMPING sign (u 0.376-0.499, v 0.625-0.75;
+  looked at the decoded atlas). The floater's is the intended one; the g_ sector kept the layer it was cut from.
+- `VC_` = vertex colours, `G_` = geometry (`g_`), `I_` = instance, `TK_` / `RMM_` / `JG_` ... = artists' initials, `_to` =
+  trick object, `_LOD` stand-ins are other archives. The VC_G_ / G_VC_ pairs (z_cartoon_..._PIRATE_INSIDE) are one wall
+  tessellated twice (46 vs 121 vertices), both CreatedAtStart.
+
+### What changed (tools/thp8_levels; tests in thp8_levels.test.ts, zfight.test.ts)
+
+1. **`repeatedSurfaces`** (new): a mesh is not drawn when 95% of its area (7 sample points per triangle) lies in the plane
+   (3 mm), facing the same way, and inside triangles of meshes of the same material drawn before it - a floater's
+   first, then the larger meshes, then the earlier sectors (the floater is kept: it has the real uv). Skips instance
+   masters / instances, local objects, not-made and zone-duplicate sectors. Collision, node arrays untouched (a per-mesh
+   hide set in the scene part). Convert report line: "n meshes drawing a surface another sector draws too ... left out,
+   m of them for a floater's". Left out per level (net_...): BEAVER VALLEY 27 (3 for floaters: Shops829, Shops830,
+   Shops808_to); the other levels 2-18 each (10 levels report some). Replaces the round-1 "twins only
+   counted" line.
+2. **Audit** (`tools/level_port/zfight.ts`, `render_audit.ts`): the same-triangles pairs no longer read "little or no
+   shimmer": they flicker. `flickers(f)` (no z bias, not back to back, seen > 0) and a per-level line `FLICKER (no z
+   bias, facing one way): n pairs, x m2 seen; of them coplanar copies (gap under 0.05 inch): n pairs, x m2 seen`; the top
+   list marks `[COPLANAR COPIES: flickers]`. Re-baselined below with the same definition on both sides.
+3. **Fix 7** `standInOnDrawn`: a `_lod` stand-in's triangle lying on a triangle the level draws (any material, either
+   way round, coplanar within 3 mm; a `SurfaceIndex` of the world drawn so far, three grids 4 / 64 / 1024 m) is left out,
+   not only over collision. This was the CAPITOL / SKATE CENTRAL 244,000 m2 (z_factory_lod's TK_G_Industrial_Map_01 /
+   _BG_02 over z_citypark's) - and it is see-through, so it also blended twice.
+4. **Fix 8 (blended materials two-sided only where THP8 says so): not done.** Histogram of every material of the
+   install (template, `flags`, parameter block `state` at +0x3c, texture alpha): `flags` is 0x200 for all, `state` takes
+   ~40 values (0, 3, 7, 0x300, 0x30300, 0x7000700 ... - layer / stencil-like per pass bits) with no pattern against
+   alpha or template; the cull mode is not in the material, it would be in the shader technique (MaterialLibrary.bin's
+   0x140-byte technique records) - not decoded. Left as is (the factory paint shells stay).
+
+### Z-fight audit, before -> after (no z bias, not back to back, seen within 100 m)
+
+| Level | flicker pairs | flicker m2 seen | of them coplanar (gap < 0.05 in): pairs | m2 seen |
+|---|---|---|---|---|
+| thp8_net_beavervalley | 596 -> 574 | 3317 -> 1331 | 116 -> 95 | 2455 -> 480 |
+| thp8_net_skatepark | 37 -> 37 | 232 -> 232 | 12 -> 12 | 145 -> 145 |
+| thp8_net_factory | 105 -> 101 | 460 -> 394 | 27 -> 23 | 273 -> 207 |
+| thp8_net_slums | 125 -> 125 | 256 -> 256 | 16 -> 16 | 91 -> 91 |
+| thp8_net_suburbia | 98 -> 98 | 211 -> 211 | 13 -> 13 | 88 -> 88 |
+| thp8_net_mainstreet | 84 -> 75 | 759 -> 186 | 17 -> 9 | 649 -> 87 |
+| thp8_net_funpark | 128 -> 126 | 597 -> 353 | 37 -> 35 | 497 -> 254 |
+| thp8_net_school | 128 -> 127 | 180 -> 140 | 22 -> 21 | 65 -> 25 |
+| thp8_net_industrial | 195 -> 191 | 553 -> 487 | 33 -> 29 | 276 -> 210 |
+| thp8_net_capitol | 140 -> 126 | 246643 -> 1201 | 50 -> 36 | 246258 -> 816 |
+| thp8_net_skatefunparks | 134 -> 132 | 657 -> 414 | 39 -> 37 | 555 -> 311 |
+| thp8_net_skatecentral | 258 -> 235 | 247272 -> 1257 | 60 -> 38 | 246820 -> 816 |
+| thp8_training | 7 -> 7 | 3 -> 3 | 0 -> 0 | 0 -> 0 |
+| thp8_skateshop | 9 -> 9 | 1 -> 1 | 0 -> 0 | 0 -> 0 |
+| thp8_bedroom | 4 -> 2 | 4 -> 2 | 2 -> 0 | 2 -> 0 |
+
+(before = the round-1 staging, run with the new tool's definition.) The shops alley's three pairs (Shops829, Shops830,
+Shops808_to) are gone from the list. CAPITOL / SKATE CENTRAL 246,000 m2 -> 1,200 (the backdrop). What is left in BEAVER
+VALLEY (95 coplanar pairs, 480 m2): the pirate shop interior's wall (159 m2: the two tessellations share the material but
+the finer one covers less than 95% of it), Z_Citypark_g_OutsideWall_low / vo_jad_park_periph_reflection (96 m2), the
+factory elevator panels over the shaft (80 + 15 m2: other materials, same diffuse texture - the rule keys on the
+material), the crete park school hills over its ground (52 m2), floor grates (21 m2). A next round could key the rule on
+the converted pass-0 texture instead of the material.
+
+### Load check
+
+Under the lock on C:\Games\THUG2-2 with out\build\lead\dinput8.dll (2026-10-24 17:35) copied in and `[selftests]
+enabled=0`: `load_check.ps1 -Game C:\Games\THUG2-2 -Levels thp8_net_beavervalley`: loaded=True, responding after 56 s,
+CComponent 256058 / 360000, CStruct 43340 / 64000; no error or exception in thug2-decomp.log. (Round 1's crash was the
+stale DLL, as suspected.) Lock released (the old dll and ini put back).
+
+### For the user (try_spot)
+
+- The alley: `node tools/game/try_spot.ts thp8_net_beavervalley -2221,-197,3207,-92` (the sheet at the feet, the sign
+  on the wooden ramp ahead at about -2359,-161,3095).
+- The sign closer: `... -2340,-170,3120,275`; the second sheet: `... -2703,-161,3159,91`.
+- Capitol backdrop (was drawn twice): `node tools/game/try_spot.ts thp8_net_capitol 20964,1346,-20020,149`.
