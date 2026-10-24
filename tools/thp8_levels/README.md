@@ -160,6 +160,16 @@ like foliage (`FOLIAGE_NAME`), and such surfaces aren't partners either. The con
 one-sided (level, sector, material, base texture) and marks those with a soft-alpha texture or vertex alpha for review.
 NormalMapBlended's own layer layout (the lawns' blended grass maps) is not read: the first grass map only.
 
+**Environment maps** (round 5, 2026-10-24). The reflective templates (NormalMapEnvMap_3Pass / _Decal, EnvironmentMap, the
+Water* ones) list a cube map fourth (the fetch constant's dimension 3; `xenos.cubeFaces`). It is drawn as THUG2's own
+environment pass (pass flag 0x08: the camera-space reflection vector as the uv; it needs vertex normals, which the
+sector then gets - `vertexNormals`): a 2D map made from the cube (`sphereMap`, the cube seen along +z; the pass tiles
+1 x 1), blended over the surface with its alpha as the strength. Strength = RemapX (the parameter block's fifth float4,
+the library's `m_optimizedVector0`) clamped to 0..1 x the mask map's mean brightness (the texture after the cube) x 0.5,
+rounded to 0.1 - a moderate fixed strength, THP8's shader formula not read; none under 0.05 (RemapX ~ 0 or a black mask) or
+for an alpha-tested material. Water: a flat body colour (the mean of the two colour float4s) under a reflection of
+0.5. `node tools/thp8_levels/env_census.ts [levels...]` counts them per level.
+
 **Seam walls.** Each zone's collision has invisible walls (every face 0x1000, most also 0x80 - the camera passes)
 along its edges where the next zone begins (z_houses: a 115 m long, 70 m high plane at x = 0, where z_shops starts).
 No node or sector owns them: THP8 must switch them off when the neighbour is streamed in. In a level of several zones

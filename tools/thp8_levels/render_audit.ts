@@ -317,6 +317,9 @@ export function auditMaterials(parts: readonly AuditPart[], templates: ReadonlyM
                     out.push({ ...base, cause: "layer drawn with a flat colour", pickedLook: look(layer), layer });
                 }
             } else if (!mats.LAYERED.has(m.template) && real.filter((t) => t !== picked).length) {
+                // (a reflective template whose cube map is drawn as an environment pass - round 5 - is no finding;
+                // its normal / specular maps are the shading we don't do, as in every normal-mapped template)
+                if (mats.envLayer(m, part.textures) !== null) continue;
                 out.push({ ...base, cause: "other textures not drawn (passes not read)", pickedLook: l });
             }
         }

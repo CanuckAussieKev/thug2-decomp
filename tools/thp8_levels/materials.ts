@@ -506,3 +506,173 @@ export function maskedLayer(diffuse: Decoded, mask: Decoded, opacity = 1): Buffe
     }
     return out;
 }
+
+// --- environment maps -----------------------------------------------------------------------------------------------
+//
+// The reflective templates (NormalMapEnvMap_3Pass / _Decal, EnvironmentMap, and the water ones) list a CUBE map: the
+// fourth texture of the list, 8:8:8:8, 32 or 64 texels a face (the texture's fetch constant says "cube": xenos.ts).
+// The shader reads it by the reflection vector. THUG2's own environment passes (the pass flag 0x08) are a 2D lookup by
+// the camera-space reflection vector instead - Direct3D's D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR with the texture
+// matrix u = 0.5 + 0.5 x tiling x rx, v = 0.5 + 0.5 x tiling x ry (read at 0x004D1F00; it needs vertex normals) - so a
+// cube map is turned into the 2D map that lookup wants: texel (u, v) holds what the cube shows in the direction
+// (rx, ry, +sqrt(1 - rx^2 - ry^2)), the camera looking along +z with y up (tiling 1: the map is the unit disc). The
+// camera turns, the cube does not - the picture is the cube as seen from a camera looking level, which is what a floor or
+// a wall under a level camera reflects; it swims as the view tilts, as THUG2's own do.
+//
+// How strong THP8 draws it was not read from its pixel shaders (Xenos microcode): the template's parameter block lists,
+// after the specular power, pass 0's colour, the tiling and the specular colour, one float4 the library's constant table
+// calls m_optimizedVector0 (RemapX, RemapY, RemapZ, RemapW) - NormalMapEnvMap_*: (0..2, 0.2..1, 0..1, 0..50) -, and a
+// mask map (m_sampPass0Mask) right after the cube map. We take RemapX (clamped to 0..1) as the reflectivity and the mask's
+// mean brightness as its share of the surface, times ENV_STRENGTH: a moderate fixed strength, drawn as a blend of the
+// reflection over the lit surface. The water ones have no such value (their float4s are wave and colour terms):
+// WATER_REFLECTION.
+
+export const T_ENV_MAP = new Set(["NormalMapEnvMap_3Pass", "NormalMapEnvMap_Decal", "EnvironmentMap"].map(checksum));
+export const T_WATER = new Set(
+    ["Water", "WaterCubeRefraction", "WaterCubeRefractionInteractive", "WaterCubeRefractionNonInteractive"].map(
+        checksum,
+    ),
+);
+const T_ENV_REMAP = new Set(["NormalMapEnvMap_3Pass", "NormalMapEnvMap_Decal"].map(checksum)); // (their 5th float4: Remap)
+export const ENV_STRENGTH = 0.5; // the blend of the reflection at reflectivity 1 and a fully white mask
+export const ENV_MIN = 0.05; // under this a material reflects nothing (RemapX 0.01, black masks)
+export const ENV_MAX = 0.6;
+export const ENV_UNKNOWN_REFLECTIVITY = 0.5; // EnvironmentMap: no Remap float4
+export const WATER_REFLECTION = 0.5;
+export const ENV_CUBE_INDEX = 3; // (every cube map of the install stands fourth in its list)
+export const ENV_STEPS = 10; // strengths are rounded to 1 / ENV_STEPS (one 2D map per cube map and step)
+export const ENV_SIZE = 64;
+
+export interface EnvLayer {
+    cube: number; // the cube map's checksum
+    strength: number; // the reflection's blend 0..1 (rounded to ENV_STEPS)
+    water: boolean;
+    body: number[] | null; // water: its body colour R, G, B 0..1 (the mean of the shallow and deep colour float4s)
+}
+
+const maskMeans = new WeakMap<xenos.XenosTexture, number | null>();
+// A map's mean brightness 0..1 (null: not a plain 2D map we can read).
+function meanBrightness(t: xenos.XenosTexture): number | null {
+    let mean = maskMeans.get(t);
+    if (mean === undefined) {
+        let d: Decoded | null = null;
+        try {
+            d = t.cube ? null : decode(t);
+        } catch {
+            // (data too short)
+        }
+        if (d) {
+            let sum = 0;
+            for (let i = 0; i < d.width * d.height; i++)
+                sum += d.bgra[4 * i]! + d.bgra[4 * i + 1]! + d.bgra[4 * i + 2]!;
+            mean = sum / (3 * 255 * d.width * d.height);
+        } else mean = null;
+        maskMeans.set(t, mean);
+    }
+    return mean;
+}
+
+// The environment layer a material draws over its surface, or null: a reflective template whose list holds a cube map
+// (not alpha-tested: the reflection is drawn over the whole surface, a cut-out's holes would show it) and a reflectivity
+// above ENV_MIN.
+export function envLayer(m: geom.GeomMaterial, textures: ReadonlyMap<number, xenos.XenosTexture>): EnvLayer | null {
+    const water = T_WATER.has(m.template);
+    if (!water && !T_ENV_MAP.has(m.template)) return null;
+    const cube = m.textures[ENV_CUBE_INDEX];
+    if (cube === undefined || !textures.get(cube)?.cube || !textures.get(cube)!.faces) return null;
+    const round = (s: number): number => Math.round(Math.min(s, ENV_MAX) * ENV_STEPS) / ENV_STEPS;
+    if (water) {
+        const f = float4s(m);
+        const body = f[2] && f[3] ? [0, 1, 2].map((c) => Math.min(1, Math.max(0, (f[2]![c]! + f[3]![c]!) / 2))) : null;
+        return { cube, strength: round(WATER_REFLECTION), water, body };
+    }
+    const state = alphaState(m);
+    if (state && state.blend === 0 && state.ref > 1) return null;
+    let reflectivity = ENV_UNKNOWN_REFLECTIVITY;
+    if (T_ENV_REMAP.has(m.template)) {
+        const remap = float4s(m)[4];
+        reflectivity = remap && Number.isFinite(remap[0]!) ? Math.min(1, Math.max(0, remap[0]!)) : 1;
+    }
+    // the mask map after the cube map (not the zone's light maps, which close the list)
+    let share = 1;
+    const n = m.textures.length;
+    const mask = n >= 3 && ENV_CUBE_INDEX + 1 < n - 2 ? m.textures[ENV_CUBE_INDEX + 1] : undefined;
+    const mx = mask !== undefined ? textures.get(mask) : undefined;
+    if (mx && !mx.cube) share = meanBrightness(mx) ?? 1;
+    const strength = round(reflectivity * share * ENV_STRENGTH);
+    return strength + 1e-9 >= ENV_MIN ? { cube, strength, water, body: null } : null;
+}
+
+// A cube map's six faces decoded (B, G, R, A), or null.
+export function decodeCube(t: xenos.XenosTexture): Decoded[] | null {
+    const faces = xenos.cubeFaces(t);
+    if (!faces) return null;
+    const kind =
+        t.format === xenos.FMT_DXT1 ? 1 : t.format === xenos.FMT_DXT3 ? 3 : t.format === xenos.FMT_DXT5 ? 5 : 0;
+    if (!kind && t.format !== xenos.FMT_8888) return null;
+    return faces.map((f) => ({
+        width: t.width,
+        height: t.height,
+        bgra: kind ? dxt.decode(f, t.width, t.height, kind) : f,
+    }));
+}
+
+// What the cube map shows in the direction (x, y, z): Direct3D's face choice (+X, -X, +Y, -Y, +Z, -Z) and uv, nearest
+// texel. [B, G, R, A].
+export function sampleCube(faces: readonly Decoded[], x: number, y: number, z: number): number[] {
+    const ax = Math.abs(x);
+    const ay = Math.abs(y);
+    const az = Math.abs(z);
+    let face: number;
+    let sc: number;
+    let tc: number;
+    let ma: number;
+    if (ax >= ay && ax >= az) {
+        face = x > 0 ? 0 : 1;
+        sc = x > 0 ? -z : z;
+        tc = -y;
+        ma = ax;
+    } else if (ay >= az) {
+        face = y > 0 ? 2 : 3;
+        sc = x;
+        tc = y > 0 ? z : -z;
+        ma = ay;
+    } else {
+        face = z > 0 ? 4 : 5;
+        sc = z > 0 ? x : -x;
+        tc = -y;
+        ma = az;
+    }
+    const d = faces[face]!;
+    const px = Math.min(d.width - 1, Math.max(0, Math.floor(0.5 * (sc / ma + 1) * d.width)));
+    const py = Math.min(d.height - 1, Math.max(0, Math.floor(0.5 * (tc / ma + 1) * d.height)));
+    const o = 4 * (py * d.width + px);
+    return [d.bgra[o]!, d.bgra[o + 1]!, d.bgra[o + 2]!, d.bgra[o + 3]!];
+}
+
+// The 2D map for THUG2's environment pass (see above): size x size, B, G, R and `alpha` (0..1) as the blend of the
+// reflection over the surface. The texel's direction is (rx, ry, sqrt(1 - rx^2 - ry^2)); outside the unit disc the
+// edge's. (v grows with ry - the texture matrix's sign - so the top row looks down.)
+export function sphereMap(faces: readonly Decoded[], alpha: number, size = ENV_SIZE): Buffer {
+    const out = Buffer.alloc(size * size * 4);
+    const a = Math.round(Math.min(1, Math.max(0, alpha)) * 255);
+    for (let j = 0; j < size; j++) {
+        for (let i = 0; i < size; i++) {
+            let rx = ((i + 0.5) / size - 0.5) * 2;
+            let ry = ((j + 0.5) / size - 0.5) * 2;
+            const len = Math.hypot(rx, ry);
+            if (len > 1) {
+                rx /= len;
+                ry /= len;
+            }
+            const rz = Math.sqrt(Math.max(0, 1 - rx * rx - ry * ry));
+            const c = sampleCube(faces, rx, ry, rz);
+            const o = 4 * (j * size + i);
+            out[o] = c[0]!;
+            out[o + 1] = c[1]!;
+            out[o + 2] = c[2]!;
+            out[o + 3] = a;
+        }
+    }
+    return out;
+}
