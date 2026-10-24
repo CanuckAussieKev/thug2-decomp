@@ -250,3 +250,48 @@ pass, typecheck, lint, selfcheck. Converted and installed in THUG2-2.
 
 For the user: 1-2 the kerbs (ride off them anywhere in the suburbs); 6, 7, 10, 11 the barriers should now show as a
 faint blue wall; 8-9 the factory's lower floor without the plane over it; 3-4 still as they were (the house hulls).
+
+# Round 4 (2026-10-24, branch thp8-net-4 from main 0029a88; workspace THUG2-2)
+
+## Spots 3 / 4 - the Grecian house's roof (BEAVER VALLEY)
+
+- Geometry (converted collision, THUG2 inches): the house's only wall collision is an invisible open-top shell (z_houses
+  body 101 -> 0x8e400f02: walls to y 366 = the eaves, gables to 423 under the ridge, faces 0x1004 / 0x1000), the roof
+  a slab of its own (Grecian_House16: top 366-434, underside 355-423), overhanging the shell by ~40 inches; no floor
+  inside the house, and the yard's ground (97) ends ~3 m short of the shell (a void strip under the eaves).
+- Causes: the shell's top edge sits at the roof's surface at the eaves (366 vs 366-378) - THUG2's skater catches on it
+  (spot 3); sliding off the eave drops into the void strip beside the shell, out of the world (spot 4 - the user
+  hanging from the power line there).
+- Fixes: `trimShells` - every all-invisible body's steep faces cut 6 inches under the seen roof faces over them (the
+  roof face's footprint holding the face's highest point, within 4 feet): 221 shells in the town (houses' and others'
+  under roofs / decks), 11-106 per network level. The gap filler now also floors void between ground and a wall
+  standing on it, up to 16 cells (4 m), along x, z and the diagonals - the eave strips (BEAVER VALLEY's fill 2,400 ->
+  22,326 faces). No way into the houses: inside a shell is void between walls (not filled, no floor), and the cut
+  leaves a slit of at most 6 inches + the roof's thickness under the roof.
+- Found on the way: the fill objects were one per 30,000 faces, town-wide; with the bigger fill a BSP leaf overran
+  THUG2's line-test buffer (0x800 faces - CCollStatic::CollideWithLine) and the game crashed in the first confirm
+  run. Fill objects are now 1,600-inch squares of at most 1,500 faces (largest leaf in any level: 1,356) and convert
+  warns of any leaf past 0x800.
+
+## The new spot - the suburb road (BEAVER VALLEY (-6554.6, 7.0, 3518.4), THP8 (-40.2, -48.1))
+
+- Faces: 253 and 288 inches -x along the road, two undrawn objects (z_houses bodies 166 / 167 -> 0xdfb6c95b,
+  0xa8b1f9cd): 0.9 m high wedges, 39-degree sides, across the road, faces 0x1140 in THP8 (invisible, trigger, no
+  shadow). They are THP8's trigger volumes: its skater passes through. We took the trigger bit off (convertCol does
+  where the node's script isn't brought along) and left them solid: invisible ramps / walls.
+- Missed by the seam-wall rule because they are neither steep (ny 0.78) nor at a seam.
+- Fix: faces 0x1040 (invisible + trigger) without 0x10 are made non-collidable (`faceFlags`, TRIGGER_VOLUME).
+
+## Confirmed in the game (one trace run, BEAVER VALLEY)
+
+- The road: teleported at the user's spot facing -x, pushed: rode on to (-8349, 164, 2696), past the wedges, no stop.
+- The roof: teleported onto it at (-7800, 411, 4035) heading for spot 3: rode down to the eave corner (-7986, 366,
+  3995) - the user's spot - on across the roof and over the ridge (top y 434), off the far eave to the yard (97),
+  rode on; no stop, no fall into the house.
+
+Checks: tests (shell cut 6 under its roof, one without a roof kept, the clip; eave void floored, fill objects small,
+trigger volumes not solid - mutations caught); npm test 337 pass, typecheck, lint, selfcheck. Converted and installed
+in THUG2-2.
+
+For the user: the Grecian houses' roofs (ride off the eaves), the suburb road past the roundabout, and anywhere a
+roof meets an invisible wall.

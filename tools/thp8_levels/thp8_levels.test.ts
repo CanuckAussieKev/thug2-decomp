@@ -13,10 +13,12 @@ import { readPak, readToc, readTocList } from "./thp8.ts";
 import {
     bouncyProps,
     boxTriangles,
+    clipBelow,
     cloudFade,
     emptyScript,
     endlessLoop,
     faceFlags,
+    GAP_MOST,
     GLOW_DEFAULT,
     GroundIndex,
     gapFills,
@@ -36,12 +38,14 @@ import {
     refineBudget,
     rotate,
     SCALE,
+    SHELL_CLEAR,
     seamWalls,
     soloRestarts,
     standInOutside,
     thug2Terrain,
     toThug,
     triggerVolumes,
+    trimShells,
     ZONES,
 } from "./thp8_levels.ts";
 import * as xenos from "./xenos.ts";
@@ -751,4 +755,117 @@ test("stand-ins: a triangle over the level's own ground is left out, also a huge
         ),
         false,
     );
+});
+
+test("shells: an invisible wall's top is cut 6 inches under the roof over it; walls without a roof stay", () => {
+    // a roof plane at y 100 over x / z 0..100; an invisible wall at z 50 from y 0 to 104 (its top in the roof)
+    const roof = {
+        checksum: 1,
+        flags: 0,
+        verts: [
+            [0, 100, 0],
+            [100, 100, 0],
+            [100, 100, 100],
+            [0, 100, 100],
+        ],
+        intensities: Buffer.alloc(4, 128),
+        faces: [
+            [0, 0, 0, 1, 2],
+            [0, 0, 0, 2, 3],
+        ] as [number, number, number, number, number][],
+        bbox: [0, 100, 0, 1, 100, 100, 100, 1],
+    };
+    const wall = (x0: number, x1: number) => ({
+        checksum: 2,
+        flags: 0,
+        verts: [
+            [x0, 0, 50],
+            [x1, 0, 50],
+            [x1, 104, 50],
+            [x0, 104, 50],
+        ],
+        intensities: Buffer.alloc(4, 128),
+        faces: [
+            [0x1000, 0, 0, 1, 2],
+            [0x1000, 0, 0, 2, 3],
+        ] as [number, number, number, number, number][],
+        bbox: [x0, 0, 50, 1, x1, 104, 50, 1],
+    });
+    const covered = wall(10, 90);
+    assert.equal(trimShells([roof, covered]), 1);
+    const top = Math.max(...covered.faces.flatMap((f) => [f[2], f[3], f[4]].map((i) => covered.verts[i]![1]!)));
+    assert.equal(top, 100 - SHELL_CLEAR);
+    // (no roof over it: as it was)
+    const open = wall(200, 300);
+    assert.equal(trimShells([roof, open]), 0);
+    assert.equal(Math.max(...open.verts.map((v) => v[1]!)), 104);
+    // a triangle cut by a plane: what's under it kept
+    const pieces = clipBelow(
+        [
+            [0, 0, 0],
+            [10, 0, 0],
+            [0, 10, 0],
+        ],
+        () => 5,
+    );
+    assert.ok(pieces.length >= 1 && pieces.flat().every((p) => p[1]! <= 5 + 1e-9));
+});
+
+test("narrow holes: void between ground and a wall standing on it is floored (under eaves); fill objects stay small", () => {
+    const quad = (checksumValue: number, v: number[][], flags = 0) => ({
+        checksum: checksumValue,
+        flags: 0,
+        verts: v,
+        intensities: Buffer.alloc(4, 128),
+        faces: [
+            [flags, 0, 0, 1, 2],
+            [flags, 0, 0, 2, 3],
+        ] as [number, number, number, number, number][],
+        bbox: [
+            Math.min(...v.map((p) => p[0]!)),
+            Math.min(...v.map((p) => p[1]!)),
+            Math.min(...v.map((p) => p[2]!)),
+            1,
+            Math.max(...v.map((p) => p[0]!)),
+            Math.max(...v.map((p) => p[1]!)),
+            Math.max(...v.map((p) => p[2]!)),
+            1,
+        ],
+    });
+    // yard 0..100 at y 97, then 100 inches of void, then a wall at x 200 from y -15 to 366
+    const yard = quad(1, [
+        [0, 97, 0],
+        [100, 97, 0],
+        [100, 97, 100],
+        [0, 97, 100],
+    ]);
+    const wall = quad(
+        2,
+        [
+            [200, -15, 0],
+            [200, -15, 100],
+            [200, 366, 100],
+            [200, 366, 0],
+        ],
+        0x1004,
+    );
+    const fills = gapFills([yard, wall], "t");
+    const at = (x: number, z: number): number | null => {
+        for (const o of fills) {
+            for (const f of o.faces) {
+                const v = [o.verts[f[2]]!, o.verts[f[3]]!, o.verts[f[4]]!];
+                const xs = v.map((p) => p[0]!);
+                const zs = v.map((p) => p[2]!);
+                if (x >= Math.min(...xs) && x <= Math.max(...xs) && z >= Math.min(...zs) && z <= Math.max(...zs)) {
+                    return v[0]![1]!;
+                }
+            }
+        }
+        return null;
+    };
+    assert.equal(at(150, 50), 97);
+    assert.ok(fills.every((o) => o.faces.length <= GAP_MOST));
+    // THP8's invisible trigger volumes: not solid
+    assert.equal(faceFlags(0x1140) & 0x10, 0x10);
+    assert.equal(faceFlags(0x0040) & 0x10, 0);
 });
