@@ -561,3 +561,9 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   (THUG2-4), graphics step 1 MSAA/AF/distance (docs/pending/graphics-basics.md, THUG2-2), renderer decomp.
 - DXT compression merged + installed (2026-10-24 ~22:40): THPS2 (anime model) + THPS3 at 4x reconverted compressed
   (DXT1 / DXT1a / DXT5; 171 / 241 MB texture data), overlay --hd-ui 4. Running: globe pixel-art scaler (THUG2-3).
+- Installed (2026-10-24 ~22:45, main 3853669): graphics step 1 ([Graphics] anisotropy / msaa / draw_distance_scale /
+  lod_distance_scale; main ini set to 16 / 4 / 2 / 2 at the user's request; docs/pending/graphics-basics.md), THP8 round 4
+  (blend word +0x30 / alpha-test ref +0x38 decoded: tested materials baked to 0/255 cut-outs, solid ones opaque - coins),
+  THP8 edges (other zones' collision inside the network barrier, docs/pending/thp8-edges.md). Overlay --hd-ui 4.
+  Not merged: globe pixel-art scaler (f7456ab) - looked no better than the original (the globe is soft painted art);
+  user offered option 3 (redraw from Natural Earth). Renderer decomp still running.
