@@ -524,3 +524,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   log clean (the agent's crash was THUG2-2's stale 10-19 DLL). Odd: THUG2-2 with self-tests ON stopped logging after
   "early self-tests: running 815" (level not loaded in 86 s) - not diagnosed. Not run in the main install.
   Running: THP8 vert ramp + tree wedge (docs/pending/thp8-vert.md, THUG2-4); HD menu UI 4x + THPS3 x4 (docs/pending/hd-ui.md, THUG2-3).
+- THP8 vert fix merged + installed (2026-10-24, docs/pending/thp8-vert.md): gap fill no longer floors cells under steep
+  up-facing ramp faces (flat shelves in BEAVER VALLEY's memorial vert wall base; shelves 11,370 -> 546). Vert flag 0x8
+  was fine. Tree wedge (super_small_tree_30): collision is THP8's own; suspected engine path CheckAirForwardCollision
+  0x00508780 -> 0x004FFDB0 leaving the skater 10 in past the move inside a thin pole - unconfirmed, no change.
