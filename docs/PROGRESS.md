@@ -2,7 +2,7 @@
 
 Generated 2026-10-24 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: ██████████████░░░░░░ 71.8%** of the code rewritten (5,697 of 8,333 functions, 1,157.0 KB of 1,610.8 KB).
+**Game code: ██████████████░░░░░░ 73.2%** of the code rewritten (5,806 of 8,333 functions, 1,178.4 KB of 1,610.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -30,7 +30,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ████████████████████ 100% | 304 / 304 | 60.7 KB / 60.7 KB |
 | Park editor & graffiti | `0x588180`-`0x595030` | ████████████████████ 100% | 289 / 289 | 47.3 KB / 47.3 KB |
 | Park editor (Create-A-Park) & skate script commands | `0x595030`-`0x59f610` | ████████████████████ 100% | 169 / 169 | 40.1 KB / 40.1 KB |
-| Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ███████████████░░░░░ 75% | 465 / 574 | 65.7 KB / 87.1 KB |
+| Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ████████████████████ 100% | 574 / 574 | 87.1 KB / 87.1 KB |
 | File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ████████████████████ 100% | 222 / 222 | 27.1 KB / 27.1 KB |
 | Input devices (SIO) | `0x5bdad0`-`0x5be6f0` | ████████████████████ 100% | 25 / 25 | 2.8 KB / 2.8 KB |
 | Game clock (Tmr) | `0x5be6f0`-`0x5beaae` | ████████████████████ 100% | 15 / 15 | 0.8 KB / 0.8 KB |

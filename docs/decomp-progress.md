@@ -11296,6 +11296,181 @@ mode (frame steps, speed, the info panel) if the viewer can be launched.
 - Crash check (diagnosis only, workspace C:\Games\THUG2-1 under game_lock): `-level BO` - the game started, the
   replacements installed (5790 of 5790), Load_BO loaded in free skate, the skater spawned and skated; no crash,
   run-time check or CRT report in the log. Everything else in the range is NOT run in the game.
+- [x] Batch 384 (GS4-1; gamescript-4, merged 2026-10-24; run in the game: docs/pending/gamescript-4.md; NOT judged by a player yet; configurable tricks, records, soundtracks, controllers - 24 CFunctions):
+  src/game/script/trick_cfuncs.h / .cpp (new).
+  - 0x005B0A40 FlushDeadObjects, 0x005B0A50 BindTrickToKeyCombo (the named template's or the current profile's special
+    trick slot - trick, keys, cat flag, update_mappings default 1 - or its trick_mapping key combo, an integer for a CAT
+    number; false for `special` without index), 0x005B0C00 GetKeyComboBoundToTrick (the mapping's key combo checked
+    to still hold the trick; `special`: the slots, then current_index too and a debug line; cat_num through
+    0x005A9E30 - the structure in EBX, called through an asm wrapper), 0x005B0DA0 UpdateTrickMappings (online: the
+    local skater and profile 0, not checked for null), 0x005B0E30 GetConfigurableTricksFromType (type = trickType, else
+    scr, else GrindTrick; `special` without a type matches any; IsSpecial must agree with `special`; grab / flip
+    tricks also list the local skater's full created-trick slots 1-10 from its +0x180 pointers; false with no trick
+    even when there are CATs), 0x005B1140 TrickIsLocked (flag 0x7ABFD5B4 - name unknown -: locked unless the current
+    profile is the trick's Skater; otherwise the template's is_hidden), 0x005B1250 GetTrickDisplayText (ExtraTricks
+    as a name or an array's first; 0xD0BCFC62 - name unknown - its name), 0x005B1380 GetSpecialTrickInfo,
+    0x005B1420 GetTrickType, 0x005B14A0 GetIndexOfItemContaining, 0x005B1590 GetLevelRecords (default: the career's
+    level), 0x005B15F0 ResetComboRecords (0x00561400 on the local skater's score), 0x005B1610
+    GetNumberOfTrickOccurrences (no null check of the local skater), 0x005B1670 GetNumSoundtracks, 0x005B1690
+    GetSoundtrackName, 0x005B16D0 BindControllerToSkater, 0x005B1730 BindFrontEndToController (the pad that had the
+    controller takes the other pad's old one), 0x005B17C0 ControllerBoundToDifferentSkater (local skaters 0-7 other
+    than n - reads the input manager's 2-entry controller table past its end for skaters 2-7, as the original),
+    0x005B1840 ControllerBoundToSkater, 0x005B1890 GetKeyComboArrayFromTrickArray (AddArray copies the array it
+    made, which is never freed: a leak kept from the original), 0x005B1A00 FirstInputReceived, 0x005B1A10
+    VibrateController, 0x005B1A90 LockCurrentSkaterProfileIndex, 0x005B1AD0 SetSpecialTrickInfo.
+  - Test TestTrickCFuncs: original vs ours with the profile manager, profiles, skate module (0x00564F80, 0x00566520,
+    0x005665C0), skaters, trick component, records, career, Pcm, front end, Sio device, the key-combo look-ups
+    0x005A9D90 / 0x005A9E30, global structures / arrays and the array pool stood in for by recording code; every
+    command over its branches. 48 of 48 deliberate bugs caught (1 after strengthening: update_mappings' default).
+- [x] Batch 385 (GS4-2; gamescript-4, merged 2026-10-24; run in the game: docs/pending/gamescript-4.md; NOT judged by a player yet; interpolating parameters, a texture's name, power-ups, the hunt, entering
+  vehicles, the lobby keyboard - 11 CFunctions): src/game/script/game_util_cfuncs.h / .cpp, src/game/net/hunt_cfuncs.h
+  / .cpp (new).
+  - 0x005B1B60 InterpolateParameters (a new structure 0xFF6F3872 - name unknown - of A's integers / floats moved
+    towards B's by 0x404E690D - name unknown -: unnamed and ignored components skipped, B's integer or float, an
+    integer result truncated as _ftol does (the low 32 bits of the 64-bit value) only if both were integers; Angles
+    the shorter way round through 0x005A9E80, its x87 result read at full precision; the original asks the command's
+    params for the next component - the same thing), 0x005B1E00 GetTextureFromPath (the last part after / or \ into
+    a 32-byte buffer, as the original), 0x005B1EA0 ClearPowerups (once per existing skater 0-7, always the object
+    manager's first SkaterState component - kept), 0x005B1EE0 PlaceObject (the script's skater's PlayerInfo: the
+    count at +0x34, the positions from +0x180), 0x005B1F70 AnnounceHuntStarted (message 0x93 to every remote player),
+    0x005B2030 AnnounceNeedToPlaceObjects (0x91 to every player), 0x005B20E0 AtLeastOneObjectPlaced (observers not
+    counted; a count > 0), 0x005B2170 ReportObjectPickup (message 0x90 with the id; offline the client numbered by
+    colObjId - as the original), 0x005B2210 PlacedLessThan, 0x005B2260 BroadcastEnterVehicle (message 0x89: the
+    skater's id byte and the control type, 8 bytes with padding), 0x005B2300 LobbyCheckKeyboard (a typed space opens
+    lobby_enter_kb_chat unless keyboard_anchor exists).
+  - Test TestHuntCFuncs: original vs ours with the network manager's players, apps and clients, the skate module,
+    the object manager, the keyboard, ObjectExists, RunScript and the structure pool stood in for (messages compared
+    field by field with their data); interpolation over integer / float / mixed / ignored / unnamed / angle
+    components at five fractions (incl. an _ftol overflow). 37 of 37 deliberate bugs caught (2 after strengthening:
+    an unnamed component in B, a negative placed count).
+  - Build note: the verify build embeds its debug info (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded, this worktree's
+    build folder only): the shared compile PDB failed with LNK1318 under mutation builds (and the link's mspdbsrv
+    later too: mutation builds use a fresh endpoint each, -j 1).
+- [x] Batch 386 (GS4-3; gamescript-4, merged 2026-10-24; run in the game: docs/pending/gamescript-4.md; NOT judged by a player yet; face textures, changing textures, HSV / RGB, the nearest rail point, the
+  park's name, the special bar, the initials, the fireball level, last names, the light's debug lines, the slap game -
+  17 CFunctions): src/game/gfx/face_texture_cfuncs.h / .cpp (new; first named texture_cfuncs - renamed when GS2's file
+  of that name reached main), src/game/script/game_util_cfuncs.h / .cpp.
+  - 0x005B2420 LoadFaceTextureFromProfile (the current profile's face image - its appearance's +0x54, +0x3C, 0x4420
+    bytes - into the texture dictionary 0x00700F1C through 0x0049FA20; whether a texture came back), 0x005B2480
+    SetFaceTextureFromVideoCapture (a zeroed 0x4420-byte image built from the captured texture's header, palette and
+    pixels through its vtable thunks - the texture not checked for null, a 1-7 bit depth would divide by zero, as in
+    the original - copied into the face by 0x00487420), 0x005B2570 OffsetTexture / 0x005B2720 PushTextureToPoint
+    (four optional colour bytes, 0x80 each, and whether any was given - the original passes that flag as a dword
+    whose upper bytes are stack garbage), 0x005B26B0 RotateTexture (degrees * pi/180 in double, rounded once),
+    0x005B2880 ApplyRGBAToTexture (r, g, b uninitialised in the original when missing; a 0x80; the mode flag is mode ==
+    1), 0x005B2970 HSVtoRGB (hue / 60 wrapped into 0-6, saturation / 90 and value / 60 each kept to 0.01-1 - the value
+    kept at x87 precision until stored, the six sectors, * 128 truncated; a fourth element copied), 0x005B2CD0
+    RGBtoHSV (/ 128, min / max, hue * 60 and +360 / -360 once, saturation * 90, value * 60), 0x005B2FC0
+    FindNearestRailPoint (the rail editor's search 0x004F4710 within 0x213395F1 - name unknown - (150) squared, and
+    with CheckLevelGeometry the park generator's - nearer wins; rail_id / rail_point_index only for a rail),
+    0x005B3160 GetParkName (the buffer 0x007CED58; returns false), 0x005B3180 SetSpecialBarColors (0x005612D0 on the
+    skater's score, no null check), 0x005B31C0 GetInitialsString / 0x005B31F0 SetInitialsString (default "ERR"),
+    0x005B3230 GetFireballLevel, 0x005B3260 GetSkaterLastNameString (false at the first entry of that name without a
+    last_name), 0x005B3300 DrawDirectionalLightLines (the debug line is compiled out: Gfx::AddDebugLine; the local
+    skater dereferenced unchecked), 0x005B3470 InSlapGame (also called directly by the game; asks the game mode's
+    name twice).
+  - Test TestTextureCFuncs: original vs ours with the textures (each vtable thunk), the dictionary, the face, the rail
+    editor, the generator's search, skaters, records and the game mode stood in for; 15 HSV and 15 RGB inputs
+    (wrapping, clamping, all six sectors, inputs found by brute force where the value's precision shows), the rail
+    search's outcomes. 47 of 48 deliberate bugs caught (5 after strengthening: precision-revealing HSV inputs, sector 4
+    with f > 0, a rail between the default's squares, a geometry-only find, a later duplicate name); 1 equivalent
+    (HSVtoRGB's minimum value 0.01f as a double: results at that value are at most 1.28 and truncate the same).
+- [x] Batch 387 (GS4-4; gamescript-4, merged 2026-10-24; run in the game: docs/pending/gamescript-4.md; NOT judged by a player yet; model swaps, create-a-graphic, 2D positions, head bone groups - 7
+  CFunctions): src/game/obj/model_swap_cfuncs.h / .cpp, src/game/gfx/cag_cfuncs.h / .cpp (new).
+  - 0x005B34A0 SwapObjectModels (the objects asked for core physics before the null check, as the original; the
+    swap recorded by 0x005AA930; shadows destroyed; skeletons swapped through a copy made in the top-down heap; the
+    renderable models' +0xC swapped and each model component given the other's model through its vtable (slot 14);
+    suspend counts reset and both unsuspended; for a skater, each model's lights follow its object again - the models
+    read back after the swap - and the skater's +0x31C set from the swap table (an entry whose object wears no other
+    model; 0 if none; the last match wins); shadows remade - a skater's in its skater heap), 0x005B3890
+    RestoreAllSwappedObjectModels (each used entry swapped back, the table gone over again up to the number of swaps
+    there were; delete inlined as the structure pool pair's Free), 0x005B3A30 GetSkaterModelIsSwapped, 0x005B3A90
+    GenerateCAGTexture (the custom tag 0xAA286543 cleared, a workspace texture 0xFDA19704 as wide as the tag's low 16
+    bits; each layer drawn, scaled, flipped, turned, moved - doubled for a 128-wide tag - and tinted (a translucent
+    one: alpha below 0x80), then blended onto the tag; its palette rebuilt - kept opaque for an 8-bit tag with no
+    translucent layer, into a 1 KB buffer; the workspace removed; player 0's tag marked custom (0x004E4000) and put on
+    its graffiti; Test shows it on cag_workspace_sprite), 0x005B3ED0 SyncCAGWorkspace (the custom tag copied from the
+    skater's graffiti; the current profile fetched and unused), 0x005B3F40 Get2DPosFrom2DVec (quadrants folded with
+    sign flags, the axes exact - 180 negates x directly -, otherwise Mth::FastSin / FastCos), 0x005B4150
+    ResolveHeadBoneScale (the four head bone groups the appearance lacks, from skater_m_head / skater_f_head).
+  - Tests TestModelSwapCFuncs / TestRestoreSwapsCFunc / TestCagCFuncs: original vs ours with the objects, components
+    (a stand-in vtable for SetModel), skeletons, models, the memory manager, the textures' vtable thunks, the swap
+    table, the struct pool, the profile's part look-ups, and FastSin / FastCos (naked stand-ins returning in ST0)
+    stood in for; the swap with a skater first / second / both / none, a failed skeleton allocation, the early
+    returns; RestoreAll over four table patterns with SwapObjectModels stood in for; CAG over five layer sets / sizes /
+    depths / players; 17 angles. 50 of 51 deliberate bugs caught; 1 equivalent (theta == 180 taken into the second
+    quadrant's fold: 90 - 90 = 0, x negated - the same result).
+- [x] Batch 388 (GS4-5; gamescript-4, merged 2026-10-24; run in the game: docs/pending/gamescript-4.md; NOT judged by a player yet; the theme's colours, a board logo, preferences from a menu, the skater's
+  velocity, bail streams - 23 CFunctions): src/game/front/theme_cfuncs.h / .cpp, src/game/skater/skater_misc_cfuncs.h /
+  .cpp (new), src/game/script/game_util_cfuncs.h / .cpp (SetPreferencesFromUI).
+  - 0x005B4260-0x005B45C0 the 19 Theme_Get...Color commands (return_value=<name> gets <name>=DE_..._COLOR, the
+    theme's global), 0x005B45F0 ApplyCustomLogoToPart (the skater's board element shown; no null check), 0x005B46A0
+    SetPreferencesFromUI (the preferences 0x00565D40 picks; {ui_string, checksum, time for time_limit /
+    horse_time_limit, score - else time * 1000 - for target_score} under the field's checksum), 0x005B4890
+    GetSkaterVelocity (vel_x/y/z truncated; scaled_x/y/z: faster than 100 across the ground, the horizontal velocity
+    normalised, else the object's facing row; a skew angle turns it - m * RotateY for the velocity, RotateY * m for
+    the facing: the original multiplies in those two orders), 0x005B4AF0 PlaySkaterStream (streams 1..count shuffled
+    with Rnd, "<voice>_<type><nn>" through sprintf - ours snprintf into the same 128 bytes; voice: a pro's last name,
+    else player_voices' play_skater_stream_name for the profile's voice, else customM / customF by is_male == 1; the
+    first stream that exists played by skater_play_bail_stream; the struct / array deletes inlined as the pool pairs'
+    Free; the skater's first name copied into a buffer and not used, as the original).
+  - Test TestSkaterMiscCFuncs: original vs ours with the skate module, skater, preferences, the matrix / vector maths
+    (deterministic stand-ins, so x87 and SSE agree), the profile template, Rnd, sprintf / strcmp, streams and RunScript
+    stood in for, arrays that keep their elements (for the shuffle); 15 velocity cases (fast / slow, skew, scale),
+    seven stream cases (pro, voice in the list, custom male / female / is_male 2, none found, count 0). 33 of 33
+    deliberate bugs caught (1 after strengthening: is_male = 2).
+- [x] Batch 389 (GS4-6; gamescript-4, merged 2026-10-24; run in the game: docs/pending/gamescript-4.md; NOT judged by a player yet; object placements and projectiles, the cutscene destroy list, the skaters'
+  set-up and scores, the nearest skater - 17 functions): src/game/net/hunt_cfuncs.h / .cpp,
+  src/game/obj/cutscene_list_cfuncs.h / .cpp, src/game/skater/skater_score_cfuncs.h / .cpp (new).
+  - 0x005B4F80 BroadcastObjectPlacements (for every player, observers too, a message 0x8F per other non-observer
+    player: its skater's id byte, its count and positions - 88 bytes, the positions past the count left from the last
+    one, as the original), 0x005B50F0 ReportObjectPlacement (0x8F with the position only; offline the client numbered
+    by ObjId, as the original), 0x005B51B0 BroadcastProjectile (0x83, 56 bytes: 0, pos, vel, type, ammo_type, radius,
+    scale, the id byte), 0x005B4650 the MSVC 7.1 std::list constructor (CFuncs::PointerList: its static users are
+    0x006F0DA8, the COIM instance list and the cutscene destroy list 0x007CEDD8), 0x005B5320
+    AddToCutsceneDestroyList (an entry - GS3's CutsceneDestroyEntry - with its own copy of destroy_params, pushed at
+    the end), 0x005B5450 RemoveFromCutsceneDestroyList (not while flushing - 0x007CED50; the entry deleted, the node
+    unlinked), 0x005B5510 Cutscene_SpawnScript (SpawnScript's parameters - the id defaulting to the calling script's
+    .qb file, its symbol's +8 - and an entry killing the spawned script by its unique id), 0x005B5BE0
+    FlushCutsceneDestroyList (each destroy script run, the entries deleted, std::list::erase 0x004ECC30), 0x005B5770
+    InitializeSkaters (a local skater's ResetInput through its vtable slot 14, then out of the world: 0x00564C60),
+    0x005B57E0 ReinsertSkaters (ShowSkater in its skater heap), 0x005B5860 ResetScore (local skaters - every one with
+    reset_all: the score reset, "0" / "0:00" in king of the hill), 0x005B5950 UpdateScore, 0x005B59C0 ResetScorePot,
+    0x005B5A40 GetCollidingPlayerAndTeam (radius * 12 squared before rounding; another team without the flag or the
+    excluded team with it; the nearest; team -1 when none). The loops over the skaters count them with
+    Skate::GetNumSkaters (the original inlines that count).
+  - Tests TestNetListScoreCFuncs / TestCutsceneSpawnScriptCFunc: original vs ours with the network manager, players,
+    apps and clients, the memory manager (blocks handed out in order - the list's nodes and entries compared word by
+    word after each command), the entry constructor, SpawnScript, RunScript, erase, the skate module's skater list (a
+    real one: the original counts it inline), the skaters' vtable, scores and SetScoreText stood in for; a calling
+    script's symbol in the stand-in table. 44 of 44 deliberate bugs caught (2 after strengthening: a skater kept out
+    only by its height, a radius whose square rounds differently before and after - found by search).
+- [x] Batch 390 (GS4-7; gamescript-4, merged 2026-10-24; run in the game: docs/pending/gamescript-4.md; NOT judged by a player yet; the game's own configuration - 13 functions): src/game/sys/game_config.h /
+  .cpp (new; namespace GameConfig - not the hook's sys/config.h ini settings).
+  - 0x005B5C90 ArgumentStartsWith (ECX / EBX: a naked stub returning AL; the argument copied unbounded into 100
+    bytes, as the original), 0x005B5D30 GetArgumentValue (option=value, option= value, option =value, option = value;
+    the last one wins), 0x005B5DD0 GotArgument (case-insensitive through tolower; 256-byte copies, unbounded),
+    0x005B5F10 GetPathPrefix (0x007CEE20), 0x005B5F20 / 0x005B5F90 / 0x005B5FC0 / 0x005B6020 / 0x005B6040 the
+    language, territory, hardware, display type and platform-extension names (the jump tables' cases), 0x005B6090
+    SetNtscFlag (NTSC only), 0x005B60B0 Init (CD / NotCD, NoExtraMem, Bootstrap with its return target and argument -
+    "THUG2" by default -, NotBootstrap, Pal / NTSC, FrameRate=50|60 compared with the terminator), 0x005B6250
+    GetBootstrapPrefix, 0x005B6270 ReadRegistry (Win32, English, no extra memory; the language from HKCU's
+    ...\Install key, else HKLM's - opened with RegCreateKeyA, as the original (the import at 0x00645000) -: 2 French,
+    3 German, else English).
+  - Test TestGameConfig: original vs ours with RegCreateKeyA / RegQueryValueExA / RegCloseKey (StandInApi), the C
+    runtime's tolower / strcmp / sprintf and the debug output stood in for; the register stub driven through inline
+    asm; 13 command lines (with arguments past argc present, so reading them would show) through GetArgumentValue,
+    GotArgument and Init over four registry cases; every name for -1..10. 33 of 33 deliberate bugs caught (5 after
+    strengthening: arguments past argc, Bootstrap with 3 and 4 arguments, FrameRate=500).
+- [x] Range 0x005B0A40-0x005B6560 done: 129 functions with source in GS4-1..7 (plus the 17 already done in
+  file/async.cpp); find_gaps shows none left in it; no function Ghidra missed in the padding. Crash check (2026-10-24,
+  workspace C:\Games\THUG2-1, this branch's DLL after merging main with GS1-GS3, `run_game.ps1 -Level BO`): started,
+  BO loaded in free skate, the skater spawned and stood in the level, running and responding after 110 s, closed;
+  no run-time check, debug CRT report or exception in the log. thug2_check: 0 MISMATCHED, 813 early self-tests
+  passed on THUG2PM.exe and on the stock THUG2.exe; check_code_writes: no overlaps; scan_register_assumptions /
+  audit_game_function_calls: nothing new.
+  - Not run in the game beyond that: nearly all of it (the commands need their menus / modes: CAS face textures and
+    CAG, the hunt and projectiles online, model swaps, bail streams, the theme colours, configurable tricks).
 - [ ] Next: nothing left in 0x0053A910-0x00541870 (98 functions with source: 76 Ghidra knows + 22 reached only by
   pointer - callbacks and tasks it never made functions of). The lead: fold, merge, game crash check.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
