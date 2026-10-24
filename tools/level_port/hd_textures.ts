@@ -73,6 +73,56 @@ export function defaultOptions(scale = 4): HdOptions {
     };
 }
 
+// The --hd-* command-line options as HdOptions, for the converters that use parseCli (THPS2): `textures` is the
+// --hd-textures value ("2" / "4"; undefined: the pass is off, null is returned). `fail` reports a bad value and exits.
+export interface HdCliValues {
+    textures?: string | undefined;
+    model?: string | undefined;
+    max?: string | undefined;
+    min?: string | undefined;
+    cache?: string | undefined;
+    tool?: string | undefined;
+    gpu?: string | undefined;
+    noMatch?: boolean | undefined;
+}
+
+export function optionsFromCli(v: HdCliValues, fail: (message: string) => never): HdOptions | null {
+    if (v.textures === undefined) return null;
+    if (v.textures !== "2" && v.textures !== "4")
+        fail(`argument --hd-textures: invalid choice: '${v.textures}' (choose from 2, 4)`);
+    const hd = defaultOptions(Number(v.textures));
+    if (v.model !== undefined) {
+        if (!(MODELS as readonly string[]).includes(v.model))
+            fail(`argument --hd-model: invalid choice: '${v.model}' (choose from ${MODELS.join(", ")})`);
+        hd.model = v.model;
+    }
+    for (const [name, text, key] of [
+        ["--hd-max", v.max, "maxSize"],
+        ["--hd-min", v.min, "minSize"],
+    ] as const) {
+        if (text === undefined) continue;
+        const n = Number(text);
+        if (!Number.isInteger(n) || n < 1) fail(`argument ${name}: invalid int value: '${text}'`);
+        hd[key] = n;
+    }
+    if (v.cache !== undefined) hd.cacheDir = path.resolve(v.cache);
+    if (v.tool !== undefined) hd.tool = path.resolve(v.tool);
+    if (v.gpu !== undefined) hd.gpu = v.gpu;
+    hd.match = !v.noMatch;
+    return hd;
+}
+
+// `--hd-textures` takes an optional 2 / 4 (default 4): parseArgs wants a value, so a bare one gets "4" inserted.
+export function fillHdTexturesArg(argv: readonly string[]): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i]!;
+        out.push(a);
+        if (a === "--hd-textures" && !(i + 1 < argv.length && /^\d+$/.test(argv[i + 1]!))) out.push("4");
+    }
+    return out;
+}
+
 export interface HdStats {
     textures: number;
     upscaled: number;
