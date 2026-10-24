@@ -517,3 +517,10 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   in docs/pending/thp8-render-audit.md (grey lawns = NormalMapBlended falls back to a flat grey 32x32; stand-in instance
   masters stacked at the origin; no overlay_bias in THP8; doubled fun-park periphery). Fix round not started.
   Running: renderer decomp 0x4B2280-0x4D6D40 (docs/pending/renderer-fx.md, RFX-n, workspace THUG2-1).
+- THP8 fix round 1 merged + installed (2026-10-24; levels + overlay, DLL unchanged): stand-in instance placements, z bias
+  (biasOverlays), flat/dither base textures replaced by the real one (grey lawns -> grass), dither layers dropped,
+  dither-only materials untextured, cross-zone duplicate sectors dropped (doubled fun-park periphery). Before/after in
+  docs/pending/thp8-render-audit.md "Fix round 1". Lead load check in THUG2-2 with the current DLL: BEAVER VALLEY loads,
+  log clean (the agent's crash was THUG2-2's stale 10-19 DLL). Odd: THUG2-2 with self-tests ON stopped logging after
+  "early self-tests: running 815" (level not loaded in 86 s) - not diagnosed. Not run in the main install.
+  Running: THP8 vert ramp + tree wedge (docs/pending/thp8-vert.md, THUG2-4); HD menu UI 4x + THPS3 x4 (docs/pending/hd-ui.md, THUG2-3).
