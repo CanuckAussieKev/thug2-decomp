@@ -97,7 +97,7 @@ src/game/skate/records.h / .cpp (three record commands added).
     branch (local or not, by id / index / none, movies left or not, the editor's state, the reload's gates). 40 of
     40 deliberate bugs caught (1 after the stand-in memory manager got a distinct value per heap).
 - [x] Batch GS3-5 (NOT run in the game yet; player options, the pro's name, selecting the skater, appearance and face
-  - 18 CFunctions): src/game/skate/profile_cfuncs.h / .cpp and appearance_cfuncs.h / .cpp (new).
+  - 18 CFunctions): src/game/skate/skater_profile_cfuncs.h / .cpp and appearance_cfuncs.h / .cpp (new).
   - 0x005AE370 ... 0x005AE4F0 VibrationIsOn / On / Off, AutoKickIsOn / On / Off, SpinTapsAreOn / On / Off (the skate
     module's +0x394 table, 8 bytes a player; set through 0x00567C30 / 0x00567C00 / 0x00567BD0), 0x005AE520
     GetCurrentProDisplayInfo (string: the current profile's display name), 0x005AE900 SelectCurrentSkater (false if
@@ -113,7 +113,7 @@ src/game/skate/records.h / .cpp (three record commands added).
     the test kit). 23 of 24 deliberate bugs caught; the miss is equivalent (writing the points from the scratch copy
     instead of the copy made of it).
 - [x] Batch GS3-6 (NOT run in the game yet; model refreshes, appearance parts, stats, profile queries, position and
-  velocity - 24 CFunctions): appearance_cfuncs.cpp, profile_cfuncs.cpp, skater_query_cfuncs.cpp.
+  velocity - 24 CFunctions): appearance_cfuncs.cpp, skater_profile_cfuncs.cpp, skater_query_cfuncs.cpp.
   - appearance: 0x005AF750 / 0x005AF7D0 / 0x005AF850 / 0x005AF8D0 RefreshSkaterColors / Scale / Visibility / UV
     (RebuildFromProfile with color_model_ / scale_model_ / hide_model_from_appearance / set_uv_from_appearance),
     0x005AFD80 RefreshSkaterModel (the unnamed index is both indexes' default; the first viewport's skater: the
@@ -142,7 +142,7 @@ src/game/skate/records.h / .cpp (three record commands added).
     nothing, an integer), the velocities recorded after each call. 50 of 50 deliberate bugs caught (5 after
     strengthening: a use_default_hsv other than 1, a negative forced stat, a z that rounds differently, the
     velocities recorded after each call).
-- [x] Batch GS3-7 (NOT run in the game yet; the profile templates and lists - 15 CFunctions): profile_cfuncs.cpp.
+- [x] Batch GS3-7 (NOT run in the game yet; the profile templates and lists - 15 CFunctions): skater_profile_cfuncs.cpp.
   - 0x005ABBF0 ResetAllToDefaultStats (each master_skater_list skater's stat_names values and points_available
     into its template's info; the scratch structure freed through the pool as the original's inlined delete),
     0x005ABE30 ResetToDefaultProfile (partial=stats_and_tricks: SetFromParams(entry, no info, specials); another

@@ -1,5 +1,5 @@
 // Self-tests for the model refresh, appearance part, stat and velocity script commands of 0x005AAEF0-0x005B0A40
-// (appearance_cfuncs.cpp, profile_cfuncs.cpp, skater_query_cfuncs.cpp - batch GS3-6): each original against ours on
+// (appearance_cfuncs.cpp, skater_profile_cfuncs.cpp, skater_query_cfuncs.cpp - batch GS3-6): each original against ours on
 // stand-in skaters (with model and trick components whose virtual calls are recorded), profiles and their parts,
 // the profile manager, the career and the object manager; every call without source and the structure changes
 // recorded (over the game's function and ours alike).
@@ -17,7 +17,7 @@
 #include "game/script/struct.h"
 #include "game/skate/appearance_cfuncs.h"
 #include "game/skate/career.h"
-#include "game/skate/profile_cfuncs.h"
+#include "game/skate/skater_profile_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_query_cfuncs.h"

@@ -1,4 +1,4 @@
-// Self-tests for the profile list script commands (0x005ABBF0-0x005AC5EF, profile_cfuncs.cpp - batch GS3-8): each
+// Self-tests for the profile list script commands (0x005ABBF0-0x005AC5EF, skater_profile_cfuncs.cpp - batch GS3-8): each
 // original against ours on a stand-in master_skater_list and stat_names, profile templates with real info
 // structures, the profile manager and the skate module; the profiles' and the skate module's calls without source and
 // the structure changes recorded (over the game's function and ours alike).
@@ -11,7 +11,7 @@
 
 #include "game/script/struct.h"
 #include "game/skate/career.h"
-#include "game/skate/profile_cfuncs.h"
+#include "game/skate/skater_profile_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"

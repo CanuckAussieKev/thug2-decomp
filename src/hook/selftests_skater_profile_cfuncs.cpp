@@ -1,5 +1,5 @@
 // Self-tests for the profile, option and appearance script commands of 0x005AAEF0-0x005B0A40
-// (profile_cfuncs.cpp, appearance_cfuncs.cpp): each original against ours on stand-in profiles (with faces), skaters
+// (skater_profile_cfuncs.cpp, appearance_cfuncs.cpp): each original against ours on stand-in profiles (with faces), skaters
 // and a profile manager; the skate module's, the profiles' and the faces' calls without source stood in for by
 // recording code (over the game's function and ours alike).
 
@@ -13,7 +13,7 @@
 #include "game/core/crc.h"
 #include "game/script/struct.h"
 #include "game/skate/appearance_cfuncs.h"
-#include "game/skate/profile_cfuncs.h"
+#include "game/skate/skater_profile_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "hook/game.h"

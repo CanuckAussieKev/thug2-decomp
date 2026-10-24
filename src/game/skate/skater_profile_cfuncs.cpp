@@ -1,6 +1,6 @@
-// Script commands of the skater profiles and the players' options (see profile_cfuncs.h).
+// Script commands of the skater profiles and the players' options (see skater_profile_cfuncs.h).
 
-#include "game/skate/profile_cfuncs.h"
+#include "game/skate/skater_profile_cfuncs.h"
 
 #include <cstdint>
 
