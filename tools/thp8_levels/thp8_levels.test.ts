@@ -18,6 +18,8 @@ import {
     endlessLoop,
     faceFlags,
     GLOW_DEFAULT,
+    GroundIndex,
+    gapFills,
     glowMaterials,
     glowScale,
     horizontalReach,
@@ -36,6 +38,7 @@ import {
     SCALE,
     seamWalls,
     soloRestarts,
+    standInOutside,
     thug2Terrain,
     toThug,
     triggerVolumes,
@@ -662,5 +665,90 @@ test("zones merged: the light's triangle budget per zone; the reach from the mid
     assert.equal(
         Math.round(horizontalReach([{ index: 0, triangles: [tri(100, -300)] }], [0, 0, 1000])),
         Math.round(300 * SCALE - 1000),
+    );
+});
+
+test("narrow holes: void between ground close on both sides is floored at the lower side; wide gaps and steps aren't", () => {
+    // two slabs (inches) along x at y, z 0..100
+    const slab = (checksumValue: number, x0: number, x1: number, y: number) => ({
+        checksum: checksumValue,
+        flags: 0,
+        verts: [
+            [x0, y, 0],
+            [x1, y, 0],
+            [x1, y, 100],
+            [x0, y, 100],
+        ],
+        intensities: Buffer.alloc(4, 128),
+        faces: [
+            [0, 0, 0, 1, 2],
+            [0, 0, 0, 2, 3],
+        ] as [number, number, number, number, number][],
+        bbox: [x0, y, 0, 1, x1, y, 100, 1],
+    });
+    const covered = (fills: ReturnType<typeof gapFills>, x: number, z: number): number | null => {
+        for (const o of fills) {
+            for (const f of o.faces) {
+                const v = [o.verts[f[2]]!, o.verts[f[3]]!, o.verts[f[4]]!];
+                const xs = v.map((p) => p[0]!);
+                const zs = v.map((p) => p[2]!);
+                if (x >= Math.min(...xs) && x <= Math.max(...xs) && z >= Math.min(...zs) && z <= Math.max(...zs)) {
+                    return v[0]![1]!;
+                }
+            }
+        }
+        return null;
+    };
+    // a 24-inch slit (a kerb 0.6 m short of the road): filled at the road's height
+    const narrow = gapFills([slab(1, 0, 200, 12), slab(2, 224, 400, 7)], "t");
+    assert.equal(covered(narrow, 212, 50), 7);
+    assert.equal(covered(narrow, 300, 50), null); // (not over the ground itself)
+    // a step of 33 inches: not filled; a 5 m gap: not filled
+    assert.equal(gapFills([slab(1, 0, 200, 40), slab(2, 224, 400, 7)], "t").length, 0);
+    assert.equal(gapFills([slab(1, 0, 200, 12), slab(2, 400, 600, 7)], "t").length, 0);
+});
+
+test("stand-ins: a triangle over the level's own ground is left out, also a huge one only its middle is over", () => {
+    const tri = (a: number[], b: number[], c: number[]) => ({ a, b, c, material: 0, owner: 0 });
+    // the level's ground: x / z 0..20 (metres)
+    const ground = new GroundIndex([
+        {
+            index: 0,
+            triangles: [tri([0, 0, 0], [20, 0, 0], [20, 0, 20]), tri([0, 0, 0], [20, 0, 20], [0, 0, 20])],
+        },
+    ]);
+    assert.equal(
+        standInOutside(
+            [
+                [5, 3, 5],
+                [6, 3, 5],
+                [5, 3, 6],
+            ],
+            ground,
+        ),
+        false,
+    );
+    assert.equal(
+        standInOutside(
+            [
+                [50, 0, 50],
+                [60, 0, 50],
+                [50, 0, 60],
+            ],
+            ground,
+        ),
+        true,
+    );
+    // corners and edge middles all off the ground, points inside over it
+    assert.equal(
+        standInOutside(
+            [
+                [-400, -9, -400],
+                [600, -9, -400],
+                [-400, -9, 600],
+            ],
+            ground,
+        ),
+        false,
     );
 });
