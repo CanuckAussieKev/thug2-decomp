@@ -382,7 +382,7 @@ function boxTriangles(he: readonly number[]): number[][][] {
 }
 
 // A prism of SIDES faces round the segment a-b (radius r), its ends closed.
-function cylinderTriangles(a: readonly number[], b: readonly number[], r: number): number[][][] {
+export function cylinderTriangles(a: readonly number[], b: readonly number[], r: number): number[][][] {
     const axis = [0, 1, 2].map((k) => b[k]! - a[k]!);
     const len = Math.hypot(...axis) || 1;
     const n = axis.map((x) => x / len);
@@ -406,23 +406,65 @@ function cylinderTriangles(a: readonly number[], b: readonly number[], r: number
     const out: number[][][] = [];
     for (let i = 0; i < SIDES; i++) {
         const j = (i + 1) % SIDES;
-        out.push([ra[i]!, rb[i]!, rb[j]!], [ra[i]!, rb[j]!, ra[j]!]);
+        // (wound to face outwards, as the ends: THUG2's line tests only hit a face's front - see faceOutwards)
+        out.push([ra[i]!, rb[j]!, rb[i]!], [ra[i]!, ra[j]!, rb[j]!]);
         if (i > 0 && i < SIDES - 1) out.push([ra[0]!, ra[j]!, ra[i]!], [rb[0]!, rb[i]!, rb[j]!]);
     }
     return out;
 }
 
+// A convex primitive's triangles (placed) turned to face away from its middle: THUG2's collision is one-sided - a line
+// test only hits a face from the side its winding (b - a) x (c - a) faces (0x0040B420 rejects a determinant under
+// 0.03), and the skater takes that normal as the way out (DoAirPhysics 0x0050CA00 puts him at the hit point plus the
+// normal, then pushes him Skater_Min_Distance_To_Wall along it). A primitive wound inwards can't be hit from outside
+// and traps whoever gets in: BEAVER VALLEY's tree trunks were cylinders with their sides wound inwards (the user's
+// stuck-in-a-tree event - docs/pending/pole-tunnel.md). Havok's shapes have no winding; a mirroring transform would
+// turn one inside out too. Returns how many were turned.
+export function faceOutwards(tris: number[][][]): number {
+    const centre = [0, 1, 2].map(
+        (k) => tris.reduce((s, t) => s + t[0]![k]! + t[1]![k]! + t[2]![k]!, 0) / (3 * tris.length),
+    );
+    let turned = 0;
+    for (const t of tris) {
+        const [a, b, c] = [t[0]!, t[1]!, t[2]!];
+        const u = [0, 1, 2].map((k) => b[k]! - a[k]!);
+        const v = [0, 1, 2].map((k) => c[k]! - a[k]!);
+        const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+        const out = [0, 1, 2].map((k) => (a[k]! + b[k]! + c[k]!) / 3 - centre[k]!);
+        if (n[0]! * out[0]! + n[1]! * out[1]! + n[2]! * out[2]! < 0) {
+            t[1] = c;
+            t[2] = b;
+            turned++;
+        }
+    }
+    return turned;
+}
+
+// What readCollision did to the primitives (for the converter's report and the audit).
+export interface PrimitiveStats {
+    primitives: number;
+    triangles: number;
+    turned: number; // triangles faceOutwards turned (0 unless a transform mirrors)
+}
+
 // Every rigid body's triangles (world space; primitives made into triangles).
-export function readCollision(pf: Packfile, warnings: string[] = []): HkBody[] {
+export function readCollision(
+    pf: Packfile,
+    warnings: string[] = [],
+    stats: PrimitiveStats = { primitives: 0, triangles: 0, turned: 0 },
+): HkBody[] {
     const childOf = (s: Ptr, c: string, member: string): Ptr | null =>
         pf.field(s, pf.member(c, member).offset + pf.member("hkSingleShapeContainer", "childShape").offset);
     const walk = (s: Ptr | null, m: Mat, material: number, out: HkBody, owner: number): void => {
         if (s === null) return;
         const c = pf.classOf(s);
+        // (a primitive's triangles placed, then faced outwards)
         const push = (tris: number[][][]): void => {
-            for (const [a, b, cc] of tris) {
-                out.triangles.push({ a: apply(m, a!), b: apply(m, b!), c: apply(m, cc!), material, owner });
-            }
+            const placed = tris.map((t) => t.map((p) => apply(m, p)));
+            stats.primitives++;
+            stats.triangles += placed.length;
+            stats.turned += faceOutwards(placed);
+            for (const [a, b, cc] of placed) out.triangles.push({ a: a!, b: b!, c: cc!, material, owner });
         };
         switch (c) {
             case "hkMoppBvTreeShape":
