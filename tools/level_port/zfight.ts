@@ -227,9 +227,10 @@ export interface Fight {
     opposite: boolean; // facing opposite ways (and one of them two-sided)
     biased: boolean; // their materials' z biases differ: the bias decides (not a fight)
     triangles: number; // overlapping triangle pairs
-    identicalArea: number; // ... of the area: triangles with the same corners (equal depths: with LESSEQUAL the one
-    // drawn later wins - little or no shimmer; two see-through copies blend twice. Strips that order the corners
-    // differently can still round apart)
+    identicalArea: number; // ... of the area: triangles with the same corners. Not a safe pair: the game's two copies
+    // are triangulated, lit and strip-ordered on their own (the vertex colours, refined triangles), so the depths
+    // round apart and the pair flickers (THP8's BEAVER VALLEY shops alley, 2026-10-24: the sheet Shops830 twice, gap
+    // 0.0000 inch, was the user's z-fighting); two see-through copies also blend twice
 }
 
 // Whether two triangles have the same corners in the same turn (a rotation of each other), within `eps` inches: the
@@ -418,6 +419,14 @@ export function report(
     lines.push(
         `${level}: ${fights.length} overlapping mesh pairs, ${m2(total).toFixed(0)} m2 (${m2(seen).toFixed(0)} m2 fighting within the view distance)`,
     );
+    // (what the player sees flicker: not decided by a z bias, not back to back; the coplanar ones, gap ~0, included -
+    // two copies of one surface fight in the game, whatever their triangles)
+    const flicker = fights.filter(flickers);
+    const coplanar = flicker.filter((f) => f.maxSeparation <= COPLANAR_GAP);
+    lines.push(
+        `  FLICKER (no z bias, facing one way): ${flicker.length} pairs, ${m2(flicker.reduce((a, f) => a + f.seenArea, 0)).toFixed(0)} m2 seen; ` +
+            `of them coplanar copies (gap under ${COPLANAR_GAP} inch): ${coplanar.length} pairs, ${m2(coplanar.reduce((a, f) => a + f.seenArea, 0)).toFixed(0)} m2 seen`,
+    );
     for (const [k, c] of [...byCause].sort((x, y) => y[1].seen - x[1].seen || y[1].area - x[1].area)) {
         lines.push(
             `  ${k.padEnd(48)} ${String(c.pairs).padStart(6)} pairs ${m2(c.area).toFixed(0).padStart(8)} m2 (${m2(c.seen).toFixed(0)} m2 seen)`,
@@ -437,7 +446,7 @@ export function report(
         const spot = spotFor(f.centre, f.normal);
         lines.push(
             `  ${m2(f.seenArea).toFixed(1).padStart(7)} / ${m2(f.area).toFixed(1).padStart(7)} m2  gap ${f.minSeparation.toFixed(3)}-${f.maxSeparation.toFixed(3)} in` +
-                ` (fights from ${(f.fightsFrom / INCHES_PER_METRE).toFixed(0)} m)  ${cause(f)}`,
+                ` (fights from ${(f.fightsFrom / INCHES_PER_METRE).toFixed(0)} m)  ${cause(f)}${flickers(f) && f.maxSeparation <= COPLANAR_GAP ? "  [COPLANAR COPIES: flickers]" : ""}`,
         );
         lines.push(`      ${sectorName(f.a.sector)} [${materialName(f.a.material)}]`);
         lines.push(`      ${sectorName(f.b.sector)} [${materialName(f.b.material)}]`);
@@ -448,16 +457,18 @@ export function report(
     return lines;
 }
 
-// A pair's cause: decided by a z bias, opposite-facing, the same triangles (no shimmer), else Labels.cause /
+// A pair's cause: decided by a z bias, opposite-facing, the same triangles (flickering all the same), else Labels.cause /
 // genericCause.
 export const IDENTICAL_SHARE = 0.9;
+export const COPLANAR_GAP = 0.05; // inches: copies of one surface (they fight from any distance)
+export function flickers(f: Fight): boolean {
+    return !f.biased && !f.opposite && f.seenArea > 0;
+}
 export function causeOf(f: Fight, scene: thug2Scene.Scene, labels: Labels = {}): string {
     if (f.biased) return "decided by a z bias";
     if (f.opposite) return "opposite-facing, two-sided";
     const why = (labels.cause ?? genericCause)(f, scene);
-    return f.identicalArea >= IDENTICAL_SHARE * f.area
-        ? `${why} - same triangles (equal depths: little or no shimmer)`
-        : why;
+    return f.identicalArea >= IDENTICAL_SHARE * f.area ? `${why} - same triangles` : why;
 }
 
 // Why two meshes overlap, from the scene alone.

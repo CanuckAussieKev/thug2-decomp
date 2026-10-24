@@ -145,8 +145,11 @@ node array's instances are placed (`standInPlaced`), so the masters aren't drawn
 colour or a 16 x 16 dither, `materials.blankKind`) for the material's biggest real texture, none left: a dither-only
 material is drawn untextured, a flat colour stays; a layer whose diffuse is a dither is left out; the scene gets
 `overlay_bias`'s z bias; and a later merged zone's sector that an earlier zone draws under its own prefix with the same
-box is not drawn (`zoneDuplicates`; THP8's own twins in one zone are only counted in the report). NormalMapBlended's
-own layer layout (the lawns' blended grass maps) is not read: the first grass map only.
+box is not drawn (`zoneDuplicates`). THP8's floaters (`F_` sectors: the geometry laid over a surface - sign cells, dirt and
+blend patches; the same triangles also stay in the `g_` sector they were cut from) and its other tessellated-twice
+sectors (VC_ / G_ pairs) are drawn once: `repeatedSurfaces` leaves out a mesh whose surface another mesh of the same
+material (a floater's first) already draws, in the same plane. A `_lod` stand-in's triangle lying on a triangle the
+level draws (`standInOnDrawn`) is left out too. NormalMapBlended's own layer layout (the lawns' blended grass maps) is not read: the first grass map only.
 
 **Seam walls.** Each zone's collision has invisible walls (every face 0x1000, most also 0x80 - the camera passes)
 along its edges where the next zone begins (z_houses: a 115 m long, 70 m high plane at x = 0, where z_shops starts).

@@ -76,9 +76,27 @@ export const ZONES: readonly ZoneInfo[] = [
     city("z_funpark", "FUN PARK", "the fun park"),
     city("z_parking", "PARKING", "the parking lot"),
     city("z_cartoon", "CARTOON", "the cartoon world"),
-    { zone: "z_training", sign: "TRAINING", location: "THP8's training area", levelNum: 110, standalone: true },
-    { zone: "z_skateshop", sign: "SKATE SHOP", location: "THP8's skate shop", levelNum: 111, standalone: true },
-    { zone: "z_bedroom", sign: "BEDROOM", location: "THP8's bedroom", levelNum: 112, standalone: true },
+    {
+        zone: "z_training",
+        sign: "TRAINING",
+        location: "THP8's training area",
+        levelNum: 110,
+        standalone: true,
+    },
+    {
+        zone: "z_skateshop",
+        sign: "SKATE SHOP",
+        location: "THP8's skate shop",
+        levelNum: 111,
+        standalone: true,
+    },
+    {
+        zone: "z_bedroom",
+        sign: "BEDROOM",
+        location: "THP8's bedroom",
+        levelNum: 112,
+        standalone: true,
+    },
 ];
 
 // THP8's English names of its city's areas (qb.pak's zone_info: {id=[z_center] Name="THE CAPITOL"} - its map's
@@ -285,7 +303,12 @@ export const INTERIOR_KNEE = 4.0;
 // Light maps this small (texels) are THP8's stand-ins (32 x 32, one colour: 128 grey ambient, white shadow).
 export const STAND_IN = 32 * 32;
 export function interiorLighting(): mats.Lighting {
-    return { sun: [0, 0, 0], ambientScale: INTERIOR_SCALE, sunScale: 0, ambientKnee: INTERIOR_KNEE };
+    return {
+        sun: [0, 0, 0],
+        ambientScale: INTERIOR_SCALE,
+        sunScale: 0,
+        ambientKnee: INTERIOR_KNEE,
+    };
 }
 
 export function zoneLighting(tod: Struct | undefined): mats.Lighting {
@@ -428,13 +451,15 @@ export interface SceneParts {
     // sectors to draw as copies elsewhere (instances): name -> [master sector, placement]
     placed: Map<number, { master: number; at: Placement }>;
     hidden?: ReadonlySet<number>; // sectors not made (notMade)
+    hiddenMeshes?: ReadonlySet<geom.GeomMesh>; // meshes not drawn (repeatedSurfaces): a surface another mesh draws
     dome?: boolean; // untextured materials coloured as a clear sky (THP8's atmosphere shader - the sky's dome)
     additive?: ReadonlySet<number>; // materials drawn adding (glowMaterials)
     lighting?: mats.Lighting; // THP8's light maps baked into the vertex colours (materials.ts)
     techniques?: ReadonlyMap<number, readonly string[]>; // the material library's (materials.readTechniques)
     local?: ReadonlySet<number>; // sectors in their own space (localObjects): not moved
-    // the triangles kept, by their corners (THP8's metres, placed): the stand-ins' over the level's own ground go
-    keepTriangle?: (corners: readonly (readonly number[])[]) => boolean;
+    // the triangles kept, by their corners (THP8's metres, placed) and the opaque triangles the earlier parts drew: the
+    // stand-ins' over the level's own ground or surfaces go
+    keepTriangle?: (corners: readonly (readonly number[])[], drawn: SurfaceIndex) => boolean;
     veil?: boolean; // drawn as a faint see-through wall, untextured (the network barriers: VEIL_COLOUR)
 }
 
@@ -588,6 +613,7 @@ export function convertScenes(
     };
     const plans = new Map<number, Plan>();
     const ground: ConvertedScene["ground"] = [];
+    const drawnIndex = new SurfaceIndex(); // the opaque world drawn so far, THP8 metres (for the stand-ins' keepTriangle)
     const defined = new Map<number, string>(); // material -> its definition (materialKey): the first part's
     parts.forEach((part, partIndex) => {
         const g = part.geom;
@@ -648,7 +674,11 @@ export function convertScenes(
                 glows.set(id, glowScale(m));
             }
             if (plan && texture && plan.layers.length) {
-                const out: Plan = { plan, slots: [plan.layers[0]!.slot], vertexMask: null };
+                const out: Plan = {
+                    plan,
+                    slots: [plan.layers[0]!.slot],
+                    vertexMask: null,
+                };
                 // (THUG2's pass colour: 0.5 = as the texture)
                 const tint = (pass: thug2Scene.Pass, c: readonly number[]): void => {
                     if (c.slice(0, 3).every((x) => x === 1)) return;
@@ -740,6 +770,7 @@ export function convertScenes(
             // (one uv set per pass: the sector's vertices carry as many as its materials' most)
             const sets = Math.max(1, ...s.meshes.map((m) => plans.get(matOf(m.material))?.slots.length ?? 1));
             for (const m of s.meshes) {
+                if (part.hiddenMeshes?.has(m)) continue;
                 const id = matOf(m.material);
                 if (!materials.has(id)) {
                     counts.skipped++;
@@ -761,7 +792,12 @@ export function convertScenes(
                 if (part.keepTriangle) {
                     const keep = part.keepTriangle;
                     const before = meshTris.length;
-                    meshTris = meshTris.filter((t) => keep(t.map((i) => place(verts[i]!.position, at))));
+                    meshTris = meshTris.filter((t) =>
+                        keep(
+                            t.map((i) => place(verts[i]!.position, at)),
+                            drawnIndex,
+                        ),
+                    );
                     counts.dropped += before - meshTris.length;
                 }
                 // (light maps: the mesh's last two uv fields - a mesh with fewer fields than its material's first isn't
@@ -833,9 +869,9 @@ export function convertScenes(
                 }
                 counts.triangles += tris.length;
                 if (tris.length) meshes.push({ flags: 0, material: id, strip: trisToStrip(tris) });
-                // (the drawn ground, for the audit: opaque, not a glow, not the sky, not a barrier, the world's own)
+                // (the drawn world, for the stand-ins' keepTriangle (see-through too: a backdrop drawn twice blends twice) and
+                // the drawn ground for the audit (opaque only): not a glow, not the sky, not a barrier, the world's own)
                 if (
-                    !blend &&
                     !glow &&
                     !part.dome &&
                     !part.veil &&
@@ -845,6 +881,11 @@ export function convertScenes(
                 ) {
                     for (const t of tris) {
                         const [a, b, c] = t.map((i) => positions[i]!) as [number[], number[], number[]];
+                        const flat = surfaceTri(
+                            [a, b, c].map((q) => [0, 1, 2].map((k) => (q[k]! - move[k]!) / unit)) as [Vec3, Vec3, Vec3],
+                        );
+                        if (flat) drawnIndex.add(flat);
+                        if (blend) continue;
                         const u = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
                         const v = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
                         const ny = u[2]! * v[0]! - u[0]! * v[2]!;
@@ -993,16 +1034,28 @@ export function uncoveredGround(
         // (a hole: its rim is mostly ground the skater has - drawn ground with no collision out past the world's edge,
         // the hills around the town, is scenery)
         if (rimCovered >= HOLE_RIM * (rimCovered + rimOpen)) {
-            patches.push({ cells, at: [sx / cells, sz / cells], sector: open.get(start)! });
+            patches.push({
+                cells,
+                at: [sx / cells, sz / cells],
+                sector: open.get(start)!,
+            });
         }
     }
     patches.sort((x, y) => y.cells - x.cells);
-    return { cells: patches.reduce((n, pt) => n + pt.cells, 0), patches: patches.slice(0, 40) };
+    return {
+        cells: patches.reduce((n, pt) => n + pt.cells, 0),
+        patches: patches.slice(0, 40),
+    };
 }
 
 // Lit triangles split where the light maps vary inside them (materials.refine), so shadows keep their shape in the
 // vertex colours.
-export const REFINE: mats.RefineOptions = { threshold: 0.2, minLength: 6, depth: 3, maxVertices: 60000 };
+export const REFINE: mats.RefineOptions = {
+    threshold: 0.2,
+    minLength: 6,
+    depth: 3,
+    maxVertices: 60000,
+};
 
 export function refineLit(
     verts: geom.Vertex[],
@@ -1734,7 +1787,10 @@ export function convertCollision(
                   const v = b.triangles.filter(isVolume);
                   if (!v.length || v.length === b.triangles.length) return [b];
                   return [
-                      { index: b.index, triangles: b.triangles.filter((t) => !isVolume(t)) },
+                      {
+                          index: b.index,
+                          triangles: b.triangles.filter((t) => !isVolume(t)),
+                      },
                       { index: b.index, triangles: v },
                   ];
               })
@@ -2377,7 +2433,7 @@ interface ZoneData {
     subQbs: thaw.QbItems[]; // the _gfx / _sfx sub-zones' scripts
 }
 
-function readZone(file: string, names: Map<number, string>, warnings: string[]): ZoneData {
+export function readZone(file: string, names: Map<number, string>, warnings: string[]): ZoneData {
     const pak = thp8.openPak(file);
     const main = pak.entries.filter((e) => e.flags === 0);
     const one = (ext: string): thp8.PakEntry | undefined => main.find((e) => e.extension === ext);
@@ -2573,6 +2629,7 @@ interface ZonePart {
     array: QbValue[];
     placed: Map<number, { master: number; at: Placement }>;
     hidden: Set<number>;
+    hiddenMeshes: Set<geom.GeomMesh>; // meshes drawing a surface another does (repeatedSurfaces): not drawn
     duplicate: Set<number>; // sectors drawn by an earlier zone under its prefix (zoneDuplicates): not drawn, collision kept
     local: Set<number>;
     made: Map<number, number>; // props: node -> type
@@ -2603,7 +2660,20 @@ function readPart(zone: string, ctx: Shared, warnings: string[]): ZonePart | nul
         for (const s of data.geom.sectors)
             if (ctx.args.leaveOut.test(ctx.names.get(s.checksum) ?? "")) hidden.add(s.checksum);
     }
-    return { zone, zoneName, data, array, placed, hidden, duplicate: new Set(), local, made, props, flagged };
+    return {
+        zone,
+        zoneName,
+        data,
+        array,
+        placed,
+        hidden,
+        hiddenMeshes: new Set(),
+        duplicate: new Set(),
+        local,
+        made,
+        props,
+        flagged,
+    };
 }
 
 // Sectors a later zone of a merged level draws that an earlier zone draws already, under another zone's prefix and with
@@ -2641,6 +2711,195 @@ export function zoneDuplicates(
     return { duplicates, twins };
 }
 
+// THP8 ships a floater (a sector named F_<...>: z_shops_F_G_TM_Shops830, F_VC_G_..., F_JAD_pile_of_leaves - "floaters":
+// the geometry laid over a surface, the sign cells on a wall, the dirt and blend patches on the ground) beside the g_
+// sector it was cut from, and the g_ one keeps the very same triangles: the sheet Z_Shops_g_TM_Shops830 and
+// Z_Shops_F_G_TM_Shops830 have the same four vertices and the same material (only the light map coordinates differ -
+// each has its own bake); the sign Z_Shops_g_TM_Shops808_to still has the layer 1e24b995 (the whole sign atlas on its
+// 0-1 uv) its floater F_G_..._to draws as its cell. Other sectors come twice too (z_cartoon_VC_G_RM_MAINST_PIRATE_INSIDE
+// / _G_VC_: one wall tessellated twice). THP8 draws both at one depth (the same vertices through the same shader);
+// THUG2's triangulation and lighting differ per copy, so the two fight (the user's z-fighting in the shops alley).
+// Here a mesh is left out when (nearly) all of its surface lies in the plane of, and inside, meshes of the same
+// material drawn before it - facing the same way: a floater's first, then the larger meshes, then the earlier sectors.
+// Sectors in `skip` (not made, instance masters and their instances, local objects) neither hide nor are hidden.
+// `floaters`: the left-out meshes a floater's twin replaced.
+export const REPEAT_PLANE = 0.003; // metres: how far off its plane a point may lie
+export const REPEAT_SHARE = 0.95; // of a mesh's area that is covered
+const REPEAT_CELL = 4; // metres
+const REPEAT_SAMPLES: readonly (readonly [number, number, number])[] = [
+    [1 / 3, 1 / 3, 1 / 3],
+    [0.9, 0.05, 0.05],
+    [0.05, 0.9, 0.05],
+    [0.05, 0.05, 0.9],
+    [0.45, 0.45, 0.1],
+    [0.1, 0.45, 0.45],
+    [0.45, 0.1, 0.45],
+];
+
+// A triangle with its plane (THP8 metres).
+export interface SurfaceTri {
+    p: [Vec3, Vec3, Vec3];
+    n: Vec3;
+    d: number;
+    area: number;
+}
+
+export function surfaceTri(p: [Vec3, Vec3, Vec3]): SurfaceTri | null {
+    const e1 = [p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]];
+    const e2 = [p[2][0] - p[0][0], p[2][1] - p[0][1], p[2][2] - p[0][2]];
+    const c = [e1[1]! * e2[2]! - e1[2]! * e2[1]!, e1[2]! * e2[0]! - e1[0]! * e2[2]!, e1[0]! * e2[1]! - e1[1]! * e2[0]!];
+    const len = Math.hypot(c[0]!, c[1]!, c[2]!);
+    if (len < 1e-9) return null;
+    const n: Vec3 = [c[0]! / len, c[1]! / len, c[2]! / len];
+    return { p, n, d: n[0] * p[0][0] + n[1] * p[0][1] + n[2] * p[0][2], area: len / 2 };
+}
+
+// Triangles drawn so far, looked up by place: which of a triangle's sample points lie on (in the plane of, and inside)
+// one of them.
+export class SurfaceIndex {
+    // (grids of 4, 64 and 1024 m cells: a triangle goes in the finest where it touches few cells - a backdrop
+    // kilometres across in the coarsest)
+    private static readonly SIZES = [REPEAT_CELL, 64, 1024];
+    private readonly grids = SurfaceIndex.SIZES.map(() => new Map<string, { t: SurfaceTri; tag: boolean }[]>());
+    private readonly large: { t: SurfaceTri; tag: boolean }[] = [];
+
+    // `tag`: marks the triangle (a floater's) for `covered`.
+    add(t: SurfaceTri, tag = false): void {
+        const lo = [0, 1, 2].map((k) => Math.min(t.p[0][k]!, t.p[1][k]!, t.p[2][k]!));
+        const hi = [0, 1, 2].map((k) => Math.max(t.p[0][k]!, t.p[1][k]!, t.p[2][k]!));
+        for (const [level, size] of SurfaceIndex.SIZES.entries()) {
+            const c0 = lo.map((x) => Math.floor(x / size));
+            const c1 = hi.map((x) => Math.floor(x / size));
+            if ((c1[0]! - c0[0]! + 1) * (c1[1]! - c0[1]! + 1) * (c1[2]! - c0[2]! + 1) > 64) continue;
+            for (let x = c0[0]!; x <= c1[0]!; x++)
+                for (let y = c0[1]!; y <= c1[1]!; y++)
+                    for (let z = c0[2]!; z <= c1[2]!; z++) {
+                        const key = `${x},${y},${z}`;
+                        const list = this.grids[level]!.get(key);
+                        if (list) list.push({ t, tag });
+                        else this.grids[level]!.set(key, [{ t, tag }]);
+                    }
+            return;
+        }
+        this.large.push({ t, tag });
+    }
+
+    // null: q isn't on a triangle (facing the way of `n`; `either`: or the opposite); true: on a tagged one; false: on
+    // another.
+    covered(q: readonly number[], n: readonly number[], either = false): boolean | null {
+        const lists = SurfaceIndex.SIZES.map(
+            (size, level) =>
+                this.grids[level]!.get(
+                    `${Math.floor(q[0]! / size)},${Math.floor(q[1]! / size)},${Math.floor(q[2]! / size)}`,
+                ) ?? [],
+        );
+        lists.push(this.large);
+        let by: boolean | null = null;
+        for (const { t, tag } of lists.flat()) {
+            const dot = t.n[0] * n[0]! + t.n[1] * n[1]! + t.n[2] * n[2]!;
+            if (either ? Math.abs(dot) < 0.99 : dot < 0.99) continue;
+            if (Math.abs(t.n[0] * q[0]! + t.n[1] * q[1]! + t.n[2] * q[2]! - t.d) > REPEAT_PLANE) continue;
+            const [a, b, c] = t.p;
+            // (inside, by the barycentric weights, a little over the edges)
+            const v0 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+            const v1 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+            const v2 = [q[0]! - a[0], q[1]! - a[1], q[2]! - a[2]];
+            const d00 = v0[0]! * v0[0]! + v0[1]! * v0[1]! + v0[2]! * v0[2]!;
+            const d01 = v0[0]! * v1[0]! + v0[1]! * v1[1]! + v0[2]! * v1[2]!;
+            const d11 = v1[0]! * v1[0]! + v1[1]! * v1[1]! + v1[2]! * v1[2]!;
+            const d20 = v2[0]! * v0[0]! + v2[1]! * v0[1]! + v2[2]! * v0[2]!;
+            const d21 = v2[0]! * v1[0]! + v2[1]! * v1[1]! + v2[2]! * v1[2]!;
+            const den = d00 * d11 - d01 * d01;
+            if (Math.abs(den) < 1e-12) continue;
+            const v = (d11 * d20 - d01 * d21) / den;
+            const w = (d00 * d21 - d01 * d20) / den;
+            if (v >= -1e-3 && w >= -1e-3 && v + w <= 1 + 1e-3) {
+                if (tag) return true;
+                by = false;
+            }
+        }
+        return by;
+    }
+
+    // The area of the triangles `tris` lying on drawn ones (sampled at 7 points each) and whether all of it is on
+    // tagged ones.
+    coverage(tris: readonly SurfaceTri[], either = false): { area: number; tagged: boolean } {
+        let area = 0;
+        let tagged = true;
+        for (const t of tris) {
+            const [a, b, c] = t.p;
+            let hit = 0;
+            for (const [wa, wb, wc] of REPEAT_SAMPLES) {
+                const q = [0, 1, 2].map((k) => wa * a[k]! + wb * b[k]! + wc * c[k]!);
+                const by = this.covered(q, t.n, either);
+                if (by !== null) {
+                    hit++;
+                    if (!by) tagged = false;
+                }
+            }
+            area += (t.area * hit) / REPEAT_SAMPLES.length;
+        }
+        return { area, tagged };
+    }
+}
+
+export function repeatedSurfaces(
+    zones: readonly { geom: geom.Geom; skip: ReadonlySet<number> }[],
+    names: ReadonlyMap<number, string>,
+): { hide: Set<geom.GeomMesh>[]; meshes: number; floaters: number } {
+    const hide = zones.map(() => new Set<geom.GeomMesh>());
+    const isFloater = (n: string): boolean => /^z_[a-z0-9]+?_f_/i.test(n);
+    interface Candidate {
+        zone: number;
+        mesh: geom.GeomMesh;
+        floater: boolean;
+        tris: SurfaceTri[];
+        area: number;
+    }
+    const candidates: Candidate[] = [];
+    zones.forEach((z, zone) => {
+        for (const s of z.geom.sectors) {
+            if (z.skip.has(s.checksum)) continue;
+            const name = names.get(s.checksum) ?? "";
+            if (name.includes("__MASTERNODE_")) continue;
+            for (const mesh of s.meshes) {
+                const verts = geom.readVertices(mesh);
+                const tris = geom
+                    .triangles(mesh)
+                    .map((t) => surfaceTri(t.map((i) => verts[i]!.position) as [Vec3, Vec3, Vec3]))
+                    .filter((t): t is SurfaceTri => t !== null);
+                if (tris.length) {
+                    candidates.push({
+                        zone,
+                        mesh,
+                        floater: isFloater(name),
+                        tris,
+                        area: tris.reduce((n, t) => n + t.area, 0),
+                    });
+                }
+            }
+        }
+    });
+    // (floaters first, then the larger; a stable sort keeps the zone and sector order within each)
+    candidates.sort((a, b) => Number(b.floater) - Number(a.floater) || b.area - a.area);
+    const drawn = new Map<number, SurfaceIndex>(); // by material
+    let meshes = 0;
+    let floaters = 0;
+    for (const c of candidates) {
+        const index = drawn.get(c.mesh.material) ?? new SurfaceIndex();
+        drawn.set(c.mesh.material, index);
+        const cover = index.coverage(c.tris);
+        if (cover.area >= REPEAT_SHARE * c.area) {
+            hide[c.zone]!.add(c.mesh);
+            meshes++;
+            if (!c.floater && cover.tagged) floaters++;
+            continue;
+        }
+        for (const t of c.tris) index.add(t, c.floater);
+    }
+    return { hide, meshes, floaters };
+}
+
 // The scene parts of a zone: the zone's own, then its props' models (each drawn under its node's name, in its own
 // space).
 function sceneParts(p: ZonePart, ctx: Shared): SceneParts[] {
@@ -2651,6 +2910,7 @@ function sceneParts(p: ZonePart, ctx: Shared): SceneParts[] {
             textures: p.data.textures,
             placed: p.placed,
             hidden: new Set([...p.hidden, ...p.duplicate]),
+            hiddenMeshes: p.hiddenMeshes,
             additive: glowMaterials(g, ctx.names),
             lighting: zoneLighting(zoneTod(ctx.managers, p.zoneName)),
             techniques: ctx.techniques,
@@ -2689,6 +2949,14 @@ export function standInPlaced(nqb: thaw.QbItems | null, zone: string): Map<numbe
         if (node?.hasFlag("CreatedAtStart")) placed.set(k, v);
     }
     return placed;
+}
+
+// Whether a stand-in's triangle (THP8 metres) lies on the surfaces the level draws (its opaque triangles so far, either
+// way round): the backdrop z_factory_lod's TK_G_Industrial_Map_01 over the level's TK_G_Industrial_Map pieces, the same
+// corners in other strips - drawn twice they fight, and the level's own is the one to keep.
+export function standInOnDrawn(corners: readonly (readonly number[])[], drawn: SurfaceIndex): boolean {
+    const t = surfaceTri(corners as [Vec3, Vec3, Vec3]);
+    return t !== null && drawn.coverage([t], true).area >= REPEAT_SHARE * t.area;
 }
 
 // Whether a stand-in's triangle (THP8 metres) is clear of the level's own ground: no point of it, looked at every
@@ -2770,13 +3038,18 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
                 additive: glowMaterials(lod.geom, names),
                 lighting: zoneLighting(zoneTod(ctx.managers, names.get(checksum(info.zone)) ?? info.zone)),
                 techniques: ctx.techniques,
-                keepTriangle: (corners) => standInOutside(corners, ownGround),
+                keepTriangle: (corners, drawn) => standInOutside(corners, ownGround) && !standInOnDrawn(corners, drawn),
             });
         }
     }
     // (the network barriers drawn too, as THP8 does - a faint wall: VEIL_COLOUR)
     for (const b of barriers) {
-        lods.push({ geom: b.geom!, textures: b.textures, placed: new Map(), veil: true });
+        lods.push({
+            geom: b.geom!,
+            textures: b.textures,
+            placed: new Map(),
+            veil: true,
+        });
     }
     // (zones merged: a later zone's sector that an earlier zone draws under its own prefix is left out of the scene)
     const dup = zoneDuplicates(
@@ -2786,7 +3059,27 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     for (const [k, p] of parts.entries()) p.duplicate = dup.duplicates[k]!;
     const dupCount = dup.duplicates.reduce((n, x) => n + x.size, 0);
     if (dupCount) report.push(`  ${dupCount} sectors a later zone repeats from an earlier one left out of the scene`);
-    if (dup.twins) report.push(`  ${dup.twins} sectors THP8 ships twice in one zone (same box and size) kept`);
+    const rep = repeatedSurfaces(
+        parts.map((p) => ({
+            geom: p.data.geom!,
+            skip: new Set([
+                ...p.hidden,
+                ...p.duplicate,
+                ...p.local,
+                ...p.made.keys(),
+                ...p.placed.keys(),
+                ...[...p.placed.values()].map((x) => x.master),
+            ]),
+        })),
+        names,
+    );
+    for (const [k, p] of parts.entries()) p.hiddenMeshes = rep.hide[k]!;
+    if (rep.meshes) {
+        report.push(
+            `  ${rep.meshes} meshes drawing a surface another sector draws too (THP8's floaters F_ over their g_ twin, ` +
+                `VC_ / G_ twins: same material, same triangles) left out of the scene, ${rep.floaters} of them for a floater's`,
+        );
+    }
     const scene = (options: mats.RefineOptions): ConvertedScene =>
         convertScenes(
             [...parts.flatMap((p) => sceneParts(p, ctx)), ...lods],
@@ -2800,7 +3093,10 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     let refineOptions = { ...REFINE };
     let done = scene(refineOptions);
     for (let tries = 0; tries < 4 && done.counts.triangles > refineBudget(done.counts, parts.length); tries++) {
-        refineOptions = { ...refineOptions, threshold: refineOptions.threshold * 1.6 };
+        refineOptions = {
+            ...refineOptions,
+            threshold: refineOptions.threshold * 1.6,
+        };
         done = scene(refineOptions);
     }
     if (refineOptions.threshold !== REFINE.threshold) {
@@ -2864,7 +3160,13 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     }
     // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
     for (const b of barriers) {
-        sets.push({ bodies: b.bodies, sectors: b.geom!.sectors, hidden: new Set(), local: new Set(), volumes: [] });
+        sets.push({
+            bodies: b.bodies,
+            sectors: b.geom!.sectors,
+            hidden: new Set(),
+            local: new Set(),
+            volumes: [],
+        });
     }
     const col = convertCollision(sets, name, shift, ctx.terrains, (c) => nodeResult.triggers.has(c), warnings);
     // (THUG2's line test gathers a BSP leaf's faces into a buffer of 0x800 - CCollStatic::CollideWithLine: a bigger
@@ -3010,7 +3312,11 @@ export function cmdConvert(args: Args): number {
     const globalPak = zonePak(compressed, "global");
     // (only the levels converted now are made again: a partial convert keeps the others, as levels.json does -
     // ported_levels.writeManifest)
-    for (const spec of wanted) fs.rmSync(pyJoin(out, "levels", spec.level), { recursive: true, force: true });
+    for (const spec of wanted)
+        fs.rmSync(pyJoin(out, "levels", spec.level), {
+            recursive: true,
+            force: true,
+        });
     // (the city's zones as levels of their own, from before: gone - make_menu_level's overlay is made again from the
     // staging folders, so they leave it on its next run)
     const pruned = pruneStaging(out, specs);

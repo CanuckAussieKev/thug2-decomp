@@ -15,7 +15,8 @@ Used by `tools/thps4_levels` (THPS4), `tools/thug1_levels` (THUG1), `tools/thps3
 - `zfight.ts` - CLI: z-fighting in converted levels - pairs of meshes (different sectors or materials) whose
   triangles lie in one plane within a tolerance (default 2 inches) and overlap, ranked by the area that fights within
   a view distance (default 100 m) at THUG2's depth precision (24-bit, near plane 12: `fightDistance`); pairs whose z
-  biases differ, opposite-facing ones and ones made of the same triangles counted apart; a `try_spot.ts` spot each
+  biases differ and opposite-facing ones counted apart (the same triangles are not safe: each copy is lit and
+  triangulated on its own - the report's FLICKER line counts everything a player sees fight, coplanar copies, gap ~0, apart); a `try_spot.ts` spot each
   (`node tools/level_port/zfight.ts <levels folder> [<level> ...] [--top N] [--tolerance IN] [--view M] [--near IN]
   [--min-area M2] [--csv FILE]`). `findZFights` takes a Scene - a .scn.xbx read, or a converter's output before
   it's written. `tools/thp8_levels/render_audit.ts zfight` names THP8's pairs and their causes.

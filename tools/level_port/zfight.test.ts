@@ -12,8 +12,10 @@ import {
     fightDistance,
     fightSeparation,
     findZFights,
+    flickers,
     INCHES_PER_METRE,
     polygonArea,
+    report,
     spotFor,
 } from "./zfight.ts";
 
@@ -176,6 +178,11 @@ test("flagged apart: opposite-facing two-sided, decided by a z bias, the same tr
     const d = findZFights(same, { minArea: 1 });
     assert.ok(Math.abs(d[0]!.identicalArea - d[0]!.area) < 1e-6);
     assert.match(causeOf(d[0]!, same), /same triangles/);
+    // (equal depths on the same corners are not safe: the game's copies are triangulated and lit on their own)
+    assert.equal(flickers(d[0]!), true);
+    assert.equal(flickers(b[0]!), false);
+    assert.equal(flickers(o[0]!), false);
+    assert.match(report("level", same, d).join("\n"), /FLICKER .*1 pairs/);
 });
 
 test("walls: the pair found across x, the spot 120 inches out facing it", () => {
