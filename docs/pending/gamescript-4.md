@@ -81,3 +81,28 @@ Shared files touched: CMakeLists.txt (new files listed).
     search's outcomes. 47 of 48 deliberate bugs caught (5 after strengthening: precision-revealing HSV inputs, sector 4
     with f > 0, a rail between the default's squares, a geometry-only find, a later duplicate name); 1 equivalent
     (HSVtoRGB's minimum value 0.01f as a double: results at that value are at most 1.28 and truncate the same).
+- [x] Batch GS4-4 (NOT run in the game yet; model swaps, create-a-graphic, 2D positions, head bone groups - 7
+  CFunctions): src/game/obj/model_swap_cfuncs.h / .cpp, src/game/gfx/cag_cfuncs.h / .cpp (new).
+  - 0x005B34A0 SwapObjectModels (the objects asked for core physics before the null check, as the original; the
+    swap recorded by 0x005AA930; shadows destroyed; skeletons swapped through a copy made in the top-down heap; the
+    renderable models' +0xC swapped and each model component given the other's model through its vtable (slot 14);
+    suspend counts reset and both unsuspended; for a skater, each model's lights follow its object again - the models
+    read back after the swap - and the skater's +0x31C set from the swap table (an entry whose object wears no other
+    model; 0 if none; the last match wins); shadows remade - a skater's in its skater heap), 0x005B3890
+    RestoreAllSwappedObjectModels (each used entry swapped back, the table gone over again up to the number of swaps
+    there were; delete inlined as the structure pool pair's Free), 0x005B3A30 GetSkaterModelIsSwapped, 0x005B3A90
+    GenerateCAGTexture (the custom tag 0xAA286543 cleared, a workspace texture 0xFDA19704 as wide as the tag's low 16
+    bits; each layer drawn, scaled, flipped, turned, moved - doubled for a 128-wide tag - and tinted (a translucent
+    one: alpha below 0x80), then blended onto the tag; its palette rebuilt - kept opaque for an 8-bit tag with no
+    translucent layer, into a 1 KB buffer; the workspace removed; player 0's tag marked custom (0x004E4000) and put on
+    its graffiti; Test shows it on cag_workspace_sprite), 0x005B3ED0 SyncCAGWorkspace (the custom tag copied from the
+    skater's graffiti; the current profile fetched and unused), 0x005B3F40 Get2DPosFrom2DVec (quadrants folded with
+    sign flags, the axes exact - 180 negates x directly -, otherwise Mth::FastSin / FastCos), 0x005B4150
+    ResolveHeadBoneScale (the four head bone groups the appearance lacks, from skater_m_head / skater_f_head).
+  - Tests TestModelSwapCFuncs / TestRestoreSwapsCFunc / TestCagCFuncs: original vs ours with the objects, components
+    (a stand-in vtable for SetModel), skeletons, models, the memory manager, the textures' vtable thunks, the swap
+    table, the struct pool, the profile's part look-ups, and FastSin / FastCos (naked stand-ins returning in ST0)
+    stood in for; the swap with a skater first / second / both / none, a failed skeleton allocation, the early
+    returns; RestoreAll over four table patterns with SwapObjectModels stood in for; CAG over five layer sets / sizes /
+    depths / players; 17 angles. 50 of 51 deliberate bugs caught; 1 equivalent (theta == 180 taken into the second
+    quadrant's fold: 90 - 90 = 0, x negated - the same result).

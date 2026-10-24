@@ -166,6 +166,7 @@ inline void UseStandInArrayPool()
     auto& pair = GameVariable<Mem::PoolPair>(0x006F22B4);
     pair.current = 0;
     pair.pools[0] = reinterpret_cast<Mem::Pool*>(g_arrayPool);
+    pair.pools[1] = nullptr;
     g_newArrayCount = 0;
     std::memset(g_newArrays, 0xCD, sizeof(g_newArrays));
 }
@@ -175,6 +176,7 @@ inline void UseStandInStructPool()
     auto& pair = GameVariable<Mem::PoolPair>(0x006F3614);
     pair.current = 0;
     pair.pools[0] = reinterpret_cast<Mem::Pool*>(g_arrayPool);
+    pair.pools[1] = nullptr;
 }
 
 // Both traces logged side by side when THUG2_GS4_DUMP is set (finding where they part).
