@@ -628,8 +628,9 @@ bool LevelIsShared(const char** game)
         {"level_select_menu_thps4_level_info", "THPS4"},
         {"level_select_menu_thug1_level_info", "THUG1"},
         {"level_select_menu_thaw_level_info", "THAW"},
+        {"level_select_menu_misc_level_info", nullptr}, // (skate shops, tutorials: the entry's game_tag names the game)
     };
-    static const uint32_t kLevel = Checksum("level");
+    static const uint32_t kLevel = Checksum("level"), kGameTag = Checksum("game_tag");
     for (const auto& entry : kLists) {
         Script::CArray* levels = Script::GetArray(entry.list);
         if (!levels || levels->m_type != Script::ESYMBOLTYPE_STRUCTURE)
@@ -638,8 +639,11 @@ bool LevelIsShared(const char** game)
             auto* info = reinterpret_cast<Script::CStruct*>(levels->GetElement(i));
             uint32_t load = 0;
             if (info && info->GetChecksum(kLevel, &load, 0) && load == level) {
+                const char* tag = entry.game;
+                if (!tag && !info->GetString(kGameTag, &tag, 0))
+                    break; // (a THUG2 or THP8 level of the miscellaneous list: not shared with another game's)
                 if (game)
-                    *game = entry.game;
+                    *game = tag;
                 return true;
             }
         }
