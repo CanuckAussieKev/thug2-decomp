@@ -328,6 +328,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_anim8.cpp
     src/hook/selftests_anim9.cpp
     src/hook/selftests_anim10.cpp
+    src/hook/selftests_pole_tunnel.cpp
     src/hook/selftests_anim11.cpp
     src/hook/selftests_anim12.cpp
     src/hook/selftests_anim13.cpp

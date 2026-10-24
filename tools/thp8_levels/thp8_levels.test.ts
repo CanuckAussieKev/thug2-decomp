@@ -1156,3 +1156,48 @@ test("stand-ins: a triangle lying on a triangle the level draws is left out, eit
         false,
     );
 });
+
+// THUG2's line tests are one-sided (0x0040B420: a face is hit only from the side (b - a) x (c - a) faces), so a
+// primitive's triangles must face outwards - BEAVER VALLEY's tree trunks (cylinders) had their sides wound inwards:
+// a feeler from outside passed the near side and hit the far one from inside, and the skater was put inside the
+// trunk (docs/pending/pole-tunnel.md).
+test("collision primitives: cylinders face outwards whatever their axis; faceOutwards turns an inside-out one", () => {
+    const facing = (tris: number[][][]): number[] => {
+        const centre = [0, 1, 2].map((k) => tris.flat().reduce((s, p) => s + p[k]!, 0) / (3 * tris.length));
+        return tris.map(([a, b, c]) => {
+            const u = [0, 1, 2].map((k) => b![k]! - a![k]!);
+            const v = [0, 1, 2].map((k) => c![k]! - a![k]!);
+            const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+            return [0, 1, 2].reduce((s, k) => s + n[k]! * ((a![k]! + b![k]! + c![k]!) / 3 - centre[k]!), 0);
+        });
+    };
+    for (const [a, b] of [
+        [
+            [0, 0, 0],
+            [0, 5.5, 0],
+        ], // (BEAVER VALLEY's trunks: upright, 0.22 m across)
+        [
+            [0, 5.5, 0],
+            [0, 0, 0],
+        ],
+        [
+            [1, 2, 3],
+            [4, -1, 2],
+        ],
+        [
+            [0, 0, 0],
+            [3, 0, 0],
+        ],
+    ] as const) {
+        const tris = havok.cylinderTriangles(a, b, 0.22);
+        assert.equal(tris.length, 28);
+        assert.ok(
+            facing(tris).every((d) => d > 0),
+            `${a} - ${b}`,
+        );
+        assert.equal(havok.faceOutwards(tris), 0);
+        const inside = tris.map(([p, q, r]) => [p!, r!, q!]);
+        assert.equal(havok.faceOutwards(inside), 28);
+        assert.ok(facing(inside).every((d) => d > 0));
+    }
+});
