@@ -38,3 +38,34 @@ src/hook/selftests_gs2_*.cpp. Shared files touched: CMakeLists.txt (new files li
     allocations from one arena per run (the pools' blocks and contents compared): a qdir.txt with CR LF, LF, empty
     lines, "data\" in and out of the path, a last line without its end, a size ending mid-line, none; pool pairs
     with current pool 0 and 1. 23 of 23 deliberate bugs caught (one by hanging, as the original would on that bug).
+- [x] Batch GS2-3 (NOT run in the game yet; the save types, the saves' summaries and the card state commands - 33
+  functions): src/game/mc/save_types.h / .cpp (new), src/game/mc/memcard_cfuncs.h / .cpp (extended).
+  - Save types by checksum (OptionsAndPros .SKA a, Cas b, Park .PRK c, NetworkSettings .NWS e, Cat .CAT f,
+    CreatedGoals .GOA g, CreatedGraphic .GRF h, Replay .REP): 0x005A5F70 MakeFileName (EAX/ESI/EDI: 8 base-26
+    letters of the name's CRC, the last the type's letter), 0x005A60C0 TypeFromLetter (AL; keeps ECX/EDX -
+    DeleteMemCardFile relies on EDX, found by scan_register_assumptions), 0x005A6180 IconSpaceRequired (EAX),
+    0x005A6210 TypeVersion (EAX: VERSION_*, -1), 0x005A62A0 TypeFileName (EAX/ECX: "Save/%s.EXT" in 0x007CECE8),
+    0x005A6390 MakeFolderFileName (EDI + stack), 0x005A63E0 IsLater (EDI/ESI: year..seconds), 0x005A6CD0
+    RoundUpToCardBlock (ESI: platform 1-3/7 1 KB, 4 16 KB, 5 8 KB), 0x005A7340 TypeFileSize (ECX: SaveSize_* +
+    0x14 rounded), 0x005A8470 SaveBlocks (cdecl: + icon space + 4 on platforms 1-3, + 3 on the PC), 0x005A6120
+    ApplyGoalManagerParams (fastcall), 0x005A6C80 ApplyCatAndCustomSkater (EDI + stack), 0x005A8EB0
+    KeepLoadedContents, 0x005A6610 WriteSummary (EAX/ESI + stack: per type from a save or the live state - the
+    park map info, the goal editor's count, CAT name, network_id, career totals / is_male / name), 0x005A7520 /
+    0x005A8E80 two list types' scalar deleting destructors (vtables 0x0065797C / 0x00658A60).
+  - CFunctions: 0x005A6550 SaveFailedDueToInsufficientSpace, 0x005A6560 SetSectionsToApplyWhenLoading
+    (ApplyCustomSkater 8, ApplyStorySkater 4, ApplyStory 2, 0xB39D7CC4 1, all), 0x005A6600 LoadedCustomSkater,
+    0x005A6D30 GetMostRecentSave (no type asked = any type; BadVersion / Corrupt ones count only on platforms 4 and
+    5 - our first version had the type test the wrong way round, caught by the test), 0x005A7210 FormatCard (the
+    card's always-false stub), 0x005A7260 CardIsInSlot, 0x005A7280 CardIsFormatted, 0x005A72A0 GetSummaryInfo
+    (VaultData: the kept contents with their own type), 0x005A7430 GetMemCardDataForUpload, 0x005A7450
+    GetMaxTHPS4FilesAllowed (75), 0x005A7470 SwitchToTempPoolsIfTheyExist, 0x005A74F0 SwitchToRegularPools.
+  - LoadFromMemoryCard's inline-assembly calls to these helpers renamed Game* (still through the game addresses,
+    which the existing LoadFromMemoryCard self-test stands in for).
+  - Tests TestSaveTypes / TestSaveSummaries: original vs ours (register entry points through inline assembly) for
+    every name / type / letter (all 256 bytes, ECX/EDX checked) / platform -1..8 / size edge, the dates field by
+    field, the summaries from hand-built saves (each OptionsAndPros career case, missing GlobalInfo, parks with
+    and without goals) and the live state (stand-in skater, career, park editor, goal editor, preferences), the
+    most recent save over 7 entries x 3 platforms x 4 types, the card commands with and without a card, the
+    temporary pools (each missing, back from each). 48 deliberate bugs: 47 caught (3 after strengthening: a career
+    without the first field, only one pool pair not on its first pool, ECX/EDX in TypeFromLetter), 1 equivalent
+    (IsLater's > as >= at a differing field).
