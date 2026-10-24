@@ -28,3 +28,23 @@ src/game/skate/records.h / .cpp (three record commands added).
     / flag bits), game mode, network manager and records; the skate module's / game mode's calls, MatchesParams,
     ResetPart, the arcade table's ReadFromStructure, UpdateInitials and the structure adds stood in for by recording
     code. 39 of 39 deliberate bugs caught (2 after making the career's goal and flag bits sparse).
+- [x] Batch GS3-2 (NOT run in the game yet; split screen options, competitions, horse, score options, bonuses - 24
+  CFunctions): src/game/skate/competition_cfuncs.h / .cpp (new).
+  - 0x005AF090 ApplySplitScreenOptions (the split screen preferences' game_type loaded into the game mode; horse:
+    horse_time_limit as the game mode's default_time_limit and the skate module's time limit (+0x370), horse_word
+    given to the horse game - a Str::String passed by value, destroyed by the callee; the time_limit preference is
+    read and not used), 0x005AF200 StartCompetition (gold / silver / bronze, their scores and bail by name strings,
+    extra_params; in the skater info heap), 0x005AF320 StartCompetitionRun, 0x005AF340 EndCompetitionRun (the local
+    skater's total score), 0x005AF3A0 PlaceIs, 0x005AF3D0 RoundIs, 0x005AF400 EndCompetition, 0x005AF440
+    CompetitionEnded, 0x005AF450 StartHorse, 0x005AF470 HorseEnded, 0x005AF480 HorseStatusEquals, 0x005AF4A0
+    StartHorseRun, 0x005AF4C0 EndHorseRun, 0x005AF4E0 SwitchHorsePlayers, 0x005AF500 ApplyToHorsePanelString
+    (create_horse_panel_message on the current horse skater), 0x005AF660 GetHorseString, 0x005AF700
+    IsCurrentHorseSkater (an integer or checksum), 0x005AFB40 TrickOffAllObjects (not with 0x00684FA8 set),
+    0x005AFB80 SetScoreDegradation, 0x005AFBC0 SetTrickScoreTracking, 0x005AFC00 SetScoreAccumulation (score_frozen
+    only when off and freeze_score), 0x005AFC70 AddBonus / 0x005AFCF0 GetBonusValue (only a local skater; no null
+    check, as the original), 0x005AFD60 LocalSkaterExists.
+  - Test TestCompetitionCFuncs: original vs ours with the skate module's, game mode's, preferences', competition's,
+    horse game's and score's calls stood in for; structures and strings from a stand-in heap (the memory manager's
+    allocate / free / contexts, the structure pool recorded), the heap compared after. 39 of 39 deliberate bugs
+    caught. Found while testing: a by-value Str::String passed through a forwarding template was copied (two
+    allocations) - the call is made directly.

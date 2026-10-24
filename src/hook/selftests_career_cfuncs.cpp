@@ -123,7 +123,7 @@ void TestCareerCFuncs()
         g_noSkater = false;
         auto* career = reinterpret_cast<Obj::CSkaterCareer*>(g_career);
         auto call = [&](uint32_t address, CFunc ours, Params& params, void* object = nullptr, bool nullScript = false) {
-            Call(original, address, ours, params, object, nullScript);
+            CallCommand(original, address, ours, params, object, nullScript);
         };
         using namespace CFuncs;
         Params none;

@@ -15,10 +15,14 @@
 
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
+#include "game/core/pool.h"
 #include "game/skate/career.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 #include "hook/standins.h"
 
 namespace SkateCFuncTests {
@@ -28,6 +32,7 @@ using CFuncTests::Params;
 using Script::CArray;
 using Script::CStruct;
 
+inline const bool g_gs3Trace = GetEnvironmentVariableA("THUG2_GS3_TRACE", nullptr, 0) != 0; // (each call logged)
 alignas(16) inline uint8_t g_skate[0x400];
 alignas(16) inline uint8_t g_career[sizeof(Obj::CSkaterCareer)];
 alignas(16) inline uint8_t g_gameMode[0x40];
@@ -101,18 +106,22 @@ inline void StandInStructAdds(StandIns& s)
     using AddStr = void (CStruct::*)(uint32_t, const char*);
     using AddSum = void (CStruct::*)(uint32_t, uint32_t);
     s.At({0x00477B80, AddressOf(static_cast<AddInt>(&CStruct::AddInteger))}, 8, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x7B80);
         Record({0x7B80, r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
     s.At({0x00477C60, AddressOf(static_cast<AddFlt>(&CStruct::AddFloat))}, 8, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x7C60);
         Record({0x7C60, r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
     s.At({0x004779D0, AddressOf(static_cast<AddStr>(&CStruct::AddString))}, 8, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x79D0);
         Record({0x79D0, r.ecx, r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
         return 0u;
     });
     s.At({0x00477D40, AddressOf(static_cast<AddSum>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x7D40);
         Record({0x7D40, r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
@@ -122,17 +131,113 @@ inline void StandInStructAdds(StandIns& s)
 inline void StandInGameModeIsTrue(StandIns& s)
 {
     s.At({0x00553220}, 4, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x3220);
         Record({0x3220, r.ecx, r.args[0]});
         auto it = g_modeProperties.find(r.args[0]);
         return it != g_modeProperties.end() && it->second ? 1u : 0u;
     });
 }
 
+
+// Memory the commands allocate (structures from the structure pool, strings and others from Mem::New), from one
+// buffer reset before each run so both runs get the same addresses; frees recorded.
+alignas(16) inline uint8_t g_heap[0x4000];
+inline uint32_t g_heapUsed;
+alignas(16) inline uint8_t g_structPool[0x40];
+alignas(16) inline uint8_t g_manager[0x600];
+inline void* HeapBlock(uint32_t size)
+{
+    uint8_t* block = g_heap + g_heapUsed;
+    g_heapUsed += (size + 15) & ~15u;
+    std::memset(block, 0xCD, size);
+    return block;
+}
+// Also saves and sets the structure pool pair (0x006F3614), the memory manager (0x007D1800: a stand-in whose
+// contexts are recorded) and the live string count (0x00690FA0).
+inline void StandInMemory(StandIns& s)
+{
+    g_saved.push_back({0x006F3614, 16, {}});
+    g_saved.push_back({0x007D1800, 4, {}});
+    g_saved.push_back({0x00690FA0, 4, {}});
+    for (size_t i = g_saved.size() - 3; i < g_saved.size(); ++i) {
+        g_saved[i].bytes.resize(g_saved[i].size);
+        std::memcpy(g_saved[i].bytes.data(), reinterpret_cast<void*>(g_saved[i].address), g_saved[i].size);
+    }
+    auto* pair = reinterpret_cast<uint32_t*>(0x006F3614);
+    pair[0] = 0;
+    pair[1] = 0;
+    pair[2] = reinterpret_cast<uint32_t>(g_structPool);
+    pair[3] = 0;
+    std::memset(g_manager, 0, sizeof(g_manager));
+    *reinterpret_cast<uint32_t*>(g_manager + 0x5D4) = 0x5D45D400; // (the skater info heap)
+    GameVariable<uint8_t*>(0x007D1800) = g_manager;
+    s.At({0x005BA3D0, AddressOf(&Mem::Pool::Allocate)}, 0, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0xA3D0);
+        Record({0xA3D0, r.ecx});
+        return reinterpret_cast<uint32_t>(HeapBlock(8));
+    });
+    s.At({0x004015D0, AddressOf(&Mem::New)}, 0, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x15D0);
+        Record({0x15D0, r.args[0]});
+        return reinterpret_cast<uint32_t>(HeapBlock(r.args[0]));
+    });
+    s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
+        Record({0xAFC0, r.args[0], r.args[1], r.args[2]});
+        return reinterpret_cast<uint32_t>(HeapBlock(r.args[0]));
+    });
+    s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
+        Record({0xABA0, r.args[0]});
+        return 0u;
+    });
+    s.At({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0xB0E0);
+        Record({0xB0E0, r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0xB110);
+        Record({0xB110, r.ecx});
+        return 0u;
+    });
+    s.At({0x00477090, 0x00477130, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x7090);
+        Record({0x7090, r.ecx});
+        return 0u;
+    });
+    s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x9070);
+        Record({0x9070, r.args[0]});
+        return 0u;
+    });
+    s.At({0x00478480, AddressOf(&CStruct::AppendStructure)}, 4, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x8480);
+        Record({0x8480, r.ecx, r.args[0]});
+        return r.ecx;
+    });
+    s.At({0x004783C0, AddressOf(&CStruct::AddComponentOfType)}, 12, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x83C0);
+        Record({0x83C0, r.ecx, r.args[0], r.args[1], r.args[2]});
+        return 0u;
+    });
+    using Run = void (*)(uint32_t, CStruct*, Obj::CObject*, bool, const char*);
+    s.At({0x00475790, AddressOf(static_cast<Run>(&Script::RunScript))}, 0, [](Regs& r) {
+        if (g_gs3Trace) Log("  standin %X", 0x5790);
+        Record({0x5790, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, r.args[4]});
+        return 0u;
+    });
+}
+inline void ResetMemory()
+{
+    g_heapUsed = 0;
+    std::memset(g_heap, 0, sizeof(g_heap));
+    GameVariable<int>(0x00690FA0) = 0;
+}
+
 using CFunc = bool(__cdecl*)(CStruct*, Script::CScript*);
 
 // Call the command at `address` (the original) or `ours`, from the stand-in script running on `object` (or a null
 // script), and record its result (AL only: the commands return a bool).
-inline void Call(bool original, uint32_t address, CFunc ours, Params& params, void* object = nullptr,
+inline void CallCommand(bool original, uint32_t address, CFunc ours, Params& params, void* object = nullptr,
                  bool nullScript = false)
 {
     std::memset(g_script, 0, sizeof(g_script));
@@ -140,7 +245,11 @@ inline void Call(bool original, uint32_t address, CFunc ours, Params& params, vo
     reinterpret_cast<uint8_t**>(g_script)[0x14 / 4] = g_scriptParams;
     reinterpret_cast<void**>(g_script)[0xBC / 4] = object;
     auto* script = nullScript ? nullptr : reinterpret_cast<Script::CScript*>(g_script);
+    static const bool trace = GetEnvironmentVariableA("THUG2_GS3_TRACE", nullptr, 0) != 0; // (finding a crash)
+    if (trace)
+        Log("gs3: %08X %s", address, original ? "original" : "ours");
     bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+    if (g_gs3Trace) Log("  standin %X", 0xC0DE);
     Record({0xC0DE, address, static_cast<uint32_t>(*reinterpret_cast<uint8_t*>(&result))});
 }
 
