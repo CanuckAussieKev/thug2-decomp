@@ -504,3 +504,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   progress 73.16%. THP8 levels 5 merged: the suburb road's collision piece restored (named after a story-only trigger
   node and dropped with it), narrow slits floored, a drawn-ground-without-collision audit per level. Installed
   (DLL + THP8 + overlay). Follow-up: GS2's WrapAngle returns float where the original kept x87 precision.
+- THP8 levels 6 merged + installed (2026-10-24): round 4's "invisible 0x40 = pass-through" reverted (51 bodies made
+  solid again, incl. the roundabout's skatable skirt; the user's tree clip was reached through the open skirt). Not
+  confirmed in the game. The THP8 agent wrote into THUG2-2 while the collision-events agent held its lock (overlay only).
+- CLAUDE.md "Agent cost": decomp keeps the strongest model; sonnet for mechanical work; fresh agent per round; effort levels.

@@ -99,7 +99,10 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   - Haiku only for read-only bulk scanning (sorting logs, listing addresses); never for C++ edits.
   - A fresh agent per round of follow-up work, briefed from its `docs/pending/` record and the new repro - don't
     resume one agent round after round (each resume carries its whole growing history: 600-800k tokens a round).
-  - Routine agents (merges and checks, small converter tweaks) at lower effort.
+  - Effort, set on the Agent call (`effort:`): decompilation, engine / physics work and crash or hang
+    diagnosis keep the default (don't set it); mechanical Sonnet work `effort: "medium"`; read-only scanning and
+    routine follow-ups (a small converter tweak from a known cause, records, reconversions) `effort: "low"`. Raise
+    a task back to the default if it comes back wrong or shallow.
 - Commit messages end with the Co-Authored-By line given in the session.
 - **Morten1337's private repositories** (thugpro, thugpro_proxy, thugpro_toolchain, thug2-decomp and the others the
   user's account can reach - cloned with the machine's stored git credentials): since 2026-10-20 the user has his
