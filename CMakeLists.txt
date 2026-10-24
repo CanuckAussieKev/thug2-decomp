@@ -273,6 +273,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
     src/hook/selftests_gs2_world.cpp
+    src/hook/selftests_gs2_startup.cpp
     src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_obj_scene_cmds.cpp
@@ -914,6 +915,7 @@ add_library(thug2_code OBJECT
     src/game/script/parse.cpp
     src/game/script/patched.cpp
     src/game/script/world_cfuncs.cpp
+    src/game/script/script_startup.cpp
     src/game/script/precompiled.cpp
     src/game/script/qb.cpp
     src/game/script/struct.cpp

@@ -23,7 +23,7 @@ namespace {
 using Script::CScript;
 using Script::CStruct;
 
-constexpr uint32_t kViewerCam = 0xEB17151B; // the viewer camera object's name (its id)
+constexpr uint32_t kViewerCam = 0xEB17151B; // "viewer_cam": the viewer camera object's name (its id)
 
 // 0x005A4EF0 (no source yet): a command (7 light group, 5 alive...) applied to the node name= or the nodes
 // prefix= names; true unless neither is given.
