@@ -863,6 +863,7 @@ function hdPass(cache: string, seen: Map<string, hdImage>): conv.HdPass {
     const options = hdTextures.defaultOptions(4);
     options.cacheDir = cache;
     options.minSize = 1;
+    options.compress = false; // (these tests read the 32-bit texels)
     return { options, stats: hdTextures.newStats(), upscaler: fakeModel(seen) };
 }
 
@@ -932,6 +933,7 @@ test("parseCommandLine: --hd-textures is optional-valued and off by default", ()
         "--hd-min",
         "8",
         "--hd-no-match",
+        "--hd-no-compress",
         "--hd-gpu",
         "1",
     ]).hd!;
@@ -940,6 +942,8 @@ test("parseCommandLine: --hd-textures is optional-valued and off by default", ()
     assert.equal(hd.maxSize, 512);
     assert.equal(hd.minSize, 8);
     assert.equal(hd.match, false);
+    assert.equal(hd.compress, false);
+    assert.equal(conv.parseCommandLine(["convert", "--hd-textures", "hang"]).hd!.compress, true);
     assert.equal(hd.gpu, "1");
     assert.equal(conv.parseCommandLine([...base, "--hd-cache-clear"]).hdCacheClear, true);
 });

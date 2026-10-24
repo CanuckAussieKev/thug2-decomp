@@ -50,7 +50,7 @@ function texture(checksum: number, w: number, h: number, data: Buffer, levels = 
 }
 
 function options(cacheDir: string, scale = 4): hd.HdOptions {
-    return { ...hd.defaultOptions(scale), cacheDir, minSize: 4 };
+    return { ...hd.defaultOptions(scale), cacheDir, minSize: 4, compress: false };
 }
 
 const tempDirs: string[] = [];
@@ -266,4 +266,144 @@ test("DXT encode / decode round trip stays close", () => {
         for (let i = 0; i < src.length; i++) worst = Math.max(worst, Math.abs(src[i]! - back[i]!));
         assert.ok(worst <= 24, `DXT${format} worst error ${worst}`);
     }
+});
+
+// --- DXT compression of upscaled 32-bit textures ----------------------------------------------------------------
+
+// a deterministic "painted" test image: smooth colour fields, an edge, a little noise
+function painted(w: number, h: number): Buffer {
+    let seed = 12345;
+    const noise = (): number => {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return (seed >> 16) % 7;
+    };
+    return texels(w, h, (x, y) => {
+        const edge = x + y > w ? 60 : 0;
+        return [
+            Math.min(255, 40 + (x * 180) / w + noise()),
+            Math.min(255, 200 - (y * 150) / h + edge + noise()),
+            Math.min(255, 90 + ((x + y) * 80) / (w + h) + noise()),
+            255,
+        ];
+    });
+}
+
+function meanError(a: Uint8Array, b: Uint8Array, channels: number[]): number {
+    let sum = 0;
+    for (let i = 0; i < a.length; i += 4) for (const k of channels) sum += Math.abs(a[i + k]! - b[i + k]!);
+    return sum / ((a.length / 4) * channels.length);
+}
+
+test("DXT encoder: round-trip error bounds on a painted image, deterministic", () => {
+    const src = painted(64, 64);
+    for (const format of [1, 5]) {
+        const enc = dxt.encode(src, 64, 64, format);
+        assert.deepEqual(dxt.encode(src, 64, 64, format), enc);
+        assert.equal(enc.length, dxt.levelSize(64, 64, format));
+        const back = dxt.decode(enc, 64, 64, format);
+        const mean = meanError(src, back, [0, 1, 2]);
+        assert.ok(mean < 3, `DXT${format} mean colour error ${mean}`);
+        for (let i = 3; i < src.length; i += 4) assert.equal(back[i], 255);
+    }
+});
+
+test("DXT encoder: a flat colour comes back within the 565 quantisation; 1 x 1 mips work", () => {
+    const src = texels(8, 8, () => [30, 130, 200, 255]);
+    const back = dxt.decode(dxt.encode(src, 8, 8, 1), 8, 8, 1);
+    assert.ok(meanError(src, back, [0, 1, 2]) <= 4);
+    const tiny = dxt.decode(
+        dxt.encode(
+            texels(1, 1, () => [30, 130, 200, 255]),
+            1,
+            1,
+            5,
+        ),
+        1,
+        1,
+        5,
+    );
+    assert.ok(Math.abs(tiny[0]! - 30) <= 8 && tiny[3] === 255);
+});
+
+test("DXT1 cut-out: transparent stays transparent, opaque stays opaque, per texel", () => {
+    // a diagonal cut-out edge over a gradient
+    const src = texels(32, 32, (x, y) => [x * 7, y * 7, 90, x + y < 32 ? 255 : 0]);
+    const back = dxt.decode(dxt.encode(src, 32, 32, 2), 32, 32, 2);
+    for (let i = 3; i < src.length; i += 4) assert.equal(back[i], src[i], `alpha at texel ${(i - 3) / 4}`);
+    let sum = 0;
+    let n = 0;
+    for (let i = 0; i < src.length; i += 4)
+        if (src[i + 3]) {
+            for (const k of [0, 1, 2]) sum += Math.abs(src[i + k]! - back[i + k]!);
+            n += 3;
+        }
+    assert.ok(sum / n < 4, `cut-out colour error ${sum / n}`);
+});
+
+test("DXT5 soft alpha: ramp error bounded, 0 and 255 kept exact in a block that has both", () => {
+    const soft = texels(16, 16, (x) => [10, 20, 30, 20 + x * 14]);
+    const back = dxt.decode(dxt.encode(soft, 16, 16, 5), 16, 16, 5);
+    assert.ok(meanError(soft, back, [3]) < 6);
+    const mixed = texels(8, 8, (x, y) => [0, 0, 0, (x + y) % 5 === 0 ? 0 : (x + y) % 5 === 1 ? 255 : 100]);
+    const m = dxt.decode(dxt.encode(mixed, 8, 8, 5), 8, 8, 5);
+    for (let i = 3; i < mixed.length; i += 4) assert.equal(m[i], mixed[i], `alpha at ${(i - 3) / 4}`);
+});
+
+test("DXT encoder: two-colour blocks keep both colours", () => {
+    const src = texels(16, 16, (x, y) => (((x >> 1) + (y >> 1)) & 1 ? [200, 40, 40, 255] : [40, 40, 200, 255]));
+    const back = dxt.decode(dxt.encode(src, 16, 16, 1), 16, 16, 1);
+    assert.ok(meanError(src, back, [0, 1, 2]) < 3);
+});
+
+test("alpha kind chooses the DXT format; odd sizes stay 32-bit", () => {
+    const base = options(tempCache());
+    const t = (w: number, h: number): Texture => texture(1, w, h, Buffer.alloc(w * h * 4), 1);
+    assert.equal(hd.compressFormat(t(16, 16), "opaque", { ...base, compress: true }, 4), 1);
+    assert.equal(hd.compressFormat(t(16, 16), "binary", { ...base, compress: true }, 4), 2);
+    assert.equal(hd.compressFormat(t(16, 16), "smooth", { ...base, compress: true }, 4), 5);
+    assert.equal(hd.compressFormat(t(16, 16), "smooth", base, 4), 0); // (compress off)
+    const on = { ...base, compress: true };
+    assert.equal(hd.compressFormat(t(18, 16), "opaque", on, 2), 1); // 36 x 32
+    assert.equal(hd.compressFormat(t(5, 8), "opaque", on, 2), 0); // 10 x 16: not a multiple of 4
+    assert.equal(hd.compressFormat(t(5, 8), "opaque", on, 4), 1);
+    const already = t(16, 16);
+    already.dxt = 5;
+    assert.equal(hd.compressFormat(already, "opaque", on, 4), 0); // (a DXT texture keeps its own format)
+});
+
+test("the pass compresses 32-bit textures by their alpha, with full mips; compress off keeps 32-bit", () => {
+    const cache = tempCache();
+    const opaque = painted(16, 16);
+    const cut = texels(16, 16, (x, y) => [x * 15, y * 15, 128, x < 12 ? 255 : 0]);
+    const soft = texels(16, 16, (x, y) => [x * 15, y * 15, 128, 40 + x * 10]);
+    const make = (): TexFile => ({
+        version: 1,
+        textures: [texture(1, 16, 16, opaque, 5), texture(2, 16, 16, cut, 5), texture(3, 16, 16, soft, 5)],
+    });
+    const on = make();
+    const stats = hd.newStats();
+    hd.upscaleTexFile(on, new Map(), { ...options(cache), compress: true }, stats, nearest4);
+    assert.deepEqual(
+        on.textures.map((x) => x.dxt),
+        [1, 2, 5],
+    );
+    assert.equal(stats.compressed, 3);
+    for (const x of on.textures) {
+        assert.equal(x.width, 64);
+        assert.equal(x.levels.length, 7); // 5 levels before + 2 for x4, down to 1 x 1
+        for (let n = 0; n < x.levels.length; n++) {
+            const side = Math.max(1, 64 >> n);
+            assert.equal(x.levels[n]!.length, dxt.levelSize(side, side, x.dxt));
+        }
+    }
+    // the cut-out still cuts: the alpha of the top level
+    const top = dxt.decode(on.textures[1]!.levels[0]!, 64, 64, 2);
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) assert.equal(top[(y * 64 + x) * 4 + 3], x < 48 ? 255 : 0);
+    const off = make();
+    hd.upscaleTexFile(off, new Map(), { ...options(cache), compress: false }, hd.newStats(), nearest4);
+    assert.deepEqual(
+        off.textures.map((x) => x.dxt),
+        [0, 0, 0],
+    );
+    assert.equal(on.textures[0]!.levels[0]!.length * 8, off.textures[0]!.levels[0]!.length);
 });

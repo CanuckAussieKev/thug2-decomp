@@ -3272,7 +3272,7 @@ export function cmdSelfcheck(args: Args): number {
 
 const USAGE =
     "usage: thps3_levels.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--out OUT] [--ns NS] [--no-objects] " +
-    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--collfix] [--thug2-peds] [--hd-textures [{2,4}]] [--hd-model MODEL] [--hd-max N] [--hd-min N] [--hd-cache DIR] [--hd-cache-clear] [--hd-no-match] [--hd-tool EXE] [--hd-gpu ID] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
+    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--collfix] [--thug2-peds] [--hd-textures [{2,4}]] [--hd-model MODEL] [--hd-max N] [--hd-min N] [--hd-cache DIR] [--hd-cache-clear] [--hd-no-match] [--hd-no-compress] [--hd-tool EXE] [--hd-gpu ID] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
 
 const HELP = `${USAGE}
 
@@ -3312,6 +3312,7 @@ options:
   --hd-cache DIR       convert: the upscaled textures' cache (default %LOCALAPPDATA%\\thug2-decomp\\hd-textures)
   --hd-cache-clear     convert: the cache emptied first (everything upscaled again)
   --hd-no-match        convert: the model's own colours / contrast kept (default: pulled back to the original's)
+  --hd-no-compress     convert: keep 32-bit textures 32-bit (default: DXT1 / DXT5, about 1/4 to 1/8 the size)
   --hd-tool EXE        convert: realesrgan-ncnn-vulkan.exe (default: the one fetch.ts unpacks into out\\hd_textures)
   --hd-gpu ID          convert: the upscaler's GPU (its -g; default: its own choice)
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
@@ -3343,6 +3344,7 @@ const FLAG_OPTIONS = [
     "--thug2-peds",
     "--hd-cache-clear",
     "--hd-no-match",
+    "--hd-no-compress",
 ] as const;
 const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--hd-textures", "--extra", "--help"];
 
@@ -3438,6 +3440,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
         if (values["--hd-tool"] !== undefined) hd.tool = path.resolve(values["--hd-tool"]);
         if (values["--hd-gpu"] !== undefined) hd.gpu = values["--hd-gpu"];
         hd.match = !flags.has("--hd-no-match");
+        hd.compress = !flags.has("--hd-no-compress");
     }
     return {
         command,

@@ -47,7 +47,14 @@ export const UI_PACKS = [
 
 // The defaults for UI: the anime model (flat colours, outlines, text), the longer side up to 2048.
 export function uiOptions(scale = 4): hd.HdOptions {
-    return { ...hd.defaultOptions(scale), model: "realesrgan-x4plus-anime", maxSize: 2048, minSize: 8 };
+    // (never DXT: text and edges show the artefacts)
+    return {
+        ...hd.defaultOptions(scale),
+        model: "realesrgan-x4plus-anime",
+        maxSize: 2048,
+        minSize: 8,
+        compress: false,
+    };
 }
 
 const isPow2 = (n: number): boolean => n > 0 && (n & (n - 1)) === 0;
