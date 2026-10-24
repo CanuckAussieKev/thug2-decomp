@@ -2133,7 +2133,7 @@ function cmdList(args: Args): number {
 
 const USAGE = `usage: thps2_levels.ts {convert,selfcheck,list,gaps} [levels ...] [--thug2 THUG2] [--thps2 THPS2] [--out OUT]
                        [--ns NS] [--no-mips] [--thps2-exe EXE] [--hd-textures [{2,4}]] [--hd-model MODEL]
-                       [--hd-max N] [--hd-min N] [--hd-cache DIR] [--hd-cache-clear] [--hd-no-match]
+                       [--hd-max N] [--hd-min N] [--hd-cache DIR] [--hd-cache-clear] [--hd-no-match] [--hd-no-compress]
                        [--hd-tool EXE] [--hd-gpu ID]
 
   convert     the levels (default all ten: ${LEVELS.map((l) => l.name).join(", ")}) into <thug2>\\${STAGING}
@@ -2155,6 +2155,7 @@ const USAGE = `usage: thps2_levels.ts {convert,selfcheck,list,gaps} [levels ...]
   --hd-cache DIR      the cache (default %LOCALAPPDATA%\\thug2-decomp\\hd-textures)
   --hd-cache-clear    the cache emptied first (everything upscaled again)
   --hd-no-match       the model's own colours / contrast kept (default: pulled back to the original's)
+  --hd-no-compress    32-bit textures kept 32-bit (default: DXT1 / DXT5, about 1/4 to 1/8 the size)
   --hd-tool EXE       realesrgan-ncnn-vulkan.exe (default: the one fetch.ts unpacks into out\\hd_textures)
   --hd-gpu ID         the upscaler's GPU (its -g)
   --thps2-exe the THPS2 executable to read gap names and scores from (default <thps2>\\THawk2.exe, then
@@ -2172,6 +2173,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
             "hd-cache": { type: "string" },
             "hd-cache-clear": { type: "boolean" },
             "hd-no-match": { type: "boolean" },
+            "hd-no-compress": { type: "boolean" },
             "hd-tool": { type: "string" },
             "hd-gpu": { type: "string" },
             thug2: { type: "string" },
@@ -2206,6 +2208,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
                 tool: values["hd-tool"],
                 gpu: values["hd-gpu"],
                 noMatch: values["hd-no-match"],
+                noCompress: values["hd-no-compress"],
             },
             (message) => {
                 process.stderr.write(`${USAGE}\nerror: ${message}\n`);
