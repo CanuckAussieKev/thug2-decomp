@@ -663,9 +663,31 @@ export function convertScenes(
             let texture = 0;
             const first = baseTexture(m, plan, part.textures, maps);
             if (first !== undefined && !part.veil && convertTexture(first)) texture = first;
+            // (an alpha-tested material, no blend word: THP8 discards the texels under its reference and draws the rest
+            // solid - the stairs' gold coins; blended by the texture's own alpha they stood half see-through. The
+            // texture's alpha is made 0 / 255 by the reference, in a copy of its own per reference.)
+            const state = mats.alphaState(m);
+            if (texture && state && state.blend === 0 && state.ref > 0 && !mats.ALPHA_BY_NATURE.has(m.template)) {
+                const x = part.textures.get(texture);
+                if (
+                    x &&
+                    (x.format === xenos.FMT_DXT5 ||
+                        x.format === xenos.FMT_8888 ||
+                        (x.format === xenos.FMT_DXT1 && dxt.hasAlpha1(xenos.baseLevel(x))))
+                ) {
+                    const copy = checksum(`thp8_atest_${thp8.hex(texture)}_${state.ref}`);
+                    if (!texOut.has(copy)) {
+                        const c = xenos.toThug2(x, mips, state.ref);
+                        if (c.texture) texOut.set(copy, { ...c.texture, checksum: copy });
+                    }
+                    if (texOut.has(copy)) texture = copy;
+                }
+            }
             const t = texOut.get(texture);
             const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);
-            const alpha = (!add && t !== undefined && (t.dxt === 5 || t.dxt === 2)) || (part.veil ?? false);
+            // (a texture's alpha is transparency only where the material blends or alpha-tests: mats.drawsAlpha)
+            const alpha =
+                (!add && t !== undefined && (t.dxt === 5 || t.dxt === 2) && mats.drawsAlpha(m)) || (part.veil ?? false);
             if (alpha) transparent.add(id);
             const mat = makeMaterial(id, texture, add ? "add" : alpha, true);
             if (alpha || add) mat.noBackfaceCulling = 1;
@@ -3068,7 +3090,8 @@ export function materialFacts(
         const blended =
             !add &&
             t !== undefined &&
-            (t.format === xenos.FMT_DXT5 || (t.format === xenos.FMT_DXT1 && dxt.hasAlpha1(xenos.baseLevel(t))));
+            (t.format === xenos.FMT_DXT5 || (t.format === xenos.FMT_DXT1 && dxt.hasAlpha1(xenos.baseLevel(t)))) &&
+            mats.drawsAlpha(m);
         let cutout = false;
         let soft = false;
         for (const id of [base, ...(plan?.layers ?? []).flatMap((l) => [l.diffuse, l.mask])]) {
