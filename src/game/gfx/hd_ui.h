@@ -23,6 +23,9 @@ namespace Nx::HdUi {
 
 constexpr uint32_t kImageMarker = 0x48440000; // "HD" in the high half, the scale in the low byte
 constexpr uint32_t kFontMarker = 0x49554448;  // "HDUI"
+// An upscaled opaque image (the loading screens) may be stored as DXT1 blocks instead of 32-bit texels: header format
+// = this ("DXT1"), the file's texels one level of 8 bytes per 4x4 block, rows top-down as D3D wants them (not swizzled).
+constexpr uint32_t kFormatDxt1 = 0x31545844;
 
 // The scale an image header's +0x14 marks (1: not an upscaled image).
 inline uint32_t ImageScale(uint32_t field)

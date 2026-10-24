@@ -120,6 +120,16 @@ void ApplyHdScale(sTexture* texture, const ImageHeader& header)
     texture->imageHeight = static_cast<uint16_t>(texture->imageHeight / scale);
 }
 
+// Not original - HD menu UI (hd_ui.h): an upscaled opaque image (a loading screen) stored as DXT1 blocks, header format
+// HdUi::kFormatDxt1. The Direct3D texture is made D3DFMT_DXT1 (one level: drawn full screen, about 1:1) and the blocks
+// are read straight into it; the sTexture is finished like the 32-bit ones (its sizes divided by ApplyHdScale).
+bool IsHdDxt(const ImageHeader& header)
+{
+    return header.format == HdUi::kFormatDxt1 && HdUi::ImageScale(header.unknown14) != 1 && header.width % 4 == 0 &&
+           header.height % 4 == 0;
+}
+uint32_t HdDxtSize(const ImageHeader& header) { return header.width * header.height / 2; }
+
 } // namespace
 
 // 0x004E0790
@@ -130,6 +140,20 @@ sTexture* __cdecl LoadTextureFile(const char* name)
         return nullptr;
     ImageHeader header;
     File::Read(&header, 0x20, 1, file);
+    if (IsHdDxt(header)) { // (not original - hd_ui.h)
+        sTexture* hd = NewTexture();
+        hd->palette = nullptr;
+        Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
+                                reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
+        SetSizes(hd, header, false);
+        D3DLOCKED_RECT locked;
+        static_cast<IDirect3DTexture9*>(hd->texture)->LockRect(0, &locked, nullptr, 0);
+        File::Read(locked.pBits, HdDxtSize(header), 1, file);
+        File::Close(file);
+        Finish(hd);
+        ApplyHdScale(hd, header);
+        return hd;
+    }
     uint32_t bits;
     bool palettized;
     Decode(header.format, &bits, &palettized);
@@ -176,6 +200,21 @@ sTexture* __cdecl LoadTextureMemory(const uint8_t* data)
     ImageHeader header;
     std::memcpy(&header, data, sizeof(header));
     const uint8_t* at = data + 0x20;
+    if (IsHdDxt(header)) { // (not original - hd_ui.h)
+        sTexture* hd = NewTexture();
+        hd->palette = nullptr;
+        Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
+                                reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
+        if (!hd->texture)
+            return nullptr;
+        SetSizes(hd, header, false);
+        D3DLOCKED_RECT locked;
+        static_cast<IDirect3DTexture9*>(hd->texture)->LockRect(0, &locked, nullptr, 0);
+        std::memcpy(locked.pBits, at, HdDxtSize(header));
+        Finish(hd);
+        ApplyHdScale(hd, header);
+        return hd;
+    }
     uint32_t bits;
     bool palettized;
     Decode(header.format, &bits, &palettized);

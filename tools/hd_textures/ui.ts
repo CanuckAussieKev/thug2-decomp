@@ -32,6 +32,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as dxt from "../level_port/dxt.ts";
 import * as hd from "../level_port/hd_textures.ts";
 import { entries } from "../level_port/prx.ts";
 import type { TexFile, Texture } from "../level_port/tex.ts";
@@ -42,6 +43,7 @@ import { isMain, print, runMain } from "../lib/py.ts";
 
 export const HD_IMG_MARKER = 0x48440000; // "HD" in the high half; the low byte the scale (src/game/gfx/hd_ui.h)
 export const HD_FNT_MARKER = 0x49554448; // "HDUI"
+export const HD_IMG_DXT1 = 0x31545844; // header format "DXT1": one level of blocks (src/game/gfx/hd_ui.h)
 // Archives the front end and the pause menus load their images and fonts from.
 export const UI_PACKS = [
     "mainmenusprites.prx",
@@ -61,6 +63,20 @@ export function uiOptions(scale = 4): hd.HdOptions {
         maxSize: 2048,
         minSize: 8,
         compress: false,
+    };
+}
+
+// The loading screens' own limits: the longer side up to 4096 (640 x 448 at x4 is 2560 x 1792; any D3D9 card takes
+// 4096). Their opaque ones are written as DXT1 by encodeImg (one level), so the pass itself stays 32-bit. The model is
+// realesrgan-x4plus, not the UI's anime one: they are photos / art collages (grain, brick, grass, torn paper), where the
+// anime model smears texture into plastic smooth patches (compared on airport / australia / 2player, 2026-10-24); the
+// text edges come out a touch rougher with x4plus, which the 1:1 on-screen size hides.
+export function loadingOptions(base: hd.HdOptions): hd.HdOptions {
+    return {
+        ...base,
+        maxSize: 4096,
+        compress: false,
+        model: "realesrgan-x4plus",
     };
 }
 
@@ -126,7 +142,7 @@ export function picture(img: UiImage): Buffer {
 
 // An HD image file: the upscaled picture (iw * scale x ih * scale BGRA) at the top left of a texture `scale` times
 // the original's, the rest its edge texels repeated (what bilinear filtering at the picture's edge sees).
-export function encodeImg(original: UiImage, hdPicture: Buffer, scale: number): Buffer {
+export function encodeImg(original: UiImage, hdPicture: Buffer, scale: number, asDxt1 = false): Buffer {
     const tw = original.tw * scale;
     const th = original.th * scale;
     const iw = original.iw * scale;
@@ -137,12 +153,24 @@ export function encodeImg(original: UiImage, hdPicture: Buffer, scale: number): 
     head.writeUInt32LE(8, 4);
     head.writeUInt32LE(tw, 8);
     head.writeUInt32LE(th, 12);
-    head.writeUInt32LE(0, 16);
+    head.writeUInt32LE(asDxt1 ? HD_IMG_DXT1 : 0, 16);
     head.writeUInt32LE((HD_IMG_MARKER | scale) >>> 0, 20);
     head.writeUInt16LE(iw, 24);
     head.writeUInt16LE(ih, 26);
     head.writeUInt32LE(0, 28);
     const texels = Buffer.alloc(tw * th * 4);
+    if (asDxt1) {
+        // rows bottom-up like the 32-bit ones, not swizzled: the loader copies the blocks as they are
+        if (tw % 4 || th % 4) throw new Error("DXT1 image: the sides must be multiples of 4");
+        for (let y = 0; y < th; y++) {
+            const sy = Math.min(y, ih - 1);
+            for (let x = 0; x < tw; x++) {
+                const s = (sy * iw + Math.min(x, iw - 1)) * 4;
+                hdPicture.copy(texels, ((th - 1 - y) * tw + x) * 4, s, s + 4);
+            }
+        }
+        return Buffer.concat([head, dxt.encode(texels, tw, th, 1)]);
+    }
     const order = storedOrder(tw, th);
     for (let y = 0; y < th; y++) {
         const sy = Math.min(y, ih - 1);
@@ -224,6 +252,8 @@ export function upscaleUi(
     files: ReadonlyMap<string, Buffer>,
     options: hd.HdOptions,
     upscaler: hd.Upscaler = hd.realEsrgan,
+    loading: hd.HdOptions = loadingOptions(options),
+    loadingDxt = true,
 ): { out: Map<string, Buffer>; stats: UiStats } {
     type Item = { name: string; texture: Texture } & ({ img: UiImage } | { font: UiFont } | { source: Texture });
     const items: Item[] = [];
@@ -259,11 +289,19 @@ export function upscaleUi(
             stats.images += 1;
             const img = decodeImg(data);
             if (data.readUInt32LE(20) !== 0) throw new Error(`${name}: already marked`);
-            items.push({ name, img, texture: texture(items.length, img.iw, img.ih, picture(img)) });
+            items.push({
+                name,
+                img,
+                texture: texture(items.length, img.iw, img.ih, picture(img)),
+            });
         } else if (lower.endsWith(".fnt.xbx")) {
             stats.fonts += 1;
             const font = decodeFnt(data);
-            items.push({ name, font, texture: texture(items.length, font.w, font.h, font.bgra) });
+            items.push({
+                name,
+                font,
+                texture: texture(items.length, font.w, font.h, font.bgra),
+            });
         } else if (lower.endsWith(".tex.xbx")) {
             // a model's dictionary: each texture goes through the pass as a copy under a number of its own (the
             // checksums repeat from file to file) and is copied back
@@ -273,7 +311,11 @@ export function upscaleUi(
             for (const source of file.textures) {
                 stats.texTextures += 1;
                 if (TILED_MODELS.test(name)) wrapped.add(items.length);
-                items.push({ name, source, texture: { ...source, checksum: items.length } });
+                items.push({
+                    name,
+                    source,
+                    texture: { ...source, checksum: items.length },
+                });
             }
         } else continue;
         stats.bytesBefore += data.length;
@@ -285,9 +327,24 @@ export function upscaleUi(
             return [item.texture.checksum, { wrapU: wrap, wrapV: wrap }];
         }),
     );
-    const dictionary: TexFile = { version: 1, textures: items.map((item) => item.texture) };
     const before = new Map(items.map((item) => [item, item.texture.width]));
-    hd.upscaleTexFile(dictionary, addressing, options, stats.hd, upscaler);
+    // (the loading screens in a pass of their own: another size cap, and another model if asked)
+    const isLoading = (item: Item): boolean => !("source" in item) && LOADING_SCREEN.test(item.name);
+    const pass = (mine: Item[], opts: hd.HdOptions): void => {
+        if (mine.length)
+            hd.upscaleTexFile(
+                { version: 1, textures: mine.map((i) => i.texture) },
+                addressing,
+                opts,
+                stats.hd,
+                upscaler,
+            );
+    };
+    pass(
+        items.filter((i) => !isLoading(i)),
+        options,
+    );
+    pass(items.filter(isLoading), loading);
     const out = new Map<string, Buffer>();
     for (const item of items) {
         const scale = item.texture.width / before.get(item)!;
@@ -307,9 +364,17 @@ export function upscaleUi(
             continue;
         }
         if (LOADING_SCREEN.test(item.name)) stats.loadingScreens += 1;
+        // loading screens: opaque ones as DXT1 (sides multiples of 4)
+        const asDxt1 =
+            "img" in item &&
+            isLoading(item) &&
+            loadingDxt &&
+            hd.alphaKind(item.texture.levels[0]!) === "opaque" &&
+            item.texture.width % 4 === 0 &&
+            item.texture.height % 4 === 0;
         const data =
             "img" in item
-                ? encodeImg(item.img, item.texture.levels[0]!, scale)
+                ? encodeImg(item.img, item.texture.levels[0]!, scale, asDxt1)
                 : encodeFnt(item.font, item.texture.levels[0]!, scale);
         out.set(item.name, data);
         stats.upscaled += 1;
@@ -349,7 +414,10 @@ export function gameUiFiles(
         }
         const root = path.join(game, "Data", "models");
         if (fs.existsSync(root))
-            for (const entry of fs.readdirSync(root, { recursive: true, withFileTypes: true })) {
+            for (const entry of fs.readdirSync(root, {
+                recursive: true,
+                withFileTypes: true,
+            })) {
                 if (!entry.isFile()) continue;
                 const name = path.join("models", path.relative(root, path.join(entry.parentPath, entry.name)));
                 if (/\.tex\.xbx$/i.test(name) && MENU_MODELS.test(name))
@@ -371,7 +439,10 @@ function overlayImages(overlay: string): Map<string, Buffer> {
     const files = new Map<string, Buffer>();
     const images = path.join(overlay, "images");
     if (!fs.existsSync(images)) return files;
-    for (const entry of fs.readdirSync(images, { recursive: true, withFileTypes: true })) {
+    for (const entry of fs.readdirSync(images, {
+        recursive: true,
+        withFileTypes: true,
+    })) {
         if (!entry.isFile() || !/\.img\.xbx$/i.test(entry.name)) continue;
         const full = path.join(entry.parentPath, entry.name);
         files.set(path.relative(overlay, full), fs.readFileSync(full));
@@ -386,6 +457,7 @@ export function install(
     overlay: string,
     options: hd.HdOptions,
     target = path.join(overlay, "hd_ui"),
+    loadingModel?: string,
 ): string[] {
     const files = gameUiFiles(game);
     const own = overlayImages(overlay);
@@ -393,7 +465,9 @@ export function install(
     const byKey = new Map<string, [string, Buffer]>();
     for (const [name, data] of files) byKey.set(name.toLowerCase(), [name, data]);
     for (const [name, data] of own) byKey.set(name.toLowerCase(), [name, data]);
-    const { out, stats } = upscaleUi(new Map([...byKey.values()]), options);
+    const loading = loadingOptions(options);
+    if (loadingModel) loading.model = loadingModel;
+    const { out, stats } = upscaleUi(new Map([...byKey.values()]), options, hd.realEsrgan, loading);
     for (const [name, data] of out) {
         const file = path.join(target, ...name.split(/[\\/]/));
         fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -419,6 +493,7 @@ function main(): number {
         options: {
             scale: { type: "string", default: "4" },
             model: { type: "string" },
+            "loading-model": { type: "string" },
             max: { type: "string" },
         },
         allowPositionals: true,
@@ -432,7 +507,14 @@ function main(): number {
     const options = uiOptions(scale);
     if (values.model) options.model = values.model;
     if (values.max) options.maxSize = Number(values.max);
-    for (const line of install(resolveInstall(positionals[0]!, "thug2"), positionals[1]!, options)) print(line);
+    for (const line of install(
+        resolveInstall(positionals[0]!, "thug2"),
+        positionals[1]!,
+        options,
+        undefined,
+        values["loading-model"],
+    ))
+        print(line);
     return 0;
 }
 

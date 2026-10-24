@@ -152,3 +152,41 @@ The user: "the spinning globe in the level select, along with the arrows, etc, I
 - [ ] Skater / ped model textures (CAS, select skater): level-converter pass, not UI.
 - [ ] A cheaper globe: the 22 map tiles are 16-colour art; if it should look better than "sharp edges", the source art would
   need redrawing (an upscaler can't add the detail).
+
+## Part 3: loading screens at x4, DXT1 (2026-10-25, THUG2-3)
+
+The user: "AI upscale the loading screens to 4x and compress." NOT merged; DLL rebuild needed (below).
+
+- Size cap: the loading screens' pass has its own cap, 4096 (`ui.ts loadingOptions`), so 640x448 -> 2560x1792. D3D9 cards take
+  4096+; the screens are not powers of two, which the loader already handled at x2 (header "plain": no swizzling; the
+  game's own 640x448 are the same, NPOT textures work on the device).
+- Compression: opaque loading screens (all 64) are written as DXT1 (`encodeImg(..., asDxt1)` through tools/level_port/dxt.ts):
+  header format = `HdUi::kFormatDxt1` ("DXT1", hd_ui.h), the marker x4 as before, the file is the header + one level of
+  blocks, not swizzled, rows bottom-up like the 32-bit plain images (the sprite samples v flipped). Other images / fonts / model
+  textures stay uncompressed 32-bit (text and edges show DXT artefacts). A screen with alpha, or sides not a multiple of 4,
+  would stay 32-bit.
+- C++ (NOT ORIGINAL, small, marked): `texture_file.cpp` LoadTextureFile / LoadTextureMemory: if the header's format is
+  kFormatDxt1 and the image carries the HD marker, the Direct3D texture is created D3DFMT_DXT1 (one level) and the blocks are
+  read straight into it (`IsHdDxt`, `HdDxtSize`); then the usual Finish / ApplyHdScale (sizes divided by the scale, so the picture
+  is still drawn 640x448-logical, UV 0..1). Files without the marker or with the original formats take the original path.
+- Mips: none. The screens are drawn full screen at about 1:1 of the 640x448 picture -> at 1280x720 the texture is minified
+  exactly 2:1 (bilinear then averages a 2x2 block = a box filter), at 1080p 1.33:1; mips would add 33% memory for nothing.
+- Model: `realesrgan-x4plus` for loading screens (not the UI's anime one). Compared on airport / australia / 2player at x4
+  (out\lscmp, not committed): the anime model smooths photographic texture (airport's concrete / roof turned into smeared
+  plastic patches); x4plus keeps grain and texture (brick, grass, torn paper, paint), at the price of slightly rougher edges
+  on flat lettering. They are photo / art collages, so x4plus. `--hd-ui-loading-model M` (make_menu_level) /
+  `--loading-model M` (ui.ts) changes it.
+- Sizes: loading screens 280 MB (x2, 32-bit, 4.4 MB texture each) -> 140 MB (x4 DXT1, 2.19 MB each, 2560x1792 in video
+  memory 2.19 MB); hd_ui folder 472.7 MB -> 332.4 MB (the rest unchanged); an x4 32-bit one would have been 18.4 MB each.
+  make_menu_level --hd-ui 4 with warm cache for the rest: 3 min 10 s (61 images made).
+- Game check (THUG2-3, hd_ui=1, this build's DLL, lock released and DLL restored): `-Level foun`: the log has `data overlay:
+  images\loadscrn_generic read from hd_ui\...`, `hd ui: 1 upscaled image(s) loaded (this one x4, 2560x1792 texels; drawn at
+  640x448)`, no errors; the loading screen is up 4.4 s (DXT x4) vs 4.2 s (x2, 32-bit) - no difference in load time. Pictures
+  (out\shots in the worktree, not committed): `loadscreen_x4dxt_full.png` (full size capture), `crop_x2_vs_x4dxt.png` and
+  `crop2_x2_vs_x4dxt.png` (the same rectangle before | after, x3): same size and place; x4plus + 2560 shows finer grain and no
+  banding in the flat yellow; the window is 1280x720, so the gain over x2 is modest at that size - a 1920x1080+ screen shows more.
+- Checks: typecheck / lint / tests (395) pass; ui.test.ts has the DXT1 screen (size, format, row order via dxt.decode), the
+  32-bit fallback and the model default; build (verify, own PDB endpoint) clean; thug2_check on THUG2PM.exe and the stock
+  THUG2.exe: 0 MISMATCHED, 818 early self-tests pass, crash handling 0 FAILED; check_code_writes: No overlaps.
+- Install: the DLL must be rebuilt (the old DLL would read the "DXT1" format as a bit depth and break); then
+  `node tools/menu_level/make_menu_level.ts --game C:\Games\THUG2 --hd-ui 4` (the overlay's hd_ui loading screens are replaced).

@@ -155,7 +155,10 @@ test("a model's texture dictionary: upscaled in place (no marker), the checksums
         palette: Buffer.alloc(0),
         levels: [bgra],
     });
-    const original = writeTex({ version: 1, textures: [texture(0xaabbccdd), texture(0x11223344)] });
+    const original = writeTex({
+        version: 1,
+        textures: [texture(0xaabbccdd), texture(0x11223344)],
+    });
     const name = "models\\UI_bg\\UI_bg.tex.xbx";
     const { out, stats } = ui.upscaleUi(new Map([[name, original]]), options(4), nearest4);
     assert.equal(stats.models, 1);
@@ -174,7 +177,8 @@ test("a model's texture dictionary: upscaled in place (no marker), the checksums
     assert.ok(!ui.MENU_MODELS.test("models\\Skater_Male\\hat\\hat.tex.xbx"));
 });
 
-test("a loading screen: 640 x 448 comes back at the 2048 cap's scale (x2) with the image marker", () => {
+// a 640 x 448 loading screen: the top half red, the bottom half blue
+function loadingScreen(): Buffer {
     const w = 640;
     const h = 448;
     const head = Buffer.alloc(32);
@@ -185,15 +189,48 @@ test("a loading screen: 640 x 448 comes back at the 2048 cap's scale (x2) with t
     head.writeUInt16LE(w, 24);
     head.writeUInt16LE(h, 26);
     const texels = Buffer.alloc(w * h * 4);
-    for (let i = 0; i < w * h; i++) texels.set([i & 255, (i >> 8) & 255, 90, 255], i * 4);
-    const { out, stats } = ui.upscaleUi(
-        new Map([["images\\loadscrn_x.img.xbx", Buffer.concat([head, texels])]]),
+    // (stored bottom-up: the first stored rows are the picture's bottom)
+    for (let i = 0; i < w * h; i++) {
+        const bottom = i < (w * h) / 2;
+        texels.set(bottom ? [255, 0, 0, 255] : [0, 0, 255, 255], i * 4); // BGRA: blue, red
+    }
+    return Buffer.concat([head, texels]);
+}
+
+test("a loading screen: x4 (2560 x 1792, its own 4096 cap) as DXT1 blocks with the image marker", async () => {
+    const dxt = await import("../level_port/dxt.ts");
+    const name = "images\\loadscrn_x.img.xbx";
+    const { out, stats } = ui.upscaleUi(new Map([[name, loadingScreen()]]), options(4), nearest4);
+    assert.equal(stats.loadingScreens, 1);
+    const data = out.get(name)!;
+    assert.equal(data.readUInt32LE(8), 2560);
+    assert.equal(data.readUInt32LE(12), 1792);
+    assert.equal(data.readUInt32LE(16), ui.HD_IMG_DXT1);
+    assert.equal(data.readUInt32LE(20), (ui.HD_IMG_MARKER | 4) >>> 0);
+    assert.equal(data.readUInt16LE(24), 2560);
+    assert.equal(data.length, 32 + (2560 * 1792) / 2);
+    // the blocks as the loader copies them: the first rows are the picture's bottom (blue), the last its top (red)
+    const texels = dxt.decode(data.subarray(32), 2560, 1792, 1);
+    assert.deepEqual([...texels.subarray(0, 3)], [255, 0, 0]);
+    const last = (2560 * 1791 + 100) * 4;
+    assert.deepEqual([...texels.subarray(last, last + 3)], [0, 0, 255]);
+});
+
+test("a loading screen with the DXT off: 32-bit, as the other images", () => {
+    const name = "images\\loadscrn_x.img.xbx";
+    const { out } = ui.upscaleUi(
+        new Map([[name, loadingScreen()]]),
         options(4),
         nearest4,
+        ui.loadingOptions(options(4)),
+        false,
     );
-    assert.equal(stats.loadingScreens, 1);
-    const hd = out.get("images\\loadscrn_x.img.xbx")!;
-    assert.equal(hd.readUInt32LE(8), 1280);
-    assert.equal(hd.readUInt32LE(12), 896);
-    assert.equal(hd.readUInt32LE(20), (ui.HD_IMG_MARKER | 2) >>> 0);
+    const data = out.get(name)!;
+    assert.equal(data.readUInt32LE(16), 0);
+    assert.equal(data.length, 32 + 2560 * 1792 * 4);
+});
+
+test("loading screens use the x4plus model, the rest of the UI the anime one", () => {
+    assert.equal(ui.loadingOptions(options(4)).model, "realesrgan-x4plus");
+    assert.equal(options(4).model, "realesrgan-x4plus-anime");
 });
