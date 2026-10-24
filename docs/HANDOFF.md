@@ -537,3 +537,8 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   inwards (cylinderTriangles; 6,256 of 54,040 primitive triangles, 391 cylinders/capsules/spheres) - THUG2's line test
   0x0040B420 is one-sided, so skaters passed into trunks and were held inside. Engine original == ours (trace A vs C
   identical); new early self-test "pole tunnel". Unlooked: uber-frig at (-2393.2,196.5,12222.4) BEAVER VALLEY plaza.
+- HD menu UI merged + installed (2026-10-24, docs/pending/hd-ui.md, main f8964ef): run-time switch [features] hd_ui=
+  (default 0; set to 1 in the main install's ini at the user's request); make_menu_level.ts --hd-ui 4 puts 517 images +
+  8 fonts (Real-ESRGAN anime x4) in thug2-decomp-data\hd_ui, read only with hd_ui=1. DLL installed (817 early self-tests,
+  0 MISMATCHED). NOTE: later make_menu_level runs into the main install need --hd-ui 4 or the HD files are dropped.
+  THPS3 at 4x only in THUG2-3. Renderer decomp ~41% (RFX-1..9 committed).
