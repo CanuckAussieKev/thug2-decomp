@@ -1,6 +1,6 @@
 param([Parameter(Mandatory = $true)][int]$ProcessId, [Parameter(Mandatory = $true)][string]$Path)
 # A picture of ONE game window (the THUG2 process given), taken with PrintWindow: the window's own contents, whether
-# or not it's in front - nothing else on the screen is ever read. Saved at half size. Prints what it did.
+# or not it's in front - nothing else on the screen is ever read. Saved at half size (THUG2_SHOT_FULL=1: full size). Prints what it did.
 Add-Type -AssemblyName System.Drawing
 if (-not ('WindowShot' -as [type])) {
     Add-Type @"
@@ -28,6 +28,8 @@ $hdc = $g.GetHdc()
 $ok = [WindowShot]::PrintWindow($h, $hdc, 3)
 $g.ReleaseHdc($hdc); $g.Dispose()
 if (-not $ok) { $bmp.Dispose(); "NOT CAPTURED: PrintWindow failed"; exit 1 }
-(New-Object System.Drawing.Bitmap $bmp, ([int]($w / 2)), ([int]($ht / 2))).Save($Path)
+# (THUG2_SHOT_FULL=1: the full size, for zooming on details)
+$div = if ($env:THUG2_SHOT_FULL -eq '1') { 1 } else { 2 }
+(New-Object System.Drawing.Bitmap $bmp, ([int]($w / $div)), ([int]($ht / $div))).Save($Path)
 $bmp.Dispose()
 "captured game $ProcessId's window: $Path"

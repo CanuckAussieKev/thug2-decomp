@@ -140,3 +140,60 @@ test("a font: the page x4 as 32-bit, marked; everything else as it was", () => {
     assert.deepEqual(hd.subarray(hd.length - f.rects.length), f.rects);
     assert.throws(() => ui.decodeFnt(hd), /already/);
 });
+
+test("a model's texture dictionary: upscaled in place (no marker), the checksums kept; the menu model names", async () => {
+    const { readTex, writeTex } = await import("../level_port/tex.ts");
+    const bgra = Buffer.alloc(16 * 16 * 4);
+    for (let i = 0; i < 256; i++) bgra.set([i, 255 - i, (i * 7) & 255, 255], i * 4);
+    const texture = (checksum: number) => ({
+        checksum,
+        width: 16,
+        height: 16,
+        texelDepth: 32,
+        paletteDepth: 0,
+        dxt: 0,
+        palette: Buffer.alloc(0),
+        levels: [bgra],
+    });
+    const original = writeTex({ version: 1, textures: [texture(0xaabbccdd), texture(0x11223344)] });
+    const name = "models\\UI_bg\\UI_bg.tex.xbx";
+    const { out, stats } = ui.upscaleUi(new Map([[name, original]]), options(4), nearest4);
+    assert.equal(stats.models, 1);
+    assert.equal(stats.texUpscaled, 2);
+    const hd = readTex(out.get(name)!);
+    assert.deepEqual(
+        hd.textures.map((t) => [t.checksum, t.width, t.height]),
+        [
+            [0xaabbccdd, 64, 64],
+            [0x11223344, 64, 64],
+        ],
+    );
+    assert.ok(ui.MENU_MODELS.test("Models\\UI_bg\\UI_bg.tex.xbx"));
+    assert.ok(ui.MENU_MODELS.test("levels\\mainmenu\\mainmenu.tex.xbx"));
+    assert.ok(ui.MENU_MODELS.test("models/menu3d/AP_menu3d/AP_menu3d.tex.xbx"));
+    assert.ok(!ui.MENU_MODELS.test("models\\Skater_Male\\hat\\hat.tex.xbx"));
+});
+
+test("a loading screen: 640 x 448 comes back at the 2048 cap's scale (x2) with the image marker", () => {
+    const w = 640;
+    const h = 448;
+    const head = Buffer.alloc(32);
+    head.writeUInt32LE(2, 0);
+    head.writeUInt32LE(8, 4);
+    head.writeUInt32LE(w, 8);
+    head.writeUInt32LE(h, 12);
+    head.writeUInt16LE(w, 24);
+    head.writeUInt16LE(h, 26);
+    const texels = Buffer.alloc(w * h * 4);
+    for (let i = 0; i < w * h; i++) texels.set([i & 255, (i >> 8) & 255, 90, 255], i * 4);
+    const { out, stats } = ui.upscaleUi(
+        new Map([["images\\loadscrn_x.img.xbx", Buffer.concat([head, texels])]]),
+        options(4),
+        nearest4,
+    );
+    assert.equal(stats.loadingScreens, 1);
+    const hd = out.get("images\\loadscrn_x.img.xbx")!;
+    assert.equal(hd.readUInt32LE(8), 1280);
+    assert.equal(hd.readUInt32LE(12), 896);
+    assert.equal(hd.readUInt32LE(20), (ui.HD_IMG_MARKER | 2) >>> 0);
+});

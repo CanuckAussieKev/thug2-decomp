@@ -84,3 +84,71 @@ read. The marker code in texture_file.cpp / text.cpp is unconditional (the game'
   front end's 3D backdrop (THPS4 skate shop .tex.xbx - the thps4 converter has no HD pass yet), CAG pieces, the
   level editor's ImGui (vector fonts already).
 - [ ] x2 not tried in the game (`--hd-ui 2`, same code path).
+
+## Part 2: the level select's globe, arrows and everything else the first pass skipped (2026-10-24, THUG2-3)
+
+The user: "the spinning globe in the level select, along with the arrows, etc, I think may not have been upscaled."
+
+### What the level select is drawn from (checked in the log's `data overlay:` lines and the scripts)
+
+- The globe is not a 3D model: `level_select_globe_slice` (gamemenu_levelselect.qb) lays out 22 sprites `map0`..`map21`
+  (64x64, 16 colours, `LevelSelectSprites`, from Levelselect.prx) in strips and slides them; `level_dot` / `level_arrow`
+  (the big white arrow) / `level_highlight` are sprites too. The up/down/left/right arrows are `PanelSprites/SkateSprites/
+  left_arrow, right_arrow` and the sign strip's `sign_*`. All of these were in the first pass (the log: every
+  `images\levelselectsprites\*` and `images\panelsprites\*` file of a level-select run is read from hd_ui; 426 images
+  served, none from outside it). The only one not upscaled is `map0` (one solid ocean colour).
+- So the globe WAS upscaled, but the effect is modest: the art is 16-colour 64 px tiles, so the model sharpens the
+  continents' edges and the sprites' outlines, it can't add detail (before / after zoom below). What the user sees as
+  "not upscaled" is likely that, plus the parts that really were skipped (below).
+- What was really skipped (survey of what menus draw from in THUG2-3's Data\pre / loose Data):
+
+| group | files | MB | menu-visible? | now |
+|---|---|---|---|---|
+| loading screens `Data\images\loadscrn*.img.xbx` (640x448 32-bit) | 64 (+64 `fr\`, +64 `gr\` localised) | 70 (+65 +65) | yes | 64 done (x2: 1280x896) |
+| menu 3D models' .tex.xbx: UI_bg, mainmenu_bg, options_clouds, logo, gradient_bg, cat_bg, menu3d (+16 per-level signs: the pause menu's sign, graffiti) | 24 dictionaries, 173 textures | 0.3 | yes | 155 of 173 textures done (18 smaller than 8 or one colour) |
+| the original front end's scene `levels\mainmenu\mainmenu.tex.xbx` (mainmenuscn.prx; shown only with `menu_backdrop=0`) | 1 | 0.9 | with menu_backdrop=0 | done (in the 24 / 155) |
+| Create-A-Graphic pieces `cagpieces.prx` / `CAGR` (663), `cagpremade` (50) | 713 | 2.9 | yes (CAG editor) | NOT: the editor edits them texel by texel; code takes the sTexture's sizes as the D3D texture's |
+| Bits.prx / `images\Bits` (208 img + 39 tex: particles, shatter debris, snow, sun, `cag_workspace`) | 247 | 0.7 | no (in-game) | not |
+| PermTex.prx (34: skater scuffs / scars, car light glows, CAGR base textures) | 34 | 0.1 | no | not |
+| `images\Tags` (76 CAS stickers), `faces` (20) | 96 | 1.6 | CAS only | not (faces / stickers are edited by code) |
+| skater / ped / vehicle / object model textures (skaterparts*.prx 309+75+77 tex, Models\*: Skater_Male, Peds, Veh, ...) | ~900 | ~20 | CAS / select-skater shows skaters | not (3D, not UI; could use the level converters' pass) |
+| mainmenu_scripts.prx's 5 particle images | 5 | 0 | no | not |
+
+### What was done
+
+- `tools/hd_textures/ui.ts`: `upscaleUi` also takes `.tex.xbx` (each texture of a dictionary through the same pass under
+  a number of its own - checksums repeat across files -, copied back, the dictionary written with the level converters'
+  `writeTex`; clamped when padding, the clouds wrapped) and loose loading screens (the `.img.xbx` path - the picture is
+  drawn full screen from UV 0..1 whatever its size - checked: 0x4B7?? loads it through `CTexture::Load` 0x4C7F00 ->
+  LoadTextureFile 0x4E0790, so the image marker and ApplyHdScale already apply, and 0x4B6CD0 draws UV 0..1). The 2048
+  cap makes 640x448 x2, not x4 (a 4x one would be 2560x1792 = 18 MB of texture each). `gameUiFiles(game, {loadingScreens,
+  models})` collects them; `install` reports them. No C++ change: `hd_ui\` serves any name (the overlay consults it for
+  `models\...tex.xbx` and `levels\...` exactly as for images), model textures need no marker (normalised UVs).
+- `make_menu_level.ts --hd-ui 4` now makes all of this (569 images incl. 64 loading screens + 8 fonts + 24 model
+  dictionaries; 472 MB in hd_ui, of which loading screens 280 MB; cold run ~80 s with the cache from part 1, 54 s warm).
+  No edit to make_menu_level.ts itself this round (its `hdUi.install` call is unchanged).
+- `tools/game/window_shot.ps1`: `THUG2_SHOT_FULL=1` saves the full-size picture (default still half size);
+  `tools/game/crop_compare.ts <before> <after> x,y,w,h out.png [--zoom N]`: the same rectangle of two pictures side by side.
+- ui.test.ts: tests for a model dictionary (kept checksums, sizes, MENU_MODELS names) and a loading screen (x2 + marker).
+
+### Checks (workspace THUG2-3, hd_ui=0 vs 1, the same DLL: no C++ changed, so no rebuild / thug2_check needed)
+
+- Level select (`out\shots\lsa_hd0-1.png` before, `lsb_hd1-1.png` after, 1280x720 full size; `globe_zoom.png`,
+  `arrows_zoom.png`: the same rectangle before | after, x2 / x3): same size and place; the globe's continents and the
+  big arrow smooth instead of stair-stepped, the left / right arrows and sign strip crisp.
+- Pause menu (`pause_pair.png`: hd_ui=0 | 1): the menu3d level sign (graffiti) sharper, same size.
+- Loading screen (`lg_hd0_28.png` | `lg_hd1_27.png`, `loadscrn_zoom.png`): the same part of the picture at the same size,
+  sharper (note: in these workspace captures the loading screen shows magnified 2.2x - that is how it is drawn with
+  hd_ui=0 too, not ours; window capture of a 1280x720 window).
+- The log has no errors; `data overlay:` shows `hd_ui\images\loadscrn*.img.xbx`, `hd_ui\models\ui_bg\ui_bg.tex.xbx`,
+  `hd_ui\levels\mainmenu\mainmenu.tex.xbx`, `models\menu3d\menu3d.tex.xbx` ... served.
+- typecheck / lint / tests (ui.test.ts 5 pass).
+- THUG2-3 left with hd_ui=1, its DLL as it was, the overlay made with --hd-ui 4.
+
+### Left
+
+- [ ] Create-A-Graphic pieces and faces / stickers (need the code that edits them to use the real texture size).
+- [ ] Localised loading screens (`images\fr`, `images\gr`: 128 files, +130 MB at x2) - add if a French / German game matters.
+- [ ] Skater / ped model textures (CAS, select skater): level-converter pass, not UI.
+- [ ] A cheaper globe: the 22 map tiles are 16-colour art; if it should look better than "sharp edges", the source art would
+  need redrawing (an upscaler can't add the detail).
