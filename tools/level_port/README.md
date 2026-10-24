@@ -12,6 +12,16 @@ Used by `tools/thps4_levels` (THPS4), `tools/thug1_levels` (THUG1), `tools/thps3
 - `overlay_bias.ts` - z bias for the layers lying on other surfaces in scenes whose source has none (THPS3, THPS4):
   found from the geometry (coplanar, overlapping, same facing); without it they z-fight - shimmer - with the surface
   under them. THUG2 applies a material's z bias as D3DRS_DEPTHBIAS (0x004D1F51 / 0x004D2420).
+- `zfight.ts` - CLI: z-fighting in converted levels - pairs of meshes (different sectors or materials) whose
+  triangles lie in one plane within a tolerance (default 2 inches) and overlap, ranked by the area that fights within
+  a view distance (default 100 m) at THUG2's depth precision (24-bit, near plane 12: `fightDistance`); pairs whose z
+  biases differ, opposite-facing ones and ones made of the same triangles counted apart; a `try_spot.ts` spot each
+  (`node tools/level_port/zfight.ts <levels folder> [<level> ...] [--top N] [--tolerance IN] [--view M] [--near IN]
+  [--min-area M2] [--csv FILE]`). `findZFights` takes a Scene - a .scn.xbx read, or a converter's output before
+  it's written. `tools/thp8_levels/render_audit.ts zfight` names THP8's pairs and their causes.
+- `texture_check.ts` - CLI: surfaces drawn without a real texture - a pass's checksum not in the level's .tex.xbx, no
+  texture, a flat colour, a tiny see-through dither (a source's placeholder) - by cause and texture, with area and a
+  spot (`node tools/level_port/texture_check.ts <levels folder> [<level> ...] [--top N]`).
 - `layer_check.ts` - CLI: per level, mip chains that stop short and how much layer area has a z bias between -
   a port compared with THUG2's own (`node tools/level_port/layer_check.ts <levels folder> [<level> ...]`).
 - `qb.ts` - THPS4 / THUG1 qb files: globals, names, script statements; values as NeverScript text.

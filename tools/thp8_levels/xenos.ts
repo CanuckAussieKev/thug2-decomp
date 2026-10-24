@@ -153,13 +153,18 @@ export function fromBgra(checksum: number, width: number, height: number, bgra: 
     return { checksum, width, height, texelDepth: 32, paletteDepth: 32, dxt: 5, palette: Buffer.alloc(0), levels };
 }
 
+// Why toThug2 doesn't make a texture (null: it does).
+export function unconverted(t: XenosTexture): string | null {
+    if (t.format === FMT_DXN) return "DXN normal map";
+    if (![FMT_DXT1, FMT_DXT3, FMT_DXT5, FMT_8888].includes(t.format)) return `format 0x${t.format.toString(16)}`;
+    return null;
+}
+
 // THUG2's texture: DXT1 / DXT5 kept compressed (mips made by dxt.ts), DXT3 and 8:8:8:8 as 32-bit; DXN (normal maps)
 // left out. `mips`: make the mip chain down to 4 x 4.
 export function toThug2(t: XenosTexture, mips = true): Converted {
-    if (t.format === FMT_DXN) return { texture: null, note: "DXN normal map" };
-    if (![FMT_DXT1, FMT_DXT3, FMT_DXT5, FMT_8888].includes(t.format)) {
-        return { texture: null, note: `format 0x${t.format.toString(16)}` };
-    }
+    const note = unconverted(t);
+    if (note !== null) return { texture: null, note };
     const base = baseLevel(t);
     if (t.format === FMT_DXT1 || t.format === FMT_DXT5) {
         const kind = t.format === FMT_DXT1 ? 1 : 5;

@@ -67,6 +67,27 @@ sizes (`[memory] original_sizes=1`) it can't load. It takes ~7 minutes to load i
 The sign texts are THP8's; the pictograms are ours (tools/menu_level/level_select_icons.ts, THP8_LEVELS in
 level_select.ts).
 
+## Render audit (z-fighting, missing textures)
+
+    node tools/thp8_levels/render_audit.ts textures [levels...] [--top N]
+    node tools/thp8_levels/render_audit.ts zfight [levels...] [--top N] [--csv FILE] [--tolerance IN] [--view M]
+    node tools/thp8_levels/render_audit.ts spot <level> "(x, y, z)" [radius]
+    (all: [--thp8 C:\Games\THP8] [--thug2 C:\Games\THUG2 | --staging <folder>]; levels as convert names them, the
+    default all, BEAVER VALLEY first; writes nothing)
+
+`textures` goes through every material of a level's zones and stand-ins as convertScenes draws it (`baseTexture`:
+pass 0) and says what it misses of THP8's: a blank picked (a flat colour or THP8's 16 x 16 see-through dither) while
+the material lists a real texture, a material with nothing but blanks, a layer drawn with a blank, layers dropped
+(a blended base; a second mask with uvs of its own), a texture not in the zone's .tex (and where it is), a format not
+converted, other textures of templates whose passes aren't read (environment / refraction maps) - by cause, shader
+template and texture, with area and a spot; then the converted files as THUG2 sees them
+(tools/level_port/texture_check.ts). `zfight` runs tools/level_port/zfight.ts over the level's .scn.xbx with THP8's
+sector names and why each pair overlaps: our own stand-ins / barrier veils, two zones drawing the same thing, THP8's
+decals (their depth bias isn't converted), see-through layers, duplicates in one zone (objects in their own space -
+moving objects, props - are left out: the game places them). `spot` lists the meshes at a place (a screenshot
+sidecar's position) with every texture THP8's material lists and what pass 0 is drawn with. Findings:
+docs/pending/thp8-render-audit.md.
+
 ## The world and how it's cut
 
 THP8's world is one city streamed in zones: each `ZONES\z_<zone>.pak.xen` has a far-away stand-in `z_<zone>_lod`, and

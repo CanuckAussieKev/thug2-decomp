@@ -500,6 +500,18 @@ export function materialKey(m: geom.GeomMaterial): string {
 
 const SECTOR_FLAGS = (0x80002000 | thug2Scene.SEC_TEXCOORDS | thug2Scene.SEC_COLORS) >>> 0;
 
+// The texture a material's THUG2 pass 0 is drawn with: its plan's first layer, else the first texture that isn't a
+// normal map (a few shaders list theirs first). (Also what render_audit.ts checks.)
+export function baseTexture(
+    m: geom.GeomMaterial,
+    plan: mats.MaterialPlan | null,
+    textures: ReadonlyMap<number, xenos.XenosTexture>,
+): number | undefined {
+    return (
+        plan?.layers[0]?.diffuse ?? m.textures.find((t) => textures.has(t) && textures.get(t)!.format !== xenos.FMT_DXN)
+    );
+}
+
 export interface ConvertedScene {
     scene: thug2Scene.Scene;
     textures: tex.TexFile;
@@ -600,10 +612,7 @@ export function convertScenes(
             const plan =
                 part.dome || part.additive?.has(m.checksum) ? null : mats.planMaterial(m, part.textures, maps, slots);
             let texture = 0;
-            // (the first texture that isn't a normal map: a few shaders list theirs first)
-            const first =
-                plan?.layers[0]?.diffuse ??
-                m.textures.find((t) => part.textures.has(t) && part.textures.get(t)!.format !== xenos.FMT_DXN);
+            const first = baseTexture(m, plan, part.textures);
             if (first !== undefined && !part.veil && convertTexture(first)) texture = first;
             const t = texOut.get(texture);
             const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);

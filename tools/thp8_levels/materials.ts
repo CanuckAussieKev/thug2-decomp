@@ -37,7 +37,7 @@ export const T_NORMAL_ROAD = checksum("NormalMapRoad_3Pass");
 export const T_NORMAL_POSTER = checksum("NormalMapTerrainPoster_4Pass");
 
 // Templates whose passes are read (the rest: pass 0's diffuse map only, as before).
-const LAYERED = new Set([
+export const LAYERED: ReadonlySet<number> = new Set([
     T_DIFFUSE_TERRAIN,
     T_DIFFUSE_SPEC_TERRAIN,
     T_NORMAL_TERRAIN_3,
