@@ -85,3 +85,34 @@ try_spot for the user: `node tools/game/try_spot.ts thp8_net_skatefunparks -1200
   zones' collision is now in every network level with a barrier (more faces: skatefunparks 764 -> 910 objects) - a
   wall of one's own zone may now be where the other zone's scenery isn't drawn (an invisible wall: the picture shows the
   stand-in). If those show up as complaints, the drawn part of the zone is the next step.
+
+## Drawn border zones (round 2, 2026-10-24)
+
+The user: "physics is good here now, but still no visible fence" - the added collision stood on the grey `_lod` stand-in.
+Now the other zones' real scene is drawn where their collision was brought in (draw-only; every level's .col.xbx is
+byte-identical to the installed one, checked with cmp; the .qb differs run to run in one spot - nondeterministic before
+this change too).
+
+- `drawnBorder` (thp8_levels.ts): per border zone with kept collision (`readPart`, so notMade / flags / props as for own
+  zones), a sector is drawn when a triangle of it has a point over the same reached cells (`edges.triangleInCells`, 2 m
+  grid). Small sectors (<= 40 m on x and z, `BORDER_WHOLE`) whole - a house or fence is not cut in half - big ones (ground)
+  only their triangles over the cells (`SceneParts.window`). Instances placed in the cells are drawn, the zone's
+  moving objects / bouncy props are not. Only the materials / textures those sectors use are made (`SceneParts.used`).
+  The parts go through the whole pipeline: zoneDuplicates, repeatedSurfaces, oneSidedMeshes, drawsAlpha, alpha-test
+  texture copies, z bias. No node-array entries or scripts of the other zones (sectors draw without nodes, as stand-ins do).
+- Border triangles are not light-refined (`refine.depth = 0`) and not in the refine budget (`counts.border`), so the level's
+  own lighting detail is unchanged.
+- Stand-ins: `standInClear` drops a stand-in triangle with a point (2 m) over a drawn border ground triangle unless the
+  stand-in lies more than 1.5 m under it (far-under backdrops stay). The old filters (own ground, drawn surfaces) stay.
+- Tests: edges.test.ts (triangleInCells), thp8_levels.test.ts (drawnBorder window / used / hidden, standInClear).
+
+Cost per level (main install's conversion -> now; scn / tex MB; border = sectors, triangles in window, materials):
+see the table in the report; largest: thp8_net_slums scn 9.9 -> 34.1, tex 12.7 -> 43.6 (827 sectors, 79k tris);
+suburbia tex 8.8 -> 25.4; mainstreet scn 11.2 -> 29.4, tex 12.8 -> 38.0; skatecentral 41.8 -> 50.0 / 33.8 -> 55.7.
+(BEAVER VALLEY has no barrier: unchanged.) The costs follow the reach of the collision brought in (4-97 m round the own
+ground); if too much, narrow `REACH_SLACK` / the cap in edges.ts (collision and drawing share the cells).
+
+Load check (THUG2-2, lead build, selftests off): thp8_net_skatefunparks loaded, running, CComponent peak 103146 / 360000,
+CStruct peak 19945 / 64000; thp8_net_skatepark loaded, peak 66008 / 360000, 15026 / 64000. Other levels not load-checked.
+Screenshot: C:\Games\THUG2-2\Screenshots\thp8_border_drawn.png (outschool's asphalt, building and the kerb at the skater's feet
+drawn instead of the grey plane). try_spot: `node tools/game/try_spot.ts thp8_net_skatefunparks -1032,346,-8407,79`.

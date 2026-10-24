@@ -17,6 +17,7 @@ import {
     clipBelow,
     cloudFade,
     convertCollision,
+    drawnBorder,
     emptyScript,
     endlessLoop,
     FOLIAGE_NAME,
@@ -48,6 +49,7 @@ import {
     SurfaceIndex,
     seamWalls,
     soloRestarts,
+    standInClear,
     standInOnDrawn,
     standInOutside,
     standInPlaced,
@@ -1376,4 +1378,106 @@ test("texture alpha: clear and partial shares; a cut-out is clear + opaque, glas
     assert.ok(glass.partial === 1 && glass.clear === 0);
     const solid = textureAlpha(make(() => 255));
     assert.deepEqual(solid, { clear: 0, partial: 0 });
+});
+
+test("border zones: sectors over the reached cells are drawn (small ones whole, big ones cut), the rest not", () => {
+    // (flat polygons at height y: a strip of two triangles per quad, x / z corners)
+    const quad = (material: number, x0: number, x1: number, z0: number, z1: number, y: number): geom.GeomMesh => {
+        const corners = [
+            [x0, z0],
+            [x1, z0],
+            [x0, z1],
+            [x1, z1],
+        ];
+        const vertices = Buffer.alloc(16 * 4);
+        corners.forEach(([x, z], i) => {
+            vertices.writeFloatBE(x!, 16 * i);
+            vertices.writeFloatBE(y, 16 * i + 4);
+            vertices.writeFloatBE(z!, 16 * i + 8);
+        });
+        const indices = Buffer.alloc(8);
+        [0, 1, 2, 3].forEach((v, i) => {
+            indices.writeUInt16BE(v, 2 * i);
+        });
+        return {
+            sphere: [0, 0, 0, 0],
+            material,
+            layout: 0,
+            flags: 0,
+            colorOffset: 12,
+            uvOffset: 16,
+            vertexCount: 4,
+            indexCount: 4,
+            stride: 16,
+            vertices,
+            indices,
+        };
+    };
+    const sector = (c: number, m: geom.GeomMesh, box: number[]): geom.GeomSector => ({
+        checksum: c,
+        flags: 0,
+        bbox: box,
+        sphere: [0, 0, 0, 0],
+        meshes: [m],
+    });
+    const ground = sector(1, quad(100, 0, 200, 0, 20, 0), [0, 0, 0, 200, 0, 20]); // 200 m long: cut
+    const fence = sector(2, quad(101, 3, 4, 0, 30, 0), [3, 0, 0, 4, 0, 30]); // small: whole
+    const far = sector(3, quad(102, 900, 910, 0, 10, 0), [900, 0, 0, 910, 0, 10]); // elsewhere
+    const hidden = sector(4, quad(103, 3, 4, 0, 10, 0), [3, 0, 0, 4, 0, 10]); // not made
+    const part = {
+        data: { geom: { materials: [], sectors: [ground, fence, far, hidden], bbox: [] } },
+        placed: new Map(),
+        hidden: new Set([4]),
+        local: new Set(),
+        made: new Map(),
+    } as unknown as Parameters<typeof drawnBorder>[0];
+    // the cells reached: x 0..10, z 0..10 (one metre cells, edges.ts cell keys)
+    const cells = new Set<number>();
+    for (let cx = 0; cx < 10; cx++) for (let cz = 0; cz < 10; cz++) cells.add((cx + 32768) * 65536 + (cz + 32768));
+    const d = drawnBorder(part, cells);
+    assert.deepEqual([...part.hidden].sort(), [3, 4]);
+    assert.deepEqual([...d.used].sort(), [100, 101]);
+    // the small sector is drawn whole, also its part outside the cells; the big one only over the cells
+    assert.equal(
+        d.window(2, [
+            [3, 0, 25],
+            [4, 0, 25],
+            [3, 0, 29],
+        ]),
+        true,
+    );
+    assert.equal(
+        d.window(1, [
+            [5, 0, 5],
+            [6, 0, 5],
+            [5, 0, 6],
+        ]),
+        true,
+    );
+    assert.equal(
+        d.window(1, [
+            [100, 0, 5],
+            [101, 0, 5],
+            [100, 0, 6],
+        ]),
+        false,
+    );
+    assert.equal(d.seen.length, 3); // (the ground's one triangle over the cells, the fence's two)
+});
+
+test("stand-ins: a triangle level with or over the border zones' drawn ground goes, one far under it stays", () => {
+    const tri = (a: number[], b: number[], c: number[]) => ({ a, b, c, material: 0, owner: 0 });
+    const ground = new GroundIndex([
+        { index: 0, triangles: [tri([0, 0, 0], [20, 0, 0], [20, 0, 20]), tri([0, 0, 0], [20, 0, 20], [0, 0, 20])] },
+    ]);
+    const at = (y: number, x = 5): number[][] => [
+        [x, y, 5],
+        [x + 1, y, 5],
+        [x, y, 6],
+    ];
+    assert.equal(standInClear(at(0), ground), false); // level with it
+    assert.equal(standInClear(at(3), ground), false); // over it
+    assert.equal(standInClear(at(-0.5), ground), false); // just under: still fights
+    assert.equal(standInClear(at(-30), ground), true); // far under: the backdrop
+    assert.equal(standInClear(at(0, 50), ground), true); // elsewhere
 });

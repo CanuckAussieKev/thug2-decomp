@@ -128,3 +128,41 @@ test("audit: a floor ending short of a network barrier is a gap", () => {
     const a = audit(colOf([...floor(60), ...barrier]));
     assert.ok(a.gaps.length >= 1);
 });
+
+test("triangleInCells: a corner, the middle or a stretch of a big triangle over the cells counts, others do not", () => {
+    const cells = new Set<number>([(5 + 32768) * 65536 + (5 + 32768)]); // the cell x 5..6, z 5..6
+    assert.equal(
+        edges.triangleInCells(
+            [
+                [5.2, 0, 5.2],
+                [9, 0, 9],
+                [9, 0, 12],
+            ],
+            cells,
+        ),
+        true,
+    );
+    // (huge, none of its corners in)
+    assert.equal(
+        edges.triangleInCells(
+            [
+                [-50, 0, -50],
+                [60, 0, -50],
+                [-50, 0, 60],
+            ],
+            cells,
+        ),
+        true,
+    );
+    assert.equal(
+        edges.triangleInCells(
+            [
+                [10, 0, 10],
+                [12, 0, 10],
+                [10, 0, 12],
+            ],
+            cells,
+        ),
+        false,
+    );
+});

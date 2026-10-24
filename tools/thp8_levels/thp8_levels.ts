@@ -465,6 +465,13 @@ export interface SceneParts {
     // stand-ins' over the level's own ground or surfaces go
     keepTriangle?: (corners: readonly (readonly number[])[], drawn: SurfaceIndex) => boolean;
     veil?: boolean; // drawn as a faint see-through wall, untextured (the network barriers: VEIL_COLOUR)
+    // only these materials are made (a border zone's: the ones its drawn sectors use - not the zone's whole library and
+    // textures)
+    used?: ReadonlySet<number>;
+    refine?: mats.RefineOptions; // the light refining of this part (a border zone's: none - scenery beyond the level), else the scene's
+    // the triangles drawn, by the sector they are written under and their corners (THP8's metres, placed): a border
+    // zone's window. Unlike keepTriangle these are the level's own world: they count as drawn for the stand-ins.
+    window?: (sector: number, corners: readonly (readonly number[])[]) => boolean;
 }
 
 // THP8 draws its network barriers as a shimmer (a distortion shader over a normal map - z_online_<x>'s material, its
@@ -581,6 +588,8 @@ export interface ConvertedScene {
         refined: number; // lit triangles after refineLit
         refinedFrom: number; // ... and before
         dropped: number; // triangles left out by a part's keepTriangle
+        windowed: number; // triangles left out by a part's window (a border zone's)
+        border: number; // triangles written by the parts with a window (the border zones, not refined: not in the refine budget)
     };
 }
 
@@ -614,6 +623,8 @@ export function convertScenes(
         refined: 0,
         refinedFrom: 0,
         dropped: 0,
+        windowed: 0,
+        border: 0,
     };
     const plans = new Map<number, Plan>();
     const ground: ConvertedScene["ground"] = [];
@@ -625,6 +636,7 @@ export function convertScenes(
         // other light maps, another tint - is made under a checksum of its own; the same material is shared)
         const rename = new Map<number, number>();
         for (const m of g.materials) {
+            if (part.used && !part.used.has(m.checksum)) continue;
             const key = materialKey(m);
             const seen = defined.get(m.checksum);
             if (seen === undefined) defined.set(m.checksum, key);
@@ -655,7 +667,7 @@ export function convertScenes(
         // materials
         for (const m of g.materials) {
             const id = matOf(m.checksum);
-            if (materials.has(id) || !m.checksum) continue;
+            if (materials.has(id) || !m.checksum || (part.used && !part.used.has(m.checksum))) continue;
             if (m.template === BILLBOARD) billboards.add(id);
             const used = meshesOf.get(m.checksum) ?? [];
             const slots = used.length ? geom.uvSlots(used[0]!.layout).length : 0;
@@ -834,6 +846,17 @@ export function convertScenes(
                 let meshTris = geom.triangles(m);
                 const gone = part.hiddenTriangles?.get(m);
                 if (gone) meshTris = meshTris.filter((_t, k) => !gone.has(k));
+                if (part.window) {
+                    const inside = part.window;
+                    const before = meshTris.length;
+                    meshTris = meshTris.filter((t) =>
+                        inside(
+                            checksumOut,
+                            t.map((i) => place(verts[i]!.position, at)),
+                        ),
+                    );
+                    counts.windowed += before - meshTris.length;
+                }
                 if (part.keepTriangle) {
                     const keep = part.keepTriangle;
                     const before = meshTris.length;
@@ -851,7 +874,7 @@ export function convertScenes(
                 const lighting = lit?.inside ? interiorLighting() : part.lighting;
                 if (lit && lighting) {
                     counts.refinedFrom += meshTris.length;
-                    meshTris = refineLit(verts, meshTris, lit, lighting, refineOptions);
+                    meshTris = refineLit(verts, meshTris, lit, lighting, part.refine ?? refineOptions);
                     counts.refined += meshTris.length;
                 }
                 for (const v of verts) {
@@ -913,6 +936,7 @@ export function convertScenes(
                     tris = tris.filter((t) => t.some((i) => positions[i]![1]! > 0));
                 }
                 counts.triangles += tris.length;
+                if (part.window) counts.border += tris.length;
                 if (tris.length) meshes.push({ flags: 0, material: id, strip: trisToStrip(tris) });
                 // (the drawn world, for the stand-ins' keepTriangle (see-through too: a backdrop drawn twice blends twice) and
                 // the drawn ground for the audit (opaque only): not a glow, not the sky, not a barrier, the world's own)
@@ -3299,6 +3323,88 @@ export function standInOutside(corners: readonly (readonly number[])[], ground: 
     return true;
 }
 
+// Whether a stand-in's triangle (THP8 metres) is clear of the border zones' real ground drawn over it: looked at every
+// BORDER_STEP metres, no point of it lies over that ground unless the stand-in is more than BORDER_BELOW metres under it
+// (a lake plane far under the real ground stays as the backdrop; one level with it or over it would fight with it or
+// cover it).
+export const BORDER_STEP = 2;
+export const BORDER_BELOW = 1.5;
+export function standInClear(corners: readonly (readonly number[])[], ground: GroundIndex): boolean {
+    const [a, b, c] = corners as [readonly number[], readonly number[], readonly number[]];
+    const edge = (p: readonly number[], q: readonly number[]): number => Math.hypot(p[0]! - q[0]!, p[2]! - q[2]!);
+    const n = Math.max(1, Math.min(400, Math.ceil(Math.max(edge(a, b), edge(b, c), edge(c, a)) / BORDER_STEP)));
+    for (let i = 0; i <= n; i++) {
+        for (let j = 0; i + j <= n; j++) {
+            const u = i / n;
+            const v = j / n;
+            const x = a[0]! + u * (b[0]! - a[0]!) + v * (c[0]! - a[0]!);
+            const y = a[1]! + u * (b[1]! - a[1]!) + v * (c[1]! - a[1]!);
+            const z = a[2]! + u * (b[2]! - a[2]!) + v * (c[2]! - a[2]!);
+            if (ground.groundAt(x, z, -1e9, y + BORDER_BELOW)) return false;
+        }
+    }
+    return true;
+}
+
+// A border zone's sectors drawn where the skater rolls to (edges.ts reached cells): a sector with a triangle over the
+// cells - whole when it is small (BORDER_WHOLE metres: a house, a fence, a prop is not cut in half), else only the
+// triangles over the cells (the ground). The instances placed (the masters aren't drawn alone), the zone's moving
+// objects and props not at all. Returns the part (its scene and window), the materials its drawn sectors use and the
+// drawn triangles (THP8 metres) for the stand-ins.
+export const BORDER_WHOLE = 40;
+export function drawnBorder(
+    p: ZonePart,
+    cells: ReadonlySet<number>,
+): {
+    used: Set<number>;
+    window: (sector: number, corners: readonly (readonly number[])[]) => boolean;
+    seen: havok.HkTriangle[];
+} {
+    const g = p.data.geom!;
+    const bySector = new Map(g.sectors.map((s) => [s.checksum, s]));
+    const masters = new Set([...p.placed.values()].map((x) => x.master));
+    const used = new Set<number>();
+    const whole = new Set<number>();
+    const seen: havok.HkTriangle[] = [];
+    const kept = new Set<number>();
+    const keptPlaced = new Map<number, { master: number; at: Placement }>();
+    const judge = (out: number, s: geom.GeomSector, at: Placement | null): boolean => {
+        const meshes = s.meshes.map((m) => {
+            const verts = geom.readVertices(m);
+            return { m, tris: geom.triangles(m).map((t) => t.map((i) => place(verts[i]!.position, at))) };
+        });
+        const inside = meshes.map((x) => x.tris.map((t) => edges.triangleInCells(t, cells)));
+        if (!inside.some((x) => x.some(Boolean))) return false;
+        const box = [0, 1, 2].map((k) => {
+            const all = meshes.flatMap((x) => x.tris.flatMap((t) => t.map((q) => q[k]!)));
+            return [Math.min(...all), Math.max(...all)];
+        });
+        const small = box[0]![1]! - box[0]![0]! <= BORDER_WHOLE && box[2]![1]! - box[2]![0]! <= BORDER_WHOLE;
+        if (small) whole.add(out);
+        meshes.forEach((x, i) => {
+            const some = x.tris.some((_t, k) => small || inside[i]![k]);
+            if (some) used.add(x.m.material);
+            x.tris.forEach((t, k) => {
+                if (small || inside[i]![k]) seen.push({ a: t[0]!, b: t[1]!, c: t[2]!, material: 0, owner: 0 });
+            });
+        });
+        return true;
+    };
+    const dontDraw = new Set([...p.hidden, ...p.local, ...p.made.keys(), ...p.placed.keys(), ...masters]);
+    for (const s of g.sectors) {
+        if (!dontDraw.has(s.checksum) && judge(s.checksum, s, null)) kept.add(s.checksum);
+    }
+    for (const [name, x] of p.placed) {
+        const master = bySector.get(x.master);
+        if (!p.hidden.has(name) && !p.local.has(name) && master && judge(name, master, x.at)) keptPlaced.set(name, x);
+    }
+    // (everything else is not made; the masters stay in `hidden` as the instances' sources only)
+    p.hidden = new Set(g.sectors.map((s) => s.checksum).filter((c) => !kept.has(c)));
+    p.placed = keptPlaced;
+    p.local = new Set();
+    return { used, window: (sector, corners) => whole.has(sector) || edges.triangleInCells(corners, cells), seen };
+}
+
 // The level's furthest reach from its middle on x / z (inches), its collision moved by `shift`.
 export function horizontalReach(bodies: readonly havok.HkBody[], shift: readonly number[]): number {
     let reach = 0;
@@ -3371,6 +3477,33 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     const lods: SceneParts[] = [];
     const lodOneSided: OneSidedMesh[] = [];
     const ownGround = new GroundIndex(allBodies);
+    // (the border zones first: their drawn sectors decide which stand-in triangles go)
+    const border = borderZones(
+        spec,
+        barriers,
+        parts.map((p) => p.data.bodies),
+        ctx,
+        warnings,
+    );
+    const seamed = seamWalls([...parts.map((p) => p.data.bodies), ...border.map((x) => x.all)]);
+    const borderParts: ZonePart[] = [];
+    const borderDrawn: ReturnType<typeof drawnBorder>[] = [];
+    border.forEach((x, k) => {
+        const drop = seamed[parts.length + k]!;
+        if (
+            !edges.inCells(
+                x.all.filter((_, i) => !drop.has(i)),
+                x.cells,
+            ).length
+        )
+            return;
+        const p = readPart(x.zone, ctx, warnings);
+        if (p === null) return;
+        borderDrawn.push(drawnBorder(p, x.cells));
+        borderParts.push(p);
+    });
+    const borderGround = new GroundIndex([{ index: 0, triangles: borderDrawn.flatMap((d) => d.seen) }]);
+    let standInsUnderBorder = 0;
     if (spec.zones.some((z) => ZONES.some((x) => x.zone === z && !x.standalone))) {
         for (const info of ZONES.filter((x) => !x.standalone && !spec.zones.includes(x.zone))) {
             const file = zonePak(ctx.compressed, `${info.zone}_lod`);
@@ -3399,7 +3532,12 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
                 additive,
                 lighting: zoneLighting(zoneTod(ctx.managers, names.get(checksum(info.zone)) ?? info.zone)),
                 techniques: ctx.techniques,
-                keepTriangle: (corners, drawn) => standInOutside(corners, ownGround) && !standInOnDrawn(corners, drawn),
+                keepTriangle: (corners, drawn) => {
+                    if (!standInOutside(corners, ownGround) || standInOnDrawn(corners, drawn)) return false;
+                    if (standInClear(corners, borderGround)) return true;
+                    standInsUnderBorder++;
+                    return false;
+                },
             });
         }
     }
@@ -3412,15 +3550,16 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
             veil: true,
         });
     }
+    const drawn = [...parts, ...borderParts];
     // (zones merged: a later zone's sector that an earlier zone draws under its own prefix is left out of the scene)
     const dup = zoneDuplicates(
-        parts.map((p) => p.data),
+        drawn.map((p) => p.data),
         names,
     );
-    for (const [k, p] of parts.entries()) p.duplicate = dup.duplicates[k]!;
+    for (const [k, p] of drawn.entries()) p.duplicate = dup.duplicates[k]!;
     const dupCount = dup.duplicates.reduce((n, x) => n + x.size, 0);
     if (dupCount) report.push(`  ${dupCount} sectors a later zone repeats from an earlier one left out of the scene`);
-    const skips = parts.map(
+    const skips = drawn.map(
         (p) =>
             new Set([
                 ...p.hidden,
@@ -3431,7 +3570,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
                 ...[...p.placed.values()].map((x) => x.master),
             ]),
     );
-    const facts = parts.map((p) =>
+    const facts = drawn.map((p) =>
         materialFacts(p.data.geom!, p.data.textures, names, glowMaterials(p.data.geom!, names)),
     );
     // (the same surface: the same material, or - another material of the same converted pass-0 texture, drawn the
@@ -3441,11 +3580,11 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
         return f?.base === undefined ? mesh.material : `${thp8.hex(f.base)}${f.blended ? "b" : "o"}`;
     };
     const rep = repeatedSurfaces(
-        parts.map((p, k) => ({ geom: p.data.geom!, skip: skips[k]! })),
+        drawn.map((p, k) => ({ geom: p.data.geom!, skip: skips[k]! })),
         names,
         surfaceKey,
     );
-    for (const [k, p] of parts.entries()) {
+    for (const [k, p] of drawn.entries()) {
         p.hiddenMeshes = rep.hide[k]!;
         p.hiddenTriangles = rep.hideTriangles[k]!;
     }
@@ -3463,7 +3602,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     }
     // (blended meshes lying back to back with another surface: a one-sided copy of their material)
     const back = oneSidedMeshes(
-        parts.map((p, k) => ({
+        drawn.map((p, k) => ({
             geom: p.data.geom!,
             skip: skips[k]!,
             hidden: p.hiddenMeshes,
@@ -3471,7 +3610,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
         })),
         names,
     );
-    for (const [k, p] of parts.entries()) p.oneSided = back.sets[k]!;
+    for (const [k, p] of drawn.entries()) p.oneSided = back.sets[k]!;
     const oneSidedList = [...back.list, ...lodOneSided];
     if (oneSidedList.length) {
         const label = (c: number | undefined): string => (c === undefined ? "-" : (names.get(c) ?? thp8.hex(c)));
@@ -3490,7 +3629,18 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     }
     const scene = (options: mats.RefineOptions): ConvertedScene =>
         convertScenes(
-            [...parts.flatMap((p) => sceneParts(p, ctx)), ...lods],
+            [
+                ...parts.flatMap((p) => sceneParts(p, ctx)),
+                ...borderParts.map(
+                    (p, k): SceneParts => ({
+                        ...sceneParts(p, ctx)[0]!,
+                        refine: { ...options, depth: 0 },
+                        used: borderDrawn[k]!.used,
+                        window: borderDrawn[k]!.window,
+                    }),
+                ),
+                ...lods,
+            ],
             shift,
             warnings,
             !ctx.args.noMips,
@@ -3500,12 +3650,35 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     // (refining the light keeps to a budget: the threshold raised until the level fits)
     let refineOptions = { ...REFINE };
     let done = scene(refineOptions);
-    for (let tries = 0; tries < 4 && done.counts.triangles > refineBudget(done.counts, parts.length); tries++) {
+    // (the border zones' triangles aren't refined and aren't part of the level's budget)
+    const ownCounts = (c: ConvertedScene["counts"]): ConvertedScene["counts"] => ({
+        ...c,
+        triangles: c.triangles - c.border,
+    });
+    for (
+        let tries = 0;
+        tries < 4 && ownCounts(done.counts).triangles > refineBudget(ownCounts(done.counts), parts.length);
+        tries++
+    ) {
         refineOptions = {
             ...refineOptions,
             threshold: refineOptions.threshold * 1.6,
         };
         done = scene(refineOptions);
+    }
+    if (borderParts.length) {
+        const sectors = borderParts.reduce(
+            (n, p) =>
+                n +
+                p.data.geom!.sectors.filter((x) => !p.hidden.has(x.checksum) && !p.duplicate.has(x.checksum)).length +
+                p.placed.size,
+            0,
+        );
+        report.push(
+            `  drawn border zones: ${borderParts.map((p) => p.zone).join(", ")}: ${sectors} sectors, ${borderDrawn.reduce((n, d) => n + d.seen.length, 0)} triangles in their window, ` +
+                `${borderDrawn.reduce((n, d) => n + d.used.size, 0)} materials; ${done.counts.windowed} triangles of cut sectors outside it left out, ` +
+                `${standInsUnderBorder} stand-in triangles under / over them left out`,
+        );
     }
     if (refineOptions.threshold !== REFINE.threshold) {
         report.push(`  light refined at a threshold of ${refineOptions.threshold.toFixed(2)} (the triangle budget)`);
@@ -3539,14 +3712,6 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     // its props' boxes (in their own space), the barriers
     // (the network barrier stands beyond the level's own zones: the city's other zones' collision inside it is the
     // level's too - THP8's skater rides on over it - but not their seam walls: edges.ts)
-    const border = borderZones(
-        spec,
-        barriers,
-        parts.map((p) => p.data.bodies),
-        ctx,
-        warnings,
-    );
-    const seamed = seamWalls([...parts.map((p) => p.data.bodies), ...border.map((x) => x.all)]);
     const seams = seamed.slice(0, parts.length);
     const sets: Parameters<typeof convertCollision>[0][number][] = [];
     parts.forEach((p, k) => {

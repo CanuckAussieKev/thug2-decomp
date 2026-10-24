@@ -234,3 +234,24 @@ export class ZoneBodies {
         return bodies;
     }
 }
+
+// --- drawing the border zones -------------------------------------------------------------------------------------
+
+// Whether a triangle (corners in THP8 metres) has a point over `cells`: its corners, middle and a grid on it no wider
+// than DRAW_STEP metres (a big ground triangle with its corners outside the reached cells still lies over them).
+export const DRAW_STEP = 2;
+export function triangleInCells(corners: readonly (readonly number[])[], cells: ReadonlySet<number>): boolean {
+    const [a, b, c] = corners as [readonly number[], readonly number[], readonly number[]];
+    const edge = (p: readonly number[], q: readonly number[]): number => Math.hypot(p[0]! - q[0]!, p[2]! - q[2]!);
+    const n = Math.max(2, Math.min(60, Math.ceil(Math.max(edge(a, b), edge(b, c), edge(c, a)) / DRAW_STEP)));
+    for (let i = 0; i <= n; i++) {
+        for (let j = 0; i + j <= n; j++) {
+            const u = i / n;
+            const v = j / n;
+            const x = a[0]! + u * (b[0]! - a[0]!) + v * (c[0]! - a[0]!);
+            const z = a[2]! + u * (b[2]! - a[2]!) + v * (c[2]! - a[2]!);
+            if (cells.has(cellKey(cellOf(x), cellOf(z)))) return true;
+        }
+    }
+    return false;
+}
