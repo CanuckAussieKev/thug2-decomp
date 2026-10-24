@@ -3,8 +3,8 @@
 // Real-ESRGAN, the cache, back-projection to the original's colours) into the data overlay. Off by default:
 // tools/menu_level/make_menu_level.ts --hd-ui [2|4] adds them, a run without it leaves the overlay without them.
 //
-// The images keep their on-screen size only with the DLL built with the CMake option THUG2_HD_UI (default OFF -
-// src/game/gfx/hd_ui.h): a sprite's size comes from its texture's image size, a glyph's from the font's rectangles,
+// The files are written into the overlay's hd_ui folder, which the DLL reads only with [features] hd_ui=1
+// (default 0; src/game/gfx/hd_ui.h), and the images keep their on-screen size: a sprite's size comes from its texture's image size, a glyph's from the font's rectangles,
 // so the upscaled files carry a marker the DLL reads and divides by:
 //   .img.xbx  header +0x14 (0 in every game file) = HD_IMG_MARKER | scale; the texels are 32-bit (format 0, the
 //             8-bit paletted ones expanded - the game makes every image A8R8G8B8 anyway), every size in the header
@@ -13,8 +13,6 @@
 //             32-bit BGRA texels (no palette: the final alpha, the game's doubled PS2 alpha applied); the glyph
 //             rectangles, height and base unchanged (the original's pixels): the DLL makes the texture coordinates
 //             from the page's original size.
-// Without THUG2_HD_UI the DLL ignores the markers, so the upscaled files show `scale` times as large - the two
-// toggles go together.
 //
 // Which files: every image and font in the archives the front end and the pause menus load (UI_PACKS), and the
 // overlay's own images (the level select's added signs - written first by make_menu_level, upscaled here). Not
@@ -285,7 +283,12 @@ function overlayImages(overlay: string): Map<string, Buffer> {
 
 // Upscales the game's UI files and the overlay's own images into `overlay` (the overlay's own replaced in place).
 // Returns the report's lines.
-export function install(game: string, overlay: string, options: hd.HdOptions): string[] {
+export function install(
+    game: string,
+    overlay: string,
+    options: hd.HdOptions,
+    target = path.join(overlay, "hd_ui"),
+): string[] {
     const files = gameUiFiles(game);
     const own = overlayImages(overlay);
     // (one key per file whatever its case: the overlay's version replaces the game's)
@@ -294,9 +297,9 @@ export function install(game: string, overlay: string, options: hd.HdOptions): s
     for (const [name, data] of own) byKey.set(name.toLowerCase(), [name, data]);
     const { out, stats } = upscaleUi(new Map([...byKey.values()]), options);
     for (const [name, data] of out) {
-        const target = path.join(overlay, ...name.split(/[\\/]/));
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.writeFileSync(target, data);
+        const file = path.join(target, ...name.split(/[\\/]/));
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, data);
     }
     const mb = (n: number): string => (n / 1048576).toFixed(1);
     return [
@@ -305,7 +308,7 @@ export function install(game: string, overlay: string, options: hd.HdOptions): s
         `  ${mb(stats.bytesBefore)} MB -> ${mb(stats.bytesAfter)} MB of files (texture memory: each image ${options.scale}x${options.scale} ` +
             `times; 32-bit as before); ${stats.hd.cacheHits} from the cache, ${stats.hd.generated} made, ` +
             `${stats.hd.seconds.toFixed(1)} s (upscaler ${stats.hd.toolSeconds.toFixed(1)} s)`,
-        "  needs the DLL built with -DTHUG2_HD_UI=ON, or the upscaled images and text show larger",
+        "  in the overlay's hd_ui folder: used only with thug2-decomp.ini [features] hd_ui=1",
     ];
 }
 

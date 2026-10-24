@@ -4,8 +4,9 @@
 
 // NOT ORIGINAL - HD menu UI (an experiment at the user's request, 2026-10-24; not the game's and not PartyMod's): the
 // menus' images and fonts upscaled 2x / 4x by tools/hd_textures/ui.ts into the data overlay
-// (tools/menu_level/make_menu_level.ts --hd-ui [2|4]). Built only with the CMake option THUG2_HD_UI (default OFF):
-// without it this is compiled out and the game is exactly as before (and upscaled files would show larger).
+// (tools/menu_level/make_menu_level.ts --hd-ui [2|4]). Always built; switched by thug2-decomp.ini
+// [features] hd_ui=1 (default 0). The upscaled files are in the overlay's hd_ui subfolder, which the data overlay
+// consults (first) only while it is on - so with 0 nothing is read from there and the game is exactly as before.
 //
 // What keeps the on-screen size: a sprite's size comes from its texture's image size (the platform texture's
 // width / height read the sTexture's image size - sprite elements take it as their size), a glyph's from the
@@ -35,6 +36,9 @@ inline uint32_t FontScale(uint32_t marker, uint32_t scale)
 {
     return marker == kFontMarker && (scale == 2 || scale == 4) ? scale : 1;
 }
+
+// [features] hd_ui (read once).
+bool Enabled();
 
 // Counts the upscaled images / fonts loaded and logs the first of each (hd_ui.cpp).
 void NoteImage(uint32_t scale, uint32_t width, uint32_t height);

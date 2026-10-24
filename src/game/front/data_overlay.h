@@ -15,6 +15,8 @@
 //     file it lists, localtext.qb - made from the game's loose Data\scripts with the mod's changes and this overlay's
 //     own edits (levels, level select, LEVEL EDITOR, the front end's roundbar menu) re-applied. Off: the game as
 //     before. One switch for the whole mod for now (per-feature switches would go in the mod's scripts).
+//   - Files in its hd_ui folder (the menus' images and fonts upscaled, make_menu_level.ts --hd-ui) are used before all
+//     of those while [features] hd_ui=1 (default 0) and are never read otherwise (src/game/gfx/hd_ui.h).
 namespace Front::DataOverlay {
 
 // The overlay folder (<game folder>\thug2-decomp-data).

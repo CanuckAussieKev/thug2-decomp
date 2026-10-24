@@ -95,23 +95,18 @@ void Finish(sTexture* texture)
 // sprites hasn't room for them (the first one made Mem::New fail and the read end the game).
 void* NewTexelBuffer(uint32_t size, [[maybe_unused]] const ImageHeader& header)
 {
-#if THUG2_HD_UI
     if (HdUi::ImageScale(header.unknown14) != 1)
         return std::malloc(size);
-#endif
     return Mem::New(size);
 }
 void FreeTexelBuffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
 {
-#if THUG2_HD_UI
     if (HdUi::ImageScale(header.unknown14) != 1)
         return std::free(buffer);
-#endif
     Mem::Manager::Instance()->Free(buffer);
 }
 
-#if THUG2_HD_UI
-// Not original - HD menu UI (game/gfx/hd_ui.h, the CMake option THUG2_HD_UI): an upscaled image keeps its full-size
+// Not original - HD menu UI (game/gfx/hd_ui.h, [features] hd_ui): an upscaled image keeps its full-size
 // Direct3D texture but reports the original's sizes, so what sizes itself by them is drawn as large as before.
 void ApplyHdScale(sTexture* texture, const ImageHeader& header)
 {
@@ -124,7 +119,6 @@ void ApplyHdScale(sTexture* texture, const ImageHeader& header)
     texture->imageWidth = static_cast<uint16_t>(texture->imageWidth / scale);
     texture->imageHeight = static_cast<uint16_t>(texture->imageHeight / scale);
 }
-#endif
 
 } // namespace
 
@@ -172,9 +166,7 @@ sTexture* __cdecl LoadTextureFile(const char* name)
     }
     File::Close(file);
     Finish(texture);
-#if THUG2_HD_UI
     ApplyHdScale(texture, header); // (not original - hd_ui.h)
-#endif
     return texture;
 }
 
@@ -225,9 +217,7 @@ sTexture* __cdecl LoadTextureMemory(const uint8_t* data)
         Mem::Manager::Instance()->Free(indices);
     }
     Finish(texture);
-#if THUG2_HD_UI
     ApplyHdScale(texture, header); // (not original - hd_ui.h)
-#endif
     return texture;
 }
 

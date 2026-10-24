@@ -586,15 +586,11 @@ SFont* SFont::Load(const char* name, bool fromMemory)
     read(buffer, 0x10, 1, true);
     uint32_t width = U16(buffer + 4);
     uint32_t height = U16(buffer + 6);
-#if THUG2_HD_UI
     // Not original - HD menu UI (game/gfx/hd_ui.h): an upscaled page (marked at +8, the scale at +0xC) has 32-bit
     // BGRA texels and no palette; its glyph rectangles are in the original page's pixels.
     uint32_t hdScale = HdUi::FontScale(U32(buffer + 8), U32(buffer + 0xC));
     if (hdScale != 1)
         HdUi::NoteFont(fromMemory ? nullptr : name, hdScale, width, height);
-#else
-    constexpr uint32_t hdScale = 1;
-#endif
     using CreateTexture = long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**, void*);
     if (DeviceMethod<CreateTexture>(0x5C)(Device(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
                                          &font->texture, nullptr) != 0)

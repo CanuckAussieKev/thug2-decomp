@@ -1,4 +1,4 @@
-// NOT ORIGINAL - HD menu UI (see hd_ui.h). Only called with the CMake option THUG2_HD_UI on.
+// NOT ORIGINAL - HD menu UI (see hd_ui.h). The switch is [features] hd_ui.
 
 #include "game/gfx/hd_ui.h"
 
@@ -10,6 +10,12 @@ namespace {
 int s_images = 0;
 int s_fonts = 0;
 } // namespace
+
+bool Enabled()
+{
+    static const bool on = ConfigInt("features", "hd_ui", 0) != 0;
+    return on;
+}
 
 void NoteImage(uint32_t scale, uint32_t width, uint32_t height)
 {

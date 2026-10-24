@@ -29,9 +29,9 @@
 //                              drops in on the outside halfpipe, as THPS4's practice; Esc brings the menu back); the shop's collision loaded at the
 //                              start; the skater standing idle.
 //   front_end\levels\mainmenu\mainmenu.qb  the front end's nodes with the skater's restarts moved into THPS4's shop.
-//   images\, fonts\           with --hd-ui 2|4 (off by default): the menus' images and fonts upscaled
-//                              (tools/hd_textures/ui.ts) - drawn at their original size only by a DLL built with the
-//                              CMake option THUG2_HD_UI (src/game/gfx/hd_ui.h). --hd-ui-model picks the model.
+//   hd_ui\                    with --hd-ui 2|4 (off by default): the menus' images and fonts upscaled
+//                              (tools/hd_textures/ui.ts), same relative names; read first only while [features]
+//                              hd_ui=1 (src/game/gfx/hd_ui.h). --hd-ui-model picks the model.
 //   anteara\                  the Anteara Mod's script set (tools/anteara/README.md; the DLL reads it first while
 //                              [features] anteara_mod=1), with the edits above re-applied to the files it changes.
 // Nothing of the game is stored in the repo: the files are made from the game folder each time.
@@ -1328,7 +1328,17 @@ async function main(): Promise<number> {
     // The folder is ours: emptied first (a file left from an earlier layout would still be read).
     const marker = path.join(out, MARKER);
     if (isDir(out)) {
-        const ours = new Set(["scripts", "levels", "front_end", "models", "anims", "skeletons", "images", "fonts"]);
+        const ours = new Set([
+            "scripts",
+            "levels",
+            "front_end",
+            "models",
+            "anims",
+            "skeletons",
+            "images",
+            "fonts",
+            "hd_ui",
+        ]);
         if (!fs.existsSync(marker) && !fs.readdirSync(out).every((name) => ours.has(name))) {
             pyExit(`${out} has files this tool didn't make: not emptying it`);
         }

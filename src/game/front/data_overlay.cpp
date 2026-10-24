@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "game/front/menu_backdrop.h"
+#include "game/gfx/hd_ui.h"
 #include "game/skate/thugpro_cas.h"
 #include "hook/log.h"
 
@@ -90,8 +91,15 @@ bool OverlayPath(const char* name, char (&path)[260])
     char relative[260];
     OverlayName(name, relative);
     std::string full;
+    // First, while [features] hd_ui is on: the upscaled menu images and fonts (game/gfx/hd_ui.h), in the hd_ui folder
+    // under the same names (also the ones inside the .prx packs, which the overlay serves by name).
+    if (overlay && Nx::HdUi::Enabled()) {
+        std::string candidate = Folder() + "\\hd_ui\\" + relative;
+        if (IsFile(candidate))
+            full = candidate;
+    }
     const char* folders[4];
-    int count = overlay ? SearchFolders(AntearaMod(), MenuBackdrop::Active(), folders) : 0;
+    int count = overlay && full.empty() ? SearchFolders(AntearaMod(), MenuBackdrop::Active(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
         std::string candidate = Folder() + "\\" + folders[i] + relative;
         if (IsFile(candidate))

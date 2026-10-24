@@ -24,7 +24,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   THPS4's skate shop behind the menus with a standard vertical main menu over its desk - src/game/front/menu_backdrop.h;
   needs the THPS4 levels converted (tools/thps4_levels) and installed by `tools/menu_level/make_menu_level.ts`, which
   makes the data overlay `thug2-decomp-data` (the menu's script in its `front_end` folder; at the top: the skate shop
-  as a playable level - SKATE SHOP in the level select -, TEST LEVEL, the THPS4 levels); `level_editor=0` hides the pause menu's
+  as a playable level - SKATE SHOP in the level select -, TEST LEVEL, the THPS4 levels); `hd_ui=1` (default 0) draws the menus' 4x-upscaled images and fonts when the overlay was made with `make_menu_level.ts --hd-ui 4` - src/game/gfx/hd_ui.h; `level_editor=0` hides the pause menu's
   LEVEL EDITOR - src/game/front/level_editor.h (its UI is Dear ImGui with Inter / JetBrains Mono; `editor_ui=0` brings
   back the old screen-element HUD; `[editor] families=` remembers the Outliner's family chips); the item is in the same tool's overlay; its saved layouts are in
   `thug2-decomp-layouts\<scene>.txt` and load with their level - and `debug_editor=1` logs its picks and moves;

@@ -61,7 +61,15 @@ Without THUG2_HD_UI the markers are ignored (upscaled files would show 2-4x as l
 - Checks: npm typecheck / lint / test (356) pass; the build ON and OFF without warnings; thug2_check on THUG2PM.exe and
   the stock THUG2.exe, ON and OFF: 0 MISMATCHED, all 816 early self-tests pass, crash handling 0 FAILED.
 
-## Switching it on / off (THUG2-3 is left ON)
+## Run-time switch (2026-10-24, the user: "merge into main, set it to on in ini, off by default")
+
+The CMake option is gone: the code is always built. `thug2-decomp.ini [features] hd_ui=` (default 0) switches it.
+`make_menu_level.ts --hd-ui N` writes the upscaled files into `thug2-decomp-data\hd_ui\<same relative names>` (the
+folder is not made / is removed without --hd-ui); `Front::DataOverlay::OverlayPath` consults it before everything else
+only while hd_ui=1 (also for the names inside .prx packs, which the overlay serves by name), so with 0 nothing HD is ever
+read. The marker code in texture_file.cpp / text.cpp is unconditional (the game's own files carry no marker).
+
+## Switching it on / off (old text, build-time; superseded by the above)
 
 - On: `out\build\hdui_ON\dinput8.dll` (cmake -DTHUG2_HD_UI=ON) in the game folder +
   `node tools/menu_level/make_menu_level.ts --game C:\Games\THUG2-3 --hd-ui 4`.
