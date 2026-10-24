@@ -119,7 +119,7 @@ The user: "the spinning globe in the level select, along with the arrows, etc, I
 - `tools/hd_textures/ui.ts`: `upscaleUi` also takes `.tex.xbx` (each texture of a dictionary through the same pass under
   a number of its own - checksums repeat across files -, copied back, the dictionary written with the level converters'
   `writeTex`; clamped when padding, the clouds wrapped) and loose loading screens (the `.img.xbx` path - the picture is
-  drawn full screen from UV 0..1 whatever its size - checked: 0x4B7?? loads it through `CTexture::Load` 0x4C7F00 ->
+  drawn full screen from UV 0..1 whatever its size - checked: 0x4B78B0 loads it through `CTexture::Load` 0x4C7F00 ->
   LoadTextureFile 0x4E0790, so the image marker and ApplyHdScale already apply, and 0x4B6CD0 draws UV 0..1). The 2048
   cap makes 640x448 x2, not x4 (a 4x one would be 2560x1792 = 18 MB of texture each). `gameUiFiles(game, {loadingScreens,
   models})` collects them; `install` reports them. No C++ change: `hd_ui\` serves any name (the overlay consults it for
