@@ -271,6 +271,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_ec3.cpp
     src/hook/selftests_gs4_tricks.cpp
     src/hook/selftests_gs4_hunt.cpp
+    src/hook/selftests_gs4_texture.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
@@ -921,6 +922,7 @@ add_library(thug2_code OBJECT
     src/game/script/trick_cfuncs.cpp
     src/game/script/game_util_cfuncs.cpp
     src/game/net/hunt_cfuncs.cpp
+    src/game/gfx/texture_cfuncs.cpp
     src/game/script/script_util_cfuncs.cpp
     src/game/script/math_cfuncs.cpp
     src/game/script/debug_cfuncs.cpp

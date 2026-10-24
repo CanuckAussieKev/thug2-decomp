@@ -223,6 +223,11 @@ inline void StandInStructCalls(StandIns& s)
         Record({0x79D0, r.ecx, r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
         return 0u;
     });
+    s.At({0x00478390, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t, const char*)>(&CStruct::AddString))}, 12,
+         [](Regs& r) {
+             Record({0x8390, r.ecx, r.args[0], r.args[1], Hash(reinterpret_cast<const char*>(r.args[2]))});
+             return 0u;
+         });
     s.At({0x00477D40, AddressOf(static_cast<AddSum>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
         Record({0x7D40, r.ecx, r.args[0], r.args[1]});
         return 0u;

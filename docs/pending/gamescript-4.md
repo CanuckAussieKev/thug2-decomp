@@ -51,4 +51,33 @@ Shared files touched: CMakeLists.txt (new files listed).
     components at five fractions (incl. an _ftol overflow). 37 of 37 deliberate bugs caught (2 after strengthening:
     an unnamed component in B, a negative placed count).
   - Build note: the verify build embeds its debug info (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded, this worktree's
-    build folder only): the shared compile PDB failed with LNK1318 under mutation builds.
+    build folder only): the shared compile PDB failed with LNK1318 under mutation builds (and the link's mspdbsrv
+    later too: mutation builds use a fresh endpoint each, -j 1).
+- [x] Batch GS4-3 (NOT run in the game yet; face textures, changing textures, HSV / RGB, the nearest rail point, the
+  park's name, the special bar, the initials, the fireball level, last names, the light's debug lines, the slap game -
+  17 CFunctions): src/game/gfx/texture_cfuncs.h / .cpp (new), src/game/script/game_util_cfuncs.h / .cpp.
+  - 0x005B2420 LoadFaceTextureFromProfile (the current profile's face image - its appearance's +0x54, +0x3C, 0x4420
+    bytes - into the texture dictionary 0x00700F1C through 0x0049FA20; whether a texture came back), 0x005B2480
+    SetFaceTextureFromVideoCapture (a zeroed 0x4420-byte image built from the captured texture's header, palette and
+    pixels through its vtable thunks - the texture not checked for null, a 1-7 bit depth would divide by zero, as in
+    the original - copied into the face by 0x00487420), 0x005B2570 OffsetTexture / 0x005B2720 PushTextureToPoint
+    (four optional colour bytes, 0x80 each, and whether any was given - the original passes that flag as a dword
+    whose upper bytes are stack garbage), 0x005B26B0 RotateTexture (degrees * pi/180 in double, rounded once),
+    0x005B2880 ApplyRGBAToTexture (r, g, b uninitialised in the original when missing; a 0x80; the mode flag is mode ==
+    1), 0x005B2970 HSVtoRGB (hue / 60 wrapped into 0-6, saturation / 90 and value / 60 each kept to 0.01-1 - the value
+    kept at x87 precision until stored, the six sectors, * 128 truncated; a fourth element copied), 0x005B2CD0
+    RGBtoHSV (/ 128, min / max, hue * 60 and +360 / -360 once, saturation * 90, value * 60), 0x005B2FC0
+    FindNearestRailPoint (the rail editor's search 0x004F4710 within 0x213395F1 - name unknown - (150) squared, and
+    with CheckLevelGeometry the park generator's - nearer wins; rail_id / rail_point_index only for a rail),
+    0x005B3160 GetParkName (the buffer 0x007CED58; returns false), 0x005B3180 SetSpecialBarColors (0x005612D0 on the
+    skater's score, no null check), 0x005B31C0 GetInitialsString / 0x005B31F0 SetInitialsString (default "ERR"),
+    0x005B3230 GetFireballLevel, 0x005B3260 GetSkaterLastNameString (false at the first entry of that name without a
+    last_name), 0x005B3300 DrawDirectionalLightLines (the debug line is compiled out: Gfx::AddDebugLine; the local
+    skater dereferenced unchecked), 0x005B3470 InSlapGame (also called directly by the game; asks the game mode's
+    name twice).
+  - Test TestTextureCFuncs: original vs ours with the textures (each vtable thunk), the dictionary, the face, the rail
+    editor, the generator's search, skaters, records and the game mode stood in for; 15 HSV and 15 RGB inputs
+    (wrapping, clamping, all six sectors, inputs found by brute force where the value's precision shows), the rail
+    search's outcomes. 47 of 48 deliberate bugs caught (5 after strengthening: precision-revealing HSV inputs, sector 4
+    with f > 0, a rail between the default's squares, a geometry-only find, a later duplicate name); 1 equivalent
+    (HSVtoRGB's minimum value 0.01f as a double: results at that value are at most 1.28 and truncate the same).
