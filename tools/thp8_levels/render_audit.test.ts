@@ -158,3 +158,72 @@ test("the texture pass 0 is drawn with: the plan's first layer, else the first t
     assert.equal(drops.dropped, 1);
     assert.equal(drops.why, "base texture has alpha");
 });
+
+test("pass 0 skips blanks: a flat grey or a dither for the material's real texture; a dither alone -> untextured", () => {
+    const bgra = (w: number, h: number, texel: (x: number, y: number) => number[]): Buffer => {
+        const b = Buffer.alloc(w * h * 4);
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) Buffer.from(texel(x, y)).copy(b, 4 * (y * w + x));
+        return b;
+    };
+    const make = (checksum: number, w: number, h: number, data: Buffer): xenos.XenosTexture => ({
+        checksum,
+        width: w,
+        height: h,
+        format: xenos.FMT_8888,
+        endian: 0,
+        tiled: false,
+        pitch: w,
+        data,
+    });
+    // 1: flat grey 32 x 32; 2: the grass (noisy) 64 x 64; 3: a 16 x 16 dither; 4: white; 5: a smaller real texture
+    const noise = (x: number, y: number): number[] => [
+        (x * 37 + y * 11) % 256,
+        (x * 5 + y * 71) % 256,
+        (x * 13) % 256,
+        255,
+    ];
+    const textures = new Map([
+        [
+            1,
+            make(
+                1,
+                32,
+                32,
+                bgra(32, 32, () => [129, 128, 129, 255]),
+            ),
+        ],
+        [2, make(2, 64, 64, bgra(64, 64, noise))],
+        [
+            3,
+            make(
+                3,
+                16,
+                16,
+                bgra(16, 16, (x) => [200, 200, 200, x % 2 ? 255 : 0]),
+            ),
+        ],
+        [
+            4,
+            make(
+                4,
+                32,
+                32,
+                bgra(32, 32, () => [255, 255, 255, 255]),
+            ),
+        ],
+        [5, make(5, 16, 16, bgra(16, 16, noise))],
+    ]);
+    // the lawn: grey ahead of the grass (and a smaller real one)
+    assert.equal(baseTexture(geomMaterial(1, 0, [1, 5, 2]), null, textures), 2);
+    // a dither ahead of a real texture
+    assert.equal(baseTexture(geomMaterial(1, 0, [3, 5]), null, textures), 5);
+    // a light map isn't taken for the real texture
+    const maps = { ambient: new Set([2]), shadow: new Set<number>() };
+    assert.equal(baseTexture(geomMaterial(1, 0, [1, 2]), null, textures, maps), 1);
+    // only a dither: untextured; only flat colours: the flat one stays (paint tinted by the pass colour)
+    assert.equal(baseTexture(geomMaterial(1, 0, [3]), null, textures), undefined);
+    assert.equal(baseTexture(geomMaterial(1, 0, [4]), null, textures), 4);
+    assert.equal(baseTexture(geomMaterial(1, 0, [3, 4]), null, textures), 4);
+    // a real texture is left alone
+    assert.equal(baseTexture(geomMaterial(1, 0, [5, 2]), null, textures), 5);
+});

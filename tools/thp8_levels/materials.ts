@@ -24,6 +24,7 @@
 // the specular / normal-mapped ones the first is the specular power (15, 0, 0, 0) and the second pass 0's colour.
 
 import { checksum } from "../level_port/qb.ts";
+import { lookOf } from "../level_port/texture_check.ts";
 import * as dxt from "./dxt.ts";
 import type * as geom from "./geom.ts";
 import * as xenos from "./xenos.ts";
@@ -261,6 +262,25 @@ export function decode(t: xenos.XenosTexture): Decoded | null {
         t.format === xenos.FMT_DXT1 ? 1 : t.format === xenos.FMT_DXT3 ? 3 : t.format === xenos.FMT_DXT5 ? 5 : 0;
     if (!kind && t.format !== xenos.FMT_8888) return null;
     return { width: t.width, height: t.height, bgra: kind ? dxt.decode(base, t.width, t.height, kind) : base };
+}
+
+// Whether a texture is a blank: one flat colour, or one of THP8's tiny see-through dither placeholders (16 x 16 texels
+// alternating see-through / opaque), by texture_check's look. (null: neither, or not decodable.)
+const blankKinds = new WeakMap<xenos.XenosTexture, "flat" | "stipple" | null>();
+export function blankKind(t: xenos.XenosTexture): "flat" | "stipple" | null {
+    let kind = blankKinds.get(t);
+    if (kind === undefined) {
+        let d: Decoded | null = null;
+        try {
+            d = decode(t);
+        } catch {
+            // (data too short: not a blank)
+        }
+        const look = d ? lookOf(d.bgra, d.width, d.height) : null;
+        kind = look?.stipple ? "stipple" : look?.flat ? "flat" : null;
+        blankKinds.set(t, kind);
+    }
+    return kind;
 }
 
 // Bilinear sample (wrapping) -> [B, G, R, A] 0-1.

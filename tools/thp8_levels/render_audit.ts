@@ -242,7 +242,7 @@ export function auditMaterials(parts: readonly AuditPart[], templates: ReadonlyM
             const u = used.get(m.checksum);
             if (!u || !m.checksum) continue;
             const plan = mats.planMaterial(m, part.textures, maps, u.slots);
-            const picked = baseTexture(m, plan, part.textures);
+            const picked = baseTexture(m, plan, part.textures, maps);
             const template = templates.get(m.template) ?? thp8.hex(m.template);
             const base = {
                 part,
@@ -263,6 +263,9 @@ export function auditMaterials(parts: readonly AuditPart[], templates: ReadonlyM
                     !isBlank(look(t)),
             );
             if (picked === undefined) {
+                // (nothing but dithers listed: drawn untextured, vertex colours only - as intended)
+                const listed = m.textures.filter((t) => part.textures.get(t)?.format !== xenos.FMT_DXN);
+                if (listed.length && listed.every((t) => look(t)?.stipple === true || lightMap(t))) continue;
                 out.push({ ...base, cause: "no texture", pickedLook: null });
                 continue;
             }
@@ -344,8 +347,9 @@ export function layerDrops(
     let vertexMask = false;
     const why = new Set<string>();
     for (const layer of layers) {
-        if (look(layer.diffuse)?.stipple) stipple ??= layer.diffuse;
-        else if (look(layer.diffuse)?.flat) flat ??= layer.diffuse;
+        // (a dither layer is left out by convertScenes - no longer a finding)
+        if (look(layer.diffuse)?.stipple) continue;
+        if (look(layer.diffuse)?.flat) flat ??= layer.diffuse;
         const shared =
             layer.maskSlot === layer.slot ||
             meshes.every((mesh) =>

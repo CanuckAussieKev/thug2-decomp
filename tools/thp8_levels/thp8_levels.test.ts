@@ -43,11 +43,13 @@ import {
     seamWalls,
     soloRestarts,
     standInOutside,
+    standInPlaced,
     thug2Terrain,
     toThug,
     triggerVolumes,
     trimShells,
     ZONES,
+    zoneDuplicates,
 } from "./thp8_levels.ts";
 import * as xenos from "./xenos.ts";
 
@@ -917,4 +919,39 @@ test("collision: a solid body isn't named after a trigger node standing in it (n
     assert.notEqual(road.col.objects[0]!.checksum, trigger);
     // a trigger volume's faces: named after the node, and left out with it
     assert.equal(run(0x1050).col.objects.length, 0);
+});
+
+test("zone duplicates: a later zone's sector under another prefix with the same box is left out; in-zone twins only counted", () => {
+    const sector = (checksum: number, bbox: number[], indexCount = 6): geom.GeomSector =>
+        ({ checksum, flags: 0, bbox, sphere: [0, 0, 0, 0], meshes: [{ indexCount }] }) as unknown as geom.GeomSector;
+    const box = [0, 0, 0, 1, 1, 1];
+    const names = new Map([
+        [1, "Z_Funpark_g_funpark_perif_peninsula"],
+        [2, "z_cartoon_g_funpark_perif_peninsula"],
+        [3, "z_cartoon_g_funpark_other"],
+        [4, "z_cartoon_g_funpark_perif_peninsula_b"],
+        [5, "z_cartoon_VC_G_pirate"],
+        [6, "z_cartoon_G_VC_pirate"],
+    ]);
+    const zone = (sectors: geom.GeomSector[]): { geom: geom.Geom } => ({ geom: { materials: [], sectors, bbox: box } });
+    const r = zoneDuplicates(
+        [
+            zone([sector(1, box)]),
+            zone([
+                sector(2, box),
+                sector(3, [5, 5, 5, 6, 6, 6]), // (no counterpart)
+                sector(4, [0, 0, 0, 2, 2, 2]), // (another size)
+                sector(5, box, 12),
+                sector(6, box, 12), // (VC_ / G_ twin: the same box and size)
+            ]),
+        ],
+        names,
+    );
+    assert.deepEqual([...r.duplicates[0]!], []);
+    assert.deepEqual([...r.duplicates[1]!], [2]);
+    assert.equal(r.twins, 1);
+});
+
+test("stand-in placements: a _lod archive without a node array has none", () => {
+    assert.equal(standInPlaced(null, "z_houses_lod").size, 0);
 });

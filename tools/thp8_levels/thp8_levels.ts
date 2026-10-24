@@ -17,6 +17,7 @@ import * as fs from "node:fs";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as overlayBias from "../level_port/overlay_bias.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
@@ -501,15 +502,34 @@ export function materialKey(m: geom.GeomMaterial): string {
 const SECTOR_FLAGS = (0x80002000 | thug2Scene.SEC_TEXCOORDS | thug2Scene.SEC_COLORS) >>> 0;
 
 // The texture a material's THUG2 pass 0 is drawn with: its plan's first layer, else the first texture that isn't a
-// normal map (a few shaders list theirs first). (Also what render_audit.ts checks.)
+// normal map (a few shaders list theirs first). THP8 lists blanks too - a flat grey stand-in for a missing map (the
+// suburb lawns' 2511D697 ahead of their grass), 16 x 16 see-through dithers: one of those is passed over for the
+// material's biggest real texture (not a normal map, not a light map, not blank); with none, a flat colour stays (white
+// paint layers tinted by the pass colour) and a dither goes: undefined, the material drawn untextured (vertex colours).
+// (Also what render_audit.ts checks.)
 export function baseTexture(
     m: geom.GeomMaterial,
     plan: mats.MaterialPlan | null,
     textures: ReadonlyMap<number, xenos.XenosTexture>,
+    maps?: { ambient: ReadonlySet<number>; shadow: ReadonlySet<number> },
 ): number | undefined {
-    return (
-        plan?.layers[0]?.diffuse ?? m.textures.find((t) => textures.has(t) && textures.get(t)!.format !== xenos.FMT_DXN)
-    );
+    const picked =
+        plan?.layers[0]?.diffuse ??
+        m.textures.find((t) => textures.has(t) && textures.get(t)!.format !== xenos.FMT_DXN);
+    const kind = picked !== undefined && textures.has(picked) ? mats.blankKind(textures.get(picked)!) : null;
+    if (kind === null) return picked;
+    let best: number | undefined;
+    let flat: number | undefined;
+    for (const t of m.textures) {
+        const x = textures.get(t);
+        if (!x || x.format === xenos.FMT_DXN || maps?.ambient.has(t) || maps?.shadow.has(t)) continue;
+        const k = mats.blankKind(x);
+        if (k === null) {
+            if (best === undefined || x.width * x.height > textures.get(best)!.width * textures.get(best)!.height)
+                best = t;
+        } else if (k === "flat") flat ??= t;
+    }
+    return best ?? (kind === "flat" ? picked : flat);
 }
 
 export interface ConvertedScene {
@@ -612,7 +632,7 @@ export function convertScenes(
             const plan =
                 part.dome || part.additive?.has(m.checksum) ? null : mats.planMaterial(m, part.textures, maps, slots);
             let texture = 0;
-            const first = baseTexture(m, plan, part.textures);
+            const first = baseTexture(m, plan, part.textures, maps);
             if (first !== undefined && !part.veil && convertTexture(first)) texture = first;
             const t = texOut.get(texture);
             const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);
@@ -638,6 +658,9 @@ export function convertScenes(
                 tint(mat.passes[0]!, plan.layers[0]!.colour);
                 // the further layers (an opaque pass 0 only: a blended one's vertex alpha is its own)
                 for (const layer of alpha ? [] : plan.layers.slice(1)) {
+                    // (THP8's 16 x 16 dither placeholders in a pass's diffuse slot: a dotted overlay, left out)
+                    const diffuse = part.textures.get(layer.diffuse);
+                    if (diffuse && mats.blankKind(diffuse) === "stipple") continue;
                     const shared =
                         layer.maskSlot === layer.slot ||
                         used.every((mesh) =>
@@ -2550,6 +2573,7 @@ interface ZonePart {
     array: QbValue[];
     placed: Map<number, { master: number; at: Placement }>;
     hidden: Set<number>;
+    duplicate: Set<number>; // sectors drawn by an earlier zone under its prefix (zoneDuplicates): not drawn, collision kept
     local: Set<number>;
     made: Map<number, number>; // props: node -> type
     props: Map<number, PropModel>;
@@ -2579,7 +2603,42 @@ function readPart(zone: string, ctx: Shared, warnings: string[]): ZonePart | nul
         for (const s of data.geom.sectors)
             if (ctx.args.leaveOut.test(ctx.names.get(s.checksum) ?? "")) hidden.add(s.checksum);
     }
-    return { zone, zoneName, data, array, placed, hidden, local, made, props, flagged };
+    return { zone, zoneName, data, array, placed, hidden, duplicate: new Set(), local, made, props, flagged };
+}
+
+// Sectors a later zone of a merged level draws that an earlier zone draws already, under another zone's prefix and with
+// the same bounding box (the cartoon world's archive carries a copy of the fun park's surroundings:
+// z_cartoon_g_funpark_perif_peninsula = Z_Funpark_g_funpark_perif_peninsula; the school's library windows). Per part,
+// the later ones' checksums. `twins` counts what THP8 ships twice inside one zone (VC_ / G_ pairs: the same box and
+// triangle count, other names) - listed only, not removed.
+export function zoneDuplicates(
+    zones: readonly { geom: geom.Geom | null }[],
+    names: ReadonlyMap<number, string>,
+): { duplicates: Set<number>[]; twins: number } {
+    const strip = (n: string): string => n.toLowerCase().replace(/^z_[a-z0-9]+?_/, "");
+    const boxKey = (bbox: readonly number[]): string => bbox.map((x) => Math.round(x * 100)).join(",");
+    const seen = new Map<string, string>(); // stripped name + box -> the prefix it was first drawn under
+    const duplicates = zones.map(() => new Set<number>());
+    let twins = 0;
+    zones.forEach((zone, k) => {
+        const added: [string, string][] = [];
+        const boxes = new Set<string>();
+        for (const s of zone.geom?.sectors ?? []) {
+            const name = names.get(s.checksum);
+            if (name === undefined) continue;
+            const stripped = strip(name);
+            const prefix = name.toLowerCase().slice(0, name.length - stripped.length);
+            const key = `${stripped}|${boxKey(s.bbox)}`;
+            const first = seen.get(key);
+            if (first !== undefined && first !== prefix) duplicates[k]!.add(s.checksum);
+            else if (first === undefined) added.push([key, prefix]);
+            const twin = `${boxKey(s.bbox)}|${s.meshes.reduce((n, m) => n + m.indexCount, 0)}`;
+            if (boxes.has(twin)) twins++;
+            else boxes.add(twin);
+        }
+        for (const [key, prefix] of added) seen.set(key, prefix);
+    });
+    return { duplicates, twins };
 }
 
 // The scene parts of a zone: the zone's own, then its props' models (each drawn under its node's name, in its own
@@ -2591,7 +2650,7 @@ function sceneParts(p: ZonePart, ctx: Shared): SceneParts[] {
             geom: g,
             textures: p.data.textures,
             placed: p.placed,
-            hidden: p.hidden,
+            hidden: new Set([...p.hidden, ...p.duplicate]),
             additive: glowMaterials(g, ctx.names),
             lighting: zoneLighting(zoneTod(ctx.managers, p.zoneName)),
             techniques: ctx.techniques,
@@ -2616,6 +2675,20 @@ function sceneParts(p: ZonePart, ctx: Shared): SceneParts[] {
             }),
         ),
     ];
+}
+
+// A stand-in archive's instance placements (its node array's CreatedAtStart instances, as readPart takes a zone's): the
+// _lod archives hold instance masters too (__MASTERNODE_ sectors), which stood stacked at THP8's origin while their
+// instances weren't drawn.
+export function standInPlaced(nqb: thaw.QbItems | null, zone: string): Map<number, { master: number; at: Placement }> {
+    const placed = new Map<number, { master: number; at: Placement }>();
+    if (nqb === null || !nqb.globals.some(([n]) => n.value === checksum(`${zone}_NodeArray`))) return placed;
+    const array = nodeArrayOf(nqb, zone);
+    for (const [k, v] of instances(array)) {
+        const node = array.find((n) => n instanceof Struct && nodeName(n) === k) as Struct | undefined;
+        if (node?.hasFlag("CreatedAtStart")) placed.set(k, v);
+    }
+    return placed;
 }
 
 // Whether a stand-in's triangle (THP8 metres) is clear of the level's own ground: no point of it, looked at every
@@ -2693,7 +2766,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
             lods.push({
                 geom: lod.geom,
                 textures: lod.textures,
-                placed: new Map(),
+                placed: standInPlaced(lod.nqb, `${info.zone}_lod`),
                 additive: glowMaterials(lod.geom, names),
                 lighting: zoneLighting(zoneTod(ctx.managers, names.get(checksum(info.zone)) ?? info.zone)),
                 techniques: ctx.techniques,
@@ -2705,6 +2778,15 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     for (const b of barriers) {
         lods.push({ geom: b.geom!, textures: b.textures, placed: new Map(), veil: true });
     }
+    // (zones merged: a later zone's sector that an earlier zone draws under its own prefix is left out of the scene)
+    const dup = zoneDuplicates(
+        parts.map((p) => p.data),
+        names,
+    );
+    for (const [k, p] of parts.entries()) p.duplicate = dup.duplicates[k]!;
+    const dupCount = dup.duplicates.reduce((n, x) => n + x.size, 0);
+    if (dupCount) report.push(`  ${dupCount} sectors a later zone repeats from an earlier one left out of the scene`);
+    if (dup.twins) report.push(`  ${dup.twins} sectors THP8 ships twice in one zone (same box and size) kept`);
     const scene = (options: mats.RefineOptions): ConvertedScene =>
         convertScenes(
             [...parts.flatMap((p) => sceneParts(p, ctx)), ...lods],
@@ -2724,6 +2806,10 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     if (refineOptions.threshold !== REFINE.threshold) {
         report.push(`  light refined at a threshold of ${refineOptions.threshold.toFixed(2)} (the triangle budget)`);
     }
+    // (THP8 draws its decals with a depth bias of its own, not decoded: the layers lying on other surfaces get a z bias
+    // here, or they shimmer - level_port/overlay_bias.ts, as THPS3 / THPS4)
+    const biased = overlayBias.biasOverlays(done.scene);
+    if (biased) report.push(`  ${biased} layer materials given a z bias over the surfaces under them`);
     // nodes (the kill zones' trigger faces kept): the zones' arrays as one, a fresh copy (zoneNodes makes it THUG2's)
     const inLevel = new Set(spec.zones);
     const scriptQbs = parts.flatMap((p) => [p.data.nqb!, ...p.data.qbs]);

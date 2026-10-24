@@ -138,7 +138,15 @@ non-collidable and the skater went through the skirt into the planter and the tr
 where the factory is; z_center_lod's lake plane, two triangles 900 m across, passes over the factory's floor): the
 stand-ins' triangles over the level's own ground are left out (`standInOutside`, every 4 m of the triangle looked
 at). The network barriers are drawn as THP8 draws them - THP8's is a shimmer (a distortion shader over a normal map),
-ours a faint see-through blue (`VEIL_COLOUR`).
+ours a faint see-through blue (`VEIL_COLOUR`). A `_lod` archive holds instance masters (`__MASTERNODE_` sectors) too: its
+node array's instances are placed (`standInPlaced`), so the masters aren't drawn stacked at THP8's origin.
+
+**Draw-only fixes of the render audit (2026-10-24, collision untouched).** `baseTexture` passes over a blank pick (a flat
+colour or a 16 x 16 dither, `materials.blankKind`) for the material's biggest real texture, none left: a dither-only
+material is drawn untextured, a flat colour stays; a layer whose diffuse is a dither is left out; the scene gets
+`overlay_bias`'s z bias; and a later merged zone's sector that an earlier zone draws under its own prefix with the same
+box is not drawn (`zoneDuplicates`; THP8's own twins in one zone are only counted in the report). NormalMapBlended's
+own layer layout (the lawns' blended grass maps) is not read: the first grass map only.
 
 **Seam walls.** Each zone's collision has invisible walls (every face 0x1000, most also 0x80 - the camera passes)
 along its edges where the next zone begins (z_houses: a 115 m long, 70 m high plane at x = 0, where z_shops starts).

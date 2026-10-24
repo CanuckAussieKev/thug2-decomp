@@ -217,3 +217,145 @@ THUG2 has 24-bit depth and a 12-inch near plane: surfaces fight only when practi
 
 Verify after a fix round: `render_audit.ts zfight` / `textures` again (the counts above are the baseline), then the
 user in the game. Run in the game: none in this round (NOT run in the game).
+
+## Fix round 1 (2026-10-24)
+
+Branch thp8-fix-round-1: the audit's proposed fixes 1-3 (textures) and 1-3 (z-fighting), draw only. All 15 levels
+reconverted into C:\Games\THUG2-2 (`thp8_levels.ts convert --thug2 C:\Games\THUG2-2`, `make_menu_level.ts --game` after)
+and the audit tools rerun on that staging folder. **The 15 `.col.xbx` files are byte-identical before / after
+(SHA-256); `thp8_levels.ts selfcheck`: 1132 files, 0 failures; npm test 356 pass, typecheck and lint clean.** Before =
+the staging folder as the audit found it, run with the same tool; after = the new convert.
+
+What changed (tools/thp8_levels; tests in render_audit.test.ts / thp8_levels.test.ts):
+
+1. **Stand-in masters** - `standInPlaced`: a `_lod` archive's node array (CreatedAtStart instances, as readPart takes a
+   zone's) is the stand-in part's `placed`, so its `__MASTERNODE_` sectors are no longer drawn stacked at THP8's origin
+   and their instances are drawn. Stand-ins over each other (m2 seen): SKATE PARK 1,696 -> 95, FACTORY 823 -> 84, SLUMS
+   828 -> 83, SUBURBIA 265 -> 95, MAIN STREET 483 -> 81, FUN PARK 805 -> 91, SCHOOL 1,843 -> 56, INDUSTRIAL 479 -> 83,
+   CAPITOL 244 -> 57, SKATE & FUN 618 -> 91, SKATE CENTRAL 44 -> 44. (What is left is the instances standing where THP8
+   puts them, some over each other or the backdrop - not looked at.)
+2. **Z bias** - `overlayBias.biasOverlays(done.scene)` after the refine loop in convertLevel (report line "n layer
+   materials given a z bias over the surfaces under them": BEAVER VALLEY 318). The audit now reads those pairs as
+   "decided by a z bias": BEAVER VALLEY 2,424 m2 seen (0 before); decals + see-through layers without a bias 1,377 ->
+   348 m2. Remaining in BEAVER VALLEY: 189 THP8-decal pairs (10 m2 seen) and 624 see-through pairs (338 m2 seen) the
+   bias didn't take (overlay_bias needs a layer lying on a surface within its 1-inch plane test and an overlap of 1 m2).
+3. **Blank base textures** - `baseTexture` (+ `materials.blankKind`: texture_check's flat / stipple look, cached per
+   texture; a texture whose data doesn't decode counts as not blank): a blank pick is replaced by the material's biggest
+   real texture (not a normal map, not a light map, not blank). The suburb lawns: Z_Houses_Street_JG_Lawn05 (BF735712)
+   is drawn with 7A0195ED (the grass, RGB 90,123,78) instead of the flat grey 2511D697 (`render_audit.ts spot
+   thp8_net_beavervalley "(-5187.9, 36.3, 3826.1)" 30`). "Blank picked, real texture listed": BEAVER VALLEY 104
+   materials / 16,338 m2 -> 0, and 0 in every other level. **Not done: NormalMapBlended's own layer layout** (2-3 grass
+   maps blended by the vertex alpha, 4 materials): the lawns are the first grass map only now; the blend needs a LAYERED
+   entry with its own layout and the mask read from the parameter block - left for a later round.
+4. **Dither layers** - the layer loop in convertScenes leaves out a layer whose diffuse is a stipple placeholder (opaque
+   passes; a blended base keeps no layers anyway). "Layer drawn with a stipple placeholder": BEAVER VALLEY 115 materials
+   / 20,928 m2 -> 0 (0 in all levels). As THUG2 draws it, stipple placeholders: 52 materials / 5,250 m2 -> 1 (B9583299,
+   pass 2 of Z_Parking_G_SG_Park_Enterance23, 75 m2 - a diffuse x mask layer texture that itself looks like a dither;
+   left).
+5. **Only blanks listed** - a material whose textures are all dithers is drawn untextured (texture 0, its vertex
+   colours); a flat colour stays (white / grey paint layers tinted by the pass colour). The audit counts the dither-only
+   ones as resolved. "Only blanks listed" in BEAVER VALLEY 29 / 11,675 m2 -> 16 / 10,577 (all flat now: outschool light
+   shafts, periphery strips). As THUG2 draws it: untextured 0 -> 14 materials / 1,099 m2 in BEAVER VALLEY (the other
+   levels' count also holds the barrier veil), flat-colour textures 102 materials / 27,462 m2 -> 27 / 12,065.
+6. **Duplicates across merged zones** - `zoneDuplicates`: a later zone's sector with the same name under another zone's
+   prefix (the leading `z_<zone>_`) and the same bounding box (0.01 m) as an earlier zone's is not drawn (it goes into
+   the scene part's hidden set only: collision and node arrays untouched). Left out: BEAVER VALLEY 6 sectors, FUN PARK /
+   SCHOOL / CAPITOL / SKATE & FUN PARKS / SKATE CENTRAL 1 each (convert report line "n sectors a later zone repeats from
+   an earlier one left out of the scene"). The doubled fun park periphery is gone: BEAVER VALLEY mesh area fighting
+   within view 189,689 m2 -> 7,790. What THP8 ships twice inside one zone (same box and same index count: VC_ / G_
+   twins, crates, castle pieces) is only counted and kept, in the convert report ("n sectors THP8 ships twice in one
+   zone (same box and size) kept": BEAVER VALLEY 146, SKATE PARK 59, SCHOOL 79, CAPITOL 31, ...).
+
+### Z-fight audit, before -> after (m2 seen within 100 m; pairs)
+
+"Shimmering" = seen m2 without the same-triangles, opposite-facing and decided-by-z-bias pairs.
+
+| Level | pairs | within view m2 | shimmering m2 | stand-ins over each other | decals + see-through, no bias | decided by a z bias | same triangles |
+|---|---|---|---|---|---|---|---|
+| thp8_net_beavervalley | 4836 -> 4807 | 189689 -> 7790 | 3585 -> 2082 | 0 -> 0 | 1377 -> 348 | 0 -> 2424 | 183896 -> 1619 |
+| thp8_net_skatepark | 285 -> 283 | 2389 -> 850 | 1726 -> 160 | 1696 -> 95 | 28 -> 63 | 0 -> 85 | 193 -> 135 |
+| thp8_net_factory | 832 -> 840 | 2793 -> 2116 | 986 -> 280 | 823 -> 84 | 35 -> 68 | 0 -> 473 | 283 -> 244 |
+| thp8_net_slums | 766 -> 774 | 1774 -> 1092 | 1057 -> 254 | 828 -> 83 | 107 -> 76 | 0 -> 270 | 116 -> 77 |
+| thp8_net_suburbia | 677 -> 683 | 1123 -> 1011 | 531 -> 210 | 265 -> 95 | 115 -> 77 | 0 -> 250 | 116 -> 77 |
+| thp8_net_mainstreet | 586 -> 597 | 1787 -> 1445 | 621 -> 185 | 483 -> 81 | 96 -> 70 | 0 -> 147 | 690 -> 643 |
+| thp8_net_funpark | 763 -> 770 | 183700 -> 1577 | 1635 -> 852 | 805 -> 91 | 314 -> 340 | 0 -> 172 | 181594 -> 83 |
+| thp8_net_school | 858 -> 829 | 3525 -> 1391 | 2660 -> 270 | 1843 -> 56 | 494 -> 94 | 0 -> 572 | 355 -> 47 |
+| thp8_net_industrial | 1475 -> 1483 | 2791 -> 2458 | 868 -> 384 | 479 -> 83 | 141 -> 81 | 0 -> 705 | 283 -> 244 |
+| thp8_net_capitol | 923 -> 924 | 247890 -> 248404 | 2551 -> 2452 | 244 -> 57 | 376 -> 249 | 0 -> 785 | 244357 -> 244196 |
+| thp8_net_skatefunparks | 916 -> 925 | 183622 -> 1686 | 1485 -> 860 | 618 -> 91 | 343 -> 340 | 0 -> 219 | 181665 -> 135 |
+| thp8_net_skatecentral | 1951 -> 1950 | 248556 -> 249254 | 1698 -> 1604 | 44 -> 44 | 407 -> 103 | 0 -> 969 | 245865 -> 245703 |
+| thp8_training | 80 -> 80 | 4 -> 4 | 4 -> 3 | 0 -> 0 | 2 -> 1 | 0 -> 1 | 0 -> 0 |
+| thp8_skateshop | 36 -> 36 | 1 -> 1 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 1 | 0 -> 0 |
+| thp8_bedroom | 41 -> 41 | 6 -> 6 | 6 -> 4 | 0 -> 0 | 0 -> 0 | 0 -> 2 | 0 -> 0 |
+
+The same-triangles column falling in BEAVER VALLEY / FUN PARK / SKATE & FUN PARKS (about 184,000 / 181,600 / 181,700 ->
+1,619 / 83 / 135) is the periphery. CAPITOL and SKATE CENTRAL keep their 244,000 m2: the z_factory_lod backdrop over
+the level's TK_G_Industrial_Map pieces (z-fight fix 4 of the list above, not in this round). The opposite-facing
+two-sided shells (the factory's paint shells) are untouched (fix 5 there). BEAVER VALLEY's top now: the paint shells
+(552 + 402 m2, `try_spot thp8_net_beavervalley 7221,-121,8863,360`), overlapping objects in one zone 735 m2, in-zone
+duplicates 949 m2.
+
+### Texture audit, before -> after (materials / m2 of THP8's surface)
+
+### THP8's materials as converted (materials / m2)
+| Level | blank picked, real texture listed | layer drawn with a flat colour | layer drawn with a stipple placeholder | layers dropped | no texture | only blanks listed | other textures not drawn (passes not read) |
+|---|---|---|---|---|---|---|---|
+| thp8_net_beavervalley | 104 / 16338 -> 0 / 0 | 52 / 9526 -> 57 / 10466 | 115 / 20928 -> 0 / 0 | 75 / 30322 -> 78 / 30553 | - | 29 / 11675 -> 16 / 10577 | 371 / 441661 -> 403 / 445953 |
+| thp8_net_skatepark | 22 / 3837 -> 0 / 0 | 6 / 968 -> 14 / 2258 | 19 / 19061 -> 0 / 0 | 15 / 3304 -> 19 / 3334 | - | 19 / 3855 -> 14 / 2292 | 4 / 93 -> 4 / 93 |
+| thp8_net_factory | 33 / 4038 -> 0 / 0 | 7 / 977 -> 15 / 2267 | 17 / 18916 -> 0 / 0 | 19 / 5895 -> 23 / 5925 | - | 19 / 3855 -> 14 / 2292 | 80 / 40312 -> 81 / 40316 |
+| thp8_net_slums | 23 / 3945 -> 0 / 0 | 31 / 4057 -> 39 / 5347 | 36 / 22048 -> 0 / 0 | 28 / 11360 -> 32 / 11391 | - | 21 / 4298 -> 15 / 2704 | 7 / 3689 -> 7 / 3689 |
+| thp8_net_suburbia | 41 / 7580 -> 0 / 0 | 16 / 1940 -> 24 / 3231 | 18 / 19584 -> 0 / 0 | 19 / 3333 -> 23 / 3364 | - | 19 / 3855 -> 14 / 2292 | 24 / 2730 -> 40 / 6308 |
+| thp8_net_mainstreet | 30 / 4036 -> 0 / 0 | 9 / 3518 -> 15 / 4613 | 54 / 23777 -> 0 / 0 | 22 / 3467 -> 23 / 3502 | - | 23 / 3893 -> 14 / 2311 | 35 / 1104 -> 41 / 1539 |
+| thp8_net_funpark | 21 / 3230 -> 0 / 0 | 6 / 968 -> 12 / 1515 | 17 / 18916 -> 0 / 0 | 15 / 3782 -> 19 / 3813 | - | 16 / 3348 -> 11 / 1786 | 53 / 4671 -> 53 / 4671 |
+| thp8_net_school | 54 / 10015 -> 0 / 0 | 5 / 951 -> 16 / 3136 | 27 / 17644 -> 0 / 0 | 20 / 3622 -> 26 / 3849 | - | 22 / 12232 -> 16 / 11190 | 82 / 11743 -> 87 / 11906 |
+| thp8_net_industrial | 34 / 4146 -> 0 / 0 | 32 / 4065 -> 40 / 5355 | 36 / 22048 -> 0 / 0 | 32 / 13951 -> 36 / 13982 | - | 21 / 4298 -> 15 / 2704 | 87 / 44001 -> 88 / 44005 |
+| thp8_net_capitol | 34 / 6515 -> 0 / 0 | 14 / 2925 -> 20 / 3907 | 46 / 13395 -> 0 / 0 | 42 / 18685 -> 46 / 18716 | - | 23 / 3324 -> 16 / 1755 | 86 / 377319 -> 90 / 377432 |
+| thp8_net_skatefunparks | 21 / 3230 -> 0 / 0 | 6 / 968 -> 12 / 1515 | 19 / 19061 -> 0 / 0 | 15 / 3782 -> 19 / 3813 | - | 16 / 3348 -> 11 / 1786 | 57 / 4764 -> 57 / 4764 |
+| thp8_net_skatecentral | 61 / 10457 -> 0 / 0 | 27 / 6446 -> 31 / 7234 | 84 / 18924 -> 0 / 0 | 53 / 18878 -> 54 / 18913 | - | 27 / 3362 -> 16 / 1774 | 145 / 381154 -> 171 / 385279 |
+| thp8_training | 8 / 357 -> 0 / 0 | - | - | 9 / 512 -> 9 / 512 | - | 3 / 69047 -> 3 / 69047 | 48 / 4109 -> 55 / 4129 |
+| thp8_skateshop | 6 / 13 -> 0 / 0 | 2 / 34 -> 2 / 34 | - | - | - | 2 / 22 -> 2 / 22 | 8 / 14 -> 8 / 14 |
+| thp8_bedroom | 1 / 18 -> 0 / 0 | - | - | - | 1 / 157 -> 1 / 157 | 4 / 114 -> 2 / 113 | 16 / 154 -> 16 / 154 |
+
+### As THUG2 draws it (materials / m2)
+| Level | flat colour | stipple placeholder | untextured |
+|---|---|---|---|
+| thp8_net_beavervalley | 102 / 27462 -> 27 / 12065 | 52 / 5250 -> 1 / 75 | 0 / 0 -> 14 / 1099 |
+| thp8_net_skatepark | 33 / 6321 -> 16 / 2884 | 15 / 4805 -> 0 / 0 | 1 / 22662 -> 6 / 24224 |
+| thp8_net_factory | 44 / 7419 -> 16 / 2884 | 15 / 4805 -> 0 / 0 | 1 / 13329 -> 6 / 14892 |
+| thp8_net_slums | 42 / 7561 -> 26 / 3936 | 18 / 4991 -> 0 / 0 | 1 / 32338 -> 7 / 33931 |
+| thp8_net_suburbia | 48 / 10017 -> 16 / 2884 | 20 / 5088 -> 0 / 0 | 1 / 68152 -> 7 / 69715 |
+| thp8_net_mainstreet | 34 / 6140 -> 14 / 2479 | 27 / 5272 -> 0 / 0 | 1 / 17862 -> 10 / 19444 |
+| thp8_net_funpark | 29 / 5282 -> 13 / 2377 | 15 / 4805 -> 0 / 0 | 1 / 32031 -> 6 / 33593 |
+| thp8_net_school | 53 / 20835 -> 16 / 11782 | 29 / 4736 -> 0 / 0 | 1 / 109039 -> 7 / 110080 |
+| thp8_net_industrial | 53 / 8424 -> 26 / 3936 | 18 / 4991 -> 0 / 0 | 1 / 46298 -> 7 / 47892 |
+| thp8_net_capitol | 49 / 8980 -> 21 / 2625 | 19 / 4371 -> 1 / 75 | 1 / 164918 -> 8 / 166486 |
+| thp8_net_skatefunparks | 29 / 5282 -> 13 / 2377 | 15 / 4805 -> 0 / 0 | 1 / 47050 -> 6 / 48613 |
+| thp8_net_skatecentral | 66 / 12426 -> 20 / 2621 | 35 / 5120 -> 1 / 75 | 1 / 129383 -> 13 / 130971 |
+| thp8_training | 10 / 69384 -> 2 / 69026 | - | - |
+| thp8_skateshop | 7 / 29 -> 3 / 23 | 2 / 7 -> 0 / 0 | - |
+| thp8_bedroom | 3 / 131 -> 2 / 113 | 2 / 1 -> 0 / 0 | 1 / 157 -> 3 / 158 |
+
+
+The "layer drawn with a flat colour", "layers dropped" and "other textures not drawn" figures grow a little because
+materials that were classed "blank picked" are now picked right and their layers and further textures get looked at;
+the white paint layers are intended. Nothing is missing in the game's sense (as before).
+
+### Load check
+
+One load check (`load_check.ps1 -Game C:\Games\THUG2-2 -Levels thp8_net_beavervalley`, the workspace's own dinput8.dll of
+2026-10-19, not replaced as the workspace had one): **crashed** - EXCEPTION 0xC0000005 (write at 0x00000004) right after
+`levels\thp8_net_beavervalley\thp8_net_beavervalley.qb` was read, before the collision loaded (in the script / node
+loading path, not in drawing). The DLL predates this project's bigger limits for BEAVER VALLEY (README: node name hash,
+rail table, script heap, pools), so this is probably the stale DLL and not these draw-only fixes (collision and nodes are
+byte-identical in the .col; the .qb is regenerated, its node list now differs only by the zone-duplicate sectors not being
+in `done.sectors`). Not diagnosed further (one check allowed): rerun with a current DLL
+(out\build\lead\dinput8.dll, 2026-10-24) to settle it.`
+
+### For the user, BEAVER VALLEY (try_spot positions)
+
+- The suburb lawns: `node tools/game/try_spot.ts thp8_net_beavervalley -5187.9,36.3,3826.1,0` (the screenshot's yard:
+  grass now, not flat grey).
+- The fun park periphery (was doubled and blended twice): `try_spot thp8_net_beavervalley -22435,-268,1709,0`.
+- The gym's basketball lines (z bias): `try_spot thp8_net_beavervalley -5739,0,-377,0`.
+- Stand-in trees (SKATE PARK, was stacked at the origin): `try_spot thp8_net_skatepark 5519,282,2820,185`.
+- Dotted overlays gone, e.g. the capitol top deck (778B446B layers) and shops street04.
