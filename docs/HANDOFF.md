@@ -496,3 +496,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   358-365, GS2 366-372, GS1 373-383); progress 71.83%. Installed (DLL + overlay with the Stone Arch Bridge sign for
   Minneapolis). NOT run in the game beyond the agents' crash checks. GS4 still running; collision-event logger running
   (docs/pending/collision-events.md, workspace THUG2-2). automation.cpp's fopen C4996 fixed (_fsopen).
+- Collision events merged + installed (2026-10-24; docs/pending/collision-events.md): [debug] collision_events=1 /
+  collision_event_screenshots=1 log `collision-event:` lines (reason, face, probes); tools/game/collision_events.ts
+  groups them (--col names the converter object). User's 14:50 road spot: a 40 m x 4 m hole in BEAVER VALLEY's road
+  collision (uber frig 0x004F8420 flips the velocity) - THP8 round 5 fixing it. Asked the user about an on-screen notice.
