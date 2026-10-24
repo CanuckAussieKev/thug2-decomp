@@ -169,7 +169,8 @@ inline void StandInMemory(StandIns& s)
     pair[2] = reinterpret_cast<uint32_t>(g_structPool);
     pair[3] = 0;
     std::memset(g_manager, 0, sizeof(g_manager));
-    *reinterpret_cast<uint32_t*>(g_manager + 0x5D4) = 0x5D45D400; // (the skater info heap)
+    for (uint32_t offset = 0x10C; offset < 0x5E0; offset += 4) // (each region / heap pointer a value of its own)
+        *reinterpret_cast<uint32_t*>(g_manager + offset) = 0x4EA00000 + offset;
     GameVariable<uint8_t*>(0x007D1800) = g_manager;
     s.At({0x005BA3D0, AddressOf(&Mem::Pool::Allocate)}, 0, [](Regs& r) {
         if (g_gs3Trace) Log("  standin %X", 0xA3D0);

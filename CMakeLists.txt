@@ -272,6 +272,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_career_cfuncs.cpp
     src/hook/selftests_competition_cfuncs.cpp
     src/hook/selftests_skater_query_cfuncs.cpp
+    src/hook/selftests_movie_cfuncs.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
@@ -606,6 +607,7 @@ add_library(thug2_code OBJECT
     src/game/skater/trick_queue.cpp
     src/game/skater/trick_member_functions.cpp
     src/game/obj/movie_manager.cpp
+    src/game/obj/movie_cfuncs.cpp
     src/game/obj/anim_movies.cpp
     src/game/obj/trick_objects.cpp
     src/game/obj/rail_manager.cpp

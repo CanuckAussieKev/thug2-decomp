@@ -75,3 +75,24 @@ src/game/skate/records.h / .cpp (three record commands added).
     message sent (all MsgDesc fields) stood in for. 51 of 51 deliberate bugs caught (10 after strengthening: equal
     values at the comparisons' edges, the tie without the scoreless player, one team / two players / one player in,
     a player without a skater, a lone skater who scored, a profile index unlike is_male).
+- [x] Batch GS3-4 (NOT run in the game yet; skater camera animations, cutscenes, object animations - 21 CFunctions and
+  the cutscene destroy list entry's constructor): src/game/obj/movie_cfuncs.h / .cpp (new).
+  - 0x005AD830 PlaySkaterCamAnim (0x0C567FA2 - name unknown -: the movie manager takes over the game's camera;
+    SkaterId= or skater= (0); not a local skater: "this isn't a local skater!\n" printed; stop: every movie dropped;
+    else disable_skater_scaling run and the animation queued as SkaterCamAnim), 0x005AD960 / 0x005ADA30
+    SetSkaterCamAnimSkippable / ShouldPause (also SetCutsceneSkippable / ShouldPause), 0x005ADB00
+    GetCurrentSkaterCamAnimName (none: false), 0x005ADB50 GetSkaterCamAnimParams, 0x005ADC10 / 0x005ADCC0
+    SkaterCamAnimFinished / Held (also CutsceneFinished / Held; no local skater: true), 0x005ADD70
+    KillSkaterCamAnim (also KillCutscene: Current - the EndMovies result returned -, all, or a name; none left: the
+    park editor's SwitchCamera in its edit state, else Restore_skater_camera), 0x005ADEC0 ReloadSkaterCamAnim (only
+    with the extra memory 0x007CEFAC; AssMan::ReloadAsset in the debug heap), 0x005AE000 CutsceneDestroyListActive
+    (0x0049A8E0 on 0x006FA7C0), 0x005AE010 PlayCutscene (ObjectAnim: an object movie of type 0xB46E218F - name
+    unknown -; else the Cutscene movie; stop looked for, not used), 0x005AE090 HasMovieStarted, 0x005AE0A0
+    IsMovieQueued, 0x005AE0B0 PauseCutscene (1 by default; toggle), 0x005AE120 Cutscene_FrameAdvance, 0x005AE140
+    PlayObjectAnim, 0x005AE190 / 0x005AE200 SetObjectAnimSkippable / ShouldPause, 0x005AE270 / 0x005AE2B0
+    ObjectAnimFinished / Held, 0x005AE2F0 KillObjectAnim; 0x005ADF60 CutsceneDestroyEntry::Construct (the entry
+    AddToCutsceneDestroyList - gamescript-4's range - makes: name, destroy_func, a destroy_params structure).
+  - Test TestMovieCFuncs: original vs ours with both movie managers' methods (every argument; the bool ones by their
+    byte), FindObject, the skaters, Printf, the park editor, the asset manager and 0x0049A8E0 stood in for, every
+    branch (local or not, by id / index / none, movies left or not, the editor's state, the reload's gates). 40 of
+    40 deliberate bugs caught (1 after the stand-in memory manager got a distinct value per heap).
