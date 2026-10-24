@@ -139,3 +139,16 @@ Shared files touched: CMakeLists.txt (new files listed).
     scene), every class both ways, the camera's whole placing compared bit for bit. 33 of 35 deliberate bugs caught
     (1 after strengthening: a box over the 1000 minimum); 2 equivalent: the forward row's w is 0 for every rotation,
     and the default scale is only used when the node gives one.
+- [x] Batch GS1-9 (NOT run in the game yet; the level's node array set up and reloaded - 2 CFunctions):
+  node_object_cfuncs.cpp.
+  - 0x005A34E0 ParseNodeArray (no_cleanup; the proxim / emitter / rail / trick cluster set-up; per node: rail nodes
+    lose angles and 0x7321A8D6, level objects' sectors off with their terrain (0x7E4813A7, default 0xE3714DC1),
+    level geometry's sector shown or off (only outside the park editor), its occluder (0x0049EA60) and terrain, the
+    two failure messages, trick objects into their clusters (the name's local is kept from node to node in the
+    original, so a nameless node reuses the last name read - kept); proxims and emitters added, the created-at-start
+    objects made; the rails' overlaps, the gap checklist unless 0xF7ECD937, the scenes, the 0xA0E52802 nodes),
+    0x005A39F0 ReLoadNodeArray (in the debug heap: the asset and the file's node array dropped, NodeArrayManLoad, the
+    .qb (0x005A5960), the node manager's last array removed and added again; the local structure cleared).
+  - Test TestParseNodeArrayCFuncs: original vs ours over a 16-node array (every class and flag), the park editor on
+    and off, skipped nodes, multiplayer, every node a trick object, no checklist; the sectors' whole state compared.
+    28 of 28 deliberate bugs caught.

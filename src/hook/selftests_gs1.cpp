@@ -45,6 +45,8 @@
 #include "game/obj/node_objects.h"
 #include "game/obj/proxim.h"
 #include "game/script/names.h"
+#include "game/obj/trick_objects.h"
+#include "game/skate/gap_checklist.h"
 #include "game/sio/inpman.h"
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
@@ -2299,8 +2301,199 @@ void TestNodeObjectCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A34E0-0x005A3AF7 (node_object_cfuncs.cpp) --------------------------------------------------------------
+
+Script::CArray g_nodeArray;
+bool g_multiplayer, g_allTricks, g_noChecklist;
+uint32_t g_skipMask; // nodes (by their name's low bits) the skate module skips
+
+void StandInParseCalls(StandIns& s)
+{
+    auto simple = [&s](std::initializer_list<uint32_t> at, uint16_t pop, uint32_t tag, int mode, uint32_t result = 0) {
+        s.At(at, pop, [tag, mode, result](Regs& r) {
+            Record({tag, mode & 1 ? Rel(r.ecx) : 0u, mode & 2 ? Rel(r.args[0]) : mode & 4 ? r.args[0] & 0xFF : 0u});
+            return result;
+        });
+    };
+    s.At({0x0045C220, AddressOf(&SkateScript::GetNodeOwnerValue58)}, 0, [](Regs&) { Record({0xC220}); return reinterpret_cast<uint32_t>(&g_nodeArray); });
+    simple({0x0046AB30, AddressOf(&Obj::Proxim_Init)}, 0, 0xAB30, 0);
+    simple({0x004683B0, AddressOf(&Obj::Emitter_Init)}, 0, 0x83B0, 0);
+    simple({0x0057C330, AddressOf(&Obj::CRailManager::Cleanup)}, 0, 0xC330, 1);
+    simple({0x005889F0, AddressOf(&Obj::CTrickObjectManager::RemoveAllClusters)}, 0, 0x89F0, 1, 1);
+    simple({0x0048EF00}, 0, 0xEF00, 0);
+    simple({0x0048FDA0}, 0, 0xFDA0, 0);
+    simple({0x0057E960, AddressOf(&Obj::CRailManager::AddFromNodeArray)}, 4, 0xE960, 3);
+    s.At({0x004776B0, AddressOf(static_cast<void (CStruct::*)(uint32_t)>(&CStruct::RemoveComponent))}, 4, [](Regs& r) {
+        Record({0x76B0, Rel(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x0048C510}, 0, [](Regs& r) {
+        Record({0xC510, r.args[0]});
+        for (auto& scene : g_sectors)
+            for (auto& sector : scene)
+                if (sector.name == r.args[0])
+                    return reinterpret_cast<uint32_t>(&sector);
+        return 0u;
+    });
+    s.At({0x0049EA60}, 4, [](Regs& r) { Record({0xEA60, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
+    s.At({0x00565BB0}, 4, [](Regs& r) {
+        uint32_t name = 0;
+        reinterpret_cast<CStruct*>(r.args[0])->GetChecksum(0xA1DC81F9u, &name, 0);
+        Record({0x5BB0, name});
+        return (g_skipMask >> (name & 31)) & 1;
+    });
+    s.At({0x005651F0}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
+    using IntFn = int (*)(uint32_t);
+    s.At({0x00478F60, AddressOf(static_cast<IntFn>(&Script::GetInteger))}, 0, [](Regs& r) {
+        Record({0x8F60, r.args[0]});
+        return r.args[0] == 0xB675F8F6 ? (g_allTricks ? 1u : 0u) : (g_noChecklist ? 1u : 0u);
+    });
+    s.At({0x005896D0, AddressOf(&Obj::CTrickObjectManager::AddCluster)}, 4, [](Regs& r) { Record({0x96D0, r.ecx, r.args[0]}); return 1u; });
+    s.At({0x00589760, AddressOf(static_cast<bool (Obj::CTrickObjectManager::*)(uint32_t, uint32_t)>(&Obj::CTrickObjectManager::AddObject))}, 8,
+         [](Regs& r) { Record({0x9760, r.ecx, r.args[0], r.args[1]}); return 1u; });
+    s.At({0x0046B1F0, AddressOf(&Obj::Proxim_AddNode)}, 0, [](Regs& r) { Record({0xB1F0, r.args[0], r.args[1] & 0xFF}); return 0u; });
+    s.At({0x00468450, AddressOf(&Obj::Emitter_AddNode)}, 0, [](Regs& r) { Record({0x8450, r.args[0], r.args[1] & 0xFF}); return 0u; });
+    s.At({0x005A2E50, AddressOf(&CFuncs::CreateFromNode)}, 0, [](Regs& r) { Record({0x2E50, Rel(r.args[0])}); return 1u; });
+    simple({0x0057D7A0, AddressOf(&Obj::CRailManager::RemoveOverlapsIfNotPark)}, 0, 0xD7A0, 1);
+    simple({0x005656C0}, 0, 0x56C0, 1, 0x00CEC000);
+    simple({0x00578AC0, AddressOf(&Game::CGapChecklist::Build)}, 0, 0x8AC0, 1);
+    s.At({0x0049E1B0}, 4, [](Regs& r) { Record({0xE1B0, Rel(r.ecx), r.args[0]}); return 0u; });
+    simple({0x00490570}, 0, 0x0570, 2);
+    // ReLoadNodeArray
+    simple({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, 0xB0E0, 3);
+    simple({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110, 1);
+    s.At({0x004779D0, AddressOf(static_cast<void (CStruct::*)(uint32_t, const char*)>(&CStruct::AddString))}, 8, [](Regs& r) {
+        Record({0x79D0, r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
+        static Script::CComponent component;
+        component = Script::CComponent{};
+        component.typeAndFlag = static_cast<uint8_t>(Script::ESYMBOLTYPE_STRING << 1);
+        component.name = r.args[0];
+        component.raw = r.args[1];
+        reinterpret_cast<CStruct*>(r.ecx)->m_head = &component;
+        return 0u;
+    });
+    s.At({0x00477130, 0x00477090, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) {
+        Record({0x7130, reinterpret_cast<CStruct*>(r.ecx)->m_head ? 1u : 0u});
+        reinterpret_cast<CStruct*>(r.ecx)->m_head = nullptr;
+        return 0u;
+    });
+    s.At({0x0059FB30, AddressOf(&CFuncs::CFunc_NodeArrayManLoad)}, 0, [](Regs& r) { Record({0xFB30, Rel(r.args[1])}); return 1u; });
+    s.At({0x005A5960}, 0, [](Regs& r) { Record({0x5960, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]}); return 0u; });
+    simple({0x0045C210, AddressOf(&SkateScript::GetLastNodeArray)}, 0, 0xC210, 0);
+    simple({0x0045D150, AddressOf(&SkateScript::CNodeManager::GetLastNodeArrayName)}, 0, 0xD150, 1, 0x1A57);
+    simple({0x0045D1C0, AddressOf(&SkateScript::CNodeManager::RemoveNodeArray)}, 4, 0xD1C0, 3, 1);
+    s.At({0x0045D520, AddressOf(&SkateScript::CNodeManager::AddNodeArray)}, 8, [](Regs& r) {
+        Record({0xD520, r.ecx, r.args[0], r.args[1] & 0xFF});
+        return 1u;
+    });
+    s.At({0x0045D670, AddressOf(&SkateScript::CNodeManager::RemoveNodeArrayOfFile)}, 4, [](Regs& r) {
+        Record({0xD670, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        return 1u;
+    });
+    s.At({0x00407B90, AddressOf(&Ass::CAssMan::GetAsset)}, 8, [](Regs& r) { Record({0x7B90, r.ecx, r.args[0]}); return 0x00A55E70u; });
+    simple({0x00407B20, AddressOf(&Ass::CAssMan::UnloadAsset)}, 4, 0x7B20, 3);
+}
+
+void TestParseNodeArrayCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> more = {{0x007D1800, 4, {}}, {0x007CE5D8, 4, {}}, {0x007CE500, 4, {}}, {0x00684FA8, 1, {}}};
+    SaveAll(saved);
+    SaveAll(more);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInNodeObjectCalls(*standIns);
+    StandInParseCalls(*standIns);
+    static uint8_t skate[0x400];
+    static uint8_t parkEditor[0x80];
+    static uint32_t memoryManager[0x5E8 / 4];
+    for (uint32_t i = 0; i < 0x5E8 / 4; ++i)
+        memoryManager[i] = 0x00E30000 + i;
+    // the node array: each class, with and without the flags that matter
+    static Params nodes[16];
+    static CStruct* elements[16];
+    const uint32_t kName = 0xA1DC81F9, kClass = 0x12B4E660;
+    const uint32_t kCreated = 0x7C2552B9, kOccluder = 0x4E549FE1;
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        SetUpScenes();
+        g_sceneCount = 2;
+        std::memset(skate, 0, sizeof(skate));
+        reinterpret_cast<uint32_t*>(skate)[0x24 / 4] = 0x00A11000;
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<void*>(0x007D1800) = memoryManager;
+        GameVariable<void*>(0x007CE5D8) = parkEditor;
+        GameVariable<uint32_t>(0x007CE500) = 0x007CE5FF;
+        for (int i = 0; i < 16; ++i)
+            nodes[i] = Params();
+        nodes[0].Checksum(kName, 0x401).Checksum(kClass, 0x8E6B02AD).Integer(0x9D2D0915, 1);
+        nodes[1].Checksum(kName, 0x5EC0).Checksum(kClass, 0xB7B3BD86).Checksum(0x7E4813A7, 0x7E1);
+        nodes[2].Checksum(kName, 0x5EC1).Checksum(kClass, 0xB7B3BD86);
+        nodes[3].Checksum(kName, 0x5999).Checksum(kClass, 0xB7B3BD86);
+        nodes[4].Checksum(kName, 0x5ED0).Checksum(kClass, 0xBF4D3536).Flag(kCreated).Flag(0x1645B830);
+        nodes[5].Checksum(kName, 0x5ED1).Checksum(kClass, 0xBF4D3536).Flag(kOccluder).Checksum(0x7E4813A7, 0x7E2);
+        nodes[6].Checksum(kName, 0x5ED2).Checksum(kClass, 0xBF4D3536).Flag(kOccluder).Flag(kCreated).Checksum(0x1A3A966B, 0xC105);
+        nodes[7].Checksum(kClass, 0xBF4D3536);
+        nodes[8].Checksum(kName, 0x5EFF).Checksum(kClass, 0xBF4D3536);
+        nodes[9].Checksum(kName, 0x5EFE).Checksum(kClass, 0xBF4D3536).Checksum(0xEDC063B9, 0x5ED0);
+        nodes[10].Checksum(kName, 0x40A).Checksum(kClass, 0x08470F2E).Flag(kCreated);
+        nodes[11].Checksum(kName, 0x40B).Checksum(kClass, 0xD64DC7C2);
+        nodes[12].Checksum(kName, 0x40C).Checksum(kClass, 0xA0E52802).Flag(kCreated);
+        nodes[13].Checksum(kName, 0x40D).Checksum(kClass, 0xEF59C100).Flag(kCreated);
+        nodes[14].Checksum(kName, 0x5EC2).Checksum(kClass, 0xBF4D3536).Flag(kCreated);
+        nodes[15].Checksum(kName, 0x40F).Checksum(kClass, 0x08470F2E);
+        for (int i = 0; i < 16; ++i)
+            elements[i] = nodes[i].Struct();
+        g_nodeArray.m_type = Script::ESYMBOLTYPE_STRUCTURE;
+        g_nodeArray.m_size = 16;
+        g_nodeArray.m_elements = reinterpret_cast<uint32_t*>(elements);
+        auto call = [&](uint32_t address, CFunc ours, Params& params, bool withParams = true) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            CStruct* p = withParams ? params.Struct() : nullptr;
+            bool result = original ? Original<CFunc>(address)(p, script) : ours(p, script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        Params none;
+        Params noCleanup; noCleanup.Flag(CrcOf("no_cleanup"));
+        // the park editor off / on; the skate module skipping some; multiplayer; every node a trick object; no checklist
+        for (int state = 0; state < 5; ++state) {
+            *reinterpret_cast<uint32_t*>(parkEditor + 0x40) = state == 1 ? 0x12345678u : 0xD443A2BCu;
+            g_skipMask = state == 2 ? 0x00004005u : 0;
+            g_multiplayer = state == 3;
+            g_allTricks = state == 4;
+            g_noChecklist = state == 2;
+            GameVariable<uint8_t>(0x00684FA8) = static_cast<uint8_t>(state == 3);
+            call(0x005A34E0, CFuncs::CFunc_ParseNodeArray, state == 1 ? noCleanup : none, state != 4);
+            for (auto& scene : g_sectors)
+                for (auto& sector : scene)
+                    Record({HashBytes(reinterpret_cast<const uint8_t*>(&sector), sizeof(sector))});
+        }
+        GameVariable<uint8_t>(0x00684FA8) = 0;
+        // ReLoadNodeArray
+        std::memcpy(&GameVariable<char>(0x007CE6D8), "levels\\nj\\nj.qb", 16);
+        call(0x005A39F0, CFuncs::CFunc_ReLoadNodeArray, none);
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(more);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    Check(traces[0].size() > 400, "node array commands: the original reached its calls");
+    Compare(traces[0], traces[1], "parse / reload node array (0x005A34E0-0x005A3AF7)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
+SELFTEST(Early, TestParseNodeArrayCFuncs, RemoveStandIns);
 SELFTEST(Early, TestNodeObjectCFuncs, RemoveStandIns);
 SELFTEST(Early, TestNodeTrackingCFuncs, RemoveStandIns);
 SELFTEST(Early, TestViewerModeCFuncs, RemoveStandIns);

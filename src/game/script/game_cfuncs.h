@@ -174,6 +174,8 @@ bool __cdecl CFunc_ForceServerListRefresh(Script::CStruct* params, Script::CScri
 
 bool __cdecl CFunc_CenterCamera(Script::CStruct* params, Script::CScript* script);             // 0x005A2D60
 bool __cdecl CFunc_CreateFromStructure(Script::CStruct* params, Script::CScript* script);      // 0x005A34D0
+bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript* script);          // 0x005A34E0
+bool __cdecl CFunc_ReLoadNodeArray(Script::CStruct* params, Script::CScript* script);          // 0x005A39F0
 // 0x005A2A00: the viewer's camera object placed to look at a scene's sectors (all, or those named `only`).
 void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float angleY, float angleZ, uint32_t only);
 // 0x005A2E50 / 0x005A32A0: the object of a node (its structure / its name) made by its class.

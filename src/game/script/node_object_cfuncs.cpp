@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "game/ass/assman.h"
+#include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -21,7 +23,10 @@
 #include "game/obj/objman.h"
 #include "game/obj/proxim.h"
 #include "game/obj/rail_manager.h"
+#include "game/skate/gap_checklist.h"
+#include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
+#include "game/script/node_manager.h"
 #include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -392,6 +397,190 @@ bool __cdecl KillFromNodeName(uint32_t name, Script::CScript* script)
 // 0x005A34D0: CreateFromStructure <node structure>: CreateFromNode with the command's parameters.
 bool __cdecl CFunc_CreateFromStructure(Script::CStruct* params, Script::CScript*) { return CreateFromNode(params); }
 
+namespace {
+
+constexpr uint32_t kCreatedAtStart = 0x7C2552B9;  // (name unknown) a node's object made when the level starts
+constexpr uint32_t kTerrainType = 0x7E4813A7;     // (name unknown) a level sector's terrain
+constexpr uint32_t kDefaultTerrain = 0xE3714DC1;  // (name unknown) ... when none is given
+constexpr uint32_t kTrickObject = 0x1645B830;     // (name unknown) a node that is a trick object
+constexpr uint32_t kCluster = 0x1A3A966B;         // (name unknown) its cluster (its own name if none)
+constexpr uint32_t kAllTrickObjects = 0xB675F8F6; // (name unknown) the global making every node a trick object
+constexpr uint32_t kNoGapChecklist = 0xF7ECD937;  // (name unknown) the global leaving the gap checklist alone
+constexpr uint32_t kRailRemove1 = 0x7321A8D6;     // (name unknown) removed from rail nodes with angles
+constexpr uint32_t kGeometryRemove = 0x2D7E583B;  // (name unknown) removed from level geometry nodes
+constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // CParkEditor::kStateOff
+
+// The sector named `name` in any scene (0x0048C510; null if none).
+uint8_t* FindSector(uint32_t name) { return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+bool ParkEditorOff() { return *reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) == kParkEditorOff; }
+Obj::CTrickObjectManager* TrickObjects() { return GameVariable<Obj::CTrickObjectManager*>(0x007CE500); }
+
+} // namespace
+
+// 0x005A34E0: ParseNodeArray [no_cleanup]: the level's node array (the node manager's 0x0045C220) set up: unless
+// no_cleanup, the proxims, emitters, rails, trick object clusters and two more cleared and the rails made from the
+// array. Then each node by class: rail nodes lose angles and 0x7321A8D6; level objects' sectors are switched off and
+// given their terrain; level geometry loses 0x2D7E583B, its sector (outside the park editor, if the object is made at
+// the start and the skate module doesn't skip it) shown and collided with, its occluder flag set, its terrain set
+// (missing sector or name: messages), and trick objects (0x1645B830 or the global 0xB675F8F6) become their cluster's.
+// Nodes the skate module doesn't skip: proxim nodes and emitters added; the objects made at the start made (level
+// geometry only outside the park editor). Then the rails' overlaps, the gap checklist (unless 0xF7ECD937), every
+// scene's 0x0049E1B0 and the 0xA0E52802 nodes' 0x00490570. Always true.
+bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
+{
+    Mem::PushMemProfile(reinterpret_cast<const char*>(0x006501DC)); // "ParseNodeArray"
+    uint8_t* skate = Skate();
+    auto* nodes = reinterpret_cast<Script::CArray*>(SkateScript::GetNodeOwnerValue58());
+    Obj::CRailManager* rails = RailManager();
+    if (!params || !params->ContainsFlag(reinterpret_cast<const char*>(0x006501D0))) { // "no_cleanup"
+        Obj::Proxim_Init();
+        Obj::Emitter_Init();
+        RailManager()->Cleanup();
+        TrickObjects()->RemoveAllClusters();
+        GameFunction<void(__cdecl*)()>(0x0048EF00)();
+        GameFunction<void(__cdecl*)()>(0x0048FDA0)();
+        Mem::PushMemProfile(reinterpret_cast<const char*>(0x006501C4)); // "Rail Nodes"
+        rails->AddFromNodeArray(nodes);
+        Mem::PopMemProfile();
+    }
+    // (a trick object's name: an asserted parameter, so the original's local - kept from one node to the next -
+    // holds the last one read when a node has none)
+    uint32_t objectName = 0;
+    for (uint32_t i = 0; i < nodes->m_size; ++i) {
+        auto* node = reinterpret_cast<Script::CStruct*>(nodes->GetElement(i));
+        uint32_t nodeClass = 0;
+        node->GetChecksum(kClass, &nodeClass, 0);
+        if (nodeClass == kClassRailNode) {
+            node->RemoveComponent(kAngles);
+            node->RemoveComponent(kRailRemove1);
+        } else if (nodeClass == kClassLevelObject) {
+            uint32_t name = 0;
+            node->GetChecksum(kName, &name, 0);
+            if (uint8_t* sector = FindSector(name)) {
+                SetActive(sector, false);
+                uint32_t terrain = kDefaultTerrain;
+                node->GetChecksum(kTerrainType, &terrain, 0);
+                *reinterpret_cast<uint32_t*>(sector + 0xC) = terrain;
+            }
+        } else if (nodeClass == kClassLevelGeometry) {
+            node->RemoveComponent(kGeometryRemove);
+            uint32_t name = 0;
+            node->GetChecksum(kName, &name, 0);
+            if (!name) {
+                Script::PrintContents(node, 0);
+                Dbg::Printf(reinterpret_cast<const char*>(0x00650184), i); // "FAILED BECAUSE Node %d is LevelGeometry..."
+            }
+            if (uint8_t* sector = FindSector(name)) {
+                if (!ParkEditorOff()) {
+                    if (node->ContainsFlag(kCreatedAtStart))
+                        SkipsNode(node); // (asked, the answer unused)
+                } else if (node->ContainsFlag(kCreatedAtStart) && !SkipsNode(node)) {
+                    SetVisibility(sector, 0xFFFFFFFF);
+                    SetActive(sector, true);
+                    SetCollidable(sector, true);
+                } else {
+                    SetActive(sector, false);
+                }
+                if (node->ContainsFlag(kOccluder)) {
+                    GameFunction<void(__thiscall*)(void*, int)>(0x0049EA60)(sector, 1);
+                    SetActive(sector, false);
+                    if (!node->ContainsFlag(kCreatedAtStart))
+                        SetOccluder(name, 0);
+                }
+                uint32_t terrain = kDefaultTerrain;
+                node->GetChecksum(kTerrainType, &terrain, 0);
+                *reinterpret_cast<uint32_t*>(sector + 0xC) = terrain;
+            } else {
+                uint32_t cloneFrom = 0;
+                node->GetChecksum(kCloneFrom, &cloneFrom, 0);
+                if (!cloneFrom && !GameFunction<bool(__thiscall*)(uint8_t*)>(0x005651F0)(skate) && ParkEditorOff()) {
+                    // "FAILED BECAUSE: Cannot find level geometry or collision for node %d ..."
+                    Dbg::Printf(reinterpret_cast<const char*>(0x006500B0), i, Script::FindChecksumNameOrUnknown(name));
+                }
+            }
+            bool trick = node->ContainsComponentNamed(kTrickObject);
+            if (!GameVariable<bool>(0x00684FA8) && Script::GetInteger(kAllTrickObjects))
+                trick = true;
+            if (!SkipsNode(node) && trick) {
+                Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650098)); // "Trick Object Clusters"
+                node->GetChecksum(kName, &objectName, true);
+                uint32_t cluster = objectName;
+                node->GetChecksum(kCluster, &cluster, false);
+                TrickObjects()->AddCluster(cluster);
+                TrickObjects()->AddObject(objectName, cluster);
+                Mem::PopMemProfile();
+            }
+        }
+        if (SkipsNode(node))
+            continue;
+        if (nodeClass == kClassLevelGeometry) {
+            if (!ParkEditorOff())
+                continue;
+        } else {
+            if (nodeClass == kClassProximNode) {
+                Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650088)); // "Proximity Nodes"
+                bool active = node->ContainsFlag(kCreatedAtStart); // (asked before the name, as in the original)
+                Obj::Proxim_AddNode(SkateScript::GetNodeName(node), active);
+                Mem::PopMemProfile();
+            }
+            if (nodeClass == kClassEmitterObject) {
+                Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650078)); // "Emitter Objects"
+                bool active = node->ContainsFlag(kCreatedAtStart); // (asked before the name, as in the original)
+                Obj::Emitter_AddNode(SkateScript::GetNodeName(node), active);
+                Mem::PopMemProfile();
+            }
+        }
+        if (node->ContainsFlag(kCreatedAtStart))
+            CreateFromNode(SkateScript::GetNode(SkateScript::GetNodeName(node), true));
+    }
+    Mem::PopMemProfile();
+    rails->RemoveOverlapsIfNotPark();
+    if (!Script::GetInteger(kNoGapChecklist))
+        GameFunction<Game::CGapChecklist*(__thiscall*)(uint8_t*)>(0x005656C0)(Skate())->Build();
+    for (SceneNode* at = FirstScene(); at;) {
+        SceneNode* next = NextScene(at);
+        GameFunction<void(__thiscall*)(void*, int)>(0x0049E1B0)(at->scene, 0);
+        at = next;
+    }
+    for (uint32_t i = 0; i < nodes->m_size; ++i) {
+        auto* node = reinterpret_cast<Script::CStruct*>(nodes->GetElement(i));
+        uint32_t nodeClass = 0;
+        node->GetChecksum(kClass, &nodeClass, 0);
+        if (nodeClass == kClassA0E52802)
+            GameFunction<void(__cdecl*)(Script::CStruct*)>(0x00490570)(node);
+    }
+    Mem::PopMemProfile();
+    return true;
+}
+
+// 0x005A39F0: ReLoadNodeArray: the level's node array (named at 0x007CE6D8) loaded again in the debug heap: the old
+// asset unloaded and the node manager's array of the file taken out, the file loaded (NodeArrayManLoad and its .qb,
+// 0x005A5960) and the node manager's last array put back in.
+bool __cdecl CFunc_ReLoadNodeArray(Script::CStruct*, Script::CScript* script)
+{
+    MemManager()->PushContext(reinterpret_cast<Mem::Allocator*>(MemManager()->m_debugHeap));
+    SkateScript::CNodeManager* nodeManager = SkateScript::NodeManagerInstance();
+    const char* nodeArrayName = &GameVariable<char>(0x007CE6D8);
+    Ass::CAssMan* assets = Ass::AssetManager();
+    assets->UnloadAsset(assets->GetAsset(Crc::GenerateCRCFromString(nodeArrayName), 0));
+    alignas(4) uint8_t storage[8];
+    auto* file = reinterpret_cast<Script::CStruct*>(storage);
+    file->Init();
+    file->AddString(0u, nodeArrayName);
+    const char* name = nullptr;
+    file->GetString(0u, &name, 1);
+    SkateScript::NodeManagerInstance()->RemoveNodeArrayOfFile(name);
+    CFunc_NodeArrayManLoad(file, script);
+    GameFunction<void(__cdecl*)(const char*, int)>(0x005A5960)(nodeArrayName, 0);
+    SkateScript::GetLastNodeArray();
+    uint32_t last = nodeManager->GetLastNodeArrayName();
+    nodeManager->RemoveNodeArray(last);
+    nodeManager->AddNodeArray(last, true);
+    MemManager()->PopContext();
+    file->Clear();
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x005A2A00, CFuncs::FitViewerCamera);
@@ -400,3 +589,5 @@ REPLACE(0x005A2E50, CFuncs::CreateFromNode);
 REPLACE(0x005A32A0, CFuncs::CreateFromNodeName);
 REPLACE(0x005A32C0, CFuncs::KillFromNodeName);
 REPLACE(0x005A34D0, CFuncs::CFunc_CreateFromStructure);
+REPLACE(0x005A34E0, CFuncs::CFunc_ParseNodeArray);
+REPLACE(0x005A39F0, CFuncs::CFunc_ReLoadNodeArray);
