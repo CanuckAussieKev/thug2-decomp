@@ -7,6 +7,12 @@
 //     PRO SKATER does;
 //   - and a sign of its own (level_select_icons.ts: THUG2's sign frame with a pictogram) instead of sign_training.
 //
+// The skate shops, tutorials and test levels of all the games (MISC_ORDER) are not in their games' sections but in a
+// last one, MISCELLANEOUS (level_select_menu_misc_level_info; text "<game> <name>", e.g. THPS3 SKATE SHOP; a game left
+// with no level loses its section). Their level_nums are the ones they had (unique across the section: sections()
+// checks); the entries of other games carry game_tag= for the level editor (LevelIsShared). The order is THUG2, the
+// converted games (THUG1, THPS4, THPS3, THPS2, THAW, THP8), MISCELLANEOUS, then the edited levels.
+//
 // The sections are data (the tables below, built by sections()): a section is a title and a list of levels; a level
 // is its sign text, level number, load script, icon and place. Adding a game is adding a section.
 //
@@ -49,7 +55,7 @@ import {
     pySum,
     sortedNumbers,
 } from "../lib/py.ts";
-import { search, sub } from "../lib/re.ts";
+import { search } from "../lib/re.ts";
 import { reEscape } from "./career_complete.ts";
 import * as levelSelectIcons from "./level_select_icons.ts";
 
@@ -127,7 +133,14 @@ export interface Level {
     location: readonly [number, number] | null;
     // Flags added to the entry (the DLL reads them: IsBigLevel / IsTallLevel - TP-R6, src/game/net/thugpro_compat.h).
     flags?: string[];
+    // Set on the levels that go to the MISCELLANEOUS section: "<game prefix>:<folder>" (MISC_ORDER's keys), and the
+    // game's name for the editor (game_tag= on the entry: level_editor_nodes.cpp LevelIsShared).
+    miscKey?: string;
+    gameTag?: string;
 }
+
+// The games whose levels the editor treats as shared with their original game (level_editor_nodes.cpp LevelIsShared).
+const GAME_TAGGED: ReadonlySet<string> = new Set(["THPS3", "THPS4", "THUG1", "THAW"]);
 
 // A table entry: what a game's table says about one of its levels (by folder).
 interface TableEntry {
@@ -135,6 +148,9 @@ interface TableEntry {
     icon?: string;
     place?: string;
     location?: readonly [number, number] | null;
+    // A level of the MISCELLANEOUS section (skate shops, tutorials, test levels): the game's short name on its sign
+    // ("THPS3" -> "THPS3 SKATE SHOP"), which also tells the editor which game's level it is.
+    misc?: string;
 }
 
 // THPS4's levels (tools/thps4_levels' manifest, by its folder), in THPS4's own level select order (a table's
@@ -180,10 +196,19 @@ export const THPS4_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
         },
     ],
     ["Hof", { text: "CHICAGO", icon: "skyline", place: "Chicago", location: [-87.63, 41.88] }],
-    ["SkateShop", { text: "SKATE SHOP", icon: "tshirt", place: "THPS4's skate shop (no place)", location: null }],
+    [
+        "SkateShop",
+        { text: "SKATE SHOP", icon: "tshirt", place: "THPS4's skate shop (no place)", location: null, misc: "THPS4" },
+    ],
     [
         "Motox",
-        { text: "MOTOX", icon: "motorbike", place: "Chicago (its loading screen and sky)", location: [-87.65, 41.92] },
+        {
+            text: "MOTOX",
+            icon: "motorbike",
+            place: "Chicago (its loading screen and sky)",
+            location: [-87.65, 41.92],
+            misc: "THPS4",
+        },
     ],
 ]);
 
@@ -223,8 +248,14 @@ export const THPS3_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
         },
     ],
     ["Ros", { text: "ROSWELL", icon: "ufo", place: "Roswell, New Mexico", location: [-104.52, 33.39] }],
-    ["Tut", { text: "TUTORIALS", icon: "whistle", place: "THPS3's tutorials (no place)", location: null }],
-    ["SkateShop", { text: "SKATE SHOP", icon: "shop", place: "THPS3's skate shop (no place)", location: null }],
+    [
+        "Tut",
+        { text: "TUTORIALS", icon: "whistle", place: "THPS3's tutorials (no place)", location: null, misc: "THPS3" },
+    ],
+    [
+        "SkateShop",
+        { text: "SKATE SHOP", icon: "shop", place: "THPS3's skate shop (no place)", location: null, misc: "THPS3" },
+    ],
 ]);
 
 // THPS2's levels (tools/thps2_levels' manifest, by its base name in ALL.PKR), in THPS2's career order, each a pictogram
@@ -280,7 +311,7 @@ export const THUG1_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
     ["VN", { icon: "dumbbell" }],
     ["HN", { icon: "helicopter" }],
     ["SC2", { icon: "apple" }],
-    ["NJ_Skateshop", { icon: "tag" }],
+    ["NJ_Skateshop", { text: "SKATE SHOP", icon: "tag", misc: "THUG" }],
 ]);
 
 // THAW's levels (tools/thaw_levels' manifest, by zone), classic mode's first, then the story's areas. Places: the
@@ -361,15 +392,19 @@ export function manifestLevels(manifest: Manifest, table: ReadonlyMap<string, Ta
         const text = mine.text || entry.display.replace(new RegExp(`^${reEscape(prefix)} `), () => "");
         const icon = mine.icon || (entry.icon ? `texture:${entry.icon}` : "skateboard");
         const place = mine.place || entry.location || "";
+        const misc = mine.misc !== undefined && entry.folder !== undefined;
         const location = "location" in mine ? (mine.location ?? null) : findPlace(entry.location);
         return {
-            text: text.replaceAll('"', ""),
+            text: `${misc ? `${mine.misc} ` : ""}${text.replaceAll('"', "")}`,
             levelNum: entry.level_num,
             load: `Load_${loadOf(entry)}`,
             icon,
             sign: `sign_${entry.level.toLowerCase()}`,
             place,
             location,
+            ...(misc
+                ? { miscKey: `${prefix}:${entry.folder}`, ...(GAME_TAGGED.has(prefix) ? { gameTag: prefix } : {}) }
+                : {}),
             // (flags the converter set on its manifest entry: tools/thp8_levels' IsBigLevel)
             ...(Array.isArray(entry.flags)
                 ? { flags: entry.flags.filter((f): f is string => typeof f === "string") }
@@ -396,17 +431,60 @@ export const THP8_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tabl
     ["net_capitol", { icon: "pediment", place: THP8_CITY, location: null }],
     ["net_skatefunparks", { icon: "ticket", place: THP8_CITY, location: null }],
     ["net_skatecentral", { icon: "compass", place: THP8_CITY, location: null }],
-    ["z_training", { icon: "target", place: "THP8's training area (no place)", location: null }],
-    ["z_skateshop", { icon: "skatetool", place: "THP8's skate shop (no place)", location: null }],
-    ["z_bedroom", { icon: "bed", place: "THP8's bedroom (no place)", location: null }],
+    [
+        "z_training",
+        { text: "TRAINING", icon: "target", place: "THP8's training area (no place)", location: null, misc: "P8" },
+    ],
+    [
+        "z_skateshop",
+        { text: "SKATE SHOP", icon: "skatetool", place: "THP8's skate shop (no place)", location: null, misc: "P8" },
+    ],
+    ["z_bedroom", { text: "BEDROOM", icon: "bed", place: "THP8's bedroom (no place)", location: null, misc: "P8" }],
 ]);
 
 // THUG2's own list (level_select_menu_level_info) with what make_menu_level adds to it: SKATE SHOP and TEST LEVEL
 // get signs of their own and no star (they were TRAINING's sign and star).
-export const THUG2_EXTRA: ReadonlyMap<string, { icon: string; sign: string; place: string }> = new Map([
-    ["SKATE SHOP", { icon: "skateboard", sign: "sign_skateshop", place: "THUG2's skate shop (no place)" }],
-    ["TEST LEVEL", { icon: "cone", sign: "sign_testlevel", place: "Neversoft's test level (no place)" }],
+// They go to the MISCELLANEOUS section (level_num as make_menu_level's SKATESHOP_SIGN_LEVEL / TESTLEVEL_SIGN_LEVEL).
+export const THUG2_EXTRA: ReadonlyMap<
+    string,
+    { icon: string; sign: string; place: string; levelNum: number; load: string }
+> = new Map([
+    [
+        "SKATE SHOP",
+        {
+            icon: "skateboard",
+            sign: "sign_skateshop",
+            place: "THUG2's skate shop (no place)",
+            levelNum: 18,
+            load: "Load_SkateShopLevel",
+        },
+    ],
+    [
+        "TEST LEVEL",
+        {
+            icon: "cone",
+            sign: "sign_testlevel",
+            place: "Neversoft's test level (no place)",
+            levelNum: 21,
+            load: "load_TestLevel",
+        },
+    ],
 ]);
+
+// The MISCELLANEOUS section's levels, in order: Level.miscKey, "<game prefix>:<folder>" (THUG2's own: the sign's name).
+export const MISC_ORDER: readonly string[] = [
+    "THUG2:SKATE SHOP",
+    "THUG2:TEST LEVEL",
+    "THP8:z_bedroom",
+    "THP8:z_skateshop",
+    "THP8:z_training",
+    "THPS3:SkateShop",
+    "THPS3:Tut",
+    "THPS4:Motox",
+    "THPS4:SkateShop",
+    "THUG1:NJ_Skateshop",
+];
+export const MISC_TITLE = "MISCELLANEOUS";
 
 // A section: [id, title, array name, levels we add to it or null].
 export type Section = [string, string, string, Level[] | null];
@@ -473,7 +551,39 @@ export function sections(
             manifestLevels(games.thp8, THP8_LEVELS, "THP8"),
         ]);
     }
-    return out;
+    // The skate shops, tutorials and test levels of all the games go to one last section instead.
+    const misc: Level[] = [...THUG2_EXTRA].map(
+        ([name, extra]): Level => ({
+            text: `THUG2 ${name}`,
+            levelNum: extra.levelNum,
+            load: extra.load,
+            icon: extra.icon,
+            sign: extra.sign,
+            place: extra.place,
+            location: null,
+            miscKey: `THUG2:${name}`,
+        }),
+    );
+    for (const section of out) {
+        const levels = section[3];
+        if (!levels) continue;
+        misc.push(...levels.filter((lv) => lv.miscKey !== undefined));
+        section[3] = levels.filter((lv) => lv.miscKey === undefined);
+    }
+    const stray = misc.filter((lv) => !MISC_ORDER.includes(lv.miscKey!));
+    if (stray.length)
+        pyExit(`level select: misc levels not in MISC_ORDER: ${stray.map((lv) => lv.miscKey).join(", ")}`);
+    const ordered = MISC_ORDER.flatMap((key) => misc.filter((lv) => lv.miscKey === key));
+    const numbers = new Set<number>();
+    for (const lv of ordered) {
+        if (numbers.has(lv.levelNum))
+            pyExit(`level select: MISCELLANEOUS has level_num ${lv.levelNum} twice (${lv.text})`);
+        numbers.add(lv.levelNum);
+    }
+    // (a game section left with no level is dropped; THUG2's own always stays)
+    const result = out.filter((section, n) => n === 0 || (section[3] ?? []).length > 0);
+    result.push(["misc", MISC_TITLE, "level_select_menu_misc_level_info", ordered]);
+    return result;
 }
 
 // --- gamemenu_levelselect.qb -------------------------------------------------------------------------------------
@@ -526,7 +636,7 @@ export function signEntry(lv: Level): string {
     // (no seen_flag, no star) - ours are seen as soon as they're unlocked.
     return (
         `    {text="${lv.text}" level_num=${lv.levelNum} num_goals=0 flag=LEVEL_UNLOCKED_TR seen_flag=LEVEL_UNLOCKED_TR level=${lv.load} ` +
-        `sign_texture=${texture}${dot}${(lv.flags ?? []).map((flag) => ` ${flag}`).join("")}} \n`
+        `sign_texture=${texture}${dot}${lv.gameTag ? ` game_tag="${lv.gameTag}"` : ""}${(lv.flags ?? []).map((flag) => ` ${flag}`).join("")}} \n`
     );
 }
 
@@ -550,13 +660,11 @@ export function editLevelSelect(text: string, sectionList: readonly Section[]): 
     // `text`: gamemenu_levelselect.qb as NeverScript text, after make_menu_level's addSkateshopSign (without THPS4).
     const count = sectionList.length;
 
-    // THUG2's added entries: their own signs, no star.
-    for (const [name, extra] of THUG2_EXTRA) {
-        const entry = search(new RegExp(`\\{text="${name}" [^\\n]*\\}`), text);
+    // THUG2's added entries (SKATE SHOP, TEST LEVEL) leave its array for the MISCELLANEOUS section's.
+    for (const name of THUG2_EXTRA.keys()) {
+        const entry = search(new RegExp(`\\n *\\{text="${name}" [^\\n]*\\} *(?=\\n)`), text);
         if (!entry) pyExit(`gamemenu_levelselect.qb: the ${name} entry not found`);
-        let replacement = sub(/sign_texture=\w+/, `sign_texture=${extra.sign}`, entry.str(0));
-        replacement = sub(/ dot_pos=\([^)]*\)/, "", replacement);
-        text = replaceFirst(text, entry.str(0), replacement);
+        text = replaceFirst(text, entry.str(0), "");
     }
     // TRAINING out of its one-item column (see the top).
     const training = search(/\{text="TRAINING" level_num=LevelNum_TR [^\n]* new_vmenu\}/, text);

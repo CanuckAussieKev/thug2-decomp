@@ -547,3 +547,11 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   pools, glass, turbine), repeatedSurfaces keyed on pass-0 texture + partial triangles, biasOverlays(lookAlikes) on
   (595 materials biased in BEAVER VALLEY - if poke-through appears, lookAlikes is one flag in thp8_levels.ts).
   BEAVER VALLEY flicker 1,667 -> 496 m2. Left: Z_Inschool_g_back_periph05's partner (284 m2), instance-only pairs.
+- Main install (2026-10-24 21:20): THPS3 reconverted at --hd-textures 4 (1.6 GB) + overlay --hd-ui 4. Future installs into
+  the main install: THPS3 with --hd-textures 4, make_menu_level with --hd-ui 4. Running: MISCELLANEOUS level-select
+  section + THP8 after THAW (docs/pending/levelselect-misc.md, THUG2-2); HD UI part 2 - globe, arrows, skipped UI textures
+  (docs/pending/hd-ui.md, THUG2-3); renderer decomp ~41%.
+- Installed (2026-10-24 ~21:50): MISCELLANEOUS level-select section (docs/pending/levelselect-misc.md; DLL rebuilt for
+  the new list name in gamenet_manager / thugpro_compat / level_editor_layout / level_editor_nodes), THPS2 at
+  --hd-textures 4 --hd-model realesrgan-x4plus-anime (1.37 GB). Main install now: THPS2 + THPS3 4x, HD UI. Gap noted:
+  gamenet_manager's net lookup list lacks the thps2 / thp8 arrays. Next: DXT compression of upscaled 32-bit textures.

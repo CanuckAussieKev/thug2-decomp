@@ -23,6 +23,7 @@ constexpr const char* kLevelLists[] = {
     "level_select_menu_thps3_level_info", "level_select_menu_thaw_level_info",
     // (not THUGPRO's: our THP8 levels wider than half units reach - tools/thp8_levels, NET_HALF_REACH)
     "level_select_menu_thps2_level_info", "level_select_menu_thp8_level_info",
+    "level_select_menu_misc_level_info", // (the MISCELLANEOUS section: skate shops, tutorials, test levels)
 };
 
 PositionScale s_scale;
