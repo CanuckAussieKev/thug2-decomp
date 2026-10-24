@@ -492,3 +492,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   on the loading screen (files, load scripts / commands, log lines; "last activity", orange after 10 s idle); the
   loading screen's 29 ms timer callback 0x004B6FF0 rewritten (src/game/gfx/loading_bar.cpp). Checks: 773 early
   self-tests, 0 MISMATCHED. Orange idle state and BEAVER VALLEY not seen in the game yet.
+- GS1-GS3 merged (each built + checked: 0 MISMATCHED, 801 early self-tests, scans clean), folded as 358-383 (GS3
+  358-365, GS2 366-372, GS1 373-383); progress 71.83%. Installed (DLL + overlay with the Stone Arch Bridge sign for
+  Minneapolis). NOT run in the game beyond the agents' crash checks. GS4 still running; collision-event logger running
+  (docs/pending/collision-events.md, workspace THUG2-2). automation.cpp's fopen C4996 fixed (_fsopen).
