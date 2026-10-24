@@ -512,3 +512,8 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   switch, `logging on` line per level, collision-event-detail lines (state, input, deciding ray, face corners, open
   edge, file identity, approach, camera), slope only on real slopes, 1 s repeat window with repeats=. 815 early
   self-tests. Offered the user an offline z-fighting scanner (not started).
+- THP8 render audit merged (2026-10-24, 91df04a; tools only, nothing installed): tools/level_port/zfight.ts,
+  texture_check.ts, tools/thp8_levels/render_audit.ts (textures / zfight / spot). Findings + 10 proposed converter fixes
+  in docs/pending/thp8-render-audit.md (grey lawns = NormalMapBlended falls back to a flat grey 32x32; stand-in instance
+  masters stacked at the origin; no overlay_bias in THP8; doubled fun-park periphery). Fix round not started.
+  Running: renderer decomp 0x4B2280-0x4D6D40 (docs/pending/renderer-fx.md, RFX-n, workspace THUG2-1).
