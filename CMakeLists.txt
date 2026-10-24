@@ -211,6 +211,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_fe_manager.cpp
     src/hook/selftests_fe_scroll.cpp
     src/hook/selftests_fe_sprite.cpp
+    src/hook/selftests_hd_ui.cpp
     src/hook/selftests_fe_cfuncs.cpp
     src/hook/selftests_fe_text.cpp
     src/hook/selftests_tod.cpp
@@ -676,6 +677,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/glow.cpp
     src/game/gfx/texture.cpp
     src/game/gfx/texture_file.cpp
+    src/game/gfx/hd_ui.cpp
     src/game/sys/key_names.cpp
     src/game/obj/anim_blender.cpp
     src/game/obj/ride_tracker.cpp
@@ -1005,6 +1007,12 @@ target_include_directories(thug2_code PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts"
 add_dependencies(thug2_code build_info)
 target_include_directories(thug2_code PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated")
 target_compile_definitions(thug2_code PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
+# Not original - HD menu UI (src/game/gfx/hd_ui.h): the upscaled menu images and fonts that
+# tools/menu_level/make_menu_level.ts --hd-ui puts in the data overlay drawn at their original size. Off: compiled out.
+option(THUG2_HD_UI "Draw the data overlay's upscaled menu images and fonts at their original size" OFF)
+if(THUG2_HD_UI)
+    target_compile_definitions(thug2_code PUBLIC THUG2_HD_UI=1)
+endif()
 target_compile_options(thug2_code PRIVATE /W4 /permissive- /utf-8)
 
 add_library(thug2_decomp SHARED

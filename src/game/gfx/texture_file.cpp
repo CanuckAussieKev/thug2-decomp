@@ -6,11 +6,13 @@
 #include <d3d9.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/file/file.h"
+#include "game/gfx/hd_ui.h"
 #include "game/gfx/texture.h"
 #include "game/sys/platform_d3d.h"
 #include "game/sys/platform_system.h"
@@ -29,7 +31,7 @@ struct ImageHeader {
     uint32_t unknown4;
     uint32_t width, height;
     uint32_t format;       // 0: 32-bit, 2: 16-bit, 0x13: 8-bit with a palette; others 0-15: their bits with a palette
-    uint32_t unknown14;
+    uint32_t unknown14;    // 0 (not original: HdUi::kImageMarker | scale in an upscaled image - hd_ui.h)
     uint16_t imageWidth, imageHeight;
     uint32_t paletteSize;  // (the file loader's)
 };
@@ -88,6 +90,42 @@ void Finish(sTexture* texture)
     static_cast<IDirect3DTexture9*>(texture->texture)->UnlockRect(0);
 }
 
+// The buffer the stored texels are read into. Not original - HD menu UI (game/gfx/hd_ui.h): an upscaled image's
+// (up to 16 MB) comes from the C runtime's heap, not the game's - the game's heap in use while the front end loads its
+// sprites hasn't room for them (the first one made Mem::New fail and the read end the game).
+void* NewTexelBuffer(uint32_t size, [[maybe_unused]] const ImageHeader& header)
+{
+#if THUG2_HD_UI
+    if (HdUi::ImageScale(header.unknown14) != 1)
+        return std::malloc(size);
+#endif
+    return Mem::New(size);
+}
+void FreeTexelBuffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
+{
+#if THUG2_HD_UI
+    if (HdUi::ImageScale(header.unknown14) != 1)
+        return std::free(buffer);
+#endif
+    Mem::Manager::Instance()->Free(buffer);
+}
+
+#if THUG2_HD_UI
+// Not original - HD menu UI (game/gfx/hd_ui.h, the CMake option THUG2_HD_UI): an upscaled image keeps its full-size
+// Direct3D texture but reports the original's sizes, so what sizes itself by them is drawn as large as before.
+void ApplyHdScale(sTexture* texture, const ImageHeader& header)
+{
+    uint32_t scale = HdUi::ImageScale(header.unknown14);
+    if (scale == 1)
+        return;
+    HdUi::NoteImage(scale, texture->width, texture->height);
+    texture->width = static_cast<uint16_t>(texture->width / scale);
+    texture->height = static_cast<uint16_t>(texture->height / scale);
+    texture->imageWidth = static_cast<uint16_t>(texture->imageWidth / scale);
+    texture->imageHeight = static_cast<uint16_t>(texture->imageHeight / scale);
+}
+#endif
+
 } // namespace
 
 // 0x004E0790
@@ -117,7 +155,7 @@ sTexture* __cdecl LoadTextureFile(const char* name)
     if (plain && !palettized) {
         File::Read(locked.pBits, size, 1, file);
     } else {
-        void* buffer = Mem::New(size);
+        void* buffer = NewTexelBuffer(size, header);
         File::Read(buffer, size, 1, file);
         void* indices = nullptr;
         void* texels;
@@ -129,11 +167,14 @@ sTexture* __cdecl LoadTextureFile(const char* name)
         }
         if (palettized)
             ExpandPalette(locked.pBits, texels, size, palette);
-        Mem::Manager::Instance()->Free(buffer);
+        FreeTexelBuffer(buffer, header);
         Mem::Manager::Instance()->Free(indices);
     }
     File::Close(file);
     Finish(texture);
+#if THUG2_HD_UI
+    ApplyHdScale(texture, header); // (not original - hd_ui.h)
+#endif
     return texture;
 }
 
@@ -168,7 +209,7 @@ sTexture* __cdecl LoadTextureMemory(const uint8_t* data)
     if (plain && !palettized) {
         std::memcpy(locked.pBits, at, size);
     } else {
-        void* buffer = Mem::New(size);
+        void* buffer = NewTexelBuffer(size, header);
         std::memcpy(buffer, at, size);
         void* indices = nullptr;
         void* texels;
@@ -180,10 +221,13 @@ sTexture* __cdecl LoadTextureMemory(const uint8_t* data)
         }
         if (palettized)
             ExpandPalette(locked.pBits, texels, size, palette);
-        Mem::Manager::Instance()->Free(buffer);
+        FreeTexelBuffer(buffer, header);
         Mem::Manager::Instance()->Free(indices);
     }
     Finish(texture);
+#if THUG2_HD_UI
+    ApplyHdScale(texture, header); // (not original - hd_ui.h)
+#endif
     return texture;
 }
 

@@ -67,3 +67,22 @@ as specks a little more than in the original.
 - `node tools/hd_textures/compare_tex.ts <orig.tex.xbx> <hd.tex.xbx> <out>` - texture pairs on a checkerboard.
 - `node tools/hd_textures/compare_shots.ts <out.png> <a.png> <b.png> [...] [--crop x,y,w,h] [--zoom N]` - game
   screenshots of the same views side by side.
+
+## HD menu UI (experiment, off by default)
+
+The menus' 2D images (`.img.xbx` sprites) and bitmap fonts (`.fnt.xbx` glyph pages) upscaled into the data overlay:
+`tools/hd_textures/ui.ts` (the same pass: cache, back-projection; `realesrgan-x4plus-anime` by default - flat
+colours, outlines and text). Two switches, both needed:
+
+    cmake ... -DTHUG2_HD_UI=ON          (the DLL; default OFF: the code is compiled out)
+    node tools/menu_level/make_menu_level.ts --game C:\Games\THUG2-n --hd-ui 4    (or 2; without it: no HD files)
+
+A sprite's size on screen comes from its texture's image size and a glyph's from the font's rectangles, so the
+upscaled files carry a marker (`.img.xbx` header +0x14 = 0x4844000s, `.fnt.xbx` glyph page header +8 = "HDUI", +0xC
+the scale) and the DLL built with THUG2_HD_UI reports the original's sizes (src/game/gfx/hd_ui.h). Without the
+option the upscaled images and text would show 2 / 4 times as large.
+
+Files: every image and font in mainmenusprites / panelsprites / Levelselect / multiplayersprites / Themes / fonts.prx
+and the overlay's own level select signs. Not: the loading screens, Create-A-Graphic pieces, PermTex / Bits, level
+textures (`.tex.xbx`, also the front end's THPS4 skate shop). `node tools/hd_textures/ui.ts <game> <out> [--scale N]`
+writes them anywhere. Measurements and what was seen: docs/pending/hd-ui.md.
