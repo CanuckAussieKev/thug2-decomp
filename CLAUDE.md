@@ -91,6 +91,15 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   in `docs/pending/<name>.md`) but cost a lot of usage - keep each to a few functions, and merge yourself.
   Give every agent `docs/agent-rules.md`; game-run scripts and the workspace maker are in `tools/game` (README);
   `node tools/fold_pending.ts` folds an agent's batch records into decomp-progress.md.
+- **Agent cost** (the user, 2026-10-24; Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50 per M tokens):
+  - Decompilation batches stay on the default (strongest) model - no switch for now. So do engine / physics
+    work and crash or hang diagnosis.
+  - Mechanical work gets `model: "sonnet"`: checksum naming, GameFunction call cleanups, wrapping NOT ORIGINAL code
+    in `#if`, docs and records, simple converter / level-table / icon changes - the build and checks validate it.
+  - Haiku only for read-only bulk scanning (sorting logs, listing addresses); never for C++ edits.
+  - A fresh agent per round of follow-up work, briefed from its `docs/pending/` record and the new repro - don't
+    resume one agent round after round (each resume carries its whole growing history: 600-800k tokens a round).
+  - Routine agents (merges and checks, small converter tweaks) at lower effort.
 - Commit messages end with the Co-Authored-By line given in the session.
 - **Morten1337's private repositories** (thugpro, thugpro_proxy, thugpro_toolchain, thug2-decomp and the others the
   user's account can reach - cloned with the machine's stored git credentials): since 2026-10-20 the user has his
