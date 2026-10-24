@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
+#include "game/gfx/graphics_options.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
@@ -141,6 +142,10 @@ void CSuspendComponent::InitFromStructure(Script::CStruct* params)
         Script::PrintContents(params, 0);
     lod[0] = Script::GetFloat(0xD3D072F9) * lod[0]; // LOD0DistanceMultiplier
     lod[1] = Script::GetFloat(0x0432F2A1) * lod[1]; // LOD1DistanceMultiplier
+    // NOT ORIGINAL - [Graphics] lod_distance_scale (game/gfx/graphics_options.h): animated and drawn further out.
+    float scale = Nx::GraphicsOptions::Get().lodDistanceScale;
+    lod[0] = Nx::GraphicsOptions::Scaled(lod[0], scale);
+    lod[1] = Nx::GraphicsOptions::Scaled(lod[1], scale);
 }
 
 // 0x004341C0

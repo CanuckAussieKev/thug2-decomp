@@ -3,6 +3,7 @@
 
 #include "game/gfx/settings.h"
 
+#include "game/gfx/graphics_options.h"
 #include "game/gfx/occlusion.h"
 
 #include <cstdint>
@@ -38,6 +39,8 @@ void LoadGraphicsSettings()
     s_blurDisabled = Config::GetBool(Config::kGraphics, "DisableBlur", true);
     // (NOT ORIGINAL: game/gfx/occlusion.h)
     OcclusionOff() = !Config::GetBool(Config::kGraphics, "OcclusionCulling", true);
+    // (NOT ORIGINAL: anisotropy, msaa, draw_distance_scale, lod_distance_scale - game/gfx/graphics_options.h)
+    GraphicsOptions::Load();
 }
 
 void WriteGraphicsSettings()

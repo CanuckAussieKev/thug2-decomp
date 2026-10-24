@@ -16,6 +16,7 @@
 #include "game/gfx/camera.h"
 #include "game/gfx/draw2d.h"
 #include "game/gfx/glow.h"
+#include "game/gfx/graphics_options.h"
 #include "game/gfx/lens_flare.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/render_state.h"
@@ -271,6 +272,9 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     camera.angle = angle;
     if (GameVariable<bool>(0x007D643A)) // distance clipping (setting 0x007D6444: 100-595)
         camera.farZ = static_cast<float>(static_cast<double>(GameVariable<uint32_t>(0x007D6444)) * 18.0);
+    // NOT ORIGINAL - [Graphics] draw_distance_scale (game/gfx/graphics_options.h): the far plane (and with it the
+    // distance clipping's cull distance, 0x00786CAC) further out.
+    camera.farZ = GraphicsOptions::Scaled(camera.farZ, GraphicsOptions::Get().drawDistanceScale);
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
     double halfAngle = static_cast<double>(angle) * 0.008726646f;
@@ -390,8 +394,11 @@ void DrawScreenBlur()
     void* surface = nullptr;
     Method<long(__stdcall*)(void*, unsigned int, void**)>(texture, 0x48)(texture, 0, &surface); // GetSurfaceLevel
     void* depth = GameVariable<void*>(0x00786D64);
-    SetRenderTarget(surface);
-    SetDepthStencilSurface(depth);
+    // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
+    if (!GraphicsOptions::SetSceneTarget(static_cast<IDirect3DTexture9*>(texture))) {
+        SetRenderTarget(surface);
+        SetDepthStencilSurface(depth);
+    }
     Method<unsigned long(__stdcall*)(void*)>(surface, 8)(surface); // Release
     SetVertexFormat(0x144);                                       // XYZRHW | DIFFUSE | TEX1
     SetPixelShader(nullptr, nullptr); // (no pixel shader)
@@ -407,6 +414,8 @@ void DrawScreenBlur()
     }
     // ...then `texture` onto the back buffer, cleared first to the fog colour (with fog and distance clipping
     // on) or the background colour.
+    // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
+    GraphicsOptions::ResolveSceneTarget(static_cast<IDirect3DTexture9*>(texture));
     SetRenderTarget(GameVariable<void*>(0x00786D10));
     SetDepthStencilSurface(GameVariable<void*>(0x00786D14));
     bool fogColour = GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A);

@@ -5,6 +5,7 @@
 
 #include "game/core/mem.h"
 #include "game/front/menu_backdrop.h"
+#include "game/gfx/graphics_options.h"
 #include "game/gfx/screen.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -61,6 +62,8 @@ Camera* Camera::Construct()
             distance += 4294967296.0;
         m_farClip = static_cast<float>(distance * 30.0);
     }
+    // NOT ORIGINAL - [Graphics] draw_distance_scale (game/gfx/graphics_options.h).
+    m_farClip = Nx::GraphicsOptions::Scaled(m_farClip, Nx::GraphicsOptions::Get().drawDistanceScale);
     m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
     m_oldPos = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
