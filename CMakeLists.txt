@@ -288,6 +288,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gs2_contents.cpp
     src/hook/selftests_gs2_textures.cpp
     src/hook/selftests_gs2_saving.cpp
+    src/hook/selftests_gs1.cpp
     src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_obj_scene_cmds.cpp
@@ -947,6 +948,10 @@ add_library(thug2_code OBJECT
     src/game/script/qb.cpp
     src/game/script/struct.cpp
     src/game/script/skate_cfuncs.cpp
+    src/game/script/game_cfuncs.cpp
+    src/game/script/game_flow_cfuncs.cpp
+    src/game/script/net_state_cfuncs.cpp
+    src/game/script/node_object_cfuncs.cpp
     src/game/script/script_util_cfuncs.cpp
     src/game/script/math_cfuncs.cpp
     src/game/script/debug_cfuncs.cpp
