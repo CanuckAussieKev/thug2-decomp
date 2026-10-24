@@ -1152,15 +1152,14 @@ export const FACE_KEEP = 0x1fff;
 // script is brought along or kills).
 export const FACE_VOLUME = 0x20;
 export const VOLUME_DROP = 10; // metres
-// THP8's invisible trigger volumes are faces 0x1040 (invisible, trigger) without 0x10 - z_houses' wedges across the
-// suburb road (bodies 166 / 167, 0.9 m high, 39-degree sides): its skater passes through them; THUG2's collides with a
-// face unless it's non-collidable, and convertCol takes the trigger bit off where the node's script isn't brought along -
-// they stood as invisible ramps / walls (the user, BEAVER VALLEY round 4). Made non-collidable (TRIGGER_VOLUME).
-export const TRIGGER_VOLUME = thug2Col.FACE_INVISIBLE | thug2Col.FACE_TRIGGER;
+// THP8's 0x40 faces stay solid: they are not pass-through volumes but solid ground that also triggers - the suburb
+// roundabout's skirt is four invisible 0x1140 ramps (z_houses bodies 166-169) over its drawn concrete; the town has 81
+// such bodies (the funpark's and cartoon world's ramps, the school's bleachers, the capitol's lawns: 65-100 % of their
+// area ground-like). Round 4 made the 0x1040 ones non-collidable, and the skater went through the skirt into the planter
+// and the tree's roots (the user, round 6) - undone.
 export function faceFlags(material: number): number {
     let f = material & FACE_KEEP;
     if (f & FACE_VOLUME && f & thug2Col.FACE_NON_COLLIDABLE) f = (f & ~FACE_VOLUME) | 0x40;
-    if ((f & TRIGGER_VOLUME) === TRIGGER_VOLUME) f |= thug2Col.FACE_NON_COLLIDABLE;
     return f;
 }
 

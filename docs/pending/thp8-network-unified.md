@@ -363,3 +363,47 @@ typecheck, lint, selfcheck. Converted and installed in THUG2-2.
 
 For the user: the suburb road and the flower ring's kerbs; any other place the skater turns round on flat ground
 (with `[debug] collision_events=1` the log says where).
+
+# Round 6 (2026-10-24, branch thp8-net-6 from main 50adfa3)
+
+## Spot 1 - "clipping through a ramp" (BEAVER VALLEY (-6815.1, 7.0, 3447.7), the suburb roundabout's skirt)
+
+- The drawn skirt (Z_Houses_Street_JG_FlowerRing01, drawn concrete) has no slope in its own collision (FlowerRing01's
+  collision is the flat road at 7.0); in THP8 the slope is four invisible bodies, z_houses 166-169, faces 0x1140
+  (invisible, 0x40, no skater shadow): a ring of ramps from the road (0.19 m) up 33 degrees to 0.87 m, a steeper lip
+  to 1.07 m, then the planter's top (Planter01, 38.3 in). They match the drawn skirt.
+- Cause: round 4. I took the 0x1040 faces for pass-through trigger volumes (the "invisible wall" there) and made them
+  non-collidable; the skater then went through the skirt into the planter, where the CenterTree's root boxes (its
+  collision below the planter top) stopped him - the collision-event agent's `wall-ahead` off CenterTree face 40 (a
+  root box's end, y -27..20 inside the planter).
+- THP8's 0x40 is not pass-through: 81 bodies in the city are made only of 0x40 faces - the funpark's and cartoon
+  world's ramps, the school's bleachers (20 bodies, 79 % ground-like), the capitol's lawns (2,650 m2, 0x40), the
+  factory's strips; 51 of them all invisible 0x40 (round 4 made exactly those non-collidable).
+- Fix: undone - 0x40 faces stay solid (faceFlags), the test now says so. Checked offline: the skirt is collidable again
+  (profile from the road: 13.3 -> 41.3 in on 0xDFB6C95B, flags 0x1100, then the planter at 41.2 / 38.3).
+- The skirt's faces are not walls for THUG2: 33-degree slope (normal y 0.84), the lip ~63 degrees (y 0.45 > THUG2's
+  0.42 wall limit), so they ride as ground (no ramp_collision flags needed). The round-4 "invisible wall" the user met
+  pushing -x along the road from (-6554.6, 7, 3518.4) is this skirt, 250 inches on; with no speed the skater can't
+  climb a 0.9 m ramp - not a wall in the data. To be seen in the game (below).
+
+## Spot 2 - "clip into a tree, and cannot move" (BEAVER VALLEY (-6924.9, 72.1, 3462.2))
+
+- The CenterTree's collision: tilted root boxes from below the planter (y -79) up to ~135 in round the trunk, a
+  closed trunk prism (faces 0x2) from ~121 to ~194 with both caps; rays from 60 inches out towards the trunk's axis at
+  45-170 inches high: all 144 hit it (only at 190, above the prism's slanted top, do some pass) - no side way in.
+- The spot is 9 inches from the axis at y 72, inside the root boxes - reachable only from below, from inside the
+  planter: where round 4's non-collidable skirt let him in (spot 1). With the skirt solid, the way in is closed. No
+  other change made for it.
+- Other roundabouts / planters / trees: the same skirt pattern (invisible 0x1140 ramps) occurs in z_houses only (the
+  4 bodies); the 51 invisible-0x40 bodies are solid again everywhere. Tree trunks: not surveyed one by one (no
+  way to tell trees from the data other than by name) - not done.
+
+## Not done: the game run
+
+THUG2-2's lock is held by another agent ("colev", since 16:51). I ran the convert and make_menu_level into THUG2-2
+without noticing the acquire had answered BUSY: its staging (thug2-decomp-thp8) and overlay now hold this branch's
+levels (the skirt solid again) - the lead should know if colev's runs depend on round 5's. No game was started.
+The confirm run (collision_events=1 + trace: the road towards the skirt, spot 1, a push at the trunk from the planter)
+is still to do.
+
+Checks: tests (0x40 stays solid); npm test 342 pass, typecheck, lint, selfcheck (1132 files, 0 failures).
