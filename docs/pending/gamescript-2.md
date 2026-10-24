@@ -69,3 +69,19 @@ src/hook/selftests_gs2_*.cpp. Shared files touched: CMakeLists.txt (new files li
     temporary pools (each missing, back from each). 48 deliberate bugs: 47 caught (3 after strengthening: a career
     without the first field, only one pool pair not on its first pool, ECX/EDX in TypeFromLetter), 1 equivalent
     (IsLater's > as >= at a differing field).
+- [x] Batch GS2-4 (NOT run in the game yet; the save file commands - 6 CFunctions): src/game/mc/save_files_cfuncs.h /
+  .cpp (new).
+  - 0x005A6EA0 DeleteMemCardFile (PC / platform 7: RemoveFile(CardFileName), none = false; consoles: the file, its
+    icon.sys and the type's icon - from the last letter of the name - deleted, then the folder; platform 5 the
+    "%s%s%s%s" name; others false; music and streams paused except on the PC), 0x005A8500 GetMemCardSpaceRequired,
+    0x005A8550 MemCardFileExists (the name made per platform; total_file_size in blocks; on the PC a file that
+    won't open is removed by its type name), 0x005A8BB0 ClearMemCardDataForUpload, 0x005A8DA0
+    CreateTemporaryMemCardPools (only the component reserve checked; 50000 / 50000 / 10000 on the top-down heap),
+    0x005A9700 RemoveTemporaryMemCardPools (each reserve pool: its block and itself freed if the pair owns it).
+  - Test TestSaveFileCFuncs: original vs ours with the card (GetCard, delete, RemoveFile, ConvertFilename, Open,
+    Seek, Flush, Close, the file's destructor), Pip / music / sprintf / pool creation and freeing stood in for - no
+    file touched: every platform 0-8 x card / no card / failing deletes (the file, icon.sys) / failing removal, every
+    type's icon, names with and without a folder, MemCardFileExists' missing name / type / conversion / file, the
+    reserve pools present or not, owned or not. 29 deliberate bugs: 28 caught (1 after adding a failing first
+    delete), 1 equivalent (the PC path without a card file name setting the result before the removal check that
+    clears it anyway).
