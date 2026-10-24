@@ -22,6 +22,8 @@
 #include "game/script/cfuncs_scene.h"
 #include "game/script/node_prefixes.h"
 #include "game/sfx/sfx.h"
+#include "game/net/net_app.h"
+#include "game/net/net_client.h"
 #include "game/net/net_manager.h"
 #include "game/net/player_info.h"
 #include "game/script/qb.h"
@@ -1103,8 +1105,189 @@ void TestNetStateCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A0F00-0x005A1320 (net_state_cfuncs.cpp, game_flow_cfuncs.cpp) ----------------------------------------
+
+uint32_t g_clients[2];
+int g_connIndex, g_serviceState, g_modeMatch;
+uint8_t (*g_conns)[0x3E00];
+
+void StandInServerListCalls(StandIns& s)
+{
+    auto simple = [&s](std::initializer_list<uint32_t> at, uint16_t pop, uint32_t tag, int mode, uint32_t result = 0) {
+        s.At(at, pop, [tag, mode, result](Regs& r) {
+            Record({tag, mode & 1 ? Rel(r.ecx) : 0u, mode & 2 ? Rel(r.args[0]) : mode & 4 ? r.args[0] & 0xFF : 0u});
+            return result;
+        });
+    };
+    s.At({0x00532EA0, AddressOf(&GameNet::Manager::GetClient)}, 4, [](Regs& r) {
+        Record({0x2EA0, r.args[0]});
+        return g_clients[r.args[0] & 1];
+    });
+    s.At({0x00458BE0, AddressOf(&Net::App::FirstConnection)}, 4, [](Regs& r) {
+        Record({0x8BE0, r.ecx, *reinterpret_cast<uint32_t*>(r.args[0])});
+        g_connIndex = 0;
+        return g_conns ? reinterpret_cast<uint32_t>(g_conns[0]) : 0u;
+    });
+    s.At({0x004573D0, AddressOf(&Net::App::NextConnection)}, 4, [](Regs& r) {
+        Record({0x73D0, r.ecx});
+        return ++g_connIndex < 2 ? reinterpret_cast<uint32_t>(g_conns[g_connIndex]) : 0u;
+    });
+    simple({0x00533F50, AddressOf(&GameNet::Manager::SetServerMode)}, 4, 0x3F50, 5);
+    s.At({0x00459E50, AddressOf(&Net::Client::EnqueueMessageToServer)}, 4, [](Regs& r) {
+        Record({0x9E50, r.ecx, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 0x12)});
+        return 0u;
+    });
+    simple({0x0053AA70, AddressOf(&GameNet::Manager::SendObserveRequest)}, 0, 0xAA70, 1);
+    simple({0x005651D0}, 0, 0x51D0, 1);
+    simple({0x00547E80, AddressOf(&GameNet::Manager::RefreshServerList)}, 4, 0x7E80, 5);
+    simple({0x00545300, AddressOf(&GameNet::Manager::StartServerList)}, 0, 0x5300, 1);
+    s.At({0x005451C0, AddressOf(&GameNet::Manager::GetServiceState)}, 0, [](Regs&) { Record({0x51C0}); return static_cast<uint32_t>(g_serviceState); });
+    simple({0x005451B0, AddressOf(&GameNet::Manager::SetNextServiceState)}, 4, 0x51B0, 3);
+    simple({0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0, 3);
+    simple({0x00545370, AddressOf(&GameNet::Manager::StopServerList)}, 0, 0x5370, 1);
+    simple({0x005462F0, AddressOf(&GameNet::Manager::ClearServerList)}, 0, 0x62F0, 1);
+    s.At({0x005651F0}, 0, [](Regs& r) { Record({0x51F0, r.ecx}); return static_cast<uint32_t>(g_modeMatch & 1); });
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs&) { Record({0xE4F0}); return g_modeMatch & 2 ? 1u : 0u; });
+    simple({0x005536D0}, 0, 0x36D0, 1);
+    s.At({0x00553220}, 4, [](Regs& r) { Record({0x3220, r.ecx, r.args[0]}); return r.args[0] == static_cast<uint32_t>(g_modeMatch) ? 1u : 0u; });
+    s.At({0x004783C0, AddressOf(&CStruct::AddComponentOfType)}, 0xC, [](Regs& r) {
+        Record({0x83C0, Rel(r.ecx), r.args[0], r.args[1], r.args[2]});
+        return 0u;
+    });
+    simple({0x005668A0}, 0, 0x68A0, 1);
+    simple({0x00535BF0, AddressOf(&GameNet::Manager::ToggleScores)}, 0, 0x5BF0, 1);
+    simple({0x00552E30}, 4, 0x2E30, 3);
+}
+
+void TestServerListCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> flowSaved = SavedFlowGlobals();
+    SaveAll(saved);
+    SaveAll(flowSaved);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInServerListCalls(*standIns);
+    static uint8_t gameNet[0x10];
+    static uint8_t conns[2][0x3E00];
+    static uint8_t skate[0x400];
+    static uint8_t gameFlow[0x10];
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        std::memset(skate, 0, sizeof(skate));
+        reinterpret_cast<uint32_t*>(skate)[0x374 / 4] = 0x1E7E1;
+        reinterpret_cast<uint32_t*>(skate)[0x380 / 4] = 0x57C7;
+        reinterpret_cast<void**>(skate)[0x388 / 4] = gameFlow;
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<void*>(0x007CCE14) = gameNet;
+        GameVariable<uint32_t>(0x007CE470) = 0x00700470;
+        auto call = [&](uint32_t address, CFunc ours, Params& params, bool withScript = true) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            auto* script = withScript ? reinterpret_cast<Script::CScript*>(g_fakes->script) : nullptr;
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        Params none;
+
+        // DumpNetMessageStats: the server; no server (client 0; none)
+        for (size_t i = 0; i < sizeof(conns); ++i)
+            conns[0][i] = static_cast<uint8_t>(i * 13);
+        g_conns = conns;
+        reinterpret_cast<uint32_t*>(gameNet)[1] = 0x005E7E00;
+        call(0x005A0F00, CFuncs::CFunc_DumpNetMessageStats, none);
+        reinterpret_cast<uint32_t*>(gameNet)[1] = 0;
+        g_clients[0] = 0x00C11E00;
+        call(0x005A0F00, CFuncs::CFunc_DumpNetMessageStats, none);
+        g_clients[0] = 0;
+        call(0x005A0F00, CFuncs::CFunc_DumpNetMessageStats, none);
+        Params off; off.Flag(CrcOf("off"));
+        call(0x005A1020, CFuncs::CFunc_SetServerMode, none);
+        call(0x005A1020, CFuncs::CFunc_SetServerMode, off);
+        // NotifyBailDone: no script, no object, not a skater, not local, no client, sent
+        auto* skater = g_fakes->skater;
+        reinterpret_cast<uint32_t*>(skater)[0x18 / 4] = 0xBAF9B341;
+        reinterpret_cast<int*>(skater)[0x2BC / 4] = 1;
+        auto setObject = [&](void* object) { reinterpret_cast<void**>(g_fakes->script)[0xBC / 4] = object; };
+        call(0x005A1050, CFuncs::CFunc_NotifyBailDone, none, false);
+        setObject(nullptr);
+        call(0x005A1050, CFuncs::CFunc_NotifyBailDone, none);
+        setObject(g_fakes->object);
+        call(0x005A1050, CFuncs::CFunc_NotifyBailDone, none);
+        setObject(skater);
+        skater[0xBC] = 0;
+        call(0x005A1050, CFuncs::CFunc_NotifyBailDone, none);
+        skater[0xBC] = 1;
+        g_clients[1] = 0;
+        call(0x005A1050, CFuncs::CFunc_NotifyBailDone, none);
+        g_clients[1] = 0x00C11E01;
+        call(0x005A1050, CFuncs::CFunc_NotifyBailDone, none);
+        call(0x005A10D0, CFuncs::CFunc_EnterObserverMode, none);
+        call(0x005A10E0, CFuncs::CFunc_ObserveNextSkater, none);
+        Params force; force.Flag(CrcOf("force_refresh"));
+        call(0x005A10F0, CFuncs::CFunc_RefreshServerList, none);
+        call(0x005A10F0, CFuncs::CFunc_RefreshServerList, force);
+        call(0x005A1120, CFuncs::CFunc_StartServerList, none);
+        for (int state : {0, 2, 3}) {
+            g_serviceState = state;
+            call(0x005A1130, CFuncs::CFunc_StartLobbyList, none);
+        }
+        call(0x005A1160, CFuncs::CFunc_StopServerList, none);
+        call(0x005A1170, CFuncs::CFunc_FreeServerList, none);
+        using IntFn = int(__cdecl*)(CStruct*, Script::CScript*);
+        for (int match = 0; match < 4; ++match) {
+            g_modeMatch = match;
+            int split = original ? Original<IntFn>(0x005A1180)(nullptr, nullptr) : CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr);
+            int multi = original ? Original<IntFn>(0x005A11B0)(nullptr, nullptr) : CFuncs::CFunc_InMultiplayerGame(nullptr, nullptr);
+            Record({0x1180, static_cast<uint32_t>(split), static_cast<uint32_t>(multi)});
+        }
+        for (uint8_t flags : {uint8_t(0), uint8_t(1), uint8_t(2)}) {
+            gameNet[0] = flags;
+            call(0x005A1220, CFuncs::CFunc_OnServer, none);
+        }
+        call(0x005A12D0, CFuncs::CFunc_ToggleScores, none);
+        call(0x005A11C0, CFuncs::CFunc_RoundIncrement, none);
+        // GameModeEquals: none; named components and flags, the mode last; the mode first
+        g_modeMatch = 0x0B0B;
+        call(0x005A11D0, CFuncs::CFunc_GameModeEquals, none);
+        Params modes; modes.Checksum(0x99, 0x0B0B).Flag(0x0A0A).Integer(0, 0x0B0B).Flag(0x0B0B);
+        call(0x005A11D0, CFuncs::CFunc_GameModeEquals, modes);
+        Params first; first.Flag(0x0B0B).Flag(0x0C0C);
+        call(0x005A11D0, CFuncs::CFunc_GameModeEquals, first);
+        Params integerOnly; integerOnly.Integer(0, 0x0B0B);
+        call(0x005A11D0, CFuncs::CFunc_GameModeEquals, integerOnly);
+        Params other; other.Flag(0x0C0C);
+        call(0x005A11D0, CFuncs::CFunc_GameModeEquals, other);
+        call(0x005A1230, CFuncs::CFunc_GetCurrentLevel, none);
+        Params structure; structure.Checksum(0xA1DC81F9, 0x5C5C);
+        call(0x005A1270, CFuncs::CFunc_SetLevelStructureName, structure);
+        Record({reinterpret_cast<uint32_t*>(skate)[0x380 / 4]});
+        call(0x005A12A0, CFuncs::CFunc_GetLevelStructureName, none);
+        call(0x005A12C0, CFuncs::CFunc_RestartLevel, none);
+        call(0x005A12E0, CFuncs::CFunc_GameFlow, none);
+        Params flow; flow.Checksum(0, 0xF10E);
+        call(0x005A12E0, CFuncs::CFunc_GameFlow, flow);
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(flowSaved);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    g_conns = nullptr;
+    Check(traces[0].size() > 150, "server list commands: the original reached its calls");
+    Compare(traces[0], traces[1], "server list, game mode commands (0x005A0F00-0x005A1320)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
+SELFTEST(Early, TestServerListCFuncs, RemoveStandIns);
 SELFTEST(Early, TestGameCFuncs, RemoveStandIns);
 SELFTEST(Early, TestGameFlowCFuncs, RemoveStandIns);
 SELFTEST(Early, TestNetStateCFuncs, RemoveStandIns);

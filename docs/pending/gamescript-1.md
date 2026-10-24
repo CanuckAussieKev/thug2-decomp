@@ -63,3 +63,16 @@ Shared files touched: CMakeLists.txt (new files listed).
   - Test TestNetStateCFuncs: original vs ours with the network, net library, memory, input and main loop managers'
     calls stood in for (their inline getters read from stand-in objects). 26 of 26 deliberate bugs caught (1 after
     strengthening: a stand-in memory manager, so the heap pushed is told apart).
+- [x] Batch GS1-4 (NOT run in the game yet; the server list, observing, split screen, game modes, the level - 21
+  CFunctions): src/game/script/net_state_cfuncs.cpp, game_flow_cfuncs.cpp.
+  - 0x005A0F00 DumpNetMessageStats (the server's - else client 0's - connections' received / sent metrics read twice
+    per message id; the printing compiled out), 0x005A1020 SetServerMode [off], 0x005A1050 NotifyBailDone (a local
+    skater's client sends message 0x45, sequenced, group 8), 0x005A10D0 EnterObserverMode, 0x005A10E0
+    ObserveNextSkater, 0x005A10F0 RefreshServerList [force_refresh], 0x005A1120 StartServerList, 0x005A1130
+    StartLobbyList (service state 13, after state 1 when it's in 2), 0x005A1160 StopServerList, 0x005A1170
+    FreeServerList, 0x005A1180 InSplitScreenGame and 0x005A11B0 InMultiplayerGame (12 / 5 callers; 1 or 0 in all of
+    EAX - declared int), 0x005A11C0 RoundIncrement, 0x005A11D0 GameModeEquals (any bare name the mode's),
+    0x005A1220 OnServer, 0x005A1230 GetCurrentLevel, 0x005A1270 / 0x005A12A0 Set / GetLevelStructureName (the skate
+    module's +0x380), 0x005A12C0 RestartLevel, 0x005A12D0 ToggleScores, 0x005A12E0 GameFlow.
+  - Test TestServerListCFuncs: original vs ours over stand-in connections, clients, the server list's states and the
+    game mode. 19 of 19 deliberate bugs caught (1 after strengthening: an unnamed integer equal to the mode).

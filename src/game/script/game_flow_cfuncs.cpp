@@ -495,6 +495,68 @@ bool __cdecl CFunc_SendException(Script::CStruct* params, Script::CScript* scrip
     return FlagCommandByName(params, script, kFlagActionException);
 }
 
+// 0x005A11C0: RoundIncrement: the game mode's round (0x005536D0).
+bool __cdecl CFunc_RoundIncrement(Script::CStruct*, Script::CScript*)
+{
+    GameFunction<void(__thiscall*)(void*)>(0x005536D0)(GameMode());
+    return true;
+}
+
+// 0x005A11D0: GameModeEquals <mode> ...: whether one of the bare names is the game mode's (0x00553220: its own
+// integer of that name is set).
+bool __cdecl CFunc_GameModeEquals(Script::CStruct* params, Script::CScript*)
+{
+    for (Script::CComponent* component = params->GetNextComponent(nullptr); component;
+         component = params->GetNextComponent(component)) {
+        if (component->name == 0 && component->Type() == Script::ESYMBOLTYPE_NAME &&
+            GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameMode(), component->checksum))
+            return true;
+    }
+    return false;
+}
+
+// 0x005A1230: GetCurrentLevel: the skate module's level (+0x374, as 0x651533EC - a name) and level structure name
+// (+0x380, 0x16A0B364) in the script's parameters.
+bool __cdecl CFunc_GetCurrentLevel(Script::CStruct*, Script::CScript* script)
+{
+    uint8_t* skate = Skate();
+    script->m_params->AddComponentOfType(0x651533EC, Script::ESYMBOLTYPE_NAME, *reinterpret_cast<uint32_t*>(skate + 0x374));
+    script->m_params->AddChecksum(0x16A0B364, *reinterpret_cast<uint32_t*>(skate + 0x380));
+    return true;
+}
+
+// 0x005A1270: SetLevelStructureName name=<structure>: the skate module's +0x380.
+bool __cdecl CFunc_SetLevelStructureName(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0; // (unset in the original when missing - an asserted parameter)
+    params->GetChecksum(kName, &name, 1);
+    *reinterpret_cast<uint32_t*>(Skate() + 0x380) = name;
+    return true;
+}
+
+// 0x005A12A0: GetLevelStructureName: the skate module's +0x380 as the script's 0x63B1214E.
+bool __cdecl CFunc_GetLevelStructureName(Script::CStruct*, Script::CScript* script)
+{
+    script->m_params->AddChecksum(0x63B1214E, *reinterpret_cast<uint32_t*>(Skate() + 0x380));
+    return true;
+}
+
+// 0x005A12C0: RestartLevel (the skate module's 0x005668A0).
+bool __cdecl CFunc_RestartLevel(Script::CStruct*, Script::CScript*)
+{
+    CallSkate(0x005668A0);
+    return true;
+}
+
+// 0x005A12E0: GameFlow <script>: the skate module's game flow (+0x388) runs it (0x00552E30).
+bool __cdecl CFunc_GameFlow(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 0);
+    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00552E30)(*reinterpret_cast<void**>(Skate() + 0x388), name);
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x0059FE50, CFuncs::CFunc_Cleanup);
@@ -518,3 +580,10 @@ REPLACE(0x005A3B00, CFuncs::CFunc_ClearFlag);
 REPLACE(0x005A3B20, CFuncs::CFunc_SendFlag);
 REPLACE(0x005A3B40, CFuncs::CFunc_QueryFlag);
 REPLACE(0x005A3B60, CFuncs::CFunc_SendException);
+REPLACE(0x005A11C0, CFuncs::CFunc_RoundIncrement);
+REPLACE(0x005A11D0, CFuncs::CFunc_GameModeEquals);
+REPLACE(0x005A1230, CFuncs::CFunc_GetCurrentLevel);
+REPLACE(0x005A1270, CFuncs::CFunc_SetLevelStructureName);
+REPLACE(0x005A12A0, CFuncs::CFunc_GetLevelStructureName);
+REPLACE(0x005A12C0, CFuncs::CFunc_RestartLevel);
+REPLACE(0x005A12E0, CFuncs::CFunc_GameFlow);

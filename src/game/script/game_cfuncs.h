@@ -96,6 +96,31 @@ bool __cdecl CFunc_IsObserving(Script::CStruct* params, Script::CScript* script)
 bool __cdecl CFunc_SetSlomo(Script::CStruct* params, Script::CScript* script);                 // 0x005A0E50
 bool __cdecl CFunc_TogglePlayerNames(Script::CStruct* params, Script::CScript* script);        // 0x005A0EB0
 bool __cdecl CFunc_SetCurrentGameType(Script::CStruct* params, Script::CScript* script);       // 0x005A0EF0
+bool __cdecl CFunc_DumpNetMessageStats(Script::CStruct* params, Script::CScript* script);      // 0x005A0F00
+bool __cdecl CFunc_SetServerMode(Script::CStruct* params, Script::CScript* script);            // 0x005A1020
+bool __cdecl CFunc_NotifyBailDone(Script::CStruct* params, Script::CScript* script);           // 0x005A1050
+bool __cdecl CFunc_EnterObserverMode(Script::CStruct* params, Script::CScript* script);        // 0x005A10D0
+bool __cdecl CFunc_ObserveNextSkater(Script::CStruct* params, Script::CScript* script);        // 0x005A10E0
+bool __cdecl CFunc_RefreshServerList(Script::CStruct* params, Script::CScript* script);        // 0x005A10F0
+bool __cdecl CFunc_StartServerList(Script::CStruct* params, Script::CScript* script);          // 0x005A1120
+bool __cdecl CFunc_StartLobbyList(Script::CStruct* params, Script::CScript* script);           // 0x005A1130
+bool __cdecl CFunc_StopServerList(Script::CStruct* params, Script::CScript* script);           // 0x005A1160
+bool __cdecl CFunc_FreeServerList(Script::CStruct* params, Script::CScript* script);           // 0x005A1170
+// (these two return 1 or 0 in all of EAX: some of their callers read it)
+int __cdecl CFunc_InSplitScreenGame(Script::CStruct* params, Script::CScript* script);         // 0x005A1180
+int __cdecl CFunc_InMultiplayerGame(Script::CStruct* params, Script::CScript* script);         // 0x005A11B0
+bool __cdecl CFunc_OnServer(Script::CStruct* params, Script::CScript* script);                 // 0x005A1220
+bool __cdecl CFunc_ToggleScores(Script::CStruct* params, Script::CScript* script);             // 0x005A12D0
+
+// --- game modes and the level (game_flow_cfuncs.cpp) ------------------------------------------------------------
+
+bool __cdecl CFunc_RoundIncrement(Script::CStruct* params, Script::CScript* script);           // 0x005A11C0
+bool __cdecl CFunc_GameModeEquals(Script::CStruct* params, Script::CScript* script);           // 0x005A11D0
+bool __cdecl CFunc_GetCurrentLevel(Script::CStruct* params, Script::CScript* script);          // 0x005A1230
+bool __cdecl CFunc_SetLevelStructureName(Script::CStruct* params, Script::CScript* script);    // 0x005A1270
+bool __cdecl CFunc_GetLevelStructureName(Script::CStruct* params, Script::CScript* script);    // 0x005A12A0
+bool __cdecl CFunc_RestartLevel(Script::CStruct* params, Script::CScript* script);             // 0x005A12C0
+bool __cdecl CFunc_GameFlow(Script::CStruct* params, Script::CScript* script);                 // 0x005A12E0
 
 // What FlagCommandByName does to the objects: set / clear / test a script flag (of 32), set / clear object flag
 // bits, send an exception.

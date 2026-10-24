@@ -11,7 +11,12 @@
 #include "game/core/stubs.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/net_client.h"
+#include "game/net/net_conn.h"
+#include "game/net/net_lists.h"
 #include "game/net/net_manager.h"
+#include "game/net/net_metrics.h"
+#include "game/skater/skater.h"
 #include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -37,6 +42,7 @@ constexpr uint32_t kFailScript = 0xDE64FC3E;
 constexpr uint32_t kCallback = 0x86068BD9;          // "callback"
 constexpr uint32_t kSlomoComponent = 0x5BD63B29;    // (name unknown) the local skater's component SetSlomo tells
 constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
+constexpr uint32_t kSkaterType = 0xBAF9B341;        // (name unknown) the skaters' object type
 
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
 template <typename R = void, typename... A>
@@ -293,6 +299,144 @@ bool __cdecl CFunc_SetCurrentGameType(Script::CStruct*, Script::CScript*)
     return true;
 }
 
+namespace {
+// DumpNetMessageStats' output - compiled out of this build (only the metrics' getters are still called).
+inline void PrintMessageStat(int /*id*/, int /*value*/) {}
+} // namespace
+
+// 0x005A0F00: DumpNetMessageStats: for each connection of the server (or else client 0), each message id's received
+// and sent totals read - twice each (the printing is compiled out). Always true.
+bool __cdecl CFunc_DumpNetMessageStats(Script::CStruct*, Script::CScript*)
+{
+    Net::ConnSearch search = {Net::kConnSearchVtable, nullptr};
+    GameNet::Manager* gameNet = GameNetManager();
+    Net::App* app = gameNet->m_server;
+    if (!app) {
+        app = gameNet->GetClient(0);
+        if (!app)
+            return true;
+    }
+    for (Net::Conn* conn = app->FirstConnection(&search); conn; conn = app->NextConnection(&search)) {
+        for (Net::Metrics* metrics : {&conn->m_receiveMetrics, &conn->m_sendMetrics}) {
+            for (int pass = 0; pass < 2; ++pass) {
+                for (int id = 0; id < 256; ++id) {
+                    PrintMessageStat(id, metrics->GetTotalMessageData(id));
+                    PrintMessageStat(id, metrics->GetTotalNumMessagesOfId(id));
+                }
+            }
+        }
+    }
+    return true;
+}
+
+// 0x005A1020: SetServerMode [off]: the server's side on (off without the flag "off").
+bool __cdecl CFunc_SetServerMode(Script::CStruct* params, Script::CScript*)
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    gameNet->SetServerMode(!params->ContainsFlag(reinterpret_cast<const char*>(0x0064C24C))); // "off"
+    return true;
+}
+
+// 0x005A1050: NotifyBailDone: run on a local skater, its client tells the server (message 0x45, sequenced, group 8).
+bool __cdecl CFunc_NotifyBailDone(Script::CStruct*, Script::CScript* script)
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    Obj::CObject* object = script ? script->m_object.Get() : nullptr;
+    if (!object || object->m_type != kSkaterType)
+        return true;
+    auto* skater = static_cast<Obj::CSkater*>(object);
+    if (!skater->m_unknownBC)
+        return true;
+    if (Net::App* client = gameNet->GetClient(skater->m_viewport)) {
+        Net::MsgDesc desc;
+        desc.Construct();
+        desc.m_id = 0x45;
+        desc.m_queue = Net::MsgDesc::kQueueSequenced;
+        desc.m_groupId = 8;
+        static_cast<Net::Client*>(client)->EnqueueMessageToServer(&desc);
+    }
+    return true;
+}
+
+// 0x005A10D0: EnterObserverMode: the observe request sent.
+bool __cdecl CFunc_EnterObserverMode(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->SendObserveRequest();
+    return true;
+}
+
+// 0x005A10E0: ObserveNextSkater (the skate module's 0x005651D0).
+bool __cdecl CFunc_ObserveNextSkater(Script::CStruct*, Script::CScript*)
+{
+    CallSkate(0x005651D0);
+    return true;
+}
+
+// 0x005A10F0: RefreshServerList [force_refresh].
+bool __cdecl CFunc_RefreshServerList(Script::CStruct* params, Script::CScript*)
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    gameNet->RefreshServerList(params->ContainsFlag(reinterpret_cast<const char*>(0x0064FE18))); // "force_refresh"
+    return true;
+}
+
+// 0x005A1120: StartServerList.
+bool __cdecl CFunc_StartServerList(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->StartServerList();
+    return true;
+}
+
+// 0x005A1130: StartLobbyList: the service state 13 (the lobby list) - after the current one (state 1 next) when
+// the service is in state 2.
+bool __cdecl CFunc_StartLobbyList(Script::CStruct*, Script::CScript*)
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    if (gameNet->GetServiceState() == 2) {
+        gameNet->SetNextServiceState(13);
+        gameNet->SetServiceState(1);
+    } else {
+        gameNet->SetServiceState(13);
+    }
+    return true;
+}
+
+// 0x005A1160 / 0x005A1170: StopServerList / FreeServerList.
+bool __cdecl CFunc_StopServerList(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->StopServerList();
+    return true;
+}
+
+bool __cdecl CFunc_FreeServerList(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->ClearServerList();
+    return true;
+}
+
+// 0x005A1180: InSplitScreenGame (12 callers): a multiplayer game (the skate module's 0x005651F0) that isn't a network
+// game. 1 or 0 in EAX.
+int __cdecl CFunc_InSplitScreenGame(Script::CStruct*, Script::CScript*)
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    if (CallSkate<bool>(0x005651F0) && !gameNet->InNetGame())
+        return 1;
+    return 0;
+}
+
+// 0x005A11B0: InMultiplayerGame (5 callers): the skate module's 0x005651F0 (a tail jump: its EAX).
+int __cdecl CFunc_InMultiplayerGame(Script::CStruct*, Script::CScript*) { return CallSkate<int>(0x005651F0); }
+
+// 0x005A1220: OnServer.
+bool __cdecl CFunc_OnServer(Script::CStruct*, Script::CScript*) { return GameNetManager()->OnServer(); }
+
+// 0x005A12D0: ToggleScores.
+bool __cdecl CFunc_ToggleScores(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->ToggleScores();
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x005A0880, CFuncs::CFunc_StartServer);
@@ -315,3 +459,17 @@ REPLACE(0x005A0D90, CFuncs::CFunc_IsObserving);
 REPLACE(0x005A0E50, CFuncs::CFunc_SetSlomo);
 REPLACE(0x005A0EB0, CFuncs::CFunc_TogglePlayerNames);
 REPLACE(0x005A0EF0, CFuncs::CFunc_SetCurrentGameType);
+REPLACE(0x005A0F00, CFuncs::CFunc_DumpNetMessageStats);
+REPLACE(0x005A1020, CFuncs::CFunc_SetServerMode);
+REPLACE(0x005A1050, CFuncs::CFunc_NotifyBailDone);
+REPLACE(0x005A10D0, CFuncs::CFunc_EnterObserverMode);
+REPLACE(0x005A10E0, CFuncs::CFunc_ObserveNextSkater);
+REPLACE(0x005A10F0, CFuncs::CFunc_RefreshServerList);
+REPLACE(0x005A1120, CFuncs::CFunc_StartServerList);
+REPLACE(0x005A1130, CFuncs::CFunc_StartLobbyList);
+REPLACE(0x005A1160, CFuncs::CFunc_StopServerList);
+REPLACE(0x005A1170, CFuncs::CFunc_FreeServerList);
+REPLACE(0x005A1180, CFuncs::CFunc_InSplitScreenGame);
+REPLACE(0x005A11B0, CFuncs::CFunc_InMultiplayerGame);
+REPLACE(0x005A1220, CFuncs::CFunc_OnServer);
+REPLACE(0x005A12D0, CFuncs::CFunc_ToggleScores);
