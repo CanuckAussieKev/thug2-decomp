@@ -4,6 +4,7 @@
 
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
+#include "game/skater/collision_events.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/sys/timer.h"
@@ -88,6 +89,7 @@ void CorePhysicsComponent::Update()
     if (StateOf(this) != kAir)
         At<int>(this, kAirTimer) = 0;
     GameVariable<void*>(0x00691974) = nullptr;
+    CollisionEvents::EndFrame(this); // (not original: [debug] collision_events)
 }
 
 } // namespace Skater

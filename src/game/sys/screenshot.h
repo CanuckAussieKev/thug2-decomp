@@ -35,6 +35,11 @@ void BeforePresent(bool rendering);
 // The renderer, a viewport's camera as it's drawn (for the sidecar): its position and view direction.
 void NoteView(int viewport, const float position[3], const float forward[3]);
 
+// A picture asked for by our own debugging code (works with the key off too; [debug] collision_event_screenshots -
+// game/skater/collision_events.h): the frame being drawn, taken as the key's, `note` added to the sidecar and the
+// log's "saved" line; no message on screen. Dropped while another is being written.
+bool RequestEventShot(const std::string& note); // (false: dropped)
+
 // A frame series (the test-automation channel's `capture` - game/front/automation.h; works with the key off too):
 // the next `frames` rendered frames (at most kMaxSeriesFrames), every one, as frame_0001.png ... in `folder`
 // (relative: to the screenshot folder; "": series_<time> there), with one sidecar series.txt (the screenshot

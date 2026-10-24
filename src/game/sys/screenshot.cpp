@@ -49,6 +49,7 @@ constexpr uint32_t kMessageMs = 2000;
 
 int g_key;
 std::atomic<bool> g_requested{false};
+std::string g_eventNote; // (RequestEventShot's: the next picture is an event's)
 
 // The camera of viewport 0 as last drawn.
 struct View {
@@ -67,6 +68,7 @@ struct Job {
     std::string error;
     double milliseconds = 0.0;
     int mouseX = -1, mouseY = -1; // (in the image's pixels; -1: not over the window)
+    std::string note;             // (an event's picture: RequestEventShot)
 };
 std::shared_ptr<Job> g_job;
 
@@ -378,6 +380,10 @@ void Take()
     job->txt = SidecarName(png);
     std::vector<Section> sections = GatherSections(frame, png, folder, taken);
     sections.front().fields.push_back({"mouse", mouse});
+    if (!g_eventNote.empty()) {
+        job->note = g_eventNote;
+        sections.front().fields.push_back({"for", g_eventNote});
+    }
     job->sidecar = FormatSidecar("THUG2 decomp screenshot " + png, sections, LogTail(kLogLines));
     job->frame = std::move(frame);
     g_job = job;
@@ -545,24 +551,29 @@ void BeforePresent(bool rendering)
 {
     // Not original either - a frame series (StartSeries), also with the key off.
     TickSeries(rendering);
-    if (!g_key)
+    if (!g_key && !g_requested && !g_job) // (with the key off: only RequestEventShot's)
         return;
     if (g_job && g_job->done) {
         std::shared_ptr<Job> job = std::move(g_job);
+        std::string note = job->note.empty() ? "" : " for " + job->note;
         if (job->ok) {
-            Log("screenshot: saved %s%s (and %s) in %.0f ms", job->folder.c_str(), job->png.c_str(), job->txt.c_str(),
-                job->milliseconds);
-            g_message = "Screenshot saved: " + job->png;
+            Log("screenshot: saved %s%s (and %s) in %.0f ms%s", job->folder.c_str(), job->png.c_str(),
+                job->txt.c_str(), job->milliseconds, note.c_str());
+            if (job->note.empty())
+                g_message = "Screenshot saved: " + job->png;
         } else {
-            Log("screenshot: failed - %s", job->error.c_str());
-            g_message = "Screenshot failed (see the log)";
+            Log("screenshot: failed - %s%s", job->error.c_str(), note.c_str());
+            if (job->note.empty())
+                g_message = "Screenshot failed (see the log)";
         }
-        g_messageSince = SDL_GetTicks();
+        if (job->note.empty())
+            g_messageSince = SDL_GetTicks();
     }
     // (one at a time: a press while the last is still being written waits for it)
     if (rendering && g_requested && !g_job) {
         g_requested = false;
         Take();
+        g_eventNote.clear();
     }
     TickMessage();
 }
@@ -604,6 +615,15 @@ std::string StartSeries(int frames, const std::string& folder)
     g_seriesResult = "running";
     Log("screenshot: series of %d frames into %s", frames, path.c_str());
     return {};
+}
+
+bool RequestEventShot(const std::string& note)
+{
+    if (g_job || g_requested)
+        return false; // (one at a time)
+    g_eventNote = note;
+    g_requested = true;
+    return true;
 }
 
 bool SeriesRunning() { return g_series != nullptr; }
