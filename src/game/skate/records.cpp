@@ -1,4 +1,5 @@
-// The records, 0x0057ECD0-0x0057FE27, and the script command UpdateRecords (0x005AEBC0). See records.h.
+// The records, 0x0057ECD0-0x0057FE27, and the script commands UpdateRecords (0x005AEBC0), UpdateArcadeScores, UpdateInitials
+// and NewRecord. See records.h.
 
 #include "game/skate/records.h"
 
@@ -8,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/front/level_editor_layout.h"
 #include "game/script/struct.h"
+#include "game/skate/skate_module_calls.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -413,6 +415,28 @@ bool __cdecl CFunc_UpdateRecords(Script::CStruct*, Script::CScript*)
     return UpdateRecords(Front::LevelEditor::Layout::EditingCopy());
 }
 
+// 0x005AEBD0
+bool __cdecl CFunc_UpdateArcadeScores(Script::CStruct* params, Script::CScript*)
+{
+    int level = 0; // (uninitialised in the original; always set below)
+    if (!params->GetInteger("level", &level, 0))
+        level = SkateCalls::Career()->GetLevel();
+    Instance()->GetLevelRecords(level)->m_arcadeScores->ReadFromStructure(params);
+    return true;
+}
+
+// 0x005AFAF0
+bool __cdecl CFunc_UpdateInitials(Script::CStruct*, Script::CScript*)
+{
+    int level = SkateCalls::Career()->GetLevel();
+    CGameRecords* records = Instance();
+    records->GetLevelRecords(level)->UpdateInitials(records->m_defaultInitials);
+    return true;
+}
+
+// 0x005AFB30
+bool __cdecl CFunc_NewRecord(Script::CStruct*, Script::CScript*) { return SkateCalls::SkateField<bool>(0x384); }
+
 } // namespace Records
 
 REPLACE(0x0057ECD0, &Records::CRecord::MaybeNewRecord);
@@ -437,3 +461,6 @@ REPLACE(0x0057FBC0, &Records::CGameRecords::InitLevels);
 REPLACE(0x0057FC50, &Records::CGameRecords::WriteToStructure);
 REPLACE(0x0057FDB0, Records::CGameRecords::Release);
 REPLACE(0x005AEBC0, Records::CFunc_UpdateRecords);
+REPLACE(0x005AEBD0, Records::CFunc_UpdateArcadeScores);
+REPLACE(0x005AFAF0, Records::CFunc_UpdateInitials);
+REPLACE(0x005AFB30, Records::CFunc_NewRecord);

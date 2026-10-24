@@ -269,6 +269,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_memory_sizes.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_ec3.cpp
+    src/hook/selftests_career_cfuncs.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
@@ -608,6 +609,7 @@ add_library(thug2_code OBJECT
     src/game/skate/profile_manager.cpp
     src/game/skate/records.cpp
     src/game/skate/career.cpp
+    src/game/skate/career_cfuncs.cpp
     src/game/skate/skater_profile.cpp
     src/game/skate/appearance_guard.cpp
     src/game/skate/thugpro_cas.cpp
