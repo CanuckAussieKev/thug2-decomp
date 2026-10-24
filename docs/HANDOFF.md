@@ -533,3 +533,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   dropped (Capitol / Skate Central backdrop), audit counts zero-gap copies as flicker. Fix 8 (two-sided flag) not found.
   Left in BEAVER VALLEY: 95 coplanar pairs / 480 m2 (pirate shop wall, citypark outside wall, factory elevator panels).
   Running: pole tunnel diagnosis (docs/pending/pole-tunnel.md, THUG2-4); HD UI (THUG2-3); renderer decomp (THUG2-1).
+- Pole tunnel merged + installed (2026-10-24, docs/pending/pole-tunnel.md): THP8 collision primitives' sides were wound
+  inwards (cylinderTriangles; 6,256 of 54,040 primitive triangles, 391 cylinders/capsules/spheres) - THUG2's line test
+  0x0040B420 is one-sided, so skaters passed into trunks and were held inside. Engine original == ours (trace A vs C
+  identical); new early self-test "pole tunnel". Unlooked: uber-frig at (-2393.2,196.5,12222.4) BEAVER VALLEY plaza.
