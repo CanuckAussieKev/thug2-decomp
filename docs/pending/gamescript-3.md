@@ -142,3 +142,20 @@ src/game/skate/records.h / .cpp (three record commands added).
     nothing, an integer), the velocities recorded after each call. 50 of 50 deliberate bugs caught (5 after
     strengthening: a use_default_hsv other than 1, a negative forced stat, a z that rounds differently, the
     velocities recorded after each call).
+- [x] Batch GS3-7 (NOT run in the game yet; the profile templates and lists - 15 CFunctions): profile_cfuncs.cpp.
+  - 0x005ABBF0 ResetAllToDefaultStats (each master_skater_list skater's stat_names values and points_available
+    into its template's info; the scratch structure freed through the pool as the original's inlined delete),
+    0x005ABE30 ResetToDefaultProfile (partial=stats_and_tricks: SetFromParams(entry, no info, specials); another
+    partial: info only; none: Reset), 0x005ABF00 ResetAllToDefaultProfile, 0x005ABF70 ForEachSkaterName /
+    0x005AC0C0 ForEachSkaterProfile (do= run per template with params= and the name / the whole info), 0x005AC1F0
+    GetSkaterProfileInfoByName / 0x005AC280 SetSkaterProfileInfoByName (false without the template), 0x005AC320
+    PrintCurrentAppearance (compiled out: 0x005BAB90), 0x005AC340 SetNeversoftSkater, 0x005AC3B0 ResetSkaters (the
+    skate module's 0x00566980 with node_name and RestartWalking; 0xDD7DF50E - name unknown - read and unused),
+    0x005AC410 SetSkaterProfileInfo, 0x005AC470 GetSkaterProfileInfo, 0x005AC4B0 SetSkaterProfileProperty (SetStat's
+    answer), 0x005AC520 SetClassicStat (the career's SetInfoInteger), 0x005AC570 ToggleAlwaysSpecial (skaters 0-7's
+    +0x168: on, off - on wins -, else toggled).
+  - Test TestProfileListCFuncs: original vs ours on a stand-in master_skater_list / stat_names (real arrays of real
+    structures), three templates with real info structures, the profile manager, the skaters; the profiles' calls
+    (SetFromParams, Reset, SetAppearance, SetStat...), the career's, GetArray, the skate module's and the structure
+    adds / appends stood in for. 29 of 29 deliberate bugs caught. The test kit's pool stand-ins now record a
+    structure freed straight into its pool as DeleteStruct.

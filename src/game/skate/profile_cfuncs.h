@@ -11,6 +11,21 @@ class CScript;
 // script's `if` should be taken (true where nothing is asked).
 namespace CFuncs {
 
+bool __cdecl CFunc_ResetAllToDefaultStats(Script::CStruct* params, Script::CScript* script);  // 0x005ABBF0
+bool __cdecl CFunc_ResetToDefaultProfile(Script::CStruct* params, Script::CScript* script);   // 0x005ABE30
+bool __cdecl CFunc_ResetAllToDefaultProfile(Script::CStruct* params, Script::CScript* script); // 0x005ABF00
+bool __cdecl CFunc_ForEachSkaterName(Script::CStruct* params, Script::CScript* script);       // 0x005ABF70
+bool __cdecl CFunc_ForEachSkaterProfile(Script::CStruct* params, Script::CScript* script);    // 0x005AC0C0
+bool __cdecl CFunc_GetSkaterProfileInfoByName(Script::CStruct* params, Script::CScript* script); // 0x005AC1F0
+bool __cdecl CFunc_SetSkaterProfileInfoByName(Script::CStruct* params, Script::CScript* script); // 0x005AC280
+bool __cdecl CFunc_PrintCurrentAppearance(Script::CStruct* params, Script::CScript* script);  // 0x005AC320
+bool __cdecl CFunc_SetNeversoftSkater(Script::CStruct* params, Script::CScript* script);      // 0x005AC340
+bool __cdecl CFunc_ResetSkaters(Script::CStruct* params, Script::CScript* script);            // 0x005AC3B0
+bool __cdecl CFunc_SetSkaterProfileInfo(Script::CStruct* params, Script::CScript* script);    // 0x005AC410
+bool __cdecl CFunc_GetSkaterProfileInfo(Script::CStruct* params, Script::CScript* script);    // 0x005AC470
+bool __cdecl CFunc_SetSkaterProfileProperty(Script::CStruct* params, Script::CScript* script); // 0x005AC4B0
+bool __cdecl CFunc_SetClassicStat(Script::CStruct* params, Script::CScript* script);          // 0x005AC520
+bool __cdecl CFunc_ToggleAlwaysSpecial(Script::CStruct* params, Script::CScript* script);     // 0x005AC570
 bool __cdecl CFunc_VibrationIsOn(Script::CStruct* params, Script::CScript* script);           // 0x005AE370
 bool __cdecl CFunc_VibrationOn(Script::CStruct* params, Script::CScript* script);             // 0x005AE3A0
 bool __cdecl CFunc_VibrationOff(Script::CStruct* params, Script::CScript* script);            // 0x005AE3D0

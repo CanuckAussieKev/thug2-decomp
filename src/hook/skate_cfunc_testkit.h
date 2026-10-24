@@ -205,6 +205,12 @@ inline void StandInMemory(StandIns& s)
         Record({0x7090, r.ecx});
         return 0u;
     });
+    // (a structure freed straight into its pool, as the originals' inlined delete does, records as DeleteStruct)
+    s.At({0x005BA3B0, AddressOf(&Mem::Pool::Contains)}, 4, [](Regs&) { return 1u; });
+    s.At({0x005BA400, AddressOf(&Mem::Pool::Free)}, 4, [](Regs& r) {
+        Record({0x9070, r.args[0]});
+        return 0u;
+    });
     s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) {
         if (g_gs3Trace) Log("  standin %X", 0x9070);
         Record({0x9070, r.args[0]});

@@ -60,7 +60,305 @@ bool SetOption(Script::CStruct* params, Option option, bool on)
 
 Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
 
+constexpr uint32_t kMasterSkaterList = 0xF31E8FF8; // master_skater_list
+constexpr uint32_t kStatNames = 0x61EB6BA9;        // stat_names
+constexpr uint32_t kPointsAvailable = 0x471FC4DD;  // points_available
+constexpr uint32_t kPartial = 0x55F82F0B;          // partial
+constexpr uint32_t kStatsAndTricks = 0xC164AF20;   // stats_and_tricks
+constexpr uint32_t kDo = 0x62BA3F6A;               // do
+constexpr uint32_t kParams = 0x7031F10C;           // params
+constexpr uint32_t kAppearance = 0x554C7D6F;       // appearance
+constexpr uint32_t kInfo = 0x3476CEA8;             // info
+constexpr uint32_t kResetValue = 0xDD7DF50E;       // (name unknown) ResetSkaters reads it and doesn't use it
+constexpr uint32_t kNodeName = 0x66780C6F;         // node_name
+constexpr uint32_t kRestartWalking = 0xD6F06BF6;   // RestartWalking
+constexpr uint32_t kOn = 0xF649D637;               // on
+constexpr uint32_t kOff = 0xD443A2BC;              // off
+
+// The profile manager's templates (its table, 0x00557FB0 by index) and each one's info structure.
+uint32_t TemplateCount() { return ProfileManager()->m_templates.m_count; }
+Obj::CSkaterProfile* TemplateAt(uint32_t index)
+{
+    return GameFunction<Obj::CSkaterProfile*(__thiscall*)(void*, uint32_t)>(0x00557FB0)(ProfileManager(), index);
+}
+// The template named `name` (by its info's name), or null.
+Obj::CSkaterProfile* FindTemplate(uint32_t name)
+{
+    int count = static_cast<int>(TemplateCount());
+    for (int i = 0; i < count; ++i) {
+        Obj::CSkaterProfile* profile = TemplateAt(i);
+        uint32_t profileName = 0;
+        profile->InfoStructure()->GetChecksum(kName, &profileName, 1);
+        if (profileName == name)
+            return profile;
+    }
+    return nullptr;
+}
+// An element of a global array of structures.
+Script::CStruct* Entry(Script::CArray* list, uint32_t index)
+{
+    return reinterpret_cast<Script::CStruct*>(list->GetElement(index));
+}
+Script::CStruct* NewParams()
+{
+    Script::CStruct* memory = Script::NewStruct();
+    return memory ? memory->Init() : nullptr;
+}
+void DeleteParams(Script::CStruct* params)
+{
+    if (params) {
+        params->Clear();
+        Script::DeleteStruct(params);
+    }
+}
+
 } // namespace
+
+// 0x005ABBF0: ResetAllToDefaultStats - every skater of master_skater_list: its stats (the stat_names) and
+// points_available put back into the template of its name.
+bool __cdecl CFunc_ResetAllToDefaultStats(Script::CStruct*, Script::CScript*)
+{
+    Script::CArray* list = Script::GetArray(kMasterSkaterList);
+    for (uint32_t i = 0; i < list->m_size; ++i) {
+        Script::CStruct* stats = NewParams();
+        Script::CStruct* entry = Entry(list, i);
+        uint32_t skaterName = 0; // (uninitialised in the original when missing, as the values below)
+        entry->GetChecksum(kName, &skaterName, 1);
+        Script::CArray* statNames = Script::GetArray(kStatNames);
+        for (uint32_t j = 0; j < statNames->m_size; ++j) {
+            uint32_t statName = 0;
+            Entry(statNames, j)->GetChecksum(kName, &statName, 1);
+            int value = 0;
+            entry->GetInteger(statName, &value, 1);
+            stats->AddInteger(statName, value);
+        }
+        int points = 0;
+        entry->GetInteger(kPointsAvailable, &points, 1);
+        stats->AddInteger(kPointsAvailable, points);
+        uint32_t count = TemplateCount();
+        for (uint32_t k = 0; k < count; ++k) {
+            Obj::CSkaterProfile* profile = TemplateAt(k);
+            uint32_t profileName = 0;
+            profile->InfoStructure()->GetChecksum(kName, &profileName, 1);
+            if (profileName == skaterName) {
+                profile->InfoStructure()->AppendStructureIfAny(stats);
+                break;
+            }
+        }
+        DeleteParams(stats);
+    }
+    return true;
+}
+
+// 0x005ABE30: ResetToDefaultProfile name=<skater> [partial=stats_and_tricks | partial=<other>] - the template reset
+// from its master_skater_list entry: entirely, its stats and tricks only, or its info only.
+bool __cdecl CFunc_ResetToDefaultProfile(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0; // (uninitialised in the original when missing)
+    params->GetChecksum(kName, &name, 1);
+    Script::CArray* list = Script::GetArray(kMasterSkaterList);
+    for (uint32_t i = 0; i < list->m_size; ++i) {
+        Script::CStruct* entry = Entry(list, i);
+        uint32_t entryName = 0;
+        entry->GetChecksum(kName, &entryName, 1);
+        if (entryName != name)
+            continue;
+        Obj::CSkaterProfile* profile = ProfileManager()->GetTemplate(name);
+        uint32_t partial;
+        if (params->GetChecksum(kPartial, &partial, 0)) {
+            if (partial == kStatsAndTricks)
+                profile->SetFromParams(entry, false, true);
+            else
+                profile->SetFromParams(entry, true, false);
+        } else {
+            profile->Reset(entry);
+        }
+    }
+    return true;
+}
+
+// 0x005ABF00: ResetAllToDefaultProfile - every master_skater_list skater's template reset from its entry.
+bool __cdecl CFunc_ResetAllToDefaultProfile(Script::CStruct*, Script::CScript*)
+{
+    Script::CArray* list = Script::GetArray(kMasterSkaterList);
+    for (uint32_t i = 0; i < list->m_size; ++i) {
+        Script::CStruct* entry = Entry(list, i);
+        uint32_t name = 0;
+        entry->GetChecksum(kName, &name, 1);
+        ProfileManager()->GetTemplate(name)->Reset(entry);
+    }
+    return true;
+}
+
+// 0x005ABF70: ForEachSkaterName do=<script> [params=<s>] - the script run for every template with the parameters
+// and its name.
+bool __cdecl CFunc_ForEachSkaterName(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t script = 0; // (uninitialised in the original when missing)
+    params->GetChecksum(kDo, &script, 1);
+    Script::CStruct* scriptParams = nullptr;
+    params->GetStructure(kParams, &scriptParams, 0);
+    int count = static_cast<int>(TemplateCount());
+    for (int i = 0; i < count; ++i) {
+        uint32_t name = 0;
+        TemplateAt(i)->InfoStructure()->GetChecksum(kName, &name, 1);
+        Script::CStruct* run = NewParams();
+        run->AppendStructureIfAny(scriptParams);
+        run->AddChecksum(kName, name);
+        Script::RunScript(script, run, nullptr, false, nullptr);
+        DeleteParams(run);
+    }
+    return true;
+}
+
+// 0x005AC0C0: ForEachSkaterProfile do=<script> [params=<s>] - the script run for every template with the
+// parameters and its whole info.
+bool __cdecl CFunc_ForEachSkaterProfile(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t script = 0; // (uninitialised in the original when missing)
+    params->GetChecksum(kDo, &script, 1);
+    Script::CStruct* scriptParams = nullptr;
+    params->GetStructure(kParams, &scriptParams, 0);
+    int count = static_cast<int>(TemplateCount());
+    for (int i = 0; i < count; ++i) {
+        Script::CStruct* info = TemplateAt(i)->InfoStructure();
+        Script::CStruct* run = NewParams();
+        run->AppendStructureIfAny(scriptParams);
+        run->AppendStructureIfAny(info);
+        Script::RunScript(script, run, nullptr, false, nullptr);
+        DeleteParams(run);
+    }
+    return true;
+}
+
+// 0x005AC1F0: GetSkaterProfileInfoByName name=<skater> - the template's info added to the script's parameters
+// (false without such a template).
+bool __cdecl CFunc_GetSkaterProfileInfoByName(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0; // (uninitialised in the original when missing)
+    params->GetChecksum(kName, &name, 1);
+    Obj::CSkaterProfile* profile = FindTemplate(name);
+    if (!profile)
+        return false;
+    script->m_params->AppendStructureIfAny(profile->InfoStructure());
+    return true;
+}
+
+// 0x005AC280: SetSkaterProfileInfoByName name=<skater> params=<s> - the parameters added to the template's info
+// (false without such a template).
+bool __cdecl CFunc_SetSkaterProfileInfoByName(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0; // (uninitialised in the original when missing)
+    params->GetChecksum(kName, &name, 1);
+    Script::CStruct* values = nullptr;
+    params->GetStructure(kParams, &values, 1);
+    Obj::CSkaterProfile* profile = FindTemplate(name);
+    if (!profile)
+        return false;
+    profile->InfoStructure()->AppendStructureIfAny(values);
+    return true;
+}
+
+// 0x005AC320: PrintCurrentAppearance [skater=<n>] - the profile's appearance printed (compiled out: the empty
+// 0x005BAB90).
+bool __cdecl CFunc_PrintCurrentAppearance(Script::CStruct* params, Script::CScript*)
+{
+    Obj::CSkaterProfile* profile = GetProfileFromParams(params);
+    Script::PrintContents(reinterpret_cast<Script::CStruct*>(profile->m_appearance + 0x4C));
+    return true;
+}
+
+// 0x005AC340: SetNeversoftSkater [skater=<n>] appearance=<s> info=<s> - the profile's appearance set and applied,
+// the info added, its 0x09F350E5 value set.
+bool __cdecl CFunc_SetNeversoftSkater(Script::CStruct* params, Script::CScript*)
+{
+    Obj::CSkaterProfile* profile = GetProfileFromParams(params);
+    Script::CStruct* appearance = nullptr; // (uninitialised in the original when missing, as the info)
+    params->GetStructure(kAppearance, &appearance, 1);
+    profile->SetAppearance(appearance, true);
+    Script::CStruct* info = nullptr;
+    params->GetStructure(kInfo, &info, 1);
+    profile->InfoStructure()->AppendStructureIfAny(info);
+    profile->SetValue09F350E5(1);
+    return true;
+}
+
+// 0x005AC3B0: ResetSkaters [node_name=<node>] [RestartWalking] - the skate module's skaters reset at the node (its
+// 0x00566980; 0xDD7DF50E - name unknown - is read and not used).
+bool __cdecl CFunc_ResetSkaters(Script::CStruct* params, Script::CScript*)
+{
+    int unused = 0;
+    params->GetInteger(kResetValue, &unused, 0);
+    uint32_t node = 0;
+    params->GetChecksum(kNodeName, &node, 0);
+    bool walking = params->ContainsFlag(kRestartWalking);
+    GameFunction<void(__thiscall*)(uint8_t*, uint32_t, bool)>(0x00566980)(Skate(), node, walking);
+    return true;
+}
+
+// 0x005AC410: SetSkaterProfileInfo player=<n> params=<s> - added to profile n's info. 0x005AC470:
+// GetSkaterProfileInfo player=<n> - profile n's info added to the script's parameters.
+bool __cdecl CFunc_SetSkaterProfileInfo(Script::CStruct* params, Script::CScript*)
+{
+    int player = 0; // (uninitialised in the original when missing, as the structure)
+    params->GetInteger(kPlayer, &player, 1);
+    Script::CStruct* values = nullptr;
+    params->GetStructure(kParams, &values, 1);
+    ProfileManager()->GetProfile(player)->InfoStructure()->AppendStructureIfAny(values);
+    return true;
+}
+
+bool __cdecl CFunc_GetSkaterProfileInfo(Script::CStruct* params, Script::CScript* script)
+{
+    int player = 0; // (uninitialised in the original when missing)
+    params->GetInteger(kPlayer, &player, 1);
+    script->m_params->AppendStructureIfAny(ProfileManager()->GetProfile(player)->InfoStructure());
+    return true;
+}
+
+// 0x005AC4B0: SetSkaterProfileProperty player=<n> <stat> <value> - profile n's stat (SetStat's answer: false out of
+// 0-10).
+bool __cdecl CFunc_SetSkaterProfileProperty(Script::CStruct* params, Script::CScript*)
+{
+    int player = 0; // (uninitialised in the original when missing, as the stat and value)
+    params->GetInteger(kPlayer, &player, 1);
+    uint32_t stat = 0;
+    params->GetChecksum(0u, &stat, 0);
+    int value = 0;
+    params->GetInteger(0u, &value, 0);
+    return ProfileManager()->GetProfile(player)->SetStat(stat, value);
+}
+
+// 0x005AC520: SetClassicStat <stat> <value> - the career's info value (classic mode's stats).
+bool __cdecl CFunc_SetClassicStat(Script::CStruct* params, Script::CScript*)
+{
+    Obj::CSkaterCareer* career = Career();
+    uint32_t stat = 0; // (uninitialised in the original when missing, as the value)
+    params->GetChecksum(0u, &stat, 0);
+    int value = 0;
+    params->GetInteger(0u, &value, 0);
+    return career->SetInfoInteger(stat, value);
+}
+
+// 0x005AC570: ToggleAlwaysSpecial [on | off] - every skater's always-special flag (+0x168) set, cleared or toggled.
+bool __cdecl CFunc_ToggleAlwaysSpecial(Script::CStruct* params, Script::CScript*)
+{
+    bool on = params->ContainsFlag(kOn);
+    bool off = params->ContainsFlag(kOff);
+    for (int i = 0; i < 8; ++i) {
+        Obj::CCompositeObject* skater = GetSkater(i);
+        if (!skater)
+            continue;
+        uint8_t& special = reinterpret_cast<uint8_t*>(skater)[0x168];
+        if (on)
+            special = 1;
+        else if (off)
+            special = 0;
+        else
+            special = special == 0;
+    }
+    return true;
+}
 
 // 0x005AE370 ... 0x005AE4F0: VibrationIsOn / VibrationOn / VibrationOff, AutoKickIsOn / On / Off, SpinTapsAreOn /
 // On / Off [<player>].
@@ -249,3 +547,18 @@ REPLACE(0x005AE4C0, CFuncs::CFunc_SpinTapsOn);
 REPLACE(0x005AE4F0, CFuncs::CFunc_SpinTapsOff);
 REPLACE(0x005AE520, CFuncs::CFunc_GetCurrentProDisplayInfo);
 REPLACE(0x005AE900, CFuncs::CFunc_SelectCurrentSkater);
+REPLACE(0x005ABBF0, CFuncs::CFunc_ResetAllToDefaultStats);
+REPLACE(0x005ABE30, CFuncs::CFunc_ResetToDefaultProfile);
+REPLACE(0x005ABF00, CFuncs::CFunc_ResetAllToDefaultProfile);
+REPLACE(0x005ABF70, CFuncs::CFunc_ForEachSkaterName);
+REPLACE(0x005AC0C0, CFuncs::CFunc_ForEachSkaterProfile);
+REPLACE(0x005AC1F0, CFuncs::CFunc_GetSkaterProfileInfoByName);
+REPLACE(0x005AC280, CFuncs::CFunc_SetSkaterProfileInfoByName);
+REPLACE(0x005AC320, CFuncs::CFunc_PrintCurrentAppearance);
+REPLACE(0x005AC340, CFuncs::CFunc_SetNeversoftSkater);
+REPLACE(0x005AC3B0, CFuncs::CFunc_ResetSkaters);
+REPLACE(0x005AC410, CFuncs::CFunc_SetSkaterProfileInfo);
+REPLACE(0x005AC470, CFuncs::CFunc_GetSkaterProfileInfo);
+REPLACE(0x005AC4B0, CFuncs::CFunc_SetSkaterProfileProperty);
+REPLACE(0x005AC520, CFuncs::CFunc_SetClassicStat);
+REPLACE(0x005AC570, CFuncs::CFunc_ToggleAlwaysSpecial);
