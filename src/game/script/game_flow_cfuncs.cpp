@@ -9,7 +9,14 @@
 #include <cstdint>
 #include <cstring>
 
+#include <cstdio>
+
 #include "game/ass/assman.h"
+#include "game/core/crc.h"
+#include "game/net/net_app.h"
+#include "game/net/net_conn.h"
+#include "game/net/net_lists.h"
+#include "game/skate/career.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -557,6 +564,173 @@ bool __cdecl CFunc_GameFlow(Script::CStruct* params, Script::CScript*)
     return true;
 }
 
+namespace {
+
+// The globals naming the career's Omnigon flags ClearOmnigons clears (in this order).
+constexpr uint32_t kOmnigonFlags[] = {
+    0x13D5B5DB, 0x8ADCE461, 0xFDDBD4F7, 0x63BF4154, 0x14B871C2, 0x8DB12078, 0xFAB610EE, 0x6A090D7F,
+    0x1D0E3DE9, 0x37CBEE45, 0x40CCDED3, 0xD9C58F69, 0xAEC2BFFF, 0x30A62A5C, 0x47A11ACA, 0xDEA84B70,
+    0xA9AF7BE6, 0x39106677, 0x4E1756E1, 0x1CE6BD86, 0x6BE18D10, 0xF2E8DCAA, 0x85EFEC3C,
+};
+
+constexpr uint32_t kOmnigon = 0xAE94C183;       // (name unknown) the Omnigon (as LastBroadcastedOmnigonWas)
+constexpr uint32_t kOmnigonFlag = 0xF649D637;   // (name unknown) sent with it
+constexpr uint32_t kCheatText = 0x61414D56;     // (name unknown) TryCheatString's text
+constexpr uint32_t kCheatFailed = 0x323D63FF;   // (names unknown) its scripts: no cheat,
+constexpr uint32_t kCheatFound = 0xB95B735C;    // a cheat (before the cheat's own script)
+constexpr uint32_t kCheatList = 0x75A23DA4;     // (name unknown) the global array of {c1 c2 cheatscript}
+
+uint32_t& LastBroadcastedOmnigon() { return GameVariable<uint32_t>(0x007CEBC8); }
+
+// A skater's score (0x00580480; null if none) and its display brought up to date (0x005626E0).
+void UpdateScoreDisplay(Obj::CSkater* skater)
+{
+    if (void* score = skater->GetScore())
+        GameFunction<void(__thiscall*)(void*)>(0x005626E0)(score);
+}
+
+} // namespace
+
+// 0x005A1320: ClearOmnigons: the career's 23 Omnigon flags (the values of the globals above) cleared.
+bool __cdecl CFunc_ClearOmnigons(Script::CStruct*, Script::CScript*)
+{
+    auto* career = *reinterpret_cast<Obj::CSkaterCareer**>(Skate() + 0x20);
+    for (uint32_t flag : kOmnigonFlags)
+        career->UnSetGlobalFlag(Script::GetInteger(flag));
+    return true;
+}
+
+// 0x005A1540: BroadcastOmnigon <0xAE94C183=omnigon> [0xF649D637]: noted as the last one sent and, from the server,
+// sent to every remote connection (message 0x7F, 8 bytes: the Omnigon and the flag; sequenced, group 8).
+bool __cdecl CFunc_BroadcastOmnigon(Script::CStruct* params, Script::CScript*)
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    Net::ConnSearch search = {Net::kConnSearchVtable, nullptr};
+    uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
+    params->GetChecksum(kOmnigon, &omnigon, true);
+    bool flag = params->ContainsComponentNamed(kOmnigonFlag);
+    LastBroadcastedOmnigon() = omnigon;
+    Net::App* server = gameNet->m_server;
+    for (Net::Conn* conn = server->FirstConnection(&search); conn; conn = server->NextConnection(&search)) {
+        if (!conn->IsRemote())
+            continue;
+        Net::MsgDesc desc;
+        desc.Construct();
+        struct {
+            uint32_t omnigon;
+            bool flag;
+            uint8_t pad[3]; // (unset in the original: sent as they are; zero here)
+        } message = {omnigon, flag, {}};
+        desc.m_data = &message;
+        desc.m_id = 0x7F;
+        desc.m_length = 8;
+        desc.m_queue = Net::MsgDesc::kQueueSequenced;
+        desc.m_groupId = 8;
+        server->EnqueueMessage(conn->m_handle, &desc);
+        LastBroadcastedOmnigon() = omnigon;
+    }
+    LastBroadcastedOmnigon() = omnigon;
+    return true;
+}
+
+// 0x005A1720: SetScreenMode <...>: the screen mode (0x004A0C20 with the command's parameters), then every skater's
+// score display brought up to date.
+bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript* script)
+{
+    GameFunction<void(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x004A0C20)(params, script);
+    for (uint32_t i = 0; i < 8; ++i) {
+        if (Obj::CSkater* skater = GetSkater(static_cast<int>(i)))
+            UpdateScoreDisplay(skater);
+    }
+    return true;
+}
+
+// 0x005A1770: SetScreenModeFromGameMode: a debug message per local skater; the game mode's screen mode
+// (0x00553630) set (0x004A0AD0) unless the two split modes (1 and 2) would only swap; the local skaters' score
+// displays brought up to date.
+bool __cdecl CFunc_SetScreenModeFromGameMode(Script::CStruct*, Script::CScript*)
+{
+    for (uint32_t i = 0; i < 8; ++i) {
+        Obj::CSkater* skater = GetSkater(static_cast<int>(i));
+        if (skater && skater->m_unknownBC)
+            Dbg::Printf(reinterpret_cast<const char*>(0x0064FE34), 0x16C0); // "cfuncs %d: SUTUBBBED..."
+    }
+    int mode = GameFunction<int(__thiscall*)(void*)>(0x00553630)(GameMode());
+    int current = GameFunction<int(__cdecl*)()>(0x004A0710)();
+    if (!((mode == 1 && current == 2) || (mode == 2 && current == 1)))
+        GameFunction<void(__cdecl*)(int)>(0x004A0AD0)(mode);
+    for (uint32_t i = 0; i < 8; ++i) {
+        Obj::CSkater* skater = GetSkater(static_cast<int>(i));
+        if (skater && skater->m_unknownBC)
+            UpdateScoreDisplay(skater);
+    }
+    return true;
+}
+
+// 0x005A1840: TryCheatString text="<code>": a cheat code is two numbers made from the text: its checksum, then
+// 100000 times the checksum of a buffer holding (round + the last checksum) as decimal text, its terminator
+// overwritten with 'X' (so the bytes left behind by the longer strings before - the buffer starts as
+// "12345678901234567890", then holds the text - follow it up to the next terminator), each character of it added
+// times 0x3FF to a sum. c1 = the checksum of the text's last two thirds ^ the sum, c2 = the buffer's last checksum ^
+// the sum (logged). The cheats in the global array 0x75A23DA4 with those c1 / c2 run 0xB95B735C and their
+// cheatscript; none (or a text under 6 characters): 0x323D63FF. Always false. The text is used as a sprintf format
+// (kept: a '%' in it is interpreted).
+bool __cdecl CFunc_TryCheatString(Script::CStruct* params, Script::CScript*)
+{
+    const char* text = nullptr; // (unset in the original when missing - an asserted parameter)
+    params->GetString(kCheatText, &text, true);
+    if (std::strlen(text) < 6) {
+        Script::RunScript(kCheatFailed, nullptr, nullptr, false, nullptr);
+        return false;
+    }
+    char buffer[0x80];
+#pragma warning(push)
+#pragma warning(disable : 4996) // (unbounded, and the text is the format: as in the original)
+    std::sprintf(buffer, reinterpret_cast<const char*>(0x0064FEA8)); // "12345678901234567890"
+    std::sprintf(buffer, text);
+    uint32_t checksum = Crc::GenerateCRCFromString(text);
+    int sum = 0;
+    for (int round = 0; round < 100000; ++round) {
+        std::sprintf(buffer, "%d", static_cast<int>(round + checksum));
+        buffer[std::strlen(buffer)] = 'X';
+        for (const char* c = buffer; *c; ++c)
+            sum += static_cast<signed char>(*c) * 0x3FF;
+        checksum = Crc::GenerateCRCFromString(buffer);
+    }
+#pragma warning(pop)
+    uint32_t c1 = Crc::GenerateCRCFromString(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
+    uint32_t c2 = Crc::GenerateCRCFromString(buffer) ^ static_cast<uint32_t>(sum);
+    Dbg::Printf(reinterpret_cast<const char*>(0x0064FE78), c1, c2, text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
+    Script::CArray* cheats = Script::GetArray(kCheatList);
+    int count = static_cast<int>(cheats->m_size);
+    bool found = false;
+    for (int i = 0; i < count; ++i) {
+        auto* cheat = reinterpret_cast<Script::CStruct*>(cheats->GetElement(static_cast<uint32_t>(i)));
+        int cheatC1 = 0;
+        int cheatC2 = 0;
+        uint32_t script = 0;
+        cheat->GetInteger(reinterpret_cast<const char*>(0x0064FE74), &cheatC1, true);  // "c1"
+        cheat->GetInteger(reinterpret_cast<const char*>(0x0064FE70), &cheatC2, true);  // "c2"
+        cheat->GetChecksum(reinterpret_cast<const char*>(0x0064FE64), &script, true);  // "cheatscript"
+        if (static_cast<uint32_t>(cheatC1) == c1 && static_cast<uint32_t>(cheatC2) == c2) {
+            Script::RunScript(kCheatFound, nullptr, nullptr, false, nullptr);
+            Script::RunScript(script, nullptr, nullptr, false, nullptr);
+            found = true;
+        }
+    }
+    if (!found)
+        Script::RunScript(kCheatFailed, nullptr, nullptr, false, nullptr);
+    return false;
+}
+
+// 0x005A1A90: LevelIs <level>: whether it's the skate module's level (+0x378).
+bool __cdecl CFunc_LevelIs(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t level = 0; // (unset in the original when missing - an asserted parameter)
+    params->GetChecksum(0u, &level, true);
+    return *reinterpret_cast<uint32_t*>(Skate() + 0x378) == level;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x0059FE50, CFuncs::CFunc_Cleanup);
@@ -587,3 +761,10 @@ REPLACE(0x005A1270, CFuncs::CFunc_SetLevelStructureName);
 REPLACE(0x005A12A0, CFuncs::CFunc_GetLevelStructureName);
 REPLACE(0x005A12C0, CFuncs::CFunc_RestartLevel);
 REPLACE(0x005A12E0, CFuncs::CFunc_GameFlow);
+REPLACE(0x005A1320, CFuncs::CFunc_ClearOmnigons);
+REPLACE(0x005A1540, CFuncs::CFunc_BroadcastOmnigon);
+REPLACE(0x005A1720, CFuncs::CFunc_SetScreenMode);
+REPLACE(0x005A1770, CFuncs::CFunc_SetScreenModeFromGameMode);
+REPLACE(0x005A1840, CFuncs::CFunc_TryCheatString);
+REPLACE(0x005A1A90, CFuncs::CFunc_LevelIs);
+REPLACE_SOURCE_ONLY(0x005A18A9, CFuncs::CFunc_TryCheatString); // (not a function: the rest of 0x005A1840 after the length test)

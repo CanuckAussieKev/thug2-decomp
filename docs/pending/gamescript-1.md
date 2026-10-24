@@ -76,3 +76,19 @@ Shared files touched: CMakeLists.txt (new files listed).
     module's +0x380), 0x005A12C0 RestartLevel, 0x005A12D0 ToggleScores, 0x005A12E0 GameFlow.
   - Test TestServerListCFuncs: original vs ours over stand-in connections, clients, the server list's states and the
     game mode. 19 of 19 deliberate bugs caught (1 after strengthening: an unnamed integer equal to the mode).
+- [x] Batch GS1-5 (NOT run in the game yet; Omnigons, the screen mode, cheat codes, the lobby, network options - 20
+  functions): src/game/script/game_flow_cfuncs.cpp, net_state_cfuncs.cpp.
+  - 0x005A1320 ClearOmnigons (the career flags named by 23 globals), 0x005A1540 BroadcastOmnigon (message 0x7F of 8
+    bytes to each remote connection of the server: the Omnigon and the flag - the 3 bytes after the flag unset in the
+    original, zero here), 0x005A1680 JoinWithPassword, 0x005A1720 SetScreenMode, 0x005A1770 SetScreenModeFromGameMode
+    (the mode set unless it only swaps the two split modes), 0x005A1820 LoadPendingPlayers, 0x005A1830
+    LaunchQueuedScripts, 0x005A1840 TryCheatString (Ghidra split it: 0x005A18A9 is its second half, registered source
+    only - the cheat hash: 100000 rounds of a checksum over a buffer whose terminator is overwritten with 'X', so the
+    earlier strings' leftover bytes count - the buffer is first filled with "12345678901234567890"; c1 / c2 matched
+    against the global array 0x75A23DA4; always false; the text used as a sprintf format, kept), 0x005A1A90 LevelIs,
+    0x005A1AC0 StartNetworkLobby, 0x005A1AD0 ObserversAllowed (not over a modem), 0x005A1AF0 NumPlayersAllowed,
+    0x005A1B30 AutoDNS, 0x005A1B70 UsingDefaultMasterServers, 0x005A1BB0 UsingDHCP, 0x005A1BF0 InInternetMode,
+    0x005A1C00 EnteringNetGame, 0x005A1C30 DeviceChosen, 0x005A1C70 GameIsOver.
+  - Test TestLobbyCFuncs: original vs ours (the game's sprintf stood in for by ours; the cheat's numbers the original
+    logs used for a matching entry in the next call). 27 of 27 deliberate bugs caught (1 after strengthening: a cheat
+    text shorter than the round's number, so the first fill's bytes are read).

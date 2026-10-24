@@ -20,6 +20,7 @@
 #include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
+#include "game/script/preferences.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
@@ -437,6 +438,85 @@ bool __cdecl CFunc_ToggleScores(Script::CStruct*, Script::CScript*)
     return true;
 }
 
+// 0x005A1680: JoinWithPassword 0x61414D56="<password>": the join tried again with it.
+bool __cdecl CFunc_JoinWithPassword(Script::CStruct* params, Script::CScript*)
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    const char* password = nullptr; // (unset in the original when missing - an asserted parameter)
+    params->GetString(0x61414D56u, &password, true);
+    gameNet->ReattemptJoinWithPassword(password);
+    return true;
+}
+
+// 0x005A1820 / 0x005A1830: LoadPendingPlayers / LaunchQueuedScripts.
+bool __cdecl CFunc_LoadPendingPlayers(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->ReAddPendingPlayers();
+    return true;
+}
+
+bool __cdecl CFunc_LaunchQueuedScripts(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->LaunchQueuedScripts();
+    return true;
+}
+
+// 0x005A1AC0: StartNetworkLobby: back to the lobby.
+bool __cdecl CFunc_StartNetworkLobby(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->ResetToLobby();
+    return true;
+}
+
+// 0x005A1AD0: ObserversAllowed: unless the connection is a modem (type 1).
+bool __cdecl CFunc_ObserversAllowed(Script::CStruct*, Script::CScript*) { return NetManager()->GetConnectionType() != 1; }
+
+// 0x005A1AF0: NumPlayersAllowed <num_n>: over a modem, every count but 0x1FA67C3D; otherwise all.
+bool __cdecl CFunc_NumPlayersAllowed(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t players = 0;
+    if (NetManager()->GetConnectionType() != 1)
+        return true;
+    params->GetChecksum(0u, &players, 0);
+    return players != 0x1FA67C3D;
+}
+
+namespace {
+// A network preference's checksum (asserting it's there).
+uint32_t NetworkPreference(uint32_t name)
+{
+    Script::CStruct* preference = GameNetManager()->GetNetworkPreferences()->GetPreference(name);
+    uint32_t value = 0; // (unset in the original when missing - an asserted parameter)
+    preference->GetChecksum(0x21902065u, &value, true); // "checksum"
+    return value;
+}
+} // namespace
+
+// 0x005A1B30 / 0x005A1B70 / 0x005A1BB0: AutoDNS / UsingDefaultMasterServers / UsingDHCP: the network preferences
+// 0x5DDFCAD3 / 0xE7A3CB08 / 0xBB2EB924 are 0xF81BC89B / 0xF81BC89B / 0x2189CFF8.
+bool __cdecl CFunc_AutoDNS(Script::CStruct*, Script::CScript*) { return NetworkPreference(0x5DDFCAD3) == 0xF81BC89B; }
+bool __cdecl CFunc_UsingDefaultMasterServers(Script::CStruct*, Script::CScript*)
+{
+    return NetworkPreference(0xE7A3CB08) == 0xF81BC89B;
+}
+bool __cdecl CFunc_UsingDHCP(Script::CStruct*, Script::CScript*) { return NetworkPreference(0xBB2EB924) == 0x2189CFF8; }
+
+// 0x005A1BF0: InInternetMode.
+bool __cdecl CFunc_InInternetMode(Script::CStruct*, Script::CScript*) { return GameNetManager()->InInternetMode(); }
+
+// 0x005A1C00: EnteringNetGame: a network game, and the skate module's +0x37C is 0xE92ECAFE.
+bool __cdecl CFunc_EnteringNetGame(Script::CStruct*, Script::CScript*)
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    return gameNet->InNetGame() && *reinterpret_cast<uint32_t*>(Skate() + 0x37C) == 0xE92ECAFE;
+}
+
+// 0x005A1C30: DeviceChosen: the network preference 0xFA187DEC isn't 0x09562A0A.
+bool __cdecl CFunc_DeviceChosen(Script::CStruct*, Script::CScript*) { return NetworkPreference(0xFA187DEC) != 0x09562A0A; }
+
+// 0x005A1C70: GameIsOver.
+bool __cdecl CFunc_GameIsOver(Script::CStruct*, Script::CScript*) { return GameNetManager()->IsGameOver(); }
+
 } // namespace CFuncs
 
 REPLACE(0x005A0880, CFuncs::CFunc_StartServer);
@@ -473,3 +553,16 @@ REPLACE(0x005A1180, CFuncs::CFunc_InSplitScreenGame);
 REPLACE(0x005A11B0, CFuncs::CFunc_InMultiplayerGame);
 REPLACE(0x005A1220, CFuncs::CFunc_OnServer);
 REPLACE(0x005A12D0, CFuncs::CFunc_ToggleScores);
+REPLACE(0x005A1680, CFuncs::CFunc_JoinWithPassword);
+REPLACE(0x005A1820, CFuncs::CFunc_LoadPendingPlayers);
+REPLACE(0x005A1830, CFuncs::CFunc_LaunchQueuedScripts);
+REPLACE(0x005A1AC0, CFuncs::CFunc_StartNetworkLobby);
+REPLACE(0x005A1AD0, CFuncs::CFunc_ObserversAllowed);
+REPLACE(0x005A1AF0, CFuncs::CFunc_NumPlayersAllowed);
+REPLACE(0x005A1B30, CFuncs::CFunc_AutoDNS);
+REPLACE(0x005A1B70, CFuncs::CFunc_UsingDefaultMasterServers);
+REPLACE(0x005A1BB0, CFuncs::CFunc_UsingDHCP);
+REPLACE(0x005A1BF0, CFuncs::CFunc_InInternetMode);
+REPLACE(0x005A1C00, CFuncs::CFunc_EnteringNetGame);
+REPLACE(0x005A1C30, CFuncs::CFunc_DeviceChosen);
+REPLACE(0x005A1C70, CFuncs::CFunc_GameIsOver);

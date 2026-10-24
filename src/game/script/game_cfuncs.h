@@ -121,6 +121,28 @@ bool __cdecl CFunc_SetLevelStructureName(Script::CStruct* params, Script::CScrip
 bool __cdecl CFunc_GetLevelStructureName(Script::CStruct* params, Script::CScript* script);    // 0x005A12A0
 bool __cdecl CFunc_RestartLevel(Script::CStruct* params, Script::CScript* script);             // 0x005A12C0
 bool __cdecl CFunc_GameFlow(Script::CStruct* params, Script::CScript* script);                 // 0x005A12E0
+bool __cdecl CFunc_ClearOmnigons(Script::CStruct* params, Script::CScript* script);            // 0x005A1320
+bool __cdecl CFunc_BroadcastOmnigon(Script::CStruct* params, Script::CScript* script);         // 0x005A1540
+bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript* script);            // 0x005A1720
+bool __cdecl CFunc_SetScreenModeFromGameMode(Script::CStruct* params, Script::CScript* script); // 0x005A1770
+bool __cdecl CFunc_TryCheatString(Script::CStruct* params, Script::CScript* script);           // 0x005A1840
+bool __cdecl CFunc_LevelIs(Script::CStruct* params, Script::CScript* script);                  // 0x005A1A90
+
+// --- the lobby and network options (net_state_cfuncs.cpp) -------------------------------------------------------
+
+bool __cdecl CFunc_JoinWithPassword(Script::CStruct* params, Script::CScript* script);         // 0x005A1680
+bool __cdecl CFunc_LoadPendingPlayers(Script::CStruct* params, Script::CScript* script);       // 0x005A1820
+bool __cdecl CFunc_LaunchQueuedScripts(Script::CStruct* params, Script::CScript* script);      // 0x005A1830
+bool __cdecl CFunc_StartNetworkLobby(Script::CStruct* params, Script::CScript* script);        // 0x005A1AC0
+bool __cdecl CFunc_ObserversAllowed(Script::CStruct* params, Script::CScript* script);         // 0x005A1AD0
+bool __cdecl CFunc_NumPlayersAllowed(Script::CStruct* params, Script::CScript* script);        // 0x005A1AF0
+bool __cdecl CFunc_AutoDNS(Script::CStruct* params, Script::CScript* script);                  // 0x005A1B30
+bool __cdecl CFunc_UsingDefaultMasterServers(Script::CStruct* params, Script::CScript* script); // 0x005A1B70
+bool __cdecl CFunc_UsingDHCP(Script::CStruct* params, Script::CScript* script);                // 0x005A1BB0
+bool __cdecl CFunc_InInternetMode(Script::CStruct* params, Script::CScript* script);           // 0x005A1BF0
+bool __cdecl CFunc_EnteringNetGame(Script::CStruct* params, Script::CScript* script);          // 0x005A1C00
+bool __cdecl CFunc_DeviceChosen(Script::CStruct* params, Script::CScript* script);             // 0x005A1C30
+bool __cdecl CFunc_GameIsOver(Script::CStruct* params, Script::CScript* script);               // 0x005A1C70
 
 // What FlagCommandByName does to the objects: set / clear / test a script flag (of 32), set / clear object flag
 // bits, send an exception.

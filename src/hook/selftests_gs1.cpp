@@ -27,6 +27,8 @@
 #include "game/net/net_manager.h"
 #include "game/net/player_info.h"
 #include "game/script/qb.h"
+#include "game/net/net_conn.h"
+#include "game/skate/career.h"
 #include "game/sio/inpman.h"
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
@@ -1285,8 +1287,229 @@ void TestServerListCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A1320-0x005A1C80 (game_flow_cfuncs.cpp, net_state_cfuncs.cpp) ----------------------------------------
+
+uint32_t g_screenMode, g_currentScreenMode;
+CStruct* g_cheatEntries[3];
+uint32_t g_capturedCheat[2];
+bool g_gameOver;
+
+void StandInLobbyCalls(StandIns& s)
+{
+    auto simple = [&s](std::initializer_list<uint32_t> at, uint16_t pop, uint32_t tag, int mode, uint32_t result = 0) {
+        s.At(at, pop, [tag, mode, result](Regs& r) {
+            Record({tag, mode & 1 ? Rel(r.ecx) : 0u, mode & 2 ? Rel(r.args[0]) : mode & 4 ? r.args[0] & 0xFF : 0u});
+            return result;
+        });
+    };
+    simple({0x005843D0, AddressOf(&Obj::CSkaterCareer::UnSetGlobalFlag)}, 4, 0x43D0, 3);
+    using IntFn = int (*)(uint32_t);
+    s.At({0x00478F60, AddressOf(static_cast<IntFn>(&Script::GetInteger))}, 0, [](Regs& r) {
+        Record({0x8F60, r.args[0]});
+        return r.args[0] >> 27;
+    });
+    s.At({0x00455A30, AddressOf(&Net::Conn::IsRemote)}, 0, [](Regs& r) {
+        Record({0x5A30, Rel(r.ecx)});
+        return reinterpret_cast<uint32_t*>(r.ecx)[0x3C / 4] & 1;
+    });
+    s.At({0x00457EB0, AddressOf(&Net::App::EnqueueMessage)}, 8, [](Regs& r) {
+        auto* desc = reinterpret_cast<Net::MsgDesc*>(r.args[1]);
+        Record({0x7EB0, r.ecx, r.args[0], desc->m_id, desc->m_length, static_cast<uint32_t>(desc->m_priority),
+                static_cast<uint32_t>(desc->m_queue), desc->m_groupId, HashBytes(static_cast<uint8_t*>(desc->m_data), 5),
+                GameVariable<uint32_t>(0x007CEBC8)});
+        return 0u;
+    });
+    simple({0x004A0C20}, 0, 0x0C20, 2);
+    s.At({0x00580480, AddressOf(&Obj::CSkater::GetScore)}, 0, [](Regs& r) {
+        Record({0x0480, Rel(r.ecx)});
+        return g_skaterMask & 0x200 ? 0x005C0E00u : 0u;
+    });
+    simple({0x005626E0}, 0, 0x26E0, 1);
+    s.At({0x00553630}, 0, [](Regs&) { Record({0x3630}); return g_screenMode; });
+    s.At({0x004A0710}, 0, [](Regs&) { Record({0x0710}); return g_currentScreenMode; });
+    simple({0x004A0AD0}, 0, 0x0AD0, 2);
+    s.At({0x006234FE}, 0, StandInSprintf);
+    using ArrayFn = Script::CArray* (*)(uint32_t);
+    s.At({0x00479070, AddressOf(static_cast<ArrayFn>(&Script::GetArray))}, 0, [](Regs& r) {
+        Record({0x9070, r.args[0]});
+        static Script::CArray array;
+        array.m_type = Script::ESYMBOLTYPE_STRUCTURE;
+        array.m_size = g_cheatEntries[2] ? 3 : g_cheatEntries[0] ? 1 : 0;
+        array.m_elements = reinterpret_cast<uint32_t*>(g_cheatEntries);
+        if (array.m_size == 1)
+            array.m_single = reinterpret_cast<uint32_t>(g_cheatEntries[0]);
+        return reinterpret_cast<uint32_t>(&array);
+    });
+    s.At({0x00401C30, AddressOf(static_cast<int (*)(const char*, ...)>(&Dbg::Printf))}, 0, [](Regs& r) {
+        const char* format = reinterpret_cast<const char*>(r.args[0]);
+        Record({0x1C30, Hash(format), std::strchr(format, '%') ? r.args[1] : 0u,
+                std::strstr(format, "c2") ? r.args[2] : 0u});
+        if (std::strstr(format, "c2")) { // (the cheat's numbers, for the next call's matching entry)
+            g_capturedCheat[0] = r.args[1];
+            g_capturedCheat[1] = r.args[2];
+        }
+        return 0u;
+    });
+    simple({0x00534BD0, AddressOf(&GameNet::Manager::ReattemptJoinWithPassword)}, 4, 0x4BD0, 1);
+    simple({0x0053D120, AddressOf(&GameNet::Manager::ReAddPendingPlayers)}, 0, 0xD120, 1);
+    simple({0x00537D90, AddressOf(&GameNet::Manager::LaunchQueuedScripts)}, 0, 0x7D90, 1);
+    simple({0x0053AF90, AddressOf(&GameNet::Manager::ResetToLobby)}, 0, 0xAF90, 1);
+    simple({0x00532F70, AddressOf(&GameNet::Manager::GetNetworkPreferences)}, 0, 0x2F70, 1, 0x00FE0001);
+    s.At({0x005332B0, AddressOf(&GameNet::Manager::IsGameOver)}, 0, [](Regs&) { Record({0x32B0}); return g_gameOver ? 1u : 0u; });
+}
+
+void TestLobbyCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> flowSaved = SavedFlowGlobals();
+    std::vector<Saved> netSaved = {{0x006EFDD8, 4, {}}};
+    SaveAll(saved);
+    SaveAll(flowSaved);
+    SaveAll(netSaved);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInServerListCalls(*standIns);
+    StandInLobbyCalls(*standIns);
+    static uint8_t gameNet[0x10];
+    static uint8_t net[0x380];
+    static uint8_t conns[2][0x3E00];
+    static uint8_t skate[0x400];
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        std::memset(skate, 0, sizeof(skate));
+        reinterpret_cast<uint32_t*>(skate)[0x20 / 4] = 0x00CA4EE4; // the career
+        reinterpret_cast<uint32_t*>(skate)[0x378 / 4] = 0x1E7E1;
+        reinterpret_cast<uint32_t*>(skate)[0x37C / 4] = 0xE92ECAFE;
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<void*>(0x007CCE14) = gameNet;
+        GameVariable<void*>(0x006EFDD8) = net;
+        GameVariable<uint32_t>(0x007CE470) = 0x00700470;
+        auto call = [&](uint32_t address, CFunc ours, Params& params) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        Params none;
+
+        call(0x005A1320, CFuncs::CFunc_ClearOmnigons, none);
+        // BroadcastOmnigon: two connections (one remote), with and without the flag; no connections
+        std::memset(conns, 0, sizeof(conns));
+        reinterpret_cast<uint32_t*>(conns[0])[0x3C / 4] = 0x10;
+        reinterpret_cast<uint32_t*>(conns[1])[0x3C / 4] = 0x21;
+        g_conns = conns;
+        reinterpret_cast<uint32_t*>(gameNet)[1] = 0x005E7E00;
+        Params omnigon; omnigon.Checksum(0xAE94C183, 0x0A61).Integer(0xF649D637, 0);
+        call(0x005A1540, CFuncs::CFunc_BroadcastOmnigon, omnigon);
+        Record({GameVariable<uint32_t>(0x007CEBC8)});
+        Params omnigon2; omnigon2.Checksum(0xAE94C183, 0x0A62);
+        reinterpret_cast<uint32_t*>(conns[0])[0x3C / 4] = 0x11;
+        call(0x005A1540, CFuncs::CFunc_BroadcastOmnigon, omnigon2);
+        g_conns = nullptr;
+        call(0x005A1540, CFuncs::CFunc_BroadcastOmnigon, omnigon);
+        Record({GameVariable<uint32_t>(0x007CEBC8)});
+        // the screen mode: skaters with and without scores, local or not; the mode pairs
+        for (int state = 0; state < 3; ++state) {
+            g_skaterMask = state == 0 ? 0 : state == 1 ? 0x2A5 : 0x05A;
+            g_fakes->skater[0xBC] = static_cast<uint8_t>(state == 1);
+            call(0x005A1720, CFuncs::CFunc_SetScreenMode, none);
+            for (uint32_t mode : {0u, 1u, 2u, 3u}) {
+                for (uint32_t current : {1u, 2u}) {
+                    g_screenMode = mode;
+                    g_currentScreenMode = current;
+                    call(0x005A1770, CFuncs::CFunc_SetScreenModeFromGameMode, none);
+                }
+            }
+        }
+        // TryCheatString: too short; no cheats; a list without the code; with it (the numbers the first run logged)
+        static Params cheat1, cheat2, cheat3;
+        cheat1 = Params();
+        cheat1.Integer(CrcOf("c1"), 1).Integer(CrcOf("c2"), 2).Checksum(CrcOf("cheatscript"), 0xC4EA7);
+        Params shortText; shortText.String(0x61414D56, "abcde");
+        call(0x005A1840, CFuncs::CFunc_TryCheatString, shortText);
+        Params text; text.String(0x61414D56, "SKATELIKEAPRO");
+        g_cheatEntries[0] = g_cheatEntries[1] = g_cheatEntries[2] = nullptr;
+        call(0x005A1840, CFuncs::CFunc_TryCheatString, text);
+        g_cheatEntries[0] = cheat1.Struct();
+        call(0x005A1840, CFuncs::CFunc_TryCheatString, text);
+        cheat2 = Params();
+        cheat2.Integer(CrcOf("c1"), static_cast<int>(g_capturedCheat[0])).Integer(CrcOf("c2"), static_cast<int>(g_capturedCheat[1]))
+            .Checksum(CrcOf("cheatscript"), 0xC4EA8);
+        cheat3 = Params();
+        cheat3.Integer(CrcOf("c1"), static_cast<int>(g_capturedCheat[0])).Integer(CrcOf("c2"), 5)
+            .Checksum(CrcOf("cheatscript"), 0xC4EA9);
+        g_cheatEntries[1] = cheat2.Struct();
+        g_cheatEntries[2] = cheat3.Struct();
+        call(0x005A1840, CFuncs::CFunc_TryCheatString, text);
+        Params text2; text2.String(0x61414D56, "a much longer cheat text, 34 long");
+        call(0x005A1840, CFuncs::CFunc_TryCheatString, text2);
+        Params text3; text3.String(0x61414D56, "ABCDEFG"); // (shorter than the numbers: the first fill's bytes are read)
+        call(0x005A1840, CFuncs::CFunc_TryCheatString, text3);
+        Params level; level.Checksum(0, 0x1E7E1);
+        call(0x005A1A90, CFuncs::CFunc_LevelIs, level);
+        Params otherLevel; otherLevel.Checksum(0, 0x1E7E2);
+        call(0x005A1A90, CFuncs::CFunc_LevelIs, otherLevel);
+
+        // the lobby and the network options
+        Params password; password.String(0x61414D56, "hunter2");
+        call(0x005A1680, CFuncs::CFunc_JoinWithPassword, password);
+        call(0x005A1820, CFuncs::CFunc_LoadPendingPlayers, none);
+        call(0x005A1830, CFuncs::CFunc_LaunchQueuedScripts, none);
+        call(0x005A1AC0, CFuncs::CFunc_StartNetworkLobby, none);
+        for (int type : {0, 1, 2}) {
+            reinterpret_cast<int*>(net)[0x128 / 4] = type;
+            call(0x005A1AD0, CFuncs::CFunc_ObserversAllowed, none);
+            Params two; two.Checksum(0, 0x1FA67C3D);
+            call(0x005A1AF0, CFuncs::CFunc_NumPlayersAllowed, two);
+            Params four; four.Checksum(0, 0x1FA67C3E);
+            call(0x005A1AF0, CFuncs::CFunc_NumPlayersAllowed, four);
+        }
+        static Params preference;
+        for (uint32_t value : {0xF81BC89Bu, 0x2189CFF8u, 0x09562A0Au, 0x12345678u}) {
+            preference = Params();
+            preference.Checksum(0x21902065, value);
+            g_preference = &preference;
+            call(0x005A1B30, CFuncs::CFunc_AutoDNS, none);
+            call(0x005A1B70, CFuncs::CFunc_UsingDefaultMasterServers, none);
+            call(0x005A1BB0, CFuncs::CFunc_UsingDHCP, none);
+            call(0x005A1C30, CFuncs::CFunc_DeviceChosen, none);
+        }
+        for (uint8_t flags : {uint8_t(0), uint8_t(4), uint8_t(8)}) {
+            gameNet[0] = flags;
+            call(0x005A1BF0, CFuncs::CFunc_InInternetMode, none);
+        }
+        for (int state = 0; state < 4; ++state) {
+            g_modeMatch = state & 2;
+            reinterpret_cast<uint32_t*>(skate)[0x37C / 4] = state & 1 ? 0xE92ECAFE : 0xE92ECAFF;
+            call(0x005A1C00, CFuncs::CFunc_EnteringNetGame, none);
+        }
+        for (bool over : {false, true}) {
+            g_gameOver = over;
+            call(0x005A1C70, CFuncs::CFunc_GameIsOver, none);
+        }
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(netSaved);
+    RestoreAll(flowSaved);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    g_conns = nullptr;
+    Check(traces[0].size() > 300, "lobby commands: the original reached its calls");
+    Compare(traces[0], traces[1], "omnigons, cheats, lobby commands (0x005A1320-0x005A1C80)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
+SELFTEST(Early, TestLobbyCFuncs, RemoveStandIns);
 SELFTEST(Early, TestServerListCFuncs, RemoveStandIns);
 SELFTEST(Early, TestGameCFuncs, RemoveStandIns);
 SELFTEST(Early, TestGameFlowCFuncs, RemoveStandIns);
