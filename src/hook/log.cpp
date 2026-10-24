@@ -25,11 +25,15 @@ constexpr size_t kTailWidth = 320;
 char g_tail[kTailLines][kTailWidth];
 std::atomic<unsigned> g_tailCount{0};
 
-void KeepTail(const char* fmt, va_list args)
+const char* KeepTail(const char* fmt, va_list args)
 {
     unsigned slot = g_tailCount.fetch_add(1) % kTailLines;
     vsnprintf(g_tail[slot], kTailWidth, fmt, args);
+    return g_tail[slot];
 }
+
+// Not original - who else wants each line (the loading console - game/gfx/loading_console.h).
+std::atomic<void (*)(const char*)> g_listener{nullptr};
 }
 
 std::string GameFolderPath(const char* file_name)
@@ -88,8 +92,10 @@ void Log(const char* fmt, ...)
     {
         va_list args;
         va_start(args, fmt);
-        KeepTail(fmt, args);
+        const char* line = KeepTail(fmt, args);
         va_end(args);
+        if (void (*listener)(const char*) = g_listener.load())
+            listener(line);
     }
     if (g_console) {
         va_list args;
@@ -108,6 +114,8 @@ void Log(const char* fmt, ...)
     fputc('\n', g_log);
     fflush(g_log);
 }
+
+void SetLogListener(void (*listener)(const char* line)) { g_listener = listener; }
 
 std::vector<std::string> LogTail(size_t lines)
 {

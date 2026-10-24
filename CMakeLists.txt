@@ -264,6 +264,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_crash.cpp
     src/hook/selftests_screenshot.cpp
     src/hook/selftests_sprite.cpp
+    src/hook/selftests_loading.cpp
     src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_memory_sizes.cpp
@@ -273,6 +274,14 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gs4_hunt.cpp
     src/hook/selftests_gs4_texture.cpp
     src/hook/selftests_gs4_models.cpp
+    src/hook/selftests_career_cfuncs.cpp
+    src/hook/selftests_competition_cfuncs.cpp
+    src/hook/selftests_skater_query_cfuncs.cpp
+    src/hook/selftests_movie_cfuncs.cpp
+    src/hook/selftests_skater_profile_cfuncs.cpp
+    src/hook/selftests_appearance_cfuncs.cpp
+    src/hook/selftests_profile_list_cfuncs.cpp
+    src/hook/selftests_preload_cfuncs.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
@@ -580,6 +589,10 @@ add_library(thug2_code OBJECT
     src/game/front/level_editor_arrange_ui.cpp
     src/game/front/level_editor_links.cpp
     src/game/skate/competition.cpp
+    src/game/skate/competition_cfuncs.cpp
+    src/game/skate/skater_profile_cfuncs.cpp
+    src/game/skate/appearance_cfuncs.cpp
+    src/game/skate/preload_cfuncs.cpp
     src/game/gfx/anim_controller.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/settings.cpp
@@ -606,16 +619,19 @@ add_library(thug2_code OBJECT
     src/game/skater/trick_queue.cpp
     src/game/skater/trick_member_functions.cpp
     src/game/obj/movie_manager.cpp
+    src/game/obj/movie_cfuncs.cpp
     src/game/obj/anim_movies.cpp
     src/game/obj/trick_objects.cpp
     src/game/obj/rail_manager.cpp
     src/game/skate/profile_manager.cpp
     src/game/skate/records.cpp
     src/game/skate/career.cpp
+    src/game/skate/career_cfuncs.cpp
     src/game/skate/skater_profile.cpp
     src/game/skate/appearance_guard.cpp
     src/game/skate/thugpro_cas.cpp
     src/game/skater/skater.cpp
+    src/game/skater/skater_query_cfuncs.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
     src/game/pcm/bink_stream.cpp
@@ -627,6 +643,7 @@ add_library(thug2_code OBJECT
     src/game/pcm/music_api.cpp
     src/game/pcm/music_cfuncs.cpp
     src/game/gfx/loading_bar.cpp
+    src/game/gfx/loading_console.cpp
     src/game/gfx/render.cpp
     src/game/gfx/wireframe.cpp
     src/game/gfx/view_mode.cpp
