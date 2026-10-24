@@ -33,7 +33,7 @@ const LINE =
     "n:-0.71,0.71,0.00;at:-6560.0,10.5,3452.5 " +
     "probe_down_beyond=object:0xABCDEF01;face:0;flags:0x0001;decoded:skatable;terrain:0;n:0.00,0.00,0.00;" +
     "at:0.0,0.0,0.0 " +
-    "probe_down_beyond_all=none probe_ahead=none probe_ahead_all=none screenshot=requested";
+    "probe_down_beyond_all=none probe_ahead=none probe_ahead_all=none flipped=ground-check>off-ground@21080 screenshot=requested";
 
 test("the DLL's line parses", () => {
     const e = parseEventLine(`[14:50:48.123] ${LINE}`)!;
@@ -45,6 +45,7 @@ test("the DLL's line parses", () => {
     assert.deepEqual(e.spot, [-6560, 10.5, 3452.5]);
     assert.equal(e.fields.vel_after, "-150.0,0.0,-0.6");
     assert.equal(e.fields.screenshot, "requested");
+    assert.equal(e.fields.flipped, "ground-check>off-ground@21080");
     assert.deepEqual(e.face, {
         kind: "sector",
         name: "Z_Houses_Road01",
@@ -72,6 +73,13 @@ test("the verdict reads the face and the probes", () => {
         ),
     )!;
     assert.match(verdict(slope), /^invisible face, trigger face, ground at 45 deg/);
+    const frig = parseEventLine(
+        LINE.replace("reason=wall-ahead", "reason=uber-frig")
+            .replace(/ face=\S+/, " face=none")
+            .replace("flipped=ground-check>off-ground@21080", "flipped=update-rest>update-start@21080"),
+    )!;
+    assert.equal(frig.face, null);
+    assert.equal(verdict(frig), "no collision under the skater's next step (uber frig)");
 });
 
 test("events group by level and spot", () => {

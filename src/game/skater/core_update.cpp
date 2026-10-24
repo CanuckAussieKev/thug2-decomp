@@ -35,6 +35,7 @@ void Call(uint32_t address, void* component) { GameFunction<void(__thiscall*)(vo
 void CorePhysicsComponent::Update()
 {
     At<float>(this, kFrameLength) = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    CollisionEvents::Checkpoint(this, "update-start"); // (not original)
     At<uint8_t>(this, kLandedThisFrame) = 0;
     At<uint8_t>(this, kFrameBeganInLip) = StateOf(this) == kLip;
     At<uint8_t>(this, kFrameFlag255) = Flag(this, 0x78);
@@ -73,12 +74,17 @@ void CorePhysicsComponent::Update()
         break;
     }
 
+    CollisionEvents::Checkpoint(this, "state-physics"); // (not original)
     Call(0x004FF200, this); // (not rewritten yet)
+    CollisionEvents::Checkpoint(this, "after-4FF200"); // (not original)
     TryGrind(false); // (inlined in the original)
+    CollisionEvents::Checkpoint(this, "try-grind"); // (not original)
     UpdateFreeRevert();
+    CollisionEvents::Checkpoint(this, "free-revert"); // (not original)
     UpdateFocusButton();
     UpdateProjectiles();
     UpdateSpecialTime();
+    CollisionEvents::Checkpoint(this, "update-rest"); // (not original)
 
     uint8_t inAir = StateOf(this) == kAir && Flag(this, 0x30) && !Flag(this, 0x78);
     uint8_t& airFromJump = At<uint8_t>(this, kAirFromJump);

@@ -133,6 +133,8 @@ export function verdict(e: CollisionEvent): string {
         if (f.flags & col.FACE_NOT_SKATABLE) say.push("face flagged not skatable");
         if (e.reason === "slope" && f.n[1] < 0.95) say.push(`ground at ${slopeOf(f.n).toFixed(0)} deg`);
         else if (e.reason.startsWith("wall") && f.n[1] > 0.5) say.push("a wall that faces up (ramp-like)");
+    } else if (e.reason === "uber-frig") {
+        say.push("no collision under the skater's next step (uber frig)");
     } else if (e.reason !== "slope") {
         say.push("no face recorded");
     }
@@ -142,6 +144,8 @@ export function verdict(e: CollisionEvent): string {
     };
     probe(e.probes.probe_down_hit ?? null, e.probes.probe_down_hit_all ?? null, "under the hit");
     probe(e.probes.probe_down_beyond ?? null, e.probes.probe_down_beyond_all ?? null, "beyond it");
+    if (e.reason !== "uber-frig" && (e.fields.flipped ?? "").startsWith("update-rest>update-start"))
+        say.push("turned round between frames, outside the core physics");
     const ahead = e.probes.probe_ahead ?? null;
     if (ahead && ahead.flags & col.FACE_INVISIBLE) say.push("invisible face ahead");
     return say.length ? say.join(", ") : "-";
@@ -246,7 +250,20 @@ function nameChecksum(name: string): number {
     return /^0x[0-9a-f]{8}$/i.test(name) ? Number.parseInt(name.slice(2), 16) : checksum(name);
 }
 
-export function describeFace(c: col.ColFile, e: CollisionEvent): string[] {
+// Names the converters give collision objects that no node names (the game can't name them: it logs 0x<checksum>):
+// THP8's gap fills, <level>_GapFill_<n> (tools/thp8_levels GAP_FILL), and its bodies no node or volume owns,
+// <level>_Col_<n> (convertCollision: n counts every body).
+export function converterNames(level: string, most = 20000): Map<number, string> {
+    const names = new Map<number, string>();
+    for (const kind of ["GapFill", "Col"])
+        for (let n = 0; n < most; n++) {
+            const name = `${level}_${kind}_${n}`;
+            names.set(checksum(name) >>> 0, name);
+        }
+    return names;
+}
+
+export function describeFace(c: col.ColFile, e: CollisionEvent, names = new Map<number, string>()): string[] {
     const out: string[] = [];
     const f = e.face;
     if (f && f.kind === "sector") {
@@ -255,7 +272,8 @@ export function describeFace(c: col.ColFile, e: CollisionEvent): string[] {
         if (index >= 0) {
             const o = c.objects[index]!;
             const face = o.faces[f.face];
-            out.push(`col object #${index} ${f.name} (zone ${zoneOf(f.name)}), ${o.faces.length} faces`);
+            const name = names.get(want) ?? f.name;
+            out.push(`col object #${index} ${name} (zone ${zoneOf(name)}), ${o.faces.length} faces`);
             if (face) {
                 const [flags, terrain, a, b, cc] = face;
                 const p = [o.verts[a]!, o.verts[b]!, o.verts[cc]!] as [Vec3, Vec3, Vec3];
@@ -282,7 +300,7 @@ export function describeFace(c: col.ColFile, e: CollisionEvent): string[] {
                 const n = unit(cross(sub(p[1]!, p[0]!), sub(p[2]!, p[0]!)));
                 near.push([
                     d,
-                    `  obj #${oi} 0x${(o.checksum >>> 0).toString(16).padStart(8, "0")} face ${fi} at ${d.toFixed(0)}: flags 0x${flags.toString(16).padStart(4, "0")} slope ${slopeOf(n).toFixed(0)}`,
+                    `  obj #${oi} ${names.get(o.checksum >>> 0) ?? `0x${(o.checksum >>> 0).toString(16).padStart(8, "0")}`} face ${fi} at ${d.toFixed(0)}: flags 0x${flags.toString(16).padStart(4, "0")} slope ${slopeOf(n).toFixed(0)}`,
                 ]);
             }
         });
@@ -342,10 +360,11 @@ function main(argv: string[]): number {
         console.log(`\ncollision: ${file}`);
         const c = col.readCol(fs.readFileSync(file), file);
         const name = path.basename(file).replace(/\.col\.xbx$/i, "");
+        const names = converterNames(name);
         for (const s of spots.filter((x) => x.level === name || values.col!.toLowerCase().endsWith(".col.xbx"))) {
             console.log(`\n${s.level} at ${fmt(s.at)} (${s.events.length}):`);
             const first = s.events.find((e) => e.face) ?? s.events[0]!;
-            for (const line of describeFace(c, first)) console.log(`  ${line}`);
+            for (const line of describeFace(c, first, names)) console.log(`  ${line}`);
         }
     }
     return 0;

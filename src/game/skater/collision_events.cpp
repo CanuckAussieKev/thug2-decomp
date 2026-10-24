@@ -61,6 +61,16 @@ PathRecord g_paths[kPathRecords];
 int g_pathCount = 0, g_pathNext = 0;
 int g_events = 0;
 
+// The checkpoints (a ring).
+constexpr int kMarks = 512;
+struct Mark {
+    uint32_t frame;
+    const char* label;
+    float vel[3];
+};
+Mark g_marks[kMarks];
+int g_markCount = 0, g_markNext = 0;
+
 struct Spot {
     float at[3];
     DWORD time;
@@ -153,6 +163,7 @@ void Reset()
 {
     g_count = g_next = 0;
     g_pathCount = g_pathNext = 0;
+    g_markCount = g_markNext = 0;
 }
 
 // A probe line: as the skater's feelers see (faces flagged 0x10 skipped), or every face.
@@ -222,6 +233,38 @@ void Emit(int before)
     if (event.paths.empty())
         event.paths = "-";
 
+    // Between which checkpoints the velocity turned against the old direction (the first time).
+    float dirOld[2];
+    Horizontal(old.vel, dirOld);
+    const Mark* previous = nullptr;
+    bool uberFrig = false;
+    event.flipped = "-";
+    for (int i = 0; i < g_markCount; ++i) {
+        const Mark& mark = g_marks[(g_markNext - g_markCount + i + kMarks) % kMarks];
+        if (mark.frame < old.frame || mark.frame > now.frame)
+            continue;
+        bool against = mark.vel[0] * dirOld[0] + mark.vel[2] * dirOld[1] < 0.0f;
+        if (against && previous) {
+            char text[160];
+            std::snprintf(text, sizeof(text), "%s>%s@%u", previous->label, mark.label, mark.frame);
+            event.flipped = text;
+            // Between one frame's physics and the next, the velocity exactly negated: the skater's adjust-physics
+            // component (0x004F8420, not rewritten) found no collision within uber_frig_current_height feet below
+            // the skater and put it back where the frame began (the core's +0x98) going the other way - the "uber
+            // frig", as the walking code calls its own (walk_collision.cpp UpdateGroundBelow).
+            float sum = 0.0f, size = 0.0f;
+            for (int k = 0; k < 3; ++k) {
+                sum += (mark.vel[k] + previous->vel[k]) * (mark.vel[k] + previous->vel[k]);
+                size += previous->vel[k] * previous->vel[k];
+            }
+            if (std::strcmp(previous->label, "update-rest") == 0 && std::strcmp(mark.label, "update-start") == 0 &&
+                std::sqrt(sum) < 0.02f * std::sqrt(size) + 1.0f)
+                uberFrig = true;
+            break;
+        }
+        previous = against ? nullptr : &mark;
+    }
+
     // The ground at its steepest.
     const Sample* steepest = &now;
     for (int age = 0; age <= before; ++age) {
@@ -231,7 +274,10 @@ void Emit(int before)
         if (s.state == 0 && s.groundNormal[1] < event.groundMinY)
             event.groundMinY = s.groundNormal[1];
     }
-    if (strongest) {
+    if (uberFrig) {
+        event.reason = "uber-frig";
+        event.face = Face(); // (nothing was hit: the probes say what is below)
+    } else if (strongest) {
         event.reason = PathName(strongest->path);
         event.face = strongest->face;
     } else {
@@ -356,6 +402,19 @@ void NotePath(void* component, Path path, const Mth::Vector&)
     record.face = FaceOf(FeelerAt(component, kFeeler));
 }
 
+void Checkpoint(void* component, const char* label)
+{
+    if (component != g_component || !On()) // (g_component: set by EndFrame, only while on)
+        return;
+    Mark& mark = g_marks[g_markNext];
+    g_markNext = (g_markNext + 1) % kMarks;
+    if (g_markCount < kMarks)
+        ++g_markCount;
+    mark.frame = Mlp::FramesRun();
+    mark.label = label;
+    Copy3(mark.vel, VectorAt(ObjectOf(component), kVelocity));
+}
+
 void EndFrame(void* component)
 {
     if (Mlp::FramesRun() == 0 || !On()) // (not in the early self-tests)
@@ -449,6 +508,7 @@ std::string FormatEvent(const Event& e, std::string (*name)(uint32_t))
     line += " face=" + FaceText(e.face, name);
     for (int i = 0; i < 6; ++i)
         line += std::string(" ") + kProbes[i] + "=" + FaceText(e.probes[i], name);
+    line += " flipped=" + (e.flipped.empty() ? std::string("-") : e.flipped);
     line += " screenshot=" + (e.screenshot.empty() ? std::string("-") : e.screenshot);
     return line;
 }

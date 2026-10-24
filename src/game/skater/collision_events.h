@@ -15,8 +15,16 @@
 //   direction turning by more than 60 degrees or the speed going through zero (a turn, even a sharp one, is a few
 //   degrees a frame and isn't one). Not counted when the skater was on a rail / lip / wall in between or in the air
 //   for more than 20 frames (a quarter pipe's air).
-// - The event's reason is the strongest path that ran between the two frames (Reason below); none: "slope" - the
-//   ground's own gravity turned the skater back (the ground under the skater at its steepest is the event's face).
+// - Checkpoints through the frame's physics (Checkpoint: core_update.cpp, core_ground.cpp, CheckForGround) keep the
+//   velocity at each; the event says between which two it turned round (flipped=<before>><after>@<frame>).
+// - The event's reason:
+//   - "uber-frig": the velocity exactly negated between one frame's physics and the next (flipped=update-rest>
+//     update-start): the skater's adjust-physics component (SkaterAdjustPhysics, 0x004F8420 - not rewritten) found
+//     NO collision within uber_frig_current_height feet under the skater and put it back where the frame began (the
+//     core's +0x98), velocity negated - a hole in the level's collision just ahead (the probes show where);
+//   - else the strongest path that ran between the two frames (Path below);
+//   - none: "slope" - the ground's own gravity turned the skater back (the ground under the skater at its steepest
+//     is the event's face).
 // - Then three probe lines (each twice: as the skater's feelers see the world - faces flagged 0x10 skipped - and
 //   seeing every face): down through the face's hit point, down 24 inches beyond it along the old travel direction,
 //   and ahead from the old position along it at the forward feeler's height.
@@ -60,6 +68,10 @@ void NotePath(void* component, Path path, const Mth::Vector& before);
 // The end of the core physics component's update.
 void EndFrame(void* component);
 
+// A point in the frame's physics (label: a name without spaces): the velocity there is kept, and an event says
+// between which two the velocity turned round (flipped=<before>><after>).
+void Checkpoint(void* component, const char* label);
+
 // --- the line's text (pure; self-tested) ---
 
 struct Face {
@@ -88,7 +100,8 @@ struct Event {
     int frames = 0;          // frames between the two
     Face face;
     Face probes[6];          // down at the hit, down beyond, ahead - each as the skater sees, then every face
-    std::string screenshot;  // "-" or "requested"
+    std::string flipped;     // the checkpoints the velocity turned round between ("-": not seen)
+    std::string screenshot;  // "-", "requested" or "busy"
 };
 
 // The face flags' names, '|'-joined ("0" for none).

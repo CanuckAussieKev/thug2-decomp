@@ -86,6 +86,7 @@ void TestCollisionEventFormat()
     e.probes[2].checksum = 0xABCDEF01;
     e.probes[2].index = 0;
     e.probes[2].flags = 0x0001;
+    e.flipped = "ground-check>off-ground@21080";
     e.screenshot = "requested";
     std::string line = FormatEvent(e, &TestName);
     const char* expected =
@@ -100,7 +101,8 @@ void TestCollisionEventFormat()
         "n:-0.71,0.71,0.00;at:-6560.0,10.5,3452.5 "
         "probe_down_beyond=object:0xABCDEF01;face:0;flags:0x0001;decoded:skatable;terrain:0;n:0.00,0.00,0.00;"
         "at:0.0,0.0,0.0 "
-        "probe_down_beyond_all=none probe_ahead=none probe_ahead_all=none screenshot=requested";
+        "probe_down_beyond_all=none probe_ahead=none probe_ahead_all=none "
+        "flipped=ground-check>off-ground@21080 screenshot=requested";
     Check(line == expected, "collision events: the log line's format");
 }
 SELFTEST(Early, TestCollisionEventFormat);

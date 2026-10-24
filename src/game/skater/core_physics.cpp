@@ -395,9 +395,13 @@ void CorePhysicsComponent::CheckForGround()
 
     // Off the ground.
     GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, 1);
+    CollisionEvents::Checkpoint(this, "set-air-4FDED0"); // (not original)
     static_cast<Obj::CObject*>(At<void*>(this, kObject))->BroadcastEvent(0xD96F01F1, nullptr, 0.0f);
+    CollisionEvents::Checkpoint(this, "SkaterOffEdge-event"); // (not original)
     static_cast<Obj::CObject*>(At<void*>(this, kObject))->SelfEvent(0x3B1001B6, nullptr);
+    CollisionEvents::Checkpoint(this, "GroundGone-event"); // (not original)
     GameFunction<void(__thiscall*)(void*)>(0x004FEBA0)(this);
+    CollisionEvents::Checkpoint(this, "after-4FEBA0"); // (not original)
     void* flags = At<void*>(this, kTimedFlags);
     if (At<uint8_t>(flags, 0x30)) {
         SetTimedFlag(flags, 0x48, 1);
