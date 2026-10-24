@@ -49,6 +49,12 @@ bool __cdecl CFunc_Debounce(Script::CStruct* params, Script::CScript* script);  
 bool __cdecl CFunc_StartKeyboardHandler(Script::CStruct* params, Script::CScript* script);     // 0x005A2050
 bool __cdecl CFunc_StopKeyboardHandler(Script::CStruct* params, Script::CScript* script);      // 0x005A2080
 bool __cdecl CFunc_SpawnSecondControllerCheck(Script::CStruct* params, Script::CScript* script); // 0x005A2100
+bool __cdecl CFunc_MoveNode(Script::CStruct* params, Script::CScript* script);                 // 0x005A21C0
+bool __cdecl CFunc_SetActiveCamera(Script::CStruct* params, Script::CScript* script);          // 0x005A2370
+bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript* script);             // 0x005A23E0
+bool __cdecl CFunc_ChooseFaceForFacemap(Script::CStruct* params, Script::CScript* script);     // 0x005A2790
+bool __cdecl CFunc_SkaterIsCustom(Script::CStruct* params, Script::CScript* script);           // 0x005A29A0
+bool __cdecl CFunc_SetSceneColor(Script::CStruct* params, Script::CScript* script);            // 0x005A29E0
 
 // 0x0059F820: the second controller check's task (SpawnSecondControllerCheck): runs the script 0x07C28B45 when
 // both controllers are plugged in, else 0x9C9DFCF8 - every frame while the task is on.
@@ -159,6 +165,10 @@ bool __cdecl CFunc_InInternetMode(Script::CStruct* params, Script::CScript* scri
 bool __cdecl CFunc_EnteringNetGame(Script::CStruct* params, Script::CScript* script);          // 0x005A1C00
 bool __cdecl CFunc_DeviceChosen(Script::CStruct* params, Script::CScript* script);             // 0x005A1C30
 bool __cdecl CFunc_GameIsOver(Script::CStruct* params, Script::CScript* script);               // 0x005A1C70
+bool __cdecl CFunc_TryJoinInternetGame(Script::CStruct* params, Script::CScript* script);      // 0x005A28A0
+bool __cdecl CFunc_TryJoinServerIP(Script::CStruct* params, Script::CScript* script);          // 0x005A28D0
+bool __cdecl CFunc_TryJoinServerIPCancel(Script::CStruct* params, Script::CScript* script);    // 0x005A2960
+bool __cdecl CFunc_ForceServerListRefresh(Script::CStruct* params, Script::CScript* script);   // 0x005A2990
 
 // What FlagCommandByName does to the objects: set / clear / test a script flag (of 32), set / clear object flag
 // bits, send an exception.

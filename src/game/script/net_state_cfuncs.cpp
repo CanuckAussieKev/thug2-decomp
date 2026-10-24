@@ -517,6 +517,63 @@ bool __cdecl CFunc_DeviceChosen(Script::CStruct*, Script::CScript*) { return Net
 // 0x005A1C70: GameIsOver.
 bool __cdecl CFunc_GameIsOver(Script::CStruct*, Script::CScript*) { return GameNetManager()->IsGameOver(); }
 
+namespace {
+bool& TryingToJoin() { return GameVariable<bool>(0x007CCA81); }
+// gethostbyname through the game's import (0x005BEABA).
+void* GetHostByName(const char* name) { return GameFunction<void*(__stdcall*)(const char*)>(0x005BEABA)(name); }
+} // namespace
+
+// 0x005A28A0: TryJoinInternetGame: the server chosen in the list (0x0067EFB8, unless -1) looked for; a join is being
+// tried from now on.
+bool __cdecl CFunc_TryJoinInternetGame(Script::CStruct*, Script::CScript*)
+{
+    uint32_t server = GameVariable<uint32_t>(0x0067EFB8);
+    if (server != 0xFFFFFFFF)
+        GameNetManager()->FindServerAt(server);
+    TryingToJoin() = true;
+    Dbg::Printf(reinterpret_cast<const char*>(0x0064FFA8)); // "ScriptTryJoinInternetGame\n"
+    return true;
+}
+
+// 0x005A28D0: TryJoinServerIP string="<address or host name>": the address (inet_addr, else the host's first
+// address) looked for and a join tried; nothing if neither gives one.
+bool __cdecl CFunc_TryJoinServerIP(Script::CStruct* params, Script::CScript*)
+{
+    const char* address = nullptr; // (unset in the original when missing - an asserted parameter)
+    params->GetString(reinterpret_cast<const char*>(0x0064D2B0), &address, true); // "string"
+    uint32_t ip = InetAddr(address);
+    if (ip == 0xFFFFFFFF) {
+        auto* host = static_cast<uint8_t*>(GetHostByName(address));
+        ip = 0xFFFFFFFF;
+        if (host) {
+            const uint8_t* first = **reinterpret_cast<uint8_t***>(host + 0xC); // h_addr_list[0]
+            ip = first[0] | first[1] << 8 | first[2] << 16 | static_cast<uint32_t>(first[3]) << 24;
+        }
+    }
+    if (ip != 0xFFFFFFFF) {
+        TryingToJoin() = true;
+        GameNetManager()->FindServerAt(ip);
+    }
+    Dbg::Printf(reinterpret_cast<const char*>(0x0064FFC4)); // "ScriptTryJoinServerIP\n"
+    return true;
+}
+
+// 0x005A2960: TryJoinServerIPCancel.
+bool __cdecl CFunc_TryJoinServerIPCancel(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->FindServerAt(0);
+    TryingToJoin() = false;
+    Dbg::Printf(reinterpret_cast<const char*>(0x0064FFDC)); // "ScriptTryJoinServerIPCancel\n"
+    return true;
+}
+
+// 0x005A2990: ForceServerListRefresh: the servers found so far shown.
+bool __cdecl CFunc_ForceServerListRefresh(Script::CStruct*, Script::CScript*)
+{
+    GameNetManager()->ShowFoundServers();
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x005A0880, CFuncs::CFunc_StartServer);
@@ -566,3 +623,7 @@ REPLACE(0x005A1BF0, CFuncs::CFunc_InInternetMode);
 REPLACE(0x005A1C00, CFuncs::CFunc_EnteringNetGame);
 REPLACE(0x005A1C30, CFuncs::CFunc_DeviceChosen);
 REPLACE(0x005A1C70, CFuncs::CFunc_GameIsOver);
+REPLACE(0x005A28A0, CFuncs::CFunc_TryJoinInternetGame);
+REPLACE(0x005A28D0, CFuncs::CFunc_TryJoinServerIP);
+REPLACE(0x005A2960, CFuncs::CFunc_TryJoinServerIPCancel);
+REPLACE(0x005A2990, CFuncs::CFunc_ForceServerListRefresh);

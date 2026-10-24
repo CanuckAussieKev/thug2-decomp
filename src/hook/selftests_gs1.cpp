@@ -34,6 +34,10 @@
 #include "game/obj/input_component.h"
 #include "game/skater/trick_component.h"
 #include "game/sys/timer.h"
+#include "game/file/file.h"
+#include "game/obj/rail_manager.h"
+#include "game/script/nodes.h"
+#include <cstdlib>
 #include "game/sio/inpman.h"
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
@@ -133,7 +137,12 @@ void StandInCalls(StandIns& s)
     s.At({0x0048C8F0}, 0, [](Regs&) { Record({0xC8F0}); return 0u; });
     s.At({0x00401C30, AddressOf(static_cast<int (*)(const char*, ...)>(&Dbg::Printf))}, 0, [](Regs& r) {
         const char* format = reinterpret_cast<const char*>(r.args[0]);
-        Record({0x1C30, Hash(format), std::strchr(format, '%') ? r.args[1] : 0u});
+        Record({0x1C30, Hash(format)});
+        int arguments = 0;
+        for (const char* c = format; *c && arguments < 4; ++c)
+            arguments += *c == '%';
+        for (int i = 1; i <= arguments; ++i)
+            Record({r.args[i]});
         return 0u;
     });
     s.At({0x005B6580, AddressOf(&File::AsyncBusy)}, 0, [](Regs&) { Record({0x6580}); return g_asyncBusy ? 1u : 0u; });
@@ -1719,8 +1728,221 @@ void TestViewerModeCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A21C0-0x005A2A00 (game_cfuncs.cpp, net_state_cfuncs.cpp) ----------------------------------------------
+
+Params* g_node;
+bool g_exists, g_fileOpens, g_hasHost;
+const char* g_trackingText;
+uint8_t g_trackingData[0x200];
+
+double __cdecl TestAtof(const char* text) { return std::strtod(text, nullptr); }
+
+void StandInNodeCalls(StandIns& s)
+{
+    auto simple = [&s](std::initializer_list<uint32_t> at, uint16_t pop, uint32_t tag, int mode, uint32_t result = 0) {
+        s.At(at, pop, [tag, mode, result](Regs& r) {
+            Record({tag, mode & 1 ? Rel(r.ecx) : 0u, mode & 2 ? Rel(r.args[0]) : mode & 4 ? r.args[0] & 0xFF : 0u});
+            return result;
+        });
+    };
+    s.At({0x0045C1B0, AddressOf(&SkateScript::GetNode)}, 0, [](Regs& r) {
+        Record({0xC1B0, r.args[0], r.args[1] & 0xFF});
+        return g_node ? reinterpret_cast<uint32_t>(g_node->Struct()) : 0u;
+    });
+    using AddVectorFn = void (CStruct::*)(uint32_t, float, float, float);
+    s.At({0x00477E20, AddressOf(static_cast<AddVectorFn>(&CStruct::AddVector))}, 0x10, [](Regs& r) {
+        Record({0x7E20, r.args[0], r.args[1], r.args[2], r.args[3]});
+        return 0u;
+    });
+    s.At({0x0057C3F0, AddressOf(&Obj::CRailManager::MoveNode)}, 8, [](Regs& r) {
+        Record({0xC3F0, r.ecx, r.args[0], HashBytes(reinterpret_cast<const uint8_t*>(r.args[1]), 16)});
+        return 0u;
+    });
+    simple({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, 0xB0E0, 3);
+    simple({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110, 1);
+    s.At({0x005BA010, AddressOf(&File::Exist)}, 0, [](Regs& r) {
+        Record({0xA010, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        return g_exists ? 1u : 0u;
+    });
+    s.At({0x005B7B00, AddressOf(&Pip::LoadFileInto)}, 0, [](Regs& r) {
+        Record({0x7B00, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[2]});
+        size_t length = std::strlen(g_trackingText);
+        std::memset(g_trackingData, 0, sizeof(g_trackingData));
+        std::memcpy(g_trackingData, g_trackingText, length);
+        *reinterpret_cast<int*>(r.args[1]) = static_cast<int>(length);
+        return reinterpret_cast<uint32_t>(g_trackingData);
+    });
+    s.Bytes(0x006253C9, Branch(0xE9, 0x006253C9, reinterpret_cast<const void*>(&TestAtof))); // atof
+    s.At({0x005BBB60, AddressOf(&Mem::FreeMalloc)}, 0, [](Regs& r) {
+        Record({0xBB60, r.args[0] == reinterpret_cast<uint32_t>(g_trackingData) ? 1u : r.args[0]});
+        return 0u;
+    });
+    // the C runtime's file reading
+    s.At({0x006241E8}, 0, [](Regs& r) {
+        Record({0x41E8, Hash(reinterpret_cast<const char*>(r.args[0])), Hash(reinterpret_cast<const char*>(r.args[1]))});
+        return g_fileOpens ? 0x00F11E00u : 0u;
+    });
+    s.At({0x006240D2}, 0, [](Regs& r) { Record({0x40D2, r.args[0], r.args[1], r.args[2]}); return 0u; });
+    s.At({0x00625388}, 0, [](Regs& r) { Record({0x5388, r.args[0]}); return 0x1234u; });
+    s.At({0x00624031}, 0, [](Regs& r) { Record({0x4031, r.args[0]}); return 0x00DA7A00u; });
+    s.At({0x00623F3E}, 0, [](Regs& r) { Record({0x3F3E, r.args[0], r.args[1], r.args[2], r.args[3]}); return r.args[2]; });
+    s.At({0x00623E04}, 0, [](Regs& r) { Record({0x3E04, r.args[0]}); return 0u; });
+    s.At({0x0062411B}, 0, [](Regs& r) { Record({0x411B, r.args[0]}); return 0u; });
+    s.At({0x00487420}, 8, [](Regs& r) { Record({0x7420, Rel(r.ecx), r.args[0], r.args[1]}); return 0u; });
+    s.At({0x00487520}, 4, [](Regs& r) { Record({0x7520, Rel(r.ecx), r.args[0]}); return 0u; });
+    s.At({0x00564FC0}, 4, [](Regs& r) {
+        Record({0x4FC0, r.ecx, r.args[0]});
+        return reinterpret_cast<uint32_t>(g_fakes->profile);
+    });
+    simple({0x005732D0, AddressOf(&Gfx::CTODManager::SetSceneColor)}, 4, 0x32D0, 3);
+    // joining by address
+    simple({0x00536490, AddressOf(&GameNet::Manager::FindServerAt)}, 4, 0x6490, 2);
+    s.At({0x005BEAAE}, 4, [](Regs& r) {
+        const char* address = reinterpret_cast<const char*>(r.args[0]);
+        Record({0xEAAE, Hash(address)});
+        return address[0] >= '0' && address[0] <= '9' ? 0x0700000Au : 0xFFFFFFFFu;
+    });
+    s.At({0x005BEABA}, 4, [](Regs& r) {
+        Record({0xEABA, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        static uint8_t address[4] = {192, 168, 1, 250};
+        static uint8_t* list[2] = {address, nullptr};
+        static uint32_t host[4] = {0, 0, 0x00040002, reinterpret_cast<uint32_t>(list)};
+        return g_hasHost ? reinterpret_cast<uint32_t>(host) : 0u;
+    });
+    simple({0x00547320, AddressOf(&GameNet::Manager::ShowFoundServers)}, 0, 0x7320, 1);
+}
+
+void TestNodeTrackingCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> more = {{0x007D1800, 4, {}}, {0x007CE490, 4, {}}, {0x0067EFB8, 4, {}}};
+    SaveAll(saved);
+    SaveAll(more);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInNodeCalls(*standIns);
+    g_slot1 = standIns->Thunk(0, [](Regs& r) { Record({0x5107, Rel(r.ecx)}); return 0u; });
+    g_slot2 = standIns->Thunk(4, [](Regs& r) { Record({0x5207, Rel(r.ecx), r.args[0]}); return 0u; });
+    static uint8_t skate[0x400];
+    static uint8_t gameNet[0x10];
+    static uint32_t memoryManager[0x5E8 / 4];
+    for (uint32_t i = 0; i < 0x5E8 / 4; ++i)
+        memoryManager[i] = 0x00E30000 + i;
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        std::memset(skate, 0, sizeof(skate));
+        reinterpret_cast<uint32_t*>(skate)[0x24 / 4] = 0x00A11000; // the rail manager
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<void*>(0x007D1800) = memoryManager;
+        GameVariable<void*>(0x007CCE14) = gameNet;
+        GameVariable<uint32_t>(0x007CE490) = 0x00700490;
+        auto call = [&](uint32_t address, CFunc ours, Params& params) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        Params none;
+
+        // MoveNode: no name; no node; no position (either name); the node has none; each class; an object or not
+        static Script::CVector to = {0, 1.5f, -2.0f, 300.25f};
+        static Script::CVector old = {0, 9.0f, 9.0f, 9.0f};
+        call(0x005A21C0, CFuncs::CFunc_MoveNode, none);
+        Params named; named.Checksum(0xA1DC81F9, 0x40DE);
+        g_node = nullptr;
+        call(0x005A21C0, CFuncs::CFunc_MoveNode, named);
+        static Params node;
+        node = Params();
+        g_node = &node;
+        call(0x005A21C0, CFuncs::CFunc_MoveNode, named);
+        Params move; move.Checksum(0xA1DC81F9, 0x40DE).Vector(0x7F261953, &to);
+        call(0x005A21C0, CFuncs::CFunc_MoveNode, move);
+        Params move2; move2.Checksum(0xA1DC81F9, 0x40DF).Vector(0xB9D31B0A, &to);
+        const uint32_t classes[] = {0x30C19600, 0x8E6B02AD, 0xA0DFAC98, 0x061A741E, 0x08470F2E, 0xE47F1B79,
+                                    0xB7B3BD86, 0xBF4D3536, 0xEF59C100, 0x12345678, 0};
+        for (int i = 0; i < 11; ++i) {
+            node = Params();
+            node.Vector(i & 1 ? 0xB9D31B0A : 0x7F261953, &old);
+            if (classes[i])
+                node.Checksum(0x12B4E660, classes[i]);
+            g_hasObject = i % 3 != 0;
+            call(0x005A21C0, CFuncs::CFunc_MoveNode, i & 2 ? move2 : move);
+            Record({HashBytes(g_fakes->object + 0x4C, 16)});
+        }
+        // SetActiveCamera
+        g_hasObject = true;
+        g_hasComponent = true;
+        Params camera; camera.Checksum(0x40C698AF, 0xCA3).Integer(0x9FD29151, 1).Flag(0x10C1C887);
+        call(0x005A2370, CFuncs::CFunc_SetActiveCamera, camera);
+        g_hasObject = false;
+        call(0x005A2370, CFuncs::CFunc_SetActiveCamera, none);
+        // ShowTracking: no file; a drive name; each flag set; none (all)
+        // (right after a line's sixth number the parser stands on the next line's first character: a line straight
+        // after another is missed - kept - so most lines here end with a space)
+        g_trackingText = "junk\nTracking1 1.5 -2 3.25 4 5 6 \nTracking2 1 2 3 4 5 6 \nTracking2 1 2 3 4 5 6 \nTrackin"
+                         "\nTracking3 -1.5 2 3 0 0 0 \nTracking4 9 8 7 6 5 4 \nTracking4 9 8 7 6 5 4 \nTracking4 9 8 7 6 5 4 "
+                         "\nTracking7 1 1 1 2 2 2\nTracking1 0 0 0 1 1 1 \nTracking3 1 1 1 2 2 2";
+        g_exists = false;
+        Params missing; missing.String(0, "c:tracking.txt");
+        call(0x005A23E0, CFuncs::CFunc_ShowTracking, missing);
+        g_exists = true;
+        call(0x005A23E0, CFuncs::CFunc_ShowTracking, missing);
+        for (uint32_t flag : {0xB426BF5Au, 0x14240297u, 0x969D3AF6u, 0xB0FE7369u}) {
+            Params p; p.String(0, "tracking.txt").Flag(flag);
+            call(0x005A23E0, CFuncs::CFunc_ShowTracking, p);
+        }
+        // ChooseFaceForFacemap: the file can't be opened; read
+        g_hasViewerObject = true;
+        Params face; face.String(CrcOf("string"), "face01.png");
+        g_fileOpens = false;
+        call(0x005A2790, CFuncs::CFunc_ChooseFaceForFacemap, face);
+        g_fileOpens = true;
+        call(0x005A2790, CFuncs::CFunc_ChooseFaceForFacemap, face);
+        for (bool custom : {false, true}) {
+            g_hasViewerObject = custom;
+            Params p; p.Integer(0x67E6859A, 2);
+            call(0x005A29A0, CFuncs::CFunc_SkaterIsCustom, p);
+        }
+        call(0x005A29E0, CFuncs::CFunc_SetSceneColor, face);
+        // joining
+        for (uint32_t server : {0xFFFFFFFFu, 3u}) {
+            GameVariable<uint32_t>(0x0067EFB8) = server;
+            GameVariable<uint8_t>(0x007CCA81) = 0;
+            call(0x005A28A0, CFuncs::CFunc_TryJoinInternetGame, none);
+            Record({GameVariable<uint8_t>(0x007CCA81)});
+        }
+        for (int state = 0; state < 3; ++state) {
+            GameVariable<uint8_t>(0x007CCA81) = 0;
+            g_hasHost = state == 2;
+            Params p; p.String(CrcOf("string"), state == 0 ? "10.0.0.7" : "server.example");
+            call(0x005A28D0, CFuncs::CFunc_TryJoinServerIP, p);
+            Record({GameVariable<uint8_t>(0x007CCA81)});
+        }
+        call(0x005A2960, CFuncs::CFunc_TryJoinServerIPCancel, none);
+        Record({GameVariable<uint8_t>(0x007CCA81)});
+        call(0x005A2990, CFuncs::CFunc_ForceServerListRefresh, none);
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(more);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    g_node = nullptr;
+    Check(traces[0].size() > 200, "node and tracking commands: the original reached its calls");
+    Compare(traces[0], traces[1], "move node, tracking, face, join commands (0x005A21C0-0x005A2A00)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
+SELFTEST(Early, TestNodeTrackingCFuncs, RemoveStandIns);
 SELFTEST(Early, TestViewerModeCFuncs, RemoveStandIns);
 SELFTEST(Early, TestLobbyCFuncs, RemoveStandIns);
 SELFTEST(Early, TestServerListCFuncs, RemoveStandIns);

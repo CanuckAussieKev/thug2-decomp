@@ -4,11 +4,18 @@
 #include "game/script/game_cfuncs.h"
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "game/ass/assman.h"
 #include "game/ass/asset.h"
 #include "game/core/crc.h"
+#include "game/file/file.h"
+#include "game/file/pip.h"
+#include "game/gfx/tod_manager.h"
+#include "game/mth/vector.h"
+#include "game/obj/rail_manager.h"
+#include "game/script/nodes.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -45,7 +52,7 @@ namespace CFuncs {
 namespace {
 
 constexpr uint32_t kModel = 0x286A8D26;           // "model" (the component)
-constexpr uint32_t kCamera = 0xC4E311FA;          // (name unknown) an object's camera component
+constexpr uint32_t kCamera = 0xC4E311FA;          // "Camera" (an object's camera component)
 constexpr uint32_t kController = 0xB30D9965;      // "controller"
 constexpr uint32_t kLeftX = 0x303067F1;           // "leftx"
 constexpr uint32_t kLeftY = 0x47375767;           // "lefty"
@@ -553,6 +560,247 @@ bool __cdecl CFunc_SpawnSecondControllerCheck(Script::CStruct*, Script::CScript*
     return true;
 }
 
+namespace {
+
+constexpr uint32_t kPos = 0x7F261953;      // "pos"
+constexpr uint32_t kPosition = 0xB9D31B0A; // "position"
+
+// The node classes MoveNode knows.
+constexpr uint32_t kClassClimbingNode = 0x30C19600; // "ClimbingNode"
+constexpr uint32_t kClassRailNode = 0x8E6B02AD;     // "RailNode"
+
+bool GetPosition(Script::CStruct* structure, Script::VectorValue* out)
+{
+    return structure->GetVector(kPosition, out, 0) || structure->GetVector(kPos, out, 0);
+}
+
+// The getter folded at 0x00576E60 (the word at +0x54: the viewer's object, a profile's face texture...).
+void* Word54(void* object) { return reinterpret_cast<Mdl::Viewer*>(object)->GetViewerObject(); }
+
+// The game's C runtime (library code, called through the game).
+void* GameFopen(const char* name, const char* mode)
+{
+    return GameFunction<void*(__cdecl*)(const char*, const char*)>(0x006241E8)(name, mode);
+}
+int GameFseek(void* file, long offset, int origin)
+{
+    return GameFunction<int(__cdecl*)(void*, long, int)>(0x006240D2)(file, offset, origin);
+}
+long GameFtell(void* file) { return GameFunction<long(__cdecl*)(void*)>(0x00625388)(file); }
+void* GameMalloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
+size_t GameFread(void* buffer, size_t size, size_t count, void* file)
+{
+    return GameFunction<size_t(__cdecl*)(void*, size_t, size_t, void*)>(0x00623F3E)(buffer, size, count, file);
+}
+int GameFclose(void* file) { return GameFunction<int(__cdecl*)(void*)>(0x00623E04)(file); }
+void GameFree(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x0062411B)(memory); }
+double GameAtof(const char* text) { return GameFunction<double(__cdecl*)(const char*)>(0x006253C9)(text); }
+
+// ShowTracking's debug line drawing - compiled out of this build (an empty call, 0x005480A0).
+inline void DrawDebugLine(const Mth::Vector* /*from*/, const Mth::Vector* /*to*/, uint32_t /*colour1*/,
+                          uint32_t /*colour2*/, int /*unused*/)
+{
+}
+// ...and the empty call at its start (no arguments).
+inline void CompiledOutDebugCall() {}
+
+} // namespace
+
+// 0x005A21C0: MoveNode name=<node> position= / pos=<vector>: the node's pos (the node needs a position already) and
+// its object's position (if there is one) set. Rail and climbing nodes are moved in the rail manager too; the other
+// known classes (Pedestrian, ProximNode, Vehicle, LevelObject, LevelGeometry, GameObject, 0x061A741E) need nothing
+// more; any other class: false. Also false (with a message) without the name or a position.
+bool __cdecl CFunc_MoveNode(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name;
+    if (!params->GetChecksum(0xA1DC81F9u, &name, 0)) { // "name"
+        Dbg::Printf(reinterpret_cast<const char*>(0x0064FF04)); // "Missing Name\n"
+        return false;
+    }
+    Script::CStruct* node = SkateScript::GetNode(name, false);
+    if (!node)
+        return false;
+    Script::VectorValue position;
+    if (!GetPosition(params, &position)) {
+        Dbg::Printf(reinterpret_cast<const char*>(0x0064FEDC)); // "Missing position parameter in MoveNode\n"
+        return false;
+    }
+    Script::VectorValue old;
+    if (!GetPosition(node, &old)) {
+        Dbg::Printf(reinterpret_cast<const char*>(0x0064FEC0)); // "node is missing position\n"
+        return false;
+    }
+    node->AddVector(kPos, position.x, position.y, position.z);
+    if (Obj::CObject* object = Objects()->GetObjectByID(name))
+        std::memcpy(&static_cast<Obj::CCompositeObject*>(object)->m_pos, &position, sizeof(position));
+    uint32_t nodeClass = 0;
+    node->GetChecksum(0x12B4E660u, &nodeClass, 0); // "class"
+    switch (nodeClass) {
+    case kClassClimbingNode:
+    case kClassRailNode:
+        (*reinterpret_cast<Obj::CRailManager**>(Skate() + 0x24))
+            ->MoveNode(name, reinterpret_cast<const Mth::Vector*>(&position));
+        return true;
+    case 0xA0DFAC98: // Pedestrian
+    case 0x061A741E: // (name unknown)
+    case 0x08470F2E: // ProximNode
+    case 0xE47F1B79: // Vehicle
+    case 0xB7B3BD86: // LevelObject
+    case 0xBF4D3536: // LevelGeometry
+    case 0xEF59C100: // GameObject
+        return true;
+    default:
+        return false;
+    }
+}
+
+// 0x005A2370: SetActiveCamera id=<object> [0x9FD29151=viewport (0)] [0x10C1C887]: MakeCameraActive (taking the
+// current view with the flag); its answer.
+bool __cdecl CFunc_SetActiveCamera(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t id = 0;
+    params->GetChecksum(0x40C698AFu, &id, 0); // "id"
+    int viewport = 0;
+    params->GetInteger(0x9FD29151u, &viewport, 0);
+    bool takeCurrentView = params->ContainsFlag(0x10C1C887u);
+    return MakeCameraActive(id, viewport, takeCurrentView);
+}
+
+// 0x005A23E0: ShowTracking "<file>" [0xB426BF5A] [0x14240297] [0x969D3AF6] [0xB0FE7369] (none: all four): the
+// tracking log (its drive name stripped) read in the debug heap; each "\nTracking<type>" line's six numbers make a
+// line from one point to another - types 1 to 4 counted, each shown (compiled out) if its flag is on, the line
+// lengthened 10 / 1 / 2 / 4 times for 1, 3, 4; other types shown always. The counts are logged. False if the file
+// isn't there.
+bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
+{
+    CompiledOutDebugCall();
+    Mem::Manager* memory = GameVariable<Mem::Manager*>(0x007D1800);
+    memory->PushContext(reinterpret_cast<Mem::Allocator*>(memory->m_debugHeap));
+    bool show1 = params->ContainsFlag(0xB426BF5Au);
+    bool show2 = params->ContainsFlag(0x14240297u);
+    bool show3 = params->ContainsFlag(0x969D3AF6u);
+    bool show4 = params->ContainsFlag(0xB0FE7369u);
+    if (!show1 && !show2 && !show3 && !show4)
+        show1 = show2 = show3 = show4 = true;
+    const char* file = reinterpret_cast<const char*>(0x006469B4); // ""
+    params->GetString(0u, &file, 0);
+    if (file[1] == ':') {
+        Dbg::Printf(reinterpret_cast<const char*>(0x0064FF80)); // "WARNING: stripped drive name off file\n"
+        file += 2;
+    }
+    int size = 0;
+    if (!File::Exist(file)) {
+        Dbg::Printf(reinterpret_cast<const char*>(0x0064FF14), file); // "Can't find file: %s\n"
+        return false; // (as in the original, the debug heap stays pushed)
+    }
+    auto* data = static_cast<uint8_t*>(Pip::LoadFileInto(file, &size, nullptr));
+    Dbg::Printf(reinterpret_cast<const char*>(0x0064FF60), file, size, data); // "Loaded %s, size = %d, at %p\n"
+    GameVariable<Mem::Manager*>(0x007D1800)->PopContext();
+    int count1 = 0;
+    int count2 = 0;
+    int count3 = 0;
+    int count4 = 0;
+    for (const uint8_t* at = data; at < data + size; ++at) {
+        static const char kTracking[] = "\nTracking";
+        int matched = 0; // (compared a byte at a time: never past the first difference)
+        while (matched < 9 && at[matched] == static_cast<uint8_t>(kTracking[matched]))
+            ++matched;
+        if (matched < 9)
+            continue;
+        int type = at[9] - '0';
+        at += 11;
+        float values[6];
+        for (float& value : values) {
+            value = static_cast<float>(GameAtof(reinterpret_cast<const char*>(at)));
+            while (*at == '-' || *at == '.' || (*at >= '0' && *at <= '9'))
+                ++at;
+            ++at;
+        }
+        Mth::Vector from = {values[0], values[1], values[2], 1.0f};
+        Mth::Vector to = {values[3], values[4], values[5], 1.0f};
+        --at;
+        uint32_t colour;
+        switch (type) {
+        case 1:
+            ++count1;
+            if (!show1)
+                continue;
+            colour = 0xFFFFFF;
+            from -= (to - from) * 10.0f;
+            break;
+        case 2:
+            ++count2;
+            if (!show2)
+                continue;
+            colour = 0xFF;
+            break;
+        case 3:
+            ++count3;
+            if (!show3)
+                continue;
+            colour = 0xFFFF00;
+            from -= (to - from) * 2.0f;
+            break;
+        case 4:
+            ++count4;
+            if (!show4)
+                continue;
+            colour = 0x8000;
+            from -= (to - from) * 4.0f;
+            break;
+        default:
+            colour = 0xFFFF;
+            break;
+        }
+        DrawDebugLine(&from, &to, colour, colour, 0);
+    }
+    Dbg::Printf(reinterpret_cast<const char*>(0x0064FF2C), count1, count2, count3, count4); // "Bonks = %d, ..."
+    Mem::FreeMalloc(data);
+    return true;
+}
+
+// 0x005A2790: ChooseFaceForFacemap string="<file>": the first profile's face texture (+0x54) loaded from
+// faces\<file> (read with the C runtime; the script 0x808008EA then runs). False if the file can't be opened.
+bool __cdecl CFunc_ChooseFaceForFacemap(Script::CStruct* params, Script::CScript*)
+{
+    void* face = Word54(GetProfile(0));
+    const char* name = nullptr; // (unset in the original when missing - an asserted parameter)
+    params->GetString(reinterpret_cast<const char*>(0x0064D2B0), &name, 1); // "string"
+    char path[0x80];
+#pragma warning(suppress : 4996) // (unbounded: as in the original)
+    std::sprintf(path, reinterpret_cast<const char*>(0x0064D2A4), name); // "faces\%s"
+    void* file = GameFopen(path, reinterpret_cast<const char*>(0x00647344)); // "rb"
+    if (!file)
+        return false;
+    GameFseek(file, 0, SEEK_END);
+    long size = GameFtell(file);
+    GameFseek(file, 0, SEEK_SET);
+    void* data = GameMalloc(static_cast<size_t>(size));
+    GameFread(data, 1, static_cast<size_t>(size), file);
+    GameFclose(file);
+    GameFunction<void(__thiscall*)(void*, void*, int)>(0x00487420)(face, data, 0);
+    GameFree(data);
+    GameFunction<void(__thiscall*)(void*, int)>(0x00487520)(face, 1);
+    Script::RunScript(0x808008EA, nullptr, nullptr, false, nullptr);
+    return true;
+}
+
+// 0x005A29A0: SkaterIsCustom 0x67E6859A=<n>: whether the skate module's profile n (0x00564FC0) has a face texture.
+bool __cdecl CFunc_SkaterIsCustom(Script::CStruct* params, Script::CScript*)
+{
+    int index = 0; // (unset in the original when missing - an asserted parameter)
+    params->GetInteger(0x67E6859Au, &index, 1);
+    void* profile = GameFunction<void*(__thiscall*)(uint8_t*, int)>(0x00564FC0)(Skate(), index);
+    return Word54(profile) != nullptr;
+}
+
+// 0x005A29E0: SetSceneColor <...>: the time of day manager's.
+bool __cdecl CFunc_SetSceneColor(Script::CStruct* params, Script::CScript*)
+{
+    GameVariable<Gfx::CTODManager*>(0x007CE490)->SetSceneColor(params);
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x0059F610, CFuncs::CFunc_SetViewerAnim);
@@ -589,3 +837,9 @@ REPLACE(0x005A1E70, CFuncs::CFunc_Debounce);
 REPLACE(0x005A2050, CFuncs::CFunc_StartKeyboardHandler);
 REPLACE(0x005A2080, CFuncs::CFunc_StopKeyboardHandler);
 REPLACE(0x005A2100, CFuncs::CFunc_SpawnSecondControllerCheck);
+REPLACE(0x005A21C0, CFuncs::CFunc_MoveNode);
+REPLACE(0x005A2370, CFuncs::CFunc_SetActiveCamera);
+REPLACE(0x005A23E0, CFuncs::CFunc_ShowTracking);
+REPLACE(0x005A2790, CFuncs::CFunc_ChooseFaceForFacemap);
+REPLACE(0x005A29A0, CFuncs::CFunc_SkaterIsCustom);
+REPLACE(0x005A29E0, CFuncs::CFunc_SetSceneColor);

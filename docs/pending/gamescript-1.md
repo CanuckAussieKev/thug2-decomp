@@ -105,3 +105,18 @@ Shared files touched: CMakeLists.txt (new files listed).
     pointer to one of the original's locals - never read; null here), 0x005A21A0 AutoRail (the shared IgnoreArgument
     stub).
   - Test TestViewerModeCFuncs: original vs ours. 25 of 25 deliberate bugs caught.
+- [x] Batch GS1-7 (NOT run in the game yet; moving nodes, the active camera, the tracking log, the face map, joining by
+  address - 10 CFunctions): game_cfuncs.cpp, net_state_cfuncs.cpp.
+  - 0x005A21C0 MoveNode (position= / pos= into the node and its object; RailNode / ClimbingNode also moved in the
+    rail manager; Pedestrian, ProximNode, Vehicle, LevelObject, LevelGeometry, GameObject and 0x061A741E true; any
+    other class false), 0x005A2370 SetActiveCamera (MakeCameraActive's answer), 0x005A23E0 ShowTracking (a debug
+    tool: "\nTracking<type>" lines' six numbers - the line drawing is compiled out, only the counts are logged; right
+    after a line's sixth number the parser already stands past the next line's newline, so a line straight after
+    another is missed - kept; a missing file leaves the debug heap pushed - kept), 0x005A2790 ChooseFaceForFacemap
+    (faces\<string> read with the game's C runtime into the first profile's face texture), 0x005A28A0
+    TryJoinInternetGame, 0x005A28D0 TryJoinServerIP (inet_addr, else gethostbyname's first address), 0x005A2960
+    TryJoinServerIPCancel, 0x005A2990 ForceServerListRefresh, 0x005A29A0 SkaterIsCustom, 0x005A29E0 SetSceneColor.
+    The getter folded at 0x00576E60 (Viewer::GetViewerObject, the word at +0x54) is also a profile's face texture's.
+  - Test TestNodeTrackingCFuncs: original vs ours (atof jumped to ours; the C runtime's file calls stood in for - no
+    file is opened). 22 of 24 deliberate bugs caught (3 after strengthening: lines the parser can see); 2 equivalent:
+    ShowTracking's flags and its numbers only feed the compiled-out drawing.
