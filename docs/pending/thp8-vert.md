@@ -89,6 +89,13 @@ factory 5, mainstreet 1, skateshop 30, bedroom 2; training 315 of 7,705 - all ro
   decompiled); no converter change. A data-side guard, if wanted: leave out ground faces inside closed primitives
   (the soil under a trunk) - so a landing inside finds nothing.
 
+## The confirming run (C:\Games\THUG2-4, this branch's DLL, `[debug] collision_events=1`)
+`run_game.ps1 -Level thp8_net_beavervalley -Commands "waitfor level ...;teleport -3420 200 10767 -90 board;trace 900;
+press up 240;wait 500"` (loaded in 79 s): the skater pushed off towards the wall at 425 inches/s and rode the
+transition **on the ground** (frames 198 - 210: y 198 -> 221 -> 259, up_y 0.99 -> 0.58 -> 0.12, no air), onto the vert
+faces (0x0008) up to y 409, turned along the wall and rode off down the memorial's other faces - no collision event
+in the log (only the two "logging on" lines). Not reaching the lip at that speed is THUG2's physics (above).
+
 ## Workspace / checks
 - npm run typecheck / lint / test pass (356). Converted all fifteen levels into C:\Games\THUG2-4's staging and
   installed them there (make_menu_level.ts --game C:\Games\THUG2-4, --no-mips).
