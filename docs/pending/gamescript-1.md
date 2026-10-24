@@ -183,3 +183,10 @@ Shared files touched: CMakeLists.txt (new files listed).
 - The range is complete: all 160 functions Ghidra made in 0x0059F610-0x005A5360 plus 3 it never made (0x0059F820,
   0x0059FB10, 0x005A01B0) have source; 0x005A18A9 (Ghidra's start inside TryCheatString) is registered source only.
   find_gaps: nothing in the range.
+- Checks at the end: thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all 784 early self-tests
+  passed; scan_register_assumptions: only the known RISK lines (the range's value-returning functions all return
+  values); audit_game_function_calls: no MISMATCH; check_code_writes: no overlaps; find_gaps: nothing in the range.
+  (Main's src/game/front/automation.cpp has a C4996 fopen warning of its own, merged in during this work.)
+- Crash check (diagnosis only, workspace C:\Games\THUG2-1 under game_lock): `-level BO` - the game started, the
+  replacements installed (5790 of 5790), Load_BO loaded in free skate, the skater spawned and skated; no crash,
+  run-time check or CRT report in the log. Everything else in the range is NOT run in the game.
