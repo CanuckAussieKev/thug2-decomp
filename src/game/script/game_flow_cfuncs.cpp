@@ -731,6 +731,74 @@ bool __cdecl CFunc_LevelIs(Script::CStruct* params, Script::CScript*)
     return *reinterpret_cast<uint32_t*>(Skate() + 0x378) == level;
 }
 
+// 0x005A1F80: SetStatOverride [value (0)]: the skate module's forced stat value (+0x3D0).
+bool __cdecl CFunc_SetStatOverride(Script::CStruct* params, Script::CScript*)
+{
+    float value = 0.0f;
+    params->GetFloat(0u, &value, 0);
+    *reinterpret_cast<float*>(Skate() + 0x3D0) = value;
+    return true;
+}
+
+// 0x005A1FB0: ToggleRails: the skate module's rail display (+0x3D4) on / off.
+bool __cdecl CFunc_ToggleRails(Script::CStruct*, Script::CScript*)
+{
+    bool& rails = *reinterpret_cast<bool*>(Skate() + 0x3D4);
+    rails = !rails;
+    return true;
+}
+
+// 0x005A1FD0: GetTimeLimit: the game mode's time limit as the script's time_limit.
+bool __cdecl CFunc_GetTimeLimit(Script::CStruct*, Script::CScript* script)
+{
+    script->m_params->AddInteger(0xC51BF6E3, GameModeTimeLimit()); // "time_limit"
+    return true;
+}
+
+// 0x005A1FF0 / 0x005A2010: GetGoalsMode / GetTeamGraffitiMode: the same game mode value (0x005532D0) as the script's
+// 0x38DBE1D0 / 0x6835B854.
+bool __cdecl CFunc_GetGoalsMode(Script::CStruct*, Script::CScript* script)
+{
+    script->m_params->AddChecksum(0x38DBE1D0, GameFunction<uint32_t(__thiscall*)(void*)>(0x005532D0)(GameMode()));
+    return true;
+}
+
+bool __cdecl CFunc_GetTeamGraffitiMode(Script::CStruct*, Script::CScript* script)
+{
+    script->m_params->AddChecksum(0x6835B854, GameFunction<uint32_t(__thiscall*)(void*)>(0x005532D0)(GameMode()));
+    return true;
+}
+
+// 0x005A2030: GetGameMode: the game mode's name (0x005532A0) as the script's 0x3E04B26B.
+bool __cdecl CFunc_GetGameMode(Script::CStruct*, Script::CScript* script)
+{
+    script->m_params->AddChecksum(0x3E04B26B, GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameMode()));
+    return true;
+}
+
+// 0x005A2090: SetTesterScript <script> [params={...}] (the skate module's 0x00565ED0).
+bool __cdecl CFunc_SetTesterScript(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 0);
+    Script::CStruct* scriptParams = nullptr;
+    params->GetStructure(kParams, &scriptParams, 0);
+    CallSkate(0x00565ED0, name, scriptParams);
+    return true;
+}
+
+// 0x005A20F0: KillTesterScript (the skate module's 0x00565F80: its answer).
+bool __cdecl CFunc_KillTesterScript(Script::CStruct*, Script::CScript*) { return CallSkate<bool>(0x00565F80); }
+
+// 0x005A21A0: AutoRail <...>: the skate module's rail object (+0x24) is given the parameters - a shared stub that
+// ignores them.
+bool __cdecl CFunc_AutoRail(Script::CStruct* params, Script::CScript*)
+{
+    (void)*reinterpret_cast<void**>(Skate() + 0x24); // (the stub's `this`)
+    Stubs::IgnoreArgument(static_cast<int>(reinterpret_cast<intptr_t>(params)));
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x0059FE50, CFuncs::CFunc_Cleanup);
@@ -768,3 +836,12 @@ REPLACE(0x005A1770, CFuncs::CFunc_SetScreenModeFromGameMode);
 REPLACE(0x005A1840, CFuncs::CFunc_TryCheatString);
 REPLACE(0x005A1A90, CFuncs::CFunc_LevelIs);
 REPLACE_SOURCE_ONLY(0x005A18A9, CFuncs::CFunc_TryCheatString); // (not a function: the rest of 0x005A1840 after the length test)
+REPLACE(0x005A1F80, CFuncs::CFunc_SetStatOverride);
+REPLACE(0x005A1FB0, CFuncs::CFunc_ToggleRails);
+REPLACE(0x005A1FD0, CFuncs::CFunc_GetTimeLimit);
+REPLACE(0x005A1FF0, CFuncs::CFunc_GetGoalsMode);
+REPLACE(0x005A2010, CFuncs::CFunc_GetTeamGraffitiMode);
+REPLACE(0x005A2030, CFuncs::CFunc_GetGameMode);
+REPLACE(0x005A2090, CFuncs::CFunc_SetTesterScript);
+REPLACE(0x005A20F0, CFuncs::CFunc_KillTesterScript);
+REPLACE(0x005A21A0, CFuncs::CFunc_AutoRail);

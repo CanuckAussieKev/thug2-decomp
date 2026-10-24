@@ -42,6 +42,13 @@ bool __cdecl CFunc_GetPreferencePassword(Script::CStruct* params, Script::CScrip
 bool __cdecl CFunc_GetPreferenceChecksum(Script::CStruct* params, Script::CScript* script);    // 0x0059FD00
 bool __cdecl CFunc_ToggleNetMetrics(Script::CStruct* params, Script::CScript* script);         // 0x0059FD80
 bool __cdecl CFunc_SetViewMode(Script::CStruct* params, Script::CScript* script);              // 0x0059FD90
+bool __cdecl CFunc_SetViewerModel(Script::CStruct* params, Script::CScript* script);           // 0x005A1C80
+bool __cdecl CFunc_GetViewerObjectID(Script::CStruct* params, Script::CScript* script);        // 0x005A1D40
+bool __cdecl CFunc_ReloadAnim(Script::CStruct* params, Script::CScript* script);               // 0x005A1D80
+bool __cdecl CFunc_Debounce(Script::CStruct* params, Script::CScript* script);                 // 0x005A1E70
+bool __cdecl CFunc_StartKeyboardHandler(Script::CStruct* params, Script::CScript* script);     // 0x005A2050
+bool __cdecl CFunc_StopKeyboardHandler(Script::CStruct* params, Script::CScript* script);      // 0x005A2080
+bool __cdecl CFunc_SpawnSecondControllerCheck(Script::CStruct* params, Script::CScript* script); // 0x005A2100
 
 // 0x0059F820: the second controller check's task (SpawnSecondControllerCheck): runs the script 0x07C28B45 when
 // both controllers are plugged in, else 0x9C9DFCF8 - every frame while the task is on.
@@ -127,6 +134,15 @@ bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript* scrip
 bool __cdecl CFunc_SetScreenModeFromGameMode(Script::CStruct* params, Script::CScript* script); // 0x005A1770
 bool __cdecl CFunc_TryCheatString(Script::CStruct* params, Script::CScript* script);           // 0x005A1840
 bool __cdecl CFunc_LevelIs(Script::CStruct* params, Script::CScript* script);                  // 0x005A1A90
+bool __cdecl CFunc_SetStatOverride(Script::CStruct* params, Script::CScript* script);          // 0x005A1F80
+bool __cdecl CFunc_ToggleRails(Script::CStruct* params, Script::CScript* script);              // 0x005A1FB0
+bool __cdecl CFunc_GetTimeLimit(Script::CStruct* params, Script::CScript* script);             // 0x005A1FD0
+bool __cdecl CFunc_GetGoalsMode(Script::CStruct* params, Script::CScript* script);             // 0x005A1FF0
+bool __cdecl CFunc_GetTeamGraffitiMode(Script::CStruct* params, Script::CScript* script);      // 0x005A2010
+bool __cdecl CFunc_GetGameMode(Script::CStruct* params, Script::CScript* script);              // 0x005A2030
+bool __cdecl CFunc_SetTesterScript(Script::CStruct* params, Script::CScript* script);          // 0x005A2090
+bool __cdecl CFunc_KillTesterScript(Script::CStruct* params, Script::CScript* script);         // 0x005A20F0
+bool __cdecl CFunc_AutoRail(Script::CStruct* params, Script::CScript* script);                 // 0x005A21A0
 
 // --- the lobby and network options (net_state_cfuncs.cpp) -------------------------------------------------------
 

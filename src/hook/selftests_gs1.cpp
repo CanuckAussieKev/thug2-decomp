@@ -29,6 +29,11 @@
 #include "game/script/qb.h"
 #include "game/net/net_conn.h"
 #include "game/skate/career.h"
+#include "game/core/mem.h"
+#include "game/core/task.h"
+#include "game/obj/input_component.h"
+#include "game/skater/trick_component.h"
+#include "game/sys/timer.h"
 #include "game/sio/inpman.h"
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
@@ -1507,8 +1512,216 @@ void TestLobbyCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A1C80-0x005A21C0 (game_cfuncs.cpp, game_flow_cfuncs.cpp) ----------------------------------------------
+
+bool g_hasAsset, g_callocFails;
+uint32_t g_clock;
+uint8_t g_components[2][3][0x20];
+int g_componentCounts[2];
+uint8_t g_task[0x20];
+
+void StandInViewerModeCalls(StandIns& s)
+{
+    auto simple = [&s](std::initializer_list<uint32_t> at, uint16_t pop, uint32_t tag, int mode, uint32_t result = 0) {
+        s.At(at, pop, [tag, mode, result](Regs& r) {
+            Record({tag, mode & 1 ? Rel(r.ecx) : 0u, mode & 2 ? Rel(r.args[0]) : mode & 4 ? r.args[0] & 0xFF : 0u});
+            return result;
+        });
+    };
+    simple({0x00577740, AddressOf(&Mdl::Viewer::PlaceCamera)}, 4, 0x7740, 3, 1);
+    simple({0x00577170, AddressOf(&Mdl::Viewer::CreateViewerObject)}, 4, 0x7170, 3);
+    s.At({0x00407B90, AddressOf(&Ass::CAssMan::GetAsset)}, 8, [](Regs& r) {
+        Record({0x7B90, r.ecx, r.args[0], r.args[1]});
+        return g_hasAsset ? 0x00A55E70u : 0u;
+    });
+    simple({0x00407B20, AddressOf(&Ass::CAssMan::UnloadAsset)}, 4, 0x7B20, 3);
+    s.At({0x00408870, AddressOf(&Ass::CAssMan::LoadAnim)}, 0x14, [](Regs& r) {
+        Record({0x8870, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2], r.args[3] & 0xFF,
+                r.args[4] & 0xFF});
+        return 1u;
+    });
+    simple({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, 0xB0E0, 3);
+    simple({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110, 1);
+    s.At({0x0045F2D0, AddressOf(&Obj::CCompositeObjectManager::GetFirstComponentByType)}, 4, [](Regs& r) {
+        Record({0xF2D0, r.ecx, r.args[0]});
+        int list = r.args[0] == 0x27D7CD28 ? 0 : 1;
+        for (int i = 0; i < 3; ++i)
+            reinterpret_cast<uint32_t*>(g_components[list][i])[0x14 / 4] =
+                i + 1 < g_componentCounts[list] ? reinterpret_cast<uint32_t>(g_components[list][i + 1]) : 0u;
+        return g_componentCounts[list] ? reinterpret_cast<uint32_t>(g_components[list][0]) : 0u;
+    });
+    s.At({0x0041E7E0, AddressOf(&Obj::CInputComponent::LockButton)}, 0xC, [](Regs& r) {
+        Record({0xE7E0, r.ecx, r.args[0], r.args[1], r.args[2] & 0xFF});
+        return 0u;
+    });
+    s.At({0x0051F290, AddressOf(&Obj::CTrickComponent::HoldOffButton)}, 8, [](Regs& r) {
+        Record({0xF290, r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x0044E5A0, AddressOf(&Inp::ButtonIndex)}, 0, [](Regs& r) { Record({0xE5A0, r.args[0]}); return r.args[0] & 0xF; });
+    s.At({0x005BE970, AddressOf(&Tmr::GetTime)}, 0, [](Regs&) { Record({0xE970}); return g_clock; });
+    simple({0x0054EF60, AddressOf(&Mdl::FrontEnd::AddKeyboardHandler)}, 4, 0xEF60, 3);
+    simple({0x0054ECD0, AddressOf(&Mdl::FrontEnd::RemoveKeyboardHandler)}, 0, 0xECD0, 1);
+    s.At({0x00401CC0, AddressOf(static_cast<void* (*)(unsigned int)>(&Mem::Calloc))}, 0, [](Regs& r) {
+        Record({0x1CC0, r.args[0]});
+        std::memset(g_task, 0xCD, sizeof(g_task));
+        return g_callocFails ? 0u : reinterpret_cast<uint32_t>(g_task);
+    });
+    s.At({0x00406890, AddressOf(&Tsk::BaseTask::Construct)}, 4, [](Regs& r) {
+        Record({0x6890, r.ecx == reinterpret_cast<uint32_t>(g_task) ? 1u : 0u, r.args[0]});
+        std::memset(reinterpret_cast<void*>(r.ecx), 0, 0x18);
+        return r.ecx;
+    });
+    s.At({0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, [](Regs& r) {
+        Record({0x6C90, r.ecx, r.args[0] == reinterpret_cast<uint32_t>(g_task) ? 1u : r.args[0]});
+        return 0u;
+    });
+    s.At({0x00477B80, AddressOf(static_cast<void (CStruct::*)(uint32_t, int)>(&CStruct::AddInteger))}, 8, [](Regs& r) {
+        Record({0x7B80, Rel(r.ecx), r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x00553170}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
+    simple({0x005532D0}, 0, 0x32D0, 1, 0x60A15);
+    simple({0x005532A0}, 0, 0x32A0, 1, 0x60DE);
+    s.At({0x00565ED0}, 8, [](Regs& r) { Record({0x5ED0, r.ecx, r.args[0], Rel(r.args[1])}); return 0u; });
+    simple({0x00565F80}, 0, 0x5F80, 1, 0x100);
+}
+
+void TestViewerModeCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> more = {{0x007CEFAC, 1, {}}, {0x007D1800, 4, {}}, {0x00696D68, 4, {}}, {0x007CE470, 4, {}}};
+    SaveAll(saved);
+    SaveAll(more);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInViewerModeCalls(*standIns);
+    g_slot1 = standIns->Thunk(0, [](Regs& r) { Record({0x5107, Rel(r.ecx)}); return 0u; });
+    g_slot2 = standIns->Thunk(4, [](Regs& r) { Record({0x5207, Rel(r.ecx), r.args[0]}); return 0u; });
+    static uint8_t skate[0x400];
+    static uint32_t memoryManager[0x5E8 / 4];
+    for (uint32_t i = 0; i < 0x5E8 / 4; ++i)
+        memoryManager[i] = 0x00E30000 + i;
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        std::memset(skate, 0, sizeof(skate));
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<void*>(0x007D1800) = memoryManager;
+        GameVariable<uint32_t>(0x00696D68) = 0x00696D00;
+        GameVariable<uint32_t>(0x007CE470) = 0x00700470;
+        auto call = [&](uint32_t address, CFunc ours, Params& params) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        Params none;
+
+        // SetViewerModel: with and without a viewer; GetViewerObjectID
+        g_hasObject = true;
+        g_hasComponent = true;
+        g_skaterMask = 0x0C;
+        Params model; model.String(0, "models\\skater.mdl").Integer(0x77, 3);
+        for (bool viewer : {false, true}) {
+            g_hasViewer = viewer;
+            call(0x005A1C80, CFuncs::CFunc_SetViewerModel, model);
+            Record({GameVariable<uint32_t>(0x007CEBCC)});
+        }
+        g_hasViewerObject = true;
+        call(0x005A1D40, CFuncs::CFunc_GetViewerObjectID, none);
+        g_hasViewer = false;
+        call(0x005A1D40, CFuncs::CFunc_GetViewerObjectID, none);
+        // ReloadAnim: not loaded; by file name; by base + anim; in the debug heap
+        Params byFile; byFile.Checksum(0x52A864B0, 0xA417).String(0xC3F4169A, "anims\\ollie.ska");
+        Params byBase; byBase.Checksum(0x52A864B0, 0xA418).Checksum(0x98549BA4, 0xBA5E).String(0xC3F4169A, "anims\\kick.ska");
+        g_hasAsset = false;
+        call(0x005A1D80, CFuncs::CFunc_ReloadAnim, byFile);
+        g_hasAsset = true;
+        GameVariable<uint8_t>(0x007CEFAC) = 0;
+        call(0x005A1D80, CFuncs::CFunc_ReloadAnim, byFile);
+        call(0x005A1D80, CFuncs::CFunc_ReloadAnim, byBase);
+        GameVariable<uint8_t>(0x007CEFAC) = 1;
+        call(0x005A1D80, CFuncs::CFunc_ReloadAnim, byBase);
+        call(0x005A1D80, CFuncs::CFunc_ReloadAnim, none);
+        // Debounce: no button; components of each kind (0 - 3); the clock's top bit; a release; a time
+        call(0x005A1E70, CFuncs::CFunc_Debounce, none);
+        for (int state = 0; state < 4; ++state) {
+            g_componentCounts[0] = state;
+            g_componentCounts[1] = 3 - state;
+            g_clock = state & 1 ? 0x80001234u : 0x00031234u;
+            Params p; p.Checksum(0, 0x7323E97C + state);
+            if (state & 1)
+                p.Float(0x906B67BA, 0.3337f * state);
+            if (state & 2)
+                p.Integer(0x1A4E0EF9, state);
+            call(0x005A1E70, CFuncs::CFunc_Debounce, p);
+        }
+        Params device; device.Integer(0x69E3A1C4, 1);
+        call(0x005A2050, CFuncs::CFunc_StartKeyboardHandler, device);
+        call(0x005A2080, CFuncs::CFunc_StopKeyboardHandler, none);
+        // SpawnSecondControllerCheck: on already; made; out of memory
+        GameVariable<uint32_t>(0x007CEBC4) = 0x00AAAA00;
+        call(0x005A2100, CFuncs::CFunc_SpawnSecondControllerCheck, none);
+        GameVariable<uint32_t>(0x007CEBC4) = 0;
+        g_callocFails = false;
+        call(0x005A2100, CFuncs::CFunc_SpawnSecondControllerCheck, none);
+        {
+            auto* task = reinterpret_cast<uint32_t*>(g_task);
+            uint32_t code = task[0x18 / 4];
+            bool ours = code == 0x0059F820 || code == AddressOf(&CFuncs::SecondControllerCheckTask) ||
+                        code == reinterpret_cast<uint32_t>(&CFuncs::SecondControllerCheckTask);
+            Record({GameVariable<uint32_t>(0x007CEBC4) == reinterpret_cast<uint32_t>(g_task) ? 1u : 0u, task[0],
+                    ours ? 1u : 0u, HashBytes(g_task + 4, 0x14)});
+        }
+        GameVariable<uint32_t>(0x007CEBC4) = 0;
+        g_callocFails = true;
+        call(0x005A2100, CFuncs::CFunc_SpawnSecondControllerCheck, none);
+        Record({GameVariable<uint32_t>(0x007CEBC4)});
+        g_callocFails = false;
+        GameVariable<uint32_t>(0x007CEBC4) = 0;
+
+        // the skate module's and game mode's values
+        Params stat; stat.Float(0, 7.5f);
+        call(0x005A1F80, CFuncs::CFunc_SetStatOverride, stat);
+        Record({reinterpret_cast<uint32_t*>(skate)[0x3D0 / 4]});
+        call(0x005A1F80, CFuncs::CFunc_SetStatOverride, none);
+        Record({reinterpret_cast<uint32_t*>(skate)[0x3D0 / 4]});
+        for (uint8_t rails : {uint8_t(0), uint8_t(1), uint8_t(5)}) {
+            skate[0x3D4] = rails;
+            call(0x005A1FB0, CFuncs::CFunc_ToggleRails, none);
+            Record({skate[0x3D4]});
+        }
+        call(0x005A1FD0, CFuncs::CFunc_GetTimeLimit, none);
+        call(0x005A1FF0, CFuncs::CFunc_GetGoalsMode, none);
+        call(0x005A2010, CFuncs::CFunc_GetTeamGraffitiMode, none);
+        call(0x005A2030, CFuncs::CFunc_GetGameMode, none);
+        Params inner; inner.Integer(5, 6);
+        Params tester; tester.Checksum(0, 0x7E57).Structure(0x7031F10C, inner.Struct());
+        call(0x005A2090, CFuncs::CFunc_SetTesterScript, tester);
+        call(0x005A2090, CFuncs::CFunc_SetTesterScript, none);
+        call(0x005A20F0, CFuncs::CFunc_KillTesterScript, none);
+        call(0x005A21A0, CFuncs::CFunc_AutoRail, tester);
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(more);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    Check(traces[0].size() > 200, "viewer and mode commands: the original reached its calls");
+    Compare(traces[0], traces[1], "viewer model, debounce, game mode commands (0x005A1C80-0x005A21C0)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
+SELFTEST(Early, TestViewerModeCFuncs, RemoveStandIns);
 SELFTEST(Early, TestLobbyCFuncs, RemoveStandIns);
 SELFTEST(Early, TestServerListCFuncs, RemoveStandIns);
 SELFTEST(Early, TestGameCFuncs, RemoveStandIns);

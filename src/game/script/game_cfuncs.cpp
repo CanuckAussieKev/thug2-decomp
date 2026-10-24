@@ -7,7 +7,18 @@
 #include <cstring>
 
 #include "game/ass/assman.h"
+#include "game/ass/asset.h"
+#include "game/core/crc.h"
 #include "game/core/dbg.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
+#include "game/core/task.h"
+#include "game/obj/compositemgr.h"
+#include "game/obj/input_component.h"
+#include "game/sio/inpman.h"
+#include "game/skater/trick_component.h"
+#include "game/sys/mlp.h"
+#include "game/sys/timer.h"
 #include "game/file/async.h"
 #include "game/front/front_end.h"
 #include "game/gfx/camera.h"
@@ -392,10 +403,12 @@ bool __cdecl CFunc_ToggleNetMetrics(Script::CStruct*, Script::CScript*)
 // 0x0059FD90: SetViewMode <mode>: the viewer's view mode (0 = off); in one, the camera of the object 0xEB17151B,
 // else viewport 0 gets the camera of 0x967C138C (if there is one) back. Every skater's pause state is set to the
 // mode, and the viewer lets go of its object.
-bool __cdecl CFunc_SetViewMode(Script::CStruct* params, Script::CScript*)
+namespace {
+
+// The view mode `mode` (0x007CEBCC and the viewer's): in one, the camera of the object 0xEB17151B; else viewport 0
+// gets the camera of 0x967C138C (if there is one) back. Every skater's pause state is set to the mode.
+void ApplyViewMode(int mode)
 {
-    int mode = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetInteger(0u, &mode, 1);
     ViewMode() = mode;
     Mdl::SetViewMode(mode);
     if (ViewMode()) {
@@ -408,8 +421,135 @@ bool __cdecl CFunc_SetViewMode(Script::CStruct* params, Script::CScript*)
         if (Obj::CSkater* skater = GetSkater(i))
             skater->SetPauseState(ViewMode());
     }
+}
+
+} // namespace
+
+// 0x0059FD90: SetViewMode <mode>: the view mode (ApplyViewMode), and the viewer lets go of its object.
+bool __cdecl CFunc_SetViewMode(Script::CStruct* params, Script::CScript*)
+{
+    int mode = 0; // (unset in the original when missing - an asserted parameter)
+    params->GetInteger(0u, &mode, 1);
+    ApplyViewMode(mode);
     if (Mdl::Viewer* viewer = Mdl::GetViewer())
         viewer->RemoveViewerObject();
+    return true;
+}
+
+// 0x005A1C80: SetViewerModel <...>: view mode 1; the viewer (if any) places its camera and makes a viewer object
+// from the parameters.
+bool __cdecl CFunc_SetViewerModel(Script::CStruct* params, Script::CScript*)
+{
+    Mdl::Viewer* viewer = Mdl::GetViewer();
+    ApplyViewMode(1);
+    if (viewer) {
+        viewer->PlaceCamera(params);
+        Script::PrintContents(params, 0);
+        viewer->CreateViewerObject(params);
+    }
+    return true;
+}
+
+// 0x005A1D40: GetViewerObjectID: the viewer object's id as the script's 0x0830ECAF and 0x52280066 (the object isn't
+// checked for null).
+bool __cdecl CFunc_GetViewerObjectID(Script::CStruct*, Script::CScript* script)
+{
+    if (Mdl::Viewer* viewer = Mdl::GetViewer()) {
+        Obj::CViewerObject* object = ViewerObject(viewer);
+        script->m_params->AddChecksum(0x0830ECAF, object->m_id);
+        script->m_params->AddChecksum(0x52280066, object->m_id);
+    }
+    return true;
+}
+
+// 0x005A1D80: ReloadAnim 0x52A864B0=<anim> 0x98549BA4=<base> 0xC3F4169A="<file>": the animation asset (by base +
+// anim, or without a base the file name's checksum) unloaded and loaded again from the file (in the debug heap while
+// 0x007CEFAC is set). False if it isn't loaded.
+bool __cdecl CFunc_ReloadAnim(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t anim = 0;
+    params->GetChecksum(0x52A864B0u, &anim, 0);
+    uint32_t base = 0;
+    params->GetChecksum(0x98549BA4u, &base, 0);
+    const char* file = reinterpret_cast<const char*>(0x006469B4); // ""
+    params->GetString(0xC3F4169Au, &file, 0);
+    Ass::CAssMan* assets = Ass::AssetManager();
+    uint32_t name = Crc::GenerateCRCFromString(file);
+    if (base)
+        name = base + anim;
+    Ass::CAsset* asset = assets->GetAsset(name, 0);
+    if (!asset)
+        return false;
+    assets->UnloadAsset(asset);
+    bool debugHeap = GameVariable<bool>(0x007CEFAC);
+    if (debugHeap) {
+        Mem::Manager* memory = GameVariable<Mem::Manager*>(0x007D1800);
+        memory->PushContext(reinterpret_cast<Mem::Allocator*>(memory->m_debugHeap));
+    }
+    assets->LoadAnim(file, base, anim, false, false);
+    if (GameVariable<bool>(0x007CEFAC))
+        GameVariable<Mem::Manager*>(0x007D1800)->PopContext();
+    return true;
+}
+
+// 0x005A1E70: Debounce <button> [time=seconds (1)] [0x1A4E0EF9=n]: every input component locks the button for that
+// long (released if n), and every trick component holds it off until the clock (ms) + time * 1000. Nothing without
+// a button.
+bool __cdecl CFunc_Debounce(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t button = 0;
+    params->GetChecksum(0u, &button, 0);
+    if (!button)
+        return true;
+    float time = 1.0f;
+    params->GetFloat(0x906B67BAu, &time, 0); // "time"
+    int release = 0;
+    params->GetInteger(0x1A4E0EF9u, &release, 0);
+    auto* objects = GameVariable<Obj::CCompositeObjectManager*>(0x006F0FB8);
+    for (Obj::CBaseComponent* input = objects->GetFirstComponentByType(0x27D7CD28); input; input = input->mp_nextOfType)
+        static_cast<Obj::CInputComponent*>(input)->LockButton(button, time, release != 0);
+    // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
+    float until = static_cast<float>(static_cast<double>(Tmr::GetTime()) +
+                                     static_cast<double>(time) * static_cast<double>(GameVariable<float>(0x006453C0)));
+    for (Obj::CBaseComponent* trick = objects->GetFirstComponentByType(0x270F56E1); trick; trick = trick->mp_nextOfType)
+        static_cast<Obj::CTrickComponent*>(trick)->HoldOffButton(Inp::ButtonIndex(button), until);
+    return true;
+}
+
+// 0x005A2050: StartKeyboardHandler 0x69E3A1C4=<device>: typed keys reported for it.
+bool __cdecl CFunc_StartKeyboardHandler(Script::CStruct* params, Script::CScript*)
+{
+    Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance();
+    int device = 0; // (unset in the original when missing - an asserted parameter)
+    params->GetInteger(0x69E3A1C4u, &device, true);
+    frontEnd->AddKeyboardHandler(device);
+    return true;
+}
+
+// 0x005A2080: StopKeyboardHandler.
+bool __cdecl CFunc_StopKeyboardHandler(Script::CStruct*, Script::CScript*)
+{
+    Mdl::FrontEndInstance()->RemoveKeyboardHandler();
+    return true;
+}
+
+// 0x005A2100: SpawnSecondControllerCheck: unless it's on, the check's task (Tsk::Task, SecondControllerCheckTask,
+// priority 0) made and added to the main loop's logic tasks. (The original gives the task a pointer to one of its
+// own locals as its data - the task never reads it; null here.)
+bool __cdecl CFunc_SpawnSecondControllerCheck(Script::CStruct*, Script::CScript*)
+{
+    auto* mainLoop = GameVariable<Mlp::Manager*>(0x00696D68);
+    if (SecondControllerCheck())
+        return true;
+    auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
+    if (task) {
+        reinterpret_cast<Tsk::BaseTask*>(task)->Construct(0);
+        task[0] = 0x006476F0; // Tsk::Task vtable
+        task[0x18 / 4] = reinterpret_cast<uint32_t>(&SecondControllerCheckTask);
+        task[0x1C / 4] = 0;
+    }
+    SecondControllerCheck() = task;
+    mainLoop->m_logicTasks.AddTask(reinterpret_cast<Tsk::BaseTask*>(task));
     return true;
 }
 
@@ -442,3 +582,10 @@ REPLACE(0x0059FC40, CFuncs::CFunc_GetPreferencePassword);
 REPLACE(0x0059FD00, CFuncs::CFunc_GetPreferenceChecksum);
 REPLACE(0x0059FD80, CFuncs::CFunc_ToggleNetMetrics);
 REPLACE(0x0059FD90, CFuncs::CFunc_SetViewMode);
+REPLACE(0x005A1C80, CFuncs::CFunc_SetViewerModel);
+REPLACE(0x005A1D40, CFuncs::CFunc_GetViewerObjectID);
+REPLACE(0x005A1D80, CFuncs::CFunc_ReloadAnim);
+REPLACE(0x005A1E70, CFuncs::CFunc_Debounce);
+REPLACE(0x005A2050, CFuncs::CFunc_StartKeyboardHandler);
+REPLACE(0x005A2080, CFuncs::CFunc_StopKeyboardHandler);
+REPLACE(0x005A2100, CFuncs::CFunc_SpawnSecondControllerCheck);

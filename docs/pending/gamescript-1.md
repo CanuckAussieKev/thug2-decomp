@@ -92,3 +92,16 @@ Shared files touched: CMakeLists.txt (new files listed).
   - Test TestLobbyCFuncs: original vs ours (the game's sprintf stood in for by ours; the cheat's numbers the original
     logs used for a matching entry in the next call). 27 of 27 deliberate bugs caught (1 after strengthening: a cheat
     text shorter than the round's number, so the first fill's bytes are read).
+- [x] Batch GS1-6 (NOT run in the game yet; the viewer's model, animation reloads, debouncing, keyboard handling,
+  the second controller check, game mode values - 16 CFunctions): game_cfuncs.cpp, game_flow_cfuncs.cpp.
+  - 0x005A1C80 SetViewerModel (view mode 1 - its common part with SetViewMode is ApplyViewMode now; the viewer places
+    its camera and makes the object), 0x005A1D40 GetViewerObjectID (the object isn't checked for null, as in the
+    original), 0x005A1D80 ReloadAnim (by base + anim, or the file's checksum; the debug heap while 0x007CEFAC),
+    0x005A1E70 Debounce (input components lock the button; trick components hold it off until the clock + time *
+    1000 - the x87 sum rounded to a float), 0x005A1F80 SetStatOverride, 0x005A1FB0 ToggleRails, 0x005A1FD0
+    GetTimeLimit, 0x005A1FF0 GetGoalsMode / 0x005A2010 GetTeamGraffitiMode (the same mode value, 0x005532D0),
+    0x005A2030 GetGameMode, 0x005A2050 StartKeyboardHandler, 0x005A2080 StopKeyboardHandler, 0x005A2090
+    SetTesterScript, 0x005A20F0 KillTesterScript, 0x005A2100 SpawnSecondControllerCheck (the task's data was a
+    pointer to one of the original's locals - never read; null here), 0x005A21A0 AutoRail (the shared IgnoreArgument
+    stub).
+  - Test TestViewerModeCFuncs: original vs ours. 25 of 25 deliberate bugs caught.
