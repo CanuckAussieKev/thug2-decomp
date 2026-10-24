@@ -170,6 +170,18 @@ bool __cdecl CFunc_TryJoinServerIP(Script::CStruct* params, Script::CScript* scr
 bool __cdecl CFunc_TryJoinServerIPCancel(Script::CStruct* params, Script::CScript* script);    // 0x005A2960
 bool __cdecl CFunc_ForceServerListRefresh(Script::CStruct* params, Script::CScript* script);   // 0x005A2990
 
+// --- the viewer camera on the scenes, node objects (node_object_cfuncs.cpp) --------------------------------------
+
+bool __cdecl CFunc_CenterCamera(Script::CStruct* params, Script::CScript* script);             // 0x005A2D60
+bool __cdecl CFunc_CreateFromStructure(Script::CStruct* params, Script::CScript* script);      // 0x005A34D0
+// 0x005A2A00: the viewer's camera object placed to look at a scene's sectors (all, or those named `only`).
+void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float angleY, float angleZ, uint32_t only);
+// 0x005A2E50 / 0x005A32A0: the object of a node (its structure / its name) made by its class.
+bool __cdecl CreateFromNode(Script::CStruct* node);
+bool __cdecl CreateFromNodeName(uint32_t name);
+// 0x005A32C0: the object of the node `name` killed (switched off) by its class.
+bool __cdecl KillFromNodeName(uint32_t name, Script::CScript* script);
+
 // What FlagCommandByName does to the objects: set / clear / test a script flag (of 32), set / clear object flag
 // bits, send an exception.
 enum : int {

@@ -38,6 +38,13 @@
 #include "game/obj/rail_manager.h"
 #include "game/script/nodes.h"
 #include <cstdlib>
+#include "game/lst/hashtable.h"
+#include "game/mth/vector.h"
+#include "game/obj/emitter.h"
+#include "game/obj/game_objects.h"
+#include "game/obj/node_objects.h"
+#include "game/obj/proxim.h"
+#include "game/script/names.h"
 #include "game/sio/inpman.h"
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
@@ -1940,8 +1947,361 @@ void TestNodeTrackingCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A2A00-0x005A34E0 (node_object_cfuncs.cpp) --------------------------------------------------------------
+
+// Stand-in scenes: a list of two (the third node ends it), each with a sector table of three sectors.
+struct FakeSector {
+    uint32_t unknown0;
+    uint32_t name;   // +4
+    uint32_t flags;  // +8
+    uint32_t active;
+    int vertexCount;
+    float base;
+};
+struct FakeScene {
+    uint8_t unknown[0xD0];
+    Lst::HashTable* sectors; // +0xD0
+};
+struct FakeSceneNode {
+    uint32_t unknown0;
+    void* scene;
+    uint32_t unknown8;
+    FakeSceneNode* next;
+};
+FakeSector g_sectors[2][3];
+FakeScene g_scenes[2];
+Lst::HashTable::Item g_sectorItems[2][2];
+uint8_t g_tables[2][0x18];
+FakeSceneNode g_sceneNodes[3];
+int g_sceneCount;
+bool g_skipNode;
+uint32_t g_cloneMissing;
+Mth::Vector g_vertexBlock[16];
+
+void SetUpScenes()
+{
+    for (int s = 0; s < 2; ++s) {
+        for (int i = 0; i < 3; ++i) {
+            FakeSector& sector = g_sectors[s][i];
+            sector = FakeSector{};
+            sector.name = 0x5EC0 + 0x10 * s + i;
+            sector.flags = 0x1100 + i;
+            sector.active = (s + i) % 3 != 1;
+            sector.vertexCount = i == 2 ? 0 : 2 + i + s;
+            sector.base = 10.0f * (s + 1) + i;
+        }
+        // two buckets: the first holds sector 0 with sector 1 chained, the second sector 2
+        g_sectorItems[s][0] = {g_sectors[s][1].name, &g_sectors[s][1], nullptr};
+        auto* table = reinterpret_cast<Lst::HashTable*>(g_tables[s]);
+        std::memset(g_tables[s], 0, sizeof(g_tables[s]));
+        static Lst::HashTable::Item buckets[2][2];
+        buckets[s][0] = {g_sectors[s][0].name, &g_sectors[s][0], &g_sectorItems[s][0]};
+        buckets[s][1] = {g_sectors[s][2].name, &g_sectors[s][2], nullptr};
+        table->m_bits = 1;
+        table->m_buckets = buckets[s];
+        g_scenes[s].sectors = table;
+        g_sceneNodes[s] = {0, &g_scenes[s], 0, &g_sceneNodes[s + 1]};
+    }
+    g_sceneNodes[2] = {0, reinterpret_cast<void*>(-1), 0, nullptr};
+}
+
+void StandInNodeObjectCalls(StandIns& s)
+{
+    auto simple = [&s](std::initializer_list<uint32_t> at, uint16_t pop, uint32_t tag, int mode, uint32_t result = 0) {
+        s.At(at, pop, [tag, mode, result](Regs& r) {
+            Record({tag, mode & 1 ? Rel(r.ecx) : 0u, mode & 2 ? Rel(r.args[0]) : mode & 4 ? r.args[0] & 0xFF : 0u});
+            return result;
+        });
+    };
+    s.At({0x0048C7F0}, 0, [](Regs&) {
+        Record({0xC7F0});
+        if (!g_sceneCount)
+            return 0u;
+        g_sceneNodes[g_sceneCount].scene = reinterpret_cast<void*>(-1);
+        g_sceneNodes[g_sceneCount].next = nullptr;
+        return reinterpret_cast<uint32_t>(&g_sceneNodes[0]);
+    });
+    s.At({0x0049E9E0}, 0, [](Regs& r) { Record({0xE9E0, reinterpret_cast<FakeSector*>(r.ecx)->name}); return reinterpret_cast<FakeSector*>(r.ecx)->active; });
+    s.At({0x004A2BA0}, 0, [](Regs& r) { Record({0x2BA0, reinterpret_cast<FakeSector*>(r.ecx)->name}); return r.ecx; });
+    s.At({0x0048DF70}, 0, [](Regs& r) { Record({0xDF70}); return static_cast<uint32_t>(reinterpret_cast<FakeSector*>(r.ecx)->vertexCount); });
+    s.At({0x0048DF80}, 4, [](Regs& r) {
+        auto* sector = reinterpret_cast<FakeSector*>(r.ecx);
+        Record({0xDF80, sector->name, r.args[0] == reinterpret_cast<uint32_t>(g_vertexBlock) ? 1u : r.args[0]});
+        auto* out = reinterpret_cast<Mth::Vector*>(r.args[0]);
+        for (int i = 0; i < sector->vertexCount; ++i)
+            out[i] = {sector->base * (i + 1), -sector->base + 3.5f * i, sector->base * 0.25f - i, 1.0f};
+        return 0u;
+    });
+    s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 0xC, [](Regs& r) {
+        Record({0xAFC0, r.args[0], r.args[1], r.args[2]});
+        return reinterpret_cast<uint32_t>(g_vertexBlock);
+    });
+    s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
+        Record({0xABA0, r.args[0] == reinterpret_cast<uint32_t>(g_vertexBlock) ? 1u : r.args[0]});
+        return 0u;
+    });
+    simple({0x004E1950, AddressOf(&Mem::EnsureManager)}, 0, 0x1950, 0);
+    s.At({0x005BFA8C}, 0xC, [](Regs& r) { // D3DXMatrixMultiply (row vectors: out = a * b)
+        auto* a = reinterpret_cast<const float*>(r.args[1]);
+        auto* b = reinterpret_cast<const float*>(r.args[2]);
+        float out[16];
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                out[i * 4 + j] = a[i * 4] * b[j] + a[i * 4 + 1] * b[4 + j] + a[i * 4 + 2] * b[8 + j] + a[i * 4 + 3] * b[12 + j];
+        Record({0xFA8C, HashBytes(reinterpret_cast<const uint8_t*>(b), 64)});
+        std::memcpy(reinterpret_cast<void*>(r.args[0]), out, sizeof(out));
+        return r.args[0];
+    });
+    // the node objects
+    s.At({0x0045C1B0, AddressOf(&SkateScript::GetNode)}, 0, [](Regs& r) {
+        Record({0xC1B0, r.args[0], r.args[1] & 0xFF});
+        return g_node ? reinterpret_cast<uint32_t>(g_node->Struct()) : 0u;
+    });
+    s.At({0x00565BB0}, 4, [](Regs& r) { Record({0x5BB0, Rel(r.args[0])}); return g_skipNode ? 1u : 0u; });
+    simple({0x0057B4E0, AddressOf(&Obj::CreatePed)}, 0, 0xB4E0, 2);
+    s.At({0x0057D7C0, AddressOf(&Obj::CRailManager::SetActive)}, 0xC, [](Regs& r) {
+        Record({0xD7C0, r.ecx, r.args[0], r.args[1], r.args[2] & 0xFF});
+        return 0u;
+    });
+    s.At({0x0046ACB0, AddressOf(&Obj::Proxim_SetActive)}, 0, [](Regs& r) { Record({0xACB0, r.args[0], r.args[1]}); return 0u; });
+    simple({0x00468B00, AddressOf(&Obj::CreateParticleObject)}, 0, 0x8B00, 2);
+    s.At({0x00468340, AddressOf(&Obj::Emitter_SetActive)}, 0, [](Regs& r) { Record({0x8340, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x00571140, AddressOf(&Gfx::CTODManager::GetLevelColor)}, 4, [](Regs& r) {
+        Record({0x1140, r.ecx});
+        *reinterpret_cast<uint32_t*>(r.args[0]) = 0x80C0FF40;
+        return 0u;
+    });
+    s.At({0x00477B80, AddressOf(static_cast<void (CStruct::*)(uint32_t, int)>(&CStruct::AddInteger))}, 8, [](Regs& r) {
+        Record({0x7B80, Rel(r.ecx), r.args[0], r.args[1]});
+        return 0u;
+    });
+    simple({0x00468EC0, AddressOf(&Obj::CreateNodeObject)}, 0, 0x8EC0, 2);
+    simple({0x00578170, AddressOf(&Obj::CreateCar)}, 0, 0x8170, 2);
+    simple({0x00468EB0, AddressOf(&Obj::CreateGameObjectFromNode)}, 0, 0x8EB0, 2, 0x0B1EC7);
+    s.At({0x0049CB00}, 4, [](Regs& r) {
+        Record({0xCB00, Rel(r.ecx), r.args[0]});
+        if (r.args[0] == g_cloneMissing)
+            return 0u;
+        for (int s = 0; s < 2; ++s)
+            if (r.ecx == reinterpret_cast<uint32_t>(&g_scenes[s]))
+                for (auto& sector : g_sectors[s])
+                    if (sector.name == r.args[0])
+                        return reinterpret_cast<uint32_t>(&sector);
+        return 0u;
+    });
+    s.At({0x0046D110, AddressOf(&Script::FindChecksumNameOrUnknown)}, 0, [](Regs& r) {
+        Record({0xD110, r.args[0]});
+        return reinterpret_cast<uint32_t>("<name>");
+    });
+    s.At({0x0049E680}, 4, [](Regs& r) { Record({0xE680, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
+    s.At({0x0049E9B0}, 4, [](Regs& r) { Record({0xE9B0, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0] & 0xFF}); return 0u; });
+    s.At({0x0049EA30}, 4, [](Regs& r) { Record({0xEA30, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0] & 0xFF}); return 0u; });
+    s.At({0x0048BF90}, 0, [](Regs& r) { Record({0xBF90, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x0049D510}, 0x14, [](Regs& r) {
+        Record({0xD510, Rel(r.ecx), reinterpret_cast<FakeSector*>(r.args[0])->name, Rel(r.args[1]), r.args[2], r.args[3], r.args[4]});
+        g_cloneMissing = 0;
+        return 0u;
+    });
+    s.At({0x0049E700}, 4, [](Regs& r) {
+        Record({0xE700, reinterpret_cast<FakeSector*>(r.ecx)->name, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 64)});
+        return 0u;
+    });
+    s.At({0x0049E7C0}, 4, [](Regs& r) {
+        Record({0xE7C0, reinterpret_cast<FakeSector*>(r.ecx)->name, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 16)});
+        return 0u;
+    });
+    s.At({0x0049E6C0}, 4, [](Regs& r) {
+        Record({0xE6C0, reinterpret_cast<FakeSector*>(r.ecx)->name, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 16)});
+        return 0u;
+    });
+    simple({0x0048FCA0}, 0, 0xFCA0, 2);
+    s.At({0x00461CC0, AddressOf(&Obj::CBaseManager::ForEach)}, 8, [](Regs& r) {
+        Record({0x1CC0, r.ecx, *reinterpret_cast<uint32_t*>(r.args[1])});
+        for (auto& object : g_fakes->flagObjects)
+            reinterpret_cast<Obj::ObjectCallback>(r.args[0])(reinterpret_cast<Obj::CObject*>(object),
+                                                              reinterpret_cast<void*>(r.args[1]));
+        return 0u;
+    });
+    s.At({0x00460930, AddressOf(&Obj::CObject::DestroyIfUnlocked)}, 0, [](Regs& r) { Record({0x0930, Rel(r.ecx)}); return 0u; });
+}
+
+void TestNodeObjectCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> more = {{0x007CE4A4, 4, {}}, {0x007CC979, 1, {}}, {0x007D1800, 4, {}}, {0x007CE490, 4, {}}};
+    SaveAll(saved);
+    SaveAll(more);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInNodeObjectCalls(*standIns);
+    static uint8_t skate[0x400];
+    static uint8_t tod[0x340];
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        SetUpScenes();
+        std::memset(skate, 0, sizeof(skate));
+        reinterpret_cast<uint32_t*>(skate)[0x24 / 4] = 0x00A11000; // the rail manager
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<uint32_t>(0x007D1800) = 0x00701800;
+        GameVariable<void*>(0x007CE490) = tod;
+        auto call = [&](uint32_t address, CFunc ours, Params& params) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        Params none;
+        auto recordCamera = [&] { Record({HashBytes(g_fakes->object + 0x4C, 0x60)}); };
+
+        // CenterCamera: no viewer module; no scenes; two scenes (all sectors / one name); no camera object; a
+        // memory manager not set up yet; a small box (the 1000 minimum)
+        GameVariable<uint32_t>(0x007CE4A4) = 0;
+        call(0x005A2D60, CFuncs::CFunc_CenterCamera, none);
+        GameVariable<uint32_t>(0x007CE4A4) = 0x00A1E000;
+        GameVariable<uint8_t>(0x007CC979) = 1;
+        g_hasObject = true;
+        g_sceneCount = 0;
+        call(0x005A2D60, CFuncs::CFunc_CenterCamera, none);
+        recordCamera();
+        g_sceneCount = 2;
+        call(0x005A2D60, CFuncs::CFunc_CenterCamera, none);
+        recordCamera();
+        g_sectors[1][1].base = 700.0f; // (a box over the 1000 minimum)
+        call(0x005A2D60, CFuncs::CFunc_CenterCamera, none);
+        recordCamera();
+        Params angled;
+        angled.Float(CrcOf("scale"), 1.75f).Float(CrcOf("x"), 30.0f).Float(CrcOf("y"), -20.0f).Float(CrcOf("z"), 12.5f)
+            .Checksum(CrcOf("id"), 0x5ED1);
+        GameVariable<uint8_t>(0x007CC979) = 0;
+        call(0x005A2D60, CFuncs::CFunc_CenterCamera, angled);
+        recordCamera();
+        g_sceneCount = 1;
+        for (auto& sector : g_sectors[0])
+            sector.base = 0.5f;
+        call(0x005A2D60, CFuncs::CFunc_CenterCamera, angled);
+        Params all; all.Float(CrcOf("scale"), 0.5f);
+        call(0x005A2D60, CFuncs::CFunc_CenterCamera, all);
+        recordCamera();
+        g_hasObject = false;
+        call(0x005A2D60, CFuncs::CFunc_CenterCamera, none);
+        g_sceneCount = 2;
+        SetUpScenes();
+
+        // CreateFromNode, by each class; a node the skate module skips; a trigger
+        using NodeFn = bool(__cdecl*)(CStruct*);
+        auto create = [&](Params& node) {
+            bool result = original ? Original<NodeFn>(0x005A2E50)(node.Struct()) : CFuncs::CreateFromNode(node.Struct());
+            Record({0x2E50, result ? 1u : 0u});
+        };
+        const uint32_t classes[] = {0xA0DFAC98, 0x061A741E, 0x30C19600, 0x8E6B02AD, 0x08470F2E, 0x9E7D469E,
+                                    0xD64DC7C2, 0xB7B3BD86, 0xE47F1B79, 0xEF59C100, 0xE594F0A2, 0x12345678};
+        for (int i = 0; i < 12; ++i) {
+            Params node;
+            node.Checksum(0xA1DC81F9, 0x40DE + i).Checksum(0x12B4E660, classes[i]);
+            if (i == 3)
+                node.Flag(CrcOf("FLAG_WHOLE_RAIL"));
+            tod[0x33C] = static_cast<uint8_t>(i & 1);
+            create(node);
+            if (i == 7) { // the level object again, with the time of day's colour
+                tod[0x33C] = 1;
+                create(node);
+            }
+        }
+        g_skipNode = true;
+        Params skipped; skipped.Checksum(0x12B4E660, 0xA0DFAC98);
+        create(skipped);
+        g_skipNode = false;
+        // level geometry: no name; a sector in the second scene; one in none; with the occluder flag; copies (made
+        // or there already; with angles, scale)
+        Params noName; noName.Checksum(0x12B4E660, 0xBF4D3536);
+        create(noName);
+        Params geometry; geometry.Checksum(0x12B4E660, 0xBF4D3536).Checksum(0xA1DC81F9, 0x5ED2).Flag(0x4E549FE1);
+        create(geometry);
+        Params lost; lost.Checksum(0x12B4E660, 0xBF4D3536).Checksum(0xA1DC81F9, 0x5EFF);
+        create(lost);
+        Params plain; plain.Checksum(0x12B4E660, 0xBF4D3536).Checksum(0xA1DC81F9, 0x5EC1);
+        create(plain);
+        static Script::CVector angles = {0, 0.5f, 1.25f, -0.75f};
+        static Script::CVector scaled = {0, 2.0f, 3.0f, 4.0f};
+        static Script::CVector placed = {0, 100.0f, -50.0f, 25.0f};
+        Params copy;
+        copy.Checksum(0x12B4E660, 0xBF4D3536).Checksum(0xA1DC81F9, 0x5ED0).Checksum(0xEDC063B9, 0x5ED1)
+            .Vector(CrcOf("angles"), &angles).Vector(CrcOf("scale"), &scaled).Vector(CrcOf("pos"), &placed);
+        g_cloneMissing = 0x5ED0;
+        create(copy);
+        Record({g_sectors[1][1].flags, g_sectors[1][0].flags});
+        Params copyThere; copyThere.Checksum(0x12B4E660, 0xBF4D3536).Checksum(0xA1DC81F9, 0x5ED2).Checksum(0xEDC063B9, 0x5ED0);
+        create(copyThere);
+        Record({g_sectors[1][0].flags, g_sectors[1][2].flags});
+        // CreateFromStructure, CreateFromNodeName
+        Params structure; structure.Checksum(0x12B4E660, 0xE47F1B79).Checksum(0xA1DC81F9, 0x7E5);
+        call(0x005A34D0, CFuncs::CFunc_CreateFromStructure, structure);
+        using NameFn = bool(__cdecl*)(uint32_t);
+        static Params named;
+        named = Params();
+        named.Checksum(0x12B4E660, 0x9E7D469E).Checksum(0xA1DC81F9, 0x9A3);
+        g_node = &named;
+        Record({(original ? Original<NameFn>(0x005A32A0)(0x9A3) : CFuncs::CreateFromNodeName(0x9A3)) ? 1u : 0u});
+
+        // KillFromNodeName: no node; each class; level geometry (no name, found with and without the flag, lost)
+        using KillFn = bool(__cdecl*)(uint32_t, Script::CScript*);
+        auto kill = [&](uint32_t name) {
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<KillFn>(0x005A32C0)(name, script) : CFuncs::KillFromNodeName(name, script);
+            Record({0x32C0, result ? 1u : 0u});
+        };
+        auto* objects = g_fakes->flagObjects;
+        for (int i = 0; i < 3; ++i)
+            reinterpret_cast<uint32_t*>(objects[i])[0x14 / 4] = 0x0B10 + i;
+        reinterpret_cast<void**>(g_fakes->script)[0xBC / 4] = g_fakes->object;
+        g_node = nullptr;
+        kill(0x0B11);
+        const uint32_t killClasses[] = {0xA0DFAC98, 0x5B8AB877, 0x061A741E, 0xB7B3BD86, 0xE47F1B79, 0xEF59C100,
+                                        0x9E7D469E, 0x30C19600, 0x8E6B02AD, 0x08470F2E, 0xA0E52802, 0xD64DC7C2,
+                                        0xE594F0A2};
+        static Params killNode;
+        g_node = &killNode;
+        for (int i = 0; i < 13; ++i) {
+            killNode = Params();
+            killNode.Checksum(0x12B4E660, killClasses[i]);
+            if (i == 8)
+                killNode.Flag(CrcOf("FLAG_WHOLE_RAIL"));
+            kill(0x0B10 + i % 3);
+        }
+        killNode = Params();
+        killNode.Checksum(0x12B4E660, 0xBF4D3536);
+        kill(0x0B10);
+        for (uint32_t sectorName : {0x5ED1u, 0x5EC2u, 0x5EFFu}) {
+            killNode = Params();
+            killNode.Checksum(0x12B4E660, 0xBF4D3536).Checksum(0xA1DC81F9, sectorName);
+            if (sectorName == 0x5EC2)
+                killNode.Flag(0x4E549FE1);
+            kill(0x0B10);
+        }
+        g_sceneCount = 0;
+        kill(0x0B10);
+        g_node = nullptr;
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(more);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    Check(traces[0].size() > 300, "node object commands: the original reached its calls");
+    Compare(traces[0], traces[1], "camera on the scenes, node objects (0x005A2A00-0x005A34E0)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
+SELFTEST(Early, TestNodeObjectCFuncs, RemoveStandIns);
 SELFTEST(Early, TestNodeTrackingCFuncs, RemoveStandIns);
 SELFTEST(Early, TestViewerModeCFuncs, RemoveStandIns);
 SELFTEST(Early, TestLobbyCFuncs, RemoveStandIns);

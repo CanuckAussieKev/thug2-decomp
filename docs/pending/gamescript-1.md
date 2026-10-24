@@ -120,3 +120,22 @@ Shared files touched: CMakeLists.txt (new files listed).
   - Test TestNodeTrackingCFuncs: original vs ours (atof jumped to ours; the C runtime's file calls stood in for - no
     file is opened). 22 of 24 deliberate bugs caught (3 after strengthening: lines the parser can see); 2 equivalent:
     ShowTracking's flags and its numbers only feed the compiled-out drawing.
+- [x] Batch GS1-8 (NOT run in the game yet; the viewer camera fitted to the scenes, node objects made and killed by
+  class - 6 functions): src/game/script/node_object_cfuncs.cpp (new).
+  - 0x005A2A00 FitViewerCamera (scene, scale, x, y, z, only: the box round the active sectors' vertices - the
+    sector table walked with Lst::HashTable::IterateNext; the camera object 0xEB17151B turned X, Y, Z degrees from
+    the identity through D3DXMatrixMultiply and set back along its forward row by max(box size, 1000) * scale^2 -
+    the x87 order kept: the centre's z / w sums rounded to floats first, the offsets rounded before adding),
+    0x005A2D60 CenterCamera (scale 0.9, x -45, y 45, z 0, id: each scene of the list 0x006FA7EC in turn),
+    0x005A2E50 CreateFromNode (3 callers: by class - Pedestrian / 0x061A741E peds, Rail / ClimbingNode on,
+    ProximNode, ParticleObject, EmitterObject, LevelObject (the time of day's level colour added as 0x99A9B716 while
+    its params are set), Vehicle, GameObject, LevelGeometry: the sector switched on, or with 0xEDC063B9 a copy made
+    under the node's name and placed; triggers read their name and are false; nodes the skate module skips
+    (0x00565BB0) true), 0x005A32A0 CreateFromNodeName (a tail call), 0x005A32C0 KillFromNodeName (objects with
+    the node's name deleted unless locked - through DestroyObjectWithId, 0x0059FB10; rails / proxims / emitters
+    switched off; 0xA0E52802 by 0x0048FCA0; level geometry off, its 0x4E549FE1 effect off - twice when flagged, as in
+    the original), 0x005A34D0 CreateFromStructure.
+  - Test TestNodeObjectCFuncs: original vs ours over stand-in scenes (a real two-bucket hash table of fake sectors per
+    scene), every class both ways, the camera's whole placing compared bit for bit. 33 of 35 deliberate bugs caught
+    (1 after strengthening: a box over the 1000 minimum); 2 equivalent: the forward row's w is 0 for every rotation,
+    and the default scale is only used when the node gives one.
