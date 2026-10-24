@@ -271,6 +271,13 @@ add_library(thug2_code OBJECT
     src/hook/selftests_memory_sizes.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_ec3.cpp
+    src/hook/selftests_gs4_tricks.cpp
+    src/hook/selftests_gs4_hunt.cpp
+    src/hook/selftests_gs4_texture.cpp
+    src/hook/selftests_gs4_models.cpp
+    src/hook/selftests_gs4_skater.cpp
+    src/hook/selftests_gs4_lists.cpp
+    src/hook/selftests_gs4_config.cpp
     src/hook/selftests_career_cfuncs.cpp
     src/hook/selftests_competition_cfuncs.cpp
     src/hook/selftests_skater_query_cfuncs.cpp
@@ -950,6 +957,17 @@ add_library(thug2_code OBJECT
     src/game/script/qb.cpp
     src/game/script/struct.cpp
     src/game/script/skate_cfuncs.cpp
+    src/game/script/trick_cfuncs.cpp
+    src/game/script/game_util_cfuncs.cpp
+    src/game/net/hunt_cfuncs.cpp
+    src/game/gfx/face_texture_cfuncs.cpp
+    src/game/gfx/cag_cfuncs.cpp
+    src/game/obj/model_swap_cfuncs.cpp
+    src/game/front/theme_cfuncs.cpp
+    src/game/skater/skater_misc_cfuncs.cpp
+    src/game/skater/skater_score_cfuncs.cpp
+    src/game/obj/cutscene_list_cfuncs.cpp
+    src/game/sys/game_config.cpp
     src/game/script/game_cfuncs.cpp
     src/game/script/game_flow_cfuncs.cpp
     src/game/script/net_state_cfuncs.cpp
