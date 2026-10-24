@@ -432,7 +432,14 @@ export interface SceneParts {
     lighting?: mats.Lighting; // THP8's light maps baked into the vertex colours (materials.ts)
     techniques?: ReadonlyMap<number, readonly string[]>; // the material library's (materials.readTechniques)
     local?: ReadonlySet<number>; // sectors in their own space (localObjects): not moved
+    // the triangles kept, by their corners (THP8's metres, placed): the stand-ins' over the level's own ground go
+    keepTriangle?: (corners: readonly (readonly number[])[]) => boolean;
+    veil?: boolean; // drawn as a faint see-through wall, untextured (the network barriers: VEIL_COLOUR)
 }
+
+// THP8 draws its network barriers as a shimmer (a distortion shader over a normal map - z_online_<x>'s material, its
+// texture DXN): THUG2 has no such pass; a faint see-through blue instead, B G R A with 128 = full.
+export const VEIL_COLOUR: readonly number[] = [128, 100, 80, 22];
 
 // A material's layers as converted: the uv slot each THUG2 pass reads, the light maps, and the mask read into the
 // vertex alpha (a layer whose mask has a uv field of its own).
@@ -506,6 +513,7 @@ export interface ConvertedScene {
         lit: number; // vertices lit from light maps
         refined: number; // lit triangles after refineLit
         refinedFrom: number; // ... and before
+        dropped: number; // triangles left out by a part's keepTriangle
     };
 }
 
@@ -538,6 +546,7 @@ export function convertScenes(
         lit: 0,
         refined: 0,
         refinedFrom: 0,
+        dropped: 0,
     };
     const plans = new Map<number, Plan>();
     const defined = new Map<number, string>(); // material -> its definition (materialKey): the first part's
@@ -588,10 +597,10 @@ export function convertScenes(
             const first =
                 plan?.layers[0]?.diffuse ??
                 m.textures.find((t) => part.textures.has(t) && part.textures.get(t)!.format !== xenos.FMT_DXN);
-            if (first !== undefined && convertTexture(first)) texture = first;
+            if (first !== undefined && !part.veil && convertTexture(first)) texture = first;
             const t = texOut.get(texture);
             const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);
-            const alpha = !add && t !== undefined && (t.dxt === 5 || t.dxt === 2);
+            const alpha = (!add && t !== undefined && (t.dxt === 5 || t.dxt === 2)) || (part.veil ?? false);
             if (alpha) transparent.add(id);
             const mat = makeMaterial(id, texture, add ? "add" : alpha, true);
             if (alpha || add) mat.noBackfaceCulling = 1;
@@ -709,6 +718,12 @@ export function convertScenes(
                 const plan = plans.get(id);
                 const verts = geom.readVertices(m);
                 let meshTris = geom.triangles(m);
+                if (part.keepTriangle) {
+                    const keep = part.keepTriangle;
+                    const before = meshTris.length;
+                    meshTris = meshTris.filter((t) => keep(t.map((i) => place(verts[i]!.position, at))));
+                    counts.dropped += before - meshTris.length;
+                }
                 // (light maps: the mesh's last two uv fields - a mesh with fewer fields than its material's first isn't
                 // lit)
                 const lit = plan?.light && part.lighting && (verts[0]?.uvs.length ?? 0) >= 3 ? plan.light : null;
@@ -721,6 +736,11 @@ export function convertScenes(
                 for (const v of verts) {
                     const q = place(v.position, at);
                     positions.push([q[0] * unit + move[0]!, q[1] * unit + move[1]!, q[2] * unit + move[2]!]);
+                    if (part.veil) {
+                        colors.push([...VEIL_COLOUR]);
+                        uvs.push(Array<number>(2 * sets).fill(0));
+                        continue;
+                    }
                     if (dome) {
                         colors.push(skyColour(v.position));
                         uvs.push(Array<number>(2 * sets).fill(0));
@@ -1006,9 +1026,15 @@ export const FACE_KEEP = 0x1fff;
 // script is brought along or kills).
 export const FACE_VOLUME = 0x20;
 export const VOLUME_DROP = 10; // metres
+// THP8's invisible trigger volumes are faces 0x1040 (invisible, trigger) without 0x10 - z_houses' wedges across the
+// suburb road (bodies 166 / 167, 0.9 m high, 39-degree sides): its skater passes through them; THUG2's collides with a
+// face unless it's non-collidable, and convertCol takes the trigger bit off where the node's script isn't brought along -
+// they stood as invisible ramps / walls (the user, BEAVER VALLEY round 4). Made non-collidable (TRIGGER_VOLUME).
+export const TRIGGER_VOLUME = thug2Col.FACE_INVISIBLE | thug2Col.FACE_TRIGGER;
 export function faceFlags(material: number): number {
     let f = material & FACE_KEEP;
     if (f & FACE_VOLUME && f & thug2Col.FACE_NON_COLLIDABLE) f = (f & ~FACE_VOLUME) | 0x40;
+    if ((f & TRIGGER_VOLUME) === TRIGGER_VOLUME) f |= thug2Col.FACE_NON_COLLIDABLE;
     return f;
 }
 
@@ -1142,11 +1168,355 @@ export function seamWalls(zones: readonly havok.HkBody[][]): Set<number>[] {
     return out;
 }
 
+// --- narrow holes in the ground ------------------------------------------------------------------------------------
+
+// THP8's collision has narrow slits with nothing below them where two bodies meet - z_houses' kerbs: the kerb body
+// ends 0.6 m short of the road's box (THP8 data, -46.2, -58.8). THP8's skater is a Havok shape that rides over them;
+// THUG2's skater stands on the one point under it and fell in, out of the world, hanging from the kerb's underside
+// (the user, BEAVER VALLEY 2026-10-24). Filled here: on a GAP_CELL grid (inches) the cells with no collidable,
+// not-steep face at any height, between ground no more than GAP_WIDE cells away on both sides (along x or z) whose
+// heights differ by GAP_STEP or less, get a floor at the lower side's height - only void is filled, never a dip.
+export const GAP_CELL = 10; // inches (a quarter metre)
+export const GAP_WIDE = 5; // cells either side: holes up to ~2.5 m across
+export const GAP_STEP = 24; // inches
+export const GAP_FILL = "GapFill";
+// Void between ground and a wall standing on it (a house's invisible shell under its roof's eaves, where the yard ends
+// a metre or more short of it: the skater slid off the roof into it - the user, BEAVER VALLEY round 4) is floored too,
+// up to WALL_WIDE cells across; looked at along x, z and both diagonals.
+export const WALL_WIDE = 16;
+export const LEAF_MOST = 0x800; // faces a collision BSP leaf may hold (THUG2's line test)
+export const GAP_TILE = 1600; // inches: the fill objects' squares
+export const GAP_MOST = 1500; // faces a fill object
+
+export function gapFills(objects: readonly geometry.SourceColObject[], level: string): geometry.SourceColObject[] {
+    const lo = [Infinity, Infinity];
+    const hi = [-Infinity, -Infinity];
+    for (const o of objects) {
+        lo[0] = Math.min(lo[0]!, o.bbox[0]!);
+        lo[1] = Math.min(lo[1]!, o.bbox[2]!);
+        hi[0] = Math.max(hi[0]!, o.bbox[4]!);
+        hi[1] = Math.max(hi[1]!, o.bbox[6]!);
+    }
+    if (!Number.isFinite(lo[0]!)) return [];
+    const nx = Math.ceil((hi[0]! - lo[0]!) / GAP_CELL) + 1;
+    const nz = Math.ceil((hi[1]! - lo[1]!) / GAP_CELL) + 1;
+    const height = new Float32Array(nx * nz).fill(Number.NaN); // the highest ground in the cell's middle
+    const terrain = new Uint8Array(nx * nz);
+    for (const o of objects) {
+        for (const f of o.faces) {
+            if (f[0] & (thug2Col.FACE_NON_COLLIDABLE | thug2Col.FACE_TRIGGER)) continue;
+            const [a, b, c] = [o.verts[f[2]]!, o.verts[f[3]]!, o.verts[f[4]]!];
+            const d = (b[0]! - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (b[2]! - a[2]!);
+            const u = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
+            const v = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
+            const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+            const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+            if (!len || Math.abs(n[1]! / len) < 0.5 || Math.abs(d) < 1e-9) continue; // (steep: no ground)
+            const x0 = Math.max(0, Math.ceil((Math.min(a[0]!, b[0]!, c[0]!) - lo[0]!) / GAP_CELL - 0.5));
+            const x1 = Math.min(nx - 1, Math.floor((Math.max(a[0]!, b[0]!, c[0]!) - lo[0]!) / GAP_CELL - 0.5));
+            const z0 = Math.max(0, Math.ceil((Math.min(a[2]!, b[2]!, c[2]!) - lo[1]!) / GAP_CELL - 0.5));
+            const z1 = Math.min(nz - 1, Math.floor((Math.max(a[2]!, b[2]!, c[2]!) - lo[1]!) / GAP_CELL - 0.5));
+            for (let i = x0; i <= x1; i++) {
+                const x = lo[0]! + (i + 0.5) * GAP_CELL;
+                for (let k = z0; k <= z1; k++) {
+                    const z = lo[1]! + (k + 0.5) * GAP_CELL;
+                    const s = ((x - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (z - a[2]!)) / d;
+                    const t = ((b[0]! - a[0]!) * (z - a[2]!) - (x - a[0]!) * (b[2]! - a[2]!)) / d;
+                    if (s < -1e-6 || t < -1e-6 || s + t > 1 + 1e-6) continue;
+                    const y = a[1]! + s * u[1]! + t * v[1]!;
+                    const at = i * nz + k;
+                    if (!(height[at]! >= y)) {
+                        height[at] = y;
+                        terrain[at] = f[1];
+                    }
+                }
+            }
+        }
+    }
+    // the walls: cells a steep collidable face passes through, with its lowest and highest point there
+    const wallLo = new Float32Array(nx * nz).fill(Number.NaN);
+    const wallHi = new Float32Array(nx * nz).fill(Number.NaN);
+    for (const o of objects) {
+        for (const f of o.faces) {
+            if (f[0] & (thug2Col.FACE_NON_COLLIDABLE | thug2Col.FACE_TRIGGER)) continue;
+            const [a, b, c] = [o.verts[f[2]]!, o.verts[f[3]]!, o.verts[f[4]]!];
+            const u = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
+            const v = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
+            const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+            const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+            if (!len || Math.abs(n[1]! / len) >= 0.5) continue;
+            const span = Math.max(Math.hypot(u[0]!, u[1]!, u[2]!), Math.hypot(v[0]!, v[1]!, v[2]!));
+            const steps = Math.max(1, Math.min(2000, Math.ceil(span / (GAP_CELL / 2))));
+            for (let p = 0; p <= steps; p++) {
+                for (let q = 0; p + q <= steps; q++) {
+                    const x = a[0]! + (u[0]! * p + v[0]! * q) / steps;
+                    const y = a[1]! + (u[1]! * p + v[1]! * q) / steps;
+                    const z = a[2]! + (u[2]! * p + v[2]! * q) / steps;
+                    const i = Math.floor((x - lo[0]!) / GAP_CELL);
+                    const k = Math.floor((z - lo[1]!) / GAP_CELL);
+                    if (i < 0 || k < 0 || i >= nx || k >= nz) continue;
+                    const at = i * nz + k;
+                    if (!(wallLo[at]! <= y)) wallLo[at] = y;
+                    if (!(wallHi[at]! >= y)) wallHi[at] = y;
+                }
+            }
+        }
+    }
+    // the holes: void between ground close by on both sides, or between ground and a wall standing on it
+    const fill = new Float32Array(nx * nz).fill(Number.NaN);
+    const fillTerrain = new Uint8Array(nx * nz);
+    const inside = (i: number, k: number): boolean => i >= 0 && k >= 0 && i < nx && k < nz;
+    // the nearest non-void cell from (i, k) stepping (di, dk), at most `most` steps: [ground height, terrain, wall?]
+    const nearest = (i: number, k: number, di: number, dk: number, most: number): [number, number, boolean] | null => {
+        for (let s = 1; s <= most; s++) {
+            const x = i + di * s;
+            const z = k + dk * s;
+            if (!inside(x, z)) return null;
+            const at = x * nz + z;
+            if (!Number.isNaN(height[at]!)) return [height[at]!, terrain[at]!, false];
+            if (!Number.isNaN(wallLo[at]!)) return [wallLo[at]!, 0, true];
+        }
+        return null;
+    };
+    for (let i = 0; i < nx; i++) {
+        for (let k = 0; k < nz; k++) {
+            const at0 = i * nz + k;
+            if (!Number.isNaN(height[at0]!) || !Number.isNaN(wallLo[at0]!)) continue;
+            let best = Number.NaN;
+            let bestTerrain = 0;
+            for (const [di, dk] of [
+                [1, 0],
+                [0, 1],
+                [1, 1],
+                [1, -1],
+            ] as const) {
+                const back = nearest(i, k, -di, -dk, WALL_WIDE);
+                const ahead = nearest(i, k, di, dk, WALL_WIDE);
+                if (!back || !ahead || (back[2] && ahead[2])) continue;
+                let y: number;
+                let t: number;
+                if (!back[2] && !ahead[2]) {
+                    // ground both sides: close by, a small step
+                    const reach = (ii: number, kk: number, d1: number, d2: number): boolean =>
+                        nearest(ii, kk, d1, d2, GAP_WIDE) !== null;
+                    if (!reach(i, k, -di, -dk) || !reach(i, k, di, dk)) continue;
+                    if (Math.abs(back[0] - ahead[0]) > GAP_STEP) continue;
+                    y = Math.min(back[0], ahead[0]);
+                    t = back[0] <= ahead[0] ? back[1] : ahead[1];
+                } else {
+                    // ground one side, a wall the other that reaches down to about its height (it stands on it)
+                    const ground = back[2] ? ahead : back;
+                    const wall = back[2] ? back : ahead;
+                    if (wall[0] > ground[0] + GAP_STEP) continue;
+                    y = ground[0];
+                    t = ground[1];
+                }
+                if (Number.isNaN(best) || y < best) {
+                    best = y;
+                    bestTerrain = t;
+                }
+            }
+            if (!Number.isNaN(best)) {
+                fill[i * nz + k] = best;
+                fillTerrain[i * nz + k] = bestTerrain;
+            }
+        }
+    }
+    // the filled cells as quads, runs along z of one height merged (at most a tile long); an object per GAP_TILE
+    // square, GAP_MOST faces at most - THUG2's collision objects want to be small: a town-wide one of 30,000 faces
+    // crashed its line test (CCollStatic::CollideWithLine, round 4)
+    const tiles = new Map<string, { verts: number[][]; faces: thug2Col.Face[] }[]>();
+    const tileCells = Math.max(1, Math.floor(GAP_TILE / GAP_CELL));
+    for (let i = 0; i < nx; i++) {
+        let k = 0;
+        while (k < nz) {
+            const y = fill[i * nz + k]!;
+            if (Number.isNaN(y)) {
+                k++;
+                continue;
+            }
+            const tileEnd = (Math.floor(k / tileCells) + 1) * tileCells;
+            let e = k + 1;
+            while (e < nz && e < tileEnd && fill[i * nz + e] === y) e++;
+            // (half a cell wider all round: a cell is only known empty in its middle - the ground's edge can be
+            // anywhere in the next one)
+            const x0 = lo[0]! + (i - 0.5) * GAP_CELL;
+            const x1 = x0 + 2 * GAP_CELL;
+            const z0 = lo[1]! + (k - 0.5) * GAP_CELL;
+            const z1 = lo[1]! + (e + 0.5) * GAP_CELL;
+            const key = `${Math.floor(i / tileCells)},${Math.floor(k / tileCells)}`;
+            let list = tiles.get(key);
+            if (!list) {
+                list = [];
+                tiles.set(key, list);
+            }
+            let piece = list[list.length - 1];
+            if (!piece || piece.faces.length >= GAP_MOST) {
+                piece = { verts: [], faces: [] };
+                list.push(piece);
+            }
+            const base = piece.verts.length;
+            piece.verts.push([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]);
+            const t = fillTerrain[i * nz + k]!;
+            piece.faces.push([0, t, base, base + 2, base + 1], [0, t, base, base + 3, base + 2]);
+            k = e;
+        }
+    }
+    const out: geometry.SourceColObject[] = [];
+    for (const list of tiles.values()) {
+        for (const { verts, faces } of list) {
+            const blo = [0, 1, 2].map((k) => Math.min(...verts.map((p) => p[k]!)));
+            const bhi = [0, 1, 2].map((k) => Math.max(...verts.map((p) => p[k]!)));
+            out.push({
+                checksum: checksum(`${level}_${GAP_FILL}_${out.length}`),
+                flags: 0,
+                verts,
+                intensities: Buffer.alloc(verts.length, 128),
+                faces,
+                bbox: [blo[0]!, blo[1]!, blo[2]!, 1, bhi[0]!, bhi[1]!, bhi[2]!, 1],
+            });
+        }
+    }
+    return out;
+}
+
+// --- invisible shells under roofs ----------------------------------------------------------------------------------
+
+// Some of THP8's buildings have no wall collision of their own: an invisible open-top shell (every face 0x1000) stands
+// inside the drawn walls, its top at the roof's eaves and gables, the roof a slab of its own (z_houses' Grecian house:
+// the shell's walls to 9.30 m, the roof's top 9.30-11.0 m). THP8's skater slides over where they meet; THUG2's caught on
+// the shell's edge under the roof (the user, BEAVER VALLEY round 4). The shell's steep faces are cut SHELL_CLEAR below
+// every roof face over them (a seen, collidable, not-steep face whose footprint holds the shell face's highest point,
+// within SHELL_REACH above it): no edge comes up to the roof's surface. The way in it might open is a slit narrower
+// than the skater under the roof.
+export const SHELL_CLEAR = 6; // inches
+export const SHELL_REACH = 48; // inches
+
+function planeHeight(t: readonly (readonly number[])[], x: number, z: number): number | null {
+    const [a, b, c] = t as [readonly number[], readonly number[], readonly number[]];
+    const u = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
+    const v = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
+    const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+    if (Math.abs(n[1]!) < 1e-9) return null;
+    return a[1]! - (n[0]! * (x - a[0]!) + n[2]! * (z - a[2]!)) / n[1]!;
+}
+
+function inFootprint(t: readonly (readonly number[])[], x: number, z: number): boolean {
+    const [a, b, c] = t as [readonly number[], readonly number[], readonly number[]];
+    const d = (b[0]! - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (b[2]! - a[2]!);
+    if (Math.abs(d) < 1e-9) return false;
+    const s = ((x - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (z - a[2]!)) / d;
+    const r = ((b[0]! - a[0]!) * (z - a[2]!) - (x - a[0]!) * (b[2]! - a[2]!)) / d;
+    return s >= -1e-6 && r >= -1e-6 && s + r <= 1 + 1e-6;
+}
+
+// A triangle cut to its part at or below `top(x, z)`: 0-2 triangles.
+export function clipBelow(tri: readonly number[][], top: (x: number, z: number) => number): number[][][] {
+    const f = (p: readonly number[]): number => top(p[0]!, p[2]!) - p[1]!;
+    const out: number[][] = [];
+    for (let i = 0; i < 3; i++) {
+        const p = tri[i]!;
+        const q = tri[(i + 1) % 3]!;
+        const fp = f(p);
+        const fq = f(q);
+        if (fp >= 0) out.push([...p]);
+        if (fp >= 0 !== fq >= 0) {
+            const t = fp / (fp - fq);
+            out.push([0, 1, 2].map((k) => p[k]! + t * (q[k]! - p[k]!)));
+        }
+    }
+    const tris: number[][][] = [];
+    for (let i = 1; i + 1 < out.length; i++) tris.push([out[0]!, out[i]!, out[i + 1]!]);
+    return tris;
+}
+
+// The shells' faces cut under the roofs, in place. Returns how many shells were cut.
+export function trimShells(objects: geometry.SourceColObject[]): number {
+    const solid = (f: thug2Col.Face): boolean => !(f[0] & (thug2Col.FACE_NON_COLLIDABLE | thug2Col.FACE_TRIGGER));
+    const normalY = (t: readonly (readonly number[])[]): number => {
+        const [a, b, c] = t as [readonly number[], readonly number[], readonly number[]];
+        const u = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
+        const v = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
+        const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+        return Math.abs(n[1]!) / (Math.hypot(n[0]!, n[1]!, n[2]!) || 1);
+    };
+    // the roofs: seen, collidable, not steep faces, by 64-inch cell
+    const roofs = new Map<string, number[][][]>();
+    for (const o of objects) {
+        for (const f of o.faces) {
+            if (!solid(f) || f[0] & FACE_INVISIBLE) continue;
+            const t = [o.verts[f[2]]!, o.verts[f[3]]!, o.verts[f[4]]!];
+            if (normalY(t) < 0.3) continue;
+            const x0 = Math.floor(Math.min(...t.map((p) => p[0]!)) / 64);
+            const x1 = Math.floor(Math.max(...t.map((p) => p[0]!)) / 64);
+            const z0 = Math.floor(Math.min(...t.map((p) => p[2]!)) / 64);
+            const z1 = Math.floor(Math.max(...t.map((p) => p[2]!)) / 64);
+            if ((x1 - x0 + 1) * (z1 - z0 + 1) > 4000) continue; // (huge ground planes: no roof)
+            for (let x = x0; x <= x1; x++) {
+                for (let z = z0; z <= z1; z++) {
+                    const k = `${x},${z}`;
+                    const list = roofs.get(k);
+                    if (list) list.push(t);
+                    else roofs.set(k, [t]);
+                }
+            }
+        }
+    }
+    let cut = 0;
+    for (const o of objects) {
+        const faces = o.faces.filter(solid);
+        if (!faces.length || !faces.every((f) => f[0] & FACE_INVISIBLE)) continue;
+        let changed = false;
+        const newFaces: thug2Col.Face[] = [];
+        for (const f of o.faces) {
+            const t = [o.verts[f[2]]!, o.verts[f[3]]!, o.verts[f[4]]!];
+            if (!solid(f) || normalY(t) >= 0.3) {
+                newFaces.push(f);
+                continue;
+            }
+            // the roof faces over the shell face's highest point, within reach
+            const topPoint = t.reduce((m, p) => (p[1]! > m[1]! ? p : m));
+            const over = (roofs.get(`${Math.floor(topPoint[0]! / 64)},${Math.floor(topPoint[2]! / 64)}`) ?? []).filter(
+                (r) => {
+                    if (!inFootprint(r, topPoint[0]!, topPoint[2]!)) return false;
+                    const h = planeHeight(r, topPoint[0]!, topPoint[2]!);
+                    return h !== null && h > topPoint[1]! - SHELL_REACH && h < topPoint[1]! + SHELL_REACH;
+                },
+            );
+            if (!over.length) {
+                newFaces.push(f);
+                continue;
+            }
+            const top = (x: number, z: number): number =>
+                Math.min(...over.map((r) => planeHeight(r, x, z) ?? Number.POSITIVE_INFINITY)) - SHELL_CLEAR;
+            const pieces = clipBelow(t, top);
+            if (pieces.length === 1 && pieces[0]!.every((p, k) => p.every((x, j) => x === t[k]![j]))) {
+                newFaces.push(f);
+                continue;
+            }
+            changed = true;
+            for (const piece of pieces) {
+                const base = o.verts.length;
+                o.verts.push(...piece);
+                newFaces.push([f[0], f[1], base, base + 1, base + 2]);
+            }
+        }
+        if (changed) {
+            o.faces = newFaces;
+            if (Buffer.isBuffer(o.intensities)) o.intensities = Buffer.alloc(o.verts.length, 128);
+            cut++;
+        }
+    }
+    return cut;
+}
+
 export interface CollisionResult {
     col: thug2Col.ColFile;
     objects: Map<number, number>; // checksum -> faces
     named: number; // bodies named after their scene sector / node
     hidden: number; // bodies of nodes not made, left out
+    filled: number; // faces filling narrow holes in the ground (gapFills)
+    shells: number; // invisible shells cut under their roofs (trimShells)
 }
 
 const boxOf = (tris: readonly havok.HkTriangle[]): number[] => {
@@ -1287,8 +1657,19 @@ export function convertCollision(
             });
         }
     }
+    // (the invisible shells cut under their roofs: trimShells; the narrow holes in the ground filled: gapFills)
+    const shells = trimShells(objects);
+    const fills = gapFills(objects, level);
+    objects.push(...fills);
     const col = geometry.convertCol({ objects }, keepTriggers, warnings, (f) => f);
-    return { col, objects: new Map(objects.map((o) => [o.checksum, o.faces.length])), named, hidden: hiddenBodies };
+    return {
+        col,
+        objects: new Map(objects.map((o) => [o.checksum, o.faces.length])),
+        named,
+        hidden: hiddenBodies,
+        filled: fills.reduce((n, o) => n + o.faces.length, 0),
+        shells,
+    };
 }
 
 // The x / z shift (inches, whole sixteenths) that puts the middle of the collision at the origin.
@@ -2087,6 +2468,26 @@ function sceneParts(p: ZonePart, ctx: Shared): SceneParts[] {
     ];
 }
 
+// Whether a stand-in's triangle (THP8 metres) is clear of the level's own ground: no point of it, looked at every
+// STAND_IN_STEP metres or closer (corners, edges and inside), over ground of the level's zones (at any height). (Some
+// stand-ins are huge: z_center_lod's lake plane is two triangles 900 m across.)
+export const STAND_IN_STEP = 4;
+export function standInOutside(corners: readonly (readonly number[])[], ground: GroundIndex): boolean {
+    const [a, b, c] = corners as [readonly number[], readonly number[], readonly number[]];
+    const edge = (p: readonly number[], q: readonly number[]): number => Math.hypot(p[0]! - q[0]!, p[2]! - q[2]!);
+    const n = Math.max(1, Math.min(400, Math.ceil(Math.max(edge(a, b), edge(b, c), edge(c, a)) / STAND_IN_STEP)));
+    for (let i = 0; i <= n; i++) {
+        for (let j = 0; i + j <= n; j++) {
+            const u = i / n;
+            const v = j / n;
+            const x = a[0]! + u * (b[0]! - a[0]!) + v * (c[0]! - a[0]!);
+            const z = a[2]! + u * (b[2]! - a[2]!) + v * (c[2]! - a[2]!);
+            if (ground.groundAt(x, z, -1e9, 1e9)) return false;
+        }
+    }
+    return true;
+}
+
 // The level's furthest reach from its middle on x / z (inches), its collision moved by `shift`.
 export function horizontalReach(bodies: readonly havok.HkBody[], shift: readonly number[]): number {
     let reach = 0;
@@ -2129,8 +2530,11 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     const shift = centreShift(allBodies);
     const tod = zoneTod(ctx.managers, parts[0]!.zoneName);
     // (a level of the city: the city's other zones as THP8 shows them from afar - their _lod stand-ins, drawn only -
-    // instead of the void beyond the barriers)
+    // instead of the void beyond the barriers. A stand-in also covers places of other zones - z_citypark_lod's Box03
+    // stands where the factory is, z_center_lod's LakeKill_02 is a lake plane reaching over the factory's floor: the
+    // stand-ins' triangles over the level's own ground are left out, standInOutside)
     const lods: SceneParts[] = [];
+    const ownGround = new GroundIndex(allBodies);
     if (spec.zones.some((z) => ZONES.some((x) => x.zone === z && !x.standalone))) {
         for (const info of ZONES.filter((x) => !x.standalone && !spec.zones.includes(x.zone))) {
             const file = zonePak(ctx.compressed, `${info.zone}_lod`);
@@ -2143,8 +2547,13 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
                 additive: glowMaterials(lod.geom, names),
                 lighting: zoneLighting(zoneTod(ctx.managers, names.get(checksum(info.zone)) ?? info.zone)),
                 techniques: ctx.techniques,
+                keepTriangle: (corners) => standInOutside(corners, ownGround),
             });
         }
+    }
+    // (the network barriers drawn too, as THP8 does - a faint wall: VEIL_COLOUR)
+    for (const b of barriers) {
+        lods.push({ geom: b.geom!, textures: b.textures, placed: new Map(), veil: true });
     }
     const scene = (options: mats.RefineOptions): ConvertedScene =>
         convertScenes(
@@ -2222,6 +2631,14 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
         sets.push({ bodies: b.bodies, sectors: b.geom!.sectors, hidden: new Set(), local: new Set(), volumes: [] });
     }
     const col = convertCollision(sets, name, shift, ctx.terrains, (c) => nodeResult.triggers.has(c), warnings);
+    // (THUG2's line test gathers a BSP leaf's faces into a buffer of 0x800 - CCollStatic::CollideWithLine: a bigger
+    // leaf overran it and crashed the game, round 4's town-wide fill object)
+    const leafMost = (n: thug2Col.BspNode): number =>
+        n.kind === "leaf" ? n.faces.length : Math.max(leafMost(n.left), leafMost(n.right));
+    for (const o of col.col.objects) {
+        if (leafMost(o.bsp) > LEAF_MOST)
+            warnings.push(`collision object ${thp8.hex(o.checksum)}: a BSP leaf of more than ${LEAF_MOST} faces`);
+    }
     const levelDir = pyJoin(ctx.out, "levels", name);
     common.writeLevel(levelDir, name, done.scene, done.textures, col.col);
     common.reportLevel(report, name, done.scene, done.textures, col.col, [...new Set(warnings)].sort());
@@ -2237,7 +2654,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     report.push(
         `  ${spec.zones.join(" + ")}${spec.barriers.length ? ` + ${spec.barriers.join(" + ")}` : ""}: ${c.sectors} sectors, ` +
             `${c.instances} instances of ${c.masters} masters, ${c.billboards} billboard meshes left out, ` +
-            `${c.triangles} triangles, ${c.layers} further layers, ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.named} ` +
+            `${c.triangles} triangles, ${c.layers} further layers, ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.filled} faces filling narrow holes; ${col.shells} invisible shells cut under their roofs; ${col.named} ` +
             `named after their sector / node; ${col.hidden} of nodes not made left out); ` +
             `${parts.reduce((n, p) => n + p.flagged, 0)} nodes made from THP8's non-story node flags, ` +
             `${parts.reduce((n, p) => n + p.hidden.size, 0)} not made; moved by (${shift.map((x) => x.toFixed(1)).join(", ")}); ` +
