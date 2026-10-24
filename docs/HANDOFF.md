@@ -559,3 +559,5 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   textures in hd_ui (476 MB). Globe / arrows were already HD (16-colour 64 px art). Running: THP8 see-through opaque
   materials (round 4, THUG2-2), THP8 skatefunparks edge uber-frig (docs/pending/thp8-edges.md, THUG2-4), DXT compression
   (THUG2-4), graphics step 1 MSAA/AF/distance (docs/pending/graphics-basics.md, THUG2-2), renderer decomp.
+- DXT compression merged + installed (2026-10-24 ~22:40): THPS2 (anime model) + THPS3 at 4x reconverted compressed
+  (DXT1 / DXT1a / DXT5; 171 / 241 MB texture data), overlay --hd-ui 4. Running: globe pixel-art scaler (THUG2-3).
