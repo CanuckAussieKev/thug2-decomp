@@ -576,3 +576,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   never makes in network games (skatefunparks' invisible fence = Z_Outschool_g_jeffedit_68, CreatedFromVariable
   NODEFLAG_Z_SHOPS_UNLOCKSCHOOL_PRE). Running: THP8 env maps (round 5, THUG2-4), loading screens 4x DXT (THUG2-3),
   THP8 save 100% editor, renderer decomp (~73%).
+- Installed (2026-10-25 ~01:00, main 8bd7284): loading screens x4 DXT1 (realesrgan-x4plus; DLL change in texture_file.cpp
+  for HD-marked DXT1 images - old DLLs must not read these files), THP8 round 5 env maps (cube -> 2D matcap env pass,
+  vertex normals, water body colour; docs/pending/thp8-render-audit.md), THP8 save tool tools/thp8_save (user's save
+  maxed; backup Documents\thps_p8\backup-20261024-233213). hd_ui 339 MB. Renderer decomp still running.
