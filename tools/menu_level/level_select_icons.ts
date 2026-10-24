@@ -1187,54 +1187,26 @@ function cart(): Layer[] {
     return shapes;
 }
 
-// THAW's Minneapolis: the Spoonbridge and Cherry.
-function spoonbridge(): Layer[] {
-    return scaleAll(spoonbridgeDrawn(), 32, 29, 0.88);
-}
-
-function spoonbridgeDrawn(): Layer[] {
-    return [
-        [
-            INK,
-            polyline(
-                [
-                    [17, 41],
-                    [24, 39.5],
-                    [31, 36.5],
-                    [36, 33],
-                ],
-                2.6,
-            ),
-        ],
-        [INK, ellipse(40.5, 30.5, 7, 3.6, -28)],
-        [CUT, ellipse(41.5, 29, 4.6, 1.2, -28)],
-        [INK, circle(40.5, 22.5, 5)],
-        [CUT, ellipse(38.4, 20.6, 1, 1.6, 30)],
-        [
-            INK,
-            polyline(
-                [
-                    [40.5, 17.5],
-                    [39, 14],
-                    [35.5, 11.5],
-                ],
-                1.4,
-            ),
-        ],
-        [
-            INK,
-            polyline(
-                [
-                    [18, 44.5],
-                    [24, 43],
-                    [30, 44.5],
-                    [36, 43],
-                    [42, 44.5],
-                ],
-                1.6,
-            ),
-        ],
-    ];
+// THAW's Minneapolis: the Stone Arch Bridge - a long stone deck on a row of round arches, the river under it.
+function stonearch(): Layer[] {
+    const shapes: Layer[] = [[INK, rect(13, 25, 51, 39)]];
+    for (const x of [18, 27.3, 36.7, 46]) shapes.push([CUT, circle(x, 33.5, 3.7)], [CUT, rect(x - 3.7, 33.5, x + 3.7, 39.5)]);
+    shapes.push([CUT, rect(13, 27.2, 51, 28)]);
+    shapes.push([
+        INK,
+        polyline(
+            [
+                [19, 43],
+                [24, 41.8],
+                [29, 43],
+                [34, 41.8],
+                [39, 43],
+                [44, 41.8],
+            ],
+            1.4,
+        ),
+    ]);
+    return shapes;
 }
 
 // THAW's Santa Cruz: a surfboard.
@@ -2034,7 +2006,7 @@ export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
         tag,
         train,
         cart,
-        spoonbridge,
+        stonearch,
         surfboard,
         column,
         shoe,
