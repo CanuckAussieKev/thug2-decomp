@@ -153,3 +153,9 @@ src/hook/selftests_gs2_*.cpp. Shared files touched: CMakeLists.txt (new files li
     letter off the folder, platform 8, a 100-byte summary, the 75-file limits, the card full without a file).
 - Range done: every function 0x005A5360-0x005AAEF0 (121 of Ghidra's + 0x005A6560 SetSectionsToApplyWhenLoading and
   0x005A7420 KeepSoundGoing, which Ghidra never made) has source; find_gaps.py shows no gap in the range.
+- [x] GS2 crash check (2026-10-24, workspace C:\Games\THUG2-3, this branch's DLL, -level bo, the branch's self-tests
+  filter): starts, "5750 of 5750 replacements installed" (all 123 of the range among them), the start-up QB files and
+  pools through our code, Boston loads in free skate, the skater spawns; no run-time check, CRT report, exception or
+  self-test failure in the log. (A first try with -FullTests ran all 782 early self-tests in DllMain and had no window
+  after 180 s - the machine was loaded; closed, nothing wrong in the log.) No save / load / profile operation was
+  tried in the game (the brief's rule): those are for the user.
