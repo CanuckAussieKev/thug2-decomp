@@ -17,6 +17,7 @@
 #include "game/script/params.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -374,6 +375,7 @@ void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bot
             pending.handle = reinterpret_cast<int>(file);
             ++m_numPending;
             int size = File::AsyncGetFileSize(file);
+            Gfx::LoadingConsole::NoteFile("read (async)", path, size); // (not original: the loading console)
             Mem::PushMemProfile(path);
             void* data = Mem::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up));
             Mem::PopMemProfile();
