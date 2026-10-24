@@ -19,6 +19,10 @@ bool GetMemCardSpaceRequired(Script::CStruct* params, Script::CScript* script);
 // 0x005A8550: MemCardFileExists Name= Type=: whether the save file can be opened; if so, total_file_size (its
 // card blocks) in the script's parameters. On the PC a file that can't be opened is removed.
 bool MemCardFileExists(Script::CStruct* params, Script::CScript* script);
+// 0x005A8BF0: GetSaveInfo type=<type>: the save's contents (MainStructure) and summary (SummaryInfo) made now,
+// with their sizes (MainStructureSize, SummaryInfoSize, MaxSummaryInfoSize 100, TotalSize with the header,
+// MaxTotalSize the type's file size) in the script's parameters. True.
+bool GetSaveInfo(Script::CStruct* params, Script::CScript* script);
 // 0x005A8BB0: the kept loaded contents (and their type) dropped. True.
 bool ClearMemCardDataForUpload(Script::CStruct* params, Script::CScript* script);
 // 0x005A8DA0: unless they exist, the second (reserve) pools of components (50000), structures (50000) and

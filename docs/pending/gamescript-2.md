@@ -85,3 +85,20 @@ src/hook/selftests_gs2_*.cpp. Shared files touched: CMakeLists.txt (new files li
     reserve pools present or not, owned or not. 29 deliberate bugs: 28 caught (1 after adding a failing first
     delete), 1 equivalent (the PC path without a card file name setting the result before the removal check that
     clears it anyway).
+- [x] Batch GS2-5 (NOT run in the game yet; what a save holds and how it is put back - 5 functions):
+  src/game/mc/save_contents.h / .cpp (new), GetSaveInfo in save_files_cfuncs.cpp.
+  - 0x005A7560 WriteGlobalInfo (Options: SplitScreenPreferences copy, SoundOptions - MainVolume, MusicVolume from
+    MusicVolOutsideBox, the two 64-bit forbidden-track sets as four integers high/low, current_soundtrack on the PC,
+    RandomMode -, ControllerPreferences - 8 structures of AutokickOn / SpinTapsOn / VibrationOn from the skate
+    module's +0x394 bytes -, Taunts; the career, the records, Pros), 0x005A7CF0 ReadGlobalInfo (the reverse: the
+    Change script with MusicVolOutsideBox, set_loaded_soundtrack with trackchecksum, the soundtrack symbol's value,
+    the 8 controllers' setters 0x00567C30 / 0x00567C00 / 0x00567BD0, LastLevelLoadScript / LastGameMode into the
+    script's parameters, CASFileName for a non-pro first profile), 0x005A79A0 WriteSaveContents (EBX + stack; quirk
+    kept: OptionsAndPros runs on into CreatedGraphic's layer_infos), 0x005A81B0 ApplyLoadedContents (EAX / ESI +
+    stack: per type; OptionsAndPros by SetSectionsToApplyWhenLoading's bits with the APPLY_* messages, layer_infos
+    into the caller's params, the sections cleared), 0x005A8BF0 GetSaveInfo.
+  - Test TestSaveContents: original vs ours with every call out stood in for (floats returned through `fld`
+    stand-ins), new structures and arrays from one arena per run: all types on the PC and a console, RandomMode on /
+    off, full / partial / career-less global info on two platforms, pro or not, the soundtrack symbol there or not,
+    every type applied, OptionsAndPros with each section and both profile indexes, GetSaveInfo for the types whose
+    summary of empty contents is safe. 34 of 34 deliberate bugs caught.

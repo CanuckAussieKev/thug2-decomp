@@ -10,7 +10,9 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/mc/memcard.h"
+#include "game/mc/save_contents.h"
 #include "game/mc/save_types.h"
+#include "game/script/struct_buffer.h"
 #include "game/pcm/music.h"
 #include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
@@ -278,8 +280,35 @@ bool RemoveTemporaryMemCardPools(CStruct*, CScript*)
     return true;
 }
 
+// 0x005A8BF0
+bool GetSaveInfo(CStruct* params, CScript* script)
+{
+    uint32_t type = 0;
+    params->GetChecksum(0x7321A8D6u, &type, 0); // type
+    CStruct* contents = Script::NewStruct();
+    if (contents)
+        contents = contents->Init();
+    WriteSaveContents(contents, type);
+    int mainSize = static_cast<int>(Script::CalculateBufferSize(contents, 100000));
+    CStruct* summary = Script::NewStruct();
+    if (summary)
+        summary = summary->Init();
+    WriteSummary(contents, summary, type);
+    int summarySize = static_cast<int>(Script::CalculateBufferSize(summary, 100000));
+    CStruct* results = ResultParams(script);
+    results->AddInteger(0x172C1344u, mainSize);                         // MainStructureSize
+    results->AddInteger(0x96635475u, summarySize);                      // SummaryInfoSize
+    results->AddInteger(0x6AFD2F7Fu, 100);                              // MaxSummaryInfoSize
+    results->AddInteger(0xECBB8262u, mainSize + summarySize + 0x14);    // TotalSize
+    results->AddInteger(0xB35EB1D1u, TypeFileSize(type));               // MaxTotalSize
+    results->AddStructurePointer(0x703E60CAu, summary);                 // SummaryInfo
+    results->AddStructurePointer(0x671C9C00u, contents);                // MainStructure
+    return true;
+}
+
 } // namespace Mc
 
+REPLACE(0x005A8BF0, Mc::GetSaveInfo);
 REPLACE(0x005A6EA0, Mc::DeleteMemCardFile);
 REPLACE(0x005A8500, Mc::GetMemCardSpaceRequired);
 REPLACE(0x005A8550, Mc::MemCardFileExists);
