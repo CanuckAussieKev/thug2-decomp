@@ -48,3 +48,30 @@ src/game/skate/records.h / .cpp (three record commands added).
     allocate / free / contexts, the structure pool recorded), the heap compared after. 39 of 39 deliberate bugs
     caught. Found while testing: a by-value Str::String passed through a forwarding template was copied (two
     allocations) - the call is made directly.
+- [x] Batch GS3-3 (NOT run in the game yet; skater queries - 25 CFunctions): src/game/skater/skater_query_cfuncs.h /
+  .cpp (new).
+  - 0x005AC5F0 / 0x005AC660 SkaterSpeedGreaterThan / LessThan (the local skater's velocity length, x87 order in
+    double), 0x005AC6D0 / 0x005AC720 SkaterLastScoreLandedGreaterThan / LessThan, 0x005AC770 SkaterGetLastScoreLanded
+    (last_score_landed), 0x005AC7B0 AccumulateScores, 0x005AC850 EliminateLastPlacePlayer (all tied: message 0x8D
+    with -1 to the players; otherwise each player on the lowest score marked eliminated and 0x8D with its skater's
+    id to every player, observers too - sequenced, group 8), 0x005ACAA0 OnlyOnePlayerLeft (teams: at most one team
+    with players in; else at most one player in, num_players), 0x005ACC20 AnySkaterTotalScoreAtLeast (teams' sums in
+    a team game), 0x005ACD80 OnlyOneSkaterLeft (players still joining: false; the server in host mode 1 / 2 with
+    nobody scored: true; else exactly one skater / team scored; not a team game and one skater: false),
+    0x005ACF50 / 0x005ACFA0 SkaterTotalScoreGreaterThan / LessThan, 0x005ACFF0 / 0x005AD070
+    SkaterCurrentScorePotGreaterThan (point_scale) / LessThan (the base score times the multiplier, truncated),
+    0x005AD0D0 SkaterGetScoreInfo (scorepot, totalscore, lastscorelanded; no local skater: the original reads a null
+    score - kept), 0x005AD140 InFirstPlace / 0x005AD2D0 InLastPlace / 0x005AD450 InSecondToLastPlace (points: the
+    best / lowest other total, or the local total less the lowest; through each skater's SkaterScore component;
+    every TotalScore call kept as the original makes them), 0x005AD5C0 GoalsGreaterThan / 0x005AD610 GoalsEqualTo
+    (the career's CountTotalGoals against a float), 0x005AD660 ToggleSkaterCamMode (skater=0: the local player's;
+    the camera's skatercamera component, 0x004FA7D0), 0x005AD6C0 GetSkaterID (only a local skater), 0x005AD730
+    SkaterExists, 0x005AD780 GetSkaterSex, 0x005AD7E0 GetCurrentSkaterID (objID and intId).
+  - Quirk noted: ToggleSkaterCamMode without skater= uses an uninitialised index in the original (ours 0, the local
+    player's); every use in the game's scripts passes skater=0 (checked over the .qb files).
+  - Test TestSkaterQueryCFuncs: original vs ours on four stand-in skaters / scores / network players (present,
+    eliminated, local, observer, surveying), team and non-team games, host modes, joining players, ties; the player
+    list, the player flags, TotalScore, the components, the camera's toggle, CountTotalGoals, the profile and every
+    message sent (all MsgDesc fields) stood in for. 51 of 51 deliberate bugs caught (10 after strengthening: equal
+    values at the comparisons' edges, the tie without the scoreless player, one team / two players / one player in,
+    a player without a skater, a lone skater who scored, a profile index unlike is_male).

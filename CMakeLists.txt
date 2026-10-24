@@ -271,6 +271,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_ec3.cpp
     src/hook/selftests_career_cfuncs.cpp
     src/hook/selftests_competition_cfuncs.cpp
+    src/hook/selftests_skater_query_cfuncs.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
@@ -616,6 +617,7 @@ add_library(thug2_code OBJECT
     src/game/skate/appearance_guard.cpp
     src/game/skate/thugpro_cas.cpp
     src/game/skater/skater.cpp
+    src/game/skater/skater_query_cfuncs.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
     src/game/pcm/bink_stream.cpp
