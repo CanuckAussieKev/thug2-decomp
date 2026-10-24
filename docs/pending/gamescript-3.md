@@ -96,3 +96,19 @@ src/game/skate/records.h / .cpp (three record commands added).
     byte), FindObject, the skaters, Printf, the park editor, the asset manager and 0x0049A8E0 stood in for, every
     branch (local or not, by id / index / none, movies left or not, the editor's state, the reload's gates). 40 of
     40 deliberate bugs caught (1 after the stand-in memory manager got a distinct value per heap).
+- [x] Batch GS3-5 (NOT run in the game yet; player options, the pro's name, selecting the skater, appearance and face
+  - 18 CFunctions): src/game/skate/profile_cfuncs.h / .cpp and appearance_cfuncs.h / .cpp (new).
+  - 0x005AE370 ... 0x005AE4F0 VibrationIsOn / On / Off, AutoKickIsOn / On / Off, SpinTapsAreOn / On / Off (the skate
+    module's +0x394 table, 8 bytes a player; set through 0x00567C30 / 0x00567C00 / 0x00567BD0), 0x005AE520
+    GetCurrentProDisplayInfo (string: the current profile's display name), 0x005AE900 SelectCurrentSkater (false if
+    it already is; the skater at the manager's current index given the profile's looks); 0x005AE550
+    SetPlayerAppearance, 0x005AE5B0 GetPlayerFacePoints (into the script's current_face_points, a new structure
+    added if none), 0x005AE710 SetPlayerFacePoints (face_points or the parameters themselves), 0x005AE7A0
+    SetPlayerFaceTexture (fullPathIncluded), 0x005AE820 SetPlayerFaceOverlayTexture, 0x005AE880
+    ClearPlayerFaceTexture, 0x005AE8C0 PlayerFaceIsValid (the appearance's face, its +0x54; the face texture's code,
+    0x00486xxx-0x00487xxx, through GameFunction).
+  - Test TestProfileCFuncs: original vs ours with the option setters, the profiles, the profile manager's
+    SetCurrentSkater, the skaters, SetAppearance, every face call and the structure adds stood in for; the script's
+    own parameters with and without a current_face_points structure (CallCommand's g_scriptParamsOverride, new in
+    the test kit). 23 of 24 deliberate bugs caught; the miss is equivalent (writing the points from the scratch copy
+    instead of the copy made of it).

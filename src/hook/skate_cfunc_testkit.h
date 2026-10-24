@@ -236,6 +236,9 @@ inline void ResetMemory()
 
 using CFunc = bool(__cdecl*)(CStruct*, Script::CScript*);
 
+// The calling script's own parameters: empty, or these (set by a test, cleared after).
+inline Params* g_scriptParamsOverride = nullptr;
+
 // Call the command at `address` (the original) or `ours`, from the stand-in script running on `object` (or a null
 // script), and record its result (AL only: the commands return a bool).
 inline void CallCommand(bool original, uint32_t address, CFunc ours, Params& params, void* object = nullptr,
@@ -243,7 +246,8 @@ inline void CallCommand(bool original, uint32_t address, CFunc ours, Params& par
 {
     std::memset(g_script, 0, sizeof(g_script));
     std::memset(g_scriptParams, 0, sizeof(g_scriptParams));
-    reinterpret_cast<uint8_t**>(g_script)[0x14 / 4] = g_scriptParams;
+    reinterpret_cast<uint8_t**>(g_script)[0x14 / 4] =
+        g_scriptParamsOverride ? reinterpret_cast<uint8_t*>(g_scriptParamsOverride->Struct()) : g_scriptParams;
     reinterpret_cast<void**>(g_script)[0xBC / 4] = object;
     auto* script = nullScript ? nullptr : reinterpret_cast<Script::CScript*>(g_script);
     static const bool trace = GetEnvironmentVariableA("THUG2_GS3_TRACE", nullptr, 0) != 0; // (finding a crash)
