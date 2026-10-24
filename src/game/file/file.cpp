@@ -8,6 +8,7 @@
 #include "game/file/pre.h"
 #include "game/front/data_overlay.h"
 #include "game/gfx/device.h"
+#include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -48,6 +49,27 @@ uint32_t ArchiveGetFileSize(Handle file) { return static_cast<uint32_t>(Pre::Get
 
 // Never set anywhere in the exe: a leftover that would open files from another drive.
 bool UseAlternateDrive() { return GameVariable<int>(0x007D0FD8) != 0; }
+
+// Not original - the loading console (game/gfx/loading_console.h): a file opened, with its size (read without
+// File::GetFileSize, which would change the "handled by an archive" flag callers may still look at).
+void NoteOpened(const char* name, Handle file, bool archive)
+{
+    if (!Gfx::LoadingConsole::Active())
+        return;
+    if (!file) {
+        Gfx::LoadingConsole::NoteFile("missing", name, -1);
+        return;
+    }
+    long long size = -1;
+    if (archive) {
+        size = AsArchiveFile(file)->size;
+    } else {
+        LARGE_INTEGER bytes;
+        if (GetFileSizeEx(file, &bytes))
+            size = bytes.QuadPart;
+    }
+    Gfx::LoadingConsole::NoteFile(archive ? "open" : "read", name, size);
+}
 
 } // namespace
 
@@ -104,15 +126,21 @@ Handle Open(const char* name, const char* mode)
     if (Front::DataOverlay::OverlayPath(name, overlay)) {
         HANDLE file = CreateFileA(overlay, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
                                   nullptr);
-        if (file != INVALID_HANDLE_VALUE)
+        if (file != INVALID_HANDLE_VALUE) {
+            NoteOpened(name, file, false);
             return file;
+        }
     }
     if (ArchivesActive()) {
         Handle file = ArchiveOpen(name, mode);
-        if (HandledByArchive())
+        if (HandledByArchive()) {
+            NoteOpened(name, file, true);
             return file;
+        }
     }
-    return OpenOnDisk(name);
+    Handle file = OpenOnDisk(name);
+    NoteOpened(name, file, false);
+    return file;
 }
 
 // 0x005B9EA0

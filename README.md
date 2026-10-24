@@ -298,6 +298,7 @@ The ini sits next to the exe. Every key is optional; the default applies when it
 | `start_at` | (none) | With a start level: the skater put standing at `x,y,z[,heading]` once it's up (as `-at`) |
 | `screenshots` | 1 | The screenshot key; `screenshot_dir=` changes the folder (default `Screenshots` next to the exe) |
 | `restart_tester` | 1 | F8 puts the skater at the level's next unvisited restart |
+| `loading_console` | 1 | A panel on the loading screen: what is loading (files, scripts, log lines), the time since the load began and "last activity N s ago" (orange after 10 s with nothing new: probably a hang); 0 = the original loading screen |
 | `debug_mode` | 0 | Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera (F9) |
 | `anteara_mod` | 0 | Plays the Anteara Mod from the overlay (`tools/anteara/README.md`) |
 | `create_100_cas` | 1 | GAME OPTIONS > CREATE 100% CAS |

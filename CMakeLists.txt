@@ -264,6 +264,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_crash.cpp
     src/hook/selftests_screenshot.cpp
     src/hook/selftests_sprite.cpp
+    src/hook/selftests_loading.cpp
     src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_memory_sizes.cpp
@@ -623,6 +624,7 @@ add_library(thug2_code OBJECT
     src/game/pcm/music_api.cpp
     src/game/pcm/music_cfuncs.cpp
     src/game/gfx/loading_bar.cpp
+    src/game/gfx/loading_console.cpp
     src/game/gfx/render.cpp
     src/game/gfx/wireframe.cpp
     src/game/gfx/view_mode.cpp

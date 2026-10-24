@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "game/front/menu_backdrop.h"
+#include "game/gfx/loading_console.h"
 
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -250,6 +251,9 @@ void RunSelfTests(TestStage stage)
     // With it on, its hooks in the renderer, file loading and cameras ran inside tests' stand-ins.
     int backdrop = Front::MenuBackdrop::Setting();
     Front::MenuBackdrop::Setting() = 0;
+    // (and the loading console: the tests show and hide loading screens with the game's screen code stood in)
+    bool consoleSuspended = Gfx::LoadingConsole::SuspendedForSelfTests();
+    Gfx::LoadingConsole::SuspendedForSelfTests() = true;
     // (a stock no-CD THUG2.exe: THUG2PM.exe's bytes where the two differ, for the early tests - see kReferenceBytes)
     int referenceSpots = stage == TestStage::Early ? WriteReferenceBytes(false) : 0;
     if (referenceSpots)
@@ -265,6 +269,7 @@ void RunSelfTests(TestStage stage)
     if (referenceSpots)
         WriteReferenceBytes(true);
     Front::MenuBackdrop::Setting() = backdrop;
+    Gfx::LoadingConsole::SuspendedForSelfTests() = consoleSuspended;
     int failures = g_failures - failures_before;
     if (failures)
         Log("%s self-tests: %d FAILED (%d tests)", StageName(stage), failures, count);
