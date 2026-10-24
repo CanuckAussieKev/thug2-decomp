@@ -86,6 +86,17 @@ ground at any height between ground no more than 5 cells away on both sides (alo
 less) get a floor at the lower side's height, as `<level>_GapFill_<n>` objects (BEAVER VALLEY 2,400 faces). Only void
 is filled, never a dip.
 
+Also floored: void between ground and a wall standing on it, up to 16 cells across (under a house's eaves, where the
+yard ends a metre or more short of its invisible shell), looked at along x, z and the diagonals. The fill objects are
+cut into 1,600-inch squares of at most 1,500 faces: THUG2's line test gathers a BSP leaf's faces into a buffer of
+0x800, and a town-wide fill object overran it (a crash); convert warns of any leaf past that.
+
+**Invisible shells and trigger volumes.** Some buildings' only wall collision is an invisible open-top shell inside the
+drawn walls, its top at the roof's eaves and gables (the Grecian houses); THUG2's skater caught on its edge under the
+roof. `trimShells` cuts every all-invisible body's steep faces 6 inches under the seen roof faces over them (221 shells
+in the town). THP8's invisible trigger volumes (faces 0x1040 without 0x10: z_houses' 0.9 m wedges across the suburb
+road) are made non-collidable - THUG2's skater collided with them as invisible ramps.
+
 **Stand-ins and barriers.** A zone's `_lod` stand-in also covers places of other zones (z_citypark_lod's Box03 stands
 where the factory is; z_center_lod's lake plane, two triangles 900 m across, passes over the factory's floor): the
 stand-ins' triangles over the level's own ground are left out (`standInOutside`, every 4 m of the triangle looked
