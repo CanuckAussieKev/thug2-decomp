@@ -481,3 +481,6 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   -0x5AAEF0 weather / memcard / textures / profiles (THUG2-3), GS3 -0x5B0A40 appearance / skater queries / cutscenes
   (THUG2-4), GS4 -0x5B6560 tricks / input / theme (THUG2-1, shared). Records docs/pending/gamescript-1..4.md. One crash
   check each at the end. Also running: THP8 round 3 (the user's 11 screenshot spots) on THUG2-2.
+- THP8 levels 3 merged + installed (2026-10-24 12:36): narrow holes under kerbs floored (spots 1-2, confirmed in a
+  workspace run), network barriers drawn (faint blue stand-in for THP8's shimmer), low-detail stand-ins kept off the
+  level's own ground (factory floor overhead). Round 4 running: house roofs catching on the invisible shell (spots 3-4).
