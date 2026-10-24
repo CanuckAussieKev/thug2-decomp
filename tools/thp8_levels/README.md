@@ -79,6 +79,30 @@ drawn triangles, 8,781 sectors, 2,791 textures, 3,346 collision objects; 81 MB s
 collision + 4.8 MB qb. THP8's network areas (`z_online_<x>`) are barrier walls, added as collision only (THP8 draws
 them as a shimmer when the skater is near).
 
+**Narrow holes.** THP8's collision has slits with nothing under them where two bodies meet (z_houses' kerbs end 0.6
+m short of the road's box). THP8's skater is a Havok shape that rides over them; THUG2's stands on the one point under
+it and fell through, hanging from the kerb's underside. `gapFills` floors them: on a 10-inch grid, cells with no
+ground at any height between ground no more than 5 cells away on both sides (along x or z, steps of 24 inches or
+less) get a floor at the lower side's height, as `<level>_GapFill_<n>` objects (BEAVER VALLEY 2,400 faces). Only void
+is filled, never a dip.
+
+Also floored: void between ground and a wall standing on it, up to 16 cells across (under a house's eaves, where the
+yard ends a metre or more short of its invisible shell), looked at along x, z and the diagonals. The fill objects are
+cut into 1,600-inch squares of at most 1,500 faces: THUG2's line test gathers a BSP leaf's faces into a buffer of
+0x800, and a town-wide fill object overran it (a crash); convert warns of any leaf past that.
+
+**Invisible shells and trigger volumes.** Some buildings' only wall collision is an invisible open-top shell inside the
+drawn walls, its top at the roof's eaves and gables (the Grecian houses); THUG2's skater caught on its edge under the
+roof. `trimShells` cuts every all-invisible body's steep faces 6 inches under the seen roof faces over them (221 shells
+in the town). THP8's invisible trigger volumes (faces 0x1040 without 0x10: z_houses' 0.9 m wedges across the suburb
+road) are made non-collidable - THUG2's skater collided with them as invisible ramps.
+
+**Stand-ins and barriers.** A zone's `_lod` stand-in also covers places of other zones (z_citypark_lod's Box03 stands
+where the factory is; z_center_lod's lake plane, two triangles 900 m across, passes over the factory's floor): the
+stand-ins' triangles over the level's own ground are left out (`standInOutside`, every 4 m of the triangle looked
+at). The network barriers are drawn as THP8 draws them - THP8's is a shimmer (a distortion shader over a normal map),
+ours a faint see-through blue (`VEIL_COLOUR`).
+
 **Seam walls.** Each zone's collision has invisible walls (every face 0x1000, most also 0x80 - the camera passes)
 along its edges where the next zone begins (z_houses: a 115 m long, 70 m high plane at x = 0, where z_shops starts).
 No node or sector owns them: THP8 must switch them off when the neighbour is streamed in. In a level of several zones
