@@ -15,6 +15,7 @@
 #include "game/sio/inpman.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer.h"
+#include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -282,6 +283,7 @@ bool __cdecl CFunc_DisplayLoadingScreen(Script::CStruct* params, Script::CScript
     bool blank = params->ContainsFlag(kBlank);
     bool freeze = params->ContainsFlag(kFreeze);
     GameFunction<void(__cdecl*)(const char*, bool, bool)>(0x00490890)(image, freeze, blank);
+    Gfx::LoadingConsole::ScreenShown(freeze, blank); // not original: the loading console (gfx/loading_console.h)
     float seconds = 0.0f; // (the original leaves it unset - unused then)
     if (params->GetFloat(0u, &seconds, 0))
         GameFunction<void(__cdecl*)(float)>(0x00490770)(seconds);
@@ -291,6 +293,7 @@ bool __cdecl CFunc_DisplayLoadingScreen(Script::CStruct* params, Script::CScript
 // 0x0059F550: HideLoadingScreen (0x004908C0).
 bool __cdecl CFunc_HideLoadingScreen(Script::CStruct*, Script::CScript*)
 {
+    Gfx::LoadingConsole::ScreenHidden(); // not original: the loading console (gfx/loading_console.h)
     GameFunction<void(__cdecl*)()>(0x004908C0)();
     return true;
 }

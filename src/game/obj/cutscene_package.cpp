@@ -17,6 +17,7 @@
 #include "game/script/load.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
+#include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -151,6 +152,7 @@ bool CCutsceneDetails::InitFromStructure(Script::CStruct* params)
     } else {
         // the loading screen; the music volumes kept to give back at the end, then muted
         GameFunction<void(__cdecl*)(const char*, bool, bool)>(0x00490890)(nullptr, true, false);
+        Gfx::LoadingConsole::ScreenShown(true, false); // not original: the loading console (gfx/loading_console.h)
         m_musicVolume = GameFunction<float(__cdecl*)(int)>(0x0048E9B0)(1);
         m_streamVolume0 = GameFunction<float(__cdecl*)(int, int)>(0x0048E9D0)(0, 1);
         m_streamVolume1 = GameFunction<float(__cdecl*)(int, int)>(0x0048E9D0)(1, 1);
