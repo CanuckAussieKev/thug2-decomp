@@ -25,6 +25,7 @@
 #include "game/sys/platform_system.h"
 #include "game/sys/registry.h"
 #include "game/sys/sdl_window.h"
+#include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/selftest.h"
@@ -346,6 +347,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     // went on to shut down:
     ReleaseDirectSound();
     // Originally from PartyMod Fixes: DirectInput isn't released here (SDL input replaces it): the original called 0x005F39E0.
+    Gfx::LoadingConsole::ScreenHidden(); // (not original: the loading console's timer stopped)
     GameFunction<void(__cdecl*)()>(0x004908C0)(); // (the renderer's clean-up)
     ReleaseDirect3D();
     InvalidateRect(nullptr, nullptr, TRUE);

@@ -12,6 +12,7 @@
 #include "game/front/data_overlay.h"
 #include "game/script/params.h"
 #include "game/util/lzss.h"
+#include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
@@ -137,9 +138,12 @@ void* Load(const char* name, bool async, void* callback, void* callback_arg0, vo
         File::AsyncClose(file);
         if (data)
             ShrinkFileMemory(static_cast<unsigned int>(size), data);
+        Gfx::LoadingConsole::NoteFile("read (async)", name, size); // (not original: the loading console)
     } else {
         size = 0;
         data = overlay ? nullptr : PreManagerLoadFile(name, &size);
+        if (data)
+            Gfx::LoadingConsole::NoteFile("unpack", name, size); // (not original: the loading console)
         if (!data) {
             size = overlay ? 0 : File::CachedFileSize(name);
             if (size != 0) {
@@ -148,6 +152,7 @@ void* Load(const char* name, bool async, void* callback, void* callback_arg0, vo
                     FreeFileMemory(data);
                     data = nullptr;
                 }
+                Gfx::LoadingConsole::NoteFile("read (cache)", name, size); // (not original: the loading console)
             } else {
                 File::Handle file = File::Open(name, "rb");
                 size = static_cast<int>(File::GetFileSize(file));
@@ -174,6 +179,8 @@ void* LoadFileInto(const char* name, int* size, void* buffer)
     char overlay_path[260];
     bool overlay = Front::DataOverlay::OverlayPath(name, overlay_path);
     void* data = overlay ? nullptr : Pre::Instance()->LoadFile(name, &file_size, static_cast<uint8_t*>(buffer));
+    if (data)
+        Gfx::LoadingConsole::NoteFile("unpack", name, file_size); // (not original: the loading console)
     if (!data) {
         file_size = overlay ? 0 : File::CachedFileSize(name);
         if (file_size != 0) {
