@@ -567,3 +567,8 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   THP8 edges (other zones' collision inside the network barrier, docs/pending/thp8-edges.md). Overlay --hd-ui 4.
   Not merged: globe pixel-art scaler (f7456ab) - looked no better than the original (the globe is soft painted art);
   user offered option 3 (redraw from Natural Earth). Renderer decomp still running.
+- THP8 drawn border zones merged + installed (2026-10-24 ~23:30): other zones' real sectors drawn inside the network
+  barrier where edges.ts added their collision; stand-in cleared under them. Costs: slums scn 9.9 -> 34 MB, tex 12.7 ->
+  43.6 MB, mainstreet similar (REACH_SLACK / reach cap in edges.ts shrink it). Lead load checks: slums, mainstreet,
+  school (127 s run), skatecentral loaded, pools fine. THUG2-1's thug2-decomp-thp8 net_skatepark staging was overwritten
+  by that agent (harmless). User's THP8 recomp save: Documents\thps_p8.
