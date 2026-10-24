@@ -169,3 +169,12 @@ Shared files touched: CMakeLists.txt (new files listed).
     asm; 13 command lines (with arguments past argc present, so reading them would show) through GetArgumentValue,
     GotArgument and Init over four registry cases; every name for -1..10. 33 of 33 deliberate bugs caught (5 after
     strengthening: arguments past argc, Bootstrap with 3 and 4 arguments, FrameRate=500).
+- [x] Range 0x005B0A40-0x005B6560 done: 129 functions with source in GS4-1..7 (plus the 17 already done in
+  file/async.cpp); find_gaps shows none left in it; no function Ghidra missed in the padding. Crash check (2026-10-24,
+  workspace C:\Games\THUG2-1, this branch's DLL after merging main with GS1-GS3, `run_game.ps1 -Level BO`): started,
+  BO loaded in free skate, the skater spawned and stood in the level, running and responding after 110 s, closed;
+  no run-time check, debug CRT report or exception in the log. thug2_check: 0 MISMATCHED, 813 early self-tests
+  passed on THUG2PM.exe and on the stock THUG2.exe; check_code_writes: no overlaps; scan_register_assumptions /
+  audit_game_function_calls: nothing new.
+  - Not run in the game beyond that: nearly all of it (the commands need their menus / modes: CAS face textures and
+    CAG, the hunt and projectiles online, model swaps, bail streams, the theme colours, configurable tricks).
