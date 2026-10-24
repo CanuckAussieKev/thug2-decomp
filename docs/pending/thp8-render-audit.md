@@ -456,3 +456,74 @@ stale DLL, as suspected.) Lock released (the old dll and ini put back).
   on the wooden ramp ahead at about -2359,-161,3095).
 - The sign closer: `... -2340,-170,3120,275`; the second sheet: `... -2703,-161,3159,91`.
 - Capitol backdrop (was drawn twice): `node tools/game/try_spot.ts thp8_net_capitol 20964,1346,-20020,149`.
+
+## Fix round 3 (2026-10-24)
+
+Converter only (tools/thp8_levels, tools/level_port/overlay_bias.ts). `.col.xbx` of all 15 levels byte-identical before /
+after (SHA-256), `thp8_levels.ts selfcheck` 1132 files / 0 failures, npm test 363 pass, typecheck and lint clean. Offline
+plus one load check; NOT looked at in the game.
+
+### What changed
+
+1. **One-sided copies, per mesh (`oneSidedMeshes`).** A mesh of a blended material (base DXT5 / DXT1 with alpha) gets its
+   own one-sided copy of the material (`thp8_onesided_<material>`, noBackfaceCulling 0) when >= 90% of its area (7 sample
+   points per triangle) lies against an opposite-facing surface of any other mesh (normals opposite, plane gap <= 1 mm =
+   0.04 in, inside its triangles). Every other mesh of the material stays two-sided. Absolute exclusions (never changed,
+   never a partner): a material whose base or any layer texture has binary alpha (`textureAlpha`: > 2% clear texels and
+   < 25% partial = cut-out: leaves, grass, fences, wire), and any material / sector / texture name matching `FOLIAGE_NAME`
+   (leaf, leaves, tree, grass, bush, plant, ivy, hedge, foliage, vine, flower, shrub, palm, branch, weed, fern, cactus,
+   bamboo). Instances, local objects, not-made and zone-duplicate sectors and hidden meshes are not looked at. Stand-ins
+   (_lod) get the same rule among themselves. Convert report: "n meshes lying back to back ... made one-sided" and one line
+   per mesh (level, sector, material, base texture, area, share), `REVIEW:` for a soft-alpha texture or vertex alpha < 240.
+2. **`repeatedSurfaces` keyed on the converted pass-0 texture** (+ blended or not) instead of the material: the factory
+   elevator panels over their shaft are gone. A mesh covered only in part now loses just the triangles lying wholly (7/7
+   samples) on earlier ones ("n triangles lying wholly on a surface of the same texture"): the pirate shop wall
+   (VC_G_ / G_VC_, 159 m2) is gone (BEAVER VALLEY 680 triangles).
+3. **`overlay_bias.biasOverlays(scene, lookAlikes)`**, on for THP8: materials that look the same (so far skipped) and pairs
+   that cover each other alike (so far undecided) get a z bias too, the one more of whose surface is covered over the other
+   (else the second). This resolves Z_Citypark_g_OutsideWall_low / vo_jad_park_periph_reflection (partial overlap, large
+   triangles) and the crete park school hills over their ground. Side effect to watch: BEAVER VALLEY "layer materials given
+   a z bias" is 595 (far fewer before; "decided by a z bias" pairs 1301 -> 2629 in the audit); a bias is at most 6 steps.
+
+### Audit, before -> after (zfight, seen within 100 m)
+
+| Level | flicker pairs | flicker m2 seen | coplanar pairs | coplanar m2 | opposite-facing pairs | opposite m2 seen | meshes made one-sided (to review) |
+|---|---|---|---|---|---|---|---|
+| thp8_net_beavervalley | 817 -> 469 | 1667 -> 496 | 109 -> 73 | 672 -> 231 | 396 -> 338 | 1663 -> 441 | 13 (13) |
+| thp8_net_skatepark | 44 -> 34 | 296 -> 140 | 12 -> 9 | 145 -> 10 | 14 -> 12 | 468 -> 388 | 2 (1) |
+| thp8_net_factory | 134 -> 66 | 458 -> 214 | 23 -> 16 | 207 -> 33 | 66 -> 32 | 1119 -> 459 | 9 (8) |
+| thp8_net_slums | 152 -> 92 | 331 -> 190 | 18 -> 15 | 93 -> 16 | 38 -> 34 | 491 -> 411 | 2 (1) |
+| thp8_net_suburbia | 123 -> 62 | 288 -> 146 | 14 -> 10 | 94 -> 9 | 38 -> 33 | 474 -> 394 | 2 (1) |
+| thp8_net_mainstreet | 98 -> 54 | 253 -> 137 | 10 -> 4 | 87 -> 1 | 31 -> 29 | 468 -> 389 | 2 (1) |
+| thp8_net_funpark | 186 -> 147 | 693 -> 438 | 44 -> 40 | 437 -> 192 | 88 -> 70 | 470 -> 390 | 2 (1) |
+| thp8_net_school | 161 -> 108 | 231 -> 137 | 22 -> 13 | 25 -> 4 | 51 -> 42 | 501 -> 421 | 2 (1) |
+| thp8_net_industrial | 249 -> 124 | 562 -> 261 | 31 -> 22 | 213 -> 38 | 89 -> 53 | 1124 -> 464 | 9 (8) |
+| thp8_net_capitol | 180 -> 114 | 1206 -> 71 | 36 -> 21 | 816 -> 13 | 138 -> 130 | 971 -> 330 | 6 (6) |
+| thp8_net_skatefunparks | 202 -> 157 | 753 -> 441 | 46 -> 40 | 494 -> 192 | 91 -> 73 | 470 -> 390 | 2 (1) |
+| thp8_net_skatecentral | 346 -> 187 | 1289 -> 80 | 40 -> 18 | 823 -> 10 | 203 -> 186 | 978 -> 336 | 6 (6) |
+| thp8_training | 8 -> 4 | 3 -> 2 | 0 -> 0 | 0 -> 0 | 22 -> 22 | 0 -> 0 | 0 (0) |
+| thp8_skateshop | 15 -> 6 | 1 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 (0) |
+| thp8_bedroom | 4 -> 2 | 2 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 (0) |
+
+BEAVER VALLEY's one-sided list (13, all flagged "soft alpha texture": the paint shells' base A2EDA0BA and the capitol decks'
+7F0113CF are soft-alpha paint / glass / water, none foliage-named, none binary alpha): capitol roof_pools00-03 (4 x 160 m2)
+and int_topdecks (641 m2); factory paint_shell_outside / _inside (552 m2 each), _outside_01 / _inside_01 (402 m2 each),
+fact_breakroom_inside_glass (50 m2), turbine_case / turbine_case_inside (29 m2 each); Z_Inschool_g_back_periph05 (285 m2,
+base CFEA1FFB - a periphery backdrop; its partner mesh in the same sector stays two-sided, being bigger than the 90% rule
+allows; worth a look). The other levels: 2-9 each, mostly the same factory / capitol sets plus two stand-in meshes
+(Z_Inschool_LOD_g_back_periph05, Z_Parking_LOD_g_contruction_01 type); full lists in the convert report. Left as is: fences /
+lines (cut-out), glass against a Decal-template wall (Level_Geo_106, share < 90%), meshes bigger than their partner.
+
+### Load check
+
+Under the lock on C:\Games\THUG2-2 with out\build\lead\dinput8.dll (+.pdb), `[selftests] enabled=0`:
+`load_check.ps1 -Levels thp8_net_beavervalley`: loaded=True, responding after 55.9 s, CComponent 256058 / 360000, CStruct
+43340 / 64000; no error or exception in the log (the search only hit function names). Lock released (old dll / ini back).
+
+### For the user (try_spot)
+
+- Factory paint shells: `node tools/game/try_spot.ts thp8_net_beavervalley 7221,-121,8863,360` and `... 8109,-53,9034,0`.
+- Pirate shop interior wall: `... -7280,977,10418,0` (and `-7823,1061,10418,0`).
+- Elevator panels: `... 6210,1248,3429,270`.
+- Capitol roof pools: `... -401,1007,10033,0`. Park wall / reflection: `... 4943,-387,13676,180`.
+- Crete school hills: `... -14280,231,3299,0`.

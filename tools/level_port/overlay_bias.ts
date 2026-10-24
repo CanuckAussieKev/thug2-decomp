@@ -179,7 +179,10 @@ function topOf(
 
 // Gives the layers lying on other materials' surfaces a z bias above them (materials keep a bigger one they have).
 // Returns the number of materials changed.
-export function biasOverlays(scene: thug2Scene.Scene): number {
+// `lookAlikes`: materials that look the same (same textures and flags), or that cover each other alike, are biased too
+// - the one more of whose surface is covered over the other (else the second). Two copies of one surface with other
+// lighting (THP8's, tessellated twice and shaded twice) flicker where they overlap and neither lies wholly on the other.
+export function biasOverlays(scene: thug2Scene.Scene, lookAlikes = false): number {
     const { overlap, total } = overlaps(scene);
     const materials = scene.materials;
     const edges: { top: number; under: number; rank: number; area: number }[] = [];
@@ -191,8 +194,14 @@ export function biasOverlays(scene: thug2Scene.Scene): number {
             decided.add(pair);
             const ab = overlap.get(a)?.get(b) ?? 0; // a's area on b
             const ba = overlap.get(b)?.get(a) ?? 0;
-            if (Math.max(ab, ba) < kMinOverlapArea || sameLook(materials[a]!, materials[b]!)) continue;
-            const top = topOf(scene, a, b, ab / (total[a] || 1), ba / (total[b] || 1));
+            if (Math.max(ab, ba) < kMinOverlapArea) continue;
+            const alike = sameLook(materials[a]!, materials[b]!);
+            if (alike && !lookAlikes) continue;
+            // (undecided, with lookAlikes: the one more of whose surface is covered, else the second)
+            const guess = (): [number, number] => [ab / (total[a] || 1) > ba / (total[b] || 1) ? a : b, 3];
+            const top = alike
+                ? guess()
+                : (topOf(scene, a, b, ab / (total[a] || 1), ba / (total[b] || 1)) ?? (lookAlikes ? guess() : null));
             if (top === null) continue;
             edges.push({ top: top[0], under: top[0] === a ? b : a, rank: top[1], area: Math.max(ab, ba) });
         }

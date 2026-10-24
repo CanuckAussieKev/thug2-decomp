@@ -149,7 +149,16 @@ box is not drawn (`zoneDuplicates`). THP8's floaters (`F_` sectors: the geometry
 blend patches; the same triangles also stay in the `g_` sector they were cut from) and its other tessellated-twice
 sectors (VC_ / G_ pairs) are drawn once: `repeatedSurfaces` leaves out a mesh whose surface another mesh of the same
 material (a floater's first) already draws, in the same plane. A `_lod` stand-in's triangle lying on a triangle the
-level draws (`standInOnDrawn`) is left out too. NormalMapBlended's own layer layout (the lawns' blended grass maps) is not read: the first grass map only.
+level draws (`standInOnDrawn`) is left out too. Round 3 (2026-10-24): `repeatedSurfaces` keys on the converted pass-0 texture
+(and blended or not), not the material alone, and leaves out single triangles that lie wholly on earlier ones where a
+mesh is covered only in part (the pirate shop's wall tessellated twice); `overlay_bias` runs with `lookAlikes` (copies of
+one look and surfaces covering each other alike are told apart by a bias too). Blended materials stay two-sided (THP8's
+cull flag isn't decoded) except per mesh (`oneSidedMeshes`): a mesh of a blended material, 90% of whose area lies against
+an opposite-facing surface within 1 mm, gets its own one-sided copy of the material; nothing is touched whose base or
+layer texture has binary alpha (cut-out: leaves, grass, fences, wire) or whose material, sector or texture name looks
+like foliage (`FOLIAGE_NAME`), and such surfaces aren't partners either. The convert report lists every mesh made
+one-sided (level, sector, material, base texture) and marks those with a soft-alpha texture or vertex alpha for review.
+NormalMapBlended's own layer layout (the lawns' blended grass maps) is not read: the first grass map only.
 
 **Seam walls.** Each zone's collision has invisible walls (every face 0x1000, most also 0x80 - the camera passes)
 along its edges where the next zone begins (z_houses: a 115 m long, 70 m high plane at x = 0, where z_shops starts).
