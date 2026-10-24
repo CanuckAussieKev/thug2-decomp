@@ -508,3 +508,7 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   solid again, incl. the roundabout's skatable skirt; the user's tree clip was reached through the open skirt). Not
   confirmed in the game. The THP8 agent wrote into THUG2-2 while the collision-events agent held its lock (overlay only).
 - CLAUDE.md "Agent cost": decomp keeps the strongest model; sonnet for mechanical work; fresh agent per round; effort levels.
+- Collision events follow-up merged + installed (2026-10-24): on-screen notice, screenshots on by default with the
+  switch, `logging on` line per level, collision-event-detail lines (state, input, deciding ray, face corners, open
+  edge, file identity, approach, camera), slope only on real slopes, 1 s repeat window with repeats=. 815 early
+  self-tests. Offered the user an offline z-fighting scanner (not started).
