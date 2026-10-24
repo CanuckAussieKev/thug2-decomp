@@ -91,6 +91,21 @@ yard ends a metre or more short of its invisible shell), looked at along x, z an
 cut into 1,600-inch squares of at most 1,500 faces: THUG2's line test gathers a BSP leaf's faces into a buffer of
 0x800, and a town-wide fill object overran it (a crash); convert warns of any leaf past that.
 
+The ground is looked at in four points a cell (its quarters): a slit narrower than a cell between two cells' middles
+(10 inches by the suburb's flower ring) counts; a wall in it only stops the fill when taller than a step (a kerb's face
+doesn't).
+
+**Holes audit.** Convert reports, per level, the drawn ground with no collision under it that is ringed by ground
+that has (`uncoveredGround`: up-facing triangles of opaque materials - not glows, water / shimmer, the sky, barriers,
+stand-ins or moving objects - on 40-inch cells, against collidable faces within 24 inches of their height, the gap
+filler's floors not counted), with its largest holes. What remains is mostly drawn interiors seen through windows,
+chimney and dome tops.
+
+**Bodies named after trigger nodes.** A collision body that matches no sector is named after a primitive's node, else a
+collision-only trigger node standing in its box - only when the body is a volume (all its faces trigger or
+non-collidable): until round 5 a solid body could take a trigger node's name and go with it when that node isn't made
+(z_houses' suburb road, 40 m: the chalk goal trigger on it).
+
 **Invisible shells and trigger volumes.** Some buildings' only wall collision is an invisible open-top shell inside the
 drawn walls, its top at the roof's eaves and gables (the Grecian houses); THUG2's skater caught on its edge under the
 roof. `trimShells` cuts every all-invisible body's steep faces 6 inches under the seen roof faces over them (221 shells
