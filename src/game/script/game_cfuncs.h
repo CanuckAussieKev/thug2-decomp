@@ -74,6 +74,29 @@ bool __cdecl CFunc_SendFlag(Script::CStruct* params, Script::CScript* script);  
 bool __cdecl CFunc_QueryFlag(Script::CStruct* params, Script::CScript* script);       // 0x005A3B40
 bool __cdecl CFunc_SendException(Script::CStruct* params, Script::CScript* script);   // 0x005A3B60
 
+// --- servers, the network mode and setup, going online, observing (net_state_cfuncs.cpp) ------------------------
+
+bool __cdecl CFunc_StartServer(Script::CStruct* params, Script::CScript* script);              // 0x005A0880
+bool __cdecl CFunc_LeaveServer(Script::CStruct* params, Script::CScript* script);              // 0x005A08D0
+bool __cdecl CFunc_JoinServer(Script::CStruct* params, Script::CScript* script);               // 0x005A08E0
+bool __cdecl CFunc_SetNetworkMode(Script::CStruct* params, Script::CScript* script);           // 0x005A0A00
+bool __cdecl CFunc_ProfileTasks(Script::CStruct* params, Script::CScript* script);             // 0x005A0A60
+bool __cdecl CFunc_UseNetworkPreferences(Script::CStruct* params, Script::CScript* script);    // 0x005A0AB0
+bool __cdecl CFunc_TestNetSetup(Script::CStruct* params, Script::CScript* script);             // 0x005A0AC0
+bool __cdecl CFunc_NeedToTestNetSetup(Script::CStruct* params, Script::CScript* script);       // 0x005A0BD0
+bool __cdecl CFunc_CanChangeDevices(Script::CStruct* params, Script::CScript* script);         // 0x005A0BE0
+bool __cdecl CFunc_LoadNetworkDrivers(Script::CStruct* params, Script::CScript* script);       // 0x005A0BF0
+bool __cdecl CFunc_ConnectToInternet(Script::CStruct* params, Script::CScript* script);        // 0x005A0C60
+bool __cdecl CFunc_CancelConnectToInternet(Script::CStruct* params, Script::CScript* script);  // 0x005A0CC0
+bool __cdecl CFunc_IsOnline(Script::CStruct* params, Script::CScript* script);                 // 0x005A0CD0
+bool __cdecl CFunc_DisconnectFromInternet(Script::CStruct* params, Script::CScript* script);   // 0x005A0CE0
+bool __cdecl CFunc_EnableActuators(Script::CStruct* params, Script::CScript* script);          // 0x005A0D20
+bool __cdecl CFunc_InNetGame(Script::CStruct* params, Script::CScript* script);                // 0x005A0D80
+bool __cdecl CFunc_IsObserving(Script::CStruct* params, Script::CScript* script);              // 0x005A0D90
+bool __cdecl CFunc_SetSlomo(Script::CStruct* params, Script::CScript* script);                 // 0x005A0E50
+bool __cdecl CFunc_TogglePlayerNames(Script::CStruct* params, Script::CScript* script);        // 0x005A0EB0
+bool __cdecl CFunc_SetCurrentGameType(Script::CStruct* params, Script::CScript* script);       // 0x005A0EF0
+
 // What FlagCommandByName does to the objects: set / clear / test a script flag (of 32), set / clear object flag
 // bits, send an exception.
 enum : int {

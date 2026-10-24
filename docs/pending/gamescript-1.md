@@ -48,3 +48,18 @@ Shared files touched: CMakeLists.txt (new files listed).
     OutputDebugStringA too; the manager walk over three stand-in objects; the 0x005A0120 stub driven through inline
     asm). 44 of 44 deliberate bugs caught (5 after strengthening: the spawned flag's restore, flag numbers past 15,
     clearing an unset flag, a prefix query whose last node lacks the flag).
+- [x] Batch GS1-3 (NOT run in the game yet; servers, the network mode and setup, going online, vibration, observing,
+  slow motion - 20 CFunctions): src/game/script/net_state_cfuncs.cpp (new).
+  - 0x005A0880 StartServer (in the bottom-up heap; LAN mode asked and not used, as in the original), 0x005A08D0
+    LeaveServer, 0x005A08E0 JoinServer (the server: a local client per player of the game mode; a client: inet_addr
+    of the address, both address and port needed), 0x005A0A00 SetNetworkMode (0-2 only), 0x005A0A60 ProfileTasks,
+    0x005A0AB0 UseNetworkPreferences, 0x005A0AC0 TestNetSetup (success_script, or the net_error_* text of the last
+    error added as 0xC4745838 and 0x6D51F203 run), 0x005A0BD0 NeedToTestNetSetup / 0x005A0BE0 CanChangeDevices (tail
+    jumps to the shared stubs ReturnFalse / ReturnTrue), 0x005A0BF0 LoadNetworkDrivers (use_deci2: viewer_ip,
+    viewer_subnet, viewer_gateway), 0x005A0C60 ConnectToInternet, 0x005A0CC0 CancelConnectToInternet, 0x005A0CD0
+    IsOnline, 0x005A0CE0 DisconnectFromInternet, 0x005A0D20 EnableActuators (the skate module's two controller entries,
+    +0x394 / +0x39C), 0x005A0D80 InNetGame, 0x005A0D90 IsObserving (4 callers through GameFunction - left as they
+    are), 0x005A0E50 SetSlomo, 0x005A0EB0 TogglePlayerNames, 0x005A0EF0 SetCurrentGameType.
+  - Test TestNetStateCFuncs: original vs ours with the network, net library, memory, input and main loop managers'
+    calls stood in for (their inline getters read from stand-in objects). 26 of 26 deliberate bugs caught (1 after
+    strengthening: a stand-in memory manager, so the heap pushed is told apart).

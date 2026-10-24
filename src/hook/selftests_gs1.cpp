@@ -22,6 +22,13 @@
 #include "game/script/cfuncs_scene.h"
 #include "game/script/node_prefixes.h"
 #include "game/sfx/sfx.h"
+#include "game/net/net_manager.h"
+#include "game/net/player_info.h"
+#include "game/script/qb.h"
+#include "game/sio/inpman.h"
+#include "game/skate/skate_net.h"
+#include "game/sys/game_clock.h"
+#include "game/sys/mlp.h"
 #include "game/core/dbg.h"
 #include "game/file/async.h"
 #include "game/net/gamenet_manager.h"
@@ -59,7 +66,7 @@ struct Fakes {
     uint8_t results[0x10];
     uint8_t viewer[0x60];
     uint8_t object[0x200];
-    uint8_t component[0x40];
+    uint8_t component[0x300];
     uint8_t camera[0x200];
     uint8_t task[0x20];
     uint8_t devices[2][0xF0];
@@ -850,7 +857,254 @@ void TestGameFlowCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A0880-0x005A0F00 (net_state_cfuncs.cpp) ---------------------------------------------------------------
+
+bool g_setupOk, g_drawNames, g_inNetGame, g_hasLocalPlayer;
+uint32_t g_players, g_newPlayers[3];
+int g_newPlayerIndex;
+
+void StandInNetCalls(StandIns& s)
+{
+    auto simple = [&s](std::initializer_list<uint32_t> at, uint16_t pop, uint32_t tag, int mode, uint32_t result = 0) {
+        s.At(at, pop, [tag, mode, result](Regs& r) {
+            Record({tag, mode & 1 ? Rel(r.ecx) : 0u, mode & 2 ? Rel(r.args[0]) : mode & 4 ? r.args[0] & 0xFF : 0u});
+            return result;
+        });
+    };
+    simple({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, 0xB0E0, 3);
+    simple({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110, 1);
+    simple({0x0056DEE0, AddressOf(&Mdl::SkateNet::StartServer)}, 0, 0xDEE0, 1);
+    simple({0x00533F70, AddressOf(&GameNet::Manager::InLanMode)}, 0, 0x3F70, 1, 0x55);
+    simple({0x0056B890}, 0, 0xB890, 1);
+    simple({0x00472830, AddressOf(&Script::ProcessPendingSymbols)}, 0, 0x2830, 0);
+    s.At({0x00553190}, 0, [](Regs& r) { Record({0x3190, r.ecx}); return g_players; });
+    s.At({0x00537220, AddressOf(&GameNet::Manager::SpawnClient)}, 0x10, [](Regs& r) {
+        Record({0x7220, Rel(r.ecx), r.args[0] & 0xFF, r.args[1] & 0xFF, r.args[2] & 0xFF, r.args[3]});
+        return 0x00C11E00u + r.args[3];
+    });
+    s.At({0x00534480, AddressOf(&GameNet::Manager::JoinServer)}, 0xC, [](Regs& r) {
+        Record({0x4480, Rel(r.ecx), r.args[0], r.args[1] & 0xFFFF, r.args[2]});
+        return 0u;
+    });
+    s.At({0x0056EB50, AddressOf(&Mdl::SkateNet::AddClientHandlers)}, 8, [](Regs& r) {
+        Record({0xEB50, r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs& r) { Record({0xE4F0, Rel(r.ecx)}); return g_inNetGame ? 1u : 0u; });
+    s.At({0x005BEAAE}, 4, [](Regs& r) { Record({0xEAAE, Hash(reinterpret_cast<const char*>(r.args[0]))}); return 0x0100007Fu; });
+    simple({0x00533F20, AddressOf(&GameNet::Manager::SetNetworkMode)}, 4, 0x3F20, 3);
+    simple({0x0044F220, AddressOf(&Mlp::Manager::ProfileFrames)}, 4, 0xF220, 3);
+    simple({0x00535040, AddressOf(&GameNet::Manager::UseNetworkPreferences)}, 0, 0x5040, 1);
+    s.At({0x005B9760, AddressOf(&Stubs::ReturnTrue)}, 0, [](Regs&) { Record({0x9760}); return g_setupOk ? 1u : 0u; });
+    s.At({0x005B9E50, AddressOf(&Stubs::ReturnFalse)}, 0, [](Regs&) { Record({0x9E50}); return 0x100u; });
+    using GetStringFn = const char* (*)(const char*);
+    s.At({0x00478FF0, AddressOf(static_cast<GetStringFn>(&Script::GetString))}, 0, [](Regs& r) {
+        const char* name = reinterpret_cast<const char*>(r.args[0]);
+        Record({0x8FF0, Hash(name)});
+        if (std::strcmp(name, "use_deci2") == 0)
+            return reinterpret_cast<uint32_t>(g_newPlayerIndex == 0 ? "" : g_newPlayerIndex == 1 ? nullptr : "1");
+        return reinterpret_cast<uint32_t>(name + 1);
+    });
+    using AddTypedFn = void (CStruct::*)(uint32_t, uint32_t, const char*);
+    s.At({0x00478390, AddressOf(static_cast<AddTypedFn>(&CStruct::AddString))}, 0xC, [](Regs& r) {
+        Record({0x8390, Rel(r.ecx), r.args[0], r.args[1], Hash(reinterpret_cast<const char*>(r.args[2]))});
+        return 0u;
+    });
+    s.At({0x004549C0, AddressOf(&Net::Manager::LoadNetworkDrivers)}, 0xC, [](Regs& r) {
+        Record({0x49C0, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])),
+                Hash(reinterpret_cast<const char*>(r.args[1])), Hash(reinterpret_cast<const char*>(r.args[2]))});
+        return r.args[0] ? 1u : 0x100u;
+    });
+    s.At({0x00535C10, AddressOf(&GameNet::Manager::ConnectToInternet)}, 8, [](Regs& r) {
+        Record({0x5C10, Rel(r.ecx), r.args[0], r.args[1]});
+        return r.args[0] & 1;
+    });
+    simple({0x00536C10, AddressOf(&GameNet::Manager::CancelConnectToInternet)}, 0, 0x6C10, 0);
+    simple({0x00535CB0, AddressOf(&GameNet::Manager::DisconnectFromInternet)}, 4, 0x5CB0, 3);
+    simple({0x0044E5F0, AddressOf(&Inp::Manager::EnableActuators)}, 4, 0xE5F0, 3);
+    simple({0x0044E5D0, AddressOf(&Inp::Manager::DisableActuators)}, 4, 0xE5D0, 3);
+    s.At({0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, [](Regs& r) {
+        Record({0x7320, Rel(r.ecx)});
+        return g_hasLocalPlayer ? 0x00A1A000u : 0u;
+    });
+    s.At({0x00543320, AddressOf(&GameNet::PlayerInfo::IsObserver)}, 0, [](Regs& r) { Record({0x3320, r.ecx}); return r.ecx & 0x100 ? 1u : 0u; });
+    s.At({0x00537070, AddressOf(&GameNet::Manager::FirstNewPlayerInfo)}, 4, [](Regs& r) {
+        Record({0x7070, Rel(r.ecx), *reinterpret_cast<uint32_t*>(r.args[0])});
+        g_newPlayerIndex = 0;
+        return g_newPlayers[0];
+    });
+    s.At({0x004573D0, AddressOf(&GameNet::Manager::NextNewPlayerInfo)}, 4, [](Regs& r) {
+        Record({0x73D0, Rel(r.ecx), *reinterpret_cast<uint32_t*>(r.args[0])});
+        return ++g_newPlayerIndex < 3 ? g_newPlayers[g_newPlayerIndex] : 0u;
+    });
+    s.At({0x00532AC0, AddressOf(&GameNet::Manager::GetJoinMode)}, 0, [](Regs& r) { Record({0x2AC0, Rel(r.ecx)}); return g_players; });
+    simple({0x0044ED70, AddressOf(&Tmr::SetGameClockSpeed)}, 0, 0xED70, 2);
+    simple({0x00533130, AddressOf(&GameNet::Manager::TogglePlayerNames)}, 0, 0x3130, 1);
+    s.At({0x00533140, AddressOf(&GameNet::Manager::ShouldDrawPlayerNames)}, 0, [](Regs& r) { Record({0x3140, Rel(r.ecx)}); return g_drawNames ? 1u : 0u; });
+    simple({0x00564FD0}, 0, 0x4FD0, 1);
+}
+
+void TestNetStateCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> flowSaved = SavedFlowGlobals();
+    std::vector<Saved> netSaved = {{0x006EFDD8, 4, {}}, {0x00696D68, 4, {}}, {0x00696D40, 4, {}}};
+    SaveAll(saved);
+    SaveAll(flowSaved);
+    SaveAll(netSaved);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInFlowCalls(*standIns);
+    StandInNetCalls(*standIns);
+    g_slot1 = standIns->Thunk(0, [](Regs& r) { Record({0x5107, Rel(r.ecx)}); return 0u; });
+    g_slot2 = standIns->Thunk(4, [](Regs& r) { Record({0x5207, Rel(r.ecx), r.args[0]}); return 0u; });
+    static uint8_t gameNet[0x10];
+    static uint8_t net[0x380];
+    static uint8_t newPlayers[3][0x30];
+    static uint8_t skate[0x400];
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        std::memset(skate, 0, sizeof(skate));
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<void*>(0x007CCE14) = gameNet;
+        GameVariable<void*>(0x006EFDD8) = net;
+        GameVariable<uint32_t>(0x00696D68) = 0x00696D00;
+        GameVariable<uint32_t>(0x00696D40) = 0x00696C00;
+        static uint32_t memoryManager[0x5E8 / 4];
+        for (uint32_t i = 0; i < 0x5E8 / 4; ++i)
+            memoryManager[i] = 0x00E30000 + i;
+        GameVariable<void*>(0x007D1800) = memoryManager;
+        GameVariable<uint32_t>(0x007CE470) = 0x00700470;
+        auto call = [&](uint32_t address, CFunc ours, Params& params) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        Params none;
+
+        for (uint8_t flags : {uint8_t(0), uint8_t(4), uint8_t(8)}) {
+            gameNet[0] = flags;
+            call(0x005A0880, CFuncs::CFunc_StartServer, none);
+        }
+        call(0x005A08D0, CFuncs::CFunc_LeaveServer, none);
+        // JoinServer: on the server (0 / 3 players, in a network game or not); a client with an address and port,
+        // either missing
+        for (int state = 0; state < 3; ++state) {
+            gameNet[0] = 1;
+            g_players = state ? 3 : 0;
+            g_inNetGame = state == 2;
+            call(0x005A08E0, CFuncs::CFunc_JoinServer, none);
+        }
+        gameNet[0] = 0;
+        Params join; join.String(0, "10.0.0.7").Integer(0, 0x12345);
+        call(0x005A08E0, CFuncs::CFunc_JoinServer, join);
+        Params joinNoPort; joinNoPort.String(0, "10.0.0.8");
+        call(0x005A08E0, CFuncs::CFunc_JoinServer, joinNoPort);
+        Params joinNoIp; joinNoIp.Integer(0, 99);
+        call(0x005A08E0, CFuncs::CFunc_JoinServer, joinNoIp);
+        for (int mode : {-1, 0, 1, 2, 3}) {
+            Params p; p.Integer(0, mode);
+            call(0x005A0A00, CFuncs::CFunc_SetNetworkMode, p);
+        }
+        call(0x005A0A00, CFuncs::CFunc_SetNetworkMode, none);
+        call(0x005A0A60, CFuncs::CFunc_ProfileTasks, none);
+        Params frames; frames.Integer(0, 60);
+        call(0x005A0A60, CFuncs::CFunc_ProfileTasks, frames);
+        call(0x005A0AB0, CFuncs::CFunc_UseNetworkPreferences, none);
+        // TestNetSetup: set up; each error
+        g_setupOk = true;
+        Params success; success.Checksum(CrcOf("success_script"), 0x5CC);
+        call(0x005A0AC0, CFuncs::CFunc_TestNetSetup, success);
+        g_setupOk = false;
+        for (int error : {5, 4, 2, 6, 7, 3, 0, 1, 8}) {
+            reinterpret_cast<int*>(net)[0x2E0 / 4] = error;
+            call(0x005A0AC0, CFuncs::CFunc_TestNetSetup, success);
+        }
+        call(0x005A0BD0, CFuncs::CFunc_NeedToTestNetSetup, none);
+        call(0x005A0BE0, CFuncs::CFunc_CanChangeDevices, none);
+        for (int deci = 0; deci < 3; ++deci) {
+            g_newPlayerIndex = deci; // (the use_deci2 string: empty, none, set)
+            call(0x005A0BF0, CFuncs::CFunc_LoadNetworkDrivers, none);
+        }
+        call(0x005A0C60, CFuncs::CFunc_ConnectToInternet, none);
+        Params connect; connect.Checksum(0x90FF204D, 0xC01).Checksum(0xDE64FC3E, 0xFA1);
+        call(0x005A0C60, CFuncs::CFunc_ConnectToInternet, connect);
+        call(0x005A0CC0, CFuncs::CFunc_CancelConnectToInternet, none);
+        for (uint8_t online : {uint8_t(0), uint8_t(1)}) {
+            net[0x2E4] = online;
+            call(0x005A0CD0, CFuncs::CFunc_IsOnline, none);
+        }
+        call(0x005A0CE0, CFuncs::CFunc_DisconnectFromInternet, none);
+        Params callback; callback.Checksum(0x86068BD9, 0xCA11);
+        call(0x005A0CE0, CFuncs::CFunc_DisconnectFromInternet, callback);
+        // EnableActuators: each controller used or not; on, off, the default
+        for (int used = 0; used < 4; ++used) {
+            skate[0x394] = static_cast<uint8_t>(used & 1);
+            skate[0x39C] = static_cast<uint8_t>(used >> 1);
+            Params off; off.Integer(0, used == 3 ? 7 : 0);
+            call(0x005A0D20, CFuncs::CFunc_EnableActuators, off);
+            call(0x005A0D20, CFuncs::CFunc_EnableActuators, none);
+        }
+        for (int state = 0; state < 2; ++state) {
+            g_inNetGame = state;
+            call(0x005A0D80, CFuncs::CFunc_InNetGame, none);
+        }
+        // IsObserving: the local player (observer or not); joining players (none matching, one); the join mode
+        g_hasLocalPlayer = true;
+        call(0x005A0D90, CFuncs::CFunc_IsObserving, none);
+        g_hasLocalPlayer = false;
+        for (int i = 0; i < 3; ++i) {
+            std::memset(newPlayers[i], 0, sizeof(newPlayers[i]));
+            g_newPlayers[i] = reinterpret_cast<uint32_t>(newPlayers[i]);
+        }
+        reinterpret_cast<uint32_t*>(newPlayers[0])[0x20 / 4] = 1;
+        reinterpret_cast<uint32_t*>(newPlayers[1])[0x20 / 4] = 4;
+        reinterpret_cast<uint32_t*>(newPlayers[2])[0x20 / 4] = 0x10;
+        for (uint32_t mode : {0u, 1u, 2u}) {
+            g_players = mode;
+            call(0x005A0D90, CFuncs::CFunc_IsObserving, none);
+        }
+        reinterpret_cast<uint32_t*>(newPlayers[2])[0x20 / 4] = 5;
+        call(0x005A0D90, CFuncs::CFunc_IsObserving, none);
+        g_newPlayers[0] = 0;
+        call(0x005A0D90, CFuncs::CFunc_IsObserving, none);
+        // SetSlomo: no local skater; one without / with the component
+        for (int state = 0; state < 3; ++state) {
+            g_skaterMask = state ? 0x100 : 0;
+            g_hasComponent = state == 2;
+            Params p;
+            if (state)
+                p.Float(0, 0.25f * state);
+            call(0x005A0E50, CFuncs::CFunc_SetSlomo, p);
+            Record({reinterpret_cast<uint32_t*>(g_fakes->component)[0x2E8 / 4]});
+        }
+        for (bool draw : {false, true}) {
+            g_drawNames = draw;
+            call(0x005A0EB0, CFuncs::CFunc_TogglePlayerNames, none);
+        }
+        call(0x005A0EF0, CFuncs::CFunc_SetCurrentGameType, none);
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(netSaved);
+    RestoreAll(flowSaved);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    Check(traces[0].size() > 300, "network state commands: the original reached its calls");
+    Compare(traces[0], traces[1], "network state commands (0x005A0880-0x005A0F00)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
 SELFTEST(Early, TestGameCFuncs, RemoveStandIns);
 SELFTEST(Early, TestGameFlowCFuncs, RemoveStandIns);
+SELFTEST(Early, TestNetStateCFuncs, RemoveStandIns);
