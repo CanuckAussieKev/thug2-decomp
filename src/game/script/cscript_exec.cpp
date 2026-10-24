@@ -49,6 +49,7 @@
 #include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -298,6 +299,11 @@ bool CScript::ExecuteCommand()
             Dbg::Printf("WARNING: script %s not found, ignoring in default level.\n", FindChecksumNameOrUnknown(name));
         return false;
     }
+    // Not original - the loading console (game/gfx/loading_console.h): while a loading screen is up, the scripts
+    // called and the commands that load or build things.
+    if (Gfx::LoadingConsole::Active() &&
+        (symbol->type == ESYMBOLTYPE_QSCRIPT || symbol->type == ESYMBOLTYPE_CFUNCTION))
+        Gfx::LoadingConsole::NoteScriptCall(name, symbol->type == ESYMBOLTYPE_CFUNCTION, m_functionParams);
     switch (symbol->type) {
     case ESYMBOLTYPE_QSCRIPT: {
         const uint8_t* code = ScriptCache()->GetScript(symbol->name);
