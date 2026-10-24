@@ -152,3 +152,19 @@ Shared files touched: CMakeLists.txt (new files listed).
   - Test TestParseNodeArrayCFuncs: original vs ours over a 16-node array (every class and flag), the park editor on
     and off, skipped nodes, multiplayer, every node a trick object, no checklist; the sectors' whole state compared.
     28 of 28 deliberate bugs caught.
+- [x] Batch GS1-10 (NOT run in the game yet; node commands by name or prefix - 13 functions): node_object_cfuncs.cpp.
+  - 0x005A3B80 SetNodeHidden (objects: object flag 4 through the FlagCommand walk, actions 3 / 4; level object /
+    geometry sectors: the viewport 1 bit - 2 for the second viewport - of their mask), 0x005A3D10 NodeIsAlive (rails
+    active; an object with the name; the sector active), 0x005A3E80 SetNodeColor (0x99A9B716 (0x808080) as RGB with
+    alpha 0x80: a level object's model, level geometry's geometry vtable +0x18), 0x005A3FD0 ShatterNode (the sector's
+    vtable +4 through 0x004A1090; not while the skate module's +0x44 - the getter folded at 0x005331E0), 0x005A40B0
+    SetNodeTerrain (0x9655CFF7), 0x005A4DA0 NodeCommand (0 create, 1 kill, 2 show, 3 hide, 4 show + shatter, 5 alive,
+    6 colour, 7 terrain; the second viewport when the script runs on skater 1 in a two-viewport local game; skipped
+    nodes refused in network mode), 0x005A4EF0 NodeCommandByName (8 callers: name= or prefix= (action 5 stops at the
+    first alive); the flags 0x2E7D5EE7 / 0xBCEB479A do nothing), 0x005A4FF0 Create (the CFunction 0x005B0A40 first),
+    0x005A5010 SetObjectColor, 0x005A5030 Kill, 0x005A5050 Visible, 0x005A5070 Invisible, 0x005A5090 Shatter (the
+    velocity from the calling object times scale, or given; 13 settings to 0x00491110 - the area at least 2000, 5000
+    in a multiplayer game; then action 4). Several sector paths aren't checked for null, as in the original.
+  - Test TestNodeCommandCFuncs: original vs ours, every action on every class, viewports, network mode, the
+    shatter's settings, the sectors' state compared. 34 of 34 deliberate bugs caught (4 after strengthening: game
+    objects, the colour's default, the sectors' state recorded, one viewport).

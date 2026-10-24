@@ -2491,8 +2491,236 @@ void TestParseNodeArrayCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A3B80-0x005A4170, 0x005A4DA0-0x005A5360 (node_object_cfuncs.cpp) -------------------------------------
+
+bool g_netMode, g_railActive;
+uint32_t g_prefixed[3];
+uint16_t g_prefixedCount;
+uint8_t g_geometry[0x10];
+uint32_t g_geometryVtable[8];
+
+void StandInNodeCommandCalls(StandIns& s)
+{
+    s.At({0x0049E690}, 0, [](Regs& r) {
+        Record({0xE690, reinterpret_cast<FakeSector*>(r.ecx)->name});
+        return 0x00F0u | reinterpret_cast<FakeSector*>(r.ecx)->name & 3;
+    });
+    s.At({0x0057D840, AddressOf(&Obj::CRailManager::IsActive)}, 4, [](Regs& r) {
+        Record({0xD840, r.ecx, r.args[0]});
+        return g_railActive ? 1u : 0u;
+    });
+    s.At({0x00420700, AddressOf(&Obj::CModelComponent::SetColor)}, 4, [](Regs& r) { Record({0x0700, Rel(r.ecx), r.args[0]}); return 0u; });
+    s.At({0x004A1090}, 4, [](Regs& r) { Record({0x1090, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
+    s.At({0x0044E4E0, AddressOf(&GameNet::Manager::InNetMode)}, 0, [](Regs&) { Record({0xE4E0}); return g_netMode ? 1u : 0u; });
+    s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs&) { Record({0xE4F0}); return g_inNetGame ? 1u : 0u; });
+    s.At({0x005A32A0, AddressOf(&CFuncs::CreateFromNodeName)}, 0, [](Regs& r) { Record({0x32A0, r.args[0]}); return 0x101u; });
+    s.At({0x005A32C0, AddressOf(&CFuncs::KillFromNodeName)}, 0, [](Regs& r) { Record({0x32C1, r.args[0], Rel(r.args[1])}); return 0x100u; });
+    s.At({0x0045BF90, AddressOf(static_cast<uint32_t* (*)(uint32_t, uint16_t*)>(&SkateScript::GetPrefixedNodes))}, 0, [](Regs& r) {
+        Record({0xBF90, r.args[0]});
+        *reinterpret_cast<uint16_t*>(r.args[1]) = g_prefixedCount;
+        return reinterpret_cast<uint32_t>(g_prefixed);
+    });
+    s.At({0x005B0A40}, 0, [](Regs& r) { Record({0x0A40, r.args[0], r.args[1]}); return 1u; });
+    s.At({0x00491110}, 0, [](Regs& r) {
+        Record({0x1110, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 16), HashBytes(reinterpret_cast<const uint8_t*>(r.args[1]), 16)});
+        for (int i = 2; i < 13; ++i)
+            Record({r.args[i]});
+        return 0u;
+    });
+    s.At({0x005651F0}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
+}
+
+void TestNodeCommandCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> more = {{0x00701378, 4, {}}};
+    SaveAll(saved);
+    SaveAll(more);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInNodeObjectCalls(*standIns);
+    StandInNodeCommandCalls(*standIns);
+    void* colourSlot = standIns->Thunk(4, [](Regs& r) { Record({0xC010, Rel(r.ecx), r.args[0]}); return 0u; });
+    static uint8_t skate[0x400];
+    static uint8_t gameNet[0x10];
+    const uint32_t kName = 0xA1DC81F9, kClass = 0x12B4E660;
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        SetUpScenes();
+        g_sceneCount = 2;
+        std::memset(skate, 0, sizeof(skate));
+        reinterpret_cast<uint32_t*>(skate)[0x24 / 4] = 0x00A11000;
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<void*>(0x007CCE14) = gameNet;
+        g_geometryVtable[6] = reinterpret_cast<uint32_t>(colourSlot);
+        *reinterpret_cast<uint32_t**>(g_geometry) = g_geometryVtable;
+        void* geometry = g_geometry;
+        std::memcpy(&g_sectors[1][0].base, &geometry, 4); // (sector 0x5ED0's geometry, +0x14)
+        auto* objects = g_fakes->flagObjects;
+        for (int i = 0; i < 3; ++i) {
+            reinterpret_cast<uint32_t*>(objects[i])[0x14 / 4] = 0x0B10 + i;
+            reinterpret_cast<uint32_t*>(objects[i])[0x08 / 4] = 0x101u << i;
+        }
+        auto recordObjects = [&] {
+            for (int k = 0; k < 3; ++k)
+                Record({reinterpret_cast<uint32_t*>(objects[k])[0x08 / 4]});
+        };
+        static Params node;
+        g_node = &node;
+        using NodeFn = bool(__cdecl*)(uint32_t, int, Script::CScript*, CStruct*);
+        auto command = [&](uint32_t name, int action, bool withScript, Params& params) {
+            auto* script = withScript ? reinterpret_cast<Script::CScript*>(g_fakes->script) : nullptr;
+            bool result = original ? Original<NodeFn>(0x005A4DA0)(name, action, script, params.Struct())
+                                   : CFuncs::NodeCommand(name, action, script, params.Struct());
+            Record({0x4DA0, static_cast<uint32_t>(action), result ? 1u : 0u,
+                    HashBytes(reinterpret_cast<const uint8_t*>(g_sectors), sizeof(g_sectors))});
+            recordObjects();
+        };
+        Params none;
+        Params colour; colour.Integer(0x99A9B716, 0x123456).Checksum(0x9655CFF7, 0x7E77);
+        // every action on objects, rails, level objects and geometry; skipped nodes; the second viewport
+        const uint32_t classes[] = {0xA0DFAC98, 0x9E7D469E, 0x5B8AB877, 0x8E6B02AD, 0xB7B3BD86, 0xBF4D3536, 0x12345678,
+                                    0xEF59C100, 0x061A741E, 0xE47F1B79, 0x30C19600};
+        GameVariable<int>(0x00701378) = 1;
+        for (int c = 0; c < 11; ++c) {
+            for (int action = 0; action < 9; ++action) {
+                node = Params();
+                node.Checksum(kClass, classes[c]);
+                if (c >= 4)
+                    node.Checksum(kName, c == 4 ? 0x5EC1 : 0x5ED0);
+                g_railActive = action & 1;
+                g_skipNode = false;
+                command(c == 4 && action == 6 ? 0x0B11 : 0x0B10 + action % 3, action, true, colour);
+            }
+        }
+        // the colour's default
+        node = Params();
+        node.Checksum(kClass, 0xBF4D3536).Checksum(kName, 0x5ED0);
+        command(0x0B10, 6, true, none);
+        // one viewport, then the second viewport: two viewports, the script on skater 1, not a network game
+        g_skaterMask = 0x2;
+        reinterpret_cast<void**>(g_fakes->script)[0xBC / 4] = g_fakes->skater;
+        node = Params();
+        node.Checksum(kClass, 0xBF4D3536).Checksum(kName, 0x5ED2);
+        command(0x0B10, 3, true, none);
+        GameVariable<int>(0x00701378) = 2;
+        g_skaterMask = 0x2;
+        reinterpret_cast<void**>(g_fakes->script)[0xBC / 4] = g_fakes->skater;
+        for (int state = 0; state < 3; ++state) {
+            g_inNetGame = state == 1;
+            node = Params();
+            node.Checksum(kClass, 0xBF4D3536).Checksum(kName, 0x5ED2);
+            command(0x0B10, state == 2 ? 2 : 3, true, none);
+        }
+        command(0x0B10, 3, false, none);
+        reinterpret_cast<void**>(g_fakes->script)[0xBC / 4] = nullptr;
+        command(0x0B10, 2, true, none);
+        g_inNetGame = false;
+        // a network game: skipped nodes refused; the skate module's +0x44 stopping a shatter; level geometry without
+        // a name
+        g_netMode = true;
+        g_skipNode = true;
+        command(0x0B10, 0, true, none);
+        g_skipNode = false;
+        command(0x0B10, 0, true, none);
+        g_netMode = false;
+        skate[0x44] = 1;
+        command(0x0B10, 4, true, none);
+        skate[0x44] = 0;
+        g_skipNode = true;
+        command(0x0B10, 4, true, none);
+        command(0x0B10, 2, true, none);
+        g_skipNode = false;
+        for (int action : {2, 4, 5, 6, 7}) {
+            node = Params();
+            node.Checksum(kClass, 0xBF4D3536);
+            command(0x0B10, action, true, colour);
+        }
+
+        // NodeCommandByName: the skip flags; by name (a string); by prefix (stopping at the first alive for 5; an exact
+        // name); neither
+        using ByNameFn = bool(__cdecl*)(CStruct*, Script::CScript*, int);
+        auto byName = [&](Params& params, int action) {
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<ByNameFn>(0x005A4EF0)(params.Struct(), script, action)
+                                   : CFuncs::NodeCommandByName(params.Struct(), script, action);
+            Record({0x4EF0, result ? 1u : 0u});
+        };
+        node = Params();
+        node.Checksum(kClass, 0xA0DFAC98);
+        Params skipA; skipA.Flag(0x2E7D5EE7).Checksum(kName, 0x0B10); byName(skipA, 1);
+        Params skipB; skipB.Flag(0xBCEB479A).Checksum(kName, 0x0B10); byName(skipB, 1);
+        Params named; named.String(kName, "TRG_Ped01"); byName(named, 1);
+        Params prefixed; prefixed.String(0x6C4E7971, "TRG_Ped").Flag(0x80804991);
+        g_prefixed[0] = 0x0B12;
+        g_prefixed[1] = 0x0B10;
+        g_prefixed[2] = 0x0B11;
+        g_prefixedCount = 3;
+        byName(prefixed, 5);
+        byName(prefixed, 3);
+        g_prefixedCount = 0;
+        byName(prefixed, 2);
+        byName(none, 1);
+        // the CFunctions
+        Params target; target.Checksum(kName, 0x0B11);
+        auto call = [&](uint32_t address, CFunc ours, Params& params) {
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+            recordObjects();
+        };
+        call(0x005A4FF0, CFuncs::CFunc_Create, target);
+        call(0x005A5010, CFuncs::CFunc_SetObjectColor, target);
+        call(0x005A5030, CFuncs::CFunc_Kill, target);
+        call(0x005A5050, CFuncs::CFunc_Visible, target);
+        call(0x005A5070, CFuncs::CFunc_Invisible, target);
+        // Shatter: the calling object's velocity (scaled); given; the area's minimum (multiplayer or not); every
+        // setting
+        reinterpret_cast<void**>(g_fakes->script)[0xBC / 4] = g_fakes->object;
+        float* velocity = reinterpret_cast<float*>(g_fakes->object + 0xAC);
+        velocity[0] = 3.5f;
+        velocity[1] = -1.25f;
+        velocity[2] = 7.0f;
+        velocity[3] = 0.5f;
+        static Script::CVector shatterVector = {0, 4.0f, 5.0f, 6.0f};
+        for (int state = 0; state < 4; ++state) {
+            g_multiplayer = state & 1;
+            Params p;
+            p.Checksum(kName, 0x0B10);
+            if (state < 2)
+                p.Flag(0x9F98989E).Float(0x13B9DA7B, 0.75f * (state + 1));
+            else
+                p.Float(0x6187906D, 1.5f).Float(0x1680A0FB, 2.5f).Float(0x8F89F141, -3.5f);
+            if (state == 3)
+                p.Float(0x286BC297, 9000.0f).Float(0xBD309DD9, 1.1f).Float(0x834A5F87, 2.2f).Float(0xE632C101, 3.3f)
+                    .Float(0x7DC30BA6, 4.4f).Float(0xF01BFA01, 5.5f).Checksum(0xB3DE2CAC, 0xB3D).Checksum(0xAF1A25F2, 0xAF1)
+                    .Float(0x2E1C4A64, 6.6f).Vector(0x210EA9E1, &shatterVector).Float(0xC48391A5, 7.7f).Integer(0x33DF5E27, 8);
+            else if (state == 2)
+                p.Float(0x286BC297, 1500.0f);
+            call(0x005A5090, CFuncs::CFunc_Shatter, p);
+        }
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(more);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    g_node = nullptr;
+    Check(traces[0].size() > 500, "node commands: the original reached its calls");
+    Compare(traces[0], traces[1], "node commands (0x005A3B80-0x005A4170, 0x005A4DA0-0x005A5360)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
+SELFTEST(Early, TestNodeCommandCFuncs, RemoveStandIns);
 SELFTEST(Early, TestParseNodeArrayCFuncs, RemoveStandIns);
 SELFTEST(Early, TestNodeObjectCFuncs, RemoveStandIns);
 SELFTEST(Early, TestNodeTrackingCFuncs, RemoveStandIns);

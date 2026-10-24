@@ -16,7 +16,9 @@
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/net/gamenet_manager.h"
 #include "game/obj/emitter.h"
+#include "game/obj/model_component.h"
 #include "game/obj/game_objects.h"
 #include "game/obj/node_objects.h"
 #include "game/obj/object.h"
@@ -27,6 +29,7 @@
 #include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/node_manager.h"
+#include "game/script/node_prefixes.h"
 #include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -581,6 +584,307 @@ bool __cdecl CFunc_ReLoadNodeArray(Script::CStruct*, Script::CScript* script)
     return true;
 }
 
+namespace {
+
+constexpr uint32_t kColor = 0x99A9B716;    // (name unknown) SetObjectColor's colour (0xBBGGRR)
+constexpr uint32_t kTerrain = 0x9655CFF7;  // (name unknown) the terrain a node's sector gets
+
+// FlagCommandByName's walk data (game_flow_cfuncs.cpp): {id, value, action, result, found}.
+struct NodeFlagCommand {
+    uint32_t id;
+    uint32_t value;
+    int action;
+    bool result;
+    bool found;
+};
+
+// The first sector named `name` in any scene (null if none).
+uint8_t* FindSceneSector(uint32_t name)
+{
+    uint8_t* sector = nullptr;
+    for (SceneNode* at = FirstScene(); at;) {
+        SceneNode* next = NextScene(at);
+        sector = GetSector(at->scene, name);
+        if (sector)
+            break;
+        at = next;
+    }
+    return sector;
+}
+
+bool IsObjectClass(uint32_t nodeClass)
+{
+    return nodeClass == kClassParticleObject || nodeClass == kClass061A741E || nodeClass == kClassSkater ||
+           nodeClass == kClassPedestrian || nodeClass == kClassVehicle || nodeClass == kClassGameObject;
+}
+
+} // namespace
+
+// 0x005A3B80: the node `name`'s objects (pedestrians, skaters, vehicles, game objects, particle systems, 0x061A741E:
+// their object flag 4) or sector (level objects and geometry: its viewport 1 bit - viewport 2 with `secondViewport`)
+// hidden or shown. True for nodes the skate module skips; false for other classes.
+bool __cdecl SetNodeHidden(uint32_t name, bool hide, int secondViewport)
+{
+    Script::CStruct* node = SkateScript::GetNode(name, true);
+    if (SkipsNode(node))
+        return true;
+    uint32_t nodeClass = 0;
+    node->GetChecksum(kClass, &nodeClass, 0);
+    if (IsObjectClass(nodeClass)) {
+        NodeFlagCommand command;
+        command.result = false;
+        command.found = false;
+        command.value = 4;
+        command.action = hide ? kFlagActionSetObjectFlags : kFlagActionClearObjectFlags;
+        command.id = name;
+        GameVariable<Obj::CBaseManager*>(0x006F0FB8)->ForEach(&ApplyFlagCommandToObject, &command);
+        return true;
+    }
+    if (nodeClass != kClassLevelObject && nodeClass != kClassLevelGeometry)
+        return false;
+    uint32_t sectorName = 0;
+    if (!node->GetChecksum(kName, &sectorName, 0))
+        return true;
+    uint8_t* sector = FindSceneSector(sectorName);
+    uint32_t mask = GameFunction<uint32_t(__thiscall*)(void*)>(0x0049E690)(sector); // (not checked for null)
+    uint32_t bit = secondViewport == 1 ? 2u : 1u;
+    SetVisibility(sector, hide ? mask & ~bit : mask | bit);
+    return true;
+}
+
+// 0x005A3D10: whether the node `name`'s thing is alive: rail and climbing nodes active; an object with its name
+// there (pedestrians, skaters, vehicles, level objects, game objects, particle systems, 0x061A741E); level
+// geometry's sector active (true without a name). False for other classes.
+bool __cdecl NodeIsAlive(uint32_t name)
+{
+    Script::CStruct* node = SkateScript::GetNode(name, true);
+    uint32_t nodeClass = 0;
+    node->GetChecksum(kClass, &nodeClass, 0);
+    if (nodeClass == kClassClimbingNode || nodeClass == kClassRailNode)
+        return RailManager()->IsActive(name);
+    if (IsObjectClass(nodeClass) || nodeClass == kClassLevelObject) {
+        NodeFlagCommand command;
+        command.value = 0;
+        command.action = 6; // (no action: only whether an object has the id)
+        command.found = false;
+        command.result = false;
+        command.id = name;
+        GameVariable<Obj::CBaseManager*>(0x006F0FB8)->ForEach(&ApplyFlagCommandToObject, &command);
+        return command.found;
+    }
+    if (nodeClass != kClassLevelGeometry)
+        return false;
+    uint32_t sectorName = 0;
+    if (!node->GetChecksum(kName, &sectorName, 0))
+        return true;
+    return GameFunction<bool(__thiscall*)(void*)>(0x0049E9E0)(FindSceneSector(sectorName)); // (not checked for null)
+}
+
+// 0x005A3E80: the node `name`'s colour (0x99A9B716 of `params`, 0xBBGGRR (0x808080), with alpha 0x80): a level
+// object's model component, or level geometry's geometry (vtable +0x18). False for other classes.
+bool __cdecl SetNodeColor(uint32_t name, Script::CStruct* params)
+{
+    int value = 0x808080;
+    params->GetInteger(kColor, &value, true);
+    uint32_t rgba = (static_cast<uint32_t>(value) & 0xFF) | (static_cast<uint32_t>(value) >> 8 & 0xFF) << 8 |
+                    (static_cast<uint32_t>(value) >> 16 & 0xFF) << 16 | 0x80u << 24;
+    Script::CStruct* node = SkateScript::GetNode(name, true);
+    uint32_t nodeClass = 0;
+    node->GetChecksum(kClass, &nodeClass, 0);
+    if (nodeClass == kClassLevelObject) {
+        uint32_t objectName = 0;
+        if (node->GetChecksum(kName, &objectName, 0)) {
+            auto* object = static_cast<Obj::CCompositeObject*>(
+                GameVariable<Obj::CBaseManager*>(0x006F0FB8)->GetObjectByID(objectName));
+            // (neither checked for null, as in the original)
+            reinterpret_cast<Obj::CModelComponent*>(object->GetComponent(0x286A8D26))->SetColor(rgba); // "model"
+        }
+        return true;
+    }
+    if (nodeClass != kClassLevelGeometry)
+        return false;
+    uint32_t sectorName = 0;
+    if (!node->GetChecksum(kName, &sectorName, 0))
+        return true;
+    uint8_t* sector = FindSceneSector(sectorName); // (not checked for null)
+    if (auto* geometry = *reinterpret_cast<uint8_t**>(sector + 0x14))
+        reinterpret_cast<void(__thiscall*)(void*, uint32_t)>((*reinterpret_cast<void***>(geometry))[6])(geometry, rgba);
+    return true;
+}
+
+// 0x005A3FD0: the node `name`'s sector (level objects and geometry) shattered (its vtable +4 with 1), unless the
+// skate module's +0x44 is set (the getter folded at 0x005331E0) or it skips the node (both: true). False for other
+// classes.
+bool __cdecl ShatterNode(uint32_t name)
+{
+    if (Skate()[0x44])
+        return true;
+    Script::CStruct* node = SkateScript::GetNode(name, true);
+    if (SkipsNode(node))
+        return true;
+    uint32_t nodeClass = 0;
+    node->GetChecksum(kClass, &nodeClass, 0);
+    if (nodeClass != kClassLevelObject && nodeClass != kClassLevelGeometry)
+        return false;
+    uint32_t sectorName = 0;
+    if (!node->GetChecksum(kName, &sectorName, 0))
+        return true;
+    uint8_t* sector = FindSceneSector(sectorName); // (not checked for null)
+    GameFunction<void(__thiscall*)(void*, int)>(0x004A1090)(sector, 1); // (a jump to vtable +4)
+    return true;
+}
+
+// 0x005A40B0: the node `name`'s sector (level geometry only, else false) given the terrain 0x9655CFF7 of `params`.
+bool __cdecl SetNodeTerrain(uint32_t name, Script::CStruct* params)
+{
+    uint32_t terrain = 0; // (unset in the original when missing - an asserted parameter)
+    params->GetChecksum(kTerrain, &terrain, true);
+    Script::CStruct* node = SkateScript::GetNode(name, true);
+    uint32_t nodeClass = 0;
+    node->GetChecksum(kClass, &nodeClass, 0);
+    if (nodeClass != kClassLevelGeometry)
+        return false;
+    uint32_t sectorName = 0;
+    if (!node->GetChecksum(kName, &sectorName, 0))
+        return true;
+    *reinterpret_cast<uint32_t*>(FindSceneSector(sectorName) + 0xC) = terrain; // (not checked for null)
+    return true;
+}
+
+// 0x005A4DA0: NodeCommand `action` on the node `name` (false in a network game for nodes the skate module skips):
+// 0 create, 1 kill, 2 show, 3 hide, 4 show and shatter, 5 alive?, 6 colour, 7 terrain; other actions false. Shown /
+// hidden for the second viewport when it's the second skater's script in a two-viewport game.
+bool __cdecl NodeCommand(uint32_t name, int action, Script::CScript* script, Script::CStruct* params)
+{
+    GameNet::Manager* gameNet = GameVariable<GameNet::Manager*>(0x007CCE14);
+    if (gameNet->InNetMode() && SkipsNode(SkateScript::GetNode(name, true)))
+        return false;
+    int secondViewport = 0;
+    if (script && script->m_object.Get() && !gameNet->InNetGame() && GameVariable<int>(0x00701378) == 2 &&
+        script->m_object.Get() == reinterpret_cast<Obj::CObject*>(
+                                       GameFunction<void*(__thiscall*)(uint8_t*, int)>(0x005665C0)(Skate(), 1)))
+        secondViewport = 1;
+    switch (action) {
+    case 0:
+        return CreateFromNodeName(name);
+    case 1:
+        return KillFromNodeName(name, script);
+    case 2:
+        return SetNodeHidden(name, false, secondViewport);
+    case 3:
+        return SetNodeHidden(name, true, secondViewport);
+    case 4:
+        SetNodeHidden(name, false, secondViewport);
+        return ShatterNode(name);
+    case 5:
+        return NodeIsAlive(name);
+    case 6:
+        return SetNodeColor(name, params);
+    case 7:
+        return SetNodeTerrain(name, params);
+    default:
+        return false;
+    }
+}
+
+// 0x005A4EF0: NodeCommand on name= (its answer) or every node of prefix= (true; with action 5, stopping at the first
+// alive; with 0x80804991 the name is exact, not a prefix). Nothing (true) with the flags 0x2E7D5EE7 / 0xBCEB479A;
+// false without either name.
+bool __cdecl NodeCommandByName(Script::CStruct* params, Script::CScript* script, int action)
+{
+    if (params->ContainsFlag(0x2E7D5EE7u) || params->ContainsFlag(0xBCEB479Au))
+        return true;
+    uint32_t prefix = 0;
+    if (params->GetChecksumOrStringChecksum(0x6C4E7971u, &prefix, 0)) { // "prefix"
+        uint32_t count = 0; // (a 16-bit count in a zeroed 32-bit slot)
+        bool isPrefix = !params->ContainsFlag(0x80804991u);
+        (void)isPrefix; // (passed to 0x0045BF90, which ignores it)
+        uint32_t* nodes = SkateScript::GetPrefixedNodes(prefix, reinterpret_cast<uint16_t*>(&count));
+        for (int i = 0; i < static_cast<uint16_t>(count); ++i) {
+            if (NodeCommand(nodes[i], action, script, params) && action == 5)
+                break;
+        }
+        return true;
+    }
+    uint32_t name = 0;
+    if (!params->GetChecksumOrStringChecksum(kName, &name, 0))
+        return false;
+    return NodeCommand(name, action, script, params);
+}
+
+// 0x005A4FF0: Create name= / prefix=: the dead objects flushed first (the CFunction 0x005B0A40), then made.
+bool __cdecl CFunc_Create(Script::CStruct* params, Script::CScript* script)
+{
+    GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x005B0A40)(nullptr, nullptr);
+    return NodeCommandByName(params, script, 0);
+}
+
+// 0x005A5010 / 0x005A5030 / 0x005A5050 / 0x005A5070: SetObjectColor / Kill / Visible / Invisible name= or prefix=.
+bool __cdecl CFunc_SetObjectColor(Script::CStruct* params, Script::CScript* script) { return NodeCommandByName(params, script, 6); }
+bool __cdecl CFunc_Kill(Script::CStruct* params, Script::CScript* script) { return NodeCommandByName(params, script, 1); }
+bool __cdecl CFunc_Visible(Script::CStruct* params, Script::CScript* script) { return NodeCommandByName(params, script, 2); }
+bool __cdecl CFunc_Invisible(Script::CStruct* params, Script::CScript* script) { return NodeCommandByName(params, script, 3); }
+
+// 0x005A5090: Shatter name= / prefix= [0x9F98989E scale= (1): the calling object's velocity times scale, else
+// 0x6187906D / 0x1680A0FB / 0x8F89F141 asserted] and the shatter's settings (0x286BC297 - at least 2000, 5000 in a
+// multiplayer game -, 0xBD309DD9, 0x834A5F87, 0xE632C101, 0x7DC30BA6, 0xF01BFA01, 0xB3DE2CAC, 0xAF1A25F2 (0x54628ED7),
+// 0x2E1C4A64 (1), 0x210EA9E1 (a vector), 0xC48391A5, 0x33DF5E27): the settings given (0x00491110), then the nodes
+// shown and shattered (NodeCommandByName 4, its answer).
+bool __cdecl CFunc_Shatter(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0; // (read and not used)
+    float scale = 1.0f;
+    params->GetChecksum(kName, &name, true);
+    Mth::Vector velocity;
+    if (params->ContainsFlag(0x9F98989Eu)) {
+        params->GetFloat(0x13B9DA7Bu, &scale, 0); // "scale"
+        const Mth::Vector& v = static_cast<Obj::CCompositeObject*>(script->m_object.Get())->m_vel;
+        velocity.x = static_cast<float>(static_cast<double>(scale) * v.x);
+        velocity.y = static_cast<float>(static_cast<double>(scale) * v.y);
+        velocity.z = static_cast<float>(static_cast<double>(scale) * v.z);
+        velocity.w = static_cast<float>(static_cast<double>(scale) * v.w);
+    } else {
+        params->GetFloat(0x6187906Du, &velocity.x, true);
+        params->GetFloat(0x1680A0FBu, &velocity.y, true);
+        params->GetFloat(0x8F89F141u, &velocity.z, true);
+        velocity.w = 0.0f;
+    }
+    float area = 0.0f;
+    params->GetFloat(0x286BC297u, &area, 0);
+    float valueBD30 = 0.0f;
+    params->GetFloat(0xBD309DD9u, &valueBD30, 0);
+    float value834A = 0.0f;
+    params->GetFloat(0x834A5F87u, &value834A, 0);
+    float valueE632 = 0.0f;
+    params->GetFloat(0xE632C101u, &valueE632, 0);
+    float value7DC3 = 0.0f;
+    params->GetFloat(0x7DC30BA6u, &value7DC3, 0);
+    float valueF01B = 0.0f;
+    params->GetFloat(0xF01BFA01u, &valueF01B, 0);
+    uint32_t checksumB3DE = 0;
+    params->GetChecksum(0xB3DE2CACu, &checksumB3DE, 0);
+    uint32_t checksumAF1A = 0x54628ED7;
+    params->GetChecksum(0xAF1A25F2u, &checksumAF1A, 0);
+    float value2E1C = 1.0f;
+    params->GetFloat(0x2E1C4A64u, &value2E1C, 0);
+    Script::VectorValue vector = {0.0f, 0.0f, 0.0f, 1.0f};
+    params->GetVector(0x210EA9E1u, &vector, 0);
+    float valueC483 = 0.0f;
+    params->GetFloat(0xC48391A5u, &valueC483, 0);
+    int value33DF = 0;
+    params->GetInteger(0x33DF5E27u, &value33DF, 0);
+    float minimumArea = 2000.0f;
+    if (GameFunction<bool(__thiscall*)(uint8_t*)>(0x005651F0)(Skate()))
+        minimumArea = GameVariable<float>(0x006453D0); // (5000)
+    if (area < minimumArea)
+        area = minimumArea;
+    GameFunction<void(__cdecl*)(Mth::Vector*, Script::VectorValue*, float, float, float, float, float, float, float, float,
+                                uint32_t, uint32_t, int)>(0x00491110)(&velocity, &vector, valueC483, area, valueBD30,
+                                                                      value834A, valueE632, value7DC3, valueF01B,
+                                                                      value2E1C, checksumB3DE, checksumAF1A, value33DF);
+    return NodeCommandByName(params, script, 4);
+}
+
 } // namespace CFuncs
 
 REPLACE(0x005A2A00, CFuncs::FitViewerCamera);
@@ -591,3 +895,16 @@ REPLACE(0x005A32C0, CFuncs::KillFromNodeName);
 REPLACE(0x005A34D0, CFuncs::CFunc_CreateFromStructure);
 REPLACE(0x005A34E0, CFuncs::CFunc_ParseNodeArray);
 REPLACE(0x005A39F0, CFuncs::CFunc_ReLoadNodeArray);
+REPLACE(0x005A3B80, CFuncs::SetNodeHidden);
+REPLACE(0x005A3D10, CFuncs::NodeIsAlive);
+REPLACE(0x005A3E80, CFuncs::SetNodeColor);
+REPLACE(0x005A3FD0, CFuncs::ShatterNode);
+REPLACE(0x005A40B0, CFuncs::SetNodeTerrain);
+REPLACE(0x005A4DA0, CFuncs::NodeCommand);
+REPLACE(0x005A4EF0, CFuncs::NodeCommandByName);
+REPLACE(0x005A4FF0, CFuncs::CFunc_Create);
+REPLACE(0x005A5010, CFuncs::CFunc_SetObjectColor);
+REPLACE(0x005A5030, CFuncs::CFunc_Kill);
+REPLACE(0x005A5050, CFuncs::CFunc_Visible);
+REPLACE(0x005A5070, CFuncs::CFunc_Invisible);
+REPLACE(0x005A5090, CFuncs::CFunc_Shatter);

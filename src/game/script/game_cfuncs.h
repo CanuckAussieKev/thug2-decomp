@@ -183,6 +183,24 @@ bool __cdecl CreateFromNode(Script::CStruct* node);
 bool __cdecl CreateFromNodeName(uint32_t name);
 // 0x005A32C0: the object of the node `name` killed (switched off) by its class.
 bool __cdecl KillFromNodeName(uint32_t name, Script::CScript* script);
+bool __cdecl CFunc_Create(Script::CStruct* params, Script::CScript* script);                   // 0x005A4FF0
+bool __cdecl CFunc_SetObjectColor(Script::CStruct* params, Script::CScript* script);           // 0x005A5010
+bool __cdecl CFunc_Kill(Script::CStruct* params, Script::CScript* script);                     // 0x005A5030
+bool __cdecl CFunc_Visible(Script::CStruct* params, Script::CScript* script);                  // 0x005A5050
+bool __cdecl CFunc_Invisible(Script::CStruct* params, Script::CScript* script);                // 0x005A5070
+bool __cdecl CFunc_Shatter(Script::CStruct* params, Script::CScript* script);                  // 0x005A5090
+// 0x005A3B80 / 0x005A3D10 / 0x005A3E80 / 0x005A3FD0 / 0x005A40B0: a node's thing (by its name) hidden or shown (in
+// viewport 1, or 2 with `secondViewport` 1), alive?, coloured, shattered, given a terrain.
+bool __cdecl SetNodeHidden(uint32_t name, bool hide, int secondViewport);
+bool __cdecl NodeIsAlive(uint32_t name);
+bool __cdecl SetNodeColor(uint32_t name, Script::CStruct* params);
+bool __cdecl ShatterNode(uint32_t name);
+bool __cdecl SetNodeTerrain(uint32_t name, Script::CStruct* params);
+// 0x005A4DA0: one of those (or create / kill) on the node `name`: 0 create, 1 kill, 2 show, 3 hide, 4 show and
+// shatter, 5 alive?, 6 colour, 7 terrain.
+bool __cdecl NodeCommand(uint32_t name, int action, Script::CScript* script, Script::CStruct* params);
+// 0x005A4EF0 (8 callers): NodeCommand on name= or the nodes of prefix=.
+bool __cdecl NodeCommandByName(Script::CStruct* params, Script::CScript* script, int action);
 
 // What FlagCommandByName does to the objects: set / clear / test a script flag (of 32), set / clear object flag
 // bits, send an exception.
