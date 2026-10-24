@@ -71,4 +71,28 @@ CreateDevice assume the options at their defaults - run self-tests with them off
 
 ## Results
 
-(below)
+- Build clean (no warnings). thug2_check on THUG2PM.exe and on C:\Games\THUG2\Game\THUG2.exe: 0 MISMATCHED, all 818
+  early self-tests pass, crash handling 0 FAILED. check_code_writes: No overlaps.
+- Game runs (2026-10-24, C:\Games\THUG2-2 under the lock, 1280x720 windowed, AntiAliasing=1 as the user has it,
+  self-tests off), `-level BO`, anisotropy=16 msaa=4 draw_distance_scale=2 lod_distance_scale=2: loads, log
+  `msaa=4 asked, 4 samples (quality 0) chosen`, no errors / CRT reports; capture (the screenshot key's CaptureBackBuffer
+  path, resolving the 4x back buffer) gives correct, non-black PNGs; minimise -> restore: drawing goes on, a capture after
+  it fine; pause menu fine. The posted F12 (screenshot key) isn't picked up by a background window - the key's own
+  path is the same CaptureBackBuffer as the capture command.
+- Before / after (same camera pose, all defaults vs all on): out\shots\graphics_basics_compare.png and
+  out\shots\graphics_basics_compare_zoom.png (the far brick pavement, x2) in the worktree - the far bricks / road
+  markings / church lettering sharp instead of smeared, edges smoother.
+- NOT exercised in a run: the screen-copy path (motion blur / bloom) - BO never takes it (no
+  "screen copies drawn through the multisampled scene surface" line, logged once when it is), and the automation `run`
+  can't pass SetScreenBlur's unnamed amount. A real device Reset (full-screen alt-tab, resolution change) also not
+  forced: windowed minimise doesn't lose the device. Frame time not measurable from the tools (series clocks are game
+  time); the game stays at its 60 Hz frame pacing.
+
+## For the user to check
+
+1. Main install (2560x1440): `[Graphics] anisotropy=16`, `msaa=4` (8 if the GPU keeps 60 fps), `draw_distance_scale=2`,
+   `lod_distance_scale=2`. Look down long streets (BO, NY, Barcelona) and at distant peds / cars popping.
+2. A level / moment with bloom or motion blur (DisableBlur=0, a special / bail): the log line "screen copies drawn
+   through the multisampled scene surface" appears; the picture must look right (no black frame, no frozen image).
+3. Alt-tab in full screen (Windowed=0) and back: the game recovers.
+4. Ported levels (THPS3 / THPS4 / THP8) with draw_distance_scale=2: no new seams at the horizon.
