@@ -102,3 +102,30 @@ src/hook/selftests_gs2_*.cpp. Shared files touched: CMakeLists.txt (new files li
     off, full / partial / career-less global info on two platforms, pro or not, the soundtrack symbol there or not,
     every type applied, OptionsAndPros with each section and both profile indexes, GetSaveInfo for the types whose
     summary of empty contents is safe. 34 of 34 deliberate bugs caught.
+- [x] Batch GS2-6 (NOT run in the game yet; textures, profiles and their neighbours - 34 functions):
+  src/game/gfx/texture_cfuncs.h / .cpp, src/game/skate/profile_cfuncs.h / .cpp (new).
+  - 0x005A9D80 SceAltPt, 0x005A9D90 FindNameOfValue (recursive, 10 levels: structures inside and global structures
+    the values name; a later name match overrides), 0x005A9E30 FindNameOfInteger (EBX + stack; prints
+    "s_find_cat_in_mapping found %i", the last match wins), 0x005A9E80 WrapAngle (0..360, x87 double precision),
+    0x005A9ED0 CompositeObjectExists, the texture dictionary 0x00700F1C's commands 0x005A9F00 LoadTexture
+    (no_vram_alloc), 0x005A9F60 CreateTexture (width / height / bitdepth, palette_bitdepth for 8 bits or less),
+    0x005AA040 UnloadTexture (by name or checksum; dont_assert), 0x005AA0C0 Generate32BitImage, 0x005AA160
+    Put32BitImageIntoTexture, 0x005AA1E0 FlipTexture, 0x005AA270 ResizeTextureInto, 0x005AA2E0 ScaleTexture,
+    0x005AA340 AdjustTextureRegion (xpos / ypos / width / height defaulting to the texture's size, three unnamed),
+    0x005AA460 PullTextureToEdge, 0x005AA500 AdjustTextureBrightness, 0x005AA590 AdjustTextureHSV, 0x005AA670
+    CopyTexture, 0x005AA6E0 CombineTextures (new= makes a new one; no_palette_gen), the particle dictionary
+    0x00700F20's 0x005AA7B0 LoadParticleTexture (perm), 0x005AA830 UnloadParticleTexture, 0x005AA880 LoadSFPTexture,
+    0x005AA8B0 UnloadSFPTexture, 0x005AA8F0 SetParkName (false); 0x005AA930 SwapMapping (the five-pair table
+    0x007CEDE0; a full table indexes slot -1, as in the original), 0x005AAA80 AddGoalEditorNodesToLevelNodeArray,
+    0x005AAAA0 PreloadMeshes (EAX), 0x005AAB50 CurrentSkaterIsPro (the params pointer passed as the profile index,
+    as in the original), 0x005AAB80 GetGoalsCompleted ("%d/9", "---"), 0x005AAC10 GetNextLevelRequirements,
+    0x005AAD70 SetCurrentSkaterProfile, 0x005AADA0 AddSkaterProfile, 0x005AADC0 AddTemporaryProfile, 0x005AADF0
+    RememberTemporaryAppearance (a stack model appearance; NoFaceTexture copies only its structure).
+  - Uninitialised locals of the original kept where a missing parameter leaves them (ResizeTextureInto's src,
+    ScaleTexture's scale, CombineTextures' src / top); CreateTexture's palette depth is 0 in ours when not read.
+  - Tests TestTextureCFuncs / TestProfileCFuncs: original vs ours with the dictionaries, the texture thunks (their
+    argument bytes, bools by their low byte), FindObject, Printf, the profile manager, the career counts, the skate
+    module's profiles, model creation, the appearance calls stood in for: textures found / not, every flag value,
+    defaults missing, the swap table through 10 swaps (new, existing, back, full), the level steps over 8 ranges.
+    45 deliberate bugs: 45 caught (8 after strengthening: a name match before a structure, palette_gen 2, no
+    Brightness, the level steps reordered to reach equal / short / goal-flag / break cases).

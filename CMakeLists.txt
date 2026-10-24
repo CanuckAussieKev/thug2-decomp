@@ -277,6 +277,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gs2_save.cpp
     src/hook/selftests_gs2_files.cpp
     src/hook/selftests_gs2_contents.cpp
+    src/hook/selftests_gs2_textures.cpp
     src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_obj_scene_cmds.cpp
@@ -907,6 +908,8 @@ add_library(thug2_code OBJECT
     src/game/mc/save_types.cpp
     src/game/mc/save_files_cfuncs.cpp
     src/game/mc/save_contents.cpp
+    src/game/gfx/texture_cfuncs.cpp
+    src/game/skate/profile_cfuncs.cpp
     src/game/script/eval.cpp
     src/game/script/node_manager.cpp
     src/game/script/node_prefixes.cpp
