@@ -1341,6 +1341,14 @@ export const GAP_FILL = "GapFill";
 // a metre or more short of it: the skater slid off the roof into it - the user, BEAVER VALLEY round 4) is floored too,
 // up to WALL_WIDE cells across; looked at along x, z and both diagonals.
 export const WALL_WIDE = 16;
+// A cell under a ramp's steep part (steeper than ground, 60 degrees, but still facing up: normal y at least
+// GAP_RAMP_UP, ~87 degrees) isn't void: the ramp is the surface there. Until 2026-10-24 such cells counted as void
+// between the transition's ground and the vert wall above it and were floored at the transition's height, half a cell
+// wider all round - flat shelves up to 5 inches out of the ramp's face (the memorial's 6 m vert wall in the Capitol
+// grounds, BEAVER VALLEY: thp8_net_beavervalley_GapFill_61, 20-inch squares at 215-223 inches across its 54 - 69
+// degree transition): the skater going up it was thrown into the air at the transition and met the vert wall in the
+// air (the user's "slope" collision events there).
+export const GAP_RAMP_UP = 0.05;
 export const LEAF_MOST = 0x800; // faces a collision BSP leaf may hold (THUG2's line test)
 export const GAP_TILE = 1600; // inches: the fill objects' squares
 export const GAP_MOST = 1500; // faces a fill object
@@ -1399,6 +1407,10 @@ export function gapFills(objects: readonly geometry.SourceColObject[], level: st
     // the walls: cells a steep collidable face passes through, with its lowest and highest point there
     const wallLo = new Float32Array(nx * nz).fill(Number.NaN);
     const wallHi = new Float32Array(nx * nz).fill(Number.NaN);
+    // the ramps: cells a steep face still facing up (GAP_RAMP_UP) passes through, its lowest point and terrain there -
+    // not void (see GAP_RAMP_UP)
+    const rampLo = new Float32Array(nx * nz).fill(Number.NaN);
+    const rampTerrain = new Uint8Array(nx * nz);
     for (const o of objects) {
         for (const f of o.faces) {
             if (f[0] & (thug2Col.FACE_NON_COLLIDABLE | thug2Col.FACE_TRIGGER)) continue;
@@ -1408,6 +1420,7 @@ export function gapFills(objects: readonly geometry.SourceColObject[], level: st
             const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
             const len = Math.hypot(n[0]!, n[1]!, n[2]!);
             if (!len || Math.abs(n[1]! / len) >= 0.5) continue;
+            const ramp = n[1]! / len >= GAP_RAMP_UP;
             const span = Math.max(Math.hypot(u[0]!, u[1]!, u[2]!), Math.hypot(v[0]!, v[1]!, v[2]!));
             const steps = Math.max(1, Math.min(2000, Math.ceil(span / (GAP_CELL / 2))));
             for (let p = 0; p <= steps; p++) {
@@ -1421,6 +1434,10 @@ export function gapFills(objects: readonly geometry.SourceColObject[], level: st
                     const at = i * nz + k;
                     if (!(wallLo[at]! <= y)) wallLo[at] = y;
                     if (!(wallHi[at]! >= y)) wallHi[at] = y;
+                    if (ramp && !(rampLo[at]! <= y)) {
+                        rampLo[at] = y;
+                        rampTerrain[at] = f[1];
+                    }
                 }
             }
         }
@@ -1439,6 +1456,7 @@ export function gapFills(objects: readonly geometry.SourceColObject[], level: st
             if (!inside(x, z)) return null;
             const at = x * nz + z;
             if (covered[at] === 15) return [height[at]!, terrain[at]!, false];
+            if (!Number.isNaN(rampLo[at]!)) return [rampLo[at]!, rampTerrain[at]!, false]; // (a ramp's foot: ground)
             if (tallWall(at)) return [wallLo[at]!, 0, true];
         }
         return null;
@@ -1446,7 +1464,7 @@ export function gapFills(objects: readonly geometry.SourceColObject[], level: st
     for (let i = 0; i < nx; i++) {
         for (let k = 0; k < nz; k++) {
             const at0 = i * nz + k;
-            if (covered[at0] === 15 || tallWall(at0)) continue;
+            if (covered[at0] === 15 || tallWall(at0) || !Number.isNaN(rampLo[at0]!)) continue;
             let best = Number.NaN;
             let bestTerrain = 0;
             for (const [di, dk] of [

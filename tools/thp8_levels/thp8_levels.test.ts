@@ -881,6 +881,35 @@ test("narrow holes: void between ground and a wall standing on it is floored (un
     };
     assert.equal(at(150, 50), 97);
     assert.ok(fills.every((o) => o.faces.length <= GAP_MOST));
+    // a quarter pipe: floor to x 203, a 54-degree transition to 213 (ground), a 65-degree face to 229 (steep, facing
+    // up: a ramp, not void), then a vert wall - no shelf in the transition (the memorial's vert wall, BEAVER VALLEY)
+    const pipe = [
+        quad(1, [
+            [0, 0, 0],
+            [203, 0, 0],
+            [203, 0, 100],
+            [0, 0, 100],
+        ]),
+        quad(2, [
+            [203, 0, 0],
+            [203, 0, 100],
+            [213, 14, 100],
+            [213, 14, 0],
+        ]),
+        quad(3, [
+            [213, 14, 0],
+            [213, 14, 100],
+            [229, 48, 100],
+            [229, 48, 0],
+        ]),
+        quad(4, [
+            [229, 48, 0],
+            [229, 48, 100],
+            [229, 300, 100],
+            [229, 300, 0],
+        ]),
+    ];
+    assert.equal(gapFills(pipe, "t").length, 0);
     // THP8's 0x40 faces stay solid, invisible or not (the roundabout's skirt: 0x1140)
     assert.equal(faceFlags(0x1140) & 0x10, 0);
     assert.equal(faceFlags(0x0040) & 0x10, 0);
