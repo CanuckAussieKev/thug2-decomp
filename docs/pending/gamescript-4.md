@@ -29,3 +29,26 @@ Shared files touched: CMakeLists.txt (new files listed).
     0x005665C0), skaters, trick component, records, career, Pcm, front end, Sio device, the key-combo look-ups
     0x005A9D90 / 0x005A9E30, global structures / arrays and the array pool stood in for by recording code; every
     command over its branches. 48 of 48 deliberate bugs caught (1 after strengthening: update_mappings' default).
+- [x] Batch GS4-2 (NOT run in the game yet; interpolating parameters, a texture's name, power-ups, the hunt, entering
+  vehicles, the lobby keyboard - 11 CFunctions): src/game/script/game_util_cfuncs.h / .cpp, src/game/net/hunt_cfuncs.h
+  / .cpp (new).
+  - 0x005B1B60 InterpolateParameters (a new structure 0xFF6F3872 - name unknown - of A's integers / floats moved
+    towards B's by 0x404E690D - name unknown -: unnamed and ignored components skipped, B's integer or float, an
+    integer result truncated as _ftol does (the low 32 bits of the 64-bit value) only if both were integers; Angles
+    the shorter way round through 0x005A9E80, its x87 result read at full precision; the original asks the command's
+    params for the next component - the same thing), 0x005B1E00 GetTextureFromPath (the last part after / or \ into
+    a 32-byte buffer, as the original), 0x005B1EA0 ClearPowerups (once per existing skater 0-7, always the object
+    manager's first SkaterState component - kept), 0x005B1EE0 PlaceObject (the script's skater's PlayerInfo: the
+    count at +0x34, the positions from +0x180), 0x005B1F70 AnnounceHuntStarted (message 0x93 to every remote player),
+    0x005B2030 AnnounceNeedToPlaceObjects (0x91 to every player), 0x005B20E0 AtLeastOneObjectPlaced (observers not
+    counted; a count > 0), 0x005B2170 ReportObjectPickup (message 0x90 with the id; offline the client numbered by
+    colObjId - as the original), 0x005B2210 PlacedLessThan, 0x005B2260 BroadcastEnterVehicle (message 0x89: the
+    skater's id byte and the control type, 8 bytes with padding), 0x005B2300 LobbyCheckKeyboard (a typed space opens
+    lobby_enter_kb_chat unless keyboard_anchor exists).
+  - Test TestHuntCFuncs: original vs ours with the network manager's players, apps and clients, the skate module,
+    the object manager, the keyboard, ObjectExists, RunScript and the structure pool stood in for (messages compared
+    field by field with their data); interpolation over integer / float / mixed / ignored / unnamed / angle
+    components at five fractions (incl. an _ftol overflow). 37 of 37 deliberate bugs caught (2 after strengthening:
+    an unnamed component in B, a negative placed count).
+  - Build note: the verify build embeds its debug info (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded, this worktree's
+    build folder only): the shared compile PDB failed with LNK1318 under mutation builds.

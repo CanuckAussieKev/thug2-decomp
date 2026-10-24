@@ -548,6 +548,7 @@ void TestTrickCFuncs()
         traces[run] = g_trace;
     }
     RestoreGlobals();
+    DumpTraces(traces[0], traces[1]);
     Compare(traces[0], traces[1], "configurable tricks, records, soundtracks, controllers (0x005B0A40-0x005B1B60)");
 }
 

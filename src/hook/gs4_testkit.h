@@ -143,7 +143,7 @@ inline std::vector<Saved> g_saved;
 inline Script::CSymbolTableEntry* g_table[0x1000];
 inline void SaveGlobals(std::initializer_list<Saved> more)
 {
-    g_saved = {{0x006F3624, 4, {}}, {0x006F22B4, 16, {}}};
+    g_saved = {{0x006F3624, 4, {}}, {0x006F22B4, 16, {}}, {0x006F3614, 16, {}}};
     g_saved.insert(g_saved.end(), more);
     SaveAll(g_saved);
     std::memset(g_table, 0, sizeof(g_table));
@@ -168,6 +168,23 @@ inline void UseStandInArrayPool()
     pair.pools[0] = reinterpret_cast<Mem::Pool*>(g_arrayPool);
     g_newArrayCount = 0;
     std::memset(g_newArrays, 0xCD, sizeof(g_newArrays));
+}
+// The structure pool (0x006F3614) likewise: new structures come from the same stand-in buffers.
+inline void UseStandInStructPool()
+{
+    auto& pair = GameVariable<Mem::PoolPair>(0x006F3614);
+    pair.current = 0;
+    pair.pools[0] = reinterpret_cast<Mem::Pool*>(g_arrayPool);
+}
+
+// Both traces logged side by side when THUG2_GS4_DUMP is set (finding where they part).
+inline void DumpTraces(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b)
+{
+    if (!GetEnvironmentVariableA("THUG2_GS4_DUMP", nullptr, 0))
+        return;
+    for (size_t i = 0; i < a.size() || i < b.size(); ++i)
+        Log("  %5u %08X %08X%s", static_cast<unsigned>(i), i < a.size() ? a[i] : 0u, i < b.size() ? b[i] : 0u,
+            i < a.size() && i < b.size() && a[i] == b[i] ? "" : "  <<");
 }
 
 // The structure methods that change a structure, the global look-ups, the array methods, the debug output.
@@ -228,6 +245,18 @@ inline void StandInStructCalls(StandIns& s)
     });
     s.At({0x004780D0, AddressOf(static_cast<AddArr>(&CStruct::AddArrayPointer))}, 8, [](Regs& r) {
         Record({0x80D0, r.ecx, r.args[0], ArrayId(r.args[1])});
+        return 0u;
+    });
+    s.At({0x004781B0, AddressOf(static_cast<AddSt>(&CStruct::AddStructurePointer))}, 8, [](Regs& r) {
+        Record({0x81B0, r.ecx, r.args[0], ArrayId(r.args[1])});
+        return 0u;
+    });
+    s.At({0x00477090, 0x00477130, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) {
+        Record({0x7090, ArrayId(r.ecx)});
+        return 0u;
+    });
+    s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) {
+        Record({0x9070, ArrayId(r.args[0])});
         return 0u;
     });
     s.At({0x00479020, AddressOf(static_cast<CStruct* (*)(uint32_t)>(&Script::GetStructure))}, 0, [](Regs& r) {
