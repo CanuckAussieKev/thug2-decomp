@@ -3,6 +3,8 @@
 
 #include "game/script/game_cfuncs.h"
 
+#include <windows.h>
+
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -33,6 +35,7 @@
 #include "game/obj/control_pad.h"
 #include "game/obj/model_component.h"
 #include "game/obj/object.h"
+#include "game/obj/proxim.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
 #include "game/script/node_manager.h"
@@ -801,6 +804,129 @@ bool __cdecl CFunc_SetSceneColor(Script::CStruct* params, Script::CScript*)
     return true;
 }
 
+namespace {
+
+constexpr uint32_t kMenuText = 0xC4745838;    // (names unknown) a menu item's text,
+constexpr uint32_t kMenuId = 0x40C698AF;      // "id"
+constexpr uint32_t kMenuParams = 0xB8437568;  // its pad_choose parameters
+constexpr uint32_t kMenuScript = 0x2B0CFCA1;  // its pad_choose script
+constexpr uint32_t kFirstRestartId = 123456;  // the restart items' ids, from here
+
+// A new, empty script structure (from the structures' pool) and its deletion.
+Script::CStruct* NewStructure()
+{
+    auto* structure = Script::NewStruct();
+    return structure ? structure->Init() : nullptr;
+}
+void DeleteStructure(Script::CStruct* structure)
+{
+    if (structure) {
+        structure->Clear();
+        Script::DeleteStruct(structure);
+    }
+}
+
+// A restart menu item's fixed parts.
+void AddRestartItemFlags(Script::CStruct* item)
+{
+    item->AddChecksum(0x9F67B2C8, 0x9F67B2C8); // (flags, names unknown)
+    item->AddChecksum(0x2A434D05, 0x2A434D05);
+    item->AddChecksum(kMenuScript, 0x506562D9);
+}
+
+} // namespace
+
+// 0x005A4260: AddRestartsToMenu 0x1B9E8272=<scale>: an item (script 0xC16BF7BD) per restart of the level (its
+// RestartName, else "Unnamed restart"; ids from 123456; the restart's node in its parameters), or "No restarts in
+// level".
+bool __cdecl CFunc_AddRestartsToMenu(Script::CStruct* params, Script::CScript*)
+{
+    int count = 0;
+    uint32_t restart = 0;
+    while ((restart = Obj::GetRestartNode(0, 0, restart)) != 0) {
+        Script::CStruct* node = SkateScript::GetNode(restart, true);
+        const char* name;
+        if (!node->GetString(reinterpret_cast<const char*>(0x00650230), &name, 0)) // "RestartName"
+            name = reinterpret_cast<const char*>(0x00650220);                       // "Unnamed restart"
+        Script::CStruct* item = NewStructure();
+        item->AddString(kMenuText, name);
+        item->AddChecksum(kMenuId, kFirstRestartId + count);
+        AddRestartItemFlags(item);
+        Script::CStruct* choose = NewStructure();
+        choose->AddChecksum(0x66780C6F, restart);
+        item->AddStructure(kMenuParams, choose);
+        float scale = 0.0f; // (unset in the original when missing - an asserted parameter)
+        params->GetFloat(0x1B9E8272u, &scale, true);
+        item->AddFloat(0x13B9DA7B, scale); // "scale"
+        Script::RunScript(0xC16BF7BD, item, nullptr, false, nullptr);
+        DeleteStructure(item);
+        DeleteStructure(choose);
+        ++count;
+    }
+    if (!count) {
+        Script::CStruct* item = NewStructure();
+        item->AddString(kMenuText, reinterpret_cast<const char*>(0x00650208)); // "No restarts in level"
+        item->AddChecksum(kMenuId, kFirstRestartId);
+        AddRestartItemFlags(item);
+        Script::RunScript(0xC16BF7BD, item, nullptr, false, nullptr);
+        DeleteStructure(item);
+    }
+    return true;
+}
+
+// 0x005A4560: AddWarpPointsToMenu 0xE2C2FA03=[nodes]: an item (script 0xBEED50B6) per node (its 0xFCD206E1 name,
+// else "Unnamed restart"; the node in its parameters). The parameters' own structure isn't freed (a leak, kept). The
+// array isn't checked for null.
+bool __cdecl CFunc_AddWarpPointsToMenu(Script::CStruct* params, Script::CScript*)
+{
+    Script::CArray* nodes = nullptr;
+    params->GetArray(0xE2C2FA03u, &nodes, 0);
+    for (uint32_t i = 0; i < nodes->m_size; ++i) {
+        Script::CStruct* item = NewStructure();
+        Script::CStruct* node = SkateScript::GetNode(nodes->GetElement(i), true);
+        const char* name;
+        if (!node->GetString(0xFCD206E1u, &name, 0))
+            name = reinterpret_cast<const char*>(0x00650220); // "Unnamed restart"
+        item->AddString(kMenuText, name);
+        item->AddChecksum(kMenuScript, 0x54523C62);
+        Script::CStruct* choose = NewStructure();
+        choose->AddChecksum(0x9F92BA78, nodes->GetElement(i));
+        item->AddStructure(kMenuParams, choose);
+        Script::RunScript(0xBEED50B6, item, nullptr, false, nullptr);
+        DeleteStructure(item);
+    }
+    return true;
+}
+
+// 0x005A4730: AddFacesToMenu: an add_item_to_face_menu (name= without its extension, file=) for each of the first 11
+// Faces\*.img files with names up to 90 characters. False if there are none.
+bool __cdecl CFunc_AddFacesToMenu(Script::CStruct*, Script::CScript*)
+{
+    WIN32_FIND_DATAA found;
+    HANDLE search = FindFirstFileA(reinterpret_cast<const char*>(0x00650254), &found); // "Faces\*.img"
+    if (search == INVALID_HANDLE_VALUE)
+        return false;
+    int count = 0;
+    do {
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(found.cFileName) <= 90) {
+            char file[0x110];
+            char name[0xC8];
+            std::memcpy(file, found.cFileName, std::strlen(found.cFileName) + 1);
+            std::memcpy(name, found.cFileName, std::strlen(found.cFileName) + 1);
+            if (std::strlen(name) > 4)
+                name[std::strlen(name) - 4] = '\0';
+            Script::CStruct* item = NewStructure();
+            item->AddString(reinterpret_cast<const char*>(0x0064D0C4), name); // "name"
+            item->AddString(reinterpret_cast<const char*>(0x0064D2B8), file); // "file"
+            Script::RunScript(reinterpret_cast<const char*>(0x0065023C), item, nullptr, false); // "add_item_to_face_menu"
+            ++count;
+            DeleteStructure(item);
+        }
+    } while (count < 11 && FindNextFileA(search, &found));
+    FindClose(search);
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x0059F610, CFuncs::CFunc_SetViewerAnim);
@@ -843,3 +969,6 @@ REPLACE(0x005A23E0, CFuncs::CFunc_ShowTracking);
 REPLACE(0x005A2790, CFuncs::CFunc_ChooseFaceForFacemap);
 REPLACE(0x005A29A0, CFuncs::CFunc_SkaterIsCustom);
 REPLACE(0x005A29E0, CFuncs::CFunc_SetSceneColor);
+REPLACE(0x005A4260, CFuncs::CFunc_AddRestartsToMenu);
+REPLACE(0x005A4560, CFuncs::CFunc_AddWarpPointsToMenu);
+REPLACE(0x005A4730, CFuncs::CFunc_AddFacesToMenu);

@@ -6,6 +6,7 @@
 
 #include <cstdint>
 
+#include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/stubs.h"
@@ -574,6 +575,81 @@ bool __cdecl CFunc_ForceServerListRefresh(Script::CStruct*, Script::CScript*)
     return true;
 }
 
+namespace {
+
+// A new, empty script structure (from the structures' pool) and its deletion.
+Script::CStruct* NewPreference()
+{
+    auto* structure = Script::NewStruct();
+    return structure ? structure->Init() : nullptr;
+}
+void DeletePreference(Script::CStruct* structure)
+{
+    if (structure) {
+        structure->Clear();
+        Script::DeleteStruct(structure);
+    }
+}
+uint32_t Crc(uintptr_t name) { return Crc::GenerateCRCFromString(reinterpret_cast<const char*>(name)); }
+// The network preference `name` set to {ui_string="<text>"}.
+void SetStringPreference(Prefs::Preferences* prefs, uintptr_t name, const char* text)
+{
+    Script::CStruct* preference = NewPreference();
+    preference->AddString(Crc(0x0064C830), Script::ESYMBOLTYPE_STRING, text); // "ui_string"
+    prefs->SetPreference(Crc(name), preference);
+    DeletePreference(preference);
+}
+// ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.
+void SetChoicePreference(Script::CStruct* preference, uintptr_t text, uintptr_t value)
+{
+    preference->AddString(reinterpret_cast<const char*>(0x0064C830), reinterpret_cast<const char*>(text)); // "ui_string"
+    preference->AddChecksum(reinterpret_cast<const char*>(0x0064C9A8), Crc(value));                        // "checksum"
+}
+
+} // namespace
+
+// 0x005A4900: the network preferences set from the host settings (PartyMod's / the Beenox port's globals): the
+// server name "Beenox", the password (0x007CCBD4), the network id (0x007CCBC4, if any), the player count (0x0067EFD0),
+// the team mode (0x007CCBE0: 0 none, 2 / 3 / 4 teams; others leave it empty) and the skill level (0x0067EFD4, 1-5).
+void __cdecl InitBeenoxPreferences()
+{
+    GameNet::Manager* gameNet = GameNetManager();
+    Prefs::Preferences* prefs = gameNet->GetNetworkPreferences();
+    SetStringPreference(prefs, 0x00650324, reinterpret_cast<const char*>(0x0067EFBC)); // "server_name": "Beenox"
+    SetStringPreference(prefs, 0x0064CE50, &GameVariable<char>(0x007CCBD4));           // "password"
+    if (GameVariable<char>(0x007CCBC4) != '\0')
+        SetStringPreference(prefs, 0x0064CF0C, &GameVariable<char>(0x007CCBC4)); // "network_id"
+    gameNet->SetMaxPlayersPreference(GameVariable<int>(0x0067EFD0));
+    Script::CStruct* teams = NewPreference();
+    switch (GameVariable<uint32_t>(0x007CCBE0)) {
+    case 0: SetChoicePreference(teams, 0x0064C43C, 0x00650318); break; // "None", teams_none
+    case 2: SetChoicePreference(teams, 0x0064C8A8, 0x0065030C); break; // "2", teams_two
+    case 3: SetChoicePreference(teams, 0x0064C8A4, 0x00650300); break; // "3", teams_three
+    case 4: SetChoicePreference(teams, 0x0064C8A0, 0x006502F4); break; // "4", teams_four
+    default: break;
+    }
+    prefs->SetPreference(Crc(0x006502E8), teams); // "team_mode"
+    DeletePreference(teams);
+    Script::CStruct* skill = NewPreference();
+    switch (GameVariable<int>(0x0067EFD4)) {
+    case 1: SetChoicePreference(skill, 0x006502D8, 0x006502D0); break; // "1: Baby Steps", num_1
+    case 2: SetChoicePreference(skill, 0x006502C0, 0x006502B8); break; // "2: I Can Crawl!", num_2
+    case 3: SetChoicePreference(skill, 0x006502A8, 0x006502A0); break; // "3: Hold My Own", num_3
+    case 4: SetChoicePreference(skill, 0x0065028C, 0x00650284); break; // "4: Let's Do This", num_4
+    case 5: SetChoicePreference(skill, 0x00650274, 0x0065026C); break; // "5: Bring It On!", num_5
+    default: break;
+    }
+    prefs->SetPreference(Crc(0x00650260), skill); // "skill_level"
+    DeletePreference(skill);
+}
+
+// 0x005A4D90: InitPrefsBeenox: InitBeenoxPreferences. True.
+bool __cdecl CFunc_InitPrefsBeenox(Script::CStruct*, Script::CScript*)
+{
+    InitBeenoxPreferences();
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x005A0880, CFuncs::CFunc_StartServer);
@@ -627,3 +703,5 @@ REPLACE(0x005A28A0, CFuncs::CFunc_TryJoinInternetGame);
 REPLACE(0x005A28D0, CFuncs::CFunc_TryJoinServerIP);
 REPLACE(0x005A2960, CFuncs::CFunc_TryJoinServerIPCancel);
 REPLACE(0x005A2990, CFuncs::CFunc_ForceServerListRefresh);
+REPLACE(0x005A4900, CFuncs::InitBeenoxPreferences);
+REPLACE(0x005A4D90, CFuncs::CFunc_InitPrefsBeenox);

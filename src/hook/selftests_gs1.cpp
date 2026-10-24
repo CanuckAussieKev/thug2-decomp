@@ -47,6 +47,8 @@
 #include "game/script/names.h"
 #include "game/obj/trick_objects.h"
 #include "game/skate/gap_checklist.h"
+#include "game/core/pool.h"
+#include "game/obj/smtptr.h"
 #include "game/sio/inpman.h"
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
@@ -2718,8 +2720,244 @@ void TestNodeCommandCFuncs()
     LogAroundFirstDifference(traces[0], traces[1]);
 }
 
+// --- 0x005A4170-0x005A4DA0 (game_cfuncs.cpp, net_state_cfuncs.cpp, game_flow_cfuncs.cpp) ----------------------
+
+uint8_t g_structPool[16][8];
+int g_structsUsed;
+uint32_t g_restarts[4];
+int g_restartCount;
+const char* g_faceFiles[14];
+int g_faceIndex;
+uint8_t g_spawnedScript[0x100];
+
+// A structure from the stand-in pool: its index (or the value itself when it isn't one).
+uint32_t StructIndex(uint32_t value)
+{
+    for (int i = 0; i < 16; ++i)
+        if (value == reinterpret_cast<uint32_t>(g_structPool[i]))
+            return 0x57C00 + i;
+    return Rel(value);
+}
+
+void StandInMenuCalls(StandIns& s)
+{
+    s.At({0x005BA3D0, AddressOf(&Mem::Pool::Allocate)}, 0, [](Regs& r) {
+        Record({0xA3D0, r.ecx});
+        return g_structsUsed < 16 ? reinterpret_cast<uint32_t>(g_structPool[g_structsUsed++]) : 0u;
+    });
+    s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) { Record({0x9070, StructIndex(r.args[0])}); return 0u; });
+    s.At({0x00477130, 0x00477090, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) { Record({0x7130, StructIndex(r.ecx)}); return 0u; });
+    s.At({0x004779D0, AddressOf(static_cast<void (CStruct::*)(uint32_t, const char*)>(&CStruct::AddString))}, 8, [](Regs& r) {
+        Record({0x79D0, StructIndex(r.ecx), r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
+        return 0u;
+    });
+    s.At({0x00478390, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t, const char*)>(&CStruct::AddString))}, 0xC, [](Regs& r) {
+        Record({0x8390, StructIndex(r.ecx), r.args[0], r.args[1], Hash(reinterpret_cast<const char*>(r.args[2]))});
+        return 0u;
+    });
+    s.At({0x00477A90, AddressOf(static_cast<void (CStruct::*)(const char*, const char*)>(&CStruct::AddString))}, 8, [](Regs& r) {
+        Record({0x7A90, StructIndex(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), Hash(reinterpret_cast<const char*>(r.args[1]))});
+        return 0u;
+    });
+    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
+        Record({0x7D40, StructIndex(r.ecx), r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x00477DF0, AddressOf(static_cast<void (CStruct::*)(const char*, uint32_t)>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
+        Record({0x7DF0, StructIndex(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
+        return 0u;
+    });
+    s.At({0x00478670, AddressOf(static_cast<void (CStruct::*)(uint32_t, CStruct*)>(&CStruct::AddStructure))}, 8, [](Regs& r) {
+        Record({0x8670, StructIndex(r.ecx), r.args[0], StructIndex(r.args[1])});
+        return 0u;
+    });
+    s.At({0x00477C60, AddressOf(static_cast<void (CStruct::*)(uint32_t, float)>(&CStruct::AddFloat))}, 8, [](Regs& r) {
+        Record({0x7C60, StructIndex(r.ecx), r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x0046B790, AddressOf(&Obj::GetRestartNode)}, 0, [](Regs& r) {
+        Record({0xB790, r.args[0], r.args[1], r.args[2]});
+        for (int i = 0; i < g_restartCount; ++i)
+            if (r.args[2] == (i ? g_restarts[i - 1] : 0u))
+                return g_restarts[i];
+        return 0u;
+    });
+    using RunFn = void (*)(uint32_t, CStruct*, Obj::CObject*, bool, const char*);
+    s.At({0x00475790, AddressOf(static_cast<RunFn>(&Script::RunScript))}, 0, [](Regs& r) {
+        Record({0x5790, r.args[0], StructIndex(r.args[1]), r.args[2], r.args[3] & 0xFF, r.args[4]});
+        return 0u;
+    });
+    using RunNamedFn = void (*)(const char*, CStruct*, Obj::CObject*, bool);
+    s.At({0x004758F0, AddressOf(static_cast<RunNamedFn>(&Script::RunScript))}, 0, [](Regs& r) {
+        Record({0x58F0, Hash(reinterpret_cast<const char*>(r.args[0])), StructIndex(r.args[1]), r.args[2], r.args[3] & 0xFF});
+        return 0u;
+    });
+    StandInApi(s, 0x006450F8, reinterpret_cast<const void*>(&FindFirstFileA), 8, [](Regs& r) {
+        Record({0x50F8, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        g_faceIndex = 0;
+        if (!g_faceFiles[0])
+            return 0xFFFFFFFFu;
+        auto* data = reinterpret_cast<WIN32_FIND_DATAA*>(r.args[1]);
+        std::memset(data, 0, sizeof(*data));
+        std::memcpy(data->cFileName, g_faceFiles[0], std::strlen(g_faceFiles[0]) + 1);
+        data->dwFileAttributes = g_faceFiles[0][0] == 'D' ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
+        return 0x00F1D000u;
+    });
+    StandInApi(s, 0x006450F4, reinterpret_cast<const void*>(&FindNextFileA), 8, [](Regs& r) {
+        Record({0x50F4, r.args[0]});
+        const char* next = g_faceFiles[++g_faceIndex];
+        if (!next)
+            return 0u;
+        auto* data = reinterpret_cast<WIN32_FIND_DATAA*>(r.args[1]);
+        std::memset(data, 0, sizeof(*data));
+        std::memcpy(data->cFileName, next, std::strlen(next) + 1);
+        data->dwFileAttributes = next[0] == 'D' ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
+        return 1u;
+    });
+    StandInApi(s, 0x006450F0, reinterpret_cast<const void*>(&FindClose), 4, [](Regs& r) { Record({0x50F0, r.args[0]}); return 1u; });
+    s.At({0x00532F70, AddressOf(&GameNet::Manager::GetNetworkPreferences)}, 0, [](Regs&) { Record({0x2F70}); return 0x00FE0002u; });
+    s.At({0x0046C5D0, AddressOf(&Prefs::Preferences::SetPreference)}, 8, [](Regs& r) {
+        Record({0xC5D0, r.ecx, r.args[0], StructIndex(r.args[1])});
+        return 1u;
+    });
+    s.At({0x00534090, AddressOf(&GameNet::Manager::SetMaxPlayersPreference)}, 4, [](Regs& r) { Record({0x4090, r.args[0]}); return 0u; });
+    // SpawnSkaterScript
+    using SpawnFn = Script::CScript* (*)(uint32_t, CStruct*, uint32_t, CStruct*, int, uint32_t, bool, bool, bool, bool);
+    s.At({0x00475420, AddressOf(static_cast<SpawnFn>(&Script::SpawnScript))}, 0, [](Regs& r) {
+        Record({0x5420, r.args[0], Rel(r.args[1]), r.args[2], Rel(r.args[3]), r.args[4], r.args[5], r.args[6] & 0xFF,
+                r.args[7] & 0xFF, r.args[8] & 0xFF, r.args[9] & 0xFF});
+        return reinterpret_cast<uint32_t>(g_spawnedScript);
+    });
+    s.At({0x00566520}, 0, [](Regs& r) {
+        Record({0x6520, r.ecx});
+        return (g_skaterMask >> 8) & 1 ? reinterpret_cast<uint32_t>(g_fakes->skater) : 0u;
+    });
+    s.At({0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 4, [](Regs& r) {
+        Record({0x37E0, Rel(r.ecx), r.args[0] == reinterpret_cast<uint32_t>(g_spawnedScript + 0xBC) ? 1u : r.args[0]});
+        return 0u;
+    });
+    s.At({0x004637C0, AddressOf(&Obj::CRefCounted::AddSmartPointer)}, 4, [](Regs& r) {
+        Record({0x37C0, Rel(r.ecx), r.args[0] == reinterpret_cast<uint32_t>(g_spawnedScript + 0xBC) ? 1u : r.args[0]});
+        return 0u;
+    });
+}
+
+void TestMenuPrefsCFuncs()
+{
+    std::vector<Saved> saved = SavedGlobals();
+    std::vector<Saved> more = {{0x006F3614, 0x10, {}}, {0x007CCBC4, 0x20, {}}, {0x0067EFD0, 8, {}}, {0x007CCBE0, 4, {}}};
+    SaveAll(saved);
+    SaveAll(more);
+    CFuncTests::UseEmptySymbolTable();
+    g_fakes = new Fakes;
+    auto* standIns = new StandIns;
+    StandInCalls(*standIns);
+    StandInNodeObjectCalls(*standIns);
+    StandInMenuCalls(*standIns);
+    static uint8_t skate[0x400];
+    static uint8_t gameNet[0x10];
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        SetUpFakes();
+        std::memset(skate, 0, sizeof(skate));
+        GameVariable<void*>(0x007CE478) = skate;
+        GameVariable<void*>(0x007CCE14) = gameNet;
+        GameVariable<int>(0x006F3614) = 0;
+        GameVariable<uint32_t>(0x006F361C) = 0x00B001F0; // the structures' pool
+        auto call = [&](uint32_t address, CFunc ours, Params& params) {
+            std::memset(g_fakes->script + 0x18, 0, 0xB4 - 0x18);
+            reinterpret_cast<int*>(g_fakes->script)[0xB8 / 4] = 77; // m_node
+            g_structsUsed = 0;
+            auto* script = reinterpret_cast<Script::CScript*>(g_fakes->script);
+            bool result = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, result ? 1u : 0u});
+        };
+        Params none;
+
+        // AddRestartsToMenu: none; three (one without a RestartName)
+        static Params restartNode;
+        g_node = &restartNode;
+        Params scale; scale.Float(0x1B9E8272, 1.25f);
+        g_restartCount = 0;
+        call(0x005A4260, CFuncs::CFunc_AddRestartsToMenu, scale);
+        g_restarts[0] = 0x2E51;
+        g_restarts[1] = 0x2E52;
+        g_restarts[2] = 0x2E53;
+        g_restartCount = 3;
+        restartNode = Params();
+        restartNode.String(CrcOf("RestartName"), "Player 1");
+        call(0x005A4260, CFuncs::CFunc_AddRestartsToMenu, scale);
+        restartNode = Params();
+        call(0x005A4260, CFuncs::CFunc_AddRestartsToMenu, scale);
+        // AddWarpPointsToMenu: an array of three (named or not); empty
+        static uint32_t warps[3] = {0x3A01, 0x3A02, 0x3A03};
+        static Script::CArray warpArray;
+        warpArray.m_type = Script::ESYMBOLTYPE_NAME;
+        warpArray.m_size = 3;
+        warpArray.m_elements = warps;
+        Params warpParams; warpParams.Array(0xE2C2FA03, &warpArray);
+        restartNode = Params();
+        restartNode.String(0xFCD206E1, "Warp A");
+        call(0x005A4560, CFuncs::CFunc_AddWarpPointsToMenu, warpParams);
+        restartNode = Params();
+        call(0x005A4560, CFuncs::CFunc_AddWarpPointsToMenu, warpParams);
+        static Script::CArray emptyArray;
+        emptyArray.m_type = Script::ESYMBOLTYPE_NAME;
+        emptyArray.m_size = 0;
+        Params emptyWarps; emptyWarps.Array(0xE2C2FA03, &emptyArray);
+        call(0x005A4560, CFuncs::CFunc_AddWarpPointsToMenu, emptyWarps);
+        g_node = nullptr;
+        // AddFacesToMenu: none; a directory, short names, a long one, more than 11
+        std::memset(g_faceFiles, 0, sizeof(g_faceFiles));
+        call(0x005A4730, CFuncs::CFunc_AddFacesToMenu, none);
+        static const char* faces[] = {"Dir.img", "a.img", "abcd", "face01.img",
+                                      "a_very_long_face_name_that_goes_on_and_on_and_on_and_on_and_on_and_on_and_on_and_on_and_on.img",
+                                      "f2.img", "f3.img", "f4.img", "f5.img", "f6.img", "f7.img", "f8.img", "f9.img"};
+        for (int i = 0; i < 13; ++i)
+            g_faceFiles[i] = faces[i];
+        call(0x005A4730, CFuncs::CFunc_AddFacesToMenu, none);
+        // InitPrefsBeenox: the team modes and skill levels; a network id or not
+        std::memcpy(&GameVariable<char>(0x007CCBD4), "secret", 7);
+        for (int state = 0; state < 7; ++state) {
+            std::memcpy(&GameVariable<char>(0x007CCBC4), state & 1 ? "net01" : "", state & 1 ? 6 : 1);
+            GameVariable<uint32_t>(0x007CCBE0) = static_cast<uint32_t>(state - 1);
+            GameVariable<int>(0x0067EFD4) = state;
+            GameVariable<int>(0x0067EFD0) = 2 + state;
+            call(0x005A4D90, CFuncs::CFunc_InitPrefsBeenox, none);
+        }
+        // SpawnSkaterScript: everything; nothing; a local skater or none, an object there before
+        static Params inner;
+        inner = Params();
+        inner.Integer(0x10, 2);
+        Params spawn;
+        spawn.Checksum(0, 0x5CA7).Structure(0x7031F10C, inner.Struct()).Checksum(CrcOf("Id"), 0x1D)
+            .Checksum(CrcOf("Callback"), 0xCA11).Structure(CrcOf("CallbackParams"), inner.Struct());
+        for (int state = 0; state < 3; ++state) {
+            std::memset(g_spawnedScript, 0, sizeof(g_spawnedScript));
+            if (state == 2)
+                reinterpret_cast<void**>(g_spawnedScript)[0xBC / 4] = g_fakes->object;
+            g_skaterMask = state ? 0x100 : 0;
+            call(0x005A4170, CFuncs::CFunc_SpawnSkaterScript, state == 1 ? none : spawn);
+            Record({Rel(reinterpret_cast<uint32_t*>(g_spawnedScript)[0xBC / 4])});
+        }
+        traces[run] = g_trace;
+    }
+    RemoveStandIns();
+    RestoreAll(more);
+    RestoreAll(saved);
+    delete g_fakes;
+    g_fakes = nullptr;
+    Check(traces[0].size() > 300, "menu and preference commands: the original reached its calls");
+    Compare(traces[0], traces[1], "menus, Beenox preferences, skater script (0x005A4170-0x005A4DA0)");
+    LogAroundFirstDifference(traces[0], traces[1]);
+}
+
 } // namespace
 
+SELFTEST(Early, TestMenuPrefsCFuncs, RemoveStandIns);
 SELFTEST(Early, TestNodeCommandCFuncs, RemoveStandIns);
 SELFTEST(Early, TestParseNodeArrayCFuncs, RemoveStandIns);
 SELFTEST(Early, TestNodeObjectCFuncs, RemoveStandIns);

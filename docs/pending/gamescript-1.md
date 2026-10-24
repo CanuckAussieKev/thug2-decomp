@@ -168,3 +168,18 @@ Shared files touched: CMakeLists.txt (new files listed).
   - Test TestNodeCommandCFuncs: original vs ours, every action on every class, viewports, network mode, the
     shatter's settings, the sectors' state compared. 34 of 34 deliberate bugs caught (4 after strengthening: game
     objects, the colour's default, the sectors' state recorded, one viewport).
+- [x] Batch GS1-11 (NOT run in the game yet; menus of restarts, warp points and faces, the Beenox host preferences,
+  the skater script - 6 functions): game_cfuncs.cpp, net_state_cfuncs.cpp, game_flow_cfuncs.cpp.
+  - 0x005A4170 SpawnSkaterScript (spawned at the calling script's node, its object pointer set to the local
+    skater), 0x005A4260 AddRestartsToMenu (an item per restart through GetRestartNode - its RestartName or "Unnamed
+    restart", ids from 123456, scale from 0x1B9E8272 -, or "No restarts in level"), 0x005A4560 AddWarpPointsToMenu
+    (the item's parameter structure is never freed - a leak, kept), 0x005A4730 AddFacesToMenu (FindFirstFileA
+    Faces\*.img: files of up to 90 characters, the extension cut from the name, at most 11 items), 0x005A4900
+    InitBeenoxPreferences (2 callers: server name "Beenox", password, network id, players, team mode, skill level into
+    the network preferences), 0x005A4D90 InitPrefsBeenox. The structures come from the script structures' pool
+    (NewStruct + Init / Clear + DeleteStruct, as the original's inlined new / delete).
+  - Test TestMenuPrefsCFuncs: original vs ours (a stand-in structure pool; FindFirstFileA / FindNextFileA / FindClose
+    stood in for - no folder is read). 25 of 25 deliberate bugs caught (1 after strengthening: a 4-character file name).
+- The range is complete: all 160 functions Ghidra made in 0x0059F610-0x005A5360 plus 3 it never made (0x0059F820,
+  0x0059FB10, 0x005A01B0) have source; 0x005A18A9 (Ghidra's start inside TryCheatString) is registered source only.
+  find_gaps: nothing in the range.

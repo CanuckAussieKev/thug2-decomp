@@ -55,6 +55,9 @@ bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript* script
 bool __cdecl CFunc_ChooseFaceForFacemap(Script::CStruct* params, Script::CScript* script);     // 0x005A2790
 bool __cdecl CFunc_SkaterIsCustom(Script::CStruct* params, Script::CScript* script);           // 0x005A29A0
 bool __cdecl CFunc_SetSceneColor(Script::CStruct* params, Script::CScript* script);            // 0x005A29E0
+bool __cdecl CFunc_AddRestartsToMenu(Script::CStruct* params, Script::CScript* script);       // 0x005A4260
+bool __cdecl CFunc_AddWarpPointsToMenu(Script::CStruct* params, Script::CScript* script);     // 0x005A4560
+bool __cdecl CFunc_AddFacesToMenu(Script::CStruct* params, Script::CScript* script);          // 0x005A4730
 
 // 0x0059F820: the second controller check's task (SpawnSecondControllerCheck): runs the script 0x07C28B45 when
 // both controllers are plugged in, else 0x9C9DFCF8 - every frame while the task is on.
@@ -149,6 +152,7 @@ bool __cdecl CFunc_GetGameMode(Script::CStruct* params, Script::CScript* script)
 bool __cdecl CFunc_SetTesterScript(Script::CStruct* params, Script::CScript* script);          // 0x005A2090
 bool __cdecl CFunc_KillTesterScript(Script::CStruct* params, Script::CScript* script);         // 0x005A20F0
 bool __cdecl CFunc_AutoRail(Script::CStruct* params, Script::CScript* script);                 // 0x005A21A0
+bool __cdecl CFunc_SpawnSkaterScript(Script::CStruct* params, Script::CScript* script);       // 0x005A4170
 
 // --- the lobby and network options (net_state_cfuncs.cpp) -------------------------------------------------------
 
@@ -169,6 +173,10 @@ bool __cdecl CFunc_TryJoinInternetGame(Script::CStruct* params, Script::CScript*
 bool __cdecl CFunc_TryJoinServerIP(Script::CStruct* params, Script::CScript* script);          // 0x005A28D0
 bool __cdecl CFunc_TryJoinServerIPCancel(Script::CStruct* params, Script::CScript* script);    // 0x005A2960
 bool __cdecl CFunc_ForceServerListRefresh(Script::CStruct* params, Script::CScript* script);   // 0x005A2990
+bool __cdecl CFunc_InitPrefsBeenox(Script::CStruct* params, Script::CScript* script);         // 0x005A4D90
+// 0x005A4900: the network preferences set from the host settings' globals (server name, password, network id,
+// players, team mode, skill level).
+void __cdecl InitBeenoxPreferences();
 
 // --- the viewer camera on the scenes, node objects (node_object_cfuncs.cpp) --------------------------------------
 

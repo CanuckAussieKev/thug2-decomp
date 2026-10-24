@@ -799,6 +799,26 @@ bool __cdecl CFunc_AutoRail(Script::CStruct* params, Script::CScript*)
     return true;
 }
 
+// 0x005A4170: SpawnSkaterScript <script> [params={...}] [Id=id] [Callback=<script>] [CallbackParams={...}]: the
+// script spawned at the calling script's node, running on the local skater.
+bool __cdecl CFunc_SpawnSkaterScript(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t name = 0;
+    params->GetChecksum(0u, &name, 0);
+    Script::CStruct* scriptParams = nullptr;
+    params->GetStructure(kParams, &scriptParams, 0);
+    uint32_t id = 0;
+    params->GetChecksum(reinterpret_cast<const char*>(0x0064FAE4), &id, 0); // "Id"
+    uint32_t callback = 0;
+    params->GetChecksum(reinterpret_cast<const char*>(0x006501FC), &callback, 0); // "Callback"
+    Script::CStruct* callbackParams = nullptr;
+    params->GetStructure(reinterpret_cast<const char*>(0x006501EC), &callbackParams, 0); // "CallbackParams"
+    Script::CScript* spawned = Script::SpawnScript(name, scriptParams, callback, callbackParams, script->m_node, id,
+                                                   false, false, false, false);
+    spawned->m_object.Set(GetLocalSkater()); // (not checked for null, as in the original)
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x0059FE50, CFuncs::CFunc_Cleanup);
@@ -845,3 +865,4 @@ REPLACE(0x005A2030, CFuncs::CFunc_GetGameMode);
 REPLACE(0x005A2090, CFuncs::CFunc_SetTesterScript);
 REPLACE(0x005A20F0, CFuncs::CFunc_KillTesterScript);
 REPLACE(0x005A21A0, CFuncs::CFunc_AutoRail);
+REPLACE(0x005A4170, CFuncs::CFunc_SpawnSkaterScript);
