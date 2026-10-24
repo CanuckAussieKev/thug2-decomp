@@ -34,7 +34,9 @@ export interface XenosTexture {
     endian: number;
     tiled: boolean;
     pitch: number; // texels
-    data: Buffer; // from the texture's data offset to the next one's (or the end)
+    data: Buffer; // the base level (a cube map: its first face)
+    cube: boolean; // a cube map (the fetch constant's dimension 3): six faces of the base level, one after the other
+    faces?: Buffer; // a cube map: the six faces' tiled data (+X, -X, +Y, -Y, +Z, -Z), `data` is the first
 }
 
 export function readXenosTex(data: Buffer, name = "tex"): XenosTexture[] {
@@ -56,6 +58,7 @@ export function readXenosTex(data: Buffer, name = "tex"): XenosTexture[] {
             tiled: Boolean(f(0) >>> 31),
             pitch: ((f(0) >>> 22) & 0x1ff) * 32,
             data: Buffer.alloc(0),
+            cube: ((f(5) >>> 9) & 3) === 3,
         };
         if (t.width !== data.readUInt16BE(r + 8) || t.height !== data.readUInt16BE(r + 10)) {
             throw new FormatError(`${name}: texture ${t.checksum.toString(16)}: record and fetch constant disagree`);
@@ -70,6 +73,8 @@ export function readXenosTex(data: Buffer, name = "tex"): XenosTexture[] {
             x.at + size <= data.length
                 ? data.subarray(x.at, x.at + size)
                 : Buffer.concat([data.subarray(x.at), Buffer.alloc(x.at + size - data.length)]);
+        // (a cube map's six faces follow each other, `size` bytes each: 6 x 4096 for the 32 x 32 8:8:8:8 ones)
+        if (x.t.cube && x.at + 6 * size <= data.length) x.t.faces = data.subarray(x.at, x.at + 6 * size);
     }
     return raw.map((x) => x.t);
 }
@@ -112,6 +117,13 @@ function swap(src: Buffer, endian: number): Buffer {
         out.swap16(); // (16-in-32: the halves of each word swapped)
     }
     return out;
+}
+
+// A cube map's six faces (+X, -X, +Y, -Y, +Z, -Z), each linear as baseLevel gives it; null when the data is short.
+export function cubeFaces(t: XenosTexture): Buffer[] | null {
+    if (!t.cube || !t.faces) return null;
+    const size = tiledSize(t);
+    return [0, 1, 2, 3, 4, 5].map((k) => baseLevel({ ...t, data: t.faces!.subarray(k * size, (k + 1) * size) }));
 }
 
 // The base level, linear: DXT blocks (8 / 16 bytes, row by row) or 32-bit texels (B, G, R, A).

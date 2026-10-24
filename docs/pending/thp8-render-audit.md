@@ -639,3 +639,83 @@ no exception / check failure in the log. One screenshot at the user's spot (`run
 
 - The user's spot: `node tools/game/try_spot.ts thp8_net_beavervalley -7983,1017,11901,-179`; the coins at the dragon ride:
   `... -8148,1012,11932,0`.
+
+## Fix round 5 (2026-10-24): environment maps
+
+The user: "The ground I'm standing on, not sure if it is missing a texture" - thug2_2026-10-24_23-39-58 (thp8_net_skatefunparks,
+the cartoon zone, (-2383, 960, 151)): a plain grey floor. Converter only (tools/thp8_levels); `.col.xbx` of all 15 levels
+byte-identical to HEAD's conversion (SHA-256; BEAVER VALLEY re-converted with HEAD to compare), the z-fight audit identical
+to HEAD's on all 15 levels (same flicker / coplanar / one-sided numbers), npm test 397 pass, typecheck / lint clean.
+
+### How THUG2 does environment maps
+
+A material pass with flag 0x08 (PASS_ENVIRONMENT; THUG2's own levels: 49 such passes in BA, 38 in AU, ...; flags 0x2c / 0x102c,
+blend mode 5 / 12 / 13, tiling 3 x 3 or 1 x 3). SetMaterial (0x004D1F00) sets, for that pass's stage, D3DTSS_TEXCOORDINDEX =
+stage | 0x30000 (D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR) and TEXTURETRANSFORMFLAGS = COUNT2, with a texture matrix whose
+[0][0] / [1][1] are the pass's envmapTiling x 0.5 and [3][0] / [3][1] = 0.5: u = 0.5 + 0.5 tx rx, v = 0.5 + 0.5 ty ry of the
+camera-space reflection vector, a plain 2D texture (not a cube map). It needs vertex normals: every sector of THUG2's own
+levels has them (our THP8 sectors had none). The THPS3 converter already writes such passes (shimmer-2).
+
+### What THP8's fields mean
+
+- The reflective templates (NormalMapEnvMap_3Pass 312 materials in all levels, NormalMapEnvMap_Decal, EnvironmentMap, the Water*
+  ones) list a **cube map** at texture index 3 (fetch constant dword 5, bits 9-10 = 3; 8:8:8:8, 32 or 64 texels a face, six faces
+  one after the other, +X -X +Y -Y +Z -Z - looked at: sky above, water / ground below, a capitol interior). Before this round the
+  reader took face 0 as a 2D texture. Layout of NormalMapEnvMap_3Pass n = 7: diffuse, normal (DXN), specular, CUBE, mask, ambient,
+  shadow (n = 11 adds pass 1's maps; the library's constant table names m_sampPass0Cube / m_sampPass0Mask / m_sampPass0Spec). The
+  user's floor (01E516A1): EBF73082 diffuse (near white, alpha 115, blend word 3 = glass-like), 58FE880B normal, 673524AE spec and
+  mask (the same texture, soft white), E1A4B57E the cube.
+- The fifth float4 of the block is the library's `m_optimizedVector0` (RemapX..W): X 0..2, Y 0.2..1, Z 0..1, W 0..50. **Not decoded
+  further** (Xenos shader microcode not read). We take X (clamped to 0..1) as reflectivity (0.01 and 0 are non-reflective).
+  EnvironmentMap has no such float4 (fixed 0.5). Water float4s are wave / colour terms (shallow, deep colour: float4s 2 and 3).
+
+### What changed
+
+- xenos.ts: `cube`, `faces`, `cubeFaces`. materials.ts: `envLayer` (template, cube at index 3, strength = RemapX x mask's mean
+  brightness x 0.5 rounded to 0.1, none under 0.05 or for alpha-tested materials), `sampleCube`, `sphereMap` (the cube as seen by a
+  level camera, texel = direction (rx, ry, +sqrt(1-r^2)), 64 x 64, alpha = strength). thp8_levels.ts: a pass over the surface (blend
+  mode 5, flag 0x08, tiling 1 x 1, a map per cube and strength `thp8_env_<cube>_<pct>`), `vertexNormals` for sectors with such a
+  mesh (area-weighted face normals; sign checked on THP8's ground: (b-a)x(c-a) = +y). Water: a flat body colour (mean of the colour
+  float4s, `thp8_water_<rgb>`) under a 0.5 reflection instead of the dark first texture (the capitol lake was RGB 32,32,32). The base
+  stays as round 4 decided (the user's floor: still blended at alpha 115 - THP8's glass floor).
+- env_census.ts (new); render_audit.ts: an env-handled material is no longer "passes not read".
+
+### Counts (materials with a cube map: given a pass (water) / cut-outs / weak; m2 given, m2 water)
+
+| Level | reflective | given (water) | cut-outs | weak | m2 | m2 water |
+|---|---|---|---|---|---|---|
+| beavervalley | 356 | 328 (20) | 16 | 12 | 65181 | 710104 |
+| skatepark | 4 | 3 (1) | 0 | 1 | 8 | 190751 |
+| factory | 59 | 53 (2) | 6 | 0 | 33895 | 190948 |
+| slums | 8 | 8 (1) | 0 | 0 | 3689 | 190751 |
+| suburbia | 38 | 35 (4) | 2 | 1 | 2285 | 191508 |
+| mainstreet | 43 | 38 (1) | 3 | 2 | 1504 | 190751 |
+| funpark | 56 | 53 (9) | 1 | 2 | 3060 | 343080 |
+| school | 72 | 67 (3) | 1 | 4 | 8465 | 193022 |
+| industrial | 66 | 60 (2) | 6 | 0 | 37584 | 190948 |
+| capitol | 83 | 78 (6) | 3 | 2 | 12276 | 554552 |
+| skatefunparks | 59 | 55 (9) | 1 | 3 | 3068 | 343080 |
+| skatecentral | 162 | 149 (9) | 8 | 5 | 16065 | 555309 |
+| training | 24 | 17 (0) | 7 | 0 | 38 | 0 |
+| skateshop | 2 | 2 (0) | 0 | 0 | 5 | 0 |
+| bedroom | 6 | 5 (0) | 0 | 1 | 87 | 0 |
+
+(The convert report's "materials given an environment pass" counts per scene, stand-ins included, so differs a little.) Strengths:
+0.1: 182 materials, 0.2: 341, 0.3: 134, 0.4: 102, 0.5: 192. Audit "other textures not drawn (passes not read)", materials before ->
+after: BEAVER VALLEY 403 -> 90, skatepark 4 -> 2, factory 81 -> 30, slums 7 -> 0, suburbia 40 -> 7, mainstreet 41 -> 4, funpark 53 -> 7,
+school 87 -> 23, industrial 88 -> 30, capitol 90 -> 17 (the 362,515 m2 lake gone from it), skatefunparks 57 -> 9, skatecentral
+171 -> 28, training 55 -> 38, skateshop 8 -> 6, bedroom 16 -> 11 (pairing of the first rows read off the tool's output by level name).
+
+### Load check and screenshots (C:\Games\THUG2-4 under the lock, out\build\lead\dinput8.dll, selftests off)
+
+`load_check.ps1 -Levels thp8_net_skatefunparks -Seconds 120`: loaded=True, responding, CComponent 96819 / 360000, CStruct 19827 / 64000,
+no exception. Screenshots: the user's spot (teleport -2383 960 151 -44) C:\Users\kevin\AppData\Local\Temp\thp8_env_user_spot.png; the
+capitol lake (camera 9284 -150 5126 over the water) C:\Users\kevin\AppData\Local\Temp\thp8_env_capitol_lake.png.
+
+### Unsure / left
+
+- The user's floor is still fairly plain grey: the reflected cube is the cloudy sky (grey) at strength ~0.4, and THP8's own shader may do
+  more (RemapY..W, normal-map ripples). The tile lines read a little stronger. The strength is ours (moderate), not THP8's.
+- The reflection is a level-camera matcap of the cube: it swims with the view, doesn't follow the world.
+- Vertex normals make THUG2 treat those sectors like its own (all have normals); no visible lighting change at the two spots.
+- NormalMapEnvMap_3Pass passes 1 / 2 (n = 11), normal / specular maps, the water's waves / refraction: not drawn.

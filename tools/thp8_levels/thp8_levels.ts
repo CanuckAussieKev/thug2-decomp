@@ -504,6 +504,7 @@ interface Plan {
     // (inside: an interior's lighting - interiorLighting - else the part's own: its zone's sun)
     light?: { ambient: mats.Decoded; shadow: mats.Decoded; inside: boolean };
     vertexMask: { slot: number; mask: mats.Decoded; opacity: number } | null;
+    env?: boolean; // an environment pass over the surface: its sector gets vertex normals
 }
 
 // THP8's glows and light shafts (lamp halos, sun shafts: textures on black that its shaders add) by their sectors'
@@ -555,6 +556,25 @@ export function materialKey(m: geom.GeomMaterial): string {
 
 const SECTOR_FLAGS = (0x80002000 | thug2Scene.SEC_TEXCOORDS | thug2Scene.SEC_COLORS) >>> 0;
 
+// The sector's vertex normals: each vertex's triangles' face normals added by their area (a corner shared by a smooth
+// surface gets its middle), turned to unit length; a vertex no triangle uses (or an upside-down sliver) points up.
+// A triangle's normal is (b - a) x (c - a): THP8's winding (trisToStrip keeps it) is Direct3D's clockwise-is-front, and
+// that gives the ground's triangles +y (checked on the fun park's ground, roofs and floors: all of them).
+export function vertexNormals(positions: readonly number[][], tris: readonly number[][]): number[][] {
+    const sum = positions.map(() => [0, 0, 0]);
+    for (const [a, b, c] of tris as [number, number, number][]) {
+        const p = positions[a]!;
+        const u = [positions[b]![0]! - p[0]!, positions[b]![1]! - p[1]!, positions[b]![2]! - p[2]!];
+        const v = [positions[c]![0]! - p[0]!, positions[c]![1]! - p[1]!, positions[c]![2]! - p[2]!];
+        const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+        for (const i of [a, b, c]) for (let k = 0; k < 3; k++) sum[i]![k]! += n[k]!;
+    }
+    return sum.map((n) => {
+        const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+        return len > 1e-9 ? [n[0]! / len, n[1]! / len, n[2]! / len] : [0, 1, 0];
+    });
+}
+
 // The texture a material's THUG2 pass 0 is drawn with: its plan's first layer, else the first texture that isn't a
 // normal map (a few shaders list theirs first). THP8 lists blanks too - a flat grey stand-in for a missing map (the
 // suburb lawns' 2511D697 ahead of their grass), 16 x 16 see-through dithers: one of those is passed over for the
@@ -602,6 +622,9 @@ export interface ConvertedScene {
         hidden: number;
         billboards: number;
         layers: number; // further passes made (materials.ts)
+        reflective: number; // materials given an environment pass (a cube map as THUG2's 2D one: materials.ts envLayer)
+        water: number; // ... of them water (a flat body colour under the reflection)
+        normalSectors: number; // sectors given vertex normals for it
         lit: number; // vertices lit from light maps
         refined: number; // lit triangles after refineLit
         refinedFrom: number; // ... and before
@@ -637,6 +660,9 @@ export function convertScenes(
         hidden: 0,
         billboards: 0,
         layers: 0,
+        reflective: 0,
+        water: 0,
+        normalSectors: 0,
         lit: 0,
         refined: 0,
         refinedFrom: 0,
@@ -714,11 +740,30 @@ export function convertScenes(
                     if (texOut.has(copy)) texture = copy;
                 }
             }
+            // (a reflective template: THP8's cube map read by the reflection vector, here THUG2's own environment pass with
+            // a 2D map made from it, a further pass over the surface; water: a flat body colour under it, the textures
+            // its shader reads - depth, waves - not drawn)
+            const env =
+                part.dome || part.veil || part.additive?.has(m.checksum) || !texture
+                    ? null
+                    : mats.envLayer(m, part.textures);
+            if (env?.water) {
+                if (env.body) {
+                    const rgb = env.body.map((c) => Math.round(c * 255));
+                    texture = checksum(`thp8_water_${rgb.map((c) => c.toString(16).padStart(2, "0")).join("")}`);
+                    if (!texOut.has(texture)) {
+                        const body = Buffer.alloc(4 * 4 * 4);
+                        for (let i = 0; i < 16; i++) body.set([rgb[2]!, rgb[1]!, rgb[0]!, 255], 4 * i);
+                        texOut.set(texture, xenos.fromBgra(texture, 4, 4, body, false));
+                    }
+                }
+            }
             const t = texOut.get(texture);
             const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);
             // (a texture's alpha is transparency only where the material blends or alpha-tests: mats.drawsAlpha)
             const alpha =
-                (!add && t !== undefined && (t.dxt === 5 || t.dxt === 2) && mats.drawsAlpha(m)) || (part.veil ?? false);
+                (!add && !env?.water && t !== undefined && (t.dxt === 5 || t.dxt === 2) && mats.drawsAlpha(m)) ||
+                (part.veil ?? false);
             if (alpha) transparent.add(id);
             const mat = makeMaterial(id, texture, add ? "add" : alpha, true);
             if (alpha || add) mat.noBackfaceCulling = 1;
@@ -797,6 +842,36 @@ export function convertScenes(
                     out.slots.push(layer.slot);
                     counts.layers++;
                 }
+                if (env) {
+                    // the cube map as THUG2's 2D one (a map per cube map and strength, alpha = the blend over the surface)
+                    const envTexture = checksum(`thp8_env_${thp8.hex(env.cube)}_${Math.round(env.strength * 100)}`);
+                    if (!texOut.has(envTexture)) {
+                        const faces = mats.decodeCube(part.textures.get(env.cube)!);
+                        if (faces)
+                            texOut.set(
+                                envTexture,
+                                xenos.fromBgra(
+                                    envTexture,
+                                    mats.ENV_SIZE,
+                                    mats.ENV_SIZE,
+                                    mats.sphereMap(faces, env.strength),
+                                    mips,
+                                ),
+                            );
+                    }
+                    if (texOut.has(envTexture)) {
+                        const pass = makeMaterial(0, envTexture, false, false).passes[0]!;
+                        pass.blendMode = 5; // (THUG2's blend by the pass's texture alpha: the strength)
+                        pass.flags |= thug2Scene.PASS_ENVIRONMENT; // (uvs from the camera-space reflection vector)
+                        if (alpha) pass.flags |= thug2Scene.PASS_TRANSPARENT;
+                        pass.envmapTiling = [1.0, 1.0]; // (the map is the unit disc: u = 0.5 + 0.5 rx)
+                        mat.passes.push(pass);
+                        out.slots.push(0);
+                        out.env = true;
+                        counts.reflective++;
+                        if (env.water) counts.water++;
+                    }
+                }
                 if (part.lighting && plan.ambient !== null && plan.shadow !== null) {
                     const a = decode(plan.ambient);
                     const s = decode(plan.shadow);
@@ -837,6 +912,8 @@ export function convertScenes(
             const colors: number[][] = [];
             const uvs: number[][] = [];
             const meshes: { flags: number; material: number; strip: number[] }[] = [];
+            const sectorTris: number[][] = []; // (every triangle written, for the vertex normals)
+            let reflective = 0; // meshes with an environment pass
             // (one uv set per pass: the sector's vertices carry as many as its materials' most)
             const sets = Math.max(1, ...s.meshes.map((m) => plans.get(matOf(m.material))?.slots.length ?? 1));
             for (const m of s.meshes) {
@@ -954,6 +1031,8 @@ export function convertScenes(
                     tris = tris.filter((t) => t.some((i) => positions[i]![1]! > 0));
                 }
                 counts.triangles += tris.length;
+                if (plan?.env && tris.length) reflective++;
+                sectorTris.push(...tris);
                 if (part.window) counts.border += tris.length;
                 if (tris.length) meshes.push({ flags: 0, material: id, strip: trisToStrip(tris) });
                 // (the drawn world, for the stand-ins' keepTriangle (see-through too: a backdrop drawn twice blends twice) and
@@ -982,11 +1061,15 @@ export function convertScenes(
                 }
             }
             if (!meshes.length) return;
+            // (an environment pass takes its uvs from the vertex normals: the sector gets them)
+            const normals = reflective ? vertexNormals(positions, sectorTris) : undefined;
+            if (normals) counts.normalSectors++;
             const [lo, hi, center, radius] = geometry.bounds(positions);
             sectors.push({
                 checksum: checksumOut,
                 bone: -1,
-                flags: SECTOR_FLAGS,
+                flags: (SECTOR_FLAGS | (normals ? thug2Scene.SEC_NORMALS : 0)) >>> 0,
+                ...(normals ? { normals } : {}),
                 bbox: [...lo, ...hi],
                 sphere: [center[0]!, center[1]!, center[2]!, radius],
                 positions,
@@ -3898,7 +3981,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     report.push(
         `  ${spec.zones.join(" + ")}${spec.barriers.length ? ` + ${spec.barriers.join(" + ")}` : ""}: ${c.sectors} sectors, ` +
             `${c.instances} instances of ${c.masters} masters, ${c.billboards} billboard meshes left out, ` +
-            `${c.triangles} triangles, ${c.layers} further layers, ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.filled} faces filling narrow holes; ${col.shells} invisible shells cut under their roofs; ${col.named} ` +
+            `${c.triangles} triangles, ${c.layers} further layers, ${c.reflective} materials given an environment pass (${c.water} of them water; ${c.normalSectors} sectors given vertex normals for it), ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.filled} faces filling narrow holes; ${col.shells} invisible shells cut under their roofs; ${col.named} ` +
             `named after their sector / node; ${col.hidden} of nodes not made left out); ` +
             `${parts.reduce((n, p) => n + p.flagged, 0)} nodes made from THP8's non-story node flags, ` +
             `${parts.reduce((n, p) => n + p.hidden.size, 0)} not made; moved by (${shift.map((x) => x.toFixed(1)).join(", ")}); ` +

@@ -250,6 +250,7 @@ test("alpha test: a texture's alpha is made 0 / 255 by the reference before its 
         tiled: false,
         pitch: 8,
         data: bgra,
+        cube: false,
     };
     const kept = xenos.toThug2(t, true).texture!;
     assert.equal(kept.levels[0]![3], 100); // (untouched without a reference)
@@ -257,4 +258,129 @@ test("alpha test: a texture's alpha is made 0 / 255 by the reference before its 
     assert.equal(cut.levels[0]![3], 0);
     assert.equal(cut.levels[0]![4 * 40 + 3], 255);
     assert.equal(cut.levels.length, 2); // (8 -> 4)
+});
+
+// --- environment maps (round 5) ----------------------------------------------------------------------------------------
+
+// a 2 x 2 cube map of six flat faces (B, G, R, A), its fetch constant's "cube": the faces follow each other
+const FACE_COLOURS = [
+    [10, 20, 30], // +X
+    [40, 50, 60], // -X
+    [70, 80, 90], // +Y (the sky)
+    [100, 110, 120], // -Y
+    [130, 140, 150], // +Z
+    [160, 170, 180], // -Z
+];
+const cubeTexture = (checksum: number): xenos.XenosTexture => {
+    const size = 32; // (a surface is at least 32 x 32 texels: one face is 4096 bytes)
+    const data = Buffer.alloc(6 * size * size * 4);
+    FACE_COLOURS.forEach((c, f) => {
+        for (let i = 0; i < size * size; i++) data.set([c[0]!, c[1]!, c[2]!, 255], (f * size * size + i) * 4);
+    });
+    return {
+        checksum,
+        width: size,
+        height: size,
+        format: xenos.FMT_8888,
+        endian: 0,
+        tiled: false,
+        pitch: size,
+        data: data.subarray(0, size * size * 4),
+        cube: true,
+        faces: data,
+    };
+};
+
+test("cube map: six faces, one after the other, each as a plain base level", () => {
+    const faces = xenos.cubeFaces(cubeTexture(1))!;
+    assert.equal(faces.length, 6);
+    faces.forEach((f, k) => {
+        assert.deepEqual([...f.subarray(0, 4)], [...FACE_COLOURS[k]!, 255]);
+    });
+    assert.equal(xenos.cubeFaces({ ...cubeTexture(1), cube: false }), null);
+});
+
+test("cube lookup: Direct3D's faces by the major axis; the 2D map holds the forward hemisphere, v growing with the vector's y", () => {
+    const faces = mats.decodeCube(cubeTexture(1))!;
+    const colour = (x: number, y: number, z: number): number[] => mats.sampleCube(faces, x, y, z).slice(0, 3);
+    assert.deepEqual(colour(1, 0, 0), FACE_COLOURS[0]);
+    assert.deepEqual(colour(-1, 0.2, 0.1), FACE_COLOURS[1]);
+    assert.deepEqual(colour(0.1, 1, 0), FACE_COLOURS[2]);
+    assert.deepEqual(colour(0, -1, 0.3), FACE_COLOURS[3]);
+    assert.deepEqual(colour(0.2, 0.1, 1), FACE_COLOURS[4]);
+    assert.deepEqual(colour(0, 0, -1), FACE_COLOURS[5]);
+    const n = 16;
+    const map = mats.sphereMap(faces, 0.4, n);
+    const at = (x: number, y: number): number[] => [...map.subarray(4 * (y * n + x), 4 * (y * n + x) + 4)];
+    assert.deepEqual(at(8, 8), [...FACE_COLOURS[4]!, 102]); // (the middle: straight ahead, +z; alpha = the strength)
+    assert.deepEqual(at(8, 15).slice(0, 3), FACE_COLOURS[2]); // (v grows with ry: the bottom row looks up, at the sky)
+    assert.deepEqual(at(8, 0).slice(0, 3), FACE_COLOURS[3]);
+    assert.deepEqual(at(15, 8).slice(0, 3), FACE_COLOURS[0]);
+    assert.deepEqual(at(0, 8).slice(0, 3), FACE_COLOURS[1]);
+});
+
+test("environment layer: RemapX x the mask's brightness x ENV_STRENGTH; none for a cut-out or a faint reflection; water fixed", () => {
+    const envTemplate = checksum("NormalMapEnvMap_3Pass");
+    const white = (c: number): xenos.XenosTexture => ({
+        checksum: c,
+        width: 2,
+        height: 2,
+        format: xenos.FMT_8888,
+        endian: 0,
+        tiled: false,
+        pitch: 2,
+        data: Buffer.alloc(16, 255),
+        cube: false,
+    });
+    const grey = (c: number): xenos.XenosTexture => ({ ...white(c), data: Buffer.alloc(16, 128) });
+    const list = new Map<number, xenos.XenosTexture>([
+        [0x10, white(0x10)],
+        [0x12, white(0x12)],
+        [0x13, cubeTexture(0x13)],
+        [0x14, white(0x14)], // the mask
+        [0x15, grey(0x15)], // a grey mask
+        [0xa0, white(0xa0)],
+        [0xa1, white(0xa1)],
+    ]);
+    // diffuse, normal, specular, cube, mask, ambient, shadow (the shader's order); float4s: spec power, colour, tiling,
+    // spec colour, Remap
+    const f4 = (remapX: number): number[][] => [
+        [15, 0, 0, 0],
+        [1, 1, 1, 1],
+        [1, 1, 1, 0],
+        [1, 1, 1, 1],
+        [remapX, 1, 0, 0],
+    ];
+    const make = (remapX: number, mask: number, template = envTemplate): geom.GeomMaterial =>
+        material(template, [0x10, 0x91, 0x12, 0x13, mask, 0xa0, 0xa1], f4(remapX));
+    assert.deepEqual(mats.envLayer(make(1, 0x14), list), { cube: 0x13, strength: 0.5, water: false, body: null });
+    assert.equal(mats.envLayer(make(2, 0x14), list)!.strength, 0.5); // (RemapX over 1 clamped)
+    assert.equal(mats.envLayer(make(1, 0x15), list)!.strength, 0.3); // (a grey mask: a quarter of the surface, rounded to 0.1)
+    assert.equal(mats.envLayer(make(0.01, 0x14), list), null); // (reflects nothing)
+    // alpha-tested (a reference over 1, no blend word): a cut-out would show the reflection through its holes
+    const tested = make(1, 0x14);
+    tested.params = Buffer.concat([tested.params, Buffer.alloc(0x40)]);
+    tested.params.writeUInt32BE((0x96 << 24) >>> 0, mats.PARAM_ALPHA_REF);
+    assert.equal(mats.envLayer(tested, list), null);
+    // not a reflective template, or no cube map fourth
+    assert.equal(mats.envLayer(make(1, 0x14, checksum("DiffuseTerrain_3Pass")), list), null);
+    assert.equal(mats.envLayer(material(envTemplate, [0x10, 0x91, 0x12, 0x14, 0x14, 0xa0, 0xa1], f4(1)), list), null);
+    // water: fixed, the body colour the mean of the two colour float4s
+    const water = material(
+        checksum("WaterCubeRefraction"),
+        [0x90, 0x90, 0x12, 0x13],
+        [
+            [15, 0, 0, 0],
+            [1, 0, 0, 0],
+            [0.4, 0.6, 0.2, 1],
+            [0.0, 0.2, 0.2, 1],
+        ],
+    );
+    const w = mats.envLayer(water, list)!;
+    assert.equal(w.water, true);
+    assert.equal(w.strength, 0.5);
+    assert.deepEqual(
+        w.body!.map((x) => +x.toFixed(2)),
+        [0.2, 0.4, 0.2],
+    );
 });

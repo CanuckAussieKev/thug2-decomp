@@ -60,6 +60,7 @@ import {
     triggerVolumes,
     trimShells,
     undrawnBodies,
+    vertexNormals,
     ZONES,
     zoneDuplicates,
 } from "./thp8_levels.ts";
@@ -179,6 +180,7 @@ test("xenos: an untiled DXT1 texture comes back from its tiled, 16-bit-swapped f
         tiled: true,
         pitch: 128,
         data: surface,
+        cube: false,
     };
     assert.equal(xenos.tiledSize(t), surface.length);
     assert.deepEqual(xenos.baseLevel(t), Buffer.concat(blocks));
@@ -1371,7 +1373,17 @@ test("texture alpha: clear and partial shares; a cut-out is clear + opaque, glas
     const make = (alphaOf: (x: number) => number): xenos.XenosTexture => {
         const data = Buffer.alloc(8 * 8 * 4, 255);
         for (let i = 0; i < 64; i++) data[4 * i + 3] = alphaOf(i % 8);
-        return { checksum: 1, width: 8, height: 8, format: xenos.FMT_8888, endian: 0, tiled: false, pitch: 8, data };
+        return {
+            checksum: 1,
+            width: 8,
+            height: 8,
+            format: xenos.FMT_8888,
+            endian: 0,
+            tiled: false,
+            pitch: 8,
+            data,
+            cube: false,
+        };
     };
     const cut = textureAlpha(make((x) => (x < 4 ? 0 : 255)));
     assert.ok(cut.clear > 0.3 && cut.partial === 0);
@@ -1493,4 +1505,38 @@ test("undrawnBodies: a collision body with no drawn triangle near it and no draw
     const left = undrawnBodies([body(1, 0), body(2, 10), body(3, 20), body(0, 50)], seen, new Set([2]));
     assert.equal(left.length, 2);
     assert.ok(left[0]!.includes("body 3") && left[1]!.includes("body 0"));
+});
+
+test("vertex normals: a triangle's winding as THP8's ground has it faces up; shared corners are area-weighted", () => {
+    // wound (0,0,0) -> (0,0,1) -> (1,0,0): clockwise seen from above - the front of THP8's ground
+    const up = vertexNormals(
+        [
+            [0, 0, 0],
+            [0, 0, 1],
+            [1, 0, 0],
+        ],
+        [[0, 1, 2]],
+    );
+    assert.deepEqual(up, [
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+    ]);
+    // a floor triangle (area 0.5) and a wall (area 8) sharing corner 0: the corner leans to the wall; an unused vertex up
+    const mixed = vertexNormals(
+        [
+            [0, 0, 0],
+            [0, 0, 1],
+            [1, 0, 0],
+            [0, 4, 0],
+            [0, 0, 4],
+            [9, 9, 9],
+        ],
+        [
+            [0, 1, 2],
+            [0, 3, 4],
+        ],
+    );
+    assert.ok(Math.abs(mixed[0]![0]!) > 0.9, "the wall's normal (along x) wins at the shared corner");
+    assert.deepEqual(mixed[5], [0, 1, 0]);
 });

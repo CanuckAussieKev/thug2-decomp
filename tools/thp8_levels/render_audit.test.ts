@@ -135,6 +135,7 @@ test("the texture pass 0 is drawn with: the plan's first layer, else the first t
         tiled: false,
         pitch: 32,
         data: Buffer.alloc(0),
+        cube: false,
     });
     const textures = new Map([
         [1, tex(1, xenos.FMT_DXN)],
@@ -174,6 +175,7 @@ test("pass 0 skips blanks: a flat grey or a dither for the material's real textu
         tiled: false,
         pitch: w,
         data,
+        cube: false,
     });
     // 1: flat grey 32 x 32; 2: the grass (noisy) 64 x 64; 3: a 16 x 16 dither; 4: white; 5: a smaller real texture
     const noise = (x: number, y: number): number[] => [
