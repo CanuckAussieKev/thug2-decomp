@@ -18,6 +18,7 @@
 #include "game/obj/trigger_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/collision_events.h"
 #include "game/skater/controls.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_sound.h"
@@ -319,6 +320,8 @@ void CorePhysicsComponent::CheckForGround()
                 p.x = x;
                 p.y = y;
             }
+            CollisionEvents::NotePath(this, CollisionEvents::Path::GroundUnskatable,
+                                      VectorAt(object, kVelocity)); // (not original)
         } else {
             // Ground. The facing turned into the hit's plane and into the ground's plane: a hit at too steep
             // an angle to the current ground (cos of a physics angle - one value with button +0x20 held,
@@ -383,14 +386,22 @@ void CorePhysicsComponent::CheckForGround()
                 At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1D) = At<uint8_t>(this, 0x1AA);
                 return;
             }
+            CollisionEvents::NotePath(this, CollisionEvents::Path::GroundRejected,
+                                      VectorAt(object, kVelocity)); // (not original)
         }
+    } else {
+        CollisionEvents::NotePath(this, CollisionEvents::Path::NoGround, VectorAt(object, kVelocity)); // (not original)
     }
 
     // Off the ground.
     GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, 1);
+    CollisionEvents::Checkpoint(this, "set-air-4FDED0"); // (not original)
     static_cast<Obj::CObject*>(At<void*>(this, kObject))->BroadcastEvent(0xD96F01F1, nullptr, 0.0f);
+    CollisionEvents::Checkpoint(this, "SkaterOffEdge-event"); // (not original)
     static_cast<Obj::CObject*>(At<void*>(this, kObject))->SelfEvent(0x3B1001B6, nullptr);
+    CollisionEvents::Checkpoint(this, "GroundGone-event"); // (not original)
     GameFunction<void(__thiscall*)(void*)>(0x004FEBA0)(this);
+    CollisionEvents::Checkpoint(this, "after-4FEBA0"); // (not original)
     void* flags = At<void*>(this, kTimedFlags);
     if (At<uint8_t>(flags, 0x30)) {
         SetTimedFlag(flags, 0x48, 1);

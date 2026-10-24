@@ -9,6 +9,7 @@
 #include "game/obj/ride_tracker.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
+#include "game/skater/collision_events.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
@@ -116,8 +117,10 @@ void CorePhysicsComponent::DoGroundPhysics()
         static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))->SetTrickObjects(true);
         PerfectCheat(this, kPerfectManual, 0x54);
     }
+    CollisionEvents::Checkpoint(this, "gravity"); // (not original)
     ApplyGroundFriction();
     CheckSideFeelers();
+    CollisionEvents::Checkpoint(this, "friction-side-feelers"); // (not original)
 
     // The move this frame - skitching, none of its own: the skitched object's velocity (scaled), 0x00501DB0.
     Mth::Vector step;
@@ -158,20 +161,25 @@ void CorePhysicsComponent::DoGroundPhysics()
     }
 
     MoveOnGround(step);
+    CollisionEvents::Checkpoint(this, "moved"); // (not original)
     if (StateOf(this) != kGround)
         return;
 
     // Still on the ground.
     if (!At<uint8_t>(this, 0x2D8))
         TurnOnGround();
+    CollisionEvents::Checkpoint(this, "turned"); // (not original)
     if (!At<uint8_t>(this, 0x388))
         GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004FF590)(this, &VectorAt(ObjectOf(this), kVelocity));
+    CollisionEvents::Checkpoint(this, "along-facing-4FF590"); // (not original)
     if (!Flag(this, 0x88)) {
         CheckSideCollisions();
         LeanPushOffWall();
     }
+    CollisionEvents::Checkpoint(this, "side-collisions"); // (not original)
     if (!At<uint8_t>(this, 0x388))
         Call(0x004FF920, this);
+    CollisionEvents::Checkpoint(this, "turn-round-4FF920"); // (not original)
     if (Ask(0x004FFB10, this)) {
         Call(0x004FEBA0, this);
         SetFlag(this, 0x48, 1);
@@ -196,6 +204,7 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
         p.w = step.w + p.w;
         if (!Flag(this, 0x88))
             CheckWallAhead();
+        CollisionEvents::Checkpoint(this, "wall-ahead-check"); // (not original)
         if (Flag(this, 0x88)) {
             // Skitching: a feeler from 36 above to 200 below, along the up, for the ground's terrain.
             void* object = ObjectOf(this);
@@ -221,6 +230,7 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
         } else {
             CheckForGround();
         }
+        CollisionEvents::Checkpoint(this, "ground-check"); // (not original)
         // How far it got against the step.
         const Mth::Vector& now = VectorAt(ObjectOf(this), kPosition);
         double dx = static_cast<double>(now.x) - before.x, dy = static_cast<double>(now.y) - before.y;

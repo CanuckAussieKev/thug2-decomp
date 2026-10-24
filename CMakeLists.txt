@@ -191,6 +191,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_feelers.cpp
     src/hook/selftests_skater_turning.cpp
     src/hook/selftests_skater_walls.cpp
+    src/hook/selftests_collision_events.cpp
     src/hook/selftests_skater_wallplant.cpp
     src/hook/selftests_skater_acid_drop.cpp
     src/hook/selftests_skater_state_history.cpp
@@ -886,6 +887,7 @@ add_library(thug2_code OBJECT
     src/game/skater/core_physics_wallplant.cpp
     src/game/skater/core_physics_acid_drop.cpp
     src/game/skater/debug_collision.cpp
+    src/game/skater/collision_events.cpp
     src/game/skater/core_jump.cpp
     src/game/skater/core_collision.cpp
     src/game/skater/core_grind.cpp

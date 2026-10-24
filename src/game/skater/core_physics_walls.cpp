@@ -14,6 +14,7 @@
 #include "game/obj/object.h"
 #include "game/obj/trigger_component.h"
 #include "game/script/cscript.h"
+#include "game/skater/collision_events.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
@@ -262,7 +263,9 @@ bool CorePhysicsComponent::KeepOffCeiling()
         VectorAt(ObjectOf(this), kPosition) = VectorAt(this, kHitPoint) + kCeilingNudge * VectorAt(this, kHitNormal);
     else
         VectorAt(ObjectOf(this), kPosition) = end;
+    const Mth::Vector entryVelocity = VectorAt(ObjectOf(this), kVelocity); // (not original: for NotePath)
     VectorAt(ObjectOf(this), kVelocity).ProjectToPlane(normal);
+    CollisionEvents::NotePath(this, CollisionEvents::Path::Ceiling, entryVelocity); // (not original)
     return true;
 }
 
@@ -302,7 +305,9 @@ bool CorePhysicsComponent::KeepOffCeilingAtWall()
     } else {
         position2 = end;
     }
+    const Mth::Vector entryVelocity = VectorAt(ObjectOf(this), kVelocity); // (not original: for NotePath)
     VectorAt(ObjectOf(this), kVelocity).ProjectToPlane(normal);
+    CollisionEvents::NotePath(this, CollisionEvents::Path::Ceiling, entryVelocity); // (not original)
     return true;
 }
 
@@ -354,6 +359,8 @@ void CorePhysicsComponent::CheckWallAhead()
                                normal.w * kWallPushOut};
             VectorAt(ObjectOf(this), kPosition) = VectorAt(this, kHitPoint);
             VectorAt(ObjectOf(this), kPosition) += out;
+            CollisionEvents::NotePath(this, CollisionEvents::Path::WallAheadClimb,
+                                      VectorAt(ObjectOf(this), kVelocity)); // (not original)
             return;
         }
     }
@@ -365,8 +372,11 @@ void CorePhysicsComponent::CheckWallAhead()
 // 0x005059D0
 void CorePhysicsComponent::BounceOffWallAhead(const Mth::Vector* normal)
 {
-    if (GameFunction<bool(__thiscall*)(void*)>(0x004FF670)(this))
+    const Mth::Vector entryVelocity = VectorAt(ObjectOf(this), kVelocity); // (not original: for NotePath)
+    if (GameFunction<bool(__thiscall*)(void*)>(0x004FF670)(this)) {
+        CollisionEvents::NotePath(this, CollisionEvents::Path::WallAheadPlant, entryVelocity); // (not original)
         return;
+    }
     void* object = ObjectOf(this);
     const Mth::Vector& position = VectorAt(object, kPosition);
     const Mth::Vector& old = VectorAt(object, kOldPosition);
@@ -425,6 +435,7 @@ void CorePhysicsComponent::BounceOffWallAhead(const Mth::Vector* normal)
     p.y = static_cast<float>(ny + p.y);
     p.z = nz + p.z;
     p.w = nw + p.w;
+    CollisionEvents::NotePath(this, CollisionEvents::Path::WallAhead, entryVelocity); // (not original)
 
     // Then a feeler from there (twice the lift up) along the velocity, as far as the skater moved plus
     // Skater_First_Forward_Collision_Length.
@@ -468,6 +479,7 @@ void CorePhysicsComponent::BounceOffWallAhead(const Mth::Vector* normal)
     At<Mth::Matrix>(ObjectOf(this), kMatrix).RotateYLocal(backAngle);
     At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
     VectorAt(ObjectOf(this), kVelocity) *= 0.5f;
+    CollisionEvents::NotePath(this, CollisionEvents::Path::WallAheadCorner, entryVelocity); // (not original)
     if (Script::GetFloat(kDontFlailSpeed) < moved)
         SkaterObject(this)->SelfEvent(kFlailLeft, nullptr);
 }

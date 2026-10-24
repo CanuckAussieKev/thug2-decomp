@@ -306,6 +306,13 @@ The ini sits next to the exe. Every key is optional; the default applies when it
 | `automation` | 0 | The test-automation channel; for workspaces only, never the main install |
 | `debug_rail_speed`, `debug_collision`, `debug_sprites` | 0 | Extra log lines for those systems |
 
+**`[debug]`** - our debugging aids
+
+| Key | Default | Effect |
+|---|---|---|
+| `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (a wall bounce, rolled back by the ground's slope...): the physics path that did it, the face, probe lines down and ahead - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot (src/game/skater/collision_events.h) |
+| `collision_event_screenshots` | 0 | With `collision_events`: a screenshot of each event's frame too (in `Screenshots`, named in the log) |
+
 **`[Graphics]`** - from PartyMod, plus `OcclusionCulling`
 
 | Key | Default | Effect |
