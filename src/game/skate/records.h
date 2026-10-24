@@ -121,4 +121,12 @@ static_assert(sizeof(CGameRecords) == 0xC, "layout must match the original");
 bool UpdateRecords(bool editedCopy);
 bool __cdecl CFunc_UpdateRecords(Script::CStruct* params, Script::CScript* script);
 
+// 0x005AEBD0: UpdateArcadeScores [level=<n>] <RecordTable> - the level's (the current career level's) arcade scores
+// read from the parameters. True.
+bool __cdecl CFunc_UpdateArcadeScores(Script::CStruct* params, Script::CScript* script);
+// 0x005AFAF0: UpdateInitials - the current level's new records given the default initials. True.
+bool __cdecl CFunc_UpdateInitials(Script::CStruct* params, Script::CScript* script);
+// 0x005AFB30: NewRecord - whether the last UpdateRecords set a record (the skate module's +0x384).
+bool __cdecl CFunc_NewRecord(Script::CStruct* params, Script::CScript* script);
+
 } // namespace Records
