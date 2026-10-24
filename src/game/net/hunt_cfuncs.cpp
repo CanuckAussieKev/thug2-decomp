@@ -13,6 +13,7 @@
 #include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
+#include "game/skater/skater.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
@@ -34,12 +35,21 @@ constexpr uint32_t kSkaterId = 0x5B24FAAA;       // "SkaterId"
 constexpr uint32_t kControlType = 0x81CFF663;    // "control_type"
 constexpr uint32_t kKeyboardAnchor = 0x31631B98; // "keyboard_anchor"
 constexpr uint32_t kLobbyEnterKbChat = 0x6C41FCB3; // "lobby_enter_kb_chat"
+constexpr uint32_t kObjId = 0x0830ECAF;          // "ObjId"
+constexpr uint32_t kType = 0x7321A8D6;           // "type"
+constexpr uint32_t kAmmoType = 0x1D1A8B59;       // "ammo_type"
+constexpr uint32_t kVel = 0x0C4C809E;            // "vel"
+constexpr uint32_t kScale = 0x13B9DA7B;          // "scale"
+constexpr uint32_t kRadius = 0xC48391A5;         // "radius"
 
 // The messages (game group 8, sequenced).
 constexpr uint8_t kMsgObjectPickedUp = 0x90;   // ReportObjectPickup: the object's id
 constexpr uint8_t kMsgNeedToPlaceObjects = 0x91;
 constexpr uint8_t kMsgHuntStarted = 0x93;
 constexpr uint8_t kMsgEnterVehicle = 0x89;     // BroadcastEnterVehicle: the skater and the control type
+constexpr uint8_t kMsgObjectPlacements = 0x8F; // a player's placed objects (from the server) / one placed (to it)
+constexpr uint8_t kMsgProjectile = 0x83;       // BroadcastProjectile
+constexpr int kMaxPlaced = 5;                  // (the placements message's room)
 constexpr uint8_t kGroupGame = 8;
 
 Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
@@ -201,6 +211,120 @@ bool __cdecl CFunc_LobbyCheckKeyboard(Script::CStruct*, Script::CScript*)
     return true;
 }
 
+// 0x005B4F80: BroadcastObjectPlacements: every player's placed objects sent to every other player (not observers):
+// for each player (observers too) a message per other player - its object id byte, the count and the positions
+// (the rest of the 5 left as they were from the last one). Always true.
+bool __cdecl CFunc_BroadcastObjectPlacements(Script::CStruct*, Script::CScript*)
+{
+    Manager* manager = NetManager();
+    GameNet::Detail::PlayerSearch others;
+    GameNet::Detail::PlayerSearch receivers;
+    Net::MsgDesc desc;
+    desc.Construct();
+    Net::App* server = manager->m_server;
+    struct {
+        uint8_t id;
+        uint8_t pad1[3];
+        int count;
+        Script::VectorValue positions[kMaxPlaced];
+    } msg;
+    desc.m_id = kMsgObjectPlacements;
+    desc.m_data = &msg;
+    desc.m_length = sizeof(msg);
+    desc.m_queue = Net::MsgDesc::kQueueSequenced;
+    desc.m_groupId = kGroupGame;
+    for (uint8_t* receiver = GameNet::Detail::FirstPlayer(manager, &receivers, true); receiver;
+         receiver = GameNet::Detail::NextPlayer(manager, &receivers, true)) {
+        for (uint8_t* player = GameNet::Detail::FirstPlayer(manager, &others, false); player;
+             player = GameNet::Detail::NextPlayer(manager, &others, false)) {
+            if (player == receiver)
+                continue;
+            msg.id = static_cast<uint8_t>(GameNet::Detail::AsPlayer(player)->m_skater->m_id);
+            msg.count = PlacedCount(player);
+            for (int i = 0; i < PlacedCount(player); ++i)
+                msg.positions[i] = PlacedPositions(player)[i];
+            server->EnqueueMessage(GameNet::Detail::PlayerHandle(receiver), &desc);
+        }
+    }
+    return true;
+}
+
+// 0x005B50F0: ReportObjectPlacement ObjId=<n> pos=(x,y,z): the placement message (the position) to the server through
+// client 0 online, otherwise through the client numbered by ObjId (as the original does). Always true.
+bool __cdecl CFunc_ReportObjectPlacement(Script::CStruct* params, Script::CScript*)
+{
+    Manager* manager = NetManager();
+    uint32_t client = 0; // (both uninitialised in the original when missing)
+    params->GetChecksum(kObjId, &client, 0);
+    Script::VectorValue pos = {};
+    params->GetVector(kPos, &pos, 0);
+    Net::App* app = manager->GetClient(manager->InNetGame() ? 0 : static_cast<int>(client));
+    if (app) {
+        Net::MsgDesc desc;
+        desc.Construct();
+        Script::VectorValue msg = pos;
+        desc.m_data = &msg;
+        desc.m_id = kMsgObjectPlacements;
+        desc.m_length = sizeof(msg);
+        desc.m_queue = Net::MsgDesc::kQueueSequenced;
+        desc.m_groupId = kGroupGame;
+        GameNet::Detail::SendToServer(app, &desc);
+    }
+    return true;
+}
+
+// 0x005B51B0: BroadcastProjectile ObjId=<n> type= ammo_type= pos= vel= scale= radius=: the projectile message to the
+// server through client 0, if there is one. Always true.
+bool __cdecl CFunc_BroadcastProjectile(Script::CStruct* params, Script::CScript*)
+{
+    Net::App* client = NetManager()->GetClient(0);
+    if (!client)
+        return true;
+    Net::MsgDesc desc;
+    desc.Construct();
+    uint32_t id = 0; // (all uninitialised in the original when missing)
+    params->GetChecksum(kObjId, &id, 0);
+    uint32_t type = 0;
+    params->GetChecksum(kType, &type, 0);
+    uint32_t ammoType = 0;
+    params->GetChecksum(kAmmoType, &ammoType, 0);
+    Script::VectorValue pos = {};
+    params->GetVector(kPos, &pos, 0);
+    Script::VectorValue vel = {};
+    params->GetVector(kVel, &vel, 0);
+    float scale = 0.0f;
+    params->GetFloat(kScale, &scale, 0);
+    int radius = 0;
+    params->GetInteger(kRadius, &radius, 0);
+    struct {
+        uint32_t zero;
+        Script::VectorValue pos;
+        Script::VectorValue vel;
+        uint32_t type;
+        uint32_t ammoType;
+        int radius;
+        float scale;
+        uint8_t id;
+        uint8_t pad35[3];
+    } msg;
+    static_assert(sizeof(msg) == 0x38, "the message's size");
+    msg.id = static_cast<uint8_t>(id);
+    msg.pos = pos;
+    msg.vel = vel;
+    msg.radius = radius;
+    msg.scale = scale;
+    msg.type = type;
+    msg.ammoType = ammoType;
+    msg.zero = 0;
+    desc.m_id = kMsgProjectile;
+    desc.m_data = &msg;
+    desc.m_length = sizeof(msg);
+    desc.m_queue = Net::MsgDesc::kQueueSequenced;
+    desc.m_groupId = kGroupGame;
+    GameNet::Detail::SendToServer(client, &desc);
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x005B1EE0, CFuncs::CFunc_PlaceObject);
@@ -211,3 +335,6 @@ REPLACE(0x005B2170, CFuncs::CFunc_ReportObjectPickup);
 REPLACE(0x005B2210, CFuncs::CFunc_PlacedLessThan);
 REPLACE(0x005B2260, CFuncs::CFunc_BroadcastEnterVehicle);
 REPLACE(0x005B2300, CFuncs::CFunc_LobbyCheckKeyboard);
+REPLACE(0x005B4F80, CFuncs::CFunc_BroadcastObjectPlacements);
+REPLACE(0x005B50F0, CFuncs::CFunc_ReportObjectPlacement);
+REPLACE(0x005B51B0, CFuncs::CFunc_BroadcastProjectile);

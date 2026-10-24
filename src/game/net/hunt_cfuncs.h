@@ -21,5 +21,8 @@ bool __cdecl CFunc_ReportObjectPickup(Script::CStruct* params, Script::CScript* 
 bool __cdecl CFunc_PlacedLessThan(Script::CStruct* params, Script::CScript* script);
 bool __cdecl CFunc_BroadcastEnterVehicle(Script::CStruct* params, Script::CScript* script);
 bool __cdecl CFunc_LobbyCheckKeyboard(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_BroadcastObjectPlacements(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_ReportObjectPlacement(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_BroadcastProjectile(Script::CStruct* params, Script::CScript* script);
 
 } // namespace CFuncs

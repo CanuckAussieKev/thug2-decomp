@@ -126,3 +126,29 @@ Shared files touched: CMakeLists.txt (new files listed).
     stood in for, arrays that keep their elements (for the shuffle); 15 velocity cases (fast / slow, skew, scale),
     seven stream cases (pro, voice in the list, custom male / female / is_male 2, none found, count 0). 33 of 33
     deliberate bugs caught (1 after strengthening: is_male = 2).
+- [x] Batch GS4-6 (NOT run in the game yet; object placements and projectiles, the cutscene destroy list, the skaters'
+  set-up and scores, the nearest skater - 17 functions): src/game/net/hunt_cfuncs.h / .cpp,
+  src/game/obj/cutscene_list_cfuncs.h / .cpp, src/game/skater/skater_score_cfuncs.h / .cpp (new).
+  - 0x005B4F80 BroadcastObjectPlacements (for every player, observers too, a message 0x8F per other non-observer
+    player: its skater's id byte, its count and positions - 88 bytes, the positions past the count left from the last
+    one, as the original), 0x005B50F0 ReportObjectPlacement (0x8F with the position only; offline the client numbered
+    by ObjId, as the original), 0x005B51B0 BroadcastProjectile (0x83, 56 bytes: 0, pos, vel, type, ammo_type, radius,
+    scale, the id byte), 0x005B4650 the MSVC 7.1 std::list constructor (CFuncs::PointerList: its static users are
+    0x006F0DA8, the COIM instance list and the cutscene destroy list 0x007CEDD8), 0x005B5320
+    AddToCutsceneDestroyList (an entry - GS3's CutsceneDestroyEntry - with its own copy of destroy_params, pushed at
+    the end), 0x005B5450 RemoveFromCutsceneDestroyList (not while flushing - 0x007CED50; the entry deleted, the node
+    unlinked), 0x005B5510 Cutscene_SpawnScript (SpawnScript's parameters - the id defaulting to the calling script's
+    .qb file, its symbol's +8 - and an entry killing the spawned script by its unique id), 0x005B5BE0
+    FlushCutsceneDestroyList (each destroy script run, the entries deleted, std::list::erase 0x004ECC30), 0x005B5770
+    InitializeSkaters (a local skater's ResetInput through its vtable slot 14, then out of the world: 0x00564C60),
+    0x005B57E0 ReinsertSkaters (ShowSkater in its skater heap), 0x005B5860 ResetScore (local skaters - every one with
+    reset_all: the score reset, "0" / "0:00" in king of the hill), 0x005B5950 UpdateScore, 0x005B59C0 ResetScorePot,
+    0x005B5A40 GetCollidingPlayerAndTeam (radius * 12 squared before rounding; another team without the flag or the
+    excluded team with it; the nearest; team -1 when none). The loops over the skaters count them with
+    Skate::GetNumSkaters (the original inlines that count).
+  - Tests TestNetListScoreCFuncs / TestCutsceneSpawnScriptCFunc: original vs ours with the network manager, players,
+    apps and clients, the memory manager (blocks handed out in order - the list's nodes and entries compared word by
+    word after each command), the entry constructor, SpawnScript, RunScript, erase, the skate module's skater list (a
+    real one: the original counts it inline), the skaters' vtable, scores and SetScoreText stood in for; a calling
+    script's symbol in the stand-in table. 44 of 44 deliberate bugs caught (2 after strengthening: a skater kept out
+    only by its height, a radius whose square rounds differently before and after - found by search).
