@@ -12,7 +12,9 @@
 #include "game/gfx/texture_cfuncs.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
+#include "game/core/crc.h"
 #include "game/script/cscript.h"
+#include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/skate/records.h"
 #include "game/skate/skate_module.h"
@@ -60,6 +62,10 @@ constexpr uint32_t kG = 0xFE2BE489;           // "g"
 constexpr uint32_t kBlue = 0x8E411006;        // "b" (the same checksum as "B")
 constexpr uint32_t kNetSlap = 0xF9D5D933;     // "netslap"
 constexpr uint32_t kSlap = 0xCA1F360F;        // "slap"
+constexpr uint32_t kUiString = 0x96875C0F;    // "ui_string"
+constexpr uint32_t kChecksum = 0x21902065;    // "checksum"
+constexpr uint32_t kTime = 0x906B67BA;        // "time"
+constexpr uint32_t kScore = 0xCD66C8AE;       // "score"
 
 Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
 // The game mode (0x007CE470): its name (0x005532A0) and fireball level (0x005531F0) - neither has source yet.
@@ -343,6 +349,43 @@ bool __cdecl CFunc_InSlapGame(Script::CStruct*, Script::CScript*)
     return GameModeName() == kNetSlap || GameModeName() == kSlap;
 }
 
+// 0x005B46A0: SetPreferencesFromUI <which preferences> string="..." field="name" [checksum=<value>] [time=n]
+// [score=n]: the preference `field` set to {ui_string, checksum, time (time_limit / horse_time_limit), score (target
+// score: score, else time * 1000)} in the preferences the params name (0x00565D40). Always true.
+bool __cdecl CFunc_SetPreferencesFromUI(Script::CStruct* params, Script::CScript*)
+{
+    auto* preferences = GameFunction<Prefs::Preferences*(__cdecl*)(CStruct*, int)>(0x00565D40)(params, 1);
+    const char* string;
+    params->GetString(kString, &string, 1);
+    const char* field;
+    params->GetString("field", &field, 1);
+    CStruct* memory = Script::NewStruct();
+    CStruct* value = memory ? memory->Init() : nullptr;
+    value->AddString(kUiString, Script::ESYMBOLTYPE_STRING, string);
+    uint32_t checksum = 0;
+    params->GetChecksum("checksum", &checksum, 0);
+    value->AddComponentOfType(kChecksum, Script::ESYMBOLTYPE_NAME, checksum);
+    if (std::strcmp(field, "time_limit") == 0 || std::strcmp(field, "horse_time_limit") == 0) {
+        int time = 0; // (uninitialised in the original without time)
+        params->GetInteger("time", &time, 0);
+        value->AddComponentOfType(kTime, Script::ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(time));
+    }
+    if (std::strcmp(field, "target_score") == 0) {
+        int score;
+        if (!params->GetInteger(kScore, &score, 0)) {
+            params->GetInteger(kTime, &score, 1);
+            score *= 1000;
+        }
+        value->AddComponentOfType(kScore, Script::ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(score));
+    }
+    preferences->SetPreference(Crc::GenerateCRCFromString(field), value);
+    if (value) {
+        value->Clear();
+        Script::DeleteStruct(value);
+    }
+    return true;
+}
+
 } // namespace CFuncs
 
 REPLACE(0x005B1B60, CFuncs::CFunc_InterpolateParameters);
@@ -357,3 +400,4 @@ REPLACE(0x005B3230, CFuncs::CFunc_GetFireballLevel);
 REPLACE(0x005B3260, CFuncs::CFunc_GetSkaterLastNameString);
 REPLACE(0x005B3300, CFuncs::CFunc_DrawDirectionalLightLines);
 REPLACE(0x005B3470, CFuncs::CFunc_InSlapGame);
+REPLACE(0x005B46A0, CFuncs::CFunc_SetPreferencesFromUI);

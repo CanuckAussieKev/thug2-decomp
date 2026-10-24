@@ -274,6 +274,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gs4_hunt.cpp
     src/hook/selftests_gs4_texture.cpp
     src/hook/selftests_gs4_models.cpp
+    src/hook/selftests_gs4_skater.cpp
     src/hook/selftests_career_cfuncs.cpp
     src/hook/selftests_competition_cfuncs.cpp
     src/hook/selftests_skater_query_cfuncs.cpp
@@ -957,6 +958,8 @@ add_library(thug2_code OBJECT
     src/game/gfx/face_texture_cfuncs.cpp
     src/game/gfx/cag_cfuncs.cpp
     src/game/obj/model_swap_cfuncs.cpp
+    src/game/front/theme_cfuncs.cpp
+    src/game/skater/skater_misc_cfuncs.cpp
     src/game/script/script_util_cfuncs.cpp
     src/game/script/math_cfuncs.cpp
     src/game/script/debug_cfuncs.cpp

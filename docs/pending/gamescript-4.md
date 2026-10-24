@@ -55,7 +55,8 @@ Shared files touched: CMakeLists.txt (new files listed).
     later too: mutation builds use a fresh endpoint each, -j 1).
 - [x] Batch GS4-3 (NOT run in the game yet; face textures, changing textures, HSV / RGB, the nearest rail point, the
   park's name, the special bar, the initials, the fireball level, last names, the light's debug lines, the slap game -
-  17 CFunctions): src/game/gfx/texture_cfuncs.h / .cpp (new), src/game/script/game_util_cfuncs.h / .cpp.
+  17 CFunctions): src/game/gfx/face_texture_cfuncs.h / .cpp (new; first named texture_cfuncs - renamed when GS2's file
+  of that name reached main), src/game/script/game_util_cfuncs.h / .cpp.
   - 0x005B2420 LoadFaceTextureFromProfile (the current profile's face image - its appearance's +0x54, +0x3C, 0x4420
     bytes - into the texture dictionary 0x00700F1C through 0x0049FA20; whether a texture came back), 0x005B2480
     SetFaceTextureFromVideoCapture (a zeroed 0x4420-byte image built from the captured texture's header, palette and
@@ -106,3 +107,22 @@ Shared files touched: CMakeLists.txt (new files listed).
     returns; RestoreAll over four table patterns with SwapObjectModels stood in for; CAG over five layer sets / sizes /
     depths / players; 17 angles. 50 of 51 deliberate bugs caught; 1 equivalent (theta == 180 taken into the second
     quadrant's fold: 90 - 90 = 0, x negated - the same result).
+- [x] Batch GS4-5 (NOT run in the game yet; the theme's colours, a board logo, preferences from a menu, the skater's
+  velocity, bail streams - 23 CFunctions): src/game/front/theme_cfuncs.h / .cpp, src/game/skater/skater_misc_cfuncs.h /
+  .cpp (new), src/game/script/game_util_cfuncs.h / .cpp (SetPreferencesFromUI).
+  - 0x005B4260-0x005B45C0 the 19 Theme_Get...Color commands (return_value=<name> gets <name>=DE_..._COLOR, the
+    theme's global), 0x005B45F0 ApplyCustomLogoToPart (the skater's board element shown; no null check), 0x005B46A0
+    SetPreferencesFromUI (the preferences 0x00565D40 picks; {ui_string, checksum, time for time_limit /
+    horse_time_limit, score - else time * 1000 - for target_score} under the field's checksum), 0x005B4890
+    GetSkaterVelocity (vel_x/y/z truncated; scaled_x/y/z: faster than 100 across the ground, the horizontal velocity
+    normalised, else the object's facing row; a skew angle turns it - m * RotateY for the velocity, RotateY * m for
+    the facing: the original multiplies in those two orders), 0x005B4AF0 PlaySkaterStream (streams 1..count shuffled
+    with Rnd, "<voice>_<type><nn>" through sprintf - ours snprintf into the same 128 bytes; voice: a pro's last name,
+    else player_voices' play_skater_stream_name for the profile's voice, else customM / customF by is_male == 1; the
+    first stream that exists played by skater_play_bail_stream; the struct / array deletes inlined as the pool pairs'
+    Free; the skater's first name copied into a buffer and not used, as the original).
+  - Test TestSkaterMiscCFuncs: original vs ours with the skate module, skater, preferences, the matrix / vector maths
+    (deterministic stand-ins, so x87 and SSE agree), the profile template, Rnd, sprintf / strcmp, streams and RunScript
+    stood in for, arrays that keep their elements (for the shuffle); 15 velocity cases (fast / slow, skew, scale),
+    seven stream cases (pro, voice in the list, custom male / female / is_male 2, none found, count 0). 33 of 33
+    deliberate bugs caught (1 after strengthening: is_male = 2).
