@@ -290,7 +290,7 @@ export const THUG1_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, Tab
 export const THAW_LEVELS: ReadonlyMap<string, TableEntry> = new Map<string, TableEntry>([
     ["Z_CH", { text: "CHICAGO", icon: "train", place: "Chicago", location: [-87.65, 41.85] }],
     ["Z_MA", { text: "THE MALL", icon: "cart", place: "a shopping mall (no place named)", location: null }],
-    ["Z_DN", { text: "MINNEAPOLIS", icon: "spoonbridge", place: "Minneapolis, Minnesota", location: [-93.27, 44.98] }],
+    ["Z_DN", { text: "MINNEAPOLIS", icon: "stonearch", place: "Minneapolis, Minnesota", location: [-93.27, 44.98] }],
     ["Z_JA", { text: "KYOTO", icon: "torii", place: "Kyoto, Japan", location: [135.77, 35.01] }],
     ["Z_SZ", { text: "SANTA CRUZ", icon: "surfboard", place: "Santa Cruz, California", location: [-122.03, 36.97] }],
     ["Z_SV2", { text: "THE RUINS", icon: "column", place: "ruins (no place named)", location: null }],

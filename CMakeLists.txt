@@ -191,6 +191,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_feelers.cpp
     src/hook/selftests_skater_turning.cpp
     src/hook/selftests_skater_walls.cpp
+    src/hook/selftests_collision_events.cpp
     src/hook/selftests_skater_wallplant.cpp
     src/hook/selftests_skater_acid_drop.cpp
     src/hook/selftests_skater_state_history.cpp
@@ -295,6 +296,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gs2_contents.cpp
     src/hook/selftests_gs2_textures.cpp
     src/hook/selftests_gs2_saving.cpp
+    src/hook/selftests_gs1.cpp
     src/hook/selftests_ec2.cpp
     src/hook/selftests_engcmd1.cpp
     src/hook/selftests_obj_scene_cmds.cpp
@@ -892,6 +894,7 @@ add_library(thug2_code OBJECT
     src/game/skater/core_physics_wallplant.cpp
     src/game/skater/core_physics_acid_drop.cpp
     src/game/skater/debug_collision.cpp
+    src/game/skater/collision_events.cpp
     src/game/skater/core_jump.cpp
     src/game/skater/core_collision.cpp
     src/game/skater/core_grind.cpp
@@ -965,6 +968,10 @@ add_library(thug2_code OBJECT
     src/game/skater/skater_score_cfuncs.cpp
     src/game/obj/cutscene_list_cfuncs.cpp
     src/game/sys/game_config.cpp
+    src/game/script/game_cfuncs.cpp
+    src/game/script/game_flow_cfuncs.cpp
+    src/game/script/net_state_cfuncs.cpp
+    src/game/script/node_object_cfuncs.cpp
     src/game/script/script_util_cfuncs.cpp
     src/game/script/math_cfuncs.cpp
     src/game/script/debug_cfuncs.cpp

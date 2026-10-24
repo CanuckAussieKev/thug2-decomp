@@ -9,6 +9,7 @@
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/collision_events.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
@@ -54,6 +55,7 @@ void ReleaseFeelerObject(FeelerStorage& feeler)
 bool CorePhysicsComponent::CheckAirForwardCollision(const Mth::Vector* from)
 {
     void* object = ObjectOf(this);
+    const Mth::Vector entryVelocity = VectorAt(object, kVelocity); // (not original: for NotePath)
     // The move's direction (x, y, z normalised - z's difference kept unrounded, as the original does; w as it is).
     const Mth::Vector& position = VectorAt(object, kPosition);
     float moveW = position.w - from->w;
@@ -168,6 +170,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Mth::Vector* from)
             velocity.RotateToPlane(*hitNormal);
         else
             velocity.ProjectToPlane(normal);
+        CollisionEvents::NotePath(this, CollisionEvents::Path::AirWallVert, entryVelocity); // (not original)
         ReleaseFeelerObject(hit);
         return false;
     }
@@ -238,6 +241,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Mth::Vector* from)
                 VectorAt(ObjectOf(this), kVelocity) += carried;
             }
         }
+        CollisionEvents::NotePath(this, CollisionEvents::Path::AirBonk, entryVelocity); // (not original)
     }
     DestroyFeeler(hit.get());
     return false;
@@ -302,8 +306,10 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
                       static_cast<double>(normal.x) * up.x;
     if (!(facingUp < static_cast<double>(0.25f)) || !(facingUp > static_cast<double>(-0.25f)))
         return false;
+    const Mth::Vector entryVelocity = VectorAt(ObjectOf(this), kVelocity); // (not original: for NotePath)
     VectorAt(ObjectOf(this), kPosition) = VectorAt(this, 0x98);
     BounceOffWall(&normal, &overlap, 0.2f);
+    CollisionEvents::NotePath(this, CollisionEvents::Path::SideWall, entryVelocity); // (not original)
     // ... then, unless there's something between (a feeler from just off the hit out to the length) or a trigger's
     // script takes over, onto the wall: at that feeler's end, lowered by the side height.
     const Mth::Vector& point = VectorAt(this, kHitPoint);

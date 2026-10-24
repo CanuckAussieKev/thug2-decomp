@@ -10954,6 +10954,348 @@ mode (frame steps, speed, the info panel) if the viewer can be launched.
     deliberate bugs caught (2 after strengthening: a path without .mdl, a car with no new dictionary).
   - tools/ghidra/audit_game_function_calls.py: a Str::String passed by value counts 12 bytes (it flagged the
     horse word's call as a mismatch).
+- [x] Batch 366 (GS2-1; gamescript-2, merged 2026-10-24; run in the game: docs/pending/gamescript-2.md; NOT judged by a player yet; light groups, the skaters' pause, the viewer, the weather, the screen
+  effects - 31 CFunctions): src/game/script/world_cfuncs.h / .cpp (new).
+  - 0x005A5360 SetLightGroup / 0x005A5380 IsAlive (the node command dispatcher 0x005A4EF0 - the neighbouring range,
+    via GameFunction - with command 7 / 5), 0x005A53A0 PauseSkaters (hide flag; each skater with +0xBC set: vtable
+    +0x2C, then Hide(hide); the count read once, unsigned loop), 0x005A5420 UnPauseSkaters (vtable +0x30, shown),
+    0x005A5480 SkatersAreReady (GameNet m_readyToPlay; a skater, else IsObserving 0x005A0D90), 0x005A54E0
+    LaunchViewer (once: Mdl::Viewer made, registered, started; viewercam_composite_structure as a composite object
+    named viewer_cam, its object flag 2), 0x005A5610 AddSkaterEarly (no skater: profile 0's skater added, local),
+    0x005A5680 WeatherUpdateGrid (weather vtable +4 through 0x004A1090, true), 0x005A5690-0x005A58D0 the 19 weather
+    setters and 0x005A58F0 / 0x005A5910 / 0x005A5930 the screen effects (each the object's own method on (params,
+    script), its result returned), 0x005A5950 IsPal (0x007CEFA0 != 2).
+  - Test TestWorldCFuncs: original vs ours with every call stood in for (node dispatcher, GetSkater, the skaters'
+    vtables, Hide, IsObserving, the profile / AddSkater, the viewer's allocation, constructor and module calls, the
+    struct pool / heap, AddChecksum, GetArray, CreateCompositeObjectFromNode, Clear, DeleteStruct, every weather /
+    screen-effects method): 0-3 skaters, missing ones, +0xBC clear, ready / observing combinations, LaunchViewer
+    from the pool, the heap and without viewer memory. 23 of 23 deliberate bugs caught (1 after adding a one-skater
+    case for SkatersAreReady's `> 0`).
+- [x] Batch 367 (GS2-2; gamescript-2, merged 2026-10-24; run in the game: docs/pending/gamescript-2.md; NOT judged by a player yet; the script system's start-up - 14 functions): src/game/script/
+  script_startup.h / .cpp (new).
+  - 0x005A5660 GetNumCFunctions (1254) / 0x005A5670 GetNumMemberFunctions (250), 0x005A5960 LoadQBFile (LoadQB, not
+    temporary), 0x005A5990 LoadQBFileData, 0x005A59B0 UnloadQBFile (UnloadQB, then nodearray looked up - the result
+    unused), 0x005A59D0 LoadStartupQBFiles (qb_scripts.pre loaded on the top-down heap; each line of
+    scripts\qdir.txt - CR / LF ends, empty lines skipped, the path from "data\" on, no length check on the 200-byte
+    line - unloaded and loaded with the permanent string cache on; then debugger_names removed), 0x005A5B20 (the same
+    in a memory profile), 0x005A5B40-0x005A5DF0 the pool creators of CAnimCachePredictor (0x1E4 bytes),
+    CBlendChannel (0x74), CBonedAnimController (0x28), CAnimLookup (0x214), sSpawnedPolyDetails (0xB8),
+    Obj::CEventReceiverList (0x14) - Script::CreatePool's code, 0x005A5E70 AllocatePools (the script pools, those six
+    with 200/150/150/175/75/175 items, the CFunctions and member functions registered).
+  - Found: a stock THUG2.exe names "qb_scripts.prx" at 0x00657698 where THUG2PM.exe has ".pre" - ours keeps .pre (the
+    file layer opens a .pre as .prx anyway); the test writes THUG2PM.exe's byte there while it runs.
+  - Test TestScriptStartup: original vs ours with LoadQB / LoadQBData / UnloadQB / GetArray / the heap stack / Pip /
+    the permanent strings / FindSymbol / CleanUpAndRemoveSymbol / CreateScriptPools / the registrations stood in for,
+    allocations from one arena per run (the pools' blocks and contents compared): a qdir.txt with CR LF, LF, empty
+    lines, "data\" in and out of the path, a last line without its end, a size ending mid-line, none; pool pairs
+    with current pool 0 and 1. 23 of 23 deliberate bugs caught (one by hanging, as the original would on that bug).
+- [x] Batch 368 (GS2-3; gamescript-2, merged 2026-10-24; run in the game: docs/pending/gamescript-2.md; NOT judged by a player yet; the save types, the saves' summaries and the card state commands - 33
+  functions): src/game/mc/save_types.h / .cpp (new), src/game/mc/memcard_cfuncs.h / .cpp (extended).
+  - Save types by checksum (OptionsAndPros .SKA a, Cas b, Park .PRK c, NetworkSettings .NWS e, Cat .CAT f,
+    CreatedGoals .GOA g, CreatedGraphic .GRF h, Replay .REP): 0x005A5F70 MakeFileName (EAX/ESI/EDI: 8 base-26
+    letters of the name's CRC, the last the type's letter), 0x005A60C0 TypeFromLetter (AL; keeps ECX/EDX -
+    DeleteMemCardFile relies on EDX, found by scan_register_assumptions), 0x005A6180 IconSpaceRequired (EAX),
+    0x005A6210 TypeVersion (EAX: VERSION_*, -1), 0x005A62A0 TypeFileName (EAX/ECX: "Save/%s.EXT" in 0x007CECE8),
+    0x005A6390 MakeFolderFileName (EDI + stack), 0x005A63E0 IsLater (EDI/ESI: year..seconds), 0x005A6CD0
+    RoundUpToCardBlock (ESI: platform 1-3/7 1 KB, 4 16 KB, 5 8 KB), 0x005A7340 TypeFileSize (ECX: SaveSize_* +
+    0x14 rounded), 0x005A8470 SaveBlocks (cdecl: + icon space + 4 on platforms 1-3, + 3 on the PC), 0x005A6120
+    ApplyGoalManagerParams (fastcall), 0x005A6C80 ApplyCatAndCustomSkater (EDI + stack), 0x005A8EB0
+    KeepLoadedContents, 0x005A6610 WriteSummary (EAX/ESI + stack: per type from a save or the live state - the
+    park map info, the goal editor's count, CAT name, network_id, career totals / is_male / name), 0x005A7520 /
+    0x005A8E80 two list types' scalar deleting destructors (vtables 0x0065797C / 0x00658A60).
+  - CFunctions: 0x005A6550 SaveFailedDueToInsufficientSpace, 0x005A6560 SetSectionsToApplyWhenLoading
+    (ApplyCustomSkater 8, ApplyStorySkater 4, ApplyStory 2, 0xB39D7CC4 1, all), 0x005A6600 LoadedCustomSkater,
+    0x005A6D30 GetMostRecentSave (no type asked = any type; BadVersion / Corrupt ones count only on platforms 4 and
+    5 - our first version had the type test the wrong way round, caught by the test), 0x005A7210 FormatCard (the
+    card's always-false stub), 0x005A7260 CardIsInSlot, 0x005A7280 CardIsFormatted, 0x005A72A0 GetSummaryInfo
+    (VaultData: the kept contents with their own type), 0x005A7430 GetMemCardDataForUpload, 0x005A7450
+    GetMaxTHPS4FilesAllowed (75), 0x005A7470 SwitchToTempPoolsIfTheyExist, 0x005A74F0 SwitchToRegularPools.
+  - LoadFromMemoryCard's inline-assembly calls to these helpers renamed Game* (still through the game addresses,
+    which the existing LoadFromMemoryCard self-test stands in for).
+  - Tests TestSaveTypes / TestSaveSummaries: original vs ours (register entry points through inline assembly) for
+    every name / type / letter (all 256 bytes, ECX/EDX checked) / platform -1..8 / size edge, the dates field by
+    field, the summaries from hand-built saves (each OptionsAndPros career case, missing GlobalInfo, parks with
+    and without goals) and the live state (stand-in skater, career, park editor, goal editor, preferences), the
+    most recent save over 7 entries x 3 platforms x 4 types, the card commands with and without a card, the
+    temporary pools (each missing, back from each). 48 deliberate bugs: 47 caught (3 after strengthening: a career
+    without the first field, only one pool pair not on its first pool, ECX/EDX in TypeFromLetter), 1 equivalent
+    (IsLater's > as >= at a differing field).
+- [x] Batch 369 (GS2-4; gamescript-2, merged 2026-10-24; run in the game: docs/pending/gamescript-2.md; NOT judged by a player yet; the save file commands - 6 CFunctions): src/game/mc/save_files_cfuncs.h /
+  .cpp (new).
+  - 0x005A6EA0 DeleteMemCardFile (PC / platform 7: RemoveFile(CardFileName), none = false; consoles: the file, its
+    icon.sys and the type's icon - from the last letter of the name - deleted, then the folder; platform 5 the
+    "%s%s%s%s" name; others false; music and streams paused except on the PC), 0x005A8500 GetMemCardSpaceRequired,
+    0x005A8550 MemCardFileExists (the name made per platform; total_file_size in blocks; on the PC a file that
+    won't open is removed by its type name), 0x005A8BB0 ClearMemCardDataForUpload, 0x005A8DA0
+    CreateTemporaryMemCardPools (only the component reserve checked; 50000 / 50000 / 10000 on the top-down heap),
+    0x005A9700 RemoveTemporaryMemCardPools (each reserve pool: its block and itself freed if the pair owns it).
+  - Test TestSaveFileCFuncs: original vs ours with the card (GetCard, delete, RemoveFile, ConvertFilename, Open,
+    Seek, Flush, Close, the file's destructor), Pip / music / sprintf / pool creation and freeing stood in for - no
+    file touched: every platform 0-8 x card / no card / failing deletes (the file, icon.sys) / failing removal, every
+    type's icon, names with and without a folder, MemCardFileExists' missing name / type / conversion / file, the
+    reserve pools present or not, owned or not. 29 deliberate bugs: 28 caught (1 after adding a failing first
+    delete), 1 equivalent (the PC path without a card file name setting the result before the removal check that
+    clears it anyway).
+- [x] Batch 370 (GS2-5; gamescript-2, merged 2026-10-24; run in the game: docs/pending/gamescript-2.md; NOT judged by a player yet; what a save holds and how it is put back - 5 functions):
+  src/game/mc/save_contents.h / .cpp (new), GetSaveInfo in save_files_cfuncs.cpp.
+  - 0x005A7560 WriteGlobalInfo (Options: SplitScreenPreferences copy, SoundOptions - MainVolume, MusicVolume from
+    MusicVolOutsideBox, the two 64-bit forbidden-track sets as four integers high/low, current_soundtrack on the PC,
+    RandomMode -, ControllerPreferences - 8 structures of AutokickOn / SpinTapsOn / VibrationOn from the skate
+    module's +0x394 bytes -, Taunts; the career, the records, Pros), 0x005A7CF0 ReadGlobalInfo (the reverse: the
+    Change script with MusicVolOutsideBox, set_loaded_soundtrack with trackchecksum, the soundtrack symbol's value,
+    the 8 controllers' setters 0x00567C30 / 0x00567C00 / 0x00567BD0, LastLevelLoadScript / LastGameMode into the
+    script's parameters, CASFileName for a non-pro first profile), 0x005A79A0 WriteSaveContents (EBX + stack; quirk
+    kept: OptionsAndPros runs on into CreatedGraphic's layer_infos), 0x005A81B0 ApplyLoadedContents (EAX / ESI +
+    stack: per type; OptionsAndPros by SetSectionsToApplyWhenLoading's bits with the APPLY_* messages, layer_infos
+    into the caller's params, the sections cleared), 0x005A8BF0 GetSaveInfo.
+  - Test TestSaveContents: original vs ours with every call out stood in for (floats returned through `fld`
+    stand-ins), new structures and arrays from one arena per run: all types on the PC and a console, RandomMode on /
+    off, full / partial / career-less global info on two platforms, pro or not, the soundtrack symbol there or not,
+    every type applied, OptionsAndPros with each section and both profile indexes, GetSaveInfo for the types whose
+    summary of empty contents is safe. 34 of 34 deliberate bugs caught.
+- [x] Batch 371 (GS2-6; gamescript-2, merged 2026-10-24; run in the game: docs/pending/gamescript-2.md; NOT judged by a player yet; textures, profiles and their neighbours - 34 functions):
+  src/game/gfx/texture_cfuncs.h / .cpp, src/game/skate/profile_cfuncs.h / .cpp (new).
+  - 0x005A9D80 SceAltPt, 0x005A9D90 FindNameOfValue (recursive, 10 levels: structures inside and global structures
+    the values name; a later name match overrides), 0x005A9E30 FindNameOfInteger (EBX + stack; prints
+    "s_find_cat_in_mapping found %i", the last match wins), 0x005A9E80 WrapAngle (0..360, x87 double precision),
+    0x005A9ED0 CompositeObjectExists, the texture dictionary 0x00700F1C's commands 0x005A9F00 LoadTexture
+    (no_vram_alloc), 0x005A9F60 CreateTexture (width / height / bitdepth, palette_bitdepth for 8 bits or less),
+    0x005AA040 UnloadTexture (by name or checksum; dont_assert), 0x005AA0C0 Generate32BitImage, 0x005AA160
+    Put32BitImageIntoTexture, 0x005AA1E0 FlipTexture, 0x005AA270 ResizeTextureInto, 0x005AA2E0 ScaleTexture,
+    0x005AA340 AdjustTextureRegion (xpos / ypos / width / height defaulting to the texture's size, three unnamed),
+    0x005AA460 PullTextureToEdge, 0x005AA500 AdjustTextureBrightness, 0x005AA590 AdjustTextureHSV, 0x005AA670
+    CopyTexture, 0x005AA6E0 CombineTextures (new= makes a new one; no_palette_gen), the particle dictionary
+    0x00700F20's 0x005AA7B0 LoadParticleTexture (perm), 0x005AA830 UnloadParticleTexture, 0x005AA880 LoadSFPTexture,
+    0x005AA8B0 UnloadSFPTexture, 0x005AA8F0 SetParkName (false); 0x005AA930 SwapMapping (the five-pair table
+    0x007CEDE0; a full table indexes slot -1, as in the original), 0x005AAA80 AddGoalEditorNodesToLevelNodeArray,
+    0x005AAAA0 PreloadMeshes (EAX), 0x005AAB50 CurrentSkaterIsPro (the params pointer passed as the profile index,
+    as in the original), 0x005AAB80 GetGoalsCompleted ("%d/9", "---"), 0x005AAC10 GetNextLevelRequirements,
+    0x005AAD70 SetCurrentSkaterProfile, 0x005AADA0 AddSkaterProfile, 0x005AADC0 AddTemporaryProfile, 0x005AADF0
+    RememberTemporaryAppearance (a stack model appearance; NoFaceTexture copies only its structure).
+  - Uninitialised locals of the original kept where a missing parameter leaves them (ResizeTextureInto's src,
+    ScaleTexture's scale, CombineTextures' src / top); CreateTexture's palette depth is 0 in ours when not read.
+  - Tests TestTextureCFuncs / TestProfileCFuncs: original vs ours with the dictionaries, the texture thunks (their
+    argument bytes, bools by their low byte), FindObject, Printf, the profile manager, the career counts, the skate
+    module's profiles, model creation, the appearance calls stood in for: textures found / not, every flag value,
+    defaults missing, the swap table through 10 swaps (new, existing, back, full), the level steps over 8 ranges.
+    45 deliberate bugs: 45 caught (8 after strengthening: a name match before a structure, palette_gen 2, no
+    Brightness, the level steps reordered to reach equal / short / goal-flag / break cases).
+- [x] Batch 372 (GS2-7; gamescript-2, merged 2026-10-24; run in the game: docs/pending/gamescript-2.md; NOT judged by a player yet; the directory listing and saving - 3 functions): save_files_cfuncs.cpp.
+  - 0x005A8F70 GetMemCardDirectoryListing (the card's files on a stack Lst::Head, vtable 0x00658A60; the component and
+    structure temporary pools if they exist; only names starting with the save folder count (TotalTHPS4FilesOnCard,
+    FilesLimitReached at 75); the type from the letter after the folder (platforms 1-3, 5) or the extension
+    (_stricmp: 4, 7, 8 - with Pcm::Update / Sfx::UpdateVoiceStates for each file); FileType= filters; 75 entries at
+    most: file_type, index, the date, actual_file_name ("Save/%s", "%s" on platform 5), total_file_size, then the
+    first 0x78 bytes read into 0x007CEC58 - a summary over 100 bytes, a wrong summary CRC or another version make it
+    corrupt with DamagedFile / NGCDamagedFile (platform 5), else the summary appended; a file that won't open is
+    corrupt; the nodes deleted; newest first by a bubble sort), 0x005A97E0 SaveToMemoryCard (the three temporary
+    pools; vault data or WriteSaveContents; the summary with filename; padding 0x69 up to the type's size; PC /
+    platform 7 by TypeFileName, platform 5 by the folder name (written nothing: it stops after opening, as in the
+    original); the header, the summary (with the callback on the PC), the contents (NetworkSettings +0x69), CRCs;
+    SaveFailedDueToInsufficientSpace's flag from the card's error 2 after the open and each write), 0x005A7420
+    KeepSoundGoing (found by scanning the padding: only SaveToMemoryCard refers to it).
+  - Test TestSaveToMemoryCard: original vs ours with the card, its file list, files (open / seek / read the header /
+    write - the bytes hashed - / flush / close / delete), the save helpers (by their register entry points for the
+    original, their C++ arguments for ours), _stricmp, sprintf, the pools and IsLater (by the years recorded)
+    stood in for: platforms 2/4/5/6/8, each corrupt case (size 101 / 100, CRC, version, won't open), names outside the
+    folder or one letter off it, FileType filter, the 75-file limits, 16 save cases (types, vault, no padding, no
+    card, no file, short header / padding writes, flush failing, the card full with and without a file, platforms
+    2/5/6/7) with and without temporary pools. 43 deliberate bugs: 43 caught (5 after strengthening: a name one
+    letter off the folder, platform 8, a 100-byte summary, the 75-file limits, the card full without a file).
+- Range done: every function 0x005A5360-0x005AAEF0 (121 of Ghidra's + 0x005A6560 SetSectionsToApplyWhenLoading and
+  0x005A7420 KeepSoundGoing, which Ghidra never made) has source; find_gaps.py shows no gap in the range.
+- [x] GS2 crash check (2026-10-24, workspace C:\Games\THUG2-3, this branch's DLL, -level bo, the branch's self-tests
+  filter): starts, "5750 of 5750 replacements installed" (all 123 of the range among them), the start-up QB files and
+  pools through our code, Boston loads in free skate, the skater spawns; no run-time check, CRT report, exception or
+  self-test failure in the log. (A first try with -FullTests ran all 782 early self-tests in DllMain and had no window
+  after 180 s - the machine was loaded; closed, nothing wrong in the log.) No save / load / profile operation was
+  tried in the game (the brief's rule): those are for the user.
+- [x] Batch 373 (GS1-1; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; the viewer, controllers, node arrays, preferences, network flags - 27
+  functions): src/game/script/game_cfuncs.h / .cpp (new).
+  - 0x0059F610 SetViewerAnim, 0x0059F650 SetViewerLODDist (the pair (x, y): the viewer object's model component's
+    colour value x (truncated) set to y; false without the pair), 0x0059F6C0 ReloadViewerAnim, 0x0059F730
+    CheckForHoles, 0x0059F740 StopSecondControllerCheck (the task's deleting destructor, vtable slot 2),
+    0x0059F760 QuitGame, 0x0059F770 IsInternetGameHost, 0x0059F780 IsJoiningInternetGame, 0x0059F7A0
+    TryingToJoinGame, 0x0059F7B0 TryJoinServerIPSuccess (the success flag forgotten once no join is tried),
+    0x0059F7E0 GSEnableNet, 0x0059F7F0 GSDisableNet, 0x0059F800 WaitForAsyncLoadToFinish, 0x0059F820 (never made by
+    Ghidra: the second controller check's task code - script 0x07C28B45 / 0x9C9DFCF8 as both controllers are plugged in
+    or not), 0x0059F890 MakeCameraActive (7 callers: an object's camera component made a viewport's camera, the
+    object first moved to that viewport's current view on request), 0x0059F930 / 0x0059F960 Get / SetCustomSkaterFilename
+    (profile 0's 0xF36C1878 string), 0x0059F9A0 ControllerPressed (one controller or either), 0x0059FA40
+    GetAnalogueInfo (leftx / lefty / rightx / righty: the pad's scaled sticks 2, 3, 0, 1; false unless plugged in and
+    valid), 0x0059FB10 (never made by Ghidra: a manager walk's callback deleting the object with an id),
+    0x0059FB30 NodeArrayManLoad, 0x0059FB90 NodeArrayManUnload, 0x0059FBC0 GetPreferenceString, 0x0059FC40
+    GetPreferencePassword (a star per character, in the static buffer 0x007CEBD0), 0x0059FD00 GetPreferenceChecksum,
+    0x0059FD80 ToggleNetMetrics, 0x0059FD90 SetViewMode.
+  - Original quirks kept: the preference commands read the type, when pref_type is missing, from the argument slot it
+    would have been written to (the `script` pointer: no such set - a null preferences object, then a crash); their
+    value locals are unset when the field is missing.
+  - Test TestGameCFuncs: original vs ours with every called function stood in for (the viewer, objects, devices,
+    profiles, the structure adders, the pad, the asset and node managers, preferences, skaters...), each branch above.
+    29 of 29 deliberate bugs caught (1 after strengthening: DestroyObjectWithId's id test).
+- [x] Batch 374 (GS1-2; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; cleaning up, object flags by name / prefix, skater scripts, pausing, the
+  clock, the screen flash - 21 functions): src/game/script/game_flow_cfuncs.cpp (new).
+  - 0x0059FE50 Cleanup (everything of a level unloaded; the calling script's SCRIPT_FLAG_SPAWNED off while two
+    scripts run; the level's 15 .qb files (0x00696900) and the one the global 0xC472ECC5 names; the unused .pre files;
+    without preserve_skaters the extra skater heaps; the network heaps rebuilt as the skate module says; the physical
+    memory logged through wsprintfA / OutputDebugStringA), 0x005A0120 (register arguments: the command structure from
+    its value in ESI, the object in EAX - a naked stub: 0 / 1 / 2 set / clear / test one of the 32 script flags
+    (+0x24; the shift by the value's low 5 bits, as the CPU does), 3 / 4 object flag bits (+0x08), 5 an exception),
+    0x005A01B0 (never made by Ghidra: its manager walk's callback), 0x005A01D0 FlagCommandByName (name= or the nodes of
+    prefix=; the flags 0x2E7D5EE7 / 0xBCEB479A looked for and ignored), 0x005A0300 MakeSkaterGoto (only a local
+    skater: +0xBC), 0x005A03C0 MakeSkaterGosub, 0x005A0460 SpawnSound (on the script's object; without one,
+    SpawnScript's result), 0x005A0520 PauseSkater (vtable +0x2C, then Hide(hide)), 0x005A0580 UnPauseSkater (+0x30,
+    shown), 0x005A05C0 PauseGame (the calling script unpaused), 0x005A05E0 UnPauseGame, 0x005A05F0 GameIsPaused (the
+    flag 0x3BA1FDB9 added to the command's own parameters), 0x005A0620 / 0x005A0630 PauseObjects / UnPauseObjects,
+    0x005A0640 ResetClock (on the server: the mode's time limit), 0x005A0670 PadsPluggedIn, 0x005A0680 DoFlash (the
+    eight colour values read into one shared integer: a missing one repeats the one before - kept), 0x005A3B00
+    ClearFlag, 0x005A3B20 SendFlag, 0x005A3B40 QueryFlag, 0x005A3B60 SendException.
+  - Test TestGameFlowCFuncs: original vs ours with every call stood in for (Win32's GlobalMemoryStatus / wsprintfA /
+    OutputDebugStringA too; the manager walk over three stand-in objects; the 0x005A0120 stub driven through inline
+    asm). 44 of 44 deliberate bugs caught (5 after strengthening: the spawned flag's restore, flag numbers past 15,
+    clearing an unset flag, a prefix query whose last node lacks the flag).
+- [x] Batch 375 (GS1-3; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; servers, the network mode and setup, going online, vibration, observing,
+  slow motion - 20 CFunctions): src/game/script/net_state_cfuncs.cpp (new).
+  - 0x005A0880 StartServer (in the bottom-up heap; LAN mode asked and not used, as in the original), 0x005A08D0
+    LeaveServer, 0x005A08E0 JoinServer (the server: a local client per player of the game mode; a client: inet_addr
+    of the address, both address and port needed), 0x005A0A00 SetNetworkMode (0-2 only), 0x005A0A60 ProfileTasks,
+    0x005A0AB0 UseNetworkPreferences, 0x005A0AC0 TestNetSetup (success_script, or the net_error_* text of the last
+    error added as 0xC4745838 and 0x6D51F203 run), 0x005A0BD0 NeedToTestNetSetup / 0x005A0BE0 CanChangeDevices (tail
+    jumps to the shared stubs ReturnFalse / ReturnTrue), 0x005A0BF0 LoadNetworkDrivers (use_deci2: viewer_ip,
+    viewer_subnet, viewer_gateway), 0x005A0C60 ConnectToInternet, 0x005A0CC0 CancelConnectToInternet, 0x005A0CD0
+    IsOnline, 0x005A0CE0 DisconnectFromInternet, 0x005A0D20 EnableActuators (the skate module's two controller entries,
+    +0x394 / +0x39C), 0x005A0D80 InNetGame, 0x005A0D90 IsObserving (4 callers through GameFunction - left as they
+    are), 0x005A0E50 SetSlomo, 0x005A0EB0 TogglePlayerNames, 0x005A0EF0 SetCurrentGameType.
+  - Test TestNetStateCFuncs: original vs ours with the network, net library, memory, input and main loop managers'
+    calls stood in for (their inline getters read from stand-in objects). 26 of 26 deliberate bugs caught (1 after
+    strengthening: a stand-in memory manager, so the heap pushed is told apart).
+- [x] Batch 376 (GS1-4; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; the server list, observing, split screen, game modes, the level - 21
+  CFunctions): src/game/script/net_state_cfuncs.cpp, game_flow_cfuncs.cpp.
+  - 0x005A0F00 DumpNetMessageStats (the server's - else client 0's - connections' received / sent metrics read twice
+    per message id; the printing compiled out), 0x005A1020 SetServerMode [off], 0x005A1050 NotifyBailDone (a local
+    skater's client sends message 0x45, sequenced, group 8), 0x005A10D0 EnterObserverMode, 0x005A10E0
+    ObserveNextSkater, 0x005A10F0 RefreshServerList [force_refresh], 0x005A1120 StartServerList, 0x005A1130
+    StartLobbyList (service state 13, after state 1 when it's in 2), 0x005A1160 StopServerList, 0x005A1170
+    FreeServerList, 0x005A1180 InSplitScreenGame and 0x005A11B0 InMultiplayerGame (12 / 5 callers; 1 or 0 in all of
+    EAX - declared int), 0x005A11C0 RoundIncrement, 0x005A11D0 GameModeEquals (any bare name the mode's),
+    0x005A1220 OnServer, 0x005A1230 GetCurrentLevel, 0x005A1270 / 0x005A12A0 Set / GetLevelStructureName (the skate
+    module's +0x380), 0x005A12C0 RestartLevel, 0x005A12D0 ToggleScores, 0x005A12E0 GameFlow.
+  - Test TestServerListCFuncs: original vs ours over stand-in connections, clients, the server list's states and the
+    game mode. 19 of 19 deliberate bugs caught (1 after strengthening: an unnamed integer equal to the mode).
+- [x] Batch 377 (GS1-5; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; Omnigons, the screen mode, cheat codes, the lobby, network options - 20
+  functions): src/game/script/game_flow_cfuncs.cpp, net_state_cfuncs.cpp.
+  - 0x005A1320 ClearOmnigons (the career flags named by 23 globals), 0x005A1540 BroadcastOmnigon (message 0x7F of 8
+    bytes to each remote connection of the server: the Omnigon and the flag - the 3 bytes after the flag unset in the
+    original, zero here), 0x005A1680 JoinWithPassword, 0x005A1720 SetScreenMode, 0x005A1770 SetScreenModeFromGameMode
+    (the mode set unless it only swaps the two split modes), 0x005A1820 LoadPendingPlayers, 0x005A1830
+    LaunchQueuedScripts, 0x005A1840 TryCheatString (Ghidra split it: 0x005A18A9 is its second half, registered source
+    only - the cheat hash: 100000 rounds of a checksum over a buffer whose terminator is overwritten with 'X', so the
+    earlier strings' leftover bytes count - the buffer is first filled with "12345678901234567890"; c1 / c2 matched
+    against the global array 0x75A23DA4; always false; the text used as a sprintf format, kept), 0x005A1A90 LevelIs,
+    0x005A1AC0 StartNetworkLobby, 0x005A1AD0 ObserversAllowed (not over a modem), 0x005A1AF0 NumPlayersAllowed,
+    0x005A1B30 AutoDNS, 0x005A1B70 UsingDefaultMasterServers, 0x005A1BB0 UsingDHCP, 0x005A1BF0 InInternetMode,
+    0x005A1C00 EnteringNetGame, 0x005A1C30 DeviceChosen, 0x005A1C70 GameIsOver.
+  - Test TestLobbyCFuncs: original vs ours (the game's sprintf stood in for by ours; the cheat's numbers the original
+    logs used for a matching entry in the next call). 27 of 27 deliberate bugs caught (1 after strengthening: a cheat
+    text shorter than the round's number, so the first fill's bytes are read).
+- [x] Batch 378 (GS1-6; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; the viewer's model, animation reloads, debouncing, keyboard handling,
+  the second controller check, game mode values - 16 CFunctions): game_cfuncs.cpp, game_flow_cfuncs.cpp.
+  - 0x005A1C80 SetViewerModel (view mode 1 - its common part with SetViewMode is ApplyViewMode now; the viewer places
+    its camera and makes the object), 0x005A1D40 GetViewerObjectID (the object isn't checked for null, as in the
+    original), 0x005A1D80 ReloadAnim (by base + anim, or the file's checksum; the debug heap while 0x007CEFAC),
+    0x005A1E70 Debounce (input components lock the button; trick components hold it off until the clock + time *
+    1000 - the x87 sum rounded to a float), 0x005A1F80 SetStatOverride, 0x005A1FB0 ToggleRails, 0x005A1FD0
+    GetTimeLimit, 0x005A1FF0 GetGoalsMode / 0x005A2010 GetTeamGraffitiMode (the same mode value, 0x005532D0),
+    0x005A2030 GetGameMode, 0x005A2050 StartKeyboardHandler, 0x005A2080 StopKeyboardHandler, 0x005A2090
+    SetTesterScript, 0x005A20F0 KillTesterScript, 0x005A2100 SpawnSecondControllerCheck (the task's data was a
+    pointer to one of the original's locals - never read; null here), 0x005A21A0 AutoRail (the shared IgnoreArgument
+    stub).
+  - Test TestViewerModeCFuncs: original vs ours. 25 of 25 deliberate bugs caught.
+- [x] Batch 379 (GS1-7; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; moving nodes, the active camera, the tracking log, the face map, joining by
+  address - 10 CFunctions): game_cfuncs.cpp, net_state_cfuncs.cpp.
+  - 0x005A21C0 MoveNode (position= / pos= into the node and its object; RailNode / ClimbingNode also moved in the
+    rail manager; Pedestrian, ProximNode, Vehicle, LevelObject, LevelGeometry, GameObject and 0x061A741E true; any
+    other class false), 0x005A2370 SetActiveCamera (MakeCameraActive's answer), 0x005A23E0 ShowTracking (a debug
+    tool: "\nTracking<type>" lines' six numbers - the line drawing is compiled out, only the counts are logged; right
+    after a line's sixth number the parser already stands past the next line's newline, so a line straight after
+    another is missed - kept; a missing file leaves the debug heap pushed - kept), 0x005A2790 ChooseFaceForFacemap
+    (faces\<string> read with the game's C runtime into the first profile's face texture), 0x005A28A0
+    TryJoinInternetGame, 0x005A28D0 TryJoinServerIP (inet_addr, else gethostbyname's first address), 0x005A2960
+    TryJoinServerIPCancel, 0x005A2990 ForceServerListRefresh, 0x005A29A0 SkaterIsCustom, 0x005A29E0 SetSceneColor.
+    The getter folded at 0x00576E60 (Viewer::GetViewerObject, the word at +0x54) is also a profile's face texture's.
+  - Test TestNodeTrackingCFuncs: original vs ours (atof jumped to ours; the C runtime's file calls stood in for - no
+    file is opened). 22 of 24 deliberate bugs caught (3 after strengthening: lines the parser can see); 2 equivalent:
+    ShowTracking's flags and its numbers only feed the compiled-out drawing.
+- [x] Batch 380 (GS1-8; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; the viewer camera fitted to the scenes, node objects made and killed by
+  class - 6 functions): src/game/script/node_object_cfuncs.cpp (new).
+  - 0x005A2A00 FitViewerCamera (scene, scale, x, y, z, only: the box round the active sectors' vertices - the
+    sector table walked with Lst::HashTable::IterateNext; the camera object 0xEB17151B turned X, Y, Z degrees from
+    the identity through D3DXMatrixMultiply and set back along its forward row by max(box size, 1000) * scale^2 -
+    the x87 order kept: the centre's z / w sums rounded to floats first, the offsets rounded before adding),
+    0x005A2D60 CenterCamera (scale 0.9, x -45, y 45, z 0, id: each scene of the list 0x006FA7EC in turn),
+    0x005A2E50 CreateFromNode (3 callers: by class - Pedestrian / 0x061A741E peds, Rail / ClimbingNode on,
+    ProximNode, ParticleObject, EmitterObject, LevelObject (the time of day's level colour added as 0x99A9B716 while
+    its params are set), Vehicle, GameObject, LevelGeometry: the sector switched on, or with 0xEDC063B9 a copy made
+    under the node's name and placed; triggers read their name and are false; nodes the skate module skips
+    (0x00565BB0) true), 0x005A32A0 CreateFromNodeName (a tail call), 0x005A32C0 KillFromNodeName (objects with
+    the node's name deleted unless locked - through DestroyObjectWithId, 0x0059FB10; rails / proxims / emitters
+    switched off; 0xA0E52802 by 0x0048FCA0; level geometry off, its 0x4E549FE1 effect off - twice when flagged, as in
+    the original), 0x005A34D0 CreateFromStructure.
+  - Test TestNodeObjectCFuncs: original vs ours over stand-in scenes (a real two-bucket hash table of fake sectors per
+    scene), every class both ways, the camera's whole placing compared bit for bit. 33 of 35 deliberate bugs caught
+    (1 after strengthening: a box over the 1000 minimum); 2 equivalent: the forward row's w is 0 for every rotation,
+    and the default scale is only used when the node gives one.
+- [x] Batch 381 (GS1-9; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; the level's node array set up and reloaded - 2 CFunctions):
+  node_object_cfuncs.cpp.
+  - 0x005A34E0 ParseNodeArray (no_cleanup; the proxim / emitter / rail / trick cluster set-up; per node: rail nodes
+    lose angles and 0x7321A8D6, level objects' sectors off with their terrain (0x7E4813A7, default 0xE3714DC1),
+    level geometry's sector shown or off (only outside the park editor), its occluder (0x0049EA60) and terrain, the
+    two failure messages, trick objects into their clusters (the name's local is kept from node to node in the
+    original, so a nameless node reuses the last name read - kept); proxims and emitters added, the created-at-start
+    objects made; the rails' overlaps, the gap checklist unless 0xF7ECD937, the scenes, the 0xA0E52802 nodes),
+    0x005A39F0 ReLoadNodeArray (in the debug heap: the asset and the file's node array dropped, NodeArrayManLoad, the
+    .qb (0x005A5960), the node manager's last array removed and added again; the local structure cleared).
+  - Test TestParseNodeArrayCFuncs: original vs ours over a 16-node array (every class and flag), the park editor on
+    and off, skipped nodes, multiplayer, every node a trick object, no checklist; the sectors' whole state compared.
+    28 of 28 deliberate bugs caught.
+- [x] Batch 382 (GS1-10; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; node commands by name or prefix - 13 functions): node_object_cfuncs.cpp.
+  - 0x005A3B80 SetNodeHidden (objects: object flag 4 through the FlagCommand walk, actions 3 / 4; level object /
+    geometry sectors: the viewport 1 bit - 2 for the second viewport - of their mask), 0x005A3D10 NodeIsAlive (rails
+    active; an object with the name; the sector active), 0x005A3E80 SetNodeColor (0x99A9B716 (0x808080) as RGB with
+    alpha 0x80: a level object's model, level geometry's geometry vtable +0x18), 0x005A3FD0 ShatterNode (the sector's
+    vtable +4 through 0x004A1090; not while the skate module's +0x44 - the getter folded at 0x005331E0), 0x005A40B0
+    SetNodeTerrain (0x9655CFF7), 0x005A4DA0 NodeCommand (0 create, 1 kill, 2 show, 3 hide, 4 show + shatter, 5 alive,
+    6 colour, 7 terrain; the second viewport when the script runs on skater 1 in a two-viewport local game; skipped
+    nodes refused in network mode), 0x005A4EF0 NodeCommandByName (8 callers: name= or prefix= (action 5 stops at the
+    first alive); the flags 0x2E7D5EE7 / 0xBCEB479A do nothing), 0x005A4FF0 Create (the CFunction 0x005B0A40 first),
+    0x005A5010 SetObjectColor, 0x005A5030 Kill, 0x005A5050 Visible, 0x005A5070 Invisible, 0x005A5090 Shatter (the
+    velocity from the calling object times scale, or given; 13 settings to 0x00491110 - the area at least 2000, 5000
+    in a multiplayer game; then action 4). Several sector paths aren't checked for null, as in the original.
+  - Test TestNodeCommandCFuncs: original vs ours, every action on every class, viewports, network mode, the
+    shatter's settings, the sectors' state compared. 34 of 34 deliberate bugs caught (4 after strengthening: game
+    objects, the colour's default, the sectors' state recorded, one viewport).
+- [x] Batch 383 (GS1-11; gamescript-1, merged 2026-10-24; run in the game: docs/pending/gamescript-1.md; NOT judged by a player yet; menus of restarts, warp points and faces, the Beenox host preferences,
+  the skater script - 6 functions): game_cfuncs.cpp, net_state_cfuncs.cpp, game_flow_cfuncs.cpp.
+  - 0x005A4170 SpawnSkaterScript (spawned at the calling script's node, its object pointer set to the local
+    skater), 0x005A4260 AddRestartsToMenu (an item per restart through GetRestartNode - its RestartName or "Unnamed
+    restart", ids from 123456, scale from 0x1B9E8272 -, or "No restarts in level"), 0x005A4560 AddWarpPointsToMenu
+    (the item's parameter structure is never freed - a leak, kept), 0x005A4730 AddFacesToMenu (FindFirstFileA
+    Faces\*.img: files of up to 90 characters, the extension cut from the name, at most 11 items), 0x005A4900
+    InitBeenoxPreferences (2 callers: server name "Beenox", password, network id, players, team mode, skill level into
+    the network preferences), 0x005A4D90 InitPrefsBeenox. The structures come from the script structures' pool
+    (NewStruct + Init / Clear + DeleteStruct, as the original's inlined new / delete).
+  - Test TestMenuPrefsCFuncs: original vs ours (a stand-in structure pool; FindFirstFileA / FindNextFileA / FindClose
+    stood in for - no folder is read). 25 of 25 deliberate bugs caught (1 after strengthening: a 4-character file name).
+- The range is complete: all 160 functions Ghidra made in 0x0059F610-0x005A5360 plus 3 it never made (0x0059F820,
+  0x0059FB10, 0x005A01B0) have source; 0x005A18A9 (Ghidra's start inside TryCheatString) is registered source only.
+  find_gaps: nothing in the range.
+- Checks at the end: thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all 784 early self-tests
+  passed; scan_register_assumptions: only the known RISK lines (the range's value-returning functions all return
+  values); audit_game_function_calls: no MISMATCH; check_code_writes: no overlaps; find_gaps: nothing in the range.
+  (Main's src/game/front/automation.cpp has a C4996 fopen warning of its own, merged in during this work.)
+- Crash check (diagnosis only, workspace C:\Games\THUG2-1 under game_lock): `-level BO` - the game started, the
+  replacements installed (5790 of 5790), Load_BO loaded in free skate, the skater spawned and skated; no crash,
+  run-time check or CRT report in the log. Everything else in the range is NOT run in the game.
 - [ ] Next: nothing left in 0x0053A910-0x00541870 (98 functions with source: 76 Ghidra knows + 22 reached only by
   pointer - callbacks and tasks it never made functions of). The lead: fold, merge, game crash check.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
