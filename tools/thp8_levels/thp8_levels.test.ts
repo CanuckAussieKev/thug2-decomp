@@ -15,6 +15,7 @@ import {
     boxTriangles,
     clipBelow,
     cloudFade,
+    convertCollision,
     emptyScript,
     endlessLoop,
     faceFlags,
@@ -707,6 +708,19 @@ test("narrow holes: void between ground close on both sides is floored at the lo
     const narrow = gapFills([slab(1, 0, 200, 12), slab(2, 224, 400, 7)], "t");
     assert.equal(covered(narrow, 212, 50), 7);
     assert.equal(covered(narrow, 300, 50), null); // (not over the ground itself)
+    // a 10-inch slit off the cells' middles (the kerb by the suburb's flower ring): filled too
+    // (the kerb's face standing in it - a wall shorter than a step doesn't stop the fill)
+    const kerb = {
+        ...slab(3, 0, 0, 0),
+        verts: [
+            [203, 7, 0],
+            [203, 7, 100],
+            [203, 12, 100],
+            [203, 12, 0],
+        ],
+        bbox: [203, 7, 0, 1, 203, 12, 100, 1],
+    };
+    assert.equal(covered(gapFills([slab(1, 0, 203, 12), kerb, slab(2, 213, 400, 7)], "t"), 204, 50), 7);
     // a step of 33 inches: not filled; a 5 m gap: not filled
     assert.equal(gapFills([slab(1, 0, 200, 40), slab(2, 224, 400, 7)], "t").length, 0);
     assert.equal(gapFills([slab(1, 0, 200, 12), slab(2, 400, 600, 7)], "t").length, 0);
@@ -868,4 +882,39 @@ test("narrow holes: void between ground and a wall standing on it is floored (un
     // THP8's invisible trigger volumes: not solid
     assert.equal(faceFlags(0x1140) & 0x10, 0x10);
     assert.equal(faceFlags(0x0040) & 0x10, 0);
+});
+
+test("collision: a solid body isn't named after a trigger node standing in it (nor dropped with it); a volume is", () => {
+    const tri = (a: number[], b: number[], c: number[], material: number) => ({ a, b, c, material, owner: 0 });
+    const slab = (index: number, material: number): havok.HkBody => ({
+        index,
+        triangles: [
+            tri([0, 0, 0], [40, 0, 0], [40, 0, 10], material),
+            tri([0, 0, 0], [40, 0, 10], [0, 0, 10], material),
+        ],
+    });
+    // the chalk goal trigger on the suburb road: a node not made, its Pos inside the road's box
+    const trigger = checksum("Z_Houses_Chalk_Grind_GoalInitializerTrigger_houses");
+    const run = (material: number) =>
+        convertCollision(
+            [
+                {
+                    bodies: [slab(0, material)],
+                    sectors: [],
+                    hidden: new Set([trigger]),
+                    volumes: [{ name: trigger, pos: [20, 0, 5] }],
+                },
+            ],
+            "t",
+            [0, 0, 0],
+            ["DEFAULT"],
+            () => false,
+            [],
+        );
+    // the road: kept, under a name of its own
+    const road = run(0);
+    assert.equal(road.col.objects.length, 1);
+    assert.notEqual(road.col.objects[0]!.checksum, trigger);
+    // a trigger volume's faces: named after the node, and left out with it
+    assert.equal(run(0x1050).col.objects.length, 0);
 });

@@ -295,3 +295,71 @@ in THUG2-2.
 
 For the user: the Grecian houses' roofs (ride off the eaves), the suburb road past the roundabout, and anywhere a
 roof meets an invisible wall.
+
+# Round 5 (2026-10-24, branch thp8-net-5 from main 7a97071 - with the collision-event logger; workspace THUG2-2)
+
+## The suburb road hole (BEAVER VALLEY (-6605.2, 7.0, 3452.5) heading +x: the uber frig turned the skater round)
+
+- Which body: THP8's z_houses body 160 (58 triangles, a mesh, box x -40.9..0.2, z -54.0..-45.0, the road's surface at
+  0.19 m) - in THP8's own collision, read whole by our reader, not in the converted .col.xbx.
+- Why: it matches no sector by box (the nearest, Z_Houses_dt_sidewalk_01, is 5.2 m off - more than the 0.9 m allowed),
+  so convertCollision named it after the next thing in its box: a collision-only trigger node standing on the road -
+  Z_Houses_Chalk_Grind_GoalInitializerTrigger_houses at (-25.3, 0.0, -45.3), a chalk goal trigger CreatedFromVariable
+  (not made in non-story play). The body then went with that node ("of nodes not made left out"): 40 m x 4 m of road
+  drawn with nothing under it. Not seamWalls, not another zone, not a shape type we skip.
+- Fix: a body is named after a trigger node in its box only when it is a volume (all faces trigger or non-collidable).
+  Bodies restored: BEAVER VALLEY 81 -> 71 left out (10 solid ones back), the other levels 0-4 each.
+- The gap filler had floored the road's sides and left the middle open (GapFill_32); with the road back, no fill face
+  lies over that stretch any more (checked: 0).
+
+## The second event (-6628, 8, 3226), by Z_Houses_Street_JG_FlowerRing01
+
+- A 10-inch slit with nothing below between the flower ring's surface (7.0) and the sidewalk's kerb (12.8; its face
+  from 7.4 to 12.8 stands in it): THP8's own, like round 3's kerbs, but narrower than the filler's 10-inch cell and off
+  its middles, so missed.
+- Fix: the filler samples each cell at its four quarters (a cell is ground only when all four are), and a wall stops
+  the fill only when taller than a step (a kerb's face in the slit doesn't). Checked: the slit now floored at 7.0.
+
+## The audit: drawn ground with no collision under it, all levels
+
+`uncoveredGround` (convert reports it per level): up-facing triangles of opaque drawn materials (not glows, water /
+shimmer - THP8's distortion template 0x2858C985 -, sky, barriers, stand-ins, moving objects) on 40-inch cells, against
+collidable faces within 24 inches of their height, the gap filler's own floors not counted; a patch counts as a hole
+when 80 % or more of its rim has collision (the hills and backdrops past the town's edge are scenery).
+
+| Level | Holes before (m2) | After (m2) |
+|---|---|---|
+| BEAVER VALLEY | 12,803 | 21,902 * |
+| SKATE PARK | 93 | 79 |
+| FACTORY | 0 | 0 |
+| SLUMS | 1,564 | 1,564 |
+| SUBURBIA | 1,233 | 643 |
+| MAIN STREET | 1,279 | 1,279 |
+| FUN PARK | 1,059 | 1,023 |
+| SCHOOL | 2,360 | 2,368 |
+| INDUSTRIAL ZONE | 1,209 | 1,209 |
+| CAPITOL BUILDING | 6,567 | 6,567 |
+| SKATE & FUN PARKS | 1,160 | 1,105 |
+| SKATE CENTRAL | 8,824 | 8,225 |
+| TRAINING, SKATE SHOP, BEDROOM | 0 | 0 |
+
+The road holes are gone (BEAVER VALLEY's 373 m2 Z_Houses_JG_Sub_MainStreet03, SUBURBIA's 332 m2 - the same road).
+\* BEAVER VALLEY's total rose because, with the bodies back, a 9,767 m2 patch of the shops' window interiors
+(Z_Shops_G_Window_Insides_SF) is now ringed by collision and counts as a hole - drawn rooms seen through windows, not
+ground anyone reaches. What remains everywhere is of that kind: the capitol's fake interiors, the school library seen
+through its windows, chimney and dome tops, factory roof pipes; no road, sidewalk or yard found among holes of 25 m2
+or more (the suburbs' koi ponds were - water: left out of the audit now).
+
+## Confirmed in the game (one run, [debug] collision_events=1, BEAVER VALLEY)
+
+Teleported to the user's spot heading +x, pushed for 60 frames, then coasted 600 frames: rode from (-6605, 7, 3453)
+onto the restored road (object 0x41D25CF8 from frame 152) and on to (-2756, -94, 4546) - 4,000 inches; the log: 0
+collision events (`collision_events.ts ... --col thp8_net_beavervalley --root C:\Games\THUG2-2`: "0 collision events,
+0 spots") - no uber frig.
+
+Checks: tests (a solid body not named after / dropped with a trigger node in its box, a volume is - mutation caught;
+a 10-inch slit off the cells' middles with a kerb face in it floored - mutations caught); npm test 341 pass,
+typecheck, lint, selfcheck. Converted and installed in THUG2-2.
+
+For the user: the suburb road and the flower ring's kerbs; any other place the skater turns round on flat ground
+(with `[debug] collision_events=1` the log says where).
