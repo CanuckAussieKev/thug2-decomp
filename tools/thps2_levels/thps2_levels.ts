@@ -26,6 +26,7 @@
 import * as fs from "node:fs";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
+import * as hdTextures from "../level_port/hd_textures.ts";
 import * as nodes from "../level_port/nodes.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
@@ -589,6 +590,13 @@ export function trisToStrip(tris: readonly (readonly number[])[]): number[] {
     return s;
 }
 
+// --hd-textures: the optional AI upscaling pass (tools/level_port/hd_textures.ts) and its running totals.
+export interface HdPass {
+    options: hdTextures.HdOptions;
+    stats: hdTextures.HdStats;
+    upscaler?: hdTextures.Upscaler; // (tests; default: Real-ESRGAN)
+}
+
 export interface LevelTextures {
     byName: Map<number, thps2.PsxTexture>; // the PlayStation textures by name checksum
     bmps: Map<number, Bmp>; // newtex's, by name checksum
@@ -631,6 +639,7 @@ export function convertWorld(
     triggers: ReadonlyMap<number, number> = new Map(),
     named: ReadonlyMap<number, NamedObject> = new Map(),
     localFrom = Number.POSITIVE_INFINITY, // objects from here on are in their own space (LevelObjects' models)
+    hd: HdPass | null = null, // --hd-textures: the textures upscaled (hdTextures.upscaleTexFile)
 ): ConvertedWorld {
     const warnings: string[] = [];
     const layers = faceLayers(world, localFrom);
@@ -845,7 +854,18 @@ export function convertWorld(
         warnings,
         (f) => f,
     );
-    return { scene, textures: { version: 1, textures: [...texOut.values()] }, col, warnings, counts };
+    const texFile: tex.TexFile = { version: 1, textures: [...texOut.values()] };
+    if (hd) {
+        // (the materials wrap a texture some face repeats and clamp the rest - both axes alike, as makeMaterial)
+        hdTextures.upscaleTexFile(
+            texFile,
+            new Map([...texOut.keys()].map((c) => [c, { wrapU: tiled.has(c), wrapV: tiled.has(c) }])),
+            hd.options,
+            hd.stats,
+            hd.upscaler,
+        );
+    }
+    return { scene, textures: texFile, col, warnings, counts };
 }
 
 // --- layers: coplanar faces drawn over each other -----------------------------------------------------------------
@@ -1759,6 +1779,7 @@ export function convertSky(
     sky: string,
     textures: LevelTextures,
     mips = true,
+    hd: HdPass | null = null,
 ): ConvertedWorld | null {
     const used = models.map((m) => objects.modelNames.indexOf(m)).filter((i) => i >= 0);
     if (!used.length) return null;
@@ -1773,7 +1794,7 @@ export function convertSky(
         ),
         objects: used.map((model) => ({ flags: 0, position: [0, 0, 0], model, raw: Buffer.alloc(36) })),
     };
-    const out = convertWorld(placed, sky, textures, mips);
+    const out = convertWorld(placed, sky, textures, mips, new Map(), new Map(), Number.POSITIVE_INFINITY, hd);
     // (a sky with nothing drawn would be an empty scene: none)
     if (!out.scene.sectors.length) return null;
     // (Skate Heaven's six backgrounds are untextured, gouraud only: THUG2 loading that sky crashed - 0x004C62CA reads
@@ -1813,6 +1834,8 @@ export interface Args {
     out: string | null;
     ns: string;
     noMips: boolean;
+    hd: hdTextures.HdOptions | null; // --hd-textures [2|4] and its --hd-* settings (null: off)
+    hdCacheClear: boolean;
     thps2Exe: string | null; // the executable to read the gap table from (default: <thps2>\THawk2.exe, THPS2.exe)
 }
 
@@ -1836,6 +1859,12 @@ export function cmdConvert(args: Args): number {
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
     const report: string[] = [];
     // THPS2's gap names and scores, from its executable when it is readable
+    // --hd-textures: the optional AI upscaling pass (its cache is only touched when it's on)
+    const hd: HdPass | null = args.hd ? { options: args.hd, stats: hdTextures.newStats() } : null;
+    if (hd && args.hdCacheClear) {
+        fs.rmSync(hd.options.cacheDir, { recursive: true, force: true });
+        report.push(`HD textures: cache ${hd.options.cacheDir} cleared`);
+    }
     const gaps = levelGapTable(args, pkr, wanted);
     report.push(...gaps.report.map((l) => `gaps: ${l}`));
     for (const info of wanted) {
@@ -1875,6 +1904,7 @@ export function cmdConvert(args: Args): number {
             triggerNames,
             new Map([...levelObjs.named, ...crateNamed]),
             world.objects.length,
+            hd,
         );
         const levelDir = pyJoin(out, "levels", name);
         // (THPS2 draws its layers - painted lines, decals, shadows on the floors - in the PlayStation's order with no
@@ -1953,6 +1983,7 @@ export function cmdConvert(args: Args): number {
                 `${name}_sky`,
                 levelTextures(pkr, info, objects),
                 !args.noMips,
+                hd,
             );
             if (sky) {
                 skyName = `${name}_sky`;
@@ -1980,6 +2011,7 @@ export function cmdConvert(args: Args): number {
     }
     pkr.close();
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
+    if (hd) report.push(...hdTextures.report(hd.stats, hd.options));
     print(report.join("\n"));
     print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
     return 0;
@@ -2100,7 +2132,9 @@ function cmdList(args: Args): number {
 }
 
 const USAGE = `usage: thps2_levels.ts {convert,selfcheck,list,gaps} [levels ...] [--thug2 THUG2] [--thps2 THPS2] [--out OUT]
-                       [--ns NS] [--no-mips] [--thps2-exe EXE]
+                       [--ns NS] [--no-mips] [--thps2-exe EXE] [--hd-textures [{2,4}]] [--hd-model MODEL]
+                       [--hd-max N] [--hd-min N] [--hd-cache DIR] [--hd-cache-clear] [--hd-no-match]
+                       [--hd-tool EXE] [--hd-gpu ID]
 
   convert     the levels (default all ten: ${LEVELS.map((l) => l.name).join(", ")}) into <thug2>\\${STAGING}
   selfcheck   parse every THPS2 level file, round-trip THUG2's LA / TestLevel files
@@ -2112,14 +2146,34 @@ const USAGE = `usage: thps2_levels.ts {convert,selfcheck,list,gaps} [levels ...]
   --out       where convert writes (default <thug2>\\${STAGING})
   --ns        NeverScript's compiler (default out\\neverscript\\ns.exe)
   --no-mips   no mip levels (faster)
+  --hd-textures [{2,4}]
+              convert: the textures AI-upscaled (default x4; tools/hd_textures/README.md - optional, off by
+              default; needs node tools/hd_textures/fetch.ts once)
+  --hd-model MODEL    realesrgan-x4plus (default) or realesrgan-x4plus-anime
+  --hd-max N          the upscaled textures' longer side at most N (default 1024)
+  --hd-min N          textures smaller than N (longer side) left as they are (default 16)
+  --hd-cache DIR      the cache (default %LOCALAPPDATA%\\thug2-decomp\\hd-textures)
+  --hd-cache-clear    the cache emptied first (everything upscaled again)
+  --hd-no-match       the model's own colours / contrast kept (default: pulled back to the original's)
+  --hd-tool EXE       realesrgan-ncnn-vulkan.exe (default: the one fetch.ts unpacks into out\\hd_textures)
+  --hd-gpu ID         the upscaler's GPU (its -g)
   --thps2-exe the THPS2 executable to read gap names and scores from (default <thps2>\\THawk2.exe, then
               THPS2.exe); an encrypted (SafeDisc) one is reported and the gaps keep stand-in names`;
 
 export function parseCommandLine(argv: readonly string[]): Args {
     const { values, positionals } = parseCli(USAGE, {
-        args: [...argv],
+        args: hdTextures.fillHdTexturesArg(argv),
         allowPositionals: true,
         options: {
+            "hd-textures": { type: "string" },
+            "hd-model": { type: "string" },
+            "hd-max": { type: "string" },
+            "hd-min": { type: "string" },
+            "hd-cache": { type: "string" },
+            "hd-cache-clear": { type: "boolean" },
+            "hd-no-match": { type: "boolean" },
+            "hd-tool": { type: "string" },
+            "hd-gpu": { type: "string" },
             thug2: { type: "string" },
             thps2: { type: "string" },
             out: { type: "string" },
@@ -2142,6 +2196,23 @@ export function parseCommandLine(argv: readonly string[]): Args {
         ns: values.ns ?? common.NS,
         noMips: values["no-mips"] ?? false,
         thps2Exe: values["thps2-exe"] ?? null,
+        hd: hdTextures.optionsFromCli(
+            {
+                textures: values["hd-textures"],
+                model: values["hd-model"],
+                max: values["hd-max"],
+                min: values["hd-min"],
+                cache: values["hd-cache"],
+                tool: values["hd-tool"],
+                gpu: values["hd-gpu"],
+                noMatch: values["hd-no-match"],
+            },
+            (message) => {
+                process.stderr.write(`${USAGE}\nerror: ${message}\n`);
+                return pyExit(2);
+            },
+        ),
+        hdCacheClear: values["hd-cache-clear"] ?? false,
     };
 }
 
