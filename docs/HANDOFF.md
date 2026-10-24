@@ -528,3 +528,8 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   up-facing ramp faces (flat shelves in BEAVER VALLEY's memorial vert wall base; shelves 11,370 -> 546). Vert flag 0x8
   was fine. Tree wedge (super_small_tree_30): collision is THP8's own; suspected engine path CheckAirForwardCollision
   0x00508780 -> 0x004FFDB0 leaving the skater 10 in past the move inside a thin pole - unconfirmed, no change.
+- THP8 fix round 2 merged + installed (2026-10-24): repeated coplanar same-material twins (F_ = floater copies, both
+  drawn by THP8) left out of the scene (BEAVER VALLEY alley sheet / sign fixed), stand-ins lying on drawn level triangles
+  dropped (Capitol / Skate Central backdrop), audit counts zero-gap copies as flicker. Fix 8 (two-sided flag) not found.
+  Left in BEAVER VALLEY: 95 coplanar pairs / 480 m2 (pirate shop wall, citypark outside wall, factory elevator panels).
+  Running: pole tunnel diagnosis (docs/pending/pole-tunnel.md, THUG2-4); HD UI (THUG2-3); renderer decomp (THUG2-1).
