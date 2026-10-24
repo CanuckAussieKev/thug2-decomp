@@ -185,3 +185,38 @@ src/game/skate/records.h / .cpp (three record commands added).
     deliberate bugs caught (2 after strengthening: a path without .mdl, a car with no new dictionary).
   - tools/ghidra/audit_game_function_calls.py: a Str::String passed by value counts 12 bytes (it flagged the
     horse word's call as a mismatch).
+
+## The range done
+- 0x005AAEF0-0x005B0A40: 167 of 167 functions have source (166 CFunctions - SetCutsceneSkippable / SetCutsceneShouldPause,
+  CutsceneFinished / CutsceneHeld, KillCutscene share their skater camera twins' code - and the cutscene destroy list
+  entry's constructor 0x005ADF60); find_gaps: nothing skipped in the range (the bytes between the functions are
+  padding or the functions' own tails); no missed functions in it (find_missed_functions).
+- Checks: thug2_check on THUG2PM.exe and the stock THUG2.exe - 0 MISMATCHED, all early self-tests pass (781);
+  scan_register_assumptions - nothing new (0x005ADF60 returns this); audit_game_function_calls - no MISMATCH;
+  check_code_writes - no overlaps.
+- Crash check (workspace C:\Games\THUG2-4, under its lock, this build's DLL, `run_game.ps1 -Level BO`): the game
+  started, the level loaded, the skater spawned in free skate, the automation channel's waits done; no crash,
+  run-time check, CRT report or exception in the log. (A first try with -FullTests ran out of its time in the in-game
+  early self-tests - 781 of them, minutes; thug2_check runs those offline.)
+
+## Untested in the game, and what to try by hand
+Nothing here was played; each needs its own scripts to run:
+1. Career: start a career level, get a goal and a level flag (SetGoal / JustGotGoal / SetFlag), check the chapter and
+   classic goal counts in the career menus; EndRun / ShouldEndRun at a run's end.
+2. Competitions (THUG2's classic / competition levels): StartCompetition, the runs and places, EndCompetition.
+3. Split screen HORSE: ApplySplitScreenOptions (the time limit and the word), the HORSE panel strings
+   (ApplyToHorsePanelString / GetHorseString), switching players.
+4. Network games (by hand, never by an agent): elimiskate (EliminateLastPlacePlayer, OnlyOnePlayerLeft), score modes
+   (InFirstPlace / InLastPlace / InSecondToLastPlace points), AccumulateScores across games, OnlyOneSkaterLeft.
+5. Cutscenes and skater camera animations (the story's cutscenes, the main menu's camera moves PlaySkaterCamAnim
+   uses), KillSkaterCamAnim in the park editor (its camera back), object animations.
+6. CAS: the face (face points, face texture and overlay), SetPlayerAppearanceColor / Scale / UV, RefreshSkater* and
+   RefreshSkaterModel (the board hidden with no_board=), stat points (AwardStatPoint, GetStatValue), unlocking a pro.
+7. Levels with pedestrians and cars: PreloadPedestrians / PreselectRandomPedestrians (varied pedestrians), PreloadModels
+   (vehicles and game objects present, collision working), ReplaceCarTextures.
+8. Records: a new high score's initials (UpdateInitials / NewRecord), arcade scores (UpdateArcadeScores).
+
+## Switching it off
+`[replacements] disable=` with the file names: career_cfuncs.cpp, competition_cfuncs.cpp, skater_query_cfuncs.cpp,
+movie_cfuncs.cpp, skater_profile_cfuncs.cpp, appearance_cfuncs.cpp, preload_cfuncs.cpp (and records.cpp for the three
+record commands - that file also holds the records' class code).
