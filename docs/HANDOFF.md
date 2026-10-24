@@ -542,3 +542,8 @@ lookup calls 0x00532EB0 "Manager::GetMatchClient") - the agents write the equiva
   8 fonts (Real-ESRGAN anime x4) in thug2-decomp-data\hd_ui, read only with hd_ui=1. DLL installed (817 early self-tests,
   0 MISMATCHED). NOTE: later make_menu_level runs into the main install need --hd-ui 4 or the HD files are dropped.
   THPS3 at 4x only in THUG2-3. Renderer decomp ~41% (RFX-1..9 committed).
+- THP8 fix round 3 merged + installed (2026-10-24, overlay made with --hd-ui 4): one-sided material copies per mesh for
+  back-to-back blended meshes (cut-outs / foliage names never; 13 in BEAVER VALLEY: factory paint shells, capitol roof
+  pools, glass, turbine), repeatedSurfaces keyed on pass-0 texture + partial triangles, biasOverlays(lookAlikes) on
+  (595 materials biased in BEAVER VALLEY - if poke-through appears, lookAlikes is one flag in thp8_levels.ts).
+  BEAVER VALLEY flicker 1,667 -> 496 m2. Left: Z_Inschool_g_back_periph05's partner (284 m2), instance-only pairs.
