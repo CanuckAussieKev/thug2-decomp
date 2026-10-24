@@ -225,3 +225,28 @@ levels).
 2. The one-zone network levels (SKATE PARK ... MAIN STREET): the zone's barriers hold you in, the other zones visible
    beyond (low detail) instead of void.
 3. TRAINING, SKATE SHOP, BEDROOM still there; no old per-zone signs.
+
+# Round 3 (2026-10-24, branch thp8-net-3 from main ff3e0b6; workspace THUG2-2)
+
+The user's spots (screenshots 12-07-00 ... 12-11-24, positions turned into THP8's metres per level's shift). Tools
+used offline (scratch, not committed): rays along the heading / down / up through the converted .col, a vertical
+profile through every collision face along a line, a ground-hole map, THP8's own Havok bodies under a point, the
+drawn sectors' mesh boxes over a point.
+
+| # | Level, THP8 spot | What was there | Cause | Fix | In the game |
+|---|---|---|---|---|---|
+| 1 | BEAVER VALLEY (-46.6, -2.0, -59.0) hanging under a kerb | a slit 0.6 m wide with nothing below, between the kerb (z_houses body 186, top 0.32 m) and the road's box (body 4, top 0.18 m) - in THP8's own data too | THP8's skater is a Havok shape that rides over such slits; THUG2's skater stands on one point and falls through, out of the world | `gapFills`: void cells (10-inch grid) with ground no more than 5 cells away on both sides, steps of 24 inches or less, floored at the lower side's height (BEAVER VALLEY 2,400 faces; 0-1,386 in the others) | **confirmed**: teleported onto that kerb, pushed off towards the road with a trace - onto the fill (y 7), then the road, no fall; frames on: 0 falls |
+| 2 | BEAVER VALLEY (-44.0, 0.3, -57.9) "invisible wall" | nothing solid within 15 m in 8 directions at 3 heights (rays) - the skater stood at the same kerb, the slit at his feet | as 1 (what the user felt: the skater dropping into the slit / snagging at the kerb) | as 1 | as 1 (same kerb) |
+| 3, 4 | BEAVER VALLEY (-76.4, 9.4, -35.9) on a roof; (-75.1, 7.0, -37.6) inside the house under the roof, no floor | the Grecian house's only wall collision is an invisible open-top hull (z_houses body 101: all faces 0x1000, walls to the eaves at 9.30 m, gables to 10.75 m); the roof (Grecian_House16) has collision, the house no walls / floor of its own | the hull's top edge meets the roof's eave (9.30 vs 9.37 m): THUG2's skater snags on it (THP8's Havok shape slides over) and can drop between hull and house, where there's no floor | **not fixed** - removing the hull would leave the house without walls; capping it would need the roof's shape. Listed for later | not run |
+| 6 | SKATE PARK (-125.8, 8.8, -160.4) | the stand-ins of the neighbouring zones beyond, an undrawn wall | the network barrier was collision only; THP8 draws it (z_online_<x>'s geometry with a distortion "shimmer" material, its texture a DXN normal map) | barriers drawn: `veil` parts, a faint see-through blue (VEIL_COLOUR); THP8 also shows the other zones beyond (it streams them), so the stand-ins stay | not run (visual) |
+| 7 | FACTORY (278.1, -1.1, -138.1) | Z_Online_Factory_g_barrier_00, undrawn, 16 in ahead | as 6 | as 6 | not run |
+| 8, 9 | FACTORY (319.7, -9.5, 48.6) "floor above my head" | z_center_lod's Center_LakeKill_02 (a lake plane, two triangles 900 m across, at -9.4 m - just over the factory's lower floor) and z_citypark_lod's Box03 (a box standing where the factory is) | a stand-in covers places of other zones; we drew whole stand-ins | `standInOutside`: a stand-in triangle with any point (every 4 m) over the level's own ground is left out | not run (visual; checked offline: the plane's triangles over the factory are gone) |
+| 10 | SLUMS (127.1, 2.2, -190.9) | an undrawn wall 16 in ahead (z_online_ghetto barrier_01's collision) | as 6 | as 6 | not run |
+| 11 | SCHOOL (103.5, 2.5, -148.4) | Z_Online_School_g_barrier_00, undrawn | as 6 | as 6 | not run |
+
+Checks: tests (the slit filled at the road's height, not over ground, no fill for a 33-inch step or a 5 m gap; a
+stand-in triangle over the ground / far away / huge with only its inside over it - mutations caught); npm test 335
+pass, typecheck, lint, selfcheck. Converted and installed in THUG2-2.
+
+For the user: 1-2 the kerbs (ride off them anywhere in the suburbs); 6, 7, 10, 11 the barriers should now show as a
+faint blue wall; 8-9 the factory's lower floor without the plane over it; 3-4 still as they were (the house hulls).

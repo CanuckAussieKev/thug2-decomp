@@ -432,7 +432,14 @@ export interface SceneParts {
     lighting?: mats.Lighting; // THP8's light maps baked into the vertex colours (materials.ts)
     techniques?: ReadonlyMap<number, readonly string[]>; // the material library's (materials.readTechniques)
     local?: ReadonlySet<number>; // sectors in their own space (localObjects): not moved
+    // the triangles kept, by their corners (THP8's metres, placed): the stand-ins' over the level's own ground go
+    keepTriangle?: (corners: readonly (readonly number[])[]) => boolean;
+    veil?: boolean; // drawn as a faint see-through wall, untextured (the network barriers: VEIL_COLOUR)
 }
+
+// THP8 draws its network barriers as a shimmer (a distortion shader over a normal map - z_online_<x>'s material, its
+// texture DXN): THUG2 has no such pass; a faint see-through blue instead, B G R A with 128 = full.
+export const VEIL_COLOUR: readonly number[] = [128, 100, 80, 22];
 
 // A material's layers as converted: the uv slot each THUG2 pass reads, the light maps, and the mask read into the
 // vertex alpha (a layer whose mask has a uv field of its own).
@@ -506,6 +513,7 @@ export interface ConvertedScene {
         lit: number; // vertices lit from light maps
         refined: number; // lit triangles after refineLit
         refinedFrom: number; // ... and before
+        dropped: number; // triangles left out by a part's keepTriangle
     };
 }
 
@@ -538,6 +546,7 @@ export function convertScenes(
         lit: 0,
         refined: 0,
         refinedFrom: 0,
+        dropped: 0,
     };
     const plans = new Map<number, Plan>();
     const defined = new Map<number, string>(); // material -> its definition (materialKey): the first part's
@@ -588,10 +597,10 @@ export function convertScenes(
             const first =
                 plan?.layers[0]?.diffuse ??
                 m.textures.find((t) => part.textures.has(t) && part.textures.get(t)!.format !== xenos.FMT_DXN);
-            if (first !== undefined && convertTexture(first)) texture = first;
+            if (first !== undefined && !part.veil && convertTexture(first)) texture = first;
             const t = texOut.get(texture);
             const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);
-            const alpha = !add && t !== undefined && (t.dxt === 5 || t.dxt === 2);
+            const alpha = (!add && t !== undefined && (t.dxt === 5 || t.dxt === 2)) || (part.veil ?? false);
             if (alpha) transparent.add(id);
             const mat = makeMaterial(id, texture, add ? "add" : alpha, true);
             if (alpha || add) mat.noBackfaceCulling = 1;
@@ -709,6 +718,12 @@ export function convertScenes(
                 const plan = plans.get(id);
                 const verts = geom.readVertices(m);
                 let meshTris = geom.triangles(m);
+                if (part.keepTriangle) {
+                    const keep = part.keepTriangle;
+                    const before = meshTris.length;
+                    meshTris = meshTris.filter((t) => keep(t.map((i) => place(verts[i]!.position, at))));
+                    counts.dropped += before - meshTris.length;
+                }
                 // (light maps: the mesh's last two uv fields - a mesh with fewer fields than its material's first isn't
                 // lit)
                 const lit = plan?.light && part.lighting && (verts[0]?.uvs.length ?? 0) >= 3 ? plan.light : null;
@@ -721,6 +736,11 @@ export function convertScenes(
                 for (const v of verts) {
                     const q = place(v.position, at);
                     positions.push([q[0] * unit + move[0]!, q[1] * unit + move[1]!, q[2] * unit + move[2]!]);
+                    if (part.veil) {
+                        colors.push([...VEIL_COLOUR]);
+                        uvs.push(Array<number>(2 * sets).fill(0));
+                        continue;
+                    }
                     if (dome) {
                         colors.push(skyColour(v.position));
                         uvs.push(Array<number>(2 * sets).fill(0));
@@ -1142,11 +1162,152 @@ export function seamWalls(zones: readonly havok.HkBody[][]): Set<number>[] {
     return out;
 }
 
+// --- narrow holes in the ground ------------------------------------------------------------------------------------
+
+// THP8's collision has narrow slits with nothing below them where two bodies meet - z_houses' kerbs: the kerb body
+// ends 0.6 m short of the road's box (THP8 data, -46.2, -58.8). THP8's skater is a Havok shape that rides over them;
+// THUG2's skater stands on the one point under it and fell in, out of the world, hanging from the kerb's underside
+// (the user, BEAVER VALLEY 2026-10-24). Filled here: on a GAP_CELL grid (inches) the cells with no collidable,
+// not-steep face at any height, between ground no more than GAP_WIDE cells away on both sides (along x or z) whose
+// heights differ by GAP_STEP or less, get a floor at the lower side's height - only void is filled, never a dip.
+export const GAP_CELL = 10; // inches (a quarter metre)
+export const GAP_WIDE = 5; // cells either side: holes up to ~2.5 m across
+export const GAP_STEP = 24; // inches
+export const GAP_FILL = "GapFill";
+
+export function gapFills(objects: readonly geometry.SourceColObject[], level: string): geometry.SourceColObject[] {
+    const lo = [Infinity, Infinity];
+    const hi = [-Infinity, -Infinity];
+    for (const o of objects) {
+        lo[0] = Math.min(lo[0]!, o.bbox[0]!);
+        lo[1] = Math.min(lo[1]!, o.bbox[2]!);
+        hi[0] = Math.max(hi[0]!, o.bbox[4]!);
+        hi[1] = Math.max(hi[1]!, o.bbox[6]!);
+    }
+    if (!Number.isFinite(lo[0]!)) return [];
+    const nx = Math.ceil((hi[0]! - lo[0]!) / GAP_CELL) + 1;
+    const nz = Math.ceil((hi[1]! - lo[1]!) / GAP_CELL) + 1;
+    const height = new Float32Array(nx * nz).fill(Number.NaN); // the highest ground in the cell's middle
+    const terrain = new Uint8Array(nx * nz);
+    for (const o of objects) {
+        for (const f of o.faces) {
+            if (f[0] & (thug2Col.FACE_NON_COLLIDABLE | thug2Col.FACE_TRIGGER)) continue;
+            const [a, b, c] = [o.verts[f[2]]!, o.verts[f[3]]!, o.verts[f[4]]!];
+            const d = (b[0]! - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (b[2]! - a[2]!);
+            const u = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
+            const v = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
+            const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+            const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+            if (!len || Math.abs(n[1]! / len) < 0.5 || Math.abs(d) < 1e-9) continue; // (steep: no ground)
+            const x0 = Math.max(0, Math.ceil((Math.min(a[0]!, b[0]!, c[0]!) - lo[0]!) / GAP_CELL - 0.5));
+            const x1 = Math.min(nx - 1, Math.floor((Math.max(a[0]!, b[0]!, c[0]!) - lo[0]!) / GAP_CELL - 0.5));
+            const z0 = Math.max(0, Math.ceil((Math.min(a[2]!, b[2]!, c[2]!) - lo[1]!) / GAP_CELL - 0.5));
+            const z1 = Math.min(nz - 1, Math.floor((Math.max(a[2]!, b[2]!, c[2]!) - lo[1]!) / GAP_CELL - 0.5));
+            for (let i = x0; i <= x1; i++) {
+                const x = lo[0]! + (i + 0.5) * GAP_CELL;
+                for (let k = z0; k <= z1; k++) {
+                    const z = lo[1]! + (k + 0.5) * GAP_CELL;
+                    const s = ((x - a[0]!) * (c[2]! - a[2]!) - (c[0]! - a[0]!) * (z - a[2]!)) / d;
+                    const t = ((b[0]! - a[0]!) * (z - a[2]!) - (x - a[0]!) * (b[2]! - a[2]!)) / d;
+                    if (s < -1e-6 || t < -1e-6 || s + t > 1 + 1e-6) continue;
+                    const y = a[1]! + s * u[1]! + t * v[1]!;
+                    const at = i * nz + k;
+                    if (!(height[at]! >= y)) {
+                        height[at] = y;
+                        terrain[at] = f[1];
+                    }
+                }
+            }
+        }
+    }
+    // the holes: void between ground close by on both sides
+    const fill = new Float32Array(nx * nz).fill(Number.NaN);
+    const fillTerrain = new Uint8Array(nx * nz);
+    const groundAt = (i: number, k: number): number =>
+        i >= 0 && k >= 0 && i < nx && k < nz ? height[i * nz + k]! : Number.NaN;
+    for (let i = 0; i < nx; i++) {
+        for (let k = 0; k < nz; k++) {
+            if (!Number.isNaN(height[i * nz + k]!)) continue;
+            let best = Number.NaN;
+            let bestTerrain = 0;
+            for (const [di, dk] of [
+                [1, 0],
+                [0, 1],
+            ] as const) {
+                let a = Number.NaN;
+                let b = Number.NaN;
+                let ta = 0;
+                for (let s = 1; s <= GAP_WIDE && Number.isNaN(a); s++) {
+                    a = groundAt(i - di * s, k - dk * s);
+                    ta = terrain[(i - di * s) * nz + (k - dk * s)] ?? 0;
+                }
+                for (let s = 1; s <= GAP_WIDE && Number.isNaN(b); s++) b = groundAt(i + di * s, k + dk * s);
+                if (Number.isNaN(a) || Number.isNaN(b) || Math.abs(a - b) > GAP_STEP) continue;
+                const y = Math.min(a, b);
+                if (Number.isNaN(best) || y < best) {
+                    best = y;
+                    bestTerrain = ta;
+                }
+            }
+            if (!Number.isNaN(best)) {
+                fill[i * nz + k] = best;
+                fillTerrain[i * nz + k] = bestTerrain;
+            }
+        }
+    }
+    // the filled cells as quads, runs along z of one height merged; objects of at most 30,000 faces
+    const out: geometry.SourceColObject[] = [];
+    let verts: number[][] = [];
+    let faces: thug2Col.Face[] = [];
+    const flush = (): void => {
+        if (!faces.length) return;
+        const blo = [0, 1, 2].map((k) => Math.min(...verts.map((p) => p[k]!)));
+        const bhi = [0, 1, 2].map((k) => Math.max(...verts.map((p) => p[k]!)));
+        out.push({
+            checksum: checksum(`${level}_${GAP_FILL}_${out.length}`),
+            flags: 0,
+            verts,
+            intensities: Buffer.alloc(verts.length, 128),
+            faces,
+            bbox: [blo[0]!, blo[1]!, blo[2]!, 1, bhi[0]!, bhi[1]!, bhi[2]!, 1],
+        });
+        verts = [];
+        faces = [];
+    };
+    for (let i = 0; i < nx; i++) {
+        let k = 0;
+        while (k < nz) {
+            const y = fill[i * nz + k]!;
+            if (Number.isNaN(y)) {
+                k++;
+                continue;
+            }
+            let e = k + 1;
+            while (e < nz && fill[i * nz + e] === y) e++;
+            // (half a cell wider all round: a cell is only known empty in its middle - the ground's edge can be
+            // anywhere in the next one)
+            const x0 = lo[0]! + (i - 0.5) * GAP_CELL;
+            const x1 = x0 + 2 * GAP_CELL;
+            const z0 = lo[1]! + (k - 0.5) * GAP_CELL;
+            const z1 = lo[1]! + (e + 0.5) * GAP_CELL;
+            const base = verts.length;
+            verts.push([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]);
+            const t = fillTerrain[i * nz + k]!;
+            faces.push([0, t, base, base + 2, base + 1], [0, t, base, base + 3, base + 2]);
+            if (faces.length >= 30000) flush();
+            k = e;
+        }
+    }
+    flush();
+    return out;
+}
+
 export interface CollisionResult {
     col: thug2Col.ColFile;
     objects: Map<number, number>; // checksum -> faces
     named: number; // bodies named after their scene sector / node
     hidden: number; // bodies of nodes not made, left out
+    filled: number; // faces filling narrow holes in the ground (gapFills)
 }
 
 const boxOf = (tris: readonly havok.HkTriangle[]): number[] => {
@@ -1287,8 +1448,17 @@ export function convertCollision(
             });
         }
     }
+    // (the narrow holes in the ground filled: gapFills)
+    const fills = gapFills(objects, level);
+    objects.push(...fills);
     const col = geometry.convertCol({ objects }, keepTriggers, warnings, (f) => f);
-    return { col, objects: new Map(objects.map((o) => [o.checksum, o.faces.length])), named, hidden: hiddenBodies };
+    return {
+        col,
+        objects: new Map(objects.map((o) => [o.checksum, o.faces.length])),
+        named,
+        hidden: hiddenBodies,
+        filled: fills.reduce((n, o) => n + o.faces.length, 0),
+    };
 }
 
 // The x / z shift (inches, whole sixteenths) that puts the middle of the collision at the origin.
@@ -2087,6 +2257,26 @@ function sceneParts(p: ZonePart, ctx: Shared): SceneParts[] {
     ];
 }
 
+// Whether a stand-in's triangle (THP8 metres) is clear of the level's own ground: no point of it, looked at every
+// STAND_IN_STEP metres or closer (corners, edges and inside), over ground of the level's zones (at any height). (Some
+// stand-ins are huge: z_center_lod's lake plane is two triangles 900 m across.)
+export const STAND_IN_STEP = 4;
+export function standInOutside(corners: readonly (readonly number[])[], ground: GroundIndex): boolean {
+    const [a, b, c] = corners as [readonly number[], readonly number[], readonly number[]];
+    const edge = (p: readonly number[], q: readonly number[]): number => Math.hypot(p[0]! - q[0]!, p[2]! - q[2]!);
+    const n = Math.max(1, Math.min(400, Math.ceil(Math.max(edge(a, b), edge(b, c), edge(c, a)) / STAND_IN_STEP)));
+    for (let i = 0; i <= n; i++) {
+        for (let j = 0; i + j <= n; j++) {
+            const u = i / n;
+            const v = j / n;
+            const x = a[0]! + u * (b[0]! - a[0]!) + v * (c[0]! - a[0]!);
+            const z = a[2]! + u * (b[2]! - a[2]!) + v * (c[2]! - a[2]!);
+            if (ground.groundAt(x, z, -1e9, 1e9)) return false;
+        }
+    }
+    return true;
+}
+
 // The level's furthest reach from its middle on x / z (inches), its collision moved by `shift`.
 export function horizontalReach(bodies: readonly havok.HkBody[], shift: readonly number[]): number {
     let reach = 0;
@@ -2129,8 +2319,11 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     const shift = centreShift(allBodies);
     const tod = zoneTod(ctx.managers, parts[0]!.zoneName);
     // (a level of the city: the city's other zones as THP8 shows them from afar - their _lod stand-ins, drawn only -
-    // instead of the void beyond the barriers)
+    // instead of the void beyond the barriers. A stand-in also covers places of other zones - z_citypark_lod's Box03
+    // stands where the factory is, z_center_lod's LakeKill_02 is a lake plane reaching over the factory's floor: the
+    // stand-ins' triangles over the level's own ground are left out, standInOutside)
     const lods: SceneParts[] = [];
+    const ownGround = new GroundIndex(allBodies);
     if (spec.zones.some((z) => ZONES.some((x) => x.zone === z && !x.standalone))) {
         for (const info of ZONES.filter((x) => !x.standalone && !spec.zones.includes(x.zone))) {
             const file = zonePak(ctx.compressed, `${info.zone}_lod`);
@@ -2143,8 +2336,13 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
                 additive: glowMaterials(lod.geom, names),
                 lighting: zoneLighting(zoneTod(ctx.managers, names.get(checksum(info.zone)) ?? info.zone)),
                 techniques: ctx.techniques,
+                keepTriangle: (corners) => standInOutside(corners, ownGround),
             });
         }
+    }
+    // (the network barriers drawn too, as THP8 does - a faint wall: VEIL_COLOUR)
+    for (const b of barriers) {
+        lods.push({ geom: b.geom!, textures: b.textures, placed: new Map(), veil: true });
     }
     const scene = (options: mats.RefineOptions): ConvertedScene =>
         convertScenes(
@@ -2237,7 +2435,7 @@ function convertLevel(spec: LevelSpec, ctx: Shared): Record<string, unknown> | n
     report.push(
         `  ${spec.zones.join(" + ")}${spec.barriers.length ? ` + ${spec.barriers.join(" + ")}` : ""}: ${c.sectors} sectors, ` +
             `${c.instances} instances of ${c.masters} masters, ${c.billboards} billboard meshes left out, ` +
-            `${c.triangles} triangles, ${c.layers} further layers, ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.named} ` +
+            `${c.triangles} triangles, ${c.layers} further layers, ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.filled} faces filling narrow holes; ${col.named} ` +
             `named after their sector / node; ${col.hidden} of nodes not made left out); ` +
             `${parts.reduce((n, p) => n + p.flagged, 0)} nodes made from THP8's non-story node flags, ` +
             `${parts.reduce((n, p) => n + p.hidden.size, 0)} not made; moved by (${shift.map((x) => x.toFixed(1)).join(", ")}); ` +
