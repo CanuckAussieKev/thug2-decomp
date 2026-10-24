@@ -20,5 +20,28 @@ hd_textures.test.ts, tools/hd_textures/{fetch,compare_tex,compare_shots}.ts + RE
   - Look issues: invented detail (Canada's brushed-metal quarter pipe becomes a woven pattern, concrete gets grain);
     isolated single opaque texels of a cut-out (Canada's cloud billboard) show as specks a bit more than before.
   - Pitfall: the game reads ported levels from the data overlay - run make_menu_level after every convert.
+- [x] THPS2 done: see the THPS2 section below.
 - [ ] Next: the pass in the other converters (THPS2 / THPS4 / THUG1 / THAW); maybe drop isolated cut-out texels
   before upscaling; a per-texture opt-out list for textures the model spoils.
+
+## THPS2 (branch worktree-agent-a607ee04b116f0ea1; tested in workspace THUG2-4, not the main install)
+
+- [x] HD-2: `--hd-textures [2|4]` and the same `--hd-*` options in `tools/thps2_levels` (convert; off by default; the
+  pass is `level_port/hd_textures.ts` itself - `optionsFromCli` / `fillHdTexturesArg` added there for parseCli-based
+  converters). Addressing: a texture some face's uvs reach past (the converter's `tiled` set, as its materials' wrap)
+  is padded wrapped on both axes, every other one clamped; cut-outs keep their PlayStation alpha (0 / 255 ->
+  bilinear + threshold, sharp). The textures are already 32-bit (palettes expanded, newtex BMPs where there are
+  any = twice the PlayStation size), so nothing is skipped but one-colour ones. Sky scenes are upscaled too.
+  Test: thps2_levels.test.ts (wiring, wrap vs clamp padding with a stand-in model, option parsing).
+- Model: realesrgan-x4plus-anime for THPS2. Hangar's 12 largest textures side by side (out\hd_compare\thps2\
+  textures_hangar_{x4plus,anime}_sheet.png): both are sharper; x4plus invents rust / grain on soft painted art (the
+  corrugated wall) and bold outlines on murals, anime keeps the flat painted look and the stencilled lettering clean
+  - THPS2's art is hand-painted, soft and already upscaled once (2x BMPs), so less invention is better.
+- All ten levels at x4 (cap 1024): 1439 textures, 1437 upscaled (2 one-colour), texture data 85.4 MB -> 1367.5 MB
+  (Hangar 6.6 -> 105.5 MB); convert cold 161 s (upscaler 81 s), cached 38 s; make_menu_level 11 s. Game, Hangar:
+  process private 203 MB (peak 217) -> 363 MB, load about the same; log clean. One view before / after:
+  out\hd_compare\thps2\hangar_orig_vs_x4.png (+ _zoom). The difference at 640x360 is mild; fine detail only shows
+  close up.
+- Install: `node tools/thps2_levels/thps2_levels.ts convert --thug2 C:\Games\THUG2\Game --hd-textures 4
+  --hd-model realesrgan-x4plus-anime --hd-tool C:\Dev\thug2-decomp\out\hd_textures\realesrgan-ncnn-vulkan-20220424\realesrgan-ncnn-vulkan.exe`
+  then `node tools/menu_level/make_menu_level.ts --game C:\Games\THUG2\Game`.

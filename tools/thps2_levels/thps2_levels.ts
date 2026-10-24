@@ -2011,6 +2011,7 @@ export function cmdConvert(args: Args): number {
     }
     pkr.close();
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
+    if (hd) report.push(...hdTextures.report(hd.stats, hd.options));
     print(report.join("\n"));
     print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
     return 0;
