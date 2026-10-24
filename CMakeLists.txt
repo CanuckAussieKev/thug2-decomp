@@ -212,6 +212,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_fe_scroll.cpp
     src/hook/selftests_fe_sprite.cpp
     src/hook/selftests_hd_ui.cpp
+    src/hook/selftests_graphics_options.cpp
     src/hook/selftests_fe_cfuncs.cpp
     src/hook/selftests_fe_text.cpp
     src/hook/selftests_tod.cpp
@@ -679,6 +680,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/texture.cpp
     src/game/gfx/texture_file.cpp
     src/game/gfx/hd_ui.cpp
+    src/game/gfx/graphics_options.cpp
     src/game/sys/key_names.cpp
     src/game/obj/anim_blender.cpp
     src/game/obj/ride_tracker.cpp

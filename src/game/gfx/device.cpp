@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "game/core/stubs.h"
+#include "game/gfx/graphics_options.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
 #include "game/sys/platform_d3d.h"
@@ -85,6 +86,10 @@ void InitDirect3D()
     const int widths[4] = {1280, 1024, 800, Sys::WindowWidth()};
     const int heights[4] = {1024, 768, 600, Sys::WindowHeight()};
     bool multisample = GameVariable<bool>(0x007D6434);
+    // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): its sample count, whatever AntiAliasing says.
+    GraphicsOptions::ChooseMultisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, Sys::Windowed());
+    if (GraphicsOptions::ChosenSamples())
+        multisample = true;
     DeviceWidth() = widths[first];
     DeviceHeight() = heights[first];
     pp.BackBufferWidth = widths[first];
@@ -190,6 +195,12 @@ HRESULT __cdecl CreateDevice(int width, int height, bool hardwareVertices, bool 
     D3DPRESENT_PARAMETERS& pp = PresentParameters();
     pp.BackBufferHeight = height;
     pp.MultiSampleType = multisample ? D3DMULTISAMPLE_2_SAMPLES : D3DMULTISAMPLE_NONE;
+    // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): the chosen sample count and quality instead of 2.
+    if (GraphicsOptions::ChosenSamples()) {
+        pp.MultiSampleType = multisample ? static_cast<D3DMULTISAMPLE_TYPE>(GraphicsOptions::ChosenSamples())
+                                         : D3DMULTISAMPLE_NONE;
+        pp.MultiSampleQuality = multisample ? GraphicsOptions::ChosenQuality() : 0;
+    }
     pp.BackBufferWidth = width;
     DWORD flags = (hardwareVertices ? D3DCREATE_HARDWARE_VERTEXPROCESSING : D3DCREATE_SOFTWARE_VERTEXPROCESSING) |
                   D3DCREATE_MULTITHREADED;
@@ -227,6 +238,7 @@ void __cdecl ReleaseRenderTargets()
     Platform::ReleaseDynamicVertexBuffer();
     Platform::ReleaseQuadIndexBuffer();
     Platform::ReleaseOcclusionQueries();
+    GraphicsOptions::ReleaseSceneTarget(); // (NOT ORIGINAL: [Graphics] msaa's scene surface)
 }
 
 // 0x004D8420
@@ -258,6 +270,12 @@ void __cdecl CreateRenderTargets()
     if (caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET)
         GameVariable<bool>(0x00786AB6) = true;
     GameVariable<uint32_t>(0x00786ABC) = caps.MaxAnisotropy;
+    // NOT ORIGINAL - [Graphics] anisotropy and msaa (game/gfx/graphics_options.h): the anisotropy this device can
+    // give, and the multisampled scene surface for the screen copies.
+    GraphicsOptions::ActiveAnisotropy() = GraphicsOptions::DeviceAnisotropy(
+        GraphicsOptions::Get().anisotropy, (caps.TextureFilterCaps & 0x400) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */,
+        caps.MaxAnisotropy);
+    GraphicsOptions::CreateSceneTarget();
     if (caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER)
         GameVariable<bool>(0x00786AC0) = true;
     GameVariable<bool>(0x00786AC1) =

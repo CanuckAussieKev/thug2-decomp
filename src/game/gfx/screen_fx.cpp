@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "game/gfx/graphics_options.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -39,6 +40,10 @@ double Unsigned(uint32_t value) { return static_cast<double>(value); }
 
 void SetTarget(IDirect3DTexture9* texture, IDirect3DSurface9* depth)
 {
+    // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): a full-size screen copy drawn through the
+    // multisampled scene surface.
+    if (GraphicsOptions::SetSceneTarget(texture))
+        return;
     IDirect3DSurface9* surface = nullptr;
     texture->GetSurfaceLevel(0, &surface);
     Device()->SetRenderTarget(0, surface);
@@ -131,13 +136,18 @@ void __cdecl BeginScreenEffects()
     IDirect3DSurface9* surface = nullptr;
     if (GameVariable<uint32_t>(0x00787328) > 2) { // the motion blur
         CurrentScreenCopy()->GetSurfaceLevel(0, &surface);
-        Device()->SetRenderTarget(0, surface);
-        Device()->SetDepthStencilSurface(DepthSurface());
+        // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
+        if (!GraphicsOptions::SetSceneTarget(CurrentScreenCopy())) {
+            Device()->SetRenderTarget(0, surface);
+            Device()->SetDepthStencilSurface(DepthSurface());
+        }
     } else {
         if (!GameVariable<void*>(0x00705720) || !GameVariable<bool>(0x00786AB8)) // no bloom (or no pixel shaders)
             return;
         CurrentScreenCopy()->GetSurfaceLevel(0, &surface);
-        GameFunction<void(__cdecl*)(IDirect3DSurface9*, IDirect3DSurface9*)>(0x004B6070)(surface, DepthSurface());
+        // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
+        if (!GraphicsOptions::SetSceneTarget(CurrentScreenCopy()))
+            GameFunction<void(__cdecl*)(IDirect3DSurface9*, IDirect3DSurface9*)>(0x004B6070)(surface, DepthSurface());
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
     uint32_t colour = (GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A))
@@ -155,6 +165,8 @@ void __cdecl CopyScreenQuarter()
         return;
     IDirect3DTexture9* source = CurrentScreenCopy();
     IDirect3DTexture9* quarter = ScreenCopy(2);
+    // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): the frame so far resolved into the copy first.
+    GraphicsOptions::ResolveSceneTarget(source);
     SetState(kDepthBias, 0);
     SetState(kLighting, 0);
     SetState(kZWrite, 0);

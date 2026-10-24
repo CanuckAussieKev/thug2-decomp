@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "game/gfx/device.h"
+#include "game/gfx/graphics_options.h"
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/view_mode.h"
 #include "hook/game.h"
@@ -214,7 +215,10 @@ void __cdecl SetState(int state, uint32_t value)
         }
         uint32_t min = value & 0xFFFF;
         if (min != (cached & 0xFFFF)) {
-            SetSampler(sampler, D3DSAMP_MINFILTER, (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+            // NOT ORIGINAL - [Graphics] anisotropy (game/gfx/graphics_options.h): anisotropic in place of linear.
+            // Original behaviour: (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT
+            SetSampler(sampler, D3DSAMP_MINFILTER,
+                       GraphicsOptions::MinFilter((value & 1) != 0, GraphicsOptions::ActiveAnisotropy()));
             cached = (cached & 0xFFFF0000) | min;
         }
         return;
@@ -548,8 +552,13 @@ void __cdecl ApplyRenderState()
         GameVariable<uint32_t>(0x00786EA4 + 4 * sampler) = 0;
         Device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         Device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
-        // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
-        if (sampler == 0 && GameVariable<int>(0x00786D70) <= 480) {
+        // NOT ORIGINAL - [Graphics] anisotropy (game/gfx/graphics_options.h): anisotropic minification on every
+        // sampler at the chosen taps. (Off: the original's below.)
+        if (int taps = GraphicsOptions::ActiveAnisotropy()) {
+            Device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            Device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
+        } else if (sampler == 0 && GameVariable<int>(0x00786D70) <= 480) {
+            // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
             Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             uint32_t anisotropy = GameVariable<uint32_t>(0x00786ABC);
             Device()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
@@ -574,7 +583,8 @@ void __cdecl ApplyRenderState()
     Device()->SetRenderState(D3DRS_FOGCOLOR, FogColor());
     Device()->SetRenderState(D3DRS_FOGSTART, GameVariable<uint32_t>(0x00787340));
     Device()->SetRenderState(D3DRS_FOGEND, GameVariable<uint32_t>(0x00787344));
-    if (GameVariable<bool>(0x007D6434)) // the antialiasing setting
+    // (NOT ORIGINAL: or [Graphics] msaa's samples - game/gfx/graphics_options.h)
+    if (GameVariable<bool>(0x007D6434) || GraphicsOptions::ChosenSamples()) // the antialiasing setting
         Device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
 }
 
