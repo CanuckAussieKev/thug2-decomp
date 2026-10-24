@@ -5,7 +5,7 @@
 //   - front_end\, used first while the skate-shop front end is on (thug2-decomp.ini [features] menu_backdrop, any
 //     value but 0 - src/game/front/menu_backdrop.h): the standard main menu.
 //
-//   node tools/menu_level/make_menu_level.ts [--game C:\Games\THUG2] [--out <folder>] [--ns <ns.exe>]
+//   node tools/menu_level/make_menu_level.ts [--game C:\Games\THUG2] [--out <folder>] [--ns <ns.exe>] [--hd-ui 2|4]
 //
 // The overlay (default: <game>\thug2-decomp-data; emptied and made again each run) gets:
 //   scripts\game\Levels.qb     the game's + Load_SkateShopLevel / Level_SkateShopLevel (the shop's scene, collision and its own
@@ -29,6 +29,9 @@
 //                              drops in on the outside halfpipe, as THPS4's practice; Esc brings the menu back); the shop's collision loaded at the
 //                              start; the skater standing idle.
 //   front_end\levels\mainmenu\mainmenu.qb  the front end's nodes with the skater's restarts moved into THPS4's shop.
+//   hd_ui\                    with --hd-ui 2|4 (off by default): the menus' images and fonts upscaled
+//                              (tools/hd_textures/ui.ts), same relative names; read first only while [features]
+//                              hd_ui=1 (src/game/gfx/hd_ui.h). --hd-ui-model picks the model.
 //   anteara\                  the Anteara Mod's script set (tools/anteara/README.md; the DLL reads it first while
 //                              [features] anteara_mod=1), with the edits above re-applied to the files it changes.
 // Nothing of the game is stored in the repo: the files are made from the game folder each time.
@@ -41,6 +44,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as zlib from "node:zlib";
 import * as anteara from "../anteara/anteara.ts";
+import * as hdUi from "../hd_textures/ui.ts"; // (--hd-ui: the menus' images and fonts upscaled)
 import { textOutput } from "../level_port/common.ts";
 import * as levelPortNodes from "../level_port/nodes.ts"; // (the terrain sounds a level loads)
 import * as pedModels from "../level_port/ped_models.ts"; // (the ported levels' own people: their profiles and CAS parts)
@@ -71,7 +75,7 @@ import { reEscape } from "./career_complete.ts";
 import * as levelSelect from "./level_select.ts"; // (the level select's sections, stars and signs)
 import { countOf, replaceFirst } from "./level_select.ts";
 
-const USAGE = "usage: make_menu_level.ts [--game GAME] [--out OUT] [--ns NS]";
+const USAGE = "usage: make_menu_level.ts [--game GAME] [--out OUT] [--ns NS] [--hd-ui 2|4] [--hd-ui-model M]";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.dirname(path.dirname(HERE));
@@ -1304,8 +1308,12 @@ async function main(): Promise<number> {
             game: { type: "string", default: "C:\\Games\\THUG2\\Game" },
             out: { type: "string" }, // the overlay folder (default: <game>\thug2-decomp-data)
             ns: { type: "string", default: path.join(REPO, "out", "neverscript", "ns.exe") },
+            "hd-ui": { type: "string" }, // 2 or 4: the menus' images and fonts upscaled (tools/hd_textures/ui.ts)
+            "hd-ui-model": { type: "string" },
         },
     });
+    const hdScale = values["hd-ui"] === undefined ? 0 : Number(values["hd-ui"]);
+    if (hdScale !== 0 && hdScale !== 2 && hdScale !== 4) pyExit("--hd-ui is 2 or 4");
     let game = values.game;
     const tool = values.ns;
     // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
@@ -1320,7 +1328,17 @@ async function main(): Promise<number> {
     // The folder is ours: emptied first (a file left from an earlier layout would still be read).
     const marker = path.join(out, MARKER);
     if (isDir(out)) {
-        const ours = new Set(["scripts", "levels", "front_end", "models", "anims", "skeletons"]);
+        const ours = new Set([
+            "scripts",
+            "levels",
+            "front_end",
+            "models",
+            "anims",
+            "skeletons",
+            "images",
+            "fonts",
+            "hd_ui",
+        ]);
         if (!fs.existsSync(marker) && !fs.readdirSync(out).every((name) => ours.has(name))) {
             pyExit(`${out} has files this tool didn't make: not emptying it`);
         }
@@ -1495,6 +1513,13 @@ async function main(): Promise<number> {
         // THUGPRO's changes to THUG2's own levels that the user switched on (tools/thug2_levels, register TP-42 -
         // tools/compat/thugpro/thug2_levels.json; none by default): their changed level files into this overlay.
         for (const line of thug2Levels.installEnabled(game, out)) print(line);
+
+        // Last (the level select's signs written above are upscaled too): the menus' images and fonts, with --hd-ui.
+        if (hdScale) {
+            const options = hdUi.uiOptions(hdScale);
+            if (values["hd-ui-model"]) options.model = values["hd-ui-model"];
+            for (const line of hdUi.install(game, out, options)) print(line);
+        }
     } finally {
         fs.rmSync(work, { recursive: true, force: true });
     }
