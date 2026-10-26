@@ -10,7 +10,7 @@
 // <layout>: ";"-separated settings, e.g. "ws=C:\Games\THUG2-1;stagings=all;scripts=1;sub=0;default=0;existing=none":
 //   ws        the workspace whose Data and converted levels are used (read only)
 //   stagings  all / none / a ","-list of thps4, thug1, thps3, thaw: the converted games' staging folders present
-//   scripts   0: no Data\scripts (no loose scripts: the Anteara Mod isn't installed)
+//   scripts   0: no Data\scripts (no loose scripts: Anteara Mod isn't installed)
 //   sub       1: the game in a Game subfolder (<out>\root\Game; "{game}" is <out>\root - the tool steps in)
 //   default   1: Data\levels\Default with a Default.scn.xbx and Default.qb (empty files: only their presence counts)
 //   existing  none / ours (an overlay with the marker and a stale file) / foreign (a folder with someone's file)

@@ -136,7 +136,7 @@ node tools\pipeline\menu_level\make_menu_level.ts --game C:\Games\THUG2
 THPS4 must be converted before `make_menu_level.ts` for the default menu backdrop (THPS4's skate shop). Each
 converter's README (`tools/pipeline/<game>_levels/README.md`) lists its switches; the THUGPRO compatibility register is
 explained in `tools/pipeline/compat/thugpro/README.md`. `make_menu_level.ts` empties and rebuilds the overlay each run.
-`docs/level-port-compromises.md` lists what the ports do differently from the originals. Optional: the Anteara Mod
+`docs/level-port-compromises.md` lists what the ports do differently from the originals. Optional: Anteara Mod
 (`tools/anteara/README.md`).
 
 ## Settings (`thug2-decomp.ini`)
@@ -161,7 +161,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `loading_console` | 1 | A panel on the loading screen: what is loading, the time since the load began and "last activity N s ago" (orange after 10 s with nothing new: probably a hang); 0 = the original loading screen |
 | `debug_mode` | 0 | Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera (F9) |
 | `thaw_bmx` | 0 | Rides THAW's BMX (F7, or the pause menu's RIDE BMX; needs `tools/pipeline/thaw_bmx/convert.ts` and `make_menu_level.ts`) |
-| `anteara_mod` | 0 | Plays the Anteara Mod from the overlay (`tools/anteara/README.md`) |
+| `anteara_mod` | 0 | Plays Anteara Mod from the overlay (`tools/anteara/README.md`) |
 | `create_100_cas` | 1 | GAME OPTIONS > CREATE 100% CAS |
 | `thugpro_parts` | 1 | THUGPRO's extra CAS parts and boards, read from your THUGPRO install by reference (2 also shows them in CAS, 0 off; `thugpro_folder=` another install) |
 | `allow_multiple_instances` | 0 | Lets a second copy run (its log is `thug2-decomp-2.log`) |
@@ -346,7 +346,7 @@ is, and each borrowed idea is credited where it's used.
 | `src/proxy/` | Development builds: loading into the game process |
 | `tools/` | Checks, progress report, Ghidra / pyghidra scripts |
 | `tools/pipeline/` | Submodule: level converters, menus, test runs, layouts, the THUGPRO compatibility register |
-| `tools/anteara/` | Submodule: the Anteara Mod, stored as edits to the game's scripts |
+| `tools/anteara/` | Submodule: Anteara Mod, stored as edits to the game's scripts |
 | `docs/` | Progress, the exe's map (`subsystems.md`, `library_ranges.md`), the script runtime, tool conventions |
 
 ## Glossary

@@ -73,7 +73,7 @@ bool AntearaMod()
         bool setting = ConfigInt("features", "anteara_mod", 0) != 0;
         if (setting) {
             std::string folder = Folder() + "\\anteara";
-            Log(IsFolder(folder) ? "anteara_mod: on - the Anteara Mod's scripts from %s (tools/anteara)"
+            Log(IsFolder(folder) ? "anteara_mod: on - Anteara Mod's scripts from %s (tools/anteara)"
                                  : "anteara_mod: on, but %s not found - run tools/pipeline/menu_level/make_menu_level.ts; the "
                                    "game's scripts are used",
                 folder.c_str());

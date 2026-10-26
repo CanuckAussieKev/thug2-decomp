@@ -38,7 +38,7 @@ export default function cases(): Case[] {
     // (the Python twin was deleted once these all passed - commit 57d7b5e, the last with it: the cases stay as the record)
     if (!fs.existsSync(PY) || !fs.existsSync(WS1) || !fs.existsSync(NS)) return [];
     const out: Case[] = [
-        // every converted game (THPS4's shop: the front end's backdrop), the loose scripts (the Anteara Mod), the
+        // every converted game (THPS4's shop: the front end's backdrop), the loose scripts (Anteara Mod), the
         // overlay at its default place <game>\thug2-decomp-data
         make("make all", `ws=${WS1};stagings=all`, STD),
         // the game in a Game subfolder (stepped into), --out
@@ -49,7 +49,7 @@ export default function cases(): Case[] {
         make("make thug1 only", `ws=${WS1};stagings=thug1`, STD),
         make("make thps4 only", `ws=${WS1};stagings=thps4`, STD),
         make("make thps3 thaw", `ws=${WS1};stagings=thps3,thaw`, STD),
-        // no Data\scripts: the Anteara Mod not installed
+        // no Data\scripts: Anteara Mod not installed
         make("make no loose scripts", `ws=${WS1};stagings=none;scripts=0`, STD),
         // Default's scene installed: its level select entry kept
         make("make default installed", `ws=${WS1};stagings=none;default=1`, STD),

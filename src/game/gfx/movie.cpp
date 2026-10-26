@@ -425,7 +425,7 @@ bool IsIntroMovie(const char* name)
 }
 
 // NOT ORIGINAL (with skip_intro_movies): any movie the start-up script itself plays (startup_loading_screen - where
-// the game plays its logos and intro) counts as an intro movie too: e.g. the Anteara Mod's Shorty's movie
+// the game plays its logos and intro) counts as an intro movie too: e.g. Anteara Mod's Shorty's movie
 // (tools/anteara), while the same movie from GAME MOVIES still plays.
 bool FromStartUpScript(void* script)
 {

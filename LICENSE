@@ -15,7 +15,7 @@ This repository contains two kinds of material.
    Everything written for this project that is not a reconstruction of the original game is licensed under the MIT
    licence below. That includes the hook and test framework (src/hook, src/proxy), the self-tests, all code marked
    NOT ORIGINAL in src/game (for example the new front end, the level editor, the THAW BMX port, the graphics options
-   and the screenshot, automation and mute tools), the tools (tools/ - the content pipeline and the Anteara Mod are
+   and the screenshot, automation and mute tools), the tools (tools/ - the content pipeline and Anteara Mod are
    separate repositories with their own licences: MIT for their own work), the documentation (docs/) and the design
    files (docs/design).
 

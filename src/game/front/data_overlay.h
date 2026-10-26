@@ -10,7 +10,7 @@
 //   - Files at the top of the folder are always used.
 //   - Files in its front_end folder are used first while the skate-shop front end is on (menu_backdrop.h Active).
 //   - Files in its anteara folder (anteara\front_end first while the front end is on) are used before both while
-//     thug2-decomp.ini [features] anteara_mod=1 (default 0): the Anteara Mod, the user's own 2010/2011 script mod
+//     thug2-decomp.ini [features] anteara_mod=1 (default 0): Anteara Mod, the user's own 2010/2011 script mod
 //     (tools/anteara/README.md). make_menu_level.ts writes there the mod's complete script set - its qdir.txt, every
 //     file it lists, localtext.qb - made from the game's loose Data\scripts with the mod's changes and this overlay's
 //     own edits (levels, level select, LEVEL EDITOR, the front end's roundbar menu) re-applied. Off: the game as
@@ -30,7 +30,7 @@ bool OverlayPath(const char* name, char (&path)[260]);
 bool AntearaMod();
 
 // The folders under the overlay folder a file is looked for in, first match wins ("anteara\front_end\",
-// "anteara\", "front_end\", "" - the last always): the Anteara Mod's while it's on, the front end's while the
+// "anteara\", "front_end\", "" - the last always): Anteara Mod's while it's on, the front end's while the
 // skate-shop front end is on. Returns how many are in `folders`.
 int SearchFolders(bool anteara, bool frontEnd, const char* (&folders)[4]);
 

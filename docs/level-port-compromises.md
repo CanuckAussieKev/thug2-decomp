@@ -220,7 +220,7 @@ nodes, run by THUG2's code.
   HI car, VC leaf blower - THUGPRO made it a static prop -, RU Lada, HH baja) stay as before (parked or absent): their
   goals aren't counted as won and their SetupDrivableCar calls are left out. Adding one is a level in PC-THUG1-22's
   `won_goals` (and taking back THUGPRO's emptying of its script, if any) - each needs trying in the game.
-- With the Anteara Mod on, its own copies of the two files (THUG1's car scripts - given the same THUG2 edits by
+- With Anteara Mod on, its own copies of the two files (THUG1's car scripts - given the same THUG2 edits by
   make_menu_level -, its own vehicle setups with LimoCar) are used instead.
 - The prompt and help texts keep THUG1's button codes (`\m5`, `\b3`...), which THUG2's font shows as other glyphs.
 

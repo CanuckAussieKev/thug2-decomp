@@ -734,7 +734,7 @@ void TestDataOverlay()
     MB::Setting() = saved;
     Check(ok, "menu_backdrop: on at any setting but 0, once installed");
 
-    // Where a file is looked for: the Anteara Mod's folders first while anteara_mod is on (its front_end first while
+    // Where a file is looked for: Anteara Mod's folders first while anteara_mod is on (its front_end first while
     // the skate-shop front end is on), then the front end's, then the overlay's top - every combination.
     struct Case {
         bool anteara, frontEnd;

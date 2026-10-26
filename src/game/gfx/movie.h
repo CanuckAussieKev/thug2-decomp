@@ -25,7 +25,7 @@ namespace Nx {
 
 // 0x0059F0C0: the PlayMovie script command. With thug2-decomp.ini [features] skip_intro_movies=1 the
 // start-up logo and intro movies (ATVI, Beenox_Shift, Dolby_Digital, Intel_intro, NSlogo, intro, introf) are
-// skipped, and so is any movie the start-up script startup_loading_screen plays (the Anteara Mod's Shorty's movie);
+// skipped, and so is any movie the start-up script startup_loading_screen plays (Anteara Mod's Shorty's movie);
 // other movies play as usual.
 bool __cdecl PlayMovie(Script::CStruct* params, void* script);
 // The skip_intro_movies flag (read from the ini once - also on for a run started with -edit / edit_level,

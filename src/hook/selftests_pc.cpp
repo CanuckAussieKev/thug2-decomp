@@ -700,7 +700,7 @@ void TestPlayMovie()
         skippedAll &= Nx::PlayMovie(reinterpret_cast<Script::CStruct*>(params), nullptr);
     }
     bool introOnly = g_play_log == std::vector<std::string>{"credits"};
-    // A movie played by the start-up script (the Anteara Mod's Shorty's movie) is skipped too; the same movie from
+    // A movie played by the start-up script (Anteara Mod's Shorty's movie) is skipped too; the same movie from
     // another script plays. (A stand-in script: only its m_scriptName is read.)
     g_play_log.clear();
     for (const char* scriptName : {"startup_loading_screen", "play_movie_from_menu"}) {
