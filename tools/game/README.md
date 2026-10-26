@@ -169,5 +169,5 @@ THUG2.exe most installs have (the DLL can't run on it). A stock install's Game s
 ## exe_audit.ts - do two exes differ where our code is?
 `node tools/pipeline/game/exe_audit.ts [--a <the reference build>] [--b <THUG2.exe>]`: every differing byte between two same-layout
 builds, the function or data it's in, which rewritten functions' original code differs, and which functions refer to
-the differing data. (The reference build vs the alternate THUG2.exe build, 2026-10-20: 172 bytes in 35 runs; 4 rewritten
+the differing data. (The reference build vs THUG2.exe, 2026-10-20: 172 bytes in 35 runs; 4 rewritten
 functions touched - SetScreenBlur, WinMain, ServiceTask, LoadFromMemoryCard - all replaced by our source.)
