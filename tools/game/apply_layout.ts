@@ -2107,7 +2107,7 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     }
     if (baked.levels) {
         new QbFile(baked.levels, "Levels.qb", true);
-        // (the Anteara Mod's script set has its own copy, used while anteara_mod=1: the same values set there)
+        // (Anteara Mod's script set has its own copy, used while anteara_mod=1: the same values set there)
         const anteara = antearaLevels;
         for (const target of levelsTargets) {
             const source = target === anteara ? fs.readFileSync(anteara) : baked.levels;
