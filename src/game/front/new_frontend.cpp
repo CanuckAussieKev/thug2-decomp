@@ -42,6 +42,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
+#include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
@@ -238,7 +239,9 @@ std::vector<Screen> s_returnStack;    // the screens a hand-off left from (shown
 LevelsFor s_returnLevels = LevelsFor::FreeSkate;
 Handoff::Runner s_runner;
 Handoff::Match s_lastChosen;          // a finished plan's last item: drawn until it goes
-bool s_suppressPause = false;         // the original pause menu chosen: ours not over it until it goes
+// Our screen the pause menu's own item asked for (NewFrontend_Open: the overlay's CHANGE LEVEL / OPTIONS items) - shown
+// over the pause menu once, ours aside again when it is closed (the restyled pause menu back under it).
+Screen s_pauseOpen = Screen::Pause; // (Pause: none asked for)
 bool s_rootHidden = false;            // the original's screen elements hidden under our pause menu
 uint32_t s_launchLevel = 0;           // the level up when a launch started (in a level: done when it changes)
 
@@ -1226,7 +1229,10 @@ void Show(Anchor anchor)
         anchorDepth = 1;
         break;
     case Anchor::Pause:
-        stack = {Screen::Pause};
+        // (only ever a screen the pause menu's item asked for: the pause menu itself is the game's, restyled)
+        stack = {Screen::Pause, s_pauseOpen};
+        levels = LevelsFor::Pause;
+        s_pauseOpen = Screen::Pause;
         HideRoot(true);
         break;
     case Anchor::None: return;
@@ -1303,21 +1309,6 @@ void HandOff(Handoff::Plan plan)
 {
     s_returnStack = OpenScreens();
     s_returnLevels = s_menu.LevelsPurpose();
-    StartPlan(std::move(plan));
-}
-
-// The pause menu's own item `id` chosen (ours steps aside once it has done its work). The original's elements stay
-// hidden while ours is drawn - shown again once the pause menu goes (Update), never under ours: the user's 2026-10-25
-// report of both pause menus at once after GET OFF BMX. The item is chosen at once and plays its own pad_choose sound
-// (add_roundbar_menu_item's pad_choose_sound - CONTINUE's the pause exit sound): ours plays none for it.
-void PauseItem(const char* what, std::vector<const char*> ids, bool suppress = false)
-{
-    Handoff::Plan plan;
-    plan.what = what;
-    plan.firstAtOnce = true;
-    for (const char* id : ids)
-        plan.steps.push_back(Handoff::ChooseId(id));
-    s_suppressPause = suppress;
     StartPlan(std::move(plan));
 }
 
@@ -1406,11 +1397,15 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
         return;
     }
     case ActionKind::GameOptions: {
+        Sound("generic_menu_pad_choose_sound");
         if (s_anchor == Anchor::Pause) {
-            PauseItem("pause: game options", {"menu_game_options"}); // (the item's own sound)
+            // (over the pause menu: GAME OPTIONS as the pause menu's own item opens it - its script, the screen it
+            // makes restyled; ours aside)
+            Log("new front end: the pause's game options (create_options_menu)");
+            SetState(State::Away);
+            Script::SpawnScript(Checksum("create_options_menu"), nullptr, 0, nullptr, 0, 0, false, false, false, false);
             return;
         }
-        Sound("generic_menu_pad_choose_sound");
         Handoff::Plan plan;
         plan.what = "game options";
         FromMainMenu(&plan, "create_setup_options_menu", nullptr);
@@ -1475,44 +1470,10 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
         }
         return;
     }
-    case ActionKind::Pause: {
-        // (no sound of ours for the original's items chosen: theirs plays - PauseItem)
-        const std::string& id = action.id;
-        if (id == "resume")
-            PauseItem("pause: resume", {"menu_continue"});
-        else if (id == "retry")
-            PauseItem("pause: retry the goal", {"menu_retry_goal"});
-        else if (id == "restart") {
-            Handoff::Plan plan;
-            plan.what = "pause: restart";
-            plan.firstAtOnce = true; // (CONTINUE's sound)
-            plan.steps.push_back(Handoff::ChooseId("menu_continue"));
-            plan.steps.push_back(Handoff::WaitUnpaused());
-            plan.steps.push_back(Handoff::RunScript("ResetSkaters"));
-            StartPlan(std::move(plan));
-        } else if (id == "goals")
-            PauseItem("pause: goals", {ElementThere("menu_chapters") ? "menu_chapters" : "menu_view_goals"});
-        else if (id == "gaps")
-            PauseItem("pause: gaps", {"menu_your_options", "menu_skip_to_gap"});
-        else if (id == "youroptions")
-            PauseItem("pause: your options", {"menu_your_options"});
-        else if (id == "changelevel")
-            PauseItem("pause: change level (the original's)", {"menu_level_select"});
-        else if (id == "editor")
-            PauseItem("pause: the level editor", {"menu_level_editor"});
-        else if (id == "bmx")
-            PauseItem("pause: the BMX", {"menu_thaw_bmx"});
-        else if (id == "quit")
-            PauseItem("pause: quit (the original's confirm)", {"menu_skateshop"});
-        else if (id == "original") {
-            Sound("generic_menu_pad_choose_sound");
-            Log("new front end: the original pause menu (ours aside until it goes)");
-            HideRoot(false);
-            s_suppressPause = true;
-            SetState(State::Away);
-        }
+    case ActionKind::Pause:
+        // (our Pause screen is only the root under a screen the pause menu asked for - never shown: Update steps ours
+        // aside as soon as it would be)
         return;
-    }
     }
 }
 
@@ -1860,7 +1821,7 @@ void Update(Mdl::FrontEnd* frontEnd)
 
     Anchor anchor = Handoff::Current(frontEnd);
     if (anchor != Anchor::Pause)
-        s_suppressPause = s_suppressPause && Handoff::Find(Checksum("pause_vmenu")) != nullptr && Paused();
+        s_pauseOpen = Screen::Pause; // (asked for over a pause menu that went: forgotten)
     if (s_rootHidden && !(anchor == Anchor::Pause && (s_state == State::Shown || s_state == State::HandOff)) &&
         !s_mirror.Up() && !s_cover.On())
         HideRoot(false); // (ours not over the pause menu any more, nothing restyled or covered: the original's elements back)
@@ -1870,8 +1831,10 @@ void Update(Mdl::FrontEnd* frontEnd)
     bool inDialog = false;
     CScreenElement* active = ActiveMenu(&inDialog);
     bool pauseActive = !active || IdOfElement(active) == Checksum("pause_vmenu");
+    // (the pause menu: the game's, restyled - ours only for a screen its item asked for, while that is up)
+    bool pauseOurs = s_pauseOpen != Screen::Pause || (s_state == State::Shown && s_anchor == Anchor::Pause);
     bool usable = anchor != Anchor::None && !LoadingScreenUp() && !inDialog &&
-                  !(anchor == Anchor::Pause && (s_suppressPause || s_edit != Edit::Off || !pauseActive));
+                  !(anchor == Anchor::Pause && (!pauseOurs || s_edit != Edit::Off || !pauseActive));
 
     switch (s_state) {
     case State::Idle:
@@ -1960,6 +1923,12 @@ void Update(Mdl::FrontEnd* frontEnd)
         break;
     }
     KeepRootHidden();
+    if (s_anchor == Anchor::Pause && s_menu.Shown() == Screen::Pause) {
+        // (back from the screen the pause menu asked for: the pause menu - the game's, restyled - again)
+        Log("new front end: back to the pause menu");
+        SetState(State::Away);
+        return;
+    }
     if (anchor != s_anchor || !usable) {
         // (the original's screen changed on its own: ours aside - back when an anchor is up)
         if (anchor == Anchor::None && !InFrontEnd() && !Paused()) {
@@ -2016,6 +1985,74 @@ void Update(Mdl::FrontEnd* frontEnd)
 
 bool OwnsMouse() { return Enabled() && !Showing() && s_mirror.Up(); }
 
+// The pause menus' level and session (the level as the data names it; the session so far).
+Paint::Extras PauseExtras()
+{
+    Paint::Extras extras;
+    const Section* section = nullptr;
+    if (const Level* level = LevelPlayed(&section)) {
+        extras.levelName = level->name;
+        extras.levelKicker = section->tab;
+        extras.levelColour = section->colour;
+    }
+    extras.session.seconds = s_session.seconds;
+    extras.session.bestCombo = s_session.bestCombo;
+    if (s_session.gapsTotal > 0) {
+        extras.session.gaps = static_cast<int>(s_session.gapsLanded.size());
+        extras.session.gapsTotal = s_session.gapsTotal;
+    }
+    return extras;
+}
+
+// --- the script commands (the overlay's pause menu items) ---
+
+// NewFrontend_PauseItem item=restart | levels | options: whether the overlay's pause menu makes that item of ours -
+// RESTART (free skate), CHANGE LEVEL opening our level select (when there is one), OPTIONS (ours). False while the new
+// front end is off: the pause menu as it was.
+bool __cdecl CFunc_PauseItem(Script::CStruct* params, Script::CScript*)
+{
+    if (!Enabled() || InFrontEnd() || Handoff::NetSession())
+        return false;
+    uint32_t item = 0;
+    if (params)
+        params->GetChecksum(Checksum("item"), &item, 0);
+    std::string mode = Handoff::GameModeName();
+    bool freeSkate = mode == "freeskate" || mode == "singlesession";
+    if (item == Checksum("restart"))
+        return freeSkate;
+    if (item == Checksum("levels"))
+        return s_catalogueOk && !s_catalogue.sections.empty();
+    if (item == Checksum("options"))
+        return true;
+    return false;
+}
+
+// NewFrontend_Open screen=levels | options: our screen over the pause menu (the pause menu's item chose it: its own
+// sound played) - shown the next frame, closed back to the restyled pause menu.
+bool __cdecl CFunc_Open(Script::CStruct* params, Script::CScript*)
+{
+    uint32_t screen = 0;
+    if (!Enabled() || !params || !params->GetChecksum(Checksum("screen"), &screen, 0))
+        return false;
+    if (screen == Checksum("levels") && s_catalogueOk && !s_catalogue.sections.empty())
+        s_pauseOpen = Screen::Levels;
+    else if (screen == Checksum("options"))
+        s_pauseOpen = Screen::Options;
+    else
+        return false;
+    Log("new front end: the pause menu's %s asked for", ScreenName(s_pauseOpen));
+    return true;
+}
+
+void RegisterScriptFunctions()
+{
+    static const Script::CFunctionEntry functions[] = {
+        {"NewFrontend_PauseItem", reinterpret_cast<void*>(&CFunc_PauseItem)},
+        {"NewFrontend_Open", reinterpret_cast<void*>(&CFunc_Open)},
+    };
+    Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
+}
+
 void Draw()
 {
     // (never over a tool's own UI: the level editor - Update steps ours aside)
@@ -2050,11 +2087,14 @@ void Draw()
         ImGui::NewFrame();
         if (!Showing() && (s_mirror.Up() || s_cover.Drawn() == Cover::Over::Restyled)) {
             // (an original screen restyled - phase 3; or, under a cover, the one last up)
+            Paint::Extras pause = PauseExtras();
             if (s_mirror.Up())
-                Paint::Restyled(s_mirror, frame, static_cast<float>(w), static_cast<float>(h), &s_mirrorHits, &s_mirrorScroll);
+                Paint::Restyled(s_mirror, frame, static_cast<float>(w), static_cast<float>(h), &s_mirrorHits, &s_mirrorScroll,
+                                &pause);
             else {
                 std::vector<Paint::Hit> unused;
-                Paint::Restyled(s_coverTracker, frame, static_cast<float>(w), static_cast<float>(h), &unused, &s_coverScroll);
+                Paint::Restyled(s_coverTracker, frame, static_cast<float>(w), static_cast<float>(h), &unused, &s_coverScroll,
+                                &pause);
             }
             ImGui::Render();
             UiBackend::Render();
@@ -2071,18 +2111,11 @@ void Draw()
         static const bool showIniKeys = std::atoi(IniString("show_ini_keys", "0").c_str()) != 0;
         extras.showIniKeys = showIniKeys;
         if (s_menu.OverPause()) {
-            const Section* section = nullptr;
-            if (const Level* level = LevelPlayed(&section)) {
-                extras.levelName = level->name;
-                extras.levelKicker = section->tab;
-                extras.levelColour = section->colour;
-            }
-            extras.session.seconds = s_session.seconds;
-            extras.session.bestCombo = s_session.bestCombo;
-            if (s_session.gapsTotal > 0) {
-                extras.session.gaps = static_cast<int>(s_session.gapsLanded.size());
-                extras.session.gapsTotal = s_session.gapsTotal;
-            }
+            Paint::Extras pause = PauseExtras();
+            extras.levelName = pause.levelName;
+            extras.levelKicker = pause.levelKicker;
+            extras.levelColour = pause.levelColour;
+            extras.session = pause.session;
         }
         int rows = 0;
         Paint::Screen(s_menu, frame, static_cast<float>(w), static_cast<float>(h), extras, &s_hits, &rows);

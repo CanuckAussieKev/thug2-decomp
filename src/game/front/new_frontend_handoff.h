@@ -72,10 +72,6 @@ struct Plan {
     std::string what;        // (for the log)
     std::vector<Step> steps;
     bool endsOurs = false;   // done: ours over the anchor then up (else the original's screens: ours steps aside)
-    // The first step's item is on the menu the player was looking at (up long since - nothing to settle): chosen at
-    // once, so its own pad_choose sound is the press's sound, played as the player presses (the pause menu's items:
-    // ours plays none of its own for them - the user's 2026-10-26 report of Quit to menu's sound played twice).
-    bool firstAtOnce = false;
 };
 
 // The plan under way.

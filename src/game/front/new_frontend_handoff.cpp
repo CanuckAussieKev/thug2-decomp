@@ -294,9 +294,6 @@ void Runner::Start(Plan plan)
     m_plan = std::move(plan);
     m_step = 0;
     m_time = m_seen = 0.0f;
-    // (the item there already: settled)
-    if (m_plan.firstAtOnce && !m_plan.steps.empty() && m_plan.steps[0].kind == Step::Kind::Choose && Find(m_plan.steps[0].match))
-        m_seen = kSettleSeconds;
     m_running = true;
     Log("new front end: hand-off - %s (%zu steps)", m_plan.what.c_str(), m_plan.steps.size());
 }

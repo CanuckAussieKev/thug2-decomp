@@ -22,6 +22,7 @@
 #include "game/front/career_complete.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
+#include "game/front/new_frontend.h"
 #include "game/front/screen_element_manager.h"
 #include "game/front/test_view.h"
 #include "game/gfx/tod_manager.h"
@@ -161,6 +162,7 @@ int __cdecl Main(int argc, char** argv)
         Front::CareerComplete::RegisterScriptFunctions();
         Front::TestView::RegisterScriptFunctions(); // (TeleportSkaterStanding - game/front/test_view.h)
         Skater::ThawBmx::RegisterScriptFunctions(); // (ThawBmx_Available, the bike's members - game/skater/thaw_bmx.h)
+        Front::NewFrontend::RegisterScriptFunctions(); // (the overlay's pause items: NewFrontend_PauseItem / _Open)
         GameFunction<void(__cdecl*)()>(0x005A5B20)();
 
         Mem::PushMemProfile("Game Singletons");

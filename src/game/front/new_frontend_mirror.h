@@ -7,7 +7,8 @@
 #include "game/front/new_frontend_model.h"
 
 // NOT ORIGINAL - the new front end's restyled original screens (ours; see new_frontend.h, phase 3): the original
-// screens the new front end doesn't replace - the game's dialog boxes (create_snazzy_dialog_box: every "QUIT? Are you
+// screens the new front end doesn't replace - a level's pause menu (pause_vmenu: its items as the game made them for
+// the mode, the overlay's among them, in the pause design - never a menu of ours handing presses on), the game's dialog boxes (create_snazzy_dialog_box: every "QUIT? Are you
 // sure?", warning, error and info box), the skater select (select_skater_hmenu) and plain menu lists (the game options'
 // sub-menus, YOUR OPTIONS, high scores, cutscenes...) - drawn in the B+C look over the original, whose screen elements
 // are hidden (root_window scaled to 0, as the pause menu's). The original stays in charge: the keyboard and the
@@ -23,8 +24,9 @@ enum class Kind {
     Dialog,  // a dialog box: its title, text and buttons
     Skaters, // the skater select: the skaters, the selected one's name and stats (the 3D skater left in view)
     List,    // a plain vertical menu: its title, its items (label, value), the other words on its screen
+    Pause,   // a level's pause menu (pause_vmenu): its items, labelled as ours (PauseLabel), over the game
 };
-const char* KindName(Kind kind); // "dialog", "skaters", "list" ("" for None)
+const char* KindName(Kind kind); // "dialog", "skaters", "list", "pause" ("" for None)
 
 // One child of the menu as read.
 struct ItemRead {
@@ -67,6 +69,8 @@ struct Policy {
 
 // The menus ours stands for (never restyled: ours is drawn over them, or the player asked for the original).
 bool OwnMenu(uint32_t menuId);
+// A pause menu item's label in our words, by its id ("" for the item's own text): CONTINUE is Resume, QUIT Quit to menu.
+const char* PauseLabel(uint32_t itemId);
 // Titles of lists left original (screens whose meaning is in what isn't text).
 bool ExcludedTitle(const std::string& cleanTitle);
 

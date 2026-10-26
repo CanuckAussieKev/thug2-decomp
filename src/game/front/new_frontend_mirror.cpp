@@ -42,19 +42,37 @@ const char* KindName(Kind kind)
     case Kind::Dialog: return "dialog";
     case Kind::Skaters: return "skaters";
     case Kind::List: return "list";
+    case Kind::Pause: return "pause";
     }
     return "";
 }
 
 bool OwnMenu(uint32_t menuId)
 {
-    // main_vmenu (the main menu), career_options_vmenu (STORY / CLASSIC MODE OPTIONS), pause_vmenu (a level's pause
-    // menu: ours, or the original asked for by its own row - left as it is either way)
-    static const uint32_t kOwn[] = {Checksum("main_vmenu"), Checksum("career_options_vmenu"), Checksum("pause_vmenu")};
+    // main_vmenu (the main menu), career_options_vmenu (STORY / CLASSIC MODE OPTIONS) - the pause menu is restyled
+    // (Kind::Pause)
+    static const uint32_t kOwn[] = {Checksum("main_vmenu"), Checksum("career_options_vmenu")};
     for (uint32_t id : kOwn)
         if (id == menuId)
             return true;
     return false;
+}
+
+const char* PauseLabel(uint32_t itemId)
+{
+    // (the overlay's own items - menu_newfe_restart, menu_newfe_options - are made with these words already; the rest
+    // keep the game's text: TEXT MESSAGES, VIEW GOALS, END CURRENT RUN...)
+    static const std::pair<uint32_t, const char*> kLabels[] = {
+        {Checksum("menu_continue"), Text::kResume},           {Checksum("menu_retry_goal"), Text::kRetryGoal},
+        {Checksum("menu_newfe_restart"), Text::kRestart},     {Checksum("menu_view_goals"), Text::kViewGoals},
+        {Checksum("menu_chapters"), Text::kViewGoals},        {Checksum("menu_your_options"), Text::kYourOptions},
+        {Checksum("menu_level_select"), Text::kChangeLevel},  {Checksum("menu_level_editor"), Text::kPauseLevelEditor},
+        {Checksum("menu_newfe_options"), Text::kPauseOptions}, {Checksum("menu_skateshop"), Text::kQuitToMenu},
+    };
+    for (const auto& [id, label] : kLabels)
+        if (id == itemId)
+            return label;
+    return "";
 }
 
 bool ExcludedTitle(const std::string& cleanTitle)
@@ -188,6 +206,33 @@ View Build(const MenuRead& read, const Policy& policy)
                 view.lines.push_back(clean);
         }
         rowsFrom(true);
+        return view;
+    }
+    static const uint32_t kPauseMenu = Checksum("pause_vmenu");
+    if (read.menuId == kPauseMenu) {
+        // The pause menu: every item with words, in the game's order (roundbar items carry their bars and a shadow copy
+        // of the text - the first text is the label), not-focusable ones dimmed.
+        view.kind = Kind::Pause;
+        view.title = Text::kTitlePaused;
+        for (size_t i = 0; i < read.items.size(); ++i) {
+            const ItemRead& item = read.items[i];
+            const char* ours = PauseLabel(item.id);
+            std::string label = *ours ? std::string(ours) : std::string();
+            for (size_t k = 0; label.empty() && k < item.texts.size(); ++k)
+                label = Label(CleanText(item.texts[k]));
+            if (label.empty())
+                continue;
+            Row row;
+            row.label = label;
+            row.focusable = item.focusable;
+            row.index = static_cast<int>(i);
+            if (static_cast<int>(i) == read.selectedIndex)
+                view.selected = static_cast<int>(view.rows.size());
+            view.rows.push_back(std::move(row));
+        }
+        if (view.rows.empty())
+            view.kind = Kind::None;
+        view.bigName = view.selected >= 0 ? view.rows[view.selected].label : view.title;
         return view;
     }
     if (read.menuId == kSkaterMenu) {

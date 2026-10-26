@@ -31,6 +31,7 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
+#include "game/front/new_frontend.h"
 #include "game/mc/memcard.h"
 #include "game/mc/memcard_cfuncs.h"
 #include "game/mth/math.h"
@@ -646,6 +647,9 @@ void TestMain()
               [](Regs&) { return 0u; });
         // (and THAW's BMX's - game/skater/thaw_bmx.h)
         s->At({Resolve(reinterpret_cast<const void*>(&Skater::ThawBmx::RegisterScriptFunctions))}, 0,
+              [](Regs&) { return 0u; });
+        // (and the new front end's - game/front/new_frontend.h)
+        s->At({Resolve(reinterpret_cast<const void*>(&Front::NewFrontend::RegisterScriptFunctions))}, 0,
               [](Regs&) { return 0u; });
         s->At({0x004694E0, AddressOf(&Obj::CPathManager::Instance)}, 0, plain(0x94E0));
         s->At({0x004E4860, AddressOf(&Obj::RegisterComponentTypes)}, 0, plain(0x4860));

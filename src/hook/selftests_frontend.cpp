@@ -15,6 +15,7 @@
 #include "game/front/new_frontend_mirror.h"
 #include "game/front/new_frontend_model.h"
 #include "game/front/new_frontend_options.h"
+#include "game/front/new_frontend_text.h"
 #include "hook/selftest.h"
 #include "imgui.h"
 
@@ -691,9 +692,27 @@ void TestFrontendMirrorBuild()
     M::MenuRead other = list;
     other.vertical = false;
     Check(M::Build(other, policy).kind == M::Kind::None, "restyle: a horizontal menu stays");
-    other = list;
-    other.menuId = Crc::GenerateCRCFromString("pause_vmenu");
-    Check(M::Build(other, policy).kind == M::Kind::None && M::OwnMenu(other.menuId), "restyle: the pause menu is ours");
+    // The pause menu: restyled as the pause (never ours over it) - every item with words, CONTINUE / QUIT in our words,
+    // the rest the game's text, a not-focusable item kept dimmed.
+    {
+        M::MenuRead pause;
+        pause.found = true;
+        pause.menuId = Crc::GenerateCRCFromString("pause_vmenu");
+        pause.vertical = false; // (whatever the roundbar menu says: not a list's rules)
+        pause.items = {Item(Crc::GenerateCRCFromString("menu_continue"), {"CONTINUE", "CONTINUE"}),
+                       Item(Crc::GenerateCRCFromString("menu_pager"), {"TEXT MESSAGES"}),
+                       Item(Crc::GenerateCRCFromString("menu_save_goals"), {"SAVE GOALS"}, false),
+                       Item(0, {}),
+                       Item(Crc::GenerateCRCFromString("menu_skateshop"), {"QUIT"})};
+        pause.items[0].graphicValue = true; // (the round bars: not a reason to leave it)
+        pause.selectedIndex = 4;
+        M::View p = M::Build(pause, policy);
+        Check(p.kind == M::Kind::Pause && !M::OwnMenu(pause.menuId) && p.rows.size() == 4 &&
+                  p.rows[0].label == std::string(F::Text::kResume) && p.rows[1].label == "TEXT MESSAGES" &&
+                  !p.rows[2].focusable && p.rows[3].label == std::string(F::Text::kQuitToMenu) && p.rows[3].index == 4 &&
+                  p.selected == 3 && p.bigName == std::string(F::Text::kQuitToMenu),
+              "restyle: the pause menu is the game's, restyled");
+    }
     other = list;
     other.items[1].texts = {"\\b6"};
     Check(M::Build(other, policy).kind == M::Kind::None, "restyle: an item without words stays");

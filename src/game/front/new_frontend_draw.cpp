@@ -677,6 +677,27 @@ std::string Thousands(int n)
     return n < 0 ? "-" + out : out;
 }
 
+// The pause menus' right side: the session so far (what is known) over its rule from `bottom`; the kicker ("PAUSED -
+// the game's tab"), the big name (the level) and their colour. Returns the rule's y less a gap.
+float PauseSide(Ctx& c, float left, float right, float bottom, std::string* kicker, std::string* name, uint32_t* colour)
+{
+    std::vector<std::string> cols;
+    const Session& s = c.extras.session;
+    if (s.bestCombo >= 0)
+        cols.push_back(std::string(Text::kBestCombo) + " " + Thousands(s.bestCombo));
+    if (s.gaps >= 0)
+        cols.push_back(std::string(Text::kGaps) + " " + std::to_string(s.gaps) + (s.gapsTotal > 0 ? "/" + std::to_string(s.gapsTotal) : ""));
+    if (s.seconds >= 0.0f)
+        cols.push_back(std::string(Text::kTime) + " " + Clock(s.seconds));
+    float top = RecordsRow(c, cols, left, right, bottom, 1.0f) - 10.0f;
+    *kicker = std::string(Text::kTitlePaused) +
+              (c.extras.levelKicker.empty() ? std::string() : " \xE2\x80\x94 " + c.extras.levelKicker);
+    *name = c.extras.levelName.empty() ? std::string(Text::kTitlePaused) : c.extras.levelName;
+    if (c.extras.levelColour)
+        *colour = c.extras.levelColour;
+    return top;
+}
+
 // A list screen: the main menu, the career's, Create, Online, the pause menu's - the numbered items down the left in
 // big type (Anton 78; the level list's 40 when there are more than six), the highlighted item's art full-bleed on the
 // right with its name, or the game dimmed behind the pause menus.
@@ -760,22 +781,7 @@ void ListScreen(Ctx& c, float windowWidth, float windowHeight)
     float launch = menu.Launch();
     float slice = launch >= 0.0f ? EaseOut(launch * 1.6f) : 0.0f;
     if (pause) {
-        // (the session so far: what is known)
-        std::vector<std::string> cols;
-        const Session& s = c.extras.session;
-        if (s.bestCombo >= 0)
-            cols.push_back(std::string(Text::kBestCombo) + " " + Thousands(s.bestCombo));
-        if (s.gaps >= 0)
-            cols.push_back(std::string(Text::kGaps) + " " + std::to_string(s.gaps) +
-                           (s.gapsTotal > 0 ? "/" + std::to_string(s.gapsTotal) : ""));
-        if (s.seconds >= 0.0f)
-            cols.push_back(std::string(Text::kTime) + " " + Clock(s.seconds));
-        bottom = RecordsRow(c, cols, left, right, bottom, 1.0f) - 10.0f;
-        kicker = std::string(Text::kTitlePaused) +
-                 (c.extras.levelKicker.empty() ? std::string() : " \xE2\x80\x94 " + c.extras.levelKicker);
-        name = c.extras.levelName.empty() ? std::string(Text::kTitlePaused) : c.extras.levelName;
-        if (c.extras.levelColour)
-            kickerColour = c.extras.levelColour;
+        bottom = PauseSide(c, left, right, bottom, &kicker, &name, &kickerColour);
     } else {
         if (!feature.detail.empty() && !feature.launching) {
             Style d = Mono12(kMuted, false);
@@ -1382,6 +1388,58 @@ void ListOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float wind
         Paragraphs(c, v.lines, left, right, 48.0f, 10);
 }
 
+// A level's pause menu restyled (Kind::Pause): the game's items as numbered rows on the left (the main menu's type
+// while they fit, the level list's past that), the level and the session on the right - the pause design, the menu
+// itself the game's.
+void PauseOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float windowHeight, float* scroll)
+{
+    const Mirror::View& v = t.Shown();
+    PauseGround(c, windowWidth, windowHeight);
+    float rule = Header(c, 40.0f, kColumnInner, Text::kTitlePaused, false, nullptr);
+    int n = static_cast<int>(v.rows.size());
+    bool big = n <= 7;
+    if (big) {
+        RowStyle probe = MainRowStyle();
+        for (const Mirror::Row& r : v.rows)
+            if (c.f.S(probe.textX) + Measure(probe.name, c.f, r.label.c_str()) > c.f.S(kColumnInner + 10.0f))
+                big = false;
+    }
+    RowStyle rs = big ? MainRowStyle() : LevelRowStyle();
+    float rowH = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
+    float listTop = rule + (big ? 36.0f : 20.0f);
+    float listBottom = 680.0f;
+    int fit = std::max(1, static_cast<int>((listBottom - listTop) / rowH));
+    float first = scroll ? *scroll : 0.0f;
+    if (v.selected >= 0) {
+        if (static_cast<float>(v.selected) < first + 1.0f)
+            first = static_cast<float>(v.selected) - 1.0f;
+        if (static_cast<float>(v.selected) > first + static_cast<float>(fit) - 2.0f)
+            first = static_cast<float>(v.selected) - static_cast<float>(fit) + 2.0f;
+    }
+    first = std::clamp(first, 0.0f, static_cast<float>(std::max(0, n - fit)));
+    if (scroll)
+        *scroll = first;
+    c.dl->PushClipRect(ImVec2(c.f.X(0.0f), c.f.Y(listTop - 2.0f)), ImVec2(c.f.X(kColumn + kScrimFeather), c.f.Y(listBottom + 8.0f)), true);
+    for (int i = 0; i < n; ++i) {
+        float top = listTop + (static_cast<float>(i) - first) * rowH;
+        if (top < listTop - rowH || top > listBottom)
+            continue;
+        const Mirror::Row& r = v.rows[i];
+        Row(c, rs, top, Pad2(i + 1).c_str(), r.label.c_str(), t.RowAmount(i), Menu::kHouseYellow, !r.focusable);
+        if (r.focusable && top >= listTop - 1.0f && top + rowH <= listBottom + 1.0f)
+            c.Hit(Hit::Item, i, 48.0f, top, kColumnInner + 20.0f, top + rowH);
+    }
+    c.dl->PopClipRect();
+
+    float left = kRight, right = 1240.0f;
+    float bottom = Hints(c, {Text::kHintSelect, Text::kHintResumeLevel}, left, right, 688.0f) - 8.0f;
+    std::string kicker, name;
+    uint32_t colour = Menu::kHouseYellow;
+    bottom = PauseSide(c, left, right, bottom, &kicker, &name, &colour);
+    float nameTop = BigName(c, name, 120.0f, left, right, bottom, 0.0f, colour);
+    Kicker(c, kicker, left, nameTop - 8.0f, colour, 1.0f);
+}
+
 } // namespace
 
 // --- the public parts -------------------------------------------------------------------------------------------
@@ -1537,19 +1595,20 @@ void Screen(const Menu& menu, const Frame& frame, float windowWidth, float windo
 
 
 void Restyled(const Mirror::Tracker& tracker, const Frame& frame, float windowWidth, float windowHeight,
-              std::vector<Hit>* hits, float* scroll)
+              std::vector<Hit>* hits, float* scroll, const Extras* extras)
 {
     static const Menu kNoMenu;
     static const Extras kNoExtras;
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     dl->PushTextureID(ImGui::GetIO().Fonts->TexID);
-    Ctx c{dl, frame, kNoMenu, kNoExtras, hits};
+    Ctx c{dl, frame, kNoMenu, extras ? *extras : kNoExtras, hits};
     if (hits)
         hits->clear();
     switch (tracker.Shown().kind) {
     case Mirror::Kind::Dialog: DialogScreen(c, tracker, windowWidth, windowHeight); break;
     case Mirror::Kind::Skaters: SkatersScreen(c, tracker, windowWidth, windowHeight); break;
     case Mirror::Kind::List: ListOfItems(c, tracker, windowWidth, windowHeight, scroll); break;
+    case Mirror::Kind::Pause: PauseOfItems(c, tracker, windowWidth, windowHeight, scroll); break;
     case Mirror::Kind::None: break;
     }
     dl->PopTextureID();

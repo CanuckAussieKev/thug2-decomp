@@ -26,10 +26,13 @@ struct FrontEnd;
 //   - over CREATE-A-MODES (back from CAS and the others): Create; Back is the original's back.
 //   - over the SKATE SHOP menu after the original's skater select (Free Skate): the level select - Skate starts the
 //     level in free skate (Front::StartLevel::Load); Back goes back to the skater select.
-//   - over a level's PAUSE MENU (free skate, story, classic; never online): Pause - the original's elements hidden -
-//     Resume, Retry goal, Restart, Goals and gaps, Change level (ours in free skate), Level editor, Ride / Get off BMX,
-//     Options, the original Pause menu, Quit to menu (each shown when the original's has it), with the session (best
-//     combo, gaps, time) on the right.
+//   - a level's PAUSE MENU (free skate, story, classic; never online) is the game's own, restyled (phase 3, Kind::Pause):
+//     its items as the game made them for the mode - with the overlay's (make_menu_level addNewFrontendPause: RESTART,
+//     CHANGE LEVEL to our level select, OPTIONS - each only while NewFrontend_PauseItem says so) -, in our words where
+//     we have them (Resume, Quit to menu...), the session (best combo, gaps, time) on the right; the keys and buttons
+//     reach the game's menu, its scripts do what is chosen (one press, one sound - the user's 2026-10-26 rule: no
+//     hand-off to the original menus). Ours comes up only for a screen its item asks for (NewFrontend_Open: the level
+//     select, Options) and goes back to the restyled pause menu when that is closed.
 // Hand-offs (new_frontend_handoff.h) do what the player would press through: the original's items chosen by their
 // pad_choose (found by id, or by their handler's new_menu_script / change_gamemode / dif ...), one a frame, ours drawn
 // over until the original's screen changes; then ours steps aside until an anchor is up again. Free Skate shows every
@@ -69,6 +72,9 @@ bool& Enabled();
 
 // Sio::InitSdlInput: listens to SDL's events (nothing when off).
 void Init();
+// Its script commands for the overlay's pause menu items (NewFrontend_PauseItem, NewFrontend_Open), registered after
+// the game's own (Sys::Main).
+void RegisterScriptFunctions();
 // Once a frame, from the front end's input logic (MouseMenus::Update): decides whether it's up, runs the menus'
 // input and time, does what they ask.
 void Update(Mdl::FrontEnd* frontEnd);

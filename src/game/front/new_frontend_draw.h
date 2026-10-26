@@ -94,11 +94,11 @@ class Tracker;
 
 namespace Front::NewFrontend::Paint {
 
-// Phase 3: an original screen restyled (new_frontend_mirror.h) - a dialog box, the skater select (the 3D skater left
-// in view), a plain list. `hits`: its rows (Item, the row's index), Back. `scroll`: the list's first row shown, kept
-// by the caller (in and out).
+// Phase 3: an original screen restyled (new_frontend_mirror.h) - a level's pause menu, a dialog box, the skater select
+// (the 3D skater left in view), a plain list. `hits`: its rows (Item, the row's index), Back. `scroll`: the list's
+// first row shown, kept by the caller (in and out). `extras`: the pause menu's level and session (null: none).
 void Restyled(const Mirror::Tracker& tracker, const Frame& frame, float windowWidth, float windowHeight,
-              std::vector<Hit>* hits, float* scroll);
+              std::vector<Hit>* hits, float* scroll, const Extras* extras = nullptr);
 
 // --- the layout's numbers (design px; exposed for the self-tests) ---
 
