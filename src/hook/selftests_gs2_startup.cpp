@@ -148,7 +148,7 @@ void TestScriptStartup()
     SaveAll(saved);
     auto* standIns = new StandIns;
     StandInCalls(*standIns);
-    // The reference build's "qb_scripts.pre" (the alternate THUG2.exe build has "qb_scripts.prx" there): ours names the .pre
+    // The reference build's "qb_scripts.pre" (THUG2.exe has "qb_scripts.prx" there): ours names the .pre
     standIns->Bytes(0x006576A5, {'e'});
 
     // qdir.txt: paths with and without data\, CR LF and LF, empty lines, a last line without its end

@@ -3,7 +3,7 @@
 // loading - and the two helpers of resizing (GetResizeArea, ResizeTo).
 //
 // The parameter names the original passes as strings (GetString("name") ...) are written here as string literals:
-// the alternate THUG2.exe build has filler bytes over some of the exe's own strings (park_cfuncs.cpp).
+// THUG2.exe has filler bytes over some of the exe's own strings (park_cfuncs.cpp).
 
 #include <cstring>
 

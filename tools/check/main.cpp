@@ -1,7 +1,7 @@
 // thug2_check: the start-up checks and the early self-tests, without starting the game.
 //
 //   thug2_check [<path to the reference build>]   (default: THUG2_REFERENCE_EXE, else local.json's referenceExe;
-//                                                  the alternate THUG2.exe build works too)
+//                                                  THUG2.exe works too)
 //
 // The game's code only runs at its own addresses (0x400000 up), and Windows puts its own data there in any
 // process before main() runs. So this starts a second copy of itself suspended, reserves the game's address

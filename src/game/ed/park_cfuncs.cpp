@@ -4,7 +4,7 @@
 //
 // The parameter names are written here as string literals, and that matters: these two are not no-ops and not
 // optional. The original passes the names as pointers to the exe's own strings ("MaxPlayers" at 0x0064F29C,
-// "MaxPlayersPossible" at 0x0064F2A8, used by nothing else). The alternate THUG2.exe build the main install runs has
+// "MaxPlayersPossible" at 0x0064F2A8, used by nothing else). THUG2.exe (the main install's) has
 // 0x90 filler bytes over 0x0064F29C-0x0064F2B9 (damage in that build; the reference build still has the
 // names - tools/pipeline/game/exe_audit.ts lists every byte the two differ in), so there the original added the value under
 // the checksum of thirty 0x90 bytes and the scripts' <MaxPlayers> / <MaxPlayersPossible> were never set. With the

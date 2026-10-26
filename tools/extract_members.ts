@@ -1,4 +1,4 @@
-// NOT ORIGINAL - extracts THUG2's script member functions and who runs them from the reference build (or the alternate THUG2.exe build:
+// NOT ORIGINAL - extracts THUG2's script member functions and who runs them from the reference build (or THUG2.exe:
 // the same layout) into tools/pipeline/level_port/thug2_members.ts, the table the level converters' script translator
 // (tools/pipeline/level_port/script_port.ts) reads to know which member functions an object running a script has.
 //

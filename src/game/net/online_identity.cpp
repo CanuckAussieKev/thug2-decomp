@@ -1,6 +1,6 @@
 // The game's online identity: its GameSpy game name and secret key (see online_identity.h).
 //
-// Where the game passes them (THUG2 PC, the same in the reference build and the alternate THUG2.exe build):
+// Where the game passes them (THUG2 PC, the same in the reference build and THUG2.exe):
 //   - the game name "thps6pc" (plain text at 0x0064B1CC) is pushed as an address by: WinMain's availability check,
 //     qr2_init (0x0053BE86), the qr2 / peer server key callbacks' "gamename" key (0x0053BA1F, 0x0053F936) and the
 //     stats SDK's copy into 0x007D7A78 (StatsMan::LogInThread) and peerSetTitle's title and server-browsing name

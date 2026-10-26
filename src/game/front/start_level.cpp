@@ -41,7 +41,7 @@ bool IsScript(uint32_t name)
 }
 
 // The command line as the DLL found it, read while the DLL loads: the game's own parsing cuts the process's command
-// line buffer into words later (a 0 after the first word, "... -level" - seen with the alternate THUG2.exe build, 2026-10-20).
+// line buffer into words later (a 0 after the first word, "... -level" - seen with THUG2.exe, 2026-10-20).
 const std::string g_commandLine = GetCommandLineA();
 
 std::string FromIni(const char* key)

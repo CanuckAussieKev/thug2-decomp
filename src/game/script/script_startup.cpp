@@ -69,7 +69,7 @@ void LoadStartupQBFiles()
 {
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_topDownHeap);
-    // (the reference build's name, 0x00657698; the alternate THUG2.exe build has "qb_scripts.prx" there - the file layer opens a .pre
+    // (the reference build's name, 0x00657698; THUG2.exe has "qb_scripts.prx" there - the file layer opens a .pre
     // as .prx either way)
     Pip::LoadPre("qb_scripts.pre");
     Mem::Manager::Get()->PopContext();

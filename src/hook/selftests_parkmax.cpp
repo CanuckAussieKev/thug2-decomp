@@ -1,7 +1,7 @@
 // Self-tests for the park editor's player-count script commands (src/game/ed/park_cfuncs.cpp):
 // GetParkEditorMaxPlayers 0x0058E120 and GetParkEditorMaxPlayersPossible 0x0058E140, the original against ours on a
 // stand-in park manager, generator and script (the structure's AddInteger and the generator's player-room count are
-// recording stand-ins), and ours on an exe whose two parameter names are damaged as in the alternate THUG2.exe build.
+// recording stand-ins), and ours on an exe whose two parameter names are damaged as in THUG2.exe.
 
 #include <cstdint>
 #include <cstring>
@@ -36,7 +36,7 @@ using CFunc = bool(__cdecl*)(CStruct*, CScript*);
 constexpr uint32_t kMaxPlayers = 0xB7E39B53;         // "MaxPlayers"
 constexpr uint32_t kMaxPlayersPossible = 0x1FD6359C; // "MaxPlayersPossible"
 constexpr uint32_t kNames = 0x0064F29C;              // the exe's two names ("MaxPlayers\0\0MaxPlayersPossible")
-constexpr uint32_t kNamesSize = 30;                  // (what the alternate THUG2.exe build has 0x90 filler over)
+constexpr uint32_t kNamesSize = 30;                  // (what THUG2.exe has 0x90 filler over)
 
 // Stand-in objects: the park manager (+0 its generator), generators, scripts (+0x14 their parameters), structures.
 constexpr uint32_t kManager = 0x000;
@@ -145,7 +145,7 @@ void TestParkMaxPlayers()
     Check(named, "park editor: the original adds MaxPlayers / MaxPlayersPossible (the reference build's names in place)");
 }
 
-// The alternate THUG2.exe build has 0x90 filler over the original's two names: ours must still add MaxPlayers and
+// THUG2.exe has 0x90 filler over the original's two names: ours must still add MaxPlayers and
 // MaxPlayersPossible (the original adds the checksum of the filler there, and the scripts never get theirs).
 void TestParkMaxPlayersDamagedNames()
 {

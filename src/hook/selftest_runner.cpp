@@ -32,7 +32,7 @@ std::vector<RegisteredTest>& Registry()
 
 int g_failures = 0;
 
-// The early tests run the original code as the reference, and expect the reference build's. The alternate THUG2.exe build
+// The early tests run the original code as the reference, and expect the reference build's. THUG2.exe
 // (the same layout and addresses - tools/pipeline/game/install_manifest.ts) differs from it in these
 // few spots: PartyMod's exe patch (its DLL's loading in WinMain, the code cave, the DLL's name), and that build's
 // own edits (SetScreenBlur returning at once, the network service loop, loading from the memory card, the GameSpy
@@ -61,7 +61,7 @@ const ReferenceBytes kReferenceBytes[] = {
      {0x48, 0x55, 0x47, 0x32, 0x00, 0x00, 0x00, 0x70, 0x61, 0x72, 0x74, 0x79, 0x6D, 0x6F, 0x64, 0x2E, 0x64, 0x6C, 0x6C,
       0x00}},
     // The park editor's "MaxPlayers" and "MaxPlayersPossible" (read by GetParkEditorMaxPlayers 0x0058E120 and
-    // GetParkEditorMaxPlayersPossible 0x0058E140): 0x90 filler in the alternate build - damage in that build,
+    // GetParkEditorMaxPlayersPossible 0x0058E140): 0x90 filler in THUG2.exe - damage in that build,
     // not an intended edit. Ours write the names as literals (src/game/ed/park_cfuncs.cpp), so the game is
     // right on either exe; the names are put back here so that the originals they're compared with are the
     // undamaged ones (TestParkMaxPlayersDamagedNames writes the filler back over them itself).
@@ -72,7 +72,7 @@ const ReferenceBytes kReferenceBytes[] = {
       0x50, 0x6C, 0x61, 0x79, 0x65, 0x72, 0x73, 0x50, 0x6F, 0x73, 0x73, 0x69, 0x62, 0x6C, 0x65}},
 };
 
-// Writes the reference build's bytes over the alternate build's (only where the alternate build's are there); Restore puts them back.
+// Writes the reference build's bytes over THUG2.exe's (only where THUG2.exe's are there); Restore puts them back.
 // Returns how many spots it wrote.
 int WriteReferenceBytes(bool restore)
 {
@@ -261,10 +261,10 @@ void RunSelfTests(TestStage stage)
     // (and the loading console: the tests show and hide loading screens with the game's screen code stood in)
     bool consoleSuspended = Gfx::LoadingConsole::SuspendedForSelfTests();
     Gfx::LoadingConsole::SuspendedForSelfTests() = true;
-    // (the alternate THUG2.exe build: the reference build's bytes where the two differ, for the early tests - see kReferenceBytes)
+    // (THUG2.exe: the reference build's bytes where the two differ, for the early tests - see kReferenceBytes)
     int referenceSpots = stage == TestStage::Early ? WriteReferenceBytes(false) : 0;
     if (referenceSpots)
-        Log("%s self-tests: the alternate THUG2.exe build - the reference build's bytes in its %d differing spots while they run",
+        Log("%s self-tests: THUG2.exe - the reference build's bytes in its %d differing spots while they run",
             StageName(stage), referenceSpots);
     for (const RegisteredTest& t : Registry()) {
         if (t.stage == stage && wanted(t.name)) {
