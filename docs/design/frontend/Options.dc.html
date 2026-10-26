@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Options</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,700;1,800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0D0E11}
+a{color:#F3F2EE;text-decoration:none}
+a:hover{color:#FF7A1A}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid #FF7A1A;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; background: #0D0E11; color: #F3F2EE; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="display: flex; align-items: center; gap: 24px; padding: 24px 40px 0 40px">
+    <a href="Main.dc.html" aria-label="Back to main menu" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: #16181D">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 40px; line-height: 1; text-transform: uppercase">Options</h1>
+  </header>
+  <main style="flex: 1; display: flex; gap: 28px; padding: 24px 40px 16px 40px; min-height: 0">
+    <nav aria-label="Option groups" style="width: 220px; flex: none; display: flex; flex-direction: column; gap: 4px">
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="5">
+        <button type="button" onClick="{{g.pick}}" aria-pressed="{{g.on}}" style="{{g.style}}">{{g.name}}</button>
+      </sc-for>
+    </nav>
+    <section aria-label="Settings" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 20px; padding: 14px 18px; border-radius: 12px; background: #16181D">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+            <span style="font-size: 16px; font-weight: 600">{{r.label}}</span>
+            <span style="font-size: 13px; color: #A3A8B0">{{r.help}}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8C929B">{{r.key}}</span>
+          </div>
+          <div role="group" aria-label="{{r.label}}" style="display: flex; background: #0D0E11; border-radius: 10px; padding: 4px; gap: 2px">
+            <sc-for list="{{r.opts}}" as="o" hint-placeholder-count="3">
+              <button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="{{o.style}}">{{o.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </section>
+  </main>
+  <footer style="display: flex; align-items: center; gap: 28px; padding: 0 40px; height: 56px; border-top: 1px solid #23262D; font-size: 14px; color: #C9CDD3">
+    <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">◀ ▶</span>Change</span>
+    <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">B</span>Back</span>
+    <div style="flex: 1"></div>
+    <span style="font-size: 13px; color: #8C929B">Saved to thug2-decomp.ini · some take effect after a restart</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+var GROUPS = [
+  { name: 'Graphics', rows: [
+    ['Anisotropic filtering', 'Sharper textures at an angle', '[Graphics] anisotropy', ['Off', '2x', '4x', '8x', '16x'], 4],
+    ['Anti-aliasing', 'Smooths jagged edges (MSAA)', '[Graphics] msaa', ['Off', '2x', '4x', '8x'], 2],
+    ['Draw distance', 'How far the level is drawn', '[Graphics] draw_distance_scale', ['1x', '1.5x', '2x', '3x'], 2],
+    ['Object detail distance', 'When objects switch to simpler models', '[Graphics] lod_distance_scale', ['1x', '1.5x', '2x', '3x'], 2] ] },
+  { name: 'Interface', rows: [
+    ['HD menus', '4x upscaled menu images and fonts', '[features] hd_ui', ['Off', 'On'], 1],
+    ['Menu backdrop', 'Scene behind the menus', '[features] menu_backdrop', ['Original', 'THPS4 shop'], 1],
+    ['Mouse in menus', 'Point and click', '[features] mouse_menus', ['Off', 'On'], 1],
+    ['Loading console', 'What is loading, on the loading screen', '[features] loading_console', ['Off', 'On'], 1] ] },
+  { name: 'Gameplay', rows: [
+    ['Skip intro movies', 'Straight to the menu at start-up', '[features] skip_intro_movies', ['Off', 'On'], 1],
+    ['Restart tester (F8)', 'Jump to the next unvisited restart', '[features] restart_tester', ['Off', 'On'], 1],
+    ['Level editor', 'LEVEL EDITOR in the pause menu', '[features] level_editor', ['Off', 'On'], 1],
+    ['Screenshots', 'Print Screen saves a picture and notes', '[features] screenshots', ['Off', 'On'], 1] ] },
+  { name: 'Online', rows: [
+    ['Online identity', 'Which lobbies you see', '[Miscellaneous] OnlineGameName', ['THUG2', 'THUGPRO'], 0],
+    ['THUGPRO chat', 'Talk with THUGPRO players', '[online] thugpro_peer', ['Off', 'On'], 0],
+    ['THUGPRO parts', 'Extra CAS parts from a THUGPRO install', '[features] thugpro_parts', ['Off', 'Hidden', 'Shown'], 1] ] },
+  { name: 'Mods', rows: [
+    ['Anteara Mod', '2010 and 2011 merged, from the overlay', '[features] anteara_mod', ['Off', 'On'], 0],
+    ['Debug mode', 'Neversoft debug options, free camera', '[features] debug_mode', ['Off', 'On'], 0] ] }
+];
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var vals = {};
+    GROUPS.forEach(function (g) { g.rows.forEach(function (r) { vals[r[2]] = r[4]; }); });
+    this.state = { group: 0, vals: vals };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    return {
+      groups: GROUPS.map(function (g, i) {
+        var on = i === st.group;
+        return { name: g.name, on: on, pick: function () { self.setState({ group: i }); },
+          style: 'text-align: left; padding: 12px 16px; border-radius: 10px; border: none; font-size: 16px; font-weight: 600; ' + (on ? 'background: #1E2128; color: #F3F2EE; box-shadow: inset 3px 0 0 #FF7A1A' : 'background: transparent; color: #A3A8B0') };
+      }),
+      rows: GROUPS[st.group].rows.map(function (r) {
+        var cur = st.vals[r[2]];
+        return { label: r[0], help: r[1], key: r[2], opts: r[3].map(function (o, j) {
+          var on = j === cur;
+          return { label: o, on: on, pick: function () { var v = Object.assign({}, st.vals); v[r[2]] = j; self.setState({ vals: v }); },
+            style: 'border: none; border-radius: 7px; padding: 8px 14px; font-size: 14px; font-weight: 600; ' + (on ? 'background: #FF7A1A; color: #0D0E11' : 'background: transparent; color: #C9CDD3') };
+        }) };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

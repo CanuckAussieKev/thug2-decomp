@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Create</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,700;1,800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0D0E11}
+a{color:#F3F2EE;text-decoration:none}
+a:hover{color:#FF7A1A}
+a:focus-visible{outline:3px solid #FF7A1A;outline-offset:2px}
+.tile:hover{background:#1E2128}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; background: #0D0E11; color: #F3F2EE; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="display: flex; align-items: center; gap: 24px; padding: 24px 40px 0 40px">
+    <a href="Main.dc.html" aria-label="Back to main menu" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: #16181D">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 40px; line-height: 1; text-transform: uppercase">Create</h1>
+  </header>
+
+  <main style="flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 28px 40px 28px 40px; min-height: 0">
+
+    <a class="tile" href="Main.dc.html" style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px; border-radius: 16px; background: #16181D; border: 3px solid #FF7A1A">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF7A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="3.5"></circle><path d="M5 21v-2a5 5 0 015-5h4a5 5 0 015 5v2"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 36px; line-height: 1; text-transform: uppercase">Create-A-Skater</span>
+        <span style="font-size: 14px; color: #A3A8B0">Look, clothes, board, stats. THUGPRO parts when installed.</span>
+      </div>
+    </a>
+
+    <a class="tile" href="Main.dc.html" style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px; border-radius: 16px; background: #16181D; border: 3px solid transparent">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF7A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16c3-8 13-8 16 0"></path><path d="M12 4v4"></path><path d="M9 20h6"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 36px; line-height: 1; text-transform: uppercase">Create-A-Trick</span>
+        <span style="font-size: 14px; color: #A3A8B0">Chain flips, rotations and poses into your own special.</span>
+      </div>
+    </a>
+
+    <a class="tile" href="Main.dc.html" style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px; border-radius: 16px; background: #16181D; border: 3px solid transparent">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF7A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><circle cx="12" cy="12" r="0.8" fill="#FF7A1A"></circle></svg>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 36px; line-height: 1; text-transform: uppercase">Create-A-Goal</span>
+        <span style="font-size: 14px; color: #A3A8B0">Place goals in any level and share them.</span>
+      </div>
+    </a>
+
+    <a class="tile" href="Main.dc.html" style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px; border-radius: 16px; background: #16181D; border: 3px solid transparent">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF7A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18h18"></path><path d="M5 18c0-5 3-8 7-8"></path><path d="M14 18v-6h6v6"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 36px; line-height: 1; text-transform: uppercase">Create-A-Park</span>
+        <span style="font-family: Inter, sans-serif; font-size: 14px; color: #A3A8B0">Build a park piece by piece, rails and gaps included.</span>
+      </div>
+    </a>
+
+    <a class="tile" href="Main.dc.html" style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px; border-radius: 16px; background: #16181D; border: 3px solid transparent">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF7A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"></path><path d="M14 6l3 3"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 36px; line-height: 1; text-transform: uppercase">Create-A-Graphic</span>
+        <span style="font-size: 14px; color: #A3A8B0">Layer stickers and text for boards and shirts.</span>
+      </div>
+    </a>
+
+    <a class="tile" href="Main.dc.html" style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px; border-radius: 16px; background: #16181D; border: 3px solid transparent">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF7A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M12 12l8-4.5"></path><path d="M12 12v9"></path><path d="M12 12L4 7.5"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 36px; line-height: 1; text-transform: uppercase">Level Editor</span>
+        <span style="font-size: 14px; color: #A3A8B0">Move scenery in any level, saved as layouts.</span>
+      </div>
+    </a>
+  </main>
+
+  <footer style="display: flex; align-items: center; gap: 28px; padding: 0 40px; height: 56px; border-top: 1px solid #23262D; font-size: 14px; color: #C9CDD3">
+    <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">A</span>Open</span>
+    <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">B</span>Back</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

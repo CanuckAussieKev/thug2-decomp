@@ -1,0 +1,46 @@
+address,name,why
+0x5f4890,std::fill (IDirect3DQuery9 list iterators),stdext::hash_map internals (the occlusion queries' map; game/sys/platform_d3d.cpp uses std::unordered_map)
+0x5f48b0,std::copy_backward,stdext::hash_map internals
+0x5f48e0,std::uninitialized_copy,stdext::hash_map internals
+0x5f4910,std::list::clear,stdext::hash_map internals
+0x5f4950,std::list::_Buynode (head),stdext::hash_map internals
+0x5f4970,std::list::_Buynode,stdext::hash_map internals
+0x5f49a0,std::uninitialized_fill_n,stdext::hash_map internals
+0x5f49d0,std::list::~list,stdext::hash_map internals
+0x5f49f0,std::logic_error::~logic_error,C++ library exception
+0x5f4a30,std::logic_error::what,C++ library exception
+0x5f4a40,std::logic_error scalar deleting destructor,C++ library exception
+0x5f4a60,stdext::hash_map::erase,stdext::hash_map internals
+0x5f4ae0,stdext::hash_map::lower_bound,stdext::hash_map internals
+0x5f4b80,std::vector::_Ufill,stdext::hash_map internals
+0x5f4bb0,std::vector::erase,stdext::hash_map internals
+0x5f4bf0,std::vector::_Tidy,stdext::hash_map internals
+0x5f4c20,std::length_error::length_error,C++ library exception
+0x5f4cf0,std::vector::_Xlen,C++ library ("vector<T> too long")
+0x5f4d60,std::logic_error::logic_error (copy),C++ library exception
+0x5f4dd0,std::length_error::length_error (copy),C++ library exception
+0x5f4df0,std::list::_Incsize,C++ library ("list<T> too long")
+0x5f4e90,std::vector::_Insert_n,stdext::hash_map internals
+0x5f4ff8,catch funclet (std::vector::_Insert_n),compiler-generated exception handling
+0x5f5004,catch funclet (std::vector::_Insert_n),compiler-generated exception handling
+0x5f50d0,std::vector::vector(n; value),stdext::hash_map internals
+0x5f5166,catch funclet (std::vector::vector),compiler-generated exception handling
+0x5f5180,stdext::hash_map::~hash_map,stdext::hash_map internals (the exe's static teardown calls it)
+0x5f51c0,std::vector::resize,stdext::hash_map internals
+0x5f5230,stdext::_Hash::_Hash,stdext::hash_map internals
+0x5f52b0,stdext::hash_map::hash_map,stdext::hash_map internals (the exe's static initialiser calls it)
+0x5f5390,stdext::_Hash::insert,stdext::hash_map internals
+0x4b6fc0,std::allocator::allocate (the memory manager's),std::basic_string over the game's allocator (the mesh files' names)
+0x4b7450,std::basic_string::erase,std::basic_string over the game's allocator
+0x4b74d0,std::basic_string::_Copy,std::basic_string over the game's allocator
+0x4b7558,std::basic_string::_Copy (catch funclet),std::basic_string over the game's allocator
+0x4b7581,std::basic_string::_Copy (after the catch),std::basic_string over the game's allocator
+0x4b75fa,std::basic_string::_Copy (catch funclet: _Tidy and rethrow),std::basic_string over the game's allocator
+0x4b7630,std::basic_string::_Tidy,std::basic_string over the game's allocator
+0x4b7660,std::basic_string::assign (string; pos; count),std::basic_string over the game's allocator
+0x4b7750,std::basic_string::assign (chars; count),std::basic_string over the game's allocator
+0x4b7840,std::basic_string::basic_string (const char*),std::basic_string over the game's allocator
+0x4b7880,std::basic_string::operator= (const char*),std::basic_string over the game's allocator
+0x4d3bc0,malloc (a jump to 0x624031),the C runtime
+0x4d3bd0,free (a jump to 0x62411b),the C runtime
+0x401020,`vector constructor iterator',compiler-generated (runs a constructor over an array of objects: new T[n]; the compiler emits it when the game is built from source)

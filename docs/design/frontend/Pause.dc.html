@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pause menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,700;1,800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0D0E11}
+a{color:#F3F2EE;text-decoration:none}
+a:hover{color:#FF7A1A}
+a:focus-visible{outline:3px solid #FF7A1A;outline-offset:2px}
+.pi:hover{background:#1E2128}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; background: #2E3F4F; color: #F3F2EE; font-family: Inter, system-ui, sans-serif; position: relative; overflow: hidden">
+  <span style="position: absolute; top: 24px; right: 32px; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.7)">Gameplay, dimmed</span>
+  <div style="position: absolute; inset: 0; background: rgba(13,14,17,0.55)"></div>
+  <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 440px; background: rgba(13,14,17,0.94); display: flex; flex-direction: column; padding: 40px 32px; box-sizing: border-box; gap: 4px">
+    <span style="font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #FFB27A; font-weight: 600">Paused · Project 8</span>
+    <span style="font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 44px; line-height: 1; text-transform: uppercase; margin-bottom: 22px">Beaver Valley</span>
+    <a class="pi" href="LevelSelect.dc.html" style="padding: 12px 16px; border-radius: 10px; background: #FF7A1A; color: #0D0E11; font-size: 20px; font-weight: 700">Resume</a>
+    <a class="pi" href="Pause.dc.html" style="padding: 12px 16px; border-radius: 10px; font-size: 20px; font-weight: 600">Restart</a>
+    <a class="pi" href="Pause.dc.html" style="padding: 12px 16px; border-radius: 10px; font-size: 20px; font-weight: 600">Goals and gaps</a>
+    <a class="pi" href="LevelSelect.dc.html" style="padding: 12px 16px; border-radius: 10px; font-size: 20px; font-weight: 600">Change level</a>
+    <a class="pi" href="Create.dc.html" style="padding: 12px 16px; border-radius: 10px; font-size: 20px; font-weight: 600">Level editor</a>
+    <a class="pi" href="Options.dc.html" style="padding: 12px 16px; border-radius: 10px; font-size: 20px; font-weight: 600">Options</a>
+    <a class="pi" href="Main.dc.html" style="padding: 12px 16px; border-radius: 10px; font-size: 20px; font-weight: 600">Quit to menu</a>
+    <div style="flex: 1"></div>
+    <div style="display: flex; gap: 22px; font-size: 13px; color: #C9CDD3">
+      <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">A</span>Select</span>
+      <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">Start</span>Resume</span>
+    </div>
+  </div>
+  <div style="position: absolute; right: 40px; bottom: 40px; width: 340px; background: rgba(13,14,17,0.9); border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: #A3A8B0">This session</span>
+    <div style="display: flex; justify-content: space-between; font-size: 15px"><span style="color: #C9CDD3">Best combo</span><span style="font-weight: 600">[score]</span></div>
+    <div style="display: flex; justify-content: space-between; font-size: 15px"><span style="color: #C9CDD3">Gaps found</span><span style="font-weight: 600">[n]</span></div>
+    <div style="display: flex; justify-content: space-between; font-size: 15px"><span style="color: #C9CDD3">Time skated</span><span style="font-weight: 600">[mm:ss]</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

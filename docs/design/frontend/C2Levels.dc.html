@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kinetic modern level select</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&amp;family=IBM+Plex+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0A0B}
+a{color:#F2F2F0;text-decoration:none}
+a:hover{color:#FFFFFF}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid #FFFFFF;outline-offset:3px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; background: #0A0A0B; color: #F2F2F0; font-family: 'IBM Plex Mono', monospace; position: relative; overflow: hidden">
+  <div style="position: absolute; inset: 0; background: #17181B"></div>
+  <span style="position: absolute; top: 74px; right: 40px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #8A8C90">Full-bleed loading screen, panning slowly</span>
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 380px; background: #0A0A0B; opacity: 0.85"></div>
+  <div style="{{band}}"></div>
+
+  <header style="position: absolute; top: 22px; left: 48px; right: 48px; display: flex; align-items: center; gap: 22px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px">
+    <a href="CMain.dc.html">← Back</a>
+    <span style="color: #8A8C90">Free skate</span>
+    <div style="flex: 1"></div>
+    <nav aria-label="Games" style="display: flex; gap: 18px">
+      <sc-for list="{{games}}" as="g" hint-placeholder-count="8">
+        <button type="button" onClick="{{g.pick}}" aria-pressed="{{g.on}}" style="{{g.style}}">{{g.name}}</button>
+      </sc-for>
+    </nav>
+  </header>
+
+  <div style="position: absolute; left: 48px; top: 250px; display: flex; flex-direction: column; gap: 6px">
+    <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #8A8C90">{{gameName}} / {{pos}}</span>
+    <div style="position: relative">
+      <div style="{{cut}}"></div>
+      <span style="position: relative; font-family: 'Archivo Black', sans-serif; font-size: 104px; line-height: 0.9; text-transform: uppercase; letter-spacing: -2px">{{name}}</span>
+    </div>
+    <div style="display: flex; gap: 28px; font-size: 12px; text-transform: uppercase; color: #B4B6BA; margin-top: 10px">
+      <span>Score [—]</span><span>Gaps [—]</span><span>Goals [—]</span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 48px; right: 0; bottom: 70px; display: flex; gap: 12px; align-items: flex-end">
+    <sc-for list="{{cards}}" as="c" hint-placeholder-count="7">
+      <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="{{c.style}}">
+        <span style="font-family: 'Archivo Black', sans-serif; font-size: 15px; text-transform: uppercase; text-align: left; line-height: 1.05">{{c.name}}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="position: absolute; left: 48px; bottom: 24px; display: flex; gap: 26px; font-size: 12px; text-transform: uppercase; color: #B4B6BA">
+    <span>◀ ▶ Level</span><span>LB RB Game</span><span>A Skate</span><span>B Back</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+var GAMES = [
+  ['THUG2', '#8B6CFF', ['Training', 'Boston', 'Barcelona', 'Berlin', 'Australia', 'New Orleans', 'Skatopia', 'Pro Skater']],
+  ['THUG', '#2FD38A', ['New Jersey', 'Manhattan', 'Tampa', 'San Diego', 'Hawaii', 'Vancouver', 'Moscow']],
+  ['THPS4', '#FF6B3D', ['College', 'San Francisco', 'Alcatraz', 'Kona', 'Shipyard', 'London', 'Zoo']],
+  ['THPS3', '#3DB7FF', ['Foundry', 'Canada', 'Rio', 'Suburbia', 'Airport', 'Skater Island', 'Tokyo']],
+  ['THPS2', '#FF4F9A', ['Hangar', 'School II', 'Marseille', 'NY City', 'Venice Beach', 'Philadelphia']],
+  ['THAW', '#F2C230', ['Chicago', 'The Mall', 'Minneapolis', 'Kyoto', 'Santa Cruz', 'Hollywood']],
+  ['P8', '#5FE0D0', ['Beaver Valley', 'Skate Park', 'Factory', 'Slums', 'Main Street', 'School']],
+  ['Misc', '#C9CBD0', ['Skate Shop', 'Test Level', 'Bedroom', 'Tutorials', 'Motox']]
+];
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { g: 0, l: 3 }; }
+  renderVals() {
+    var self = this, st = this.state, cur = GAMES[st.g], col = cur[1];
+    return {
+      band: 'position: absolute; left: 0; right: 0; top: 0; height: 6px; background: ' + col,
+      cut: 'position: absolute; left: -48px; right: -24px; top: 34%; height: 46%; background: ' + col + '; clip-path: polygon(0 0, 100% 0, calc(100% - 28px) 100%, 0 100%); opacity: 0.95',
+      gameName: cur[0], name: cur[2][st.l], pos: (st.l + 1) + ' of ' + cur[2].length,
+      games: GAMES.map(function (g, i) {
+        var on = i === st.g;
+        return { name: g[0], on: on, pick: function () { self.setState({ g: i, l: 0 }); },
+          style: 'background: none; border: none; padding: 4px 0; font-family: IBM Plex Mono, monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; ' + (on ? 'color: ' + g[1] + '; box-shadow: inset 0 -2px 0 ' + g[1] : 'color: #8A8C90') };
+      }),
+      cards: cur[2].map(function (n, i) {
+        var on = i === st.l;
+        return { name: n, on: on, pick: function () { self.setState({ l: i }); },
+          style: 'flex: none; display: flex; align-items: flex-end; padding: 10px 12px; box-sizing: border-box; border: none; color: ' + (on ? '#0A0A0B' : '#F2F2F0') + '; background: ' + (on ? col : '#26282C') + '; width: ' + (on ? 200 : 132) + 'px; height: ' + (on ? 128 : 92) + 'px; transform: ' + (on ? 'rotate(-6deg) translateY(-8px)' : 'none') };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

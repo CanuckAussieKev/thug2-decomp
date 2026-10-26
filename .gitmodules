@@ -1,0 +1,6 @@
+[submodule "tools/pipeline"]
+	path = tools/pipeline
+	url = https://github.com/CanuckAussieKev/thug2-content-pipeline.git
+[submodule "tools/anteara"]
+	path = tools/anteara
+	url = https://github.com/CanuckAussieKev/anteara-mod.git

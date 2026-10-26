@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hybrid main menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0A0A}
+a{color:#F2EFE8;text-decoration:none}
+a:hover{color:#F2E205}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid #F2E205;outline-offset:3px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; background: #0A0A0A; color: #F2EFE8; font-family: 'IBM Plex Sans', sans-serif; display: flex; overflow: hidden">
+  <div style="width: 540px; flex: none; display: flex; flex-direction: column; padding: 40px 0 32px 48px; box-sizing: border-box">
+    <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #B9B5AC; padding-right: 40px; border-bottom: 1px solid #3A3A38; padding-bottom: 12px">
+      <span>THUG2 / Decomp edition</span><span>[Skater name]</span>
+    </div>
+    <nav aria-label="Main menu" style="display: flex; flex-direction: column; margin-top: 36px; gap: 2px">
+      <sc-for list="{{items}}" as="it" hint-placeholder-count="5">
+        <button type="button" onMouseEnter="{{it.pick}}" onFocus="{{it.pick}}" onClick="{{it.pick}}" aria-current="{{it.on}}" style="{{it.row}}">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; width: 26px; color: #B9B5AC; text-align: left">{{it.num}}</span>
+          <span style="position: relative; display: inline-block; padding: 0 12px">
+            <sc-if value="{{it.on}}" hint-placeholder-val="{{ false }}">
+              <span style="position: absolute; left: -6px; right: -26px; top: 18%; bottom: 8%; background: #F2E205; clip-path: polygon(10px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)"></span>
+            </sc-if>
+            <span style="{{it.text}}">{{it.label}}</span>
+          </span>
+        </button>
+      </sc-for>
+    </nav>
+    <div style="flex: 1"></div>
+    <p style="margin: 0; padding-right: 40px; font-size: 14px; line-height: 1.5; color: #B9B5AC">{{blurb}}</p>
+  </div>
+  <div style="flex: 1; position: relative; background: #1C1C1B; overflow: hidden">
+    <span style="position: absolute; top: 40px; left: 32px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #8E8A82">Full-bleed art · changes with the highlighted item</span>
+    <div style="position: absolute; left: 32px; right: 40px; bottom: 32px; display: flex; flex-direction: column; gap: 8px">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #F2E205">Continue — Project 8</span>
+      <span style="font-family: Anton, sans-serif; font-size: 120px; line-height: 0.85; text-transform: uppercase">Beaver<br>Valley</span>
+      <div style="display: flex; justify-content: space-between; border-top: 1px solid #3A3A38; padding-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #B9B5AC; text-transform: uppercase">
+        <span>A Select</span><span>X Resume</span><span>B Back</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+var ITEMS = [
+  ['Career', 'THUG2 story, Classic mode, and the THUG story when it lands.', 'HLevels.dc.html'],
+  ['Free Skate', 'Every level from seven games, no clock.', 'HLevels.dc.html'],
+  ['Online', 'OpenSpy and THUGPRO lobbies.', 'HLevels.dc.html'],
+  ['Create', 'Skater, tricks, goals, parks, the level editor.', 'HLevels.dc.html'],
+  ['Options', 'Graphics, HD, controls, mods. Saved to the ini.', 'HLevels.dc.html']
+];
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 1 }; }
+  renderVals() {
+    var self = this, st = this.state;
+    return {
+      blurb: ITEMS[st.sel][1],
+      items: ITEMS.map(function (it, i) {
+        var on = i === st.sel;
+        return { label: it[0], num: '0' + (i + 1), on: on, pick: function () { self.setState({ sel: i }); },
+          row: 'display: flex; align-items: baseline; gap: 18px; padding: 2px 0; background: none; border: none; text-align: left; transform: ' + (on ? 'translateX(24px) rotate(-3deg)' : 'none') + '; transform-origin: left center',
+          text: 'position: relative; font-family: Anton, sans-serif; font-size: 78px; line-height: 0.92; text-transform: uppercase; color: ' + (on ? '#0A0A0A' : '#F2EFE8') };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

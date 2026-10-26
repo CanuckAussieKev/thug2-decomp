@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Online</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,700;1,800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0D0E11}
+a{color:#F3F2EE;text-decoration:none}
+a:hover{color:#FF7A1A}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid #FF7A1A;outline-offset:2px}
+.row:hover{background:#1E2128}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; background: #0D0E11; color: #F3F2EE; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="display: flex; align-items: center; gap: 24px; padding: 24px 40px 0 40px">
+    <a href="Main.dc.html" aria-label="Back to main menu" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: #16181D">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 800; font-size: 40px; line-height: 1; text-transform: uppercase">Online</h1>
+    <div style="flex: 1"></div>
+    <button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: none; background: #16181D; color: #F3F2EE; font-size: 14px; font-weight: 600">Join by address</button>
+    <button type="button" style="height: 44px; padding: 0 20px; border-radius: 12px; border: none; background: #FF7A1A; color: #0D0E11; font-size: 14px; font-weight: 700">Host a game</button>
+  </header>
+
+  <main style="flex: 1; display: flex; gap: 24px; padding: 24px 40px 20px 40px; min-height: 0">
+    <aside aria-label="Lobbies" style="width: 260px; flex: none; display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #A3A8B0; font-weight: 600; margin-bottom: 4px">Lobby</span>
+      <sc-for list="{{lobbies}}" as="l" hint-placeholder-count="3">
+        <button type="button" onClick="{{l.pick}}" aria-pressed="{{l.on}}" style="{{l.style}}">
+          <span style="font-size: 16px; font-weight: 600">{{l.name}}</span>
+          <span style="font-size: 12px; color: #A3A8B0">{{l.sub}}</span>
+        </button>
+      </sc-for>
+      <div style="flex: 1"></div>
+      <div style="background: #16181D; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 12px; color: #A3A8B0; text-transform: uppercase; letter-spacing: 1px">Identity</span>
+        <span style="font-size: 14px; font-weight: 600">{{identity}}</span>
+        <span style="font-size: 12px; color: #A3A8B0">Change in Options › Online</span>
+      </div>
+    </aside>
+
+    <section aria-label="Games" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; gap: 8px">
+        <span style="font-size: 13px; font-weight: 600; background: #1E2128; border-radius: 999px; padding: 6px 12px">Any mode</span>
+        <span style="font-size: 13px; font-weight: 600; background: #1E2128; border-radius: 999px; padding: 6px 12px">Any level</span>
+        <span style="font-size: 13px; font-weight: 600; background: #1E2128; border-radius: 999px; padding: 6px 12px">Hide full</span>
+      </div>
+      <div style="display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 8px 16px; font-size: 12px; color: #A3A8B0; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #23262D">
+        <span>Game</span><span>Level</span><span>Mode</span><span>Players</span><span>Ping</span>
+      </div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+        <button type="button" class="row" style="display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; padding: 14px 16px; border-radius: 10px; border: none; background: #16181D; color: #F3F2EE; text-align: left; font-size: 14px">
+          <span style="font-weight: 600">[Game name]</span>
+          <span style="color: #C9CDD3">[Level]</span>
+          <span style="color: #C9CDD3">[Mode]</span>
+          <span style="color: #C9CDD3">[n] / 8</span>
+          <span style="color: #C9CDD3">[ms]</span>
+        </button>
+      </sc-for>
+      <span style="font-size: 13px; color: #8C929B; padding: 6px 2px">Games list from the selected lobby. Rows are placeholders.</span>
+    </section>
+  </main>
+
+  <footer style="display: flex; align-items: center; gap: 28px; padding: 0 40px; height: 56px; border-top: 1px solid #23262D; font-size: 14px; color: #C9CDD3">
+    <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">A</span>Join</span>
+    <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">X</span>Host</span>
+    <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">Y</span>Refresh</span>
+    <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #4A4F59; border-radius: 6px; padding: 2px 7px">B</span>Back</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+var LOBBIES = [
+  { name: 'Beenox', sub: 'THUG2 · OpenSpy', id: 'THUG2 (thps6pc)' },
+  { name: 'General', sub: 'THUGPRO', id: 'THUGPRO (thugpro)' },
+  { name: 'Newbies', sub: 'THUGPRO', id: 'THUGPRO (thugpro)' }
+];
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { lobby: 0 }; }
+  renderVals() {
+    var self = this;
+    return {
+      lobbies: LOBBIES.map(function (l, i) {
+        var on = i === self.state.lobby;
+        return { name: l.name, sub: l.sub, on: on, pick: function () { self.setState({ lobby: i }); },
+          style: 'display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border-radius: 12px; color: #F3F2EE; text-align: left; ' + (on ? 'background: #1E2128; border: 2px solid #FF7A1A' : 'background: #16181D; border: 2px solid transparent') };
+      }),
+      identity: LOBBIES[this.state.lobby].id,
+      rows: [1, 2, 3, 4, 5, 6]
+    };
+  }
+}
+</script>
+</body>
+</html>

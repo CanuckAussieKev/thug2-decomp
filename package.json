@@ -1,0 +1,21 @@
+{
+  "name": "thug2-decomp-tools",
+  "private": true,
+  "type": "module",
+  "description": "The THUG2 decompilation's tools (tools/), TypeScript run directly by Node (docs/typescript.md).",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "biome check tools",
+    "format": "biome check --write tools",
+    "test": "node --test \"tools/**/*.test.ts\"",
+    "zfight-raster": "node tools/pipeline/level_port/zfight_raster.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

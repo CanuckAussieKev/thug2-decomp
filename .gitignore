@@ -1,0 +1,27 @@
+# Never commit game files or binaries
+*.exe
+*.dll
+*.pdb
+*.gpr
+*.rep/
+build/
+out/
+.vs/
+
+# Data extracted from the game exe (regenerable with tools/, not ours to publish)
+data/derived/
+.claude/worktrees/
+__pycache__/
+*.pyc
+
+# Claude Code personal settings
+.claude/settings.local.json
+
+# Node tooling
+node_modules/
+
+# Private working notes (github.com/CanuckAussieKev/thug2-decomp-notes, cloned here) and what links to them
+/notes/
+/CLAUDE.md
+/.claude/skills
+/local.json

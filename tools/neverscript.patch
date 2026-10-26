@@ -1,0 +1,115 @@
+--- a/cmd/ns/ns.go
++++ b/cmd/ns/ns.go
+@@ -60,6 +60,7 @@
+ 	ShowHexDump       *bool
+ 	ShowCode          *bool
+ 	RemoveChecksums   *bool
++	Lenient           *bool
+ 	ShowDecompiledRoq *bool
+ }
+ 
+@@ -83,6 +84,7 @@
+ 		ShowCode:          flag.Bool("showCode", false, ""),
+ 		ShowDecompiledRoq: flag.Bool("showDecompiledRoq", false, ""),
+ 		RemoveChecksums:   flag.Bool("removeChecksums", false, ""),
++		Lenient:           flag.Bool("lenient", false, ""),
+ 	}
+ 	flag.Parse()
+ 	return args
+@@ -169,6 +171,7 @@
+ 			return err
+ 		}
+ 
++		decompiler.Lenient = *arguments.Lenient
+ 		decompiledCode, err := decompiler.Decompile(qb)
+ 		if err != nil {
+ 			return err
+--- a/decompiler/decompiler.go
++++ b/decompiler/decompiler.go
+@@ -76,6 +76,12 @@
+ 	Byte_ShortBreak        = 0x49
+ )
+ 
++// Lenient (ns -lenient): decompile malformed code that tools other than Neversoft's compiler wrote (RoQ let
++// unbalanced brackets through) instead of failing - a '(' with no ')' before the line's end, a '[' / '{' still open
++// when the script ends, 0x00 padding before the end of the file. The text closes what was left open, marked with a
++// /* lenient: ... */ comment; recompiled, the bytes differ (the missing bracket is added - the fix).
++var Lenient bool
++
+ func Decompile(qb []byte) (string, error) {
+ 
+ 	var DecompileExpression func(int, int, bool, bool) (string, int, error)
+@@ -644,6 +650,9 @@
+ 					return "", 0, DecompilerError("No endwhile byte", nextByte, index)
+ 				}
+ 				index++
++			} else if b == Byte_EndOfFile && index < len(qb)-1 && Lenient && allZero(qb[index:]) {
++				// (0x00 padding to the end of the file, not a counted loop)
++				break
+ 			} else if b == Byte_EndOfFile && index < len(qb)-1 {
+ 				// Counted loop: 0x00 (Begin) <body> 0x21 (Repeat) [<count>].
+ 				// THUG2 `Begin ... Repeat <n>`. A 0x00 inside a script body is a
+@@ -1009,6 +1018,7 @@
+ 			// Trailing newlines between the last operand and ')' (`(A\n + B\n)` in
+ 			// multi-line flat expressions), stored as 0x01 before the 0xF. Consume +
+ 			// re-emit them so the round-trip is byte-identical.
++			beforeNewlines, codeBeforeNewlines := index, expressionCode
+ 			for {
+ 				if nb, _ := GetByte(index); nb == Byte_NewLine {
+ 					expressionCode += "\n"
+@@ -1024,6 +1034,11 @@
+ 			}
+ 
+ 			if nextByte != Byte_EndParenthesis {
++				if Lenient {
++					// (no ')' before the line ends: the expression closed here, the newlines left to the line)
++					return fmt.Sprintf("(%s) /* lenient: no ')' here in the original */", codeBeforeNewlines),
++						beforeNewlines - initialIndex, nil
++				}
+ 				return "", 0, DecompilerError("No endparenthesis byte", nextByte, index)
+ 			}
+ 			index++
+@@ -1044,6 +1059,10 @@
+ 			}
+ 
+ 			if nextByte != Byte_EndStruct {
++				if Lenient && (nextByte == Byte_EndScript || nextByte == Byte_EndOfFile) {
++					return fmt.Sprintf("{%s} /* lenient: no '}' in the original - the script ended */", structBodyCode),
++						index - initialIndex, nil
++				}
+ 				return "", 0, DecompilerError("No endstruct byte", nextByte, index)
+ 			}
+ 			index++
+@@ -1071,6 +1090,10 @@
+ 			}
+ 
+ 			if nextByte != Byte_EndArray {
++				if Lenient && (nextByte == Byte_EndScript || nextByte == Byte_EndOfFile) {
++					return fmt.Sprintf("[%s] /* lenient: no ']' in the original - the script ended */", arrayBodyCode),
++						index - initialIndex, nil
++				}
+ 				return "", 0, DecompilerError("No endarray byte", nextByte, index)
+ 			}
+ 			index++
+@@ -1598,7 +1621,7 @@
+ 		}
+ 	}
+ 
+-	if index < len(qb) {
++	if index < len(qb) && !(Lenient && allZero(qb[index:])) { // (lenient: 0x00 padding after the end is no code)
+ 		nextByte, _ := GetByte(index)
+ 		message := fmt.Sprintf("Did not finish decompiling.\n%s\n0x%x/0x%x bytes decompiled.\nnext byte: 0x%x", output.String(), index, len(qb), nextByte)
+ 		return "", errors.New(message)
+@@ -1652,3 +1675,12 @@
+ 
+ 	return output.String(), nil
+ }
++
++func allZero(b []byte) bool {
++	for _, c := range b {
++		if c != 0 {
++			return false
++		}
++	}
++	return true
++}

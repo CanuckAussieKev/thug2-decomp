@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zine main menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0A0A}
+a{color:#F2EFE8;text-decoration:none}
+a:hover{color:#F2E205}
+a:focus-visible{outline:3px solid #F2E205;outline-offset:3px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; background: #0A0A0A; color: #F2EFE8; font-family: 'IBM Plex Sans', sans-serif; display: flex; overflow: hidden">
+  <div style="width: 520px; flex: none; display: flex; flex-direction: column; padding: 40px 0 32px 48px; box-sizing: border-box">
+    <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #B9B5AC; padding-right: 40px; border-bottom: 1px solid #3A3A38; padding-bottom: 12px">
+      <span>THUG2 / Decomp edition</span><span>[Skater name]</span>
+    </div>
+    <nav aria-label="Main menu" style="display: flex; flex-direction: column; margin-top: 36px">
+      <a href="BLevels.dc.html" style="display: flex; align-items: baseline; gap: 18px; padding: 2px 0">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #B9B5AC; width: 26px">01</span>
+        <span style="font-family: Anton, sans-serif; font-size: 78px; line-height: 0.92; text-transform: uppercase; background: #F2E205; color: #0A0A0A; padding: 0 10px">Career</span>
+      </a>
+      <a href="BLevels.dc.html" style="display: flex; align-items: baseline; gap: 18px; padding: 2px 0">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #B9B5AC; width: 26px">02</span>
+        <span style="font-family: Anton, sans-serif; font-size: 78px; line-height: 0.92; text-transform: uppercase; padding: 0 10px">Free Skate</span>
+      </a>
+      <a href="BLevels.dc.html" style="display: flex; align-items: baseline; gap: 18px; padding: 2px 0">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #B9B5AC; width: 26px">03</span>
+        <span style="font-family: Anton, sans-serif; font-size: 78px; line-height: 0.92; text-transform: uppercase; padding: 0 10px">Online</span>
+      </a>
+      <a href="BLevels.dc.html" style="display: flex; align-items: baseline; gap: 18px; padding: 2px 0">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #B9B5AC; width: 26px">04</span>
+        <span style="font-family: Anton, sans-serif; font-size: 78px; line-height: 0.92; text-transform: uppercase; padding: 0 10px">Create</span>
+      </a>
+      <a href="BLevels.dc.html" style="display: flex; align-items: baseline; gap: 18px; padding: 2px 0">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #B9B5AC; width: 26px">05</span>
+        <span style="font-family: Anton, sans-serif; font-size: 78px; line-height: 0.92; text-transform: uppercase; padding: 0 10px">Options</span>
+      </a>
+    </nav>
+    <div style="flex: 1"></div>
+    <p style="margin: 0; padding-right: 40px; font-size: 14px; line-height: 1.5; color: #B9B5AC">Seven cities on the World Destruction Tour. Pick up where you left off, or open the level list.</p>
+  </div>
+  <div style="flex: 1; position: relative; background: #1C1C1B">
+    <span style="position: absolute; top: 40px; left: 32px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #8E8A82">Full-bleed level art · last played</span>
+    <div style="position: absolute; left: 32px; right: 40px; bottom: 32px; display: flex; flex-direction: column; gap: 8px">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #F2E205">Continue — Project 8</span>
+      <span style="font-family: Anton, sans-serif; font-size: 120px; line-height: 0.85; text-transform: uppercase">Beaver<br>Valley</span>
+      <div style="display: flex; justify-content: space-between; border-top: 1px solid #3A3A38; padding-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #B9B5AC; text-transform: uppercase">
+        <span>A Resume</span><span>B Back</span><span>Y Profile</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

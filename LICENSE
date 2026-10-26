@@ -1,0 +1,38 @@
+THUG2 decompilation - licensing
+
+This repository contains two kinds of material.
+
+1. Reconstructed game code (no licence granted)
+
+   The C++ under src/game that reconstructs Tony Hawk's Underground 2 (PC) - every function registered with a REPLACE /
+   REPLACE_SOURCE_ONLY line against an address of the original executable - is a re-expression of a game whose
+   copyright belongs to Activision Publishing, Inc. and its licensors. No licence of any kind is granted for it, and
+   none could be: the authors of this repository do not own the rights to the game. It is published for preservation,
+   interoperability and educational purposes only. See NOTICE.md.
+
+2. Original work (MIT licence)
+
+   Everything written for this project that is not a reconstruction of the original game is licensed under the MIT
+   licence below. That includes the hook and test framework (src/hook, src/proxy), the self-tests, all code marked
+   NOT ORIGINAL in src/game (for example the new front end, the level editor, the THAW BMX port, the graphics options
+   and the screenshot, automation and mute tools), the tools (tools/ - the content pipeline and the Anteara Mod are
+   separate repositories with their own MIT licence), the documentation (docs/) and the design files (docs/design).
+
+   Third-party code and data used by the project keep their own licences: THIRD_PARTY_NOTICES.md.
+
+MIT License
+
+Copyright (c) 2026 Kevin Mallinson and the THUG2 decompilation contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
