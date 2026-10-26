@@ -52,8 +52,41 @@ bool ReadFileBytes(const char* path, std::vector<unsigned char>& bytes)
     return true;
 }
 
+std::string Trimmed(const std::vector<unsigned char>& bytes)
+{
+    std::string text(bytes.begin(), bytes.end());
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' '))
+        text.pop_back();
+    return text;
+}
+
+// The main checkout of a linked git worktree (its .git is a file "gitdir: <main>/.git/worktrees/<name>", whose
+// commondir names <main>/.git), or empty: local.json is gitignored, so a worktree has none of its own.
+std::string MainCheckout(const std::string& dir)
+{
+    std::vector<unsigned char> bytes;
+    if (!ReadFileBytes((dir + "/.git").c_str(), bytes))
+        return {};
+    std::string gitdir = Trimmed(bytes);
+    if (gitdir.rfind("gitdir: ", 0) != 0)
+        return {};
+    gitdir = gitdir.substr(8);
+    bytes.clear();
+    if (!ReadFileBytes((gitdir + "/commondir").c_str(), bytes))
+        return {};
+    std::string common = Trimmed(bytes);
+    bool relative = !(common.size() > 1 && common[1] == ':') && common[0] != '/' && common[0] != '\\';
+    char full[MAX_PATH];
+    if (!GetFullPathNameA((relative ? gitdir + "/" + common : common).c_str(), sizeof(full), full, nullptr))
+        return {};
+    std::string main = full; // <main>\.git
+    size_t slash = main.find_last_of("\\/");
+    return slash == std::string::npos ? std::string() : main.substr(0, slash);
+}
+
 // The reference build's path when none is given: THUG2_REFERENCE_EXE, else referenceExe in the checkout's local.json
-// (gitignored - this machine's settings; README "Contributing"). Empty when neither has one.
+// (gitignored - this machine's settings; README "Contributing"; in a linked worktree, the main checkout's). Empty when
+// neither has one.
 std::string DefaultExePath()
 {
     char env[MAX_PATH];
@@ -61,8 +94,11 @@ std::string DefaultExePath()
     if (length > 0 && length < sizeof(env))
         return env;
     std::vector<unsigned char> bytes;
-    if (!ReadFileBytes(THUG2_SOURCE_DIR "/local.json", bytes))
-        return {};
+    if (!ReadFileBytes(THUG2_SOURCE_DIR "/local.json", bytes)) {
+        std::string main = MainCheckout(THUG2_SOURCE_DIR);
+        if (main.empty() || !ReadFileBytes((main + "/local.json").c_str(), bytes))
+            return {};
+    }
     std::string text(bytes.begin(), bytes.end());
     // "referenceExe": "<path>" - a JSON string (\\ and \" escapes)
     size_t key = text.find("\"referenceExe\"");

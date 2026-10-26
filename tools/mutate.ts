@@ -109,6 +109,15 @@ async function main(): Promise<number> {
     const env: NodeJS.ProcessEnv = { ...process.env };
     if (spec.TESTS) env.THUG2_SELFTESTS = spec.TESTS;
 
+    // The unmutated code must pass first: a checker that fails anyway (no reference build found, a failing or
+    // flaky test) would make every mutation look CAUGHT.
+    if (runBuild(build) !== 0) throw new Error("the unmutated code doesn't build");
+    const baseline = await check(checker, logPath, env);
+    if (baseline !== 0) {
+        const tail = readCp1252Replace(logPath).trimEnd().split("\n").slice(-5).join("\n");
+        throw new Error(`the unmutated checker ${baseline === null ? "hangs" : `exits ${baseline}`}:\n${tail}`);
+    }
+
     for (const [file, name, oldText, newText] of spec.MUTS) {
         if (only.length && !only.includes(name)) continue;
         const raw = fs.readFileSync(file);
