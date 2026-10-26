@@ -78,6 +78,9 @@ struct Extras {
     ArtLookup art = nullptr;
     RecordsLookup records = nullptr;
     bool levelsMissing = false; // (no levels.json: Free Skate can't open)
+    // (a restyled front end menu - Kind::Menu: the levels' data for the items' art, the main menu's Continue level)
+    const Catalogue* catalogue = nullptr;
+    std::string continueName;
     bool showIniKeys = false;   // ([frontend] show_ini_keys=1: the options show their ini section and key)
 };
 

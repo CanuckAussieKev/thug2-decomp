@@ -727,9 +727,46 @@ void TestFrontendMirrorBuild()
     other = list;
     other.title = "CREATE-A-TRICK";
     Check(M::Build(other, policy).kind == M::Kind::None, "restyle: a title left original");
-    other = list;
-    other.items.push_back(Item(Crc::GenerateCRCFromString("menu_cas"), {"Create-A-Skater"}));
-    Check(M::Build(other, policy).kind == M::Kind::None, "restyle: CREATE-A-MODES is ours");
+    // A front end roundbar menu (CREATE-A-MODES: make_new_roundbar_menu's own id main_menu): Kind::Menu - our title,
+    // our words, art id and note by item id, the game's text for an item we don't know; not while an editor is up.
+    {
+        M::MenuRead create;
+        create.found = true;
+        create.menuId = Crc::GenerateCRCFromString("main_menu");
+        create.title = "CREATE-A-MODES";
+        create.items = {Item(Crc::GenerateCRCFromString("menu_cas"), {"CREATE-A-SKATER"}, true, true),
+                        Item(Crc::GenerateCRCFromString("menu_newfe_editor"), {"LEVEL EDITOR"}),
+                        Item(0x1234, {"SOMETHING NEW"})};
+        create.selectedIndex = 1;
+        M::View c = M::Build(create, policy);
+        Check(c.kind == M::Kind::Menu && c.title == std::string(F::Text::kTitleCreate) && c.rows.size() == 3 &&
+                  c.rows[0].label == std::string(F::Text::kCas) && c.rows[0].art == "cas" &&
+                  c.rows[1].art == "editor" && c.rows[2].label == "SOMETHING NEW" && c.rows[2].art.empty() &&
+                  c.selected == 1 && c.screenArt == "create" && !c.mainMenu,
+              "restyle: CREATE-A-MODES as a front end menu");
+        M::MenuRead career = create;
+        career.menuId = Crc::GenerateCRCFromString("newfe_career_vmenu");
+        career.title = "CAREER";
+        career.items = {Item(Crc::GenerateCRCFromString("menu_career"), {"STORY MODE"}),
+                        Item(Crc::GenerateCRCFromString("menu_newfe_thugstory"), {"THUG STORY"}, false)};
+        career.selectedIndex = 0;
+        M::View k = M::Build(career, policy);
+        Check(k.kind == M::Kind::Menu && k.rows.size() == 2 && k.rows[0].label == std::string(F::Text::kStoryThug2) &&
+                  !k.rows[1].focusable && k.rows[1].tag == std::string(F::Text::kComingSoon),
+              "restyle: our Career menu (the overlay's), its note");
+        M::MenuRead main = create;
+        main.menuId = Crc::GenerateCRCFromString("main_vmenu");
+        main.items = {Item(Crc::GenerateCRCFromString("menu_newfe_career"), {"CAREER"}),
+                      Item(Crc::GenerateCRCFromString("menu_singlesess"), {"FREE SKATE"})};
+        main.selectedIndex = 1;
+        M::View m = M::Build(main, policy);
+        Check(m.kind == M::Kind::Menu && m.mainMenu && m.title == std::string(F::Text::kTitleMain) &&
+                  m.kicker == std::string(F::Text::kMainKicker) + " \xE2\x80\x94 02" && m.bigName == std::string(F::Text::kFreeSkate),
+              "restyle: the main menu's kicker numbers the item");
+        M::Policy editing;
+        editing.editor = true;
+        Check(M::Build(create, editing).kind == M::Kind::None, "restyle: no front end menu while an editor is up");
+    }
     other = list;
     other.items.assign(61, Item(1, {"x"}));
     Check(M::Build(other, policy).kind == M::Kind::None, "restyle: too many items stay");

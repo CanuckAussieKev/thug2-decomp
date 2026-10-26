@@ -1440,6 +1440,88 @@ void PauseOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float win
     Kicker(c, kicker, left, nameTop - 8.0f, colour, 1.0f);
 }
 
+// A front end menu restyled (Kind::Menu): the main menu's look - the highlighted item's art full-bleed behind the
+// column, the game's items as numbered rows in big type (a note after a label), the item's line at the foot, its name
+// big on the right under the kicker; the main menu's Continue hint (X: the last level played).
+void MenuOfItems(Ctx& c, const Mirror::Tracker& t, float* scroll)
+{
+    const Mirror::View& v = t.Shown();
+    const Mirror::Row* sel = v.selected >= 0 ? &v.rows[v.selected] : nullptr;
+    std::string art = sel && !sel->art.empty() ? ArtById(c.extras.catalogue, sel->art) : std::string();
+    if (art.empty())
+        art = ArtById(c.extras.catalogue, v.screenArt);
+    Backdrop(c.dl, c.f, ArtFor(c.extras, art), 0.0f);
+    float rule = Header(c, 40.0f, kColumnInner, v.title.c_str(), !v.mainMenu, nullptr);
+    int n = static_cast<int>(v.rows.size());
+    bool big = n <= 7;
+    if (big) {
+        RowStyle probe = MainRowStyle();
+        for (const Mirror::Row& r : v.rows)
+            if (c.f.S(probe.textX) + Measure(probe.name, c.f, r.label.c_str()) > c.f.S(kColumnInner + 10.0f))
+                big = false;
+    }
+    RowStyle rs = big ? MainRowStyle() : LevelRowStyle();
+    float rowH = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
+    float listTop = rule + (big ? 36.0f : 20.0f);
+    float listBottom = 620.0f;
+    int fit = std::max(1, static_cast<int>((listBottom - listTop) / rowH));
+    float first = scroll ? *scroll : 0.0f;
+    if (v.selected >= 0) {
+        if (static_cast<float>(v.selected) < first + 1.0f)
+            first = static_cast<float>(v.selected) - 1.0f;
+        if (static_cast<float>(v.selected) > first + static_cast<float>(fit) - 2.0f)
+            first = static_cast<float>(v.selected) - static_cast<float>(fit) + 2.0f;
+    }
+    first = std::clamp(first, 0.0f, static_cast<float>(std::max(0, n - fit)));
+    if (scroll)
+        *scroll = first;
+    c.dl->PushClipRect(ImVec2(c.f.X(0.0f), c.f.Y(listTop - 2.0f)), ImVec2(c.f.X(kColumn + kScrimFeather), c.f.Y(listBottom + 8.0f)), true);
+    for (int i = 0; i < n; ++i) {
+        float top = listTop + (static_cast<float>(i) - first) * rowH;
+        if (top < listTop - rowH || top > listBottom)
+            continue;
+        const Mirror::Row& r = v.rows[i];
+        Row(c, rs, top, Pad2(i + 1).c_str(), r.label.c_str(), t.RowAmount(i), Menu::kHouseYellow, !r.focusable);
+        if (!r.tag.empty()) {
+            Style tag = Mono12(kMuted2);
+            float base = Baseline(rs.name, c.f, c.f.Y(top + rs.rowPadTop), rs.lineHeight);
+            float x = c.f.X(rs.textX) + Measure(rs.name, c.f, r.label.c_str()) + c.f.S(16.0f);
+            Text(c.dl, tag, c.f, x, base - c.f.S(rs.name.css * 0.12f), r.tag.c_str());
+        }
+        if (r.focusable && top >= listTop - 1.0f && top + rowH <= listBottom + 1.0f)
+            c.Hit(Hit::Item, i, 48.0f, top, kColumnInner + 20.0f, top + rowH);
+    }
+    c.dl->PopClipRect();
+    Style body;
+    body.face = Face::Body;
+    body.css = 14.0f;
+    body.colour = kMuted;
+    std::vector<std::string> lines = Wrap(body, c.f, sel ? sel->blurb : std::string(), c.f.S(kColumnInner - 48.0f));
+    float lineH = 14.0f * 1.5f;
+    float y = 688.0f - lineH * static_cast<float>(lines.size());
+    for (const std::string& line : lines) {
+        Text(c.dl, body, c.f, c.f.X(48.0f), Baseline(body, c.f, c.f.Y(y), 1.5f), line.c_str());
+        y += lineH;
+    }
+
+    float left = kRight, right = 1240.0f;
+    std::vector<std::string> hints = {Text::kHintSelect};
+    int resumeHint = -1;
+    if (v.mainMenu && !c.extras.continueName.empty()) {
+        resumeHint = static_cast<int>(hints.size());
+        hints.push_back(std::string(Text::kHintResume) + " " + c.extras.continueName);
+    }
+    if (!v.mainMenu)
+        hints.push_back(Text::kHintBack);
+    std::vector<std::pair<float, float>> spans;
+    float bottom = Hints(c, hints, left, right, 688.0f, &spans) - 8.0f;
+    if (resumeHint >= 0 && resumeHint < static_cast<int>(spans.size()))
+        c.Hit(Hit::Continue, 0, spans[resumeHint].first - 6.0f, 688.0f - 12.0f * 1.3f - 6.0f, spans[resumeHint].second + 6.0f,
+              688.0f + 6.0f);
+    float nameTop = BigName(c, v.bigName, 120.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
+    Kicker(c, v.kicker, left, nameTop - 8.0f, Menu::kHouseYellow, 1.0f);
+}
+
 } // namespace
 
 // --- the public parts -------------------------------------------------------------------------------------------
@@ -1609,6 +1691,10 @@ void Restyled(const Mirror::Tracker& tracker, const Frame& frame, float windowWi
     case Mirror::Kind::Skaters: SkatersScreen(c, tracker, windowWidth, windowHeight); break;
     case Mirror::Kind::List: ListOfItems(c, tracker, windowWidth, windowHeight, scroll); break;
     case Mirror::Kind::Pause: PauseOfItems(c, tracker, windowWidth, windowHeight, scroll); break;
+    case Mirror::Kind::Menu:
+        dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(windowWidth, windowHeight), Col(kGround));
+        MenuOfItems(c, tracker, scroll);
+        break;
     case Mirror::Kind::None: break;
     }
     dl->PopTextureID();

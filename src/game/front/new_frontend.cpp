@@ -58,6 +58,8 @@
 
 namespace Front::NewFrontend {
 
+void ContinueLastLevel(Mdl::FrontEnd* frontEnd); // (below)
+
 namespace {
 
 namespace UiBackend = Front::LevelEditor::UiBackend;
@@ -239,9 +241,15 @@ std::vector<Screen> s_returnStack;    // the screens a hand-off left from (shown
 LevelsFor s_returnLevels = LevelsFor::FreeSkate;
 Handoff::Runner s_runner;
 Handoff::Match s_lastChosen;          // a finished plan's last item: drawn until it goes
-// Our screen the pause menu's own item asked for (NewFrontend_Open: the overlay's CHANGE LEVEL / OPTIONS items) - shown
-// over the pause menu once, ours aside again when it is closed (the restyled pause menu back under it).
-Screen s_pauseOpen = Screen::Pause; // (Pause: none asked for)
+// Our screen a menu's item asked for (NewFrontend_Open: the overlay's CHANGE LEVEL / OPTIONS / LEVEL EDITOR items, the
+// skate shop's Play Level) - shown once, over whatever is up, on our root (Main in the front end, Pause in a level);
+// back at the root, ours goes aside again (the restyled menu it came from under it, or `s_openBack` spawned when that
+// menu went - the skate shop's).
+Screen s_openScreen = Screen::Main; // (Main: none asked for)
+LevelsFor s_openLevels = LevelsFor::FreeSkate;
+uint32_t s_openBack = 0;           // (a script spawned when it is closed with Back; 0: none)
+uint32_t s_shownBack = 0;          // (the one of the screen shown now)
+Screen s_openRoot = Screen::Main;
 bool s_rootHidden = false;            // the original's screen elements hidden under our pause menu
 uint32_t s_launchLevel = 0;           // the level up when a launch started (in a level: done when it changes)
 
@@ -1012,6 +1020,30 @@ Mirror::View MirrorNow()
     CScreenElement* menu = ActiveMenu(&inDialog);
     if (!menu)
         return {};
+    // A create mode's editor chosen on the restyled CREATE-A-MODES (its item selected when that menu went): its menus
+    // are left as they are - until the main menu or CREATE-A-MODES is back.
+    static uint32_t s_lastMenu = 0, s_lastItem = 0;
+    static const char* const kEditor = "a create mode's editor";
+    uint32_t menuId = IdOfElement(menu);
+    bool createModes = Handoff::Find(Checksum("menu_cas")) != nullptr;
+    if (s_leftOriginal == kEditor && (menuId == Checksum("main_vmenu") || createModes))
+        s_leftOriginal = nullptr;
+    if (!s_leftOriginal && menuId != s_lastMenu && s_lastMenu == Checksum("main_menu") && !createModes &&
+        menuId != Checksum("main_vmenu")) { // (Back to the main menu isn't an editor)
+        for (const char* editor : {"menu_cas", "menu_cat", "menu_creategoals", "menu_parked", "menu_cagr"})
+            if (s_lastItem == Checksum(editor)) {
+                Log("new front end: %s - its menus left as they are", editor);
+                s_leftOriginal = kEditor;
+            }
+    }
+    s_lastMenu = menuId;
+    {
+        int selected = MouseMenus::SelectedIndex(menu);
+        CScreenElement* item = FirstChild(menu);
+        for (int i = 0; item && i < selected; ++i)
+            item = Next(item);
+        s_lastItem = item && selected >= 0 ? IdOfElement(item) : 0;
+    }
     static Mirror::Policy policy;
     static int policyFrames = 0;
     if (policyFrames-- <= 0) { // (the ini read twice a second)
@@ -1103,6 +1135,8 @@ void MirrorMouse(Mdl::FrontEnd* frontEnd)
                     break;
                 if (hit->kind == Paint::Hit::Back) {
                     MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadBack);
+                } else if (hit->kind == Paint::Hit::Continue) {
+                    ContinueLastLevel(frontEnd);
                 } else if (hit->kind == Paint::Hit::Item) {
                     bool wasSelected = hit->index == s_mirror.Shown().selected;
                     if (StepTo(frontEnd, hit->index) && (!skaters || wasSelected))
@@ -1115,6 +1149,20 @@ void MirrorMouse(Mdl::FrontEnd* frontEnd)
             if (e.wheel.y) {
                 StepContext context{frontEnd, s_mirror.Shown().horizontal};
                 SendStep(&context, e.wheel.y > 0 ? -1 : 1);
+            }
+            break;
+        // (the main menu's Continue - ours: the game's menu has no such item; every other key the game's menu takes)
+        case SDL_KEYDOWN:
+            if (s_mirror.Shown().mainMenu && !e.key.repeat &&
+                (e.key.keysym.scancode == SDL_SCANCODE_X || e.key.keysym.scancode == SDL_SCANCODE_R)) {
+                ContinueLastLevel(frontEnd);
+                return;
+            }
+            break;
+        case SDL_CONTROLLERBUTTONDOWN:
+            if (s_mirror.Shown().mainMenu && e.cbutton.button == SDL_CONTROLLER_BUTTON_X) {
+                ContinueLastLevel(frontEnd);
+                return;
             }
             break;
         default: break;
@@ -1195,48 +1243,24 @@ void UpdateCover(float dt)
 
 void FreeDeviceObjects();
 
-// Ours up over `anchor`: the screens it stands for.
+// Ours up: the screen a menu's item asked for (NewFrontend_Open), on its root - Main in the front end, Pause in a level
+// (never shown: back at it, ours goes aside). `anchor`: the original screen up under it (or None).
 void Show(Anchor anchor)
 {
     LoadCatalogue();
-    std::vector<Screen> stack;
-    int anchorDepth = -1;
-    LevelsFor levels = LevelsFor::FreeSkate;
-    switch (anchor) {
-    case Anchor::MainMenu:
-        stack = s_returnStack.empty() ? std::vector<Screen>{Screen::Main} : s_returnStack;
-        levels = s_returnLevels;
-        // (a hand-off from the levels or a career sub-screen comes back one screen up: its own screen is gone)
-        while (stack.size() > 1 && (stack.back() == Screen::Levels || stack.back() == Screen::Confirm ||
-                                    stack.back() == Screen::Difficulty))
-            stack.pop_back();
-        break;
-    case Anchor::CareerOptions:
-        stack = {Screen::Main, Screen::Career, Handoff::GameModeName() == "classic" ? Screen::Classic : Screen::Story};
-        anchorDepth = 2;
-        break;
-    case Anchor::CreateModes:
-        stack = {Screen::Main, Screen::Create};
-        anchorDepth = 1;
-        break;
-    case Anchor::SkateShop:
-        if (!s_catalogueOk || s_catalogue.sections.empty()) {
-            // (no level list: the original's level select from the skate shop menu)
-            SetState(State::Away);
-            return;
-        }
-        stack = {Screen::Main, Screen::Levels};
-        anchorDepth = 1;
-        break;
-    case Anchor::Pause:
-        // (only ever a screen the pause menu's item asked for: the pause menu itself is the game's, restyled)
-        stack = {Screen::Pause, s_pauseOpen};
-        levels = LevelsFor::Pause;
-        s_pauseOpen = Screen::Pause;
-        HideRoot(true);
-        break;
-    case Anchor::None: return;
+    if (s_openScreen == Screen::Main) {
+        SetState(State::Away);
+        return;
     }
+    Screen root = InFrontEnd() ? Screen::Main : Screen::Pause;
+    std::vector<Screen> stack = {root, s_openScreen};
+    int anchorDepth = -1;
+    LevelsFor levels = s_openLevels;
+    s_openRoot = root;
+    s_shownBack = s_openBack;
+    s_openScreen = Screen::Main;
+    s_openBack = 0;
+    HideRoot(true);
     s_anchor = anchor;
     s_leftOriginal = nullptr;
     if (s_cover.On())
@@ -1249,7 +1273,7 @@ void Show(Anchor anchor)
     s_menu.SetContext(BuildContext());
     s_menu.Reset(&s_catalogue, Views(), s_saved.lastLevel, stack, anchorDepth, levels);
     LoadOptionValues();
-    s_skaterName = anchor == Anchor::Pause ? std::string() : SkaterName();
+    s_skaterName = root == Screen::Pause ? std::string() : SkaterName();
     s_hits.clear();
     s_returnStack.clear();
     s_returnLevels = LevelsFor::FreeSkate;
@@ -1398,19 +1422,16 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
     }
     case ActionKind::GameOptions: {
         Sound("generic_menu_pad_choose_sound");
-        if (s_anchor == Anchor::Pause) {
-            // (over the pause menu: GAME OPTIONS as the pause menu's own item opens it - its script, the screen it
-            // makes restyled; ours aside)
-            Log("new front end: the pause's game options (create_options_menu)");
+        {
+            // (GAME OPTIONS as the pause menu's / main menu's own item opens it - its script, the screen it makes
+            // restyled; ours aside)
+            const char* script = InFrontEnd() ? "create_setup_options_menu" : "create_options_menu";
+            Log("new front end: the game options (%s)", script);
             SetState(State::Away);
-            Script::SpawnScript(Checksum("create_options_menu"), nullptr, 0, nullptr, 0, 0, false, false, false, false);
+            s_shownBack = 0;
+            Script::SpawnScript(Checksum(script), nullptr, 0, nullptr, 0, 0, false, false, false, false);
             return;
         }
-        Handoff::Plan plan;
-        plan.what = "game options";
-        FromMainMenu(&plan, "create_setup_options_menu", nullptr);
-        HandOff(std::move(plan));
-        return;
     }
     case ActionKind::Quit: {
         Sound("generic_menu_pad_back_sound");
@@ -1619,7 +1640,8 @@ void HandleEvent(SDL_Event* event)
     if (s_state != State::Shown) {
         // (a restyled original screen: the mouse is ours - its keys and buttons go on to the original menu)
         if (s_mirror.Up() && s_mirrorEvents.size() < 64 &&
-            (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEWHEEL))
+            (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEWHEEL ||
+             event->type == SDL_KEYDOWN || event->type == SDL_CONTROLLERBUTTONDOWN))
             s_mirrorEvents.push_back(*event);
         return;
     }
@@ -1820,8 +1842,6 @@ void Update(Mdl::FrontEnd* frontEnd)
     }
 
     Anchor anchor = Handoff::Current(frontEnd);
-    if (anchor != Anchor::Pause)
-        s_pauseOpen = Screen::Pause; // (asked for over a pause menu that went: forgotten)
     if (s_rootHidden && !(anchor == Anchor::Pause && (s_state == State::Shown || s_state == State::HandOff)) &&
         !s_mirror.Up() && !s_cover.On())
         HideRoot(false); // (ours not over the pause menu any more, nothing restyled or covered: the original's elements back)
@@ -1831,10 +1851,10 @@ void Update(Mdl::FrontEnd* frontEnd)
     bool inDialog = false;
     CScreenElement* active = ActiveMenu(&inDialog);
     bool pauseActive = !active || IdOfElement(active) == Checksum("pause_vmenu");
-    // (the pause menu: the game's, restyled - ours only for a screen its item asked for, while that is up)
-    bool pauseOurs = s_pauseOpen != Screen::Pause || (s_state == State::Shown && s_anchor == Anchor::Pause);
-    bool usable = anchor != Anchor::None && !LoadingScreenUp() && !inDialog &&
-                  !(anchor == Anchor::Pause && (!pauseOurs || s_edit != Edit::Off || !pauseActive));
+    (void)pauseActive;
+    // (every menu is the game's, restyled - ours only for a screen a menu's item asked for, while that is up)
+    bool usable = LevelLoad() && !LoadingScreenUp() && !inDialog && s_edit == Edit::Off &&
+                  (s_openScreen != Screen::Main || s_state == State::Shown);
 
     switch (s_state) {
     case State::Idle:
@@ -1923,13 +1943,17 @@ void Update(Mdl::FrontEnd* frontEnd)
         break;
     }
     KeepRootHidden();
-    if (s_anchor == Anchor::Pause && s_menu.Shown() == Screen::Pause) {
-        // (back from the screen the pause menu asked for: the pause menu - the game's, restyled - again)
-        Log("new front end: back to the pause menu");
+    if (s_menu.Shown() == s_openRoot && !s_menu.Busy()) {
+        // (back from the screen a menu's item asked for: that menu - the game's, restyled - again, or the script it
+        // gave for Back when its menu went - the skate shop's)
+        Log("new front end: back from our screen%s", s_shownBack ? " - its back script" : "");
         SetState(State::Away);
+        if (s_shownBack)
+            Script::SpawnScript(s_shownBack, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+        s_shownBack = 0;
         return;
     }
-    if (anchor != s_anchor || !usable) {
+    if (!usable) {
         // (the original's screen changed on its own: ours aside - back when an anchor is up)
         if (anchor == Anchor::None && !InFrontEnd() && !Paused()) {
             SetState(State::Idle);
@@ -2004,50 +2028,100 @@ Paint::Extras PauseExtras()
     return extras;
 }
 
-// --- the script commands (the overlay's pause menu items) ---
-
-// NewFrontend_PauseItem item=restart | levels | options: whether the overlay's pause menu makes that item of ours -
-// RESTART (free skate), CHANGE LEVEL opening our level select (when there is one), OPTIONS (ours). False while the new
-// front end is off: the pause menu as it was.
-bool __cdecl CFunc_PauseItem(Script::CStruct* params, Script::CScript*)
+// The last level played, as the data names it ("": none, or not in the data) - the main menu's Continue.
+std::string ContinueLevelName()
 {
-    if (!Enabled() || InFrontEnd() || Handoff::NetSession())
+    int section = -1, level = -1;
+    if (s_saved.lastLevel.empty() || !s_catalogueOk || !s_catalogue.Find(s_saved.lastLevel, &section, &level))
+        return {};
+    return s_catalogue.sections[section].levels[level].name;
+}
+
+// Continue (the restyled main menu's X / R, or its hint clicked): the last level played, in free skate.
+void ContinueLastLevel(Mdl::FrontEnd* frontEnd)
+{
+    if (ContinueLevelName().empty())
+        return;
+    Sound("generic_menu_pad_choose_sound");
+    Action skate{ActionKind::Skate};
+    skate.levels = LevelsFor::FreeSkate;
+    skate.load = s_saved.lastLevel;
+    Log("new front end: continue - %s", skate.load.c_str());
+    HideRoot(false);
+    Do(frontEnd, skate);
+}
+
+// What a restyled screen needs besides the menu read: the pause menus' level and session, the levels' data for the
+// items' art, the main menu's Continue level.
+Paint::Extras RestyleExtras()
+{
+    Paint::Extras extras = PauseExtras();
+    extras.art = ArtFor;
+    extras.catalogue = s_catalogueOk ? &s_catalogue : nullptr;
+    extras.continueName = ContinueLevelName();
+    return extras;
+}
+
+// --- the script commands (the overlay's menu items) ---
+
+// NewFrontend_Item item=on | restart | levels | options | editor: whether the overlay's menus make that item of ours -
+// on: the new front end's main menu (its items, our Career menu); RESTART (free skate's pause menu); CHANGE LEVEL /
+// the skate shop's Play Level opening our level select (free skate, with the levels' data); OPTIONS (ours); LEVEL
+// EDITOR (Create-a-modes: [features] level_editor and its scripts). False while the new front end is off, and in
+// network games: the menus as they were.
+bool __cdecl CFunc_Item(Script::CStruct* params, Script::CScript*)
+{
+    if (!Enabled() || Handoff::NetSession())
         return false;
     uint32_t item = 0;
     if (params)
         params->GetChecksum(Checksum("item"), &item, 0);
     std::string mode = Handoff::GameModeName();
     bool freeSkate = mode == "freeskate" || mode == "singlesession";
+    bool levels = s_catalogueOk && !s_catalogue.sections.empty();
+    if (item == Checksum("on"))
+        return true;
     if (item == Checksum("restart"))
-        return freeSkate;
+        return !InFrontEnd() && freeSkate;
     if (item == Checksum("levels"))
-        return s_catalogueOk && !s_catalogue.sections.empty();
+        return freeSkate && levels;
     if (item == Checksum("options"))
         return true;
+    if (item == Checksum("editor"))
+        return InFrontEnd() && levels && LevelEditor::Enabled() && IsScript(Checksum("level_editor_enter"));
     return false;
 }
 
-// NewFrontend_Open screen=levels | options: our screen over the pause menu (the pause menu's item chose it: its own
-// sound played) - shown the next frame, closed back to the restyled pause menu.
+// NewFrontend_Open screen=levels | editlevels | options [back=<script>]: our screen (the menu's item chose it: its own
+// sound played) - shown the next frame over whatever is up; closed with Back to the restyled menu it came from, or
+// `back` spawned (its menu went: the skate shop's).
 bool __cdecl CFunc_Open(Script::CStruct* params, Script::CScript*)
 {
-    uint32_t screen = 0;
+    uint32_t screen = 0, back = 0;
     if (!Enabled() || !params || !params->GetChecksum(Checksum("screen"), &screen, 0))
         return false;
-    if (screen == Checksum("levels") && s_catalogueOk && !s_catalogue.sections.empty())
-        s_pauseOpen = Screen::Levels;
-    else if (screen == Checksum("options"))
-        s_pauseOpen = Screen::Options;
-    else
+    params->GetChecksum(Checksum("back"), &back, 0);
+    bool levels = s_catalogueOk && !s_catalogue.sections.empty();
+    if (screen == Checksum("levels") && levels) {
+        s_openScreen = Screen::Levels;
+        s_openLevels = InFrontEnd() ? LevelsFor::FreeSkate : LevelsFor::Pause;
+    } else if (screen == Checksum("editlevels") && levels) {
+        s_openScreen = Screen::Levels;
+        s_openLevels = LevelsFor::Edit;
+    } else if (screen == Checksum("options")) {
+        s_openScreen = Screen::Options;
+    } else {
         return false;
-    Log("new front end: the pause menu's %s asked for", ScreenName(s_pauseOpen));
+    }
+    s_openBack = back;
+    Log("new front end: %s asked for%s", ScreenName(s_openScreen), back ? " (with a back script)" : "");
     return true;
 }
 
 void RegisterScriptFunctions()
 {
     static const Script::CFunctionEntry functions[] = {
-        {"NewFrontend_PauseItem", reinterpret_cast<void*>(&CFunc_PauseItem)},
+        {"NewFrontend_Item", reinterpret_cast<void*>(&CFunc_Item)},
         {"NewFrontend_Open", reinterpret_cast<void*>(&CFunc_Open)},
     };
     Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
@@ -2087,7 +2161,7 @@ void Draw()
         ImGui::NewFrame();
         if (!Showing() && (s_mirror.Up() || s_cover.Drawn() == Cover::Over::Restyled)) {
             // (an original screen restyled - phase 3; or, under a cover, the one last up)
-            Paint::Extras pause = PauseExtras();
+            Paint::Extras pause = RestyleExtras();
             if (s_mirror.Up())
                 Paint::Restyled(s_mirror, frame, static_cast<float>(w), static_cast<float>(h), &s_mirrorHits, &s_mirrorScroll,
                                 &pause);

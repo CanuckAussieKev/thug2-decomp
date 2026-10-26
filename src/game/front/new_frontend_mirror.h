@@ -25,8 +25,10 @@ enum class Kind {
     Skaters, // the skater select: the skaters, the selected one's name and stats (the 3D skater left in view)
     List,    // a plain vertical menu: its title, its items (label, value), the other words on its screen
     Pause,   // a level's pause menu (pause_vmenu): its items, labelled as ours (PauseLabel), over the game
+    Menu,    // a front end roundbar menu (the main menu, Career, STORY / CLASSIC MODE OPTIONS, Create, the skate shop's
+             // menu...): its items, in our words, art and notes where the style table has them (MenuItemStyle)
 };
-const char* KindName(Kind kind); // "dialog", "skaters", "list", "pause" ("" for None)
+const char* KindName(Kind kind); // "dialog", "skaters", "list", "pause", "menu" ("" for None)
 
 // One child of the menu as read.
 struct ItemRead {
@@ -71,6 +73,20 @@ struct Policy {
 bool OwnMenu(uint32_t menuId);
 // A pause menu item's label in our words, by its id ("" for the item's own text): CONTINUE is Resume, QUIT Quit to menu.
 const char* PauseLabel(uint32_t itemId);
+
+// How a front end menu's item is shown, by the game's item id (the overlay's and the game's): our id (its art -
+// levels.json's menu_art / DefaultArt), our label, the line under the list, a note after the label. Null: none - the
+// item's own text, the menu's art.
+struct ItemStyle {
+    const char* ourId;
+    const char* label;
+    const char* blurb;
+    const char* tag;
+};
+const ItemStyle* MenuItemStyle(uint32_t itemId);
+// Whether a menu is one of the front end's roundbar menus restyled as Kind::Menu (main_vmenu, newfe_career_vmenu,
+// career_options_vmenu, and main_menu - make_new_roundbar_menu's own id: CREATE-A-MODES, the skate shop's menu...).
+bool FrontEndMenu(uint32_t menuId);
 // Titles of lists left original (screens whose meaning is in what isn't text).
 bool ExcludedTitle(const std::string& cleanTitle);
 
@@ -79,6 +95,8 @@ struct Row {
     std::string value;
     bool focusable = true;
     int index = 0;                      // the menu's child index
+    // (Kind::Menu: the style table's - our id for the art, the line under the list, a note after the label)
+    std::string art, blurb, tag;
 };
 
 struct View {
@@ -92,6 +110,10 @@ struct View {
     std::string bigName;                // the skater select's name; a list's selected label
     std::vector<std::pair<std::string, int>> stats;
     bool overGame = false;
+    // (Kind::Menu: the menu's own art id - the item's when it has none -, its kicker, the main menu - numbered kicker,
+    // the Continue hint)
+    std::string screenArt, kicker;
+    bool mainMenu = false;
     std::string why; // (kind None: why the menu read stays original - for the log)
 };
 
