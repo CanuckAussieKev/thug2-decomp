@@ -1308,11 +1308,13 @@ void HandOff(Handoff::Plan plan)
 
 // The pause menu's own item `id` chosen (ours steps aside once it has done its work). The original's elements stay
 // hidden while ours is drawn - shown again once the pause menu goes (Update), never under ours: the user's 2026-10-25
-// report of both pause menus at once after GET OFF BMX.
+// report of both pause menus at once after GET OFF BMX. The item is chosen at once and plays its own pad_choose sound
+// (add_roundbar_menu_item's pad_choose_sound - CONTINUE's the pause exit sound): ours plays none for it.
 void PauseItem(const char* what, std::vector<const char*> ids, bool suppress = false)
 {
     Handoff::Plan plan;
     plan.what = what;
+    plan.firstAtOnce = true;
     for (const char* id : ids)
         plan.steps.push_back(Handoff::ChooseId(id));
     s_suppressPause = suppress;
@@ -1404,11 +1406,11 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
         return;
     }
     case ActionKind::GameOptions: {
-        Sound("generic_menu_pad_choose_sound");
         if (s_anchor == Anchor::Pause) {
-            PauseItem("pause: game options", {"menu_game_options"});
+            PauseItem("pause: game options", {"menu_game_options"}); // (the item's own sound)
             return;
         }
+        Sound("generic_menu_pad_choose_sound");
         Handoff::Plan plan;
         plan.what = "game options";
         FromMainMenu(&plan, "create_setup_options_menu", nullptr);
@@ -1474,8 +1476,8 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
         return;
     }
     case ActionKind::Pause: {
+        // (no sound of ours for the original's items chosen: theirs plays - PauseItem)
         const std::string& id = action.id;
-        Sound(id == "resume" ? "generic_pause_exit_sound" : "generic_menu_pad_choose_sound");
         if (id == "resume")
             PauseItem("pause: resume", {"menu_continue"});
         else if (id == "retry")
@@ -1483,6 +1485,7 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
         else if (id == "restart") {
             Handoff::Plan plan;
             plan.what = "pause: restart";
+            plan.firstAtOnce = true; // (CONTINUE's sound)
             plan.steps.push_back(Handoff::ChooseId("menu_continue"));
             plan.steps.push_back(Handoff::WaitUnpaused());
             plan.steps.push_back(Handoff::RunScript("ResetSkaters"));
@@ -1502,6 +1505,7 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
         else if (id == "quit")
             PauseItem("pause: quit (the original's confirm)", {"menu_skateshop"});
         else if (id == "original") {
+            Sound("generic_menu_pad_choose_sound");
             Log("new front end: the original pause menu (ours aside until it goes)");
             HideRoot(false);
             s_suppressPause = true;
