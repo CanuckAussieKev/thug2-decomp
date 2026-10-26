@@ -14,8 +14,10 @@ namespace {
 
 uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
 
-// The longest list restyled (a longer one is the original's: a scrolling list ours would have to page).
-constexpr size_t kMaxItems = 60;
+// The longest list restyled (ours scrolls it; past this the game's own is kept - nothing the game makes is that long).
+constexpr size_t kMaxItems = 400;
+
+ButtonNamer g_buttonNamer = nullptr;
 
 std::string Upper(std::string s)
 {
@@ -44,6 +46,7 @@ const char* KindName(Kind kind)
     case Kind::List: return "list";
     case Kind::Pause: return "pause";
     case Kind::Menu: return "menu";
+    case Kind::Keyboard: return "keyboard";
     }
     return "";
 }
@@ -114,12 +117,8 @@ bool FrontEndMenu(uint32_t menuId)
 
 bool ExcludedTitle(const std::string& cleanTitle)
 {
-    // (screens that are more than their list: a keyboard's, the create modes' editors when reached another way)
-    static const char* const kTitles[] = {
-        "CREATE-A-TRICK", "EDIT TRICK", "OVERWRITE TRICK", "PRE-MADE TRICKS", "CREATED GOALS", "SELECT GOAL TYPE",
-        "EDIT GOAL", "SELECT GAPS", "COMBO SKATE-TRICKS", "EDIT TRICKTRIS", "EDIT SKATE-TRICKS", "SELECT KEY COMBOS",
-        "PRE-MADE PARKS", "GAMMA", "SCREEN SETUP", "SCREEN",
-    };
+    // (screens whose meaning is a picture, not their list: the gamma test card, the screen's position)
+    static const char* const kTitles[] = {"GAMMA", "SCREEN SETUP", "SCREEN"};
     std::string upper = Upper(cleanTitle);
     for (const char* title : kTitles)
         if (upper == title)
@@ -151,8 +150,21 @@ std::string CleanText(const std::string& raw, bool newlines)
                 ++i;
                 continue;
             }
-            if ((e == 'c' || e == 'C' || e == 'b' || e == 'B' || e == 'm' || e == 'M') && i + 2 < raw.size()) {
-                i += 2; // (a colour or a button glyph: its code character too)
+            if ((e == 'b' || e == 'B' || e == 'm' || e == 'M') && i + 2 < raw.size()) {
+                // (a button: the key's name as the game spells it, between spaces when words touch it)
+                std::string name = g_buttonNamer ? g_buttonNamer(e, raw[i + 2]) : std::string();
+                if (!name.empty()) {
+                    if (!out.empty() && out.back() != ' ' && out.back() != '/')
+                        out += ' ';
+                    out += name;
+                    if (i + 3 < raw.size() && raw[i + 3] != ' ' && raw[i + 3] != '/' && raw[i + 3] != '=')
+                        out += ' ';
+                }
+                i += 2;
+                continue;
+            }
+            if ((e == 'c' || e == 'C') && i + 2 < raw.size()) {
+                i += 2; // (a colour: its code character too)
                 continue;
             }
             ++i;
@@ -177,6 +189,8 @@ std::string CleanText(const std::string& raw, bool newlines)
         tidy.pop_back();
     return tidy;
 }
+
+void SetButtonNamer(ButtonNamer namer) { g_buttonNamer = namer; }
 
 View Build(const MenuRead& read, const Policy& policy)
 {
@@ -205,7 +219,7 @@ View Build(const MenuRead& read, const Policy& policy)
                 if (!clean.empty())
                     texts.push_back(clean);
             }
-            if (texts.empty() && item.display.empty())
+            if (texts.empty() && item.display.empty() && item.checkbox < 0)
                 continue;
             Row row;
             // The label: the first text with a letter in it (a gap list's row is score, name, times); the rest its
@@ -219,10 +233,12 @@ View Build(const MenuRead& read, const Policy& policy)
                     }
             if (labelAt >= texts.size())
                 labelAt = 0;
-            row.label = !item.display.empty() ? item.display : Label(texts[labelAt]);
+            row.label = !item.display.empty() ? item.display : texts.empty() ? std::string() : Label(texts[labelAt]);
             for (size_t k = 0; k < texts.size(); ++k)
                 if (!item.display.empty() || k != labelAt)
                     row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + texts[k];
+            if (item.checkbox >= 0)
+                row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + std::string(item.checkbox ? Text::kOn : Text::kOff);
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
             if (static_cast<int>(i) == read.selectedIndex)
@@ -271,7 +287,7 @@ View Build(const MenuRead& read, const Policy& policy)
         view.bigName = view.selected >= 0 ? view.rows[view.selected].label : view.title;
         return view;
     }
-    if (FrontEndMenu(read.menuId) && !policy.editor) {
+    if (FrontEndMenu(read.menuId) && !(policy.editor && read.menuId == Checksum("main_menu"))) {
         // A front end menu: every item with words in the game's order, in our words where the style table has the
         // item (its art, the line under the list, a note); the menu's title ours for the ones we know.
         static const uint32_t kMainMenu = Checksum("main_vmenu"), kCareerMenu = Checksum("newfe_career_vmenu");
@@ -336,6 +352,28 @@ View Build(const MenuRead& read, const Policy& policy)
         view.bigName = view.selected >= 0 ? view.rows[view.selected].label : view.title;
         return view;
     }
+    if (read.keyboard) {
+        if (!policy.lists)
+            return view;
+        view.kind = Kind::Keyboard;
+        view.title = CleanText(read.title);
+        if (view.title.empty())
+            view.title = Text::kTitleKeyboard;
+        view.entry = CleanText(read.entry);
+        for (const std::vector<std::string>& row : read.keys) {
+            std::vector<std::string> keys;
+            for (const std::string& key : row) {
+                std::string clean = CleanText(key);
+                keys.push_back(clean.empty() && !key.empty() ? std::string(" ") : clean);
+            }
+            view.keys.push_back(std::move(keys));
+        }
+        view.keyRow = read.keyRow;
+        view.keyCol = read.keyCol;
+        view.key = read.menuKey;
+        view.overGame = read.inLevel;
+        return view;
+    }
     if (read.menuId == kSkaterMenu) {
         if (!policy.skaters)
             return view;
@@ -365,10 +403,6 @@ View Build(const MenuRead& read, const Policy& policy)
     };
     if (!policy.lists)
         return original("restyle_menus=0");
-    if (policy.editor)
-        return original("an editor is up");
-    if (!read.vertical)
-        return original("not a vertical menu");
     if (OwnMenu(read.menuId))
         return original("the new front end's own");
     if (read.items.empty() || read.items.size() > kMaxItems)
@@ -381,10 +415,8 @@ View Build(const MenuRead& read, const Policy& policy)
         bool words = false;
         for (const std::string& t : item.texts)
             words = words || !CleanText(t).empty();
-        if (!words)
+        if (!words && item.checkbox < 0)
             return original("an item without words");
-        if (item.graphicValue)
-            return original("an item with a picture (a slider, a checkbox)");
     }
     if (!anyFocusable)
         return original("nothing to choose");
@@ -393,6 +425,8 @@ View Build(const MenuRead& read, const Policy& policy)
         return original("a screen left original by its title");
     view.kind = Kind::List;
     view.title = title;
+    view.horizontal = !read.vertical;
+    view.editor = policy.editor;
     rowsFrom(false);
     if (view.rows.empty()) {
         view.kind = Kind::None;

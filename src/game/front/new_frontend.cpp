@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -35,13 +36,17 @@
 #include "game/front/restart_tester.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_element_manager.h"
+#include "game/front/sprite_element.h"
 #include "game/front/start_level.h"
 #include "game/front/text_element.h"
+#include "game/gfx/glyphs.h"
 #include "game/gfx/hd_ui.h"
 #include "game/net/online_identity.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
+#include "game/sio/device.h"
+#include "game/core/str.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
@@ -814,6 +819,33 @@ void CollectTexts(const CScreenElement* element, std::vector<std::string>* out, 
         CollectTexts(child, out, skip, budget, visibleOnly);
 }
 
+// An element's height on the 640 x 480 layout: its position and its parents' added up (justification and scale aside -
+// enough to tell rows apart).
+float AbsoluteY(const CScreenElement* element)
+{
+    float y = 0.0f;
+    for (int guard = 0; element && guard < 64; ++guard, element = element->mp_parent.Get())
+        y += element->m_target.y;
+    return y;
+}
+
+// The visible texts in `element` (itself included) with their heights, in tree order; `skip`: subtrees left out.
+void CollectTextsAt(const CScreenElement* element, std::vector<std::pair<std::string, float>>* out,
+                    const std::vector<const CScreenElement*>& skip, int* budget)
+{
+    if (!element || --*budget <= 0 || !Visible(element))
+        return;
+    if (std::find(skip.begin(), skip.end(), element) != skip.end())
+        return;
+    if (TypeOf(element) == TextType()) {
+        const char* text = reinterpret_cast<const CTextElement*>(element)->m_string;
+        if (text && *text)
+            out->emplace_back(text, AbsoluteY(element));
+    }
+    for (CScreenElement* child = FirstChild(element); child && *budget > 0; child = Next(child))
+        CollectTextsAt(child, out, skip, budget);
+}
+
 // A visible sprite in `element` that isn't a highlight bar (those are drawn at alpha 0 until their item is focused).
 bool HasVisibleSprite(const CScreenElement* element, int* budget)
 {
@@ -825,6 +857,30 @@ bool HasVisibleSprite(const CScreenElement* element, int* budget)
         if (HasVisibleSprite(child, budget))
             return true;
     return false;
+}
+
+// An item's checkbox ("checkbox" sprite shown: ticked when its "checkmark" is) and whether its value changes with Left /
+// Right (left_arrow / right_arrow sprites in it, shown on the focused item).
+void ReadValueSprites(const CScreenElement* element, int* checkbox, bool* adjustable, int* budget)
+{
+    static const uint32_t kCheckbox = Checksum("checkbox"), kCheckmark = Checksum("checkmark");
+    static const uint32_t kLeft = Checksum("left_arrow"), kRight = Checksum("right_arrow");
+    for (const CScreenElement* e = element; e && --*budget > 0; e = Next(e)) {
+        if (TypeOf(e) == SpriteType()) {
+            uint32_t texture = reinterpret_cast<const CSpriteElement*>(e)->m_texture;
+            if (texture == kLeft || texture == kRight)
+                *adjustable = true;
+            if (texture == kCheckbox && Visible(e)) {
+                *checkbox = 0;
+                for (const CScreenElement* mark = FirstChild(e); mark; mark = Next(mark))
+                    if (TypeOf(mark) == SpriteType() && Visible(mark) &&
+                        reinterpret_cast<const CSpriteElement*>(mark)->m_texture == kCheckmark)
+                        *checkbox = 1;
+            }
+        }
+        if (CScreenElement* child = FirstChild(e))
+            ReadValueSprites(child, checkbox, adjustable, budget);
+    }
 }
 
 Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
@@ -875,6 +931,11 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
         if (!skaters && index != read.selectedIndex) {
             int spriteBudget = 256;
             item.graphicValue = HasVisibleSprite(child, &spriteBudget);
+        }
+        if (!skaters) {
+            int valueBudget = 256;
+            if (CScreenElement* first = FirstChild(child))
+                ReadValueSprites(first, &item.checkbox, &item.adjustable, &valueBudget);
         }
         if (skaters) {
             Obj::CPlayerProfileManager* manager = ProfileManager();
@@ -927,9 +988,217 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
     for (const char* id : {"helper_text_anchor", "submenu_title_anchor", "title_text"})
         if (CScreenElement* e = GameScreens::Find(Checksum(id)))
             skip.push_back(e);
-    if (screen && screen != menu)
-        CollectTexts(screen, &read.extraTexts, skip, &budget, true);
+    if (screen && screen != menu) {
+        // A column beside the menu (the grab tricks' names beside their key combos): a word at a row's height is that
+        // row's value; the rest are the screen's other words.
+        std::vector<std::pair<std::string, float>> beside;
+        CollectTextsAt(screen, &beside, skip, &budget);
+        std::vector<float> rowY;
+        for (CScreenElement* child = FirstChild(menu); child; child = Next(child)) {
+            float y = AbsoluteY(child);
+            for (CScreenElement* t = FirstChild(child); t; t = Next(t))
+                if (TypeOf(t) == TextType()) {
+                    y = AbsoluteY(t);
+                    break;
+                }
+            rowY.push_back(y);
+        }
+        // (the nearest row, within half the rows' spacing)
+        float spacing = 24.0f;
+        for (size_t i = 1; i < rowY.size(); ++i)
+            if (rowY[i] - rowY[i - 1] > 2.0f)
+                spacing = std::min(spacing, rowY[i] - rowY[i - 1]);
+        for (const auto& [text, y] : beside) {
+            size_t row = rowY.size();
+            float best = spacing * 0.5f;
+            for (size_t i = 0; i < rowY.size() && i < read.items.size(); ++i)
+                if (std::fabs(rowY[i] - y) < best && read.items[i].focusable) {
+                    best = std::fabs(rowY[i] - y);
+                    row = i;
+                }
+            if (row < rowY.size())
+                read.items[row].texts.push_back(text);
+            else
+                read.extraTexts.push_back(text);
+        }
+    }
     return read;
+}
+
+// [frontend] debug_restyle=1: a menu left as it is (not restyled) logged once with its screen's element tree - what
+// the reader would have to understand to restyle it (each element: type, id, text, texture, position, hidden).
+const char* TypeName(uint32_t type)
+{
+    static const char* const kTypes[] = {"TextElement",     "SpriteElement", "ContainerElement", "VMenu",
+                                         "HMenu",           "VScrollingMenu", "HScrollingMenu",  "TextBlockElement",
+                                         "Element3d",       "WindowElement", "Menu"};
+    for (const char* name : kTypes)
+        if (Checksum(name) == type)
+            return name;
+    return nullptr;
+}
+
+void DumpTree(const CScreenElement* element, int depth, int* budget)
+{
+    for (; element && --*budget > 0; element = Next(element)) {
+        char line[512];
+        const char* type = TypeName(TypeOf(element));
+        int at = std::snprintf(line, sizeof(line), "%*s%s %08X (%.0f, %.0f)%s", depth * 2, "", type ? type : "?",
+                               IdOfElement(element), element->m_target.x, element->m_target.y,
+                               Visible(element) ? "" : " hidden");
+        if (TypeOf(element) == TextType()) {
+            const char* text = reinterpret_cast<const CTextElement*>(element)->m_string;
+            std::snprintf(line + at, sizeof(line) - at, " \"%.80s\"", text ? text : "");
+        } else if (TypeOf(element) == SpriteType()) {
+            std::snprintf(line + at, sizeof(line) - at, " texture %08X",
+                          reinterpret_cast<const CSpriteElement*>(element)->m_texture);
+        }
+        Log("new front end: debug_restyle %s", line);
+        if (depth < 8)
+            DumpTree(FirstChild(element), depth + 1, budget);
+    }
+}
+
+void DumpLeftMenu(CScreenElement* menu, const std::string& why)
+{
+    static const bool on = GetPrivateProfileIntA("frontend", "debug_restyle", 0, IniPath().c_str()) != 0;
+    // (each menu once by what it holds: menus share ids and are rebuilt in the same element)
+    static std::set<std::string> logged;
+    std::vector<std::string> texts;
+    int textBudget = 400;
+    CollectTexts(menu, &texts, {}, &textBudget, false);
+    std::string key = std::to_string(IdOfElement(menu));
+    for (size_t i = 0; i < texts.size() && i < 6; ++i)
+        key += "|" + texts[i];
+    if (!on || !menu || !logged.insert(key).second)
+        return;
+    CScreenElement* root = RootElement();
+    CScreenElement* screen = menu;
+    for (int guard = 0; screen && guard < 64; ++guard) {
+        CScreenElement* parent = screen->mp_parent.Get();
+        if (!parent || parent == root)
+            break;
+        screen = parent;
+    }
+    Log("new front end: debug_restyle - the menu %08X (%s), its screen %08X:", IdOfElement(menu), why.c_str(),
+        IdOfElement(screen));
+    int budget = 600;
+    const CScreenElement* one = screen;
+    char line[160];
+    std::snprintf(line, sizeof(line), "%s %08X", TypeName(TypeOf(one)) ? TypeName(TypeOf(one)) : "?", IdOfElement(one));
+    Log("new front end: debug_restyle %s", line);
+    DumpTree(FirstChild(screen), 1, &budget);
+}
+
+uint32_t VMenuType()
+{
+    static uint32_t type = Checksum("VMenu");
+    return type;
+}
+uint32_t HMenuType()
+{
+    static uint32_t type = Checksum("HMenu");
+    return type;
+}
+
+// The on-screen keyboard around `menu` (a row of keys - an HMenu - in a VMenu of such rows): the VMenu, else null.
+CScreenElement* KeyboardOf(CScreenElement* menu)
+{
+    if (!menu || TypeOf(menu) != HMenuType())
+        return nullptr;
+    CScreenElement* parent = menu->mp_parent.Get();
+    if (!parent || TypeOf(parent) != VMenuType())
+        return nullptr;
+    int rows = 0, singles = 0;
+    for (CScreenElement* row = FirstChild(parent); row; row = Next(row)) {
+        if (TypeOf(row) != HMenuType())
+            continue;
+        ++rows;
+        for (CScreenElement* key = FirstChild(row); key; key = Next(key)) {
+            std::vector<std::string> texts;
+            int budget = 256;
+            CollectTexts(key, &texts, {}, &budget, false);
+            for (const std::string& t : texts)
+                singles += t.size() == 1 ? 1 : 0;
+        }
+    }
+    return rows >= 3 && singles >= 20 ? parent : nullptr;
+}
+
+// The keyboard read: its rows of keys (a key's words: the last that isn't a button tag, e.g. "Backspace"), the key
+// selected, the text typed (the first row that isn't keys - its text, the cursor's "_" left in).
+Mirror::MenuRead ReadKeyboard(CScreenElement* keys, CScreenElement* active)
+{
+    Mirror::MenuRead read;
+    read.found = true;
+    read.keyboard = true;
+    read.menuId = IdOfElement(keys);
+    read.menuKey = reinterpret_cast<uintptr_t>(keys);
+    read.inLevel = !InFrontEnd();
+    int row = 0;
+    bool entryRead = false;
+    for (CScreenElement* child = FirstChild(keys); child; child = Next(child)) {
+        if (TypeOf(child) != HMenuType()) {
+            if (!entryRead) {
+                std::vector<std::string> texts;
+                int budget = 32;
+                CollectTexts(child, &texts, {}, &budget, false);
+                if (!texts.empty())
+                    read.entry = texts.front();
+                entryRead = true;
+            }
+            continue;
+        }
+        std::vector<std::string> keyRow;
+        for (CScreenElement* key = FirstChild(child); key; key = Next(key)) {
+            std::vector<std::string> texts;
+            int budget = 256; // (a wide key: a container of a score of cap sprites before its words)
+            CollectTexts(key, &texts, {}, &budget, false);
+            std::string label;
+            for (const std::string& t : texts)
+                if (!(t.size() >= 2 && t[0] == '\\'))
+                    label = t;
+            keyRow.push_back(label);
+        }
+        if (child == active) {
+            read.keyRow = row;
+            read.keyCol = MouseMenus::SelectedIndex(active);
+        }
+        read.keys.push_back(std::move(keyRow));
+        ++row;
+    }
+    if (CScreenElement* title = GameScreens::Find(Checksum("title_text")))
+        if (TypeOf(title) == TextType() && reinterpret_cast<CTextElement*>(title)->m_string && Visible(title))
+            read.title = reinterpret_cast<CTextElement*>(title)->m_string;
+    return read;
+}
+
+// A button tag as the game spells it (gfx/text.cpp's): the explicit buttons through the controller map when one is in
+// use, the meta buttons through the meta map; the arrow glyphs Up / Down / Left / Right, else the key's name.
+std::string ButtonName(char tag, char digit)
+{
+    int button;
+    if (tag == 'm' || tag == 'M') {
+        char d = digit;
+        char mapped = GameFunction<char(__cdecl*)(const char*)>(0x0048D6A0)(&d);
+        button = Str::DehexifyDigit(&mapped);
+    } else {
+        uint8_t d = static_cast<uint8_t>(digit);
+        button = static_cast<int>(Nx::ButtonForTag(&d));
+    }
+    switch (button) {
+    case 4: return Text::kKeyDown;
+    case 5: return Text::kKeyRight;
+    case 6: return Text::kKeyLeft;
+    case 7: return Text::kKeyUp;
+    case 10: return Text::kKeyDownRight; // (the grab tricks' order: Down, Down-Left \bc, Down-Right \ba, ... Up-Left \bb,
+    case 11: return Text::kKeyUpLeft;    // Up-Right \bd)
+    case 12: return Text::kKeyDownLeft;
+    case 13: return Text::kKeyUpRight;
+    default: break;
+    }
+    const char* name = Sio::GetButtonKeyName(button);
+    return name ? name : "";
 }
 
 Mirror::Tracker s_mirror;
@@ -955,6 +1224,7 @@ Mirror::Policy MirrorPolicy()
     policy.lists = GetPrivateProfileIntA("frontend", "restyle_menus", 1, ini.c_str()) != 0;
     policy.dialogs = GetPrivateProfileIntA("frontend", "restyle_dialogs", 1, ini.c_str()) != 0;
     policy.skaters = GetPrivateProfileIntA("frontend", "restyle_skater_select", 1, ini.c_str()) != 0;
+    policy.online = GetPrivateProfileIntA("frontend", "restyle_online", 1, ini.c_str()) != 0;
     std::string mode = GameScreens::GameModeName();
     policy.editor = s_leftOriginal != nullptr || mode == "parkeditor" || mode == "creategoals" ||
                     ScriptInteger("in_cat_preview_mode") == 1;
@@ -964,10 +1234,16 @@ Mirror::Policy MirrorPolicy()
 // What to restyle now (kind None: nothing).
 Mirror::View MirrorNow()
 {
-    if (!LevelLoad() || LoadingScreenUp() || GameScreens::NetSession() || LevelEditor::Active())
+    static Mirror::Policy policy;
+    static int policyFrames = 0;
+    if (policyFrames-- <= 0) { // (the ini read twice a second)
+        policy = MirrorPolicy();
+        policyFrames = 30;
+        Mirror::SetButtonNamer(ButtonName);
+    }
+    // (online: restyled too unless [frontend] restyle_online=0 - tested by the user by hand, never by a tool)
+    if (!LevelLoad() || LoadingScreenUp() || (GameScreens::NetSession() && !policy.online) || LevelEditor::Active())
         return {};
-    if (s_leftOriginal && std::strcmp(s_leftOriginal, "online") == 0)
-        return {}; // (online: the original's screens, dialogs and all - the user tests online)
     bool inDialog = false;
     CScreenElement* menu = ActiveMenu(&inDialog);
     if (!menu)
@@ -996,15 +1272,10 @@ Mirror::View MirrorNow()
             item = Next(item);
         s_lastItem = item && selected >= 0 ? IdOfElement(item) : 0;
     }
-    static Mirror::Policy policy;
-    static int policyFrames = 0;
-    if (policyFrames-- <= 0) { // (the ini read twice a second)
-        policy = MirrorPolicy();
-        policyFrames = 30;
-    }
     Mirror::Policy now = policy;
     now.editor = now.editor || s_leftOriginal != nullptr;
-    Mirror::View view = Mirror::Build(ReadMenu(menu, inDialog), now);
+    CScreenElement* keyboard = inDialog ? nullptr : KeyboardOf(menu);
+    Mirror::View view = Mirror::Build(keyboard ? ReadKeyboard(keyboard, menu) : ReadMenu(menu, inDialog), now);
     // (each menu's decision logged once)
     char key[96];
     std::snprintf(key, sizeof(key), "%08X %s %s", IdOfElement(menu), Mirror::KindName(view.kind), view.why.c_str());
@@ -1017,6 +1288,8 @@ Mirror::View MirrorNow()
             Log("new front end: the original's menu %08X left as it is: %s", IdOfElement(menu),
                 view.why.empty() ? "not restyled" : view.why.c_str());
     }
+    if (view.kind == Mirror::Kind::None)
+        DumpLeftMenu(menu, view.why);
     return view;
 }
 
@@ -1049,6 +1322,28 @@ bool StepTo(Mdl::FrontEnd* frontEnd, int row)
     MouseMenus::StepSelection(target, MouseMenus::ChildCount(menu), MouseMenus::MenuWraps(menu), ReadSelection, SendStep,
                               &context);
     return ReadSelection(nullptr) == target;
+}
+
+// The keyboard's key (row, col) selected with the game's own pad events (each step read back), then chosen.
+void ChooseKey(Mdl::FrontEnd* frontEnd, int row, int col)
+{
+    for (int guard = 0; guard < 64; ++guard) {
+        CScreenElement* active = ActiveMenu();
+        CScreenElement* keys = KeyboardOf(active);
+        if (!keys)
+            return;
+        Mirror::MenuRead now = ReadKeyboard(keys, active);
+        if (now.keyRow != row) {
+            MouseMenus::SendMenuPadEvent(frontEnd, now.keyRow < row ? Mdl::FrontEnd::kPadDown : Mdl::FrontEnd::kPadUp);
+            continue;
+        }
+        if (now.keyCol != col) {
+            MouseMenus::SendMenuPadEvent(frontEnd, now.keyCol < col ? Mdl::FrontEnd::kPadRight : Mdl::FrontEnd::kPadLeft);
+            continue;
+        }
+        MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadChoose);
+        return;
+    }
 }
 
 void MirrorMouse(Mdl::FrontEnd* frontEnd)
@@ -1087,6 +1382,8 @@ void MirrorMouse(Mdl::FrontEnd* frontEnd)
                     break;
                 if (hit->kind == Paint::Hit::Back) {
                     MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadBack);
+                } else if (hit->kind == Paint::Hit::Level && s_mirror.Shown().kind == Mirror::Kind::Keyboard) {
+                    ChooseKey(frontEnd, hit->index / 64, hit->index % 64);
                 } else if (hit->kind == Paint::Hit::Continue) {
                     ContinueLastLevel(frontEnd);
                 } else if (hit->kind == Paint::Hit::Item) {

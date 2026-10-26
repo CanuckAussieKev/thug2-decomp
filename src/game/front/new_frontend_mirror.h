@@ -27,15 +27,19 @@ enum class Kind {
     Pause,   // a level's pause menu (pause_vmenu): its items, labelled as ours (PauseLabel), over the game
     Menu,    // a front end roundbar menu (the main menu, Career, STORY / CLASSIC MODE OPTIONS, Create, the skate shop's
              // menu...): its items, in our words, art and notes where the style table has them (MenuItemStyle)
+    Keyboard, // the on-screen keyboard (a vertical menu of horizontal rows of keys): the text typed, the keys
 };
-const char* KindName(Kind kind); // "dialog", "skaters", "list", "pause", "menu" ("" for None)
+const char* KindName(Kind kind); // "dialog", "skaters", "list", "pause", "menu", "keyboard" ("" for None)
 
 // One child of the menu as read.
 struct ItemRead {
     uint32_t id = 0;
     bool focusable = true;              // (not tagged not_focusable, no block_events)
     std::vector<std::string> texts;     // its text elements' strings, in tree order (raw: the game's escapes)
-    bool graphicValue = false;          // a visible sprite in it that isn't a highlight (a slider, a checkbox...)
+    bool graphicValue = false;          // a visible sprite in it that isn't a highlight (decoration: bars, icons -
+                                        // not a reason to leave the screen as it is)
+    int checkbox = -1;                  // a checkbox in it (the "checkbox" texture): 1 ticked ("checkmark"), 0 not, -1 none
+    bool adjustable = false;            // its value changes with Left / Right (the left_arrow / right_arrow sprites)
     std::string display;                // (the skater select: the profile's display name)
 };
 
@@ -59,6 +63,12 @@ struct MenuRead {
     std::string skaterName;
     std::vector<std::pair<std::string, int>> stats; // (label, value 0-10)
     bool inLevel = false;               // (drawn over the game rather than over the front end)
+    // The on-screen keyboard: its rows of keys (each key's words; the row's own label for a wide key), the key
+    // selected (row, key; -1 none), the text typed so far.
+    bool keyboard = false;
+    std::vector<std::vector<std::string>> keys;
+    int keyRow = -1, keyCol = -1;
+    std::string entry;
 };
 
 // What decides whether a list is restyled (the glue fills it from the game).
@@ -66,7 +76,9 @@ struct Policy {
     bool lists = true;                  // [frontend] restyle_menus (1)
     bool dialogs = true;                // [frontend] restyle_dialogs (1)
     bool skaters = true;                // [frontend] restyle_skater_select (1)
-    bool editor = false;                // a Create-a-mode's editor is up (CAS, CAT, CAG, park editor, graphics) - left alone
+    bool editor = false;                // a Create-a-mode's editor is up (CAS, CAT, CAG, park editor, graphics) - its
+                                        // menus restyled lighter over it (the editor's view shows through)
+    bool online = true;                 // [frontend] restyle_online (1): the online screens too
 };
 
 // The menus ours stands for (never restyled: ours is drawn over them, or the player asked for the original).
@@ -110,6 +122,11 @@ struct View {
     std::string bigName;                // the skater select's name; a list's selected label
     std::vector<std::pair<std::string, int>> stats;
     bool overGame = false;
+    bool editor = false;                // (an editor's: drawn lighter over its view)
+    // (Kind::Keyboard: the keys, the one selected, the text typed)
+    std::vector<std::vector<std::string>> keys;
+    int keyRow = -1, keyCol = -1;
+    std::string entry;
     // (Kind::Menu: the menu's own art id - the item's when it has none -, its kicker, the main menu - numbered kicker,
     // the Continue hint)
     std::string screenArt, kicker;
@@ -117,9 +134,14 @@ struct View {
     std::string why; // (kind None: why the menu read stays original - for the log)
 };
 
-// The game's text escapes made plain: \n (a line end: a space, or kept with `newlines`), \c<x> (a colour) and \b<x> /
-// \m<x> (a button glyph) dropped, \_ a space, \\ a backslash; spaces collapsed and trimmed.
+// The game's text escapes made plain: \n (a line end: a space, or kept with `newlines`), \c<x> (a colour) dropped,
+// \b<x> / \m<x> (a button) the key's name as the game spells it (ButtonNamer; dropped without one), \_ a space, \\ a
+// backslash; spaces collapsed and trimmed.
 std::string CleanText(const std::string& raw, bool newlines = false);
+// How a button tag is spelled (the tag letter b / B / m / M and its digit): the glue sets it to the game's own (the key
+// a button is on, Up / Down / Left / Right for the arrow glyphs); null: buttons dropped (the self-tests).
+using ButtonNamer = std::string (*)(char tag, char digit);
+void SetButtonNamer(ButtonNamer namer);
 
 // The view for what was read (kind None when nothing is restyled).
 View Build(const MenuRead& read, const Policy& policy);

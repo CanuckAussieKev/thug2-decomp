@@ -410,8 +410,8 @@ void TestFrontendFonts()
     files.display = files.mono = files.body = consolas;
     bool built = D::BuildFonts(files, 1.0f);
     ImFontAtlas* atlas = ImGui::GetIO().Fonts;
-    Check(built && atlas->IsBuilt() && atlas->Fonts.Size == 7 && D::BuiltScale() == 1.0f,
-          "front end: the fonts build (seven sizes)");
+    Check(built && atlas->IsBuilt() && atlas->Fonts.Size == 9 && D::BuiltScale() == 1.0f,
+          "front end: the fonts build (nine sizes)");
     ImFont* big = atlas->Fonts[0];
     Check(big && big->FindGlyphNoFallback('A') && !big->FindGlyphNoFallback('a'),
           "front end: the display face has capitals only");
@@ -507,16 +507,19 @@ void TestFrontendMirrorBuild()
         Check(g.kind == M::Kind::List && g.rows[0].label == "RAIL POP" && g.rows[0].value == "25 \xC2\xB7 0",
               "restyle: the label is the first text with a letter");
     }
-    // Lists left original: an editor, a horizontal menu, ours, an item without words, a slider, a title, too many.
+    // An editor's lists are restyled, lighter over its view; a horizontal menu too; a checkbox's value; decoration
+    // (bars, icons) is no reason to leave a list; only screens whose meaning is a picture stay as they are.
     policy.editor = true;
-    Check(M::Build(list, policy).kind == M::Kind::None, "restyle: no lists while an editor is up");
+    Check(M::Build(list, policy).kind == M::Kind::List && M::Build(list, policy).editor,
+          "restyle: an editor's list, drawn lighter over its view");
     policy = M::Policy{};
     policy.lists = false;
     Check(M::Build(list, policy).kind == M::Kind::None, "restyle: restyle_menus=0");
     policy = M::Policy{};
     M::MenuRead other = list;
     other.vertical = false;
-    Check(M::Build(other, policy).kind == M::Kind::None, "restyle: a horizontal menu stays");
+    Check(M::Build(other, policy).kind == M::Kind::List && M::Build(other, policy).horizontal,
+          "restyle: a horizontal menu, stepped with Left / Right");
     // The pause menu: restyled as the pause (never ours over it) - every item with words, CONTINUE / QUIT in our words,
     // the rest the game's text, a not-focusable item kept dimmed.
     {
@@ -543,15 +546,26 @@ void TestFrontendMirrorBuild()
     Check(M::Build(other, policy).kind == M::Kind::None, "restyle: an item without words stays");
     other = list;
     other.items[0].graphicValue = true;
-    Check(M::Build(other, policy).kind == M::Kind::None && !M::Build(other, policy).why.empty(),
-          "restyle: a slider / checkbox stays (with a reason)");
+    Check(M::Build(other, policy).kind == M::Kind::List, "restyle: a decorated item (a bar, an icon) is still a row");
+    other = list;
+    other.items[0].texts = {"Special Sounds:", ""};
+    other.items[0].checkbox = 1;
+    other.items[1].checkbox = 0;
+    {
+        M::View cb = M::Build(other, policy);
+        Check(cb.kind == M::Kind::List && cb.rows[0].label == "Special Sounds" && cb.rows[0].value == F::Text::kOn &&
+                  cb.rows[1].value.find(F::Text::kOff) != std::string::npos,
+              "restyle: a checkbox's value");
+    }
     other = list;
     other.items[2].graphicValue = true;
     other.items[2].focusable = false;
     Check(M::Build(other, policy).kind == M::Kind::List, "restyle: a picture in an item it can't focus doesn't count");
     other = list;
+    other.title = "GAMMA";
+    Check(M::Build(other, policy).kind == M::Kind::None, "restyle: a picture's screen (gamma) left original");
     other.title = "CREATE-A-TRICK";
-    Check(M::Build(other, policy).kind == M::Kind::None, "restyle: a title left original");
+    Check(M::Build(other, policy).kind == M::Kind::List, "restyle: Create-A-Trick's lists are lists");
     // A front end roundbar menu (CREATE-A-MODES: make_new_roundbar_menu's own id main_menu): Kind::Menu - our title,
     // our words, art id and note by item id, the game's text for an item we don't know; not while an editor is up.
     {
@@ -590,11 +604,35 @@ void TestFrontendMirrorBuild()
               "restyle: the main menu's kicker numbers the item");
         M::Policy editing;
         editing.editor = true;
-        Check(M::Build(create, editing).kind == M::Kind::None, "restyle: no front end menu while an editor is up");
+        Check(M::Build(create, editing).kind == M::Kind::List && M::Build(main, editing).kind == M::Kind::Menu,
+              "restyle: an editor's own roundbar menu (main_menu) is one of its lists; the main menu stays ours");
     }
     other = list;
     other.items.assign(61, Item(1, {"x"}));
-    Check(M::Build(other, policy).kind == M::Kind::None, "restyle: too many items stay");
+    Check(M::Build(other, policy).kind == M::Kind::List && M::Build(other, policy).rows.size() == 61,
+          "restyle: a long list is restyled (ours scrolls it)");
+    other.items.assign(401, Item(1, {"x"}));
+    Check(M::Build(other, policy).kind == M::Kind::None, "restyle: past 400 items the game's own");
+    // Button tags: the key's name when the glue spells it; dropped without.
+    M::SetButtonNamer([](char, char digit) { return std::string(digit == '7' ? "Up" : "ESC"); });
+    Check(M::CleanText("\\b7/\\b4 = Select") == "Up/ESC = Select" && M::CleanText("\\bn=Back") == "ESC=Back",
+          "restyle: button tags spelled as the game does");
+    M::SetButtonNamer(nullptr);
+    Check(M::CleanText("\\b7/\\b4 = Select") == "/ = Select", "restyle: button tags dropped without a namer");
+    // The on-screen keyboard.
+    {
+        M::MenuRead kb;
+        kb.found = true;
+        kb.keyboard = true;
+        kb.keys = {{"1", "2", "3"}, {"a", "b", "c"}, {"Backspace"}};
+        kb.keyRow = 1;
+        kb.keyCol = 2;
+        kb.entry = "SK8_";
+        M::View k = M::Build(kb, policy);
+        Check(k.kind == M::Kind::Keyboard && k.keys.size() == 3 && k.keys[2][0] == "Backspace" && k.keyRow == 1 &&
+                  k.keyCol == 2 && k.entry == "SK8_" && k.title == std::string(F::Text::kTitleKeyboard),
+              "restyle: the keyboard - its keys, the one selected, the text typed");
+    }
     other = list;
     for (M::ItemRead& item : other.items)
         item.focusable = false;

@@ -52,6 +52,7 @@ uint32_t Mix(uint32_t a, uint32_t b, float t)
 constexpr Bake kBakes[] = {
     {Face::Display, 120.0f}, {Face::Display, kMainType}, {Face::Display, kLevelType}, {Face::Display, 28.0f},
     {Face::Mono, 12.0f},     {Face::Mono, 13.0f},    {Face::Body, 14.0f},
+    {Face::Mono, 20.0f},     {Face::Body, 48.0f}, // (the restyled keyboard's keys and the text typed)
 };
 constexpr int kBakeCount = static_cast<int>(sizeof(kBakes) / sizeof(kBakes[0]));
 
@@ -620,10 +621,10 @@ std::string ArtById(const Catalogue* data, const std::string& id)
     return image.empty() ? DefaultArt(id) : image;
 }
 
-// The pause screens' ground: the game dimmed, the left column nearly opaque.
-void PauseGround(Ctx& c, float windowWidth, float windowHeight)
+// The pause screens' ground: the game dimmed, the left column nearly opaque. `dim`: how much (an editor's view less).
+void PauseGround(Ctx& c, float windowWidth, float windowHeight, float dim = 0.55f)
 {
-    c.dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(windowWidth, windowHeight), Col(kGround, 0.55f));
+    c.dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(windowWidth, windowHeight), Col(kGround, dim));
     Scrim(c.dl, c.f, Art{}, 0.0f, 1.0f);
 }
 
@@ -1210,15 +1211,21 @@ void SkatersScreen(Ctx& c, const Mirror::Tracker& t, float windowWidth, float wi
 void ListOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float windowHeight, float* scroll)
 {
     const Mirror::View& v = t.Shown();
-    PauseGround(c, windowWidth, windowHeight);
+    PauseGround(c, windowWidth, windowHeight, v.editor ? 0.15f : 0.55f); // (an editor's view shows through)
     float rule = Header(c, 40.0f, kColumnInner, v.title.empty() ? Text::kTitleMenu : v.title.c_str(), true, nullptr);
     int n = static_cast<int>(v.rows.size());
     bool big = n <= 6;
     if (big) {
+        // (big type only while every label - and its value, when it has one - fits the column)
         RowStyle probe = MainRowStyle();
-        for (const Mirror::Row& r : v.rows)
-            if (c.f.S(probe.textX) + Measure(probe.name, c.f, r.label.c_str()) > c.f.S(kColumnInner + 10.0f))
+        Style probeValue = Mono12(kMuted, false);
+        for (const Mirror::Row& r : v.rows) {
+            float need = c.f.S(probe.textX) + Measure(probe.name, c.f, r.label.c_str());
+            if (!r.value.empty())
+                need += c.f.S(24.0f) + Measure(probeValue, c.f, r.value.c_str());
+            if (need > c.f.S(kColumnInner + 10.0f))
                 big = false;
+        }
     }
     RowStyle rs = big ? MainRowStyle() : LevelRowStyle();
     float rowH = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
@@ -1259,6 +1266,16 @@ void ListOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float wind
     // The right: the hints, the screen's other words, the selected item (its value under it), the title as the kicker.
     float left = kRight, right = 1240.0f;
     float bottom = Hints(c, {Text::kHintSelect, Text::kHintChange, Text::kHintBack}, left, right, 688.0f) - 12.0f;
+    if (v.editor) {
+        // (an editor's view - the skater, the park - keeps the right: only the selected item's value over the hints)
+        const Mirror::Row* sel = v.selected >= 0 ? &v.rows[v.selected] : nullptr;
+        if (sel && !sel->value.empty()) {
+            Style d = Mono12(Menu::kHouseYellow, false);
+            d.css = 13.0f;
+            Text(c.dl, d, c.f, c.f.X(left), Baseline(d, c.f, c.f.Y(bottom - 13.0f * 1.3f), 1.3f), sel->value.c_str());
+        }
+        return;
+    }
     const Mirror::Row* sel = v.selected >= 0 ? &v.rows[v.selected] : nullptr;
     if (sel && !sel->value.empty()) {
         Style d = Mono12(Menu::kHouseYellow, false);
@@ -1405,6 +1422,64 @@ void MenuOfItems(Ctx& c, const Mirror::Tracker& t, float* scroll)
               688.0f + 6.0f);
     float nameTop = BigName(c, v.bigName, 120.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
     Kicker(c, v.kicker, left, nameTop - 8.0f, Menu::kHouseYellow, 1.0f);
+}
+
+// The on-screen keyboard restyled (Kind::Keyboard): the text typed big under the title, the keys as rows of mono boxes
+// (the selected one in the house yellow); a click on a key selects it in the game's keyboard and chooses it (Hit::Level,
+// row * 64 + key).
+void KeyboardScreen(Ctx& c, const Mirror::Tracker& t, float windowWidth, float windowHeight)
+{
+    const Mirror::View& v = t.Shown();
+    if (v.overGame)
+        PauseGround(c, windowWidth, windowHeight, 0.7f);
+    float rule = Header(c, 40.0f, 1232.0f, v.title.c_str(), true, nullptr);
+    // The text typed (the game's cursor "_" kept as it shows it).
+    Style entry;
+    entry.face = Face::Display;
+    entry.css = 72.0f;
+    entry.upper = false;
+    entry.colour = kPaper;
+    float entryTop = rule + 30.0f;
+    // (the game's cursor "_": drawn as our own bar after the text - the display face has no underscore)
+    std::string typed = v.entry;
+    if (!typed.empty() && typed.back() == '_')
+        typed.pop_back();
+    Style typedStyle = entry;
+    typedStyle.face = Face::Body; // (the case as typed: the display face is capitals only)
+    typedStyle.css = 48.0f;
+    float entryX = c.f.X(48.0f);
+    Text(c.dl, typedStyle, c.f, entryX, Baseline(typedStyle, c.f, c.f.Y(entryTop + 12.0f), 1.0f), typed.c_str());
+    float cursorX = entryX + Measure(typedStyle, c.f, typed.c_str()) + c.f.S(4.0f);
+    c.dl->AddRectFilled(ImVec2(cursorX, c.f.Y(entryTop + 58.0f)), ImVec2(cursorX + c.f.S(22.0f), c.f.Y(entryTop + 62.0f)),
+                        Col(Menu::kHouseYellow));
+    float line = entryTop + 72.0f + 10.0f;
+    c.dl->AddRectFilled(ImVec2(c.f.X(48.0f), c.f.Y(line)), ImVec2(c.f.X(1232.0f), c.f.Y(line) + std::max(1.0f, c.f.S(2.0f))),
+                        Col(Menu::kHouseYellow));
+    // The keys.
+    Style key = Mono12(kPaper, false);
+    key.css = 20.0f;
+    key.upper = false; // (the keys as the game shows them: lower case is lower case)
+    float top = line + 36.0f, h = 44.0f, gap = 8.0f;
+    for (size_t r = 0; r < v.keys.size(); ++r) {
+        float x = 48.0f;
+        for (size_t k = 0; k < v.keys[r].size(); ++k) {
+            const std::string& label = v.keys[r][k];
+            float w = std::max(52.0f, Measure(key, c.f, label.c_str()) / c.f.scale + 28.0f);
+            bool sel = static_cast<int>(r) == v.keyRow && static_cast<int>(k) == v.keyCol;
+            c.dl->AddRectFilled(ImVec2(c.f.X(x), c.f.Y(top)), ImVec2(c.f.X(x + w), c.f.Y(top + h)),
+                                sel ? Col(Menu::kHouseYellow) : Col(kGround, 0.85f));
+            c.dl->AddRect(ImVec2(c.f.X(x), c.f.Y(top)), ImVec2(c.f.X(x + w), c.f.Y(top + h)), Col(kRule), 0.0f, 0,
+                          std::max(1.0f, c.f.S(1.0f)));
+            Style s = key;
+            s.colour = sel ? kGround : kPaper;
+            float tx = c.f.X(x + w * 0.5f) - Measure(s, c.f, label.c_str()) * 0.5f;
+            Text(c.dl, s, c.f, tx, Baseline(s, c.f, c.f.Y(top + (h - 20.0f * 1.3f) * 0.5f), 1.3f), label.c_str());
+            c.Hit(Hit::Level, static_cast<int>(r) * 64 + static_cast<int>(k), x, top, x + w, top + h);
+            x += w + gap;
+        }
+        top += h + gap;
+    }
+    Hints(c, {Text::kHintSelect, Text::kHintBack}, kRight, 1240.0f, 688.0f);
 }
 
 } // namespace
@@ -1578,6 +1653,11 @@ void Restyled(const Mirror::Tracker& tracker, const Frame& frame, float windowWi
     case Mirror::Kind::Menu:
         dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(windowWidth, windowHeight), Col(kGround));
         MenuOfItems(c, tracker, scroll);
+        break;
+    case Mirror::Kind::Keyboard:
+        if (!tracker.Shown().overGame)
+            dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(windowWidth, windowHeight), Col(kGround));
+        KeyboardScreen(c, tracker, windowWidth, windowHeight);
         break;
     case Mirror::Kind::None: break;
     }

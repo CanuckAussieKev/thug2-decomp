@@ -21,6 +21,7 @@ inline constexpr const char* kTitleEditLevel = "Level editor";
 inline constexpr const char* kTitlePaused = "Paused";
 inline constexpr const char* kTitleMenu = "Menu";     // (a restyled list without a title)
 inline constexpr const char* kTitleSkaters = "Select skater";
+inline constexpr const char* kTitleKeyboard = "Enter text"; // (the on-screen keyboard without a title)
 inline constexpr const char* kBack = "Back";          // (the header's back arrow)
 
 // --- the main menu: label, helper line, the art's kicker -----------------------------------------------------------
@@ -100,6 +101,15 @@ inline constexpr const char* kHintAccept = "A Accept";
 inline constexpr const char* kHintBack = "B Back";
 inline constexpr const char* kHintResumeLevel = "B Resume";
 inline constexpr const char* kHintChange = "Left Right Change";
+// The arrow buttons in the game's own words (its helper lines' arrow glyphs).
+inline constexpr const char* kKeyUp = "Up";
+inline constexpr const char* kKeyDown = "Down";
+inline constexpr const char* kKeyLeft = "Left";
+inline constexpr const char* kKeyRight = "Right";
+inline constexpr const char* kKeyUpLeft = "Up-Left";
+inline constexpr const char* kKeyUpRight = "Up-Right";
+inline constexpr const char* kKeyDownLeft = "Down-Left";
+inline constexpr const char* kKeyDownRight = "Down-Right";
 inline constexpr const char* kHintGroup = "LB RB Group";
 inline constexpr const char* kHintSkater = "Left Right Skater";
 inline constexpr const char* kHintLoadSkater = "E Load skater";

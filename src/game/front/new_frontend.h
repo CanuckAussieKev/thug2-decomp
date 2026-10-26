@@ -47,14 +47,19 @@ struct FrontEnd;
 // nothing (Sio::ProcessSdlDevice), the mouse doesn't drive the original menus (MouseMenus::Update) and Enter isn't
 // passed on as the game's special key - and that lasts until the keys that chose are let go.
 //
-// Phase 3 (new_frontend_mirror.h): the original screens ours doesn't replace are restyled in the same look while ours
-// isn't drawn - every dialog box (create_snazzy_dialog_box: QUIT?, confirmations, warnings, errors), the skater select
-// (the 3D skater left in view; the skaters as a strip, the stats as a table) and plain lists (game options' sub-menus,
-// YOUR OPTIONS, high scores, cutscenes, ...). The original keeps the keyboard and the controllers (its scripts, its
-// selection - ours reads them each frame); the mouse is ours there (OwnsMouse). Not the create modes' editors (CAS,
-// CAT, CAG, the park editor, graphics) or online. [frontend] restyle_dialogs= / restyle_skater_select= / restyle_menus=
-// (1 each) switch them off one by one. Whenever ours hides the original's elements (the pause menu, a restyled
-// screen), a script scaling root_window back is undone the same frame: the original is never drawn under ours.
+// The game's screens restyled (new_frontend_mirror.h), read from the screen tree each frame: the front end's roundbar
+// menus and the pause menu in our design, every dialog box (create_snazzy_dialog_box: QUIT?, confirmations, warnings,
+// errors), the skater select (the 3D skater left in view; the skaters as a strip, the stats as a table), the on-screen
+// keyboard (its keys, the text typed; a click picks a key) and every list - values as text (Music Level 5, Songs
+// Random), checkboxes On / Off, button tags as the game spells them, a column beside the list paired with its rows (the
+// grab tricks' names), long lists scrolled, horizontal menus stepped with Left / Right; the create modes' editors'
+// lists drawn lighter over their view (the skater, the park). Left as the game draws them: the screens whose meaning
+// is a picture (GAMMA, SCREEN SETUP), the park editor's piece browser (a tool's own UI, not a menu), and online when
+// [frontend] restyle_online=0 (on by default - online is tested by the user by hand, never by a tool).
+// [frontend] restyle_dialogs= / restyle_skater_select= / restyle_menus= (1 each) switch them off one by one;
+// debug_restyle=1 logs the element tree of each screen left as it is. The game keeps the keyboard and the controllers
+// (its scripts, its selection - ours reads them each frame); the mouse is ours there (OwnsMouse). Whenever ours hides
+// the game's elements, a script scaling root_window back is undone the same frame: the game's is never drawn under ours.
 namespace Front::NewFrontend {
 
 // [features] new_frontend (read once; self-tests may set it).
