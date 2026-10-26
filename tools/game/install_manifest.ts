@@ -13,6 +13,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
+import { helpFromHeader } from "../lib/cli.ts";
 import { DECOMP, GAME_EXE_NAMES, LOCAL } from "../lib/decomp.ts";
 import { findInstall } from "../lib/install.ts";
 import { formatFixed, isMain, print, pyExit, pyJsonDumps, pyParseInt, runMain } from "../lib/py.ts";
@@ -248,4 +249,5 @@ function main(): number {
     return check(game, manifest, values.list === undefined ? 40 : pyParseInt(values.list));
 }
 
+if (isMain(import.meta.url)) helpFromHeader(import.meta.url);
 if (isMain(import.meta.url)) await runMain(() => main());

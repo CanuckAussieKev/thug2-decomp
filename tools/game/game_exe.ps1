@@ -5,6 +5,19 @@
 # Resolve-GameFolder takes either.
 $GameExeNames = @('THUG2.exe')
 $localJson = Join-Path $PSScriptRoot '..\..\..\local.json'
+# (a linked git worktree has no local.json of its own - it's gitignored: its .git file's gitdir has a commondir naming
+# the main checkout's .git, where it is)
+$dotGit = Join-Path $PSScriptRoot '..\..\..\.git'
+if (-not (Test-Path -LiteralPath $localJson) -and (Test-Path -LiteralPath $dotGit -PathType Leaf)) {
+    $gitdir = ((Get-Content -LiteralPath $dotGit -Raw) -replace '^gitdir:\s*', '').Trim()
+    if (-not [IO.Path]::IsPathRooted($gitdir)) { $gitdir = Join-Path (Split-Path $dotGit -Parent) $gitdir }
+    $commondir = Join-Path $gitdir 'commondir'
+    if (Test-Path -LiteralPath $commondir) {
+        $common = (Get-Content -LiteralPath $commondir -Raw).Trim()
+        if (-not [IO.Path]::IsPathRooted($common)) { $common = Join-Path $gitdir $common }
+        $localJson = Join-Path (Split-Path ([IO.Path]::GetFullPath($common)) -Parent) 'local.json'
+    }
+}
 if (Test-Path -LiteralPath $localJson) {
     $local = Get-Content -LiteralPath $localJson -Raw | ConvertFrom-Json
     if ($local.exeNames) { $GameExeNames += @($local.exeNames) }
