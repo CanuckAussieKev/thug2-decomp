@@ -423,26 +423,7 @@ void RowAnim::Tick(bool selected, float dt)
 
 namespace {
 
-constexpr const char* kScreenNames[kScreens] = {"main",   "career",  "story",  "classic", "difficulty", "confirm",
-                                                "create", "online",  "options", "levels", "pause",      "pausegoals"};
-
-Item MakeItem(const char* id, const char* label, const std::string& blurb, bool enabled = true, const char* tag = "",
-              const std::string& detail = std::string())
-{
-    Item item;
-    item.id = id;
-    item.label = label;
-    item.blurb = blurb;
-    item.enabled = enabled;
-    item.tag = tag;
-    item.detail = detail;
-    return item;
-}
-
-int ModeOf(Screen screen, int mode)
-{
-    return screen == Screen::Story ? 0 : screen == Screen::Classic ? 1 : mode;
-}
+constexpr const char* kScreenNames[kScreens] = {"main", "options", "levels", "pause"};
 
 } // namespace
 
@@ -463,119 +444,7 @@ bool ScreenFromName(const std::string& name, Screen* out)
     return false;
 }
 
-bool IsListScreen(Screen screen) { return screen != Screen::Levels && screen != Screen::Options; }
-bool IsPauseScreen(Screen screen) { return screen == Screen::Pause || screen == Screen::PauseGoals; }
-
-std::vector<Item> ItemsFor(Screen screen, const Context& c, int mode, bool confirmLoad)
-{
-    // (every word from new_frontend_text.h)
-    std::vector<Item> items;
-    switch (screen) {
-    case Screen::Main:
-        items.push_back(MakeItem("career", Text::kCareer, Text::kCareerHelp));
-        items.push_back(MakeItem("freeskate", Text::kFreeSkate, Text::kFreeSkateHelp));
-        items.push_back(MakeItem("online", Text::kOnline, Text::kOnlineHelp));
-        items.push_back(MakeItem("create", Text::kCreate, Text::kCreateHelp));
-        items.push_back(MakeItem("options", Text::kOptions, Text::kOptionsHelp));
-        items.push_back(MakeItem("quit", Text::kQuit, Text::kQuitHelp));
-        break;
-    case Screen::Career:
-        items.push_back(MakeItem("thug2story", Text::kStoryThug2, Text::kStoryThug2Help));
-        items.push_back(MakeItem("classic", Text::kClassic, Text::kClassicHelp));
-        items.push_back(MakeItem("thugstory", Text::kStoryThug, Text::kStoryThugHelp, false, Text::kComingSoon));
-        break;
-    case Screen::Story:
-    case Screen::Classic: {
-        int m = ModeOf(screen, mode);
-        bool started = m ? c.classicStarted : c.storyStarted;
-        items.push_back(MakeItem("continue", Text::kContinue, started ? Text::kContinueHelp : Text::kContinueNoneHelp, started));
-        items.push_back(MakeItem("new", m ? Text::kNewClassic : Text::kNewStory, Text::kNewHelp));
-        items.push_back(MakeItem("load", Text::kLoad, Text::kLoadHelp));
-        break;
-    }
-    case Screen::Difficulty:
-        if (mode == 0)
-            items.push_back(MakeItem("easy", Text::kEasy, Text::kEasyHelp));
-        items.push_back(MakeItem("normal", Text::kNormal, Text::kNormalHelp));
-        items.push_back(MakeItem("sick", Text::kSick, Text::kSickHelp));
-        break;
-    case Screen::Confirm: {
-        std::string what = confirmLoad ? Text::kWarnProgress : mode ? Text::kWarnClassic : Text::kWarnStory;
-        items.push_back(MakeItem("yes", confirmLoad ? Text::kLoadAnyway : Text::kStartOver,
-                                 Text::kWarnLostBefore + what + Text::kWarnLostAfter +
-                                     (confirmLoad ? "" : Text::kWarnUnlocksStay)));
-        items.push_back(MakeItem("no", Text::kCancel, Text::kCancelHelp));
-        break;
-    }
-    case Screen::Create:
-        items.push_back(MakeItem("cas", Text::kCas, Text::kCreateItemHelp));
-        items.push_back(MakeItem("cat", Text::kCat, Text::kCreateItemHelp));
-        items.push_back(MakeItem("cag", Text::kCag, Text::kCreateItemHelp));
-        items.push_back(MakeItem("cap", Text::kCap, Text::kCreateItemHelp));
-        items.push_back(MakeItem("cagr", Text::kCagr, Text::kCreateItemHelp));
-        items.push_back(MakeItem("editor", Text::kLevelEditor, c.levelEditor ? Text::kCreateItemHelp : Text::kLevelEditorOffHelp,
-                                 c.levelEditor && c.levelsListed));
-        break;
-    case Screen::Online: {
-        std::string detail = (c.identity.empty() ? std::string(Text::kIdentityThug2) : c.identity) + Text::kLobbiesOf;
-        if (!c.lobby.empty())
-            detail += "  \xC2\xB7  " + c.lobby;
-        items.push_back(MakeItem("play", Text::kPlayOnline, Text::kPlayOnlineHelp, true, "", detail));
-        items.push_back(MakeItem("identity", Text::kLobbies, Text::kLobbiesHelp, true, "", detail));
-        break;
-    }
-    case Screen::Pause:
-        items.push_back(MakeItem("resume", Text::kResume, Text::kPauseItemHelp));
-        if (c.pauseRetry)
-            items.push_back(MakeItem("retry", Text::kRetryGoal, Text::kPauseItemHelp));
-        if (c.pauseFreeSkate)
-            items.push_back(MakeItem("restart", Text::kRestart, Text::kPauseItemHelp));
-        if (c.pauseGoals || c.pauseGaps || c.pauseYourOptions)
-            items.push_back(MakeItem("goals", Text::kGoalsAndGaps, Text::kPauseItemHelp));
-        if (c.pauseChangeLevel)
-            items.push_back(MakeItem("changelevel", Text::kChangeLevel, Text::kPauseItemHelp));
-        if (c.pauseEditor)
-            items.push_back(MakeItem("editor", Text::kPauseLevelEditor, Text::kPauseItemHelp));
-        if (c.pauseBmx)
-            items.push_back(MakeItem("bmx", c.bmxLabel.c_str(), Text::kPauseItemHelp));
-        items.push_back(MakeItem("options", Text::kPauseOptions, Text::kPauseItemHelp));
-        items.push_back(MakeItem("original", Text::kPauseMenu, Text::kPauseItemHelp));
-        if (c.pauseQuit)
-            items.push_back(MakeItem("quit", Text::kQuitToMenu, Text::kPauseItemHelp));
-        break;
-    case Screen::PauseGoals:
-        if (c.pauseGoals)
-            items.push_back(MakeItem("goals", Text::kViewGoals, Text::kPauseItemHelp));
-        if (c.pauseGaps)
-            items.push_back(MakeItem("gaps", Text::kViewGaps, Text::kPauseItemHelp));
-        if (c.pauseYourOptions)
-            items.push_back(MakeItem("youroptions", Text::kYourOptions, Text::kPauseItemHelp));
-        break;
-    case Screen::Options:
-    case Screen::Levels:
-        break;
-    }
-    return items;
-}
-
-std::string ScreenTitle(Screen screen, int mode)
-{
-    switch (screen) {
-    case Screen::Main: return Text::kTitleMain;
-    case Screen::Career: return Text::kTitleCareer;
-    case Screen::Story: return Text::kTitleStory;
-    case Screen::Classic: return Text::kTitleClassic;
-    case Screen::Difficulty: return mode ? Text::kTitleClassicDifficulty : Text::kTitleStoryDifficulty;
-    case Screen::Confirm: return Text::kTitleConfirm;
-    case Screen::Create: return Text::kTitleCreate;
-    case Screen::Online: return Text::kTitleOnline;
-    case Screen::Options: return Text::kTitleOptions;
-    case Screen::Levels: return Text::kTitleFreeSkate;
-    case Screen::Pause: return Text::kTitlePaused;
-    case Screen::PauseGoals: return Text::kTitlePauseGoals;
-    }
-    return "";
-}
+bool IsPauseScreen(Screen screen) { return screen == Screen::Pause; }
 
 std::string DefaultArt(const std::string& id)
 {
@@ -596,75 +465,20 @@ std::string DefaultArt(const std::string& id)
     return {};
 }
 
-Feature FeatureFor(const Menu& menu)
-{
-    Feature f;
-    Screen screen = menu.Shown();
-    if (!IsListScreen(screen) || IsPauseScreen(screen))
-        return f;
-    const Catalogue* data = menu.Data();
-    const std::vector<Item>& items = menu.Items();
-    int selected = menu.Selected();
-    const Item* item = selected >= 0 && selected < static_cast<int>(items.size()) ? &items[selected] : nullptr;
-    // (the career's sub-screens fall back on their mode's picture)
-    std::string screenId = screen == Screen::Classic ? "classic"
-                           : screen == Screen::Story ? "story"
-                           : screen == Screen::Difficulty || screen == Screen::Confirm ? (menu.Mode() ? "classic" : "story")
-                                                                                       : ScreenName(screen);
-    auto artById = [data](const std::string& id) {
-        std::string image = data ? data->MenuArt(id) : std::string();
-        return image.empty() ? DefaultArt(id) : image;
-    };
-    if (item) {
-        f.art = !item->art.empty() ? item->art : artById(item->id);
-        f.name = item->label;
-        f.detail = item->detail;
-    }
-    if (f.art.empty())
-        f.art = artById(screenId);
-    f.kicker = screen == Screen::Main && selected >= 0
-                   ? std::string(Text::kMainKicker) + " \xE2\x80\x94 " + (selected + 1 < 10 ? "0" : "") + std::to_string(selected + 1)
-                   : ScreenTitle(screen, menu.Mode());
-    // Continue launched from the main menu: the last level's picture and name (the name slices, the art comes up).
-    int section = -1, level = -1;
-    if (screen == Screen::Main && menu.Launch() >= 0.0f && data && !menu.LaunchLoad().empty() &&
-        data->Find(menu.LaunchLoad(), &section, &level)) {
-        const Level& l = data->sections[section].levels[level];
-        f.art = l.art;
-        f.name = l.name;
-        f.kicker = data->sections[section].tab;
-        f.launching = true;
-    }
-    return f;
-}
-
-std::string ContinueName(const Menu& menu)
-{
-    int section = -1, level = -1;
-    const Catalogue* data = menu.Data();
-    if (!menu.CanContinue() || !data || !data->Find(menu.LastLevel(), &section, &level))
-        return {};
-    return data->sections[section].levels[level].name;
-}
-
 void Menu::Reset(const Catalogue* catalogue, std::vector<SectionView> views, const std::string& lastLevel,
-                 std::vector<Screen> stack, int anchorDepth, LevelsFor levels)
+                 std::vector<Screen> stack, LevelsFor levels)
 {
     m_catalogue = catalogue;
     m_views = std::move(views);
     m_rowInSection.assign(m_views.size(), 0);
     m_lastLevel = lastLevel;
     m_stack = stack.empty() ? std::vector<Screen>{Screen::Main} : std::move(stack);
-    m_anchorDepth = anchorDepth < static_cast<int>(m_stack.size()) ? anchorDepth : -1;
     m_levelsFor = levels;
     m_section = 0;
     m_scroll = m_scrollTarget = 0.0f;
     m_wipe = m_launch = -1.0f;
     m_switched = false;
     m_launchLoad.clear();
-    for (Screen s : m_stack)
-        if (s == Screen::Story || s == Screen::Classic)
-            m_mode = s == Screen::Classic ? 1 : 0;
     // The level select opens at the last level played when it's listed.
     int section = 0, level = 0;
     if (m_catalogue && !m_lastLevel.empty() && m_catalogue->Find(m_lastLevel, &section, &level) &&
@@ -691,26 +505,6 @@ void Menu::SetViews(std::vector<SectionView> views)
     }
 }
 
-bool Menu::CanContinue() const { return m_catalogue && !m_lastLevel.empty() && m_catalogue->Find(m_lastLevel, nullptr, nullptr); }
-
-void Menu::SetContext(const Context& context)
-{
-    std::string selected = IsListScreen(m_shown) && Selected() >= 0 && Selected() < static_cast<int>(m_items.size())
-                               ? m_items[Selected()].id
-                               : std::string();
-    size_t count = m_items.size();
-    m_context = context;
-    if (!IsListScreen(m_shown))
-        return;
-    m_items = ItemsFor(m_shown, m_context, ModeOf(m_shown, m_mode), m_confirmLoad);
-    for (size_t i = 0; i < m_items.size(); ++i)
-        if (m_items[i].id == selected && m_items[i].enabled)
-            Sel() = static_cast<int>(i);
-    BuildItems();
-    if (m_items.size() != count)
-        ResetRows();
-}
-
 void Menu::SetOptionGroup(int group)
 {
     int count = static_cast<int>(Options::Groups().size());
@@ -719,16 +513,13 @@ void Menu::SetOptionGroup(int group)
     m_optionRow = 0;
 }
 
-int& Menu::Sel() { return m_sel[static_cast<int>(m_shown)]; }
-
 int Menu::Selected() const
 {
     if (m_shown == Screen::Levels)
         return LevelRow();
     if (m_shown == Screen::Options)
         return m_optionRow;
-    int s = m_sel[static_cast<int>(m_shown)];
-    return s >= 0 && s < static_cast<int>(m_items.size()) ? s : -1;
+    return -1; // (the roots: never shown)
 }
 
 bool Menu::OverPause() const { return !m_stack.empty() && m_stack.front() == Screen::Pause; }
@@ -750,37 +541,13 @@ int Menu::OptionChoice(int option) const
     return std::clamp(value, 0, std::max(0, n - 1));
 }
 
-void Menu::BuildItems()
-{
-    if (!IsListScreen(m_shown)) {
-        m_items.clear();
-        return;
-    }
-    m_items = ItemsFor(m_shown, m_context, ModeOf(m_shown, m_mode), m_confirmLoad);
-    int& s = Sel();
-    if (s < 0 || s >= static_cast<int>(m_items.size()) || !m_items[s].enabled) {
-        int first = FirstEnabled(std::clamp(s, 0, std::max(0, static_cast<int>(m_items.size()) - 1)), 1);
-        if (first < 0)
-            first = FirstEnabled(0, 1);
-        s = std::max(0, first);
-    }
-}
-
 int Menu::ListCount() const
 {
     if (m_shown == Screen::Levels)
         return View() ? static_cast<int>(View()->levels.size()) : 0;
     if (m_shown == Screen::Options)
         return static_cast<int>(OptionRows().size()) + 1; // (and the Game options row)
-    return static_cast<int>(m_items.size());
-}
-
-int Menu::FirstEnabled(int from, int step) const
-{
-    for (int i = from; i >= 0 && i < static_cast<int>(m_items.size()); i += step)
-        if (m_items[i].enabled)
-            return i;
-    return -1;
+    return 0;
 }
 
 const SectionView* Menu::View() const
@@ -843,7 +610,6 @@ void Menu::ResetRows()
 void Menu::Show(Screen screen)
 {
     m_shown = screen;
-    BuildItems();
     ResetRows();
     if (m_shown == Screen::Levels)
         ClampScroll(true);
@@ -864,8 +630,6 @@ void Menu::Pop()
 {
     if (m_stack.size() > 1)
         m_stack.pop_back();
-    if (m_anchorDepth >= static_cast<int>(m_stack.size()))
-        m_anchorDepth = -1;
     m_wipe = 0.0f;
     m_switched = false;
     m_wipeColour = kHouseYellow;
@@ -892,10 +656,7 @@ Action Menu::MoveTo(int index)
         m_optionRow = index;
         return {ActionKind::MoveSound};
     }
-    if (!m_items[index].enabled || Sel() == index)
-        return {};
-    Sel() = index;
-    return {ActionKind::MoveSound};
+    return {};
 }
 
 Action Menu::MoveBy(int step)
@@ -904,8 +665,7 @@ Action Menu::MoveBy(int step)
         return MoveLevel(LevelRow() + step);
     if (m_shown == Screen::Options)
         return MoveTo(m_optionRow + step);
-    int next = FirstEnabled(Sel() + step, step);
-    return next < 0 ? Action{} : MoveTo(next);
+    return {};
 }
 
 Action Menu::MoveLevel(int row)
@@ -991,135 +751,6 @@ Action Menu::StartLaunch(const std::string& load)
     return {ActionKind::ChooseSound};
 }
 
-Action Menu::ConfirmItem(const std::string& id)
-{
-    auto go = [this](Screen screen) {
-        Go(screen);
-        return Action{ActionKind::ChooseSound};
-    };
-    auto act = [](ActionKind kind, const std::string& what = std::string()) {
-        Action a{kind};
-        a.id = what;
-        return a;
-    };
-    switch (m_shown) {
-    case Screen::Main:
-        if (id == "career")
-            return go(Screen::Career);
-        if (id == "freeskate")
-            return act(ActionKind::FreeSkate);
-        if (id == "online")
-            return go(Screen::Online);
-        if (id == "create")
-            return go(Screen::Create);
-        if (id == "options")
-            return go(Screen::Options);
-        if (id == "quit")
-            return act(ActionKind::Quit); // the original's QUIT? confirm (restyled), then to the desktop
-        return {};
-    case Screen::Career:
-        if (id == "thug2story") {
-            m_mode = 0;
-            return go(Screen::Story);
-        }
-        if (id == "classic") {
-            m_mode = 1;
-            return go(Screen::Classic);
-        }
-        return {};
-    case Screen::Story:
-    case Screen::Classic: {
-        m_mode = m_shown == Screen::Classic ? 1 : 0;
-        bool started = m_mode ? m_context.classicStarted : m_context.storyStarted;
-        if (id == "continue") {
-            Action a = act(ActionKind::CareerContinue);
-            a.mode = m_mode;
-            return a;
-        }
-        if (id == "new") {
-            m_confirmLoad = false;
-            if (started) {
-                m_sel[static_cast<int>(Screen::Confirm)] = 1; // (No first)
-                return go(Screen::Confirm);
-            }
-            m_sel[static_cast<int>(Screen::Difficulty)] = m_mode ? 0 : 1; // (Normal)
-            return go(Screen::Difficulty);
-        }
-        if (id == "load") {
-            if (started) {
-                m_confirmLoad = true;
-                m_sel[static_cast<int>(Screen::Confirm)] = 1;
-                return go(Screen::Confirm);
-            }
-            Action a = act(ActionKind::CareerLoad);
-            a.mode = m_mode;
-            return a;
-        }
-        return {};
-    }
-    case Screen::Confirm:
-        if (id == "no")
-            return Back();
-        if (id == "yes") {
-            if (m_confirmLoad) {
-                Action a = act(ActionKind::CareerLoad);
-                a.mode = m_mode;
-                a.overwrite = true;
-                return a;
-            }
-            m_sel[static_cast<int>(Screen::Difficulty)] = m_mode ? 0 : 1;
-            return go(Screen::Difficulty);
-        }
-        return {};
-    case Screen::Difficulty: {
-        // (the game's difficulty numbers: the story's easy 0, normal 1, sick 2; classic's normal 0, sick 1)
-        int value = id == "easy" ? 0 : id == "normal" ? (m_mode ? 0 : 1) : id == "sick" ? (m_mode ? 1 : 2) : -1;
-        if (value < 0)
-            return {};
-        Action a = act(ActionKind::CareerNew);
-        a.mode = m_mode;
-        a.value = value;
-        a.overwrite = m_mode ? m_context.classicStarted : m_context.storyStarted;
-        return a;
-    }
-    case Screen::Create:
-        if (id == "editor") {
-            if (!m_catalogue || m_views.empty())
-                return {};
-            m_levelsFor = LevelsFor::Edit;
-            return go(Screen::Levels);
-        }
-        return act(ActionKind::Create, id);
-    case Screen::Online:
-        if (id == "play")
-            return act(ActionKind::Online);
-        if (id == "identity") {
-            const std::vector<Options::Group>& groups = Options::Groups();
-            for (size_t g = 0; g < groups.size(); ++g)
-                if (std::strcmp(groups[g].id, "online") == 0)
-                    SetOptionGroup(static_cast<int>(g));
-            return go(Screen::Options);
-        }
-        return {};
-    case Screen::Pause:
-        if (id == "goals")
-            return go(Screen::PauseGoals);
-        if (id == "options")
-            return go(Screen::Options);
-        if (id == "changelevel" && m_context.pauseFreeSkate && m_catalogue && !m_views.empty()) {
-            m_levelsFor = LevelsFor::Pause;
-            return go(Screen::Levels);
-        }
-        return act(ActionKind::Pause, id);
-    case Screen::PauseGoals:
-        return act(ActionKind::Pause, id);
-    case Screen::Options:
-    case Screen::Levels:
-        return {};
-    }
-    return {};
-}
-
 Action Menu::Confirm()
 {
     if (m_shown == Screen::Levels) {
@@ -1133,30 +764,14 @@ Action Menu::Confirm()
             return {ActionKind::GameOptions};
         return ChangeOption(1, true);
     }
-    int s = Selected();
-    if (s < 0 || !m_items[s].enabled)
-        return {};
-    return ConfirmItem(m_items[s].id);
+    return {};
 }
 
 Action Menu::Back()
 {
-    if (m_stack.size() <= 1) {
-        if (m_shown == Screen::Main)
-            return {ActionKind::Quit};
-        if (m_shown == Screen::Pause) {
-            Action a{ActionKind::Pause};
-            a.id = "resume";
-            return a;
-        }
+    if (m_stack.size() <= 1)
         return {};
-    }
-    bool anchored = m_anchorDepth == static_cast<int>(m_stack.size()) - 1;
     Pop();
-    if (anchored) {
-        m_anchorDepth = -1;
-        return {ActionKind::AnchorBack};
-    }
     return {ActionKind::BackSound};
 }
 
@@ -1188,12 +803,6 @@ Action Menu::Press(Input input)
         return levels ? SetSection(m_section + 1) : Action{};
     case Input::Confirm: return Confirm();
     case Input::Back: return Back();
-    case Input::Resume:
-        if (m_shown == Screen::Main && CanContinue()) {
-            m_levelsFor = LevelsFor::FreeSkate;
-            return StartLaunch(m_lastLevel);
-        }
-        return {};
     }
     return {};
 }
@@ -1213,10 +822,7 @@ Action Menu::ClickItem(int index)
         MoveTo(index);
         return index >= static_cast<int>(OptionRows().size()) ? Confirm() : Action{};
     }
-    if (!m_items[index].enabled)
-        return {};
-    MoveTo(index);
-    return Confirm();
+    return {};
 }
 
 Action Menu::HoverLevel(int row)
@@ -1262,13 +868,6 @@ Action Menu::ClickSkate()
     if (Busy() || m_shown != Screen::Levels)
         return {};
     return Confirm();
-}
-
-Action Menu::ClickContinue()
-{
-    if (Busy() || m_shown != Screen::Main)
-        return {};
-    return Press(Input::Resume);
 }
 
 Action Menu::ClickChoice(int row, int choice)
@@ -1353,11 +952,6 @@ bool Menu::SelectId(const std::string& id)
             }
         return false;
     }
-    for (size_t i = 0; i < m_items.size(); ++i)
-        if (SameText(m_items[i].id, id) && m_items[i].enabled) {
-            Sel() = static_cast<int>(i);
-            return true;
-        }
     return false;
 }
 
@@ -1374,8 +968,7 @@ std::string Menu::SelectedId() const
         const Options::Spec& spec = Options::Specs()[rows[m_optionRow]];
         return std::string(spec.section) + "." + spec.key;
     }
-    int s = Selected();
-    return s >= 0 ? m_items[s].id : std::string();
+    return {};
 }
 
 Action Menu::Tick(float dt)

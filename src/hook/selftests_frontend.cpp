@@ -127,8 +127,8 @@ void TestFrontendLayout()
           "front end: the baseline in a line box");
     Check(Near(D::LevelListTop(1), 121.5f, 0.05f) && D::LevelListRows(1) == 15 && D::LevelListRows(2) == 14,
           "front end: the level list's top and rows");
-    Check(D::MainRowTop(F::kMainItems - 1) + D::kMainRowHeight < 688.0f - 2.0f * 21.0f,
-          "front end: the main menu's rows end above its blurb");
+    Check(D::MainRowTop(6 - 1) + D::kMainRowHeight < 688.0f - 2.0f * 21.0f,
+          "front end: the main menu's six rows end above its blurb");
 }
 SELFTEST(Early, TestFrontendLayout);
 
@@ -172,158 +172,15 @@ void Tick(F::Menu& m, float seconds, std::vector<F::Action>* actions = nullptr)
 
 void TestFrontendMenus()
 {
+    // Our screens are only those with no menu of the game's behind them (the level select, the settings), opened on a
+    // root - Main in the front end, Pause in a level - that is never drawn: Back to it, and the caller steps ours aside.
     Fixture fx(5, 30);
-    F::Menu m;
-    F::Context ctx;
-    ctx.levelsListed = true;
-    m.SetContext(ctx);
-    m.Reset(&fx.catalogue, fx.views, "load_b20");
-    Check(m.Shown() == F::Screen::Main && m.MainSelected() == F::kMainFreeSkate && m.CanContinue() &&
-              m.SelectedId() == "freeskate",
-          "front end: starts at the main menu on Free Skate, Continue there");
-    Check(Near(m.RowAmount(F::kMainFreeSkate), 1.0f), "front end: the first selection drawn at once");
-    Check(m.Press(F::Input::Confirm).kind == F::ActionKind::FreeSkate, "front end: Free Skate hands over (the skater select)");
-    Check(m.Press(F::Input::Down).kind == F::ActionKind::MoveSound && m.SelectedId() == "online",
-          "front end: Down moves, with its sound");
-    m.Press(F::Input::Down);
-    m.Press(F::Input::Down);
-    Check(m.SelectedId() == "options", "front end: Options after Create");
-    m.Press(F::Input::Down);
-    Check(m.SelectedId() == "quit" && m.Press(F::Input::Down).kind == F::ActionKind::None,
-          "front end: Quit last; the list doesn't go past its end");
-    Check(m.Press(F::Input::Confirm).kind == F::ActionKind::Quit, "front end: Quit is QUIT's confirm");
-    Check(m.Press(F::Input::Back).kind == F::ActionKind::Quit, "front end: Back on the main menu is QUIT's confirm");
 
-    // The row animation: the old row eases out, the new one in, in kSelectSeconds.
-    m.Press(F::Input::Up); // (Options - not ticked, so its row is still out)
-    m.Press(F::Input::Up); // (Create)
-    Tick(m, 0.06f);
-    float mid = m.RowAmount(F::kMainCreate);
-    Check(mid > 0.6f && mid < 0.95f && m.RowAmount(F::kMainOptions) < 0.4f, "front end: the selection half-way (eased)");
-    Tick(m, 0.08f);
-    Check(Near(m.RowAmount(F::kMainCreate), 1.0f) && Near(m.RowAmount(F::kMainOptions), 0.0f),
-          "front end: the selection snapped in 120 ms");
-
-    // Career: a wipe to its screen; THUG Story skipped (in development).
-    m.HoverItem(F::kMainCareer);
-    Check(m.Press(F::Input::Confirm).kind == F::ActionKind::ChooseSound && m.Wipe() >= 0.0f && m.Busy(),
-          "front end: Career wipes");
-    Check(m.Press(F::Input::Down).kind == F::ActionKind::None, "front end: no input during the wipe");
-    Tick(m, F::kWipeSeconds * 0.4f);
-    Check(m.Shown() == F::Screen::Main, "front end: the screen changes only half-way");
-    Tick(m, F::kWipeSeconds * 0.7f);
-    Check(m.Shown() == F::Screen::Career && !m.Busy() && m.Items().size() == 3 && !m.Items()[2].enabled &&
-              m.Items()[2].tag == Front::NewFrontend::Text::kComingSoon,
-          "front end: the career screen - THUG Story listed, coming soon");
-    m.Press(F::Input::Down);
-    Check(m.SelectedId() == "classic" && m.Press(F::Input::Down).kind == F::ActionKind::None &&
-              m.ClickItem(2).kind == F::ActionKind::None && !m.SelectId("thugstory"),
-          "front end: THUG Story isn't selectable");
-
-    // Story, not started: Continue disabled, New -> the difficulty -> CareerNew with the game's numbers.
-    m.Press(F::Input::Up);
-    m.Press(F::Input::Confirm);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    Check(m.Shown() == F::Screen::Story && !m.Items()[0].enabled && m.SelectedId() == "new",
-          "front end: story - nothing to continue, New selected");
-    m.Press(F::Input::Confirm);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    Check(m.Shown() == F::Screen::Difficulty && m.Items().size() == 3 && m.SelectedId() == "normal",
-          "front end: the story's difficulty - Easy, Normal, Sick; Normal first");
-    m.Press(F::Input::Down);
-    F::Action a = m.Press(F::Input::Confirm);
-    Check(a.kind == F::ActionKind::CareerNew && a.mode == 0 && a.value == 2 && !a.overwrite,
-          "front end: a new story on Sick (2), nothing to overwrite");
-    Check(m.Press(F::Input::Back).kind == F::ActionKind::BackSound, "front end: Back from the difficulty");
-    Tick(m, F::kWipeSeconds + 0.05f);
-    Check(m.Shown() == F::Screen::Story, "front end: the story screen again");
-    m.Press(F::Input::Down);
-    a = m.Press(F::Input::Confirm);
-    Check(a.kind == F::ActionKind::CareerLoad && a.mode == 0 && !a.overwrite, "front end: load, nothing started");
-
-    // Started: Continue; New and Load ask first; Classic's difficulties are Normal 0 / Sick 1.
-    ctx.storyStarted = ctx.classicStarted = true;
-    m.SetContext(ctx);
-    Check(m.Items()[0].enabled && m.SelectId("continue") && m.Press(F::Input::Confirm).kind == F::ActionKind::CareerContinue,
-          "front end: started - Continue");
-    m.SelectId("new");
-    m.Press(F::Input::Confirm);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    Check(m.Shown() == F::Screen::Confirm && m.SelectedId() == "no", "front end: a new story over a started one asks (No first)");
-    m.Press(F::Input::Confirm); // (No)
-    Tick(m, F::kWipeSeconds + 0.05f);
-    Check(m.Shown() == F::Screen::Story, "front end: No - back");
-    m.SelectId("load");
-    m.Press(F::Input::Confirm);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    m.SelectId("yes");
-    a = m.Press(F::Input::Confirm);
-    Check(m.ConfirmLoad() && a.kind == F::ActionKind::CareerLoad && a.overwrite, "front end: load over a started story: yes");
-    m.Press(F::Input::Back);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    m.Press(F::Input::Back);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    Check(m.Shown() == F::Screen::Career, "front end: back to the career screen");
-    m.SelectId("classic");
-    m.Press(F::Input::Confirm);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    m.SelectId("new");
-    m.Press(F::Input::Confirm);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    m.SelectId("yes");
-    m.Press(F::Input::Confirm);
-    Tick(m, F::kWipeSeconds + 0.05f);
-    Check(m.Shown() == F::Screen::Difficulty && m.Items().size() == 2 && m.SelectedId() == "normal",
-          "front end: classic's difficulty - Normal, Sick");
-    a = m.Press(F::Input::Confirm);
-    Check(a.kind == F::ActionKind::CareerNew && a.mode == 1 && a.value == 0 && a.overwrite,
-          "front end: a new classic career on Normal (0), the started one reset");
-
-    // Create: the hand-offs; the Level Editor opens the level select for editing (when it's on).
-    F::Menu cr;
-    ctx.levelEditor = true;
-    cr.SetContext(ctx);
-    cr.Reset(&fx.catalogue, fx.views, "", {F::Screen::Main, F::Screen::Create}, 1);
-    Check(cr.Shown() == F::Screen::Create && cr.Items().size() == 6, "front end: Create's six items");
-    a = cr.Press(F::Input::Confirm);
-    Check(a.kind == F::ActionKind::Create && a.id == "cas", "front end: Create-A-Skater hands over");
-    cr.SelectId("editor");
-    cr.Press(F::Input::Confirm);
-    Tick(cr, F::kWipeSeconds + 0.05f);
-    Check(cr.Shown() == F::Screen::Levels && cr.LevelsPurpose() == F::LevelsFor::Edit, "front end: the editor's level select");
-    std::vector<F::Action> actions;
-    cr.Press(F::Input::Confirm);
-    Tick(cr, F::kLaunchSeconds + 0.05f, &actions);
-    Check(actions.size() == 1 && actions[0].kind == F::ActionKind::Skate && actions[0].levels == F::LevelsFor::Edit,
-          "front end: a level for the editor");
-    cr.CancelLaunch();
-    cr.Press(F::Input::Back);
-    Tick(cr, F::kWipeSeconds + 0.05f);
-    Check(cr.Shown() == F::Screen::Create && cr.Press(F::Input::Back).kind == F::ActionKind::AnchorBack,
-          "front end: Back from Create over CREATE-A-MODES is the original's back");
-    Tick(cr, F::kWipeSeconds + 0.05f);
-    Check(cr.Shown() == F::Screen::Main && cr.Press(F::Input::Back).kind == F::ActionKind::Quit,
-          "front end: ... and then the main menu's (no anchor any more)");
-    ctx.levelEditor = false;
-    cr.SetContext(ctx);
-    cr.Reset(&fx.catalogue, fx.views, "", {F::Screen::Main, F::Screen::Create});
-    Check(!cr.SelectId("editor"), "front end: the Level Editor off");
-
-    // Online: Play online hands over; Identity opens the options' Online group.
-    F::Menu on;
-    on.Reset(&fx.catalogue, fx.views, "", {F::Screen::Main, F::Screen::Online});
-    Check(on.Press(F::Input::Confirm).kind == F::ActionKind::Online, "front end: Play online");
-    on.SelectId("identity");
-    on.Press(F::Input::Confirm);
-    Tick(on, F::kWipeSeconds + 0.05f);
-    Check(on.Shown() == F::Screen::Options && std::string(Opt::Groups()[on.OptionGroup()].id) == "online",
-          "front end: Identity -> Options, Online");
-
-    // The level select: tabs, the scroll, hover, wheel, a click launches.
+    // The level select (Free Skate's): tabs, the scroll, hover, wheel, a click launches.
     F::Menu lv;
-    lv.SetContext(ctx);
-    lv.Reset(&fx.catalogue, fx.views, "load_b20", {F::Screen::Main, F::Screen::Levels}, 1);
-    Check(lv.Shown() == F::Screen::Levels && lv.SectionIndex() == 1 && lv.LevelRow() == 20,
+    lv.Reset(&fx.catalogue, fx.views, "load_b20", {F::Screen::Main, F::Screen::Levels});
+    Check(lv.Shown() == F::Screen::Levels && lv.SectionIndex() == 1 && lv.LevelRow() == 20 &&
+              lv.LevelsPurpose() == F::LevelsFor::FreeSkate,
           "front end: the level select opens at the last level played");
     lv.SetVisibleRows(13);
     lv.Press(F::Input::Down);
@@ -343,7 +200,7 @@ void TestFrontendMenus()
     Check(lv.Wheel(1).kind == F::ActionKind::MoveSound && lv.LevelRow() == 3, "front end: the wheel");
     Check(lv.ClickLevel(2).kind == F::ActionKind::ChooseSound && lv.LaunchLoad() == "load_b2", "front end: a click launches");
     Check(lv.Press(F::Input::Back).kind == F::ActionKind::None, "front end: no input during the launch");
-    actions.clear();
+    std::vector<F::Action> actions;
     Tick(lv, F::kLaunchSeconds * 0.5f, &actions);
     Check(actions.empty(), "front end: Skate only once the launch is over");
     Tick(lv, F::kLaunchSeconds, &actions);
@@ -351,85 +208,53 @@ void TestFrontendMenus()
               actions[0].levels == F::LevelsFor::FreeSkate,
           "front end: Skate, once, with the load script");
     lv.CancelLaunch();
-    Check(!lv.Busy() && lv.Press(F::Input::Back).kind == F::ActionKind::AnchorBack,
-          "front end: Back over the skate shop menu is the original's back");
+    // Back: a wipe to the root, which gives nothing more (ours goes aside there).
+    Check(!lv.Busy() && lv.Press(F::Input::Back).kind == F::ActionKind::BackSound && lv.Wipe() >= 0.0f && lv.Busy(),
+          "front end: Back from the level select wipes");
+    Check(lv.Press(F::Input::Down).kind == F::ActionKind::None, "front end: no input during the wipe");
+    Tick(lv, F::kWipeSeconds * 0.4f);
+    Check(lv.Shown() == F::Screen::Levels, "front end: the screen changes only half-way");
+    Tick(lv, F::kWipeSeconds * 0.7f);
+    Check(lv.Shown() == F::Screen::Main && !lv.Busy() && lv.Press(F::Input::Back).kind == F::ActionKind::None,
+          "front end: back at the root - nothing more");
+
+    // The Level Editor's level select (Create-a-modes' LEVEL EDITOR).
+    F::Menu ed;
+    ed.Reset(&fx.catalogue, fx.views, "", {F::Screen::Main, F::Screen::Levels}, F::LevelsFor::Edit);
+    actions.clear();
+    ed.Press(F::Input::Confirm);
+    Tick(ed, F::kLaunchSeconds + 0.05f, &actions);
+    Check(ed.LevelsPurpose() == F::LevelsFor::Edit && actions.size() == 1 && actions[0].kind == F::ActionKind::Skate &&
+              actions[0].levels == F::LevelsFor::Edit,
+          "front end: a level for the editor");
 
     // Locked levels: listed, not skated.
     Fixture locked(3, 1);
     locked.views[0].locked[1] = true;
     F::Menu l;
     l.Reset(&locked.catalogue, locked.views, "", {F::Screen::Main, F::Screen::Levels});
-    Check(!l.CanContinue(), "front end: no Continue without a level");
     l.Press(F::Input::Down);
     Check(l.SelectedLocked() && l.Press(F::Input::Confirm).kind == F::ActionKind::None && l.Launch() < 0.0f,
           "front end: a locked level isn't started");
 
-    // Continue from the main menu: the launch, then Skate with the last level.
-    F::Menu c;
-    c.Reset(&fx.catalogue, fx.views, "LOAD_A3");
-    Check(c.ClickContinue().kind == F::ActionKind::ChooseSound, "front end: Continue launches");
-    actions.clear();
-    Tick(c, F::kLaunchSeconds + 0.05f, &actions);
-    Check(actions.size() == 1 && actions[0].kind == F::ActionKind::Skate && actions[0].load == "LOAD_A3",
-          "front end: Continue starts the last level");
-
-    // The pause menu: its rows from what the original's has; Back resumes; Goals and gaps; Change level ours in free
-    // skate; Options over it.
-    F::Context pc;
-    pc.levelsListed = true;
-    pc.pauseFreeSkate = true;
-    pc.pauseChangeLevel = pc.pauseGaps = pc.pauseYourOptions = pc.pauseQuit = pc.pauseBmx = true;
-    pc.bmxLabel = "Get off BMX";
+    // Over the pause menu: the pause's level select and the settings, drawn over the game; Back to the Pause root.
     F::Menu p;
-    p.SetContext(pc);
-    p.Reset(&fx.catalogue, fx.views, "", {F::Screen::Pause});
-    std::vector<std::string> ids;
-    for (const F::Item& it : p.Items())
-        ids.push_back(it.id);
-    Check(ids == std::vector<std::string>{"resume", "restart", "goals", "changelevel", "bmx", "options", "original", "quit"} &&
-              p.Items()[4].label == "Get off BMX",
-          "front end: the pause menu's rows");
-    a = p.Press(F::Input::Back);
-    Check(a.kind == F::ActionKind::Pause && a.id == "resume", "front end: Back on the pause menu resumes");
-    p.SelectId("restart");
-    a = p.Press(F::Input::Confirm);
-    Check(a.kind == F::ActionKind::Pause && a.id == "restart", "front end: Restart");
-    p.SelectId("goals");
-    p.Press(F::Input::Confirm);
-    Tick(p, F::kWipeSeconds + 0.05f);
-    Check(p.Shown() == F::Screen::PauseGoals && p.Items().size() == 2 && p.SelectedId() == "gaps" && p.OverPause(),
-          "front end: Goals and gaps (no goals in free skate: gaps, your options)");
-    p.Press(F::Input::Back);
-    Tick(p, F::kWipeSeconds + 0.05f);
-    p.SelectId("changelevel");
-    p.Press(F::Input::Confirm);
-    Tick(p, F::kWipeSeconds + 0.05f);
+    p.Reset(&fx.catalogue, fx.views, "", {F::Screen::Pause, F::Screen::Levels}, F::LevelsFor::Pause);
     Check(p.Shown() == F::Screen::Levels && p.LevelsPurpose() == F::LevelsFor::Pause && p.OverPause(),
           "front end: Change level - our level select, over the pause menu");
-    p.Press(F::Input::Back);
-    Tick(p, F::kWipeSeconds + 0.05f);
-    pc.pauseFreeSkate = false; // (a career: the original's level select)
-    p.SetContext(pc);
-    p.SelectId("changelevel");
-    a = p.Press(F::Input::Confirm);
-    Check(a.kind == F::ActionKind::Pause && a.id == "changelevel" && !p.SelectId("restart"),
-          "front end: in a career, Change level is the original's and there's no Restart");
-    p.SelectId("options");
-    p.Press(F::Input::Confirm);
-    Tick(p, F::kWipeSeconds + 0.05f);
-    Check(p.Shown() == F::Screen::Options && p.OverPause(), "front end: Options over the pause menu");
+    F::Menu o;
+    o.Reset(&fx.catalogue, fx.views, "", {F::Screen::Pause, F::Screen::Options});
+    Check(o.Shown() == F::Screen::Options && o.OverPause(), "front end: Options over the pause menu");
+    o.Press(F::Input::Back);
+    Tick(o, F::kWipeSeconds + 0.05f);
+    Check(o.Shown() == F::Screen::Pause, "front end: Back from Options - the Pause root");
 
-    // No data: the level select can't open from Create.
-    F::Menu empty;
-    empty.Reset(nullptr, {}, "", {F::Screen::Main, F::Screen::Create});
-    empty.SelectId("cagr");
-    Check(empty.Press(F::Input::Confirm).id == "cagr", "front end: Create without data");
     Check(Near(F::EaseOut(0.0f), 0.0f) && Near(F::EaseOut(1.0f), 1.0f) && Near(F::EaseOut(0.5f), 0.875f) &&
               Near(F::EaseOut(2.0f), 1.0f),
           "front end: EaseOut");
     F::Screen s;
-    Check(F::ScreenFromName("PauseGoals", &s) && s == F::Screen::PauseGoals && std::string(F::ScreenName(F::Screen::Online)) == "online" &&
-              !F::ScreenFromName("nothing", &s),
+    Check(F::ScreenFromName("Options", &s) && s == F::Screen::Options && std::string(F::ScreenName(F::Screen::Levels)) == "levels" &&
+              !F::ScreenFromName("career", &s) && !F::ScreenFromName("nothing", &s),
           "front end: screen names");
 }
 SELFTEST(Early, TestFrontendMenus);
@@ -841,51 +666,24 @@ SELFTEST(Early, TestFrontendMirrorTracker);
 
 void TestFrontendRightSide()
 {
-    // The main menu with a level to continue: each item its own art, kicker and name - never the last level's
-    // (the user's report of 2026-10-25: "CONTINUE - THPS3 / AIRPORT" whatever was highlighted).
-    Fixture fx(5, 30);
-    F::Menu m;
-    F::Context ctx;
-    ctx.levelsListed = true;
-    m.SetContext(ctx);
-    m.Reset(&fx.catalogue, fx.views, "load_b20");
-    Check(m.CanContinue() && F::ContinueName(m) == "load_b20", "front end: Continue's level for the hints row");
+    // The restyled main menu: each item its own art and name - never the last level's (the user's report of 2026-10-25:
+    // "CONTINUE - THPS3 / AIRPORT" whatever was highlighted); Quit too.
     std::vector<std::string> arts, names;
-    bool follows = true;
-    for (int i = 0; i < F::kMainItems; ++i) {
-        m.HoverItem(i);
-        F::Feature f = F::FeatureFor(m);
-        follows = follows && f.name == m.Items()[i].label && !f.art.empty() && !f.launching &&
-                  f.kicker.find("Continue") == std::string::npos && f.name != "load_b20";
-        arts.push_back(f.art);
-        names.push_back(f.name);
+    for (const char* id : {"menu_newfe_career", "menu_singlesess", "menu_net", "menu_createamodes", "menu_newfe_options",
+                           "menu_quit"}) {
+        const M::ItemStyle* style = M::MenuItemStyle(Crc::GenerateCRCFromString(id));
+        arts.push_back(style && style->ourId ? F::DefaultArt(style->ourId) : std::string());
+        names.push_back(style && style->label ? style->label : "");
     }
     bool distinct = true;
-    for (size_t i = 0; i < arts.size(); ++i)
+    for (size_t i = 0; i < arts.size(); ++i) {
+        distinct = distinct && !arts[i].empty() && !names[i].empty();
         for (size_t j = i + 1; j < arts.size(); ++j)
             distinct = distinct && arts[i] != arts[j] && names[i] != names[j];
-    Check(follows, "front end: the main menu's right side is the highlighted item's");
+    }
     Check(distinct, "front end: every main menu item has its own art and name (Quit too)");
-    m.HoverItem(F::kMainQuit);
-    Check(F::FeatureFor(m).kicker.find(Front::NewFrontend::Text::kMainKicker) == 0 &&
-              F::FeatureFor(m).kicker.find("06") != std::string::npos,
-          "front end: the main menu's kicker numbers the item");
-    // Continue launched: the last level's art and name, then (the launch over) the item again.
-    m.ClickContinue();
-    F::Feature launch = F::FeatureFor(m);
-    Check(launch.launching && launch.name == "load_b20" && launch.kicker == "THPS3", "front end: Continue's launch shows its level");
-    // Another screen: the career's items each theirs too.
-    F::Menu career;
-    career.SetContext(ctx);
-    career.Reset(&fx.catalogue, fx.views, "load_b20", {F::Screen::Main, F::Screen::Career});
-    career.HoverItem(1);
-    F::Feature c = F::FeatureFor(career);
-    Check(c.name == career.Items()[1].label && c.art == F::DefaultArt("classic") && F::ContinueName(career) == "load_b20",
-          "front end: the career screen's right side follows its item");
-    // The pause screens show the level played (not an item): nothing from FeatureFor.
-    F::Menu p;
-    p.Reset(&fx.catalogue, fx.views, "", {F::Screen::Pause});
-    Check(F::FeatureFor(p).name.empty() && F::FeatureFor(p).art.empty(), "front end: the pause screen keeps the level");
+    Check(M::MenuItemStyle(Crc::GenerateCRCFromString("menu_skate_now")) == nullptr && M::PauseLabel(0x1234) == std::string(),
+          "front end: an item we don't know keeps the game's own words");
 }
 SELFTEST(Early, TestFrontendRightSide);
 
@@ -901,39 +699,36 @@ bool PlainCopy(const std::string& s)
 
 void TestFrontendCopy()
 {
-    F::Context c;
-    c.levelsListed = c.levelEditor = c.storyStarted = true;
-    c.pauseRetry = c.pauseGoals = c.pauseGaps = c.pauseYourOptions = c.pauseChangeLevel = c.pauseFreeSkate = true;
-    c.pauseEditor = c.pauseBmx = c.pauseGameOptions = c.pauseQuit = true;
-    c.identity = "THUG2";
-    c.lobby = "Beenox";
     bool plain = true;
     std::string offender;
-    for (int s = 0; s < F::kScreens; ++s)
-        for (int mode = 0; mode < 2; ++mode)
-            for (bool load : {false, true})
-                for (const F::Item& it : F::ItemsFor(static_cast<F::Screen>(s), c, mode, load))
-                    for (const std::string& text : {it.label, it.blurb, it.tag, it.detail})
-                        if (!PlainCopy(text)) {
-                            plain = false;
-                            offender = text;
-                        }
-    c.levelEditor = false;
-    for (const F::Item& it : F::ItemsFor(F::Screen::Create, c, 0, false))
-        if (!PlainCopy(it.blurb)) {
+    auto check = [&](const char* text) {
+        if (text && !PlainCopy(text)) {
             plain = false;
-            offender = it.blurb;
+            offender = text;
         }
-    for (const Opt::Spec& spec : Opt::Specs())
-        for (const char* text : {spec.label, spec.help})
-            if (!PlainCopy(text)) {
-                plain = false;
-                offender = text;
-            }
+    };
+    for (const char* id : {"menu_newfe_career", "menu_singlesess", "menu_net", "menu_createamodes", "menu_newfe_options",
+                           "menu_quit", "menu_career", "menu_classic", "menu_newfe_thugstory", "ss_continue_story",
+                           "ss_new_story", "ss_load_story", "menu_cas", "menu_cat", "menu_creategoals", "menu_parked",
+                           "menu_cagr", "menu_newfe_editor"})
+        if (const M::ItemStyle* style = M::MenuItemStyle(Crc::GenerateCRCFromString(id))) {
+            check(style->label);
+            check(style->blurb);
+            check(style->tag);
+        }
+    for (const char* id : {"menu_continue", "menu_retry_goal", "menu_newfe_restart", "menu_view_goals", "menu_your_options",
+                           "menu_level_select", "menu_level_editor", "menu_newfe_options", "menu_skateshop"})
+        check(M::PauseLabel(Crc::GenerateCRCFromString(id)));
+    for (const Opt::Spec& spec : Opt::Specs()) {
+        check(spec.label);
+        check(spec.help);
+    }
     Check(plain, ("front end: the copy is plain (no parentheses, file names, ini keys): " + offender).c_str());
     // The main menu's items need no helper line except Free Skate's; Quit has none.
-    std::vector<F::Item> main = F::ItemsFor(F::Screen::Main, c, 0, false);
-    Check(main[F::kMainQuit].blurb.empty() && main[F::kMainOptions].blurb.empty(), "front end: Quit and Options say nothing more");
+    const M::ItemStyle* quit = M::MenuItemStyle(Crc::GenerateCRCFromString("menu_quit"));
+    const M::ItemStyle* options = M::MenuItemStyle(Crc::GenerateCRCFromString("menu_newfe_options"));
+    Check(quit && options && std::string(quit->blurb).empty() && std::string(options->blurb).empty(),
+          "front end: Quit and Options say nothing more");
 }
 SELFTEST(Early, TestFrontendCopy);
 

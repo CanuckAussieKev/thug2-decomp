@@ -101,30 +101,22 @@ struct RowAnim {
 
 // --- the menus -----------------------------------------------------------------------------------------------------
 
-// The screens. List screens (all but Levels and Options) are numbered items in big type down the left, the highlighted
-// item's art full-bleed on the right with its name; Pause and PauseGoals are drawn over the dimmed game.
+// The screens. The new front end's own screens are only those with no menu of the game's behind them - the settings
+// and the level select -, opened by a menu's item (NewFrontend_Open); every menu is the game's, restyled
+// (new_frontend_mirror.h). Main and Pause are the roots they open on (never drawn: back at one, ours goes aside).
 enum class Screen {
-    Main,       // Career, Free Skate, Online, Create, Options
-    Career,     // THUG2 Story, Classic, THUG Story (in development)
-    Story,      // continue / new / load (mode 0)
-    Classic,    // the same for Classic (mode 1)
-    Difficulty, // a new story / classic career's difficulty
-    Confirm,    // "your progress is lost" before a new career or a load over a started one
-    Create,     // Create-A-Skater ... Level Editor
-    Online,     // the hand-off to the original's online flow, the identity
-    Options,    // thug2-decomp.ini's settings (new_frontend_options.h) and the original's GAME OPTIONS
-    Levels,     // the level select (Free Skate, the pause menu's Change level, the Level Editor's level)
-    Pause,      // in a level
-    PauseGoals, // Goals and gaps
+    Main,    // the root in the front end
+    Options, // thug2-decomp.ini's settings (new_frontend_options.h) and the game's GAME OPTIONS
+    Levels,  // the level select (Free Skate, the pause menu's Change level, the Level Editor's level)
+    Pause,   // the root in a level
 };
-constexpr int kScreens = 12;
-const char* ScreenName(Screen screen); // "main", "career", ... (the automation channel's names)
+constexpr int kScreens = 4;
+const char* ScreenName(Screen screen); // "main", "options", "levels", "pause" (the automation channel's names)
 bool ScreenFromName(const std::string& name, Screen* out);
-bool IsListScreen(Screen screen);
-bool IsPauseScreen(Screen screen); // Pause, PauseGoals - and Options / Levels when opened from them
+bool IsPauseScreen(Screen screen); // Pause - and Options / Levels when opened from it (OverPause)
 
 // What the player did (the keyboard, a controller, the mouse - new_frontend.cpp turns them into these).
-enum class Input { Up, Down, Left, Right, Confirm, Back, Resume, PrevTab, NextTab };
+enum class Input { Up, Down, Left, Right, Confirm, Back, PrevTab, NextTab };
 
 // What the menus ask the game for.
 enum class ActionKind {
@@ -132,66 +124,22 @@ enum class ActionKind {
     MoveSound,      // the selection moved (the menus' up / down sound)
     ChooseSound,    // something chosen
     BackSound,
-    FreeSkate,      // the original's skater select (then the level select over its skate shop menu)
-    CareerContinue, // mode
-    CareerNew,      // mode, value: the difficulty (the game's: story 0 easy 1 normal 2 sick, classic 0 normal 1 sick),
-                    // overwrite: a started career is reset (the original's warning answered yes)
-    CareerLoad,     // mode, overwrite
-    Create,         // id: cas, cat, cag, cap, cagr
-    Online,         // the original's online flow
-    GameOptions,    // the original's GAME OPTIONS (in a level: the pause menu's)
-    Quit,           // QUIT's confirm (the main menu's Back)
-    AnchorBack,     // the original screen under ours goes back (ours already did)
+    GameOptions,    // the game's GAME OPTIONS (in a level: the pause menu's)
     Option,         // option: an index into Options::Specs(), value: its choice
     Skate,          // load; levels: what the level select was opened for
-    Pause,          // id: the pause row (resume, retry, restart, goals, gaps, youroptions, changelevel, editor, bmx,
-                    // original, quit)
 };
 enum class LevelsFor { FreeSkate, Pause, Edit };
 struct Action {
     ActionKind kind = ActionKind::None;
     std::string load;
     std::string id;
-    int mode = 0;
     int value = 0;
     int option = -1;
-    bool overwrite = false;
     LevelsFor levels = LevelsFor::FreeSkate;
 };
 
-// A list screen's item.
-struct Item {
-    std::string id;     // "career", "continue", "cas" ...
-    std::string label;  // "Career"
-    std::string blurb;  // the line at the foot of the list
-    std::string art;    // an image (the art on the right), or "" (menu_art / DefaultArt by id)
-    std::string tag;    // a small mono note after the label ("In development")
-    std::string detail; // a mono line under the big name (Online: the identity)
-    bool enabled = true; // (a disabled item is listed dimmed and skipped)
-};
-
-// What the game says, for the items.
-struct Context {
-    bool levelsListed = false; // levels.json was read (Free Skate, Change level, the Level Editor's level)
-    bool storyStarted = false, classicStarted = false; // CAREER_STARTED / CLASSIC_STARTED
-    bool levelEditor = false;  // the level editor can open ([features] level_editor, the overlay's scripts)
-    std::string identity;      // "THUG2", "THUGPRO"
-    std::string lobby;         // "Beenox"
-    // In a level: the original pause menu's items there (each of ours does what its does).
-    bool pauseRetry = false, pauseGoals = false, pauseGaps = false, pauseYourOptions = false;
-    bool pauseChangeLevel = false;
-    bool pauseFreeSkate = false; // (free skate: Change level is our level select, Restart is offered)
-    bool pauseEditor = false, pauseBmx = false, pauseGameOptions = false, pauseQuit = false;
-    std::string bmxLabel = Text::kRideBmx;
-};
-
-// The main menu's items, in order.
-enum MainItem { kMainCareer, kMainFreeSkate, kMainOnline, kMainCreate, kMainOptions, kMainQuit, kMainItems };
-// A list screen's items (`mode`: the career screens' 0 story / 1 classic; `confirmLoad`: Confirm is before a load).
-std::vector<Item> ItemsFor(Screen screen, const Context& context, int mode, bool confirmLoad);
-// The header's text and the kicker over the big name.
-std::string ScreenTitle(Screen screen, int mode);
-// The art for an item id when levels.json's menu_art has none (THUG2's own loading screens).
+// The art for a menu item's id (ours - Mirror::MenuItemStyle) when levels.json's menu_art has none (THUG2's own loading
+// screens).
 std::string DefaultArt(const std::string& itemId);
 
 // One section as the level select shows it: the levels to list (indices into Section::levels: a locked
@@ -204,33 +152,25 @@ struct SectionView {
 class Menu {
 public:
     // The data (kept by the caller), each section's view, and the screens open (`stack`, the last shown): Back pops
-    // them; `anchorDepth` (an index into the stack, -1: none) is the screen the original screen under ours stands for
-    // - Back from it is AnchorBack. `levels`: what an open level select is for.
+    // them (back at the root: nothing - the caller steps ours aside). `levels`: what an open level select is for.
     void Reset(const Catalogue* catalogue, std::vector<SectionView> views, const std::string& lastLevel,
-               std::vector<Screen> stack = {Screen::Main}, int anchorDepth = -1, LevelsFor levels = LevelsFor::FreeSkate);
+               std::vector<Screen> stack = {Screen::Main}, LevelsFor levels = LevelsFor::FreeSkate);
     void SetLastLevel(const std::string& load) { m_lastLevel = load; }
     // The sections' views made again (the locks changed): each section's row kept where it still is.
     void SetViews(std::vector<SectionView> views);
     const std::string& LastLevel() const { return m_lastLevel; }
-    // Whether Continue has a level (in the data).
-    bool CanContinue() const;
-    // What the game says (the items made again; each screen's selection kept by its id where it's still there).
-    void SetContext(const Context& context);
-    const Context& GetContext() const { return m_context; }
     // The options' choices, one per Options::Specs() entry.
     void SetOptionValues(std::vector<int> choices) { m_options = std::move(choices); }
     const std::vector<int>& OptionValues() const { return m_options; }
     void SetOptionGroup(int group);
-    // The career screens' mode (0 story, 1 classic) - for a Reset onto Difficulty / Confirm.
-    void SetCareerMode(int mode) { m_mode = mode; }
 
     // A screen opened from outside the menus (with the wipe): the level select for `levels` when it's Levels.
     void Open(Screen screen, LevelsFor levels = LevelsFor::FreeSkate);
 
     // A key / button. The action, if any (a menu action at once; Skate only from Tick, after the launch).
     Action Press(Input input);
-    // The mouse over an item of the list (its index), a level row, a game tab / option group, an option row; a click
-    // selects and chooses (as Confirm); on a tab, the tab; on an option's choice, that choice.
+    // The mouse over an option row (its index), a level row, a game tab / option group; a click selects and chooses
+    // (as Confirm); on a tab, the tab; on an option's choice, that choice.
     Action HoverItem(int index);
     Action ClickItem(int index);
     Action HoverLevel(int row);
@@ -238,7 +178,6 @@ public:
     Action ClickTab(int section);
     Action ClickBack();
     Action ClickSkate();
-    Action ClickContinue();
     Action ClickChoice(int row, int choice);
     // The wheel: notches up (+) or down (-).
     Action Wheel(int notches);
@@ -247,8 +186,8 @@ public:
     Action Tick(float dt);
 
     // --- the automation channel ---
-    // The shown screen's item `id` selected (a list's item id; a level's load script or name; an option's key or
-    // "game_options"; "tab:<section id>" / "group:<group id>"). False if it isn't there (or disabled).
+    // The shown screen's item `id` selected (a level's load script or name; an option's key or "game_options";
+    // "tab:<section id>" / "group:<group id>"). False if it isn't there (or disabled).
     bool SelectId(const std::string& id);
     // The shown screen's selection as such an id ("" if none).
     std::string SelectedId() const;
@@ -259,12 +198,8 @@ public:
     int Depth() const { return static_cast<int>(m_stack.size()); }
     // Whether the screens open are the pause menu's (Options / Levels opened from it are drawn over the game too).
     bool OverPause() const;
-    const std::vector<Item>& Items() const { return m_items; } // the shown list screen's
     int Selected() const;                                       // the shown list's selection (-1: none)
-    int Mode() const { return m_mode; }
-    bool ConfirmLoad() const { return m_confirmLoad; }
     LevelsFor LevelsPurpose() const { return m_levelsFor; }
-    int MainSelected() const { return m_sel[static_cast<int>(Screen::Main)]; }
     int SectionIndex() const { return m_section; }
     int LevelRow() const;                      // the selected row in the section's list (-1: an empty list)
     const SectionView* View() const;           // the section's view (null: no sections)
@@ -308,18 +243,14 @@ public:
 private:
     void Go(Screen screen);
     void Pop();
-    void Show(Screen screen); // (the wipe's half-way: the screen's list made)
-    void BuildItems();
-    int& Sel();
+    void Show(Screen screen); // (the wipe's half-way)
     int ListCount() const;
-    int FirstEnabled(int from, int step) const;
     Action MoveTo(int index);
     Action MoveBy(int step);
     Action MoveLevel(int row);
     Action SetSection(int section);
     Action ChangeOption(int step, bool wrap);
     Action Confirm();
-    Action ConfirmItem(const std::string& id);
     Action Back();
     Action StartLaunch(const std::string& load);
     void ClampScroll(bool snap);
@@ -329,14 +260,8 @@ private:
     std::vector<SectionView> m_views;
     std::vector<int> m_rowInSection; // the row last selected in each section
     std::string m_lastLevel;
-    Context m_context;
     std::vector<Screen> m_stack = {Screen::Main};
-    int m_anchorDepth = -1;
     Screen m_shown = Screen::Main;
-    std::vector<Item> m_items;
-    int m_sel[kScreens] = {1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0}; // (the main menu starts on Free Skate)
-    int m_mode = 0;
-    bool m_confirmLoad = false;
     LevelsFor m_levelsFor = LevelsFor::FreeSkate;
     int m_section = 0;
     std::vector<int> m_options;
@@ -354,25 +279,10 @@ private:
     float m_time = 0.0f;
 };
 
-// The right side of a list screen (not the pause screens: those show the level being played): the highlighted item's
-// own art, its name big and the kicker over it - following the highlighted item on every screen (the user's report of
-// 2026-10-25: the main menu showed the last level played whatever was highlighted). Continue lives on the hints row
-// (ContinueName). While Continue's launch runs, the last level's art and name (the name slices, the art comes up).
-struct Feature {
-    std::string art;    // an image name ("" none)
-    std::string kicker; // the mono line over the name
-    std::string name;   // the big name
-    std::string detail; // a mono line under it (Online: the lobbies)
-    bool launching = false;
-};
-Feature FeatureFor(const Menu& menu);
-// The last level played, for the main menu's "X Resume <name>" ("" when there is none to continue).
-std::string ContinueName(const Menu& menu);
+// --- covering a change of screen -----------------------------------------------------------------------------------
 
-// --- covering a hand-off ------------------------------------------------------------------------------------------
-
-// No original screen may show between ours and the screen a hand-off goes to, nor on the way back (the user's report of
-// 2026-10-25: GAME OPTIONS flashed the original THUG2 menu for a moment). While a cover is on, the last screen drawn
+// No original screen may show between ours and the next screen, nor on the way back (the user's report of 2026-10-25:
+// GAME OPTIONS flashed the original THUG2 menu for a moment). While a cover is on, the last screen drawn
 // (ours, or the restyled one) stays on screen with the original's elements hidden, until the target is ready: ours or a
 // restyled screen up, the game playing (or a tool's own UI, a loading screen), or an original screen that stays
 // original has stood still for kSettleSeconds; kMaxSeconds at most.

@@ -14,31 +14,21 @@ struct FrontEnd;
 // item's name big on the right with a mono kicker and hints.
 //
 // thug2-decomp.ini [features] new_frontend=1 (default 0: nothing of this runs - no context, no input taken, no file
-// read). While on, it is drawn over the original screens it stands for ("anchors" - new_frontend_handoff.h) and has
-// the input:
-//   - over the MAIN MENU: Main (Career, Free Skate, Online, Create, Options; X / R: Continue - the last level played);
-//     Career (THUG2 Story, Classic, THUG Story shown as in development), Story / Classic (Continue, New, Load progress),
-//     Difficulty, Confirm (the original's overwrite warning, asked first); Create (CAS, CAT, CAG, CAP, CAGR, Level
-//     Editor); Online (Play online, Identity); Options (new_frontend_options.h: the ini's settings in five groups,
-//     segmented choices, written to thug2-decomp.ini at once; the Game options row opens the original GAME OPTIONS).
-//   - over STORY / CLASSIC MODE OPTIONS (back from the original's own screens): the mode's screen; Back is the
-//     original's back.
-//   - over CREATE-A-MODES (back from CAS and the others): Create; Back is the original's back.
-//   - over the SKATE SHOP menu after the original's skater select (Free Skate): the level select - Skate starts the
-//     level in free skate (Front::StartLevel::Load); Back goes back to the skater select.
-//   - a level's PAUSE MENU (free skate, story, classic; never online) is the game's own, restyled (phase 3, Kind::Pause):
-//     its items as the game made them for the mode - with the overlay's (make_menu_level addNewFrontendPause: RESTART,
-//     CHANGE LEVEL to our level select, OPTIONS - each only while NewFrontend_PauseItem says so) -, in our words where
-//     we have them (Resume, Quit to menu...), the session (best combo, gaps, time) on the right; the keys and buttons
-//     reach the game's menu, its scripts do what is chosen (one press, one sound - the user's 2026-10-26 rule: no
-//     hand-off to the original menus). Ours comes up only for a screen its item asks for (NewFrontend_Open: the level
-//     select, Options) and goes back to the restyled pause menu when that is closed.
-// Hand-offs (new_frontend_handoff.h) do what the player would press through: the original's items chosen by their
-// pad_choose (found by id, or by their handler's new_menu_script / change_gamemode / dif ...), one a frame, ours drawn
-// over until the original's screen changes; then ours steps aside until an anchor is up again. Free Skate shows every
-// level ([frontend] respect_locks=1: the game's own level select rules - seen flags outside a career, all_levels_
-// unlocked); Career keeps the game's own rules (the original screens). The automation channel's `fe` commands
-// (game/front/automation.h) drive it.// The levels are data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts, written by
+// read). "The scripts say WHAT to show, not HOW to show it" (the user, 2026-10-26): every menu is the game's own -
+// what it holds comes from the game's scripts and the overlay's (make_menu_level.ts addNewFrontendMain / Pause /
+// Skateshop: the main menu's Career, Free Skate, Online, Create, Options, Quit; our Career menu; CREATE-A-MODES' LEVEL
+// EDITOR; the pause menu's RESTART, CHANGE LEVEL, OPTIONS; the skate shop's Play Level - each only while
+// NewFrontend_Item says so) - and is drawn in this look (new_frontend_mirror.h: Kind::Menu, Pause, Dialog, Skaters,
+// List); the keys and buttons go to the game's menu, whose scripts do what is chosen (one press, one sound), the mouse
+// steps it with its own pad events. Nothing presses the game's items for the player. The main menu's Continue (X / R:
+// the last level played) is ours. Ours draws a screen of its own only where no menu of the game's is behind it - the
+// level select and the settings (Options: new_frontend_options.h, the ini's settings in five groups, written at once;
+// its Game options row runs the game's GAME OPTIONS) -, when a menu's item asks for it (NewFrontend_Open), on a root
+// (Main / Pause) it leaves at once on Back. The level select's Skate starts the level in free skate
+// (Front::StartLevel::Load) or changes level from the pause menu; Free Skate shows every level ([frontend]
+// respect_locks=1: the game's own level select rules - seen flags outside a career, all_levels_unlocked); Career keeps
+// the game's own rules. The automation channel's `fe` commands (game/front/automation.h) drive ours.
+// The levels are data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts, written by
 // make_menu_level.ts from the overlay's sectioned level select - the same sections, lists and load scripts). Without
 // it Free Skate goes on to the original's level select. The last level played: thug2-decomp-frontend.txt next to the ini (the level the game last
 // loaded that is in the data - whichever menu started it).

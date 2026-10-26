@@ -27,7 +27,7 @@
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/mouse_menus.h"
 #include "game/front/new_frontend_draw.h"
-#include "game/front/new_frontend_handoff.h"
+#include "game/front/new_frontend_game.h"
 #include "game/front/new_frontend_mirror.h"
 #include "game/front/new_frontend_model.h"
 #include "game/front/new_frontend_options.h"
@@ -63,7 +63,7 @@ void ContinueLastLevel(Mdl::FrontEnd* frontEnd); // (below)
 namespace {
 
 namespace UiBackend = Front::LevelEditor::UiBackend;
-using Handoff::Anchor;
+using GameScreens::Anchor;
 
 uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
 
@@ -107,14 +107,6 @@ int ScriptInteger(const std::string& name)
     return symbol && symbol->type == Script::ESYMBOLTYPE_INTEGER ? symbol->integer : -1;
 }
 
-bool GlobalFlag(const char* name)
-{
-    int flag = ScriptInteger(name);
-    Obj::CSkaterCareer* career = Career();
-    return flag >= 0 && career && career->GetGlobalFlag(flag);
-}
-
-bool ElementThere(const char* id) { return Handoff::Find(Checksum(id)) != nullptr; }
 
 // --- the setting and the files ---
 
@@ -217,10 +209,9 @@ std::string StatePath() { return GameFolderPath("thug2-decomp-frontend.txt"); }
 // --- the state ---
 
 enum class State {
-    Idle,      // not up (no anchor - a level being played, the original's screens of its own)
-    Shown,     // up over an anchor: drawn, with the input
-    HandOff,   // a plan under way: drawn, the input held back
-    Away,      // the original's screens up; back when an anchor is
+    Idle,      // not up (a level being played, the game's screens restyled or as they are)
+    Shown,     // our screen a menu's item asked for: drawn, with the input
+    Away,      // the game's screens up (restyled or as they are)
     Launching, // a level started: the art up until it loads
 };
 const char* StateName(State state)
@@ -228,7 +219,6 @@ const char* StateName(State state)
     switch (state) {
     case State::Idle: return "idle";
     case State::Shown: return "shown";
-    case State::HandOff: return "handing off";
     case State::Away: return "away";
     case State::Launching: return "launching";
     }
@@ -236,11 +226,7 @@ const char* StateName(State state)
 }
 State s_state = State::Idle;
 float s_stateTime = 0.0f;
-Anchor s_anchor = Anchor::None;       // the anchor the screens shown stand over
-std::vector<Screen> s_returnStack;    // the screens a hand-off left from (shown again over the main menu)
-LevelsFor s_returnLevels = LevelsFor::FreeSkate;
-Handoff::Runner s_runner;
-Handoff::Match s_lastChosen;          // a finished plan's last item: drawn until it goes
+Anchor s_anchor = Anchor::None;       // the game's menu up when ours came up (the log, the status)
 // Our screen a menu's item asked for (NewFrontend_Open: the overlay's CHANGE LEVEL / OPTIONS / LEVEL EDITOR items, the
 // skate shop's Play Level) - shown once, over whatever is up, on our root (Main in the front end, Pause in a level);
 // back at the root, ours goes aside again (the restyled menu it came from under it, or `s_openBack` spawned when that
@@ -667,40 +653,6 @@ void ApplyOption(int option, int choice)
     }
 }
 
-// --- the context: what the game says for the items ---
-
-Context BuildContext()
-{
-    Context c;
-    c.levelsListed = s_catalogueOk && !s_catalogue.sections.empty();
-    c.storyStarted = GlobalFlag("CAREER_STARTED");
-    c.classicStarted = GlobalFlag("CLASSIC_STARTED");
-    c.levelEditor = LevelEditor::Enabled() && IsScript(Checksum("level_editor_enter"));
-    std::string name = Net::GameName() ? Net::GameName() : "thps6pc";
-    bool thugpro = _stricmp(name.c_str(), "thugpro") == 0;
-    c.identity = thugpro ? Text::kIdentityThugpro : _stricmp(name.c_str(), "thps6pc") == 0 ? Text::kIdentityThug2 : Text::kIdentityCustom;
-    c.lobby = thugpro ? Text::kLobbyThugpro : Text::kLobbyThug2;
-    if (!InFrontEnd()) {
-        std::string mode = Handoff::GameModeName();
-        c.pauseFreeSkate = mode == "freeskate" || mode == "singlesession";
-        c.pauseRetry = ElementThere("menu_retry_goal");
-        c.pauseGoals = ElementThere("menu_chapters") || ElementThere("menu_view_goals");
-        c.pauseYourOptions = ElementThere("menu_your_options");
-        c.pauseGaps = c.pauseYourOptions; // (VIEW GAPS is in YOUR OPTIONS)
-        c.pauseChangeLevel = ElementThere("menu_level_select");
-        c.pauseEditor = ElementThere("menu_level_editor");
-        c.pauseBmx = ElementThere("menu_thaw_bmx");
-        c.pauseGameOptions = ElementThere("menu_game_options");
-        c.pauseQuit = ElementThere("menu_skateshop");
-        if (c.pauseBmx) {
-            auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
-            Obj::CBaseComponent* core = skater ? skater->GetComponent(kSkaterCorePhysics) : nullptr;
-            c.bmxLabel = core && Skater::ThawBmx::OnBike(core) ? Text::kGetOffBmx : Text::kRideBmx;
-        }
-    }
-    return c;
-}
-
 // The level being played, as the data names it (null if it isn't there).
 const Level* LevelPlayed(const Section** section)
 {
@@ -722,9 +674,9 @@ void SetState(State state)
     if (s_state == state)
         return;
     Log("new front end: %s -> %s%s%s", StateName(s_state), StateName(state),
-        state == State::Shown ? " over the " : "", state == State::Shown ? Handoff::AnchorName(s_anchor) : "");
-    bool wasUp = s_state == State::Shown || s_state == State::HandOff || s_state == State::Launching;
-    bool up = state == State::Shown || state == State::HandOff || state == State::Launching;
+        state == State::Shown ? " over the " : "", state == State::Shown ? GameScreens::AnchorName(s_anchor) : "");
+    bool wasUp = s_state == State::Shown || s_state == State::Launching;
+    bool up = state == State::Shown || state == State::Launching;
     if (wasUp && !up) {
         s_guard = true;
         s_guardTime = 0.0f;
@@ -748,7 +700,7 @@ void HideRoot(bool hide, bool force = false)
     if (!IsScript(Checksum(script)))
         return;
     Script::RunScript(Checksum(script), nullptr, nullptr, false, script);
-    if (CScreenElement* root = Handoff::Find(Checksum("root_window")))
+    if (CScreenElement* root = GameScreens::Find(Checksum("root_window")))
         root->SetAlpha(hide ? 0.0f : 1.0f, 1);
     s_rootHidden = hide;
 }
@@ -760,7 +712,7 @@ void KeepRootHidden()
 {
     if (!s_rootHidden)
         return;
-    CScreenElement* root = Handoff::Find(Checksum("root_window"));
+    CScreenElement* root = GameScreens::Find(Checksum("root_window"));
     if (!root || (root->m_target.scaleX < 0.001f && root->m_target.alpha < 0.001f))
         return;
     static int s_logged = 0;
@@ -951,7 +903,7 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
         return read;
     }
     if (skaters) {
-        if (CScreenElement* name = Handoff::Find(Checksum("select_skater_name")))
+        if (CScreenElement* name = GameScreens::Find(Checksum("select_skater_name")))
             if (TypeOf(name) == TextType() && reinterpret_cast<CTextElement*>(name)->m_string)
                 read.skaterName = reinterpret_cast<CTextElement*>(name)->m_string;
         if (read.selectedIndex >= 0 && read.selectedIndex < static_cast<int>(read.items.size()))
@@ -960,7 +912,7 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
     }
     // A list: its title (title_text, the themed menus'), the other words on its screen (under the same child of the
     // root: not the menu, its title or the helper text).
-    if (CScreenElement* title = Handoff::Find(Checksum("title_text")))
+    if (CScreenElement* title = GameScreens::Find(Checksum("title_text")))
         if (TypeOf(title) == TextType() && reinterpret_cast<CTextElement*>(title)->m_string && Visible(title))
             read.title = reinterpret_cast<CTextElement*>(title)->m_string;
     CScreenElement* root = RootElement();
@@ -973,7 +925,7 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
     }
     std::vector<const CScreenElement*> skip = {menu};
     for (const char* id : {"helper_text_anchor", "submenu_title_anchor", "title_text"})
-        if (CScreenElement* e = Handoff::Find(Checksum(id)))
+        if (CScreenElement* e = GameScreens::Find(Checksum(id)))
             skip.push_back(e);
     if (screen && screen != menu)
         CollectTexts(screen, &read.extraTexts, skip, &budget, true);
@@ -1003,7 +955,7 @@ Mirror::Policy MirrorPolicy()
     policy.lists = GetPrivateProfileIntA("frontend", "restyle_menus", 1, ini.c_str()) != 0;
     policy.dialogs = GetPrivateProfileIntA("frontend", "restyle_dialogs", 1, ini.c_str()) != 0;
     policy.skaters = GetPrivateProfileIntA("frontend", "restyle_skater_select", 1, ini.c_str()) != 0;
-    std::string mode = Handoff::GameModeName();
+    std::string mode = GameScreens::GameModeName();
     policy.editor = s_leftOriginal != nullptr || mode == "parkeditor" || mode == "creategoals" ||
                     ScriptInteger("in_cat_preview_mode") == 1;
     return policy;
@@ -1012,7 +964,7 @@ Mirror::Policy MirrorPolicy()
 // What to restyle now (kind None: nothing).
 Mirror::View MirrorNow()
 {
-    if (!LevelLoad() || LoadingScreenUp() || Handoff::NetSession() || LevelEditor::Active())
+    if (!LevelLoad() || LoadingScreenUp() || GameScreens::NetSession() || LevelEditor::Active())
         return {};
     if (s_leftOriginal && std::strcmp(s_leftOriginal, "online") == 0)
         return {}; // (online: the original's screens, dialogs and all - the user tests online)
@@ -1025,7 +977,7 @@ Mirror::View MirrorNow()
     static uint32_t s_lastMenu = 0, s_lastItem = 0;
     static const char* const kEditor = "a create mode's editor";
     uint32_t menuId = IdOfElement(menu);
-    bool createModes = Handoff::Find(Checksum("menu_cas")) != nullptr;
+    bool createModes = GameScreens::Find(Checksum("menu_cas")) != nullptr;
     if (s_leftOriginal == kEditor && (menuId == Checksum("main_vmenu") || createModes))
         s_leftOriginal = nullptr;
     if (!s_leftOriginal && menuId != s_lastMenu && s_lastMenu == Checksum("main_menu") && !createModes &&
@@ -1254,7 +1206,6 @@ void Show(Anchor anchor)
     }
     Screen root = InFrontEnd() ? Screen::Main : Screen::Pause;
     std::vector<Screen> stack = {root, s_openScreen};
-    int anchorDepth = -1;
     LevelsFor levels = s_openLevels;
     s_openRoot = root;
     s_shownBack = s_openBack;
@@ -1270,70 +1221,11 @@ void Show(Anchor anchor)
         Log("new front end: the restyled screen gone (ours up)");
     s_mirror.Reset();
     s_mirrorHits.clear();
-    s_menu.SetContext(BuildContext());
-    s_menu.Reset(&s_catalogue, Views(), s_saved.lastLevel, stack, anchorDepth, levels);
+    s_menu.Reset(&s_catalogue, Views(), s_saved.lastLevel, stack, levels);
     LoadOptionValues();
     s_skaterName = root == Screen::Pause ? std::string() : SkaterName();
     s_hits.clear();
-    s_returnStack.clear();
-    s_returnLevels = LevelsFor::FreeSkate;
     SetState(State::Shown);
-}
-
-// A plan started: ours stays drawn, the input waits.
-void StartPlan(Handoff::Plan plan)
-{
-    s_lastChosen = {};
-    for (const Handoff::Step& step : plan.steps)
-        if (step.kind == Handoff::Step::Kind::Choose)
-            s_lastChosen = step.match;
-    s_runner.Start(std::move(plan));
-    SetState(State::HandOff);
-}
-
-// The screens open now (Menu keeps them; rebuilt from what is shown and its depth).
-std::vector<Screen> OpenScreens()
-{
-    // (the menu's stack isn't exposed beyond its top and depth: the paths to each screen are fixed)
-    Screen top = s_menu.Target();
-    switch (top) {
-    case Screen::Main: return {Screen::Main};
-    case Screen::Career: return {Screen::Main, Screen::Career};
-    case Screen::Story: return {Screen::Main, Screen::Career, Screen::Story};
-    case Screen::Classic: return {Screen::Main, Screen::Career, Screen::Classic};
-    case Screen::Difficulty:
-    case Screen::Confirm:
-        return {Screen::Main, Screen::Career, s_menu.Mode() ? Screen::Classic : Screen::Story};
-    case Screen::Create: return {Screen::Main, Screen::Create};
-    case Screen::Online: return {Screen::Main, Screen::Online};
-    case Screen::Options: return {Screen::Main, Screen::Options};
-    case Screen::Levels:
-        if (s_menu.LevelsPurpose() == LevelsFor::Edit)
-            return {Screen::Main, Screen::Create};
-        return {Screen::Main};
-    case Screen::Pause:
-    case Screen::PauseGoals: return {Screen::Pause};
-    }
-    return {Screen::Main};
-}
-
-// The main menu's item for `newMenuScript` (and `gamemode`) - the first step of the front end's hand-offs - unless
-// the anchor already is past it.
-void FromMainMenu(Handoff::Plan* plan, const char* newMenuScript, const char* gamemode, Anchor skipWhen = Anchor::None)
-{
-    if (skipWhen != Anchor::None && s_anchor == skipWhen)
-        return;
-    std::vector<std::pair<const char*, const char*>> params = {{"new_menu_script", newMenuScript}};
-    if (gamemode)
-        params.emplace_back("change_gamemode", gamemode);
-    plan->steps.push_back(Handoff::ChooseBy(nullptr, params));
-}
-
-void HandOff(Handoff::Plan plan)
-{
-    s_returnStack = OpenScreens();
-    s_returnLevels = s_menu.LevelsPurpose();
-    StartPlan(std::move(plan));
 }
 
 void Do(Mdl::FrontEnd* frontEnd, const Action& action)
@@ -1344,82 +1236,6 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
     case ActionKind::MoveSound: Sound("generic_menu_up_or_down_sound", "up"); return;
     case ActionKind::ChooseSound: Sound("generic_menu_pad_choose_sound"); return;
     case ActionKind::BackSound: Sound("generic_menu_pad_back_sound"); return;
-    case ActionKind::FreeSkate: {
-        Sound("generic_menu_pad_choose_sound");
-        if (!Handoff::Exists(Handoff::ChooseBy(nullptr, {{"new_menu_script", "launch_select_skater_menu"},
-                                                         {"change_gamemode", "change_gamemode_singlesession"}})
-                                 .match)) {
-            // (no FREE SKATE item to hand to: our level select, the skater as he is)
-            Log("new front end: no FREE SKATE item in the original main menu - the level select at once");
-            if (s_catalogueOk)
-                s_menu.Open(Screen::Levels, LevelsFor::FreeSkate);
-            return;
-        }
-        Handoff::Plan plan;
-        plan.what = "free skate: the skater select";
-        FromMainMenu(&plan, "launch_select_skater_menu", "change_gamemode_singlesession");
-        HandOff(std::move(plan));
-        return;
-    }
-    case ActionKind::CareerContinue:
-    case ActionKind::CareerNew:
-    case ActionKind::CareerLoad: {
-        Sound("generic_menu_pad_choose_sound");
-        bool classic = action.mode == 1;
-        Handoff::Plan plan;
-        // (over STORY / CLASSIC MODE OPTIONS of the same mode already: from there)
-        bool there = s_anchor == Anchor::CareerOptions && (Handoff::GameModeName() == "classic") == classic;
-        if (!there)
-            FromMainMenu(&plan, "create_gamemode_options_menu", classic ? "change_gamemode_classic" : "change_gamemode_career");
-        if (action.kind == ActionKind::CareerContinue) {
-            plan.what = classic ? "classic: continue" : "story: continue";
-            plan.steps.push_back(Handoff::ChooseId("ss_continue_story"));
-        } else if (action.kind == ActionKind::CareerNew) {
-            plan.what = classic ? "classic: new" : "story: new";
-            plan.steps.push_back(Handoff::ChooseId("ss_new_story"));
-            if (action.overwrite) // (the original's warning: Yes)
-                plan.steps.push_back(Handoff::ChooseBy(nullptr, {{"new_menu_script", "reset_gamemode"}}));
-            plan.steps.push_back(Handoff::ChooseBy(nullptr, {{"new_menu_script", "set_gamemode_difficulty"}},
-                                                   {{"dif", action.value}}));
-        } else {
-            plan.what = classic ? "classic: load" : "story: load";
-            plan.steps.push_back(Handoff::ChooseId("ss_load_story"));
-            if (action.overwrite)
-                plan.steps.push_back(Handoff::ChooseBy(nullptr, {{"new_menu_script", "reset_gamemode"}}));
-        }
-        if (there && !plan.steps.empty())
-            plan.what += " (from the options screen)";
-        HandOff(std::move(plan));
-        return;
-    }
-    case ActionKind::Create: {
-        Sound("generic_menu_pad_choose_sound");
-        static const std::pair<const char*, const char*> kItems[] = {
-            {"cas", "menu_cas"}, {"cat", "menu_cat"}, {"cag", "menu_creategoals"}, {"cap", "menu_parked"}, {"cagr", "menu_cagr"}};
-        const char* item = nullptr;
-        for (const auto& [id, element] : kItems)
-            if (action.id == id)
-                item = element;
-        if (!item)
-            return;
-        Handoff::Plan plan;
-        plan.what = "create: " + action.id;
-        FromMainMenu(&plan, "create_createamodes_menu", nullptr, Anchor::CreateModes);
-        plan.steps.push_back(Handoff::ChooseId(item));
-        HandOff(std::move(plan));
-        s_leftOriginal = "a create mode's editor"; // (its menus stay the original's until ours is back)
-        return;
-    }
-    case ActionKind::Online: {
-        // (only ever the player's own press: the automation channel refuses it)
-        Sound("generic_menu_pad_choose_sound");
-        Handoff::Plan plan;
-        plan.what = "online: the original's online screens";
-        FromMainMenu(&plan, "select_network_play_multi", "change_gamemode_net");
-        HandOff(std::move(plan));
-        s_leftOriginal = "online"; // (the online screens stay the original's)
-        return;
-    }
     case ActionKind::GameOptions: {
         Sound("generic_menu_pad_choose_sound");
         {
@@ -1432,30 +1248,6 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
             Script::SpawnScript(Checksum(script), nullptr, 0, nullptr, 0, 0, false, false, false, false);
             return;
         }
-    }
-    case ActionKind::Quit: {
-        Sound("generic_menu_pad_back_sound");
-        Handoff::Plan plan;
-        plan.what = "quit: the original's confirm";
-        FromMainMenu(&plan, "main_menu_exit_game", nullptr);
-        HandOff(std::move(plan));
-        return;
-    }
-    case ActionKind::AnchorBack: {
-        Sound("generic_menu_pad_back_sound");
-        Handoff::Plan plan;
-        plan.what = std::string("back from the ") + Handoff::AnchorName(s_anchor);
-        plan.steps.push_back(Handoff::PadBack(s_anchor));
-        if (s_anchor == Anchor::SkateShop) {
-            // (back from the skate shop menu: the original's skater select - the main menu after it)
-            s_returnStack = {Screen::Main};
-            StartPlan(std::move(plan));
-            return;
-        }
-        plan.steps.push_back(Handoff::WaitFor(Anchor::MainMenu));
-        plan.endsOurs = true;
-        StartPlan(std::move(plan));
-        return;
     }
     case ActionKind::Option: ApplyOption(action.option, action.value); Sound("generic_menu_up_or_down_sound", "up"); return;
     case ActionKind::Skate: {
@@ -1491,10 +1283,6 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
         }
         return;
     }
-    case ActionKind::Pause:
-        // (our Pause screen is only the root under a screen the pause menu asked for - never shown: Update steps ours
-        // aside as soon as it would be)
-        return;
     }
 }
 
@@ -1534,10 +1322,6 @@ void HandleQueued(Mdl::FrontEnd* frontEnd, const SDL_Event& e)
             if (!repeat)
                 Do(frontEnd, s_menu.Press(Input::Back));
             break;
-        case SDL_SCANCODE_X: case SDL_SCANCODE_R:
-            if (!repeat)
-                Do(frontEnd, s_menu.Press(Input::Resume));
-            break;
         case SDL_SCANCODE_Q: case SDL_SCANCODE_PAGEUP: case SDL_SCANCODE_1:
             Do(frontEnd, s_menu.Press(Input::PrevTab));
             break;
@@ -1561,7 +1345,6 @@ void HandleQueued(Mdl::FrontEnd* frontEnd, const SDL_Event& e)
             Do(frontEnd, s_menu.Press(s_menu.Shown() == Screen::Pause && s_menu.Depth() <= 1 ? Input::Back : Input::Confirm));
             break;
         case SDL_CONTROLLER_BUTTON_B: Do(frontEnd, s_menu.Press(Input::Back)); break;
-        case SDL_CONTROLLER_BUTTON_X: Do(frontEnd, s_menu.Press(Input::Resume)); break;
         case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: Do(frontEnd, s_menu.Press(Input::PrevTab)); break;
         case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: Do(frontEnd, s_menu.Press(Input::NextTab)); break;
         default: break;
@@ -1615,7 +1398,7 @@ void HandleQueued(Mdl::FrontEnd* frontEnd, const SDL_Event& e)
             case Paint::Hit::Skate:
                 Do(frontEnd, s_menu.Shown() == Screen::Options ? s_menu.Press(Input::Confirm) : s_menu.ClickSkate());
                 break;
-            case Paint::Hit::Continue: Do(frontEnd, s_menu.ClickContinue()); break;
+            case Paint::Hit::Continue: break; // (the restyled main menu's - MirrorMouse)
             case Paint::Hit::Choice: Do(frontEnd, s_menu.ClickChoice(clicked.index / 16, clicked.index % 16)); break;
             }
         }
@@ -1700,9 +1483,9 @@ void EditUpdate(Mdl::FrontEnd* frontEnd, float dt)
     if (++s_editFrames < 20)
         return;
     s_edit = Edit::Off;
-    if (CScreenElement* item = Handoff::Find(Checksum("menu_level_editor"))) {
+    if (CScreenElement* item = GameScreens::Find(Checksum("menu_level_editor"))) {
         Log("new front end: the pause menu's LEVEL EDITOR chosen");
-        Handoff::LaunchPad(frontEnd, Mdl::FrontEnd::kPadChoose, item);
+        GameScreens::LaunchPad(frontEnd, Mdl::FrontEnd::kPadChoose, item);
     } else {
         Log("new front end: no LEVEL EDITOR in the pause menu (refused here?) - the pause menu as it is");
     }
@@ -1767,10 +1550,13 @@ Pending s_pending;
 
 bool ShownAndIdle(Screen screen) { return s_state == State::Shown && !s_menu.Busy() && s_menu.Shown() == screen; }
 
-// The things the channel never does through ours: anything online (the Online screen's hand-off).
+// The things the channel never does through ours: anything online (none of ours goes online now - the game's ONLINE
+// item is the game's; kept for the commands' shape).
 bool Refused(Screen screen, const std::string& item)
 {
-    return screen == Screen::Online && _stricmp(item.c_str(), "play") == 0;
+    (void)screen;
+    (void)item;
+    return false;
 }
 
 } // namespace
@@ -1789,7 +1575,7 @@ void Init()
     Log("new front end: on ([features] new_frontend=1)");
 }
 
-bool Showing() { return s_state == State::Shown || s_state == State::HandOff || s_state == State::Launching; }
+bool Showing() { return s_state == State::Shown || s_state == State::Launching; }
 
 // (while a cover is on, the screen under it is hidden: no presses reach it blind - a few frames, 3 s at most)
 bool BlocksGameInput() { return Enabled() && (Showing() || s_guard || s_cover.On()); }
@@ -1841,8 +1627,8 @@ void Update(Mdl::FrontEnd* frontEnd)
         return;
     }
 
-    Anchor anchor = Handoff::Current(frontEnd);
-    if (s_rootHidden && !(anchor == Anchor::Pause && (s_state == State::Shown || s_state == State::HandOff)) &&
+    Anchor anchor = GameScreens::Current(frontEnd);
+    if (s_rootHidden && s_state != State::Shown &&
         !s_mirror.Up() && !s_cover.On())
         HideRoot(false); // (ours not over the pause menu any more, nothing restyled or covered: the original's elements back)
     // The menu the pad reaches now: a dialog box over an anchor, or another menu over the pause menu (a sub-screen that
@@ -1874,59 +1660,6 @@ void Update(Mdl::FrontEnd* frontEnd)
         UpdateCover(dt);
         KeepRootHidden();
         return;
-    case State::HandOff: {
-        s_menu.Tick(dt);
-        bool failed = false;
-        if (s_runner.Running()) {
-            if (!s_runner.Update(frontEnd, dt, &failed)) {
-                KeepRootHidden();
-                return;
-            }
-            if (failed) {
-                // (the original didn't go: ours again over whatever is up, or aside)
-                Anchor up = Handoff::Current(frontEnd);
-                if (up != Anchor::None) {
-                    Show(up);
-                } else {
-                    SetState(State::Away);
-                    StartCover(Cover::Over::Ours, "a hand-off gave up");
-                }
-                return;
-            }
-            if (s_runner.Current().endsOurs) {
-                Show(Handoff::Current(frontEnd));
-                return;
-            }
-            s_stateTime = 0.0f;
-        }
-        // Done. An original screen to restyle came up (a dialog - QUIT?, a confirmation -, a list): ours aside at once.
-        UpdateMirror(frontEnd, dt, true);
-        if (s_mirror.Up()) {
-            SetState(State::Away);
-            return;
-        }
-        // The pause menu's own item chosen, and the pause menu still the screen the pad reaches (the item did its
-        // work and left the game paused - the BMX's toggle before 2026-10-25 -, or came back to it): ours over it
-        // again at once, never both.
-        if (s_anchor == Anchor::Pause && anchor == Anchor::Pause && usable && active && s_stateTime > 0.5f) {
-            Log("new front end: the original's pause menu still up after the hand-off - ours over it again");
-            Show(Anchor::Pause);
-            KeepRootHidden();
-            return;
-        }
-        // Else still drawn until the last item chosen goes (the original's screen changing under ours), 3 s at most.
-        bool lastThere = (s_lastChosen.id || s_lastChosen.script || !s_lastChosen.checksums.empty()) &&
-                         Handoff::Exists(s_lastChosen);
-        if (!lastThere || s_stateTime > 3.0f) {
-            SetState(State::Away);
-            // (ours stays on screen, the original's elements hidden, until the screen it went to is ready - no
-            // original screen in between: the user's report of 2026-10-25, GAME OPTIONS flashed THUG2's menu)
-            StartCover(Cover::Over::Ours, "a hand-off is done");
-            if (!LevelLoad() || !InFrontEnd())
-                FreeDeviceObjects();
-        }
-        return;
-    }
     case State::Launching:
         s_menu.Tick(dt);
         if ((s_launchLevel == kLoadMainMenu && !InFrontEnd()) || (s_launchLevel != kLoadMainMenu && LevelLoad() != s_launchLevel) ||
@@ -1967,13 +1700,6 @@ void Update(Mdl::FrontEnd* frontEnd)
                 StartCover(Cover::Over::Ours, "the original's screen changed under ours");
         }
         return;
-    }
-    // What the game says (once a second is plenty: flags, the pause menu's items).
-    static float contextTime = 0.0f;
-    contextTime += dt;
-    if (contextTime > 0.5f) {
-        contextTime = 0.0f;
-        s_menu.SetContext(BuildContext());
     }
     std::vector<SDL_Event> events;
     events.swap(s_events);
@@ -2071,12 +1797,12 @@ Paint::Extras RestyleExtras()
 // network games: the menus as they were.
 bool __cdecl CFunc_Item(Script::CStruct* params, Script::CScript*)
 {
-    if (!Enabled() || Handoff::NetSession())
+    if (!Enabled() || GameScreens::NetSession())
         return false;
     uint32_t item = 0;
     if (params)
         params->GetChecksum(Checksum("item"), &item, 0);
-    std::string mode = Handoff::GameModeName();
+    std::string mode = GameScreens::GameModeName();
     bool freeSkate = mode == "freeskate" || mode == "singlesession";
     bool levels = s_catalogueOk && !s_catalogue.sections.empty();
     if (item == Checksum("on"))
@@ -2259,7 +1985,7 @@ std::string AutomationCommand(const std::string& line, bool* done)
         static const std::pair<const char*, Input> kInputs[] = {
             {"up", Input::Up},           {"down", Input::Down},     {"left", Input::Left},
             {"right", Input::Right},     {"confirm", Input::Confirm}, {"back", Input::Back},
-            {"resume", Input::Resume},   {"prevtab", Input::PrevTab}, {"nexttab", Input::NextTab}};
+            {"prevtab", Input::PrevTab}, {"nexttab", Input::NextTab}};
         if (words.size() < 2)
             return "error: fe press <up|down|left|right|confirm|back|resume|prevtab|nexttab>";
         for (const auto& [name, input] : kInputs)
@@ -2299,14 +2025,14 @@ std::string AutomationStatus()
     if (!Enabled())
         return {};
     std::string text = std::string(StateName(s_state));
-    if (s_state == State::Shown || s_state == State::HandOff || s_state == State::Launching) {
+    if (s_state == State::Shown || s_state == State::Launching) {
         text += std::string(" ") + ScreenName(s_menu.Shown());
         std::string item = s_menu.SelectedId();
         if (!item.empty())
             text += "/" + item;
     }
     if (s_anchor != Anchor::None && s_state == State::Shown)
-        text += std::string(" over the ") + Handoff::AnchorName(s_anchor);
+        text += std::string(" over the ") + GameScreens::AnchorName(s_anchor);
     if (!Showing() && s_mirror.Up()) {
         const Mirror::View& v = s_mirror.Shown();
         text += std::string(", restyled ") + Mirror::KindName(v.kind) + " \"" + v.title + "\"";

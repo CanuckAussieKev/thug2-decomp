@@ -561,7 +561,7 @@ add_library(thug2_code OBJECT
     src/game/front/menu_backdrop.cpp
     src/game/front/new_frontend.cpp
     src/game/front/new_frontend_draw.cpp
-    src/game/front/new_frontend_handoff.cpp
+    src/game/front/new_frontend_game.cpp
     src/game/front/new_frontend_mirror.cpp
     src/game/front/new_frontend_model.cpp
     src/game/front/new_frontend_options.cpp

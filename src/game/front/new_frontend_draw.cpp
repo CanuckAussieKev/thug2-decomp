@@ -620,16 +620,6 @@ std::string ArtById(const Catalogue* data, const std::string& id)
     return image.empty() ? DefaultArt(id) : image;
 }
 
-// The art for an item: its own, levels.json's menu_art for its id, THUG2's loading screen for it - else the screen's
-// (`screenId`: story, classic, ...).
-std::string ItemArt(const Catalogue* data, const Item& item, const std::string& screenId = std::string())
-{
-    if (!item.art.empty())
-        return item.art;
-    std::string image = ArtById(data, item.id);
-    return image.empty() && !screenId.empty() ? ArtById(data, screenId) : image;
-}
-
 // The pause screens' ground: the game dimmed, the left column nearly opaque.
 void PauseGround(Ctx& c, float windowWidth, float windowHeight)
 {
@@ -698,109 +688,6 @@ float PauseSide(Ctx& c, float left, float right, float bottom, std::string* kick
     return top;
 }
 
-// A list screen: the main menu, the career's, Create, Online, the pause menu's - the numbered items down the left in
-// big type (Anton 78; the level list's 40 when there are more than six), the highlighted item's art full-bleed on the
-// right with its name, or the game dimmed behind the pause menus.
-void ListScreen(Ctx& c, float windowWidth, float windowHeight)
-{
-    const Menu& menu = c.menu;
-    NewFrontend::Screen screen = menu.Shown();
-    bool main = screen == Screen::Main;
-    bool pause = IsPauseScreen(screen);
-    const std::vector<Item>& items = menu.Items();
-    int selected = menu.Selected();
-    const Item* item = selected >= 0 && selected < static_cast<int>(items.size()) ? &items[selected] : nullptr;
-    // The right side follows the highlighted item (FeatureFor): its art, kicker and name - the pause screens show the
-    // level being played instead.
-    Feature feature = FeatureFor(menu);
-    std::string continueName = main ? ContinueName(menu) : std::string();
-
-    if (pause)
-        PauseGround(c, windowWidth, windowHeight);
-    else
-        Backdrop(c.dl, c.f, ArtFor(c.extras, feature.art), menu.Pan());
-
-    // The left: the header, the list, the helper line.
-    std::string title = ScreenTitle(screen, menu.Mode());
-    float rule = Header(c, 40.0f, kColumnInner, title.c_str(), !main && !(screen == Screen::Pause && menu.Depth() <= 1),
-                        c.extras.skaterName.c_str());
-    bool big = items.size() <= 6;
-    if (big) {
-        RowStyle probe = MainRowStyle();
-        for (const Item& it : items)
-            if (c.f.S(probe.textX) + Measure(probe.name, c.f, it.label.c_str()) > c.f.S(kColumnInner + 10.0f))
-                big = false;
-    }
-    RowStyle rs = big ? MainRowStyle() : LevelRowStyle();
-    float rowH = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
-    float navTop = rule + (big ? 36.0f : 20.0f);
-    for (int i = 0; i < static_cast<int>(items.size()); ++i) {
-        float top = navTop + static_cast<float>(i) * rowH;
-        const Item& it = items[i];
-        float e = menu.RowAmount(i);
-        Row(c, rs, top, Pad2(i + 1).c_str(), it.label.c_str(), e, Menu::kHouseYellow, !it.enabled);
-        if (!it.tag.empty()) {
-            // (a note after the label, at its baseline: "Coming soon")
-            Style tag = Mono12(kMuted2);
-            float base = Baseline(rs.name, c.f, c.f.Y(top + rs.rowPadTop), rs.lineHeight);
-            float x = c.f.X(rs.textX) + Measure(rs.name, c.f, it.label.c_str()) + c.f.S(16.0f);
-            Text(c.dl, tag, c.f, x, base - c.f.S(rs.name.css * 0.12f), it.tag.c_str());
-        }
-        if (it.enabled)
-            c.Hit(Hit::Item, i, 48.0f, top, kColumnInner + 20.0f, top + rowH);
-    }
-    Style body;
-    body.face = Face::Body;
-    body.css = 14.0f;
-    body.colour = kMuted;
-    std::vector<std::string> lines = Wrap(body, c.f, item ? item->blurb : std::string(), c.f.S(kColumnInner - 48.0f));
-    float lineH = 14.0f * 1.5f;
-    float y = 688.0f - lineH * static_cast<float>(lines.size());
-    for (const std::string& line : lines) {
-        Text(c.dl, body, c.f, c.f.X(48.0f), Baseline(body, c.f, c.f.Y(y), 1.5f), line.c_str());
-        y += lineH;
-    }
-
-    // The right's foot: the hints (the main menu's "X Resume <last level>"), the records / detail, the big name, the
-    // kicker.
-    float left = kRight, right = 1240.0f;
-    std::vector<std::string> hints = {Text::kHintSelect};
-    int resumeHint = -1;
-    if (!continueName.empty()) {
-        resumeHint = static_cast<int>(hints.size());
-        hints.push_back(std::string(Text::kHintResume) + " " + continueName);
-    }
-    hints.push_back(main ? Text::kHintQuit : screen == Screen::Pause && menu.Depth() <= 1 ? Text::kHintResumeLevel : Text::kHintBack);
-    std::vector<std::pair<float, float>> spans;
-    float bottom = Hints(c, hints, left, right, 688.0f, &spans) - 8.0f;
-    if (resumeHint >= 0 && resumeHint < static_cast<int>(spans.size()))
-        c.Hit(Hit::Continue, 0, spans[resumeHint].first - 6.0f, 688.0f - 12.0f * 1.3f - 6.0f, spans[resumeHint].second + 6.0f,
-              688.0f + 6.0f);
-    std::string kicker, name;
-    uint32_t kickerColour = Menu::kHouseYellow;
-    float launch = menu.Launch();
-    float slice = launch >= 0.0f ? EaseOut(launch * 1.6f) : 0.0f;
-    if (pause) {
-        bottom = PauseSide(c, left, right, bottom, &kicker, &name, &kickerColour);
-    } else {
-        if (!feature.detail.empty() && !feature.launching) {
-            Style d = Mono12(kMuted, false);
-            float top = bottom - 12.0f * 1.3f;
-            Text(c.dl, d, c.f, c.f.X(left), Baseline(d, c.f, c.f.Y(top), 1.3f), feature.detail.c_str());
-            bottom = top - 10.0f;
-        }
-        kicker = feature.kicker;
-        name = feature.name;
-    }
-    float nameTop = BigName(c, name, 120.0f, left, right, bottom, slice, kickerColour);
-    Kicker(c, kicker, left, nameTop - 8.0f, kickerColour, 1.0f - slice);
-    // Continue chosen: the level's loading screen comes up over everything as the name slices away.
-    if (launch >= 0.0f && feature.launching) {
-        float grow = EaseOut(launch * 1.4f);
-        ArtBox(c.dl, ArtFor(c.extras, feature.art), c.f.X(0.0f), c.f.Y(0.0f), c.f.X(1280.0f), c.f.Y(720.0f), menu.Pan(), grow);
-    }
-}
-
 // Mono tabs (the level select's game tabs, the options' groups) from x 48 to 520 at design y `y`, wrapping: the
 // selected one in its colour, underlined. Returns the bottom of the last row.
 float Tabs(Ctx& c, const std::vector<std::pair<std::string, uint32_t>>& tabs, int selected, float y)
@@ -862,9 +749,7 @@ void OptionsScreen(Ctx& c, float windowWidth, float windowHeight)
     if (menu.OverPause()) {
         PauseGround(c, windowWidth, windowHeight);
     } else {
-        Item options;
-        options.id = "options";
-        Backdrop(c.dl, c.f, ArtFor(c.extras, ItemArt(menu.Data(), options)), menu.Pan());
+        Backdrop(c.dl, c.f, ArtFor(c.extras, ArtById(menu.Data(), "options")), menu.Pan());
     }
     float rule = Header(c, 36.0f, kColumnInner, Text::kTitleOptions, true, nullptr);
     std::vector<std::pair<std::string, uint32_t>> tabs;
@@ -1660,8 +1545,7 @@ void Screen(const Menu& menu, const Frame& frame, float windowWidth, float windo
         LevelsScreen(c, visibleRows);
     else if (menu.Shown() == Screen::Options)
         OptionsScreen(c, windowWidth, windowHeight);
-    else
-        ListScreen(c, windowWidth, windowHeight);
+    // (the roots - Main, Pause - are never drawn: ours goes aside at them)
     // (a 16:9 frame in a wider or taller window: the bars the ground's colour, over anything that spilled)
     if (frame.left > 0.5f && !overGame) {
         dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(frame.left, windowHeight), Col(kGround));
