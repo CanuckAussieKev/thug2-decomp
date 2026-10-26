@@ -16,7 +16,8 @@ This repository contains two kinds of material.
    licence below. That includes the hook and test framework (src/hook, src/proxy), the self-tests, all code marked
    NOT ORIGINAL in src/game (for example the new front end, the level editor, the THAW BMX port, the graphics options
    and the screenshot, automation and mute tools), the tools (tools/ - the content pipeline and the Anteara Mod are
-   separate repositories with their own MIT licence), the documentation (docs/) and the design files (docs/design).
+   separate repositories with their own licences: MIT for their own work), the documentation (docs/) and the design
+   files (docs/design).
 
    Third-party code and data used by the project keep their own licences: THIRD_PARTY_NOTICES.md.
 
