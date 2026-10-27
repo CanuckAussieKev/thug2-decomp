@@ -256,6 +256,27 @@ int BikeSoundOf(const void* skater, BikeSound kind, void* info);
 // local skater's model on the bike, the bike's model while it's shown; else null.
 void* ShadowCompanion(void* casterModel);
 
+// The flip on the bike, as THAW's. THAW's Flip (2nd build 0x005E97D0) and its "after the animation" flags (0x005E9960,
+// FlipAfter) only turn the skater's flipped flag (its state component's +0x28); the animation tree takes the flag when
+// a branch is played (Skater_Playanim: HandleFlipOrBoardRotateAfter, then obj_is_flipped - the bike's, played with
+// not_a_skater, from skater:flipped) and the branches already playing stay as they were. THUG2's Flip mirrors every
+// running animation at once (CSkaterFlipAndRotateComponent::ApplyFlipToAnims), and the bike followed a step behind
+// by its own script toggling its channels (thaw_bmx_bike_flip's Obj_Flip - not the way the rider's are set). THAW's
+// bike scripts count on THAW's way: BIKE_GRIND flips for a grind on the other side and its loop's orient_vehicle
+// turns the flag back every frame (the grind stays mirrored in THAW; THUG2's way un-mirrored rider and bike as the
+// loop began), a left tailwhip (flip_anim) flips at its start and twice more at its end (FlipAfter, OnExitRun
+// bike_ExitGrabTrick_flip - THUG2's way mirrored the finished pose and back), the backwards revert flips around its
+// pivot. Here the rider's and the bike's channels both take the flag as THAW's branches do, by the same call.
+// Whether `core`'s Flip only turns the flag: the feature on and the skater on the bike.
+inline bool FlipFlagOnly(const void* core) { return Active(core); }
+// The flip a PlayAnim / Obj_PlayAnim on `object` gives its channel before it's played (CAnimBlenderComponent::
+// PassToChannel): for the local rider on the bike (what was left for after the animation done first - THAW's
+// HandleFlipOrBoardRotateAfter) and for his bike, his flipped flag: 1 / 0; else -1 (THUG2's: the channel's as it was).
+int PlayFlip(void* object);
+// Off the bike (SkaterOffBike, the skater's reset on it): `core`'s rider's animations mirrored as his flag says
+// (ApplyFlipToAnims) - THUG2's way from then on.
+void FlipAnimsToFlag(void* core);
+
 // The THAW-only members of the bike scripts besides the bike's own (CallMemberFunction answers them; 2: not one):
 // DisplayPitchGreaterThan (0x005CA600), LandedFromTireTap (0x005C7C60), InTireTap (its state component's +0x90),
 // PitchingForward / PitchingBackward (its matrix queries), ShouldRunStallScript / ClearStallScriptFlag /
