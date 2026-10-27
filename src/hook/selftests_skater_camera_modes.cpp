@@ -1,4 +1,4 @@
-// Self-tests for the skater camera's functions at 0x004F9970-0x004F9E7E (skater_camera_modes.cpp): original vs ours on a
+// Self-tests for the skater camera component's functions at 0x004F9970-0x004F9E7E (skater_camera_modes.cpp): original vs ours on a
 // stand-in component in skater_core_testkit's arena, every callee stood in for (the script values chosen per variant).
 
 #include <cstdint>
@@ -9,7 +9,8 @@
 #include "game/gfx/camera.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
-#include "game/skater/skater_camera_modes.h"
+#include "game/skater/skater_camera_component.h"
+#include "game/skater/walk_camera.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -19,9 +20,9 @@
 namespace {
 
 using namespace SkaterCoreKit;
-using Obj::CSkaterCameraModes;
+using Obj::CSkaterCameraComponent;
 
-constexpr uint32_t kCam = kFree;                  // the component (0x170 bytes)
+constexpr uint32_t kCam = kFree;                  // the component (0x17C bytes)
 constexpr uint32_t kLookaround = kFree + 0x180;
 constexpr uint32_t kCameraComp = kFree + 0x1C0;   // +0x18 its Gfx::Camera
 constexpr uint32_t kState = kFree + 0x200;        // a state handed over (0x58 bytes)
@@ -75,7 +76,7 @@ void TestSkaterCameraModes()
     for (int variant = 0; variant < 6000 && same; ++variant) {
         g_rng = 0x7A3C9D11u * (variant + 1);
         FillArena();
-        auto* cam = reinterpret_cast<CSkaterCameraModes*>(ArenaPtr(kCam));
+        auto* cam = reinterpret_cast<CSkaterCameraComponent*>(ArenaPtr(kCam));
         ArenaAt<uint8_t*>(kCam + 0x0C) = ArenaPtr(kObject);
         ArenaAt<uint8_t*>(kCam + 0x168) = ArenaPtr(kLookaround);
         ArenaAt<uint8_t*>(kCam + 0x16C) = ArenaPtr(kFree + 0x2E0);
@@ -97,7 +98,7 @@ void TestSkaterCameraModes()
                 o ? Original<void(__thiscall*)(void*)>(0x004F9A20)(cam) : cam->Finalize();
                 return 1;
             case 2: {
-                auto* state = reinterpret_cast<const Obj::WalkCameraStateView*>(ArenaPtr(kState));
+                auto* state = reinterpret_cast<const Obj::WalkCameraState*>(ArenaPtr(kState));
                 o ? Original<void(__thiscall*)(void*, const void*)>(0x004F9A40)(cam, state) : cam->SetState(state);
                 return 2;
             }

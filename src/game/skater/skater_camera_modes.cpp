@@ -1,13 +1,15 @@
-// Part of the skater camera component (skater_camera_modes.h). From the disassembly of 0x004F9970-0x004F9E7E.
-
-#include "game/skater/skater_camera_modes.h"
+// The skater camera component's (skater_camera_component.h) destructor body, Finalize, the state taken over from
+// another camera, the distances' lerps and its camera modes. From the disassembly of 0x004F9970-0x004F9E7E.
 
 #include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/gfx/camera.h"
+#include "game/obj/camera_lookaround.h"
 #include "game/script/struct.h"
+#include "game/skater/skater_camera_component.h"
+#include "game/skater/walk_camera.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -23,7 +25,7 @@ constexpr uint32_t kHorizFov = 0x94DF1603, kBehind = 0x52E6C41B, kAbove = 0x0B96
                    kOriginOffset = 0x012F6992, kLipTrickTilt = 0x7F0032AC, kLipTrickAbove = 0xADB6390E,
                    kSlerp = 0xF54FB9C5, kVertAirSlerp = 0x2FA11029, kVertAirLandedSlerp = 0x042FD4A0,
                    kLerpXZ = 0xAE47899B, kLerpY = 0xE1E4E104, kVertAirLerpXZ = 0xF386F4D9, kVertAirLerpY = 0x4882A1FE,
-                   kUnknownF4 = 0xBEF0D195, kWallrideOffsetAngle = 0x3396BE2A, kZoomLerp = 0x748743A7,
+                   kLookRate = 0xBEF0D195, kWallrideOffsetAngle = 0x3396BE2A, kZoomLerp = 0x748743A7,
                    kGrindZoom = 0x5A7F5CC5, kBigAirTrickZoom = 0xD790B83D, kLipTrickZoom = 0xD414C22E,
                    kName = 0xA1DC81F9;
 
@@ -42,40 +44,38 @@ float OneFrame()
 // The screen mode (0x004A0710: 1 a vertical split, 2 a horizontal one).
 int ScreenMode() { return GameFunction<int(__cdecl*)()>(0x004A0710)(); }
 
-float& LookaroundHeading(uint8_t* lookaround) { return *reinterpret_cast<float*>(lookaround + 0x28); }
-
 } // namespace
 
 // 0x004F99F0
-void CSkaterCameraModes::DestroyBody()
+void CSkaterCameraComponent::DestroyBody()
 {
-    void* block = mp_block;
+    Mth::SlerpInterpolator* slerp = mp_slerp;
     m_vtable = kVtable;
-    Mem::Manager::Get()->Free(block);
+    Mem::Manager::Get()->Free(slerp);
     CBaseComponent::DestroyBody();
 }
 
 // 0x004F9A20
-void CSkaterCameraModes::Finalize()
+void CSkaterCameraComponent::Finalize()
 {
-    mp_lookaround = reinterpret_cast<uint8_t*>(m_object->GetComponent(kCameraLookaround));
+    mp_lookAround = static_cast<CCameraLookAroundComponent*>(m_object->GetComponent(kCameraLookaround));
 }
 
 // 0x004F9A40
-void CSkaterCameraModes::SetState(const WalkCameraStateView* state)
+void CSkaterCameraComponent::SetState(const WalkCameraState* state)
 {
-    std::memcpy(m_orientation, state->orientation, sizeof(m_orientation));
-    std::memcpy(m_target, state->target, sizeof(m_target));
+    std::memcpy(m_orientation, &state->orientation, sizeof(m_orientation));
+    std::memcpy(&m_target, &state->target, sizeof(m_target));
     m_turnCosine = state->turnCosine;
     m_zoom = state->zoom;
-    m_unknownDC = 0.0f;
-    m_unknown28 = 0.0f;
-    *reinterpret_cast<uint32_t*>(mp_lookaround + 0x24) = 0;
-    mp_lookaround[0x18] = 0;
+    m_settleTime = 0.0f;
+    m_instantFrames = 0;
+    mp_lookAround->m_heading = 0.0f;
+    mp_lookAround->m_locked = false;
 }
 
 // 0x004F9970
-void CSkaterCameraModes::UpdateLerps()
+void CSkaterCameraComponent::UpdateLerps()
 {
     if (m_behindTime > 0.0f) {
         m_behindTime = static_cast<float>(static_cast<double>(m_behindTime) - OneFrame());
@@ -92,7 +92,7 @@ void CSkaterCameraModes::UpdateLerps()
 }
 
 // 0x004F9AE0
-void CSkaterCameraModes::SetMode(int mode, float time)
+void CSkaterCameraComponent::SetMode(int mode, float time)
 {
     auto* camera = m_object->GetComponent(kCamera);
     int screen = ScreenMode();
@@ -118,7 +118,7 @@ void CSkaterCameraModes::SetMode(int mode, float time)
     params->GetFloat(kLerpY, &m_lerpY, 0);
     params->GetFloat(kVertAirLerpXZ, &m_vertAirLerpXZ, 0);
     params->GetFloat(kVertAirLerpY, &m_vertAirLerpY, 0);
-    params->GetFloat(kUnknownF4, &m_unknownF4, 0);
+    params->GetFloat(kLookRate, &m_lookRate, 0);
     params->GetFloat(kWallrideOffsetAngle, &m_wallrideOffsetAngle, 0);
     float zoomLerp;
     m_grindZoom = 1.0f;
@@ -171,13 +171,13 @@ void CSkaterCameraModes::SetMode(int mode, float time)
         heading = 0.0f;
         break;
     }
-    LookaroundHeading(mp_lookaround) = heading;
+    mp_lookAround->m_modeHeading = heading;
 }
 
 } // namespace Obj
 
-REPLACE(0x004F99F0, &Obj::CSkaterCameraModes::DestroyBody);
-REPLACE(0x004F9A20, &Obj::CSkaterCameraModes::Finalize);
-REPLACE(0x004F9A40, &Obj::CSkaterCameraModes::SetState);
-REPLACE(0x004F9970, &Obj::CSkaterCameraModes::UpdateLerps);
-REPLACE(0x004F9AE0, &Obj::CSkaterCameraModes::SetMode);
+REPLACE(0x004F99F0, &Obj::CSkaterCameraComponent::DestroyBody);
+REPLACE(0x004F9A20, &Obj::CSkaterCameraComponent::Finalize);
+REPLACE(0x004F9A40, &Obj::CSkaterCameraComponent::SetState);
+REPLACE(0x004F9970, &Obj::CSkaterCameraComponent::UpdateLerps);
+REPLACE(0x004F9AE0, &Obj::CSkaterCameraComponent::SetMode);

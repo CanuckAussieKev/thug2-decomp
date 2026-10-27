@@ -21,6 +21,7 @@
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_camera_component.h"
+#include "game/skater/walk_camera.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -92,9 +93,9 @@ std::vector<StandIn> CameraStandIns()
          [](Frame&, Result& r) { r.st0 = Next() % 2 ? 0.016f : 0.05f; }},
         {0x004E4340, 0, 2, Ret::Float, false, 0, {Ours(&Obj::FrameBlend)},
          [](Frame&, Result& r) { r.st0 = Next() % 3 ? 0.25f : 1.0f; }},
-        {0x004F9970, 0, 0, Ret::None, true},
-        {0x004F9AE0, 8, 2, Ret::None, true},
-        {0x004F99F0, 0, 0, Ret::None, true},
+        {0x004F9970, 0, 0, Ret::None, true, 0, {Ours(&Obj::CSkaterCameraComponent::UpdateLerps)}},
+        {0x004F9AE0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CSkaterCameraComponent::SetMode)}},
+        {0x004F99F0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CSkaterCameraComponent::DestroyBody)}},
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
          [](Frame& f, Result& r) {
              r.eax = ComponentFor(f.args[0]);
@@ -216,6 +217,7 @@ void FillCamera()
     SetVector(kSkaterObj + 0xAC, RandomFloat(1.0f) * scale, RandomFloat(1.0f) * scale, RandomFloat(1.0f) * scale, 0.0f);
     // The camera: its orientation near the skater's (aligned at times), the fields.
     Orthonormal(kCam + 0x40, Next() % 3 ? 0.0f : 0.3f);
+    ArenaAt<float>(kCam + 0x6C) = Next() % 4 ? 0.0f : 0.5f; // (the third row's w: copied with the rows)
     Orthonormal(kCam + 0x74, 0.25f);
     ArenaAt<int>(kCam + 0x24) = static_cast<int>(Next() % 7);
     ArenaAt<int>(kCam + 0x28) = static_cast<int>(Next() % 4);
@@ -357,7 +359,7 @@ void TestSkaterCamera()
          },
          [=](uint8_t* c) {
              start();
-             self(c)->SaveState(ArenaPtr(kOut));
+             self(c)->SaveState(reinterpret_cast<Obj::WalkCameraState*>(ArenaPtr(kOut)));
              return finish(0);
          }},
         {"Construct",

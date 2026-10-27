@@ -57,7 +57,7 @@ public:
     float m_factor;     // +0x1C
     float m_tilt;       // +0x20
     float m_heading;    // +0x24
-    uint32_t unknown28;
+    float m_modeHeading;    // +0x28 the skater camera's mode's heading (its SetMode; its frame adds m_heading)
     float m_targetTilt;     // +0x2C
     float m_targetHeading;  // +0x30
     float m_tiltRate;       // +0x34 per second
