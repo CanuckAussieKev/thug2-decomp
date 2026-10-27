@@ -282,8 +282,10 @@ View Build(const MenuRead& read, const Policy& policy)
                 view.selected = static_cast<int>(view.rows.size());
             view.rows.push_back(std::move(row));
         }
-        if (view.rows.empty())
+        if (view.rows.empty()) {
             view.kind = Kind::None;
+            view.unsettled = true;
+        }
         view.bigName = view.selected >= 0 ? view.rows[view.selected].label : view.title;
         return view;
     }
@@ -342,6 +344,7 @@ View Build(const MenuRead& read, const Policy& policy)
         }
         if (view.rows.empty()) {
             view.kind = Kind::None;
+            view.unsettled = true;
             return view;
         }
         if (view.mainMenu && view.selected >= 0)
@@ -405,8 +408,12 @@ View Build(const MenuRead& read, const Policy& policy)
         return original("restyle_menus=0");
     if (OwnMenu(read.menuId))
         return original("the new front end's own");
-    if (read.items.empty() || read.items.size() > kMaxItems)
-        return original("no items, or too many");
+    if (read.items.empty()) {
+        view.unsettled = true;
+        return original("no items");
+    }
+    if (read.items.size() > kMaxItems)
+        return original("too many items");
     bool anyFocusable = false;
     for (const ItemRead& item : read.items) {
         if (!item.focusable)
@@ -418,8 +425,10 @@ View Build(const MenuRead& read, const Policy& policy)
         if (!words && item.checkbox < 0)
             return original("an item without words");
     }
-    if (!anyFocusable)
+    if (!anyFocusable) {
+        view.unsettled = true;
         return original("nothing to choose");
+    }
     std::string title = CleanText(read.title);
     if (ExcludedTitle(title))
         return original("a screen left original by its title");
@@ -430,6 +439,7 @@ View Build(const MenuRead& read, const Policy& policy)
     rowsFrom(false);
     if (view.rows.empty()) {
         view.kind = Kind::None;
+        view.unsettled = true;
         return view;
     }
     for (const std::string& t : read.extraTexts) {

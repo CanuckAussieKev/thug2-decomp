@@ -102,6 +102,9 @@ namespace Front::NewFrontend::Paint {
 // first row shown, kept by the caller (in and out). `extras`: the pause menu's level and session (null: none).
 void Restyled(const Mirror::Tracker& tracker, const Frame& frame, float windowWidth, float windowHeight,
               std::vector<Hit>* hits, float* scroll, const Extras* extras = nullptr);
+// The front end come up before any of its menus has: the screen's ground and the art with id `artId` full-bleed (the
+// main menu's), no rows - so the front end's 3D scene is never seen behind a menu that isn't there yet.
+void Waiting(const Frame& frame, float windowWidth, float windowHeight, const Extras& extras, const char* artId);
 
 // --- the layout's numbers (design px; exposed for the self-tests) ---
 

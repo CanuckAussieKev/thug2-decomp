@@ -659,6 +659,28 @@ void TestFrontendMirrorBuild()
     policy.skaters = false;
     Check(M::Build(skaters, policy).kind == M::Kind::None, "restyle: restyle_skater_select=0");
     Check(M::Build(M::MenuRead{}, M::Policy{}).kind == M::Kind::None, "restyle: nothing read");
+    // A menu with nothing in it yet (the scripts still making it) is unsettled - hidden a few frames; one left
+    // original by the policy is not.
+    {
+        M::MenuRead empty;
+        empty.found = true;
+        empty.menuId = Crc::GenerateCRCFromString("pause_vmenu");
+        M::View pending = M::Build(empty, M::Policy{});
+        empty.menuId = 0x1234;
+        M::View plain = M::Build(empty, M::Policy{});
+        M::MenuRead words;
+        words.found = true;
+        words.menuId = 0x1234;
+        M::ItemRead item;
+        item.texts = {"Songs"};
+        words.items = {item};
+        M::Policy off;
+        off.lists = false;
+        M::View left = M::Build(words, off);
+        Check(pending.kind == M::Kind::None && pending.unsettled && plain.kind == M::Kind::None && plain.unsettled &&
+                  left.kind == M::Kind::None && !left.unsettled,
+              "restyle: a menu not made yet is unsettled, one left original isn't");
+    }
 }
 SELFTEST(Early, TestFrontendMirrorBuild);
 

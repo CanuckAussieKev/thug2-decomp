@@ -761,8 +761,9 @@ CScreenElement* RootElement()
 }
 
 // The menu that takes the pad events now: of the focused menus, one in a dialog box first, else the last in the tree
-// (the newest screen). `inDialog`: it is in dialog_box_container.
-CScreenElement* ActiveMenu(bool* inDialog = nullptr)
+// (the newest screen). `inDialog`: it is in dialog_box_container. `coming`: a menu not taking them yet counts too, when
+// it is shown - the screen being made (the pause menu animates in for 13 frames before it takes the pad).
+CScreenElement* ActiveMenu(bool* inDialog = nullptr, bool coming = false)
 {
     CScreenElement* root = RootElement();
     if (!root)
@@ -787,7 +788,7 @@ CScreenElement* ActiveMenu(bool* inDialog = nullptr)
         }
         bool here = top.inDialog || IdOfElement(e) == kDialogContainer;
         top.element = Next(e);
-        if (MouseMenus::IsMenu(e) && MouseMenus::MenuGetsPadEvents(e)) {
+        if (MouseMenus::IsMenu(e) && (coming ? Visible(e) : MouseMenus::MenuGetsPadEvents(e))) {
             found = e;
             if (here)
                 dialog = e;
@@ -1246,6 +1247,21 @@ Mirror::View MirrorNow()
         return {};
     bool inDialog = false;
     CScreenElement* menu = ActiveMenu(&inDialog);
+    // (none takes the pad yet, paused or in the front end: the menu being made - restyled from its first frame, never
+    // drawn as the game makes it while it animates in; half a second at most for each menu - one that still doesn't
+    // take the pad belongs to a screen worked some other way, left as the game made it)
+    static CScreenElement* s_coming = nullptr;
+    static int s_comingFrames = 0;
+    constexpr int kComingAtMost = 30;
+    if (!menu && (Paused() || InFrontEnd())) {
+        CScreenElement* coming = ActiveMenu(&inDialog, true);
+        s_comingFrames = coming && coming == s_coming ? s_comingFrames + 1 : 1;
+        s_coming = coming;
+        if (s_comingFrames <= kComingAtMost)
+            menu = coming;
+    } else {
+        s_coming = nullptr;
+    }
     if (!menu)
         return {};
     // A create mode's editor chosen on the restyled CREATE-A-MODES (its item selected when that menu went): its menus
@@ -1425,6 +1441,17 @@ Cover s_cover;
 Mirror::Tracker s_coverTracker;
 float s_coverScroll = 0.0f;
 bool s_mirrorWouldRestyle = false; // (this frame's decision: the menu up is one to restyle)
+// The original's elements held hidden though nothing is restyled yet: frames left while a menu that would be (or is
+// still being built - View::unsettled) went; frames a menu has stayed unsettled (shown as the game made it after
+// kFramesUnsettled).
+int s_holdFrames = 0;
+int s_unsettledFrames = 0;
+// The front end come up (loaded, the loading screen gone) and none of its menus restyled or left original yet: ours
+// draws its ground and the main menu's art meanwhile (Paint::Waiting) - the front end's 3D scene never shows bare.
+bool s_frontEndWas = false;
+bool s_awaitingFrontEnd = false;
+float s_awaitTime = 0.0f;
+constexpr float kAwaitAtMost = 8.0f; // (seconds: then the front end as it is)
 
 void StartCover(Cover::Over over, const char* why)
 {
@@ -1436,11 +1463,19 @@ void StartCover(Cover::Over over, const char* why)
     HideRoot(true);
 }
 
-// Once a frame while ours isn't drawn: the restyled screen up or down, the original's elements hidden under it.
-void UpdateMirror(Mdl::FrontEnd* frontEnd, float dt, bool allowed)
+// Once a frame while ours isn't drawn (BeforeScreenLayout): the restyled screen up or down, the original's elements
+// hidden under it.
+void UpdateMirror(float dt, bool allowed)
 {
     Mirror::View now = allowed ? MirrorNow() : Mirror::View{};
     s_mirrorWouldRestyle = now.kind != Mirror::Kind::None;
+    // (a menu that will be restyled, or one still being built: its elements hidden from the frame it is first seen -
+    // the tracker brings ours up a frame or so later; meanwhile nothing of the menu is drawn, never the original)
+    s_unsettledFrames = now.kind == Mirror::Kind::None && now.unsettled ? s_unsettledFrames + 1 : 0;
+    if (s_mirrorWouldRestyle || (s_unsettledFrames > 0 && s_unsettledFrames <= Mirror::kFramesUnsettled))
+        s_holdFrames = Mirror::kFramesToHide;
+    else if (s_holdFrames > 0)
+        --s_holdFrames;
     bool wasUp = s_mirror.Up();
     Mirror::Tracker before;
     if (wasUp)
@@ -1461,16 +1496,12 @@ void UpdateMirror(Mdl::FrontEnd* frontEnd, float dt, bool allowed)
             StartCover(Cover::Over::Restyled, "the restyled screen went");
         }
     }
-    if (up) {
+    if (up || s_holdFrames > 0)
         HideRoot(true);
-        MirrorMouse(frontEnd);
-    } else {
-        s_mirrorEvents.clear();
-    }
 }
 
 // Once a frame while a cover is on (and ours isn't up): off once the screen the hand-off went to is ready. When it ends
-// with nothing restyled, the original's elements come back the same frame.
+// with nothing restyled, the original's elements come back the same frame (BeforeScreenLayout).
 void UpdateCover(float dt)
 {
     if (!s_cover.On())
@@ -1483,11 +1514,8 @@ void UpdateCover(float dt)
     now.screen = reinterpret_cast<uintptr_t>(active);
     now.leftOriginal = active && !s_mirrorWouldRestyle;
     const char* why = nullptr;
-    if (!s_cover.Update(now, dt, &why)) {
+    if (!s_cover.Update(now, dt, &why))
         Log("new front end: cover off - %s (%.2f s)", why ? why : "?", s_cover.Time());
-        if (!s_mirror.Up())
-            HideRoot(false);
-    }
 }
 
 void FreeDeviceObjects();
@@ -1925,9 +1953,6 @@ void Update(Mdl::FrontEnd* frontEnd)
     }
 
     Anchor anchor = GameScreens::Current(frontEnd);
-    if (s_rootHidden && s_state != State::Shown &&
-        !s_mirror.Up() && !s_cover.On())
-        HideRoot(false); // (ours not over the pause menu any more, nothing restyled or covered: the original's elements back)
     // The menu the pad reaches now: a dialog box over an anchor, or another menu over the pause menu (a sub-screen that
     // keeps pause_vmenu - VIEW GOALS, the level select...), and ours isn't over it (the dialog / screen is restyled, or
     // left as it is).
@@ -1953,8 +1978,11 @@ void Update(Mdl::FrontEnd* frontEnd)
             KeepRootHidden();
             return;
         }
-        UpdateMirror(frontEnd, dt, true);
-        UpdateCover(dt);
+        // (the restyled screen and the cover are kept by BeforeScreenLayout; the mouse over the restyled screen here)
+        if (s_mirror.Up())
+            MirrorMouse(frontEnd);
+        else
+            s_mirrorEvents.clear();
         KeepRootHidden();
         return;
     case State::Launching:
@@ -2031,6 +2059,48 @@ void Update(Mdl::FrontEnd* frontEnd)
 }
 
 bool OwnsMouse() { return Enabled() && !Showing() && s_mirror.Up(); }
+
+void BeforeScreenLayout()
+{
+    // (the level editor: Update steps ours aside and gives the original's elements back)
+    if (!Enabled() || LevelEditor::Active())
+        return;
+    static std::chrono::steady_clock::time_point s_last;
+    static bool s_any = false;
+    auto clock = std::chrono::steady_clock::now();
+    float dt = s_any ? std::clamp(std::chrono::duration<float>(clock - s_last).count(), 0.0f, 0.25f) : 0.0f;
+    s_last = clock;
+    s_any = true;
+    bool frontEnd = InFrontEnd() && !LoadingScreenUp();
+    if (frontEnd && !s_frontEndWas) {
+        s_awaitingFrontEnd = true;
+        s_awaitTime = 0.0f;
+    }
+    s_frontEndWas = frontEnd;
+    if (s_state == State::Launching)
+        return; // (a level starting: the original's elements as the launch left them)
+    if (s_state == State::Idle || s_state == State::Away) {
+        UpdateMirror(dt, true);
+        UpdateCover(dt);
+    }
+    if (s_awaitingFrontEnd) {
+        s_awaitTime += dt;
+        bool leftOriginal = ActiveMenu() && !s_mirrorWouldRestyle && s_holdFrames == 0;
+        if (!frontEnd || s_mirror.Up() || Showing() || leftOriginal || s_awaitTime > kAwaitAtMost) {
+            Log("new front end: the front end's first screen is up after %.2f s (%s)", s_awaitTime,
+                s_mirror.Up() || Showing() ? "ours" : leftOriginal ? "an original screen" : "none");
+            s_awaitingFrontEnd = false;
+        }
+    }
+    // Decided here, before the screen elements are laid out for this frame's drawing: whatever the scripts made since
+    // the last frame (the pause menu, a dialog, the main menu) is hidden before it is ever drawn.
+    if (s_state == State::Shown || s_mirror.Up() || s_cover.On() || s_holdFrames > 0 || s_awaitingFrontEnd) {
+        HideRoot(true);
+        KeepRootHidden(); // (a script that scaled root_window back since - create_pause_menu's unhide_root_window)
+    } else if (s_rootHidden) {
+        HideRoot(false); // (nothing of ours over the original's elements any more: they're back)
+    }
+}
 
 // The pause menus' level and session (the level as the data names it; the session so far).
 Paint::Extras PauseExtras()
@@ -2153,7 +2223,7 @@ void RegisterScriptFunctions()
 void Draw()
 {
     // (never over a tool's own UI: the level editor - Update steps ours aside)
-    if (!Enabled() || LevelEditor::Active() || (!Showing() && !s_mirror.Up() && !s_cover.On()))
+    if (!Enabled() || LevelEditor::Active() || (!Showing() && !s_mirror.Up() && !s_cover.On() && !s_awaitingFrontEnd))
         return;
     ImGuiContext* previous = nullptr;
     if (!BeginContext(&previous))
@@ -2182,6 +2252,14 @@ void Draw()
         }
         UiBackend::NewFrame();
         ImGui::NewFrame();
+        if (!Showing() && !s_mirror.Up() && !s_cover.On()) {
+            // (the front end come up, its first menu not yet: its ground and the main menu's art)
+            Paint::Waiting(frame, static_cast<float>(w), static_cast<float>(h), RestyleExtras(), "career");
+            ImGui::Render();
+            UiBackend::Render();
+            EndContext(previous);
+            return;
+        }
         if (!Showing() && (s_mirror.Up() || s_cover.Drawn() == Cover::Over::Restyled)) {
             // (an original screen restyled - phase 3; or, under a cover, the one last up)
             Paint::Extras pause = RestyleExtras();
