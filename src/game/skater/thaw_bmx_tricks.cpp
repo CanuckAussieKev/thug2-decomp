@@ -70,6 +70,8 @@ constexpr uint32_t kFacing = 0x8C;         // THAW +0xA8
 constexpr uint32_t kVelocity = 0xAC;       // THAW +0xC8
 // The pad's buttons (offsets in THUG2's pad = THAW's).
 constexpr uint32_t kR1 = 0xE0, kR2 = 0x100, kSquare = 0x160;
+// THAW's stall state (CoreFields::kBikeStall).
+constexpr int kStateBikeStall = 6;
 // Components.
 constexpr uint32_t kSpecialItem = 0xF27A294D;
 constexpr uint32_t kAnimBlender = 0x7149B753;
@@ -632,10 +634,24 @@ int CallTrickMember(void* core, uint32_t name, Script::CStruct* params, Script::
         double along = Dot3(VectorAt(ObjectOf(core), kFacing), VectorAt(core, kLandingNormal));
         return (name == kPitchingForward ? along < 0.0 : along > 0.0) ? 1 : 0;
     }
-    if (name == kShouldStall || name == kOnStall)
-        return 0;
-    if (name == kClearStall || name == kExitStallBoost)
+    if (name == kShouldStall) { // 0x005C8580 (2nd build 0x005C8410): +0x49D
+        const BikeState* state = StateOf(core, false);
+        return state && state->stallScript ? 1 : 0;
+    }
+    if (name == kClearStall) { // 0x005C8590 (2nd build 0x005C8420): cleared only once in the stall state
+        BikeState* state = StateOf(core, false);
+        if (state && At<int>(FlagsOf(core), 0x18) == kStateBikeStall)
+            state->stallScript = false;
         return 1;
+    }
+    if (name == kOnStall) // (its state component's: the physics state the stall's)
+        return At<int>(FlagsOf(core), 0x18) == kStateBikeStall ? 1 : 0;
+    if (name == kExitStallBoost) {
+        // 0x005C8540 (2nd build 0x005C83D0): the velocity's x / z from THAW's +0x714 / +0x71C, which nothing of THAW's
+        // writes that a search finds (the skater's stall boost) - left out; only BIKE_OLLIE's Boost asks, which no bike
+        // script passes.
+        return 1;
+    }
     return 2;
 }
 

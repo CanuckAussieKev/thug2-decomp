@@ -447,13 +447,14 @@ void TestThawBmxPoseAndMembers()
           "bmx 0x5CA600: up 30 degrees off the display normal: beyond 20, not 40");
     // The members on a fake component.
     Fake f;
-    std::vector<uint8_t> input(0x400, 0);
+    std::vector<uint8_t> input(0x400, 0), flags(0x200, 0);
     *reinterpret_cast<void**>(f.core.data() + 0x150C) = input.data();
+    *reinterpret_cast<void**>(f.core.data() + 0x1528) = flags.data();
     f.Call("SkaterOnBike");
     BikeState* s = StateOf(f.core.data(), false);
     Check(f.Call("InTireTap") == 0 && f.Call("LandedFromTireTap") == 0 && f.Call("ShouldRunStallScript") == 0 &&
               f.Call("OnStall") == 0 && f.Call("ClearStallScriptFlag") == 1 && f.Call("ExitStallBoost") == 1,
-          "bmx: the members at rest (no stalls ever)");
+          "bmx: the members at rest (no stall)");
     s->tireTap = true;
     s->landedFromTireTap = true;
     Check(f.Call("InTireTap") == 1 && f.Call("LandedFromTireTap") == 1, "bmx: InTireTap / LandedFromTireTap read");
@@ -693,6 +694,79 @@ void TestThawBmxBounceBackwards()
     on = was;
 }
 
+void TestThawBmxStall()
+{
+    // THAW's bike stall, against its code as read in the second build (0x005E2935 the grind start's branch, 0x005E2E30
+    // the stall state, 0x005E7074 the rail state's slip, 0x005C8410 / 0x005C8420 the members).
+    using namespace Bike;
+    const Mth::Vector alongX = {1, 0, 0, 0};
+    // Across the rail: the velocity flattened, within Rail_Tolerance of square to it (strictly; its size).
+    Check(StallAcross({0, 0, 100, 1}, alongX, 0.7f) && !StallAcross({100, 0, 10, 1}, alongX, 0.7f),
+          "bmx stall 0x5E2972: square to the rail: a stall; along it: not");
+    Check(!StallAcross({-100, 0, 0, 1}, alongX, 0.7f), "bmx stall 0x5E2972: along it the other way: not (the size)");
+    Check(StallAcross({0, 0, 0, 1}, alongX, 0.7f), "bmx stall 0x5E2972: standing still: across (dot 0)");
+    Check(!StallAcross({100, 0, 0, 1}, alongX, 1.0f), "bmx stall 0x5E2972: the tolerance strictly more");
+    const Mth::Vector climbing = {0.6f, 0.8f, 0, 0};
+    Check(StallAcross({0, 300, 100, 1}, climbing, 0.7f),
+          "bmx stall 0x5E2972: the velocity's y left out (flattened: square to a climbing rail)");
+    // The slip: stall_slip_time ms (strictly past it), till then the kept velocity / that taken off a frame.
+    StallSlipStep slip = StallSlip(130, 130.0f, {260, -13, 0, 1}, {260, -13, 0, 1});
+    Check(!slip.stall && Near(slip.velocity.x, 258.0f) && Near(slip.velocity.y, -12.9f) &&
+              Near(slip.velocity.w, 1.0f - 1.0f / 130.0f),
+          "bmx stall 0x5E7092: within the slip time: slowed by kept / 130 (w too)");
+    Check(StallSlip(131, 130.0f, {260, 0, 0, 1}, {260, 0, 0, 1}).stall, "bmx stall 0x5E7092: past it: the stall");
+    Check(StallSlip(0xFFFFFFF0u, 130.0f, {1, 0, 0, 1}, {1, 0, 0, 1}).stall,
+          "bmx stall 0x5E70C4: the time unsigned (a stamp ahead of the clock: a huge time)");
+    // A steep rail: up's y under 0.95 counted to 10, then a grind again (the count to 0); never reset otherwise.
+    int frames = 0;
+    Check(!StallSteepStep(0.96f, &frames) && frames == 0, "bmx stall 0x5E3821: a flat rail: no count");
+    Check(!StallSteepStep(0.9f, &frames) && frames == 1, "bmx stall 0x5E3821: steep: counted");
+    frames = 9;
+    Check(!StallSteepStep(0.9f, &frames) && frames == 10, "bmx stall 0x5E3821: up to 10");
+    Check(StallSteepStep(0.9f, &frames) && frames == 0, "bmx stall 0x5E3821: at 10: a grind, the count to 0");
+    frames = 5;
+    Check(!StallSteepStep(0.9500001f, &frames) && frames == 5 && !StallSteepStep(1.0f, &frames) && frames == 5,
+          "bmx stall 0x5E3821: over the double 0.95: not steep, the count kept");
+    Check(!StallSteepStep(0.95f, &frames) && frames == 6,
+          "bmx stall 0x5E3821: the float 0.95 (just under the double): steep");
+    // The facing: the rail's direction the way the skater faces.
+    Check(NearV(StallFacing({1, 0, 0, 0}, {-1, 0, 0, 0}), 1, 0, 0) && NearV(StallFacing({0, 0, 1, 0}, alongX), 1, 0, 0) &&
+              NearV(StallFacing({-0.1f, 0, 1, 0}, alongX), -1, 0, 0),
+          "bmx stall 0x5E3585: along the facing (square: as it is)");
+
+    // The members and the flag on a fake component.
+    Fake f;
+    std::vector<uint8_t> input(0x400, 0), flags(0x200, 0);
+    *reinterpret_cast<void**>(f.core.data() + 0x150C) = input.data();
+    *reinterpret_cast<void**>(f.core.data() + 0x1528) = flags.data();
+    int& state = *reinterpret_cast<int*>(flags.data() + 0x18);
+    f.Call("SkaterOnBike");
+    BikeState* s = StateOf(f.core.data(), false);
+    state = 4;
+    s->stallScript = true;
+    Check(f.Call("ShouldRunStallScript") == 1 && f.Call("OnStall") == 0, "bmx stall 0x5C8410: the flag read");
+    Check(f.Call("ClearStallScriptFlag") == 1 && s->stallScript, "bmx stall 0x5C8420: grinding: the flag kept");
+    state = 6;
+    Check(f.Call("OnStall") == 1 && f.Call("ClearStallScriptFlag") == 1 && !s->stallScript &&
+              f.Call("ShouldRunStallScript") == 0,
+          "bmx stall 0x5C8420: in the stall state: cleared; OnStall");
+    // The grind start without R1: the flag cleared (with R1 it reads Rail_Tolerance - not offline).
+    s->stallScript = true;
+    GrindStall(f.core.data(), {0, 0, 100, 1}, alongX);
+    Check(!s->stallScript && state == 6, "bmx stall 0x5E2AA2: no R1: the flag cleared, the state left");
+    // The rail state's slip: off the rail (the state not 4) the flag goes; nothing without it.
+    s->stallScript = true;
+    state = 1;
+    RailStallSlip(f.core.data());
+    Check(!s->stallScript && state == 1, "bmx stall 0x5E717B: off the rail: the flag cleared");
+    float* velocity = reinterpret_cast<float*>(f.skater.data() + 0xAC);
+    velocity[0] = 300.0f;
+    state = 4;
+    RailStallSlip(f.core.data());
+    Check(velocity[0] == 300.0f && state == 4, "bmx stall 0x5E707C: no flag: the grind as it is");
+}
+
+SELFTEST(Early, TestThawBmxStall);
 SELFTEST(Early, TestThawBmxWheelFeel);
 SELFTEST(Early, TestThawBmxMeterAndVert);
 SELFTEST(Early, TestThawBmxBounceBackwards);

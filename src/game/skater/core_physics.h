@@ -423,6 +423,11 @@ private:
     // what every way out of the update does.)
     void GrindAlong(Obj::CRailNode* startNode, Obj::CRailNode* goOnTo, bool noNextSegment, float overshoot);
     void FinishRail();
+    // (Parts of 0x0050DDF0: on a moving rail, carried along with it; a grind's or a slide's balance.)
+    void RideMovingRail();
+    void UpdateGrindBalance();
+    // Not original: THAW's stall state's update (2nd build 0x005E2E30 - core_rail.cpp, game/skater/thaw_bmx.h).
+    void DoBikeStallPhysics();
     // (Part of 0x0050EE70: the move along the ground, once more for the rest when stopped short.)
     void MoveOnGround(Mth::Vector step);
     // (Part of 0x0050F830: off the wall's edge - the up straight, pushed out 18, into the air.)
