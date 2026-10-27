@@ -8,7 +8,7 @@
 // thug2-decomp-data, read before the game's archives and data folder (Pip::Load / LoadFileInto, File::Open / Exist,
 // the async file system).
 //   - Files at the top of the folder are always used.
-//   - Files in its front_end folder are used first while the skate-shop front end is on (menu_backdrop.h Active).
+//   - Files in its front_end folder are used first while the new front end is on ([features] new_frontend, new_frontend.h Enabled).
 //   - Files in its anteara folder (anteara\front_end first while the front end is on) are used before both while
 //     thug2-decomp.ini [features] anteara_mod=1 (default 0): Anteara Mod, the user's own 2010/2011 script mod
 //     (tools/anteara/README.md). make_menu_level.ts writes there the mod's complete script set - its qdir.txt, every

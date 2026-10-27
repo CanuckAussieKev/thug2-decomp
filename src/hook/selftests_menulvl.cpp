@@ -1,7 +1,6 @@
-// Self-tests for the menu_backdrop feature (src/game/front/menu_backdrop.*) and the game functions rewritten for it:
-// Gfx::Camera's setters and getters (src/game/gfx/camera.cpp) and the LoadScene script command
-// (src/game/gfx/scene.cpp). Originals against ours with the feature off (and on but not in play), worked-out values
-// for the views' matrices and the feature's decisions, and the feature driven on stand-in game state.
+// Self-tests for the game functions rewritten in src/game/gfx/camera.cpp (Gfx::Camera's setters and getters) and
+// src/game/gfx/scene.cpp (the LoadScene script command): originals against ours; and for the data overlay's file names
+// and the folders it searches.
 
 #include <windows.h>
 
@@ -22,7 +21,6 @@
 #include "game/obj/movie_manager.h"
 #include "game/obj/object.h"
 #include "game/core/str.h"
-#include "game/front/menu_backdrop.h"
 #include "game/front/data_overlay.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/scene.h"
@@ -37,7 +35,6 @@ namespace {
 using namespace TestStandIns;
 using Gfx::Camera;
 using Script::CStruct;
-namespace MB = Front::MenuBackdrop;
 
 uint32_t Bits(float f)
 {
@@ -45,21 +42,6 @@ uint32_t Bits(float f)
     std::memcpy(&bits, &f, 4);
     return bits;
 }
-
-// The setting for one test (put back after), the backdrop taken as installed (offline there is no data overlay).
-struct SettingScope {
-    int saved;
-    explicit SettingScope(int value, int installed = 1) : saved(MB::Setting())
-    {
-        MB::Setting() = value;
-        MB::ForceInstalled(installed);
-    }
-    ~SettingScope()
-    {
-        MB::Setting() = saved;
-        MB::ForceInstalled(-1);
-    }
-};
 
 std::vector<Saved> g_menulvl_saved;
 void Cleanup()
@@ -243,7 +225,6 @@ std::vector<uint32_t> RunCamera(bool original, uint32_t seed)
 
 void TestCameraMethods()
 {
-    SettingScope setting(1); // (on, but not in play offline: no skate module, no backdrop scene)
     g_menulvl_saved = {{0x007D643A, 1, {}}, {0x007D6444, 4, {}}};
     SaveAll(g_menulvl_saved);
     auto* s = new StandIns;
@@ -412,13 +393,6 @@ std::vector<uint32_t> RunLoadScene(bool original, const char* name, uint32_t fla
     return g_trace;
 }
 
-bool SameLoad(const Load& load, const char* name, const char* texture, bool addSuperSectors, bool sky, bool net,
-              bool dictionary = false)
-{
-    return load.name == name && load.texture == texture && load.addSuperSectors == addSuperSectors &&
-           load.sky == sky && load.dictionary == dictionary && load.net == net;
-}
-
 void TestLoadScene()
 {
     auto* s = new StandIns;
@@ -426,277 +400,18 @@ void TestLoadScene()
     const char* names[] = {"mainmenu", "MainMenu", "LA", "AU_Sky", "la_SKY_x", "Sk5ed_shell", "skyline",
                            "thps4_skateshop"};
     bool ok = true;
-    for (int run = 0; run < 6; ++run) {
-        int setting = run / 2, installed = run % 2;
-        SettingScope scope(setting, installed);
-        for (const char* name : names) {
-            bool frontEnd = _stricmp(name, "mainmenu") == 0;
-            if (setting != 0 && installed && frontEnd)
-                continue; // (below: ours loads more)
-            for (uint32_t flags = 0; flags < 16; ++flags) {
-                std::vector<uint32_t> expected = RunLoadScene(true, name, flags);
-                std::vector<uint32_t> actual = RunLoadScene(false, name, flags);
-                if (expected != actual) {
-                    ok = false;
-                    Log("  LoadScene %s flags %u setting %d installed %d:", name, flags, setting, installed);
-                    Compare(expected, actual, "LoadScene");
-                }
-            }
-        }
-    }
-    Check(ok, "LoadScene: original vs ours (menu_backdrop off or not installed, or not the front end's scene)");
-
-    // The front end's scene with the backdrop on: ours loads it as the original does, then the backdrop's sky and
-    // scene (is_net passed on, nothing else), each from a structure of its own, freed after.
-    ok = true;
-    for (int setting : {1, 2, 3}) {
-        SettingScope scope(setting);
+    for (const char* name : names) {
         for (uint32_t flags = 0; flags < 16; ++flags) {
-            std::vector<uint32_t> expected = RunLoadScene(true, "MainMenu", flags);
-            Load first = g_ls_loads.at(0);
-            std::vector<uint32_t> actual = RunLoadScene(false, "MainMenu", flags);
-            bool net = (flags & 4) != 0;
-            // (structures: the front end's description, then for each backdrop scene its parameters and description)
-            bool good = g_ls_loads.size() == 3 && g_ls_inits == 5 && g_ls_clears == 5 &&
-                        actual.size() > expected.size() &&
-                        std::equal(expected.begin(), expected.end() - 2, actual.begin()) &&
-                        actual.back() == 1u && SameLoad(g_ls_loads[0], first.name.c_str(), first.texture.c_str(),
-                                                        first.addSuperSectors, first.sky, first.net, first.dictionary) &&
-                        SameLoad(g_ls_loads[1], "thps4_skateshop_sky",
-                                 "levels\\thps4_skateshop_sky\\thps4_skateshop_sky.tex", false, true, net) &&
-                        SameLoad(g_ls_loads[2], "thps4_skateshop", "levels\\thps4_skateshop\\thps4_skateshop.tex", true,
-                                 false, net);
-            if (!good) {
+            std::vector<uint32_t> expected = RunLoadScene(true, name, flags);
+            std::vector<uint32_t> actual = RunLoadScene(false, name, flags);
+            if (expected != actual) {
                 ok = false;
-                Log("  backdrop setting %d flags %u: %u loads, %u structures made, %u cleared", setting, flags,
-                    static_cast<unsigned>(g_ls_loads.size()), g_ls_inits, g_ls_clears);
-                for (const Load& load : g_ls_loads)
-                    Log("    %s (%s) super sectors %d sky %d dictionary %d net %d", load.name.c_str(),
-                        load.texture.c_str(), load.addSuperSectors, load.sky, load.dictionary, load.net);
+                Log("  LoadScene %s flags %u:", name, flags);
+                Compare(expected, actual, "LoadScene");
             }
         }
     }
-    Check(ok, "LoadScene: the front end's scene brings the backdrop's sky and scene (menu_backdrop on)");
-    Cleanup();
-}
-
-// --- the views ---------------------------------------------------------------------------------------------------
-
-bool Near(float a, double b, double tolerance = 2e-6) { return std::fabs(static_cast<double>(a) - b) <= tolerance; }
-bool RowIs(const Mth::Vector& v, double x, double y, double z, double w)
-{
-    return Near(v.x, x) && Near(v.y, y) && Near(v.z, z) && v.w == static_cast<float>(w);
-}
-
-void TestMenuBackdropViews()
-{
-    bool ok = MB::ViewFor(0) == nullptr && MB::ViewFor(1) != nullptr && MB::ViewFor(1) == MB::ViewFor(2) &&
-              MB::ViewFor(1) == MB::ViewFor(3) && MB::ViewFor(-1) == MB::ViewFor(1);
-    Check(ok, "menu_backdrop: one view, at any setting but 0");
-    const MB::View* v1 = MB::ViewFor(1);
-    ok = v1->pos[0] == 564.790f && v1->pos[1] == 74.075f && v1->pos[2] == -1114.151f && v1->back[0] == 0.007642f &&
-         v1->back[2] == 0.999689f && v1->up[0] == -0.000181f && v1->up[1] == 0.999718f && v1->up[2] == -0.023743f;
-    Check(ok, "menu_backdrop: the view as captured");
-
-    // Worked out (double precision, the captured floats): row 0 = up x back normalized.
-    Mth::Matrix m1 = MB::ViewMatrix(*v1);
-    ok = RowIs(m1.row[0], 0.99997078, -0.00000050, -0.00764414, 0) &&
-         RowIs(m1.row[1], -0.00018100, 0.99971808, -0.02374300, 0) &&
-         RowIs(m1.row[2], 0.00764200, 0.02374400, 0.99968886, 0) && RowIs(m1.row[3], 0, 0, 0, 1);
-    // A right-handed rotation: row 0 . (row 1 x row 2) = +1, rows of length 1.
-    for (const Mth::Matrix* m : {&m1}) {
-        const Mth::Vector &a = m->row[0], &b = m->row[1], &c = m->row[2];
-        double det = a.x * (b.y * c.z - b.z * c.y) - a.y * (b.x * c.z - b.z * c.x) + a.z * (b.x * c.y - b.y * c.x);
-        ok = ok && std::fabs(det - 1.0) < 1e-5;
-    }
-    if (!ok)
-        Log("  view row 0 %.8f %.8f %.8f", m1.row[0].x, m1.row[0].y, m1.row[0].z);
-    // An unnormalized view is normalized.
-    MB::View scaled = {{1, 2, 3}, {0, 0, 2}, {0, 3, 0}};
-    Mth::Matrix m3 = MB::ViewMatrix(scaled);
-    ok = ok && RowIs(m3.row[0], 1, 0, 0, 0) && RowIs(m3.row[1], 0, 1, 0, 0) && RowIs(m3.row[2], 0, 0, 1, 0);
-    MB::View tilted = {{0, 0, 0}, {0, 0, -4}, {3, 0, 0}};
-    Mth::Matrix m4 = MB::ViewMatrix(tilted);
-    ok = ok && RowIs(m4.row[0], 0, 1, 0, 0) && RowIs(m4.row[1], 1, 0, 0, 0) && RowIs(m4.row[2], 0, 0, -1, 0);
-    Check(ok, "menu_backdrop: the views' camera matrices");
-}
-
-// --- the decisions -----------------------------------------------------------------------------------------------
-
-void TestMenuBackdropDecisions()
-{
-    bool ok = MB::kBackdropSceneName == Crc::GenerateCRCFromString(MB::kBackdropScene) &&
-              MB::kBackdropSkyName == Crc::GenerateCRCFromString(MB::kBackdropSky) &&
-              MB::kFrontEndSceneName == Crc::GenerateCRCFromString("mainmenu");
-    Check(ok, "menu_backdrop: scene name checksums");
-    ok = true;
-    for (const char* name : {"mainmenu_camera", "mainmenu_camera02", "mainmenu_camera03", "SS_MenuCam", "level_select_cam"})
-        ok = ok && MB::IsMenuCamera(Crc::GenerateCRCFromString(name));
-    for (const char* name : {"skater_select_cam", "skater_select_cam01", "skater_select_cam02", "stationary_skater_cam",
-                             "CAGR_cam1", "SS_SkaterChoosing", "skateshop_startcam", "test_cam", ""})
-        ok = ok && !MB::IsMenuCamera(Crc::GenerateCRCFromString(name));
-    ok = ok && !MB::IsMenuCamera(0);
-    Check(ok, "menu_backdrop: the menu cameras");
-
-    ok = true;
-    for (int setting : {-1, 0, 1, 2, 3}) {
-        bool on = setting != 0;
-        for (int bits = 0; bits < 8; ++bits) {
-            bool frontEnd = bits & 1, loaded = (bits & 2) != 0, menu = (bits & 4) != 0;
-            bool hold = MB::ShouldHold(setting, frontEnd, loaded, menu);
-            ok = ok && hold == (on && frontEnd && loaded && menu);
-            for (uint32_t scene : {MB::kFrontEndSceneName, MB::kBackdropSceneName, MB::kBackdropSkyName, 0x12345678u}) {
-                bool hide = MB::ShouldHideScene(scene, setting, frontEnd, loaded);
-                ok = ok && hide == (on && frontEnd && loaded && scene == MB::kFrontEndSceneName);
-            }
-        }
-    }
-    Check(ok, "menu_backdrop: when the camera is held and which scenes are hidden");
-}
-
-// --- the feature on stand-in game state ----------------------------------------------------------------------------
-
-alignas(16) uint8_t g_ms_skate[0x400];
-alignas(16) uint8_t g_ms_career[0x700];
-alignas(16) uint8_t g_ms_scenes[4][0x90];
-uint32_t g_ms_nodes[5][4];
-uint32_t g_ms_anim;
-Camera* g_ms_viewport;
-int g_ms_recomputes;
-
-// The scene list: the given scenes' names, then the end (the head, scene -1).
-void SetScenes(std::initializer_list<uint32_t> names)
-{
-    int n = 0;
-    for (uint32_t name : names) {
-        std::memset(g_ms_scenes[n], 0xCD, sizeof(g_ms_scenes[n]));
-        std::memcpy(g_ms_scenes[n] + 0x84, &name, 4);
-        g_ms_nodes[n][1] = reinterpret_cast<uint32_t>(g_ms_scenes[n]);
-        ++n;
-    }
-    g_ms_nodes[n][1] = 0xFFFFFFFF;
-    for (int i = 0; i < n; ++i)
-        g_ms_nodes[i][3] = reinterpret_cast<uint32_t>(g_ms_nodes[i + 1]);
-    GameVariable<uint32_t>(0x006FA7EC) = reinterpret_cast<uint32_t>(g_ms_nodes[0]);
-}
-
-void TestMenuBackdropState()
-{
-    g_menulvl_saved = {{0x007CE478, 4, {}}, {0x006FA7EC, 4, {}}, {0x00701348, 4, {}}};
-    SaveAll(g_menulvl_saved);
-    auto* s = new StandIns;
-    s->At({0x0057B030, AddressOf(&Obj::CMovieManager::GetPlayingName)}, 0, [](Regs&) { return g_ms_anim; });
-    s->At({0x004A09C0}, 0, [](Regs& r) { return r.args[0] == 0 ? reinterpret_cast<uint32_t>(g_ms_viewport) : 0u; });
-    s->At({0x00485AA0, AddressOf(&Camera::UpdateAdjustedHFOV)}, 0, [](Regs& r) {
-        ++g_ms_recomputes;
-        reinterpret_cast<Camera*>(r.ecx)->m_adjustedHFov = 88.5f;
-        return 0u;
-    });
-    GameVariable<float>(0x00701348) = 72.0f; // the default field of view (camera_fov)
-    std::memset(g_ms_skate, 0, sizeof(g_ms_skate));
-    std::memset(g_ms_career, 0, sizeof(g_ms_career));
-    *reinterpret_cast<uint8_t**>(g_ms_skate + 0x20) = g_ms_career;
-    *reinterpret_cast<uint32_t*>(g_ms_skate + 0x368) = 0x0BADF00D; // the movie manager (its lookup stood in)
-    GameVariable<uint8_t*>(0x007CE478) = g_ms_skate;
-    alignas(16) uint8_t cameraMemory[2][kCameraSize];
-    Camera* viewport = reinterpret_cast<Camera*>(cameraMemory[0]);
-    Camera* other = reinterpret_cast<Camera*>(cameraMemory[1]);
-    g_ms_viewport = viewport;
-    const uint32_t mainmenu02 = Crc::GenerateCRCFromString("mainmenu_camera02");
-    const uint32_t cas = Crc::GenerateCRCFromString("skater_select_cam");
-    const uint32_t kOther = 0x0F0F0F0F;
-
-    bool ok = true;
-    int cases = 0;
-    for (int setting : {0, 1, 2}) {
-        SettingScope scope(setting);
-        for (int level : {0, 15}) {
-            for (int loaded = 0; loaded < 2; ++loaded) {
-                for (uint32_t anim : {mainmenu02, cas, 0u}) {
-                    for (Camera* camera : {viewport, other}) {
-                        g_ms_career[0x630] = static_cast<uint8_t>(level);
-                        if (loaded)
-                            SetScenes({MB::kFrontEndSceneName, MB::kBackdropSkyName, MB::kBackdropSceneName, kOther});
-                        else
-                            SetScenes({MB::kFrontEndSceneName, kOther});
-                        g_ms_anim = anim;
-                        bool holding = setting != 0 && level == 0 && loaded && anim == mainmenu02;
-                        bool backdropShown = setting != 0 && level == 0 && loaded;
-                        ok = ok && MB::Holding() == holding;
-                        ok = ok && MB::HideScene(MB::kFrontEndSceneName) == backdropShown;
-                        ok = ok && !MB::HideScene(MB::kBackdropSceneName) && !MB::HideScene(MB::kBackdropSkyName);
-                        ok = ok && !MB::HideScene(kOther);
-
-                        // The setters: held -> the view, else what was set.
-                        for (int setter = 0; setter < 3; ++setter) {
-                            FillCamera(cameraMemory[0], 7 + setter);
-                            FillCamera(cameraMemory[1], 7 + setter);
-                            g_ms_recomputes = 0;
-                            Mth::Vector pos = {1.0f, 2.0f, 3.0f, 1.0f};
-                            Mth::Matrix m;
-                            for (int r = 0; r < 4; ++r)
-                                m.row[r] = {0.5f + r, 0.25f, -0.125f * r, 7.0f};
-                            float row3[4];
-                            std::memcpy(row3, &camera->m_matrix.row[3], sizeof(row3));
-                            if (setter == 0)
-                                camera->SetPos(pos);
-                            else if (setter == 1)
-                                camera->SetMatrix(m);
-                            else
-                                camera->SetHFOV(33.0f);
-                            bool held = holding && camera == viewport;
-                            const MB::View* view = MB::ViewFor(setting);
-                            Mth::Matrix expected = view ? MB::ViewMatrix(*view) : Mth::Matrix{};
-                            if (held) {
-                                ok = ok && camera->m_pos.x == view->pos[0] && camera->m_pos.y == view->pos[1] &&
-                                     camera->m_pos.z == view->pos[2] && camera->m_pos.w == 1.0f;
-                                for (int r = 0; r < 3; ++r)
-                                    ok = ok && std::memcmp(&camera->m_matrix.row[r], &expected.row[r], 16) == 0;
-                                // (row 3: SetMatrix's, else as it was)
-                                ok = ok && (setter == 1 ? camera->m_matrix.row[3].w == 7.0f
-                                                        : std::memcmp(&camera->m_matrix.row[3], row3, 16) == 0);
-                                ok = ok && camera->m_hFov == 72.0f && camera->m_adjustedHFov == 88.5f &&
-                                     g_ms_recomputes == (setter == 2 ? 2 : 1);
-                            } else {
-                                if (setter == 0)
-                                    ok = ok && std::memcmp(&camera->m_pos, &pos, 16) == 0;
-                                else if (setter == 1)
-                                    ok = ok && std::memcmp(&camera->m_matrix, &m, 64) == 0;
-                                else
-                                    ok = ok && camera->m_hFov == 33.0f && g_ms_recomputes == 1;
-                            }
-                        }
-                        // Already at the default field of view: not updated again.
-                        FillCamera(cameraMemory[0], 3);
-                        FillCamera(cameraMemory[1], 3);
-                        camera->m_hFov = 72.0f;
-                        camera->m_adjustedHFov = -1.0f;
-                        g_ms_recomputes = 0;
-                        MB::HoldCamera(camera);
-                        ok = ok && g_ms_recomputes == 0 && camera->m_adjustedHFov == -1.0f;
-                        if (holding && camera == viewport)
-                            ok = ok && camera->m_pos.x == MB::ViewFor(setting)->pos[0];
-                        ++cases;
-                        if (!ok) {
-                            Log("  menu_backdrop state: failed at setting %d level %d loaded %d anim %08X %s camera",
-                                setting, level, loaded, anim, camera == viewport ? "viewport" : "other");
-                            goto done;
-                        }
-                    }
-                }
-            }
-        }
-    }
-done:
-    // No skate module: never held (the camera animation can't be read); the front end's scene still hidden.
-    GameVariable<uint8_t*>(0x007CE478) = nullptr;
-    {
-        SettingScope scope(1);
-        SetScenes({MB::kFrontEndSceneName, MB::kBackdropSceneName});
-        g_ms_anim = mainmenu02;
-        ok = ok && !MB::Holding() && !MB::HideScene(MB::kBackdropSceneName) && MB::HideScene(MB::kFrontEndSceneName);
-    }
-    Check(ok, "menu_backdrop: held camera and hidden scenes on stand-in game state");
+    Check(ok, "LoadScene: original vs ours");
     Cleanup();
 }
 
@@ -720,22 +435,8 @@ void TestDataOverlay()
               name("models\\metadata\\x.qb", "models\\metadata\\x.qb") && name("", "");
     Check(ok, "data overlay: file names");
 
-    // The front_end folder only while the backdrop is on and installed.
-    int saved = MB::Setting();
-    ok = true;
-    for (int setting : {0, 1, 2, 3}) {
-        MB::Setting() = setting;
-        for (int installed : {0, 1}) {
-            MB::ForceInstalled(installed);
-            ok = ok && MB::Active() == (setting != 0 && installed != 0);
-        }
-    }
-    MB::ForceInstalled(-1);
-    MB::Setting() = saved;
-    Check(ok, "menu_backdrop: on at any setting but 0, once installed");
-
     // Where a file is looked for: Anteara Mod's folders first while anteara_mod is on (its front_end first while
-    // the skate-shop front end is on), then the front end's, then the overlay's top - every combination.
+    // the new front end is on), then the front end's, then the overlay's top - every combination.
     struct Case {
         bool anteara, frontEnd;
         std::vector<std::string> want;
@@ -763,7 +464,4 @@ void TestDataOverlay()
 
 SELFTEST(Early, TestCameraMethods, Cleanup);
 SELFTEST(Early, TestLoadScene, Cleanup);
-SELFTEST(Early, TestMenuBackdropViews);
-SELFTEST(Early, TestMenuBackdropDecisions);
-SELFTEST(Early, TestMenuBackdropState, Cleanup);
 SELFTEST(Early, TestDataOverlay);

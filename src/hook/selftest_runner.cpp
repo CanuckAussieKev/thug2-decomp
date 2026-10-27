@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "game/front/menu_backdrop.h"
 #include "game/gfx/loading_console.h"
 
 #include "hook/hook.h"
@@ -254,10 +253,6 @@ void RunSelfTests(TestStage stage)
     StartWatchdog();
     // [selftests] trace=1 logs each test as it starts - for finding one that hangs.
     static const bool trace = ConfigInt("selftests", "trace", 0) != 0;
-    // The ini's menu_backdrop doesn't take part: off while the tests run (the tests that need it set it themselves).
-    // With it on, its hooks in the renderer, file loading and cameras ran inside tests' stand-ins.
-    int backdrop = Front::MenuBackdrop::Setting();
-    Front::MenuBackdrop::Setting() = 0;
     // (and the loading console: the tests show and hide loading screens with the game's screen code stood in)
     bool consoleSuspended = Gfx::LoadingConsole::SuspendedForSelfTests();
     Gfx::LoadingConsole::SuspendedForSelfTests() = true;
@@ -275,7 +270,6 @@ void RunSelfTests(TestStage stage)
     }
     if (referenceSpots)
         WriteReferenceBytes(true);
-    Front::MenuBackdrop::Setting() = backdrop;
     Gfx::LoadingConsole::SuspendedForSelfTests() = consoleSuspended;
     int failures = g_failures - failures_before;
     if (failures)

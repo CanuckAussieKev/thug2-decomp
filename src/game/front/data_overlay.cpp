@@ -10,7 +10,7 @@
 #include <cstring>
 #include <vector>
 
-#include "game/front/menu_backdrop.h"
+#include "game/front/new_frontend.h"
 #include "game/gfx/hd_ui.h"
 #include "game/skate/thugpro_cas.h"
 #include "hook/log.h"
@@ -99,7 +99,7 @@ bool OverlayPath(const char* name, char (&path)[260])
             full = candidate;
     }
     const char* folders[4];
-    int count = overlay && full.empty() ? SearchFolders(AntearaMod(), MenuBackdrop::Active(), folders) : 0;
+    int count = overlay && full.empty() ? SearchFolders(AntearaMod(), NewFrontend::Enabled(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
         std::string candidate = Folder() + "\\" + folders[i] + relative;
         if (IsFile(candidate))

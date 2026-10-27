@@ -40,7 +40,7 @@ script interpreter is planned to be replaced by JavaScript (QuickJS) with the sc
 |---|---|---|---|
 | Tony Hawk's Underground 2 (PC) | Everything | `C:\Games\THUG2` (the game in its `Game` subfolder) | `Data\...` |
 | THPS3 (PC) | Porting THPS3's levels | `C:\Games\THPS3` | `Data\Levels\<Lvl>\` (`.bsp`, `.tdx`, `.qb`), `Data\Scripts\` |
-| THPS4 (PC) | Porting THPS4's levels, the THPS4 skate-shop menu backdrop | `C:\Games\THPS4` | `data\levels\`, `data\scripts\`, `data\models\` |
+| THPS4 (PC) | Porting THPS4's levels, the playable skate shop | `C:\Games\THPS4` | `data\levels\`, `data\scripts\`, `data\models\` |
 | THUG (PC) | Porting THUG's levels | `C:\Games\THUG1` | `Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
 | THAW (PC, version 1.01) | Porting THAW's levels and its BMX | `C:\Games\THAW` | `data\worlds\worldzones\`, `data\pak\`, `data\skies\` |
 | THUGPRO (optional) | THUGPRO's additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`tools/pipeline/compat/thugpro`) |
@@ -133,7 +133,7 @@ node tools\pipeline\thaw_levels\thaw_levels.ts   convert --thug2 C:\Games\THUG2 
 node tools\pipeline\menu_level\make_menu_level.ts --game C:\Games\THUG2
 ```
 
-THPS4 must be converted before `make_menu_level.ts` for the default menu backdrop (THPS4's skate shop). Each
+THPS4 must be converted before `make_menu_level.ts` for the playable skate shop. Each
 converter's README (`tools/pipeline/<game>_levels/README.md`) lists its switches; the THUGPRO compatibility register is
 explained in `tools/pipeline/compat/thugpro/README.md`. `make_menu_level.ts` empties and rebuilds the overlay each run.
 `docs/level-port-compromises.md` lists what the ports do differently from the originals. Optional: Anteara Mod
@@ -151,7 +151,6 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `mute_audio` | 0 | Silences all sound from the first frame |
 | `widescreen_menus` | 1 | 0 brings back PartyMod's pillarboxed 4:3 front end |
 | `mouse_menus` | 1 | Mouse control of the menus (`debug_mouse=1` logs each click) |
-| `menu_backdrop` | 1 | THPS4's skate shop behind a vertical main menu (needs the THPS4 levels converted); 0 = THUG2's original front end |
 | `hd_ui` | 0 | The menus' 4x-upscaled images and fonts (when the overlay was made with `make_menu_level.ts --hd-ui 4`) |
 | `level_editor` | 1 | The pause menu's LEVEL EDITOR (`editor_ui=0`: the old on-screen HUD instead of the Dear ImGui UI; `debug_editor=1` logs its picks and moves) |
 | `start_level` / `edit_level` | (none) | Start straight in a level / in the level editor (as `-level` / `-edit`) |
