@@ -180,6 +180,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_glyph.cpp
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_skater_jump.cpp
+    src/hook/selftests_skater_core_members.cpp
     src/hook/selftests_skater_collision.cpp
     src/hook/selftests_skater_grind.cpp
     src/hook/selftests_skater_states.cpp
@@ -998,6 +999,7 @@ add_library(thug2_code OBJECT
     src/game/skater/core_physics_speed.cpp
     src/game/skater/core_physics_feelers.cpp
     src/game/skater/core_physics_skitch.cpp
+    src/game/skater/core_member_functions.cpp
     src/game/skater/core_physics_turning.cpp
     src/game/skater/core_physics_walls.cpp
     src/game/skater/core_physics_wallplant.cpp

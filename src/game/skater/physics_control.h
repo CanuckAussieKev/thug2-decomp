@@ -54,6 +54,8 @@ public:
     void SwitchWalkingToSkating();
 
     // --- script member functions (the table at 0x006846F0; params, script; all true) ---
+    // 0x004FC420 (with the skater's core physics): walking - the state's physics mode 1 and not driving.
+    bool IsWalking();
     bool PausePhysics(Script::CStruct* params, Script::CScript* script);                     // 0x00517A80
     bool UnPausePhysics(Script::CStruct* params, Script::CScript* script);                   // 0x00517AA0
     bool GetTimeSincePhysicsSwitch(Script::CStruct* params, Script::CScript* script);        // 0x005177A0
