@@ -9,6 +9,21 @@ this repository.
 > licence is granted for it; the project's own original work is MIT. See [NOTICE.md](NOTICE.md) and [LICENSE](LICENSE).
 > Rights holders: open an issue and it will be dealt with promptly.
 
+## The goal
+
+A game that builds from readable source and keeps getting better, not a byte-for-byte copy of the original program.
+The code is rewritten to do what the original does, in C++ you can read, change and debug; how it compiles doesn't
+matter. While the decompilation is under way, each rewritten function is checked against the original's behaviour,
+so the source stays a trustworthy base. On top of that base:
+
+- **Bugs get fixed.** Crashes, hangs, memory limits and other faults found in the original are fixed in the source.
+- **The game gets better:** PartyMod's fixes are part of it, plus a level editor, a new front end, graphics options,
+  levels from the other Tony Hawk games and more (below) - with the original behaviour kept wherever it's what you
+  play against: physics, scoring, scripts, online play with other players.
+- **Changes are marked.** Code that isn't the original's behaviour carries a `NOT ORIGINAL` comment saying what it
+  does and why, so the original stays readable underneath, and most additions can be turned off in
+  `thug2-decomp.ini`.
+
 ## What's in it
 
 - **The game's code** as readable C++, by subsystem (`src/game/`): engine, renderer, script runtime, skater physics,
