@@ -495,6 +495,8 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_map3.cpp
     src/hook/selftests_editor_map4.cpp
     src/hook/selftests_editor_goals.cpp
+    src/hook/selftests_goal_editor.cpp
+    src/hook/selftests_goal_editor_component.cpp
     src/hook/selftests_editor_scale.cpp
     src/hook/selftests_collision_component.cpp
     src/hook/selftests_lock_obj.cpp
@@ -811,6 +813,13 @@ add_library(thug2_code OBJECT
     src/game/obj/camera_util.cpp
     src/game/obj/component_types.cpp
     src/game/ed/goal_editor_util.cpp
+    src/game/ed/edited_goal.cpp
+    src/game/ed/edited_goal_io.cpp
+    src/game/ed/goal_editor.cpp
+    src/game/ed/goal_editor_members.cpp
+    src/game/ed/goal_editor_nodes.cpp
+    src/game/obj/object_proximity.cpp
+    src/game/obj/pager_message.cpp
     src/game/obj/editor_camera.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
