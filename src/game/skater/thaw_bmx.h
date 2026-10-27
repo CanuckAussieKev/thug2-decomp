@@ -8,8 +8,9 @@ namespace Mdl {
 struct FrontEnd;
 }
 namespace Obj {
+class CCompositeObject;
 class CSkater;
-}
+} // namespace Obj
 namespace Script {
 class CArray;
 class CScript;
@@ -93,6 +94,9 @@ struct BikeState {
     StickButton stickUp, stickDown, stickLeft, stickRight; // (THAW's pad +0x280 / +0x2A0 / +0x2C0 / +0x2E0)
     bool vertGroundNoted = false; // (ours: THAW's constructor 0x005CF810 sets +0x6F8 - never on vert ground yet)
     int vertGroundTime = 0;       // +0x6F8 the game clock (with its offset) last on vert ground
+    float steerBlend = 0.5f;      // +0x570 the turn animation's share of the turn branch (THAW 0x005D6360), 0.5 .. 1
+    bool steerAnim = false;       // (ours) bike_playturnanim's turn animation on (the member ThawBmxSteerAnim)
+    float steerIn = 0.0f;         // (ours) how far THAW's tree has blended the turn branch in (0 .. 1)
 };
 
 // [features] thaw_bmx (default 0; the self-tests turn it on for a moment).
@@ -266,6 +270,25 @@ bool VertTapHeld(void* core);
 // bike_manual_state: its pictures turned by 0.9 degrees per point of the manual angle, GetBikeManualAngle. The DLL
 // only loads its pictures: the C function ThawBmx_LoadTexture, thaw_bmx.cpp.)
 
+// ---------------------------------------------------------------------------------------------------------------
+// Riding backwards and the turn's lean (thaw_bmx_physics.cpp). Riding backwards: THAW's 0x005CCF40 (THUG2's
+// 0x004FF920, the turn round to fakie) does nothing on the bike - DoGroundPhysics skips it; the bike stays in THAW's
+// backwards balance (bike_backwards_balance_trick) until it stops, loses the balance or R2 pivots it round.
+
+// The bike's own object (the special item ThawBmx on `skater`), or null.
+Obj::CCompositeObject* BikeObjectOf(void* skater);
+// THAW's turn branch (bike_playturnanim's Skater_PlayTurnAnim: a TurnBlend of <anim> and <turn_anim>, its share the
+// physics' +0x570 - THAW 0x0061FAC0 / 0x00620080, 2nd build) on THUG2's animation: bike_playturnanim plays the turn
+// animation in the anim subset ThawBmxTurn on the rider and the bike (thaw_bmx_playturnanim) and asks for it with the
+// member ThawBmxSteerAnim (on / off: off from its exit script); here, at the end of each frame, the subset's weight is
+// set to THAW's share x how far its tree would have blended the branch in (0.4 s) or out (kSteerOut) - and the subset
+// removed once it's out. EndFrame calls it.
+void SteerAnim(void* core);
+// The member ThawBmxSteerAnim (ours): `on` / `off`.
+void SetSteerAnim(void* core, bool on);
+// The turn animation's subset gone at once (SkaterOffBike, OnSkaterReset - before the state goes).
+void SteerAnimOff(void* core);
+
 // The maths of the branches, on plain values (thaw_bmx_physics.cpp; the self-tests check them against THAW's code as
 // read).
 namespace Bike {
@@ -286,6 +309,13 @@ struct WheelFeelResult {
     float distance, reach, turn, limit;
 };
 WheelFeelResult FeelWheelOn(const WheelFeel& in);
+// THAW 0x005D6360 (2nd build 0x005D61F0): the turn animation's share (+0x570) for the frame's turn rate (radians a
+// second before the frame length, GroundTurnRate's) - (|rate / Physics_Ground_Sharp_Rotation| + 1) / 2: half the turn
+// pose at the gentlest turn, all of it at the sharpest.
+float SteerBlend(float rate, float sharpRotation);
+// (ours) THAW's anim tree blending the turn branch in over its BlendPeriod 0.4 while `on`, out over kSteerOut once
+// not: `in` (0 .. 1) a frame of `frameLength` seconds on.
+float SteerIn(float in, bool on, float frameLength);
 // THAW 0x005CAE10: which brake acceleration (0 none: the brake is skipped, 1 Physics_Brake_Acceleration, 2
 // Physics_Front_Brake_Acceleration, 3 Physics_Brake_Skid_Acceleration).
 int BrakeChoice(bool manual, bool nose, bool frontBrake, bool endo, bool balanceIsManual);

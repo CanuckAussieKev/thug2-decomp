@@ -167,6 +167,17 @@ constexpr float kSlowTurnRamp = 1.0f / 600.0f;     // 0x006A0DD0
 constexpr int kSlowTurnRampMs = 600;               // 0x258
 constexpr float kBackwardsLean = 0.0005f;          // 0x006A0DC0
 constexpr float kStickHalf = 64.0f;                // (ours: the stick past half way is THAW's LEFT... button)
+constexpr double kSteerBlendBase = 1.0;            // 2nd build 0x006DB3A8 (double)
+constexpr double kSteerBlendScale = 0.5;           // 2nd build 0x006E4DE8 (double)
+constexpr float kSteerInTime = 0.4f;               // (bike_playturnanim's BlendPeriod: THAW's tree blends the turn in)
+constexpr float kSteerOutTime = 0.3f;              // (ours: THUG2's PlayAnim's blend, as the idle that follows plays)
+constexpr const char* kSteerSubset = "ThawBmxTurn"; // (ours: the anim subset the turn animation plays in)
+constexpr uint32_t kSubsetExists = 0xD58E2AD5;     // Obj_AnimSubsetExists
+constexpr uint32_t kSubsetWeight = 0xF1D4B29F;     // Obj_SetAnimSubsetWeight
+constexpr uint32_t kSubsetRemove = 0xAFC2493E;     // Obj_RemoveAnimSubset
+constexpr uint32_t kSubsetId = 0x5CFCCF35;         // SubsetId
+constexpr uint32_t kBlendWeight = 0x4D786F62;      // BlendWeight
+constexpr int kStateGround = 0;
 constexpr double kAcidDropBack = 0.1;              // 0x006A0DB0
 
 // --- helpers -----------------------------------------------------------------------------------------------------
@@ -360,6 +371,22 @@ float GroundTurnRate(float speed, float maxSpeed, float rotation, float sharpRot
     if (backwards)
         rate = manual ? 0.0f - rate : balanceLean * kBackwardsLean;
     return rate;
+}
+
+float SteerBlend(float rate, float sharpRotation)
+{
+    if (sharpRotation == 0.0f) // (ours: THAW divides by it regardless - bicycle_physics' is 6.5)
+        return static_cast<float>(kSteerBlendBase * kSteerBlendScale);
+    float share = rate / sharpRotation;
+    if (share < 0.0f)
+        share = 0.0f - share;
+    return static_cast<float>((share + kSteerBlendBase) * kSteerBlendScale);
+}
+
+float SteerIn(float in, bool on, float frameLength)
+{
+    float out = on ? in + frameLength / kSteerInTime : in - frameLength / kSteerOutTime;
+    return out > 1.0f ? 1.0f : (out < 0.0f ? 0.0f : out);
 }
 
 ManualOutput ManualStep(const ManualInput& in)
@@ -601,6 +628,8 @@ void EndFrame(void* core)
     }
     // (phase 4, thaw_bmx_tricks.cpp: THAW 0x00620940 - the manual's pose from its angle)
     ManualPose(core);
+    // (THAW's turn branch's share - its TurnBlend - on the turn animation's subset)
+    SteerAnim(core);
     // THAW 0x005C9380: the x-up held with circle - in the air, or in a manual (not a nose manual); let go: out of it.
     BikeState& state = *StateOf(core, true);
     if (!state.xup)
@@ -612,6 +641,66 @@ void EndFrame(void* core)
     state.xup = false;
     // (THAW spawns it through an obfuscated thunk with the script and four zeros; the skater runs it here.)
     RunBikeScript(core, kReleaseXupScript);
+}
+
+// --- the turn's lean -----------------------------------------------------------------------------------------------
+
+namespace {
+
+// An anim subset member of `object` on ThawBmxTurn (with BlendWeight `weight` when `weighted`).
+bool SubsetMember(Obj::CCompositeObject* object, uint32_t name, bool weighted, float weight)
+{
+    Script::CStruct* params = Script::NewStruct();
+    if (!params)
+        return false;
+    params = params->Init();
+    params->AddChecksum(kSubsetId, Crc::GenerateCRCFromString(kSteerSubset));
+    if (weighted)
+        params->AddFloat(kBlendWeight, weight);
+    bool result = object->CallMemberFunction(name, params, nullptr);
+    params->Clear();
+    Script::DeleteStruct(params);
+    return result;
+}
+
+} // namespace
+
+void SetSteerAnim(void* core, bool on) { StateOf(core, true)->steerAnim = on; }
+
+void SteerAnimOff(void* core)
+{
+    BikeState* state = StateOf(core, false);
+    if (!state)
+        return;
+    state->steerAnim = false;
+    if (state->steerIn == 0.0f) // (nothing shown: a subset left at weight 0 shows nothing)
+        return;
+    state->steerIn = 0.0f;
+    auto* skater = static_cast<Obj::CCompositeObject*>(ObjectOf(core));
+    for (Obj::CCompositeObject* object : {skater, BikeObjectOf(skater)}) {
+        if (object && SubsetMember(object, kSubsetExists, false, 0.0f))
+            SubsetMember(object, kSubsetRemove, false, 0.0f);
+    }
+}
+
+void SteerAnim(void* core)
+{
+    BikeState& state = *StateOf(core, true);
+    // (off the ground - an ollie, a bail, a grind - the turn goes as THAW's next branch blends in)
+    bool on = state.steerAnim && StateOf(core) == kStateGround;
+    float before = state.steerIn;
+    state.steerIn = Bike::SteerIn(state.steerIn, on, FrameLength(core));
+    if (before == 0.0f && state.steerIn == 0.0f)
+        return;
+    auto* skater = static_cast<Obj::CCompositeObject*>(ObjectOf(core));
+    for (Obj::CCompositeObject* object : {skater, BikeObjectOf(skater)}) {
+        if (!object || !SubsetMember(object, kSubsetExists, false, 0.0f))
+            continue;
+        if (state.steerIn == 0.0f)
+            SubsetMember(object, kSubsetRemove, false, 0.0f);
+        else
+            SubsetMember(object, kSubsetWeight, true, state.steerIn * state.steerBlend);
+    }
 }
 
 // --- on the ground -------------------------------------------------------------------------------------------------
@@ -699,10 +788,23 @@ void TurnOnGround(void* core)
     int held = 0;
     if (stickX != 0.0f)
         held = static_cast<int>(pad->m_right.m_pressed ? pad->m_right.GetPressedTime() : pad->m_left.GetPressedTime());
+    float sharp = PhysicsFloat(kGroundSharpRotation, core);
     float rate = Bike::GroundTurnRate(Speed(core), Stat(kMaxSpeedStat, core), PhysicsFloat(kGroundRotation, core),
-                                      PhysicsFloat(kGroundSharpRotation, core), stickX != 0.0f && BrakeHeld(core, state),
-                                      state.manual, stickX, held, MovingBackwards(core),
-                                      At<float>(At<void*>(core, kBalance), 0x54));
+                                      sharp, stickX != 0.0f && BrakeHeld(core, state), state.manual, stickX, held,
+                                      MovingBackwards(core), At<float>(At<void*>(core, kBalance), 0x54));
+    // THAW 0x005D6360's +0x570 (2nd build 0x005D61F0): the turn animation's share, every frame on the ground.
+    state.steerBlend = Bike::SteerBlend(rate, sharp);
+    {
+        // ([debug] thaw_bmx_steer=1, ours: a line each ground frame - riding backwards and the turn's lean)
+        static const bool s_log = ConfigInt("debug", "thaw_bmx_steer", 0) != 0;
+        if (s_log) {
+            const Mth::Vector& v = VectorAt(ObjectOf(core), kVelocity);
+            const Mth::Vector& f = VectorAt(ObjectOf(core), kFacing);
+            Log("thaw_bmx steer: speed %.0f along %.2f stick %.0f rate %.3f blend %.2f in %.2f anim %d manual %d",
+                Speed(core), Length3(v) > 0.0 ? Dot3(v, f) / Length3(v) : 0.0, stickX, rate, state.steerBlend,
+                state.steerIn, state.steerAnim ? 1 : 0, state.manual ? 1 : 0);
+        }
+    }
     // The skid's wait (BikeExitSkid's 60 frames) counted down on the ground.
     if (state.skidTimer > 0 && --state.skidTimer == 0)
         state.canSkid = true;

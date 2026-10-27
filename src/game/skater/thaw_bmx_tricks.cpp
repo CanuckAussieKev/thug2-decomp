@@ -207,6 +207,8 @@ void SetWobble(Obj::CCompositeObject* object, float fraction)
 
 } // namespace
 
+Obj::CCompositeObject* BikeObjectOf(void* skater) { return BikeOf(skater); }
+
 // --- the maths ---------------------------------------------------------------------------------------------------
 
 namespace Bike {

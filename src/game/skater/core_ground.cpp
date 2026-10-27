@@ -185,7 +185,10 @@ void CorePhysicsComponent::DoGroundPhysics()
         LeanPushOffWall();
     }
     CollisionEvents::Checkpoint(this, "side-collisions"); // (not original)
-    if (!At<uint8_t>(this, 0x388))
+    // (not original: THAW 0x005CCF40 - 2nd build 0x005CCDD0 - returns at once on the bike: rolling backwards faster
+    // than Skater_Flip_Speed (1) the skater is turned round to ride fakie, the bike isn't - it rolls on backwards in
+    // THAW's backwards balance, bike_backwards_balance_trick)
+    if (!At<uint8_t>(this, 0x388) && !bike)
         Call(0x004FF920, this);
     CollisionEvents::Checkpoint(this, "turn-round-4FF920"); // (not original)
     if (Ask(0x004FFB10, this)) {
