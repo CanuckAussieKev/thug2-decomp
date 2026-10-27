@@ -15,6 +15,7 @@
 #include "game/obj/objman.h"
 #include "game/script/names.h"
 #include "game/script/struct_buffer.h"
+#include "game/skate/skate_module.h"
 #include "hook/goal_editor_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -41,6 +42,12 @@ uint8_t g_skateObject[0x380];
 uint8_t g_script[0x40];
 uint8_t g_manager[16];
 CGoalEditorComponent* Editor() { return reinterpret_cast<CGoalEditorComponent*>(g_editorBytes[0]); }
+uint32_t Bits(float value)
+{
+    uint32_t bits;
+    std::memcpy(&bits, &value, 4);
+    return bits;
+}
 
 constexpr uint32_t kLevels[] = {0xE8B4B836, 0x11223344, 0xB664035D, 0x55667788};
 const char* const kNames[] = {"Name0", "name1", "NAME1", "Other"};
@@ -518,7 +525,121 @@ void TestGoalEditorMembers()
     delete &s;
 }
 
+// The object proximity component: made, destroyed, its radii set (given or not, the attention radius's flag with
+// none / one set / not a number), the local and the nearest skater's squared distance (no skater, the object
+// itself, nearer / farther / equal / not a number).
+void TestObjectProximity()
+{
+    std::unique_ptr<GameMemory> memory(new GameMemory({{0x007CE478, 4}, {0x007D1800, 4}}));
+    StandIns& s = *new StandIns();
+    StandInGoalWorld(s);
+    StandInComponentWorld(s);
+    static uint8_t object[0x60];
+    static uint8_t skaters[4][0x60];
+    static uint32_t nodes[5][4];
+    static uint32_t local = 0;
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
+        Record({0x6520, r.ecx});
+        return local;
+    });
+    s.At({0x005665C0, AddressOf(&Mdl::Skate::GetSkater)}, 4, [](Regs& r) {
+        Record({0x65C0, r.ecx, r.args[0]});
+        return r.args[0] == 1 ? 0u : r.args[0] == 2 ? reinterpret_cast<uint32_t>(object)
+                                                    : reinterpret_cast<uint32_t>(skaters[r.args[0] % 4]);
+    });
+    auto run = [&](bool original) {
+        g_trace.clear();
+        g_values.clear();
+        GameVariable<uint8_t*>(0x007CE478) = g_skateObject;
+        GameVariable<uint8_t*>(0x007D1800) = g_manager;
+        std::vector<uint32_t> trace;
+        Originals guard(original, {0x004EC420, 0x004EC220, 0x004EC370, 0x004EC240, 0x004EC390, 0x004EC3C0,
+                                   0x004EC4B0, 0x004EC250, 0x004EC280, 0x004EC2B0, 0x004EC2E0, 0x004EC310,
+                                   0x004EC480});
+        auto* component = reinterpret_cast<uint8_t*>(g_editorBytes[1]);
+        uint32_t params = reinterpret_cast<uint32_t>(Token(0));
+        trace.push_back(Rel(reinterpret_cast<uint32_t>(Fn<void*(__cdecl*)()>(original, 0x004EC420)())));
+        Fn<void(__cdecl*)()>(original, 0x004EC220)();
+        static const float kValues[] = {0.0f, 1.5f, -2.0f, 100.0f, 3.3333f};
+        for (uint32_t round = 0; round < 40; ++round) {
+            for (uint32_t i = 0; i < 0x30; ++i)
+                component[i] = static_cast<uint8_t>(round * 7 + i);
+            *reinterpret_cast<uint8_t**>(component + 0xC) = object;
+            if (round % 5 == 1)
+                *reinterpret_cast<float*>(component + 0x28) = 0.0f;
+            if (round % 9 == 4)
+                *reinterpret_cast<uint32_t*>(component + 0x28) = 0x7FC00000; // (not a number)
+            g_values.clear();
+            if (round % 4)
+                g_values[{params, 0}] = Bits(kValues[round % 5]);
+            if (round % 3)
+                g_values[{params, 0xFD2EACAD}] = 1;
+            uint32_t setter = 0x004EC250 + 0x30 * (round % 5);
+            trace.push_back(Fn<uint32_t(__thiscall*)(void*, uint32_t, void*)>(original, setter)(component, params,
+                                                                                               g_script) & 0xFF);
+            // The skaters: positions round the object, ids.
+            for (uint32_t k = 0; k < 4; ++k) {
+                float* pos = reinterpret_cast<float*>(skaters[k] + 0x4C);
+                pos[0] = static_cast<float>((round * 13 + k * 31) % 50) - 25.0f;
+                pos[1] = static_cast<float>((round + k) % 7) * 0.5f;
+                pos[2] = static_cast<float>((round * 5 + k * 11) % 40) - 20.0f + (round % 2 ? 0.1f * k : 0.0f);
+                *reinterpret_cast<uint32_t*>(skaters[k] + 0x14) = 0x500 + k + round;
+            }
+            if (round % 8 == 3) // (two equally near)
+                std::memcpy(skaters[3] + 0x4C, skaters[0] + 0x4C, 12);
+            if (round % 11 == 5)
+                *reinterpret_cast<uint32_t*>(skaters[0] + 0x50) = 0x7FC00000;
+            float* at = reinterpret_cast<float*>(object + 0x4C);
+            at[0] = 1.0f + round, at[1] = 0.25f, at[2] = -3.0f;
+            local = round % 4 == 0 ? 0u : round % 4 == 1 ? reinterpret_cast<uint32_t>(object)
+                                                          : reinterpret_cast<uint32_t>(skaters[round % 4]);
+            // The skater list: round % 5 entries.
+            uint32_t count = round % 5;
+            *reinterpret_cast<uint32_t*>(g_skateObject + 0x34) = reinterpret_cast<uint32_t>(nodes[0]);
+            for (uint32_t k = 0; k < 5; ++k) {
+                nodes[k][1] = k < count ? k : 0xFFFFFFFF;
+                nodes[k][3] = k < 4 ? reinterpret_cast<uint32_t>(nodes[k + 1]) : 0;
+            }
+            if (round % 3 == 2 && local) {
+                // (the attention radius at the local skater's distance: equal, or just under it once rounded)
+                const float* p = reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(local) + 0x4C);
+                double dx = static_cast<double>(p[0]) - at[0], dy = static_cast<double>(p[1]) - at[1],
+                       dz = static_cast<double>(p[2]) - at[2];
+                *reinterpret_cast<float*>(component + 0x28) = static_cast<float>((dx * dx + dz * dz) + dy * dy);
+            }
+            uint32_t id = 0xAAAA;
+            double distance = Fn<double(__thiscall*)(void*, uint32_t*)>(original, 0x004EC3C0)(component, &id);
+            uint32_t words[2];
+            std::memcpy(words, &distance, 8);
+            trace.insert(trace.end(), {words[0], words[1], id});
+            id = 0xBBBB;
+            trace.push_back(Bits(Fn<float(__thiscall*)(void*, uint32_t*)>(original, 0x004EC4B0)(component, &id)));
+            trace.push_back(id);
+            trace.push_back(Fn<uint32_t(__thiscall*)(void*, uint32_t, void*)>(original, 0x004EC480)(component, params,
+                                                                                                  g_script) & 0xFF);
+            for (uint32_t i = 0; i < 0x30; i += 4)
+                trace.push_back(Rel(*reinterpret_cast<uint32_t*>(component + i)));
+        }
+        Fn<void(__thiscall*)(void*)>(original, 0x004EC240)(component);
+        trace.push_back(Rel(reinterpret_cast<uint32_t>(Fn<void*(__thiscall*)(void*, unsigned)>(original, 0x004EC390)(
+            component, 1))));
+        trace.push_back(Rel(reinterpret_cast<uint32_t>(Fn<void*(__thiscall*)(void*)>(original, 0x004EC370)(component))));
+        for (uint32_t i = 0; i < 0x30; i += 4)
+            trace.push_back(Rel(*reinterpret_cast<uint32_t*>(component + i)));
+        trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+        return trace;
+    };
+    UseEditorRelocation();
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, "goal editor range: the object proximity component");
+    g_relocate = nullptr;
+    g_values.clear();
+    delete &s;
+}
+
 } // namespace
 
+SELFTEST(Early, TestObjectProximity, RemoveStandIns);
 SELFTEST(Early, TestGoalEditorMembers, RemoveStandIns);
 SELFTEST(Early, TestGoalEditorComponent, RemoveStandIns);
