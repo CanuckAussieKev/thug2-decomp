@@ -12,6 +12,7 @@
 #include "game/ed/goal_editor_util.h"
 #include "game/goals/goal_manager.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/editor_camera.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
@@ -527,7 +528,118 @@ bool CGoalEditorComponent::NewEditorGoal(Script::CStruct* /*params*/, Script::CS
     return true;
 }
 
+namespace {
+
+// Whether a point can't go at the cursor: the start too near another goal's pro, or the pro too near another
+// goal's start.
+bool NearOtherGoals(CGoalEditorComponent* editor, const Mth::Vector& pos, float height)
+{
+    CEditedGoal* goal = editor->mp_current;
+    if (goal->m_numPoints && goal->m_points[goal->m_currentPoint].kind == kPointStart &&
+        editor->PointNearAnyGoal(pos, height, goal->m_level, 0))
+        return true;
+    goal = editor->mp_current;
+    if (!goal->m_numPoints || goal->m_points[goal->m_currentPoint].kind == kPointPro)
+        return editor->PointNearAnyGoal(pos, height, goal->m_level, 1);
+    return false;
+}
+
+Obj::CControlButton* Button(Obj::CBaseComponent* input, uint32_t offset)
+{
+    return reinterpret_cast<Obj::CControlButton*>(reinterpret_cast<uint8_t*>(input) + offset);
+}
+
+} // namespace
+
+// 0x004EBD30
+void CGoalEditorComponent::Update()
+{
+    if (!mp_current) {
+        RunCursorScript();
+        return;
+    }
+    Obj::CControlButton* place = Button(mp_input, 0x1C0);
+    if (place->m_triggered) {
+        place->ClearTrigger();
+        Obj::CEditorCameraComponent* camera = Camera(mp_camera);
+        Mth::Vector pos = camera->m_cursor;
+        float height = camera->m_height, angle = camera->m_heading;
+        if (NearOtherGoals(this, pos, height)) {
+            Script::RunScript(0xAEBC7020, nullptr, m_object, false, nullptr);
+        } else if (mp_current->PlacePoint(pos, height, angle)) {
+            Script::RunScript(0x718B071B, nullptr, m_object, false, nullptr);
+            RefreshCursor();
+            MoveCursorToCurrentPoint();
+        } else {
+            Script::RunScript(0xAEBC7020, nullptr, m_object, false, nullptr);
+        }
+        if (mp_current->m_lastPointPlaced)
+            Script::RunScript(0xC05E7E20, nullptr, m_object, false, nullptr);
+    }
+    Obj::CControlButton* back = Button(mp_input, 0x1A0);
+    if (back->m_triggered) {
+        back->ClearTrigger();
+        Obj::CEditorCameraComponent* camera = Camera(mp_camera);
+        Mth::Vector pos = camera->m_cursor;
+        float height = camera->m_height, angle = camera->m_heading;
+        if (!NearOtherGoals(this, pos, height) && mp_current->PlacePointAndStepBack(pos, height, angle)) {
+            Script::RunScript(0xFA275CC5, nullptr, m_object, false, nullptr);
+            RefreshCursor();
+            MoveCursorToCurrentPoint();
+        } else {
+            Script::RunScript(0xADE100D6, nullptr, m_object, false, nullptr);
+        }
+    }
+    RunCursorScript();
+}
+
+// 0x004EBC40
+void CGoalEditorComponent::Hide(bool hide)
+{
+    if (hide) {
+        Script::RunScript(0xFCC60D8B, nullptr, nullptr, false, nullptr);
+        return;
+    }
+    Script::CStruct* params = NewStructure();
+    params->AddInteger(0x67E6859A, 0);
+    mp_input->InitFromStructure(params);
+    if (params) {
+        params->Clear();
+        Script::DeleteStruct(params);
+    }
+    RefreshCursor();
+}
+
+// 0x004EC010
+bool CGoalEditorComponent::GetEditedGoalsInfo(Script::CStruct* params, Script::CScript* script)
+{
+    uint32_t level = 0;
+    params->GetChecksum(0x651533EC, &level, 0);
+    if (level == kParkEditorGameplayLevel)
+        level = kParkEditorLevel;
+    int count = CountCompleteGoals(level);
+    if (!count)
+        return true;
+    Script::CArray* goals = Script::NewArray();
+    goals = goals ? goals->Init() : nullptr;
+    goals->SetSizeAndType(static_cast<uint32_t>(count), Script::ESYMBOLTYPE_STRUCTURE);
+    uint32_t index = 0;
+    for (CEditedGoal& goal : m_goals) {
+        if (!goal.m_used || (level && goal.m_level != level) || goal.m_numPoints < goal.m_minPoints)
+            continue;
+        Script::CStruct* entry = NewStructure();
+        goal.WriteIntoStructure(entry);
+        goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
+    }
+    script->m_params->AddArrayPointer("EditedGoalsInfo", goals);
+    return true;
+}
+
 } // namespace Ed
+
+REPLACE(0x004EBD30, &Ed::CGoalEditorComponent::Update);
+REPLACE(0x004EBC40, &Ed::CGoalEditorComponent::Hide);
+REPLACE(0x004EC010, &Ed::CGoalEditorComponent::GetEditedGoalsInfo);
 
 REPLACE(0x004EB7F0, Ed::CGoalEditorComponent::Create);
 REPLACE(0x004E6FB0, Ed::CGoalEditorComponent::RegisterMemberFunctions);

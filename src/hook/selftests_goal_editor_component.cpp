@@ -12,6 +12,7 @@
 #include "game/core/mem.h"
 #include "game/ed/goal_editor.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/object_proximity.h"
 #include "game/obj/pager_message.h"
 #include "game/obj/objman.h"
@@ -179,6 +180,11 @@ void StandInComponentWorld(StandIns& s)
     s.At({0x00477C30, AddressOf(static_cast<void (CStruct::*)(const char*, int)>(&CStruct::AddInteger))}, 8,
          [](Regs& r) {
              Record({0x7C30, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
+             return 0u;
+         });
+    s.At({0x00478180, AddressOf(static_cast<void (CStruct::*)(const char*, Script::CArray*)>(&CStruct::AddArrayPointer))},
+         8, [](Regs& r) {
+             Record({0x8180, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), Rel(r.args[1])});
              return 0u;
          });
     // The edited goals' own code (tested by selftests_goal_editor.cpp).
@@ -839,9 +845,111 @@ void TestPagerMessages()
     delete &s;
 }
 
+// The component's update (no goal; each button with the cursor near another goal's pro / start or not, placing
+// allowed or not, the last point), hide / show, GetEditedGoalsInfo (a level, any level, none complete).
+void TestGoalEditorUpdate()
+{
+    std::unique_ptr<GameMemory> memory(new GameMemory({{0x007CE478, 4}, {0x007CCC58, 0x40}, {0x007CCC40, 0x18},
+                                                       {0x006F3614, 16}, {0x006F22B4, 16}, {0x006F0FB8, 4},
+                                                       {0x007D1800, 4}}));
+    StandIns& s = *new StandIns();
+    StandInGoalWorld(s);
+    StandInGoalIo(s);
+    StandInComponentWorld(s);
+    static uint8_t input[0x200];
+    static void* inputVtable[16];
+    static uint32_t placeResult = 1;
+    s.At({0x0046B7E0, AddressOf(&Obj::CControlButton::ClearTrigger)}, 0, [](Regs& r) {
+        Record({0xB7E0, r.ecx});
+        reinterpret_cast<uint8_t*>(r.ecx)[0x10] = 0;
+        return 0u;
+    });
+    s.At({0x004E77C0, AddressOf(&CEditedGoal::PlacePoint)}, 12, [](Regs& r) {
+        const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
+        Record({0x77C0, Rel(r.ecx), v[0], v[1], v[2], v[3], r.args[1], r.args[2]});
+        reinterpret_cast<CEditedGoal*>(r.ecx)->m_lastPointPlaced = (placeResult & 2) != 0;
+        return placeResult & 1;
+    });
+    s.At({0x004EB550, AddressOf(&CEditedGoal::PlacePointAndStepBack)}, 12, [](Regs& r) {
+        const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
+        Record({0xB550, Rel(r.ecx), v[0], v[1], v[2], v[3], r.args[1], r.args[2]});
+        return (placeResult >> 2) & 1;
+    });
+    void* init = s.Thunk(4, [](Regs& r) {
+        Record({0x1A17, r.ecx, Rel(r.args[0])});
+        return 0u;
+    });
+    for (void*& slot : inputVtable)
+        slot = init;
+    *reinterpret_cast<void***>(input) = inputVtable;
+    auto run = [&](bool original) {
+        g_trace.clear();
+        g_values.clear();
+        g_elements.clear();
+        UseFakePools();
+        g_globalFloats = {{0x71B20276, 30.0f}};
+        GameVariable<uint8_t*>(0x007CE478) = g_skateObject;
+        GameVariable<uint8_t*>(0x006F0FB8) = g_manager;
+        GameVariable<uint8_t*>(0x007D1800) = g_manager;
+        *reinterpret_cast<uint32_t*>(g_script + 0x14) = reinterpret_cast<uint32_t>(Token(7));
+        std::vector<uint32_t> trace;
+        Originals guard(original, {0x004EBD30, 0x004EBC40, 0x004EC010});
+        using Self = CGoalEditorComponent*;
+        uint32_t params = reinterpret_cast<uint32_t>(Token(0));
+        for (uint32_t round = 0; round < 60; ++round) {
+            FillEditor(round + 3);
+            Self editor = Editor();
+            editor->mp_input = reinterpret_cast<Obj::CBaseComponent*>(input);
+            *reinterpret_cast<uint32_t*>(g_skateObject + 0x378) = kLevels[round % 4];
+            input[0x1D0] = (round % 3) != 0;
+            input[0x1B0] = (round % 4) != 1;
+            placeResult = round % 8;
+            if (editor->mp_current) {
+                // The cursor: on another goal's pro or start, or away.
+                const CEditedGoal& other = editor->m_goals[(round * 3 + 1) % 50];
+                float* cursor = reinterpret_cast<float*>(g_camera + 0x3C);
+                const Mth::Vector& at = other.m_points[round % 2].pos;
+                cursor[0] = round % 3 == 2 ? 5000.0f : at.x;
+                cursor[1] = at.y + other.m_points[round % 2].height - 1.0f;
+                cursor[2] = at.z;
+                *reinterpret_cast<float*>(g_camera + 0x88) = 1.0f;
+                editor->mp_current->m_numPoints = static_cast<uint8_t>(round % 5 == 0 ? 0 : 3);
+                editor->mp_current->m_currentPoint = static_cast<uint8_t>(round % 3);
+                editor->mp_current->m_points[round % 3].kind = static_cast<int>(1 + round % 3);
+            }
+            Fn<void(__thiscall*)(Self)>(original, 0x004EBD30)(editor);
+            if (round % 2 || editor->mp_current) // (shown without a goal: RefreshCursor reads a null goal)
+                Fn<void(__thiscall*)(Self, uint32_t)>(original, 0x004EBC40)(editor, round % 2 ? 1u : 0x100u);
+            g_values.clear();
+            if (round % 3)
+                g_values[{params, 0x651533EC}] = round % 6 == 1 ? 0xB664035D : kLevels[round % 4];
+            if (round % 10 == 9) {
+                for (CEditedGoal& goal : editor->m_goals)
+                    goal.m_numPoints = 0;
+            }
+            trace.push_back(Fn<uint32_t(__thiscall*)(Self, uint32_t, void*)>(original, 0x004EC010)(editor, params,
+                                                                                                  g_script) & 0xFF);
+            DumpEditor(trace);
+            trace.push_back(input[0x1D0]);
+            trace.push_back(input[0x1B0]);
+        }
+        trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+        return trace;
+    };
+    UseEditorRelocation();
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, "goal editor: the component's update, hide and goals info");
+    g_relocate = nullptr;
+    g_values.clear();
+    g_globalFloats.clear();
+    delete &s;
+}
+
 } // namespace
 
 SELFTEST(Early, TestPagerMessages, RemoveStandIns);
+SELFTEST(Early, TestGoalEditorUpdate, RemoveStandIns);
 SELFTEST(Early, TestObjectProximityUpdate, RemoveStandIns);
 SELFTEST(Early, TestObjectProximity, RemoveStandIns);
 SELFTEST(Early, TestGoalEditorMembers, RemoveStandIns);

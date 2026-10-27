@@ -195,6 +195,16 @@ public:
     CGoalEditorComponent* Destroy(unsigned int flags);
     // 0x004E8210 (vtable slot 3): the object's input (0x27D7CD28) and editor camera components found.
     void Finalize();
+    // 0x004EBD30 (vtable slot 1): with a goal being edited, the input's two buttons (+0x1C0: place the current point
+    // at the cursor and go on; +0x1A0: place it and step back) - refused near another goal's pro / start (the
+    // scripts 0xAEBC7020 / 0xADE100D6), else placed (0x718B071B / 0xFA275CC5, the cursor refreshed and moved;
+    // the last point: 0xC05E7E20); then the cursor script.
+    void Update();
+    // 0x004EBC40 (vtable slot 8, not a Ghidra function): hidden - the script 0xFCC60D8B; shown - the input
+    // component given 0x67E6859A = 0 and the cursor refreshed.
+    void Hide(bool hide);
+    // 0x004EC010 [GetEditedGoalsInfo]: EditedGoalsInfo = the level's (0x651533EC, any without) complete goals.
+    bool GetEditedGoalsInfo(Script::CStruct* params, Script::CScript* script);
 
     // 0x004E8470: the goal editor (the object GoalEditor's component).
     static CGoalEditorComponent* __cdecl Get();
