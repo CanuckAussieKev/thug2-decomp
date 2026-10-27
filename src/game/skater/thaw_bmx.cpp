@@ -20,6 +20,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
+#include "game/skater/thaw_bmx_parked.h"
 #include "game/sys/config.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot_files.h"
@@ -343,6 +344,7 @@ void RegisterScriptFunctions()
     if (!Enabled())
         return;
     Script::RegisterMemberFunctions(kMembers, sizeof(kMembers) / sizeof(kMembers[0]));
+    RegisterParkedFunctions(); // (the parked bikes: thaw_bmx_parked.h)
     Nx::SetShadowCompanion(&ShadowCompanion);
     char setting[64] = "";
     Config::GetString(Config::kKeybinds, "ThawBmx", "", setting, sizeof(setting));
@@ -368,6 +370,7 @@ void Update(Mdl::FrontEnd* frontEnd)
 {
     if (!Enabled())
         return;
+    UpdateParked(frontEnd); // (the level's bike: thaw_bmx_parked.h)
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     bool down = keys && g_key > 0 && g_key < SDL_NUM_SCANCODES && keys[g_key];
     bool pressed = down && g_keyUp;
