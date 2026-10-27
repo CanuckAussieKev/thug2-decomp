@@ -480,14 +480,6 @@ int GrindRow(float stickY)
     return stickY <= -125.0f ? 2 : 1;
 }
 
-float GrindStickY(float rawY, bool up, bool down, bool side)
-{
-    if (std::fabs(rawY) >= 1.0f)
-        return rawY;
-    float full = down ? 127.0f : (up ? -127.0f : 0.0f);
-    return side ? full * 0.5f : full;
-}
-
 int GrindColumn(bool leftSide, bool sideways, bool backwards, bool* overGrind)
 {
     // THAW 0x005CF460 (with THAW's caller 0x005E2CA9: its third and fourth arguments are both the sideways flag).
@@ -1336,9 +1328,8 @@ Script::CArray* GrindTrickRow(void* core, bool leftSide, bool sideways, bool bac
     Script::CArray* list = Script::GetArray(kGrindTrickList);
     if (!list || list->m_size == 0)
         return nullptr;
-    Obj::CControlPad* pad = ControlPad(core);
-    uint32_t row = static_cast<uint32_t>(Bike::GrindRow(Bike::GrindStickY(
-        pad->m_stick[3], pad->m_up.m_pressed, pad->m_down.m_pressed, pad->m_left.m_pressed || pad->m_right.m_pressed)));
+    // THAW reads the raw stick alone here (no d-pad at full deflection, unlike StickRaw).
+    uint32_t row = static_cast<uint32_t>(Bike::GrindRow(ControlPad(core)->m_stick[3]));
     if (row >= list->m_size)
         row = 0;
     return reinterpret_cast<Script::CArray*>(list->GetElement(row));

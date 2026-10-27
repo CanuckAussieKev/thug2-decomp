@@ -15,6 +15,7 @@
 #include "game/front/new_frontend.h"
 #include "game/front/screen_element_manager.h"
 #include "game/sio/device.h"
+#include "game/skater/thaw_bmx.h"
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
 #include "game/sys/debug_mode.h"
@@ -674,14 +675,19 @@ void PollKeyboard(Device* device)
         data[5] = 0;
     if (down(s_keys.cameraDown) && !down(s_keys.cameraUp))
         data[5] = 255;
+    // Not original - THAW's half-stick key (PartyMod's THAW build: Feeble, 64 / 192 instead of 0 / 255) while THAW's
+    // BMX is ridden (game/skater/thaw_bmx.h HalfStickKey): its grind pick reads how far the stick is pushed.
+    // Original behaviour: the Feeble binding is read but unused - the movement keys always give 0 / 255.
+    const bool half = down(s_keys.feeble) && Skater::ThawBmx::HalfStickKey();
+    const uint8_t low = half ? 64 : 0, high = half ? 192 : 255;
     if (down(s_keys.left) && !down(s_keys.right))
-        data[6] = 0;
+        data[6] = low;
     if (down(s_keys.right) && !down(s_keys.left))
-        data[6] = 255;
+        data[6] = high;
     if (down(s_keys.up) && !down(s_keys.down))
-        data[7] = 0;
+        data[7] = low;
     if (down(s_keys.down) && !down(s_keys.up))
-        data[7] = 255;
+        data[7] = high;
 }
 
 // --- typed keys -----------------------------------------------------------------------------------------------

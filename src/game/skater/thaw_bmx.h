@@ -110,6 +110,20 @@ bool OnBike(const void* core);
 // The physics' gate (thaw_bmx_physics.cpp): the feature on and the skater on the bike. Off: the skater's physics,
 // unchanged.
 inline bool Active(const void* core) { return Enabled() && OnBike(core); }
+// Whether the keyboard's half-stick key ([Keybinds] Feeble) counts (sdl_input.cpp): the feature on and a skater on
+// the bike. THAW's PC keyboard has it (its key binding k0_24 halves the movement keys' push; PartyMod's THAW build
+// keeps it as Feeble, "Half Stick") - so its Smith / Feeble grinds (the stick a little up / down) can be had on keys.
+// THUG2's PartyMod reads the binding but never uses it: off the bike the keys push the stick all the way, as before.
+bool HalfStickKey();
+// The script a skater is sent to by MakeSkaterGoto (game_flow_cfuncs.cpp) - `name` itself unless THAW's general skater
+// scripts take their bike branch there. On the bike (the feature on), THAW's PedKnockDown (tricks.qb): from a ped's
+// knock-down state (THUG2's STATECONTROL_knockdown - THAW's STATESCRIPT_knockdown, which sends a rider's ped to its
+// disgust state instead) none - 0, the skater not sent; from anywhere else (a chasing ped's catch, a blocker's bump)
+// the bike's own, bike_PedKnockDown (the bike's bail), when the overlay has it. `caller` the calling script (or null).
+uint32_t SkaterScript(const Obj::CSkater* skater, uint32_t name, const Script::CScript* caller);
+// Its choice: `callerName` the calling script's top-level name (0: none), `bikeScriptLoaded` whether the overlay has
+// bike_PedKnockDown.
+uint32_t BikeSkaterScript(uint32_t name, uint32_t callerName, bool bikeScriptLoaded);
 // The physics structure while on the bike (thaw_bicycle_physics; null off the bike or when the overlay hasn't it).
 Script::CStruct* PhysicsStructure(const void* core);
 // A bike member function on `core` (1 / 0 its result), or 2: not one of ours.
@@ -351,12 +365,10 @@ bool JumpBoosts(const Mth::Vector& velocity, float stickY);
 // THAW 0x005D7E20: the air pitch's settling back towards upright (degrees to add to the pitch so far) once let go.
 float SettleAirPitch(float pitch);
 // THAW 0x005CF460: BikeGrindTrickList's row for the stick's y (-128 up .. 127 down): 0 centred, 1 / 2 a little /
-// far up, 3 / 4 a little / far down.
+// far up, 3 / 4 a little / far down. THAW reads the movement stick's raw y alone (pad +0x34C; the d-pad isn't looked
+// at): on PC the movement keys push it all the way, and THAW's half-stick key (its own k0_24 binding, PartyMod's
+// Feeble) half way - HalfStickKey below.
 int GrindRow(float stickY);
-// NOT ORIGINAL (ours): the stick's y GrindRow is given with the d-pad (or keys) - the stick centred: THAW's own reach
-// is full up / down only, so Smith and Feeble (a little up / down) could never be had; here up or down with left or
-// right (a diagonal) is half way. The analogue stick's y as it is.
-float GrindStickY(float rawY, bool up, bool down, bool side);
 // ... and the column (bit 0 the side, bit 1 sideways) and whether it's an over-grind.
 int GrindColumn(bool leftSide, bool sideways, bool backwards, bool* overGrind);
 // Phase 6. THAW 0x005CAA60: `since` ms after the last vert ground, with Skater_Vert_Max_Speed_Time `window` - `*raise`:

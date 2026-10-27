@@ -163,6 +163,41 @@ bool OnBike(const void* core)
     return state && state->on;
 }
 
+uint32_t BikeSkaterScript(uint32_t name, uint32_t callerName, bool bikeScriptLoaded)
+{
+    static const uint32_t kPedKnockDown = Checksum("PedKnockDown");
+    static const uint32_t kBikeKnockDown = Checksum("bike_PedKnockDown");
+    static const uint32_t kKnockDownState = Checksum("STATECONTROL_knockdown");
+    if (name != kPedKnockDown)
+        return name;
+    if (callerName == kKnockDownState)
+        return 0;
+    return bikeScriptLoaded ? kBikeKnockDown : name;
+}
+
+uint32_t SkaterScript(const Obj::CSkater* skater, uint32_t name, const Script::CScript* caller)
+{
+    if (!Enabled() || !skater || !OnBike(skater->m_corePhysics))
+        return name;
+    static const uint32_t kBikeKnockDown = Checksum("bike_PedKnockDown");
+    uint32_t chosen = BikeSkaterScript(name, caller ? caller->m_scriptName : 0, Script::ScriptExists(kBikeKnockDown));
+    if (chosen == 0)
+        Log("thaw_bmx: a ped's knock-down on the bike - not knocked over (THAW's STATESCRIPT_knockdown)");
+    else if (chosen != name)
+        Log("thaw_bmx: knocked over by a ped on the bike - bike_PedKnockDown");
+    return chosen;
+}
+
+bool HalfStickKey()
+{
+    if (!Enabled())
+        return false;
+    for (const auto& entry : States())
+        if (entry.second.on)
+            return true;
+    return false;
+}
+
 Script::CStruct* PhysicsStructure(const void* core)
 {
     static int s_logged = -1; // (what was logged last: -1 nothing, 0 the skater's, 1 the bike's, 2 the bike's missing)

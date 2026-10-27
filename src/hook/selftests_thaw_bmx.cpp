@@ -304,14 +304,22 @@ void TestThawBmxAirAndGrind()
           "bmx 0x5CF460: up a little: 1 (Smith), far: 2 (Toothpick)");
     Check(GrindRow(1.5f) == 3 && GrindRow(124) == 3 && GrindRow(125) == 4 && GrindRow(127) == 4,
           "bmx 0x5CF460: down a little: 3 (Feeble), far: 4 (Icepick)");
-    using Bike::GrindStickY;
-    Check(GrindStickY(-60, false, true, true) == -60 && GrindStickY(127, true, false, false) == 127,
-          "bmx grind stick (ours): the analogue stick as it is");
-    Check(GrindRow(GrindStickY(0, true, false, false)) == 2 && GrindRow(GrindStickY(0, false, true, false)) == 4 &&
-              GrindRow(GrindStickY(0.5f, false, false, true)) == 0,
-          "bmx grind stick (ours): d-pad up / down: Toothpick / Icepick; a side alone: Double Peg");
-    Check(GrindRow(GrindStickY(0, true, false, true)) == 1 && GrindRow(GrindStickY(0, false, true, true)) == 3,
-          "bmx grind stick (ours): d-pad diagonals: Smith / Feeble");
+    // THAW's half-stick key (PartyMod's THAW build: 64 / 192, the stick's raw -64 / 64): Smith / Feeble.
+    Check(GrindRow(64 - 128) == 1 && GrindRow(192 - 128) == 3 && GrindRow(0 - 128) == 2 && GrindRow(255 - 128) == 4 &&
+              GrindRow(127 - 128) == 0,
+          "bmx 0x5CF460: keys all the way: Toothpick / Icepick; the half-stick key: Smith / Feeble; centred: Double Peg");
+    {
+        Fake f;
+        bool& on = Enabled();
+        const bool was = on;
+        on = false;
+        f.Call("SkaterOnBike");
+        const bool offFeature = HalfStickKey();
+        on = true;
+        const bool onFeature = HalfStickKey();
+        on = was;
+        Check(!offFeature && onFeature, "thaw_bmx: the half-stick key counts with the feature on and a rider on the bike");
+    }
     using Bike::GrindColumn;
     bool over = false;
     Check(GrindColumn(true, false, false, &over) == 1 && over, "bmx 0x5CF460: left side: column 1, over-grind");
@@ -716,6 +724,33 @@ void TestThawBmxBounceBackwards()
     on = was;
 }
 
+void TestThawBmxKnockDown()
+{
+    // MakeSkaterGoto's script on the bike (THAW's PedKnockDown bike branch, STATESCRIPT_knockdown's).
+    const uint32_t knock = Name("PedKnockDown"), bike = Name("bike_PedKnockDown"), other = Name("SkaterAvoidGoalPed");
+    const uint32_t chase = Name("STATECONTROL_chasecatch"), knockState = Name("STATECONTROL_knockdown");
+    Check(BikeSkaterScript(knock, chase, true) == bike && BikeSkaterScript(knock, 0, true) == bike,
+          "thaw_bmx: PedKnockDown on the bike: bike_PedKnockDown");
+    Check(BikeSkaterScript(knock, chase, false) == knock, "thaw_bmx: PedKnockDown kept when the overlay hasn't the bike's");
+    Check(BikeSkaterScript(knock, knockState, true) == 0,
+          "thaw_bmx: a ped's knock-down state doesn't knock a rider over (THAW's STATESCRIPT_knockdown)");
+    Check(BikeSkaterScript(other, knockState, true) == other, "thaw_bmx: other scripts unchanged");
+    // Off the bike or with the feature off: as given (before the overlay's scripts are asked).
+    Fake f;
+    std::vector<uint8_t> skaterBytes(0x300, 0);
+    *reinterpret_cast<uint8_t**>(skaterBytes.data() + 0x280) = f.core.data(); // CSkater::m_corePhysics
+    const auto* skater = reinterpret_cast<const Obj::CSkater*>(skaterBytes.data());
+    bool& on = Enabled();
+    const bool was = on;
+    on = true;
+    const bool offBike = SkaterScript(skater, knock, nullptr) == knock && SkaterScript(nullptr, knock, nullptr) == knock;
+    f.Call("SkaterOnBike");
+    on = false;
+    const bool featureOff = SkaterScript(skater, knock, nullptr) == knock;
+    on = was;
+    Check(offBike && featureOff, "thaw_bmx: MakeSkaterGoto's script unchanged off the bike or with the feature off");
+}
+
 void TestThawBmxSteer()
 {
     // THAW 0x005D6360 (2nd build 0x005D61F0): +0x570 = (|rate / Physics_Ground_Sharp_Rotation| + 1) * 0.5.
@@ -751,6 +786,7 @@ void TestThawBmxSteer()
 }
 
 SELFTEST(Early, TestThawBmxSteer);
+SELFTEST(Early, TestThawBmxKnockDown);
 SELFTEST(Early, TestThawBmxWheelFeel);
 SELFTEST(Early, TestThawBmxMeterAndVert);
 SELFTEST(Early, TestThawBmxBounceBackwards);

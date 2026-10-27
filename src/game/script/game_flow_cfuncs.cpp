@@ -37,6 +37,7 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/skater/skater.h"
+#include "game/skater/thaw_bmx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -311,7 +312,11 @@ bool __cdecl CFunc_MakeSkaterGoto(Script::CStruct* params, Script::CScript* scri
         else
             skater = GetLocalSkater();
     }
+    // Not original - THAW's BMX (game/skater/thaw_bmx.h SkaterScript): on the bike THAW's PedKnockDown takes its bike
+    // branch. Original behaviour: the skater goes to `name` as given.
     if (skater && skater->m_unknownBC)
+        name = Skater::ThawBmx::SkaterScript(skater, name, script);
+    if (skater && skater->m_unknownBC && name)
         skater->SwitchToScript(name, scriptParams);
     return true;
 }
