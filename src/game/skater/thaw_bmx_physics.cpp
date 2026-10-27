@@ -15,11 +15,14 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 
 #include "game/core/crc.h"
+#include "game/gfx/anim_blend.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
+#include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -172,11 +175,8 @@ constexpr double kSteerBlendScale = 0.5;           // 2nd build 0x006E4DE8 (doub
 constexpr float kSteerInTime = 0.4f;               // (bike_playturnanim's BlendPeriod: THAW's tree blends the turn in)
 constexpr float kSteerOutTime = 0.3f;              // (ours: THUG2's PlayAnim's blend, as the idle that follows plays)
 constexpr const char* kSteerSubset = "ThawBmxTurn"; // (ours: the anim subset the turn animation plays in)
-constexpr uint32_t kSubsetExists = 0xD58E2AD5;     // Obj_AnimSubsetExists
-constexpr uint32_t kSubsetWeight = 0xF1D4B29F;     // Obj_SetAnimSubsetWeight
 constexpr uint32_t kSubsetRemove = 0xAFC2493E;     // Obj_RemoveAnimSubset
 constexpr uint32_t kSubsetId = 0x5CFCCF35;         // SubsetId
-constexpr uint32_t kBlendWeight = 0x4D786F62;      // BlendWeight
 constexpr int kStateGround = 0;
 constexpr double kAcidDropBack = 0.1;              // 0x006A0DB0
 
@@ -647,20 +647,27 @@ void EndFrame(void* core)
 
 namespace {
 
-// An anim subset member of `object` on ThawBmxTurn (with BlendWeight `weight` when `weighted`).
-bool SubsetMember(Obj::CCompositeObject* object, uint32_t name, bool weighted, float weight)
+// The turn animation's anim subset (a channel of `object`'s animation blender), or null. (The script member functions
+// Obj_AnimSubsetExists / Obj_SetAnimSubsetWeight / Obj_RemoveAnimSubset are entries of the blender's member function
+// table, which a call by name - CCompositeObject::CallMemberFunction - never reaches: the blender is asked directly.)
+Gfx::CBlendChannel* SteerChannel(Obj::CCompositeObject* object, Obj::CAnimBlenderComponent** blender)
+{
+    *blender = object ? static_cast<Obj::CAnimBlenderComponent*>(object->GetComponent(Obj::CAnimBlenderComponent::kType))
+                      : nullptr;
+    return *blender ? (*blender)->FindChannel(Crc::GenerateCRCFromString(kSteerSubset)) : nullptr;
+}
+
+// The subset removed (Obj_RemoveAnimSubset SubsetId=ThawBmxTurn).
+void RemoveSteerChannel(Obj::CAnimBlenderComponent* blender)
 {
     Script::CStruct* params = Script::NewStruct();
     if (!params)
-        return false;
+        return;
     params = params->Init();
     params->AddChecksum(kSubsetId, Crc::GenerateCRCFromString(kSteerSubset));
-    if (weighted)
-        params->AddFloat(kBlendWeight, weight);
-    bool result = object->CallMemberFunction(name, params, nullptr);
+    blender->RemoveChannel(kSubsetRemove, params, nullptr);
     params->Clear();
     Script::DeleteStruct(params);
-    return result;
 }
 
 } // namespace
@@ -678,8 +685,9 @@ void SteerAnimOff(void* core)
     state->steerIn = 0.0f;
     auto* skater = static_cast<Obj::CCompositeObject*>(ObjectOf(core));
     for (Obj::CCompositeObject* object : {skater, BikeObjectOf(skater)}) {
-        if (object && SubsetMember(object, kSubsetExists, false, 0.0f))
-            SubsetMember(object, kSubsetRemove, false, 0.0f);
+        Obj::CAnimBlenderComponent* blender;
+        if (SteerChannel(object, &blender))
+            RemoveSteerChannel(blender);
     }
 }
 
@@ -694,12 +702,19 @@ void SteerAnim(void* core)
         return;
     auto* skater = static_cast<Obj::CCompositeObject*>(ObjectOf(core));
     for (Obj::CCompositeObject* object : {skater, BikeObjectOf(skater)}) {
-        if (!object || !SubsetMember(object, kSubsetExists, false, 0.0f))
+        Obj::CAnimBlenderComponent* blender;
+        Gfx::CBlendChannel* channel = SteerChannel(object, &blender);
+        if (!channel)
             continue;
-        if (state.steerIn == 0.0f)
-            SubsetMember(object, kSubsetRemove, false, 0.0f);
-        else
-            SubsetMember(object, kSubsetWeight, true, state.steerIn * state.steerBlend);
+        if (state.steerIn == 0.0f) {
+            RemoveSteerChannel(blender);
+        } else {
+            // (Obj_SetAnimSubsetWeight's BlendTo, no blend period: the weight at once)
+            float weight = state.steerIn * state.steerBlend;
+            uint32_t bits;
+            std::memcpy(&bits, &weight, sizeof(bits));
+            channel->BlendTo(bits, 0.0f);
+        }
     }
 }
 
