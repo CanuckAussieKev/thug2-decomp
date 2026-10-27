@@ -31,6 +31,12 @@ public:
     // 0x004EC3C0: the squared distance from the local skater (unrounded, in ST0), its id into `skaterId`; no local
     // skater, or this object is it: 0x55CE224C (about 2.8e13).
     double LocalSkaterDistanceSquared(uint32_t* skaterId);
+    // 0x004EC560 (vtable slot 1): the events of the radii given (non-zero): inner - the local skater in it
+    // 0x7048029A (and 0xF5B2A042), another skater 0xF5B2A042; outer - outside it 0x91BCAD1D; inner avoid - in it
+    // 0xD69BD3DE; outer avoid - outside it 0x35FDAFAE; attention - in it 0xA06C9031, else 0x9C1CDE7A. One distance
+    // is worked out and reused (the nearest skater's or the local one's - as the original mixes them). A dead
+    // object gets only the inner radius's first event.
+    void Update();
     // 0x004EC4B0: the squared distance from the nearest other skater, its id into `skaterId` (none nearer than
     // 0x55CE224C: that, the id left alone).
     float NearestSkaterDistanceSquared(uint32_t* skaterId);

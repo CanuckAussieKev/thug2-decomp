@@ -119,6 +119,86 @@ float CObjectProximityComponent::NearestSkaterDistanceSquared(uint32_t* skaterId
     return nearest;
 }
 
+// 0x004EC560
+void CObjectProximityComponent::Update()
+{
+    // (the skater's id: the original's is a stack slot only written when a skater is found - left as it was
+    // otherwise; ours starts at 0)
+    uint32_t id = 0;
+    float distance = 0.0f;
+    bool dead;
+    auto event = [this](uint32_t type, Script::CStruct* data) { m_object->SelfEvent(type, data); };
+    auto newData = []() {
+        Script::CStruct* data = Script::NewStruct();
+        return data ? data->Init() : nullptr;
+    };
+    auto deleteData = [](Script::CStruct* data) {
+        if (data) {
+            data->Clear();
+            Script::DeleteStruct(data);
+        }
+    };
+    if (m_innerRadiusSquared != 0.0f) {
+        double local = LocalSkaterDistanceSquared(&id);
+        distance = static_cast<float>(local);
+        if (local <= m_innerRadiusSquared) {
+            // The local skater inside: the enter event, and the any-skater one.
+            Script::CStruct* data = newData();
+            data->AddChecksum(0xF79C90AE, id);
+            data->AddInteger(0xDB1E28CD, id);
+            event(0x7048029A, data);
+            if (!(m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+                event(0xF5B2A042, data);
+            deleteData(data);
+        } else {
+            // Another skater inside: the any-skater event.
+            if (NearestSkaterDistanceSquared(&id) <= m_innerRadiusSquared) {
+                Script::CStruct* data = newData();
+                data->AddChecksum(0xF79C90AE, id);
+                data->AddInteger(0xDB1E28CD, id);
+                event(0xF5B2A042, data);
+                deleteData(data);
+            }
+            distance = 0.0f;
+        }
+    }
+    if (m_outerRadiusSquared != 0.0f) {
+        if (distance == 0.0f)
+            distance = NearestSkaterDistanceSquared(&id);
+        if (distance >= m_outerRadiusSquared && !(m_object->m_objectFlags & OBJECT_FLAG_DEAD)) {
+            Script::CStruct* data = newData();
+            data->AddChecksum(0x873A40D0, id);
+            data->AddInteger(0x5F3602F5, id);
+            event(0x91BCAD1D, data);
+            deleteData(data);
+        }
+    }
+    if (m_innerAvoidRadiusSquared != 0.0f) {
+        if (distance == 0.0f)
+            distance = static_cast<float>(LocalSkaterDistanceSquared(&id));
+        if (distance <= m_innerAvoidRadiusSquared) {
+            Script::CStruct* data = newData();
+            data->AddChecksum(0xF79C90AE, id);
+            if (!(m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+                event(0xD69BD3DE, data);
+            deleteData(data);
+        }
+    }
+    if (m_outerAvoidRadiusSquared != 0.0f) {
+        if (distance == 0.0f)
+            distance = static_cast<float>(LocalSkaterDistanceSquared(&id));
+        if (distance >= m_outerAvoidRadiusSquared && !(m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+            event(0x35FDAFAE, nullptr);
+    }
+    if (m_attentionRadiusSquared != 0.0f) {
+        if (distance == 0.0f)
+            distance = static_cast<float>(LocalSkaterDistanceSquared(&id));
+        dead = (m_object->m_objectFlags & OBJECT_FLAG_DEAD) != 0;
+        if (!dead)
+            event(distance <= m_attentionRadiusSquared ? 0xA06C9031 : 0x9C1CDE7A, nullptr);
+    }
+}
+
 // 0x004EC250
 bool CObjectProximityComponent::Obj_SetInnerRadius(Script::CStruct* params, Script::CScript* /*script*/)
 {
@@ -166,6 +246,7 @@ REPLACE(0x004EC220, Obj::CObjectProximityComponent::RegisterMemberFunctions);
 REPLACE(0x004EC370, &Obj::CObjectProximityComponent::Construct);
 REPLACE(0x004EC240, &Obj::CObjectProximityComponent::DestroyBody);
 REPLACE(0x004EC390, &Obj::CObjectProximityComponent::Destroy);
+REPLACE(0x004EC560, &Obj::CObjectProximityComponent::Update);
 REPLACE(0x004EC3C0, &Obj::CObjectProximityComponent::LocalSkaterDistanceSquared);
 REPLACE(0x004EC4B0, &Obj::CObjectProximityComponent::NearestSkaterDistanceSquared);
 REPLACE(0x004EC250, &Obj::CObjectProximityComponent::Obj_SetInnerRadius);

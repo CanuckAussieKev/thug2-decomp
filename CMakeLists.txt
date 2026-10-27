@@ -800,6 +800,7 @@ add_library(thug2_code OBJECT
     src/game/ed/goal_editor.cpp
     src/game/ed/goal_editor_members.cpp
     src/game/obj/object_proximity.cpp
+    src/game/obj/pager_message.cpp
     src/game/obj/editor_camera.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp

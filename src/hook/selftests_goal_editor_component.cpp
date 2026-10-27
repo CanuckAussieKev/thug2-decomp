@@ -12,6 +12,8 @@
 #include "game/core/mem.h"
 #include "game/ed/goal_editor.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/object_proximity.h"
+#include "game/obj/pager_message.h"
 #include "game/obj/objman.h"
 #include "game/script/names.h"
 #include "game/script/struct_buffer.h"
@@ -638,8 +640,209 @@ void TestObjectProximity()
     delete &s;
 }
 
+// The proximity update's distances: scripted (the local one unrounded, as the original returns it).
+double g_localDistance = 0.0;
+float g_nearestDistance = 0.0f;
+double __fastcall FakeLocalDistance(void* self, void*, uint32_t* id)
+{
+    Record({0xC3C0, Rel(reinterpret_cast<uint32_t>(self))});
+    *id = 0x1D01;
+    return g_localDistance;
+}
+float __fastcall FakeNearestDistance(void* self, void*, uint32_t* id)
+{
+    Record({0xC4B0, Rel(reinterpret_cast<uint32_t>(self))});
+    *id = 0x1D02;
+    return g_nearestDistance;
+}
+
+// The proximity component's update: every radius zero or not (not a number too), the distances inside / on /
+// outside each radius, the object dead or not.
+void TestObjectProximityUpdate()
+{
+    std::unique_ptr<GameMemory> memory(new GameMemory({{0x006F3614, 16}, {0x006F22B4, 16}}));
+    StandIns& s = *new StandIns();
+    StandInGoalWorld(s);
+    StandInGoalIo(s);
+    for (uint32_t at : {0x004EC3C0u, AddressOf(&Obj::CObjectProximityComponent::LocalSkaterDistanceSquared)})
+        s.Bytes(at, Branch(0xE9, at, reinterpret_cast<const void*>(&FakeLocalDistance)));
+    for (uint32_t at : {0x004EC4B0u, AddressOf(&Obj::CObjectProximityComponent::NearestSkaterDistanceSquared)})
+        s.Bytes(at, Branch(0xE9, at, reinterpret_cast<const void*>(&FakeNearestDistance)));
+    s.At({0x004609F0, AddressOf(&Obj::CObject::SelfEvent)}, 8, [](Regs& r) {
+        Record({0x09F0, r.ecx, r.args[0], Rel(r.args[1])});
+        return 0u;
+    });
+    static uint8_t object[0x60];
+    static const float kRadii[] = {0.0f, 100.0f, 400.0f, 25.5f, 0.0f};
+    static const double kLocal[] = {50.0, 100.0, 100.00000001, 400.0, 3000.0, 25.5, 0.0};
+    static const float kNearest[] = {50.0f, 100.0f, 400.0f, 1e9f, 0.0f, 25.5f};
+    auto run = [&](bool original) {
+        g_trace.clear();
+        UseFakePools();
+        std::vector<uint32_t> trace;
+        Originals guard(original, {0x004EC560});
+        auto* component = reinterpret_cast<uint8_t*>(g_editorBytes[1]);
+        Lcg lcg(0x9A6E);
+        for (uint32_t round = 0; round < 300; ++round) {
+            *reinterpret_cast<uint8_t**>(component + 0xC) = object;
+            *reinterpret_cast<uint32_t*>(object + 0x08) = lcg.Below(4) == 0 ? 1u : 0x20u;
+            for (uint32_t k = 0; k < 5; ++k)
+                *reinterpret_cast<float*>(component + 0x18 + 4 * k) = lcg.Pick(kRadii);
+            if (round % 37 == 5)
+                *reinterpret_cast<uint32_t*>(component + 0x18 + 4 * (round % 5)) = 0x7FC00000;
+            g_localDistance = lcg.Pick(kLocal);
+            g_nearestDistance = lcg.Pick(kNearest);
+            Fn<void(__thiscall*)(void*)>(original, 0x004EC560)(component);
+        }
+        trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+        return trace;
+    };
+    UseEditorRelocation();
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, "goal editor range: the object proximity component's update");
+    g_relocate = nullptr;
+    delete &s;
+}
+
+// The pager: made (its list), messages sent (flagged or not), read by number (in range, past the end), counted,
+// the first unread found (none, some, all read), cleared down to a count or all, destroyed; the list's erase.
+void TestPagerMessages()
+{
+    std::unique_ptr<GameMemory> memory(new GameMemory({{0x006F3614, 16}, {0x006F22B4, 16}, {0x007D1800, 4},
+                                                       {0x007CC979, 1}}));
+    StandIns& s = *new StandIns();
+    StandInGoalWorld(s);
+    StandInGoalIo(s);
+    StandInComponentWorld(s);
+    using Script::CStruct;
+    s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
+        Record({0xAFC0, r.args[0], r.args[1], r.args[2]});
+        uint8_t* block = g_blocks[g_nextBlock++ % 512];
+        std::memset(block, 0xCD, 16);
+        return reinterpret_cast<uint32_t>(block);
+    });
+    s.At({0x004964A0}, 8, [](Regs& r) {
+        Record({0x64A0, Rel(r.ecx), r.args[0], *reinterpret_cast<uint32_t*>(r.args[1])});
+        auto* list = reinterpret_cast<Obj::PointerList*>(r.ecx);
+        auto* where = reinterpret_cast<Obj::PointerListNode*>(r.args[0]);
+        auto* node = reinterpret_cast<Obj::PointerListNode*>(g_blocks[g_nextBlock++ % 512]);
+        node->data = *reinterpret_cast<void**>(r.args[1]);
+        node->next = where;
+        node->prev = where->prev;
+        where->prev->next = node;
+        where->prev = node;
+        ++list->size;
+        return 0u;
+    });
+    s.At({0x00474190, AddressOf(Script::KillSpawnedScriptsWithObjectAndName)}, 0, [](Regs& r) {
+        Record({0x4190, r.args[0], r.args[1], r.args[2]});
+        return 0u;
+    });
+    s.At({0x00461410, AddressOf(&Obj::CObject::SpawnScript)}, 16, [](Regs& r) {
+        Record({0x1410, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF});
+        return 0u;
+    });
+    s.At({0x00478480, AddressOf(&CStruct::AppendStructure)}, 4, [](Regs& r) {
+        Record({0x8480, r.ecx, r.args[0]});
+        return r.ecx;
+    });
+    s.At({0x00478670, AddressOf(static_cast<void (CStruct::*)(uint32_t, CStruct*)>(&CStruct::AddStructure))}, 8,
+         [](Regs& r) {
+             Record({0x8670, r.ecx, r.args[0], r.args[1]});
+             return 0u;
+         });
+    auto run = [&](bool original) {
+        g_trace.clear();
+        g_values.clear();
+        UseFakePools();
+        GameVariable<uint8_t*>(0x007D1800) = g_manager;
+        GameVariable<bool>(0x007CC979) = true;
+        *reinterpret_cast<uint32_t*>(g_script + 0x14) = reinterpret_cast<uint32_t>(Token(7));
+        std::vector<uint32_t> trace;
+        Originals guard(original, {0x004ECC30, 0x004ECF20, 0x004EC960, 0x004ECE10, 0x004ECE90, 0x004ECF80,
+                                   0x004ECC80, 0x004EC9A0, 0x004ECB50, 0x004EC980, 0x004ECBD0, 0x004ECDF0});
+        uint32_t params = reinterpret_cast<uint32_t>(Token(0));
+        auto* pager = reinterpret_cast<uint8_t*>(g_editorBytes[1]);
+        Fn<void(__cdecl*)()>(original, 0x004EC960)();
+        trace.push_back(Rel(reinterpret_cast<uint32_t>(Fn<void*(__cdecl*)()>(original, 0x004ECF20)())));
+        *reinterpret_cast<uint32_t*>(pager + 0xC) = reinterpret_cast<uint32_t>(Token(15)); // the object
+        auto member = [&](uint32_t address) {
+            trace.push_back(Fn<uint32_t(__thiscall*)(void*, uint32_t, void*)>(original, address)(pager, params,
+                                                                                               g_script) & 0xFF);
+        };
+        auto messages = [&]() {
+            auto* list = reinterpret_cast<Obj::PointerList*>(pager + 0x18);
+            trace.push_back(static_cast<uint32_t>(list->size));
+            Obj::PointerListNode* node = list->head->next;
+            for (int i = 0; i < list->size && node != list->head; ++i, node = node->next) {
+                auto* message = static_cast<Obj::PagerMessage*>(node->data);
+                trace.insert(trace.end(), {reinterpret_cast<uint32_t>(message), message ? message->read : 0xFFu});
+            }
+        };
+        for (uint32_t round = 0; round < 30; ++round) {
+            g_values.clear();
+            if (round % 3 == 0) // (the message's parameters: the block after the message's)
+                g_values[{reinterpret_cast<uint32_t>(g_blocks[(g_nextBlock + 1) % 512]), 0x8E6DFA5D}] = 1;
+            member(0x004EC9A0); // send
+            // (the message's own parameters: the block after the message; flagged in some rounds)
+            member(0x004EC980);
+            // (a number past the end reads the sentinel: only numbers up to the count, 0 too)
+            int count = reinterpret_cast<Obj::PointerList*>(pager + 0x18)->size;
+            g_values[{params, 0x0A89DA7D}] = static_cast<uint32_t>(round % 5 == 4 ? count : static_cast<int>(round % 4) % (count + 1));
+            if (round % 6 == 1)
+                g_values.erase({params, 0x0A89DA7D});
+            if (count)
+                member(0x004ECB50);
+            member(0x004ECBD0);
+            if (round % 7 == 6) {
+                g_values[{params, 0x340FB7F4}] = round % 2 ? 2u : 0u;
+                if (round % 14 == 13)
+                    g_values.erase({params, 0x340FB7F4});
+                member(0x004ECDF0);
+            }
+            messages();
+        }
+        // Every message read, then the first unread; erase of part of the list; destroyed.
+        auto* list = reinterpret_cast<Obj::PointerList*>(pager + 0x18);
+        for (Obj::PointerListNode* node = list->head->next; node != list->head; node = node->next)
+            static_cast<Obj::PagerMessage*>(node->data)->read = true;
+        member(0x004ECBD0);
+        for (int k = 0; k < 6; ++k)
+            member(0x004EC9A0);
+        messages();
+        Obj::PointerListNode* out = nullptr;
+        Obj::PointerListNode* first = list->head->next->next;
+        trace.push_back(Rel(reinterpret_cast<uint32_t>(Fn<void*(__thiscall*)(void*, void*, void*, void*)>(
+            original, 0x004ECC30)(list, &out, first, list->head->prev))));
+        trace.push_back(reinterpret_cast<uint32_t>(out));
+        messages();
+        // (a range across the sentinel: it stays)
+        Fn<void*(__thiscall*)(void*, void*, void*, void*)>(original, 0x004ECC30)(list, &out, list->head->prev,
+                                                                                 list->head->next);
+        trace.push_back(reinterpret_cast<uint32_t>(out));
+        trace.push_back(reinterpret_cast<uint32_t>(list->head->next));
+        trace.push_back(reinterpret_cast<uint32_t>(list->head->prev));
+        messages();
+        Fn<void(__thiscall*)(void*)>(original, 0x004ECE90)(pager);
+        trace.push_back(Rel(reinterpret_cast<uint32_t>(Fn<void*(__thiscall*)(void*)>(original, 0x004ECE10)(pager))));
+        trace.push_back(Rel(reinterpret_cast<uint32_t>(Fn<void*(__thiscall*)(void*, unsigned)>(original, 0x004ECF80)(pager, 1))));
+        trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+        return trace;
+    };
+    UseEditorRelocation();
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, "goal editor range: the pager message component");
+    g_relocate = nullptr;
+    g_values.clear();
+    delete &s;
+}
+
 } // namespace
 
+SELFTEST(Early, TestPagerMessages, RemoveStandIns);
+SELFTEST(Early, TestObjectProximityUpdate, RemoveStandIns);
 SELFTEST(Early, TestObjectProximity, RemoveStandIns);
 SELFTEST(Early, TestGoalEditorMembers, RemoveStandIns);
 SELFTEST(Early, TestGoalEditorComponent, RemoveStandIns);
