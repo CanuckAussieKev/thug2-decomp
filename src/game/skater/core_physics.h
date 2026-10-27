@@ -609,6 +609,43 @@ public:
     // 0x004FE1D0 (from the state history; the argument isn't used): the flags cleared (ClearFlags), into the air.
     void ResetToAir(void* unused);
 
+    // --- core_physics_ground.cpp: friction, braking and pushing, the ground's normal ---
+    // 0x004FE1F0: the velocity slowed by `friction` (its squared length x the frame x friction x 60, rounded to a
+    // float, against the squared length): to rest when that's more than there is; nothing when barely moving.
+    void ApplyFriction(float friction);
+    // 0x004FE320: whether to brake: not auto-kicking nor holding pad +0x180 while slower than 50; or holding +0x40
+    // with brakes allowed (+0x311) - slower than 50, neither +0x60 nor +0x80 held, or moving against the facing.
+    bool ShouldBrake();
+    // 0x004FE420: whether the skater may turn down the slope instead of braking: slower than 0x62A1FA03 and the
+    // ground normal's y (+0x6C) under 0xC3527EF2 (script values; names not recovered).
+    bool MayTurnOnSlope();
+    // 0x004FE490: whether the skater may push off: kicking allowed (+0x310 off), auto-kick (+0x2D9) or pad +0x180
+    // held, pad +0x40 not held, and no faster than the push speed stat (crouched or +0x303: 0x92E0247C, else
+    // 0x4610C2E3).
+    bool CanPushOff();
+    // 0x004FE530: a push: along the facing (with the velocity locked, +0x388: along the velocity unless slower than
+    // 0.5) by the push stat (crouched or +0x303: 0x3D24128E, else 0x5F9B864D) over the frame.
+    void PushOff();
+    // 0x004FE6A0: the friction for the stance - crouched 0xBED96EDA, else 0x1A78B6FC (physics values; while the
+    // limits are overridden, +0x350, both +0x35C) - applied (ApplyFriction).
+    void ApplyStanceFriction();
+    // 0x004FE730: the rolling friction (+0x314) over the frame against the speed: to rest when it would overshoot.
+    void ApplyRollingFriction();
+    // 0x004FE860 (the normal by value, RET 0x10): unless the global setting at *0x007CE5D8 +0x40 is Off, a normal
+    // facing up has a feeler 72 along it from the skater - a hit makes it straight up. A new normal becomes the
+    // ground normal (+0x68; the old +0x58 kept at +0x78 and the blend +0x88 restarted at 1) and the skater's up,
+    // the matrix made orthonormal about it.
+    void TurnToNormal(Mth::Vector normal);
+    // 0x004FEA50: the drawn ground normal (+0x58) blended from the old (+0x78) to the new (+0x68) as +0x88 runs down
+    // at 0xD8120182 a second (a script value); the display matrix's up made it, orthonormal about it, its right and
+    // facing the skater's.
+    void UpdateGroundNormal();
+    // 0x004FEBA0: going up a vert wall (flag +0x40): the wall's normal (+0x278) and the take-off point (+0x268, 1
+    // lower) kept; with a horizontal ground normal, the velocity turned into its plane, the skater onto it
+    // (TurnToNormal), +0x288 the facing with y reversed, pushed out from the wall by 0x78384871, flags +0x30, +0x38,
+    // +0x68 on and +0x298 6; otherwise (or not on vert) flag +0x30 off.
+    void StartVertAir();
+
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)
