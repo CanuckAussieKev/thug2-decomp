@@ -3856,7 +3856,7 @@ void ShowHelp()
         "View         H hides the selection while editing   I or / isolates it   Alt+H shows all",
         "             (never saved, never in play; the collision view, C, needs the UI)",
         "Triggers     T: kill zones, teleports, gaps - shown and added with the UI only",
-        "Camera       P writes where the camera is to the log (a menu backdrop view)",
+        "Camera       P writes where the camera is to the log (position, back, up)",
     };
     Hud::ShowPanel(lines, 96.0f, 104.0f, 448.0f);
 }
@@ -5685,7 +5685,7 @@ void Update()
     Checks::Update(); // (UX5: the Problems window's Go to / Fix - level_editor_checks.h)
     Notes::Update();  // (UX5: note pins - level_editor_notes.h)
     Ux9::Update();    // (UX9: Alt+J / Alt+K / Alt+U and the forms - level_editor_ux9.h)
-    // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
+    // P: the camera written to the log (position, back, up).
     if (Actions::Pressed(Actions::kProblems))
         Checks::ToggleWindow(); // (UX5) Alt+P: the Problems window (Hammer's Check for Problems key)
     if (Actions::Pressed(Actions::kLogCamera)) {

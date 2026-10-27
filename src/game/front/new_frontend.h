@@ -86,6 +86,11 @@ bool Showing();
 // Whether an original screen is restyled now (phase 3): the mouse is ours (MouseMenus leaves the hidden menus alone),
 // the keys and buttons the original's.
 bool OwnsMouse();
+// The screen element manager's Update, before its layout pass (game/front/screen_element_manager.cpp): the original's
+// elements hidden (or given back) for this frame - so a menu the scripts made since the last frame is never drawn as
+// the game made it when ours draws it restyled (the pause menu, a dialog, the main menu), the restyled screen and the
+// cover kept, and the front end's first frames covered until its first menu is up.
+void BeforeScreenLayout();
 
 // --- the automation channel's `fe` commands (game/front/automation.h) ---
 // `args` after "fe": select <screen>/<item> (waits for the screen - shown, not moving - then selects and chooses the

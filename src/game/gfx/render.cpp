@@ -11,7 +11,6 @@
 #include <cstring>
 
 #include "game/front/level_editor.h"
-#include "game/front/menu_backdrop.h"
 #include "game/front/new_frontend.h"
 #include "game/front/test_view.h"
 #include "game/gfx/camera.h"
@@ -474,12 +473,6 @@ struct Scene {
 static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D && offsetof(Scene, name) == 0x84,
               "scene layout");
 
-// Not original - the menu_backdrop feature (see game/front/menu_backdrop.h): in the front end either the skate shop's
-// scene or the backdrop level's isn't drawn.
-// Original behaviour: every loaded scene is drawn; with menu_backdrop the front end's shop scene is skipped while the
-// THPS4 shop view is held, and THPS4's scenes while another front-end camera (Create-A-Skater...) shows THUG2's shop.
-bool Hidden(const Scene* scene) { return Front::MenuBackdrop::HideScene(scene->name); }
-
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
 struct SceneNode {
     uint32_t unknown0;
@@ -536,11 +529,6 @@ void RenderViewport(int index)
     void* camera = view->camera;
     if (!camera)
         return;
-    // Not original - the menu_backdrop feature: the front end's camera held at the THPS4 shop view (also when nothing
-    // set it this frame).
-    // Original behaviour: the viewport's camera is drawn as the game left it; with menu_backdrop, while a menu camera
-    // plays in the front end, the camera is put at the THPS4 skate shop view.
-    Front::MenuBackdrop::HoldCamera(static_cast<Gfx::Camera*>(camera));
     // Not original - the level editor (game/front/level_editor.h): while it runs, the first viewport's camera is put
     // where the editor flies.
     // Original behaviour: the camera is drawn where the game put it.
@@ -593,7 +581,7 @@ void RenderViewport(int index)
         Sys::Screenshot::NoteView(index, at, forward);
     }
     ForEachScene([&](Scene* scene) {
-        if (scene->sky || Hidden(scene))
+        if (scene->sky)
             return;
         BuildOccluders(CameraPosition(camera), index);
         SetRenderState(1, 1);
@@ -633,7 +621,7 @@ void RenderViewport(int index)
     SetRenderState(1, 0);
     SetRenderState(2, 1);
     ForEachScene([&](Scene* scene) {
-        if (!scene->sky || Hidden(scene))
+        if (!scene->sky)
             return;
         // (with distance clipping and fog both on, there's no sky)
         if (GameVariable<bool>(0x007D643A) && GameVariable<bool>(0x007D6436))
@@ -669,7 +657,7 @@ void RenderViewport(int index)
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     ForEachScene([&](Scene* scene) {
-        if (!scene->sky && !Hidden(scene))
+        if (!scene->sky)
             DrawSceneGroup(scene, 0x46, index);
     });
     SetPass(0x102);

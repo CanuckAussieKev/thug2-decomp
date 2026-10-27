@@ -7,7 +7,6 @@
 #include "game/core/dbg.h"
 #include "game/core/str.h"
 #include "game/front/level_editor_layout.h"
-#include "game/front/menu_backdrop.h"
 #include "game/script/params.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -79,10 +78,6 @@ bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*
     Dbg::Printf("... done\n");
     description->Clear();
 
-    // Not original - the menu_backdrop feature (see menu_backdrop.h): the front end's scene brings the backdrop's.
-    // Original behaviour: only the scene asked for is loaded; with menu_backdrop "mainmenu" also loads THPS4's skate
-    // shop (its sky and scene).
-    Front::MenuBackdrop::OnSceneLoaded(name, isNet);
     // Not original - the level editor's saved layouts (level_editor_layout.h): put back once the level is up.
     Front::LevelEditor::Layout::OnSceneLoaded(name, isNet);
     return true;

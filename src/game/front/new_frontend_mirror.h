@@ -132,6 +132,9 @@ struct View {
     std::string screenArt, kicker;
     bool mainMenu = false;
     std::string why; // (kind None: why the menu read stays original - for the log)
+    // (kind None: a menu with nothing to show yet - no items, none with words or none to choose: the original may still
+    // be building it, so its elements stay hidden a few frames before it is left as it is - kFramesUnsettled)
+    bool unsettled = false;
 };
 
 // The game's text escapes made plain: \n (a line end: a space, or kept with `newlines`), \c<x> (a colour) dropped,
@@ -151,6 +154,8 @@ View Build(const MenuRead& read, const Policy& policy);
 // the rows' selection animations.
 constexpr int kFramesToShow = 2;
 constexpr int kFramesToHide = 3;
+// How long a menu kept unsettled (View::unsettled) stays hidden before it is shown as the game made it.
+constexpr int kFramesUnsettled = 10;
 class Tracker {
 public:
     // A frame: what Build said now. Returns whether a view is up.

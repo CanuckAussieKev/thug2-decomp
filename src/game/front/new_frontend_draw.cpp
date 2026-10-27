@@ -1664,4 +1664,13 @@ void Restyled(const Mirror::Tracker& tracker, const Frame& frame, float windowWi
     dl->PopTextureID();
 }
 
+void Waiting(const Frame& frame, float windowWidth, float windowHeight, const Extras& extras, const char* artId)
+{
+    ImDrawList* dl = ImGui::GetBackgroundDrawList();
+    dl->PushTextureID(ImGui::GetIO().Fonts->TexID);
+    dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(windowWidth, windowHeight), Col(kGround));
+    Backdrop(dl, frame, ArtFor(extras, ArtById(extras.catalogue, artId)), 0.0f);
+    dl->PopTextureID();
+}
+
 } // namespace Front::NewFrontend::Paint
