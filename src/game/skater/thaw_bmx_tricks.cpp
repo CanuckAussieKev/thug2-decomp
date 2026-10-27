@@ -22,6 +22,7 @@
 #include "game/skate/score.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/flip_and_rotate.h"
 #include "game/skater/manual.h"
 #include "game/skater/skater.h"
 #include "game/skater/special_item.h"
@@ -74,6 +75,7 @@ constexpr uint32_t kR1 = 0xE0, kR2 = 0x100, kSquare = 0x160;
 constexpr int kStateBikeStall = 6;
 // Components.
 constexpr uint32_t kSpecialItem = 0xF27A294D;
+constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr uint32_t kModel = 0x286A8D26;       // model
 constexpr uint32_t kModelOfComponent = 0x208; // the model component's renderer model
@@ -561,6 +563,38 @@ void* ShadowCompanion(void* casterModel)
     uint8_t* bikeRenderer = At<uint8_t*>(bikeModel, kModelOfComponent);
     return Bike::ShadowCompanionOf(casterModel, At<void*>(riderModel, kModelOfComponent), bikeRenderer,
                                    bikeRenderer ? bikeRenderer[kModelFlags] : 0);
+}
+
+// --- the flip ----------------------------------------------------------------------------------------------------
+
+int PlayFlip(void* object)
+{
+    if (!Enabled() || !object || !Mdl::Skate::Instance())
+        return -1;
+    auto* skater = static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater());
+    if (!skater || !skater->m_corePhysics || !OnBike(skater->m_corePhysics))
+        return -1;
+    if (object == skater) {
+        // (THAW's Skater_Playanim: HandleFlipOrBoardRotateAfter before the branch - the component's own PlayAnim
+        // answer does it too, after this or before: done once, the flags cleared)
+        if (auto* flipAndRotate =
+                static_cast<Obj::CSkaterFlipAndRotateComponent*>(skater->GetComponent(kSkaterFlipAndRotate)))
+            flipAndRotate->DoAfterAnim();
+    } else if (object != BikeOf(skater)) {
+        return -1;
+    }
+    return At<uint8_t*>(skater->m_corePhysics, kFlags)[0x28] ? 1 : 0;
+}
+
+void FlipAnimsToFlag(void* core)
+{
+    // (off the bike THUG2's way again: the rider's animations as his flag says - on the bike a Flip after the last
+    // animation played left them as they were)
+    auto* skater = static_cast<Obj::CCompositeObject*>(ObjectOf(core));
+    if (auto* flipAndRotate =
+            skater ? static_cast<Obj::CSkaterFlipAndRotateComponent*>(skater->GetComponent(kSkaterFlipAndRotate))
+                   : nullptr)
+        flipAndRotate->ApplyFlipToAnims();
 }
 
 // --- the sounds --------------------------------------------------------------------------------------------------

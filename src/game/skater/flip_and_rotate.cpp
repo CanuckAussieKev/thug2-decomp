@@ -12,6 +12,7 @@
 #include "game/net/player_info.h"
 #include "game/obj/anim_blender.h"
 #include "game/script/struct.h"
+#include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -155,6 +156,11 @@ void CSkaterFlipAndRotateComponent::Flip()
         flipped = flip;
         Field<int>(state, 0x2C) = Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60);
     }
+    // NOT ORIGINAL - THAW's BMX ([features] thaw_bmx, on the bike): THAW's Flip turns the flag only - the animations
+    // take it when they're played (game/skater/thaw_bmx.h FlipFlagOnly / PlayFlip). Original behaviour: every running
+    // animation mirrored at once.
+    if (Skater::ThawBmx::FlipFlagOnly(m_corePhysics))
+        return;
     ApplyFlipToAnims();
 }
 

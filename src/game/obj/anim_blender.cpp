@@ -13,6 +13,7 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/skater/thaw_bmx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -29,7 +30,8 @@ float*& s_blendWeights = GameVariable<float*>(0x006F8A5C);
 uint32_t*& s_blendSets = GameVariable<uint32_t*>(0x006F8A58);
 Gfx::CPose*& s_blendPose = GameVariable<Gfx::CPose*>(0x006F8A60);
 
-constexpr uint32_t kId = 0x5CFCCF35;
+constexpr uint32_t kId = 0x5CFCCF35; // SubsetId
+constexpr uint32_t kPlayAnim = 0x0B1E7291, kObjPlayAnim = 0x2CB9AD09;
 constexpr float kMinWeight = 0.00001f;
 
 bool IsHead(const Mem::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
@@ -339,6 +341,15 @@ int CAnimBlenderComponent::PassToChannel(uint32_t name, Script::CStruct* params,
                 return 0;
             channel = AsChannel(next);
         }
+    }
+    // NOT ORIGINAL - THAW's BMX ([features] thaw_bmx; the local rider on the bike and his bike): THAW's animation tree
+    // flips a branch as it's played (Skater_Playanim's obj_is_flipped), so the channel takes the rider's flipped flag
+    // before it plays - on the bike his Flip turns the flag only (game/skater/thaw_bmx.h PlayFlip). 0x0047DC40 with
+    // its last argument 0: the flag set, nothing sent. Original behaviour: the channel's flip as it was.
+    if ((name == kPlayAnim || name == kObjPlayAnim) && channel && Skater::ThawBmx::Enabled()) {
+        int flip = Skater::ThawBmx::PlayFlip(m_object);
+        if (flip >= 0)
+            ChannelMethod<bool>(0x0047DC40, channel, m_object->m_id, static_cast<uint32_t>(flip), 0u, 0u);
     }
     return Virtual<int>(channel, 4, name, params, script);
 }

@@ -277,6 +277,7 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
     }
     if (name == kOff) { // 0x005C7630 (THAW clears only the flag; ours the bike's other states too)
         SteerAnimOff(core);
+        FlipAnimsToFlag(core);
         BikeState fresh;
         fresh.frontWheel = state.frontWheel;
         fresh.rearWheel = state.rearWheel;
@@ -365,6 +366,7 @@ void OnSkaterReset(Obj::CSkater* skater)
     // The bike (a special item) is gone: off it.
     Log("thaw_bmx: skater reset on the bike - off it");
     SteerAnimOff(skater->m_corePhysics);
+    FlipAnimsToFlag(skater->m_corePhysics);
     *state = BikeState{};
     RunIfThere(kAfterResetScript, skater);
 }
