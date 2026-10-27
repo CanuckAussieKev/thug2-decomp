@@ -114,10 +114,11 @@ struct CEditedRail {
     // new list (null when there are none). A point inside the rail isn't taken out when no rail is free (returns
     // null). The head goes on its own.
     CEditedRailPoint* CutAt(CEditedRailPoint* point);
-    // 0x004F63B0: the point `index` moved to `position` if that keeps its segments valid (IsValidSegment) and the
-    // point in the park (IsInsidePark): its height kept over the ground, its segment and post drawn again (and the
-    // previous point's segment). Whether every check passed - `checkAll` asks the joins too.
-    bool MovePoint(int index, const Mth::Vector* position, bool checkAll);
+    // 0x004F63B0: the point `index` moved to `position` - unless a neighbour would be more than 4500 away - its height
+    // over the ground kept, its post and segment drawn again (and the previous point's segment). Whether the move is
+    // valid: both segments valid (RailSegmentValid) and the point inside the park (IsInsidePark, 10 in). The flag
+    // (UpdateRailPointPosition's UpdateSuperSectors) isn't read.
+    bool MovePoint(int index, const Mth::Vector* position, bool updateSuperSectors);
     // 0x004F6F40: `source`'s points copied (after clearing).
     void CopyFrom(const CEditedRail* source);
     // 0x004F7100: copies of the runs of two or more points inside (x0, z0)-(x1, z1), each a new rail put before
@@ -136,6 +137,42 @@ struct RailBuffer {
     uint16_t m_records[400][5];           // +0x192
 };
 static_assert(sizeof(RailBuffer) == 0x1132, "layout must match the original");
+
+// The rail editor's geometry (rail_editor_draw.cpp).
+// 0x004F3E00: a copy of the source sector `source` made in the park (counts dirty, collision rebuilt); its sector.
+uint8_t* __cdecl CloneRailSector(uint32_t source);
+// 0x004F3D80: `point` moved from `origin` to `position` turned `angle` degrees about y (x, z: the cosine at the x87's
+// full precision, the sine rounded to float; w: the original adds `position`'s to an unset local - here 0). Returns
+// `out`.
+Mth::Vector* TransformRailPoint(Mth::Vector* out, const Mth::Vector* point, const Mth::Vector* origin,
+                                const Mth::Vector* position, float angle);
+// 0x004F3E40: whether the turn at `b` from `a` to `c` (on the ground plane) is gentle enough: the cosine between the
+// two directions at least that of Rail_Corner_Leave_Angle.
+bool RailCornerOk(const Mth::Vector* a, const Mth::Vector* b, const Mth::Vector* c);
+// 0x004F3F30 / 0x004F3F70: whether `a` and `b` are more than 4000 (a segment's longest) / 4500 (the dotted line's
+// reach) apart. 1 or 0.
+int RailTooFar(const Mth::Vector* a, const Mth::Vector* b);
+int RailOutOfReach(const Mth::Vector* a, const Mth::Vector* b);
+// 0x004F3FB0: whether a segment from `a` to `b` is valid: at most 4000 long, at least
+// RailEditorMinimumPointSeparation, no steeper than RailEditorMaxSlope.
+bool RailSegmentValid(const Mth::Vector* a, const Mth::Vector* b);
+// 0x004F4B90: the `count` vertices `indices` picks turned about the first of them to face `direction` (its up kept
+// up; straight up or down: facing z), then moved by `translation`.
+void OrientRailVertices(const Mth::Vector* direction, const Mth::Vector* translation, Mth::Vector* vertices,
+                        const int* indices, int count);
+// 0x004F4E70: the source sector `source`'s vertices fitted between `from` and `to` (the start half turned towards
+// the previous segment's direction and that segment's end moved onto it when `previousSector` is given) and given to
+// `sector`; with `updateCollision`, its collision's vertices too.
+void StretchRailSector(uint32_t source, const Mth::Vector* from, const Mth::Vector* previous, const Mth::Vector* to,
+                       uint8_t* sector, uint8_t* previousSector, bool updateCollision);
+// Their register-argument entry points (the original's conventions; see the .cpp).
+void TransformRailPointStub();
+void RailCornerOkStub();
+void RailTooFarStub();
+void RailOutOfReachStub();
+void RailSegmentValidStub();
+void OrientRailVerticesStub();
+void StretchRailSectorStub();
 
 // The rail editor component (type 0x5B509AD3, vtable 0x0064B918, 0x1168 bytes; made by 0x004F7FB0).
 //
