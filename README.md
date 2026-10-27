@@ -18,12 +18,13 @@ this repository.
 - **Additions:** a level editor, a new front end, graphics options, a loading console, a screenshot key with the
   game's state alongside, debugging aids.
 - **Level converters** (in the [thug2-content-pipeline](https://github.com/CanuckAussieKev/thug2-content-pipeline)
-  submodule): THPS3, THPS4, THUG and THAW levels, generated from your own installs of those games.
+  submodule): THPS2, THPS3, THPS4, THUG, THAW and Project 8 levels, generated from your own copies of those games -
+  plus THAW's BMX, rideable in any level.
 
 ## Status
 
-The decompilation isn't finished: about 37% of the game's code (by bytes) is rewritten (`docs/PROGRESS.md` has the
-figure by subsystem). Until it is, development builds run as a DLL inside the game process: each rewritten function
+The decompilation isn't finished: about 86% of the game's code (by bytes) is rewritten - 6,939 of 8,316 functions
+(`docs/PROGRESS.md` has the figure by subsystem). Until it is, development builds run as a DLL inside the game process: each rewritten function
 replaces the original and is checked against it by self-tests, and everything not yet rewritten still runs the
 original code, so the game stays playable at every step. Those builds are tied to the one build of `THUG2.exe` the
 code's addresses come from (the "reference build"); the retail CD build isn't supported.
@@ -39,10 +40,12 @@ script interpreter is planned to be replaced by JavaScript (QuickJS) with the sc
 | Game | Needed for | Default folder | What the tools read |
 |---|---|---|---|
 | Tony Hawk's Underground 2 (PC) | Everything | `C:\Games\THUG2` (the game in its `Game` subfolder) | `Data\...` |
+| THPS2 (PC) | Porting THPS2's levels | `C:\Games\THPS2` | `ALL.PKR` (the PC version keeps every data file in it) |
 | THPS3 (PC) | Porting THPS3's levels | `C:\Games\THPS3` | `Data\Levels\<Lvl>\` (`.bsp`, `.tdx`, `.qb`), `Data\Scripts\` |
 | THPS4 (PC) | Porting THPS4's levels, the playable skate shop | `C:\Games\THPS4` | `data\levels\`, `data\scripts\`, `data\models\` |
 | THUG (PC) | Porting THUG's levels | `C:\Games\THUG1` | `Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
 | THAW (PC, version 1.01) | Porting THAW's levels and its BMX | `C:\Games\THAW` | `data\worlds\worldzones\`, `data\pak\`, `data\skies\` |
+| Tony Hawk's Project 8 (Xbox 360 data) | Porting Project 8's levels | `C:\Games\THP8` | `game\DATA\` (`ZONES\`, `PAK\`) |
 | THUGPRO (optional) | THUGPRO's additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`tools/pipeline/compat/thugpro`) |
 
 Every folder you give a tool (`--thug2`, `--thps3`, `--thps4`, `--thug1`, `--thaw`, `--game`, CMake's `THUG2_GAME_DIR`)
@@ -126,10 +129,13 @@ Each converter reads your install of that game and writes a staging folder next 
 everything into the data overlay and the level select:
 
 ```
+node tools\pipeline\thps2_levels\thps2_levels.ts convert --thug2 C:\Games\THUG2 --thps2 C:\Games\THPS2
 node tools\pipeline\thps3_levels\thps3_levels.ts convert --thug2 C:\Games\THUG2 --thps3 C:\Games\THPS3
 node tools\pipeline\thps4_levels\thps4_levels.ts convert --thug2 C:\Games\THUG2 --thps4 C:\Games\THPS4
 node tools\pipeline\thug1_levels\thug1_levels.ts --thug2 C:\Games\THUG2 --thug1 C:\Games\THUG1 convert
 node tools\pipeline\thaw_levels\thaw_levels.ts   convert --thug2 C:\Games\THUG2 --thaw  C:\Games\THAW
+node tools\pipeline\thp8_levels\thp8_levels.ts   convert --thug2 C:\Games\THUG2 --thp8  C:\Games\THP8
+node tools\pipeline\thaw_bmx\convert.ts         convert --thug2 C:\Games\THUG2 --ns out\neverscript\ns.exe
 node tools\pipeline\menu_level\make_menu_level.ts --game C:\Games\THUG2
 ```
 
@@ -150,6 +156,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `skip_intro_movies` | 0 | Skips the logo and intro movies at start-up |
 | `mute_audio` | 0 | Silences all sound from the first frame |
 | `widescreen_menus` | 1 | 0 brings back PartyMod's pillarboxed 4:3 front end |
+| `new_frontend` | 0 | The new front end: the game's own menus, restyled (0 = the classic menus) |
 | `mouse_menus` | 1 | Mouse control of the menus (`debug_mouse=1` logs each click) |
 | `hd_ui` | 0 | The menus' 4x-upscaled images and fonts (when the overlay was made with `make_menu_level.ts --hd-ui 4`) |
 | `level_editor` | 1 | The pause menu's LEVEL EDITOR (`editor_ui=0`: the old on-screen HUD instead of the Dear ImGui UI; `debug_editor=1` logs its picks and moves) |
@@ -160,6 +167,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `loading_console` | 1 | A panel on the loading screen: what is loading, the time since the load began and "last activity N s ago" (orange after 10 s with nothing new: probably a hang); 0 = the original loading screen |
 | `debug_mode` | 0 | Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera (F9) |
 | `thaw_bmx` | 0 | Rides THAW's BMX (F7, or the pause menu's RIDE BMX; needs `tools/pipeline/thaw_bmx/convert.ts` and `make_menu_level.ts`) |
+| `thaw_bmx_wheels` | 1 | The bike finds the ground under both wheels, as THAW does (0 = the skater's own ground check) |
+| `thaw_bmx_shadow` | 1 | The bike drawn into the rider's shadow |
 | `anteara_mod` | 0 | Plays Anteara Mod from the overlay (`tools/anteara/README.md`) |
 | `create_100_cas` | 1 | GAME OPTIONS > CREATE 100% CAS |
 | `thugpro_parts` | 1 | THUGPRO's extra CAS parts and boards, read from your THUGPRO install by reference (2 also shows them in CAS, 0 off; `thugpro_folder=` another install) |
@@ -173,6 +182,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 |---|---|---|
 | `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/pipeline/game/collision_events.ts <log> [--col <level>]` groups them by spot |
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
+| `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 
 **`[Graphics]`** - from PartyMod, plus ours
 
@@ -201,6 +211,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `OnlineDomain` | `openspy.net` | The online service's domain (see Online play) |
 | `OnlineGameName` / `OnlineGameKey` | (empty) | The online identity: empty = THUG2's own; `thugpro` = THUGPRO's lobbies (see Online play) |
 | `Debug` | 0 | Opens a console window with the game's debug output |
+| `[online] thugpro_peer` | 0 | Chat and server info with THUGPRO players (on by itself with `OnlineGameName=thugpro`) |
 
 **`[Keybinds]`**, **`[Gamepad]`**, **`[Logging]`**
 
@@ -252,6 +263,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `script_cache_pool` | 1200 | 300 |
 | `string_heap` / `string_count` | 1 MB / 28000 | 190000 bytes / 7000 |
 | `hash_item_pool` | 40000 | 10000 |
+| `script_heap_extra_mb` | 16 | Extra megabytes for the script heap (0-256) |
+| `node_hash_slots` | 65536 | Slots in the node-name hash table |
 | `original_sizes` | 0 | 1 puts every pool back to THUG2's size |
 
 **`[replacements]`** and **`[selftests]`** - development builds
