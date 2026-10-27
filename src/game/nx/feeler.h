@@ -71,6 +71,9 @@ public:
     // hit's smart pointer let go of first, then pointed at `other`'s (so a feeler assigned to itself loses it).
     // Returns this.
     CFeeler* Assign(const CFeeler& other);
+    // 0x004F8200 (the copy constructor): every field of `other` copied (the hit record by CollisionHit::CopyFrom), the
+    // object hit's smart pointer made a new one on the same object. Returns this.
+    CFeeler* CopyConstruct(const CFeeler& other);
 
     // 0x00417110 (code Ghidra never made a function of; cdecl): the queries' callback while the feeler has one -
     // the feeler's own, given the feeler (the hit's callback data).

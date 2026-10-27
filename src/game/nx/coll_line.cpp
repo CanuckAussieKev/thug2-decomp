@@ -42,7 +42,7 @@ void Corners(const CCollObjTriData* geometry, uint32_t face, Mth::Vector* v0, Mt
 
 } // namespace
 
-// 0x004F8160 (outside this range: written here for ReportHit, not registered)
+// 0x004F8160
 CollisionHit* CollisionHit::CopyFrom(const CollisionHit& other)
 {
     normal = other.normal;
@@ -349,6 +349,7 @@ bool CCollMovTri::CollideWithLine(const Mth::Line* line, const Mth::Vector* /*di
 
 } // namespace Nx
 
+REPLACE(0x004F8160, &Nx::CollisionHit::CopyFrom);
 REPLACE(0x004131F0, Nx::ReportHit);
 REPLACE(0x004137B0, &Nx::CCollMovBBox::CollideWithLine);
 REPLACE(0x00413B50, &Nx::CCollStatic::CollideWithLine);

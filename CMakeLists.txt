@@ -203,6 +203,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_thaw_bmx.cpp
     src/hook/selftests_thaw_bmx_parked.cpp
     src/hook/selftests_skater_adjust.cpp
+    src/hook/selftests_skater_adjust_frame.cpp
     src/hook/selftests_projectile.cpp
     src/hook/selftests_rail_editor.cpp
     src/hook/selftests_rail_editor_draw.cpp
@@ -710,6 +711,7 @@ add_library(thug2_code OBJECT
     src/game/skater/walk_movement.cpp
     src/game/skater/walk_collision.cpp
     src/game/skater/adjust_physics.cpp
+    src/game/skater/adjust_physics_component.cpp
     src/game/skater/trick_queue.cpp
     src/game/skater/trick_member_functions.cpp
     src/game/obj/movie_manager.cpp
