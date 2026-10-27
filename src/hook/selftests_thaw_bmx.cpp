@@ -486,12 +486,17 @@ void TestThawBmxPoseAndMembers()
     s->landedFromTireTap = true;
     Check(f.Call("InTireTap") == 1 && f.Call("LandedFromTireTap") == 1, "bmx: InTireTap / LandedFromTireTap read");
     Check(f.Call("BikeExitTireTap") == 1 && f.Call("InTireTap") == 0 && !s->tapLedge, "bmx: BikeExitTireTap");
-    // PitchingForward / Backward: the facing (+x) against the landing plane (core +0x78).
+    // PitchingForward / Backward (2nd build 0x5EBBC0 / 0x5EBBF0): the air pitch as the last air frame began (+0x18C0),
+    // not the matrix - a facing into the landing plane changes nothing.
     float* normal = reinterpret_cast<float*>(f.core.data() + 0x78);
     normal[0] = -0.5f, normal[1] = 0.8660254f;
-    Check(f.Call("PitchingBackward") == 0 && f.Call("PitchingForward") == 1, "bmx: the plane rising ahead: nose down, forward");
-    normal[0] = 0.5f;
-    Check(f.Call("PitchingBackward") == 1 && f.Call("PitchingForward") == 0, "bmx: the plane falling ahead: nose up, backward");
+    Check(f.Call("PitchingBackward") == 0 && f.Call("PitchingForward") == 0, "bmx 0x5EBBC0: no air pitch: neither");
+    s->lastAirPitch = 12.0f;
+    Check(f.Call("PitchingBackward") == 0 && f.Call("PitchingForward") == 1, "bmx 0x5EBBC0: pitched nose down: forward");
+    s->lastAirPitch = -12.0f;
+    s->airPitch = 30.0f;
+    Check(f.Call("PitchingBackward") == 1 && f.Call("PitchingForward") == 0,
+          "bmx 0x5EBBF0: pitched nose up (the stick back): backward - the last frame's start, not airPitch");
     // The gates' buttons (THUG2's pad: square +0x160, R2 +0x100).
     uint8_t* pad = input.data() + 0x20;
     Check(!WallrideButton(f.core.data()) && !WallplantBySquare(f.core.data()), "bmx 0x5D711F / 0x5DB35D: no square");

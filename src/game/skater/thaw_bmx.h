@@ -87,6 +87,7 @@ struct BikeState {
     int noBalanceFrames = 0;    // +0x18CC frames the manual pitch waits after a manual starts
     bool overGrind = false;     // +0x18C8
     float airPitch = 0.0f;      // +0x66C the pitch in the air so far (degrees; 0 on the ground)
+    float lastAirPitch = 0.0f;  // +0x18C0 airPitch as the last air frame began (PitchingForward / PitchingBackward)
     Mth::Vector frontWheel{0.0f, 0.0f, 0.0f, 1.0f}; // +0x18D0
     Mth::Vector rearWheel{0.0f, 0.0f, 0.0f, 1.0f};  // +0x18E0
     Mth::Vector lastFrontWheel{0.0f, 0.0f, 0.0f, 1.0f}; // +0x18F0 (at the frame's start)

@@ -45,7 +45,6 @@ constexpr uint32_t kObject = 0x0C;
 constexpr uint32_t kDisplayMatrix = 0x18;  // (rows: +0x18 right, +0x28 up, +0x38 forward)
 constexpr uint32_t kDisplayUp = 0x28;
 
-constexpr uint32_t kLandingNormal = 0x78;  // THAW +0x88 (what PitchGreaterThan measures against)
 constexpr uint32_t kFrameLength = 0x8C;    // THAW +0x9C
 constexpr uint32_t kHitFlags = 0xF8;
 constexpr uint32_t kHitPoint = 0x120;
@@ -573,9 +572,12 @@ int CallTrickMember(void* core, uint32_t name, Script::CStruct* params, Script::
     if (name == kInTireTap)
         return TireTapping(core) ? 1 : 0;
     if (name == kPitchingForward || name == kPitchingBackward) {
-        // (THAW's matrix queries: the facing against the plane PitchGreaterThan measures from - nose down: forward)
-        double along = Dot3(VectorAt(ObjectOf(core), kFacing), VectorAt(core, kLandingNormal));
-        return (name == kPitchingForward ? along < 0.0 : along > 0.0) ? 1 : 0;
+        // THAW's matrix queries (2nd build 0x005EBBC0 / 0x005EBBF0): the air pitch so far as the last frame in the air
+        // began (+0x18C0) - above 0 forward (nose down), below 0 backward (nose up). bike_land2 starts the wheelie
+        // from the air on it (with the stick held back / forward as it lands).
+        const BikeState* state = StateOf(core, false);
+        float pitch = state ? state->lastAirPitch : 0.0f;
+        return (name == kPitchingForward ? pitch > 0.0f : pitch < 0.0f) ? 1 : 0;
     }
     if (name == kShouldStall || name == kOnStall)
         return 0;

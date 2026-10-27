@@ -1011,7 +1011,9 @@ void AirRotation(void* core)
         if (rampRotate > held2F)
             spin = (held2F - noRotate) * spin / (rampRotate - noRotate);
     }
-    // The pitch so far (degrees), or let go: back towards upright.
+    // The pitch so far (degrees), or let go: back towards upright - kept first as it was (THAW +0x18C0, 2nd build
+    // 0x005D80FC, which the landing's PitchingForward / PitchingBackward read; the ground leaves it).
+    state.lastAirPitch = state.airPitch;
     bool pitched = false;
     float pitchStep = 0.0f;
     if (pitch != 0.0f) {
