@@ -46,6 +46,8 @@ public:
     Mth::Vector* GetContactPoint(Mth::Vector* out);
     // 0x00427C70: no longer riding: the ride's object becomes the last ridden, the tracker freed, the time noted.
     void StopRiding();
+    // 0x004FC400 (with the skater's core physics): the time since the skater stopped riding (+0x70).
+    int TimeSinceStop();
     // 0x00427CB0: whether riding an object that's still there (one that's gone: stops riding).
     bool IsRiding();
     // 0x00427CD0: riding what `feeler` hit - false (no longer riding) when that's gone; false when already riding

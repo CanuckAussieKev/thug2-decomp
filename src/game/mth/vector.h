@@ -20,6 +20,9 @@ public:
     Vector& operator*=(float scale);
     // 0x00423650: all four components times 1 / divisor (the reciprocal unrounded).
     Vector& operator/=(float divisor);
+    // 0x004FC370 (written out with the skater's core physics): all four components 0 when shorter than `length`
+    // (x, y and z). Returns this.
+    Vector& ZeroIfShorterThan(float length);
     // 0x004A86D0: any of the four components differs (or is NaN).
     bool operator!=(const Vector& other) const;
     // 0x0040AED0: all four components equal (NaN is unequal).
