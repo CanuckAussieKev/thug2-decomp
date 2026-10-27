@@ -39,7 +39,7 @@ const ComponentType kComponentTypes[] = {
     {0x9B373E58, 0x00511280, 0x00000000}, // SkaterFinalizePhysics
     {0xD8CC3428, 0x004FBE20, 0x00000000}, // SkaterCleanupState
     {0xB1D5A3E1, 0x00510F90, 0x00000000}, // SkaterEndRun
-    {0x589E5FB3, 0x004F9170, 0x004F8CD0}, // SkaterBalanceTrick
+    {0x589E5FB3, 0x004F9170, 0x004F8CD0}, // SkaterBalanceTrick (balance_trick.h)
     {0x488AF07A, 0x00511470, 0x00000000}, // SkaterFlipAndRotate
     {0x43686585, 0x00519740, 0x00519430}, // SkaterState
     {0x81F01058, 0x004EB7F0, 0x004E6FB0},
