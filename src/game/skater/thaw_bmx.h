@@ -98,6 +98,9 @@ struct BikeState {
     float steerBlend = 0.5f;      // +0x570 the turn animation's share of the turn branch (THAW 0x005D6360), 0.5 .. 1
     bool steerAnim = false;       // (ours) bike_playturnanim's turn animation on (the member ThawBmxSteerAnim)
     float steerIn = 0.0f;         // (ours) how far THAW's tree has blended the turn branch in (0 .. 1)
+    bool stallScript = false;     // +0x49D ShouldRunStallScript (R1 held as the grind started)
+    Mth::Vector stallVelocity{0.0f, 0.0f, 0.0f, 1.0f}; // +0x4A0 the velocity the grind began with
+    int stallSteepFrames = 0;     // +0x724 frames stalled on a steep rail (never reset but by the constructor)
 };
 
 // [features] thaw_bmx (default 0; the self-tests turn it on for a moment).
@@ -251,7 +254,7 @@ void* ShadowCompanion(void* casterModel);
 // The THAW-only members of the bike scripts besides the bike's own (CallMemberFunction answers them; 2: not one):
 // DisplayPitchGreaterThan (0x005CA600), LandedFromTireTap (0x005C7C60), InTireTap (its state component's +0x90),
 // PitchingForward / PitchingBackward (its matrix queries), ShouldRunStallScript / ClearStallScriptFlag /
-// ExitStallBoost (0x005C8580 / 0x005C8590 / 0x005C8540: the bike's stalls aren't ported - never one), OnStall.
+// ExitStallBoost (0x005C8580 / 0x005C8590 / 0x005C8540 - the stall below), OnStall.
 int CallTrickMember(void* core, uint32_t name, Script::CStruct* params, Script::CScript* script);
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -303,6 +306,24 @@ void SteerAnim(void* core);
 void SetSteerAnim(void* core, bool on);
 // The turn animation's subset gone at once (SkaterOffBike, OnSkaterReset - before the state goes).
 void SteerAnimOff(void* core);
+
+// ---------------------------------------------------------------------------------------------------------------
+// The stall (thaw_bmx_physics.cpp; core_rail.cpp CorePhysicsComponent::DoBikeStallPhysics): R1 held as a grind starts
+// on the bike. THAW's own physics state 6 (CoreFields::kBikeStall): the bike still on the rail, facing along it, out
+// by a jump (BikeStallTrick's Ollied: StallOllieOut) or, on a rail too steep, sliding off into a grind.
+
+// THAW 0x005E2AA5 (2nd build 0x005E2935 - the grind start, after DoExtraGrindTrick, before the grind trick): R1 held -
+// ShouldRunStallScript set, the velocity kept, and the bike moving across the rail (`startVelocity`, the velocity the
+// grind start began with, flattened, within Rail_Tolerance of square to `direction`) straight into the stall state;
+// else the flag cleared.
+void GrindStall(void* core, const Mth::Vector& startVelocity, const Mth::Vector& direction);
+// THAW 2nd build 0x005E7074 (the rail state's update, at its end): with the flag set, still on the rail - the grind
+// slows by the kept velocity / stall_slip_time a frame, and stall_slip_time ms into it stalls; off the rail - the flag
+// cleared.
+void RailStallSlip(void* core);
+// THAW 2nd build 0x005E3801 (the stall state's update, at its end): on a rail steeper than the up's y 0.95 for more
+// than 10 frames (counted over every stall) back to grinding it. True when it did.
+bool StallSteepRail(void* core);
 
 // The maths of the branches, on plain values (thaw_bmx_physics.cpp; the self-tests check them against THAW's code as
 // read).
@@ -404,6 +425,22 @@ bool DisplayPitchBeyond(const Mth::Vector& up, const Mth::Vector& normal, float 
 // hang check, which THAW passes it) takes rails in the air. False when it's out of reach. `score`: how far (squared).
 bool LedgePoint(const Mth::Vector& start, const Mth::Vector& end, const Mth::Vector& direction, const Mth::Vector& a,
                 const Mth::Vector& b, float margin, Mth::Vector* point, float* score);
+// The stall. THAW 2nd build 0x005E2972: whether the grind starts straight into the stall - `startVelocity` flattened
+// and normalised (left alone at length 0) square to `direction` within `tolerance` (Rail_Tolerance > |dot|).
+bool StallAcross(const Mth::Vector& startVelocity, const Mth::Vector& direction, float tolerance);
+// THAW 2nd build 0x005E7082: a frame of the grind with the stall flag set, `elapsed` ms since the state changed:
+// `stall` past `slipTime` (stall_slip_time) - else `velocity` less `kept` / `slipTime`.
+struct StallSlipStep {
+    bool stall;
+    Mth::Vector velocity;
+};
+StallSlipStep StallSlip(uint32_t elapsed, float slipTime, const Mth::Vector& velocity, const Mth::Vector& kept);
+// THAW 2nd build 0x005E3821: the steep-rail count for the up's y - true (and `*frames` back to 0) when the stall turns
+// into a grind.
+bool StallSteepStep(float upY, int* frames);
+// THAW 2nd build 0x005E3585: the stall's facing along the rail - `direction` the way `facing` points (+, or - when
+// against it).
+Mth::Vector StallFacing(const Mth::Vector& facing, const Mth::Vector& direction);
 } // namespace Bike
 
 } // namespace Skater::ThawBmx

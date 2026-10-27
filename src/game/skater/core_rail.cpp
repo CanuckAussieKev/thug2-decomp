@@ -18,6 +18,7 @@
 #include "game/skater/core_physics.h"
 #include "game/skater/manual.h"
 #include "game/skater/skater.h"
+#include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -186,33 +187,7 @@ void CorePhysicsComponent::DoRailPhysics()
     SetFlag(this, 0x80, 0);
     SetFlag(this, 0xB0, 0);
     At<uint8_t>(this, 0x2E4) = 0;
-
-    // A moving rail: its matrix asked for (0x0042BA10 - not used), then carried along with it.
-    if (Obj::CRideTracker* tracker = Tracker(this)) {
-        if (!tracker->m_object.mp_object) {
-            StopRiding(this);
-        } else {
-            void* rails = static_cast<Obj::CCompositeObject*>(Tracker(this)->m_object.mp_object)->GetComponent(kRailManagerType);
-            Mth::Matrix matrix;
-            static_cast<Obj::CRailManagerComponent*>(rails)->UpdateRailMatrix(&matrix);
-            tracker = Tracker(this);
-            if (tracker) {
-                if (!tracker->m_object.mp_object || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
-                    StopRiding(this);
-                } else {
-                    VectorAt(ObjectOf(this), kPosition) += Tracker(this)->m_carried;
-                    if (Tracker(this)->m_turned) {
-                        auto multiply = GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*,
-                                                                       const Mth::Matrix*)>(0x005BFA8C);
-                        Mth::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
-                        multiply(&m, &m, &Tracker(this)->m_turn);
-                        multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix),
-                                 &Tracker(this)->m_turn);
-                    }
-                }
-            }
-        }
-    }
+    RideMovingRail();
 
     void* object = ObjectOf(this);
     At<int>(this, 0x23C) = static_cast<int>(Script::GetFloat(kRerailTime));
@@ -227,20 +202,11 @@ void CorePhysicsComponent::DoRailPhysics()
         Mth::Vector& p = VectorAt(ObjectOf(this), kPosition);
         p.y = p.y + 1.0f;
         FinishRail();
+        if (ThawBmx::Active(this))
+            ThawBmx::RailStallSlip(this); // (not original: THAW 2nd build 0x005E7074 - the bike's stall)
         return;
     }
-    // A grind or a slide: its balance (+0x7C of the balance trick component), the Perfect Rail cheat.
-    uint32_t kind = At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18);
-    if (kind == kGrind || kind == kSlide) {
-        reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x7C)->Update();
-        auto career = [] { return At<Obj::CSkaterCareer*>(GameVariable<uint8_t*>(0x007CE478), 0x20); };
-        if (career()->GetCheat(kPerfectRail)) {
-            career()->SetGlobalFlag(Script::GetInteger(kPerfectRail));
-            At<uint32_t>(At<void*>(this, kBalanceTrick), 0xAC) = 0;
-            At<uint32_t>(At<void*>(this, kBalanceTrick), 0xB0) = 0;
-            GameVariable<uint8_t>(0x007CE4FD) = 1;
-        }
-    }
+    UpdateGrindBalance();
 
     auto* node = At<Obj::CRailNode*>(this, kRailNode);
     Obj::CRailNode* const startNode = node;
@@ -349,11 +315,61 @@ void CorePhysicsComponent::DoRailPhysics()
     }
     if (StateOf(this) != kRail) {
         FinishRail();
+        if (ThawBmx::Active(this))
+            ThawBmx::RailStallSlip(this); // (not original, as above)
         return;
     }
 
     GrindAlong(startNode, goOnTo, noNextSegment, overshoot);
     FinishRail();
+    if (ThawBmx::Active(this))
+        ThawBmx::RailStallSlip(this); // (not original, as above)
+}
+
+// (Part of 0x0050DDF0) A moving rail: its matrix asked for (0x0042BA10 - not used), then carried along with it.
+void CorePhysicsComponent::RideMovingRail()
+{
+    if (Obj::CRideTracker* tracker = Tracker(this)) {
+        if (!tracker->m_object.mp_object) {
+            StopRiding(this);
+        } else {
+            void* rails = static_cast<Obj::CCompositeObject*>(Tracker(this)->m_object.mp_object)->GetComponent(kRailManagerType);
+            Mth::Matrix matrix;
+            static_cast<Obj::CRailManagerComponent*>(rails)->UpdateRailMatrix(&matrix);
+            tracker = Tracker(this);
+            if (tracker) {
+                if (!tracker->m_object.mp_object || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
+                    StopRiding(this);
+                } else {
+                    VectorAt(ObjectOf(this), kPosition) += Tracker(this)->m_carried;
+                    if (Tracker(this)->m_turned) {
+                        auto multiply = GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*,
+                                                                       const Mth::Matrix*)>(0x005BFA8C);
+                        Mth::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
+                        multiply(&m, &m, &Tracker(this)->m_turn);
+                        multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix),
+                                 &Tracker(this)->m_turn);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// (Part of 0x0050DDF0) A grind or a slide: its balance (+0x7C of the balance trick component), the Perfect Rail cheat.
+void CorePhysicsComponent::UpdateGrindBalance()
+{
+    uint32_t kind = At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18);
+    if (kind == kGrind || kind == kSlide) {
+        reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x7C)->Update();
+        auto career = [] { return At<Obj::CSkaterCareer*>(GameVariable<uint8_t*>(0x007CE478), 0x20); };
+        if (career()->GetCheat(kPerfectRail)) {
+            career()->SetGlobalFlag(Script::GetInteger(kPerfectRail));
+            At<uint32_t>(At<void*>(this, kBalanceTrick), 0xAC) = 0;
+            At<uint32_t>(At<void*>(this, kBalanceTrick), 0xB0) = 0;
+            GameVariable<uint8_t>(0x007CE4FD) = 1;
+        }
+    }
 }
 
 // (Part of 0x0050DDF0) Still on the rail: the velocity along the segment, the facing turned to it, the move (and
@@ -508,6 +524,80 @@ void CorePhysicsComponent::FinishRail()
         static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))
             ->PassToTrickObjects(At<uint32_t>(this, kRailScriptNode));
     }
+}
+
+// Not original: THAW's stall state (THAW 2nd build 0x005E2E30; game/skater/thaw_bmx.h - its bike's, R1 held as a grind
+// starts): the rail state's update around a bike held still on the rail, facing along it. Update runs it in that state
+// (ThawBmx::GrindStall / RailStallSlip set it) while the feature is on.
+void CorePhysicsComponent::DoBikeStallPhysics()
+{
+    // As the rail state's: the flags (THAW clears a fifth of its own), the moving rail, the rerail time.
+    SetFlag(this, 0x78, 0);
+    SetFlag(this, 0xA8, 0);
+    SetFlag(this, 0x80, 0);
+    SetFlag(this, 0xB0, 0);
+    At<uint8_t>(this, 0x2E4) = 0;
+    RideMovingRail();
+    At<int>(this, 0x23C) = static_cast<int>(Script::GetFloat(kRerailTime));
+    SetFlag(this, 0x50, 0);
+    if (GameFunction<bool(__thiscall*)(void*)>(0x004FFB10)(this)) {
+        // Jumped (0x005E3053): the rail's TriggerScripts (THAW's with its stall event, which THUG2's haven't), the
+        // jump's rerail time, up.
+        TriggerRailScript(reinterpret_cast<const int*>(kJumpTriggerEvents));
+        TriggerRailScript(reinterpret_cast<const int*>(kGrindOffEvents));
+        At<int>(this, 0x23C) = static_cast<int>(Script::GetFloat(kJumpRerailTime));
+        SetFlag(this, 0xD0, 1);
+        SetFlag(this, 0xD8, 1);
+        Mth::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        p.y = p.y + 1.0f;
+    } else {
+        UpdateGrindBalance();
+        // (THAW draws the segment here with rail_highlights on - a debug view of its own)
+        auto* node = At<Obj::CRailNode*>(this, kRailNode);
+        Obj::CRailNode* next = node->m_next;
+        if (!next)
+            return;
+        VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
+        if (StateOf(this) == kBikeStall) {
+            // 0x005E34AE: the facing along the segment the way it points, the display facing turned 0.3 of the way
+            // to it and the matrices built round them as a grind's (GrindAlong); no move.
+            Mth::Vector from = WorldPos(this, node);
+            Mth::Vector to = WorldPos(this, next);
+            Mth::Vector direction = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
+            direction.Normalize();
+            At<int>(this, 0x234) = Now();
+            Mth::Vector facing = ThawBmx::Bike::StallFacing(VectorAt(ObjectOf(this), kFacing), direction);
+            Mth::Vector& display = VectorAt(this, 0x38);
+            Mth::Vector turned;
+            Walk::Lerp(&turned, &display, &facing, kTurnFacing);
+            display = turned;
+            display.Normalize();
+            Mth::Vector& right = VectorAt(this, 0x18);
+            right.x = At<float>(this, 0x40);
+            right.z = -display.x;
+            right.y = 0.0f;
+            right.w = 0.0f;
+            right.Normalize();
+            VectorAt(this, 0x28) = Mth::CrossProduct(display, right);
+            VectorAt(this, 0x28).Normalize();
+            void* object = ObjectOf(this);
+            VectorAt(object, kFacing) = facing;
+            VectorAt(object, kFacing).Normalize();
+            Mth::Vector& objectRight = VectorAt(object, kRight);
+            float fz = VectorAt(object, kFacing).z;
+            objectRight.z = -VectorAt(object, kFacing).x;
+            objectRight.x = fz;
+            objectRight.y = 0.0f;
+            objectRight.w = 0.0f;
+            objectRight.Normalize();
+            VectorAt(object, kUp) = Mth::CrossProduct(VectorAt(object, kFacing), objectRight);
+            VectorAt(object, kUp).Normalize();
+            VectorAt(object, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
+        }
+    }
+    // 0x005E37FE: on a rail too steep, grinding again; the ground normal the up, the score's rail time, the node's name.
+    ThawBmx::StallSteepRail(this);
+    FinishRail();
 }
 
 } // namespace Skater

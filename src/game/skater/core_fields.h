@@ -59,7 +59,8 @@ constexpr uint32_t kRide = 0x152C;           // +0x18: the ride tracker (Obj::CR
 constexpr uint32_t kTriggerState = 0x1530;   // +0x26: a trigger's script took over
 
 // The timed flags' state (+0x18): what the skater is doing.
-enum State : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4, kWallplant = 5 };
+// (kBikeStall: not original - THAW's stall state, only on THAW's bike: game/skater/thaw_bmx.h)
+enum State : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4, kWallplant = 5, kBikeStall = 6 };
 
 // The object's fields.
 constexpr uint32_t kPosition = 0x4C;

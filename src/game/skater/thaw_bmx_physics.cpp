@@ -96,6 +96,8 @@ constexpr uint32_t kVelocity = 0xAC;       // THAW +0xC8
 
 // The states.
 constexpr int kStateAir = 1;
+constexpr int kStateRail = 4;
+constexpr int kStateBikeStall = 6; // (THAW's stall state - CoreFields::kBikeStall)
 
 // The pad's buttons (offsets in THUG2's pad = THAW's).
 constexpr uint32_t kUpButton = 0x00, kDownButton = 0x20, kLeftButton = 0x40, kRightButton = 0x60;
@@ -150,6 +152,8 @@ constexpr float kNormalLerpSpeedBikeThaw = 0.5f;
 constexpr const char* kForwardJumpBoost = "bike_forward_jump_boost";
 constexpr float kForwardJumpBoostThaw = 100.0f;
 constexpr const char* kGrindTrickList = "BikeGrindTrickList";
+constexpr const char* kStallSlipTime = "stall_slip_time";
+constexpr uint32_t kRailTolerance = 0xD0688D4E;       // Rail_Tolerance
 
 // THAW's constants.
 constexpr float kDegreesToRadians = 0.0174532924f; // 0x0068E474
@@ -179,6 +183,10 @@ constexpr uint32_t kSubsetRemove = 0xAFC2493E;     // Obj_RemoveAnimSubset
 constexpr uint32_t kSubsetId = 0x5CFCCF35;         // SubsetId
 constexpr int kStateGround = 0;
 constexpr double kAcidDropBack = 0.1;              // 0x006A0DB0
+constexpr double kStallSteepUp = 0.95;             // 2nd build 0x006EDDC0 (the stall's rail too steep under this up y)
+constexpr int kStallSteepFrames = 10;              // (the frames of it before the stall turns into a grind)
+constexpr float kStallSlipTimeThaw = 130.0f;       // (THAW's stall_slip_time, physics.qb - while the overlay lacks it)
+constexpr uint32_t kStateChangeTime = 0x90;        // THAW +0xA0 (SetState 0x004FDED0 notes the time of a change)
 
 // --- helpers -----------------------------------------------------------------------------------------------------
 
@@ -201,6 +209,9 @@ float HeldMs(uint8_t* button)
     return static_cast<float>(static_cast<uint32_t>(reinterpret_cast<Obj::CControlButton*>(button)->GetPressedTime()));
 }
 float HeldMs(const StickButton& button) { return static_cast<float>(Since(button.pressTime)); }
+
+// 0x004FDED0 (not rewritten): the physics state changed.
+void SetState(void* core, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(core, state); }
 
 void ClearTimedFlag(const void* core, uint32_t flag)
 {
@@ -580,6 +591,57 @@ WheelFeelResult FeelWheelOn(const WheelFeel& in)
     out.moveWheel = true;
     out.wheel = onHit;
     return out;
+}
+
+bool StallAcross(const Mth::Vector& startVelocity, const Mth::Vector& direction, float tolerance)
+{
+    // 2nd build 0x005E2972: the velocity flattened (y 0) and normalised, its dot with the rail's direction (single
+    // precision, z first) - across the rail when Rail_Tolerance is more than its size.
+    Mth::Vector flat = startVelocity;
+    flat.y = 0.0f;
+    flat.Normalize();
+    float dot = direction.z * flat.z + direction.y * flat.y + flat.x * direction.x;
+    return tolerance > std::fabs(dot);
+}
+
+StallSlipStep StallSlip(uint32_t elapsed, float slipTime, const Mth::Vector& velocity, const Mth::Vector& kept)
+{
+    // 2nd build 0x005E7092: the time since the state changed (unsigned) against stall_slip_time; under it, the kept
+    // velocity x (1 / stall_slip_time) taken off - every component, w too.
+    StallSlipStep out = {false, velocity};
+    if (static_cast<double>(elapsed) > static_cast<double>(slipTime)) {
+        out.stall = true;
+        return out;
+    }
+    float inverse = 1.0f / slipTime;
+    out.velocity.x = velocity.x - kept.x * inverse;
+    out.velocity.y = velocity.y - kept.y * inverse;
+    out.velocity.z = velocity.z - kept.z * inverse;
+    out.velocity.w = velocity.w - kept.w * inverse;
+    return out;
+}
+
+bool StallSteepStep(float upY, int* frames)
+{
+    // 2nd build 0x005E3821: the up's y (the ground normal, just set to it) under 0.95 (a double): the count goes up to
+    // 10; at 10 back to grinding, the count to 0. Never reset otherwise.
+    if (!(static_cast<double>(upY) < kStallSteepUp))
+        return false;
+    if (*frames < kStallSteepFrames) {
+        ++*frames;
+        return false;
+    }
+    *frames = 0;
+    return true;
+}
+
+Mth::Vector StallFacing(const Mth::Vector& facing, const Mth::Vector& direction)
+{
+    // 2nd build 0x005E354E: the facing's dot with the rail's direction (single precision, z first); not at least 0:
+    // the direction the other way (w too).
+    float dot = facing.z * direction.z + facing.y * direction.y + facing.x * direction.x;
+    float sign = dot >= 0.0f ? 1.0f : -1.0f;
+    return {direction.x * sign, direction.y * sign, direction.z * sign, direction.w * sign};
 }
 
 } // namespace Bike
@@ -1366,6 +1428,57 @@ bool AcidDropDirection(void* core, Mth::Vector* direction)
     if (StickRaw(core, 1) > kAcidDropBack)
         d = {-d.x, -d.y, -d.z, d.w};
     *direction = d;
+    return true;
+}
+
+// --- the stall ---------------------------------------------------------------------------------------------------
+
+void GrindStall(void* core, const Mth::Vector& startVelocity, const Mth::Vector& direction)
+{
+    // THAW 0x005E2AA5 (2nd build 0x005E2935). (THAW: R1 or the skater's ability 0x16 - THAW's skater stalls too; only
+    // the bike's is ported. THAW runs the rail's TriggerScript here, with its stall event 0x20000 when R1 is held - our
+    // grind start ran THUG2's before getting onto the rail, and THUG2's events have no stall.)
+    BikeState& state = *StateOf(core, true);
+    if (!PadOf(core)[kR1]) {
+        state.stallScript = false;
+        return;
+    }
+    if (Bike::StallAcross(startVelocity, direction, Script::GetFloat(kRailTolerance)))
+        SetState(core, kStateBikeStall);
+    state.stallVelocity = VectorAt(ObjectOf(core), kVelocity);
+    state.stallScript = true;
+}
+
+void RailStallSlip(void* core)
+{
+    // 2nd build 0x005E7074.
+    BikeState* state = StateOf(core, false);
+    if (!state || !state->stallScript)
+        return;
+    if (StateOf(core) != kStateRail) {
+        state->stallScript = false;
+        return;
+    }
+    float slipTime = ThawGlobal(kStallSlipTime, kStallSlipTimeThaw);
+    Mth::Vector& velocity = VectorAt(ObjectOf(core), kVelocity);
+    Bike::StallSlipStep step =
+        Bike::StallSlip(Since(At<int>(core, kStateChangeTime)), slipTime, velocity, state->stallVelocity);
+    if (step.stall) {
+        state->stallScript = false;
+        SetState(core, kStateBikeStall);
+        return;
+    }
+    velocity = step.velocity;
+}
+
+bool StallSteepRail(void* core)
+{
+    // 2nd build 0x005E3801. (THAW also sets +0x728, and +0x729 off the bike with the facing down the slope - nothing
+    // of THAW's reads either.)
+    BikeState& state = *StateOf(core, true);
+    if (!Bike::StallSteepStep(VectorAt(ObjectOf(core), kUp).y, &state.stallSteepFrames))
+        return false;
+    SetState(core, kStateRail);
     return true;
 }
 

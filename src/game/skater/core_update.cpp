@@ -74,6 +74,10 @@ void CorePhysicsComponent::Update()
     case kWallplant:
         DoWallplantPhysics();
         break;
+    case kBikeStall: // (not original: THAW's stall state - only THAW's bike gets into it, thaw_bmx.h)
+        if (ThawBmx::Enabled())
+            DoBikeStallPhysics();
+        break;
     default:
         break;
     }
