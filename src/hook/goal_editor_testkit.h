@@ -216,7 +216,9 @@ inline void StandInGoalWorld(StandIns& s)
     s.At({0x004E69D0, AddressOf(Ed::InitEditedGoal)}, 0, [](Regs& r) {
         Record({0x69D0, Rel(r.ecx)});
         // (a visible effect: the goal marked)
-        reinterpret_cast<Ed::CEditedGoal*>(r.ecx)->m_level = 0x1A17;
+        // (and a goal of bytes 01 becomes a park editor goal - the component's constructor's clearing seen)
+        uint32_t& level = reinterpret_cast<Ed::CEditedGoal*>(r.ecx)->m_level;
+        level = level == 0x01010101 ? 0xE8B4B836 : 0x1A17;
         return 0u;
     });
 }

@@ -4,8 +4,10 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
+#include "game/obj/object.h"
 
 namespace Script {
+class CScript;
 class CStruct;
 } // namespace Script
 
@@ -169,6 +171,97 @@ static_assert(offsetof(CEditedGoal, m_type) == 0x114 && offsetof(CEditedGoal, m_
                   offsetof(CEditedGoal, m_singleCombo) == 0x2BC && offsetof(CEditedGoal, m_keyComboSets) == 0x2CC &&
                   offsetof(CEditedGoal, m_numKeyComboSets) == 0x2F4 && offsetof(CEditedGoal, m_gaps) == 0x2F8 &&
                   offsetof(CEditedGoal, m_requiredTrick) == 0x303 && sizeof(CEditedGoal) == 0x338,
+              "layout must match the original");
+
+// The goal editor component ("goaleditor", type 0x81F01058, vtable 0x0064B534, 0xA114 bytes; made by 0x004EB7F0) of
+// the permanent object GoalEditor: every created goal of every level (50 slots), the one being edited, and the
+// object's input and editor camera components (the cursor). Its script member functions are the table at 0x00684270
+// (filled by 0x00643960).
+//
+// Vtable: 0 Destroy 0x004E7B20; 1 Update 0x004EBD30; 2 the empty 0x005BAB90; 3 Finalize 0x004E8210; 8 Hide
+// 0x004EBC40; the rest shared.
+class CGoalEditorComponent : public Obj::CBaseComponent {
+public:
+    // 0x004EB7F0: a new one (0 if out of memory).
+    static Obj::CBaseComponent* __cdecl Create();
+    // 0x004E6FB0 (not a Ghidra function): its script member functions (the table at 0x00684270) registered.
+    static void __cdecl RegisterMemberFunctions();
+    // 0x004EA230: the base's constructor, its vtable and type, every goal's defaults (the array constructor with
+    // 0x004E93C0), the goals cleared; no input or camera yet. Returns this.
+    CGoalEditorComponent* Construct();
+    // 0x004E6FD0: the destructor body: the script 0xFCC60D8B run, then the base's.
+    void DestroyBody();
+    // 0x004E7B20 (vtable slot 0)
+    CGoalEditorComponent* Destroy(unsigned int flags);
+    // 0x004E8210 (vtable slot 3): the object's input (0x27D7CD28) and editor camera components found.
+    void Finalize();
+
+    // 0x004E8470: the goal editor (the object GoalEditor's component).
+    static CGoalEditorComponent* __cdecl Get();
+
+    // 0x004E7BE0: the current level's goal named `name` (view_goals_text, any case), or null.
+    CEditedGoal* FindGoalByName(const char* name);
+    // 0x004E7C60: the current level's goal whose CreatedGoal<n> is `id`, or null.
+    CEditedGoal* FindGoalById(uint32_t id);
+    // 0x004E7D00: the goal the parameters name (goal_id, a goal name 0xBFECC45B, a number 0x474A6A7F), or the one
+    // being edited.
+    CEditedGoal* GetGoalFromParams(Script::CStruct* params);
+    // 0x004E7E00: how many slots are used.
+    int CountUsedGoals();
+    // 0x004E7E50: how many goals of `level` (any with 0) have all their points.
+    int CountCompleteGoals(uint32_t level);
+    // 0x004E8130: whether point `index` of any goal of `level` is within the radius 0x71B20276 of `pos` raised by
+    // `height`.
+    bool PointNearAnyGoal(const Mth::Vector& pos, float height, uint32_t level, int index);
+    // 0x004E8240: every goal outside the park editor cleared; none current.
+    void ClearLevelGoals();
+    // 0x004E8280: every goal of the park editor cleared; none current.
+    void ClearParkGoals();
+    // 0x004E82C0: every goal without all its points cleared.
+    void ClearIncompleteGoals();
+    // 0x004E8300: whether any park goal's start lies outside x0..x1, z0..z1.
+    bool AnyParkGoalOutside(float x0, float z0, float x1, float z1);
+    // 0x004E8390: the park goals whose start lies outside x0..x1, z0..z1 removed.
+    void RemoveParkGoalsOutside(float x0, float z0, float x1, float z1);
+    // 0x004E8420: gap `gap` removed from the park's gap goals (later gaps renumbered).
+    void RemoveGapFromParkGoals(int gap);
+    // 0x004E8090: `goal` taken out of the goal manager (if it's there) and cleared; no longer current.
+    void RemoveGoal(CEditedGoal* goal);
+    // 0x004E7B50: the editor camera's simple collision on for a letter / checkpoint point, else in the park editor.
+    void UpdateCameraCollision();
+    // 0x004E7F30: the editor camera's cursor put on the current point.
+    void MoveCursorToCurrentPoint();
+    // 0x004E7FC0: the script 0xDEA7FE56 run with the cursor's place (raised by its height) and heading.
+    void RunCursorScript();
+    // 0x004EA580: the cursor's model for the current point (the script 0x36791E3C on the object).
+    void RefreshCursor();
+    // 0x004EA6C0: a new goal in the first free slot (the level's lowest free number), current; incomplete goals
+    // cleared first. Nothing without a free slot.
+    void NewGoal();
+    // 0x004EA780: the park's goals' points dropped to the ground.
+    void PlaceParkGoalsOnGround();
+    // 0x004EA470: the goals from the structure's array 0x38DBE1D0 (`parkOnly`: the park editor's, else the others'),
+    // the matching goals cleared first.
+    void ReadGoals(Script::CStruct* params, int parkOnly);
+    // 0x004EA2C0: `level`'s goals from a written structure (the park's, from a buffer). Returns the buffer's end.
+    const uint8_t* ReadLevelGoalsFromBuffer(uint32_t level, const uint8_t* buffer);
+    // 0x004EB850: every goal outside the park editor into the array 0x38DBE1D0 (none: nothing).
+    void WriteGoals(Script::CStruct* out);
+    // 0x004EBA10: `level`'s goals into the array 0x38DBE1D0 (sized by the complete ones).
+    void WriteLevelGoals(uint32_t level, Script::CStruct* out);
+    // 0x004EBB70: `level`'s goals written into `buffer` (WriteToBuffer's size).
+    uint32_t WriteLevelGoalsToBuffer(uint32_t level, uint8_t* buffer, uint32_t size);
+
+    // 0x004EA7C0 [NewEditorGoal]: a new goal; its goal_id returned in the script's parameters. True.
+    bool NewEditorGoal(Script::CStruct* params, Script::CScript* script);
+
+    CEditedGoal m_goals[50];               // +0x0018
+    CEditedGoal* mp_current;               // +0xA108 the one being edited
+    Obj::CBaseComponent* mp_input;         // +0xA10C the object's input component
+    Obj::CBaseComponent* mp_camera;        // +0xA110 its editor camera
+};
+static_assert(offsetof(CGoalEditorComponent, m_goals) == 0x18 && offsetof(CGoalEditorComponent, mp_current) == 0xA108 &&
+                  sizeof(CGoalEditorComponent) == 0xA114,
               "layout must match the original");
 
 } // namespace Ed
