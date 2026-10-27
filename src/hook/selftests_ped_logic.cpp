@@ -12,18 +12,22 @@
 #include <map>
 #include <vector>
 
+#include "game/mth/random.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/player_info.h"
+#include "game/obj/anim_blender.h"
 #include "game/obj/model_component.h"
 #include "game/obj/motion_path.h"
 #include "game/obj/object.h"
+#include "game/obj/path_manager.h"
 #include "game/obj/ped_logic.h"
 #include "game/obj/projectile_components.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
+#include "game/sfx/terrain.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/score.h"
@@ -108,6 +112,13 @@ struct PedAnswers {
     std::function<int(uint32_t score)> totalScore = [](uint32_t) { return 50; };
     int skaterCount = 3;
     int scoreNext = 0;
+    // (the path's tests: answers by structure too; the nodes' links; the random numbers)
+    std::function<bool(uint32_t self, uint32_t name, uint32_t* out)> checksumBy;
+    std::function<uint32_t(uint32_t name)> linkCount = [](uint32_t) { return 0u; };
+    std::function<uint32_t(uint32_t name, int index)> link = [](uint32_t, int) { return 0u; };
+    int rnd = 0;
+    int rndFixed = -1;       // (>= 0: every Rnd answers this, modulo n)
+    bool exactHeight = false; // (JumpHeight 20)
 };
 PedAnswers g_pa;
 
@@ -142,7 +153,8 @@ void StandInPedWorld(StandIns& s)
          });
     // (replace the component world's: the value recorded only when found - the code's locals may start as anything)
     auto checksum = [](Regs& r) {
-        bool found = g_answers.getChecksum(r.args[0], reinterpret_cast<uint32_t*>(r.args[1]));
+        bool found = g_pa.checksumBy ? g_pa.checksumBy(r.ecx, r.args[0], reinterpret_cast<uint32_t*>(r.args[1]))
+                                     : g_answers.getChecksum(r.args[0], reinterpret_cast<uint32_t*>(r.args[1]));
         Record({0x6EC0, PedRelocate(r.ecx), r.args[0], r.args[2] & 0xFF, found,
                 found ? *reinterpret_cast<uint32_t*>(r.args[1]) : 0});
         return static_cast<uint32_t>(found);
@@ -958,7 +970,353 @@ void TestPedLogicCore()
     delete &s;
 }
 
+// The stand-ins the path and tricks call besides the core's: node links, random numbers, a named global float, the
+// spawned script, the path manager, terrains, the animation blender, the smart pointers.
+void StandInPedPath(StandIns& s)
+{
+    s.At({0x0045C3A0, AddressOf(static_cast<uint32_t (*)(uint32_t)>(&SkateScript::GetLinkCount))}, 0, [](Regs& r) {
+        uint32_t count = g_pa.linkCount(r.args[0]);
+        Record({0xC3A0, r.args[0], count});
+        return count;
+    });
+    s.At({0x0045C3E0, AddressOf(static_cast<uint32_t (*)(uint32_t, int)>(&SkateScript::GetLink))}, 0, [](Regs& r) {
+        uint32_t link = g_pa.link(r.args[0], static_cast<int>(r.args[1]));
+        Record({0xC3E0, r.args[0], r.args[1], link});
+        return link;
+    });
+    s.At({0x0045BE10, AddressOf(static_cast<uint32_t (*)(CStruct*, int)>(&SkateScript::GetLink))}, 0, [](Regs& r) {
+        Record({0xBE10, PedRelocate(r.args[0]), r.args[1]});
+        return 0x0E000000u + (PedRelocate(r.args[0]) & 0xFFF) + r.args[1];
+    });
+    s.At({0x00403DE0, AddressOf(&Mth::Rnd)}, 0, [](Regs& r) {
+        int n = static_cast<int>(r.args[0]);
+        int value = n > 0 ? (g_pa.rndFixed >= 0 ? g_pa.rndFixed % n : (g_pa.rnd++ * 7 + 3) % n) : 0;
+        Record({0x3DE0, r.args[0], static_cast<uint32_t>(value)});
+        return static_cast<uint32_t>(value);
+    });
+    AtFloatResult(s, {0x00478F30, AddressOf(static_cast<float (*)(const char*)>(&Script::GetFloat))}, 0, [](Regs& r) {
+        Record({0x8F30, Hash(reinterpret_cast<const char*>(r.args[0]))});
+        return g_answers.global(0x8F30);
+    });
+    s.At({0x00475420, AddressOf(static_cast<Script::CScript* (*)(uint32_t, CStruct*, uint32_t, CStruct*, int, uint32_t,
+                                                                  bool, bool, bool, bool)>(&Script::SpawnScript))},
+         0, [](Regs& r) {
+             Record({0x5420, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5], r.args[6] & 0xFF,
+                     r.args[7] & 0xFF, r.args[8] & 0xFF, r.args[9] & 0xFF});
+             return reinterpret_cast<uint32_t>(g_ped.aux);
+         });
+    s.At({0x004637C0, AddressOf(&Obj::CRefCounted::AddSmartPointer)}, 4, [](Regs& r) {
+        Record({0x37C0, PedRelocate(r.ecx), PedRelocate(r.args[0])});
+        return 0u;
+    });
+    s.At({0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 4, [](Regs& r) {
+        Record({0x37E0, PedRelocate(r.ecx), PedRelocate(r.args[0])});
+        return 0u;
+    });
+    s.At({0x004694E0, AddressOf(&Obj::CPathManager::Instance)}, 0, [](Regs&) {
+        Record({0x94E0});
+        return 0x7A740000u;
+    });
+    s.At({0x00469670, AddressOf(&Obj::CPathManager::AddToExtraGroup)}, 8, [](Regs& r) {
+        Record({0x9670, r.ecx, PedRelocate(r.args[0]), r.args[1]});
+        return reinterpret_cast<uint32_t>(g_ped.tags);
+    });
+    s.At({0x004442C0, AddressOf(&Terrain::GetTerrainIndex)}, 0, [](Regs& r) {
+        Record({0x42C0, r.args[0]});
+        return 0xFFFFFF00u | (r.args[0] & 0x1F); // (only AL is the result)
+    });
+    // (the angle between two vectors: a stand-in - the C runtime's acos isn't started offline, and zero vectors
+    // reach its error handler)
+    AtFloatResult(s, {0x00406460, AddressOf(&Mth::GetAngle)}, 0, [](Regs& r) {
+        auto* a = reinterpret_cast<const float*>(r.args[0]);
+        auto* b = reinterpret_cast<const float*>(r.args[1]);
+        Record({0x6460, HashFloats(a, 4), HashFloats(b, 4)});
+        uint32_t h = HashFloats(a, 4) ^ (HashFloats(b, 4) * 3);
+        static const float kAngles[] = {0.0f, 10.0f, 29.5f, 30.0f, 45.0f, 90.0f, 179.0f, 359.0f, 360.0f, 361.5f, 725.0f,
+                                        std::numeric_limits<float>::quiet_NaN()};
+        return kAngles[h % 12];
+    });
+    // (the shared matrix function, recorded: its own rewrite works in float, not as the original's x87)
+    s.At({0x00405170, AddressOf(&Mth::Matrix::OrthoNormalizeAbout)}, 4, [](Regs& r) {
+        Record({0x5170, PedRelocate(r.ecx), r.args[0], HashFloats(reinterpret_cast<void*>(r.ecx), 16)});
+        return r.ecx;
+    });
+    s.At({0x00419C70, AddressOf(&Obj::CAnimBlenderComponent::AllChannelsFlag29)}, 0, [](Regs& r) {
+        bool flag = (g_pa.rnd++ & 1) != 0;
+        Record({0x9C70, PedRelocate(r.ecx), flag});
+        return static_cast<uint32_t>(flag);
+    });
+}
+
+// Random answers by what's asked: the node keys the path reads get values from their sets (each sometimes missing).
+void PathAnswers(Lcg& answers, uint32_t node, uint32_t nextNode)
+{
+    g_pa.checksumBy = [&answers, node, nextNode](uint32_t, uint32_t name, uint32_t* out) {
+        auto pick = [&answers](std::initializer_list<uint32_t> values) {
+            return values.begin()[answers.Below(static_cast<uint32_t>(values.size()))];
+        };
+        if (answers.Below(9) == 0)
+            return false;
+        switch (name) {
+        case 0x963DC198: // SkateAction
+            *out = pick({0xE41199AF, 0x7D9D0008, 0x554DBD64, 0xE6DFAEC7, 0xD5B4F014, 0xE8F91257, 0x255ED86F,
+                         0x584CF9E9, 0xEF24413B, 0x9403A0ED, 0x12797A1B, 0xBA1D1E94, 0x46A9E949, 0x6D3144BF, 0xC870BCE5,
+                         0xDA0723DA, 0x1234});
+            break;
+        case 0x12B4E660: *out = pick({0x4C23A77E, 0x4C23A77E, 0x4C23A77E, 0x99}); break;      // Class
+        case 0x7321A8D6: *out = pick({0xCBA10FFA, 0xCBA10FFA, 0xCBA10FFA, 0x98}); break;      // Type
+        case 0x9D5923D8: *out = pick({0x6D77875E, 0xDE7A971B, 0xDE7A971B, 0x97}); break;      // Priority
+        case 0x17EA37FB: *out = pick({0x54166ACD, 0x54166ACD, 0x96}); break;                  // PedType
+        case 0xEF0B71A0: *out = pick({0x20E1C4A3, 0x448D01A7, 0xE7390A8B, 0x95}); break;      // SpinDirection
+        case 0x64B4CD9D: *out = 0x5C210000 + answers.Below(9); break;                          // RunScriptName
+        case 0x54CF8532: *out = 0x7E000000 + answers.Below(40); break;                         // TerrainType
+        default: *out = (answers.Below(2) ? node : nextNode) + answers.Below(3); break;
+        }
+        return true;
+    };
+    g_answers.getFloat = [&answers](uint32_t name, float* out) {
+        // (height is asserted and starts as whatever the stack held: never missing here)
+        if (answers.Below(8) == 0 && name != 0x0AB21AF0)
+            return false;
+        switch (name) {
+        case 0x838DA447: // JumpHeight
+            *out = g_pa.exactHeight ? 20.0f : static_cast<float>(answers.Below(300)) * 0.75f + 5.0f;
+            break;
+        case 0x96FB50D9: {                                                                     // SpinAngle
+            static const float kSpins[] = {0.0f, 90.0f, 180.0f, 360.0f, -540.0f, 359.995f, 719.99f, -0.004f};
+            *out = kSpins[answers.Below(8)];
+            break;
+        }
+        case 0x0AB21AF0: *out = static_cast<float>(answers.Below(200)) + 0.5f; break;          // height
+        case 0xA5E2DA58: *out = -static_cast<float>(answers.Below(20) + 1) * 0.37f; break;     // gravity
+        default: {                                                                             // weights, percents
+            static const float kWeights[] = {0.5f, 1.0f, 0.99f, 0.0f, 0.001f, 1.5f, 0.123f};
+            *out = kWeights[answers.Below(7)];
+            break;
+        }
+        }
+        return true;
+    };
+    g_answers.global = [](uint32_t name) {
+        switch (name) {
+        case 0xE224A5D3: return -0.45f;  // ped_skater_jump_gravity
+        case 0xF1FF758A: return 12.5f;   // ped_skater_jump_speed
+        case 0x8B381AB1: return 0.35f;   // ped_skater_min_180_spin_time
+        case 0x8F30: return 0.5f;        // ped_low_priority_waypoint_probability
+        default: return static_cast<float>(name % 97) / 10.0f;
+        }
+    };
+    g_answers.globalInteger = [](uint32_t) { return 30; };      // ped_min_inner_path_angle
+    g_pa.containsFlag = [&answers](uint32_t, uint32_t) { return answers.Below(3) == 0; };
+    g_pa.linkCount = [&answers](uint32_t) { return answers.Below(6); };
+    g_pa.link = [&answers, node](uint32_t name, int index) {
+        if (answers.Below(5) == 0)
+            return node; // (back where it came from)
+        return name * 3 + static_cast<uint32_t>(index) * 0x101 + answers.Below(4);
+    };
+}
+
+// The path and the tricks: the chance (weights above, at and below 0.99, missing); the node after next (no links, one
+// link back or onwards, several with every class / type / priority, stop actions, the probability of a low one);
+// the waypoint actions; the jump's parameters (straight up and to the node, below and above its height, each spin and
+// direction, spine transfers, flips); the lip trick's upright matrix; every state a SkateAction starts (each action,
+// bailing or not, grinding or not); the bail off a grind; the waypoint reached; the path started; the jump to the
+// next node's member function.
+void TestPedLogicPath()
+{
+    std::unique_ptr<GameMemory> memory(PedMemory());
+    StandIns& s = *new StandIns();
+    StandInComponentWorld(s);
+    StandInPedWorld(s);
+    StandInPedPath(s);
+    std::function<CStruct*(uint32_t)> table = [](uint32_t) { return FakeStruct(0); };
+    s.At({0x00479020, AddressOf(static_cast<CStruct* (*)(uint32_t)>(&Script::GetStructure))}, 0, [&table](Regs& r) {
+        CStruct* found = table(r.args[0]);
+        Record({0x9020, r.args[0], PedRelocate(reinterpret_cast<uint32_t>(found))});
+        return reinterpret_cast<uint32_t>(found);
+    });
+    g_relocate = PedRelocate;
+    for (void*& slot : g_objectVtable)
+        slot = s.Thunk(0, [](Regs& r) { Record({0x0B1E, PedRelocate(r.ecx)}); return 0u; });
+    for (uint32_t seed = 1; seed <= 32; ++seed) {
+        auto run = [&](bool original) {
+            g_trace.clear();
+            memory->Fill(0x9E000000 + seed);
+            Lcg random(0x9E010000 + seed);
+            Obj::CPedLogicComponent* c = ResetPedWorld(random, seed);
+            uint32_t missing = seed % 7 == 3 ? 8u : 0u; // (the model may be missing; the motion never is here)
+            g_answers.component = [missing](uint32_t type) { return PedComponent(type, missing); };
+            Lcg answers(0x9E020000 + seed);
+            c->m_node = 0x40000 + seed;
+            c->m_nextNode = 0x50000 + seed;
+            PathAnswers(answers, c->m_node, c->m_nextNode);
+            g_pa.integerTag = [](uint32_t, int* out) { *out = 1; return true; };
+            g_pa.getStructure = [&answers](uint32_t, uint32_t, CStruct** out) {
+                if (answers.Below(6) == 0)
+                    return false;
+                *out = FakeStruct(1);
+                return true;
+            };
+            g_answers.node = [](uint32_t name) { return FakeStruct(static_cast<int>(name % 3)); };
+            Originals guard(original, {0x004ED0E0, 0x004ED8A0, 0x004EEFA0, 0x004EFD50, 0x004EFBC0, 0x004F1A90,
+                                       0x004F1B10, 0x004F1B40, 0x004F1BF0, 0x004F1C40, 0x004F1C90, 0x004F1CE0,
+                                       0x004F1DC0, 0x004F1F30, 0x004F1F50, 0x004F1E80, 0x004F2340, 0x004F2570,
+                                       0x004F0740, 0x004F2770, 0x004EDEC0, 0x004F0B70, 0x004EFB10});
+            std::vector<uint32_t> trace;
+            auto state = [&]() {
+                trace.push_back(c->m_flags);
+                trace.push_back(c->m_node);
+                trace.push_back(c->m_nextNode);
+                trace.push_back(c->m_nodeAfter);
+                trace.push_back(HashFloats(&c->m_nodePos, 12));
+                trace.push_back(static_cast<uint32_t>(c->m_spinAngle));
+                trace.push_back(Bits(c->m_vertRotationTarget));
+                trace.push_back(Bits(c->m_spinTime));
+                trace.push_back(HashFloats(&c->m_jumpMatrix, 16));
+                trace.push_back(HashFloats(&WorldObject()->m_displayMatrix, 16));
+                trace.push_back(HashFloats(&c->m_up, 4));
+            };
+            auto place = [&]() {
+                auto f = [&random](float low, float high) {
+                    return low + (high - low) * static_cast<float>(random.Below(100000)) / 99999.0f;
+                };
+                c->m_flags = random.Next();
+                for (Mth::Vector* v : {&c->m_nodePos, &c->m_nextNodePos, &c->m_nodeAfterPos})
+                    *v = {f(-300, 300), f(-40, 40), f(-300, 300), 1.0f};
+                WorldObject()->m_pos = {f(-300, 300), f(-40, 40), f(-300, 300), 1.0f};
+                c->m_up = {f(-1, 1), f(0.2f, 1), f(-1, 1), f(-1, 1)};
+                if (random.Below(4) == 0) // (straight up: nothing across)
+                    c->m_up = {0.0f, 1.0f, 0.0f, 0.0f};
+                if (random.Below(5) == 0) // (straight down: the zeros' signs)
+                    c->m_up = {0.0f, -1.0f, 0.0f, 0.0f};
+                *reinterpret_cast<uint32_t*>(g_ped.motion + 0x18) = random.Below(2) ? 0x100u : 0x2Fu;
+                *reinterpret_cast<float*>(g_ped.motion + 0x2C) = f(1, 400);
+                c->m_state = 0xDA3403B0;
+            };
+            for (int i = 0; i < 6; ++i) {
+                trace.push_back(Fn<uint8_t(__thiscall*)(void*, void*, uint32_t)>(original, 0x004ED0E0)(
+                    c, FakeStruct(i % 3), 0x922C5B59 + static_cast<uint32_t>(i)));
+            }
+            {
+                // The chance at its edges: a weight exactly at the roll, missing weights (the name's bits).
+                auto savedFloat = g_answers.getFloat;
+                struct Case {
+                    int found;
+                    float weight;
+                    uint32_t name;
+                    int roll;
+                };
+                static const Case kCases[] = {{1, 0.5f, 0x922C5B59, 500}, {1, 0.0f, 0x922C5B59, 0},
+                                              {1, 0.99f, 0x922C5B59, 989}, {1, 0.991f, 0x922C5B59, 999},
+                                              {0, 0.0f, 0x40000000, 999}, {0, 0.0f, 0x3F000000, 500},
+                                              {0, 0.0f, 0x3F000000, 499}, {1, 0.25f, 0x922C5B59, 250}};
+                for (const Case& k : kCases) {
+                    g_answers.getFloat = [k](uint32_t, float* out) {
+                        if (k.found)
+                            *out = k.weight;
+                        return k.found != 0;
+                    };
+                    g_pa.rndFixed = k.roll;
+                    trace.push_back(Fn<uint8_t(__thiscall*)(void*, void*, uint32_t)>(original, 0x004ED0E0)(
+                        c, FakeStruct(0), k.name));
+                }
+                g_pa.rndFixed = -1;
+                g_answers.getFloat = savedFloat;
+            }
+            for (int i = 0; i < 10; ++i) {
+                place();
+                g_pa.rndFixed = i % 3 == 0 ? 50 : -1;
+                Fn<void(__thiscall*)(void*)>(original, 0x004ED8A0)(c);
+                g_pa.rndFixed = -1;
+                state();
+                Fn<void(__thiscall*)(void*, void*)>(original, 0x004EEFA0)(c, FakeStruct(i % 3));
+                trace.push_back(*reinterpret_cast<uint32_t*>(g_ped.motion + 0x2C));
+                for (bool toNode : {false, true}) {
+                    place();
+                    g_pa.exactHeight = i % 2 == 1;
+                    if (g_pa.exactHeight) {
+                        WorldObject()->m_pos.y = 4.0f;
+                        c->m_nextNodePos.y = 24.0f;
+                    }
+                    trace.push_back(PedRelocate(Fn<uint32_t(__thiscall*)(void*, void*, uint32_t)>(original, 0x004EFD50)(
+                        c, FakeStruct(i % 3), toNode ? 0x101u : 0x200u)));
+                    g_pa.exactHeight = false;
+                    state();
+                }
+                place();
+                Fn<void(__thiscall*)(void*)>(original, 0x004EFBC0)(c);
+                state();
+            }
+            static const uint32_t kStarters[] = {0x004F1A90, 0x004F1B10, 0x004F1BF0, 0x004F1C40, 0x004F1C90,
+                                                 0x004F1DC0, 0x004F1F30};
+            for (uint32_t address : kStarters) {
+                for (int i = 0; i < 2; ++i) {
+                    place();
+                    Fn<void(__thiscall*)(void*, void*)>(original, address)(c, FakeStruct(i));
+                    state();
+                }
+            }
+            for (uint32_t address : {0x004F1B40u, 0x004F1CE0u, 0x004F1F50u}) {
+                for (int i = 0; i < 4; ++i) {
+                    place();
+                    Fn<void(__thiscall*)(void*, void*, uint32_t)>(original, address)(c, FakeStruct(i % 3),
+                                                                                    i & 1 ? 0x301u : 0x200u);
+                    state();
+                }
+            }
+            for (int i = 0; i < 4; ++i) {
+                place();
+                trace.push_back(Fn<uint8_t(__thiscall*)(void*)>(original, 0x004F1E80)(c));
+                state();
+            }
+            for (int i = 0; i < 30; ++i) {
+                place();
+                Fn<void(__thiscall*)(void*, void*)>(original, 0x004F2340)(c, FakeStruct(i % 3));
+                state();
+            }
+            for (int i = 0; i < 12; ++i) {
+                place();
+                c->m_kind = i % 3 == 0 ? 0 : 2;
+                c->m_nodeAfter = i % 4 == 0 ? c->m_node : 0x60000 + static_cast<uint32_t>(i);
+                if (i % 2)
+                    Fn<void(__thiscall*)(void*)>(original, 0x004F2570)(c);
+                else
+                    trace.push_back(Fn<uint8_t(__thiscall*)(void*, void*, void*)>(original, 0x004F2770)(c, FakeStruct(0), g_ped.script));
+                state();
+            }
+            for (int i = 0; i < 4; ++i) {
+                place();
+                if (i == 3)
+                    c->m_nextNodePos = c->m_nodePos;
+                trace.push_back(Fn<uint8_t(__thiscall*)(void*, void*, void*)>(original, 0x004F0740)(c, FakeStruct(0), g_ped.script));
+                state();
+                trace.push_back(HashFloats(c->m_history, 20));
+                trace.push_back(HashFloats(&c->m_savedMatrix, 16));
+                trace.push_back(PedRelocate(reinterpret_cast<uint32_t>(c->mp_peds)));
+            }
+            for (int i = 0; i < 8; ++i) {
+                place();
+                if (i == 7)
+                    c->m_nextNodePos = WorldObject()->m_pos;
+                trace.push_back(Fn<uint8_t(__thiscall*)(void*, void*, void*)>(original, 0x004EDEC0)(c, FakeStruct(0), g_ped.script));
+            }
+            trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+            std::vector<uint32_t> world = PedWords();
+            trace.insert(trace.end(), world.begin(), world.end());
+            memory->Dump(trace);
+            return trace;
+        };
+        std::vector<uint32_t> expected = run(true);
+        std::vector<uint32_t> actual = run(false);
+        Compare(expected, actual, "ped logic: the path and the tricks");
+
+    }
+    g_relocate = nullptr;
+    delete &s;
+}
+
 } // namespace
 
 SELFTEST(Early, TestProjectileComponents, RemoveStandIns);
+SELFTEST(Early, TestPedLogicPath, RemoveStandIns);
 SELFTEST(Early, TestPedLogicCore, RemoveStandIns);
