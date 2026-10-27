@@ -356,6 +356,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_appmain8.cpp
     src/hook/selftests_appmain9.cpp
     src/hook/selftests_appmain10.cpp
+    src/hook/selftests_ped_logic.cpp
     src/hook/selftests_appmain12.cpp
     src/hook/selftests_appmain11.cpp
     src/hook/selftests_objsys1.cpp
@@ -787,6 +788,10 @@ add_library(thug2_code OBJECT
     src/game/obj/anim_blender.cpp
     src/game/obj/ride_tracker.cpp
     src/game/obj/avoid.cpp
+    src/game/obj/ped_logic.cpp
+    src/game/obj/ped_logic_path.cpp
+    src/game/obj/ped_logic_move.cpp
+    src/game/obj/projectile_components.cpp
     src/game/obj/collision_component.cpp
     src/game/obj/matrix_component.cpp
     src/game/obj/camera_lookaround.cpp
