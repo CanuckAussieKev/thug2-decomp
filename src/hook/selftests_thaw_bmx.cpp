@@ -230,6 +230,25 @@ void TestThawBmxManualPitch()
     in.up = true;
     in.stickY = -1.0f;
     Check(Near(ManualStep(in).angle, 40.0f), "bmx 0x5CDBC0: nose manual, stick forward: up too");
+    // (2nd build 0x005CDA50, read 2026-10-27: the input is mirrored in a nose manual - the stick back lowers it - and
+    // in a manual the stick forward lowers it; only while the movement stick's up / down is held)
+    in.down = true;
+    in.up = false;
+    in.stickY = 1.0f;
+    Check(Near(ManualStep(in).angle, 20.0f), "bmx 0x5CDBC0: nose manual, stick back: down");
+    in.nose = false;
+    in.down = false;
+    in.up = true;
+    in.stickY = -1.0f;
+    Check(Near(ManualStep(in).angle, 20.0f), "bmx 0x5CDBC0: manual, stick forward: down");
+    in.up = false;
+    in.stickY = 0.4f;
+    Check(Near(ManualStep(in).angle, 20.0f), "bmx 0x5CDBC0: the stick under half way (no up / down): it falls back");
+    in.angle = 70;
+    in.nose = true;
+    in.stickY = 0.0f;
+    Check(Near(ManualStep(in).angle, 80.0f), "bmx 0x5CDBC0: nose manual let go past 50: falls over too");
+    in.angle = 30;
     in.nose = false;
     in.up = false;
     in.stickY = 0.0f;
@@ -631,11 +650,6 @@ void TestThawBmxWheelFeel()
 
 void TestThawBmxMeterAndVert()
 {
-    // The manual meter (ours): 50 the middle, 0 / 100 just inside the arrow table's ends.
-    Check(Near(Bike::ManualMeterLean(50.0f), 0.0f) && Near(Bike::ManualMeterLean(75.0f), 0.5f) &&
-              Near(Bike::ManualMeterLean(25.0f), -0.5f) && Near(Bike::ManualMeterLean(100.0f), 0.999f) &&
-              Near(Bike::ManualMeterLean(0.0f), -0.999f) && Near(Bike::ManualMeterLean(140.0f), 0.999f),
-          "bmx meter: the manual angle's lean");
     // THAW 0x005DA380 (2nd build 0x005DA210) on the bike: the stick's up held past Skater_vert_push_time, neither left /
     // right, square / circle; R1 with the stick up / down, or the tire tap looked for: the push-off path.
     Fake f;

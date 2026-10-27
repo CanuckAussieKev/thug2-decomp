@@ -154,6 +154,8 @@ bool __cdecl CFunc_LoadTexture(CStruct* params, CScript*)
     return LoadTextureFile(Textures(), file, true, allocateVram, true) != nullptr;
 }
 
+bool TextureLoaded(const char* file) { return GetTextureByName(Textures(), file) != nullptr; }
+
 // 0x005A9F60
 bool __cdecl CFunc_CreateTexture(CStruct* params, CScript*)
 {

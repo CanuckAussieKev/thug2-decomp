@@ -52,7 +52,6 @@ constexpr uint32_t kHitPoint = 0x120;
 constexpr uint32_t kFeelerStart = 0x208;
 constexpr uint32_t kFeelerEnd = 0x218;
 constexpr uint32_t kInput = 0x150C;        // THAW +0x1910 (the pad at its +0x20)
-constexpr uint32_t kBalance = 0x1524;      // THAW +0x1928 (+0x18 the balance trick's kind: 0 none)
 constexpr uint32_t kFlags = 0x1528;        // THAW +0x192C
 constexpr uint32_t kGroundNormal = 0x68;   // THAW +0x68 (THAW's 0x005D0D40 sets it - the same place as THUG2's)
 // The timed flags (THUG2's; THAW's in the comment).
@@ -99,8 +98,6 @@ constexpr float kLedgeHeight = 12.0f;               // (THUG2's ledge search: a 
 constexpr double kTapLedgeWeight = 0.001;           // 2nd build 0x006DBD98 (a ledge's distance against a surface's, in vert)
 constexpr double kTapNearer = 0.001;                // 2nd build 0x006E1B90 (a double: "no further than the best so far")
 constexpr float kTapFar = 10000.0f;                 // 2nd build 0x006E0834 (the nearest surface so far, to begin with)
-constexpr float kManualBalancePoint = 50.0f;        // (THAW's ResetBikeManualAngle value: the manual's middle)
-constexpr float kMeterMost = 0.999f;                // (ours: the meter's lean kept inside its arrow table)
 constexpr uint32_t kHangMaxRailAscent = 0x98724EBC; // hang_max_rail_ascent (walk_parameters)
 constexpr uint32_t kWalkParameters = 0x6775E538;    // walk_parameters
 
@@ -484,60 +481,6 @@ void ManualPose(void* core)
     SetWobble(skater, fraction);
     if (bike)
         SetWobble(bike, fraction);
-}
-
-// --- the manual meter (phase 7) ------------------------------------------------------------------------------------
-
-namespace Bike {
-
-float ManualMeterLean(float manualAngle)
-{
-    // 50 the balance point; the meter's arrow table ends at 1 (Score::PositionBalanceMeter reads the arrow after the
-    // lean's), so just short of it.
-    float lean = (manualAngle - kManualBalancePoint) / kManualBalancePoint;
-    return lean > kMeterMost ? kMeterMost : (lean < -kMeterMost ? -kMeterMost : lean);
-}
-
-} // namespace Bike
-
-namespace {
-
-void ShowManualMeter(void* core, bool on, float lean)
-{
-    auto* score = static_cast<Mdl::Score*>(static_cast<Obj::CSkater*>(ObjectOf(core))->GetScore());
-    if (score)
-        score->SetManualMeter(on, lean);
-}
-
-// One of THUG2's balance tricks running (its balance trick component's kind): its meter is its own then.
-bool Thug2BalanceTrick(void* core) { return At<uint32_t>(At<void*>(core, kBalance), 0x18) != 0; }
-
-} // namespace
-
-void ManualMeter(void* core)
-{
-    BikeState* state = StateOf(core, false);
-    if (!state)
-        return;
-    bool thug2 = Thug2BalanceTrick(core);
-    if (state->on && state->manual && !thug2) {
-        ShowManualMeter(core, true, Bike::ManualMeterLean(state->manualAngle));
-        state->meterShown = true;
-        return;
-    }
-    if (state->meterShown && !thug2)
-        ShowManualMeter(core, false, 0.0f);
-    state->meterShown = false;
-}
-
-void ManualMeterOff(void* core)
-{
-    BikeState* state = StateOf(core, false);
-    if (!state || !state->meterShown)
-        return;
-    if (!Thug2BalanceTrick(core))
-        ShowManualMeter(core, false, 0.0f);
-    state->meterShown = false;
 }
 
 // --- the shadow ----------------------------------------------------------------------------------------------------

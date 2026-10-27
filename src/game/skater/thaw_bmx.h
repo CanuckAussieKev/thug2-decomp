@@ -93,7 +93,6 @@ struct BikeState {
     StickButton stickUp, stickDown, stickLeft, stickRight; // (THAW's pad +0x280 / +0x2A0 / +0x2C0 / +0x2E0)
     bool vertGroundNoted = false; // (ours: THAW's constructor 0x005CF810 sets +0x6F8 - never on vert ground yet)
     int vertGroundTime = 0;       // +0x6F8 the game clock (with its offset) last on vert ground
-    bool meterShown = false;      // (ours, phase 7: THUG2's manual meter shown for the bike's manual)
 };
 
 // [features] thaw_bmx (default 0; the self-tests turn it on for a moment).
@@ -114,7 +113,8 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
 // The wheel points from the skater's position and facing (THAW 0x005C9A50's second half).
 void SetWheelPoints(BikeState& state, const Mth::Vector& position, const Mth::Vector& facing);
 
-// At start-up, after the game's own: ThawBmx_Available (a C function, always: false while the feature is off) and,
+// At start-up, after the game's own: ThawBmx_Available (a C function, always: false while the feature is off),
+// ThawBmx_LoadTexture (always: LoadTexture unless that texture is loaded - the bike manual meter's pictures) and,
 // while it's on, the bike's member functions.
 void RegisterScriptFunctions();
 // From CSkater::ResetComponents (its special items destroyed - the bike with them): off the bike, out of the vehicle,
@@ -262,12 +262,9 @@ void AirWheelPoints(void* core);
 bool VertPushHeld(void* core, int pushTime);
 // ... and R1 with the stick up or down, or a tire tap looked for in vert: the spine transfer / push-off path.
 bool VertTapHeld(void* core);
-// The manual meter (ours, the user's request - THAW's bike meter is panel art its scripts never drew): THUG2's own
-// manual balance meter (Mdl::Score::SetManualMeter, the skater's manual's) on while the bike is in a manual, its arrow
-// at the manual angle (50 the balance point: 0 back on both wheels, 100 over the top), off when it ends. EndFrame
-// calls it; SkaterOffBike / OnSkaterReset turn it off (ManualMeterOff) before the state goes.
-void ManualMeter(void* core);
-void ManualMeterOff(void* core);
+// (The manual meter is THAW's own, drawn by its bike scripts - create_bike_manual_meter / update_bike_manual_meter in
+// bike_manual_state: its pictures turned by 0.9 degrees per point of the manual angle, GetBikeManualAngle. The DLL
+// only loads its pictures: the C function ThawBmx_LoadTexture, thaw_bmx.cpp.)
 
 // The maths of the branches, on plain values (thaw_bmx_physics.cpp; the self-tests check them against THAW's code as
 // read).
@@ -289,8 +286,6 @@ struct WheelFeelResult {
     float distance, reach, turn, limit;
 };
 WheelFeelResult FeelWheelOn(const WheelFeel& in);
-// Phase 7. The manual meter's lean (-1 .. 1) for the manual angle: (angle - 50) / 50, clamped.
-float ManualMeterLean(float manualAngle);
 // THAW 0x005CAE10: which brake acceleration (0 none: the brake is skipped, 1 Physics_Brake_Acceleration, 2
 // Physics_Front_Brake_Acceleration, 3 Physics_Brake_Skid_Acceleration).
 int BrakeChoice(bool manual, bool nose, bool frontBrake, bool endo, bool balanceIsManual);
