@@ -12,13 +12,19 @@
 #include <map>
 #include <vector>
 
+#include "game/mth/matrix.h"
 #include "game/mth/random.h"
+#include "game/mth/vector.h"
+#include "game/nx/coll_obj.h"
+#include "game/nx/feeler.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/player_info.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/model_component.h"
+#include "game/obj/motion.h"
 #include "game/obj/motion_path.h"
+#include "game/obj/objman.h"
 #include "game/obj/object.h"
 #include "game/obj/path_manager.h"
 #include "game/obj/ped_logic.h"
@@ -32,6 +38,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
+#include "game/skater/looping_sound.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_sound.h"
 #include "game/sys/timer.h"
@@ -119,6 +126,7 @@ struct PedAnswers {
     int rnd = 0;
     int rndFixed = -1;       // (>= 0: every Rnd answers this, modulo n)
     bool exactHeight = false; // (JumpHeight 20)
+    bool angleNaN = true;     // (the stand-in GetAngle may answer NaN)
 };
 PedAnswers g_pa;
 
@@ -1034,7 +1042,7 @@ void StandInPedPath(StandIns& s)
         uint32_t h = HashFloats(a, 4) ^ (HashFloats(b, 4) * 3);
         static const float kAngles[] = {0.0f, 10.0f, 29.5f, 30.0f, 45.0f, 90.0f, 179.0f, 359.0f, 360.0f, 361.5f, 725.0f,
                                         std::numeric_limits<float>::quiet_NaN()};
-        return kAngles[h % 12];
+        return kAngles[h % (g_pa.angleNaN ? 12 : 11)];
     });
     // (the shared matrix function, recorded: its own rewrite works in float, not as the original's x87)
     s.At({0x00405170, AddressOf(&Mth::Matrix::OrthoNormalizeAbout)}, 4, [](Regs& r) {
@@ -1315,8 +1323,411 @@ void TestPedLogicPath()
     delete &s;
 }
 
+// The movement's world: other peds (each with its motion component), a collision object with a face, a manager whose
+// object list the ped search walks.
+struct alignas(16) MoveWorld {
+    uint8_t peds[4][0x110];
+    uint8_t motions[4][0x260];
+    uint8_t slots[5][12];
+    uint8_t pad3C[4];
+    uint8_t group[0x10];
+    uint8_t collObj[0x10];
+    uint8_t geometry[0x40];
+    uint8_t faces[0x40];
+    uint8_t manager[0x10];
+    void* collVtable[16];
+    void* managerVtable[16];
+};
+MoveWorld g_move;
+
+uint32_t MoveRelocate(uint32_t word)
+{
+    auto base = reinterpret_cast<uint32_t>(&g_move);
+    if (word >= base && word < base + offsetof(MoveWorld, collVtable))
+        return 0xE0000000 + (word - base);
+    return PedRelocate(word);
+}
+
+// The movement: the steering's spread and sums (each quarter, the clamps, ped_min_bias), facing a direction, the
+// avoidance of other peds (ahead, behind, slower, faster, head on to either side, out of range, too high), keeping to
+// the path (a point path, on and off it), the steered move, steering towards a point, the turn to the node after (a
+// dead end, the fade distance, the turn's frames running out), facing the move (walkers turning a little or a lot,
+// skaters, to a lip), the ground probes (small and large faces, a miss), the ground's up blended in, the spins and
+// spine turns, the probe ahead (a ped ahead / beside / too far, the world hit or not), every move update (generic,
+// skater - grinding near the skater, airborne, vert nodes, crouching, the sounds' states -, bail, go home, chase -
+// caught, out of range, too far from home, blocked, chasing -, blocker - bumped, standing, shuffling either way,
+// running), the update's dispatch and the turn to the waypoint's orientation.
+void TestPedLogicMove()
+{
+    std::unique_ptr<GameMemory> memory(PedMemory());
+    StandIns& s = *new StandIns();
+    StandInComponentWorld(s);
+    StandInPedWorld(s);
+    StandInPedPath(s);
+    // The game's C runtime acos (_CIacos: ST0 in, ST0 out) isn't started offline: written over with
+    // atan2(sqrt(1 - x * x), x) for the test (both runs use it).
+    s.Bytes(0x00623630, {0xD9, 0xC0, 0xD8, 0xC8, 0xD9, 0xE8, 0xDE, 0xE1, 0xD9, 0xFA, 0xD9, 0xC9, 0xD9, 0xF3, 0xC3});
+    // Components by object.
+    std::function<Obj::CBaseComponent*(uint32_t object, uint32_t type)> componentOf;
+    s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [&componentOf](Regs& r) {
+        Record({0xDB90, MoveRelocate(r.ecx), r.args[0]});
+        return reinterpret_cast<uint32_t>(componentOf(r.ecx, r.args[0]));
+    });
+    auto recordOnly = [&s](std::initializer_list<uint32_t> addresses, uint16_t pop, uint32_t tag) {
+        s.At(addresses, pop, [tag](Regs& r) {
+            Record({tag, MoveRelocate(r.ecx)}); // (no arguments)
+            return r.ecx;
+        });
+    };
+    recordOnly({0x00423530, AddressOf(&Obj::CMotionPathMembers::UpdatePathSpeed)}, 0, 0x3530);
+    recordOnly({0x00425F40, AddressOf(&Obj::CMotionComponent::StickToGround)}, 0, 0x5F40);
+    s.At({0x004252E0, AddressOf(&Obj::CMotionComponent::LookAt)}, 8, [](Regs& r) {
+        Record({0x52E0, MoveRelocate(r.ecx), MoveRelocate(r.args[0]), HashFloats(reinterpret_cast<void*>(r.args[1]), 4)});
+        return 1u;
+    });
+    s.At({0x005138B0, AddressOf(&Obj::CSkaterLoopingSoundComponent::SetSpeedFraction)}, 4, [](Regs& r) {
+        Record({0x38B0, MoveRelocate(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00405850, AddressOf(static_cast<void (Mth::Matrix::*)(const Mth::Vector&)>(&Mth::Matrix::RotateLocal))}, 4,
+         [](Regs& r) {
+             auto* m = reinterpret_cast<float*>(r.ecx);
+             Record({0x5850, HashFloats(m, 16), HashFloats(reinterpret_cast<void*>(r.args[0]), 4)});
+             for (int i = 0; i < 16; ++i)
+                 m[i] = m[i] * 0.5f + static_cast<float>(i);
+             return 0u;
+         });
+    for (uint32_t address : {0x00404DD0u, AddressOf(static_cast<Mth::Matrix& (*)(Mth::Matrix&, float)>(&Mth::CreateRotateXMatrix)),
+                             0x00404E70u, AddressOf(static_cast<Mth::Matrix& (*)(Mth::Matrix&, float)>(&Mth::CreateRotateZMatrix))}) {
+        s.At({address}, 0, [](Regs& r) {
+            Record({0x4DD0, r.args[1]});
+            auto* m = reinterpret_cast<float*>(r.args[0]);
+            for (int i = 0; i < 16; ++i)
+                m[i] = (i % 5 == 0) ? 1.0f : std::bit_cast<float>(r.args[1]) * static_cast<float>(i) * 0.02f;
+            return r.args[0];
+        });
+    }
+    s.At({0x0045C590, AddressOf(static_cast<bool (*)(uint32_t, Mth::Vector*)>(&SkateScript::GetAngles))}, 0, [](Regs& r) {
+        auto* out = reinterpret_cast<float*>(r.args[1]);
+        out[0] = 0.25f;
+        out[1] = static_cast<float>(r.args[0] % 7);
+        out[2] = -0.5f;
+        Record({0xC590, r.args[0]});
+        return 1u;
+    });
+    // The feeler with a stand-in hit: a face of the collision object (vertices from its slot 9).
+    std::function<bool()> hits = [] { return false; };
+    auto hit = [&hits](uint8_t* feeler) {
+        bool h = hits();
+        if (h) {
+            auto* f = reinterpret_cast<Nx::CFeeler*>(feeler);
+            f->m_hit.object = reinterpret_cast<Nx::CCollObj*>(g_move.collObj);
+            f->m_hit.face = 1;
+            f->m_hit.terrain = 0x17;
+            f->m_point = {f->m_line.end.x * 0.5f, f->m_line.end.y - 1.0f, f->m_line.end.z + 0.25f, 1.0f};
+        }
+        return h;
+    };
+    s.At({0x00417710, AddressOf(&Nx::CFeeler::GetCollisionAlong)}, 12, [hit](Regs& r) {
+        std::memcpy(reinterpret_cast<void*>(r.ecx), reinterpret_cast<void*>(r.args[0]), 16);
+        std::memcpy(reinterpret_cast<void*>(r.ecx + 0x10), reinterpret_cast<void*>(r.args[1]), 16);
+        Record({0x7710, HashFloats(reinterpret_cast<void*>(r.ecx), 8), r.args[2] & 0xFF});
+        return static_cast<uint32_t>(hit(reinterpret_cast<uint8_t*>(r.ecx)));
+    });
+    s.At({0x004172F0, AddressOf(&Nx::CFeeler::GetCollision)}, 8, [hit](Regs& r) {
+        Record({0x72F0, HashFloats(reinterpret_cast<void*>(r.ecx), 8), r.args[0] & 0xFF, r.args[1] & 0xFF,
+                *reinterpret_cast<uint32_t*>(r.ecx + 0x20)});
+        return static_cast<uint32_t>(hit(reinterpret_cast<uint8_t*>(r.ecx)));
+    });
+    s.At({0x00417250, AddressOf(static_cast<Nx::CFeeler* (Nx::CFeeler::*)(const Mth::Vector*, const Mth::Vector*)>(
+                          &Nx::CFeeler::Construct))},
+         8, [](Regs& r) {
+             std::memset(reinterpret_cast<void*>(r.ecx), 0, 0xB0);
+             std::memcpy(reinterpret_cast<void*>(r.ecx), reinterpret_cast<void*>(r.args[0]), 16);
+             std::memcpy(reinterpret_cast<void*>(r.ecx + 0x10), reinterpret_cast<void*>(r.args[1]), 16);
+             Record({0x7250, HashFloats(reinterpret_cast<void*>(r.ecx), 8)});
+             return r.ecx;
+         });
+    g_move.collVtable[9] = s.Thunk(8, [](Regs& r) { // GetVertexPos(out, vertex)
+        auto* out = reinterpret_cast<float*>(r.args[0]);
+        // (corners never in a line: the ground's normal is never zero)
+        out[0] = static_cast<float>(r.args[1]) * 3.0f + 1.0f;
+        out[1] = static_cast<float>((r.args[1] * r.args[1]) % 11) - 5.0f;
+        out[2] = static_cast<float>(r.args[1]) * -2.0f + static_cast<float>(r.args[1] % 4) * 0.75f + 0.5f;
+        out[3] = 1.0f;
+        Record({0xC0F9, MoveRelocate(r.ecx), r.args[1]});
+        return r.args[0];
+    });
+    // The ped search: the manager's list, the peds of the move world.
+    g_move.managerVtable[6] = s.Thunk(0, [](Regs& r) { Record({0x3A6, MoveRelocate(r.ecx)}); return 0x11570000u; });
+    int searchAt = 0;
+    int searchCount = 4;
+    s.At({0x00461F30, AddressOf(&Obj::CObjectSearch::FirstItemOfType)}, 8, [&searchAt, &searchCount](Regs& r) {
+        Record({0x1F30, r.args[0], r.args[1]});
+        searchAt = 0;
+        return searchCount > 0 ? reinterpret_cast<uint32_t>(g_move.peds[0]) : 0u;
+    });
+    s.At({0x00461ED0, AddressOf(&Obj::CObjectSearch::NextItemOfType)}, 0, [&searchAt, &searchCount](Regs&) {
+        Record({0x1ED0});
+        ++searchAt;
+        return searchAt < searchCount ? reinterpret_cast<uint32_t>(g_move.peds[searchAt]) : 0u;
+    });
+    s.At({0x00402F00, AddressOf(&Mth::ClosestPointsBetweenLines)}, 0, [](Regs& r) {
+        auto* a = reinterpret_cast<float*>(r.args[0]);
+        auto* b = reinterpret_cast<float*>(r.args[1]);
+        Record({0x2F00, HashFloats(a, 8), HashFloats(b, 8), r.args[6] & 0xFF});
+        auto* pa = reinterpret_cast<float*>(r.args[2]);
+        auto* pb = reinterpret_cast<float*>(r.args[3]);
+        bool atSkater = (HashFloats(a, 8) & 3) == 0; // (sometimes right where the skater is: no time to get there)
+        for (int i = 0; i < 4; ++i) {
+            pa[i] = atSkater ? b[i] : a[i] * 0.75f + a[4 + i] * 0.25f;
+            pb[i] = b[i] * 0.5f + b[4 + i] * 0.5f;
+        }
+        *reinterpret_cast<float*>(r.args[4]) = 0.25f;
+        *reinterpret_cast<float*>(r.args[5]) = 0.5f;
+        return 1u;
+    });
+    g_relocate = MoveRelocate;
+    for (void*& slot : g_objectVtable)
+        slot = s.Thunk(0, [](Regs& r) { Record({0x0B1E, MoveRelocate(r.ecx)}); return 0u; });
+    std::function<CStruct*(uint32_t)> table = [](uint32_t) { return FakeStruct(0); };
+    s.At({0x00479020, AddressOf(static_cast<CStruct* (*)(uint32_t)>(&Script::GetStructure))}, 0, [&table](Regs& r) {
+        Record({0x9020, r.args[0]});
+        return reinterpret_cast<uint32_t>(table(r.args[0]));
+    });
+    for (uint32_t seed = 1; seed <= 40; ++seed) {
+        auto run = [&](bool original) {
+            g_trace.clear();
+            memory->Fill(0x9F000000 + seed);
+            Lcg random(0x9F010000 + seed);
+            Obj::CPedLogicComponent* c = ResetPedWorld(random, seed);
+            std::memset(&g_move, 0, offsetof(MoveWorld, collVtable));
+            Lcg answers(0x9F020000 + seed);
+            PathAnswers(answers, 0x40000 + seed, 0x50000 + seed);
+            g_pa.angleNaN = false;
+            g_pa.integerTag = [&answers](uint32_t, int* out) {
+                *out = static_cast<int>(answers.Below(4)) * 40 - 10;
+                return answers.Below(4) != 0;
+            };
+            g_answers.globalInteger = [&answers](uint32_t) { uint32_t k = answers.Below(3); return k == 2 ? 100000 : static_cast<int>(k) * 300; };
+            g_answers.global = [&answers](uint32_t name) {
+                switch (name) {
+                case 0x4ABA9798: return 0.05f * static_cast<float>(answers.Below(4));  // ped_min_bias
+                case 0x7A78F471: return 150.0f;                                          // ped_avoid_ped_range
+                case 0xA876AA2C: return answers.Below(2) ? 400.0f : 2.0f;               // ped_max_distance_to_path
+                case 0x21B13FFC: return answers.Below(4) ? 30.0f : 0.5f;               // ped_max_y_distance_to_ignore
+                case 0xD2E22CEC: return 0.6f;                                            // ped_head_on_range
+                default: return static_cast<float>(name % 97) / 10.0f + 0.5f;
+                }
+            };
+            uint32_t missing = seed % 11 == 5 ? 2u : 0u;
+            componentOf = [missing](uint32_t object, uint32_t type) -> Obj::CBaseComponent* {
+                for (int i = 0; i < 4; ++i) {
+                    if (object == reinterpret_cast<uint32_t>(g_move.peds[i]))
+                        return type == 0x0A015E17 ? reinterpret_cast<Obj::CBaseComponent*>(g_move.motions[i]) : nullptr;
+                }
+                return PedComponent(type, missing);
+            };
+            // Other peds around, the path's group.
+            auto f = [&random](float low, float high) {
+                return low + (high - low) * static_cast<float>(random.Below(100000)) / 99999.0f;
+            };
+            const Mth::Vector& me = WorldObject()->m_pos;
+            for (int i = 0; i < 4; ++i) {
+                auto* other = reinterpret_cast<Obj::CCompositeObject*>(g_move.peds[i]);
+                other->m_pos = {me.x + f(-100, 100), me.y + f(-3, 3), me.z + f(-100, 100), 1.0f};
+                other->m_displayMatrix.row[2] = {f(-1, 1), f(-0.1f, 0.1f), f(-1, 1), 0.0f};
+                if (i == 3) // (head on)
+                    other->m_displayMatrix.row[2] = {-WorldObject()->m_displayMatrix.row[2].x, 0.0f,
+                                                     -WorldObject()->m_displayMatrix.row[2].z, 0.0f};
+                *reinterpret_cast<float*>(g_move.motions[i] + 0x2C) = f(10, 300);
+                auto** slotObject = reinterpret_cast<uint8_t**>(g_move.slots[i]);
+                *slotObject = i == 2 && seed % 3 == 0 ? nullptr : g_move.peds[i];
+            }
+            *reinterpret_cast<uint8_t**>(g_move.slots[4]) = reinterpret_cast<uint8_t*>(WorldObject());
+            *reinterpret_cast<uint8_t**>(g_move.group) = g_move.slots[0];
+            *reinterpret_cast<int*>(g_move.group + 4) = seed % 9 == 4 ? 0 : 5;
+            *reinterpret_cast<void***>(g_move.collObj) = g_move.collVtable;
+            *reinterpret_cast<uint8_t**>(g_move.collObj + 0xC) = g_move.geometry;
+            g_move.geometry[0xA] = static_cast<uint8_t>(seed & 1);
+            *reinterpret_cast<uint8_t**>(g_move.geometry + 0xC) = g_move.faces;
+            for (int i = 0; i < 0x40; ++i)
+                g_move.faces[i] = static_cast<uint8_t>(i * 7 + seed);
+            *reinterpret_cast<void***>(g_move.manager) = g_move.managerVtable;
+            WorldObject()->mp_manager = reinterpret_cast<Obj::CBaseManager*>(g_move.manager);
+            searchCount = static_cast<int>(seed % 5);
+            bool hitsNow = true;
+            hits = [&answers, &hitsNow] {
+                bool h = answers.Below(3) != 0;
+                return hitsNow && h;
+            };
+            Originals guard(original, {0x004ED5E0, 0x004ED680, 0x004ED710, 0x004ED7D0, 0x004EE650, 0x004EE7D0, 0x004EEAC0,
+                                       0x004EEDC0, 0x004EEEC0, 0x004F2780, 0x004EF350, 0x004EF740, 0x004EF930, 0x004EF090,
+                                       0x004F01C0, 0x004F03C0, 0x004F2A10, 0x004F2AD0, 0x004F1890, 0x004F1780, 0x004F1480,
+                                       0x004F0DD0, 0x004F2190, 0x004F0950, 0x004F2570, 0x004F0B70});
+            std::vector<uint32_t> trace;
+            auto state = [&]() {
+                trace.push_back(c->m_flags);
+                trace.push_back(HashFloats(c->m_avoid, 8));
+                trace.push_back(HashFloats(&WorldObject()->m_pos, 4));
+                trace.push_back(HashFloats(&WorldObject()->m_displayMatrix, 16));
+                trace.push_back(HashFloats(&WorldObject()->m_matrix, 16));
+                trace.push_back(HashFloats(&c->m_savedMatrix, 16));
+                trace.push_back(HashFloats(&c->m_up, 12));
+                trace.push_back(Bits(c->m_upBlend));
+                trace.push_back(static_cast<uint32_t>(c->m_turnFrame));
+                trace.push_back(static_cast<uint32_t>(c->m_turnFrames));
+                trace.push_back(Bits(c->m_spin));
+                trace.push_back(Bits(c->m_vertRotation));
+                trace.push_back(Bits(c->m_speedFraction));
+                trace.push_back(HashFloats(g_ped.motion, 0x98 / 4));
+                trace.push_back(g_ped.looping[0xFF]);
+            };
+            const Mth::Vector home = WorldObject()->m_pos;
+            auto place = [&]() {
+                hitsNow = true;
+                // (a fresh place each time: a NaN never carries over)
+                WorldObject()->m_pos = {home.x + f(-2, 2), home.y, home.z + f(-2, 2), 1.0f};
+                for (int i = 0; i < 3; ++i)
+                    WorldObject()->m_matrix.row[i] = {f(-1, 1), f(-1, 1), f(-1, 1), 0.0f};
+                c->m_flags = random.Next();
+                c->m_kind = random.Below(3) == 0 ? 0 : 2;
+                for (float& v : c->m_avoid)
+                    v = f(-1.2f, 1.2f);
+                for (float& v : c->m_bias)
+                    v = f(-1.2f, 1.2f);
+                c->m_nodePos = {me.x + f(-200, 200), me.y + f(-10, 10), me.z + f(-200, 200), 1.0f};
+                c->m_nextNodePos = {me.x + f(-60, 60), me.y + f(-10, 10), me.z + f(-60, 60), 1.0f};
+                c->m_nodeAfterPos = {me.x + f(-200, 200), me.y + f(-10, 10), me.z + f(-200, 200), 1.0f};
+                if (random.Below(3) == 0) // (home near: between 500 and 1000 away, squared)
+                    c->m_nodePos = {me.x + 25.0f, me.y, me.z + 10.0f, 1.0f};
+                c->m_node = 0x40000 + seed;
+                c->m_nextNode = 0x50000 + seed;
+                c->m_nodeAfter = random.Below(5) == 0 ? c->m_node : (random.Below(6) == 0 ? 0 : 0x60000 + seed);
+                c->m_turnFrame = static_cast<int>(random.Below(6));
+                c->m_turnFrames = random.Below(3) == 0 ? 0 : static_cast<int>(random.Below(8));
+                c->mp_peds = reinterpret_cast<Obj::CObjectGroup*>(random.Below(6) ? g_move.group : nullptr);
+                c->m_frameTime = f(0.01f, 0.05f);
+                c->m_up = {f(-0.3f, 0.3f), 1.0f, f(-0.3f, 0.3f), 0.0f};
+                c->m_upTarget = random.Below(3) ? c->m_up : Mth::Vector{0.0f, 1.0f, 0.0f, 0.0f};
+                c->m_upShown = c->m_up;
+                c->m_upBlend = random.Below(3) == 0 ? 0.0f : f(0.0f, 1.0f);
+                c->m_spinAngle = static_cast<int>(random.Below(5)) * 180 - 360;
+                c->m_spin = f(-100, 100);
+                c->m_spinTime = random.Below(4) == 0 ? 0.005f : f(0.2f, 1.0f);
+                c->m_spinElapsed = f(0.0f, 1.1f);
+                c->m_vertRotation = f(0, 200);
+                c->m_vertRotationTarget = f(-20, 20);
+                c->m_stickAbove = 30.0f;
+                c->m_stickBelow = 60.0f;
+                c->m_storedMaxVelocity = 0.0f;
+                c->m_state = random.Below(3) == 0 ? 0x1B91406A : 0x0CC94B7C;
+                *reinterpret_cast<uint32_t*>(g_ped.motion + 0x18) = random.Below(3) == 0 ? 0x100u : 0x2Fu;
+                *reinterpret_cast<float*>(g_ped.motion + 0x2C) = random.Below(8) == 0 ? 0.0f : f(10, 600);
+                *reinterpret_cast<float*>(g_ped.motion + 0x30) = random.Below(8) == 0 ? 0.0f : f(5, 400);
+                for (int i = 0; i < 3; ++i)
+                    reinterpret_cast<Mth::Vector*>(g_ped.motion + 0x40)[i] = {f(-5, 5), f(-1, 1), f(-5, 5), 1.0f};
+                if (random.Below(2) == 0) { // (a flat triangle: its up is (0, 1, 0), as the target often is)
+                    auto* t = reinterpret_cast<Mth::Vector*>(g_ped.motion + 0x40);
+                    t[0] = {0.0f, 0.0f, 0.0f, 1.0f};
+                    t[1] = {0.0f, 0.0f, 1.0f, 1.0f};
+                    t[2] = {1.0f, 0.0f, 0.0f, 1.0f};
+                    hitsNow = false;
+                }
+                auto* skater = reinterpret_cast<Obj::CCompositeObject*>(g_world.skater);
+                float away = static_cast<float>(random.Below(4)) * 150.0f;
+                skater->m_pos = {me.x + f(-40, 40) + away, me.y + f(-5, 5), me.z + f(-40, 40), 1.0f};
+                skater->m_vel = {f(-400, 400), f(-10, 10), f(-400, 400), 0.0f};
+                skater->m_id = 0x51;
+                WorldObject()->m_displayMatrix.row[2] = {f(-1, 1), f(-0.2f, 0.2f), f(-1, 1), 0.0f};
+                WorldObject()->m_displayMatrix.row[1] = {f(-0.2f, 0.2f), 1.0f, f(-0.2f, 0.2f), f(-1, 1)};
+            };
+            for (int i = 0; i < 8; ++i) {
+                place();
+                float angle = f(-7, 7);
+                if (i == 1)
+                    angle = std::numeric_limits<float>::quiet_NaN();
+                Fn<void(__thiscall*)(void*, float, float, float, float)>(original, 0x004ED5E0)(c, angle, f(-2, 2), f(0, 150), 150.0f);
+                Fn<void(__thiscall*)(void*, float, float)>(original, 0x004ED680)(c, f(-7, 7), f(-2, 2));
+                trace.push_back(Bits(Fn<float(__thiscall*)(void*)>(original, 0x004ED710)(c)));
+                trace.push_back(Bits(Fn<float(__thiscall*)(void*)>(original, 0x004ED7D0)(c)));
+                state();
+            }
+            for (int i = 0; i < 16; ++i) {
+                place();
+                if (i == 3) // (on the path's line: a point path)
+                    c->m_nextNodePos = c->m_nodePos;
+                Mth::Vector dir = {f(-1, 1), f(-1, 1), f(-1, 1), f(0, 1)};
+                Fn<void(__thiscall*)(void*, void*)>(original, 0x004EE650)(c, &dir);
+                trace.push_back(Fn<uint8_t(__thiscall*)(void*)>(original, 0x004EE7D0)(c));
+                Fn<void(__thiscall*)(void*)>(original, 0x004EEAC0)(c);
+                Fn<void(__thiscall*)(void*)>(original, 0x004EEDC0)(c);
+                Fn<void(__thiscall*)(void*, Mth::Vector, float)>(original, 0x004EEEC0)(c, c->m_nodeAfterPos, f(0, 1));
+                trace.push_back(Fn<uint8_t(__thiscall*)(void*)>(original, 0x004F2780)(c));
+                state();
+                Mth::Vector old = {me.x + f(-5, 5), me.y + f(-1, 1), me.z + f(-5, 5), 1.0f};
+                if (i == 5)
+                    old = {me.x - 0.001f, me.y, me.z, 1.0f}; // (barely moved: a small turn)
+                Fn<void(__thiscall*)(void*, Mth::Vector)>(original, 0x004EF350)(c, old);
+                state();
+                Mth::Vector point = {};
+                Obj::GroundTriangle triangle = {};
+                Mth::Vector a = {me.x, me.y + 30.0f, me.z, 1.0f}, b = {me.x, me.y - 60.0f, me.z, 1.0f};
+                trace.push_back(Fn<uint8_t(__thiscall*)(void*, void*, void*, void*, void*)>(original, 0x004EF740)(
+                    c, &a, &b, &point, &triangle));
+                trace.push_back(HashFloats(&point, 4));
+                trace.push_back(HashFloats(&triangle, 12));
+                Fn<void(__thiscall*)(void*)>(original, 0x004EF930)(c);
+                Fn<void(__thiscall*)(void*)>(original, 0x004EF090)(c);
+                Fn<void(__thiscall*)(void*)>(original, 0x004F01C0)(c);
+                state();
+                Mth::Vector out = {};
+                trace.push_back(static_cast<uint32_t>(Fn<int(__thiscall*)(void*, Mth::Vector, float, void*)>(original, 0x004F03C0)(
+                    c, Mth::Vector{f(-1, 1), f(-0.3f, 0.3f), f(-1, 1), 0.0f}, i % 2 ? 48.0f : 200.0f, i % 4 == 0 ? nullptr : &out)));
+                trace.push_back(HashFloats(&out, 4));
+            }
+            static const uint32_t kUpdates[] = {0x004F2A10, 0x004F2AD0, 0x004F1890, 0x004F1780, 0x004F1480, 0x004F0DD0};
+            for (uint32_t address : kUpdates) {
+                for (int i = 0; i < 6; ++i) {
+                    place();
+                    if (i == 5 && address == 0x004F0DD0) // (the skater on the blocker's path point)
+                        reinterpret_cast<Obj::CCompositeObject*>(g_world.skater)->m_vel = {0.0f, 0.0f, 0.0f, 0.0f};
+                    Fn<void(__thiscall*)(void*)>(original, address)(c);
+                    state();
+                }
+            }
+            static const uint32_t kTypes[] = {0x5B4E8427, 0x4DF2CC6E, 0x30A12962, 0x3884D585, 0x520A0B40, 0xA631E964,
+                                              0xC51B9B62, 0xF229C933, 0x1234};
+            for (uint32_t type : kTypes) {
+                place();
+                c->m_vtable = reinterpret_cast<void**>(0x0064B7A8);
+                c->m_updateType = type;
+                c->mp_auxScript = type == 0x1234 ? reinterpret_cast<Script::CScript*>(g_ped.aux) : nullptr;
+                Fn<void(__thiscall*)(void*)>(original, 0x004F2190)(c);
+                state();
+                trace.push_back(Bits(c->m_frameTime));
+            }
+            c->mp_auxScript = nullptr;
+            trace.push_back(Fn<uint8_t(__thiscall*)(void*, void*, void*)>(original, 0x004F0950)(c, FakeStruct(0), g_ped.script));
+            trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+            std::vector<uint32_t> world = PedWords();
+            trace.insert(trace.end(), world.begin(), world.end());
+            for (uint32_t i = 0; i < offsetof(MoveWorld, collVtable) / 4; ++i)
+                trace.push_back(MoveRelocate(reinterpret_cast<const uint32_t*>(&g_move)[i]));
+            memory->Dump(trace);
+            return trace;
+        };
+        std::vector<uint32_t> expected = run(true);
+        std::vector<uint32_t> actual = run(false);
+        Compare(expected, actual, "ped logic: the movement");
+    }
+    g_relocate = nullptr;
+    delete &s;
+}
+
 } // namespace
 
+SELFTEST(Early, TestPedLogicMove, RemoveStandIns);
 SELFTEST(Early, TestProjectileComponents, RemoveStandIns);
 SELFTEST(Early, TestPedLogicPath, RemoveStandIns);
 SELFTEST(Early, TestPedLogicCore, RemoveStandIns);

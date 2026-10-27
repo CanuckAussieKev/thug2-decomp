@@ -790,6 +790,7 @@ add_library(thug2_code OBJECT
     src/game/obj/avoid.cpp
     src/game/obj/ped_logic.cpp
     src/game/obj/ped_logic_path.cpp
+    src/game/obj/ped_logic_move.cpp
     src/game/obj/projectile_components.cpp
     src/game/obj/collision_component.cpp
     src/game/obj/matrix_component.cpp

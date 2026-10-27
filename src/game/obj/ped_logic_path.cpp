@@ -111,12 +111,13 @@ void DeleteParams(Script::CStruct* params)
     }
 }
 
-// _ftol2: truncation (the integer indefinite, 0x80000000, for what doesn't fit).
+// _ftol2: a 64-bit truncation whose low half is used (the integer indefinite, 2^63 - a NaN, what doesn't fit - gives
+// 0).
 int Truncate(double value)
 {
-    if (!(std::fabs(value) < 2147483648.0))
-        return static_cast<int>(0x80000000u);
-    return static_cast<int>(value);
+    if (!(std::fabs(value) < 9.2e18))
+        return 0;
+    return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(value))));
 }
 
 } // namespace
