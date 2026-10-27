@@ -497,6 +497,9 @@ void TestGoalEditorMembers()
                     if (round % 2)
                         g_values[{params, Hash("Name")}] = 2;
                 }
+                if (kMembers[m] == 0x004E8C90)
+                    trace.push_back(0xC0DE0000u + round * 0x100u +
+                                    static_cast<uint32_t>(Fn<int(__thiscall*)(CGoalEditorComponent*)>(original, 0x004E7E00)(editor)));
                 uint32_t result = Fn<uint32_t(__thiscall*)(CGoalEditorComponent*, uint32_t, void*)>(
                                       original, kMembers[m])(editor, params, g_script) & 0xFF;
                 trace.push_back(result);
