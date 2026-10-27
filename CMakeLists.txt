@@ -184,6 +184,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_core_life.cpp
     src/hook/selftests_skater_core_ground.cpp
     src/hook/selftests_skater_core_moves.cpp
+    src/hook/selftests_skater_camera.cpp
     src/hook/selftests_skater_collision.cpp
     src/hook/selftests_skater_grind.cpp
     src/hook/selftests_skater_states.cpp
@@ -1006,6 +1007,8 @@ add_library(thug2_code OBJECT
     src/game/skater/core_physics_life.cpp
     src/game/skater/core_physics_ground.cpp
     src/game/skater/core_physics_moves.cpp
+    src/game/skater/skater_camera_component.cpp
+    src/game/skater/skater_camera_update.cpp
     src/game/skater/core_physics_turning.cpp
     src/game/skater/core_physics_walls.cpp
     src/game/skater/core_physics_wallplant.cpp
