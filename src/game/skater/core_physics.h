@@ -646,6 +646,52 @@ public:
     // +0x68 on and +0x298 6; otherwise (or not on vert) flag +0x30 off.
     void StartVertAir();
 
+    // --- core_physics_moves.cpp: the gravity, a landing target, wall push-offs, turning round, flip spins ---
+    // 0x004FEE10 (RET 0x18): a vert target to land on along `direction` from the skater: feelers straight down
+    // (from 400 above to 4000 below) every 6 from 10 to 500 out, through a collision cache over the search, for a
+    // vert face (normal y under 0.707) whose horizontal normal is at most 0.95 along `facing`. Found: its point and
+    // normal, whether its object is still there (`objectAlive`) and whether that normal is more than -0.866 along
+    // `facing` (`notOpposite`; rounded to a float first). Whether one was found.
+    bool FindVertTarget(const Mth::Vector* direction, const Mth::Vector* facing, bool* notOpposite, Mth::Vector* point,
+                        Mth::Vector* normal, bool* objectAlive);
+    // 0x004FF200: the speed override (+0x3AC, a factor; 1 when off): turned on (+0x255, not in an acid drop or a
+    // bail) when faster than 1.25 times the 0x2EACDDB3 stat - the factor the speed over that (at most 0xC6B38BE0),
+    // the limits (+0x354, +0x358) lifted. Running down at 0xF9B006AA a second; while above 1 the max speed (+0x354)
+    // the stat times the factor (no faster than now x 1.1 off the air, nor the max), +0x358 its share of the stat
+    // (every tenth time a line printed - compiled out). Below 1 or under the stat: off (+0x3AC 1, +0x350 0).
+    void UpdateSpeedOverride();
+    // 0x004FF470: the gravity: Physics_... 0xFAA40754 over the script value 0xC31CA696 (in vert air or an acid
+    // drop: 0x441C38A0); the moon cheat (0x9C8C6DF1: its global flag set, 0x007CE4FD) times 0x0EC128F0; while
+    // falling, times the script value 0xBE33A41E when that's set. Returned unrounded when multiplied last.
+    double GetGravity();
+    // 0x004FF590 (RET 4): `velocity` made to point along the facing (or against it, when it was going backwards),
+    // keeping its length - unless it's barely moving.
+    void AlongFacing(Mth::Vector* velocity);
+    // 0x004FF670: a wall push-off: the button (pad +0x1A0) held, 0x0017D543 ms (a script value) since the last one
+    // (+0x4E4) and since +0x4E0, facing into the wall (+0x130) more than the angle 0x1483FD01 - 1 degree allows:
+    // event 0x4C03635B, then (unless cancelled, flag +0xB8: cleared) the velocity bounced off the wall, its speed
+    // less 0x1112FB1C (at least 0xB78542C2; nearly still: 0xB78542C2 backwards), turned into the ground's plane, the
+    // skater facing along it, up the ground normal; +0x4E4 the time. Whether it pushed off.
+    bool WallPushOff();
+    // 0x004FF920: going backwards faster than 0x2BF71EEB (not bailing, skitching or braking): turned round (the
+    // facing, right row and display matrix's two rows reversed; 0x3A8D6AB2 run unless 0xB1C84B5A) - except on a
+    // vehicle or a balance trick 0xEF24413B / 0x0AC90769 with another board (the trick component's +0x1331 name):
+    // 0xA496AEBD run once (+0x304).
+    void TurnRoundIfBackwards();
+    // 0x004FFB10: the jump button (flag +0x20) let go (pad +0x1C0 up): the time it was held (+0x378), the flag
+    // off, the release taken, event 0x8FFEFB28. Whether it was.
+    bool JumpReleased();
+    // 0x004FFB90: a flip spin (pad +0x160 or +0x180 held, not bailing, none running): the first of the 0xB75D73E5
+    // entries whose button sequence (two from the entry, the third by which button) the trick component matches;
+    // the model turned about x / y / z by its angles over 50 (+0x2E0), +0x2DB / +0x3A4 / +0x2E4 on, +0x2DC on a
+    // half turn about y, and its 0xD8FA65D7 script run with it.
+    void CheckFlipSpin();
+    // 0x004FFDB0 (RET 4): stepping up onto what's at `point`: a feeler down from 0x786B3272 above (the higher of
+    // the skater and the point) to the lower, hitting ground (normal y over 0.5), then one across from above the
+    // point to above the hit (the normal added): clear - the skater put there, 0.1 up. Not while bailing. Whether
+    // it stepped up.
+    bool StepUp(const Mth::Vector* point);
+
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)
