@@ -43,7 +43,7 @@ inline std::map<uint32_t, float> g_globalFloats;                      // Script:
 inline uint32_t g_insidePark = 1;
 inline uint32_t g_typeStructure = 1; // GoalTypeStructure answers (0: none)
 inline const char* const kModels[] = {"m0", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11"};
-inline const char* const kStrings[] = {"", "first string", "a much longer second string", "trick"};
+inline const char* const kStrings[] = {"", "first string", "a much longer second string", "trick", "name1"};
 
 inline uint32_t Rel(uint32_t word) { return Relocate(word); }
 

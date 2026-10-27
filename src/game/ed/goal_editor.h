@@ -252,8 +252,78 @@ public:
     // 0x004EBB70: `level`'s goals written into `buffer` (WriteToBuffer's size).
     uint32_t WriteLevelGoalsToBuffer(uint32_t level, uint8_t* buffer, uint32_t size);
 
+    // --- script member functions (the table at 0x00684270; most aren't Ghidra functions). "The goal": the one the
+    // parameters name (GetGoalFromParams). ---
     // 0x004EA7C0 [NewEditorGoal]: a new goal; its goal_id returned in the script's parameters. True.
     bool NewEditorGoal(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8490 [EditedGoalAddGap]: the goal's gap 0x3AC9AB5E added. True.
+    bool EditedGoalAddGap(Script::CStruct* params, Script::CScript* script);
+    // 0x004E84E0 [EditedGoalRemoveGap]: the goal's gap 0x3AC9AB5E taken out. True.
+    bool EditedGoalRemoveGap(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8530 [EditedGoalGotGap]: whether the goal has the gap 0x3AC9AB5E (no goal: false).
+    bool EditedGoalGotGap(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8590 [AddKeyComboSet]: the goal's key combo set (key_combo_set, spin, num_taps, the perfect flag). True.
+    bool AddKeyComboSet(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8630 [RemoveKeyComboSet]. True.
+    bool RemoveKeyComboSet(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8680 [GetKeyComboSet]: the set's spin, num_taps and perfect flag into the script's parameters (false
+    // without the set; true without the goal).
+    bool GetKeyComboSet(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8720 [RemoveGoalSpecificFlag]: the combo goal's single-combo flag cleared if it's the flag named. True.
+    bool RemoveGoalSpecificFlag(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8780 [SetGoalSpecificParams]: the goal's type settings from the parameters. True.
+    bool SetGoalSpecificParams(Script::CStruct* params, Script::CScript* script);
+    // 0x004E87A0 [FlagGoalAsWon]. True.
+    bool FlagGoalAsWon(Script::CStruct* params, Script::CScript* script);
+    // 0x004E87C0 [FindUnfinishedGoal]: the last incomplete goal of the type made current; whether there is one.
+    bool FindUnfinishedGoal(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8900 [GoalExists]
+    bool GoalExists(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8920 [RemovedCreatedGoal]: the goal removed. True.
+    bool RemovedCreatedGoal(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8950 [GoalHasAllPositionsSet] (no goal: false)
+    bool GoalHasAllPositionsSet(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8980 [SetCurrentEditorGoal]. True.
+    bool SetCurrentEditorGoal(Script::CStruct* params, Script::CScript* script);
+    // 0x004E89A0 [SetEditorGoalType]: the goal's type. True.
+    bool SetEditorGoalType(Script::CStruct* params, Script::CScript* script);
+    // 0x004E89F0 [SetEditorGoalDescription]: the goal's text. True.
+    bool SetEditorGoalDescription(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8A40 [SetEditorGoalWinMessage]. True.
+    bool SetEditorGoalWinMessage(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8AA0 [GetNumEditedGoals]: NumGoals - the level's complete goals (any level's; the flag 0xB99F6330: but
+    // the park's). True.
+    bool GetNumEditedGoals(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8B30 [GetCurrentEditedGoalId]: goal_id = the current goal's CreatedGoal<n>, removed without one. True.
+    bool GetCurrentEditedGoalId(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8B90 [WriteEditedGoalNodePositions]. True.
+    bool WriteEditedGoalNodePositions(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8BB0 [SetEditorGoalName]: with a current goal and Name: the goal named made current and given the name.
+    bool SetEditorGoalName(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8C20 [SetEditorPedName]: the same for the ped's name.
+    bool SetEditorPedName(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8C90 [MaxEditedGoalsReached]: every slot used, or ten complete goals in the level.
+    bool MaxEditedGoalsReached(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8CF0 [NukeAllGoals]: the park's goals (the flag 0x98439808) or the others cleared. True.
+    bool NukeAllGoals(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8D30 [GetMaxGoalsPerLevel]: 0x8BC2E0DB = 10. True.
+    bool GetMaxGoalsPerLevel(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8D50 [SetGoalScore]: the goal made current, its score (the unnamed integer). True.
+    bool SetGoalScore(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8DB0 [SetGoalTimeLimit]: the goal made current, its time limit (the unnamed integer). True.
+    bool SetGoalTimeLimit(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8E00 [SetGoalControlType]: the goal made current, its control type (the unnamed checksum). True.
+    bool SetGoalControlType(Script::CStruct* params, Script::CScript* script);
+    // 0x004E8E60 [RefreshGoalCursorPosition]: the cursor script run at the current point. True.
+    bool RefreshGoalCursorPosition(Script::CStruct* params, Script::CScript* script);
+    // 0x004EA810 [EditGoal]: the goal made current, its markers made, the cursor on its first point. True.
+    bool EditGoal(Script::CStruct* params, Script::CScript* script);
+    // 0x004EBFF0 [GetCurrentEditedGoalInfo]: the current goal into the script's parameters. True.
+    bool GetCurrentEditedGoalInfo(Script::CStruct* params, Script::CScript* script);
+    // 0x004EC1D0 [AddEditedGoalToGoalManager]: the goal added to the goal manager (won again unless 0xC6322A25).
+    bool AddEditedGoalToGoalManager(Script::CStruct* params, Script::CScript* script);
+    // 0x004EC200 [0xD5F6EA3B]: every goal outside the park editor into the script's parameters. True.
+    bool GetCreatedGoals(Script::CStruct* params, Script::CScript* script);
 
     CEditedGoal m_goals[50];               // +0x0018
     CEditedGoal* mp_current;               // +0xA108 the one being edited

@@ -140,6 +140,38 @@ void StandInComponentWorld(StandIns& s)
         Record({0xF060, r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
+    // The getters by name (answered by the name's hash).
+    using Script::CStruct;
+    s.At({0x004765F0, AddressOf(static_cast<bool (CStruct::*)(const char*, const char**, int)>(&CStruct::GetString))},
+         12, [](Regs& r) {
+             uint32_t name = Hash(reinterpret_cast<const char*>(r.args[0]));
+             Record({0x65F0, Rel(r.ecx), name, Rel(r.args[1]), r.args[2]});
+             uint32_t value;
+             if (!Lookup(r.ecx, name, value))
+                 return 0u;
+             *reinterpret_cast<const char**>(r.args[1]) = kStrings[value];
+             return 1u;
+         });
+    s.At({0x00476A00, AddressOf(static_cast<bool (CStruct::*)(const char*, uint32_t*, int)>(&CStruct::GetChecksum))},
+         12, [](Regs& r) {
+             uint32_t name = Hash(reinterpret_cast<const char*>(r.args[0]));
+             Record({0x6A00, Rel(r.ecx), name, Rel(r.args[1]), r.args[2]});
+             uint32_t value;
+             if (!Lookup(r.ecx, name, value))
+                 return 0u;
+             *reinterpret_cast<uint32_t*>(r.args[1]) = value;
+             return 1u;
+         });
+    s.At({0x00477770, AddressOf(static_cast<void (CStruct::*)(const char*)>(&CStruct::RemoveComponent))}, 4,
+         [](Regs& r) {
+             Record({0x7770, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0]))});
+             return 0u;
+         });
+    s.At({0x00477C30, AddressOf(static_cast<void (CStruct::*)(const char*, int)>(&CStruct::AddInteger))}, 8,
+         [](Regs& r) {
+             Record({0x7C30, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
+             return 0u;
+         });
     // The edited goals' own code (tested by selftests_goal_editor.cpp).
     s.At({0x004E96D0, AddressOf(&CEditedGoal::ReadFromStructure)}, 4, [](Regs& r) {
         Record({0x96D0, Rel(r.ecx), Rel(r.args[0])});
@@ -325,6 +357,165 @@ void TestGoalEditorComponent()
     delete &s;
 }
 
+// The edited goals' methods the member functions call: recorded (tested by selftests_goal_editor.cpp).
+void StandInGoalMethods(StandIns& s)
+{
+    struct Method {
+        uint32_t address;
+        uint32_t ours;
+        uint16_t pop;
+    };
+    const Method methods[] = {
+        {0x004E7390, AddressOf(&CEditedGoal::AddGap), 4},
+        {0x004E6B80, AddressOf(&CEditedGoal::RemoveGap), 4},
+        {0x004E6C40, AddressOf(&CEditedGoal::AddKeyComboSet), 16},
+        {0x004E6CD0, AddressOf(&CEditedGoal::RemoveKeyComboSet), 4},
+        {0x004E7590, AddressOf(&CEditedGoal::ReadSpecificParams), 4},
+        {0x004E6DA0, AddressOf(&CEditedGoal::SetType), 4},
+        {0x004E6F70, AddressOf(&CEditedGoal::SetTimeLimit), 4},
+        {0x004E7A80, AddressOf(&CEditedGoal::WriteNodePositions), 0},
+        {0x004E7780, AddressOf(&CEditedGoal::CreateMarkers), 0},
+        {0x004EB6B0, AddressOf(&CEditedGoal::AddToGoalManager), 4},
+    };
+    for (const Method& m : methods) {
+        uint32_t id = m.address, count = m.pop / 4u;
+        s.At({m.address, m.ours}, m.pop, [id, count](Regs& r) {
+            Record({id, Rel(r.ecx)});
+            for (uint32_t i = 0; i < count; ++i)
+                Record({i == 0 || i == 1 ? r.args[i] & 0xFF : Rel(r.args[i])});
+            return 0u;
+        });
+    }
+    s.At({0x004E6D50, AddressOf(&CEditedGoal::FindKeyComboSet)}, 4, [](Regs& r) {
+        Record({0x6D50, Rel(r.ecx), r.args[0]});
+        auto* goal = reinterpret_cast<CEditedGoal*>(r.ecx);
+        return r.args[0] < 6 ? reinterpret_cast<uint32_t>(&goal->m_keyComboSets[r.args[0] % 3]) : 0u;
+    });
+    s.At({0x004E7960, AddressOf(&CEditedGoal::GetCurrentPoint)}, 12, [](Regs& r) {
+        Record({0x7960, Rel(r.ecx)});
+        auto* pos = reinterpret_cast<float*>(r.args[0]);
+        pos[0] = 1.0f, pos[1] = 2.25f, pos[2] = -3.0f, pos[3] = 9.0f;
+        *reinterpret_cast<float*>(r.args[1]) = 4.5f;
+        *reinterpret_cast<float*>(r.args[2]) = 0.75f;
+        return 1u;
+    });
+}
+
+// The member functions, round by round, with each value there or not and the goal found or not.
+void TestGoalEditorMembers()
+{
+    std::unique_ptr<GameMemory> memory(new GameMemory({{0x007CE478, 4}, {0x007CCC58, 0x40}, {0x007CCC40, 0x18},
+                                                       {0x006F3614, 16}, {0x006F22B4, 16}, {0x006F0FB8, 4},
+                                                       {0x007D1800, 4}}));
+    StandIns& s = *new StandIns();
+    StandInGoalWorld(s);
+    StandInGoalIo(s);
+    StandInComponentWorld(s);
+    StandInGoalMethods(s);
+    UseEditorRelocation();
+    static const uint32_t kMembers[] = {0x004E8490, 0x004E84E0, 0x004E8530, 0x004E8590, 0x004E8630, 0x004E8680,
+                                        0x004E8720, 0x004E8780, 0x004E87A0, 0x004E87C0, 0x004E8900, 0x004E8920,
+                                        0x004E8950, 0x004E8980, 0x004E89A0, 0x004E89F0, 0x004E8A40, 0x004E8AA0,
+                                        0x004E8B30, 0x004E8B90, 0x004E8BB0, 0x004E8C20, 0x004E8C90, 0x004E8CF0,
+                                        0x004E8D30, 0x004E8D50, 0x004E8DB0, 0x004E8E00, 0x004E8E60, 0x004EA810,
+                                        0x004EBFF0, 0x004EC1D0, 0x004EC200};
+    auto run = [&](bool original) {
+        g_trace.clear();
+        g_elements.clear();
+        UseFakePools();
+        GameVariable<uint8_t*>(0x007CE478) = g_skateObject;
+        GameVariable<uint8_t*>(0x006F0FB8) = g_manager;
+        GameVariable<uint8_t*>(0x007D1800) = g_manager;
+        *reinterpret_cast<uint32_t*>(g_script + 0x14) = reinterpret_cast<uint32_t>(Token(7));
+        std::vector<uint32_t> trace;
+        Originals guard(original, {0x004E8490, 0x004E84E0, 0x004E8530, 0x004E8590, 0x004E8630, 0x004E8680,
+                                   0x004E8720, 0x004E8780, 0x004E87A0, 0x004E87C0, 0x004E8900, 0x004E8920,
+                                   0x004E8950, 0x004E8980, 0x004E89A0, 0x004E89F0, 0x004E8A40, 0x004E8AA0,
+                                   0x004E8B30, 0x004E8B90, 0x004E8BB0, 0x004E8C20, 0x004E8C90, 0x004E8CF0,
+                                   0x004E8D30, 0x004E8D50, 0x004E8DB0, 0x004E8E00, 0x004E8E60, 0x004EA810,
+                                   0x004EBFF0, 0x004EC1D0, 0x004EC200});
+        uint32_t params = reinterpret_cast<uint32_t>(Token(0));
+        for (uint32_t round = 0; round < 12; ++round) {
+            for (size_t m = 0; m < sizeof(kMembers) / 4; ++m) {
+                FillEditor(round * 40 + static_cast<uint32_t>(m) + 1);
+                CGoalEditorComponent* editor = Editor();
+                *reinterpret_cast<uint32_t*>(g_skateObject + 0x378) = kLevels[(round + m) % 4];
+                if ((round + m) % 6 == 5) {
+                    for (CEditedGoal& goal : editor->m_goals)
+                        goal.m_used = true;
+                }
+                if (kMembers[m] == 0x004E8C90 && round % 6 < 3) {
+                    // (exactly 9, 10 or 11 complete goals of the level)
+                    for (int i = 0; i < 50; ++i) {
+                        CEditedGoal& goal = editor->m_goals[i];
+                        goal.m_level = kLevels[round % 4] == 0xB664035D ? 0xE8B4B836 : kLevels[round % 4];
+                        goal.m_used = i < 9 + static_cast<int>(round % 3);
+                        goal.m_numPoints = goal.m_minPoints;
+                    }
+                }
+                if (kMembers[m] == 0x004E8C90 && round % 6 == 3) {
+                    for (int i = 0; i < 50; ++i) { // (49 used, none of the level)
+                        editor->m_goals[i].m_used = i != 7;
+                        editor->m_goals[i].m_level = 0x0BADBAD0;
+                    }
+                }
+                g_values.clear();
+                uint32_t which = (round + static_cast<uint32_t>(m)) % 5;
+                // How the goal is named: by id (found or not), by number, not at all (the current one).
+                if (which == 0)
+                    g_values[{params, 0x9982E501}] = Hash(round % 2 ? "CreatedGoal1" : "CreatedGoal77");
+                else if (which == 1)
+                    g_values[{params, 0x474A6A7F}] = round % 6;
+                if (round % 3) {
+                    g_values[{params, 0x3AC9AB5E}] = (round * 3) % 8 + 0x100;
+                    g_values[{params, 0xEB7D6498}] = round % 8;
+                    g_values[{params, 0xEDF5DB70}] = 540;
+                    g_values[{params, 0xA4BEE6A1}] = 3;
+                    g_values[{params, 0x687E2C25}] = 1;
+                    g_values[{params, 0}] = round % 4 == 1 ? 0xDF47B144 : 77 + round;
+                    g_values[{params, 0x651533EC}] = round % 4 == 2 ? 0xB664035D : kLevels[round % 4];
+                    g_values[{params, 0xC6322A25}] = 1;
+                    g_values[{params, 0x98439808}] = 1;
+                    g_values[{params, Hash("type")}] = round % 4 ? 0x0FC6F698 : 0x54166ACD;
+                    g_values[{params, Hash("text")}] = 1 + round % 3;
+                }
+                if (round % 4 != 3)
+                    g_values[{params, 0xB99F6330}] = 1;
+                // The goals' types for the flag and the unfinished goal.
+                for (CEditedGoal& goal : editor->m_goals)
+                    goal.m_type = (round / 2) % 2 ? 0x0FC6F698 : goal.m_type;
+                for (int i = 0; i < 50; ++i) {
+                    editor->m_goals[i].m_gaps[0] = static_cast<uint8_t>(i % 8);
+                    editor->m_goals[i].m_numGaps = static_cast<uint8_t>(i % 3);
+                }
+                if (kMembers[m] == 0x004E8BB0 || kMembers[m] == 0x004E8C20) {
+                    // (named goals only: a missing one is a null write)
+                    g_values.erase({params, 0x9982E501});
+                    g_values.erase({params, 0x474A6A7F});
+                    if (round % 4 == 1)
+                        g_values[{params, 0xBFECC45B}] = 4; // (a goal named "name1": usually there)
+                    if (round % 2)
+                        g_values[{params, Hash("Name")}] = 2;
+                }
+                uint32_t result = Fn<uint32_t(__thiscall*)(CGoalEditorComponent*, uint32_t, void*)>(
+                                      original, kMembers[m])(editor, params, g_script) & 0xFF;
+                trace.push_back(result);
+                DumpEditor(trace);
+            }
+        }
+        trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, "goal editor: the member functions");
+    g_relocate = nullptr;
+    g_values.clear();
+    g_elements.clear();
+    delete &s;
+}
+
 } // namespace
 
+SELFTEST(Early, TestGoalEditorMembers, RemoveStandIns);
 SELFTEST(Early, TestGoalEditorComponent, RemoveStandIns);
