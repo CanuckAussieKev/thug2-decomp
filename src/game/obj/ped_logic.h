@@ -62,6 +62,11 @@ public:
 
     // 0x004F0B10 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static CBaseComponent* __cdecl Create();
+    // 0x004ECFB0 (registered with Create; not a Ghidra function): the member function table 0x00683730 (24-byte
+    // records) made script symbols.
+    static void __cdecl RegisterMemberFunctions();
+    // 0x004ECFD0 (vtable slot 12): 1 (done, nothing else) for the member function 0x315D9ED4, 2 (not ours) for any other.
+    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
     // 0x004EE4F0: the base's constructor, its vtable and type; no avoidance or bias, the position history at the
     // origin, ped_skater_stick_dist_above / below, the states "" (their checksums), no aux script, the next waypoint at
     // the origin. Returns this.
@@ -143,7 +148,14 @@ public:
     // the next node's stop link). False if it isn't grinding.
     bool BailFromGrind();
 
+    // 0x004ED080: whether the node named `node` has a vert SkateAction (Vert_Grab, Vert_Lip, Vert_Grind, 0xDA0723DA,
+    // Vert_Flip, Vert_Jump). There must be such a node: the original reads through a null otherwise.
+    bool IsVertNode(uint32_t node);
+
     // --- the movement (ped_logic_move.cpp) ---
+    // 0x004ECFF0: the lasting bias decayed: each quarter times the script float 0x98CD0C8C, set to 0 when the product
+    // is below ped_min_bias (negative ones too).
+    void DecayBias();
     // 0x004ED5E0: `strength` scaled by how far into `range` the other is, spread over the bias quarters near `angle`
     // (radians) as cos(quarter - angle), each kept in -1..1.
     void AddAvoidance(float angle, float strength, float distance, float range);

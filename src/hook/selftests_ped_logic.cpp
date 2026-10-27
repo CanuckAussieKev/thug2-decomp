@@ -1725,9 +1725,90 @@ void TestPedLogicMove()
     delete &s;
 }
 
+// PedLogic's small functions: the member table's registration; the slot-12 member function (the one name it answers
+// and others); the bias decay (biases of either sign, NaN, a product exactly at the threshold, one just below it only
+// before rounding to float, decays of 0 / 1 / more / negative); IsVertNode (every SkateAction, missing, unknown).
+void TestPedLogicSmall()
+{
+    std::unique_ptr<GameMemory> memory(PedMemory());
+    StandIns& s = *new StandIns();
+    StandInComponentWorld(s);
+    StandInPedWorld(s);
+    g_relocate = PedRelocate;
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    for (uint32_t seed = 1; seed <= 40; ++seed) {
+        auto run = [&](bool original) {
+            g_trace.clear();
+            memory->Fill(0x9F000000 + seed);
+            Lcg random(0x9F010000 + seed);
+            Obj::CPedLogicComponent* c = ResetPedWorld(random, seed);
+            Lcg answers(0x9F020000 + seed);
+            Originals guard(original, {0x004ECFB0, 0x004ECFD0, 0x004ECFF0, 0x004ED080});
+            std::vector<uint32_t> trace;
+            Fn<void(__cdecl*)()>(original, 0x004ECFB0)();
+            for (uint32_t name : {0x315D9ED4u, 0x315D9ED5u, 0u, 0xB15D9ED4u, seed * 0x01010101u})
+                trace.push_back(static_cast<uint32_t>(Fn<int(__thiscall*)(void*, uint32_t, void*, void*)>(
+                    original, 0x004ECFD0)(c, name, FakeStruct(0), g_ped.script)));
+
+            static const float kDecays[] = {0.9f, 1.0f, 0.0f, 0.5f, 1.25f, -0.5f, 0.97f};
+            static const float kThresholds[] = {0.05f, 0.0f, 0.1f, 0.45f, -0.2f};
+            const float kBiases[] = {1.0f, -1.0f, 0.1f, 0.05f, 0.0f, -0.0f, 0.5f, nan, 0.7f, 0.45f, 0.9f, -0.04f, 0.2f};
+            for (int i = 0; i < 16; ++i) {
+                float decay = kDecays[answers.Below(7)];
+                float threshold = kThresholds[answers.Below(5)];
+                for (float& bias : c->m_bias)
+                    bias = kBiases[answers.Below(13)];
+                if (i % 4 == 1) {
+                    // A product exactly at the threshold.
+                    decay = 0.5f;
+                    c->m_bias[i / 4] = 0.1f;
+                    threshold = 0.05f;
+                } else if (i % 4 == 2) {
+                    // The threshold the product rounds to: compared unrounded, it's below or above it.
+                    decay = 0.97f;
+                    c->m_bias[i / 4] = 0.7f + static_cast<float>(i) * 0.013f;
+                    threshold = static_cast<float>(static_cast<double>(decay) * c->m_bias[i / 4]);
+                }
+                g_answers.global = [decay, threshold](uint32_t name) {
+                    return name == 0x98CD0C8C ? decay : name == 0x4ABA9798 ? threshold : 7.0f;
+                };
+                Fn<void(__thiscall*)(void*)>(original, 0x004ECFF0)(c);
+                for (float bias : c->m_bias)
+                    trace.push_back(Bits(bias));
+            }
+
+            g_answers.node = [](uint32_t name) { return FakeStruct(static_cast<int>(name % 3)); };
+            g_pa.checksumBy = [&answers](uint32_t, uint32_t name, uint32_t* out) {
+                static const uint32_t kActions[] = {0x7D9D0008, 0x554DBD64, 0xE6DFAEC7, 0xDA0723DA, 0xE8F91257,
+                                                    0xD5B4F014, 0xE41199AF, 0x255ED86F, 0x584CF9E9, 0x12345678};
+                if (name != 0x963DC198 || answers.Below(8) == 0)
+                    return false;
+                *out = kActions[answers.Below(10)];
+                return true;
+            };
+            for (uint32_t i = 0; i < 40; ++i)
+                // (sometimes named like a vert action: a missing SkateAction leaves the name in the slot)
+                trace.push_back(Fn<uint8_t(__thiscall*)(void*, uint32_t)>(original, 0x004ED080)(
+                    c, i % 5 == 4 ? 0x7D9D0008u : 0x7000 + i));
+
+            trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+            std::vector<uint32_t> world = PedWords();
+            trace.insert(trace.end(), world.begin(), world.end());
+            memory->Dump(trace);
+            return trace;
+        };
+        std::vector<uint32_t> expected = run(true);
+        std::vector<uint32_t> actual = run(false);
+        Compare(expected, actual, "ped logic: the member table, slot 12, the bias decay and IsVertNode");
+    }
+    g_relocate = nullptr;
+    delete &s;
+}
+
 } // namespace
 
 SELFTEST(Early, TestPedLogicMove, RemoveStandIns);
+SELFTEST(Early, TestPedLogicSmall, RemoveStandIns);
 SELFTEST(Early, TestProjectileComponents, RemoveStandIns);
 SELFTEST(Early, TestPedLogicPath, RemoveStandIns);
 SELFTEST(Early, TestPedLogicCore, RemoveStandIns);

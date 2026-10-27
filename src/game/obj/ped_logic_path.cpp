@@ -36,6 +36,7 @@ constexpr uint32_t kVertLip = 0x554DBD64;           // Vert_Lip
 constexpr uint32_t kVertGrind = 0xE6DFAEC7;         // Vert_Grind
 constexpr uint32_t kVertJump = 0xD5B4F014;          // Vert_Jump
 constexpr uint32_t kVertFlip = 0xE8F91257;          // Vert_Flip
+constexpr uint32_t kVertOther = 0xDA0723DA;         // (a vert SkateAction; its name isn't known)
 constexpr uint32_t kGrind = 0x255ED86F;             // Grind
 constexpr uint32_t kJump = 0x584CF9E9;              // Jump
 constexpr uint32_t kManual = 0xEF24413B;            // Manual
@@ -97,12 +98,6 @@ constexpr float kSpinRound = 0.01f;                 // 0x0064544C
 
 CMotionComponent* Motion(CCompositeObject* object) { return static_cast<CMotionComponent*>(object->GetComponent(kMotion)); }
 
-// The PedLogic's IsVertNode (0x004ED080, the next quarter's): whether the node named `node` has a vert SkateAction.
-bool IsVertNode(CPedLogicComponent* ped, uint32_t node)
-{
-    return GameFunction<bool(__thiscall*)(CPedLogicComponent*, uint32_t)>(0x004ED080)(ped, node);
-}
-
 void DeleteParams(Script::CStruct* params)
 {
     if (params) {
@@ -121,6 +116,17 @@ int Truncate(double value)
 }
 
 } // namespace
+
+// 0x004ED080
+bool CPedLogicComponent::IsVertNode(uint32_t node)
+{
+    // The action is read into the argument's own slot; a missing node is read through a null (original).
+    uint32_t action = node;
+    if (!SkateScript::GetNode(node, true)->GetChecksum(kSkateAction, &action, 0))
+        return false;
+    return action == kVertGrab || action == kVertLip || action == kVertGrind || action == kVertOther ||
+           action == kVertFlip || action == kVertJump;
+}
 
 // 0x004ED0E0
 bool CPedLogicComponent::Chance(Script::CStruct* node, uint32_t weightName)
@@ -596,7 +602,7 @@ void CPedLogicComponent::HitWaypoint()
         // (Read over a slot holding a stale value: SkateAction is asserted.)
         uint32_t action = 0;
         next->GetChecksum(kSkateAction, &action, 1);
-        if (IsVertNode(this, m_nextNode))
+        if (IsVertNode(m_nextNode))
             m_flags |= PED_FLAG_VERT_NEXT;
         if (action == kVertGrab || action == kJump) {
             uint32_t reachedAction;
@@ -608,7 +614,7 @@ void CPedLogicComponent::HitWaypoint()
             m_flags |= PED_FLAG_VERT_LIP;
     }
     ChooseNodeAfter();
-    if (IsVertNode(this, m_nodeAfter))
+    if (IsVertNode(m_nodeAfter))
         m_flags |= PED_FLAG_VERT_AFTER;
     Script::CStruct* leftNode = SkateScript::GetNode(left, true);
     Script::CStruct* reachedNode = SkateScript::GetNode(reached, true);
@@ -711,6 +717,7 @@ bool CPedLogicComponent::Ped_GetJumpToNextNode(Script::CStruct* params, Script::
 
 } // namespace Obj
 
+REPLACE(0x004ED080, &Obj::CPedLogicComponent::IsVertNode);
 REPLACE(0x004ED0E0, &Obj::CPedLogicComponent::Chance);
 REPLACE(0x004ED8A0, &Obj::CPedLogicComponent::ChooseNodeAfter);
 REPLACE(0x004EEFA0, &Obj::CPedLogicComponent::RunWaypointActions);

@@ -15,6 +15,7 @@
 #include "game/obj/motion.h"
 #include "game/obj/motion_path.h"
 #include "game/script/cscript.h"
+#include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
@@ -87,6 +88,7 @@ constexpr uint32_t kStreamName = 0x16CBB85A;        // stream_name
 constexpr uint32_t kIsMale = 0x3F813177;            // is_male
 constexpr uint32_t kSkaterPedStateTable = 0x46196541; // SkaterPed_StateTable
 constexpr uint32_t kStateBail = 0x6259CA27, kStateBailGrind = 0x423431E1; // STATE_bail / STATE_bailgrind
+constexpr uint32_t kLedgeMember = 0x315D9ED4;       // (the member function the skater's core physics calls Ledge)
 
 constexpr float kMaxBoostedSpeed = 1100.0f;         // 0x0064A8CC
 constexpr float kDefaultBoost = 1.25f;
@@ -128,6 +130,18 @@ CBaseComponent* __cdecl CPedLogicComponent::Create()
 {
     void* memory = Mem::Calloc(sizeof(CPedLogicComponent));
     return memory ? static_cast<CPedLogicComponent*>(memory)->Construct() : nullptr;
+}
+
+// 0x004ECFB0
+void __cdecl CPedLogicComponent::RegisterMemberFunctions()
+{
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00683730), 0x18);
+}
+
+// 0x004ECFD0
+int CPedLogicComponent::CallMemberFunction(uint32_t name, Script::CStruct* /*params*/, Script::CScript* /*script*/)
+{
+    return name == kLedgeMember ? 1 : 2;
 }
 
 // 0x004EE4F0
@@ -678,6 +692,8 @@ bool CPedLogicComponent::Ped_GetVoicePrefix(Script::CStruct*, Script::CScript* s
 } // namespace Obj
 
 REPLACE(0x004F0B10, Obj::CPedLogicComponent::Create);
+REPLACE(0x004ECFB0, Obj::CPedLogicComponent::RegisterMemberFunctions);
+REPLACE(0x004ECFD0, &Obj::CPedLogicComponent::CallMemberFunction);
 REPLACE(0x004EE4F0, &Obj::CPedLogicComponent::Construct);
 REPLACE(0x004F2120, &Obj::CPedLogicComponent::DestroyBody);
 REPLACE(0x004F2540, &Obj::CPedLogicComponent::Destroy);

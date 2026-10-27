@@ -39,6 +39,7 @@ constexpr uint32_t kMotion = 0x0A015E17;
 constexpr uint32_t kSkaterLoopingSound = 0xB5F1E9D2;
 constexpr uint32_t kObjectTypePed = 0xD2DB7F97;     // OBJECT_TYPE_PED
 constexpr uint32_t kMinBias = 0x4ABA9798;           // ped_min_bias
+constexpr uint32_t kBiasDecay = 0x98CD0C8C;         // (the bias's decay per frame)
 constexpr uint32_t kAvoidPedRange = 0x7A78F471;     // ped_avoid_ped_range
 constexpr uint32_t kAvoidPedBias = 0xD1E6177B;      // ped_avoid_ped_bias
 constexpr uint32_t kMaxYDistance = 0x21B13FFC;      // ped_max_y_distance_to_ignore
@@ -107,9 +108,6 @@ CCompositeObject* LocalSkater()
 {
     return GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00566520)(GameVariable<void*>(0x007CE478));
 }
-
-// The PedLogic's bias decay (0x004ECFF0, the previous quarter's).
-void DecayBias(CPedLogicComponent* ped) { GameFunction<void(__thiscall*)(CPedLogicComponent*)>(0x004ECFF0)(ped); }
 
 // D3DXMatrixMultiply (linked library code).
 void D3dxMultiply(Mth::Matrix& out, const Mth::Matrix& a, const Mth::Matrix& b)
@@ -195,6 +193,20 @@ void RebuildAcrossAndUp(Mth::Matrix& m)
 } // namespace
 
 // --- steering ---
+
+// 0x004ECFF0
+void CPedLogicComponent::DecayBias()
+{
+    float decay = Script::GetFloat(kBiasDecay);
+    double threshold = Script::GetFloat(kMinBias);
+    for (float& bias : m_bias) {
+        // The product is compared unrounded (x87); a NaN is kept.
+        double value = static_cast<double>(decay) * bias;
+        bias = static_cast<float>(value);
+        if (value < threshold)
+            bias = 0.0f;
+    }
+}
 
 // 0x004ED5E0
 void CPedLogicComponent::AddAvoidance(float angle, float strength, float distance, float range)
@@ -798,7 +810,7 @@ void CPedLogicComponent::GenericMoveUpdate()
     MoveSteered();
     if (old != m_object->m_pos)
         FaceMovement(old);
-    DecayBias(this);
+    DecayBias();
     motion->StickToGround();
 }
 
@@ -1179,6 +1191,7 @@ bool CPedLogicComponent::Ped_TurnToCurrentWaypointOrientation(Script::CStruct* p
 
 } // namespace Obj
 
+REPLACE(0x004ECFF0, &Obj::CPedLogicComponent::DecayBias);
 REPLACE(0x004ED5E0, &Obj::CPedLogicComponent::AddAvoidance);
 REPLACE(0x004ED680, &Obj::CPedLogicComponent::AddSteer);
 REPLACE(0x004ED710, &Obj::CPedLogicComponent::SteerSideways);
