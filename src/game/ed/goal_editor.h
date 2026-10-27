@@ -7,9 +7,13 @@
 #include "game/obj/object.h"
 
 namespace Script {
+class CArray;
 class CScript;
 class CStruct;
 } // namespace Script
+namespace Mem {
+class Heap;
+} // namespace Mem
 
 // Create-a-goal: a goal the player made in the goal editor (CEditedGoal, a 0x338-byte record) - its level, texts,
 // type, points (the pro, the start, the letters / cone checkpoints) and the type's own settings (time, score, laps,
@@ -172,6 +176,12 @@ static_assert(offsetof(CEditedGoal, m_type) == 0x114 && offsetof(CEditedGoal, m_
                   offsetof(CEditedGoal, m_numKeyComboSets) == 0x2F4 && offsetof(CEditedGoal, m_gaps) == 0x2F8 &&
                   offsetof(CEditedGoal, m_requiredTrick) == 0x303 && sizeof(CEditedGoal) == 0x338,
               "layout must match the original");
+
+// 0x004E8F50: the goal editor's nodes (ten goals' TRG_EditedGoal<n>_Pro / _Restart / _Object_0..10, from the
+// structures 0x8F0F67D7 / 0xC9119673 / 0x000B52B3, numbered from *index) on `heap`: into `nodes` from *index
+// (the structures already there) - or, without `nodes`, added to the node manager's last node array (grown by 0x82)
+// and hashed. ("Inserting Goal Editor Nodes")
+void __cdecl AddGoalEditorNodes(Script::CArray* nodes, int* index, Mem::Heap* heap);
 
 // The goal editor component ("goaleditor", type 0x81F01058, vtable 0x0064B534, 0xA114 bytes; made by 0x004EB7F0) of
 // the permanent object GoalEditor: every created goal of every level (50 slots), the one being edited, and the

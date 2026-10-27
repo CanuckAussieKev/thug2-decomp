@@ -1,4 +1,4 @@
-// Self-tests for the goal editor component (src/game/ed/goal_editor.cpp): the original and ours on the same
+﻿// Self-tests for the goal editor component (src/game/ed/goal_editor.cpp): the original and ours on the same
 // component (50 goals of several levels, used or not, complete or not) with the edited goals' own code, the
 // structures, scripts, goal manager, objects and memory stood in for; the calls and the component compared.
 
@@ -12,6 +12,8 @@
 #include "game/core/mem.h"
 #include "game/ed/goal_editor.h"
 #include "game/obj/compositemgr.h"
+#include "game/script/node_manager.h"
+#include "game/script/nodes.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/object_proximity.h"
 #include "game/obj/pager_message.h"
@@ -946,9 +948,77 @@ void TestGoalEditorUpdate()
     delete &s;
 }
 
+// The goal editor's nodes: into a given array (its structures there), or added to the node manager's last array
+// (empty or not) and hashed.
+void TestGoalEditorNodes()
+{
+    std::unique_ptr<GameMemory> memory(new GameMemory({{0x006F3614, 16}, {0x006F22B4, 16}, {0x007D1800, 4},
+                                                       {0x006F0D84, 4}}));
+    StandIns& s = *new StandIns();
+    StandInGoalWorld(s);
+    StandInGoalIo(s);
+    static Script::CArray lastArray;
+    s.At({0x0045C220, AddressOf(SkateScript::GetNodeOwnerValue58)}, 0, [](Regs&) {
+        Record({0xC220});
+        return reinterpret_cast<uint32_t>(&lastArray);
+    });
+    s.At({0x0045C230, AddressOf(SkateScript::GetLastNodeArrayName)}, 0, [](Regs&) {
+        Record({0xC230});
+        return 0xABCD1234u;
+    });
+    s.At({0x0046CCF0, AddressOf(&Script::CArray::Resize)}, 4, [](Regs& r) {
+        Record({0xCCF0, r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0045D170, AddressOf(&SkateScript::CNodeManager::HashNodeIn)}, 12, [](Regs& r) {
+        Record({0xD170, r.ecx, r.args[0], r.args[1], r.args[2]});
+        return 1u;
+    });
+    s.At({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, [](Regs& r) {
+        Record({0xB0E0, r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, [](Regs& r) {
+        Record({0xB110, r.ecx});
+        return 0u;
+    });
+    s.At({0x00479020, AddressOf(static_cast<Script::CStruct* (*)(uint32_t)>(Script::GetStructure))}, 0, [](Regs& r) {
+        Record({0x9020, r.args[0]});
+        return r.args[0] ^ 0x11110000u;
+    });
+    auto run = [&](bool original) {
+        g_trace.clear();
+        g_elements.clear();
+        UseFakePools();
+        GameVariable<uint8_t*>(0x007D1800) = g_manager;
+        GameVariable<uint32_t>(0x006F0D84) = 0x0D0D0D0D;
+        std::vector<uint32_t> trace;
+        Originals guard(original, {0x004E8F50});
+        for (uint32_t round = 0; round < 4; ++round) {
+            int index = static_cast<int>(round * 7);
+            lastArray.m_size = round == 3 ? 0 : 5 + round;
+            void* heap = reinterpret_cast<void*>(0x4EA90000 + round);
+            if (round % 2 == 0)
+                Fn<void(__cdecl*)(void*, int*, void*)>(original, 0x004E8F50)(&g_arrays[1], &index, heap);
+            else
+                Fn<void(__cdecl*)(void*, int*, void*)>(original, 0x004E8F50)(nullptr, nullptr, heap);
+            trace.push_back(static_cast<uint32_t>(index));
+        }
+        trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+        return trace;
+    };
+    UseEditorRelocation();
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, "goal editor: its nodes");
+    g_relocate = nullptr;
+    delete &s;
+}
+
 } // namespace
 
 SELFTEST(Early, TestPagerMessages, RemoveStandIns);
+SELFTEST(Early, TestGoalEditorNodes, RemoveStandIns);
 SELFTEST(Early, TestGoalEditorUpdate, RemoveStandIns);
 SELFTEST(Early, TestObjectProximityUpdate, RemoveStandIns);
 SELFTEST(Early, TestObjectProximity, RemoveStandIns);
