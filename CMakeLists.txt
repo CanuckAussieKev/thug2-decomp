@@ -204,6 +204,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_thaw_bmx_parked.cpp
     src/hook/selftests_skater_adjust.cpp
     src/hook/selftests_projectile.cpp
+    src/hook/selftests_rail_editor.cpp
     src/hook/selftests_obj_small_components.cpp
     src/hook/selftests_obj_vehicle_sound.cpp
     src/hook/selftests_obj_vehicle.cpp
@@ -546,6 +547,7 @@ add_library(thug2_code OBJECT
     src/game/ed/park_manager.cpp
     src/game/ed/park_map.cpp
     src/game/ed/park_rails.cpp
+    src/game/ed/rail_editor.cpp
     src/game/ed/clipboard.cpp
     src/game/ed/gap_slots.cpp
     src/game/ed/piece_menu.cpp
