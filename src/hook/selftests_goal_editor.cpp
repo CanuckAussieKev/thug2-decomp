@@ -17,6 +17,8 @@
 #include "hook/log.h"
 #include "hook/selftest.h"
 
+#pragma warning(disable : 4996) // (strcpy: the goals' texts)
+
 namespace {
 
 using namespace GoalEditorTests;
@@ -287,8 +289,189 @@ void TestEditedGoalParams()
     delete &s;
 }
 
+// Texts of a filled goal (terminated; some empty).
+void SetTexts(uint32_t round)
+{
+    std::strcpy(g_goal.m_name, round % 3 ? "My goal" : "");
+    std::strcpy(g_goal.m_pedName, round % 4 ? "Ped" : "");
+    std::strcpy(g_goal.m_description, round % 5 ? "Do it" : "");
+    std::strcpy(g_goal.m_winMessage, round % 2 ? "Done!" : "");
+    std::strcpy(g_goal.m_requiredTrick, round % 7 ? "kickflip" : "");
+}
+
+GameMemory* IoMemory()
+{
+    return new GameMemory({{0x007CE478, 4}, {0x007CCC58, 0x40}, {0x007CCC40, 0x18}, {0x007CCCC0, 0x40},
+                           {0x006F3614, 16}, {0x006F22B4, 16}});
+}
+
+// To and from structures: every type, for the goal manager or not; the key combo sets (none, some; checksum and
+// structure combos); reading with values there or not; the goal manager's parameters (texts empty or not, the
+// win message's dialog); adding to the goal manager (won, un-won).
+void TestEditedGoalStructures()
+{
+    std::unique_ptr<GameMemory> memory(IoMemory());
+    StandIns& s = *new StandIns();
+    StandInGoalWorld(s);
+    StandInGoalIo(s);
+    UseGoalRelocation();
+    static const uint32_t kTypes[] = {0x54166ACD, 0x4EC3CFB5, 0x25904450, 0x0FC6F698, 0x61C5D092, 0x6FE44C6D,
+                                      0x7FE2238A, 0xD0DD047B, 0xEA7BA666, 0xEC414B76, 0x12345678};
+    auto run = [&](bool original) {
+        g_trace.clear();
+        g_values.clear();
+        g_elements.clear();
+        UseFakePools();
+        std::vector<uint32_t> trace;
+        Originals guard(original, {0x004E96D0, 0x004EB260, 0x004E9BC0, 0x004E98F0, 0x004E9D60, 0x004E9E00,
+                                   0x004EA850, 0x004EB6B0});
+        uint32_t out = reinterpret_cast<uint32_t>(Token(6));
+        uint32_t in = reinterpret_cast<uint32_t>(Token(0));
+        for (uint32_t round = 0; round < 88; ++round) {
+            FillGoal(g_goal, 0x4000 + round);
+            SetTexts(round);
+            uint32_t type = kTypes[round % 11];
+            g_goal.m_type = type;
+            g_goal.m_numKeyComboSets = round % 7 == 0 ? 0 : static_cast<int>(round % 4) + 1;
+            for (int i = 0; i < 10; ++i)
+                g_goal.m_keyComboSets[i] = {static_cast<uint8_t>((i + round) % 4), static_cast<uint8_t>(i & 1),
+                                            static_cast<uint8_t>(i % 3), static_cast<uint8_t>((i + round) % 3)};
+            g_goal.m_spin = round % 5 ? 0 : 540;
+            g_goal.m_singleCombo = round % 2 != 0;
+            g_goal.m_racePerCheckpointTime = static_cast<int>((round / 11) % 3) - 1;
+            g_goal.m_numGaps = static_cast<uint8_t>((round / 11) % 3 * 2);
+            g_goal.m_numPoints = static_cast<uint8_t>(round % 5 + (round % 11 == 2 ? 2 : 0));
+            g_goal.m_won = round % 4 < 2;
+            // The global key combos: four sets, each with an array of checksums or structures.
+            g_arrays[0].m_size = 4;
+            g_arrays[1].m_type = static_cast<Script::ESymbolType>(13);
+            g_arrays[1].m_size = 3;
+            g_arrays[2].m_type = static_cast<Script::ESymbolType>(10);
+            g_arrays[2].m_size = 2 + round % 2;
+            for (uint32_t i = 0; i < 4; ++i) {
+                uint32_t set = reinterpret_cast<uint32_t>(Token(1 + i));
+                g_elements[{reinterpret_cast<uint32_t>(&g_arrays[0]), i}] = set;
+                g_values[{set, 0x79704516}] = 1 + (i + round) % 2;
+            }
+            int forGoalManager = static_cast<int>((round / 6) % 3); // (2: as 0)
+            switch (round % 6) {
+            case 0:
+            case 3:
+                Fn<void(__thiscall*)(CEditedGoal*, uint32_t, int)>(original, 0x004E9E00)(&g_goal, out, forGoalManager);
+                break;
+            case 1:
+                Fn<void(__thiscall*)(CEditedGoal*, uint32_t)>(original, 0x004EB260)(&g_goal, out);
+                break;
+            case 2:
+                Fn<void(__thiscall*)(CEditedGoal*, uint32_t)>(original, 0x004EA850)(&g_goal, out);
+                break;
+            case 4:
+                Fn<void(__thiscall*)(CEditedGoal*, uint32_t, int)>(original, 0x004E9D60)(&g_goal, out, forGoalManager);
+                Fn<void(__thiscall*)(CEditedGoal*, uint32_t)>(original, 0x004E9BC0)(&g_goal, out);
+                break;
+            default:
+                Fn<void(__thiscall*)(CEditedGoal*, uint32_t)>(original, 0x004E98F0)(&g_goal, out);
+                Fn<void(__thiscall*)(CEditedGoal*, uint32_t)>(original, 0x004EB6B0)(&g_goal, round & 8 ? 1 : 0x100);
+                break;
+            }
+            if (type == 0x25904450) // (the race: every time limit for the goal manager)
+                Fn<void(__thiscall*)(CEditedGoal*, uint32_t, int)>(original, 0x004E9E00)(&g_goal, out, 1);
+            DumpGoal(trace);
+            // Reading back: values there or not.
+            g_values.clear();
+            if (round % 4) {
+                g_values[{in, 0x651533EC}] = round % 8 == 1 ? 0xB664035D : 0x10203040 + round;
+                g_values[{in, 0x60CE75AE}] = round % 10;
+                g_values[{in, 0x6D11ED74}] = kTypes[(round * 3) % 11];
+                g_values[{in, 0xCD66C8AE}] = 1234;
+                g_values[{in, 0x4BC5229D}] = 1;
+                g_values[{in, 0x0C5D7E6B}] = 2;
+                g_values[{in, 0xB9426608}] = 3;
+                g_values[{in, 0x32DF12E0}] = 1;
+            }
+            if (round % 3)
+                g_values[{in, 0xC51BF6E3}] = 300;
+            if (round % 5)
+                g_values[{in, 0x81CFF663}] = 0xABCD;
+            if (round % 6 != 1)
+                g_values[{in, 0x5DE57284}] = round % 4;
+            g_arrays[1].m_size = round % 6;
+            for (uint32_t i = 0; i < 6; ++i) {
+                uint32_t point = reinterpret_cast<uint32_t>(Token(8 + i % 4));
+                g_elements[{reinterpret_cast<uint32_t>(&g_arrays[1]), i}] = point;
+                if ((i + round) % 3)
+                    g_values[{point, 0x7F261953}] = 10 * i + round;
+                if ((i + round) % 4)
+                    g_values[{point, 0x0AB21AF0}] = Bits(0.5f * i);
+                g_values[{point, 0xFF7EBAF6}] = Bits(-1.0f * i);
+            }
+            Fn<void(__thiscall*)(CEditedGoal*, uint32_t)>(original, 0x004E96D0)(&g_goal, in);
+            DumpGoal(trace);
+            g_values.clear();
+            g_elements.clear();
+        }
+        trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, "goal editor: an edited goal to and from structures");
+    g_relocate = nullptr;
+    delete &s;
+}
+
+// The points on the ground (hit at once, from higher up, not at all) and placed back a step.
+void TestEditedGoalGround()
+{
+    std::unique_ptr<GameMemory> memory(IoMemory());
+    StandIns& s = *new StandIns();
+    StandInGoalWorld(s);
+    StandInGoalIo(s);
+    UseGoalRelocation();
+    auto run = [&](bool original) {
+        g_trace.clear();
+        g_values.clear();
+        UseFakePools();
+        g_globalFloats = {{0x71B20276, 20.0f}, {0x3F6E9739, 6.5f}};
+        GameVariable<uint8_t*>(0x007CE478) = g_skate;
+        *reinterpret_cast<uint32_t*>(g_skate + 0x378) = 0x11111111;
+        std::vector<uint32_t> trace;
+        Originals guard(original, {0x004E93D0, 0x004E9590, 0x004EB550});
+        for (uint32_t round = 0; round < 40; ++round) {
+            FillGoal(g_goal, 0x5000 + round);
+            g_hit = 0x96A5C3E1u ^ (round * 0x01010101u);
+            g_goal.m_numPoints = static_cast<uint8_t>(round % 5);
+            g_goal.m_goalIndex = static_cast<int>(round);
+            for (int i = 0; i < 13; ++i)
+                g_goal.m_points[i].pos.w = 0.5f * static_cast<float>(i + round);
+            Fn<void(__thiscall*)(CEditedGoal*, int)>(original, 0x004E93D0)(&g_goal, static_cast<int>(round % 13));
+            Fn<void(__thiscall*)(CEditedGoal*)>(original, 0x004E9590)(&g_goal);
+            g_goal.m_currentPoint = static_cast<uint8_t>(round % 4);
+            g_goal.m_numPoints = static_cast<uint8_t>(round % 3 + (round & 4 ? 1 : 0));
+            for (int k = 0; k < 3; ++k) {
+                Mth::Vector at = {static_cast<float>(round * 40 + k * 300), 0.0f, 0.0f, 1.0f};
+                trace.push_back(Fn<bool(__thiscall*)(CEditedGoal*, const Mth::Vector&, float, float)>(original,
+                                                                                                     0x004EB550)(
+                    &g_goal, at, 2.0f * k, 0.25f * k));
+            }
+            DumpGoal(trace);
+        }
+        trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, "goal editor: an edited goal's points on the ground");
+    g_relocate = nullptr;
+    g_globalFloats.clear();
+    g_hit = 1;
+    delete &s;
+}
+
 } // namespace
 
+SELFTEST(Early, TestEditedGoalStructures, RemoveStandIns);
+SELFTEST(Early, TestEditedGoalGround, RemoveStandIns);
 SELFTEST(Early, TestEditedGoalLists, RemoveStandIns);
 SELFTEST(Early, TestEditedGoalPoints, RemoveStandIns);
 SELFTEST(Early, TestEditedGoalParams, RemoveStandIns);

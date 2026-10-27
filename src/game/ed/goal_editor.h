@@ -96,6 +96,36 @@ public:
     // 0x004E7590: the type's own settings from the parameters (SetGoalSpecificParams).
     void ReadSpecificParams(Script::CStruct* params);
 
+    // 0x004E93D0: point `index` dropped onto what's below it (a line from 10000 above to 10000 below; missed, from
+    // 20000 above), if anything.
+    void DropPointToGround(int index);
+    // 0x004E9590: every set point dropped to the ground and its object made there (the script 0x79582240 with its
+    // node's Name - none for the start - and Pos).
+    void PlacePointsOnGround();
+    // 0x004EB550: the current point (not the pro's) placed again at `pos` (false if it can't go there), and the
+    // point before it current; back at the first, the script 0xD066A889 run with 0x7F1538E0.
+    bool PlacePointAndStepBack(const Mth::Vector& pos, float height, float angle);
+
+    // 0x004E96D0: the goal from a structure (GetEditedGoalsInfo's entries, the CreatedGoals save): its defaults, then
+    // level, number, type, score, time, control, texts, points and the type's settings. Marked used, not won.
+    void ReadFromStructure(Script::CStruct* params);
+    // 0x004EB260: the goal into a structure (ReadFromStructure's names).
+    void WriteIntoStructure(Script::CStruct* out);
+    // 0x004E9BC0: the key combo sets as the array 0x0490F171 (none: nothing).
+    void WriteKeyComboSets(Script::CStruct* out);
+    // 0x004E98F0: the key combo sets as the goal manager wants them: every key combo of each set (from the global
+    // array 0xDF1451EB) with the set's taps, perfect flag and the goal's spin - no sets: emergency_key_combos.
+    void WriteGoalKeyCombos(Script::CStruct* out);
+    // 0x004E9D60: a trick goal's settings; `forGoalManager` (1): the key combos for the goal manager.
+    void WriteTrickSettings(Script::CStruct* out, int forGoalManager);
+    // 0x004E9E00: the type's own settings; `forGoalManager` (1): as the goal manager wants them.
+    void WriteSpecificParams(Script::CStruct* out, int forGoalManager);
+    // 0x004EA850: the goal manager's parameters for the goal: the type's structures, its nodes (pro, restart,
+    // letters / checkpoints), its settings, texts, win message, id CreatedGoal<n>, time and control.
+    void WriteGoalManagerParams(Script::CStruct* out);
+    // 0x004EB6B0: the goal added to the goal manager as CreatedGoal<n> (seen; won again unless `unwin`).
+    void AddToGoalManager(bool unwin);
+
     uint32_t m_level;                // +0x000 the level's load script
     char m_name[0x32];               // +0x004 view_goals_text
     char m_pedName[0x15];            // +0x036

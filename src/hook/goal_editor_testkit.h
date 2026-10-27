@@ -16,6 +16,10 @@
 #include "game/ed/goal_editor.h"
 #include "game/ed/goal_editor_util.h"
 #include "game/ed/park_editor.h"
+#include "game/core/pool.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/nx/feeler.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -215,6 +219,150 @@ inline void StandInGoalWorld(StandIns& s)
         reinterpret_cast<Ed::CEditedGoal*>(r.ecx)->m_level = 0x1A17;
         return 0u;
     });
+}
+
+// Allocations (the structure and array pools' items): static blocks handed out in order, the same in both runs.
+inline uint8_t g_blocks[512][16];
+inline uint32_t g_nextBlock = 0;
+inline uint8_t g_fakePool[16];
+inline uint32_t g_hit = 1;                   // the feeler's answers, a bit per call
+inline uint32_t g_feelerCalls = 0;
+inline uint8_t g_goalObject[0x70];           // a stand-in Game::CGoal (its vtable below)
+inline void* g_goalVtable[40];
+inline uint8_t g_goalManager[16];
+
+// The stand-ins for the goals' structure / array building, the feeler and the goal manager.
+inline void StandInGoalIo(StandIns& s)
+{
+    using Script::CArray;
+    using Script::CStruct;
+    s.At({0x005BA3D0, AddressOf(&Mem::Pool::Allocate)}, 0, [](Regs& r) {
+        Record({0xA3D0, r.ecx == reinterpret_cast<uint32_t>(g_fakePool) ? 1u : r.ecx});
+        uint8_t* block = g_blocks[g_nextBlock++ % 512];
+        std::memset(block, 0xCD, 16);
+        return reinterpret_cast<uint32_t>(block);
+    });
+    s.At({0x005BA3B0, AddressOf(&Mem::Pool::Contains)}, 4, [](Regs& r) {
+        Record({0xA3B0, r.args[0]});
+        return 1u;
+    });
+    s.At({0x005BA400, AddressOf(&Mem::Pool::Free)}, 4, [](Regs& r) {
+        Record({0xA400, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0046CAA0, AddressOf(&CArray::Init)}, 0, [](Regs& r) {
+        Record({0xCAA0, r.ecx});
+        std::memset(reinterpret_cast<void*>(r.ecx), 0, 12);
+        return r.ecx;
+    });
+    s.At({0x0046CC50, AddressOf(&CArray::SetSizeAndType)}, 8, [](Regs& r) {
+        Record({0xCC50, r.ecx, r.args[0], r.args[1] & 0xFF});
+        reinterpret_cast<CArray*>(r.ecx)->m_size = r.args[0];
+        return 0u;
+    });
+    s.At({0x0046CB10, AddressOf(&CArray::SetElement)}, 8, [](Regs& r) {
+        Record({0xCB10, r.ecx, r.args[0], Rel(r.args[1])});
+        return 0u;
+    });
+    s.At({0x00476FB0,
+          AddressOf(static_cast<bool (CStruct::*)(uint32_t, Script::VectorValue*, int)>(&CStruct::GetVector))},
+         12, [](Regs& r) {
+             Record({0x6FB0, Rel(r.ecx), r.args[0], Rel(r.args[1]), r.args[2]});
+             uint32_t value;
+             if (!Lookup(r.ecx, r.args[0], value))
+                 return 0u;
+             auto* out = reinterpret_cast<float*>(r.args[1]);
+             out[0] = static_cast<float>(value);
+             out[1] = 2.5f;
+             out[2] = -static_cast<float>(value);
+             return 1u;
+         });
+    s.At({0x00479070, AddressOf(static_cast<CArray* (*)(uint32_t)>(Script::GetArray))}, 0, [](Regs& r) {
+        Record({0x9070, r.args[0]});
+        return reinterpret_cast<uint32_t>(&g_arrays[r.args[0] == 0x8070C110 ? 3 : 0]);
+    });
+    s.At({0x00478FD0, AddressOf(static_cast<const char* (*)(uint32_t)>(Script::GetString))}, 0, [](Regs& r) {
+        Record({0x8FD0, r.args[0]});
+        return reinterpret_cast<uint32_t>(r.args[0] == 0x3693BFE4 ? "combo %d!" : "score %d points");
+    });
+    s.At({0x00478A60, AddressOf(Script::CopyArray)}, 0, [](Regs& r) {
+        Record({0x8A60, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x004E6890}, 0, [](Regs& r) {
+        Record({0x6890, r.eax});
+        return reinterpret_cast<uint32_t>(Token(13));
+    });
+    s.At({AddressOf(Ed::GoalTypeDefaults)}, 0, [](Regs& r) {
+        Record({0x6890, r.args[0]});
+        return reinterpret_cast<uint32_t>(Token(13));
+    });
+    s.At({0x004E6730, AddressOf(Ed::EditedGoalNodeName)}, 0, [](Regs& r) {
+        Record({0x6730, r.ecx, r.edx});
+        return r.ecx * 0x100 + r.edx;
+    });
+    s.At({0x00417760, AddressOf(static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct))}, 0,
+         [](Regs& r) {
+             Record({0x7760, Rel(r.ecx)});
+             std::memset(reinterpret_cast<void*>(r.ecx), 0, 0xB0);
+             return r.ecx;
+         });
+    s.At({0x00417190, AddressOf(&Nx::CFeeler::SetStart)}, 4, [](Regs& r) {
+        const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
+        Record({0x7190, Rel(r.ecx), v[0], v[1], v[2], v[3]});
+        return 0u;
+    });
+    s.At({0x004171B0, AddressOf(&Nx::CFeeler::SetEnd)}, 4, [](Regs& r) {
+        const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
+        Record({0x71B0, Rel(r.ecx), v[0], v[1], v[2], v[3]});
+        return 0u;
+    });
+    s.At({0x004172F0, AddressOf(&Nx::CFeeler::GetCollision)}, 8, [](Regs& r) {
+        Record({0x72F0, Rel(r.ecx), r.args[0] & 0xFF, r.args[1] & 0xFF});
+        uint32_t hit = (g_hit >> (g_feelerCalls++ % 32)) & 1;
+        if (hit) {
+            auto* point = reinterpret_cast<float*>(r.ecx + 0x78);
+            point[0] = 1.5f * g_feelerCalls;
+            point[1] = -3.0f;
+            point[2] = 7.25f;
+            point[3] = 1.0f;
+        }
+        return hit;
+    });
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) {
+        Record({0x91B0});
+        return reinterpret_cast<uint32_t>(g_goalManager);
+    });
+    s.At({0x0055BA10, AddressOf(&Game::CGoalManager::AddGoal)}, 8, [](Regs& r) {
+        Record({0xBA10, r.ecx, r.args[0], Rel(r.args[1])});
+        return 1u;
+    });
+    s.At({0x00557F90, AddressOf(&Game::CGoalManager::GetGoal)}, 8, [](Regs& r) {
+        Record({0x7F90, r.ecx, r.args[0], r.args[1]});
+        return reinterpret_cast<uint32_t>(g_goalObject);
+    });
+    s.At({0x00554430, AddressOf(&Game::CGoal::SetHasSeen)}, 0, [](Regs& r) {
+        Record({0x4430, r.ecx});
+        return 0u;
+    });
+    void* markWon = s.Thunk(0, [](Regs& r) {
+        Record({0x55E0, r.ecx});
+        return 0u;
+    });
+    for (void*& slot : g_goalVtable)
+        slot = markWon;
+    *reinterpret_cast<void***>(g_goalObject) = g_goalVtable;
+}
+
+// The pools' current items come from the stand-in allocator (their pools are a token).
+inline void UseFakePools()
+{
+    g_nextBlock = 0;
+    g_feelerCalls = 0;
+    GameVariable<int>(0x006F3614) = 0;
+    GameVariable<void*>(0x006F361C) = g_fakePool;
+    GameVariable<int>(0x006F22B4) = 0;
+    GameVariable<void*>(0x006F22BC) = g_fakePool;
 }
 
 // A deterministic fill of a goal: every byte from the seed, then the counts kept in range.
