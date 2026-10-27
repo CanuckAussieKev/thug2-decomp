@@ -4,7 +4,6 @@
 #include <cstring>
 
 #include "game/core/mem.h"
-#include "game/front/menu_backdrop.h"
 #include "game/gfx/graphics_options.h"
 #include "game/gfx/screen.h"
 #include "game/script/struct.h"
@@ -157,21 +156,12 @@ void Camera::StoreOldPos()
 void Camera::SetPos(const Mth::Vector& pos)
 {
     std::memcpy(&m_pos, &pos, sizeof(m_pos)); // (copied as words)
-    // Not original - the menu_backdrop feature (see menu_backdrop.h): the front end's camera held at the THPS4 shop
-    // view.
-    // Original behaviour: the position is kept as given; with menu_backdrop the viewport's camera, while a menu camera
-    // plays, is put back at the THPS4 skate shop view.
-    Front::MenuBackdrop::HoldCamera(this);
 }
 
 // 0x00485A90
 Mth::Matrix& Camera::SetMatrix(const Mth::Matrix& matrix)
 {
     m_matrix = matrix;
-    // Not original - the menu_backdrop feature.
-    // Original behaviour: the matrix is kept as given; with menu_backdrop the viewport's camera, while a menu camera
-    // plays, is turned back to the THPS4 skate shop view.
-    Front::MenuBackdrop::HoldCamera(this);
     return m_matrix;
 }
 
@@ -187,10 +177,6 @@ void Camera::SetHFOV(float degrees)
 {
     m_hFov = degrees;
     UpdateAdjustedHFOV();
-    // Not original - the menu_backdrop feature.
-    // Original behaviour: the angle is kept as given; with menu_backdrop the viewport's camera, while a menu camera
-    // plays, gets the held view's default angle back.
-    Front::MenuBackdrop::HoldCamera(this);
 }
 
 } // namespace Gfx

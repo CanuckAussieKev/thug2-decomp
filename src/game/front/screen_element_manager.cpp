@@ -6,6 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/new_frontend.h"
 #include "game/front/text_element.h"
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
@@ -341,6 +342,10 @@ void CScreenElementManager::Update()
 {
     if (!mp_root)
         return;
+    // Not original - the new front end (game/front/new_frontend.h): the original's elements hidden or shown for this
+    // frame before they are laid out - a menu restyled by ours is never drawn as the game made it, not even a frame.
+    // Original behaviour: the tree laid out as the scripts left it.
+    Front::NewFrontend::BeforeScreenLayout();
     LockTree(1);
     mp_root->UpdateLayout();
     LockTree(0);

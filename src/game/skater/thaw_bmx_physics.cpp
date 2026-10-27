@@ -601,8 +601,6 @@ void EndFrame(void* core)
     }
     // (phase 4, thaw_bmx_tricks.cpp: THAW 0x00620940 - the manual's pose from its angle)
     ManualPose(core);
-    // (phase 7, ours: THUG2's manual meter for the bike's manual)
-    ManualMeter(core);
     // THAW 0x005C9380: the x-up held with circle - in the air, or in a manual (not a nose manual); let go: out of it.
     BikeState& state = *StateOf(core, true);
     if (!state.xup)

@@ -15,6 +15,7 @@
 #include "game/front/level_editor.h"
 #include "game/gfx/screen.h"
 #include "game/gfx/shadow.h"
+#include "game/gfx/texture_cfuncs.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
@@ -119,6 +120,17 @@ bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*)
     return Enabled() && Script::ScriptExists(Checksum(kToggleScript));
 }
 
+// ThawBmx_LoadTexture "<folder/name>": LoadTexture unless the texture is loaded already (THAW's bike manual meter
+// script, create_bike_manual_meter, loads its converted pictures with it each time a manual starts - THAW has them
+// loaded from start-up). True when the texture is there.
+bool __cdecl CFunc_LoadTexture(Script::CStruct* params, Script::CScript* script)
+{
+    const char* file = nullptr;
+    if (!params->GetString(0u, &file, 0) || !file)
+        return false;
+    return CFuncs::TextureLoaded(file) || CFuncs::CFunc_LoadTexture(params, script);
+}
+
 int g_key = SDL_SCANCODE_F7;
 bool g_keyUp = true;
 
@@ -218,7 +230,6 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
         return 1;
     }
     if (name == kOff) { // 0x005C7630 (THAW clears only the flag; ours the bike's other states too)
-        ManualMeterOff(core);
         BikeState fresh;
         fresh.frontWheel = state.frontWheel;
         fresh.rearWheel = state.rearWheel;
@@ -283,6 +294,7 @@ void RegisterScriptFunctions()
 {
     static const Script::CFunctionEntry functions[] = {
         {"ThawBmx_Available", reinterpret_cast<void*>(&CFunc_Available)},
+        {"ThawBmx_LoadTexture", reinterpret_cast<void*>(&CFunc_LoadTexture)},
     };
     Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
     if (!Enabled())
@@ -304,7 +316,6 @@ void OnSkaterReset(Obj::CSkater* skater)
         return;
     // The bike (a special item) is gone: off it.
     Log("thaw_bmx: skater reset on the bike - off it");
-    ManualMeterOff(skater->m_corePhysics);
     *state = BikeState{};
     RunIfThere(kAfterResetScript, skater);
 }
