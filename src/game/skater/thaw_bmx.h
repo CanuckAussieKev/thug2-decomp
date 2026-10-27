@@ -328,6 +328,10 @@ float SettleAirPitch(float pitch);
 // THAW 0x005CF460: BikeGrindTrickList's row for the stick's y (-128 up .. 127 down): 0 centred, 1 / 2 a little /
 // far up, 3 / 4 a little / far down.
 int GrindRow(float stickY);
+// NOT ORIGINAL (ours): the stick's y GrindRow is given with the d-pad (or keys) - the stick centred: THAW's own reach
+// is full up / down only, so Smith and Feeble (a little up / down) could never be had; here up or down with left or
+// right (a diagonal) is half way. The analogue stick's y as it is.
+float GrindStickY(float rawY, bool up, bool down, bool side);
 // ... and the column (bit 0 the side, bit 1 sideways) and whether it's an over-grind.
 int GrindColumn(bool leftSide, bool sideways, bool backwards, bool* overGrind);
 // Phase 6. THAW 0x005CAA60: `since` ms after the last vert ground, with Skater_Vert_Max_Speed_Time `window` - `*raise`:

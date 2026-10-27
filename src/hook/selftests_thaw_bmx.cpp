@@ -284,6 +284,14 @@ void TestThawBmxAirAndGrind()
           "bmx 0x5CF460: up a little: 1 (Smith), far: 2 (Toothpick)");
     Check(GrindRow(1.5f) == 3 && GrindRow(124) == 3 && GrindRow(125) == 4 && GrindRow(127) == 4,
           "bmx 0x5CF460: down a little: 3 (Feeble), far: 4 (Icepick)");
+    using Bike::GrindStickY;
+    Check(GrindStickY(-60, false, true, true) == -60 && GrindStickY(127, true, false, false) == 127,
+          "bmx grind stick (ours): the analogue stick as it is");
+    Check(GrindRow(GrindStickY(0, true, false, false)) == 2 && GrindRow(GrindStickY(0, false, true, false)) == 4 &&
+              GrindRow(GrindStickY(0.5f, false, false, true)) == 0,
+          "bmx grind stick (ours): d-pad up / down: Toothpick / Icepick; a side alone: Double Peg");
+    Check(GrindRow(GrindStickY(0, true, false, true)) == 1 && GrindRow(GrindStickY(0, false, true, true)) == 3,
+          "bmx grind stick (ours): d-pad diagonals: Smith / Feeble");
     using Bike::GrindColumn;
     bool over = false;
     Check(GrindColumn(true, false, false, &over) == 1 && over, "bmx 0x5CF460: left side: column 1, over-grind");
