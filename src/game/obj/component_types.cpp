@@ -39,7 +39,7 @@ const ComponentType kComponentTypes[] = {
     {0x9B373E58, 0x00511280, 0x00000000}, // SkaterFinalizePhysics
     {0xD8CC3428, 0x004FBE20, 0x00000000}, // SkaterCleanupState
     {0xB1D5A3E1, 0x00510F90, 0x00000000}, // SkaterEndRun
-    {0x589E5FB3, 0x004F9170, 0x004F8CD0}, // SkaterBalanceTrick
+    {0x589E5FB3, 0x004F9170, 0x004F8CD0}, // SkaterBalanceTrick (balance_trick.h)
     {0x488AF07A, 0x00511470, 0x00000000}, // SkaterFlipAndRotate
     {0x43686585, 0x00519740, 0x00519430}, // SkaterState
     {0x81F01058, 0x004EB7F0, 0x004E6FB0},
@@ -98,7 +98,7 @@ const ComponentType kComponentTypes[] = {
     {0xCDC76A22, 0x0041B3C0, 0x0041B280},
     {0xB87C8E43, 0x0041ADC0, 0x00000000},
     {0x3618B878, 0x004F3550, 0x00000000},
-    {0x7E747547, 0x004F3890, 0x00000000},
+    {0x7E747547, 0x004F3890, 0x00000000}, // (the projectile component)
     {0x03AC8065, 0x0043D930, 0x00000000},
     {0xD8BFC9F7, 0x0041D0F0, 0x00000000},
     {0x208353AC, 0x0041CB20, 0x00000000},

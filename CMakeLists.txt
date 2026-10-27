@@ -203,6 +203,13 @@ add_library(thug2_code OBJECT
     src/hook/selftests_thaw_bmx.cpp
     src/hook/selftests_thaw_bmx_parked.cpp
     src/hook/selftests_skater_adjust.cpp
+    src/hook/selftests_skater_adjust_frame.cpp
+    src/hook/selftests_balance_trick.cpp
+    src/hook/selftests_skater_camera_modes.cpp
+    src/hook/selftests_projectile.cpp
+    src/hook/selftests_rail_editor.cpp
+    src/hook/selftests_rail_editor_draw.cpp
+    src/hook/selftests_rail_editor_script.cpp
     src/hook/selftests_obj_small_components.cpp
     src/hook/selftests_obj_vehicle_sound.cpp
     src/hook/selftests_obj_vehicle.cpp
@@ -546,6 +553,9 @@ add_library(thug2_code OBJECT
     src/game/ed/park_manager.cpp
     src/game/ed/park_map.cpp
     src/game/ed/park_rails.cpp
+    src/game/ed/rail_editor.cpp
+    src/game/ed/rail_editor_draw.cpp
+    src/game/ed/rail_editor_script.cpp
     src/game/ed/clipboard.cpp
     src/game/ed/gap_slots.cpp
     src/game/ed/piece_menu.cpp
@@ -704,6 +714,9 @@ add_library(thug2_code OBJECT
     src/game/skater/walk_movement.cpp
     src/game/skater/walk_collision.cpp
     src/game/skater/adjust_physics.cpp
+    src/game/skater/adjust_physics_component.cpp
+    src/game/skater/balance_trick.cpp
+    src/game/skater/skater_camera_modes.cpp
     src/game/skater/trick_queue.cpp
     src/game/skater/trick_member_functions.cpp
     src/game/obj/movie_manager.cpp
@@ -954,6 +967,7 @@ add_library(thug2_code OBJECT
     src/game/obj/smtptr.cpp
     src/game/obj/tracker.cpp
     src/game/obj/trigger_component.cpp
+    src/game/obj/projectile_component.cpp
     src/game/obj/display_matrix_component.cpp
     src/game/obj/static_vehicle.cpp
     src/game/obj/vehicle_wheel.cpp
