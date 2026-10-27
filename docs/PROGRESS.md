@@ -2,7 +2,7 @@
 
 Generated 2026-10-28 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: ██████████████████░░ 91.4%** of the code rewritten (7,275 of 8,316 functions, 1,470.4 KB of 1,609.6 KB).
+**Game code: ██████████████████░░ 91.4%** of the code rewritten (7,444 of 8,482 functions, 1,482.4 KB of 1,621.4 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -21,7 +21,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ████████████████████ 100% | 228 / 228 | 52.5 KB / 52.5 KB |
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | ████████████████████ 100% | 475 / 475 | 113.7 KB / 113.7 KB |
 | Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ████████████████████ 100% | 202 / 202 | 59.5 KB / 59.5 KB |
-| Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ███████████████████░ 99% | 338 / 341 | 85.5 KB / 85.7 KB |
+| Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ████████████████████ 100% | 507 / 507 | 97.5 KB / 97.5 KB |
 | Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | ████████████████████ 100% | 543 / 543 | 186.9 KB / 186.9 KB |
 | Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ████████████████████ 100% | 455 / 455 | 91.9 KB / 91.9 KB |
 | Menu input mapping | `0x54ef60`-`0x550040` | ████████████████████ 100% | 20 / 20 | 4.0 KB / 4.0 KB |

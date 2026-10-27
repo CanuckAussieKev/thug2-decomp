@@ -38,7 +38,7 @@ so the source stays a trustworthy base. On top of that base:
 
 ## Status
 
-The decompilation isn't finished: about 86% of the game's code (by bytes) is rewritten - 6,939 of 8,316 functions
+The decompilation isn't finished: about 91% of the game's code (by bytes) is rewritten - 7,444 of 8,482 functions
 (`docs/PROGRESS.md` has the figure by subsystem). Until it is, development builds run as a DLL inside the game process: each rewritten function
 replaces the original and is checked against it by self-tests, and everything not yet rewritten still runs the
 original code, so the game stays playable at every step. Those builds are tied to the one build of `THUG2.exe` the
