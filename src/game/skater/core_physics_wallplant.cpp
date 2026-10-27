@@ -154,7 +154,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
         if (!checkOnly && !(At<uint16_t>(this, kHitFlags) & 8) && std::fabs(VectorAt(this, kHitNormal).y) > kMaxTilt01 &&
             !late)
             return false;
-        // A wall plant trick pressed? (Not original: THAW 0x005DB35D - on the bike square held plants without asking
+        // A wall plant trick pressed? (Not original: THAW 0x005DB1ED - on the bike square held plants without asking
         // the list, and the list is the bike's, bike_Wallplant_Trick.)
         bool bike = ThawBmx::Active(this);
         Script::CArray* tricks = Script::GetArray(bike ? ThawBmx::WallplantTrickList() : kWallplantTrick);
@@ -257,7 +257,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
     }
     if (VectorAt(ObjectOf(this), kVelocity).y > 0.0f && InputOf(this)[0x1A0] && !WallAboveHit(this))
         return false;
-    // (not original: THAW 0x005DBD0E - no sticker slap on the bike)
+    // (not original: THAW 0x005DBB9E - no sticker slap on the bike)
     if (!ThawBmx::Active(this))
         static_cast<Obj::CTaggingControlComponent*>(At<void*>(this, 0x1538))->SlapSticker(false, walking, late);
     VectorAt(ObjectOf(this), kVelocity).y = 0.0f;
@@ -337,7 +337,7 @@ bool CorePhysicsComponent::StartWallRide()
 {
     if (At<uint8_t>(this, kDriving) || !At<uint8_t>(this, kHitWall))
         return false;
-    // (not original: THAW 0x005D711F - on the bike square held starts one too)
+    // (not original: THAW 0x005D6FAF - on the bike square held starts one too)
     if (!ButtonPressed(this, kTriangle) && !(ThawBmx::Active(this) && ThawBmx::WallrideButton(this)))
         return false;
     // Not again within Wall_Ride_Delay of the last ride or plant.

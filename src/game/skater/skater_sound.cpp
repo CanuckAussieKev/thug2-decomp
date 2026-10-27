@@ -41,7 +41,7 @@ void PlayTerrainSound(uint32_t table, int terrain, const Mth::Vector* pos, float
 bool OnGroundOrInAir(int state) { return state == kStateGround || state == kStateAir; }
 
 // Not original: THAW's BMX (game/skater/thaw_bmx.h) - on the bike its own sound for `kind` instead of the terrain's
-// (THAW 0x005F1A9B / 0x005F1B30 / 0x005F1BD0: BIKE_LAND, BIKE_GRINDLAND, BIKE_OLLIE, BIKE_GRINDJUMP, BIKE_BONK).
+// (THAW 0x005F197B / 0x005F1A10 / 0x005F1AB0: BIKE_LAND, BIKE_GRINDLAND, BIKE_OLLIE, BIKE_GRINDJUMP, BIKE_BONK).
 // Whether it was the bike's (played, or none).
 bool PlayBikeSound(CCompositeObject* skater, Skater::ThawBmx::BikeSound kind, float volume, float percent)
 {

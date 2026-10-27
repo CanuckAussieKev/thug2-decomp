@@ -236,7 +236,7 @@ Script::CStruct* __cdecl GetPhysicsStructure(CCompositeObject* skater)
         return Script::GetStructure(kSkaterPhysics);
     auto* core = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterCorePhysics));
     // Not original - on THAW's bike, THAW's bicycle_physics (thaw_bicycle_physics: game/skater/thaw_bmx.h), as
-    // THAW's own GetPhysicsStructure (0x0058EED0) picks it.
+    // THAW's own GetPhysicsStructure (0x0058ED90) picks it.
     // Original behaviour: the vehicle's, the chainsaw's or the skater's below.
     if (Skater::ThawBmx::Enabled()) {
         if (Script::CStruct* bike = Skater::ThawBmx::PhysicsStructure(core))

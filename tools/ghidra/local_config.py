@@ -1,6 +1,8 @@
 """NOT ORIGINAL - this machine's Ghidra project and program names, from the checkout's local.json (gitignored; README
 "Contributing"): ghidraProject (the project's name, default THUG2) and ghidraProgram (the program's path in it,
-default /THUG2.exe)."""
+default /THUG2.exe); for THAW's BMX work (tools/pipeline/thaw_bmx) thawReferenceExe (THAW's reference build, the exe
+its addresses are named after), thawGhidraProject (its Ghidra project's folder) and thawGhidraProgram (the program's name
+in it)."""
 import json
 import os
 
@@ -36,3 +38,6 @@ if os.path.exists(_LOCAL):
 GHIDRA_PROJECT = _config.get("ghidraProject", "THUG2")
 GHIDRA_PROGRAM = _config.get("ghidraProgram", "/THUG2.exe")
 REFERENCE_EXE = _config.get("referenceExe", "")
+THAW_REFERENCE_EXE = _config.get("thawReferenceExe", "")
+THAW_GHIDRA_PROJECT = _config.get("thawGhidraProject", "")
+THAW_GHIDRA_PROGRAM = _config.get("thawGhidraProgram", "")

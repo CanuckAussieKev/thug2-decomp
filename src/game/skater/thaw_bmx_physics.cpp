@@ -1,12 +1,11 @@
 // NOT ORIGINAL - THAW's BMX ridden in THUG2, phase 3: THAW's bike branches in the skater's core physics
 // (game/skater/thaw_bmx.h). Our addition at the user's request - not THUG2's code and not PartyMod's.
 //
-// Each function here is THAW.exe's bike branch (read from THAW's own code - the first .text, 0x401000-0x68E000;
-// the obfuscated sites inside them inferred from what's around them and from THUG2's counterpart, as noted)
-// re-expressed on THUG2's component layout: THAW's fields are at other offsets (its +0x9C frame length is THUG2's
-// +0x8C, its pad's first sixteen buttons are THUG2's, its timed flags are THUG2's shifted by 8 from +0x68 and by
-// 0x10 from +0xA8 ...). Our THUG2 functions call these only while Active(core) - the feature on and the skater on the
-// bike; otherwise nothing here runs.
+// Each function here is THAW's bike branch (read from THAW's reference build, game/skater/thaw_bmx.h) re-expressed
+// on THUG2's component layout: THAW's fields are at other offsets (its +0x9C frame length is THUG2's +0x8C, its pad's
+// first sixteen buttons are THUG2's, its timed flags are THUG2's shifted by 8 from +0x68 and by 0x10 from +0xA8 ...).
+// Our THUG2 functions call these only while Active(core) - the feature on and the skater on the bike; otherwise
+// nothing here runs.
 //
 // THAW's pad has buttons THUG2's hasn't: the movement stick's four directions as buttons (LEFTUP / LEFTDOWN / LEFTLEFT
 // / LEFTRIGHT, its pad +0x280 / +0x2A0 / +0x2C0 / +0x2E0, made by its input server from the stick: any way off the
@@ -157,33 +156,33 @@ constexpr const char* kStallSlipTime = "stall_slip_time";
 constexpr uint32_t kRailTolerance = 0xD0688D4E;       // Rail_Tolerance
 
 // THAW's constants.
-constexpr float kDegreesToRadians = 0.0174532924f; // 0x0068E474
-constexpr float kRadiansToDegrees = 57.2957764f;   // 0x0068E478
-constexpr float kLerpRate = 60.0f;                 // 0x0068FB7C (THUG2's 0x00645EA0)
-constexpr float kWheelBase = 2.0f * kWheelOffset;  // 0x0068E3A4 x 0x0069014C
-constexpr float kWheelFeelDown = -200.0f;          // 0x00694640
-constexpr float kCrease = 0.2f;                    // 0x00690574
-constexpr float kSlow = 10.0f;                     // 0x0068FFC4
-constexpr float kEndoSpeed = 300.0f;               // 0x00690664
-constexpr float kManualBalance = 50.0f;            // 0x006906C8 (ResetBikeManualAngle's)
-constexpr float kManualTop = 100.0f;               // 0x0068FBC0
-constexpr float kEndoExitSpeed = 100.0f;           // 0x0068FBC0
-constexpr float kEndoBack = 200.0f;                // 0x006A0D34
-constexpr float kJumpManualPitch = 0.7f;           // 0x006A0DF0 / 0x006A0DE8 (doubles)
-constexpr double kStickScale = 0.0078125;          // 0x006A0DC8 (1 / 128)
-constexpr float kSlowTurnRamp = 1.0f / 600.0f;     // 0x006A0DD0
+constexpr float kDegreesToRadians = 0.0174532924f; // 0x006DB474
+constexpr float kRadiansToDegrees = 57.2957764f;   // 0x006DB478
+constexpr float kLerpRate = 60.0f;                 // 0x006DCB7C (THUG2's 0x00645EA0)
+constexpr float kWheelBase = 2.0f * kWheelOffset;  // 0x006DB3A4 x 0x006DD14C
+constexpr float kWheelFeelDown = -200.0f;          // 0x006E15F8
+constexpr float kCrease = 0.2f;                    // 0x006DD574
+constexpr float kSlow = 10.0f;                     // 0x006DCFC4
+constexpr float kEndoSpeed = 300.0f;               // 0x006DD664
+constexpr float kManualBalance = 50.0f;            // 0x006DD6C8 (ResetBikeManualAngle's)
+constexpr float kManualTop = 100.0f;               // 0x006DCBC0
+constexpr float kEndoExitSpeed = 100.0f;           // 0x006DCBC0
+constexpr float kEndoBack = 200.0f;                // 0x006EDCF4
+constexpr float kJumpManualPitch = 0.7f;           // 0x006EDDB0 / 0x006EDDA8 (doubles)
+constexpr double kStickScale = 0.0078125;          // 0x006EDD88 (1 / 128)
+constexpr float kSlowTurnRamp = 1.0f / 600.0f;     // 0x006EDD90
 constexpr int kSlowTurnRampMs = 600;               // 0x258
-constexpr float kBackwardsLean = 0.0005f;          // 0x006A0DC0
-constexpr double kSteerBlendBase = 1.0;            // 2nd build 0x006DB3A8 (double)
-constexpr double kSteerBlendScale = 0.5;           // 2nd build 0x006E4DE8 (double)
+constexpr float kBackwardsLean = 0.0005f;          // 0x006EDD80
+constexpr double kSteerBlendBase = 1.0;            // THAW 0x006DB3A8 (double)
+constexpr double kSteerBlendScale = 0.5;           // THAW 0x006E4DE8 (double)
 constexpr float kSteerInTime = 0.4f;               // (bike_playturnanim's BlendPeriod: THAW's tree blends the turn in)
 constexpr float kSteerOutTime = 0.3f;              // (ours: THUG2's PlayAnim's blend, as the idle that follows plays)
 constexpr const char* kSteerSubset = "ThawBmxTurn"; // (ours: the anim subset the turn animation plays in)
 constexpr uint32_t kSubsetRemove = 0xAFC2493E;     // Obj_RemoveAnimSubset
 constexpr uint32_t kSubsetId = 0x5CFCCF35;         // SubsetId
 constexpr int kStateGround = 0;
-constexpr double kAcidDropBack = 0.1;              // 0x006A0DB0
-constexpr double kStallSteepUp = 0.95;             // 2nd build 0x006EDDC0 (the stall's rail too steep under this up y)
+constexpr double kAcidDropBack = 0.1;              // 0x006EDD70
+constexpr double kStallSteepUp = 0.95;             // THAW 0x006EDDC0 (the stall's rail too steep under this up y)
 constexpr int kStallSteepFrames = 10;              // (the frames of it before the stall turns into a grind)
 constexpr float kStallSlipTimeThaw = 130.0f;       // (THAW's stall_slip_time, physics.qb - while the overlay lacks it)
 constexpr uint32_t kStateChangeTime = 0x90;        // THAW +0xA0 (SetState 0x004FDED0 notes the time of a change)
@@ -256,8 +255,8 @@ float StickRaw(const void* core, int axis) { return ControlPad(core)->m_stick[2 
 // Its dead-banded value (THAW's pad +0x358 / +0x35C: THUG2's m_scaledStick[2] / [3], -1..1).
 float StickScaled(const void* core, int axis) { return ControlPad(core)->m_scaledStick[2 + axis]; }
 
-// THAW 0x005C8CA0 (its first instruction obfuscated: the pad's pointer loaded - the rest is plain): on the
-// bike a brake button held - L1 the front brake (+0x528 set), R1 the rear; the skater's is the d-pad's down.
+// THAW 0x005C8B30 (the input component's pad, +0x1910's +0x20): on the bike a brake button held - L1 the front brake
+// (+0x528 set), R1 the rear; the skater's is the d-pad's down.
 bool BrakeHeld(const void* core, BikeState& state)
 {
     uint8_t* pad = PadOf(core);
@@ -325,7 +324,7 @@ namespace Bike {
 
 int BrakeChoice(bool manual, bool nose, bool frontBrake, bool endo, bool balanceIsManual)
 {
-    // THAW 0x005CAE10: in a manual the brake on the wheel in the air does nothing (the rear one in a nose manual, the
+    // THAW 0x005CACA0: in a manual the brake on the wheel in the air does nothing (the rear one in a nose manual, the
     // front one in a manual).
     if (manual && ((nose && !frontBrake) || (!nose && frontBrake)))
         return 0;
@@ -453,7 +452,7 @@ bool JumpBoosts(const Mth::Vector& velocity, float stickY)
 
 float SettleAirPitch(float pitch)
 {
-    // THAW 0x005D7E20: the pitch's whole degrees round a turn (truncated, the sign kept), a tenth of the way back to
+    // THAW 0x005D7CB0: the pitch's whole degrees round a turn (truncated, the sign kept), a tenth of the way back to
     // the nearest upright each frame.
     float angle = static_cast<float>(static_cast<int>(pitch) % 360);
     if (angle == 0.0f)
@@ -475,7 +474,7 @@ int GrindRow(float stickY)
 
 int GrindColumn(bool leftSide, bool sideways, bool backwards, bool* overGrind)
 {
-    // THAW 0x005CF460 (with THAW's caller 0x005E2CA9: its third and fourth arguments are both the sideways flag).
+    // THAW 0x005CF2F0 (with THAW's caller 0x005E2B39: its third and fourth arguments are both the sideways flag).
     bool side = backwards ? !leftSide : leftSide;
     if (overGrind)
         *overGrind = side != sideways;
@@ -484,7 +483,7 @@ int GrindColumn(bool leftSide, bool sideways, bool backwards, bool* overGrind)
 
 bool VertWindow(float since, float window, bool* raise)
 {
-    // THAW 0x005CAA60: the vert max-max speed while the time since is under the window; the heavy friction only once
+    // THAW 0x005CA8F0: the vert max-max speed while the time since is under the window; the heavy friction only once
     // it's past it (THAW asks the clock again for the friction - the same frame's time).
     *raise = since < window;
     return window < since;
@@ -522,7 +521,7 @@ Mth::Vector WheelBaseUp(const Mth::Vector& right, const Mth::Vector& front, cons
 
 WheelFeelResult FeelWheelOn(const WheelFeel& in)
 {
-    // THAW 0x005D5060 (2nd build 0x005D4EF0).
+    // THAW 0x005D4EF0.
     WheelFeelResult out = {false, false, in.wheel, 1, 0.0f, 0.0f, 0.0f, 0.0f};
     // (THAW: the differences and `along` in SSE floats, the distance on the x87)
     float dx = in.wheel.x - in.point.x, dy = in.wheel.y - in.point.y, dz = in.wheel.z - in.point.z;
@@ -577,7 +576,7 @@ WheelFeelResult FeelWheelOn(const WheelFeel& in)
 
 bool StallAcross(const Mth::Vector& startVelocity, const Mth::Vector& direction, float tolerance)
 {
-    // 2nd build 0x005E2972: the velocity flattened (y 0) and normalised, its dot with the rail's direction (single
+    // THAW 0x005E2972: the velocity flattened (y 0) and normalised, its dot with the rail's direction (single
     // precision, z first) - across the rail when Rail_Tolerance is more than its size.
     Mth::Vector flat = startVelocity;
     flat.y = 0.0f;
@@ -588,7 +587,7 @@ bool StallAcross(const Mth::Vector& startVelocity, const Mth::Vector& direction,
 
 StallSlipStep StallSlip(uint32_t elapsed, float slipTime, const Mth::Vector& velocity, const Mth::Vector& kept)
 {
-    // 2nd build 0x005E7092: the time since the state changed (unsigned) against stall_slip_time; under it, the kept
+    // THAW 0x005E7092: the time since the state changed (unsigned) against stall_slip_time; under it, the kept
     // velocity x (1 / stall_slip_time) taken off - every component, w too.
     StallSlipStep out = {false, velocity};
     if (static_cast<double>(elapsed) > static_cast<double>(slipTime)) {
@@ -605,7 +604,7 @@ StallSlipStep StallSlip(uint32_t elapsed, float slipTime, const Mth::Vector& vel
 
 bool StallSteepStep(float upY, int* frames)
 {
-    // 2nd build 0x005E3821: the up's y (the ground normal, just set to it) under 0.95 (a double): the count goes up to
+    // THAW 0x005E3821: the up's y (the ground normal, just set to it) under 0.95 (a double): the count goes up to
     // 10; at 10 back to grinding, the count to 0. Never reset otherwise.
     if (!(static_cast<double>(upY) < kStallSteepUp))
         return false;
@@ -619,7 +618,7 @@ bool StallSteepStep(float upY, int* frames)
 
 Mth::Vector StallFacing(const Mth::Vector& facing, const Mth::Vector& direction)
 {
-    // 2nd build 0x005E354E: the facing's dot with the rail's direction (single precision, z first); not at least 0:
+    // THAW 0x005E354E: the facing's dot with the rail's direction (single precision, z first); not at least 0:
     // the direction the other way (w too).
     float dot = facing.z * direction.z + facing.y * direction.y + facing.x * direction.x;
     float sign = dot >= 0.0f ? 1.0f : -1.0f;
@@ -633,7 +632,7 @@ Mth::Vector StallFacing(const Mth::Vector& facing, const Mth::Vector& direction)
 void BeginFrame(void* core)
 {
     BikeState& state = *StateOf(core, true);
-    // THAW 0x005E87F4: the wheel points as the frame begins.
+    // THAW 0x005E8684: the wheel points as the frame begins.
     state.lastFrontWheel = state.frontWheel;
     state.lastRearWheel = state.rearWheel;
     // THAW's movement stick buttons (its pad's LEFTUP ...: thaw_bmx_sticks.cpp, from the stick alone).
@@ -664,11 +663,11 @@ void EndFrame(void* core)
                 s.rearWheel.x, s.rearWheel.y, s.rearWheel.z, s.manual ? 1 : 0);
         }
     }
-    // (phase 4, thaw_bmx_tricks.cpp: THAW 0x00620940 - the manual's pose from its angle)
+    // (phase 4, thaw_bmx_tricks.cpp: THAW 0x00620780 - the manual's pose from its angle)
     ManualPose(core);
     // (THAW's turn branch's share - its TurnBlend - on the turn animation's subset)
     SteerAnim(core);
-    // THAW 0x005C9380: the x-up held with circle - in the air, or in a manual (not a nose manual); let go: out of it.
+    // THAW 0x005C9210: the x-up held with circle - in the air, or in a manual (not a nose manual); let go: out of it.
     BikeState& state = *StateOf(core, true);
     if (!state.xup)
         return;
@@ -677,7 +676,8 @@ void EndFrame(void* core)
     if (PadOf(core)[kCircle])
         return;
     state.xup = false;
-    // (THAW spawns it through an obfuscated thunk with the script and four zeros; the skater runs it here.)
+    // (THAW spawns it on the skater and runs it at once - 0x004322D0, no parameters; here run at once, its body
+    // spawning itself.)
     RunBikeScript(core, kReleaseXupScript);
 }
 
@@ -761,8 +761,8 @@ void SteerAnim(void* core)
 void OnGround(void* core)
 {
     BikeState& state = *StateOf(core, true);
-    state.airPitch = 0.0f; // (THAW 0x005E4370: +0x66C)
-    state.tireTap = false; // (THAW 0x005E48C2)
+    state.airPitch = 0.0f; // (THAW 0x005E4200: +0x66C)
+    state.tireTap = false; // (THAW 0x005E4752)
 }
 
 bool GroundGravityApplies(void* core, const Mth::Vector& gravity)
@@ -839,7 +839,7 @@ void TurnOnGround(void* core)
     Obj::CControlPad* pad = ControlPad(core);
     float stickX = StickRaw(core, 0);
     int held = 0;
-    // (THAW 2nd build 0x005D6342: its pad +0x60 / +0x40 - the d-pad's right / left, not the stick's buttons; with the
+    // (THAW 0x005D6342: its pad +0x60 / +0x40 - the d-pad's right / left, not the stick's buttons; with the
     // stick off the d-pad on the bike, the time since the d-pad was last pressed, as THAW's)
     if (stickX != 0.0f)
         held = static_cast<int>(pad->m_right.m_pressed ? pad->m_right.GetPressedTime() : pad->m_left.GetPressedTime());
@@ -847,7 +847,7 @@ void TurnOnGround(void* core)
     float rate = Bike::GroundTurnRate(Speed(core), Stat(kMaxSpeedStat, core), PhysicsFloat(kGroundRotation, core),
                                       sharp, stickX != 0.0f && BrakeHeld(core, state), state.manual, stickX, held,
                                       MovingBackwards(core), At<float>(At<void*>(core, kBalance), 0x54));
-    // THAW 0x005D6360's +0x570 (2nd build 0x005D61F0): the turn animation's share, every frame on the ground.
+    // THAW 0x005D61F0's +0x570: the turn animation's share, every frame on the ground.
     state.steerBlend = Bike::SteerBlend(rate, sharp);
     {
         // ([debug] thaw_bmx_steer=1, ours: a line each ground frame - riding backwards and the turn's lean)
@@ -872,11 +872,11 @@ void TurnOnGround(void* core)
         TurnVelocity(VectorAt(object, kVelocity), step);
     At<Mth::Matrix>(object, kMatrix).RotateYLocal(step);
     At<Mth::Matrix>(core, kDisplayMatrix).RotateYLocal(step);
-    // THAW 0x005C9880: the wheel points along the new facing.
+    // THAW 0x005C9710: the wheel points along the new facing.
     SetWheelPoints(state, VectorAt(object, kPosition), VectorAt(object, kFacing));
-    // THAW 0x005D66E9 (2nd build 0x005D6579: the manual flag +0x525): in a manual the turn
+    // THAW 0x005D6579 (the manual flag +0x525): in a manual the turn
     // is the manual's spin - added to the trick's rotation and shown (THAW's 0x0056D060 with the air pitch: THUG2's
-    // rotation display, the spin only). Otherwise both wheels are felt for again at their new places (THAW 0x005D5060
+    // rotation display, the spin only). Otherwise both wheels are felt for again at their new places (THAW 0x005D4EF0
     // from the snap's feeler start to 200 below): either off the ground, the turn is undone (the skater's and the
     // display's matrices turned back - not the velocity - and the wheel points put back along the old facing).
     if (state.manual) {
@@ -971,7 +971,7 @@ void ManualPitch(void* core)
 
 void JumpBoost(void* core)
 {
-    // THAW 0x005DDF30: standing still (no horizontal speed at all) with the stick not pulled back: pushed along the
+    // THAW 0x005DDDC0: standing still (no horizontal speed at all) with the stick not pulled back: pushed along the
     // facing.
     void* object = ObjectOf(core);
     Mth::Vector& velocity = VectorAt(object, kVelocity);
@@ -987,7 +987,7 @@ void JumpBoost(void* core)
 
 void JumpPitch(void* core)
 {
-    // THAW 0x005DDF30: out of a manual, pitched by the manual's angle (0.7 of it; a nose manual the other way).
+    // THAW 0x005DDDC0: out of a manual, pitched by the manual's angle (0.7 of it; a nose manual the other way).
     BikeState& state = *StateOf(core, true);
     if (!state.manual)
         return;
@@ -1001,13 +1001,13 @@ void JumpPitch(void* core)
 
 void OnAir(void* core)
 {
-    // THAW 0x005DF9F0: no manual in the air.
+    // THAW 0x005DF880: no manual in the air.
     StateOf(core, true)->manual = false;
 }
 
 void AirWheelPoints(void* core)
 {
-    // THAW 0x005E05E6 (the on-bike flag; 2nd build 0x005E0476), after the display matrix
+    // THAW 0x005E0476 (the on-bike flag), after the display matrix
     // is the skater's again: the wheel points from the skater's position and facing.
     void* object = ObjectOf(core);
     SetWheelPoints(*StateOf(core, true), VectorAt(object, kPosition), VectorAt(object, kFacing));
@@ -1015,7 +1015,7 @@ void AirWheelPoints(void* core)
 
 void AirRotation(void* core)
 {
-    // THAW 0x005D7E20.
+    // THAW 0x005D7CB0.
     uint8_t* flags = FlagsOf(core);
     if (flags[kFlag70])
         return;
@@ -1066,7 +1066,7 @@ void AirRotation(void* core)
         if (rampRotate > held2F)
             spin = (held2F - noRotate) * spin / (rampRotate - noRotate);
     }
-    // The pitch so far (degrees), or let go: back towards upright - kept first as it was (THAW +0x18C0, 2nd build
+    // The pitch so far (degrees), or let go: back towards upright - kept first as it was (THAW +0x18C0,
     // 0x005D80FC, which the landing's PitchingForward / PitchingBackward read; the ground leaves it).
     state.lastAirPitch = state.airPitch;
     bool pitched = false;
@@ -1127,7 +1127,7 @@ void AirRotation(void* core)
 
 namespace {
 
-// One wheel's feeler (THAW.exe 0x005D5060 - read whole in the second THAW build's 0x005D4EF0): THUG2's own test of the ground under the skater (CheckForGround's, 0x00509BD0)
+// One wheel's feeler (THAW 0x005D4EF0): THUG2's own test of the ground under the skater (CheckForGround's, 0x00509BD0)
 // for one wheel. The wheel's feeler from above the wheel to 200 below it: no hit, no ground. A hit that isn't ground
 // (not skatable): the wheel moved out of it (the hit point plus its normal) when it's (nearly) at or below it - no
 // ground. Ground: not kept to when it turns away too steeply from the ground the bike is on (the travel direction -
@@ -1176,7 +1176,7 @@ WheelHit FeelWheel(void* core, Mth::Vector& wheel, const Mth::Vector& last, cons
     return result;
 }
 
-// THAW 0x005D97C0: the wheels pinned to the ground under them.
+// THAW 0x005D9650: the wheels pinned to the ground under them.
 void SnapWheels(void* core, BikeState& state, WheelHit& front, WheelHit& rear, bool& mainHit)
 {
     void* object = ObjectOf(core);
@@ -1251,7 +1251,7 @@ bool RollingBackwards(void* core) { return MovingBackwards(core); }
 
 bool VertPushHeld(void* core, int pushTime)
 {
-    // THAW 0x005DA380 on the bike: LEFTUP held longer than Skater_vert_push_time, neither LEFTLEFT nor LEFTRIGHT nor
+    // THAW 0x005DA210 on the bike: LEFTUP held longer than Skater_vert_push_time, neither LEFTLEFT nor LEFTRIGHT nor
     // square nor circle.
     const BikeState& state = *StateOf(core, true);
     uint8_t* pad = PadOf(core);
@@ -1261,7 +1261,7 @@ bool VertPushHeld(void* core, int pushTime)
 
 bool VertTapHeld(void* core)
 {
-    // THAW 0x005DA380 on the bike: R1 with LEFTUP or LEFTDOWN, or the tire tap looked for in vert (+0x54C).
+    // THAW 0x005DA210 on the bike: R1 with LEFTUP or LEFTDOWN, or the tire tap looked for in vert (+0x54C).
     const BikeState& state = *StateOf(core, true);
     return (PadOf(core)[kR1] && (state.stickUp.down || state.stickDown.down)) || state.tapArmed;
 }
@@ -1270,13 +1270,13 @@ bool VertTapHeld(void* core)
 
 float StuckCheckRaise(void* core)
 {
-    // THAW 0x005C2980: on the bike (+0x524) the start's y plus Skater_First_Forward_Collision_Height.
+    // THAW 0x005C2820: on the bike (+0x524) the start's y plus Skater_First_Forward_Collision_Height.
     return PhysicsFloat(kForwardCollisionHeight, core);
 }
 
 void NoteVertGround(void* core)
 {
-    // THAW 0x005E46E9: the ground feeler's face vert (THAW's +0x3E9 - read as its feeler check's vert byte, THUG2's
+    // THAW 0x005E4579: the ground feeler's face vert (THAW's +0x3E9 - read as its feeler check's vert byte, THUG2's
     // +0x229) - the time noted.
     if (!At<uint8_t>(core, kHitVert))
         return;
@@ -1287,7 +1287,7 @@ void NoteVertGround(void* core)
 
 bool VertSpeedAllowance(void* core, float* maxMax)
 {
-    // THAW 0x005CAA60: within Skater_Vert_Max_Speed_Time of the last vert ground the max-max speed is
+    // THAW 0x005CA8F0: within Skater_Vert_Max_Speed_Time of the last vert ground the max-max speed is
     // Skater_Vert_Max_Max_Speed_Stat's, and no heavy air friction over the max speed.
     BikeState& state = *StateOf(core, true);
     if (!state.vertGroundNoted)
@@ -1304,7 +1304,7 @@ WheelGround WheelGroundCheck(void* core)
 {
     BikeState& state = *StateOf(core, true);
     void* object = ObjectOf(core);
-    // (THAW 0x005E534A: the wheels only out of a manual, a tire tap and flag +0x78 (THUG2's +0x70); otherwise the
+    // (THAW 0x005E51DA: the wheels only out of a manual, a tire tap and flag +0x78 (THUG2's +0x70); otherwise the
     // skater's ground check with the wheel points at the skater's sides.)
     if (!WheelsOn() || state.manual || state.tireTap || FlagsOf(core)[kFlag70]) {
         SetWheelPoints(state, VectorAt(object, kPosition), VectorAt(object, kFacing));
@@ -1342,9 +1342,9 @@ WheelGround WheelGroundCheck(void* core)
                 (state.frontWheel.z + state.rearWheel.z) * 0.5f, (state.frontWheel.w + state.rearWheel.w) * 0.5f};
     Mth::Vector up = Bike::WheelBaseUp(VectorAt(object, kRight), state.frontWheel, state.rearWheel,
                                        VectorAt(core, kHitNormal));
-    GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(core, up); // (THAW's 0x005D0D40: an obfuscated thunk)
+    GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(core, up); // (THAW's 0x005D0BD0: THUG2's own)
     if (StateOf(core) != kStateAir)
-        static_cast<CorePhysicsComponent*>(core)->KeepUpright(); // (THAW 0x005CE980, on the ground)
+        static_cast<CorePhysicsComponent*>(core)->KeepUpright(); // (THAW 0x005CE810, on the ground)
     return mainHit ? kWheelsOnGround : kWheelsOnGroundNoHit;
 }
 
@@ -1421,7 +1421,7 @@ bool AcidDropDirection(void* core, Mth::Vector* direction)
 
 void GrindStall(void* core, const Mth::Vector& startVelocity, const Mth::Vector& direction)
 {
-    // THAW 0x005E2AA5 (2nd build 0x005E2935). (THAW: R1 or the skater's ability 0x16 - THAW's skater stalls too; only
+    // THAW 0x005E2935. (THAW: R1 or the skater's ability 0x16 - THAW's skater stalls too; only
     // the bike's is ported. THAW runs the rail's TriggerScript here, with its stall event 0x20000 when R1 is held - our
     // grind start ran THUG2's before getting onto the rail, and THUG2's events have no stall.)
     BikeState& state = *StateOf(core, true);
@@ -1437,7 +1437,7 @@ void GrindStall(void* core, const Mth::Vector& startVelocity, const Mth::Vector&
 
 void RailStallSlip(void* core)
 {
-    // 2nd build 0x005E7074.
+    // THAW 0x005E7074.
     BikeState* state = StateOf(core, false);
     if (!state || !state->stallScript)
         return;
@@ -1459,7 +1459,7 @@ void RailStallSlip(void* core)
 
 bool StallSteepRail(void* core)
 {
-    // 2nd build 0x005E3801. (THAW also sets +0x728, and +0x729 off the bike with the facing down the slope - nothing
+    // THAW 0x005E3801. (THAW also sets +0x728, and +0x729 off the bike with the facing down the slope - nothing
     // of THAW's reads either.)
     BikeState& state = *StateOf(core, true);
     if (!Bike::StallSteepStep(VectorAt(ObjectOf(core), kUp).y, &state.stallSteepFrames))
@@ -1470,7 +1470,7 @@ bool StallSteepRail(void* core)
 
 int EnterWheelieFromAir(void* core, Script::CStruct* params)
 {
-    // THAW 0x005CA520.
+    // THAW 0x005CA3B0.
     BikeState& state = *StateOf(core, true);
     state.manual = true;
     state.manualAngle = kManualBalance;

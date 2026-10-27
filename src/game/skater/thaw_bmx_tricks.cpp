@@ -2,9 +2,8 @@
 // with THUG2's vehicle mode gone ("on the bike" is the bike flag alone), THAW's own gates of what the bike can do -
 // wallrides on square too, skitching on R2, no vert wallplants, no lip tricks, the bike's wallplant -, the tire tap,
 // the manual's pose on the rider and the bike, the bike's sounds and the THAW-only members its bike scripts ask. Our
-// addition at the user's request - not THUG2's code and not PartyMod's. Read from THAW.exe's own code (its first .text;
-// the obfuscated sites inferred, as noted - no tracing, no unwrapping); our THUG2 functions call these only
-// while ThawBmx::Active(core).
+// addition at the user's request - not THUG2's code and not PartyMod's. Read from THAW's reference build
+// (game/skater/thaw_bmx.h - no tracing); our THUG2 functions call these only while ThawBmx::Active(core).
 
 #include <cmath>
 #include <cstdint>
@@ -55,7 +54,7 @@ constexpr uint32_t kFeelerEnd = 0x218;
 constexpr uint32_t kInput = 0x150C;        // THAW +0x1910 (the pad at its +0x20)
 constexpr uint32_t kBalanceTricks = 0x1524; // THAW +0x1928 (the balance trick component: +0x18 its kind)
 constexpr uint32_t kFlags = 0x1528;        // THAW +0x192C
-constexpr uint32_t kGroundNormal = 0x68;   // THAW +0x68 (THAW's 0x005D0D40 sets it - the same place as THUG2's)
+constexpr uint32_t kGroundNormal = 0x68;   // THAW +0x68 (THAW's 0x005D0BD0 sets it - the same place as THUG2's)
 // The timed flags (THUG2's; THAW's in the comment).
 constexpr uint32_t kFlagVert = 0x30;       // THAW 0x30
 constexpr uint32_t kFlag38 = 0x38;         // THAW 0x38
@@ -82,29 +81,29 @@ constexpr uint32_t kModelOfComponent = 0x208; // the model component's renderer 
 constexpr uint32_t kModelFlags = 0x44;        // the renderer model's flags (0x2 shown, 0x4 hidden)
 
 // THAW's constants.
-constexpr float kDegreesToRadians = 0.0174532924f;  // 0x0068E474
-constexpr float kTapAbove = -30.0f;                 // 0x006A0DE0 (in vert: nothing this near below - the tap's room)
-constexpr float kTapSearchStart = 100.0f;           // 0x0068FBC0 (in vert: the depths looked at, from this ...)
-constexpr float kTapSearchStep = 3.0f;              // 0x0068F7F0 (... down by this ...)
-constexpr float kTapSearchEnd = 0.01f;              // 0x0068E448 (... while above this)
-constexpr float kTapDrop = 1000.0f;                 // 0x0068E3D0 (each feeler's length down)
-constexpr float kTapAhead = 100.0f;                 // 0x0068FBC0 (out of vert the ledge looked for this far ahead)
+constexpr float kDegreesToRadians = 0.0174532924f;  // 0x006DB474
+constexpr float kTapAbove = -30.0f;                 // 0x006EDDA0 (in vert: nothing this near below - the tap's room)
+constexpr float kTapSearchStart = 100.0f;           // 0x006DCBC0 (in vert: the depths looked at, from this ...)
+constexpr float kTapSearchStep = 3.0f;              // 0x006DC7F0 (... down by this ...)
+constexpr float kTapSearchEnd = 0.01f;              // 0x006DB448 (... while above this)
+constexpr float kTapDrop = 1000.0f;                 // 0x006DB3D0 (each feeler's length down)
+constexpr float kTapAhead = 100.0f;                 // 0x006DCBC0 (out of vert the ledge looked for this far ahead)
 constexpr float kTapMargin = 90.0f;                 // 0x42B40000 (the ledge search's margin)
 constexpr float kTapPitch = 0.785398185f;           // 0x3F490FDB (45 degrees: up held the nose down, down the tail)
-constexpr float kTapPitchTime = 0.5f;               // 0x0068E3CC (the bike turned over to it in this long)
-constexpr float kTapReach = 5.0f;                   // 0x0069010C (the wheel moved this far a frame towards the point)
-constexpr float kTapSlowing = 50.0f;                // 0x006906C8 (the horizontal speed's loss a frame)
-constexpr float kTapPull = 3.0f;                    // 0x0068F7F0 (let go: pulled towards where the point lies)
-constexpr float kTapRiseFast = 100.0f;              // 0x0068FBC0
-constexpr float kTapRiseFraction = 0.1f;            // 0x0068ED8C
-constexpr float kTapRiseSlow = 15.0f;               // 0x00690430
-constexpr double kManualWobble = 0.01;              // 0x006A0798 (the manual angle to the wobble's fraction)
-constexpr float kBalanceMiddle = 4096.0f;           // 2nd build 0x006E1BC4 (a balance's lean to the wobble's fraction:
-constexpr float kBalanceScale = 0.0001220703125f;   // 2nd build 0x006EF068  (4096 +- lean) / 8192)
+constexpr float kTapPitchTime = 0.5f;               // 0x006DB3CC (the bike turned over to it in this long)
+constexpr float kTapReach = 5.0f;                   // 0x006DD10C (the wheel moved this far a frame towards the point)
+constexpr float kTapSlowing = 50.0f;                // 0x006DD6C8 (the horizontal speed's loss a frame)
+constexpr float kTapPull = 3.0f;                    // 0x006DC7F0 (let go: pulled towards where the point lies)
+constexpr float kTapRiseFast = 100.0f;              // 0x006DCBC0
+constexpr float kTapRiseFraction = 0.1f;            // 0x006DBD8C
+constexpr float kTapRiseSlow = 15.0f;               // 0x006DD430
+constexpr double kManualWobble = 0.01;              // 0x006ED758 (the manual angle to the wobble's fraction)
+constexpr float kBalanceMiddle = 4096.0f;           // THAW 0x006E1BC4 (a balance's lean to the wobble's fraction:
+constexpr float kBalanceScale = 0.0001220703125f;   // THAW 0x006EF068  (4096 +- lean) / 8192)
 constexpr float kLedgeHeight = 12.0f;               // (THUG2's ledge search: a rail at most this far below in the air)
-constexpr double kTapLedgeWeight = 0.001;           // 2nd build 0x006DBD98 (a ledge's distance against a surface's, in vert)
-constexpr double kTapNearer = 0.001;                // 2nd build 0x006E1B90 (a double: "no further than the best so far")
-constexpr float kTapFar = 10000.0f;                 // 2nd build 0x006E0834 (the nearest surface so far, to begin with)
+constexpr double kTapLedgeWeight = 0.001;           // THAW 0x006DBD98 (a ledge's distance against a surface's, in vert)
+constexpr double kTapNearer = 0.001;                // THAW 0x006E1B90 (a double: "no further than the best so far")
+constexpr float kTapFar = 10000.0f;                 // THAW 0x006E0834 (the nearest surface so far, to begin with)
 constexpr uint32_t kHangMaxRailAscent = 0x98724EBC; // hang_max_rail_ascent (walk_parameters)
 constexpr uint32_t kWalkParameters = 0x6775E538;    // walk_parameters
 
@@ -138,17 +137,17 @@ double Dot3(const Mth::Vector& a, const Mth::Vector& b)
     return static_cast<double>(a.x) * b.x + static_cast<double>(a.y) * b.y + static_cast<double>(a.z) * b.z;
 }
 
-// The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x0083E81C's +0x24).
+// The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x008A3B5C's +0x24).
 Obj::CRailManager* LevelRails()
 {
     uint8_t* module = GameVariable<uint8_t*>(0x007CE478);
     return module ? At<Obj::CRailManager*>(module, 0x24) : nullptr;
 }
 
-// The tire tap's ledge: THAW 0x0058C9A0 on the level's rails (the rails its 0x0058C9A6.. walks, flags read as THAW's:
+// The tire tap's ledge: THAW 0x0058C850 on the level's rails (the rails its 0x0058C856.. walks, flags read as THAW's:
 // a ladder never, switched on, with a next node; a rail that can't be climbed on is fine on the bike). Phase 7, read
-// whole in the 2nd THAW build, 0x0058C850: it is THUG2's CRailManager::FindRail (0x0057DDA0) with that one bike exception,
-// and its checker is the walk component's hang check (2nd build 0x0060AC40 - THUG2's CWalkComponent::CheckRail): in the
+// whole: it is THUG2's CRailManager::FindRail (0x0057DDA0) with that one bike exception,
+// and its checker is the walk component's hang check (THAW 0x0060AC40 - THUG2's CWalkComponent::CheckRail): in the
 // air a rail not above the line and within 12 below it, not steeper than hang_max_rail_ascent, room to hang. Ours
 // takes the first two (the hang's room is for a hanging skater, not a wheel) and the rail's own point - THAW's is the
 // hang point CheckRail makes, which its ledge state (7, not ported) then works from.
@@ -263,7 +262,7 @@ float ManualWobble(float manualAngle) { return static_cast<float>(manualAngle * 
 
 uint32_t BalanceOffset(uint32_t kind)
 {
-    // 2nd build 0x006207A8: the balance trick component's balance for its kind (THUG2's layout is the same).
+    // THAW 0x006207A8: the balance trick component's balance for its kind (THUG2's layout is the same).
     switch (kind) {
     case 0x255ED86F: // Grind
     case 0x8D10119D: // Slide
@@ -341,7 +340,7 @@ bool TireTapping(const void* core)
 
 namespace {
 
-// THAW 0x005DC400: in the air, R1 and up or down held: a point to tap the wheel on - in vert the surface below (not
+// THAW 0x005DC290: in the air, R1 and up or down held: a point to tap the wheel on - in vert the surface below (not
 // within 30 under the bike already; feelers 1000 down from points along the bike's down, from 100 by 3), else a ledge
 // (a rail) on the way ahead (100 along the flattened velocity; THAW's ledge search through the walk component's hang
 // check, here FindLedge). Found: the tire tap on, the bike turned 45 degrees over (up held: onto the front wheel),
@@ -374,7 +373,7 @@ void StartTireTap(void* core, BikeState& state)
             state.tapArmed = true;
             return;
         }
-        // (phase 7: THAW's search direction is the bike's down flattened - 2nd build 0x005DC290 zeroes its y - out
+        // (phase 7: THAW's search direction is the bike's down flattened - THAW 0x005DC290 zeroes its y - out
         // over the deck; phase 4 took the down itself)
         Mth::Vector down = {-up.x, 0.0f, -up.z, -up.w};
         down.Normalize();
@@ -403,7 +402,7 @@ void StartTireTap(void* core, BikeState& state)
     Mth::Vector end = {position.x, position.y - kTapDrop, position.z, 1.0f};
     if (notVert)
         end = position + kTapAhead * direction;
-    // A ledge (phase 7, 2nd build 0x005DC290: looked for in vert too, and taken over a surface found below unless it's
+    // A ledge (phase 7, THAW 0x005DC290: looked for in vert too, and taken over a surface found below unless it's
     // a thousand times further away).
     Mth::Vector ledge;
     if (FindLedge(position, end, direction, &ledge)) {
@@ -429,7 +428,7 @@ void StartTireTap(void* core, BikeState& state)
     SetTimedFlag(core, kFlag48, false);
 }
 
-// THAW 0x005CEA90: the tire tap going on - over when an acid drop starts; while R1 and up / down stay held (or the point
+// THAW 0x005CE920: the tire tap going on - over when an acid drop starts; while R1 and up / down stay held (or the point
 // is a ledge's) the bike slows and goes towards the point (reaching it above: put on it - a ledge's: landed from the
 // tire tap), the point above it while still far off: over; let go, the bike is pulled the way the point lies. Rising, it
 // slows (THAW's fixed amounts a frame).
@@ -473,7 +472,7 @@ void CarryTireTap(void* core, BikeState& state)
             velocity.y = velocity.y > kTapRiseFast ? velocity.y - velocity.y * kTapRiseFraction
                                                     : velocity.y - kTapRiseSlow;
     }
-    // THAW 0x005DCB59..: the bike turned over to 45 degrees in half a second (THAW slerps its display there; here the
+    // THAW 0x005DC9E9..: the bike turned over to 45 degrees in half a second (THAW slerps its display there; here the
     // skater's matrix and the display's, a step a frame).
     float target = state.tireTapNose ? kTapPitch : -kTapPitch;
     float remaining = target - state.tapPitch;
@@ -511,7 +510,7 @@ void ManualPose(void* core)
     if (state->manual) {
         fraction = Bike::ManualWobble(state->manualAngle);
     } else {
-        // 2nd build 0x006207A8: else the running balance trick's balance (the grind's and the stall's range animations
+        // THAW 0x006207A8: else the running balance trick's balance (the grind's and the stall's range animations
         // among them) - THAW keeps one wobble fraction, which its animation trees play on the rider and the bike alike.
         // THUG2's balance (CBalance::Update) moves only the rider's animation: the bike stayed on its range
         // animation's first or last frame - in a stall (played from its end) beside the rail, twisted. The flip as
@@ -636,33 +635,33 @@ int CallTrickMember(void* core, uint32_t name, Script::CStruct* params, Script::
                           kClearStall = Checksum("ClearStallScriptFlag"), kExitStallBoost = Checksum("ExitStallBoost"),
                           kOnStall = Checksum("OnStall");
     if (name == kDisplayPitch) {
-        // 0x005CA600 (2nd build 0x005CA490): the model's display up (the model component's matrix: THUG2's model draws
+        // 0x005CA490: the model's display up (the model component's matrix: THUG2's model draws
         // with the display matrix) against the GROUND normal (+0x68 - phase 4 took THAW's +0x68 for the display
-        // normal; THAW's 0x005D0D40 shows it's the ground's, as THUG2's).
+        // normal; THAW's 0x005D0BD0 shows it's the ground's, as THUG2's).
         float degrees = 0.0f;
         if (params)
             params->GetFloat(static_cast<uint32_t>(0), &degrees, 0);
         return Bike::DisplayPitchBeyond(VectorAt(core, kDisplayUp), VectorAt(core, kGroundNormal), degrees) ? 1 : 0;
     }
-    if (name == kLandedFromTap) { // 0x005C7C60
+    if (name == kLandedFromTap) { // 0x005C7AF0
         const BikeState* state = StateOf(core, false);
         return state && state->landedFromTireTap ? 1 : 0;
     }
     if (name == kInTireTap)
         return TireTapping(core) ? 1 : 0;
     if (name == kPitchingForward || name == kPitchingBackward) {
-        // THAW's matrix queries (2nd build 0x005EBBC0 / 0x005EBBF0): the air pitch so far as the last frame in the air
+        // THAW's matrix queries (THAW 0x005EBBC0 / 0x005EBBF0): the air pitch so far as the last frame in the air
         // began (+0x18C0) - above 0 forward (nose down), below 0 backward (nose up). bike_land2 starts the wheelie
         // from the air on it (with the stick held back / forward as it lands).
         const BikeState* state = StateOf(core, false);
         float pitch = state ? state->lastAirPitch : 0.0f;
         return (name == kPitchingForward ? pitch > 0.0f : pitch < 0.0f) ? 1 : 0;
     }
-    if (name == kShouldStall) { // 0x005C8580 (2nd build 0x005C8410): +0x49D
+    if (name == kShouldStall) { // 0x005C8410: +0x49D
         const BikeState* state = StateOf(core, false);
         return state && state->stallScript ? 1 : 0;
     }
-    if (name == kClearStall) { // 0x005C8590 (2nd build 0x005C8420): cleared only once in the stall state
+    if (name == kClearStall) { // 0x005C8420: cleared only once in the stall state
         BikeState* state = StateOf(core, false);
         if (state && At<int>(FlagsOf(core), 0x18) == kStateBikeStall)
             state->stallScript = false;
@@ -671,7 +670,7 @@ int CallTrickMember(void* core, uint32_t name, Script::CStruct* params, Script::
     if (name == kOnStall) // (its state component's: the physics state the stall's)
         return At<int>(FlagsOf(core), 0x18) == kStateBikeStall ? 1 : 0;
     if (name == kExitStallBoost) {
-        // 0x005C8540 (2nd build 0x005C83D0): the velocity's x / z from THAW's +0x714 / +0x71C, which nothing of THAW's
+        // 0x005C83D0: the velocity's x / z from THAW's +0x714 / +0x71C, which nothing of THAW's
         // writes that a search finds (the skater's stall boost) - left out; only BIKE_OLLIE's Boost asks, which no bike
         // script passes.
         return 1;

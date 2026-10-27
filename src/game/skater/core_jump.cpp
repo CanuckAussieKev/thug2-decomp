@@ -180,7 +180,7 @@ void CorePhysicsComponent::DoJump(Script::CStruct* params)
         velocity.y = 0.0f;
     }
     VectorAt(ObjectOf(this), kVelocity).y += speed;
-    bool bike = ThawBmx::Active(this); // (not original: THAW 0x005DDF30's bike branches, thaw_bmx_physics.cpp)
+    bool bike = ThawBmx::Active(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
     if (bike)
         ThawBmx::JumpBoost(this);
     object = ObjectOf(this);

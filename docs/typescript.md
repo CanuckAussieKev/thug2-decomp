@@ -4,8 +4,8 @@ The project's tools (`tools/`, and the submodules `tools/pipeline` and `tools/an
 into TypeScript run by Node (the user's preference, 2026-10-20); each port was proven **output-equivalent** to its
 Python twin before the Python file was deleted (below). This page is the conventions for every tool. What stays
 Python: the pyghidra scripts (`tools/ghidra/*.py`, `tools/pipeline/thaw_bmx/thaw_ghidra.py`,
-`tools/pipeline/thug1_campaign/thug1_functions.py` - pyghidra has no Node equivalent), the capstone ones
-(`tools/capstone_disasm.py`, `tools/pipeline/thaw_bmx/second_build_map.py`), and NeverScript (docs/neverscript.md)
+`tools/pipeline/thug1_campaign/thug1_functions.py` - pyghidra has no Node equivalent), the capstone one
+(`tools/capstone_disasm.py`), and NeverScript (docs/neverscript.md)
 (not ours: Go). Node has no FFI: a tool that calls a Windows DLL does it through Windows PowerShell's Add-Type (C#
 P/Invoke) - `tools/symbolize.ts` (dbghelp).
 

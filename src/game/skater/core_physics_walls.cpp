@@ -106,7 +106,7 @@ void TurnVelocity(Mth::Vector& velocity, double angle)
 // 0x00503710
 bool CorePhysicsComponent::VertWallplant()
 {
-    // (not original: THAW 0x005D6AD0 - never a vert wallplant on the bike)
+    // (not original: THAW 0x005D6960 - never a vert wallplant on the bike)
     if (At<uint8_t>(this, kDriving) || ThawBmx::Active(this))
         return false;
     // The trick button pressed (or pressed within Wall_Ride_Triangle_Window).

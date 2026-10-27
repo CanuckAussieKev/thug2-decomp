@@ -1,6 +1,6 @@
 // NOT ORIGINAL - THAW's BMX ridden in THUG2 (game/skater/thaw_bmx.h): THAW's stick buttons - its pad's and its trick
 // component's -, BikePress's re-arm rule and the look-around's d-pad inputs. Our addition at the user's request - not
-// THUG2's code and not PartyMod's. Read from THAW's second build (reTHAWed.exe; the addresses are its): the input
+// THUG2's code and not PartyMod's. Read from THAW's reference build (game/skater/thaw_bmx.h): the input
 // server's 0x435530 / 0x4355B0, the pad update 0x596CA0, the trick component's 0x471D20 / 0x4723D0 / CheckTrigger
 // 0x470EAB, the look-around's update 0x5B08F0. THUG2's own code calls these only while the feature is on.
 

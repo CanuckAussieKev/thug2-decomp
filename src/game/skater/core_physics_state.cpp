@@ -379,7 +379,7 @@ void CorePhysicsComponent::StartGrindTrick(uint32_t railType, bool trick1, bool 
         if (trick4)
             buttons |= 8;
         if (ThawBmx::Active(this)) {
-            // Not original: THAW 0x005CF460 - on the bike BikeGrindTrickList by the stick's pitch (when the overlay
+            // Not original: THAW 0x005CF2F0 - on the bike BikeGrindTrickList by the stick's pitch (when the overlay
             // has it), the over-grind state.
             uint32_t column = 0;
             if (Script::CArray* row = ThawBmx::GrindTrickRow(this, trick1, trick2, trick3, &column)) {

@@ -56,7 +56,7 @@ constexpr const char* kSkeleton = "THAW_SI_BMX";
 constexpr const char* kRiderReference = "THPS6_human";
 constexpr const char* kTestAnim = "bmx_idle";
 
-// THAW's bike members (its core physics table, THAW.exe 0x006D6358) and ours.
+// THAW's bike members (its core physics table, THAW 0x00732368) and ours.
 const char* const kMembers[] = {
     "SkaterOnBike",   "SkaterOffBike", "IsSkaterOnBike",   "BikeIsInOverGrind", "GetBikeManualAngle",
     "ResetBikeManualAngle", "BikeInManual", "BikeInXup",   "BikeEnterXup",      "BikeExitXup",
@@ -254,7 +254,7 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
         return OnBike(core) ? 1 : 0;
     if (name == kLoad)
         return LoadAssets() ? 1 : 0;
-    if (name == kEnterWheelie) // (THAW 0x005CA520: phase 3, thaw_bmx_physics.cpp)
+    if (name == kEnterWheelie) // (THAW 0x005CA3B0: phase 3, thaw_bmx_physics.cpp)
         return EnterWheelieFromAir(core, params);
     static const uint32_t kSteerAnim = Checksum("ThawBmxSteerAnim"), kOffFlag = Checksum("off");
     if (name == kSteerAnim) { // (ours: `on` / `off`)
@@ -269,13 +269,13 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
     if (!known)
         return CallTrickMember(core, name, params, script); // (phase 4's: thaw_bmx_tricks.cpp)
     BikeState& state = *StateOf(core, true);
-    if (name == kOn) { // 0x005C9A50
+    if (name == kOn) { // 0x005C98E0
         state.on = true;
         void* skater = Field<void*>(core, kObject);
         SetWheelPoints(state, Field<Mth::Vector>(skater, kPosition), Field<Mth::Vector>(skater, kFacing));
         return 1;
     }
-    if (name == kOff) { // 0x005C7630 (THAW clears only the flag; ours the bike's other states too)
+    if (name == kOff) { // 0x005C74C0 (THAW clears only the flag; ours the bike's other states too)
         SteerAnimOff(core);
         FlipAnimsToFlag(core);
         BikeState fresh;
@@ -284,56 +284,56 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
         state = fresh;
         return 1;
     }
-    if (name == kOverGrind) // 0x005C7650
+    if (name == kOverGrind) // 0x005C74E0
         return state.overGrind ? 1 : 0;
-    if (name == kGetAngle) { // 0x005C7660: manual_angle into the script's parameters
+    if (name == kGetAngle) { // 0x005C74F0: manual_angle into the script's parameters
         if (script && script->m_params)
             script->m_params->AddFloat(kManualAngle, state.manualAngle);
         return 1;
     }
-    if (name == kResetAngle) { // 0x005C7680
+    if (name == kResetAngle) { // 0x005C7510
         state.manualAngle = kManualAngleReset;
         return 1;
     }
-    if (name == kInManual) { // 0x005C76A0: `nose` for a nose manual
+    if (name == kInManual) { // 0x005C7530: `nose` for a nose manual
         nose(state.noseManual);
         return state.manual ? 1 : 0;
     }
-    if (name == kInXup) // 0x005C76E0
+    if (name == kInXup) // 0x005C7570
         return state.xup ? 1 : 0;
-    if (name == kEnterXup) { // 0x005C76F0 (THAW returns what was in AL; true here)
+    if (name == kEnterXup) { // 0x005C7580 (THAW returns what was in AL; true here)
         state.xup = true;
         return 1;
     }
-    if (name == kExitXup) { // 0x005C7700
+    if (name == kExitXup) { // 0x005C7590
         state.xup = false;
         return 1;
     }
-    if (name == kInTireTap) { // 0x005C7760
+    if (name == kInTireTap) { // 0x005C75F0
         nose(state.tireTapNose);
         return state.tireTap ? 1 : 0;
     }
-    if (name == kEnterSkid) { // 0x005C7730 (as BikeEnterXup)
+    if (name == kEnterSkid) { // 0x005C75C0 (as BikeEnterXup)
         state.skid = true;
         return 1;
     }
-    if (name == kExitSkid) { // 0x005C7740
+    if (name == kExitSkid) { // 0x005C75D0
         state.skid = false;
         state.canSkid = false;
         state.skidTimer = kSkidTimerReset;
         return 1;
     }
-    if (name == kInSkid) // 0x005C7710
+    if (name == kInSkid) // 0x005C75A0
         return state.skid ? 1 : 0;
-    if (name == kCanSkid) // 0x005C7720
+    if (name == kCanSkid) // 0x005C75B0
         return state.canSkid ? 1 : 0;
-    if (name == kExitTireTap) { // 0x005C77A0 (THAW also stamps its state component's tire tap time)
+    if (name == kExitTireTap) { // 0x005C7630 (THAW also stamps its state component's tire tap time)
         state.tireTap = false;
         state.tireTapNose = false;
         state.tapLedge = false; // (THAW: +0x54D)
         return 1;
     }
-    // exitbikeendo, 0x005C83D0
+    // exitbikeendo, 0x005C8260
     state.endo = false;
     return 1;
 }

@@ -63,7 +63,7 @@ void CorePhysicsComponent::LimitSpeed()
     float speed = SpeedOf(velocity);
     float maxMax = static_cast<float>(StatValue(object, kMaxMaxSpeedStat));
     float max = static_cast<float>(StatValue(object, kMaxSpeedStat));
-    // Not original: THAW 0x005CAA60 - on the bike, faster for a while after vert ground (thaw_bmx_physics.cpp).
+    // Not original: THAW 0x005CA8F0 - on the bike, faster for a while after vert ground (thaw_bmx_physics.cpp).
     bool heavyFriction = true;
     if (ThawBmx::Active(this))
         heavyFriction = ThawBmx::VertSpeedAllowance(this, &maxMax);
@@ -133,7 +133,7 @@ void CorePhysicsComponent::Brake()
 void CorePhysicsComponent::ApplyGroundFriction()
 {
     void* object = ObjectOf(this);
-    // (Not original: THAW 0x005D4830 - on the bike the friction always applies.)
+    // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
     if (!At<uint8_t>(this, kFrictionOn) && !FlagsOf(this)[0x70] &&
         At<float>(this, kRollingFrictionNow) == PhysicsFloat(kRollingFriction, object) && !ThawBmx::Active(this))
         return;

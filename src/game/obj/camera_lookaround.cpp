@@ -134,7 +134,7 @@ void CCameraLookAroundComponent::Update()
     }
     float frame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
     if (!m_locked && !m_turning && m_dpadLook && Skater::ThawBmx::Enabled()) {
-        // NOT ORIGINAL - THAW's BMX (THAW's second build 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
+        // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
         auto* p = reinterpret_cast<CControlPad*>(pad);

@@ -94,7 +94,7 @@ void CSkaterAdjustPhysicsComponent::Update()
     start.y = static_cast<float>(static_cast<double>(start.y) + kFeelerAbove);
     end.y = static_cast<float>(static_cast<double>(end.y) -
                                static_cast<double>(Script::GetFloat(kUberFrigCurrentHeight)) * kFeet);
-    // Not original: THAW 0x005C2980 - on the bike the feeler starts higher (thaw_bmx_physics.cpp).
+    // Not original: THAW 0x005C2820 - on the bike the feeler starts higher (thaw_bmx_physics.cpp).
     float raise = Skater::ThawBmx::Active(core) ? Skater::ThawBmx::StuckCheckRaise(core) : 0.0f;
     if (raise != 0.0f)
         start.y += raise;

@@ -294,10 +294,10 @@ void CorePhysicsComponent::BreakVert(bool force)
         return Ps2Controls() ? pad[kTriggerA] || pad[kTriggerB] : pad[kTriggerA] && pad[kTriggerB];
     };
     bool jumpHeld = false;
-    // Not original: THAW 0x005DA380 (its first instruction the on-bike flag; the second THAW build's
-    // 0x005DA210) - on the bike the movement stick's up held (THAW's LEFTUP, not left / right) instead of the d-pad's,
-    // and R1 with the stick up or down (the tire tap's buttons), or a tire tap looked for in vert, takes the second
-    // path (a spine transfer, else pushed off the wall) instead of falling away from it.
+    // Not original: THAW 0x005DA210 (the on-bike flag read first, 0x005DA218) - on the bike the movement stick's up
+    // held (THAW's LEFTUP, not left / right) instead of the d-pad's, and R1 with the stick up or down (the tire tap's
+    // buttons), or a tire tap looked for in vert, takes the second path (a spine transfer, else pushed off the wall)
+    // instead of falling away from it.
     bool bike = ThawBmx::Active(this);
     if (bike) {
         jumpHeld = ThawBmx::VertPushHeld(this, PhysicsInt(kBreakVertJumpTime, 1, object));

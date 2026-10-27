@@ -75,7 +75,7 @@ void CorePhysicsComponent::DoGroundPhysics()
     At<float>(this, 0x348) = static_cast<float>(heading);
     if (VectorAt(object, kFacing).z < 0.0f)
         At<float>(this, 0x348) = static_cast<float>(kFullTurn - heading);
-    if (ThawBmx::Active(this)) // (not original: THAW 0x005E46E9, the time on vert ground noted - thaw_bmx_physics.cpp)
+    if (ThawBmx::Active(this)) // (not original: THAW 0x005E4579, the time on vert ground noted - thaw_bmx_physics.cpp)
         ThawBmx::NoteVertGround(this);
     // Moving: the velocity turned into the ground's plane.
     if (LengthOf(VectorAt(object, kVelocity)) > kMoving)
@@ -175,7 +175,7 @@ void CorePhysicsComponent::DoGroundPhysics()
     if (!At<uint8_t>(this, 0x2D8))
         TurnOnGround();
     if (bike && StateOf(this) == kGround)
-        ThawBmx::ManualPitch(this); // (not original: THAW 0x005E562A)
+        ThawBmx::ManualPitch(this); // (not original: THAW 0x005E54BA)
     CollisionEvents::Checkpoint(this, "turned"); // (not original)
     if (!At<uint8_t>(this, 0x388))
         GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004FF590)(this, &VectorAt(ObjectOf(this), kVelocity));
@@ -185,7 +185,7 @@ void CorePhysicsComponent::DoGroundPhysics()
         LeanPushOffWall();
     }
     CollisionEvents::Checkpoint(this, "side-collisions"); // (not original)
-    // (not original: THAW 0x005CCF40 - 2nd build 0x005CCDD0 - returns at once on the bike: rolling backwards faster
+    // (not original: THAW 0x005CCDD0 returns at once on the bike: rolling backwards faster
     // than Skater_Flip_Speed (1) the skater is turned round to ride fakie, the bike isn't - it rolls on backwards in
     // THAW's backwards balance, bike_backwards_balance_trick)
     if (!At<uint8_t>(this, 0x388) && !bike)

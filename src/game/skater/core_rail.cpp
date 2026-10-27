@@ -203,7 +203,7 @@ void CorePhysicsComponent::DoRailPhysics()
         p.y = p.y + 1.0f;
         FinishRail();
         if (ThawBmx::Active(this))
-            ThawBmx::RailStallSlip(this); // (not original: THAW 2nd build 0x005E7074 - the bike's stall)
+            ThawBmx::RailStallSlip(this); // (not original: THAW 0x005E7074 - the bike's stall)
         return;
     }
     UpdateGrindBalance();
@@ -526,7 +526,7 @@ void CorePhysicsComponent::FinishRail()
     }
 }
 
-// Not original: THAW's stall state (THAW 2nd build 0x005E2E30; game/skater/thaw_bmx.h - its bike's, R1 held as a grind
+// Not original: THAW's stall state (THAW 0x005E2E30; game/skater/thaw_bmx.h - its bike's, R1 held as a grind
 // starts): the rail state's update around a bike held still on the rail, facing along it. Update runs it in that state
 // (ThawBmx::GrindStall / RailStallSlip set it) while the feature is on.
 void CorePhysicsComponent::DoBikeStallPhysics()

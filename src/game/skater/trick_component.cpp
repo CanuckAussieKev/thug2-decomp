@@ -700,7 +700,7 @@ bool CTrickComponent::CheckTrigger(Script::CStruct* trigger, uint32_t markFlags,
         SetButtonMap(buttons);
         return true;
     }
-    case 0xCEA9F4B5: { // NOT ORIGINAL - THAW's BMX (the feature on; THAW's second build 0x470EAB): BikePress - Press
+    case 0xCEA9F4B5: { // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x470EAB): BikePress - Press
         // (the time stretched the same way), but the same right-stick flick not twice: with the button map's first
         // button (the last trick's) this one, only once the right stick has been centred - the press found keeps
         // the flags all the same. Original behaviour: an unknown kind (the default below).

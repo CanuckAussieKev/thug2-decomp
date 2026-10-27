@@ -101,7 +101,7 @@ bool CorePhysicsComponent::FindAcidDrop(bool pop, const Mth::Vector* position, c
     // Looking along the horizontal velocity (walking: the walking direction).
     Mth::Vector direction;
     if (ThawBmx::Active(this)) {
-        // Not original: THAW 0x005D1A00 - on the bike along its facing (the other way with the stick pulled back).
+        // Not original: THAW 0x005D1890 - on the bike along its facing (the other way with the stick pulled back).
         ThawBmx::AcidDropDirection(this, &direction);
     } else if (WalkingState(this, 0)) {
         double x = velocity->x, z = velocity->z;

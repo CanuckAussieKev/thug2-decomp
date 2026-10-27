@@ -207,7 +207,7 @@ void CSkaterLoopingSoundComponent::Update()
     }
     LoopingSoundVolume volume;
     volume.Init();
-    // Not original: THAW's BMX (game/skater/thaw_bmx.h; THAW 0x0046A1B7 / 0x0046A1F3) - on the bike its roll and grind
+    // Not original: THAW's BMX (game/skater/thaw_bmx.h; THAW 0x0046A097 / 0x0046A0D3) - on the bike its roll and grind
     // (BIKE_ROLL, BIKE_GRIND) on every terrain, nothing in the air or sliding; chosen every frame, and again from the
     // terrain once off the bike.
     int bike = -1;

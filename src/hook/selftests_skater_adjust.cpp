@@ -1,6 +1,6 @@
 // Self-tests for the skater's adjust-physics component (adjust_physics.cpp): original vs ours on stand-in components
 // (skater_core_testkit.h), every callee into game code stood in for; the feeler on the stack constructed for real.
-// Also the bike's branch (THAW 0x005C2980, thaw_bmx_physics.cpp StuckCheckRaise): the feelers raised on the bike only.
+// Also the bike's branch (THAW 0x005C2820, thaw_bmx_physics.cpp StuckCheckRaise): the feelers raised on the bike only.
 
 #include <cstdint>
 #include <cstring>
@@ -204,7 +204,7 @@ void TestAdjustPhysicsBike()
     }
     Skater::ThawBmx::Enabled() = savedEnabled;
     GameVariable<void*>(0x007CE5D8) = savedPark;
-    Check(ok, "skater: SkaterAdjustPhysics on the bike (THAW 0x005C2980): the feelers raised, off the bike not");
+    Check(ok, "skater: SkaterAdjustPhysics on the bike (THAW 0x005C2820): the feelers raised, off the bike not");
 }
 
 } // namespace

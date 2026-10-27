@@ -63,7 +63,7 @@ void CorePhysicsComponent::TryStartSkitch()
     if (At<uint8_t>(this, kDriving))
         return;
     uint8_t* button = InputOf(this) + 0x20;
-    // (not original: THAW 0x005D3517 - on the bike R2 held, not up)
+    // (not original: THAW 0x005D33A7 - on the bike R2 held, not up)
     uint8_t* hold = ThawBmx::Active(this) ? ThawBmx::SkitchButton(this) : button;
     if (FlagsOf(this)[0x88] || !hold[0])
         return;

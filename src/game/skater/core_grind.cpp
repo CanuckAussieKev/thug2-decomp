@@ -326,7 +326,7 @@ void StartLipTrick(CorePhysicsComponent* c, const Mth::Vector* point)
 // (0x0050A770) A grind along the rail from `node` to the next: the way the skater goes along it.
 void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool fromObject)
 {
-    // (not original: THAW 2nd build 0x005E0EAD - the velocity as the grind start began, for the bike's stall)
+    // (not original: THAW 0x005E0EAD - the velocity as the grind start began, for the bike's stall)
     bool bike = ThawBmx::Active(c);
     Mth::Vector startVelocity = VectorAt(ObjectOf(c), kVelocity);
     SetRailTerrain(c);
@@ -442,7 +442,7 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
     bool rightHit = Feel(c, 0x10, 0);
     At<uint8_t>(c, 0x249) = (leftHit && !leftSide) || (rightHit && leftSide);
     At<uint8_t>(c, 0x248) = leftHit || rightHit;
-    if (ThawBmx::Active(c)) // (not original: THAW 0x005E2965 - on the bike, a bad ledge on that side: the other side)
+    if (ThawBmx::Active(c)) // (not original: THAW 0x005E27F5 - on the bike, a bad ledge on that side: the other side)
         leftSide = ThawBmx::GrindSide(c, leftSide, At<uint8_t>(c, 0x249) != 0);
 
     // Grinding sideways (across the skater's right) or which way round.
@@ -471,7 +471,7 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
     // The grind trick: the skater component's (0x00522E80), else the physics' pick by the d-pad (0x005004B0).
     if (!static_cast<Obj::CTrickComponent*>(skater)->DoExtraGrindTrick(leftSide, sideways, At<uint8_t>(c, 0x34C) != 0,
                                                                         Flag(c, 0x28) != 0)) {
-        if (bike) // (not original: THAW 0x005E2AA5 - on the bike R1 held: the stall)
+        if (bike) // (not original: THAW 0x005E2935 - on the bike R1 held: the stall)
             ThawBmx::GrindStall(c, startVelocity, direction);
         const uint8_t* input = InputOf(c);
         int pad = Obj::DPadDirection(input[0x20], input[0x40], input[0x60], input[0x80]);
@@ -527,7 +527,7 @@ void CorePhysicsComponent::StartGrind(const Mth::Vector* point, Obj::CRailNode* 
               VectorAt(object, kFacing).y > 0.0f && std::fabs(VectorAt(this, kGroundNormal).y) < rampVert &&
               std::fabs(VectorAt(object, kRight).y) < allow;
     }
-    // (not original: THAW 0x005E1CA1 - no lip trick on the bike)
+    // (not original: THAW 0x005E1B31 - no lip trick on the bike)
     if (lip && !noLipTrick && !At<uint8_t>(this, 0x2ED) && !ThawBmx::Active(this))
         StartLipTrick(this, point);
     else

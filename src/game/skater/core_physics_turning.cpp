@@ -98,7 +98,7 @@ void CorePhysicsComponent::TurnForRailJump()
     uint8_t* input = InputOf(this);
     float angle;
     if (ThawBmx::Active(this)) {
-        // Not original: THAW 0x005CF180 - on the bike the stick's left / right (THAW's LEFTLEFT / LEFTRIGHT).
+        // Not original: THAW 0x005CF010 - on the bike the stick's left / right (THAW's LEFTLEFT / LEFTRIGHT).
         const ThawBmx::BikeState* bike = ThawBmx::StateOf(this, false);
         if (bike && bike->stickLeft.down)
             angle = static_cast<float>(static_cast<double>(Script::GetFloat(kRailJumpAngle)) * kDegreesToRadians);
@@ -119,7 +119,7 @@ void CorePhysicsComponent::TurnForRailJump()
 // 0x00503560
 void CorePhysicsComponent::TurnOnGround()
 {
-    if (ThawBmx::Active(this)) { // (not original: the bike's own turning, THAW 0x005D6360)
+    if (ThawBmx::Active(this)) { // (not original: the bike's own turning, THAW 0x005D61F0)
         ThawBmx::TurnOnGround(this);
         return;
     }
@@ -162,8 +162,8 @@ void CorePhysicsComponent::TurnOnGround()
 // 0x005039F0
 float CorePhysicsComponent::BounceOffWall(const Mth::Vector* normal, float* turn, float scale)
 {
-    // Not original: THAW 0x005CCD60 (its first instruction the on-bike flag; the second THAW build's
-    // 0x005CCBF0) - on the bike rolling backwards into a wall: stopped, no bounce (`turn` left as it is).
+    // Not original: THAW 0x005CCBF0 (the on-bike flag tested first, 0x005CCBF6) - on the bike rolling backwards into a
+    // wall: stopped, no bounce (`turn` left as it is).
     if (ThawBmx::Active(this) && ThawBmx::RollingBackwards(this)) {
         VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         return 0.0f;

@@ -291,7 +291,7 @@ void CorePhysicsComponent::CheckForGround()
 {
     void* object = At<void*>(this, kObject);
     uint8_t* input = At<uint8_t*>(this, kInput);
-    // Not original: THAW 0x005DF1C0 - on the bike (out of a manual) the two wheels instead (thaw_bmx_physics.cpp).
+    // Not original: THAW 0x005DF050 - on the bike (out of a manual) the two wheels instead (thaw_bmx_physics.cpp).
     bool bike = ThawBmx::Active(this);
     ThawBmx::WheelGround wheels = bike ? ThawBmx::WheelGroundCheck(this) : ThawBmx::kWheelsNotUsed;
     if (wheels == ThawBmx::kWheelsOnGround || wheels == ThawBmx::kWheelsOnGroundNoHit) {
@@ -337,7 +337,7 @@ void CorePhysicsComponent::CheckForGround()
                 // another without), or too far away for how fast the skater moves, isn't kept to.
                 Mth::Vector normal = VectorAt(this, kHitNormal);
                 Mth::Vector facing = VectorAt(object, kFacing);
-                if (bike && ThawBmx::RollingBackwards(this)) // (not original: THAW 0x005DEC78, rolling back on the bike)
+                if (bike && ThawBmx::RollingBackwards(this)) // (not original: THAW 0x005DEB08, rolling back on the bike)
                     facing = {-facing.x, -facing.y, -facing.z, -facing.w};
                 Mth::Vector inHitPlane = facing;
                 Mth::Vector inGroundPlane = facing;
@@ -380,7 +380,7 @@ void CorePhysicsComponent::CheckForGround()
                     uint8_t surface = At<uint8_t>(this, kSurfaceFlags);
                     static_cast<Obj::CSkaterStateComponent*>(At<void*>(this, kTimedFlags))->SetTerrain(surface);
                     At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1C) = surface;
-                    if (!bike || !ThawBmx::LerpDisplayNormal(this)) // (not original: the bike's, THAW 0x005CB590)
+                    if (!bike || !ThawBmx::LerpDisplayNormal(this)) // (not original: the bike's, THAW 0x005CB420)
                         GameFunction<void(__thiscall*)(void*)>(0x004FEA50)(this);
                     StartRidingHitObject();
                     if (At<int>(this, 0x1AC) != At<int>(this, 0xFC)) {
@@ -437,7 +437,7 @@ void CorePhysicsComponent::CheckForGround()
     TriggerOf(this)->CheckFeeler(Events(0x0064BB80), FeelerAt(this, kOtherFeeler));
 }
 
-// Not original (THAW's BMX, phase 3 - THAW 0x005DF550..0x005DF925): the bike on the ground under its wheels
+// Not original (THAW's BMX, phase 3 - THAW 0x005DF3E0..0x005DF7B5): the bike on the ground under its wheels
 // (ThawBmx::WheelGroundCheck has put it there): the display normal towards the ground's; with the feeler under the
 // skater on the ground (`hit`), what CheckForGround does on the ground after that: the terrain, a ride on what was
 // hit, the triggers, the trick objects, the feeler kept.
@@ -484,7 +484,7 @@ void CorePhysicsComponent::DoAirPhysics()
     if (At<uint8_t>(flags, 0x30) || At<uint8_t>(flags, 0x78) || At<uint8_t>(flags, 0xA8) || At<uint8_t>(flags, 0x70))
         SetTimedFlag(flags, 0xB0, 1);
     At<uint8_t>(this, 0x2EC) = 0;
-    // Not original: THAW 0x005DF9F0 - on the bike no manual in the air, and its own pitch and spin (0x005D7E20) for
+    // Not original: THAW 0x005DF880 - on the bike no manual in the air, and its own pitch and spin (0x005D7CB0) for
     // the lean and spin (thaw_bmx_physics.cpp).
     bool bike = ThawBmx::Active(this);
     if (bike)
@@ -500,8 +500,8 @@ void CorePhysicsComponent::DoAirPhysics()
     // (The original: flag +0x80 or both triggers. PartyMod's JZ -> JNZ at 0x0050CAC4 makes it either trigger.)
     if (Flag(this, 0x80) || TriggersHeld(input))
         RecoverInAir();
-    // Not original: THAW 0x005DFAFB - on the bike the tire tap (looked for, or carried on), and while it's on the
-    // bike isn't kept upright (0x005DFB4B).
+    // Not original: THAW 0x005DF98B - on the bike the tire tap (looked for, or carried on), and while it's on the
+    // bike isn't kept upright (0x005DF9DB).
     if (bike)
         ThawBmx::TireTap(this);
     {
@@ -700,7 +700,7 @@ void CorePhysicsComponent::DoAirPhysics()
         else
             CallThis(0x004FEA50, this);
     }
-    if (bike) // (not original: THAW 0x005E05E6 - on the bike the wheel points follow it through the air)
+    if (bike) // (not original: THAW 0x005E0476 - on the bike the wheel points follow it through the air)
         ThawBmx::AirWheelPoints(this);
 
     // Landing: a feeler from the last position (carried along) to the new one.
@@ -819,7 +819,7 @@ void CorePhysicsComponent::LandFromAir()
         SetTimedFlag(At<void*>(this, kTimedFlags), 0x30, 0);
         At<uint8_t>(this, 0x2D0) = 0;
         if (ThawBmx::Active(this)) {
-            // Not original: THAW 0x005E0C14 (the 2nd THAW build's 0x005E0AA4) - on the bike the landing keeps the
+            // Not original: THAW 0x005E0AA4 - on the bike the landing keeps the
             // bike's own up as the display / ground normal, the display matrix the skater's as it landed, and then
             // sets the ground normal to the hit's (0x004FE860: the skater's up turned to it, the display normal's
             // lerp started) - the bike eases into the landing instead of snapping to the ground.
