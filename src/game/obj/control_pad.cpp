@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "game/core/crc.h"
+#include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -213,6 +214,9 @@ void CControlPad::Reset()
         f = 0.0f;
     m_polar[0] = {0.0f, 0.0f};
     m_polar[1] = {0.0f, 0.0f};
+    // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
+    if (Skater::ThawBmx::Enabled())
+        Skater::ThawBmx::UpdatePadSticks(this, nullptr);
 }
 
 // 0x0046BC60
@@ -288,6 +292,10 @@ void CControlPad::Update(const uint8_t* data)
     double angle = std::fabs(static_cast<double>(m_polar[1].angle));
     UpdateLock(m_lock[0], m_polar[1].length, angle < kQuarterPi);
     UpdateLock(m_lock[1], m_polar[1].length, static_cast<double>(kPi) - angle < kQuarterPi);
+    // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
+    // game/skater/thaw_bmx.h. Original behaviour: none.
+    if (Skater::ThawBmx::Enabled())
+        Skater::ThawBmx::UpdatePadSticks(this, data);
 }
 
 // 0x0046C270
@@ -300,6 +308,10 @@ CControlButton* CControlPad::GetButton(uint32_t name)
         if (button->m_name == name)
             return button;
     }
+    // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons by name (leftup ... rightright - its bike
+    // scripts' DoBalanceTrick ButtonA=leftright, HeldLongerThan button=leftdown). Original behaviour: null.
+    if (Skater::ThawBmx::Enabled())
+        return static_cast<CControlButton*>(Skater::ThawBmx::PadStickButton(this, name));
     return nullptr;
 }
 

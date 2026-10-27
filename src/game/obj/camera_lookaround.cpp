@@ -11,6 +11,7 @@
 #include "game/obj/control_pad.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skater/thaw_bmx.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -23,6 +24,7 @@ void** const kVtable = reinterpret_cast<void**>(0x0064B28C);
 constexpr uint32_t kCameraLookAround = 0x81C7122D;
 constexpr uint32_t kInput = 0x27D7CD28;
 constexpr uint32_t kTurnTo = 0xB8F23899, kStopTurning = 0xE3B327C0;
+constexpr uint32_t kLookaroundOnDPadOn = 0xDB02EE92, kLookaroundOnDPadOff = 0x72D2BEE3; // (THAW's members)
 constexpr uint32_t kHeading = 0xFD4BC03E, kTilt = 0xE3C07609, kTime = 0x906B67BA, kFactor = 0x48D4868B;
 constexpr uint32_t kSecondPad = 0x702247A5, kNoButton = 0xF3E055E1; // script globals
 constexpr uint32_t kSpecialObject = 0x967C138C;
@@ -131,7 +133,18 @@ void CCameraLookAroundComponent::Update()
         TakePress(pad + 0x120);
     }
     float frame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
-    if (!m_locked && !m_turning) {
+    if (!m_locked && !m_turning && m_dpadLook && Skater::ThawBmx::Enabled()) {
+        // NOT ORIGINAL - THAW's BMX (THAW's second build 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
+        // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
+        // x 3). Original behaviour: the stick's, below, always.
+        auto* p = reinterpret_cast<CControlPad*>(pad);
+        Skater::ThawBmx::LookInputs in =
+            Skater::ThawBmx::DPadLookInputs(p->m_up.m_pressed != 0, p->m_down.m_pressed != 0, p->m_left.m_pressed != 0,
+                                            p->m_right.m_pressed != 0, Skater::ThawBmx::kLookInvertDefault);
+        float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
+        Ease(m_tilt, tilt, frame);
+        Ease(m_heading, in.heading, frame);
+    } else if (!m_locked && !m_turning) {
         float stickY = *reinterpret_cast<float*>(pad + 0x214);
         double tilt = static_cast<double>(stickY) * (stickY < 0.0f ? kUpScale : kDownScale) * kTiltScale;
         Ease(m_tilt, tilt, frame);
@@ -166,6 +179,13 @@ int CCameraLookAroundComponent::CallMemberFunction(uint32_t name, Script::CStruc
     }
     if (name == kStopTurning) {
         m_turning = false;
+        return 1;
+    }
+    // NOT ORIGINAL - THAW's BMX: THAW's members (its 0x5B0B50 / 0x5B0B60: +0x40 on / off), bike_start's and
+    // bmx_finish_off's - only while the feature is on (else 2, as THUG2's).
+    if ((name == kLookaroundOnDPadOn || name == kLookaroundOnDPadOff) && Skater::ThawBmx::Enabled()) {
+        m_dpadLook = name == kLookaroundOnDPadOn;
+        Skater::ThawBmx::NoteDPadCamera(m_dpadLook);
         return 1;
     }
     return 2;

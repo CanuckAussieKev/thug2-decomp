@@ -101,6 +101,10 @@ struct BikeState {
     bool stallScript = false;     // +0x49D ShouldRunStallScript (R1 held as the grind started)
     Mth::Vector stallVelocity{0.0f, 0.0f, 0.0f, 1.0f}; // +0x4A0 the velocity the grind began with
     int stallSteepFrames = 0;     // +0x724 frames stalled on a steep rail (never reset but by the constructor)
+    // (THAW's trick component, thaw_bmx_sticks.cpp) each stick's exclusive direction (0 none, 1-8: left, right) and
+    // +0x1C14, the right stick centred since BikePress last counted (1 after a reset)
+    int trickStick[2] = {0, 0};
+    bool rightStickCentred = true;
 };
 
 // [features] thaw_bmx (default 0; the self-tests turn it on for a moment).
@@ -324,6 +328,63 @@ void RailStallSlip(void* core);
 // THAW 2nd build 0x005E3801 (the stall state's update, at its end): on a rail steeper than the up's y 0.95 for more
 // than 10 frames (counted over every stall) back to grinding it. True when it did.
 bool StallSteepRail(void* core);
+
+// ---------------------------------------------------------------------------------------------------------------
+// THAW's stick buttons, the right stick's tricks and the d-pad camera (thaw_bmx_sticks.cpp; addresses THAW's second
+// build). On the bike THAW turns the input server's "left stick drives the d-pad" off (bike_start's
+// SetAnalogStickActiveForMenus 0) and the d-pad turns the camera (skatercam0:LookaroundOnDPad_On); its bike reads the
+// sticks through buttons of their own instead:
+// - its pad has eight buttons more than THUG2's (pad +0x200..+0x2E0): each stick's four directions, made by its input
+//   server from the tolerance-centred stick bytes - the movement (left) stick any way off its centre (0x4355B0: past
+//   THUG2's own dead band, 50 from 0x80), the right stick past 0xCB / under 0x35 (0x435530: about 60% over) - and
+//   updated as buttons (0x596CA0: down while the byte is set). Here every pad keeps them beside it while the feature
+//   is on (CControlPad::Update / GetButton), under THAW's names (leftup ... rightright: DoBalanceTrick
+//   ButtonA=leftright, HeldLongerThan button=leftdown);
+// - its trick component has each stick as eight exclusive directions (0x471D20: DPadDirection over the four, as
+//   THUG2's d-pad: leftup, leftdown, leftleft, leftright, leftupleft, leftupright, leftdownleft, leftdownright and the
+//   right stick's) - press / release events in the trick buffer, `Held` / `Released` - here only while the skater
+//   rides the bike (UpdateButtons, IsButtonDown, Held buttons=), so off it THUG2's buffer is as before;
+// - its CheckTrigger has BikePress (0x470EAB): Press, but not the same right-stick flick twice - when the button map's
+//   first button (the last trick's) is this one, only after the right stick has been back in the middle (0x4723D0:
+//   none of its eight directions down).
+enum StickButtonIndex { kLeftUp, kLeftDown, kLeftLeft, kLeftRight, kRightUp, kRightDown, kRightLeft, kRightRight };
+// The eight directions (a bit each, 1 << StickButtonIndex) from a pad's data: its bytes 0-3, the tolerance-centred
+// right x, y and left x, y (0x80 the middle).
+uint32_t StickDirections(const uint8_t* data);
+// THAW's names of the pad's stick buttons (by StickButtonIndex).
+uint32_t StickButtonName(int index);
+// From CControlPad::Update / Reset (the feature on): the pad's stick buttons from `data` (null: all up).
+void UpdatePadSticks(const void* pad, const uint8_t* data);
+// From CControlPad::GetButton (the feature on): the pad's stick button named `name`, or null.
+void* PadStickButton(const void* pad, uint32_t name);
+// The trick component's direction (0 none, 1-8 as DPadDirection) of one stick's four buttons, and its name (0 for 0).
+int StickDirection(uint32_t directions, bool right);
+uint32_t TrickStickName(bool right, int direction);
+// From CTrickComponent::UpdateButtons (the feature on): `trick`'s stick directions as events while it rides the bike.
+void UpdateTrickSticks(void* trick);
+// Whether `trick`'s stick direction `name` is down: 1 / 0, or -1 when `name` isn't one or the skater isn't on the bike.
+int TrickStickHeld(const void* trick, uint32_t name);
+// From the end of CTrickComponent::Update (the feature on; THAW 0x4723D0): whether the right stick is centred, for
+// the next frame's BikePress.
+void EndTrickUpdate(void* trick);
+// BikePress's re-arm rule: a press found may count unless the last trick's first button is this one and the right
+// stick hasn't been centred since.
+bool BikePressMayCount(uint32_t lastButton, uint32_t button, bool rightStickCentred);
+// Whether `trick`'s right stick has been centred (true when it has no bike state).
+bool RightStickCentred(const void* trick);
+// The look-around's d-pad mode (THAW 0x5B08F0 with +0x40 set): the tilt and heading inputs from the d-pad - up 1.5,
+// down -1.0; left -1.5, right 1.5 (half a full stick's x 3) - each x -1 when inverted (THAW's +0x41, its
+// default_user_axis_inversion: on by default); the update then eases to them as to the stick's.
+struct LookInputs {
+    float tilt, heading;
+};
+LookInputs DPadLookInputs(bool up, bool down, bool left, bool right, bool invert);
+// THAW's look-around inversion default (default_user_axis_inversion 1; THUG2's stick path has none).
+constexpr bool kLookInvertDefault = true;
+// From the look-around's LookaroundOnDPad_On / _Off: noted, so that leaving for the front end with the bike's d-pad
+// camera on gives the menus the stick back (Update).
+void NoteDPadCamera(bool on);
+bool DPadCameraNoted();
 
 // The maths of the branches, on plain values (thaw_bmx_physics.cpp; the self-tests check them against THAW's code as
 // read).

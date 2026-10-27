@@ -39,7 +39,8 @@ public:
     // the targets.
     void Update();
     // 0x004E4220 (slot 12): 0xB8F23899 turns to heading=, tilt= over time= (floats, asserted) with the factor
-    // 0x48D4868B (1 by default); 0xE3B327C0 stops turning. 2 for anything else.
+    // 0x48D4868B (1 by default); 0xE3B327C0 stops turning. 2 for anything else. (NOT ORIGINAL, the feature on:
+    // THAW's LookaroundOnDPad_On / _Off too.)
     int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
     // 0x004E3FA0 (not a Ghidra function): turn to `heading` and `tilt` over `time` (straight away without one).
     void TurnTo(float heading, float tilt, float time, float factor);
@@ -48,7 +49,11 @@ public:
 
     bool m_locked;      // +0x18
     bool m_turning;     // +0x19
-    uint8_t pad1A[2];
+    // NOT ORIGINAL - THAW's BMX (game/skater/thaw_bmx.h): THAW's look-around has this flag (its +0x40, set by its
+    // members LookaroundOnDPad_On / _Off): the d-pad turns the camera, the right stick isn't read. Only while the
+    // feature is on; THUG2's component never sets nor reads these bytes.
+    bool m_dpadLook;    // +0x1A
+    uint8_t pad1B;
     float m_factor;     // +0x1C
     float m_tilt;       // +0x20
     float m_heading;    // +0x24

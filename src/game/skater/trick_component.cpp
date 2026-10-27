@@ -10,6 +10,7 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/skater/controls.h"
+#include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -451,7 +452,17 @@ void CTrickComponent::SetButtonMap(const uint32_t* buttons)
 }
 
 // 0x0051ECF0
-bool CTrickComponent::IsButtonDown(uint32_t button) { return m_down[Inp::ButtonIndex(button)]; }
+bool CTrickComponent::IsButtonDown(uint32_t button)
+{
+    // NOT ORIGINAL - THAW's BMX (the feature on, the skater on the bike): THAW's stick directions (leftleft ...
+    // rightdownright - game/skater/thaw_bmx.h). Original behaviour: THUG2's buttons only.
+    if (Skater::ThawBmx::Enabled()) {
+        int held = Skater::ThawBmx::TrickStickHeld(this, button);
+        if (held >= 0)
+            return held != 0;
+    }
+    return m_down[Inp::ButtonIndex(button)];
+}
 
 // 0x0051ED10
 void CTrickComponent::ClearQueue()
@@ -686,6 +697,28 @@ bool CTrickComponent::CheckTrigger(Script::CStruct* trigger, uint32_t markFlags,
         if (scan != Scan::Found)
             return scan == Scan::Stopped ? false : fail();
         e->flags |= markFlags;
+        SetButtonMap(buttons);
+        return true;
+    }
+    case 0xCEA9F4B5: { // NOT ORIGINAL - THAW's BMX (the feature on; THAW's second build 0x470EAB): BikePress - Press
+        // (the time stretched the same way), but the same right-stick flick not twice: with the button map's first
+        // button (the last trick's) this one, only once the right stick has been centred - the press found keeps
+        // the flags all the same. Original behaviour: an unknown kind (the default below).
+        if (!Skater::ThawBmx::Enabled())
+            return fail();
+        uint32_t ms = ReadTrigger(node, 1, buttons);
+        if (scaled) {
+            float rate = Field<float>(m_corePhysics, 0x2E8);
+            if (rate < 1.0f)
+                ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
+        }
+        TrickEvent* e = nullptr;
+        Scan scan = FindEvent(this, 1, buttons[0], ms, mask, e);
+        if (scan != Scan::Found)
+            return scan == Scan::Stopped ? false : fail();
+        e->flags |= markFlags;
+        if (!Skater::ThawBmx::BikePressMayCount(m_buttonMap[0], buttons[0], Skater::ThawBmx::RightStickCentred(this)))
+            return false;
         SetButtonMap(buttons);
         return true;
     }

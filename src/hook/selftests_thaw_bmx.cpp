@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/obj/control_pad.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/thaw_bmx.h"
@@ -398,10 +399,11 @@ void TestThawBmxPhysicsGate()
               !Bike::JumpBoosts({-1, 0, 0, 1}, 0),
           "bmx 0x5DDF30: stick back or moving at all: none");
     velocity[0] = velocity[1] = velocity[2] = 0.0f;
-    pad[0x20] = 1; // (the d-pad's down: the stick pulled back)
+    float* stickY = reinterpret_cast<float*>(pad + 0x20C); // (the movement stick's raw y: pulled back; on the bike
+    *stickY = 127.0f;                                     // the d-pad is the camera, not the stick)
     JumpBoost(f.core.data());
     Check(velocity[0] == 0.0f, "bmx 0x5DDF30: the stick pulled back: no boost");
-    pad[0x20] = 0;
+    *stickY = 0.0f;
     // JumpPitch: out of a manual pitched by 0.7 of its angle (a manual tips back, a nose manual forward).
     float* matrix = reinterpret_cast<float*>(f.skater.data() + 0x6C);
     const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
@@ -866,6 +868,69 @@ void TestThawBmxStall()
     Check(velocity[0] == 300.0f && state == 4, "bmx stall 0x5E707C: no flag: the grind as it is");
 }
 
+// THAW's stick buttons (its input server 0x435530 / 0x4355B0, the trick component's 0x471D20), BikePress's re-arm
+// rule (0x470EAB) and the look-around's d-pad inputs (0x5B08F0) - thaw_bmx_sticks.cpp.
+void TestThawBmxSticks()
+{
+    auto dirs = [](uint8_t rx, uint8_t ry, uint8_t lx, uint8_t ly) {
+        const uint8_t data[4] = {rx, ry, lx, ly};
+        return StickDirections(data);
+    };
+    const uint32_t up = 1u << kRightUp, down = 1u << kRightDown, left = 1u << kRightLeft, right = 1u << kRightRight;
+    // the right stick: past 0xCB / under 0x35 (about 60% over)
+    Check(dirs(0x80, 0x80, 0x80, 0x80) == 0, "bmx sticks: centred: nothing");
+    Check(dirs(0xCB, 0x80, 0x80, 0x80) == 0 && dirs(0xCC, 0x80, 0x80, 0x80) == right,
+          "bmx sticks 0x435530: right past 0xCB");
+    Check(dirs(0x35, 0x80, 0x80, 0x80) == 0 && dirs(0x34, 0x80, 0x80, 0x80) == left,
+          "bmx sticks 0x435530: left under 0x35");
+    Check(dirs(0x80, 0x35, 0x80, 0x80) == 0 && dirs(0x80, 0x34, 0x80, 0x80) == up &&
+              dirs(0x80, 0xCB, 0x80, 0x80) == 0 && dirs(0x80, 0xCC, 0x80, 0x80) == down,
+          "bmx sticks 0x435530: up under 0x35, down past 0xCB");
+    // the movement stick: any way off the middle (the bytes come centred within THUG2's dead band)
+    Check(dirs(0x80, 0x80, 0x81, 0x80) == 1u << kLeftRight && dirs(0x80, 0x80, 0x7F, 0x80) == 1u << kLeftLeft &&
+              dirs(0x80, 0x80, 0x80, 0x7F) == 1u << kLeftUp && dirs(0x80, 0x80, 0x80, 0x81) == 1u << kLeftDown,
+          "bmx sticks 0x4355B0: the movement stick off the middle");
+    Check(dirs(0xFF, 0x00, 0x00, 0xFF) == (right | up | 1u << kLeftLeft | 1u << kLeftDown),
+          "bmx sticks: both sticks at once");
+    // the trick component's eight exclusive directions (DPadDirection's numbers) and THAW's names
+    Check(StickDirection(1u << kLeftUp | 1u << kLeftLeft, false) == 5 && StickDirection(up | right, true) == 6 &&
+              StickDirection(1u << kLeftDown, false) == 2 && StickDirection(up | right, false) == 0,
+          "bmx sticks 0x471D20: a stick's direction");
+    Check(TrickStickName(true, 6) == Name("RightUpRight") && TrickStickName(false, 7) == Name("leftdownleft") &&
+              TrickStickName(true, 4) == Name("rightright") && TrickStickName(false, 5) == Name("leftupleft") &&
+              TrickStickName(false, 0) == 0,
+          "bmx sticks: the directions' names (THAW's button table)");
+    Check(StickButtonName(kLeftRight) == Name("leftright") && StickButtonName(kRightDown) == Name("rightdown"),
+          "bmx sticks: the pad's stick buttons' names");
+    // the pad's stick buttons: down while the direction is
+    std::vector<uint8_t> pad(0x238, 0);
+    const uint8_t pushed[4] = {0x80, 0x80, 0xFF, 0x80};
+    UpdatePadSticks(pad.data(), pushed);
+    auto button = [&](const char* name) {
+        return static_cast<Obj::CControlButton*>(PadStickButton(pad.data(), Name(name)));
+    };
+    Check(button("leftright") && button("leftright")->m_pressed && !button("leftleft")->m_pressed &&
+              PadStickButton(pad.data(), Name("square")) == nullptr,
+          "bmx sticks 0x596CA0: the pad's stick buttons");
+    UpdatePadSticks(pad.data(), nullptr);
+    Check(!button("leftright")->m_pressed, "bmx sticks: a pad reset lets them go");
+    // BikePress: not the last trick's flick again until the right stick has been centred
+    Check(!BikePressMayCount(Name("rightright"), Name("rightright"), false) &&
+              BikePressMayCount(Name("rightright"), Name("rightright"), true) &&
+              BikePressMayCount(Name("rightleft"), Name("rightright"), false),
+          "bmx sticks 0x470EAB: BikePress's re-arm rule");
+    // the look-around on the d-pad: up 1.5 / down -1 (up first), left -1.5 / right 1.5 (left first), x -1 inverted
+    LookInputs in = DPadLookInputs(true, true, false, false, false);
+    Check(in.tilt == 1.5f && in.heading == 0.0f, "bmx look 0x5B08F0: up (over down)");
+    in = DPadLookInputs(false, true, true, true, false);
+    Check(in.tilt == -1.0f && in.heading == -1.5f, "bmx look 0x5B08F0: down, left (over right)");
+    in = DPadLookInputs(false, false, false, true, true);
+    Check(in.tilt == 0.0f && in.heading == -1.5f, "bmx look 0x5B08F0: right, inverted");
+    in = DPadLookInputs(true, false, false, false, true);
+    Check(in.tilt == -1.5f && in.heading == 0.0f && kLookInvertDefault, "bmx look 0x5B08F0: up inverted; THAW's default");
+}
+
+SELFTEST(Early, TestThawBmxSticks);
 SELFTEST(Early, TestThawBmxStall);
 SELFTEST(Early, TestThawBmxWheelFeel);
 SELFTEST(Early, TestThawBmxMeterAndVert);

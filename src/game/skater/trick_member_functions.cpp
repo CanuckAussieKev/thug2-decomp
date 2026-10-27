@@ -12,6 +12,7 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/skater/skater.h"
+#include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -395,6 +396,16 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         if (params->GetArray(kButtonsName, &buttons, 0)) {
             int count = static_cast<int>(buttons->m_size);
             for (int i = 0; i < count; ++i) {
+                // NOT ORIGINAL - THAW's BMX (the feature on, on the bike): THAW's stick directions too (its trick
+                // lists' buttons=[rightright, RightUpRight, RightDownRight]). Original behaviour: THUG2's only.
+                if (Skater::ThawBmx::Enabled()) {
+                    int held = Skater::ThawBmx::TrickStickHeld(this, buttons->GetElement(i));
+                    if (held >= 0) {
+                        if (held)
+                            return 1;
+                        continue;
+                    }
+                }
                 if (At<bool>(this, kHeldButtons + Inp::ButtonIndex(buttons->GetElement(i))))
                     return 1;
             }

@@ -9,9 +9,10 @@
 // bike; otherwise nothing here runs.
 //
 // THAW's pad has buttons THUG2's hasn't: the movement stick's four directions as buttons (LEFTUP / LEFTDOWN / LEFTLEFT
-// / LEFTRIGHT, its pad +0x280 / +0x2A0 / +0x2C0 / +0x2E0, set by its PC layer). Here they're the d-pad's own buttons or
-// the stick past half way (BeginFrame keeps their press times); where THAW reads the stick's analog value, a centred
-// stick gives the d-pad's direction at full deflection (keyboard play).
+// / LEFTRIGHT, its pad +0x280 / +0x2A0 / +0x2C0 / +0x2E0, made by its input server from the stick: any way off the
+// middle past the dead band - thaw_bmx_sticks.cpp keeps them beside THUG2's pad; BeginFrame keeps their press times).
+// On the bike the d-pad is the camera (THAW turns the stick's d-pad off: bike_start's SetAnalogStickActiveForMenus 0),
+// so nothing here reads the d-pad as the stick; on the keyboard the movement keys push the stick all the way.
 
 #include <cmath>
 #include <cstdint>
@@ -173,7 +174,6 @@ constexpr double kStickScale = 0.0078125;          // 0x006A0DC8 (1 / 128)
 constexpr float kSlowTurnRamp = 1.0f / 600.0f;     // 0x006A0DD0
 constexpr int kSlowTurnRampMs = 600;               // 0x258
 constexpr float kBackwardsLean = 0.0005f;          // 0x006A0DC0
-constexpr float kStickHalf = 64.0f;                // (ours: the stick past half way is THAW's LEFT... button)
 constexpr double kSteerBlendBase = 1.0;            // 2nd build 0x006DB3A8 (double)
 constexpr double kSteerBlendScale = 0.5;           // 2nd build 0x006E4DE8 (double)
 constexpr float kSteerInTime = 0.4f;               // (bike_playturnanim's BlendPeriod: THAW's tree blends the turn in)
@@ -250,29 +250,11 @@ bool MovingBackwards(const void* core)
 }
 float Speed(const void* core) { return static_cast<float>(Length3(VectorAt(ObjectOf(core), kVelocity))); }
 
-// The movement stick's raw axis (THAW's pad +0x348 x / +0x34C y: THUG2's m_stick[2] / [3], -128..127), the d-pad's
-// direction at full deflection while it's centred.
-float StickRaw(const void* core, int axis)
-{
-    Obj::CControlPad* pad = ControlPad(core);
-    float raw = pad->m_stick[2 + axis];
-    if (std::fabs(raw) >= 1.0f)
-        return raw;
-    if (axis == 0)
-        return pad->m_right.m_pressed ? 127.0f : (pad->m_left.m_pressed ? -127.0f : 0.0f);
-    return pad->m_down.m_pressed ? 127.0f : (pad->m_up.m_pressed ? -127.0f : 0.0f);
-}
-// Its dead-banded value (THAW's pad +0x358 / +0x35C: THUG2's m_scaledStick[2] / [3], -1..1), likewise.
-float StickScaled(const void* core, int axis)
-{
-    Obj::CControlPad* pad = ControlPad(core);
-    float scaled = pad->m_scaledStick[2 + axis];
-    if (scaled != 0.0f)
-        return scaled;
-    if (axis == 0)
-        return pad->m_right.m_pressed ? 1.0f : (pad->m_left.m_pressed ? -1.0f : 0.0f);
-    return pad->m_down.m_pressed ? 1.0f : (pad->m_up.m_pressed ? -1.0f : 0.0f);
-}
+// The movement stick's raw axis (THAW's pad +0x348 x / +0x34C y: THUG2's m_stick[2] / [3], -128..127). (The d-pad
+// isn't read: on the bike it's the camera, as THAW's.)
+float StickRaw(const void* core, int axis) { return ControlPad(core)->m_stick[2 + axis]; }
+// Its dead-banded value (THAW's pad +0x358 / +0x35C: THUG2's m_scaledStick[2] / [3], -1..1).
+float StickScaled(const void* core, int axis) { return ControlPad(core)->m_scaledStick[2 + axis]; }
 
 // THAW 0x005C8CA0 (its first instruction obfuscated: the pad's pointer loaded - the rest is plain): on the
 // bike a brake button held - L1 the front brake (+0x528 set), R1 the rear; the skater's is the d-pad's down.
@@ -654,13 +636,15 @@ void BeginFrame(void* core)
     // THAW 0x005E87F4: the wheel points as the frame begins.
     state.lastFrontWheel = state.frontWheel;
     state.lastRearWheel = state.rearWheel;
-    // THAW's movement stick buttons: the d-pad's, or the stick past half way.
-    Obj::CControlPad* pad = ControlPad(core);
-    float x = pad->m_stick[2], y = pad->m_stick[3];
-    UpdateStickButton(state.stickUp, pad->m_up.m_pressed || y < -kStickHalf);
-    UpdateStickButton(state.stickDown, pad->m_down.m_pressed || y > kStickHalf);
-    UpdateStickButton(state.stickLeft, pad->m_left.m_pressed || x < -kStickHalf);
-    UpdateStickButton(state.stickRight, pad->m_right.m_pressed || x > kStickHalf);
+    // THAW's movement stick buttons (its pad's LEFTUP ...: thaw_bmx_sticks.cpp, from the stick alone).
+    const void* pad = ControlPad(core);
+    auto stick = [pad](int index) {
+        return static_cast<Obj::CControlButton*>(PadStickButton(pad, StickButtonName(index)))->m_pressed != 0;
+    };
+    UpdateStickButton(state.stickUp, stick(kLeftUp));
+    UpdateStickButton(state.stickDown, stick(kLeftDown));
+    UpdateStickButton(state.stickLeft, stick(kLeftLeft));
+    UpdateStickButton(state.stickRight, stick(kLeftRight));
 }
 
 void EndFrame(void* core)
@@ -855,6 +839,8 @@ void TurnOnGround(void* core)
     Obj::CControlPad* pad = ControlPad(core);
     float stickX = StickRaw(core, 0);
     int held = 0;
+    // (THAW 2nd build 0x005D6342: its pad +0x60 / +0x40 - the d-pad's right / left, not the stick's buttons; with the
+    // stick off the d-pad on the bike, the time since the d-pad was last pressed, as THAW's)
     if (stickX != 0.0f)
         held = static_cast<int>(pad->m_right.m_pressed ? pad->m_right.GetPressedTime() : pad->m_left.GetPressedTime());
     float sharp = PhysicsFloat(kGroundSharpRotation, core);

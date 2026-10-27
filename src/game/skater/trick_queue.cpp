@@ -19,6 +19,7 @@
 #include "game/skater/controls.h"
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/stats_manager.h"
+#include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -252,6 +253,10 @@ void CTrickComponent::UpdateButtons()
                        {0x10, 0xD}, {0x11, 0xF}, {0x12, 0x11}, {0x13, 0x16}, {0x14, 0x17}, {0x15, 0x18}};
     for (const auto& b : kButtonBits)
         SetButton(this, b.button, bit(b.bit));
+    // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick directions as events while the skater rides the bike
+    // (THAW 0x471D20's 16 more buttons - game/skater/thaw_bmx.h). Original behaviour: none.
+    if (Skater::ThawBmx::Enabled())
+        Skater::ThawBmx::UpdateTrickSticks(this);
 }
 
 // 0x00522030
@@ -784,6 +789,10 @@ void CTrickComponent::Update()
         Tmr::GetTime() - At<uint32_t>(this, kGrindTime) > At<uint32_t>(this, kGrindDuration))
         At<bool>(this, kGrindPending) = false;
     UpdateBash();
+    // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x4723D0 ends its update): the right stick centred or not, for
+    // BikePress. Original behaviour: none.
+    if (Skater::ThawBmx::Enabled())
+        Skater::ThawBmx::EndTrickUpdate(this);
 }
 
 // 0x00523350

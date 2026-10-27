@@ -1023,6 +1023,7 @@ add_library(thug2_code OBJECT
     src/game/skater/thaw_bmx.cpp
     src/game/skater/thaw_bmx_parked.cpp
     src/game/skater/thaw_bmx_physics.cpp
+    src/game/skater/thaw_bmx_sticks.cpp
     src/game/skater/thaw_bmx_tricks.cpp
     src/game/skater/trick_component.cpp
     src/game/sys/platform.cpp

@@ -67,6 +67,9 @@ const char* const kMembers[] = {
     "ShouldRunStallScript", "ClearStallScriptFlag", "ExitStallBoost", "OnStall",
     // (ours: bike_playturnanim's turn animation on / off - thaw_bmx_physics.cpp SteerAnim)
     "ThawBmxSteerAnim",
+    // (THAW's CameraLookAround members - the d-pad turns the camera on the bike: camera_lookaround.cpp, answered only
+    // while the feature is on)
+    "LookaroundOnDPad_On", "LookaroundOnDPad_Off",
 };
 
 std::unordered_map<const void*, BikeState>& States()
@@ -371,6 +374,13 @@ void Update(Mdl::FrontEnd* frontEnd)
     if (!Enabled())
         return;
     UpdateParked(frontEnd); // (the level's bike: thaw_bmx_parked.h)
+    // Left for the front end (no level) with the bike's d-pad camera on - no bike script turned it off: the menus get
+    // the stick back (bike_start's SetAnalogStickActiveForMenus 0 undone).
+    if (DPadCameraNoted() && Nx::CurrentLevel() == 0 && frontEnd) {
+        frontEnd->SetAnalogStickActiveForMenus(true);
+        NoteDPadCamera(false);
+        Log("thaw_bmx: no level with the bike's d-pad camera on - the stick moves through the menus again");
+    }
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     bool down = keys && g_key > 0 && g_key < SDL_NUM_SCANCODES && keys[g_key];
     bool pressed = down && g_keyUp;
