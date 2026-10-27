@@ -558,7 +558,6 @@ add_library(thug2_code OBJECT
     src/game/front/front_end.cpp
     src/game/front/mouse_menus.cpp
     src/game/front/data_overlay.cpp
-    src/game/front/menu_backdrop.cpp
     src/game/front/new_frontend.cpp
     src/game/front/new_frontend_draw.cpp
     src/game/front/new_frontend_game.cpp

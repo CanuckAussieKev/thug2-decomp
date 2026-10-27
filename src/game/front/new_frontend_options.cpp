@@ -101,8 +101,6 @@ const std::vector<Spec>& Specs()
         // Interface
         {"features", "new_frontend", Text::kOptNewFrontend, Text::kOptNewFrontendHelp, kOffOn, 0, Apply::Restart},
         {"features", "hd_ui", Text::kOptHdUi, Text::kOptHdUiHelp, kOffOn, 0, Apply::Restart},
-        {"features", "menu_backdrop", Text::kOptBackdrop, Text::kOptBackdropHelp,
-         {{"0", Text::kOptBackdropClassic}, {"1", Text::kOptBackdropThps4}}, 1, Apply::Restart},
         {"features", "mouse_menus", Text::kOptMouse, Text::kOptMouseHelp, kOffOn, 1, Apply::Live},
         {"features", "loading_console", Text::kOptLoadingConsole, Text::kOptLoadingConsoleHelp, kOffOn, 1, Apply::Restart},
         // Gameplay
@@ -129,9 +127,9 @@ const std::vector<Spec>& Specs()
 const std::vector<Group>& Groups()
 {
     static const std::vector<Group> groups = {
-        {"graphics", Text::kGroupGraphics, {0, 1, 2, 3}},  {"interface", Text::kGroupInterface, {4, 5, 6, 7, 8}},
-        {"gameplay", Text::kGroupGameplay, {9, 10, 11, 12, 13}}, {"online", Text::kGroupOnline, {14, 15, 16}},
-        {"mods", Text::kGroupMods, {17, 18, 19}},
+        {"graphics", Text::kGroupGraphics, {0, 1, 2, 3}},  {"interface", Text::kGroupInterface, {4, 5, 6, 7}},
+        {"gameplay", Text::kGroupGameplay, {8, 9, 10, 11, 12}}, {"online", Text::kGroupOnline, {13, 14, 15}},
+        {"mods", Text::kGroupMods, {16, 17, 18}},
     };
     return groups;
 }
