@@ -63,6 +63,8 @@ const char* const kMembers[] = {
     // (phase 4: the other THAW-only members THAW's bike scripts ask - thaw_bmx_tricks.cpp CallTrickMember)
     "DisplayPitchGreaterThan", "LandedFromTireTap", "InTireTap", "PitchingForward", "PitchingBackward",
     "ShouldRunStallScript", "ClearStallScriptFlag", "ExitStallBoost", "OnStall",
+    // (ours: bike_playturnanim's turn animation on / off - thaw_bmx_physics.cpp SteerAnim)
+    "ThawBmxSteerAnim",
 };
 
 std::unordered_map<const void*, BikeState>& States()
@@ -203,6 +205,11 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
         return LoadAssets() ? 1 : 0;
     if (name == kEnterWheelie) // (THAW 0x005CA520: phase 3, thaw_bmx_physics.cpp)
         return EnterWheelieFromAir(core, params);
+    static const uint32_t kSteerAnim = Checksum("ThawBmxSteerAnim"), kOffFlag = Checksum("off");
+    if (name == kSteerAnim) { // (ours: `on` / `off`)
+        SetSteerAnim(core, !(params && params->ContainsFlag(kOffFlag)));
+        return 1;
+    }
     // (the rest read or change the state; one is made on first use)
     bool known = name == kOn || name == kOff || name == kOverGrind || name == kGetAngle || name == kResetAngle ||
                  name == kInManual || name == kInXup || name == kEnterXup || name == kExitXup || name == kInTireTap ||
@@ -219,6 +226,7 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
     }
     if (name == kOff) { // 0x005C7630 (THAW clears only the flag; ours the bike's other states too)
         ManualMeterOff(core);
+        SteerAnimOff(core);
         BikeState fresh;
         fresh.frontWheel = state.frontWheel;
         fresh.rearWheel = state.rearWheel;
@@ -305,6 +313,7 @@ void OnSkaterReset(Obj::CSkater* skater)
     // The bike (a special item) is gone: off it.
     Log("thaw_bmx: skater reset on the bike - off it");
     ManualMeterOff(skater->m_corePhysics);
+    SteerAnimOff(skater->m_corePhysics);
     *state = BikeState{};
     RunIfThere(kAfterResetScript, skater);
 }

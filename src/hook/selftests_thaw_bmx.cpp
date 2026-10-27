@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/script/struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
@@ -693,6 +694,41 @@ void TestThawBmxBounceBackwards()
     on = was;
 }
 
+void TestThawBmxSteer()
+{
+    // THAW 0x005D6360 (2nd build 0x005D61F0): +0x570 = (|rate / Physics_Ground_Sharp_Rotation| + 1) * 0.5.
+    Check(Bike::SteerBlend(0.0f, 6.5f) == 0.5f, "bmx 0x5D6360: no turn: half the turn pose");
+    Check(Bike::SteerBlend(6.5f, 6.5f) == 1.0f && Bike::SteerBlend(-6.5f, 6.5f) == 1.0f,
+          "bmx 0x5D6360: the sharpest: all of it");
+    Check(Near(Bike::SteerBlend(2.0f, 6.5f), 0.653846f) && Near(Bike::SteerBlend(-3.25f, 6.5f), 0.75f),
+          "bmx 0x5D6360: between, either way round");
+    Check(Bike::SteerBlend(1.0f, 0.0f) == 0.5f, "bmx 0x5D6360: no sharp rotation (ours): half");
+    // (ours) the tree's blend in over 0.4 s, out over 0.3 s, clamped.
+    Check(Near(Bike::SteerIn(0.0f, true, 0.1f), 0.25f) && Bike::SteerIn(0.9f, true, 0.1f) == 1.0f,
+          "steer: in over 0.4 s");
+    Check(Near(Bike::SteerIn(1.0f, false, 0.1f), 1.0f - 0.1f / 0.3f) && Bike::SteerIn(0.02f, false, 0.1f) == 0.0f,
+          "steer: out over 0.3 s");
+    Check(Near(Bike::SteerIn(0.0f, true, 1.0f / 60.0f), 1.0f / 24.0f), "steer: one frame's tap: a 24th of the way in");
+    // The member ThawBmxSteerAnim: on without `off`, off with it.
+    Fake f;
+    bool& enabled = Enabled();
+    const bool was = enabled;
+    enabled = true;
+    f.Call("SkaterOnBike");
+    Check(f.Call("ThawBmxSteerAnim") == 1 && StateOf(f.core.data(), false)->steerAnim, "steer: ThawBmxSteerAnim on");
+    // ({off}: a stand-in structure on the stack - no script pools offline)
+    Script::CComponent flag = {};
+    flag.typeAndFlag = static_cast<uint8_t>(Script::ESYMBOLTYPE_NAME << 1);
+    flag.raw = Name("off");
+    Script::CStruct off = {};
+    off.m_head = &flag;
+    Check(CallMemberFunction(f.core.data(), Name("ThawBmxSteerAnim"), &off, nullptr) == 1 &&
+              !StateOf(f.core.data(), false)->steerAnim,
+          "steer: ThawBmxSteerAnim off");
+    enabled = was;
+}
+
+SELFTEST(Early, TestThawBmxSteer);
 SELFTEST(Early, TestThawBmxWheelFeel);
 SELFTEST(Early, TestThawBmxMeterAndVert);
 SELFTEST(Early, TestThawBmxBounceBackwards);
