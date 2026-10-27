@@ -22,6 +22,7 @@
 #include "game/skate/score.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/core_physics.h"
+#include "game/skater/manual.h"
 #include "game/skater/skater.h"
 #include "game/skater/special_item.h"
 #include "game/skater/thaw_bmx.h"
@@ -51,6 +52,7 @@ constexpr uint32_t kHitPoint = 0x120;
 constexpr uint32_t kFeelerStart = 0x208;
 constexpr uint32_t kFeelerEnd = 0x218;
 constexpr uint32_t kInput = 0x150C;        // THAW +0x1910 (the pad at its +0x20)
+constexpr uint32_t kBalanceTricks = 0x1524; // THAW +0x1928 (the balance trick component: +0x18 its kind)
 constexpr uint32_t kFlags = 0x1528;        // THAW +0x192C
 constexpr uint32_t kGroundNormal = 0x68;   // THAW +0x68 (THAW's 0x005D0D40 sets it - the same place as THUG2's)
 // The timed flags (THUG2's; THAW's in the comment).
@@ -95,6 +97,8 @@ constexpr float kTapRiseFast = 100.0f;              // 0x0068FBC0
 constexpr float kTapRiseFraction = 0.1f;            // 0x0068ED8C
 constexpr float kTapRiseSlow = 15.0f;               // 0x00690430
 constexpr double kManualWobble = 0.01;              // 0x006A0798 (the manual angle to the wobble's fraction)
+constexpr float kBalanceMiddle = 4096.0f;           // 2nd build 0x006E1BC4 (a balance's lean to the wobble's fraction:
+constexpr float kBalanceScale = 0.0001220703125f;   // 2nd build 0x006EF068  (4096 +- lean) / 8192)
 constexpr float kLedgeHeight = 12.0f;               // (THUG2's ledge search: a rail at most this far below in the air)
 constexpr double kTapLedgeWeight = 0.001;           // 2nd build 0x006DBD98 (a ledge's distance against a surface's, in vert)
 constexpr double kTapNearer = 0.001;                // 2nd build 0x006E1B90 (a double: "no further than the best so far")
@@ -254,6 +258,27 @@ TapStep TireTapStep(const Mth::Vector& position, const Mth::Vector& tap)
 }
 
 float ManualWobble(float manualAngle) { return static_cast<float>(manualAngle * kManualWobble); }
+
+uint32_t BalanceOffset(uint32_t kind)
+{
+    // 2nd build 0x006207A8: the balance trick component's balance for its kind (THUG2's layout is the same).
+    switch (kind) {
+    case 0x255ED86F: // Grind
+    case 0x8D10119D: // Slide
+        return 0x7C;
+    case 0xEF24413B: // Manual
+    case 0x0AC90769: // NoseManual
+        return 0x24;
+    case 0xA549B57B: // Lip
+        return 0xD4;
+    case 0x3506CE64: // Skitch
+        return 0x12C;
+    default:
+        return 0;
+    }
+}
+
+float BalanceWobble(float lean, bool flip) { return (flip ? kBalanceMiddle - lean : lean + kBalanceMiddle) * kBalanceScale; }
 
 bool DisplayPitchBeyond(const Mth::Vector& up, const Mth::Vector& normal, float degrees)
 {
@@ -478,9 +503,27 @@ void ManualPose(void* core)
     auto* skater = static_cast<Obj::CCompositeObject*>(ObjectOf(core));
     Obj::CCompositeObject* bike = BikeOf(skater);
     const BikeState* state = StateOf(core, false);
-    if (!state || !state->manual)
+    if (!state)
         return;
-    float fraction = Bike::ManualWobble(state->manualAngle);
+    float fraction;
+    if (state->manual) {
+        fraction = Bike::ManualWobble(state->manualAngle);
+    } else {
+        // 2nd build 0x006207A8: else the running balance trick's balance (the grind's and the stall's range animations
+        // among them) - THAW keeps one wobble fraction, which its animation trees play on the rider and the bike alike.
+        // THUG2's balance (CBalance::Update) moves only the rider's animation: the bike stayed on its range
+        // animation's first or last frame - in a stall (played from its end) beside the rail, twisted. The flip as
+        // THUG2's balance takes it for the rider (THAW asks its own stance there), so the two agree.
+        uint8_t* tricks = At<uint8_t*>(core, kBalanceTricks);
+        uint32_t at = tricks ? Bike::BalanceOffset(At<uint32_t>(tricks, 0x18)) : 0;
+        if (!at)
+            return;
+        const auto* balance = reinterpret_cast<const Obj::CBalance*>(tricks + at);
+        bool flip = balance->m_flip;
+        if (balance->m_flipped && At<uint8_t*>(core, kFlags)[0x28])
+            flip = !flip;
+        fraction = Bike::BalanceWobble(balance->m_lean, flip);
+    }
     SetWobble(skater, fraction);
     if (bike)
         SetWobble(bike, fraction);

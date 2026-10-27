@@ -239,7 +239,8 @@ void TireTap(void* core);
 // Whether a tire tap is on (THAW's timed flag +0x90; 0x005DFB4B: the air's keep-upright skipped then).
 bool TireTapping(const void* core);
 // THAW 0x00620940: the manual's pose - the wobble animation (bike_manual's bmx_wheelie_init / nosewheelie ones played
-// with `wobble`) held at the manual angle x 0.01 of its length, on the rider and the bike (EndFrame calls it).
+// with `wobble`) held at the manual angle x 0.01 of its length, on the rider and the bike (EndFrame calls it); out of
+// a manual, the running balance trick's balance (a grind's, a stall's range animation) on both the same way.
 void ManualPose(void* core);
 
 // The bike's sounds (THAW's skater sound component 0x005F1A9B / 0x005F1B30 / 0x005F1BD0 and its looping sound
@@ -478,6 +479,11 @@ TapStep TireTapStep(const Mth::Vector& position, const Mth::Vector& tap);
 void* ShadowCompanionOf(const void* casterModel, const void* riderModel, void* bikeModel, uint8_t bikeModelFlags);
 // THAW 0x00620940: the manual's wobble fraction (the manual angle x 0.01).
 float ManualWobble(float manualAngle);
+// THAW 0x00620940 (2nd build 0x006207A8), not in a manual: the balance trick component's balance for the running kind
+// (grind / slide +0x7C, manual / nose manual +0x24, lip +0xD4, skitch +0x12C; 0: none), and its wobble fraction
+// ((4096 + lean) / 8192, flipped (4096 - lean) / 8192 - the rider's balance meter's own).
+uint32_t BalanceOffset(uint32_t kind);
+float BalanceWobble(float lean, bool flip);
 // THAW 0x005CA600: whether the angle between the display's up and the display normal is beyond `degrees`.
 bool DisplayPitchBeyond(const Mth::Vector& up, const Mth::Vector& normal, float degrees);
 // The tire tap's ledge (THAW 0x0058C9A0's search; its first instruction an obfuscated site, the rest plain): the nearest

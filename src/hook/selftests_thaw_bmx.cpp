@@ -835,6 +835,17 @@ void TestThawBmxStall()
     Check(NearV(StallFacing({1, 0, 0, 0}, {-1, 0, 0, 0}), 1, 0, 0) && NearV(StallFacing({0, 0, 1, 0}, alongX), 1, 0, 0) &&
               NearV(StallFacing({-0.1f, 0, 1, 0}, alongX), -1, 0, 0),
           "bmx stall 0x5E3585: along the facing (square: as it is)");
+    // The pose: the running balance's wobble fraction, the rider's and the bike's (0x006207A8; the stall's range
+    // animation followed the balance on the rider only).
+    Check(BalanceOffset(Name("Grind")) == 0x7C && BalanceOffset(Name("Slide")) == 0x7C &&
+              BalanceOffset(Name("Manual")) == 0x24 && BalanceOffset(Name("NoseManual")) == 0x24 &&
+              BalanceOffset(Name("Lip")) == 0xD4 && BalanceOffset(Name("Skitch")) == 0x12C && BalanceOffset(0) == 0 &&
+              BalanceOffset(Name("Stall")) == 0,
+          "bmx stall pose 0x6207A8: the balance for the balance trick's kind");
+    Check(BalanceWobble(0.0f, false) == 0.5f && BalanceWobble(0.0f, true) == 0.5f &&
+              BalanceWobble(2048.0f, false) == 0.75f && BalanceWobble(2048.0f, true) == 0.25f &&
+              BalanceWobble(-4096.0f, false) == 0.0f,
+          "bmx stall pose 0x6207FE: (4096 +- lean) / 8192, flipped the other way");
 
     // The members and the flag on a fake component.
     Fake f;
