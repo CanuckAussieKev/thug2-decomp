@@ -65,6 +65,17 @@ void __cdecl KillTextureSplatsInBox(const float* box);
 // 0x004916F0: the sets of a texture freed (not their materials) and taken out of the table.
 void __cdecl KillTextureSplatsOfTexture(uint32_t texture);
 
+// 0x004928A0: a texture splat along a line (from `from` to `to`, `size` wide): the texture by name from the
+// particles' dictionary unless given; the collision objects of the grids along the line whose boxes meet its box
+// (grown by `size`) gathered with their sectors (0x00700710 / 0x00700510, unbounded) and the splat made on them
+// (CreateTextureSplat), aged a frame and lit at once unless it follows something. With `follow` (a bone, an object):
+// a recent splat position of the same id near `from` (within 66 - squared 4356 - and half a second) is the projection's
+// up and is moved on (no splat when `from` is still at its x and z); with none, `from` is only remembered (true). The
+// fade threshold (0x0067DDE0) read from the script integer 0x26FCB7BE each time. Whether a splat was made.
+bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to, float size, float depth, float angle,
+                                  float coneAngle, float lifetime, const char* textureName, uint32_t unknown38,
+                                  uint32_t follow, uint8_t unknown40, uint8_t* texture);
+
 // 0x00492000: each shatter's lifetime counted down: run out, it's destroyed; else a step (UpdateShatter). Not while
 // paused.
 void __cdecl UpdateShatters();

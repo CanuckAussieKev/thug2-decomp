@@ -7,14 +7,20 @@
 #include <cstring>
 #include <new>
 
+#include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/flash.h"
 #include "game/gfx/pc_fog.h"
 #include "game/gfx/shatter.h"
+#include "game/gfx/spawned_polys.h"
 #include "game/gfx/texture_splats.h"
 #include "game/lst/hashtable.h"
+#include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
+#include "game/nx/coll_grid.h"
+#include "game/nx/coll_obj.h"
+#include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -371,6 +377,131 @@ void __cdecl KillTextureSplatsOfTexture(uint32_t texture)
     }
 }
 
+// A recent splat position (0x18 bytes, in 0x007004B4): where, the id it follows, when (Tmr::GetTime).
+struct RecentSplat {
+    Mth::Vector pos;
+    uint32_t follow; // +0x10
+    uint32_t time;   // +0x14
+};
+
+// 0x004928A0
+bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to, float size, float depth, float angle,
+                                  float coneAngle, float lifetime, const char* textureName, uint32_t unknown38,
+                                  uint32_t follow, uint8_t unknown40, uint8_t* texture)
+{
+    GameVariable<int>(0x0067DDE0) = Script::GetInteger(0x26FCB7BE); // (asserted)
+    RecentSplat* recent = nullptr;
+    if (follow) {
+        // A recent position of the same id near enough: the splat is made from it. Old ones go.
+        uint32_t now = Tmr::GetTime();
+        for (void* value = FirstValue(RecentSplats()); value && !recent;) {
+            auto* candidate = static_cast<RecentSplat*>(value);
+            RecentSplat* dead = nullptr;
+            if (now < candidate->time || now - candidate->time > 500) {
+                dead = candidate;
+            } else if (candidate->follow == follow) {
+                double dx = static_cast<double>(from->x) - candidate->pos.x;
+                double dy = static_cast<double>(from->y) - candidate->pos.y;
+                double dz = static_cast<double>(from->z) - candidate->pos.z;
+                if (dz * dz + dy * dy + dx * dx < 4356.0f) {
+                    recent = candidate;
+                    break;
+                }
+            }
+            value = NextValue(RecentSplats());
+            if (dead) {
+                Remove(RecentSplats(), dead);
+                Mem::Manager::Get()->Free(dead);
+            }
+        }
+        if (!recent) {
+            // None: only remembered.
+            auto* added = static_cast<RecentSplat*>(Mem::New(sizeof(RecentSplat)));
+            added->follow = follow;
+            added->pos = *from;
+            added->time = now;
+            uint32_t key = reinterpret_cast<uint32_t>(added);
+            RecentSplats()->PutItem(key, added);
+            return true;
+        }
+    }
+    if (!texture) {
+        void* textures = GameVariable<void*>(0x00700F20); // (the particles' dictionary)
+        texture = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049F540)(
+            textures, Crc::GenerateCRCFromString(textureName));
+    }
+    // The line's box grown by the size; the collision objects of the grids along the line that meet it.
+    Mth::Line line(*from, *to);
+    Mth::BBox lineBox(line.start);
+    lineBox.AddPoint(line.end);
+    Mth::BBox box;
+    box.min = {static_cast<float>(static_cast<double>(lineBox.min.x) - size),
+                 static_cast<float>(static_cast<double>(lineBox.min.y) - size),
+                 static_cast<float>(static_cast<double>(lineBox.min.z) - size), 1.0f};
+    box.max = {static_cast<float>(static_cast<double>(lineBox.max.x) + size),
+                 static_cast<float>(static_cast<double>(lineBox.max.y) + size),
+                 static_cast<float>(static_cast<double>(lineBox.max.z) + size), 1.0f};
+    auto** grids = GameFunction<CCollGrid**(__cdecl*)(Mth::Line*)>(0x0048C980)(&line);
+    if (!grids || !*grids)
+        return false;
+    auto* sectors = &GameVariable<void*>(0x00700510);
+    auto* objects = &GameVariable<CCollObj*>(0x00700710);
+    int count = 0;
+    for (CCollGrid** grid = grids; *grid; ++grid) {
+        CCollObj** inBox = (*grid)->ObjectsInBox(&box);
+        if (!inBox)
+            continue;
+        for (; *inBox; ++inBox) {
+            CCollObj* object = *inBox;
+            // (slot 21: its geometry, a box first; NaN doesn't rule it out)
+            auto* bounds = reinterpret_cast<const Mth::BBox*(__thiscall*)(CCollObj*)>(
+                (*reinterpret_cast<void***>(object))[21])(object);
+            if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) &&
+                !(bounds->min.z > box.max.z) && !(box.min.z > bounds->max.z) &&
+                !(bounds->min.y > box.max.y) && !(box.min.y > bounds->max.y)) {
+                void* sector = GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(object->m_checksum);
+                objects[count] = object;
+                sectors[count] = sector;
+                ++count;
+            }
+        }
+    }
+    if (count <= 0)
+        return false;
+    sectors[count] = nullptr;
+    objects[count] = nullptr;
+    bool made;
+    if (follow && recent->pos.x == from->x && recent->pos.z == from->z) {
+        made = false; // (it hasn't moved)
+    } else {
+        sSplatParams params;
+        params.Construct();
+        std::memcpy(params.start, from, 16);
+        std::memcpy(params.end, to, 16);
+        params.angle = angle;
+        params.texture = texture;
+        params.size = size;
+        params.depth = depth;
+        params.coneAngle = coneAngle;
+        params.lifetime = lifetime;
+        params.unknown38 = unknown38;
+        params.up = recent ? &recent->pos.x : nullptr;
+        params.unknown40 = unknown40;
+        sTextureSplats* splats = Nx::CreateTextureSplat(sectors, reinterpret_cast<int>(objects), &params);
+        made = splats != nullptr;
+        if (!follow && splats) {
+            AgeTextureSplats(splats, FrameMilliseconds());
+            LightTextureSplats(splats);
+            splats->texture = GameFunction<uint32_t(__thiscall*)(uint8_t*)>(0x005480C0)(texture);
+        }
+    }
+    if (recent) {
+        recent->pos = *from;
+        recent->time = Tmr::GetTime();
+    }
+    return made;
+}
+
 // --- shatters ---
 
 // 0x00492000
@@ -498,7 +629,7 @@ void __cdecl KillAllEffects()
         Mem::Manager::Get()->Free(flash);
         flash = next;
     }
-    GameFunction<void(__cdecl*)()>(0x00491E10)(); // the spawned polygons killed
+    KillAllSpawnedPolys();
     KillAllTextureSplats();
     KillAllShatters();
 }
@@ -534,3 +665,4 @@ REPLACE(0x004920E0, Nx::Engine::DrawShatters);
 REPLACE(0x00492150, Nx::Engine::InitEffects);
 REPLACE(0x00492340, Nx::Engine::KillAllEffects);
 REPLACE(0x004923E0, Nx::Engine::AddFlash);
+REPLACE(0x004928A0, Nx::Engine::CreateTextureSplatAt);

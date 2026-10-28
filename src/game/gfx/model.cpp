@@ -181,6 +181,13 @@ void CModel::BreakStrips(uint32_t mask)
         BreakGeomStrips(Geom(node), mask);
 }
 
+// 0x00494700
+void CModel::CleanInstanceStrips()
+{
+    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
+        CleanGeomInstanceStrips(Geom(node));
+}
+
 // 0x00494B30
 bool CModel::BreakOwnStrips()
 {
@@ -400,6 +407,7 @@ REPLACE(0x00493410, &Nx::CModel::CopyBones);
 REPLACE(0x00493B30, &Nx::CModel::GetStripBreakFlags);
 REPLACE(0x00493B90, &Nx::CModel::BreakStrips);
 REPLACE(0x00494B30, &Nx::CModel::BreakOwnStrips);
+REPLACE(0x00494700, &Nx::CModel::CleanInstanceStrips);
 REPLACE(0x00493BD0, &Nx::CModel::CreateLights);
 REPLACE(0x00493C10, &Nx::CModel::DestroyLights);
 REPLACE(0x00493C60, &Nx::CModel::SetActive);

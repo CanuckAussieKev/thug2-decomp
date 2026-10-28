@@ -75,7 +75,7 @@ void StandInModel(StandIns& s)
     for (Call c : {Call{0x0048D060, 0, 0}, Call{0x0048DE30, 12, 0}, Call{0x0048DE40, 4, 0}, Call{0x0048DE50, 0, 0},
                    Call{0x0048DE60, 4, 1}, Call{0x0048DF20, 4, 0}, Call{0x0048DF30, 20, 0}, Call{0x0048DF40, 8, 0},
                    Call{0x0048DF50, 8, 0}, Call{0x0048DF60, 4, 0}, Call{0x0049F3B0, 4, 1}, Call{0x0048DFE0, 16, 0},
-                   Call{0x0048DFF0, 12, 0}, Call{0x0048E000, 8, 0}}) {
+                   Call{0x0048DFF0, 12, 0}, Call{0x0048E000, 8, 0}, Call{0x00487D50, 0, 0}}) {
         s.At({c.address}, c.pop, [c](Regs& r) {
             Record({c.address & 0xFFFFF, Relocate(r.ecx)});
             for (int i = 0; i < c.pop / 4; ++i)
@@ -202,7 +202,7 @@ void TestModelMembers()
             for (int step = 0; step < 30; ++step) {
                 uint32_t name = random.Below(4) == 0 ? Nx::kAllGeoms : kNames[random.Below(6)] ^ (random.Below(5) ? 0 : 1);
                 uint32_t byteArg = random.Pick({0u, 1u, 2u, 3u, 0x101u});
-                switch (random.Below(34)) {
+                switch (random.Below(35)) {
                 case 0:
                     result(At<int(__thiscall*)(void*)>(original, 0x00492E40)(model));
                     break;
@@ -235,6 +235,9 @@ void TestModelMembers()
                 case 8:
                     if (model->m_numAssetGeoms == 1 && count == 0)
                         model->m_numAssetGeoms = 2; // (the original reads the empty head's entry)
+                    if (model->m_numAssetGeoms == 1 && count &&
+                        reinterpret_cast<sModelGeom*>(model->m_geoms->next->entry)->assetName == 0x22222222)
+                        model->m_numAssetGeoms = 2; // (no scene: both read through null)
                     result(At<uint32_t(__thiscall*)(void*)>(original, 0x00492FF0)(model));
                     result(At<uint32_t(__thiscall*)(void*)>(original, 0x00493040)(model));
                     break;
@@ -342,6 +345,9 @@ void TestModelMembers()
                     break;
                 case 29:
                     At<void(__thiscall*)(void*, uint32_t)>(original, 0x004949B0)(model, byteArg);
+                    break;
+                case 33:
+                    Fn<void(__thiscall*)(void*)>(original, 0x00494700)(model);
                     break;
                 case 30:
                     result(At<uint32_t(__thiscall*)(void*, int, int, int, int)>(original, 0x00492DC0)(model, 1, 2, 3,

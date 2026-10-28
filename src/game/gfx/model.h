@@ -120,6 +120,9 @@ public:
     // strips broken by a mask; by the scenes' own flags (always true).
     uint32_t GetStripBreakFlags();
     void BreakStrips(uint32_t mask);
+    // 0x00494700 (not a Ghidra function; what 0x0048A220 calls on the model at 0x006FA2F8): each geom's instance
+    // strips cleaned (the geom's [4], through 0x00487D50).
+    void CleanInstanceStrips();
     bool BreakOwnStrips();
     // 0x00493BD0 / 0x00493C10: lights made (0x0048EA80) and given to each geom; deleted (0x0048C080) and taken away.
     // Always true.

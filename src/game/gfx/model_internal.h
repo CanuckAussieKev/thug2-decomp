@@ -42,6 +42,7 @@ inline void SetGeomBoneMatrices(void* geom, const Mth::Matrix* transform, uint8_
 inline void CopyGeomBones(void* geom, uint8_t* bones, int count) { GeomCall<void>(0x0048DF40, geom, bones, count); }
 inline void SetGeomBones(void* geom, uint8_t* bones, int count) { GeomCall<void>(0x0048DF50, geom, bones, count); }
 inline void BreakGeomStrips(void* geom, uint32_t mask) { GeomCall<void>(0x0048DF60, geom, mask); }
+inline void CleanGeomInstanceStrips(void* geom) { GeomCall<void>(0x00487D50, geom); }
 inline void SetGeomShadow(void* geom, uint8_t on) { GeomCall<void>(0x0049F3B0, geom, on); }
 // Slot [6], called straight through the vtable: the geom's colour (RGBA).
 inline void SetGeomColor(void* geom, uint32_t rgba)
