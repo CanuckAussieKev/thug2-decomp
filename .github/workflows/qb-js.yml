@@ -1,0 +1,42 @@
+name: QB to JavaScript
+on:
+  push:
+    paths: ['scripting/**', 'tools/qbjs/**', '.github/workflows/qb-js.yml']
+  pull_request:
+    paths: ['scripting/**', 'tools/qbjs/**', '.github/workflows/qb-js.yml']
+permissions:
+  contents: read
+jobs:
+  generator-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc
+      - name: Select Windows GCC
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-Content $env:GITHUB_PATH 'C:\msys64\ucrt64\bin'
+      - name: Install tool check dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check translator types
+        run: npx tsc -p tools/qbjs/tsconfig.json
+      - name: Check translator style
+        run: npx biome check tools/qbjs
+      - name: Configure
+        run: cmake -S scripting -B work/qb-js-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+      - name: Build
+        run: cmake --build work/qb-js-build --parallel 2
+      - name: Test translated QB inside QuickJS
+        run: ctest --test-dir work/qb-js-build --output-on-failure

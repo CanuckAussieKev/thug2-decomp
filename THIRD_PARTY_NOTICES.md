@@ -5,6 +5,7 @@ from this repo include them, so keep these notices with any distributed `dinput8
 
 | Component | Where | Licence |
 |---|---|---|
+| QuickJS 2026-06-04 (Fabrice Bellard and Charlie Gordon) - https://bellard.org/quickjs/ | downloaded with SHA-256 verification by the optional standalone scripting/CMakeLists.txt; core statically linked into the prototype, no quickjs-libc OS modules | MIT - below |
 | PartyMod v1.0.4 (PARTYMANX) - https://github.com/PARTYMANX/partymod-thug2 | moved into the game's source (`src/game/`; each file with its code says so; code doing what PartyMod did is marked "Originally from PartyMod Fixes") - PartyMod's window, input, widescreen, settings and fixes | MIT - below |
 | SDL2 2.30.9 | downloaded at configure time (FetchContent); its SDL2.dll copied into the game folder by the build | zlib - https://github.com/libsdl-org/SDL/blob/release-2.30.9/LICENSE.txt |
 | SDL_GameControllerDB, commit 8b2d1a7 (2022-09-06) - https://github.com/mdqinc/SDL_GameControllerDB | gamecontrollerdb.txt, downloaded at configure time and copied into the game folder by the build | zlib - https://github.com/mdqinc/SDL_GameControllerDB/blob/8b2d1a791c8e5004c736e5137699e8e97ae558c5/LICENSE |
@@ -306,3 +307,32 @@ git-ignored: none of the data is committed). "All versions of Natural Earth rast
 website are in the public domain. You may use the maps in any manner, including modifying the content and design,
 electronically, in printed row, or any other format." Made with Natural Earth. Used to redraw the level select globe's tiles
 (`tools/pipeline/hd_textures/globe`), only with the HD UI option.
+
+## QuickJS 2026-06-04 MIT license
+
+Source: https://bellard.org/quickjs/quickjs-2026-06-04.tar.xz
+
+```
+QuickJS Javascript Engine
+
+Copyright (c) 2017-2021 Fabrice Bellard
+Copyright (c) 2017-2021 Charlie Gordon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```

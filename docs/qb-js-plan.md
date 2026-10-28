@@ -12,9 +12,13 @@ explicit bridge. Node is an offline development tool, not a game dependency.
 readers and tests are preserved at `a23d587` in `archive/qb-vm` and the existing
 `native/qb-runtime` branch. They are not part of the new game's runtime.
 
-Upstream already provides a behavior specification and reconstructed C++
-implementations. At this base there is no QuickJS integration or QB to JS
-translator. The milestones below describe work to implement, not working code.
+Upstream provides a behavior specification and reconstructed C++ implementations.
+The first synthetic milestone is now implemented on this branch under
+[`scripting/`](../scripting/README.md) and `tools/qbjs/`: bounded binary parsing,
+typed IR, generator emission, an actual QuickJS host bridge and frame waits.
+Release and ASan/UBSan tests pass locally on macOS ARM64. Linux, Intel macOS and
+Windows GCC checks are configured in CI; their results are not asserted here.
+The original-data helper and compatibility milestones below remain future work.
 
 ## Format and behavior references
 
@@ -107,7 +111,9 @@ implemented. Do not cherry-pick the whole native-core history.
 - PRX readers and asset-store tests only if the translator needs them. Existing
   upstream tooling and NeverScript should be evaluated before duplicating it.
 
-Only the local build/fixture ignore rules are carried over at this stage.
+The archive serves as a test-case reference; its C++ interpreter is not linked
+into the JS runtime. The only files carried over directly are the local
+build/fixture ignore rules.
 
 ## First upstream proposal
 
