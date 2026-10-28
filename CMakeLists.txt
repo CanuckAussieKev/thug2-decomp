@@ -776,6 +776,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/shatter.cpp
     src/game/gfx/pc_model.cpp
     src/game/gfx/particle_system.cpp
+    src/game/gfx/particle_system_update.cpp
     src/game/gfx/particles.cpp
     src/game/gfx/pc_particles.cpp
     src/game/gfx/pc_flexible_particles.cpp
