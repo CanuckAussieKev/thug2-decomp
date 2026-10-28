@@ -479,6 +479,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd1_polys.cpp
     src/hook/selftests_rnd5_viewport.cpp
     src/hook/selftests_rnd5_weather.cpp
+    src/hook/selftests_rnd5_shadows.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -710,6 +711,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/viewport.cpp
     src/game/gfx/weather.cpp
     src/game/gfx/window2d.cpp
+    src/game/gfx/engine_shadows.cpp
     src/game/gfx/settings.cpp
     src/game/gfx/glyphs.cpp
     src/game/gfx/flash.cpp
