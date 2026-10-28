@@ -477,6 +477,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd1_effects.cpp
     src/hook/selftests_rnd1_particles.cpp
     src/hook/selftests_rnd1_polys.cpp
+    src/hook/selftests_rnd5_viewport.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -705,6 +706,7 @@ add_library(thug2_code OBJECT
     src/game/skate/preload_cfuncs.cpp
     src/game/gfx/anim_controller.cpp
     src/game/gfx/screen.cpp
+    src/game/gfx/viewport.cpp
     src/game/gfx/settings.cpp
     src/game/gfx/glyphs.cpp
     src/game/gfx/flash.cpp
