@@ -100,7 +100,7 @@ CSector* CSector::Clone(int instance, bool flag, void* scene)
         coll->SetChecksum(clone->m_checksum);
         clone->m_flags &= ~kSectorInGrid;
         if (flag)
-            clone->m_flags |= kSectorCloneFlag;
+            clone->m_flags |= kSectorAddToGrid;
         if (clone->mp_geom)
             SetGeomCollTriData(clone->mp_geom, coll->m_geometry);
     } else {

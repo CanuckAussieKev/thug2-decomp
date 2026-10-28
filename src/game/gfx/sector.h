@@ -14,14 +14,15 @@ namespace Nx {
 
 class CCollObj;
 
-// CSector::m_flags
+// CSector::m_flags (4, 8, 0x10 and 0x20 are acted on by the scene's next UpdateSuperSectors)
 enum : uint32_t {
-    kSectorCollidable = 0x01,  // (set when made)
-    kSectorClone = 0x02,       // a clone: its collision object is its own (deleted with it)
-    kSectorCloneFlag = 0x04,   // set on a clone made with Clone's flag; the scene's clone lists mark theirs with it
-    kSectorSceneFlag10 = 0x10, // the scene's clone lists: taken out of the scene
-    kSectorMoved = 0x20,       // moved, turned or scaled while kSectorInGrid: the super sectors to bring up to date
-    kSectorInGrid = 0x40,      // its collision is in the scene's super sectors
+    kSectorCollidable = 0x01,      // (set when made)
+    kSectorClone = 0x02,           // a clone: its collision object is its own (deleted with it)
+    kSectorAddToGrid = 0x04,       // its collision to be put in the super sectors (a clone made with Clone's flag)
+    kSectorDelete = 0x08,          // to be taken out of them and deleted
+    kSectorRemoveFromGrid = 0x10,  // to be taken out of them
+    kSectorMoved = 0x20,           // moved, turned or scaled while kSectorInGrid: to be moved in them
+    kSectorInGrid = 0x40,          // its collision is in the scene's super sectors
 };
 
 // The sector (0x1C bytes of the engine's; vtable 0x00649A40 - PC 0x0064A718). Its virtual slots: [0] destroy, [1]
@@ -42,7 +43,7 @@ public:
 
     // 0x0049EAD0: a clone - the platform's new sector with a new name (0x0048CA80), these flags and kSectorClone,
     // the turn, a clone of the geometry (for `scene`) and of the collision (named as the clone, out of the grid,
-    // kSectorCloneFlag with `flag`; the geometry given its faces). Null if the platform made none.
+    // kSectorAddToGrid with `flag`; the geometry given its faces). Null if the platform made none.
     CSector* Clone(int instance, bool flag, void* scene);
 
     // 0x0049E660: the geometry.
