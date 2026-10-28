@@ -54,10 +54,27 @@ inline bool IsGeomMulticolor(void* geom) { return GeomCall<bool>(0x005480B0, geo
 
 // An engine object deleted (0x0048C3C0) / a scene or lights deleted (0x0048C080, cdecl: the second argument only
 // some callers pass); a texture dictionary unloaded (0x0049EFD0).
-inline void DeleteObject(void* object) { GameFunction<void(__cdecl*)(void*)>(0x0048C3C0)(object); }
+inline void DeleteGeomObject(void* object) { GameFunction<void(__cdecl*)(void*)>(0x0048C3C0)(object); }
 inline void DeleteScene(void* scene) { GameFunction<void(__cdecl*)(void*)>(0x0048C080)(scene); }
 inline void DeleteScene(void* scene, int flag) { GameFunction<void(__cdecl*)(void*, int)>(0x0048C080)(scene, flag); }
 inline void UnloadTextures(void* textures) { GameFunction<void(__cdecl*)(void*)>(0x0049EFD0)(textures); }
+
+// The model's own virtual slots.
+template <typename R, typename... A>
+R ModelVirtual(CModel* model, int slot, A... args)
+{
+    return reinterpret_cast<R(__thiscall*)(CModel*, A...)>(model->vtable[slot])(model, args...);
+}
+
+// A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).
+inline uint8_t* SkeletonBones(uint8_t* skeleton)
+{
+    return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x005480C0)(skeleton);
+}
+inline int SkeletonBoneCount(uint8_t* skeleton)
+{
+    return GameFunction<int(__thiscall*)(uint8_t*)>(0x004A2BA0)(skeleton);
+}
 
 // The list's first node (none without a head - which the original then reads through anyway).
 inline sModelGeomNode* First(const CModel* model) { return model->m_geoms ? model->m_geoms->next : nullptr; }

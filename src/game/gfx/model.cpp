@@ -14,17 +14,6 @@ using namespace ModelGeoms;
 
 namespace {
 
-// The model's own virtual slots.
-template <typename R, typename... A>
-R ModelVirtual(CModel* model, int slot, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(CModel*, A...)>(model->vtable[slot])(model, args...);
-}
-
-// A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).
-uint8_t* SkeletonBones(uint8_t* skeleton) { return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x005480C0)(skeleton); }
-int SkeletonBoneCount(uint8_t* skeleton) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x004A2BA0)(skeleton); }
-
 // A flag of m_flags set from a bit (the setters take a flag's low bit, as the original's shifts and masks).
 uint8_t SetFlag(uint8_t flags, uint8_t flag, int bit) { return static_cast<uint8_t>(bit ? flags | flag : flags & ~flag); }
 

@@ -471,6 +471,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_splats.cpp
     src/hook/selftests_splats2.cpp
     src/hook/selftests_rnd1_model.cpp
+    src/hook/selftests_rnd1_model_geoms.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -775,6 +776,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/shatter.cpp
     src/game/gfx/pc_model.cpp
     src/game/gfx/model.cpp
+    src/game/gfx/model_geoms.cpp
     src/game/gfx/pc_particles.cpp
     src/game/gfx/pc_flexible_particles.cpp
     src/game/gfx/pc_primitive.cpp

@@ -152,8 +152,7 @@ public:
     bool AllocateUVMatrixParams(uint32_t material, int pass);
     // 0x00494200: a script's colour (h, s, v): the geoms `name` (or all) that aren't multicolour coloured; the
     // multicolour ones' material passes (an array of structures of a material and a pass - materials=, else
-    // material= with an array or one pass=) instead. Whether any. (The material read replaces the name the later
-    // geoms are compared with - as the original.)
+    // material= with an array or one pass=) instead. Whether any.
     bool SetColorFromScript(Script::CStruct* params, float h, float s, float v);
     // 0x00494450: the same, the colour cleared - the multicolour passes given 0x80808080.
     bool ClearColorFromScript(Script::CStruct* params);
