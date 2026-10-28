@@ -42,21 +42,14 @@ R Virtual(void* object, int slot, A... args)
 
 // The rest of the scene (0x0049C910-0x0049D18E, engine_scene.cpp): the sector of a name, a sector deleted, a scene
 // file's collision data read, the collision let go of.
-CSector* SceneSector(CScene* scene, uint32_t name)
-{
-    return GameFunction<CSector*(__thiscall*)(CScene*, uint32_t)>(0x0049CB00)(scene, name);
-}
-bool DeleteSceneSector(CScene* scene, CSector* sector)
-{
-    return GameFunction<bool(__thiscall*)(CScene*, CSector*)>(0x0049CB40)(scene, sector);
-}
+CSector* SceneSector(CScene* scene, uint32_t name) { return static_cast<CSector*>(scene->GetSector(name)); }
+bool DeleteSceneSector(CScene* scene, CSector* sector) { return scene->DeleteSector(sector); }
 bool SceneLoadCollisionData(CScene* scene, const uint8_t* data, int* count, CCollStatic** statics, uint8_t** objects,
-                       Mth::BBox* box, int flag)
+                            Mth::BBox* box, int flag)
 {
-    return GameFunction<bool(__thiscall*)(CScene*, const uint8_t*, int*, CCollStatic**, uint8_t**, Mth::BBox*, int)>(
-        0x0049CBB0)(scene, data, count, statics, objects, box, flag);
+    return scene->LoadCollisionData(data, count, statics, objects, box, flag);
 }
-bool SceneUnloadCollision(CScene* scene) { return GameFunction<bool(__thiscall*)(CScene*)>(0x0049CFB0)(scene); }
+bool SceneUnloadCollision(CScene* scene) { return scene->UnloadCollision(); }
 
 // The platform's new sector (slot 7), its geometry and collision cleared.
 CSector* NewSector(CScene* scene)

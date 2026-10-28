@@ -135,20 +135,20 @@ void StandInScene(StandIns& s)
         return 0u;
     });
     // the rest of the scene: a sector by name (the table's), deleted, the collision read, let go of
-    s.At({0x0049CB00}, 4, [](Regs& r) {
+    s.At({0x0049CB00, AddressOf(&CScene::GetSector)}, 4, [](Regs& r) {
         Record({0xCB00, r.args[0]});
         auto* scene = reinterpret_cast<CScene*>(r.ecx);
         return reinterpret_cast<uint32_t>(scene->mp_sectors->GetItem(r.args[0]));
     });
-    s.At({0x0049CB40}, 4, [](Regs& r) {
+    s.At({0x0049CB40, AddressOf(&CScene::DeleteSector)}, 4, [](Regs& r) {
         Record({0xCB40, Relocate(r.ecx), Relocate(r.args[0])});
         return 0xFFFFFF01u;
     });
-    s.At({0x0049CFB0}, 0, [](Regs& r) {
+    s.At({0x0049CFB0, AddressOf(&CScene::UnloadCollision)}, 0, [](Regs& r) {
         Record({0xCFB0, Relocate(r.ecx)});
         return 1u;
     });
-    s.At({0x0049CBB0}, 24, [](Regs& r) {
+    s.At({0x0049CBB0, AddressOf(&CScene::LoadCollisionData)}, 24, [](Regs& r) {
         Record({0xCBB0, Relocate(r.args[0]), Relocate(r.args[1]), Relocate(r.args[2]), Relocate(r.args[3]),
                 Relocate(r.args[4]), r.args[5]});
         // `count` objects in an array new (the count before them), named as asked
