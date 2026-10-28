@@ -98,6 +98,30 @@ struct CPcParticleSystem {
     void UpdatePath();
     // 0x004BB0B0 (virtual [7]): whether any burst is live.
     bool IsEmitting();
+
+    // The engine's particle system's own members (engine_particles.cpp; its first 0x190 bytes - +0x38 a value the
+    // particle component sets, +0x4C the id of scripts spawned for it, +0x159 hidden, +0x15A held back):
+    // 0x00494DF0: the destructor's body (its vtable). 0x00495230 (the engine's virtual [0]): destroyed, and freed with
+    // flags & 1. Returns this.
+    void EngineDestroyBody();
+    CPcParticleSystem* EngineDestroy(unsigned int flags);
+    // 0x00494E00 / 0x00494E20: drawn (virtual [4]) / updated (virtual [5]) unless hidden or held back.
+    void EngineRender(bool advance);
+    void EngineUpdate();
+    // 0x00494E40: its spawned scripts killed (0x00474040), then released (virtual [2]).
+    void EngineRelease();
+    // 0x00494E70 (not a Ghidra function): hidden or shown - the platform told (virtual [3]) when it changes.
+    void Hide(bool hide);
+    // 0x00494E90 / 0x00494EA0: the rate and the lifetime set.
+    void SetRate(float rate);
+    void SetLifetime(float lifetime);
+    // 0x00494EB0: size `which` (start, mid, end) set.
+    void SetSize(int which, float size);
+    // 0x00494EC0 / 0x00494EE0 / 0x00494EF0: colour `which`, +0x38 and the colour mid percentage set - then the
+    // platform told (virtual [6]).
+    void SetColour(int which, const uint32_t* colour);
+    void SetValue38(float value);
+    void SetColourMidPercent(float percent);
 };
 static_assert(offsetof(CPcParticleSystem, sizes) == 0x10 && offsetof(CPcParticleSystem, rate) == 0x2C &&
                   offsetof(CPcParticleSystem, positions) == 0x98 && offsetof(CPcParticleSystem, boxes) == 0xC8 &&

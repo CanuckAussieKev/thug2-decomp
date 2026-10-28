@@ -45,13 +45,13 @@ Script::CStruct* NewStructure()
 
 // The engine's helpers (not yet rewritten; register arguments).
 // 0x00495130 / 0x004951B0 (ECX a, EDX b, ESI out; returns out): each component b's where it's below / above a's.
-Mth::Vector* CallMinOrMax(uint32_t code, const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* into)
+Mth::Vector* CallMinOrMax(uint32_t code, const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* destination)
 {
     Mth::Vector* result;
     __asm {
         mov ecx, a
         mov edx, b
-        mov esi, into
+        mov esi, destination
         mov eax, code
         call eax
         mov result, eax
@@ -68,7 +68,7 @@ Mth::Vector* MaxOf(const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* out)
 }
 // 0x00494F10 (thiscall on `out`, the 14 words of arguments popped by the caller): per component, the extreme of the
 // quadratic through `start` (at 0), `mid` (at `midTime`) and `end` (at `life`); w 0. Returns out.
-Mth::Vector* CurveExtremes(Mth::Vector* into, const Mth::Vector& start, const Mth::Vector& mid, const Mth::Vector& end,
+Mth::Vector* CurveExtremes(Mth::Vector* destination, const Mth::Vector& start, const Mth::Vector& mid, const Mth::Vector& end,
                            float midTime, float life)
 {
     uint32_t args[14];
@@ -85,7 +85,7 @@ Mth::Vector* CurveExtremes(Mth::Vector* into, const Mth::Vector& start, const Mt
         mov edi, esp
         mov ecx, 14
         rep movsd
-        mov ecx, into
+        mov ecx, destination
         mov eax, 0x00494F10
         call eax
         add esp, 0x38

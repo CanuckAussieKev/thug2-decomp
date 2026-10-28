@@ -18,7 +18,8 @@ struct sTextureSplats {
     float correctionB[0x100];   // +0x0C00
     uint32_t baseColors[0x100][3]; // +0x1000: each triangle's vertex colours before lighting (RGBA)
     int last;                   // +0x1C00: the last vertex / triangle in use (-1: none)
-    uint8_t unknown1C04[8];
+    uint32_t texture;           // +0x1C04: the texture's checksum (set by the engine's splat maker)
+    uint8_t unknown1C08[4];
     uint8_t* material;          // +0x1C0C
     float uvs[0x300][2];        // +0x1C10: each vertex's texture coordinates before the correction
     uint8_t vertices[0x100][3][0x18]; // +0x3410: position, ARGB colour, u, v
@@ -75,8 +76,15 @@ struct sSplatParams {
     uint8_t* texture;  // +0x34
     uint32_t unknown38;
     const float* up;   // +0x3C: a point the projection's up comes from, or null
+    uint8_t unknown40; // +0x40
+    uint8_t pad41[3];
+
+    // 0x00490E40: construct: the start and end (0, 0, 0, 1), everything else zero but +0x38 (0x54628ED7). Returns
+    // this.
+    sSplatParams* Construct();
 };
-static_assert(offsetof(sSplatParams, texture) == 0x34 && offsetof(sSplatParams, up) == 0x3C,
+static_assert(offsetof(sSplatParams, texture) == 0x34 && offsetof(sSplatParams, up) == 0x3C &&
+                  sizeof(sSplatParams) == 0x44,
               "layout must match the original");
 
 // 0x004B9A60: the splat set for a texture: the table's, or a new one (its material: one pass of the texture, a random

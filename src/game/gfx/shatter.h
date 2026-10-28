@@ -13,6 +13,37 @@ namespace Nx {
 
 struct sMesh;
 
+// The engine's shatter (0x2C bytes, vtable 0x00649308; CPcShatter extends it): per triangle its centre, velocity
+// and turn a step; the settings the Shatter command gave when it was made (engine_effects.h, SetShatterParams).
+struct CShatter {
+    void** vtable;
+    Mth::Vector* centres;    // +0x04
+    Mth::Vector* velocities; // +0x08
+    uint32_t unknown0C;
+    Mth::Matrix* rotations;  // +0x10
+    float lifetime;          // +0x14: seconds left
+    float gravity;           // +0x18 (128)
+    float floor;             // +0x1C: the height the triangles bounce at
+    float bounce;            // +0x20: the speed kept in a bounce
+    uint16_t triangleCount;  // +0x24
+    uint16_t pad26;
+    uint32_t unknown28;      // +0x28 (the settings' checksum 0x007004C0)
+
+    // 0x004912C0: construct for `count` triangles (their arrays from the default heap), with the settings. Returns
+    // this.
+    CShatter* Construct(int count);
+    // 0x00490E80: the destructor's body (the arrays freed).
+    void DestroyBody();
+    // 0x00491380 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
+    CShatter* Destroy(unsigned int flags);
+    // 0x004913D0: triangle `index` moved a step; below the floor and falling, it bounces (the height mirrored, the
+    // speed turned up and scaled) and gets a new random turn (about a random axis, up to 0.1); then gravity.
+    void Step(int index, float step);
+};
+static_assert(offsetof(CShatter, rotations) == 0x10 && offsetof(CShatter, triangleCount) == 0x24 &&
+                  sizeof(CShatter) == 0x2C,
+              "layout must match the original");
+
 // A shatter (vtable 0x0064A4AC; the engine's shatter - constructor 0x004912C0, destructor body 0x00490E80 - for its
 // first 0x2C bytes: per triangle its centre, velocity and rotation, the settings it was made with).
 struct CPcShatter {

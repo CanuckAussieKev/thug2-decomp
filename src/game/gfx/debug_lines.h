@@ -25,4 +25,10 @@ inline void AddDebugSphere(const Mth::Vector* /*center*/, float /*radius*/, cons
 {
 }
 
+// A box (`box`: its max, then its min) about `position`, turned by `orientation`, in `colour`.
+inline void AddDebugBox(const Mth::Matrix* /*orientation*/, const Mth::Vector* /*position*/,
+                        const Mth::Vector* /*box*/, int /*a*/, int /*b*/, int /*c*/, uint32_t /*colour*/)
+{
+}
+
 } // namespace Gfx
