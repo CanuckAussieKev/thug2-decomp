@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "game/gfx/particle_system.h"
 #include "game/mth/vector.h"
 
 // The PC flexible particle systems (Nx engine; the particle manager's 0x0049AC60 makes them by type: the flexible
@@ -13,15 +14,7 @@ namespace Nx {
 
 struct sSimpleMaterial;
 
-// A particle (0x30 bytes; what the drawing reads).
-struct sFlexibleParticle {
-    uint8_t unknown00[0x18];
-    float startSize[2]; // +0x18: across, up
-    float endSize[2];   // +0x20
-    float age;          // +0x28
-    float lifetime;     // +0x2C
-};
-static_assert(sizeof(sFlexibleParticle) == 0x30, "layout must match the original");
+// (sFlexibleParticle: particle_system.h.)
 
 // What the PC classes share (the engine's particle system's fields they read; Nx::CParticleSystem in
 // flexible_particle.h is the component's view of the same object). Two vtables: +0x00 and +0x0C.
