@@ -476,6 +476,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd3_particle_manager.cpp
     src/hook/selftests_rnd3_model_particles.cpp
     src/hook/selftests_rnd3_primitive.cpp
+    src/hook/selftests_rnd3_scene.cpp
     src/hook/selftests_rnd1_model.cpp
     src/hook/selftests_rnd1_model_geoms.cpp
     src/hook/selftests_rnd1_effects.cpp
@@ -790,6 +791,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/flexible_particle_manager.cpp
     src/game/gfx/model_particles.cpp
     src/game/gfx/engine_primitive.cpp
+    src/game/gfx/engine_scene.cpp
     src/game/gfx/particles.cpp
     src/game/gfx/model.cpp
     src/game/gfx/model_geoms.cpp
