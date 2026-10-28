@@ -274,10 +274,23 @@ struct CLineParticles : CParticleSystem {
 // The model type (0x286A8D26; vtables 0x006494A0 and 0x0064949C; constructed by 0x0049A0C0): models as particles.
 struct CModelParticles : CParticleSystem {
     unsigned int m_modelCount; // +0x134
-    uint8_t unknown138[4];
-    void* mp_unknown13C;       // +0x13C (freed)
+    unsigned int m_drawnModels; // +0x138: the models Render goes through (the same count)
+    void* mp_unknown13C;       // +0x13C (freed): a rotation (Mth::Quat) a model, turned by its particle's velocity
     uint8_t unknown140[4];
     void** mp_models;          // +0x144: m_modelCount of them (deleted with 0x0048C3C0)
+
+    // 0x0049A0C0 (model_particles.cpp): constructed with (name, max particles, model file name, ...): the base's,
+    // `maxParticles` particles, positions and models - each from "<model>.mdl" (lower case) at a random scale 1 - 2.98 -
+    // unless the memory left is under 0x1194 bytes a model; a random rotation each (only the first ever normalised, as
+    // the original); one colour of each kind (not set); no mid colour, flag 4. Each step stops at the first that fails.
+    // Returns this.
+    CModelParticles* Construct(uint32_t name, int maxParticles, const char* model, uint32_t blendMode, int fixedAlpha,
+                               int segments, float unknown, int history);
+    // 0x0049A4C0 (vtable slot 1): with no particles every model hidden; else from the last particle's model on hidden,
+    // and each particle's model shown, coloured (its colour through its life), turned (its rotation moved by its
+    // velocity and normalised), scaled (its start size less a quarter for each of its index's lowest two bits) and
+    // drawn at its position.
+    void Render();
 
     // 0x00499E10: the vtables, +0x13C freed, the models deleted and their array freed (each forgotten), the base's.
     void DestroyBody();
