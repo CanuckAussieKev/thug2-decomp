@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "game/gfx/particle_system.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
@@ -14,57 +15,7 @@ class CStruct;
 struct CMemberFunctionEntry;
 } // namespace Script
 
-namespace Nx {
-
-// A particle system (the particle manager's, 0x006FA7C0; no source yet but for the flag setter): only the fields the
-// flexible particle component touches.
-struct CParticleSystem : Obj::CRefCounted {
-    // 0x0041D9C0 (thiscall): flag bit `bit` of m_flags set or cleared.
-    void SetFlag(int bit, bool on);
-
-    uint8_t unknown08[0x18];
-    Mth::Vector m_pos;            // +0x20
-    uint8_t unknown30[0x10];
-    Mth::Vector m_alignTo;        // +0x40 align_to
-    uint8_t unknown50[0x20];
-    float m_emitRate;             // +0x70 emit_rate
-    uint8_t unknown74[4];
-    uint32_t m_unknown78;         // +0x78 (the component's 0x184197D5)
-    uint8_t unknown7C[0x10];
-    int m_unknown8C;              // +0x8C (EmptySystem: 0)
-    uint8_t unknown90[0x4C];
-    Mth::Matrix* mp_matrix;       // +0xDC the matrix it follows (its object's display matrix)
-    float m_rotation[3];          // +0xE0 (x, y, z angles: the matrix of 0x00497AB0)
-    uint32_t m_unknownEC;         // +0xEC (a model's +0x22C: update_Brightness)
-    uint8_t unknownF0[4];
-    uint32_t m_groupId;           // +0xF4 groupID
-    uint8_t unknownF8[0x28];
-    uint32_t m_flags;             // +0x120 (bit 0 while the component updates it; 0x4000 UseRandomUVQuadrants, 0x8000
-                                  // 0x5446AF14)
-    uint8_t m_priority;           // +0x124 priority
-    uint8_t unknown125;
-    bool m_emitterIndependent;    // +0x126 emitterIndependent > 0
-    bool m_aligned;               // +0x127 align_to given
-    uint8_t unknown128[2];
-    bool m_wantsTime;             // +0x12A (Update is given the component's time)
-    bool m_emitting;              // +0x12B
-    uint8_t unknown12C[3];
-    bool m_unknown12F;            // +0x12F (set while the component updates it, cleared while its object is hidden;
-                                  // Hide sets it to its argument)
-    bool m_unknown130;            // +0x130 (cleared while its object is hidden)
-    bool m_fillPath;              // +0x131 FillPath
-    bool m_updateBrightness;      // +0x132
-    bool m_unknown133;            // +0x133 (cleared by 0xDE45A90D)
-};
-static_assert(offsetof(CParticleSystem, m_pos) == 0x20 && offsetof(CParticleSystem, m_alignTo) == 0x40 &&
-                  offsetof(CParticleSystem, m_emitRate) == 0x70 && offsetof(CParticleSystem, m_unknown78) == 0x78 &&
-                  offsetof(CParticleSystem, m_unknown8C) == 0x8C && offsetof(CParticleSystem, mp_matrix) == 0xDC &&
-                  offsetof(CParticleSystem, m_unknownEC) == 0xEC && offsetof(CParticleSystem, m_groupId) == 0xF4 &&
-                  offsetof(CParticleSystem, m_flags) == 0x120 && offsetof(CParticleSystem, m_wantsTime) == 0x12A &&
-                  offsetof(CParticleSystem, m_unknown12F) == 0x12F && offsetof(CParticleSystem, m_unknown133) == 0x133,
-              "layout must match the original");
-
-} // namespace Nx
+// Nx::CParticleSystem: game/gfx/particle_system.h.
 
 namespace Obj {
 

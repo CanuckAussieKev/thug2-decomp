@@ -24,6 +24,9 @@ struct PointerList {
     // 0x004ECC30 (shared by every such list): the nodes from `first` up to `last` unlinked and freed (the sentinel
     // never); `*out` = `last`. Returns out.
     PointerListNode** Erase(PointerListNode** out, PointerListNode* first, PointerListNode* last);
+    // 0x004964A0 (shared by every such list; gfx/particles.cpp): a new node holding *value before `position`. Out of
+    // memory, the original goes on through the null node (and crashes) - kept.
+    void Insert(PointerListNode* position, void* const* value);
 };
 
 // A pager message: its parameters (owned) and whether it has been read (8 bytes).

@@ -470,6 +470,8 @@ add_library(thug2_code OBJECT
     src/hook/selftests_pc_mesh_render.cpp
     src/hook/selftests_splats.cpp
     src/hook/selftests_splats2.cpp
+    src/hook/selftests_particle_system.cpp
+    src/hook/selftests_particles.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -773,6 +775,9 @@ add_library(thug2_code OBJECT
     src/game/gfx/texture_splats.cpp
     src/game/gfx/shatter.cpp
     src/game/gfx/pc_model.cpp
+    src/game/gfx/particle_system.cpp
+    src/game/gfx/particle_system_update.cpp
+    src/game/gfx/particles.cpp
     src/game/gfx/pc_particles.cpp
     src/game/gfx/pc_flexible_particles.cpp
     src/game/gfx/pc_primitive.cpp
