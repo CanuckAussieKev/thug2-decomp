@@ -4,6 +4,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_texture.h"
 #include "game/nx/coll_obj.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -292,7 +293,8 @@ void CSector::SetRawVertices(const Mth::Vector* vertices)
 void CSector::PlayVCWibbleFromKeyframe(int sequence, int keyframe, int timeMs)
 {
     if (mp_geom)
-        GeomCall<void>(0x0049F420, mp_geom, sequence, keyframe, timeMs);
+        reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&VirtualSlot41Jump)(mp_geom, sequence, keyframe,
+                                                                                    timeMs);
 }
 
 // 0x0049E830

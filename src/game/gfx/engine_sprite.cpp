@@ -6,7 +6,7 @@
 #include <cstring>
 
 #include "game/core/mem.h"
-#include "hook/game.h"
+#include "game/gfx/engine_texture.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -23,10 +23,6 @@ void Notify(T* object, int slot)
 {
     reinterpret_cast<void(__thiscall*)(T*)>(object->vtable[slot])(object);
 }
-
-// A texture's image size (the engine's CTexture dispatchers 0x0049F3C0 / 0x0049F3D0).
-uint16_t TextureWidth(uint8_t* texture) { return GameFunction<uint16_t(__thiscall*)(uint8_t*)>(0x0049F3C0)(texture); }
-uint16_t TextureHeight(uint8_t* texture) { return GameFunction<uint16_t(__thiscall*)(uint8_t*)>(0x0049F3D0)(texture); }
 
 } // namespace
 

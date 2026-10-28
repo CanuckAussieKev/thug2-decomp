@@ -33,6 +33,24 @@ void DoNothing() {}
 // 0x005BAB90: functions that ignore their one (stack) argument
 void __stdcall IgnoreArgument(int) {}
 
+// 0x0049F4B0, 0x0049F470, 0x0049F450, 0x0049F440, 0x0049F430: methods returning false whatever their (1, 2, 4, 5, 7)
+// stack arguments - the engine texture's empty slots, CArray's comparison (different arrays are never equal), ...
+bool __stdcall ReturnFalse1(int) { return false; }
+bool __stdcall ReturnFalse2(int, int) { return false; }
+bool __stdcall ReturnFalse4(int, int, int, int) { return false; }
+bool __stdcall ReturnFalse5(int, int, int, int, int) { return false; }
+bool __stdcall ReturnFalse7(int, int, int, int, int, int, int) { return false; }
+
+// 0x0049F4A0, 0x0049F4C0, 0x0049F480, 0x0049F490: ...returning 0 / null (1, 2, 3, 6 stack arguments) - the model's
+// bone flag (slot 2), the gap checks' "0", ...
+int __stdcall ReturnZero1(int) { return 0; }
+int __stdcall ReturnZero2(int, int) { return 0; }
+int __stdcall ReturnZero3(int, int, int) { return 0; }
+int __stdcall ReturnZero6(int, int, int, int, int, int) { return 0; }
+
+// 0x0049F460: a word 0 (the engine texture's width / height slots).
+uint16_t ReturnZeroWord() { return 0; }
+
 } // namespace Stubs
 
 REPLACE_SOURCE_ONLY(0x005B9760, Stubs::ReturnTrue);         // 3 bytes
@@ -44,6 +62,16 @@ REPLACE_SOURCE_ONLY(0x0047AE10, Stubs::ReturnZero);         // a jump to 0x005BA
 REPLACE_SOURCE_ONLY(0x005480A0, Stubs::DoNothing);          // 1 byte
 REPLACE_SOURCE_ONLY(0x0048C1B0, Stubs::DoNothing);          // a jump to 0x005480A0
 REPLACE_SOURCE_ONLY(0x005BAB90, Stubs::IgnoreArgument);     // 3 bytes
+REPLACE(0x0049F4B0, Stubs::ReturnFalse1);
+REPLACE(0x0049F470, Stubs::ReturnFalse2);
+REPLACE(0x0049F450, Stubs::ReturnFalse4);
+REPLACE(0x0049F440, Stubs::ReturnFalse5);
+REPLACE(0x0049F430, Stubs::ReturnFalse7);
+REPLACE(0x0049F4A0, Stubs::ReturnZero1);
+REPLACE(0x0049F4C0, Stubs::ReturnZero2);
+REPLACE(0x0049F480, Stubs::ReturnZero3);
+REPLACE(0x0049F490, Stubs::ReturnZero6);
+REPLACE_SOURCE_ONLY(0x0049F460, Stubs::ReturnZeroWord);     // 4 bytes
 REPLACE_SOURCE_ONLY(0x005144C0, Stubs::IgnoreArgument);     // a jump to 0x005BAB90
 REPLACE_SOURCE_ONLY(0x005B9DF0, File::AsyncInit);           // a jump to 0x005B6560
 REPLACE_SOURCE_ONLY(0x005BA590, &Mem::Allocator::DestroyBody); // a jump to 0x005BA140

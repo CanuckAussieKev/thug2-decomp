@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "game/core/dbg.h"
+#include "game/gfx/engine_texture.h"
 #include "game/gfx/sector.h"
 #include "game/nx/coll_obj.h"
 #include "hook/game.h"
@@ -123,7 +124,7 @@ void StandInSector(StandIns& s)
                    Call{0x0048DED0, 0, 0}, Call{0x0048DEE0, 4, 0}, Call{0x0048DEF0, 4, 0}, Call{0x0048DF00, 4, 0},
                    Call{0x0048DF10, 4, 0}, Call{0x0048DFB0, 32, 0}, Call{0x0048DFC0, 4, 1}, Call{0x0048DFD0, 8, 0},
                    Call{0x0048E010, 0, 0}, Call{0x0048E020, 4, 1}, Call{0x0048E030, 0, 0}, Call{0x0049F420, 12, 0}}) {
-        s.At({c.address}, c.pop, [c](Regs& r) {
+        s.At({c.address, c.address == 0x0049F420 ? AddressOf(&Nx::VirtualSlot41Jump) : c.address}, c.pop, [c](Regs& r) {
             Record({c.address & 0xFFFFF, Relocate(r.ecx)});
             for (int i = 0; i < c.pop / 4; ++i)
                 Record({(c.byteArgs >> i) & 1 ? r.args[i] & 0xFF : Relocate(r.args[i])});

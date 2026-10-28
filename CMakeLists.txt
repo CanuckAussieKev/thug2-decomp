@@ -479,6 +479,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd1_polys.cpp
     src/hook/selftests_rnd4_sector.cpp
     src/hook/selftests_rnd4_sprite.cpp
+    src/hook/selftests_rnd4_texture.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -790,6 +791,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/sector.cpp
     src/game/gfx/engine_sprite.cpp
     src/game/gfx/screen_effects.cpp
+    src/game/gfx/engine_texture.cpp
     src/game/gfx/engine_effects.cpp
     src/game/gfx/engine_particles.cpp
     src/game/gfx/particle_maths.cpp
