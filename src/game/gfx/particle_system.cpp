@@ -3,6 +3,7 @@
 // Update are in particle_system_update.cpp.
 
 #include "game/gfx/particle_system.h"
+#include "game/gfx/particle_system_internal.h"
 
 #include <cmath>
 #include <cstring>
@@ -61,6 +62,11 @@ Script::CStruct* NewStructure()
     return structure ? structure->Init() : nullptr;
 }
 
+} // namespace
+
+// (shared with the other types' constructors: particle_system_internal.h)
+namespace ParticleParts {
+
 // The particles: `count` after their count (the compiler's array new; their constructor and destructor are empty).
 sFlexibleParticle* NewParticles(int count)
 {
@@ -116,7 +122,9 @@ void SetVtables(CParticleSystem* system, uint32_t primary, uint32_t node)
     system->m_node.vtable = reinterpret_cast<void**>(node);
 }
 
-} // namespace
+} // namespace ParticleParts
+
+using namespace ParticleParts;
 
 // --- life ---
 

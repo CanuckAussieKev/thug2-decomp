@@ -472,11 +472,22 @@ add_library(thug2_code OBJECT
     src/hook/selftests_splats2.cpp
     src/hook/selftests_particle_system.cpp
     src/hook/selftests_particles.cpp
+    src/hook/selftests_rnd3_particle_types.cpp
+    src/hook/selftests_rnd3_particle_manager.cpp
+    src/hook/selftests_rnd3_model_particles.cpp
+    src/hook/selftests_rnd3_primitive.cpp
+    src/hook/selftests_rnd3_scene.cpp
     src/hook/selftests_rnd1_model.cpp
     src/hook/selftests_rnd1_model_geoms.cpp
     src/hook/selftests_rnd1_effects.cpp
     src/hook/selftests_rnd1_particles.cpp
     src/hook/selftests_rnd1_polys.cpp
+    src/hook/selftests_rnd4_sector.cpp
+    src/hook/selftests_rnd4_sprite.cpp
+    src/hook/selftests_rnd4_texture.cpp
+    src/hook/selftests_rnd4_texdict.cpp
+    src/hook/selftests_rnd4_scene.cpp
+    src/hook/selftests_rnd4_projection.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -782,9 +793,22 @@ add_library(thug2_code OBJECT
     src/game/gfx/pc_model.cpp
     src/game/gfx/particle_system.cpp
     src/game/gfx/particle_system_update.cpp
+    src/game/gfx/particle_types.cpp
+    src/game/gfx/flexible_particle_manager.cpp
+    src/game/gfx/model_particles.cpp
+    src/game/gfx/engine_primitive.cpp
+    src/game/gfx/engine_scene.cpp
     src/game/gfx/particles.cpp
     src/game/gfx/model.cpp
     src/game/gfx/model_geoms.cpp
+    src/game/gfx/sector.cpp
+    src/game/gfx/engine_sprite.cpp
+    src/game/gfx/screen_effects.cpp
+    src/game/gfx/engine_texture.cpp
+    src/game/gfx/texture_dict.cpp
+    src/game/gfx/engine_scene_sectors.cpp
+    src/game/gfx/engine_texture_projection.cpp
+    src/game/gfx/viewport_list.cpp
     src/game/gfx/engine_effects.cpp
     src/game/gfx/engine_particles.cpp
     src/game/gfx/particle_maths.cpp
