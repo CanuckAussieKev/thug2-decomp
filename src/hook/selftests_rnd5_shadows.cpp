@@ -15,6 +15,8 @@
 #include "game/gfx/engine_shadows.h"
 #include "game/gfx/model.h"
 #include "game/lst/hashtable.h"
+#include "game/nx/coll_tri.h"
+#include "game/core/dbg.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -275,6 +277,130 @@ void TestEngineShadows()
               "table and the volumes' list");
 }
 
+// A mesh (Nx::CCollObjTriData) for the edge test: a tetrahedron, a cube (as triangles) or an open fan, its faces
+// small (8 bytes, byte indices) or not, maybe flagged 0x40 (skipped).
+void MakeMesh(Lcg& random, Nx::CCollObjTriData* mesh)
+{
+    std::memset(mesh, 0, sizeof(*mesh));
+    static const float tetra[4][3] = {{0, 0, 0}, {10, 0, 0}, {0, 10, 0}, {0, 0, 10}};
+    static const int tetraFaces[4][3] = {{0, 2, 1}, {0, 1, 3}, {0, 3, 2}, {1, 2, 3}};
+    static const float cube[8][3] = {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0},
+                                     {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}};
+    static const int cubeFaces[12][3] = {{0, 2, 1}, {0, 3, 2}, {4, 5, 6}, {4, 6, 7}, {0, 1, 5}, {0, 5, 4},
+                                         {1, 2, 6}, {1, 6, 5}, {2, 3, 7}, {2, 7, 6}, {3, 0, 4}, {3, 4, 7}};
+    static const int fanFaces[3][3] = {{0, 1, 2}, {0, 2, 3}, {0, 3, 1}};
+    int kind = static_cast<int>(random.Below(5));
+    const float(*vertices)[3] = kind == 1 ? cube : tetra;
+    int vertexCount = kind == 1 ? 8 : 4;
+    const int(*faces)[3] = kind == 0 ? tetraFaces : kind == 1 ? cubeFaces : fanFaces;
+    int faceCount = kind == 0 ? 4 : kind == 1 ? 12 : kind == 2 ? 3 : 0;
+    if (kind == 3) { // (no faces - but a first face's flags to read)
+        faces = tetraFaces;
+        faceCount = 0;
+    }
+    if (kind == 4) { // (one face; two vertices claimed: an estimate of 1)
+        faces = tetraFaces;
+        faceCount = 1;
+    }
+    auto* positions = reinterpret_cast<float*>(Bump(vertexCount * 12));
+    float scale = RandomFloat(random, 0.5f, 30);
+    for (int i = 0; i < vertexCount; ++i)
+        for (int k = 0; k < 3; ++k)
+            positions[i * 3 + k] = vertices[i][k] * scale + static_cast<float>(random.Below(3));
+    mesh->m_vertices = positions;
+    mesh->m_numVertices = static_cast<uint16_t>(kind == 4 ? 2 : vertexCount + random.Below(2));
+    bool flip = random.Below(2) != 0; // (some faces wound the other way: edges shared the same way round)
+    mesh->m_numFaces = static_cast<uint16_t>(faceCount);
+    mesh->m_smallFaces = random.Below(2) != 0;
+    int stride = mesh->m_smallFaces ? 8 : 10;
+    mesh->m_faces = reinterpret_cast<uint8_t*>(Bump((faceCount + 1) * stride));
+    std::memset(mesh->m_faces, 0, (faceCount + 1) * stride);
+    for (int f = 0; f < (faceCount ? faceCount : 1); ++f) {
+        uint8_t* face = mesh->m_faces + f * stride;
+        *reinterpret_cast<uint16_t*>(face) = static_cast<uint16_t>(random.Below(6) == 0 ? 0x40 : random.Below(0x40));
+        bool reversed = flip && random.Below(3) == 0;
+        for (int k = 0; k < 3; ++k) {
+            int index = faces[f][reversed ? 2 - k : k];
+            if (mesh->m_smallFaces)
+                face[4 + k] = static_cast<uint8_t>(index);
+            else
+                reinterpret_cast<uint16_t*>(face)[2 + k] = static_cast<uint16_t>(index & 0xFF);
+        }
+    }
+}
+
+// The volume's SetModel: the edges found in the table (shared) or built from the meshes - the estimate, each mesh's
+// faces' edges paired, the table and the volumes' list; a failed build (Euler's formula broken) freed.
+void TestShadowEdges()
+{
+    GameMemory memory({{0x007D1800, 4}, {0x007CC979, 1}, {0x007013D8, 0x40}, {0x00701418, 0x18}});
+    StandIns& s = *new StandIns();
+    StandInShadowCalls(s);
+    s.At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
+        Record({0x1C30, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2], r.args[3]});
+        return 0xFFFFFFFFu;
+    });
+    s.At({0x00462740, AddressOf(&Lst::HashTable::PutItem)}, 8, [](Regs& r) {
+        Record({0x2740, Relocate(r.ecx), *reinterpret_cast<uint32_t*>(r.args[0]), Relocate(r.args[1])});
+        return 1u;
+    });
+    g_relocate = ArenaRelocate;
+    bool ok = true, reported = false;
+    for (int round = 0; round < 80; ++round) {
+        ok &= CompareTwoRuns("shadow edges", reported, [&](bool original) {
+            g_trace.clear();
+            ResetArena(0xEE);
+            memory.Fill(0xED6 + round);
+            Lcg random(0xED60 + round);
+            GameVariable<uint32_t>(0x007D1800) = Bump(0x10);
+            GameVariable<uint8_t>(0x007CC979) = 1;
+            auto* list = &GameVariable<uint8_t*>(0x007013D8);
+            for (int i = 0; i < 16; ++i)
+                list[i] = random.Below(round % 3 + 1) ? reinterpret_cast<uint8_t*>(Bump(4)) : nullptr;
+            int meshCount = static_cast<int>(random.Below(4));
+            auto* meshes = reinterpret_cast<Nx::CCollObjTriData*>(Bump(sizeof(Nx::CCollObjTriData) * 4));
+            for (int i = 0; i < meshCount; ++i)
+                MakeMesh(random, meshes + i);
+            auto* assetData = reinterpret_cast<uint8_t*>(Bump(0x90));
+            *reinterpret_cast<int*>(assetData + 0x88) = meshCount;
+            *reinterpret_cast<void**>(assetData + 0x8C) = meshes;
+            // The table: maybe the edges already there.
+            auto* table = &GameVariable<Lst::HashTable>(0x00701418);
+            table->m_bits = 2;
+            table->m_buckets = reinterpret_cast<Lst::HashTable::Item*>(Bump(4 * sizeof(Lst::HashTable::Item)));
+            std::memset(table->m_buckets, 0, 4 * sizeof(Lst::HashTable::Item));
+            if (random.Below(4) == 0) {
+                auto* edges = reinterpret_cast<Nx::ShadowEdges*>(Bump(0x10));
+                edges->users = 2;
+                table->m_buckets[reinterpret_cast<uint32_t>(meshes) & 3] = {reinterpret_cast<uint32_t>(meshes), edges,
+                                                                            nullptr};
+            }
+            auto* volume = reinterpret_cast<uint8_t*>(Bump(0x68));
+            bool withData = random.Below(5) != 0;
+            // (no asset data: the key kept - none, or the meshes when they're in the table)
+            *reinterpret_cast<void**>(volume + 0x4C) =
+                withData || table->m_buckets[reinterpret_cast<uint32_t>(meshes) & 3].value ? meshes : nullptr;
+            uint32_t before = g_used;
+            At<void(__thiscall*)(void*, void*, void*)>(original, 0x004A22F0)(volume, nullptr,
+                                                                            withData ? assetData : nullptr);
+            Record({Relocate(*reinterpret_cast<uint32_t*>(volume + 0x60))});
+            // (the edges' corners' padding is the original's stack garbage: masked - the array follows the 0x10
+            // bytes of the edges' header)
+            for (uint32_t at = before + 0x10 + 2; at + 2 <= g_used; at += 0x14)
+                *reinterpret_cast<uint16_t*>(g_arena + at) = 0;
+            std::vector<uint32_t> trace = g_trace;
+            memory.Dump(trace);
+            DumpArena(trace);
+            return trace;
+        });
+    }
+    delete &s;
+    g_relocate = nullptr;
+    Check(ok, "shadow edges: shared or built (estimate, pairs, the last mesh's kept, small faces, skipped meshes), "
+              "the table and the volumes' list, a failed build freed");
+}
+
 } // namespace
 
 SELFTEST(Early, TestEngineShadows, RemoveStandIns);
+SELFTEST(Early, TestShadowEdges, RemoveStandIns);

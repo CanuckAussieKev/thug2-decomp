@@ -712,6 +712,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/weather.cpp
     src/game/gfx/window2d.cpp
     src/game/gfx/engine_shadows.cpp
+    src/game/gfx/engine_shadow_edges.cpp
     src/game/gfx/settings.cpp
     src/game/gfx/glyphs.cpp
     src/game/gfx/flash.cpp
