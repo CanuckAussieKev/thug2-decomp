@@ -7,6 +7,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/particles.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
@@ -48,51 +49,9 @@ const uint8_t* Params(void* particle) { return ParticleSystemParams(particle); }
 // 0x00494EE0: its +0x38 set (the model's +0x22C, or the ground test's value), then its vtable slot 6.
 void SetGroundValue(void* particle, float value) { Particle(0x00494EE0, particle, value); }
 
-// The parameters a particle system is made from (0x15C bytes; constructed by 0x00496240, given to the particle
-// manager's 0x00496510, kept as the system's +4). Only what InitFromStructure fills is named; names from the
-// script parameters where known.
-struct ParticleParams {
-    uint32_t m_name;          // +0x000 (0xA1DC81F9, required)
-    uint32_t m_unknown04;     // +0x004 (0x7321A8D6)
-    uint32_t m_groupId;       // +0x008 GroupID
-    float m_size[3];          // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
-    float m_radius[3];        // +0x018 (0x05400A25, 0xFF7D9AA9, 0x5539FCEE; scaled)
-    int m_unknown24;          // +0x024 (0x9E52A20F)
-    float m_unknown28;        // +0x028 (0x35B65BD4)
-    float m_unknown2C;        // +0x02C (0xC218CF77)
-    float m_unknown30;        // +0x030 (0x520682C6, then 0x59463C93)
-    uint8_t unknown34[0x14];
-    uint32_t m_emitScript;    // +0x048 (0x092276DB: the component's +0x18)
-    uint32_t m_objectId;      // +0x04C its object's id (with the above)
-    uint8_t unknown50[4];
-    Mth::Matrix m_rotation;   // +0x054 (0x9D2D0915's angles: X, then Y, then Z)
-    Mth::Vector m_pos[3];     // +0x094 start / mid / end (scaled, oriented)
-    Mth::Vector m_box[3];     // +0x0C4 (scaled, oriented)
-    Mth::Vector m_localPos[3]; // +0x0F4 the positions again (0xB7B7240D: they move with the object)
-    uint8_t unknown124[4];
-    uint8_t m_colour[3][4];   // +0x128 r, g, b (three arrays), a (three integers, at most 128)
-    uint32_t m_unknown134;    // +0x134 (0xDD6BB3D5)
-    int m_unknown138;         // +0x138 (0x13D0BE1D)
-    int m_unknown13C;         // +0x13C (0x9F677D4E)
-    uint32_t m_unknown140;    // +0x140 (0x7D99F28D)
-    int m_unknown144;         // +0x144 (0x4EEDFAE7)
-    int m_unknown148;         // +0x148 (0xD7E4AB5D)
-    int m_unknown14C;         // +0x14C (0xE4279BA2)
-    uint8_t m_unknown150;     // +0x150 (0x9D5923D8's low byte)
-    bool m_flag151;           // +0x151 (0xA7A5BFFB)
-    bool m_localPositions;    // +0x152 (0xB7B7240D)
-    bool m_flag153;           // +0x153 (0x454962EF)
-    bool m_orientWithObject;  // +0x154 (0xA2487CC3)
-    uint8_t unknown155[2];
-    bool m_flag157;           // +0x157 (0x5446AF14)
-    bool m_flag158;           // +0x158 (0xA0E585B0: the system's 0x00496190(0) once made)
-    uint8_t unknown159[3];
-};
-static_assert(offsetof(ParticleParams, m_emitScript) == 0x48 && offsetof(ParticleParams, m_rotation) == 0x54 &&
-                  offsetof(ParticleParams, m_pos) == 0x94 && offsetof(ParticleParams, m_localPos) == 0xF4 &&
-                  offsetof(ParticleParams, m_colour) == 0x128 && offsetof(ParticleParams, m_unknown150) == 0x150 &&
-                  offsetof(ParticleParams, m_flag158) == 0x158 && sizeof(ParticleParams) == 0x15C,
-              "layout must match the original");
+// The parameters a particle system is made from (Nx::CParticleParams, gfx/particles.h; constructed by 0x00496240,
+// given to the particle manager's 0x00496510, kept as the system's +4).
+using ParticleParams = Nx::CParticleParams;
 
 // D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
