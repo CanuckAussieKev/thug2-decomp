@@ -270,7 +270,7 @@ void TestParticleSystemSettings()
             *g_camera->GetPos() = {RandomFloat(random, -500, 500), RandomFloat(random, -500, 500),
                                    RandomFloat(random, -500, 500), 1.0f};
             for (int step = 0; step < 16; ++step) {
-                switch (random.Below(16)) {
+                switch (random.Below(17)) {
                 case 0: {
                     static const uint32_t setters[] = {0x004968B0, 0x004968E0, 0x00496910, 0x00496940};
                     Fn<void(__thiscall*)(void*, float, float, float)>(original, setters[random.Below(4)])(
@@ -427,6 +427,20 @@ void TestParticleSystemSettings()
                     for (const Mth::Vector& row : out.row)
                         for (float f : {row.x, row.y, row.z, row.w})
                             trace.push_back(FloatBits(f));
+                    break;
+                }
+                case 15: { // a bare node out of a list of three, destroyed (freed or not)
+                    auto* nodes = reinterpret_cast<Mem::ListNode*>(Bump(3 * sizeof(Mem::ListNode)));
+                    for (int i = 0; i < 3; ++i) {
+                        nodes[i].next = &nodes[(i + 1) % 3];
+                        nodes[i].prev = &nodes[(i + 2) % 3];
+                    }
+                    Mem::ListNode* node = &nodes[random.Below(3)];
+                    if (random.Below(2))
+                        Fn<void(__thiscall*)(void*)>(original, 0x00496D10)(node);
+                    else
+                        trace.push_back(ArenaRelocate(Fn<uint32_t(__thiscall*)(void*, unsigned int)>(
+                            original, 0x00496D30)(node, random.Below(2))));
                     break;
                 }
                 case 14: // (the defaults again, over whatever is there)

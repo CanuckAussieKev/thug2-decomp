@@ -3,6 +3,7 @@
 
 #include "game/gfx/particles.h"
 
+#include <cmath>
 #include <cstring>
 #include <new>
 
@@ -41,6 +42,59 @@ Script::CStruct* NewStructure()
     Script::CStruct* structure = Script::NewStruct();
     return structure ? structure->Init() : nullptr;
 }
+
+// The engine's helpers (not yet rewritten; register arguments).
+// 0x00495130 / 0x004951B0 (ECX a, EDX b, ESI out; returns out): each component b's where it's below / above a's.
+Mth::Vector* CallMinOrMax(uint32_t code, const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* into)
+{
+    Mth::Vector* result;
+    __asm {
+        mov ecx, a
+        mov edx, b
+        mov esi, into
+        mov eax, code
+        call eax
+        mov result, eax
+    }
+    return result;
+}
+Mth::Vector* MinOf(const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* out)
+{
+    return CallMinOrMax(0x00495130, a, b, out);
+}
+Mth::Vector* MaxOf(const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* out)
+{
+    return CallMinOrMax(0x004951B0, a, b, out);
+}
+// 0x00494F10 (thiscall on `out`, the 14 words of arguments popped by the caller): per component, the extreme of the
+// quadratic through `start` (at 0), `mid` (at `midTime`) and `end` (at `life`); w 0. Returns out.
+Mth::Vector* CurveExtremes(Mth::Vector* into, const Mth::Vector& start, const Mth::Vector& mid, const Mth::Vector& end,
+                           float midTime, float life)
+{
+    uint32_t args[14];
+    std::memcpy(args, &start, 16);
+    std::memcpy(args + 4, &mid, 16);
+    std::memcpy(args + 8, &end, 16);
+    std::memcpy(args + 12, &midTime, 4);
+    std::memcpy(args + 13, &life, 4);
+    uint32_t* words = args;
+    Mth::Vector* result;
+    __asm {
+        sub esp, 0x38
+        mov esi, words
+        mov edi, esp
+        mov ecx, 14
+        rep movsd
+        mov ecx, into
+        mov eax, 0x00494F10
+        call eax
+        add esp, 0x38
+        mov result, eax
+    }
+    return result;
+}
+
+float Round(double value) { return static_cast<float>(value); }
 
 } // namespace
 
@@ -111,8 +165,67 @@ void CParticle::Init(const CParticleParams* params)
     Initialise(this);
 }
 
-// 0x00495260 (not yet rewritten here)
-void CParticle::UpdateBounds() { GameFunction<void(__thiscall*)(CParticle*)>(0x00495260)(this); }
+// 0x00495260. The corners are (position, size) less / plus (half the box, half the radius), the size and half the
+// radius; the original's x87 code rounds some of the sums to floats and keeps others at 53 bits - followed term by term.
+void CParticle::UpdateBounds()
+{
+    const CParticleParams& p = m_params;
+    float hb[3][3], hr[3], s[3];
+    for (int i = 0; i < 3; ++i) {
+        hb[i][0] = p.m_box[i].x * 0.5f;
+        hb[i][1] = p.m_box[i].y * 0.5f;
+        hb[i][2] = p.m_box[i].z * 0.5f;
+        hr[i] = p.m_radius[i] * 0.5f;
+        s[i] = p.m_size[i];
+    }
+    Mth::Vector lo[3], hi[3];
+    for (int i = 0; i < 3; ++i) {
+        const Mth::Vector& at = p.m_pos[i];
+        lo[i].x = Round(Round(Round(static_cast<double>(at.x) - hb[i][0]) - s[i]) - hr[i]);
+        lo[i].y = Round(Round(Round(static_cast<double>(at.y) - hb[i][1]) - s[i]) - hr[i]);
+        lo[i].z = Round(Round(Round(static_cast<double>(at.z) - hb[i][2]) - s[i]) - hr[i]);
+        lo[i].w = Round(Round(Round(static_cast<double>(s[i]) - hr[i]) - s[i]) - hr[i]);
+    }
+    {
+        const Mth::Vector& at = p.m_pos[0];
+        hi[0].x = Round((static_cast<double>(Round(static_cast<double>(hb[0][0]) + at.x)) + s[0]) + hr[0]);
+        hi[0].y = Round(((static_cast<double>(at.y) + hb[0][1]) + s[0]) + hr[0]);
+        hi[0].z = Round(static_cast<double>(Round(s[0] + static_cast<double>(Round(static_cast<double>(at.z) +
+                                                                                    hb[0][2])))) + hr[0]);
+        hi[0].w = Round(static_cast<double>(Round(s[0] + static_cast<double>(Round(static_cast<double>(hr[0]) +
+                                                                                    s[0])))) + hr[0]);
+    }
+    for (int i = 1; i < 3; ++i) {
+        const Mth::Vector& at = p.m_pos[i];
+        hi[i].x = Round(Round(Round(static_cast<double>(hb[i][0]) + at.x) + s[i]) + hr[i]);
+        hi[i].y = Round(Round(Round(static_cast<double>(at.y) + hb[i][1]) + s[i]) + hr[i]);
+        hi[i].z = Round((s[i] + static_cast<double>(Round(static_cast<double>(at.z) + hb[i][2]))) + hr[i]);
+        hi[i].w = Round(static_cast<double>(Round(s[i] + (static_cast<double>(hr[i]) + s[i]))) + hr[i]);
+    }
+    Mth::Vector low, high, curve;
+    low = *MinOf(&lo[0], &lo[2], &curve);
+    high = *MaxOf(&hi[0], &hi[2], &curve);
+    if (p.m_flag151) { // (the paths go through the mid: their extremes on the way)
+        float life = p.m_unknown2C;
+        float midTime = Round(static_cast<double>(life) * p.m_unknown30 * 0.01f);
+        Mth::Vector extreme;
+        CurveExtremes(&extreme, lo[0], lo[1], lo[2], midTime, life);
+        low = *MinOf(&low, &extreme, &curve);
+        CurveExtremes(&extreme, hi[0], hi[1], hi[2], midTime, life);
+        high = *MaxOf(&high, &extreme, &curve);
+    }
+    m_bbox.min = low;
+    m_bbox.max = high;
+    // the sphere about the box
+    float halfX = Round((static_cast<double>(high.x) - low.x) * 0.5f);
+    double halfY = (static_cast<double>(high.y) - low.y) * 0.5f;
+    double halfZ = static_cast<double>(Round(static_cast<double>(high.z) - low.z)) * 0.5f;
+    m_sphere.w = low.w; // (overwritten below, as the original)
+    m_sphere.z = Round(halfZ + low.z);
+    m_sphere.x = Round(static_cast<double>(halfX) + low.x);
+    m_sphere.y = Round(halfY + low.y);
+    m_sphere.w = Round(std::sqrt((static_cast<double>(halfX) * halfX + halfZ * halfZ) + halfY * halfY));
+}
 
 // 0x00496030
 void CParticle::SetPosition(int which, const Mth::Vector* pos) { m_params.m_pos[which] = *pos; }
@@ -329,6 +442,7 @@ void PointerList::Insert(PointerListNode* position, void* const* value)
 
 } // namespace Obj
 
+REPLACE(0x00495260, &Nx::CParticle::UpdateBounds);
 REPLACE(0x00496240, &Nx::CParticleParams::Construct);
 REPLACE(0x00495C80, &Nx::CParticleParams::Assign);
 REPLACE(0x00496360, &Nx::CParticle::Construct);

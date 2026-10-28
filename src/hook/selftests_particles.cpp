@@ -7,6 +7,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 #include "game/gfx/particles.h"
@@ -319,7 +320,90 @@ void TestParticleManager()
               "the manager destroyed; the list's insert");
 }
 
+// The bounds: random positions, boxes (some negative), sizes and radii, through the mid or not; the engine's
+// min / max (ECX, EDX, ESI) and curve extremes stood in (their inputs recorded; NaN and ties among them).
+uint32_t FloatWord(float f)
+{
+    uint32_t w;
+    std::memcpy(&w, &f, 4);
+    return w;
+}
+void TestParticleBounds()
+{
+    StandIns& s = *new StandIns();
+    for (uint32_t code : {0x00495130u, 0x004951B0u}) {
+        bool max = code == 0x004951B0u;
+        s.At({code}, 0, [max](Regs& r) {
+            const auto* a = reinterpret_cast<const float*>(r.ecx);
+            const auto* b = reinterpret_cast<const float*>(r.edx);
+            auto* out = reinterpret_cast<float*>(r.esi);
+            Record({max ? 0x51B0u : 0x5130u});
+            float result[4];
+            for (int i = 0; i < 4; ++i) {
+                Record({FloatWord(a[i]), FloatWord(b[i])});
+                result[i] = (max ? b[i] > a[i] : b[i] < a[i]) ? b[i] : a[i];
+            }
+            std::memcpy(out, result, 16);
+            return r.esi;
+        });
+    }
+    s.At({0x00494F10}, 0, [](Regs& r) {
+        Record({0x4F10});
+        uint32_t hash = 0;
+        for (int i = 0; i < 14; ++i) {
+            Record({r.args[i]});
+            hash = hash * 31 + r.args[i];
+        }
+        auto* out = reinterpret_cast<float*>(r.ecx);
+        for (int i = 0; i < 3; ++i)
+            out[i] = static_cast<float>(static_cast<int>((hash >> (i * 8)) & 0xFF) - 128);
+        out[3] = 0.0f;
+        return r.ecx;
+    });
+    bool ok = true, reported = false;
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    for (int round = 0; round < 300; ++round) {
+        ok &= CompareTwoRuns("particle bounds", reported, [&](bool original) {
+            g_trace.clear();
+            Lcg random(0x9C00 + round);
+            alignas(16) static uint8_t storage[sizeof(CParticle)];
+            auto* particle = reinterpret_cast<CParticle*>(storage);
+            std::memset(storage, 0xEE, sizeof(storage));
+            CParticleParams& p = particle->m_params;
+            for (int i = 0; i < 3; ++i) {
+                // (large and small magnitudes together: the sums' rounding shows)
+                float scale = random.Below(3) == 0 ? 100000.0f : 10.0f;
+                p.m_pos[i] = {RandomFloat(random, -scale, scale), RandomFloat(random, -scale, scale),
+                              RandomFloat(random, -scale, scale), RandomFloat(random, -1, 1)};
+                p.m_box[i] = {RandomFloat(random, -3, 30), RandomFloat(random, -3, 30), RandomFloat(random, -3, 30),
+                              RandomFloat(random, -1, 1)};
+                p.m_size[i] = RandomFloat(random, -1, 9) * (random.Below(4) == 0 ? 0.0001f : 1.0f);
+                p.m_radius[i] = RandomFloat(random, -1, 9);
+            }
+            if (round % 7 == 3)
+                p.m_pos[2] = p.m_pos[0]; // (ties)
+            if (round % 11 == 5)
+                p.m_box[random.Below(3)].y = nan;
+            p.m_unknown2C = RandomFloat(random, 0.1f, 6);
+            p.m_unknown30 = RandomFloat(random, 1, 99);
+            p.m_flag151 = random.Below(2) != 0;
+            Fn<void(__thiscall*)(void*)>(original, 0x00495260)(particle);
+            std::vector<uint32_t> trace = g_trace;
+            for (uint32_t i = 0; i < sizeof(storage); i += 4)
+                trace.push_back(OnStack(*reinterpret_cast<uint32_t*>(storage + i)) ? 0x57AC0000u
+                                                                                    : *reinterpret_cast<uint32_t*>(storage + i));
+            for (uint32_t& w : trace)
+                if (OnStack(w))
+                    w = 0x57AC0000u;
+            return trace;
+        });
+    }
+    delete &s;
+    Check(ok, "particles: the bounds (box and sphere) from the paths, through the mid or not");
+}
+
 } // namespace
 
 SELFTEST(Early, TestParticleSystemBasics, RemoveStandIns);
 SELFTEST(Early, TestParticleManager, RemoveStandIns);
+SELFTEST(Early, TestParticleBounds, RemoveStandIns);

@@ -656,6 +656,16 @@ namespace {
 
 // The destructors reached through the node's vtable (`this` the node at +0x0C): each a jump to the type's.
 struct NodeAdapters {
+    // 0x00496D10 / 0x00496D30: Lst::Node<CParticleSystem>'s own destructor body (its vtable, out of its list) and
+    // scalar deleting destructor (freed with flags & 1; returns this).
+    void NodeDestroyBody() { reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x00649420)); }
+    Mem::ListNode* NodeDestroy(unsigned int flags)
+    {
+        NodeDestroyBody();
+        if (flags & 1)
+            Mem::Free(this);
+        return reinterpret_cast<Mem::ListNode*>(this);
+    }
     template <typename T>
     T* System()
     {
@@ -683,6 +693,8 @@ REPLACE(0x00496D70, &Nx::CParticleSystem::Reset);
 REPLACE(0x00498690, &Nx::CParticleSystem::DestroyBody);
 REPLACE(0x00498F80, &Nx::CParticleSystem::Destroy);
 REPLACE(0x00496F50, &NodeAdapters::DestroySystem);
+REPLACE(0x00496D10, &NodeAdapters::NodeDestroyBody);
+REPLACE(0x00496D30, &NodeAdapters::NodeDestroy);
 REPLACE(0x004968B0, &Nx::CParticleSystem::SetEmitRange);
 REPLACE(0x004968E0, &Nx::CParticleSystem::SetForce);
 REPLACE(0x00496910, &Nx::CParticleSystem::SetEmitTarget);
