@@ -128,6 +128,9 @@ const uint32_t kReplacements[][3] = {
     {0xE4FDADD0, 0x0567380E, 0x737C05F2},
 };
 
+// Whether a face texture holds one (0x00487510, called through the game: the tests script it).
+bool FaceTextureIsValid(CFaceTexture* face) { return GameFunction<bool(__thiscall*)(CFaceTexture*)>(0x00487510)(face); }
+
 // The scale a structure gives (not rewritten yet, cdecl: its scale - one value or a vector - or its x / y / z),
 // into `scale`. Whether it had one.
 bool GetScale(Mth::Vector* scale, Script::CStruct* from)
@@ -290,7 +293,7 @@ bool CModelBuilder::CallMemberFunction(uint32_t name, Script::CStruct* params, S
         return true;
     case kModelApplyFaceTexture: {
         CFaceTexture* face = BuiltAppearance()->mp_faceTexture;
-        if (!face || !face->IsValid() || !BuiltModel())
+        if (!face || !FaceTextureIsValid(face) || !BuiltModel())
             return true;
         const char* source = reinterpret_cast<const char*>(static_cast<uintptr_t>(name));
         params->GetString(kSrc, &source, 1);
@@ -367,7 +370,7 @@ bool CModelBuilder::AddGeom(uint32_t part)
     };
     const char* mesh;
     CFaceTexture* face = BuiltAppearance()->mp_faceTexture;
-    if ((face && face->IsValid()) || BuiltAppearance()->HasFaceTexture()) {
+    if ((face && FaceTextureIsValid(face)) || BuiltAppearance()->HasFaceTexture()) {
         if (option->GetString(kMeshIfFacemapped, &mesh, 0)) {
             add(mesh);
             return true;

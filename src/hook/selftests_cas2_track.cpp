@@ -19,6 +19,7 @@
 #include "game/core/pool.h"
 #include "game/gfx/anim_controller.h"
 #include "game/gfx/anim_track.h"
+#include "game/gfx/custom_anim_key.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/flip_rotate.h"
 #include "game/obj/object.h"
@@ -204,14 +205,14 @@ void StandInTrackCalls(StandIns& s)
     StandInThis(s, {0x00481870}, 0);
     StandInThis(s, {0x004818B0}, 1);
     StandInThis(s, {0x004819A0}, 0);
-    StandInThis(s, {0x004865D0}, 3);
-    StandInThis(s, {0x00486150}, 1);
-    StandInThis(s, {0x00486560}, 0);
-    s.At({0x00486160}, 4, [](Regs& r) {
+    StandInThis(s, {0x004865D0, AddressOf(&Gfx::CAnimScriptKey::Set)}, 3);
+    StandInThis(s, {0x00486150, AddressOf(&Gfx::CCustomAnimKey::SetActive)}, 1);
+    StandInThis(s, {0x00486560, AddressOf(&Gfx::CAnimScriptKey::DestroyBody)}, 0);
+    s.At({0x00486160, AddressOf(&Gfx::CCustomAnimKey::ProcessIfActive)}, 4, [](Regs& r) {
         Record({0x6160, Relocate(r.ecx), Relocate(r.args[0])});
         return g_answer.Below(2);
     });
-    s.At({0x004860C0}, 12, [](Regs& r) {
+    s.At({0x004860C0, AddressOf(&Gfx::CCustomAnimKey::WithinRange)}, 12, [](Regs& r) {
         Record({0x60C0, Relocate(r.ecx), r.args[0], r.args[1], r.args[2]});
         return g_answer.Below(2);
     });
