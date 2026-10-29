@@ -477,6 +477,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd3_model_particles.cpp
     src/hook/selftests_rnd3_primitive.cpp
     src/hook/selftests_rnd3_scene.cpp
+    src/hook/selftests_cas1_timeline.cpp
     src/hook/selftests_rnd1_model.cpp
     src/hook/selftests_rnd1_model_geoms.cpp
     src/hook/selftests_rnd1_effects.cpp
@@ -994,6 +995,7 @@ add_library(thug2_code OBJECT
     src/game/sfx/mute_audio.cpp
     src/game/sfx/terrain.cpp
     src/game/gfx/anim_blend.cpp
+    src/game/gfx/anim_timeline.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/lock_obj.cpp

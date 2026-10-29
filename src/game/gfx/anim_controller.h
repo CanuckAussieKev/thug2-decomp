@@ -14,7 +14,7 @@ class CStruct;
 // The animation controllers an object's animation blender stacks up (made by the factory 0x00481FB0 from a
 // structure's Type, with its Priority): each fills in a pose (Gfx::CPose: 64 rotations at +0, 64 translations at
 // +0x400, more at +0x800) for the bones of the object's skeleton and answers script member functions. They all
-// derive from the base controller (0x00481710 constructs it, vtable 0x0064877C - not rewritten yet; e.g. its
+// derive from the base controller (CAnimController: vtable 0x0064877C, constructed by 0x00481710; e.g. its
 // InitFromStructure 0x00481740 reads `id`).
 //
 // Vtable slots: 0 the scalar deleting destructor, 1 GetPose(pose), 2 (0x005BAB90: ignores its argument),
@@ -23,8 +23,35 @@ class CStruct;
 namespace Gfx {
 
 // The animation timeline a controller plays on (vtable 0x00648768; 0x00481650 constructs one): an animation
-// between two times, the current time stepping by speed * 60 per second in a direction, with a loop type.
+// between two times, the current time stepping by speed * 60 per second in a direction, with a loop type. It's a
+// node of the engine's intrusive lists (Mem::ListNode: data, priority, next, prev at +4..+0x10).
+// Vtable slots: 0 Destroy, 1 Reset, 2 Update, 3 PlayAnim, 4 (0x005BAB90: ignores its argument).
 struct CAnimTimeline {
+    enum LoopType : int { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
+
+    // 0x00481650: an empty timeline, unlinked (once, forwards, no animation: 0xF60C9090).
+    CAnimTimeline* Construct();
+    // 0x00481690: the list node's destructor body - its vtable 0x006486CC, unlinked (the channel's list nodes and
+    // the blend timeline use it too). 0x004816E0 (slot 0, also the channel list head's): that, then freed.
+    void DestroyBody();
+    CAnimTimeline* Destroy(uint8_t flags);
+    // 0x00481380 (slot 1): back to the constructor's times, speed, direction, loop type and animation.
+    void Reset();
+    // 0x00481640 (slot 2): the current time stepped (NextTime).
+    void Update();
+    // 0x00481430 (slot 3): `anim` from `from` to `to` (backwards when `to` isn't above it) at `speed` (per 1/60 s);
+    // `blendPeriod` isn't used here.
+    void PlayAnim(uint32_t anim, float from, float to, int loopType, float blendPeriod, float speed);
+    // 0x004813B0: the start, current and end times in the direction it plays (start and end swapped backwards).
+    void GetTimes(float* start, float* current, float* end);
+    // 0x004813F0: whether a once / ping-pong / hold timeline (not a cycling one) is at its end.
+    bool IsComplete();
+    // 0x004814B0: the time a frame on (the frame's slow-motion seconds x 60 x speed), wrapped, held or turned
+    // round at the ends by the loop type, within the start and end; sets the complete flag. Unrounded (ST0).
+    double NextTime();
+    // 0x004816B0: `seconds` (in frames) added to the current time, then wrapped / held as a step of no time does.
+    void AddTime(float frames);
+
     void** m_vtable;
     uint32_t m_unknown04[4];
     float m_start;      // +0x14
@@ -48,6 +75,18 @@ struct CAnimController {
     Obj::CCompositeObject* mp_object;  // +0x08 (set by some controllers only; GetObject asks the channel)
     int m_priority;                    // +0x0C
     uint32_t m_id;                     // +0x10
+
+    // 0x00481710: on `timeline`, no object, priority 0, id 0 (vtable 0x0064877C). Returns this.
+    CAnimController* Construct(CAnimTimeline* timeline);
+    // 0x00481730: the base's vtable back (its destructor body). 0x004817A0 (slot 0): that, then freed.
+    void DestroyBody();
+    CAnimController* Destroy(uint8_t flags);
+    // 0x00481740 (slot 4): `id` (0x40C698AF) from the parameters (GetChecksum's result).
+    bool InitFromStructure(Script::CStruct* params);
+    // 0x00481760: the object its timeline (a blend timeline) belongs to.
+    Obj::CCompositeObject* GetObject();
+    // 0x00481770: the object's skeleton component (0x222756D5)'s skeleton (0x005480F0: its +0x18), or null.
+    uint8_t* GetSkeleton();
 
     // 0x004A4610 (slot 4 of the controllers without one of their own): a jump to the base's InitFromStructure
     // (0x00481740).

@@ -9,6 +9,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/mth/geometry.h"
 #include "game/obj/objman.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -51,13 +52,6 @@ constexpr float kHalf = 0.5f;                        // 0x006453BC
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
     GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
-}
-
-// 0x004817D0 (cdecl): whether `point` is within max and min on x, y and z (inclusive; NaN never is).
-bool PointInBox(const Mth::Vector* point, const Mth::Vector* max, const Mth::Vector* min)
-{
-    return GameFunction<bool(__cdecl*)(const Mth::Vector*, const Mth::Vector*, const Mth::Vector*)>(0x004817D0)(
-        point, max, min);
 }
 
 // A manager's object list (its vtable +0x18).
@@ -229,7 +223,7 @@ bool CBBoxComponent::IsInRect(CCompositeObject* object, Rect* rect)
     point.w = point.w - self.w;
     Mth::Vector local;
     point = rect->m_matrix.Transform(local, point);
-    return PointInBox(&point, &rect->m_max, &rect->m_min);
+    return Mth::PointInBox(&point, &rect->m_max, &rect->m_min);
 }
 
 // 0x0041AE20

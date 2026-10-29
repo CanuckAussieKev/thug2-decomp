@@ -533,6 +533,13 @@ bool ClosestPointsBetweenLines(const Line& a, const Line& b, Vector& point_a, Ve
     return true;
 }
 
+// 0x004817D0
+bool __cdecl PointInBox(const Vector* point, const Vector* max, const Vector* min)
+{
+    return !(point->x > max->x) && !(point->y > max->y) && !(point->z > max->z) && !(point->x < min->x) &&
+           !(point->y < min->y) && !(point->z < min->z);
+}
+
 } // namespace Mth
 
 // --- replacements -------------------------------------------------------------------------------------
@@ -584,3 +591,4 @@ REPLACE(0x00403450, &BBox::AddPoint);
 REPLACE(0x0040AB00, &BBox::operator=);
 REPLACE(0x0040B170, &BBox::Intersects);
 REPLACE(0x0040B1D0, &BBox::Contains);
+REPLACE(0x004817D0, Mth::PointInBox);

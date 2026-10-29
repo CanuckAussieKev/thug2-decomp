@@ -61,22 +61,13 @@ double X87Sin(double angle)
 
 void** Vtable(uint32_t address) { return reinterpret_cast<void**>(address); }
 
-// The base controller (not rewritten yet).
-void BaseConstruct(CAnimController* c, CAnimTimeline* timeline)
-{
-    GameFunction<void*(__thiscall*)(void*, CAnimTimeline*)>(0x00481710)(c, timeline);
-}
-void BaseDestroyBody(CAnimController* c) { GameFunction<void(__thiscall*)(void*)>(0x00481730)(c); }
-void BaseInit(CAnimController* c, CStruct* params)
-{
-    GameFunction<void(__thiscall*)(void*, CStruct*)>(0x00481740)(c, params);
-}
-// The object (the channel's +0x64) and its skeleton (the Skeleton component's +0x18, or null).
-Obj::CCompositeObject* ObjectOf(CAnimController* c)
-{
-    return GameFunction<Obj::CCompositeObject*(__thiscall*)(void*)>(0x00481760)(c);
-}
-uint8_t* SkeletonOf(CAnimController* c) { return GameFunction<uint8_t*(__thiscall*)(void*)>(0x00481770)(c); }
+// The base controller.
+void BaseConstruct(CAnimController* c, CAnimTimeline* timeline) { c->CAnimController::Construct(timeline); }
+void BaseDestroyBody(CAnimController* c) { c->CAnimController::DestroyBody(); }
+void BaseInit(CAnimController* c, CStruct* params) { c->CAnimController::InitFromStructure(params); }
+// The object (the blend timeline's +0x64) and its skeleton (the Skeleton component's +0x18, or null).
+Obj::CCompositeObject* ObjectOf(CAnimController* c) { return c->CAnimController::GetObject(); }
+uint8_t* SkeletonOf(CAnimController* c) { return c->CAnimController::GetSkeleton(); }
 // The object's anim set (the animation blender component's 0x00419AB0) and an animation's length in it.
 uint32_t AnimSet(Obj::CCompositeObject* object)
 {
