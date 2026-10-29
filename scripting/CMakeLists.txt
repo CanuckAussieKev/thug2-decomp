@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
 project(thug2_qb_js LANGUAGES C CXX)
+if(MSVC)
+  message(FATAL_ERROR "Official QuickJS needs GCC/Clang extensions; use MinGW/Clang for this optional target")
+endif()
 include(FetchContent)
 # Official upstream source, not vendored. No quickjs-libc, filesystem or OS modules.
 FetchContent_Declare(quickjs
@@ -27,9 +30,6 @@ find_package(Threads REQUIRED)
 target_link_libraries(quickjs_core PUBLIC Threads::Threads)
 if(UNIX)
   target_link_libraries(quickjs_core PUBLIC m)
-endif()
-if(MSVC)
-  message(FATAL_ERROR "Official QuickJS needs GCC/Clang extensions; use MinGW/Clang for this optional target")
 endif()
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/runtime.js QB_RUNTIME_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS runtime.js)
