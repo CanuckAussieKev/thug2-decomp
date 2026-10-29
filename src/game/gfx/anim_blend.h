@@ -46,10 +46,10 @@ void __cdecl BlendPosesById(CPose* poses, float* weights, const uint32_t* ids, i
 // 0x0047D580 (code nothing calls): the timeline's animation, speed, loop type and times added to `info`.
 void __stdcall AddTimelineInfo(CAnimTimeline* timeline, Script::CStruct* info);
 
-struct CBlendTimeline;
+class CAnimTrack;
 
 // An animation blender's channel (0x74 bytes, vtable 0x00648714; the blender keeps them on a list, so it's a list node
-// itself): its timelines (CBlendTimeline, the newest - the one playing - first; older ones blend out) and a blend
+// itself): its timelines (CAnimTrack, the newest - the one playing - first; older ones blend out) and a blend
 // value moving to a target. Vtable slots: 0 Destroy, 1 Update(pose index, blend), 2 Finalize, 3 InitFromStructure
 // (0x00480410), 4 CallMemberFunction (0x0047FA00), 5 (0x005BAB90), 6 ReleaseWaitingScript.
 class CBlendChannel {
@@ -92,7 +92,7 @@ public:
     // 0x0047DDC0: the timelines no longer active unlinked and deleted.
     void RemoveDoneTimelines();
     // 0x0047DE20: the timelines past the most there may be (0x006F8A68) deleted, the playing one blended out over
-    // `period` with the weight the others leave it, and a new timeline (0x00481EE0, CBlendTimeline::Construct) put
+    // `period` with the weight the others leave it, and a new timeline (0x00481EE0, CAnimTrack::Construct) put
     // first.
     void PushTimeline(float period);
     // 0x0047ED60: each timeline's pose (GetPose) from the skeleton's base translations, blended (BlendPoses) and

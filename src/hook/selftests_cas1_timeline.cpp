@@ -14,8 +14,7 @@
 
 #include "game/core/alloc.h"
 #include "game/core/manager.h"
-#include "game/gfx/anim_event.h"
-#include "game/gfx/blend_timeline.h"
+#include "game/gfx/anim_track.h"
 #include "game/mth/geometry.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
@@ -30,7 +29,7 @@ namespace {
 using namespace RfxTests;
 using Gfx::CAnimController;
 using Gfx::CAnimTimeline;
-using Gfx::CBlendTimeline;
+using Gfx::CAnimTrack;
 
 const float kNaN = std::numeric_limits<float>::quiet_NaN();
 const float kTimes[] = {0.0f, 1.0f, 2.5f, -3.0f, 10.0f, 30.5f, 100.0f, 0.25f, 7.0f, 7.0f, -0.0f, kNaN};
@@ -212,7 +211,7 @@ void TestCas1BlendTimeline()
             GameVariable<uint32_t>(0x007D1800) = 0x3A9A0000;
             Lcg random(0x7300 + round);
             std::vector<uint32_t> trace;
-            auto* t = reinterpret_cast<CBlendTimeline*>(Bump(sizeof(CBlendTimeline)));
+            auto* t = reinterpret_cast<CAnimTrack*>(Bump(sizeof(CAnimTrack)));
             uint32_t object = Bump(0x40);
             uint32_t component = Bump(0x20);
             std::memset(reinterpret_cast<void*>(component), 0x11, 0x20);
@@ -260,15 +259,15 @@ void TestCas1BlendTimeline()
                 }
                 case 5:
                     t->m_state = static_cast<int>(random.Below(4));
-                    t->m_blendLeft = 2.0f;
-                    t->m_weightScale = 3.0f;
+                    t->m_fadeLeft = 2.0f;
+                    t->m_fadeScale = 3.0f;
                     trace.push_back(Fn<uint32_t(__thiscall*)(void*)>(original, 0x00481980)(t));
                     trace.push_back(Fn<uint32_t(__thiscall*)(void*)>(original, 0x00481990)(t));
                     if (random.Below(2))
                         Fn<void(__thiscall*)(void*)>(original, 0x00481960)(t);
                     break;
                 case 6:
-                    t->mp_events = events;
+                    t->mp_events = reinterpret_cast<Gfx::CAnimEvent*>(events);
                     t->m_eventCount = random.Below(5);
                     for (int i = 0; i < 4; ++i)
                         events[0x14 * i + 8] = static_cast<uint8_t>(random.Below(2));
@@ -301,7 +300,7 @@ void TestCas1BlendTimeline()
                             Fn<uint32_t(__thiscall*)(void*, uint32_t)>(original, 0x004817A0)(c, random.Below(4))));
                     trace.push_back(reinterpret_cast<uint32_t>(c->m_vtable));
                     c->m_vtable = g_controllerVtable;
-                    auto* event = reinterpret_cast<Gfx::CAnimEvent*>(events + 0x14 * random.Below(4));
+                    auto* event = reinterpret_cast<Gfx::CAnimEventBase*>(events + 0x14 * random.Below(4));
                     event->m_vtable = nullptr;
                     Fn<void(__thiscall*)(void*)>(original, 0x004819E0)(event);
                     break;

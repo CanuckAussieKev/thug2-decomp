@@ -7,8 +7,7 @@
 //
 // Vtable 0x00648794: 0 Destroy (0x00482340), 1 Reset (0x00481960), 2 Update (0x00481AC0), 3 the timeline's
 // 0x00481430, 4 0x005BAB90 (nothing), 5 CallMemberFunction (0x00482200), 6 PlayAnim (0x004823C0).
-// 0x00481830 constructs one (on the object; playing, events on); 0x00481870 deletes its controllers, 0x004818B0
-// removes one, 0x004819A0 re-arms its events (those aren't rewritten here).
+// (Its members 0x00481830-0x004819D0 are in anim_timeline.cpp.)
 
 #include <cstddef>
 #include <cstdint>
@@ -55,6 +54,8 @@ class CAnimEventBase {
 public:
     // 0x004819F0 (slot 0): the base's vtable; freed with `flags` 1. Returns this.
     CAnimEventBase* Destroy(uint8_t flags);
+    // 0x004819E0: the base's vtable back (its destructor body; CCustomAnimKey's and CAnimEvent's call it).
+    void DestroyBody();
 
     void** m_vtable;
 };
@@ -66,6 +67,25 @@ public:
     // 0x00481EE0 / 0x00482360: the class's operator new / delete (its item pools 0x006F92C8).
     static void* operator new(size_t size);
     static void operator delete(void* item);
+
+    // 0x00481830: the timeline's constructor, then no controllers and no events, `object`, events on, playing.
+    // Returns this.
+    CAnimTrack* Construct(Obj::CCompositeObject* object);
+    // 0x00481960 (slot 1): the timeline's Reset, then off with no fade.
+    void Reset();
+    // 0x00481870: each controller deleted (its slot 0 with 1; null ones skipped), none left.
+    void DeleteControllers();
+    // 0x004818B0: `controller` (if it's one of them) deleted and the rest moved down.
+    void RemoveController(CAnimController* controller);
+    // 0x00481920: each controller's pose (slot 1) into `pose` (no null check). True.
+    bool GetPoses(void* pose);
+    // 0x00481980 / 0x00481990: whether it isn't off / is fading.
+    bool IsActive();
+    bool IsFading();
+    // 0x004819A0: each event armed again (0x00486150 with true).
+    void ArmEvents();
+    // 0x004819D0
+    Obj::CCompositeObject* GetObject();
 
     // 0x00481F20: its controllers and events deleted, then the timeline's destructor body (0x00481690).
     void DestroyBody();

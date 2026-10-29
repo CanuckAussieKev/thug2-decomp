@@ -55,16 +55,6 @@ R Virtual(void* object, int slot, A... args)
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // --- calls into code not rewritten here ---
-// The timeline: its destructor body; moved on by a time (at speed 0, then stepped).
-void DestroyTimeline(CAnimTimeline* t) { GameFunction<void(__thiscall*)(CAnimTimeline*)>(0x00481690)(t); }
-void Advance(CAnimTimeline* t, float time) { GameFunction<void(__thiscall*)(CAnimTimeline*, float)>(0x004816B0)(t, time); }
-// The track's (0x00481830's neighbours): its controllers deleted; one removed; its events re-armed.
-void DeleteControllers(CAnimTrack* t) { GameFunction<void(__thiscall*)(CAnimTrack*)>(0x00481870)(t); }
-void RemoveController(CAnimTrack* t, CAnimController* c)
-{
-    GameFunction<void(__thiscall*)(CAnimTrack*, CAnimController*)>(0x004818B0)(t, c);
-}
-void RearmEvents(CAnimTrack* t) { GameFunction<void(__thiscall*)(CAnimTrack*)>(0x004819A0)(t); }
 // An event's set-up, arming, firing and destructor body.
 void SetUpEvent(CAnimEvent* e, int frame, uint32_t type, CStruct* params)
 {
@@ -149,9 +139,9 @@ void CAnimTrack::operator delete(void* item) { Pools().Free(item); }
 void CAnimTrack::DestroyBody()
 {
     m_vtable = Vtable(kTrackVtable);
-    DeleteControllers(this);
+    DeleteControllers();
     DeleteEvents();
-    DestroyTimeline(this);
+    CAnimTimeline::DestroyBody();
 }
 
 // 0x00482340
@@ -308,7 +298,7 @@ void CAnimTrack::FireEvents(float from, float to)
     float lastFrame = static_cast<float>(last);
     bool looped = m_direction == 0 ? first > last : last > first;
     if (looped) {
-        RearmEvents(this);
+        ArmEvents();
         firstFrame = m_start; // (as the original: the start itself, not in frames)
     }
     for (uint32_t i = 0; i < m_eventCount; ++i) {
@@ -380,7 +370,7 @@ int CAnimTrack::CallMemberFunction(uint32_t name, CStruct* params, Script::CScri
         uint32_t id = reinterpret_cast<uint32_t>(params); // (the argument's own slot: the params' address if missing)
         params->GetChecksum(kId, &id, 1);
         if (CAnimController* controller = FindController(id))
-            RemoveController(this, controller);
+            RemoveController(controller);
     } else if (name == kNewAnim) {
         uint32_t anim = 0; // (the original's is left as it was found on the stack when missing - an assert)
         params->GetChecksum(kAnim, &anim, 1);
@@ -400,7 +390,7 @@ int CAnimTrack::CallMemberFunction(uint32_t name, CStruct* params, Script::CScri
         }
         m_end = duration;
         m_start = 0.0f;
-        Advance(this, current);
+        AddTime(current);
     }
     for (int i = 0; i < m_controllerCount; ++i) {
         int result = Virtual<int>(mp_controllers[i], 3, name, params, script);

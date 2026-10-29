@@ -200,11 +200,11 @@ void StandInTrackCalls(StandIns& s)
         return g_answer.Below(5) ? 0xE7E7u : 0u;
     });
     // The timeline's and the track's own (not rewritten here), the events'.
-    StandInThis(s, {0x00481690}, 0);
-    StandInThis(s, {0x004816B0}, 1);
-    StandInThis(s, {0x00481870}, 0);
-    StandInThis(s, {0x004818B0}, 1);
-    StandInThis(s, {0x004819A0}, 0);
+    StandInThis(s, {0x00481690, AddressOf(&Gfx::CAnimTimeline::DestroyBody)}, 0);
+    StandInThis(s, {0x004816B0, AddressOf(&Gfx::CAnimTimeline::AddTime)}, 1);
+    StandInThis(s, {0x00481870, AddressOf(&Gfx::CAnimTrack::DeleteControllers)}, 0);
+    StandInThis(s, {0x004818B0, AddressOf(&Gfx::CAnimTrack::RemoveController)}, 1);
+    StandInThis(s, {0x004819A0, AddressOf(&Gfx::CAnimTrack::ArmEvents)}, 0);
     StandInThis(s, {0x004865D0, AddressOf(&Gfx::CAnimScriptKey::Set)}, 3);
     StandInThis(s, {0x00486150, AddressOf(&Gfx::CCustomAnimKey::SetActive)}, 1);
     StandInThis(s, {0x00486560, AddressOf(&Gfx::CAnimScriptKey::DestroyBody)}, 0);

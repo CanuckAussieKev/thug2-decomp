@@ -18,7 +18,9 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/gfx/anim_blend.h"
-#include "game/gfx/blend_timeline.h"
+#include "game/gfx/anim_track.h"
+#include "game/gfx/frame_source.h"
+#include "game/gfx/model_utils.h"
 #include "game/gfx/skeleton.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_client.h"
@@ -37,7 +39,7 @@ namespace {
 
 using namespace RfxTests;
 using Gfx::CBlendChannel;
-using Gfx::CBlendTimeline;
+using Gfx::CAnimTrack;
 using Script::CStruct;
 
 const float kNaN = std::numeric_limits<float>::quiet_NaN();
@@ -222,9 +224,9 @@ void UseFakeTimelines(CBlendChannel* channel)
     }
 }
 
-CBlendTimeline* NewTimeline(Lcg& random, uint32_t object, uint32_t controller)
+CAnimTrack* NewTimeline(Lcg& random, uint32_t object, uint32_t controller)
 {
-    auto* t = reinterpret_cast<CBlendTimeline*>(Bump(sizeof(CBlendTimeline)));
+    auto* t = reinterpret_cast<CAnimTrack*>(Bump(sizeof(CAnimTrack)));
     const float times[] = {0.0f, 1.0f, 2.0f, 5.0f, 5.0f, 10.0f, kNaN};
     t->m_vtable = g_timelineVtable;
     auto* node = reinterpret_cast<Mem::ListNode*>(t);
@@ -244,9 +246,9 @@ CBlendTimeline* NewTimeline(Lcg& random, uint32_t object, uint32_t controller)
     t->m_controllerCount = static_cast<int>(random.Below(3));
     for (auto& c : t->mp_controllers)
         c = reinterpret_cast<Gfx::CAnimController*>(controller);
-    t->m_blendRate = 0.1f;
-    t->m_blendLeft = random.Pick({0.0f, 0.25f, 0.5f, 1.0f});
-    t->m_weightScale = random.Pick({0.0f, 0.5f, 1.0f, 2.0f, -1.0f});
+    t->m_fadeRate = 0.1f;
+    t->m_fadeLeft = random.Pick({0.0f, 0.25f, 0.5f, 1.0f});
+    t->m_fadeScale = random.Pick({0.0f, 0.5f, 1.0f, 2.0f, -1.0f});
     t->mp_object = reinterpret_cast<Obj::CCompositeObject*>(object);
     t->mp_events = nullptr;
     t->m_eventCount = 0;
@@ -352,7 +354,7 @@ void TestCas1Channel()
                 case 1: { // a timeline added by hand
                     if (reinterpret_cast<Gfx::AnimListHead*>(&channel->m_timelines)->CountItems() >= 15)
                         break;
-                    CBlendTimeline* t = NewTimeline(random, object, controller);
+                    CAnimTrack* t = NewTimeline(random, object, controller);
                     auto* node = reinterpret_cast<Mem::ListNode*>(t);
                     Mem::ListNode* after = random.Below(2) ? &channel->m_timelines : channel->m_timelines.prev;
                     node->next = after->next;
@@ -634,33 +636,32 @@ void StandInPlayCalls(StandIns& s)
         Record({0xD580, ArenaRelocate(r.args[0]), ArenaRelocate(r.args[1])});
         return 0u;
     });
-    s.At({0x0048CF50}, 0, [](Regs& r) {
+    s.At({0x0048CF50, AddressOf(&Nx::GetAnimData)}, 0, [](Regs& r) {
         Record({0xCF50, r.args[0], r.args[1]});
         uint32_t key = r.args[0];
         return (key & 0xFF) == 0xA7 ? 0u : reinterpret_cast<uint32_t>(&g_lengths[key % 7]); // (0xA7: not in the set)
     });
-    s.At({0x004877E0}, 0, [](Regs& r) {
-        Record({0x77E0, ArenaRelocate(r.args[0]), ArenaRelocate(r.args[1]), r.args[2], r.args[3], ArenaRelocate(r.args[4]),
-                ArenaRelocate(r.args[5])});
+    s.At({0x004877E0, AddressOf(&Gfx::GetAnimTimes)}, 0, [](Regs& r) { // (the original passes the script too)
+        Record({0x77E0, ArenaRelocate(r.args[0]), ArenaRelocate(r.args[1]), r.args[2], r.args[3], ArenaRelocate(r.args[4])});
         *reinterpret_cast<float*>(r.args[0]) = std::bit_cast<float>(r.args[2]) * 0.5f;
         if (r.args[2] & 0x100)
             *reinterpret_cast<float*>(r.args[1]) = std::bit_cast<float>(r.args[3]) + 1.0f;
         return 0u;
     });
-    s.At({0x00487770}, 0, [](Regs& r) {
+    s.At({0x00487770, AddressOf(&Gfx::GetAnimLoopType)}, 0, [](Regs& r) {
         Record({0x7770, ArenaRelocate(r.args[0]), ArenaRelocate(r.args[1])});
         *reinterpret_cast<int*>(r.args[0]) = g_loopAnswer;
         return 1u;
     });
-    s.At({0x00481FB0}, 4, [](Regs& r) {
+    s.At({0x00481FB0, AddressOf(&CAnimTrack::AddController)}, 4, [](Regs& r) {
         Record({0x1FB0, ArenaRelocate(r.ecx), ArenaRelocate(r.args[0])});
         return r.ecx;
     });
     // New timelines (0x00481EE0's memory) made with the recording vtable.
-    s.At({0x00481830, AddressOf(&CBlendTimeline::Construct)}, 4, [](Regs& r) {
+    s.At({0x00481830, AddressOf(&CAnimTrack::Construct)}, 4, [](Regs& r) {
         Record({0x1830, ArenaRelocate(r.ecx), ArenaRelocate(r.args[0])});
-        auto* t = reinterpret_cast<CBlendTimeline*>(r.ecx);
-        std::memset(t, 0, sizeof(CBlendTimeline));
+        auto* t = reinterpret_cast<CAnimTrack*>(r.ecx);
+        std::memset(t, 0, sizeof(CAnimTrack));
         t->m_vtable = g_timelineVtable;
         auto* node = reinterpret_cast<Mem::ListNode*>(t);
         node->data = t;
@@ -804,7 +805,7 @@ void TestCas1ChannelPlay()
                 case 0: { // a timeline by hand
                     if (reinterpret_cast<Gfx::AnimListHead*>(&channel->m_timelines)->CountItems() >= 6)
                         break;
-                    CBlendTimeline* t = NewTimeline(random, object, controller);
+                    CAnimTrack* t = NewTimeline(random, object, controller);
                     t->m_controllerCount = 0;
                     auto* node = reinterpret_cast<Mem::ListNode*>(t);
                     node->next = channel->m_timelines.next;

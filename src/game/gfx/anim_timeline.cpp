@@ -2,11 +2,10 @@
 // the base animation controller's members and the base animation event's destructor body
 // (0x00481380-0x004819E6, but 0x004817D0). From the disassembly.
 
-#include "game/gfx/blend_timeline.h"
+#include "game/gfx/anim_track.h"
 
 #include "game/core/alloc.h"
 #include "game/core/mem.h"
-#include "game/gfx/anim_event.h"
 #include "game/obj/object.h"
 #include "game/obj/skeleton_component.h"
 #include "game/script/struct.h"
@@ -199,7 +198,7 @@ void CAnimTimeline::AddTime(float frames)
 // --- the blend timeline ---
 
 // 0x00481830
-CBlendTimeline* CBlendTimeline::Construct(Obj::CCompositeObject* object)
+CAnimTrack* CAnimTrack::Construct(Obj::CCompositeObject* object)
 {
     CAnimTimeline::Construct();
     m_controllerCount = 0;
@@ -213,16 +212,16 @@ CBlendTimeline* CBlendTimeline::Construct(Obj::CCompositeObject* object)
 }
 
 // 0x00481960
-void CBlendTimeline::Reset()
+void CAnimTrack::Reset()
 {
     CAnimTimeline::Reset();
-    m_state = kDone;
-    m_blendLeft = 0.0f;
-    m_weightScale = 0.0f;
+    m_state = kOff;
+    m_fadeLeft = 0.0f;
+    m_fadeScale = 0.0f;
 }
 
 // 0x00481870
-void CBlendTimeline::DeleteControllers()
+void CAnimTrack::DeleteControllers()
 {
     for (int i = 0; i < m_controllerCount; ++i) {
         if (mp_controllers[i])
@@ -233,7 +232,7 @@ void CBlendTimeline::DeleteControllers()
 }
 
 // 0x004818B0
-void CBlendTimeline::RemoveController(CAnimController* controller)
+void CAnimTrack::RemoveController(CAnimController* controller)
 {
     int i = 0;
     for (;; ++i) {
@@ -251,7 +250,7 @@ void CBlendTimeline::RemoveController(CAnimController* controller)
 }
 
 // 0x00481920
-bool CBlendTimeline::GetPoses(void* pose)
+bool CAnimTrack::GetPoses(void* pose)
 {
     for (int i = 0; i < m_controllerCount; ++i) {
         CAnimController* controller = mp_controllers[i];
@@ -261,26 +260,26 @@ bool CBlendTimeline::GetPoses(void* pose)
 }
 
 // 0x00481980
-bool CBlendTimeline::IsActive()
+bool CAnimTrack::IsActive()
 {
-    return m_state != kDone;
+    return m_state != kOff;
 }
 
 // 0x00481990
-bool CBlendTimeline::IsBlendingOut()
+bool CAnimTrack::IsFading()
 {
-    return m_state == kBlendingOut;
+    return m_state == kFading;
 }
 
 // 0x004819A0
-void CBlendTimeline::ArmEvents()
+void CAnimTrack::ArmEvents()
 {
     for (uint32_t i = 0; i < m_eventCount; ++i)
-        GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x00486150)(mp_events + i * sizeof(CAnimEvent), true);
+        GameFunction<void(__thiscall*)(CAnimEvent*, bool)>(0x00486150)(&mp_events[i], true); // (CCustomAnimKey::SetActive)
 }
 
 // 0x004819D0
-Obj::CCompositeObject* CBlendTimeline::GetObject()
+Obj::CCompositeObject* CAnimTrack::GetObject()
 {
     return mp_object;
 }
@@ -322,20 +321,20 @@ bool CAnimController::InitFromStructure(Script::CStruct* params)
 // 0x00481760
 Obj::CCompositeObject* CAnimController::GetObject()
 {
-    return static_cast<CBlendTimeline*>(mp_timeline)->GetObject();
+    return static_cast<CAnimTrack*>(mp_timeline)->GetObject();
 }
 
 // 0x00481770
 uint8_t* CAnimController::GetSkeleton()
 {
-    Obj::CBaseComponent* component = static_cast<CBlendTimeline*>(mp_timeline)->GetObject()->GetComponent(kSkeleton);
+    Obj::CBaseComponent* component = static_cast<CAnimTrack*>(mp_timeline)->GetObject()->GetComponent(kSkeleton);
     return component ? static_cast<Obj::CSkeletonComponent*>(component)->mp_skeleton : nullptr;
 }
 
 // --- the base event ---
 
 // 0x004819E0
-void CAnimEvent::BaseDestroyBody()
+void CAnimEventBase::DestroyBody()
 {
     m_vtable = Vtable(kEventVtable);
 }
@@ -358,13 +357,13 @@ REPLACE(0x00481740, &Gfx::CAnimController::InitFromStructure);
 REPLACE(0x00481760, &Gfx::CAnimController::GetObject);
 REPLACE(0x00481770, &Gfx::CAnimController::GetSkeleton);
 REPLACE(0x004817A0, &Gfx::CAnimController::Destroy);
-REPLACE(0x00481830, &Gfx::CBlendTimeline::Construct);
-REPLACE(0x00481870, &Gfx::CBlendTimeline::DeleteControllers);
-REPLACE(0x004818B0, &Gfx::CBlendTimeline::RemoveController);
-REPLACE(0x00481920, &Gfx::CBlendTimeline::GetPoses);
-REPLACE(0x00481960, &Gfx::CBlendTimeline::Reset);
-REPLACE(0x00481980, &Gfx::CBlendTimeline::IsActive);
-REPLACE(0x00481990, &Gfx::CBlendTimeline::IsBlendingOut);
-REPLACE(0x004819A0, &Gfx::CBlendTimeline::ArmEvents);
-REPLACE_SOURCE_ONLY(0x004819D0, &Gfx::CBlendTimeline::GetObject); // 4 bytes
-REPLACE(0x004819E0, &Gfx::CAnimEvent::BaseDestroyBody);
+REPLACE(0x00481830, &Gfx::CAnimTrack::Construct);
+REPLACE(0x00481870, &Gfx::CAnimTrack::DeleteControllers);
+REPLACE(0x004818B0, &Gfx::CAnimTrack::RemoveController);
+REPLACE(0x00481920, &Gfx::CAnimTrack::GetPoses);
+REPLACE(0x00481960, &Gfx::CAnimTrack::Reset);
+REPLACE(0x00481980, &Gfx::CAnimTrack::IsActive);
+REPLACE(0x00481990, &Gfx::CAnimTrack::IsFading);
+REPLACE(0x004819A0, &Gfx::CAnimTrack::ArmEvents);
+REPLACE_SOURCE_ONLY(0x004819D0, &Gfx::CAnimTrack::GetObject); // 4 bytes
+REPLACE(0x004819E0, &Gfx::CAnimEventBase::DestroyBody);
