@@ -293,6 +293,25 @@ const args = x === undefined ? [] : qbValues.merge([], [[300, x]], ctx);
 yield* qb.call(400, args, p, ctx.site);
 ```
 
+`tools/qbjs/emitter.ts` now emits this format from the bounded raw reader:
+`node tools/qbjs/emitter.ts INPUT.qb OUTPUT.js`. It supports the reader's
+expressions, containers, local loops/breaks and structured switches. Repeat
+argument code is shared per loop and receives the current parameters on the
+first repeat visit, or an empty parameter list on break. Loops and case-label
+scans charge the runtime budget. Generated output is capped at 16 MiB.
+
+This emitter still requires the coordinator's format-2 module/context/global
+and rich-call integration. The existing scalar runtime explicitly rejects it.
+`emitter-fixtures.ts` contains a test-only dispatcher with real `values.js`;
+it validates generator behavior, not the product scheduler or rich C++ bridge.
+Generate its QuickJS test bundle with
+`node tools/qbjs/emitter-fixtures.ts work/emitter-quickjs.js` and run an existing
+`qb-js-tests` executable with that file as its argument. The bundle restores
+the product dispatcher and registers the legacy fixtures after its assertions,
+so the existing C++ call/return/wait checks also run. Node tests use the same
+assertions; QuickJS execution is an additional explicit check until test/build
+integration is completed with #5/#6.
+
 The argument builder omits missing values before passing fields into merge;
 an absent expression operand errors. A separate example of typed identity:
 `copy(structureValue,"value",ctx)` makes a new container; reference-mode copying

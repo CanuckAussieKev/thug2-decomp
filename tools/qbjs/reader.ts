@@ -455,19 +455,17 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
     return { format: 2, source, definitions };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    const [, , input, output] = process.argv;
-    if (!input || !output || process.argv.length !== 4)
-        throw new Error("Usage: node tools/qbjs/reader.ts INPUT.qb OUTPUT.ir.json");
+// Shared by the IR and JS CLIs: bound reads and protect the original QB file.
+export function readIRFile(input: string, output?: string): ModuleIR {
     const fd = openSync(input, "r");
     let ir: ModuleIR;
     try {
         const metadata = fstatSync(fd, { bigint: true });
         if (!metadata.isFile()) throw new Error("QB input must be a regular file");
-        if (existsSync(output)) {
+        if (output !== undefined && existsSync(output)) {
             const target = statSync(output, { bigint: true });
             if (metadata.dev === target.dev && metadata.ino === target.ino)
-                throw new Error("QB input and IR output must differ");
+                throw new Error("QB input and output must differ");
         }
         const cap = 4 * 1024 * 1024;
         if (metadata.size > cap) throw new Error(`${input}: QB offset 0x0: module exceeds 4 MiB`);
@@ -483,5 +481,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     } finally {
         closeSync(fd);
     }
-    writeFileSync(output, JSON.stringify(ir, null, 2) + "\n");
+    return ir;
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    const [, , input, output] = process.argv;
+    if (!input || !output || process.argv.length !== 4)
+        throw new Error("Usage: node tools/qbjs/reader.ts INPUT.qb OUTPUT.ir.json");
+    writeFileSync(output, JSON.stringify(readIRFile(input, output), null, 2) + "\n");
 }
