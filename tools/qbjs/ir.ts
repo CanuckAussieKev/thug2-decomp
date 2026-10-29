@@ -15,6 +15,10 @@ export type Statement =
     | Call
     | { kind: "assign"; offset: number; name: number; value: Expr }
     | { kind: "return"; offset: number; fields: Field[] }
+    // Preserve the complete repeat argument list: GetInteger(0) is applied
+    // after typed argument merging, not to the first syntactic argument.
+    | { kind: "loop"; offset: number; body: Statement[]; repeatOffset: number; repeatFields: Field[] }
+    | { kind: "break"; offset: number; target: number }
     | { kind: "if"; offset: number; condition: Call | Expr; yes: Statement[]; no: Statement[] };
 export type Definition =
     | { kind: "script"; offset: number; name: number; defaults: Field[]; body: Statement[] }

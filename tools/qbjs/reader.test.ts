@@ -95,6 +95,72 @@ test("bounds expression trees and rejects malformed or caller-dependent expressi
     for (let end = 0; end < full.length; end++)
         assert.throws(() => readIR(full.subarray(0, end), "expr.qb"), /expr.qb: QB offset/);
 });
+const loop = (body: number[], fields: number[] = []) => [0x20, 1, ...body, 0x21, ...fields, 1];
+const scriptBody = (body: number[]) => {
+    const def = readIR(module(script("loops", body))).definitions[0]!;
+    if (def.kind !== "script") throw Error("expected script");
+    return def.body;
+};
+test("preserves loop bodies, repeat arguments and exact begin/repeat offsets", () => {
+    for (const count of [
+        [],
+        integer(0),
+        integer(-1),
+        integer(3),
+        param("count"),
+        [...integer(1), ...field("named", integer(2)), ...integer(3), 0x2c],
+    ]) {
+        const body = command("Tick"),
+            tokens = loop(body, count);
+        const ir = scriptBody(tokens)[0]!;
+        assert.equal(ir.kind, "loop");
+        if (ir.kind !== "loop") throw Error("expected loop");
+        assert.equal(ir.body[0]?.kind, "call");
+        assert.equal(ir.offset, 7);
+        assert.equal(ir.repeatOffset, 7 + 2 + body.length);
+        assert.equal(ir.repeatFields.length, count.length ? (count.at(-1) === 0x2c ? 4 : 1) : 0);
+        if (count[0] === 0x2d) {
+            const f = ir.repeatFields[0]!;
+            if ("spread" in f || f.value.kind !== "parameter") throw Error("expected parameter");
+            assert.equal(f.value.mode, "value");
+        }
+    }
+    // Begin itself is a token, not an argument line; same-line bodies are valid.
+    assert.equal(scriptBody([0x20, ...command("Tick"), 0x21, 1])[0]?.kind, "loop");
+});
+test("binds breaks through if branches to the innermost lexical loop", () => {
+    const body = scriptBody(
+        loop([...loop(conditional(name("Check"), [0x22, 1], []), integer(2)), 0x22, 1], integer(3)),
+    );
+    const outer = body[0]!;
+    if (outer.kind !== "loop") throw Error("expected outer loop");
+    const inner = outer.body[0]!,
+        outerBreak = outer.body[1]!;
+    if (inner.kind !== "loop" || outerBreak.kind !== "break") throw Error("expected inner loop and break");
+    const branch = inner.body[0]!;
+    if (branch.kind !== "if" || branch.yes[0]?.kind !== "break") throw Error("expected conditional break");
+    assert.equal(branch.yes[0].target, inner.offset);
+    assert.equal(outerBreak.target, outer.offset);
+    assert.equal(scriptBody([...loop([], integer(1)), ...loop([], integer(2))]).length, 2);
+});
+test("rejects unmatched/crossing loops, cross-call break and excessive loop nesting", () => {
+    for (const body of [
+        [0x21, 1],
+        [0x20, 1],
+        [0x22, 1],
+        [0x20, 1, 0x28, 1],
+        loop(conditional(name("Check"), [0x21, 1], [])),
+        loop([0x22, ...integer(2), 1]),
+    ])
+        assert.throws(() => scriptBody(body), /QB offset/);
+    let nested: number[] = [];
+    for (let i = 0; i < 10; i++) nested = loop(nested);
+    assert.equal(scriptBody(nested)[0]?.kind, "loop");
+    assert.throws(() => scriptBody(loop(nested)), /loop nesting/);
+    const full = module(script("loops", loop([0x22, 1], param("n"))));
+    for (let end = 0; end < full.length; end++)
+        assert.throws(() => readIR(full.subarray(0, end), "loop.qb"), /loop.qb: QB offset/);
+});
 
 test("preserves ordered globals, aliases and duplicate replacements without evaluating them", () => {
     const first = global("x", integer(7)),

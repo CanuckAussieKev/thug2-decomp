@@ -234,6 +234,7 @@ Expression variants are the existing `literal` and `parameter`, plus:
 ```ts
 {kind:"parameter", name, mode:"value" | "expression"}
 {kind:"global", name}
+{kind:"allParameters"}
 {kind:"binary", op, left:Expr, right:Expr}
 {kind:"structure", fields:Field[]}
 {kind:"array", items:Expr[]}
@@ -247,8 +248,16 @@ inside arrays needs a future representation preserving both passes. Until then,
 reject such arrays, never flatten them into a single random draw.
 
 Keep existing call/assignment/return/if statement forms. Added forms are
-`{kind:"loop",offset,body,count?:Expr}` for begin/repeat and
-`{kind:"break",offset}`. A switch is
+`{kind:"loop",offset,body,repeatOffset,repeatFields:Field[]}` for begin/repeat and
+`{kind:"break",offset,target}` where target is the innermost local begin offset. Preserve
+the complete repeat argument list: the runtime parses it on the first repeat visit,
+then gets the unnamed Integer after typed argument merging. A missing Integer
+means unbounded repetition; zero and negative counts retain uint32 countdown
+semantics. On break, the repeat arguments are parsed without caller parameters
+and discarded. Emission must preserve that distinction rather than drop them.
+The initial reader supports at most ten lexically nested loops and rejects breaks
+outside a local loop; the original's shared cross-call loop stack needs additional
+runtime support. A switch is
 `{kind:"switch",offset,value:Expr,cases:{labels:Expr[],body:Statement[]}[],fallback:Statement[]}`.
 The reader validates original branches, repeat boundaries and grouped-case
 targets before constructing these nodes. Unsupported control flow stays an error.

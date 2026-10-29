@@ -1,6 +1,6 @@
 // NOT ORIGINAL - bounded QB -> format-2 IR reader, phase one of issue #3.
 // References: script/qb.*, load.cpp and parse.cpp. Does not evaluate or emit JS.
-// Loops/switch, random tables, section markers and cached pointers
+// Switch, random tables, section markers and cached pointers
 // still reject explicitly. Existing format-1 translate.ts is unchanged.
 // This reads raw token streams, not the separate PC precompiled-image format.
 import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
@@ -303,14 +303,25 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             n = name();
         return { kind: "call", offset, name: n, fields: parameters(0) };
     };
-    const block = (depth: number): Statement[] => {
-        if (depth > 64) fail("conditional nesting limit");
+    const block = (depth: number, loops: number[] = []): Statement[] => {
+        if (depth > 64) fail("statement nesting limit");
         const body: Statement[] = [];
         lines();
-        while (![0x24, 0x28, 0x48].includes(b[p]!)) {
+        while (![0x21, 0x24, 0x28, 0x48].includes(b[p]!)) {
             need(1);
             node();
             const offset = p;
+            if (b[p] === 0x20) {
+                if (loops.length >= 10) fail("loop nesting exceeds original loop storage");
+                ++p;
+                const nested = block(depth + 1, [...loops, offset]);
+                const repeatOffset = p;
+                if (byte() !== 0x21) fail("expected repeat for begin");
+                const repeatFields = parameters(0);
+                body.push({ kind: "loop", offset, body: nested, repeatOffset, repeatFields });
+                endLine();
+                continue;
+            }
             if (b[p] === 0x47) {
                 ++p;
                 const destination = p + short();
@@ -321,7 +332,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                           ? value(0, true)
                           : fail("unsupported condition command token");
                 eol();
-                const yes = block(depth + 1);
+                const yes = block(depth + 1, loops);
                 let no: Statement[] = [],
                     endDestination: number | undefined;
                 if (b[p] === 0x48) {
@@ -329,7 +340,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     const end = p + short(),
                         starts = lines();
                     if (!starts.has(destination)) fail("if jump does not target else body boundary");
-                    no = block(depth + 1);
+                    no = block(depth + 1, loops);
                     endDestination = end;
                 }
                 const endOffset = p;
@@ -342,7 +353,11 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 body.push({ kind: "if", offset, condition, yes, no });
                 continue;
             }
-            if (b[p] === 0x29) {
+            if (b[p] === 0x22) {
+                const target = loops.at(-1) ?? fail("break outside local loop (cross-call loop stack is unsupported)");
+                ++p;
+                body.push({ kind: "break", offset, target });
+            } else if (b[p] === 0x29) {
                 ++p;
                 body.push({ kind: "return", offset, fields: parameters(0) });
             } else if ((b[p] === 0x16 && b[p + 5] === 7) || (b[p] === 0x2d && b[p + 1] === 0x16 && b[p + 6] === 7)) {
