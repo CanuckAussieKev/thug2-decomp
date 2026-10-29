@@ -21,6 +21,80 @@ const literal = (x: Expr) => {
     if (x.kind !== "literal") throw Error("not literal");
     return x.value;
 };
+const parens = (...parts: number[][]) => [14, ...parts.flat(), 15];
+const expressionIR = (tokens: number[]): Expr => {
+    const def = readIR(module(script("expr", [...field("result", tokens), 1]))).definitions[0]!;
+    assert.equal(def.kind, "script");
+    if (def.kind !== "script" || def.body[0]?.kind !== "assign") throw Error("expected assignment");
+    return def.body[0].value;
+};
+const shape = (v: Expr): unknown =>
+    v.kind === "binary"
+        ? [v.op, shape(v.left), shape(v.right)]
+        : v.kind === "literal" && "bits" in v.value
+          ? v.value.bits
+          : v.kind;
+
+test("uses original evaluator priorities, left associativity and explicit grouping", () => {
+    assert.deepEqual(shape(expressionIR(parens(integer(8), [12], integer(4), [13], integer(2)))), [12, 8, [13, 4, 2]]);
+    assert.deepEqual(shape(expressionIR(parens(integer(8), [10], integer(4), [11], integer(2)))), [11, [10, 8, 4], 2]);
+    assert.deepEqual(shape(expressionIR(parens(integer(8), [20], integer(4), [18], integer(2)))), [20, 8, [18, 4, 2]]);
+    assert.deepEqual(shape(expressionIR(parens(parens(integer(8), [12], integer(4)), [13], integer(2)))), [
+        13,
+        [12, 8, 4],
+        2,
+    ]);
+    assert.deepEqual(shape(expressionIR(parens(integer(1), [50], integer(2), [51], integer(3)))), [50, 1, [51, 2, 3]]);
+});
+test("keeps index operators ungrouped and member names unresolved", () => {
+    assert.deepEqual(shape(expressionIR(parens(name("items"), [5], integer(1), [11], integer(2), [6]))), [
+        11,
+        [5, "global", 1],
+        2,
+    ]);
+    assert.deepEqual(shape(expressionIR(parens(name("items"), [5], parens(integer(1), [11], integer(2)), [6]))), [
+        5,
+        "global",
+        [11, 1, 2],
+    ]);
+    const member = expressionIR(parens(name("owner"), [8], parens(name("field"))));
+    assert.equal(member.kind, "binary");
+    if (member.kind !== "binary") throw Error("expected binary");
+    assert.equal(member.left.kind, "global");
+    assert.deepEqual(literal(member.right), { type: 13, bits: checksum("field") });
+    assert.equal(member.offset, member.left.offset + 5);
+    const parameter = expressionIR(parens(param("p")));
+    assert.equal(parameter.kind, "parameter");
+    if (parameter.kind === "parameter") assert.equal(parameter.mode, "expression");
+    assert.equal(expressionIR(parens([0x2c])).kind, "allParameters");
+    assert.equal(expressionIR(parens(structure(field("x", integer(1))))).kind, "structure");
+});
+test("decodes implicit negative subtraction with raw float bits", () => {
+    assert.deepEqual(shape(expressionIR(parens(integer(8), integer(-2), [13], integer(3)))), [10, 8, [13, 2, 3]]);
+    assert.deepEqual(shape(expressionIR(parens(integer(8), [0x1a, ...word(0xc0200000)]))), [10, 8, 0x40200000]);
+    assert.equal(literal(expressionIR(parens([0x1a, ...word(0x80000000)]))).type, 2);
+    assert.throws(() => expressionIR(parens(integer(8), [0x1a, ...word(0x80000000)])), /adjacent/);
+    assert.throws(() => expressionIR(parens(integer(8), integer(-2147483648))), /INT_MIN/);
+});
+test("bounds expression trees and rejects malformed or caller-dependent expressions", () => {
+    for (const tokens of [
+        parens(),
+        parens(integer(1), [11]),
+        parens(integer(1), integer(2)),
+        parens(integer(1), [5], integer(0)),
+        parens(integer(1), [6]),
+        parens([0x42]),
+        parens([0x18, ...word(1)]),
+    ])
+        assert.throws(() => expressionIR(tokens), /QB offset/);
+    const flat = parens(integer(1), ...Array.from({ length: 129 }, () => [11, ...integer(1)]));
+    assert.throws(() => expressionIR(flat), /depth limit/);
+    for (const rhs of [parens(integer(1), [11], param("p")), parens([0x2c])])
+        assert.throws(() => readIR(module(global("x", rhs))), /caller parameters/);
+    const full = module(script("expr", [...field("x", parens(name("a"), [8], name("b"), [7], integer(1))), 1]));
+    for (let end = 0; end < full.length; end++)
+        assert.throws(() => readIR(full.subarray(0, end), "expr.qb"), /expr.qb: QB offset/);
+});
 
 test("preserves ordered globals, aliases and duplicate replacements without evaluating them", () => {
     const first = global("x", integer(7)),
@@ -220,7 +294,6 @@ test("rejects unsafe arrays, caller-dependent defaults/globals and unimplemented
         [0x20, 1],
         [0x3c, ...integer(1), 1],
         [0x43, ...word(1), 1],
-        [...field("x", [0x0e, ...integer(1), 11, ...integer(2), 0x0f]), 1],
     ])
         assert.throws(() => readIR(module(script("a", body))), /QB offset/);
     assert.throws(() => readIR(module([0x45, ...name("section")])), /unsupported definition token/);

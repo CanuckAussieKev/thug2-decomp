@@ -1,6 +1,6 @@
 // NOT ORIGINAL - bounded QB -> format-2 IR reader, phase one of issue #3.
 // References: script/qb.*, load.cpp and parse.cpp. Does not evaluate or emit JS.
-// Operators, loops/switch, random tables, section markers and cached pointers
+// Loops/switch, random tables, section markers and cached pointers
 // still reject explicitly. Existing format-1 translate.ts is unchanged.
 // This reads raw token streams, not the separate PC precompiled-image format.
 import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
@@ -73,20 +73,121 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         if (b[p] !== 0x24) eol();
         lines();
     };
-    const value = (depth: number, expression = false): Expr => {
+    const heights = new WeakMap<Expr, number>();
+    const bounded = (v: Expr): Expr => {
+        const children =
+            v.kind === "binary"
+                ? [v.left, v.right]
+                : v.kind === "array"
+                  ? v.items
+                  : v.kind === "structure"
+                    ? v.fields.flatMap((f) => ("spread" in f ? [] : [f.value]))
+                    : [];
+        const height = children.reduce((h, child) => Math.max(h, 1 + (heights.get(child) ?? 0)), 0);
+        if (height > depthLimit) fail("value depth limit");
+        heights.set(v, height);
+        return v;
+    };
+    // These are the evaluator's priorities, deliberately different from JS/C.
+    const precedence = new Map([
+        [5, 100],
+        [8, 100],
+        [13, 100],
+        [12, 99],
+        [10, 98],
+        [11, 98],
+        [18, 80],
+        [20, 78],
+        [7, 76],
+        [51, 60],
+        [50, 58],
+    ]);
+    const expression = (depth: number, rawName = false): Expr => {
+        if (depth > depthLimit) fail("value depth limit");
+        const values: Expr[] = [];
+        const operators: { op: number; offset: number }[] = [];
+        let expecting = true,
+            afterDot = rawName,
+            brackets = 0;
+        const reduce = () => {
+            const operator = operators.pop()!,
+                right = values.pop()!,
+                left = values.pop()!;
+            node();
+            values.push(bounded({ kind: "binary", ...operator, left, right }));
+        };
+        while (true) {
+            lines();
+            need(1);
+            if (b[p] === 6) {
+                if (expecting || !brackets) fail("unmatched expression index bracket");
+                --brackets;
+                ++p;
+                continue;
+            }
+            if (b[p] === 15) {
+                if (expecting || brackets) fail("incomplete expression");
+                ++p;
+                while (operators.length) reduce();
+                return values[0]!;
+            }
+            if (expecting) {
+                if (b[p] === 14) {
+                    ++p;
+                    values.push(expression(depth + 1, afterDot));
+                } else if (b[p] === 0x2c) {
+                    node();
+                    values.push({ kind: "allParameters", offset: p++ });
+                } else values.push(value(depth + 1, true, afterDot));
+                expecting = false;
+                continue;
+            }
+            const offset = p;
+            let op = b[p]!,
+                implicit: Expr | undefined;
+            // Negative literals adjacent to a value encode subtraction.
+            if (op === 0x17 || op === 0x1a) {
+                need(5);
+                const bits = b.readUInt32LE(p + 1);
+                const negative = op === 0x17 ? (bits | 0) < 0 : b.readFloatLE(p + 1) < 0;
+                if (!negative) fail("adjacent expression values");
+                if (op === 0x17 && bits === 0x80000000) fail("implicit subtraction of INT_MIN is unsupported");
+                node();
+                implicit = {
+                    kind: "literal",
+                    offset,
+                    value: { type: op === 0x17 ? 1 : 2, bits: op === 0x17 ? -bits >>> 0 : (bits ^ 0x80000000) >>> 0 },
+                };
+                p += 5;
+                op = 10;
+            } else {
+                if (!precedence.has(op)) fail(`unsupported expression operator 0x${op.toString(16)}`);
+                ++p;
+                if (op === 5) ++brackets;
+            }
+            while (operators.length && precedence.get(operators.at(-1)!.op)! >= precedence.get(op)!) reduce();
+            operators.push({ op, offset });
+            afterDot = op === 8;
+            expecting = !implicit;
+            if (implicit) values.push(implicit);
+        }
+    };
+    const value = (depth: number, inExpression = false, rawName = false): Expr => {
         if (depth > depthLimit) fail("value depth limit");
         node();
         const offset = p,
             op = byte();
+        if (inExpression && op === 0x18) fail("unsupported expression operand token 0x18");
         if (op === 0x16) {
             const n = word();
-            return expression
+            return inExpression && !rawName
                 ? { kind: "global", offset, name: n }
                 : { kind: "literal", offset, value: { type: 13, bits: n } };
         }
         if (op === 0x17 || op === 0x18 || op === 0x1a)
             return { kind: "literal", offset, value: { type: op === 0x1a ? 2 : 1, bits: word() } };
-        if (op === 0x2d) return { kind: "parameter", offset, name: name(), mode: expression ? "expression" : "value" };
+        if (op === 0x2d)
+            return { kind: "parameter", offset, name: name(), mode: inExpression ? "expression" : "value" };
         if (op === 0x1b || op === 0x1c) {
             const length = word();
             need(length);
@@ -102,13 +203,12 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             return { kind: "literal", offset, value: { type: op === 0x1e ? 6 : 5, coordinates } };
         }
         if (op === 3) {
-            if (expression) fail("container literals in expressions are not implemented in phase-one reader");
             const fields = parameters(depth + 1, true);
             if (byte() !== 4) fail("expected close structure");
-            return { kind: "structure", offset, fields };
+            return bounded({ kind: "structure", offset, fields });
         }
         if (op === 5) {
-            if (expression) fail("container literals in expressions are not implemented in phase-one reader");
+            if (inExpression) fail("expected expression operand, found index operator");
             const items: Expr[] = [];
             let elementType = 0;
             separators();
@@ -132,12 +232,10 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 separators();
             }
             ++p;
-            return { kind: "array", offset, items };
+            return bounded({ kind: "array", offset, items });
         }
         if (op === 0x0e) {
-            const inner = value(depth + 1, true);
-            if (byte() !== 0x0f) fail("operators/multivalue expressions are not implemented in phase-one reader");
-            return inner;
+            return expression(depth + 1, rawName);
         }
         return fail(`unsupported value token 0x${op.toString(16)}`);
     };
@@ -186,7 +284,12 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
     };
     const staticDefaults = (fields: Field[]): void => {
         const check = (v: Expr): void => {
-            if (v.kind === "parameter") fail("defaults/globals cannot read caller parameters");
+            if (v.kind === "parameter" || v.kind === "allParameters")
+                fail("defaults/globals cannot read caller parameters");
+            if (v.kind === "binary") {
+                check(v.left);
+                check(v.right);
+            }
             if (v.kind === "structure") staticDefaults(v.fields);
             if (v.kind === "array") v.items.forEach(check);
         };

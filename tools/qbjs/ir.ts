@@ -5,6 +5,8 @@ export type Expr =
     | { kind: "literal"; offset: number; value: Literal }
     | { kind: "parameter"; offset: number; name: number; mode: "value" | "expression" }
     | { kind: "global"; offset: number; name: number }
+    | { kind: "allParameters"; offset: number }
+    | { kind: "binary"; offset: number; op: number; left: Expr; right: Expr }
     | { kind: "structure"; offset: number; fields: Field[] }
     | { kind: "array"; offset: number; items: Expr[] };
 export type Field = { name: number; value: Expr; offset: number } | { spread: true; offset: number };
