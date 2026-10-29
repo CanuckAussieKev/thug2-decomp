@@ -1,4 +1,4 @@
-// Self-tests for an animation's frames (src/game/gfx/boned_anim_frame_data.cpp, batch CAS3-5): each original against
+// Self-tests for an animation's frames (src/game/gfx/boned_anim_frame_data_pose.cpp, batch CAS3-5): each original against
 // ours on stand-in frame data - plain keys sampled at many times (byte and short counts, the 15-bit rotation times,
 // bones without keys), compressed keys decoded into a stand-in cache in each format (bones without keys, the frame
 // limit and the vblank count), the additive pose (masks, bit arrays, the doubled translation) and loading; the
@@ -253,9 +253,9 @@ void TestAnimFrameData()
         // keys, times before, between, on and after the keys, NaN
         for (int layout = 0; layout < 2; ++layout) {
             std::memset(g_frames, 0, sizeof(g_frames));
-            frames->m_numBones = 5;
+            frames->m_boneCount = 5;
             frames->m_flags = layout ? 0x400000u | 0x1000000u : 0u;
-            frames->mp_rotKeys = g_keys;
+            frames->mp_quatKeys = g_keys;
             frames->mp_transKeys = g_keys2;
             frames->mp_keyCounts = g_counts;
             const int rotCounts[5] = {3, 1, 0, 4, 2};
@@ -298,8 +298,8 @@ void TestAnimFrameData()
         for (int k = 0; k < 3; ++k) {
             std::memset(g_frames, 0, sizeof(g_frames));
             frames->m_flags = 0x800000u | (k == 1 ? 0x1000u : 0u);
-            frames->m_numBones = 0;
-            frames->mp_cache = k == 2 ? g_cache : nullptr;
+            frames->m_boneCount = 0;
+            frames->mp_cacheEntry = k == 2 ? g_cache : nullptr;
             g_format = 2;
             bool r = original ? Original<bool(__thiscall*)(This, void*, void*, uint8_t*, float, int, void*)>(0x00485730)(
                                     frames, g_rot, g_trans, g_keys, 0.5f, 9, g_mask)
@@ -315,16 +315,16 @@ void TestAnimFrameData()
         const uint16_t transSizes[6] = {6, 0, 12, 6, 0, 0};
         for (int round = 0; round < 16; ++round) {
             std::memset(g_frames, 0, sizeof(g_frames));
-            frames->m_numBones = round == 9 ? 3 : 5;
+            frames->m_boneCount = round == 9 ? 3 : 5;
             frames->m_flags = round % 2 ? 0x800u : 0x0u;
-            frames->mp_unknownC = g_counts;
-            frames->mp_rotKeys = g_keys;
+            frames->mp_keyTable = g_counts;
+            frames->mp_quatKeys = g_keys;
             frames->mp_transKeys = g_keys2;
-            frames->mp_rotSizes = g_sizes;
+            frames->mp_quatSizes = g_sizes;
             frames->mp_transSizes = g_sizes2;
-            frames->m_numRotKeys = static_cast<int16_t>(20 + round);
-            frames->m_numTransKeys = static_cast<int16_t>(-3 - round);
-            frames->m_cacheBits = static_cast<int16_t>(0x5A3 + round * 0x111);
+            frames->m_quatKeyCount = static_cast<int16_t>(20 + round);
+            frames->m_transKeyCount = static_cast<int16_t>(-3 - round);
+            frames->m_bits = static_cast<int16_t>(0x5A3 + round * 0x111);
             std::memcpy(g_sizes, rotSizes, sizeof(rotSizes));
             std::memcpy(g_sizes2, transSizes, sizeof(transSizes));
             for (int i = 0; i < 0x400; ++i) {
@@ -376,15 +376,15 @@ void TestAnimFrameData()
         // The additive pose: the skeleton's mask on / off, the bit array, the doubled translation, keys or not
         for (int round = 0; round < 8; ++round) {
             std::memset(g_frames, 0, sizeof(g_frames));
-            frames->m_numBones = 6;
+            frames->m_boneCount = 6;
             frames->m_flags = (round & 1 ? 0x80000u : 0u) | (round & 2 ? 0x4000u : 0u) | (round & 4 ? 0x20000u : 0u) |
                               0x800000u;
-            frames->mp_rotKeys = g_keys;
+            frames->mp_quatKeys = g_keys;
             frames->mp_transKeys = g_keys2;
-            frames->mp_rotSizes = g_sizes;
+            frames->mp_quatSizes = g_sizes;
             frames->mp_transSizes = g_sizes2;
-            frames->mp_unknownC = g_counts;
-            frames->mp_boneBits = g_boneBits;
+            frames->mp_keyTable = g_counts;
+            frames->mp_partialBones = g_boneBits;
             g_boneBits[1] = 0x2D ^ round;
             std::memset(g_mask, 0, sizeof(g_mask));
             g_mask[0x208] = round == 3 ? 0 : 1;

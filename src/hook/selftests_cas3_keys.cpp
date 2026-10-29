@@ -168,7 +168,7 @@ void TestCustomAnimKeys()
         // SetActive / ProcessIfActive (a recording slot 2)
         {
             auto* key = reinterpret_cast<CCustomAnimKey*>(heap(0xC));
-            key->vtable = g_keyVtable;
+            key->m_vtable = g_keyVtable;
             key->m_frame = 3;
             for (int k = 0; k < 4; ++k) {
                 bool active = k == 1 || k == 3;
@@ -179,7 +179,7 @@ void TestCustomAnimKeys()
                 for (int twice = 0; twice < 2; ++twice) {
                     bool result = original ? Original<bool(__thiscall*)(This, void*)>(0x00486160)(key, g_objects[k & 1])
                                            : key->ProcessIfActive(g_objects[k & 1]);
-                    Record({0xAC00, result ? 1u : 0u, key->m_active ? 1u : 0u});
+                    Record({0xAC00, result ? 1u : 0u, key->m_armed ? 1u : 0u});
                 }
             }
         }
@@ -214,12 +214,12 @@ void TestCustomAnimKeys()
             camera->m_pos = {10.0f, 20.0f, -30.0f, 1.0f};
             for (int frame : {0, 6}) {
                 camera->m_frame = frame;
-                camera->m_active = false;
+                camera->m_armed = false;
                 process(0x00486390, camera, g_camera, [&](void* o) { return camera->Process(o); });
-                Record({camera->m_active ? 1u : 0u});
+                Record({camera->m_armed ? 1u : 0u});
             }
             auto* event = reinterpret_cast<Gfx::CAnimScriptKey*>(heap(0x14));
-            event->m_event = 0xE7E7;
+            event->m_type = 0xE7E7;
             event->mp_params = reinterpret_cast<CStruct*>(0x5150);
             process(0x00486440, event, g_objects[1], [&](void* o) { return event->Process(o); });
         }
@@ -256,16 +256,16 @@ void TestCustomAnimKeys()
                     Original<void(__thiscall*)(This)>(0x00486560)(key);
                 else
                     key->DestroyBody();
-                Record({reinterpret_cast<uint32_t>(key->vtable)});
+                Record({reinterpret_cast<uint32_t>(key->m_vtable)});
             }
             // The kinds' scalar deleting destructor, freed or not
             for (unsigned flags : {0u, 1u, 3u}) {
                 auto* other = reinterpret_cast<CCustomAnimKey*>(heap(0x10));
-                other->vtable = reinterpret_cast<void**>(0x00648818);
+                other->m_vtable = reinterpret_cast<void**>(0x00648818);
                 CCustomAnimKey* result = original ? Original<CCustomAnimKey*(__thiscall*)(This, unsigned)>(0x00486460)(
                                                         other, flags)
                                                   : other->Destroy(flags);
-                Record({result == other ? 1u : 0u, reinterpret_cast<uint32_t>(other->vtable)});
+                Record({result == other ? 1u : 0u, reinterpret_cast<uint32_t>(other->m_vtable)});
             }
         }
         // The key list: every kind (and two unknown ones), then each allocation failing in turn

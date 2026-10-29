@@ -96,21 +96,21 @@ void FindKeys(uint8_t* keys, int count, float time, int (*keyTime)(const uint8_t
 bool CBonedAnimFrameData::ApplyAdditive(Mth::Quat* rotations, Mth::Vector* translations, void*, float weight,
                                         uint8_t* mask)
 {
-    uint8_t* rotKeys = mp_rotKeys;
+    uint8_t* rotKeys = mp_quatKeys;
     uint8_t* transKeys = mp_transKeys;
-    uint16_t* rotSizes = mp_rotSizes;
+    uint16_t* rotSizes = mp_quatSizes;
     uint16_t* transSizes = mp_transSizes;
     uint32_t maskBit = mask && mask[0x208] ? 1u << (*reinterpret_cast<uint32_t*>(mask + 0x210) & 31) : 0u;
-    for (int i = 0; i < m_numBones; ++i) {
+    for (int i = 0; i < m_boneCount; ++i) {
         bool skip = maskBit ? ((*reinterpret_cast<uint32_t**>(mask + 0x20C))[i] & maskBit) != 0 : false;
         if (m_flags & kBoneBits)
-            skip = !(mp_boneBits[1 + i / 32] & (1u << (i % 32)));
+            skip = !(mp_partialBones[1 + i / 32] & (1u << (i % 32)));
         if (!skip) {
             Mth::Quat& rotation = rotations[i];
             if (*rotSizes) {
                 uint8_t key[8];
                 uint8_t decoded[20];
-                DecodeRotation(rotKeys, key, m_flags, mp_unknownC);
+                DecodeRotation(rotKeys, key, m_flags, mp_keyTable);
                 RotationToQuatB(decoded, key);
                 Mth::Quat added = rotation;
                 added *= *reinterpret_cast<Mth::Quat*>(decoded + 4);
@@ -174,23 +174,23 @@ void CBonedAnimFrameData::BuildCache(int format)
         LastCacheVblank() = Tmr::GetVblanks();
     }
     void* manager = CacheManager();
-    uint32_t size = CacheCall<uint32_t>(0x00480670, manager, m_numBones, static_cast<int>(m_numRotKeys),
-                                        static_cast<int>(m_numTransKeys), format);
-    int priority = static_cast<int16_t>(static_cast<int16_t>(m_cacheBits << 7) >> 8);
+    uint32_t size = CacheCall<uint32_t>(0x00480670, manager, m_boneCount, static_cast<int>(m_quatKeyCount),
+                                        static_cast<int>(m_transKeyCount), format);
+    int priority = static_cast<int16_t>(static_cast<int16_t>(m_bits << 7) >> 8);
     if (*reinterpret_cast<int*>(static_cast<uint8_t*>(manager) + 0xC8) == 0x32 ||
         CacheCall<uint32_t>(0x00480940, manager) < size) {
         if (CacheCall<bool>(0x00480ED0, manager, priority, size))
-            mp_cache = nullptr;
+            mp_cacheEntry = nullptr;
     }
-    uint8_t* cache = CacheCall<uint8_t*>(0x00480980, manager, this, m_numBones, static_cast<int>(m_numRotKeys),
-                                         static_cast<int>(m_numTransKeys), format);
+    uint8_t* cache = CacheCall<uint8_t*>(0x00480980, manager, this, m_boneCount, static_cast<int>(m_quatKeyCount),
+                                         static_cast<int>(m_transKeyCount), format);
     if (!cache)
         return;
     auto* rotOffsets = CacheCall<uint16_t*>(0x00480620, cache);
     auto* transOffsets = CacheCall<uint16_t*>(0x00480630, cache);
     uint32_t rotSize = CacheCall<uint8_t>(0x004805E0, cache);
     uint32_t transSize = CacheCall<uint8_t>(0x004805F0, cache);
-    int bones = m_numBones;
+    int bones = m_boneCount;
     uint8_t* rotData = CacheCall<uint8_t*>(0x00480600, cache, 0);
     uint8_t* transData = CacheCall<uint8_t*>(0x00480610, cache, 0);
     // (one buffer for a rotation key and a converted translation: the latter's bytes 2-3 are the former's)
@@ -200,8 +200,8 @@ void CBonedAnimFrameData::BuildCache(int format)
     alignas(4) uint8_t translation[8];
 
     // The rotations: each bone's keys one after another, the bones' starts in rotOffsets
-    uint16_t* sizes = mp_rotSizes;
-    uint8_t* cursor = mp_rotKeys;
+    uint16_t* sizes = mp_quatSizes;
+    uint8_t* cursor = mp_quatKeys;
     uint8_t* end = cursor + *sizes;
     uint32_t offset = 0;
     uint32_t bone = 0;
@@ -218,7 +218,7 @@ void CBonedAnimFrameData::BuildCache(int format)
             if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
                 break;
         }
-        cursor = DecodeRotation(cursor, key, m_flags, mp_unknownC);
+        cursor = DecodeRotation(cursor, key, m_flags, mp_keyTable);
         const uint8_t* source = key;
         if (format == 3) {
             RotationToQuatA(quatA, key);
@@ -279,9 +279,9 @@ void CBonedAnimFrameData::BuildCache(int format)
             break;
     }
 
-    mp_cache = cache;
+    mp_cacheEntry = cache;
     CacheCall<void>(0x00480640, cache, 0x00482B90u, this); // (the entry's owner and its release callback)
-    uint16_t& cacheFlags = *reinterpret_cast<uint16_t*>(mp_cache + 0x164);
+    uint16_t& cacheFlags = *reinterpret_cast<uint16_t*>(mp_cacheEntry + 0x164);
     cacheFlags = static_cast<uint16_t>(((m_flags >> 11) & 1) << 13 | (cacheFlags & 0xDFFF));
     ++CachesBuilt();
     LastCacheVblank() = Tmr::GetVblanks();
@@ -291,7 +291,7 @@ void CBonedAnimFrameData::BuildCache(int format)
 bool CBonedAnimFrameData::Load(const uint8_t* data, uint32_t, bool)
 {
     auto* header = reinterpret_cast<const uint32_t*>(data);
-    m_unknown0 = header[2];
+    m_unknown00 = header[2];
     m_flags = header[1];
     bool loaded = false;
     const uint8_t* keys = data + 0xC;
@@ -310,13 +310,13 @@ bool CBonedAnimFrameData::GetFrames(Mth::Quat* rotations, Mth::Vector* translati
 {
     uint32_t flags = m_flags;
     if (flags & kCompressed) {
-        if (!(flags & kNoAutoCache) && !mp_cache)
+        if (!(flags & kNoAutoCache) && !mp_cacheEntry)
             BuildCache(CacheFormat(CacheManager()));
         return GameFunction<bool(__thiscall*)(CBonedAnimFrameData*, Mth::Quat*, Mth::Vector*, uint8_t*, float, int,
                                               void*)>(0x00484760)(this, rotations, translations, arg2, time, arg4, arg5);
     }
     float frame = time * kFramesPerSecond;
-    uint8_t* rotKeys = mp_rotKeys;
+    uint8_t* rotKeys = mp_quatKeys;
     uint8_t* transKeys = mp_transKeys;
     uint8_t* rotFrom = rotKeys;
     uint8_t* rotTo = rotKeys;
@@ -324,7 +324,7 @@ bool CBonedAnimFrameData::GetFrames(Mth::Quat* rotations, Mth::Vector* translati
     uint8_t* transTo = transKeys;
     float rotFraction = 0.0f;
     float transFraction = 0.0f;
-    for (int i = 0; i < m_numBones; ++i) {
+    for (int i = 0; i < m_boneCount; ++i) {
         int rotCount;
         int transCount;
         if (m_flags & kShortCounts) {

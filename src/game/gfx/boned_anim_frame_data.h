@@ -15,6 +15,8 @@ class Vector;
 // cache (the manager 0x006F92B0) when used. The members here are from the disassembly of 0x00484EB0-0x004859E8.
 namespace Gfx {
 
+class CAnimEvent;
+
 class CBonedAnimFrameData {
 public:
     // 0x00484EB0: an additive pose: each bone not masked out - by `mask` (a skeleton's bone mask: +0x208 on, +0x20C the
@@ -39,26 +41,27 @@ public:
     // 0x00484760 (a tail jump with all the arguments). True.
     bool GetFrames(Mth::Quat* rotations, Mth::Vector* translations, uint8_t* arg2, float time, int arg4, void* arg5);
 
-    uint32_t m_unknown0;       // +0x00 (the data's +8)
-    uint32_t m_flags;          // +0x04
-    int m_numBones;            // +0x08
-    uint8_t* mp_unknownC;      // +0x0C (given to the rotation decoder)
-    uint8_t* mp_rotKeys;       // +0x10
-    uint8_t* mp_transKeys;     // +0x14
-    uint8_t* mp_keyCounts;     // +0x18 plain: per bone the rotation and translation key counts (bytes, or shorts
-                               // with flag 0x400000)
-    uint32_t m_unknown1C;      // +0x1C
-    uint32_t* mp_boneBits;     // +0x20 flag 0x80000: the bones used (bit arrays from +4)
-    uint8_t* mp_cache;         // +0x24 the animation cache's entry
-    void* mp_customKeys;       // +0x28
-    uint16_t* mp_rotSizes;     // +0x2C compressed: per bone its rotation keys' bytes
-    uint16_t* mp_transSizes;   // +0x30 and its translation keys'
-    int16_t m_numRotKeys;      // +0x34
-    int16_t m_numTransKeys;    // +0x36
-    int16_t m_numCustomKeys;   // +0x38
-    int16_t m_cacheBits;       // +0x3A (bits 1-8: the cache's priority)
+    uint32_t m_unknown00;
+    uint32_t m_flags;              // +0x04
+    int m_boneCount;               // +0x08
+    uint8_t* mp_keyTable;          // +0x0C (flag 0x2000: the animation's own quaternion table)
+    uint8_t* mp_quatKeys;          // +0x10
+    uint8_t* mp_transKeys;         // +0x14
+    uint8_t* mp_keyCounts;         // +0x18 (plain keys: each bone's quaternion and translation key counts - bytes,
+                                   // or shorts with flag 0x400000)
+    uint32_t* mp_boneNames;        // +0x1C
+    uint32_t* mp_partialBones;     // +0x20 (flag 0x80000: a count, then a bit for each bone)
+    uint8_t* mp_cacheEntry;        // +0x24 (+4: the frame it was last used)
+    CAnimEvent** mp_events;        // +0x28
+    uint16_t* mp_quatSizes;        // +0x2C (each bone's quaternion keys' size in bytes)
+    uint16_t* mp_transSizes;       // +0x30
+    int16_t m_quatKeyCount;        // +0x34
+    int16_t m_transKeyCount;       // +0x36
+    int16_t m_eventCount;          // +0x38
+    uint16_t m_bits;               // +0x3A (bits 1-8: references to its cache entry)
 };
-static_assert(offsetof(CBonedAnimFrameData, mp_transSizes) == 0x30 && sizeof(CBonedAnimFrameData) == 0x3C,
+static_assert(offsetof(CBonedAnimFrameData, mp_cacheEntry) == 0x24 && offsetof(CBonedAnimFrameData, m_bits) == 0x3A &&
+                  sizeof(CBonedAnimFrameData) == 0x3C,
               "layout must match the original");
 
 } // namespace Gfx

@@ -42,8 +42,8 @@ T* NewKey(uint32_t vtable, int frame, uint32_t size = sizeof(T))
     if (!key)
         return nullptr;
     key->m_frame = frame;
-    key->m_active = false;
-    key->vtable = Vtable(vtable);
+    key->m_armed = false;
+    key->m_vtable = Vtable(vtable);
     return key;
 }
 
@@ -64,15 +64,15 @@ bool CCustomAnimKey::WithinRange(float start, float end, bool inclusive)
 }
 
 // 0x00486150
-void CCustomAnimKey::SetActive(bool active) { m_active = active; }
+void CCustomAnimKey::SetActive(bool active) { m_armed = active; }
 
 // 0x00486160
 bool CCustomAnimKey::ProcessIfActive(void* object)
 {
-    if (!m_active)
+    if (!m_armed)
         return false;
-    m_active = false;
-    return reinterpret_cast<bool(__thiscall*)(CCustomAnimKey*, void*)>(vtable[2])(this, object);
+    m_armed = false;
+    return reinterpret_cast<bool(__thiscall*)(CCustomAnimKey*, void*)>(m_vtable[2])(this, object);
 }
 
 // 0x00486460
@@ -137,8 +137,8 @@ bool CKillObjectKey::Process(void*)
 CCameraKey* CCameraKey::Construct(int frame, const Mth::Quat* rotation, const Mth::Vector* pos, bool cut)
 {
     m_frame = frame;
-    m_active = false;
-    vtable = Vtable(kCameraVtable);
+    m_armed = false;
+    m_vtable = Vtable(kCameraVtable);
     m_rotation = {0.0f, 0.0f, 0.0f, 1.0f};
     Mth::Vector axis = {1.0f, 0.0f, 0.0f, 1.0f};
     Mth::Quat quarterTurn;
@@ -183,7 +183,7 @@ bool CCameraKey::Process(void* object)
     float rotation[4] = {m_rotation.x, m_rotation.y, m_rotation.z, m_rotation.w};
     const float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     Obj::QuatToMatrix(rotation, origin, reinterpret_cast<float*>(matrix));
-    m_active = true;
+    m_armed = true;
     return true;
 }
 
@@ -191,8 +191,8 @@ bool CCameraKey::Process(void* object)
 void CAnimScriptKey::Set(int frame, uint32_t event, Script::CStruct* params)
 {
     m_frame = frame;
-    m_active = false;
-    m_event = event;
+    m_armed = false;
+    m_type = event;
     Script::CStruct* memory = Script::NewStruct();
     mp_params = memory ? memory->Init() : nullptr;
     mp_params->AppendStructureIfAny(params);
@@ -201,19 +201,19 @@ void CAnimScriptKey::Set(int frame, uint32_t event, Script::CStruct* params)
 // 0x00486560
 void CAnimScriptKey::DestroyBody()
 {
-    vtable = Vtable(kScriptKeyVtable);
+    m_vtable = Vtable(kScriptKeyVtable);
     if (Script::CStruct* params = mp_params) {
         params->Clear();
         Script::DeleteStruct(params);
         mp_params = nullptr;
     }
-    vtable = Vtable(kBaseVtable);
+    m_vtable = Vtable(kBaseVtable);
 }
 
 // 0x00486440
 bool CAnimScriptKey::Process(void* object)
 {
-    static_cast<Obj::CObject*>(object)->SelfEvent(m_event, mp_params);
+    static_cast<Obj::CObject*>(object)->SelfEvent(m_type, mp_params);
     return true;
 }
 

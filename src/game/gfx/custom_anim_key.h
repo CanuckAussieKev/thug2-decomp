@@ -30,9 +30,9 @@ public:
     // freed with flags & 1. Returns this.
     CCustomAnimKey* Destroy(unsigned int flags);
 
-    void** vtable;
+    void** m_vtable;
     int m_frame;   // +0x04
-    bool m_active; // +0x08: not processed yet (each kind's Process sets it, apart from the camera key - see there)
+    bool m_armed; // +0x08: fires once (ProcessIfActive disarms it; the camera key's Process arms it again)
     uint8_t pad9[3];
 };
 static_assert(sizeof(CCustomAnimKey) == 0xC, "layout must match the original");
@@ -106,7 +106,7 @@ public:
     // 0x00486440 (vtable slot 2): the event sent by the object to itself. True.
     bool Process(void* object);
 
-    uint32_t m_event;           // +0x0C
+    uint32_t m_type;           // +0x0C
     Script::CStruct* mp_params; // +0x10
 };
 static_assert(sizeof(CAnimScriptKey) == 0x14, "layout must match the original");

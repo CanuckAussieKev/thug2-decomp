@@ -1175,7 +1175,7 @@ add_library(thug2_code OBJECT
     src/game/skate/cas_options.cpp
     src/game/gfx/bone_look_at.cpp
     src/game/mth/vector_rotate_z.cpp
-    src/game/gfx/boned_anim_frame_data.cpp
+    src/game/gfx/boned_anim_frame_data_pose.cpp
     src/game/gfx/cag_cfuncs.cpp
     src/game/obj/model_swap_cfuncs.cpp
     src/game/front/theme_cfuncs.cpp
