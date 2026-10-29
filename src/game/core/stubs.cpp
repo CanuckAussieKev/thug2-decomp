@@ -32,6 +32,10 @@ void DoNothing() {}
 
 // 0x005BAB90: functions that ignore their one (stack) argument
 void __stdcall IgnoreArgument(int) {}
+// 0x0048DCD0 / 0x0048D090: ...their two / three - the engine geom's slots 29 and 30 (copy / set bones), the engine
+// font's string size and the geom's slot 41
+void __stdcall IgnoreArguments2(int, int) {}
+void __stdcall IgnoreArguments3(int, int, int) {}
 
 // 0x0049F4B0, 0x0049F470, 0x0049F450, 0x0049F440, 0x0049F430: methods returning false whatever their (1, 2, 4, 5, 7)
 // stack arguments - the engine texture's empty slots, CArray's comparison (different arrays are never equal), ...
@@ -62,6 +66,8 @@ REPLACE_SOURCE_ONLY(0x0047AE10, Stubs::ReturnZero);         // a jump to 0x005BA
 REPLACE_SOURCE_ONLY(0x005480A0, Stubs::DoNothing);          // 1 byte
 REPLACE_SOURCE_ONLY(0x0048C1B0, Stubs::DoNothing);          // a jump to 0x005480A0
 REPLACE_SOURCE_ONLY(0x005BAB90, Stubs::IgnoreArgument);     // 3 bytes
+REPLACE_SOURCE_ONLY(0x0048DCD0, Stubs::IgnoreArguments2);   // 3 bytes
+REPLACE_SOURCE_ONLY(0x0048D090, Stubs::IgnoreArguments3);   // 3 bytes
 REPLACE(0x0049F4B0, Stubs::ReturnFalse1);
 REPLACE(0x0049F470, Stubs::ReturnFalse2);
 REPLACE(0x0049F450, Stubs::ReturnFalse4);
