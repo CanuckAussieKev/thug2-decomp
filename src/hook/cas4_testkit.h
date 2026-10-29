@@ -185,4 +185,25 @@ inline void UseStructPool(bool pooled)
     pair[3] = pooled ? 0x5B001000u : 0;
 }
 
+// CompareTwoRuns, with the entries before the first difference logged (both runs) on a mismatch.
+template <typename Body>
+bool CompareRuns(const char* what, bool& reported, Body body)
+{
+    std::vector<uint32_t> expected = body(true);
+    std::vector<uint32_t> actual = body(false);
+    if (expected == actual)
+        return true;
+    if (!reported) {
+        Compare(expected, actual, what);
+        size_t first = 0;
+        while (first < expected.size() && first < actual.size() && expected[first] == actual[first])
+            ++first;
+        for (size_t i = first > 16 ? first - 16 : 0; i < first + 4; ++i)
+            Log("  %s [%u] original %08X ours %08X", what, static_cast<unsigned>(i),
+                i < expected.size() ? expected[i] : 0xDEADDEAD, i < actual.size() ? actual[i] : 0xDEADDEAD);
+    }
+    reported = true;
+    return false;
+}
+
 } // namespace Cas4Tests

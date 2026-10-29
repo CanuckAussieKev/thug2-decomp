@@ -125,7 +125,7 @@ void TestModelAppearance()
     g_relocate = ArenaRelocate;
     bool ok = true, reported = false;
     for (int round = 0; round < 60; ++round) {
-        ok &= CompareTwoRuns("model appearance", reported, [&](bool original) {
+        ok &= CompareRuns("model appearance", reported, [&](bool original) {
             g_trace.clear();
             ResetArena(0xEE);
             ClearStructs();
