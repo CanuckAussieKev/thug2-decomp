@@ -73,6 +73,9 @@ public:
     Matrix& Scale(const Vector& scale);
     // row 3 (the translation) += `offset` (all four components).
     Matrix& Translate(const Vector& offset);
+    // 0x0048A260: row 3 (x, y, z) += `offset` along the matrix's own axes (offset.x * row 0 + .y * row 1 + .z * row
+    // 2; w untouched).
+    Matrix& TranslateLocal(const Vector& offset);
     // this = this * rotation: rotate about the world's X, Y or Z axis.
     Matrix& RotateX(float angle);
     Matrix& RotateY(float angle);
