@@ -72,8 +72,71 @@ void __cdecl InterpolateFloatQuat(float* out, CFloatKey* a, const CFloatKey* b, 
 // 0x00484170 (cdecl): between two float translation keys, linearly (w 1).
 void __cdecl InterpolateFloatTrans(float* out, const CFloatKey* a, const CFloatKey* b, float t);
 
+// A frame source (made by 0x0048BFC0 for an animation controller; the fields used here): where each bone's key
+// decompression got to, and which bones the skeleton's level of detail leaves out.
+struct CFrameSource {
+    uint32_t m_unknown00[2];
+    const uint8_t* mp_quatAt[64];    // +0x008
+    const uint8_t* mp_transAt[64];   // +0x108
+    bool m_resume;                   // +0x208 start each bone's search where it last ended
+    uint8_t m_pad209[3];
+    const uint32_t* mp_boneMasks;    // +0x20C (a word for each bone)
+    int m_maskBit;                   // +0x210
+};
+static_assert(offsetof(CFrameSource, mp_transAt) == 0x108 && offsetof(CFrameSource, m_maskBit) == 0x210,
+              "layout must match the original");
+
+// An entry of the frame cache (0x006F92B0, 50 of them; its code isn't rewritten here - only the key searches): an
+// animation's keys decompressed into float keys, quaternions then translations in one block, with search cursors
+// for the controllers using it.
+class CFrameCacheEntry {
+public:
+    // The keys of `bone` around `frame`: `first` / `second` (the same key when there's only one, or past the last),
+    // starting from the cursor `cursor` holds when it still fits (-1: none) and leaving it there; -2 while the
+    // entry is being filled (bit 15 of its flags). Returns `cursor`. Each has its own quirks, kept as the original.
+    // 0x00482FB0 / 0x00483210: quaternion / translation keys, searching forwards.
+    int FindQuatKeys(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
+    int FindTransKeys(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
+    // 0x00483470 / 0x004836C0: the same when the animation runs backwards (a cursor can step back one key).
+    int FindQuatKeysBackwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
+    int FindTransKeysBackwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
+
+    void* mp_data;                   // +0x00 the frame data it holds
+    uint32_t m_unknown04[4];         // (+0x04: the frame it was last used)
+    uint32_t m_size;                 // +0x14 the keys' size
+    uint8_t* mp_quatKeys;            // +0x18
+    uint8_t* mp_transKeys;           // +0x1C
+    uint32_t m_unknown20[2];
+    uint8_t** mp_cursors[18];        // +0x28 (each: 60 quaternion cursors, 60 translation cursors, ...)
+    uint8_t m_quatStride;            // +0x70
+    uint8_t m_transStride;           // +0x71
+    uint16_t m_quatOffsets[60];      // +0x72
+    uint16_t m_transOffsets[60];     // +0xEA
+    uint16_t m_boneCount;            // +0x162
+    uint16_t m_flags;                // +0x164 (0x4000 searching, 0x8000 not ready)
+};
+static_assert(offsetof(CFrameCacheEntry, mp_cursors) == 0x28 && offsetof(CFrameCacheEntry, m_quatOffsets) == 0x72 &&
+                  offsetof(CFrameCacheEntry, m_transOffsets) == 0xEA && offsetof(CFrameCacheEntry, m_flags) == 0x164,
+              "layout must match the original");
+
 class CBonedAnimFrameData {
 public:
+    // 0x00484200: the pointers into a compressed animation's data (`data`: the header - bones, key counts, events,
+    // the two key blocks' sizes -, each bone's key sizes, the own table, the partial bones, the keys, the events,
+    // each part 4-aligned); false if an event can't be made (0x00486680).
+    bool SetUpCompressed(uint8_t* data);
+    // 0x00484370: the same for an animation of float keys (bone names with flag 0x1000000, each bone's key counts -
+    // bytes, or shorts with 0x400000 -, keys of 16 bytes with 0x8000000 / 0x1000000, else 8).
+    bool SetUpFloatKeys(uint8_t* data);
+    // 0x004844C0: each bone's rotation and translation at `time` (seconds) from float keys (a key list's last key
+    // alone; between two; a bone where neither fits keeps the previous bone's pair). True. `unused` / `unused2` are
+    // the callers' (valid flags, a cache index) - not read.
+    bool GetFloatKeyPose(float* rotations, float* translations, void* unused, float time, int unused2);
+    // 0x00484760: the same from compressed keys - through the frame cache's entry when it has one (its search
+    // cursor `cursor`; backwards when the cache says time went back), else decompressing from the bone's last
+    // position in `source`; bones the source's mask or the partial-animation bits leave out are marked invalid in
+    // `valid`. True.
+    bool GetPose(float* rotations, float* translations, uint8_t* valid, float time, int cursor, CFrameSource* source);
     // 0x00482AF0: empty. Returns this.
     CBonedAnimFrameData* Construct();
     // 0x00482B30: its events deleted and their array freed; out of the frame cache (0x006F92B0) if it's in it.
@@ -92,6 +155,9 @@ public:
 
     // 0x00482B90 (cdecl; the frame cache's callback when it drops `data`'s entry): no cache entry.
     static void __cdecl ForgetCacheEntry(CBonedAnimFrameData* data);
+
+    // The events after the keys (`header`'s fourth word: how many), then their count - not when one fails.
+    bool ReadEvents(const uint32_t* header, uint8_t* at);
 
     uint32_t m_unknown00;
     uint32_t m_flags;              // +0x04

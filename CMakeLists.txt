@@ -493,6 +493,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd5_shadows.cpp
     src/hook/selftests_rnd5_skeleton.cpp
     src/hook/selftests_cas2_frames.cpp
+    src/hook/selftests_cas2_poses.cpp
     src/hook/selftests_cas2_track.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
