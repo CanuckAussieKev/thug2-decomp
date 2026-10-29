@@ -492,6 +492,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd5_weather.cpp
     src/hook/selftests_rnd5_shadows.cpp
     src/hook/selftests_rnd5_skeleton.cpp
+    src/hook/selftests_cas2_frames.cpp
     src/hook/selftests_cas2_track.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
@@ -721,6 +722,7 @@ add_library(thug2_code OBJECT
     src/game/skate/preload_cfuncs.cpp
     src/game/gfx/anim_controller.cpp
     src/game/gfx/anim_track.cpp
+    src/game/gfx/boned_anim_frame_data.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/viewport.cpp
     src/game/gfx/weather.cpp
