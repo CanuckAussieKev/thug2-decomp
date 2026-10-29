@@ -496,6 +496,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_cas5_text.cpp
     src/hook/selftests_cas5_geom.cpp
     src/hook/selftests_cas5_lights.cpp
+    src/hook/selftests_cas5_light_manager.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -828,6 +829,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/engine_geom.cpp
     src/game/gfx/engine_imposters.cpp
     src/game/gfx/engine_model_lights.cpp
+    src/game/gfx/light_manager.cpp
     src/game/gfx/engine_texture_projection.cpp
     src/game/gfx/viewport_list.cpp
     src/game/gfx/engine_effects.cpp
