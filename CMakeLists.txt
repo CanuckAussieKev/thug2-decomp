@@ -314,6 +314,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_cas3_face.cpp
     src/hook/selftests_cas3_keys.cpp
     src/hook/selftests_cas3_options.cpp
+    src/hook/selftests_cas3_lookat.cpp
     src/hook/selftests_profile_list_cfuncs.cpp
     src/hook/selftests_preload_cfuncs.cpp
     src/hook/selftests_lfxc.cpp
@@ -1171,6 +1172,8 @@ add_library(thug2_code OBJECT
     src/game/gfx/custom_anim_key.cpp
     src/game/gfx/model_utils.cpp
     src/game/skate/cas_options.cpp
+    src/game/gfx/bone_look_at.cpp
+    src/game/mth/vector_rotate_z.cpp
     src/game/gfx/cag_cfuncs.cpp
     src/game/obj/model_swap_cfuncs.cpp
     src/game/front/theme_cfuncs.cpp

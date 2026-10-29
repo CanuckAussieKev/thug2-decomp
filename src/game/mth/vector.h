@@ -63,6 +63,8 @@ public:
     // (src/game/mth/quat.cpp).
     Vector& RotateAboutX(float angle);
     Vector& RotateAboutY(float angle);
+    // 0x004882D0 (vector_rotate_z.cpp): the same about the Z axis.
+    Vector& RotateAboutZ(float angle);
     // 0x00421440: turn by `angle` radians about `axis` (through a quaternion: w becomes what Quat::Rotate leaves).
     Vector& RotateAboutAxis(const Vector& axis, float angle);
 
