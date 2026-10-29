@@ -120,5 +120,88 @@
     }
     eqState(interleaved.state(0), [stream0Only.state(0).add, stream0Only.state(0).mul, stream0Only.state(0).value], "interleaved final 0");
     eqState(interleaved.state(1), [stream1Only.state(1).add, stream1Only.state(1).mul, stream1Only.state(1).value], "interleaved final 1");
-    assert(assertions >= 100, "expected stream and scale assertion coverage");
+
+    const floatView = new DataView(new ArrayBuffer(4));
+    const fbits = (n) => {
+        floatView.setFloat32(0, n, true);
+        return floatView.getUint32(0, true);
+    };
+    const fval = (b) => {
+        floatView.setUint32(0, b, true);
+        return floatView.getFloat32(0, true);
+    };
+
+    const ra = r.create(123);
+    const rb = r.create(123);
+    const equalWhole = ra.range(fbits(2), fbits(2));
+    assert(equalWhole.type === 1 && equalWhole.bits === 2, "equal whole bounds give integer 2");
+    const model = r.create(123);
+    model.draw(1, 0);
+    const afterEqual = ra.range(fbits(0), fbits(32767));
+    assert(afterEqual.type === 1 && afterEqual.bits === model.draw(32768, 0), "equal whole bounds still consume one draw");
+    const secondStream = ra.range(fbits(0), fbits(32767), true);
+    const untouchedSecond = rb.range(fbits(0), fbits(32767), true);
+    assert(secondStream.type === 1 && secondStream.bits === untouchedSecond.bits, "range second stream is independent");
+
+    ra.seed(55);
+    rb.seed(55);
+    const forward = ra.range(fbits(-5), fbits(6));
+    const reverse = rb.range(fbits(6), fbits(-5));
+    assert(forward.type === 1 && reverse.type === 1 && forward.bits === reverse.bits, "reversed whole endpoints match");
+
+    const atTolerance = ra.range(0x3727c5ac, 0x3727c5ac); // 1e-5f
+    assert(atTolerance.type === 1 && atTolerance.bits === 0, "whole classification includes exact 1e-5f tolerance");
+    const justOutside = 0x3727c5ad; // nextafter(1e-5f, +inf)
+    const outsideResult = ra.range(justOutside, justOutside);
+    assert(outsideResult.type === 2 && outsideResult.bits === justOutside, "next float outside tolerance remains float");
+
+    ra.seed(3264);
+    const overshoot = ra.range(fbits(-0.5), fbits(0.5));
+    assert(overshoot.type === 2 && overshoot.bits === 0x3f000001, "original float scale permits upper-endpoint overshoot");
+
+    const equalFraction = ra.range(fbits(0.5), fbits(0.5));
+    assert(equalFraction.type === 2 && equalFraction.bits === fbits(0.5), "equal fractional bounds preserve float bits");
+
+    const negZeroFixed = ra.range(0x80000000, 0x80000000);
+    assert(negZeroFixed.type === 1 && negZeroFixed.bits === 0, "-0.0 whole endpoints classify as integer 0");
+
+    const extreme = ra.range(0xff7fffff, 0x7f7fffff);
+    assert(extreme.type === 2 && Number.isFinite(fval(extreme.bits)), "large finite bounds keep finite x87 interpolation");
+
+    const wrappedInt = ra.range(fbits(-2147483648.0), fbits(2147483520.0));
+    assert(wrappedInt.type === 1, "extreme int32 bounds wrap width without overflow trap");
+
+    const aboveInt32 = ra.range(fbits(2147483648.0), fbits(2147483648.0));
+    assert(aboveInt32.type === 2 && aboveInt32.bits === fbits(2147483648.0), "2^31 endpoint exceeds int32 and takes float path");
+
+    for (const badBits of [-1, 0x100000000, 1.5, NaN, "0"]) {
+        fails("type", () => ra.range(badBits, 0));
+        fails("type", () => ra.range(0, badBits));
+    }
+    fails("type", () => ra.range(0, 0, 1));
+    fails("type", () => ra.range(0, 0, false, "not-a-fn"));
+
+    ra.seed(77);
+    rb.seed(77);
+    for (const nonfinite of [0x7f800000, 0xff800000, 0x7fc00000, 0xffffffff]) {
+        fails("arithmetic", () => ra.range(nonfinite, 0));
+        fails("arithmetic", () => ra.range(0, nonfinite));
+    }
+    assert(ra.range(0, fbits(32767)).bits === rb.range(0, fbits(32767)).bits, "nonfinite bounds fault before consuming RNG");
+
+    ra.seed(88);
+    rb.seed(88);
+    let charged = 0;
+    let chargeFailed = false;
+    try {
+        ra.range(fbits(1), fbits(6), false, (n) => {
+            charged += n;
+            throw new Error("fuel exhausted");
+        });
+    } catch {
+        chargeFailed = true;
+    }
+    assert(chargeFailed && charged === 1, "range charges work before drawing");
+    assert(ra.range(0, fbits(32767)).bits === rb.range(0, fbits(32767)).bits, "failed charge does not advance RNG stream");
+    assert(assertions >= 130, "expected stream, scale and range assertion coverage");
 })();
