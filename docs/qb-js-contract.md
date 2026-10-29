@@ -258,7 +258,14 @@ and discarded. Emission must preserve that distinction rather than drop them.
 The initial reader supports at most ten lexically nested loops and rejects breaks
 outside a local loop; the original's shared cross-call loop stack needs additional
 runtime support. A switch is
-`{kind:"switch",offset,value:Expr,cases:{labels:Expr[],body:Statement[]}[],fallback:Statement[]}`.
+`{kind:"switch",offset,fields:Field[],cases:{labels:{offset,fields:Field[]}[],body:Statement[]}[],fallback?:Statement[]}`.
+Switch and case selectors are the first component after argument parsing/typed
+merging, not necessarily the first syntactic value. An empty selector remains
+representable. Labels in each group preserve source order: after a match, later
+grouped labels still parse their arguments even though equality is not tested.
+An absent fallback means no default; an empty fallback is a present empty default.
+The initial reader requires structured compiled cases and exits targeting the
+matching endswitch; arbitrary statements before the first case are unsupported.
 The reader validates original branches, repeat boundaries and grouped-case
 targets before constructing these nodes. Unsupported control flow stays an error.
 

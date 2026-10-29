@@ -101,6 +101,113 @@ const scriptBody = (body: number[]) => {
     if (def.kind !== "script") throw Error("expected script");
     return def.body;
 };
+// Synthetic compiled switch, independent of game bytes. Empty adjacent case
+// bodies encode the original grouped-label pattern (49 xx xx 3E 49 ...).
+const switchTokens = (selector: number[], cases: [number[], number[]][], fallback?: number[]) => {
+    const bytes = [0x3c, ...selector, 1],
+        exits: number[] = [];
+    let previous: number | undefined;
+    const jump = (field: number, target: number) => {
+        bytes[field] = (target - field) & 255;
+        bytes[field + 1] = (target - field) >>> 8;
+    };
+    for (const [fields, body] of cases) {
+        const start = bytes.length;
+        if (previous !== undefined) jump(previous, start);
+        bytes.push(0x3e, 0x49, 0, 0, ...fields, 1, ...body, 0x49, 0, 0);
+        previous = start + 2;
+        exits.push(bytes.length - 2);
+    }
+    if (previous !== undefined) jump(previous, bytes.length);
+    if (fallback !== undefined) {
+        bytes.push(0x3f, 0x49, 0, 0, ...fallback);
+        exits.push(bytes.length - fallback.length - 2);
+    }
+    const end = bytes.length;
+    bytes.push(0x3d, 1);
+    for (const field of exits) jump(field, end);
+    return bytes;
+};
+test("reads switch cases/default and preserves full selector/label arguments", () => {
+    const selector = [...integer(1), ...field("named", integer(2)), 0x2c];
+    const tokens = switchTokens(
+        selector,
+        [
+            [param("x"), command("One")],
+            [[], command("Two")],
+        ],
+        [],
+    );
+    const statement = scriptBody(tokens)[0]!;
+    if (statement.kind !== "switch") throw Error("expected switch");
+    assert.equal(statement.offset, 7);
+    assert.equal(statement.fields.length, 3);
+    assert.equal(statement.cases.length, 2);
+    assert.equal(statement.cases[0]!.labels[0]!.offset, 7 + 2 + selector.length);
+    assert.equal(statement.cases[1]!.labels[0]!.fields.length, 0);
+    assert.deepEqual(statement.fallback, []);
+    const empty = scriptBody(switchTokens([], []))[0]!;
+    if (empty.kind !== "switch") throw Error("expected switch");
+    assert.deepEqual(empty.fields, []);
+    assert.deepEqual(empty.cases, []);
+    assert.equal("fallback" in empty, false);
+    const defaultOnly = scriptBody(switchTokens([], [], command("Fallback")))[0]!;
+    if (defaultOnly.kind !== "switch") throw Error("expected default-only switch");
+    assert.equal(defaultOnly.fallback?.[0]?.kind, "call");
+});
+test("groups adjacent labels without losing their argument evaluation or nested control flow", () => {
+    const nested = switchTokens(integer(2), [[integer(2), command("Nested")]], command("Default"));
+    const statement = scriptBody(
+        loop(
+            switchTokens(param("x"), [
+                [integer(1), []],
+                [param("y"), []],
+                [integer(3), [...nested, 0x22, 1]],
+                [integer(4), command("Other")],
+            ]),
+        ),
+    )[0]!;
+    if (statement.kind !== "loop" || statement.body[0]?.kind !== "switch") throw Error("expected switch in loop");
+    const branch = statement.body[0].cases[0]!;
+    assert.equal(branch.labels.length, 3);
+    assert.equal(
+        branch.labels[1]!.fields[0] && "value" in branch.labels[1]!.fields[0]!
+            ? branch.labels[1]!.fields[0]!.value.kind
+            : "missing",
+        "parameter",
+    );
+    assert.equal(branch.body[0]?.kind, "switch");
+    assert.deepEqual(branch.body[1], { kind: "break", offset: branch.body[1]!.offset, target: statement.offset });
+    assert.equal(statement.body[0].cases.length, 2);
+    // A nonempty body's exit jump must not turn the following label into part
+    // of the group, even when that label immediately follows the jump bytes.
+    assert.equal(statement.body[0].cases[1]!.labels.length, 1);
+});
+test("validates switch headers, destinations, nesting and every truncation", () => {
+    const valid = switchTokens(integer(1), [[integer(1), command("One")]], command("Default"));
+    const caseOffset = 7,
+        exit = 7 + 4 + 5 + 1 + command("One").length;
+    for (const position of [caseOffset + 1, caseOffset + 2, exit + 1, valid.indexOf(0x3f) + 1]) {
+        const bad = [...valid];
+        bad[position] = 0;
+        assert.throws(() => scriptBody(bad), /QB offset/);
+    }
+    for (const body of [
+        [0x3e, 1],
+        [0x3f, 1],
+        [0x3d, 1],
+        [0x49, 0, 0],
+        [0x3c, ...integer(1), 1],
+        [0x3c, ...integer(1), 1, ...command("BeforeCase"), 0x3d, 1],
+    ])
+        assert.throws(() => scriptBody(body), /QB offset/);
+    const full = module(script("switch", valid));
+    for (let end = 0; end < full.length; end++)
+        assert.throws(() => readIR(full.subarray(0, end), "switch.qb"), /switch.qb: QB offset/);
+    let nested = command("Leaf");
+    for (let i = 0; i < 65; i++) nested = switchTokens(integer(1), [[integer(1), nested]]);
+    assert.throws(() => scriptBody(nested), /statement nesting limit/);
+});
 test("preserves loop bodies, repeat arguments and exact begin/repeat offsets", () => {
     for (const count of [
         [],

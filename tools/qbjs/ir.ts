@@ -11,6 +11,7 @@ export type Expr =
     | { kind: "array"; offset: number; items: Expr[] };
 export type Field = { name: number; value: Expr; offset: number } | { spread: true; offset: number };
 export type Call = { kind: "call"; offset: number; name: number; fields: Field[] };
+export type SwitchLabel = { offset: number; fields: Field[] };
 export type Statement =
     | Call
     | { kind: "assign"; offset: number; name: number; value: Expr }
@@ -19,6 +20,13 @@ export type Statement =
     // after typed argument merging, not to the first syntactic argument.
     | { kind: "loop"; offset: number; body: Statement[]; repeatOffset: number; repeatFields: Field[] }
     | { kind: "break"; offset: number; target: number }
+    | {
+          kind: "switch";
+          offset: number;
+          fields: Field[];
+          cases: { labels: SwitchLabel[]; body: Statement[] }[];
+          fallback?: Statement[];
+      }
     | { kind: "if"; offset: number; condition: Call | Expr; yes: Statement[]; no: Statement[] };
 export type Definition =
     | { kind: "script"; offset: number; name: number; defaults: Field[]; body: Statement[] }

@@ -1,11 +1,11 @@
 // NOT ORIGINAL - bounded QB -> format-2 IR reader, phase one of issue #3.
 // References: script/qb.*, load.cpp and parse.cpp. Does not evaluate or emit JS.
-// Switch, random tables, section markers and cached pointers
+// Random tables, section markers and cached pointers
 // still reject explicitly. Existing format-1 translate.ts is unchanged.
 // This reads raw token streams, not the separate PC precompiled-image format.
 import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import type { Call, Definition, Expr, Field, ModuleIR, Statement } from "./ir.ts";
+import type { Call, Definition, Expr, Field, ModuleIR, Statement, SwitchLabel } from "./ir.ts";
 
 export type ReaderLimits = { nodes?: number; depth?: number };
 export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLimits = {}): ModuleIR {
@@ -307,10 +307,55 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         if (depth > 64) fail("statement nesting limit");
         const body: Statement[] = [];
         lines();
-        while (![0x21, 0x24, 0x28, 0x48].includes(b[p]!)) {
+        while (![0x21, 0x24, 0x28, 0x3d, 0x3e, 0x3f, 0x48, 0x49].includes(b[p]!)) {
             need(1);
             node();
             const offset = p;
+            if (b[p] === 0x3c) {
+                ++p;
+                const fields = parameters(0);
+                eol();
+                lines();
+                const cases: { labels: SwitchLabel[]; body: Statement[] }[] = [];
+                const exits: number[] = [];
+                let labels: SwitchLabel[] = [];
+                while (b[p] === 0x3e) {
+                    node();
+                    const labelOffset = p++;
+                    if (byte() !== 0x49) fail("expected compiled case jump");
+                    const next = p + short();
+                    labels.push({ offset: labelOffset, fields: parameters(0) });
+                    eol();
+                    lines();
+                    const branch = block(depth + 1, loops);
+                    if (byte() !== 0x49) fail("expected case exit jump");
+                    exits.push(p + short());
+                    // Only an immediate next case after an empty body is a
+                    // grouped label. Its arguments still parse after a match.
+                    const grouped = branch.length === 0 && b[p] === 0x3e;
+                    lines();
+                    if (next !== p || ![0x3e, 0x3f, 0x3d].includes(b[p]!))
+                        fail("case jump does not target next label/endswitch boundary");
+                    if (!grouped) {
+                        cases.push({ labels, body: branch });
+                        labels = [];
+                    }
+                }
+                if (labels.length) fail("unterminated grouped case labels");
+                let fallback: Statement[] | undefined;
+                if (b[p] === 0x3f) {
+                    ++p;
+                    if (byte() !== 0x49) fail("expected compiled default jump");
+                    exits.push(p + short());
+                    fallback = block(depth + 1, loops);
+                }
+                const end = p;
+                if (byte() !== 0x3d) fail("expected endswitch (pre-case statements are unsupported)");
+                if (exits.some((destination) => destination !== end)) fail("case exit does not target endswitch");
+                body.push({ kind: "switch", offset, fields, cases, ...(fallback === undefined ? {} : { fallback }) });
+                lines();
+                continue;
+            }
             if (b[p] === 0x20) {
                 if (loops.length >= 10) fail("loop nesting exceeds original loop storage");
                 ++p;
