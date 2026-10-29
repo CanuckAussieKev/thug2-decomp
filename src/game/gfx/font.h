@@ -23,8 +23,8 @@ public:
     CFont* Destroy(unsigned int flags);
     // 0x0048D040: the platform's unload (virtual [5]), +4 cleared.
     void Unload();
-    // 0x0048D060: a string's width and height (a jump to virtual [8]).
-    void QueryString(const char* text, float* width, float* height);
+    // (0x0048D060, a string's width and height, is a jump to virtual [8] folded with other classes' slot 8:
+    // engine_geom.h's VirtualSlot8Jump.)
     // 0x0048D070 (virtual [2]) / 0x0048D080 (virtual [3] and [4]): "STUB A DUB DUB".
     void PlatSetSpacings(int charSpacing, int spaceSpacing);
     void PlatSetColors(const uint32_t* colors);

@@ -494,6 +494,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd5_skeleton.cpp
     src/hook/selftests_cas5_scene_list.cpp
     src/hook/selftests_cas5_text.cpp
+    src/hook/selftests_cas5_geom.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -823,6 +824,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/frame_source.cpp
     src/game/gfx/engine_font.cpp
     src/game/gfx/engine_text.cpp
+    src/game/gfx/engine_geom.cpp
     src/game/gfx/engine_texture_projection.cpp
     src/game/gfx/viewport_list.cpp
     src/game/gfx/engine_effects.cpp

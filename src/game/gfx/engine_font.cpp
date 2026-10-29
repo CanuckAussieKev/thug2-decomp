@@ -61,12 +61,6 @@ void CFont::Unload()
     m_unknown4 = 0;
 }
 
-// 0x0048D060 (a jump to the slot: the callee's arguments)
-void CFont::QueryString(const char* text, float* width, float* height)
-{
-    Virtual(this, 8, text, width, height);
-}
-
 // 0x0048D070
 void CFont::PlatSetSpacings(int /*charSpacing*/, int /*spaceSpacing*/)
 {
@@ -122,7 +116,6 @@ REPLACE(0x0048D020, &Nx::CFont::Construct);
 REPLACE(0x0048D030, &Nx::CFont::DestroyBody);
 REPLACE(0x0048D1F0, &Nx::CFont::Destroy);
 REPLACE(0x0048D040, &Nx::CFont::Unload);
-REPLACE(0x0048D060, &Nx::CFont::QueryString); // (a jump to virtual [8])
 REPLACE(0x0048D070, &Nx::CFont::PlatSetSpacings);
 REPLACE(0x0048D080, &Nx::CFont::PlatSetColors);
 REPLACE(0x0048D6A0, Nx::ButtonGlyph);
