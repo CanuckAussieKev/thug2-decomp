@@ -456,9 +456,9 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
 }
 
 // Shared by the IR and JS CLIs: bound reads and protect the original QB file.
-export function readIRFile(input: string, output?: string): ModuleIR {
+export function readQBFile(input: string, output?: string): Uint8Array {
     const fd = openSync(input, "r");
-    let ir: ModuleIR;
+    let result: Uint8Array;
     try {
         const metadata = fstatSync(fd, { bigint: true });
         if (!metadata.isFile()) throw new Error("QB input must be a regular file");
@@ -477,12 +477,13 @@ export function readIRFile(input: string, output?: string): ModuleIR {
             count += n;
             if (count > cap) throw new Error(`${input}: QB offset 0x0: module exceeds 4 MiB`);
         }
-        ir = readIR(bytes.subarray(0, count), input);
+        result = bytes.subarray(0, count);
     } finally {
         closeSync(fd);
     }
-    return ir;
+    return result;
 }
+export const readIRFile = (input: string, output?: string): ModuleIR => readIR(readQBFile(input, output), input);
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const [, , input, output] = process.argv;
     if (!input || !output || process.argv.length !== 4)

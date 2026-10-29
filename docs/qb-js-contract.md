@@ -345,6 +345,40 @@ after that callee completes. A host can return either condition. Call-site
 exceptions keep original source/CRC/offset. Member dispatch, expression host
 calls, interrupts and event-driven continuations are deferred dispatcher work.
 
+## Optional original-data helper check
+
+`tools/qbjs/real-helper.ts` translates the complete local module
+`scripts/game/misc/level_flags.qb` and selects `ResetLevelFlags` (CRC 2872311428,
+offset 205 in the inspected copy). No QB body is rewritten or embedded in tests.
+The inspected 771-byte module SHA-256 is
+`51220be6e0300e3849ae857f43e15cb7b0951845f8c0e311fbf39bc505f2b518`;
+the tool prints the actual input fingerprint/dependencies for reproducibility.
+It requires a version-2 runtime and bundles the real value helpers with the
+generated JS. Output is private game-derived material and must not be committed.
+
+Run `node tools/qbjs/real-helper.ts DATA_DIRECTORY work/real-reset-flags.js`,
+then pass that file to the separate `scripting/tests/real_helper_tests.cpp`
+driver linked against the optional runtime and QuickJS core. Build/test target
+registration remains integration work after #5. The helper needs no input
+parameters, RNG, global reads, engine objects, renderer or archive QB VM.
+Its single host dependency is `UnSetFlag`.
+
+The driver implements a bounded career-flag service with the behavior of
+`CFunc_UnSetFlag` (0x005AEDD0) and `CSkaterCareer::UnSetFlag` (0x00584470): direct
+Integer `flag`, optional direct Integer `level` (-1 means current), clear the
+selected level's bit and the level-start bit. Other getter/coercion cases are
+outside this host subset; invalid/missing arguments fault. This is a test
+career state, not a loaded game instance or save file.
+
+Independent expectations mask the low 64 bits and compare all 21 levels' 256
+flag bits and the level-start copy. Six scenarios (levels 0/3/20, all-set and
+patterned initial state) also assert exactly 64 ordered host calls for flags
+0..63, no extra mutation on repeated observation, explicit missing-host errors
+and fuel exhaustion. High flags and other levels stay unchanged. Host unit
+checks cover explicit levels, missing/wrong argument types and bounds. The real
+local-data runs pass in QuickJS with ASan/UBSan on macOS ARM64; synthetic CLI
+tests alone do not count as that original-data execution.
+
 ## Proposed random module
 
 Issue #4 owns `globalThis.qbRandom`, `apiVersion:1`, with
