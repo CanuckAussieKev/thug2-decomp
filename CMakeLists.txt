@@ -479,6 +479,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd3_scene.cpp
     src/hook/selftests_cas1_timeline.cpp
     src/hook/selftests_cas1_anim_cache.cpp
+    src/hook/selftests_cas1_channel.cpp
     src/hook/selftests_rnd1_model.cpp
     src/hook/selftests_rnd1_model_geoms.cpp
     src/hook/selftests_rnd1_effects.cpp
@@ -998,6 +999,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/anim_blend.cpp
     src/game/gfx/anim_timeline.cpp
     src/game/gfx/anim_cache.cpp
+    src/game/gfx/anim_channel.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/lock_obj.cpp
