@@ -499,6 +499,13 @@ add_library(thug2_code OBJECT
     src/hook/selftests_cas2_frames.cpp
     src/hook/selftests_cas2_poses.cpp
     src/hook/selftests_cas2_track.cpp
+    src/hook/selftests_cas5_scene_list.cpp
+    src/hook/selftests_cas5_text.cpp
+    src/hook/selftests_cas5_geom.cpp
+    src/hook/selftests_cas5_lights.cpp
+    src/hook/selftests_cas5_light_manager.cpp
+    src/hook/selftests_cas5_scene_lights.cpp
+    src/hook/selftests_cas5_mesh.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -830,6 +837,17 @@ add_library(thug2_code OBJECT
     src/game/gfx/engine_texture.cpp
     src/game/gfx/texture_dict.cpp
     src/game/gfx/engine_scene_sectors.cpp
+    src/game/gfx/engine_scene_list.cpp
+    src/game/gfx/frame_source.cpp
+    src/game/gfx/engine_font.cpp
+    src/game/gfx/engine_text.cpp
+    src/game/gfx/engine_geom.cpp
+    src/game/gfx/engine_imposters.cpp
+    src/game/gfx/engine_model_lights.cpp
+    src/game/gfx/light_manager.cpp
+    src/game/gfx/scene_lights.cpp
+    src/game/gfx/engine_mesh.cpp
+    src/game/gfx/loading_bar_cfuncs.cpp
     src/game/gfx/engine_texture_projection.cpp
     src/game/gfx/viewport_list.cpp
     src/game/gfx/engine_effects.cpp
