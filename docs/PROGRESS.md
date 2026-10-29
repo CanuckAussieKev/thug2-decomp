@@ -1,8 +1,8 @@
 # Decompilation progress
 
-Generated 2026-10-29 by `tools/progress_report.ts` - regenerate after each batch.
+Generated 2026-10-30 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: ███████████████████░ 95.9%** of the code rewritten (7,996 of 8,482 functions, 1,555.3 KB of 1,621.4 KB).
+**Game code: ████████████████████ 100.0%** of the code rewritten (8,482 of 8,482 functions, 1,621.4 KB of 1,621.4 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -16,7 +16,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
 | Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | `0x45bda0`-`0x45efd0` | ████████████████████ 100% | 88 / 88 | 10.0 KB / 10.0 KB |
 | Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | ████████████████████ 100% | 685 / 685 | 112.3 KB / 112.3 KB |
-| Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 2% | 37 / 523 | 1.4 KB / 67.5 KB |
+| Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ████████████████████ 100% | 523 / 523 | 67.5 KB / 67.5 KB |
 | Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ████████████████████ 100% | 559 / 559 | 73.1 KB / 73.1 KB |
 | Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ████████████████████ 100% | 228 / 228 | 52.5 KB / 52.5 KB |
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | ████████████████████ 100% | 475 / 475 | 113.7 KB / 113.7 KB |
