@@ -38,5 +38,5 @@ jobs:
         run: cmake -S scripting -B work/qb-js-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
       - name: Build
         run: cmake --build work/qb-js-build --parallel 2
-      - name: Test translated QB inside QuickJS
+      - name: Test readers, values, generated scripts and native bridges
         run: ctest --test-dir work/qb-js-build --output-on-failure

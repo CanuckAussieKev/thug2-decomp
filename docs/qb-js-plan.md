@@ -20,7 +20,13 @@ The first synthetic milestone is now implemented on this branch under
 typed IR, generator emission, an actual QuickJS host bridge and frame waits.
 Release and ASan/UBSan tests pass locally on macOS ARM64. Linux, Intel macOS and
 Windows GCC checks are configured in CI; their results are not asserted here.
-The original-data helper and compatibility milestones below remain future work.
+The bounded format-2 reader/emitter, value helpers and product-scheduler wiring
+are also implemented. The optional original `ResetLevelFlags` helper now runs
+through QuickJS and a concrete bounded C++ career-flag host, with independently
+checked results from six local-data scenarios. CTest includes four public suites
+and an optional fifth local-data suite; Release and Debug ASan/UBSan pass on
+macOS ARM64. Expanded platform CI runs in the background; its results are not
+asserted here. The full compatibility/object/event milestones below remain work.
 
 ## Format and behavior references
 
@@ -128,3 +134,13 @@ runtime features and game-service implementations in separate reviewable steps.
 The first proposal should demonstrate QB to JS execution, a C++ call and a
 wait/resume boundary. Full object events and a standalone game are later
 milestones. No maintainer message or PR is sent as part of preparing this plan.
+
+The current proposed scope is the optional `scripting/` target, offline
+`tools/qbjs/` tools, behavior contract and reproducible synthetic tests. The root
+x86 DLL continues using its original QB runtime. Public CI needs no game files;
+`QB_GAME_DATA_DIR` enables a separate read-only original-data check. The native
+bridge transports only scalar values; containers currently remain inside JS.
+RNG is a separate in-progress task and does not block this helper. Native object
+handles/member dispatch, full scheduling, events/interrupts and rendering are
+not part of this first proposal. User approval is still required before sending
+the prepared proposal to the upstream maintainer.

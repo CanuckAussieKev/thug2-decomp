@@ -316,22 +316,21 @@ or dropping fields. Rich native transport, objects/events and RNG are later work
 
 `emitter-fixtures.ts` contains a test-only dispatcher with real `values.js`;
 it validates generator behavior, not the product scheduler or rich C++ bridge.
-Generate its QuickJS test bundle with
-`node tools/qbjs/emitter-fixtures.ts work/emitter-quickjs.js` and run an existing
-`qb-js-tests` executable with that file as its argument. The bundle restores
-the product dispatcher and registers the legacy fixtures after its assertions,
-so the existing C++ call/return/wait checks also run. Node tests use the same
-assertions; QuickJS execution is an additional explicit check until test/build
-integration is completed with #5/#6.
+The public `qb-js-values-generators` CTest suite runs these assertions, the
+real value self-tests and product-scheduler assertions through a dedicated
+QuickJS driver. Its generated bundle is `integration-fixtures.js`. The legacy
+`qb-js-tests` driver keeps its small scalar fixture: its artificial 1 MiB OOM
+regressions must not be given the larger compatibility-suite bundle.
 
 `runtime-fixtures.ts` additionally tests the actual product JS scheduler:
-`node tools/qbjs/runtime-fixtures.ts regression work/runtime-v2-regression.js`
-creates a bundle for `qb-js-tests`, including waits with a test host and legacy
-C++ regressions. The `native` mode creates a bundle for the separate
+`runtimeAssertions()` includes waits with a test host; the native mode creates
+a bundle for the separate
 `scripting/tests/format2_tests.cpp` driver, which checks format-2 scripts through
 the real C++ bridge (inputs, host outputs, frame waits, loop/switch results and
-faults). It also verifies that rich native snapshots are rejected. These new
-targets are run explicitly until CMake integration is coordinated with #5.
+faults). It also verifies that rich native snapshots are rejected and runs as
+`qb-js-format2-bridge` in CTest. `qb-js-translator` discovers all scoped Node
+tests; `qb-js-quickjs` remains the scalar/native regression suite. Public CI
+runs all four suites without game assets.
 
 The argument builder omits missing values before passing fields into merge;
 an absent expression operand errors. A separate example of typed identity:
@@ -358,8 +357,9 @@ generated JS. Output is private game-derived material and must not be committed.
 
 Run `node tools/qbjs/real-helper.ts DATA_DIRECTORY work/real-reset-flags.js`,
 then pass that file to the separate `scripting/tests/real_helper_tests.cpp`
-driver linked against the optional runtime and QuickJS core. Build/test target
-registration remains integration work after #5. The helper needs no input
+driver linked against the optional runtime and QuickJS core. Setting
+`QB_GAME_DATA_DIR` in CMake creates this driver and its generated fixture and
+registers `qb-js-real-helper` with CTest (see the scripting README). The helper needs no input
 parameters, RNG, global reads, engine objects, renderer or archive QB VM.
 Its single host dependency is `UnSetFlag`.
 
