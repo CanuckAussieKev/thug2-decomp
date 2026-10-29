@@ -7,8 +7,10 @@ explicit bridge. Node is an offline development tool, not a game dependency.
 
 ## Branches and current implementation
 
-`main` matches upstream commit `2d82ed2b54f27b79cbda9acb63e9dc7a57f409bf`.
-`script/qb-to-js` starts there. The previous standalone C++ QB interpreter,
+`main` matches upstream commit `a9b478045ac215ee5ad36788c9f4d1c7ddec6b8a`.
+`script/qb-to-js` started at `2d82ed2` and now includes that upstream update.
+The 30 new upstream commits add renderer work; the scripting source/specification
+is unchanged between these bases. The previous standalone C++ QB interpreter,
 readers and tests are preserved at `a23d587` in `archive/qb-vm` and the existing
 `native/qb-runtime` branch. They are not part of the new game's runtime.
 
