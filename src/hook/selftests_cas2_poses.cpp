@@ -396,7 +396,7 @@ void CompressedQuatKeys(Lcg& random, std::vector<uint8_t>& out, uint32_t flags, 
             bytes = 1;
         } else {
             bytes = 0;
-            for (uint16_t bit : {0x2000, 0x1000, 0x0800})
+            for (int bit : {0x2000, 0x1000, 0x0800})
                 bytes += (header & bit) || (flags & 0x8000) ? 1 : 2;
         }
         for (int i = 0; i < bytes; ++i)
