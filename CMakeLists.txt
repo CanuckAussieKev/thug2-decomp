@@ -478,6 +478,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_cas4_appearance.cpp
     src/hook/selftests_cas4_builder.cpp
     src/hook/selftests_cas4_bone_volumes.cpp
+    src/hook/selftests_cas4_engine.cpp
     src/hook/selftests_rnd3_primitive.cpp
     src/hook/selftests_rnd3_scene.cpp
     src/hook/selftests_rnd1_model.cpp
@@ -811,6 +812,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/model_appearance.cpp
     src/game/gfx/model_builder.cpp
     src/game/gfx/bone_volumes.cpp
+    src/game/gfx/engine.cpp
     src/game/gfx/model_particles.cpp
     src/game/gfx/engine_primitive.cpp
     src/game/gfx/engine_scene.cpp
