@@ -14,6 +14,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
@@ -247,7 +248,7 @@ void StandIn(StandIns& s)
         std::memcpy(out, result, sizeof(result));
         return r.args[0];
     });
-    s.At({0x004817D0}, 0, [](Regs& r) {
+    s.At({0x004817D0, AddressOf(&Mth::PointInBox)}, 0, [](Regs& r) {
         const auto* p = reinterpret_cast<const float*>(r.args[0]);
         Record({0x17D0, Rel(r.args[0]), Rel(r.args[1]), Rel(r.args[2])});
         RecordVector(p);
