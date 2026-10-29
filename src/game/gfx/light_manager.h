@@ -15,7 +15,7 @@ class Vector;
 // renderer's light constants (PC: pc_lights.h).
 namespace Nx {
 
-class CDynamicLight;
+struct CDynamicLight;
 struct CDynamicLightBase;
 
 // The world lights (0x1C bytes: 0x0067DC98, and each of the stack's entries).
