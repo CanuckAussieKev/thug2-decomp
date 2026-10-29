@@ -1,14 +1,45 @@
 // NOT ORIGINAL - JS compatibility operations and bounded generator task runner.
 // CStruct::AddComponent and docs/script-runtime.md sections 3, 5 and 6.
 globalThis.qb = (() => {
-    const scripts = new Map(), tasks = new Map();
-    let nextId = 1, active = null, lastFrame = -1;
+    const scripts = new Map(), symbols = new Map(), tasks = new Map();
+    let nextId = 1, active = null, lastFrame = -1, loadingFormat = 1, loadFuel = 1000000;
     const scalar = v => {
         if (!v || ![1, 2, 13].includes(v.type) || !Number.isInteger(v.bits) || v.bits < 0 || v.bits > 0xffffffff)
             throw Error('Invalid QB scalar');
         return {type:v.type, bits:v.bits};
     };
     const uint = n => { if (!Number.isInteger(n) || n < 0 || n > 0xffffffff) throw Error('Invalid QB uint32'); return n; };
+    const values = () => {
+        if (globalThis.qbValues?.apiVersion !== 2) throw Error('QB values API 2 required');
+        return globalThis.qbValues;
+    };
+    const consume = (task, cost) => {
+        uint(cost);
+        if (cost > task.fuel) throw Error('QB value/statement fuel exhausted');
+        task.fuel -= cost;
+    };
+    const context = site => {
+        const task = active;
+        if (task) task.site = site;
+        return {site, owner:task?.id ?? 0, symbol:n => symbols.get(n), charge:cost => {
+            if (task) consume(task, cost);
+            else { uint(cost); if (cost > loadFuel) throw Error('QB module value fuel exhausted'); loadFuel -= cost; }
+        }};
+    };
+    // Boundary copies have their own bounded work budget, so observing a task
+    // does not consume its execution fuel or depend on module-loading state.
+    const boundary = site => {
+        const budget = {fuel:250000};
+        return {site:site ?? {source:'<boundary>',script:0,offset:0}, owner:0, symbol:n => symbols.get(n), charge:n => consume(budget, n)};
+    };
+    const script = (n, ctx) => {
+        const direct = scripts.get(n);
+        if (direct) return direct;
+        if (symbols.has(n) && globalThis.qbValues?.apiVersion === 2) {
+            const entry = values().lookupGlobal(n, ctx ?? boundary({source:'<dispatch>',script:n,offset:0}));
+            if (entry?.kind === 'callable' && entry.type === 7) return scripts.get(entry.name);
+        }
+    };
     function merge(a, b) {
         const out = [];
         for (const [name, value] of [...a, ...b]) {
@@ -45,21 +76,29 @@ globalThis.qb = (() => {
         if (++t.depth > 32) throw Error('QB call depth limit');
         try {
             step(site);
-            if (scripts.has(name)) {
-                const returned = yield* scripts.get(name)(args, false);
-                const out = merge(p, returned); p.splice(0, p.length, ...out);
+            const callee = script(name, t.format === 2 ? context(site) : undefined);
+            if (callee) {
+                if (callee.format !== t.format) throw Error('Mixed QB module formats in one call stack are unsupported');
+                const returned = yield* callee.fn(args, false);
+                if (t.format === 2) values().append(p, returned, context(site));
+                else { const out = merge(p, returned); p.splice(0, p.length, ...out); }
                 return true; // A QB-call condition counts as true, irrespective of returned values.
             }
             const r = __qbHost(name, args, p);
             if (!r || typeof r.condition !== 'boolean') throw Error('Invalid QB host response');
-            const out = merge(p, r.outputs); p.splice(0, p.length, ...out);
+            if (t.format === 2) values().append(p, r.outputs, context(site));
+            else { const out = merge(p, r.outputs); p.splice(0, p.length, ...out); }
             if (r.frames !== undefined) yield {frames:uint(r.frames)};
             return r.condition;
         } finally { --t.depth; }
     }
-    function snapshot(t) { return {status:t.status, parameters:merge([], t.parameters), message:t.message}; }
+    function copyParameters(t, p) {
+        return t.format === 2 ? values().merge([], p, boundary(t.site)) : merge([], p);
+    }
+    function snapshot(t) { return {status:t.status, parameters:copyParameters(t, t.parameters), message:t.message}; }
     return Object.freeze({
-        merge, assign, fields, step, call,
+        runtimeVersion: 2,
+        merge, assign, fields, step, call, context,
         get(p, name) { for (let i = p.length - 1; i >= 0; --i) if (p[i][0] === name) return p[i][1]; },
         truth(v) {
             if (v === undefined) throw Error('Absent QB expression parameter');
@@ -70,13 +109,38 @@ globalThis.qb = (() => {
             return v.bits !== 0;
         },
         frame(p, root) { if (root) active.parameters = p; },
-        module(m) { if (m.format !== 1) throw Error('Unsupported QB module format'); },
-        define(n, fn) { uint(n); if (tasks.size) throw Error('Cannot load QB scripts with retained tasks'); if (scripts.has(n)) throw Error('Duplicate QB script'); scripts.set(n, fn); },
+        module(m) {
+            if (tasks.size) throw Error('Cannot load QB modules with retained tasks');
+            if (m?.format !== 1 && m?.format !== 2) throw Error('Unsupported QB module format');
+            if (m.format === 2) {
+                values();
+                if (m.requires?.values !== 2 || Object.keys(m.requires).some(k => k !== 'values'))
+                    throw Error('Unsupported QB module requirements');
+            }
+            loadingFormat = m.format; loadFuel = 1000000;
+        },
+        defineGlobal(n, value, site) {
+            uint(n);
+            if (tasks.size) throw Error('Cannot load QB globals with retained tasks');
+            if (loadingFormat !== 2) throw Error('QB globals require module format 2');
+            const copy = values().copy(value, 'value', context(site));
+            scripts.delete(n); symbols.set(n, copy);
+        },
+        define(n, fn) {
+            uint(n);
+            if (typeof fn !== 'function') throw Error('Invalid QB script function');
+            if (tasks.size) throw Error('Cannot load QB scripts with retained tasks');
+            if (loadingFormat === 1 && scripts.has(n)) throw Error('Duplicate QB script');
+            scripts.set(n, {fn,format:loadingFormat});
+            symbols.set(n, {kind:'callable',type:7,name:n});
+        },
         start(n, args, fuel) {
             if (tasks.size >= 256 || nextId > 0xffffffff) throw Error('QB task capacity limit');
-            if (!scripts.has(n)) throw Error('Unknown root QB script');
+            const entry = script(n);
+            if (!entry) throw Error('Unknown root QB script');
             if (!Number.isInteger(fuel) || fuel < 0 || fuel > 1000000) throw Error('Invalid QB fuel');
-            const t = {generator:scripts.get(n)(merge([], args), true), parameters:[], fuel, depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:''};
+            const t = {id:nextId, format:entry.format, generator:null, parameters:[], fuel, depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:''};
+            t.generator = entry.fn(copyParameters(t, args), true);
             const id = nextId++; tasks.set(id, t); return id;
         },
         update(id, frame) {
@@ -90,7 +154,7 @@ globalThis.qb = (() => {
                 t.waiting = false;
                 for (;;) {
                     const r = t.generator.next();
-                    if (r.done) { t.parameters = merge([], r.value); t.status = 'finished'; break; }
+                    if (r.done) { t.parameters = copyParameters(t, r.value); t.status = 'finished'; break; }
                     const count = uint(r.value.frames);
                     if (count === 0) continue; // Wait 0 resumes in the same Update.
                     t.remaining = count - 1; t.waiting = true; t.status = 'waiting'; break;

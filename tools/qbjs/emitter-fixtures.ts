@@ -121,6 +121,23 @@ export const emittedFixture = () => {
         ...script("caller2", [...command("callee2"), ...command("Pause2"), ...assign("done", integer(1))]),
         ...script("missing2", assign("result", expr(param("missing"), [11], integer(1)))),
         ...script("shortCircuit2", assign("result", expr(integer(0), [51], expr(param("missing"), [11], integer(1))))),
+        ...script("untaken2", [
+            ...conditional(
+                expr(integer(0)),
+                assign("bad", expr(param("missing"), [11], integer(1))),
+                assign("result", integer(11)),
+            ),
+            ...choose(integer(1), [
+                [integer(1), assign("selected", integer(1))],
+                [expr(param("missing"), [11], integer(1)), assign("bad", integer(1))],
+            ]),
+        ]),
+        ...script("literals2", [
+            ...assign("bytes", [0x1b, 4, 0, 0, 0, 0xff, 0x80, 0, 65]),
+            ...assign("local", [0x1c, 2, 0, 0, 0, 65, 0]),
+            ...assign("pair", [0x1f, 0, 0, 0, 0x80, 0, 0, 0x80, 0x3f]),
+            ...assign("vector", [0x1e, 0, 0, 0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0, 0x40]),
+        ]),
         0,
     ];
     return emitIR(readIR(Uint8Array.from(data), "emitter.qb"));

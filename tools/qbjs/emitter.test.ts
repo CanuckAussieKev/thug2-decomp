@@ -15,11 +15,11 @@ const values = readFileSync(new URL("../../scripting/values.js", import.meta.url
 test("format-2 generators execute values, loops, grouped switches, calls and yield/resume", () => {
     runInNewContext(executionBundle(values), {}, { timeout: 5000 });
 });
-test("emission is deterministic and scalar runtime rejects format 2 before registration", () => {
+test("emission is deterministic and runtime requires values API 2 before registration", () => {
     const output = emittedFixture();
     assert.equal(output, emittedFixture());
     const runtime = readFileSync(new URL("../../scripting/runtime.js", import.meta.url), "utf8");
-    assert.throws(() => runInNewContext(runtime + output, {}, { timeout: 1000 }), /Unsupported QB module format/);
+    assert.throws(() => runInNewContext(runtime + output, {}, { timeout: 1000 }), /QB values API 2 required/);
     assert.throws(() => runInNewContext(output, { qb: { module() {} } }), /QB values API 2 required/);
 });
 test("invalid lexical break targets fail emission with source offset", () => {

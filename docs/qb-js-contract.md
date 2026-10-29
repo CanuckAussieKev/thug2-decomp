@@ -276,13 +276,15 @@ qb.module({format:2, source:"example.qb", scripts:[], requires:{values:2}});
 // Only add requires.random = 1 for code that actually uses qbRandom.
 ```
 
-The integrator extends `qb.module` to check exact supported format/helper API
+`qb.module` checks exact supported format/helper API
 versions before registrations run. A missing helper or unsupported version
-fails immediately. `qb.defineGlobal(name,value,site)` is a proposed coordinator
-hook; definitions call it in original order. `qb.define(name,fn)` keeps its
+fails immediately. Load `scripting/values.js` via `Runtime::load` before generated
+format-2 modules; it is not automatically embedded yet.
+`qb.defineGlobal(name,value,site)` registers copied global data; definitions
+call it in original order. `qb.define(name,fn)` keeps its
 signature, with format-2 replacement policy during the load phase only.
 
-Examples of reserved emitted calls, after those helpers are integrated:
+Examples of emitted calls:
 
 ```js
 const ctx = qb.context({source:"example.qb", script:100, offset:42});
@@ -300,8 +302,18 @@ argument code is shared per loop and receives the current parameters on the
 first repeat visit, or an empty parameter list on break. Loops and case-label
 scans charge the runtime budget. Generated output is capped at 16 MiB.
 
-This emitter still requires the coordinator's format-2 module/context/global
-and rich-call integration. The existing scalar runtime explicitly rejects it.
+The JS runtime now supplies format-2 module/context/global and typed QB-call
+integration. It keeps data/script replacements in one symbol namespace, resolves
+script aliases, charges value work to task fuel and blocks loading with retained
+tasks. Format-1 scripts keep their existing behavior; mixing formats in one call
+stack is explicitly unsupported. Snapshot/input copies use their own bounded
+work allowance, without consuming task fuel. Runtime contexts identify the
+owning task, symbol lookup and original source site.
+
+The native `Value`/host/snapshot bridge remains scalar-only: rich values can
+execute inside JS, but crossing that boundary rejects them rather than flattening
+or dropping fields. Rich native transport, objects/events and RNG are later work.
+
 `emitter-fixtures.ts` contains a test-only dispatcher with real `values.js`;
 it validates generator behavior, not the product scheduler or rich C++ bridge.
 Generate its QuickJS test bundle with
@@ -311,6 +323,15 @@ the product dispatcher and registers the legacy fixtures after its assertions,
 so the existing C++ call/return/wait checks also run. Node tests use the same
 assertions; QuickJS execution is an additional explicit check until test/build
 integration is completed with #5/#6.
+
+`runtime-fixtures.ts` additionally tests the actual product JS scheduler:
+`node tools/qbjs/runtime-fixtures.ts regression work/runtime-v2-regression.js`
+creates a bundle for `qb-js-tests`, including waits with a test host and legacy
+C++ regressions. The `native` mode creates a bundle for the separate
+`scripting/tests/format2_tests.cpp` driver, which checks format-2 scripts through
+the real C++ bridge (inputs, host outputs, frame waits, loop/switch results and
+faults). It also verifies that rich native snapshots are rejected. These new
+targets are run explicitly until CMake integration is coordinated with #5.
 
 The argument builder omits missing values before passing fields into merge;
 an absent expression operand errors. A separate example of typed identity:
