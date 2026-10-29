@@ -174,7 +174,7 @@ CScene* CScene::Construct(int bits)
     mp_hiddenSectors = NewHead();
     mp_addSceneSectors = NewHead();
     m_hasCollision = false;
-    m_unknown8D = false;
+    m_isSky = false;
     return this;
 }
 

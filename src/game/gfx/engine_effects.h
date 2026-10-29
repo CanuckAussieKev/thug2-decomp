@@ -21,6 +21,10 @@ struct sVertexStack {
 
     // 0x00490D80: the top vertex popped into `out`.
     void Pop(uint8_t* out);
+    // 0x00490D20 (engine_mesh.cpp): empty, no vertex size, the data filled with 3s.
+    void Construct();
+    // 0x00490D50 (engine_mesh.cpp): a vertex pushed (vertexSize bytes).
+    void Push(const uint8_t* in);
 };
 static_assert(sizeof(sVertexStack) == 0x4008, "layout must match the original");
 

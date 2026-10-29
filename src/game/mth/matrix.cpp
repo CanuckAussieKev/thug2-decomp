@@ -150,6 +150,17 @@ Matrix& Matrix::Translate(const Vector& offset)
     return *this;
 }
 
+// 0x0048A260. Each sum in the original's order (x87, rounded once): x as (row 1 + row 2) + row 0, y and z as
+// (row 1 + row 0) + row 2, then the old value.
+Matrix& Matrix::TranslateLocal(const Vector& offset)
+{
+    auto term = [&](int r, int c) { return static_cast<double>((&row[r].x)[c]) * (&offset.x)[r]; };
+    row[3].x = static_cast<float>(term(1, 0) + term(2, 0) + term(0, 0) + row[3].x);
+    row[3].y = static_cast<float>(term(1, 1) + term(0, 1) + term(2, 1) + row[3].y);
+    row[3].z = static_cast<float>(term(1, 2) + term(0, 2) + term(2, 2) + row[3].z);
+    return *this;
+}
+
 // 0x0041F470. Each component's sum in the original's order (x87, rounded once): the w row's term and the x row's
 // first, then z's, then y's (for x: w, z, y, then x's term last).
 Vector operator*(const Vector& v, const Matrix& m)
@@ -693,6 +704,7 @@ REPLACE(0x00416D80, &Mth::Matrix::operator==);
 REPLACE(0x00416DF0, &Mth::Matrix::InvertOrthonormal);
 REPLACE(0x0041BA30, &Mth::Matrix::Scale);
 REPLACE(0x0048A230, &Mth::Matrix::Translate);
+REPLACE(0x0048A260, &Mth::Matrix::TranslateLocal);
 REPLACE(0x0041F470, static_cast<Mth::Vector (*)(const Mth::Vector&, const Mth::Matrix&)>(&Mth::operator*));
 
 // operator= is __thiscall returning `this`; the rotation builders are cdecl and return the matrix pointer.

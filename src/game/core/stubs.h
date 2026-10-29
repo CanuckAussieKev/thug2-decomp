@@ -10,6 +10,9 @@ bool ReturnFalse();
 int ReturnZero();
 void DoNothing();
 void __stdcall IgnoreArgument(int);
+void __stdcall IgnoreArguments2(int, int);
+void __stdcall IgnoreArguments3(int, int, int);
+bool __stdcall ReturnTrue2(int, int);
 // Methods ignoring their stack arguments (the count in the name) - the engine's empty virtual slots.
 bool __stdcall ReturnFalse1(int);
 bool __stdcall ReturnFalse2(int, int);

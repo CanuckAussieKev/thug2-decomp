@@ -33,7 +33,7 @@ struct CScene {
     uint32_t m_checksum;          // +0x84: its name's
     CTexDict* mp_texDict;         // +0x88
     bool m_hasCollision;          // +0x8C: its collision gets a grid (super sectors)
-    bool m_unknown8D;             // +0x8D (cleared when made)
+    bool m_isSky;                 // +0x8D: a sky (the scene list tells the sky from the main scene by it)
     uint8_t pad8E[2];
     Mth::BBox m_unknownBox;       // +0x90 (made empty)
     Mth::BBox m_collisionBox;     // +0xB0

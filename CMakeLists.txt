@@ -311,6 +311,11 @@ add_library(thug2_code OBJECT
     src/hook/selftests_movie_cfuncs.cpp
     src/hook/selftests_skater_profile_cfuncs.cpp
     src/hook/selftests_appearance_cfuncs.cpp
+    src/hook/selftests_cas3_face.cpp
+    src/hook/selftests_cas3_keys.cpp
+    src/hook/selftests_cas3_options.cpp
+    src/hook/selftests_cas3_lookat.cpp
+    src/hook/selftests_cas3_frames.cpp
     src/hook/selftests_profile_list_cfuncs.cpp
     src/hook/selftests_preload_cfuncs.cpp
     src/hook/selftests_lfxc.cpp
@@ -475,6 +480,10 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd3_particle_types.cpp
     src/hook/selftests_rnd3_particle_manager.cpp
     src/hook/selftests_rnd3_model_particles.cpp
+    src/hook/selftests_cas4_appearance.cpp
+    src/hook/selftests_cas4_builder.cpp
+    src/hook/selftests_cas4_bone_volumes.cpp
+    src/hook/selftests_cas4_engine.cpp
     src/hook/selftests_rnd3_primitive.cpp
     src/hook/selftests_rnd3_scene.cpp
     src/hook/selftests_cas1_timeline.cpp
@@ -495,6 +504,16 @@ add_library(thug2_code OBJECT
     src/hook/selftests_rnd5_weather.cpp
     src/hook/selftests_rnd5_shadows.cpp
     src/hook/selftests_rnd5_skeleton.cpp
+    src/hook/selftests_cas2_frames.cpp
+    src/hook/selftests_cas2_poses.cpp
+    src/hook/selftests_cas2_track.cpp
+    src/hook/selftests_cas5_scene_list.cpp
+    src/hook/selftests_cas5_text.cpp
+    src/hook/selftests_cas5_geom.cpp
+    src/hook/selftests_cas5_lights.cpp
+    src/hook/selftests_cas5_light_manager.cpp
+    src/hook/selftests_cas5_scene_lights.cpp
+    src/hook/selftests_cas5_mesh.cpp
     src/hook/selftests_pc_particles.cpp
     src/hook/selftests_flexible_particles.cpp
     src/hook/selftests_pc_primitive.cpp
@@ -722,6 +741,8 @@ add_library(thug2_code OBJECT
     src/game/skate/appearance_cfuncs.cpp
     src/game/skate/preload_cfuncs.cpp
     src/game/gfx/anim_controller.cpp
+    src/game/gfx/anim_track.cpp
+    src/game/gfx/boned_anim_frame_data.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/viewport.cpp
     src/game/gfx/weather.cpp
@@ -808,6 +829,10 @@ add_library(thug2_code OBJECT
     src/game/gfx/particle_system_update.cpp
     src/game/gfx/particle_types.cpp
     src/game/gfx/flexible_particle_manager.cpp
+    src/game/gfx/model_appearance.cpp
+    src/game/gfx/model_builder.cpp
+    src/game/gfx/bone_volumes.cpp
+    src/game/gfx/engine.cpp
     src/game/gfx/model_particles.cpp
     src/game/gfx/engine_primitive.cpp
     src/game/gfx/engine_scene.cpp
@@ -820,6 +845,17 @@ add_library(thug2_code OBJECT
     src/game/gfx/engine_texture.cpp
     src/game/gfx/texture_dict.cpp
     src/game/gfx/engine_scene_sectors.cpp
+    src/game/gfx/engine_scene_list.cpp
+    src/game/gfx/frame_source.cpp
+    src/game/gfx/engine_font.cpp
+    src/game/gfx/engine_text.cpp
+    src/game/gfx/engine_geom.cpp
+    src/game/gfx/engine_imposters.cpp
+    src/game/gfx/engine_model_lights.cpp
+    src/game/gfx/light_manager.cpp
+    src/game/gfx/scene_lights.cpp
+    src/game/gfx/engine_mesh.cpp
+    src/game/gfx/loading_bar_cfuncs.cpp
     src/game/gfx/engine_texture_projection.cpp
     src/game/gfx/viewport_list.cpp
     src/game/gfx/engine_effects.cpp
@@ -1170,6 +1206,13 @@ add_library(thug2_code OBJECT
     src/game/script/game_util_cfuncs.cpp
     src/game/net/hunt_cfuncs.cpp
     src/game/gfx/face_texture_cfuncs.cpp
+    src/game/gfx/face_texture.cpp
+    src/game/gfx/custom_anim_key.cpp
+    src/game/gfx/model_utils.cpp
+    src/game/skate/cas_options.cpp
+    src/game/gfx/bone_look_at.cpp
+    src/game/mth/vector_rotate_z.cpp
+    src/game/gfx/boned_anim_frame_data_pose.cpp
     src/game/gfx/cag_cfuncs.cpp
     src/game/obj/model_swap_cfuncs.cpp
     src/game/front/theme_cfuncs.cpp
