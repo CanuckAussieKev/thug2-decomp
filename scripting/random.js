@@ -97,12 +97,22 @@ globalThis.qbRandom = (() => {
         return Math.abs(f - n) <= RANGE_TOLERANCE ? n | 0 : null;
     }
 
+    function validateSite(site) {
+        if (!site || typeof site !== "object" || typeof site.source !== "string" || site.source.length === 0)
+            fail("type", "Expected QB site with source");
+        if (!Number.isInteger(site.script) || site.script < 0 || site.script > 0xffffffff)
+            fail("type", "Expected uint32 site script");
+        if (!Number.isInteger(site.offset) || site.offset < 0 || site.offset > 0xffffffff)
+            fail("type", "Expected uint32 site offset");
+    }
+
     function create(seedBits = 0) {
         uint(seedBits, "seed uint32");
         const streams = [
             { add: INITIAL_ADD, mul: INITIAL_MUL, value: seedBits },
             { add: INITIAL_ADD, mul: INITIAL_MUL, value: seedBits },
         ];
+        const stored = [];
 
         function seed(nextSeedBits) {
             uint(nextSeedBits, "seed uint32");
@@ -176,6 +186,139 @@ globalThis.qbRandom = (() => {
             return { type: 2, bits: store32(total, negativeZero) };
         }
 
+        // ResolveRandomJumps (0x00470C60), FindStoredRandom (0x0046F7A0),
+        // NewStoredRandom (0x00470BB0) and CStoredRandom::Shuffle (0x0046F8A0).
+        function choose(opcode, site, weights, owner, charge) {
+            validateSite(site);
+            uint(owner, "owner uint32", site);
+            if (charge !== undefined && typeof charge !== "function")
+                fail("type", "Expected charge callback", site);
+            const cost = (n = 1) => {
+                if (charge) charge(n);
+            };
+            const drawCharged = (n, stream = 0) => {
+                cost(1);
+                return draw(n >>> 0, stream);
+            };
+            if (!Array.isArray(weights)) fail("type", "Expected random weights array", site);
+            const count = weights.length;
+            if (count < 1 || count > 0xffff) fail("syntax", "Random choice count must be 1..65535", site);
+            if (opcode === 0x2f || opcode === 0x37) {
+                let total = 0;
+                for (let i = 0; i < count; ++i) {
+                    cost(1);
+                    const w = weights[i];
+                    if (!Number.isInteger(w) || w < 0 || w > 0xffff)
+                        fail("type", "Expected uint16 random weight", site);
+                    if (w & 0x8000) fail("unsupported", "Negative random weights are unsafe", site);
+                    total = (total + w) | 0;
+                }
+                if (total <= 0) fail("syntax", "Random table has zero total weight", site);
+                let pick = drawCharged(total >>> 0, opcode === 0x37 ? 1 : 0) | 0;
+                for (let i = 0; i < count; ++i) {
+                    cost(1);
+                    pick = (pick - weights[i]) | 0;
+                    if (pick < 0) return i;
+                }
+                fail("syntax", "Random choice escaped its table", site);
+            }
+            if (opcode !== 0x40 && opcode !== 0x41) fail("unsupported", "Unsupported random opcode", site);
+            if (opcode === 0x41 && (count < 2 || count > 66))
+                fail("unsupported", "RandomPermute requires 2..66 choices", site);
+            if (owner === 0)
+                fail("unsupported", "Stored random choices require a nonzero task owner", site);
+            for (let i = 0; i < count; ++i) {
+                cost(1);
+                const w = weights[i];
+                if (!Number.isInteger(w) || w < 0 || w > 0xffff)
+                    fail("type", "Expected uint16 random weight", site);
+            }
+
+            const shuffle = (record, avoidRepeat) => {
+                const last = record.order[count - 1];
+                for (let swaps = count * 10; swaps > 0; --swaps) {
+                    const a = drawCharged(count, 0) | 0;
+                    const b = drawCharged(count, 0) | 0;
+                    const tmp = record.order[a];
+                    record.order[a] = record.order[b];
+                    record.order[b] = tmp;
+                }
+                if (avoidRepeat && record.order[0] === last) {
+                    const other = ((drawCharged(count - 1, 0) | 0) + 1) | 0;
+                    const tmp = record.order[0];
+                    record.order[0] = record.order[other];
+                    record.order[other] = tmp;
+                }
+            };
+
+            let record = null;
+            for (let i = 0; i < stored.length; ++i) {
+                cost(1);
+                const s = stored[i];
+                if (
+                    s.script === site.script &&
+                    s.offset === site.offset &&
+                    s.opcode === opcode &&
+                    s.count === count &&
+                    (s.owner === owner || s.owner === 0)
+                ) {
+                    record = s;
+                    break;
+                }
+            }
+            if (!record) {
+                const created = {
+                    script: site.script,
+                    offset: site.offset,
+                    owner,
+                    opcode,
+                    count,
+                    last: 0,
+                    index: 0,
+                    order: [],
+                };
+                if (opcode === 0x40) {
+                    created.last = drawCharged(count, 0) & 0xffff;
+                } else {
+                    created.order = Array.from({ length: count }, (_, i) => i);
+                    shuffle(created, false);
+                }
+                if (stored.length >= 100) stored.pop();
+                stored.unshift(created);
+                record = created;
+            }
+            record.owner = owner;
+            if (opcode === 0x40) {
+                let pick = drawCharged(count, 0);
+                for (let tries = 0; (pick & 0xffff) === record.last; ) {
+                    if (++tries > 100) break;
+                    pick = drawCharged(count, 0);
+                }
+                const choice = pick & 0xffff;
+                if (choice >= count) fail("syntax", "RandomNoRepeat choice escaped its table", site);
+                record.last = choice;
+                return choice;
+            }
+            if (++record.index >= count) {
+                record.index = 0;
+                shuffle(record, true);
+            }
+            return record.order[record.index];
+        }
+
+        // ForgetStoredRandomsOf (0x0046F870): mark records reusable with owner 0.
+        function forget(owner) {
+            uint(owner, "owner uint32");
+            if (owner === 0) return;
+            for (let i = 0; i < stored.length; ++i) {
+                if (stored[i].owner === owner) stored[i].owner = 0;
+            }
+        }
+
+        function clearStored() {
+            stored.length = 0;
+        }
+
         return Object.freeze({
             raw,
             scale,
@@ -183,6 +326,9 @@ globalThis.qbRandom = (() => {
             state,
             seed,
             range,
+            choose,
+            forget,
+            clearStored,
         });
     }
 
