@@ -229,8 +229,9 @@ void TestModelAppearance()
                     if (app->mp_faceTexture) {
                         app->mp_faceTexture->m_valid = random.Below(2) != 0;
                         uint32_t seed = random.Next(); // (its picture: copies must take all of it)
-                        for (uint8_t& b : app->mp_faceTexture->m_data)
-                            b = static_cast<uint8_t>((seed = seed * 1103515245u + 12345u) >> 16);
+                        uint8_t* bytes = reinterpret_cast<uint8_t*>(app->mp_faceTexture);
+                        for (size_t i = 1; i < sizeof(Gfx::CFaceTexture); ++i)
+                            bytes[i] = static_cast<uint8_t>((seed = seed * 1103515245u + 12345u) >> 16);
                     }
                     break;
                 case 9:

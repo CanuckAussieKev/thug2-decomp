@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "game/gfx/face_texture.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 
@@ -12,18 +13,6 @@
 // builder (model_builder.h) copies one and builds a model from it. Scripts change it through its member functions
 // (SetPart, GetPart, ...). From the disassembly of 0x00488DB0-0x004897BE.
 namespace Gfx {
-
-// The custom skater's face texture (0x449C bytes; +0: whether it holds one). Its code (0x004874xx-0x004875xx) is
-// called through the game.
-struct CFaceTexture {
-    bool m_valid;
-    uint8_t m_data[0x449B];
-
-    // 0x00487510 / 0x00487520: whether it holds a face texture / set so.
-    bool IsValid();
-    void SetValid(bool valid);
-};
-static_assert(sizeof(CFaceTexture) == 0x449C, "copied whole (0x1127 words) by CopyFrom");
 
 class CModelAppearance : public Obj::CObject {
 public:

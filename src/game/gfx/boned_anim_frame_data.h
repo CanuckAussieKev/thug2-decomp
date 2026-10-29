@@ -6,10 +6,15 @@
 // Compressed keys come in two forms: three shorts (a quaternion's x, y, z in units of 1/16384 - w follows from them,
 // its sign in bit 15 of the time word; a translation in units of 1/32), or bytes coded against shared 256-entry
 // tables (0x006F9AD8 quaternions, 0x006F92D8 translations, loaded from files at start-up) or the animation's own.
-// 0x00482AF0 constructs one; 0x004856C0 loads it (not rewritten here).
+// 0x00482AF0 constructs one; 0x004856C0 loads it (boned_anim_frame_data_pose.cpp).
 
 #include <cstddef>
 #include <cstdint>
+
+namespace Mth {
+class Quat;
+class Vector;
+} // namespace Mth
 
 namespace Gfx {
 
@@ -158,6 +163,28 @@ public:
 
     // The events after the keys (`header`'s fourth word: how many), then their count - not when one fails.
     bool ReadEvents(const uint32_t* header, uint8_t* at);
+
+    // 0x00484EB0: an additive pose: each bone not masked out - by `mask` (a skeleton's bone mask: +0x208 on, +0x20C the
+    // bones' masks, +0x210 the bit) or by the frames' own bit array (flag 0x80000) - gets its first rotation key added
+    // (pose rotation * key, then slerped there by `weight`) and its first translation key (a weight of the way to
+    // the translation plus the key - with flags 0x4000 and 0x20000, twice the translation). True. (`unused` isn't.)
+    bool ApplyAdditive(Mth::Quat* rotations, Mth::Vector* translations, void* unused, float weight, uint8_t* mask);
+    // 0x00485250: the same for compressed frames (flag 0x800000; a tail jump), else false.
+    bool ApplyAdditiveIfCompressed(Mth::Quat* rotations, Mth::Vector* translations, void* unused, float weight,
+                                   uint8_t* mask);
+    // 0x00485270: the compressed keys decoded into an animation cache entry in `format` (3 and 4: rotations as
+    // quaternions - two decoders -, translations as floats; others as they come) - at most 10 a frame (the vblank
+    // count 0x006FA2E0 and the count 0x006FA2D8). Older entries are freed first when the cache is short of room.
+    void BuildCache(int format);
+    // 0x004856C0: loaded from the .ska's data (flags +4, bones +8, then the keys - compressed 0x10000000 or 0x800000
+    // ones by their loaders; plain ones not at all: false), then cached at once with flag 0x800. Whether loaded.
+    bool Load(const uint8_t* data, uint32_t size, bool unused);
+    // 0x00485730: each bone's rotation and translation at `time` (seconds, at 60 frames a second) - the pair of keys
+    // around it and how far between (the last key: both it, 0) given to 0x00483B30 / 0x00483C40 (slerped / lerped;
+    // flags 0x9000000: their other way). A bone without keys around the time reuses the bone before's pair (the
+    // original's: its pointers aren't reset). Compressed frames are cached first (unless flag 0x1000) and sampled by
+    // 0x00484760 (a tail jump with all the arguments). True.
+    bool GetFrames(Mth::Quat* rotations, Mth::Vector* translations, uint8_t* arg2, float time, int arg4, void* arg5);
 
     uint32_t m_unknown00;
     uint32_t m_flags;              // +0x04

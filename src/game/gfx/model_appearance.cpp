@@ -72,6 +72,13 @@ Script::CStruct* CasOptionAt(uint32_t part, int index, uint32_t randomSet)
 }
 
 // A face texture constructed (0x004875C0, returns this).
+// Whether a face texture holds one (0x00487510) / set so (0x00487520) - called through the game (the tests script them).
+bool FaceTextureIsValid(CFaceTexture* face) { return GameFunction<bool(__thiscall*)(CFaceTexture*)>(0x00487510)(face); }
+void SetFaceTextureValid(CFaceTexture* face, bool valid)
+{
+    GameFunction<void(__thiscall*)(CFaceTexture*, bool)>(0x00487520)(face, valid);
+}
+
 CFaceTexture* ConstructFaceTexture(void* memory)
 {
     return GameFunction<CFaceTexture*(__thiscall*)(void*)>(0x004875C0)(memory);
@@ -93,8 +100,6 @@ void DeleteTempStruct(Script::CStruct* s)
 
 } // namespace
 
-bool CFaceTexture::IsValid() { return GameFunction<bool(__thiscall*)(CFaceTexture*)>(0x00487510)(this); }
-void CFaceTexture::SetValid(bool valid) { GameFunction<void(__thiscall*)(CFaceTexture*, bool)>(0x00487520)(this, valid); }
 
 // 0x00488EA0
 CModelAppearance* CModelAppearance::Construct()
@@ -133,7 +138,7 @@ bool CModelAppearance::Reset()
 {
     m_structure.Clear();
     if (mp_faceTexture)
-        mp_faceTexture->SetValid(false);
+        SetFaceTextureValid(mp_faceTexture, false);
     if (Script::CStruct* defaults = Script::GetStructure(kAppearanceInitStructure))
         m_structure.AppendStructureIfAny(defaults);
     m_hasFaceTexture = false;
@@ -145,7 +150,7 @@ bool CModelAppearance::Load(Script::CStruct* appearance, bool resolve)
 {
     m_structure.Clear();
     if (mp_faceTexture)
-        mp_faceTexture->SetValid(false);
+        SetFaceTextureValid(mp_faceTexture, false);
     if (Script::CStruct* defaults = Script::GetStructure(kAppearanceInitStructure))
         m_structure.AppendStructureIfAny(defaults);
     m_hasFaceTexture = false;
@@ -339,7 +344,7 @@ int CModelAppearance::WriteToBuffer(uint8_t* buffer, int size, bool noFaceTextur
     if (noFaceTexture)
         *end = 0;
     else
-        *end = (mp_faceTexture && mp_faceTexture->IsValid()) || m_hasFaceTexture;
+        *end = (mp_faceTexture && FaceTextureIsValid(mp_faceTexture)) || m_hasFaceTexture;
     return static_cast<int>(bytes) + 1;
 }
 
