@@ -74,8 +74,8 @@ public:
     // 0x0047F230 (slot 0): that, then freed.
     void DestroyBody();
     CBlendChannel* Destroy(uint8_t flags);
-    // 0x0047EF20: its timelines deleted, no start time, no time waited for (the script stops waiting), no first
-    // time.
+    // 0x0047EF20: its timelines deleted, no next blend period, no time waited for (the script stops waiting), no
+    // first time.
     void Reset();
     // 0x0047DCF0 (slot 2): the object's skeleton component kept.
     void Finalize();
@@ -139,6 +139,35 @@ public:
     // the global structure 0x95807202.
     void SetAnimTags(uint32_t anim);
 
+    // 0x00480410 (slot 3): SubsetId, the blend value (0x4D786F62), priority (0x3D836C96), AnimEventTableName, the
+    // anim set (0x52A864B0, else 0x09794932 asserted); Default played (0 to 1000), reset, then 0xEAE64B47 (Default)
+    // played over its length (looping when it was given), flag4C (0xCF466AA2), events (0xE1B3F630).
+    void InitFromStructure(Script::CStruct* params);
+    // 0x0047F260: `anim` (Default when 0) played from `from` to `to`: with `send` the server told (message 0x29: loop
+    // type, object, anim, the times, blend period and speed x 4096); the older timelines deleted when there's no
+    // blend period or no flag4C; a new timeline pushed and given the play (its slot 6, with the flip flag and
+    // `params`); the object's AnimTags taken out and set again from `anim` (SetAnimTags).
+    void PlayAnim(uint32_t anim, bool send, float from, float to, int loopType, float blendPeriod, float speed,
+                  Script::CStruct* params);
+    // 0x004803D0: `anim` played once over its length (0x0048CF50's first value) at speed 1, not sent.
+    void PlayAnimation(uint32_t anim, float blendPeriod);
+    // 0x0047F470 (not a Ghidra function): PlayAnim / Obj_PlayAnim's parameters played (sent) - the anim (Default when
+    // it isn't one; Current: the playing one; nothing with NoRestart when it plays), speed, the blend period (the
+    // one set for the next play, a percentage 0x4F3ABD6C of its length or BlendPeriod, else `blendPeriod`), the
+    // start synchronised with the playing animation (0x099371AE / 0xFF5AC79E: its fraction - Backwards: from the end
+    // -, at its speed), the range and loop type (0x004877E0 / 0x00487770), 0x84F13067 (flag4E: wait for the playing
+    // one to complete), Duration 0x23272E4D, and a partial animation 0x6C565F57 added as a controller. The anim
+    // played, or 0 (none: no anim set, or still waiting with flag4E).
+    uint32_t PlayAnimFromScript(Script::CStruct* params, Script::CScript* script, float blendPeriod);
+    // 0x0047FA00 (slot 4): the channel's script member functions (the timelines' too: anything else passed on to the
+    // playing timeline); 0 false, 1 true / handled, 2 not its own.
+    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    // Pieces of CallMemberFunction: WaitAnim (0x74CF5C94), 0x922E7D14 (whether a time was passed this frame) and
+    // 0xC68365EB (anim and its length to a timeline's controllers).
+    int WaitAnim(Script::CStruct* params);
+    int TimePassed(Script::CStruct* params);
+    int PassAnimToTimeline(Script::CStruct* params, Script::CScript* script);
+
     // 0x0047EB30 (cdecl): the blend buffers on the AnimScratch heap (0x7C0B34B4): `subsets` poses (0x006F8A60), and
     // `blends` poses (0x006F8A64), sets (0x006F8A58) and weights (0x006F8A5C) - the poses' rotations the identity.
     static void __cdecl InitBuffers(int blends, int subsets);
@@ -152,9 +181,9 @@ public:
     uint32_t m_start;                     // +0x38
     float m_period;                       // +0x3C
     float m_periodLeft;                   // +0x40
-    bool m_hasStartTime;                  // +0x44 (the next play starts from m_startTime)
+    bool m_hasNextBlend;                  // +0x44 (the next play blends over m_nextBlend)
     uint8_t m_pad45[3];
-    float m_startTime;                    // +0x48
+    float m_nextBlend;                    // +0x48
     bool m_flag4C;                        // +0x4C (without it each play deletes the older timelines)
     bool m_eventsOn;                      // +0x4D
     bool m_flag4E;                        // +0x4E

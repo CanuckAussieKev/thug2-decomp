@@ -49,6 +49,7 @@ std::vector<Script::CComponent*> g_components;
 Script::CSymbolTableEntry* g_symbol;
 void* g_timelineVtable[7];
 void* g_controllerVtable[2];
+uint32_t g_slot5Answer = 1;
 
 void StandInChannelCalls(StandIns& s)
 {
@@ -191,14 +192,18 @@ void StandInChannelCalls(StandIns& s)
     });
     // The timelines' recording vtable: 0 the scalar deleting destructor, 2 Update, 5 CallMemberFunction.
     for (int slot = 0; slot < 7; ++slot) {
-        uint16_t pop = slot == 0 ? 4 : slot == 5 ? 12 : 0;
+        uint16_t pop = slot == 0 ? 4 : slot == 5 ? 12 : slot == 6 ? 32 : 0;
         g_timelineVtable[slot] = s.Thunk(pop, [slot](Regs& r) {
             Record({0x7100u + static_cast<uint32_t>(slot), ArenaRelocate(r.ecx)});
             if (slot == 0)
                 Record({r.args[0]});
             if (slot == 5)
-                Record({r.args[0], ArenaRelocate(r.args[1]), r.args[2]});
-            return slot == 0 ? r.ecx : 1u;
+                Record({r.args[0], ArenaRelocate(r.args[1]), ArenaRelocate(r.args[2])});
+            if (slot == 6) {
+                for (int i = 0; i < 8; ++i)
+                    Record({ArenaRelocate(r.args[i])});
+            }
+            return slot == 0 ? r.ecx : slot == 5 ? g_slot5Answer : 1u;
         });
     }
     g_controllerVtable[0] = s.Thunk(4, [](Regs& r) { return r.ecx; });
@@ -301,7 +306,7 @@ void TestCas1Channel()
             channel->m_waiting = random.Below(2) != 0; // (Construct reads it before setting it)
             trace.push_back(ArenaRelocate(Fn<uint32_t(__thiscall*)(void*, uint32_t, uint32_t, int)>(
                 original, 0x0047F150)(channel, object, blender, random.Below(2))));
-            channel->m_flags = random.Next();
+            channel->m_flags = random.Next() << 8 | random.Below(256);
             channel->m_key = random.Below(3) ? 0x123 : 0;
             Fn<void(__thiscall*)(void*)>(original, 0x0047DCF0)(channel);
             trace.insert(trace.end(), g_trace.begin(), g_trace.end());
@@ -549,7 +554,313 @@ void TestCas1ChannelBuffers()
     Check(ok, "channel: the blend buffers (each pose's rotations the identity; allocations failing)");
 }
 
+// --- playing and the member functions ---
+
+// The parameters the getters answer from (for the structure g_params; others have nothing).
+struct ParamModel {
+    std::vector<std::pair<uint32_t, uint32_t>> checksums;
+    std::vector<std::pair<uint32_t, float>> floats;
+    std::vector<std::pair<uint32_t, int>> integers;
+    std::vector<uint32_t> flags;
+};
+ParamModel g_model;
+uint32_t g_params = 0x5A000000;
+int g_loopAnswer;
+const float g_lengths[7] = {1.0f, 30.0f, 0.5f, 60.0f, 0.0f, 12.25f, -2.0f};
+Lcg g_made(0); // (the new timelines' times)
+
+template <typename T>
+const T* Find(const std::vector<std::pair<uint32_t, T>>& list, uint32_t name)
+{
+    for (auto& [n, v] : list) {
+        if (n == name)
+            return &v;
+    }
+    return nullptr;
+}
+
+void StandInPlayCalls(StandIns& s)
+{
+    StandInChannelCalls(s);
+    s.At({0x00476950, 0x00476EC0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},
+         12, [](Regs& r) {
+             Record({0x6950, ArenaRelocate(r.ecx), r.args[0], r.args[2] & 0xFF});
+             const uint32_t* v = r.ecx == g_params ? Find(g_model.checksums, r.args[0]) : nullptr;
+             if (v)
+                 *reinterpret_cast<uint32_t*>(r.args[1]) = *v;
+             return v ? 1u : 0u;
+         });
+    s.At({0x004766D0, 0x00476D50, AddressOf(static_cast<bool (CStruct::*)(uint32_t, float*, int)>(&CStruct::GetFloat))},
+         12, [](Regs& r) {
+             Record({0x66D0, ArenaRelocate(r.ecx), r.args[0], r.args[2] & 0xFF});
+             const float* v = r.ecx == g_params ? Find(g_model.floats, r.args[0]) : nullptr;
+             if (v)
+                 *reinterpret_cast<float*>(r.args[1]) = *v;
+             return v ? 1u : 0u;
+         });
+    s.At({0x00476630, 0x00476CB0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))},
+         12, [](Regs& r) {
+             Record({0x6630, ArenaRelocate(r.ecx), r.args[0], r.args[2] & 0xFF});
+             const int* v = r.ecx == g_params ? Find(g_model.integers, r.args[0]) : nullptr;
+             if (v)
+                 *reinterpret_cast<int*>(r.args[1]) = *v;
+             return v ? 1u : 0u;
+         });
+    s.At({0x00476B40, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
+        Record({0x6B40, ArenaRelocate(r.ecx), r.args[0]});
+        bool found = false;
+        for (uint32_t flag : g_model.flags)
+            found |= r.ecx == g_params && flag == r.args[0];
+        return found ? 1u : 0u;
+    });
+    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8,
+         [](Regs& r) {
+             Record({0x7D40, ArenaRelocate(r.ecx), r.args[0], r.args[1]});
+             return 0u;
+         });
+    s.At({0x004776B0, AddressOf(static_cast<void (CStruct::*)(uint32_t)>(&CStruct::RemoveComponent))}, 4, [](Regs& r) {
+        Record({0x76B0, ArenaRelocate(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00409030, AddressOf(&Script::NewStruct)}, 0, [](Regs&) {
+        Record({0x9030});
+        return Bump(8);
+    });
+    s.At({0x00472FD0, AddressOf(&Script::CScript::Block)}, 4, [](Regs& r) {
+        Record({0x2FD0, ArenaRelocate(r.ecx), r.args[0]});
+        return 0u;
+    });
+    s.At({0x0047D580, AddressOf(&Gfx::AddTimelineInfo)}, 8, [](Regs& r) {
+        Record({0xD580, ArenaRelocate(r.args[0]), ArenaRelocate(r.args[1])});
+        return 0u;
+    });
+    s.At({0x0048CF50}, 0, [](Regs& r) {
+        Record({0xCF50, r.args[0], r.args[1]});
+        uint32_t key = r.args[0];
+        return (key & 0xFF) == 0xA7 ? 0u : reinterpret_cast<uint32_t>(&g_lengths[key % 7]); // (0xA7: not in the set)
+    });
+    s.At({0x004877E0}, 0, [](Regs& r) {
+        Record({0x77E0, ArenaRelocate(r.args[0]), ArenaRelocate(r.args[1]), r.args[2], r.args[3], ArenaRelocate(r.args[4]),
+                ArenaRelocate(r.args[5])});
+        *reinterpret_cast<float*>(r.args[0]) = std::bit_cast<float>(r.args[2]) * 0.5f;
+        if (r.args[2] & 0x100)
+            *reinterpret_cast<float*>(r.args[1]) = std::bit_cast<float>(r.args[3]) + 1.0f;
+        return 0u;
+    });
+    s.At({0x00487770}, 0, [](Regs& r) {
+        Record({0x7770, ArenaRelocate(r.args[0]), ArenaRelocate(r.args[1])});
+        *reinterpret_cast<int*>(r.args[0]) = g_loopAnswer;
+        return 1u;
+    });
+    s.At({0x00481FB0}, 4, [](Regs& r) {
+        Record({0x1FB0, ArenaRelocate(r.ecx), ArenaRelocate(r.args[0])});
+        return r.ecx;
+    });
+    // New timelines (0x00481EE0's memory) made with the recording vtable.
+    s.At({0x00481830, AddressOf(&CBlendTimeline::Construct)}, 4, [](Regs& r) {
+        Record({0x1830, ArenaRelocate(r.ecx), ArenaRelocate(r.args[0])});
+        auto* t = reinterpret_cast<CBlendTimeline*>(r.ecx);
+        std::memset(t, 0, sizeof(CBlendTimeline));
+        t->m_vtable = g_timelineVtable;
+        auto* node = reinterpret_cast<Mem::ListNode*>(t);
+        node->data = t;
+        node->next = node->prev = node;
+        const float times[] = {0.0f, 1.0f, 2.0f, 4.0f, -1.0f};
+        t->m_start = g_made.Pick(times);
+        t->m_current = g_made.Pick(times);
+        t->m_end = g_made.Pick(times);
+        if (t->m_start > t->m_end)
+            std::swap(t->m_start, t->m_end);
+        t->m_direction = g_made.Below(3) ? 0 : -1;
+        t->m_speed = 1.0f / 60;
+        t->m_loopType = 1;
+        t->m_anim = 0xA1;
+        t->m_state = 2;
+        t->mp_object = reinterpret_cast<Obj::CCompositeObject*>(r.args[0]);
+        t->m_eventsOn = true;
+        return r.ecx;
+    });
+}
+
+void* g_objectVtable[4];
+
+// A random set of parameters for the plays and member functions.
+void RandomModel(Lcg& random)
+{
+    g_model = {};
+    const uint32_t anims[] = {0xA0, 0xA1, 0xA2, 0xA7, 0x230CCBF4, 0};
+    if (random.Below(4))
+        g_model.checksums.push_back({0x98549BA4, random.Pick(anims)}); // anim
+    if (random.Below(3))
+        g_model.floats.push_back({0xF0D90109, random.Pick({1.0f, 2.0f, 0.5f})}); // Speed
+    if (random.Below(4) == 0)
+        g_model.floats.push_back({0x4F3ABD6C, random.Pick({50.0f, 10.0f, 0.0f})}); // the blend percentage
+    if (random.Below(2))
+        g_model.floats.push_back({0x8F0D24ED, random.Pick({0.0f, 0.2f, 0.5f})}); // BlendPeriod
+    if (random.Below(4) == 0)
+        g_model.floats.push_back({0x4B4A153A, random.Pick({2.0f, 0.0f, 8.0f})});
+    if (random.Below(4) == 0)
+        g_model.floats.push_back({0x23272E4D, random.Pick({2.0f, 0.5f, 0.0f})});
+    if (random.Below(3))
+        g_model.floats.push_back({0, random.Pick({0.0f, 1.0f, 3.0f, 30.0f, 50.0f, 1500.0f, -2.0f, kNaN})});
+    if (random.Below(4) == 0)
+        g_model.checksums.push_back({0x6C565F57, 0xB7}); // PartialAnimOverlay
+    if (random.Below(3) == 0)
+        g_model.checksums.push_back({0xF0CE9E0F, 0x1D}); // (its id)
+    if (random.Below(3) == 0)
+        g_model.checksums.push_back({0, random.Pick(anims)});
+    if (random.Below(3) == 0)
+        g_model.integers.push_back({0xD2D6A582, static_cast<int>(random.Below(4))}); // Index
+    if (random.Below(2))
+        g_model.integers.push_back({0xAF06447B, static_cast<int>(random.Below(2))}); // enabled
+    for (uint32_t flag : {0x099371AEu, 0xFF5AC79Eu, 0xF8CFD515u, 0x84F13067u, 0xFE09FE09u, 0xD443A2BCu, 0x4A07C332u,
+                          0x019176C5u, 0x9E497FC6u, 0x49E0EE96u, 0xD029F619u, 0x91A4C826u, 0xE18CD075u, 0xCF466AA2u,
+                          0xE1B3F630u}) {
+        if (random.Below(5) == 0)
+            g_model.flags.push_back(flag);
+    }
+    // InitFromStructure's
+    if (random.Below(2))
+        g_model.checksums.push_back({0x5CFCCF35, random.Below(3)}); // SubsetId
+    g_model.floats.push_back({0x4D786F62, 0.75f});                     // BlendWeight
+    if (random.Below(2))
+        g_model.integers.push_back({0x3D836C96, 7});
+    if (random.Below(2))
+        g_model.checksums.push_back({0x5B8C6DC2, 0xE7});
+    g_model.checksums.push_back({random.Below(2) ? 0x52A864B0u : 0x09794932u, 0x100u * (1 + random.Below(3))});
+    if (random.Below(2))
+        g_model.checksums.push_back({0xEAE64B47, random.Pick({0xA0u, 0xA1u, 0xA2u})});
+}
+
+void TestCas1ChannelPlay()
+{
+    GameMemory& memory = *new GameMemory({{0x007CC979, 1}, {0x007D1800, 4}, {0x007CCE14, 4}, {0x0067DC10, 4},
+                                          {0x006F8A58, 0x18}, {0x00684FC8, 4}, {0x006F3614, 16}, {0x006F3548, 16},
+                                          {0x006F92C8, 16}});
+    StandIns& s = *new StandIns();
+    StandInPlayCalls(s);
+    g_objectVtable[3] = s.Thunk(12, [](Regs& r) {
+        Record({0x0B3, ArenaRelocate(r.ecx), r.args[0], ArenaRelocate(r.args[1]), ArenaRelocate(r.args[2])});
+        return 1u;
+    });
+    g_relocate = ArenaRelocate;
+    const uint32_t names[] = {0x1DF59A54, 0x27A98022, 0x2889C6C9, 0x76CC99D5, 0x0B1E7291, 0x2CB9AD09, 0x42FFC3CE,
+                              0x4FAF61A9, 0x58C52F64, 0x5195BCBB, 0x68C86AEC, 0x6ECEB234, 0x74CF5C94, 0x80FDBDF2,
+                              0x9069F357, 0x922E7D14, 0x986D274E, 0x98A32669, 0x1A0F9646, 0xB5FB7EB6, 0xC68365EB,
+                              0xEA6D0EFD, 0x5E3F0F17, 0x6AAEB76F, 0x83654874, 0xBD4EDD44, 0xD63A1B81, 0xF5E2B871,
+                              0x12345678, 0x74CF5C95};
+    bool ok = true, reported = false;
+    for (int round = 0; round < 150; ++round) {
+        ok &= CompareTwoRuns("channel play", reported, [&](bool original) {
+            g_trace.clear();
+            ResetArena(0xEE);
+            memory.Zero();
+            GameVariable<uint8_t>(0x007CC979) = 1;
+            GameVariable<uint32_t>(0x007D1800) = 0x3A9A0000;
+            GameVariable<uint32_t>(0x007CCE14) = 0x3E700000;
+            GameVariable<uint32_t>(0x0067DC10) = 0x00FFFFFF;
+            GameVariable<float>(0x00684FC8) = 1.0f;
+            Lcg random(0x7900 + round);
+            g_made = Lcg(0x7A00 + round);
+            std::vector<uint32_t> trace;
+            uint32_t object = Bump(0x40);
+            *reinterpret_cast<void***>(object) = g_objectVtable;
+            uint32_t script = Bump(0x100);
+            *reinterpret_cast<uint32_t*>(script + 0x14) = 0x5C000000; // its parameters
+            *reinterpret_cast<uint32_t*>(object + 0x10) = random.Below(2) ? script : 0;
+            *reinterpret_cast<uint32_t*>(object + 0x14) = 0x10 + random.Below(3);
+            uint32_t blender = Bump(0x44);
+            uint32_t controller = Bump(0x14);
+            *reinterpret_cast<void***>(controller) = g_controllerVtable;
+            g_app = Bump(0x40);
+            g_player = Bump(0x20);
+            g_skeletonComponent = 0;
+            auto* channel = reinterpret_cast<CBlendChannel*>(Bump(sizeof(CBlendChannel)));
+            channel->m_waiting = false;
+            Fn<uint32_t(__thiscall*)(void*, uint32_t, uint32_t, int)>(original, 0x0047F150)(channel, object, blender, 1);
+            channel->m_flags = random.Next() << 8 | random.Below(256);
+            channel->m_key = 0x100 * random.Below(4);
+            GameVariable<int>(0x006F8A68) = static_cast<int>(1 + random.Below(4));
+            for (int step = 0; step < 25; ++step) {
+                g_trace.clear();
+                RandomModel(random);
+                g_isLocal = random.Below(3) != 0;
+                g_slot5Answer = random.Below(3);
+                g_loopAnswer = static_cast<int>(random.Below(5));
+                g_tagsAll = 0;
+                *reinterpret_cast<uint32_t*>(object + 0x20) = random.Below(2) ? 0x7A620000u : 0; // its tags
+                channel->m_flag4C = random.Below(2) != 0;
+                channel->m_flag4E = random.Below(4) == 0;
+                channel->m_hasNextBlend = random.Below(5) == 0;
+                channel->m_nextBlend = 0.4f;
+                channel->m_firstTime = random.Pick({0.0f, 0.5f, 1.0f, 1.5f});
+                if (random.Below(6) == 0)
+                    channel->m_id = random.Below(2);
+                if (random.Below(8) == 0)
+                    channel->m_key = random.Below(2) ? 0 : 0x200;
+                uint32_t op = random.Below(12);
+                trace.push_back(op);
+                switch (op) {
+                case 0: { // a timeline by hand
+                    if (reinterpret_cast<Gfx::AnimListHead*>(&channel->m_timelines)->CountItems() >= 6)
+                        break;
+                    CBlendTimeline* t = NewTimeline(random, object, controller);
+                    t->m_controllerCount = 0;
+                    auto* node = reinterpret_cast<Mem::ListNode*>(t);
+                    node->next = channel->m_timelines.next;
+                    node->prev = &channel->m_timelines;
+                    channel->m_timelines.next->prev = node;
+                    channel->m_timelines.next = node;
+                    break;
+                }
+                case 1:
+                    Fn<void(__thiscall*)(void*, uint32_t, bool, float, float, int, float, float, uint32_t)>(
+                        original, 0x0047F260)(channel, random.Pick({0u, 0xA2u, 0xA3u}), random.Below(2) != 0,
+                                              random.Pick({0.0f, 0.5f, -1.0f, 9.0f}), random.Pick({1.0f, 30.0f, 0.25f}),
+                                              static_cast<int>(random.Below(4)), random.Pick({0.0f, 0.3f, kNaN}),
+                                              random.Pick({1.0f, 2.5f, -3.0f}), g_params);
+                    break;
+                case 2:
+                    Fn<void(__thiscall*)(void*, uint32_t, float)>(original, 0x004803D0)(channel, random.Pick({0xA0u, 0xA5u}),
+                                                                                         random.Pick({0.0f, 0.3f}));
+                    break;
+                case 3:
+                    channel->m_waiting = random.Below(2) != 0;
+                    Fn<void(__thiscall*)(void*, uint32_t)>(original, 0x00480410)(channel, g_params);
+                    break;
+                case 4:
+                case 5:
+                    trace.push_back(Fn<uint32_t(__thiscall*)(void*, uint32_t, uint32_t, float)>(original, 0x0047F470)(
+                        channel, g_params, script, random.Pick({0.3f, 0.0f})));
+                    break;
+                case 10: // (WaitAnim and the time-passed test more often)
+                case 11:
+                    trace.push_back(Fn<uint32_t(__thiscall*)(void*, uint32_t, uint32_t, uint32_t)>(original, 0x0047FA00)(
+                        channel, op == 10 ? 0x74CF5C94u : 0x922E7D14u, g_params, script));
+                    break;
+                default:
+                    trace.push_back(Fn<uint32_t(__thiscall*)(void*, uint32_t, uint32_t, uint32_t)>(original, 0x0047FA00)(
+                        channel, random.Pick(names), g_params, script));
+                    break;
+                }
+                trace.insert(trace.end(), g_trace.begin(), g_trace.end());
+                memory.Dump(trace);
+                for (int i = 0; i < 0x74 / 4; ++i) // (the channel each step: the next step sets some of it again)
+                    trace.push_back(ArenaRelocate(reinterpret_cast<uint32_t*>(channel)[i]));
+            }
+            DumpArena(trace);
+            return trace;
+        });
+    }
+    delete &s;
+    delete &memory;
+    g_relocate = nullptr;
+    Check(ok, "channel: PlayAnim and its message, PlayAnimation, InitFromStructure, the script play (every parameter), "
+              "every member function");
+}
+
 } // namespace
 
 SELFTEST(Early, TestCas1Channel, RemoveStandIns);
+SELFTEST(Early, TestCas1ChannelPlay, RemoveStandIns);
 SELFTEST(Early, TestCas1ChannelBuffers, RemoveStandIns);

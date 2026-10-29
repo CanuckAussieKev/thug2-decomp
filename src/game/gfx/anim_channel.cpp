@@ -12,6 +12,7 @@
 #include "game/core/pool.h"
 #include "game/gfx/blend_timeline.h"
 #include "game/gfx/skeleton.h"
+#include "game/mth/math.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -43,9 +44,23 @@ constexpr uint32_t kFlipped = 0x20000000;
 constexpr float kFramesPerSecond = 60.0f;            // 0x00645EA0
 constexpr float kSecondsPerFrame = 1.0f / 60.0f;     // 0x006463B8
 
+constexpr uint32_t kDefault = 0x1CA1FF20;           // Default
+constexpr uint32_t kAnim = 0x98549BA4;              // anim
+constexpr uint32_t kSpeed = 0xF0D90109;             // Speed
+constexpr uint32_t kCurrent = 0x230CCBF4;           // Current
+constexpr uint32_t kBackwards = 0xF8CFD515;         // Backwards
+constexpr uint32_t kId = 0x40C698AF;                // id
+constexpr uint32_t kSubsetId = 0x5CFCCF35;          // SubsetId
+constexpr uint32_t kAnimTags = 0x5DB4115F;          // AnimTags
+constexpr uint32_t kIndex = 0xD2D6A582;             // (a timeline's index)
+constexpr uint32_t kPlayAnim = 0x0B1E7291, kObjPlayAnim = 0x2CB9AD09;
+constexpr uint32_t kCycle = 0x4F792E6C, kPingPong = 0x3153E314, kHoldLoop = 0x6D941203; // the loop types' names
+constexpr float kDefaultBlendPeriod = 0.3f;         // 0x3E99999A
+constexpr float kFixedPoint = 4096.0f;              // 0x00648730
+
 // The network messages a channel sends.
-enum : uint8_t { kMsgWobbleTarget = 0x2B, kMsgFlip = 0x2C, kMsgWobbleDetails = 0x3C, kMsgLoopType = 0x3D,
-                 kMsgSpeed = 0x41 };
+enum : uint8_t { kMsgPlayAnim = 0x29, kMsgWobbleTarget = 0x2B, kMsgFlip = 0x2C, kMsgWobbleDetails = 0x3C,
+                 kMsgLoopType = 0x3D, kMsgSpeed = 0x41 };
 
 // What was last sent (all start 0xFF).
 uint8_t& LastWobbleTarget() { return GameVariable<uint8_t>(0x0067DC10); }
@@ -156,6 +171,24 @@ void* NewTimeline(uint32_t size, int unused) { return GameFunction<void*(__cdecl
 
 int CountListItems(Mem::ListNode* head) { return reinterpret_cast<AnimListHead*>(head)->CountItems(); }
 
+// Not rewritten yet: an animation's frame data in the anim set (0x0048CF50; its first value the length), the range
+// (0x004877E0) and loop type (0x00487770) a play's parameters ask for, and a controller added to a blend timeline
+// (0x00481FB0).
+float* AnimLength(uint32_t key) { return GameFunction<float*(__cdecl*)(uint32_t, int)>(0x0048CF50)(key, 0); }
+void RangeFromParams(float* from, float* to, float current, float length, CStruct* params, Script::CScript* script)
+{
+    GameFunction<void(__cdecl*)(float*, float*, float, float, CStruct*, Script::CScript*)>(0x004877E0)(
+        from, to, current, length, params, script);
+}
+void LoopTypeFromParams(int* loopType, CStruct* params)
+{
+    GameFunction<bool(__cdecl*)(int*, CStruct*)>(0x00487770)(loopType, params);
+}
+void AddController(CBlendTimeline* timeline, CStruct* params)
+{
+    GameFunction<void*(__thiscall*)(CBlendTimeline*, CStruct*)>(0x00481FB0)(timeline, params);
+}
+
 // The skeleton component's skeleton (the getter folded at 0x005480F0).
 CSkeleton* SkeletonOf(Obj::CBaseComponent* component)
 {
@@ -241,8 +274,8 @@ void CBlendChannel::Reset()
 {
     reinterpret_cast<Obj::ListHead*>(&m_timelines)->DeleteAllNodes();
     bool waiting = m_waiting;
-    m_hasStartTime = false;
-    m_startTime = 0.0f;
+    m_hasNextBlend = false;
+    m_nextBlend = 0.0f;
     if (waiting) {
         m_waiting = false;
         if (Script::CScript* script = Owner(this)->m_script)
@@ -732,6 +765,415 @@ void __cdecl CBlendChannel::InitBuffers(int blends, int subsets)
     Mem::Manager::Get()->PopContext();
 }
 
+// --- playing ---
+
+// 0x0047F260
+void CBlendChannel::PlayAnim(uint32_t anim, bool send, float from, float to, int loopType, float blendPeriod,
+                             float speed, CStruct* params)
+{
+    if (!anim)
+        anim = kDefault;
+    if (send && m_id == 0) {
+        if (GameNet::PlayerInfo* player = LocalPlayer(Owner(this)->m_id)) {
+            Net::MsgDesc message;
+            message.Construct();
+            Net::Client* app = ClientOf(player);
+            // loop type, object, anim, then the times, blend period and speed x 4096 as shorts
+            uint8_t data[0xE];
+            uint8_t object = static_cast<uint8_t>(Owner(this)->m_id);
+            int16_t times[4] = {static_cast<int16_t>(Truncated(from * kFixedPoint)),
+                                static_cast<int16_t>(Truncated(to * kFixedPoint)),
+                                static_cast<int16_t>(Truncated(blendPeriod * kFixedPoint)),
+                                static_cast<int16_t>(Truncated(speed * kFixedPoint))};
+            data[0] = static_cast<uint8_t>(loopType);
+            data[1] = object;
+            std::memcpy(data + 2, &anim, 4);
+            std::memcpy(data + 6, times, sizeof(times));
+            Send(app, message, kMsgPlayAnim, data, sizeof(data), false);
+        }
+    }
+    if (blendPeriod == 0.0f || !m_flag4C)
+        reinterpret_cast<Obj::ListHead*>(&m_timelines)->DeleteAllNodes();
+    PushTimeline(blendPeriod);
+    Virtual<void>(Masked(m_timelines.next), 6, anim, from, to, loopType, blendPeriod, speed, (m_flags >> 29) & 1,
+                  params);
+    if (CStruct* tags = Owner(this)->mp_tags)
+        tags->RemoveComponent(kAnimTags);
+    SetAnimTags(anim);
+}
+
+// 0x004803D0
+void CBlendChannel::PlayAnimation(uint32_t anim, float blendPeriod)
+{
+    PlayAnim(anim, false, 0.0f, *AnimLength(m_key + anim), 0, blendPeriod, 1.0f, nullptr);
+}
+
+// 0x00480410
+void CBlendChannel::InitFromStructure(CStruct* params)
+{
+    params->GetChecksum(kSubsetId, &m_id, 0);
+    params->GetFloat(0x4D786F62, &AsFloat(m_current), 0); // BlendWeight
+    int priority = 0;
+    params->GetInteger(0x3D836C96, &priority, 0);
+    m_priority = priority;
+    params->GetChecksum(0x5B8C6DC2, &m_eventTable, 0); // AnimEventTableName
+    uint32_t animSet = 0; // (the original's is left as it was when neither is there)
+    if (!params->GetChecksum(0x52A864B0, &animSet, 0))
+        params->GetChecksum(0x09794932, &animSet, 1);
+    m_key = animSet;
+    PlayAnim(kDefault, false, 0.0f, 1000.0f, 0, kDefaultBlendPeriod, 1.0f, nullptr);
+    Reset();
+    uint32_t anim = kDefault;
+    bool loop = params->GetChecksum(0xEAE64B47, &anim, 0);
+    PlayAnim(anim, false, 0.0f, *AnimLength(m_key + anim), 0, kDefaultBlendPeriod, 1.0f, nullptr);
+    if (loop)
+        SetLoopType(CAnimTimeline::kCycle, true);
+    if (params->ContainsFlag(0xCF466AA2))
+        m_flag4C = true;
+    SetEventsOn(params->ContainsFlag(0xE1B3F630));
+}
+
+// 0x0047F470 (x87: the synchronised start's fraction and product unrounded)
+uint32_t CBlendChannel::PlayAnimFromScript(CStruct* params, Script::CScript* script, float blendPeriod)
+{
+    if (CBlendTimeline* first = First(this))
+        m_firstTime = first->m_current;
+    if (m_flag4E) {
+        CBlendTimeline* first = First(this);
+        if (!first || !first->IsComplete())
+            return 0;
+    }
+    if (!m_key)
+        return 0;
+    uint32_t anim = 0;
+    params->GetChecksum(kAnim, &anim, 0);
+    if (!anim)
+        Script::PrintContents(params, 0);
+    float speed = 1.0f;
+    params->GetFloat(kSpeed, &speed, 0);
+    CBlendTimeline* first = First(this);
+    uint32_t playing = first ? first->m_anim : 0;
+    if (anim == kCurrent) {
+        anim = playing;
+    } else if (playing == anim && params->ContainsFlag(0xFE09FE09)) { // NoRestart
+        return 0;
+    }
+    if (!AnimLength(m_key + anim))
+        anim = kDefault;
+
+    float blend = blendPeriod;
+    if (m_hasNextBlend) {
+        blend = m_nextBlend;
+        m_hasNextBlend = false;
+    } else {
+        float percent = 0.0f;
+        if (params->GetFloat(0x4F3ABD6C, &percent, 0)) // (of the anim's length)
+            blend = static_cast<float>(percent * static_cast<double>(0.01f) * *AnimLength(m_key + anim));
+        else
+            params->GetFloat(0x8F0D24ED, &blend, 0); // BlendPeriod
+    }
+    float length = *AnimLength(m_key + anim);
+    float to = length;
+    float from = 0.0f;
+    float start = 0.0f; // the time the new one starts at
+    bool sync = true;
+    double fraction;
+    if (params->ContainsFlag(0x099371AE)) { // SyncToPreviousAnim: as far through as the playing one
+        float current, ends;
+        reinterpret_cast<Obj::BlendChannelLinks*>(this)->GetTimes(&ends, &current, &ends);
+        float playingLength = *AnimLength(m_key + playing);
+        params->GetFloat(0x4B4A153A, &playingLength, 0); // (read and not used here)
+        float through = static_cast<float>(current / *AnimLength(m_key + playing));
+        if (through > 1.0f)
+            fraction = 1.0;
+        else if (through < 0.0f)
+            fraction = 0.0;
+        else
+            fraction = through;
+    } else if (params->ContainsFlag(0xFF5AC79E)) { // as far from the end as the playing one
+        float current, ends;
+        reinterpret_cast<Obj::BlendChannelLinks*>(this)->GetTimes(&ends, &current, &ends);
+        float playingLength = *AnimLength(m_key + playing);
+        params->GetFloat(0x4B4A153A, &playingLength, 0);
+        fraction = Mth::Clamp(static_cast<float>((static_cast<double>(playingLength) - current) / playingLength),
+                              0.0f, 1.0f);
+    } else {
+        sync = false;
+        fraction = 0.0;
+    }
+    if (sync) {
+        start = static_cast<float>(fraction * length);
+        if (params->ContainsFlag(kBackwards))
+            start = static_cast<float>(-(static_cast<double>(length) - start));
+        speed = static_cast<float>(GetSpeed(nullptr, nullptr));
+    }
+    float current = 0.0f, ends = 0.0f;
+    if (CBlendTimeline* playingNow = First(this))
+        playingNow->GetTimes(&ends, &current, &ends);
+    RangeFromParams(&from, &to, current, length, params, script);
+    int loopType = 0;
+    LoopTypeFromParams(&loopType, params);
+    m_flag4E = params->ContainsFlag(0x84F13067); // (wait for the playing one to complete)
+    float duration = 0.0f;
+    if (params->GetFloat(0x23272E4D, &duration, 0))
+        speed = static_cast<float>(length / duration);
+    PlayAnim(anim, true, from, to, loopType, blend, speed, params);
+    CBlendTimeline* timeline = Masked(m_timelines.next);
+    if (start != 0.0f)
+        timeline->AddTime(start);
+    timeline->m_eventsOn = m_eventsOn;
+
+    uint32_t partial;
+    if (params->GetChecksum(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
+        CStruct* controller = Script::NewStruct();
+        if (controller)
+            controller = controller->Init();
+        uint32_t id = reinterpret_cast<uint32_t>(script); // (its argument's place reused: the id when there is one)
+        if (params->GetChecksum(0xF0CE9E0F, &id, 0))
+            controller->AddChecksum(kId, id);
+        controller->AddChecksum(0x7321A8D6, 0x659BF355);  // Type PartialAnim
+        controller->AddChecksum(0x6C2BFB7F, partial);     // AnimName
+        controller->AddFloat(0x46E55E8F, from);           // From
+        controller->AddFloat(0x28782D3B, to);             // To
+        controller->AddChecksum(0u, 0xD029F619);           // Seconds
+        controller->AddFloat(kCurrent, start);
+        controller->AddFloat(kSpeed, speed);
+        switch (loopType) {
+        case CAnimTimeline::kCycle:
+            controller->AddChecksum(0u, kCycle);
+            break;
+        case CAnimTimeline::kPingPong:
+            controller->AddChecksum(0u, kPingPong);
+            break;
+        case CAnimTimeline::kHold:
+            controller->AddChecksum(0u, kHoldLoop);
+            break;
+        default:
+            break;
+        }
+        AddController(Masked(m_timelines.next), controller);
+        FreeStruct(controller);
+    }
+    return anim;
+}
+
+// 0x0047FA00
+int CBlendChannel::CallMemberFunction(uint32_t name, CStruct* params, Script::CScript* script)
+{
+    switch (name) {
+    case 0x1DF59A54: { // the info of timeline Index (0xD2D6A582; the playing one without it) to the script
+        int index;
+        if (!params->GetInteger(kIndex, &index, 0)) {
+            Mem::ListNode* node = m_timelines.next;
+            if (!IsHead(node) && node)
+                AddTimelineInfo(reinterpret_cast<CAnimTimeline*>(node), script->m_params);
+            return 1;
+        }
+        for (CBlendTimeline* timeline = Masked(m_timelines.next); timeline; timeline = Masked(Node(timeline)->next)) {
+            if (index == 0) {
+                AddTimelineInfo(timeline, script->m_params);
+                break;
+            }
+            --index;
+        }
+        return 1;
+    }
+    case 0x27A98022: { // Flip: flipped, and every timeline's (or timeline Index's) controllers told
+        int index;
+        if (!params->GetInteger(kIndex, &index, 0)) {
+            ToggleFlipped();
+            for (Mem::ListNode* node = m_timelines.next; !IsHead(node) && node; node = node->next)
+                Virtual<int>(node, 5, name, params, script);
+            return 1;
+        }
+        if (index == 0)
+            ToggleFlipped();
+        for (CBlendTimeline* timeline = Masked(m_timelines.next); timeline; timeline = Masked(Node(timeline)->next)) {
+            if (index == 0) {
+                Virtual<int>(timeline, 5, name, params, script);
+                break;
+            }
+            --index;
+        }
+        return 1;
+    }
+    case 0x2889C6C9:
+    case 0x76CC99D5: // (whether the animation is complete)
+        return IsAnimComplete() ? 1 : 0;
+    case kPlayAnim:
+    case kObjPlayAnim: {
+        PlayAnimFromScript(params, script, kDefaultBlendPeriod);
+        Mem::ListNode* node = m_timelines.next;
+        if (!IsHead(node) && node && reinterpret_cast<CBlendTimeline*>(node)->m_loopType == CAnimTimeline::kHold)
+            Virtual<int>(mp_owner, 3, 0xEA6D0EFDu, params, script); // (the object's own member function)
+        return 1;
+    }
+    case 0x42FFC3CE: { // GetAnimLength: of anim, to the script's length
+        uint32_t anim = 0;
+        params->GetChecksum(kAnim, &anim, 0);
+        if (HasValue(anim))
+            script->m_params->AddFloat(0xFE82614D, std::fabs(GetValue(anim))); // length
+        return 1;
+    }
+    case 0x4FAF61A9: { // every timeline's speed so its range takes 0x23272E4D seconds
+        float duration = 0.0f;
+        params->GetFloat(0x23272E4D, &duration, 1);
+        for (Mem::ListNode* node = m_timelines.next; !IsHead(node) && node; node = node->next) {
+            auto* timeline = reinterpret_cast<CBlendTimeline*>(node);
+            float start, current, end;
+            timeline->GetTimes(&start, &current, &end);
+            float larger = start > end ? start : end;
+            timeline->m_speed = static_cast<float>(larger / static_cast<double>(duration) * kSecondsPerFrame);
+        }
+        return 1;
+    }
+    case 0x58C52F64: // the loop type: once with 0xD443A2BC, else cycling
+        SetLoopType(params->ContainsFlag(0xD443A2BC) ? CAnimTimeline::kOnce : CAnimTimeline::kCycle, true);
+        return 1;
+    case 0x5195BCBB: // the speed to the script's Speed
+        script->m_params->AddFloat(kSpeed, static_cast<float>(GetSpeed(params, script)));
+        return 1;
+    case 0x68C86AEC: // the next play's blend period
+        params->GetFloat(0u, &m_nextBlend, 0);
+        m_hasNextBlend = true;
+        return 1;
+    case 0x6ECEB234: // whether it's flipped
+        return (m_flags >> 29) & 1;
+    case 0x74CF5C94: // WaitAnim
+        return WaitAnim(params);
+    case 0x80FDBDF2: // whether it cycles
+        return IsCycling() ? 1 : 0;
+    case 0x9069F357: { // AnimExists (the anim set's unnamed checksum)
+        uint32_t anim = reinterpret_cast<uint32_t>(params); // (its argument's place reused, as the original)
+        params->GetChecksum(0u, &anim, 0);
+        return HasValue(anim) ? 1 : 0;
+    }
+    case 0x922E7D14: // whether the unnamed time (frames) was passed since the last frame
+        return TimePassed(params);
+    case 0x986D274E: // to every timeline
+        for (Mem::ListNode* node = m_timelines.next; !IsHead(node) && node; node = node->next)
+            Virtual<int>(node, 5, name, params, script);
+        return 1;
+    case 0x98A32669: { // flag4C from enabled
+        int enabled = static_cast<int>(reinterpret_cast<uintptr_t>(params)); // (the argument's place, as above)
+        params->GetInteger(0xAF06447B, &enabled, 1);
+        m_flag4C = enabled != 0;
+        return 1;
+    }
+    case 0x1A0F9646: // AnimEquals
+    case 0xB5FB7EB6:
+        return IsAnimOneOf(params, script) ? 1 : 0;
+    case 0xC68365EB: // anim (Default when there's none) to timeline Index's (the playing one's) controllers
+        return PassAnimToTimeline(params, script);
+    case 0xEA6D0EFD:
+        return 1;
+    case 0x5E3F0F17:
+    case 0x6AAEB76F:
+    case 0x83654874:
+    case 0xBD4EDD44: // SetPartialAnimSpeed
+    case 0xD63A1B81: // GetPartialAnimParams
+    case 0xF5E2B871: {
+        Mem::ListNode* node = m_timelines.next;
+        if (IsHead(node) || !node)
+            return 1;
+        return Virtual<int>(node, 5, name, params, script) != 0 ? 1 : 0;
+    }
+    default:
+        return 2;
+    }
+}
+
+// The WaitAnim member function (0x0047FDCE): the script waits until the playing timeline reaches a time - in
+// frames (Frame / Frames), a percentage of its range (Percent), seconds (0x49E0EE96 / Seconds) or milliseconds -
+// from the current time (0x91A4C826), the end (FromEnd) or its start; the object's script made if it has none.
+int CBlendChannel::WaitAnim(CStruct* params)
+{
+    float start, current, end;
+    reinterpret_cast<Obj::BlendChannelLinks*>(this)->GetTimes(&start, &current, &end);
+    float time = 0.0f;
+    params->GetFloat(0u, &time, 0);
+    if (params->ContainsFlag(0x4A07C332) || params->ContainsFlag(0x019176C5)) // Frame, Frames
+        time = time * kSecondsPerFrame;
+    else if (params->ContainsFlag(0x9E497FC6)) // Percent
+        time = static_cast<float>((static_cast<double>(end) - start) * time * static_cast<double>(0.01f) + start);
+    else if (!params->ContainsFlag(0x49E0EE96) && !params->ContainsFlag(0xD029F619)) // (Seconds: as it is)
+        time = time * 0.001f;
+    bool forwards = start <= end;
+    // (x87: rounded once to a float; a NaN kept as it is - not negated)
+    auto sum = [](float a, float b) { return static_cast<float>(static_cast<double>(a) + b); };
+    auto difference = [](float a, float b) { return static_cast<float>(static_cast<double>(a) - b); };
+    if (params->ContainsFlag(0x91A4C826))
+        m_waitTime = forwards ? sum(time, current) : difference(current, time);
+    else if (params->ContainsFlag(0xE18CD075)) // FromEnd
+        m_waitTime = forwards ? difference(end, time) : sum(time, start);
+    else
+        m_waitTime = time;
+    if (forwards ? m_waitTime > end : m_waitTime < end)
+        m_waitTime = end;
+    Obj::CCompositeObject* owner = Owner(this);
+    if (!owner->m_script) {
+        void* memory = Script::CScript::operator new(sizeof(Script::CScript));
+        owner->m_script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
+    }
+    if ((start <= end && current >= m_waitTime) || (start >= end && current <= m_waitTime)) {
+        owner->m_script->StopWaiting(); // (already there)
+        m_waiting = false;
+    } else {
+        owner->m_script->Block(0);
+        m_waiting = true;
+    }
+    return 1;
+}
+
+// The member function 0x922E7D14 (0x004800D3): whether the time given (the unnamed float, in frames, from the
+// start) lies between the playing timeline's time last frame and now - either way round.
+int CBlendChannel::TimePassed(CStruct* params)
+{
+    float start, current, end;
+    reinterpret_cast<Obj::BlendChannelLinks*>(this)->GetTimes(&start, &current, &end);
+    float time = 0.0f;
+    params->GetFloat(0u, &time, 0);
+    time = time * kSecondsPerFrame;
+    float now = static_cast<float>(static_cast<double>(current) - start);
+    float before = static_cast<float>(static_cast<double>(m_firstTime) - start);
+    if (now == time)
+        return 1;
+    if (before < time && time < now)
+        return 1;
+    if (now < before && before < time)
+        return 1;
+    if (time < now && now < before)
+        return 1;
+    return 0;
+}
+
+// The member function 0xC68365EB (0x00480212): anim (Default added when the anim set hasn't it) and its length
+// (Duration) to timeline Index's controllers (the playing one's without it - its tags then set from the anim). Their
+// answer (as true / false), or false without such a timeline.
+int CBlendChannel::PassAnimToTimeline(CStruct* params, Script::CScript* script)
+{
+    uint32_t anim = reinterpret_cast<uint32_t>(params); // (the argument's place, as above)
+    params->GetChecksum(kAnim, &anim, 0);
+    if (!HasValue(anim)) {
+        anim = kDefault;
+        params->AddChecksum(kAnim, kDefault);
+    }
+    params->AddFloat(0x79A07F3F, GetValue(anim)); // Duration
+    int index;
+    CBlendTimeline* timeline = Masked(m_timelines.next);
+    if (params->GetInteger(kIndex, &index, 0)) {
+        for (; timeline && index; --index)
+            timeline = Masked(Node(timeline)->next);
+    }
+    if (!timeline)
+        return 0;
+    if (timeline == Masked(m_timelines.next)) {
+        ClearFlag();
+        SetAnimTags(anim);
+    }
+    return Virtual<int>(timeline, 5, 0xC68365EBu, params, script) != 0 ? 1 : 0;
+}
+
 } // namespace Gfx
 
 REPLACE(0x0047DC40, &Gfx::CBlendChannel::SetFlipped);
@@ -765,3 +1207,8 @@ REPLACE(0x0047EFF0, &Gfx::CBlendChannel::BlendFirstPose);
 REPLACE(0x0047F000, &Gfx::CBlendChannel::SetAnimTags);
 REPLACE(0x0047F150, &Gfx::CBlendChannel::Construct);
 REPLACE(0x0047F230, &Gfx::CBlendChannel::Destroy);
+REPLACE(0x0047F260, &Gfx::CBlendChannel::PlayAnim);
+REPLACE(0x0047F470, &Gfx::CBlendChannel::PlayAnimFromScript);
+REPLACE(0x0047FA00, &Gfx::CBlendChannel::CallMemberFunction);
+REPLACE(0x004803D0, &Gfx::CBlendChannel::PlayAnimation);
+REPLACE(0x00480410, &Gfx::CBlendChannel::InitFromStructure);
