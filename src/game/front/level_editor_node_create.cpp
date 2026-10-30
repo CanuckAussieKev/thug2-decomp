@@ -10,6 +10,7 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
+#include "game/gfx/scene_lights.h"
 #include "game/gfx/screen.h"
 #include "game/mth/matrix.h"
 #include "game/obj/emitter.h"
@@ -513,8 +514,8 @@ SkateScript::CNodeManager* Manager() { return SkateScript::NodeManagerInstance()
 bool HaveProxim() { return GameVariable<void*>(0x006F2268) != nullptr; }
 bool HaveEmitters() { return GameVariable<void*>(0x006F2260) != nullptr; }
 
-void AddLight(Script::CStruct* node) { GameFunction<void(__cdecl*)(Script::CStruct*)>(0x00490570)(node); }
-void RemoveLight(uint32_t name) { GameFunction<void(__cdecl*)(uint32_t)>(0x0048FCA0)(name); }
+void AddLight(Script::CStruct* node) { Nx::CreateLightFromNode(node); }
+void RemoveLight(uint32_t name) { Nx::DeleteSceneLight(name); }
 
 void Forget();
 

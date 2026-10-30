@@ -98,7 +98,7 @@ void StandInGameCalls(StandIns& s)
         Record({0xB680, r.ecx == reinterpret_cast<uint32_t>(g_profileManager), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx == reinterpret_cast<uint32_t>(g_skate), r.args[0]});
         return Profile(1);
     });
@@ -146,7 +146,7 @@ void StandInGameCalls(StandIns& s)
         Record({0xE4F0, r.ecx == reinterpret_cast<uint32_t>(g_netManager)});
         return g_inNetGame ? 1u : 0u;
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx == reinterpret_cast<uint32_t>(g_skate)});
         return g_localSkater < 8 ? reinterpret_cast<uint32_t>(g_skaters[g_localSkater]) : 0u;
     });

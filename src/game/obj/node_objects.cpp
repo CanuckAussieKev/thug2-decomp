@@ -8,6 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/viewport_list.h"
 #include "game/obj/bbox_component.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/lock_obj.h"
@@ -84,7 +85,7 @@ void SwitchToNodeScript(CCompositeObject* object, Script::CStruct* params)
 }
 
 // Whether a viewport is looking through `camera` (not rewritten yet).
-bool IsCameraInUse(Gfx::Camera* camera) { return GameFunction<bool(__cdecl*)(Gfx::Camera*)>(0x004A0720)(camera); }
+bool IsCameraInUse(Gfx::Camera* camera) { return Nx::MarkCameraForDeletion(camera); }
 
 void** MovieDetailsVtable() { return reinterpret_cast<void**>(0x00647A4C); }
 void** NodeVtable() { return reinterpret_cast<void**>(0x00647A48); }

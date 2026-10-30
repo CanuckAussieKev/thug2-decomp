@@ -10,6 +10,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/boned_anim_frame_data.h"
 #include "game/gfx/camera.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
@@ -49,9 +50,9 @@ void* FindAsset(uint32_t name) { return GameVariable<Ass::CAssMan*>(0x006918DC)-
 void StartMovie(CMovie* movie) { reinterpret_cast<bool(__thiscall*)(CMovie*)>(movie->Vtable()[3])(movie); }
 
 // The timeline's code: constructor / destructor body, complete, PlayAnim (slot 3), Update (slot 2).
-void ConstructTimeline(CAnimTimeline* t) { GameFunction<void*(__thiscall*)(CAnimTimeline*)>(0x00481650)(t); }
-void DestroyTimeline(CAnimTimeline* t) { GameFunction<void(__thiscall*)(CAnimTimeline*)>(0x00481690)(t); }
-bool IsComplete(CAnimTimeline* t) { return GameFunction<bool(__thiscall*)(CAnimTimeline*)>(0x004813F0)(t); }
+void ConstructTimeline(CAnimTimeline* t) { t->Construct(); }
+void DestroyTimeline(CAnimTimeline* t) { t->DestroyBody(); }
+bool IsComplete(CAnimTimeline* t) { return t->IsComplete(); }
 void PlayAnim(CAnimTimeline* t, uint32_t anim, float start, float end, int loopType, float blend, float speed)
 {
     reinterpret_cast<void(__thiscall*)(CAnimTimeline*, uint32_t, float, float, int, float, float)>(t->m_vtable[3])(
@@ -60,10 +61,10 @@ void PlayAnim(CAnimTimeline* t, uint32_t anim, float start, float end, int loopT
 void UpdateTimeline(CAnimTimeline* t) { reinterpret_cast<void(__thiscall*)(CAnimTimeline*)>(t->m_vtable[2])(t); }
 
 // The animation asset's code: started (0x00482F10); told a step from one time to another (0x00482F40).
-void StartAsset(void* anim) { GameFunction<void(__thiscall*)(void*)>(0x00482F10)(anim); }
+void StartAsset(void* anim) { static_cast<Gfx::CBonedAnimFrameData*>(anim)->ArmEvents(); }
 void StepAsset(void* anim, float from, float to, Gfx::Camera* camera, bool first)
 {
-    GameFunction<void(__thiscall*)(void*, float, float, Gfx::Camera*, bool)>(0x00482F40)(anim, from, to, camera, first);
+    static_cast<Gfx::CBonedAnimFrameData*>(anim)->FireEvents(from, to, camera, first);
 }
 
 float SecondsPerFrame() { return GameVariable<float>(0x006463B8); } // 1/60
@@ -333,8 +334,7 @@ void CCameraAnimMovie::PlaceCamera()
         float quat[4] = {0.0f, 0.0f, 0.0f, 1.0f};
         float at[4];
         bool flag = false;
-        GameFunction<void(__thiscall*)(void*, float*, float*, bool*, float, int)>(0x004844C0)(m_anim, quat, at, &flag,
-                                                                                            m_timeline.m_current, 0);
+        static_cast<Gfx::CBonedAnimFrameData*>(m_anim)->GetFloatKeyPose(quat, at, &flag, m_timeline.m_current, 0);
         for (int i = 0; i < 4; ++i)
             pos[i] = at[i];
         float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -365,7 +365,7 @@ void CCameraAnimMovie::PlaceCamera()
             frame[13] = target[1];
             frame[14] = target[2];
             frame[15] = 1.0f;
-            GameFunction<void*(__thiscall*)(float*, const float*)>(0x0048A260)(frame, offset); // TranslateLocal
+            reinterpret_cast<Mth::Matrix*>(frame)->TranslateLocal(*reinterpret_cast<const Mth::Vector*>(offset));
         };
         if (m_targetOffsetSet) {
             moved(m_targetOffset);
@@ -443,10 +443,9 @@ void CObjectAnimMovie::Update()
     }
     auto* positions = static_cast<float*>(Mem::New(Field<int>(m_anim, 8) * 16));
     auto* flags = static_cast<bool*>(Mem::New(Field<int>(m_anim, 8)));
-    GameFunction<void(__thiscall*)(void*, float*, float*, bool*, float, int)>(0x004844C0)(m_anim, quats, positions, flags,
-                                                                                        m_timeline.m_current, 0);
+    static_cast<Gfx::CBonedAnimFrameData*>(m_anim)->GetFloatKeyPose(quats, positions, flags, m_timeline.m_current, 0);
     for (int i = 0; i < Field<int>(m_anim, 8); ++i) {
-        uint32_t name = GameFunction<uint32_t(__thiscall*)(void*, int)>(0x00482F00)(m_anim, i);
+        uint32_t name = static_cast<Gfx::CBonedAnimFrameData*>(m_anim)->GetBoneName(i);
         uint8_t* object = reinterpret_cast<uint8_t*>(Obj::FindObject(name));
         if (!object) {
             Dbg::Printf(reinterpret_cast<const char*>(0x0064F058), Script::FindChecksumNameOrUnknown(name));

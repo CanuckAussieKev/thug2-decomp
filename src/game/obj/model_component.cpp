@@ -8,6 +8,9 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/model.h"
 #include "game/mth/matrix.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
@@ -53,40 +56,41 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 // Nx::CModel (not rewritten yet): hide it (0x00494B70), a geom hidden or shown (0x00494800), its texture `src`
 // replaced (0x00493E80), geom `index` (0x00494640), the bone volumes (0x00492FC0) and a line tested against them
 // (0x004939E0), and its lights (+0x2C, the folded getter 0x00532EB0).
-void ModelHide(Nx::CModel* model, bool hide) { GameFunction<void(__thiscall*)(Nx::CModel*, bool)>(0x00494B70)(model, hide); }
+void ModelHide(Nx::CModel* model, bool hide) { model->Hide(hide); }
 void ModelHideGeom(Nx::CModel* model, uint32_t name, bool hide)
 {
-    GameFunction<void(__thiscall*)(Nx::CModel*, uint32_t, bool)>(0x00494800)(model, name, hide);
+    model->HideGeom(name, hide);
 }
 bool ModelReplaceTexture(Nx::CModel* model, uint32_t mesh, const char* src, const char* dest)
 {
-    return GameFunction<bool(__thiscall*)(Nx::CModel*, uint32_t, const char*, const char*)>(0x00493E80)(model, mesh,
-                                                                                                        src, dest);
+    return model->ReplaceTextureWith(mesh, src, reinterpret_cast<uint32_t>(dest));
 }
 void** ModelGeom(Nx::CModel* model, int index)
 {
-    return GameFunction<void**(__thiscall*)(Nx::CModel*, int)>(0x00494640)(model, index);
+    return static_cast<void**>(model->GetGeom(index));
 }
-void* ModelBoneVolumes(Nx::CModel* model) { return GameFunction<void*(__thiscall*)(Nx::CModel*)>(0x00492FC0)(model); }
+void* ModelBoneVolumes(Nx::CModel* model) { return model->GetBoneVolumes(); }
 int ModelTestCollision(Nx::CModel* model, Mth::Vector* line, void* skeleton, Mth::Matrix* matrix, uint32_t a,
                        uint32_t b, uint32_t c, uint32_t d)
 {
-    return GameFunction<int(__thiscall*)(Nx::CModel*, Mth::Vector*, void*, Mth::Matrix*, uint32_t, uint32_t, uint32_t,
-                                         uint32_t)>(0x004939E0)(model, line, skeleton, matrix, a, b, c, d);
+    // (the original's seven stack arguments: the line, skeleton and matrix pointers, then a, b, c and d - the extra
+    // result's pointer)
+    return model->TestBoneVolumes(reinterpret_cast<uint32_t>(line), reinterpret_cast<uint32_t>(skeleton),
+                                  reinterpret_cast<uint32_t>(matrix), a, b, c, reinterpret_cast<uint32_t*>(d));
 }
 void* ModelLights(Nx::CModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
 // The model's lights (not rewritten yet): their brightness from the level's (0x0048E660), set at once (0x0048E8A0)
 // or lerped towards (0x0048E830); without model lights, the global brightness (0x0048EDB0).
-void LightsUpdateBrightness(void* lights) { GameFunction<void(__thiscall*)(void*)>(0x0048E660)(lights); }
+void LightsUpdateBrightness(void* lights) { static_cast<Nx::CModelLights*>(lights)->UpdateBrightness(); }
 void LightsSetBrightness(void* lights, float brightness)
 {
-    GameFunction<bool(__thiscall*)(void*, float)>(0x0048E8A0)(lights, brightness);
+    static_cast<Nx::CModelLights*>(lights)->SetBrightness(brightness);
 }
 void LightsLerpBrightness(void* lights, float brightness, float rate)
 {
-    GameFunction<bool(__thiscall*)(void*, float, float)>(0x0048E830)(lights, brightness, rate);
+    static_cast<Nx::CModelLights*>(lights)->MoveBrightness(brightness, rate);
 }
-void SetGlobalBrightness(float brightness) { GameFunction<bool(__cdecl*)(float)>(0x0048EDB0)(brightness); }
+void SetGlobalBrightness(float brightness) { Nx::SetWorldBrightness(brightness); }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
 void* SkeletonOf(CBaseComponent* component)

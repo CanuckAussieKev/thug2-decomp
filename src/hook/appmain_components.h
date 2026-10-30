@@ -28,6 +28,10 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
+#include "game/gfx/engine_shadows.h"
+#include "game/skate/skate_module.h"
+#include "game/obj/editor_camera.h"
 #include "hook/appmain_testkit.h"
 #include "hook/standins.h"
 
@@ -170,7 +174,7 @@ inline void StandInComponentWorld(StandIns& s)
         Record({0xDB90, WorldRelocate(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(g_answers.component(r.args[0]));
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, WorldRelocate(r.ecx)});
         return reinterpret_cast<uint32_t>(g_world.skater);
     });
@@ -300,7 +304,11 @@ inline void StandInComponentWorld(StandIns& s)
         return 0u;
     });
     auto collide = [](uint8_t* feeler, uint32_t a, uint32_t b) {
-        Record({0x72F0, HashFloats(feeler, 8), a, b, *reinterpret_cast<uint32_t*>(feeler + 0x20)});
+        // (the callback: ours stores its own FlagScriptedHit's address where the original stores 0x004E5320)
+        uint32_t callback = *reinterpret_cast<uint32_t*>(feeler + 0x20);
+        if (callback == reinterpret_cast<uint32_t>(&Obj::FlagScriptedHit) || callback == AddressOf(Obj::FlagScriptedHit))
+            callback = 0x004E5320;
+        Record({0x72F0, HashFloats(feeler, 8), a, b, callback});
         bool hit = g_answers.collide(feeler);
         Record({hit, HashBytes(feeler + 0x58, 0x40)});
         return static_cast<uint32_t>(hit);
@@ -362,18 +370,18 @@ inline void StandInComponentWorld(StandIns& s)
                 HashFloats(reinterpret_cast<void*>(r.args[1]), 16), r.args[2], r.args[3], r.args[4], r.args[5]});
         return 0u;
     });
-    s.At({0x004A1750}, 0, [](Regs& r) {
+    s.At({0x004A1750, AddressOf(&Nx::CSimpleShadow::Construct)}, 0, [](Regs& r) {
         Record({0x1750, WorldRelocate(r.ecx)});
         *reinterpret_cast<void***>(r.ecx) = g_world.shadowVtable;
         return r.ecx;
     });
-    s.At({0x004A17E0}, 4, [](Regs& r) {
+    s.At({0x004A17E0, AddressOf(&Nx::CSimpleShadow::SetModel)}, 4, [](Regs& r) {
         Record({0x17E0, WorldRelocate(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });
     // The park editor's rail editor, a pad button taken.
-    s.At({0x004F4970}, 0, [](Regs&) { Record({0x4970}); return 0x4A1E0000u; });
-    s.At({0x004F3D30}, 4, [](Regs& r) { Record({0x3D30, r.ecx, r.args[0]}); return 0u; });
+    s.At({0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { Record({0x4970}); return 0x4A1E0000u; });
+    s.At({0x004F3D30, AddressOf(&Ed::CRailEditorComponent::SetActive)}, 4, [](Regs& r) { Record({0x3D30, r.ecx, r.args[0]}); return 0u; });
     s.At({0x0046B7E0, AddressOf(&Obj::CControlButton::ClearTrigger)}, 0, [](Regs& r) { Record({0xB7E0, WorldRelocate(r.ecx)}); return 0u; });
     // The script cache and nodes.
     s.At({0x00475E80, AddressOf(&Script::CScriptCache::GetScript)}, 4, [](Regs& r) {

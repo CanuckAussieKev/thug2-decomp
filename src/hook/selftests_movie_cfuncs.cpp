@@ -18,6 +18,7 @@
 #include "game/obj/movie_manager.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
+#include "game/gfx/flexible_particle_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -105,7 +106,7 @@ void StandInMovieCalls(StandIns& s)
         Record({0x65C0, r.ecx, r.args[0]});
         return r.args[0] < 3 ? reinterpret_cast<uint32_t>(g_skaters[r.args[0]]) : 0u;
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return Answer(0x00566520);
     });
@@ -121,7 +122,7 @@ void StandInMovieCalls(StandIns& s)
         Record({0x7EC0, r.ecx, r.args[0], Hash(reinterpret_cast<const char*>(r.args[1])), r.args[2]});
         return Answer(0x00407EC0);
     });
-    s.At({0x0049A8E0}, 0, [](Regs& r) {
+    s.At({0x0049A8E0, AddressOf(&Nx::CFlexibleParticleManager::HasTempHeap)}, 0, [](Regs& r) {
         Record({0xA8E0, r.ecx});
         return Answer(0x0049A8E0);
     });

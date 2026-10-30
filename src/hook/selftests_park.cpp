@@ -27,6 +27,8 @@
 #include "game/obj/smtptr.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -212,7 +214,7 @@ void StandInGame(StandIns& s)
     Rec(s, {0x00590160, AddressOf(&Ed::CParkEditor::Create)}, 0, 1, 0, [](Regs&) { return U(g_world.editor); }, true);
     Rec(s, {0x0058D6D0, AddressOf(&Ed::CParkEditor::MainHeapHasRoom)}, 8, 2);
     Rec(s, {0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, 0, 0, 0, nullptr, true);
-    Rec(s, {0x004F4970}, 0, 0, 0, [](Regs&) { return U(g_world.rails); }, true);
+    Rec(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, 0, 0, [](Regs&) { return U(g_world.rails); }, true);
     Rec(s, {0x004F4690}, 0x10, 4);
     Rec(s, {0x004F6BF0}, 0, 0);
     Rec(s, {0x0059E180}, 0, 0, 0, [](Regs&) { return 0x4EA90000u; }, true);
@@ -299,7 +301,7 @@ void StandInGame(StandIns& s)
     // the map, the structures, the files
     Rec(s, {0x004E8470}, 0, 0, 0, [](Regs&) { return U(g_world.goalEditor); }, true);
     Rec(s, {0x004E8280}, 0, 0);
-    Rec(s, {0x004EA470}, 8, 2);
+    Rec(s, {0x004EA470, AddressOf(&Ed::CGoalEditorComponent::ReadGoals)}, 8, 2);
     Rec(s, {0x004F7ED0}, 4, 1, 0, [](Regs&) {
         Record({GameVariable<uint8_t>(0x0067F000)});
         return 0u;

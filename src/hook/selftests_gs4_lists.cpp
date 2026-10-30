@@ -23,6 +23,8 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_score_cfuncs.h"
+#include "game/obj/pager_message.h"
+#include "game/skate/game_mode.h"
 #include "hook/gs4_testkit.h"
 
 namespace {
@@ -166,7 +168,7 @@ void StandInListCalls(StandIns& s)
         Record({0x5790, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, r.args[4]});
         return 0u;
     });
-    s.At({0x004ECC30}, 12, [](Regs& r) { // std::list::erase(first, last)
+    s.At({0x004ECC30, AddressOf(&Obj::PointerList::Erase)}, 12, [](Regs& r) { // std::list::erase(first, last)
         Record({0xCC30, r.ecx, HeapId(r.args[1]), HeapId(r.args[2])});
         auto* list = reinterpret_cast<CFuncs::PointerList*>(r.ecx);
         list->m_head->next = list->m_head;
@@ -261,7 +263,7 @@ void StandInListCalls(StandIns& s)
             return 0u;
         });
     }
-    s.At({0x005532A0}, 0, [](Regs&) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs&) {
         Record({0x32A0});
         return g_lModeName;
     });

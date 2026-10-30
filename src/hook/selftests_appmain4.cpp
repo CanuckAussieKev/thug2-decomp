@@ -14,6 +14,7 @@
 #include "game/core/manager.h"
 #include "game/gfx/mesh_list.h"
 #include "game/lst/hashtable.h"
+#include "game/gfx/mesh.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -70,7 +71,7 @@ void StandInBuffers(StandIns& s)
         Record({0x3BC0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_world.bufferObjects[g_nextBuffer % 40]);
     });
-    s.At({0x004D4270}, 12, [](Regs& r) {
+    s.At({0x004D4270, AddressOf(&Nx::sIndexBuffer::Construct)}, 12, [](Regs& r) {
         Record({0x4270, WorldRelocate(r.ecx), r.args[0], r.args[1], r.args[2]});
         int index = g_nextBuffer++ % 40;
         std::memset(g_world.buffers[index], 0xEE, sizeof(g_world.buffers[index]));

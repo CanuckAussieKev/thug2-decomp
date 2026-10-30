@@ -24,6 +24,9 @@
 #include "game/obj/objman.h"
 #include "game/script/nodes.h"
 #include "game/skater/trick_lists.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
+#include "game/gfx/skeleton.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -124,16 +127,16 @@ void Install(StandIns& s)
         Rec(0x0480, {r.ecx});
         return 0u;
     });
-    s.At({0x004879D0}, 0, [](Regs& r) {
+    s.At({0x004879D0, AddressOf(Gfx::MakeModelPath)}, 0, [](Regs& r) {
         Rec(0x79D0, {Text(r.args[1]), Text(r.args[2])});
         new (reinterpret_cast<void*>(r.args[0])) Str::String("models/crown/crown.mdl");
         return r.args[0];
     });
-    s.At({0x004935E0}, 32, [](Regs& r) {
+    s.At({0x004935E0, AddressOf(&Nx::CModel::AddFileGeom)}, 32, [](Regs& r) {
         Rec(0x35E0, {r.ecx, Text(r.args[0]), r.args[1], r.args[2], r.args[3], r.args[4], r.args[5], r.args[6], r.args[7]});
         return 0u;
     });
-    s.At({0x00493C60}, 4, [](Regs& r) {
+    s.At({0x00493C60, AddressOf(&Nx::CModel::SetActive)}, 4, [](Regs& r) {
         Rec(0x3C60, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -142,7 +145,7 @@ void Install(StandIns& s)
         Rec(0x80F0, {r.ecx});
         return At(kComponents + 0x700);
     });
-    s.At({0x004A36E0}, 8, [](Regs& r) {
+    s.At({0x004A36E0, AddressOf(&Gfx::CSkeleton::GetBoneMatrix)}, 8, [](Regs& r) {
         Rec(0x36E0, {r.ecx, r.args[0], r.args[1]});
         auto* m = reinterpret_cast<float*>(r.args[1]);
         for (int i = 0; i < 16; ++i)

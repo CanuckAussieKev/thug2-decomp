@@ -6,6 +6,16 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/bone_volumes.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_appearance.h"
+#include "game/gfx/model_builder.h"
+#include "game/gfx/model_utils.h"
+#include "game/gfx/skeleton.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/model_component.h"
@@ -66,41 +76,31 @@ void* SkeletonData(void* skeleton) { return *reinterpret_cast<void**>(static_cas
 // taken away (0x00493C10), bone volumes (0x00492FC0 / 0x00492F90), placed (0x00493090) and its skinning updated
 // (0x00493410).
 Nx::CModel* NewModel(int arg) { return GameFunction<Nx::CModel*(__cdecl*)(int)>(0x0048BFA0)(arg); }
-void DeleteModel(Nx::CModel* model) { GameFunction<void(__cdecl*)(Nx::CModel*)>(0x0048C3C0)(model); }
-template <typename R, typename... A>
-R ModelCall(uint32_t address, Nx::CModel* model, A... args)
-{
-    return GameFunction<R(__thiscall*)(Nx::CModel*, A...)>(address)(model, args...);
-}
-template <typename R, typename... A>
-R ThisCall(uint32_t address, void* object, A... args)
-{
-    return GameFunction<R(__thiscall*)(void*, A...)>(address)(object, args...);
-}
+void DeleteModel(Nx::CModel* model) { Nx::Engine::DeleteGeomObject(model); }
 void* ModelLights(Nx::CModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
-void* CloneModelGeom(void* geom, Nx::CModel* to) { return ThisCall<void*>(0x0048DDC0, geom, 1, to); }
-void* CloneSectorGeom(void* geom) { return ThisCall<void*>(0x0048DD80, geom, 1, 0); }
-void ActivateGeom(void* geom) { ThisCall<void>(0x0048DE60, geom, 1); }
-void AddGeom(Nx::CModel* model, void* geom, uint32_t name) { ModelCall<void>(0x004938E0, model, geom, name, 1); }
+void* CloneModelGeom(void* geom, Nx::CModel* to) { return static_cast<Nx::CGeom*>(geom)->CloneForModel(1, to); }
+void* CloneSectorGeom(void* geom) { return static_cast<Nx::CGeom*>(geom)->Clone(1, nullptr); }
+void ActivateGeom(void* geom) { GameFunction<void(__thiscall*)(void*, int)>(0x0048DE60)(geom, 1); }
+void AddGeom(Nx::CModel* model, void* geom, uint32_t name) { model->AddGeom(geom, name, true); }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any).
 bool GetScale(Mth::Vector* scale, Script::CStruct* params)
 {
-    return GameFunction<bool(__cdecl*)(Mth::Vector*, Script::CStruct*)>(0x00487B00)(scale, params);
+    return Gfx::GetScaleFromParams(scale, params);
 }
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
-void* GetSector(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+void* GetSector(uint32_t name) { return Nx::Engine::GetSector(name); }
 void* SectorGeom(void* sector) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(sector) + 0x14); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void ModelFileName(const char* name, const char* ext, char* out)
 {
-    GameFunction<void(__cdecl*)(const char*, const char*, char*)>(0x00487A70)(name, ext, out);
+    Gfx::MakeModelFileName(name, ext, out);
 }
 // The model's lights' brightness (0x0048E660).
-void UpdateLightsBrightness(void* lights) { GameFunction<void(__thiscall*)(void*)>(0x0048E660)(lights); }
+void UpdateLightsBrightness(void* lights) { static_cast<Nx::CModelLights*>(lights)->UpdateBrightness(); }
 
 // Shared bone volumes (0x0C bytes: the volumes, their count, users), by skeleton name (0x0048B3C0); made (0x0048B350),
 // sized and registered (0x0048BEA0), filled from the skeleton's data (0x0048B430).
-void* FindBoneVolumes(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048B3C0)(name); }
+void* FindBoneVolumes(uint32_t name) { return Gfx::FindBoneVolumes(name); }
 
 // The model builder Gfx (an Obj::CObject, vtable 0x00648920, 0x54 bytes, constructor 0x004897D0: use the asset
 // manager, the texture dictionary offset) that builds a model from a profile with a build script (0x0048A2F0); its
@@ -168,21 +168,21 @@ void CModelComponent::InitFromStructure(Script::CStruct* params)
 {
     if (params->ContainsFlag(kUseModelLights)) {
         if (!ModelLights(mp_model)) {
-            ModelCall<void>(0x00493BD0, mp_model);
+            mp_model->CreateLights();
             void* lights = ModelLights(mp_model);
-            ThisCall<void>(0x0048E4D0, lights, &m_object->m_pos);
+            static_cast<Nx::CModelLights*>(lights)->SetPositionPointer(&m_object->m_pos);
             int count = 1;
             params->GetInteger(kMaxSceneLights, &count, 0);
             *reinterpret_cast<int*>(static_cast<uint8_t*>(lights) + 4) = count; // (0x00407700)
         }
     } else if (ModelLights(mp_model)) {
-        ModelCall<void>(0x00493C10, mp_model);
+        mp_model->DestroyLights();
     }
     if (CBaseComponent* skeleton = m_object->GetComponent(kSkeleton))
-        ModelCall<void>(0x00492DD0, mp_model, SkeletonOf(skeleton));
+        mp_model->SetSkeleton(reinterpret_cast<uint8_t*>(SkeletonOf(skeleton)));
     int shadow = 0;
     params->GetInteger(kShadowVolume, &shadow, 0);
-    ModelCall<void>(0x00492E90, mp_model, shadow != 0);
+    mp_model->EnableShadowVolume(shadow != 0);
     InitModel(params);
 }
 
@@ -197,8 +197,8 @@ void CModelComponent::Update()
         Nx::CModel* model = static_cast<CModelComponent*>(source->GetComponent(kModel))->mp_model;
         CBaseComponent* skeleton = object->GetComponent(kSkeleton);
         GetDisplayMatrix(&matrix);
-        ModelCall<void>(0x00493090, model, &matrix, false, SkeletonOf(skeleton));
-        ModelCall<void>(0x00493410, model, SkeletonOf(skeleton));
+        model->Render(&matrix, false, reinterpret_cast<uint8_t*>(SkeletonOf(skeleton)));
+        model->CopyBones(reinterpret_cast<uint8_t*>(SkeletonOf(skeleton)));
         return;
     }
     uint8_t modelFlags = mp_model ? reinterpret_cast<uint8_t*>(mp_model)[0x44] : 0;
@@ -209,7 +209,7 @@ void CModelComponent::Update()
     bool ready = mp_skeleton != nullptr;
     if (mp_animBlender)
         ready = static_cast<CAnimBlenderComponent*>(mp_animBlender)->ModelReady();
-    ModelCall<void>(0x00493090, mp_model, &matrix, !ready, skeleton);
+    mp_model->Render(&matrix, !ready, reinterpret_cast<uint8_t*>(skeleton));
 }
 
 // 0x00420480
@@ -230,7 +230,7 @@ void CModelComponent::SetModel(Nx::CModel* model)
             UpdateLightsBrightness(ModelLights(mp_model));
     }
     Mth::Vector sphere;
-    m_boundingSphere = *ModelCall<Mth::Vector*>(0x00492F30, model, &sphere);
+    m_boundingSphere = *model->GetBoundingSphere(&sphere);
 }
 
 // 0x00421230
@@ -242,15 +242,15 @@ void CModelComponent::InitModelFromProfile(void* profile, bool useAssetManager, 
     if (CBaseComponent* component = m_object->GetComponent(kSkeleton))
         skeleton = SkeletonOf(component);
     ModelBuilder builder;
-    ThisCall<void*>(0x004897D0, &builder, useAssetManager, texDictOffset);
-    ThisCall<void>(0x0048A2F0, &builder, profile, model, skeleton, buildScript ? buildScript : kDefaultBuildScript);
+    reinterpret_cast<Gfx::CModelBuilder*>(&builder)->Construct(useAssetManager, texDictOffset);
+    reinterpret_cast<Gfx::CModelBuilder*>(&builder)->Build(static_cast<Gfx::CModelAppearance*>(profile), model, static_cast<Gfx::CSkeleton*>(skeleton), buildScript ? buildScript : kDefaultBuildScript);
     if (m_object->m_compositeFlags & COMPOSITE_FLAG_FINALIZED) {
         CBaseComponent::Update();
         if (mp_model && ModelLights(mp_model))
             UpdateLightsBrightness(ModelLights(mp_model));
     }
     Mth::Vector sphere;
-    m_boundingSphere = *ModelCall<Mth::Vector*>(0x00492F30, model, &sphere);
+    m_boundingSphere = *model->GetBoundingSphere(&sphere);
     if (Script::GetInteger(kBoneVolumesOn))
         InitBoneVolumes();
     reinterpret_cast<CObject*>(&builder)->DestroyBody();
@@ -279,7 +279,7 @@ void CModelComponent::InitBoneVolumes()
         if (!mp_skeleton)
             return;
     }
-    if (ModelCall<void*>(0x00492FC0, mp_model))
+    if (mp_model->GetBoneVolumes())
         return;
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->GetNamedHeap(kBoneVolumeHeap, 1));
@@ -292,21 +292,21 @@ void CModelComponent::InitBoneVolumes()
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
         void* made = Mem::New(0x0C);
         if (made)
-            made = ThisCall<void*>(0x0048B350, made, 0);
-        ThisCall<void>(0x0048BEA0, made, SkeletonName(skeleton));
-        ThisCall<void>(0x0048B430, made, data);
+            made = static_cast<Gfx::CBoneVolumes*>(made)->Construct(0);
+        static_cast<Gfx::CBoneVolumes*>(made)->Register(SkeletonName(skeleton));
+        static_cast<Gfx::CBoneVolumes*>(made)->Fill(static_cast<Gfx::CSkeletonData*>(data));
     }
-    ModelCall<void>(0x00492F90, mp_model, volumes);
+    mp_model->SetBoneVolumes(reinterpret_cast<uint8_t*>(volumes));
     Mem::Manager::Get()->PopContext();
 }
 
 // 0x00420D10
 void CModelComponent::InitModel(Script::CStruct* params)
 {
-    ModelCall<void>(0x00494BA0, mp_model);
+    mp_model->ClearGeoms();
     Mth::Vector scale = {1.0f, 1.0f, 1.0f, 1.0f};
     if (GetScale(&scale, params))
-        ModelCall<void>(0x00492EE0, mp_model, &scale);
+        mp_model->SetScale(&scale);
     uint32_t type = 0;
     params->GetChecksum(kClass, &type, 0);
     if (type == kLevelObject) {
@@ -323,11 +323,11 @@ void CModelComponent::InitModel(Script::CStruct* params)
             // A level object's model: its sector's (Update follows it).
             m_refObjectName = name;
             m_levelObject = true;
-            ModelCall<void>(0x00492E10, mp_model, 6);
+            mp_model->SetDisplayMode(6);
         } else if (params->GetChecksum(kAssetName, &name, 0)) {
             int multicolor = 0;
             params->GetInteger(kMulticolor, &multicolor, 0);
-            ModelCall<bool>(0x004934A0, mp_model, name, 0, multicolor != 0, 1);
+            mp_model->AddAssetGeom(name, 0, multicolor != 0, 1);
         } else if (params->GetChecksum(kCloneFrom, &name, 0)) {
             // Another object's model's geoms cloned (and its colour values).
             auto* object = static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(name));
@@ -338,7 +338,7 @@ void CModelComponent::InitModel(Script::CStruct* params)
             uint32_t geomName = 0;
             Script::CArray* geoms;
             if (params->GetChecksum(kGeom, &geomName, 0)) {
-                void* geom = ModelCall<void*>(0x00493CD0, source->mp_model, geomName);
+                void* geom = source->mp_model->GetGeomByName(geomName);
                 if (!geom)
                     return; // (nothing after it either)
                 void* clone = CloneModelGeom(geom, mp_model);
@@ -349,7 +349,7 @@ void CModelComponent::InitModel(Script::CStruct* params)
                     geomName = geoms->GetElement(i);
                     if (!geomName)
                         continue;
-                    void* geom = ModelCall<void*>(0x00493CD0, source->mp_model, geomName);
+                    void* geom = source->mp_model->GetGeomByName(geomName);
                     if (!geom)
                         return;
                     void* clone = CloneModelGeom(geom, mp_model);
@@ -357,10 +357,10 @@ void CModelComponent::InitModel(Script::CStruct* params)
                     AddGeom(mp_model, clone, geomName);
                 }
             } else {
-                for (int i = 0; i < ModelCall<int>(0x00492E40, source->mp_model); ++i) {
-                    void* clone = CloneModelGeom(ModelCall<void*>(0x00494640, source->mp_model, i), mp_model);
+                for (int i = 0; i < source->mp_model->GetNumGeoms(); ++i) {
+                    void* clone = CloneModelGeom(source->mp_model->GetGeom(i), mp_model);
                     ActivateGeom(clone);
-                    AddGeom(mp_model, clone, ModelCall<uint32_t>(0x00494680, source->mp_model, i));
+                    AddGeom(mp_model, clone, source->mp_model->GetGeomName(i));
                 }
             }
         } else {
@@ -376,11 +376,10 @@ void CModelComponent::InitModel(Script::CStruct* params)
                         ModelFileName(file, ".mdl", path);
                     Str::LowerCase(path);
                     bool allowReplace = params->ContainsFlag(kAllowReplaceTex);
-                    ModelCall<bool>(0x004935E0, mp_model, static_cast<const char*>(path), 0, useAssetManager != 0,
-                                    texDictOffset, allowReplace, 0, 1, 0);
+                    mp_model->AddFileGeom(static_cast<const char*>(path), 0, useAssetManager != 0, texDictOffset, allowReplace, 0, 1, 0);
                 }
             } else if (params->GetChecksum(kAsset, &name, 0)) {
-                ModelCall<bool>(0x004934A0, mp_model, name, 0, 0, 1);
+                mp_model->AddAssetGeom(name, 0, 0, 1);
             } else if (params->GetChecksum(kModel, &name, 0)) {
                 // A level sector's geometry as the model.
                 void* clone = CloneSectorGeom(SectorGeom(GetSector(name)));
@@ -395,7 +394,7 @@ void CModelComponent::InitModel(Script::CStruct* params)
             UpdateLightsBrightness(ModelLights(mp_model));
     }
     Mth::Vector sphere;
-    m_boundingSphere = *ModelCall<Mth::Vector*>(0x00492F30, mp_model, &sphere);
+    m_boundingSphere = *mp_model->GetBoundingSphere(&sphere);
     if (Script::GetInteger(kBoneVolumesOn))
         InitBoneVolumes();
 }

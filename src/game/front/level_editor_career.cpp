@@ -7,6 +7,7 @@
 #include "game/front/level_editor_triggers.h"
 #include "game/mth/vector.h"
 #include "game/skate/gap_checklist.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -42,7 +43,7 @@ Checklist g_baseline;
 Game::CGapChecklist* CurrentChecklist()
 {
     void* skate = GameVariable<void*>(0x007CE478);
-    return skate ? GameFunction<Game::CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(skate) : nullptr;
+    return skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
 }
 
 int Landed(const Checklist& list)

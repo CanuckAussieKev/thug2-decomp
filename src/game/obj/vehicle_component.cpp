@@ -5,6 +5,10 @@
 // where it stays on the stack, rounded to float where it is stored.
 
 #include "game/obj/vehicle_component.h"
+#include "game/gfx/model.h"
+#include "game/gfx/skeleton.h"
+#include "game/gfx/viewport.h"
+#include "game/skate/skate_module.h"
 
 #include <bit>
 #include <cmath>
@@ -388,18 +392,18 @@ void ReadWheel(CVehicleComponent::Wheel* wheel, Script::CStruct* params)
 // The skate module's local skater (0x00566520) and a restart node's name (0x00566100).
 CCompositeObject* LocalSkater()
 {
-    return GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00566520)(GameVariable<void*>(0x007CE478));
+    return static_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
 }
 uint32_t SkateRestart(int index)
 {
-    return GameFunction<uint32_t(__thiscall*)(void*, int)>(0x00566100)(GameVariable<void*>(0x007CE478), index);
+    return Mdl::Skate::Instance()->SkipToRestartPoint(static_cast<uint32_t>(index));
 }
 // The model's geometry (0x00493040 on the model's +0x208): its matrix at +0x60, the wheels' places (z up) at +0xE0 +
 // 0x50 each.
 const uint8_t* ModelGeometry(CBaseComponent* model)
 {
     void* instance = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x208);
-    return GameFunction<const uint8_t*(__thiscall*)(void*)>(0x00493040)(instance);
+    return reinterpret_cast<const uint8_t*>(static_cast<Nx::CModel*>(instance)->GetAssetHierarchy());
 }
 const float* WheelPlace(const uint8_t* geometry, int i) { return reinterpret_cast<const float*>(geometry + 0xE0 + i * 0x50); }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
@@ -408,7 +412,7 @@ void* SkeletonOf(CBaseComponent* skeleton)
     return reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(skeleton)->Word18());
 }
 // The viewport's camera (0x004A09C0; null if none), its position (0x00485A00) and matrix (0x00485A10).
-void* ViewportCamera(int viewport) { return GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(viewport); }
+void* ViewportCamera(int viewport) { return Nx::GetActiveCamera(viewport); }
 // 0x0041A730 (not rewritten yet): the rotation of a node's angles.
 void MatrixFromAngles(Mth::Matrix* matrix, const Mth::Vector* angles)
 {

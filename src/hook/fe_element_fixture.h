@@ -20,6 +20,7 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/sys/timer.h"
+#include "game/gfx/viewport_list.h"
 #include "hook/fe_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -134,7 +135,7 @@ inline void InstallElementStandIns(StandIns& s, bool manager = true)
     });
     s.At({0x005BE970, AddressOf(&Tmr::GetTime)}, 0, [](Regs&) { return g_time; });
     // the camera's projection
-    s.At({0x004A06D0}, 0, [](Regs& r) {
+    s.At({0x004A06D0, AddressOf(Nx::GetActiveViewport)}, 0, [](Regs& r) {
         Rec(0x06D0, {r.args[0]});
         return At(kCamera);
     });

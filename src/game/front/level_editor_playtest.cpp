@@ -31,6 +31,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/gap_checklist.h"
+#include "game/skate/skate_module.h"
 #include "game/sys/mlp.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
@@ -441,7 +442,7 @@ uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); } // Mdl::Skate
 Game::CGapChecklist* Checklist()
 {
     uint8_t* skate = Skate();
-    return skate ? GameFunction<Game::CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(skate) : nullptr;
+    return skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
 }
 
 // The skater's state (the header's offsets).
@@ -722,7 +723,7 @@ void PauseSkaters()
          node = *reinterpret_cast<uint8_t**>(node + 0xC))
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* skater = GameFunction<void***(__thiscall*)(uint8_t*, uint32_t)>(0x005665C0)(skate, i);
+        auto* skater = reinterpret_cast<void***>(reinterpret_cast<Mdl::Skate*>(skate)->GetSkater(static_cast<int>(i)));
         if (skater)
             reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x2C / 4])(skater);
     }

@@ -24,6 +24,8 @@
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/sfx/sfx.h"
+#include "game/goals/goal_manager.h"
+#include "game/sys/game_config.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -197,9 +199,9 @@ void StandInCalls(StandIns& s)
     s.At({0x0047B000, AddressOf(&Sfx::UpdateVoiceStates)}, 0, [](Regs&) { Record({0xB000}); return 0u; });
     s.At({0x00450F70, AddressOf(&Pcm::PauseMusic)}, 0, [](Regs& r) { Record({0x0F70, r.args[0]}); return 0u; });
     s.At({0x00451010, AddressOf(&Pcm::PauseStream)}, 0, [](Regs& r) { Record({0x1010, r.args[0]}); return 0u; });
-    s.At({0x005591B0}, 0, [](Regs&) { Record({0x91B0}); return 0x60A10000u; });
-    s.At({0x0055C090}, 0, [](Regs& r) { Record({0xC090, r.ecx}); return 0u; });
-    s.At({0x005B5F10}, 0, [](Regs&) { Record({0x5F10}); return reinterpret_cast<uint32_t>("BASLUS-"); });
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return 0x60A10000u; });
+    s.At({0x0055C090, AddressOf(&Game::CGoalManager::LevelUnload)}, 0, [](Regs& r) { Record({0xC090, r.ecx}); return 0u; });
+    s.At({0x005B5F10, AddressOf(GameConfig::GetPathPrefix)}, 0, [](Regs&) { Record({0x5F10}); return reinterpret_cast<uint32_t>("BASLUS-"); });
     // the save helpers: original register entry points, ours by their C++ arguments
     s.At({0x005A79A0}, 0, [](Regs& r) { Record({0x79A0, Mark(r.ebx), r.args[0]}); return 0u; });
     s.At({AddressOf(&Mc::WriteSaveContents)}, 0, [](Regs& r) { Record({0x79A0, Mark(r.args[0]), r.args[1]}); return 0u; });

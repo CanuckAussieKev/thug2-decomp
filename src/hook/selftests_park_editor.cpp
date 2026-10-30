@@ -31,6 +31,8 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
+#include "game/skate/skate_module.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -213,13 +215,13 @@ void StandInGame(StandIns& s)
         Record({Text(r.args[0]), r.args[1], r.args[2]});
         return 0u;
     });
-    Rec(s, {0x005656C0}, 0, 0, 0, [](Regs&) { return U(g_world.checklist); });
+    Rec(s, {0x005656C0, AddressOf(&Mdl::Skate::GetGapChecklist)}, 0, 0, 0, [](Regs&) { return U(g_world.checklist); });
     Rec(s, {0x00578B30}, 4, 0, 0, [](Regs& r) {
         Record({Text(r.args[0])});
         return Next(0x00578B30);
     });
     RecC(s, {0x004E8470}, 0, [](Regs&) { return U(g_world.goalEditor); });
-    RecC(s, {0x004F4970}, 0, [](Regs&) { return U(g_world.railEditor); });
+    RecC(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { return U(g_world.railEditor); });
     Rec(s, {0x004E8420}, 4, 1);
     // the generator, pieces
     Rec(s, {0x005935F0}, 4, 1);

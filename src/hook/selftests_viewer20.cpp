@@ -14,6 +14,8 @@
 #include "game/obj/movie_manager.h"
 #include "game/obj/node_objects.h"
 #include "game/obj/trick_objects.h"
+#include "game/gfx/anim_controller.h"
+#include "game/gfx/boned_anim_frame_data.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -92,17 +94,17 @@ void Install(StandIns& s)
         return 7u;
     });
     // The timeline.
-    s.At({0x00481650}, 0, [](Regs& r) {
+    s.At({0x00481650, AddressOf(&Gfx::CAnimTimeline::Construct)}, 0, [](Regs& r) {
         Rec(0x1650, {r.ecx});
         *reinterpret_cast<void***>(r.ecx) = g_timelineVtable;
         reinterpret_cast<float*>(r.ecx)[6] = 2.0f;
         return r.ecx;
     });
-    s.At({0x00481690}, 0, [](Regs& r) {
+    s.At({0x00481690, AddressOf(&Gfx::CAnimTimeline::DestroyBody)}, 0, [](Regs& r) {
         Rec(0x1690, {r.ecx});
         return 0u;
     });
-    s.At({0x004813F0}, 0, [](Regs& r) {
+    s.At({0x004813F0, AddressOf(&Gfx::CAnimTimeline::IsComplete)}, 0, [](Regs& r) {
         Rec(0x13F0, {r.ecx});
         return g_complete ? 1u : 0u;
     });
@@ -116,11 +118,11 @@ void Install(StandIns& s)
         return 0u;
     });
     // The asset and the camera.
-    s.At({0x00482F10}, 0, [](Regs& r) {
+    s.At({0x00482F10, AddressOf(&Gfx::CBonedAnimFrameData::ArmEvents)}, 0, [](Regs& r) {
         Rec(0x2F10, {r.ecx});
         return 0u;
     });
-    s.At({0x00482F40}, 16, [](Regs& r) {
+    s.At({0x00482F40, AddressOf(&Gfx::CBonedAnimFrameData::FireEvents)}, 16, [](Regs& r) {
         Rec(0x2F40, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF});
         return 0u;
     });

@@ -2,6 +2,8 @@
 // CollisionMode and its model's (or its level sector's) collision, placed where the object is.
 
 #include "game/obj/collision_component.h"
+#include "game/gfx/model.h"
+#include "game/gfx/engine.h"
 
 #include "game/ass/assman.h"
 #include "game/core/manager.h"
@@ -32,7 +34,7 @@ constexpr uint32_t kName = 0xA1DC81F9;           // Name
 uint8_t* ModelOf(CBaseComponent* model) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208); }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
-uint8_t* GetSector(uint32_t name) { return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+uint8_t* GetSector(uint32_t name) { return static_cast<uint8_t*>(Nx::Engine::GetSector(name)); }
 Nx::CCollObj* SectorCollision(uint8_t* sector)
 {
     return reinterpret_cast<Nx::CCollObj*>(reinterpret_cast<GameNet::FoldedGetters*>(sector)->Word18());
@@ -40,7 +42,7 @@ Nx::CCollObj* SectorCollision(uint8_t* sector)
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).
-const uint8_t* BoneOf(uint8_t* model) { return GameFunction<const uint8_t*(__thiscall*)(uint8_t*)>(0x00493040)(model); }
+const uint8_t* BoneOf(uint8_t* model) { return reinterpret_cast<const uint8_t*>(reinterpret_cast<Nx::CModel*>(model)->GetAssetHierarchy()); }
 
 void D3dxMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {

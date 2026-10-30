@@ -2,6 +2,7 @@
 // 0x0041B280-0x0041B57F.
 
 #include "game/obj/color_cycle.h"
+#include "game/script/game_cfuncs.h"
 
 #include <cstdint>
 #include <cstring>
@@ -28,7 +29,7 @@ constexpr float kMilliseconds = 1000.0f; // 0x006453C0
 // SetObjectColor does.
 void SetObjectColor(uint32_t id, Script::CStruct* params)
 {
-    GameFunction<int(__cdecl*)(uint32_t, Script::CStruct*)>(0x005A3E80)(id, params);
+    CFuncs::SetNodeColor(id, params);
 }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.

@@ -13,6 +13,7 @@
 #include "game/front/level_editor_shared_coll.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_walls.h"
+#include "game/gfx/sector.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
 #include "game/obj/compositemgr.h"
@@ -309,9 +310,9 @@ std::vector<HiddenObjectRec> g_hiddenObjects;
 // CSector::SetVisibility (0x0049E680, thiscall, RET 4) / GetVisibility (0x0049E690): the viewports it shows in.
 void SetVisibility(uint8_t* sector, uint32_t mask)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0049E680)(sector, mask);
+    reinterpret_cast<Nx::CSector*>(sector)->SetVisibility(mask);
 }
-uint32_t GetVisibility(uint8_t* sector) { return GameFunction<uint32_t(__thiscall*)(void*)>(0x0049E690)(sector); }
+uint32_t GetVisibility(uint8_t* sector) { return reinterpret_cast<Nx::CSector*>(sector)->GetVisibility(); }
 
 // A geometry's SetActive (vfunc +0x34) / IsActive (vfunc +0x38).
 void SetGeomActive(void* geom, bool on) { Method<void(__thiscall*)(void*, bool)>(geom, 0x34)(geom, on); }

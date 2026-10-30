@@ -3,6 +3,8 @@
 // float, the ones it keeps on the FPU stack are worked in double.
 
 #include "game/obj/editor_camera.h"
+#include "game/ed/rail_editor.h"
+#include "game/gfx/engine_shadows.h"
 
 #include <cmath>
 #include <cstdint>
@@ -82,8 +84,7 @@ void DeleteShadow(void*& shadow)
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
 void RailEditorMoving(int moved)
 {
-    void* editor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
-    GameFunction<void(__thiscall*)(void*, int)>(0x004F3D30)(editor, moved);
+    Ed::CRailEditorComponent::Instance()->SetActive(moved != 0);
 }
 bool InParkEditor()
 {
@@ -176,7 +177,7 @@ bool FlaggedObjectBetween(const Mth::Vector& start, const Mth::Vector& end)
     feeler.Start() = start;
     feeler.End() = end;
     feeler.SetIgnore(0, 0x50);
-    feeler.Callback() = reinterpret_cast<void*>(0x004E5320);
+    feeler.Callback() = reinterpret_cast<void*>(&FlagScriptedHit);
     feeler.GetCollision(1, 0);
     return Flagged() != 0;
 }
@@ -247,9 +248,9 @@ void CEditorCameraComponent::CreateShadow()
     if (mp_shadow)
         return;
     void* memory = Mem::Calloc(0x14);
-    mp_shadow = memory ? GameFunction<void*(__thiscall*)(void*)>(0x004A1750)(memory) : nullptr;
+    mp_shadow = memory ? static_cast<Nx::CSimpleShadow*>(memory)->Construct() : nullptr;
     *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(mp_shadow) + 0xC) = 0x3F99999A; // 1.2 (no null check)
-    GameFunction<void(__thiscall*)(void*, const char*)>(0x004A17E0)(mp_shadow, "Ped_Shadow");
+    static_cast<Nx::CSimpleShadow*>(mp_shadow)->SetModel("Ped_Shadow");
 }
 
 // 0x004E59D0

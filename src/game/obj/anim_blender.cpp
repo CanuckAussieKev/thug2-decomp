@@ -2,13 +2,17 @@
 
 #include "game/obj/anim_blender.h"
 
+#include <bit>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/anim_blend.h"
+#include "game/gfx/anim_controller.h"
+#include "game/gfx/skeleton.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/movie_manager.h"
+#include "game/obj/pager_message.h"
 #include "game/obj/suspend_component.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
@@ -61,12 +65,9 @@ R Virtual(void* object, int slot, A... args)
     return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
 }
 
-// The channel's methods (most not rewritten yet).
-template <typename R, typename... A>
-R ChannelMethod(uint32_t address, Channel* channel, A... args)
-{
-    return GameFunction<R(__thiscall*)(Channel*, A...)>(address)(channel, args...);
-}
+// A bool read from a 32-bit argument slot as the callee does: its low byte (the callers pass raw words).
+bool BoolArg(uint32_t word) { return (word & 0xFF) != 0; }
+bool BoolArg(float word) { return BoolArg(std::bit_cast<uint32_t>(word)); }
 
 } // namespace
 
@@ -119,8 +120,10 @@ void CAnimBlenderComponent::DestroyBody()
     for (int pass = 0; pass < 2; ++pass) {
         auto** head = static_cast<void**>(mp_observers);
         void* result;
-        GameFunction<void*(__thiscall*)(void*, void**, void*, void*)>(0x004ECC30)(&mp_observers, &result,
-                                                                               head ? head[1] : nullptr, head);
+        reinterpret_cast<Obj::PointerList*>(&mp_observers)
+            ->Erase(reinterpret_cast<Obj::PointerListNode**>(&result),
+                    reinterpret_cast<Obj::PointerListNode*>(head ? head[1] : nullptr),
+                    reinterpret_cast<Obj::PointerListNode*>(head));
     }
     Mem::Manager::Get()->Free(mp_observers);
     m_channels.UnlinkAs(kNodeVtable);
@@ -150,8 +153,8 @@ void CAnimBlenderComponent::Update()
     do {
         if (!(Field<float>(channel, 0x30) >= kMinWeight) && count != 0) {
             // a channel after the first with (next to) no weight: only reset
-            ChannelMethod<void>(0x0047E030, channel);
-            ChannelMethod<void>(0x0047E1B0, channel);
+            channel->UpdateBlend();
+            channel->UpdateTimelines();
             s_blendSets[count] = Field<uint32_t>(channel, 0x2C);
             if (!(highestSet > s_blendSets[count]))
                 highestSet = s_blendSets[count];
@@ -173,7 +176,7 @@ void CAnimBlenderComponent::Update()
     if (!changed)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    auto skeleton = [this]() { return reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(mp_skeleton)->Word18()); };
+    auto skeleton = [this]() { return reinterpret_cast<Gfx::CSkeleton*>(reinterpret_cast<GameNet::FoldedGetters*>(mp_skeleton)->Word18()); };
     if (count == 1) {
         NotifyObservers(s_blendPose);
     } else {
@@ -190,7 +193,7 @@ void CAnimBlenderComponent::Update()
         }
         NotifyObservers(s_blendPose);
     }
-    GameFunction<void(__thiscall*)(void*, Gfx::CPose*)>(0x004A44E0)(skeleton(), s_blendPose);
+    skeleton()->Update(s_blendPose);
 }
 
 // 0x00419DD0
@@ -199,8 +202,7 @@ void CAnimBlenderComponent::InitFromStructure(Script::CStruct* params)
     if (m_channels.prev != &m_channels)
         return;
     void* memory = Mem::Calloc(0x74);
-    Channel* channel = memory ? GameFunction<Channel*(__thiscall*)(void*, CCompositeObject*, CAnimBlenderComponent*,
-                                                                    int)>(0x0047F150)(memory, m_object, this, 1)
+    Channel* channel = memory ? static_cast<Channel*>(memory)->Construct(m_object, this, true)
                               : nullptr;
     Link(channel)->prev = &m_channels;
     Link(channel)->next = m_channels.next;
@@ -210,7 +212,7 @@ void CAnimBlenderComponent::InitFromStructure(Script::CStruct* params)
     Mem::ListNode* first = m_channels.next;
     if (!Ended(first)) {
         Virtual<void>(first, 3, params);
-        ChannelMethod<void>(0x0047EA80, AsChannel(first), 1);
+        AsChannel(first)->SetEventsOn(true);
     }
     Mem::PopContext();
 }
@@ -349,7 +351,7 @@ int CAnimBlenderComponent::PassToChannel(uint32_t name, Script::CStruct* params,
     if ((name == kPlayAnim || name == kObjPlayAnim) && channel && Skater::ThawBmx::Enabled()) {
         int flip = Skater::ThawBmx::PlayFlip(m_object);
         if (flip >= 0)
-            ChannelMethod<bool>(0x0047DC40, channel, m_object->m_id, static_cast<uint32_t>(flip), 0u, 0u);
+            channel->SetFlipped(m_object->m_id, BoolArg(static_cast<uint32_t>(flip)), 0u, BoolArg(0u));
     }
     return Virtual<int>(channel, 4, name, params, script);
 }
@@ -368,8 +370,7 @@ Gfx::CBlendChannel* CAnimBlenderComponent::FindChannel(uint32_t id)
 Gfx::CBlendChannel* CAnimBlenderComponent::AddChannel(uint32_t id, bool atFront)
 {
     void* memory = Mem::Calloc(0x74);
-    Channel* channel = memory ? GameFunction<Channel*(__thiscall*)(void*, CCompositeObject*, CAnimBlenderComponent*,
-                                                                    int)>(0x0047F150)(memory, m_object, this, 0)
+    Channel* channel = memory ? static_cast<Channel*>(memory)->Construct(m_object, this, false)
                               : nullptr;
     Id(channel) = id;
     Virtual<void>(channel, 2);
@@ -409,14 +410,14 @@ void CAnimBlenderComponent::VisitChannels()
 void CAnimBlenderComponent::PassToEachChannel(uint32_t value)
 {
     for (Mem::ListNode* node = m_channels.next; !Ended(node); node = node->next)
-        ChannelMethod<void>(0x0047E010, AsChannel(node), value);
+        AsChannel(node)->AddTime(std::bit_cast<float>(value));
 }
 
 // 0x00419A20 (with no channel, the original reads the head's next from null: a crash)
 void CAnimBlenderComponent::ResetChannels()
 {
     for (Mem::ListNode* node = m_channels.next; !Ended(node); node = node->next)
-        ChannelMethod<void>(0x0047EF20, AsChannel(node));
+        AsChannel(node)->Reset();
     Mem::ListNode* node = Link(Masked(m_channels.next))->next;
     if (Ended(node))
         return;
@@ -433,7 +434,7 @@ bool CAnimBlenderComponent::AnyChannel(uint32_t a, uint32_t b, uint32_t c, uint3
 {
     bool any = false;
     for (Mem::ListNode* node = m_channels.next; !Ended(node); node = node->next) {
-        if (ChannelMethod<bool>(0x0047DC40, AsChannel(node), a, b, c, d))
+        if (AsChannel(node)->SetFlipped(a, BoolArg(b), c, BoolArg(d)))
             any = true;
     }
     return any;
@@ -462,14 +463,14 @@ bool CAnimBlenderComponent::ModelReady()
 void CAnimBlenderComponent::FirstChannel47EFF0()
 {
     if (Channel* channel = Masked(m_channels.next))
-        ChannelMethod<void>(0x0047EFF0, channel);
+        channel->BlendFirstPose();
 }
 
 // 0x00419A90
 void CAnimBlenderComponent::PlayAnimation(uint32_t anim, uint32_t b)
 {
     if (Channel* channel = Masked(m_channels.next))
-        ChannelMethod<void>(0x004803D0, channel, anim, b);
+        channel->PlayAnimation(anim, std::bit_cast<float>(b));
 }
 
 // 0x00419B50
@@ -477,35 +478,35 @@ void CAnimBlenderComponent::PlayAnimationEx(uint32_t a, uint32_t b, uint32_t c, 
                                             uint32_t g)
 {
     if (Channel* channel = Masked(m_channels.next))
-        ChannelMethod<void>(0x0047F260, channel, a, b, c, d, e, f, g, 0u);
+        channel->PlayAnim(a, BoolArg(b), std::bit_cast<float>(c), std::bit_cast<float>(d), static_cast<int>(e), std::bit_cast<float>(f), std::bit_cast<float>(g), nullptr);
 }
 
 // 0x00419B90
 void CAnimBlenderComponent::FirstChannel47E850(float a, float b, float c, float d)
 {
     if (Channel* channel = Masked(m_channels.next))
-        ChannelMethod<void>(0x0047E850, channel, a, b, c, d);
+        channel->SetSpeed(a, BoolArg(b), BoolArg(c), BoolArg(d));
 }
 
 // 0x00419BB0
 void CAnimBlenderComponent::FirstChannel47E810(uint32_t a)
 {
     if (Channel* channel = Masked(m_channels.next))
-        ChannelMethod<void>(0x0047E810, channel, a);
+        channel->Reverse(a);
 }
 
 // 0x00419BD0
 void CAnimBlenderComponent::FirstChannel47E280(float a, uint32_t b)
 {
     if (Channel* channel = Masked(m_channels.next))
-        ChannelMethod<void>(0x0047E280, channel, a, b);
+        channel->SetWobbleTarget(a, BoolArg(b));
 }
 
 // 0x00419BF0
 void CAnimBlenderComponent::FirstChannel47E450(float* a, uint32_t b)
 {
     if (Channel* channel = Masked(m_channels.next))
-        ChannelMethod<void>(0x0047E450, channel, a, b);
+        channel->SetWobbleDetails(a, BoolArg(b));
 }
 
 // 0x00419B30
@@ -547,7 +548,7 @@ bool CAnimBlenderComponent::HasValue(uint32_t offset)
 bool CAnimBlenderComponent::IsAnimComplete()
 {
     Channel* channel = Masked(m_channels.next);
-    return channel ? ChannelMethod<bool>(0x0047E210, channel) : false;
+    return channel ? channel->IsAnimComplete() : false;
 }
 
 // 0x00419F80
@@ -583,7 +584,7 @@ void CAnimBlenderComponent::GetTimes(float* start, float* current, float* end)
     float s = 0.0f, c = 0.0f, e = 0.0f;
     auto* timeline = Field<Mem::ListNode*>(channel, 0x20);
     if (!Ended(timeline))
-        GameFunction<void(__thiscall*)(void*, float*, float*, float*)>(0x004813B0)(timeline, &s, &c, &e);
+        reinterpret_cast<Gfx::CAnimTimeline*>(timeline)->GetTimes(&s, &c, &e);
     *start = s;
     *current = c;
     *end = e;
@@ -618,7 +619,7 @@ void BlendChannelLinks::GetTimes(float* start, float* current, float* end)
     *end = 0.0f;
     auto* timeline = Field<Mem::ListNode*>(this, 0x20);
     if (!Ended(timeline))
-        GameFunction<void(__thiscall*)(void*, float*, float*, float*)>(0x004813B0)(timeline, start, current, end);
+        reinterpret_cast<Gfx::CAnimTimeline*>(timeline)->GetTimes(start, current, end);
 }
 
 // 0x004196B0

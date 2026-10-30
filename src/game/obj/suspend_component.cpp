@@ -7,7 +7,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
+#include "game/gfx/engine.h"
 #include "game/gfx/graphics_options.h"
+#include "game/gfx/model.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
@@ -50,7 +52,7 @@ void SetNoLod(float* distances)
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
 uint8_t* ModelOf(CBaseComponent* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
-void SetModelActive(uint8_t* model, bool active) { GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x00493C60)(model, active); }
+void SetModelActive(uint8_t* model, bool active) { reinterpret_cast<Nx::CModel*>(model)->SetActive(active); }
 
 } // namespace
 
@@ -205,11 +207,11 @@ void CSuspendComponent::UpdateVisibility()
             if (m_distanceSquared < lod * lod) {
                 // In view: its bounding sphere where the object is.
                 float sphere[4];
-                GameFunction<void(__thiscall*)(uint8_t*, float*)>(0x00492F30)(model, sphere);
+                reinterpret_cast<Nx::CModel*>(model)->GetBoundingSphere(reinterpret_cast<Mth::Vector*>(sphere));
                 Mth::Vector centre = {sphere[0], sphere[1], sphere[2], 1.0f};
                 centre.MultiplyBy(m_object->m_matrix);
                 centre += m_object->m_pos;
-                visible = GameFunction<int(__cdecl*)(const Mth::Vector*, float)>(0x0048C490)(&centre, sphere[3]) == 0;
+                visible = Nx::Engine::SphereVisibleInOneViewport(&centre, sphere[3]) == 0;
             }
         }
     }

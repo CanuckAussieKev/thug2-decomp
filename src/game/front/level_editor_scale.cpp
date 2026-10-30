@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "game/gfx/mesh.h"
+#include "game/gfx/model.h"
 #include "game/nx/coll_movable.h"
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_static.h"
@@ -345,7 +346,7 @@ void Upload(Nx::sVertexBuffer* buffer)
     buffer->lockOffset = 0;
     buffer->lockSize = buffer->size;
     buffer->lockFlags = 0;
-    GameFunction<void(__thiscall*)(Nx::sVertexBuffer*)>(0x004D40E0)(buffer);
+    buffer->Unlock();
 }
 
 // The largest of a per-axis scale (a sphere's radius grows by it).
@@ -658,7 +659,7 @@ bool SetObjectScale(Obj::CCompositeObject* object, V3 scale)
     entry->scale = scale;
     // The model drawn scaled (CModel::SetScale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
     Mth::Vector factor = {scale.x, scale.y, scale.z, 1.0f};
-    GameFunction<bool(__thiscall*)(uint8_t*, const Mth::Vector*)>(0x00492EE0)(ModelOf(object), &factor);
+    reinterpret_cast<Nx::CModel*>(ModelOf(object))->SetScale(&factor);
     ApplyCollision(*entry);
     object->SetTeleported(true); // (its components placed again at once)
     return true;

@@ -24,6 +24,8 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
+#include "game/gfx/light_manager.h"
+#include "game/obj/projectile_components.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -222,7 +224,7 @@ void StandIn(StandIns& s)
         Record({0x37C0, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });
-    s.At({0x004F2F40}, 0, [](Regs& r) {
+    s.At({0x004F2F40, AddressOf(&Obj::CProjectileCollisionComponent::MarkHit)}, 0, [](Regs& r) {
         Record({0x2F40, Rel(r.ecx)});
         return 0u;
     });
@@ -260,7 +262,7 @@ void StandIn(StandIns& s)
         return 0u;
     });
     // The dynamic light.
-    s.At({0x0048FB80}, 0, [](Regs& r) {
+    s.At({0x0048FB80, AddressOf(Nx::NewDynamicLight)}, 0, [](Regs& r) {
         Record({0xFB80, r.args[0]});
         return reinterpret_cast<uint32_t>(g_world.light);
     });

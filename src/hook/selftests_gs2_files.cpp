@@ -18,6 +18,7 @@
 #include "game/pcm/stream_commands.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/sys/game_config.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -88,7 +89,7 @@ void StandInCalls(StandIns& s)
     s.At({0x005BC840, AddressOf(&Mc::File::Flush)}, 0, [](Regs& r) { Record({0xC840, Pointer(r.ecx)}); return 1u; });
     s.At({0x005BC8B0, AddressOf(&Mc::File::Close)}, 0, [](Regs& r) { Record({0xC8B0, Pointer(r.ecx)}); return 1u; });
     g_fileVtable[0] = s.Thunk(4, [](Regs& r) { Record({0xDE1E, Pointer(r.ecx), r.args[0]}); return r.ecx; });
-    s.At({0x005B5F10}, 0, [](Regs&) { Record({0x5F10}); return reinterpret_cast<uint32_t>("BASLUS-21012"); });
+    s.At({0x005B5F10, AddressOf(GameConfig::GetPathPrefix)}, 0, [](Regs&) { Record({0x5F10}); return reinterpret_cast<uint32_t>("BASLUS-21012"); });
     s.At({0x006234FE}, 0, StandInSprintf);
     using GetIntegerFn = int (*)(uint32_t);
     s.At({0x00478F60, AddressOf(static_cast<GetIntegerFn>(&Script::GetInteger))}, 0, [](Regs& r) {

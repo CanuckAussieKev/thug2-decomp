@@ -23,6 +23,8 @@
 #include "game/obj/smtptr.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -76,8 +78,8 @@ std::vector<StandIn> DrawStandIns()
          [](Frame&, Result& r) { r.eax = 0xC10E0000u + static_cast<uint32_t>(g_clones++); }},
         {0x0049E670, 0, 0, Ret::None, true},
         {0x0049E680, 4, 1, Ret::None, true},
-        {0x0049E9B0, 4, 1, Ret::None, true, 1},
-        {0x0048C510, 0, 1, Ret::Int, false, 0, {}, [](Frame& f, Result& r) {
+        {0x0049E9B0, 4, 1, Ret::None, true, 1, {Ours(&Nx::CSector::SetActive)}},
+        {0x0048C510, 0, 1, Ret::Int, false, 0, {Ours(Nx::Engine::GetSector)}, [](Frame& f, Result& r) {
              uint32_t name = f.args[0];
              int index = name == kRailSource ? 40 : name == kPostSource ? 41 : name == kGreen ? 42 : name == kRed ? 43
                                                                                                        : 44 + (name & 3);

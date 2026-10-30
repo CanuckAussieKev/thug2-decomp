@@ -8,6 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/particles.h"
+#include "game/gfx/pc_particles.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
@@ -28,12 +29,7 @@ void** const kVtable = reinterpret_cast<void**>(0x00646340);
 constexpr uint32_t kSuspend = 0xCE0CA665; // the suspend component
 
 // The particle system's methods (Nx, no source yet; thiscall).
-template <typename... A>
-void Particle(uint32_t address, void* particle, A... args)
-{
-    GameFunction<void(__thiscall*)(void*, A...)>(address)(particle, args...);
-}
-void Refresh(void* particle) { Particle(0x00494E20, particle); }
+void Refresh(void* particle) { reinterpret_cast<Nx::CPcParticleSystem*>(particle)->EngineUpdate(); }
 // The unnamed float (required). The original reads it into its own `params` argument's slot: not given, the
 // value is the pointer's bits.
 float UnnamedFloat(Script::CStruct* params)
@@ -47,7 +43,7 @@ float UnnamedFloat(Script::CStruct* params)
 // Its parameters (particle_component.h).
 const uint8_t* Params(void* particle) { return ParticleSystemParams(particle); }
 // 0x00494EE0: its +0x38 set (the model's +0x22C, or the ground test's value), then its vtable slot 6.
-void SetGroundValue(void* particle, float value) { Particle(0x00494EE0, particle, value); }
+void SetGroundValue(void* particle, float value) { reinterpret_cast<Nx::CPcParticleSystem*>(particle)->SetValue38(value); }
 
 // The parameters a particle system is made from (Nx::CParticleParams, gfx/particles.h; constructed by 0x00496240,
 // given to the particle manager's 0x00496510, kept as the system's +4).
@@ -119,7 +115,7 @@ void CParticleComponent::DestroyBody()
 {
     m_vtable = kVtable;
     if (mp_particle)
-        GameFunction<void(__thiscall*)(void*, void*)>(0x00496590)(GameVariable<void*>(0x006FA7C4), mp_particle);
+        GameVariable<Nx::CParticleManager*>(0x006FA7C4)->DestroyParticle(reinterpret_cast<Nx::CParticle*>(mp_particle));
     CBaseComponent::DestroyBody();
 }
 
@@ -136,7 +132,7 @@ CParticleComponent* CParticleComponent::Destroy(unsigned int flags)
 void CParticleComponent::Finalize() { mp_suspend = m_object->GetComponent(kSuspend); }
 
 // 0x00429960
-void CParticleComponent::Hide(bool hide) { Particle(0x00494E70, mp_particle, hide); }
+void CParticleComponent::Hide(bool hide) { reinterpret_cast<Nx::CPcParticleSystem*>(mp_particle)->Hide(hide); }
 
 // --- script member functions ---
 
@@ -145,7 +141,7 @@ bool CParticleComponent::SetEmitRate(Script::CStruct* params, Script::CScript*)
 {
     float value = UnnamedFloat(params);
     if (mp_particle)
-        Particle(0x00494E90, mp_particle, value);
+        reinterpret_cast<Nx::CPcParticleSystem*>(mp_particle)->SetRate(value);
     return true;
 }
 
@@ -154,7 +150,7 @@ bool CParticleComponent::SetLifetime(Script::CStruct* params, Script::CScript*)
 {
     float value = UnnamedFloat(params);
     if (mp_particle) {
-        Particle(0x00494EA0, mp_particle, value);
+        reinterpret_cast<Nx::CPcParticleSystem*>(mp_particle)->SetLifetime(value);
         Refresh(mp_particle);
     }
     return true;
@@ -165,7 +161,7 @@ bool CParticleComponent::SetFloat19AF74D1(Script::CStruct* params, Script::CScri
 {
     float value = UnnamedFloat(params);
     if (mp_particle) {
-        Particle(0x00494EF0, mp_particle, value);
+        reinterpret_cast<Nx::CPcParticleSystem*>(mp_particle)->SetColourMidPercent(value);
         Refresh(mp_particle);
     }
     return true;
@@ -187,7 +183,7 @@ bool SetRadius(CParticleComponent* component, Script::CStruct* params, int which
 {
     float value = UnnamedFloat(params);
     if (component->mp_particle) {
-        Particle(0x00494EB0, component->mp_particle, which, value);
+        reinterpret_cast<Nx::CPcParticleSystem*>(component->mp_particle)->SetSize(which, value);
         Refresh(component->mp_particle);
     }
     return true;
@@ -197,7 +193,7 @@ bool SetPos(CParticleComponent* component, Script::CStruct* params, int which)
     Mth::Vector pos;
     params->GetVector(0u, reinterpret_cast<Script::VectorValue*>(&pos), 1);
     if (component->mp_particle) {
-        Particle(0x00496030, component->mp_particle, which, &pos);
+        reinterpret_cast<Nx::CParticle*>(component->mp_particle)->SetPosition(which, &pos);
         Refresh(component->mp_particle);
     }
     return true;
@@ -207,7 +203,7 @@ bool SetBox(CParticleComponent* component, Script::CStruct* params, int which)
     Mth::Vector box;
     params->GetVector(0u, reinterpret_cast<Script::VectorValue*>(&box), 1);
     if (component->mp_particle)
-        Particle(0x00496160, component->mp_particle, which, &box);
+        reinterpret_cast<Nx::CParticle*>(component->mp_particle)->SetBox(which, &box);
     return true;
 }
 bool SetColour(CParticleComponent* component, Script::CStruct* params, int which)
@@ -216,7 +212,7 @@ bool SetColour(CParticleComponent* component, Script::CStruct* params, int which
     params->GetArray(0u, &array, 1);
     if (component->mp_particle) {
         Colour colour = ColourOf(array);
-        Particle(0x00494EC0, component->mp_particle, which, &colour);
+        reinterpret_cast<Nx::CPcParticleSystem*>(component->mp_particle)->SetColour(which, reinterpret_cast<const uint32_t*>(&colour));
     }
     return true;
 }
@@ -240,7 +236,7 @@ bool CParticleComponent::SetEmitTarget(Script::CStruct* params, Script::CScript*
 {
     params->GetChecksum(0u, &m_emitTarget, 1);
     if (mp_particle)
-        Particle(0x004963B0, mp_particle, m_emitTarget, m_object->m_id);
+        reinterpret_cast<Nx::CParticle*>(mp_particle)->SetEmitScript(m_emitTarget, m_object->m_id);
     return true;
 }
 
@@ -261,7 +257,7 @@ bool CParticleComponent::SetColor55835CF2(Script::CStruct* params, Script::CScri
     params->GetArray(0u, &array, 1);
     if (mp_particle) {
         Colour colour = ColourOf(array);
-        Particle(0x00496190, mp_particle, &colour);
+        reinterpret_cast<Nx::CParticle*>(mp_particle)->SetColour(reinterpret_cast<const uint8_t*>(&colour));
     }
     return true;
 }
@@ -270,7 +266,7 @@ bool CParticleComponent::SetColor55835CF2(Script::CStruct* params, Script::CScri
 void CParticleComponent::InitFromStructure(Script::CStruct* params)
 {
     ParticleParams p;
-    GameFunction<void(__thiscall*)(ParticleParams*)>(0x00496240)(&p);
+    p.Construct();
     float scale = 1.0f;
     p.m_emitScript = 0;
     if (params->GetChecksum(0x092276DBu, &m_emitTarget, 0)) {
@@ -402,8 +398,8 @@ void CParticleComponent::InitFromStructure(Script::CStruct* params)
             p.m_localPos[i] = p.m_pos[i];
     p.m_orientWithObject = params->ContainsFlag(0xA2487CC3u);
     p.m_flag158 = params->ContainsFlag(0xA0E585B0u);
-    mp_particle = GameFunction<void*(__thiscall*)(void*, ParticleParams*)>(0x00496510)(
-        GameVariable<void*>(0x006FA7C4), &p);
+    mp_particle = GameVariable<Nx::CParticleManager*>(0x006FA7C4)->CreateParticle(
+        &p);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
@@ -418,7 +414,7 @@ void CParticleComponent::InitFromStructure(Script::CStruct* params)
     params->GetChecksum(0x7E4813A7u, &value54, 0);
     reinterpret_cast<uint32_t*>(mp_particle)[0x54 / 4] = value54;
     if (p.m_flag158)
-        Particle(0x00496190, mp_particle, static_cast<void*>(nullptr));
+        reinterpret_cast<Nx::CParticle*>(mp_particle)->SetColour(reinterpret_cast<const uint8_t*>(static_cast<void*>(nullptr)));
 }
 
 // 0x0042AD90
@@ -446,12 +442,12 @@ void CParticleComponent::Update()
         const float* local = reinterpret_cast<const float*>(Params(mp_particle) + 0xF4 + i * 0x10);
         const Mth::Vector& at = m_object->m_pos;
         Mth::Vector pos = {local[0] + at.x, local[1] + at.y, local[2] + at.z, local[3] + at.w};
-        Particle(0x00496030, mp_particle, i, &pos);
+        reinterpret_cast<Nx::CParticle*>(mp_particle)->SetPosition(i, &pos);
         if (Params(mp_particle)[0x154]) {
             Mth::Matrix orientation;
             orientation = m_object->m_matrix;
             orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-            Particle(0x00496060, mp_particle, i, &orientation);
+            reinterpret_cast<Nx::CParticle*>(mp_particle)->Rotate(i, &orientation);
         }
     }
 }

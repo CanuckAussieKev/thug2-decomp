@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+#undef GetObject // (windows.h's macro: Gfx::CAnimController::GetObject is not GetObjectA)
+
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -11,6 +13,8 @@
 #include "game/obj/flip_rotate.h"
 #include "game/obj/object.h"
 #include "game/obj/vehicle_component.h"
+#include "game/gfx/anim_controller.h"
+#include "game/gfx/skeleton.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -31,13 +35,13 @@ void TestFlipRotatePose()
     alignas(16) static uint8_t turner[0x20];
     static uint32_t seedNow = 0;
     static int count = 0;
-    s.At({0x00481770}, 0, [](Regs&) { Record({0x1770}); return reinterpret_cast<uint32_t>(skeleton); });
-    s.At({0x00481760}, 0, [](Regs&) { Record({0x1760}); return 0x0B1E0000u; });
+    s.At({0x00481770, AddressOf(&Gfx::CAnimController::GetSkeleton)}, 0, [](Regs&) { Record({0x1770}); return reinterpret_cast<uint32_t>(skeleton); });
+    s.At({0x00481760, AddressOf(&Gfx::CAnimController::GetObject)}, 0, [](Regs&) { Record({0x1760}); return 0x0B1E0000u; });
     s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
         Record({0xDB90, r.ecx, r.args[0]});
         return seedNow % 3 == 0 ? 0u : reinterpret_cast<uint32_t>(turner);
     });
-    s.At({0x004A2B60}, 4, [](Regs& r) {
+    s.At({0x004A2B60, AddressOf(&Gfx::CSkeleton::GetBoneIndex)}, 4, [](Regs& r) {
         Record({0x2B60, r.ecx == reinterpret_cast<uint32_t>(skeleton), r.args[0]});
         return seedNow % 4 == 1 ? 0xFFFFFFFFu : (seedNow == 8 ? 0u : seedNow % 7); // (8: bone 0)
     });
@@ -56,7 +60,7 @@ void TestFlipRotatePose()
         return r.ecx;
     });
     s.At({0x004A2BA0}, 0, [](Regs&) { Record({0x2BA0}); return static_cast<uint32_t>(count); });
-    s.At({0x004A2C60}, 4, [](Regs& r) {
+    s.At({0x004A2C60, AddressOf(&Gfx::CSkeletonData::GetFlipIndex)}, 4, [](Regs& r) {
         Record({0x2C60, r.ecx, r.args[0]});
         uint32_t i = r.args[0];
         switch ((i + seedNow) % 4) {

@@ -12,6 +12,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/stubs.h"
+#include "game/goals/goal_manager.h"
 #include "game/mc/memcard.h"
 #include "game/mc/save_contents.h"
 #include "game/mc/save_types.h"
@@ -22,6 +23,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -39,7 +41,7 @@ Card* TheCard() { return GameVariable<Manager*>(0x007D1890)->GetCard(0, 0); }
 CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(reinterpret_cast<char*>(script) + 0x14); }
 
 // The console builds' save folder (0x005B5F10, no source yet).
-const char* SaveFolder() { return GameFunction<const char*(__cdecl*)()>(0x005B5F10)(); }
+const char* SaveFolder() { return GameConfig::GetPathPrefix(); }
 
 // The card's delete of a console file or folder entry: on the PC the shared always-true method (0x005BC7F0).
 bool DeleteCardFile(Card* card, const char* name) { return card->AlwaysTrue(reinterpret_cast<int>(name)); }
@@ -554,8 +556,7 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
         type = GameVariable<uint32_t>(0x007CECD8);
     } else if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
-        void* goalManager = GameFunction<void*(__cdecl*)()>(0x005591B0)();
-        GameFunction<void(__thiscall*)(void*)>(0x0055C090)(goalManager);
+        Game::GetGoalManager()->LevelUnload();
     }
     // into the temporary pools, if they exist
     bool switched = false;

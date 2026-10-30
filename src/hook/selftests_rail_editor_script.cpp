@@ -19,6 +19,7 @@
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/sector.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -76,7 +77,7 @@ std::vector<StandIn> ScriptStandIns()
         {0x00592CD0, 4, 1, Ret::None, true, 0, {Ours(&Ed::CParkGenerator::BuildRails)}},
         {0x0049E670, 0, 0, Ret::None, true},
         {0x0049E680, 4, 1, Ret::None, true},
-        {0x0049E9B0, 4, 1, Ret::None, true, 1},
+        {0x0049E9B0, 4, 1, Ret::None, true, 1, {Ours(&Nx::CSector::SetActive)}},
         {0x005BAFC0, 12, 3, Ret::Int, true, 0, {Ours(&Mem::Manager::Allocate)},
          [](Frame& f, Result& r) { r.eax = reinterpret_cast<uint32_t>(HeapAllocate(f.args[0])); }},
         {0x005BABA0, 4, 1, Ret::None, true, 0, {Ours(&Mem::Manager::Free)}},

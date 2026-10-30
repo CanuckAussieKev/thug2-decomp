@@ -15,10 +15,14 @@
 #include "game/front/level_editor_ui.h"
 #include "game/front/new_frontend.h"
 #include "game/gfx/device.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/mesh.h"
 #include "game/gfx/texture.h"
 #include "game/gfx/screen.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/thugpro_compat.h"
+#include "game/skate/skate_module.h"
 #include "game/skate/thugpro_cas.h"
 #include "game/sio/device.h"
 #include "game/sys/platform.h"
@@ -57,13 +61,13 @@ void ServiceNetwork() { GameNet::Manager::ServiceGameSpy(); }
 void ReleaseDeviceObjects()
 {
     Nx::ReleaseRenderTargetTextures();
-    GameFunction<void(__cdecl*)()>(0x004D67F0)();
+    Nx::ReleaseBuffers();
     Nx::ReleaseRenderTargets();
 }
 void RestoreDeviceObjects()
 {
     Nx::RestoreRenderTargetTextures();
-    GameFunction<void(__cdecl*)()>(0x004D68C0)();
+    Nx::RecreateBuffers();
     Nx::CreateRenderTargets();
 }
 // A task list's tasks, in order (0x004070A0; the profiling flag is passed but unused).
@@ -72,9 +76,9 @@ void RunTasks(Tsk::Stack& list, bool profiling)
     list.Process(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
 }
 void BeginScene() { GameFunction<void(__cdecl*)()>(0x0048BF10)(); }      // the device's BeginScene
-void RenderFrame() { GameFunction<void(__cdecl*)()>(0x0048C330)(); }     // the world, then the 2D
-void AfterRender() { GameFunction<void(__cdecl*)()>(0x00565DA0)(); }     // (uses the skate module)
-void EndScene() { GameFunction<void(__cdecl*)()>(0x0048BF20)(); }        // EndScene, Present
+void RenderFrame() { Nx::Engine::RenderFrame(); }     // the world, then the 2D
+void AfterRender() { Mdl::Skate::DebugRails(); }     // (uses the skate module)
+void EndScene() { Nx::Engine::EndRender(); }        // EndScene, Present
 
 uint8_t LetterboxActive() { return GameVariable<uint8_t>(0x00786CBE); }
 

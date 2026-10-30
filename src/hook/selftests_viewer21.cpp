@@ -17,6 +17,7 @@
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/names.h"
+#include "game/gfx/boned_anim_frame_data.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -47,16 +48,16 @@ void Install(StandIns& s)
         reinterpret_cast<float*>(r.ecx)[6] += 0.25f;
         return 0u;
     });
-    s.At({0x00482F40}, 16, [](Regs& r) {
+    s.At({0x00482F40, AddressOf(&Gfx::CBonedAnimFrameData::FireEvents)}, 16, [](Regs& r) {
         Rec(0x2F40, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF});
         return 0u;
     });
-    s.At({0x00482F00}, 4, [](Regs& r) {
+    s.At({0x00482F00, AddressOf(&Gfx::CBonedAnimFrameData::GetBoneName)}, 4, [](Regs& r) {
         Rec(0x2F00, {r.ecx, r.args[0]});
         return 0x0B1E0u + r.args[0];
     });
     // The asset's frame: per object a rotation, a position and a flag.
-    s.At({0x004844C0}, 0x14, [](Regs& r) {
+    s.At({0x004844C0, AddressOf(&Gfx::CBonedAnimFrameData::GetFloatKeyPose)}, 0x14, [](Regs& r) {
         auto local = [](uint32_t p) { return InArena(p) ? p : 0x5u; }; // (the camera's are stack locals)
         Rec(0x44C0, {r.ecx, local(r.args[0]), local(r.args[1]), local(r.args[2]), r.args[3], r.args[4]});
         int count = r.ecx == At(kAsset) ? *reinterpret_cast<int*>(r.ecx + 8) : 1;

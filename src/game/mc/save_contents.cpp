@@ -5,7 +5,9 @@
 #include <cstdint>
 
 #include "game/core/dbg.h"
+#include "game/ed/goal_editor.h"
 #include "game/ed/park_editor.h"
+#include "game/goals/goal_manager.h"
 #include "game/mc/memcard_cfuncs.h"
 #include "game/mc/save_types.h"
 #include "game/net/gamenet_manager.h"
@@ -207,9 +209,9 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
         for (int i = 0; i < kControllers; ++i) {
             auto* controller = reinterpret_cast<CStruct*>(controllers->GetElement(static_cast<uint32_t>(i)));
             // the skate module's setters (no source yet): vibration, autokick, spin taps
-            GameFunction<void(__thiscall*)(Mdl::Skate*, int, bool)>(0x00567C30)(skate, i, controller->ContainsFlag(kVibrationOn));
-            GameFunction<void(__thiscall*)(Mdl::Skate*, int, bool)>(0x00567C00)(skate, i, controller->ContainsFlag(kAutokickOn));
-            GameFunction<void(__thiscall*)(Mdl::Skate*, int, bool)>(0x00567BD0)(skate, i, controller->ContainsFlag(kSpinTapsOn));
+            skate->SetVibration(i, controller->ContainsFlag(kVibrationOn));
+            skate->SetAutoKick(i, controller->ContainsFlag(kAutokickOn));
+            skate->SetSpinTaps(i, controller->ContainsFlag(kSpinTapsOn));
         }
     }
     GameRecords()->ReadFromStructure(global);
@@ -234,7 +236,7 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
         results->AddChecksum(kLastGameMode, lastMode);
 
     // the first profile: a custom skater keeps its CAS file name
-    auto* profile = GameFunction<Obj::CSkaterProfile*(__thiscall*)(Mdl::Skate*, int)>(0x00564F80)(Skate(), 0);
+    auto* profile = Skate()->GetProfile(0);
     if (!profile->IsPro()) {
         const char* casFileName = reinterpret_cast<const char*>(0x0064EFD8); // "Unimplemented"
         global->GetString(0xF36C1878u, &casFileName, 0); // CASFileName
@@ -248,7 +250,7 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
     switch (type) {
     case kSaveCreatedGoals:
         // the goal editor's goals written (0x004EB850, no source yet)
-        GameFunction<void(__thiscall*)(Obj::CBaseComponent*, CStruct*)>(0x004EB850)(GoalEditorComponent(), contents);
+        static_cast<Ed::CGoalEditorComponent*>(GoalEditorComponent())->WriteGoals(contents);
         return;
     case kSaveCat: {
         auto* skater = static_cast<Obj::CSkater*>(Skate()->GetSkater(0));
@@ -269,7 +271,7 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
         WriteGlobalInfo(global);
         contents->AddStructurePointer(kGlobalInfo, global);
         CStruct* story = NewStructure();
-        void* goalManager = GameFunction<void*(__cdecl*)()>(0x005591B0)();
+        void* goalManager = Game::GetGoalManager();
         // the goal manager's parameters (a folded getter, +0x14)
         story->AddStructure(kGoalManagerParams, GameFunction<CStruct*(__thiscall*)(void*)>(0x004A2BA0)(goalManager));
         contents->AddStructurePointer(kStory, story);
@@ -302,11 +304,11 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
     switch (type) {
     case kSaveCreatedGoals:
         // the goal editor's goals read (0x004EA470, no source yet)
-        GameFunction<void(__thiscall*)(Obj::CBaseComponent*, CStruct*, int)>(0x004EA470)(GoalEditorComponent(), contents, 0);
+        static_cast<Ed::CGoalEditorComponent*>(GoalEditorComponent())->ReadGoals(contents, 0);
         return;
     case kSaveCat: {
         // the local skater (0x00566520, no source yet)
-        auto* skater = GameFunction<Obj::CSkater*(__thiscall*)(Mdl::Skate*)>(0x00566520)(Skate());
+        Obj::CSkater* skater = Skate()->GetLocalSkater();
         if (!skater)
             return;
         CStruct* other = nullptr;

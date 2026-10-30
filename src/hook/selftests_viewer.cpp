@@ -28,6 +28,8 @@
 #include "game/sys/timer.h"
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/viewport_list.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -106,11 +108,11 @@ void Install(StandIns& s)
         Rec(0xA2E0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004A0710}, 0, [](Regs&) {
+    s.At({0x004A0710, AddressOf(Nx::GetScreenMode)}, 0, [](Regs&) {
         Rec(0x0710, {});
         return static_cast<uint32_t>(g_setting);
     });
-    s.At({0x004A0AD0}, 0, [](Regs& r) {
+    s.At({0x004A0AD0, AddressOf(Nx::SetScreenMode)}, 0, [](Regs& r) {
         Rec(0x0AD0, {r.args[0]});
         return 0u;
     });

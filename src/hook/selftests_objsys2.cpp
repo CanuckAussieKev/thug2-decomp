@@ -25,6 +25,8 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "hook/appmain_testkit.h"
 #include "hook/objsys_testkit.h"
 #include "hook/game.h"
@@ -236,7 +238,7 @@ void StandInProximWorld(StandIns& s)
         return 0u;
     });
     // sectors
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(Nx::Engine::GetSector)}, 0, [](Regs& r) {
         uint32_t sector = 0;
         // (always one for a node whose shape is the sector's collision: without, it would be a null read)
         bool needed = g_nodes.count(r.args[0]) && g_structs[g_nodes[r.args[0]]].values[0x22CF0027] == 0x6AADF154;
@@ -245,11 +247,11 @@ void StandInProximWorld(StandIns& s)
         Record({0x5EC70000, r.args[0], Reloc(sector)});
         return sector;
     });
-    s.At({0x0049E6A0}, 0, [](Regs& r) {
+    s.At({0x0049E6A0, AddressOf(&Nx::CSector::GetBoundingBox)}, 0, [](Regs& r) {
         Record({0x5EC70001, Reloc(r.ecx)});
         return r.ecx + 0x20;
     });
-    s.At({0x0049E740}, 0, [](Regs& r) {
+    s.At({0x0049E740, AddressOf(&Nx::CSector::GetOrientation)}, 0, [](Regs& r) {
         Record({0x5EC70002, Reloc(r.ecx)});
         return r.ecx + 0x40;
     });

@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/movie_cfuncs.h"
+#include "game/obj/pager_message.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -188,8 +189,10 @@ bool __cdecl CFunc_FlushCutsceneDestroyList(Script::CStruct*, Script::CScript*)
         DeleteEntry(EntryOf(node));
     }
     Node* result;
-    GameFunction<Node**(__thiscall*)(PointerList*, Node**, Node*, Node*)>(0x004ECC30)(
-        &list, &result, list.m_head ? list.m_head->next : nullptr, list.m_head);
+    reinterpret_cast<Obj::PointerList*>(&list)->Erase(
+        reinterpret_cast<Obj::PointerListNode**>(&result),
+        reinterpret_cast<Obj::PointerListNode*>(list.m_head ? list.m_head->next : nullptr),
+        reinterpret_cast<Obj::PointerListNode*>(list.m_head));
     Flushing() = false;
     return true;
 }

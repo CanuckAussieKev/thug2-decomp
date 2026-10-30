@@ -1,6 +1,8 @@
 // The FlipRotate component (Obj::CFlipRotateComponent): construction, destruction and its parameters.
 
 #include "game/obj/flip_rotate.h"
+#include "game/gfx/anim_controller.h"
+#include "game/gfx/skeleton.h"
 
 #include <cstring>
 
@@ -21,15 +23,15 @@ void** const kVtable = reinterpret_cast<void**>(0x0064B1D4);
 // The base component (no source yet).
 void ConstructBase(CFlipRotateComponent* component, void* object)
 {
-    GameFunction<void*(__thiscall*)(CFlipRotateComponent*, void*)>(0x00481710)(component, object);
+    reinterpret_cast<Gfx::CAnimController*>(component)->Construct(static_cast<Gfx::CAnimTimeline*>(object));
 }
 void DestroyBase(CFlipRotateComponent* component)
 {
-    GameFunction<void(__thiscall*)(CFlipRotateComponent*)>(0x00481730)(component);
+    reinterpret_cast<Gfx::CAnimController*>(component)->DestroyBody();
 }
 void InitBaseFromStructure(CFlipRotateComponent* component, Script::CStruct* params)
 {
-    GameFunction<void(__thiscall*)(CFlipRotateComponent*, Script::CStruct*)>(0x00481740)(component, params);
+    reinterpret_cast<Gfx::CAnimController*>(component)->InitFromStructure(params);
 }
 
 constexpr uint32_t kFlipped = 0x0C7A712C; // "flipped"
@@ -78,12 +80,12 @@ void CFlipRotateComponent::InitFromStructure(Script::CStruct* params)
 bool CFlipRotateComponent::GetPose(uint8_t* pose)
 {
     // The controller's skeleton and object (the base controller's; not rewritten yet).
-    uint8_t* skeleton = GameFunction<uint8_t*(__thiscall*)(void*)>(0x00481770)(this);
+    uint8_t* skeleton = reinterpret_cast<Gfx::CAnimController*>(this)->GetSkeleton();
     void* bones = *reinterpret_cast<void**>(skeleton + 8);
-    auto* object = GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00481760)(this);
+    auto* object = reinterpret_cast<Gfx::CAnimController*>(this)->GetObject();
     CBaseComponent* flipAndRotate = object->GetComponent(0x488AF07A);
     if (flipAndRotate && reinterpret_cast<uint8_t*>(flipAndRotate)[0x18]) {
-        int bone = GameFunction<int(__thiscall*)(void*, uint32_t)>(0x004A2B60)(skeleton, 0x98971FAF);
+        int bone = reinterpret_cast<Gfx::CSkeleton*>(skeleton)->GetBoneIndex(0x98971FAF);
         if (bone != -1) {
             auto* rotation = reinterpret_cast<float*>(pose + 0x10 * bone);
             const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -107,7 +109,7 @@ bool CFlipRotateComponent::GetPose(uint8_t* pose)
     std::memcpy(rotations, pose, 0x10 * (count > 0 ? count : 0));
     std::memcpy(translations, pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {
-        int mirror = GameFunction<int(__thiscall*)(void*, int)>(0x004A2C60)(bones, i);
+        int mirror = static_cast<Gfx::CSkeletonData*>(bones)->GetFlipIndex(i);
         int from = mirror == -1 ? i : mirror;
         auto* rotation = reinterpret_cast<float*>(pose + 0x10 * i);
         auto* translation = reinterpret_cast<float*>(pose + 0x400 + 0x10 * i);

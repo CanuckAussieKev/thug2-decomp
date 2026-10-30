@@ -16,6 +16,7 @@
 #include "game/gfx/simple_material.h"
 #include "game/gfx/pixel_shaders.h"
 #include "game/lst/hashtable.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -217,7 +218,7 @@ void TestSimpleMaterial()
     g_relocate = HeapRelocate;
     alignas(16) static uint8_t entries[3][0x20];
     static uint32_t indirect = 0x7E7E0002;
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, r.ecx, r.args[0]});
         uint32_t which = r.args[0] % 4;
         return which == 3 ? 0u : reinterpret_cast<uint32_t>(entries[which]);

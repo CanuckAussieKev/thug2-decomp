@@ -39,6 +39,7 @@
 #include "game/front/sprite_element.h"
 #include "game/front/start_level.h"
 #include "game/front/text_element.h"
+#include "game/gfx/font.h"
 #include "game/gfx/glyphs.h"
 #include "game/gfx/hd_ui.h"
 #include "game/net/online_identity.h"
@@ -52,6 +53,7 @@
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/profile_manager.h"
+#include "game/skate/skate_module.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/config.h"
 #include "game/sys/platform_system.h"
@@ -329,7 +331,7 @@ void UpdateSession(float dt)
     // The gaps (the skate module's checklist: the level's).
     std::vector<LevelEditor::PlayTest::GapRead> read;
     uint8_t* skate = SkateModule();
-    if (Game::CGapChecklist* list = skate ? GameFunction<Game::CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(skate) : nullptr) {
+    if (Game::CGapChecklist* list = skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr) {
         int guard = 0;
         for (Mem::ListNode* node = list->m_gaps.next; node && node != &list->m_gaps && ++guard < 4096; node = node->next) {
             if (node->data == reinterpret_cast<void*>(-1))
@@ -1181,7 +1183,7 @@ std::string ButtonName(char tag, char digit)
     int button;
     if (tag == 'm' || tag == 'M') {
         char d = digit;
-        char mapped = GameFunction<char(__cdecl*)(const char*)>(0x0048D6A0)(&d);
+        char mapped = Nx::ButtonGlyph(&d);
         button = Str::DehexifyDigit(&mapped);
     } else {
         uint8_t d = static_cast<uint8_t>(digit);

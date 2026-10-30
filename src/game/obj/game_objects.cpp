@@ -7,6 +7,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/string.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
+#include "game/gfx/skeleton.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/buddy_status.h"
@@ -17,6 +20,7 @@
 #include "game/obj/model_component.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_path.h"
+#include "game/obj/object_proximity.h"
 #include "game/obj/objman.h"
 #include "game/obj/sound_component.h"
 #include "game/obj/stream_component.h"
@@ -59,12 +63,6 @@ CBaseComponent* NewComponent(unsigned int size)
     void* memory = Mem::Calloc(size);
     return memory ? static_cast<T*>(memory)->Construct() : nullptr;
 }
-// The same with a constructor not rewritten yet (at `constructor`).
-CBaseComponent* NewGameComponent(unsigned int size, uint32_t constructor)
-{
-    void* memory = Mem::Calloc(size);
-    return memory ? GameFunction<CBaseComponent*(__thiscall*)(void*)>(constructor)(memory) : nullptr;
-}
 // A component's InitFromStructure (vtable +0x08).
 void InitComponentFromStructure(CBaseComponent* component, Script::CStruct* params)
 {
@@ -105,7 +103,7 @@ void AddBaseComponents(CCompositeObject* object)
 void AddMotionComponents(CCompositeObject* object)
 {
     object->AddComponent(NewComponent<CMotionComponent>(0x24C)); // motion
-    object->AddComponent(NewGameComponent(0x30, 0x004EC370));    // objectproximity
+    object->AddComponent(NewComponent<CObjectProximityComponent>(0x30)); // objectproximity
     object->AddComponent(NewComponent<CSoundComponent>(0xC0));   // sound
     object->AddComponent(NewComponent<CStreamComponent>(0x2C));  // stream
     object->AddComponent(NewComponent<CLockObjComponent>(0x90)); // lockobj
@@ -229,11 +227,11 @@ void CCrownObject::OwnUpdate()
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(m_skater->GetComponent(kSkeleton))->Word18());
-    GameFunction<void(__thiscall*)(void*, uint32_t, Mth::Matrix*)>(0x004A36E0)(skeleton, kBoneHead, &m_matrix);
+    static_cast<Gfx::CSkeleton*>(skeleton)->GetBoneMatrix(kBoneHead, &m_matrix);
     Mth::Matrix turn;
     Mth::Multiply(m_matrix, Mth::CreateRotateXMatrix(turn, 90.0f), m_matrix);
     Mth::Vector raise = {0.0f, 0.0f, -18.0f, 0.0f};
-    GameFunction<void(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0048A260)(&m_matrix, &raise); // TranslateLocal
+    m_matrix.TranslateLocal(raise);
     Mth::Vector offset = m_matrix.row[3];
     m_matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     Mth::Multiply(m_matrix, m_matrix, m_skater->m_matrix);
@@ -275,17 +273,15 @@ void CCrownObject::InitFromNode(CCompositeObjectManager* manager, Script::CStruc
     {
         // The model's path (0x004879D0 returns a String: made in `storage`).
         alignas(Str::String) uint8_t storage[sizeof(Str::String)];
-        auto* path = GameFunction<Str::String*(__cdecl*)(void*, const char*, const char*)>(0x004879D0)(storage, "crown",
-                                                                                                       ".mdl");
+        auto* path = Gfx::MakeModelPath(reinterpret_cast<Str::String*>(storage), "crown", ".mdl");
         file = *path;
         path->~String();
     }
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).
     void* modelData = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(GetComponent(kModel)) + 0x208);
-    GameFunction<void(__thiscall*)(void*, const char*, int, int, int, int, int, int, int)>(0x004935E0)(
-        modelData, file.c_str(), 0, 1, 0, 0, 0, 1, 0);
+    static_cast<Nx::CModel*>(modelData)->AddFileGeom(file.c_str(), 0, true, 0, false, false, true, false);
     modelData = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(GetComponent(kModel)) + 0x208);
-    GameFunction<void(__thiscall*)(void*, int)>(0x00493C60)(modelData, 1);
+    static_cast<Nx::CModel*>(modelData)->SetActive(1);
     SkateScript::GetPosition(node, &m_pos);
     VirtualFinalize(this);
     UpdateModel(GetComponent(kModel));

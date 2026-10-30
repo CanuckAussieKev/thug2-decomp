@@ -8,6 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/skeleton.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
@@ -49,13 +50,13 @@ void* SkeletonOf(CBaseComponent* component) { return *reinterpret_cast<void**>(r
 // data (+0x08), a bone's parent (0x004A2C50).
 bool BoneMatrix(void* skeleton, uint32_t bone, Mth::Matrix* out)
 {
-    return GameFunction<bool(__thiscall*)(void*, uint32_t, Mth::Matrix*)>(0x004A36E0)(skeleton, bone, out);
+    return static_cast<Gfx::CSkeleton*>(skeleton)->GetBoneMatrix(bone, out);
 }
-int BoneIndex(void* skeleton, uint32_t bone) { return GameFunction<int(__thiscall*)(void*, uint32_t)>(0x004A2B60)(skeleton, bone); }
+int BoneIndex(void* skeleton, uint32_t bone) { return static_cast<Gfx::CSkeleton*>(skeleton)->GetBoneIndex(bone); }
 uint32_t ParentBone(void* skeleton, int index)
 {
     void* data = *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 8);
-    return GameFunction<uint32_t(__thiscall*)(void*, int)>(0x004A2C50)(data, index);
+    return static_cast<Gfx::CSkeletonData*>(data)->GetParentName(index);
 }
 // The model component's 0x004215F0: its matrix into `out`.
 void ModelMatrix(CBaseComponent* model, Mth::Matrix* out)

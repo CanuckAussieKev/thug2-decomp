@@ -102,7 +102,7 @@ void StandInCalls(StandIns& s)
         return 0u;
     });
     s.At({0x005A0D90}, 0, [](Regs& r) { Record({0x0D90, r.args[0], r.args[1]}); return g_observing; });
-    s.At({0x00564FC0}, 4, [](Regs& r) {
+    s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4FC0, r.ecx == reinterpret_cast<uint32_t>(g_skate) ? 1u : r.ecx, r.args[0]});
         return 0x0F0F1234u;
     });

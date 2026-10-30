@@ -7,6 +7,8 @@
 #include "game/front/screen_element_manager.h"
 #include "game/front/text_block.h"
 #include "game/front/text_element.h"
+#include "game/gfx/engine_text.h"
+#include "game/gfx/font.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
 
@@ -97,13 +99,13 @@ void InstallTextStandIns(StandIns& s)
         return 0u;
     });
     // text objects
-    s.At({0x0048D1D0}, 0, [](Regs&) {
+    s.At({0x0048D1D0, AddressOf(Nx::NewText)}, 0, [](Regs&) {
         uint32_t t = g_textNext;
         g_textNext += 0x10;
         Rec(0xD1D0, {At(t)});
         return At(t);
     });
-    s.At({0x0048D5F0}, 0, [](Regs& r) {
+    s.At({0x0048D5F0, AddressOf(Nx::FreeText)}, 0, [](Regs& r) {
         Rec(0xD5F0, {r.args[0]});
         return 0u;
     });
@@ -116,23 +118,46 @@ void InstallTextStandIns(StandIns& s)
         {0x0048D0C0, 4, {0xFF, 0, 0}},     {0x0048D0D0, 4, {~0u, 0, 0}},      {0x0048D0E0, 8, {~0u, ~0u, 0}},
         {0x0048D100, 8, {~0u, ~0u, 0}},    {0x0048D120, 12, {~0u, ~0u, ~0u}}, {0x0048D140, 4, {~0u, 0, 0}},
         {0x0048D160, 4, {~0u, 0, 0}},      {0x0048D180, 8, {~0u, 0xFF, 0}},   {0x0048D1A0, 4, {0xFF, 0, 0}},
-        {0x0048D1B0, 4, {~0u, 0, 0}},      {0x0048D450, 8, {~0u, ~0u, 0}},    {0x0048D280, 12, {~0u, ~0u, ~0u}},
+        {0x0048D1B0, 4, {~0u, 0, 0}},      {0x0048D450, 8, {~0u, ~0u, 0}},    {0x0048D280, 12, {~0u, 0xFFFF, 0xFFFF}},
         {0x0048D360, 12, {~0u, ~0u, ~0u}},
+    };
+    // (our rewrite of each setter, which the source now calls instead of the original address)
+    auto oursOf = [](uint32_t address) -> uint32_t {
+        switch (address) {
+        case 0x0048D0C0: return AddressOf(&Nx::CText::SetHidden);
+        case 0x0048D0D0: return AddressOf(&Nx::CText::SetFont);
+        case 0x0048D0E0: return AddressOf(&Nx::CText::SetPos);
+        case 0x0048D100: return AddressOf(&Nx::CText::SetScale);
+        case 0x0048D120: return AddressOf(&Nx::CText::SetRotation);
+        case 0x0048D140: return AddressOf(&Nx::CText::SetPriority);
+        case 0x0048D160: return AddressOf(&Nx::CText::SetDepth);
+        case 0x0048D180: return AddressOf(&Nx::CText::SetColour);
+        case 0x0048D1A0: return AddressOf(&Nx::CText::SetOverrideAlpha);
+        case 0x0048D1B0: return AddressOf(&Nx::CText::SetWindow);
+        case 0x0048D450: return AddressOf(&Nx::CText::SetCharRotation);
+        case 0x0048D280: return AddressOf(&Nx::CText::SetCharOffset);
+        case 0x0048D360: return AddressOf(&Nx::CText::SetCharScale);
+        default: return 0u;
+        }
     };
     for (const Setter& setter : setters) {
         uint32_t tag = setter.address & 0xFFFF;
         uint32_t m0 = setter.masks[0], m1 = setter.masks[1], m2 = setter.masks[2];
-        s.At({setter.address}, setter.pop, [tag, m0, m1, m2](Regs& r) {
+        Handler handler = [tag, m0, m1, m2](Regs& r) {
             Rec(tag, {r.ecx, r.args[0] & m0, r.args[1] & m1, r.args[2] & m2});
             return 0u;
-        });
+        };
+        if (uint32_t ours = oursOf(setter.address))
+            s.At({setter.address, ours}, setter.pop, handler);
+        else
+            s.At({setter.address}, setter.pop, handler);
     }
-    s.At({0x0048D530}, 4, [](Regs& r) {
+    s.At({0x0048D530, AddressOf(&Nx::CText::SetString)}, 4, [](Regs& r) {
         Rec(0xD530, {r.ecx, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });
     // fonts: a string's width from its length
-    s.At({0x0048D760}, 0, [](Regs& r) {
+    s.At({0x0048D760, AddressOf(Nx::GetFont)}, 0, [](Regs& r) {
         Rec(0xD760, {r.args[0]});
         return At(kFont);
     });
@@ -143,7 +168,7 @@ void InstallTextStandIns(StandIns& s)
         *reinterpret_cast<float*>(r.args[2]) = 13.5f;
         return 0u;
     });
-    s.At({0x0048D6A0}, 0, [](Regs& r) {
+    s.At({0x0048D6A0, AddressOf(Nx::ButtonGlyph)}, 0, [](Regs& r) {
         const char* text = reinterpret_cast<const char*>(r.args[0]);
         Rec(0xD6A0, {static_cast<uint32_t>(text[0])});
         return static_cast<uint32_t>(0x41 + (text[0] & 7));

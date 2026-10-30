@@ -21,6 +21,8 @@
 #include "game/obj/object.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -131,14 +133,14 @@ void StandInEmitterWorld(StandIns& s)
              Record({0x9050000, r.args[0], EmReloc(r.args[1])});
              return 1u;
          });
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(Nx::Engine::GetSector)}, 0, [](Regs& r) {
         uint32_t sector = 0;
         if (g_emAnswers.Below(4) != 0)
             sector = reinterpret_cast<uint32_t>(g_emArena + kWorld + 0x100 * g_emAnswers.Below(4));
         Record({0x5EC70000, r.args[0], EmReloc(sector)});
         return sector;
     });
-    s.At({0x0049E6A0}, 0, [](Regs& r) {
+    s.At({0x0049E6A0, AddressOf(&Nx::CSector::GetBoundingBox)}, 0, [](Regs& r) {
         Record({0x5EC70001, EmReloc(r.ecx)});
         return r.ecx + 0x20;
     });

@@ -7,6 +7,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/model.h"
+#include "game/gfx/skeleton.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/model_component.h"
 #include "game/obj/object.h"
@@ -56,7 +59,7 @@ void RecordSwap(uint32_t a, uint32_t b) { CFuncs::SwapMapping(a, b); }
 uint8_t* SkeletonOf(Obj::CBaseComponent* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
 void CopySkeleton(uint8_t* to, uint8_t* from)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, uint8_t*, int)>(0x004A2E20)(to, from, 1);
+    reinterpret_cast<Gfx::CSkeleton*>(to)->CopyBoneScales(reinterpret_cast<Gfx::CSkeleton*>(from), true);
 }
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
@@ -64,12 +67,12 @@ void CopySkeleton(uint8_t* to, uint8_t* from)
 uint32_t ModelGet(Nx::CModel* model) { return GameFunction<uint32_t(__thiscall*)(Nx::CModel*)>(0x00492E50)(model); }
 void ModelSet(Nx::CModel* model, uint32_t value)
 {
-    GameFunction<void(__thiscall*)(Nx::CModel*, uint32_t)>(0x00493460)(model, value);
+    model->SetBoneMatrices(reinterpret_cast<uint8_t*>(value));
 }
 void FollowPosition(Nx::CModel* model, Mth::Vector* position)
 {
     void* lights = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);
-    GameFunction<bool(__thiscall*)(void*, Mth::Vector*)>(0x0048E4D0)(lights, position);
+    static_cast<Nx::CModelLights*>(lights)->SetPositionPointer(position);
 }
 
 // The model component's SetModel through its vtable (slot 14).
@@ -131,15 +134,15 @@ bool __cdecl CFunc_SwapObjectModels(Script::CStruct* params, Script::CScript*)
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_topDownHeap);
     void* memory = Mem::New(0x1C);
-    uint8_t* temp = memory ? GameFunction<uint8_t*(__thiscall*)(void*, void*)>(0x004A3D30)(
-                                 memory, *reinterpret_cast<void**>(skeletonA + 8))
+    uint8_t* temp = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx::CSkeleton*>(memory)->Construct(
+                                 *reinterpret_cast<Gfx::CSkeletonData**>(skeletonA + 8)))
                            : nullptr;
     Mem::Manager::Get()->PopContext();
     CopySkeleton(temp, skeletonA);
     CopySkeleton(skeletonA, skeletonB);
     CopySkeleton(skeletonB, temp);
     if (temp) {
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x004A2CB0)(temp);
+        reinterpret_cast<Gfx::CSkeleton*>(temp)->DestroyBody();
         Mem::Manager::Get()->Free(temp);
     }
 
@@ -221,8 +224,7 @@ bool __cdecl CFunc_GetSkaterModelIsSwapped(Script::CStruct* params, Script::CScr
     if (params->GetInteger(kSkater, &index, 0))
         skater = static_cast<Obj::CSkater*>(Mdl::Skate::Instance()->GetSkater(index));
     else
-        skater = static_cast<Obj::CSkater*>(
-            GameFunction<CCompositeObject*(__thiscall*)(Mdl::Skate*)>(0x00566520)(Mdl::Skate::Instance()));
+        skater = Mdl::Skate::Instance()->GetLocalSkater();
     return skater->m_unknown31C != 0;
 }
 

@@ -17,6 +17,10 @@
 #include "game/sfx/terrain.h"
 #include "game/script/cfuncs_scene.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -53,7 +57,7 @@ void StandInCalls(StandIns& s)
     s.At({0x00444EB0, AddressOf(&Terrain::LoadTerrainSounds)}, 0, [](Regs& r) { Record({0x4EB0, r.args[0]}); return 1u; });
     s.At({0x0048BFA0}, 0, [](Regs& r) { Record({0xBFA0, r.args[0]}); return Addr(g_model); });
     // <name>.mdl: a String in the caller's storage (no text: copying it allocates nothing)
-    s.At({0x004879D0}, 0, [](Regs& r) {
+    s.At({0x004879D0, AddressOf(Gfx::MakeModelPath)}, 0, [](Regs& r) {
         Record({0x79D0, Text(r.args[1]), Text(r.args[2])});
         auto* string = reinterpret_cast<uint32_t*>(r.args[0]);
         string[0] = 0x5E41;
@@ -61,19 +65,19 @@ void StandInCalls(StandIns& s)
         string[2] = 0;
         return r.args[0];
     });
-    s.At({0x004935E0}, 32, [](Regs& r) {
+    s.At({0x004935E0, AddressOf(&Nx::CModel::AddFileGeom)}, 32, [](Regs& r) {
         Record({0x35E0, r.ecx == Addr(g_model), r.args[0]});
         for (int i = 1; i < 8; ++i)
             Record({r.args[i] & 0xFF});
         return 0u;
     });
-    s.At({0x0048C3C0}, 0, [](Regs& r) { Record({0xC3C0, r.args[0] == Addr(g_model)}); return 0u; });
+    s.At({0x0048C3C0, AddressOf(Nx::Engine::DeleteGeomObject)}, 0, [](Regs& r) { Record({0xC3C0, r.args[0] == Addr(g_model)}); return 0u; });
     s.At({0x0048C810}, 0, [](Regs&) { Record({0xC810}); return 0u; });
     s.At({0x0048C750}, 0, [](Regs& r) {
         Record({0xC750, Text(r.args[0])});
         return g_sceneFound ? Addr(g_scenes[0]) : 0u;
     });
-    s.At({0x0048C770}, 0, [](Regs&) { Record({0xC770}); return g_firstScene ? Addr(g_scenes[1]) : 0u; });
+    s.At({0x0048C770, AddressOf(Nx::GetMainScene)}, 0, [](Regs&) { Record({0xC770}); return g_firstScene ? Addr(g_scenes[1]) : 0u; });
     s.At({0x0049DF70}, 8, [](Regs& r) { Record({0xDF70, r.ecx, Text(r.args[0]), r.args[1] & 0xFF}); return 0u; });
     s.At({0x0049DFD0}, 4, [](Regs& r) { Record({0xDFD0, r.ecx, Text(r.args[0])}); return 1u; });
     s.At({0x0048CEF0}, 0, [](Regs& r) { Record({0xCEF0, Text(r.args[0])}); return 0u; });

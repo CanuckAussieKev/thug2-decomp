@@ -22,6 +22,9 @@
 #include "game/skater/physics_control.h"
 #include "game/skater/stats_manager.h"
 #include "game/skater/skater.h"
+#include "game/gfx/viewport.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -188,11 +191,11 @@ void Install(StandIns& s)
         Rec(0x9050, {r.ecx, r.args[0] & 0xFF});
         return static_cast<uint32_t>(g_difficulty);
     });
-    s.At({0x00553220}, 4, [](Regs& r) {
+    s.At({0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, [](Regs& r) {
         Rec(0x3220, {r.ecx, r.args[0]});
         return g_classic ? 1u : 0u;
     });
-    s.At({0x00566100}, 4, [](Regs& r) {
+    s.At({0x00566100, AddressOf(&Mdl::Skate::SkipToRestartPoint)}, 4, [](Regs& r) {
         Rec(0x6100, {r.ecx, r.args[0]});
         if (g_boards.empty())
             return 0x0B0A0000u + r.args[0];
@@ -204,7 +207,7 @@ void Install(StandIns& s)
         Rec(0x3DE0, {r.args[0]});
         return 3u;
     });
-    s.At({0x004A09C0}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Rec(0x09C0, {r.args[0]});
         return Block(31) + r.args[0];
     });

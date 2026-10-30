@@ -11,6 +11,7 @@
 #include "game/core/stubs.h"
 #include "game/file/asset_bundle.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/engine_glue.h"
 #include "game/obj/cutscene.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
@@ -240,7 +241,7 @@ void CCutsceneData::Update(void* camera, Script::CStruct* /*params*/)
         if (fixed && FixedFrame() > 0) {
             char shot[128];
             std::snprintf(shot, sizeof(shot), "%s%04d", ShotName(), FixedFrame() - 1);
-            GameFunction<void(__cdecl*)(const char*, int)>(0x0048C100)(shot, 1); // (a screenshot)
+            GameFunction<void(__cdecl*)(const char*, int)>(0x0048C100)(shot, 1); // (a screenshot) // (a screenshot)
         }
     }
     ++FixedFrame();

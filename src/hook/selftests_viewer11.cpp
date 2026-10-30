@@ -14,6 +14,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/game_mode.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -128,7 +129,7 @@ void Install(StandIns& s)
         Rec(0xDB90, {r.ecx, r.args[0]});
         return ComponentFor(r.args[0]);
     });
-    s.At({0x00553220}, 4, [](Regs& r) {
+    s.At({0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, [](Regs& r) {
         Rec(0x3220, {r.ecx, r.args[0]});
         return g_classic ? 1u : 0u;
     });

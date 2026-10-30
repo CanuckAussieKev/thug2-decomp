@@ -23,6 +23,9 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_scene.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/sector.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -437,11 +440,11 @@ void TestRigidBodyPushers()
         {{0x00461410, 16, 4, Ret::Int, true, 0x8, {Ours(&Obj::CObject::SpawnScript)},
           [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kMine + 0x700)); }},
          {0x004750B0, 0, 0, Ret::Int, true, 0, {Ours(&Script::CScript::Update)}},
-         {0x0048C770, 0, 0, Ret::Int, false, 0, {},
+         {0x0048C770, 0, 0, Ret::Int, false, 0, {Ours(Nx::GetMainScene)},
           [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kMine + 0x740)); }},
-         {0x0049CB00, 4, 1, Ret::Int, true, 0, {},
+         {0x0049CB00, 4, 1, Ret::Int, true, 0, {Ours(&Nx::CScene::GetSector)},
           [](Frame&, Result& r) { r.eax = Next() % 2 ? reinterpret_cast<uint32_t>(ArenaPtr(kMine + 0x780)) : 0; }},
-         {0x0049E9B0, 4, 1, Ret::None, true, 0x1},
+         {0x0049E9B0, 4, 1, Ret::None, true, 0x1, {Ours(&Nx::CSector::SetActive)}},
          {0x005BE970, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GetTime)},
           [](Frame&, Result& r) { r.eax = Next() % 4000; }},
          {0x00403DE0, 0, 1, Ret::Int, false, 0, {Ours(&Mth::Rnd)},

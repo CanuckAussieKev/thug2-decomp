@@ -17,6 +17,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sfx/terrain.h"
+#include "game/skate/skate_module.h"
 #include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -844,9 +845,8 @@ bool CRailManager::FindJoiningRail(const CRailNode* from, uint32_t excludeFlags,
 void CRailManager::AddFromNodeArray(Script::CArray* nodes)
 {
     m_nodeArray = nodes;
-    void* skate = GameVariable<void*>(0x007CE478);
-    auto skipped = [skate](Script::CStruct* node) { // (the skate module's 0x00565BB0: a node this game leaves out)
-        return GameFunction<bool(__thiscall*)(void*, Script::CStruct*)>(0x00565BB0)(skate, node);
+    auto skipped = [](Script::CStruct* node) { // (the skate module's 0x00565BB0: a node this game leaves out)
+        return Mdl::Skate::ShouldBeAbsent(node) != 0;
     };
     auto isRail = [](Script::CStruct* node) {
         uint32_t nodeClass = 0;

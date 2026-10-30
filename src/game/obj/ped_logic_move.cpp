@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "game/skater/skater.h"
 #include "game/core/manager.h"
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
@@ -106,7 +107,7 @@ CMotionPathMembers* MotionPath(CMotionComponent* motion) { return reinterpret_ca
 
 CCompositeObject* LocalSkater()
 {
-    return GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00566520)(GameVariable<void*>(0x007CE478));
+    return static_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
 }
 
 // D3DXMatrixMultiply (linked library code).

@@ -13,6 +13,8 @@
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
 #include "game/core/task.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/viewport_list.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/gamenet_handlers.h"
@@ -23,6 +25,7 @@
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
+#include "game/script/script_startup.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/sio/inpman.h"
@@ -168,7 +171,7 @@ int __cdecl ReloadScriptFile(const char** name)
     const char* file = *name;
     if (std::strcmp(file, "..\\runnow.qb") == 0 || std::strcmp(file, "runnow.qb") == 0)
         RunNowLoaded() = true;
-    GameFunction<void(__cdecl*)(const char*, int)>(0x005A5960)(file, 0);
+    Script::LoadQBFile(file, 0);
     return 1;
 }
 
@@ -527,8 +530,8 @@ void __cdecl FreeCameraTask(ViewerTask* task)
     }
     camera->m_compositeFlags &= ~Obj::COMPOSITE_FLAG_PAUSED;
     if (viewer->m_commands & 0x1000) {
-        int next = (GameFunction<int(__cdecl*)()>(0x004A0710)() + 1) % 6;
-        GameFunction<void(__cdecl*)(int)>(0x004A0AD0)(next);
+        int next = (Nx::GetScreenMode() + 1) % 6;
+        Nx::SetScreenMode(next);
     }
     viewer->m_commands = 0;
 }

@@ -1,5 +1,6 @@
 // The game clock.
 
+#include "game/gfx/engine.h"
 #include "game/sys/timer.h"
 
 #include <intrin.h>
@@ -119,12 +120,11 @@ void UpdateFrameLength()
 // 0x005BE920
 void WaitForVblank()
 {
-    using Idle = void(__cdecl*)();
     uint64_t start = TotalVblanks();
     while (TotalVblanks() == start) {
         // the idle function (0x0048C1C0 reads it from 0x006FA7D8)
-        if (GameFunction<Idle(__cdecl*)()>(0x0048C1C0)())
-            GameFunction<Idle(__cdecl*)()>(0x0048C1C0)()();
+        if (Nx::Engine::GetIdleFunction())
+            Nx::Engine::GetIdleFunction()();
     }
 }
 

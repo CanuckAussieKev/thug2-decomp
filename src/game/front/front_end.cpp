@@ -17,10 +17,13 @@
 #include "game/obj/tracker.h"
 #include "game/pcm/music.h"
 #include "game/script/cscript.h"
+#include "game/script/game_cfuncs.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sio/device.h"
 #include "game/sio/inpman.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/module.h"
 #include "game/sys/timer.h"
@@ -70,7 +73,7 @@ bool& MenuOnScreen() { return GameVariable<bool>(0x007CE46F); }     // a menu, d
 bool& PendingScript() { return GameVariable<bool>(0x007CE4A0); }    // set elsewhere: run 0xFB11E6CD next frame
 bool& GamePaused() { return GameVariable<bool>(0x006FA7D4); }
 
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); } // Mdl::Skate
+uint8_t* SkateBytes() { return GameVariable<uint8_t*>(0x007CE478); } // Mdl::Skate
 void* Tracker() { return GameVariable<void*>(0x006F0FC0); }    // Obj::CTracker
 uint8_t* MainLoopManager() { return GameVariable<uint8_t*>(0x00696D68); }
 uint8_t* InputManager() { return GameVariable<uint8_t*>(0x00696D40); } // Inp::Manager
@@ -410,7 +413,7 @@ void __cdecl FrontEnd::KeyboardTask(FrontEndTask* task)
 // 0x0054F380
 void FrontEnd::Update(bool gamePaused)
 {
-    uint8_t* skate = Skate();
+    uint8_t* skate = SkateBytes();
     bool inSkateshop = *reinterpret_cast<uint32_t*>(skate + 0x374) == 0xE92ECAFE; // (the level / game mode)
     if (SkateshopOverride())
         inSkateshop = false;
@@ -445,10 +448,10 @@ void FrontEnd::Update(bool gamePaused)
     }
     Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_bottomUpHeap);
     Script::UpdateSpawnedScripts();
-    GameFunction<void(__thiscall*)(uint8_t*)>(0x00564D60)(Skate());
+    reinterpret_cast<Mdl::Skate*>(SkateBytes())->UpdateGameFlow();
     if (PendingScript()) {
         PendingScript() = false;
-        auto* object = GameFunction<Obj::CObject*(__thiscall*)(uint8_t*)>(0x00566520)(Skate());
+        auto* object = static_cast<Obj::CObject*>(reinterpret_cast<Mdl::Skate*>(SkateBytes())->GetLocalSkater());
         Script::RunScript(0xFB11E6CD, nullptr, object, false, nullptr);
     }
     Mem::Manager::Get()->PopContext();
@@ -511,10 +514,10 @@ void FrontEnd::PauseGame(bool pause)
 {
     if (pause == m_paused)
         return;
-    uint8_t* skate = Skate();
+    uint8_t* skate = SkateBytes();
     auto* devices = GameVariable<Sio::Manager*>(0x007D1E20);
     if (pause) {
-        GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x00564F60)(skate, true);
+        reinterpret_cast<Mdl::Skate*>(skate)->Pause(true);
         devices->PauseDevices();
     } else {
         devices->UnpauseDevices();
@@ -527,7 +530,7 @@ void FrontEnd::PauseGame(bool pause)
          *reinterpret_cast<int*>(node + 4) != -1 && node; node = *reinterpret_cast<uint8_t**>(node + 0xC))
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* skater = GameFunction<void***(__thiscall*)(uint8_t*, uint32_t)>(0x005665C0)(skate, i);
+        auto* skater = reinterpret_cast<void***>(reinterpret_cast<Mdl::Skate*>(skate)->GetSkater(static_cast<int>(i)));
         if (!skater)
             continue;
         if (pause)
@@ -547,15 +550,15 @@ void FrontEnd::PauseGame(bool pause)
         ReportPauseState();
     } else {
         *reinterpret_cast<uint32_t*>(MainLoopManager() + 8) = 0;
-        GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x00564F60)(Skate(), false);
+        reinterpret_cast<Mdl::Skate*>(SkateBytes())->Pause(false);
         ReportPauseState();
     }
-    if (m_paused || !GameFunction<void*(__thiscall*)(uint8_t*)>(0x00566520)(skate))
+    if (m_paused || !reinterpret_cast<Mdl::Skate*>(skate)->GetLocalSkater())
         return;
     // Back in the game with a skater: the camera's view mode back to the global's.
     Script::CStruct* params = NewParams();
     params->AddInteger(0u, Script::GetInteger(0x968F7408u));
-    GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x0059FD90)(params, nullptr); // SetViewMode
+    CFuncs::CFunc_SetViewMode(params, nullptr);
     DeleteParams(params);
 }
 

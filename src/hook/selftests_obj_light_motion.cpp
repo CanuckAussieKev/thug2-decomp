@@ -20,6 +20,7 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine_model_lights.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -97,7 +98,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 1, 0x37E0);
     // The model component and its lights.
     RecBools(s, {0x00420670, AddressOf(&Obj::CModelComponent::ApplyBrightness)}, 3, 0x0670, 2);
-    Rec(s, {0x0048E830}, 2, 0xE830, [](Regs&) { return 1u; });
+    Rec(s, {0x0048E830, AddressOf(&Nx::CModelLights::MoveBrightness)}, 2, 0xE830, [](Regs&) { return 1u; });
     // The script's waits and the member-function tables.
     Rec(s, {0x004739A0, AddressOf(&Script::CScript::SetWaitOnComponent)}, 3, 0x39A0);
     Rec(s, {0x0046F060, AddressOf(&Script::RegisterMemberFunctionTable)}, 3, 0xF060, nullptr, false, true);
