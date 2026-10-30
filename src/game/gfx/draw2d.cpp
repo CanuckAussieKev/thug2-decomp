@@ -9,8 +9,14 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
+
+namespace {
+extern void** const kSDraw2DVtable;
+} // namespace
+
 
 namespace {
 
@@ -19,7 +25,7 @@ GAME_GLOBAL(uint32_t, g_draw2dZTestNextFrame, 0x007CC24C);
 
 SDraw2D*& Head() { return g_draw2dHead; }
 uint32_t& ZTestNextFrame() { return g_draw2dZTestNextFrame; }
-void** BaseVtable() { return reinterpret_cast<void**>(0x0064AD18); }
+void** BaseVtable() { return kSDraw2DVtable; }
 
 void Call(SDraw2D* item, int slot) { reinterpret_cast<void(__thiscall*)(SDraw2D*)>(item->vtable[slot])(item); }
 
@@ -152,6 +158,11 @@ void __cdecl Draw2D()
     }
     ZTestNextFrame() = zTest;
 }
+
+namespace {
+GAME_VTABLE(kSDraw2DVtable, 0x0064AD18, &Nx::SDraw2D::Destroy, GAME_LIBRARY_SLOT(0x00623771),
+            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771));
+} // namespace
 
 } // namespace Nx
 

@@ -16,12 +16,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Gfx {
 
 namespace {
 
-void** const kVolumeVtable = reinterpret_cast<void**>(0x00648988);
+extern void** const kVolumeVtable;
 
 constexpr uint32_t kBoneDescriptions = 0x00E7085E; // (name unknown: the global array of bone descriptions)
 constexpr uint32_t kBone = 0xCAB94088;              // bone
@@ -241,6 +242,10 @@ bool CBoneVolumes::GetBoneVolume(CSkeleton* skeleton, const Mth::Matrix* world, 
     *volume = static_cast<float>(CapsuleVolume(Between(at.row[3], parent.row[3], radius)));
     return true;
 }
+
+namespace {
+GAME_VTABLE(kVolumeVtable, 0x00648988, &Gfx::CBoneVolume::IntersectsSegment);
+} // namespace
 
 } // namespace Gfx
 

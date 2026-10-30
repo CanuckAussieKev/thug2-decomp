@@ -19,14 +19,18 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/obj/texture_projection_component.h"
+#include "game/gfx/pc_texture_projection.h"
 #include "game/skate/skate_module.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kProjectionVtable = 0x00649C14;
-void** const kProjectionNodeVtable = reinterpret_cast<void**>(0x00646600);
+extern void** const kProjectionVtable;
+void** const& kProjectionNodeVtable = Vt::kProjectionNode;
 
 float F(double value) { return static_cast<float>(value); }
 
@@ -95,7 +99,7 @@ void CTextureProjection::DestroyBody() { reinterpret_cast<Mem::ListNode*>(this)-
 // 0x0049FE10
 void CTextureProjection::PlatProject(void**, void**)
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x00649C00)); // "STUB: plat_update..."
+    Dbg::Printf(GAME_TEXT(0x00649C00, "STUB: plat_update\n")); // "STUB: plat_update..."
 }
 
 // 0x004A04C0
@@ -250,7 +254,15 @@ void CTextureProjection::Update(Obj::CCompositeObject* object)
     }
 }
 
+namespace {
+GAME_VTABLE(kProjectionVtable, 0x00649C14, &Nx::CPcTextureProjection::Destroy, &Nx::CTextureProjection::PlatProject);
+} // namespace
+
 } // namespace Nx
+
+namespace Vt {
+GAME_VTABLE(kProjectionNode, 0x00646600, &Obj::CTextureProjectionComponent::ProjectionList::Destroy);
+} // namespace Vt
 
 REPLACE(0x0049FE20, &Nx::CTextureProjection::Construct);
 REPLACE(0x004A04A0, &Nx::CTextureProjection::DestroyBody);

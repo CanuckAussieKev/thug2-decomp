@@ -11,40 +11,42 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/mc/memcard.h"
 
 namespace Gfx {
 
 namespace {
 
-constexpr uint32_t kBaseVtable = 0x006487B0;
-constexpr uint32_t kScriptKeyVtable = 0x006487BC;
-constexpr uint32_t kFovVtable = 0x0064880C;
-constexpr uint32_t kScriptVtable = 0x00648818;
-constexpr uint32_t kMarkerVtable = 0x00648824; // (kind 3: no data; its Process is the shared "true" 0x005BC7F0)
-constexpr uint32_t kStructureVtable = 0x00648830;
-constexpr uint32_t kKillVtable = 0x0064883C;
-constexpr uint32_t kCameraVtable = 0x00648848;
+void** const& kBaseVtable = Vt::kAnimEventBase;
+void** const& kScriptKeyVtable = Vt::kAnimEvent;
+extern void** const kFovVtable;
+extern void** const kScriptVtable;
+extern void** const kMarkerVtable; // (kind 3: no data; its Process is the shared "true" 0x005BC7F0)
+extern void** const kStructureVtable;
+extern void** const kKillVtable;
+extern void** const kCameraVtable;
 
 constexpr uint32_t kDebugGlobal = 0x2F510F45;     // (a script global each Process reads - and ignores)
 constexpr uint32_t kSetHFOVRadians = 0x44EA2B6D;  // the camera's member function (name unknown)
 constexpr uint32_t kStructureScript = 0xBDF7F843; // (name unknown) the script a structure key runs
 constexpr uint32_t kName = 0xA1DC81F9;            // name
 
-void** Vtable(uint32_t address) { return reinterpret_cast<void**>(address); }
 
 // Each Process reads the global 0x2F510F45 first (compiled-out debug output, presumably).
 void ReadDebugGlobal() { Script::GetInteger(kDebugGlobal); }
 
 // A key of `size` bytes with its frame, inactive (from Mem::New; null without memory).
 template <typename T>
-T* NewKey(uint32_t vtable, int frame, uint32_t size = sizeof(T))
+T* NewKey(void** vtable, int frame, uint32_t size = sizeof(T))
 {
     auto* key = static_cast<T*>(Mem::New(size));
     if (!key)
         return nullptr;
     key->m_frame = frame;
     key->m_armed = false;
-    key->m_vtable = Vtable(vtable);
+    key->m_vtable = vtable;
     return key;
 }
 
@@ -139,7 +141,7 @@ CCameraKey* CCameraKey::Construct(int frame, const Mth::Quat* rotation, const Mt
 {
     m_frame = frame;
     m_armed = false;
-    m_vtable = Vtable(kCameraVtable);
+    m_vtable = kCameraVtable;
     m_rotation = {0.0f, 0.0f, 0.0f, 1.0f};
     Mth::Vector axis = {1.0f, 0.0f, 0.0f, 1.0f};
     Mth::Quat quarterTurn;
@@ -202,13 +204,13 @@ void CAnimScriptKey::Set(int frame, uint32_t event, Script::CStruct* params)
 // 0x00486560
 void CAnimScriptKey::DestroyBody()
 {
-    m_vtable = Vtable(kScriptKeyVtable);
+    m_vtable = kScriptKeyVtable;
     if (Script::CStruct* params = mp_params) {
         params->Clear();
         Script::DeleteStruct(params);
         mp_params = nullptr;
     }
-    m_vtable = Vtable(kBaseVtable);
+    m_vtable = kBaseVtable;
 }
 
 // 0x00486440
@@ -257,7 +259,7 @@ CCustomAnimKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
     case 6: {
         uint32_t value = *data;
         *cursor = reinterpret_cast<const uint8_t*>(data + 1);
-        uint32_t vtables[] = {kScriptVtable, kStructureVtable, kKillVtable};
+        void** vtables[] = {kScriptVtable, kStructureVtable, kKillVtable};
         auto* key = NewKey<CScriptKey>(vtables[kind - 4], frame);
         if (!key)
             return nullptr;
@@ -269,6 +271,21 @@ CCustomAnimKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
         return nullptr;
     }
 }
+
+namespace {
+GAME_VTABLE(kFovVtable, 0x0064880C, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+            &Gfx::CCameraFovKey::Process);
+GAME_VTABLE(kScriptVtable, 0x00648818, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+            &Gfx::CScriptKey::Process);
+GAME_VTABLE(kMarkerVtable, 0x00648824, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+            &Mc::Card::AlwaysTrue);
+GAME_VTABLE(kStructureVtable, 0x00648830, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+            &Gfx::CStructureScriptKey::Process);
+GAME_VTABLE(kKillVtable, 0x0064883C, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+            &Gfx::CKillObjectKey::Process);
+GAME_VTABLE(kCameraVtable, 0x00648848, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCameraKey::WithinRange,
+            &Gfx::CCameraKey::Process);
+} // namespace
 
 } // namespace Gfx
 

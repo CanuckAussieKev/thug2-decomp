@@ -9,12 +9,13 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kWeatherVtable = 0x00649E30;
+extern void** const kWeatherVtable;
 
 float FloatParameter(Script::CStruct* params, float fallback)
 {
@@ -291,6 +292,12 @@ __declspec(naked) void VirtualSlot3Jump()
         jmp dword ptr [eax + 0xC]
     }
 }
+
+namespace {
+GAME_VTABLE(kWeatherVtable, 0x00649E30, &Nx::CWeather::Destroy, &Nx::CWeather::UpdateGrid, &Nx::CWeather::Update,
+            &Nx::CWeather::Render, &Nx::CWeather::SetRainBlendMode, &Nx::CWeather::SetSplashBlendMode,
+            &Nx::CWeather::SetSnowBlendMode);
+} // namespace
 
 } // namespace Nx
 

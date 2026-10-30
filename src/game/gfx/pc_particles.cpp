@@ -24,6 +24,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -34,7 +37,7 @@ GAME_GLOBAL(uint32_t, g_particleRandomA, 0x00705608);
 
 namespace {
 
-constexpr uint32_t kSystemVtable = 0x0064A4F0;
+extern void** const kSystemVtable;
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
@@ -382,7 +385,7 @@ void CPcParticleSystem::Render(bool advance)
     float r[3], u[3];
     CameraAxes(r, u);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    SetPixelShader(GameVariable<void*>(0x007CA964), nullptr);
+    SetPixelShader(g_pixelShaders[kPixelShader964], nullptr);
     float colourTable[3][4];
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 4; ++k)
@@ -514,6 +517,12 @@ void CPcParticleSystem::Render(bool advance)
         }
     }
 }
+
+namespace {
+GAME_VTABLE(kSystemVtable, 0x0064A4F0, &Nx::CPcParticleSystem::Destroy, &Nx::CPcParticleSystem::Initialise,
+            &Nx::CPcParticleSystem::Release, Stubs::IgnoreArgument, &Nx::CPcParticleSystem::Render,
+            &Nx::CPcParticleSystem::Update, Stubs::DoNothing, &Nx::CPcParticleSystem::IsEmitting);
+} // namespace
 
 } // namespace Nx
 

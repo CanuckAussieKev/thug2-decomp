@@ -9,12 +9,16 @@
 #include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/net/net_manager.h"
+#include "game/core/stubs.h"
+#include "game/mc/memcard.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kModelVtable = 0x0064A4B4;
+extern void** const kModelVtable;
 
 void* GeomOf(const sModelGeomNode* node) { return *node->entry; }
 
@@ -110,6 +114,13 @@ Mth::Vector* CPcModel::GetBoundingSphere(Mth::Vector* out)
     out->w = sphere.w + sphere.w;
     return out;
 }
+
+namespace {
+GAME_VTABLE(kModelVtable, 0x0064A4B4, &Nx::CPcModel::Destroy, &Mc::Card::AlwaysTrue, Stubs::ReturnZero1,
+            &Mc::Card::AlwaysTrue, &Nx::CModel::VirtualTrue4, &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue,
+            &Mc::Card::AlwaysTrue, Stubs::ReturnTrue2, &Net::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
+            Stubs::ReturnTrue, &Nx::CPcModel::GetBoundingSphere, &Nx::CPcModel::SetBoundingSphere);
+} // namespace
 
 } // namespace Nx
 

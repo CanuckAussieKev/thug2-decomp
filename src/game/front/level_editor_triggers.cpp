@@ -42,6 +42,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::Triggers {
 
@@ -883,7 +884,7 @@ std::vector<uint8_t> ProximQbFile(const std::vector<ProximScript>& scripts)
 
 namespace {
 
-constexpr uint32_t kCollStaticVtable = 0x00645C18;
+void** const& kCollStaticVtable = Vt::kCollStatic;
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint16_t kVolumeFlags = 0x50;         // a trigger face the skater passes through
 constexpr char kFileName[] = "editor\\thug2_decomp_triggers.qb";
@@ -1070,7 +1071,7 @@ Calls Walk(uint32_t script)
 uint8_t* CollOf(uint8_t* sector)
 {
     uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
-    return coll && *reinterpret_cast<uint32_t*>(coll) == kCollStaticVtable ? coll : nullptr;
+    return coll && *reinterpret_cast<void***>(coll) == kCollStaticVtable ? coll : nullptr;
 }
 bool TurnedOffByUs(uint32_t sector)
 {

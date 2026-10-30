@@ -18,6 +18,7 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::Arcs {
 
@@ -275,7 +276,7 @@ constexpr uint32_t kMaxSpeed = 0x2EACDDB3;            // Skater_Max_Speed_Stat
 constexpr uint32_t kMaxMaxSpeed = 0xCC5F87AA;         // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kDefaultStats = 0x6357D57C;        // Skater_Default_Stats
 constexpr uint32_t kLimit = 0x8069179F;               // limit
-constexpr uint32_t kCollStaticVtable = 0x00645C18;    // (CCollStatic)
+void** const& kCollStaticVtable = Vt::kCollStatic;    // (CCollStatic)
 constexpr int kStatOllie = 2, kStatSpeed = 3;         // (STATS_OLLIE, STATS_SPEED)
 
 Physics g_physics = ArcsFallback();
@@ -336,7 +337,7 @@ void SectorFaces(uint32_t checksum, std::vector<Face>* out)
     if (!sector)
         return;
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-    if (!coll || *reinterpret_cast<uint32_t*>(coll) != kCollStaticVtable || (coll[0x08] & 4))
+    if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable || (coll[0x08] & 4))
         return;
     const auto* tri = *reinterpret_cast<const Nx::CCollObjTriData* const*>(coll + 0x0C);
     if (!tri || !tri->m_faces || !tri->m_vertices)

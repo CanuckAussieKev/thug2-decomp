@@ -20,6 +20,7 @@
 #include "game/script/names.h"
 #include "game/script/qb.h"
 #include "hook/log.h"
+#include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::SharedCollision {
 
@@ -461,13 +462,13 @@ struct GridList {
 
     explicit GridList(const std::vector<Nx::CCollObj*>& objects) : nodes(objects.size())
     {
-        head.vtable = reinterpret_cast<void**>(0x00645D80);
+        head.vtable = Vt::kCollGridHead;
         head.data = reinterpret_cast<void*>(-1);
         head.priority = 0;
         head.next = head.prev = &head;
         for (size_t i = 0; i < objects.size(); ++i) {
             Mem::ListNode& node = nodes[i];
-            node.vtable = reinterpret_cast<void**>(0x00645D7C);
+            node.vtable = Vt::kCollGridNode;
             node.data = objects[i];
             node.priority = 0;
             node.prev = head.prev;

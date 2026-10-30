@@ -32,7 +32,8 @@ struct PortControls {
 static_assert(offsetof(PortControls, joystick) == 0x60 && offsetof(PortControls, gamepad) == 0x70 &&
                   offsetof(PortControls, mouse) == 0xD0 && sizeof(PortControls) == 0x130,
               "layout must match the original");
-inline PortControls* Controls() { return reinterpret_cast<PortControls*>(0x007D6770); }
+GAME_GLOBAL_EXTERN(int32_t[0x98], g_keyBindings);
+inline PortControls* Controls() { return reinterpret_cast<PortControls*>(g_keyBindings); }
 
 // The graphics options (0x007D6434; the registry's "options", "distance" and "resolution" - PartyMod's
 // [Graphics] in thug2-decomp.ini, game/gfx/settings.h).
@@ -50,7 +51,6 @@ struct Options {
     int32_t clippingDistance; // 0x007D6444 distance * 5 + 95
 };
 static_assert(sizeof(Options) == 0x14, "layout must match the original");
-inline Options& GraphicsOptions() { return *reinterpret_cast<Options*>(0x007D6434); }
 
 // 0x005F2E00 (cdecl): the port's joystick read for this frame (polled - re-acquired once if that fails - its
 // last state kept): its state, or null without a joystick or when a step fails.
@@ -124,5 +124,13 @@ GAME_GLOBAL_EXTERN(IDirectInputDevice8A*, g_keyboardDevice);
 GAME_GLOBAL_EXTERN(int32_t[0x98], g_keyBindings);
 GAME_GLOBAL_EXTERN(DIJOYSTATE2[2], g_joystickStates);
 GAME_GLOBAL_EXTERN(DIJOYSTATE2[2], g_lastJoystickStates);
+GAME_GLOBAL_EXTERN(IDirectInputDevice8A*[kPorts], g_joysticks);
+GAME_GLOBAL_EXTERN(IDirectInputEffect*[kPorts], g_effects);
+GAME_GLOBAL_EXTERN(uint32_t[kPorts], g_forceAxisCounts);
+GAME_GLOBAL_EXTERN(uint32_t[2 * kPorts], g_forceResolutions);
+GAME_GLOBAL_EXTERN(uint8_t, g_option37); // the graphics options' other bytes (the named ones are in gfx/settings.h)
+GAME_GLOBAL_EXTERN(uint16_t, g_options38And39);
+GAME_GLOBAL_EXTERN(uint8_t, g_unknown643B);
+GAME_GLOBAL_EXTERN(uint32_t, g_distanceSetting);
 
 } // namespace Platform

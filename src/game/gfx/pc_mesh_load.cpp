@@ -23,12 +23,14 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 
 namespace Nx {
 
 GAME_GLOBAL(float, g_unpackZScale, 0x0064A8E4, 0.0019569471f);
 GAME_GLOBAL(float, g_unpack11Scale, 0x0064A8E8, 0.0009775171f);
 GAME_GLOBAL(uint32_t[5], g_fvfBySetCount, 0x0064A8F4, 0, 0x100, 0x200, 0x300, 0x400);
+GAME_GLOBAL(uint32_t[6], g_vertexShaders, 0x00775B64);
 
 namespace {
 
@@ -354,8 +356,8 @@ uint32_t VertexFormat(uint32_t type)
 {
     if (type > 6)
         return type;
-    static const uint32_t kFormats[7] = {0, 0x00775B78, 0x00775B74, 0x00775B70, 0x00775B6C, 0x00775B68, 0x00775B64};
-    return type ? GameVariable<uint32_t>(kFormats[type]) : 0;
+    // (type t is the table's word 6 - t)
+    return type ? g_vertexShaders[6 - type] : 0;
 }
 
 // What both mesh loaders share (their reads in the same order; the file one reads the counted things in one call).

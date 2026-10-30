@@ -26,9 +26,20 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/nx/coll_movable.h"
+#include "game/core/stubs.h"
+#include "game/mc/memcard.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
+
+namespace {
+extern void** const kCPcSceneVtable;
+extern void** const kCPcScreenEffectsVtable;
+extern void** const kCPcSectorVtable;
+} // namespace
+
 
 GAME_GLOBAL(uint32_t, g_bloomOn, 0x00705720);
 GAME_GLOBAL(uint32_t, g_screenEffectUnknown5724, 0x00705724);
@@ -74,7 +85,7 @@ void* NextSector(Lst::HashTable* table)
 CPcSector* CPcSector::Construct()
 {
     reinterpret_cast<CSector*>(this)->CSector::Construct();
-    vtable = reinterpret_cast<void**>(0x0064A718);
+    vtable = kCPcSectorVtable;
     unknown20[0] = unknown20[1] = unknown20[2] = 0.0f;
     unknown2C = 1.0f;
     return this;
@@ -124,7 +135,7 @@ const Mth::BBox* CPcSector::GetBoundingBox()
 CPcScene* CPcScene::Construct(int arg)
 {
     reinterpret_cast<CScene*>(this)->CScene::Construct(arg);
-    vtable = reinterpret_cast<void**>(0x0064A6B8);
+    vtable = kCPcSceneVtable;
     return this;
 }
 
@@ -189,14 +200,14 @@ void CPcScene::PostLoad(sVertexArena* arena)
 CPcScreenEffects* CPcScreenEffects::Construct()
 {
     reinterpret_cast<CScreenEffects*>(this)->CScreenEffects::Construct();
-    vtable = reinterpret_cast<void**>(0x0064A6E4);
+    vtable = kCPcScreenEffectsVtable;
     return this;
 }
 
 // 0x004C64A0
 void CPcScreenEffects::DestroyBody()
 {
-    vtable = reinterpret_cast<void**>(0x0064A6E4);
+    vtable = kCPcScreenEffectsVtable;
     reinterpret_cast<CScreenEffects*>(this)->CScreenEffects::DestroyBody();
 }
 
@@ -425,6 +436,23 @@ bool CPcSector::LoadFromFile(File::Handle file, uint32_t unknown)
     geometry->meshCount = CountLoadedMeshes(geometry);
     return true;
 }
+
+namespace {
+GAME_VTABLE(kCPcSceneVtable, 0x0064A6B8, &Nx::CPcScene::Destroy, &Nx::CPcScene::PostLoad, &Nx::CScene::PostAdd,
+            &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue, &Nx::CScene::AddCollision, Stubs::ReturnFalse,
+            &Nx::CPcScene::CreateSector, Stubs::IgnoreArgument, &Nx::CScene::GetDefaultColour,
+            &Nx::CScene::SetRendered);
+GAME_VTABLE(kCPcScreenEffectsVtable, 0x0064A6E4, &Nx::CPcScreenEffects::Destroy, Stubs::DoNothing,
+            &Nx::CPcScreenEffects::SetBloom, &Nx::CPcScreenEffects::SetBloomCutOff,
+            &Nx::CPcScreenEffects::SetBloomAlphas, &Nx::CPcScreenEffects::SetUnknown990,
+            &Nx::CPcScreenEffects::SetUnknown5724, Stubs::IgnoreArgument, &Nx::CPcScreenEffects::SetUnknown994,
+            Stubs::IgnoreArgument, &Nx::CPcScreenEffects::SetUnknown984, &Nx::CPcScreenEffects::SetUnknown988,
+            &Nx::CPcScreenEffects::SetUnknown5728);
+GAME_VTABLE(kCPcSectorVtable, 0x0064A718, &Nx::CPcSector::Destroy, &Nx::CPcSector::SetActive,
+            &Nx::CSector::PlatGetShatter, &Nx::CPcSector::Clone, Stubs::IgnoreArgument, Stubs::DoNothing,
+            Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &Nx::CPcSector::GetBoundingBox,
+            &Nx::CCollMovable::GetOrientation);
+} // namespace
 
 } // namespace Nx
 

@@ -14,12 +14,15 @@
 #include "game/script/struct_buffer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/object.h"
 
 namespace Gfx {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x006488FC);
+extern void** const kVtable;
 
 constexpr uint32_t kAppearanceInitStructure = 0xFE54486D; // appearance_init_structure
 constexpr uint32_t kRandomizedDescId = 0xD81C03B0;        // randomized_desc_id
@@ -361,6 +364,13 @@ uint8_t* CModelAppearance::ReadFromBuffer(uint8_t* buffer)
     m_hasFaceTexture = *end != 0;
     return end + 1;
 }
+
+namespace {
+GAME_VTABLE(kVtable, 0x006488FC, &Gfx::CModelAppearance::Destroy, &Obj::CObject::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &Gfx::CModelAppearance::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue);
+} // namespace
 
 } // namespace Gfx
 

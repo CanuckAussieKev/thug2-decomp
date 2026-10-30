@@ -13,6 +13,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 
 namespace Nx {
 
@@ -23,7 +25,7 @@ GAME_GLOBAL(float[28], g_lightConstants, 0x00786F38);
 
 namespace {
 
-constexpr uint32_t kModelLightsVtable = 0x0064A440;
+extern void** const kModelLightsVtable;
 constexpr double kPer128 = 1.0 / 128.0;           // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f;          // 0x00645D70 (0x3B808081)
 
@@ -336,6 +338,15 @@ CPcModelLights* __cdecl CreateModelLights()
     void* memory = Mem::New(sizeof(CPcModelLights));
     return memory ? static_cast<CPcModelLights*>(memory)->Construct() : nullptr;
 }
+
+namespace {
+GAME_VTABLE(kModelLightsVtable, 0x0064A440, &Nx::CPcModelLights::Destroy, &Nx::CPcModelLights::SetAmbientColor,
+            &Nx::CPcModelLights::SetLightDirection, &Nx::CPcModelLights::SetLightDiffuseColor,
+            &Nx::CPcModelLights::GetAmbientColor, &Nx::CPcModelLights::GetLightDirection,
+            &Nx::CPcModelLights::GetLightDiffuseColor, &Nx::CPcModelLights::Update, Stubs::IgnoreArguments2,
+            &Nx::CPcModelLights::EnableAmbientOverride, &Nx::CPcModelLights::EnableLightOverride,
+            &Nx::CPcModelLights::IsAmbientOverridden, &Nx::CPcModelLights::IsLightOverridden);
+} // namespace
 
 } // namespace Nx
 

@@ -26,5 +26,4 @@ static_assert(offsetof(sGlow, queries) == 0x20 && offsetof(sGlow, pixels) == 0x3
 // which nothing draws in this build.
 void __cdecl UpdateGlows(bool queries);
 
-GAME_GLOBAL_EXTERN(void*, g_vertexColourPixelShader);
 } // namespace Nx

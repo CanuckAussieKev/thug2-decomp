@@ -8,6 +8,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
@@ -15,7 +16,7 @@ GAME_GLOBAL(CWindow2D*, g_freeWindows, 0x007013D0);
 
 namespace {
 
-constexpr uint32_t kWindowVtable = 0x00649E58;
+extern void** const kWindowVtable;
 
 CWindow2D*& FreeWindows() { return g_freeWindows; }
 void Changed(CWindow2D* window)
@@ -95,6 +96,10 @@ void __cdecl FreeWindow2D(CWindow2D* window)
     window->mp_next = FreeWindows();
     FreeWindows() = window;
 }
+
+namespace {
+GAME_VTABLE(kWindowVtable, 0x00649E58, &Nx::CWindow2D::Destroy, &Nx::CWindow2D::UpdateEngine);
+} // namespace
 
 } // namespace Nx
 

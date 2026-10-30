@@ -14,8 +14,20 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/obj/object.h"
+#include "game/core/stubs.h"
+#include "game/front/screen_element.h"
+#include "game/front/screen_constants.h"
 
 namespace Front {
+
+namespace {
+extern void** const kCTextureElementVtable;
+extern void** const kCSpriteElementVtable;
+extern void** const kCWindowElementVtable;
+} // namespace
+
 
 namespace {
 
@@ -26,14 +38,13 @@ constexpr uint32_t kTextureElement = 0x118F6383, kSpriteElement = 0xB12B510A, kW
 constexpr uint32_t kTexture = 0x7D99F28D, kRotAngle = 0xED344E1B, kBlend = 0x54628ED7, kNoZWrite = 0x40F139CB;
 constexpr uint32_t kRgba = 0x3F6BCDBA;
 
-float Constant(uint32_t address) { return GameVariable<float>(address); }
-float Degrees() { return Constant(0x00645464); }        // pi / 180
-float RotationOffset() { return Constant(0x006461D8); }  // 0.001 (added to a rotation in radians)
-float MinimumAlpha() { return Constant(0x006453D4); }    // 0.0001: below it, transparent
-float LayoutTop() { return Constant(0x0064A258); }       // -200: a sprite whose top is above it is hidden
-float LayoutBottom() { return Constant(0x0064A254); }    // 648: ... or below it
-float One() { return Constant(0x006453A8); }
-float Half() { return Constant(0x006453BC); }
+float Degrees() { return ::CFuncs::g_degreesToRadians; }        // pi / 180
+float RotationOffset() { return ::Game::g_goalLifeSecondsPerMillisecond; }  // 0.001 (added to a rotation in radians)
+float MinimumAlpha() { return ::Mdl::g_competitionTiny; }    // 0.0001: below it, transparent
+float LayoutTop() { return Front::g_layoutTop; }       // -200: a sprite whose top is above it is hidden
+float LayoutBottom() { return Front::g_layoutBottom; }    // 648: ... or below it
+float One() { return ::Obj::g_animMoviesOne; }
+float Half() { return ::Gfx::g_half; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -78,7 +89,7 @@ void FreeWindow2d(void* window) { Nx::FreeWindow2D(static_cast<Nx::CWindow2D*>(w
 CTextureElement* CTextureElement::Construct()
 {
     CScreenElement::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A1F8);
+    m_vtable = kCTextureElementVtable;
     m_texture = 0;
     mp_piece = NewTexturedPiece();
     SetType(kTextureElement);
@@ -88,7 +99,7 @@ CTextureElement* CTextureElement::Construct()
 // 0x004AEDF0
 void CTextureElement::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064A1F8);
+    m_vtable = kCTextureElementVtable;
     if (mp_piece)
         FreePiece(mp_piece);
     CScreenElement::DestroyBody();
@@ -153,7 +164,7 @@ void CTextureElement::Update()
 CSpriteElement* CSpriteElement::Construct()
 {
     CScreenElement::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A228);
+    m_vtable = kCSpriteElementVtable;
     m_texture = 0;
     mp_sprite = NewSprite(0);
     m_zWrite = true;
@@ -164,7 +175,7 @@ CSpriteElement* CSpriteElement::Construct()
 // 0x004AF0D0
 void CSpriteElement::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064A228);
+    m_vtable = kCSpriteElementVtable;
     if (mp_sprite)
         FreePiece(mp_sprite);
     CScreenElement::DestroyBody();
@@ -289,7 +300,7 @@ void CSpriteElement::Update()
 CWindowElement* CWindowElement::Construct()
 {
     CScreenElement::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A2C0);
+    m_vtable = kCWindowElementVtable;
     SetType(kWindowElement);
     mp_window = NewWindow2d(0, 0, 640, 448);
     SetJust(-1.0f, -1.0f);
@@ -301,7 +312,7 @@ CWindowElement* CWindowElement::Construct()
 // 0x004B2100
 void CWindowElement::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064A2C0);
+    m_vtable = kCWindowElementVtable;
     FreeWindow2d(mp_window);
     CScreenElement::DestroyBody();
 }
@@ -333,6 +344,23 @@ void CWindowElement::Update()
     int width = Truncated(m_width);
     reinterpret_cast<Nx::CWindow2D*>(mp_window)->SetSize(width, height);
 }
+
+namespace {
+GAME_VTABLE(kCTextureElementVtable, 0x0064A1F8, &CTextureElement::Destroy, &CTextureElement::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CTextureElement::GetProperties,
+            &CScreenElement::SetMorph, &CTextureElement::Update);
+GAME_VTABLE(kCSpriteElementVtable, 0x0064A228, &CSpriteElement::Destroy, &CSpriteElement::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CSpriteElement::GetProperties, &CSpriteElement::SetMorph,
+            &CSpriteElement::Update);
+GAME_VTABLE(kCWindowElementVtable, 0x0064A2C0, &CWindowElement::Destroy, &CScreenElement::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph);
+} // namespace
 
 } // namespace Front
 

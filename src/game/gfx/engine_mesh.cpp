@@ -13,12 +13,13 @@
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kMeshVtable = 0x006492E4;
+extern void** const kMeshVtable;
 constexpr uint32_t kObjectSize = 0x40;
 
 uint32_t Align(uint32_t value, uint32_t to) { return (value + to - 1) & ~(to - 1); }
@@ -144,6 +145,10 @@ void sVertexStack::Push(const uint8_t* in)
     std::memcpy(data + used, in, vertexSize);
     used += vertexSize;
 }
+
+namespace {
+GAME_VTABLE(kMeshVtable, 0x006492E4, &Nx::CMesh::Destroy);
+} // namespace
 
 } // namespace Nx
 

@@ -12,6 +12,7 @@
 #include "game/nx/coll_obj.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
@@ -31,7 +32,7 @@ void SetGeomCollTriData(void* geom, CCollObjTriData* faces) { static_cast<CGeom*
 uint8_t& CollFlags(CCollObj* coll) { return *reinterpret_cast<uint8_t*>(&coll->m_flags); }
 
 constexpr uint32_t kDefaultTerrain = 0xE3714DC1;
-constexpr uint32_t kSectorVtable = 0x00649A40;
+extern void** const kSectorVtable;
 
 } // namespace
 
@@ -67,19 +68,19 @@ CSector* CSector::Destroy(unsigned int freeFlags)
 }
 
 // 0x0049E8C0
-void CSector::PlatSetShatter(bool) { Dbg::Printf(reinterpret_cast<const char*>(0x00649A50)); } // "STUB: PlatSetShatter\n"
+void CSector::PlatSetShatter(bool) { Dbg::Printf(GAME_TEXT(0x00649A50, "STUB: PlatSetShatter\n")); } // "STUB: PlatSetShatter\n"
 
 // 0x0049E8D0
 bool CSector::PlatGetShatter()
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x00649A68)); // "STUB: PlatGetShatter\n"
+    Dbg::Printf(GAME_TEXT(0x00649A68, "STUB: PlatGetShatter\n")); // "STUB: PlatGetShatter\n"
     return false;
 }
 
 // 0x0049E8E0 (not a function in Ghidra: only the vtable reaches it)
 CSector* CSector::PlatClone(int, void*)
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x00648B18)); // "STUB: PlatClone\n"
+    Dbg::Printf(GAME_TEXT(0x00648B18, "STUB: PlatClone\n")); // "STUB: PlatClone\n"
     return nullptr;
 }
 
@@ -341,6 +342,11 @@ void CSector::StopTextureAnim()
     if (mp_geom)
         GeomCall<void>(50, mp_geom);
 }
+
+namespace {
+GAME_VTABLE(kSectorVtable, 0x00649A40, &Nx::CSector::Destroy, &Nx::CSector::PlatSetShatter,
+            &Nx::CSector::PlatGetShatter, &Nx::CSector::PlatClone);
+} // namespace
 
 } // namespace Nx
 

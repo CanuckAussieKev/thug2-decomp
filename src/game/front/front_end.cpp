@@ -32,10 +32,16 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/obj/movie_manager.h"
 #include "game/ass/assman.h"
 
 namespace Mdl {
+
+namespace {
+extern void** const kFrontEndVtable;
+} // namespace
+
 
 GAME_GLOBAL(Mdl::FrontEnd*, g_frontEndInstance, 0x007CE464);
 
@@ -180,7 +186,7 @@ void ReleaseFrontEnd()
 // 0x0054EC20
 void FrontEnd::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064D724);
+    m_vtable = kFrontEndVtable;
     if (m_logicTask)
         DeleteNode(m_logicTask);
     // (m_keyboardTask is never deleted)
@@ -633,11 +639,11 @@ void FrontEnd::UpdateInputMappings()
 {
     InputManagerRef input;
     for (int i = 0; i < 2; ++i) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064D82C), i, m_deviceServerMap[i]); // "m_device_server_map[%i] = %i\n"
+        Dbg::Printf(GAME_TEXT(0x0064D82C, "m_device_server_map[%i] = %i\n"), i, m_deviceServerMap[i]); // "m_device_server_map[%i] = %i\n"
         FrontEndInputHandler* handler = m_inputHandlers[i];
         if (!handler)
             continue;
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064D81C)); // "got a handler\n"
+        Dbg::Printf(GAME_TEXT(0x0064D81C, "got a handler\n")); // "got a handler\n"
         RemoveNode(handler);
         // The controller's place in the input manager: its device, its handler list, its control data.
         uint8_t* server = input.m_manager + m_deviceServerMap[i] * 0x84;
@@ -660,7 +666,7 @@ bool __cdecl CFunc_SetAnalogStickActiveForMenus(Script::CStruct* params, Script:
 FrontEnd* FrontEnd::Construct()
 {
     ConstructModule(this);
-    m_vtable = reinterpret_cast<void**>(0x0064D724);
+    m_vtable = kFrontEndVtable;
     auto* task = static_cast<FrontEndTask*>(Mem::Calloc(sizeof(FrontEndTask)));
     if (task) {
         ConstructNode(task, -2000);
@@ -714,6 +720,10 @@ FrontEnd* CreateFrontEnd(bool create)
     ++FrontEndRefs();
     return FrontEndInstance();
 }
+
+namespace {
+GAME_VTABLE(kFrontEndVtable, 0x0064D724, &Mdl::FrontEnd::Destroy, &Mdl::FrontEnd::Start, &Mdl::FrontEnd::Stop);
+} // namespace
 
 } // namespace Mdl
 

@@ -12,6 +12,7 @@
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::Walls {
 
@@ -82,7 +83,7 @@ int Combined(const std::vector<bool>& offs)
 
 namespace {
 
-constexpr uint32_t kCollStaticVtable = 0x00645C18;
+void** const& kCollStaticVtable = Vt::kCollStatic;
 
 uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 
@@ -90,7 +91,7 @@ uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 
 uint8_t* CollOf(uint8_t* sector)
 {
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-    return coll && *reinterpret_cast<uint32_t*>(coll) == kCollStaticVtable ? coll : nullptr;
+    return coll && *reinterpret_cast<void***>(coll) == kCollStaticVtable ? coll : nullptr;
 }
 Nx::CCollObjTriData* TriOf(uint8_t* coll) { return *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C); }
 bool FlagOff(uint8_t* coll) { return (coll[0x08] & 4) != 0; }

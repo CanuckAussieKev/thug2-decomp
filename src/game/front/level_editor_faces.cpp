@@ -18,6 +18,7 @@
 #include "game/front/level_editor_view.h"
 #include "game/nx/coll_tri.h"
 #include "hook/log.h"
+#include "game/core/game_vtables.h"
 #include "imgui.h"
 
 namespace Front::LevelEditor::Faces {
@@ -172,7 +173,7 @@ std::vector<SectorFaces> Group(const std::vector<Change>& changes)
 
 namespace {
 
-constexpr uint32_t kCollStaticVtable = 0x00645C18;
+void** const& kCollStaticVtable = Vt::kCollStatic;
 constexpr size_t kMostSelected = 8192;
 
 bool g_picking;
@@ -187,7 +188,7 @@ Nx::CCollObjTriData* Geometry(uint32_t checksum)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
     uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
-    if (!coll || *reinterpret_cast<uint32_t*>(coll) != kCollStaticVtable)
+    if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
         return nullptr;
     auto* tri = *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C);
     return tri && tri->m_faces ? tri : nullptr;

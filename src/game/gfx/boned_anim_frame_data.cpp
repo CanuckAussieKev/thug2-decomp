@@ -23,12 +23,15 @@
 
 namespace Gfx {
 
+// The shared key tables (256 entries of four shorts), loaded from files at start-up.
+GAME_GLOBAL(int16_t[1024], g_quatTable, 0x006F9AD8);
+GAME_GLOBAL(int16_t[1024], g_transTable, 0x006F92D8);
+
 namespace {
 
 constexpr double kQuatUnit = 1.0 / 16384.0; // (0x006487C8)
 constexpr double kTransUnit = 1.0 / 32.0;   // (0x006487CC)
 
-int16_t* Table(uint32_t address) { return reinterpret_cast<int16_t*>(address); }
 
 float Scaled(int16_t value, double unit) { return static_cast<float>(value * unit); }
 
@@ -111,7 +114,7 @@ bool __cdecl LoadQuatTable(const char* name)
     bool loaded = false;
     File::Handle file = File::Open(name, "rb");
     if (file)
-        loaded = ReadKeyTable(file, Table(kQuatTable));
+        loaded = ReadKeyTable(file, g_quatTable);
     File::Close(file); // (even when it didn't open)
     return loaded;
 }
@@ -122,7 +125,7 @@ bool __cdecl LoadTransTable(const char* name)
     bool loaded = false;
     File::Handle file = File::Open(name, "rb");
     if (file)
-        loaded = ReadKeyTable(file, Table(kTransTable));
+        loaded = ReadKeyTable(file, g_transTable);
     File::Close(file);
     return loaded;
 }
@@ -132,7 +135,7 @@ bool __cdecl LoadTransTable(const char* name)
 // 0x00482C20
 const uint8_t* __cdecl DecompressQuatKey(const uint8_t* data, CShortKey* out, uint32_t flags, const uint8_t* table)
 {
-    const int16_t* shared = Table(kQuatTable);
+    const int16_t* shared = g_quatTable;
     uint16_t first = Word(data);
     uint16_t header;
     if (flags & 0x100) {
@@ -202,7 +205,7 @@ const uint8_t* __cdecl DecompressTransKey(const uint8_t* data, CShortKey* out)
         data += 2;
     }
     if (head & 0x80) {
-        const int16_t* entry = Table(kTransTable) + *data++ * 4;
+        const int16_t* entry = g_transTable + *data++ * 4;
         for (int i = 0; i < 3; ++i)
             out->value[i] = entry[i];
     } else {

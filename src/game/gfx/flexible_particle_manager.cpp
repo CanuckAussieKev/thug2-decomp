@@ -15,6 +15,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
 #include "game/obj/movie_manager.h"
 
 namespace Nx {
@@ -23,11 +25,11 @@ GAME_GLOBAL(float, g_frameTimeScale, 0x00700EF4);
 GAME_GLOBAL(int, g_drawnViewport, 0x006FA7B8);
 namespace {
 
-constexpr uint32_t kManagerVtable = 0x006494B0;
-void** const kHeadVtable = reinterpret_cast<void**>(0x006494C4);
-void** const kNodeVtable = reinterpret_cast<void**>(0x00649420); // (Lst::Node<CParticleSystem>'s own)
-const char* const kHeapName = reinterpret_cast<const char*>(0x006494C8);     // "FlxParticles"
-const char* const kTempHeapName = reinterpret_cast<const char*>(0x006494B4); // "TEMPFlxPrtcl"
+extern void** const kManagerVtable;
+extern void** const kHeadVtable;
+void** const& kNodeVtable = Vt::kParticleNode; // (Lst::Node<CParticleSystem>'s own)
+const char* const kHeapName = GAME_TEXT(0x006494C8, "FlxParticles");     // "FlxParticles"
+const char* const kTempHeapName = GAME_TEXT(0x006494B4, "TEMPFlxPrtcl"); // "TEMPFlxPrtcl"
 constexpr uint32_t kHeapSizeSymbol = 0x91CB7552;
 constexpr uint32_t kFrameRateSymbol = 0x3214C818;
 constexpr int kDefaultHeapSize = 0x5000;
@@ -293,6 +295,11 @@ Mem::ListNode* CParticleSystemListHead::Destroy(unsigned int flags)
         Mem::Free(head);
     return head;
 }
+
+namespace {
+GAME_VTABLE(kManagerVtable, 0x006494B0, &Nx::CFlexibleParticleManager::Destroy);
+GAME_VTABLE(kHeadVtable, 0x006494C4, &Nx::CParticleSystemListHead::Destroy);
+} // namespace
 
 } // namespace Nx
 

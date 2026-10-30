@@ -17,10 +17,10 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 
 namespace Nx {
 
-GAME_GLOBAL(void*, g_vertexColourPixelShader, 0x007CA94C);
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
@@ -130,7 +130,7 @@ void __cdecl UpdateGlows(bool queries)
 
     // Each glow grows towards its size while its queries see it, and fades otherwise.
     SetBlendMode(5);
-    SetPixelShader(g_vertexColourPixelShader, nullptr);
+    SetPixelShader(g_pixelShaders[kPixelShader94C], nullptr);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (; glow; glow = NextGlow()) {
         bool seen = false;

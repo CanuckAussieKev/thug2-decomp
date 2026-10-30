@@ -88,5 +88,6 @@ GAME_GLOBAL_EXTERN(uint32_t, g_skippedPasses);
 GAME_GLOBAL_EXTERN(uint32_t, g_submitLocked);
 GAME_GLOBAL_EXTERN(uint32_t, g_fogEnabled);
 GAME_GLOBAL_EXTERN(const float*, g_worldTransform);
+GAME_GLOBAL_EXTERN(float[16], g_worldTransformCopy);
 
 } // namespace Nx

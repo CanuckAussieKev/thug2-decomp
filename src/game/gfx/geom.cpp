@@ -17,6 +17,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/gfx/model.h"
+#include "game/mc/memcard.h"
+#include "game/core/stubs.h"
+#include "game/net/stats_man.h"
+#include "game/gfx/shader_slots.h"
 
 namespace Nx {
 
@@ -24,9 +31,9 @@ using Mem::ListNode;
 
 namespace {
 
-constexpr uint32_t kPcGeomVtable = 0x0064A368;
-constexpr uint32_t kMeshNodeVtable = 0x0064A434; // the load list's nodes (Lst::Node<sMesh>)
-constexpr uint32_t kMeshHeadVtable = 0x0064A438; // and its head
+void** const& kPcGeomVtable = Vt::kPcGeom;
+extern void** const kMeshNodeVtable; // the load list's nodes (Lst::Node<sMesh>)
+extern void** const kMeshHeadVtable; // and its head
 constexpr float kPer255 = 1.0f / 255.0f;          // 0x00645D70 (0x3B808081)
 constexpr float kQuarterTurn = 1.57079637f;      // 0x00645484
 
@@ -98,9 +105,6 @@ GAME_GLOBAL(uint32_t, g_staticOrientationGuard, 0x00701668);
 GAME_GLOBAL(uint32_t, g_vertexShaderUv58, 0x00775B58);
 GAME_GLOBAL(uint32_t, g_vertexShaderUv5C, 0x00775B5C);
 GAME_GLOBAL(uint32_t, g_vertexShaderUv60, 0x00775B60);
-GAME_GLOBAL(uint32_t, g_vertexShader70, 0x00775B70);
-GAME_GLOBAL(uint32_t, g_vertexShader74, 0x00775B74);
-GAME_GLOBAL(uint32_t, g_vertexShader78, 0x00775B78);
 
 // The static results of GetWorldPosition / GetOrientation (with their initialisation guards' bits).
 Mth::Vector& StaticPosition()
@@ -861,11 +865,11 @@ bool CPcGeom::SetUVMatrix(uint32_t checksum, int pass, const Mth::Matrix* matrix
         }
         // the vertex shader for the UV matrix (0x00775B70-78 -> 0x00775B58-60)
         uint32_t& shader = MeshVertexShader(mesh);
-        if (shader == g_vertexShader78)
+        if (shader == g_vertexShaders[5])
             shader = g_vertexShaderUv60;
-        else if (shader == g_vertexShader74)
+        else if (shader == g_vertexShaders[4])
             shader = g_vertexShaderUv5C;
-        else if (shader == g_vertexShader70)
+        else if (shader == g_vertexShaders[3])
             shader = g_vertexShaderUv58;
         sUVWibble* wibble = material->uvWibble[index];
         wibble->matrix[0] = matrix->row[0].x;
@@ -909,7 +913,33 @@ void CPcGeom::ResetTextureAnims()
     }
 }
 
+namespace {
+GAME_VTABLE(kMeshNodeVtable, 0x0064A434, &Nx::sMeshListNode::Destroy);
+GAME_VTABLE(kMeshHeadVtable, 0x0064A438, &Nx::sMeshListNode::DestroyHead);
+} // namespace
+
 } // namespace Nx
+
+namespace Vt {
+// (slot 15, the bounding box getter, is the same code as GameNet::StatsMan::GetPersonalStats: the linker folded them)
+GAME_VTABLE(kPcGeom, 0x0064A368, &Nx::CPcGeom::Destroy, &Nx::CPcGeom::CloneInstance, &Nx::CPcGeom::Clone,
+            &Nx::CPcGeom::InitInstance, &Nx::CPcGeom::CleanInstanceStrips, &Nx::CGeom::PlatGetChecksum,
+            &Nx::CPcGeom::SetColor, &Nx::CPcGeom::GetColor, &Nx::CPcGeom::ClearColor,
+            &Nx::CPcGeom::SetMaterialColor, &Nx::CGeom::PlatGetMaterialColor, &Nx::CPcGeom::SetVisibility,
+            &Nx::CPcGeom::GetVisibility, &Nx::CPcGeom::SetActive, &Nx::CPcGeom::IsActive,
+            &GameNet::StatsMan::GetPersonalStats, &Nx::CPcGeom::SetBoundingSphere, &Nx::CPcGeom::GetBoundingSphere,
+            &Nx::CPcGeom::SetWorldPosition, &Nx::CPcGeom::GetWorldPosition, &Nx::CPcGeom::SetOrientation,
+            &Nx::CPcGeom::GetOrientation, &Nx::CPcGeom::RotateY, &Nx::CGeom::PlatSetTransform,
+            &Nx::CGeom::PlatGetTransform, &Nx::CPcGeom::SetScale, &Nx::CPcGeom::GetScale, Stubs::IgnoreArgument,
+            &Nx::CPcGeom::SetBoneMatrices, &Nx::CPcGeom::CopyBones, &Nx::CPcGeom::SetBones,
+            &Nx::CPcGeom::BreakStrips, &Mc::Card::AlwaysTrue, Stubs::ReturnZero,
+            &Nx::CGeom::PlatGetNumRenderBasePolys, Stubs::ReturnZero, &Nx::CPcGeom::GetNumVertices,
+            &Nx::CPcGeom::GetVertices, &Nx::CPcGeom::GetColors, &Nx::CPcGeom::SetVertices, &Nx::CPcGeom::SetColors,
+            Stubs::IgnoreArguments3, &Nx::CPcGeom::SetUVWibbleParams, &Nx::CPcGeom::EnableExplicitUVWibble,
+            &Nx::CModel::VirtualTrue4, &Nx::CPcGeom::SetUVWibbleOffsets, &Nx::CPcGeom::SetUVMatrix,
+            &Nx::CPcGeom::AllocateUVMatrixParams, &Nx::CPcGeom::ResetTextureAnims, Stubs::IgnoreArgument,
+            Stubs::DoNothing);
+} // namespace Vt
 
 REPLACE(0x004B5EC0, &Nx::sMeshListNode::DestroyBody);
 REPLACE(0x004B5E50, &Nx::sMeshListNode::Destroy);

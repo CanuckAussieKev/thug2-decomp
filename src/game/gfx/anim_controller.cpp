@@ -24,9 +24,22 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "hook/game_code.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/core/stubs.h"
+#include "game/front/screen_constants.h"
 #include "game/obj/control_pad.h"
 
 namespace Gfx {
+
+namespace {
+extern void** const kCStandardAnimControllerVtable;
+extern void** const kCWeightedAnimControllerVtable;
+extern void** const kCWobbleControllerVtable;
+extern void** const kCPoseControllerVtable;
+extern void** const kCPartialAnimControllerVtable;
+} // namespace
+
 
 namespace {
 
@@ -49,10 +62,9 @@ constexpr uint32_t kAnimBlender = 0x7149B753, kSkeleton = 0x222756D5;
 
 enum : int { kNotMine = 2 };
 
-float Constant(uint32_t address) { return GameVariable<float>(address); }
-float FramesPerSecond() { return Constant(0x00645EA0); } // 60
-float SecondsPerFrame() { return Constant(0x006463B8); } // 1/60
-float TwoPi() { return Constant(0x0064545C); }
+float FramesPerSecond() { return Front::g_framesPerSecond; } // 60
+float SecondsPerFrame() { return ::Obj::g_animMoviesSecondsPerFrame; } // 1/60
+float TwoPi() { return Front::g_twoPi; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -68,7 +80,6 @@ double X87Sin(double angle)
     return result;
 }
 
-void** Vtable(uint32_t address) { return reinterpret_cast<void**>(address); }
 
 // The base controller.
 void BaseConstruct(CAnimController* c, CAnimTimeline* timeline) { c->CAnimController::Construct(timeline); }
@@ -182,7 +193,7 @@ void CStandardAnimController::operator delete(void* item) { StandardPools().Free
 CStandardAnimController* CStandardAnimController::Construct(CAnimTimeline* timeline)
 {
     BaseConstruct(this, timeline);
-    m_vtable = Vtable(0x00649F50);
+    m_vtable = kCStandardAnimControllerVtable;
     mp_source = NewSource();
     mp_frameData = SourceFrame(mp_source, false);
     m_animSet = AnimSet(ObjectOf(this));
@@ -194,7 +205,7 @@ CStandardAnimController* CStandardAnimController::Construct(CAnimTimeline* timel
 // 0x004A4590
 void CStandardAnimController::DestroyBody()
 {
-    m_vtable = Vtable(0x00649F50);
+    m_vtable = kCStandardAnimControllerVtable;
     if (mp_frameData)
         ReleaseFrameIndex(mp_frameData, m_frameIndex);
     if (mp_source) {
@@ -285,7 +296,7 @@ void CStandardAnimController::Update()
 CWeightedAnimController* CWeightedAnimController::Construct(CAnimTimeline* timeline, Obj::CCompositeObject* object)
 {
     BaseConstruct(this, timeline);
-    m_vtable = Vtable(0x00649F68);
+    m_vtable = kCWeightedAnimControllerVtable;
     mp_object = timeline ? ObjectOf(this) : object;
     mp_source = NewSource();
     mp_frameData = SourceFrame(mp_source, false);
@@ -298,7 +309,7 @@ CWeightedAnimController* CWeightedAnimController::Construct(CAnimTimeline* timel
 // 0x004A4820
 void CWeightedAnimController::DestroyBody()
 {
-    m_vtable = Vtable(0x00649F68);
+    m_vtable = kCWeightedAnimControllerVtable;
     if (mp_source) {
         FreeSource(mp_source);
         mp_source = nullptr;
@@ -383,7 +394,7 @@ int CWeightedAnimController::CallMemberFunction(uint32_t name, Script::CStruct* 
 CWobbleController* CWobbleController::Construct(CAnimTimeline* timeline)
 {
     BaseConstruct(this, timeline);
-    m_vtable = Vtable(0x00649F80);
+    m_vtable = kCWobbleControllerVtable;
     m_target = 0.0f;
     m_ampA = m_ampB = m_k1 = m_k2 = m_spazFactor = 0.0f;
     mp_source = NewSource();
@@ -395,7 +406,7 @@ CWobbleController* CWobbleController::Construct(CAnimTimeline* timeline)
 // 0x004A4A80
 void CWobbleController::DestroyBody()
 {
-    m_vtable = Vtable(0x00649F80);
+    m_vtable = kCWobbleControllerVtable;
     if (mp_source) {
         FreeSource(mp_source);
         mp_source = nullptr;
@@ -513,7 +524,7 @@ void CWobbleController::Update()
 CPoseController* CPoseController::Construct(CAnimTimeline* timeline)
 {
     BaseConstruct(this, timeline);
-    m_vtable = Vtable(0x00649F98);
+    m_vtable = kCPoseControllerVtable;
     auto* rotations = reinterpret_cast<float*>(m_pose);
     for (int i = 0; i < 64; ++i) {
         rotations[i * 4 + 0] = 0.0f;
@@ -527,7 +538,7 @@ CPoseController* CPoseController::Construct(CAnimTimeline* timeline)
 // 0x004A4D20
 void CPoseController::DestroyBody()
 {
-    m_vtable = Vtable(0x00649F98);
+    m_vtable = kCPoseControllerVtable;
     BaseDestroyBody(this);
 }
 
@@ -553,7 +564,7 @@ bool CPoseController::GetPose(uint8_t* pose)
 CPartialAnimController* CPartialAnimController::Construct(CAnimTimeline* timeline)
 {
     BaseConstruct(this, timeline);
-    m_vtable = Vtable(0x00649FB0);
+    m_vtable = kCPartialAnimControllerVtable;
     mp_source = NewSource();
     mp_frameData = SourceFrame(mp_source, false);
     m_animSet = AnimSet(ObjectOf(this));
@@ -566,7 +577,7 @@ CPartialAnimController* CPartialAnimController::Construct(CAnimTimeline* timelin
 // 0x004A4D50
 void CPartialAnimController::DestroyBody()
 {
-    m_vtable = Vtable(0x00649FB0);
+    m_vtable = kCPartialAnimControllerVtable;
     if (mp_source) {
         FreeSource(mp_source);
         mp_source = nullptr;
@@ -671,6 +682,24 @@ void CPartialAnimController::Update()
     if (mp_partial->m_current < before)
         mp_frameData = SourceFrame(mp_source, false);
 }
+
+namespace {
+GAME_VTABLE(kCStandardAnimControllerVtable, 0x00649F50, &CStandardAnimController::Destroy,
+            &CStandardAnimController::GetPose, Stubs::IgnoreArgument, &CStandardAnimController::CallMemberFunction,
+            &CAnimController::BaseInitFromStructure, &CStandardAnimController::Update);
+GAME_VTABLE(kCWeightedAnimControllerVtable, 0x00649F68, &CWeightedAnimController::Destroy,
+            &CWeightedAnimController::GetPose, Stubs::IgnoreArgument, &CWeightedAnimController::CallMemberFunction,
+            &CAnimController::BaseInitFromStructure, Stubs::DoNothing);
+GAME_VTABLE(kCWobbleControllerVtable, 0x00649F80, &CWobbleController::Destroy, &CWobbleController::GetPose,
+            Stubs::IgnoreArgument, &CWobbleController::CallMemberFunction, &CAnimController::BaseInitFromStructure,
+            &CWobbleController::Update);
+GAME_VTABLE(kCPoseControllerVtable, 0x00649F98, &CPoseController::Destroy, &CPoseController::GetPose,
+            Stubs::IgnoreArgument, &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+            &CAnimController::BaseInitFromStructure, Stubs::DoNothing);
+GAME_VTABLE(kCPartialAnimControllerVtable, 0x00649FB0, &CPartialAnimController::Destroy,
+            &CPartialAnimController::GetPose, Stubs::IgnoreArgument, &CPartialAnimController::CallMemberFunction,
+            &CPartialAnimController::InitFromStructure, &CPartialAnimController::Update);
+} // namespace
 
 } // namespace Gfx
 

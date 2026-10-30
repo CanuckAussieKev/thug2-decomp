@@ -20,14 +20,16 @@
 #include "game/mth/math.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kTextureVtable = 0x0064A770;
-constexpr uint32_t kTexDictVtable = 0x0064A824;
+extern void** const kTextureVtable;
+extern void** const kTexDictVtable;
 
 sTextureEdit* Edit(const CPcTexture* texture) { return static_cast<sTextureEdit*>(texture->engine); }
 IDirect3DDevice9* Device() { return g_d3dDevice; }
@@ -1357,6 +1359,24 @@ void __cdecl HsvToRgb(float* r, float* g, float* b, float h, float s, float v)
     default: *r = v, *g = p, *b = q; break;
     }
 }
+
+namespace {
+GAME_VTABLE(kTextureVtable, 0x0064A770, &Nx::CPcTexture::Destroy, &Nx::CPcTexture::LoadFile,
+            &Nx::CPcTexture::LoadMemory, &Nx::CPcTexture::Create, &Nx::CPcTexture::CopyFrom, Stubs::ReturnFalse4,
+            Stubs::ReturnFalse1, Stubs::ReturnFalse1, &Nx::CPcTexture::BeginEdit, &Nx::CPcTexture::WriteBack,
+            &Nx::CPcTexture::EndEdit, Stubs::ReturnFalse5, &Nx::CPcTexture::Modulate, &Nx::CPcTexture::Mirror,
+            Stubs::ReturnFalse, &Nx::CPcTexture::ResizeFrom, &Nx::CPcTexture::Zoom, &Nx::CPcTexture::Rotate,
+            &Nx::CPcTexture::Offset, &Nx::CPcTexture::Border, Stubs::ReturnFalse7, &Nx::CPcTexture::Stretch,
+            &Nx::CPcTexture::Squash, Stubs::ReturnFalse2, &Nx::CPcTexture::AdjustHsv, Stubs::ReturnZero,
+            Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2, Stubs::ReturnFalse1,
+            Stubs::ReturnFalse, Stubs::ReturnFalse, &Nx::CPcTexture::GetWidth, &Nx::CPcTexture::GetHeight,
+            &Nx::CPcTexture::GetDepth, Stubs::ReturnZero, Stubs::IgnoreArgument, &Nx::CPcTexture::GetUnknownE,
+            &Nx::CPcTexture::GetUnknownC, &Nx::CPcTexture::GetUnknownD, &Nx::CPcTexture::Overlay);
+GAME_VTABLE(kTexDictVtable, 0x0064A824, &Nx::CPcTexDict::Destroy, &Nx::CPcTexDict::LoadTexture,
+            &Nx::CPcTexDict::CreateTexture, &Nx::CPcTexDict::ReloadTexture, Stubs::ReturnZero1,
+            &Nx::CPcTexDict::UnloadTexture, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
+            &Nx::CPcTexDict::CopyTexture);
+} // namespace
 
 } // namespace Nx
 

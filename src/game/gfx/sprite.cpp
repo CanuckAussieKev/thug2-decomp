@@ -17,10 +17,19 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "hook/game_code.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 
 namespace Nx {
+
+namespace {
+extern void** const kSSpriteVtable;
+} // namespace
+
+
+// Two triangles of a quad: 0 1 2, 1 3 2.
+GAME_GLOBAL(uint16_t[6], g_spriteQuadIndices, 0x0067EFA8, 0, 1, 2, 1, 3, 2);
 
 namespace {
 
@@ -46,8 +55,7 @@ void SetTextureStageState(int stage, int type, int value)
 {
     DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(Device(), stage, type, value);
 }
-// Two triangles of a quad: 0 1 2, 1 3 2.
-const uint16_t* QuadIndices() { return reinterpret_cast<const uint16_t*>(0x0067EFA8); }
+const uint16_t* QuadIndices() { return g_spriteQuadIndices; }
 
 struct Vertex {
     float x, y, z, rhw;
@@ -255,7 +263,7 @@ SSprite* SSprite::Construct(float priority)
     draw->hidden = true;
     z = 0.0f;
     draw->next = nullptr;
-    vtable = reinterpret_cast<void**>(0x0064AD28);
+    vtable = kSSpriteVtable;
     texture = nullptr;
     return this;
 }
@@ -263,7 +271,7 @@ SSprite* SSprite::Construct(float priority)
 // 0x004DFC80
 void SSprite::DestroyBody()
 {
-    vtable = reinterpret_cast<void**>(0x0064AD28);
+    vtable = kSSpriteVtable;
     reinterpret_cast<SDraw2D*>(this)->DestroyBody();
 }
 
@@ -300,6 +308,11 @@ void SSprite::EndDraw()
     SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
+
+namespace {
+GAME_VTABLE(kSSpriteVtable, 0x0064AD28, &Nx::SSprite::Destroy, &Nx::SSprite::BeginDraw, &Nx::SSprite::Draw,
+            &Nx::SSprite::EndDraw);
+} // namespace
 
 } // namespace Nx
 

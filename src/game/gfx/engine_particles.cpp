@@ -8,12 +8,13 @@
 #include "game/script/cscript.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/game_vtables.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kEngineVtable = 0x00649380;
+void** const& kEngineVtable = Vt::kEngineParticles;
 
 uint8_t* Bytes(CPcParticleSystem* system) { return reinterpret_cast<uint8_t*>(system); }
 bool& Hidden(CPcParticleSystem* system) { return reinterpret_cast<bool&>(Bytes(system)[0x159]); }

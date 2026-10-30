@@ -24,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/glow.h"
 
@@ -205,7 +206,7 @@ void __cdecl ShadowTextureMatrix(const float* a, const float* b, float* out, con
 // 0x004DB9D0
 void __cdecl DrawShadowVolumes(const void* scene, int /*viewport*/)
 {
-    void* vertexColour = g_vertexColourPixelShader;
+    void* vertexColour = g_pixelShaders[kPixelShader94C];
     SetPixelShader(vertexColour, nullptr);
     PixelShaderLocked() = reinterpret_cast<uint32_t>(vertexColour);
     SetTexture(0, nullptr);

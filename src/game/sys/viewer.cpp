@@ -38,6 +38,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/obj/movie_manager.h"
 #include "game/ass/assman.h"
 #include "game/script/cfuncs_scene.h"
@@ -54,8 +55,8 @@ constexpr uint32_t kUserViewerCircle = 0xB6E7047D;     // UserViewerCircle
 constexpr uint32_t kUserViewerTriangle = 0xC09789E2;   // UserViewerTriangle
 constexpr uint32_t kUserViewerX = 0xF440EC15;          // UserViewerX
 
-void** const kVtable = reinterpret_cast<void**>(0x0064EBC4);
-void** const kBaseHandlerVtable = reinterpret_cast<void**>(0x00646090); // Inp::BaseHandler
+extern void** const kVtable;
+extern void** const kBaseHandlerVtable; // Inp::BaseHandler
 
 int& ViewModeValue() { return Obj::g_viewMode; }
 
@@ -638,6 +639,11 @@ Viewer* Viewer::Construct()
     Instance() = this;
     return this;
 }
+
+namespace {
+GAME_VTABLE(kVtable, 0x0064EBC4, &Mdl::Viewer::Destroy, &Mdl::Viewer::StartCallback, &Mdl::Viewer::StopCallback);
+GAME_VTABLE(kBaseHandlerVtable, 0x00646090, GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771));
+} // namespace
 
 } // namespace Mdl
 

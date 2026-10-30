@@ -25,6 +25,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -34,7 +35,7 @@ GAME_GLOBAL(sProjectionBatch[10], g_projectionBatches, 0x00705758); // (kBatchLi
 
 namespace {
 
-constexpr uint32_t kProjectionVtable = 0x0064A764;
+extern void** const kProjectionVtable;
 constexpr uint32_t kBatchLimit = 10;
 constexpr uint32_t kBatchVertices = 0x600;
 
@@ -296,6 +297,10 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
         }
     }
 }
+
+namespace {
+GAME_VTABLE(kProjectionVtable, 0x0064A764, &Nx::CPcTextureProjection::Destroy, &Nx::CPcTextureProjection::Project);
+} // namespace
 
 } // namespace Nx
 

@@ -83,6 +83,7 @@ GAME_GLOBAL_EXTERN(int, g_drawnTriangles);
 GAME_GLOBAL_EXTERN(float, g_fogStart);
 GAME_GLOBAL_EXTERN(float, g_fogEnd);
 
+GAME_GLOBAL_EXTERN(DeviceViewport, g_deviceViewport);
 GAME_GLOBAL_EXTERN(RenderCamera, g_camera);
 GAME_GLOBAL_EXTERN(ViewShape, g_viewShape);
 

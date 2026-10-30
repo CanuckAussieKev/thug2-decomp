@@ -22,12 +22,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kHeadVtable = 0x00648A3C;
+extern void** const kHeadVtable;
 
 // The list's first node (the head's next, 0x006FA7EC; the head itself when the list is empty).
 Mem::ListNode* FirstNode() { return g_sceneList.next; }
@@ -339,6 +340,10 @@ bool __cdecl ReloadScene(const char* name)
     LoadScene(name, textures, !isSky, isSky, false, 0);
     return true;
 }
+
+namespace {
+GAME_VTABLE(kHeadVtable, 0x00648A3C, &Nx::CSceneListHead::Destroy);
+} // namespace
 
 } // namespace Nx
 

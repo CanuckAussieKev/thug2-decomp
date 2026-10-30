@@ -14,12 +14,13 @@
 #include "game/gfx/mesh_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kPcMeshVtable = 0x0064A490;
+extern void** const kPcMeshVtable;
 
 void ConstructBase(CPcMesh* mesh) { reinterpret_cast<CMesh*>(mesh)->CMesh::Construct(); }
 
@@ -146,6 +147,10 @@ void CPcMesh::SetScene(uint8_t* newScene)
     hierarchy = list->extra;
     hierarchyCount = list->unknown78;
 }
+
+namespace {
+GAME_VTABLE(kPcMeshVtable, 0x0064A490, &Nx::CPcMesh::Destroy);
+} // namespace
 
 } // namespace Nx
 

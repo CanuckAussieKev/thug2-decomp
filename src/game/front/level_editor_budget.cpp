@@ -24,6 +24,8 @@
 #include "game/script/node_manager.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/script/struct.h"
+#include "game/script/cscript.h"
 #include "imgui.h"
 
 namespace Front::LevelEditor::Budget {
@@ -117,23 +119,22 @@ namespace {
 // The script pools (Script::CreateScriptPools): their pool pairs and names (the counts are the pools' own -
 // ours are bigger than the original's: game/core/memory_sizes.h).
 struct PoolInfo {
-    uintptr_t pair;
+    Mem::PoolPair& (*pair)(); // (a function: the globals are set up after this table)
     const char* name;
     const char* where;
 };
 const PoolInfo kPools[] = {
-    {0x006F3614, "Script structures (CStruct)", "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
-    {0x006F2338, "Script components", "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
-    {0x006F3654, "Script vectors", "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
-    {0x006F22B4, "Script arrays", "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
-    {0x006F362C, "Script symbols", "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
-    {0x006F3548, "Running scripts", "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
+    {[]() -> Mem::PoolPair& { return Script::g_structPools; }, "Script structures (CStruct)", "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
+    {[]() -> Mem::PoolPair& { return Script::g_componentPools; }, "Script components", "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
+    {[]() -> Mem::PoolPair& { return Script::g_vectorPools; }, "Script vectors", "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
+    {[]() -> Mem::PoolPair& { return Script::g_arrayPools; }, "Script arrays", "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
+    {[]() -> Mem::PoolPair& { return Script::g_symbolPools; }, "Script symbols", "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
+    {[]() -> Mem::PoolPair& { return Script::g_scriptPools; }, "Running scripts", "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
 };
 constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
 
-bool PoolUse(uintptr_t pair, int* used, int* count)
+bool PoolUse(Mem::PoolPair& pools, int* used, int* count)
 {
-    auto& pools = GameVariable<Mem::PoolPair>(pair);
     Mem::Pool* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
     if (!pool)
         return false;
@@ -183,7 +184,7 @@ void TakeBaseline()
     }
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, count = 0;
-        g_base.pools[i] = PoolUse(kPools[i].pair, &used, &count) ? used : 0;
+        g_base.pools[i] = PoolUse(kPools[i].pair(), &used, &count) ? used : 0;
     }
     g_base.taken = true;
 }
@@ -259,7 +260,7 @@ std::vector<Meter> Meters()
           static_cast<double>(Objects::Copies().size()), "objects made from copies of their nodes");
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, total = 0;
-        if (!PoolUse(kPools[i].pair, &used, &total))
+        if (!PoolUse(kPools[i].pair(), &used, &total))
             continue;
         Meter m;
         m.name = kPools[i].name;

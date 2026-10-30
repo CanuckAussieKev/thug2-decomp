@@ -4,11 +4,12 @@
 
 #include "game/core/manager.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Lst {
 
 namespace {
-void** const kSearchVtable = reinterpret_cast<void**>(0x00658AA4);
+extern void** const kSearchVtable;
 } // namespace
 
 // 0x005BDE30
@@ -22,6 +23,10 @@ SearchDestructors* SearchDestructors::Destroy(unsigned int flags)
         Mem::Manager::Get()->Free(this);
     return this;
 }
+
+namespace {
+GAME_VTABLE(kSearchVtable, 0x00658AA4, &Lst::SearchDestructors::Destroy);
+} // namespace
 
 } // namespace Lst
 

@@ -15,6 +15,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -269,13 +270,13 @@ void __cdecl ClearSkinScaling()
 // 0x004D3ED0
 void* __stdcall PixelShaderFromIndex(uint32_t index)
 {
-    // (0x007CA948 is skipped: no index names it)
-    static const uint32_t kShaders[0x13] = {0, 0, 0x007CA964, 0x007CA960, 0x007CA95C, 0x007CA958, 0x007CA954,
-                                            0x007CA950, 0x007CA94C, 0x007CA944, 0x007CA940, 0x007CA93C, 0x007CA938,
-                                            0x007CA934, 0x007CA930, 0x007CA92C, 0x007CA928, 0x007CA924, 0x007CA920};
+    // (kPixelShader948 is skipped: no index names it)
+    static const int kShaders[0x13] = {-1, -1, kPixelShader964, kPixelShader960, kPixelShader95C, kPixelShader958, kPixelShader954,
+                                            kPixelShader950, kPixelShader94C, kPixelShader944, kPixelShader940, kPixelShader93C, kPixelShader938,
+                                            kPixelShader934, kPixelShader930, kPixelShader92C, kPixelShader928, kPixelShader924, kPixelShader920};
     if (index > 0x12)
         return reinterpret_cast<void*>(index); // (the original returns the index itself)
-    return kShaders[index] ? GameVariable<void*>(kShaders[index]) : nullptr;
+    return kShaders[index] >= 0 ? g_pixelShaders[kShaders[index]] : nullptr;
 }
 
 } // namespace Nx

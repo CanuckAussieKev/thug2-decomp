@@ -30,6 +30,7 @@
 #include "hook/game_global.h"
 #include "hook/log.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/sys/winmain.h"
 
 namespace Nx {
@@ -318,7 +319,7 @@ enum : uint32_t { kStart = 0x0800, kCross = 0x0040 }; // PS2 control data bytes 
 void __cdecl PlayMovieFile(const char* name)
 {
     if (!BinkSetSoundSystem(BinkOpenDirectSound(), Pcm::g_soundDevice))
-        Dbg::Printf(reinterpret_cast<const char*>(0x006472D4)); // "Bink can't use DSound\n"
+        Dbg::Printf(GAME_TEXT(0x006472D4, "Bink can't use DSound\n")); // "Bink can't use DSound\n"
     CreateSoundManager();
     float music = MusicVolume();
     float effects = SoundVolume();

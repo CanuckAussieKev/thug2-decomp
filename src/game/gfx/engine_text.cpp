@@ -10,13 +10,15 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 
 namespace Nx {
 
 GAME_GLOBAL(CText*, g_freeTexts, 0x006FA804);
 namespace {
 
-constexpr uint32_t kTextVtable = 0x00648AA0;
+extern void** const kTextVtable;
 
 
 CText*& FreeList() { return g_freeTexts; }
@@ -263,6 +265,11 @@ void __cdecl FreeText(CText* text)
     text->mp_nextFree = FreeList();
     FreeList() = text;
 }
+
+namespace {
+GAME_VTABLE(kTextVtable, 0x00648AA0, &Nx::CText::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+            Stubs::DoNothing, Stubs::DoNothing);
+} // namespace
 
 } // namespace Nx
 

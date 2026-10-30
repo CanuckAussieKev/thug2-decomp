@@ -9,12 +9,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Mem {
 
 namespace {
 
-void** const kHeapVtable = reinterpret_cast<void**>(0x0065848C);
+extern void** const kHeapVtable;
 
 GAME_GLOBAL(int, g_heapBusy, 0x007D0FDC);
 GAME_GLOBAL(BlockHeader*, g_forcedFreeBlock, 0x007D0FE0);
@@ -296,6 +297,15 @@ struct HeapAdapters {
 };
 
 } // namespace
+
+
+namespace Mem {
+namespace {
+GAME_VTABLE(kHeapVtable, 0x0065848C, &Mem::Allocator::PushContext, &Mem::Allocator::PopContext,
+            &HeapAdapters::Destroy, &Mem::Heap::Allocate, &Mem::Heap::LargestFree, &Mem::Heap::ReallocateDown,
+            &Mem::Heap::ReallocateUp, &Mem::Heap::ReallocateShrink, &Mem::Heap::Free);
+} // namespace
+} // namespace Mem
 
 REPLACE(0x005BA520, &HeapAdapters::Construct);
 REPLACE(0x005BA560, &HeapAdapters::Destroy);

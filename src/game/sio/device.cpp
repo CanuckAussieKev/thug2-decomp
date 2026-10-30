@@ -32,6 +32,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
 #include "game/gfx/movie.h"
 #include "game/obj/cutscene.h"
 #include "game/ed/park_editor.h"
@@ -42,8 +44,8 @@ namespace Sio {
 
 namespace {
 
-void** const kDeviceVtable = reinterpret_cast<void**>(0x00658A6C);
-void** const kDeviceNodeVtable = reinterpret_cast<void**>(0x00658A70); // Lst::Node<Device>
+extern void** const kDeviceVtable;
+void** const& kDeviceNodeVtable = Vt::kDeviceNode; // Lst::Node<Device>
 
 // The platform layer: a port's DirectInput joystick read for this frame (none: null), and whether the port has
 // any keyboard bindings (the keyboard counts as a pad then).
@@ -293,7 +295,7 @@ uint32_t& ManagerReferences() { return g_managerReferences; }
 // 0x005BE110: the device list node's scalar deleting destructor
 Mem::ListNode* DestroyDeviceNode(Mem::ListNode* node, unsigned int flags)
 {
-    node->UnlinkAs(reinterpret_cast<void**>(0x00658A70));
+    node->UnlinkAs(kDeviceNodeVtable);
     if (flags & 1)
         Mem::Manager::Get()->Free(node);
     return node;
@@ -702,7 +704,7 @@ void Device::ReadData(int)
 // --- the manager -------------------------------------------------------------------------------------------
 
 namespace {
-void** const kManagerVtable = reinterpret_cast<void**>(0x00658AD4);
+extern void** const kManagerVtable;
 
 } // namespace
 
@@ -714,7 +716,7 @@ Manager::Manager()
     m_devices.priority = 0;
     m_devices.next = &m_devices;
     m_devices.prev = &m_devices;
-    m_devices.vtable = reinterpret_cast<void**>(0x00658A70);
+    m_devices.vtable = kDeviceNodeVtable;
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (task) {
         reinterpret_cast<Tsk::BaseTask*>(task)->Construct(0);                 // Tsk::BaseTask(priority 0)
@@ -756,7 +758,7 @@ void Manager::DestroyBody()
     Stubs::ReturnZero(); // (a folded empty function - compiled-out code)
     if (!Pcm::NoMusicPlease())
         Pcm::StopUserSoundtrack();
-    m_devices.UnlinkAs(reinterpret_cast<void**>(0x00658A70));
+    m_devices.UnlinkAs(kDeviceNodeVtable);
 }
 
 // 0x005BE6C0
@@ -854,6 +856,11 @@ void ReleaseManager()
     ManagerReferences() = 0;
 }
 
+namespace {
+GAME_VTABLE(kDeviceVtable, 0x00658A6C, &Sio::Device::Destroy);
+GAME_VTABLE(kManagerVtable, 0x00658AD4, &Sio::Manager::Destroy);
+} // namespace
+
 } // namespace Sio
 
 namespace {
@@ -865,6 +872,10 @@ struct DeviceAdapter {
 };
 
 } // namespace
+
+namespace Vt {
+GAME_VTABLE(kDeviceNode, 0x00658A70, &DeviceAdapter::DestroyNode);
+} // namespace Vt
 
 REPLACE(0x005BD920, &DeviceAdapter::Construct);
 REPLACE(0x005BCD00, &Sio::Device::Destroy);

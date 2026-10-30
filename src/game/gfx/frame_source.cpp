@@ -7,12 +7,13 @@
 #include "game/ass/assman.h"
 #include "game/obj/cutscene.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kFrameSourceVtable = 0x00648A68;
+extern void** const kFrameSourceVtable;
 
 } // namespace
 
@@ -60,6 +61,10 @@ void* CFrameSource::SetAnim(uint32_t anim)
     GetAnimData(anim, 1); // (looked up twice, the first result not used)
     return GetAnimData(m_anim, 1);
 }
+
+namespace {
+GAME_VTABLE(kFrameSourceVtable, 0x00648A68, &Nx::CFrameSource::Destroy);
+} // namespace
 
 } // namespace Nx
 

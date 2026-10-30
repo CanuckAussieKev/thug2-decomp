@@ -32,13 +32,16 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/object.h"
 #include "game/script/cfuncs_scene.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kViewerObjectVtable = reinterpret_cast<void**>(0x0064F138);
+extern void** const kViewerObjectVtable;
 constexpr uint32_t kKillViewerObjectPanel = 0x9E65A71E; // kill_viewer_object_panel
 constexpr uint32_t kCasArtist = 0x2A648514;              // cas_artist
 constexpr uint32_t kModelName = 0xB974F2FC;              // modelname
@@ -615,6 +618,15 @@ CViewerObject* CViewerObject::Construct(Net::App* app)
     }
     return this;
 }
+
+namespace {
+GAME_VTABLE(kViewerObjectVtable, 0x0064F138, &Obj::CViewerObject::Destroy, &Obj::CObject::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
+            Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript, &Obj::CCompositeObject::MarkAsDead,
+            &Obj::CCompositeObject::ShouldUpdateScripts, &Obj::CCompositeObject::Finalize,
+            &Obj::CCompositeObject::CreateComponentFromStructure, &Obj::CViewerObject::OwnUpdate);
+} // namespace
 
 } // namespace Obj
 

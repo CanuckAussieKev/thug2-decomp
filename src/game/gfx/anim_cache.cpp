@@ -14,6 +14,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Gfx {
 
@@ -282,8 +283,8 @@ void __cdecl CAnimCache::Create(uint32_t heapSize, uint32_t granularity, int typ
 {
     if (Cache())
         return;
-    Manager()->InitNamedHeap(kAnimHeap, heapSize, reinterpret_cast<const char*>(0x0064875C), 0); // "AnimHeap"
-    Dbg::Printf(reinterpret_cast<const char*>(0x00648734), heapSize >> 10); // "Initializing CAnimCacheManager at %dk\n"
+    Manager()->InitNamedHeap(kAnimHeap, heapSize, GAME_TEXT(0x0064875C, "AnimHeap"), 0); // "AnimHeap"
+    Dbg::Printf(GAME_TEXT(0x00648734, "Initializing CAnimCacheManager at %dk\n"), heapSize >> 10); // "Initializing CAnimCacheManager at %dk\n"
     auto* cache = static_cast<CAnimCache*>(Mem::Calloc(sizeof(CAnimCache)));
     if (cache) {
         std::memset(cache->mp_entries, 0, sizeof(cache->mp_entries));

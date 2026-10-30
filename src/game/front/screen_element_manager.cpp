@@ -16,8 +16,17 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/objman.h"
 
 namespace Front {
+
+namespace {
+extern void** const kCScreenElementManagerVtable;
+extern void** const kListenerAdapterVtable;
+} // namespace
+
 
 GAME_GLOBAL(CScreenElementManager*, g_screenElementManager, 0x00701440);
 
@@ -44,9 +53,8 @@ constexpr uint32_t kDeviceNum = 0xC9428A08, kTheScore = 0x675ADBAA;
 constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0CD3;
 constexpr uint32_t kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
 // The script array of the pad event types ("pad_event_types").
-const char* PadEventTypesName() { return reinterpret_cast<const char*>(0x0064A10C); }
+const char* PadEventTypesName() { return GAME_TEXT(0x0064A10C, "pad_event_types"); }
 
-void** Vtable(uint32_t address) { return reinterpret_cast<void**>(address); }
 
 CScreenElement* AsElement(Obj::CObject* object) { return static_cast<CScreenElement*>(object); }
 
@@ -80,8 +88,8 @@ CScreenElementManager* CScreenElementManager::Construct()
 {
     Obj::CBaseManager::Construct();
     m_listener.Construct();
-    m_listener.m_vtable = Vtable(0x0064A104);
-    m_vtable = Vtable(0x0064A0E8);
+    m_listener.m_vtable = kListenerAdapterVtable;
+    m_vtable = kCScreenElementManagerVtable;
     mp_root.mp_prev = mp_root.mp_next = nullptr;
     mp_root.mp_object = nullptr;
     mp_resolving.mp_prev = mp_resolving.mp_next = nullptr;
@@ -117,8 +125,8 @@ CScreenElementManager* CScreenElementManager::Construct()
 // 0x004ABB00
 void CScreenElementManager::DestroyBody()
 {
-    m_vtable = Vtable(0x0064A0E8);
-    m_listener.m_vtable = Vtable(0x0064A104);
+    m_vtable = kCScreenElementManagerVtable;
+    m_listener.m_vtable = kListenerAdapterVtable;
     for (int i = kPriorities - 1; i >= 0; --i)
         m_priorities[i].element.Release();
     for (int i = kFocusEntries - 1; i >= 0; --i)
@@ -737,6 +745,17 @@ struct ListenerAdapter {
 } // namespace
 
 using Front::CScreenElementManager;
+
+
+namespace Front {
+namespace {
+GAME_VTABLE(kCScreenElementManagerVtable, 0x0064A0E8, &CScreenElementManager::Destroy,
+            &Obj::CBaseManager::RegisterObject, &CScreenElementManager::UnregisterObject,
+            &Obj::CBaseManager::ReassignObjectId, &Obj::CBaseManager::SetObjectPriority, Stubs::IgnoreArgument,
+            &CScreenElementManager::GetObjectList);
+GAME_VTABLE(kListenerAdapterVtable, 0x0064A104, &ListenerAdapter::Destroy, &CScreenElementManager::ListenerReceive);
+} // namespace
+} // namespace Front
 
 REPLACE(0x004AB990, &CScreenElementManager::Construct);
 REPLACE(0x004ABB00, &CScreenElementManager::DestroyBody);

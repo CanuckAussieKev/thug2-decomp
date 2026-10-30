@@ -13,6 +13,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -104,7 +105,7 @@ uint32_t FindNameOfInteger(CStruct* structure, uint32_t value)
     for (CComponent* component = structure->GetNextComponent(nullptr); component;) {
         CComponent* next = structure->GetNextComponent(component);
         if (component->Type() == Script::ESYMBOLTYPE_INTEGER && component->raw == value) {
-            Dbg::Printf(reinterpret_cast<const char*>(0x00657ADC), value); // "s_find_cat_in_mapping found %i"
+            Dbg::Printf(GAME_TEXT(0x00657ADC, "s_find_cat_in_mapping found %i\n"), value); // "s_find_cat_in_mapping found %i"
             found = component->name;
         }
         component = next;

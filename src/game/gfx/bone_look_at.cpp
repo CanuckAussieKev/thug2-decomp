@@ -15,6 +15,9 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/gfx/model_utils.h"
+#include "game/core/stubs.h"
 #include "game/obj/anim_movies.h"
 
 namespace Gfx {
@@ -23,7 +26,7 @@ namespace {
 
 using Script::CStruct;
 
-constexpr uint32_t kVtable = 0x006488D8;
+extern void** const kVtable;
 constexpr uint32_t kNoBone = 0xFFFFFFFF;
 constexpr uint32_t kSkeletonComponent = 0x222756D5;
 // Member functions (names unknown)
@@ -452,6 +455,12 @@ void CBoneLookAt::SetAllMax(const Mth::Vector* max)
             bone.m_max = *max;
     }
 }
+
+namespace {
+GAME_VTABLE(kVtable, 0x006488D8, &Gfx::CBoneLookAt::Destroy, &Gfx::CBoneLookAt::Apply, Stubs::IgnoreArgument,
+            &Gfx::CBoneLookAt::CallMemberFunction, &Gfx::CBoneLookAt::InitFromStructure, &Gfx::CBoneLookAt::Update,
+            Gfx::VirtualSlot4Jump);
+} // namespace
 
 } // namespace Gfx
 

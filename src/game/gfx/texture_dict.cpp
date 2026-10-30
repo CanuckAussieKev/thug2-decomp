@@ -18,6 +18,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 
 namespace Nx {
 
@@ -29,7 +31,7 @@ GAME_GLOBAL(CTexDict*, g_particleTextureDict, 0x00700F20);
 
 namespace {
 
-constexpr uint32_t kTexDictVtable = 0x00649BB4;
+extern void** const kTexDictVtable;
 
 // The loaded dictionaries, by checksum (a static hash table).
 Lst::HashTable& LoadedTexDicts() { return GameVariable<Lst::HashTable>(0x00700F04); }
@@ -159,7 +161,7 @@ CTexture* CTexDict::FindTexture(const char* name)
     std::snprintf(other, sizeof(other), "%s", name);
     size_t length = std::strlen(other);
     if (length > 4 && length - 4 + 14 <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
-        std::memcpy(other + length - 4, reinterpret_cast<const char*>(0x00649BA4), 14);
+        std::memcpy(other + length - 4, GAME_TEXT(0x00649BA4, "_auto32m0.png"), 14);
     return find(Crc::GenerateCRCFromString(other));
 }
 
@@ -177,7 +179,7 @@ CTexture* CTexDict::LoadTexture(const char* name, uint32_t a1, uint32_t a2, bool
 CTexture* CTexDict::LoadTextureFromBuffer(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3,
                                           uint32_t a4, bool permanent, uint32_t a6)
 {
-    Mem::PushMemProfile(reinterpret_cast<const char*>(0x00649BD8)); // "texture from buf"
+    Mem::PushMemProfile(GAME_TEXT(0x00649BD8, "texture from buffer")); // "texture from buf"
     auto* texture = Slot<CTexture*>(this, 2, data, size, checksum, a3, a4, a6);
     AddTexture(this, texture, permanent);
     Mem::PopMemProfile();
@@ -188,7 +190,7 @@ CTexture* CTexDict::LoadTextureFromBuffer(const uint8_t* data, uint32_t size, ui
 CTexture* CTexDict::CreateTexture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel,
                                   uint32_t a4, uint32_t a5, bool permanent)
 {
-    Mem::PushMemProfile(reinterpret_cast<const char*>(0x00649BEC)); // "created texture"
+    Mem::PushMemProfile(GAME_TEXT(0x00649BEC, "created texture")); // "created texture"
     auto* texture = Slot<CTexture*>(this, 3, checksum, width, height, bitsPerPixel, a4, a5);
     AddTexture(this, texture, permanent);
     Mem::PopMemProfile();
@@ -312,7 +314,7 @@ CTexDict* __cdecl LoadTexDict(const char* path, int /*level*/, uint32_t offset, 
 CTexDict* __cdecl LoadTexDictFromMemory(uint32_t checksum, const uint8_t* data, uint32_t /*size*/, uint32_t /*a3*/,
                                         uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
 {
-    Mem::PushMemProfile(reinterpret_cast<const char*>(0x00649AC8)); // "TEX_data_buffer"
+    Mem::PushMemProfile(GAME_TEXT(0x00649AC8, "TEX_data_buffer")); // "TEX_data_buffer"
     uint32_t key = checksum + offset;
     CTexDict* dict = FindTexDict(key);
     if (!dict) {
@@ -354,6 +356,12 @@ void __cdecl TexDictFileName(char* out, const char* name)
 
 // 0x0049EFB0
 void __cdecl FlushParticleTextures(bool all) { g_particleTextureDict->FlushTextures(all); }
+
+namespace {
+GAME_VTABLE(kTexDictVtable, 0x00649BB4, &Nx::CTexDict::Destroy, Stubs::ReturnZero3, Stubs::ReturnZero6,
+            Stubs::ReturnZero6, Stubs::ReturnZero1, Stubs::ReturnFalse1, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
+            Stubs::ReturnZero2);
+} // namespace
 
 } // namespace Nx
 

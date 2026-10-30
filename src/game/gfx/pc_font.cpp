@@ -12,13 +12,15 @@
 #include "game/gfx/text.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kPcFontVtable = 0x0064A328;
-constexpr uint32_t kPcTextVtable = 0x0064A34C;
+extern void** const kPcFontVtable;
+extern void** const kPcTextVtable;
 
 // The button glyph font (0x00780FDC) and the texts' free list (0x006FA804).
 SFont*& ButtonFont() { return g_buttonFont; }
@@ -217,6 +219,14 @@ CPcFont* __cdecl CreatePcFont(const char* name)
     reinterpret_cast<bool(__thiscall*)(CPcFont*, const char*)>(font->vtable[1])(font, name);
     return font;
 }
+
+namespace {
+GAME_VTABLE(kPcFontVtable, 0x0064A328, &Nx::CPcFont::Destroy, &Nx::CPcFont::Load, &Nx::CPcFont::SetSpacings,
+            &Nx::CPcFont::SetColors, &Nx::CPcFont::MarkAsButtonFont, &Nx::CPcFont::Unload, &Nx::CPcFont::GetHeight,
+            &Nx::CPcFont::GetBase, &Nx::CPcFont::QueryString);
+GAME_VTABLE(kPcTextVtable, 0x0064A34C, &Nx::CPcText::Destroy, &Nx::CPcText::Update, &Nx::CPcText::UpdateHidden,
+            &Nx::CPcText::UpdateProperties, &Nx::CPcText::UpdatePriority, Stubs::DoNothing);
+} // namespace
 
 } // namespace Nx
 
