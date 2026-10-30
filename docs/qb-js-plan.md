@@ -5,21 +5,21 @@ and execute them as generators in embedded QuickJS. The existing C++ game
 systems remain responsible for gameplay. JavaScript reaches them through an
 explicit bridge. Node is an offline development tool, not a game dependency.
 
-## Branches and current implementation
+## Current implementation
 
-`main` matches upstream commit `a9b478045ac215ee5ad36788c9f4d1c7ddec6b8a`.
-`script/qb-to-js` started at `2d82ed2` and now includes that upstream update.
-The 30 new upstream commits add renderer work; the scripting source/specification
-is unchanged between these bases. The previous standalone C++ QB interpreter,
-readers and tests are preserved at `a23d587` in `archive/qb-vm` and the existing
-`native/qb-runtime` branch. They are not part of the new game's runtime.
+This proposal is synchronized with source commit
+`a1fbb35`. Its standalone scripting
+target is separate from the Windows `thug2_standalone` game target and does not
+modify that target or the existing DLL. Earlier native-QB experiments are kept
+only in the development fork as test-reference material; they are not linked
+into the JavaScript runtime.
 
 Upstream provides a behavior specification and reconstructed C++ implementations.
 The first synthetic milestone is now implemented on this branch under
 [`scripting/`](../scripting/README.md) and `tools/qbjs/`: bounded binary parsing,
 typed IR, generator emission, an actual QuickJS host bridge and frame waits.
 Release and ASan/UBSan tests pass locally on macOS ARM64. Linux, Intel macOS and
-Windows GCC checks are configured in CI; their results are not asserted here.
+Windows GCC checks are configured in CI.
 The bounded format-2 reader/emitter, value helpers and product-scheduler wiring
 are also implemented. The optional original `ResetLevelFlags` helper now runs
 through QuickJS and a concrete bounded C++ career-flag host, with independently
@@ -144,5 +144,4 @@ The RNG helper has passed original-x86 differential checks, and bounded random
 values are integrated; random command blocks/two-pass arrays are later work.
 RNG is not used by this helper. Native object
 handles/member dispatch, full scheduling, events/interrupts and rendering are
-not part of this first proposal. User approval is still required before sending
-the prepared proposal to the upstream maintainer.
+not part of this first proposal.

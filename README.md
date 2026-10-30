@@ -50,7 +50,7 @@ script interpreter is planned to be replaced by JavaScript (QuickJS) with the sc
 
 ## Optional QB to JavaScript prototype
 
-This fork's [`scripting/`](scripting/README.md) target starts the planned QB to
+The optional [`scripting/`](scripting/README.md) target starts the planned QB to
 JavaScript path: an offline TypeScript translator emits generators executed in
 embedded QuickJS, with typed C++ host calls and frame waits. Synthetic tests
 need no game files. This is an optional standalone prototype; the existing DLL

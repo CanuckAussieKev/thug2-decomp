@@ -1,12 +1,12 @@
 # QB to JavaScript values and call contract
 
-This is the integration contract for issues #1, #2, #3 and #4 in this fork.
-Version 1 describes the implemented scalar milestone at `6591353`.
-Version 2 selects the interfaces for the next implementation; those interfaces
-are **not implemented by this document**. Existing format-1 output continues to
-use the scalar runtime until the integrator enables the version-2 path.
+This is the interface and behavior contract for the optional QB-to-JavaScript
+prototype. Both the scalar format-1 path and the bounded format-2 path are
+implemented. Format 2 adds value helpers, globals, expressions, structured
+control flow and random values; the native bridge remains scalar-only.
+The supported and deferred subsets are stated below.
 
-The baseline is upstream `a9b4780`. Behavior references are
+The proposal is synchronized with source commit `a1fbb35`. Behavior references are
 [struct.h](../src/game/script/struct.h),
 [struct.cpp](../src/game/script/struct.cpp),
 [parse.cpp](../src/game/script/parse.cpp),
@@ -58,6 +58,12 @@ operations. They are not serialized as literals in the IR, and are not native
 addresses. Their target is a strong JS reference, so a suspended generator keeps
 the target alive. Freeing a parameter frame does not invalidate an independently
 retained reference. Reproducing dangling-pointer reads is outside the contract.
+
+Completed-expression materialization is not yet represented separately by the
+emitter. It can retain a live container reference where the original evaluator's
+`GetResult` copies the referenced target as an owning value. This is a known
+compatibility gap; helper-level copy/reference tests do not establish complete
+expression-result compatibility.
 
 Type 0 is reserved for an empty component/untyped array metadata, not a public
 missing-value object. Types 7/8/9 are script/function symbols in the dispatcher,
@@ -174,10 +180,10 @@ expressions use symbols available at that point. Hot reload, temporary symbol
 stacks and unload while tasks run are deferred. Format-1 duplicate rejection
 remains in place. Loading is not transactional; discard a runtime on load failure.
 
-## Proposed values helpers
+## Value helpers
 
-All listed helpers are version-2 work for #2; names and argument order are
-reserved here. Validation/type failures carry `ctx.site` where a context exists.
+The following helpers implement API version 2 in `scripting/values.js`.
+Validation/type failures carry `ctx.site` where a context exists.
 
 | Helper | Result and policy |
 | --- | --- |
@@ -220,7 +226,7 @@ take ComponentsEqual's default-false path, even for the same target. Structure
 less/greater use subset rules; strings compare lengths. Implemented subsets
 must state omissions rather than substituting deep equality or JS `===`.
 
-## Proposed translator IR and emitted calls
+## Translator IR and emitted calls
 
 Keep format-1 IR unchanged. Version-2 IR uses a module
 `{format:2, source, definitions:Definition[]}`. Definitions preserve binary
@@ -381,9 +387,9 @@ tests alone do not count as that original-data execution.
 
 ## Random module and integrated subset
 
-Issue #4 implements `globalThis.qbRandom`, `apiVersion:1`, with
+`scripting/random.js` implements `globalThis.qbRandom`, `apiVersion:1`, with
 `create(seedBits=0)` returning one engine-wide RNG instance, shared across tasks.
-The coordinator-owned `qb.random()` accessor returns that instance; it is
+The runtime's `qb.random()` accessor returns that instance; it is
 created once per Runtime, not once per start/update. CMake embeds `random.js`
 before the JS runtime; loading no longer needs an external helper file.
 Generated random calls
@@ -406,7 +412,7 @@ The following methods implement the interface; stream is the integer 0 or 1:
 Owner is a nonzero uint32 task identity, never a PC pointer; 0 is reserved for
 orphaned reusable records. The key uses script checksum, original byte offset,
 opcode and choice count, plus owner/reusable state. Source is diagnostic.
-The coordinator invokes forget at task destruction/cancellation, as original
+The runtime invokes forget at task destruction/cancellation, as original
 script destruction does. The standalone runner also releases ownership when a
 task finishes or faults, even if its snapshot remains retained. Stream draws
 and work charge happen in source order.
@@ -447,8 +453,8 @@ parameter reads and owning Structure expression results.
 
 The existing `thug2::js::Value {type,bits}` transport remains **scalar only**.
 Do not pack JS object identities or byte buffers into `bits` or change that C++
-layout in tasks #2/#3/#4. Rich JS values stay within QuickJS until a separate
-coordinator-owned transport change defines containers, references, ownership,
+layout in this prototype. Rich JS values stay within QuickJS until a separate
+transport change defines containers, references, ownership,
 resource accounting and failure cleanup on both sides. Rich values reaching the
 current host boundary must error. Runtime snapshots currently have that same
 scalar-only limit; an end-to-end rich-value task requires explicit bridge work.
@@ -457,7 +463,7 @@ Contexts enforce depth 128 and at most 250,000 visited value nodes per operation
 with shared task/load work accounting and cycle guards. Parameter lists keep
 the existing 4,096-field cap. A helper reports `syntax`, `unsupported`, `type`,
 `missing`, `cycle`, `arithmetic` or `limit` with a Site; C++ snapshots may continue
-exposing only the rendered message until the coordinator adds typed diagnostics.
+exposing only the rendered message until typed native diagnostics are added.
 Source offsets and limits are explicit new safety behavior, not original ABI.
 
 Keep existing 4 MiB inputs/source, 100,000 IR nodes, 64 conditional-block depth,
@@ -465,27 +471,17 @@ Keep existing 4 MiB inputs/source, 100,000 IR nodes, 64 conditional-block depth,
 and cannot preempt an arbitrary C++ callback. Unsafe pointer reads, allocation
 overruns, unbounded alias loops and uninitialized results are not reproduced.
 
-## File ownership and integration order
+## Implementation and validation surfaces
 
-| Helper or integration surface | Owner | Files | Required check |
-| --- | --- | --- | --- |
-| Contract | #1 coordinator | `docs/qb-js-contract.md` | Source review and representative examples |
-| All proposed `qbValues` APIs | #2 | `scripting/values.js`, `scripting/tests/values.test.js` | QuickJS self-test plus scalar regressions |
-| Reader, IR, emitter | #3 | `tools/qbjs/translate.ts`, `fixtures.ts`, `translate.test.ts`, new `reader.ts`, `ir.ts`, `emit.ts` as needed | Type/style, truncations, offsets, deterministic output |
-| `qbRandom` and its instance methods | #4 | `scripting/random.js`, `scripting/tests/random.test.js`, `tools/verify_js_random.py` as needed | Original vectors, both streams after each operation |
-| Existing scalar transport and embedding safety | #5 | `scripting/src/runtime.cpp`, `include/thug2/js_runtime.hpp`, CMake/workflow, `tests/runtime_tests.cpp` | Windows/Linux, JS ownership/error/limit checks |
-| New module wiring, context, globals, format-2 dispatch, `qb.random()`, rich bridge | #6 coordinator | `scripting/runtime.js`, CMake/header generation and future bridge changes | Integrated QuickJS and genuine QB helper |
+| Surface | Files | Verification |
+| --- | --- | --- |
+| Value operations | `scripting/values.js`, `scripting/tests/values.test.js` | QuickJS self-tests and original-function scalar vectors |
+| Reader/IR/emitter | `tools/qbjs/reader.ts`, `ir.ts`, `emitter.ts` | Scoped type/style checks, truncations, targets, deterministic output |
+| Random operations | `scripting/random.js`, `scripting/tests/random.test.js`, `tools/verify_js_random.py` | QuickJS self-tests and optional original-x86 differential checks |
+| Native embedding | `scripting/src/runtime.cpp`, `scripting/include/thug2/js_runtime.hpp` | Lifetime/error/limit tests and platform CI |
+| Scheduler/integration | `scripting/runtime.js`, `scripting/tests/format2_tests.cpp`, CMake | Real QuickJS, native transport, waits and optional original-data helper |
 
-The #5 owner controls CMake/embedding while that task runs. Tasks #2/#4 deliver
-standalone JS modules/self-tests without editing those files; self-tests can be
-concatenated with generated scalar fixtures and passed to `qb-js-tests` locally.
-The coordinator wires modules after the overlapping platform work is accepted.
-For #3, reader/IR checks can finish before runtime integration; generated rich
-code is not claimed executable until its required helpers/context are wired.
-
-The order is contract, independent values/translator/RNG/platform commits,
-then coordinator wiring, richer transport when needed, and one real QB helper.
-Current frame waits and ordinary calls remain regressions throughout. Object
+Frame waits and ordinary calls remain regressions throughout. Object
 handles, member/event dispatch, interrupts, spawned-script traversal and renderer
 integration require later contracts and tests. A missing capability is reported,
 not replaced with a success stub.
