@@ -21,6 +21,7 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/cag_cfuncs.h"
 
 namespace CFuncs {
 
@@ -63,7 +64,7 @@ void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b
 // with `before` m = rotation * m.
 void TurnAboutY(Mth::Matrix& m, float degrees, bool before)
 {
-    float radians = static_cast<float>(static_cast<double>(degrees) * GameVariable<float>(0x00645464)); // pi / 180
+    float radians = static_cast<float>(static_cast<double>(degrees) * g_degreesToRadians); // pi / 180
     Mth::Matrix rotation;
     Mth::Matrix& turn = Mth::CreateRotateYMatrix(rotation, radians);
     if (before)
@@ -220,7 +221,7 @@ bool __cdecl CFunc_PlaySkaterStream(Script::CStruct* params, Script::CScript* sc
         if (streamParams) {
             // (delete inlined: the structure pool pair's Free)
             streamParams->Clear();
-            GameVariable<Mem::PoolPair>(0x006F3614).Free(streamParams);
+            Script::g_structPools.Free(streamParams);
         }
         break;
     }

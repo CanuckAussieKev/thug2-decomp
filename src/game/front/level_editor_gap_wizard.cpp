@@ -17,6 +17,7 @@
 #include "hook/game.h"
 #include "hook/log.h"
 #include "imgui.h"
+#include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::GapWizard {
 
@@ -161,7 +162,7 @@ bool Cast(V3 from, V3 to, Hit* hit)
 
 Obj::CRailManager* Rails()
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     auto* manager = skate ? *reinterpret_cast<Obj::CRailManager**>(skate + 0x24) : nullptr;
     return manager && !manager->m_onObject && manager->m_nodes ? manager : nullptr;
 }

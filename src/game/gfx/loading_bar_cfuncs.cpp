@@ -13,6 +13,8 @@
 
 namespace Nx {
 
+GAME_GLOBAL(uint8_t, g_loadingScreenShown, 0x006FC49C);
+
 namespace {
 
 // The bar's settings (0x0067DDB4 on): position, size, border, and the three colours (r, g, b, 0x80).
@@ -43,7 +45,7 @@ bool SetColour(Script::CStruct* params, uint32_t at)
     return true;
 }
 
-bool& LoadingScreenShown() { return GameVariable<bool>(0x006FC49C); }
+bool& LoadingScreenShown() { return reinterpret_cast<bool&>(g_loadingScreenShown); }
 
 } // namespace
 

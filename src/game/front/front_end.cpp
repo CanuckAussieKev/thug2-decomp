@@ -32,8 +32,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/movie_manager.h"
+#include "game/ass/assman.h"
 
 namespace Mdl {
+
+GAME_GLOBAL(Mdl::FrontEnd*, g_frontEndInstance, 0x007CE464);
 
 GAME_GLOBAL(bool, g_menusActive, 0x007CE46C);
 GAME_GLOBAL(bool, g_pendingScript, 0x007CE4A0);
@@ -80,11 +84,11 @@ bool& SkateshopOverride() { return g_skateshopOverride; } // set elsewhere: neve
 bool& KeyboardOnScreen() { return Sio::g_keyboardOnScreen; }
 bool& MenuOnScreen() { return Sio::g_inMenuFlag; }     // a menu, dialog box or the quit dialog
 bool& PendingScript() { return g_pendingScript; }    // set elsewhere: run 0xFB11E6CD next frame
-bool& GamePaused() { return GameVariable<bool>(0x006FA7D4); }
+bool& GamePaused() { return Obj::g_gamePaused; }
 
-uint8_t* SkateBytes() { return GameVariable<uint8_t*>(0x007CE478); } // Mdl::Skate
-void* Tracker() { return GameVariable<void*>(0x006F0FC0); }    // Obj::CTracker
-uint8_t* MainLoopManager() { return GameVariable<uint8_t*>(0x00696D68); }
+uint8_t* SkateBytes() { return reinterpret_cast<uint8_t*>(g_skateModule); } // Mdl::Skate
+void* Tracker() { return reinterpret_cast<void*>(Obj::g_tracker); }    // Obj::CTracker
+uint8_t* MainLoopManager() { return reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager); }
 uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(Inp::g_inputManager); } // Inp::Manager
 
 // The typed arrow keys (Sio::GetKeyboardChars).
@@ -158,7 +162,7 @@ bool AnchorExists(Script::CStruct* params, uint32_t id, bool clear = true)
 
 } // namespace
 
-FrontEnd*& FrontEndInstance() { return Front::Automation::g_frontEndInstance; }
+FrontEnd*& FrontEndInstance() { return g_frontEndInstance; }
 
 // 0x0054EBE0
 void ReleaseFrontEnd()

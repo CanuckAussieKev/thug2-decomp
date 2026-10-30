@@ -35,7 +35,7 @@ constexpr float kOtherHeight = 120.0f; // above the others'
 
 // The network manager (0x007CCE14): a network game on, its show_names preference on, the player with an object id,
 // this machine's player (GetCamPlayer: its +0x1CC).
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 bool InNetGame() { return NetManager()->InNetGame(); }
 bool ShowNames() { return NetManager()->ShouldDrawPlayerNames(); }
 uint8_t* PlayerByObjectId(uint32_t id) { return NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)); }

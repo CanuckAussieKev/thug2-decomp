@@ -74,7 +74,7 @@ constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 CGameMode* GameMode() { return g_gameMode; }
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
 
 uint32_t GoalName(Script::CStruct* params)

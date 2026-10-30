@@ -15,6 +15,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/front/screen_element_cfuncs.h"
 
 namespace Obj {
 
@@ -66,7 +67,7 @@ void CLockObjComponent::InitFromStructure(Script::CStruct* params)
 {
     m_objectName = 0;
     m_bone = 0;
-    m_targetId = GameVariable<uint32_t>(0x0064780C);
+    m_targetId = Front::g_unassignedId;
     m_offset = {0.0f, 0.0f, 0.0f, 1.0f};
     // (NOT ORIGINAL: LOCK_FLAG_NO_ROTATE cleared with the original's LOCK_FLAG_ANGLES)
     m_lockFlags &= ~(LOCK_FLAG_ANGLES | LOCK_FLAG_NO_ROTATE);

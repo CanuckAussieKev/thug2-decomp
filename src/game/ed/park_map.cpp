@@ -19,6 +19,8 @@
 
 namespace Ed {
 
+GAME_GLOBAL(bool, g_railEditorFlag, 0x0067F000, true);
+
 namespace {
 
 constexpr uint16_t kMapVersion = 0x4E24;
@@ -45,7 +47,7 @@ void ReadRails(Script::CStruct* params)
     CRailEditorComponent::Instance()->ReadFromStructure(params);
 }
 // A flag the rail editor reads (cleared while rails are read outside the park editor's level).
-bool& RailEditorFlag() { return GameVariable<bool>(0x0067F000); }
+bool& RailEditorFlag() { return g_railEditorFlag; }
 
 // The park editor's theme.
 void SetTheme(uint32_t theme) { CParkEditor::Instance()->SetTimeOfDayScript(theme); }

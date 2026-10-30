@@ -42,6 +42,9 @@
 #include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/gfx/loading_bar_cfuncs.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine_glue.h"
 
 namespace Sys::Screenshot {
 
@@ -83,15 +86,15 @@ float g_messageY = 40.0f; // (ShowNotice's lower, clear of the score: 100)
 
 // --- the game's state ---
 
-uint8_t* SkateModule() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
 uint32_t LevelLoad() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
 bool LoadingScreenUp()
 {
-    return Front::Automation::g_loadingScreenShown != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
-           GameVariable<uint8_t>(0x00786D04) != 0;
+    return Nx::g_loadingScreenShown != 0 || Nx::g_loadingBarTimer != 0 ||
+           static_cast<uint8_t>(Nx::g_loadingScreenUp) != 0;
 }
-Mdl::FrontEnd* TheFrontEnd() { return Front::Automation::g_frontEndInstance; }
+Mdl::FrontEnd* TheFrontEnd() { return Mdl::g_frontEndInstance; }
 std::string NameOf(uint32_t checksum)
 {
     if (const char* name = Script::FindChecksumName(checksum))
@@ -102,7 +105,7 @@ std::string NameOf(uint32_t checksum)
 }
 std::string GameModeName()
 {
-    void* mode = GameVariable<void*>(0x007CE470);
+    void* mode = reinterpret_cast<void*>(Game::g_gameMode);
     return mode ? NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum()) : "";
 }
 // The local skater (the skate module's 0x00566520; null with none).

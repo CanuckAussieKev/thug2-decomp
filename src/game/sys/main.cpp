@@ -59,6 +59,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/movie.h"
+#include "game/obj/collide_and_die.h"
 
 
 namespace Sys {
@@ -92,7 +94,7 @@ void PopBottomUpHeap()
     reinterpret_cast<void(__thiscall*)(Mem::Allocator*)>(heap->m_vtable[1])(heap);
 }
 
-bool QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
+bool QuitRequested() { return Nx::g_quitRequested; }
 
 } // namespace
 
@@ -183,7 +185,7 @@ int __cdecl Main(int argc, char** argv)
         uint8_t* module5691A0 = reinterpret_cast<uint8_t*>(Mdl::Skate::CreateInstance(true));
         auto* frontEnd = reinterpret_cast<uint8_t*>(Mdl::CreateFrontEnd(true));
         GameNet::Manager::Create(true);
-        GameVariable<void*>(0x006FA7D0) = GameNet::g_gameNetManager; // (the network manager)
+        reinterpret_cast<void*&>(Obj::g_gameNetManager) = GameNet::g_gameNetManager; // (the network manager)
         auto* parkEditor = reinterpret_cast<uint8_t*>(Ed::CParkEditor::Create(true));
         Front::CreateScreenElementManager(true);
         SkateScript::CreateNodeManager(true);

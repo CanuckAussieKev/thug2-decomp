@@ -30,6 +30,7 @@
 #include "hook/game_global.h"
 #include "hook/log.h"
 #include "hook/hook.h"
+#include "game/sys/winmain.h"
 
 namespace Nx {
 
@@ -306,7 +307,7 @@ void ReleaseSoundManager() { Sfx::ReleaseManager(); }
 float SoundVolume() { return Sfx::GetMainVolume(); }
 float MusicVolume() { return Pcm::GetMusicVolume(); }
 void SetFogEnabled(bool on) { Nx::Engine::EnableFog(on); }
-bool AppActive() { return GameVariable<bool>(0x007CCBE4); }
+bool AppActive() { return Sys::g_appActive; }
 bool QuitRequested() { return g_quitRequested; }
 bool DeviceLost() { return g_deviceLost; }
 
@@ -316,7 +317,7 @@ enum : uint32_t { kStart = 0x0800, kCross = 0x0040 }; // PS2 control data bytes 
 // 0x0044FDC0
 void __cdecl PlayMovieFile(const char* name)
 {
-    if (!BinkSetSoundSystem(BinkOpenDirectSound(), GameVariable<void*>(0x007D6A38)))
+    if (!BinkSetSoundSystem(BinkOpenDirectSound(), Pcm::g_soundDevice))
         Dbg::Printf(reinterpret_cast<const char*>(0x006472D4)); // "Bink can't use DSound\n"
     CreateSoundManager();
     float music = MusicVolume();

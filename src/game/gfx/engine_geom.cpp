@@ -193,11 +193,12 @@ bool CGeom::PlatIsActive()
 }
 // (all zero at start, as the original's: the first PlatGetBoundingBox makes it empty)
 GAME_GLOBAL(Mth::BBox, g_platBoundingBox, 0x006FAA08, Mth::BBox(Mth::Vector{0.0f, 0.0f, 0.0f, 0.0f}));
+GAME_GLOBAL(uint32_t, g_platBoundingBoxGuard, 0x006FAA28); // (bit 0: made)
 
 // 0x0048DB40 (the box 0x006FAA08, its guard 0x006FAA28: made empty the first time)
 Mth::BBox* CGeom::PlatGetBoundingBox()
 {
-    uint32_t& guard = GameVariable<uint32_t>(0x006FAA28);
+    uint32_t& guard = g_platBoundingBoxGuard;
     if (!(guard & 1)) {
         guard |= 1;
         new (&g_platBoundingBox) Mth::BBox();

@@ -20,6 +20,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine_glue.h"
 
 namespace Nx {
 
@@ -62,7 +63,7 @@ GAME_GLOBAL(float[16], g_worldTransformCopy, 0x007CA980);
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 // What the device was last given (the cache).
 uint32_t& BlendMode() { return g_blendMode; }
@@ -91,13 +92,13 @@ uint8_t& PixelShaderChanged() { return g_pixelShaderChanged; }
 uint32_t& VertexFormatLocked() { return g_vertexFormatLocked; }
 uint32_t& BlendModeOverride() { return g_blendModeOverride; }
 uint32_t& Fog() { return g_fogEnabled; }
-uint32_t& FogColor() { return GameVariable<uint32_t>(0x0078733C); }
+uint32_t& FogColor() { return g_fogColour; }
 uint8_t& LocalViewer() { return g_localViewer; }
 
 // Device capabilities (found at start-up).
 bool HasPixelShaders() { return g_shadersAvailable; }
-bool HasBorderAddressing() { return GameVariable<bool>(0x00786AC0); }
-bool HasBlendFactor() { return GameVariable<bool>(0x00786AC1); }
+bool HasBorderAddressing() { return g_borderAddressingSupported; }
+bool HasBlendFactor() { return g_blendFactorSupported; }
 
 // The pixel shaders (handles made at start-up) the stand-in texture stages know.
 void* Shader(uint32_t address) { return GameVariable<void*>(address); }
@@ -533,8 +534,8 @@ void __cdecl ResetRenderState()
     BlendOp() = 0xDEADBABE;
     SrcBlend() = 0xDEADBABE;
     DestBlend() = 0xDEADBABE;
-    GameVariable<uint8_t>(0x00786D94) = 0;
-    GameVariable<uint8_t>(0x00786E14) = 0;
+    g_pendingScreenShot[0] = 0;
+    reinterpret_cast<uint8_t&>(g_screenShotNameExact) = 0;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
     reinterpret_cast<uint32_t&>(g_pixelShaderConstants[16]) = 0;
     g_pixelShaderConstants[17] = 0.5f;
@@ -549,8 +550,8 @@ void __cdecl ResetRenderState()
     g_skippedPasses = 0;
     g_submitLocked = 0;
     BlendModeOverride() = 0;
-    GameVariable<uint8_t>(0x00786CBD) = 1;
-    GameVariable<uint32_t>(0x00786CC0) = 0;
+    g_camera.clearColourAndDepth = true;
+    g_camera.backgroundColour = 0;
     g_camera.letterboxActive = 0; // the letterbox
     // The default light: its direction (0x00786F48) and colours, as bit patterns.
     static const uint32_t kLight[] = {
@@ -602,7 +603,7 @@ void __cdecl ApplyRenderState()
         } else if (sampler == 0 && g_backBufferHeight <= 480) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
             Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            uint32_t anisotropy = GameVariable<uint32_t>(0x00786ABC);
+            uint32_t anisotropy = g_maxAnisotropy;
             Device()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
         } else {
             Device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
@@ -626,7 +627,7 @@ void __cdecl ApplyRenderState()
     Device()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogStart));
     Device()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fogEnd));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - game/gfx/graphics_options.h)
-    if (GameVariable<bool>(0x007D6434) || GraphicsOptions::ChosenSamples()) // the antialiasing setting
+    if (g_antialiasing || GraphicsOptions::ChosenSamples()) // the antialiasing setting
         Device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
 }
 

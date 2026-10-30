@@ -73,7 +73,7 @@ int NumTeams() { return static_cast<CGameMode*>(GameMode())->NumTeams(); }
 
 // The network manager's players (0x007CCE14): PlayerInfo +0x14 the skater, +0x30 the team, +0x34 the objects
 // collected. Walked with a Lst::Search<PlayerInfo> (vtable 0x0064C1A8).
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 struct PlayerSearch {
     void* m_vtable = reinterpret_cast<void*>(0x0064C1A8);
     void* m_node = nullptr;

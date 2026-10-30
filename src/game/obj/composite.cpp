@@ -22,6 +22,8 @@
 
 namespace Obj {
 
+GAME_GLOBAL(float, g_pi, 0x006453D8, 3.1415927f);
+
 using Script::CArray;
 using Script::CMemberFunctionEntry;
 using Script::CScript;
@@ -102,7 +104,7 @@ double FastACosUnrounded(float value)
     const double a1 = g_compositeAcosA1;
     const double a2 = g_compositeAcosA2;
     const double a3 = g_compositeAcosA3;
-    const double pi = GameVariable<float>(0x006453D8);
+    const double pi = g_pi;
     if (value < 0.0f) {
         double x = -static_cast<double>(value);
         double root = std::sqrt(1.0 - x);

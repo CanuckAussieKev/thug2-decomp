@@ -23,6 +23,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/gfx/render.h"
 
 namespace Front {
 
@@ -465,7 +466,7 @@ void ScreenToWorld(const Mth::Vector* centre, Mth::Matrix* out, int viewport, fl
 {
     float down = y - 224.0f; // (stored: rounded to float)
     double across = (static_cast<double>(x) - 320.0f) * (static_cast<double>(Nx::GetScreenAspect()) * AspectToLayout());
-    if (GameVariable<int32_t>(0x00786D6C) > 640) { // the back buffer's width
+    if (static_cast<int32_t>(Nx::g_backBufferWidth) > 640) { // the back buffer's width
         across *= WideScreen();
         down = static_cast<float>(static_cast<double>(down) * WideScreen());
     }

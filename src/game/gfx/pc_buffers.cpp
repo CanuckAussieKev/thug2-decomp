@@ -15,16 +15,19 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
 GAME_GLOBAL(uint8_t, g_skinScalingOn, 0x007865CC);
+GAME_GLOBAL(void*, g_vertexBufferList, 0x007865E4); // the first node of each list (sBufferNode)
+GAME_GLOBAL(void*, g_indexBufferList, 0x007865E8);
 GAME_GLOBAL(uint32_t[5], g_skinSettings, 0x007865D0);
 GAME_GLOBAL(uint8_t[64], g_savedPixelShaderConstants, 0x007865F0); // (4 passes of 16 bytes: the adapter identifier follows)
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 // The game's C runtime heap (the nodes and copies are freed by code that is still the game's).
 void* Malloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
@@ -36,8 +39,8 @@ struct sBufferNode {
     sBufferNode* prev;
     sBufferNode* next;
 };
-sBufferNode*& VertexBuffers() { return GameVariable<sBufferNode*>(0x007865E4); }
-sBufferNode*& IndexBuffers() { return GameVariable<sBufferNode*>(0x007865E8); }
+sBufferNode*& VertexBuffers() { return reinterpret_cast<sBufferNode*&>(g_vertexBufferList); }
+sBufferNode*& IndexBuffers() { return reinterpret_cast<sBufferNode*&>(g_indexBufferList); }
 
 void Enlist(sBufferNode*& head, void* buffer)
 {

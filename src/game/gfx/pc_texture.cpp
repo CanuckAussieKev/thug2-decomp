@@ -20,6 +20,7 @@
 #include "game/mth/math.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -29,7 +30,7 @@ constexpr uint32_t kTextureVtable = 0x0064A770;
 constexpr uint32_t kTexDictVtable = 0x0064A824;
 
 sTextureEdit* Edit(const CPcTexture* texture) { return static_cast<sTextureEdit*>(texture->engine); }
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 CPcTexture* NewTexture()
 {

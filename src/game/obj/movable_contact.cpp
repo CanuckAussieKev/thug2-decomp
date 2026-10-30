@@ -171,7 +171,7 @@ bool CMovableContactComponent::StartRiding(Nx::CFeeler* feeler)
             return false; // (already riding it)
         StopRiding();
     }
-    if (!GameVariable<bool>(0x007CC979)) // (the memory manager not set up yet)
+    if (!Mem::g_managerReady) // (the memory manager not set up yet)
         Mem::EnsureManager();
     void* memory = Mem::Manager::Get()->Allocate(sizeof(CRideTracker), 1, nullptr);
     if (!memory) {

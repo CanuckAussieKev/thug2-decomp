@@ -77,6 +77,7 @@
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/gfx/device.h"
 
 namespace Front::LevelEditor {
 
@@ -180,10 +181,10 @@ bool RaySphere(V3 origin, V3 dir, V3 centre, float radius, float* t)
     if (discriminant < 0.0)
         return false;
     double root = std::sqrt(discriminant);
-    double near = (-b - root) / (2.0 * a), far = (-b + root) / (2.0 * a);
-    if (far < 0.0)
+    double tNear = (-b - root) / (2.0 * a), tFar = (-b + root) / (2.0 * a);
+    if (tFar < 0.0)
         return false;
-    *t = static_cast<float>(near >= 0.0 ? near : 0.0); // (inside: at once)
+    *t = static_cast<float>(tNear >= 0.0 ? tNear : 0.0); // (inside: at once)
     return true;
 }
 
@@ -2089,7 +2090,7 @@ int ArrowAt(const Frame& frame, float x, float y)
 
 // --- drawing (the renderer's cached state, then the device directly) ---
 
-void* Device() { return GameVariable<void*>(0x007D69E0); }
+void* Device() { return reinterpret_cast<void*>(Nx::g_d3dDevice); }
 template <typename F>
 F Method(void* object, int offset)
 {

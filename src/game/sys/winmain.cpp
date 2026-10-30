@@ -33,6 +33,8 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/selftest.h"
+#include "game/gfx/device.h"
+#include "game/gfx/movie.h"
 
 namespace Sys {
 
@@ -75,7 +77,7 @@ char* GameString(uintptr_t address) { return reinterpret_cast<char*>(address); }
 
 // --- WinMain's callees -------------------------------------------------------------------------------------------
 
-HWND GameWindow() { return GameVariable<HWND>(0x007D6A28); }
+HWND GameWindow() { return Nx::g_gameWindow; }
 
 // GameSpy (library code, not decompiled): is the game's back end up?
 void GsiStartAvailableCheck(const char* game) { GameFunction<void(__cdecl*)(const char*)>(0x005F8690)(game); }
@@ -130,7 +132,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
     case WM_DESTROY:
     case WM_CLOSE:
         PostQuitMessage(0);
-        GameVariable<bool>(0x007D6A2C) = true; // quit
+        Nx::g_quitRequested = true; // quit
         return 0;
     case WM_ACTIVATE:
         // (the game's window, not the message's)
@@ -140,7 +142,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         } else {
             ShowWindow(GameWindow(), SW_MINIMIZE);
             g_appActive = false;
-            GameVariable<bool>(0x00786AB4) = true; // the device is taken as lost (reset when active again)
+            Nx::g_deviceLost = true; // the device is taken as lost (reset when active again)
             InvalidateRect(nullptr, nullptr, TRUE);
         }
         return 0;
@@ -214,17 +216,17 @@ void ReadNetworkParams(const char* commandLine)
     // (The numbers are compared unsigned: a negative one counts as too big.)
     if (const char* at = find("-MAXPLAYERS")) {
         auto players = static_cast<uint32_t>(Number(at + 11));
-        GameVariable<uint32_t>(0x0067EFD0) = players < 2 ? 2 : players > 8 ? 8 : players;
+        reinterpret_cast<uint32_t&>(GameNet::g_netMaxPlayers) = players < 2 ? 2 : players > 8 ? 8 : players;
     }
     if (const char* at = find("-GROUP"))
         GameNet::g_lobbyGroupId = Number(at + 6);
     if (const char* at = find("-NTEAMS")) {
         auto teams = static_cast<uint32_t>(Number(at + 7));
-        GameVariable<uint32_t>(0x007CCBE0) = teams > 4 ? 0 : teams;
+        GameNet::g_networkTeamMode = teams > 4 ? 0 : teams;
     }
     if (const char* at = find("-SKILLLEVEL")) {
         auto skill = static_cast<uint32_t>(Number(at + 11));
-        GameVariable<uint32_t>(0x0067EFD4) = skill > 4 ? 4 : skill;
+        reinterpret_cast<uint32_t&>(GameNet::g_netSkillLevel) = skill > 4 ? 4 : skill;
     }
     if (const char* at = find("-NAME"))
         CopyValue(at + 5, GameString(0x007CCBC4), 15); // the player's name
@@ -287,7 +289,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     if (!GameWindow())
         return 0;
     // Originally from PartyMod Fixes: the window isn't shown here (SDL shows it). The original did
-    //     ShowWindow(GameWindow(), GameVariable<bool>(0x00786AB7) ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
+    //     ShowWindow(GameWindow(), Nx::g_showWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
     Srand(Time());
 
     // The command line split at spaces (made terminators) into at most 20 arguments. The first is the command

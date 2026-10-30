@@ -46,7 +46,7 @@ inline int SpinMultiplier(int spin) { return spin < 6 ? reinterpret_cast<const i
 inline int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 inline Game::CGameMode* GameMode() { return Game::g_gameMode; }
-inline GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+inline GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 inline Obj::CTrickObjectManager* TrickObjects() { return Obj::g_trickObjectManager; }
 inline Obj::CSkater* SkaterById(int id)
 {

@@ -38,7 +38,7 @@ namespace Thugpro = GameNet::Thugpro;
 
 constexpr uint32_t kComponent6C = 0xB1D5A3E1; // the component whose +0x18 goes out as the 0x80 field's 3 bits
 
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 
 void** const kVtable = reinterpret_cast<void**>(0x0064BEF0);
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;

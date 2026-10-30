@@ -20,6 +20,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/anim_movies.h"
 
 namespace Pcm {
 
@@ -46,7 +47,7 @@ enum : int { kMusicStreamNone = 0, kMusicStreamNormal = 1, kMusicStreamPreload =
 int& FrameCount() { return g_frameCount; }
 float& DefaultStreamVolume() { return g_musicVolume; }
 float& DefaultMusicVolume() { return g_musicStreamVolume; }
-float Zero() { return GameVariable<float>(0x0066D520); }
+float Zero() { return Obj::g_floatZero; }
 int& CurrentTrackIndex() { return g_currentTrackIndex; }
 
 // The stream fields used here (Stream in music.h; 0x74 bytes each, three at 0x0069B938).

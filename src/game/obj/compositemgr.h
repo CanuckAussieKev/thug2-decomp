@@ -106,4 +106,5 @@ void ResizeCoimHeap(uint32_t size);
 
 GAME_GLOBAL_EXTERN(Obj::CCompositeObjectManager*, g_compositeObjectManager);
 
+GAME_GLOBAL_EXTERN(float, g_pi);
 } // namespace Obj

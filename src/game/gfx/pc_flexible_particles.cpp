@@ -22,6 +22,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine.h"
 
 namespace Nx {
 
@@ -29,7 +31,7 @@ GAME_GLOBAL(IDirect3DIndexBuffer9*, g_quadIndices, 0x007D69E8);
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 void* DefaultPixelShader() { return GameVariable<void*>(0x007CA964); }
 // The frame's draw counts: draws, triangles.
@@ -736,7 +738,7 @@ void CPcGlowParticles::Render()
             ++particle;
         }
         uint32_t triangles = (words >> 4) / 3; // (the original's count: a quarter of what it wrote)
-        if (!GameVariable<bool>(0x007D1EC0)) { // (rendering not skipped)
+        if (!g_skipRender) { // (rendering not skipped)
             DrawnTriangles() += triangles;
             ++DrawCalls();
             Device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer, sizeof(sTrailVertex));

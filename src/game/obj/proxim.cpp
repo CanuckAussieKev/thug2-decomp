@@ -20,6 +20,8 @@
 
 namespace Obj {
 
+GAME_GLOBAL(void*, g_proximManager, 0x006F2268);
+
 namespace {
 
 constexpr uint32_t kName = 0xA1DC81F9;            // name
@@ -35,7 +37,7 @@ constexpr uint32_t kRestart = 0x1806DDF8;         // Restart
 // The skaters by object id (0-31).
 constexpr int kMaxSkaters = 32;
 
-ProximManager*& Manager() { return GameVariable<ProximManager*>(0x006F2268); }
+ProximManager*& Manager() { return reinterpret_cast<ProximManager*&>(g_proximManager); }
 CCompositeObjectManager* ObjectManager() { return g_compositeObjectManager; }
 CObject* ObjectById(uint32_t id) { return ObjectManager()->GetObjectByID(id); }
 

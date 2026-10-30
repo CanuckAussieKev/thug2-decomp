@@ -8,6 +8,7 @@
 #include <SDL2/SDL.h>
 
 #include "hook/game.h"
+#include "game/gfx/movie.h"
 
 namespace Platform {
 
@@ -15,7 +16,7 @@ namespace {
 
 std::vector<EventHandler>* s_handlers = nullptr; // (made by InitEvents, never freed)
 
-bool& QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
+bool& QuitRequested() { return Nx::g_quitRequested; }
 
 void HandleQuit(SDL_Event* event)
 {

@@ -20,6 +20,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 namespace GameNet {
 
@@ -70,7 +71,7 @@ void InitHead(Mem::ListNode* head, uint32_t vtable)
 // From the memory manager's current heap (its operator new: the manager made first if need be).
 void* Allocate(uint32_t size)
 {
-    if (!GameVariable<bool>(0x007CC979))
+    if (!Mem::g_managerReady)
         Mem::EnsureManager();
     return Mem::Manager::Get()->Allocate(size, 1, nullptr);
 }
@@ -91,7 +92,7 @@ Manager* Manager::Construct()
     InitHead(&Field<Mem::ListNode>(this, 0x16C), 0x0064C9FC);
     m_proSetFlags = 0;
     Tsk::Stack* tasks =
-        reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<void*>(0x00696D68)) + 4);
+        reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(Ass::g_mainLoopManager)) + 4);
     Net::Manager::Instance()->SetMessageFlags(0x23, 1); // (the object update message's)
     m_client = nullptr;
     m_client1 = nullptr;

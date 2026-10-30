@@ -14,6 +14,8 @@
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine.h"
 
 namespace Nx::ViewMode {
 
@@ -78,9 +80,9 @@ const char* Name(Mode mode)
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 void*& CurrentPixelShader() { return g_currentPixelShader; } // (render_state.cpp's cache)
-int& RenderMode() { return GameVariable<int>(0x006FA734); }              // (wireframe.h)
+int& RenderMode() { return g_renderMode; }              // (wireframe.h)
 
 Mode g_mode = Mode::kLit;
 bool g_inWorld;

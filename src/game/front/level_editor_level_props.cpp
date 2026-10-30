@@ -15,6 +15,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::LevelProps {
 
@@ -260,7 +261,7 @@ std::vector<Kept> g_kept;
 // The level structure of the level loaded now (Levels.qb's Level_<x>: its load_script is the skate module's level).
 Script::CStruct* CurrentLevelStructure()
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     uint32_t load = skate ? *reinterpret_cast<uint32_t*>(skate + 0x378) : 0;
     if (!load)
         return nullptr;

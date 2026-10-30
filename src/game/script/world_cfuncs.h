@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 namespace Script {
 class CStruct;
 class CScript;
@@ -9,6 +11,10 @@ class CScript;
 // dispatcher), pausing and unpausing the skaters, SkatersAreReady, the viewer, AddSkaterEarly, the weather (rain,
 // splashes, snow, its grid) and the screen effects, IsPal. All are cdecl (params, script) and return whether the
 // script's `if` should be taken.
+namespace Mdl {
+struct Manager;
+}
+
 namespace CFuncs {
 
 // 0x005A5360 / 0x005A5380: the node command dispatcher (0x005A4EF0) with command 7 / 5.
@@ -57,4 +63,5 @@ bool __cdecl CFunc_SetScreenEffectsDOFParams(Script::CStruct* params, Script::CS
 // 0x005A5950: IsPal: whether the game's region / language setting (0x007CEFA0) isn't 2.
 bool __cdecl CFunc_IsPal(Script::CStruct* params, Script::CScript* script);
 
+GAME_GLOBAL_EXTERN(Mdl::Manager*, g_moduleManager);
 } // namespace CFuncs

@@ -85,7 +85,7 @@ constexpr double kFullTurn = 360.0;           // 0x0064F348 (and 360.0f, 0x00645
 
 uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 uint8_t* MainLoop() { return reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager); } // +0x04 the logic tasks, +0x40 the display tasks
-Inp::Manager* InputManager() { return GameVariable<Inp::Manager*>(0x00696D40); }
+Inp::Manager* InputManager() { return Inp::g_inputManager; }
 
 CParkManager* Manager() { return CParkManager::sInstance(); }
 CCursor* Cursor() { return CCursor::sInstance(); }

@@ -17,6 +17,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/tod_manager.h"
 
 namespace CFuncs {
 
@@ -313,7 +314,7 @@ bool __cdecl CFunc_Wait(Script::CStruct* params, Script::CScript* script)
     params->GetFloat(0u, &value, 0);
     bool realTime = params->ContainsFlag(kRealTime);
     if (params->ContainsFlag(kSeconds) || params->ContainsFlag(kSecond)) {
-        WaitMs(script, realTime, Truncate(static_cast<double>(value) * GameVariable<const float>(0x006453C0))); // 1000
+        WaitMs(script, realTime, Truncate(static_cast<double>(value) * Gfx::g_thousand)); // 1000
     } else if (params->ContainsFlag(kGameFrame) || params->ContainsFlag(kGameFrames) || params->ContainsFlag(kGame)) {
         script->Wait(Truncate(value));
     } else if (params->ContainsFlag(kFrame) || params->ContainsFlag(kFrames)) {

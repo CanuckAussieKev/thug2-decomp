@@ -24,6 +24,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace Obj {
 
@@ -150,7 +151,7 @@ void CCutsceneData::UpdateTime(int /*unused*/)
             Script::RunScript(kEndScript2, nullptr, nullptr, false, nullptr);
         }
     } else {
-        int rate = GameVariable<int>(0x00684FB4);
+        int rate = GameConfig::g_frameRate;
         uint64_t vblanks = Tmr::GetVblanks() - m_vblanks - m_pausedVblanks;
         m_time = VblankSeconds(vblanks, rate);
     }

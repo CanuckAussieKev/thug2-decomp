@@ -225,6 +225,5 @@ float PreviewDistance();
 float PreviewLength();
 } // namespace Detail
 
-GAME_GLOBAL_EXTERN(void*, g_emitterTable);
 
 } // namespace Front::LevelEditor::Entities

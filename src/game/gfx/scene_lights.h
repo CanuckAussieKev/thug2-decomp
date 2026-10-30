@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 namespace Lst {
 class HashTable;
@@ -80,4 +81,6 @@ sSceneLight* __cdecl AddSceneLight(uint32_t name, const Mth::Vector* pos, float 
 // (0xAF3F7288).
 void __cdecl CreateLightFromNode(Script::CStruct* node);
 
+GAME_GLOBAL_EXTERN(int, g_sceneLightCount);
+GAME_GLOBAL_EXTERN(sSceneLight[150], g_sceneLights);
 } // namespace Nx

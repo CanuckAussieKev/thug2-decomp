@@ -13,6 +13,7 @@
 #include "game/sys/mlp.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 namespace Net {
 
@@ -160,7 +161,7 @@ bool Manager::LoadNetworkDrivers(const char* /*ip*/, const char* /*subnetMask*/,
 // 0x00454CB0
 void Manager::AddAppTasks(App* app)
 {
-    uint8_t* mlp = GameVariable<uint8_t*>(0x00696D68); // the Mlp::Manager
+    uint8_t* mlp = reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager); // the Mlp::Manager
     AddLogicTask(mlp, app->ReceiveTask());
     AddLogicTask(mlp, app->SendTask());
     AddLogicTask(mlp, app->ProcessTask());

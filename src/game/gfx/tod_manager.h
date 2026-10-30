@@ -285,4 +285,7 @@ bool __cdecl CFunc_TODManager_EnableBloom(Script::CStruct* params, Script::CScri
 bool __cdecl CFunc_TODManager_SetTODInstant(Script::CStruct* params, Script::CScript* script);
 bool __cdecl CFunc_TODManager_AdvanceTODState(Script::CStruct* params, Script::CScript* script);
 
+GAME_GLOBAL_EXTERN(float, g_thousand);
+GAME_GLOBAL_EXTERN(float, g_hundred);
+GAME_GLOBAL_EXTERN(float, g_twoTo32);
 } // namespace Gfx

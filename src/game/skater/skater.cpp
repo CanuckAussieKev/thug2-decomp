@@ -125,7 +125,7 @@ constexpr uint32_t kModelComponent = 0x286A8D26; // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;     // (a physics integer: pausing freezes the whole game)
 
 uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
-GameNet::Manager* Net() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* Net() { return GameNet::g_gameNetManager; }
 bool Rule5A1180() { return static_cast<uint8_t>(CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr)) != 0; }
 
 template <typename T>
@@ -429,7 +429,7 @@ CObject* CSkater::GetSkaterCamera()
 // 0x005808A0
 void CSkater::SetPauseState(int state)
 {
-    void* frontEnd = GameVariable<void*>(0x007CE464);
+    void* frontEnd = reinterpret_cast<void*>(Mdl::g_frontEndInstance);
     if (m_pauseState == state || !GetComponent(kSkaterPhysicsControl))
         return;
     m_pauseState = state;
@@ -548,7 +548,7 @@ void SetInputFlag(uint8_t* flag, uint8_t on)
     *reinterpret_cast<int*>(flag + 4) = Clock();
 }
 
-void* Elements() { return GameVariable<void*>(0x00700F1C); }
+void* Elements() { return reinterpret_cast<void*>(Nx::g_gameTextureDict); }
 
 } // namespace
 
@@ -783,7 +783,7 @@ void CSkater::Pause()
     Script::RunScript(0x1277E3FD, nullptr, nullptr, false, nullptr);
     if (uint8_t* input = m_unknown264)
         At<Sio::Device*>(At<uint8_t*>(input, 0x490), 0x1C)->PauseActuators();
-    GameVariable<Sfx::CSfxManager*>(0x006F85A8)->UpdateVoiceVolumes();
+    Sfx::g_sfxManager->UpdateVoiceVolumes();
 }
 
 // 0x005817F0

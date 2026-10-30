@@ -180,8 +180,5 @@ void ResetAll();
 // A new level: forgotten (the overlay's array went with the level's; hidden nodes' structures with it).
 void ForgetLevel();
 
-GAME_GLOBAL_EXTERN(void*, g_proximManager);
-GAME_GLOBAL_EXTERN(int, g_dynamicLightCount);
-GAME_GLOBAL_EXTERN(int, g_sceneLightCount);
 
 } // namespace Front::LevelEditor::NodeCreate

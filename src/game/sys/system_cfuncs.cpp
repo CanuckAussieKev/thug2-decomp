@@ -13,6 +13,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/control_pad.h"
 
 namespace CFuncs {
 
@@ -34,7 +35,7 @@ GAME_GLOBAL(uint32_t, g_timerStart, 0x00696D3C);
 // The stopwatch's start (Tmr::GetTime, 0x00696D3C).
 uint32_t& TimerStart() { return g_timerStart; }
 // The game clock (ms), as scripts see it: the clock plus its offset (0x00696D60).
-int ScriptClock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int ScriptClock() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
 
 } // namespace
 
@@ -85,7 +86,7 @@ bool __cdecl CFunc_GetElapsedTime(CStruct* params, CScript* script)
 {
     int start = 0;
     params->GetInteger(kStartTime, &start, 0);
-    script->m_params->AddInteger(kElapsedTime, Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - start));
+    script->m_params->AddInteger(kElapsedTime, Tmr::GameClockElapsed() + (Obj::g_clockOffset - start));
     return true;
 }
 

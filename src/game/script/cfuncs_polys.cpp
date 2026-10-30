@@ -77,7 +77,7 @@ struct SpawnedPolyDetails {
 };
 static_assert(sizeof(SpawnedPolyDetails) == 0xB8, "layout must match the original");
 
-Mem::PoolPair& SpawnedPolyPools() { return GameVariable<Mem::PoolPair>(0x00700500); }
+Mem::PoolPair& SpawnedPolyPools() { return Nx::g_spawnedPolyPools; }
 
 // The loaded scenes' list (0x006FA7EC): nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1.
 struct SceneNode {
@@ -263,7 +263,7 @@ bool __cdecl CFunc_SpawnPoly(CStruct* params, CScript*)
     params->GetChecksum(kBlendMode, &details->blendMode, 0);
     uint32_t texture = 0;
     params->GetChecksum(kTexture, &texture, 0);
-    details->texture = texture ? static_cast<Nx::CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(texture) // the texture dictionary
+    details->texture = texture ? static_cast<Nx::CTexDict*>(reinterpret_cast<void*>(Nx::g_particleTextureDict))->GetTexture(texture) // the texture dictionary
                                : nullptr;
     Nx::Engine::SpawnPoly(reinterpret_cast<Nx::sSpawnedPoly*>(details), reinterpret_cast<Mth::Vector*>(&vector1),
                           reinterpret_cast<Mth::Vector*>(&vector2));

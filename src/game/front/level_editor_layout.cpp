@@ -29,6 +29,7 @@
 #include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::Layout {
 
@@ -660,7 +661,7 @@ bool InNetGame()
 // The level loaded: its load script (the skate module 0x007CE478, +0x378 - as automation.h and the node layer read it).
 uint32_t CurrentLoad()
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     return skate ? *reinterpret_cast<uint32_t*>(skate + 0x378) : 0;
 }
 
@@ -1429,7 +1430,7 @@ ModeFlags CurrentMode()
                           kIsParkEditor = Crc::GenerateCRCFromString("is_parkeditor"),
                           kIsNet = Crc::GenerateCRCFromString("is_net");
     ModeFlags flags;
-    void* mode = GameVariable<void*>(0x007CE470);
+    void* mode = reinterpret_cast<void*>(Game::g_gameMode);
     if (!mode)
         return flags;
     // (0x00553220: the mode's structure's integer `property`, non-zero)

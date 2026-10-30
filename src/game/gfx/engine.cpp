@@ -30,6 +30,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/particle_component.h"
+#include "game/skate/skate_module.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
@@ -37,6 +39,11 @@ namespace Nx {
 
 GAME_GLOBAL(bool, g_skipRender, 0x007D1EC0); // rendering skipped (frames not drawn or shown)
 
+GAME_GLOBAL(void*, g_flexibleParticleManager, 0x006FA7C0);
+GAME_GLOBAL(void*, g_imposterManager, 0x006FA7BC);
+GAME_GLOBAL(int, g_renderMode, 0x006FA734);
+// The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
+GAME_GLOBAL(Mem::ListNode, g_sceneList, 0x006FA7E0);
 namespace {
 
 void** const kSceneNodeVtable = reinterpret_cast<void**>(0x00648A38);
@@ -47,7 +54,7 @@ const char* const kSceneFileFormat = "levels\\%s\\%s%s.scn.%s"; // 0x00648A20 (t
 const char* const kModelFileFormat = "%s.%s.%s";                // 0x006458F4
 
 // The scenes' list (0x006FA7E0: its head, data -1; the first node at +0xC, the last at +0x10).
-Mem::ListNode& SceneList() { return GameVariable<Mem::ListNode>(0x006FA7E0); }
+Mem::ListNode& SceneList() { return g_sceneList; }
 const auto kNoScene = reinterpret_cast<void*>(static_cast<uintptr_t>(0xFFFFFFFF));
 // The node after `node`, null at the end (the head).
 CSceneNode* NextScene(Mem::ListNode* node)
@@ -67,9 +74,6 @@ CScene* SceneOf(Mem::ListNode* node) { return static_cast<CScene*>(node->data); 
 GAME_GLOBAL(void*, g_objectManager, 0x006FA720);
 GAME_GLOBAL(int, g_renderIgnore0, 0x006FA724);
 GAME_GLOBAL(int, g_renderIgnore1, 0x006FA728);
-GAME_GLOBAL(int, g_renderMode, 0x006FA734);
-GAME_GLOBAL(void*, g_imposterManager, 0x006FA7BC);
-GAME_GLOBAL(void*, g_flexibleParticleManager, 0x006FA7C0);
 GAME_GLOBAL(bool, g_metricsOn, 0x006FA7D6);
 GAME_GLOBAL(Engine::IdleFunction, g_idleFunction, 0x006FA7D8);
 
@@ -78,10 +82,10 @@ GAME_GLOBAL(Engine::IdleFunction, g_idleFunction, 0x006FA7D8);
 // StartEngine).
 void*& FlexibleParticleManager() { return g_flexibleParticleManager; }
 void*& ImposterManager() { return g_imposterManager; }
-CParticleManager* ParticleManager() { return GameVariable<CParticleManager*>(0x006FA7C4); }
+CParticleManager* ParticleManager() { return Obj::g_particleManager; }
 void* Weather() { return g_weather; }
 bool SkipRender() { return g_skipRender; }
-int ViewportCount() { return GameVariable<int>(0x00701378); }
+int ViewportCount() { return Mdl::g_viewportCount; }
 
 // (0x004904E0, not rewritten yet: the frame's ... after the imposters)
 void UpdateAfterImposters() { UpdateSceneLightQueue(); }

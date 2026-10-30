@@ -31,6 +31,8 @@
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/gfx/render.h"
+#include "game/gfx/device.h"
 
 namespace MouseMenus {
 
@@ -248,12 +250,12 @@ ScreenMapping CurrentMapping(int windowWidth, int windowHeight)
     ScreenMapping mapping;
     mapping.windowWidth = windowWidth;
     mapping.windowHeight = windowHeight;
-    mapping.backBufferWidth = GameVariable<uint32_t>(0x00786D6C);
-    mapping.backBufferHeight = GameVariable<uint32_t>(0x00786D70);
-    mapping.scaleX = GameVariable<float>(0x00786D80);
-    mapping.scaleY = GameVariable<float>(0x00786D84);
-    mapping.offsetX = GameVariable<int32_t>(0x00786D88);
-    mapping.offsetY = GameVariable<int32_t>(0x00786D8C);
+    mapping.backBufferWidth = static_cast<uint32_t>(Nx::g_backBufferWidth);
+    mapping.backBufferHeight = static_cast<uint32_t>(Nx::g_backBufferHeight);
+    mapping.scaleX = Nx::g_screenScaleX;
+    mapping.scaleY = Nx::g_screenScaleY;
+    mapping.offsetX = static_cast<int32_t>(Nx::g_screenOffsetX);
+    mapping.offsetY = static_cast<int32_t>(Nx::g_screenOffsetY);
     return mapping;
 }
 
@@ -504,12 +506,12 @@ void HandleMouseEvent(SDL_Event* event)
     }
 }
 
-void* ElementManager() { return GameVariable<void*>(0x00701440); }
+void* ElementManager() { return Front::g_screenElementManager; }
 CScreenElement* RootElement(void* manager)
 {
     return *reinterpret_cast<CScreenElement**>(static_cast<uint8_t*>(manager) + 0x44);
 }
-void* Tracker() { return GameVariable<void*>(0x006F0FC0); }
+void* Tracker() { return reinterpret_cast<void*>(Obj::g_tracker); }
 
 bool InParkEditor()
 {

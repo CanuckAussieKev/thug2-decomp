@@ -37,6 +37,7 @@
 #include "game/sfx/terrain.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::Chains {
 
@@ -788,7 +789,7 @@ Script::CStruct* NodeStruct(uint32_t name)
 // The level's rail manager (Mdl::Skate +0x24; null when there is none or its rails ride an object).
 Obj::CRailManager* Rails()
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     auto* manager = skate ? *reinterpret_cast<Obj::CRailManager**>(skate + 0x24) : nullptr;
     return manager && !manager->m_onObject ? manager : nullptr;
 }
@@ -1148,7 +1149,7 @@ void Remake(uint32_t name)
 // wanted (or of another cluster now) taken out of its name map (+0x20, a Lst::HashTable).
 void RegisterTrickObjects()
 {
-    uint8_t* manager = GameVariable<uint8_t*>(0x007CE500);
+    uint8_t* manager = reinterpret_cast<uint8_t*>(Obj::g_trickObjectManager);
     if (!manager)
         return;
     std::map<uint32_t, uint32_t> want;

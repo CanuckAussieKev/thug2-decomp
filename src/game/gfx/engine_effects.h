@@ -12,6 +12,10 @@
 // spawned polygons 0x007004AC, texture splat sets 0x007004B0, recent splat positions 0x007004B4, shatters 0x007004B8
 // (Lst::HashTables of 16 buckets, each keyed by its value's address) - plus the vertex stack the splats and shatters
 // split triangles on (0x006FC4A0).
+namespace Lst {
+class HashTable;
+}
+
 namespace Nx {
 
 // The vertex stack (0x006FC4A0): how many bytes are on it, a vertex's size, the vertices.
@@ -106,4 +110,9 @@ void __cdecl KillAllEffects();
 
 GAME_GLOBAL_EXTERN(sVertexStack, g_vertexStack);
 
+GAME_GLOBAL_EXTERN(Mth::Vector, g_shatterVelocity);
+GAME_GLOBAL_EXTERN(float, g_shatterVelocityScale);
+GAME_GLOBAL_EXTERN(float, g_shatterSpeed);
+GAME_GLOBAL_EXTERN(Lst::HashTable*, g_spawnedPolys);
+GAME_GLOBAL_EXTERN(Lst::HashTable*, g_splatSets);
 } // namespace Nx

@@ -39,7 +39,7 @@ void Launch(uint32_t type, uint32_t target, CStruct* data)
 }
 
 // The screen element manager (0x00701440) and its pieces.
-void* Manager() { return GameVariable<void*>(0x00701440); }
+void* Manager() { return g_screenElementManager; }
 CScreenElementManager* Elements(void* manager) { return static_cast<CScreenElementManager*>(manager); }
 bool UsesPriorities(void* manager) { return Elements(manager)->HasPriorities(); }
 bool IsPriorityEvent(void* manager, uint32_t type) { return Elements(manager)->IsPadEvent(type); }

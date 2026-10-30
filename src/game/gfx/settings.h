@@ -21,4 +21,5 @@ bool& BlurDisabled();
 GAME_GLOBAL_EXTERN(bool, g_fogSetting);
 GAME_GLOBAL_EXTERN(bool, g_distanceClipping);
 
+GAME_GLOBAL_EXTERN(uint8_t, g_hqShadows);
 } // namespace Nx

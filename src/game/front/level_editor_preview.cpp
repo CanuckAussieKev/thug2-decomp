@@ -23,6 +23,7 @@
 #include "game/obj/object.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/gfx/pc_instance.h"
 
 namespace Front::LevelEditor::Preview {
 
@@ -85,7 +86,7 @@ void DrawMesh(uint8_t* mesh) { reinterpret_cast<Nx::sMesh*>(mesh)->Render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
 void DrawInstance(uint8_t* instance) { Nx::RenderInstance(reinterpret_cast<Nx::sInstance*>(instance), 8); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
-void UpdateFrustum() { reinterpret_cast<Nx::sBillboardManager*>(&GameVariable<uint8_t>(0x00775B80))->SetupAxes(); }
+void UpdateFrustum() { Nx::g_billboardManager.SetupAxes(); }
 
 // The camera's globals Nx::SetCamera and the instance render change, saved and put back.
 struct SavedRange {
@@ -263,7 +264,7 @@ bool DrawView(Kind kind, uint32_t id, const Orbit& orbit)
     // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
     saved.Restore();
     UpdateFrustum();
-    GameVariable<uint32_t>(0x007825BC) = 0;
+    Nx::g_lastBones = nullptr;
     return true;
 }
 

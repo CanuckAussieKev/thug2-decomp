@@ -231,7 +231,7 @@ CSkaterCameraComponent* CSkaterCameraComponent::Construct()
     m_vtable = kVtable;
     m_type = kSkaterCamera;
     m_mode = 0;
-    if (!GameVariable<bool>(0x007CC979))
+    if (!Mem::g_managerReady)
         Mem::EnsureManager();
     void* memory = Mem::Manager::Get()->Allocate(0x98, 1, nullptr);
     // (The interpolator's constructor does nothing: folded with many empty ones at 0x005902E0.)

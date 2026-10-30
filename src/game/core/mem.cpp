@@ -10,7 +10,7 @@ namespace Mem {
 
 namespace {
 
-bool& SystemReady() { return GameVariable<bool>(0x007CC979); }
+bool& SystemReady() { return g_managerReady; }
 
 void EnsureSystemReady()
 {

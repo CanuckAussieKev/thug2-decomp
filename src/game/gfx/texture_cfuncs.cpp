@@ -33,8 +33,8 @@ constexpr uint32_t kNew = 0x941CBBBA;    // "new"
 constexpr uint32_t kSetsPaletteFlag = 0xC164842A; // (name unknown) brightness / HSV: an integer, 1 = the flag on
 
 // The texture dictionaries (Nx): the level's / scripts' (0x00700F1C) and the particles' (0x00700F20).
-void* Textures() { return GameVariable<void*>(0x00700F1C); }
-void* ParticleTextures() { return GameVariable<void*>(0x00700F20); }
+void* Textures() { return reinterpret_cast<void*>(Nx::g_gameTextureDict); }
+void* ParticleTextures() { return reinterpret_cast<void*>(Nx::g_particleTextureDict); }
 
 // A dictionary's calls (no source yet).
 void* LoadTextureFile(void* dictionary, const char* file, bool flag1, bool allocateVram, bool flag3)

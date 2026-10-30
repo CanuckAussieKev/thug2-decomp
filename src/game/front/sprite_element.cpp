@@ -53,7 +53,7 @@ uint32_t ShownColour(const CScreenElement* e)
 // (vtable slots 0x84 / 0x88).
 void* FindTexture(uint32_t checksum)
 {
-    return GameVariable<Nx::CTexDict*>(0x00700F1C)->GetTexture(checksum);
+    return Nx::g_gameTextureDict->GetTexture(checksum);
 }
 uint16_t TextureWidth(void* texture) { return GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3C0)(texture); }
 uint16_t TextureHeight(void* texture) { return GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3D0)(texture); }

@@ -175,7 +175,7 @@ void CWalkComponent::UpdateCollisionCache()
     box.min = {pos.x - reach, pos.y - below, pos.z - reach, pos.w};
     Nx::CCollCache& cache = At<Nx::CCollCache>(this, kCollCache);
     cache.Update(box);
-    GameVariable<Nx::CCollCache*>(0x00691974) = &cache; // the feelers' current cache
+    Nx::g_currentCache = &cache; // the feelers' current cache
 }
 
 // 0x00527BE0

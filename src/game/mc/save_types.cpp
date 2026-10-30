@@ -354,7 +354,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
     case kSavePark:
     case kSaveCreatedGoals: {
         constexpr uint32_t kGoalEditor = 0x81F01058; // "GoalEditor": the object and its component
-        Obj::CObject* object = GameVariable<Obj::CTracker*>(0x006F0FC0)->LookUpObject(kGoalEditor);
+        Obj::CObject* object = Obj::g_tracker->LookUpObject(kGoalEditor);
         Obj::CBaseComponent* component = static_cast<Obj::CCompositeObject*>(object)->GetComponent(kGoalEditor);
         // its number of edited goals (0x004E7E00, no source yet)
         int edited = static_cast<Ed::CGoalEditorComponent*>(component)->CountUsedGoals();
@@ -412,7 +412,7 @@ void __fastcall ApplyGoalManagerParams(CStruct* saved)
 // 0x005A6C80
 bool ApplyCatAndCustomSkater(CStruct* loaded, CStruct* customSkater)
 {
-    Obj::CPlayerProfileManager* profiles = GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4);
+    Obj::CPlayerProfileManager* profiles = Obj::g_profileManager;
     Mdl::Skate* skate = Mdl::Skate::Instance();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
     int index = GameFunction<int(__thiscall*)(void*)>(0x00553E90)(profiles);

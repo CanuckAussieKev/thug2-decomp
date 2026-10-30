@@ -22,8 +22,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/movie_manager.h"
 
 namespace Nx {
+
+GAME_GLOBAL(int, g_sceneLightCount, 0x006FAEF4);
+GAME_GLOBAL(sSceneLight[150], g_sceneLights, 0x006FAF80); // (kMaxSceneLights)
 
 GAME_GLOBAL(uint32_t*, g_queuedNodes, 0x006FAEF8);
 GAME_GLOBAL(int, g_queuedCount, 0x006FAEFC);
@@ -37,8 +41,8 @@ namespace {
 constexpr int kMaxSceneLights = 150;
 constexpr float kPercent = 0.01f; // 0x0064544C
 
-sSceneLight* SceneLights() { return &GameVariable<sSceneLight>(0x006FAF80); }
-int& SceneLightCount() { return GameVariable<int>(0x006FAEF4); }
+sSceneLight* SceneLights() { return g_sceneLights; }
+int& SceneLightCount() { return g_sceneLightCount; }
 
 // The queue.
 uint32_t*& QueuedNodes() { return g_queuedNodes; }
@@ -305,8 +309,8 @@ void __cdecl ApplySceneLight(CScene* /*scene*/, uint32_t name)
 // 0x0048FCA0
 void __cdecl DeleteSceneLight(uint32_t name)
 {
-    CDynamicLightBase** dynamic = &GameVariable<CDynamicLightBase*>(0x006FAAF0);
-    int& dynamicCount = GameVariable<int>(0x006FAEF0);
+    CDynamicLightBase** dynamic = g_dynamicLights;
+    int& dynamicCount = g_dynamicLightCount;
     for (int i = 0; i < dynamicCount; ++i) {
         if (dynamic[i]->owner == name) { // (no null check, as the original)
             Mem::Manager::Get()->Free(dynamic[i]);
@@ -373,7 +377,7 @@ void __cdecl QueueSceneLights(const uint32_t* nodes, int count, int frames, Scri
 // 0x004904E0
 void __cdecl UpdateSceneLightQueue()
 {
-    if (!QueuedNodes() || GameVariable<bool>(0x006FA7D4)) // (paused)
+    if (!QueuedNodes() || Obj::g_gamePaused) // (paused)
         return;
     if (QueueFrame() > QueueFrames()) {
         ClearSceneLightQueue();

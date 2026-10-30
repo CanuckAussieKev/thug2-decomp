@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "hook/game_global.h"
 
 // Light glows (Nx engine, PC): halos at light positions (the table 0x007CA9D8) that grow while occlusion queries
 // see them and fade otherwise.
@@ -25,4 +26,5 @@ static_assert(offsetof(sGlow, queries) == 0x20 && offsetof(sGlow, pixels) == 0x3
 // which nothing draws in this build.
 void __cdecl UpdateGlows(bool queries);
 
+GAME_GLOBAL_EXTERN(void*, g_vertexColourPixelShader);
 } // namespace Nx

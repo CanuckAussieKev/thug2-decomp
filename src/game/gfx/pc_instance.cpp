@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
+#include "game/gfx/pc_instance.h"
 #include "game/gfx/geom.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh_list.h"
@@ -23,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -37,7 +39,7 @@ GAME_GLOBAL(sInstance*, g_instances, 0x007825C0);
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 sInstance*& Instances() { return g_instances; }
 sInstance** Visible() { return &GameVariable<sInstance*>(0x007825C8); } // RenderInstances' list
 const Mth::Matrix* LastBones() { return g_lastBones; }

@@ -23,6 +23,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace CFuncs {
 
@@ -40,7 +41,7 @@ constexpr uint32_t kSound = 0x07713C7B;                   // "sound" (the compon
 constexpr uint32_t kStream = 0x0F1641E3;                  // "stream" (the component type)
 
 // The game's language (0x007CEFA0): 2 English, 3 French, 4 Spanish, 5 German, 6 Italian.
-int Language() { return GameVariable<int>(0x007CEFA0); }
+int Language() { return GameConfig::g_language; }
 
 // A .qb file loaded (0x005A5960; `levelSpecific`: unloaded with the level) / unloaded by its name's checksum
 // (0x005A59B0).
@@ -198,7 +199,7 @@ bool __cdecl CFunc_ProximCleanup(Script::CStruct*, Script::CScript*)
 // check that the proximity manager exists.)
 bool __cdecl CFunc_Inside(Script::CStruct*, Script::CScript*)
 {
-    return GameVariable<Obj::ProximManager*>(0x006F2268)->m_entering;
+    return reinterpret_cast<Obj::ProximManager*&>(Obj::g_proximManager)->m_entering;
 }
 
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).

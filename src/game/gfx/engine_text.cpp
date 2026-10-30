@@ -13,11 +13,11 @@
 
 namespace Nx {
 
+GAME_GLOBAL(CText*, g_freeTexts, 0x006FA804);
 namespace {
 
 constexpr uint32_t kTextVtable = 0x00648AA0;
 
-GAME_GLOBAL(CText*, g_freeTexts, 0x006FA804);
 
 CText*& FreeList() { return g_freeTexts; }
 

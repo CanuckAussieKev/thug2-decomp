@@ -26,7 +26,7 @@ GAME_GLOBAL(uint8_t*[4096], g_drawnMeshes, 0x00792640);
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 uint8_t& ZWrite() { return g_zWrite; }
 float SphereDepth() { return g_lastSphereDistance; }
 constexpr float kNear = 600.0f; // 0x0064AA98
@@ -46,7 +46,7 @@ uint8_t* MeshMaterial(const uint8_t* mesh) { return *reinterpret_cast<uint8_t* c
 void SetMaterial(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->Submit(); }
 void DrawMesh(uint8_t* mesh) { reinterpret_cast<sMesh*>(mesh)->Render(); }
 // The render statistics (0x00775B80; thiscall).
-void CountPass(int which) { reinterpret_cast<sBillboardManager*>(0x00775B80)->Render(which); }
+void CountPass(int which) { g_billboardManager.Render(which); }
 
 // The game's qsort (equal entries keep the game's order).
 void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))

@@ -32,7 +32,7 @@ constexpr uint32_t kRecord = 0xC22A2B72;
 constexpr uint32_t kCareer = 0x4DA4937B;    // career
 constexpr uint32_t kClassic = 0x4C10DE52;   // classic
 
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 
 // The local skater's stats manager (component 0x4FF8DAC6, the skater's story stat challenges - stats_goals): its 70
 // challenges from +0x1C, 0x24 bytes each, the status at +0x10 of each (0 open, 1 done - the stat point given -,

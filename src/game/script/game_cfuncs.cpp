@@ -54,6 +54,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/winmain.h"
+#include "game/gfx/movie.h"
 
 namespace CFuncs {
 
@@ -113,11 +115,11 @@ Prefs::Preferences* GetPreferencesOfType(uint32_t type)
 }
 
 // The network game flags (GameNet).
-bool& InternetGameHost() { return GameVariable<bool>(0x007CC260); }
-bool& JoiningInternetGame() { return GameVariable<bool>(0x007CCA80); }
+bool& InternetGameHost() { return Sys::g_internetGameHost; }
+bool& JoiningInternetGame() { return Sys::g_joiningInternetGame; }
 bool& TryingToJoin() { return g_tryingToJoin; }
-bool& NetEnabled() { return GameVariable<bool>(0x007CCA82); }
-bool& JoinServerIPSucceeded() { return GameVariable<bool>(0x007CCA88); }
+bool& NetEnabled() { return GameNet::g_netEnabled; }
+bool& JoinServerIPSucceeded() { return GameNet::g_joinServerIPSucceeded; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
 void*& SecondControllerCheck() { return g_secondControllerCheck; }
@@ -198,7 +200,7 @@ bool __cdecl CFunc_StopSecondControllerCheck(Script::CStruct*, Script::CScript*)
 // 0x0059F760: QuitGame: the game ends (0x007D6A2C).
 bool __cdecl CFunc_QuitGame(Script::CStruct*, Script::CScript*)
 {
-    GameVariable<bool>(0x007D6A2C) = true;
+    Nx::g_quitRequested = true;
     return true;
 }
 
@@ -420,7 +422,7 @@ bool __cdecl CFunc_GetPreferenceChecksum(Script::CStruct* params, Script::CScrip
 // 0x0059FD80: ToggleNetMetrics.
 bool __cdecl CFunc_ToggleNetMetrics(Script::CStruct*, Script::CScript*)
 {
-    GameVariable<GameNet::Manager*>(0x007CCE14)->ToggleNetMetrics();
+    GameNet::g_gameNetManager->ToggleNetMetrics();
     return true;
 }
 
@@ -534,7 +536,7 @@ bool __cdecl CFunc_Debounce(Script::CStruct* params, Script::CScript*)
         static_cast<Obj::CInputComponent*>(input)->LockButton(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     float until = static_cast<float>(static_cast<double>(Tmr::GetTime()) +
-                                     static_cast<double>(time) * static_cast<double>(GameVariable<float>(0x006453C0)));
+                                     static_cast<double>(time) * static_cast<double>(Gfx::g_thousand));
     for (Obj::CBaseComponent* trick = objects->GetFirstComponentByType(0x270F56E1); trick; trick = trick->mp_nextOfType)
         static_cast<Obj::CTrickComponent*>(trick)->HoldOffButton(Inp::ButtonIndex(button), until);
     return true;

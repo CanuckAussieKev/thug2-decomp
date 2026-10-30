@@ -37,11 +37,8 @@
 
 namespace CFuncs {
 
-GAME_GLOBAL(int, g_netMaxPlayers, 0x0067EFD0, 8);
-GAME_GLOBAL(int, g_netSkillLevel, 0x0067EFD4, 3);
 GAME_GLOBAL(char[16], g_networkId, 0x007CCBC4);
 GAME_GLOBAL(char[12], g_networkPassword, 0x007CCBD4);
-GAME_GLOBAL(uint32_t, g_networkTeamMode, 0x007CCBE0);
 
 namespace {
 
@@ -62,8 +59,8 @@ Obj::CCompositeObject* GetLocalSkater()
 {
     return reinterpret_cast<Mdl::Skate*>(Skate())->GetLocalSkater();
 }
-GameNet::Manager* GameNetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-Net::Manager* NetManager() { return GameVariable<Net::Manager*>(0x006EFDD8); }
+GameNet::Manager* GameNetManager() { return GameNet::g_gameNetManager; }
+Net::Manager* NetManager() { return Net::g_netManager; }
 Mem::Manager* MemManager() { return Mem::Manager::Get(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
 uint32_t GameModePlayers()
@@ -247,7 +244,7 @@ bool __cdecl CFunc_EnableActuators(Script::CStruct* params, Script::CScript*)
 {
     int enable = 1;
     params->GetInteger(0u, &enable, 0);
-    auto* input = GameVariable<Inp::Manager*>(0x00696D40);
+    auto* input = Inp::g_inputManager;
     for (int i = 0; i < 2; ++i) {
         if (Skate()[0x394 + 8 * i]) {
             if (enable)
@@ -536,7 +533,7 @@ void* GetHostByName(const char* name) { return GameFunction<void*(__stdcall*)(co
 // tried from now on.
 bool __cdecl CFunc_TryJoinInternetGame(Script::CStruct*, Script::CScript*)
 {
-    uint32_t server = GameVariable<uint32_t>(0x0067EFB8);
+    uint32_t server = GameNet::g_commandLineServer;
     if (server != 0xFFFFFFFF)
         GameNetManager()->FindServerAt(server);
     TryingToJoin() = true;
@@ -627,9 +624,9 @@ void __cdecl InitBeenoxPreferences()
     SetStringPreference(prefs, 0x0064CE50, g_networkPassword);           // "password"
     if (g_networkId[0] != '\0')
         SetStringPreference(prefs, 0x0064CF0C, g_networkId); // "network_id"
-    gameNet->SetMaxPlayersPreference(g_netMaxPlayers);
+    gameNet->SetMaxPlayersPreference(GameNet::g_netMaxPlayers);
     Script::CStruct* teams = NewPreference();
-    switch (g_networkTeamMode) {
+    switch (GameNet::g_networkTeamMode) {
     case 0: SetChoicePreference(teams, 0x0064C43C, 0x00650318); break; // "None", teams_none
     case 2: SetChoicePreference(teams, 0x0064C8A8, 0x0065030C); break; // "2", teams_two
     case 3: SetChoicePreference(teams, 0x0064C8A4, 0x00650300); break; // "3", teams_three
@@ -639,7 +636,7 @@ void __cdecl InitBeenoxPreferences()
     prefs->SetPreference(Crc(0x006502E8), teams); // "team_mode"
     DeletePreference(teams);
     Script::CStruct* skill = NewPreference();
-    switch (g_netSkillLevel) {
+    switch (GameNet::g_netSkillLevel) {
     case 1: SetChoicePreference(skill, 0x006502D8, 0x006502D0); break; // "1: Baby Steps", num_1
     case 2: SetChoicePreference(skill, 0x006502C0, 0x006502B8); break; // "2: I Can Crawl!", num_2
     case 3: SetChoicePreference(skill, 0x006502A8, 0x006502A0); break; // "3: Hold My Own", num_3

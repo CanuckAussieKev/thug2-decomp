@@ -24,6 +24,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/net/gamenet_manager.h"
 
 namespace Skater {
 
@@ -222,7 +223,7 @@ void CorePhysicsComponent::NatasSpin()
         career->SetGlobalFlag(Script::GetInteger(kPerfectRail));
         At<uint32_t>(At<void*>(this, kBalance), 0x104) = 0;
         At<uint32_t>(At<void*>(this, kBalance), 0x108) = 0;
-        GameVariable<uint8_t>(0x007CE4FD) = 1;
+        reinterpret_cast<uint8_t&>(GameNet::g_cheatFlag) = 1;
     }
     At<Obj::CBalance>(At<void*>(this, kBalance), 0xD4).Update();
     float factor = Script::GetFloat(kNatasSpinFactor);

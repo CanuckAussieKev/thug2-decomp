@@ -26,6 +26,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/cag_cfuncs.h"
 
 namespace CFuncs {
 
@@ -248,7 +249,7 @@ bool __cdecl CFunc_FindNearestRailPoint(Script::CStruct* params, Script::CScript
 // 0x005B3160: GetParkName: 0xCC23BDDB, the park's name (the buffer at 0x007CED58). Returns false.
 bool __cdecl CFunc_GetParkName(Script::CStruct*, Script::CScript* script)
 {
-    script->m_params->AddString(kParkName, &GameVariable<char>(0x007CED58));
+    script->m_params->AddString(kParkName, CFuncs::g_parkName);
     return false;
 }
 
@@ -322,7 +323,7 @@ bool __cdecl CFunc_DrawDirectionalLightLines(Script::CStruct* params, Script::CS
     float pitch;
     params->GetFloat(kPitch, &pitch, 1);
     pitch = static_cast<float>(pitch * static_cast<double>(g_gameUtilMinusDegreesToRadians)); // -pi / 180
-    heading = static_cast<float>((90.0 - heading) * GameVariable<float>(0x00645464));          // pi / 180
+    heading = static_cast<float>((90.0 - heading) * g_degreesToRadians);          // pi / 180
     int r;
     params->GetInteger(kR, &r, 1);
     int g;

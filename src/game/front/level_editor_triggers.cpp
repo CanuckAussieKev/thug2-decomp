@@ -1230,7 +1230,7 @@ void DropBoxes()
 
 Game::CGapChecklist* Checklist()
 {
-    void* skate = GameVariable<void*>(0x007CE478);
+    void* skate = reinterpret_cast<void*>(Mdl::g_skateModule);
     return skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
 }
 
@@ -1340,7 +1340,7 @@ struct ProximOriginal {
 std::map<uint32_t, ProximOriginal> g_proximOriginals;
 std::vector<uint8_t> g_proximDefined;
 
-bool HaveProximManager() { return Front::LevelEditor::NodeCreate::g_proximManager != nullptr; }
+bool HaveProximManager() { return Obj::g_proximManager != nullptr; }
 
 int ProximIndex(uint32_t node)
 {

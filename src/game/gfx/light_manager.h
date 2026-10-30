@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Mth {
 class Vector;
@@ -102,4 +103,10 @@ struct CDynamicLightBase {
 static_assert(offsetof(CDynamicLightBase, owner) == 0x28 && sizeof(CDynamicLightBase) == 0x30,
               "layout must match the original");
 
+GAME_GLOBAL_EXTERN(int, g_dynamicLightCount);
+GAME_GLOBAL_EXTERN(float, g_ambientIntensity);
+GAME_GLOBAL_EXTERN(sWorldLights, g_worldLights);
+GAME_GLOBAL_EXTERN(CDynamicLightBase*[256], g_dynamicLights);
+GAME_GLOBAL_EXTERN(float*, g_intensities);
+GAME_GLOBAL_EXTERN(uint32_t, g_modelLightCount);
 } // namespace Nx

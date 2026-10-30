@@ -44,7 +44,7 @@ constexpr uint32_t kHsv = 0xFB0E4249;             // "hsv"
 constexpr uint32_t kRgb = 0xDECB67C7;             // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
-void* TextureDictionary() { return GameVariable<void*>(0x00700F1C); }
+void* TextureDictionary() { return reinterpret_cast<void*>(Nx::g_gameTextureDict); }
 void* FindTexture(uint32_t name) { return static_cast<Nx::CTexDict*>(TextureDictionary())->GetTexture(name); }
 
 // The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the

@@ -12,6 +12,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -65,7 +66,7 @@ void __cdecl SetDeviceGamma(float r, float g, float b)
     Gammas()[1] = static_cast<float>(static_cast<double>(g) + g + 0.5f);
     Gammas()[2] = static_cast<float>(static_cast<double>(b) + b + 0.5f);
     BuildGammaRamp();
-    GameVariable<IDirect3DDevice9*>(0x007D69E0)->SetGammaRamp(0, 0, reinterpret_cast<const D3DGAMMARAMP*>(Ramp()));
+    g_d3dDevice->SetGammaRamp(0, 0, reinterpret_cast<const D3DGAMMARAMP*>(Ramp()));
 }
 
 } // namespace Nx

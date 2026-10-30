@@ -15,6 +15,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/movie_manager.h"
 
 namespace Nx {
 
@@ -25,7 +26,7 @@ void** const kManagerVtable = reinterpret_cast<void**>(0x006493A0);
 constexpr float kByteToUnit = 1.0f / 255.0f;   // 0x00645D70 (the bit pattern 0x3B808081)
 constexpr uint32_t kObjectIdParam = 0x40C698AF; // (the emit script's parameter: the object's id)
 
-bool GamePaused() { return GameVariable<bool>(0x006FA7D4); }
+bool GamePaused() { return Obj::g_gamePaused; }
 
 // The system's virtual functions.
 CParticle* Delete(CParticle* particle, unsigned int flags)

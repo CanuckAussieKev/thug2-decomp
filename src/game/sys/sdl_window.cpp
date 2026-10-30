@@ -16,6 +16,8 @@
 #include "game/sys/sdl_events.h"
 #include "game/sys/winmain.h"
 #include "hook/game.h"
+#include "game/gfx/device.h"
+#include "game/gfx/movie.h"
 
 namespace Sys {
 
@@ -27,10 +29,10 @@ int s_width = 0;
 int s_height = 0;
 SDL_Window* s_window = nullptr;
 
-HWND& GameWindow() { return GameVariable<HWND>(0x007D6A28); }
+HWND& GameWindow() { return Nx::g_gameWindow; }
 bool& Focused() { return g_appActive; }
 // Whether the device may be recreated (off while the window is in the background).
-bool& RecreateDevice() { return GameVariable<bool>(0x00786AB4); }
+bool& RecreateDevice() { return Nx::g_deviceLost; }
 
 // A size no display mode reaches in both directions (width and height checked separately) becomes 0x0 (the
 // desktop's).

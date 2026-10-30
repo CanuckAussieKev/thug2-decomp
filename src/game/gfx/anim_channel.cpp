@@ -34,6 +34,9 @@
 
 namespace Gfx {
 
+GAME_GLOBAL(CPose*, g_blendBuffer, 0x006F8A60);
+GAME_GLOBAL(float*, g_blendWeights, 0x006F8A5C);
+GAME_GLOBAL(uint32_t*, g_blendSets, 0x006F8A58);
 namespace {
 
 using Script::CStruct;
@@ -69,9 +72,6 @@ enum : uint8_t { kMsgPlayAnim = 0x29, kMsgWobbleTarget = 0x2B, kMsgFlip = 0x2C, 
 GAME_GLOBAL(uint8_t, g_lastWobbleTarget, 0x0067DC10, 0xFF);
 GAME_GLOBAL(uint8_t, g_lastWobbleDetails, 0x0067DC11, 0xFF);
 GAME_GLOBAL(int8_t, g_lastLoopType, 0x0067DC12, -1);
-GAME_GLOBAL(uint32_t*, g_blendSets, 0x006F8A58);
-GAME_GLOBAL(float*, g_blendWeights, 0x006F8A5C);
-GAME_GLOBAL(CPose*, g_blendBuffer, 0x006F8A60);
 GAME_GLOBAL(CPose*, g_poses, 0x006F8A64);
 GAME_GLOBAL(int, g_maxBlends, 0x006F8A68);
 GAME_GLOBAL(int, g_subsets, 0x006F8A6C);
@@ -128,7 +128,7 @@ Obj::CCompositeObject* Owner(CBlendChannel* channel) { return reinterpret_cast<O
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
 // isn't this machine's player's skater.
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 GameNet::PlayerInfo* LocalPlayer(uint32_t objectId)
 {
     auto* player = reinterpret_cast<GameNet::PlayerInfo*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(objectId)));

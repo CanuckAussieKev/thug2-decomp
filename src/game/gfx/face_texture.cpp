@@ -47,7 +47,7 @@ SFacePoints& ModelFacePoints() { return g_modelFacePoints; }
 Nx::CTexture*& FaceOverlay() { return g_faceOverlay; }
 
 // The game's texture dictionary (0x00700F1C) and its texture `name`.
-Nx::CTexture* FindTexture(uint32_t name) { return GameVariable<Nx::CTexDict*>(0x00700F1C)->GetTexture(name); }
+Nx::CTexture* FindTexture(uint32_t name) { return Nx::g_gameTextureDict->GetTexture(name); }
 
 // A texture's virtual slot (the original calls most through the folded jumps 0x0048D060 [8], 0x0048DE30 [9],
 // 0x0048DEC0 [18], 0x0049F370 [21], 0x0048DEF0 [22], 0x0049F390 [24], 0x0049F3C0 [33], 0x0049F3D0 [34], 0x0049F420

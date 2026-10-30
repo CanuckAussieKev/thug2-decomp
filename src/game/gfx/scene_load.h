@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "game/core/pool.h"
+#include "hook/game_global.h"
 
 // The PC engine's scene and mesh loaders (Nx engine's platform calls, cdecl): a scene's geometry from a file
 // or from memory - its materials (with the texture dictionary's textures), its sectors (each with a PC geom), the
@@ -45,4 +47,5 @@ void* __cdecl LoadMeshFile(const char* name, void* textures);
 // there is any, loaded into the mesh first (0x004B7EB0). `unused` isn't.
 void* __cdecl LoadMeshFromMemory(uint32_t checksum, const uint8_t* data, int unused, void* skin, void* textures);
 
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_frameSourcePools);
 } // namespace Nx

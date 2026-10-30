@@ -328,4 +328,6 @@ GAME_GLOBAL_EXTERN(Mem::PoolPair, g_symbolPools);
 GAME_GLOBAL_EXTERN(Mem::PoolPair, g_pairPools);
 GAME_GLOBAL_EXTERN(Mem::PoolPair, g_vectorPools);
 
+struct PermanentString;
+GAME_GLOBAL_EXTERN(PermanentString*, g_permanentStringTable);
 } // namespace Script

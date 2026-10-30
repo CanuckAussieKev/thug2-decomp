@@ -183,7 +183,7 @@ void SHiddenModels::Hide()
     }
     if (!count)
         return;
-    if (!GameVariable<bool>(0x007CC979))
+    if (!Mem::g_managerReady)
         Mem::EnsureManager();
     mp_ids = static_cast<uint32_t*>(Mem::Manager::Get()->Allocate(count * 4, 1, nullptr));
     m_count = 0;
@@ -213,11 +213,14 @@ void SHiddenModels::Show()
     m_count = 0;
 }
 
+// The models hidden for a cutscene (the original's one instance).
+GAME_GLOBAL(SHiddenModels, g_hiddenModels, 0x006FA2F0);
+
 // 0x00487D20
-void __cdecl HideModelsForCutscene() { GameVariable<SHiddenModels>(0x006FA2F0).Hide(); }
+void __cdecl HideModelsForCutscene() { g_hiddenModels.Hide(); }
 
 // 0x00487D30
-void __cdecl ShowModelsAfterCutscene() { GameVariable<SHiddenModels>(0x006FA2F0).Show(); }
+void __cdecl ShowModelsAfterCutscene() { g_hiddenModels.Show(); }
 
 // 0x00487D50
 __declspec(naked) void VirtualSlot4Jump()

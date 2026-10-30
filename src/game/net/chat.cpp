@@ -28,6 +28,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/gfx/render.h"
 
 namespace GameNet {
 
@@ -264,7 +265,7 @@ bool HandleChatCommand(Manager* manager, const char* text)
         // to thug2-decomp.log (for picking a place to show behind the main menu).
         uint8_t level = Nx::CurrentLevel();
         Log("where: level %u", level);
-        auto* skater = reinterpret_cast<Mdl::Skate*>(GameVariable<void*>(0x007CE478))->GetLocalSkater(); // the skate module's local skater
+        auto* skater = reinterpret_cast<Mdl::Skate*>(reinterpret_cast<void*>(Mdl::g_skateModule))->GetLocalSkater(); // the skate module's local skater
         if (skater) {
             const Mth::Vector& p = skater->m_pos;
             const Mth::Matrix& m = skater->m_matrix;
@@ -275,7 +276,7 @@ bool HandleChatCommand(Manager* manager, const char* text)
             Log("where: no local skater");
         }
         // The camera of the last frame drawn (SetCamera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
-        const float* camera = &GameVariable<float>(0x00786CA8);
+        const float* camera = reinterpret_cast<const float*>(&Nx::g_camera);
         Log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
             camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
         char line[128];

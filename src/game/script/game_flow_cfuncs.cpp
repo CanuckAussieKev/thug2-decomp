@@ -57,6 +57,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
 
 namespace CFuncs {
 
@@ -93,7 +94,7 @@ Obj::CCompositeObjectManager* Objects() { return Obj::g_compositeObjectManager; 
 void* GameMode() { return static_cast<void*>(Game::g_gameMode); }
 Game::CGameMode* GameModeObject() { return static_cast<Game::CGameMode*>(GameMode()); }
 int GameModeTimeLimit() { return GameModeObject()->GetTimeLimit(); }
-GameNet::Manager* GameNetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* GameNetManager() { return GameNet::g_gameNetManager; }
 Mem::Manager* MemManager() { return Mem::Manager::Get(); }
 
 // Two argument-less calls of Cleanup's to the empty function 0x005480A0 (compiled-out debug code; what it did is
@@ -153,7 +154,7 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     SkateModule()->Cleanup(); // the skate module's objects
     if (script)
         script->m_spawnFlags = static_cast<uint8_t>((script->m_spawnFlags & ~Script::SCRIPT_FLAG_SPAWNED) | spawned);
-    GameVariable<Nx::CImposterManager*>(0x006FA7BC)->DeleteAll();
+    reinterpret_cast<Nx::CImposterManager*&>(Nx::g_imposterManager)->DeleteAll();
     Nx::Engine::KillAllEffects();
     Gfx::CAnimCache* particles = Gfx::CAnimCache::Get(); // (0x006F92B0)
     particles->Flush(false);
@@ -161,7 +162,7 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     Script::DeleteFinishedScripts();
     CompiledOutDebugCall();
     Nx::UninitLightManager();
-    GameVariable<Sfx::CSfxManager*>(0x006F85A8)->CleanUp();
+    Sfx::g_sfxManager->CleanUp();
     assets->UnloadAllAssetsOfType(false, 9);
     Dbg::Printf(reinterpret_cast<const char*>(0x0064FC68)); // "unloading assman tables ...........\n"
     assets->UnloadAllAssets(false);

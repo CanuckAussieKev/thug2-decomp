@@ -15,6 +15,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/anim_movies.h"
 
 namespace Gfx {
 
@@ -50,7 +51,7 @@ constexpr float kQuarterTurn = 1.57079637f;  // 0x00645484
 constexpr float kEaseBelow = 0.923879027f;   // 0x006488F8: a turn this close to the last one isn't eased
 constexpr float kEaseFactor = 0.216478556f;  // 0x006488F4
 
-float Epsilon() { return GameVariable<float>(0x0066D520); }
+float Epsilon() { return Obj::g_floatZero; }
 
 // x, y and z of a vector scaled to length 1 when longer than the epsilon (from the sum (x x + z z) + y y, the
 // reciprocal unrounded).

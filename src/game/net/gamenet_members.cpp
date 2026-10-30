@@ -32,6 +32,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
+#include "game/ed/park_editor.h"
 
 namespace GameNet {
 
@@ -104,7 +106,7 @@ bool TracksBestCombo() { return Call<bool>(0x00552FD0, GameMode()); }
 bool IsElimiskate() { return Call<bool>(0x00553910, GameMode()); }
 bool ModeIsTrue(uint32_t property) { return Call<bool>(0x00553220, GameMode(), property); }
 
-Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 4); }
+Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4); }
 
 // The CFunction InSplitScreenGame (0x005A1180), called with no parameters.
 bool InSplitScreenGame() { return CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr) != 0; }
@@ -352,7 +354,7 @@ void Manager::ChooseStartPoints()
         count = 8;
     } else {
         count = ModeMaxPlayers();
-        if (Field<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) != kOff && !ModeIsTrue(kIsHorse)) {
+        if (Field<uint32_t>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor), 0x40) != kOff && !ModeIsTrue(kIsHorse)) {
             count = 2;
             offset = 0;
         }

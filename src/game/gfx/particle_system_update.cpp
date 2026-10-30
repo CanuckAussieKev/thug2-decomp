@@ -18,6 +18,8 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/flexible_particle_manager.h"
 
 namespace Nx {
 
@@ -44,7 +46,7 @@ double RandomBetween(float min, float max)
     return t * (static_cast<double>(max) - min) + min;
 }
 
-int ViewportCount() { return GameVariable<int>(0x00701378); }
+int ViewportCount() { return Mdl::g_viewportCount; }
 void* ViewportCamera(int viewport) { return GetActiveCamera(viewport); }
 // 0x0048C490: whether a sphere is out of the camera's view.
 int SphereHidden(const Mth::Vector* centre, float radius)
@@ -543,7 +545,7 @@ void CParticleSystem::Update(float time, bool skip)
         return;
     if (m_updateBrightness)
         UpdateGroundBrightness(false);
-    float dt = static_cast<float>(static_cast<double>(GameVariable<float>(0x00700EF4)) * time);
+    float dt = static_cast<float>(static_cast<double>(g_frameTimeScale) * time);
     for (int i = 0; i < m_unknown8C; ++i) {
         sFlexibleParticle& p = mp_particles[i];
         p.age = static_cast<float>(static_cast<double>(time) + p.age);

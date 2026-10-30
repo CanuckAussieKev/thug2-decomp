@@ -286,6 +286,7 @@ void __cdecl SetRigidBodyPusherReach(CCompositeObject* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
 bool __cdecl CFunc_ToggleRigidBodyDebug(Script::CStruct* params, Script::CScript* script);
 
+GAME_GLOBAL_EXTERN(float[8], g_rigidBodyPusherReach);
 GAME_GLOBAL_EXTERN(float, g_rigidBodyPusherHeight);
 GAME_GLOBAL_EXTERN(bool, g_rigidBodyDrawShape);
 GAME_GLOBAL_EXTERN(bool, g_rigidBodyDrawDetails);

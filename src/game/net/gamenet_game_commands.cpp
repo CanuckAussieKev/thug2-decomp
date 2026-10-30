@@ -27,6 +27,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 namespace GameNet {
 
@@ -99,7 +100,7 @@ constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
 constexpr int kMaxCrownSpawns = 10;
 
 Manager* Net() { return g_gameNetManager; }
-Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 4); }
+Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4); }
 
 GAME_GLOBAL(uint32_t, g_lastTeamRequest, 0x007CCE28);
 
@@ -199,7 +200,7 @@ bool __cdecl CFunc_SpawnCrown(CStruct*, CScript*)
     CStruct* node = nodes[spawn % count]; // (no node of the type divides by zero, as in the original)
     Mth::Vector position;
     SkateScript::GetPosition(node, &position);
-    Field<Obj::CCrownObject*>(manager, kCrown)->InitFromNode(GameVariable<Obj::CCompositeObjectManager*>(0x006F0FB8),
+    Field<Obj::CCrownObject*>(manager, kCrown)->InitFromNode(Obj::g_compositeObjectManager,
                                                              node);
     if (auto* king = static_cast<uint8_t*>(manager->GetKingOfTheHill()))
         Field<Obj::CCrownObject*>(manager, kCrown)->PutOn(reinterpret_cast<Obj::CCompositeObject*>(PlayerSkater(king)));

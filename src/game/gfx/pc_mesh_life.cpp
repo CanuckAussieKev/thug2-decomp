@@ -18,12 +18,13 @@
 #include "game/gfx/pc_scene.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 // The game's C runtime heap (what the buffers' copies and nodes come from).
 void* Malloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
@@ -35,8 +36,8 @@ struct sBufferNode {
     sBufferNode* prev;
     sBufferNode* next;
 };
-sBufferNode* VertexBufferList() { return GameVariable<sBufferNode*>(0x007865E4); }
-sBufferNode* IndexBufferList() { return GameVariable<sBufferNode*>(0x007865E8); }
+sBufferNode* VertexBufferList() { return reinterpret_cast<sBufferNode*>(g_vertexBufferList); }
+sBufferNode* IndexBufferList() { return reinterpret_cast<sBufferNode*>(g_indexBufferList); }
 
 // The engine's scenes (a list: +4 the scene, +0xC the next node; the head's +4 is -1) and a scene's mesh list
 // (+0x280), whose arena vertex buffer is its +0x7C and the buffer's size its +0x80.
@@ -296,7 +297,7 @@ void __cdecl RecreateBuffers()
 void sMesh::DestroyBody()
 {
     if (flags & 0x10)
-        GameVariable<sBillboardManager>(0x00775B80).RemoveMesh(this);
+        g_billboardManager.RemoveMesh(this);
     Mem::Manager* heap = Mem::Manager::Get();
     if (transform)
         heap->Free(transform);

@@ -65,4 +65,8 @@ void ButtonPressedAgainStub();
 
 GAME_GLOBAL_EXTERN(Bink*, g_currentMovie); // a Bink movie playing
 
+GAME_GLOBAL_EXTERN(float, g_onePercent);
+GAME_GLOBAL_EXTERN(bool, g_quitRequested);
+GAME_GLOBAL_EXTERN(bool, g_moviePlaying);
+GAME_GLOBAL_EXTERN(bool, g_deviceLost);
 } // namespace Nx

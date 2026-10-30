@@ -22,7 +22,7 @@ constexpr uint32_t kPcTextVtable = 0x0064A34C;
 
 // The button glyph font (0x00780FDC) and the texts' free list (0x006FA804).
 SFont*& ButtonFont() { return g_buttonFont; }
-CPcText*& FreeTexts() { return GameVariable<CPcText*>(0x006FA804); }
+CPcText*& FreeTexts() { return reinterpret_cast<CPcText*&>(g_freeTexts); }
 
 template <typename T>
 void CallVirtual(T* object, int slot)

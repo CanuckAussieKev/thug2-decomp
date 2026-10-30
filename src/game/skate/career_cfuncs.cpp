@@ -43,7 +43,7 @@ bool FirstTrickStarted() { return Mdl::Skate::Instance()->FirstTrickStarted(); }
 bool FirstTrickCompleted() { return Mdl::Skate::Instance()->FirstTrickCompleted(); }
 void SendScores(bool final) { Mdl::Skate::Instance()->SendScoreUpdates(final); }
 
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 
 } // namespace
 

@@ -23,6 +23,12 @@
 
 namespace GameNet {
 
+GAME_GLOBAL(uint32_t, g_networkTeamMode, 0x007CCBE0);
+
+GAME_GLOBAL(int, g_netSkillLevel, 0x0067EFD4, 3);
+
+GAME_GLOBAL(int, g_netMaxPlayers, 0x0067EFD0, 8);
+
 using namespace Detail;
 
 namespace {

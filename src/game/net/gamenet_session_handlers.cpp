@@ -25,6 +25,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -375,7 +376,7 @@ int __cdecl HandleChangeLevel(Net::MsgHandlerContext* context)
     manager->m_gameOver = false;
     if (!msg[4])
         return kContinue;
-    auto* logicTasks = reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04);
+    auto* logicTasks = reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04);
     auto* changeTask = Field<Tsk::BaseTask*>(manager, 0xEC);
     if (changeTask->InList()) {
         if (!manager->OnServer())
@@ -594,7 +595,7 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
             // An observer of graffiti: the trick objects' state.
             desc.Construct();
             static uint8_t buffer[0x1100]; // (the original's is on its stack)
-            int size = GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->WriteGraffitiState(buffer);
+            int size = Obj::g_trickObjectManager->WriteGraffitiState(buffer);
             server->StreamMessage(PlayerHandle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer,
                                   "TrickObj Buffer", kGroupGame, true, false);
         }

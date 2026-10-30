@@ -437,7 +437,7 @@ template <typename T> T At(const void* base, uint32_t offset)
     return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(base) + offset);
 }
 
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); } // Mdl::Skate
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); } // Mdl::Skate
 
 Game::CGapChecklist* Checklist()
 {

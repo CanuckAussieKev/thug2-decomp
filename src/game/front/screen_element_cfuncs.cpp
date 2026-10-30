@@ -27,6 +27,7 @@
 
 namespace Front {
 
+GAME_GLOBAL(uint32_t, g_unassignedId, 0x0064780C, 0xFFFFFFFF);
 namespace {
 
 using Script::CScript;
@@ -53,7 +54,6 @@ constexpr uint32_t kHeapBottomUp = 0xC80BF12D, kHeapInternetTopDown = 0xE3F81B18
 
 CScreenElementManager* Manager() { return CScreenElementManager::Instance(); }
 
-GAME_GLOBAL(uint32_t, g_unassignedId, 0x0064780C, 0xFFFFFFFF);
 
 uint32_t UnassignedId() { return g_unassignedId; }
 

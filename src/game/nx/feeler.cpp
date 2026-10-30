@@ -19,9 +19,9 @@
 
 namespace Nx {
 
+GAME_GLOBAL(CCollCache*, g_currentCache, 0x00691974);
 namespace {
 
-GAME_GLOBAL(CCollCache*, g_currentCache, 0x00691974);
 
 // The cache queries use when the feeler has none.
 CCollCache*& s_currentCache = g_currentCache;

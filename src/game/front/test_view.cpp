@@ -40,7 +40,7 @@ Mth::Vector Row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
 // The local skater (the skate module's 0x00566520; null with none).
 Obj::CSkater* LocalSkater()
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     return skate ? reinterpret_cast<Mdl::Skate*>(skate)->GetLocalSkater()
                  : nullptr;
 }

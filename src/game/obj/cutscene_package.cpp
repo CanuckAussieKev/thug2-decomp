@@ -33,6 +33,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
 
 namespace Obj {
 
@@ -232,7 +233,7 @@ void CCutsceneDetails::End()
     }
     Run(0xE7BC7EFD);
     Run(0x4C0FD1D7);
-    GameVariable<Nx::CFlexibleParticleManager*>(0x006FA7C0)->DeleteTempHeap();
+    reinterpret_cast<Nx::CFlexibleParticleManager*&>(Nx::g_flexibleParticleManager)->DeleteTempHeap();
     if (m_data) {
         UnloadAsset(m_asset);
         m_data = nullptr;

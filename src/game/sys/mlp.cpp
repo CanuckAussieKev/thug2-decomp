@@ -34,6 +34,10 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/selftest.h"
+#include "game/obj/cutscene.h"
+#include "game/gfx/movie.h"
+#include "game/ass/assman.h"
+#include "game/gfx/render.h"
 
 namespace Mlp {
 
@@ -47,14 +51,14 @@ namespace {
 
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
-bool& SkipRender() { return GameVariable<bool>(0x007D1EC0); }
-bool& Flag6F1158() { return GameVariable<bool>(0x006F1158); } // cleared every frame (read by the pad code)
+bool& SkipRender() { return Nx::g_skipRender; }
+bool& Flag6F1158() { return Obj::g_cutscenePlaying; } // cleared every frame (read by the pad code)
 bool AppActive() { return Sys::g_appActive; }
 bool TextEntry() { return GameNet::g_textEntry; } // keeps the loop running while the window is inactive
-bool QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
-bool& DeviceLost() { return GameVariable<bool>(0x00786AB4); }
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-D3DPRESENT_PARAMETERS* PresentParameters() { return &GameVariable<D3DPRESENT_PARAMETERS>(0x00786A7C); }
+bool QuitRequested() { return Nx::g_quitRequested; }
+bool& DeviceLost() { return Nx::g_deviceLost; }
+IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
+D3DPRESENT_PARAMETERS* PresentParameters() { return &Nx::g_presentParameters; }
 
 GAME_GLOBAL(uint32_t, g_mlpReferences, 0x00696D6C);
 GAME_GLOBAL(int, g_skippedTotal, 0x00696D70);
@@ -88,7 +92,7 @@ void RenderFrame() { Nx::Engine::RenderFrame(); }     // the world, then the 2D
 void AfterRender() { Mdl::Skate::DebugRails(); }     // (uses the skate module)
 void EndScene() { Nx::Engine::EndRender(); }        // EndScene, Present
 
-uint8_t LetterboxActive() { return GameVariable<uint8_t>(0x00786CBE); }
+uint8_t LetterboxActive() { return Nx::g_camera.letterboxActive; }
 
 } // namespace
 
@@ -112,7 +116,7 @@ namespace {
 void ConstructTaskList(Tsk::Stack& list) { list.Construct(); }
 void DestroyTaskList(Tsk::Stack& list) { list.Destruct(); }
 
-Manager*& Instance() { return GameVariable<Manager*>(0x00696D68); }
+Manager*& Instance() { return Ass::g_mainLoopManager; }
 uint32_t& References() { return g_mlpReferences; }
 
 } // namespace

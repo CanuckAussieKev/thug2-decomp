@@ -42,7 +42,7 @@ Checklist g_baseline;
 
 Game::CGapChecklist* CurrentChecklist()
 {
-    void* skate = GameVariable<void*>(0x007CE478);
+    void* skate = reinterpret_cast<void*>(Mdl::g_skateModule);
     return skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
 }
 

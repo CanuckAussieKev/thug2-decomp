@@ -65,7 +65,7 @@ constexpr uint32_t kFirstLink = 0x3EA1D93A;
 constexpr uint32_t kNotLastLink = 0x5F78A252;
 constexpr uint32_t kHidden = 0x5B6634D4;
 
-bool ManagerReady() { return GameVariable<bool>(0x007CC979); }
+bool ManagerReady() { return Mem::g_managerReady; }
 void* Allocate(uint32_t size)
 {
     if (!ManagerReady())

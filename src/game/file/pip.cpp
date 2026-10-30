@@ -27,10 +27,11 @@ constexpr int kMaxLoadedFiles = 200;
 constexpr int kMaxPreFiles = 100;
 
 GAME_GLOBAL(LoadedFile[kMaxLoadedFiles], g_loadedFiles, 0x007CF198);
+GAME_GLOBAL(char*[kMaxPreFiles], g_preFiles, 0x007CFE18);
 
 LoadedFile* LoadedFiles() { return g_loadedFiles; }
 // Each loaded .pre archive's memory starts with the archive's name (see PreHeader).
-char** PreFiles() { return GameVariable<char* [kMaxPreFiles]>(0x007CFE18); }
+char** PreFiles() { return g_preFiles; }
 
 void* AllocateFileMemory(unsigned int size) { return Mem::Malloc(size); }
 void ShrinkFileMemory(unsigned int size, void* memory) { Mem::ReallocateShrink(size, memory); }

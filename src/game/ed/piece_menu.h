@@ -41,6 +41,5 @@ public:
 };
 static_assert(offsetof(CUpperMenuManager, m_selected) == 0xC);
 
-GAME_GLOBAL_EXTERN(void*, g_screenElementManager);
 
 } // namespace Ed

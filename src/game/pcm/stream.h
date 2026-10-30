@@ -300,5 +300,6 @@ GAME_GLOBAL_EXTERN(void*, g_wadFile);
 GAME_GLOBAL_EXTERN(bool, g_binkSoundSet);
 GAME_GLOBAL_EXTERN(uint32_t, g_streamFileUses);
 GAME_GLOBAL_EXTERN(WadEntry*, g_wadEntries);
+GAME_GLOBAL_EXTERN(void*, g_streamLock);
 
 } // namespace Pcm

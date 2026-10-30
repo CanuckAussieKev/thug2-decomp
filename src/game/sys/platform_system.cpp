@@ -11,6 +11,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
+#include "game/pcm/music.h"
 
 namespace Platform {
 
@@ -27,12 +29,12 @@ char& CdDriveLetter() { return g_cdDriveLetter; }
 char& CdDriveColon() { return g_cdDriveColon; }
 char& CdDriveSlash() { return g_cdDriveSlash; }
 
-HWND& GameWindow() { return GameVariable<HWND>(0x007D6A28); }
+HWND& GameWindow() { return Nx::g_gameWindow; }
 // How far the window's frame reaches left of / above its inside (negated AdjustWindowRect's left / top).
 int& FrameLeft() { return g_frameLeft; }
 int& FrameTop() { return g_frameTop; }
 
-IDirectSound8*& DirectSound() { return GameVariable<IDirectSound8*>(0x007D6A38); }
+IDirectSound8*& DirectSound() { return reinterpret_cast<IDirectSound8*&>(Pcm::g_soundDevice); }
 
 // IMA ADPCM's tables (0x0068E0C0, 0x0068E0E0).
 const int kIndexSteps[8] = {-1, -1, -1, -1, 2, 4, 6, 8};

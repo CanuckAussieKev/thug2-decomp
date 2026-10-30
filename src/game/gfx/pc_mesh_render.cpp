@@ -20,12 +20,14 @@
 #include "game/gfx/settings.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
 
 namespace Nx {
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 bool PixelShaders() { return g_shadersAvailable; }
 
 // D3DX (the statically linked library's, through its thunks).
@@ -120,7 +122,7 @@ void sMesh::SkinThreeBones(uint8_t* out) { Skin(this, out, 3); }
 // 0x004D5290
 void sMesh::Render()
 {
-    if (GameVariable<bool>(0x007D1EC0) || BeyondClipDistance(this))
+    if (g_skipRender || BeyondClipDistance(this))
         return;
     if (g_distanceClipping && g_fogSetting) { // (distance fog)
         float end = g_camera.farZ;
@@ -130,7 +132,7 @@ void sMesh::Render()
         SetFogEnabled(true);
         Device()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         Device()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
-        Device()->SetRenderState(D3DRS_FOGCOLOR, GameVariable<uint32_t>(0x0078733C));
+        Device()->SetRenderState(D3DRS_FOGCOLOR, g_fogColour);
     }
     if (!indexCounts[0])
         return;

@@ -91,4 +91,5 @@ static_assert(offsetof(CCameraAnimMovie, m_target) == 0x34 && offsetof(CCameraAn
 
 GAME_GLOBAL_EXTERN(float, g_floatZero);
 
+GAME_GLOBAL_EXTERN(float, g_animMoviesOne);
 } // namespace Obj

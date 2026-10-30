@@ -24,6 +24,8 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/gfx/engine_glue.h"
+#include "game/skate/skate_module.h"
 
 namespace GameNet::Thugpro {
 
@@ -284,7 +286,7 @@ public:
         // (THUGPRO clears it: it has its own per-level weather settings - ours are THUG2's).
         if (weather == kWeatherDefault)
             return;
-        uint8_t* object = GameVariable<uint8_t*>(0x006FA7C8);
+        uint8_t* object = reinterpret_cast<uint8_t*>(Nx::g_weather);
         if (!object)
             return;
         float& rainRate = *reinterpret_cast<float*>(object + 0x10);
@@ -356,7 +358,7 @@ private:
 // The level structure being played: its `level` (the skate module's +0x380: the structure's name).
 const char* CurrentLevelPrefix()
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     if (!skate)
         return nullptr;
     Script::CStruct* structure = Script::GetStructure(*reinterpret_cast<uint32_t*>(skate + 0x380));

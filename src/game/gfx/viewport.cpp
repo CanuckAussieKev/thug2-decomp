@@ -16,6 +16,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/skate/skate_module.h"
 
 namespace Nx {
 
@@ -61,7 +62,7 @@ CViewport*& Viewport(int index) { return g_viewports[index]; }
 // The screen mode's map of views onto viewports (4 per mode at 0x00649CE0; -1: not shown).
 const int*& ModeMap() { return g_modeMap; }
 int& ScreenMode() { return g_screenMode; }
-int& ActiveViewportCount() { return GameVariable<int>(0x00701378); }
+int& ActiveViewportCount() { return Mdl::g_viewportCount; }
 int ModeViewportCount(int mode) { return g_modeViewportCounts[mode]; }
 const int* ModeMapOf(int mode) { return g_modeMaps + 4 * mode; }
 

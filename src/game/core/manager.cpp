@@ -38,6 +38,7 @@ Allocator* CurrentHeap(Manager* manager) { return *manager->m_current; }
 
 // The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
 GAME_GLOBAL(Manager*, g_memoryManager, 0x007D1800);
+GAME_GLOBAL(bool, g_managerReady, 0x007CC979); // the memory manager is set up
 
 Manager* Manager::Get()
 {
@@ -459,7 +460,7 @@ void* const kMainRegionStorage = reinterpret_cast<void*>(0x007D11E0);
 void* const kTopDownStorage = reinterpret_cast<void*>(0x007D1130);
 void* const kBottomUpStorage = reinterpret_cast<void*>(0x007D1098);
 
-bool& ManagerReady() { return GameVariable<bool>(0x007CC979); }
+bool& ManagerReady() { return g_managerReady; }
 
 // The game CRT's malloc (the main block comes from it).
 void* CrtMalloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }

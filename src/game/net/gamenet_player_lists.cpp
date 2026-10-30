@@ -32,6 +32,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/compositemgr.h"
 
 namespace GameNet {
 
@@ -439,7 +440,7 @@ void Manager::LaunchQueuedScripts()
         auto* next = reinterpret_cast<QueuedScript*>(DataOf(node));
         Script::CScript* script =
             Script::SpawnScript(queued->m_script, nullptr, 0, nullptr, queued->m_node, 0, false, false, false, false);
-        Obj::CObject* object = GameVariable<Obj::CBaseManager*>(0x006F0FB8)->GetObjectByID(queued->m_objectId);
+        Obj::CObject* object = reinterpret_cast<Obj::CBaseManager*&>(Obj::g_compositeObjectManager)->GetObjectByID(queued->m_objectId);
         script->m_object.Set(object);
         while (script->Update() != Script::ESCRIPTRETURNVAL_FINISHED) {
         }
@@ -693,7 +694,7 @@ void Manager::AddJoiningPlayer(void* message, int timeout)
         Field<int>(record, 0x24) = m_server->m_frameCount;
     if (!(flags & 4) || (flags & 8)) {
         // The appearance, through a buffer.
-        if (!GameVariable<bool>(0x007CC979))
+        if (!Mem::g_managerReady)
             Mem::EnsureManager();
         auto* buffer = static_cast<uint8_t*>(Mem::Manager::Get()->Allocate(0x1000, 1, nullptr));
         Field<Obj::CSkaterProfile*>(info, kNewPlayerProfile)->WriteToBuffer(buffer, 0x1000, 0);

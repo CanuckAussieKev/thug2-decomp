@@ -14,6 +14,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/net/gamenet_manager.h"
 
 namespace Obj {
 
@@ -122,7 +123,7 @@ void CSkaterScoreComponent::Update()
         uint8_t* career = Career();
         reinterpret_cast<CSkaterCareer*>(career)->SetGlobalFlag(Script::GetInteger(kCheatAlwaysSpecial));
         ScoreOf(m_score)->FillSpecial();
-        GameVariable<uint8_t>(0x007CE4FD) = 1;
+        reinterpret_cast<uint8_t&>(GameNet::g_cheatFlag) = 1;
     }
 }
 

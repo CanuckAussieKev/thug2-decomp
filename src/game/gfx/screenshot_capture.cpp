@@ -8,14 +8,16 @@
 #include <cstring>
 
 #include "hook/game.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine_glue.h"
 
 namespace Gfx::ScreenshotCapture {
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
 // The renderer's "device lost" flag (Nx::StartRender doesn't begin a scene while it's set).
-bool DeviceLostFlag() { return GameVariable<uint8_t>(0x00786D04) != 0; }
+bool DeviceLostFlag() { return static_cast<uint8_t>(Nx::g_loadingScreenUp) != 0; }
 
 Sys::Screenshot::PixelFormat Map(D3DFORMAT format)
 {

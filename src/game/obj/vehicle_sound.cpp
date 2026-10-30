@@ -36,7 +36,7 @@ const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);       // 0x00646828: 1 /
 const float kPercent = 100.0f;                                // 0x006463D4
 const double kTwoTo32 = 4294967296.0;                         // 0x006453B4 (an unsigned clock difference)
 
-Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
 uint32_t ClockOffset() { return static_cast<uint32_t>(g_clockOffset); }
 
 // A float of the global structure kRates (asserted).

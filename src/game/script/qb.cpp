@@ -59,7 +59,7 @@ char* CopyString(const char* string)
 // Create a pool of `count` items of `item_size` as the current pool of `pools`.
 void CreatePool(Mem::PoolPair& pools, int item_size, int count, const char* name)
 {
-    if (!GameVariable<bool>(0x007CC979))
+    if (!Mem::g_managerReady)
         Mem::EnsureManager();
     void* memory = Mem::Manager::Get()->Allocate(sizeof(Mem::Pool), 1, nullptr);
     Mem::Pool* pool = memory ? new (memory) Mem::Pool(item_size, count, name) : nullptr;
@@ -337,7 +337,7 @@ void AllocatePermanentStringHeap(uint32_t size, uint32_t count)
     char* strings = static_cast<char*>(Mem::Malloc(size));
     g_permanentStringsStart = strings;
     g_permanentStringsNext = strings;
-    GameVariable<void*>(0x006F3580) = Mem::Malloc(count * 8);
+    reinterpret_cast<void*&>(g_permanentStringTable) = Mem::Malloc(count * 8);
     g_permanentStringCount = 0;
 }
 
@@ -362,7 +362,7 @@ void CreateScriptPools()
     CreatePool(g_componentPools, 0x10, sizes.components, "CComponent");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CStruct");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3614), 0x08, sizes.structs, "CStruct");
+    CreatePool(g_structPools, 0x08, sizes.structs, "CStruct");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CVector");
     CreatePool(g_vectorPools, 0x10, sizes.vectors, "CVector");

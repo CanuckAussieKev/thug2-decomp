@@ -45,7 +45,7 @@ T& Field(void* object, uint32_t offset)
 
 // The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this
 // machine's, a player's skater's index (its +0x2BC) and the client app of an index.
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 GameNet::PlayerInfo* PlayerByObjectId(uint32_t id)
 {
     return reinterpret_cast<GameNet::PlayerInfo*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)));

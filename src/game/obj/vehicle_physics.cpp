@@ -811,7 +811,7 @@ void CVehicleComponent::UpdateSkater()
     float frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     uint32_t frameBits = std::bit_cast<uint32_t>(frame);
     uint32_t blend = std::bit_cast<uint32_t>(1000.0f);
-    if (!GameVariable<GameNet::Manager*>(0x007CCE14)->InNetGame()) {
+    if (!GameNet::g_gameNetManager->InNetGame()) {
         blender->PlayAnimationEx(m_skaterAnim, 0, frameBits, blend, 1, 0, 0);
         return;
     }

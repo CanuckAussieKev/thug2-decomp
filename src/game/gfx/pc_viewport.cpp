@@ -16,6 +16,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
+#include "game/gfx/glow.h"
 
 namespace Nx {
 
@@ -34,7 +36,7 @@ namespace {
 
 constexpr uint32_t kViewportVtable = 0x0064A848;
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 bool Radeon8500() { return g_radeon8500; }
 
 void Transform(float* out, const float* v, const void* matrix)
@@ -48,7 +50,7 @@ void BeginQueryDraw(uint32_t fvf)
 {
     SetBlendMode(0);
     SetTexture(0, nullptr);
-    SetPixelShader(GameVariable<void*>(0x007CA94C), nullptr);
+    SetPixelShader(g_vertexColourPixelShader, nullptr);
     SetVertexFormat(fvf);
     Platform::BeginOcclusionQuery();
 }

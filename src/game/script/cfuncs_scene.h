@@ -64,4 +64,5 @@ bool __cdecl CFunc_UpdateLensFlare(Script::CStruct* params, Script::CScript* scr
 
 GAME_GLOBAL_EXTERN(bool, g_gotExtraMemory);
 
+GAME_GLOBAL_EXTERN(int, g_configNtsc);
 } // namespace CFuncs

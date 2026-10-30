@@ -86,4 +86,6 @@ GAME_GLOBAL_EXTERN(bool, g_initialised);
 GAME_GLOBAL_EXTERN(bool, g_usingUserSoundtrack);
 GAME_GLOBAL_EXTERN(int, g_userSoundtrack);
 
+GAME_GLOBAL_EXTERN(uint32_t, g_userTrack);
+GAME_GLOBAL_EXTERN(uint32_t, g_userPosition);
 } // namespace Pcm

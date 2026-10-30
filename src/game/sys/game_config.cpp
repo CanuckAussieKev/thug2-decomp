@@ -12,6 +12,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/script/cfuncs_scene.h"
 
 namespace GameConfig {
 
@@ -26,10 +27,10 @@ GAME_GLOBAL(bool, g_ntscFlag, 0x007CEFAF);
 int& Language() { return g_language; }
 int& Territory() { return g_territory; }
 int& Hardware() { return g_platform; }
-int& DisplayType() { return GameVariable<int>(0x00684FB0); }
+int& DisplayType() { return CFuncs::g_configNtsc; }
 int& FrameRate() { return g_frameRate; }
 bool& FromCD() { return g_fromCD; }
-bool& ExtraMemory() { return GameVariable<bool>(0x007CEFAC); }
+bool& ExtraMemory() { return CFuncs::g_gotExtraMemory; }
 bool& Bootstrap() { return g_configBootstrap; }
 bool& NtscFlag() { return g_ntscFlag; }
 

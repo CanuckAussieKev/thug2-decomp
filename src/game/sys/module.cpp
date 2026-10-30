@@ -11,6 +11,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/script/world_cfuncs.h"
 
 namespace Mdl {
 
@@ -21,7 +22,7 @@ void** const kNodeVtable = reinterpret_cast<void**>(0x00647284);
 void** const kHeadVtable = reinterpret_cast<void**>(0x00647288);
 void** const kSearchVtable = reinterpret_cast<void**>(0x00647280);
 
-Manager*& Instance() { return GameVariable<Manager*>(0x00696D78); }
+Manager*& Instance() { return CFuncs::g_moduleManager; }
 
 GAME_GLOBAL(unsigned int, g_moduleReferences, 0x00696D7C);
 

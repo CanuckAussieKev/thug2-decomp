@@ -40,6 +40,7 @@
 #include "game/obj/movie_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
@@ -122,7 +123,7 @@ constexpr uint8_t kSymbolString = 3;     // ESYMBOLTYPE_STRING
 // The singletons (not rewritten): the skate module, the network manager (GameNet::Manager), the game mode
 // (Game::CGameMode), the object manager, the goal manager, the profile manager (graffiti colours).
 uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(g_skateModule); }
-uint8_t* NetManager() { return GameVariable<uint8_t*>(0x007CCE14); }
+uint8_t* NetManager() { return reinterpret_cast<uint8_t*>(GameNet::g_gameNetManager); }
 GameNet::Manager* Gn(uint8_t* net = NetManager()) { return reinterpret_cast<GameNet::Manager*>(net); }
 uint8_t* GameMode() { return reinterpret_cast<uint8_t*>(Game::g_gameMode); }
 Obj::CBaseManager* ObjectManager() { return reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager); }
@@ -677,7 +678,7 @@ int SkateNet::HandleStartInfo(Net::MsgHandlerContext* context)
     auto u32 = [data](uint32_t offset) { return *reinterpret_cast<const uint32_t*>(data + offset); };
     Net::Conn* conn = context->m_Conn; // (the server's connection)
     conn->SetBandwidthType(data[1] == 0 ? 1 : 0);
-    conn->SetSendInterval(static_cast<uint32_t>((1000 / GameVariable<int>(0x00684FB4)) << 1));
+    conn->SetSendInterval(static_cast<uint32_t>((1000 / GameConfig::g_frameRate) << 1));
     Gn(net)->SetGameId(data[2]);
     Gn(net)->SetLevel(u32(0x10));
     Gn(net)->SetCrownSpawnPoint(static_cast<char>(data[0]));

@@ -17,16 +17,18 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine.h"
 
 namespace Nx {
 
 namespace {
 
 // The 640x480 layout -> back buffer conversion (SetLetterbox) and the back buffer's size.
-float ScreenScaleX() { return GameVariable<float>(0x00786D80); }
-float ScreenScaleY() { return GameVariable<float>(0x00786D84); }
-int32_t ScreenOffsetX() { return GameVariable<int32_t>(0x00786D88); }
-int32_t ScreenOffsetY() { return GameVariable<int32_t>(0x00786D8C); }
+float ScreenScaleX() { return g_screenScaleX; }
+float ScreenScaleY() { return g_screenScaleY; }
+int32_t ScreenOffsetX() { return static_cast<int32_t>(g_screenOffsetX); }
+int32_t ScreenOffsetY() { return static_cast<int32_t>(g_screenOffsetY); }
 int32_t BackBufferWidth() { return g_backBufferWidth; }
 int32_t BackBufferHeight() { return g_backBufferHeight; }
 // The layout's size (the constants at 0x00649FD4 and 0x006484B4).
@@ -34,7 +36,7 @@ constexpr float kLayoutWidth = 640.0f;
 constexpr float kLayoutHeight = 480.0f;
 
 // The D3D9 device, its methods by vtable offset.
-void** Device() { return GameVariable<void**>(0x007D69E0); }
+void** Device() { return reinterpret_cast<void**>(g_d3dDevice); }
 template <typename F>
 F DeviceMethod(int offset)
 {
@@ -235,7 +237,7 @@ void SSprite::Draw()
     SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
     SetTextureStageState(0, 1, 5); // colour: texture x diffuse, doubled
     SetTextureStageState(0, 4, 5); // alpha: the same
-    if (!GameVariable<bool>(0x007D1EC0)) { // (rendering not skipped)
+    if (!g_skipRender) { // (rendering not skipped)
         ++g_drawCalls;    // draw calls
         g_drawnTriangles += 2; // triangles
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,

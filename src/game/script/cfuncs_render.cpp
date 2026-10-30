@@ -30,6 +30,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/settings.h"
+#include "game/gfx/device.h"
 
 namespace CFuncs {
 
@@ -104,7 +106,7 @@ constexpr uint32_t kX = 0x7323E97C;               // "x"
 constexpr uint32_t kY = 0x0424D9EA;               // "y"
 constexpr uint32_t kZ = 0x9D2D8850;               // "z"
 
-bool DistanceClipping() { return GameVariable<bool>(0x007D643A); }
+bool DistanceClipping() { return Nx::g_distanceClipping; }
 
 // Compiled out of this build - jumps to the empty function 0x005480A0 (0x0048C1B0) or calls of it.
 inline void FinishRendering() {}
@@ -283,7 +285,7 @@ bool __cdecl CFunc_DebugLine(CStruct* params, CScript*)
 // the script's params. Always true.
 bool __cdecl CFunc_GetPausePosByResolution(CStruct*, CScript* script)
 {
-    float x = GameVariable<uint32_t>(0x00786A7C) == 640 ? 50.0f : 20.0f; // the back buffer's width
+    float x = Nx::g_presentParameters.BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
     script->m_params->AddPair(Crc::GenerateCRCFromString("pos"), x, 240.0f);
     return true;
 }
@@ -412,7 +414,7 @@ bool __cdecl CFunc_SetFogColor(CStruct* params, CScript*)
     params->GetInteger("b", &b, 0);
     params->GetInteger("a", &a, 0);
     if (DistanceClipping()) {
-        GameVariable<uint32_t>(0x0078733C) = static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 |
+        Nx::g_fogColour = static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 |
                                              (b & 0xFF);
         return false;
     }
@@ -425,7 +427,7 @@ bool __cdecl CFunc_SetRenderMode(CStruct* params, CScript*)
 {
     int mode = 0;
     params->GetInteger(kMode, &mode, 0);
-    GameVariable<int>(0x006FA734) = mode;
+    Nx::g_renderMode = mode;
     return true;
 }
 

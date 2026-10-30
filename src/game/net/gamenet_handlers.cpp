@@ -29,6 +29,7 @@
 #include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 namespace GameNet {
 
@@ -276,7 +277,7 @@ int __cdecl HandleJoinAccepted(Net::MsgHandlerContext* context)
 // 0x0052E1A0
 int __cdecl HandleReadyToPlay(Net::MsgHandlerContext* context)
 {
-    auto* logicTasks = reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04);
+    auto* logicTasks = reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04);
     Manager* manager = ManagerOf(context);
     manager->SetReadyToPlay(true); // (m_readyToPlay set, the skaters told)
     if (!context->m_App->IsLocal())
@@ -306,7 +307,7 @@ int __cdecl HandleGameOver(Net::MsgHandlerContext* context)
 int __cdecl HandleGameEnded(Net::MsgHandlerContext* context)
 {
     Manager* manager = ManagerOf(context);
-    GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->RemoveAllClusters();
+    Obj::g_trickObjectManager->RemoveAllClusters();
     Run(kCreateGameEndedDialog);
     manager->ResetPlayers();
     return kContinue;

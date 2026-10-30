@@ -29,9 +29,15 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/movie_manager.h"
 
 namespace Nx {
 
+GAME_GLOBAL(Mth::Vector, g_shatterVelocity, 0x007004D0);
+GAME_GLOBAL(float, g_shatterSpeed, 0x007004CC);
+GAME_GLOBAL(Lst::HashTable*, g_splatSets, 0x007004B0);
+GAME_GLOBAL(Lst::HashTable*, g_spawnedPolys, 0x007004AC);
+GAME_GLOBAL(float, g_shatterVelocityScale, 0x0067DDF4, 1.0f);
 namespace {
 
 constexpr uint32_t kShatterVtable = 0x00649308;
@@ -42,21 +48,16 @@ GAME_GLOBAL(int, g_splatReserve, 0x0067DDE0, 128);
 GAME_GLOBAL(int, g_splatFade, 0x0067DDE4, 8);
 GAME_GLOBAL(float, g_fogDistance, 0x0067DDE8, 3000.0f);
 GAME_GLOBAL(float, g_fogExponent, 0x0067DDEC, 10.0f);
-GAME_GLOBAL(float, g_shatterVelocityScale, 0x0067DDF4, 1.0f);
 GAME_GLOBAL(float, g_shatterLifetime, 0x0067DDF8, 4.0f);
 GAME_GLOBAL(float, g_shatterFloor, 0x0067DDFC, -10000.0f);
 GAME_GLOBAL(float, g_shatterBounce, 0x0067DE00, 0.8f);
 GAME_GLOBAL(uint32_t, g_fogColor, 0x0067DE04, 0x66806060);
 GAME_GLOBAL(Lst::HashTable*, g_flashes, 0x007004A8);
-GAME_GLOBAL(Lst::HashTable*, g_spawnedPolys, 0x007004AC);
-GAME_GLOBAL(Lst::HashTable*, g_splatSets, 0x007004B0);
 GAME_GLOBAL(Lst::HashTable*, g_recentSplats, 0x007004B4);
 GAME_GLOBAL(uint32_t, g_shatterTexture, 0x007004BC);
 GAME_GLOBAL(uint32_t, g_shatterValueAF1A, 0x007004C0);
 GAME_GLOBAL(int, g_shatterValue33DF, 0x007004C4);
 GAME_GLOBAL(bool, g_fogEnabled, 0x007004C8);
-GAME_GLOBAL(float, g_shatterSpeed, 0x007004CC);
-GAME_GLOBAL(Mth::Vector, g_shatterVelocity, 0x007004D0);
 GAME_GLOBAL(Mth::Vector, g_shatterVector210E, 0x007004E0);
 GAME_GLOBAL(float[4], g_levelColor, 0x007004F0);
 GAME_GLOBAL(void*[128], g_lineSectors, 0x00700510);
@@ -89,7 +90,7 @@ void Remove(Lst::HashTable* table, void* value)
     table->FlushItem(key);
 }
 
-bool Paused() { return GameVariable<bool>(0x006FA7D4); }
+bool Paused() { return Obj::g_gamePaused; }
 
 // The game's C runtime's rand() and its scales (0x0064930C: 2 / 32767, 0x00646510: 1 / 32767).
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); }
@@ -455,7 +456,7 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
         }
     }
     if (!texture) {
-        auto* textures = static_cast<CTexDict*>(GameVariable<void*>(0x00700F20)); // (the particles' dictionary)
+        auto* textures = static_cast<CTexDict*>(reinterpret_cast<void*>(g_particleTextureDict)); // (the particles' dictionary)
         texture = reinterpret_cast<uint8_t*>(textures->GetTexture(Crc::GenerateCRCFromString(textureName)));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.

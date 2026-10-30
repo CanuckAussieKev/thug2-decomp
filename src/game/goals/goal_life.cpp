@@ -82,7 +82,7 @@ void** const kGoalNodeVtable = reinterpret_cast<void**>(0x0064DDCC);
 // The x87 code's float to int conversion (_ftol): truncation.
 int Truncate(double value) { return static_cast<int>(value); }
 
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 uint32_t GameModeName() { return static_cast<Game::CGameMode*>(SkateCalls::GameMode())->GetNameChecksum(); }
 
 Script::CStruct* NewStructure()

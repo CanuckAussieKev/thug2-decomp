@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 namespace Script {
 class CScript;
 class CStruct;
@@ -28,4 +30,5 @@ bool __cdecl CFunc_MenuSelectedIndexIs(Script::CStruct* params, Script::CScript*
 bool __cdecl CFunc_ScreenElementExists(Script::CStruct* params, Script::CScript* script);       // 0x004ADC10
 bool __cdecl CFunc_CreateMultipleTextElements(Script::CStruct* params, Script::CScript* script); // 0x004ADC80
 
+GAME_GLOBAL_EXTERN(uint32_t, g_unassignedId);
 } // namespace Front

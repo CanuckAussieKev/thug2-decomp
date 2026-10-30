@@ -24,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -36,7 +37,7 @@ namespace {
 constexpr uint32_t kSystemVtable = 0x0064A4F0;
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
 
@@ -54,7 +55,7 @@ void SetMaterialPass(uint8_t* material, int pass, int flags)
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const uint8_t* FindTexture(uint32_t checksum)
 {
-    return reinterpret_cast<const uint8_t*>(static_cast<CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(checksum));
+    return reinterpret_cast<const uint8_t*>(static_cast<CTexDict*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(checksum));
 }
 uint32_t TextureKey(const uint8_t* texture)
 {

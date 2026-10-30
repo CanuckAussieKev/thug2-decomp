@@ -86,4 +86,8 @@ CScene* __cdecl FindScene(uint32_t checksum);
 
 GAME_GLOBAL_EXTERN(bool, g_skipRender); // rendering skipped (frames not drawn or shown)
 
+GAME_GLOBAL_EXTERN(void*, g_flexibleParticleManager);
+GAME_GLOBAL_EXTERN(void*, g_imposterManager);
+GAME_GLOBAL_EXTERN(int, g_renderMode);
+GAME_GLOBAL_EXTERN(Mem::ListNode, g_sceneList);
 } // namespace Nx

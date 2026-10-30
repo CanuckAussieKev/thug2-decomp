@@ -49,7 +49,7 @@ T& Field(const void* object, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
-Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
 
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
 int Clock() { return Tmr::GameClockElapsed(); }

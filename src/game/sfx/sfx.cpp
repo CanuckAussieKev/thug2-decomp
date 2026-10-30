@@ -14,6 +14,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/loading_bar_cfuncs.h"
+#include "game/obj/movie_manager.h"
 
 namespace Sfx {
 
@@ -337,7 +339,7 @@ bool CSfxManager::IsPaused()
 {
     if (m_muteOverride)
         return false;
-    return Front::Automation::g_loadingScreenShown || GameVariable<bool>(0x006FA7D4);
+    return Nx::g_loadingScreenShown || Obj::g_gamePaused;
 }
 
 // 0x0047B360

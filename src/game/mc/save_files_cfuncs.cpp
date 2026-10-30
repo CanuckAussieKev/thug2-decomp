@@ -51,9 +51,9 @@ bool DeleteCardFile(Card* card, const char* name) { return card->AlwaysTrue(rein
 void DeleteFile(File* file) { reinterpret_cast<void(__thiscall*)(File*, int)>(file->m_node.vtable[0])(file, 1); }
 
 // The pool pairs the temporary pools belong to: components, structures, vectors.
-Mem::PoolPair& ComponentPools() { return GameVariable<Mem::PoolPair>(0x006F2338); }
-Mem::PoolPair& StructPools() { return GameVariable<Mem::PoolPair>(0x006F3614); }
-Mem::PoolPair& VectorPools() { return GameVariable<Mem::PoolPair>(0x006F3654); }
+Mem::PoolPair& ComponentPools() { return Script::g_componentPools; }
+Mem::PoolPair& StructPools() { return Script::g_structPools; }
+Mem::PoolPair& VectorPools() { return Script::g_vectorPools; }
 
 // A pair's second pool made (as the pair's own creator, 0x0046F110 / 0x0046F190 / 0x0046F210, does).
 void CreateReservePool(Mem::PoolPair& pools, int itemSize, int count, const char* name)
@@ -332,8 +332,13 @@ struct SaveFileHeader {
 static_assert(sizeof(SaveFileHeader) == 0x14, "the summary follows at +0x14");
 
 // The first 0x78 bytes of a listed file are read here (0x007CEC58): the header and the start of the summary.
-SaveFileHeader& ListedHeader() { return GameVariable<SaveFileHeader>(0x007CEC58); }
-const uint8_t* ListedSummary() { return &GameVariable<uint8_t>(0x007CEC6C); }
+struct ListedFile {
+    SaveFileHeader header;
+    uint8_t summary[0x78 - sizeof(SaveFileHeader)]; // (0x007CEC6C)
+};
+GAME_GLOBAL(ListedFile, g_listedFile, 0x007CEC58);
+SaveFileHeader& ListedHeader() { return g_listedFile.header; }
+const uint8_t* ListedSummary() { return g_listedFile.summary; }
 
 // The i-th file of a list (its nodes from the head's next; each file is its own node).
 File* ListEntry(Mem::ListNode* head, int index)
@@ -461,7 +466,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
             MarkCorrupt(entry, kDamagedFile);
         } else {
             opened->Seek(0, 0);
-            opened->Read(&ListedHeader(), 0x78);
+            opened->Read(&g_listedFile, 0x78);
             int summarySize = ListedHeader().summarySize;
             bool bad = summarySize > 100 ||
                        Crc::GenerateCRCFromBuffer(ListedSummary(), summarySize) != ListedHeader().summaryCrc;

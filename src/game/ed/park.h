@@ -1268,4 +1268,5 @@ GAME_GLOBAL_EXTERN(Mem::PoolPair, g_clipboardPools);
 GAME_GLOBAL_EXTERN(Mem::PoolPair, g_clipboardEntryPools);
 GAME_GLOBAL_EXTERN(Mem::PoolPair, g_nodePools);
 
+GAME_GLOBAL_EXTERN(bool, g_railEditorFlag);
 } // namespace Ed

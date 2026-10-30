@@ -15,6 +15,7 @@
 #include "game/skater/walk_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace Skater {
 
@@ -28,7 +29,7 @@ T& At(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-int& Platform() { return GameVariable<int>(0x007CEFA8); }
+int& Platform() { return GameConfig::g_platform; }
 
 // The fields the acid drops use (offsets into the skater component).
 constexpr uint32_t kVelocity = 0x34;    // four floats, then one more at +0x44

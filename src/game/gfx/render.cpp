@@ -44,6 +44,11 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/engine.h"
+#include "game/obj/particle_component.h"
+#include "game/skate/skate_module.h"
 
 namespace Nx {
 
@@ -77,7 +82,7 @@ void SetFog(bool on) { Engine::EnableFog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
-void* Device() { return GameVariable<void*>(0x007D69E0); }
+void* Device() { return reinterpret_cast<void*>(g_d3dDevice); }
 template <typename F>
 F Method(void* object, int offset) { return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]); }
 
@@ -190,8 +195,8 @@ float FloatFromBits(uint32_t bits)
 void SetDisplayRegion()
 {
     // the 640x480 layout's size on the back buffer (SetLetterbox), centred
-    auto width = static_cast<uint32_t>(GameVariable<float>(0x00786D80) * 640.0f);
-    auto height = static_cast<uint32_t>(GameVariable<float>(0x00786D84) * 480.0f);
+    auto width = static_cast<uint32_t>(g_screenScaleX * 640.0f);
+    auto height = static_cast<uint32_t>(g_screenScaleY * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
     g_deviceViewport.x = (reinterpret_cast<uint32_t&>(g_backBufferWidth) - width) / 2;
     g_deviceViewport.width = width;
@@ -217,7 +222,7 @@ void Draw2DWithBlackBars()
     constexpr uint32_t kBlack = 0xFF000000;
     if (backBufferAspect > DesiredAspectRatio()) {
         // bars left and right
-        auto width = static_cast<uint32_t>(std::round(static_cast<double>(GameVariable<float>(0x00786D80) * 640.0f)));
+        auto width = static_cast<uint32_t>(std::round(static_cast<double>(g_screenScaleX * 640.0f)));
         uint32_t barWidth = (backBufferWidth - width) / 2;
         SetTexture(0, nullptr);
         BarVertex bar[4] = {
@@ -232,7 +237,7 @@ void Draw2DWithBlackBars()
         DrawPrimitiveUP(6, 2, bar, sizeof(BarVertex));
     } else if (backBufferAspect < DesiredAspectRatio()) {
         // bars top and bottom
-        auto height = static_cast<uint32_t>(std::round(static_cast<double>(GameVariable<float>(0x00786D84) * 480.0f)));
+        auto height = static_cast<uint32_t>(std::round(static_cast<double>(g_screenScaleY * 480.0f)));
         uint32_t barHeight = (backBufferHeight - height) / 2;
         SetTexture(0, nullptr);
         BarVertex bar[4] = {
@@ -282,7 +287,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     camera.farZ = 96000.0f;
     camera.angle = angle;
     if (g_distanceClipping) // distance clipping (setting 0x007D6444: 100-595)
-        camera.farZ = static_cast<float>(static_cast<double>(GameVariable<uint32_t>(0x007D6444)) * 18.0);
+        camera.farZ = static_cast<float>(static_cast<double>(static_cast<uint32_t>(Gfx::g_drawDistanceSetting)) * 18.0);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (game/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
     camera.farZ = GraphicsOptions::Scaled(camera.farZ, GraphicsOptions::Get().drawDistanceScale);
@@ -322,7 +327,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     MatrixRotationY(&g_headingMatrix,
                     Atan2LessQuarterTurn(-camera.backward[2], -camera.backward[0]));
     // The view frustum (0x00775B80) follows the new view.
-    reinterpret_cast<sBillboardManager*>(&GameVariable<uint8_t>(0x00775B80))->SetupAxes();
+    g_billboardManager.SetupAxes();
 }
 
 namespace {
@@ -365,7 +370,7 @@ void DrawScreenBlur()
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
     int current = g_screenCopyIndex;
-    void* const* textures = &GameVariable<void*>(0x00786D1C);
+    void* const* textures = reinterpret_cast<void* const*>(g_screenTextures);
     void* texture = textures[current];
     void* other = textures[(current + 1) % 2];
     uint32_t desc[8]; // D3DSURFACE_DESC
@@ -373,11 +378,11 @@ void DrawScreenBlur()
     uint32_t textureWidth = desc[6], textureHeight = desc[7];
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
-    uint32_t amount = GameVariable<uint32_t>(0x00787328);
+    uint32_t amount = g_screenBlur;
     float inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
     double insetU = inset / static_cast<double>(textureWidth); // (the u's are rounded from this, unrounded)
     float insetV = static_cast<float>(inset / static_cast<double>(textureHeight));
-    float screenWidth = static_cast<float>(GameVariable<uint32_t>(0x00786A7C));
+    float screenWidth = static_cast<float>(g_presentParameters.BackBufferWidth);
     float screenHeight = static_cast<float>(g_presentParameters.BackBufferHeight);
     uint32_t color = 0x80808080;
     ScreenVertex quad[4] = {
@@ -388,12 +393,12 @@ void DrawScreenBlur()
     };
     // Originally from PartyMod Fixes (its JMP at 0x004DF63A): no letterbox adjustment - PartyMod's letterbox is a viewport. The
     // original, when letterboxed (0x00786CBE), moved the quad in by an eighth of the back buffer's height:
-    //   float bar = static_cast<float>(GameVariable<int>(0x00786D70) / 8);
+    //   float bar = static_cast<float>(g_backBufferHeight / 8);
     //   quad[0].y = quad[1].y = bar;
     //   quad[0].v = quad[1].v = insetV + bar;   (sic: a pixel count added to a texture coordinate)
     //   quad[2].y -= bar; quad[3].y -= bar; quad[2].v -= bar; quad[3].v -= bar;
     if (amount) {
-        SetBlendMode(GameVariable<uint32_t>(0x0078732C) > 2 ? 5 : 0);
+        SetBlendMode(g_screenBlurFrames > 2 ? 5 : 0);
         color = amount << 24 | 0x808080;
         for (ScreenVertex& v : quad)
             v.color = color;
@@ -404,7 +409,7 @@ void DrawScreenBlur()
     // Draw into `texture`: the other texture (if the blur level, 0x0078732C, is above 2)...
     void* surface = nullptr;
     Method<long(__stdcall*)(void*, unsigned int, void**)>(texture, 0x48)(texture, 0, &surface); // GetSurfaceLevel
-    void* depth = GameVariable<void*>(0x00786D64);
+    void* depth = reinterpret_cast<void*>(g_depthSurface);
     // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
     if (!GraphicsOptions::SetSceneTarget(static_cast<IDirect3DTexture9*>(texture))) {
         SetRenderTarget(surface);
@@ -416,7 +421,7 @@ void DrawScreenBlur()
     SetTextureStageState(0, 1, 2); // colour op: select arg 1
     SetTextureStageState(0, 2, 2); // colour arg 1: texture
     SetTextureStageState(0, 4, 1); // alpha op: disable
-    if (GameVariable<uint32_t>(0x0078732C) > 2) {
+    if (g_screenBlurFrames > 2) {
         SetRenderState(0x11, 1);
         SetTexture(0, other);
         DrawPrimitiveUP(5 /* triangle strip */, 2, quad, sizeof(ScreenVertex));
@@ -427,10 +432,10 @@ void DrawScreenBlur()
     // on) or the background colour.
     // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
     GraphicsOptions::ResolveSceneTarget(static_cast<IDirect3DTexture9*>(texture));
-    SetRenderTarget(GameVariable<void*>(0x00786D10));
-    SetDepthStencilSurface(GameVariable<void*>(0x00786D14));
+    SetRenderTarget(reinterpret_cast<void*>(g_backBuffer));
+    SetDepthStencilSurface(reinterpret_cast<void*>(g_backDepth));
     bool fogColour = g_fogSetting && g_distanceClipping;
-    ClearTarget(fogColour ? GameVariable<uint32_t>(0x0078733C) : GameVariable<uint32_t>(0x00786CC0));
+    ClearTarget(fogColour ? g_fogColour : g_camera.backgroundColour);
     SetRenderState(0x11, 0);
     SetTexture(0, texture);
     DrawPrimitiveUP(5, 2, quad, sizeof(ScreenVertex));
@@ -493,7 +498,7 @@ bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scen
 template <typename F>
 void ForEachScene(F fn)
 {
-    SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC);
+    SceneNode* node = reinterpret_cast<SceneNode*>(g_sceneList.next);
     if (IsEnd(node) || !node) // (sic: the original reads the node before testing it)
         return;
     while (node) {
@@ -542,7 +547,7 @@ void RenderViewport(int index)
     // Not original - the automation channel's camera lock (game/front/test_view.h): viewport 0's camera held at a pose.
     // Original behaviour: the camera is drawn where the game put it.
     Front::TestView::PlaceCamera(static_cast<Gfx::Camera*>(camera), index);
-    GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
+    g_drawnViewport = index; // the viewport being drawn
     double width = g_backBufferWidth;
     double height = static_cast<float>(g_backBufferHeight);
     DeviceViewport& vp = TheViewport();
@@ -555,7 +560,7 @@ void RenderViewport(int index)
     if (g_camera.letterboxActive && !FrontEndWidescreen()) {
         // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
-        //   int screenHeight = GameVariable<int>(0x00786D70);
+        //   int screenHeight = g_backBufferHeight;
         //   vp.y += screenHeight / 8;
         //   vp.height -= screenHeight / 4;
         // (widescreen_menus: in the front end the 3D view keeps the whole screen; the 2D below stays fitted.)
@@ -604,7 +609,7 @@ void RenderViewport(int index)
     DrawTextureSplats();
     DrawProjectionBatches();
     SetRenderState(1, 1);
-    static_cast<CImposterManager*>(GameVariable<void*>(0x006FA7BC))->Render();
+    static_cast<CImposterManager*>(g_imposterManager)->Render();
     SetPass(1);
     ClearWorldTransform();
 
@@ -669,11 +674,11 @@ void RenderViewport(int index)
     SetPass(0x102);
     IssueOcclusionQueries();
     SetRenderState(1, 0);
-    static_cast<CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->RenderSystems(index > 0);
-    static_cast<CParticleManager*>(GameVariable<void*>(0x006FA7C4))->RenderParticles();
+    static_cast<CFlexibleParticleManager*>(g_flexibleParticleManager)->RenderSystems(index > 0);
+    static_cast<CParticleManager*>(reinterpret_cast<void*>(Obj::g_particleManager))->RenderParticles();
     {
         // (the weather's slot 3, through the jump 0x004A10A0)
-        void* weather = GameVariable<void*>(0x006FA7C8);
+        void* weather = g_weather;
         reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(weather))[3])(weather);
     }
     SetRenderState(1, 1);
@@ -700,13 +705,13 @@ void RenderWorld()
     // Original behaviour: nothing.
     Front::LevelEditor::Update();
     ++g_framesRendered; // frames rendered
-    if (!GameVariable<bool>(0x00786D04)) { // (nothing while the device is lost)
+    if (!g_loadingScreenUp) { // (nothing while the device is lost)
         g_frameTime = static_cast<int>(Tmr::GetTime());
         SetRenderState(1, 1);
         SetRenderState(2, 1);
         RenderShadowTextures();
         BeginScreenEffects();
-        int count = GameVariable<int>(0x00701378);
+        int count = Mdl::g_viewportCount;
         // Not original - the wireframe render mode (game/gfx/wireframe.h): the 3D passes in wireframe when asked.
         // Original behaviour: the render mode (0x006FA734) isn't read.
         Wireframe::BeginWorld();
@@ -720,7 +725,7 @@ void RenderWorld()
         FullScreenViewport();
         if (g_camera.letterboxActive) {
             // Originally from PartyMod Fixes (its call at 0x004B33CA): fitted to the aspect wanted. The original:
-            //   int screenHeight = GameVariable<int>(0x00786D70);
+            //   int screenHeight = g_backBufferHeight;
             //   TheViewport().y = screenHeight / 8;
             //   TheViewport().height = screenHeight - screenHeight / 4;
             SetDisplayRegion();

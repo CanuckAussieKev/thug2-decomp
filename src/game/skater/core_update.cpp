@@ -11,6 +11,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/nx/feeler.h"
 
 namespace Skater {
 
@@ -102,7 +103,7 @@ void CorePhysicsComponent::Update()
         At<int>(this, kAirTimer) = 0;
     if (bike && ThawBmx::Active(this))
         ThawBmx::EndFrame(this); // (not original: THAW 0x005C9210, the x-up let go)
-    GameVariable<void*>(0x00691974) = nullptr;
+    reinterpret_cast<void*&>(Nx::g_currentCache) = nullptr;
     CollisionEvents::EndFrame(this); // (not original: [debug] collision_events)
 }
 

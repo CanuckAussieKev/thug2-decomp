@@ -18,6 +18,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/loading_bar.h"
 
 #pragma warning(disable : 4996) // (sprintf / strncpy: the original's own)
 
@@ -225,7 +226,7 @@ void LobbyMan::AddPlayerListItem(LobbyPlayer* player)
     params->AddChecksum(kPadChooseScript, script);
     // (x87: the rating times two floats, truncated)
     int rank = static_cast<int>(static_cast<double>(player->m_rating) * static_cast<double>(g_rankScale) *
-                                static_cast<double>(GameVariable<float>(0x00646710)));
+                                static_cast<double>(Nx::g_floatTen));
     if (rank > kMaxRank)
         rank = kMaxRank;
     params->AddInteger(kRank, rank);

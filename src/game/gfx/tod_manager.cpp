@@ -30,6 +30,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/cag_cfuncs.h"
+#include "game/obj/anim_movies.h"
+#include "game/gfx/movie.h"
+#include "game/obj/particle_component.h"
+#include "game/gfx/engine_glue.h"
+#include "game/front/front_end.h"
 
 namespace Gfx {
 
@@ -109,12 +115,12 @@ constexpr uint32_t kBloomOn = 0x400681B6, kBloomStrength = 0x743D0048, kBloomCol
 constexpr uint32_t kNeutralColor = 0x81808080;
 
 // The exe's constants.
-float DegreesToRadians() { return GameVariable<float>(0x00645464); } // 0.017453292
-float Zero() { return GameVariable<float>(0x0066D520); }             // 0.0
-float OnePercent() { return GameVariable<float>(0x0064544C); }       // 0.01
+float DegreesToRadians() { return CFuncs::g_degreesToRadians; } // 0.017453292
+float Zero() { return Obj::g_floatZero; }             // 0.0
+float OnePercent() { return Nx::g_onePercent; }       // 0.01
 float OneOver255() { return g_oneOver255; }       // 1 / 255
 float TwoTo32() { return g_twoTo32; }          // 4294967296: unsigned integers' correction
-float One() { return GameVariable<float>(0x006453A8); }              // 1.0
+float One() { return Obj::g_animMoviesOne; }              // 1.0
 float Half() { return g_half; }             // 0.5
 float Hundred() { return g_hundred; }          // 100.0
 float Thousand() { return g_thousand; }         // 1000.0
@@ -237,23 +243,23 @@ void SetSun(const SunParams* sun, int mask)
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
 void SetLevelColor(const float* color)
 {
-    static_cast<Nx::CParticleManager*>(GameVariable<void*>(0x006FA7C4))->SetColour(color);
-    static_cast<Nx::CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->SetColourScale(color);
+    static_cast<Nx::CParticleManager*>(reinterpret_cast<void*>(Obj::g_particleManager))->SetColour(color);
+    static_cast<Nx::CFlexibleParticleManager*>(Nx::g_flexibleParticleManager)->SetColourScale(color);
     Nx::Engine::SetLevelColor(color);
 }
 void SetBloomStructure(Script::CStruct* params)
 {
-    static_cast<Nx::CScreenEffects*>(GameVariable<void*>(0x006FA7CC))->SetBloomParams(params, 0);
+    static_cast<Nx::CScreenEffects*>(Nx::g_screenEffects)->SetBloomParams(params, 0);
 }
 // Whether this is a multiplayer game (a network game, or more than one local player): the lights stay as set.
 bool IsMultiplayer() { return Mdl::Skate::IsMultiplayer() & 1; }
 // The game mode's name (Mdl::Skate's game mode 0x007CE470).
 uint32_t GameModeName()
 {
-    return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->GetNameChecksum();
+    return static_cast<Game::CGameMode*>(reinterpret_cast<void*>(Game::g_gameMode))->GetNameChecksum();
 }
 // The front end (0x007CE464): +0x30 paused.
-bool GamePaused() { return GameVariable<uint8_t*>(0x007CE464)[0x30] != 0; }
+bool GamePaused() { return reinterpret_cast<uint8_t*&>(Mdl::g_frontEndInstance)[0x30] != 0; }
 // Obj's CreateFromNode (0x005A32A0): the object of node `name` made.
 void CreateFromNode(uint32_t name) { CFuncs::CreateFromNodeName(name); }
 
@@ -1216,7 +1222,7 @@ bool CTODManager::CanSetTODInstant(uint32_t state) const
     return false;
 }
 
-CTODManager*& TODManager() { return GameVariable<CTODManager*>(0x007CE490); }
+CTODManager*& TODManager() { return CFuncs::g_todManager; }
 namespace {
 uint32_t& References() { return g_todReferences; }
 } // namespace

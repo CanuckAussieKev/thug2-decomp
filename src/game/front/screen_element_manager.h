@@ -6,6 +6,7 @@
 #include "game/front/screen_element.h"
 #include "game/obj/event.h"
 #include "game/obj/objman.h"
+#include "hook/game_global.h"
 
 namespace Script {
 class CScript;
@@ -18,6 +19,9 @@ class CStruct;
 // have the focus per controller (from the focus / unfocus events it listens to) and get the pad events, and the
 // pad-event priorities (Priority: only the top element of up to 10 gets the pad events; the others are hidden).
 namespace Front {
+
+class CScreenElementManager;
+GAME_GLOBAL_EXTERN(CScreenElementManager*, g_screenElementManager); // the singleton
 
 class CScreenElementManager : public Obj::CBaseManager {
 public:
@@ -42,7 +46,7 @@ public:
     static_assert(sizeof(PriorityEntry) == 0x18, "layout must match the original");
     enum { kFocusEntries = 0x30, kPriorities = 10, kMaxPadEventTypes = 0x30 };
 
-    static CScreenElementManager*& Instance() { return GameVariable<CScreenElementManager*>(0x00701440); }
+    static CScreenElementManager*& Instance() { return g_screenElementManager; }
 
     // 0x004AB990: the constructor (returns this): vtables 0x0064A0E8 / 0x0064A104 (the listener), no root, the
     // listener on the tracker's list for no object, no focus, no priorities, no pad event types read yet.

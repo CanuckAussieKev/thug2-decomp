@@ -22,10 +22,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
 GAME_GLOBAL(bool, g_billboardsReady, 0x00775B7C);
+GAME_GLOBAL(sBillboardManager, g_billboardManager, 0x00775B80);
 GAME_GLOBAL(uint8_t, g_billboardFlag, 0x00786EB4);
 
 GAME_GLOBAL(float[12], g_billboardConstants, 0x0067E998,
@@ -37,7 +39,7 @@ constexpr uint32_t kNodeVtable = 0x0064A894;
 constexpr uint32_t kHeadVtable = 0x0064A898;
 constexpr uint32_t kWindowVtable = 0x0064A88C;
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 bool VertexShaders() { return g_shadersAvailable; }
 void SetFogEnabled(bool on) { Engine::EnableFog(on); }
 sVertexBuffer* VertexBuffer(sMesh* mesh, int index)
@@ -418,7 +420,7 @@ void sBillboardBatch::Render()
     multiply(viewWorld, view, identity);
     multiply(all, projection, viewWorld);
     Device()->SetVertexShaderConstantF(0, all, 4);
-    auto* manager = &GameVariable<sBillboardManager>(0x00775B80);
+    auto* manager = &g_billboardManager;
     float* constants = g_billboardConstants; // c4-c6
     auto setAxes = [&](const float* x, const float* y, const float* z) {
         std::memcpy(constants, x, 12);

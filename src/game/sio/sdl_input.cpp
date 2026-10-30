@@ -25,6 +25,7 @@
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
+#include "game/sys/platform_input.h"
 
 namespace Sio {
 
@@ -840,7 +841,7 @@ int32_t DirectInputKey(SDL_Scancode scanCode)
 // The bindings in the game's table (0x007D6770, port 0's actions), for the menus' key hints.
 void WriteGameKeyBindings()
 {
-    auto* binds = &GameVariable<int32_t>(0x007D6770);
+    int32_t* binds = Platform::g_keyBindings;
     binds[0] = DirectInputKey(s_keys.up);
     binds[1] = DirectInputKey(s_keys.down);
     binds[2] = DirectInputKey(s_keys.left);

@@ -136,7 +136,7 @@ bool __cdecl CFunc_GetCollidingPlayerAndTeam(Script::CStruct* params, Script::CS
     params->GetFloat(kRadius, &radius, 1);
     double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
     float radiusSquared = static_cast<float>(inches * inches);
-    GameNet::Manager* net = GameVariable<GameNet::Manager*>(0x007CCE14);
+    GameNet::Manager* net = GameNet::g_gameNetManager;
     for (int i = 0; i < Skate()->GetNumSkaters(); ++i) {
         Obj::CSkater* skater = SkaterAt(i);
         if (!skater)

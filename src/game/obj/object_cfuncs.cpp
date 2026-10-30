@@ -17,6 +17,8 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/cag_cfuncs.h"
 
 namespace CFuncs {
 
@@ -70,7 +72,7 @@ float ProjectToScreen(void* camera, const Mth::Vector* position, float* x, float
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
-void* ParticleManager() { return GameVariable<void*>(0x006FA7C0); }
+void* ParticleManager() { return Nx::g_flexibleParticleManager; }
 void DestroyParticleGroup(void* manager, uint32_t group)
 {
     static_cast<Nx::CFlexibleParticleManager*>(manager)->DestroyGroup(group);
@@ -312,7 +314,7 @@ bool __cdecl CFunc_Orient(Script::CStruct* params, Script::CScript*)
     if (!params->GetVector(kAngles, &angles, 0))
         angles = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->ContainsFlag(kDegrees)) {
-        float degrees = GameVariable<const float>(0x00645464); // pi / 180
+        float degrees = g_degreesToRadians; // pi / 180
         angles.x *= degrees;
         angles.y *= degrees;
         angles.z *= degrees;

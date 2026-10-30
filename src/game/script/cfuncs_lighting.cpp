@@ -19,6 +19,7 @@
 #include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/settings.h"
 
 namespace CFuncs {
 
@@ -54,7 +55,7 @@ constexpr uint32_t kTime = 0x906B67BA;        // "time"
 constexpr uint32_t kReset = 0xAF6240B2;       // "reset"
 
 // Fog and clipping distances are left alone while distance clipping (the setting) is on.
-bool DistanceClipping() { return GameVariable<bool>(0x007D643A); }
+bool DistanceClipping() { return Nx::g_distanceClipping; }
 
 // The world sector named `name` (null if the scene has none of that name).
 Nx::CSector* GetSector(uint32_t name) { return static_cast<Nx::CSector*>(Nx::Engine::GetSector(name)); }

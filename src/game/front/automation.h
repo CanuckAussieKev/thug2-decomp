@@ -201,7 +201,5 @@ struct Status {
 };
 std::string StatusJson(const Status& status);
 
-GAME_GLOBAL_EXTERN(uint8_t, g_loadingScreenShown);
-GAME_GLOBAL_EXTERN(Mdl::FrontEnd*, g_frontEndInstance);
 
 } // namespace Front::Automation

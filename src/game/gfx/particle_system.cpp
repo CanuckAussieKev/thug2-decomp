@@ -20,6 +20,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/skate/skate_module.h"
 
 namespace Nx {
 
@@ -33,8 +34,8 @@ void** const kNodeVtable = reinterpret_cast<void**>(0x00649420); // (Lst::Node<C
 constexpr float kNearlyUp = 0.99f;                                // 0x00645450
 constexpr float kFramesPerSecond = 60.0f;                         // 0x00645EA0
 
-void* ParticleManager() { return GameVariable<void*>(0x006FA7C0); }
-int ViewportCount() { return GameVariable<int>(0x00701378); }
+void* ParticleManager() { return g_flexibleParticleManager; }
+int ViewportCount() { return Mdl::g_viewportCount; }
 Gfx::Camera* ViewportCamera(int viewport)
 {
     return GetActiveCamera(viewport);

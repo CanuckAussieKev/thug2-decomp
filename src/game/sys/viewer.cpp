@@ -38,6 +38,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/movie_manager.h"
+#include "game/ass/assman.h"
+#include "game/script/cfuncs_scene.h"
 
 namespace Mdl {
 
@@ -54,7 +57,7 @@ constexpr uint32_t kUserViewerX = 0xF440EC15;          // UserViewerX
 void** const kVtable = reinterpret_cast<void**>(0x0064EBC4);
 void** const kBaseHandlerVtable = reinterpret_cast<void**>(0x00646090); // Inp::BaseHandler
 
-int& ViewModeValue() { return GameVariable<int>(0x007CE4A4); }
+int& ViewModeValue() { return Obj::g_viewMode; }
 
 GAME_GLOBAL(float, g_rotateVelocity, 0x007CE498);
 GAME_GLOBAL(float, g_movementVelocity, 0x007CE49C);
@@ -96,7 +99,7 @@ float& RotateVelocity() { return g_rotateVelocity; }
 uint32_t& LastTime() { return g_lastTime; }
 bool DebugChecks() { return GameConfig::g_fromCD; }
 uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(Inp::g_inputManager); }    // Inp::Manager
-Mlp::Manager* MainLoopManager() { return GameVariable<Mlp::Manager*>(0x00696D68); }
+Mlp::Manager* MainLoopManager() { return Ass::g_mainLoopManager; }
 
 void ConstructNode(void* node, int priority) { static_cast<Tsk::BaseTask*>(node)->Construct(priority); }
 void AddNode(Tsk::Stack& list, void* node) { list.AddTask(static_cast<Tsk::BaseTask*>(node)); }
@@ -344,7 +347,7 @@ int __cdecl HandleRemoveViewerObject(void** context)
 void Viewer::CreateViewerObject(void* data)
 {
     Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(GameVariable<bool>(0x007CEFAC) ? static_cast<Mem::Allocator*>(manager->m_debugHeap)
+    manager->PushContext(CFuncs::g_gotExtraMemory ? static_cast<Mem::Allocator*>(manager->m_debugHeap)
                                                          : static_cast<Mem::Allocator*>(manager->m_bottomUpHeap));
     RemoveViewerObject();
     void* memory = Mem::Calloc(0x128);

@@ -54,7 +54,7 @@ T& Field(const void* object, uint32_t offset)
 }
 
 // --- textures (the texture dictionary 0x00700F20) ---
-void* TextureDictionary() { return GameVariable<void*>(0x00700F20); }
+void* TextureDictionary() { return reinterpret_cast<void*>(Nx::g_particleTextureDict); }
 void* LoadTexture(const char* name, bool a, bool b, bool c)
 {
     return static_cast<Nx::CTexDict*>(TextureDictionary())->LoadTexture(name, a, b, c);
@@ -91,7 +91,7 @@ void* LoadOnTextureHeap(const char* name, bool c)
     return texture;
 }
 
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 
 Script::CStruct* NewParams()
 {

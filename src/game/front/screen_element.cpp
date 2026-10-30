@@ -91,7 +91,7 @@ void LaunchEvent(uint32_t type, uint32_t target)
     Obj::Tracker()->LaunchEvent(type, target, kSystem, nullptr, false, -1.0f);
 }
 
-void* Manager() { return GameVariable<void*>(0x00701440); }
+void* Manager() { return g_screenElementManager; }
 
 // The screen element manager's pieces.
 CScreenElementManager* Elements(void* manager) { return static_cast<CScreenElementManager*>(manager); }

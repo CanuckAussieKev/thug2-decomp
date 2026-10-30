@@ -23,6 +23,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/scene_load.h"
 
 namespace Obj {
 
@@ -59,8 +60,8 @@ constexpr uint32_t kModelFileOffset = 0xFD8697E1;
 // The skater appearance parts asked about (names unknown).
 constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE, kPartC = 0x6DF453B6, kHidden = 0xC4C5B2CC;
 
-Mem::PoolPair& StructPools() { return GameVariable<Mem::PoolPair>(0x006F3614); }
-Mem::PoolPair& SourcePools() { return GameVariable<Mem::PoolPair>(0x006FA7F4); }
+Mem::PoolPair& StructPools() { return Script::g_structPools; }
+Mem::PoolPair& SourcePools() { return Nx::g_frameSourcePools; }
 
 Script::CStruct* MakeStruct()
 {

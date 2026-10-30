@@ -18,6 +18,8 @@
 
 namespace Obj {
 
+GAME_GLOBAL(void*, g_emitterTable, 0x006F2260);
+
 namespace {
 
 constexpr uint32_t kName = 0xA1DC81F9;     // name
@@ -25,7 +27,7 @@ constexpr uint32_t kShape = 0x7321A8D6;    // (the shape's parameter; the proxim
 constexpr uint32_t kRadius = 0xC48391A5;   // radius
 constexpr uint32_t kScript = 0x2CA8A299;   // (the node's script)
 
-Lst::HashTable*& Table() { return GameVariable<Lst::HashTable*>(0x006F2260); }
+Lst::HashTable*& Table() { return reinterpret_cast<Lst::HashTable*&>(g_emitterTable); }
 
 // The level sector named `name` (null if none) and its bounding box (not rewritten yet).
 void* GetSector(uint32_t name) { return Nx::Engine::GetSector(name); }

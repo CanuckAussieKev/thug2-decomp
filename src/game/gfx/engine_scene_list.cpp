@@ -30,7 +30,7 @@ namespace {
 constexpr uint32_t kHeadVtable = 0x00648A3C;
 
 // The list's first node (the head's next, 0x006FA7EC; the head itself when the list is empty).
-Mem::ListNode* FirstNode() { return GameVariable<Mem::ListNode*>(0x006FA7EC); }
+Mem::ListNode* FirstNode() { return g_sceneList.next; }
 bool IsHead(const Mem::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
 // The node after `node` (null at the end).
 Mem::ListNode* NextNode(const Mem::ListNode* node)

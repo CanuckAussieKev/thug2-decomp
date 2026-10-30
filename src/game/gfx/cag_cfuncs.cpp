@@ -55,8 +55,8 @@ constexpr uint32_t kHeadBoneGroups[4] = {
 
 // The texture dictionaries (0x00700F1C the game's, 0x00700F20 the skater's) and a texture by checksum (0x0049F540),
 // a new texture (0x0049FAA0: name, width, height, then 4 / 8, 0x20, 1, 1) and one taken out (0x0049F500).
-void* Textures() { return GameVariable<void*>(0x00700F1C); }
-void* SkaterTextures() { return GameVariable<void*>(0x00700F20); }
+void* Textures() { return reinterpret_cast<void*>(Nx::g_gameTextureDict); }
+void* SkaterTextures() { return reinterpret_cast<void*>(Nx::g_particleTextureDict); }
 void* FindTexture(void* dictionary, uint32_t name)
 {
     return static_cast<Nx::CTexDict*>(dictionary)->GetTexture(name);

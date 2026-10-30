@@ -29,6 +29,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/log.h"
+#include "game/obj/compositemgr.h"
 
 namespace Front::LevelEditor::Goals {
 
@@ -784,7 +785,7 @@ void PushUndo()
 
 // --- the goal manager (the skate module's - 0x005591B0 - through its script commands) ---
 
-uint8_t* SkateModule() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 
 // The current level as the goal editor keeps it (Mdl::Skate +0x378; Load_Sk5Ed_gameplay counts as Load_Sk5Ed - as
 // 0x004E7D00 / 0x004EC010 / 0x004EA6C0 do).
@@ -820,7 +821,6 @@ void KillObject(const std::string& name)
         object->MarkAsDead();
 }
 
-GAME_GLOBAL(float, g_pi, 0x006453D8, 3.1415927f);
 
 // The play nodes of a goal (EditedGoal_Pro_Node / _Restart_Node / _Object_Node's fields, placed as
 // WriteEditedGoalNodePositions 0x004E7A80 places them: Pos + (0, height, 0), Angles (0, angle - pi, 0), a letter's Type
@@ -847,7 +847,7 @@ NodeCreate::List PlayNodes(const Goal& g, int index)
         f.text = value;
         return f;
     };
-    const float pi = g_pi; // (the constant 0x004E79C0 subtracts)
+    const float pi = Obj::g_pi; // (the constant 0x004E79C0 subtracts)
     for (size_t k = 0; k < g.points.size(); ++k) {
         const Point& p = g.points[k];
         NodeCreate::Spec s;

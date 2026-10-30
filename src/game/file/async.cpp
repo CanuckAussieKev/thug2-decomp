@@ -15,6 +15,7 @@
 #include "game/sys/module.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 namespace File {
 
@@ -745,7 +746,7 @@ void* ConstructTask(void* task) { return static_cast<Tsk::BaseTask*>(task)->Cons
 void AddLogicTask(void* task)
 {
     // The main loop manager's logic task list.
-    auto* manager = GameVariable<uint8_t*>(0x00696D68);
+    auto* manager = reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager);
     reinterpret_cast<Tsk::Stack*>(manager + 4)->AddTask(static_cast<Tsk::BaseTask*>(task));
 }
 

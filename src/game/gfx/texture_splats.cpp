@@ -26,6 +26,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -41,9 +42,9 @@ GAME_GLOBAL(float, g_splitAreaLimit, 0x0067DDF0, 82944.0f);
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-IDirect3DDevice9* DrawDevice() { return GameVariable<IDirect3DDevice9*>(0x00786D0C); } // (the same device, kept twice)
-Lst::HashTable* Splats() { return GameVariable<Lst::HashTable*>(0x007004B0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* DrawDevice() { return g_drawDevice; } // (the same device, kept twice)
+Lst::HashTable* Splats() { return g_splatSets; }
 
 // The table's first value, and the next one (null when there are no more).
 sTextureSplats* NextSplats(Lst::HashTable* table)

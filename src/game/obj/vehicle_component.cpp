@@ -33,6 +33,7 @@
 #include "game/ed/park_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
 
 namespace Obj {
 
@@ -602,7 +603,7 @@ void CVehicleComponent::InitFromStructure(Script::CStruct* params)
         int count = static_cast<int>(wheels->m_size);
         m_wheelCount = count;
         if (!m_wheels) {
-            if (!GameVariable<bool>(0x007CC979))
+            if (!Mem::g_managerReady)
                 Mem::EnsureManager();
             auto* block = static_cast<int*>(
                 Mem::Manager::Get()->Allocate(static_cast<uint32_t>(count) * sizeof(Wheel) + 4, 1, nullptr));
@@ -858,7 +859,7 @@ void CVehicleComponent::Update()
 // 0x0043A070
 void CVehicleComponent::UpdateSkeleton()
 {
-    if (GameVariable<bool>(0x007D1EC0)) // (rendering off)
+    if (Nx::g_skipRender) // (rendering off)
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     auto* bones = reinterpret_cast<Mth::Matrix*>(static_cast<GameNet::FoldedGetters*>(SkeletonOf(mp_skeleton))->Word04());

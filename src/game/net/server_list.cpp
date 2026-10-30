@@ -25,6 +25,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
+#include "game/gfx/texture_cfuncs.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strncpy, kept)
 
@@ -93,7 +95,7 @@ constexpr uint32_t kNewsOk = 0xFE09;
 
 Manager* TheManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
-Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04); }
+Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04); }
 LobbyMan* Lobby(Manager* manager) { return static_cast<LobbyMan*>(manager->m_lobbyMan); }
 
 GAME_GLOBAL(uint32_t, g_lastRefresh, 0x007CE448);
@@ -547,7 +549,7 @@ unsigned long __stdcall NewsThread(void* argument)
     uint8_t* buffer = &Field<uint8_t>(manager, kNewsBuffer);
     std::memset(buffer, 0, 0x1900 * 4);
     char url[256];
-    std::sprintf(url, GameVariable<bool>(0x007CE441) ? "http://www.thug2online.com/testmotd.dat"
+    std::sprintf(url, CFuncs::g_textureFlagCe441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
     Field<int>(manager, kRequest) = Sdk<int>(0x005FF8A0, url, 0, buffer, kNewsBufferSize, 0, 0, 0, 0x005480A0u,
                                              &NewsCallback, manager); // (the download started)

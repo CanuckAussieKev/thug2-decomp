@@ -22,6 +22,7 @@
 #include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/tod_manager.h"
 
 namespace Game {
 
@@ -210,7 +211,7 @@ bool CCompetitionGoal::Win()
     RunCallbackScript(kDeactivateScript);
     m_params->RemoveFlag(kJustWonGoal);
     Virtual<void>(this, kVtSetInactive);
-    if (!GameVariable<GameNet::Manager*>(0x007CCE14)->InNetGame()) {
+    if (!GameNet::g_gameNetManager->InNetGame()) {
         Mdl::CCompetition* competition = TheCompetition();
         int place = 999;
         if (competition->PlaceIs(1))
@@ -334,7 +335,7 @@ bool CFilmGoal::Update()
         return CGoal::Update();
     if (m_filming) {
         if (TargetInView()) {
-            m_timeOnCamera += Truncate(Tmr::GetSlomoFrameSeconds() * GameVariable<float>(0x006453C0)); // (1000)
+            m_timeOnCamera += Truncate(Tmr::GetSlomoFrameSeconds() * Gfx::g_thousand); // (1000)
             m_params->AddInteger(kTimeOnCamera, static_cast<int>(m_timeOnCamera));
         }
         if (m_timeOnCamera >= m_timeNeeded) {

@@ -22,6 +22,8 @@
 
 namespace SkateScript {
 
+GAME_GLOBAL(SkateScript::CNodeManager*, g_nodeManager, 0x006F0D84);
+
 using Script::CArray;
 using Script::CStruct;
 
@@ -34,7 +36,7 @@ constexpr uint32_t kLinks = 0x2E7D5EE7;    // links
 constexpr uint32_t kPosition = 0xB9D31B0A; // position
 constexpr uint32_t kPos = 0x7F261953;      // pos
 
-CNodeManager*& Instance() { return GameVariable<CNodeManager*>(0x006F0D84); }
+CNodeManager*& Instance() { return g_nodeManager; }
 uint32_t& References() { return g_nodeManagerReferences; }
 
 // NOT ORIGINAL - a node asked for that must exist (the release build's assertion did nothing) and doesn't: logged, the

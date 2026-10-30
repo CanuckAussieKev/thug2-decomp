@@ -18,6 +18,7 @@
 #include "game/script/struct.h"
 #include "game/skate/game_mode.h"
 #include "hook/game.h"
+#include "game/skate/skate_module.h"
 
 namespace Front::NewFrontend::GameScreens {
 
@@ -30,7 +31,7 @@ constexpr uint32_t kMenuEvent = 0x36B2EE74;    // the pad events' target and sou
 constexpr uint32_t kDeviceNum = 0xC9428A08;    // "device_num"
 constexpr uint32_t kController = 0xB30D9965;   // "controller"
 
-uint8_t* SkateModule() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 uint32_t LevelLoad() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
 
 uint32_t IdOf(CScreenElement* element) { return reinterpret_cast<Obj::CObject*>(element)->m_id; }
@@ -54,7 +55,7 @@ const char* AnchorName(Anchor anchor)
 
 std::string GameModeName()
 {
-    void* mode = GameVariable<void*>(0x007CE470);
+    void* mode = reinterpret_cast<void*>(Game::g_gameMode);
     if (!mode)
         return {};
     uint32_t name = static_cast<Game::CGameMode*>(mode)->GetNameChecksum();

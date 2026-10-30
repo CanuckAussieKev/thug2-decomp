@@ -8,6 +8,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/control_pad.h"
 
 namespace Tmr {
 
@@ -15,7 +16,7 @@ namespace {
 
 // The game time up to the last change of speed (callers add GameClockElapsed to it), the real time of that
 // change, and the speed since.
-int& Offset() { return GameVariable<int>(0x00696D60); }
+int& Offset() { return Obj::g_clockOffset; }
 
 GAME_GLOBAL(float, g_speed, 0x0067D7C0, 1.0f);
 GAME_GLOBAL(uint32_t, g_lastChange, 0x00696D64);

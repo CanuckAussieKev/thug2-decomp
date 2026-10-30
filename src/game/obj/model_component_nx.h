@@ -75,7 +75,7 @@ inline void UpdateLightsBrightness(void* lights) { static_cast<Nx::CModelLights*
 
 // The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
 // machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-inline void* NetManager() { return GameVariable<void*>(0x007CCE14); }
+inline void* NetManager() { return reinterpret_cast<void*>(GameNet::g_gameNetManager); }
 inline void* PlayerByObjectId(void* manager, uint32_t id)
 {
     return static_cast<GameNet::Manager*>(manager)->PlayerByObjectId(static_cast<uint16_t>(id));

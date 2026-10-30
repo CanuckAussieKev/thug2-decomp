@@ -11,6 +11,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/tod_manager.h"
 
 namespace Game {
 
@@ -305,7 +306,7 @@ void CGoal::UpdateCurrentTime()
     // (a current_time that isn't there leaves the goal's address in the original's local)
     int time = static_cast<int>(reinterpret_cast<uintptr_t>(this));
     m_params->GetInteger(kCurrentTime, &time, 0);
-    time += Truncate(Tmr::GetSlomoFrameSeconds() * GameVariable<float>(0x006453C0)); // (1000)
+    time += Truncate(Tmr::GetSlomoFrameSeconds() * Gfx::g_thousand); // (1000)
     m_params->AddInteger(kCurrentTime, time);
     uint32_t ms = static_cast<uint32_t>(time);
     m_params->AddInteger(kCurrentTimeSeconds, static_cast<int>(ms / 1000));

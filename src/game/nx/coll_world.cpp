@@ -15,11 +15,13 @@
 
 namespace Nx {
 
+// The movable objects' list (its head).
+GAME_GLOBAL(Mem::ListNode, g_movables, 0x00691978);
+
 namespace {
 
 void** const kNodeVtable = reinterpret_cast<void**>(0x00645AA0); // Lst::Node<CCollObj>
 
-Mem::ListNode& s_movables = GameVariable<Mem::ListNode>(0x00691978);
 
 // Where a query's distance to beat starts: past the line's end, or (for the farthest) before its start.
 constexpr float kNearestStart = 1.01f;
@@ -94,16 +96,16 @@ void RegisterMovable(CCollObj* object)
         node->next = node;
         node->prev = node;
     }
-    node->prev = s_movables.prev;
-    node->next = &s_movables;
-    s_movables.prev->next = node;
-    s_movables.prev = node;
+    node->prev = g_movables.prev;
+    node->next = &g_movables;
+    g_movables.prev->next = node;
+    g_movables.prev = node;
 }
 
 // 0x00417800 (the list's end is its head, whose data is -1)
 void UnregisterMovable(CCollObj* object)
 {
-    Mem::ListNode* node = s_movables.next;
+    Mem::ListNode* node = g_movables.next;
     if (node->data == reinterpret_cast<void*>(-1))
         return;
     while (node) {
@@ -176,7 +178,7 @@ Obj::CCompositeObject* CollideWithMovables(const Mth::Line* line, CollisionHit* 
         }
         return owner;
     }
-    for (Mem::ListNode* node = s_movables.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
+    for (Mem::ListNode* node = g_movables.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
         auto* object = static_cast<CCollObj*>(node->data);
         if (object && !(object->m_flags & 6) && MayTouch(object, &query.box))
             owner = TestMovable(object, line, query, hit, owner);

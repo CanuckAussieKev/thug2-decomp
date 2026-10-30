@@ -17,6 +17,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine_effects.h"
 
 namespace Nx {
 
@@ -24,7 +25,7 @@ GAME_GLOBAL(Mem::PoolPair, g_spawnedPolyPools, 0x00700500);
 
 namespace {
 
-Lst::HashTable* SpawnedPolys() { return GameVariable<Lst::HashTable*>(0x007004AC); }
+Lst::HashTable* SpawnedPolys() { return g_spawnedPolys; }
 
 void* NextValue(Lst::HashTable* table)
 {

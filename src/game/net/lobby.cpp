@@ -25,6 +25,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/loading_bar.h"
+#include "game/ass/assman.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strcpy, kept)
 
@@ -148,7 +150,7 @@ void DeleteAll(Mem::ListNode* head)
 void UpdateRank(LobbyPlayer* player, const char* value)
 {
     player->m_rating = std::atol(value);
-    double rank = static_cast<double>(player->m_rating) * g_rankScale * GameVariable<float>(0x00646710);
+    double rank = static_cast<double>(player->m_rating) * g_rankScale * Nx::g_floatTen;
     int shown = static_cast<int>(rank); // (truncated, as _ftol)
     if (shown > kMaxRank)
         shown = kMaxRank;
@@ -627,7 +629,7 @@ bool __cdecl CFunc_LobbyConnect(Script::CStruct* params, Script::CScript* script
     (void)params;
     (void)script;
     Manager* manager = TheManager();
-    auto* logic = reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04); // (the logic tasks)
+    auto* logic = reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04); // (the logic tasks)
     DWORD threadId = 0;
     BOOL pingRooms[3] = {FALSE, TRUE, FALSE};
     BOOL crossPingRooms[3] = {FALSE, FALSE, FALSE};

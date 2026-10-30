@@ -18,6 +18,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine_glue.h"
 
 namespace Nx {
 
@@ -28,11 +30,11 @@ GAME_GLOBAL(float[4], g_blurTapOffsets, 0x0067EF98, -0.022857143f, -0.005714286f
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-IDirect3DDevice9* DeviceCopy() { return GameVariable<IDirect3DDevice9*>(0x00786D0C); } // (the same device)
-IDirect3DTexture9* ScreenCopy(int index) { return (&GameVariable<IDirect3DTexture9*>(0x00786D1C))[index]; }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* DeviceCopy() { return g_drawDevice; } // (the same device)
+IDirect3DTexture9* ScreenCopy(int index) { return g_screenTextures[index]; }
 IDirect3DTexture9* CurrentScreenCopy() { return ScreenCopy(g_screenCopyIndex); }
-IDirect3DSurface9* DepthSurface() { return GameVariable<IDirect3DSurface9*>(0x00786D64); }
+IDirect3DSurface9* DepthSurface() { return g_depthSurface; }
 bool& ScreenCopyInUse() { return g_screenCopyInUse; }
 void* Shader(uint32_t address) { return GameVariable<void*>(address); }
 
@@ -145,7 +147,7 @@ void __cdecl BeginScreenEffects()
 {
     ScreenCopyInUse() = false;
     IDirect3DSurface9* surface = nullptr;
-    if (GameVariable<uint32_t>(0x00787328) > 2) { // the motion blur
+    if (g_screenBlur > 2) { // the motion blur
         CurrentScreenCopy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
         if (!GraphicsOptions::SetSceneTarget(CurrentScreenCopy())) {
@@ -162,8 +164,8 @@ void __cdecl BeginScreenEffects()
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
     uint32_t colour = (g_fogSetting && g_distanceClipping)
-                          ? GameVariable<uint32_t>(0x0078733C)
-                          : GameVariable<uint32_t>(0x00786CC0);
+                          ? g_fogColour
+                          : g_camera.backgroundColour;
     Device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
     surface->Release();
     ScreenCopyInUse() = true;

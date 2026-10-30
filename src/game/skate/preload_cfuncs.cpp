@@ -207,7 +207,7 @@ bool __cdecl CFunc_PreloadModels(Script::CStruct*, Script::CScript*)
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
 bool __cdecl CFunc_PreloadPedestrians(Script::CStruct* params, Script::CScript*)
 {
-    if (GameVariable<GameNet::Manager*>(0x007CCE14)->InNetGame())
+    if (GameNet::g_gameNetManager->InNetGame())
         return false;
     if (Script::GetInteger(kNoPedestrians))
         return false;

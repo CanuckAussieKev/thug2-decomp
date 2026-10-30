@@ -23,6 +23,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ed/park.h"
 
 namespace GameNet {
 
@@ -221,7 +222,6 @@ int __cdecl HandleFlagReturned(Net::MsgHandlerContext* context)
     return kContinue;
 }
 
-GAME_GLOBAL(bool, g_railEditorFlag, 0x0067F000, true);
 
 // 0x00530E50
 int __cdecl HandleRailsData(Net::MsgHandlerContext* context)
@@ -232,9 +232,9 @@ int __cdecl HandleRailsData(Net::MsgHandlerContext* context)
         Mem::Manager* memory = Mem::Manager::Get();
         memory->PushContext(Field<Mem::Allocator*>(memory, 0x114));
         Call(0x004F3C00, RailEditor(), context->m_Msg); // the rails read
-        g_railEditorFlag = false;
+        Ed::g_railEditorFlag = false;
         Call(0x004F7DF0, RailEditor());
-        g_railEditorFlag = true;
+        Ed::g_railEditorFlag = true;
         Mem::Manager::Get()->PopContext();
         return kContinue;
     }

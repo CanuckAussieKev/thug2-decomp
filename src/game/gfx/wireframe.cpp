@@ -6,6 +6,7 @@
 
 #include "game/gfx/device.h"
 #include "hook/game.h"
+#include "game/gfx/engine.h"
 
 namespace Nx::Wireframe {
 
@@ -15,7 +16,7 @@ bool s_wire; // the fill set to wireframe for this frame's 3D
 
 } // namespace
 
-int RenderMode() { return GameVariable<int>(0x006FA734); }
+int RenderMode() { return g_renderMode; }
 
 void BeginWorld()
 {

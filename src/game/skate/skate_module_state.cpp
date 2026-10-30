@@ -46,6 +46,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
 
 namespace Mdl {
 
@@ -87,7 +88,7 @@ constexpr uint8_t kGroupGame = 8;
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 Game::CGameMode* GameMode() { return Game::g_gameMode; }
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
 int& Refs() { return g_skateModuleReferences; }
 float& NextBeep() { return g_nextBeep; }
@@ -232,7 +233,7 @@ void Skate::CleanupForParkEditor()
 {
     Obj::g_trickObjectManager->RemoveAllClusters();
     Nx::Engine::KillAllTextureSplats();
-    static_cast<Nx::CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->DestroyNonPersistent();
+    static_cast<Nx::CFlexibleParticleManager*>(Nx::g_flexibleParticleManager)->DestroyNonPersistent();
     m_railManager->Cleanup();
     Obj::Proxim_Cleanup();
     Obj::Emitter_Cleanup();
@@ -242,7 +243,7 @@ void Skate::CleanupForParkEditor()
 void Skate::Pause(bool paused)
 {
     if (paused)
-        GameVariable<Sfx::CSfxManager*>(0x006F85A8)->UpdateVoiceVolumes();
+        Sfx::g_sfxManager->UpdateVoiceVolumes();
 }
 
 // 0x00564F80

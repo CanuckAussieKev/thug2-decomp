@@ -6,6 +6,7 @@
 
 #include "game/skate/skate_net.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -110,7 +111,7 @@ constexpr uint32_t kSentCheats[] = {
     0xD5982173, // NO_G_DISPLAY_BALANCE
 };
 
-GameNet::Manager* Net() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* Net() { return GameNet::g_gameNetManager; }
 Game::CGameMode* GameMode() { return Game::g_gameMode; }
 Obj::CBaseManager* ObjectManager() { return reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager); }
 
@@ -792,12 +793,12 @@ int SkateNet::HandleSkaterMessages(Net::MsgHandlerContext* context)
         At<uint8_t>(message, 1) = data[1];
         uint32_t bits = data[0];
         // five settings picked by the bits of [0]: two bits, then one each
-        static const uint32_t kFirst[4] = {0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520}; // 0.05, 0.1, 10.1, (0)
-        At<float>(message, 0x28) = GameVariable<float>(kFirst[bits & 3]);
-        At<float>(message, 0x2C) = GameVariable<float>((bits >> 2 & 1) ? 0x006486B8 : 0x006486B4); // 10.1 / 0.04
-        At<float>(message, 0x30) = GameVariable<float>((bits >> 3 & 1) ? 0x006486AC : 0x006486B0); // 20 / 0.0022
-        At<float>(message, 0x34) = GameVariable<float>((bits >> 4 & 1) ? 0x00646710 : 0x006486A8); // 10 / 0.0017
-        At<float>(message, 0x38) = GameVariable<float>((bits >> 5 & 1) ? 0x006453A8 : 0x00646744); // 1 / 1.5
+        static const float kFirst[4] = {std::bit_cast<float>(0x3D4CCCCDu), std::bit_cast<float>(0x3DCCCCCDu), std::bit_cast<float>(0x4121999Au), 0.0f}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
+        At<float>(message, 0x28) = kFirst[bits & 3];
+        At<float>(message, 0x2C) = (bits >> 2 & 1) ? std::bit_cast<float>(0x4121999Au) : std::bit_cast<float>(0x3D23D70Au); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
+        At<float>(message, 0x30) = (bits >> 3 & 1) ? std::bit_cast<float>(0x41A00000u) : std::bit_cast<float>(0x3B102DE0u); // 20 / 0.0022 (0x006486AC / 0x006486B0)
+        At<float>(message, 0x34) = (bits >> 4 & 1) ? std::bit_cast<float>(0x41200000u) : std::bit_cast<float>(0x3ADED289u); // 10 / 0.0017 (0x00646710 / 0x006486A8)
+        At<float>(message, 0x38) = (bits >> 5 & 1) ? std::bit_cast<float>(0x3F800000u) : std::bit_cast<float>(0x3FC00000u); // 1 / 1.5 (0x006453A8 / 0x00646744)
         break;
     }
     case 0x3D:

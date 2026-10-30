@@ -16,6 +16,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/tod_manager.h"
+#include "game/gfx/loading_bar.h"
 
 namespace Mdl {
 
@@ -50,13 +52,13 @@ float Tenth() { return Script::g_parseNudge; }        // 0.1
 float Eighth() { return g_competitionEighth; }       // 0.125
 float Two() { return g_competitionTwo; }          // 2.0
 float NearlyHalf() { return g_competitionNearlyHalf; }   // 0.4999990 (rounding to the nearest)
-float Hundred() { return GameVariable<float>(0x006463D4); }      // 100
+float Hundred() { return Gfx::g_hundred; }      // 100
 float MaxPoints() { return g_competitionMaxPoints; }    // 99.9
-float Half() { return GameVariable<float>(0x006453BC); }         // 0.5
+float Half() { return Gfx::g_half; }         // 0.5
 float Zero() { return Obj::g_floatZero; }         // 0
 float MaxJudge() { return g_competitionMaxJudge; }     // 99.85
 float Three() { return g_competitionThree; }        // 3
-float Ten() { return GameVariable<float>(0x00646710); }          // 10
+float Ten() { return Nx::g_floatTen; }          // 10
 float Tiny() { return g_competitionTiny; }         // 0.0001
 float OverHalf() { return g_competitionOverHalf; }     // 0.500099
 float NinetyNine() { return g_competitionNinetyNine; }   // 99

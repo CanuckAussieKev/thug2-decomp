@@ -11,13 +11,15 @@
 #include "game/gfx/settings.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine_glue.h"
 
 namespace Nx {
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-bool LoadingScreenUp() { return GameVariable<bool>(0x00786D04); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
+bool LoadingScreenUp() { return g_loadingScreenUp; }
 uint32_t& FogEnabled() { return g_fogEnabled; }
 
 } // namespace
@@ -62,7 +64,7 @@ void __cdecl SetFogColor(uint32_t rgba)
     float* constant = &g_pixelShaderConstants[16];
     constant[0] = constant[1] = constant[2] = static_cast<float>(density);
     uint32_t color = (r << 16) | (g << 8) | b;
-    GameVariable<uint32_t>(0x0078733C) = color;
+    g_fogColour = color;
     Device()->SetRenderState(D3DRS_FOGCOLOR, color);
 }
 

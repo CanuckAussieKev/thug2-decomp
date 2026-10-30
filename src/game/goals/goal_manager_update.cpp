@@ -38,7 +38,7 @@ constexpr uint32_t kCountAll = 0xA21884B5;         // count_all
 constexpr uint32_t kTrickBeat = 0xD0DD047B;        // TrickBeat
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 
 Script::CStruct* NewStructure()
 {

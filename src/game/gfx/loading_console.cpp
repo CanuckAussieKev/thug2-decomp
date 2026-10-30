@@ -123,7 +123,7 @@ double g_start = 0.0;        // when the load began (Now())
 double g_lastActivity = 0.0; // the last line's time (Now())
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
-HANDLE ScreenMutex() { return GameVariable<HANDLE>(0x007052AC); }
+HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(Nx::g_screenMutex); }
 IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
 bool ScreenUp() { return Nx::g_loadingScreenUp != 0; } // the main loop draws nothing then
 uint32_t BarTimer() { return Nx::g_loadingBarTimer; }   // the loading bar's timer (0x004B7400)

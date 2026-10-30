@@ -19,6 +19,8 @@
 
 namespace Front {
 
+GAME_GLOBAL(CScreenElementManager*, g_screenElementManager, 0x00701440);
+
 static_assert(offsetof(CScreenElementManager, m_listener) == 0x28 && offsetof(CScreenElementManager, mp_root) == 0x44 &&
                   offsetof(CScreenElementManager, mp_resolving) == 0x50 &&
                   offsetof(CScreenElementManager, m_focusEntries) == 0x5C &&

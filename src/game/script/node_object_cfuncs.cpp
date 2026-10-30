@@ -51,6 +51,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/cag_cfuncs.h"
+#include "game/sys/game_config.h"
 
 namespace CFuncs {
 
@@ -161,7 +163,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
                     geometry = static_cast<uint8_t*>(AsSector(sector)->mp_geom);
                 int count = geometry ? GeometrySlot<int(__thiscall*)(void*)>(geometry, 36)(geometry) : 0;
                 if (count) {
-                    if (!GameVariable<bool>(0x007CC979)) // (the memory manager set up, if it isn't)
+                    if (!Mem::g_managerReady) // (the memory manager set up, if it isn't)
                         Mem::EnsureManager();
                     auto* vertices = static_cast<Mth::Vector*>(MemManager()->Allocate(count * sizeof(Mth::Vector), 1, nullptr));
                     // (the original runs the vertices' empty constructor over the block, 0x00401020 with 0x005902E0)
@@ -181,7 +183,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
         return;
     const Mth::Vector& lo = box.min;
     const Mth::Vector& hi = box.max;
-    const double half = GameVariable<float>(0x006453BC); // (0.5)
+    const double half = Gfx::g_half; // (0.5)
     Mth::Vector centre;
     centre.x = static_cast<float>((static_cast<double>(hi.x) + lo.x) * half);
     centre.y = static_cast<float>((static_cast<double>(hi.y) + lo.y) * half);
@@ -192,7 +194,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
     double dz = static_cast<double>(hi.z) - lo.z;
     double size = std::sqrt(dz * dz + dy * dy + dx * dx);
     float distance = static_cast<float>(size);
-    if (size < GameVariable<float>(0x006453C0)) // (1000)
+    if (size < Gfx::g_thousand) // (1000)
         distance = 1000.0f;
     Mth::Matrix& m = camera->m_matrix;
     for (int row = 0; row < 4; ++row) {
@@ -200,7 +202,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
         for (int column = 0; column < 4; ++column)
             r[column] = row == column ? 1.0f : 0.0f;
     }
-    const double toRadians = GameVariable<float>(0x00645464);
+    const double toRadians = g_degreesToRadians;
     auto turn = [&](Mth::Matrix& (*create)(Mth::Matrix&, float), float degrees) {
         Mth::Matrix rotation;
         create(rotation, static_cast<float>(degrees * toRadians));
@@ -528,7 +530,7 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
                 }
             }
             bool trick = node->ContainsComponentNamed(kTrickObject);
-            if (!GameVariable<bool>(0x00684FA8) && Script::GetInteger(kAllTrickObjects))
+            if (!GameConfig::g_fromCD && Script::GetInteger(kAllTrickObjects))
                 trick = true;
             if (!SkipsNode(node) && trick) {
                 Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650098)); // "Trick Object Clusters"
@@ -782,7 +784,7 @@ bool __cdecl SetNodeTerrain(uint32_t name, Script::CStruct* params)
 // hidden for the second viewport when it's the second skater's script in a two-viewport game.
 bool __cdecl NodeCommand(uint32_t name, int action, Script::CScript* script, Script::CStruct* params)
 {
-    GameNet::Manager* gameNet = GameVariable<GameNet::Manager*>(0x007CCE14);
+    GameNet::Manager* gameNet = GameNet::g_gameNetManager;
     if (gameNet->InNetMode() && SkipsNode(SkateScript::GetNode(name, true)))
         return false;
     int secondViewport = 0;

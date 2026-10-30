@@ -18,24 +18,28 @@
 
 namespace Nx {
 
+GAME_GLOBAL(int, g_dynamicLightCount, 0x006FAEF0);
+
+GAME_GLOBAL(CDynamicLightBase*[256], g_dynamicLights, 0x006FAAF0);
+GAME_GLOBAL(float*, g_intensities, 0x006FAAEC);
+GAME_GLOBAL(uint32_t, g_modelLightCount, 0x006FAAE4);
+GAME_GLOBAL(float, g_ambientIntensity, 0x0067DC94, 1.0f);
+GAME_GLOBAL(sWorldLights, g_worldLights, 0x0067DC98, 0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr);
+GAME_GLOBAL(sWorldLights[4], g_worldLightStack, 0x006FAF10); // (the saved ones: PushLights / PopLights)
 namespace {
 
 constexpr uint32_t kDynamicLightVtable = 0x00649290;
 constexpr int kStackDepth = 4;
 constexpr int kMaxDynamicLights = 256;
 
-sWorldLights& World() { return GameVariable<sWorldLights>(0x0067DC98); }
-sWorldLights* Stack() { return &GameVariable<sWorldLights>(0x006FAF10); }
+sWorldLights& World() { return g_worldLights; }
+sWorldLights* Stack() { return g_worldLightStack; }
 GAME_GLOBAL(int, g_lightStackTop, 0x0067DC88, -1);
 GAME_GLOBAL(float, g_lightBrightness, 0x0067DC8C, 1.0f);
 GAME_GLOBAL(float, g_lightBrightnessTarget, 0x0067DC90, 1.0f);
-GAME_GLOBAL(float, g_ambientIntensity, 0x0067DC94, 1.0f);
 GAME_GLOBAL(int[32], g_nearLightIndexes, 0x0067DCB8, -1); // GetDynamicLightsNear's indexes
 GAME_GLOBAL(float[31], g_nearLightFalloffs, 0x0067DD38, 1.0f); // GetDynamicLightsNear's falloffs
-GAME_GLOBAL(uint32_t, g_modelLightCount, 0x006FAAE4);
 GAME_GLOBAL(float, g_minIntensity, 0x006FAAE8);
-GAME_GLOBAL(float*, g_intensities, 0x006FAAEC);
-GAME_GLOBAL(CDynamicLightBase*[256], g_dynamicLights, 0x006FAAF0);
 
 int& StackTop() { return g_lightStackTop; }
 uint32_t& LightCount() { return g_lightCount; }
@@ -46,7 +50,7 @@ float MinIntensity() { return g_minIntensity; }
 float*& Intensities() { return g_intensities; }
 
 CDynamicLightBase** DynamicLights() { return g_dynamicLights; }
-int& DynamicLightCount() { return GameVariable<int>(0x006FAEF0); }
+int& DynamicLightCount() { return g_dynamicLightCount; }
 // GetDynamicLightsNear's falloffs and the lights' indexes (32 each).
 float* NearFalloffs() { return g_nearLightFalloffs; }
 int* NearIndexes() { return g_nearLightIndexes; }

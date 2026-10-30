@@ -30,6 +30,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/net/gamenet_manager.h"
 
 namespace Skater {
 
@@ -273,7 +274,7 @@ double CorePhysicsComponent::GetGravity()
     if (career->GetCheat(kMoonCheat)) {
         career->SetGlobalFlag(Script::GetInteger(kMoonCheat));
         result = static_cast<float>(static_cast<double>(PhysicsFloat(kMoonGravity, object)) * result);
-        GameVariable<uint8_t>(0x007CE4FD) = 1;
+        reinterpret_cast<uint8_t&>(GameNet::g_cheatFlag) = 1;
     }
     float scale = Script::GetFloat(kFallScale);
     if (scale != 0.0f && !(VectorAt(ObjectOf(this), kVelocity).y > 0.0f) &&

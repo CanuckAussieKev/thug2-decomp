@@ -84,8 +84,8 @@ int& UserSoundtrack() { return g_userSoundtrack; }
 bool& UsingUserSoundtrack() { return g_usingUserSoundtrack; }
 int* UserOrder() { return reinterpret_cast<int*>(0x00697700); }
 constexpr int kUserOrderSize = 600;
-int& UserTrack() { return GameVariable<int>(0x0069BAB8); }
-int& UserPosition() { return GameVariable<int>(0x0069BAC0); }
+int& UserTrack() { return reinterpret_cast<int&>(g_userTrack); }
+int& UserPosition() { return reinterpret_cast<int&>(g_userPosition); }
 bool ShuffleUser() { return g_shuffleUser; }
 
 // 1 << n as the C runtime's 64-bit shift (__allshl) does it: by n's low byte, 0 from 64 up.

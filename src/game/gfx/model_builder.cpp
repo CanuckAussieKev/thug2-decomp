@@ -34,8 +34,8 @@ Nx::CModel*& BuiltModel() { return g_builtModel; }
 CSkeleton*& BuiltSkeleton() { return g_builtSkeleton; }
 CModelAppearance*& BuiltAppearance() { return g_builtAppearance; }
 // The texture dictionaries: the game's and the skater's (its cag_workspace).
-Nx::CTexDict* GameTextures() { return GameVariable<Nx::CTexDict*>(0x00700F1C); }
-Nx::CTexDict* SkaterTextures() { return GameVariable<Nx::CTexDict*>(0x00700F20); }
+Nx::CTexDict* GameTextures() { return Nx::g_gameTextureDict; }
+Nx::CTexDict* SkaterTextures() { return Nx::g_particleTextureDict; }
 
 constexpr float kPercent = 0.01f;            // 0x0064544C
 constexpr float kDegrees = 0.0174532924f;    // 0x00645464 (pi / 180)

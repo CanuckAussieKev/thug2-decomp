@@ -84,4 +84,10 @@ GAME_GLOBAL_EXTERN(bool, g_loadingScreenUp); // the loading screen is up: it dra
 
 GAME_GLOBAL_EXTERN(void*, g_weather);
 
+GAME_GLOBAL_EXTERN(uint32_t, g_fogColour);
+GAME_GLOBAL_EXTERN(uint32_t, g_screenBlur);
+GAME_GLOBAL_EXTERN(uint32_t, g_screenBlurFrames);
+GAME_GLOBAL_EXTERN(bool, g_screenShotNameExact);
+GAME_GLOBAL_EXTERN(char[128], g_pendingScreenShot);
+GAME_GLOBAL_EXTERN(void*, g_screenEffects);
 } // namespace Nx

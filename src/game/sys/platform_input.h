@@ -121,5 +121,8 @@ void SetDefaultEscapeControl(int control);
 
 GAME_GLOBAL_EXTERN(IDirectInput8A*, g_directInput);
 GAME_GLOBAL_EXTERN(IDirectInputDevice8A*, g_keyboardDevice);
+GAME_GLOBAL_EXTERN(int32_t[0x98], g_keyBindings);
+GAME_GLOBAL_EXTERN(DIJOYSTATE2[2], g_joystickStates);
+GAME_GLOBAL_EXTERN(DIJOYSTATE2[2], g_lastJoystickStates);
 
 } // namespace Platform

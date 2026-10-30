@@ -272,9 +272,9 @@ namespace {
 Card* TheCard() { return g_theCard->GetCard(0, 0); }
 
 // The script pools' pairs whose current pool the temporary pools switch: components, structures, vectors.
-Mem::PoolPair& ComponentPools() { return GameVariable<Mem::PoolPair>(0x006F2338); }
-Mem::PoolPair& StructPools() { return GameVariable<Mem::PoolPair>(0x006F3614); }
-Mem::PoolPair& VectorPools() { return GameVariable<Mem::PoolPair>(0x006F3654); }
+Mem::PoolPair& ComponentPools() { return Script::g_componentPools; }
+Mem::PoolPair& StructPools() { return Script::g_structPools; }
+Mem::PoolPair& VectorPools() { return Script::g_vectorPools; }
 
 } // namespace
 

@@ -17,6 +17,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 namespace GameNet {
 
@@ -44,7 +45,7 @@ Manager* NetManager() { return g_gameNetManager; }
 LobbyMan* Lobby() { return static_cast<LobbyMan*>(NetManager()->m_lobbyMan); }
 Tsk::Stack* LogicTasks()
 {
-    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<void*>(0x00696D68)) + 4);
+    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(Ass::g_mainLoopManager)) + 4);
 }
 void PushInternetHeap()
 {

@@ -676,6 +676,9 @@ void __cdecl CarriedFlagsTask(void* task);
 // 0x005395C0: the manager released (its reference count 0x007CCE18; the last one destroys it).
 void __cdecl ReleaseManager();
 
+GAME_GLOBAL_EXTERN(uint32_t, g_networkTeamMode);
+GAME_GLOBAL_EXTERN(int, g_netSkillLevel);
+GAME_GLOBAL_EXTERN(int, g_netMaxPlayers);
 GAME_GLOBAL_EXTERN(uint32_t, g_commandLineServer);
 GAME_GLOBAL_EXTERN(bool, g_netEnabled);
 GAME_GLOBAL_EXTERN(uint32_t, g_askedFor);

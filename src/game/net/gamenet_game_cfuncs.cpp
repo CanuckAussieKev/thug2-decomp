@@ -22,6 +22,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -52,7 +53,7 @@ constexpr int kDropKicked = 4;
 Manager* NetManager() { return g_gameNetManager; }
 Tsk::Stack* LogicTasks()
 {
-    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<Mlp::Manager*>(0x00696D68)) + 4);
+    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4);
 }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;

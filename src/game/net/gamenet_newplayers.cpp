@@ -129,7 +129,7 @@ void Manager::AddNewPlayer(uint8_t* info)
     if (Field<uint32_t>(info, kInfoFlags) & kNewResync) {
         PrepareLocalFace();
         SendCustomTagTexture();
-        GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->RemoveAllClusters(); // the trick objects
+        Obj::g_trickObjectManager->RemoveAllClusters(); // the trick objects
         Run(kResyncedPlayers);
     }
     if (!IsLocalPlayer(player)) {

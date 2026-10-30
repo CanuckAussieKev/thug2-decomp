@@ -78,7 +78,7 @@ CObject* FindObjectById(uint32_t id) { return reinterpret_cast<CBaseManager*>(g_
 // of screen elements and aliases). False if there is none.
 bool GetObjectId(Script::CStruct* params, uint32_t name, uint32_t* id)
 {
-    return reinterpret_cast<Front::CScreenElementManager*>(Ed::g_screenElementManager)->ResolveId(params, name, id);
+    return reinterpret_cast<Front::CScreenElementManager*>(Front::g_screenElementManager)->ResolveId(params, name, id);
 }
 
 // 0x004A1090: give an event listener the event (its vtable +0x04, the subclass's filter).

@@ -35,6 +35,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace Obj {
 
@@ -77,10 +78,10 @@ uint32_t FrameTime(uint8_t* frame) { return reinterpret_cast<SkaterStateHistoryF
 Mth::Matrix& FrameMatrix(uint8_t* frame) { return Field<Mth::Matrix>(frame, 0x08); }
 Mth::Vector& FramePosition(uint8_t* frame) { return Field<Mth::Vector>(frame, 0x48); }
 
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 // The network manager's client app: +8 its frame count.
 uint8_t* ClientApp() { return reinterpret_cast<uint8_t*>(NetManager()->GetClient(0)); }
-int FrameRate() { return GameVariable<int>(0x00684FB4); }
+int FrameRate() { return GameConfig::g_frameRate; }
 int Now() { return Tmr::GameClockElapsed() + g_clockOffset; }
 // The level's rails (the skate module's +0x24).
 CRailManager* LevelRails() { return Field<CRailManager*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x24); }

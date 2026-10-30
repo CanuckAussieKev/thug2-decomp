@@ -24,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 
 namespace Nx {
@@ -31,11 +32,27 @@ namespace Nx {
 GAME_GLOBAL(IDirect3DDevice9*, g_d3dDevice, 0x007D69E0);
 GAME_GLOBAL(D3DPRESENT_PARAMETERS, g_presentParameters, 0x00786A7C);
 GAME_GLOBAL(bool, g_streamOffsetSupported, 0x00786AB6);
+GAME_GLOBAL(bool, g_showWindowFlag, 0x00786AB7); // (the original showed the window maximised / minimised by it)
 GAME_GLOBAL(uint32_t, g_loadingBarTimer, 0x00786D08); // the timer's id (timeSetEvent)
 GAME_GLOBAL(float, g_screenScaleX, 0x00786D80); // 640x480 -> back buffer scale
 GAME_GLOBAL(IDirect3DDevice9*, g_drawDevice, 0x00786D0C); // the same device, kept twice
 GAME_GLOBAL(IDirect3DTexture9*[9], g_screenTextures, 0x00786D1C);
 
+GAME_GLOBAL(uint8_t, g_setFrequencyAllowed, 0x0067DA40, 1);
+GAME_GLOBAL(int, g_resolutionSetting, 0x007D643C);
+GAME_GLOBAL(bool, g_antialiasing, 0x007D6434);
+GAME_GLOBAL(int, g_screenOffsetY, 0x00786D8C);
+GAME_GLOBAL(int, g_screenOffsetX, 0x00786D88);
+GAME_GLOBAL(float, g_screenScaleY, 0x00786D84);
+GAME_GLOBAL(IDirect3DSurface9*, g_depthSurface, 0x00786D64);
+GAME_GLOBAL(IDirect3DSurface9*[9], g_screenSurfaces, 0x00786D40); // their level 0
+GAME_GLOBAL(IDirect3DSurface9*, g_backDepth, 0x00786D14);
+GAME_GLOBAL(IDirect3DSurface9*, g_backBuffer, 0x00786D10);
+GAME_GLOBAL(bool, g_blendFactorSupported, 0x00786AC1);
+GAME_GLOBAL(bool, g_borderAddressingSupported, 0x00786AC0);
+GAME_GLOBAL(uint32_t, g_maxAnisotropy, 0x00786ABC);
+GAME_GLOBAL(HWND, g_gameWindow, 0x007D6A28);
+GAME_GLOBAL(IDirect3D9*, g_direct3D, 0x007D69DC);
 namespace {
 
 constexpr float Bits(uint32_t bits) { return std::bit_cast<float>(bits); }
@@ -43,7 +60,6 @@ constexpr float kPer640 = Bits(0x3ACCCCCD); // 0x0064A474, 1 / 640
 constexpr float kPer480 = Bits(0x3B088889); // 0x0064A47C, 1 / 480
 constexpr float kOffsetLines = 16.0f;       // 0x00645D68
 
-GAME_GLOBAL(uint8_t, g_setFrequencyAllowed, 0x0067DA40, 1);
 GAME_GLOBAL(int, g_deviceWidth, 0x0067EBCC, 640);
 GAME_GLOBAL(int, g_deviceHeight, 0x0067EBD0, 480);
 GAME_GLOBAL_UNCHECKED(const char*, g_discErrorFrench1, 0x0067EBD4, "Le disque utilis\xE9 pr\xE9sente une anomalie.");
@@ -51,28 +67,15 @@ GAME_GLOBAL_UNCHECKED(const char*, g_discErrorFrench2, 0x0067EBD8, "Il est peut-
 GAME_GLOBAL_UNCHECKED(const char*, g_discErrorGerman1, 0x0067EBDC, "Bei der benutzten CD ist ein Problem aufgetreten.");
 GAME_GLOBAL_UNCHECKED(const char*, g_discErrorGerman2, 0x0067EBE0, "M\xF6glicherweise ist sie verschmutzt oder besch\xE4" "digt.");
 GAME_GLOBAL_UNCHECKED(const char*, g_discErrorEnglish1, 0x0067EBE4, "There's a problem with the disc you're using.");
-GAME_GLOBAL(IDirect3D9*, g_direct3D, 0x007D69DC);
-GAME_GLOBAL(HWND, g_gameWindow, 0x007D6A28);
+GAME_GLOBAL_UNCHECKED(const char*, g_discErrorEnglish2, 0x0067EBE8, "It may be dirty or damaged.");
 GAME_GLOBAL(D3DADAPTER_IDENTIFIER9, g_adapterIdentifier, 0x00786630);
 GAME_GLOBAL(bool, g_depthTexturesSupported, 0x00786AB9);
-GAME_GLOBAL(uint32_t, g_maxAnisotropy, 0x00786ABC);
-GAME_GLOBAL(bool, g_borderAddressingSupported, 0x00786AC0);
-GAME_GLOBAL(bool, g_blendFactorSupported, 0x00786AC1);
 GAME_GLOBAL(char[200], g_soundDeviceName, 0x00786AC8); // the description of the last sound device DirectSound listed
-GAME_GLOBAL(IDirect3DSurface9*, g_backBuffer, 0x00786D10);
-GAME_GLOBAL(IDirect3DSurface9*, g_backDepth, 0x00786D14);
 GAME_GLOBAL(IDirect3DSurface9*, g_depthTextureTarget, 0x00786D18);
-GAME_GLOBAL(IDirect3DSurface9*[9], g_screenSurfaces, 0x00786D40); // their level 0
-GAME_GLOBAL(IDirect3DSurface9*, g_depthSurface, 0x00786D64);
 GAME_GLOBAL(uint32_t, g_backBufferFormat, 0x00786D74);
 GAME_GLOBAL(uint32_t, g_screenSurfaceFormat, 0x00786D78);
 GAME_GLOBAL(uint32_t, g_depthBits, 0x00786D7C);
-GAME_GLOBAL(float, g_screenScaleY, 0x00786D84);
-GAME_GLOBAL(int, g_screenOffsetX, 0x00786D88);
-GAME_GLOBAL(int, g_screenOffsetY, 0x00786D8C);
 GAME_GLOBAL(SFont*, g_debugFont, 0x00786D90);
-GAME_GLOBAL(bool, g_antialiasing, 0x007D6434);
-GAME_GLOBAL(int, g_resolutionSetting, 0x007D643C);
 
 IDirect3D9*& Direct3D() { return g_direct3D; }
 IDirect3DDevice9*& Device() { return g_d3dDevice; }
@@ -95,7 +98,7 @@ void InitDirect3D()
     g_depthTextureTarget = 0;
     reinterpret_cast<uint32_t&>(g_screenCopyIndex) = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
-    //   if (GameVariable<bool>(0x00786AB7)) ShowWindow(Window(), SW_MAXIMIZE);
+    //   if (g_showWindowFlag) ShowWindow(Window(), SW_MAXIMIZE);
 
     // (Direct3DCreate9 and MessageBoxA through the exe's imports)
     IDirect3D9* d3d = GameFunction<IDirect3D9*(WINAPI*)(UINT)>(0x005BEB14)(31); // the game's D3D_SDK_VERSION
@@ -366,7 +369,7 @@ void __cdecl ShowDiscError()
     // (0x007CEFA0: 3 French, 5 German, else English).
     const char* first;
     const char* second;
-    switch (GameVariable<int>(0x007CEFA0)) {
+    switch (GameConfig::g_language) {
     case 3:
         first = g_discErrorFrench1;
         second = g_discErrorFrench2;
@@ -377,7 +380,7 @@ void __cdecl ShowDiscError()
         break;
     default:
         first = g_discErrorEnglish1;
-        second = GameVariable<const char*>(0x0067EBE8);
+        second = g_discErrorEnglish2;
         break;
     }
     alignas(4) uint8_t storage[sizeof(SText)];

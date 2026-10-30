@@ -32,6 +32,10 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/movie.h"
+#include "game/obj/cutscene.h"
+#include "game/ed/park_editor.h"
+#include "game/front/screen_element_manager.h"
 
 
 namespace Sio {
@@ -340,9 +344,9 @@ void KeyInput(int key, int flags)
 namespace {
 // The other "in a menu" flag (PartyMod's names) and the quit request.
 bool& MenuActive() { return Mdl::g_menusActive; }
-bool& QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
+bool& QuitRequested() { return Nx::g_quitRequested; }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
-int KeyBinding(int action) { return GameVariable<int>(0x007D6770 + 4 * action); }
+int KeyBinding(int action) { return Platform::g_keyBindings[action]; }
 // The platform layer's key names.
 const wchar_t* KeyNameW(int code) { return Platform::KeyName(code); }
 char (&NameBuffer())[256] { return g_nameBuffer; }
@@ -523,8 +527,8 @@ struct LevelInfo {
 namespace {
 // Flags the read consults (meaning partly unknown): two that turn the menu handling off, and the level
 // (0x007CE5D8; its +0x40 is the level's checksum - 0x7ECA21E5 is the park editor's).
-bool& Flag696D95() { return GameVariable<bool>(0x00696D95); }
-bool& Flag6F1158() { return GameVariable<bool>(0x006F1158); }
+bool& Flag696D95() { return Nx::g_moviePlaying; }
+bool& Flag6F1158() { return Obj::g_cutscenePlaying; }
 constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 // The platform layer: the pad mode and the default keys' Enter / Escape (Platform::SetPadMode...), its window
 // message pump, the pad read and whether a DirectInput key is down.
@@ -535,7 +539,7 @@ void PumpWindowMessages() { Platform::ProcessWindowEvents(); }
 void ReadPadState(int port, PadState* state) { Platform::ReadPad(port + 1, state); }
 bool KeyDown(int code) { return Platform::KeyDown(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
-int MenuPort() { return GameFunction<int(__thiscall*)(void*)>(0x00553E90)(GameVariable<void*>(0x007CE4B4)); }
+int MenuPort() { return GameFunction<int(__thiscall*)(void*)>(0x00553E90)(reinterpret_cast<void*>(Obj::g_profileManager)); }
 
 uint8_t IfAbove(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t PressureOrZero(uint8_t value) { return value > 0x20 ? value : 0; }
@@ -632,11 +636,11 @@ void Device::ReadData(int)
         second ^= p[0] >= 0x20 ? 0x40 : 0;
     second ^= p[2] >= 0x20 ? 0x80 : 0;
     uint8_t buttonsSoFar = second;
-    LevelInfo* level = GameVariable<LevelInfo*>(0x007CE5D8);
+    LevelInfo* level = reinterpret_cast<LevelInfo*>(Ed::g_parkEditor);
     if (level && level->checksum == kParkEditorLevel) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editorElement = false;
-        if (GameVariable<void*>(0x00701440)) {
+        if (Front::g_screenElementManager) {
             Front::ElementPtr found;
             Front::GetElement(&found, 0x31631B98);
             editorElement = found.Get() != nullptr;

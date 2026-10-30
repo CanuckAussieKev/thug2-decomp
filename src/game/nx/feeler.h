@@ -11,6 +11,7 @@
 #include "game/mth/vector.h"
 #include "game/nx/coll_line.h"
 #include "game/obj/smtptr.h"
+#include "hook/game_global.h"
 
 namespace Obj {
 class CCompositeObject;
@@ -94,4 +95,5 @@ static_assert(offsetof(CFeeler, m_hit) == 0x24 && offsetof(CFeeler, m_distance) 
                   offsetof(CFeeler, m_object) == 0x98 && offsetof(CFeeler, mp_cache) == 0xAC && sizeof(CFeeler) == 0xB0,
               "layout must match the original");
 
+GAME_GLOBAL_EXTERN(CCollCache*, g_currentCache);
 } // namespace Nx

@@ -47,7 +47,7 @@ constexpr uint8_t kMsgEliminated = 0x8D;            // the player of an object i
 constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; // vel_x, vel_y, vel_z
 
 // The network manager and its player lists (Lst::Search<PlayerInfo>, vtable 0x0064C1A8; NewPlayerInfo's 0x0064C82C).
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 struct PlayerSearch {
     void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
     void* m_node = nullptr;
@@ -601,7 +601,7 @@ bool __cdecl CFunc_SetSkaterVelocity(Script::CStruct* params, Script::CScript* s
     params->GetFloat(kVelX, &x, 1);
     params->GetFloat(kVelY, &y, 1);
     params->GetFloat(kVelZ, &z, 1);
-    if (!GameVariable<bool>(0x007CC979))
+    if (!Mem::g_managerReady)
         Mem::EnsureManager();
     auto* velocity = static_cast<Mth::Vector*>(Mem::Manager::Get()->Allocate(sizeof(Mth::Vector), 1, nullptr));
     velocity->x = x;

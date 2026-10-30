@@ -72,7 +72,7 @@ struct HitMessage {
 };
 static_assert(sizeof(HitMessage) == 8, "the message is 8 bytes");
 
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 Mdl::Skate* SkateModule() { return Mdl::g_skateModule; }
 
 // The skate module's local skater (0x00566520, a register stub on our side).

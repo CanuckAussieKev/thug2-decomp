@@ -29,6 +29,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Sfx {
 
@@ -851,7 +852,7 @@ void SetVoiceParameters(int index, sVolume* volume, float pitch)
     }
     if (frequency != voice.frequency) {
         voice.frequency = frequency;
-        if (GameVariable<bool>(0x0067DA40))
+        if (static_cast<bool>(Nx::g_setFrequencyAllowed))
             Com<long>(voice.buffer, 0x44, frequency); // SetFrequency
     }
 }

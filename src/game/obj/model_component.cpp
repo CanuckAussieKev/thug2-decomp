@@ -107,7 +107,7 @@ void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
 // whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-void* NetManager() { return GameVariable<void*>(0x007CCE14); }
+void* NetManager() { return reinterpret_cast<void*>(GameNet::g_gameNetManager); }
 void* PlayerByObjectId(uint32_t id)
 {
     return static_cast<GameNet::Manager*>(NetManager())->PlayerByObjectId(static_cast<uint16_t>(id));

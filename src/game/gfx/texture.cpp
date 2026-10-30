@@ -15,12 +15,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DTexture9* D3d(const sTexture* t) { return static_cast<IDirect3DTexture9*>(t->texture); }
 
 // The list (0x007CC254): doubly linked nodes.

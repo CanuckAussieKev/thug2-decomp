@@ -15,6 +15,7 @@
 #include "game/sys/mlp.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/obj/movie_manager.h"
 
 namespace Sys::DebugMode {
 
@@ -57,7 +58,7 @@ void Point(uint32_t entry, const char* name, void* function)
 void Run(const char* script) { Script::RunScript(Checksum(script), nullptr, nullptr, false, script); }
 
 // The view mode (the viewer's free camera): the script global view_mode, which SetViewMode copies to 0x007CE4A4.
-bool InViewMode() { return GameVariable<int>(0x007CE4A4) != 0; }
+bool InViewMode() { return Obj::g_viewMode != 0; }
 
 // A key's press (down now, up the frame before).
 struct Key {

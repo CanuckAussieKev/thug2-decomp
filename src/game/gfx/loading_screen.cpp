@@ -22,6 +22,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace Nx {
 
@@ -30,7 +31,7 @@ GAME_GLOBAL(uint8_t*, g_loadingScreenPicture, 0x007052B4);
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
-HANDLE ScreenMutex() { return GameVariable<HANDLE>(0x007052AC); }
+HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(g_screenMutex); }
 bool& ScreenUp() { return g_loadingScreenUp; }
 uint32_t& BarTimer() { return g_loadingBarTimer; }
 uint32_t FogEnabled() { return g_fogEnabled; } // (the renderer's cached D3DRS_FOGENABLE)
@@ -46,6 +47,7 @@ UINT StartTimer(UINT delay, LPTIMECALLBACK callback)
 void StopTimer(UINT timer) { GameVariable<UINT(WINAPI*)(UINT)>(0x00645268)(timer); } // timeKillEvent
 
 GAME_GLOBAL(void*, g_loadingScreenSprite, 0x007052B0);
+GAME_GLOBAL(uint8_t[0x1C], g_pictureName, 0x0067E958); // (a std::string: all zero at start)
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
@@ -56,14 +58,14 @@ void*& Sprite() { return g_loadingScreenSprite; }
 // in place below 16 (+0x04), else through +0x04; its capacity at +0x18).
 const char* PictureName()
 {
-    uint8_t* name = &GameVariable<uint8_t>(0x0067E958);
+    uint8_t* name = g_pictureName;
     if (*reinterpret_cast<uint32_t*>(name + 0x18) >= 16)
         return *reinterpret_cast<const char**>(name + 4);
     return reinterpret_cast<const char*>(name + 4);
 }
 void SetPictureName(const char* text)
 {
-    GameFunction<void*(__thiscall*)(void*, const char*)>(0x004B7880)(&GameVariable<uint8_t>(0x0067E958), text);
+    GameFunction<void*(__thiscall*)(void*, const char*)>(0x004B7880)(g_pictureName, text);
 }
 
 struct PictureVertex {
@@ -170,7 +172,7 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
             // the language's picture: French "fr/<name>", German "gr/<name>"
             char localised[0xC8];
             const char* file = name;
-            int language = GameVariable<int>(0x007CEFA0);
+            int language = GameConfig::g_language;
             if (language == 3) {
                 std::snprintf(localised, sizeof(localised), "fr/%s", name);
                 file = localised;

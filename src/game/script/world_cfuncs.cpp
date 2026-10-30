@@ -19,6 +19,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine_glue.h"
+#include "game/sys/game_config.h"
 
 namespace CFuncs {
 
@@ -53,8 +55,8 @@ void UnpauseSkater(Obj::CCompositeObject* skater)
 bool& ViewerLaunched() { return g_viewerLaunched; }
 
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
-void* Weather() { return GameVariable<void*>(0x006FA7C8); }
-void* ScreenEffects() { return GameVariable<void*>(0x006FA7CC); }
+void* Weather() { return Nx::g_weather; }
+void* ScreenEffects() { return Nx::g_screenEffects; }
 using Setter = bool(__thiscall*)(void*, CStruct*, CScript*);
 
 } // namespace
@@ -99,7 +101,7 @@ bool __cdecl CFunc_UnPauseSkaters(CStruct*, CScript*)
 // 0x005A5480
 bool __cdecl CFunc_SkatersAreReady(CStruct*, CScript*)
 {
-    if (!GameVariable<GameNet::Manager*>(0x007CCE14)->m_readyToPlay)
+    if (!GameNet::g_gameNetManager->m_readyToPlay)
         return false;
     if (Mdl::Skate::Instance()->GetNumSkaters() > 0)
         return true;
@@ -268,7 +270,7 @@ bool __cdecl CFunc_SetScreenEffectsDOFParams(CStruct* params, CScript* script)
 }
 
 // 0x005A5950
-bool __cdecl CFunc_IsPal(CStruct*, CScript*) { return GameVariable<int>(0x007CEFA0) != 2; }
+bool __cdecl CFunc_IsPal(CStruct*, CScript*) { return GameConfig::g_language != 2; }
 
 } // namespace CFuncs
 

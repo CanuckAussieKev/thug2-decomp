@@ -35,22 +35,23 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/particle_component.h"
 
 namespace Nx {
 
 GAME_GLOBAL(bool, g_loadingScreenUp, 0x00786D04); // the loading screen is up: it draws and presents on its own
 GAME_GLOBAL(void*, g_weather, 0x006FA7C8);
 
+GAME_GLOBAL(void*, g_screenEffects, 0x006FA7CC);
+GAME_GLOBAL(uint32_t, g_fogColour, 0x0078733C);
+GAME_GLOBAL(uint32_t, g_screenBlurFrames, 0x0078732C);
+GAME_GLOBAL(uint32_t, g_screenBlur, 0x00787328);
+GAME_GLOBAL(bool, g_screenShotNameExact, 0x00786E14);
+GAME_GLOBAL(char[128], g_pendingScreenShot, 0x00786D94); // the screenshot asked for by name
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 GAME_GLOBAL(uint32_t, g_memViewToggle, 0x00701588);
-GAME_GLOBAL(char[128], g_pendingScreenShot, 0x00786D94); // the screenshot asked for by name
-GAME_GLOBAL(bool, g_screenShotNameExact, 0x00786E14);
-GAME_GLOBAL(uint32_t, g_screenBlur, 0x00787328);
-GAME_GLOBAL(uint32_t, g_screenBlurFrames, 0x0078732C);
-GAME_GLOBAL(uint32_t, g_fogColour, 0x0078733C);
-GAME_GLOBAL(void*, g_screenEffects, 0x006FA7CC);
 
 // The loading screen is up (0x00786D04, ShowLoadingScreen): it draws and presents on its own.
 bool LoadingScreenUp() { return g_loadingScreenUp; }
@@ -195,7 +196,7 @@ void __cdecl StartEngine()
         particles = static_cast<CParticleManager*>(memory)->Construct();
         *static_cast<void**>(particles) = reinterpret_cast<void*>(0x0064A304);
     }
-    GameVariable<void*>(0x006FA7C4) = particles;
+    reinterpret_cast<void*&>(Obj::g_particleManager) = particles;
     memory = Mem::New(0x12AC);
     g_weather = memory ? static_cast<CPcWeather*>(memory)->Construct() : nullptr;
     memory = Mem::New(8);

@@ -6,6 +6,7 @@
 
 #include "game/file/file.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mem {
@@ -14,10 +15,14 @@ namespace {
 
 // The buffer (0x007CE7B8, up to 0x007CEBA8), the write position (0x007CE7B0) and the file it's flushed to
 // (0x007CEBB8 - nothing in this build ever opens it, so it stays null).
-char* DumpBuffer() { return &GameVariable<char>(0x007CE7B8); }
-constexpr uint32_t kDumpBufferEnd = 0x007CEBA8;
-char*& DumpPosition() { return GameVariable<char*>(0x007CE7B0); }
-File::Handle DumpFile() { return GameVariable<File::Handle>(0x007CEBB8); }
+GAME_GLOBAL(char[0x3F0], g_dumpBuffer, 0x007CE7B8);
+GAME_GLOBAL(char*, g_dumpPosition, 0x007CE7B0);
+GAME_GLOBAL(File::Handle, g_dumpFile, 0x007CEBB8);
+
+char* DumpBuffer() { return g_dumpBuffer; }
+char* DumpBufferEnd() { return g_dumpBuffer + sizeof(g_dumpBuffer); }
+char*& DumpPosition() { return g_dumpPosition; }
+File::Handle DumpFile() { return g_dumpFile; }
 
 } // namespace
 
@@ -27,7 +32,7 @@ void __cdecl DumpText(const char* text)
     int length = static_cast<int>(std::strlen(text));
     char* position = DumpPosition();
     // Flushed when the text won't fit (checked before newlines become CR LF: they can run past the end).
-    if (reinterpret_cast<int>(position + length) > static_cast<int>(kDumpBufferEnd) && position != DumpBuffer()) {
+    if (reinterpret_cast<int>(position + length) > reinterpret_cast<int>(DumpBufferEnd()) && position != DumpBuffer()) {
         File::Write(DumpBuffer(), static_cast<int>(position - DumpBuffer()), 1, DumpFile());
         position = DumpBuffer();
         DumpPosition() = position;

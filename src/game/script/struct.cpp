@@ -514,6 +514,12 @@ namespace Script {
 // The CStruct pool pair (the current pool's index, then the two pools).
 GAME_GLOBAL(Mem::PoolPair, g_structPools, 0x006F3614);
 
+// A permanent string table entry: the string's checksum and the string.
+struct PermanentString {
+    uint32_t checksum;
+    char* string;
+};
+GAME_GLOBAL(PermanentString*, g_permanentStringTable, 0x006F3580);
 namespace {
 
 // The pool pairs of the script's value objects.
@@ -528,11 +534,6 @@ bool& UsePermanentStrings() { return g_usePermanentStrings; }
 char*& PermanentStringsStart() { return g_permanentStringsStart; }
 char*& PermanentStringsNext() { return g_permanentStringsNext; }
 uint32_t& PermanentStringsSize() { return g_permanentStringsSize; }
-struct PermanentString {
-    uint32_t checksum;
-    char* string;
-};
-GAME_GLOBAL(PermanentString*, g_permanentStringTable, 0x006F3580);
 PermanentString*& PermanentStringTable() { return g_permanentStringTable; }
 uint32_t& PermanentStringCount() { return g_permanentStringCount; }
 

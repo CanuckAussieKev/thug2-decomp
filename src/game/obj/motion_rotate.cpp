@@ -240,7 +240,7 @@ void CMotionComponent::UpdateRotations()
 void CMotionComponent::StartRotation(Script::CStruct* params, const Mth::Matrix* target)
 {
     if (!mp_turn) {
-        if (!GameVariable<bool>(0x007CC979)) // (the memory manager not set up yet)
+        if (!Mem::g_managerReady) // (the memory manager not set up yet)
             Mem::EnsureManager();
         // (its constructor, 0x005902E0, does nothing)
         mp_turn = static_cast<Mth::SlerpInterpolator*>(Mem::Manager::Get()->Allocate(0x98, 1, nullptr));

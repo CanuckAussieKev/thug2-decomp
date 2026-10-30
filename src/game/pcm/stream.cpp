@@ -18,11 +18,12 @@ namespace Pcm {
 
 GAME_GLOBAL(void*, g_wadFile, 0x0067D7FC, INVALID_HANDLE_VALUE);
 GAME_GLOBAL(WadEntry*, g_wadEntries, 0x006EE00C);
+GAME_GLOBAL(void*, g_streamLock, 0x006EE01C); // a mutex (HANDLE), made at start-up
 
 namespace {
 
 // The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
-HANDLE StreamLock() { return GameVariable<HANDLE>(0x006EE01C); }
+HANDLE StreamLock() { return g_streamLock; }
 
 GAME_GLOBAL(int, g_nextOverlapped, 0x006EE008);
 GAME_GLOBAL(uint32_t, g_wadEntryCount, 0x006EE010);

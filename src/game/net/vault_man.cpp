@@ -24,6 +24,7 @@
 #include "game/mc/save_types.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 namespace GameNet {
 
@@ -60,7 +61,7 @@ Mem::Manager* Memory() { return Mem::Manager::Get(); }
 void PushTopDown() { Memory()->PushContext(Memory()->m_internetTopDownHeap); }
 void PushBottomUp() { Memory()->PushContext(Memory()->m_internetBottomUpHeap); }
 void PopHeap() { Memory()->PopContext(); }
-Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04); }
+Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04); }
 
 uint32_t Crc(const char* name) { return Crc::GenerateCRCFromString(name); }
 void Run(const char* script, Script::CStruct* params = nullptr) { Script::RunScript(script, params, nullptr, false); }

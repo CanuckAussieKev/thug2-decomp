@@ -14,7 +14,6 @@
 
 namespace Ed {
 
-GAME_GLOBAL(void*, g_screenElementManager, 0x00701440);
 GAME_GLOBAL(CUpperMenuManager*, g_upperMenuManager, 0x007CE60C);
 
 namespace {
@@ -179,7 +178,7 @@ void CUpperMenuManager::SetPieceSet(CPieceSet* set, int /*unused*/, int setNumbe
         first = first + (count - last) - 1;
         last = count - 1;
     }
-    void* elements = g_screenElementManager;
+    void* elements = Front::g_screenElementManager;
     Front::ElementPtr slider;
     GetElement(elements, &slider, kPieceSlider);
     float x;

@@ -19,6 +19,7 @@
 #include "game/sys/platform_d3d.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -26,7 +27,7 @@ namespace {
 
 constexpr uint32_t kVtable = 0x0064A628;
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 uint32_t& DrawCalls() { return reinterpret_cast<uint32_t&>(g_drawCalls); }
 uint32_t& DrawnTriangles() { return reinterpret_cast<uint32_t&>(g_drawnTriangles); }

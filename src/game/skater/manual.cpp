@@ -244,7 +244,7 @@ void CBalance::Update()
     float frame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
     if (!m_leftButton || !m_rightButton)
         return;
-    auto* net = GameVariable<GameNet::Manager*>(0x007CCE14);
+    auto* net = GameNet::g_gameNetManager;
     if (net->m_server) // (the folded getter 0x005480C0)
         net->PlayerByObjectId(static_cast<uint16_t>(m_skater->m_id)); // (its result unused)
     // The cheese wears off.

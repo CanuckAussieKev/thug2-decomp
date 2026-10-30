@@ -174,4 +174,5 @@ bool __cdecl CFunc_SetAnalogStickActiveForMenus(Script::CStruct* params, Script:
 GAME_GLOBAL_EXTERN(bool, g_menusActive);
 GAME_GLOBAL_EXTERN(bool, g_pendingScript);
 
+GAME_GLOBAL_EXTERN(Mdl::FrontEnd*, g_frontEndInstance);
 } // namespace Mdl

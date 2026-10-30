@@ -17,6 +17,7 @@
 #include "game/script/cfuncs_scene.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
 
 namespace CFuncs {
 
@@ -234,7 +235,7 @@ bool __cdecl CFunc_ReloadSkaterCamAnim(Script::CStruct* params, Script::CScript*
 // 0x005AE000: CutsceneDestroyListActive - the renderer's 0x0049A8E0 (its +0x10 set) on 0x006FA7C0.
 bool __cdecl CFunc_CutsceneDestroyListActive(Script::CStruct*, Script::CScript*)
 {
-    return GameVariable<Nx::CFlexibleParticleManager*>(0x006FA7C0)->HasTempHeap();
+    return reinterpret_cast<Nx::CFlexibleParticleManager*&>(Nx::g_flexibleParticleManager)->HasTempHeap();
 }
 
 // 0x005AE010: PlayCutscene ... - a cutscene queued (as the movie Cutscene); with ObjectAnim, name=<anim> as an

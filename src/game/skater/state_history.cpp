@@ -70,7 +70,7 @@ T& Field(const void* object, uint32_t offset)
 }
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 void* GameMode() { return static_cast<void*>(Game::g_gameMode); }
 void* SkaterManager() { return static_cast<void*>(Mdl::g_skateModule); }
 

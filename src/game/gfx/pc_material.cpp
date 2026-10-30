@@ -20,6 +20,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -33,7 +34,7 @@ GAME_GLOBAL(float[16], g_environmentMatrix, 0x0067EB88,
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 float* PassConstants() { return g_pixelShaderConstants; } // the pixel shader's colours, 16 bytes a pass
 bool& ConstantsChanged() { return reinterpret_cast<bool&>(g_pixelShaderChanged); }
 

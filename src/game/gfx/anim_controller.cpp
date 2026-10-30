@@ -24,6 +24,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/obj/control_pad.h"
 
 namespace Gfx {
 
@@ -135,7 +136,7 @@ void SetBoneCount(void* source, const uint8_t* skeleton)
 }
 
 // The game clock (ms) plus its offset.
-int Clock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Clock() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
 
 // The play-anim member function's parameters (the original leaves a missing one uninitialised: 0 here).
 struct PlayParams {

@@ -89,7 +89,7 @@ uint32_t ObjectId(Obj::CObject* object) { return *reinterpret_cast<uint32_t*>(re
 
 // The network game (GameNet::Manager 0x007CCE14).
 using NetManager = GameNet::Manager;
-NetManager* Net() { return GameVariable<NetManager*>(0x007CCE14); }
+NetManager* Net() { return reinterpret_cast<NetManager*>(GameNet::g_gameNetManager); }
 // 0x0044E4F0: whether a network game is on.
 bool InNetGame(NetManager* net) { return net->InNetGame(); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).

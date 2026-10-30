@@ -76,7 +76,7 @@ uint8_t* ModelData(CCompositeObject* object)
 // A message to the server, in a network game.
 void SendToServer(uint8_t id, void* data)
 {
-    auto* manager = GameVariable<GameNet::Manager*>(0x007CCE14);
+    auto* manager = GameNet::g_gameNetManager;
     if (!manager->InNetGame())
         return;
     Net::MsgDesc msg;

@@ -39,6 +39,9 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/ass/assman.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 
 #pragma warning(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -127,7 +130,7 @@ char* JoinPassword() { return g_joinPassword; }
 Net::Manager* NetManager() { return Net::Manager::Instance(); }
 Tsk::Stack* LogicTasks()
 {
-    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<Mlp::Manager*>(0x00696D68)) + 4);
+    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4);
 }
 int MilliSeconds() { return static_cast<int>(Tmr::GetTime()); }
 uint32_t LocalAddress()
@@ -153,8 +156,8 @@ void DeferredNewPlayer(Manager* m, NewPlayerInfo* player, int frames) { m->AddJo
 void SetReadyToPlay(Manager* m, bool ready) { m->SetReadyToPlay(ready); }
 void RandomizeSkaterStartingPoints(Manager* m) { m->ChooseStartPoints(); }
 void CancelJoinServer(Manager* m) { m->CancelJoin(); }
-uint32_t GameModeName() { return Call<uint32_t>(0x005532A0, GameVariable<void*>(0x007CE470)); }
-void SetMaximumPlayers(int count) { Call<void>(0x005531B0, GameVariable<void*>(0x007CE470), count); }
+uint32_t GameModeName() { return Call<uint32_t>(0x005532A0, reinterpret_cast<void*>(Game::g_gameMode)); }
+void SetMaximumPlayers(int count) { Call<void>(0x005531B0, reinterpret_cast<void*>(Game::g_gameMode), count); }
 int8_t Rank(Manager* m) { return static_cast<int8_t>(static_cast<StatsMan*>(m->m_statsMan)->GetRank()); }
 int32_t Rating(Manager* m)
 {
@@ -662,7 +665,7 @@ int Manager::HandleJoinRequest(MsgHandlerContext* context)
     Conn* conn = context->m_Conn;
     auto* manager = static_cast<Manager*>(context->m_data);
     auto* msg = reinterpret_cast<JoinInfo*>(context->m_Msg);
-    void* skate = GameVariable<void*>(0x007CE478);
+    void* skate = reinterpret_cast<void*>(Mdl::g_skateModule);
     context->m_Acknowledge = true;
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     if (context->m_MsgLength < kJoinInfoHeaderSize)
@@ -696,7 +699,7 @@ int Manager::HandleJoinRequest(MsgHandlerContext* context)
         player->m_flags |= kPlayerPending | kPlayerObserver;
     if (context->m_Conn->IsLocal()) {
         // The host's own player: its profile copied through a buffer.
-        if (!GameVariable<bool>(0x007CC979))
+        if (!Mem::g_managerReady)
             Mem::EnsureManager();
         auto* buffer = static_cast<uint8_t*>(Mem::Manager::Get()->Allocate(kAppearanceSize, true, nullptr));
         auto* profile = Call<Obj::CSkaterProfile*>(0x00564FC0, skate, static_cast<int>(static_cast<int8_t>(player->m_objectId)));
@@ -783,7 +786,7 @@ int Manager::HandleJoinProceed(MsgHandlerContext* context)
     std::strcpy(info->password, JoinPassword());
     int size = 0;
     if (!info->observer) {
-        auto* profile = Call<Obj::CSkaterProfile*>(0x00564FC0, GameVariable<void*>(0x007CE478), 0);
+        auto* profile = Call<Obj::CSkaterProfile*>(0x00564FC0, reinterpret_cast<void*>(Mdl::g_skateModule), 0);
         Net::ConnSearch search;
         search.m_vtable = Net::kConnSearchVtable;
         search.m_node = nullptr;

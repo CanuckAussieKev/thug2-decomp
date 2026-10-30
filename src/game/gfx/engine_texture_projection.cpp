@@ -19,6 +19,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/skate/skate_module.h"
 
 namespace Nx {
 
@@ -130,7 +131,7 @@ void CTextureProjection::InitFromStructure(Script::CStruct* params)
     int fineness = 0;
     params->GetInteger(0x12602598, &fineness, 0);
     m_fineness = static_cast<uint32_t>(fineness);
-    mp_texture = reinterpret_cast<uint8_t*>(GameVariable<CTexDict*>(0x00700F20)->GetTexture(texture));
+    mp_texture = reinterpret_cast<uint8_t*>(g_particleTextureDict->GetTexture(texture));
     int flag = 0;
     params->GetInteger(0xAF06447B, &flag, 0);
     if (flag)
@@ -189,7 +190,7 @@ void CTextureProjection::Update(Obj::CCompositeObject* object)
     m_position = {F(x), y, z, w};
     m_worldDirection = m_direction * m;
 
-    if (GameVariable<int>(0x00701378) == 1 && FirstCamera()) {
+    if (Mdl::g_viewportCount == 1 && FirstCamera()) {
         const Mth::Vector* camera = CameraPosition(FirstCamera());
         double dx = static_cast<double>(m_position.x) - camera->x;
         double dy = static_cast<double>(m_position.y) - camera->y;

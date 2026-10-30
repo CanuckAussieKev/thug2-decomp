@@ -19,6 +19,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -27,7 +28,7 @@ GAME_GLOBAL(bool, g_pixelShadersMade, 0x007CAA30);
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 void*& Handle(uint32_t address) { return GameVariable<void*>(address); }
 // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
 Lst::HashTable& Cache() { return GameVariable<Lst::HashTable>(0x007CA9C0); }

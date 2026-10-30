@@ -20,12 +20,12 @@
 
 namespace Nx {
 
+GAME_GLOBAL(void*, g_vertexColourPixelShader, 0x007CA94C);
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 Lst::HashTable& Glows() { return GameVariable<Lst::HashTable>(0x007CA9D8); }
 GAME_GLOBAL(uint8_t[456], g_glowQueriesInUse, 0x007BA520);
-GAME_GLOBAL(void*, g_vertexColourPixelShader, 0x007CA94C);
 GAME_GLOBAL(float[16], g_glowQuad, 0x007CA9F0);
 
 // The occlusion queries in use (a byte each).

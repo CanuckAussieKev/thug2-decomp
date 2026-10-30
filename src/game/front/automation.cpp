@@ -24,6 +24,9 @@
 #include "game/front/screen_element_manager.h"
 #include "game/front/start_level.h"
 #include "game/front/test_view.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/loading_bar_cfuncs.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
 #include "game/obj/event.h"
@@ -34,6 +37,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
 #include "hook/crash.h"
@@ -643,8 +647,6 @@ std::string StatusJson(const Status& status)
 
 // --- the game ---------------------------------------------------------------------------------------------------
 
-GAME_GLOBAL(uint8_t, g_loadingScreenShown, 0x006FC49C);
-GAME_GLOBAL(Mdl::FrontEnd*, g_frontEndInstance, 0x007CE464);
 
 namespace {
 
@@ -652,7 +654,7 @@ using MouseMenus::ChildCount;
 using MouseMenus::IsMenu;
 using MouseMenus::SelectedIndex;
 
-uint8_t* SkateModule() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
 uint32_t LevelLoad() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
 bool InFrontEnd() { return LevelLoad() == kLoadMainMenu; }
@@ -799,7 +801,7 @@ std::string NetRefusal()
     if (void* gameNet = GameNet::g_gameNetManager)
         if (static_cast<GameNet::Manager*>(gameNet)->InNetGame())
             return "a network game runs";
-    if (void* mode = GameVariable<void*>(0x007CE470)) {
+    if (void* mode = reinterpret_cast<void*>(Game::g_gameMode)) {
         std::string name = NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum());
         if (name.rfind("net", 0) == 0)
             return "the game mode is a network one (" + name + ")";
@@ -809,7 +811,7 @@ std::string NetRefusal()
 
 std::string GameModeName()
 {
-    void* mode = GameVariable<void*>(0x007CE470);
+    void* mode = reinterpret_cast<void*>(Game::g_gameMode);
     return mode ? NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum()) : "";
 }
 
@@ -1171,8 +1173,8 @@ std::string PressRefusal(const Button& button)
 // logo left the logo up), so choose / press wait for it - at most kPressWaitSeconds.
 bool LoadingScreenUp()
 {
-    return g_loadingScreenShown != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
-           GameVariable<uint8_t>(0x00786D04) != 0;
+    return Nx::g_loadingScreenShown != 0 || Nx::g_loadingBarTimer != 0 ||
+           static_cast<uint8_t>(Nx::g_loadingScreenUp) != 0;
 }
 
 // choose / focus, once a frame until done.
@@ -1252,7 +1254,7 @@ bool ConditionHolds(const Command& command)
     case Condition::FrontEnd: return InFrontEnd();
     case Condition::NewFrontend: return Front::NewFrontend::AutomationScreenUp(command.target);
     case Condition::InGame: {
-        auto* frontEnd = g_frontEndInstance;
+        auto* frontEnd = Mdl::g_frontEndInstance;
         return LevelLoad() && !InFrontEnd() && SkaterUp() && !(frontEnd && frontEnd->m_paused);
     }
     case Condition::Level: {
@@ -1299,7 +1301,7 @@ bool ConditionMet(Runner& runner)
 // object manager's LogTrickObjects as a skater's trick goes - more than THUG2's own mask held crashed there.
 std::string LogTricks(int count, std::string* failed)
 {
-    auto* manager = GameVariable<Obj::CTrickObjectManager*>(0x007CE500);
+    auto* manager = Obj::g_trickObjectManager;
     if (!manager) {
         *failed = "no trick object manager";
         return "";
@@ -1609,7 +1611,7 @@ void WriteStatus(Runner& runner)
     status.frames = Mlp::FramesRun();
     status.ready = runner.ready;
     status.mainMenu = runner.menuSettled;
-    auto* frontEnd = g_frontEndInstance;
+    auto* frontEnd = Mdl::g_frontEndInstance;
     status.paused = frontEnd && frontEnd->m_paused;
     status.loading = LoadingScreenUp();
     uint32_t load = LevelLoad();

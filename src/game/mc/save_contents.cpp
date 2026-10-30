@@ -64,8 +64,8 @@ constexpr uint32_t kGoalEditor = 0x81F01058;             // "GoalEditor": the ob
 constexpr int kControllers = 8;
 
 Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
-Obj::CPlayerProfileManager* Profiles() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
-Records::CGameRecords* GameRecords() { return GameVariable<Records::CGameRecords*>(0x007CE4BC); }
+Obj::CPlayerProfileManager* Profiles() { return Obj::g_profileManager; }
+Records::CGameRecords* GameRecords() { return Records::g_gameRecords; }
 GameNet::Manager* GameNetManager() { return GameNet::g_gameNetManager; }
 Obj::CSkaterCareer* Career() { return *reinterpret_cast<Obj::CSkaterCareer**>(reinterpret_cast<uint8_t*>(Skate()) + 0x20); }
 int Platform() { return GameConfig::g_platform; }
@@ -84,7 +84,7 @@ CStruct* PreferencesStructure(Prefs::Preferences* preferences)
 // The goal editor's component (its object's, both named GoalEditor).
 Obj::CBaseComponent* GoalEditorComponent()
 {
-    Obj::CObject* object = GameVariable<Obj::CTracker*>(0x006F0FC0)->LookUpObject(kGoalEditor);
+    Obj::CObject* object = Obj::g_tracker->LookUpObject(kGoalEditor);
     return static_cast<Obj::CCompositeObject*>(object)->GetComponent(kGoalEditor);
 }
 

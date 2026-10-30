@@ -69,9 +69,8 @@ uint32_t CopyNodesName()
     return name;
 }
 
-GAME_GLOBAL(SkateScript::CNodeManager*, g_nodeManager, 0x006F0D84);
 
-SkateScript::CNodeManager* NodeManager() { return g_nodeManager; }
+SkateScript::CNodeManager* NodeManager() { return SkateScript::g_nodeManager; }
 
 bool AddCopyNode(Script::CStruct* node)
 {
@@ -536,7 +535,7 @@ void ForgetLevel()
 std::vector<Entry> Copyable()
 {
     std::vector<Entry> entries;
-    SkateScript::CNodeManager* manager = g_nodeManager;
+    SkateScript::CNodeManager* manager = SkateScript::g_nodeManager;
     if (!manager)
         return entries;
     static const uint32_t kModel = Crc::GenerateCRCFromString("model");

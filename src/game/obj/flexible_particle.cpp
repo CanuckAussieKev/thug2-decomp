@@ -19,6 +19,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
 
 namespace Nx {
 
@@ -107,7 +108,7 @@ constexpr uint32_t kSuspend = 0xCE0CA665;
 float& ParticleUpdateTime() { return g_particleUpdateTime; }
 
 // The particle manager (0x006FA7C0; no source yet).
-void* ParticleManager() { return GameVariable<void*>(0x006FA7C0); }
+void* ParticleManager() { return Nx::g_flexibleParticleManager; }
 Nx::CParticleSystem* FindSystem(uint32_t name)
 {
     return static_cast<Nx::CFlexibleParticleManager*>(ParticleManager())->FindSystem(name);

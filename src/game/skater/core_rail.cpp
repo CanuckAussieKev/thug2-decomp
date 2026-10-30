@@ -25,6 +25,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/net/gamenet_manager.h"
 
 namespace Skater {
 
@@ -369,7 +370,7 @@ void CorePhysicsComponent::UpdateGrindBalance()
             career()->SetGlobalFlag(Script::GetInteger(kPerfectRail));
             At<uint32_t>(At<void*>(this, kBalanceTrick), 0xAC) = 0;
             At<uint32_t>(At<void*>(this, kBalanceTrick), 0xB0) = 0;
-            GameVariable<uint8_t>(0x007CE4FD) = 1;
+            reinterpret_cast<uint8_t&>(GameNet::g_cheatFlag) = 1;
         }
     }
 }

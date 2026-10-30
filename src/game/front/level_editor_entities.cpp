@@ -327,7 +327,6 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-GAME_GLOBAL(void*, g_emitterTable, 0x006F2260);
 
 namespace {
 
@@ -536,7 +535,7 @@ const Mth::Vector* CameraPosition(void* camera)
 }
 Obj::EmitterNode* Emitter(uint32_t name)
 {
-    return g_emitterTable ? Obj::Emitter_GetNode(name) : nullptr;
+    return Obj::g_emitterTable ? Obj::Emitter_GetNode(name) : nullptr;
 }
 
 void StopPlaying(Playing* p)

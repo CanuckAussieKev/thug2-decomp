@@ -30,6 +30,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -100,7 +101,7 @@ constexpr uint32_t kNewPlayerRejoining = 0x10; // (a pending player added back)
 
 Tsk::Stack* LogicTasks()
 {
-    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<Mlp::Manager*>(0x00696D68)) + 4);
+    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4);
 }
 
 // The skater camera's / walk camera's calls not rewritten as members here.
@@ -120,7 +121,7 @@ void ResetWalkCamera(Obj::CBaseComponent* camera) { static_cast<Obj::CWalkCamera
 void Manager::ObservePlayer(uint8_t* player)
 {
     auto* camObject = static_cast<Obj::CCompositeObject*>(
-        reinterpret_cast<Obj::CBaseManager*>(GameVariable<void*>(0x006F0FB8))->GetObjectByID(kSkaterCamObject));
+        reinterpret_cast<Obj::CBaseManager*>(reinterpret_cast<void*>(Obj::g_compositeObjectManager))->GetObjectByID(kSkaterCamObject));
     Obj::CBaseComponent* skaterCamera = camObject->GetComponent(kSkaterCamera);
     Obj::CBaseComponent* walkCamera = camObject->GetComponent(kWalkCamera);
     if (!player || !PlayerSkater(player)) {
@@ -296,7 +297,7 @@ void Manager::DropPlayer(uint8_t* player, int reason)
     char name[kNameSize];
     std::strcpy(name, PlayerName(player));
     if (!IsObserver(player) && Call<bool>(0x00553220, GameMode(), kShouldModulateColor))
-        GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->ReleasePlayerClusters(static_cast<int>(SkaterId(PlayerSkater(player)))); // its colours off the trick objects
+        Obj::g_trickObjectManager->ReleasePlayerClusters(static_cast<int>(SkaterId(PlayerSkater(player)))); // its colours off the trick objects
     if (!OnServer()) {
         DestroyPlayer(player);
         return;

@@ -20,7 +20,7 @@ namespace Pcm {
 
 namespace {
 
-HANDLE StreamLock() { return GameVariable<HANDLE>(0x006EE01C); }
+HANDLE StreamLock() { return g_streamLock; }
 HANDLE WadFile() { return g_wadFile; }
 WadEntry* WadEntries() { return g_wadEntries; }
 

@@ -13,6 +13,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/movie.h"
 
 namespace Script {
 
@@ -272,7 +274,7 @@ const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool dete
     float b = AsFloat(Read4Bytes(token + 5));
     // (rounded with the game's 0.1 nudge, as the x87 does it)
     const double nudge = g_parseNudge;
-    const double tolerance = GameVariable<float>(0x006453B8);
+    const double tolerance = Gfx::g_tinyLength;
     auto nearest = [&](float f) {
         return static_cast<int>(f >= 0.0f || std::isnan(f) ? static_cast<double>(f) + nudge
                                                            : static_cast<double>(f) - nudge);
@@ -443,7 +445,7 @@ const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, 
     case 0x1E: {
         float x = AsFloat(Read4Bytes(p)), y = AsFloat(Read4Bytes(token + 5)), z = AsFloat(Read4Bytes(token + 9));
         // (a zero vector named 0x9D2D0915 isn't added)
-        const float tolerance = GameVariable<float>(0x0064544C);
+        const float tolerance = Nx::g_onePercent;
         if (name != 0x9D2D0915 || !(std::fabs(x) < tolerance) || !(std::fabs(y) < tolerance) ||
             !(std::fabs(z) < tolerance))
             dest->AddVector(name, x, y, z);

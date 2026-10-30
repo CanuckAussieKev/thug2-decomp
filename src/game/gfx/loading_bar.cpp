@@ -20,10 +20,12 @@
 namespace Nx {
 
 GAME_GLOBAL(int, g_gradientWidth, 0x00701684);
+GAME_GLOBAL(void*, g_screenMutex, 0x007052AC); // the loading screen's lock (a HANDLE), held while it is drawn
 GAME_GLOBAL(float, g_tickSeconds, 0x007052A0);
 GAME_GLOBAL(float, g_elapsedSeconds, 0x007052A4);
 GAME_GLOBAL(float, g_totalSeconds, 0x007052A8);
 
+GAME_GLOBAL(float, g_floatTen, 0x00646710, 10.0f);
 namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
@@ -34,7 +36,6 @@ struct Rgb {
     int r, g, b;
 };
 
-GAME_GLOBAL(float, g_floatTen, 0x00646710, 10.0f);
 GAME_GLOBAL(float, g_floatFive, 0x006469AC, 5.0f);
 GAME_GLOBAL(float, g_floatTwenty, 0x006486AC, 20.0f);
 GAME_GLOBAL(float, g_per640, 0x0064A474, 0.0015625f);
@@ -71,7 +72,7 @@ float& TotalSeconds() { return g_totalSeconds; }
 int& ScreenHeight() { return g_backBufferHeight; }
 uint32_t& BarTimer() { return g_loadingBarTimer; }    // the timer's id (timeSetEvent)
 bool& ScreenUp() { return g_loadingScreenUp; }           // shown (0x004B78B0): the main loop doesn't draw
-HANDLE& ScreenMutex() { return GameVariable<HANDLE>(0x007052AC); }    // held while the loading screen is drawn
+HANDLE& ScreenMutex() { return reinterpret_cast<HANDLE&>(g_screenMutex); }    // held while the loading screen is drawn
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 struct BarVertex {

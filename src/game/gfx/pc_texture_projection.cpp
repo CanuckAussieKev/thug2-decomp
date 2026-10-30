@@ -25,10 +25,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
 GAME_GLOBAL(uint32_t, g_projectionBatchCount, 0x00705750);
+GAME_GLOBAL(sProjectionBatch[10], g_projectionBatches, 0x00705758); // (kBatchLimit)
 
 namespace {
 
@@ -36,10 +38,10 @@ constexpr uint32_t kProjectionVtable = 0x0064A764;
 constexpr uint32_t kBatchLimit = 10;
 constexpr uint32_t kBatchVertices = 0x600;
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-IDirect3DDevice9* DrawDevice() { return GameVariable<IDirect3DDevice9*>(0x00786D0C); } // (the same device, kept twice)
+IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* DrawDevice() { return g_drawDevice; } // (the same device, kept twice)
 uint32_t& BatchCount() { return g_projectionBatchCount; }
-sProjectionBatch* Batches() { return &GameVariable<sProjectionBatch>(0x00705758); }
+sProjectionBatch* Batches() { return g_projectionBatches; }
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
 
 void TransformCoord(float* out, const float* v, const Mth::Matrix* m)

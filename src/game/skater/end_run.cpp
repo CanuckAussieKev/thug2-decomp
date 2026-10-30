@@ -43,9 +43,9 @@ bool GameModeEndsRuns()
 // matches +0x38), and telling it (0x00533250).
 bool ServerToldRunEnded()
 {
-    return GameVariable<GameNet::Manager*>(0x007CCE14)->GameEndedSent();
+    return GameNet::g_gameNetManager->GameEndedSent();
 }
-void TellServerRunEnded() { GameVariable<GameNet::Manager*>(0x007CCE14)->SendGameEnded(); }
+void TellServerRunEnded() { GameNet::g_gameNetManager->SendGameEnded(); }
 
 // The skater object's +0xBC: a local skater (this machine's player).
 bool IsLocalSkater(CCompositeObject* object) { return object->m_unknownBC != 0; }

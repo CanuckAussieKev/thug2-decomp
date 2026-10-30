@@ -32,6 +32,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/script/cfuncs_scene.h"
 
 namespace Obj {
 
@@ -224,7 +225,7 @@ void CViewerObject::Load(Script::CStruct* params)
     AddMotionComponents(this);
     AddNodeComponents(this, params);
     Mem::Manager* memory = Mem::Manager::Get();
-    memory->PushContext(GameVariable<bool>(0x007CEFAC) ? static_cast<Mem::Allocator*>(memory->m_debugHeap)
+    memory->PushContext(CFuncs::g_gotExtraMemory ? static_cast<Mem::Allocator*>(memory->m_debugHeap)
                                                         : static_cast<Mem::Allocator*>(memory->m_bottomUpHeap));
     const char* name;
     for (int i = 0; i < 4; ++i) {

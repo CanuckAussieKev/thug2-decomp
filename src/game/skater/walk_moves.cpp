@@ -200,7 +200,7 @@ int Now() { return Tmr::GameClockElapsed() + g_clockOffset; }
 bool Halted(const void* walk) { return At<bool>(At<void*>(walk, kTrigger), 0x26); }
 
 // Nx's current collision cache (0x00691974), cleared after each state's update.
-void ClearCurrentCache() { GameVariable<void*>(0x00691974) = nullptr; }
+void ClearCurrentCache() { reinterpret_cast<void*&>(Nx::g_currentCache) = nullptr; }
 
 // The ride component's moving object containing the segment from `from` to `to` (0x00427B30), or null.
 CCompositeObject* MovingObjectAround(void* ride, Mth::Vector* to, Mth::Vector* from)
@@ -432,7 +432,7 @@ void CWalkComponent::UpdateAnimSpeed()
     case 3: { // on a ladder: also sent when it changed by 0.1 or more
         float speed = At<float>(this, kSpeed) / WalkParameter(kLadderMoveSpeed);
         tell(speed);
-        auto* net = GameVariable<GameNet::Manager*>(0x007CCE14);
+        auto* net = GameNet::g_gameNetManager;
         if (net->InNetGame() &&
             !(std::fabs(static_cast<double>(speed) - At<float>(this, kSentLadderSpeed)) < 0.10000000149011612)) {
             At<float>(this, kSentLadderSpeed) = speed;

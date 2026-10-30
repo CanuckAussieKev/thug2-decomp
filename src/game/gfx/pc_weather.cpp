@@ -25,6 +25,7 @@
 #include "game/nx/feeler.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -33,7 +34,7 @@ namespace {
 constexpr uint32_t kWeatherVtable = 0x0064A860;
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 int Ftol(double value) { return static_cast<int>(value); } // (the game's _ftol)
 uint32_t Argb(const uint8_t* rgba) { return uint32_t(rgba[3]) << 24 | uint32_t(rgba[0]) << 16 | uint32_t(rgba[1]) << 8 | rgba[2]; }
 
@@ -546,12 +547,12 @@ void CPcWeather::UpdateGrid()
     drops = 0;
     next = 0x19B;
     splashTexture = nullptr;
-    auto* dictionary = GameVariable<void*>(0x00700F20);
+    auto* dictionary = reinterpret_cast<void*>(g_particleTextureDict);
     auto* splash = reinterpret_cast<uint8_t*>(static_cast<CTexDict*>(dictionary)->GetTexture(0x45C7EB0F));
     if (splash)
         splashTexture = splash[8] & 1 ? **reinterpret_cast<void***>(splash + 0x10) : *reinterpret_cast<void**>(splash + 0x10);
     auto* snow = reinterpret_cast<uint8_t*>(
-        static_cast<CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(0xC97C5A4C));
+        static_cast<CTexDict*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(0xC97C5A4C));
     if (snow)
         snowTexture = snow[8] & 1 ? **reinterpret_cast<void***>(snow + 0x10) : *reinterpret_cast<void**>(snow + 0x10);
     active = true;

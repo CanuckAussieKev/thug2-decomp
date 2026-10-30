@@ -32,6 +32,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/tod_manager.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -168,7 +169,7 @@ int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, bool perfect, int
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
 // makes is let go at once, as in the original), the containers and text elements made for the tricks.
 using Front::ElementPtr;
-void* ElementManager() { return Ed::g_screenElementManager; }
+void* ElementManager() { return Front::g_screenElementManager; }
 Front::CScreenElementManager* Manager(void* manager) { return static_cast<Front::CScreenElementManager*>(manager); }
 Front::CScreenElement* ElementById(void* manager, uint32_t id)
 {
@@ -1078,7 +1079,7 @@ void CTrickBeatGoal::UpdateBeat()
     m_lastTime += elapsed;
     double time = static_cast<double>(m_beatTime);
     if (m_beatTime < 0)
-        time += GameVariable<float>(0x006453B4); // (unsigned)
+        time += Gfx::g_twoTo32; // (unsigned)
     double inverse = 1.0 / slomo;
     float scale = static_cast<float>(inverse); // (kept as a float; the beat's length uses the unrounded value)
     float beat = static_cast<float>(inverse * m_beatLength);
@@ -1103,7 +1104,7 @@ void CTrickBeatGoal::UpdateBeat()
                 volumeOf->SetSilent();
                 level.channels[0] = volume;
                 level.channels[1] = volume;
-                GameVariable<Sfx::CSfxManager*>(0x006F85A8)->PlaySound(name, volumeOf, pitch, 0, nullptr, 0);
+                Sfx::g_sfxManager->PlaySound(name, volumeOf, pitch, 0, nullptr, 0);
                 DestroySoundVolume(&level);
             }
         }

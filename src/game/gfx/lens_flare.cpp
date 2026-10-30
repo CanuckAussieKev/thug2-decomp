@@ -94,7 +94,7 @@ Mth::Vector& Position() { return g_flarePosition; } // in the world, this frame
 // the scalar deleting destructor).
 void* FindTexture(uint32_t checksum)
 {
-    return static_cast<Nx::CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(checksum);
+    return static_cast<Nx::CTexDict*>(reinterpret_cast<void*>(Nx::g_particleTextureDict))->GetTexture(checksum);
 }
 void DeleteTexture(void* texture)
 {

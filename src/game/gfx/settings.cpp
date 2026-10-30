@@ -11,6 +11,8 @@
 #include "game/sys/config.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
+#include "game/gfx/device.h"
+#include "game/gfx/camera.h"
 
 namespace Nx {
 
@@ -50,7 +52,7 @@ void LoadGraphicsSettings()
 
 void WriteGraphicsSettings()
 {
-    GameVariable<uint8_t>(0x007D6434) = static_cast<uint8_t>(s_settings.antialiasing);
+    reinterpret_cast<uint8_t&>(g_antialiasing) = static_cast<uint8_t>(s_settings.antialiasing);
     g_hqShadows = static_cast<uint8_t>(s_settings.hqShadows);
     g_distanceClipping = static_cast<uint8_t>(s_settings.distanceClipping);
     uint32_t distance = s_settings.clippingDistance;
@@ -59,7 +61,7 @@ void WriteGraphicsSettings()
     else if (distance < 1)
         distance = 1;
     // (the engine's distance: 100 to 595)
-    GameVariable<uint32_t>(0x007D6444) = static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f);
+    reinterpret_cast<uint32_t&>(Gfx::g_drawDistanceSetting) = static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f);
     g_fogSetting = static_cast<uint8_t>(s_settings.fog);
 }
 

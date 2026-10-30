@@ -12,6 +12,9 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/device.h"
+#include "game/skate/skate_module.h"
 
 namespace Nx {
 
@@ -24,8 +27,8 @@ GAME_GLOBAL(float, g_angleFactor, 0x0067E544, 1.0f);
 namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
-auto& BlurAvailable() { return GameVariable<uint32_t>(0x00786D40); }
-auto& ScreenBlur() { return GameVariable<uint32_t>(0x00787328); }
+auto& BlurAvailable() { return reinterpret_cast<uint32_t&>(g_screenSurfaces[0]); }
+auto& ScreenBlur() { return g_screenBlur; }
 // The last amount the script asked for (kept even when the blur is off).
 auto& ScriptScreenBlur() { return g_scriptScreenBlur; }
 
@@ -35,10 +38,10 @@ float AngleFactorConstant() { return g_angleFactor; }
 
 // The 640x480 -> back buffer conversion (InitDirect3D) and the letterbox flag.
 uint8_t& LetterboxActive() { return g_camera.letterboxActive; }
-float& ScreenScaleX() { return GameVariable<float>(0x00786D80); }
-float& ScreenScaleY() { return GameVariable<float>(0x00786D84); }
-uint32_t& ScreenOffsetX() { return GameVariable<uint32_t>(0x00786D88); }
-uint32_t& ScreenOffsetY() { return GameVariable<uint32_t>(0x00786D8C); }
+float& ScreenScaleX() { return g_screenScaleX; }
+float& ScreenScaleY() { return g_screenScaleY; }
+uint32_t& ScreenOffsetX() { return reinterpret_cast<uint32_t&>(g_screenOffsetX); }
+uint32_t& ScreenOffsetY() { return reinterpret_cast<uint32_t&>(g_screenOffsetY); }
 uint32_t BackBufferWidth() { return reinterpret_cast<uint32_t&>(g_backBufferWidth); }
 uint32_t BackBufferHeight() { return reinterpret_cast<uint32_t&>(g_backBufferHeight); }
 
@@ -46,7 +49,7 @@ uint32_t BackBufferHeight() { return reinterpret_cast<uint32_t&>(g_backBufferHei
 
 uint8_t CurrentLevel()
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     if (!skate)
         return 0;
     return (*reinterpret_cast<uint8_t**>(skate + 0x20))[0x630];

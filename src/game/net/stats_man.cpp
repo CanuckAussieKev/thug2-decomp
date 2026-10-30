@@ -29,6 +29,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/loading_bar.h"
+#include "game/ass/assman.h"
 
 namespace GameNet {
 
@@ -61,7 +63,7 @@ constexpr int kStatsPort = 0x1421;
 
 // The rank's factors (0x0064CC1C, 0x00646710).
 float RankScale() { return g_rankScale; } // 0.000286
-float RankTimes() { return GameVariable<float>(0x00646710); } // 10
+float RankTimes() { return Nx::g_floatTen; } // 10
 // rating * 0.000286 * 10 truncated, at most 10 (x87 at 53 bits: each product rounded to double).
 int Rank(double rating)
 {
@@ -82,7 +84,7 @@ Mem::Manager* Memory() { return Mem::Manager::Get(); }
 void PushTopDown() { Memory()->PushContext(Memory()->m_internetTopDownHeap); }
 void PushBottomUp() { Memory()->PushContext(Memory()->m_internetBottomUpHeap); }
 void PopHeap() { Memory()->PopContext(); }
-Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04); }
+Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04); }
 
 uint32_t Crc(const char* name) { return Crc::GenerateCRCFromString(name); }
 void Run(uint32_t script, Script::CStruct* params = nullptr) { Script::RunScript(script, params, nullptr, false, nullptr); }

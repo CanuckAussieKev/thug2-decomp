@@ -21,6 +21,7 @@
 #include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace CFuncs {
 
@@ -293,7 +294,7 @@ bool __cdecl CFunc_IsCurrentHorseSkater(Script::CStruct* params, Script::CScript
 // checks flag 0x00684FA8 set).
 bool __cdecl CFunc_TrickOffAllObjects(Script::CStruct* params, Script::CScript*)
 {
-    if (!GameVariable<bool>(0x00684FA8)) {
+    if (!GameConfig::g_fromCD) {
         int player = 0;
         params->GetInteger(0u, &player, 0);
         Obj::g_trickObjectManager->GiveFreeClusters(player);

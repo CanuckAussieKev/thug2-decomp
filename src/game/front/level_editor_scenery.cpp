@@ -32,6 +32,10 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/log.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/render_state.h"
+#include "game/gfx/engine.h"
 
 namespace Front::LevelEditor {
 
@@ -172,12 +176,11 @@ struct SceneNode {
 };
 bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 
-GAME_GLOBAL(SceneNode*, g_firstSceneNode, 0x006FA7EC);
 
 template <typename F>
 void ForEachScene(F fn)
 {
-    SceneNode* node = g_firstSceneNode;
+    SceneNode* node = reinterpret_cast<SceneNode*>(Nx::g_sceneList.next);
     for (int guard = 0; node && !IsEnd(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
         if (node->scene && !node->scene[0x8D])
@@ -483,7 +486,7 @@ static_assert(sizeof(RailNode) == 0x54, "a rail node is 0x54 bytes");
 
 bool RailNodes(RailNode** nodes, int* count)
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     uint8_t* manager = skate ? *reinterpret_cast<uint8_t**>(skate + 0x24) : nullptr;
     if (!manager || manager[0x50])
         return false;
@@ -1195,7 +1198,7 @@ void LogMeshes()
             i, *reinterpret_cast<uint32_t*>(mesh), colour[0], colour[1], colour[2],
             *reinterpret_cast<uint32_t*>(mesh + 0x38), static_cast<void*>(material), material ? m[2] & 0xFFFFFFF : 0,
             material ? m[8] : 0, material ? m[9] : 0, material ? m[0x10] : 0, material ? m[0x11] : 0,
-            material ? m[0x12] : 0, GameVariable<uint8_t>(0x00786AB8));
+            material ? m[0x12] : 0, static_cast<uint8_t>(Nx::g_shadersAvailable));
     }
 }
 
@@ -1854,7 +1857,7 @@ int MovedCount()
 void LogCensus()
 {
     // (every node of the scene list, skies too: what the walk sees)
-    SceneNode* node = g_firstSceneNode;
+    SceneNode* node = reinterpret_cast<SceneNode*>(Nx::g_sceneList.next);
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         bool end = IsEnd(node);
         uint8_t* scene = end ? nullptr : node->scene;

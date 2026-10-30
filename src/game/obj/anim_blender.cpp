@@ -62,11 +62,6 @@ void** const kVtable = reinterpret_cast<void**>(0x00645D8C);
 void** const kHeadVtable = reinterpret_cast<void**>(0x00645D88);
 void** const kNodeVtable = reinterpret_cast<void**>(0x00645D84);
 
-// The blend's shared buffers: the weights, the bone set of each channel, the pose.
-float*& s_blendWeights = GameVariable<float*>(0x006F8A5C);
-uint32_t*& s_blendSets = GameVariable<uint32_t*>(0x006F8A58);
-Gfx::CPose*& s_blendPose = GameVariable<Gfx::CPose*>(0x006F8A60);
-
 constexpr uint32_t kId = 0x5CFCCF35; // SubsetId
 constexpr uint32_t kPlayAnim = 0x0B1E7291, kObjPlayAnim = 0x2CB9AD09;
 constexpr float kMinWeight = 0.00001f;
@@ -188,17 +183,17 @@ void CAnimBlenderComponent::Update()
             // a channel after the first with (next to) no weight: only reset
             channel->UpdateBlend();
             channel->UpdateTimelines();
-            s_blendSets[count] = Field<uint32_t>(channel, 0x2C);
-            if (!(highestSet > s_blendSets[count]))
-                highestSet = s_blendSets[count];
-            s_blendWeights[count] = 0.0f;
+            Gfx::g_blendSets[count] = Field<uint32_t>(channel, 0x2C);
+            if (!(highestSet > Gfx::g_blendSets[count]))
+                highestSet = Gfx::g_blendSets[count];
+            Gfx::g_blendWeights[count] = 0.0f;
         } else {
             if (Virtual<bool>(channel, 1, count, static_cast<uint32_t>(ready)))
                 changed = true;
-            s_blendWeights[count] = Field<float>(channel, 0x30);
-            s_blendSets[count] = Field<uint32_t>(channel, 0x2C);
-            if (!(highestSet > s_blendSets[count]))
-                highestSet = s_blendSets[count];
+            Gfx::g_blendWeights[count] = Field<float>(channel, 0x30);
+            Gfx::g_blendSets[count] = Field<uint32_t>(channel, 0x2C);
+            if (!(highestSet > Gfx::g_blendSets[count]))
+                highestSet = Gfx::g_blendSets[count];
         }
         Mem::ListNode* next = Next(channel);
         ++count;
@@ -211,22 +206,22 @@ void CAnimBlenderComponent::Update()
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     auto skeleton = [this]() { return reinterpret_cast<Gfx::CSkeleton*>(reinterpret_cast<GameNet::FoldedGetters*>(mp_skeleton)->Word18()); };
     if (count == 1) {
-        NotifyObservers(s_blendPose);
+        NotifyObservers(Gfx::g_blendBuffer);
     } else {
         uint32_t sets = highestSet + 1;
         for (uint32_t set = 0; set != sets;) {
-            Gfx::CPose* pose = s_blendPose;
+            Gfx::CPose* pose = Gfx::g_blendBuffer;
             uint32_t bones = GameFunction<uint32_t(__thiscall*)(void*)>(0x004A2BA0)(skeleton());
-            Gfx::BlendPosesById(s_blendPose, s_blendWeights, s_blendSets, static_cast<int>(bones), pose, count, set);
+            Gfx::BlendPosesById(Gfx::g_blendBuffer, Gfx::g_blendWeights, Gfx::g_blendSets, static_cast<int>(bones), pose, count, set);
             ++set;
-            s_blendSets[0] = set;
-            s_blendWeights[0] = 0.0f;
+            Gfx::g_blendSets[0] = set;
+            Gfx::g_blendWeights[0] = 0.0f;
             if (!(set < sets))
                 break;
         }
-        NotifyObservers(s_blendPose);
+        NotifyObservers(Gfx::g_blendBuffer);
     }
-    skeleton()->Update(s_blendPose);
+    skeleton()->Update(Gfx::g_blendBuffer);
 }
 
 // 0x00419DD0

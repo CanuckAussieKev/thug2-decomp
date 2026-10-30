@@ -26,6 +26,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/ass/assman.h"
 
 namespace GameNet {
 
@@ -129,7 +130,7 @@ static_assert(sizeof(StartGameInfo) == 0x48 && offsetof(StartGameInfo, stopAtZer
 
 Tsk::Stack* LogicTasks()
 {
-    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<void*>(0x00696D68)) + 4);
+    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(Ass::g_mainLoopManager)) + 4);
 }
 Prefs::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<Prefs::Preferences*>(m->m_networkPreferences); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).

@@ -31,6 +31,9 @@ namespace Nx {
 GAME_GLOBAL(float, g_grassDetailUvScale, 0x0064A8C0, 0.010416667f);
 GAME_GLOBAL(float, g_grassUvScale, 0x0064A8C4, 0.0052083335f);
 GAME_GLOBAL(float, g_grassCopyUvScale, 0x0064A8C8, 0.020833334f);
+GAME_GLOBAL(uint8_t[0x20], g_grassTexture0, 0x00782350); // the grass materials' texture slots (0x20 bytes each)
+GAME_GLOBAL(uint8_t[0x20], g_grassTexture1, 0x00782370);
+GAME_GLOBAL(uint8_t[17 * 0x20], g_grassTextureAnimation, 0x00782390); // (17 slots of 0x20)
 
 namespace {
 
@@ -47,8 +50,8 @@ void* LookUpTexture(void* dictionary, uint32_t checksum)
 // 0x004D08A0
 void __cdecl SetUpAnimatedGrassMaterial(sMaterial* m)
 {
-    m->textures[0] = &GameVariable<uint8_t>(0x00782350);
-    m->textures[1] = &GameVariable<uint8_t>(0x00782370);
+    m->textures[0] = g_grassTexture0;
+    m->textures[1] = g_grassTexture1;
     m->blendModes[0] = 0x40000006;
     m->passColor[0][3] = 0.5f;
     m->passCount = 2;
@@ -73,7 +76,7 @@ void __cdecl SetUpAnimatedGrassMaterial(sMaterial* m)
     m->textureAnim->keys[3] = nullptr;
     for (int k = 0; k < 18; ++k) { // (a frame every 1000 / 30 ms, through 17 textures)
         m->textureAnim->keys[0][k].time = k * 1000 / 30;
-        m->textureAnim->keys[0][k].texture = &GameVariable<uint8_t>(0x00782390) + (k % 17) * 0x20;
+        m->textureAnim->keys[0][k].texture = g_grassTextureAnimation + (k % 17) * 0x20;
     }
 }
 
@@ -87,7 +90,7 @@ bool __cdecl MakeAnimatedGrass(CPcGeom* /*geom*/, sMesh* mesh)
     auto* texture = *reinterpret_cast<uint8_t**>(entry + 0x10);
     if (entry[8] & 1)
         texture = *reinterpret_cast<uint8_t**>(texture);
-    std::memcpy(&GameVariable<uint8_t>(0x00782370), texture, 0x20);
+    std::memcpy(g_grassTexture1, texture, 0x20);
     if ((mesh->stride - mesh->unknown1C[2]) / 8 == 1) { // (one texture coordinate set: room made for a second)
         sVertexBuffer* wider = NewVertexBuffer((mesh->stride + 8u) * mesh->vertexCount, 0, 0);
         uint8_t* from = nullptr;

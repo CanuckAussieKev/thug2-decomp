@@ -16,6 +16,8 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "game/skate/skate_module.h"
+#include "game/skate/game_mode.h"
 
 namespace Obj {
 class CObject;
@@ -58,8 +60,8 @@ inline void Run(uint32_t name, Script::CStruct* params = nullptr, Obj::CObject* 
 }
 
 // The singletons (not rewritten): the skate module, the game mode, the goal manager.
-inline uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
-inline uint8_t* GameMode() { return GameVariable<uint8_t*>(0x007CE470); }
+inline uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
+inline uint8_t* GameMode() { return reinterpret_cast<uint8_t*>(Game::g_gameMode); }
 inline bool IsTeamGame() { return Call<bool>(0x005535F0, GameMode()); }
 inline uint32_t GameType() { return Call<uint32_t>(0x005532A0, GameMode()); }
 inline uint8_t* GoalManager() { return reinterpret_cast<uint8_t*>(Game::GetGoalManager()); }

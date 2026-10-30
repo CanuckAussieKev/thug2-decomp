@@ -18,6 +18,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "imgui.h"
+#include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::SkateView {
 
@@ -269,7 +270,7 @@ void AddOverlay(const Overlays::Painter& painter)
             painter.Line(corner[e[0]], corner[e[1]], colour, 2.0f);
     }
     // Grind rails: the rail manager's active segments near the camera.
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     auto* rails = skate ? *reinterpret_cast<Obj::CRailManager**>(skate + 0x24) : nullptr;
     if (rails && !rails->m_onObject && rails->m_nodes) {
         int drawn = 0;

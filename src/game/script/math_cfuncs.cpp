@@ -12,6 +12,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/cag_cfuncs.h"
 
 namespace CFuncs {
 
@@ -44,7 +45,7 @@ constexpr uint32_t kRx = 0xFDF10F7A;           // "rx"
 constexpr uint32_t kRy = 0x8AF63FEC;           // "ry"
 constexpr uint32_t kRz = 0x13FF6E56;           // "rz"
 
-float DegreesToRadians() { return GameVariable<const float>(0x00645464); } // pi / 180
+float DegreesToRadians() { return g_degreesToRadians; } // pi / 180
 float RadiansToDegrees() { return g_scriptRadiansToDegrees; } // 180 / pi
 
 // The x87 instructions the originals use (53-bit precision), so the results match bit for bit.

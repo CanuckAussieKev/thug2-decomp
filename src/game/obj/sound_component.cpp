@@ -43,7 +43,7 @@ constexpr float kRetryPerDistance = -0.0016666667070239782f; // 0x00646554
 constexpr uint32_t kRetryDelay = 0x14D;                // (ms)
 constexpr uint32_t kWaitTime = 2000;                   // (ms)
 
-Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
 CObject* AsSoundObject(CSoundComponent* component) { return reinterpret_cast<CObject*>(component); }
 
 // The camera nearest to `position` (0x004A09E0; its distance through `distance`) and a camera's position (0x00485A00).

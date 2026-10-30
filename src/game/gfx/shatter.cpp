@@ -22,6 +22,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
@@ -31,7 +32,7 @@ namespace {
 
 constexpr uint32_t kShatterVtable = 0x0064A4AC;
 
-IDirect3DDevice9* DrawDevice() { return GameVariable<IDirect3DDevice9*>(0x00786D0C); }
+IDirect3DDevice9* DrawDevice() { return g_drawDevice; }
 Lst::HashTable* Shatters() { return g_shatters; }
 
 uint16_t TriangleCount(const CPcShatter* shatter) { return shatter->triangleCount; }
@@ -248,8 +249,8 @@ void __cdecl ShatterGeom(uint8_t* geom)
         void* memory = Mem::New(sizeof(CPcShatter));
         CPcShatter* shatter = memory ? static_cast<CPcShatter*>(memory)->Construct(count, mesh, 0) : nullptr;
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
-        const float* direction = &GameVariable<float>(0x007004D0);
-        double scale = -static_cast<double>(GameVariable<float>(0x0067DDF4));
+        const float* direction = reinterpret_cast<const float*>(&g_shatterVelocity);
+        double scale = -static_cast<double>(g_shatterVelocityScale);
         double backX = scale * direction[0];
         float backY = static_cast<float>(scale * direction[1]);
         float backZ = static_cast<float>(scale * direction[2]);
@@ -272,7 +273,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
                 (&centre.x)[k] = static_cast<float>(
                     (static_cast<double>(At(t + 2 * stride)[k]) + At(t + stride)[k] + At(t)[k]) * (1.0f / 3.0f));
             // a velocity away from the centre at a random speed
-            float pace = static_cast<float>(Rand() * static_cast<double>(GameVariable<float>(0x007004CC)) * kPerRand *
+            float pace = static_cast<float>(Rand() * static_cast<double>(g_shatterSpeed) * kPerRand *
                                                 speed +
                                             speed);
             double dx = static_cast<double>(centre.x) - from[0];

@@ -63,6 +63,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/settings.h"
 
 namespace Mdl {
 
@@ -124,7 +125,7 @@ constexpr uint32_t kTeamRestarts[4] = {0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 Game::CGameMode* GameMode() { return Game::g_gameMode; }
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 Obj::CGeneralManager* ObjectManager() { return reinterpret_cast<Obj::CGeneralManager*>(Obj::g_compositeObjectManager); }
 Obj::CTrickObjectManager* TrickObjects() { return Obj::g_trickObjectManager; }
 Script::CStruct*& CatInfo() { return g_catInfo; }
@@ -382,7 +383,7 @@ int Skate::GetNextUnusedSkaterHeapIndex(bool local)
 void Skate::SetSkaterShadow(Obj::CSkater* skater)
 {
     auto* shadow = static_cast<Obj::CShadowComponent*>(skater->GetComponent(kShadow));
-    int type = GameVariable<uint8_t>(0x007D6435) ? 1 : 2;
+    int type = Nx::g_hqShadows ? 1 : 2;
     Mem::PushContext(SkaterHeap(skater->GetSkaterNumber()));
     if (static_cast<uint8_t>(CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr)))
         type = 2;
@@ -406,11 +407,11 @@ void Skate::BindControllers()
         if (!skater || !skater->m_unknownBC)
             continue;
         int number = skater->GetSkaterNumber();
-        auto* input = GameVariable<Inp::Manager*>(0x00696D40);
+        auto* input = Inp::g_inputManager;
         int controller = input->GetPlayerController(number);
         static_cast<Obj::CInputComponent*>(skater->GetComponent(kInput))->BindToController(controller);
         if (auto* camera = static_cast<Obj::CCompositeObject*>(skater->GetSkaterCamera())) {
-            controller = GameVariable<Inp::Manager*>(0x00696D40)->GetPlayerController(number);
+            controller = Inp::g_inputManager->GetPlayerController(number);
             static_cast<Obj::CInputComponent*>(camera->GetComponent(kInput))->BindToController(controller);
         }
     }
@@ -539,7 +540,7 @@ void Skate::Cleanup()
     NetManager()->ClearCrown();
     Script::DeleteSpawnedScripts();
     TrickObjects()->RemoveAllClusters();
-    static_cast<Nx::CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->DestroyNonPersistent();
+    static_cast<Nx::CFlexibleParticleManager*>(Nx::g_flexibleParticleManager)->DestroyNonPersistent();
     m_railManager->Cleanup();
     Obj::Proxim_Cleanup();
     Obj::Emitter_Cleanup();
@@ -601,7 +602,7 @@ void Skate::ResetLevel()
 void Skate::LaunchGame()
 {
     GameNet::Manager* net = NetManager();
-    GameVariable<FrontEnd*>(0x007CE464)->PauseGame(false);
+    g_frontEndInstance->PauseGame(false);
     Mem::PushContext(Mem::BottomUpHeap());
     Dbg::Printf(Text(0x0064E6BC), GetNumSkaters()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
     if (!net->GetLocalPlayer()) {

@@ -103,7 +103,7 @@ void ReleaseBoneVolumes(void* volumes) { Gfx::ReleaseBoneVolumes(reinterpret_cas
 // The texture dictionary (0x00700F1C): a texture by checksum (0x0049F540), one taken out (0x0049F500), a texture
 // made from an image (0x0049FA20) or loaded (0x0049F9B0); a texture's own replaced in a dictionary by name (0x0049FB20)
 // or by a texture (0x0049F800).
-void* Textures() { return GameVariable<void*>(0x00700F1C); }
+void* Textures() { return reinterpret_cast<void*>(g_gameTextureDict); }
 void* FindTexture(uint32_t checksum)
 {
     return static_cast<CTexDict*>(Textures())->GetTexture(checksum);

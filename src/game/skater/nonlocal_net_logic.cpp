@@ -428,7 +428,7 @@ void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, 
 // 0x00517270
 void CSkaterNonLocalNetLogicComponent::Update()
 {
-    auto* netManager = GameVariable<GameNet::Manager*>(0x007CCE14);
+    auto* netManager = GameNet::g_gameNetManager;
     m_frameSeconds = static_cast<float>(Tmr::GetFrameSeconds());
     int state = Field<int>(m_state, 0x18);
     bool wasLip = state == kStateLip;
@@ -445,7 +445,7 @@ void CSkaterNonLocalNetLogicComponent::Update()
     auto* player = static_cast<GameNet::PlayerInfo*>(netManager->GetLocalPlayer());
     if (!player->IsObserver() && !player->IsSurveying()) {
         void* gameMode = static_cast<void*>(Game::g_gameMode);
-        bool extrapolate = GameVariable<GameNet::Manager*>(0x007CCE14)->PlayerCollisionEnabled() ||
+        bool extrapolate = GameNet::g_gameNetManager->PlayerCollisionEnabled() ||
                            static_cast<Game::CGameMode*>(gameMode)->GetNameChecksum() == kNetFirefight ||
                            static_cast<Game::CGameMode*>(gameMode)->GetNameChecksum() == kFirefight;
         if (extrapolate && Field<int>(m_history, 0x18) >= kHistory) {

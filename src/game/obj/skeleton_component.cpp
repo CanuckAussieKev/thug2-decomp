@@ -72,11 +72,11 @@ uint32_t BoneName(uint8_t* data, uint32_t index) { return reinterpret_cast<uint3
 // The texture dictionary's texture by name / checksum (0x0049F560 / 0x0049F540).
 void* TextureNamed(const char* name)
 {
-    return GameVariable<Nx::CTexDict*>(0x00700F20)->GetTextureByName(name);
+    return Nx::g_particleTextureDict->GetTextureByName(name);
 }
 void* TextureByChecksum(uint32_t checksum)
 {
-    return GameVariable<Nx::CTexDict*>(0x00700F20)->GetTexture(checksum);
+    return Nx::g_particleTextureDict->GetTexture(checksum);
 }
 
 // The game's C runtime rand().

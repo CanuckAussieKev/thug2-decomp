@@ -29,6 +29,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace Obj {
 
@@ -53,7 +54,7 @@ uint8_t s_changeMask[CTrickObjectManager::kMaxLoggedClusters];
 // The game mode (0x007CE470) and the network manager's players (0x007CCE14): PlayerInfo +0x14 its skater (+0x14 the
 // skater's object id), +0x30 its team. Walked with a Lst::Search<PlayerInfo> (vtable 0x0064C1A8).
 void* GameMode() { return static_cast<void*>(Game::g_gameMode); }
-void* NetManager() { return GameVariable<void*>(0x007CCE14); }
+void* NetManager() { return reinterpret_cast<void*>(GameNet::g_gameNetManager); }
 struct PlayerSearch {
     void* m_vtable = reinterpret_cast<void*>(0x0064C1A8);
     void* m_node = nullptr;
@@ -293,7 +294,7 @@ bool CTrickObjectCluster::AddObject(uint32_t name)
     object->m_node.vtable = kTrickObjectVtable;
     object->m_name = name;
     ClearSectorColor(FindSector(name));
-    if (!GameVariable<bool>(0x00684FA8) && Script::GetInteger("show_all_trick_objects"))
+    if (!GameConfig::g_fromCD && Script::GetInteger("show_all_trick_objects"))
         object->SetGraffitiColor(2);
     // Last in the list (before the head).
     object->m_node.next = &m_objects;

@@ -16,6 +16,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/net/gamenet_manager.h"
 
 namespace Obj {
 
@@ -289,7 +290,7 @@ bool CSkaterCareer::GetCheat(uint32_t name)
 {
     int flag = Script::GetInteger(name);
     bool on = (m_globalFlags[Word(flag)] & Bit(flag)) != 0;
-    GameVariable<bool>(0x007CE4FD) = on;
+    GameNet::g_cheatFlag = on;
     return on;
 }
 

@@ -5,6 +5,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
+#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -58,4 +59,5 @@ public:
     float m_unknownC0;          // +0xC0: 1 (divides the widened angle's tangent)
 };
 
+GAME_GLOBAL_EXTERN(int, g_drawDistanceSetting);
 } // namespace Gfx

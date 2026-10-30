@@ -73,7 +73,7 @@ int Unset(const void* mode) { return static_cast<int>(reinterpret_cast<uintptr_t
 
 CGameMode*& TheGameMode() { return g_gameMode; }
 uint32_t& References() { return g_gameModeReferences; }
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 
 // A virtual function of an object with a game vtable.
 template <typename R, typename... A>

@@ -27,6 +27,7 @@
 #include "game/gfx/anim_blend.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/loading_bar.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strcpy / strncpy, kept)
 
@@ -119,7 +120,7 @@ const char* NoValue(char*) { return nullptr; }
 // A rating's rank (as the lobby's: rating * 1/3500 * 10, truncated, at most 10).
 int RankOf(int rating)
 {
-    double rank = static_cast<double>(rating) * g_rankScale * GameVariable<float>(0x00646710);
+    double rank = static_cast<double>(rating) * g_rankScale * Nx::g_floatTen;
     int shown = static_cast<int>(rank);
     return shown > kMaxRank ? kMaxRank : shown;
 }

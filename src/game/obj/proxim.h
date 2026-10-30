@@ -11,6 +11,7 @@
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 namespace Obj {
 
@@ -96,4 +97,5 @@ int GetRestartNodes(uint32_t type, uint32_t* out, uint32_t start);
 // 0x0046B790: restart node `index` (wrapped round the count once it's past it) of `type` - 0 if there's none.
 uint32_t GetRestartNode(uint32_t type, int index, uint32_t start);
 
+GAME_GLOBAL_EXTERN(void*, g_proximManager);
 } // namespace Obj

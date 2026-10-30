@@ -18,6 +18,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::Nodes {
 
@@ -614,7 +615,7 @@ std::vector<Field> Fields(const Node& node)
 
 bool LevelIsShared(const char** game)
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478); // the skate module
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule); // the skate module
     if (!skate)
         return false;
     uint32_t level = *reinterpret_cast<uint32_t*>(skate + 0x378); // its level's load script

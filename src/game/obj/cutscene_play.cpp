@@ -21,6 +21,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace Pcm {
 // (stream.h; not included here: its SetMusicVolume clashes with music.h's)
@@ -216,7 +217,7 @@ void CCutsceneData::Update(void* camera, Script::CStruct* /*params*/)
             m_pausedVblanks = Tmr::GetVblanks();
             FixedFrame() = 0;
         }
-        int rate = GameVariable<int>(0x00684FB4);
+        int rate = GameConfig::g_frameRate;
         Pcm::SyncMusicToTime(VblankSeconds(Tmr::GetVblanks() - m_pausedVblanks, rate));
         UpdateTime(reinterpret_cast<int>(camera));
         CheckSkip();

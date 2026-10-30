@@ -24,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/front/front_end.h"
 
 namespace Obj {
 
@@ -330,7 +331,7 @@ void CCameraAnimMovie::PlaceCamera()
     float* pos = reinterpret_cast<float*>(m_base.m_camera->GetPos());
     float* m = reinterpret_cast<float*>(m_base.m_camera->GetMatrix());
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
-    uint8_t** skaters = reinterpret_cast<uint8_t**>(GameVariable<uint8_t*>(0x007CE464) + 0x20);
+    uint8_t** skaters = reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(Mdl::g_frontEndInstance) + 0x20);
     for (int i = 0; i < 2; ++i) {
         if (Field<uint8_t>(Field<uint8_t*>(skaters[i], 0x18), 0x20) & 0x40)
             Base(this)->CheckDone(true);

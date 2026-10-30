@@ -35,13 +35,13 @@ float* LightDirectionConstant(uint32_t light) { return g_lightConstants + 4 + 8 
 float* LightColorConstant(uint32_t light) { return g_lightConstants + 8 + 8 * light; }
 
 // The scene's lights.
-uint32_t& SceneAmbient() { return GameVariable<uint32_t>(0x0067DC98); }
-float SceneScale() { return GameVariable<float>(0x0067DC94); }
+uint32_t& SceneAmbient() { return g_worldLights.ambient; }
+float SceneScale() { return g_ambientIntensity; }
 Mth::Vector* SceneDirections() { return g_sceneDirections; }
 uint32_t* SceneColors() { return g_sceneColors; }
-float* SceneIntensities() { return GameVariable<float*>(0x006FAAEC); }
-uint32_t LightCount() { return GameVariable<uint32_t>(0x006FAAE0); }
-uint32_t ModelLightCount() { return GameVariable<uint32_t>(0x006FAAE4); }
+float* SceneIntensities() { return g_intensities; }
+uint32_t LightCount() { return g_lightCount; }
+uint32_t ModelLightCount() { return g_modelLightCount; }
 
 // A colour's r, g, b bytes times `factor` and 1/128 into three floats.
 void SendColor(float* out, uint32_t rgba, float factor)

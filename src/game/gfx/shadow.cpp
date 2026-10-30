@@ -24,6 +24,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/glow.h"
 
 namespace Nx {
 
@@ -33,13 +35,13 @@ GAME_GLOBAL(float[4], g_shadowViewport, 0x0067EF4C, 256.0f, 256.0f, 256.0f, 256.
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 Lst::HashTable* Casters() { return g_shadowCasters; }
 float* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
 float* ProjectionMatrix() { return reinterpret_cast<float*>(&g_projectionMatrix); }
 const float* WorldMatrix() { return reinterpret_cast<float*>(&g_worldMatrix); }
 uint8_t& CustomTransforms() { return g_camera.customTransforms; } // the view / projection aren't the camera's
-bool SkipRender() { return GameVariable<bool>(0x007D1EC0); }
+bool SkipRender() { return g_skipRender; }
 uint32_t& Fog() { return g_fogEnabled; }
 uint32_t& DepthBias() { return g_depthBias; }
 uint32_t& CullMode() { return g_cullMode; }
@@ -203,7 +205,7 @@ void __cdecl ShadowTextureMatrix(const float* a, const float* b, float* out, con
 // 0x004DB9D0
 void __cdecl DrawShadowVolumes(const void* scene, int /*viewport*/)
 {
-    void* vertexColour = GameVariable<void*>(0x007CA94C);
+    void* vertexColour = g_vertexColourPixelShader;
     SetPixelShader(vertexColour, nullptr);
     PixelShaderLocked() = reinterpret_cast<uint32_t>(vertexColour);
     SetTexture(0, nullptr);
@@ -352,7 +354,7 @@ void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
         SetTexture(1, nullptr);
         SetTexture(0, *reinterpret_cast<void**>(caster->target + 0x10));
         SetState(kAddressMode0, 0x20002); // border
-        if (GameVariable<bool>(0x00786AC0))
+        if (g_borderAddressingSupported)
             Device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
         Device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);

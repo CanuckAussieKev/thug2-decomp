@@ -27,6 +27,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/tod_manager.h"
 
 namespace Game {
 
@@ -53,7 +54,7 @@ GoalLink* NewLink()
     return link;
 }
 
-GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 Obj::CCompositeObject* LocalSkater() { return SkateCalls::GetLocalSkater(); }
 // The game mode's name (0x005532A0) and whether it beeps the timer (0x00553150).
 uint32_t GameModeName() { return static_cast<Game::CGameMode*>(SkateCalls::GameMode())->GetNameChecksum(); }
@@ -203,7 +204,7 @@ bool CGoal::Update()
     if (Virtual<bool>(this, kVtHasTimeLimit) && m_timeLeft >= 1) {
         int before = m_timeLeft;
         m_timeLeft += Truncate(Tmr::GetSlomoFrameSeconds() * g_goalRunMinusMilliseconds); // (-1000)
-        m_elapsed += Truncate(Tmr::GetSlomoFrameSeconds() * GameVariable<float>(0x006453C0));  // (1000)
+        m_elapsed += Truncate(Tmr::GetSlomoFrameSeconds() * Gfx::g_thousand);  // (1000)
         // The last ten seconds beep each second.
         if (m_timeLeft < 10000 && before / 1000 > m_timeLeft / 1000 && Virtual<bool>(this, kVtTimerBeeps) &&
             GameModeTimerBeeps())

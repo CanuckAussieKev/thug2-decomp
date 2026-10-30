@@ -15,12 +15,14 @@
 #include "hook/game.h"
 #include "hook/log.h"
 #include "imgui.h"
+#include "game/gfx/device.h"
+#include "game/gfx/render.h"
 
 namespace Front::LevelEditor::UiBackend {
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
 
 // Whether the backends are started for the current ImGui context: each context (the editor's, the new front end's -
 // game/front/new_frontend.h) has its own backend data, which the backends keep in its IO.
@@ -208,8 +210,8 @@ void WindowSize(int* width, int* height)
 
 void BackBufferSize(int* width, int* height)
 {
-    *width = GameVariable<int>(0x00786D6C);
-    *height = GameVariable<int>(0x00786D70);
+    *width = Nx::g_backBufferWidth;
+    *height = Nx::g_backBufferHeight;
 }
 
 uint64_t TextureId(void* rendererTexture)

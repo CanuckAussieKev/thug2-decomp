@@ -20,6 +20,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/front/screen_element_manager.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -140,7 +141,7 @@ int Manager::GetPlayerScore(uint32_t id)
 // 0x00544780
 void __cdecl ScoreUpdateTask(void* task)
 {
-    void* elements = GameVariable<void*>(0x00701440); // (the screen element manager: unused by the lookup)
+    void* elements = Front::g_screenElementManager; // (the screen element manager: unused by the lookup)
     (void)elements;
     Manager* manager = Field<Manager*>(task, 0x1C);
     Lst::Head list;

@@ -29,7 +29,7 @@ namespace RailEditorInternal {
 
 Mem::PoolPair& PointPools() { return g_railPointPools; }
 Mem::PoolPair& RailPools() { return g_railPools; }
-bool& UpdateSuperSectors() { return GameVariable<bool>(0x0067F000); }
+bool& UpdateSuperSectors() { return g_railEditorFlag; }
 
 void DeleteSector(uint8_t*& sector)
 {

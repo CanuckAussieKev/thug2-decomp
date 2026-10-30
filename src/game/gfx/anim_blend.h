@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
+#include "hook/game_global.h"
 
 namespace Obj {
 class CAnimBlenderComponent;
@@ -217,5 +218,10 @@ struct AnimListHead {
     int CountItems();
     Mem::ListNode m_head;
 };
+
+// The blend's shared buffers: the weights, the bone set of each channel, the pose.
+GAME_GLOBAL_EXTERN(CPose*, g_blendBuffer);
+GAME_GLOBAL_EXTERN(float*, g_blendWeights);
+GAME_GLOBAL_EXTERN(uint32_t*, g_blendSets);
 
 } // namespace Gfx

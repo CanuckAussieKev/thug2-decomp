@@ -24,6 +24,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
+#include "game/gfx/engine.h"
 
 namespace Nx {
 
@@ -41,10 +43,10 @@ constexpr float kEffectScale = Bits(0x38800000); // 0x006487C8, 1 / 16384
 constexpr float kMinusHalf = Bits(0xBF000000);   // 0x0064642C
 
 // The 640x480 -> back buffer conversion (set up by InitDirect3D).
-float ScreenScaleX() { return GameVariable<float>(0x00786D80); }
-float ScreenScaleY() { return GameVariable<float>(0x00786D84); }
-int ScreenOffsetX() { return GameVariable<int>(0x00786D88); }
-int ScreenOffsetY() { return GameVariable<int>(0x00786D8C); }
+float ScreenScaleX() { return g_screenScaleX; }
+float ScreenScaleY() { return g_screenScaleY; }
+int ScreenOffsetX() { return g_screenOffsetX; }
+int ScreenOffsetY() { return g_screenOffsetY; }
 
 // The text vertex buffer (BeginDraw points it at 0x00779FD8) and how many vertices it holds.
 TextVertex*& VertexBuffer() { return g_textVertexBuffer; }
@@ -404,7 +406,7 @@ void SText::Draw()
 namespace {
 
 // The D3D9 device, its methods by vtable offset.
-void** Device() { return GameVariable<void**>(0x007D69E0); }
+void** Device() { return reinterpret_cast<void**>(g_d3dDevice); }
 template <typename F>
 F DeviceMethod(int offset)
 {
@@ -503,7 +505,7 @@ void SText::DrawVertices()
     SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
     SetTexture(0, textureFont->texture); // (the original also passes unknown17C, which SetTexture doesn't take)
     DeviceMethod<long(__stdcall*)(void*, int, int)>(0xE4)(Device(), 22, 1); // D3DRS_CULLMODE: none
-    if (!GameVariable<bool>(0x007D1EC0)) { // (rendering not skipped)
+    if (!g_skipRender) { // (rendering not skipped)
         ++g_drawCalls;            // draw calls
         g_drawnTriangles += count / 2; // "triangles"
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,

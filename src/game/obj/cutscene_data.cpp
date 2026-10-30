@@ -26,6 +26,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/engine.h"
 
 namespace Obj {
 
@@ -197,7 +198,7 @@ void SetUpCutsceneHeaps()
 {
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_topDownHeap);
-    GameVariable<Nx::CFlexibleParticleManager*>(0x006FA7C0)->CreateTempHeap(0x25800);
+    reinterpret_cast<Nx::CFlexibleParticleManager*&>(Nx::g_flexibleParticleManager)->CreateTempHeap(0x25800);
     uint32_t available = Mem::Manager::Get()->Available();
     Mem::Manager::Get()->InitCutsceneHeaps(available - 0x32000);
     Mem::Manager::Get()->PopContext();

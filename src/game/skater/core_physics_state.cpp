@@ -135,7 +135,7 @@ CorePhysicsComponent* CorePhysicsComponent::Destroy(unsigned int flags)
 // 0x00506BE0
 void CorePhysicsComponent::Reset()
 {
-    auto* gameNet = GameVariable<GameNet::Manager*>(0x007CCE14);
+    auto* gameNet = GameNet::g_gameNetManager;
     if (!gameNet->InNetGame()) {
         // (Off line: the old position, and the one kept at +0x98, are where the skater is now.)
         VectorAt(ObjectOf(this), kOldPosition) = VectorAt(ObjectOf(this), kPosition);
@@ -210,7 +210,7 @@ void CorePhysicsComponent::UpdateCollisionCache()
     box.max = {position.x + kCacheReach, position.y + kCacheAbove, position.z + kCacheReach, position.w};
     Nx::CCollCache& cache = At<Nx::CCollCache>(this, kCollisionCache);
     cache.Update(box);
-    GameVariable<Nx::CCollCache*>(0x00691974) = &cache; // the feelers' current cache
+    Nx::g_currentCache = &cache; // the feelers' current cache
 }
 
 // 0x00500710

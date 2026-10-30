@@ -18,12 +18,13 @@
 #include "game/sys/platform_system.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 // The image's header.
 struct ImageHeader {

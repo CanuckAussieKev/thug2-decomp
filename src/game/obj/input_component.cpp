@@ -90,7 +90,7 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 
 // The input manager (0x00696D40): its controller servers (0x84 bytes each from +4: the device, then the handler list
 // - a Tsk::Stack - at +4, the data at +0x40), and a player's controller (0x0044E630).
-uint8_t* InputManager() { return GameVariable<uint8_t*>(0x00696D40); }
+uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(Inp::g_inputManager); }
 Tsk::Stack* ServerHandlers(uint8_t* manager, int server)
 {
     return reinterpret_cast<Tsk::Stack*>(manager + server * 0x84 + 8);

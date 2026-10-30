@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Lst {
 class HashTable;
@@ -89,4 +90,6 @@ void __cdecl TexDictFileName(char* out, const char* name);
 // 0x0049EFB0: the particle texture dictionary's (0x00700F20) textures flushed (FlushTextures).
 void __cdecl FlushParticleTextures(bool all);
 
+GAME_GLOBAL_EXTERN(CTexDict*, g_gameTextureDict);
+GAME_GLOBAL_EXTERN(CTexDict*, g_particleTextureDict);
 } // namespace Nx

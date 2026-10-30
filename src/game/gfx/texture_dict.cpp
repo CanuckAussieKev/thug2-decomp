@@ -23,6 +23,10 @@ namespace Nx {
 
 GAME_GLOBAL(int[8], g_keyMultipliers, 0x0067E520, 2, 3, 4, 6, 12, 8, 24, -1);
 
+// The game's texture dictionaries: the textures every level shares, and the particles'.
+GAME_GLOBAL(CTexDict*, g_gameTextureDict, 0x00700F1C);
+GAME_GLOBAL(CTexDict*, g_particleTextureDict, 0x00700F20);
+
 namespace {
 
 constexpr uint32_t kTexDictVtable = 0x00649BB4;
@@ -349,7 +353,7 @@ void __cdecl TexDictFileName(char* out, const char* name)
 }
 
 // 0x0049EFB0
-void __cdecl FlushParticleTextures(bool all) { GameVariable<CTexDict*>(0x00700F20)->FlushTextures(all); }
+void __cdecl FlushParticleTextures(bool all) { g_particleTextureDict->FlushTextures(all); }
 
 } // namespace Nx
 

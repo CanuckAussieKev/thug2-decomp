@@ -15,9 +15,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/movie_manager.h"
 
 namespace Nx {
 
+GAME_GLOBAL(float, g_frameTimeScale, 0x00700EF4);
+GAME_GLOBAL(int, g_drawnViewport, 0x006FA7B8);
 namespace {
 
 constexpr uint32_t kManagerVtable = 0x006494B0;
@@ -30,11 +33,9 @@ constexpr uint32_t kFrameRateSymbol = 0x3214C818;
 constexpr int kDefaultHeapSize = 0x5000;
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
-GAME_GLOBAL(int, g_drawnViewport, 0x006FA7B8);
-GAME_GLOBAL(float, g_frameTimeScale, 0x00700EF4);
 
 float& FrameTimeScale() { return g_frameTimeScale; }
-bool GamePaused() { return GameVariable<bool>(0x006FA7D4); }
+bool GamePaused() { return Obj::g_gamePaused; }
 int DrawnViewport() { return g_drawnViewport; }
 
 // A virtual scalar deleting destructor (slot 0) with flags 1.

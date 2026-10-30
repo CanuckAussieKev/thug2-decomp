@@ -86,7 +86,7 @@ constexpr uint32_t kKeyCombo = 0xACFDB27A;           // "key_combo"
 
 Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
 Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
-Inp::Manager* InputManager() { return GameVariable<Inp::Manager*>(0x00696D40); }
+Inp::Manager* InputManager() { return Inp::g_inputManager; }
 
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
 Obj::CCompositeObject* LocalSkater()
@@ -264,7 +264,7 @@ bool __cdecl CFunc_UpdateTrickMappings(Script::CStruct* params, Script::CScript*
     Obj::CPlayerProfileManager* manager = ProfileManager();
     Obj::CCompositeObject* skater;
     CSkaterProfile* profile;
-    if (GameVariable<GameNet::Manager*>(0x007CCE14)->InNetGame()) {
+    if (GameNet::g_gameNetManager->InNetGame()) {
         skater = LocalSkater();
         profile = manager->GetProfile(0);
     } else {

@@ -25,6 +25,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/net/gamenet_manager.h"
 
 namespace Obj {
 
@@ -302,7 +303,7 @@ double __cdecl CWalkComponent::GetGravity()
     if (!career->GetCheat(kCheatMoon))
         return WalkParameter(kGravity);
     Career()->SetGlobalFlag(Script::GetInteger(kCheatMoon));
-    GameVariable<bool>(0x007CE4FD) = true;
+    GameNet::g_cheatFlag = true;
     return static_cast<double>(WalkParameter(kGravity)) * kHalf;
 }
 

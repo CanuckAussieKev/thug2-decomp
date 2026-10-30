@@ -26,4 +26,6 @@ GAME_GLOBAL_EXTERN(float, g_elapsedSeconds);
 
 GAME_GLOBAL_EXTERN(float, g_totalSeconds);
 
+GAME_GLOBAL_EXTERN(float, g_floatTen);
+GAME_GLOBAL_EXTERN(void*, g_screenMutex);
 } // namespace Nx

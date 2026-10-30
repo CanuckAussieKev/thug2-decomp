@@ -208,7 +208,7 @@ bool __cdecl CFunc_RestoreAllSwappedObjectModels(Script::CStruct*, Script::CScri
             if (swap) {
                 // (delete inlined: the structure pool pair's Free)
                 swap->Clear();
-                GameVariable<Mem::PoolPair>(0x006F3614).Free(swap);
+                Script::g_structPools.Free(swap);
             }
         }
         if (!any || --remaining == 0)

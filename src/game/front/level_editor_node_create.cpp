@@ -24,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/log.h"
+#include "game/gfx/light_manager.h"
 
 namespace Front::LevelEditor::NodeCreate {
 
@@ -488,9 +489,6 @@ void ApplyCrownOrder(List* list, const std::vector<std::string>& order)
 
 uint32_t Checksum(const std::string& name) { return Crc::GenerateCRCFromString(name.c_str()); }
 
-GAME_GLOBAL(void*, g_proximManager, 0x006F2268);
-GAME_GLOBAL(int, g_dynamicLightCount, 0x006FAEF0);
-GAME_GLOBAL(int, g_sceneLightCount, 0x006FAEF4);
 
 namespace {
 
@@ -517,8 +515,8 @@ std::vector<HiddenNode> g_hidden;
 SkateScript::CNodeManager* Manager() { return SkateScript::NodeManagerInstance(); }
 
 // The game's managers made at the level's load (null outside a level).
-bool HaveProxim() { return g_proximManager != nullptr; }
-bool HaveEmitters() { return Front::LevelEditor::Entities::g_emitterTable != nullptr; }
+bool HaveProxim() { return Obj::g_proximManager != nullptr; }
+bool HaveEmitters() { return Obj::g_emitterTable != nullptr; }
 
 void AddLight(Script::CStruct* node) { Nx::CreateLightFromNode(node); }
 void RemoveLight(uint32_t name) { Nx::DeleteSceneLight(name); }
@@ -805,8 +803,8 @@ Counts CountsNow()
         if (node.cls == kRestart)
             ++counts.restarts;
     }
-    counts.dynamicLights = g_dynamicLightCount;
-    counts.levelLights = g_sceneLightCount;
+    counts.dynamicLights = Nx::g_dynamicLightCount;
+    counts.levelLights = Nx::g_sceneLightCount;
     return counts;
 }
 

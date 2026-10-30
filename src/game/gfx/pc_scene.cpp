@@ -26,12 +26,16 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 namespace Nx {
 
 GAME_GLOBAL(uint32_t, g_bloomOn, 0x00705720);
 GAME_GLOBAL(uint32_t, g_screenEffectUnknown5724, 0x00705724);
 GAME_GLOBAL(uint32_t, g_screenEffectUnknown5728, 0x00705728);
+// The empty bounding box (all zero at start, as the original's) and its guard.
+GAME_GLOBAL(Mth::BBox, g_emptyBoundingBox, 0x0070572C, Mth::BBox(Mth::Vector{0.0f, 0.0f, 0.0f, 0.0f}));
+GAME_GLOBAL(uint32_t, g_emptyBoundingBoxGuard, 0x0070574C);
 
 GAME_GLOBAL(uint32_t, g_bloomAlphaFirst, 0x0067E97C, 0x10);
 GAME_GLOBAL(uint32_t, g_bloomAlphaSecond, 0x0067E980, 0x10);
@@ -43,7 +47,7 @@ GAME_GLOBAL(uint32_t, g_screenEffectUnknown994, 0x0067E994, 0x80808080);
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 CPcGeom* GeometryOf(void* sector) { return static_cast<CPcGeom*>(static_cast<CPcSector*>(sector)->geom); } // (+0x14: the getter 0x004A2BA0, folded with others)
 
 // The first sector of a fresh iteration of the table (null if none).
@@ -105,8 +109,8 @@ CPcSector* CPcSector::Clone(int, int)
 // 0x004C64E0
 const Mth::BBox* CPcSector::GetBoundingBox()
 {
-    auto* empty = &GameVariable<Mth::BBox>(0x0070572C); // (the game's, made the first time: 0x0070574C bit 0)
-    uint32_t& made = GameVariable<uint32_t>(0x0070574C);
+    auto* empty = &g_emptyBoundingBox; // (the game's, made the first time: its guard's bit 0)
+    uint32_t& made = g_emptyBoundingBoxGuard;
     if (!(made & 1)) {
         made |= 1;
         new (empty) Mth::BBox();
@@ -255,7 +259,7 @@ void FinishMesh(CPcSector* sector, CPcGeom* geom, sMesh* mesh, uint32_t billboar
     bounds->AddPoint(*max);
     if (sector->flags & 0x800000) {
         mesh->MakeBillboard(static_cast<int>(billboardType), pivot, axis);
-        reinterpret_cast<sBillboardManager*>(&GameVariable<uint8_t>(0x00775B80))->AddMesh(mesh);
+        g_billboardManager.AddMesh(mesh);
     }
     if (sector->flags & 0x200000)
         mesh->flags |= 0x200;

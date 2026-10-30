@@ -11,6 +11,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/device.h"
 
 #pragma warning(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
 
@@ -18,6 +19,12 @@ namespace Platform {
 
 GAME_GLOBAL(IDirectInput8A*, g_directInput, 0x007D69D0);
 GAME_GLOBAL(IDirectInputDevice8A*, g_keyboardDevice, 0x007D69D4);
+
+// The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
+GAME_GLOBAL(int32_t[0x98], g_keyBindings, 0x007D6770);
+// The joysticks' states: this frame's and the last.
+GAME_GLOBAL(DIJOYSTATE2[2], g_joystickStates, 0x007D60F8);
+GAME_GLOBAL(DIJOYSTATE2[2], g_lastJoystickStates, 0x007D6448);
 
 namespace {
 
@@ -40,8 +47,8 @@ IDirectInputDevice8A** Joysticks() { return reinterpret_cast<IDirectInputDevice8
 IDirectInputEffect** Effects() { return reinterpret_cast<IDirectInputEffect**>(0x007D6668); }
 
 // The devices' states: this frame's and the last.
-DIJOYSTATE2* JoystickStates() { return reinterpret_cast<DIJOYSTATE2*>(0x007D60F8); }
-DIJOYSTATE2* LastJoystickStates() { return reinterpret_cast<DIJOYSTATE2*>(0x007D6448); }
+DIJOYSTATE2* JoystickStates() { return g_joystickStates; }
+DIJOYSTATE2* LastJoystickStates() { return g_lastJoystickStates; }
 uint8_t* Keys() { return reinterpret_cast<uint8_t*>(0x007D6670); }
 uint8_t* LastKeys() { return reinterpret_cast<uint8_t*>(0x007D6320); }
 DIMOUSESTATE2& MouseState() { return g_mouseState; }
@@ -54,7 +61,7 @@ uint32_t* ForceResolutions() { return reinterpret_cast<uint32_t*>(0x007D42D0); }
 constexpr int kKeyNameLength = 15;
 wchar_t (*KeyNames())[kKeyNameLength] { return reinterpret_cast<wchar_t (*)[kKeyNameLength]>(0x007D42F8); }
 
-HWND GameWindow() { return GameVariable<HWND>(0x007D6A28); }
+HWND GameWindow() { return Nx::g_gameWindow; }
 
 // dinput8.lib's data formats and the constant-force effect's GUID, as the exe has them.
 const DIDATAFORMAT* JoystickFormat() { return reinterpret_cast<const DIDATAFORMAT*>(0x00667204); } // c_dfDIJoystick2

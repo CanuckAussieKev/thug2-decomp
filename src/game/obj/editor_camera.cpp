@@ -24,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/game_config.h"
 
 namespace Obj {
 
@@ -421,7 +422,7 @@ void CEditorCameraComponent::Update()
 
     // The zoom and height buttons by controller type.
     bool zoomIn = false, zoomOut = false, raise = false, lower = false;
-    int controller = GameVariable<int>(0x007CEFA8);
+    int controller = GameConfig::g_platform;
     uint32_t buttons = *reinterpret_cast<uint32_t*>(mp_input + 0x1C);
     if (controller == 4 || controller == 7) {
         zoomIn = (buttons & 0x400000) != 0;

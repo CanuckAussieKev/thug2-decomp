@@ -45,7 +45,7 @@ T& Field(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
 
 // The terrain sounds: a table by name, the terrain's entry in it copied into `entry` (false if it has none), the
 // entry's volume for a percentage.
