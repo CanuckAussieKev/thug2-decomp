@@ -38,7 +38,7 @@ Lst::HashTable* Casters() { return g_shadowCasters; }
 float* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
 float* ProjectionMatrix() { return reinterpret_cast<float*>(&g_projectionMatrix); }
 const float* WorldMatrix() { return reinterpret_cast<float*>(&g_worldMatrix); }
-uint8_t& CustomTransforms() { return GameVariable<uint8_t>(0x00786CBC); } // the view / projection aren't the camera's
+uint8_t& CustomTransforms() { return g_camera.unknown14[0]; } // the view / projection aren't the camera's
 bool SkipRender() { return GameVariable<bool>(0x007D1EC0); }
 uint32_t& Fog() { return g_fogEnabled; }
 uint32_t& DepthBias() { return g_depthBias; }

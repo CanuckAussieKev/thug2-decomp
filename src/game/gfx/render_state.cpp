@@ -543,7 +543,7 @@ void __cdecl ResetRenderState()
     PixelShaderLocked() = 0;
     CurrentPixelShader() = nullptr;
     PixelShaderChanged() = 0;
-    GameVariable<uint8_t>(0x00786CBC) = 0;
+    g_camera.unknown14[0] = 0;
     g_billboardFlag = 0;
     VertexFormatLocked() = 0;
     g_skippedPasses = 0;
@@ -551,7 +551,7 @@ void __cdecl ResetRenderState()
     BlendModeOverride() = 0;
     GameVariable<uint8_t>(0x00786CBD) = 1;
     GameVariable<uint32_t>(0x00786CC0) = 0;
-    GameVariable<uint8_t>(0x00786CBE) = 0; // the letterbox
+    g_camera.unknown14[2] = 0; // the letterbox
     // The default light: its direction (0x00786F48) and colours, as bit patterns.
     static const uint32_t kLight[] = {
         0xBF000000, 0xBF5DB3D7, 0,          0,          0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000,

@@ -138,10 +138,10 @@ void DrawBillboardMesh(sMesh* mesh, const float* yAxis, const float* xAxis, cons
     if (mesh->stride < 0x10 || mesh->stride > 0x30)
         return;
     if (g_distanceClipping && g_fogSetting) { // (fog: its start a quarter back)
-        float end = GameVariable<float>(0x00786CAC);
+        float end = g_camera.farZ;
         reinterpret_cast<uint32_t&>(g_fogStart) = 0;
         reinterpret_cast<uint32_t&>(g_fogEnd) = 0;
-        float start = static_cast<float>(end - (static_cast<double>(end) - GameVariable<float>(0x00786CA8)) * 0.25f);
+        float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.nearZ) * 0.25f);
         SetFogEnabled(true);
         Device()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         Device()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));

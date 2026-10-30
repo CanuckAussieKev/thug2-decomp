@@ -15,6 +15,9 @@
 
 namespace Nx {
 
+GAME_GLOBAL(OcclusionPoly[512], g_occlusionPolys, 0x00787360);
+GAME_GLOBAL(Occluder[8], g_occluders, 0x00792360);
+
 GAME_GLOBAL(uint32_t, g_occlusionPolyCount, 0x00787350);
 GAME_GLOBAL(uint32_t, g_occlusionNextPoly, 0x00787354);
 GAME_GLOBAL(int, g_occlusionFrame, 0x00787358);
@@ -23,11 +26,11 @@ GAME_GLOBAL(float, g_lastSphereDistance, 0x007CA978);
 
 namespace {
 
-OcclusionPoly* Polys() { return &GameVariable<OcclusionPoly>(0x00787360); }
+OcclusionPoly* Polys() { return g_occlusionPolys; }
 uint32_t& PolyCount() { return g_occlusionPolyCount; }
 uint32_t& NextPoly() { return g_occlusionNextPoly; } // where AddOccluders carries on
 int& Frame() { return g_occlusionFrame; }
-Occluder* Occluders() { return &GameVariable<Occluder>(0x00792360); }
+Occluder* Occluders() { return g_occluders; }
 uint32_t& OccluderCount() { return g_occluderCount; }
 constexpr uint32_t kMaxOccluders = 8;
 
@@ -35,13 +38,13 @@ constexpr uint32_t kMaxOccluders = 8;
 const float* WorldTransform() { return g_worldTransform; }
 // The view matrix (0x00786BD0) and the view's clip values.
 const void* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
-float NearClip() { return GameVariable<float>(0x00786CA8); }
-float FarClip() { return GameVariable<float>(0x00786CAC); }
+float NearClip() { return g_camera.nearZ; }
+float FarClip() { return g_camera.farZ; }
 // The frustum's side planes as (cos, sin) pairs: horizontal 0x00786E20 / 0x00786E28, vertical 0x00786E24 / 0x00786E2C.
-float SideCos() { return GameVariable<float>(0x00786E20); }
-float VerticalCos() { return GameVariable<float>(0x00786E24); }
-float SideSin() { return GameVariable<float>(0x00786E28); }
-float VerticalSin() { return GameVariable<float>(0x00786E2C); }
+float SideCos() { return g_viewShape.sinX; }
+float VerticalCos() { return g_viewShape.sinY; }
+float SideSin() { return g_viewShape.cosX; }
+float VerticalSin() { return g_viewShape.cosY; }
 
 // D3DXVec3Transform (linked library code; stdcall): (x, y, z, 1) x matrix.
 void Transform(float* out, const float* point, const void* matrix)

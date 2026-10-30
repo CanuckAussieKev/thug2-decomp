@@ -34,7 +34,7 @@ float& ScreenAspect() { return g_screenAspect; }
 float AngleFactorConstant() { return g_angleFactor; }
 
 // The 640x480 -> back buffer conversion (InitDirect3D) and the letterbox flag.
-uint8_t& LetterboxActive() { return GameVariable<uint8_t>(0x00786CBE); }
+uint8_t& LetterboxActive() { return g_camera.unknown14[2]; }
 float& ScreenScaleX() { return GameVariable<float>(0x00786D80); }
 float& ScreenScaleY() { return GameVariable<float>(0x00786D84); }
 uint32_t& ScreenOffsetX() { return GameVariable<uint32_t>(0x00786D88); }

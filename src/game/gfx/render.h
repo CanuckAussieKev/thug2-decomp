@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "hook/game_global.h"
@@ -8,6 +11,38 @@
 // motion blur pass. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes
 // all three (widescreen viewports, black bars, a further far plane); the original's code is given in comments.
 namespace Nx {
+
+// The camera's state (globals, 0x00786CA8).
+struct RenderCamera {
+    float nearZ;      // 0x00786CA8
+    float farZ;       // 0x00786CAC
+    float angle;      // 0x00786CB0: horizontal field of view, degrees
+    float nearWidth;  // 0x00786CB4: the view's size at the near plane
+    float nearHeight; // 0x00786CB8
+    uint8_t unknown14[0x08];
+    float position[3]; // 0x00786CC4
+    uint8_t unknown28[0x0C];
+    float backward[3]; // 0x00786CDC: the orientation's row 2
+    float up[3];       // 0x00786CE8: row 1
+};
+static_assert(offsetof(RenderCamera, position) == 0x1C, "0x00786CC4");
+static_assert(offsetof(RenderCamera, backward) == 0x34, "0x00786CDC");
+
+// The view's half-angle shape, for culling (0x00786E18).
+struct ViewShape {
+    float tanX;  // tan(half the horizontal angle)
+    float tanY;  // -tanX / (aspect / 1.1): the vertical one, negated
+    float sinX;  // sin and cos of the two half-angles
+    float sinY;
+    float cosX;
+    float cosY;
+};
+
+// The device's viewport (D3DVIEWPORT9, 0x00786C90).
+struct DeviceViewport {
+    uint32_t x, y, width, height;
+    float minZ, maxZ;
+};
 
 // While letterboxed: the viewport (0x00786C90) set to the 640x480 layout's fitted area on the back buffer
 // (SetLetterbox's scales), centred.
@@ -43,5 +78,8 @@ GAME_GLOBAL_EXTERN(int, g_drawCalls);
 GAME_GLOBAL_EXTERN(int, g_drawnTriangles);
 GAME_GLOBAL_EXTERN(float, g_fogStart);
 GAME_GLOBAL_EXTERN(float, g_fogEnd);
+
+GAME_GLOBAL_EXTERN(RenderCamera, g_camera);
+GAME_GLOBAL_EXTERN(ViewShape, g_viewShape);
 
 } // namespace Nx

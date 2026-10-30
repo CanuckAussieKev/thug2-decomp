@@ -359,7 +359,7 @@ void CPcWeather::RenderSplashes(float x, float z)
         // 2048 either side - alternately - nearer in), its landing the splash's.
         CFeeler feeler;
         feeler.Construct();
-        const float* camera = &GameVariable<float>(0x00786CC4);
+        const float* camera = &g_camera.position[0];
         Mth::Vector heading = {static_cast<float>(static_cast<double>(x) - camera[0]), 0.0f,
                                static_cast<float>(static_cast<double>(z) - camera[2]), 1.0f};
         Mth::Vector at = {camera[0], 50000.0f, camera[2], 1.0f};

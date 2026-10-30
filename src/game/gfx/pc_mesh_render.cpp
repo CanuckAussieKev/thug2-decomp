@@ -123,10 +123,10 @@ void sMesh::Render()
     if (GameVariable<bool>(0x007D1EC0) || BeyondClipDistance(this))
         return;
     if (g_distanceClipping && g_fogSetting) { // (distance fog)
-        float end = GameVariable<float>(0x00786CAC);
+        float end = g_camera.farZ;
         reinterpret_cast<uint32_t&>(g_fogStart) = 0;
         reinterpret_cast<uint32_t&>(g_fogEnd) = 0;
-        float start = static_cast<float>(end - (static_cast<double>(end) - GameVariable<float>(0x00786CA8)) * 0.25f);
+        float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.nearZ) * 0.25f);
         SetFogEnabled(true);
         Device()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         Device()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));

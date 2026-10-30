@@ -46,6 +46,10 @@
 
 namespace Nx {
 
+GAME_GLOBAL(DeviceViewport, g_deviceViewport, 0x00786C90);
+GAME_GLOBAL(RenderCamera, g_camera, 0x00786CA8);
+GAME_GLOBAL(ViewShape, g_viewShape, 0x00786E18);
+
 GAME_GLOBAL(uint32_t, g_displayHeight, 0x00786A80);
 GAME_GLOBAL(bool, g_radeon8500, 0x00786AB5);
 GAME_GLOBAL(int, g_framesRendered, 0x00786AC4);
@@ -177,31 +181,7 @@ float FloatFromBits(uint32_t bits)
     return f;
 }
 
-// The camera's state (globals).
-struct Camera {
-    float nearZ;      // 0x00786CA8
-    float farZ;       // 0x00786CAC
-    float angle;      // 0x00786CB0: horizontal field of view, degrees
-    float nearWidth;  // 0x00786CB4: the view's size at the near plane
-    float nearHeight; // 0x00786CB8
-    uint8_t unknown14[0x08];
-    float position[3]; // 0x00786CC4
-    uint8_t unknown28[0x0C];
-    float backward[3]; // 0x00786CDC: the orientation's row 2
-    float up[3];       // 0x00786CE8: row 1
-};
-static_assert(offsetof(Camera, position) == 0x1C, "0x00786CC4");
-static_assert(offsetof(Camera, backward) == 0x34, "0x00786CDC");
 
-// The view's half-angle shape, for culling (0x00786E18).
-struct ViewShape {
-    float tanX;  // tan(half the horizontal angle)
-    float tanY;  // -tanX / (aspect / 1.1): the vertical one, negated
-    float sinX;  // sin and cos of the two half-angles
-    float sinY;
-    float cosX;
-    float cosY;
-};
 
 } // namespace
 
@@ -213,10 +193,10 @@ void SetDisplayRegion()
     auto width = static_cast<uint32_t>(GameVariable<float>(0x00786D80) * 640.0f);
     auto height = static_cast<uint32_t>(GameVariable<float>(0x00786D84) * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
-    GameVariable<uint32_t>(0x00786C90) = (reinterpret_cast<uint32_t&>(g_backBufferWidth) - width) / 2;
-    GameVariable<uint32_t>(0x00786C98) = width;
-    GameVariable<uint32_t>(0x00786C94) = (reinterpret_cast<uint32_t&>(g_backBufferHeight) - height) / 2;
-    GameVariable<uint32_t>(0x00786C9C) = height;
+    g_deviceViewport.x = (reinterpret_cast<uint32_t&>(g_backBufferWidth) - width) / 2;
+    g_deviceViewport.width = width;
+    g_deviceViewport.y = (reinterpret_cast<uint32_t&>(g_backBufferHeight) - height) / 2;
+    g_deviceViewport.height = height;
 }
 
 void Draw2DWithBlackBars()
@@ -276,7 +256,7 @@ static float s_nearZ = 2.0f;
 void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, float angle, float aspect, float zoom,
                bool infinite)
 {
-    auto& camera = GameVariable<Camera>(0x00786CA8);
+    auto& camera = g_camera;
     auto& world = g_worldMatrix;
     auto& view = g_viewMatrix;
     auto& projection = g_projectionMatrix;
@@ -328,7 +308,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     SetTransform(2, &view);      // D3DTS_VIEW
     SetTransform(3, &projection);
 
-    auto& shape = GameVariable<ViewShape>(0x00786E18);
+    auto& shape = g_viewShape;
     shape.tanX = Tan(static_cast<float>(halfAngle));
     shape.tanY = -(heightFactor * shape.tanX);
     double tanX2 = static_cast<double>(shape.tanX) * shape.tanX;
@@ -476,11 +456,6 @@ struct Viewport {
 };
 static_assert(offsetof(Viewport, camera) == 0x18, "viewport layout");
 
-// The device's viewport (D3DVIEWPORT9, 0x00786C90).
-struct DeviceViewport {
-    uint32_t x, y, width, height;
-    float minZ, maxZ;
-};
 
 // A world scene's mesh group: flagged 0x100 once its meshes are prepared.
 struct MeshGroup {
@@ -528,7 +503,7 @@ void ForEachScene(F fn)
     }
 }
 
-DeviceViewport& TheViewport() { return GameVariable<DeviceViewport>(0x00786C90); }
+DeviceViewport& TheViewport() { return g_deviceViewport; }
 void SetViewport() { Method<long(__stdcall*)(void*, const void*)>(Device(), 0xBC)(Device(), &TheViewport()); }
 // The device's render state directly (not the renderer's cached one).
 void SetDeviceRenderState(int state, uint32_t value)
@@ -577,7 +552,7 @@ void RenderViewport(int index)
     vp.height = static_cast<int>(height * view->height);
     vp.minZ = 0.0f;
     vp.maxZ = 1.0f;
-    if (GameVariable<bool>(0x00786CBE) && !FrontEndWidescreen()) {
+    if (g_camera.unknown14[2] && !FrontEndWidescreen()) {
         // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
         //   int screenHeight = GameVariable<int>(0x00786D70);
@@ -743,7 +718,7 @@ void RenderWorld()
 
         // Full-screen effects and the 2D on top.
         FullScreenViewport();
-        if (GameVariable<bool>(0x00786CBE)) {
+        if (g_camera.unknown14[2]) {
             // Originally from PartyMod Fixes (its call at 0x004B33CA): fitted to the aspect wanted. The original:
             //   int screenHeight = GameVariable<int>(0x00786D70);
             //   TheViewport().y = screenHeight / 8;

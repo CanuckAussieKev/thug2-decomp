@@ -28,7 +28,7 @@ namespace Nx {
 
 GAME_GLOBAL(D3DLIGHT9, g_deviceLight1, 0x0067E9D8, D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f});
 GAME_GLOBAL(D3DLIGHT9, g_deviceLight0, 0x0067EA40,
-    D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});
+    D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f});
 GAME_GLOBAL(Mth::Matrix*, g_boneMatrices, 0x007825B0);
 GAME_GLOBAL(int, g_boneCount, 0x007825B4);
 GAME_GLOBAL(sInstance*, g_currentInstance, 0x007825B8);
@@ -299,8 +299,8 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
                     instance->Render(flags);
             }
             ClearFlag786EB4();
-            float camera[3] = {GameVariable<float>(0x00786CC4), GameVariable<float>(0x00786CC8),
-                               GameVariable<float>(0x00786CCC)};
+            float camera[3] = {g_camera.position[0], g_camera.position[1],
+                               g_camera.position[2]};
             double nearDistance = static_cast<double>(Script::GetFloat(0x4E7DC608u)) * 12.0f;
             float nearSquared = static_cast<float>(nearDistance * nearDistance);
             for (; i < count; ++i) {

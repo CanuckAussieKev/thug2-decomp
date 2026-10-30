@@ -228,7 +228,7 @@ void __cdecl FinishRendering()
         ++GameVariable<uint32_t>(0x0078732C);
         return;
     }
-    if (GameVariable<bool>(0x00786CBE)) {
+    if (g_camera.unknown14[2]) {
         if (!SkipRender())
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
     } else if (GameVariable<bool>(0x00786CBD)) {
