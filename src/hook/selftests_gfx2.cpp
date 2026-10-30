@@ -27,6 +27,7 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "hook/standins.h"
 
 namespace {
 
@@ -152,6 +153,8 @@ void TestSetCamera()
 {
     SavedBytes saved({{0x00786B90, 0x164}, {0x00786E18, 0x18}, {0x007D643A, 1}, {0x007D6444, 4}, {0x007D69E0, 4}});
     CodePatch frustum(0x004CDAA0, JumpTo(0x004CDAA0, reinterpret_cast<void*>(&CameraFrustum)));
+    const uint32_t oursFrustum = TestStandIns::OursOf(0x004CDAA0); // (ours calls our SetupAxes directly)
+    CodePatch frustumOurs(oursFrustum, JumpTo(oursFrustum, reinterpret_cast<void*>(&CameraFrustum)));
     static void* vtable[120] = {};
     vtable[0xB0 / 4] = reinterpret_cast<void*>(&CameraSetTransform);
     static void* device[2] = {vtable, nullptr};
@@ -445,6 +448,8 @@ void TestRenderWorld()
                       {0x00786D6C, 4}, {0x00786B90, 0x164}, {0x00786E18, 0x18}, {0x006FA7EC, 4}, {0x006FA7BC, 0x10},
                       {0x00787338, 4}, {0x00787340, 8}, {0x00786AB5, 1}, {0x00786D80, 0x10}, {0x007D6444, 4}});
     CodePatch frustum(0x004CDAA0, JumpTo(0x004CDAA0, reinterpret_cast<void*>(&CameraFrustum)));
+    const uint32_t oursFrustum = TestStandIns::OursOf(0x004CDAA0); // (ours calls our SetupAxes directly)
+    CodePatch frustumOurs(oursFrustum, JumpTo(oursFrustum, reinterpret_cast<void*>(&CameraFrustum)));
     std::vector<std::unique_ptr<CodePatch>> standIns;
     auto standIn = [&](uint32_t address, void* to) { standIns.emplace_back(new CodePatch(address, JumpTo(address, to))); };
     standIn(0x005BE970, reinterpret_cast<void*>(&WorldTime));

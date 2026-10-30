@@ -47,11 +47,8 @@ uint32_t AddressOf(F function)
 // function must catch the calls ours makes straight to it too ({address, OursOf(address)}).
 inline uint32_t OursOf(uint32_t address)
 {
-    for (const ArgumentSizeCheck& check : CheckArgumentSizes()) {
-        if (!check.replacement.fallback && check.replacement.address == address)
-            return Resolve(check.replacement.function);
-    }
-    return 0;
+    void* ours = ReplacementFunction(address);
+    return ours ? Resolve(ours) : 0;
 }
 
 // Bytes overwritten for the length of a test (restored when it goes).

@@ -98,7 +98,7 @@ void StandInSkaterCalls(StandIns& s)
         Record({0x1260, r.ecx == reinterpret_cast<uint32_t>(g_sSkater), r.args[0]});
         return 0u;
     });
-    s.At({0x00565D40, AddressOf(&Mdl::Skate::GetPreferencesFromParams)}, 0, [](Regs& r) {
+    s.At({0x00565D40, AddressOf(&Mdl::Skate::GetPreferencesFromParams)}, 0, [](Regs&) {
         Record({0x5D40}); // (the original's second argument isn't passed by ours: it isn't read)
         return reinterpret_cast<uint32_t>(g_sPrefs);
     });
