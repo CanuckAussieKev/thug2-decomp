@@ -1,6 +1,7 @@
 // The engine's light manager: see light_manager.h. The maths follows the original's x87 code (53-bit precision:
 // double where it keeps values in registers, float where it stores them).
 
+#include "game/gfx/engine_model_lights.h"
 #include "game/gfx/light_manager.h"
 
 #include <cmath>
@@ -12,6 +13,7 @@
 #include "game/gfx/pc_lights.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -24,19 +26,30 @@ constexpr int kMaxDynamicLights = 256;
 
 sWorldLights& World() { return GameVariable<sWorldLights>(0x0067DC98); }
 sWorldLights* Stack() { return &GameVariable<sWorldLights>(0x006FAF10); }
-int& StackTop() { return GameVariable<int>(0x0067DC88); }
-uint32_t& LightCount() { return GameVariable<uint32_t>(0x006FAAE0); }
-float& Brightness() { return GameVariable<float>(0x0067DC8C); }
-float& BrightnessTarget() { return GameVariable<float>(0x0067DC90); }
-float& AmbientIntensity() { return GameVariable<float>(0x0067DC94); }
-float MinIntensity() { return GameVariable<float>(0x006FAAE8); }
-float*& Intensities() { return GameVariable<float*>(0x006FAAEC); }
+GAME_GLOBAL(int, g_lightStackTop, 0x0067DC88, -1);
+GAME_GLOBAL(float, g_lightBrightness, 0x0067DC8C, 1.0f);
+GAME_GLOBAL(float, g_lightBrightnessTarget, 0x0067DC90, 1.0f);
+GAME_GLOBAL(float, g_ambientIntensity, 0x0067DC94, 1.0f);
+GAME_GLOBAL(int[32], g_nearLightIndexes, 0x0067DCB8, -1); // GetDynamicLightsNear's indexes
+GAME_GLOBAL(float[31], g_nearLightFalloffs, 0x0067DD38, 1.0f); // GetDynamicLightsNear's falloffs
+GAME_GLOBAL(uint32_t, g_modelLightCount, 0x006FAAE4);
+GAME_GLOBAL(float, g_minIntensity, 0x006FAAE8);
+GAME_GLOBAL(float*, g_intensities, 0x006FAAEC);
+GAME_GLOBAL(CDynamicLightBase*[256], g_dynamicLights, 0x006FAAF0);
 
-CDynamicLightBase** DynamicLights() { return &GameVariable<CDynamicLightBase*>(0x006FAAF0); }
+int& StackTop() { return g_lightStackTop; }
+uint32_t& LightCount() { return g_lightCount; }
+float& Brightness() { return g_lightBrightness; }
+float& BrightnessTarget() { return g_lightBrightnessTarget; }
+float& AmbientIntensity() { return g_ambientIntensity; }
+float MinIntensity() { return g_minIntensity; }
+float*& Intensities() { return g_intensities; }
+
+CDynamicLightBase** DynamicLights() { return g_dynamicLights; }
 int& DynamicLightCount() { return GameVariable<int>(0x006FAEF0); }
 // GetDynamicLightsNear's falloffs and the lights' indexes (32 each).
-float* NearFalloffs() { return &GameVariable<float>(0x0067DD38); }
-int* NearIndexes() { return &GameVariable<int>(0x0067DCB8); }
+float* NearFalloffs() { return g_nearLightFalloffs; }
+int* NearIndexes() { return g_nearLightIndexes; }
 
 // 2b - 1 times a range, plus 1 (the high range above 0.5 - or NaN -, the low one at and below).
 float Scaled(float brightness, float low, float high)
@@ -93,7 +106,7 @@ void sWorldLights::FreeArrays()
 void __cdecl InitLightManager(uint32_t maxLights, uint32_t maxModelLights)
 {
     Dbg::Printf("Initializing Light Manager...");
-    GameVariable<uint32_t>(0x006FAAE4) = maxModelLights;
+    g_modelLightCount = maxModelLights;
     LightCount() = maxLights;
     sWorldLights& world = World();
     world.directions = static_cast<Mth::Vector*>(Mem::New(maxLights * 16));

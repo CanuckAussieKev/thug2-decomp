@@ -1,6 +1,7 @@
 // Script commands (CFunctions) 0x005B2420-0x005B2FC0: face textures, changing textures, HSV / RGB (see
 // face_texture_cfuncs.h).
 
+#include "game/gfx/cag_cfuncs.h"
 #include "game/gfx/face_texture_cfuncs.h"
 
 #include <cstdint>
@@ -170,7 +171,7 @@ bool __cdecl CFunc_RotateTexture(Script::CStruct* params, Script::CScript*)
     void* texture = FindTexture(name);
     if (texture) {
         // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
-        float radians = static_cast<float>(static_cast<double>(angle) * GameVariable<float>(0x00645464));
+        float radians = static_cast<float>(static_cast<double>(angle) * g_degreesToRadians);
         TextureCall<void>(17, texture, radians, -1.0f, -1.0f);
     }
     return true;

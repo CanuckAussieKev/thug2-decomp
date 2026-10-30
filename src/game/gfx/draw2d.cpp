@@ -7,14 +7,18 @@
 #include "game/core/manager.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
-SDraw2D*& Head() { return GameVariable<SDraw2D*>(0x007CC248); }
-uint32_t& ZTestNextFrame() { return GameVariable<uint32_t>(0x007CC24C); }
+GAME_GLOBAL(SDraw2D*, g_draw2dHead, 0x007CC248);
+GAME_GLOBAL(uint32_t, g_draw2dZTestNextFrame, 0x007CC24C);
+
+SDraw2D*& Head() { return g_draw2dHead; }
+uint32_t& ZTestNextFrame() { return g_draw2dZTestNextFrame; }
 void** BaseVtable() { return reinterpret_cast<void**>(0x0064AD18); }
 
 void Call(SDraw2D* item, int slot) { reinterpret_cast<void(__thiscall*)(SDraw2D*)>(item->vtable[slot])(item); }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -63,5 +64,9 @@ void __cdecl UnloadFont(const char* name);
 bool __cdecl CFunc_UnloadFont(Script::CStruct* params, Script::CScript* script);
 // 0x0048D6A0: the button glyph's character for the meta button a hex digit names (through the meta button map).
 char __cdecl ButtonGlyph(const char* digit);
+
+GAME_GLOBAL_EXTERN(char[32], g_metaButtonMap);
+
+GAME_GLOBAL_EXTERN(FontSlot[16], g_fontSlots);
 
 } // namespace Nx

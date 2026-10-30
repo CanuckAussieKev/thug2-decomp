@@ -12,6 +12,7 @@
 #include "game/gfx/texture_dict.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -37,9 +38,13 @@ constexpr uint32_t kFacePoints = 0xAC3CD84C; // face_points
 constexpr uint32_t kNoPaletteGen = 0x5905256B; // no_palette_gen
 constexpr uint32_t kNoColour = 0x80808080;
 
-SFacePoints& DefaultFacePoints() { return GameVariable<SFacePoints>(0x0067DC14); }
-SFacePoints& ModelFacePoints() { return GameVariable<SFacePoints>(0x0067DC4C); }
-Nx::CTexture*& FaceOverlay() { return GameVariable<Nx::CTexture*>(0x006FA2EC); }
+GAME_GLOBAL(SFacePoints, g_defaultFacePoints, 0x0067DC14, {49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128);
+GAME_GLOBAL(SFacePoints, g_modelFacePoints, 0x0067DC4C, {49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128);
+GAME_GLOBAL(Nx::CTexture*, g_faceOverlay, 0x006FA2EC);
+
+SFacePoints& DefaultFacePoints() { return g_defaultFacePoints; }
+SFacePoints& ModelFacePoints() { return g_modelFacePoints; }
+Nx::CTexture*& FaceOverlay() { return g_faceOverlay; }
 
 // The game's texture dictionary (0x00700F1C) and its texture `name`.
 Nx::CTexture* FindTexture(uint32_t name) { return GameVariable<Nx::CTexDict*>(0x00700F1C)->GetTexture(name); }

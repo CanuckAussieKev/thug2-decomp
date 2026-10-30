@@ -15,6 +15,7 @@
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_scene.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -90,16 +91,27 @@ float ChannelToFloat(uint32_t channel) { return static_cast<float>(static_cast<d
 // And back (the C runtime's _ftol of the float times 255: truncated).
 uint8_t FloatToChannel(float value) { return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * 255.0)); }
 
+GAME_GLOBAL(Mth::Vector, g_staticPosition, 0x00701610);
+GAME_GLOBAL(uint32_t, g_staticPositionGuard, 0x00701620);
+GAME_GLOBAL(Mth::Matrix, g_staticOrientation, 0x00701628);
+GAME_GLOBAL(uint32_t, g_staticOrientationGuard, 0x00701668);
+GAME_GLOBAL(uint32_t, g_vertexShaderUv58, 0x00775B58);
+GAME_GLOBAL(uint32_t, g_vertexShaderUv5C, 0x00775B5C);
+GAME_GLOBAL(uint32_t, g_vertexShaderUv60, 0x00775B60);
+GAME_GLOBAL(uint32_t, g_vertexShader70, 0x00775B70);
+GAME_GLOBAL(uint32_t, g_vertexShader74, 0x00775B74);
+GAME_GLOBAL(uint32_t, g_vertexShader78, 0x00775B78);
+
 // The static results of GetWorldPosition / GetOrientation (with their initialisation guards' bits).
 Mth::Vector& StaticPosition()
 {
-    GameVariable<uint32_t>(0x00701620) |= 1;
-    return GameVariable<Mth::Vector>(0x00701610);
+    g_staticPositionGuard |= 1;
+    return g_staticPosition;
 }
 Mth::Matrix& StaticOrientation()
 {
-    GameVariable<uint32_t>(0x00701668) |= 1;
-    return GameVariable<Mth::Matrix>(0x00701628);
+    g_staticOrientationGuard |= 1;
+    return g_staticOrientation;
 }
 
 } // namespace
@@ -849,12 +861,12 @@ bool CPcGeom::SetUVMatrix(uint32_t checksum, int pass, const Mth::Matrix* matrix
         }
         // the vertex shader for the UV matrix (0x00775B70-78 -> 0x00775B58-60)
         uint32_t& shader = MeshVertexShader(mesh);
-        if (shader == GameVariable<uint32_t>(0x00775B78))
-            shader = GameVariable<uint32_t>(0x00775B60);
-        else if (shader == GameVariable<uint32_t>(0x00775B74))
-            shader = GameVariable<uint32_t>(0x00775B5C);
-        else if (shader == GameVariable<uint32_t>(0x00775B70))
-            shader = GameVariable<uint32_t>(0x00775B58);
+        if (shader == g_vertexShader78)
+            shader = g_vertexShaderUv60;
+        else if (shader == g_vertexShader74)
+            shader = g_vertexShaderUv5C;
+        else if (shader == g_vertexShader70)
+            shader = g_vertexShaderUv58;
         sUVWibble* wibble = material->uvWibble[index];
         wibble->matrix[0] = matrix->row[0].x;
         wibble->matrix[1] = matrix->row[0].y;

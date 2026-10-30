@@ -14,6 +14,7 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/tagging.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
@@ -80,6 +81,8 @@ Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
 
 } // namespace
 
+GAME_GLOBAL(float, g_degreesToRadians, 0x00645464, 0.017453292f); // pi / 180
+
 // 0x005B3A90: GenerateCAGTexture info_array=[{texture_id scale flip_h flip_v rot pos_x pos_y rgba layer_id}...]
 // player=n [Test=1]: the custom tag texture composed from its layers: cleared, then each layer's texture drawn into a
 // workspace texture (as big as the tag), scaled, flipped, turned, moved (positions doubled for a 128-wide tag) and
@@ -126,7 +129,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
             TextureCall<void>(14, workspace);
         float rot;
         info->GetFloat(kRot, &rot, 1);
-        float radians = static_cast<float>(static_cast<double>(rot) * GameVariable<float>(0x00645464)); // pi / 180
+        float radians = static_cast<float>(static_cast<double>(rot) * g_degreesToRadians); // pi / 180
         TextureCall<void>(17, workspace, radians, -1.0f, -1.0f);
         float x;
         info->GetFloat(kPosX, &x, 1);
@@ -232,7 +235,7 @@ bool __cdecl CFunc_Get2DPosFrom2DVec(Script::CStruct* params, Script::CScript* s
         y = magnitude;
         negateY = true;
     } else {
-        float radians = static_cast<float>(static_cast<double>(theta) * GameVariable<float>(0x00645464)); // pi / 180
+        float radians = static_cast<float>(static_cast<double>(theta) * g_degreesToRadians); // pi / 180
         y = static_cast<float>(static_cast<double>(Mth::FastSin(radians)) * magnitude);
         x = static_cast<float>(static_cast<double>(Mth::FastCos(radians)) * magnitude);
     }

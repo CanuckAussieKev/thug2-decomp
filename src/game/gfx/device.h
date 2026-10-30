@@ -2,7 +2,10 @@
 
 #include <windows.h>
 
+#include <d3d9.h>
+
 #include <cstdint>
+#include "hook/game_global.h"
 
 // The Direct3D 9 device (Nx engine, PC).
 namespace Nx {
@@ -34,5 +37,13 @@ void __cdecl LoadGamma();
 long __cdecl SetRenderState(int state, uint32_t value);
 // 0x0044F890: the device's Clear (rectangles or the whole viewport; D3DCLEAR_* flags). Returns the HRESULT.
 long __cdecl ClearDevice(uint32_t rectCount, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil);
+
+GAME_GLOBAL_EXTERN(IDirect3DDevice9*, g_d3dDevice);
+GAME_GLOBAL_EXTERN(IDirect3DDevice9*, g_drawDevice); // the same device, kept twice
+GAME_GLOBAL_EXTERN(D3DPRESENT_PARAMETERS, g_presentParameters);
+GAME_GLOBAL_EXTERN(bool, g_streamOffsetSupported);
+GAME_GLOBAL_EXTERN(IDirect3DTexture9*[9], g_screenTextures);
+GAME_GLOBAL_EXTERN(uint32_t, g_loadingBarTimer); // the timer's id (timeSetEvent)
+GAME_GLOBAL_EXTERN(float, g_screenScaleX); // 640x480 -> back buffer scale
 
 } // namespace Nx

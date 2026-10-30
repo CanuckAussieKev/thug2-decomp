@@ -18,6 +18,7 @@
 #include "game/mth/vector.h"
 #include "game/obj/walk_hang.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -360,6 +361,9 @@ void __cdecl InterpolateShortTrans(float* out, const CShortKey* a, const CShortK
     std::memcpy(out, lerped, sizeof(Mth::Vector));
 }
 
+GAME_GLOBAL(float, g_tinyLength, 0x006453B8, 0.00001f);
+GAME_GLOBAL(uint32_t, g_cacheUseCounter, 0x006F92B4);
+
 // 0x00483F10
 void __cdecl InterpolateFloatQuat(float* out, CFloatKey* a, const CFloatKey* b, float t)
 {
@@ -391,7 +395,7 @@ void __cdecl InterpolateFloatQuat(float* out, CFloatKey* a, const CFloatKey* b, 
     sum += x * x;
     double length = std::sqrt(sum);
     if (length == 0.0)
-        length = static_cast<double>(GameVariable<float>(0x006453B8)); // 0.00001f
+        length = static_cast<double>(g_tinyLength); // 0.00001f
     double scale = 1.0 / length;
     out[0] = static_cast<float>(scale * x);
     out[1] = static_cast<float>(y * scale);
@@ -963,7 +967,7 @@ bool CBonedAnimFrameData::GetPose(float* rotations, float* translations, uint8_t
     bool forwards = true;
     uint32_t mask = source && source->m_resume ? 1u << (source->m_maskBit & 31) : 0u;
     if (mp_cacheEntry) {
-        uint32_t& counter = GameVariable<uint32_t>(0x006F92B4);
+        uint32_t& counter = g_cacheUseCounter;
         *reinterpret_cast<uint32_t*>(mp_cacheEntry + 4) = counter++;
         if (cursor != -1 && CacheDirection(mp_cacheEntry, cursor, static_cast<int>(static_cast<int64_t>(time))) < 0)
             forwards = false;

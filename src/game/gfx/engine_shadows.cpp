@@ -31,7 +31,7 @@ void DeleteThrough0(void* object)
     reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
 }
 
-CShadowVolume** ShadowVolumes() { return &GameVariable<CShadowVolume*>(0x007013D8); }
+CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
 Lst::HashTable& EdgeTable() { return GameVariable<Lst::HashTable>(0x00701418); }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model

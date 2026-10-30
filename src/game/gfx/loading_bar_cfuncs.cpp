@@ -8,6 +8,7 @@
 #include "game/gfx/loading_screen.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -46,12 +47,14 @@ bool& LoadingScreenShown() { return GameVariable<bool>(0x006FC49C); }
 
 } // namespace
 
+GAME_GLOBAL(float, g_loadingBarSeconds, 0x006FC498);
+
 // 0x00490770
 void __cdecl SetLoadingBarTime(float seconds)
 {
     if (seconds <= 0.0f) // (NaN: started)
         return;
-    GameVariable<float>(0x006FC498) = seconds;
+    g_loadingBarSeconds = seconds;
     UpdateLoadingBarColors();
     StartLoadingBar(seconds);
 }

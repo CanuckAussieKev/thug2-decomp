@@ -16,6 +16,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -129,7 +130,9 @@ CAnimEvent* CAnimEvent::Destroy(uint8_t flags)
 
 // --- the track ----------------------------------------------------------------------------------------------
 
-Mem::PoolPair& CAnimTrack::Pools() { return GameVariable<Mem::PoolPair>(0x006F92C8); }
+GAME_GLOBAL(Mem::PoolPair, g_animTrackPools, 0x006F92C8);
+
+Mem::PoolPair& CAnimTrack::Pools() { return g_animTrackPools; }
 
 // 0x00481EE0
 void* CAnimTrack::operator new(size_t size) { return Pools().Allocate(static_cast<unsigned int>(size)); }

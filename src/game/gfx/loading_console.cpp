@@ -1,5 +1,8 @@
 // NOT ORIGINAL - the loading console (see loading_console.h).
 
+#include "game/gfx/device.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/loading_bar.h"
 #include "game/gfx/loading_console.h"
 #include "game/gfx/loading_screen.h"
 
@@ -15,6 +18,7 @@
 #include <cstring>
 
 #include "game/front/level_editor_ui_fonts.h"
+#include "game/gfx/movie.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -119,14 +123,14 @@ double g_lastActivity = 0.0; // the last line's time (Now())
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
 HANDLE ScreenMutex() { return GameVariable<HANDLE>(0x007052AC); }
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-bool ScreenUp() { return GameVariable<uint8_t>(0x00786D04) != 0; } // the main loop draws nothing then
-uint32_t BarTimer() { return GameVariable<uint32_t>(0x00786D08); }   // the loading bar's timer (0x004B7400)
-void* ScreenPicture() { return GameVariable<void*>(0x007052B4); }    // the loading screen's picture
-void* MovieShown() { return GameVariable<void*>(0x00696D90); }       // a Bink movie playing (gfx/movie.cpp)
+IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
+bool ScreenUp() { return Nx::g_loadingScreenUp != 0; } // the main loop draws nothing then
+uint32_t BarTimer() { return Nx::g_loadingBarTimer; }   // the loading bar's timer (0x004B7400)
+void* ScreenPicture() { return Nx::g_loadingScreenPicture; }    // the loading screen's picture
+void* MovieShown() { return Nx::g_currentMovie; }       // a Bink movie playing (gfx/movie.cpp)
 int ScreenWidth() { return GameVariable<int>(0x00786D6C); }
 int ScreenHeight() { return GameVariable<int>(0x00786D70); }
-int BarWidth() { return GameVariable<int>(0x00701684); } // the loading bar's width in pixels
+int BarWidth() { return Nx::g_gradientWidth; } // the loading bar's width in pixels
 
 double Now()
 {

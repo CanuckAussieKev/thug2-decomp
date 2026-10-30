@@ -10,20 +10,30 @@
 #include "game/core/mem.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint32_t, g_lightCount, 0x006FAAE0);
 
 namespace {
 
 constexpr uint32_t kModelLightsVtable = 0x006491DC;
 
+GAME_GLOBAL(float, g_darkRange, 0x0067DCA4, 0.5f);
+GAME_GLOBAL(float, g_brightRange, 0x0067DCA8);
+GAME_GLOBAL(float*, g_darkRanges, 0x0067DCAC);
+GAME_GLOBAL(float*, g_brightRanges, 0x0067DCB0);
+GAME_GLOBAL(Mth::Vector, g_lightDirection, 0x006FAACC);
+GAME_GLOBAL(uint32_t, g_lightDirectionGuard, 0x006FAADC);
+
 // The light manager's: how many lights, the ambient ranges below / above the middle brightness, each light's.
-uint32_t LightCount() { return GameVariable<uint32_t>(0x006FAAE0); }
-float DarkRange() { return GameVariable<float>(0x0067DCA4); }
-float BrightRange() { return GameVariable<float>(0x0067DCA8); }
-float* DarkRanges() { return GameVariable<float*>(0x0067DCAC); }
-float* BrightRanges() { return GameVariable<float*>(0x0067DCB0); }
+uint32_t LightCount() { return g_lightCount; }
+float DarkRange() { return g_darkRange; }
+float BrightRange() { return g_brightRange; }
+float* DarkRanges() { return g_darkRanges; }
+float* BrightRanges() { return g_brightRanges; }
 
 template <typename R = void, typename... A>
 R Virtual(CModelLights* lights, int slot, A... args)
@@ -172,8 +182,8 @@ uint32_t* CModelLights::PlatGetLightAmbientColor(uint32_t* out)
 Mth::Vector* CModelLights::PlatGetLightDirection(int)
 {
     Stub(0x0064923C); // "STUB: CModelLights::GetLightDirection\n"
-    uint32_t& guard = GameVariable<uint32_t>(0x006FAADC);
-    auto* direction = &GameVariable<Mth::Vector>(0x006FAACC);
+    uint32_t& guard = g_lightDirectionGuard;
+    auto* direction = &g_lightDirection;
     if (!(guard & 1)) {
         guard |= 1;
         std::memset(direction, 0, sizeof(Mth::Vector));

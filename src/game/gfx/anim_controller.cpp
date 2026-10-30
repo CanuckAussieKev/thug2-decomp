@@ -21,6 +21,7 @@
 #include "game/script/names.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
@@ -156,7 +157,9 @@ PlayParams ReadPlayParams(CStruct* params)
     return p;
 }
 
-Mem::PoolPair& StandardPools() { return GameVariable<Mem::PoolPair>(0x00701430); }
+GAME_GLOBAL(Mem::PoolPair, g_standardPools, 0x00701430);
+
+Mem::PoolPair& StandardPools() { return g_standardPools; }
 
 } // namespace
 

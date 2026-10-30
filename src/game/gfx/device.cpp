@@ -21,10 +21,19 @@
 #include "game/sys/sdl_window.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 
 namespace Nx {
+
+GAME_GLOBAL(IDirect3DDevice9*, g_d3dDevice, 0x007D69E0);
+GAME_GLOBAL(D3DPRESENT_PARAMETERS, g_presentParameters, 0x00786A7C);
+GAME_GLOBAL(bool, g_streamOffsetSupported, 0x00786AB6);
+GAME_GLOBAL(uint32_t, g_loadingBarTimer, 0x00786D08); // the timer's id (timeSetEvent)
+GAME_GLOBAL(float, g_screenScaleX, 0x00786D80); // 640x480 -> back buffer scale
+GAME_GLOBAL(IDirect3DDevice9*, g_drawDevice, 0x00786D0C); // the same device, kept twice
+GAME_GLOBAL(IDirect3DTexture9*[9], g_screenTextures, 0x00786D1C);
 
 namespace {
 
@@ -33,25 +42,56 @@ constexpr float kPer640 = Bits(0x3ACCCCCD); // 0x0064A474, 1 / 640
 constexpr float kPer480 = Bits(0x3B088889); // 0x0064A47C, 1 / 480
 constexpr float kOffsetLines = 16.0f;       // 0x00645D68
 
-IDirect3D9*& Direct3D() { return GameVariable<IDirect3D9*>(0x007D69DC); }
-IDirect3DDevice9*& Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-D3DPRESENT_PARAMETERS& PresentParameters() { return GameVariable<D3DPRESENT_PARAMETERS>(0x00786A7C); }
-HWND Window() { return GameVariable<HWND>(0x007D6A28); }
+GAME_GLOBAL(uint8_t, g_setFrequencyAllowed, 0x0067DA40, 1);
+GAME_GLOBAL(int, g_deviceWidth, 0x0067EBCC, 640);
+GAME_GLOBAL(int, g_deviceHeight, 0x0067EBD0, 480);
+GAME_GLOBAL_UNCHECKED(const char*, g_discErrorFrench1, 0x0067EBD4, "Le disque utilis\xE9 pr\xE9sente une anomalie.");
+GAME_GLOBAL_UNCHECKED(const char*, g_discErrorFrench2, 0x0067EBD8, "Il est peut-\xEAtre sale ou endommag\xE9.");
+GAME_GLOBAL_UNCHECKED(const char*, g_discErrorGerman1, 0x0067EBDC, "Bei der benutzten CD ist ein Problem aufgetreten.");
+GAME_GLOBAL_UNCHECKED(const char*, g_discErrorGerman2, 0x0067EBE0, "M\xF6glicherweise ist sie verschmutzt oder besch\xE4" "digt.");
+GAME_GLOBAL_UNCHECKED(const char*, g_discErrorEnglish1, 0x0067EBE4, "There's a problem with the disc you're using.");
+GAME_GLOBAL(IDirect3D9*, g_direct3D, 0x007D69DC);
+GAME_GLOBAL(HWND, g_gameWindow, 0x007D6A28);
+GAME_GLOBAL(D3DADAPTER_IDENTIFIER9, g_adapterIdentifier, 0x00786630);
+GAME_GLOBAL(bool, g_depthTexturesSupported, 0x00786AB9);
+GAME_GLOBAL(uint32_t, g_maxAnisotropy, 0x00786ABC);
+GAME_GLOBAL(bool, g_borderAddressingSupported, 0x00786AC0);
+GAME_GLOBAL(bool, g_blendFactorSupported, 0x00786AC1);
+GAME_GLOBAL(char[200], g_soundDeviceName, 0x00786AC8); // the description of the last sound device DirectSound listed
+GAME_GLOBAL(IDirect3DSurface9*, g_backBuffer, 0x00786D10);
+GAME_GLOBAL(IDirect3DSurface9*, g_backDepth, 0x00786D14);
+GAME_GLOBAL(IDirect3DSurface9*, g_depthTextureTarget, 0x00786D18);
+GAME_GLOBAL(IDirect3DSurface9*[9], g_screenSurfaces, 0x00786D40); // their level 0
+GAME_GLOBAL(IDirect3DSurface9*, g_depthSurface, 0x00786D64);
+GAME_GLOBAL(uint32_t, g_backBufferFormat, 0x00786D74);
+GAME_GLOBAL(uint32_t, g_screenSurfaceFormat, 0x00786D78);
+GAME_GLOBAL(uint32_t, g_depthBits, 0x00786D7C);
+GAME_GLOBAL(float, g_screenScaleY, 0x00786D84);
+GAME_GLOBAL(int, g_screenOffsetX, 0x00786D88);
+GAME_GLOBAL(int, g_screenOffsetY, 0x00786D8C);
+GAME_GLOBAL(SFont*, g_debugFont, 0x00786D90);
+GAME_GLOBAL(bool, g_antialiasing, 0x007D6434);
+GAME_GLOBAL(int, g_resolutionSetting, 0x007D643C);
+
+IDirect3D9*& Direct3D() { return g_direct3D; }
+IDirect3DDevice9*& Device() { return g_d3dDevice; }
+D3DPRESENT_PARAMETERS& PresentParameters() { return g_presentParameters; }
+HWND Window() { return g_gameWindow; }
 // The size the device is being created at.
-int& DeviceWidth() { return GameVariable<int>(0x0067EBCC); }
-int& DeviceHeight() { return GameVariable<int>(0x0067EBD0); }
+int& DeviceWidth() { return g_deviceWidth; }
+int& DeviceHeight() { return g_deviceHeight; }
 
 } // namespace
 
 // 0x004D8650
 void InitDirect3D()
 {
-    GameVariable<uint32_t>(0x00786D08) = 0;
-    GameVariable<float>(0x00786D80) = 1.0f; // 640x480 -> back buffer scale and offset
-    GameVariable<float>(0x00786D84) = 1.0f;
-    GameVariable<int>(0x00786D88) = 0;
-    GameVariable<int>(0x00786D8C) = 16;
-    GameVariable<uint32_t>(0x00786D18) = 0;
+    g_loadingBarTimer = 0;
+    g_screenScaleX = 1.0f; // 640x480 -> back buffer scale and offset
+    g_screenScaleY = 1.0f;
+    g_screenOffsetX = 0;
+    g_screenOffsetY = 16;
+    g_depthTextureTarget = 0;
     GameVariable<uint32_t>(0x00786D68) = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
     //   if (GameVariable<bool>(0x00786AB7)) ShowWindow(Window(), SW_MAXIMIZE);
@@ -80,13 +120,13 @@ void InitDirect3D()
     pp.BackBufferCount = 1;
     pp.EnableAutoDepthStencil = TRUE;
     // The resolution setting (0 = the largest) picks where to start; smaller ones are tried after.
-    unsigned first = 3 - GameVariable<int>(0x007D643C);
+    unsigned first = 3 - g_resolutionSetting;
     if (first > 3)
         first = 3;
     // Originally from PartyMod Fixes (its DWords at 0x004D8776 / 0x004D8792): the smallest, 640x480, is its window's size.
     const int widths[4] = {1280, 1024, 800, Sys::WindowWidth()};
     const int heights[4] = {1024, 768, 600, Sys::WindowHeight()};
-    bool multisample = GameVariable<bool>(0x007D6434);
+    bool multisample = g_antialiasing;
     // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): its sample count, whatever AntiAliasing says.
     GraphicsOptions::ChooseMultisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, Sys::Windowed());
     if (GraphicsOptions::ChosenSamples())
@@ -124,46 +164,46 @@ void InitDirect3D()
     //   SetWindowPos(Window(), HWND_TOP, 0, 0, DeviceWidth(), DeviceHeight(), SWP_NOZORDER);
 
     IDirect3DDevice9* device = Device();
-    GameVariable<IDirect3DDevice9*>(0x00786D0C) = device;
+    g_drawDevice = device;
     // (the back buffer size as set by CreateDevice, unsigned)
     float scaleX = static_cast<float>(static_cast<double>(pp.BackBufferWidth) * kPer640);
-    GameVariable<float>(0x00786D80) = scaleX;
+    g_screenScaleX = scaleX;
     float scaleY = static_cast<float>(static_cast<double>(pp.BackBufferHeight) * kPer480);
-    GameVariable<int>(0x00786D88) = 0;
-    GameVariable<float>(0x00786D84) = scaleY;
-    GameVariable<int>(0x00786D8C) = static_cast<int>(static_cast<int64_t>(static_cast<double>(scaleY) * kOffsetLines));
+    g_screenOffsetX = 0;
+    g_screenScaleY = scaleY;
+    g_screenOffsetY = static_cast<int>(static_cast<int64_t>(static_cast<double>(scaleY) * kOffsetLines));
 
     // Whether depth textures (D24S8) can be used.
     D3DDEVICE_CREATION_PARAMETERS creation;
     device->GetCreationParameters(&creation);
     if (d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, creation.DeviceType, pp.BackBufferFormat, 0, D3DRTYPE_TEXTURE,
                                D3DFMT_D24S8) == D3D_OK)
-        GameVariable<bool>(0x00786AB9) = true;
-    for (uint32_t address = 0x00786D1C; address <= 0x00786D3C; address += 4)
-        GameVariable<uint32_t>(address) = 0;
-    GameVariable<uint32_t>(0x00786D64) = 0;
+        g_depthTexturesSupported = true;
+    for (IDirect3DTexture9*& texture : g_screenTextures)
+        texture = nullptr;
+    g_depthSurface = 0;
     ResetRenderState();
     CreateRenderTargets();
     // Originally from PartyMod Fixes (its jump at 0x004D8989): the cursor is left alone. The original hid it when full screen:
     //   if (!pp.Windowed) while (ShowCursor(FALSE) > 0) {}
     LoadGamma();
     // the debug font (none on PC: the original calls the shared `return 0` stub)
-    GameVariable<void*>(0x00786D90) = reinterpret_cast<void*>(static_cast<uintptr_t>(Stubs::ReturnZero()));
+    g_debugFont = reinterpret_cast<SFont*>(static_cast<uintptr_t>(Stubs::ReturnZero()));
     Tmr::SetFlags();
 }
 
 namespace {
 
 // The default-pool objects (released before a device reset, made again after).
-IDirect3DTexture9** ScreenTextures() { return &GameVariable<IDirect3DTexture9*>(0x00786D1C); } // [9]
-IDirect3DSurface9** ScreenSurfaces() { return &GameVariable<IDirect3DSurface9*>(0x00786D40); } // [9], their level 0
-IDirect3DSurface9*& DepthSurface() { return GameVariable<IDirect3DSurface9*>(0x00786D64); }
-IDirect3DSurface9*& BackBuffer() { return GameVariable<IDirect3DSurface9*>(0x00786D10); }
-IDirect3DSurface9*& BackDepth() { return GameVariable<IDirect3DSurface9*>(0x00786D14); }
-IDirect3DSurface9*& DepthTextureTarget() { return GameVariable<IDirect3DSurface9*>(0x00786D18); }
-D3DADAPTER_IDENTIFIER9& AdapterIdentifier() { return GameVariable<D3DADAPTER_IDENTIFIER9>(0x00786630); }
+IDirect3DTexture9** ScreenTextures() { return g_screenTextures; } // [9]
+IDirect3DSurface9** ScreenSurfaces() { return g_screenSurfaces; } // [9], their level 0
+IDirect3DSurface9*& DepthSurface() { return g_depthSurface; }
+IDirect3DSurface9*& BackBuffer() { return g_backBuffer; }
+IDirect3DSurface9*& BackDepth() { return g_backDepth; }
+IDirect3DSurface9*& DepthTextureTarget() { return g_depthTextureTarget; }
+D3DADAPTER_IDENTIFIER9& AdapterIdentifier() { return g_adapterIdentifier; }
 // The description of the last sound device DirectSound listed.
-char* SoundDeviceName() { return &GameVariable<char>(0x00786AC8); }
+char* SoundDeviceName() { return g_soundDeviceName; }
 
 // The dynamic vertex buffer and the quads' index buffer (the platform layer's).
 void CreateDynamicVertexBuffer(uint32_t size) { Platform::CreateDynamicVertexBuffer(size); }
@@ -216,7 +256,7 @@ HRESULT __cdecl CreateDevice(int width, int height, bool hardwareVertices, bool 
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
     if (std::memcmp(SoundDeviceName(), "Realtek HD Audio rear output", 29) == 0 && id.VendorId == 0x8086 &&
         id.DeviceId == 0x2582)
-        GameVariable<uint8_t>(0x0067DA40) = 0;
+        g_setFrequencyAllowed = 0;
     return result;
 }
 
@@ -261,7 +301,7 @@ void __cdecl CreateRenderTargets()
     Device()->GetDepthStencilSurface(&BackDepth());
     BackBuffer()->Release(); // (only the pointers are kept)
     BackDepth()->Release();
-    if (GameVariable<bool>(0x00786AB9)) // depth textures
+    if (g_depthTexturesSupported) // depth textures
         Device()->CreateRenderTarget(256, 256, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
                                      &DepthTextureTarget(), nullptr);
     D3DCAPS9 caps;
@@ -269,8 +309,8 @@ void __cdecl CreateRenderTargets()
     if (caps.PixelShaderVersion >= D3DPS_VERSION(1, 1))
         GameVariable<bool>(0x00786AB8) = true;
     if (caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET)
-        GameVariable<bool>(0x00786AB6) = true;
-    GameVariable<uint32_t>(0x00786ABC) = caps.MaxAnisotropy;
+        g_streamOffsetSupported = true;
+    g_maxAnisotropy = caps.MaxAnisotropy;
     // NOT ORIGINAL - [Graphics] anisotropy and msaa (game/gfx/graphics_options.h): the anisotropy this device can
     // give, and the multisampled scene surface for the screen copies.
     GraphicsOptions::ActiveAnisotropy() = GraphicsOptions::DeviceAnisotropy(
@@ -278,17 +318,17 @@ void __cdecl CreateRenderTargets()
         caps.MaxAnisotropy);
     GraphicsOptions::CreateSceneTarget();
     if (caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER)
-        GameVariable<bool>(0x00786AC0) = true;
-    GameVariable<bool>(0x00786AC1) =
+        g_borderAddressingSupported = true;
+    g_blendFactorSupported =
         (caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) && (caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR);
     GameVariable<uint32_t>(0x00786D6C) = pp.BackBufferWidth;
     GameVariable<uint32_t>(0x00786D70) = pp.BackBufferHeight;
-    GameVariable<uint32_t>(0x00786D74) = pp.BackBufferFormat;
-    GameVariable<uint32_t>(0x00786D7C) = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
+    g_backBufferFormat = pp.BackBufferFormat;
+    g_depthBits = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
     if (ScreenSurfaces()[0]) {
         D3DSURFACE_DESC desc;
         ScreenSurfaces()[0]->GetDesc(&desc);
-        GameVariable<uint32_t>(0x00786D78) = desc.Format;
+        g_screenSurfaceFormat = desc.Format;
     }
     ApplyRenderState();
 }
@@ -314,12 +354,12 @@ void __cdecl LoadGamma()
 // 0x004D89C0
 void __cdecl ShowDiscError()
 {
-    uint32_t& timer = GameVariable<uint32_t>(0x00786D08);
+    uint32_t& timer = g_loadingBarTimer;
     if (timer) {
         GameVariable<UINT(WINAPI*)(UINT)>(0x00645268)(timer); // timeKillEvent (the exe's import)
         timer = 0;
     }
-    if (!GameVariable<IDirect3DDevice9*>(0x00786D0C))
+    if (!g_drawDevice)
         InitDirect3D();
     // "There's a problem with the disc you're using." / "It may be dirty or damaged." in the language
     // (0x007CEFA0: 3 French, 5 German, else English).
@@ -327,22 +367,22 @@ void __cdecl ShowDiscError()
     const char* second;
     switch (GameVariable<int>(0x007CEFA0)) {
     case 3:
-        first = GameVariable<const char*>(0x0067EBD4);
-        second = GameVariable<const char*>(0x0067EBD8);
+        first = g_discErrorFrench1;
+        second = g_discErrorFrench2;
         break;
     case 5:
-        first = GameVariable<const char*>(0x0067EBDC);
-        second = GameVariable<const char*>(0x0067EBE0);
+        first = g_discErrorGerman1;
+        second = g_discErrorGerman2;
         break;
     default:
-        first = GameVariable<const char*>(0x0067EBE4);
+        first = g_discErrorEnglish1;
         second = GameVariable<const char*>(0x0067EBE8);
         break;
     }
     alignas(4) uint8_t storage[sizeof(SText)];
     SText* text = reinterpret_cast<SText*>(storage);
     text->Construct(0.0f);
-    text->font = GameVariable<SFont*>(0x00786D90);
+    text->font = g_debugFont;
     text->x = 48.0f;
     text->y = 128.0f;
     text->xscale = std::bit_cast<float>(0x3F4CCCCDu); // 0.8

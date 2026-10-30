@@ -8,6 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -16,7 +17,9 @@ namespace {
 
 constexpr uint32_t kTextVtable = 0x00648AA0;
 
-CText*& FreeList() { return GameVariable<CText*>(0x006FA804); }
+GAME_GLOBAL(CText*, g_freeTexts, 0x006FA804);
+
+CText*& FreeList() { return g_freeTexts; }
 
 // The platform's updates (virtual [2]-[5]).
 void Update(CText* text, int slot) { reinterpret_cast<void(__thiscall*)(CText*)>(text->m_vtable[slot])(text); }

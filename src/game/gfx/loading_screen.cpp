@@ -1,5 +1,7 @@
 // The loading screen: see loading_screen.h.
 
+#include "game/gfx/device.h"
+#include "game/gfx/engine_glue.h"
 #include "game/gfx/loading_screen.h"
 
 #include <windows.h>
@@ -17,16 +19,19 @@
 #include "game/gfx/pc_texture.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(uint8_t*, g_loadingScreenPicture, 0x007052B4);
+
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 HANDLE ScreenMutex() { return GameVariable<HANDLE>(0x007052AC); }
-bool& ScreenUp() { return GameVariable<bool>(0x00786D04); }
-uint32_t& BarTimer() { return GameVariable<uint32_t>(0x00786D08); }
+bool& ScreenUp() { return g_loadingScreenUp; }
+uint32_t& BarTimer() { return g_loadingBarTimer; }
 uint32_t FogEnabled() { return GameVariable<uint32_t>(0x00787338); } // (the renderer's cached D3DRS_FOGENABLE)
 
 // The Windows calls, through the exe's imports (as device.cpp's timer: so a test can stand in for them alone).
@@ -39,10 +44,12 @@ UINT StartTimer(UINT delay, LPTIMECALLBACK callback)
 }
 void StopTimer(UINT timer) { GameVariable<UINT(WINAPI*)(UINT)>(0x00645268)(timer); } // timeKillEvent
 
+GAME_GLOBAL(void*, g_loadingScreenSprite, 0x007052B0);
+
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
-uint8_t*& Picture() { return GameVariable<uint8_t*>(0x007052B4); }
-void*& Sprite() { return GameVariable<void*>(0x007052B0); }
+uint8_t*& Picture() { return g_loadingScreenPicture; }
+void*& Sprite() { return g_loadingScreenSprite; }
 
 // The picture's name (a std::basic_string over the game's allocator at 0x0067E958 - library code: its characters
 // in place below 16 (+0x04), else through +0x04; its capacity at +0x18).
@@ -132,9 +139,9 @@ void __cdecl FreeLoadingScreenSprite()
 // 0x004B7400
 void __cdecl StartLoadingBar(float seconds)
 {
-    GameVariable<float>(0x007052A4) = 0.0f;  // elapsed
-    GameVariable<float>(0x007052A0) = 0.03f; // a tick's seconds (0x3CF5C28F)
-    GameVariable<float>(0x007052A8) = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
+    g_elapsedSeconds = 0.0f;  // elapsed
+    g_tickSeconds = 0.03f; // a tick's seconds (0x3CF5C28F)
+    g_totalSeconds = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
     UpdateLoadingBarColors();
     if (!BarTimer())
         BarTimer() = StartTimer(29, reinterpret_cast<LPTIMECALLBACK>(&DrawLoadingScreenFrame));

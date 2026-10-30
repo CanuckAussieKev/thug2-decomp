@@ -17,6 +17,7 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -47,9 +48,12 @@ CCollGrid** GridsAlongLine(const Mth::Line* line)
 }
 void* FindSector(uint32_t name) { return Engine::GetSector(name); }
 
+GAME_GLOBAL(void*[128], g_projectedSectors, 0x00700F40);
+GAME_GLOBAL(void*[128], g_projectedCollision, 0x00701140);
+
 // The sectors and collision objects a projection reaches (0x00700F40 / 0x00701140, null-terminated).
-void** ProjectedSectors() { return &GameVariable<void*>(0x00700F40); }
-void** ProjectedCollision() { return &GameVariable<void*>(0x00701140); }
+void** ProjectedSectors() { return g_projectedSectors; }
+void** ProjectedCollision() { return g_projectedCollision; }
 
 } // namespace
 

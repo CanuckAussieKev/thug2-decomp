@@ -21,6 +21,7 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Sun {
@@ -50,25 +51,44 @@ constexpr uint32_t kMaybeHideLensFlare = 0xD4F107CB; // "MaybeHideLensFlare"
 constexpr uint32_t kBlend = 0x54628ED7;             // "blend"
 constexpr uint32_t kAdd = 0x02E58C18;               // "Add"
 
+GAME_GLOBAL(float, g_flareTheta, 0x00696878);
+GAME_GLOBAL(float, g_flarePhi, 0x0069687C);
+GAME_GLOBAL(float, g_flareRadius, 0x00696880);
+GAME_GLOBAL(float, g_flareSize, 0x00696884);
+GAME_GLOBAL(float, g_flareMorphInTime, 0x00696888);
+GAME_GLOBAL(float, g_flareMorphOutTime, 0x0069688C);
+GAME_GLOBAL(float, g_flareSunBurstOutTime, 0x00696890);
+GAME_GLOBAL(uint8_t, g_flareQuery, 0x00696894);
+GAME_GLOBAL(bool, g_flareShown, 0x00696895);
+GAME_GLOBAL(bool, g_flareHidden, 0x00696896);
+GAME_GLOBAL(void*, g_flareSunTexture, 0x00696898);
+GAME_GLOBAL(void*, g_flareCoronaTexture, 0x0069689C);
+GAME_GLOBAL(FlareElement*, g_flareElements, 0x006968A0);
+GAME_GLOBAL(uint32_t, g_flareElementCount, 0x006968A4);
+GAME_GLOBAL(uint32_t, g_flareVisibleTime, 0x006968A8);
+GAME_GLOBAL(uint32_t, g_flareHiddenTime, 0x006968AC);
+GAME_GLOBAL(Mth::Vector, g_flareColor, 0x006968B0);
+GAME_GLOBAL(Mth::Vector, g_flarePosition, 0x006968C0);
+
 // The sun's state.
-float& Theta() { return GameVariable<float>(0x00696878); }
-float& Phi() { return GameVariable<float>(0x0069687C); }
-float& Radius() { return GameVariable<float>(0x00696880); }
-float& Size() { return GameVariable<float>(0x00696884); }
-float& MorphInTime() { return GameVariable<float>(0x00696888); }   // seconds
-float& MorphOutTime() { return GameVariable<float>(0x0069688C); }
-float& SunBurstOutTime() { return GameVariable<float>(0x00696890); }
-uint8_t& Query() { return GameVariable<uint8_t>(0x00696894); }     // the occlusion query's result number (0: none)
-bool& Shown() { return GameVariable<bool>(0x00696895); }
-bool& FlareHidden() { return GameVariable<bool>(0x00696896); }
-void*& SunTexture() { return GameVariable<void*>(0x00696898); }
-void*& CoronaTexture() { return GameVariable<void*>(0x0069689C); }
-FlareElement*& Elements() { return GameVariable<FlareElement*>(0x006968A0); }
-uint32_t& ElementCount() { return GameVariable<uint32_t>(0x006968A4); }
-uint32_t& VisibleTime() { return GameVariable<uint32_t>(0x006968A8); } // when the sun was last seen
-uint32_t& HiddenTime() { return GameVariable<uint32_t>(0x006968AC); }  // when it was last not seen
-Mth::Vector& Color() { return GameVariable<Mth::Vector>(0x006968B0); }
-Mth::Vector& Position() { return GameVariable<Mth::Vector>(0x006968C0); } // in the world, this frame
+float& Theta() { return g_flareTheta; }
+float& Phi() { return g_flarePhi; }
+float& Radius() { return g_flareRadius; }
+float& Size() { return g_flareSize; }
+float& MorphInTime() { return g_flareMorphInTime; }   // seconds
+float& MorphOutTime() { return g_flareMorphOutTime; }
+float& SunBurstOutTime() { return g_flareSunBurstOutTime; }
+uint8_t& Query() { return g_flareQuery; }     // the occlusion query's result number (0: none)
+bool& Shown() { return g_flareShown; }
+bool& FlareHidden() { return g_flareHidden; }
+void*& SunTexture() { return g_flareSunTexture; }
+void*& CoronaTexture() { return g_flareCoronaTexture; }
+FlareElement*& Elements() { return g_flareElements; }
+uint32_t& ElementCount() { return g_flareElementCount; }
+uint32_t& VisibleTime() { return g_flareVisibleTime; } // when the sun was last seen
+uint32_t& HiddenTime() { return g_flareHiddenTime; }  // when it was last not seen
+Mth::Vector& Color() { return g_flareColor; }
+Mth::Vector& Position() { return g_flarePosition; } // in the world, this frame
 
 // The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted (its vtable slot 0,
 // the scalar deleting destructor).

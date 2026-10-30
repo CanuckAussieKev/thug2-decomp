@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
+#include "hook/game_global.h"
 
 // The engine's own entry points (Nx::CEngine's statics, cdecl) at 0x0048BF20-0x0048C74F: starting it, a frame's
 // update and render, model and scene files, and the list of loaded scenes. (The ones that only jump into the
@@ -82,5 +83,7 @@ bool __cdecl UnloadScene(CScene* scene, int flags);
 CScene* __cdecl FindScene(uint32_t checksum);
 
 } // namespace Engine
+
+GAME_GLOBAL_EXTERN(bool, g_skipRender); // rendering skipped (frames not drawn or shown)
 
 } // namespace Nx

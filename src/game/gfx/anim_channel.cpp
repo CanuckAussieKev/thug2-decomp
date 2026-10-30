@@ -11,6 +11,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/gfx/anim_track.h"
+#include "game/gfx/engine.h"
 #include "game/gfx/frame_source.h"
 #include "game/gfx/model_utils.h"
 #include "game/gfx/skeleton.h"
@@ -28,6 +29,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -64,21 +66,32 @@ constexpr float kFixedPoint = 4096.0f;              // 0x00648730
 enum : uint8_t { kMsgPlayAnim = 0x29, kMsgWobbleTarget = 0x2B, kMsgFlip = 0x2C, kMsgWobbleDetails = 0x3C,
                  kMsgLoopType = 0x3D, kMsgSpeed = 0x41 };
 
+GAME_GLOBAL(uint8_t, g_lastWobbleTarget, 0x0067DC10, 0xFF);
+GAME_GLOBAL(uint8_t, g_lastWobbleDetails, 0x0067DC11, 0xFF);
+GAME_GLOBAL(int8_t, g_lastLoopType, 0x0067DC12, -1);
+GAME_GLOBAL(Mem::PoolPair, g_structPools, 0x006F3614);
+GAME_GLOBAL(uint32_t*, g_blendSets, 0x006F8A58);
+GAME_GLOBAL(float*, g_blendWeights, 0x006F8A5C);
+GAME_GLOBAL(CPose*, g_blendBuffer, 0x006F8A60);
+GAME_GLOBAL(CPose*, g_poses, 0x006F8A64);
+GAME_GLOBAL(int, g_maxBlends, 0x006F8A68);
+GAME_GLOBAL(int, g_subsets, 0x006F8A6C);
+
 // What was last sent (all start 0xFF).
-uint8_t& LastWobbleTarget() { return GameVariable<uint8_t>(0x0067DC10); }
-uint8_t& LastWobbleDetails() { return GameVariable<uint8_t>(0x0067DC11); }
-int8_t& LastLoopType() { return GameVariable<int8_t>(0x0067DC12); }
+uint8_t& LastWobbleTarget() { return g_lastWobbleTarget; }
+uint8_t& LastWobbleDetails() { return g_lastWobbleDetails; }
+int8_t& LastLoopType() { return g_lastLoopType; }
 
 // The blend buffers (InitBuffers).
-uint32_t*& BlendSets() { return GameVariable<uint32_t*>(0x006F8A58); }
-float*& BlendWeights() { return GameVariable<float*>(0x006F8A5C); }
-CPose*& BlendBuffer() { return GameVariable<CPose*>(0x006F8A60); }
-CPose*& Poses() { return GameVariable<CPose*>(0x006F8A64); }
-int& MaxBlends() { return GameVariable<int>(0x006F8A68); }
-int& Subsets() { return GameVariable<int>(0x006F8A6C); }
-bool SkipRender() { return GameVariable<bool>(0x007D1EC0); }
+uint32_t*& BlendSets() { return g_blendSets; }
+float*& BlendWeights() { return g_blendWeights; }
+CPose*& BlendBuffer() { return g_blendBuffer; }
+CPose*& Poses() { return g_poses; }
+int& MaxBlends() { return g_maxBlends; }
+int& Subsets() { return g_subsets; }
+bool SkipRender() { return Nx::g_skipRender; }
 
-Mem::PoolPair& StructPools() { return GameVariable<Mem::PoolPair>(0x006F3614); }
+Mem::PoolPair& StructPools() { return g_structPools; }
 
 float& AsFloat(uint32_t& bits) { return reinterpret_cast<float&>(bits); }
 

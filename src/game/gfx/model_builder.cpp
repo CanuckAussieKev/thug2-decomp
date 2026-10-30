@@ -16,6 +16,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -24,10 +25,14 @@ namespace {
 
 void** const kVtable = reinterpret_cast<void**>(0x00648920);
 
+GAME_GLOBAL(Nx::CModel*, g_builtModel, 0x006FA2F8);
+GAME_GLOBAL(CSkeleton*, g_builtSkeleton, 0x006FA2FC);
+GAME_GLOBAL(CModelAppearance*, g_builtAppearance, 0x006FA300);
+
 // While Build runs: the model, its skeleton and the appearance's copy.
-Nx::CModel*& BuiltModel() { return GameVariable<Nx::CModel*>(0x006FA2F8); }
-CSkeleton*& BuiltSkeleton() { return GameVariable<CSkeleton*>(0x006FA2FC); }
-CModelAppearance*& BuiltAppearance() { return GameVariable<CModelAppearance*>(0x006FA300); }
+Nx::CModel*& BuiltModel() { return g_builtModel; }
+CSkeleton*& BuiltSkeleton() { return g_builtSkeleton; }
+CModelAppearance*& BuiltAppearance() { return g_builtAppearance; }
 // The texture dictionaries: the game's and the skater's (its cag_workspace).
 Nx::CTexDict* GameTextures() { return GameVariable<Nx::CTexDict*>(0x00700F1C); }
 Nx::CTexDict* SkaterTextures() { return GameVariable<Nx::CTexDict*>(0x00700F20); }
