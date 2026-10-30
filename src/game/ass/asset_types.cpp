@@ -29,6 +29,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Ass {
 
@@ -108,7 +109,8 @@ void* MakeTexDict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, int
 void UnloadTexDict(void* textures) { Nx::UnloadTexDict(static_cast<Nx::CTexDict*>(textures)); }
 
 // --- shared steps ---------------------------------------------------------------------------------------------
-uint8_t* ParamsPool() { return reinterpret_cast<uint8_t*>(0x00691758); }
+GAME_GLOBAL(uint8_t[0x180], g_paramsPool, 0x00691758); // 4 blocks of 0x60 bytes
+uint8_t* ParamsPool() { return g_paramsPool; }
 uint32_t& ParamsInUse() { return g_paramsInUse; }
 
 // strcpy (no bounds, as the original's).
@@ -735,7 +737,7 @@ int CSkinAsset::Load(const char* name, bool async, bool useArchive, void* params
     Str::LowerCase(base);
     m_params->onHeap = 0;
     // (0x00645904 / 0x00645900: "skin" for a model with a .cas file, else "mdl")
-    const char* kind = reinterpret_cast<const char*>(hasCas ? 0x00645904 : 0x00645900);
+    const char* kind = hasCas ? GAME_TEXT(0x00645904, "skin") : GAME_TEXT(0x00645900, "mdl");
     char file[512];
     std::snprintf(file, sizeof(file), "%s.%s.%s", base, kind, Nx::PlatformExtension());
     m_params->hasCas = hasCas;

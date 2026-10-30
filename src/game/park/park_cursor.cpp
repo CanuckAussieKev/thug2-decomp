@@ -2,6 +2,7 @@
 // floor; and the park manager's set-up (0x0059D120-0x0059E0F7, see park_editor.h).
 
 #include "game/park/park_editor.h"
+#include "hook/game_code.h"
 
 #include <cstdio>
 #include <cstring>
@@ -109,7 +110,7 @@ bool CCursor::PlacePiece()
     for (int slot = 1; slot < 9; ++slot) {
         if (type == manager->At<uint32_t>(0x177A4 + (slot - 1) * 4)) {
             if (!AsGenerator(manager->Generator())->HasFreeRestartSlot(slot)) {
-                Dbg::Printf(reinterpret_cast<const char*>(0x0064F85C)); // "No free slots exist for this type of restart point\n"
+                Dbg::Printf(GAME_TEXT(0x0064F85C, "No free slots exist for this type of restart point\n")); // "No free slots exist for this type of restart point\n"
                 return false;
             }
             break;
@@ -122,7 +123,7 @@ bool CCursor::PlacePiece()
     manager->AddMetaPieceToPark(Area(), piece);
     SetDefaultHeap(GetMainHeap());
     manager->RebuildArea(&Area(), false);
-    MemoryMarker(reinterpret_cast<const char*>(0x0064F890)); // "After placing a piece"
+    MemoryMarker(GAME_TEXT(0x0064F890, "After placing a piece")); // "After placing a piece"
     return true;
 }
 
@@ -172,7 +173,7 @@ bool CCursor::AddGapHalf()
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (GapCounter() > 1)
 #pragma warning(suppress : 4996)
-                    std::sprintf(gap.m_text, reinterpret_cast<const char*>(0x0064F8A8), GapCounter()); // "gap%d"
+                    std::sprintf(gap.m_text, GAME_TEXT(0x0064F8A8, "gap%d"), GapCounter()); // "gap%d"
                 else
                     std::memcpy(gap.m_text, "gap", 4);
                 ++GapCounter();
@@ -298,7 +299,7 @@ bool CCursor::DestroySelection()
     GridDims area = {};
     SelectedArea(this, &area);
     bool destroyed = Manager()->DestroyMetasInAreaAndRebuild(area, true, true, false);
-    MemoryMarker(reinterpret_cast<const char*>(0x0064F8B0)); // "After Area deletion"
+    MemoryMarker(GAME_TEXT(0x0064F8B0, "After Area deletion")); // "After Area deletion"
     Selecting() = true;
     At<bool>(0x55) = false;
     return destroyed;
@@ -415,15 +416,15 @@ void CParkManager::Initialize(uint32_t level)
 
     // The palette's sets (Ed_piece_sets): each a run of the standard meta pieces (Ed_standard_metapieces) from its
     // `first` up to the next set's, or the clipboards.
-    Script::CArray* sets = Script::GetArray(reinterpret_cast<const char*>(0x0064F8E4)); // "Ed_piece_sets"
+    Script::CArray* sets = Script::GetArray(GAME_TEXT(0x0064F8E4, "Ed_piece_sets")); // "Ed_piece_sets"
     NumSets() = static_cast<int>(sets->m_size);
-    Script::CArray* standard = Script::GetArray(reinterpret_cast<const char*>(0x0064F690)); // "Ed_standard_metapieces"
+    Script::CArray* standard = Script::GetArray(GAME_TEXT(0x0064F690, "Ed_standard_metapieces")); // "Ed_standard_metapieces"
     int end = static_cast<int>(standard->m_size);
     for (int i = NumSets() - 1; i >= 0; --i) {
         PieceSet& set = Sets(this)[i];
         auto* description = reinterpret_cast<Script::CStruct*>(sets->GetElement(static_cast<uint32_t>(i)));
         set.m_name = nullptr;
-        description->GetString(reinterpret_cast<const char*>(0x0064D0C4), &set.m_name, 1); // "name"
+        description->GetString(GAME_TEXT(0x0064D0C4, "name"), &set.m_name, 1); // "name"
         set.m_nameChecksum = Crc::GenerateCRCFromString(set.m_name);
         set.m_selected = 0;
         set.m_numEntries = 0;
@@ -454,7 +455,7 @@ void CParkManager::Initialize(uint32_t level)
                 set.m_entries[entry].checksum = MetaType(meta); // (no check for a missing piece, as in the original)
                 auto* pieceDescription =
                     reinterpret_cast<Script::CStruct*>(standard->GetElement(static_cast<uint32_t>(piece)));
-                if (!pieceDescription->GetString(reinterpret_cast<const char*>(0x0064F8D8), // "text_name"
+                if (!pieceDescription->GetString(GAME_TEXT(0x0064F8D8, "text_name"), // "text_name"
                                                  &set.m_entries[entry].name, 0))
                     set.m_entries[entry].name = nullptr;
             }
@@ -466,12 +467,12 @@ void CParkManager::Initialize(uint32_t level)
             const char* text = Script::GetString(0x4E677220u);
             for (int k = 0; k < 6; ++k) {
                 char name[100];
-                std::snprintf(name, sizeof(name), reinterpret_cast<const char*>(0x0064F8CC), k); // "Clipboard%d"
+                std::snprintf(name, sizeof(name), GAME_TEXT(0x0064F8CC, "Clipboard%d"), k); // "Clipboard%d"
                 set.m_entries[k].name = text;
                 set.m_entries[k].checksum = Crc::GenerateCRCFromString(name);
             }
         }
-        set.m_visible = !description->ContainsFlag(reinterpret_cast<const char*>(0x0064F8C4)); // "hidden"
+        set.m_visible = !description->ContainsFlag(GAME_TEXT(0x0064F8C4, "hidden")); // "hidden"
     }
 }
 

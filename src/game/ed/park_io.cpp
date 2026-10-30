@@ -2,6 +2,7 @@
 // form (the map that's saved and sent), the gaps attached to pieces, and the memory bar.
 
 #include "game/ed/park.h"
+#include "hook/game_code.h"
 
 #include <cstring>
 
@@ -438,7 +439,7 @@ void CParkManager::ClearCompressedMap()
     map.m_l = m_parkBounds.l;
     map.m_theme = static_cast<void*>(g_parkEditor) ? EditorValue78() : 0;
     map.m_maxPlayers = 2;
-    std::memcpy(map.m_name, reinterpret_cast<const void*>(0x0064F734), 13); // "Unnamed park"
+    std::memcpy(map.m_name, GAME_TEXT(0x0064F734, "Unnamed park"), 13); // "Unnamed park"
     std::memset(map.m_floorHeights, 0, kFloorSize * kFloorSize);
     map.m_numMetas = 0;
     uint32_t used = offsetof(CompressedMap, m_floorHeights) + kFloorSize * kFloorSize;
@@ -545,11 +546,11 @@ void CParkManager::RemoveGap(GapInfo* gap)
 
 void CParkManager::PrintMapList(const CMapListNode* list)
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064F404));
+    Dbg::Printf(GAME_TEXT(0x0064F404, "contents of map list:\n"));
     for (const CMapListNode* node = list; node; node = node->mp_next) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064F3F0), node->mp_meta);
+        Dbg::Printf(GAME_TEXT(0x0064F3F0, "   address=%p area="), node->mp_meta);
         const GridDims& d = node->mp_meta->m_cell_area;
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064F394), d.x, static_cast<int>(d.y), d.z, d.w, d.h, d.l);
+        Dbg::Printf(GAME_TEXT(0x0064F394, "pos=(%d,%d,%d) dims=(%d,%d,%d)\n"), d.x, static_cast<int>(d.y), d.z, d.w, d.h, d.l);
     }
 }
 

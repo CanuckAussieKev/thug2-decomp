@@ -15,6 +15,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/net/task_vtable.h"
+#include "hook/game_code.h"
 
 namespace Ass {
 
@@ -24,8 +26,8 @@ GAME_GLOBAL(Mlp::Manager*, g_mainLoopManager, 0x00696D68);
 
 namespace {
 
-void** const kAssManVtable = reinterpret_cast<void**>(0x00645658);
-void** const kManagerTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CAssMan>
+GAME_VTABLE(kAssManVtable, 0x00645658, &Ass::CAssMan::ScalarDelete, &Ass::CAssMan::StartCallback,
+    &Ass::CAssMan::StopCallback);
 
 int& References() { return g_assManReferences; }
 
@@ -37,7 +39,15 @@ struct ExtensionType {
     const char* extension;
     int type;
 };
-const ExtensionType* Extensions() { return reinterpret_cast<const ExtensionType*>(0x0067C650); }
+// (the extensions are the exe's strings; the table's last entry stays null)
+GAME_GLOBAL_UNCHECKED(ExtensionType[13], g_extensions, 0x0067C650,
+                      {GAME_TEXT(0x006455F8, "BIN"), 1}, {GAME_TEXT(0x006455F4, "COL"), 4},
+                      {GAME_TEXT(0x006455F0, "SCN"), 2}, {GAME_TEXT(0x006455E8, "GEOM"), 2},
+                      {GAME_TEXT(0x006455E4, "MDL"), 7}, {GAME_TEXT(0x006455E0, "SKA"), 5},
+                      {GAME_TEXT(0x006455DC, "FAM"), 5}, {GAME_TEXT(0x006455D8, "SKE"), 6},
+                      {GAME_TEXT(0x006455D0, "SKIN"), 7}, {GAME_TEXT(0x006455CC, "TEX"), 3},
+                      {GAME_TEXT(0x006455C8, "CUT"), 9}, {GAME_TEXT(0x006455C4, "QB"), 10});
+const ExtensionType* Extensions() { return g_extensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
 CAsset* Find(Lst::HashTable* table, uint32_t checksum)
@@ -152,7 +162,7 @@ CAssMan* CAssMan::Construct()
     if (task) {
         task->Construct(0);
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
-        task->m_vtable = kManagerTaskVtable;
+        task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&ProcessTask); // +0x18 the callback
     }
     m_task = task;

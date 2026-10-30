@@ -1,6 +1,7 @@
 // The park editor's memory budget (see park_memory.h).
 
 #include "game/park/park_memory.h"
+#include "hook/game_code.h"
 
 #include <cstring>
 #include <new>
@@ -188,14 +189,14 @@ void __cdecl Marker(uint32_t marker)
         break;
     case 0x7DE18688:
         stats.outerShellMem -= FreeMemory(heap);
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064F904), stats.outerShellMem); // "OUTER SHELL MEM = %d !!!..."
+        Dbg::Printf(GAME_TEXT(0x0064F904, "OUTER SHELL MEM = %d !!!!!!!!!!!!!!!!!!!!!\n"), stats.outerShellMem); // "OUTER SHELL MEM = %d !!!..."
         break;
     case 0xAFFF3067:
         stats.netAnimsMem = FreeMemory(heap);
         break;
     case 0x65B63305:
         stats.netAnimsMem -= FreeMemory(heap);
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064F930), stats.netAnimsMem); // "NETANIMS MEM = %d !!!..."
+        Dbg::Printf(GAME_TEXT(0x0064F930, "NETANIMS MEM = %d !!!!!!!!!!!!!!!!!!!!!\n"), stats.netAnimsMem); // "NETANIMS MEM = %d !!!..."
         break;
     case 0x9BF91DBE:
         stats.marker48 = FreeMemory(heap);
@@ -264,11 +265,11 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
     Mem::Heap* mainHeap = Mem::Manager::Get()->m_bottomUpHeap;
     Mem::Region* mainRegion = mainHeap->m_region;
     // The main heap's pad grows by 0x8EF1C bytes for each player after the first.
-    int mainPad = GetMemoryValue(reinterpret_cast<const char*>(0x0064FA00), -1); // "main_heap_pad"
+    int mainPad = GetMemoryValue(GAME_TEXT(0x0064FA00, "main_heap_pad"), -1); // "main_heap_pad"
     mainPad += ParkMaxPlayers() * 0x8EF1C - 0x8EF1C;
     stats.mainHeapFree = mainRegion->MemAvailable() + mainHeap->m_freeSize;
-    stats.mainHeapFree -= GetMemoryValue(reinterpret_cast<const char*>(0x0064F9F0), -1) + mainPad; // "anim_set_mem"
-    int parkPad = GetMemoryValue(reinterpret_cast<const char*>(0x0064F9E0), -1); // "park_heap_pad"
+    stats.mainHeapFree -= GetMemoryValue(GAME_TEXT(0x0064F9F0, "anim_set_mem"), -1) + mainPad; // "anim_set_mem"
+    int parkPad = GetMemoryValue(GAME_TEXT(0x0064F9E0, "park_heap_pad"), -1); // "park_heap_pad"
     stats.parkHeapUsed = ParkHeap()->m_usedSize;
     stats.parkHeapFree = ParkRegion()->MemAvailable() + (ParkHeap()->m_freeSize - parkPad);
 
@@ -281,12 +282,12 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
         stats.mainHeapFragmented = false;
     }
     int theme = Ed::CParkManager::sInstance()->GetShellSize();
-    stats.mainHeapFree -= GetMemoryValue(reinterpret_cast<const char*>(0x0064F9D4), theme); // "theme_pad"
+    stats.mainHeapFree -= GetMemoryValue(GAME_TEXT(0x0064F9D4, "theme_pad"), theme); // "theme_pad"
 
     float mainUsage = 1.0f;
     if (stats.mainHeapFree > 0) {
         float free = static_cast<float>(stats.mainHeapFree);
-        int base = GetMemoryValue(reinterpret_cast<const char*>(0x0064F9C4), -1); // "main_heap_base"
+        int base = GetMemoryValue(GAME_TEXT(0x0064F9C4, "main_heap_base"), -1); // "main_heap_base"
         mainUsage = static_cast<float>(1.0 - static_cast<double>(free) / base);
     }
     stats.mainHeapUsage = mainUsage;
@@ -294,13 +295,13 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
 
     float parkFree = static_cast<float>(stats.parkHeapFree);
     double park = 1.0 - static_cast<double>(parkFree) /
-                            GetMemoryValue(reinterpret_cast<const char*>(0x0064F9B4), -1); // "park_heap_base"
+                            GetMemoryValue(GAME_TEXT(0x0064F9B4, "park_heap_base"), -1); // "park_heap_base"
     stats.parkHeapUsage = static_cast<float>(park);
     UpdateMax(stats, park, stats.parkHeapUsage);
 
     float topDownFree = static_cast<float>(Mem::Manager::Get()->m_topDownHeap->m_region->MemAvailable());
     double topDown = 2.0 - static_cast<double>(topDownFree) /
-                               GetMemoryValue(reinterpret_cast<const char*>(0x0064F9A0), -1); // "top_down_required"
+                               GetMemoryValue(GAME_TEXT(0x0064F9A0, "top_down_required"), -1); // "top_down_required"
     stats.topDownUsage = static_cast<float>(topDown);
     if (topDown > stats.maxUsage)
         stats.maxUsage = stats.topDownUsage;
@@ -308,18 +309,18 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
         stats.topDownUsage = 0.0f;
 
     // The pools: compared after rounding.
-    stats.componentUsage = PoolUsage(ComponentPools(), reinterpret_cast<const char*>(0x0064F98C), stats.components); // "component_use_base"
+    stats.componentUsage = PoolUsage(ComponentPools(), GAME_TEXT(0x0064F98C, "component_use_base"), stats.components); // "component_use_base"
     if (stats.maxUsage < stats.componentUsage)
         stats.maxUsage = stats.componentUsage;
-    stats.vectorUsage = PoolUsage(VectorPools(), reinterpret_cast<const char*>(0x0064F97C), stats.vectors); // "vector_use_base"
+    stats.vectorUsage = PoolUsage(VectorPools(), GAME_TEXT(0x0064F97C, "vector_use_base"), stats.vectors); // "vector_use_base"
     if (stats.maxUsage < stats.vectorUsage)
         stats.maxUsage = stats.vectorUsage;
-    stats.arrayUsage = PoolUsage(ArrayPools(), reinterpret_cast<const char*>(0x0064F96C), stats.arrays); // "CArray_use_base"
+    stats.arrayUsage = PoolUsage(ArrayPools(), GAME_TEXT(0x0064F96C, "CArray_use_base"), stats.arrays); // "CArray_use_base"
     if (stats.maxUsage < stats.arrayUsage)
         stats.maxUsage = stats.arrayUsage;
 
     float dma = static_cast<float>(DmaPieces());
-    double dmaUsage = static_cast<double>(dma) / GetMemoryValue(reinterpret_cast<const char*>(0x0064F95C), -1); // "max_dma_pieces"
+    double dmaUsage = static_cast<double>(dma) / GetMemoryValue(GAME_TEXT(0x0064F95C, "max_dma_pieces"), -1); // "max_dma_pieces"
     stats.dmaUsage = static_cast<float>(dmaUsage);
     UpdateMax(stats, dmaUsage, stats.dmaUsage);
 
@@ -331,7 +332,7 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
 bool __cdecl MainHeapHasRoom(int count, int size)
 {
     int free = Stats().mainHeapFree - count * size * kFloorPieceMem;
-    double usage = Usage(1.0f, free, GetMemoryValue(reinterpret_cast<const char*>(0x0064F9C4), -1)); // "main_heap_base"
+    double usage = Usage(1.0f, free, GetMemoryValue(GAME_TEXT(0x0064F9C4, "main_heap_base"), -1)); // "main_heap_base"
     return !(usage >= g_parkMemoryFullUsage); // 0.95 (unordered: true)
 }
 
@@ -340,16 +341,16 @@ bool __cdecl PiecesFit(int first, int last)
 {
     int dma = DmaPieces();
     int pieces = last - first;
-    if (pieces > GetMemoryValue(reinterpret_cast<const char*>(0x0064F95C), -1) - dma) // "max_dma_pieces"
+    if (pieces > GetMemoryValue(GAME_TEXT(0x0064F95C, "max_dma_pieces"), -1) - dma) // "max_dma_pieces"
         return false;
-    int park = GetMemoryValue(reinterpret_cast<const char*>(0x0064FA38), -1) * pieces; // "floor_piece_size_park"
-    int main = GetMemoryValue(reinterpret_cast<const char*>(0x0064FA20), -1) * pieces; // "floor_piece_size_main"
+    int park = GetMemoryValue(GAME_TEXT(0x0064FA38, "floor_piece_size_park"), -1) * pieces; // "floor_piece_size_park"
+    int main = GetMemoryValue(GAME_TEXT(0x0064FA20, "floor_piece_size_main"), -1) * pieces; // "floor_piece_size_main"
     MemoryStats stats;
     GetMemoryStats(&stats);
     if (Stats().parkHeapFree < park || Stats().mainHeapFree < main)
         return false;
     double usage = Usage(1.0f, Stats().mainHeapFree - main,
-                         GetMemoryValue(reinterpret_cast<const char*>(0x0064F9C4), -1)); // "main_heap_base"
+                         GetMemoryValue(GAME_TEXT(0x0064F9C4, "main_heap_base"), -1)); // "main_heap_base"
     return !(usage >= g_parkMemoryNearlyFullUsage); // 0.9 (unordered: true)
 }
 
@@ -357,7 +358,7 @@ bool __cdecl PiecesFit(int first, int last)
 void __cdecl Init(uint32_t level)
 {
     Mem::Manager* manager = Mem::Manager::Get();
-    const char* name = reinterpret_cast<const char*>(0x0064FA7C); // "Park Editor"
+    const char* name = GAME_TEXT(0x0064FA7C, "Park Editor"); // "Park Editor"
     int direction;
     if (level == kTopDownLevel) {
         manager->PushContext(manager->m_topDownHeap);
@@ -369,15 +370,15 @@ void __cdecl Init(uint32_t level)
     void* memory = Mem::Calloc(sizeof(Mem::AllocRegion));
     Mem::AllocRegion* region = nullptr;
     if (memory) {
-        int size = GetMemoryValue(reinterpret_cast<const char*>(0x0064FA88), -1); // "park_heap_size"
+        int size = GetMemoryValue(GAME_TEXT(0x0064FA88, "park_heap_size"), -1); // "park_heap_size"
         region = new (memory) Mem::AllocRegion(static_cast<uint32_t>(size));
     }
     ParkRegion() = region;
     ParkHeap() = manager->AddHeap(region, direction, name);
-    CreateMapListNodePool(16000, reinterpret_cast<const char*>(0x0064FA6C)); // "CMapListNode"
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064F8F4), CurrentPool(MapListNodePools())); // "pool is at %p\n"
-    CreateClipboardEntryPool(1000, reinterpret_cast<const char*>(0x0064FA5C)); // "CClipboardEntry"
-    CreateClipboardPool(6, reinterpret_cast<const char*>(0x0064FA50));         // "CClipboard"
+    CreateMapListNodePool(16000, GAME_TEXT(0x0064FA6C, "CMapListNode")); // "CMapListNode"
+    Dbg::Printf(GAME_TEXT(0x0064F8F4, "pool is at %p\n"), CurrentPool(MapListNodePools())); // "pool is at %p\n"
+    CreateClipboardEntryPool(1000, GAME_TEXT(0x0064FA5C, "CClipboardEntry")); // "CClipboardEntry"
+    CreateClipboardPool(6, GAME_TEXT(0x0064FA50, "CClipboard"));         // "CClipboard"
     manager->PopContext();
     Unknown7CE68C() = 0;
     DmaPieces() = 0;

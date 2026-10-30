@@ -30,6 +30,8 @@ class Vector;
 namespace Ed {
 
 class CParkEditor;
+extern void** const kParkEditorVtable;         // 0x0064F234 (park_editor.cpp)
+extern void** const kParkEditorListenerVtable; // 0x0064F22C
 
 // Tsk::Task<CParkEditor> (0x20 bytes, vtable 0x006476F0).
 struct ParkEditorTask {
@@ -160,8 +162,8 @@ public:
     void SetState(uint32_t state);
 
     // --- park_editor_state.cpp (0x0058FBD0-0x005901AA) ---
-    static constexpr uint32_t kVtable = 0x0064F234;
-    static constexpr uint32_t kListenerVtable = 0x0064F22C;
+    static inline const VtableRef kVtable{&kParkEditorVtable};
+    static inline const VtableRef kListenerVtable{&kParkEditorListenerVtable};
     // 0x0058FFF0: the constructor (state off; the logic task, the empty display task, the input handler, the
     // listener; the park manager made). Returns this.
     CParkEditor* Construct();

@@ -2,6 +2,7 @@
 // goal_editor.h. From the disassembly of 0x004E93D0-0x004EB7E2.
 
 #include <cstdint>
+#include "hook/game_code.h"
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -144,7 +145,7 @@ void CEditedGoal::ReadFromStructure(Script::CStruct* params)
     params->GetInteger(0xCD66C8AE, &m_score, 0);
     params->GetInteger(0xC51BF6E3, &m_timeLimit, 0);
     params->GetChecksum(0x81CFF663, &m_controlType, 0);
-    const char* empty = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* empty = GAME_TEXT(0x006469B4, ""); // ""
     const char* text = empty;
     params->GetString(0x4BC5229D, &text, 0);
     std::strcpy(m_name, text);

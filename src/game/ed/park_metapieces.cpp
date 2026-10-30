@@ -11,8 +11,16 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Ed {
+
+GAME_VTABLE(kMetaPieceVtable, 0x0064F3BC, GAME_LIBRARY_SLOT(0x00623771), &CMetaPiece::Destroy,
+    GAME_LIBRARY_SLOT(0x00623771));
+GAME_VTABLE(kConcreteMetaPieceVtable, 0x0064F3D8, &CConcreteMetaPiece::GetPiece, &CConcreteMetaPiece::Destroy,
+    &CConcreteMetaPiece::AddPiece);
+GAME_VTABLE(kAbstractMetaPieceVtable, 0x0064F3E4, &CAbstractMetaPiece::GetPiece, &CConcreteMetaPiece::Destroy,
+    &CAbstractMetaPiece::AddPiece);
 
 namespace {
 
@@ -272,7 +280,7 @@ bool CMetaPiece::Intersects(GridDims area, uint32_t precise)
 
 CMetaPiece* CMetaPiece::Destroy(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kVtable;
     if (mp_extra_desc)
         Mem::Free(mp_extra_desc);
     if (flags & 1)
@@ -297,7 +305,7 @@ void CMetaPiece::GetPieceList(Script::CArray* out)
 
 void CMetaPiece::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kVtable;
     if (mp_extra_desc)
         Mem::Free(mp_extra_desc);
 }
@@ -381,7 +389,7 @@ CConcreteMetaPiece* CConcreteMetaPiece::Construct()
     mp_extra_desc = nullptr;
     m_max_entries = 0;
     m_num_used_entries = 0;
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kVtable;
     m_flags = kConcrete;
     m_rot = 0;
     return this;
@@ -431,7 +439,7 @@ CAbstractMetaPiece* CAbstractMetaPiece::Construct()
     mp_extra_desc = nullptr;
     m_max_entries = 0;
     m_num_used_entries = 0;
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kVtable;
     m_flags = kAbstract;
     return this;
 }

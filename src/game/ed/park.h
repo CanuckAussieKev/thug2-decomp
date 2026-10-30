@@ -35,6 +35,21 @@ class CParkGenerator; // the scene side of the park (0x4A4 bytes, 0x00593460 con
 class CCursor;
 class CPiece;
 class CMetaPiece;
+
+// A class's vtable as the original's code and the self-tests name it: an address, or the table (the vtable objects below).
+struct VtableRef {
+    void** const* table;
+    operator void**() const { return *table; }
+    operator uint32_t() const { return reinterpret_cast<uint32_t>(*table); }
+};
+
+// The pieces' vtables (defined in park_pieces.cpp / park_metapieces.cpp).
+extern void** const kMetaPieceVtable; // 0x0064F3BC
+extern void** const kConcreteMetaPieceVtable; // 0x0064F3D8
+extern void** const kAbstractMetaPieceVtable; // 0x0064F3E4
+extern void** const kPieceVtable; // 0x0064F3B4
+extern void** const kSourcePieceVtable; // 0x0064F3C8
+extern void** const kClonedPieceVtable; // 0x0064F3D0
 class CParkManager;
 struct RailNodeInfo;
 
@@ -93,7 +108,7 @@ static_assert(sizeof(SMetaDescriptor) == 12, "layout must match the original");
 // slot 1: the scalar deleting destructor; slot 2: add a piece. The base's vtable is 0x0064F3BC.
 class CMetaPiece {
 public:
-    static constexpr uint32_t kVtable = 0x0064F3BC;
+    static inline const VtableRef kVtable{&kMetaPieceVtable};
     // The flags (m_flags).
     enum : uint32_t {
         kConcrete = 0x1,            // a CConcreteMetaPiece (only these are highlighted by an area selection)
@@ -187,7 +202,7 @@ static_assert(offsetof(CMetaPiece, m_flags) == 0x0C && offsetof(CMetaPiece, m_de
 // A metapiece placed in the park or held by the cursor: its pieces are cloned pieces.
 class CConcreteMetaPiece : public CMetaPiece {
 public:
-    static constexpr uint32_t kVtable = 0x0064F3D8;
+    static inline const VtableRef kVtable{&kConcreteMetaPieceVtable};
     // 0x00590B60: an empty one (kConcrete, unturned). Returns this.
     CConcreteMetaPiece* Construct();
     // 0x00590360 (vtable slot 0): piece `index` (null past the end)
@@ -202,7 +217,7 @@ public:
 // A palette entry: its descriptors name source pieces or other palette entries.
 class CAbstractMetaPiece : public CMetaPiece {
 public:
-    static constexpr uint32_t kVtable = 0x0064F3E4;
+    static inline const VtableRef kVtable{&kAbstractMetaPieceVtable};
     // 0x00590FA0: an empty one (kAbstract). Returns this.
     CAbstractMetaPiece* Construct();
     // 0x00590FD0 (vtable slot 0): piece `index`'s source piece (from the generator; null past the end)
@@ -238,7 +253,7 @@ public:
         kDestroyNow = 0x200,   // DestroyPiece takes it out at once
         kDestroy = 0x1000,     // marked: CleanUpOutRefs takes it out
     };
-    static constexpr uint32_t kVtable = 0x0064F3B4;
+    static inline const VtableRef kVtable{&kPieceVtable};
 
     void** m_vtable;
     uint32_t m_sector;         // +0x04: its sector in the "cloned" scene
@@ -295,7 +310,7 @@ public:
         kAbsentInNetGames = 0x800, // (with kGameObject)
         kRebuilt = 0x4000,         // rebuilt by RebuildMarked (a trigger the scripts change)
     };
-    static constexpr uint32_t kVtable = 0x0064F3C8;
+    static inline const VtableRef kVtable{&kSourcePieceVtable};
 
     void** m_vtable;           // slot 1: the scalar deleting destructor
     uint32_t m_name;           // +0x04: its sector's checksum
@@ -322,7 +337,7 @@ static_assert(offsetof(CSourcePiece, m_size) == 0x10 && offsetof(CSourcePiece, m
 // A cloned piece's own functions (its layout is CPiece's).
 class CClonedPiece : public CPiece {
 public:
-    static constexpr uint32_t kVtable = 0x0064F3D0;
+    static inline const VtableRef kVtable{&kClonedPieceVtable};
     // 0x00590620: an empty cloned piece. Returns this.
     CClonedPiece* Construct();
     // 0x00590710 (vtable slot 0): the source's size, x and z swapped when turned a quarter; returns `out`

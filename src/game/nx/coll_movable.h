@@ -9,6 +9,8 @@
 
 namespace Nx {
 
+extern void** const kScaledVtable; // 0x00645B58: CCollScaled (coll_movable.cpp)
+
 struct CollisionHit;
 struct CollRect;
 

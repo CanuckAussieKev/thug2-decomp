@@ -11,15 +11,22 @@
 #include "game/core/stubs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/nx/coll_obj.h"
+#include "hook/game_code.h"
+#include "game/nx/feeler.h"
 
 namespace Nx {
 
 namespace {
 
-void** const kMovableVtable = reinterpret_cast<void**>(0x00645B00);
+GAME_VTABLE(kMovableVtable, 0x00645B00, &Nx::CCollMovable::ScalarDelete, Stubs::ReturnFalse,
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Nx::CCollObj::SetGeometry, &Nx::CFeeler::SetEnd,
+    &Nx::CCollMovable::SetOrientation, &Nx::CCollMovable::GetWorldPosition, &Nx::CCollMovable::GetOrientation,
+    &Nx::CCollMovable::GetVertexPos, &Nx::CCollMovable::GetValueA0, &Nx::CCollMovable::SetValueA0,
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero);
 void** const kMovBBoxVtable = reinterpret_cast<void**>(0x00645BC0);
-void** const kScaledVtable = reinterpret_cast<void**>(0x00645B58);
-void** const kCollObjVtable = reinterpret_cast<void**>(0x00645A30);
 
 void SetIdentity(Mth::Matrix& m)
 {
@@ -37,6 +44,16 @@ void DrawBox(const Mth::BBox* box, const Mth::Matrix* transform, uint32_t colour
 }
 
 } // namespace
+
+GAME_VTABLE(kScaledVtable, 0x00645B58, &Nx::CCollScaled::ScalarDelete, Stubs::ReturnFalse,
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Nx::CCollObj::SetGeometry,
+    &Nx::CCollScaled::SetWorldPosition, &Nx::CCollScaled::SetOrientation, &Nx::CCollScaled::GetWorldPosition,
+    &Nx::CCollMovable::GetOrientation, &Nx::CCollScaled::GetVertexPos, Stubs::ReturnZero, Stubs::IgnoreArgument,
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero, GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Nx::CCollScaled::SetScale,
+    &Nx::CCollMovable::GetWorldPosition);
 
 // 0x00411FA0
 CCollMovable* CCollMovable::Construct()
