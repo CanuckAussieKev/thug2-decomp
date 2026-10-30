@@ -149,7 +149,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x005625A0, AddressOf(&Mdl::Score::CountTrickRepeats)}, 3, 0x25A0, count(1));
     Rec(s, {0x00562510, AddressOf(&Mdl::Score::CountKeyCombo)}, 4, 0x2510, count(2));
     Rec(s, {0x005624C0, AddressOf(&Mdl::Score::CountTrickAfterTaps)}, 4, 0x24C0, count(3));
-    Rec(s, {0x0049F4C0, AddressOf(Stubs::ReturnZero2)}, 2, 0xF4C0);
+    Rec(s, {0x0049F4C0, AddressOf(Stubs::ReturnZero2)}, 2, 0xF4C0, nullptr, false);
     s.At({0x00563990, AddressOf(&Mdl::Score::Trigger)}, 12, [](Regs& r) {
         Record({0x3990, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2]});
         return 0u;

@@ -13,6 +13,7 @@
 #include "game/skater/skater.h"
 #include "game/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
+#include "game/goals/goal_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -93,7 +94,9 @@ constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;     // NoFaceTexture
 uint32_t TemplateCount() { return ProfileManager()->m_templates.m_count; }
 Obj::CSkaterProfile* TemplateAt(uint32_t index)
 {
-    return ProfileManager()->m_templates.GetByIndex(static_cast<int>(index), nullptr);
+    // (0x00557FB0: the lookup table's by-index code, shared with the goal manager's)
+    return reinterpret_cast<Obj::CSkaterProfile*>(
+        reinterpret_cast<Game::CGoalManager*>(ProfileManager())->GetGoalByIndex(static_cast<int>(index)));
 }
 // The template named `name` (by its info's name), or null.
 Obj::CSkaterProfile* FindTemplate(uint32_t name)
@@ -469,7 +472,8 @@ bool __cdecl CFunc_AwardSpecialTrickSlot(Script::CStruct* params, Script::CScrip
     if (params->ContainsFlag(kAll)) {
         int count = static_cast<int>(manager->m_templates.m_count);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
-            manager->m_templates.GetByIndex(i, nullptr)->AddMaxSpecials(1);
+            reinterpret_cast<Obj::CSkaterProfile*>(reinterpret_cast<Game::CGoalManager*>(manager)->GetGoalByIndex(i))
+                ->AddMaxSpecials(1);
         return true;
     }
     if (params->ContainsComponentNamed(kProfile)) {

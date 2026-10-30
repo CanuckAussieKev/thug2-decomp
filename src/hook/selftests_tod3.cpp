@@ -387,6 +387,8 @@ void Install(StandIns& s)
     };
     count(0x005624C0, 0x24C0);
     count(0x00562510, 0x2510);
+    count(AddressOf(&Mdl::Score::CountTrickAfterTaps), 0x24C0);
+    count(AddressOf(&Mdl::Score::CountKeyCombo), 0x2510);
     s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Rec(0x4F80, {r.ecx, r.args[0]});
         return At(kMisc + 0x20);

@@ -40,7 +40,7 @@ void* g_vtable[16];
 void StandIn(StandIns& s)
 {
     StandInComponentBase(s, &g_a.calloc);
-    Rec(s, {0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, 0x51F0, [](Regs&) { return g_a.multiplayer ? 1u : 0u; });
+    Rec(s, {0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, 0x51F0, [](Regs&) { return g_a.multiplayer ? 1u : 0u; }, false);
     Rec(s, {0x00553550, AddressOf(&Game::CGameMode::ShouldStopAtZero)}, 0, 0x3550, [](Regs&) { return g_a.modeEndsRuns ? 1u : 0u; });
     Rec(s, {0x005332A0, AddressOf(&GameNet::Manager::GameEndedSent)}, 0, 0x32A0, [](Regs&) { return g_a.serverTold ? 1u : 0u; });
     Rec(s, {0x00533250, AddressOf(&GameNet::Manager::SendGameEnded)}, 0, 0x3250);

@@ -58,7 +58,8 @@ Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerP
 // The profile manager's template at `index` (0x00557FB0) and its count (0x00469490: the table's).
 Obj::CSkaterProfile* TemplateAt(Obj::CPlayerProfileManager* manager, int index)
 {
-    return manager->m_templates.GetByIndex(index, nullptr); // (0x00557FB0 is the lookup table's by-index code)
+    // (0x00557FB0 is the lookup table's by-index code, shared with the goal manager's: its first member is the table too)
+    return reinterpret_cast<Obj::CSkaterProfile*>(reinterpret_cast<Game::CGoalManager*>(manager)->GetGoalByIndex(index));
 }
 
 // The goal manager (0x005591B0) and its active competition goal (0x00558D90; null: none).

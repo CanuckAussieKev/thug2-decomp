@@ -245,6 +245,15 @@ void Install(StandIns& s)
     for (uint32_t a : {0x00553400u, 0x005531B0u, 0x00553AD0u, 0x005535A0u, 0x005530A0u, 0x00553080u, 0x00553250u,
                        0x00553BE0u})
         simple(a, 4, a & 0xFFFF);
+    // (and our versions, which ours calls directly: the same tags)
+    simple(AddressOf(&Game::CGameMode::SetGoalTimeLeft), 4, 0x3400);
+    simple(AddressOf(&Game::CGameMode::SetMaximumNumberOfPlayers), 4, 0x31B0);
+    simple(AddressOf(&Game::CGameMode::LoadGameType), 4, 0x3AD0);
+    simple(AddressOf(&Game::CGameMode::SetNumTeams), 4, 0x35A0);
+    simple(AddressOf(&Game::CGameMode::SetGoalsMode), 4, 0x30A0);
+    simple(AddressOf(&Game::CGameMode::SetTeamGraffitiMode), 4, 0x3080);
+    simple(AddressOf(&Game::CGameMode::SetRound), 4, 0x3250);
+    simple(AddressOf(&Game::CGameMode::OverrideOptions), 4, 0x3BE0);
     simple(0x005535F0, 0, 0x35F1, [](Regs&) { return g_sn_teams ? 1u : 0u; });
     simple(AddressOf(&Game::CGameMode::IsTeamGame), 0, 0x35F1, [](Regs&) { return g_sn_teams ? 1u : 0u; });
     simple(0x00553130, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_sn_teamCount); });
@@ -258,6 +267,7 @@ void Install(StandIns& s)
     // The skate module, the skaters, their scores and the goals.
     for (uint32_t a : {0x00566A60u})
         simple(a, 0, a & 0xFFFF);
+    simple(AddressOf(&Mdl::Skate::LaunchGame), 0, 0x6A60);
     simple(0x00564D50, 4, 0x4D50);
     simple(AddressOf(&Mdl::Skate::SetUnknown370), 4, 0x4D50);
     simple(0x00564C60, 8, 0x4C60);

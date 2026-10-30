@@ -63,7 +63,7 @@ void StandIn(StandIns& s)
         }
     });
     Rec(s, {0x0045D760, AddressOf(&Obj::CBaseComponent::Suspend)}, 1, 0xD760);
-    Rec(s, {0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, 0x51F0, [](Regs&) { return g_a.multiplayer ? 1u : 0u; });
+    Rec(s, {0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, 0x51F0, [](Regs&) { return g_a.multiplayer ? 1u : 0u; }, false);
     Rec(s, {0x00537320, AddressOf(&GameNet::Manager::GetLocalPlayer)}, 0, 0x7320, [](Regs&) { return g_a.localPlayer ? 0x9999u : 0u; });
     Rec(s, {0x005131A0, AddressOf(&Obj::CSkaterLocalNetLogicComponent::SendUpdate)}, 0, 0x31A0);
     Rec(s, {0x00533070, AddressOf(&GameNet::Manager::GetGameId)}, 0, 0x3070, [](Regs&) { return static_cast<uint32_t>(g_a.runCount); });
