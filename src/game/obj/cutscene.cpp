@@ -12,9 +12,12 @@
 #include "game/sio/device.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(char[256], g_cutsceneNameBuffer, 0x006F2160);
 
 namespace {
 
@@ -28,7 +31,7 @@ constexpr uint32_t kSlot12Global = 0xA2A4F02F;    // CCutsceneDetails::UpdateSlo
 constexpr uint32_t kButtonX = 0x40;
 constexpr uint32_t kButtonStart = 0x800;
 
-char* NameBuffer() { return &GameVariable<char>(0x006F2160); }
+char* NameBuffer() { return g_cutsceneNameBuffer; }
 
 } // namespace
 

@@ -24,9 +24,13 @@
 #include "game/util/bitstream.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(Mth::Vector, g_localNetPosition, 0x007CCDD0);
+GAME_GLOBAL(uint32_t, g_localNetGuard, 0x007CCDE0);
 
 namespace {
 
@@ -162,10 +166,10 @@ void CSkaterLocalNetLogicComponent::SendUpdate()
     stream.WriteBits(flags, 9);
     if (onServer) {
         // (a copy of the server's own skater's position, written and never read: the original's static)
-        uint32_t& guard = GameVariable<uint32_t>(0x007CCDE0);
+        uint32_t& guard = g_localNetGuard;
         if (!(guard & 1))
             guard |= 1;
-        GameVariable<Mth::Vector>(0x007CCDD0) = m_object->m_pos;
+        g_localNetPosition = m_object->m_pos;
     }
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)

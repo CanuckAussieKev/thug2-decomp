@@ -16,6 +16,7 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -36,7 +37,7 @@ constexpr uint32_t kWaitPathStop = 8;
 constexpr uint32_t kWaitRotate = 9;
 
 // The game clock with its offset (0x0044ECE0 + 0x00696D60).
-int GameClock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int GameClock() { return Tmr::GameClockElapsed() + g_clockOffset; }
 
 } // namespace
 

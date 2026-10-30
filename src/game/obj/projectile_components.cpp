@@ -73,7 +73,7 @@ struct HitMessage {
 static_assert(sizeof(HitMessage) == 8, "the message is 8 bytes");
 
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-Mdl::Skate* SkateModule() { return GameVariable<Mdl::Skate*>(0x007CE478); }
+Mdl::Skate* SkateModule() { return Mdl::g_skateModule; }
 
 // The skate module's local skater (0x00566520, a register stub on our side).
 CSkater* LocalSkater()
@@ -173,7 +173,7 @@ void CProjectileCollisionComponent::Update()
         return;
     Mdl::Skate* skate = SkateModule();
     uint32_t count = static_cast<uint32_t>(skate->GetNumSkaters());
-    bool teamGame = GameVariable<Game::CGameMode*>(0x007CE470)->IsTeamGame() != 0;
+    bool teamGame = Game::g_gameMode->IsTeamGame() != 0;
     for (uint32_t i = 0; i < count; ++i) {
         CCompositeObject* skater = skate->GetSkater(static_cast<int>(i));
         if (skater->m_id == m_ownerId)

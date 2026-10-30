@@ -6,6 +6,7 @@
 #include "game/core/alloc.h"
 #include "game/gfx/camera.h"
 #include "game/obj/object.h"
+#include "hook/game_global.h"
 
 // The movie manager (Obj::CMovieManager, 0x0057A180-0x0057B240): the queue of camera animations and cutscenes
 // ("movies") the skate module plays (its +0x368). The first movie in the queue plays; its camera is the game's
@@ -145,5 +146,8 @@ struct CameraAssignment {
 // through the getter folded at 0x00543150 (GameNet::PlayerInfo::GetAccumulatedScore). (__fastcall: the movie in ECX,
 // as the original's calls pass it.)
 uint32_t __fastcall MovieName(const void* movie);
+
+GAME_GLOBAL_EXTERN(bool, g_gamePaused);
+GAME_GLOBAL_EXTERN(int, g_viewMode);
 
 } // namespace Obj

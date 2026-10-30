@@ -18,9 +18,12 @@
 #include "game/goals/goal_ped.h"
 #include "game/skate/score.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Game {
+
+GAME_GLOBAL(float, g_goalLifeSecondsPerMillisecond, 0x006461D8, 0.001f);
 
 namespace {
 
@@ -301,7 +304,7 @@ bool CGoal::Activate()
     CGoal* root = m_parents->m_goalId ? RootOf(manager, m_parents) : nullptr;
     if (root) {
         if (m_inherited & 2)
-            m_timeLeft = Truncate(root->m_timeLeft * static_cast<double>(GameVariable<float>(0x006461D8))) * 1000;
+            m_timeLeft = Truncate(root->m_timeLeft * static_cast<double>(g_goalLifeSecondsPerMillisecond)) * 1000;
         else
             ResetTimer();
         if (Virtual<bool>(root, kVtIsInitialized)) {

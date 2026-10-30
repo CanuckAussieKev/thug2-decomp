@@ -13,10 +13,18 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[24], g_trickComponentMemberFunctions, 0x00683148,
+            0xE4AB4785, 0x270F56E1, 0, 0, 0, 0,
+            0x46D49242, 0x270F56E1, 0, 0, 0, 0,
+            0x1FC98415, 0x270F56E1, 0, 0, 0, 0,
+            0, 0x270F56E1, 0, 0, 0, 0);
 
 namespace {
 
@@ -121,7 +129,7 @@ __declspec(naked) void MarkUsedStub()
 // 0x0051EA90
 void __cdecl CTrickComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00683148), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_trickComponentMemberFunctions, 0x18);
 }
 
 // 0x0051F2B0
@@ -1093,7 +1101,7 @@ void CTrickComponent::SetPendingTrick(uint32_t list, uint32_t mask, bool flag)
         Field<uint32_t>(this, 0x126C) = list;
         Field<int>(this, 0x1270) = i;
         Field<int>(this, 0x1274) = static_cast<int>(
-            static_cast<uint32_t>(Tmr::GameClockElapsed()) + static_cast<uint32_t>(GameVariable<int>(0x00696D60)));
+            static_cast<uint32_t>(Tmr::GameClockElapsed()) + static_cast<uint32_t>(g_clockOffset));
         Field<bool>(this, 0x127C) = flag;
         Field<int>(this, 0x1278) = -1;
         trick->GetInteger(0x79A07F3Fu, &Field<int>(this, 0x1278), 0);

@@ -187,7 +187,7 @@ void __stdcall RunMarkerObjectScript(int index)
 {
     Script::CStruct params;
     params.Init();
-    char* name = &GameVariable<char>(0x007CCC58);
+    char* name = g_goalNameBuffer;
     Sprintf(name, "GoalEditorMarkerObject%d", index);
     params.AddChecksum(0xA1DC81F9, Crc::GenerateCRCFromString(name));
     Script::RunScript(0xDCF3A25E, &params, nullptr, false, nullptr);

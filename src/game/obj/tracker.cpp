@@ -17,10 +17,16 @@
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/obj/compositemgr.h"
+#include "game/ed/piece_menu.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(Obj::CTracker*, g_tracker, 0x006F0FC0);
+GAME_GLOBAL(Mem::PoolPair, g_scriptListPools, 0x006F0FC8);
 
 namespace {
 
@@ -46,7 +52,7 @@ constexpr int kLogSize = 0x400;
 constexpr int kWaiters = 40;
 
 // The pool pair of the listener lists (CScriptList).
-Mem::PoolPair& ScriptListPools() { return GameVariable<Mem::PoolPair>(0x006F0FC8); }
+Mem::PoolPair& ScriptListPools() { return g_scriptListPools; }
 
 // --- the objects ---
 uint32_t& ObjectId(CObject* object) { return object->m_id; }
@@ -67,12 +73,12 @@ void PassEvent(CObject* object, CEvent* event)
     reinterpret_cast<void(__thiscall*)(CObject*, CEvent*)>(vtable[5])(object, event);
 }
 // The object with this id (the object manager 0x006F0FB8's GetObjectByID).
-CObject* FindObjectById(uint32_t id) { return GameVariable<CBaseManager*>(0x006F0FB8)->GetObjectByID(id); }
+CObject* FindObjectById(uint32_t id) { return reinterpret_cast<CBaseManager*>(g_compositeObjectManager)->GetObjectByID(id); }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
 bool GetObjectId(Script::CStruct* params, uint32_t name, uint32_t* id)
 {
-    return GameVariable<Front::CScreenElementManager*>(0x00701440)->ResolveId(params, name, id);
+    return reinterpret_cast<Front::CScreenElementManager*>(Ed::g_screenElementManager)->ResolveId(params, name, id);
 }
 
 // 0x004A1090: give an event listener the event (its vtable +0x04, the subclass's filter).
@@ -641,7 +647,7 @@ CTracker* CreateTracker(bool create)
         void* memory = Mem::Calloc(sizeof(CTracker), nullptr, 1);
         tracker = memory ? static_cast<CTracker*>(memory)->Construct() : nullptr;
     }
-    ++GameVariable<int>(0x006F0FC4);
+    ++g_trackerReferences;
     return tracker;
 }
 

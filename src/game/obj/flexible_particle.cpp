@@ -15,7 +15,9 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/obj/collide_and_die.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -32,6 +34,35 @@ void CParticleSystem::SetFlag(int bit, bool on)
 } // namespace Nx
 
 namespace Obj {
+
+GAME_GLOBAL(float, g_particleUpdateTime, 0x0067D6D0, 1.0f);
+GAME_GLOBAL(uint32_t[156], g_flexibleParticleMemberFunctions, 0x00683AC0,
+            0x63274395, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x8FFDEF38, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x7911855B, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xDB8621F7, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xE985A9A6, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xE3309AB5, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xFBB6720D, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xA075EE45, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x2A479569, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x2E66815E, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xD3F1D333, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xB373FB6E, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x1CFBF078, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x514B2584, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x711B1A6A, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x35B65BD4, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x099CD17B, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x4893F05D, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x482482C6, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x7F97BAD3, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xE99D53A8, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xED0FE310, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x2A1F307B, 0xC5BCEB9E, 0, 0, 0, 0,
+            0xABF5F9E1, 0xC5BCEB9E, 0, 0, 0, 0,
+            0x83B57984, 0xC5BCEB9E, 0, 0, 0, 0,
+            0, 0xC5BCEB9E, 0, 0, 0, 0);
 
 namespace {
 
@@ -73,7 +104,7 @@ constexpr uint32_t kApplyEnvBrightness = 0x96896315;   // ApplyEnvBrightness
 constexpr uint32_t kSuspend = 0xCE0CA665;
 
 // The particle manager's update time (0x0067D6D0: Force_Particle_Update_Time as a float).
-float& ParticleUpdateTime() { return GameVariable<float>(0x0067D6D0); }
+float& ParticleUpdateTime() { return g_particleUpdateTime; }
 
 // The particle manager (0x006FA7C0; no source yet).
 void* ParticleManager() { return GameVariable<void*>(0x006FA7C0); }
@@ -160,7 +191,7 @@ CBaseComponent* __cdecl CFlexibleParticleComponent::Create()
 void __cdecl CFlexibleParticleComponent::RegisterMemberFunctions()
 {
     Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(CFlexibleParticleComponent::kType),
-                                        &GameVariable<uint32_t>(0x00683AC0), 0x18);
+                                        g_flexibleParticleMemberFunctions, 0x18);
 }
 
 // 0x0041DA00
@@ -312,7 +343,7 @@ void CFlexibleParticleComponent::Update()
     bool update = true;
     if (mp_suspend && !SuspendShouldUpdate(mp_suspend))
         update = false;
-    if (mp_suspend && mp_suspend[0x30] && !GameVariable<GameNet::Manager*>(0x006FA7D0)->InNetGame()) {
+    if (mp_suspend && mp_suspend[0x30] && !g_gameNetManager->InNetGame()) {
         // Suspended: only catching up, once the time reaches the particle manager's update time.
         if (m_time >= ParticleUpdateTime()) {
             Nx::CParticleSystem* system = mp_system.Get();

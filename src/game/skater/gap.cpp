@@ -23,6 +23,7 @@
 #include "game/core/stubs.h"
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -132,7 +133,7 @@ Game::CGapChecklist* GapChecklist()
 {
     return static_cast<Game::CGapChecklist*>(Mdl::Skate::Instance()->GetGapChecklist());
 }
-CSkaterCareer* Career() { return *reinterpret_cast<CSkaterCareer**>(GameVariable<uint8_t*>(0x007CE478) + 0x20); }
+CSkaterCareer* Career() { return *reinterpret_cast<CSkaterCareer**>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x20); }
 
 // The score (Mdl::Score; not rewritten yet): how often a trick has been done - by key combo (0x00562620 /
 // 0x00562510 with perfect) or by name (0x005625A0 / 0x005624C0) - with a spin and taps; 0x0049F4C0 (a shared "0"
@@ -441,7 +442,7 @@ void CSkaterGapComponent::StartGap(Script::CStruct* params, Script::CScript* scr
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
     bool drivingMatters = Field<uint8_t>(StateOf(m_physicsControl), 0x118) && (GapFlags(gap) & kGapDriving);
-    if (!drivingMatters && Field<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) == kOff)
+    if (!drivingMatters && Field<uint32_t>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor), 0x40) == kOff)
         return;
     uint32_t cancel, require;
     GetStateFlags(&cancel, &require);

@@ -44,10 +44,18 @@
 #include "game/gfx/sector.h"
 #include "game/skate/skate_module.h"
 #include "game/script/script_startup.h"
+#include "game/ed/park_editor.h"
+#include "game/obj/compositemgr.h"
+#include "game/obj/movie_manager.h"
+#include "game/script/skate_cfuncs.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(float, g_nodeObjectMinimumArea, 0x006453D0, 5000.0f);
+GAME_GLOBAL(Gfx::CTODManager*, g_todManager, 0x007CE490);
 
 namespace {
 
@@ -77,7 +85,7 @@ constexpr uint32_t kClassTrigger = 0xE594F0A2;       // "Trigger"
 constexpr uint32_t kClassSkater = 0x5B8AB877;        // "skater"
 constexpr uint32_t kClassA0E52802 = 0xA0E52802;      // (name unknown) killed through 0x0048FCA0
 
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 Obj::CRailManager* RailManager() { return *reinterpret_cast<Obj::CRailManager**>(Skate() + 0x24); }
 Mem::Manager* MemManager() { return Mem::Manager::Get(); }
 
@@ -168,7 +176,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
         }
     }
     auto* camera = static_cast<Obj::CCompositeObject*>(
-        GameVariable<Obj::CBaseManager*>(0x006F0FB8)->GetObjectByID(kViewerCameraObject));
+        reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager)->GetObjectByID(kViewerCameraObject));
     if (!camera)
         return;
     const Mth::Vector& lo = box.min;
@@ -216,7 +224,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
 // scene in turn (FitViewerCamera; the last one's placing stays). False without the viewer module (0x007CE4A4).
 bool __cdecl CFunc_CenterCamera(Script::CStruct* params, Script::CScript*)
 {
-    if (!GameVariable<void*>(0x007CE4A4))
+    if (!Obj::g_viewMode)
         return false;
     float scale = 0.9f;
     params->GetFloat(reinterpret_cast<const char*>(0x0064CF7C), &scale, 0); // "scale"
@@ -276,9 +284,9 @@ bool __cdecl CreateFromNode(Script::CStruct* node)
         return true;
     case kClassLevelObject:
         Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650008)); // "LevelObjects"
-        if (GameVariable<Gfx::CTODManager*>(0x007CE490)->m_paramsSet) {
+        if (g_todManager->m_paramsSet) {
             uint32_t colour;
-            GameVariable<Gfx::CTODManager*>(0x007CE490)->GetLevelColor(&colour);
+            g_todManager->GetLevelColor(&colour);
             node->AddInteger(kLevelColor, static_cast<int>(colour));
         }
         Obj::CreateNodeObject(node);
@@ -377,7 +385,7 @@ bool __cdecl KillFromNodeName(uint32_t name, Script::CScript* script)
             uint32_t id;
             Obj::CObject* object;
         } data = {name, script->m_object.Get()};
-        GameVariable<Obj::CBaseManager*>(0x006F0FB8)->ForEach(&DestroyObjectWithId, &data);
+        reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager)->ForEach(&DestroyObjectWithId, &data);
         return true;
     }
     case kClassClimbingNode:
@@ -434,8 +442,8 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // CParkEditor::kStateOff
 
 // The sector named `name` in any scene (0x0048C510; null if none).
 uint8_t* FindSector(uint32_t name) { return static_cast<uint8_t*>(Nx::Engine::GetSector(name)); }
-bool ParkEditorOff() { return *reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) == kParkEditorOff; }
-Obj::CTrickObjectManager* TrickObjects() { return GameVariable<Obj::CTrickObjectManager*>(0x007CE500); }
+bool ParkEditorOff() { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) == kParkEditorOff; }
+Obj::CTrickObjectManager* TrickObjects() { return Obj::g_trickObjectManager; }
 
 } // namespace
 
@@ -581,7 +589,7 @@ bool __cdecl CFunc_ReLoadNodeArray(Script::CStruct*, Script::CScript* script)
 {
     MemManager()->PushContext(reinterpret_cast<Mem::Allocator*>(MemManager()->m_debugHeap));
     SkateScript::CNodeManager* nodeManager = SkateScript::NodeManagerInstance();
-    const char* nodeArrayName = &GameVariable<char>(0x007CE6D8);
+    const char* nodeArrayName = g_nodeArrayName;
     Ass::CAssMan* assets = Ass::AssetManager();
     assets->UnloadAsset(assets->GetAsset(Crc::GenerateCRCFromString(nodeArrayName), 0));
     alignas(4) uint8_t storage[8];
@@ -655,7 +663,7 @@ bool __cdecl SetNodeHidden(uint32_t name, bool hide, int secondViewport)
         command.value = 4;
         command.action = hide ? kFlagActionSetObjectFlags : kFlagActionClearObjectFlags;
         command.id = name;
-        GameVariable<Obj::CBaseManager*>(0x006F0FB8)->ForEach(&ApplyFlagCommandToObject, &command);
+        reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager)->ForEach(&ApplyFlagCommandToObject, &command);
         return true;
     }
     if (nodeClass != kClassLevelObject && nodeClass != kClassLevelGeometry)
@@ -687,7 +695,7 @@ bool __cdecl NodeIsAlive(uint32_t name)
         command.found = false;
         command.result = false;
         command.id = name;
-        GameVariable<Obj::CBaseManager*>(0x006F0FB8)->ForEach(&ApplyFlagCommandToObject, &command);
+        reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager)->ForEach(&ApplyFlagCommandToObject, &command);
         return command.found;
     }
     if (nodeClass != kClassLevelGeometry)
@@ -713,7 +721,7 @@ bool __cdecl SetNodeColor(uint32_t name, Script::CStruct* params)
         uint32_t objectName = 0;
         if (node->GetChecksum(kName, &objectName, 0)) {
             auto* object = static_cast<Obj::CCompositeObject*>(
-                GameVariable<Obj::CBaseManager*>(0x006F0FB8)->GetObjectByID(objectName));
+                reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager)->GetObjectByID(objectName));
             // (neither checked for null, as in the original)
             reinterpret_cast<Obj::CModelComponent*>(object->GetComponent(0x286A8D26))->SetColor(rgba); // "model"
         }
@@ -778,7 +786,7 @@ bool __cdecl NodeCommand(uint32_t name, int action, Script::CScript* script, Scr
     if (gameNet->InNetMode() && SkipsNode(SkateScript::GetNode(name, true)))
         return false;
     int secondViewport = 0;
-    if (script && script->m_object.Get() && !gameNet->InNetGame() && GameVariable<int>(0x00701378) == 2 &&
+    if (script && script->m_object.Get() && !gameNet->InNetGame() && Mdl::g_viewportCount == 2 &&
         script->m_object.Get() == reinterpret_cast<Obj::CObject*>(
                                        reinterpret_cast<Mdl::Skate*>(Skate())->GetSkater(1)))
         secondViewport = 1;
@@ -893,7 +901,7 @@ bool __cdecl CFunc_Shatter(Script::CStruct* params, Script::CScript* script)
     params->GetInteger(0x33DF5E27u, &value33DF, 0);
     float minimumArea = 2000.0f;
     if (Mdl::Skate::IsMultiplayer())
-        minimumArea = GameVariable<float>(0x006453D0); // (5000)
+        minimumArea = g_nodeObjectMinimumArea; // (5000)
     if (area < minimumArea)
         area = minimumArea;
     Nx::Engine::SetShatterParams(&velocity, reinterpret_cast<const Mth::Vector*>(&vector), valueC483, area, valueBD30,

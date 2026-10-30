@@ -14,17 +14,21 @@
 #include "game/mth/geometry.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
 
+GAME_GLOBAL(int, g_cloningPiece, 0x007CE614);
+
 namespace {
 
 // Whether the generator rebuilds its collision (off while every piece is deleted).
-bool& RebuildsCollision() { return GameVariable<bool>(0x0067F398); }
+bool& RebuildsCollision() { return g_collisionAllowed; }
 // Raised while CreatePiece clones a sector.
-int& CloningPiece() { return GameVariable<int>(0x007CE614); }
+int& CloningPiece() { return g_cloningPiece; }
 
 // The members at +0x24 and +0x58 have empty destructors (calls to the empty function 0x005480A0).
 inline void DestroyEmptyMember(void* /*member*/) {}

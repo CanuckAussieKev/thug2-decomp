@@ -10,16 +10,19 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(int, g_clockOffset, 0x00696D60);
 
 namespace {
 
 constexpr int kPressedAbove = 0x40;
 
 // The game clock with its offset (0x00696D60).
-int Clock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Clock() { return Tmr::GameClockElapsed() + g_clockOffset; }
 
 // Tmr::GetTime as the original compares it: unsigned, as a float would hold it.
 double Now() { return static_cast<double>(Tmr::GetTime()); }
@@ -155,14 +158,14 @@ void CControlButton::SetPressed(uint8_t down)
 int CControlButton::GetReleasedTime()
 {
     int released = m_releaseTime;
-    return Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - released);
+    return Tmr::GameClockElapsed() + (g_clockOffset - released);
 }
 
 // 0x0046B920
 int CControlButton::GetPressedTime()
 {
     int pressed = m_pressTime;
-    return Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - pressed);
+    return Tmr::GameClockElapsed() + (g_clockOffset - pressed);
 }
 
 // 0x0046B940

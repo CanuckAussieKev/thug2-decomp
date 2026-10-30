@@ -16,10 +16,29 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/sys/timer.h"
+#include "game/obj/collide_and_die.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[90], g_inputComponentMemberFunctions, 0x00684C78,
+            0xBF7D6C46, 0x27D7CD28, 0, 0, 0, 0,
+            0x6E24F5FD, 0x27D7CD28, 0, 0, 0, 0,
+            0x56C6C0CD, 0x27D7CD28, 0, 0, 0, 0,
+            0x6DF51774, 0x27D7CD28, 0, 0, 0, 0,
+            0x31C6454F, 0x27D7CD28, 0, 0, 0, 0,
+            0x0660746A, 0x27D7CD28, 0, 0, 0, 0,
+            0x78238598, 0x27D7CD28, 0, 0, 0, 0,
+            0x1D604A9D, 0x27D7CD28, 0, 0, 0, 0,
+            0x89AA9B5F, 0x27D7CD28, 0, 0, 0, 0,
+            0x83028FC5, 0x27D7CD28, 0, 0, 0, 0,
+            0xB2A022DE, 0x27D7CD28, 0, 0, 0, 0,
+            0x2366469C, 0x27D7CD28, 0, 0, 0, 0,
+            0x1090A150, 0x27D7CD28, 0, 0, 0, 0,
+            0x28729460, 0x27D7CD28, 0, 0, 0, 0,
+            0, 0x27D7CD28, 0, 0, 0, 0);
 
 namespace {
 
@@ -122,7 +141,7 @@ CBaseComponent* __cdecl CInputComponent::Create()
 // 0x0041E6F0
 void __cdecl CInputComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00684C78), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_inputComponentMemberFunctions, 0x18);
 }
 
 // 0x0041E850
@@ -242,7 +261,7 @@ void CInputComponent::UpdatePad2(const uint8_t* data)
 // 0x0041EF20
 bool CInputComponent::IsInputBlocked()
 {
-    if (!GameVariable<GameNet::Manager*>(0x006FA7D0)->InNetGame())
+    if (!g_gameNetManager->InNetGame())
         return false;
     if (FindElement(kControllerUnpluggedDialog))
         return true;

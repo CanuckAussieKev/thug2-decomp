@@ -21,12 +21,15 @@
 #include "game/gfx/sector.h"
 #include "game/gfx/engine_geom.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
 
 using namespace RailEditorInternal;
 using Mth::Vector;
+
+GAME_GLOBAL(int, g_railFlashCounter, 0x007CCD2C);
 
 namespace {
 
@@ -62,9 +65,9 @@ constexpr float kGroundProbe = 10000.0f;        // 0x0064B308
 constexpr float kFar = 1e6f;                    // 0x0064B904
 
 // The flashing's frame counter (shared by the highlight and the dotted line).
-int& FlashCounter() { return GameVariable<int>(0x007CCD2C); }
+int& FlashCounter() { return g_railFlashCounter; }
 // A zero vector (0x007CCD30): drawing in place (no move).
-const Vector& Zero() { return GameVariable<Vector>(0x007CCD30); }
+const Vector& Zero() { return g_railOrigin; }
 
 // The visibility mask for a flashing frame: shown in the first half of every `rate` frames.
 uint32_t FlashMask(int rate)

@@ -28,12 +28,17 @@
 #include "game/gfx/pc_lights.h"
 #include "game/gfx/viewport.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
 
 using Script::CScript;
 using Script::CStruct;
+
+GAME_GLOBAL(float, g_renderDefaultFarPlane, 0x006487D0, 12.0f);
+GAME_GLOBAL(float, g_renderDefaultNearPlane, 0x006487D4, 12000.0f);
+GAME_GLOBAL(int, g_renderMode, 0x006FA730);
 
 namespace {
 
@@ -370,8 +375,8 @@ bool __cdecl CFunc_GetDynamicLightModulationFactor(CStruct* params, CScript* scr
 // in the original). Always true.
 bool __cdecl CFunc_SetClippingDistances(CStruct* params, CScript*)
 {
-    float nearPlane = GameVariable<float>(0x006487D4);
-    float farPlane = GameVariable<float>(0x006487D0);
+    float nearPlane = g_renderDefaultNearPlane;
+    float farPlane = g_renderDefaultFarPlane;
     params->GetFloat("Near", &nearPlane, 0);
     params->GetFloat("Far", &farPlane, 0);
     for (int i = 0; i < 2; ++i) {
@@ -429,7 +434,7 @@ bool __cdecl CFunc_SetWireframeMode(CStruct* params, CScript*)
 {
     int mode = 0;
     params->GetInteger(kMode, &mode, 0);
-    GameVariable<int>(0x006FA730) = mode;
+    g_renderMode = mode;
     return true;
 }
 

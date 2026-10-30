@@ -52,9 +52,17 @@
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/face_texture.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(bool, g_tryingToJoin, 0x007CCA81);
+GAME_GLOBAL(char[128], g_nodeArrayName, 0x007CE6D8);
+GAME_GLOBAL(void*, g_secondControllerCheck, 0x007CEBC4);
+GAME_GLOBAL(int, g_viewModeCfunc, 0x007CEBCC);
+GAME_GLOBAL(char[32], g_passwordStars, 0x007CEBD0);
+GAME_GLOBAL(bool, g_gotExtraMemory, 0x007CEFAC);
 
 namespace {
 
@@ -75,7 +83,7 @@ constexpr uint32_t kViewerCameraObject = 0xEB17151B; // (name unknown) the objec
 constexpr uint32_t kSkaterCamObject = 0x967C138C;    // (name unknown) the object whose camera is used otherwise
 
 // The skate module (Mdl::Skate, 0x007CE478) and its code we call through the game.
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 Obj::CSkaterProfile* GetProfile(int index)
 {
     // (0x00564F80 is the overload taking the params: the original passes the index in its place - 0, no params, the
@@ -88,7 +96,7 @@ Obj::CSkater* GetSkater(int index)
 }
 
 // The object manager (0x006F0FB8).
-Obj::CBaseManager* Objects() { return GameVariable<Obj::CBaseManager*>(0x006F0FB8); }
+Obj::CBaseManager* Objects() { return reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager); }
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
 Gfx::Camera* ViewportCamera(int viewport) { return Nx::GetActiveCamera(viewport); }
@@ -107,16 +115,16 @@ Prefs::Preferences* GetPreferencesOfType(uint32_t type)
 // The network game flags (GameNet).
 bool& InternetGameHost() { return GameVariable<bool>(0x007CC260); }
 bool& JoiningInternetGame() { return GameVariable<bool>(0x007CCA80); }
-bool& TryingToJoin() { return GameVariable<bool>(0x007CCA81); }
+bool& TryingToJoin() { return g_tryingToJoin; }
 bool& NetEnabled() { return GameVariable<bool>(0x007CCA82); }
 bool& JoinServerIPSucceeded() { return GameVariable<bool>(0x007CCA88); }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
-void*& SecondControllerCheck() { return GameVariable<void*>(0x007CEBC4); }
-int& ViewMode() { return GameVariable<int>(0x007CEBCC); }
+void*& SecondControllerCheck() { return g_secondControllerCheck; }
+int& ViewMode() { return g_viewModeCfunc; }
 
 // GetPreferencePassword's row of stars (0x007CEBD0).
-char* PasswordStars() { return &GameVariable<char>(0x007CEBD0); }
+char* PasswordStars() { return g_passwordStars; }
 
 Obj::CViewerObject* ViewerObject(Mdl::Viewer* viewer) { return static_cast<Obj::CViewerObject*>(viewer->GetViewerObject()); }
 
@@ -338,7 +346,7 @@ bool __cdecl CFunc_NodeArrayManLoad(Script::CStruct* params, Script::CScript*)
 {
     const char* file = nullptr;
     params->GetString(0u, &file, 1);
-    char* out = &GameVariable<char>(0x007CE6D8);
+    char* out = g_nodeArrayName;
     for (const char* in = file; (*out++ = *in++) != '\0';) {
     }
     Ass::AssetManager()->LoadAsset(file, 11, 0, 0, false, false, false, nullptr, 0);
@@ -497,13 +505,13 @@ bool __cdecl CFunc_ReloadAnim(Script::CStruct* params, Script::CScript*)
     if (!asset)
         return false;
     assets->UnloadAsset(asset);
-    bool debugHeap = GameVariable<bool>(0x007CEFAC);
+    bool debugHeap = g_gotExtraMemory;
     if (debugHeap) {
         Mem::Manager* memory = Mem::Manager::Get();
         memory->PushContext(reinterpret_cast<Mem::Allocator*>(memory->m_debugHeap));
     }
     assets->LoadAnim(file, base, anim, false, false);
-    if (GameVariable<bool>(0x007CEFAC))
+    if (g_gotExtraMemory)
         Mem::Manager::Get()->PopContext();
     return true;
 }
@@ -521,7 +529,7 @@ bool __cdecl CFunc_Debounce(Script::CStruct* params, Script::CScript*)
     params->GetFloat(0x906B67BAu, &time, 0); // "time"
     int release = 0;
     params->GetInteger(0x1A4E0EF9u, &release, 0);
-    auto* objects = GameVariable<Obj::CCompositeObjectManager*>(0x006F0FB8);
+    auto* objects = Obj::g_compositeObjectManager;
     for (Obj::CBaseComponent* input = objects->GetFirstComponentByType(0x27D7CD28); input; input = input->mp_nextOfType)
         static_cast<Obj::CInputComponent*>(input)->LockButton(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
@@ -554,7 +562,7 @@ bool __cdecl CFunc_StopKeyboardHandler(Script::CStruct*, Script::CScript*)
 // own locals as its data - the task never reads it; null here.)
 bool __cdecl CFunc_SpawnSecondControllerCheck(Script::CStruct*, Script::CScript*)
 {
-    auto* mainLoop = GameVariable<Mlp::Manager*>(0x00696D68);
+    auto* mainLoop = Ass::g_mainLoopManager;
     if (SecondControllerCheck())
         return true;
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
@@ -806,7 +814,7 @@ bool __cdecl CFunc_SkaterIsCustom(Script::CStruct* params, Script::CScript*)
 // 0x005A29E0: SetSceneColor <...>: the time of day manager's.
 bool __cdecl CFunc_SetSceneColor(Script::CStruct* params, Script::CScript*)
 {
-    GameVariable<Gfx::CTODManager*>(0x007CE490)->SetSceneColor(params);
+    g_todManager->SetSceneColor(params);
     return true;
 }
 

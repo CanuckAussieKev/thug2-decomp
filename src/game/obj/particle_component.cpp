@@ -18,10 +18,37 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
+#include "game/obj/control_pad.h"
+#include "game/obj/collide_and_die.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[126], g_particleComponentMemberFunctions, 0x00683D30,
+            0x88BE2262, 0xA9DB601E, 0, 0, 0, 0,
+            0xBB6018F4, 0xA9DB601E, 0, 0, 0, 0,
+            0xE5134689, 0xA9DB601E, 0, 0, 0, 0,
+            0xF71D696E, 0xA9DB601E, 0, 0, 0, 0,
+            0x0AAB006D, 0xA9DB601E, 0, 0, 0, 0,
+            0xE2B99038, 0xA9DB601E, 0, 0, 0, 0,
+            0xC036F4D0, 0xA9DB601E, 0, 0, 0, 0,
+            0xC6525C4E, 0xA9DB601E, 0, 0, 0, 0,
+            0x31FCC8ED, 0xA9DB601E, 0, 0, 0, 0,
+            0x19AF74D1, 0xA9DB601E, 0, 0, 0, 0,
+            0x4AA40FB5, 0xA9DB601E, 0, 0, 0, 0,
+            0x234CEABB, 0xA9DB601E, 0, 0, 0, 0,
+            0x9E100F60, 0xA9DB601E, 0, 0, 0, 0,
+            0x2F0DA461, 0xA9DB601E, 0, 0, 0, 0,
+            0xEEFFAE18, 0xA9DB601E, 0, 0, 0, 0,
+            0x0FE869E8, 0xA9DB601E, 0, 0, 0, 0,
+            0x19AA4CD3, 0xA9DB601E, 0, 0, 0, 0,
+            0x5446AF14, 0xA9DB601E, 0, 0, 0, 0,
+            0x55835CF2, 0xA9DB601E, 0, 0, 0, 0,
+            0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0,
+            0, 0xA9DB601E, 0, 0, 0, 0);
+GAME_GLOBAL(Nx::CParticleManager*, g_particleManager, 0x006FA7C4);
 
 namespace {
 
@@ -93,7 +120,7 @@ CBaseComponent* __cdecl CParticleComponent::Create()
 // 0x00429940
 void __cdecl CParticleComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00683D30), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_particleComponentMemberFunctions, 0x18);
 }
 
 // 0x00429B20
@@ -106,7 +133,7 @@ CParticleComponent* CParticleComponent::Construct()
     mp_particle = nullptr;
     mp_model = nullptr;
     m_lifetime = 0;
-    m_startTime = Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60);
+    m_startTime = Tmr::GameClockElapsed() + g_clockOffset;
     return this;
 }
 
@@ -115,7 +142,7 @@ void CParticleComponent::DestroyBody()
 {
     m_vtable = kVtable;
     if (mp_particle)
-        GameVariable<Nx::CParticleManager*>(0x006FA7C4)->DestroyParticle(reinterpret_cast<Nx::CParticle*>(mp_particle));
+        g_particleManager->DestroyParticle(reinterpret_cast<Nx::CParticle*>(mp_particle));
     CBaseComponent::DestroyBody();
 }
 
@@ -398,7 +425,7 @@ void CParticleComponent::InitFromStructure(Script::CStruct* params)
             p.m_localPos[i] = p.m_pos[i];
     p.m_orientWithObject = params->ContainsFlag(0xA2487CC3u);
     p.m_flag158 = params->ContainsFlag(0xA0E585B0u);
-    mp_particle = GameVariable<Nx::CParticleManager*>(0x006FA7C4)->CreateParticle(
+    mp_particle = g_particleManager->CreateParticle(
         &p);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
@@ -422,12 +449,12 @@ void CParticleComponent::Update()
 {
     // (suspended: nothing - unless a network game runs and it has a lifetime)
     if (mp_suspend && static_cast<CSuspendComponent*>(mp_suspend)->IsFar()) {
-        void* net = GameVariable<void*>(0x006FA7D0);
+        void* net = static_cast<void*>(g_gameNetManager);
         if (!static_cast<GameNet::Manager*>(net)->InNetGame() || m_lifetime == 0)
             return;
     }
     if (m_lifetime != 0) {
-        uint32_t age = static_cast<uint32_t>(Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - m_startTime));
+        uint32_t age = static_cast<uint32_t>(Tmr::GameClockElapsed() + (g_clockOffset - m_startTime));
         if (age > m_lifetime) {
             void** vtable = *reinterpret_cast<void***>(m_object);
             reinterpret_cast<void(__thiscall*)(CCompositeObject*)>(vtable[6])(m_object); // (MarkAsDead)

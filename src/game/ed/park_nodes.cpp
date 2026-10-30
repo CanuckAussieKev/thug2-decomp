@@ -23,9 +23,12 @@
 #include "game/ed/goal_editor.h"
 #include "game/script/game_cfuncs.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
+
+GAME_GLOBAL(int, g_railSearchStart, 0x007CE600);
 
 namespace {
 
@@ -92,7 +95,7 @@ constexpr uint32_t kFirstRestartNode = 0x005B8D81;
 constexpr uint32_t kFirstRailEditorNode = 0x003D0901;
 
 // Where NextRailNode's search for a piece's rail nodes starts (0x007CE600: its first rail node).
-int& RailSearchStart() { return GameVariable<int>(0x007CE600); }
+int& RailSearchStart() { return g_railSearchStart; }
 
 // The rail editor (0x004F4970): its rail points (0x004F3C70), its rails written as nodes (0x004F6920).
 CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }

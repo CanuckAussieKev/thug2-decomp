@@ -337,7 +337,7 @@ void CorePhysicsComponent::StartAcidDrop(const AcidDrop* drop)
     flat.w = 1.0f;
     flat.x = direction.x * speed;
     flat.z = direction.z * speed;
-    GameVariable<Mth::Vector>(0x007CCDBC) = VectorAt(FlagsOf(this), kDropFlags); // (a copy kept for debugging, it seems)
+    g_acidHold = VectorAt(FlagsOf(this), kDropFlags); // (a copy kept for debugging, it seems)
     At<float>(this, kDropTargetHeight) = drop->point.y;
     SetTimedFlag(this, 0x78, 1);
     SetTimedFlag(this, 0x30, 1);

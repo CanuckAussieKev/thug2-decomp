@@ -27,6 +27,8 @@
 #include "game/skater/walk_camera.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/obj/control_pad.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -203,7 +205,7 @@ Obj::CRailManager* RailManagerOf(Obj::CBaseComponent* component)
     return (*reinterpret_cast<Get**>(component))[0x34 / 4](component);
 }
 // The skate module's rail manager (the level's).
-Obj::CRailManager* LevelRails() { return At<Obj::CRailManager*>(GameVariable<uint8_t*>(0x007CE478), 0x24); }
+Obj::CRailManager* LevelRails() { return At<Obj::CRailManager*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x24); }
 
 // Onto a ladder from the level's rails: the ride let go, stopped.
 void GrabbedLadder(Obj::CWalkComponent* walk)
@@ -315,7 +317,7 @@ void ContactFeeler(void* walk, Nx::CFeeler* feeler)
 }
 
 // The game's clock with its offset.
-int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Now() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
 
 // The movable contact's ride let go (its object kept at +0x6C, the time at +0x70).
 void LetGoOfRide(void* contact)

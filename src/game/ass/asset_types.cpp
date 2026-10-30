@@ -27,9 +27,12 @@
 #include "game/script/script_startup.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ass {
+
+GAME_GLOBAL(uint32_t, g_paramsInUse, 0x006918D8);
 
 namespace {
 
@@ -106,7 +109,7 @@ void UnloadTexDict(void* textures) { Nx::UnloadTexDict(static_cast<Nx::CTexDict*
 
 // --- shared steps ---------------------------------------------------------------------------------------------
 uint8_t* ParamsPool() { return reinterpret_cast<uint8_t*>(0x00691758); }
-uint32_t& ParamsInUse() { return GameVariable<uint32_t>(0x006918D8); }
+uint32_t& ParamsInUse() { return g_paramsInUse; }
 
 // strcpy (no bounds, as the original's).
 void CopyString(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }

@@ -14,10 +14,14 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(GameNet::Manager*, g_gameNetManager, 0x006FA7D0);
 
 namespace {
 
@@ -61,7 +65,7 @@ CCollideAndDieComponent* CCollideAndDieComponent::Construct()
     m_type = kType;
     m_radius = 0.0f;
     m_scale = 0.0f;
-    m_madeTime = static_cast<uint32_t>(Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60));
+    m_madeTime = static_cast<uint32_t>(Tmr::GameClockElapsed() + g_clockOffset);
     m_deathScript = 0;
     m_dying = false;
     m_firstUpdate = true;
@@ -101,9 +105,9 @@ void CCollideAndDieComponent::Finalize() { mp_suspend = reinterpret_cast<uint8_t
 // 0x0041C3D0
 void CCollideAndDieComponent::Update()
 {
-    if (!GameVariable<GameNet::Manager*>(0x006FA7D0)->InNetGame() && mp_suspend[0x30])
+    if (!g_gameNetManager->InNetGame() && mp_suspend[0x30])
         return;
-    int& offset = GameVariable<int>(0x00696D60);
+    int& offset = g_clockOffset;
     if (static_cast<uint32_t>(Tmr::GameClockElapsed()) + (static_cast<uint32_t>(offset) - m_madeTime) > kLifetime) {
         Kill(m_object);
     } else if (m_dying) {

@@ -20,10 +20,16 @@
 #include "game/obj/objman.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(float, g_animMoviesOne, 0x006453A8, 1.0f);
+GAME_GLOBAL(float, g_animMoviesSecondsPerFrame, 0x006463B8, 0.016666668f);
+GAME_GLOBAL(float, g_floatZero, 0x0066D520);
 
 namespace {
 
@@ -45,7 +51,7 @@ void SetHeld(void* movie, int value) { Base(movie)->SetFlag1B(static_cast<uint8_
 // The movie's name (movie_manager.h).
 uint32_t NameOf(void* movie) { return MovieName(movie); }
 // The asset manager's asset by name (null if none).
-void* FindAsset(uint32_t name) { return GameVariable<Ass::CAssMan*>(0x006918DC)->GetAssetData(name, 0); }
+void* FindAsset(uint32_t name) { return Ass::g_assetManager->GetAssetData(name, 0); }
 // The movie's own Start (vtable slot 3).
 void StartMovie(CMovie* movie) { reinterpret_cast<bool(__thiscall*)(CMovie*)>(movie->Vtable()[3])(movie); }
 
@@ -67,7 +73,7 @@ void StepAsset(void* anim, float from, float to, Gfx::Camera* camera, bool first
     static_cast<Gfx::CBonedAnimFrameData*>(anim)->FireEvents(from, to, camera, first);
 }
 
-float SecondsPerFrame() { return GameVariable<float>(0x006463B8); } // 1/60
+float SecondsPerFrame() { return g_animMoviesSecondsPerFrame; } // 1/60
 
 constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
 
@@ -257,7 +263,7 @@ void CCameraAnimMovie::LoadTarget(Script::CStruct* params)
     m_targetOffset[0] = m_targetOffset[1] = m_targetOffset[2] = 0.0f;
     m_targetOffset[3] = 1.0f;
     params->GetVector(0x906642BF, reinterpret_cast<Script::VectorValue*>(m_targetOffset), 0);
-    float zero = GameVariable<float>(0x0066D520);
+    float zero = g_floatZero;
     // (not equal, or unordered: a NaN counts as set)
     m_targetOffsetSet = !(m_targetOffset[0] == zero) || !(m_targetOffset[1] == zero) || !(m_targetOffset[2] == zero);
     m_lookOffset[0] = m_lookOffset[1] = m_lookOffset[2] = 0.0f;
@@ -345,7 +351,7 @@ void CCameraAnimMovie::PlaceCamera()
         pos[3] = 1.0f;
         SetIdentity(m);
         float fov = m_fov;
-        if (fov == GameVariable<float>(0x0066D520))
+        if (fov == g_floatZero)
             fov = Script::GetFloat(0x99529205);
         m_base.m_camera->SetHFOV(fov);
     }
@@ -354,7 +360,7 @@ void CCameraAnimMovie::PlaceCamera()
     float dir[4];
     if (m_target != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
-        auto* object = reinterpret_cast<uint8_t*>(GameVariable<CBaseManager*>(0x006F0FB8)->GetObjectByID(m_target));
+        auto* object = reinterpret_cast<uint8_t*>(reinterpret_cast<CBaseManager*>(g_compositeObjectManager)->GetObjectByID(m_target));
         if (!object)
             return;
         float target[4] = {Field<float>(object, 0x4C), Field<float>(object, 0x50), Field<float>(object, 0x54), 1.0f};
@@ -398,8 +404,8 @@ void CCameraAnimMovie::PlaceCamera()
         double zExact = static_cast<double>(pos[2]) - m_targetOffset[2];
         float z = static_cast<float>(zExact);
         double length = std::sqrt(zExact * z + y * y + x * x);
-        if (length > GameVariable<float>(0x0066D520)) {
-            double inverse = GameVariable<float>(0x006453A8) / length;
+        if (length > g_floatZero) {
+            double inverse = g_animMoviesOne / length;
             x *= inverse;
             y *= inverse;
             z = static_cast<float>(z * inverse);
@@ -413,8 +419,8 @@ void CCameraAnimMovie::PlaceCamera()
         m[3] = 0.0f;
         double a = m[0], b = m[1], c = m[2];
         double size = std::sqrt(a * a + b * b + c * c);
-        if (size > GameVariable<float>(0x0066D520)) {
-            double inverse = GameVariable<float>(0x006453A8) / size;
+        if (size > g_floatZero) {
+            double inverse = g_animMoviesOne / size;
             m[0] = static_cast<float>(inverse * m[0]);
             m[1] = static_cast<float>(inverse * m[1]);
             m[2] = static_cast<float>(m[2] * inverse);

@@ -21,6 +21,8 @@
 #include "game/mth/x87_math.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/obj/control_pad.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -55,7 +57,7 @@ constexpr float kHalf = 0.5f;                  // 0x006453BC
 uint32_t StateName(int state) { return reinterpret_cast<const uint32_t*>(0x0064C618)[state]; }
 
 // The skate module's career (0x007CE478's +0x20).
-CSkaterCareer* Career() { return At<CSkaterCareer*>(GameVariable<void*>(0x007CE478), 0x20); }
+CSkaterCareer* Career() { return At<CSkaterCareer*>(static_cast<void*>(Mdl::g_skateModule), 0x20); }
 
 // asin (the game's C runtime) of `value` in degrees (x 57.29578), negated when `negate` - the result kept in the
 // register until it is rounded to float, as the original.
@@ -169,7 +171,7 @@ void CWalkComponent::SetState(int state)
     int previous = At<int>(this, kState);
     At<int>(this, kPreviousState) = previous;
     At<int>(this, kState) = state;
-    At<int>(this, kStateTime) = Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60);
+    At<int>(this, kStateTime) = Tmr::GameClockElapsed() + g_clockOffset;
     if (previous == 0 || previous == 1) {
         At<bool>(this, kFlag17A8) = false;
         At<bool>(this, kRunning) = false;

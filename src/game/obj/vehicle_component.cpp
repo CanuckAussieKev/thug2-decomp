@@ -30,6 +30,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/skater_x87.h"
 #include "game/sys/timer.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -1053,7 +1054,7 @@ bool CVehicleComponent::MoveToRestart(Script::CStruct* params, Script::CScript* 
             return true;
         }
     }
-    if (*reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) == kParkEditor)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) == kParkEditor)
         return true;
     MoveToNode(SkateScript::GetNode(SkateRestart(0), true));
     return true;

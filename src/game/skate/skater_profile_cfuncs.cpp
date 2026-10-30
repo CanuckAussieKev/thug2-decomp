@@ -72,7 +72,7 @@ bool SetOption(Script::CStruct* params, Option option, bool on)
     return true;
 }
 
-Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
+Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
 
 constexpr uint32_t kMasterSkaterList = 0xF31E8FF8; // master_skater_list
 constexpr uint32_t kStatNames = 0x61EB6BA9;        // stat_names

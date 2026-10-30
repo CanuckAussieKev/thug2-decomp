@@ -782,7 +782,7 @@ void CTrickComponent::Update()
     QueueAllDoneTricks();
     UpdateManualTricks();
     if (At<bool>(this, kManualPending) && At<int>(this, kManualDuration) != -1 &&
-        static_cast<uint32_t>(Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - At<int>(this, kManualTime))) >
+        static_cast<uint32_t>(Tmr::GameClockElapsed() + (g_clockOffset - At<int>(this, kManualTime))) >
             At<uint32_t>(this, kManualDuration))
         At<bool>(this, kManualPending) = false;
     UpdateExtraGrindTricks();

@@ -71,8 +71,8 @@ T& Field(const void* object, uint32_t offset)
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-void* GameMode() { return GameVariable<void*>(0x007CE470); }
-void* SkaterManager() { return GameVariable<void*>(0x007CE478); }
+void* GameMode() { return static_cast<void*>(Game::g_gameMode); }
+void* SkaterManager() { return static_cast<void*>(Mdl::g_skateModule); }
 
 uint8_t* PlayerByObjectId(int id) { return NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)); }
 uint8_t* FirstPlayer(PlayerSearchDestructors* search)

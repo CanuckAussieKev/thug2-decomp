@@ -15,6 +15,7 @@
 #include "game/nx/coll_tri.h"
 #include "game/park/park_memory.h"
 #include "game/script/nodes.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -23,7 +24,7 @@ namespace Ed {
 namespace {
 
 // The super sectors are brought up to date when sectors are deleted (0x0067F398; off while a rebuild runs).
-bool& SceneUpdates() { return GameVariable<bool>(0x0067F398); }
+bool& SceneUpdates() { return g_collisionAllowed; }
 
 // The engine's scenes and sectors (Nx).
 void* GetScene(const char* name) { return Nx::GetSceneByName(name); }

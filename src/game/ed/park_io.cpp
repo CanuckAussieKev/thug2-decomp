@@ -14,25 +14,31 @@
 #include "game/script/struct.h"
 #include "game/ed/rail_editor.h"
 #include "game/ed/goal_editor.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
 
+GAME_GLOBAL(float, g_parkGapGridOffset, 0x0064F730, 28.0f);
+GAME_GLOBAL(Ed::CParkEditor*, g_parkEditor, 0x007CE5D8);
+GAME_GLOBAL(float, g_parkIoProgress, 0x007CE644);
+
 namespace {
 
-Mem::Heap* ParkHeap() { return GameVariable<Mem::Heap*>(0x007CE688); }
+Mem::Heap* ParkHeap() { return g_parkHeap; }
 
 // The cell size (120, 48, 120) and the grid's offset in cells used by the gap pieces (28).
-float CellSizeX() { return GameVariable<float>(0x0064F41C); }
-float CellSizeY() { return GameVariable<float>(0x0064F420); }
-float CellSizeZ() { return GameVariable<float>(0x0064F424); }
-float GapGridOffset() { return GameVariable<float>(0x0064F730); }
+float CellSizeX() { return g_parkCellSizeX; }
+float CellSizeY() { return g_parkCellSizeY; }
+float CellSizeZ() { return g_parkCellSizeZ; }
+float GapGridOffset() { return g_parkGapGridOffset; }
 
 // The park editor object (0x007CE5D8, 0x7C bytes): the value at +0x78 goes into the compressed map.
 uint32_t EditorValue78()
 {
-    auto* editor = GameVariable<uint8_t*>(0x007CE5D8);
+    auto* editor = reinterpret_cast<uint8_t*>(g_parkEditor);
     return *reinterpret_cast<uint32_t*>(editor + 0x78);
 }
 uint8_t GeneratorMaxPlayers(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
@@ -377,7 +383,7 @@ void CParkManager::UpdatePercentBar()
     Script::CStruct* memory = Script::NewStruct();
     Script::CStruct* params = memory ? memory->Init() : nullptr;
     params->AddFloat(0x6D6C056Du, percent); // park_percent (out of memory crashes, as in the original)
-    if (GameVariable<float>(0x007CE644) >= 1.0f)
+    if (g_parkIoProgress >= 1.0f)
         params->AddChecksum(0u, 0x97A8E59Cu); // park_full
     Script::RunScript(0xE2508960, params, nullptr, false, nullptr); // parked_update_percent_bar
     if (params) {
@@ -431,7 +437,7 @@ void CParkManager::ClearCompressedMap()
     map.m_z = m_parkBounds.z;
     map.m_w = m_parkBounds.w;
     map.m_l = m_parkBounds.l;
-    map.m_theme = GameVariable<void*>(0x007CE5D8) ? EditorValue78() : 0;
+    map.m_theme = static_cast<void*>(g_parkEditor) ? EditorValue78() : 0;
     map.m_maxPlayers = 2;
     std::memcpy(map.m_name, reinterpret_cast<const void*>(0x0064F734), 13); // "Unnamed park"
     std::memset(map.m_floorHeights, 0, kFloorSize * kFloorSize);

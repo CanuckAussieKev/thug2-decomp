@@ -24,6 +24,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/walk_camera.h"
 #include "game/sys/timer.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -270,7 +271,7 @@ void CSkaterCameraComponent::InitFromStructure(Script::CStruct* params)
     std::memcpy(m_orientation, &matrix, sizeof(m_orientation));
     uint32_t id = 0;
     params->GetChecksum(kSkaterId, &id, 1);
-    SetSkater(static_cast<CCompositeObject*>(GameVariable<CBaseManager*>(0x006F0FB8)->GetObjectByID(id)));
+    SetSkater(static_cast<CCompositeObject*>(reinterpret_cast<CBaseManager*>(g_compositeObjectManager)->GetObjectByID(id)));
 }
 
 // 0x004FA680

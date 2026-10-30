@@ -14,11 +14,15 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace Ed {
+
+GAME_GLOBAL(char[24], g_createdGoalName, 0x007CCC40);
+GAME_GLOBAL(char[100], g_goalIoNameBuffer, 0x007CCCC0);
 
 namespace {
 
@@ -31,7 +35,7 @@ int Sprintf(char* out, const char* format, Args... args)
     return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
 }
 
-char* CreatedGoalName() { return &GameVariable<char>(0x007CCC40); } // the shared CreatedGoal<n> buffer
+char* CreatedGoalName() { return g_createdGoalName; } // the shared CreatedGoal<n> buffer
 
 Script::CStruct* NewStructure()
 {
@@ -76,7 +80,7 @@ void CEditedGoal::DropPointToGround(int index)
 // 0x004E9590
 void CEditedGoal::PlacePointsOnGround()
 {
-    char* name = &GameVariable<char>(0x007CCCC0);
+    char* name = g_goalIoNameBuffer;
     for (int i = 0; i < m_numPoints; ++i) {
         DropPointToGround(i);
         Script::CStruct params;

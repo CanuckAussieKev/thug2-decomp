@@ -11,10 +11,24 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/goals/goal_manager.h"
+#include "game/script/parse.h"
+#include "game/obj/anim_movies.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mdl {
+
+GAME_GLOBAL(float, g_competitionTiny, 0x006453D4, 0.0001f);
+GAME_GLOBAL(float, g_competitionTwo, 0x00645448, 2.0f);
+GAME_GLOBAL(float, g_competitionThird, 0x006463D8, 0.33333334f);
+GAME_GLOBAL(float, g_competitionThree, 0x006467A8, 3.0f);
+GAME_GLOBAL(float, g_competitionEighth, 0x0064B960, 0.125f);
+GAME_GLOBAL(float, g_competitionNearlyHalf, 0x0064D84C, 0.499999f);
+GAME_GLOBAL(float, g_competitionNinetyNine, 0x0064D950, 99.0f);
+GAME_GLOBAL(float, g_competitionOverHalf, 0x0064D954, 0.500099f);
+GAME_GLOBAL(float, g_competitionMaxJudge, 0x0064D958, 99.85f);
+GAME_GLOBAL(float, g_competitionMaxPoints, 0x0064D95C, 99.9f);
 
 namespace {
 
@@ -32,21 +46,21 @@ constexpr uint32_t kJudgeNames[CCompetition::kJudges] = {
 };
 
 // The constants, as the original reads them.
-float Tenth() { return GameVariable<float>(0x00645D74); }        // 0.1
-float Eighth() { return GameVariable<float>(0x0064B960); }       // 0.125
-float Two() { return GameVariable<float>(0x00645448); }          // 2.0
-float NearlyHalf() { return GameVariable<float>(0x0064D84C); }   // 0.4999990 (rounding to the nearest)
+float Tenth() { return Script::g_parseNudge; }        // 0.1
+float Eighth() { return g_competitionEighth; }       // 0.125
+float Two() { return g_competitionTwo; }          // 2.0
+float NearlyHalf() { return g_competitionNearlyHalf; }   // 0.4999990 (rounding to the nearest)
 float Hundred() { return GameVariable<float>(0x006463D4); }      // 100
-float MaxPoints() { return GameVariable<float>(0x0064D95C); }    // 99.9
+float MaxPoints() { return g_competitionMaxPoints; }    // 99.9
 float Half() { return GameVariable<float>(0x006453BC); }         // 0.5
-float Zero() { return GameVariable<float>(0x0066D520); }         // 0
-float MaxJudge() { return GameVariable<float>(0x0064D958); }     // 99.85
-float Three() { return GameVariable<float>(0x006467A8); }        // 3
+float Zero() { return Obj::g_floatZero; }         // 0
+float MaxJudge() { return g_competitionMaxJudge; }     // 99.85
+float Three() { return g_competitionThree; }        // 3
 float Ten() { return GameVariable<float>(0x00646710); }          // 10
-float Tiny() { return GameVariable<float>(0x006453D4); }         // 0.0001
-float OverHalf() { return GameVariable<float>(0x0064D954); }     // 0.500099
-float NinetyNine() { return GameVariable<float>(0x0064D950); }   // 99
-float Third() { return GameVariable<float>(0x006463D8); }        // 1/3
+float Tiny() { return g_competitionTiny; }         // 0.0001
+float OverHalf() { return g_competitionOverHalf; }     // 0.500099
+float NinetyNine() { return g_competitionNinetyNine; }   // 99
+float Third() { return g_competitionThird; }        // 1/3
 constexpr float kScoreSpread = 1.9f;                             // (0x3FF33333, pushed as an immediate)
 
 // The x87 code's conversions: truncation toward zero (_ftol).
@@ -54,7 +68,7 @@ int Truncate(double value) { return static_cast<int>(value); }
 // A score rounded to the nearest (the original adds 0.499999 and truncates).
 int Round(float value) { return Truncate(static_cast<double>(value) + NearlyHalf()); }
 
-Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
+Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
 // The profile manager's template at `index` (0x00557FB0) and its count (0x00469490: the table's).
 Obj::CSkaterProfile* TemplateAt(Obj::CPlayerProfileManager* manager, int index)
 {

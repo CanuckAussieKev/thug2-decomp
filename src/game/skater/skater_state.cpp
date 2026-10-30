@@ -12,9 +12,32 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[1], g_powerupNames, 0x0067F09C, 0xD039432C);
+GAME_GLOBAL(uint32_t[114], g_skaterStateMemberFunctions, 0x00684A80,
+            0x5EA287F2, 0x43686585, 0, 0, 0, 0,
+            0x3527FC07, 0x43686585, 0, 0, 0, 0,
+            0xA32C1A15, 0x43686585, 0, 0, 0, 0,
+            0x5CB1FBD8, 0x43686585, 0, 0, 0, 0,
+            0xE9851E62, 0x43686585, 0, 0, 0, 0,
+            0xA64DCF8B, 0x43686585, 0, 0, 0, 0,
+            0x1AB2389B, 0x43686585, 0, 0, 0, 0,
+            0x57BFBAE8, 0x43686585, 0, 0, 0, 0,
+            0xF2813EE5, 0x43686585, 0, 0, 0, 0,
+            0xEE584CBC, 0x43686585, 0, 0, 0, 0,
+            0xB32E9EAE, 0x43686585, 0, 0, 0, 0,
+            0x953A7B6D, 0x43686585, 0, 0, 0, 0,
+            0x58AD903F, 0x43686585, 0, 0, 0, 0,
+            0xB07AC662, 0x43686585, 0, 0, 0, 0,
+            0x0E11B7CA, 0x43686585, 0, 0, 0, 0,
+            0x44BA5FCE, 0x43686585, 0, 0, 0, 0,
+            0xE0645004, 0x43686585, 0, 0, 0, 0,
+            0xEF7A8687, 0x43686585, 0, 0, 0, 0,
+            0, 0x43686585, 0, 0, 0, 0);
 
 namespace {
 
@@ -27,7 +50,7 @@ constexpr uint32_t kTerrain = 0x3789AC4E, kSparksPos = 0xFF5318DA;
 
 // The powerups' names (0x0067F09C): one.
 constexpr int kPowerups = 1;
-const uint32_t* PowerupNames() { return &GameVariable<uint32_t>(0x0067F09C); }
+const uint32_t* PowerupNames() { return g_powerupNames; }
 
 // The powerup the unnamed checksum names (asserted), or -1.
 int FindPowerup(Script::CStruct* params)
@@ -61,7 +84,7 @@ CBaseComponent* __cdecl CSkaterStateComponent::Create()
 // 0x00519430
 void __cdecl CSkaterStateComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterState), &GameVariable<uint32_t>(0x00684A80),
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterState), g_skaterStateMemberFunctions,
                                         0x18);
 }
 

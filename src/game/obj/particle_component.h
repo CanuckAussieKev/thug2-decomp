@@ -4,6 +4,11 @@
 #include <cstdint>
 
 #include "game/obj/object.h"
+#include "hook/game_global.h"
+
+namespace Nx {
+struct CParticleManager;
+}
 
 namespace Script {
 class CScript;
@@ -104,5 +109,7 @@ static_assert(offsetof(CParticleComponent, m_emitTarget) == 0x18 && offsetof(CPa
 // and 0x004076F0 (Ass::CAsset::SetGroup). (__fastcall: the particle system in ECX, as the original's calls pass it.)
 const uint8_t* __fastcall ParticleSystemParams(void* particle);
 void __fastcall SetParticleValue34(void* particle, float value);
+
+GAME_GLOBAL_EXTERN(Nx::CParticleManager*, g_particleManager);
 
 } // namespace Obj

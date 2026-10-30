@@ -48,7 +48,7 @@ void Copy(char* dest, const char* text)
 }
 void Append(char* dest, const char* text) { Copy(dest + std::strlen(dest), text); }
 
-CGameMode* GameMode() { return GameVariable<CGameMode*>(0x007CE470); }
+CGameMode* GameMode() { return g_gameMode; }
 // The level structure being played (the skate module's +0x380 names it).
 Script::CStruct* LevelStructure() { return Script::GetStructure(SkateCalls::SkateField<uint32_t>(0x380)); }
 

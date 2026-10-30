@@ -9,6 +9,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/park/park_memory.h"
+#include "game/ed/park_editor.h"
 #include "hook/hook.h"
 
 namespace Ed {
@@ -20,7 +21,7 @@ void AddPieceCost(CMetaPiece* meta) { AddPieceDma(meta); }
 void RemovePieceCost(CMetaPiece* meta) { RemovePieceDma(meta); }
 
 // Whether the generator rebuilds its collision (0x00592090 looks): off while every piece is deleted.
-bool& GeneratorRebuildsCollision() { return GameVariable<bool>(0x0067F398); }
+bool& GeneratorRebuildsCollision() { return g_collisionAllowed; }
 
 // The park editor's pools (the clipboards', the lists'...) freed (0x0059E4E0).
 void DestroyParkPools() { ShutDown(); }

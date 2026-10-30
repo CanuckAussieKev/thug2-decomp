@@ -5,17 +5,18 @@
 
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/park/park_memory.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
 
+GAME_GLOBAL(Mem::PoolPair, g_nodePools, 0x007CE5F0);
+
 namespace {
 
-Mem::PoolPair& NodePools() { return GameVariable<Mem::PoolPair>(0x007CE5F0); }
-
-// The park editor's heap (0x0059E100).
-Mem::Heap* ParkHeap() { return GameVariable<Mem::Heap*>(0x007CE688); }
+Mem::PoolPair& NodePools() { return g_nodePools; }
 
 // The generator's piece making.
 void* GetPieceSource(void* generator, uint32_t name) { return static_cast<CParkGenerator*>(generator)->GetPieceSource(name); }

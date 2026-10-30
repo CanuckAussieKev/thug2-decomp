@@ -122,7 +122,7 @@ void CShadowComponent::Finalize()
 {
     mp_model = m_object->GetComponent(kModel);
     uint32_t checksum = *reinterpret_cast<uint32_t*>(ModelOf(mp_model) + 0x30);
-    void* asset = GameVariable<Ass::CAssMan*>(0x006918DC)->GetAssetData(checksum, 0);
+    void* asset = Ass::g_assetManager->GetAssetData(checksum, 0);
     if (mp_shadow)
         reinterpret_cast<void(__thiscall*)(void*, uint8_t*, void*)>(Vtable(mp_shadow)[7])(mp_shadow, ModelOf(mp_model),
                                                                                          asset);

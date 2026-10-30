@@ -59,10 +59,16 @@
 #include "game/gfx/model_appearance.h"
 #include "game/gfx/particles.h"
 #include "game/gfx/viewport.h"
+#include "game/obj/particle_component.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mdl {
+
+GAME_GLOBAL(int, g_viewportCount, 0x00701378);
+GAME_GLOBAL(Script::CStruct*, g_catInfo, 0x007CE480);
+GAME_GLOBAL(Script::CStruct*, g_statGoalInfo, 0x007CE484);
 
 namespace {
 
@@ -117,12 +123,12 @@ constexpr uint8_t kGroupGame = 8;
 constexpr uint32_t kTeamRestarts[4] = {0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}; // TRG_CTF_Restart_<colour>
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
-Game::CGameMode* GameMode() { return GameVariable<Game::CGameMode*>(0x007CE470); }
+Game::CGameMode* GameMode() { return Game::g_gameMode; }
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-Obj::CGeneralManager* ObjectManager() { return GameVariable<Obj::CGeneralManager*>(0x006F0FB8); }
-Obj::CTrickObjectManager* TrickObjects() { return GameVariable<Obj::CTrickObjectManager*>(0x007CE500); }
-Script::CStruct*& CatInfo() { return GameVariable<Script::CStruct*>(0x007CE480); }
-Script::CStruct*& StatGoalInfo() { return GameVariable<Script::CStruct*>(0x007CE484); }
+Obj::CGeneralManager* ObjectManager() { return reinterpret_cast<Obj::CGeneralManager*>(Obj::g_compositeObjectManager); }
+Obj::CTrickObjectManager* TrickObjects() { return Obj::g_trickObjectManager; }
+Script::CStruct*& CatInfo() { return g_catInfo; }
+Script::CStruct*& StatGoalInfo() { return g_statGoalInfo; }
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 Mem::Heap* SkaterHeap(int index) { return Mem::Manager::Get()->m_skaterHeaps[index]; }
@@ -271,7 +277,7 @@ Obj::CSkater* Skate::AddSkater(Obj::CSkaterProfile* profile, bool local, uint32_
 {
     GameNet::Manager* net = NetManager();
     if (local) {
-        Obj::CSkaterProfile* source = GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4)->GetProfile(
+        Obj::CSkaterProfile* source = Obj::g_profileManager->GetProfile(
             static_cast<uint8_t>(CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr)) ? viewport : 0);
         reinterpret_cast<Gfx::CModelAppearance*>(profile)->CopyFrom(reinterpret_cast<Gfx::CModelAppearance*>(source));
         Script::RunScript(kShowPanelStuff, nullptr, nullptr, false, nullptr);
@@ -537,7 +543,7 @@ void Skate::Cleanup()
     m_railManager->Cleanup();
     Obj::Proxim_Cleanup();
     Obj::Emitter_Cleanup();
-    static_cast<Nx::CParticleManager*>(GameVariable<void*>(0x006FA7C4))->DestroyAllParticles();
+    static_cast<Nx::CParticleManager*>(static_cast<void*>(Obj::g_particleManager))->DestroyAllParticles();
 }
 
 // 0x00565A00
@@ -587,7 +593,7 @@ void Skate::ResetLevel()
     else
         goals->InitializeAllGoals();
     goals->CreateGoalLevelObjects();
-    GameVariable<Gfx::CTODManager*>(0x007CE490)->ClearDeadObjects();
+    CFuncs::g_todManager->ClearDeadObjects();
     Script::RunScript(kResetLevel, nullptr, nullptr, false, nullptr);
 }
 
@@ -704,7 +710,7 @@ void Skate::UpdateRecords()
 {
     m_newRecord = false;
     Records::CLevelRecords* records =
-        GameVariable<Records::CGameRecords*>(0x007CE4BC)->GetLevelRecords(m_career->GetLevel());
+        Records::g_gameRecords->GetLevelRecords(m_career->GetLevel());
     Obj::CSkater* skater = Instance()->GetLocalSkater();
     if (!skater)
         return;
@@ -878,9 +884,9 @@ void __cdecl Skate::UpdateSuspendVisibility(Obj::CObject* object, void*)
 // 0x00567710
 void Skate::DoUpdate()
 {
-    GameVariable<Gfx::CTODManager*>(0x007CE490)->Update();
+    CFuncs::g_todManager->Update();
     Obj::NextSuspendFrame();
-    if (!GameVariable<bool>(0x006FA7D4) && !GameVariable<int>(0x007CE4A4)) {
+    if (!Obj::g_gamePaused && !Obj::g_viewMode) {
         Stubs::DoNothing();
         if (m_movies->Count()) {
             if (m_movies->GetCamera())
@@ -898,11 +904,11 @@ void Skate::DoUpdate()
     }
     PreCalculateObjectUpdateInfo();
     Script::RunScript(kGameUpdate, nullptr, nullptr, false, nullptr);
-    if (GameVariable<bool>(0x006FA7D4))
+    if (Obj::g_gamePaused)
         ObjectManager()->ForEach(&UpdateSuspendVisibility, nullptr);
     // The proximity nodes told where the players (and their cameras) are.
     if (GetLocalSkater()) {
-        int screens = GameVariable<int>(0x00701378);
+        int screens = g_viewportCount;
         if (screens == 1) {
             if (ViewportCamera(0)) {
                 const Mth::Vector* camera = ViewportCamera(0)->GetPos();
@@ -922,7 +928,7 @@ void Skate::DoUpdate()
                 Obj::Proxim_Update(2, second, reinterpret_cast<Mth::Vector*>(reinterpret_cast<uint8_t*>(second) + 0x4C), 2);
             }
         }
-    } else if (static_cast<uint8_t>(CFuncs::CFunc_IsObserving(nullptr, nullptr)) && GameVariable<int>(0x00701378) == 1 &&
+    } else if (static_cast<uint8_t>(CFuncs::CFunc_IsObserving(nullptr, nullptr)) && g_viewportCount == 1 &&
                ViewportCamera(0)) {
         Obj::Proxim_Update(1, nullptr, ViewportCamera(0)->GetPos(), 1);
     }
@@ -1022,12 +1028,12 @@ Skate* Skate::Construct()
     }
     m_logicTask = task;
     reinterpret_cast<SkateNet*>(this)->CreateNetworkTasks();
-    GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4)->ResetTemplates();
+    Obj::g_profileManager->ResetTemplates();
     void* memory = Mem::Calloc(0x10);
     m_gameFlow = memory ? static_cast<Game::CGameFlow*>(memory)->Construct() : nullptr;
     memory = Mem::Calloc(0x39C);
     m_goalManager = memory ? static_cast<Game::CGoalManager*>(memory)->Construct() : nullptr;
-    Nx::Engine::SetObjectManager(GameVariable<void*>(0x006F0FB8));
+    Nx::Engine::SetObjectManager(static_cast<void*>(Obj::g_compositeObjectManager));
     memory = Mem::Calloc(0x6AC);
     m_career = memory ? static_cast<Obj::CSkaterCareer*>(memory)->Construct() : nullptr;
     memory = Mem::Calloc(0x54);
@@ -1048,7 +1054,7 @@ Skate* Skate::Construct()
     m_movies = memory ? static_cast<Obj::CMovieManager*>(memory)->Construct() : nullptr;
     memory = Mem::Calloc(0x12C);
     m_objectMovies = memory ? static_cast<Obj::CMovieManager*>(memory)->Construct() : nullptr;
-    GameVariable<Records::CGameRecords*>(0x007CE4BC)->InitLevels(0x15);
+    Records::g_gameRecords->InitLevels(0x15);
     for (uint32_t i = 0; i < 8; ++i) {
         m_players[i].m_unknown0 = static_cast<int>(i); // (its index)
         m_players[i].m_vibration = true;

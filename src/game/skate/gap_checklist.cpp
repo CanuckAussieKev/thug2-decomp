@@ -17,9 +17,12 @@
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Game {
+
+GAME_GLOBAL(CGapChecklist*, g_buildingGapChecklist, 0x007CE4B0);
 
 namespace {
 
@@ -54,7 +57,7 @@ void** const kGapVtable = reinterpret_cast<void**>(0x0064EC7C);
 void** const kGapNodeVtable = reinterpret_cast<void**>(0x0064EC78);  // Lst::Node<CGapCheck>
 void** const kGapHeadVtable = reinterpret_cast<void**>(0x0064ED20);  // Lst::Head<CGapCheck>
 
-CGapChecklist*& Building() { return GameVariable<CGapChecklist*>(0x007CE4B0); }
+CGapChecklist*& Building() { return g_buildingGapChecklist; }
 
 // The list's nodes: the head's data is -1.
 CGapCheck* GapOf(Mem::ListNode* node)
@@ -81,7 +84,7 @@ CGapChecklist* SkateChecklist()
 {
     return static_cast<CGapChecklist*>(Mdl::Skate::Instance()->GetGapChecklist());
 }
-void* Career() { return *reinterpret_cast<void**>(GameVariable<uint8_t*>(0x007CE478) + 0x20); }
+void* Career() { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x20); }
 CGapChecklist* LevelChecklist(void* career, int level)
 {
     return static_cast<Obj::CSkaterCareer*>(career)->GetGapChecklist(level);

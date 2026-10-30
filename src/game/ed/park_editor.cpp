@@ -24,6 +24,8 @@
 #include "game/script/game_cfuncs.h"
 #include "game/script/world_cfuncs.h"
 #include "game/skate/skate_module.h"
+#include "game/ass/assman.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -81,8 +83,8 @@ constexpr float kMinTilt = 10.0f;             // 0x00646710
 constexpr double kMaxTilt = 90.0;             // 0x0064F340
 constexpr double kFullTurn = 360.0;           // 0x0064F348 (and 360.0f, 0x00645EA8)
 
-uint8_t* SkateModule() { return GameVariable<uint8_t*>(0x007CE478); }
-uint8_t* MainLoop() { return GameVariable<uint8_t*>(0x00696D68); } // +0x04 the logic tasks, +0x40 the display tasks
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
+uint8_t* MainLoop() { return reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager); } // +0x04 the logic tasks, +0x40 the display tasks
 Inp::Manager* InputManager() { return GameVariable<Inp::Manager*>(0x00696D40); }
 
 CParkManager* Manager() { return CParkManager::sInstance(); }
@@ -472,7 +474,7 @@ void CParkEditor::Update()
     camera.row[3].x = static_cast<float>(static_cast<double>(camera.row[3].x) + Cursor()->m_pos.x);
     camera.row[3].y = static_cast<float>(static_cast<double>(camera.row[3].y) + kCameraHeight);
     camera.row[3].z = static_cast<float>(static_cast<double>(cursorPos.z) + camera.row[3].z);
-    auto* objects = GameVariable<Obj::CBaseManager*>(0x006F0FB8);
+    auto* objects = reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager);
     if (auto* cam = reinterpret_cast<Obj::CCompositeObject*>(objects->GetObjectByID(kParkedCam))) {
         cam->m_pos = camera.row[3];
         cam->m_matrix = camera;

@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Script {
@@ -17,13 +18,16 @@ static_assert(offsetof(CExpressionEvaluator, m_token) == 0x1EC, "layout must mat
 static_assert(offsetof(CExpressionEvaluator, m_error) == 0x1F0, "layout must match the original");
 static_assert(offsetof(CExpressionEvaluator, m_unknown1F4) == 0x1F4, "layout must match the original");
 
+GAME_GLOBAL(float, g_evalDivisorMinimum, 0x00647DDC, 0.000001f);
+GAME_GLOBAL(CComponent, g_evalResult, 0x006F2348);
+
 namespace {
 
 // The operators' precedences, by operator.
 int Precedence(int op) { return reinterpret_cast<const int*>(0x0067D908)[op]; }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
-CComponent& Result() { return GameVariable<CComponent>(0x006F2348); }
+CComponent& Result() { return g_evalResult; }
 
 // The error messages are the game's own strings.
 const char* Message(uint32_t address) { return reinterpret_cast<const char*>(address); }
@@ -744,7 +748,7 @@ void CExpressionEvaluator::Execute()
                 break;
             }
         } else if (typeB == ESYMBOLTYPE_FLOAT) {
-            if (std::fabs(b->floatValue) < GameVariable<float>(0x00647DDC)) {
+            if (std::fabs(b->floatValue) < g_evalDivisorMinimum) {
                 error(0x00647DC4); // "Float division by zero"
                 break;
             }

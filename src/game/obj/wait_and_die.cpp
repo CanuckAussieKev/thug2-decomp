@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -51,7 +52,7 @@ void CWaitAndDieComponent::InitFromStructure(Script::CStruct* params)
         params->GetFloat(kLifeTime, &seconds, 1);
     m_lifetime = static_cast<uint32_t>(Ftol(static_cast<double>(seconds) * kMilliseconds));
     int clock = Tmr::GameClockElapsed();
-    m_start = clock + GameVariable<int>(0x00696D60);
+    m_start = clock + g_clockOffset;
 }
 
 // 0x0043D8E0
@@ -59,7 +60,7 @@ void CWaitAndDieComponent::Update()
 {
     int start = m_start;
     int clock = Tmr::GameClockElapsed();
-    m_elapsed = static_cast<uint32_t>(clock) + (GameVariable<uint32_t>(0x00696D60) - static_cast<uint32_t>(start));
+    m_elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start));
     if (m_waitFor) {
         if (!FindObject(m_waitFor))
             Die(m_object);

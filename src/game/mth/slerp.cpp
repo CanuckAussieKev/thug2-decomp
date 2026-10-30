@@ -4,6 +4,7 @@
 #include <new>
 
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mth {
@@ -12,11 +13,13 @@ static_assert(offsetof(SlerpInterpolator, axis) == 0x80 && offsetof(SlerpInterpo
                   offsetof(SlerpInterpolator, small_rotation) == 0x94,
               "layout must match the original");
 
+GAME_GLOBAL(float, g_slerpSmallRotationThreshold, 0x0067C648, 0.034906585f);
+
 namespace {
 
 // Below this angle the rotation counts as small. It lives in the exe's writable data (0x0067C648, 2 degrees
 // by default), so it is read from there rather than copied.
-float SmallRotationThreshold() { return GameVariable<float>(0x0067C648); }
+float SmallRotationThreshold() { return g_slerpSmallRotationThreshold; }
 
 } // namespace
 

@@ -8,10 +8,16 @@
 #include "game/core/mem.h"
 #include "game/file/pip.h"
 #include "game/script/struct.h"
+#include "game/script/cfuncs_scene.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Script {
+
+GAME_GLOBAL(char[100], g_checksumNameBuffer, 0x006F22C8);
+GAME_GLOBAL(char*, g_namesStart, 0x006F2330);
+GAME_GLOBAL(char*, g_namesNext, 0x006F2334);
 
 namespace {
 
@@ -21,9 +27,10 @@ struct ChecksumName {
 };
 constexpr uint32_t kBucketSize = 10;
 
-ChecksumName*& NameTable() { return GameVariable<ChecksumName*>(0x006F232C); }
-char*& NamesStart() { return GameVariable<char*>(0x006F2330); }
-char*& NamesNext() { return GameVariable<char*>(0x006F2334); }
+GAME_GLOBAL(ChecksumName*, g_checksumNameTable, 0x006F232C);
+ChecksumName*& NameTable() { return g_checksumNameTable; }
+char*& NamesStart() { return g_namesStart; }
+char*& NamesNext() { return g_namesNext; }
 
 ChecksumName* Bucket(uint32_t checksum) { return NameTable() + (checksum & 0xFFFF) * kBucketSize; }
 
@@ -42,7 +49,7 @@ int HexDigit(char c)
 
 } // namespace
 
-bool ChecksumNamesEnabled() { return GameVariable<bool>(0x007CEFAC); }
+bool ChecksumNamesEnabled() { return CFuncs::g_gotExtraMemory; }
 
 // 0x0046CF00
 void AllocateChecksumNameLookupTables()
@@ -98,7 +105,7 @@ const char* FindChecksumNameOrUnknown(uint32_t checksum)
 {
     if (const char* name = FindChecksumName(checksum))
         return name;
-    char* buffer = &GameVariable<char>(0x006F22C8);
+    char* buffer = g_checksumNameBuffer;
     std::snprintf(buffer, 32, "Unknown(0x%08x)", checksum);
     return buffer;
 }

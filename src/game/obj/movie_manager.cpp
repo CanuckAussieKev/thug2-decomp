@@ -19,9 +19,13 @@
 #include "game/skate/skate_module.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(bool, g_gamePaused, 0x006FA7D4);
+GAME_GLOBAL(int, g_viewMode, 0x007CE4A4);
 
 namespace {
 
@@ -178,9 +182,9 @@ void CMovieManager::KeepCamera(CMovie* movie)
 {
     if (!movie || !HasCamera(movie) || !Virtual<bool>(movie, 0x28))
         return;
-    if (GameVariable<bool>(0x006FA7D4)) // (the game paused)
+    if (g_gamePaused) // (the game paused)
         return;
-    if (*reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE478) + 0x378) == 0xE92ECAFE)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x378) == 0xE92ECAFE)
         return;
     reinterpret_cast<CameraAssignment*>(&m_camera)->Assign(movie->m_camera);
     m_keepUntil = static_cast<uint32_t>(Tmr::GetRenderFrame()) + 1;
@@ -377,7 +381,7 @@ bool CMovieManager::AddMovie(uint32_t name, Script::CStruct* params, uint32_t ty
         bool skater;
     };
     auto skaterContext = [](bool skater) {
-        uint8_t* info = reinterpret_cast<uint8_t*>(GameVariable<Mdl::Skate*>(0x007CE478)->GetProfile(0));
+        uint8_t* info = reinterpret_cast<uint8_t*>(Mdl::g_skateModule->GetProfile(0));
         return CameraContext{info, info + 0x5C, skater};
     };
     auto newObjectCamera = [](CameraContext* context) -> CMovie* {
@@ -388,7 +392,7 @@ bool CMovieManager::AddMovie(uint32_t name, Script::CStruct* params, uint32_t ty
                       : nullptr;
     };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
-        void* asset = GameVariable<Ass::CAssMan*>(0x006918DC)->GetAsset(name, 0);
+        void* asset = Ass::g_assetManager->GetAsset(name, 0);
         if (!asset)
             return false; // (m_keepCamera stays cleared)
         while (KillMovie(name)) {
@@ -446,7 +450,7 @@ bool CMovieManager::Update()
     CMovie* movie = MovieAt(&m_movies, 0);
     if (!movie)
         return false;
-    if (!GameVariable<bool>(0x006FA7D4) || GameVariable<int>(0x007CE4A4) != 0) // (not paused, or the view mode)
+    if (!g_gamePaused || g_viewMode != 0) // (not paused, or the view mode)
         Virtual<void>(movie, 0x08);
     else if (!movie->m_playsWhilePaused)
         Virtual<void>(movie, 0x08);

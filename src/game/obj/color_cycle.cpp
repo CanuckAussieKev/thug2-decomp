@@ -13,9 +13,17 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[30], g_colorCycleMemberFunctions, 0x006845D0,
+            0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0,
+            0x1DE2F35B, 0xCDC76A22, 0, 0, 0, 0,
+            0x4A752AAE, 0xCDC76A22, 0, 0, 0, 0,
+            0x80D5F732, 0xCDC76A22, 0, 0, 0, 0,
+            0, 0xCDC76A22, 0, 0, 0, 0);
 
 namespace {
 
@@ -69,7 +77,7 @@ CBaseComponent* __cdecl CColorCycleComponent::Create()
 // 0x0041B280
 void __cdecl CColorCycleComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x006845D0), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_colorCycleMemberFunctions, 0x18);
 }
 
 // 0x0041B2A0

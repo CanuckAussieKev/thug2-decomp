@@ -35,6 +35,9 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
+#include "game/ass/assman.h"
+#include "game/obj/compositemgr.h"
+#include "game/obj/movie_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -118,11 +121,11 @@ constexpr uint8_t kSymbolString = 3;     // ESYMBOLTYPE_STRING
 
 // The singletons (not rewritten): the skate module, the network manager (GameNet::Manager), the game mode
 // (Game::CGameMode), the object manager, the goal manager, the profile manager (graffiti colours).
-uint8_t* SkateModule() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(g_skateModule); }
 uint8_t* NetManager() { return GameVariable<uint8_t*>(0x007CCE14); }
 GameNet::Manager* Gn(uint8_t* net = NetManager()) { return reinterpret_cast<GameNet::Manager*>(net); }
-uint8_t* GameMode() { return GameVariable<uint8_t*>(0x007CE470); }
-Obj::CBaseManager* ObjectManager() { return GameVariable<Obj::CBaseManager*>(0x006F0FB8); }
+uint8_t* GameMode() { return reinterpret_cast<uint8_t*>(Game::g_gameMode); }
+Obj::CBaseManager* ObjectManager() { return reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager); }
 uint8_t* GoalManager() { return reinterpret_cast<uint8_t*>(Game::GetGoalManager()); }
 
 template <typename T>
@@ -263,7 +266,7 @@ void SkateNet::DeleteNetworkTasks()
 // 0x0056DEE0
 void SkateNet::StartServer()
 {
-    uint8_t* mlp = GameVariable<uint8_t*>(0x00696D68);
+    uint8_t* mlp = reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager);
     uint8_t* net = NetManager();
     bool autoServing = false;
     if (Gn(net)->InNetMode() != 0) {
@@ -511,7 +514,7 @@ int SkateNet::HandleGraffitiColors(Net::MsgHandlerContext* context)
         return 4;
     }
     const uint8_t* colors = data + 8;
-    uint8_t* profiles = GameVariable<uint8_t*>(0x007CE500);
+    uint8_t* profiles = reinterpret_cast<uint8_t*>(Obj::g_trickObjectManager);
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_scriptHeap);
     CStruct* params = NewStructure();
@@ -648,7 +651,7 @@ int SkateNet::HandleScores(Net::MsgHandlerContext* context)
         return 1;
     }
     if (static_cast<uint8_t*>(Gn(net)->GetLastLeader()) == best || count <= 1 ||
-        !reinterpret_cast<Game::CGameMode*>(GameMode())->IsTrue(kShowLeaderMessages) || GameVariable<bool>(0x006FA7D4))
+        !reinterpret_cast<Game::CGameMode*>(GameMode())->IsTrue(kShowLeaderMessages) || Obj::g_gamePaused)
         return 1;
     if (IsLocalPlayer(best)) {
         Run(kLeaderYou, nullptr, PlayerSkater(best));

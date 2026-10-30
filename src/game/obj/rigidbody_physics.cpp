@@ -18,9 +18,13 @@
 #include "game/sfx/sfx.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(bool, g_rigidBodyDrawShape, 0x006939D4);
+GAME_GLOBAL(bool, g_rigidBodyDrawDetails, 0x006939D5);
 
 namespace {
 
@@ -42,8 +46,8 @@ float Add(float a, float b) { return Narrow(Wide(a) + b); }
 float Sub(float a, float b) { return Narrow(Wide(a) - b); }
 
 // Debug drawing switches (0x006939D4: the shape each frame; 0x006939D5: the centre, the contacts' pushes).
-bool DrawShape() { return GameVariable<bool>(0x006939D4); }
-bool DrawDetails() { return GameVariable<bool>(0x006939D5); }
+bool DrawShape() { return g_rigidBodyDrawShape; }
+bool DrawDetails() { return g_rigidBodyDrawDetails; }
 
 // Quaternions: `quat` times `other`, in place (0x00420140); the matrix of one.
 void QuatMultiply(Mth::Quat* quat, const Mth::Quat* other) { *quat *= *other; }

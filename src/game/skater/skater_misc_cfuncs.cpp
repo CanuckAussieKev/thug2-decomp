@@ -179,7 +179,7 @@ bool __cdecl CFunc_PlaySkaterStream(Script::CStruct* params, Script::CScript* sc
     }
 
     CopyString(firstName, skater->m_firstName); // (copied and not used)
-    Obj::CSkaterProfile* profile = GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4)->GetTemplate(skater->m_name);
+    Obj::CSkaterProfile* profile = Obj::g_profileManager->GetTemplate(skater->m_name);
     if (skater->m_pro) {
         const char* lastName;
         profile->InfoStructure()->GetString(kLastName, &lastName, 1);
@@ -228,7 +228,7 @@ bool __cdecl CFunc_PlaySkaterStream(Script::CStruct* params, Script::CScript* sc
     if (order) {
         // (delete inlined: the array pool pair's Free)
         order->Clear();
-        GameVariable<Mem::PoolPair>(0x006F22B4).Free(order);
+        Script::g_arrayPools.Free(order);
     }
     return true;
 }

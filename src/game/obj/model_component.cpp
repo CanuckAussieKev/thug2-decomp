@@ -21,6 +21,7 @@
 #include "game/core/dbg.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -413,7 +414,7 @@ void CModelComponent::CancelRotateDisplay()
 namespace Tmr {
 
 // 0x00420250
-int GameClockTimeSince(int start) { return GameClockElapsed() + (GameVariable<int>(0x00696D60) - start); }
+int GameClockTimeSince(int start) { return GameClockElapsed() + (Obj::g_clockOffset - start); }
 
 } // namespace Tmr
 

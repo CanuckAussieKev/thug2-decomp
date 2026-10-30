@@ -16,7 +16,10 @@
 #include "game/script/cache.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/script/parse.h"
+#include "game/script/cscript.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
@@ -28,6 +31,11 @@ static_assert(offsetof(CStoredRandom, m_last) == 0x54 && offsetof(CStoredRandom,
               "layout must match the original");
 static_assert(sizeof(CStoredRandom) == 0x60, "layout must match the original");
 
+GAME_GLOBAL(bool, g_scriptFlag6F2564, 0x006F2564);
+GAME_GLOBAL(Mem::PoolPair, g_storedRandomPools, 0x006F2578);
+GAME_GLOBAL(int, g_pendingSymbolCount, 0x006F3528);
+GAME_GLOBAL(uint32_t, g_permanentStringsFree, 0x006F3588);
+
 namespace {
 
 // The table of the .qb files' own checksum names: {checksum, name, next}, the first entry in the bucket.
@@ -36,7 +44,8 @@ struct ScriptChecksumName {
     char* name;
     ScriptChecksumName* next;
 };
-ScriptChecksumName*& ScriptNames() { return GameVariable<ScriptChecksumName*>(0x006F2368); }
+GAME_GLOBAL(ScriptChecksumName*, g_scriptNames, 0x006F2368);
+ScriptChecksumName*& ScriptNames() { return g_scriptNames; }
 
 char* CopyString(const char* string)
 {
@@ -295,7 +304,7 @@ void AddScriptChecksumName(uint32_t checksum, const char* name)
 void ForgetStoredRandomsOf(uint32_t owner)
 {
     // The stored random states (newest first, the next at +0x58), the owning script first.
-    for (auto* entry = GameVariable<uint32_t*>(0x006F2358); entry;
+    for (auto* entry = reinterpret_cast<uint32_t*>(g_storedRandomsNewest); entry;
          entry = reinterpret_cast<uint32_t*>(entry[0x58 / 4])) {
         if (entry[0] == owner)
             entry[0] = 0;
@@ -324,13 +333,13 @@ void CStoredRandom::Shuffle(bool avoidRepeat)
 // 0x00476210
 void AllocatePermanentStringHeap(uint32_t size, uint32_t count)
 {
-    GameVariable<uint32_t>(0x006F357C) = size;
-    GameVariable<uint32_t>(0x006F3588) = count;
+    g_permanentStringsSize = size;
+    g_permanentStringsFree = count;
     char* strings = static_cast<char*>(Mem::Malloc(size));
-    GameVariable<char*>(0x006F3574) = strings;
-    GameVariable<char*>(0x006F3578) = strings;
+    g_permanentStringsStart = strings;
+    g_permanentStringsNext = strings;
     GameVariable<void*>(0x006F3580) = Mem::Malloc(count * 8);
-    GameVariable<uint32_t>(0x006F3584) = 0;
+    g_permanentStringCount = 0;
 }
 
 // 0x0046F520
@@ -348,31 +357,31 @@ void CreateScriptPools()
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
     Mem::PushMemProfile("CScriptCacheEntry");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3560), 0x14, sizes.scriptCacheEntries, "CScriptCacheEntry");
+    CreatePool(g_cacheEntryPools, 0x14, sizes.scriptCacheEntries, "CScriptCacheEntry");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CComponent and Reserve CComponent");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F2338), 0x10, sizes.components, "CComponent");
+    CreatePool(g_componentPools, 0x10, sizes.components, "CComponent");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CStruct");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F3614), 0x08, sizes.structs, "CStruct");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CVector");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3654), 0x10, sizes.vectors, "CVector");
+    CreatePool(g_vectorPools, 0x10, sizes.vectors, "CVector");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CPair");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3644), 0x0C, sizes.pairs, "CPair");
+    CreatePool(g_pairPools, 0x0C, sizes.pairs, "CPair");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CArray");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F22B4), 0x0C, sizes.arrays, "CArray");
+    CreatePool(g_arrayPools, 0x0C, sizes.arrays, "CArray");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CSymbolTableEntry");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F362C), 0x14, sizes.symbols, "CSymbolTableEntry");
+    CreatePool(g_symbolPools, 0x14, sizes.symbols, "CSymbolTableEntry");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CScript");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F3548), 0xF4, sizes.scripts, "CScript");
+    CreatePool(g_scriptPools, 0xF4, sizes.scripts, "CScript");
     Mem::PopMemProfile();
     Mem::PushMemProfile("CStoredRandom");
-    CreatePool(GameVariable<Mem::PoolPair>(0x006F2578), 0x60, sizes.storedRandoms, "CStoredRandom");
+    CreatePool(g_storedRandomPools, 0x60, sizes.storedRandoms, "CStoredRandom");
     Mem::PopMemProfile();
     Mem::PushMemProfile("AllocatePermanentStringHeap");
     AllocatePermanentStringHeap(sizes.stringBytes, sizes.strings);
@@ -466,7 +475,7 @@ REPLACE(0x0046F4A0, &CreatePoolOf<0x006F2578, 0x60>);
 namespace Script {
 
 // The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
-CScriptCache* ScriptCache() { return GameVariable<CScriptCache*>(0x006F3558); }
+CScriptCache* ScriptCache() { return g_scriptCache; }
 
 void RemoveFromScriptCache(uint32_t name) { ScriptCache()->Invalidate(name); }
 
@@ -477,8 +486,9 @@ struct PendingSymbol {
     CSymbolTableEntry* symbol;
     bool owned;
 };
-PendingSymbol* PendingSymbols() { return &GameVariable<PendingSymbol>(0x006F2588); }
-int& PendingSymbolCount() { return GameVariable<int>(0x006F3528); }
+GAME_GLOBAL(PendingSymbol[500], g_pendingSymbols, 0x006F2588);
+PendingSymbol* PendingSymbols() { return g_pendingSymbols; }
+int& PendingSymbolCount() { return g_pendingSymbolCount; }
 
 
 void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
@@ -494,8 +504,8 @@ void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
 } // namespace
 
 // 0x00470000 / 0x0046FFF0
-void ClearScriptFlag6F2564() { GameVariable<bool>(0x006F2564) = false; }
-void SetScriptFlag6F2564() { GameVariable<bool>(0x006F2564) = true; }
+void ClearScriptFlag6F2564() { g_scriptFlag6F2564 = false; }
+void SetScriptFlag6F2564() { g_scriptFlag6F2564 = true; }
 
 // 0x00470010
 void AllocateScriptChecksumNames(bool debugHeap)
@@ -503,17 +513,17 @@ void AllocateScriptChecksumNames(bool debugHeap)
     Mem::Manager* manager = Mem::Manager::Get();
     Mem::PushContext(debugHeap ? manager->m_debugHeap : manager->m_scriptHeap);
     auto* names = static_cast<uint32_t*>(Mem::Malloc(0x1000 * 12));
-    GameVariable<uint32_t*>(0x006F2368) = names;
+    reinterpret_cast<uint32_t*&>(g_scriptNames) = names;
     Mem::PopContext();
     for (uint32_t i = 0; i < 0x1000 * 3; ++i)
         names[i] = 0;
 }
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0
-void FreePair(void* pair) { GameVariable<Mem::PoolPair>(0x006F3644).Free(pair); }
-void FreeVector(void* vector) { GameVariable<Mem::PoolPair>(0x006F3654).Free(vector); }
-void FreeStoredRandom(void* random) { GameVariable<Mem::PoolPair>(0x006F2578).Free(random); }
-void FreeSymbol(CSymbolTableEntry* symbol) { GameVariable<Mem::PoolPair>(0x006F362C).Free(symbol); }
+void FreePair(void* pair) { g_pairPools.Free(pair); }
+void FreeVector(void* vector) { g_vectorPools.Free(vector); }
+void FreeStoredRandom(void* random) { g_storedRandomPools.Free(random); }
+void FreeSymbol(CSymbolTableEntry* symbol) { g_symbolPools.Free(symbol); }
 
 // 0x004711D0
 void CleanUpAndRemoveSymbol(CSymbolTableEntry* symbol)

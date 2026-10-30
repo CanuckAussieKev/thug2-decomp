@@ -5,6 +5,7 @@
 
 #include <cstdint>
 
+#include "game/obj/control_pad.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
@@ -97,7 +98,7 @@ inline float WalkParameter(uint32_t name)
 inline int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The game clock with its offset (0x00696D60), and the time since `then` on it.
-inline int ClockSince(int then) { return Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - then); }
+inline int ClockSince(int then) { return Tmr::GameClockElapsed() + (Obj::g_clockOffset - then); }
 
 } // namespace WalkFields
 } // namespace Obj

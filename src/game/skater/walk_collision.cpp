@@ -24,6 +24,7 @@
 #include "game/skater/walk_fields.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -442,7 +443,7 @@ void CWalkComponent::TryWallplant()
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
     static_cast<CTrickComponent*>(m_object->GetComponent(kTrick))->PassToTrickObjects(At<uint32_t>(contact, 0x74));
-    At<int>(At<uint8_t*>(this, kCorePhysics), 0x4E0) = Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60);
+    At<int>(At<uint8_t*>(this, kCorePhysics), 0x4E0) = Tmr::GameClockElapsed() + g_clockOffset;
     At<uint32_t>(this, kAnimState) = kWallplant;
 }
 
@@ -456,7 +457,7 @@ bool CWalkComponent::TryGrind()
     Mth::Vector& pos = At<Mth::Vector>(this, kPos);
     Mth::Vector& point = At<Mth::Vector>(this, kGrindPoint);
     CRailNode*& node = At<CRailNode*>(this, kGrindNode);
-    CRailManager* levelRails = At<CRailManager*>(GameVariable<void*>(0x007CE478), 0x24);
+    CRailManager* levelRails = At<CRailManager*>(static_cast<void*>(Mdl::g_skateModule), 0x24);
     bool found = levelRails->FindGrindRail(&oldPos, &pos, &point, &node, nullptr, kOne, 0);
     if (found) {
         At<CRailManager*>(this, kGrindRails) = levelRails;

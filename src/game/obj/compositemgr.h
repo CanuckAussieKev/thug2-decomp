@@ -5,6 +5,7 @@
 
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
+#include "hook/game_global.h"
 
 // Obj::CCompositeObjectManager, the manager of every composite object (the singleton 0x006F0FB8, references
 // 0x006F0FBC): the component types (who makes each one), the list of all components of each type, making composite
@@ -102,5 +103,7 @@ bool CreateCoimHeap(uint32_t size);
 void InitCoim(int a, uint32_t heapSize, int b, int c);
 // 0x0045F1C0 (ResizeCOIMHeap's work): the heap made again `size` bytes, or destroyed for 0.
 void ResizeCoimHeap(uint32_t size);
+
+GAME_GLOBAL_EXTERN(Obj::CCompositeObjectManager*, g_compositeObjectManager);
 
 } // namespace Obj

@@ -15,6 +15,7 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
+#include "hook/game_global.h"
 
 namespace Script {
 class CArray;
@@ -378,5 +379,7 @@ R Virtual(CGoal* goal, uint32_t slot, A... args)
 {
     return reinterpret_cast<R(__thiscall*)(CGoal*, A...)>(goal->Vtable()[slot / 4])(goal, args...);
 }
+
+GAME_GLOBAL_EXTERN(float, g_goalLifeSecondsPerMillisecond);
 
 } // namespace Game

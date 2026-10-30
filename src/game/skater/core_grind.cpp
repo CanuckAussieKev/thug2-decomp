@@ -33,12 +33,17 @@
 #include "game/sys/game_clock.h"
 #include "game/skater/balance_trick.h"
 #include "game/skate/score.h"
+#include "game/ed/park_editor.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Skater {
 
 using namespace CoreFields;
+
+GAME_GLOBAL(Mth::Vector, g_acidHold, 0x007CCDBC);
 
 namespace {
 
@@ -79,7 +84,7 @@ constexpr float kDegrees = 0.0174532924f; // (degrees to radians, 0x00645464)
 constexpr float kNearPoint = 36.0f;       // (6 squared: how far from the point a hit may be)
 
 // The acid drop's hold velocity (debugging: "GRINDING FROM ACID DROP").
-Mth::Vector& AcidHold() { return GameVariable<Mth::Vector>(0x007CCDBC); }
+Mth::Vector& AcidHold() { return g_acidHold; }
 
 const Mth::Vector kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
 
@@ -560,10 +565,10 @@ void CorePhysicsComponent::TryGrind(bool always)
     Mth::Vector now = VectorAt(object, kPosition);
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
     float minAlignment = 1.0f;
-    if (At<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) != kParkEditorLevel &&
+    if (At<uint32_t>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor), 0x40) != kParkEditorLevel &&
         static_cast<uint32_t>(Tmr::GameClockTimeSince(At<int>(this, 0x234))) < At<uint32_t>(this, 0x23C))
         minAlignment = static_cast<float>(std::cos(static_cast<double>(Script::GetFloat(kCornerLeaveAngle)) * kDegrees));
-    auto* manager = At<Obj::CRailManager*>(GameVariable<uint8_t*>(0x007CE478), 0x24);
+    auto* manager = At<Obj::CRailManager*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x24);
     Mth::Vector point;
     Obj::CRailNode* node;
     if (manager->FindGrindRail(&last, &now, &point, &node, nullptr, minAlignment, 0)) {

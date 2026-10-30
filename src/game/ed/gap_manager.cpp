@@ -32,7 +32,7 @@ constexpr uint32_t kText = 0xC4745838;         // text
 constexpr uint32_t kCombinedFlags = 0x2760DE9E; // combined_flags
 constexpr uint32_t kCancelGround = 0x9A27E74D; // CANCEL_GROUND (the global integer: the default cancel flags)
 
-uint8_t* SkateModule() { return GameVariable<uint8_t*>(0x007CE478); } // Mdl::Skate
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); } // Mdl::Skate
 // The skate module's career (+0x20).
 Obj::CSkaterCareer* Career() { return *reinterpret_cast<Obj::CSkaterCareer**>(SkateModule() + 0x20); }
 // 0x005656C0: the skate module's (the current level's) gap checklist.

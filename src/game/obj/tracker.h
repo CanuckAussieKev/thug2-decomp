@@ -6,6 +6,7 @@
 #include "game/lst/hashtable.h"
 #include "game/obj/event.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 
 // The object tracker (Obj::CTracker, 0xB21C bytes, the singleton 0x006F0FC0 with its use count 0x006F0FC4):
 // - the game objects by id (+0x08) and their aliases (+0x0C) - FindObject / ObjectExists / AssignAlias;
@@ -191,7 +192,8 @@ static_assert(offsetof(CTracker, mp_eventListeners) == 0x14 && offsetof(CTracker
               "layout must match the original");
 
 // The tracker (null until made).
-inline CTracker*& Tracker() { return GameVariable<CTracker*>(0x006F0FC0); }
+GAME_GLOBAL_EXTERN(CTracker*, g_tracker);
+inline CTracker*& Tracker() { return g_tracker; }
 // 0x00463730: make the tracker if there's none and `create`; count a use either way. Returns it.
 CTracker* CreateTracker(bool create);
 
@@ -203,5 +205,6 @@ bool __cdecl CFunc_SetObjectProps(Script::CStruct* params, Script::CScript* scri
 bool __cdecl CFunc_PrintEventLog(Script::CStruct* params, Script::CScript* script);          // 0x00462480
 bool __cdecl CFunc_AssignAlias(Script::CStruct* params, Script::CScript* script);            // 0x00462C40
 bool __cdecl CFunc_LaunchEvent(Script::CStruct* params, Script::CScript* script);            // 0x004634D0
+
 
 } // namespace Obj

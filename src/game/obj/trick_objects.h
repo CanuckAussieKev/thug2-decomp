@@ -5,6 +5,7 @@
 
 #include "game/core/alloc.h"
 #include "game/lst/hashtable.h"
+#include "hook/game_global.h"
 
 // Pieces of the trick object code at the end of the viewer range (0x005880E0-0x0058817C) and the trick object
 // manager's (0x007CE500) lookups, graffiti colours and graffiti log (0x00588200-0x005889E0); the rest of it (its
@@ -269,5 +270,7 @@ CTrickObjectManager* __cdecl AcquireTrickObjectManager(bool create);
 void __cdecl FindClusterIndex(CTrickObjectCluster* cluster, ClusterIndexSearch* search);
 void __cdecl FindClusterAtIndex(CTrickObjectCluster* cluster, ClusterAtIndex* search);
 void __cdecl WriteHeldCluster(CTrickObjectCluster* cluster, GraffitiStateWriter* writer);
+
+GAME_GLOBAL_EXTERN(Obj::CTrickObjectManager*, g_trickObjectManager);
 
 } // namespace Obj

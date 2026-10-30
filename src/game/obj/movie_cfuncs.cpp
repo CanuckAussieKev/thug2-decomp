@@ -14,6 +14,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module_calls.h"
+#include "game/script/cfuncs_scene.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -216,7 +217,7 @@ bool __cdecl CFunc_KillSkaterCamAnim(Script::CStruct* params, Script::CScript*)
 // the asset reloaded from the file (in the debug heap). Its result; false without both parameters.
 bool __cdecl CFunc_ReloadSkaterCamAnim(Script::CStruct* params, Script::CScript*)
 {
-    if (!GameVariable<bool>(0x007CEFAC))
+    if (!g_gotExtraMemory)
         return false;
     uint32_t name;
     const char* file;

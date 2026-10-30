@@ -65,7 +65,7 @@ constexpr uint32_t kAttempts = 0xD023ADBE;        // (name unknown: the times th
 
 const char* const kNetJudge = reinterpret_cast<const char*>(0x0064DEEC); // "NetJudge"
 
-CGameMode* GameMode() { return GameVariable<CGameMode*>(0x007CE470); }
+CGameMode* GameMode() { return g_gameMode; }
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 bool InMultiplayerGame() { return static_cast<uint8_t>(CFuncs::CFunc_InMultiplayerGame(nullptr, nullptr)) != 0; }
 

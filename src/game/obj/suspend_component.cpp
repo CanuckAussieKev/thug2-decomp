@@ -15,10 +15,21 @@
 #include "game/obj/compositemgr.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/ass/assman.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[12], g_suspendComponentMemberFunctions, 0x00684C48,
+            0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0,
+            0, 0xCE0CA665, 0, 0, 0, 0);
+GAME_GLOBAL(int, g_suspendFrameCount, 0x006951B0);
+GAME_GLOBAL(int, g_suspendInterleave2Count, 0x006951B4);
+GAME_GLOBAL(int, g_suspendInterleave4Count, 0x006951B8);
+GAME_GLOBAL(SuspendTaskHolder*, g_suspendTaskHolder, 0x006951BC);
 
 namespace {
 
@@ -39,9 +50,9 @@ constexpr int kCheckFrames = 10;
 // The distances that mean no LOD (1000000 - 1000003): lod_dist3 at its no-LOD value means the model is always drawn.
 const uint32_t kNoLodBits[4] = {0x49742400, 0x49742410, 0x49742420, 0x49742430};
 
-int& FrameCount() { return GameVariable<int>(0x006951B0); }
-int& Interleave2Count() { return GameVariable<int>(0x006951B4); }
-int& Interleave4Count() { return GameVariable<int>(0x006951B8); }
+int& FrameCount() { return g_suspendFrameCount; }
+int& Interleave2Count() { return g_suspendInterleave2Count; }
+int& Interleave4Count() { return g_suspendInterleave4Count; }
 
 void SetNoLod(float* distances)
 {
@@ -66,7 +77,7 @@ CBaseComponent* __cdecl CSuspendComponent::Create()
 // 0x00434610
 void __cdecl CSuspendComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00684C48), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_suspendComponentMemberFunctions, 0x18);
     CreateSuspendTask();
 }
 
@@ -198,7 +209,7 @@ void CSuspendComponent::UpdateVisibility()
         uint8_t* model = ModelOf(mp_model);
         if (reinterpret_cast<const uint32_t*>(m_lodDistances)[2] == kNoLodBits[2]) {
             visible = true;
-        } else if (GameVariable<int>(0x00701378) > 1) {
+        } else if (Mdl::g_viewportCount > 1) {
             visible = true;
         } else if (reinterpret_cast<uint8_t*>(mp_model)[0x234]) { // (the model component's)
             visible = true;
@@ -252,7 +263,7 @@ SuspendTaskHolder* SuspendTaskHolder::Construct()
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
     }
     mp_task = task;
-    reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04)->AddTask(task); // the logic tasks
+    reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04)->AddTask(task); // the logic tasks
     return this;
 }
 
@@ -260,7 +271,7 @@ SuspendTaskHolder* SuspendTaskHolder::Construct()
 void __cdecl CreateSuspendTask()
 {
     void* memory = Mem::Calloc(sizeof(SuspendTaskHolder));
-    GameVariable<SuspendTaskHolder*>(0x006951BC) = memory ? static_cast<SuspendTaskHolder*>(memory)->Construct() : nullptr;
+    g_suspendTaskHolder = memory ? static_cast<SuspendTaskHolder*>(memory)->Construct() : nullptr;
 }
 
 // 0x00434420
@@ -268,7 +279,7 @@ void __cdecl SuspendTask(void* /*task*/)
 {
     // The camera the distances are measured from: the skate module's +0x3DC (a flag that turns the checks off, then
     // the position).
-    const uint8_t* camera = GameVariable<uint8_t*>(0x007CE478) + 0x3DC;
+    const uint8_t* camera = reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x3DC;
     auto* component =
         static_cast<CSuspendComponent*>(CompositeObjectManager()->GetFirstComponentByType(CSuspendComponent::kType));
     while (component) {

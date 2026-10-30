@@ -10,15 +10,19 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
 
+GAME_GLOBAL(Mem::PoolPair, g_parkStringPools, 0x007CE594);
+GAME_GLOBAL(Mem::PoolPair, g_parkPointPools, 0x007CE5A4);
+
 namespace {
 
 // The classes' pool pairs (CPoolable): a set's pool is lent to them while one of its items is made or freed.
-Mem::PoolPair& StringPools() { return GameVariable<Mem::PoolPair>(0x007CE594); }
-Mem::PoolPair& PointPools() { return GameVariable<Mem::PoolPair>(0x007CE5A4); }
+Mem::PoolPair& StringPools() { return g_parkStringPools; }
+Mem::PoolPair& PointPools() { return g_parkPointPools; }
 
 // Whether the pair's current pool was made by it (and so is deleted when it's taken away): a byte per pool at +4.
 uint8_t& PoolOwned(Mem::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }

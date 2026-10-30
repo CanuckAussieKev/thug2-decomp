@@ -98,8 +98,8 @@ void SetMatrices(CCompositeObject* object, const float* matrix)
     std::memcpy(Bytes(object) + 0x6C, matrix, 64);
     std::memcpy(Bytes(object) + 0xC0, matrix, 64);
 }
-float* Rotations() { return &GameVariable<float>(0x006F1160); }
-float* Translations() { return &GameVariable<float>(0x006F1960); }
+float* Rotations() { return g_cutsceneRotations; }
+float* Translations() { return g_cutsceneTranslations; }
 
 // (debug drawing, compiled out: the object's box)
 inline void DebugDrawBox(const void*, const void*, const float*, int, int, int, uint32_t) {}
@@ -138,7 +138,7 @@ void CCutsceneData::UpdateTime(int /*unused*/)
 {
     m_unknown3478 = *reinterpret_cast<uint32_t*>(&m_time);
     if (Script::GetInteger(kFixedTime) != 0) {
-        m_time = static_cast<float>(GameVariable<int>(0x006F115C) * static_cast<double>(kFrame));
+        m_time = static_cast<float>(g_cutsceneFixedFrame * static_cast<double>(kFrame));
     } else if (m_unknown3474) {
         // a fixed step a frame (looping back at the end)
         double time = static_cast<double>(m_unknown3470) * kStep + m_time;
@@ -248,7 +248,7 @@ void CCutsceneData::UpdateObjectTransforms()
     if (!m_objectSource)
         return;
     static_cast<Gfx::CBonedAnimFrameData*>(mp_animList)->GetFloatKeyPose(
-        Rotations(), Translations(), &GameVariable<uint8_t>(0x006F0FD8),
+        Rotations(), Translations(), g_cutsceneCameraSlot,
         static_cast<float>(m_time - static_cast<double>(m_cameraStart)),
         static_cast<int>(reinterpret_cast<uint32_t>(m_objectSource)));
     // the animated objects of the level (not the cutscene's own)
@@ -359,7 +359,7 @@ void CCutsceneDetails::DestroyBody()
     }
     if (m_ownsData) {
         if (m_data) {
-            auto* assets = GameVariable<Ass::CAssMan*>(0x006918DC);
+            auto* assets = Ass::g_assetManager;
             Ass::CAsset* asset = assets->GetAsset(m_asset, 1);
             assets->UnloadAsset(asset);
             m_data = nullptr;

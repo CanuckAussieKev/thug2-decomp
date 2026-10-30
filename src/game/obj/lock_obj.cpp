@@ -13,9 +13,12 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(float, g_lockObjWobbleStep, 0x00646118, 0.006135923f);
 
 namespace {
 
@@ -33,7 +36,7 @@ constexpr uint32_t kNoRotate = 0xD74A6981; // no_rotate
 
 // The wobble's step: 2 pi / 1024 as the float the original multiplies by (0x00646118; the update's own, 0x0064611C,
 // is one bit larger).
-float WobbleStep() { return GameVariable<float>(0x00646118); }
+float WobbleStep() { return g_lockObjWobbleStep; }
 
 // x87 FSIN, as the original takes the wobble's sines.
 double X87Sin(double angle)

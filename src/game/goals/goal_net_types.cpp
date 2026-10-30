@@ -53,12 +53,12 @@ void** const kNetGoalVtable = reinterpret_cast<void**>(0x0064E150);
 void** const kRaceGoalVtable = reinterpret_cast<void**>(0x0064E1C8);
 
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-uint32_t GameModeName() { return GameVariable<CGameMode*>(0x007CE470)->GetNameChecksum(); }
+uint32_t GameModeName() { return g_gameMode->GetNameChecksum(); }
 // Whether every goal is completed (a goal attack's victory condition). CCompleteGoalsVictoryCondition::ConditionComplete
 // doesn't use its object: the original calls it with whatever ECX holds, the game mode just asked for its name.
 bool GoalsCompleted()
 {
-    return reinterpret_cast<CCompleteGoalsVictoryCondition*>(GameVariable<CGameMode*>(0x007CE470))->ConditionComplete();
+    return reinterpret_cast<CCompleteGoalsVictoryCondition*>(g_gameMode)->ConditionComplete();
 }
 
 struct PlayerSearch {

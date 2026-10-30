@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -60,5 +61,7 @@ bool __cdecl CFunc_InitSun(Script::CStruct* params, Script::CScript* script);
 // 0x00445B30: UpdateLensFlare: the lens flare's elements placed again (0x00442D70 with the same arguments). Always
 // true.
 bool __cdecl CFunc_UpdateLensFlare(Script::CStruct* params, Script::CScript* script);
+
+GAME_GLOBAL_EXTERN(bool, g_gotExtraMemory);
 
 } // namespace CFuncs

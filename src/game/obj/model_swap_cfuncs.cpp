@@ -48,7 +48,8 @@ struct SwapEntry {
     uint32_t current;
 };
 static_assert(sizeof(SwapEntry) == 12, "layout must match the original");
-SwapEntry* Swaps() { return &GameVariable<SwapEntry>(0x007CEDE0); }
+GAME_GLOBAL(SwapEntry[5], g_modelSwaps, 0x007CEDE0);
+SwapEntry* Swaps() { return g_modelSwaps; }
 constexpr int kSwapCount = 5;
 
 // 0x005AA930 (CFuncs::SwapMapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.

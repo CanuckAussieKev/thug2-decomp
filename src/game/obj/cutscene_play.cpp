@@ -19,6 +19,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pcm {
@@ -27,6 +28,10 @@ void __cdecl SyncMusicToTime(float seconds);
 } // namespace Pcm
 
 namespace Obj {
+
+GAME_GLOBAL(char[256], g_cutsceneShotName, 0x006F1058);
+GAME_GLOBAL(bool, g_cutscenePlaying, 0x006F1158);
+GAME_GLOBAL(int, g_cutsceneFixedFrame, 0x006F115C);
 
 namespace {
 
@@ -44,8 +49,8 @@ constexpr uint32_t kFieldOfView = 0x99529205;  // a global float: the cutscene c
 constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
-int& FixedFrame() { return GameVariable<int>(0x006F115C); }
-char* ShotName() { return &GameVariable<char>(0x006F1058); }
+int& FixedFrame() { return g_cutsceneFixedFrame; }
+char* ShotName() { return g_cutsceneShotName; }
 
 void Run(uint32_t script, Script::CStruct* params = nullptr)
 {
@@ -161,7 +166,7 @@ bool CCutsceneData::Load(const char* path, int a2, int /*unused*/, const uint32_
         if (m_flag34B0)
             SetUpCutsceneHeaps();
     }
-    GameVariable<bool>(0x006F1158) = true;
+    g_cutscenePlaying = true;
     Mem::Manager* manager = Mem::Manager::Get();
     Mem::Heap* fileHeap = m_flag34B0 ? manager->m_cutsceneBottomUpHeap : manager->m_bottomUpHeap;
     Mem::Heap* assetHeap = m_flag34B0 ? manager->m_cutsceneTopDownHeap : manager->m_topDownHeap;
@@ -250,7 +255,7 @@ void CCutsceneData::Update(void* camera, Script::CStruct* /*params*/)
 // 0x00467EA0
 void CCutsceneData::Play(void* camera, Script::CStruct* params)
 {
-    GameVariable<bool>(0x006F1158) = true;
+    g_cutscenePlaying = true;
     if (!m_flag34B0) {
         m_ready = true;
         Update(camera, params);

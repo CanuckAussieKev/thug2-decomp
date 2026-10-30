@@ -15,9 +15,17 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(float, g_scriptFrameMilliseconds, 0x006460DC, 16.666666f);
+GAME_GLOBAL(bool, g_scriptPrintfEnabled, 0x0067D6D4, true);
+GAME_GLOBAL(bool, g_firstTimeNotCalled, 0x0067D6D5, true);
+GAME_GLOBAL(char[1004], g_formatTextBuffer, 0x00696940);
+GAME_GLOBAL(Script::CComponent, g_formatTextValue, 0x00696D2C);
+GAME_GLOBAL(int, g_scriptWarningLevel, 0x006F3534);
 
 namespace {
 
@@ -62,13 +70,13 @@ constexpr uint32_t kLevelWarn = 0xD6454EFA;    // (a guess: "warn")
 constexpr uint32_t kLevelAssert = 0x4E10B054;  // (a guess: "assert")
 
 // Whether FirstTimeThisIsCalled hasn't been called yet (0x0067D6D5, true at start).
-bool& FirstTimeNotCalled() { return GameVariable<bool>(0x0067D6D5); }
+bool& FirstTimeNotCalled() { return g_firstTimeNotCalled; }
 
 // Whether the scripts' printf prints (0x0067D6D4).
-bool& ScriptPrintfEnabled() { return GameVariable<bool>(0x0067D6D4); }
+bool& ScriptPrintfEnabled() { return g_scriptPrintfEnabled; }
 
 // The value FormatText is writing (0x00696D2C, a component of its own: its flag bit is kept).
-CComponent& FormatTextValue() { return GameVariable<CComponent>(0x00696D2C); }
+CComponent& FormatTextValue() { return g_formatTextValue; }
 
 // IfDebugOn / IfDebugOff's work on the calling script - compiled out of this build (an empty call, 0x005480A0).
 inline void SetScriptDebug(Script::CScript* /*script*/) {}
@@ -123,8 +131,8 @@ Script::ESymbolType TypeFromName(uint32_t name)
 
 } // namespace
 
-char* FormatTextBuffer() { return &GameVariable<char>(0x00696940); }
-int& ScriptWarningLevel() { return GameVariable<int>(0x006F3534); }
+char* FormatTextBuffer() { return g_formatTextBuffer; }
+int& ScriptWarningLevel() { return g_scriptWarningLevel; }
 
 // 0x0044A480
 int FormatText(Script::CStruct* results, Script::CStruct* params)
@@ -309,7 +317,7 @@ bool __cdecl CFunc_Wait(Script::CStruct* params, Script::CScript* script)
     } else if (params->ContainsFlag(kGameFrame) || params->ContainsFlag(kGameFrames) || params->ContainsFlag(kGame)) {
         script->Wait(Truncate(value));
     } else if (params->ContainsFlag(kFrame) || params->ContainsFlag(kFrames)) {
-        WaitMs(script, realTime, Truncate(static_cast<double>(value) * GameVariable<const float>(0x006460DC))); // 16.67
+        WaitMs(script, realTime, Truncate(static_cast<double>(value) * g_scriptFrameMilliseconds)); // 16.67
     } else if (params->ContainsFlag(kOnePerFrame)) {
         script->WaitOnePerFrame(Truncate(value));
     } else {

@@ -13,16 +13,21 @@
 #include "game/lst/hashtable.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ass {
+
+GAME_GLOBAL(Ass::CAssMan*, g_assetManager, 0x006918DC);
+GAME_GLOBAL(int, g_assManReferences, 0x006918E0);
+GAME_GLOBAL(Mlp::Manager*, g_mainLoopManager, 0x00696D68);
 
 namespace {
 
 void** const kAssManVtable = reinterpret_cast<void**>(0x00645658);
 void** const kManagerTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CAssMan>
 
-int& References() { return GameVariable<int>(0x006918E0); }
+int& References() { return g_assManReferences; }
 
 // The script integer the loads look up (a debug leftover: set, a failed asset isn't deleted).
 int KeepFailedAssets() { return Script::GetInteger(0x25DC7904u); }
@@ -185,7 +190,7 @@ CAssMan* CAssMan::ScalarDelete(uint8_t flags)
 // 0x00407E90
 void CAssMan::StartCallback()
 {
-    reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04)->AddTask(m_task); // the logic tasks
+    reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(g_mainLoopManager) + 0x04)->AddTask(m_task); // the logic tasks
 }
 
 // 0x00407AE0

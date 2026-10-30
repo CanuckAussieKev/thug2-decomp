@@ -6,6 +6,7 @@
 
 #include "game/mth/x87_math.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
 
@@ -24,6 +25,8 @@ struct SinCosEntry {
 };
 
 constexpr int kSinTableSize = 119; // 0 .. pi/2 inclusive
+
+GAME_GLOBAL(SinCosEntry[kSinTableSize], g_sinTable, 0x00690FE0);
 
 // Constants taken bit-for-bit from the exe. (Typing them in as decimals once introduced an error in the
 // 5th significant digit of kAtanC3, so they stay as exact bit patterns.)
@@ -50,7 +53,7 @@ constexpr float kAtanC15 = Bits(0xBB84D7E7); // -0.00405406
 constexpr float kMinusQuarterPi = Bits(0xBF490FDB), kThreeQuarterPi = Bits(0x4016CBE4),
                 kQuarterPi = Bits(0x3F490FDB), kPiF = Bits(0x40490FDB);
 
-SinCosEntry* SinTable() { return &GameVariable<SinCosEntry>(0x00690FE0); }
+SinCosEntry* SinTable() { return g_sinTable; }
 
 } // namespace
 

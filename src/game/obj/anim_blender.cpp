@@ -19,9 +19,42 @@
 #include "game/script/struct.h"
 #include "game/skater/thaw_bmx.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[180], g_animBlenderMemberFunctions, 0x00682350,
+            0xCABB44AE, 0x7149B753, 0, 0, 0, 0,
+            0xB628A959, 0x7149B753, 0, 0, 0, 0,
+            0xAFC2493E, 0x7149B753, 0, 0, 0, 0,
+            0xF1D4B29F, 0x7149B753, 0, 0, 0, 0,
+            0xD58E2AD5, 0x7149B753, 0, 0, 0, 0,
+            0x98A32669, 0x7149B753, 0, 0, 0, 0,
+            0x58C52F64, 0x7149B753, 0, 0, 0, 0,
+            0x2CB9AD09, 0x7149B753, 0, 0, 0, 0,
+            0x2889C6C9, 0x7149B753, 0, 0, 0, 0,
+            0x76CC99D5, 0x7149B753, 0, 0, 0, 0,
+            0xB5FB7EB6, 0x7149B753, 0, 0, 0, 0,
+            0x1A0F9646, 0x7149B753, 0, 0, 0, 0,
+            0x5195BCBB, 0x7149B753, 0, 0, 0, 0,
+            0x68C86AEC, 0x7149B753, 0, 0, 0, 0,
+            0x80FDBDF2, 0x7149B753, 0, 0, 0, 0,
+            0x42FFC3CE, 0x7149B753, 0, 0, 0, 0,
+            0x922E7D14, 0x7149B753, 0, 0, 0, 0,
+            0x74CF5C94, 0x7149B753, 0, 0, 0, 0,
+            0x9069F357, 0x7149B753, 0, 0, 0, 0,
+            0x1DF59A54, 0x7149B753, 0, 0, 0, 0,
+            0xC68365EB, 0x7149B753, 0, 0, 0, 0,
+            0x83654874, 0x7149B753, 0, 0, 0, 0,
+            0xD63A1B81, 0x7149B753, 0, 0, 0, 0,
+            0xBD4EDD44, 0x7149B753, 0, 0, 0, 0,
+            0x6AAEB76F, 0x7149B753, 0, 0, 0, 0,
+            0xF5E2B871, 0x7149B753, 0, 0, 0, 0,
+            0x986D274E, 0x7149B753, 0, 0, 0, 0,
+            0x27A98022, 0x7149B753, 0, 0, 0, 0,
+            0x6ECEB234, 0x7149B753, 0, 0, 0, 0,
+            0, 0x7149B753, 0, 0, 0, 0);
 
 namespace {
 
@@ -81,7 +114,7 @@ CBaseComponent* __cdecl CAnimBlenderComponent::Create()
 // 0x00419690
 void __cdecl CAnimBlenderComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00682350), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_animBlenderMemberFunctions, 0x18);
 }
 
 // 0x0041A410

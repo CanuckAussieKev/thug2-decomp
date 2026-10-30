@@ -65,12 +65,12 @@ inline uint8_t* FlagsOf(void* component) { return At<uint8_t*>(component, kTimed
 inline uint8_t* InputOf(void* component) { return At<uint8_t*>(component, kInput); }
 
 // The game's clock (0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.
-inline int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+inline int Now() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
 // The time since `stamp` (unsigned, as the original compares it): the clock, plus (the offset - stamp).
 inline uint32_t Since(uint32_t stamp)
 {
     uint32_t now = static_cast<uint32_t>(Tmr::GameClockElapsed());
-    return now + (static_cast<uint32_t>(GameVariable<int>(0x00696D60)) - stamp);
+    return now + (static_cast<uint32_t>(Obj::g_clockOffset) - stamp);
 }
 
 // A timed flag set to `value` (the time noted if it changes).

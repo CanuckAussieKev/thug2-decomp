@@ -57,7 +57,7 @@ void** const kGoalNodeVtable = reinterpret_cast<void**>(0x0064DDCC);
 const char* const kSpecialGap = reinterpret_cast<const char*>(0x0064DEB8); // "special_gap"
 
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-CGameMode* GameMode() { return GameVariable<CGameMode*>(0x007CE470); }
+CGameMode* GameMode() { return g_gameMode; }
 
 void DestroyGoalPed(CGoalPed* ped) { ped->DestroyGoalPed(); }
 void HideGoalPed(CGoalPed* ped, bool hide) { ped->Hide(hide); }

@@ -24,9 +24,14 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(float, g_gameUtilWholeTurn, 0x00645EA8, 360.0f);
+GAME_GLOBAL(float, g_gameUtilHalfTurn, 0x0064B278, 180.0f);
+GAME_GLOBAL(float, g_gameUtilMinusDegreesToRadians, 0x0064BCCC, -0.017453292f);
 
 namespace {
 
@@ -72,7 +77,7 @@ constexpr uint32_t kScore = 0xCD66C8AE;       // "score"
 
 Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
 // The game mode (0x007CE470): its name (0x005532A0) and fireball level (0x005531F0) - neither has source yet.
-void* GameMode() { return GameVariable<void*>(0x007CE470); }
+void* GameMode() { return static_cast<void*>(Game::g_gameMode); }
 uint32_t GameModeName() { return static_cast<Game::CGameMode*>(GameMode())->GetNameChecksum(); }
 // The rail editor (0x004F4970 finds it).
 Ed::CRailEditorComponent* RailEditor() { return Ed::CRailEditorComponent::Instance(); }
@@ -81,8 +86,8 @@ Ed::CRailEditorComponent* RailEditor() { return Ed::CRailEditorComponent::Instan
 // its x87 result unrounded; ours is the float it returns (the last bits can differ when it adds or takes a turn).
 double WrappedDegrees(float angle) { return CFuncs::WrapAngle(angle); }
 // The half and whole turns compared and turned with (0x0064B278 180, 0x00645EA8 360).
-float HalfTurn() { return GameVariable<float>(0x0064B278); }
-float WholeTurn() { return GameVariable<float>(0x00645EA8); }
+float HalfTurn() { return g_gameUtilHalfTurn; }
+float WholeTurn() { return g_gameUtilWholeTurn; }
 
 // Whether `array` (if any) has the element `name`.
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
@@ -261,7 +266,7 @@ bool __cdecl CFunc_SetSpecialBarColors(Script::CStruct* params, Script::CScript*
 // 0x005B31C0: GetInitialsString: string, the records' default initials. Always true.
 bool __cdecl CFunc_GetInitialsString(Script::CStruct*, Script::CScript* script)
 {
-    auto* records = GameVariable<Records::CGameRecords*>(0x007CE4BC);
+    auto* records = Records::g_gameRecords;
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
     script->m_params->AddString(kString, Script::ESYMBOLTYPE_STRING, records->m_defaultInitials);
     return true;
@@ -270,7 +275,7 @@ bool __cdecl CFunc_GetInitialsString(Script::CStruct*, Script::CScript* script)
 // 0x005B31F0: SetInitialsString [string="ABC" ("ERR")]: the records' default initials. Always true.
 bool __cdecl CFunc_SetInitialsString(Script::CStruct* params, Script::CScript*)
 {
-    auto* records = GameVariable<Records::CGameRecords*>(0x007CE4BC);
+    auto* records = Records::g_gameRecords;
     const char* initials = reinterpret_cast<const char*>(0x00657CC8); // "ERR"
     params->GetString(kString, &initials, 0);
     records->SetDefaultInitials(initials);
@@ -316,7 +321,7 @@ bool __cdecl CFunc_DrawDirectionalLightLines(Script::CStruct* params, Script::CS
     params->GetFloat(kHeading, &heading, 1);
     float pitch;
     params->GetFloat(kPitch, &pitch, 1);
-    pitch = static_cast<float>(pitch * static_cast<double>(GameVariable<float>(0x0064BCCC))); // -pi / 180
+    pitch = static_cast<float>(pitch * static_cast<double>(g_gameUtilMinusDegreesToRadians)); // -pi / 180
     heading = static_cast<float>((90.0 - heading) * GameVariable<float>(0x00645464));          // pi / 180
     int r;
     params->GetInteger(kR, &r, 1);

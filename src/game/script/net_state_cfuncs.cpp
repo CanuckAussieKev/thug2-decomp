@@ -30,10 +30,18 @@
 #include "game/sys/mlp.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
+#include "game/ass/assman.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(int, g_netMaxPlayers, 0x0067EFD0, 8);
+GAME_GLOBAL(int, g_netSkillLevel, 0x0067EFD4, 3);
+GAME_GLOBAL(char[16], g_networkId, 0x007CCBC4);
+GAME_GLOBAL(char[12], g_networkPassword, 0x007CCBD4);
+GAME_GLOBAL(uint32_t, g_networkTeamMode, 0x007CCBE0);
 
 namespace {
 
@@ -48,7 +56,7 @@ constexpr uint32_t kSlomoComponent = 0x5BD63B29;    // (name unknown) the local 
 constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
 constexpr uint32_t kSkaterType = 0xBAF9B341;        // (name unknown) the skaters' object type
 
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 Mdl::SkateNet* SkateNet() { return reinterpret_cast<Mdl::SkateNet*>(Skate()); }
 Obj::CCompositeObject* GetLocalSkater()
 {
@@ -60,7 +68,7 @@ Mem::Manager* MemManager() { return Mem::Manager::Get(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
 uint32_t GameModePlayers()
 {
-    return static_cast<uint32_t>(GameVariable<Game::CGameMode*>(0x007CE470)->GetInitialNumberOfPlayers());
+    return static_cast<uint32_t>(Game::g_gameMode->GetInitialNumberOfPlayers());
 }
 
 // inet_addr through the game's import (0x005BEAAE).
@@ -136,7 +144,7 @@ bool __cdecl CFunc_SetNetworkMode(Script::CStruct* params, Script::CScript*)
 // 0x005A0A60: ProfileTasks [frames (1)]: the main loop's task profile over that many frames.
 bool __cdecl CFunc_ProfileTasks(Script::CStruct* params, Script::CScript*)
 {
-    auto* mainLoop = GameVariable<Mlp::Manager*>(0x00696D68);
+    auto* mainLoop = Ass::g_mainLoopManager;
     int frames = 1;
     params->GetInteger(0u, &frames, 0);
     Dbg::Printf(reinterpret_cast<const char*>(0x0064FD00), frames);
@@ -519,7 +527,7 @@ bool __cdecl CFunc_DeviceChosen(Script::CStruct*, Script::CScript*) { return Net
 bool __cdecl CFunc_GameIsOver(Script::CStruct*, Script::CScript*) { return GameNetManager()->IsGameOver(); }
 
 namespace {
-bool& TryingToJoin() { return GameVariable<bool>(0x007CCA81); }
+bool& TryingToJoin() { return g_tryingToJoin; }
 // gethostbyname through the game's import (0x005BEABA).
 void* GetHostByName(const char* name) { return GameFunction<void*(__stdcall*)(const char*)>(0x005BEABA)(name); }
 } // namespace
@@ -616,12 +624,12 @@ void __cdecl InitBeenoxPreferences()
     GameNet::Manager* gameNet = GameNetManager();
     Prefs::Preferences* prefs = gameNet->GetNetworkPreferences();
     SetStringPreference(prefs, 0x00650324, reinterpret_cast<const char*>(0x0067EFBC)); // "server_name": "Beenox"
-    SetStringPreference(prefs, 0x0064CE50, &GameVariable<char>(0x007CCBD4));           // "password"
-    if (GameVariable<char>(0x007CCBC4) != '\0')
-        SetStringPreference(prefs, 0x0064CF0C, &GameVariable<char>(0x007CCBC4)); // "network_id"
-    gameNet->SetMaxPlayersPreference(GameVariable<int>(0x0067EFD0));
+    SetStringPreference(prefs, 0x0064CE50, g_networkPassword);           // "password"
+    if (g_networkId[0] != '\0')
+        SetStringPreference(prefs, 0x0064CF0C, g_networkId); // "network_id"
+    gameNet->SetMaxPlayersPreference(g_netMaxPlayers);
     Script::CStruct* teams = NewPreference();
-    switch (GameVariable<uint32_t>(0x007CCBE0)) {
+    switch (g_networkTeamMode) {
     case 0: SetChoicePreference(teams, 0x0064C43C, 0x00650318); break; // "None", teams_none
     case 2: SetChoicePreference(teams, 0x0064C8A8, 0x0065030C); break; // "2", teams_two
     case 3: SetChoicePreference(teams, 0x0064C8A4, 0x00650300); break; // "3", teams_three
@@ -631,7 +639,7 @@ void __cdecl InitBeenoxPreferences()
     prefs->SetPreference(Crc(0x006502E8), teams); // "team_mode"
     DeletePreference(teams);
     Script::CStruct* skill = NewPreference();
-    switch (GameVariable<int>(0x0067EFD4)) {
+    switch (g_netSkillLevel) {
     case 1: SetChoicePreference(skill, 0x006502D8, 0x006502D0); break; // "1: Baby Steps", num_1
     case 2: SetChoicePreference(skill, 0x006502C0, 0x006502B8); break; // "2: I Can Crawl!", num_2
     case 3: SetChoicePreference(skill, 0x006502A8, 0x006502A0); break; // "3: Hold My Own", num_3

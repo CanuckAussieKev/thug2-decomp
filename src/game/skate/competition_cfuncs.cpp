@@ -296,7 +296,7 @@ bool __cdecl CFunc_TrickOffAllObjects(Script::CStruct* params, Script::CScript*)
     if (!GameVariable<bool>(0x00684FA8)) {
         int player = 0;
         params->GetInteger(0u, &player, 0);
-        GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->GiveFreeClusters(player);
+        Obj::g_trickObjectManager->GiveFreeClusters(player);
     }
     return true;
 }

@@ -99,7 +99,7 @@ static_assert(std::bit_cast<uint32_t>(kPi) == 0x40490FDB && std::bit_cast<uint32
               "the original's constants");
 
 // The game clock (ms) plus the offset at 0x00696D60: the time a flag or button changed.
-int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Now() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
 
 // Clear a state flag (noting when).
 void ClearFlag(void* component, uint32_t flag)

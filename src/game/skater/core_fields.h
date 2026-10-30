@@ -10,6 +10,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/movable_contact.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/trigger_component.h"
@@ -80,13 +81,13 @@ inline uint8_t* InputOf(void* component) { return At<uint8_t*>(component, kInput
 inline int Now()
 {
     int time = Tmr::GameClockElapsed();
-    return time + GameVariable<int>(0x00696D60);
+    return time + Obj::g_clockOffset;
 }
 // The time since `stamp` (the clock's elapsed time, as the original works it out).
 inline uint32_t Since(uint32_t stamp)
 {
     uint32_t now = static_cast<uint32_t>(Tmr::GameClockElapsed());
-    return now + (static_cast<uint32_t>(GameVariable<int>(0x00696D60)) - stamp);
+    return now + (static_cast<uint32_t>(Obj::g_clockOffset) - stamp);
 }
 
 // A timed flag: a bool and, after it, the time it last changed.

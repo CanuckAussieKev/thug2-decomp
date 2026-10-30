@@ -15,9 +15,13 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(float[8], g_rigidBodyPusherReach, 0x006939B0);
+GAME_GLOBAL(float, g_rigidBodyPusherHeight, 0x006939D0);
 
 namespace {
 
@@ -551,7 +555,7 @@ void CRigidBodyComponent::InitFromStructure(Script::CStruct* params)
     }
     if (params->ContainsFlag(0xA92B9954)) // disable_player_collision
         m_flags |= FLAG_NO_PLAYER_COLLISION;
-    GameVariable<float>(0x006939D0) = 77.0f;
+    g_rigidBodyPusherHeight = 77.0f;
 
     // The bounding radius (squared lengths compared unrounded).
     m_radius = 0.0f;
@@ -710,7 +714,7 @@ void __cdecl AddRigidBodyPusher(CCompositeObject* object)
         if (pushers[i].mp_object)
             continue;
         pushers[i].Set(object);
-        GameVariable<float[8]>(0x006939B0)[i] = 0.0f; // (its extra reach: SetRigidBodyPusherReach)
+        g_rigidBodyPusherReach[i] = 0.0f; // (its extra reach: SetRigidBodyPusherReach)
         return;
     }
 }

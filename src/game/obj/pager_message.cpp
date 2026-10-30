@@ -12,9 +12,18 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[36], g_pagerMessageMemberFunctions, 0x006831A8,
+            0x4824484A, 0xD1515392, 0, 0, 0, 0,
+            0xD65B2BB5, 0xD1515392, 0, 0, 0, 0,
+            0x5B64BFEC, 0xD1515392, 0, 0, 0, 0,
+            0xAF88BE7A, 0xD1515392, 0, 0, 0, 0,
+            0xE7DF996D, 0xD1515392, 0, 0, 0, 0,
+            0, 0xD1515392, 0, 0, 0, 0);
 
 namespace {
 
@@ -72,7 +81,7 @@ CBaseComponent* __cdecl CPagerMessageComponent::Create()
 // 0x004EC960
 void __cdecl CPagerMessageComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kPagerMessage), &GameVariable<uint32_t>(0x006831A8), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kPagerMessage), g_pagerMessageMemberFunctions, 0x18);
 }
 
 // 0x004ECE10

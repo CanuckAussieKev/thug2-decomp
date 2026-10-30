@@ -12,9 +12,19 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[42], g_objectProximityMemberFunctions, 0x00682620,
+            0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0,
+            0x8CB5D0C0, 0x1D5B1AE6, 0, 0, 0, 0,
+            0x50F28D36, 0x1D5B1AE6, 0, 0, 0, 0,
+            0x2D703B94, 0x1D5B1AE6, 0, 0, 0, 0,
+            0x13C0D8DC, 0x1D5B1AE6, 0, 0, 0, 0,
+            0x9522F906, 0x1D5B1AE6, 0, 0, 0, 0,
+            0, 0x1D5B1AE6, 0, 0, 0, 0);
 
 namespace {
 
@@ -61,7 +71,7 @@ CBaseComponent* __cdecl CObjectProximityComponent::Create()
 // 0x004EC220
 void __cdecl CObjectProximityComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kObjectProximity), &GameVariable<uint32_t>(0x00682620),
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kObjectProximity), g_objectProximityMemberFunctions,
                                         0x18);
 }
 

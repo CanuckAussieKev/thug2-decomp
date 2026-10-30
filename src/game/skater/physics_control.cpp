@@ -17,10 +17,25 @@
 #include "game/sys/game_clock.h"
 #include "game/skater/skater_camera_component.h"
 #include "game/skater/walk_camera.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[66], g_physicsControlMemberFunctions, 0x006846F0,
+            0x3522D612, 0xD9151D4D, 0, 0, 0, 0,
+            0x0595627C, 0xD9151D4D, 0, 0, 0, 0,
+            0x9569D5B1, 0xD9151D4D, 0, 0, 0, 0,
+            0xA887285A, 0xD9151D4D, 0, 0, 0, 0,
+            0x9366A509, 0xD9151D4D, 0, 0, 0, 0,
+            0x04830E80, 0xD9151D4D, 0, 0, 0, 0,
+            0xD5A9F889, 0xD9151D4D, 0, 0, 0, 0,
+            0x27FDDEB7, 0xD9151D4D, 0, 0, 0, 0,
+            0x174A6AD9, 0xD9151D4D, 0, 0, 0, 0,
+            0x246322C9, 0xD9151D4D, 0, 0, 0, 0,
+            0, 0xD9151D4D, 0, 0, 0, 0);
 
 namespace {
 
@@ -41,7 +56,7 @@ T& Field(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-int Clock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Clock() { return Tmr::GameClockElapsed() + g_clockOffset; }
 
 // Milliseconds as unsigned seconds (the original's unsigned conversion through the x87), rounded once to float.
 float Seconds(int ms) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs); }
@@ -102,7 +117,7 @@ CBaseComponent* __cdecl CSkaterPhysicsControlComponent::Create()
 void __cdecl CSkaterPhysicsControlComponent::RegisterMemberFunctions()
 {
     Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterPhysicsControl),
-                                        &GameVariable<uint32_t>(0x006846F0), 0x18);
+                                        g_physicsControlMemberFunctions, 0x18);
 }
 
 // 0x005176C0

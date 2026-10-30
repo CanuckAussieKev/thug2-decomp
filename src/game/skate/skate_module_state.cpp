@@ -42,10 +42,15 @@
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/gfx/viewport.h"
+#include "game/ass/assman.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mdl {
+
+GAME_GLOBAL(int, g_skateModuleReferences, 0x007CE47C);
+GAME_GLOBAL(float, g_nextBeep, 0x007CE488);
 
 namespace {
 
@@ -81,11 +86,11 @@ constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
-Game::CGameMode* GameMode() { return GameVariable<Game::CGameMode*>(0x007CE470); }
+Game::CGameMode* GameMode() { return Game::g_gameMode; }
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
-int& Refs() { return GameVariable<int>(0x007CE47C); }
-float& NextBeep() { return GameVariable<float>(0x007CE488); }
+Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
+int& Refs() { return g_skateModuleReferences; }
+float& NextBeep() { return g_nextBeep; }
 
 // A walk over the players (GameNet::Manager::FirstPlayerInfo / NextPlayerInfo).
 struct PlayerSearch {
@@ -110,7 +115,7 @@ void __cdecl Skate::DeleteInstance()
     }
     if (Skate* skate = Instance())
         reinterpret_cast<Skate*(__thiscall*)(Skate*, int)>(skate->m_vtable[0])(skate, 1);
-    GameVariable<Skate*>(0x007CE478) = nullptr;
+    g_skateModule = nullptr;
     Refs() = 0;
 }
 
@@ -123,11 +128,11 @@ Skate* __cdecl Skate::CreateInstance(bool create)
         if (memory) {
             skate = static_cast<Skate*>(memory)->Construct();
             int refs = Refs() + 1;
-            GameVariable<Skate*>(0x007CE478) = skate;
+            g_skateModule = skate;
             Refs() = refs;
             return skate;
         }
-        GameVariable<Skate*>(0x007CE478) = nullptr;
+        g_skateModule = nullptr;
     }
     ++Refs();
     return skate; // (the instance - null when none was made: main registers it as a module)
@@ -198,7 +203,7 @@ void Skate::StartCallback()
     Script::RunScript(kInitLightManager, nullptr, nullptr, false, nullptr);
     Script::RunScript(kLoadPermanentPrefiles, nullptr, nullptr, false, nullptr);
     m_unknown3D0 = 0;
-    auto* mainLoop = GameVariable<uint8_t*>(0x00696D68);
+    auto* mainLoop = reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager);
     Obj::Proxim_Init();
     Obj::Emitter_Init();
     m_logicTask->m_mask = 2;
@@ -225,7 +230,7 @@ void Skate::StartCallback()
 // 0x00564F20
 void Skate::CleanupForParkEditor()
 {
-    GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->RemoveAllClusters();
+    Obj::g_trickObjectManager->RemoveAllClusters();
     Nx::Engine::KillAllTextureSplats();
     static_cast<Nx::CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->DestroyNonPersistent();
     m_railManager->Cleanup();
@@ -355,7 +360,7 @@ bool __cdecl Skate::CFunc_ChangeLevel(Script::CStruct* params, Script::CScript*)
         desc.Construct();
         uint32_t now = Tmr::GetTime();
         if (!static_cast<uint8_t>(info->IsLocalPlayer()) && level == kLoadSk5EdGameplay) {
-            void* map = GameVariable<Ed::CParkEditor*>(0x007CE5D8)->GetCompressedMapBuffer(false);
+            void* map = Ed::g_parkEditor->GetCompressedMapBuffer(false);
             int handle = info->GetConnHandle();
             server->StreamMessage(handle, kMsgParkMap, 15000, map, Text(0x0064C884), kGroupGame, false,
                                   true); // "level data"
@@ -442,7 +447,7 @@ bool __cdecl Skate::CFunc_InitSkaterHeaps(Script::CStruct*, Script::CScript*)
 // 0x00565620
 void Skate::PreCalculateObjectUpdateInfo()
 {
-    if (GameVariable<int>(0x00701378) <= 1 && Nx::GetActiveCamera(0)) {
+    if (g_viewportCount <= 1 && Nx::GetActiveCamera(0)) {
         m_noCamera = false;
         m_cameraPos = *Nx::GetActiveCamera(0)->GetPos();
         return;

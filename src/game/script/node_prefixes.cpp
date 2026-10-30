@@ -14,6 +14,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace SkateScript {
@@ -21,19 +22,22 @@ namespace SkateScript {
 using Script::CArray;
 using Script::CStruct;
 
+GAME_GLOBAL(uint32_t[1000], g_nodeNames, 0x006EFDE0);
+GAME_GLOBAL(PrefixTables*, g_nodePrefixes, 0x006F0D80);
+
 namespace {
 
 constexpr uint32_t kName = 0xA1DC81F9; // name
 constexpr int kGrowBy = 100;           // indices
 
-uint32_t* NodeNames() { return &GameVariable<uint32_t>(0x006EFDE0); } // (room for 1000)
+uint32_t* NodeNames() { return g_nodeNames; } // (room for 1000)
 
 // The PrefixNodes stored under `prefix` (Lst::HashTable's lookup, inlined in the original).
 PrefixNodes* Find(Lst::HashTable* table, uint32_t prefix) { return static_cast<PrefixNodes*>(table->GetItem(prefix)); }
 
 } // namespace
 
-PrefixTables*& NodePrefixes() { return GameVariable<PrefixTables*>(0x006F0D80); }
+PrefixTables*& NodePrefixes() { return g_nodePrefixes; }
 
 // 0x0045BDA0
 void PrefixNodes::Add(uint16_t index)

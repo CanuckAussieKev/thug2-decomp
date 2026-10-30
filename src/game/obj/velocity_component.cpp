@@ -10,6 +10,7 @@
 #include "game/obj/suspend_component.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/obj/collide_and_die.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -69,7 +70,7 @@ void CVelocityComponent::InitFromStructure(Script::CStruct* params)
 // 0x0043D340
 void CVelocityComponent::Update()
 {
-    if (!GameVariable<GameNet::Manager*>(0x006FA7D0)->InNetGame() && SuspendFlag(mp_suspend))
+    if (!g_gameNetManager->InNetGame() && SuspendFlag(mp_suspend))
         return;
     const Mth::Vector& vel = m_object->m_vel;
     // Half the velocity (each rounded), the position as it was.

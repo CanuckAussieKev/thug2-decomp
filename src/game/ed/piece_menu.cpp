@@ -10,8 +10,12 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/hook.h"
+#include "hook/game_global.h"
 
 namespace Ed {
+
+GAME_GLOBAL(void*, g_screenElementManager, 0x00701440);
+GAME_GLOBAL(CUpperMenuManager*, g_upperMenuManager, 0x007CE60C);
 
 namespace {
 
@@ -43,7 +47,7 @@ void RunScript(uint32_t name, Script::CStruct* params = nullptr)
 
 // The object tracker (0x006F0FC0): whether there's an object `id` (0x00462120), and an event sent to it
 // (0x00462F00).
-void* Tracker() { return GameVariable<void*>(0x006F0FC0); }
+void* Tracker() { return static_cast<void*>(Obj::g_tracker); }
 bool ObjectExists(void* tracker, uint32_t id)
 {
     return static_cast<Obj::CTracker*>(tracker)->LookUpObject(id) != nullptr;
@@ -175,7 +179,7 @@ void CUpperMenuManager::SetPieceSet(CPieceSet* set, int /*unused*/, int setNumbe
         first = first + (count - last) - 1;
         last = count - 1;
     }
-    void* elements = GameVariable<void*>(0x00701440);
+    void* elements = g_screenElementManager;
     Front::ElementPtr slider;
     GetElement(elements, &slider, kPieceSlider);
     float x;

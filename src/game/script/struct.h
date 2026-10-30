@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
+#include "game/core/pool.h"
 
 // The script system's data: structures of named components (Script::CStruct - also every script function's
 // parameters), and the global symbol table they can refer to.
@@ -310,5 +312,15 @@ public:
     CComponent* m_head;
 };
 static_assert(sizeof(CStruct) == 8, "layout must match the original");
+
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_arrayPools);
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_componentPools);
+GAME_GLOBAL_EXTERN(char*, g_permanentStringsStart);
+GAME_GLOBAL_EXTERN(char*, g_permanentStringsNext);
+GAME_GLOBAL_EXTERN(uint32_t, g_permanentStringsSize);
+GAME_GLOBAL_EXTERN(uint32_t, g_permanentStringCount);
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_symbolPools);
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_pairPools);
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_vectorPools);
 
 } // namespace Script

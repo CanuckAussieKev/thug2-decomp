@@ -18,6 +18,7 @@
 #include "game/ed/park.h"
 #include "game/obj/event.h"
 #include "game/sys/module.h"
+#include "hook/game_global.h"
 
 namespace Inp {
 struct Data;
@@ -48,6 +49,9 @@ struct ParkEditorInputHandler {
     CParkEditor* m_data;
 };
 static_assert(sizeof(ParkEditorInputHandler) == 0x2C && offsetof(ParkEditorInputHandler, m_code) == 0x24);
+
+GAME_GLOBAL_EXTERN(CParkEditor*, g_parkEditor);
+GAME_GLOBAL_EXTERN(uint32_t, g_parkEditorReferences);
 
 class CParkEditor : public Mdl::Module {
 public:
@@ -80,8 +84,8 @@ public:
         kCommandNarrowGapLeft = 0x10000, // button 0x20000 pressed
     };
 
-    static CParkEditor*& Instance() { return GameVariable<CParkEditor*>(0x007CE5D8); }
-    static uint32_t& References() { return GameVariable<uint32_t>(0x007CE5DC); }
+    static CParkEditor*& Instance() { return g_parkEditor; }
+    static uint32_t& References() { return g_parkEditorReferences; }
 
     // --- the module (park_editor.cpp) ---
     // 0x0058D290: Spt::SingletonPtr<CParkEditor>'s release: a reference dropped; the last deletes the instance.
@@ -260,5 +264,7 @@ bool __cdecl CFunc_BindParkEditorToController(Script::CStruct* params, Script::C
 bool __cdecl CFunc_SetParkEditorState(Script::CStruct* params, Script::CScript* script);
 // 0x0058FED0 SetParkEditorPauseMode pause | unpause: the editor paused (its menu and cursor hidden) or not.
 bool __cdecl CFunc_SetParkEditorPauseMode(Script::CStruct* params, Script::CScript* script);
+
+GAME_GLOBAL_EXTERN(bool, g_collisionAllowed);
 
 } // namespace Ed

@@ -375,7 +375,7 @@ bool __cdecl CFunc_PreselectRandomPedestrians(Script::CStruct* params, Script::C
 // (in this walk) runs Obj_ReplaceTexture with the parameters.
 bool __cdecl CFunc_ReplaceCarTextures(Script::CStruct* params, Script::CScript* script)
 {
-    auto* objects = GameVariable<Obj::CCompositeObjectManager*>(0x006F0FB8);
+    auto* objects = Obj::g_compositeObjectManager;
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
     uint32_t seen[32];
     int seenCount = 0;

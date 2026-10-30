@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -31,5 +32,7 @@ bool __cdecl CFunc_ResetEngine(Script::CStruct* params, Script::CScript* script)
 // The .qb files loaded with LoadQB's LevelSpecific flag (0x00696900, 15 name checksums; 0 = a free slot).
 uint32_t* LevelSpecificQbFiles();
 constexpr int kLevelSpecificQbFiles = 15;
+
+GAME_GLOBAL_EXTERN(uint32_t[15], g_levelQbFiles);
 
 } // namespace CFuncs

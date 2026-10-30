@@ -51,10 +51,16 @@
 #include "game/gfx/texture_dict.h"
 #include "game/gfx/viewport.h"
 #include "game/gfx/viewport_list.h"
+#include "game/obj/anim_movies.h"
+#include "game/script/debug_cfuncs.h"
+#include "game/obj/movie_manager.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(uint32_t, g_lastBroadcastedOmnigon, 0x007CEBC8);
 
 namespace {
 
@@ -76,15 +82,15 @@ constexpr uint32_t kFlashFlag4 = 0x387C9ED6;
 constexpr uint32_t kFlashFlag8 = 0xDF6436D2;
 
 // The skate module (Mdl::Skate, 0x007CE478) and its code we call through the game.
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 Mdl::Skate* SkateModule() { return reinterpret_cast<Mdl::Skate*>(Skate()); }
 Obj::CSkater* GetSkater(int index) { return static_cast<Obj::CSkater*>(SkateModule()->GetSkater(index)); }
 Obj::CSkater* GetLocalSkater() { return SkateModule()->GetLocalSkater(); }
 
 // The object manager (0x006F0FB8).
-Obj::CCompositeObjectManager* Objects() { return GameVariable<Obj::CCompositeObjectManager*>(0x006F0FB8); }
+Obj::CCompositeObjectManager* Objects() { return Obj::g_compositeObjectManager; }
 // The game mode (0x007CE470) and two of its values (0x00553170 / 0x00553190: its integers 0x8D38A280 / 0x6DC3D6F1).
-void* GameMode() { return GameVariable<void*>(0x007CE470); }
+void* GameMode() { return static_cast<void*>(Game::g_gameMode); }
 Game::CGameMode* GameModeObject() { return static_cast<Game::CGameMode*>(GameMode()); }
 int GameModeTimeLimit() { return GameModeObject()->GetTimeLimit(); }
 GameNet::Manager* GameNetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
@@ -97,7 +103,7 @@ inline void CompiledOutDebugCall() {}
 // A .qb file's scripts unloaded and the global 0xC472ECC5 cleared (0x005A59B0).
 void UnloadQbFile(uint32_t file) { Script::UnloadQBFile(file); }
 // The level's .qb files to unload with it (0x00696900, 15).
-uint32_t* LevelQbFiles() { return &GameVariable<uint32_t>(0x00696900); }
+uint32_t* LevelQbFiles() { return g_levelQbFiles; }
 constexpr int kLevelQbFiles = 15;
 
 // What a manager walk does to the objects of a name (0x005A01D0's structure; the object's part from +4).
@@ -130,7 +136,7 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     Game::CGoalManager* skaterInfo = Game::GetGoalManager();
     skaterInfo->DeactivateAllGoals(false);
     skaterInfo->RemoveAllGoals();
-    GameVariable<Gfx::CTODManager*>(0x007CE490)->ClearDeadObjects();
+    g_todManager->ClearDeadObjects();
     Ed::CParkEditor::Instance()->Leave();
     CompiledOutDebugCall();
     bool preserveSkaters = false;
@@ -412,7 +418,7 @@ bool __cdecl CFunc_UnPauseGame(Script::CStruct*, Script::CScript*)
 // command's own parameters.
 bool __cdecl CFunc_GameIsPaused(Script::CStruct* params, Script::CScript*)
 {
-    if (!GameVariable<bool>(0x006FA7D4))
+    if (!Obj::g_gamePaused)
         return false;
     params->AddChecksum(kGamePaused, kGamePaused);
     return true;
@@ -453,7 +459,7 @@ bool __cdecl CFunc_DoFlash(Script::CStruct* params, Script::CScript* script)
     int viewport = -1;
     const char* texture = nullptr;
     params->GetFloat(reinterpret_cast<const char*>(0x0064BB34), &duration, 0); // "duration"
-    if (!(duration > GameVariable<float>(0x0066D520))) // (0.0)
+    if (!(duration > Obj::g_floatZero)) // (0.0)
         return true;
     params->GetString(reinterpret_cast<const char*>(0x0064FCF8), &texture, 0); // "texture"
     params->GetFloat(reinterpret_cast<const char*>(0x0064FCF4), &z, 0);        // "z"
@@ -591,7 +597,7 @@ constexpr uint32_t kCheatFailed = 0x323D63FF;   // (names unknown) its scripts: 
 constexpr uint32_t kCheatFound = 0xB95B735C;    // a cheat (before the cheat's own script)
 constexpr uint32_t kCheatList = 0x75A23DA4;     // (name unknown) the global array of {c1 c2 cheatscript}
 
-uint32_t& LastBroadcastedOmnigon() { return GameVariable<uint32_t>(0x007CEBC8); }
+uint32_t& LastBroadcastedOmnigon() { return g_lastBroadcastedOmnigon; }
 
 // A skater's score (0x00580480; null if none) and its display brought up to date (0x005626E0).
 void UpdateScoreDisplay(Obj::CSkater* skater)

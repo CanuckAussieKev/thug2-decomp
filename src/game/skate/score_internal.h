@@ -9,6 +9,7 @@
 #include "game/front/screen_element_manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/trick_objects.h"
+#include "game/skate/game_mode.h"
 #include "game/script/struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
@@ -44,9 +45,9 @@ inline int SpinMultiplier(int spin) { return spin < 6 ? reinterpret_cast<const i
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 inline int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-inline Game::CGameMode* GameMode() { return GameVariable<Game::CGameMode*>(0x007CE470); }
+inline Game::CGameMode* GameMode() { return Game::g_gameMode; }
 inline GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-inline Obj::CTrickObjectManager* TrickObjects() { return GameVariable<Obj::CTrickObjectManager*>(0x007CE500); }
+inline Obj::CTrickObjectManager* TrickObjects() { return Obj::g_trickObjectManager; }
 inline Obj::CSkater* SkaterById(int id)
 {
     return static_cast<Obj::CSkater*>(SkateCalls::GetSkaterById(static_cast<uint32_t>(id)));

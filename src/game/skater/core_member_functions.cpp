@@ -16,6 +16,7 @@
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/skater.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -616,7 +617,7 @@ int CorePhysicsComponent::GetAirtime(Script::CStruct*, Script::CScript* script)
 int CorePhysicsComponent::RestoreAutoKick(Script::CStruct*, Script::CScript*)
 {
     int profile = At<int>(ObjectOf(this), kObjectProfile);
-    uint8_t* profiles = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* profiles = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     Byte(this, kAutoKick) = profiles[profile * 8 + 0x395];
     return 1;
 }

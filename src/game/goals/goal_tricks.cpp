@@ -90,7 +90,7 @@ void FreeArray(Script::CArray* array)
         Script::DeleteArray(array);
     }
 }
-CSkaterProfile* CurrentProfile() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4)->GetCurrentProfile(); }
+CSkaterProfile* CurrentProfile() { return Obj::g_profileManager->GetCurrentProfile(); }
 
 } // namespace
 
@@ -316,7 +316,7 @@ void CGoal::RemoveRewardTrick()
 // 0x00555D40
 void CGoal::ColorTrickObjects(int player, bool clear)
 {
-    Obj::CTrickObjectManager* objects = GameVariable<Obj::CTrickObjectManager*>(0x007CE500);
+    Obj::CTrickObjectManager* objects = Obj::g_trickObjectManager;
     Script::CArray* clusters = nullptr;
     if (!m_params->GetArray(kKillClusters, &clusters, 0))
         return;

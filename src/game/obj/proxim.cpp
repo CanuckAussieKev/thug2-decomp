@@ -36,7 +36,7 @@ constexpr uint32_t kRestart = 0x1806DDF8;         // Restart
 constexpr int kMaxSkaters = 32;
 
 ProximManager*& Manager() { return GameVariable<ProximManager*>(0x006F2268); }
-CCompositeObjectManager* ObjectManager() { return GameVariable<CCompositeObjectManager*>(0x006F0FB8); }
+CCompositeObjectManager* ObjectManager() { return g_compositeObjectManager; }
 CObject* ObjectById(uint32_t id) { return ObjectManager()->GetObjectByID(id); }
 
 // A level sector's bounding box and world matrix (not rewritten yet).

@@ -30,10 +30,15 @@
 #include "game/skater/state_history.h"
 #include "game/sys/game_clock.h"
 #include "game/gfx/anim_blend.h"
+#include "game/obj/control_pad.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(int, g_nonlocalLag, 0x007CCDE4);
 
 namespace {
 
@@ -76,9 +81,9 @@ GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE
 // The network manager's client app: +8 its frame count.
 uint8_t* ClientApp() { return reinterpret_cast<uint8_t*>(NetManager()->GetClient(0)); }
 int FrameRate() { return GameVariable<int>(0x00684FB4); }
-int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Now() { return Tmr::GameClockElapsed() + g_clockOffset; }
 // The level's rails (the skate module's +0x24).
-CRailManager* LevelRails() { return Field<CRailManager*>(GameVariable<uint8_t*>(0x007CE478), 0x24); }
+CRailManager* LevelRails() { return Field<CRailManager*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x24); }
 
 // How far behind the connection is, in frames of `frameMs`: the latency - the server's connection to the skater's
 // player, a client's first (to the server) - less a frame, over a frame, as unsigned numbers (0 without a frame).
@@ -162,7 +167,7 @@ void CSkaterNonLocalNetLogicComponent::Interpolate()
     }
     int lag = (oldest - entry + kHistory) % kHistory;
     m_entry = entry;
-    GameVariable<int>(0x007CCDE4) = lag;
+    g_nonlocalLag = lag;
     if (lag >= 10)
         m_syncTime += 1000 / FrameRate() * 10; // (far behind: ten frames on)
     else if (lag == 0)

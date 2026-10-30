@@ -197,11 +197,11 @@ uint8_t* PadOf(const void* core) { return At<uint8_t*>(core, kInput) + 0x20; }
 Obj::CControlPad* ControlPad(const void* core) { return reinterpret_cast<Obj::CControlPad*>(PadOf(core)); }
 float FrameLength(const void* core) { return At<float>(core, kFrameLength); }
 
-int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Now() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
 uint32_t Since(int stamp)
 {
     return static_cast<uint32_t>(Tmr::GameClockElapsed()) +
-           (static_cast<uint32_t>(GameVariable<int>(0x00696D60)) - static_cast<uint32_t>(stamp));
+           (static_cast<uint32_t>(Obj::g_clockOffset) - static_cast<uint32_t>(stamp));
 }
 // A button's time since it was pressed (0x0046B920), as THAW's float compares take it (unsigned).
 float HeldMs(uint8_t* button)

@@ -21,10 +21,15 @@
 #include "game/script/script_startup.h"
 #include "game/gfx/viewport.h"
 #include "game/gfx/loading_bar_cfuncs.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(char[64], g_levelName, 0x007CE698);
+GAME_GLOBAL(uint32_t[22], g_debounceTimes, 0x007CE758);
 
 namespace {
 
@@ -48,11 +53,11 @@ constexpr uint32_t kDumpScriptsFlag = 0x2AB71EEF; // (name unknown) passed to Du
 int ButtonIndex(uint32_t button) { return Inp::ButtonIndex(button); }
 
 // The last Omnigon checksum sent to the other players (0x007CEBC8).
-uint32_t& LastBroadcastedOmnigon() { return GameVariable<uint32_t>(0x007CEBC8); }
+uint32_t& LastBroadcastedOmnigon() { return g_lastBroadcastedOmnigon; }
 
 // The current level's node array name (0x007CE6D8) and the level's name (0x007CE698, 64 characters).
-char* NodeArrayName() { return &GameVariable<char>(0x007CE6D8); }
-char* LevelName() { return &GameVariable<char>(0x007CE698); }
+char* NodeArrayName() { return g_nodeArrayName; }
+char* LevelName() { return g_levelName; }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
 void* Viewer() { return Mdl::GetViewer(); }
@@ -62,7 +67,7 @@ inline void DumpScriptsList(bool /*flag*/) {}
 
 } // namespace
 
-uint32_t* DebounceTimes() { return &GameVariable<uint32_t>(0x007CE758); }
+uint32_t* DebounceTimes() { return g_debounceTimes; }
 
 // 0x0059EE80
 bool __cdecl ControllerPressed(const void* controller, uint32_t button)

@@ -11,9 +11,13 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(bool, g_cutsceneListFlushing, 0x007CED50);
+GAME_GLOBAL(PointerList, g_cutsceneDestroyList, 0x007CEDD8);
 
 namespace {
 
@@ -32,9 +36,9 @@ constexpr uint32_t kPermanent = 0x23627FD7;        // "permanent"
 constexpr uint32_t kNotSessionSpecific = 0x2EBFF4BC; // "NotSessionSpecific"
 constexpr uint32_t kKillSpawnedScript = 0xD7034230; // "cutscene_kill_spawned_script"
 
-PointerList& DestroyList() { return GameVariable<PointerList>(0x007CEDD8); }
+PointerList& DestroyList() { return g_cutsceneDestroyList; }
 // Set while the list is flushed (RemoveFromCutsceneDestroyList does nothing then).
-bool& Flushing() { return GameVariable<bool>(0x007CED50); }
+bool& Flushing() { return g_cutsceneListFlushing; }
 
 CutsceneDestroyEntry* EntryOf(Node* node) { return static_cast<CutsceneDestroyEntry*>(node->value); }
 

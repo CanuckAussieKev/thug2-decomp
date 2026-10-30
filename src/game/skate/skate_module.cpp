@@ -3,11 +3,14 @@
 #include "game/skate/skate_module.h"
 
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mdl {
 
-Skate* Skate::Instance() { return GameVariable<Skate*>(0x007CE478); }
+GAME_GLOBAL(Skate*, g_skateModule, 0x007CE478);
+
+Skate* Skate::Instance() { return g_skateModule; }
 
 // 0x0041AD90
 int Skate::GetNumSkaters()

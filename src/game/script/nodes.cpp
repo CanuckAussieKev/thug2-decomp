@@ -206,7 +206,7 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
 {
     if (depth > kMaxDepth)
         return;
-    Script::CScriptCache* cache = GameVariable<Script::CScriptCache*>(0x006F3558);
+    Script::CScriptCache* cache = Script::g_scriptCache;
     const uint8_t* token = cache->GetScript(script);
     CStruct* params = nullptr;
     if (void* memory = Script::NewStruct())

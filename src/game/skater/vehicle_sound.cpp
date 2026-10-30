@@ -13,10 +13,19 @@
 #include "game/sfx/sfx.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/ed/park_editor.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[24], g_vehicleSoundMemberFunctions, 0x00684648,
+            0xB8451886, 0x1859F772, 0, 0, 0, 0,
+            0x0F6E8120, 0x1859F772, 0, 0, 0, 0,
+            0xF876FAE9, 0x1859F772, 0, 0, 0, 0,
+            0, 0x1859F772, 0, 0, 0, 0);
 
 namespace {
 
@@ -44,7 +53,7 @@ Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85
 
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
 int Clock() { return Tmr::GameClockElapsed(); }
-int ClockOffset() { return GameVariable<int>(0x00696D60); }
+int ClockOffset() { return g_clockOffset; }
 
 // A float of the global structure kRates (asserted).
 float Rate(uint32_t name)
@@ -101,7 +110,7 @@ CBaseComponent* __cdecl CSkaterVehicleSoundComponent::Create()
 // 0x0051AD90
 void __cdecl CSkaterVehicleSoundComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00684648), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_vehicleSoundMemberFunctions, 0x18);
 }
 
 // 0x0051ADD0
@@ -145,7 +154,7 @@ CSkaterVehicleSoundComponent* CSkaterVehicleSoundComponent::Destroy(unsigned int
 // 0x0051AE60
 void CSkaterVehicleSoundComponent::InitFromStructure(Script::CStruct*)
 {
-    m_parkEditorLevel = Field<uint32_t>(GameVariable<void*>(0x007CE5D8), 0x40) != kParkEditorOff;
+    m_parkEditorLevel = Field<uint32_t>(static_cast<void*>(Ed::g_parkEditor), 0x40) != kParkEditorOff;
 }
 
 // 0x0051B8E0

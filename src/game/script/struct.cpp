@@ -9,13 +9,30 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Script {
 
+GAME_GLOBAL(int, g_structCopyPeak, 0x0067DA30, 18000);
+GAME_GLOBAL(Mem::PoolPair, g_arrayPools, 0x006F22B4);
+GAME_GLOBAL(Mem::PoolPair, g_componentPools, 0x006F2338);
+GAME_GLOBAL(bool, g_usePermanentStrings, 0x006F3570);
+GAME_GLOBAL(char*, g_permanentStringsStart, 0x006F3574);
+GAME_GLOBAL(char*, g_permanentStringsNext, 0x006F3578);
+GAME_GLOBAL(uint32_t, g_permanentStringsSize, 0x006F357C);
+GAME_GLOBAL(uint32_t, g_permanentStringCount, 0x006F3584);
+GAME_GLOBAL(int, g_structCopyCount, 0x006F3610);
+GAME_GLOBAL(CSymbolTableEntry**, g_symbolTable, 0x006F3624);
+GAME_GLOBAL(Mem::PoolPair, g_symbolPools, 0x006F362C);
+GAME_GLOBAL(CSymbolTableEntry*, g_iteratorEntry, 0x006F363C);
+GAME_GLOBAL(uint32_t, g_iteratorBucket, 0x006F3640);
+GAME_GLOBAL(Mem::PoolPair, g_pairPools, 0x006F3644);
+GAME_GLOBAL(Mem::PoolPair, g_vectorPools, 0x006F3654);
+
 namespace {
 
-CSymbolTableEntry** SymbolTable() { return GameVariable<CSymbolTableEntry**>(0x006F3624); }
+CSymbolTableEntry** SymbolTable() { return g_symbolTable; }
 constexpr uint32_t kSymbolTableMask = 0xFFF;
 
 } // namespace
@@ -497,23 +514,24 @@ namespace Script {
 namespace {
 
 // The pool pairs of the script's value objects.
-Mem::PoolPair& ComponentPools() { return GameVariable<Mem::PoolPair>(0x006F2338); }
+Mem::PoolPair& ComponentPools() { return g_componentPools; }
 Mem::PoolPair& StructPools() { return GameVariable<Mem::PoolPair>(0x006F3614); }
-Mem::PoolPair& ArrayPools() { return GameVariable<Mem::PoolPair>(0x006F22B4); }
-Mem::PoolPair& PairPools() { return GameVariable<Mem::PoolPair>(0x006F3644); }
-Mem::PoolPair& VectorPools() { return GameVariable<Mem::PoolPair>(0x006F3654); }
+Mem::PoolPair& ArrayPools() { return g_arrayPools; }
+Mem::PoolPair& PairPools() { return g_pairPools; }
+Mem::PoolPair& VectorPools() { return g_vectorPools; }
 
 // The permanent string cache (used while loading the game's scripts): one block, strings shared by checksum.
-bool& UsePermanentStrings() { return GameVariable<bool>(0x006F3570); }
-char*& PermanentStringsStart() { return GameVariable<char*>(0x006F3574); }
-char*& PermanentStringsNext() { return GameVariable<char*>(0x006F3578); }
-uint32_t& PermanentStringsSize() { return GameVariable<uint32_t>(0x006F357C); }
+bool& UsePermanentStrings() { return g_usePermanentStrings; }
+char*& PermanentStringsStart() { return g_permanentStringsStart; }
+char*& PermanentStringsNext() { return g_permanentStringsNext; }
+uint32_t& PermanentStringsSize() { return g_permanentStringsSize; }
 struct PermanentString {
     uint32_t checksum;
     char* string;
 };
-PermanentString*& PermanentStringTable() { return GameVariable<PermanentString*>(0x006F3580); }
-uint32_t& PermanentStringCount() { return GameVariable<uint32_t>(0x006F3584); }
+GAME_GLOBAL(PermanentString*, g_permanentStringTable, 0x006F3580);
+PermanentString*& PermanentStringTable() { return g_permanentStringTable; }
+uint32_t& PermanentStringCount() { return g_permanentStringCount; }
 
 // 0x00476260 (the string in EAX: called only by CreateString, so registered source-only)
 char* CreatePermanentString(const char* string)
@@ -1260,7 +1278,7 @@ using AddMethod = void (CStruct::*)(A...);
 // 0x0044C170: free a component (pooled)
 void DeleteComponentAdapter(Script::CComponent* component) { Script::FreeComponent(component); }
 // 0x0044C130: operator new (the size is always 16)
-void* NewComponentMemory(unsigned int size) { return GameVariable<Mem::PoolPair>(0x006F2338).Allocate(size); }
+void* NewComponentMemory(unsigned int size) { return Script::g_componentPools.Allocate(size); }
 struct ComponentAdapter {
     Script::CComponent* Construct() { return Script::ConstructComponent(reinterpret_cast<Script::CComponent*>(this)); }
 };
@@ -1318,16 +1336,16 @@ uint32_t* AllocateElements(uint32_t count)
 }
 
 // 0x006F3610 / 0x0067DA30: how many structures were made by copying, and the most there were (debug counters).
-int& StructCopyCount() { return GameVariable<int>(0x006F3610); }
-int& StructCopyPeak() { return GameVariable<int>(0x0067DA30); }
+int& StructCopyCount() { return g_structCopyCount; }
+int& StructCopyPeak() { return g_structCopyPeak; }
 
 } // namespace
 
 // 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
-CPair* NewPair() { return static_cast<CPair*>(GameVariable<Mem::PoolPair>(0x006F3644).Allocate(sizeof(CPair))); }
+CPair* NewPair() { return static_cast<CPair*>(g_pairPools.Allocate(sizeof(CPair))); }
 CVector* NewVector()
 {
-    return static_cast<CVector*>(GameVariable<Mem::PoolPair>(0x006F3654).Allocate(sizeof(CVector)));
+    return static_cast<CVector*>(g_vectorPools.Allocate(sizeof(CVector)));
 }
 
 // 0x0047AC00
@@ -1566,8 +1584,8 @@ namespace Script {
 namespace {
 
 // The symbol iterator's position: the current entry and its bucket.
-CSymbolTableEntry*& IteratorEntry() { return GameVariable<CSymbolTableEntry*>(0x006F363C); }
-uint32_t& IteratorBucket() { return GameVariable<uint32_t>(0x006F3640); }
+CSymbolTableEntry*& IteratorEntry() { return g_iteratorEntry; }
+uint32_t& IteratorBucket() { return g_iteratorBucket; }
 
 // A global symbol's value as an integer / float (other types: 0).
 int SymbolInteger(CSymbolTableEntry* entry)
@@ -1604,7 +1622,7 @@ const char* EmptyString() { return reinterpret_cast<const char*>(0x006469B4); }
 void CreateSymbolTable()
 {
     auto* table = static_cast<CSymbolTableEntry**>(Mem::Malloc(0x1000 * sizeof(CSymbolTableEntry*)));
-    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+    g_symbolTable = table;
     for (uint32_t i = 0; i < 0x1000; ++i)
         table[i] = nullptr;
 }
@@ -1624,7 +1642,7 @@ CSymbolTableEntry* CSymbolTableEntry::Init()
 // 0x00479110
 CSymbolTableEntry* CreateSymbol(uint32_t name)
 {
-    void* memory = GameVariable<Mem::PoolPair>(0x006F362C).Allocate(sizeof(CSymbolTableEntry));
+    void* memory = g_symbolPools.Allocate(sizeof(CSymbolTableEntry));
     CSymbolTableEntry* entry = memory ? static_cast<CSymbolTableEntry*>(memory)->Init() : nullptr;
     entry->name = name;
     entry->unknown0 |= 1;

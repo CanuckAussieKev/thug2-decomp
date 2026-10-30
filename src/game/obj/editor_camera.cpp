@@ -19,10 +19,18 @@
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/ed/park_editor.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t, g_editorCameraName, 0x0067EFE8, 0x43BFAB74);
+GAME_GLOBAL(uint32_t[20], g_editorCameraSeen, 0x007CCBE8);
+GAME_GLOBAL(uint8_t, g_editorCameraFlagged, 0x007CCC38);
+GAME_GLOBAL(int, g_editorCameraSeenCount, 0x007CCC3C);
 
 namespace {
 
@@ -42,9 +50,9 @@ constexpr double kHeightSlack = 0.01;            // 0x0064B310
 // Script globals (Script::GetFloat).
 float Global(uint32_t name) { return Script::GetFloat(name); }
 
-uint8_t& Flagged() { return GameVariable<uint8_t>(0x007CCC38); }
-int& SeenCount() { return GameVariable<int>(0x007CCC3C); }
-uint32_t* Seen() { return &GameVariable<uint32_t>(0x007CCBE8); }
+uint8_t& Flagged() { return g_editorCameraFlagged; }
+int& SeenCount() { return g_editorCameraSeenCount; }
+uint32_t* Seen() { return g_editorCameraSeen; }
 
 // The collision feeler (Nx's ray, 0xB0 bytes; not rewritten yet): its line from +0x00 to +0x10, a hit callback at
 // +0x20, the hit's point at +0x78 and normal at +0x88; what it hit held by a smart pointer at +0x98.
@@ -88,7 +96,7 @@ void RailEditorMoving(int moved)
 }
 bool InParkEditor()
 {
-    return *reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE478) + 0x378) == 0xE8B4B836;
+    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x378) == 0xE8B4B836;
 }
 
 } // namespace
@@ -101,13 +109,13 @@ bool __cdecl ScriptFlagged(uint32_t name)
             return false;
     }
     Seen()[SeenCount()++] = name;
-    if (name == GameVariable<uint32_t>(0x0067EFE8))
+    if (name == g_editorCameraName)
         return false;
     for (uint32_t address = 0x0067EFD8; address < 0x0067EFE8; address += 4) {
         if (name == GameVariable<uint32_t>(address))
             return true;
     }
-    Script::CScriptCache* cache = GameVariable<Script::CScriptCache*>(0x006F3558);
+    Script::CScriptCache* cache = Script::g_scriptCache;
     const uint8_t* token = cache->GetScript(name);
     if (!token)
         return false;
@@ -418,7 +426,7 @@ void CEditorCameraComponent::Update()
     if (controller == 4 || controller == 7) {
         zoomIn = (buttons & 0x400000) != 0;
         zoomOut = (buttons & 0x800000) != 0;
-        if (*reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) == 0x7ECA21E5) {
+        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) == 0x7ECA21E5) {
             raise = (buttons & 0x1000) != 0;
             lower = (buttons & 0x4000) != 0;
         } else {
@@ -481,7 +489,7 @@ void CEditorCameraComponent::Update()
     }
     m_height = rise + m_height;
 
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     if (InParkEditor())
         RailEditorMoving(0);
 

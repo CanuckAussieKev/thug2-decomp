@@ -37,7 +37,7 @@ bool IsMultiplayerGame()
 // stop_at_zero if it has the setting). Not rewritten yet.
 bool GameModeEndsRuns()
 {
-    return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->ShouldStopAtZero();
+    return static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->ShouldStopAtZero();
 }
 // The network manager (0x007CCE14): whether it has told the server the local run is over (0x005332A0: its +0x39
 // matches +0x38), and telling it (0x00533250).

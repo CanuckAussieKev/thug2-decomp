@@ -16,15 +16,19 @@
 #include "game/ed/rail_editor_internal.h"
 #include "game/obj/objman.h"
 #include "game/park/park_memory.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
 
+GAME_GLOBAL(Mem::PoolPair, g_railPointPools, 0x007CCD50);
+
 namespace RailEditorInternal {
 
-Mem::PoolPair& PointPools() { return GameVariable<Mem::PoolPair>(0x007CCD50); }
-Mem::PoolPair& RailPools() { return GameVariable<Mem::PoolPair>(0x007CCD40); }
+Mem::PoolPair& PointPools() { return g_railPointPools; }
+Mem::PoolPair& RailPools() { return g_railPools; }
 bool& UpdateSuperSectors() { return GameVariable<bool>(0x0067F000); }
 
 void DeleteSector(uint8_t*& sector)
@@ -43,10 +47,12 @@ void DeleteSector(uint8_t*& sector)
 
 using namespace RailEditorInternal;
 
+GAME_GLOBAL(uint32_t, g_nextRailId, 0x0067EFFC, 1);
+
 namespace {
 
 void** const kVtable = reinterpret_cast<void**>(0x0064B918);
-uint32_t& NextRailId() { return GameVariable<uint32_t>(0x0067EFFC); }
+uint32_t& NextRailId() { return g_nextRailId; }
 
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 
@@ -379,7 +385,7 @@ CEditedRail* CEditedRail::CopyInside(float x0, float z0, float x1, float z1, CEd
 CRailEditorComponent* __cdecl CRailEditorComponent::Instance()
 {
     auto* object = reinterpret_cast<Obj::CCompositeObject*>(
-        GameVariable<Obj::CBaseManager*>(0x006F0FB8)->GetObjectByID(kType));
+        reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager)->GetObjectByID(kType));
     return static_cast<CRailEditorComponent*>(object->GetComponent(kType));
 }
 

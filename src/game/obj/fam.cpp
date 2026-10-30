@@ -17,9 +17,15 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[18], g_famMemberFunctions, 0x006836E8,
+            0xE5894C80, 0x0301D67C, 0, 0, 0, 0,
+            0x48AC2139, 0x0301D67C, 0, 0, 0, 0,
+            0, 0x0301D67C, 0, 0, 0, 0);
 
 namespace {
 
@@ -39,7 +45,7 @@ constexpr uint32_t kJawRotation = 0xC0BA0665;    // jawRotation
 constexpr uint32_t kRemoveAnimController = 0x986D274E; // RemoveAnimController
 constexpr int kDefaultPriority = 0x66;
 
-Ass::CAssMan* AssetManager() { return GameVariable<Ass::CAssMan*>(0x006918DC); }
+Ass::CAssMan* AssetManager() { return Ass::g_assetManager; }
 
 Script::CStruct* NewParams()
 {
@@ -73,7 +79,7 @@ CBaseComponent* __cdecl CFamComponent::Create()
 // 0x0041D170
 void __cdecl CFamComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x006836E8),
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_famMemberFunctions,
                                         0x18);
 }
 

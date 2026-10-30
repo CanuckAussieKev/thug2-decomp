@@ -12,6 +12,7 @@
 #include "game/lst/head.h"
 #include "game/mth/vector.h"
 #include "game/sys/module.h"
+#include "hook/game_global.h"
 
 namespace Obj {
 class CCompositeObject;
@@ -286,5 +287,8 @@ void __cdecl FillEliminationRanking();
 
 // 0x00565730: the skater list head's destructor body (its node's: unlinked).
 void __fastcall SkaterHeadDestroyBody(Mem::ListNode* head);
+
+GAME_GLOBAL_EXTERN(int, g_viewportCount);
+GAME_GLOBAL_EXTERN(Mdl::Skate*, g_skateModule);
 
 } // namespace Mdl

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Mem {
 class Heap;
@@ -92,5 +93,7 @@ bool __cdecl PiecesFit(int first, int last);
 // 0x0059EC00: the park heap (park_heap_size, its own region in the top-down heap for the level 0xCD3682C1,
 // else in the bottom-up one) and the three pools in it; figures cleared.
 void __cdecl Init(uint32_t level);
+
+GAME_GLOBAL_EXTERN(Mem::Heap*, g_parkHeap);
 
 } // namespace Ed

@@ -18,6 +18,7 @@
 #include "game/gfx/engine_glue.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/script/cfuncs_scene.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -104,7 +105,7 @@ bool __cdecl CFunc_MemViewToggle(CStruct*, CScript*)
 }
 
 // 0x004480A0: GotExtraMemory: whether the machine has the extra memory (0x007CEFAC).
-bool __cdecl CFunc_GotExtraMemory(CStruct*, CScript*) { return GameVariable<uint8_t>(0x007CEFAC) != 0; }
+bool __cdecl CFunc_GotExtraMemory(CStruct*, CScript*) { return g_gotExtraMemory != 0; }
 
 // 0x004480B0: MemPushContext <heap name> | 0 (the bottom-up heap; another number does nothing): allocations go to
 // that heap until MemPopContext. Always true.

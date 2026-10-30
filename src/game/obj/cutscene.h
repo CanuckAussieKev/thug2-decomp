@@ -14,6 +14,7 @@ class CArray;
 class CStruct;
 }
 #include "game/file/asset_bundle.h"
+#include "hook/game_global.h"
 
 namespace Obj {
 
@@ -298,5 +299,11 @@ static_assert(offsetof(CCutsceneDetails, m_params) == 0x40 && offsetof(CCutscene
 static_assert(offsetof(CCutsceneDetails, m_data) == 0x2C && offsetof(CCutsceneDetails, m_flag5D) == 0x5D &&
                   offsetof(CCutsceneDetails, m_unknown60) == 0x60,
               "layout must match the original");
+
+GAME_GLOBAL_EXTERN(uint8_t[5], g_cutsceneCameraSlot);
+GAME_GLOBAL_EXTERN(bool, g_cutscenePlaying);
+GAME_GLOBAL_EXTERN(int, g_cutsceneFixedFrame);
+GAME_GLOBAL_EXTERN(float[512], g_cutsceneRotations);
+GAME_GLOBAL_EXTERN(float[512], g_cutsceneTranslations);
 
 } // namespace Obj
