@@ -15,6 +15,15 @@
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/device.h"
+#include "game/gfx/engine_sprite.h"
+#include "game/gfx/geom.h"
+#include "game/gfx/particles.h"
+#include "game/gfx/pc_model.h"
+#include "game/gfx/pc_scene.h"
+#include "game/gfx/pc_sprite.h"
+#include "game/gfx/pc_texture.h"
+#include "game/gfx/pc_weather.h"
+#include "game/gfx/render_state.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/shadow.h"
@@ -89,7 +98,7 @@ void __cdecl DeleteObject(void* object)
 // 0x004B22B0
 void __cdecl SetScreenClip(const void* rect)
 {
-    GameFunction<void(__cdecl*)(const void*)>(0x004D3CA0)(rect);
+    SetSkinScaling(static_cast<const uint32_t*>(rect));
 }
 
 // 0x004B22C0
@@ -168,14 +177,14 @@ void __cdecl StartEngine()
     void* memory = Mem::New(0x1C);
     void* particles = nullptr;
     if (memory) {
-        particles = GameFunction<void*(__thiscall*)(void*)>(0x00496770)(memory);
+        particles = static_cast<CParticleManager*>(memory)->Construct();
         *static_cast<void**>(particles) = reinterpret_cast<void*>(0x0064A304);
     }
     GameVariable<void*>(0x006FA7C4) = particles;
     memory = Mem::New(0x12AC);
-    GameVariable<void*>(0x006FA7C8) = memory ? GameFunction<void*(__thiscall*)(void*)>(0x004CC560)(memory) : nullptr;
+    GameVariable<void*>(0x006FA7C8) = memory ? static_cast<CPcWeather*>(memory)->Construct() : nullptr;
     memory = Mem::New(8);
-    GameVariable<void*>(0x006FA7CC) = memory ? GameFunction<void*(__thiscall*)(void*)>(0x004C6480)(memory) : nullptr;
+    GameVariable<void*>(0x006FA7CC) = memory ? static_cast<CPcScreenEffects*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B2710
@@ -190,7 +199,7 @@ CPcParticleManager* CPcParticleManager::Destroy(unsigned int flags)
 // 0x004B2740
 void CPcParticleManager::DestroyBody()
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004967D0)(this);
+    reinterpret_cast<CParticleManager*>(this)->DestroyBody();
 }
 
 // 0x004B2750
@@ -233,7 +242,7 @@ void __cdecl FinishRendering()
 void* __cdecl CreateScene(const char* /*name*/, void* /*textures*/, bool addSuperSectors)
 {
     void* memory = Mem::New(0x284);
-    uint8_t* scene = memory ? GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x004C6130)(memory, 10) : nullptr;
+    uint8_t* scene = memory ? reinterpret_cast<uint8_t*>(static_cast<CPcScene*>(memory)->Construct(10)) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     scene[0x8C] = addSuperSectors;
     scene[0x8D] = 0;
@@ -246,7 +255,7 @@ void* __cdecl CreateScene(const char* /*name*/, void* /*textures*/, bool addSupe
 bool __cdecl UnloadScene(void* scene)
 {
     auto* bytes = static_cast<uint8_t*>(scene);
-    GameFunction<void(__thiscall*)(void*)>(0x004C6200)(scene);
+    static_cast<CPcScene*>(scene)->UnloadSectors();
     DeleteScene(*reinterpret_cast<sScene**>(bytes + 0x280));
     *reinterpret_cast<sScene**>(bytes + 0x280) = nullptr;
     return true;
@@ -256,38 +265,38 @@ bool __cdecl UnloadScene(void* scene)
 void* __cdecl CreateModel()
 {
     void* memory = Mem::Calloc(0x50);
-    return memory ? GameFunction<void*(__thiscall*)(void*)>(0x004BAD90)(memory) : nullptr;
+    return memory ? static_cast<CPcModel*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B2A20
 void* __cdecl CreateGeom()
 {
     void* memory = Mem::Calloc(0x64);
-    return memory ? GameFunction<void*(__thiscall*)(void*)>(0x004B4460)(memory) : nullptr;
+    return memory ? static_cast<CPcGeom*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B2A80
 void* __cdecl CreateSprite()
 {
     void* memory = Mem::New(0x48);
-    return memory ? GameFunction<void*(__thiscall*)(void*)>(0x004C70E0)(memory) : nullptr;
+    return memory ? static_cast<CPcSprite*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B2AF0
 void* __cdecl CreateTexturedQuad()
 {
     void* memory = Mem::New(0x20);
-    return memory ? GameFunction<void*(__thiscall*)(void*, int)>(0x0049EED0)(memory, 0) : nullptr;
+    return memory ? static_cast<CTexturedQuad*>(memory)->Construct(nullptr) : nullptr;
 }
 
 // 0x004B2B60
 void* __cdecl CreateRenderTarget(int width, int height, uint8_t depth, int unused)
 {
     void* memory = Mem::New(0x14);
-    void* target = memory ? GameFunction<void*(__thiscall*)(void*)>(0x004C7ED0)(memory) : nullptr;
+    CPcTexture* target = memory ? static_cast<CPcTexture*>(memory)->Construct() : nullptr;
     memory = Mem::New(sizeof(sTexture));
     sTexture* texture = memory ? static_cast<sTexture*>(memory)->Construct() : nullptr;
-    GameFunction<void(__thiscall*)(void*, sTexture*)>(0x004C7EF0)(target, texture);
+    target->SetTexture(texture);
     // (no check: a failed allocation calls through null, as the original)
     texture->CreateRenderTarget(width, height, depth, unused);
     return target;

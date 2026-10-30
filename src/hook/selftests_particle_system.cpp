@@ -571,7 +571,7 @@ void StandInUpdateCalls(StandIns& s)
         Record({0x0AD0, r.args[0]});
         return r.args[0] & g_objectsFound ? 0x0B1E0000u : 0u;
     });
-    s.At({0x0048C490}, 0, [](Regs& r) {
+    s.At({0x0048C490, AddressOf(&Nx::Engine::SphereVisibleInOneViewport)}, 0, [](Regs& r) {
         const auto* centre = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0xC490, centre[0], centre[1], centre[2], centre[3], r.args[1]});
         return centre[0] & 0x10 ? 1u : 0u;

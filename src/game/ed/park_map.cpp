@@ -13,6 +13,8 @@
 #include "game/file/file.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
+#include "game/ed/rail_editor.h"
+#include "game/ed/goal_editor.h"
 #include "hook/hook.h"
 
 namespace Ed {
@@ -31,17 +33,16 @@ constexpr uint32_t kOldDeadPiece = 0xE2730BC0;    // the older parks' dead piece
 constexpr uint32_t kEditLevel = 0x7ECA21E5;       // "edit": the park editor's level
 
 // The goal editor (0x004E8470 looks it up): its goals cleared (0x004E8280), read from a structure (0x004EA470).
-void* GoalEditor() { return GameFunction<void*(__cdecl*)()>(0x004E8470)(); }
-void ClearGoals(void* goalEditor) { GameFunction<void(__thiscall*)(void*)>(0x004E8280)(goalEditor); }
+void* GoalEditor() { return CGoalEditorComponent::Get(); }
+void ClearGoals(void* goalEditor) { static_cast<CGoalEditorComponent*>(goalEditor)->ClearParkGoals(); }
 void ReadGoals(void* goalEditor, Script::CStruct* goals, int flag)
 {
-    GameFunction<void(__thiscall*)(void*, Script::CStruct*, int)>(0x004EA470)(goalEditor, goals, flag);
+    static_cast<CGoalEditorComponent*>(goalEditor)->ReadGoals(goals, flag);
 }
 // The rail editor (0x004F4970 looks it up): its rails read from a structure (0x004F7ED0).
 void ReadRails(Script::CStruct* params)
 {
-    void* railEditor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
-    GameFunction<void(__thiscall*)(void*, Script::CStruct*)>(0x004F7ED0)(railEditor, params);
+    CRailEditorComponent::Instance()->ReadFromStructure(params);
 }
 // A flag the rail editor reads (cleared while rails are read outside the park editor's level).
 bool& RailEditorFlag() { return GameVariable<bool>(0x0067F000); }

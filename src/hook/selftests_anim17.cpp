@@ -19,6 +19,7 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tests.h"
 #include "game/nx/coll_tri.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -359,8 +360,8 @@ void TestAnimCollSphereQueries()
     for (auto [ours, theirs] : {std::pair<uint32_t, uint32_t>{AddressOf(&Mth::Capsule::IntersectsSegment), 0x004032E0u},
                                 {AddressOf(&Mth::Capsule::ContainsPoint), 0x00403330u}})
         s.Bytes(ours, Branch(0xE9, ours, OriginalFunction(theirs)));
-    s.At({0x0048C940}, 0, [](Regs& r) {
-        Record({0x48C94000u, SaWhere(r.args[0])});
+    s.At({0x0048C940, AddressOf(&Nx::GetFirstCollGrid)}, 0, [](Regs&) {
+        Record({0x48C94000u}); // (the original's argument, the sphere, isn't passed by ours: it isn't read)
         return g_saGrid;
     });
     s.At({0x00418710, AddressOf(&Nx::CCollGrid::ObjectsInBox)}, 4, [](Regs& r) {
@@ -368,7 +369,7 @@ void TestAnimCollSphereQueries()
         SaWords(reinterpret_cast<void*>(r.args[0]), sizeof(Mth::BBox));
         return 0x12345678u;
     });
-    s.At({0x0048C980}, 0, [](Regs& r) {
+    s.At({0x0048C980, AddressOf(&Nx::GetCollGridsOnLine)}, 0, [](Regs& r) {
         Record({0x48C98000u});
         SaWords(reinterpret_cast<void*>(r.args[0]), sizeof(Mth::Line));
         return g_saGrid ? reinterpret_cast<uint32_t>(g_sa->grids) : 0u;

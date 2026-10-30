@@ -38,6 +38,19 @@
 #include "game/sfx/sfx.h"
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
+#include "game/skate/skate_module.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/script/script_startup.h"
+#include "game/goals/goal_manager.h"
+#include "game/gfx/engine_imposters.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/anim_cache.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/scene_lights.h"
+#include "game/gfx/texture_dict.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/viewport_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -64,22 +77,16 @@ constexpr uint32_t kFlashFlag8 = 0xDF6436D2;
 
 // The skate module (Mdl::Skate, 0x007CE478) and its code we call through the game.
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
-Obj::CSkater* GetSkater(int index)
-{
-    return GameFunction<Obj::CSkater*(__thiscall*)(uint8_t*, int)>(0x005665C0)(Skate(), index);
-}
-Obj::CSkater* GetLocalSkater() { return GameFunction<Obj::CSkater*(__thiscall*)(uint8_t*)>(0x00566520)(Skate()); }
-template <typename R = void, typename... A>
-R CallSkate(uintptr_t address, A... args)
-{
-    return GameFunction<R(__thiscall*)(uint8_t*, A...)>(address)(Skate(), args...);
-}
+Mdl::Skate* SkateModule() { return reinterpret_cast<Mdl::Skate*>(Skate()); }
+Obj::CSkater* GetSkater(int index) { return static_cast<Obj::CSkater*>(SkateModule()->GetSkater(index)); }
+Obj::CSkater* GetLocalSkater() { return SkateModule()->GetLocalSkater(); }
 
 // The object manager (0x006F0FB8).
 Obj::CCompositeObjectManager* Objects() { return GameVariable<Obj::CCompositeObjectManager*>(0x006F0FB8); }
 // The game mode (0x007CE470) and two of its values (0x00553170 / 0x00553190: its integers 0x8D38A280 / 0x6DC3D6F1).
 void* GameMode() { return GameVariable<void*>(0x007CE470); }
-int GameModeTimeLimit() { return GameFunction<int(__thiscall*)(void*)>(0x00553170)(GameMode()); }
+Game::CGameMode* GameModeObject() { return static_cast<Game::CGameMode*>(GameMode()); }
+int GameModeTimeLimit() { return GameModeObject()->GetTimeLimit(); }
 GameNet::Manager* GameNetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 Mem::Manager* MemManager() { return GameVariable<Mem::Manager*>(0x007D1800); }
 
@@ -88,7 +95,7 @@ Mem::Manager* MemManager() { return GameVariable<Mem::Manager*>(0x007D1800); }
 inline void CompiledOutDebugCall() {}
 
 // A .qb file's scripts unloaded and the global 0xC472ECC5 cleared (0x005A59B0).
-void UnloadQbFile(uint32_t file) { GameFunction<void(__cdecl*)(uint32_t)>(0x005A59B0)(file); }
+void UnloadQbFile(uint32_t file) { Script::UnloadQBFile(file); }
 // The level's .qb files to unload with it (0x00696900, 15).
 uint32_t* LevelQbFiles() { return &GameVariable<uint32_t>(0x00696900); }
 constexpr int kLevelQbFiles = 15;
@@ -120,9 +127,9 @@ struct FlagCommandData {
 bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
 {
     Stubs::DoNothing(); // 0x0048C1B0
-    void* skaterInfo = GameFunction<void*(__cdecl*)()>(0x005591B0)();
-    GameFunction<void(__thiscall*)(void*, int)>(0x00558250)(skaterInfo, 0);
-    GameFunction<void(__thiscall*)(void*)>(0x0055BEF0)(skaterInfo);
+    Game::CGoalManager* skaterInfo = Game::GetGoalManager();
+    skaterInfo->DeactivateAllGoals(false);
+    skaterInfo->RemoveAllGoals();
     GameVariable<Gfx::CTODManager*>(0x007CE490)->ClearDeadObjects();
     Ed::CParkEditor::Instance()->Leave();
     CompiledOutDebugCall();
@@ -137,17 +144,17 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     Ass::CAssMan* assets = Ass::AssetManager();
     Script::RunScript(kCleanupScript1, nullptr, nullptr, false, nullptr);
     Script::RunScript(kCleanupScript2, nullptr, nullptr, false, nullptr);
-    CallSkate(0x005666A0); // the skate module's objects
+    SkateModule()->Cleanup(); // the skate module's objects
     if (script)
         script->m_spawnFlags = static_cast<uint8_t>((script->m_spawnFlags & ~Script::SCRIPT_FLAG_SPAWNED) | spawned);
-    GameFunction<void(__thiscall*)(void*)>(0x0048E260)(GameVariable<void*>(0x006FA7BC));
-    GameFunction<void(__cdecl*)()>(0x00492340)();
-    void* particles = GameFunction<void*(__cdecl*)()>(0x00480660)(); // (0x006F92B0)
-    GameFunction<void(__thiscall*)(void*, int)>(0x00480DB0)(particles, 0);
-    GameFunction<void(__cdecl*)(bool)>(0x00490DE0)(false);
+    GameVariable<Nx::CImposterManager*>(0x006FA7BC)->DeleteAll();
+    Nx::Engine::KillAllEffects();
+    Gfx::CAnimCache* particles = Gfx::CAnimCache::Get(); // (0x006F92B0)
+    particles->Flush(false);
+    Nx::Engine::EnableFog(false);
     Script::DeleteFinishedScripts();
     CompiledOutDebugCall();
-    GameFunction<void(__cdecl*)()>(0x0048FB60)();
+    Nx::UninitLightManager();
     GameVariable<Sfx::CSfxManager*>(0x006F85A8)->CleanUp();
     assets->UnloadAllAssetsOfType(false, 9);
     Dbg::Printf(reinterpret_cast<const char*>(0x0064FC68)); // "unloading assman tables ...........\n"
@@ -173,11 +180,11 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
             Pip::UnloadPre(pre);
         pre = next;
     }
-    GameFunction<void(__cdecl*)()>(0x004A0760)();
-    GameFunction<void(__cdecl*)()>(0x0048FDE0)();
-    GameFunction<void(__cdecl*)(int)>(0x0049EFB0)(0);
+    Nx::DeleteMarkedCameras();
+    Nx::ClearSceneLightQueue();
+    Nx::FlushParticleTextures(false);
     Obj::CPathManager::Instance()->Free();
-    if (!CallSkate<bool>(0x005656D0))
+    if (!SkateModule()->InNetGameLevel())
         MemManager()->DeleteNetMiscHeap();
     Obj::DestroyCoimHeap();
     MEMORYSTATUS memory;
@@ -186,9 +193,9 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     int length = wsprintfA(text, reinterpret_cast<const char*>(0x0064FB98), memory.dwTotalPhys >> 10); // "%4d total kb..."
     wsprintfA(text + length, reinterpret_cast<const char*>(0x0064FB74), memory.dwAvailPhys >> 10);    // "%4d  free kb..."
     OutputDebugStringA(text);
-    if (CallSkate<bool>(0x005656D0))
+    if (SkateModule()->InNetGameLevel())
         MemManager()->InitNetMiscHeap();
-    if (CallSkate<bool>(0x00565700))
+    if (SkateModule()->InFrontEndOrNetMode())
         MemManager()->InitInternetHeaps();
     return true;
 }
@@ -428,7 +435,7 @@ bool __cdecl CFunc_UnPauseObjects(Script::CStruct*, Script::CScript*)
 bool __cdecl CFunc_ResetClock(Script::CStruct*, Script::CScript*)
 {
     if (GameNetManager()->OnServer())
-        CallSkate(0x00564D50, GameModeTimeLimit());
+        SkateModule()->SetUnknown370(GameModeTimeLimit());
     return true;
 }
 
@@ -479,8 +486,7 @@ bool __cdecl CFunc_DoFlash(Script::CStruct* params, Script::CScript* script)
     uint32_t endColour;
     std::memcpy(&startColour, start, 4);
     std::memcpy(&endColour, end, 4);
-    GameFunction<void(__cdecl*)(int, uint32_t, uint32_t, float, float, int, const char*)>(0x004923E0)(
-        viewport, startColour, endColour, duration, z, flags, texture);
+    Nx::Engine::AddFlash(viewport, startColour, endColour, duration, z, static_cast<uint32_t>(flags), texture);
     return true;
 }
 
@@ -510,7 +516,7 @@ bool __cdecl CFunc_SendException(Script::CStruct* params, Script::CScript* scrip
 // 0x005A11C0: RoundIncrement: the game mode's round (0x005536D0).
 bool __cdecl CFunc_RoundIncrement(Script::CStruct*, Script::CScript*)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x005536D0)(GameMode());
+    GameModeObject()->IncrementRound();
     return true;
 }
 
@@ -521,7 +527,7 @@ bool __cdecl CFunc_GameModeEquals(Script::CStruct* params, Script::CScript*)
     for (Script::CComponent* component = params->GetNextComponent(nullptr); component;
          component = params->GetNextComponent(component)) {
         if (component->name == 0 && component->Type() == Script::ESYMBOLTYPE_NAME &&
-            GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameMode(), component->checksum))
+            GameModeObject()->IsTrue(component->checksum))
             return true;
     }
     return false;
@@ -556,7 +562,7 @@ bool __cdecl CFunc_GetLevelStructureName(Script::CStruct*, Script::CScript* scri
 // 0x005A12C0: RestartLevel (the skate module's 0x005668A0).
 bool __cdecl CFunc_RestartLevel(Script::CStruct*, Script::CScript*)
 {
-    CallSkate(0x005668A0);
+    SkateModule()->RestartLevel();
     return true;
 }
 
@@ -565,7 +571,7 @@ bool __cdecl CFunc_GameFlow(Script::CStruct* params, Script::CScript*)
 {
     uint32_t name = 0;
     params->GetChecksum(0u, &name, 0);
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00552E30)(*reinterpret_cast<void**>(Skate() + 0x388), name);
+    (*reinterpret_cast<Game::CGameFlow**>(Skate() + 0x388))->Request(name);
     return true;
 }
 
@@ -591,7 +597,7 @@ uint32_t& LastBroadcastedOmnigon() { return GameVariable<uint32_t>(0x007CEBC8); 
 void UpdateScoreDisplay(Obj::CSkater* skater)
 {
     if (void* score = skater->GetScore())
-        GameFunction<void(__thiscall*)(void*)>(0x005626E0)(score);
+        static_cast<Mdl::Score*>(score)->RefreshBalanceMeter();
 }
 
 } // namespace
@@ -642,7 +648,7 @@ bool __cdecl CFunc_BroadcastOmnigon(Script::CStruct* params, Script::CScript*)
 // score display brought up to date.
 bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript* script)
 {
-    GameFunction<void(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x004A0C20)(params, script);
+    Nx::CFunc_SetScreenMode(params, script);
     for (uint32_t i = 0; i < 8; ++i) {
         if (Obj::CSkater* skater = GetSkater(static_cast<int>(i)))
             UpdateScoreDisplay(skater);
@@ -660,10 +666,10 @@ bool __cdecl CFunc_SetScreenModeFromGameMode(Script::CStruct*, Script::CScript*)
         if (skater && skater->m_unknownBC)
             Dbg::Printf(reinterpret_cast<const char*>(0x0064FE34), 0x16C0); // "cfuncs %d: SUTUBBBED..."
     }
-    int mode = GameFunction<int(__thiscall*)(void*)>(0x00553630)(GameMode());
-    int current = GameFunction<int(__cdecl*)()>(0x004A0710)();
+    int mode = GameModeObject()->GetScreenMode();
+    int current = Nx::GetScreenMode();
     if (!((mode == 1 && current == 2) || (mode == 2 && current == 1)))
-        GameFunction<void(__cdecl*)(int)>(0x004A0AD0)(mode);
+        Nx::SetScreenMode(mode);
     for (uint32_t i = 0; i < 8; ++i) {
         Obj::CSkater* skater = GetSkater(static_cast<int>(i));
         if (skater && skater->m_unknownBC)
@@ -764,20 +770,20 @@ bool __cdecl CFunc_GetTimeLimit(Script::CStruct*, Script::CScript* script)
 // 0x38DBE1D0 / 0x6835B854.
 bool __cdecl CFunc_GetGoalsMode(Script::CStruct*, Script::CScript* script)
 {
-    script->m_params->AddChecksum(0x38DBE1D0, GameFunction<uint32_t(__thiscall*)(void*)>(0x005532D0)(GameMode()));
+    script->m_params->AddChecksum(0x38DBE1D0, GameModeObject()->GetGoalsMode());
     return true;
 }
 
 bool __cdecl CFunc_GetTeamGraffitiMode(Script::CStruct*, Script::CScript* script)
 {
-    script->m_params->AddChecksum(0x6835B854, GameFunction<uint32_t(__thiscall*)(void*)>(0x005532D0)(GameMode()));
+    script->m_params->AddChecksum(0x6835B854, GameModeObject()->GetGoalsMode());
     return true;
 }
 
 // 0x005A2030: GetGameMode: the game mode's name (0x005532A0) as the script's 0x3E04B26B.
 bool __cdecl CFunc_GetGameMode(Script::CStruct*, Script::CScript* script)
 {
-    script->m_params->AddChecksum(0x3E04B26B, GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameMode()));
+    script->m_params->AddChecksum(0x3E04B26B, GameModeObject()->GetNameChecksum());
     return true;
 }
 
@@ -788,12 +794,12 @@ bool __cdecl CFunc_SetTesterScript(Script::CStruct* params, Script::CScript*)
     params->GetChecksum(0u, &name, 0);
     Script::CStruct* scriptParams = nullptr;
     params->GetStructure(kParams, &scriptParams, 0);
-    CallSkate(0x00565ED0, name, scriptParams);
+    SkateModule()->RunScript(name, scriptParams);
     return true;
 }
 
 // 0x005A20F0: KillTesterScript (the skate module's 0x00565F80: its answer).
-bool __cdecl CFunc_KillTesterScript(Script::CStruct*, Script::CScript*) { return CallSkate<bool>(0x00565F80); }
+bool __cdecl CFunc_KillTesterScript(Script::CStruct*, Script::CScript*) { return SkateModule()->KillScript(); }
 
 // 0x005A21A0: AutoRail <...>: the skate module's rail object (+0x24) is given the parameters - a shared stub that
 // ignores them.

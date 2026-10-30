@@ -1,4 +1,6 @@
 #include "game/gfx/scene.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/texture_dict.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -26,16 +28,15 @@ constexpr uint32_t kTexDict = 0xDC8116B2;         // tex_dict
 // 0x0049F0C0 (cdecl): a texture dictionary from its file; the 1 marks a level's.
 void* LoadTextureDictionary(const char* path, int level, int unknown2, int unknown3, int unknown4)
 {
-    return GameFunction<void*(__cdecl*)(const char*, int, int, int, int)>(0x0049F0C0)(path, level, unknown2, unknown3,
-                                                                                    unknown4);
+    return LoadTexDict(path, level, static_cast<uint32_t>(unknown2), static_cast<uint32_t>(unknown3),
+                       static_cast<uint32_t>(unknown4));
 }
 
 // 0x0048CCB0 (cdecl): the engine's scene load (the geometry file, then the scene registered under its name and
 // put in the scene list); returns the scene.
 void* LoadSceneFile(const char* name, void* texDict, bool addSuperSectors, bool isSky, bool isDictionary, bool isNet)
 {
-    return GameFunction<void*(__cdecl*)(const char*, void*, bool, bool, bool, bool)>(0x0048CCB0)(
-        name, texDict, addSuperSectors, isSky, isDictionary, isNet);
+    return LoadScene(name, static_cast<CTexDict*>(texDict), addSuperSectors, isSky, isDictionary, isNet);
 }
 
 } // namespace

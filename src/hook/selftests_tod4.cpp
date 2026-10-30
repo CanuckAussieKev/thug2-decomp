@@ -41,6 +41,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 #include "hook/standins.h"

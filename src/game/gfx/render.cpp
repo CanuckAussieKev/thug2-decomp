@@ -15,15 +15,27 @@
 #include "game/front/test_view.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/draw2d.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_imposters.h"
+#include "game/gfx/engine_primitive.h"
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/geom.h"
 #include "game/gfx/glow.h"
 #include "game/gfx/graphics_options.h"
 #include "game/gfx/lens_flare.h"
+#include "game/gfx/mesh.h"
 #include "game/gfx/occlusion.h"
+#include "game/gfx/particles.h"
+#include "game/gfx/pc_billboards.h"
+#include "game/gfx/pc_texture_projection.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/scene_render.h"
 #include "game/gfx/screen.h"
 #include "game/gfx/screen_fx.h"
 #include "game/gfx/shadow.h"
+#include "game/gfx/texture_splats.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/viewport_list.h"
 #include "game/sys/screenshot.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -38,7 +50,7 @@ namespace {
 // A render state by the renderer's own numbering (1-0x24), cached.
 void SetRenderState(int state, int value) { SetState(state, static_cast<uint32_t>(value)); }
 // Fog on or off (the request is kept in 0x007004C8; the device's D3DRS_FOGENABLE follows).
-void SetFog(bool on) { GameFunction<void(__cdecl*)(int)>(0x00490DE0)(on); }
+void SetFog(bool on) { Engine::EnableFog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
@@ -311,7 +323,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     MatrixRotationY(&GameVariable<Mth::Matrix>(0x00786C50),
                     Atan2LessQuarterTurn(-camera.backward[2], -camera.backward[0]));
     // The view frustum (0x00775B80) follows the new view.
-    GameFunction<void(__thiscall*)(void*)>(0x004CDAA0)(&GameVariable<uint8_t>(0x00775B80));
+    reinterpret_cast<sBillboardManager*>(&GameVariable<uint8_t>(0x00775B80))->SetupAxes();
 }
 
 namespace {
@@ -519,13 +531,13 @@ void DrawSceneGroup(Scene* scene, int pass, int viewport)
 {
     RenderScene(reinterpret_cast<sScene*>(scene->group), static_cast<uint32_t>(pass), viewport);
 }
-void SetPass(int pass) { GameFunction<void(__cdecl*)(int, int)>(0x004D1760)(pass, 0); }
+void SetPass(int pass) { RenderInstances(static_cast<uint32_t>(pass), 0); }
 // No world transform (SetWorldTransform's null: the original passes 0).
 void ClearWorldTransform() { SetWorldTransform(nullptr); }
 
 void RenderViewport(int index)
 {
-    const Viewport* view = GameFunction<const Viewport*(__cdecl*)(int)>(0x004A06D0)(index);
+    const Viewport* view = reinterpret_cast<const Viewport*>(GetActiveViewport(index));
     void* camera = view->camera;
     if (!camera)
         return;
@@ -557,7 +569,7 @@ void RenderViewport(int index)
     }
     SetViewport();
     ClearWorldTransform();
-    float aspect = GameFunction<float(__thiscall*)(const Viewport*)>(0x004A0D20)(view);
+    float aspect = reinterpret_cast<CViewport*>(const_cast<Viewport*>(view))->GetAspectRatio();
 
     // Not original - the level editor's ortho views (game/front/level_editor_camera.h): its camera's field of view
     // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
@@ -590,15 +602,15 @@ void RenderViewport(int index)
         if (!(group->flags & 0x100)) {
             group->flags |= 0x100;
             for (int i = 0; i < group->meshCount; ++i)
-                GameFunction<void(__thiscall*)(void*)>(0x004D6530)(group->meshes[i]);
+                reinterpret_cast<sMesh*>(group->meshes[i])->BuildCollision();
         }
         DrawSceneGroup(scene, 0x55, index);
     });
     SetRenderState(1, 0);
-    GameFunction<void(__cdecl*)()>(0x00490DB0)();
-    GameFunction<void(__cdecl*)()>(0x004C7520)();
+    DrawTextureSplats();
+    DrawProjectionBatches();
     SetRenderState(1, 1);
-    GameFunction<void(__thiscall*)(void*)>(0x0048E370)(GameVariable<void*>(0x006FA7BC));
+    static_cast<CImposterManager*>(GameVariable<void*>(0x006FA7BC))->Render();
     SetPass(1);
     ClearWorldTransform();
 
@@ -661,23 +673,27 @@ void RenderViewport(int index)
             DrawSceneGroup(scene, 0x46, index);
     });
     SetPass(0x102);
-    GameFunction<void(__cdecl*)()>(0x004A0F30)();
+    IssueOcclusionQueries();
     SetRenderState(1, 0);
-    GameFunction<void(__thiscall*)(void*, bool)>(0x0049AB50)(GameVariable<void*>(0x006FA7C0), index > 0);
-    GameFunction<void(__thiscall*)(void*)>(0x00496640)(GameVariable<void*>(0x006FA7C4));
-    GameFunction<void(__thiscall*)(void*)>(0x004A10A0)(GameVariable<void*>(0x006FA7C8));
+    static_cast<CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->RenderSystems(index > 0);
+    static_cast<CParticleManager*>(GameVariable<void*>(0x006FA7C4))->RenderParticles();
+    {
+        // (the weather's slot 3, through the jump 0x004A10A0)
+        void* weather = GameVariable<void*>(0x006FA7C8);
+        reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(weather))[3])(weather);
+    }
     SetRenderState(1, 1);
-    GameFunction<void(__cdecl*)()>(0x004920E0)();
+    Engine::DrawShatters();
     SetRenderState(1, 0);
     if (!GameVariable<bool>(0x00786AB5))
         Sun::Render(static_cast<Gfx::Camera*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
-    GameFunction<void(__cdecl*)()>(0x0049C840)();
+    RenderPrimitives();
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     UpdateGlows(false);
-    GameFunction<void(__cdecl*)(int, int)>(0x00491910)(index, 0);
+    Engine::DrawFlashes(index, 0);
 }
 
 } // namespace
@@ -737,6 +753,6 @@ void RenderWorld()
 
 } // namespace Nx
 
-REPLACE(0x004DB200, Nx::SetCamera);
+REPLACE(0x004DB200, static_cast<void (*)(const Mth::Matrix*, const Mth::Vector*, float, float, float, bool)>(Nx::SetCamera));
 REPLACE(0x004DF390, Nx::DrawScreenBlur);
 REPLACE(0x004B2D80, Nx::RenderWorld);

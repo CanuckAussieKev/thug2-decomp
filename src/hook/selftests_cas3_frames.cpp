@@ -17,6 +17,7 @@
 #include "game/mth/vector.h"
 #include "game/obj/walk_hang.h"
 #include "game/sys/timer.h"
+#include "game/gfx/anim_cache.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -87,7 +88,7 @@ void StandInFrameCalls(StandIns& s)
         r.edx = static_cast<uint32_t>(g_vblank >> 32);
         return static_cast<uint32_t>(g_vblank);
     });
-    s.At({0x00480660}, 0, [](Regs&) {
+    s.At({0x00480660, AddressOf(&Gfx::CAnimCache::Get)}, 0, [](Regs&) {
         Record({0x0660});
         return reinterpret_cast<uint32_t>(g_manager);
     });

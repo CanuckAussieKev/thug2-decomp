@@ -18,6 +18,7 @@
 #include "game/gfx/engine_glue.h"
 #include "game/nx/coll_tri.h"
 #include "game/nx/coll_world.h"
+#include "game/core/stubs.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -102,8 +103,8 @@ void TestAnimCollTurnScale()
         Record({0xC7A10000u});
         return 0u;
     });
-    s.At({0x0048DCD0}, 8, [](Regs& r) {
-        Record({0xD4DC0000u, r.ecx, r.args[0], r.args[1]});
+    s.At({0x0048DCD0, AddressOf(&Stubs::IgnoreArguments2)}, 8, [](Regs& r) {
+        Record({0xD4DC0000u, r.args[0], r.args[1]}); // (the original's `this` isn't passed by ours)
         return 0u;
     });
     s.At({0x00414FE0, AddressOf(&Nx::CCollObjTriData::AddOcclusionPolys)}, 0, [](Regs& r) {

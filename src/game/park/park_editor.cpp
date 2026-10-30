@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/ed/park_editor.h"
 #include "game/park/park_memory.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -39,7 +40,7 @@ CMapListNode* GetMetasWithin(CParkManager* manager, GridDims area) { return mana
 void UpdatePieces(void* generator) { static_cast<CParkGenerator*>(generator)->CleanUpOutRefs(); }
 void RebuildScene(void* generator) { static_cast<CParkGenerator*>(generator)->RebuildCollision(); }
 // The engine's scene (0x004F4970).
-void* Engine() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
+Ed::CRailEditorComponent* Engine() { return Ed::CRailEditorComponent::Instance(); }
 
 // A meta piece of a list node (0x005480C0: the node's +4; then the concrete piece - the same pointer).
 void* NodeMeta(CMapListNode* node)
@@ -91,7 +92,7 @@ void CParkManager::RebuildPark(uint32_t how)
     if (how == kNewPark)
         Flags() |= 1;
     SceneUpdates() = false;
-    GameFunction<void(__thiscall*)(void*)>(0x004F6650)(Engine());
+    Engine()->Rebuild();
     SceneUpdates() = true;
     RebuildScene(Generator());
 }
@@ -136,7 +137,7 @@ bool CParkManager::DestroyMetasInAreaAndRebuild(GridDims area, bool skipRestarts
         float z0 = corner.z;
         float z1 = static_cast<float>(static_cast<double>(size.z) + z0);
         float x1 = static_cast<float>(static_cast<double>(size.x) + x0);
-        GameFunction<void(__thiscall*)(void*, float, float, float, float, int)>(0x004F74B0)(Engine(), x0, z0, x1, z1, 1);
+        Engine()->DeletePoints(x0, z0, x1, z1, 1);
         UpdatePieces(Generator());
         if (destroyed) {
             RebuildFloorAndPieces(this, &area, 0);

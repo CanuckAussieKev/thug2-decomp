@@ -11,8 +11,15 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/file/file.h"
+#include "game/gfx/engine_scene.h"
+#include "game/gfx/frame_source.h"
+#include "game/gfx/geom.h"
+#include "game/gfx/material.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_mesh.h"
+#include "game/gfx/pc_scene.h"
+#include "game/gfx/render_state.h"
+#include "game/gfx/sector.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -24,27 +31,27 @@ namespace {
 uint8_t* NewPcScene(int hashBits)
 {
     void* memory = Mem::New(0x284);
-    return memory ? GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x004C6130)(memory, hashBits) : nullptr;
+    return memory ? reinterpret_cast<uint8_t*>(static_cast<CPcScene*>(memory)->Construct(hashBits)) : nullptr;
 }
-void* CreateSector(uint8_t* scene) { return GameFunction<void*(__thiscall*)(uint8_t*)>(0x0049CA10)(scene); }
-void SetGeom(void* sector, void* geom) { GameFunction<void(__thiscall*)(void*, void*)>(0x0049E660)(sector, geom); }
-void AddSector(uint8_t* scene, void* sector) { GameFunction<void(__thiscall*)(uint8_t*, void*)>(0x0049D4E0)(scene, sector); }
+void* CreateSector(uint8_t* scene) { return reinterpret_cast<CScene*>(scene)->CreateSector(); }
+void SetGeom(void* sector, void* geom) { static_cast<CSector*>(sector)->SetGeom(geom); }
+void AddSector(uint8_t* scene, void* sector) { reinterpret_cast<CScene*>(scene)->AddSector(static_cast<CSector*>(sector)); }
 void SetUpSectors(uint8_t* scene, const char* name)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, const char*, int)>(0x0049C910)(scene, name, 0);
+    reinterpret_cast<CScene*>(scene)->FinishLoad(name, nullptr);
 }
 // A PC geom for a scene's sector (0x64 bytes, zeroed; the scene at +0x34).
 uint8_t* NewSectorGeom(uint8_t* scene)
 {
     void* memory = Mem::Calloc(0x64);
-    auto* geom = memory ? GameFunction<uint8_t*(__thiscall*)(void*)>(0x004B4460)(memory) : nullptr;
+    auto* geom = memory ? reinterpret_cast<uint8_t*>(static_cast<CPcGeom*>(memory)->Construct()) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     *reinterpret_cast<uint8_t**>(geom + 0x34) = scene;
     return geom;
 }
-void InitGeom(uint8_t* geom) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004B5F60)(geom); }
+void InitGeom(uint8_t* geom) { reinterpret_cast<CPcGeom*>(geom)->StartMeshList(); }
 // The 2D clip rectangle off (0x004D3CE0).
-void ClearScreenClip() { GameFunction<void(__cdecl*)()>(0x004D3CE0)(); }
+void ClearScreenClip() { ClearSkinScaling(); }
 
 // The scene's hash table size: 2^n entries (n 1-12), the first at least twice the sectors.
 int HashBits(int sectors)
@@ -115,8 +122,9 @@ void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool addS
 {
     sScene* list = NewMeshList(meshFlag);
     const uint8_t* p = data + 0xC; // (past the header)
-    list->materials = GameFunction<Lst::HashTable*(__cdecl*)(const uint8_t**, void*)>(0x004D2CB0)(
-        &p, *reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC));
+    list->materials = LoadMaterialsFromMemory(
+        const_cast<uint8_t**>(&p),
+        static_cast<const Lst::HashTable*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
     int sectors = *reinterpret_cast<const int*>(p);
     p += 4;
     uint8_t* scene = NewScene(sectors, addSuperSectors, flag8D, list);
@@ -125,7 +133,7 @@ void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool addS
         uint8_t* geom = NewSectorGeom(scene);
         SetGeom(sector, geom);
         InitGeom(geom);
-        if (GameFunction<bool(__thiscall*)(void*, const uint8_t**)>(0x004C6650)(sector, &p))
+        if (static_cast<CPcSector*>(sector)->LoadFromMemory(const_cast<uint8_t**>(&p)))
             AddSector(scene, sector);
     }
     list->UpdateSphere();
@@ -153,8 +161,8 @@ void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool addSuperS
     File::Read(&header[0], 4, 1, file);
     File::Read(&header[1], 4, 1, file);
     File::Read(&header[2], 4, 1, file);
-    list->materials = GameFunction<Lst::HashTable*(__cdecl*)(File::Handle, void*)>(0x004D3390)(
-        file, *reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC));
+    list->materials = LoadMaterialsFromFile(
+        file, static_cast<const Lst::HashTable*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
     int sectors;
     File::Read(&sectors, 4, 1, file);
     uint8_t* scene = NewScene(sectors, addSuperSectors, flag8D, list);
@@ -163,7 +171,7 @@ void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool addSuperS
         uint8_t* geom = NewSectorGeom(scene);
         SetGeom(sector, geom);
         InitGeom(geom);
-        if (GameFunction<bool(__thiscall*)(void*, File::Handle, int)>(0x004C6B10)(sector, file, sectorFlags))
+        if (static_cast<CPcSector*>(sector)->LoadFromFile(file, static_cast<uint32_t>(sectorFlags)))
             AddSector(scene, sector);
     }
     list->UpdateSphere();
@@ -183,7 +191,7 @@ void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool addSuperS
 void* __cdecl CreateFrameSource()
 {
     void* memory = GameVariable<Mem::PoolPair>(0x006FA7F4).Allocate(0x214);
-    return memory ? GameFunction<void*(__thiscall*)(void*)>(0x0048CF70)(memory) : nullptr;
+    return memory ? static_cast<CFrameSource*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B3A20

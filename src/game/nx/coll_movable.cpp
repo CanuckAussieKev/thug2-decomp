@@ -8,6 +8,7 @@
 #include "game/core/mem.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_tri.h"
+#include "game/core/stubs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -31,8 +32,8 @@ void SetIdentity(Mth::Matrix& m)
 // 0x0048D090: a box drawn with a transform (debug rendering; not rewritten yet).
 void DrawBox(const Mth::BBox* box, const Mth::Matrix* transform, uint32_t colour, int flag)
 {
-    GameFunction<void(__thiscall*)(const Mth::BBox*, const Mth::Matrix*, uint32_t, int)>(0x0048D090)(box, transform,
-                                                                                                    colour, flag);
+    (void)box;
+    Stubs::IgnoreArguments3(reinterpret_cast<int>(transform), static_cast<int>(colour), flag);
 }
 
 } // namespace

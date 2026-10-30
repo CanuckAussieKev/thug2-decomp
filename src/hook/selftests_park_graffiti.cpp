@@ -87,7 +87,7 @@ void Install(StandIns& s)
         Rec(0x91B0, {});
         return At(kGoals);
     });
-    s.At({0x00559150}, 4, [](Regs& r) {
+    s.At({0x00559150, AddressOf(&Game::CGoalManager::TrickObjectHit)}, 4, [](Regs& r) {
         Rec(0x9150, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -221,11 +221,11 @@ void TestParkGraffiti2()
         Rec(0x8200, {r.ecx, r.args[0]});
         return 1u;
     });
-    s->At({0x004F4970}, 0, [](Regs&) {
+    s->At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
         Rec(0x4970, {});
         return At(0x7900);
     });
-    s->At({0x004F4950}, 8, [](Regs& r) {
+    s->At({0x004F4950, AddressOf(&Ed::CRailEditorComponent::SetClusterColour)}, 8, [](Regs& r) {
         Rec(0x4950, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
@@ -352,11 +352,11 @@ void TestParkGraffiti4()
         Rec(0x8270, {r.ecx, r.args[0]});
         return r.ecx == g_failObject ? 0u : 1u;
     });
-    s->At({0x004F4970}, 0, [](Regs&) {
+    s->At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
         Rec(0x4970, {});
         return At(0x7900);
     });
-    s->At({0x004F3D10}, 4, [](Regs& r) {
+    s->At({0x004F3D10, AddressOf(&Ed::CRailEditorComponent::ClearClusterColours)}, 4, [](Regs& r) {
         Rec(0x3D10, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -494,7 +494,7 @@ void TestParkGraffiti5()
         Rec(0x8E90, {r.ecx});
         return 0u;
     });
-    s->At({0x0056BB70}, 4, [](Regs& r) {
+    s->At({0x0056BB70, AddressOf(&Mdl::Skate::SendScoreUpdates)}, 4, [](Regs& r) {
         Rec(0xBB70, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -638,7 +638,7 @@ void TestParkGraffiti6()
         std::memcpy(reinterpret_cast<void*>(r.args[2]), g_stolen, 8);
         return g_logged;
     });
-    s->At({0x00566600}, 4, [](Regs& r) {
+    s->At({0x00566600, AddressOf(&Mdl::Skate::GetSkaterById)}, 4, [](Regs& r) {
         Rec(0x6600, {r.ecx, r.args[0]});
         *reinterpret_cast<uint32_t*>(At(kSkater) + 0x14) = r.args[0];
         return At(kSkater);
@@ -682,7 +682,7 @@ void TestParkGraffiti6()
         Rec(0x8D20, {r.ecx, r.args[0]});
         return 1u;
     });
-    s->At({0x0056BB70}, 4, [](Regs& r) {
+    s->At({0x0056BB70, AddressOf(&Mdl::Skate::SendScoreUpdates)}, 4, [](Regs& r) {
         Rec(0xBB70, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -741,11 +741,11 @@ void TestParkGraffiti7()
             Record({reinterpret_cast<const uint32_t*>(r.args[3])[i]});
         return 0u;
     });
-    s->At({0x004F4970}, 0, [](Regs&) {
+    s->At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
         Rec(0x4970, {});
         return At(0x7900);
     });
-    s->At({0x004F3D10}, 4, [](Regs& r) {
+    s->At({0x004F3D10, AddressOf(&Ed::CRailEditorComponent::ClearClusterColours)}, 4, [](Regs& r) {
         Rec(0x3D10, {r.ecx, r.args[0]});
         return 0u;
     });

@@ -23,6 +23,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/anim_blend.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -389,7 +390,7 @@ void __cdecl ListingGamesCallback(void* peer, int success, const char* name, voi
         Mem::ListNode* list = Head(manager, kServers);
         Append(list, server);
         if (Sdk<int>(0x005FEEC0, sb)) { // (it has its basic keys)
-            int index = GameFunction<int(__thiscall*)(Mem::ListNode*)>(0x0047DD10)(list) - 1; // (the list's count)
+            int index = reinterpret_cast<Gfx::AnimListHead*>(list)->CountItems() - 1; // (the list's count)
             manager->AddServerToMenu(server, index);
             Run(kUpdateServerList);
             server->m_inList = true;

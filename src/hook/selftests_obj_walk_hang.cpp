@@ -3,9 +3,11 @@
 // skater core, the movable contact...), every callee into game code - and our rewrite where ours calls that directly
 // - stood in for by recording code (skater_core_testkit.h); the walk parameters a hand-built structure.
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <utility>
 #include <vector>
 
 #include "game/core/dbg.h"
@@ -281,6 +283,35 @@ void FillWalkArena()
 }
 
 // Run `ours` / the original on a filled arena for `variants` seeds; Check each.
+// Our code stores its own member functions' addresses in the animation-end callback (+0x1948); the original's stores
+// its own. Put the original's back so the two runs' memory compares.
+void NormalizeAnimDoneCallback(uint8_t* walk)
+{
+    // (the member function pointer as the source stores it - maybe the linker's jump to the function - and the function)
+    static const std::pair<uint32_t, uint32_t> kCallbacks[] = {
+        {std::bit_cast<uint32_t>(&Obj::CWalkComponent::EndPullUp), 0x0043DB00},
+        {Ours(&Obj::CWalkComponent::EndPullUp), 0x0043DB00},
+        {std::bit_cast<uint32_t>(&Obj::CWalkComponent::EndDropFromHang), 0x0043DB90},
+        {Ours(&Obj::CWalkComponent::EndDropFromHang), 0x0043DB90},
+        {std::bit_cast<uint32_t>(&Obj::CWalkComponent::EndDropToHang), 0x0043DCF0},
+        {Ours(&Obj::CWalkComponent::EndDropToHang), 0x0043DCF0},
+        {std::bit_cast<uint32_t>(&Obj::CWalkComponent::EndLadderOffBottom), 0x00441020},
+        {Ours(&Obj::CWalkComponent::EndLadderOffBottom), 0x00441020},
+        {std::bit_cast<uint32_t>(&Obj::CWalkComponent::EndLadderOffTop), 0x00441070},
+        {Ours(&Obj::CWalkComponent::EndLadderOffTop), 0x00441070},
+        {std::bit_cast<uint32_t>(&Obj::CWalkComponent::EndLadderOffTopToAir), 0x00441860},
+        {Ours(&Obj::CWalkComponent::EndLadderOffTopToAir), 0x00441860},
+        {std::bit_cast<uint32_t>(&Obj::CWalkComponent::EndOntoLadderBottom), 0x004410C0},
+        {Ours(&Obj::CWalkComponent::EndOntoLadderBottom), 0x004410C0},
+        {std::bit_cast<uint32_t>(&Obj::CWalkComponent::EndOntoLadderTop), 0x00441190},
+        {Ours(&Obj::CWalkComponent::EndOntoLadderTop), 0x00441190}};
+    auto* callback = reinterpret_cast<uint32_t*>(walk + 0x1948);
+    for (const auto& [ours, original] : kCallbacks) {
+        if (*callback == ours)
+            *callback = original;
+    }
+}
+
 template <typename Call>
 void Compare(const char* what, int variants, Call call)
 {
@@ -292,7 +323,11 @@ void Compare(const char* what, int variants, Call call)
         SaveStart();
         uint32_t seed = Next();
         std::vector<uint32_t> expected = RunOnArena(seed, [&](uint8_t* walk) { return call(walk, true); });
-        std::vector<uint32_t> actual = RunOnArena(seed, [&](uint8_t* walk) { return call(walk, false); });
+        std::vector<uint32_t> actual = RunOnArena(seed, [&](uint8_t* walk) {
+            uint32_t result = call(walk, false);
+            NormalizeAnimDoneCallback(walk);
+            return result;
+        });
         if (!SkaterCoreKit::Compare(expected, actual, what, variant))
             ++failures;
     }

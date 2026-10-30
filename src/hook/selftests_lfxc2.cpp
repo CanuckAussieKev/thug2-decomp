@@ -111,7 +111,7 @@ void StandInParkEditor(StandIns& s)
         Record({0xBED0, EdRel(r.ecx), Area(r, 0), GameVariable<uint8_t>(0x0067F398)});
         return 0u;
     });
-    plain(0x004F6650, 0, 0x6650, 0);
+    plain(0x004F6650, 0, 0x6650, 0, AddressOf(&Ed::CRailEditorComponent::Rebuild));
     s.At({0x00590160, AddressOf(&Ed::CParkEditor::Create)}, 0, [](Regs& r) { Record({0x0160, r.args[0] & 0xFF}); return 0x5E1F0000u; });
     s.At({0x0058DDC0, AddressOf(&Ed::CParkEditor::IsParkFull)}, 0, [](Regs& r) { Record({0xDDC0, r.ecx}); return g_edFull ? 1u : 0u; });
     s.At({0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, 0, [](Regs&) { Record({0xD290}); return 0u; }); // (cdecl: ECX unused)
@@ -136,7 +136,7 @@ void StandInParkEditor(StandIns& s)
         size[2] = 1.0e-9f;
         return r.args[0];
     });
-    s.At({0x004F74B0}, 0x14, [](Regs& r) {
+    s.At({0x004F74B0, AddressOf(&Ed::CRailEditorComponent::DeletePoints)}, 0x14, [](Regs& r) {
         Record({0x74B0, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
         return 0u;
     });

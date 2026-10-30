@@ -16,6 +16,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/vault_man.h"
 #include "game/script/struct_buffer.h"
+#include "game/mc/save_types.h"
 #include "hook/net4_testkit.h"
 
 namespace {
@@ -179,7 +180,7 @@ void Install(StandIns& s)
         return At(kUrlCopy);
     });
     StubCdecl(s, {0x0062411B}, 0x411B, 1);
-    s.At({0x005A8EB0}, 0, [](Regs& r) {
+    s.At({0x005A8EB0, AddressOf(&Mc::KeepLoadedContents)}, 0, [](Regs& r) {
         Rec(0x8EB0, {r.args[0], r.args[1]});
         return 0u;
     });

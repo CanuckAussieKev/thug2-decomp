@@ -111,7 +111,7 @@ void Install(StandIns& s)
         Rec(0x0710, {});
         return static_cast<uint32_t>(g_setting);
     });
-    s.At({0x004A0AD0}, 0, [](Regs& r) {
+    s.At({0x004A0AD0, AddressOf(&Nx::SetScreenMode)}, 0, [](Regs& r) {
         Rec(0x0AD0, {r.args[0]});
         return 0u;
     });

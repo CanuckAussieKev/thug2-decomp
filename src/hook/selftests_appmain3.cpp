@@ -219,11 +219,11 @@ void StandInModels(StandIns& s)
         Record({0x2E40, TableRelocate(r.ecx)});
         return (r.ecx & 0xF) + 2;
     });
-    s.At({0x00494640}, 4, [](Regs& r) {
+    s.At({0x00494640, AddressOf(&Nx::CModel::GetGeom)}, 4, [](Regs& r) {
         Record({0x4640, TableRelocate(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(g_meshes.geoms[(r.args[0] + (r.ecx & 3)) % 8]);
     });
-    s.At({0x004D16B0}, 0, [](Regs& r) {
+    s.At({0x004D16B0, AddressOf(Nx::RenderInstance)}, 0, [](Regs& r) {
         auto index = static_cast<uint32_t>((r.args[0] - reinterpret_cast<uint32_t>(g_meshes.meshes)) / 0x60);
         Record({0x16B0, index, r.args[1], g_meshes.flags[index]});
         return 0u;
@@ -374,7 +374,7 @@ void TestShadowVolumes()
         Record({0xB790, static_cast<uint32_t>((r.args[0] - reinterpret_cast<uint32_t>(meshes)) / 0x20), r.args[1]});
         return static_cast<uint32_t>(++inView % 4 != 0);
     });
-    s.At({0x004D5290}, 0, [&](Regs& r) {
+    s.At({0x004D5290, AddressOf(&Nx::sMesh::Render)}, 0, [&](Regs& r) {
         Record({0x5290, static_cast<uint32_t>((r.ecx - reinterpret_cast<uint32_t>(meshes)) / 0x20),
                 GameVariable<uint32_t>(0x00786EC4)}); // (the pixel shader lock while drawn)
         return 0u;

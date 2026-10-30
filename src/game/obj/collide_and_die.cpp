@@ -3,6 +3,7 @@
 // on the FPU stack are worked in double.
 
 #include "game/obj/collide_and_die.h"
+#include "game/obj/projectile_components.h"
 
 #include <cstdint>
 
@@ -40,7 +41,7 @@ void Kill(CCompositeObject* object) { reinterpret_cast<void(__thiscall*)(CCompos
 // The projectile collision component's 0x004F2F40 (no source yet): told of the hit.
 void ProjectileHit(CBaseComponent* projectile)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*)>(0x004F2F40)(projectile);
+    static_cast<CProjectileCollisionComponent*>(projectile)->MarkHit();
 }
 
 } // namespace

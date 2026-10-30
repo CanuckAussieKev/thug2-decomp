@@ -279,7 +279,7 @@ void Install(StandIns& s)
         Rec(0x2DE0, {r.args[0]});
         return g_vc_scriptExists ? 1u : 0u;
     });
-    s.At({0x005A5960}, 0, [](Regs& r) {
+    s.At({0x005A5960, AddressOf(&Script::LoadQBFile)}, 0, [](Regs& r) {
         Rec(0x5960, {Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0u;
     });

@@ -11,6 +11,7 @@
 #include "game/obj/object.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -173,7 +174,7 @@ bool CTriggerComponent::TriggerNode(const int* events, uint32_t name, Script::CA
     node->GetChecksum(kTriggerScript, &script, 0);
     if (!script)
         return false;
-    if (GameFunction<bool(__thiscall*)(void*, Script::CStruct*)>(0x00565BB0)(GameVariable<void*>(0x007CE478), node))
+    if (Mdl::Skate::ShouldBeAbsent(node))
         return false;
     uint32_t& recorded = m_events;
     recorded = 0;

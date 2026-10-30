@@ -20,6 +20,7 @@
 #include "game/obj/vehicle_wheel.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -217,7 +218,7 @@ void StandIn(StandIns& s)
         return 0u;
     });
     // The static vehicle's model hierarchy and skeleton.
-    s.At({0x00493040}, 0, [](Regs& r) {
+    s.At({0x00493040, AddressOf(&Nx::CModel::GetAssetHierarchy)}, 0, [](Regs& r) {
         Record({0x3040, Rel(r.ecx)});
         return reinterpret_cast<uint32_t>(g_world.hierarchy);
     });

@@ -224,8 +224,14 @@ void StandInObjects(StandIns& s)
         Record({0x42010000, r.ecx});
         return 0x1D000000 + (r.ecx & 0xFFF);
     });
-    for (uint32_t address : {0x00492E80u, 0x00494B70u, 0x00492E60u, 0x00493460u, 0x00493C60u, 0x004A3090u}) {
-        s.At({address}, 4, [address](Regs& r) {
+    const std::pair<uint32_t, uint32_t> modelCalls[] = {{0x00492E80u, AddressOf(&Nx::CModel::SetBoundingSphere)},
+                                                        {0x00494B70u, AddressOf(&Nx::CModel::Hide)},
+                                                        {0x00492E60u, AddressOf(&Nx::CModel::EnableScaling)},
+                                                        {0x00493460u, AddressOf(&Nx::CModel::SetBoneMatrices)},
+                                                        {0x00493C60u, AddressOf(&Nx::CModel::SetActive)},
+                                                        {0x004A3090u, AddressOf(&Gfx::CSkeleton::SetLOD)}};
+    for (auto [address, ours] : modelCalls) {
+        s.At({address, ours}, 4, [address](Regs& r) {
             Record({address, r.ecx, Rel(r.args[0])});
             if (address == 0x00492E80) { // (an offset vector)
                 const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
@@ -243,12 +249,12 @@ void StandInObjects(StandIns& s)
         Record({0x4A2BA000, r.ecx, count});
         return count;
     });
-    s.At({0x00485730}, 0x18, [](Regs& r) {
+    s.At({0x00485730, AddressOf(&Gfx::CBonedAnimFrameData::GetFrames)}, 0x18, [](Regs& r) {
         Record({0x48573000, r.ecx, r.args[0], r.args[1], r.args[2], FB(*reinterpret_cast<float*>(&r.args[3])),
                 r.args[4], r.args[5], HashBytes(&GameVariable<uint8_t>(0x006F1960), 0x400)});
         return 0u;
     });
-    s.At({0x004A4240}, 8, [](Regs& r) {
+    s.At({0x004A4240, AddressOf(static_cast<void (Gfx::CSkeleton::*)(const float (*)[4], const float (*)[4])>(&Gfx::CSkeleton::Update)), AddressOf(static_cast<void (Gfx::CSkeleton::*)(const float (*)[4], const float (*)[4])>(&Gfx::CSkeleton::Update))}, 8, [](Regs& r) {
         Record({0x4A424000, r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
@@ -308,17 +314,17 @@ void StandInObjects(StandIns& s)
         }
         return 0xA55E0000u;
     });
-    s.At({0x0048CF50}, 0, [](Regs& r) {
+    s.At({0x0048CF50, AddressOf(&Nx::GetAnimData)}, 0, [](Regs& r) {
         uint32_t value = Hash(10, r.args[0], 0) % 3 == 0 ? 0 : 0xA41D0000 + (r.args[0] & 0xFF);
         Record({0x48CF5000, r.args[0], r.args[1], value});
         return value;
     });
     // lights
-    s.At({0x00490570}, 0, [](Regs& r) {
+    s.At({0x00490570, AddressOf(&Nx::CreateLightFromNode)}, 0, [](Regs& r) {
         Record({0x49057000, r.args[0]});
         return 0u;
     });
-    s.At({0x0048FCA0}, 0, [](Regs& r) {
+    s.At({0x0048FCA0, AddressOf(&Nx::DeleteSceneLight)}, 0, [](Regs& r) {
         Record({0x48FCA000, r.args[0]});
         return 0u;
     });
@@ -339,7 +345,7 @@ void StandInObjects(StandIns& s)
         Record({0x5BB78000, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0049AA80}, 4, [](Regs& r) {
+    s.At({0x0049AA80, AddressOf(&Nx::CFlexibleParticleManager::CreateTempHeap)}, 4, [](Regs& r) {
         Record({0x49AA8000, r.ecx, r.args[0]});
         return 0u;
     });
@@ -348,7 +354,7 @@ void StandInObjects(StandIns& s)
         Record({0x485A5000, r.ecx});
         return 0u;
     });
-    s.At({0x004844C0}, 0x14, [](Regs& r) {
+    s.At({0x004844C0, AddressOf(&Gfx::CBonedAnimFrameData::GetFloatKeyPose)}, 0x14, [](Regs& r) {
         auto* rotation = reinterpret_cast<float*>(r.args[0]);
         auto* translation = reinterpret_cast<float*>(r.args[1]);
         Record({0x4844C000, r.ecx, FB(rotation[0]), FB(rotation[3]), Rel(r.args[2]),
@@ -360,7 +366,7 @@ void StandInObjects(StandIns& s)
         *reinterpret_cast<uint8_t*>(r.args[2]) = static_cast<uint8_t>(g_answers.Below(2));
         return 0u;
     });
-    s.At({0x00482F40}, 0x10, [](Regs& r) {
+    s.At({0x00482F40, AddressOf(&Gfx::CBonedAnimFrameData::FireEvents)}, 0x10, [](Regs& r) {
         Record({0x482F4000, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
         return 0u;
     });
@@ -652,7 +658,7 @@ void StandInLoading(StandIns& s)
             return part;
         });
     }
-    s.At({0x00492F30}, 4, [](Regs& r) {
+    s.At({0x00492F30, AddressOf(&Nx::CModel::GetBoundingSphere)}, 4, [](Regs& r) {
         auto* out = reinterpret_cast<uint32_t*>(r.args[0]);
         for (int i = 0; i < 4; ++i)
             out[i] = Hash(18, r.ecx, i);
@@ -663,36 +669,36 @@ void StandInLoading(StandIns& s)
         Record({0x4200C000, r.ecx});
         return 0u;
     });
-    s.At({0x0048CF70}, 0, [](Regs& r) {
+    s.At({0x0048CF70, AddressOf(&Nx::CFrameSource::Construct)}, 0, [](Regs& r) {
         Record({0x48CF7000, r.ecx});
         *reinterpret_cast<void***>(r.ecx) = g_objectVtable; // (a source can be deleted later)
         return r.ecx;
     });
-    s.At({0x0048CFD0}, 4, [](Regs& r) {
+    s.At({0x0048CFD0, AddressOf(&Nx::CFrameSource::SetAnim)}, 4, [](Regs& r) {
         Record({0x48CFD000, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_animList); // (the animation: its length at +0, its count at +8)
     });
-    for (uint32_t address : {0x0048CFA0u, 0x00493B90u}) {
-        s.At({address}, 4, [address](Regs& r) {
+    for (auto [address, ours_address] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x0048CFA0u, AddressOf(&Nx::CFrameSource::SetDone)}, {0x00493B90u, AddressOf(&Nx::CModel::BreakStrips)}}) {
+        s.At({address, ours_address}, 4, [address](Regs& r) {
             Record({address, r.ecx, r.args[0]});
             return 0u;
         });
     }
-    s.At({0x004A2E20}, 8, [](Regs& r) {
+    s.At({0x004A2E20, AddressOf(&Gfx::CSkeleton::CopyBoneScales)}, 8, [](Regs& r) {
         Record({0x4A2E2000, r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00493B30}, 0, [](Regs& r) {
+    s.At({0x00493B30, AddressOf(&Nx::CModel::GetStripBreakFlags)}, 0, [](Regs& r) {
         uint32_t flags = 1u << (Hash(19, r.ecx, 0) % 8);
         Record({0x493B3000, r.ecx, flags});
         return flags;
     });
-    s.At({0x00494200}, 0x10, [](Regs& r) {
+    s.At({0x00494200, AddressOf(&Nx::CModel::SetColorFromScript)}, 0x10, [](Regs& r) {
         Record({0x49420000, r.ecx, r.args[0], FB(*reinterpret_cast<float*>(&r.args[1])),
                 FB(*reinterpret_cast<float*>(&r.args[2])), FB(*reinterpret_cast<float*>(&r.args[3]))});
         return 0u;
     });
-    s.At({0x00482F00}, 4, [](Regs& r) {
+    s.At({0x00482F00, AddressOf(&Gfx::CBonedAnimFrameData::GetBoneName)}, 4, [](Regs& r) {
         uint32_t name = 0x9F000000 + (Hash(20, r.args[0], 0) % 5);
         Record({0x482F0000, r.ecx, r.args[0], name});
         return name;
@@ -828,7 +834,7 @@ void StandInUpdating(StandIns& s)
         Record({0x46391000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0xA1000000 + r.args[1];
     });
-    s.At({0x00482F10}, 0, [](Regs& r) {
+    s.At({0x00482F10, AddressOf(&Gfx::CBonedAnimFrameData::ArmEvents)}, 0, [](Regs& r) {
         Record({0x482F1000, r.ecx});
         return 0u;
     });
@@ -846,7 +852,7 @@ void StandInUpdating(StandIns& s)
         Record({0x40409000, r.args[0]});
         return r.ecx;
     });
-    s.At({0x00493090}, 12, [](Regs& r) {
+    s.At({0x00493090, AddressOf(&Nx::CModel::Render)}, 12, [](Regs& r) {
         Record({0x49309000, r.ecx, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 64), r.args[1], r.args[2]});
         return 0u;
     });
@@ -854,8 +860,8 @@ void StandInUpdating(StandIns& s)
         Record({0x41CAC000, r.ecx, r.args[0]});
         return 0u;
     });
-    for (uint32_t address : {0x004A3870u, 0x004A36E0u}) {
-        s.At({address}, 8, [address](Regs& r) {
+    for (auto [address, ours_address] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x004A3870u, AddressOf(&Gfx::CSkeleton::GetBonePosition)}, {0x004A36E0u, AddressOf(&Gfx::CSkeleton::GetBoneMatrix)}}) {
+        s.At({address, ours_address}, 8, [address](Regs& r) {
             auto* out = reinterpret_cast<float*>(r.args[1]);
             for (int i = 0; i < (address == 0x004A3870 ? 4 : 16); ++i)
                 out[i] = static_cast<float>(static_cast<int>(g_answers.Below(2001)) - 1000) / 64.0f;
@@ -900,11 +906,11 @@ void StandInUpdating(StandIns& s)
         Record({0x407B2000, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0048E970}, 0, [](Regs& r) {
+    s.At({0x0048E970, AddressOf(&Nx::SetAmbientLightModulationFactor)}, 0, [](Regs& r) {
         Record({0x48E97000, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0048E990}, 0, [](Regs& r) {
+    s.At({0x0048E990, AddressOf(&Nx::SetDiffuseLightModulationFactor)}, 0, [](Regs& r) {
         Record({0x48E99000, r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
@@ -1185,17 +1191,19 @@ void StandInPackage(StandIns& s)
         Record({0x407C7000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], found});
         return found;
     });
-    s.Bytes(0x0048E9B0, Branch(0xE9, 0x0048E9B0, reinterpret_cast<void*>(&MusicVolumeStandIn)));
-    s.Bytes(0x0048E9D0, Branch(0xE9, 0x0048E9D0, reinterpret_cast<void*>(&StreamVolumeStandIn)));
-    for (uint32_t address : {0x00490890u, 0x004904E0u, 0x00487D20u, 0x00487D30u, 0x0048FDE0u}) {
-        s.At({address}, 0, [address](Regs& r) {
+    for (uint32_t address : {0x0048E9B0u, AddressOf(Nx::GetAmbientLightModulationFactor)})
+        s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&MusicVolumeStandIn)));
+    for (uint32_t address : {0x0048E9D0u, AddressOf(Nx::GetDiffuseLightModulationFactor)})
+        s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&StreamVolumeStandIn)));
+    for (auto [address, ours_address] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00490890u, AddressOf(Nx::DisplayLoadingScreen)}, {0x004904E0u, AddressOf(Nx::UpdateSceneLightQueue)}, {0x00487D20u, AddressOf(Gfx::HideModelsForCutscene)}, {0x00487D30u, AddressOf(Gfx::ShowModelsAfterCutscene)}, {0x0048FDE0u, AddressOf(Nx::ClearSceneLightQueue)}}) {
+        s.At({address, ours_address}, 0, [address](Regs& r) {
             Record({address});
             if (address == 0x00490890) // (the loading screen: image, freeze, blank)
                 Record({r.args[0], r.args[1] & 0xFF, r.args[2] & 0xFF});
             return 0u;
         });
     }
-    s.At({0x0049A9D0}, 0, [](Regs& r) {
+    s.At({0x0049A9D0, AddressOf(&Nx::CFlexibleParticleManager::DeleteTempHeap)}, 0, [](Regs& r) {
         Record({0x49A9D000, r.ecx});
         return 0u;
     });
@@ -1441,7 +1449,7 @@ void StandInPlay(StandIns& s)
                 TestStandIns::Hash(reinterpret_cast<const char*>(r.args[1]))});
         return 0u;
     });
-    s.At({0x0048C100}, 0, [](Regs& r) {
+    s.At({0x0048C100, AddressOf(&Nx::ScreenShot)}, 0, [](Regs& r) {
         Record({0x48C10000, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0u;
     });

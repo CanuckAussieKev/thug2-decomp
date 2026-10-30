@@ -337,7 +337,7 @@ void StandInGame(StandIns& s)
             Record({params->m_head->name, params->m_head->raw});
         return 1u;
     });
-    RecC(s, {0x005A5420}, 2);
+    RecC(s, {0x005A5420, AddressOf(&CFuncs::CFunc_UnPauseSkaters)}, 2);
     Rec(s, {0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, 1);
     Rec(s, {0x0045F3A0}, 0xC, 3, 0, nullptr, false, 4);
     Rec(s, {0x00462F00}, 0x18, 6, 0, nullptr, false, 0x10);
@@ -352,14 +352,14 @@ void StandInGame(StandIns& s)
     RecC(s, {0x0059E390}, 1);
     RecC(s, {0x0059EAD0}, 2);
     // the rail and goal editors
-    Rec(s, {0x004F6510}, 0, 0);
-    Rec(s, {0x004F65A0}, 0, 0);
-    Rec(s, {0x004F6600}, 0, 0);
-    Rec(s, {0x004EA780}, 0, 0);
-    Rec(s, {0x004F4600}, 0x10, 4);
-    Rec(s, {0x004F74B0}, 0x14, 5);
-    Rec(s, {0x004E8300}, 0x10, 4);
-    Rec(s, {0x004E8390}, 0x10, 4);
+    Rec(s, {0x004F6510, AddressOf(&Ed::CRailEditorComponent::RestoreHeights)}, 0, 0);
+    Rec(s, {0x004F65A0, AddressOf(&Ed::CRailEditorComponent::DrawAllSegments)}, 0, 0);
+    Rec(s, {0x004F6600, AddressOf(&Ed::CRailEditorComponent::DrawAllPosts)}, 0, 0);
+    Rec(s, {0x004EA780, AddressOf(&Ed::CGoalEditorComponent::PlaceParkGoalsOnGround)}, 0, 0);
+    Rec(s, {0x004F4600, AddressOf(&Ed::CRailEditorComponent::AnyPointOutside)}, 0x10, 4);
+    Rec(s, {0x004F74B0, AddressOf(&Ed::CRailEditorComponent::DeletePoints)}, 0x14, 5);
+    Rec(s, {0x004E8300, AddressOf(&Ed::CGoalEditorComponent::AnyParkGoalOutside)}, 0x10, 4);
+    Rec(s, {0x004E8390, AddressOf(&Ed::CGoalEditorComponent::RemoveParkGoalsOutside)}, 0x10, 4);
 }
 
 

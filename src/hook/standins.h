@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "hook/game.h"
+#include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 
@@ -40,6 +41,14 @@ uint32_t AddressOf(F function)
     void* code;
     std::memcpy(&code, &function, sizeof(code));
     return Resolve(code);
+}
+
+// Our function registered (REPLACE) at a game address, or 0 if there is none: a stand-in written for the game's
+// function must catch the calls ours makes straight to it too ({address, OursOf(address)}).
+inline uint32_t OursOf(uint32_t address)
+{
+    void* ours = ReplacementFunction(address);
+    return ours ? Resolve(ours) : 0;
 }
 
 // Bytes overwritten for the length of a test (restored when it goes).

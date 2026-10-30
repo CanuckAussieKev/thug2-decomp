@@ -20,6 +20,9 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_state.h"
+#include "game/ed/rail_editor.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -70,9 +73,9 @@ constexpr uint32_t kScore = 0xCD66C8AE;       // "score"
 Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
 // The game mode (0x007CE470): its name (0x005532A0) and fireball level (0x005531F0) - neither has source yet.
 void* GameMode() { return GameVariable<void*>(0x007CE470); }
-uint32_t GameModeName() { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameMode()); }
+uint32_t GameModeName() { return static_cast<Game::CGameMode*>(GameMode())->GetNameChecksum(); }
 // The rail editor (0x004F4970 finds it).
-void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
+Ed::CRailEditorComponent* RailEditor() { return Ed::CRailEditorComponent::Instance(); }
 
 // 0x005A9E80 (CFuncs::WrapAngle, texture_cfuncs.cpp): an angle in degrees brought into 0..360. The original reads
 // its x87 result unrounded; ours is the float it returns (the last bits can differ when it adds or takes a turn).
@@ -218,8 +221,7 @@ bool __cdecl CFunc_FindNearestRailPoint(Script::CStruct* params, Script::CScript
     uint32_t rail = 0;
     int railIndex = 0;
     Mth::Vector railPoint;
-    GameFunction<bool(__thiscall*)(void*, Mth::Vector*, Mth::Vector*, float*, uint32_t*, int*, uint32_t, int)>(
-        0x004F4710)(RailEditor(), &pos, &railPoint, &railDistanceSquared, &rail, &railIndex, ignoreRail, ignoreIndex);
+    RailEditor()->FindNearestPoint(&pos, &railPoint, &railDistanceSquared, &rail, &railIndex, ignoreRail, ignoreIndex);
     float geometryDistanceSquared = 1.0e8f;
     Mth::Vector geometryPoint;
     if (params->ContainsFlag(kCheckLevelGeometry))
@@ -252,7 +254,7 @@ bool __cdecl CFunc_SetSpecialBarColors(Script::CStruct* params, Script::CScript*
     int index;
     params->GetInteger(kSkater, &index, 1);
     auto* skater = static_cast<Obj::CSkater*>(Skate()->GetSkater(index));
-    GameFunction<void(__thiscall*)(void*)>(0x005612D0)(skater->GetScore());
+    static_cast<Mdl::Score*>(skater->GetScore())->SetSpecialBarColors();
     return true;
 }
 
@@ -278,7 +280,7 @@ bool __cdecl CFunc_SetInitialsString(Script::CStruct* params, Script::CScript*)
 // 0x005B3230: GetFireballLevel: level, the game mode's fireball level. Always true.
 bool __cdecl CFunc_GetFireballLevel(Script::CStruct*, Script::CScript* script)
 {
-    script->m_params->AddInteger(kLevel, GameFunction<int(__thiscall*)(void*)>(0x005531F0)(GameMode()));
+    script->m_params->AddInteger(kLevel, static_cast<Game::CGameMode*>(GameMode())->GetFireballLevel());
     return true;
 }
 
@@ -322,8 +324,7 @@ bool __cdecl CFunc_DrawDirectionalLightLines(Script::CStruct* params, Script::CS
     params->GetInteger(kG, &g, 1);
     int b;
     params->GetInteger(kBlue, &b, 1);
-    auto* skater = reinterpret_cast<uint8_t*>(
-        GameFunction<Obj::CCompositeObject*(__thiscall*)(Mdl::Skate*)>(0x00566520)(Skate()));
+    auto* skater = reinterpret_cast<uint8_t*>(Skate()->GetLocalSkater());
     const Mth::Vector& position = *reinterpret_cast<Mth::Vector*>(skater + 0x4C);
     double above = static_cast<double>(position.y) + 75.0;
     float horizontal = static_cast<float>(std::cos(static_cast<double>(pitch)) * 50.0);
@@ -354,7 +355,7 @@ bool __cdecl CFunc_InSlapGame(Script::CStruct*, Script::CScript*)
 // score: score, else time * 1000)} in the preferences the params name (0x00565D40). Always true.
 bool __cdecl CFunc_SetPreferencesFromUI(Script::CStruct* params, Script::CScript*)
 {
-    auto* preferences = GameFunction<Prefs::Preferences*(__cdecl*)(CStruct*, int)>(0x00565D40)(params, 1);
+    auto* preferences = Mdl::Skate::GetPreferencesFromParams(params);
     const char* string;
     params->GetString(kString, &string, 1);
     const char* field;

@@ -83,7 +83,7 @@ void StandInCalls(StandIns& s)
         return hash & 0xFFF;
     });
     s.At({0x006234FE}, 0, StandInSprintf);
-    s.At({0x005B5F10}, 0, [](Regs&) {
+    s.At({0x005B5F10, AddressOf(GameConfig::GetPathPrefix)}, 0, [](Regs&) {
         Record({0x5F10});
         return reinterpret_cast<uint32_t>("BASLUS-21012");
     });
@@ -97,7 +97,7 @@ void StandInCalls(StandIns& s)
         Record({0x8540, Mark(r.ecx), r.args[0]});
         return 0u;
     });
-    s.At({0x00558A00}, 0, [](Regs& r) { Record({0x8A00, Mark(r.ecx)}); return 0x7701u; });
+    s.At({0x00558A00, AddressOf(&Game::CGoalManager::RestoreGoalData)}, 0, [](Regs& r) { Record({0x8A00, Mark(r.ecx)}); return 0x7701u; });
     // ApplyCatAndCustomSkater
     s.At({0x00553E90}, 0, [](Regs& r) { Record({0x3E90, Mark(r.ecx)}); return g_profileIndex; });
     s.At({0x005665C0, AddressOf(&Mdl::Skate::GetSkater)}, 4, [](Regs& r) {
@@ -540,7 +540,7 @@ void StandInSummaryCalls(StandIns& s)
         Record({0xDB90, r.ecx, r.args[0]});
         return 0x0C0E0000u;
     });
-    s.At({0x004E7E00}, 0, [](Regs& r) { Record({0x7E00, r.ecx}); return 17u; });
+    s.At({0x004E7E00, AddressOf(&Ed::CGoalEditorComponent::CountUsedGoals)}, 0, [](Regs& r) { Record({0x7E00, r.ecx}); return 17u; });
     // the rest of the game's state
     s.At({0x00532F70, AddressOf(&GameNet::Manager::GetNetworkPreferences)}, 0, [](Regs& r) {
         Record({0x2F70, r.ecx});
@@ -548,7 +548,7 @@ void StandInSummaryCalls(StandIns& s)
     });
     s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return reinterpret_cast<uint32_t>(g_goalManager); });
     s.At({0x004A2BA0}, 0, [](Regs& r) { Record({0x2BA0, Mark(r.ecx)}); return g_goalManagerParams; });
-    s.At({0x0055C090}, 0, [](Regs& r) { Record({0xC090, Mark(r.ecx)}); return 0u; });
+    s.At({0x0055C090, AddressOf(&Game::CGoalManager::LevelUnload)}, 0, [](Regs& r) { Record({0xC090, Mark(r.ecx)}); return 0u; });
     s.At({0x005665C0, AddressOf(&Mdl::Skate::GetSkater)}, 4, [](Regs& r) {
         Record({0x65C0, r.ecx == reinterpret_cast<uint32_t>(g_skate) ? 1u : r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_skaters[0]);

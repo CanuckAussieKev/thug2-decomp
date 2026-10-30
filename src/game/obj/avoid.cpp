@@ -2,6 +2,8 @@
 // member functions 0x004E37D0, 0x004E3810, 0x004E3BD0 and 0x004E3EC0 aren't Ghidra functions).
 
 #include "game/obj/avoid.h"
+#include "game/skater/skater.h"
+#include "game/skate/skate_module.h"
 
 #include <cmath>
 #include <cstdint>
@@ -54,7 +56,7 @@ int Quarter(float angle)
 // The local skater (Mdl::Skate 0x007CE478's 0x00566520; not rewritten yet).
 CCompositeObject* LocalSkater()
 {
-    return GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00566520)(GameVariable<void*>(0x007CE478));
+    return static_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
 }
 
 // The animation blender's (component 0x7149B753).

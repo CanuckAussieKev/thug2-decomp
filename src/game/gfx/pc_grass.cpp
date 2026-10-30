@@ -15,11 +15,13 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/geom.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pixel_shaders.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -32,7 +34,7 @@ constexpr int kMaxLayers = 5;
 
 void* LookUpTexture(void* dictionary, uint32_t checksum)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(dictionary, checksum);
+    return static_cast<CTexDict*>(dictionary)->GetTexture(checksum);
 }
 
 } // namespace
@@ -73,7 +75,7 @@ void __cdecl SetUpAnimatedGrassMaterial(sMaterial* m)
 // 0x004D0B60
 bool __cdecl MakeAnimatedGrass(CPcGeom* /*geom*/, sMesh* mesh)
 {
-    void* dictionary = *reinterpret_cast<void**>(GameFunction<uint8_t*(__cdecl*)()>(0x0048C7B0)() + 0x88); // the sky's
+    void* dictionary = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(GetSkyScene()) + 0x88); // the sky's
     auto* entry = static_cast<uint8_t*>(LookUpTexture(dictionary, 0x96D0BF08));
     if (!entry)
         return false;

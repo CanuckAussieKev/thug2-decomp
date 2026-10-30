@@ -11,8 +11,10 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scale.h"
+#include "game/gfx/model.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
+#include "game/script/game_cfuncs.h"
 #include "game/script/names.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
@@ -175,7 +177,7 @@ void* ModelGeometry(Obj::CCompositeObject* object, int index)
 {
     Obj::CBaseComponent* component = object->GetComponent(kModelComponent);
     auto* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
-    return model ? GameFunction<void*(__thiscall*)(void*, int)>(0x00494640)(model, index) : nullptr;
+    return model ? reinterpret_cast<Nx::CModel*>(model)->GetGeom(index) : nullptr;
 }
 
 bool SameScale(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
@@ -225,7 +227,7 @@ bool ModelBox(Obj::CCompositeObject* object, OrientedBox* out)
     uint8_t flags = model[0x44];
     if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
-    void* geometry = GameFunction<void*(__thiscall*)(void*, int)>(0x00493CD0)(model, 0);
+    void* geometry = reinterpret_cast<Nx::CModel*>(model)->GetGeomByName(0);
     const Mth::Vector* box =
         geometry ? GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DE80)(geometry) : nullptr;
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
@@ -466,7 +468,7 @@ Obj::CCompositeObject* MakeCopy(uint32_t source, V3 pos, uint32_t name)
         Log("level editor: no room for another node array - copy not made");
         return nullptr;
     }
-    GameFunction<int(__cdecl*)(Script::CStruct*)>(0x005A2E50)(copy);
+    CFuncs::CreateFromNode(copy);
     auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(name));
     if (object)
         g_copies.push_back({name, source});

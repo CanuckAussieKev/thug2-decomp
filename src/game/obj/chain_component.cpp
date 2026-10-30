@@ -1,6 +1,9 @@
 // The chain component (Obj::CChainComponent, chain_component.h): ropes of links hung from an object's bones.
 
 #include "game/obj/chain_component.h"
+#include "game/gfx/engine_primitive.h"
+#include "game/gfx/pc_primitive.h"
+#include "game/gfx/skeleton.h"
 
 #include <cmath>
 
@@ -8,6 +11,7 @@
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
 #include "game/net/buddy_status.h"
+#include "game/obj/pager_message.h"
 #include "game/obj/skeleton_component.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -91,16 +95,16 @@ void BonePosition(CBaseComponent* skeleton, uint32_t bone, Mth::Vector* out)
 void BoneMatrix(CBaseComponent* skeleton, uint32_t bone, Mth::Matrix* out)
 {
     auto* data = reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(skeleton)->Word18());
-    GameFunction<bool(__thiscall*)(void*, uint32_t, Mth::Matrix*)>(0x004A36E0)(data, bone, out);
+    static_cast<Gfx::CSkeleton*>(data)->GetBoneMatrix(bone, out);
 }
 
 // std::list<CChain*>::erase(first, last) (0x004ECC30, the game's).
 void EraseNodes(CChainComponent::ChainList* list, CChainComponent::Node* first, CChainComponent::Node* last)
 {
     CChainComponent::Node* result;
-    GameFunction<CChainComponent::Node**(__thiscall*)(CChainComponent::ChainList*, CChainComponent::Node**,
-                                                      CChainComponent::Node*, CChainComponent::Node*)>(0x004ECC30)(
-        list, &result, first, last);
+    reinterpret_cast<Obj::PointerList*>(list)->Erase(reinterpret_cast<Obj::PointerListNode**>(&result),
+                                                     reinterpret_cast<Obj::PointerListNode*>(first),
+                                                     reinterpret_cast<Obj::PointerListNode*>(last));
 }
 CChainComponent::Node* First(CChainComponent::Node* head) { return head ? head->next : nullptr; }
 
@@ -301,7 +305,7 @@ void CChainComponent::InitFromStructure(Script::CStruct* params)
                 continue;
             // (a grey line to the next link)
             void* lineMemory = Allocate(0x158);
-            void* line = lineMemory ? GameFunction<void*(__thiscall*)(void*, int)>(0x004C5230)(lineMemory, 1) : nullptr;
+            void* line = lineMemory ? static_cast<Nx::CPcPrimitive*>(lineMemory)->Construct(1) : nullptr;
             link.mp_line = line;
             static_cast<uint32_t*>(line)[3] = kLineBlend;
             GameFunction<void(__thiscall*)(void*, int, int, int)>(0x004A10A0)(line, 1, 0, 2);
@@ -310,7 +314,7 @@ void CChainComponent::InitFromStructure(Script::CStruct* params)
             SetLineColour(line, 1, kLineGrey);
             SetLineVertex(line, 1, link.m_pos);
             static_cast<uint8_t*>(line)[0x14] = 1;
-            GameFunction<void(__thiscall*)(void*)>(0x0049C6C0)(line);
+            static_cast<Nx::CPrimitive*>(line)->Ready();
         }
         // (onto the end of the list)
         Node* head = m_chains.head;

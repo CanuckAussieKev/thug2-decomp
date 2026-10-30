@@ -88,7 +88,7 @@ uint32_t SkaterIndex(uint32_t object)
 
 void StandInCalls(StandIns& s)
 {
-    s.At({0x005A4EF0}, 0, [](Regs& r) {
+    s.At({0x005A4EF0, AddressOf(&CFuncs::NodeCommandByName)}, 0, [](Regs& r) {
         Record({0x4EF0, r.args[0], r.args[1] == reinterpret_cast<uint32_t>(g_script) ? 1u : r.args[1], r.args[2]});
         return g_nodeCommandResult;
     });
@@ -108,7 +108,7 @@ void StandInCalls(StandIns& s)
         Record({0x4FC0, r.ecx == reinterpret_cast<uint32_t>(g_skate) ? 1u : r.ecx, r.args[0]});
         return 0x0F0F1234u;
     });
-    s.At({0x00567180}, 16, [](Regs& r) {
+    s.At({0x00567180, AddressOf(&Mdl::Skate::AddSkater)}, 16, [](Regs& r) {
         Record({0x7180, r.ecx == reinterpret_cast<uint32_t>(g_skate) ? 1u : r.ecx, r.args[0], r.args[1] & 0xFF,
                 r.args[2], r.args[3]});
         return 0u;
@@ -167,7 +167,7 @@ void StandInCalls(StandIns& s)
                              0x004A1240u, 0x004A1260u, 0x004A1280u, 0x004A12A0u, 0x004A12F0u, 0x004A1350u,
                              0x004A1370u, 0x004A13B0u, 0x004A13D0u, 0x004A1430u, 0x004A1450u, 0x004A14A0u,
                              0x004A14B0u, 0x0049E320u, 0x0049E310u, 0x0049E4B0u}) {
-        s.At({address}, 8, [address](Regs& r) {
+        s.At({address, OursOf(address)}, 8, [address](Regs& r) {
             Record({address, r.ecx, r.args[0], r.args[1] == reinterpret_cast<uint32_t>(g_script) ? 1u : r.args[1]});
             return (address >> 4) & 1 ? 0x101u : 0x100u; // a result that differs between the methods
         });
@@ -212,7 +212,12 @@ void TestWorldCFuncs()
         auto call = [&](uint32_t address, CFunc ours, Params& params) { Call(original, address, ours, params); };
         GameVariable<void*>(0x007CE478) = g_skate;
         GameVariable<void*>(0x007CCE14) = g_gameNet;
-        GameVariable<uint32_t>(0x006FA7C8) = 0x0EA70000;
+        // (the weather: an object with a vtable whose slot 1 - UpdateGrid, called through it - is the stood-in 0x004A1090)
+        static void* weatherVtable[4];
+        static void* weatherObject;
+        weatherVtable[1] = reinterpret_cast<void*>(0x004A1090);
+        weatherObject = weatherVtable;
+        GameVariable<uint32_t>(0x006FA7C8) = reinterpret_cast<uint32_t>(&weatherObject);
         GameVariable<uint32_t>(0x006FA7CC) = 0x05C2EE00;
         for (int i = 0; i < 3; ++i) {
             std::memset(g_skaters[i], 0, sizeof(g_skaters[i]));

@@ -11,11 +11,20 @@
 #include "game/core/str.h"
 #include "game/file/async.h"
 #include "game/file/pip.h"
+#include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_mesh.h"
+#include "game/gfx/engine_scene.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/pc_lights.h"
+#include "game/gfx/skeleton.h"
+#include "game/gfx/texture_dict.h"
 #include "game/gfx/engine_glue.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/object.h"
 #include "game/script/node_manager.h"
 #include "game/script/qb.h"
+#include "game/script/script_startup.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -26,69 +35,74 @@ namespace {
 
 using Script::CStruct;
 
-// --- the engine's loaders (not rewritten yet) ---------------------------------------------------------------
+// --- the engine's loaders ---------------------------------------------------------------------------------
 // Gfx::CBonedAnimFrameData (0x3C bytes): 0x00482AF0 the constructor, 0x00482B30 the destructor, 0x004856C0 Load.
-void* ConstructAnimFrames(void* frames) { return GameFunction<void*(__thiscall*)(void*)>(0x00482AF0)(frames); }
-void DestroyAnimFrames(void* frames) { GameFunction<void(__thiscall*)(void*)>(0x00482B30)(frames); }
+void* ConstructAnimFrames(void* frames) { return static_cast<Gfx::CBonedAnimFrameData*>(frames)->Construct(); }
+void DestroyAnimFrames(void* frames) { static_cast<Gfx::CBonedAnimFrameData*>(frames)->DestroyBody(); }
 bool LoadAnimFrames(void* frames, void* buffer, uint32_t size)
 {
-    return GameFunction<bool(__thiscall*)(void*, void*, uint32_t, bool)>(0x004856C0)(frames, buffer, size, true);
+    return static_cast<Gfx::CBonedAnimFrameData*>(frames)->Load(static_cast<const uint8_t*>(buffer), size, true);
 }
 // The skeleton data (0x598 bytes): 0x004A2C20 the constructor, 0x004A39C0 Load.
-void* ConstructSkeletonData(void* skeleton) { return GameFunction<void*(__thiscall*)(void*)>(0x004A2C20)(skeleton); }
+void* ConstructSkeletonData(void* skeleton) { return static_cast<Gfx::CSkeletonData*>(skeleton)->Construct(); }
 bool LoadSkeletonData(void* skeleton, void* buffer, uint32_t size)
 {
-    return GameFunction<bool(__thiscall*)(void*, void*, uint32_t, bool)>(0x004A39C0)(skeleton, buffer, size, true);
+    return static_cast<Gfx::CSkeletonData*>(skeleton)->Load(static_cast<const uint32_t*>(buffer), size, true);
 }
 // Scripts: 0x005A5990 parses a .qb file's contents, 0x005A59B0 unloads one (by its name's checksum).
 void ParseQbFile(const char* name, void* buffer)
 {
-    GameFunction<void(__cdecl*)(const char*, void*, int, int)>(0x005A5990)(name, buffer, 1, 1);
+    Script::LoadQBFileData(name, static_cast<const uint8_t*>(buffer), 1, 1);
 }
-void UnloadQbFile(uint32_t name) { GameFunction<void(__cdecl*)(uint32_t)>(0x005A59B0)(name); }
+void UnloadQbFile(uint32_t name) { Script::UnloadQBFile(name); }
 // Scenes (Nx): the file name, made from the buffer (with the textures), unloaded.
-void SceneFileName(char* out, const char* name, uint8_t flag)
-{
-    GameFunction<void(__cdecl*)(char*, const char*, uint32_t)>(0x0048C390)(out, name, flag);
-}
+void SceneFileName(char* out, const char* name, uint8_t flag) { Nx::Engine::SceneFileName(out, name, flag); }
 void* MakeScene(const char* name, void* buffer, void* textures, uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
-    return GameFunction<void*(__cdecl*)(const char*, void*, void*, uint32_t, uint32_t, uint32_t, uint32_t)>(0x0048CD80)(
-        name, buffer, textures, a, b, c, d);
+    return Nx::LoadNamedSceneFromMemory(name, static_cast<const uint8_t*>(buffer), static_cast<Nx::CTexDict*>(textures),
+                                        a != 0, b != 0, c != 0, d);
 }
-void UnloadScene(void* scene, int flag) { GameFunction<void(__cdecl*)(void*, int)>(0x0048C690)(scene, flag); }
+void UnloadScene(void* scene, int flag) { Nx::Engine::UnloadScene(static_cast<Nx::CScene*>(scene), flag); }
 // Scene collision: its file name, added to a scene, the scene's collision, removed.
 void CollisionFileName(char* out, const char* name, uint8_t flag)
 {
-    GameFunction<void(__cdecl*)(char*, const char*, uint32_t)>(0x0049CA20)(out, name, flag);
+    (void)flag; // (not read)
+    Nx::MakeCollisionFileName(out, name);
 }
 void AddCollision(void* scene, void* buffer, uint8_t flag)
 {
-    GameFunction<void(__thiscall*)(void*, void*, uint32_t)>(0x0049D590)(scene, buffer, flag);
+    static_cast<Nx::CScene*>(scene)->AddCollisionData(static_cast<const uint8_t*>(buffer), flag);
 }
-void* SceneCollision(void* scene) { return GameFunction<void*(__thiscall*)(void*, int)>(0x0049C9F0)(scene, 0); }
-void RemoveCollision(void* scene) { GameFunction<void(__thiscall*)(void*)>(0x0049CFB0)(scene); }
+void* SceneCollision(void* scene) { return static_cast<Nx::CScene*>(scene)->GetCollStatic(0); }
+void RemoveCollision(void* scene) { static_cast<Nx::CScene*>(scene)->UnloadCollision(); }
 // Skinned models: whether a name is a model with a .cas file (its base name out), the model made, unloaded.
-bool SplitSkinName(const char* name, char* base) { return GameFunction<bool(__cdecl*)(const char*, char*)>(0x0048BFE0)(name, base); }
+bool SplitSkinName(const char* name, char* base) { return Nx::Engine::SplitSkinName(name, base); }
 void* MakeSkinnedModel(uint32_t checksum, void* buffer, uint32_t size, void* cas, void* textures, int value,
                        uint8_t hasCas, uint8_t flag)
 {
-    return GameFunction<void*(__cdecl*)(uint32_t, void*, uint32_t, void*, void*, int, uint32_t, uint32_t)>(0x0048C030)(
-        checksum, buffer, size, cas, textures, value, hasCas, flag);
+    return Nx::Engine::LoadModelFromMemory(checksum, static_cast<const uint8_t*>(buffer), static_cast<int>(size), cas,
+                                           textures, value, hasCas, flag);
 }
-void UnloadSkinnedModel(void* model, int flag) { GameFunction<void(__cdecl*)(void*, int)>(0x0048C080)(model, flag); }
+void UnloadSkinnedModel(void* model, int flag)
+{
+    (void)flag; // 0x0048C080 is a jump to DeleteModelLights (its second argument isn't read)
+    Nx::DeleteModelLights(static_cast<Nx::CPcModelLights*>(model));
+}
 // Skin collision: its file name, added to a model, removed.
-void SkinCollisionFileName(char* out, const char* name) { GameFunction<void(__cdecl*)(char*, const char*)>(0x00490AD0)(out, name); }
-void AddSkinCollision(void* model, void* buffer) { GameFunction<void(__thiscall*)(void*, void*)>(0x00490B80)(model, buffer); }
-void RemoveSkinCollision(void* model) { GameFunction<void(__thiscall*)(void*)>(0x00490A90)(model); }
+void SkinCollisionFileName(char* out, const char* name) { Nx::SkinCollisionFileName(out, name); }
+void AddSkinCollision(void* model, void* buffer)
+{
+    static_cast<Nx::CMesh*>(model)->AddCollision(static_cast<const uint8_t*>(buffer));
+}
+void RemoveSkinCollision(void* model) { static_cast<Nx::CMesh*>(model)->RemoveCollision(); }
 // Texture dictionaries: the file name, made, unloaded.
-void TexDictFileName(char* out, const char* name) { GameFunction<void(__cdecl*)(char*, const char*)>(0x0049EF90)(out, name); }
+void TexDictFileName(char* out, const char* name) { Nx::TexDictFileName(out, name); }
 void* MakeTexDict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, int value, uint8_t b, uint8_t c)
 {
-    return GameFunction<void*(__cdecl*)(uint32_t, void*, uint32_t, uint32_t, int, uint32_t, uint32_t)>(0x0049F050)(
-        checksum, buffer, size, a, value, b, c);
+    return Nx::LoadTexDictFromMemory(checksum, static_cast<const uint8_t*>(buffer), size, a, static_cast<uint32_t>(value),
+                                     b, c);
 }
-void UnloadTexDict(void* textures) { GameFunction<void(__cdecl*)(void*)>(0x0049EFD0)(textures); }
+void UnloadTexDict(void* textures) { Nx::UnloadTexDict(static_cast<Nx::CTexDict*>(textures)); }
 
 // --- shared steps ---------------------------------------------------------------------------------------------
 uint8_t* ParamsPool() { return reinterpret_cast<uint8_t*>(0x00691758); }

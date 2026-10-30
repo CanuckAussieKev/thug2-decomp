@@ -170,7 +170,7 @@ void StandInListCalls(StandIns& s)
         Record({0x5790, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, r.args[4]});
         return 0u;
     });
-    s.At({0x004ECC30}, 12, [](Regs& r) { // std::list::erase(first, last)
+    s.At({0x004ECC30, AddressOf(&Obj::PointerList::Erase)}, 12, [](Regs& r) { // std::list::erase(first, last)
         Record({0xCC30, r.ecx, HeapId(r.args[1]), HeapId(r.args[2])});
         auto* list = reinterpret_cast<CFuncs::PointerList*>(r.ecx);
         list->m_head->next = list->m_head;

@@ -10,6 +10,7 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/draw2d.h"
+#include "game/mth/vector.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
 #include "hook/game.h"
@@ -56,7 +57,7 @@ struct Vector4 {
     float x, y, z, w;
 };
 // 0x004882D0 (a Vector member, thiscall, not rewritten yet): rotate about z by `angle` radians (x87 fsin/fcos).
-void RotateZ(Vector4& v, float angle) { GameFunction<void(__thiscall*)(Vector4*, float)>(0x004882D0)(&v, angle); }
+void RotateZ(Vector4& v, float angle) { reinterpret_cast<Mth::Vector*>(&v)->RotateAboutZ(angle); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, as a 64-bit integer.
 int64_t Truncated(double value) { return static_cast<int64_t>(value); }

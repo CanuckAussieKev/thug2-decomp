@@ -227,10 +227,10 @@ void StandInCalls(StandIns& s)
         out->ConstructFrom(g_containerThere ? reinterpret_cast<Front::CScreenElement*>(g_container) : nullptr);
         return r.args[0];
     });
-    s.At({0x004A06D0}, 0, [](Regs& r) { Record({0x06D0, r.args[0]}); return reinterpret_cast<uint32_t>(g_viewport); });
+    s.At({0x004A06D0, AddressOf(Nx::GetActiveViewport)}, 0, [](Regs& r) { Record({0x06D0, r.args[0]}); return reinterpret_cast<uint32_t>(g_viewport); });
     s.Bytes(0x004A1090, Branch(0xE9, 0x004A1090, reinterpret_cast<void*>(&VirtualSlot1)));
     s.Bytes(0x004A10A0, Branch(0xE9, 0x004A10A0, reinterpret_cast<void*>(&VirtualSlot3)));
-    s.At({0x004C5230}, 4, [](Regs& r) {
+    s.At({0x004C5230, AddressOf(&Nx::CPcPrimitive::Construct)}, 4, [](Regs& r) {
         Record({0x5230, r.args[0]});
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 0x150); // (the original's frame keeps 0x150-0x15C bytes)
         return r.ecx;
@@ -240,7 +240,7 @@ void StandInCalls(StandIns& s)
         RecordPrim(reinterpret_cast<const uint8_t*>(r.ecx));
         return 0u;
     });
-    s.At({0x0049C6C0}, 0, [](Regs& r) {
+    s.At({0x0049C6C0, AddressOf(&Nx::CPrimitive::Ready)}, 0, [](Regs& r) {
         Record({0xC6C0});
         reinterpret_cast<uint8_t*>(r.ecx)[0x15] = 1;
         return 0u;

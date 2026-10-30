@@ -34,6 +34,8 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/module.h"
 #include "game/skate/competition.h"
+#include "game/script/game_cfuncs.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -376,14 +378,16 @@ void InstallStandIns(StandIns& s, bool autoRepeat)
         return 0u;
     });
     thiscall0(0x0047C560, 0xC560, nullptr, AddressOf(&Sfx::CSfxManager::UpdatePositionalSounds));
-    thiscall0(0x00564D60, 0x4D60, nullptr);
-    thiscall0(0x00566520, 0x6520, [] { return reinterpret_cast<uint32_t>(g_localSkater); });
+    thiscall0(0x00564D60, 0x4D60, nullptr, AddressOf(&Mdl::Skate::UpdateGameFlow));
+    thiscall0(0x00566520, 0x6520, [] { return reinterpret_cast<uint32_t>(g_localSkater); },
+              AddressOf(&Mdl::Skate::GetLocalSkater));
     thiscall0(0x004ABD00, 0xBD00, nullptr, AddressOf(&Front::CScreenElementManager::Update));
     s.At({0x00462B70, AddressOf(&Obj::CTracker::LogFrame)}, 0, [](Regs& r) { Record({0x2B70, Id(r.ecx)}); return 0u; });
     thiscall0(0x004068F0, 0x68F0, nullptr, AddressOf(&Tsk::BaseTask::Remove));
-    thiscall1(0x00564F60, 0x4F60, nullptr);
+    thiscall1(0x00564F60, 0x4F60, nullptr, AddressOf(&Mdl::Skate::Pause));
     thiscall1(0x005665C0, 0x65C0,
-              [](uint32_t i) { return i < 4 ? reinterpret_cast<uint32_t>(g_skaterAt[i]) : 0u; });
+              [](uint32_t i) { return i < 4 ? reinterpret_cast<uint32_t>(g_skaterAt[i]) : 0u; },
+              AddressOf(&Mdl::Skate::GetSkater));
     s.At({0x0045F5D0, AddressOf(&Obj::CCompositeObjectManager::Pause)}, 4, [](Regs& r) {
         Record({0xF5D0, Id(r.ecx), r.args[0] & 0xFF});
         return 0u;
@@ -401,7 +405,7 @@ void InstallStandIns(StandIns& s, bool autoRepeat)
         Record({0xED10, r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x0059FD90}, 0, [](Regs& r) { // SetViewMode
+    s.At({0x0059FD90, AddressOf(CFuncs::CFunc_SetViewMode)}, 0, [](Regs& r) { // SetViewMode
         Record({0xFD90, Id(r.args[0]), Id(r.args[1])});
         return 1u;
     });

@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "game/core/mem.h"
+#include "game/gfx/viewport_list.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -639,7 +640,7 @@ void CScreenElement::UpdateLayout()
     if (m_objectFlags & kPos3d) {
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
-        void* camera = GameFunction<void*(__cdecl*)(int)>(0x004A06D0)(0);
+        void* camera = Nx::GetActiveViewport(0);
         float x, y, z;
         float scale = GameFunction<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(0x004A1090)(
             camera, &m_target.pos3d, &x, &y, &z);

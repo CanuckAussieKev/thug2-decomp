@@ -25,6 +25,7 @@
 #include "game/front/new_frontend.h"
 #include "game/front/screen_element_manager.h"
 #include "game/front/test_view.h"
+#include "game/gfx/engine.h"
 #include "game/gfx/tod_manager.h"
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
@@ -38,12 +39,15 @@
 #include "game/obj/tracker.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/cache.h"
+#include "game/script/script_startup.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sio/device.h"
 #include "game/sio/inpman.h"
+#include "game/skate/game_mode.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/records.h"
+#include "game/skate/skate_module.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/key_names.h"
 #include "game/sys/mlp.h"
@@ -51,6 +55,7 @@
 #include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
 #include "game/script/node_manager.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -61,11 +66,6 @@ namespace {
 
 // Compiled-out debug code at the start of main (a call to the empty 0x005480A0 with 0).
 inline void DebugSetUp(int /*unused*/) {}
-
-// The singletons without source yet: Create(true) makes the instance (or takes another reference) and returns
-// it; Release drops a reference.
-uint8_t* Create(uint32_t create) { return GameFunction<uint8_t*(__cdecl*)(bool)>(create)(true); }
-void Release(uint32_t release) { GameFunction<void(__cdecl*)()>(release)(); }
 
 // The main loop's task manager (Mlp::Manager): three task lists, at +0x04, +0x40 and +0x7C.
 void AddTask(Tsk::Stack& list, void* task) { list.AddTask(static_cast<Tsk::BaseTask*>(task)); }
@@ -99,7 +99,7 @@ bool QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
 int __cdecl Main(int argc, char** argv)
 {
     DebugSetUp(0);
-    GameFunction<void(__cdecl*)(int, char**)>(0x005B60B0)(argc, argv); // the command line options (Config)
+    GameConfig::Init(argc, argv); // the command line options (Config)
     Mem::Manager::Get()->InitStandardHeaps();
     switch (GameVariable<int>(0x007CEFA0)) { // the language's start-up (German has its own)
     case 3: // French
@@ -153,7 +153,7 @@ int __cdecl Main(int argc, char** argv)
         File::AsyncLoaderModule* asyncLoader = File::CreateAsyncLoaderModule(true);
         Mem::PopMemProfile();
         GameVariable<Inp::Manager*>(0x00696D40)->SetOverridePadWithStick(true); // (+0x10C)
-        GameFunction<void(__cdecl*)()>(0x005A5E70)();
+        Script::AllocatePools();
         // Not original - the level editor (game/front/level_editor.h) and CREATE 100% CAS
         // (game/front/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
         // registered after the game's own.
@@ -163,7 +163,7 @@ int __cdecl Main(int argc, char** argv)
         Front::TestView::RegisterScriptFunctions(); // (TeleportSkaterStanding - game/front/test_view.h)
         Skater::ThawBmx::RegisterScriptFunctions(); // (ThawBmx_Available, the bike's members - game/skater/thaw_bmx.h)
         Front::NewFrontend::RegisterScriptFunctions(); // (the overlay's pause items: NewFrontend_PauseItem / _Open)
-        GameFunction<void(__cdecl*)()>(0x005A5B20)();
+        Script::LoadAllStartupQBFiles();
 
         Mem::PushMemProfile("Game Singletons");
         Obj::CPathManager::Instance();
@@ -174,10 +174,10 @@ int __cdecl Main(int argc, char** argv)
         Obj::CreateCompositeObjectManager(true);
         Obj::RegisterComponentTypes();
         Obj::AcquireTrickObjectManager(true);
-        Create(0x00553DB0);
+        Game::CGameMode::Instance(true);
         Obj::CPlayerProfileManager::Create(true);
         Records::CGameRecords::Create(true);
-        uint8_t* module5691A0 = Create(0x005691A0);
+        uint8_t* module5691A0 = reinterpret_cast<uint8_t*>(Mdl::Skate::CreateInstance(true));
         auto* frontEnd = reinterpret_cast<uint8_t*>(Mdl::CreateFrontEnd(true));
         GameNet::Manager::Create(true);
         GameVariable<void*>(0x006FA7D0) = GameVariable<void*>(0x007CCE14); // (the network manager)
@@ -205,7 +205,7 @@ int __cdecl Main(int argc, char** argv)
         StartModule(mdl, assets);
         Mem::PopMemProfile();
         Mem::PushMemProfile("sStartEngine");
-        GameFunction<void(__cdecl*)(int)>(0x0048C1D0)(350); // start the engine
+        Nx::Engine::Init(350); // start the engine
         Mem::PopMemProfile();
         Mem::PopMemProfile(); // (Initialization)
 
@@ -231,10 +231,10 @@ int __cdecl Main(int argc, char** argv)
         Ed::CParkEditor::Release();
         GameNet::ReleaseManager();
         Mdl::ReleaseFrontEnd();
-        Release(0x00564C10);
+        Mdl::Skate::DeleteInstance();
         Records::CGameRecords::Release();
         Obj::CPlayerProfileManager::Release();
-        Release(0x00552F70);
+        Game::CGameMode::Release();
         Obj::ReleaseTrickObjectManager();
         Obj::ReleaseCompositeObjectManager();
         Net::ReleaseManager();

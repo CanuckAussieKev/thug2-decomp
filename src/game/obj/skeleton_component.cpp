@@ -8,6 +8,9 @@
 #include "game/ass/assman.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/skeleton.h"
+#include "game/gfx/texture_dict.h"
 #include "game/mth/matrix.h"
 #include "game/mth/quat.h"
 #include "game/obj/compositemgr.h"
@@ -37,22 +40,22 @@ constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
 // count, +0x08 the bones' names), +0x10 the bone-skipping level of detail.
 bool SkeletonBonePosition(uint8_t* skeleton, uint32_t bone, Mth::Vector* out)
 {
-    return GameFunction<bool(__thiscall*)(uint8_t*, uint32_t, Mth::Vector*)>(0x004A3870)(skeleton, bone, out);
+    return reinterpret_cast<Gfx::CSkeleton*>(skeleton)->GetBonePosition(bone, out);
 }
 bool SkeletonBoneMatrix(uint8_t* skeleton, uint32_t bone, Mth::Matrix* out)
 {
-    return GameFunction<bool(__thiscall*)(uint8_t*, uint32_t, Mth::Matrix*)>(0x004A36E0)(skeleton, bone, out);
+    return reinterpret_cast<Gfx::CSkeleton*>(skeleton)->GetBoneMatrix(bone, out);
 }
 void SetBoneScale(uint8_t* skeleton, uint32_t bone, const Mth::Vector* scale, bool alone)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, uint32_t, const Mth::Vector*, bool)>(0x004A2D80)(skeleton, bone, scale, alone);
+    reinterpret_cast<Gfx::CSkeleton*>(skeleton)->SetBoneScale(bone, scale, alone);
 }
 // The skeleton data's index of the bone named `bone` (0x004A2C70), and whether bone `index` is `parent` or under it
 // (0x004A3100).
-uint32_t BoneIndex(uint8_t* data, uint32_t bone) { return GameFunction<uint32_t(__thiscall*)(uint8_t*, uint32_t)>(0x004A2C70)(data, bone); }
+uint32_t BoneIndex(uint8_t* data, uint32_t bone) { return static_cast<uint32_t>(reinterpret_cast<Gfx::CSkeletonData*>(data)->GetIndex(bone)); }
 bool IsBoneUnder(uint8_t* data, uint32_t index, uint32_t parent)
 {
-    return GameFunction<bool(__thiscall*)(uint8_t*, uint32_t, uint32_t)>(0x004A3100)(data, index, parent);
+    return reinterpret_cast<Gfx::CSkeletonData*>(data)->IsDescendant(index, parent);
 }
 uint32_t BoneCount(uint8_t* data) { return *reinterpret_cast<uint32_t*>(data + 0x04); }
 uint32_t BoneName(uint8_t* data, uint32_t index) { return reinterpret_cast<uint32_t*>(data + 0x08)[index]; }
@@ -60,11 +63,11 @@ uint32_t BoneName(uint8_t* data, uint32_t index) { return reinterpret_cast<uint3
 // The texture dictionary's texture by name / checksum (0x0049F560 / 0x0049F540).
 void* TextureNamed(const char* name)
 {
-    return GameFunction<void*(__thiscall*)(void*, const char*)>(0x0049F560)(GameVariable<void*>(0x00700F20), name);
+    return GameVariable<Nx::CTexDict*>(0x00700F20)->GetTextureByName(name);
 }
 void* TextureByChecksum(uint32_t checksum)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(GameVariable<void*>(0x00700F20), checksum);
+    return GameVariable<Nx::CTexDict*>(0x00700F20)->GetTexture(checksum);
 }
 
 // The game's C runtime rand().
@@ -99,7 +102,7 @@ void CSkeletonComponent::DestroyBody()
 {
     m_vtable = kVtable;
     if (uint8_t* skeleton = mp_skeleton) {
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x004A2CB0)(skeleton);
+        reinterpret_cast<Gfx::CSkeleton*>(skeleton)->DestroyBody();
         Mem::Manager::Get()->Free(skeleton);
     }
     CBaseComponent::DestroyBody();
@@ -119,7 +122,7 @@ void CSkeletonComponent::InitSkeleton(uint32_t name)
 {
     void* asset = GameVariable<Ass::CAssMan*>(0x006918DC)->GetAssetData(name, 0);
     void* memory = Mem::New(0x1C);
-    mp_skeleton = memory ? GameFunction<uint8_t*(__thiscall*)(void*, void*)>(0x004A3D30)(memory, asset) : nullptr;
+    mp_skeleton = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx::CSkeleton*>(memory)->Construct(static_cast<Gfx::CSkeletonData*>(asset))) : nullptr;
 }
 
 // 0x00431CF0
@@ -130,8 +133,8 @@ void CSkeletonComponent::InitFromStructure(Script::CStruct* params)
         auto* other = reinterpret_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(from));
         auto* otherSkeleton = reinterpret_cast<CSkeletonComponent*>(other->GetComponent(kType));
         void* memory = Mem::New(0x1C);
-        mp_skeleton = memory ? GameFunction<uint8_t*(__thiscall*)(void*, uint8_t*)>(0x004A3E80)(memory,
-                                                                                               otherSkeleton->mp_skeleton)
+        mp_skeleton = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx::CSkeleton*>(memory)->ConstructCopy(
+                                   reinterpret_cast<const Gfx::CSkeleton*>(otherSkeleton->mp_skeleton)))
                              : nullptr;
         return;
     }
@@ -220,9 +223,8 @@ void CSkeletonComponent::SpawnTextureSplat(const Mth::Vector* start, const Mth::
         to.z = to.z + static_cast<float>(along * at.z);
         to.w = to.w + static_cast<float>(along * at.w);
     }
-    GameFunction<bool(__cdecl*)(const Mth::Vector*, const Mth::Vector*, float, float, float, float, float, const char*,
-                                 uint32_t, uint32_t, int, void*)>(0x004928A0)(
-        &from, &to, width, height, spin, turn, lifetime, nullptr, blend, follow ? bone : 0, 0, texture);
+    Nx::Engine::CreateTextureSplatAt(&from, &to, width, height, spin, turn, lifetime, nullptr, blend,
+                                     follow ? bone : 0, 0, static_cast<uint8_t*>(texture));
 }
 
 // 0x00432490
@@ -277,7 +279,7 @@ bool CSkeletonComponent::Obj_SetBoneActive(Script::CStruct* params, Script::CScr
     // (read into the parameters' own argument slot: missing, the pointer's value)
     int active = static_cast<int>(reinterpret_cast<uint32_t>(params));
     params->GetInteger(0xB4E103FD, &active, 1); // active
-    GameFunction<void(__thiscall*)(uint8_t*, uint32_t, bool)>(0x004A2BB0)(mp_skeleton, bone, active != 0);
+    reinterpret_cast<Gfx::CSkeleton*>(mp_skeleton)->SetBoneActive(bone, active != 0);
     return true;
 }
 
@@ -304,7 +306,7 @@ bool CSkeletonComponent::Obj_SetBoneScale(Script::CStruct* params, Script::CScri
     }
     *reinterpret_cast<uint32_t*>(mp_skeleton) |= 0x8000000;
     if (params->ContainsFlag(0x734AD918)) // force_update
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x004A4000)(mp_skeleton);
+        reinterpret_cast<Gfx::CSkeleton*>(mp_skeleton)->CollapseZeroScaledBones();
     return true;
 }
 

@@ -57,7 +57,8 @@ struct World {
     Lst::HashTable::Item items[8];
     uint8_t sectors[8][0x20];
     Mth::Vector boxes[8][2];
-    uint8_t geometry[8][0x10];
+    uint8_t geometry[8][0x10]; // +0 the vtable, +8 the collision faces
+    void* geometryVtable[64];
     Nx::CCollObjTriData coll[8];
     uint8_t vertexBytes[8][8];
     CMetaPiece metas[4];
@@ -214,10 +215,7 @@ void StandInGame(StandIns& s)
         int i = static_cast<int>((r.ecx - U(w.sectors)) / 0x20);
         return U(w.boxes[i & 7]);
     });
-    Rec(s, 0x004A2BA0, 0, 0, [&w](Regs& r) {
-        int i = static_cast<int>((r.ecx - U(w.sectors)) / 0x20);
-        return U(w.geometry[i & 7]);
-    });
+    // (a sector's geometry, +0x14, and the geometry's collision faces, +8, are read as they are: set in the world)
     Rec(s, 0x0048DF70, 0, 0);
     Rec(s, 0x0048DF80, 4, 1, [](Regs& r) {
         auto* out = reinterpret_cast<Mth::Vector*>(r.args[0]);
@@ -239,10 +237,6 @@ void StandInGame(StandIns& s)
         for (int i = 0; i < n; ++i)
             Record({colours[i]});
         return 0u;
-    });
-    Rec(s, 0x0049E810, 0, 0, [&w](Regs& r) {
-        int i = static_cast<int>((r.ecx - U(w.geometry)) / 0x10);
-        return U(&w.coll[i & 7]);
     });
     Rec(s, 0x0040B230, 8, 2, [](Regs& r) {
         auto* out = reinterpret_cast<float*>(r.args[0]);
@@ -502,11 +496,20 @@ void BasicWorld()
         *reinterpret_cast<uint32_t*>(w.sectors[i] + 4) = 0x5EC00000u + i * 3;
         w.boxes[i][0] = {-50.0f * i - 1.0f, -12.0f * i + 3.0f, 15.0f * i - 61.0f, 1.0f};
         w.boxes[i][1] = {70.0f * i + 9.0f, 17.0f * i - 7.0f + (i == 3 ? 60.0f : 0.0f), 33.0f * i + 1.0f, 1.0f};
+        *reinterpret_cast<uint32_t*>(w.sectors[i] + 0x14) = U(w.geometry[i]);
+        *reinterpret_cast<uint32_t*>(w.geometry[i]) = U(w.geometryVtable);
+        *reinterpret_cast<uint32_t*>(w.geometry[i] + 8) = U(&w.coll[i]);
         w.coll[i].m_numVertices = static_cast<uint16_t>(i % 4 + 1);
         w.coll[i].m_vertexBytes = w.vertexBytes[i];
         for (int j = 0; j < 8; ++j)
             w.vertexBytes[i][j] = static_cast<uint8_t>(0x30 + 0x11 * j + i);
     }
+    // the geometry's virtual slots the generator calls: the vertex count (36), positions (37), colours read (38) and
+    // set (40) - the stand-ins' addresses
+    w.geometryVtable[36] = reinterpret_cast<void*>(0x0048DF70);
+    w.geometryVtable[37] = reinterpret_cast<void*>(0x0048DF80);
+    w.geometryVtable[38] = reinterpret_cast<void*>(0x0049F3E0);
+    w.geometryVtable[40] = reinterpret_cast<void*>(0x0048DFA0);
     // the metapieces of BuildRails
     w.metaVtable[0] = nullptr; // (a recording thunk: piece `index`)
     for (int i = 0; i < 4; ++i) {

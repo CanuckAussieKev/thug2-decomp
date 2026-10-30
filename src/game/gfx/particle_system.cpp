@@ -12,6 +12,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/viewport.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -31,7 +34,7 @@ void* ParticleManager() { return GameVariable<void*>(0x006FA7C0); }
 int ViewportCount() { return GameVariable<int>(0x00701378); }
 Gfx::Camera* ViewportCamera(int viewport)
 {
-    return static_cast<Gfx::Camera*>(GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(viewport));
+    return GetActiveCamera(viewport);
 }
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -226,7 +229,7 @@ void CParticleSystem::DestroyBody()
     if (mp_particles)
         DeleteParticles(mp_particles);
     // the particle manager lets go of it
-    GameFunction<void(__thiscall*)(void*, CParticleSystem*)>(0x0049AD60)(ParticleManager(), this);
+    static_cast<CFlexibleParticleManager*>(ParticleManager())->RemoveSystem(this);
     m_node.UnlinkAs(kNodeVtable);
     Obj::CRefCounted::Destruct();
 }
@@ -642,7 +645,7 @@ void CModelParticles::DestroyBody()
     }
     if (mp_models) {
         for (unsigned int i = 0; i < m_modelCount; ++i)
-            GameFunction<void(__cdecl*)(void*)>(0x0048C3C0)(mp_models[i]); // (the model deleted)
+            Engine::DeleteGeomObject(mp_models[i]); // (the model deleted)
         Mem::Free(mp_models);
         mp_models = nullptr;
     }

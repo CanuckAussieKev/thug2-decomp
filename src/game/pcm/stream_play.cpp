@@ -11,6 +11,7 @@
 #include "game/core/crc.h"
 #include "game/gfx/movie.h"
 #include "game/sfx/sfx.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -28,7 +29,7 @@ void* UserTrackBuffer() { return reinterpret_cast<void*>(0x006D9FB8); }
 void* StreamBuffer(int slot) { return reinterpret_cast<uint8_t*>(0x0069DFB8) + slot * 0x14000; }
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
-const char* DataRoot() { return GameFunction<const char*(__cdecl*)()>(0x005B6250)(); }
+const char* DataRoot() { return GameConfig::GetBootstrapPrefix(); }
 // The sound effects manager (a reference-counted singleton) and its main volume (the original calls it as a
 // method of the manager; it reads a global).
 void CreateSoundManager() { Sfx::CreateManager(false); }

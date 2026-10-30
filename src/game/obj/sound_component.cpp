@@ -8,6 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/viewport.h"
 #include "game/mth/math.h"
 #include "game/obj/emitter.h"
 #include "game/obj/proxim.h"
@@ -43,7 +44,7 @@ CObject* AsSoundObject(CSoundComponent* component) { return reinterpret_cast<COb
 // The camera nearest to `position` (0x004A09E0; its distance through `distance`) and a camera's position (0x00485A00).
 void* NearestCamera(const Mth::Vector* position, float* distance)
 {
-    return GameFunction<void*(__cdecl*)(const Mth::Vector*, float*)>(0x004A09E0)(position, distance);
+    return Nx::GetClosestCamera(position, distance);
 }
 const Mth::Vector* CameraPosition(void* camera)
 {

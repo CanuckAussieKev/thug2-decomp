@@ -48,34 +48,34 @@ float g_modulation[2][4];
 
 void StandInCalls(StandIns& s)
 {
-    s.At({0x0048C110}, 0, [](Regs& r) { Record({0xC110, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x0048C110, AddressOf(&Nx::Engine::SetRenderIgnore)}, 0, [](Regs& r) { Record({0xC110, r.args[0], r.args[1]}); return 0u; });
     s.At({0x006234FE}, 0, StandInSprintf);
-    s.At({0x00482A30}, 0, [](Regs& r) {
-        Record({0x2A30, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1] & 0xFF});
+    s.At({0x00482A30, AddressOf(&Gfx::LoadTransTable)}, 0, [](Regs& r) {
+        Record({0x2A30, Hash(reinterpret_cast<const char*>(r.args[0]))}); // (the original's second argument isn't passed by ours)
         return 0u;
     });
-    s.At({0x004829F0}, 0, [](Regs& r) {
-        Record({0x29F0, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1] & 0xFF});
+    s.At({0x004829F0, AddressOf(&Gfx::LoadQuatTable)}, 0, [](Regs& r) {
+        Record({0x29F0, Hash(reinterpret_cast<const char*>(r.args[0]))}); // (the original's second argument isn't passed by ours)
         return 0u;
     });
-    s.At({0x00480D10}, 0, [](Regs& r) { Record({0x0D10, r.args[0], r.args[1], r.args[2]}); return 0u; });
-    s.At({0x0047EB30}, 0, [](Regs& r) { Record({0xEB30, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x00480660}, 0, [](Regs&) { Record({0x0660}); return 0xCAC40000u; });
-    s.At({0x00480DB0}, 4, [](Regs& r) { Record({0x0DB0, r.ecx, r.args[0]}); return 0u; });
-    s.At({0x00480F20}, 0, [](Regs& r) { Record({0x0F20, r.ecx}); return 0u; });
-    s.At({0x0048EB70}, 0, [](Regs& r) { Record({0xEB70, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x0048FB60}, 0, [](Regs&) { Record({0xFB60}); return 0u; });
-    s.At({0x0048EA00}, 0, [](Regs&) { Record({0xEA00}); return 0u; });
-    s.At({0x0048EA40}, 0, [](Regs&) { Record({0xEA40}); return g_popResult ? 0x7701u : 0x7700u; });
+    s.At({0x00480D10, AddressOf(&Gfx::CAnimCache::Create)}, 0, [](Regs& r) { Record({0x0D10, r.args[0], r.args[1], r.args[2]}); return 0u; });
+    s.At({0x0047EB30, AddressOf(&Gfx::CBlendChannel::InitBuffers)}, 0, [](Regs& r) { Record({0xEB30, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x00480660, AddressOf(&Gfx::CAnimCache::Get)}, 0, [](Regs&) { Record({0x0660}); return 0xCAC40000u; });
+    s.At({0x00480DB0, AddressOf(&Gfx::CAnimCache::Flush)}, 4, [](Regs& r) { Record({0x0DB0, r.ecx, r.args[0]}); return 0u; });
+    s.At({0x00480F20, AddressOf(&Gfx::CAnimCache::Defragment)}, 0, [](Regs& r) { Record({0x0F20, r.ecx}); return 0u; });
+    s.At({0x0048EB70, AddressOf(&Nx::InitLightManager)}, 0, [](Regs& r) { Record({0xEB70, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x0048FB60, AddressOf(&Nx::UninitLightManager)}, 0, [](Regs&) { Record({0xFB60}); return 0u; });
+    s.At({0x0048EA00, AddressOf(&Nx::PushWorldLights)}, 0, [](Regs&) { Record({0xEA00}); return 0u; });
+    s.At({0x0048EA40, AddressOf(&Nx::PopWorldLights)}, 0, [](Regs&) { Record({0xEA40}); return g_popResult ? 0x7701u : 0x7700u; });
     s.At({0x004A0780, AddressOf(&Nx::SetScreenAspectRatio)}, 0, [](Regs& r) { Record({0x0780, r.args[0]}); return 0u; });
-    s.At({0x004A0B70}, 0, [](Regs& r) { Record({0x0B70, r.args[0]}); return 0u; });
+    s.At({0x004A0B70, AddressOf(&Nx::SetScreenFieldOfView)}, 0, [](Regs& r) { Record({0x0B70, r.args[0]}); return 0u; });
     s.At({0x0048C1A0, AddressOf(&Nx::SetLetterbox)}, 0, [](Regs& r) { Record({0xC1A0, r.args[0] & 0xFF}); return 0u; });
     using AddPairFn = void (CStruct::*)(uint32_t, float, float);
     s.At({0x00477FC0, AddressOf(static_cast<AddPairFn>(&CStruct::AddPair))}, 12, [](Regs& r) {
         Record({0x7FC0, r.ecx == ScriptParams() ? 1u : r.ecx, r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x00491630}, 0, [](Regs& r) {
+    s.At({0x00491630, AddressOf(&Nx::Engine::KillTextureSplatsInBox)}, 0, [](Regs& r) {
         Record({0x1630});
         for (int i = 0; i < 8; ++i)
             Record({reinterpret_cast<const uint32_t*>(r.args[0])[i]});
@@ -108,17 +108,17 @@ void StandInCalls(StandIns& s)
         Record({0x0950, r.args[0]});
         return g_cameraMissing[r.args[0] & 1] ? 0u : reinterpret_cast<uint32_t>(g_cameras[r.args[0] & 1]);
     });
-    s.At({0x00490E00}, 0, [](Regs& r) { Record({0x0E00, r.args[0]}); return 0u; });
-    s.At({0x00490E20}, 0, [](Regs& r) { Record({0x0E20, r.args[0]}); return 0u; });
-    s.At({0x0048E8F0}, 0, [](Regs& r) { Record({0xE8F0, r.args[0]}); return g_lightResult; });
-    s.At({0x0048E930}, 0, [](Regs& r) { Record({0xE930, r.args[0], r.args[1]}); return g_lightResult ^ 1; });
-    s.At({0x0048E920}, 0, [](Regs& r) { Record({0xE920, r.args[0]}); return reinterpret_cast<uint32_t>(g_lightDirection); });
-    s.At({0x0048E900}, 0, [](Regs& r) {
+    s.At({0x00490E00, AddressOf(&Nx::Engine::SetFogDistance)}, 0, [](Regs& r) { Record({0x0E00, r.args[0]}); return 0u; });
+    s.At({0x00490E20, AddressOf(&Nx::Engine::SetFogColor)}, 0, [](Regs& r) { Record({0x0E20, r.args[0]}); return 0u; });
+    s.At({0x0048E8F0, AddressOf(&Nx::SetLightAmbientColor)}, 0, [](Regs& r) { Record({0xE8F0, r.args[0]}); return g_lightResult; });
+    s.At({0x0048E930, AddressOf(&Nx::SetLightDiffuseColor)}, 0, [](Regs& r) { Record({0xE930, r.args[0], r.args[1]}); return g_lightResult ^ 1; });
+    s.At({0x0048E920, AddressOf(&Nx::GetLightDirection)}, 0, [](Regs& r) { Record({0xE920, r.args[0]}); return reinterpret_cast<uint32_t>(g_lightDirection); });
+    s.At({0x0048E900, AddressOf(&Nx::GetLightAmbientColor)}, 0, [](Regs& r) {
         Record({0xE900});
         *reinterpret_cast<uint32_t*>(r.args[0]) = g_colours[0];
         return r.args[0];
     });
-    s.At({0x0048E950}, 0, [](Regs& r) {
+    s.At({0x0048E950, AddressOf(&Nx::GetLightDiffuseColor)}, 0, [](Regs& r) {
         Record({0xE950, r.args[1]});
         *reinterpret_cast<uint32_t*>(r.args[0]) = g_colours[1 + (r.args[1] & 1)];
         return r.args[0];

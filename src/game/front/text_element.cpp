@@ -8,6 +8,8 @@
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
 #include "game/front/sprite_element.h"
+#include "game/gfx/engine_text.h"
+#include "game/gfx/font.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -87,33 +89,28 @@ uint8_t Faded(int a, float alpha)
 }
 
 // Fonts (0x0048D760, cdecl) and a string's size in one (0x0048D060, the font's slot 8).
-void* GetFont(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048D760)(name); }
+void* GetFont(uint32_t name) { return Nx::GetFont(name); }
 void QueryString(void* font, const char* text, float* width, float* height)
 {
     GameFunction<void(__thiscall*)(void*, const char*, float*, float*)>(0x0048D060)(font, text, width, height);
 }
 // A button glyph's character for the text after \m (0x0048D6A0, cdecl).
-char ButtonGlyph(const char* text) { return GameFunction<char(__cdecl*)(const char*)>(0x0048D6A0)(text); }
+char ButtonGlyph(const char* text) { return Nx::ButtonGlyph(text); }
 
 // The text objects: made / freed (cdecl), and their setters (thiscall).
-void* NewTextObject() { return GameFunction<void*(__cdecl*)()>(0x0048D1D0)(); }
-void FreeTextObject(void* text) { GameFunction<void(__cdecl*)(void*)>(0x0048D5F0)(text); }
-template <typename... A>
-void Set(uint32_t address, void* text, A... args)
-{
-    GameFunction<void(__thiscall*)(void*, A...)>(address)(text, args...);
-}
-void TextHidden(void* t, bool hidden) { Set(0x0048D0C0, t, hidden); }
-void TextFont(void* t, void* font) { Set(0x0048D0D0, t, font); }
-void TextPos(void* t, float x, float y) { Set(0x0048D0E0, t, x, y); }
-void TextScale(void* t, float x, float y) { Set(0x0048D100, t, x, y); }
-void TextRotation(void* t, float angle, float x, float y) { Set(0x0048D120, t, angle, x, y); }
-void TextPriority(void* t, float priority) { Set(0x0048D140, t, priority); }
-void TextDepth(void* t, float depth) { Set(0x0048D160, t, depth); }
-void TextColour(void* t, uint32_t rgba, bool overrideEncoded) { Set(0x0048D180, t, rgba, overrideEncoded); }
-void TextOverrideAlpha(void* t, bool overrideAlpha) { Set(0x0048D1A0, t, overrideAlpha); }
-void TextViewport(void* t, void* window) { Set(0x0048D1B0, t, window); }
-void TextString(void* t, const char* text) { Set(0x0048D530, t, text); }
+void* NewTextObject() { return Nx::NewText(); }
+void FreeTextObject(void* text) { Nx::FreeText(static_cast<Nx::CText*>(text)); }
+void TextHidden(void* t, bool hidden) { static_cast<Nx::CText*>(t)->SetHidden(hidden); }
+void TextFont(void* t, void* font) { static_cast<Nx::CText*>(t)->SetFont(static_cast<Nx::CFont*>(font)); }
+void TextPos(void* t, float x, float y) { static_cast<Nx::CText*>(t)->SetPos(x, y); }
+void TextScale(void* t, float x, float y) { static_cast<Nx::CText*>(t)->SetScale(x, y); }
+void TextRotation(void* t, float angle, float x, float y) { static_cast<Nx::CText*>(t)->SetRotation(angle, x, y); }
+void TextPriority(void* t, float priority) { static_cast<Nx::CText*>(t)->SetPriority(priority); }
+void TextDepth(void* t, float depth) { static_cast<Nx::CText*>(t)->SetDepth(depth); }
+void TextColour(void* t, uint32_t rgba, bool overrideEncoded) { static_cast<Nx::CText*>(t)->SetColour(rgba, overrideEncoded); }
+void TextOverrideAlpha(void* t, bool overrideAlpha) { static_cast<Nx::CText*>(t)->SetOverrideAlpha(overrideAlpha); }
+void TextViewport(void* t, void* window) { static_cast<Nx::CText*>(t)->SetWindow(window); }
+void TextString(void* t, const char* text) { static_cast<Nx::CText*>(t)->SetString(text); }
 
 // The blur's empty destructor (0x005480A0) and its memory freed.
 void DeleteBlur(CBlurEffect* blur)
@@ -360,16 +357,16 @@ void CTextElement::SetCharProperties(Script::CArray* chars)
         c->GetInteger(kIndex, &index, 1);
         float degrees = 0.0f;
         if (c->GetFloat(kRotAngle, &degrees, 0))
-            Set(0x0048D450, mp_texts[0], index, static_cast<float>(static_cast<double>(degrees) * Degrees()));
+            static_cast<Nx::CText*>(mp_texts[0])->SetCharRotation(index, static_cast<float>(static_cast<double>(degrees) * Degrees()));
         float x = 0.0f, y = 0.0f;
         if (c->GetPair(kOffset, &x, &y, 0)) {
             int iy = Truncated(y);
             int ix = Truncated(x);
-            Set(0x0048D280, mp_texts[0], index, ix, iy);
+            static_cast<Nx::CText*>(mp_texts[0])->SetCharOffset(index, static_cast<int16_t>(ix), static_cast<int16_t>(iy));
         }
         float scaleX = 0.0f, scaleY = 0.0f;
         if (c->GetPair(kScale, &scaleX, &scaleY, 0))
-            Set(0x0048D360, mp_texts[0], index, scaleX, scaleY);
+            static_cast<Nx::CText*>(mp_texts[0])->SetCharScale(index, scaleX, scaleY);
     }
 }
 

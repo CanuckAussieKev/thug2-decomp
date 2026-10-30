@@ -20,6 +20,8 @@
 #include "game/gfx/scene_render.h"
 #include "game/gfx/shadow.h"
 #include "game/lst/hashtable.h"
+#include "game/gfx/material.h"
+#include "game/gfx/mesh.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -88,8 +90,8 @@ void TestRenderScene()
         Record({0x9AC0, MeshIndex(r.args[0] - 4), r.args[1], r.args[2]});
         return static_cast<uint32_t>(script->Below(4) == 0);
     });
-    s.At({0x004D1F00}, 0, [](Regs& r) { Record({0x1F00, SceneRelocate(r.ecx)}); return 0u; });
-    s.At({0x004D5290}, 0, [](Regs& r) { Record({0x5290, MeshIndex(r.ecx)}); return 0u; });
+    s.At({0x004D1F00, AddressOf(&Nx::sMaterial::Submit)}, 0, [](Regs& r) { Record({0x1F00, SceneRelocate(r.ecx)}); return 0u; });
+    s.At({0x004D5290, AddressOf(&Nx::sMesh::Render)}, 0, [](Regs& r) { Record({0x5290, MeshIndex(r.ecx)}); return 0u; });
     s.At({0x004DBF50, AddressOf(&Nx::DrawShadows)}, 0, [](Regs& r) {
         Record({0xBF50, SceneRelocate(r.args[0]), r.args[2]});
         auto* list = reinterpret_cast<uint8_t* const*>(r.args[1]);

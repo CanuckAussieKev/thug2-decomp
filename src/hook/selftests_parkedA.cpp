@@ -1432,7 +1432,7 @@ void StandInIo(StandIns& s)
         Record({0xBA10, r.ecx, r.args[0], Offset(reinterpret_cast<void*>(r.args[1]))});
         return 0u;
     });
-    s.At({0x004F6680}, 4, [](Regs& r) {
+    s.At({0x004F6680, AddressOf(&Ed::CRailEditorComponent::WriteToStructure)}, 4, [](Regs& r) {
         Record({0x6680, r.ecx});
         return 0u;
     });

@@ -10,6 +10,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_primitive.h"
+#include "game/gfx/material.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/sys/platform_d3d.h"
@@ -42,9 +44,9 @@ uint32_t Swapped(uint32_t rgba) { return (rgba & 0xFF00FF00u) | (rgba & 0xFF) <<
 // 0x004C5230
 CPcPrimitive* CPcPrimitive::Construct(int own)
 {
-    GameFunction<void*(__thiscall*)(void*, int)>(0x0049C660)(this, own);
+    reinterpret_cast<CPrimitive*>(this)->CPrimitive::Construct(own);
     vtable = reinterpret_cast<void**>(kVtable);
-    GameFunction<uint8_t*(__thiscall*)(void*)>(0x004D1A90)(material);
+    reinterpret_cast<sMaterial*>(material)->Construct();
     uint32_t made = flags | 1;
     vertexFormat = 2;
     vertices = nullptr;
@@ -73,8 +75,8 @@ void CPcPrimitive::DestroyBody()
     vtable = reinterpret_cast<void**>(kVtable);
     if (ownsVertices == 1 && vertices)
         Mem::Manager::Get()->Free(vertices);
-    GameFunction<void(__thiscall*)(void*)>(0x004D2BD0)(material);
-    GameFunction<void(__thiscall*)(void*)>(0x0049C6A0)(this);
+    reinterpret_cast<sMaterial*>(material)->DestroyBody();
+    reinterpret_cast<CPrimitive*>(this)->CPrimitive::DestroyBody();
 }
 
 // 0x004C5ED0
@@ -152,7 +154,7 @@ void CPcPrimitive::Ready()
 void CPcPrimitive::Render()
 {
     At<uint32_t>(material, 0x80) = BlendModeFromName(blendMode);
-    GameFunction<void(__thiscall*)(uint8_t*)>(0x004D1F00)(material); // (its set-up)
+    reinterpret_cast<sMaterial*>(material)->Submit(); // (its set-up)
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t firstVertex = 0, room = 0;
     SetVertexFormat(vertexFormat);

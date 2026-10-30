@@ -17,12 +17,16 @@
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
 #include "game/ed/rail_editor.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
 #include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -51,12 +55,14 @@ Vector g_raw[32];
 int g_rawCount;
 int g_clones;
 
+uint32_t __fastcall CollisionFacesStandIn(void*, void*) { return reinterpret_cast<uint32_t>(ArenaPtr(kCollision)); }
+
 int GeometryIndex(uint32_t geometry)
 {
-    if (geometry < reinterpret_cast<uint32_t>(ArenaPtr(kGeometries)) ||
-        geometry >= reinterpret_cast<uint32_t>(ArenaPtr(kGeometries + kSectorCount * 8)))
+    if (geometry < reinterpret_cast<uint32_t>(g_geometries) ||
+        geometry >= reinterpret_cast<uint32_t>(g_geometries) + sizeof(g_geometries))
         return kSectorCount - 1;
-    return static_cast<int>((geometry - reinterpret_cast<uint32_t>(ArenaPtr(kGeometries))) / 8);
+    return static_cast<int>((geometry - reinterpret_cast<uint32_t>(g_geometries)) / 0x10);
 }
 
 constexpr uint32_t kRailSource = 0x66FE99BF, kPostSource = 0x2756C52D, kGreen = 0x5DC3C690, kRed = 0x8DDA17D6;
@@ -74,10 +80,10 @@ std::vector<StandIn> DrawStandIns()
         {0x00592090, 0, 0, Ret::None, true, 0, {Ours(&Ed::CParkGenerator::RebuildCollision)}},
         {0x00592320, 16, 4, Ret::Int, true, 0, {Ours(&Ed::CParkGenerator::CloneSector)},
          [](Frame&, Result& r) { r.eax = 0xC10E0000u + static_cast<uint32_t>(g_clones++); }},
-        {0x0049E670, 0, 0, Ret::None, true},
-        {0x0049E680, 4, 1, Ret::None, true},
-        {0x0049E9B0, 4, 1, Ret::None, true, 1},
-        {0x0048C510, 0, 1, Ret::Int, false, 0, {}, [](Frame& f, Result& r) {
+        {0x0049E670, 0, 0, Ret::None, true, 0, {Ours(&Nx::CSector::ClearColor)}},
+        {0x0049E680, 4, 1, Ret::None, true, 0, {Ours(&Nx::CSector::SetVisibility)}},
+        {0x0049E9B0, 4, 1, Ret::None, true, 1, {Ours(&Nx::CSector::SetActive)}},
+        {0x0048C510, 0, 1, Ret::Int, false, 0, {Ours(&Nx::Engine::GetSector)}, [](Frame& f, Result& r) {
              uint32_t name = f.args[0];
              int index = name == kRailSource ? 40 : name == kPostSource ? 41 : name == kGreen ? 42 : name == kRed ? 43
                                                                                                        : 44 + (name & 3);
@@ -102,12 +108,10 @@ std::vector<StandIn> DrawStandIns()
         {0x005BBAE0, 0, 1, Ret::Int, false, 0, {Ours(Mem::Malloc)},
          [](Frame& f, Result& r) { r.eax = reinterpret_cast<uint32_t>(HeapAllocate(f.args[0])); }},
         {0x005BBB60, 0, 1, Ret::None, false, 0, {Ours(Mem::FreeMalloc)}},
-        {0x0049E810, 0, 0, Ret::Int, true, 0, {},
-         [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kCollision)); }},
         {0x00414F90, 4, 1, Ret::None, true, 0, {Ours(&Nx::CCollObjTriData::GetRawVertices)}, [](Frame& f, Result&) {
              std::memcpy(reinterpret_cast<void*>(f.args[0]), g_raw, g_rawCount * sizeof(Vector));
          }},
-        {0x0049EA00, 4, 1, Ret::None, true, 0, {}, [](Frame& f, Result&) {
+        {0x0049EA00, 4, 1, Ret::None, true, 0, {Ours(&Nx::CSector::SetRawVertices)}, [](Frame& f, Result&) {
              const auto* v = reinterpret_cast<const Vector*>(f.args[0]);
              for (int i = 0; i < g_rawCount; ++i) {
                  RecordFloat(v[i].x);
@@ -298,8 +302,12 @@ void BuildGeometry(const std::vector<CEditedRail*>& rails)
         for (int i = 0; i < kVertices; ++i)
             g_storeStart[g][i] = {RandomFloat(6.0f), RandomFloat(6.0f), RandomFloat(6.0f), 1.0f};
     }
-    for (int i = 40; i < kSectorCount; ++i)
-        *At<uint8_t*>(kSectors + i * 0x20 + 0x14) = ArenaPtr(kGeometries + i * 8);
+    // (every sector has a geometry: the geometry calls go through its vtable, as the original's dispatchers do - a
+    // sector without one crashes both; the collision faces are the word at +8)
+    for (int i = 0; i < kSectorCount; ++i) {
+        *At<uint8_t*>(kSectors + i * 0x20 + 0x14) = g_geometries[i];
+        *reinterpret_cast<uint8_t**>(g_geometries[i] + 8) = ArenaPtr(kCollision);
+    }
     g_rawCount = 16 + static_cast<int>(Next() % 8);
     *At<uint16_t>(kCollision + 6) = static_cast<uint16_t>(g_rawCount);
     for (int i = 0; i < g_rawCount; ++i) {
@@ -564,6 +572,9 @@ constexpr int kDrawOps = 16;
 void TestRailEditorDraw()
 {
     StandIns standIns(DrawStandIns());
+    // 0x0049E810 (the getter of the word at +8 - a geometry's collision faces): ours reads the word itself, so the
+    // original's call isn't recorded either.
+    CodePatch collisionFaces(0x0049E810, JumpTo(0x0049E810, reinterpret_cast<uint32_t>(&CollisionFacesStandIn)));
     GarbageAsZero zeroed;
     Globals saved = Globals::Read();
     int savedCounter = GameVariable<int>(0x007CCD2C);

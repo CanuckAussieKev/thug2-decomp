@@ -298,10 +298,10 @@ void StandInGame(StandIns& s)
     Rec(s, {0x005975B0}, 4, 1);
     Rec(s, {0x00591D20}, 4, 1);
     // the map, the structures, the files
-    Rec(s, {0x004E8470}, 0, 0, 0, [](Regs&) { return U(g_world.goalEditor); }, true);
-    Rec(s, {0x004E8280}, 0, 0);
-    Rec(s, {0x004EA470}, 8, 2);
-    Rec(s, {0x004F7ED0}, 4, 1, 0, [](Regs&) {
+    Rec(s, {0x004E8470, AddressOf(&Ed::CGoalEditorComponent::Get)}, 0, 0, 0, [](Regs&) { return U(g_world.goalEditor); }, true);
+    Rec(s, {0x004E8280, AddressOf(&Ed::CGoalEditorComponent::ClearParkGoals)}, 0, 0);
+    Rec(s, {0x004EA470, AddressOf(&Ed::CGoalEditorComponent::ReadGoals)}, 8, 2);
+    Rec(s, {0x004F7ED0, AddressOf(&Ed::CRailEditorComponent::ReadFromStructure)}, 4, 1, 0, [](Regs&) {
         Record({GameVariable<uint8_t>(0x0067F000)});
         return 0u;
     });

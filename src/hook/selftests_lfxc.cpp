@@ -96,18 +96,18 @@ uint32_t Rel(uint32_t value)
 void StandInCalls(StandIns& s)
 {
     s.At({0x005BE970, AddressOf(&Tmr::GetTime)}, 0, [](Regs&) { Record({0x7135}); return g_now; });
-    s.At({0x004901D0}, 0, [](Regs& r) { Record({0x01D0, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x004901D0, AddressOf(&Nx::UpdateSceneLight)}, 0, [](Regs& r) { Record({0x01D0, r.args[0], r.args[1]}); return 0u; });
     s.At({0x0045BF90, AddressOf(static_cast<uint32_t* (*)(uint32_t, uint16_t*)>(&SkateScript::GetPrefixedNodes))}, 0, [](Regs& r) {
         // (the original passes a third argument, exact-or-prefix, that 0x0045BF90 never reads - ours doesn't pass it)
         Record({0xBF90, r.args[0], *reinterpret_cast<uint32_t*>(r.args[1])});
         *reinterpret_cast<uint32_t*>(r.args[1]) = 0x12340005; // a 16-bit count: only the low half is read
         return reinterpret_cast<uint32_t>(g_fakeNodes);
     });
-    s.At({0x0048FE40}, 0, [](Regs& r) { Record({0xFE40, r.args[0], r.args[1], r.args[2], r.args[3]}); return 0u; });
-    s.At({0x00491F10}, 0, [](Regs&) { Record({0x1F10}); return 0u; });
+    s.At({0x0048FE40, AddressOf(&Nx::QueueSceneLights)}, 0, [](Regs& r) { Record({0xFE40, r.args[0], r.args[1], r.args[2], r.args[3]}); return 0u; });
+    s.At({0x00491F10, AddressOf(&Nx::Engine::LightAllTextureSplats)}, 0, [](Regs&) { Record({0x1F10}); return 0u; });
     s.At({0x0045BE70, AddressOf(&SkateScript::NodeExists)}, 0, [](Regs& r) { Record({0xBE70, r.args[0]}); return r.args[0] & 0x101; });
     s.At({0x004753C0, AddressOf(&Script::DeleteSpawnedScripts)}, 0, [](Regs&) { Record({0x53C0}); return 0u; });
-    s.At({0x005A5960}, 0, [](Regs& r) {
+    s.At({0x005A5960, AddressOf(&Script::LoadQBFile)}, 0, [](Regs& r) {
         Record({0x5960, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0u;
     });
@@ -151,12 +151,12 @@ void StandInCalls(StandIns& s)
         Record({0x2D80, r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x00490890}, 0, [](Regs& r) {
+    s.At({0x00490890, AddressOf(&Nx::DisplayLoadingScreen)}, 0, [](Regs& r) {
         Record({0x0890, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1] & 0xFF, r.args[2] & 0xFF});
         return 0u;
     });
-    s.At({0x00490770}, 0, [](Regs& r) { Record({0x0770, r.args[0]}); return 0u; });
-    s.At({0x004908C0}, 0, [](Regs&) { Record({0x08C0}); return 0u; });
+    s.At({0x00490770, AddressOf(&Nx::SetLoadingBarTime)}, 0, [](Regs& r) { Record({0x0770, r.args[0]}); return 0u; });
+    s.At({0x004908C0, AddressOf(&Nx::RemoveLoadingScreen)}, 0, [](Regs&) { Record({0x08C0}); return 0u; });
     s.At({0x006234FE}, 0, StandInSprintf);
     s.At({0x005B9F60, AddressOf(&File::Write)}, 0, [](Regs& r) {
         Record({0x9F60, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), r.args[1] * r.args[2]), r.args[1],

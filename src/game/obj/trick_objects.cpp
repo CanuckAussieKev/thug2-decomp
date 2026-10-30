@@ -3,6 +3,14 @@
 // See trick_objects.h.
 
 #include "game/obj/trick_objects.h"
+#include "game/ed/rail_editor.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/sector.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/game_mode.h"
+#include "game/skater/skater.h"
+#include "game/skate/skate_module.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -65,9 +73,9 @@ int ObjectId(uint8_t* skater) { return *reinterpret_cast<int*>(skater + 0x14); }
 // Team graffiti scored by team: the game mode netgraffiti, a team game, team_graffiti_mode graffiti_team_scoring.
 bool TeamScoring()
 {
-    return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameMode()) == kNetGraffiti &&
-           GameFunction<bool(__thiscall*)(void*)>(0x005535F0)(GameMode()) &&
-           GameFunction<uint32_t(__thiscall*)(void*)>(0x00553300)(GameMode()) == kGraffitiTeamScoring;
+    return static_cast<Game::CGameMode*>(GameMode())->GetNameChecksum() == kNetGraffiti &&
+           static_cast<Game::CGameMode*>(GameMode())->IsTeamGame() != 0 &&
+           static_cast<Game::CGameMode*>(GameMode())->GetTeamGraffitiMode() == kGraffitiTeamScoring;
 }
 
 } // namespace
@@ -130,8 +138,7 @@ uint32_t CTrickObjectManager::LogTrickObjects(uint32_t count, uint32_t* objects,
         auto* cluster = static_cast<CTrickObjectCluster*>(m_objectClusters.GetItem(objects[i]));
         if (!cluster)
             continue;
-        uint8_t* goals = GameFunction<uint8_t*(__cdecl*)()>(0x005591B0)();
-        GameFunction<void(__thiscall*)(uint8_t*, uint32_t, uint32_t)>(0x00558770)(goals, cluster->m_name, score);
+        Game::GetGoalManager()->KillCluster(cluster->m_name, static_cast<int>(score));
         if (score > cluster->m_scores[player])
             cluster->m_scores[player] = score;
         uint32_t total = score;
@@ -197,11 +204,11 @@ constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the sk
 
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
 // (r, g, b, a; zero without a mesh), the mesh's (+0x14) vtable +0x18 set.
-uint8_t* FindSector(uint32_t name) { return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
-void ClearSectorColor(uint8_t* sector) { GameFunction<void(__thiscall*)(uint8_t*)>(0x0049E670)(sector); }
+uint8_t* FindSector(uint32_t name) { return static_cast<uint8_t*>(Nx::Engine::GetSector(name)); }
+void ClearSectorColor(uint8_t* sector) { reinterpret_cast<Nx::CSector*>(sector)->ClearColor(); }
 uint32_t* GetSectorColor(uint8_t* sector, uint32_t* out)
 {
-    return GameFunction<uint32_t*(__thiscall*)(uint8_t*, uint32_t*)>(0x0049E980)(sector, out);
+    return reinterpret_cast<uint32_t*>(reinterpret_cast<Nx::CSector*>(sector)->GetColor(reinterpret_cast<uint8_t*>(out)));
 }
 
 // Graffiti colour `index`: graffitiColors[index]'s r, g, b.
@@ -372,7 +379,7 @@ int CTrickObjectManager::WriteGraffitiState(uint8_t* buffer)
 // 0x005889F0
 bool CTrickObjectManager::RemoveAllClusters()
 {
-    m_clusters.HandleCallback(reinterpret_cast<Lst::HashTable::Callback>(0x004B22A0), nullptr); // (Nx::DeleteObject)
+    m_clusters.HandleCallback(reinterpret_cast<Lst::HashTable::Callback>(&Nx::DeleteObject), nullptr);
     m_clusters.FlushAllItems();
     m_clusterCount = 0;
     m_objectClusters.FlushAllItems();
@@ -390,8 +397,7 @@ bool CTrickObjectList::Add(uint32_t objectName)
         if (m_items[i] == cluster->m_name)
             return false;
     }
-    void* goals = GameFunction<void*(__cdecl*)()>(0x005591B0)(); // the goal manager
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00559150)(goals, cluster->m_name);
+    Game::GetGoalManager()->TrickObjectHit(cluster->m_name);
     m_items[m_count & (kCapacity - 1)] = cluster->m_name;
     ++m_count;
     return false;
@@ -509,8 +515,7 @@ bool CTrickObjectCluster::SetGraffitiColor(int index)
     for (uint32_t i = 0; i < count; ++i)
         static_cast<CTrickObject*>(ObjectAt(m_objects, i)->data)->SetGraffitiColor(index);
     if (GameVariable<uint32_t>(GameVariable<uint32_t>(0x007CE478) + 0x378) == kLoadCreatedPark) {
-        void* railEditor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
-        GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x004F4950)(railEditor, m_name, index);
+        Ed::CRailEditorComponent::Instance()->SetClusterColour(m_name, index);
     }
     return true;
 }
@@ -547,8 +552,7 @@ bool CTrickObjectCluster::ClearGraffitiColor(int index)
             return false;
     }
     if (GameVariable<uint32_t>(GameVariable<uint32_t>(0x007CE478) + 0x378) == kLoadCreatedPark) {
-        void* railEditor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004F3D10)(railEditor, m_name);
+        Ed::CRailEditorComponent::Instance()->ClearClusterColours(m_name);
     }
     return true;
 }
@@ -663,7 +667,7 @@ bool CTrickObjectManager::ReleasePlayerClusters(int player)
         m_clusters.HandleCallback(reinterpret_cast<Lst::HashTable::Callback>(&ReleaseHeldCluster), &release);
         if (release.count == 0)
             return false;
-        GameFunction<void(__thiscall*)(void*, int)>(0x0056BB70)(GameVariable<void*>(0x007CE478), 0);
+        GameVariable<Mdl::Skate*>(0x007CE478)->SendScoreUpdates(false);
     }
     ClearGraffitiColor(player + 1);
     return true;
@@ -686,7 +690,7 @@ void __cdecl ScoreTrickObjects(int player, uint32_t score, uint32_t count, uint3
     if (send) {
         auto* server = *reinterpret_cast<Net::App**>(reinterpret_cast<uint8_t*>(net) + 4);
         Net::Conn* conn = nullptr;
-        if (auto* skater = GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x00566600)(skate, player)) {
+        if (auto* skater = reinterpret_cast<uint8_t*>(reinterpret_cast<Mdl::Skate*>(skate)->GetSkaterById(static_cast<uint32_t>(player)))) {
             if (uint8_t* info = net->PlayerByObjectId(static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))))
                 conn = *reinterpret_cast<Net::Conn**>(info + 0x18);
         }
@@ -744,7 +748,7 @@ void __cdecl ScoreTrickObjects(int player, uint32_t score, uint32_t count, uint3
                 server->StreamMessage(AsPlayer(info)->GetConnHandle(), desc.m_id, desc.m_length, desc.m_data,
                                       "TrickObj Buffer", kGroupGame, true, false);
         }
-        GameFunction<void(__thiscall*)(void*, int)>(0x0056BB70)(skate, 0);
+        reinterpret_cast<Mdl::Skate*>(skate)->SendScoreUpdates(false);
         if (conn->IsLocal()) // (no null check: as the original)
             return;
     }
@@ -772,8 +776,7 @@ bool CTrickObjectManager::AddCluster(uint32_t name)
     if (GetCluster(name))
         return false;
     if (GameVariable<uint32_t>(GameVariable<uint32_t>(0x007CE478) + 0x378) == kLoadCreatedPark) {
-        void* railEditor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004F3D10)(railEditor, name);
+        Ed::CRailEditorComponent::Instance()->ClearClusterColours(name);
     }
     void* memory = Mem::Calloc(sizeof(CTrickObjectCluster));
     m_clusters.PutItem(name, memory ? static_cast<CTrickObjectCluster*>(memory)->Construct(name) : nullptr);

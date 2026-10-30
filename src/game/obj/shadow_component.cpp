@@ -7,6 +7,8 @@
 #include "game/ass/assman.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_shadows.h"
+#include "game/gfx/model.h"
 #include "game/mth/matrix.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -65,9 +67,12 @@ void ShadowShow(void* shadow) { reinterpret_cast<void(__thiscall*)(void*)>(Vtabl
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
 uint8_t* ModelOf(CBaseComponent* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
-void SetModelShadow(uint8_t* model, bool on) { GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x004949B0)(model, on); }
+void SetModelShadow(uint8_t* model, bool on) { reinterpret_cast<Nx::CModel*>(model)->EnableShadow(on); }
 // 0x00493040 (not rewritten yet): the model's hierarchy (0x50-byte objects from +0x50; the root's matrix at +0x10).
-const uint8_t* HierarchyOf(uint8_t* model) { return GameFunction<const uint8_t*(__thiscall*)(uint8_t*)>(0x00493040)(model); }
+const uint8_t* HierarchyOf(uint8_t* model)
+{
+    return reinterpret_cast<const uint8_t*>(reinterpret_cast<Nx::CModel*>(model)->GetAssetHierarchy());
+}
 
 } // namespace
 
@@ -182,24 +187,24 @@ void CShadowComponent::CreateShadow(int type, const char* modelName)
     switch (type) {
     case SHADOW_DETAILED: {
         void* memory = Mem::Calloc(0x24);
-        mp_shadow = memory ? GameFunction<void*(__thiscall*)(void*, uint8_t*, Mth::Vector, float)>(0x004A19C0)(
-                                 memory, model, kDown, kCastDistance)
+        mp_shadow = memory ? static_cast<Nx::CDetailedShadow*>(memory)->Construct(reinterpret_cast<Nx::CModel*>(model), kDown,
+                                                                                      kCastDistance)
                            : nullptr;
         return;
     }
     case SHADOW_SIMPLE: {
         void* memory = Mem::Calloc(0x14);
-        void* shadow = memory ? GameFunction<void*(__thiscall*)(void*)>(0x004A1750)(memory) : nullptr;
+        void* shadow = memory ? static_cast<Nx::CSimpleShadow*>(memory)->Construct() : nullptr;
         // (no shadow - out of memory - is written through regardless, as the original)
         ShadowScaleOf(shadow) = *reinterpret_cast<float*>(model + 0x1C);
-        GameFunction<void(__thiscall*)(void*, const char*)>(0x004A17E0)(shadow, modelName);
+        static_cast<Nx::CSimpleShadow*>(shadow)->SetModel(modelName);
         mp_shadow = shadow;
         break;
     }
     case SHADOW_VOLUME: {
         void* memory = Mem::New(0x68);
-        mp_shadow = memory ? GameFunction<void*(__thiscall*)(void*, uint8_t*, Mth::Vector, float)>(0x004A1F80)(
-                                 memory, model, kDown, kCastDistance)
+        mp_shadow = memory ? static_cast<Nx::CShadowVolume*>(memory)->Construct(reinterpret_cast<Nx::CModel*>(model), kDown,
+                                                                                   kCastDistance)
                            : nullptr;
         break;
     }

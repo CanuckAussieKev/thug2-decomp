@@ -13,6 +13,7 @@
 #include "game/obj/control_pad.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/core/stubs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -156,7 +157,7 @@ void CRailEditorComponent::GetDebugInfo(Script::CStruct* info)
         info->AddArrayPointer(kRails, rails);
     }
     // (then the base's - the empty 0x005BAB90)
-    GameFunction<void(__thiscall*)(void*, Script::CStruct*)>(0x005BAB90)(this, info);
+    Stubs::IgnoreArgument(reinterpret_cast<int>(info));
 }
 
 // 0x004F6680

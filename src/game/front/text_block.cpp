@@ -10,6 +10,7 @@
 #include "game/core/stubs.h"
 #include "game/front/screen_element_manager.h"
 #include "game/front/text_element.h"
+#include "game/gfx/font.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -54,7 +55,7 @@ const char* SizingText() { return reinterpret_cast<const char*>(0x0064A260); }
 // " " (0x0064A2BC): what joins the lines.
 const char* Space() { return reinterpret_cast<const char*>(0x0064A2BC); }
 
-void* GetFont(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048D760)(name); }
+void* GetFont(uint32_t name) { return Nx::GetFont(name); }
 void QueryString(void* font, const char* text, float* width, float* height)
 {
     GameFunction<void(__thiscall*)(void*, const char*, float*, float*)>(0x0048D060)(font, text, width, height);

@@ -222,6 +222,11 @@ void TestLoadFont()
                 {0x006F3624, 4}, {0x0048D8F8, 4}, {0x0048D983, 4}, {0x004B40A0, 5}});
     uint8_t savedStyle = Nx::GlyphStyle();
     TestDetour loadFile(0x004B40A0, reinterpret_cast<const void*>(&StandInLoadFontFile));
+    // (ours calls our CreatePcFont directly: the stand-in goes over its start too, past any incremental-link jump)
+    auto* ours = static_cast<const uint8_t*>(ReplacementFunction(0x004B40A0));
+    while (ours[0] == 0xE9)
+        ours += 5 + *reinterpret_cast<const int32_t*>(ours + 1);
+    TestDetour loadFileOurs(reinterpret_cast<uint32_t>(ours), reinterpret_cast<const void*>(&StandInLoadFontFile));
 
     // A stand-in symbol table holding the three meta button maps (different digits each, past 9 and fewer
     // than 32 so the rest default to 0), and one case with none.

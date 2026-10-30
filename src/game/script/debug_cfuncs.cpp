@@ -16,6 +16,9 @@
 #include "game/script/cscript.h"
 #include "game/sys/mlp.h"
 #include "game/script/struct.h"
+#include "game/script/script_startup.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -39,14 +42,14 @@ int Language() { return GameVariable<int>(0x007CEFA0); }
 // (0x005A59B0).
 void LoadQbFile(const char* name, bool levelSpecific)
 {
-    GameFunction<void(__cdecl*)(const char*, int)>(0x005A5960)(name, levelSpecific ? 1 : 0);
+    Script::LoadQBFile(name, levelSpecific ? 1 : 0);
 }
-void UnloadQbFile(uint32_t name) { GameFunction<void(__cdecl*)(uint32_t)>(0x005A59B0)(name); }
+void UnloadQbFile(uint32_t name) { Script::UnloadQBFile(name); }
 
 // A screenshot written to `name` (0x0048C100, a jump to 0x004B24E0).
-void TakeScreenShot(const char* name, int flags) { GameFunction<void(__cdecl*)(const char*, int)>(0x0048C100)(name, flags); }
+void TakeScreenShot(const char* name, int flags) { Nx::ScreenShot(name, flags); }
 // The renderer's metrics display switched on / off (0x0048C0F0: the flag 0x006FA7D6 toggled).
-void ToggleMetricsDisplay() { GameFunction<void(__cdecl*)()>(0x0048C0F0)(); }
+void ToggleMetricsDisplay() { Nx::Engine::ToggleMetrics(); }
 
 // `count` bytes as "%02x " each, then a new line.
 void PrintBytes(const void* data, int count)

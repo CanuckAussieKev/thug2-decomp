@@ -9,11 +9,21 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/ed/park_editor.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/flexible_particle_manager.h"
 #include "game/gfx/lens_flare.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/particles.h"
+#include "game/gfx/screen_effects.h"
 #include "game/lst/hashtable.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/model_component.h"
 #include "game/script/cscript.h"
+#include "game/script/game_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "game/script/node_prefixes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -184,19 +194,19 @@ void DeleteStructure(Script::CStruct* structure)
 }
 
 // The engine (not rewritten yet).
-void SetFog(bool on) { GameFunction<void(__cdecl*)(int)>(0x00490DE0)(on); }
-void SetFogColor(uint32_t color) { GameFunction<void(__cdecl*)(uint32_t)>(0x00490E20)(color); }
-void SetFogDistance(float distance) { GameFunction<void(__cdecl*)(float)>(0x00490E00)(distance); }
-void SetAmbientColor(uint32_t color) { GameFunction<void(__cdecl*)(uint32_t)>(0x0048E8F0)(color); }
-void SetLightColor(int index, uint32_t color) { GameFunction<void(__cdecl*)(int, uint32_t)>(0x0048E930)(index, color); }
-void SetAmbientModulation(float lo, float hi) { GameFunction<void(__cdecl*)(float, float)>(0x0048E970)(lo, hi); }
+void SetFog(bool on) { Nx::Engine::EnableFog(on); }
+void SetFogColor(uint32_t color) { Nx::Engine::SetFogColor(color); }
+void SetFogDistance(float distance) { Nx::Engine::SetFogDistance(distance); }
+void SetAmbientColor(uint32_t color) { Nx::SetLightAmbientColor(color); }
+void SetLightColor(int index, uint32_t color) { Nx::SetLightDiffuseColor(index, color); }
+void SetAmbientModulation(float lo, float hi) { Nx::SetAmbientLightModulationFactor(lo, hi); }
 void SetLightModulation(int index, float lo, float hi)
 {
-    GameFunction<void(__cdecl*)(int, float, float)>(0x0048E990)(index, lo, hi);
+    Nx::SetDiffuseLightModulationFactor(index, lo, hi);
 }
 void SetLightDirectionVector(int index, const float* direction)
 {
-    GameFunction<void(__cdecl*)(int, const float*)>(0x0048ED70)(index, direction);
+    Nx::SetLightDirection(index, reinterpret_cast<const Mth::Vector*>(direction));
 }
 // The sun: its parameters (theta +0x00, phi +0x04, colour +0x18 as r g b 128, shown +0x40) by mask.
 struct SunParams {
@@ -218,26 +228,25 @@ void SetSun(const SunParams* sun, int mask)
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
 void SetLevelColor(const float* color)
 {
-    GameFunction<void(__thiscall*)(void*, const float*)>(0x004966B0)(GameVariable<void*>(0x006FA7C4), color);
-    GameFunction<void(__thiscall*)(void*, const float*)>(0x0049AE80)(GameVariable<void*>(0x006FA7C0), color);
-    GameFunction<void(__cdecl*)(const float*)>(0x00491290)(color);
+    static_cast<Nx::CParticleManager*>(GameVariable<void*>(0x006FA7C4))->SetColour(color);
+    static_cast<Nx::CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->SetColourScale(color);
+    Nx::Engine::SetLevelColor(color);
 }
 void SetBloomStructure(Script::CStruct* params)
 {
-    GameFunction<void(__thiscall*)(void*, Script::CStruct*, int)>(0x0049E360)(GameVariable<void*>(0x006FA7CC), params,
-                                                                              0);
+    static_cast<Nx::CScreenEffects*>(GameVariable<void*>(0x006FA7CC))->SetBloomParams(params, 0);
 }
 // Whether this is a multiplayer game (a network game, or more than one local player): the lights stay as set.
-bool IsMultiplayer() { return GameFunction<bool(__cdecl*)()>(0x005651F0)() & 1; }
+bool IsMultiplayer() { return Mdl::Skate::IsMultiplayer() & 1; }
 // The game mode's name (Mdl::Skate's game mode 0x007CE470).
 uint32_t GameModeName()
 {
-    return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameVariable<void*>(0x007CE470));
+    return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->GetNameChecksum();
 }
 // The front end (0x007CE464): +0x30 paused.
 bool GamePaused() { return GameVariable<uint8_t*>(0x007CE464)[0x30] != 0; }
 // Obj's CreateFromNode (0x005A32A0): the object of node `name` made.
-void CreateFromNode(uint32_t name) { GameFunction<void(__cdecl*)(uint32_t)>(0x005A32A0)(name); }
+void CreateFromNode(uint32_t name) { CFuncs::CreateFromNodeName(name); }
 
 // The scenes (Nx::CEngine's list 0x006FA7EC): nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1.
 struct SceneNode {
@@ -247,13 +256,13 @@ struct SceneNode {
     SceneNode* next;
 };
 bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
-SceneNode* FirstScene() { return GameFunction<SceneNode*(__cdecl*)()>(0x0048C7F0)(); }
-uint8_t* SkyScene() { return GameFunction<uint8_t*(__cdecl*)()>(0x0048C7B0)(); }
+SceneNode* FirstScene() { return reinterpret_cast<SceneNode*>(Nx::FirstSceneNode()); }
+uint8_t* SkyScene() { return reinterpret_cast<uint8_t*>(Nx::GetSkyScene()); }
 // The scene of the level being played (the park editor's shell checksum, looked up by 0x0048C700).
 uint8_t* LevelScene()
 {
     uint32_t name = Ed::CParkEditor::GetShellChecksum();
-    return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C700)(name);
+    return reinterpret_cast<uint8_t*>(Nx::Engine::FindScene(name));
 }
 // A scene's own colour (vtable +0x20).
 void SetSceneColorOf(uint8_t* scene, uint32_t color)
@@ -262,7 +271,7 @@ void SetSceneColorOf(uint8_t* scene, uint32_t color)
     reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(vtable[8])(scene, color);
 }
 // The sector named `name` in any scene (0x0048C510): +0x0C its light group.
-uint8_t* GetSector(uint32_t name) { return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+uint8_t* GetSector(uint32_t name) { return static_cast<uint8_t*>(Nx::Engine::GetSector(name)); }
 // A model component's colour (0x00420700).
 void SetModelColor(Obj::CBaseComponent* model, uint32_t color)
 {

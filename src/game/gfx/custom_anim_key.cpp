@@ -3,6 +3,7 @@
 #include "game/gfx/custom_anim_key.h"
 
 #include "game/core/mem.h"
+#include "game/gfx/anim_track.h"
 #include "game/gfx/camera.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/object.h"
@@ -78,7 +79,7 @@ bool CCustomAnimKey::ProcessIfActive(void* object)
 // 0x00486460
 CCustomAnimKey* CCustomAnimKey::Destroy(unsigned int flags)
 {
-    GameFunction<void(__thiscall*)(CCustomAnimKey*)>(0x004819E0)(this); // (the base's destructor body: its vtable)
+    reinterpret_cast<CAnimEventBase*>(this)->DestroyBody(); // (the base's destructor body: its vtable)
     if (flags & 1)
         Mem::Free(this);
     return this;

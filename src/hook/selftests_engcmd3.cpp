@@ -40,7 +40,9 @@ uint32_t HeapRel(uint32_t value)
 }
 
 // A stand-in geometry: its vertices' positions and colours.
+void* g_geometryVtable[64]; // slots 36, 37 and 40 (the vertex count, positions and colours set): the stood-in addresses
 struct Geometry {
+    void** vtable;
     int count;
     Script::VectorValue positions[6];
     uint32_t colours[6];
@@ -87,7 +89,7 @@ void StandInCalls(StandIns& s)
         std::memcpy(reinterpret_cast<void*>(r.args[0]), geometry->positions, 16 * geometry->count);
         return 0u;
     });
-    s.At({0x0048E150}, 4, [](Regs& r) {
+    s.At({0x0048E150, AddressOf(&Nx::CGeom::GetColors)}, 4, [](Regs& r) {
         Record({0xE150, r.ecx, HeapRel(r.args[0])});
         auto* geometry = reinterpret_cast<Geometry*>(r.ecx);
         std::memcpy(reinterpret_cast<void*>(r.args[0]), geometry->colours, 4 * geometry->count);
@@ -100,13 +102,13 @@ void StandInCalls(StandIns& s)
             Record({reinterpret_cast<const uint32_t*>(r.args[0])[i]});
         return 0u;
     });
-    s.At({0x0048ED70}, 0, [](Regs& r) {
+    s.At({0x0048ED70, AddressOf(&Nx::SetLightDirection)}, 0, [](Regs& r) {
         Record({0xED70, r.args[0]});
         for (int i = 0; i < 4; ++i)
             Record({reinterpret_cast<const uint32_t*>(r.args[1])[i]});
         return g_lightResult;
     });
-    s.At({0x0048CB00}, 0, [](Regs& r) { Record({0xCB00, HeapRel(r.args[0])}); return 0u; });
+    s.At({0x0048CB00, AddressOf(&Nx::GetSceneDebugInfo)}, 0, [](Regs& r) { Record({0xCB00, HeapRel(r.args[0])}); return 0u; });
     using AddStructureFn = void (CStruct::*)(uint32_t, CStruct*);
     s.At({0x00478670, AddressOf(static_cast<AddStructureFn>(&CStruct::AddStructure))}, 8, [](Regs& r) {
         Record({0x8670, r.ecx == ScriptParams() ? 1u : r.ecx, r.args[0], HeapRel(r.args[1])});
@@ -205,6 +207,10 @@ void TestEngineCommandsPolys()
     // the geometry: colours across the range, positions giving different hashes (negative, large, fractions)
     for (int g = 0; g < 4; ++g) {
         Geometry& geometry = g_geometry[g];
+        geometry.vtable = g_geometryVtable;
+        g_geometryVtable[36] = reinterpret_cast<void*>(0x0048DF70);
+        g_geometryVtable[37] = reinterpret_cast<void*>(0x0048DF80);
+        g_geometryVtable[40] = reinterpret_cast<void*>(0x0048DFA0);
         geometry.count = g == 3 ? 0 : 6 - g;
         for (int v = 0; v < 6; ++v) {
             float k = static_cast<float>(g * 6 + v);

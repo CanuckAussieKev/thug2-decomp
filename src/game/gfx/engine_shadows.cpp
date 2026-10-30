@@ -8,8 +8,11 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -35,12 +38,12 @@ Lst::HashTable& EdgeTable() { return GameVariable<Lst::HashTable>(0x00701418); }
 // deleted (0x0048C3C0), a file name with its extension (0x00487A70).
 void AddShadowCaster(uint8_t* texture, CModel* model, int unused)
 {
-    GameFunction<void(__cdecl*)(uint8_t*, CModel*, int)>(0x0048C870)(texture, model, unused);
+    Nx::AddShadowCaster(texture, model, reinterpret_cast<CScene*>(unused));
 }
-void DeleteModel(CModel* model) { GameFunction<void(__cdecl*)(CModel*)>(0x0048C3C0)(model); }
+void DeleteModel(CModel* model) { Engine::DeleteGeomObject(model); }
 void AddExtension(const char* name, const char* extension, char* out)
 {
-    GameFunction<void(__cdecl*)(const char*, const char*, char*)>(0x00487A70)(name, extension, out);
+    Gfx::MakeModelFileName(name, extension, out);
 }
 
 // A new camera (null without memory: the original goes on with it) at the origin; turned to look along a direction

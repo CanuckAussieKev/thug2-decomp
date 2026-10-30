@@ -22,9 +22,9 @@ namespace {
 // The vertex buffers (not rewritten yet): a new one of `size` bytes, and Unlock (thiscall).
 sVertexBuffer* NewVertexBuffer(uint32_t size)
 {
-    return GameFunction<sVertexBuffer*(__cdecl*)(uint32_t, uint32_t, uint32_t)>(0x004D5760)(size, 0, 0);
+    return Nx::NewVertexBuffer(size, 0, 0);
 }
-void Unlock(sVertexBuffer* buffer) { GameFunction<void(__thiscall*)(sVertexBuffer*)>(0x004D40E0)(buffer); }
+void Unlock(sVertexBuffer* buffer) { buffer->Unlock(); }
 // The inlined lock: the whole buffer (flags 0x10: read only).
 uint8_t* Lock(sVertexBuffer* buffer, uint32_t flags)
 {
@@ -40,8 +40,7 @@ sIndexBuffer* NewIndexBuffer(uint32_t bytes)
     void* memory = GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(0x18);
     if (!memory)
         return nullptr;
-    return GameFunction<sIndexBuffer*(__thiscall*)(void*, uint32_t, uint32_t, uint32_t)>(0x004D4270)(memory, bytes, 0,
-                                                                                                    0x65);
+    return static_cast<sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
 }
 // The index buffer's Direct3D copy written again from the one in memory.
 void UploadIndices(sIndexBuffer* buffer)
@@ -194,7 +193,7 @@ void sMesh::TurnY(int turns)
 sMesh* sMesh::Clone(bool share)
 {
     void* memory = Mem::New(sizeof(sMesh));
-    auto* copy = memory ? GameFunction<sMesh*(__thiscall*)(void*)>(0x004D4BE0)(memory) : nullptr; // (constructor)
+    auto* copy = memory ? static_cast<sMesh*>(memory)->Construct() : nullptr; // (constructor)
     std::memcpy(copy, this, sizeof(sMesh));
     if (share) {
         copy->flags |= 1;

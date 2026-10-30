@@ -14,6 +14,7 @@
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -31,10 +32,10 @@ constexpr float kParallel = 0.99f;   // 0x00645450
 float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 // The scene grid holding the rect (0x0048C940; null: none) and the grids along a line (0x0048C980).
-CCollGrid* GridOf(const CollRect* rect) { return GameFunction<CCollGrid*(__cdecl*)(const CollRect*)>(0x0048C940)(rect); }
+CCollGrid* GridOf(const CollRect*) { return GetFirstCollGrid(); }
 CCollGrid** GridsAlong(const Mth::Line* line)
 {
-    return GameFunction<CCollGrid**(__cdecl*)(const Mth::Line*)>(0x0048C980)(line);
+    return GetCollGridsOnLine(line);
 }
 
 bool CollideWithRect(CCollObj* object, const CollRect* rect, const Mth::BBox* box, RectHits* hits)

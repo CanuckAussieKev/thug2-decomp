@@ -15,6 +15,7 @@
 #include "game/pcm/stream.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -334,7 +335,8 @@ bool __cdecl UpdateStreamVolume(int slot)
     Sfx::CSfxManager* manager = SoundManager();
     if (stream->positional) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
-        void* object = GameFunction<void*(__cdecl*)(void*, int)>(0x004A09E0)(*reinterpret_cast<uint8_t**>(owner + 0xC) + 0x4C, 0);
+        void* object = Nx::GetClosestCamera(
+            reinterpret_cast<const Mth::Vector*>(*reinterpret_cast<uint8_t**>(owner + 0xC) + 0x4C), nullptr);
         if (object) {
             auto* component = reinterpret_cast<Obj::CStreamComponent*>(owner);
             Mth::Vector extent;

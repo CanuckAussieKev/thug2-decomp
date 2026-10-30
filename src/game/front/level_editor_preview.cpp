@@ -13,6 +13,10 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_ui_backend.h"
+#include "game/gfx/geom.h"
+#include "game/gfx/material.h"
+#include "game/gfx/mesh.h"
+#include "game/gfx/pc_billboards.h"
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/mth/matrix.h"
@@ -76,12 +80,12 @@ std::chrono::steady_clock::time_point g_lastFrame, g_lastDrag;
 bool g_failedLogged;
 
 // The renderer's calls (not rewritten yet; thiscall / cdecl).
-void SetMaterial(uint8_t* material) { GameFunction<void(__thiscall*)(void*)>(0x004D1F00)(material); }
-void DrawMesh(uint8_t* mesh) { GameFunction<void(__thiscall*)(void*)>(0x004D5290)(mesh); }
+void SetMaterial(uint8_t* material) { reinterpret_cast<Nx::sMaterial*>(material)->Submit(); }
+void DrawMesh(uint8_t* mesh) { reinterpret_cast<Nx::sMesh*>(mesh)->Render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
-void DrawInstance(uint8_t* instance) { GameFunction<void(__cdecl*)(void*, int)>(0x004D16B0)(instance, 8); }
+void DrawInstance(uint8_t* instance) { Nx::RenderInstance(reinterpret_cast<Nx::sInstance*>(instance), 8); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
-void UpdateFrustum() { GameFunction<void(__thiscall*)(void*)>(0x004CDAA0)(&GameVariable<uint8_t>(0x00775B80)); }
+void UpdateFrustum() { reinterpret_cast<Nx::sBillboardManager*>(&GameVariable<uint8_t>(0x00775B80))->SetupAxes(); }
 
 // The camera's globals Nx::SetCamera and the instance render change, saved and put back.
 struct SavedRange {

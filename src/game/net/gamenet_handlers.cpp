@@ -25,6 +25,8 @@
 #include "game/script/preferences.h"
 #include "game/skate/skate_net.h"
 #include "game/util/bitstream.h"
+#include "game/script/game_cfuncs.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -295,7 +297,7 @@ int __cdecl HandleParkMap(Net::MsgHandlerContext* context)
 int __cdecl HandleGameOver(Net::MsgHandlerContext* context)
 {
     ManagerOf(context)->SetGameOver();
-    if (GameFunction<bool(__cdecl*)(void*, void*)>(0x005A0D90)(nullptr, nullptr) && GameType() == kNetGoalAttack)
+    if (CFuncs::CFunc_IsObserving(nullptr, nullptr) && GameType() == kNetGoalAttack)
         Run(kCreateRankings); // (IsObserving)
     return kContinue;
 }
@@ -385,7 +387,7 @@ int __cdecl HandleCreatedDataRequest(Net::MsgHandlerContext* context)
     Manager* manager = ManagerOf(context);
     if (id == kMsgRequestRails) {
         int handle = context->m_Conn->m_handle;
-        auto railEditor = [] { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); };
+        auto railEditor = [] { return Ed::CRailEditorComponent::Instance(); };
         railEditor(); // (looked up once for nothing)
         void* rails = Call<void*>(0x004F45B0, railEditor()); // the rails, packed
         app->StreamMessage(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);

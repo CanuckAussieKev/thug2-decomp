@@ -28,6 +28,8 @@
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/mlp.h"
+#include "game/skate/skate_module.h"
+#include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -47,21 +49,19 @@ constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
 constexpr uint32_t kSkaterType = 0xBAF9B341;        // (name unknown) the skaters' object type
 
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
-template <typename R = void, typename... A>
-R CallSkate(uintptr_t address, A... args)
-{
-    return GameFunction<R(__thiscall*)(uint8_t*, A...)>(address)(Skate(), args...);
-}
 Mdl::SkateNet* SkateNet() { return reinterpret_cast<Mdl::SkateNet*>(Skate()); }
 Obj::CCompositeObject* GetLocalSkater()
 {
-    return GameFunction<Obj::CCompositeObject*(__thiscall*)(uint8_t*)>(0x00566520)(Skate());
+    return reinterpret_cast<Mdl::Skate*>(Skate())->GetLocalSkater();
 }
 GameNet::Manager* GameNetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 Net::Manager* NetManager() { return GameVariable<Net::Manager*>(0x006EFDD8); }
 Mem::Manager* MemManager() { return GameVariable<Mem::Manager*>(0x007D1800); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
-uint32_t GameModePlayers() { return GameFunction<uint32_t(__thiscall*)(void*)>(0x00553190)(GameVariable<void*>(0x007CE470)); }
+uint32_t GameModePlayers()
+{
+    return static_cast<uint32_t>(GameVariable<Game::CGameMode*>(0x007CE470)->GetInitialNumberOfPlayers());
+}
 
 // inet_addr through the game's import (0x005BEAAE).
 uint32_t InetAddr(const char* address) { return GameFunction<uint32_t(__stdcall*)(const char*)>(0x005BEAAE)(address); }
@@ -85,7 +85,7 @@ bool __cdecl CFunc_StartServer(Script::CStruct*, Script::CScript*)
 // 0x005A08D0: LeaveServer (0x0056B890).
 bool __cdecl CFunc_LeaveServer(Script::CStruct*, Script::CScript*)
 {
-    CallSkate(0x0056B890);
+    reinterpret_cast<Mdl::Skate*>(Skate())->LeaveServer();
     return true;
 }
 
@@ -297,7 +297,7 @@ bool __cdecl CFunc_TogglePlayerNames(Script::CStruct*, Script::CScript*)
 // 0x005A0EF0: SetCurrentGameType (the skate module's 0x00564FD0).
 bool __cdecl CFunc_SetCurrentGameType(Script::CStruct*, Script::CScript*)
 {
-    CallSkate(0x00564FD0);
+    reinterpret_cast<Mdl::Skate*>(Skate())->SetCurrentGameType();
     return true;
 }
 
@@ -370,7 +370,7 @@ bool __cdecl CFunc_EnterObserverMode(Script::CStruct*, Script::CScript*)
 // 0x005A10E0: ObserveNextSkater (the skate module's 0x005651D0).
 bool __cdecl CFunc_ObserveNextSkater(Script::CStruct*, Script::CScript*)
 {
-    CallSkate(0x005651D0);
+    Mdl::Skate::ObserveNextSkater();
     return true;
 }
 
@@ -421,13 +421,13 @@ bool __cdecl CFunc_FreeServerList(Script::CStruct*, Script::CScript*)
 int __cdecl CFunc_InSplitScreenGame(Script::CStruct*, Script::CScript*)
 {
     GameNet::Manager* gameNet = GameNetManager();
-    if (CallSkate<bool>(0x005651F0) && !gameNet->InNetGame())
+    if (Mdl::Skate::IsMultiplayer() != 0 && !gameNet->InNetGame())
         return 1;
     return 0;
 }
 
 // 0x005A11B0: InMultiplayerGame (5 callers): the skate module's 0x005651F0 (a tail jump: its EAX).
-int __cdecl CFunc_InMultiplayerGame(Script::CStruct*, Script::CScript*) { return CallSkate<int>(0x005651F0); }
+int __cdecl CFunc_InMultiplayerGame(Script::CStruct*, Script::CScript*) { return Mdl::Skate::IsMultiplayer(); }
 
 // 0x005A1220: OnServer.
 bool __cdecl CFunc_OnServer(Script::CStruct*, Script::CScript*) { return GameNetManager()->OnServer(); }

@@ -147,7 +147,7 @@ void TestMeshOperations()
         std::memset(reinterpret_cast<void*>(at), 0xCD, r.args[0]);
         return at;
     });
-    s.At({0x004D5760}, 0, [](Regs& r) { // a new vertex buffer
+    s.At({0x004D5760, AddressOf(Nx::NewVertexBuffer)}, 0, [](Regs& r) { // a new vertex buffer
         Record({0x5760, r.args[0], r.args[1], r.args[2]});
         Nx::sVertexBuffer& buffer = g_arena.vertexBuffers[12 + g_nextVertexBuffer % 4];
         buffer.size = r.args[0];
@@ -155,7 +155,7 @@ void TestMeshOperations()
         std::memset(buffer.data, 0x11, sizeof(g_arena.vertexData[0]));
         return reinterpret_cast<uint32_t>(&buffer);
     });
-    s.At({0x004D40E0}, 0, [](Regs& r) {
+    s.At({0x004D40E0, AddressOf(&Nx::sVertexBuffer::Unlock)}, 0, [](Regs& r) {
         auto* buffer = reinterpret_cast<Nx::sVertexBuffer*>(r.ecx);
         Record({0x40E0, ArenaRelocate(r.ecx), buffer->lockOffset, buffer->lockSize, buffer->lockFlags});
         return 0u;
@@ -177,7 +177,7 @@ void TestMeshOperations()
     static void* indexObjects[24];
     for (int i = 0; i < 24; ++i)
         indexObjects[i] = indexVtable;
-    s.At({0x004D4270}, 12, [](Regs& r) { // an index buffer's constructor
+    s.At({0x004D4270, AddressOf(&Nx::sIndexBuffer::Construct)}, 12, [](Regs& r) { // an index buffer's constructor
         Record({0x4270, ArenaRelocate(r.ecx), r.args[0], r.args[1], r.args[2]});
         auto* buffer = reinterpret_cast<Nx::sIndexBuffer*>(r.ecx);
         int index = 18 + g_nextIndexBuffer++ % 6;

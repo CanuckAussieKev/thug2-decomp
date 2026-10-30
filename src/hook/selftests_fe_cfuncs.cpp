@@ -13,6 +13,7 @@
 #include "game/front/text_block.h"
 #include "game/front/text_element.h"
 #include "game/script/struct.h"
+#include "game/gfx/font.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
 
@@ -190,7 +191,7 @@ void InstallCfuncStandIns(StandIns& s, bool createElement)
              return 0u;
          });
     // fonts: a word's width from its length
-    s.At({0x0048D760}, 0, [](Regs& r) {
+    s.At({0x0048D760, AddressOf(Nx::GetFont)}, 0, [](Regs& r) {
         Rec(0xD760, {r.args[0]});
         return At(kFont);
     });

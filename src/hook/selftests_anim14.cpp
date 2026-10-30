@@ -17,6 +17,8 @@
 #include "game/nx/coll_line.h"
 #include "game/nx/coll_world.h"
 #include "game/nx/feeler.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -192,7 +194,7 @@ void TestAnimFeelerQueries()
         Record({0xF4EE0000u, Where(r.args[0])});
         return 0u;
     });
-    s.At({0x0048C980}, 0, [](Regs& r) {
+    s.At({0x0048C980, AddressOf(&Nx::GetCollGridsOnLine)}, 0, [](Regs& r) {
         Record({0x48C98000u});
         Words(reinterpret_cast<void*>(r.args[0]), 8);
         if (g_gridsNone)
@@ -201,7 +203,7 @@ void TestAnimFeelerQueries()
             g_wa.grids[g] = g < g_gridCount ? 0x6D1D0000u + g : 0;
         return P(g_wa.grids);
     });
-    s.At({0x0048C0B0}, 0, [](Regs&) {
+    s.At({0x0048C0B0, AddressOf(&Nx::Engine::GetCollisionScenes)}, 0, [](Regs&) {
         Record({0x48C0B000u});
         return P(g_wa.scenes);
     });

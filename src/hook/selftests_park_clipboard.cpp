@@ -158,37 +158,37 @@ void Install(StandIns& s)
         Rec(0x7230, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
         return g_railList;
     });
-    s.At({0x004F6BF0}, 0, [](Regs& r) {
-        Rec(0x6BF0, {r.ecx});
+    s.At({0x004F6BF0, AddressOf(&Ed::CRailEditorComponent::FreePoints)}, 0, [](Regs&) {
+        Rec(0x6BF0, {}); // (the editor, the original's `this`, isn't passed to ours: the function doesn't read it)
         return static_cast<uint32_t>(g_freeRailPoints);
     });
-    s.At({0x004F72C0}, 0, [](Regs& r) {
+    s.At({0x004F72C0, AddressOf(&Ed::CRailEditorComponent::NewRail)}, 0, [](Regs& r) {
         Rec(0x72C0, {r.ecx});
         return At(kRails + 0x100 + 0x20 * g_railsMade++);
     });
-    s.At({0x004F3B90}, 0, [](Regs& r) {
+    s.At({0x004F3B90, AddressOf(&Ed::CEditedRail::CountPoints)}, 0, [](Regs& r) {
         Rec(0x3B90, {r.ecx});
         return 3u;
     });
-    s.At({0x004F6F40}, 4, [](Regs& r) {
+    s.At({0x004F6F40, AddressOf(&Ed::CEditedRail::CopyFrom)}, 4, [](Regs& r) {
         Rec(0x6F40, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x004F4370}, 0xC, [](Regs& r) {
+    s.At({0x004F4370, AddressOf(&Ed::CEditedRail::Transform)}, 0xC, [](Regs& r) {
         Rec(0x4370, {r.ecx, r.args[2]}); // (the vectors by value: ours are on the stack)
         RecVector(r.args[0]);
         RecVector(r.args[1]);
         return 0u;
     });
     for (uint32_t address : {0x004F61C0u, 0x004F6210u})
-        s.At({address}, 0xC, [address](Regs& r) {
+        s.At({address, OursOf(address)}, 0xC, [address](Regs& r) {
             Rec(address & 0xFFFF, {r.ecx, r.args[2]});
             RecVector(r.args[0]);
             RecVector(r.args[1]);
             return 0u;
         });
     for (uint32_t address : {0x004F4220u, 0x004F41C0u, 0x004F70F0u})
-        s.At({address}, 0, [address](Regs& r) {
+        s.At({address, OursOf(address)}, 0, [address](Regs& r) {
             Rec(address & 0xFFFF, {r.ecx});
             return 0u;
         });

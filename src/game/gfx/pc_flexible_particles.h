@@ -67,7 +67,8 @@ struct CPcFlexibleParticles {
     // alignTo, normalised.
     void AlignedAxes(Mth::Vector& r, Mth::Vector& u) const;
     // A destructor body: the vtables, the material destroyed and freed, the engine's destructor body.
-    void DestroyParts(uint32_t primary, uint32_t secondary, sSimpleMaterial* material, uint32_t engineDestructor);
+    void DestroyParts(uint32_t primary, uint32_t secondary, sSimpleMaterial* material,
+                      void(__cdecl* engineDestructor)(CPcFlexibleParticles*));
     // The rate's particles for this frame (1/60 s) emitted through the engine's 0x00496FE0, the fraction kept.
     void EmitForFrame(float& accumulator);
 };

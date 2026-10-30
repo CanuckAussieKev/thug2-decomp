@@ -11,6 +11,12 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sfx/terrain.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/sector.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -51,16 +57,16 @@ constexpr uint32_t kReset = 0xAF6240B2;       // "reset"
 bool DistanceClipping() { return GameVariable<bool>(0x007D643A); }
 
 // The world sector named `name` (null if the scene has none of that name).
-void* GetSector(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+Nx::CSector* GetSector(uint32_t name) { return static_cast<Nx::CSector*>(Nx::Engine::GetSector(name)); }
 
 // The renderer's gamma (0x004B24D0 / 0x004B24C0 through the jumps 0x0048C140 / 0x0048C130).
 void GetGamma(float* red, float* green, float* blue)
 {
-    GameFunction<void(__cdecl*)(float*, float*, float*)>(0x0048C140)(red, green, blue);
+    Nx::GetGamma(red, green, blue);
 }
 void SetGamma(float red, float green, float blue)
 {
-    GameFunction<void(__cdecl*)(float, float, float)>(0x0048C130)(red, green, blue);
+    Nx::SetGamma(red, green, blue);
 }
 
 // Whether the frame buffer is cleared each frame - compiled out of this build (0x0048C1B0, a jump to the empty
@@ -154,7 +160,7 @@ bool __cdecl CFunc_SetProgressive(CStruct* params, CScript*)
 {
     int on = 0;
     params->GetInteger(kOn, &on, 0);
-    GameFunction<void(__cdecl*)(bool)>(0x005B6090)(on > 0);
+    GameConfig::SetNtscFlag(on > 0);
     return true;
 }
 
@@ -217,11 +223,11 @@ bool __cdecl CFunc_SetDynamicLightModulationFactor(CStruct* params, CScript*)
         return true;
     params->GetFloat(kValue2, &value2, 0);
     if (params->ContainsFlag(kAmbient)) {
-        GameFunction<void(__cdecl*)(float, float)>(0x0048E970)(value, value2);
+        Nx::SetAmbientLightModulationFactor(value, value2);
         return true;
     }
     params->GetInteger(kDirectional, &directional, 0);
-    GameFunction<void(__cdecl*)(int, float, float)>(0x0048E990)(directional, value, value2);
+    Nx::SetDiffuseLightModulationFactor(directional, value, value2);
     return true;
 }
 
@@ -229,7 +235,7 @@ bool __cdecl CFunc_SetDynamicLightModulationFactor(CStruct* params, CScript*)
 bool __cdecl CFunc_EnableFog(CStruct*, CScript*)
 {
     if (!DistanceClipping())
-        GameFunction<void(__cdecl*)(bool)>(0x00490DE0)(true);
+        Nx::Engine::EnableFog(true);
     return true;
 }
 
@@ -237,7 +243,7 @@ bool __cdecl CFunc_EnableFog(CStruct*, CScript*)
 bool __cdecl CFunc_DisableFog(CStruct*, CScript*)
 {
     if (!DistanceClipping())
-        GameFunction<void(__cdecl*)(bool)>(0x00490DE0)(false);
+        Nx::Engine::EnableFog(false);
     return true;
 }
 
@@ -248,7 +254,7 @@ bool __cdecl CFunc_SetFogExponent(CStruct* params, CScript*)
         return false;
     float exponent = 0.0f; // (uninitialised in the original)
     params->GetFloat("exponent", &exponent, 0);
-    GameFunction<void(__cdecl*)(float)>(0x00490E10)(exponent);
+    Nx::Engine::SetFogExponent(exponent);
     return true;
 }
 
@@ -260,7 +266,7 @@ bool __cdecl CFunc_VCWibblePlayFromKeyframe(CStruct* params, CScript*)
     uint32_t name;
     if (!params->GetChecksum(kSector, &name, 0))
         return false;
-    void* sector = GetSector(name);
+    Nx::CSector* sector = GetSector(name);
     if (!sector)
         return true;
     int seq = 0; // (seq and key are uninitialised in the original)
@@ -269,7 +275,7 @@ bool __cdecl CFunc_VCWibblePlayFromKeyframe(CStruct* params, CScript*)
     params->GetInteger(kSeq, &seq, 0);
     params->GetInteger(kKey, &key, 0);
     params->GetInteger(kTime, &time, 0);
-    GameFunction<void(__thiscall*)(void*, int, int, int)>(0x0049E820)(sector, seq, key, time * 1000);
+    sector->PlayVCWibbleFromKeyframe(seq, key, time * 1000);
     return true;
 }
 
@@ -279,7 +285,7 @@ bool __cdecl CFunc_SetUVWibbleParams(CStruct* params, CScript*)
 {
     uint32_t name = 0; // (these are uninitialised in the original)
     params->GetChecksum("sector", &name, 0);
-    void* sector = GetSector(name);
+    Nx::CSector* sector = GetSector(name);
     float uVel = 0.0f, uAmp = 0.0f, uFreq = 0.0f, uPhase = 0.0f;
     float vVel = 0.0f, vAmp = 0.0f, vFreq = 0.0f, vPhase = 0.0f;
     params->GetFloat("u_vel", &uVel, 0);
@@ -290,14 +296,13 @@ bool __cdecl CFunc_SetUVWibbleParams(CStruct* params, CScript*)
     params->GetFloat("v_amp", &vAmp, 0);
     params->GetFloat("v_freq", &vFreq, 0);
     params->GetFloat("v_phase", &vPhase, 0);
-    GameFunction<void(__thiscall*)(void*, float, float, float, float, float, float, float, float)>(0x0049E830)(
-        sector, uVel, uAmp, uFreq, uPhase, vVel, vAmp, vFreq, vPhase);
+    sector->SetUVWibbleParams(uVel, uAmp, uFreq, uPhase, vVel, vAmp, vFreq, vPhase);
     return true;
 }
 
 namespace {
 // The sector named by the params' "sector" (uninitialised in the original when missing).
-void* NamedSector(CStruct* params)
+Nx::CSector* NamedSector(CStruct* params)
 {
     uint32_t name = 0;
     params->GetChecksum("sector", &name, 0);
@@ -308,56 +313,56 @@ void* NamedSector(CStruct* params)
 // 0x004462D0: EnableExplicitUVWibble sector=<name> (0x0049E840). Always true.
 bool __cdecl CFunc_EnableExplicitUVWibble(CStruct* params, CScript*)
 {
-    GameFunction<void(__thiscall*)(void*, bool)>(0x0049E840)(NamedSector(params), true);
+    NamedSector(params)->UseExplicitUVWibble(true);
     return true;
 }
 
 // 0x00446300: DisableExplicitUVWibble sector=<name>. Always true.
 bool __cdecl CFunc_DisableExplicitUVWibble(CStruct* params, CScript*)
 {
-    GameFunction<void(__thiscall*)(void*, bool)>(0x0049E840)(NamedSector(params), false);
+    NamedSector(params)->UseExplicitUVWibble(false);
     return true;
 }
 
 // 0x00446330: SetUVWibbleOffsets sector=<name> u_off v_off (0x0049E850). Always true.
 bool __cdecl CFunc_SetUVWibbleOffsets(CStruct* params, CScript*)
 {
-    void* sector = NamedSector(params);
+    Nx::CSector* sector = NamedSector(params);
     float uOff = 0.0f; // (uninitialised in the original)
     float vOff = 0.0f;
     params->GetFloat("u_off", &uOff, 0);
     params->GetFloat("v_off", &vOff, 0);
-    GameFunction<void(__thiscall*)(void*, float, float)>(0x0049E850)(sector, uOff, vOff);
+    sector->SetUVWibbleOffsets(uOff, vOff);
     return true;
 }
 
 // 0x004463A0: ResetTextureAnim sector=<name> (0x0049E860). Always true.
 bool __cdecl CFunc_ResetTextureAnim(CStruct* params, CScript*)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x0049E860)(NamedSector(params));
+    NamedSector(params)->ResetTextureAnim();
     return true;
 }
 
 // 0x004463D0: StartTextureAnim sector=<name> [reset] (0x0049E870). Always true.
 bool __cdecl CFunc_StartTextureAnim(CStruct* params, CScript*)
 {
-    void* sector = NamedSector(params);
+    Nx::CSector* sector = NamedSector(params);
     bool reset = params->ContainsFlag(kReset);
-    GameFunction<void(__thiscall*)(void*, bool)>(0x0049E870)(sector, reset);
+    sector->StartTextureAnim(reset);
     return true;
 }
 
 // 0x00446420: StopTextureAnim sector=<name> (0x0049E880). Always true.
 bool __cdecl CFunc_StopTextureAnim(CStruct* params, CScript*)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x0049E880)(NamedSector(params));
+    NamedSector(params)->StopTextureAnim();
     return true;
 }
 
 // 0x00446450: ToggleRenderMode: the next render mode (0x0048C0D0: 0..3 in turn). Always true.
 bool __cdecl CFunc_ToggleRenderMode(CStruct*, CScript*)
 {
-    GameFunction<void(__cdecl*)()>(0x0048C0D0)();
+    Nx::Engine::ToggleRenderMode();
     return true;
 }
 

@@ -8,7 +8,9 @@
 #include "game/core/alloc.h"
 #include "game/core/crc.h"
 #include "game/core/manager.h"
+#include "game/ed/goal_editor.h"
 #include "game/ed/park_editor.h"
+#include "game/goals/goal_manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/tracker.h"
 #include "game/skate/career.h"
@@ -18,6 +20,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -51,7 +54,7 @@ int CardBlock()
 }
 
 // The goal manager (0x005591B0) and its calls used here (no source yet).
-void* GoalManager() { return GameFunction<void*(__cdecl*)()>(0x005591B0)(); }
+Game::CGoalManager* GoalManager() { return Game::GetGoalManager(); }
 
 // The loaded contents kept for later (0x007CECD4) and their type (0x007CECD8).
 CStruct*& KeptContents() { return GameVariable<CStruct*>(0x007CECD4); }
@@ -168,7 +171,7 @@ int MakeFolderFileName(uint32_t type, const char* name, char* buffer)
 {
     char file[20];
     MakeFileName(name, file, type);
-    const char* folder = GameFunction<const char*(__cdecl*)()>(0x005B5F10)();
+    const char* folder = GameConfig::GetPathPrefix();
     return std::snprintf(buffer, 0x100, "/%s%s", folder, file); // (no limit in the original)
 }
 
@@ -350,7 +353,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
         Obj::CObject* object = GameVariable<Obj::CTracker*>(0x006F0FC0)->LookUpObject(kGoalEditor);
         Obj::CBaseComponent* component = static_cast<Obj::CCompositeObject*>(object)->GetComponent(kGoalEditor);
         // its number of edited goals (0x004E7E00, no source yet)
-        int edited = GameFunction<int(__thiscall*)(Obj::CBaseComponent*)>(0x004E7E00)(component);
+        int edited = static_cast<Ed::CGoalEditorComponent*>(component)->CountUsedGoals();
         summary->AddInteger(kNumEditedGoals, edited);
         if (type != kSavePark)
             break;
@@ -393,13 +396,13 @@ void __fastcall ApplyGoalManagerParams(CStruct* saved)
 {
     CStruct* params = nullptr;
     saved->GetStructure(kGoalManagerParams, &params, 0);
-    void* goalManager = GoalManager();
-    GameFunction<void(__thiscall*)(void*, int)>(0x00557E70)(goalManager, 0); // reset the career (mode 0)
+    Game::CGoalManager* goalManager = GoalManager();
+    goalManager->ResetGoalData(0); // reset the career (mode 0)
     // its parameters (a folded getter, +0x14)
     auto* own = GameFunction<CStruct*(__thiscall*)(void*)>(0x004A2BA0)(goalManager);
     own->Clear();
     own->AppendStructureIfAny(params);
-    GameFunction<void(__thiscall*)(void*)>(0x00558A00)(goalManager); // the level's goals loaded
+    goalManager->RestoreGoalData(); // the level's goals loaded
 }
 
 // 0x005A6C80

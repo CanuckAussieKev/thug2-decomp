@@ -19,6 +19,9 @@
 #include "game/sys/game_clock.h"
 #include "game/script/cscript.h"
 #include "game/sys/game_clock.h"
+#include "game/gfx/anim_cache.h"
+#include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/frame_source.h"
 #include "hook/fe_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -85,7 +88,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x16B0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x004813F0}, 0, [](Regs& r) {
+    s.At({0x004813F0, AddressOf(&Gfx::CAnimTimeline::IsComplete)}, 0, [](Regs& r) {
         Rec(0x13F0, {r.ecx});
         return 0xABCD01u; // (AL = 1)
     });
@@ -97,11 +100,11 @@ void InstallStandIns(StandIns& s)
         Rec(0xBFD0, {r.args[0]});
         return 0u;
     });
-    s.At({0x0048CFA0}, 4, [](Regs& r) {
+    s.At({0x0048CFA0, AddressOf(&Nx::CFrameSource::SetDone)}, 4, [](Regs& r) {
         Rec(0xCFA0, {r.ecx, r.args[0] & 0xFF});
         return At(kFrames + 0x40 * (g_frames++ % 16));
     });
-    s.At({0x0048CFD0}, 4, [](Regs& r) {
+    s.At({0x0048CFD0, AddressOf(&Nx::CFrameSource::SetAnim)}, 4, [](Regs& r) {
         Rec(0xCFD0, {r.ecx, r.args[0]});
         return At(kFrames + 0x40 * (g_frames++ % 16));
     });
@@ -113,7 +116,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x2BD0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00485730}, 0x18, [](Regs& r) {
+    s.At({0x00485730, AddressOf(&Gfx::CBonedAnimFrameData::GetFrames)}, 0x18, [](Regs& r) {
         Rec(0x5730, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5]});
         return 1u;
     });
@@ -125,7 +128,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x5270, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00480660}, 0, [](Regs&) {
+    s.At({0x00480660, AddressOf(&Gfx::CAnimCache::Get)}, 0, [](Regs&) {
         Rec(0x0660, {});
         return At(kGlobal);
     });
@@ -183,7 +186,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x1CC0, {r.args[0]});
         return At(kPartial);
     });
-    s.At({0x00481650}, 0, [](Regs& r) {
+    s.At({0x00481650, AddressOf(&Gfx::CAnimTimeline::Construct)}, 0, [](Regs& r) {
         Rec(0x1650, {r.ecx});
         *reinterpret_cast<void***>(r.ecx) = g_timelineVtable;
         return r.ecx;

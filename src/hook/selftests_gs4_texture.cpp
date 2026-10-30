@@ -101,7 +101,7 @@ void StandInTextureCalls(StandIns& s)
         Record({0xF3A0, TextureId(r.ecx)});
         return static_cast<uint32_t>(g_tPixelSize);
     });
-    s.At({0x00487420}, 8, [](Regs& r) {
+    s.At({0x00487420, AddressOf(&Gfx::CFaceTexture::SetImage)}, 8, [](Regs& r) {
         Record({0x7420, r.ecx == reinterpret_cast<uint32_t>(g_tFace), r.args[1],
                 HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 0x4420)});
         return r.args[0] + 0x4420;
@@ -127,7 +127,7 @@ void StandInTextureCalls(StandIns& s)
         Record({0x4970});
         return reinterpret_cast<uint32_t>(g_tRailEditor);
     });
-    s.At({0x004F4710}, 0x1C, [](Regs& r) {
+    s.At({0x004F4710, AddressOf(&Ed::CRailEditorComponent::FindNearestPoint)}, 0x1C, [](Regs& r) {
         auto* pos = reinterpret_cast<float*>(r.args[0]);
         Record({0x4710, r.ecx == reinterpret_cast<uint32_t>(g_tRailEditor), Bits(pos[0]), Bits(pos[1]), Bits(pos[2]),
                 Bits(*reinterpret_cast<float*>(r.args[2])), *reinterpret_cast<uint32_t*>(r.args[3]),
@@ -164,7 +164,7 @@ void StandInTextureCalls(StandIns& s)
         Record({0x0480, r.ecx - reinterpret_cast<uint32_t>(g_tSkaters)});
         return r.ecx + 0x40;
     });
-    s.At({0x005612D0}, 0, [](Regs& r) {
+    s.At({0x005612D0, AddressOf(&Mdl::Score::SetSpecialBarColors)}, 0, [](Regs& r) {
         Record({0x12D0, r.ecx - reinterpret_cast<uint32_t>(g_tSkaters)});
         return 0u;
     });
@@ -172,7 +172,7 @@ void StandInTextureCalls(StandIns& s)
         Record({0xEEA0, r.ecx == reinterpret_cast<uint32_t>(g_tRecords), Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });
-    s.At({0x005531F0}, 0, [](Regs& r) {
+    s.At({0x005531F0, AddressOf(&Game::CGameMode::GetFireballLevel)}, 0, [](Regs& r) {
         Record({0x31F0, r.ecx == reinterpret_cast<uint32_t>(g_tGameMode)});
         return static_cast<uint32_t>(g_tFireball);
     });

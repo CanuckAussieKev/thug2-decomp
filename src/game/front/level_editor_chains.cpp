@@ -29,6 +29,7 @@
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/trick_objects.h"
+#include "game/script/game_cfuncs.h"
 #include "game/script/load.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
@@ -1735,7 +1736,7 @@ void Tick()
             continue;
         }
         if (Script::CStruct* node = NodeStruct(*it))
-            GameFunction<int(__cdecl*)(Script::CStruct*)>(0x005A2E50)(node);
+            CFuncs::CreateFromNode(node);
         Log("level editor: %s made again (its path from its links)", Objects::Label(*it).c_str());
         it = g_remake.erase(it);
     }

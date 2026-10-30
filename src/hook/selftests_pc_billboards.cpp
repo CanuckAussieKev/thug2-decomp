@@ -16,6 +16,8 @@
 #include "game/gfx/mesh.h"
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/render_state.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -187,7 +189,7 @@ void TestPcBillboards()
         Record({0xAA80, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00490DE0}, 0, [](Regs& r) {
+    s.At({0x00490DE0, AddressOf(&Nx::Engine::EnableFog)}, 0, [](Regs& r) {
         Record({0x0DE0, r.args[0] & 0xFF});
         return 0u;
     });

@@ -14,6 +14,7 @@
 #include "game/obj/trigger_component.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -91,10 +92,10 @@ void TestTriggerNode()
                      auto found = g_nodes.find(r.args[0]);
                      return found == g_nodes.end() ? 0u : reinterpret_cast<uint32_t>(found->second);
                  });
-    standIns->At({0x00565BB0}, 4, [](Regs& r) {
+    standIns->At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
         auto* node = reinterpret_cast<CStruct*>(r.args[0]);
         uint32_t name = SkateScript::GetNodeName(node);
-        Record({0x5BB0, r.ecx == reinterpret_cast<uint32_t>(skate) ? 1u : 0u, name});
+        Record({0x5BB0, name}); // (no `this` to check: ours is a static)
         return g_skipped[name] ? 1u : 0u;
     });
     standIns->At({0x00461480, AddressOf(&Obj::CObject::SpawnAndRunScript)}, 0x14, [](Regs& r) {

@@ -218,7 +218,7 @@ Manager* Manager::Construct()
     for (Server& server : m_servers)
         server.Construct();
     Sio::Manager* devices = GameVariable<Sio::Manager*>(0x007D1E20);
-    m_task = NewTask(2000, 0x0044E660, this);
+    m_task = NewTask(2000, reinterpret_cast<uint32_t>(&Manager::ServiceTask), this);
     for (int i = 0; i < kNumServers; ++i)
         m_servers[i].m_device = devices->GetDeviceByIndex(i);
     m_overridePadWithStick = true;

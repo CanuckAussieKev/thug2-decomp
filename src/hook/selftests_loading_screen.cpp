@@ -13,6 +13,8 @@
 #include "game/gfx/loading_bar.h"
 #include "game/gfx/loading_screen.h"
 #include "game/gfx/render_state.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/pc_lights.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -90,7 +92,7 @@ void StandInScreenCalls(StandIns& s)
         Record({0xF220, Relocate(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2]});
         return g_loads ? 0x101u : 0x100u;
     });
-    StandInCdecl(s, {0x0048C080}, 1);
+    StandInCdecl(s, {0x0048C080, AddressOf(&Nx::DeleteModelLights)}, 1);
     s.At({0x006234FE}, 0, StandInSprintf); // (the game's C runtime, for the original)
 }
 

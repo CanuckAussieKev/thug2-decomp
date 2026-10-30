@@ -10,6 +10,7 @@
 #include "game/core/mem.h"
 #include "game/nx/coll_tri.h"
 #include "game/nx/coll_world.h"
+#include "game/core/stubs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -423,7 +424,7 @@ void CollGeometryForwarders::Scale(const Mth::Vector* centre, const Mth::Vector*
 // 0x0040AEA0
 void CollGeometryForwarders::DebugRender(int a, int b)
 {
-    GameFunction<void(__thiscall*)(CCollObjTriData*, int, int)>(0x0048DCD0)(m_geometry, a, b);
+    Stubs::IgnoreArguments2(a, b);
 }
 
 // 0x0040AEB0

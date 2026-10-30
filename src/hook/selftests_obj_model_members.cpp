@@ -127,11 +127,11 @@ void StandIn(StandIns& s)
         return r.ecx;
     });
     // The model.
-    Rec(s, {0x00494880}, 1, 0x4880, [](Regs&) { return g_a.hidden ? 1u : 0u; });
-    Rec(s, {0x00494930}, 0, 0x4930, [](Regs&) { return g_a.mask; });
-    Rec(s, {0x00494970}, 1, 0x4970);
-    RecBools(s, {0x00492E60}, 1, 0x2E60, 1);
-    Rec(s, {0x00487B00}, 2, 0x7B00, [](Regs& r) {
+    Rec(s, {0x00494880, AddressOf(&Nx::CModel::IsGeomHidden)}, 1, 0x4880, [](Regs&) { return g_a.hidden ? 1u : 0u; });
+    Rec(s, {0x00494930, AddressOf(&Nx::CModel::GetVisibility)}, 0, 0x4930, [](Regs&) { return g_a.mask; });
+    Rec(s, {0x00494970, AddressOf(&Nx::CModel::SetVisibility)}, 1, 0x4970);
+    RecBools(s, {0x00492E60, AddressOf(&Nx::CModel::EnableScaling)}, 1, 0x2E60, 1);
+    Rec(s, {0x00487B00, AddressOf(Gfx::GetScaleFromParams)}, 2, 0x7B00, [](Regs& r) {
         if (!g_a.scale)
             return 0u;
         reinterpret_cast<float*>(r.args[0])[1] = 3.0f;
@@ -142,35 +142,35 @@ void StandIn(StandIns& s)
         g_trace.insert(g_trace.end(), {v[0], v[1], v[2], v[3]});
         return 0u;
     });
-    Rec(s, {0x00492E80}, 1, 0x2E80, [](Regs& r) {
+    Rec(s, {0x00492E80, AddressOf(&Nx::CModel::SetBoundingSphere)}, 1, 0x2E80, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         g_trace.insert(g_trace.end(), {v[0], v[1], v[2], v[3]});
         return 0u;
     });
-    Rec(s, {0x00494730}, 1, 0x4730);
-    Rec(s, {0x00494BA0}, 0, 0x4BA0);
-    RecBools(s, {0x004934A0}, 4, 0x34A0, 4, [](Regs&) { return 1u; });
-    Rec(s, {0x00494110}, 4, 0x4110);
-    Rec(s, {0x00494160}, 3, 0x4160, [](Regs& r) {
+    Rec(s, {0x00494730, AddressOf(&Nx::CModel::RemoveGeom)}, 1, 0x4730);
+    Rec(s, {0x00494BA0, AddressOf(&Nx::CModel::ClearGeoms)}, 0, 0x4BA0);
+    RecBools(s, {0x004934A0, AddressOf(&Nx::CModel::AddAssetGeom)}, 4, 0x34A0, 4, [](Regs&) { return 1u; });
+    Rec(s, {0x00494110, AddressOf(&Nx::CModel::SetUVOffset)}, 4, 0x4110);
+    Rec(s, {0x00494160, AddressOf(&Nx::CModel::SetUVMatrix)}, 3, 0x4160, [](Regs& r) {
         const auto* m = reinterpret_cast<const uint32_t*>(r.args[2]);
         g_trace.insert(g_trace.end(), m, m + 16);
         return 0u;
     });
-    Rec(s, {0x00493FB0}, 1, 0x3FB0);
-    Rec(s, {0x00494010}, 4, 0x4010);
-    Rec(s, {0x004948D0}, 4, 0x48D0);
-    Rec(s, {0x00493D10}, 3, 0x3D10, [](Regs&) { return g_a.replaced ? 0xAB01u : 0xAB00u; });
-    Rec(s, {0x00493E80}, 3, 0x3E80, [](Regs&) { return g_a.replaced ? 0xAB01u : 0xAB00u; });
-    RecFloat(s, {0x00493AB0}, 3, 0x3AB0, [](Regs& r) { return static_cast<float>(r.args[2] & 0xFF) * 0.75f; });
+    Rec(s, {0x00493FB0, AddressOf(&Nx::CModel::ClearGeomColor)}, 1, 0x3FB0);
+    Rec(s, {0x00494010, AddressOf(&Nx::CModel::SetGeomColorHsv)}, 4, 0x4010);
+    Rec(s, {0x004948D0, AddressOf(&Nx::CModel::SetColor)}, 4, 0x48D0);
+    Rec(s, {0x00493D10, AddressOf(&Nx::CModel::ReplaceTexture)}, 3, 0x3D10, [](Regs&) { return g_a.replaced ? 0xAB01u : 0xAB00u; });
+    Rec(s, {0x00493E80, AddressOf(&Nx::CModel::ReplaceTextureWith)}, 3, 0x3E80, [](Regs&) { return g_a.replaced ? 0xAB01u : 0xAB00u; });
+    RecFloat(s, {0x00493AB0, AddressOf(&Nx::CModel::GetBoneVolume)}, 3, 0x3AB0, [](Regs& r) { return static_cast<float>(r.args[2] & 0xFF) * 0.75f; });
     // The appearance a profile is read into.
     Rec(s, {0x00488EA0, AddressOf(&Gfx::CModelAppearance::Construct)}, 0, 0x8EA0, [](Regs& r) { return r.ecx; });
     Rec(s, {0x00488F40, AddressOf(&Gfx::CModelAppearance::Load)}, 2, 0x8F40);
     Rec(s, {0x004890F0, AddressOf(&Gfx::CModelAppearance::DestroyBody)}, 0, 0x90F0);
     // Its lights.
-    Rec(s, {0x0048E660}, 0, 0xE660);
-    Rec(s, {0x0048E450}, 1, 0xE450, [](Regs& r) { return g_trace.push_back(*reinterpret_cast<uint32_t*>(r.args[0])), 0u; });
+    Rec(s, {0x0048E660, AddressOf(&Nx::CModelLights::UpdateBrightness)}, 0, 0xE660);
+    Rec(s, {0x0048E450, AddressOf(&Nx::CModelLights::SetAmbientColor)}, 1, 0xE450, [](Regs& r) { return g_trace.push_back(*reinterpret_cast<uint32_t*>(r.args[0])), 0u; });
     RecBools(s, {0x0048DE30}, 1, 0xDE30, 1);
-    Rec(s, {0x0048E480}, 2, 0xE480, [](Regs& r) { return g_trace.push_back(*reinterpret_cast<uint32_t*>(r.args[1])), 0u; });
+    Rec(s, {0x0048E480, AddressOf(&Nx::CModelLights::SetDiffuseColor)}, 2, 0xE480, [](Regs& r) { return g_trace.push_back(*reinterpret_cast<uint32_t*>(r.args[1])), 0u; });
     RecBools(s, {0x0048E4C0}, 2, 0xE4C0, 2);
     Rec(s, {0x004E3F90, AddressOf(&Obj::ModelNx::SetLightsDirection)}, 2, 0x3F90, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[1]);

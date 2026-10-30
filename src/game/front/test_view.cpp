@@ -11,6 +11,7 @@
 #include "game/nx/feeler.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/sys/mlp.h"
 #include "hook/game.h"
@@ -40,7 +41,7 @@ Mth::Vector Row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
 Obj::CSkater* LocalSkater()
 {
     uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
-    return skate ? static_cast<Obj::CSkater*>(GameFunction<Obj::CCompositeObject*(__thiscall*)(void*)>(0x00566520)(skate))
+    return skate ? reinterpret_cast<Mdl::Skate*>(skate)->GetLocalSkater()
                  : nullptr;
 }
 

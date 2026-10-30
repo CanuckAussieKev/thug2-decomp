@@ -4,7 +4,9 @@
 #include "game/gfx/model.h"
 
 #include "game/ass/assman.h"
+#include "game/gfx/engine_mesh.h"
 #include "game/gfx/model_internal.h"
+#include "game/gfx/pc_lights.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -21,11 +23,11 @@ uint8_t SetFlag(uint8_t flags, uint8_t flag, int bit) { return static_cast<uint8
 sModelGeom* FirstEntry(CModel* model) { return Entry(First(model)); }
 
 // An asset's scene data's +0xB8 / +0xB4 (the folded getters 0x00490AC0 / 0x00490AB0).
-uint32_t SceneB8(void* scene) { return GameFunction<uint32_t(__thiscall*)(void*)>(0x00490AC0)(scene); }
-uint32_t SceneB4(void* scene) { return GameFunction<uint32_t(__thiscall*)(void*)>(0x00490AB0)(scene); }
+uint32_t SceneB8(void* scene) { return static_cast<CMesh*>(scene)->GetHierarchyCount(); }
+uint32_t SceneB4(void* scene) { return reinterpret_cast<uint32_t>(static_cast<CMesh*>(scene)->GetHierarchy()); }
 
 // Lights made and deleted (the engine's 0x0048EA80 / 0x0048C080).
-uint8_t* NewLights() { return GameFunction<uint8_t*(__cdecl*)()>(0x0048EA80)(); }
+uint8_t* NewLights() { return reinterpret_cast<uint8_t*>(CreateModelLights()); }
 
 } // namespace
 

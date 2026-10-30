@@ -30,6 +30,8 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/particle_system.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -332,46 +334,46 @@ void StandIn(StandIns& s)
         return 0u;
     });
     // The particle manager and its systems.
-    s.At({0x0049AC20}, 4, [](Regs& r) {
+    s.At({0x0049AC20, AddressOf(&Nx::CFlexibleParticleManager::FindSystem)}, 4, [](Regs& r) {
         Record({0xAC20, Rel(r.ecx), Rel(r.args[0])});
         return g_a.findSystem ? reinterpret_cast<uint32_t>(g_world.otherSystem) : 0u;
     });
-    s.At({0x0049AC60}, 0x34, [](Regs& r) {
+    s.At({0x0049AC60, AddressOf(&Nx::CFlexibleParticleManager::CreateSystem)}, 0x34, [](Regs& r) {
         Record({0xAC60, Rel(r.ecx), Rel(r.args[0])});
         for (int i = 1; i < 11; ++i)
             Record({r.args[i]});
         Record({r.args[11] & 0xFF, Hash(reinterpret_cast<const char*>(r.args[12]))});
         return g_a.createSystem ? reinterpret_cast<uint32_t>(g_world.system) : 0u;
     });
-    s.At({0x0049AD90}, 4, [](Regs& r) {
+    s.At({0x0049AD90, AddressOf(&Nx::CFlexibleParticleManager::DestroySystemNow)}, 4, [](Regs& r) {
         Record({0xAD90, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });
-    s.At({0x0049ADB0}, 4, [](Regs& r) {
+    s.At({0x0049ADB0, AddressOf(&Nx::CFlexibleParticleManager::DestroySystemWhenEmpty)}, 4, [](Regs& r) {
         Record({0xADB0, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });
-    s.At({0x00497B00}, 12, [](Regs& r) {
+    s.At({0x00497B00, AddressOf(&Nx::CParticleSystem::CallMemberFunction)}, 12, [](Regs& r) {
         Record({0x7B00, Rel(r.ecx), r.args[0], Rel(r.args[1]), r.args[2]});
         return 0x1234FF00u | (r.args[0] & 1); // (only AL counts)
     });
-    s.At({0x00497790}, 12, [](Regs& r) {
+    s.At({0x00497790, AddressOf(&Nx::CParticleSystem::SetEmitScript)}, 12, [](Regs& r) {
         Record({0x7790, Rel(r.ecx), r.args[0], Rel(r.args[1]), Rel(r.args[2])});
         return 0u;
     });
-    s.At({0x00497900}, 12, [](Regs& r) {
+    s.At({0x00497900, AddressOf(&Nx::CParticleSystem::SetUpdateScript)}, 12, [](Regs& r) {
         Record({0x7900, Rel(r.ecx), r.args[0], Rel(r.args[1]), Rel(r.args[2])});
         return 0u;
     });
-    s.At({0x004987F0}, 8, [](Regs& r) {
+    s.At({0x004987F0, AddressOf(&Nx::CParticleSystem::Update)}, 8, [](Regs& r) {
         Record({0x87F0, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00496F60}, 0, [](Regs& r) {
+    s.At({0x00496F60, AddressOf(&Nx::CParticleSystem::RunEmitScript)}, 0, [](Regs& r) {
         Record({0x6F60, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00497AB0}, 4, [](Regs& r) {
+    s.At({0x00497AB0, AddressOf(&Nx::CParticleSystem::GetRotationMatrix)}, 4, [](Regs& r) {
         Record({0x7AB0, Rel(r.ecx), Rel(r.args[0])});
         auto* out = reinterpret_cast<float*>(r.args[0]);
         for (int i = 0; i < 16; ++i)

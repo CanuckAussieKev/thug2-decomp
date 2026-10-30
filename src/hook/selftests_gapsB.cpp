@@ -45,6 +45,7 @@
 #include "game/sys/module.h"
 #include "game/sys/winmain.h"
 #include "game/script/node_manager.h"
+#include "game/gfx/anim_controller.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -493,7 +494,7 @@ void TestFlipRotateComponent()
     std::vector<uint32_t> traces[2];
     {
         auto* s = new StandIns();
-        s->At({0x00481710}, 4, [](Regs& r) {
+        s->At({0x00481710, AddressOf(&Gfx::CAnimController::Construct)}, 4, [](Regs& r) {
             Record({0x1710, ComponentOffset(r.ecx), r.args[0]});
             auto* p = reinterpret_cast<uint32_t*>(r.ecx);
             p[0] = 0x0064877C;
@@ -501,12 +502,12 @@ void TestFlipRotateComponent()
             p[2] = p[3] = p[4] = 0;
             return r.ecx;
         });
-        s->At({0x00481730}, 0, [](Regs& r) {
+        s->At({0x00481730, AddressOf(&Gfx::CAnimController::DestroyBody)}, 0, [](Regs& r) {
             Record({0x1730, ComponentOffset(r.ecx), *reinterpret_cast<uint32_t*>(r.ecx)});
             *reinterpret_cast<uint32_t*>(r.ecx) = 0x0064877C;
             return 0u;
         });
-        s->At({0x00481740}, 4, [](Regs& r) {
+        s->At({0x00481740, AddressOf(&Gfx::CAnimController::InitFromStructure)}, 4, [](Regs& r) {
             Record({0x1740, ComponentOffset(r.ecx), r.args[0]});
             reinterpret_cast<uint32_t*>(r.ecx)[4] = 0x40C60000;
             return 0u;

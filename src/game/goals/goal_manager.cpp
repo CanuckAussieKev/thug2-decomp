@@ -767,7 +767,7 @@ int CGoalManager::NumActiveGoals(bool all)
 // 0x005591B0
 CGoalManager* GetGoalManager()
 {
-    return GameFunction<CGoalManager*(__thiscall*)(void*)>(0x00564D90)(SkateCalls::Skate());
+    return reinterpret_cast<Mdl::Skate*>(SkateCalls::Skate())->GetGoalManager();
 }
 
 } // namespace Game

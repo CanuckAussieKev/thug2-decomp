@@ -4,6 +4,9 @@
 
 #include <cstdint>
 
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_appearance.h"
 #include "game/mth/matrix.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/model_component.h"
@@ -112,10 +115,10 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 
 // The model's lights (not rewritten yet): ambient colour (0x0048E450) and on (0x0048DE30), a diffuse light's colour
 // (0x0048E480), on (0x0048E4C0) and direction (0x004E3F90).
-void SetAmbientColor(void* lights, const uint8_t* rgba) { ThisCall<void>(0x0048E450, lights, rgba); }
-void EnableAmbient(void* lights, bool on) { ThisCall<void>(0x0048DE30, lights, on); }
-void SetDiffuseColor(void* lights, int index, const uint8_t* rgba) { ThisCall<void>(0x0048E480, lights, index, rgba); }
-void EnableDiffuse(void* lights, int index, bool on) { ThisCall<void>(0x0048E4C0, lights, index, on); }
+void SetAmbientColor(void* lights, const uint8_t* rgba) { static_cast<Nx::CModelLights*>(lights)->SetAmbientColor(reinterpret_cast<const uint32_t*>(rgba)); }
+void EnableAmbient(void* lights, bool on) { GameFunction<void(__thiscall*)(void*, bool)>(0x0048DE30)(lights, on); }
+void SetDiffuseColor(void* lights, int index, const uint8_t* rgba) { static_cast<Nx::CModelLights*>(lights)->SetDiffuseColor(index, reinterpret_cast<const uint32_t*>(rgba)); }
+void EnableDiffuse(void* lights, int index, bool on) { GameFunction<void(__thiscall*)(void*, int, bool)>(0x0048E4C0)(lights, index, on); }
 void SetLightDirection(void* lights, int index, const Mth::Vector* direction)
 {
     ModelNx::SetLightsDirection(lights, nullptr, index, direction);
@@ -149,7 +152,7 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
     case kAtomicIsHidden: {
         uint32_t geom;
         params->GetChecksum(0u, &geom, 1);
-        bool hidden = ThisCall<bool>(0x00494880, mp_model, geom);
+        bool hidden = mp_model->IsGeomHidden(geom);
         script->m_params->AddInteger(kHidden, hidden ? 1 : 0);
         break;
     }
@@ -168,8 +171,8 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         int viewport = 0;
         params->GetInteger(kViewport, &viewport, false);
         uint32_t bit = 1u << viewport;
-        uint32_t mask = ThisCall<uint32_t>(0x00494930, mp_model);
-        ThisCall<void>(0x00494970, mp_model, name == kObjSetVisibility ? mask | bit : mask & ~bit);
+        uint32_t mask = mp_model->GetVisibility();
+        mp_model->SetVisibility(name == kObjSetVisibility ? mask | bit : mask & ~bit);
         break;
     }
     case kObjEnableScaling:
@@ -331,24 +334,24 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         params->GetFloat(0u, &radius, 1);
         if (mp_model) {
             Mth::Vector sphere = {0.0f, 0.0f, 0.0f, radius};
-            ThisCall<void>(0x00492E80, mp_model, &sphere);
+            mp_model->SetBoundingSphere(&sphere);
         }
         break;
     }
     case kObjRestoreBoundingSphere:
         if (mp_model)
-            ThisCall<void>(0x00492E80, mp_model, &m_boundingSphere);
+            mp_model->SetBoundingSphere(&m_boundingSphere);
         break;
     case kClearGeom: {
         uint32_t geom; // (unset when not given)
         if (!params->GetChecksum(kName, &geom, 0))
             params->GetChecksum(0u, &geom, 1);
-        ThisCall<void>(0x00494730, mp_model, geom);
+        mp_model->RemoveGeom(geom);
         break;
     }
     case kObjClearGeoms:
         if (mp_model)
-            ThisCall<void>(0x00494BA0, mp_model);
+            mp_model->ClearGeoms();
         break;
     case kAddGeom: {
         uint32_t geom; // (unset when not given)
@@ -367,7 +370,7 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         params->GetFloat(kV, &v, 0);
         int pass = 0;
         params->GetInteger(kPass, &pass, 0);
-        ThisCall<void>(0x00494110, mp_model, material, pass, u, v);
+        mp_model->SetUVOffset(material, pass, u, v);
         break;
     }
     case kObjSetUVParams: {
@@ -392,21 +395,19 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
             uv.row[3].x = uOff;
             uv.row[3].y = vOff;
         }
-        ThisCall<void>(0x00494160, mp_model, material, pass, &uv);
+        mp_model->SetUVMatrix(material, pass, &uv);
         break;
     }
     case kObjClearColor:
         if (mp_model)
-            ThisCall<void>(0x00493FB0, mp_model, kAll);
+            mp_model->ClearGeomColor(kAll);
         break;
     case kObjSetColor:
         if (mp_model) {
             int h, s, v;
             if (params->GetInteger(kH, &h, false) && params->GetInteger(kS, &s, false) &&
                 params->GetInteger(kV, &v, false)) {
-                ThisCall<void>(0x00494010, mp_model, kAll, static_cast<float>(h),
-                               static_cast<float>(static_cast<double>(s) * kPercent),
-                               static_cast<float>(static_cast<double>(v) * kPercent));
+                mp_model->SetGeomColorHsv(kAll, static_cast<float>(h), static_cast<float>(static_cast<double>(s) * kPercent), static_cast<float>(static_cast<double>(v) * kPercent));
             }
         }
         break;
@@ -415,7 +416,7 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
             int r, g, b;
             if (params->GetInteger(kR, &r, false) && params->GetInteger(kG, &g, false) &&
                 params->GetInteger(kB, &b, false))
-                ThisCall<void>(0x004948D0, mp_model, r, g, b, 0xFF);
+                mp_model->SetColor(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), static_cast<uint8_t>(0xFF));
         }
         break;
     case kObjHasModelLights:
@@ -434,11 +435,11 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
             uint32_t buildScript = 0;
             params->GetChecksum(kBuildScript, &buildScript, 0);
             Appearance appearance;
-            ThisCall<void*>(0x00488EA0, &appearance);
-            ThisCall<void>(0x00488F40, &appearance, profile, 1);
+            reinterpret_cast<Gfx::CModelAppearance*>(&appearance)->Construct();
+            reinterpret_cast<Gfx::CModelAppearance*>(&appearance)->Load(profile, 1 != 0);
             reinterpret_cast<void(__thiscall*)(CModelComponent*, void*, bool, int, uint32_t)>(m_vtable[13])(
                 this, &appearance, useAssetManager != 0, texDictOffset, buildScript);
-            ThisCall<void>(0x004890F0, &appearance);
+            reinterpret_cast<Gfx::CModelAppearance*>(&appearance)->DestroyBody();
         }
         break;
     case kObjReplaceTexture: {
@@ -454,7 +455,7 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
                 entry->GetString(kDest, &dest, true);
                 uint32_t in = kAll;
                 entry->GetChecksum(kIn, &in, 0);
-                if (mp_model && ThisCall<bool>(0x00493D10, mp_model, in, src, dest))
+                if (mp_model && mp_model->ReplaceTexture(in, src, dest))
                     result = true;
             }
         } else {
@@ -464,7 +465,7 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
             params->GetString(kDest, &dest, true);
             uint32_t in = kAll;
             params->GetChecksum(kIn, &in, 0);
-            if (mp_model && ThisCall<bool>(0x00493D10, mp_model, in, src, dest))
+            if (mp_model && mp_model->ReplaceTexture(in, src, dest))
                 result = true;
         }
         break;
@@ -477,7 +478,7 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         params->GetChecksum(kDest, &dest, 1);
         uint32_t in = kAll;
         params->GetChecksum(kIn, &in, 0);
-        result = mp_model && ThisCall<bool>(0x00493E80, mp_model, in, src, dest);
+        result = mp_model && mp_model->ReplaceTextureWith(in, src, dest);
         break;
     }
     case kObjTestModelCollision:
@@ -502,8 +503,7 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         Mth::Matrix matrix;
         GetDisplayMatrix(&matrix);
         float volume = static_cast<float>(
-            GameFunction<double(__thiscall*)(Nx::CModel*, void*, Mth::Matrix*, uint32_t)>(0x00493AB0)(
-                mp_model, skeleton, &matrix, bone));
+            mp_model->GetBoneVolume(reinterpret_cast<uint32_t>(skeleton), reinterpret_cast<uint32_t>(&matrix), bone));
         script->m_params->AddFloat(kBoneVolume, volume);
         break;
     }

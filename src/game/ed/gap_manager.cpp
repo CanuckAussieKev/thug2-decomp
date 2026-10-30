@@ -13,6 +13,8 @@
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
+#include "game/ed/goal_editor.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -36,13 +38,12 @@ Obj::CSkaterCareer* Career() { return *reinterpret_cast<Obj::CSkaterCareer**>(Sk
 // 0x005656C0: the skate module's (the current level's) gap checklist.
 Game::CGapChecklist* SkateChecklist()
 {
-    return GameFunction<Game::CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(SkateModule());
+    return static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(SkateModule())->GetGapChecklist());
 }
 // The goal editor (0x004E8470 looks it up); 0x004E8420: gap `index` taken out of the created park's gap goals.
 void RemoveGapFromGoals(int index)
 {
-    void* goalEditor = GameFunction<void*(__cdecl*)()>(0x004E8470)();
-    GameFunction<void(__thiscall*)(void*, int)>(0x004E8420)(goalEditor, index);
+    CGoalEditorComponent::Get()->RemoveGapFromParkGoals(index);
 }
 
 // A new gap record (the inline constructor: its GapInfo made, no pieces, no cancel flags). Out of memory, the

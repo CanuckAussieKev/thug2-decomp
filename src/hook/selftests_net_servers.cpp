@@ -26,6 +26,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/anim_blend.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -487,7 +488,7 @@ void InstallBrowsing(StandIns& s)
         Rec(0xB6B0, {r.args[0]});
         return node ? reinterpret_cast<uint32_t>(node->data) : 0u;
     });
-    s.At({0x0047DD10}, 0, [](Regs& r) {
+    s.At({0x0047DD10, AddressOf(&Gfx::AnimListHead::CountItems)}, 0, [](Regs& r) {
         Mem::ListNode* head = reinterpret_cast<Mem::ListNode*>(r.ecx);
         uint32_t count = 0;
         for (Mem::ListNode* node = head->next; node != head; node = node->next)

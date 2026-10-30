@@ -22,6 +22,8 @@
 #include "game/sys/timer.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
+#include "game/script/game_cfuncs.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -80,7 +82,7 @@ void Manager::AddNewPlayer(uint8_t* info)
     int8_t objId = Field<int8_t>(info, kInfoObjId);
     uint32_t flags = Field<uint32_t>(info, kInfoFlags);
     if (!(flags & kNewObserver)) {
-        bool splitScreen = GameFunction<bool(__cdecl*)(void*, void*)>(0x005A1180)(nullptr, nullptr);
+        bool splitScreen = CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr) != 0;
         void* profile = Call<void*>(0x00564FC0, skate, splitScreen ? static_cast<int>(objId) : 0); // the skater's profile
         if (!InNetGame()) {
             skater = Call<Obj::CObject*>(0x00567180, skate, profile, true, static_cast<int>(objId), SkaterCount(skate));
@@ -368,8 +370,8 @@ void __cdecl Manager::ServerAddNewPlayersTask(void* task)
                     park->WriteCompressedMapIfBuilt();
                     server->StreamMessage(PlayerHandle(player), kMsgParkMap, kParkMapSize,
                                           park->GetCompressedMapBuffer(false), "level data", kGroupGame, false, true);
-                    GameFunction<void*(__cdecl*)()>(0x004F4970)(); // (called twice, the first result unused)
-                    void* rails = Call<void*>(0x004F45B0, GameFunction<void*(__cdecl*)()>(0x004F4970)());
+                    Ed::CRailEditorComponent::Instance(); // (called twice, the first result unused)
+                    void* rails = Call<void*>(0x004F45B0, Ed::CRailEditorComponent::Instance());
                     server->StreamMessage(PlayerHandle(player), kMsgRails, kRailsSize, rails, "rail data", kGroupGame,
                                           false, true);
                 }

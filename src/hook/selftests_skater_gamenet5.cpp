@@ -265,9 +265,9 @@ void Install(StandIns& s)
     });
     Stub(s, {0x0053A1B0, AddressOf(&GameNet::Manager::SendFacesTo)}, 4, 0xA1B0);
     Stub(s, {0x00539DA0, AddressOf(&GameNet::Manager::SendTagTexturesTo)}, 4, 0x9DA0);
-    StubCdecl(s, {0x004E8470}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
-    Stub(s, {0x004E7E50}, 4, 0x7E50, [](Regs&) { return g_answers[0x7E50]; });
-    Stub(s, {0x004EBB70}, 12, 0xBB70, [](Regs&) { return 0x30u; });
+    StubCdecl(s, {0x004E8470, AddressOf(&Ed::CGoalEditorComponent::Get)}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
+    Stub(s, {0x004E7E50, AddressOf(&Ed::CGoalEditorComponent::CountCompleteGoals)}, 4, 0x7E50, [](Regs&) { return g_answers[0x7E50]; });
+    Stub(s, {0x004EBB70, AddressOf(&Ed::CGoalEditorComponent::WriteLevelGoalsToBuffer)}, 12, 0xBB70, [](Regs&) { return 0x30u; });
 }
 
 using Scenario = void (*)(bool original);

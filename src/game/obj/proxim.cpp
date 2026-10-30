@@ -6,6 +6,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
@@ -40,11 +42,11 @@ CObject* ObjectById(uint32_t id) { return ObjectManager()->GetObjectByID(id); }
 // A level sector's bounding box and world matrix (not rewritten yet).
 const Mth::BBox* SectorBox(void* sector)
 {
-    return GameFunction<const Mth::BBox*(__thiscall*)(void*)>(0x0049E6A0)(sector);
+    return static_cast<Nx::CSector*>(sector)->GetBoundingBox();
 }
 const Mth::Matrix* SectorWorldMatrix(void* sector)
 {
-    return GameFunction<const Mth::Matrix*(__thiscall*)(void*)>(0x0049E740)(sector);
+    return static_cast<Nx::CSector*>(sector)->GetOrientation();
 }
 // The sector's collision (+0x18) asked whether `point` is inside (its vtable +0x48; `offset` gets the point from
 // the node, which it may use).
@@ -57,7 +59,7 @@ bool SectorContains(void* sector, const Mth::Vector* point, Mth::Vector* offset)
         collision, point, offset);
 }
 // The level sector named `name` (null if none).
-void* GetSector(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+void* GetSector(uint32_t name) { return Nx::Engine::GetSector(name); }
 
 void MarkAsDead(CObject* object)
 {

@@ -10,6 +10,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/park/park_memory.h"
+#include "game/ed/rail_editor.h"
 #include "hook/hook.h"
 
 namespace Ed {
@@ -41,12 +42,16 @@ bool EditorAllowsCopy(int w, int l)
 
 // The rail editor (0x004F4970 looks it up): how many rail points are in a box of the world, and how many more
 // there's room for.
-void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
+CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }
 int CountRailPoints(float x0, float z0, float x1, float z1)
 {
-    return GameFunction<int(__thiscall*)(void*, float, float, float, float)>(0x004F4690)(RailEditor(), x0, z0, x1, z1);
+    return RailEditor()->CountPointsInside(x0, z0, x1, z1);
 }
-int FreeRailPoints() { return GameFunction<int(__thiscall*)(void*)>(0x004F6BF0)(RailEditor()); }
+int FreeRailPoints()
+{
+    RailEditor(); // (the original looks the editor up to pass it; FreePoints doesn't read it)
+    return CRailEditorComponent::FreePoints();
+}
 
 // The heap the park editor allocates from (0x0059E180).
 Mem::Allocator* ParkEditorHeap() { return GetMainHeap(); }

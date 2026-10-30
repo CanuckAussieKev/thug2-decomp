@@ -125,7 +125,7 @@ void Install(StandIns& s)
         Rec(0x7DF0, {r.ecx, GameVariable<uint8_t>(0x0067F000)});
         return 0u;
     });
-    StubCdecl(s, {0x004E8470}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
+    StubCdecl(s, {0x004E8470, AddressOf(&Ed::CGoalEditorComponent::Get)}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x004EA2C0}, 8, 0xA2C0);
     Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);
     s.At({0x00459E50, AddressOf(&Net::Client::EnqueueMessageToServer)}, 4, [](Regs& r) {

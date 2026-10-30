@@ -1,6 +1,8 @@
 // Sound emitter nodes and the follow trail (0x004680E0-0x00468AFE). See emitter.h.
 
 #include "game/obj/emitter.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 
 #include <cmath>
 #include <new>
@@ -26,10 +28,10 @@ constexpr uint32_t kScript = 0x2CA8A299;   // (the node's script)
 Lst::HashTable*& Table() { return GameVariable<Lst::HashTable*>(0x006F2260); }
 
 // The level sector named `name` (null if none) and its bounding box (not rewritten yet).
-void* GetSector(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+void* GetSector(uint32_t name) { return Nx::Engine::GetSector(name); }
 const Mth::BBox* SectorBox(void* sector)
 {
-    return GameFunction<const Mth::BBox*(__thiscall*)(void*)>(0x0049E6A0)(sector);
+    return static_cast<Nx::CSector*>(sector)->GetBoundingBox();
 }
 
 // The node whose item the table's iteration is at (null at the end).

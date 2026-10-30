@@ -287,7 +287,7 @@ void InstallStandIns(StandIns& s)
     cdecl1(0x0048E930, 0xE930, 2); // light colour
     cdecl1(0x0048E970, 0xE970, 2); // ambient modulation
     cdecl1(0x0048E990, 0xE990, 3); // light modulation
-    s.At({0x0048ED70}, 0, [](Regs& r) {
+    s.At({0x0048ED70, AddressOf(&Nx::SetLightDirection)}, 0, [](Regs& r) {
         auto* v = reinterpret_cast<uint32_t*>(r.args[1]);
         Rec(0xED70, {r.args[0], v[0], v[1], v[2], v[3]});
         return 0u;
@@ -319,11 +319,11 @@ void InstallStandIns(StandIns& s)
         Rec(0x32A1, {r.ecx});
         return g_tod_gameMode;
     });
-    s.At({0x0048C7F0}, 0, [](Regs&) {
+    s.At({0x0048C7F0, AddressOf(&Nx::FirstSceneNode)}, 0, [](Regs&) {
         Rec(0xC7F0, {});
         return g_tod_firstNode ? At(g_tod_firstNode) : 0u;
     });
-    s.At({0x0048C7B0}, 0, [](Regs&) {
+    s.At({0x0048C7B0, AddressOf(&Nx::GetSkyScene)}, 0, [](Regs&) {
         Rec(0xC7B0, {});
         return g_tod_skyScene ? At(g_tod_skyScene) : 0u;
     });
@@ -331,11 +331,11 @@ void InstallStandIns(StandIns& s)
         Rec(0xD710, {});
         return 0x1E5E1u;
     });
-    s.At({0x0048C700}, 0, [](Regs& r) {
+    s.At({0x0048C700, AddressOf(&Nx::Engine::FindScene)}, 0, [](Regs& r) {
         Rec(0xC700, {r.args[0]});
         return g_tod_levelScene ? At(g_tod_levelScene) : 0u;
     });
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 0, [](Regs& r) {
         Rec(0xC510, {r.args[0]});
         auto it = g_tod_namedSectors.find(r.args[0]);
         return it == g_tod_namedSectors.end() ? 0u : At(it->second);

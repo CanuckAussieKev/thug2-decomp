@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "game/core/pool.h"
+#include "game/gfx/sector.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 
@@ -34,14 +35,14 @@ inline void SetSectorColour(uint8_t* sector, uint32_t rgba)
         reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(vtable[6])(geometry, rgba);
     }
 }
-inline void ClearSectorColour(uint8_t* sector) { GameFunction<void(__thiscall*)(uint8_t*)>(0x0049E670)(sector); }
+inline void ClearSectorColour(uint8_t* sector) { reinterpret_cast<Nx::CSector*>(sector)->ClearColor(); }
 inline void SetSectorVisibility(uint8_t* sector, uint32_t mask)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, uint32_t)>(0x0049E680)(sector, mask);
+    reinterpret_cast<Nx::CSector*>(sector)->SetVisibility(mask);
 }
 inline void SetSectorActive(uint8_t* sector, bool active)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x0049E9B0)(sector, active);
+    reinterpret_cast<Nx::CSector*>(sector)->SetActive(active);
 }
 
 } // namespace RailEditorInternal

@@ -8,6 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_model_lights.h"
 #include "game/nx/feeler.h"
 #include "game/obj/model_component.h"
 #include "game/obj/model_component_nx.h"
@@ -135,7 +136,7 @@ void CModelLightUpdateComponent::Update()
         return;
     }
     if (m_interval && m_counter++ < m_interval) {
-        ModelNx::ThisCall<bool>(0x0048E830, ModelNx::ModelLights(mp_model->mp_model), m_brightness, kLerpRate);
+        static_cast<Nx::CModelLights*>(ModelNx::ModelLights(mp_model->mp_model))->MoveBrightness(m_brightness, kLerpRate);
         return;
     }
     m_counter = 0;

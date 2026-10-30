@@ -77,13 +77,13 @@ void StandInCalls(StandIns& s)
         Record({0xC750, Text(r.args[0])});
         return g_sceneFound ? Addr(g_scenes[0]) : 0u;
     });
-    s.At({0x0048C770}, 0, [](Regs&) { Record({0xC770}); return g_firstScene ? Addr(g_scenes[1]) : 0u; });
-    s.At({0x0049DF70}, 8, [](Regs& r) { Record({0xDF70, r.ecx, Text(r.args[0]), r.args[1] & 0xFF}); return 0u; });
-    s.At({0x0049DFD0}, 4, [](Regs& r) { Record({0xDFD0, r.ecx, Text(r.args[0])}); return 1u; });
-    s.At({0x0048CEF0}, 0, [](Regs& r) { Record({0xCEF0, Text(r.args[0])}); return 0u; });
-    s.At({0x0048C690}, 0, [](Regs& r) { Record({0xC690, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x0049EFD0}, 0, [](Regs& r) { Record({0xEFD0, r.args[0]}); return 0u; });
-    s.At({0x0048CDD0}, 0, [](Regs& r) { Record({0xCDD0, Text(r.args[0]), Text(r.args[1])}); return 0u; });
+    s.At({0x0048C770, AddressOf(&Nx::GetMainScene)}, 0, [](Regs&) { Record({0xC770}); return g_firstScene ? Addr(g_scenes[1]) : 0u; });
+    s.At({0x0049DF70, AddressOf(&Nx::CScene::LoadCollisionFile)}, 8, [](Regs& r) { Record({0xDF70, r.ecx, Text(r.args[0]), r.args[1] & 0xFF}); return 0u; });
+    s.At({0x0049DFD0, AddressOf(&Nx::CScene::LoadAddScene)}, 4, [](Regs& r) { Record({0xDFD0, r.ecx, Text(r.args[0])}); return 1u; });
+    s.At({0x0048CEF0, AddressOf(&Nx::ReloadScene)}, 0, [](Regs& r) { Record({0xCEF0, Text(r.args[0])}); return 0u; });
+    s.At({0x0048C690, AddressOf(&Nx::Engine::UnloadScene)}, 0, [](Regs& r) { Record({0xC690, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x0049EFD0, AddressOf(&Nx::UnloadTexDict)}, 0, [](Regs& r) { Record({0xEFD0, r.args[0]}); return 0u; });
+    s.At({0x0048CDD0, AddressOf(&Nx::AddScene)}, 0, [](Regs& r) { Record({0xCDD0, Text(r.args[0]), Text(r.args[1])}); return 0u; });
     // the asset manager (the game's and ours)
     using Ass::CAssMan;
     s.At({0x00407B90, AddressOf(&CAssMan::GetAsset)}, 8, [](Regs& r) {
@@ -140,10 +140,10 @@ void StandInCalls(StandIns& s)
         }
         return 0u;
     });
-    s.At({0x005B5FC0}, 0, [](Regs&) { Record({0x5FC0}); return Addr(g_hardware); });
-    s.At({0x005B6020}, 0, [](Regs& r) { Record({0x6020, r.args[0]}); return Addr(g_display); });
-    s.At({0x005B5F20}, 0, [](Regs&) { Record({0x5F20}); return Addr(g_language); });
-    s.At({0x005B5F90}, 0, [](Regs&) { Record({0x5F90}); return Addr(g_territory); });
+    s.At({0x005B5FC0, AddressOf(&GameConfig::GetHardwareName)}, 0, [](Regs&) { Record({0x5FC0}); return Addr(g_hardware); });
+    s.At({0x005B6020, AddressOf(&GameConfig::GetDisplayTypeName)}, 0, [](Regs&) { Record({0x6020}); return Addr(g_display); }); // (its argument isn't read or passed)
+    s.At({0x005B5F20, AddressOf(&GameConfig::GetLanguageName)}, 0, [](Regs&) { Record({0x5F20}); return Addr(g_language); });
+    s.At({0x005B5F90, AddressOf(&GameConfig::GetTerritoryName)}, 0, [](Regs&) { Record({0x5F90}); return Addr(g_territory); });
     s.At({0x004429D0, AddressOf(&Sun::Init)}, 0, [](Regs& r) {
         Record({0x29D0});
         for (int i = 0; i < 7; ++i)

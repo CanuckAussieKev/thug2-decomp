@@ -132,7 +132,7 @@ void RecordVector(uint32_t tag, uint32_t address)
 // 0x004A09E0 (cdecl: position, distance or null): the camera nearest a position (none sometimes).
 void StandInCameras(StandIns& s, bool allowNone)
 {
-    s.At({0x004A09E0}, 0, [allowNone](Regs& r) {
+    s.At({0x004A09E0, AddressOf(&Nx::GetClosestCamera)}, 0, [allowNone](Regs& r) {
         RecordVector(0xCA3E0000, r.args[0]);
         uint32_t pick = g_answers.Below(allowNone ? 4 : 3);
         if (r.args[1]) {

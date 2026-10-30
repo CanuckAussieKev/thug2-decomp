@@ -137,15 +137,15 @@ void StandInModelCalls(StandIns& s)
         Record({0x15A0, Id(r.ecx), r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
         return 0u;
     });
-    s.At({0x004A3D30}, 4, [](Regs& r) {
+    s.At({0x004A3D30, AddressOf(&Gfx::CSkeleton::Construct)}, 4, [](Regs& r) {
         Record({0x3D30, Id(r.ecx), r.args[0]});
         return r.ecx;
     });
-    s.At({0x004A2E20}, 8, [](Regs& r) {
+    s.At({0x004A2E20, AddressOf(&Gfx::CSkeleton::CopyBoneScales)}, 8, [](Regs& r) {
         Record({0x2E20, Id(r.ecx), Id(r.args[0]), r.args[1]});
         return 0u;
     });
-    s.At({0x004A2CB0}, 0, [](Regs& r) {
+    s.At({0x004A2CB0, AddressOf(&Gfx::CSkeleton::DestroyBody)}, 0, [](Regs& r) {
         Record({0x2CB0, Id(r.ecx)});
         return 0u;
     });
@@ -172,7 +172,7 @@ void StandInModelCalls(StandIns& s)
                 return g_mModelValue[i];
         return 0u;
     });
-    s.At({0x00493460}, 4, [](Regs& r) {
+    s.At({0x00493460, AddressOf(&Nx::CModel::SetBoneMatrices)}, 4, [](Regs& r) {
         Record({0x3460, Id(r.ecx), r.args[0]});
         return 0u;
     });

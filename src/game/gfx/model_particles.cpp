@@ -7,7 +7,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
+#include "game/gfx/engine_glue.h"
 #include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
 #include "game/gfx/particle_system.h"
 #include "game/gfx/particle_system_internal.h"
 #include "game/mth/matrix.h"
@@ -28,11 +30,11 @@ uint8_t AssertFlag() { return GameVariable<uint8_t>(0x00658555); }
 void* Allocate(unsigned int size) { return Mem::Manager::Get()->Allocate(size, AssertFlag(), nullptr); }
 void* AllocateZeroed(unsigned int size) { return Mem::Manager::Get()->AllocateZeroed(size, AssertFlag(), nullptr); }
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
-CModel* NewModel(int flag) { return GameFunction<CModel*(__cdecl*)(int)>(0x0048BFA0)(flag); }
+CModel* NewModel(int) { return static_cast<CModel*>(Nx::CreateModel()); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void ModelFileName(const char* name, const char* ext, char* out)
 {
-    GameFunction<void(__cdecl*)(const char*, const char*, char*)>(0x00487A70)(name, ext, out);
+    Gfx::MakeModelFileName(name, ext, out);
 }
 
 } // namespace

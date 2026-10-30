@@ -13,7 +13,12 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_mesh.h"
+#include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
+#include "game/gfx/pc_scene.h"
+#include "game/gfx/scene_lights.h"
 #include "game/gfx/render_state.h"
 #include "game/lst/hashtable.h"
 #include "game/mth/matrix.h"
@@ -53,8 +58,8 @@ uint32_t ToArgb(uint32_t rgba)
 // The vertex stack (0x006FC4A0: +0 what's on it, +4 a vertex's size; not rewritten yet): popped into / pushed from.
 uint8_t* VertexStack() { return &GameVariable<uint8_t>(0x006FC4A0); }
 uint32_t VertexSize() { return GameVariable<uint32_t>(0x006FC4A4); }
-void PopVertex(uint8_t* out) { GameFunction<void(__thiscall*)(uint8_t*, uint8_t*)>(0x00490D80)(VertexStack(), out); }
-void PushVertex(uint8_t* vertex) { GameFunction<void(__thiscall*)(uint8_t*, uint8_t*)>(0x00490D50)(VertexStack(), vertex); }
+void PopVertex(uint8_t* out) { reinterpret_cast<sVertexStack*>(VertexStack())->Pop(out); }
+void PushVertex(uint8_t* vertex) { reinterpret_cast<sVertexStack*>(VertexStack())->Push(vertex); }
 
 // A byte channel's midpoint as the original computes it: a + (b - a) / 2, the division rounding towards 0.
 uint8_t ByteMidpoint(uint8_t a, uint8_t b) { return static_cast<uint8_t>(a + (static_cast<int>(b) - a) / 2); }
@@ -82,8 +87,7 @@ void __cdecl LightTextureSplats(sTextureSplats* splats)
         float points[3][4];
         for (auto& point : points)
             std::memcpy(point, triangle[0], 12);
-        GameFunction<void(__cdecl*)(const uint32_t*, uint32_t*, float(*)[4], int, int)>(0x0048F620)(base, colors,
-                                                                                                  points, 0, 3);
+        LightVertexColours(base, colors, reinterpret_cast<const Mth::Vector*>(points), nullptr, 3);
         for (int k = 0; k < 3; ++k)
             *reinterpret_cast<uint32_t*>(triangle[k] + 0xC) = ToArgb(colors[k]);
     }
@@ -95,7 +99,7 @@ void __cdecl KillAllTextureSplats()
     sTextureSplats* splats = FirstSplats(Splats());
     while (splats) {
         if (uint8_t* material = splats->material) {
-            GameFunction<void(__thiscall*)(uint8_t*)>(0x004D2BD0)(material); // (the destructor's body)
+            reinterpret_cast<sMaterial*>(material)->DestroyBody(); // (the destructor's body)
             Mem::Manager::Get()->Free(material);
         }
         sTextureSplats* next = NextSplats(Splats());
@@ -145,7 +149,7 @@ void __cdecl DrawTextureSplats()
             uv[0] = static_cast<float>((static_cast<double>(splats->uvs[j][0]) - 0.5f) * factor + 0.5f);
             uv[1] = static_cast<float>((static_cast<double>(splats->uvs[j][1]) - 0.5f) * factor + 0.5f);
         }
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x004D1F00)(splats->material); // (the material's set-up)
+        reinterpret_cast<sMaterial*>(splats->material)->Submit(); // (the material's set-up)
         SetPixelShader(GameVariable<void*>(0x007CA964), splats->material);
         DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices, 0x18);
     }
@@ -344,7 +348,7 @@ void Multiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 // A set's oldest triangle (a free one first: 0x00490CD0, the engine's).
 int OldestTriangle(sTextureSplats* splats)
 {
-    return GameFunction<int(__thiscall*)(sTextureSplats*, uint32_t)>(0x00490CD0)(splats, 0x100);
+    return reinterpret_cast<sSplatSlots*>(splats)->OldestSlot(0x100);
 }
 // The lifetime in milliseconds (the C runtime's _ftol: truncated).
 int Milliseconds(float seconds) { return static_cast<int>(static_cast<double>(seconds) * 1000.0f); }
@@ -365,7 +369,7 @@ sTextureSplats* __cdecl GetTextureSplats(uint32_t texture)
             return splats;
     }
     void* memory = Mem::New(0x110);
-    auto* material = memory ? GameFunction<uint8_t*(__thiscall*)(void*)>(0x004D1A90)(memory) : nullptr;
+    auto* material = memory ? reinterpret_cast<uint8_t*>(static_cast<sMaterial*>(memory)->Construct()) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     *reinterpret_cast<uint32_t*>(material + 0x20) = texture ? 4 : 0; // (the pass's flags)
     int a = Rand();
@@ -463,7 +467,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
     uint8_t* splatVertices = nullptr;
     int slot = 0;
     for (; *sectors; ++sectors) {
-        auto* geom = GameFunction<uint8_t*(__thiscall*)(void*)>(0x004A2BA0)(*sectors); // (the sector's geom)
+        auto* geom = static_cast<uint8_t*>(static_cast<CPcSector*>(*sectors)->geom); // (the sector's geom)
         if (!geom)
             continue;
         auto** meshes = *reinterpret_cast<sMesh***>(geom + 0x3C);
@@ -473,11 +477,9 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
             if (mesh->flags & 2)
                 continue;
             uint8_t* vertices;
-            GameFunction<long(__thiscall*)(void*, uint32_t, uint32_t, uint8_t**, uint32_t)>(0x004D4090)(
-                mesh->vertexBuffers[0], 0, 0, &vertices, 0x10);
+            mesh->vertexBuffers[0]->Lock(0, 0, &vertices, 0x10);
             uint16_t* indices;
-            GameFunction<long(__thiscall*)(void*, uint32_t, uint32_t, uint16_t**, uint32_t)>(0x004D42F0)(
-                mesh->indexBuffers[0], 0, 0, &indices, 0x10);
+            mesh->indexBuffers[0]->Lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
             for (uint32_t strip = 2; strip < mesh->indexCounts[0]; ++strip) {
                 uint32_t c = indices[strip];
@@ -565,7 +567,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                     GameVariable<float>(0x0067DDF0) = static_cast<float>(
                         (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0));
                 }
-                GameFunction<void(__thiscall*)(void*)>(0x00490D20)(VertexStack()); // (emptied)
+                reinterpret_cast<sVertexStack*>(VertexStack())->Construct(); // (emptied)
                 GameVariable<uint32_t>(0x006FC4A4) = 0x18;
                 PushVertex(v0);
                 PushVertex(v1);
@@ -573,7 +575,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                 auto* pieces = static_cast<uint8_t*>(Mem::New(0x2000));
                 std::memset(pieces, 0, 0x2000);
                 void* memory = Mem::New(0xD8);
-                auto* format = memory ? GameFunction<uint8_t*(__thiscall*)(void*)>(0x004D4BE0)(memory) : nullptr;
+                auto* format = memory ? reinterpret_cast<uint8_t*>(static_cast<sMesh*>(memory)->Construct()) : nullptr;
                 format[0x1C] = 0x0C;
                 format[0x1E] = 0x10;
                 uint8_t* cursor = pieces;
@@ -616,7 +618,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                     splats->alive[slot] = 0;
                     CollapseSplatTriangle(splats, slot);
                 }
-                GameFunction<void(__thiscall*)(void*)>(0x004D69E0)(format); // (the format mesh's destructor body)
+                reinterpret_cast<sMesh*>(format)->DestroyBody(); // (the format mesh's destructor body)
                 Mem::Manager::Get()->Free(format);
                 Mem::Manager::Get()->Free(pieces);
             }

@@ -12,6 +12,8 @@
 
 #include "game/gfx/anim_blend.h"
 #include "game/script/struct.h"
+#include "game/gfx/anim_controller.h"
+#include "game/gfx/frame_source.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -182,13 +184,13 @@ void TestBlendChannel()
              Record({0x4E3C0000, r.ecx, r.args[0]});
              return 0u;
          });
-    s.At({0x004813B0}, 12, [](Regs& r) {
+    s.At({0x004813B0, AddressOf(&Gfx::CAnimTimeline::GetTimes)}, 12, [](Regs& r) {
         Record({0x4813B000, r.ecx});
         for (int i = 0; i < 3; ++i)
             *reinterpret_cast<float*>(r.args[i]) = static_cast<float>(g_answers.Below(1000)) / 8.0f;
         return 0u;
     });
-    s.At({0x0048CF50}, 0, [](Regs& r) {
+    s.At({0x0048CF50, AddressOf(&Nx::GetAnimData)}, 0, [](Regs& r) {
         uint32_t found = g_mustFind || g_answers.Below(3) ? reinterpret_cast<uint32_t>(&g_value) : 0;
         g_value = static_cast<float>(g_answers.Below(1000)) / 4.0f;
         Record({0x48CF5000, r.args[0], r.args[1], found});

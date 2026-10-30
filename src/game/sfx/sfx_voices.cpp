@@ -1,5 +1,6 @@
 // The sound effects manager's positional sounds and the PC driver's voices (0x0047B8E0-0x0047D41E). See sfx.h.
 
+#include "game/gfx/viewport.h"
 #include "game/sfx/sfx.h"
 #include "game/sfx/mute_audio.h"
 
@@ -66,9 +67,9 @@ R Com(void* object, int offset, A... args)
 // Cameras (not rewritten yet).
 void* NearestCamera(const Mth::Vector* position, float* distance)
 {
-    return GameFunction<void*(__cdecl*)(const Mth::Vector*, float*)>(0x004A09E0)(position, distance);
+    return Nx::GetClosestCamera(position, distance);
 }
-void* ViewportCamera(int viewport) { return GameFunction<void*(__cdecl*)(int)>(0x004A0950)(viewport); }
+void* ViewportCamera(int viewport) { return Nx::GetCamera(viewport); }
 const Mth::Vector* CameraPosition(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetPos(); }
 const Mth::Matrix* CameraMatrix(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetMatrix(); }
 // The objects' sound parts: the "object" the sound manager is given is the object's sound component.

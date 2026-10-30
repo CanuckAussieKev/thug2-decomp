@@ -134,7 +134,7 @@ void Install(StandIns& s)
     Stub(s, {0x00543060, AddressOf(&GameNet::PlayerInfo::GetFaceTextureData)}, 0, 0x3060, [](Regs& r) {
         return (g_faces >> PlayerIndex(r.ecx)) & 1 ? At(Obj(2) + 4 * static_cast<uint32_t>(PlayerIndex(r.ecx))) : 0u;
     });
-    StubCdecl(s, {0x00485CB0}, 0x5CB0, 2, [](Regs& r) { return (r.args[1] >> 3) & 1; });
+    StubCdecl(s, {0x00485CB0, AddressOf(&Obj::PartIsCreatedGraphic)}, 0x5CB0, 2, [](Regs& r) { return (r.args[1] >> 3) & 1; });
     for (int slot = 25; slot <= 28; ++slot)
         g_vtable[slot] = s.Thunk(0, [slot](Regs& r) {
             Rec(0x7E00 + static_cast<uint32_t>(slot), {r.ecx});

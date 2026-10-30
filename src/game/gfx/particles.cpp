@@ -2,6 +2,7 @@
 // 0x00495260-0x004968AF.
 
 #include "game/gfx/particles.h"
+#include "game/gfx/pc_particles.h"
 
 #include <cmath>
 #include <cstring>
@@ -293,9 +294,9 @@ void CParticle::SetEmitScript(uint32_t script, uint32_t objectId)
     }
 }
 
-void CParticle::Render(bool advance) { GameFunction<void(__thiscall*)(CParticle*, bool)>(0x00494E00)(this, advance); }
-void CParticle::Update() { GameFunction<void(__thiscall*)(CParticle*)>(0x00494E20)(this); }
-void CParticle::Release() { GameFunction<void(__thiscall*)(CParticle*)>(0x00494E40)(this); }
+void CParticle::Render(bool advance) { reinterpret_cast<CPcParticleSystem*>(this)->EngineRender(advance); }
+void CParticle::Update() { reinterpret_cast<CPcParticleSystem*>(this)->EngineUpdate(); }
+void CParticle::Release() { reinterpret_cast<CPcParticleSystem*>(this)->EngineRelease(); }
 
 // --- the manager ---
 

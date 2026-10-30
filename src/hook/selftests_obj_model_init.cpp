@@ -109,7 +109,7 @@ void StandIn(StandIns& s)
         g_trace.insert(g_trace.end(), {v[0], v[1], v[2], v[3]});
         return 0u;
     });
-    Rec(s, {0x00487B00}, 2, 0x7B00, [](Regs& r) {
+    Rec(s, {0x00487B00, AddressOf(Gfx::GetScaleFromParams)}, 2, 0x7B00, [](Regs& r) {
         if (!g_a.scale)
             return 0u;
         auto* v = reinterpret_cast<float*>(r.args[0]);
@@ -117,12 +117,12 @@ void StandIn(StandIns& s)
         v[2] = 0.5f;
         return 1u;
     }, false, true);
-    Rec(s, {0x00492E10}, 1, 0x2E10);
-    RecBools(s, {0x004934A0}, 4, 0x34A0, 4, [](Regs&) { return 1u; });
-    Rec(s, {0x00493CD0}, 1, 0x3CD0,
+    Rec(s, {0x00492E10, AddressOf(&Nx::CModel::SetDisplayMode)}, 1, 0x2E10);
+    RecBools(s, {0x004934A0, AddressOf(&Nx::CModel::AddAssetGeom)}, 4, 0x34A0, 4, [](Regs&) { return 1u; });
+    Rec(s, {0x00493CD0, AddressOf(&Nx::CModel::GetGeomByName)}, 1, 0x3CD0,
         [](Regs& r) { return g_a.geomFound && r.args[0] != g_a.missingGeom ? Addr(kGeom) : 0u; });
-    Rec(s, {0x0048DDC0}, 2, 0xDDC0, [](Regs&) { return Addr(kClone); });
-    Rec(s, {0x0048DD80}, 2, 0xDD80, [](Regs&) { return Addr(kClone); });
+    Rec(s, {0x0048DDC0, AddressOf(&Nx::CGeom::CloneForModel)}, 2, 0xDDC0, [](Regs&) { return Addr(kClone); });
+    Rec(s, {0x0048DD80, AddressOf(&Nx::CGeom::Clone)}, 2, 0xDD80, [](Regs&) { return Addr(kClone); });
     Rec(s, {0x0048DE60}, 1, 0xDE60);
     Rec(s, {0x004938E0}, 3, 0x38E0);
     Rec(s, {0x00492E40, AddressOf(&Nx::CModel::GetNumGeoms)}, 0, 0x2E40, [](Regs&) { return static_cast<uint32_t>(g_a.sourceGeoms); });
@@ -145,7 +145,7 @@ void StandIn(StandIns& s)
         g_trace.push_back(HashBytes(reinterpret_cast<const uint8_t*>(path), std::strlen(path)));
         return 1u;
     });
-    Rec(s, {0x00492F30}, 1, 0x2F30, [](Regs& r) {
+    Rec(s, {0x00492F30, AddressOf(&Nx::CModel::GetBoundingSphere)}, 1, 0x2F30, [](Regs& r) {
         auto* v = reinterpret_cast<float*>(r.args[0]);
         v[0] = 1.5f;
         v[1] = -2.0f;
@@ -153,28 +153,28 @@ void StandIn(StandIns& s)
         v[3] = 40.0f;
         return r.args[0];
     });
-    Rec(s, {0x00493BD0}, 0, 0x3BD0, [](Regs& r) {
+    Rec(s, {0x00493BD0, AddressOf(&Nx::CModel::CreateLights)}, 0, 0x3BD0, [](Regs& r) {
         F<uint32_t>(reinterpret_cast<void*>(r.ecx), 0x2C) = Addr(kLights);
         return 0u;
     });
-    Rec(s, {0x00493C10}, 0, 0x3C10);
-    Rec(s, {0x0048E4D0}, 1, 0xE4D0);
-    Rec(s, {0x00492DD0}, 1, 0x2DD0);
-    RecBools(s, {0x00492E90}, 1, 0x2E90, 1);
-    Rec(s, {0x0048E660}, 0, 0xE660);
-    RecBools(s, {0x00493090}, 3, 0x3090, 2, [](Regs& r) {
+    Rec(s, {0x00493C10, AddressOf(&Nx::CModel::DestroyLights)}, 0, 0x3C10);
+    Rec(s, {0x0048E4D0, AddressOf(&Nx::CModelLights::SetPositionPointer)}, 1, 0xE4D0);
+    Rec(s, {0x00492DD0, AddressOf(&Nx::CModel::SetSkeleton)}, 1, 0x2DD0);
+    RecBools(s, {0x00492E90, AddressOf(&Nx::CModel::EnableShadowVolume)}, 1, 0x2E90, 1);
+    Rec(s, {0x0048E660, AddressOf(&Nx::CModelLights::UpdateBrightness)}, 0, 0xE660);
+    RecBools(s, {0x00493090, AddressOf(&Nx::CModel::Render)}, 3, 0x3090, 2, [](Regs& r) {
         const auto* m = reinterpret_cast<const uint32_t*>(r.args[0]);
         g_trace.push_back(HashBytes(reinterpret_cast<const uint8_t*>(m), 64));
         return 0u;
     });
-    Rec(s, {0x00493410}, 1, 0x3410);
+    Rec(s, {0x00493410, AddressOf(&Nx::CModel::CopyBones)}, 1, 0x3410);
     // The bone volumes.
-    Rec(s, {0x00492FC0}, 0, 0x2FC0, [](Regs&) { return g_a.volumes ? Addr(kVolumes) : 0u; });
-    Rec(s, {0x00492F90}, 1, 0x2F90);
-    Rec(s, {0x0048B3C0}, 1, 0xB3C0, [](Regs&) { return g_a.volumesFound ? Addr(kVolumes) : 0u; }, false, true);
-    Rec(s, {0x0048B350}, 1, 0xB350, [](Regs& r) { return r.ecx; });
-    Rec(s, {0x0048BEA0}, 1, 0xBEA0);
-    Rec(s, {0x0048B430}, 1, 0xB430);
+    Rec(s, {0x00492FC0, AddressOf(&Nx::CModel::GetBoneVolumes)}, 0, 0x2FC0, [](Regs&) { return g_a.volumes ? Addr(kVolumes) : 0u; });
+    Rec(s, {0x00492F90, AddressOf(&Nx::CModel::SetBoneVolumes)}, 1, 0x2F90);
+    Rec(s, {0x0048B3C0, AddressOf(Gfx::FindBoneVolumes)}, 1, 0xB3C0, [](Regs&) { return g_a.volumesFound ? Addr(kVolumes) : 0u; }, false, true);
+    Rec(s, {0x0048B350, AddressOf(&Gfx::CBoneVolumes::Construct)}, 1, 0xB350, [](Regs& r) { return r.ecx; });
+    Rec(s, {0x0048BEA0, AddressOf(&Gfx::CBoneVolumes::Register)}, 1, 0xBEA0);
+    Rec(s, {0x0048B430, AddressOf(&Gfx::CBoneVolumes::Fill)}, 1, 0xB430);
     Rec(s, {0x005BAF50, AddressOf(&Mem::Manager::GetNamedHeap)}, 2, 0xAF50, [](Regs&) { return Addr(kHeap); });
     Rec(s, {0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 1, 0xB0E0);
     Rec(s, {0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110);

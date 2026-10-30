@@ -14,6 +14,9 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/end_run.h"
+#include "game/skate/game_mode.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -77,7 +80,7 @@ void** const kGoalNodeVtable = reinterpret_cast<void**>(0x0064DDCC);
 int Truncate(double value) { return static_cast<int>(value); }
 
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-uint32_t GameModeName() { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(SkateCalls::GameMode()); }
+uint32_t GameModeName() { return static_cast<Game::CGameMode*>(SkateCalls::GameMode())->GetNameChecksum(); }
 
 Script::CStruct* NewStructure()
 {
@@ -115,7 +118,7 @@ void Unlink(Mem::ListNode* node)
 CGoalPed* NewGoalPed(Script::CStruct* params)
 {
     void* memory = Mem::New(0x14);
-    return memory ? GameFunction<CGoalPed*(__thiscall*)(void*, Script::CStruct*)>(0x0055EB40)(memory, params) : nullptr;
+    return memory ? static_cast<CGoalPed*>(memory)->Construct(params) : nullptr;
 }
 inline void DestroyGoalPedBody(CGoalPed*) {}
 
@@ -133,8 +136,8 @@ void* ScoreOf(Obj::CCompositeObject* skater)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterScore)) + 0x18);
 }
-void ResetScore(void* score) { GameFunction<void(__thiscall*)(void*)>(0x00564A10)(score); }
-int TotalScore(void* score) { return GameFunction<int(__thiscall*)(void*)>(0x00561B40)(score); }
+void ResetScore(void* score) { static_cast<Mdl::Score*>(score)->Reset(); }
+int TotalScore(void* score) { return static_cast<Mdl::Score*>(score)->GetTotalScore(); }
 // The root of a goal's parents (the last one whose first parent link has a goal), or null if it has none.
 CGoal* RootOf(void* manager, GoalLink* parents)
 {

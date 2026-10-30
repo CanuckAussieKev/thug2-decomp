@@ -18,6 +18,7 @@
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/pc_scene.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -141,7 +142,7 @@ void TestPcMeshLife()
         Record({0xE9F0, r.ecx, Relocate(r.args[0])});
         return 0u;
     });
-    s.At({0x0048C7F0}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_sceneList); });
+    s.At({0x0048C7F0, AddressOf(&Nx::FirstSceneNode)}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_sceneList); });
     UseStandardRelocation(com);
     auto standard = g_relocate;
     g_relocate = [standard](uint32_t word) { return ArenaRelocate(standard(word)); };

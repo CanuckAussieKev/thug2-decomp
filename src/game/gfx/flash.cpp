@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "game/gfx/render_state.h"
+#include "game/gfx/viewport_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -29,7 +30,7 @@ void SetSamplerState(int state, int value) { SetState(state, static_cast<uint32_
 void DrawFlash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
-    const float* view = GameFunction<const float*(__cdecl*)(int)>(0x004A06D0)(flash->viewport);
+    const float* view = reinterpret_cast<const float*>(GetActiveViewport(flash->viewport));
     double width = GameVariable<int>(0x00786D6C);
     double height = GameVariable<int>(0x00786D70);
     // (x87: each product is rounded once, each sum to float)

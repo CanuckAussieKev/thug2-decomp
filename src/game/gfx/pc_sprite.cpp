@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/draw2d.h"
+#include "game/gfx/engine_sprite.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -23,7 +24,7 @@ SDraw2D* AsDrawn(SSprite* sprite) { return reinterpret_cast<SDraw2D*>(sprite); }
 // 0x004C70E0
 CPcSprite* CPcSprite::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*, int)>(0x0049ED60)(this, 0);
+    reinterpret_cast<CSprite*>(this)->CSprite::Construct(nullptr);
     vtable = reinterpret_cast<void**>(kSpriteVtable);
     void* memory = Mem::New(0x40);
     sprite = memory ? static_cast<SSprite*>(memory)->Construct(0.0f) : nullptr;
@@ -36,7 +37,7 @@ void CPcSprite::DestroyBody()
     vtable = reinterpret_cast<void**>(kSpriteVtable);
     if (sprite) // (through its vtable: its destructor, freed)
         reinterpret_cast<SSprite*(__thiscall*)(SSprite*, unsigned int)>(sprite->vtable[0])(sprite, 1);
-    GameFunction<void(__thiscall*)(void*)>(0x0049EBA0)(this);
+    reinterpret_cast<CSprite*>(this)->CSprite::DestroyBody();
 }
 
 // 0x004C7180
@@ -52,7 +53,7 @@ CPcSprite* CPcSprite::Destroy(unsigned int freeFlags)
 void CPcSprite::UpdateHidden()
 {
     // (the byte as it is, through the game's entry: SetHidden keeps what it's given)
-    GameFunction<void(__thiscall*)(SDraw2D*, uint32_t)>(0x004DFB70)(AsDrawn(sprite), hidden);
+    AsDrawn(sprite)->SetHidden(hidden != 0);
 }
 
 // 0x004C71B0

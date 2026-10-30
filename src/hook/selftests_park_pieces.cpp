@@ -153,6 +153,7 @@ void TestParkPieces2()
         // Turned: with geometry and without; tinted: no sector, no geometry, on (gap or not), off.
         for (uint32_t geometry : {At(kGeometry), 0u}) {
             g_geometry = geometry;
+            clone->m_sector = 0x2222; // (a piece whose sector is missing would crash both: SetAngle reads its geometry)
             for (float degrees : {0.0f, 90.0f, 37.5f, -270.0f}) {
                 original ? Orig<void>(0x00591510, clone, degrees) : clone->SetAngle(degrees);
             }

@@ -3,6 +3,7 @@
 // stores are rounded to float, the ones it keeps on the FPU stack are worked in double.
 
 #include "game/obj/dynamic_light.h"
+#include "game/gfx/light_manager.h"
 
 #include <cstdint>
 #include <cstring>
@@ -66,7 +67,7 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 // 0x0048FB80 (cdecl; no source yet): a new dynamic light.
 Nx::CDynamicLight* NewDynamicLight(int kind)
 {
-    return GameFunction<Nx::CDynamicLight*(__cdecl*)(int)>(0x0048FB80)(kind);
+    return reinterpret_cast<Nx::CDynamicLight*>(Nx::NewDynamicLight(kind));
 }
 
 } // namespace

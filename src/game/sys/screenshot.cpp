@@ -30,6 +30,9 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/skater.h"
 #include "game/sys/config.h"
 #include "game/sys/mlp.h"
 #include "game/sys/timer.h"
@@ -99,12 +102,12 @@ std::string NameOf(uint32_t checksum)
 std::string GameModeName()
 {
     void* mode = GameVariable<void*>(0x007CE470);
-    return mode ? NameOf(GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(mode)) : "";
+    return mode ? NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum()) : "";
 }
 // The local skater (the skate module's 0x00566520; null with none).
 Obj::CCompositeObject* LocalSkater()
 {
-    return SkateModule() ? GameFunction<Obj::CCompositeObject*(__thiscall*)(void*)>(0x00566520)(SkateModule()) : nullptr;
+    return SkateModule() ? reinterpret_cast<Mdl::Skate*>(SkateModule())->GetLocalSkater() : nullptr;
 }
 
 std::string Vec(const float v[3], const char* format = "(%.1f, %.1f, %.1f)")

@@ -423,7 +423,7 @@ void StandInRunCalls(StandIns& s)
         Record({0x32A0, r.ecx});
         return g_modeName;
     });
-    s.At({0x00553150}, 0, [](Regs& r) {
+    s.At({0x00553150, AddressOf(&Game::CGameMode::ShouldTimerBeep)}, 0, [](Regs& r) {
         Record({0x3150, r.ecx});
         return g_modeName & 1;
     });
@@ -690,7 +690,7 @@ void StandInLifeCalls(StandIns& s)
 {
     using Profile = Obj::CSkaterProfile;
     using Career = Obj::CSkaterCareer;
-    s.At({0x0055EB40}, 4, [](Regs& r) {
+    s.At({0x0055EB40, AddressOf(&Game::CGoalPed::Construct)}, 4, [](Regs& r) {
         Record({0xEB40, r.ecx, r.args[0]});
         return r.ecx;
     });
@@ -1125,7 +1125,7 @@ void StandInTypeCalls(StandIns& s)
         Record({0x0AD0, r.args[0]});
         return g_noTarget ? 0u : Address(g_target);
     });
-    s.At({0x00492F30}, 4, [](Regs& r) {
+    s.At({0x00492F30, AddressOf(&Nx::CModel::GetBoundingSphere)}, 4, [](Regs& r) {
         Record({0x2F30, r.ecx});
         auto* out = reinterpret_cast<float*>(r.args[0]);
         out[0] = 1.5f;
@@ -1134,7 +1134,7 @@ void StandInTypeCalls(StandIns& s)
         out[3] = 4.0f;
         return r.args[0];
     });
-    s.At({0x0048C490}, 0, [](Regs& r) {
+    s.At({0x0048C490, AddressOf(&Nx::Engine::SphereVisibleInOneViewport)}, 0, [](Regs& r) {
         const float* p = reinterpret_cast<const float*>(r.args[0]);
         Record({0xC490, CFuncTests::Bits(p[0]), CFuncTests::Bits(p[1]), CFuncTests::Bits(p[2]), CFuncTests::Bits(p[3]), r.args[1]});
         return static_cast<uint32_t>(g_hidden);
@@ -1147,11 +1147,11 @@ void StandInTypeCalls(StandIns& s)
         Record({0x5A00, r.ecx});
         return Address(g_camera + 0x10);
     });
-    s.At({0x00562740}, 4, [](Regs& r) {
+    s.At({0x00562740, AddressOf(&Mdl::Score::IsGap)}, 4, [](Regs& r) {
         Record({0x2740, r.ecx, r.args[0]});
         return (r.args[0] * 7 + static_cast<uint32_t>(g_gapCount)) % 3 ? 1u : 0u;
     });
-    s.At({0x00561660}, 4, [](Regs& r) {
+    s.At({0x00561660, AddressOf(&Mdl::Score::GetTrickName)}, 4, [](Regs& r) {
         Record({0x1660, r.ecx, r.args[0]});
         return 0x6A900000u + r.args[0] % 5;
     });

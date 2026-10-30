@@ -3,6 +3,7 @@
 // on the FPU stack are worked in double.
 
 #include "game/obj/car_physics.h"
+#include "game/gfx/model.h"
 
 #include <cmath>
 #include <cstdint>
@@ -72,7 +73,7 @@ double GameAsin(double value)
 // The model's skeleton description (0x00493040, no source yet).
 CCarPhysicsComponent::BoneDesc* ModelBones(void* model)
 {
-    return GameFunction<CCarPhysicsComponent::BoneDesc*(__thiscall*)(void*)>(0x00493040)(model);
+    return reinterpret_cast<CCarPhysicsComponent::BoneDesc*>(static_cast<Nx::CModel*>(model)->GetAssetHierarchy());
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
 Mth::Matrix* SkeletonMatrices(void* skeleton) { return *reinterpret_cast<Mth::Matrix**>(static_cast<uint8_t*>(skeleton) + 4); }

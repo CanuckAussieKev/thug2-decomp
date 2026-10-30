@@ -23,6 +23,7 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_walls.h"
+#include "game/gfx/sector.h"
 #include "game/mth/matrix.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_movable.h"
@@ -37,6 +38,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "game/skate/gap_checklist.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -1228,7 +1230,7 @@ void DropBoxes()
 Game::CGapChecklist* Checklist()
 {
     void* skate = GameVariable<void*>(0x007CE478);
-    return skate ? GameFunction<Game::CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(skate) : nullptr;
+    return skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
 }
 
 bool LevelGap(const std::string& name)
@@ -1308,7 +1310,7 @@ int SpecIndex(const std::string& name)
 bool SectorActive(uint32_t checksum)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
-    return sector && GameFunction<bool(__thiscall*)(void*)>(0x0049E9E0)(sector);
+    return sector && reinterpret_cast<Nx::CSector*>(sector)->IsActive();
 }
 
 // A breakable's box: the piece's box where it is now (axis-aligned), grown 6 each way so the skater meets it before
@@ -1805,7 +1807,7 @@ void Start()
         uint32_t piece = spec.kind == Kind::Break ? ChecksumOf(spec.target) : 0;
         uint8_t* sector = piece ? Scenery::SectorOf(piece) : nullptr;
         if (sector && NodeAlive(spec.name) && !SectorActive(piece) && !Scenery::Hidden(piece)) {
-            GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(sector, true); // (CSector::SetActive)
+            reinterpret_cast<Nx::CSector*>(sector)->SetActive(true);
             Log("level editor: breakable %s's piece back (broken while playing)", spec.name.c_str());
         }
     }
@@ -2667,7 +2669,7 @@ void FireOnLeaving(Obj::CObject* skater, uint32_t node)
     uint32_t script = 0;
     if (!s || !s->GetChecksum(kTriggerScript, &script, 0) || !script)
         return;
-    if (GameFunction<bool(__thiscall*)(void*, Script::CStruct*)>(0x00565BB0)(GameVariable<void*>(0x007CE478), s))
+    if (Mdl::Skate::ShouldBeAbsent(s))
         return;
     static const uint32_t kNetEnabled = Crc("NetEnabled"), kPermanent = Crc("Permanent");
     skater->SpawnAndRunScript(script, static_cast<int>(node), s->ContainsFlag(kNetEnabled), s->ContainsFlag(kPermanent),
@@ -2942,7 +2944,7 @@ void SetBreakable(uint32_t sector, bool on)
     if (i >= 0)
         g_specs.erase(g_specs.begin() + i);
     if (uint8_t* piece = Scenery::SectorOf(sector); piece && !SectorActive(sector) && !Scenery::Hidden(sector))
-        GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(piece, true); // (CSector::SetActive)
+        reinterpret_cast<Nx::CSector*>(piece)->SetActive(true);
     Sync();
     Hud::Message("No longer breakable", 4.0);
 }

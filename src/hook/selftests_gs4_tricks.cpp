@@ -181,7 +181,7 @@ void StandInGameCalls(StandIns& s)
         Record({0x0480, SkaterIndex(r.ecx)});
         return r.ecx + 0x40;
     });
-    s.At({0x00561400}, 0, [](Regs& r) {
+    s.At({0x00561400, AddressOf(&Mdl::Score::ResetBests)}, 0, [](Regs& r) {
         Record({0x1400, SkaterIndex(r.ecx - 0x40)});
         return 0u;
     });
@@ -197,7 +197,7 @@ void StandInGameCalls(StandIns& s)
         Record({0xC160, r.args[0]});
         return reinterpret_cast<uint32_t>(r.args[0] == 2 ? "Second Soundtrack" : "Other");
     });
-    s.At({0x00567090}, 0, [](Regs& r) {
+    s.At({0x00567090, AddressOf(&Mdl::Skate::BindControllers)}, 0, [](Regs& r) {
         Record({0x7090, r.ecx == reinterpret_cast<uint32_t>(g_skate)});
         return 0u;
     });
@@ -207,7 +207,7 @@ void StandInGameCalls(StandIns& s)
                 static_cast<uint32_t>(map[1]), static_cast<uint32_t>(map[2])});
         return 0u;
     });
-    s.At({0x00564DA0}, 0, [](Regs& r) {
+    s.At({0x00564DA0, AddressOf(&Mdl::Skate::CheckControllers)}, 0, [](Regs& r) {
         Record({0x4DA0, r.ecx == reinterpret_cast<uint32_t>(g_skate)});
         return 0u;
     });

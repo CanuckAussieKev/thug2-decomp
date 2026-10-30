@@ -21,6 +21,7 @@
 #include "game/mth/vector.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -48,11 +49,11 @@ void StandInSceneListCalls(StandIns& s)
 {
     StandInMemory(s);
     s.At({0x006234FE}, 0, StandInSprintf);
-    s.At({0x0048C690}, 0, [](Regs& r) {
+    s.At({0x0048C690, AddressOf(&Nx::Engine::UnloadScene)}, 0, [](Regs& r) {
         Record({0xC690, Relocate(r.args[0]), r.args[1]});
         return 1u;
     });
-    s.At({0x0048C700}, 0, [](Regs& r) {
+    s.At({0x0048C700, AddressOf(&Nx::Engine::FindScene)}, 0, [](Regs& r) {
         Record({0xC700, r.args[0]});
         return reinterpret_cast<uint32_t>(FindScene(r.args[0]));
     });

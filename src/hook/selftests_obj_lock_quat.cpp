@@ -21,6 +21,7 @@
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/sys/timer.h"
+#include "game/gfx/skeleton.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -117,7 +118,7 @@ void StandIn(StandIns& s)
             return reinterpret_cast<uint32_t>(g_world.model);
         return 0u;
     });
-    s.At({0x004A36E0}, 8, [](Regs& r) { // the skeleton's bone matrix
+    s.At({0x004A36E0, AddressOf(&Gfx::CSkeleton::GetBoneMatrix)}, 8, [](Regs& r) { // the skeleton's bone matrix
         Record({0x36E0, Rel(r.ecx), r.args[0], Rel(r.args[1])});
         // (the parent's matrix is filled even when "not found": the original then uses what its stack held)
         bool parent = r.args[0] == 0xBA0000u + g_a.seed;
@@ -128,11 +129,11 @@ void StandIn(StandIns& s)
         FillMatrix(reinterpret_cast<float*>(r.args[1]), g_a.seed * 4 + (parent ? 1 : 0));
         return 1u;
     });
-    s.At({0x004A2B60}, 4, [](Regs& r) { // the bone's index
+    s.At({0x004A2B60, AddressOf(&Gfx::CSkeleton::GetBoneIndex)}, 4, [](Regs& r) { // the bone's index
         Record({0x2B60, Rel(r.ecx), r.args[0]});
         return 3u + g_a.seed % 5;
     });
-    s.At({0x004A2C50}, 4, [](Regs& r) { // a bone's parent (from the skeleton's data)
+    s.At({0x004A2C50, AddressOf(&Gfx::CSkeletonData::GetParentName)}, 4, [](Regs& r) { // a bone's parent (from the skeleton's data)
         Record({0x2C50, r.ecx, r.args[0]});
         return 0xBA0000u + g_a.seed;
     });

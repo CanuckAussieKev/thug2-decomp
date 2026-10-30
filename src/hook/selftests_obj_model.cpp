@@ -68,12 +68,12 @@ void StandIn(StandIns& s)
         [](Regs&) { return static_cast<uint32_t>(g_a.clock); }, false);
     Rec(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0, 0xE970, [](Regs&) { return g_a.time; }, false);
     // The model.
-    Rec(s, {0x00494B70}, 1, 0x4B70);
-    Rec(s, {0x00494800}, 2, 0x4800);
-    Rec(s, {0x00493E80}, 3, 0x3E80, [](Regs&) { return g_a.replaced ? 0x12345601u : 0x12345600u; });
-    Rec(s, {0x00494640}, 1, 0x4640, [](Regs&) { return Addr(kGeom); });
-    Rec(s, {0x00492FC0}, 0, 0x2FC0, [](Regs&) { return g_a.haveVolumes ? Addr(kVolumes) : 0u; });
-    Rec(s, {0x004939E0}, 7, 0x39E0, [](Regs& r) {
+    Rec(s, {0x00494B70, AddressOf(&Nx::CModel::Hide)}, 1, 0x4B70);
+    Rec(s, {0x00494800, AddressOf(&Nx::CModel::HideGeom)}, 2, 0x4800);
+    Rec(s, {0x00493E80, AddressOf(&Nx::CModel::ReplaceTextureWith)}, 3, 0x3E80, [](Regs&) { return g_a.replaced ? 0x12345601u : 0x12345600u; });
+    Rec(s, {0x00494640, AddressOf(&Nx::CModel::GetGeom)}, 1, 0x4640, [](Regs&) { return Addr(kGeom); });
+    Rec(s, {0x00492FC0, AddressOf(&Nx::CModel::GetBoneVolumes)}, 0, 0x2FC0, [](Regs&) { return g_a.haveVolumes ? Addr(kVolumes) : 0u; });
+    Rec(s, {0x004939E0, AddressOf(&Nx::CModel::TestBoneVolumes)}, 7, 0x39E0, [](Regs& r) {
         const auto* m = reinterpret_cast<const uint32_t*>(r.args[2]);
         for (int i = 0; i < 16; ++i)
             g_trace.push_back(m[i]);

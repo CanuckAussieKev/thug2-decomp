@@ -6,6 +6,7 @@
 #include <new>
 
 #include "game/core/alloc.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -21,7 +22,7 @@ Mem::ListNode* FirstMovable() { return GameVariable<Mem::ListNode*>(0x00691984);
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
-void** GridListsAlong(Mth::Line* line) { return GameFunction<void**(__cdecl*)(Mth::Line*)>(0x0048C980)(line); }
+void** GridListsAlong(Mth::Line* line) { return reinterpret_cast<void**>(GetCollGridsOnLine(line)); }
 CCollObj** ObjectsAlong(void* list, Mth::Line* line)
 {
     return static_cast<CCollGrid*>(list)->ObjectsAlongLine(line, nullptr);

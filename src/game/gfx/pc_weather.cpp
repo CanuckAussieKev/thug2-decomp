@@ -12,9 +12,12 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/gfx/texture.h"
+#include "game/gfx/texture_dict.h"
+#include "game/gfx/weather.h"
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
 #include "game/mth/x87_math.h"
@@ -72,7 +75,7 @@ int ClampColumn(const sWeatherRow& row, int x)
 // 0x004CC560
 CPcWeather* CPcWeather::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x004A14C0)(this);
+    reinterpret_cast<CWeather*>(this)->CWeather::Construct();
     vtable = reinterpret_cast<void**>(kWeatherVtable);
     columns = nullptr;
     splashTexture = nullptr; // (the snow's texture left as it was)
@@ -88,7 +91,7 @@ CPcWeather* CPcWeather::Construct()
 void CPcWeather::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kWeatherVtable);
-    GameFunction<void(__thiscall*)(void*)>(0x004A1080)(this);
+    reinterpret_cast<CWeather*>(this)->CWeather::DestroyBody();
 }
 
 // 0x004CC600
@@ -435,8 +438,7 @@ void CPcWeather::RenderSplashes(float x, float z)
 void CPcWeather::UpdateGrid()
 {
     active = false;
-    uint8_t scratch[0xB8];
-    auto* box = GameFunction<const float*(__cdecl*)(void*)>(0x0048C940)(scratch); // (the scene's collision's box)
+    auto* box = reinterpret_cast<const float*>(GetFirstCollGrid()); // (the scene's collision's box)
     if (!box)
         return;
     auto cell = [](float value) {
@@ -544,11 +546,11 @@ void CPcWeather::UpdateGrid()
     next = 0x19B;
     splashTexture = nullptr;
     auto* dictionary = GameVariable<void*>(0x00700F20);
-    auto* splash = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049F540)(dictionary, 0x45C7EB0F);
+    auto* splash = reinterpret_cast<uint8_t*>(static_cast<CTexDict*>(dictionary)->GetTexture(0x45C7EB0F));
     if (splash)
         splashTexture = splash[8] & 1 ? **reinterpret_cast<void***>(splash + 0x10) : *reinterpret_cast<void**>(splash + 0x10);
-    auto* snow = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049F540)(GameVariable<void*>(0x00700F20),
-                                                                              0xC97C5A4C);
+    auto* snow = reinterpret_cast<uint8_t*>(
+        static_cast<CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(0xC97C5A4C));
     if (snow)
         snowTexture = snow[8] & 1 ? **reinterpret_cast<void***>(snow + 0x10) : *reinterpret_cast<void**>(snow + 0x10);
     active = true;

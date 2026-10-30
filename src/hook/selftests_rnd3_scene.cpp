@@ -23,6 +23,7 @@
 #include "game/nx/coll_grid.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
+#include "game/gfx/sector.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -74,8 +75,8 @@ void StandInSceneCalls(StandIns& s)
     });
     StandInThis(s, {0x0049FD30, AddressOf(&Lst::HashTable::FlushAllItems)}, 0);
     StandInThis(s, {0x004183D0, AddressOf(&Nx::CCollGrid::Clear)}, 0);
-    s.At({0x0049E6A0}, 0, [](Regs& r) { return r.ecx + 0x40; });
-    s.At({0x0049E9B0}, 4, [](Regs& r) {
+    s.At({0x0049E6A0, AddressOf(&Nx::CSector::GetBoundingBox)}, 0, [](Regs& r) { return r.ecx + 0x40; });
+    s.At({0x0049E9B0, AddressOf(&Nx::CSector::SetActive)}, 4, [](Regs& r) {
         Record({0xE9B0, Relocate(r.ecx), r.args[0]});
         return 0u;
     });

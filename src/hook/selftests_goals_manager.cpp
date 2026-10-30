@@ -357,7 +357,7 @@ void StandInManagerCalls(StandIns& s, bool peds = true)
         {0x00576400, AddressOf(&Game::CTrickObjectsGoal::CheckScore), 0, 0},
         {0x005761D0, AddressOf(&Game::CTrickBeatGoal::RemoveLandedTricks), 0, 0},
         {0x00574B90, AddressOf(&Game::CTrickBeatGoal::ClearLanded), 0, 0},
-        {0x00561B40, 0, 0, 5}, // Score::GetTotalScore
+        {0x00561B40, AddressOf(&Mdl::Score::GetTotalScore), 0, 5}, // Score::GetTotalScore
         {0x00553F20, AddressOf(&CGoal::GetTimeLeft), 0, 9},
         {0x005543E0, AddressOf(&CGoal::State02), 0, 8},
         {0x00574AB0, AddressOf(&Game::CTrickBeatGoal::TrickLanded), 4, 0},

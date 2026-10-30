@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/particle_system.h"
+#include "game/gfx/viewport.h"
 #include "game/gfx/pc_flexible_particles.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -133,7 +134,7 @@ bool CFlexibleParticleManager::HasTempHeap() { return mp_tempHeap != nullptr; }
 // 0x0049A8F0
 int __cdecl CFlexibleParticleManager::CompareDistance(const void* a, const void* b)
 {
-    auto* camera = static_cast<Gfx::Camera*>(GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(DrawnViewport()));
+    auto* camera = GetActiveCamera(DrawnViewport());
     const Mth::Vector& at = *camera->GetPos();
     const CParticleSystem* first = *static_cast<CParticleSystem* const*>(a);
     const CParticleSystem* second = *static_cast<CParticleSystem* const*>(b);

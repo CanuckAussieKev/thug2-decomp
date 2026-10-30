@@ -24,6 +24,7 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/gfx/viewport_list.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -224,7 +225,7 @@ void StandInNodeWorld(StandIns& s)
         Record({0xCA3E0000, NoReloc(r.ecx)});
         return r.ecx;
     });
-    s.At({0x004A0720}, 0, [](Regs& r) {
+    s.At({0x004A0720, AddressOf(Nx::MarkCameraForDeletion)}, 0, [](Regs& r) {
         uint32_t used = g_noAnswers.Below(2);
         Record({0xCA3E0001, NoReloc(r.args[0]), used});
         return used;
