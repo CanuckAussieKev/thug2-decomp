@@ -21,9 +21,14 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(float, g_unpackZScale, 0x0064A8E4, 0.0019569471f);
+GAME_GLOBAL(float, g_unpack11Scale, 0x0064A8E8, 0.0009775171f);
+GAME_GLOBAL(uint32_t[5], g_fvfBySetCount, 0x0064A8F4, 0, 0x100, 0x200, 0x300, 0x400);
 
 namespace {
 
@@ -58,7 +63,7 @@ struct sScaledVertex {
 };
 static_assert(sizeof(sScaledVertex) == 0x84, "layout must match the original");
 
-bool SkinScalingOn() { return GameVariable<bool>(0x007865CC) && GameVariable<float*>(0x007865DC); }
+bool SkinScalingOn() { return g_skinScalingOn && reinterpret_cast<float*&>(g_skinSettings[3]); }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
 void BoneScale(int bone, float& e0, float& e4, float& e8, float& e12)
@@ -67,7 +72,7 @@ void BoneScale(int bone, float& e0, float& e4, float& e8, float& e12)
         e0 = e4 = e8 = e12 = 1.0f;
         return;
     }
-    const float* scale = GameVariable<float*>(0x007865DC) + 4 * bone;
+    const float* scale = reinterpret_cast<float*&>(g_skinSettings[3]) + 4 * bone;
     e0 = scale[0];
     e4 = scale[1];
     e8 = scale[2];
@@ -419,7 +424,7 @@ void LoadMesh(sMesh* mesh, Reader& reader, uint32_t materialChecksum, sScene* sc
     uint32_t shader = ReadU32(reader);
     if (shader == 1) {
         mesh->pixelShader = reinterpret_cast<void*>(reader.SkipChunk());
-        if (GameVariable<bool>(0x00786AB8))
+        if (g_shadersAvailable)
             MaterialPixelShader(material, &mesh->pixelShader);
     } else {
         mesh->pixelShader = PixelShaderFromIndex(shader);
@@ -487,20 +492,20 @@ void sMesh::SetUpSkinning(const uint8_t* packed, uint32_t /*bytes*/, sVertexAren
             Dbg::Printf("euh");
         uint32_t normal = *reinterpret_cast<const uint32_t*>(packed + 0x18);
         auto* f = reinterpret_cast<float*>(out);
-        f[3] = static_cast<float>(unpack11(normal) * static_cast<double>(GameVariable<float>(0x0064A8E8)));
-        f[4] = static_cast<float>(unpack11(normal >> 11) * static_cast<double>(GameVariable<float>(0x0064A8E8)));
+        f[3] = static_cast<float>(unpack11(normal) * static_cast<double>(g_unpack11Scale));
+        f[4] = static_cast<float>(unpack11(normal >> 11) * static_cast<double>(g_unpack11Scale));
         uint32_t z = normal >> 22;
         f[5] = static_cast<float>(static_cast<int>(z & 0x200 ? z - 0x400 : z) *
-                                  static_cast<double>(GameVariable<float>(0x0064A8E4)));
+                                  static_cast<double>(g_unpackZScale));
         std::memcpy(out + 0x18, packed + 0x1C, 4); // the colour
         std::memcpy(out + 0x1C, packed + 0x20, sets * 8);
         for (int k = 0; k < 4; ++k)
             out[0x3C + k] = static_cast<uint8_t>(*reinterpret_cast<const int16_t*>(packed + 0x10 + 2 * k) / 3);
         uint32_t weights = *reinterpret_cast<const uint32_t*>(packed + 0xC);
-        f[16] = static_cast<float>(unpack11(weights) * static_cast<double>(GameVariable<float>(0x0064A8E8)));
-        f[17] = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(GameVariable<float>(0x0064A8E8)));
+        f[16] = static_cast<float>(unpack11(weights) * static_cast<double>(g_unpack11Scale));
+        f[17] = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(g_unpack11Scale));
         uint32_t w = weights >> 22;
-        double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(GameVariable<float>(0x0064A8E4));
+        double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(g_unpackZScale);
         f[18] = static_cast<float>(third);
         if (bones < 2 && !(f[17] == 0.0f))
             bones = 2;
@@ -511,7 +516,7 @@ void sMesh::SetUpSkinning(const uint8_t* packed, uint32_t /*bytes*/, sVertexAren
     }
     unknownA4 = sets;
     unknownA8 = bones;
-    fvf = (&GameVariable<uint32_t>(0x0064A8F4))[sets] | 0x52;
+    fvf = g_fvfBySetCount[sets] | 0x52;
     stride = static_cast<uint8_t>(sets * 8 + 0x1C);
     bufferFlags |= 1;
     vertexBuffers[0] = NewVertexBuffer(stride * vertexCount, bufferUsage, bufferFlags);

@@ -15,6 +15,7 @@
 #include "game/core/crc.h"
 #include "game/front/start_level.h"
 #include "game/gfx/engine_effects.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
@@ -72,8 +73,8 @@ void SetMovieTexture(int stage, void* texture, int unknown)
 
 void __stdcall DrawMovieQuad(void* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
-    uint32_t backBufferWidth = GameVariable<uint32_t>(0x00786D6C);
-    uint32_t backBufferHeight = GameVariable<uint32_t>(0x00786D70);
+    uint32_t backBufferWidth = reinterpret_cast<uint32_t&>(g_backBufferWidth);
+    uint32_t backBufferHeight = reinterpret_cast<uint32_t&>(g_backBufferHeight);
     // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
     float targetAspect = 4.0f / 3.0f;
     float backBufferAspect = static_cast<float>(backBufferWidth) / static_cast<float>(backBufferHeight);
@@ -234,8 +235,8 @@ void* __cdecl BeginMovie(uint32_t width, uint32_t height)
     g_moviePictureWidth = static_cast<float>(static_cast<double>(width));
     g_moviePictureHeight = static_cast<float>(static_cast<double>(height));
     void** device = Device();
-    g_movieBackBufferWidth = static_cast<float>(GameVariable<int>(0x00786D6C)); // the back buffer
-    g_movieBackBufferHeight = static_cast<float>(GameVariable<int>(0x00786D70));
+    g_movieBackBufferWidth = static_cast<float>(g_backBufferWidth); // the back buffer
+    g_movieBackBufferHeight = static_cast<float>(g_backBufferHeight);
     void* texture;
     // CreateTexture: one level, no usage, D3DFMT_X8R8G8B8 (0x16), D3DPOOL_MANAGED
     long result = Method<long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int, int, void**, void*)>(0x5C / 4)(
@@ -349,7 +350,7 @@ void __cdecl PlayMovieFile(const char* name)
     UINT screenSaverTimeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screenSaverTimeout, 0);
     uint32_t screenSaverFrames = 0;
-    bool fog = GameVariable<int>(0x00787338) != 0;
+    bool fog = reinterpret_cast<int&>(g_fogEnabled) != 0;
     SetFogEnabled(false);
     if (texture) {
         Sio::Manager* input = Sio::CreateManager(false);

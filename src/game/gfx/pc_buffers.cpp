@@ -13,9 +13,14 @@
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint8_t, g_skinScalingOn, 0x007865CC);
+GAME_GLOBAL(uint32_t[5], g_skinSettings, 0x007865D0);
+GAME_GLOBAL(uint8_t[64], g_savedPixelShaderConstants, 0x007865F0); // (4 passes of 16 bytes: the adapter identifier follows)
 
 namespace {
 
@@ -208,14 +213,14 @@ void sMesh::SetPixelShaderColored()
 {
     uint8_t* mat = material;
     uint32_t bytes = *reinterpret_cast<uint32_t*>(mat + 8) << 4; // 16 a pass
-    auto* constants = &GameVariable<float>(0x00786ECC);
-    auto* saved = &GameVariable<uint8_t>(0x007865F0);
+    auto* constants = g_pixelShaderConstants;
+    auto* saved = g_savedPixelShaderConstants;
     std::memcpy(saved, constants, bytes);
     double r, g, b;
-    if (GameVariable<uint32_t>(0x00786F1C)) {
-        r = GameVariable<uint8_t>(0x00786F20) * static_cast<double>(1.0f / 128);
-        g = GameVariable<uint8_t>(0x00786F21) * static_cast<double>(1.0f / 128);
-        b = GameVariable<uint8_t>(0x00786F22) * static_cast<double>(1.0f / 128);
+    if (g_instanceColourOn) {
+        r = g_instanceColour[0] * static_cast<double>(1.0f / 128);
+        g = g_instanceColour[1] * static_cast<double>(1.0f / 128);
+        b = g_instanceColour[2] * static_cast<double>(1.0f / 128);
     } else {
         r = static_cast<double>(color[0]) + color[0];
         g = static_cast<double>(color[1]) + color[1];
@@ -229,33 +234,33 @@ void sMesh::SetPixelShaderColored()
         c[1] = static_cast<float>(g * c[1]);
         c[2] = static_cast<float>(b * c[2]);
     }
-    GameVariable<uint8_t>(0x00786F24) = 1; // (the constants changed)
+    g_pixelShaderChanged = 1; // (the constants changed)
     SetPixelShaderWithConstants(*reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(this) + 0x44),
                                 *reinterpret_cast<uint32_t*>(material + 8));
     std::memcpy(constants, saved, bytes);
-    GameVariable<uint8_t>(0x00786F24) = 1;
+    g_pixelShaderChanged = 1;
 }
 
 // 0x004D3CA0
 void __cdecl SetSkinScaling(const uint32_t* settings)
 {
-    GameVariable<uint8_t>(0x007865CC) = 1;
-    GameVariable<uint32_t>(0x007865D4) = settings[1];
-    GameVariable<uint32_t>(0x007865D0) = settings[0];
-    GameVariable<uint32_t>(0x007865DC) = settings[3];
-    GameVariable<uint32_t>(0x007865D8) = settings[2];
-    GameVariable<uint32_t>(0x007865E0) = 0;
+    g_skinScalingOn = 1;
+    g_skinSettings[1] = settings[1];
+    g_skinSettings[0] = settings[0];
+    g_skinSettings[3] = settings[3];
+    g_skinSettings[2] = settings[2];
+    g_skinSettings[4] = 0;
 }
 
 // 0x004D3CE0
 void __cdecl ClearSkinScaling()
 {
-    GameVariable<uint8_t>(0x007865CC) = 0;
-    GameVariable<uint32_t>(0x007865D4) = 0;
-    GameVariable<uint32_t>(0x007865D0) = 0;
-    GameVariable<uint32_t>(0x007865DC) = 0;
-    GameVariable<uint32_t>(0x007865D8) = 0;
-    GameVariable<uint32_t>(0x007865E0) = 0;
+    g_skinScalingOn = 0;
+    g_skinSettings[1] = 0;
+    g_skinSettings[0] = 0;
+    g_skinSettings[3] = 0;
+    g_skinSettings[2] = 0;
+    g_skinSettings[4] = 0;
 }
 
 // 0x004D3ED0

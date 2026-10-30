@@ -11,9 +11,13 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(bool, g_textureFlagCe441, 0x007CE441);
+GAME_GLOBAL(char[128], g_parkName, 0x007CED58);
 
 namespace {
 
@@ -66,7 +70,7 @@ uint32_t RawValue(const CComponent* component) { return component->raw; }
 // 0x005A9D80
 bool __cdecl CFunc_SceAltPt(CStruct*, CScript*)
 {
-    GameVariable<bool>(0x007CE441) = true;
+    g_textureFlagCe441 = true;
     return true;
 }
 
@@ -457,7 +461,7 @@ bool __cdecl CFunc_SetParkName(CStruct* params, CScript*)
 {
     const char* name = reinterpret_cast<const char*>(0x006469B4); // ""
     params->GetString(0u, &name, 0);
-    char* parkName = &GameVariable<char>(0x007CED58);
+    char* parkName = g_parkName;
     while ((*parkName++ = *name++) != '\0') { // (no length limit, as in the original)
     }
     return false;

@@ -15,12 +15,21 @@
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
+#include "game/gfx/settings.h"
 #include "game/gfx/window2d.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(bool, g_billboardsReady, 0x00775B7C);
+GAME_GLOBAL(uint8_t, g_billboardFlag, 0x00786EB4);
+
+GAME_GLOBAL(float[12], g_billboardConstants, 0x0067E998,
+    0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 
 namespace {
 
@@ -29,7 +38,7 @@ constexpr uint32_t kHeadVtable = 0x0064A898;
 constexpr uint32_t kWindowVtable = 0x0064A88C;
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-bool VertexShaders() { return GameVariable<bool>(0x00786AB8); }
+bool VertexShaders() { return g_shadersAvailable; }
 void SetFogEnabled(bool on) { Engine::EnableFog(on); }
 sVertexBuffer* VertexBuffer(sMesh* mesh, int index)
 {
@@ -128,11 +137,11 @@ void DrawBillboardMesh(sMesh* mesh, const float* yAxis, const float* xAxis, cons
 {
     if (mesh->stride < 0x10 || mesh->stride > 0x30)
         return;
-    if (GameVariable<bool>(0x007D643A) && GameVariable<bool>(0x007D6436)) { // (fog: its start a quarter back)
-        float end = GameVariable<float>(0x00786CAC);
-        GameVariable<uint32_t>(0x00787340) = 0;
-        GameVariable<uint32_t>(0x00787344) = 0;
-        float start = static_cast<float>(end - (static_cast<double>(end) - GameVariable<float>(0x00786CA8)) * 0.25f);
+    if (g_distanceClipping && g_fogSetting) { // (fog: its start a quarter back)
+        float end = g_camera.farZ;
+        reinterpret_cast<uint32_t&>(g_fogStart) = 0;
+        reinterpret_cast<uint32_t&>(g_fogEnd) = 0;
+        float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.nearZ) * 0.25f);
         SetFogEnabled(true);
         Device()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         Device()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
@@ -262,7 +271,7 @@ sBillboardBatch* sBillboardManager::Find(const uint8_t* material)
 // 0x004CDAA0
 void sBillboardManager::SetupAxes()
 {
-    const auto* m = &GameVariable<float>(0x00786BD0);
+    const auto* m = reinterpret_cast<float*>(&g_viewMatrix);
     float vz = m[10];
     view[0] = m[2];
     view[1] = m[6];
@@ -402,15 +411,15 @@ void sBillboardBatch::Render()
     auto multiply = GameFunction<void*(__stdcall*)(float*, const float*, const float*)>(0x005BFA8C);
     float projection[16], view[16], identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float viewWorld[16], all[16];
-    transpose(projection, &GameVariable<float>(0x00786C10));
-    transpose(view, &GameVariable<float>(0x00786BD0));
+    transpose(projection, reinterpret_cast<float*>(&g_projectionMatrix));
+    transpose(view, reinterpret_cast<float*>(&g_viewMatrix));
     view[12] = view[13] = view[14] = 0.0f; // (its last row cleared)
     view[15] = 1.0f;
     multiply(viewWorld, view, identity);
     multiply(all, projection, viewWorld);
     Device()->SetVertexShaderConstantF(0, all, 4);
     auto* manager = &GameVariable<sBillboardManager>(0x00775B80);
-    float* constants = &GameVariable<float>(0x0067E998); // c4-c6
+    float* constants = g_billboardConstants; // c4-c6
     auto setAxes = [&](const float* x, const float* y, const float* z) {
         std::memcpy(constants, x, 12);
         std::memcpy(constants + 4, y, 12);
@@ -470,7 +479,7 @@ void sBillboardBatch::Render()
         }
         node = next;
     }
-    GameVariable<uint32_t>(0x00786F28) = 0; // (the vertex format unlocked)
+    g_vertexFormatLocked = 0; // (the vertex format unlocked)
 }
 
 // 0x004CEBE0
@@ -588,23 +597,23 @@ void __cdecl CreateWindowPool()
             window = reinterpret_cast<CPcWindow*>(static_cast<CWindow2D*>(memory)->Construct(0, 0, 640, 480));
             window->vtable = reinterpret_cast<void**>(kWindowVtable);
         }
-        window->next = GameVariable<CPcWindow*>(0x007013D0); // (no check, as the original)
-        GameVariable<CPcWindow*>(0x007013D0) = window;
+        window->next = reinterpret_cast<CPcWindow*&>(g_freeWindows); // (no check, as the original)
+        reinterpret_cast<CPcWindow*&>(g_freeWindows) = window;
     }
 }
 
 // 0x004CD940
 void __cdecl MarkBillboardsReady()
 {
-    if (!GameVariable<bool>(0x00775B7C))
-        GameVariable<bool>(0x00775B7C) = true;
+    if (!g_billboardsReady)
+        g_billboardsReady = true;
 }
 
 // 0x004CD960
-void __cdecl SetFlag786EB4() { GameVariable<uint8_t>(0x00786EB4) = 1; }
+void __cdecl SetFlag786EB4() { g_billboardFlag = 1; }
 
 // 0x004CD970
-void __cdecl ClearFlag786EB4() { GameVariable<uint8_t>(0x00786EB4) = 0; }
+void __cdecl ClearFlag786EB4() { g_billboardFlag = 0; }
 
 } // namespace Nx
 

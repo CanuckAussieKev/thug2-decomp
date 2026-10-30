@@ -13,6 +13,7 @@
 #include "game/core/mem.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -28,10 +29,11 @@ struct Node {
     Node* previous;
     Node* next;
 };
-Node*& Head() { return GameVariable<Node*>(0x007CC254); }
+GAME_GLOBAL(Node*, g_textureListHead, 0x007CC254);
+Node*& Head() { return g_textureListHead; }
 
 // What the textures being drawn with are (the render state cache's).
-void* CachedTexture(int stage) { return (&GameVariable<void*>(0x00786E94))[stage]; }
+void* CachedTexture(int stage) { return g_textures[stage]; }
 
 } // namespace
 

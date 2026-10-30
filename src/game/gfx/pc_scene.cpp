@@ -24,9 +24,22 @@
 #include "game/gfx/mesh_list.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint32_t, g_bloomOn, 0x00705720);
+GAME_GLOBAL(uint32_t, g_screenEffectUnknown5724, 0x00705724);
+GAME_GLOBAL(uint32_t, g_screenEffectUnknown5728, 0x00705728);
+
+GAME_GLOBAL(uint32_t, g_bloomAlphaFirst, 0x0067E97C, 0x10);
+GAME_GLOBAL(uint32_t, g_bloomAlphaSecond, 0x0067E980, 0x10);
+GAME_GLOBAL(uint32_t, g_screenEffectUnknown984, 0x0067E984, 0x42A00000);
+GAME_GLOBAL(uint32_t, g_screenEffectUnknown988, 0x0067E988, 0x43000000);
+GAME_GLOBAL(uint32_t, g_bloomCutOff, 0x0067E98C, 0x80808080);
+GAME_GLOBAL(uint32_t, g_screenEffectUnknown990, 0x0067E990, 0x80808080);
+GAME_GLOBAL(uint32_t, g_screenEffectUnknown994, 0x0067E994, 0x80808080);
 
 namespace {
 
@@ -193,27 +206,27 @@ CPcScreenEffects* CPcScreenEffects::Destroy(unsigned int flags)
 }
 
 // 0x004C63C0
-void CPcScreenEffects::SetBloom(int on) { GameVariable<uint32_t>(0x00705720) = on != 0; }
+void CPcScreenEffects::SetBloom(int on) { g_bloomOn = on != 0; }
 // 0x004C63E0
-void CPcScreenEffects::SetBloomCutOff(uint32_t colour) { GameVariable<uint32_t>(0x0067E98C) = colour; }
+void CPcScreenEffects::SetBloomCutOff(uint32_t colour) { g_bloomCutOff = colour; }
 // 0x004C63F0
 void CPcScreenEffects::SetBloomAlphas(uint32_t first, uint32_t second)
 {
-    GameVariable<uint32_t>(0x0067E97C) = first;
-    GameVariable<uint32_t>(0x0067E980) = second;
+    g_bloomAlphaFirst = first;
+    g_bloomAlphaSecond = second;
 }
 // 0x004C6410
-void CPcScreenEffects::SetUnknown990(uint32_t value) { GameVariable<uint32_t>(0x0067E990) = value; }
+void CPcScreenEffects::SetUnknown990(uint32_t value) { g_screenEffectUnknown990 = value; }
 // 0x004C6420
-void CPcScreenEffects::SetUnknown5724(int on) { GameVariable<uint32_t>(0x00705724) = on != 0; }
+void CPcScreenEffects::SetUnknown5724(int on) { g_screenEffectUnknown5724 = on != 0; }
 // 0x004C6460
-void CPcScreenEffects::SetUnknown994(uint32_t value) { GameVariable<uint32_t>(0x0067E994) = value; }
+void CPcScreenEffects::SetUnknown994(uint32_t value) { g_screenEffectUnknown994 = value; }
 // 0x004C6470
-void CPcScreenEffects::SetUnknown984(uint32_t value) { GameVariable<uint32_t>(0x0067E984) = value; }
+void CPcScreenEffects::SetUnknown984(uint32_t value) { g_screenEffectUnknown984 = value; }
 // 0x004C6440
-void CPcScreenEffects::SetUnknown988(uint32_t value) { GameVariable<uint32_t>(0x0067E988) = value; }
+void CPcScreenEffects::SetUnknown988(uint32_t value) { g_screenEffectUnknown988 = value; }
 // 0x004C6450
-void CPcScreenEffects::SetUnknown5728(uint32_t value) { GameVariable<uint32_t>(0x00705728) = value; }
+void CPcScreenEffects::SetUnknown5728(uint32_t value) { g_screenEffectUnknown5728 = value; }
 
 namespace {
 

@@ -7,6 +7,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/smtptr.h"
+#include "hook/game_global.h"
 
 namespace Script {
 class CScript;
@@ -305,5 +306,7 @@ struct CModelParticles : CParticleSystem {
 static_assert(offsetof(CModelParticles, m_modelCount) == 0x134 && offsetof(CModelParticles, mp_unknown13C) == 0x13C &&
                   offsetof(CModelParticles, mp_models) == 0x144,
               "layout must match the original");
+
+GAME_GLOBAL_EXTERN(uint8_t, g_allocAssertFlag);
 
 } // namespace Nx

@@ -10,8 +10,13 @@
 
 #include "game/sys/config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint8_t, g_hqShadows, 0x007D6435);
+GAME_GLOBAL(bool, g_fogSetting, 0x007D6436);
+GAME_GLOBAL(bool, g_distanceClipping, 0x007D643A);
 
 namespace {
 
@@ -46,8 +51,8 @@ void LoadGraphicsSettings()
 void WriteGraphicsSettings()
 {
     GameVariable<uint8_t>(0x007D6434) = static_cast<uint8_t>(s_settings.antialiasing);
-    GameVariable<uint8_t>(0x007D6435) = static_cast<uint8_t>(s_settings.hqShadows);
-    GameVariable<uint8_t>(0x007D643A) = static_cast<uint8_t>(s_settings.distanceClipping);
+    g_hqShadows = static_cast<uint8_t>(s_settings.hqShadows);
+    g_distanceClipping = static_cast<uint8_t>(s_settings.distanceClipping);
     uint32_t distance = s_settings.clippingDistance;
     if (distance > 100)
         distance = 100;
@@ -55,7 +60,7 @@ void WriteGraphicsSettings()
         distance = 1;
     // (the engine's distance: 100 to 595)
     GameVariable<uint32_t>(0x007D6444) = static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f);
-    GameVariable<uint8_t>(0x007D6436) = static_cast<uint8_t>(s_settings.fog);
+    g_fogSetting = static_cast<uint8_t>(s_settings.fog);
 }
 
 } // namespace Nx

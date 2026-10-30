@@ -24,9 +24,20 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(sVertexStack, g_vertexStack, 0x006FC4A0);
+GAME_GLOBAL(uint8_t[128], g_splatMiddle20, 0x007052C0);
+GAME_GLOBAL(uint8_t[128], g_splatMiddle12, 0x00705340);
+GAME_GLOBAL(uint8_t[128], g_splatMiddle01, 0x007053C0);
+GAME_GLOBAL(uint8_t[128], g_splatVertex0, 0x00705440);
+GAME_GLOBAL(uint8_t[128], g_splatVertex1, 0x007054C0);
+GAME_GLOBAL(uint8_t[128], g_splatVertex2, 0x00705540);
+
+GAME_GLOBAL(float, g_splitAreaLimit, 0x0067DDF0, 82944.0f);
 
 namespace {
 
@@ -56,8 +67,8 @@ uint32_t ToArgb(uint32_t rgba)
 }
 
 // The vertex stack (0x006FC4A0: +0 what's on it, +4 a vertex's size; not rewritten yet): popped into / pushed from.
-uint8_t* VertexStack() { return &GameVariable<uint8_t>(0x006FC4A0); }
-uint32_t VertexSize() { return GameVariable<uint32_t>(0x006FC4A4); }
+uint8_t* VertexStack() { return reinterpret_cast<uint8_t*>(&g_vertexStack); }
+uint32_t VertexSize() { return g_vertexStack.vertexSize; }
 void PopVertex(uint8_t* out) { reinterpret_cast<sVertexStack*>(VertexStack())->Pop(out); }
 void PushVertex(uint8_t* vertex) { reinterpret_cast<sVertexStack*>(VertexStack())->Push(vertex); }
 
@@ -230,11 +241,11 @@ bool __cdecl TriangleOverlapsScreen(float x0, float y0, float x1, float y1, floa
 // 0x004B8220
 bool __cdecl SplitNextTriangle(uint8_t** out, const sSplitFormat* format)
 {
-    if (!GameVariable<uint32_t>(0x006FC4A0))
+    if (!reinterpret_cast<uint32_t&>(g_vertexStack))
         return false;
-    uint8_t* v2 = &GameVariable<uint8_t>(0x00705540); // (the three popped, last pushed first)
-    uint8_t* v1 = &GameVariable<uint8_t>(0x007054C0);
-    uint8_t* v0 = &GameVariable<uint8_t>(0x00705440);
+    uint8_t* v2 = g_splatVertex2; // (the three popped, last pushed first)
+    uint8_t* v1 = g_splatVertex1;
+    uint8_t* v0 = g_splatVertex0;
     PopVertex(v2);
     PopVertex(v1);
     PopVertex(v0);
@@ -254,7 +265,7 @@ bool __cdecl SplitNextTriangle(uint8_t** out, const sSplitFormat* format)
     double crossZ = ax * byf - ay * bxf;
     double lengthSquared = crossZ * crossZ + static_cast<double>(crossY) * crossY + static_cast<double>(crossX) * crossX;
     uint32_t size = VertexSize();
-    if (!(lengthSquared > GameVariable<float>(0x0067DDF0))) {
+    if (!(lengthSquared > g_splitAreaLimit)) {
         for (uint8_t* v : {v0, v1, v2}) {
             std::memcpy(*out, v, size);
             *out += size;
@@ -262,9 +273,9 @@ bool __cdecl SplitNextTriangle(uint8_t** out, const sSplitFormat* format)
         return true;
     }
     // the midpoints of the edges: v0-v1, v1-v2, v2-v0
-    uint8_t* m01 = &GameVariable<uint8_t>(0x007053C0);
-    uint8_t* m12 = &GameVariable<uint8_t>(0x00705340);
-    uint8_t* m20 = &GameVariable<uint8_t>(0x007052C0);
+    uint8_t* m01 = g_splatMiddle01;
+    uint8_t* m12 = g_splatMiddle12;
+    uint8_t* m20 = g_splatMiddle20;
     std::memcpy(m01, v0, size);
     auto* q01 = reinterpret_cast<float*>(m01);
     q01[0] = static_cast<float>(ax * 0.5 + p0[0]);
@@ -564,11 +575,11 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                     float cz = static_cast<float>(ey2f * ex1 - ex2 * ey1);
                     float cy = static_cast<float>(ex2 * ez1 - ez2f * ex1);
                     double cx = ez2f * ey1 - ey2f * ez1;
-                    GameVariable<float>(0x0067DDF0) = static_cast<float>(
+                    g_splitAreaLimit = static_cast<float>(
                         (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0));
                 }
                 reinterpret_cast<sVertexStack*>(VertexStack())->Construct(); // (emptied)
-                GameVariable<uint32_t>(0x006FC4A4) = 0x18;
+                g_vertexStack.vertexSize = 0x18;
                 PushVertex(v0);
                 PushVertex(v1);
                 PushVertex(v2);

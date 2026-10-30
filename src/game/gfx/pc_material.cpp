@@ -12,19 +12,30 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/material.h"
+#include "game/gfx/pc_billboards.h"
 #include "game/gfx/primitive_states.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(float[8], g_billboardUvMatrix, 0x0067EAA8, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+GAME_GLOBAL(float[16], g_wibbleMatrixPass, 0x0067EAC8, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+GAME_GLOBAL(float[16], g_environmentMatrixPass, 0x0067EB08,
+    0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f);
+GAME_GLOBAL(float[16], g_wibbleMatrix, 0x0067EB48, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+GAME_GLOBAL(float[16], g_environmentMatrix, 0x0067EB88,
+    0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f);
+
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-float* PassConstants() { return &GameVariable<float>(0x00786ECC); } // the pixel shader's colours, 16 bytes a pass
-bool& ConstantsChanged() { return GameVariable<bool>(0x00786F24); }
+float* PassConstants() { return g_pixelShaderConstants; } // the pixel shader's colours, 16 bytes a pass
+bool& ConstantsChanged() { return reinterpret_cast<bool&>(g_pixelShaderChanged); }
 
 void DeviceStageState(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
 {
@@ -151,7 +162,7 @@ void SetCommonStates(sMaterial* material)
     material->UpdateUVWibbles();
     material->UpdateColorAnims();
     material->UpdateTextureAnims();
-    uint32_t specularOn = GameVariable<uint32_t>(0x00786E4C);
+    uint32_t specularOn = g_specular;
     D3DMATERIAL9 specular;
     if (material->passFlags[0] & kPassSpecular) {
         if (specularOn)
@@ -175,7 +186,7 @@ void SetCommonStates(sMaterial* material)
 // The pass's border colour (0x00786EA4, a word a stage): 0xE0000000 with flag 0x200, else 0.
 void SetBorderColor(const sMaterial* material, uint32_t pass, uint32_t stage)
 {
-    uint32_t& border = (&GameVariable<uint32_t>(0x00786EA4))[stage];
+    uint32_t& border = g_borderColours[stage];
     if (material->passFlags[pass] & kPassBorder) {
         if (border != 0xE0000000)
             border = 0xE0000000;
@@ -186,10 +197,10 @@ void SetBorderColor(const sMaterial* material, uint32_t pass, uint32_t stage)
 
 void SetBumpEnvMatrix(uint32_t stage)
 {
-    DeviceStageState(stage, D3DTSS_BUMPENVMAT00, GameVariable<uint32_t>(0x00786C50));
-    DeviceStageState(stage, D3DTSS_BUMPENVMAT01, GameVariable<uint32_t>(0x00786C58));
-    DeviceStageState(stage, D3DTSS_BUMPENVMAT10, GameVariable<uint32_t>(0x00786C70));
-    DeviceStageState(stage, D3DTSS_BUMPENVMAT11, GameVariable<uint32_t>(0x00786C78));
+    DeviceStageState(stage, D3DTSS_BUMPENVMAT00, reinterpret_cast<uint32_t&>(g_headingMatrix));
+    DeviceStageState(stage, D3DTSS_BUMPENVMAT01, reinterpret_cast<uint32_t&>(g_headingMatrix.row[0].z));
+    DeviceStageState(stage, D3DTSS_BUMPENVMAT10, reinterpret_cast<uint32_t&>(g_headingMatrix.row[2].x));
+    DeviceStageState(stage, D3DTSS_BUMPENVMAT11, reinterpret_cast<uint32_t&>(g_headingMatrix.row[2].z));
 }
 
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
@@ -271,7 +282,7 @@ void sMaterial::UpdateColorAnims()
         const sColorKey* keys = anim.keys;
         int first = keys[0].time;
         int period = keys[anim.keyCount - 1].time - first;
-        int t = period ? (anim.phase + GameVariable<int>(0x00786D00)) % period + first : 1;
+        int t = period ? (anim.phase + g_frameTime) % period + first : 1;
         int key = static_cast<int>(anim.keyCount) - 1;
         while (key >= 0 && t < keys[key].time)
             --key;
@@ -327,12 +338,12 @@ void sMaterial::UpdateUVWibbles()
 // 0x004D1F00
 void sMaterial::Submit()
 {
-    if (GameVariable<uint32_t>(0x00786F30))
+    if (g_submitLocked)
         return;
     SetBlendMode(blendModes[0]);
     SetCommonStates(this);
     for (uint32_t pass = 0; pass < passCount; ++pass) {
-        if (GameVariable<uint32_t>(0x00786F2C) & (1u << (pass & 31)))
+        if (g_skippedPasses & (1u << (pass & 31)))
             continue;
         if (!ConstantsChanged() && std::memcmp(passColor[pass], PassConstants() + 4 * pass, 16) != 0)
             ConstantsChanged() = true;
@@ -350,8 +361,8 @@ void sMaterial::Submit()
             SetBumpEnvMatrix(pass);
         flags = passFlags[pass];
         D3DTRANSFORMSTATETYPE textureMatrix = static_cast<D3DTRANSFORMSTATETYPE>(D3DTS_TEXTURE0 + pass);
-        if ((flags & kPassEnvironment) && GameVariable<bool>(0x00786E60)) {
-            float* matrix = &GameVariable<float>(0x0067EB08);
+        if ((flags & kPassEnvironment) && g_nearCamera) {
+            float* matrix = g_environmentMatrixPass;
             matrix[0] = static_cast<float>(envMapTiling[pass][0] * 0.5);
             matrix[5] = static_cast<float>(envMapTiling[pass][1] * 0.5);
             SetState(kLocalViewer, 1);
@@ -361,12 +372,12 @@ void sMaterial::Submit()
         } else if (flags & kPassUVWibble) {
             DeviceStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             DeviceStageState(pass, D3DTSS_TEXCOORDINDEX, pass);
-            float* matrix = &GameVariable<float>(0x0067EAC8);
+            float* matrix = g_wibbleMatrixPass;
             FillWibbleMatrix(matrix, uvWibble[pass]);
             Device()->SetTransform(textureMatrix, reinterpret_cast<const D3DMATRIX*>(matrix));
         } else {
-            if (GameVariable<bool>(0x00786EB4)) { // (the billboard flag: a static matrix's 2x2 part reset)
-                float* m = &GameVariable<float>(0x0067EAA8);
+            if (g_billboardFlag) { // (the billboard flag: a static matrix's 2x2 part reset)
+                float* m = g_billboardUvMatrix;
                 m[0] = 1.0f;
                 m[1] = 0;
                 m[3] = 0;
@@ -390,7 +401,7 @@ void sMaterial::Submit()
 // 0x004D23E0
 void sMaterial::SubmitStates()
 {
-    if (GameVariable<uint32_t>(0x00786F30))
+    if (g_submitLocked)
         return;
     SetCommonStates(this);
 }
@@ -398,10 +409,10 @@ void sMaterial::SubmitStates()
 // 0x004D24D0
 void sMaterial::SubmitPass(uint32_t pass, const float* color)
 {
-    if (GameVariable<uint32_t>(0x00786F30))
+    if (g_submitLocked)
         return;
     SetBlendMode(blendModes[pass]);
-    if (!(GameVariable<uint32_t>(0x00786F2C) & (1u << (pass & 31)))) {
+    if (!(g_skippedPasses & (1u << (pass & 31)))) {
         uint8_t* texture = textures[pass];
         if (!texture) {
             SetTexture(0, nullptr);
@@ -413,8 +424,8 @@ void sMaterial::SubmitPass(uint32_t pass, const float* color)
             if (passFlags[pass] & kPassBumpEnv)
                 SetBumpEnvMatrix(0);
             uint32_t flags = passFlags[pass];
-            if ((flags & kPassEnvironment) && GameVariable<bool>(0x00786E60)) {
-                float* matrix = &GameVariable<float>(0x0067EB88);
+            if ((flags & kPassEnvironment) && g_nearCamera) {
+                float* matrix = g_environmentMatrix;
                 matrix[0] = static_cast<float>(envMapTiling[pass][0] * 0.5);
                 matrix[5] = static_cast<float>(envMapTiling[pass][1] * 0.5);
                 SetState(kLocalViewer, 1);
@@ -424,7 +435,7 @@ void sMaterial::SubmitPass(uint32_t pass, const float* color)
             } else if (flags & kPassUVWibble) {
                 DeviceStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 DeviceStageState(0, D3DTSS_TEXCOORDINDEX, pass);
-                float* matrix = &GameVariable<float>(0x0067EB48);
+                float* matrix = g_wibbleMatrix;
                 FillWibbleMatrix(matrix, uvWibble[pass]);
                 Device()->SetTransform(D3DTS_TEXTURE0, reinterpret_cast<const D3DMATRIX*>(matrix));
             } else {

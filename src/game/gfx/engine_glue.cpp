@@ -24,9 +24,11 @@
 #include "game/gfx/pc_sprite.h"
 #include "game/gfx/pc_texture.h"
 #include "game/gfx/pc_weather.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/occlusion.h"
+#include "game/gfx/settings.h"
 #include "game/gfx/shadow.h"
 #include "game/gfx/texture.h"
 #include "game/mth/vector.h"
@@ -43,8 +45,9 @@ namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 GAME_GLOBAL(uint32_t, g_memViewToggle, 0x00701588);
-GAME_GLOBAL(bool, g_clearColourAndDepth, 0x00786CBD);
-GAME_GLOBAL(uint32_t, g_backgroundColour, 0x00786CC0);
+// (inside the camera's globals - render.h's RenderCamera: one storage)
+bool& g_clearColourAndDepth = g_camera.clearColourAndDepth;
+uint32_t& g_backgroundColour = g_camera.backgroundColour;
 GAME_GLOBAL(char[128], g_pendingScreenShot, 0x00786D94); // the screenshot asked for by name
 GAME_GLOBAL(bool, g_screenShotNameExact, 0x00786E14);
 GAME_GLOBAL(uint32_t, g_screenBlur, 0x00787328);
@@ -65,7 +68,7 @@ bool& ScreenShotNameExact() { return g_screenShotNameExact; }
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
 uint32_t ClearColour()
 {
-    if (GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A))
+    if (g_fogSetting && g_distanceClipping)
         return g_fogColour;
     return g_backgroundColour;
 }
@@ -226,8 +229,8 @@ void __cdecl FinishRendering()
     if (SkipRender())
         return;
     Device()->Present(nullptr, nullptr, nullptr, nullptr);
-    GameVariable<int>(0x00786EBC) = 0; // the frame's draw counts
-    GameVariable<int>(0x00786EC0) = 0;
+    g_drawCalls = 0; // the frame's draw counts
+    g_drawnTriangles = 0;
     if (PendingScreenShot()[0]) {
         ScreenShot(PendingScreenShot(), 0);
         PendingScreenShot()[0] = 0;
@@ -241,7 +244,7 @@ void __cdecl FinishRendering()
         ++g_screenBlurFrames;
         return;
     }
-    if (GameVariable<bool>(0x00786CBE)) {
+    if (g_camera.letterboxActive) {
         if (!SkipRender())
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
     } else if (g_clearColourAndDepth) {

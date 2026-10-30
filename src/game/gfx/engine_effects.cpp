@@ -67,7 +67,7 @@ Lst::HashTable*& Flashes() { return g_flashes; }
 Lst::HashTable*& SpawnedPolys() { return g_spawnedPolys; }
 Lst::HashTable*& SplatSets() { return g_splatSets; }
 Lst::HashTable*& RecentSplats() { return g_recentSplats; }
-Lst::HashTable*& Shatters() { return GameVariable<Lst::HashTable*>(0x007004B8); }
+Lst::HashTable*& Shatters() { return g_shatters; }
 
 // A table's first value and the next (null at the end) - the original's inlined iteration (IterateNext).
 void* NextValue(Lst::HashTable* table)
@@ -252,7 +252,7 @@ void __cdecl SetShatterParams(const Mth::Vector* velocity, const Mth::Vector* ve
 {
     g_shatterVelocity = *velocity;
     g_shatterVector210E = *vector210E;
-    GameVariable<float>(0x0067DDF0) = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
+    g_splitAreaLimit = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
     g_shatterSpeed = speed == 0.0f ? 0.0f : speed;
     g_shatterVelocityScale = velocityScale == 0.0f ? 1.0f : velocityScale;
     g_shatterLifetime = lifetime == 0.0f ? 4.0f : lifetime;
@@ -642,7 +642,7 @@ void __cdecl InitEffects()
         Shatters() = NewTable();
     CompiledOut();
     CompiledOut();
-    auto& stack = GameVariable<sVertexStack>(0x006FC4A0);
+    auto& stack = g_vertexStack;
     stack.used = 0;
     stack.vertexSize = 0;
     std::memset(stack.data, 3, sizeof(stack.data));

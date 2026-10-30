@@ -21,9 +21,12 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/sector.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(Mem::PoolPair, g_frameSourcePools, 0x006FA7F4);
 
 namespace {
 
@@ -190,7 +193,7 @@ void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool addSuperS
 // 0x004B3990
 void* __cdecl CreateFrameSource()
 {
-    void* memory = GameVariable<Mem::PoolPair>(0x006FA7F4).Allocate(0x214);
+    void* memory = g_frameSourcePools.Allocate(0x214);
     return memory ? static_cast<CFrameSource*>(memory)->Construct() : nullptr;
 }
 

@@ -10,11 +10,14 @@
 #include <cstring>
 
 #include "game/gfx/device.h"
+#include "game/gfx/geom.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/pc_fog.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
+#include "game/gfx/settings.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -23,7 +26,7 @@ namespace Nx {
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-bool PixelShaders() { return GameVariable<bool>(0x00786AB8); }
+bool PixelShaders() { return g_shadersAvailable; }
 
 // D3DX (the statically linked library's, through its thunks).
 void TransformCoord(float* out, const float* v, const float* m)
@@ -50,7 +53,7 @@ struct sSkinVertex {
 };
 static_assert(sizeof(sSkinVertex) == 0x4C, "layout must match the original");
 
-const float* BoneMatrix(uint8_t bone) { return GameVariable<float*>(0x007825B0) + 16 * bone; }
+const float* BoneMatrix(uint8_t bone) { return reinterpret_cast<float*&>(g_boneMatrices) + 16 * bone; }
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
@@ -103,8 +106,8 @@ uint16_t IndexCountAt(sMesh* mesh, int level)
 
 void CountDraw(uint32_t primitives)
 {
-    ++GameVariable<uint32_t>(0x00786EBC);
-    GameVariable<uint32_t>(0x00786EC0) += primitives;
+    ++reinterpret_cast<uint32_t&>(g_drawCalls);
+    reinterpret_cast<uint32_t&>(g_drawnTriangles) += primitives;
 }
 
 } // namespace
@@ -119,11 +122,11 @@ void sMesh::Render()
 {
     if (GameVariable<bool>(0x007D1EC0) || BeyondClipDistance(this))
         return;
-    if (GameVariable<bool>(0x007D643A) && GameVariable<bool>(0x007D6436)) { // (distance fog)
-        float end = GameVariable<float>(0x00786CAC);
-        GameVariable<uint32_t>(0x00787340) = 0;
-        GameVariable<uint32_t>(0x00787344) = 0;
-        float start = static_cast<float>(end - (static_cast<double>(end) - GameVariable<float>(0x00786CA8)) * 0.25f);
+    if (g_distanceClipping && g_fogSetting) { // (distance fog)
+        float end = g_camera.farZ;
+        reinterpret_cast<uint32_t&>(g_fogStart) = 0;
+        reinterpret_cast<uint32_t&>(g_fogEnd) = 0;
+        float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.nearZ) * 0.25f);
         SetFogEnabled(true);
         Device()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         Device()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
@@ -143,7 +146,7 @@ void sMesh::Render()
     auto* mat = reinterpret_cast<sMaterial*>(material);
     if (PixelShaders()) {
         mat->Submit();
-        if (!GameVariable<uint32_t>(0x00786F1C) && !(flags & 4))
+        if (!g_instanceColourOn && !(flags & 4))
             SetPixelShaderWithConstants(pixelShader, mat->passCount);
         else
             SetPixelShaderColored();
@@ -162,10 +165,10 @@ void sMesh::Render()
             Nx::SetRenderState(D3DRS_ZWRITEENABLE, 0);
     }
     sVertexBuffer* vb = vertexBuffers[currentVertexBuffer];
-    if (perVertexData && (unknown9C != GameVariable<int>(0x00786AC4) ||
-                          unknownA0 != GameVariable<uint32_t>(0x007825B8))) { // (once a frame per instance)
-        unknown9C = GameVariable<int>(0x00786AC4);
-        unknownA0 = GameVariable<uint32_t>(0x007825B8);
+    if (perVertexData && (unknown9C != g_framesRendered ||
+                          unknownA0 != reinterpret_cast<uint32_t&>(g_currentInstance))) { // (once a frame per instance)
+        unknown9C = g_framesRendered;
+        unknownA0 = reinterpret_cast<uint32_t&>(g_currentInstance);
         uint8_t* out = vb->data; // (locked whole with DISCARD, inline: the card's buffer written)
         vb->lockSize = vb->size;
         vb->lockOffset = 0;
@@ -204,9 +207,9 @@ void sMesh::Render()
         for (uint32_t pass = 0; pass < mat->passCount; ++pass) {
             float instance[3];
             const float* tint = nullptr;
-            if (GameVariable<uint32_t>(0x00786F1C)) {
+            if (g_instanceColourOn) {
                 for (int k = 0; k < 3; ++k)
-                    instance[k] = static_cast<float>(GameVariable<uint8_t>(0x00786F20 + k) *
+                    instance[k] = static_cast<float>(g_instanceColour[k] *
                                                      static_cast<double>(1.0f / 255));
                 tint = instance;
             } else if (flags & 4) {

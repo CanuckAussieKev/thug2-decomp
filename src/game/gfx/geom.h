@@ -7,6 +7,7 @@
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 // The PC geom (Nx engine): a sector's or a model's renderable geometry - its meshes, or an instance of another
 // geom's meshes (a model drawn with its own transform and bones) - and what the engine asks of it: colours,
@@ -190,5 +191,8 @@ static_assert(offsetof(CPcGeom, bounds) == 0x14 && offsetof(CPcGeom, scene) == 0
                   offsetof(CPcGeom, meshes) == 0x3C && offsetof(CPcGeom, instance) == 0x4C &&
                   offsetof(CPcGeom, scale) == 0x54 && sizeof(CPcGeom) == 0x64,
               "layout must match the original");
+
+GAME_GLOBAL_EXTERN(Mth::Matrix*, g_boneMatrices);
+GAME_GLOBAL_EXTERN(sInstance*, g_currentInstance);
 
 } // namespace Nx

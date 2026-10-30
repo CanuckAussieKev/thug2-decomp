@@ -12,6 +12,8 @@
 #include "game/core/mem.h"
 #include "game/gfx/engine_primitive.h"
 #include "game/gfx/material.h"
+#include "game/gfx/pc_flexible_particles.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/sys/platform_d3d.h"
@@ -25,9 +27,9 @@ namespace {
 constexpr uint32_t kVtable = 0x0064A628;
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-IDirect3DIndexBuffer9* QuadIndices() { return GameVariable<IDirect3DIndexBuffer9*>(0x007D69E8); }
-uint32_t& DrawCalls() { return GameVariable<uint32_t>(0x00786EBC); }
-uint32_t& DrawnTriangles() { return GameVariable<uint32_t>(0x00786EC0); }
+IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
+uint32_t& DrawCalls() { return reinterpret_cast<uint32_t&>(g_drawCalls); }
+uint32_t& DrawnTriangles() { return reinterpret_cast<uint32_t&>(g_drawnTriangles); }
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
 
 template <typename T>

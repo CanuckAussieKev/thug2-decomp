@@ -5,6 +5,9 @@
 
 #include "game/gfx/particle_system.h"
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
+
+struct IDirect3DIndexBuffer9;
 
 // The PC flexible particle systems (Nx engine; the particle manager's 0x0049AC60 makes them by type: the flexible
 // particle component's systems): each type the engine's class of its own (its update, its particles) with a PC one
@@ -382,5 +385,7 @@ struct CPcStarParticles : CPcFlexibleParticles {
 static_assert(offsetof(CPcStarParticles, segments) == 0x134 && offsetof(CPcStarParticles, starWidth) == 0x138 &&
                   offsetof(CPcStarParticles, material) == 0x148 && sizeof(CPcStarParticles) == 0x150,
               "layout must match the original");
+
+GAME_GLOBAL_EXTERN(IDirect3DIndexBuffer9*, g_quadIndices);
 
 } // namespace Nx

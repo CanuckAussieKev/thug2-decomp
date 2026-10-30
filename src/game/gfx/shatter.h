@@ -5,6 +5,11 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
+
+namespace Lst {
+class HashTable;
+}
 
 // Shattering on PC (Nx engine; the Shatter script command): a mesh broken into triangles that fly apart - each
 // shatter (0x40 bytes) keeps its triangles' vertices and their positions, and the shatters are in a table
@@ -85,5 +90,7 @@ void __cdecl UpdateShatter(CPcShatter* shatter, float step);
 // 0x007004CC more), each turning about a random axis by a random angle up to 0.1 a step - each mesh a shatter put in
 // the table.
 void __cdecl ShatterGeom(uint8_t* geom);
+
+GAME_GLOBAL_EXTERN(Lst::HashTable*, g_shatters);
 
 } // namespace Nx

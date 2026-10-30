@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "game/gfx/device.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/viewport_list.h"
 #include "hook/game.h"
@@ -32,8 +33,8 @@ void DrawFlash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
     const float* view = reinterpret_cast<const float*>(GetActiveViewport(flash->viewport));
-    double width = GameVariable<int>(0x00786D6C);
-    double height = GameVariable<int>(0x00786D70);
+    double width = g_backBufferWidth;
+    double height = g_backBufferHeight;
     // (x87: each product is rounded once, each sum to float)
     float left = static_cast<float>(width * view[1]);
     float top = static_cast<float>(height * view[2]);
@@ -60,8 +61,8 @@ void DrawFlash(const Flash* flash)
     SetSamplerState(2, 0);
     SetPixelShader(nullptr, nullptr); // (no pixel shader)
     SetVertexFormat(0x144);
-    ++GameVariable<int>(0x00786EBC); // draw calls
-    GameVariable<int>(0x00786EC0) += 2; // triangles
+    ++g_drawCalls; // draw calls
+    g_drawnTriangles += 2; // triangles
     // Originally from PartyMod Fixes (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the
     // wrong order; rotate them.
     FlashVertex first = vertices[0];

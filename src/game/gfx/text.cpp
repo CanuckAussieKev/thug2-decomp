@@ -17,13 +17,22 @@
 #include "game/gfx/font.h"
 #include "game/gfx/glyphs.h"
 #include "game/gfx/hd_ui.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/sio/device.h"
 #include "game/sys/platform_d3d.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(SFont*, g_fontList, 0x00780FD8);
+GAME_GLOBAL(SFont*, g_buttonFont, 0x00780FDC);
+GAME_GLOBAL(SFont*, g_textureFont, 0x00780FE0);
+GAME_GLOBAL(uint32_t, g_textVertexCount, 0x00780FE4);
+GAME_GLOBAL(TextVertex*, g_textVertexBuffer, 0x00780FE8);
+GAME_GLOBAL(bool, g_quadIndicesMade, 0x00781BF0);
 
 namespace {
 
@@ -38,12 +47,12 @@ int ScreenOffsetX() { return GameVariable<int>(0x00786D88); }
 int ScreenOffsetY() { return GameVariable<int>(0x00786D8C); }
 
 // The text vertex buffer (BeginDraw points it at 0x00779FD8) and how many vertices it holds.
-TextVertex*& VertexBuffer() { return GameVariable<TextVertex*>(0x00780FE8); }
-uint32_t& VertexCount() { return GameVariable<uint32_t>(0x00780FE4); }
+TextVertex*& VertexBuffer() { return g_textVertexBuffer; }
+uint32_t& VertexCount() { return g_textVertexCount; }
 constexpr uint32_t kVertexLimit = 0x400;
 // The font button glyphs come from, and the font whose texture the buffer is drawn with.
-SFont* ButtonFont() { return GameVariable<SFont*>(0x00780FDC); }
-SFont*& TextureFont() { return GameVariable<SFont*>(0x00780FE0); }
+SFont* ButtonFont() { return g_buttonFont; }
+SFont*& TextureFont() { return g_textureFont; }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).
 char MetaButton(const char* digit) { return Nx::ButtonGlyph(digit); }
@@ -415,11 +424,11 @@ F TextureMethod(void* texture, int offset)
 // first time they're drawn).
 TextVertex* VertexStore() { return reinterpret_cast<TextVertex*>(0x00779FD8); }
 uint16_t* QuadIndices() { return reinterpret_cast<uint16_t*>(0x00780FF0); }
-bool& QuadIndicesMade() { return GameVariable<bool>(0x00781BF0); }
+bool& QuadIndicesMade() { return g_quadIndicesMade; }
 constexpr int kQuads = 0x100;
 
 // The loaded fonts (through SFont::next).
-SFont*& FontList() { return GameVariable<SFont*>(0x00780FD8); }
+SFont*& FontList() { return g_fontList; }
 
 uint16_t U16(const uint8_t* p)
 {
@@ -495,8 +504,8 @@ void SText::DrawVertices()
     SetTexture(0, textureFont->texture); // (the original also passes unknown17C, which SetTexture doesn't take)
     DeviceMethod<long(__stdcall*)(void*, int, int)>(0xE4)(Device(), 22, 1); // D3DRS_CULLMODE: none
     if (!GameVariable<bool>(0x007D1EC0)) { // (rendering not skipped)
-        ++GameVariable<int>(0x00786EBC);            // draw calls
-        GameVariable<int>(0x00786EC0) += count / 2; // "triangles"
+        ++g_drawCalls;            // draw calls
+        g_drawnTriangles += count / 2; // "triangles"
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
                                                         int, const void*, unsigned int);
         DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(Device(), 4 /* triangle list */, 0, count, count / 2, QuadIndices(),

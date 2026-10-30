@@ -1,5 +1,6 @@
 #include "hook/game_global.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <vector>
 
@@ -21,6 +22,24 @@ void RegisterGlobal(const GlobalStartValue& g)
 int CheckGlobalStartValues(int* checked, int* total)
 {
     int differ = 0;
+    // Two globals over the same bytes would be two separate variables in the standalone build.
+    std::vector<const GlobalStartValue*> byAddress;
+    for (const GlobalStartValue& g : Globals())
+        byAddress.push_back(&g);
+    std::sort(byAddress.begin(), byAddress.end(),
+              [](const GlobalStartValue* a, const GlobalStartValue* b) { return a->address < b->address; });
+    const GlobalStartValue* reaching = nullptr; // the one reaching furthest so far
+    for (const GlobalStartValue* g : byAddress) {
+        const GlobalStartValue& a = reaching ? *reaching : *g;
+        const GlobalStartValue& b = *g;
+        if (!reaching || b.address + b.size > a.address + a.size)
+            reaching = g;
+        if (&a != &b && b.address < a.address + a.size) {
+            ++differ;
+            std::printf("GLOBAL OVERLAP 0x%08X %s (%s, %u bytes) and 0x%08X %s (%s)\n", a.address, a.name, a.file,
+                        a.size, b.address, b.name, b.file);
+        }
+    }
     *checked = 0;
     *total = static_cast<int>(Globals().size());
     for (const GlobalStartValue& g : Globals()) {

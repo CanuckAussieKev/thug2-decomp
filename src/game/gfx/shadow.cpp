@@ -17,27 +17,34 @@
 #include "game/gfx/mesh.h"
 #include "game/gfx/model.h"
 #include "game/gfx/occlusion.h"
+#include "game/gfx/pixel_shaders.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(uint8_t[20480], g_shadowTriangles, 0x00796640);
+GAME_GLOBAL(bool, g_twoSidedStencil, 0x007CA97C);
+GAME_GLOBAL(float[4], g_shadowViewport, 0x0067EF4C, 256.0f, 256.0f, 256.0f, 256.0f);
+
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-Lst::HashTable* Casters() { return GameVariable<Lst::HashTable*>(0x007CA970); }
-float* ViewMatrix() { return &GameVariable<float>(0x00786BD0); }
-float* ProjectionMatrix() { return &GameVariable<float>(0x00786C10); }
-const float* WorldMatrix() { return &GameVariable<float>(0x00786B90); }
-uint8_t& CustomTransforms() { return GameVariable<uint8_t>(0x00786CBC); } // the view / projection aren't the camera's
+Lst::HashTable* Casters() { return g_shadowCasters; }
+float* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
+float* ProjectionMatrix() { return reinterpret_cast<float*>(&g_projectionMatrix); }
+const float* WorldMatrix() { return reinterpret_cast<float*>(&g_worldMatrix); }
+uint8_t& CustomTransforms() { return g_camera.customTransforms; } // the view / projection aren't the camera's
 bool SkipRender() { return GameVariable<bool>(0x007D1EC0); }
-uint32_t& Fog() { return GameVariable<uint32_t>(0x00787338); }
-uint32_t& DepthBias() { return GameVariable<uint32_t>(0x00786E54); }
-uint32_t& CullMode() { return GameVariable<uint32_t>(0x00786E5C); }
-uint32_t& PixelShaderLocked() { return GameVariable<uint32_t>(0x00786EC4); }
-bool TwoSidedStencil() { return GameVariable<bool>(0x007CA97C); }
+uint32_t& Fog() { return g_fogEnabled; }
+uint32_t& DepthBias() { return g_depthBias; }
+uint32_t& CullMode() { return g_cullMode; }
+uint32_t& PixelShaderLocked() { return g_pixelShaderLocked; }
+bool TwoSidedStencil() { return g_twoSidedStencil; }
 
 // The projection buffer (ProjectShadowVertices) and the triangle buffer (ClipShadowTriangles).
 struct ProjectedVertex {
@@ -52,7 +59,7 @@ struct ShadowVertex {
     float u, v;
 };
 static_assert(sizeof(ShadowVertex) == 0x14, "the draw's stride");
-ShadowVertex* ShadowTriangles() { return &GameVariable<ShadowVertex>(0x00796640); }
+ShadowVertex* ShadowTriangles() { return reinterpret_cast<ShadowVertex*>(g_shadowTriangles); }
 constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717u); // 0x0064AAA0, -1e-4
 
 ShadowCompanionFn g_shadowCompanion = nullptr; // NOT ORIGINAL (SetShadowCompanion)
@@ -176,11 +183,11 @@ void __cdecl ShadowTextureMatrix(const float* a, const float* b, float* out, con
     MatrixInverse(inverse, nullptr, view); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
     float scaleBias[16] = {};
-    scaleBias[0] = static_cast<float>(static_cast<double>(GameVariable<float>(0x0067EF58)) * 0.5);
-    scaleBias[5] = static_cast<float>(static_cast<double>(GameVariable<float>(0x0067EF54)) * -0.5);
+    scaleBias[0] = static_cast<float>(static_cast<double>(g_shadowViewport[3]) * 0.5);
+    scaleBias[5] = static_cast<float>(static_cast<double>(g_shadowViewport[2]) * -0.5);
     scaleBias[10] = std::bit_cast<float>(0x4B7FFFFFu); // 16777215
-    scaleBias[12] = static_cast<float>((static_cast<double>(GameVariable<float>(0x0067EF50)) + 1.0) * 0.5);
-    scaleBias[13] = static_cast<float>((static_cast<double>(GameVariable<float>(0x0067EF4C)) + 1.0) * 0.5);
+    scaleBias[12] = static_cast<float>((static_cast<double>(g_shadowViewport[1]) + 1.0) * 0.5);
+    scaleBias[13] = static_cast<float>((static_cast<double>(g_shadowViewport[0]) + 1.0) * 0.5);
     scaleBias[15] = 1.0f;
     float m[16];
     if (first) {
@@ -375,8 +382,8 @@ void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
                                                 *reinterpret_cast<uint32_t*>(mesh + 0xB4));
             if (triangles) {
                 Device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, ShadowTriangles(), sizeof(ShadowVertex));
-                ++GameVariable<int>(0x00786EBC); // draws
-                GameVariable<int>(0x00786EC0) += triangles;
+                ++g_drawCalls; // draws
+                g_drawnTriangles += triangles;
             }
         }
         std::memcpy(ViewMatrix(), savedView, sizeof(savedView));

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 // The graphics options on PC, from [Graphics] in thug2-decomp.ini in place of the original's settings loader
@@ -15,5 +17,8 @@ void WriteGraphicsSettings();
 
 // The DisableBlur setting (see SetScreenBlur).
 bool& BlurDisabled();
+
+GAME_GLOBAL_EXTERN(bool, g_fogSetting);
+GAME_GLOBAL_EXTERN(bool, g_distanceClipping);
 
 } // namespace Nx

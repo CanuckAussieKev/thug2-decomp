@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "hook/game_global.h"
+
 // The engine's 2D windows (Nx; the PC's CPcWindow - pc_billboards.h - derives from it): a rectangle of the 640 x 448
 // screen the window screen elements clip their sprites to. Ten are made at start-up (the PC's CreateWindowPool) onto
 // a free list (0x007013D0, linked through +0x14).
@@ -35,5 +37,7 @@ static_assert(offsetof(CWindow2D, mp_next) == 0x14 && sizeof(CWindow2D) == 0x18,
 CWindow2D* __cdecl AllocateWindow2D(int x, int y, int width, int height);
 // 0x004A1670: a window back onto the free list.
 void __cdecl FreeWindow2D(CWindow2D* window);
+
+GAME_GLOBAL_EXTERN(CWindow2D*, g_freeWindows);
 
 } // namespace Nx

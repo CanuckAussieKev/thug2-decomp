@@ -15,20 +15,24 @@
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/texture_splats.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(Lst::HashTable*, g_shatters, 0x007004B8);
 
 namespace {
 
 constexpr uint32_t kShatterVtable = 0x0064A4AC;
 
 IDirect3DDevice9* DrawDevice() { return GameVariable<IDirect3DDevice9*>(0x00786D0C); }
-Lst::HashTable* Shatters() { return GameVariable<Lst::HashTable*>(0x007004B8); }
+Lst::HashTable* Shatters() { return g_shatters; }
 
 uint16_t TriangleCount(const CPcShatter* shatter) { return shatter->triangleCount; }
 
@@ -86,8 +90,8 @@ void __cdecl DrawShatter(CPcShatter* shatter)
     reinterpret_cast<sMaterial*>(mesh->material)->Submit(); // (the material's set-up)
     SetPixelShader(MeshPixelShader(mesh), mesh->material);
     SetVertexFormat(MeshVertexFormat(mesh));
-    ++GameVariable<int>(0x00786EBC); // the frame's draw calls and triangles
-    GameVariable<int>(0x00786EC0) += TriangleCount(shatter);
+    ++g_drawCalls; // the frame's draw calls and triangles
+    g_drawnTriangles += TriangleCount(shatter);
     DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, TriangleCount(shatter), shatter->vertices, mesh->stride);
 }
 
@@ -128,7 +132,7 @@ constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u); // 0x0064930
 // The vertex stack the splitter works from (0x006FC4A0; not rewritten yet: pushed onto).
 void PushVertex(const uint8_t* vertex)
 {
-    reinterpret_cast<sVertexStack*>(&GameVariable<uint8_t>(0x006FC4A0))->Push(vertex);
+    reinterpret_cast<sVertexStack*>(reinterpret_cast<uint8_t*>(&g_vertexStack))->Push(vertex);
 }
 uint8_t* LockVertices(sVertexBuffer* buffer)
 {
@@ -200,7 +204,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
         if (mesh->indexCounts[0] < 3)
             continue;
         uint32_t stride = mesh->stride;
-        GameVariable<uint32_t>(0x006FC4A4) = stride; // (the vertex stack's vertex size)
+        g_vertexStack.vertexSize = stride; // (the vertex stack's vertex size)
         sVertexBuffer* vertexBuffer = mesh->GetVertexBuffer(0);
         uint8_t* vertices = LockVertices(vertexBuffer);
         auto* indices = reinterpret_cast<uint16_t*>(LockIndices(mesh->indexBuffers[0]));
@@ -226,7 +230,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
                 float cy = static_cast<float>(e2x * e1z - e2zf * e1x);
                 double cx = e2zf * e1y - e2yf * e1z;
                 double area = cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz;
-                double limit = GameVariable<float>(0x0067DDF0);
+                double limit = g_splitAreaLimit;
                 if (area > limit) {
                     int pieces = 1;
                     do {
@@ -257,7 +261,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
                          static_cast<float>(static_cast<double>(mesh->centre[2]) + backZ),
                          static_cast<float>(static_cast<double>(backW) + 1.0f)};
         uint32_t key = reinterpret_cast<uint32_t>(shatter);
-        GameVariable<Lst::HashTable*>(0x007004B8)->PutItem(key, shatter);
+        g_shatters->PutItem(key, shatter);
         uint8_t* cursor = shatter->vertices;
         while (SplitNextTriangle(&cursor, reinterpret_cast<const sSplitFormat*>(mesh)))
             ;

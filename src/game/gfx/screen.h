@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "hook/game_global.h"
+
 namespace Script {
 class CStruct;
 class CScript;
@@ -11,6 +13,7 @@ class CScript;
 // motion blur. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes most
 // of these: widescreen support, blur off by default.
 namespace Nx {
+
 
 // The career's current level (0 = the front end); 0 without the skate module (0x007CE478, its career +0x20,
 // that's +0x630).
@@ -45,5 +48,8 @@ void SetLetterbox(bool letterbox);
 
 // 0x0048C170: SetScreenBlur <amount>
 bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* script);
+
+GAME_GLOBAL_EXTERN(float, g_defaultAngle);
+GAME_GLOBAL_EXTERN(float, g_angleFactor);
 
 } // namespace Nx

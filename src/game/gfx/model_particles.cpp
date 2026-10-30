@@ -26,7 +26,7 @@ constexpr float kScaleStep = 0.01f;             // 0x0064544C
 constexpr float kSizeStep = 0.25f;              // 0x006467AC
 const char* const kModelExtension = reinterpret_cast<const char*>(0x00646164); // ".mdl"
 
-uint8_t AssertFlag() { return GameVariable<uint8_t>(0x00658555); }
+uint8_t AssertFlag() { return g_allocAssertFlag; }
 void* Allocate(unsigned int size) { return Mem::Manager::Get()->Allocate(size, AssertFlag(), nullptr); }
 void* AllocateZeroed(unsigned int size) { return Mem::Manager::Get()->AllocateZeroed(size, AssertFlag(), nullptr); }
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)

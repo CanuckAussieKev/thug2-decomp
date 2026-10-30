@@ -17,6 +17,7 @@
 #include "game/gfx/loading_bar.h"
 #include "game/gfx/pc_lights.h"
 #include "game/gfx/pc_texture.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
@@ -32,7 +33,7 @@ IDirect3DDevice9* Device() { return g_d3dDevice; }
 HANDLE ScreenMutex() { return GameVariable<HANDLE>(0x007052AC); }
 bool& ScreenUp() { return g_loadingScreenUp; }
 uint32_t& BarTimer() { return g_loadingBarTimer; }
-uint32_t FogEnabled() { return GameVariable<uint32_t>(0x00787338); } // (the renderer's cached D3DRS_FOGENABLE)
+uint32_t FogEnabled() { return g_fogEnabled; } // (the renderer's cached D3DRS_FOGENABLE)
 
 // The Windows calls, through the exe's imports (as device.cpp's timer: so a test can stand in for them alone).
 void Lock() { GameVariable<DWORD(WINAPI*)(HANDLE, DWORD)>(0x006450BC)(ScreenMutex(), INFINITE); } // WaitForSingleObject
@@ -97,8 +98,8 @@ void __cdecl DrawLoadingScreenPicture()
     if (Picture()[8] & 1)
         texture = *reinterpret_cast<uint8_t**>(texture);
     SetTexture(0, *reinterpret_cast<void**>(texture + 0x10)); // (and its +0x14)
-    float width = static_cast<float>(GameVariable<int>(0x00786D6C));
-    float height = static_cast<float>(GameVariable<int>(0x00786D70));
+    float width = static_cast<float>(g_backBufferWidth);
+    float height = static_cast<float>(g_backBufferHeight);
     const PictureVertex quad[4] = {
         {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f},
         {0.0f, height, 0.0f, 1.0f, 0.0f, 0.0f},

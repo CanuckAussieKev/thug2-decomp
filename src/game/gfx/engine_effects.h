@@ -5,6 +5,7 @@
 
 #include "game/gfx/texture_splats.h"
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 // The engine's effects (Nx, platform-independent; each passes on to the PC code): fog settings, the level colour,
 // shattering, texture splats aged and killed, screen flashes, and the tables they're kept in - flashes 0x007004A8,
@@ -102,5 +103,7 @@ void __cdecl InitEffects();
 void __cdecl KillAllEffects();
 
 } // namespace Engine
+
+GAME_GLOBAL_EXTERN(sVertexStack, g_vertexStack);
 
 } // namespace Nx

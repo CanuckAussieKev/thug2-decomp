@@ -28,9 +28,18 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
+
+GAME_GLOBAL(uint32_t, g_todReferences, 0x007CE494);
+
+GAME_GLOBAL(float, g_twoTo32, 0x006453B4, 4294967300.0f);
+GAME_GLOBAL(float, g_half, 0x006453BC, 0.5f);
+GAME_GLOBAL(float, g_thousand, 0x006453C0, 1000.0f);
+GAME_GLOBAL(float, g_oneOver255, 0x00645D70, 0.003921569f);
+GAME_GLOBAL(float, g_hundred, 0x006463D4, 100.0f);
 
 namespace {
 
@@ -103,12 +112,12 @@ constexpr uint32_t kNeutralColor = 0x81808080;
 float DegreesToRadians() { return GameVariable<float>(0x00645464); } // 0.017453292
 float Zero() { return GameVariable<float>(0x0066D520); }             // 0.0
 float OnePercent() { return GameVariable<float>(0x0064544C); }       // 0.01
-float OneOver255() { return GameVariable<float>(0x00645D70); }       // 1 / 255
-float TwoTo32() { return GameVariable<float>(0x006453B4); }          // 4294967296: unsigned integers' correction
+float OneOver255() { return g_oneOver255; }       // 1 / 255
+float TwoTo32() { return g_twoTo32; }          // 4294967296: unsigned integers' correction
 float One() { return GameVariable<float>(0x006453A8); }              // 1.0
-float Half() { return GameVariable<float>(0x006453BC); }             // 0.5
-float Hundred() { return GameVariable<float>(0x006463D4); }          // 100.0
-float Thousand() { return GameVariable<float>(0x006453C0); }         // 1000.0
+float Half() { return g_half; }             // 0.5
+float Hundred() { return g_hundred; }          // 100.0
+float Thousand() { return g_thousand; }         // 1000.0
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -1209,7 +1218,7 @@ bool CTODManager::CanSetTODInstant(uint32_t state) const
 
 CTODManager*& TODManager() { return GameVariable<CTODManager*>(0x007CE490); }
 namespace {
-uint32_t& References() { return GameVariable<uint32_t>(0x007CE494); }
+uint32_t& References() { return g_todReferences; }
 } // namespace
 
 // 0x00574540

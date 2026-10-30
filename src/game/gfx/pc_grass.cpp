@@ -23,9 +23,14 @@
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/texture_dict.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(float, g_grassDetailUvScale, 0x0064A8C0, 0.010416667f);
+GAME_GLOBAL(float, g_grassUvScale, 0x0064A8C4, 0.0052083335f);
+GAME_GLOBAL(float, g_grassCopyUvScale, 0x0064A8C8, 0.020833334f);
 
 namespace {
 
@@ -109,10 +114,10 @@ bool __cdecl MakeAnimatedGrass(CPcGeom* /*geom*/, sMesh* mesh)
         auto* v = reinterpret_cast<float*>(vertices + mesh->stride * i);
         auto* uv = reinterpret_cast<float*>(vertices + mesh->stride * i + mesh->unknown1C[2]);
         float x = v[0], z = v[2];
-        uv[0] = static_cast<float>(static_cast<double>(x) * GameVariable<float>(0x0064A8C4));
-        uv[1] = static_cast<float>(static_cast<double>(z) * GameVariable<float>(0x0064A8C4));
-        uv[2] = static_cast<float>(static_cast<double>(x) * GameVariable<float>(0x0064A8C0));
-        uv[3] = static_cast<float>(static_cast<double>(z) * GameVariable<float>(0x0064A8C0));
+        uv[0] = static_cast<float>(static_cast<double>(x) * g_grassUvScale);
+        uv[1] = static_cast<float>(static_cast<double>(z) * g_grassUvScale);
+        uv[2] = static_cast<float>(static_cast<double>(x) * g_grassDetailUvScale);
+        uv[3] = static_cast<float>(static_cast<double>(z) * g_grassDetailUvScale);
     }
     return true;
 }
@@ -156,8 +161,8 @@ bool __cdecl MakeGrass(CPcGeom* geom, sMesh* mesh)
             v[1] = static_cast<float>(lift + v[1]);
             auto* uv = reinterpret_cast<float*>(vertices + copy->stride * i + copy->unknown1C[2]);
             float x = v[0], z = v[2];
-            uv[0] = static_cast<float>(static_cast<double>(x) * GameVariable<float>(0x0064A8C8));
-            uv[1] = static_cast<float>(static_cast<double>(z) * GameVariable<float>(0x0064A8C8));
+            uv[0] = static_cast<float>(static_cast<double>(x) * g_grassCopyUvScale);
+            uv[1] = static_cast<float>(static_cast<double>(z) * g_grassCopyUvScale);
         }
         geom->AddMesh(copy);
     }

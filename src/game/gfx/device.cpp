@@ -15,6 +15,7 @@
 #include "game/core/stubs.h"
 #include "game/gfx/graphics_options.h"
 #include "game/gfx/pc_gamma.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
 #include "game/sys/platform_d3d.h"
@@ -92,7 +93,7 @@ void InitDirect3D()
     g_screenOffsetX = 0;
     g_screenOffsetY = 16;
     g_depthTextureTarget = 0;
-    GameVariable<uint32_t>(0x00786D68) = 0;
+    reinterpret_cast<uint32_t&>(g_screenCopyIndex) = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
     //   if (GameVariable<bool>(0x00786AB7)) ShowWindow(Window(), SW_MAXIMIZE);
 
@@ -252,7 +253,7 @@ HRESULT __cdecl CreateDevice(int width, int height, bool hardwareVertices, bool 
     // (through the exe's import of DirectSoundEnumerateA)
     GameVariable<DirectSoundEnumerateFn>(0x0064502C)(&SoundDeviceFound, nullptr);
     // A Radeon 8500 (0x00786AB5)...
-    GameVariable<bool>(0x00786AB5) = std::strstr(id.Description, "8500") != nullptr;
+    g_radeon8500 = std::strstr(id.Description, "8500") != nullptr;
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
     if (std::memcmp(SoundDeviceName(), "Realtek HD Audio rear output", 29) == 0 && id.VendorId == 0x8086 &&
         id.DeviceId == 0x2582)
@@ -307,7 +308,7 @@ void __cdecl CreateRenderTargets()
     D3DCAPS9 caps;
     Device()->GetDeviceCaps(&caps);
     if (caps.PixelShaderVersion >= D3DPS_VERSION(1, 1))
-        GameVariable<bool>(0x00786AB8) = true;
+        g_shadersAvailable = true;
     if (caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET)
         g_streamOffsetSupported = true;
     g_maxAnisotropy = caps.MaxAnisotropy;
@@ -321,8 +322,8 @@ void __cdecl CreateRenderTargets()
         g_borderAddressingSupported = true;
     g_blendFactorSupported =
         (caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) && (caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR);
-    GameVariable<uint32_t>(0x00786D6C) = pp.BackBufferWidth;
-    GameVariable<uint32_t>(0x00786D70) = pp.BackBufferHeight;
+    reinterpret_cast<uint32_t&>(g_backBufferWidth) = pp.BackBufferWidth;
+    reinterpret_cast<uint32_t&>(g_backBufferHeight) = pp.BackBufferHeight;
     g_backBufferFormat = pp.BackBufferFormat;
     g_depthBits = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
     if (ScreenSurfaces()[0]) {

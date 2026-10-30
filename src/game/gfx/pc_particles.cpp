@@ -14,15 +14,22 @@
 #include "game/gfx/material.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/particles.h"
+#include "game/gfx/pc_flexible_particles.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/gfx/texture_dict.h"
 #include "game/sys/platform_d3d.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint32_t, g_particleRandomB, 0x0067E974, 0x12B9B0A1);
+GAME_GLOBAL(uint32_t, g_particleRandomC, 0x0067E978, 0xAA2FB3F);
+GAME_GLOBAL(uint32_t, g_particleRandomA, 0x00705608);
 
 namespace {
 
@@ -30,7 +37,7 @@ constexpr uint32_t kSystemVtable = 0x0064A4F0;
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-IDirect3DIndexBuffer9* QuadIndices() { return GameVariable<IDirect3DIndexBuffer9*>(0x007D69E8); }
+IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
 
 // _ftol: truncated to a 64-bit integer, its low half.
@@ -56,9 +63,9 @@ uint32_t TextureKey(const uint8_t* texture)
 }
 
 // The random sequence the particles' spreads come from (three words; four numbers a particle).
-uint32_t& RandomA() { return GameVariable<uint32_t>(0x00705608); }
-uint32_t& RandomB() { return GameVariable<uint32_t>(0x0067E974); }
-uint32_t& RandomC() { return GameVariable<uint32_t>(0x0067E978); }
+uint32_t& RandomA() { return g_particleRandomA; }
+uint32_t& RandomB() { return g_particleRandomB; }
+uint32_t& RandomC() { return g_particleRandomC; }
 // A step: a' = b a + c, b' = (b ^ a') + (a' >> 4), c' = c + (a' >> 3) - 0x10101010 (arithmetic shifts).
 void RandomStep(uint32_t& a, uint32_t& b, uint32_t& c)
 {
@@ -159,9 +166,9 @@ float MidTime(const CPcParticleSystem* system)
 // and u = r x (a, b, c), each normalised when it has a length.
 void CameraAxes(float r[3], float u[3])
 {
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     double b0 = b * 0.0f;
     r[0] = static_cast<float>(b0 - c);
     r[1] = static_cast<float>(c * 0.0f - a * 0.0f);

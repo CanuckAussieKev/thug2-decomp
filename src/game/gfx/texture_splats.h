@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "hook/game_global.h"
+
 // Texture splats on PC (Nx engine): textures projected onto the world (skid marks, splashes) - per texture a set of
 // up to 256 triangles kept in a table (0x007004B0, Lst::HashTable keyed by the set's address), drawn with a
 // perspective correction of their texture coordinates, lit, killed by box or all at once - and the geometry helpers
@@ -95,5 +97,7 @@ sTextureSplats* __cdecl GetTextureSplats(uint32_t texture);
 // (the pieces inside kept) - into the texture's set's oldest triangles (0x00490CD0). The set, or null if no
 // triangle was hit. `unused` isn't.
 sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int unused, sSplatParams* params);
+
+GAME_GLOBAL_EXTERN(float, g_splitAreaLimit);
 
 } // namespace Nx

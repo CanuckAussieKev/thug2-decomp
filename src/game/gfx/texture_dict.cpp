@@ -16,9 +16,12 @@
 #include "game/gfx/pc_texture.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(int[8], g_keyMultipliers, 0x0067E520, 2, 3, 4, 6, 12, 8, 24, -1);
 
 namespace {
 
@@ -28,7 +31,7 @@ constexpr uint32_t kTexDictVtable = 0x00649BB4;
 Lst::HashTable& LoadedTexDicts() { return GameVariable<Lst::HashTable>(0x00700F04); }
 
 // The multipliers FindTexture tries the name's CRC with (0x0067E520: 2, 3, 4, 6, 12, 8, 24, then -1).
-const int* KeyMultipliers() { return &GameVariable<int>(0x0067E520); }
+const int* KeyMultipliers() { return g_keyMultipliers; }
 
 // The CRC of what follows a name's last slash or backslash.
 uint32_t FileNameChecksum(const char* name)

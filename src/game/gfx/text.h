@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "hook/game_global.h"
+
 // Bitmap fonts and the screen text drawn with them (Nx engine, PC). Text can hold escapes: "\\" (a backslash),
 // "\c<d>" colour d of the font's table (0 = the text's own), "\s<d>" special glyph d, "\b<d>" a button (glyph
 // from the button font, or the key's name - PartyMod decides which), "\m<d>" a button through the meta button
@@ -120,5 +122,7 @@ static_assert(offsetof(SText, z) == 0x10, "layout must match the original");
 static_assert(offsetof(SText, text) == 0x1C, "layout must match the original");
 static_assert(offsetof(SText, angle) == 0x38, "layout must match the original");
 static_assert(offsetof(SText, fixedColor) == 0x40, "layout must match the original");
+
+GAME_GLOBAL_EXTERN(SFont*, g_buttonFont);
 
 } // namespace Nx

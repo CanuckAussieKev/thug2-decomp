@@ -6,6 +6,7 @@
 #include "game/core/mem.h"
 #include "game/gfx/graphics_options.h"
 #include "game/gfx/screen.h"
+#include "game/gfx/settings.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
@@ -57,7 +58,7 @@ Camera* Camera::Construct()
     m_matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     m_nearClip = 12.0f;
     m_farClip = 12000.0f;
-    if (GameVariable<bool>(0x007D643A)) { // distance clipping (setting 0x007D6444)
+    if (Nx::g_distanceClipping) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
         double distance = static_cast<double>(g_drawDistanceSetting);
         if (g_drawDistanceSetting < 0)
