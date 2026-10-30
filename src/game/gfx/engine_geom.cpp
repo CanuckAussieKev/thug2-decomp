@@ -191,7 +191,8 @@ bool CGeom::PlatIsActive()
     Stub(0x00648BF4); // "STUB: PlatIsActive\n"
     return false;
 }
-GAME_GLOBAL(Mth::BBox, g_platBoundingBox, 0x006FAA08);
+// (all zero at start, as the original's: the first PlatGetBoundingBox makes it empty)
+GAME_GLOBAL(Mth::BBox, g_platBoundingBox, 0x006FAA08, Mth::BBox(Mth::Vector{0.0f, 0.0f, 0.0f, 0.0f}));
 
 // 0x0048DB40 (the box 0x006FAA08, its guard 0x006FAA28: made empty the first time)
 Mth::BBox* CGeom::PlatGetBoundingBox()
