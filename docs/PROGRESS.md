@@ -2,7 +2,7 @@
 
 Generated 2026-10-30 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: ████████████████████ 100.0%** of the code rewritten (8,520 of 8,520 functions, 1,625.6 KB of 1,625.6 KB).
+**Game code: ████████████████████ 100.0%** of the code rewritten (8,529 of 8,529 functions, 1,625.9 KB of 1,625.9 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -15,11 +15,11 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | ████████████████████ 100% | 167 / 167 | 22.1 KB / 22.1 KB |
 | Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
 | Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | `0x45bda0`-`0x45efd0` | ████████████████████ 100% | 88 / 88 | 10.0 KB / 10.0 KB |
-| Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | ████████████████████ 100% | 685 / 685 | 112.3 KB / 112.3 KB |
+| Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | ████████████████████ 100% | 690 / 690 | 112.4 KB / 112.4 KB |
 | Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ████████████████████ 100% | 561 / 561 | 71.7 KB / 71.7 KB |
 | Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ████████████████████ 100% | 559 / 559 | 73.1 KB / 73.1 KB |
 | Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ████████████████████ 100% | 228 / 228 | 52.5 KB / 52.5 KB |
-| Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | ████████████████████ 100% | 475 / 475 | 113.7 KB / 113.7 KB |
+| Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | ████████████████████ 100% | 476 / 476 | 113.7 KB / 113.7 KB |
 | Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ████████████████████ 100% | 202 / 202 | 59.5 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ████████████████████ 100% | 507 / 507 | 97.5 KB / 97.5 KB |
 | Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | ████████████████████ 100% | 543 / 543 | 186.9 KB / 186.9 KB |
@@ -27,11 +27,11 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Menu input mapping | `0x54ef60`-`0x550040` | ████████████████████ 100% | 20 / 20 | 4.0 KB / 4.0 KB |
 | Goals & career (GoalManager, create-a-trick, trick objects, level launching) | `0x550040`-`0x56c920` | ████████████████████ 100% | 666 / 666 | 103.8 KB / 103.8 KB |
 | Time-of-day manager & world state | `0x56c920`-`0x577300` | ████████████████████ 100% | 137 / 137 | 38.1 KB / 38.1 KB |
-| Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ████████████████████ 100% | 304 / 304 | 60.7 KB / 60.7 KB |
+| Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ████████████████████ 100% | 305 / 305 | 60.7 KB / 60.7 KB |
 | Park editor & graffiti | `0x588180`-`0x595030` | ████████████████████ 100% | 289 / 289 | 47.3 KB / 47.3 KB |
 | Park editor (Create-A-Park) & skate script commands | `0x595030`-`0x59f610` | ████████████████████ 100% | 169 / 169 | 40.1 KB / 40.1 KB |
 | Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ████████████████████ 100% | 574 / 574 | 87.1 KB / 87.1 KB |
-| File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ████████████████████ 100% | 222 / 222 | 27.1 KB / 27.1 KB |
+| File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ████████████████████ 100% | 224 / 224 | 27.2 KB / 27.2 KB |
 | Input devices (SIO) | `0x5bdad0`-`0x5be6f0` | ████████████████████ 100% | 25 / 25 | 2.8 KB / 2.8 KB |
 | Game clock (Tmr) | `0x5be6f0`-`0x5beaae` | ████████████████████ 100% | 15 / 15 | 0.8 KB / 0.8 KB |
 | Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5f2e00`-`0x5f6640` | ████████████████████ 100% | 42 / 42 | 10.4 KB / 10.4 KB |
