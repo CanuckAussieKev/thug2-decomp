@@ -264,7 +264,7 @@ void StandInObjects(StandIns& s)
                 r.args[4], r.args[5], HashBytes(&GameVariable<uint8_t>(0x006F1960), 0x400)});
         return 0u;
     });
-    s.At({0x004A4240, AddressOf(static_cast<void (Gfx::CSkeleton::*)(const float (*)[4], const float (*)[4])>(&Gfx::CSkeleton::Update)), AddressOf(static_cast<void (Gfx::CSkeleton::*)(const float (*)[4], const float (*)[4])>(&Gfx::CSkeleton::Update))}, 8, [](Regs& r) {
+    s.At({0x004A4240, AddressOf(static_cast<void (Gfx::CSkeleton::*)(const float (*)[4], const float (*)[4])>(&Gfx::CSkeleton::Update))}, 8, [](Regs& r) {
         Record({0x4A424000, r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
