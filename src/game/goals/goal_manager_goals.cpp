@@ -17,6 +17,7 @@
 #include "game/skate/trick_goals.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -63,7 +64,7 @@ constexpr uint32_t kTrickName = 0x5B077CE1;       // trickname
 constexpr uint32_t kKeyCombos = 0x79704516;       // key_combos
 constexpr uint32_t kAttempts = 0xD023ADBE;        // (name unknown: the times the beaten goals were started)
 
-const char* const kNetJudge = reinterpret_cast<const char*>(0x0064DEEC); // "NetJudge"
+const char* const kNetJudge = GAME_TEXT(0x0064DEEC, "NetJudge"); // "NetJudge"
 
 CGameMode* GameMode() { return g_gameMode; }
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
@@ -195,7 +196,7 @@ void CGoalManager::RestartLastGoal()
     Script::RunScript(kKillBlur, nullptr, nullptr, false, nullptr);
     if (!Virtual<bool>(goal, CGoal::kVtHasWon) || goal->GetParams()->ContainsFlag(kDontKillTriggerOnSuccess)) {
         Script::CStruct* params = NewStructure();
-        params->AddChecksum(reinterpret_cast<const char*>(0x0064B5CC), goal->GetGoalId()); // "goal_id"
+        params->AddChecksum(GAME_TEXT(0x0064B5CC, "goal_id"), goal->GetGoalId()); // "goal_id"
         Script::RunScript(kResetGoalTrigger, params, nullptr, false, nullptr);
         DeleteStructure(params);
     }

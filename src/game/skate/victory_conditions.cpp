@@ -16,22 +16,40 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
+#include "game/core/stubs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
 namespace {
 
 // The vtables.
-void** const kBaseVtable = reinterpret_cast<void**>(0x0064EAA8);
-void** const kHighestScoreVtable = reinterpret_cast<void**>(0x0064EB0C);
-void** const kScoreReachedVtable = reinterpret_cast<void**>(0x0064EB20);
-void** const kCompleteGoalsVtable = reinterpret_cast<void**>(0x0064EB34);
-void** const kBestComboVtable = reinterpret_cast<void**>(0x0064EB48);
-void** const kLastManStandingVtable = reinterpret_cast<void**>(0x0064EB5C);
-void** const kEliminationVtable = reinterpret_cast<void**>(0x0064EB70);
-void** const kCollectAllObjectsVtable = reinterpret_cast<void**>(0x0064EB84);
+GAME_VTABLE(kBaseVtable, 0x0064EAA8,
+            &Game::CVictoryCondition::DestroyBase, Stubs::ReturnFalse1, GAME_LIBRARY_SLOT(0x00623771),
+            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771));
+GAME_VTABLE(kHighestScoreVtable, 0x0064EB0C,
+            &Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnFalse,
+            Stubs::ReturnFalse, Stubs::ReturnTrue);
+GAME_VTABLE(kScoreReachedVtable, 0x0064EB20,
+            &Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnTrue,
+            &Game::CScoreReachedVictoryCondition::ConditionComplete, &Game::CScoreReachedVictoryCondition::Print);
+GAME_VTABLE(kCompleteGoalsVtable, 0x0064EB34,
+            &Game::CVictoryCondition::Destroy, Stubs::ReturnFalse1, Stubs::ReturnTrue,
+            &Game::CCompleteGoalsVictoryCondition::ConditionComplete, Stubs::ReturnTrue);
+GAME_VTABLE(kBestComboVtable, 0x0064EB48,
+            &Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnFalse,
+            Stubs::ReturnFalse, &Game::CBestComboVictoryCondition::Print);
+GAME_VTABLE(kLastManStandingVtable, 0x0064EB5C,
+            &Game::CVictoryCondition::Destroy, &Game::CLastManStandingVictoryCondition::IsWinner,
+            Stubs::ReturnTrue, &Game::CLastManStandingVictoryCondition::ConditionComplete, Stubs::ReturnTrue);
+GAME_VTABLE(kEliminationVtable, 0x0064EB70,
+            &Game::CVictoryCondition::Destroy, &Game::CEliminationVictoryCondition::IsWinner, Stubs::ReturnTrue,
+            &Game::CEliminationVictoryCondition::ConditionComplete, Stubs::ReturnTrue);
+GAME_VTABLE(kCollectAllObjectsVtable, 0x0064EB84,
+            &Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnTrue,
+            &Game::CCollectAllObjectsVictoryCondition::ConditionComplete, Stubs::ReturnTrue);
 
 // The types (type=).
 constexpr uint32_t kHighestScore = 0x8F30FD26;      // highest_score
@@ -75,7 +93,7 @@ int NumTeams() { return static_cast<CGameMode*>(GameMode())->NumTeams(); }
 // collected. Walked with a Lst::Search<PlayerInfo> (vtable 0x0064C1A8).
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 struct PlayerSearch {
-    void* m_vtable = reinterpret_cast<void*>(0x0064C1A8);
+    void* m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 uint8_t* FirstPlayer(PlayerSearch* search)

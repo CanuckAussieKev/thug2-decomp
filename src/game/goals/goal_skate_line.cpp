@@ -7,7 +7,10 @@
 #include "game/goals/goal_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/core/stubs.h"
+#include "game/gfx/weather.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -21,7 +24,16 @@ constexpr uint32_t kGoalObjectsIndex = 0x89B927D0;      // goal_objects_index
 constexpr uint32_t kFirstSpotParams = 0xDB5515AA;       // first_spot_params
 constexpr uint32_t kNextCluster = 0x918C00F2;           // goal_skate_the_line_next_cluster
 
-void** const kSkateLineVtable = reinterpret_cast<void**>(0x0064E790);
+GAME_VTABLE(kSkateLineVtable, 0x0064E790,
+            &Game::CSkateLineGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CSkateLineGoal::SetFlag,
+            &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
+            &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
+            &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag);
 
 Script::CStruct* NewStructure()
 {
@@ -72,7 +84,7 @@ bool CSkateLineGoal::Land()
     CGoalManager* manager = GetGoalManager();
     if (AllFlagsSet())
         return manager->WinGoal(GetGoalId());
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064E808)); // "all flags not set\n"
+    Dbg::Printf(GAME_TEXT(0x0064E808, "all flags not set\n")); // "all flags not set\n"
     return manager->LoseGoal(GetGoalId());
 }
 

@@ -18,6 +18,7 @@
 #include "game/skate/score_internal.h"
 #include "game/gfx/viewport_list.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Lst {
 
@@ -67,6 +68,9 @@ void DynamicTableDestroyer::DeleteTableContents()
 namespace Mdl {
 
 namespace ScoreInternal {
+
+GAME_GLOBAL(int[5], g_trickReduction, 0x0064E280, 100, 75, 50, 25, 10);
+GAME_GLOBAL(int[6], g_spinMultiplier, 0x0064E268, 2, 3, 4, 5, 6, 7);
 
 Script::CStruct* NewStructure()
 {
@@ -331,13 +335,13 @@ void Score::DispatchScorePot(int points, float multiplier)
         shown[0] = ' ';
         shown[1] = 0;
     } else if (multiplier == 0.0f) {
-        std::snprintf(shown, sizeof(shown), Text(0x00646B8C), Str::FormatWithSeparators(points)); // "%s"
+        std::snprintf(shown, sizeof(shown), GAME_TEXT(0x00646B8C, "%s"), Str::FormatWithSeparators(points)); // "%s"
     } else {
         int whole = Ftol(multiplier);
         if (static_cast<double>(whole) == multiplier)
-            std::snprintf(shown, sizeof(shown), Text(0x0064E2A0), Str::FormatWithSeparators(points), whole); // "%s X %d"
+            std::snprintf(shown, sizeof(shown), GAME_TEXT(0x0064E2A0, "%s X %d"), Str::FormatWithSeparators(points), whole); // "%s X %d"
         else
-            std::snprintf(shown, sizeof(shown), Text(0x0064E294), Str::FormatWithSeparators(points),
+            std::snprintf(shown, sizeof(shown), GAME_TEXT(0x0064E294, "%s X %.1f"), Str::FormatWithSeparators(points),
                           static_cast<double>(multiplier)); // "%s X %.1f"
     }
     text->SetText(shown); // (no check: as the original)
@@ -372,9 +376,9 @@ void Score::SetTotalScore(int total)
     char shown[0x40];
     if (GameMode()->GetNameChecksum() == kNetKing || GameMode()->GetNameChecksum() == kKing) {
         uint32_t seconds = static_cast<uint32_t>(m_total) / 1000;
-        std::snprintf(shown, sizeof(shown), Text(0x0064E2A8), seconds / 60, seconds % 60); // "%d:%.2d"
+        std::snprintf(shown, sizeof(shown), GAME_TEXT(0x0064E2A8, "%d:%.2d"), seconds / 60, seconds % 60); // "%d:%.2d"
     } else {
-        std::snprintf(shown, sizeof(shown), Text(0x00645394), m_total); // "%d"
+        std::snprintf(shown, sizeof(shown), GAME_TEXT(0x00645394, "%d"), m_total); // "%d"
     }
     Front::SetScoreText(shown, skater->GetSkaterNumber());
 }
@@ -637,8 +641,8 @@ void Score::UpdateRobotDetection(int line)
 void Score::TrimLog()
 {
     STrickLog merged = {};
-    std::memcpy(merged.m_text, Text(0x0064E2D8), 7);  // "... + "
-    std::memcpy(merged.m_shown, Text(0x0064E2CC), 9); // "...\_+\_"
+    std::memcpy(merged.m_text, GAME_TEXT(0x0064E2D8, "... + "), 7);  // "... + "
+    std::memcpy(merged.m_shown, GAME_TEXT(0x0064E2CC, "...\\_+\\_"), 9); // "...\_+\_"
     int end = m_log.m_count;
     for (int i = 0; i < m_log.m_count; ++i) {
         if (i != 0 && !Trick(i)->m_text[0]) {

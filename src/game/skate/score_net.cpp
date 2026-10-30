@@ -11,10 +11,12 @@
 #include "game/net/net_conn.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/player_info.h"
+#include "game/skate/game_mode.h"
 #include "game/skate/score_internal.h"
 #include "game/skater/trick_component.h"
 #include "game/skate/skate_module.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Mdl {
 
@@ -22,11 +24,11 @@ using namespace ScoreInternal;
 
 namespace {
 
-const char* const kTrickObjBuffer = reinterpret_cast<const char*>(0x0064C8BC); // "TrickObj Buffer"
+const char* const kTrickObjBuffer = GAME_TEXT(0x0064C8BC, "TrickObj Buffer"); // "TrickObj Buffer"
 
 // A walk over the players (GameNet::Manager::FirstPlayerInfo / NextPlayerInfo).
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 
@@ -51,7 +53,7 @@ void Score::LogTrickObjectRequest(int score)
     uint32_t bytes = trick->EndTrickObjects(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(message.objects)),
                                             sizeof(message.objects));
     message.count = bytes >> 2;
-    Dbg::Printf(Text(0x0064E2B0), bytes >> 2); // "Client -> server %d tricks\n"
+    Dbg::Printf(GAME_TEXT(0x0064E2B0, "Client -> server %d tricks\n"), bytes >> 2); // "Client -> server %d tricks\n"
     // (the descriptor is filled and not used: the message goes by the stream's own arguments)
     desc.m_data = &message;
     desc.m_length = static_cast<uint16_t>(bytes + offsetof(Obj::TrickObjectsMessage, objects));

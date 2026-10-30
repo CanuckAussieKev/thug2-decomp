@@ -17,6 +17,7 @@
 #include "game/script/script_cfuncs.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_code.h"
 #include "hook/hook.h"
 
 namespace SkateScript {
@@ -37,7 +38,7 @@ constexpr uint32_t kScr = 0xA6D2D890;         // scr (SetEventHandler's script)
 constexpr uint32_t kEndGap = 0xE5399FB2;      // EndGap
 constexpr uint32_t kGapScript = 0x7C9E51AB;   // gapscript
 // SetEventHandler (the C function, as tokens 0x43 hold it: the game's address)
-constexpr uint32_t kSetEventHandler = 0x0044AB20;
+const uint32_t kSetEventHandler = reinterpret_cast<uintptr_t>(GAME_CODE(0x0044AB20, &CFuncs::CFunc_SetEventHandler));
 constexpr int kMaxDepth = 5;
 
 // Script tokens (qb.h).

@@ -4,6 +4,7 @@
 // game's scripts have them (or "name unknown").
 
 #include <cstdint>
+#include "hook/game_code.h"
 
 namespace Game::GoalNames {
 
@@ -88,10 +89,10 @@ constexpr uint32_t kEndofRunDone = 0x4C58771E;          // EndofRunDone
 constexpr uint32_t kGoalEndOfRunDone = 0x69A9E37F;      // Goal_EndOfRunDone
 
 // Strings the code passes as names (the game's own).
-inline const char* const kGoalIdName = reinterpret_cast<const char*>(0x0064B5CC);        // "goal_id"
-inline const char* const kViewGoalsTextName = reinterpret_cast<const char*>(0x0064DD94); // "view_goals_text"
-inline const char* const kIdName = reinterpret_cast<const char*>(0x0064C8F0);            // "id"
-inline const char* const kEmptyString = reinterpret_cast<const char*>(0x006469B4);       // ""
-inline const char* const kGotFormat = reinterpret_cast<const char*>(0x0064B678);         // "got_%d"
+inline const char* const kGoalIdName = GAME_TEXT(0x0064B5CC, "goal_id");        // "goal_id"
+inline const char* const kViewGoalsTextName = GAME_TEXT(0x0064DD94, "view_goals_text"); // "view_goals_text"
+inline const char* const kIdName = GAME_TEXT(0x0064C8F0, "id");            // "id"
+inline const char* const kEmptyString = GAME_TEXT(0x006469B4, "");       // ""
+inline const char* const kGotFormat = GAME_TEXT(0x0064B678, "got_%d");         // "got_%d"
 
 } // namespace Game::GoalNames

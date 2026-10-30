@@ -15,9 +15,11 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Script {
+
 
 namespace {
 
@@ -30,11 +32,7 @@ inline void PrintLoading(const char* /*filename*/) {}
 inline void PrintDone() {}
 
 // The pool pairs of the classes AllocatePools makes pools for.
-template <uint32_t Pools, int ItemSize>
-void CreatePoolOf(int count, const char* name)
-{
-    CreatePool(GameVariable<Mem::PoolPair>(Pools), ItemSize, count, name);
-}
+void CreatePoolOf(Mem::PoolPair& pools, int itemSize, int count, const char* name) { CreatePool(pools, itemSize, count, name); }
 
 } // namespace
 
@@ -112,12 +110,12 @@ void LoadAllStartupQBFiles()
 }
 
 // 0x005A5B40 ... 0x005A5DF0
-void CreateAnimCachePredictorPool(int count, const char* name) { CreatePoolOf<0x006F92B8, 0x1E4>(count, name); }
-void CreateBlendChannelPool(int count, const char* name) { CreatePoolOf<0x006F92C8, 0x74>(count, name); }
-void CreateBonedAnimControllerPool(int count, const char* name) { CreatePoolOf<0x00701430, 0x28>(count, name); }
-void CreateAnimLookupPool(int count, const char* name) { CreatePoolOf<0x006FA7F4, 0x214>(count, name); }
-void CreateSpawnedPolyDetailsPool(int count, const char* name) { CreatePoolOf<0x00700500, 0xB8>(count, name); }
-void CreateEventReceiverListPool(int count, const char* name) { CreatePoolOf<0x006F0FC8, 0x14>(count, name); }
+void CreateAnimCachePredictorPool(int count, const char* name) { CreatePoolOf(GameVariable<Mem::PoolPair>(0x006F92B8), 0x1E4, count, name); }
+void CreateBlendChannelPool(int count, const char* name) { CreatePoolOf(Gfx::g_animTrackPools, 0x74, count, name); }
+void CreateBonedAnimControllerPool(int count, const char* name) { CreatePoolOf(GameVariable<Mem::PoolPair>(0x00701430), 0x28, count, name); }
+void CreateAnimLookupPool(int count, const char* name) { CreatePoolOf(Nx::g_frameSourcePools, 0x214, count, name); }
+void CreateSpawnedPolyDetailsPool(int count, const char* name) { CreatePoolOf(Nx::g_spawnedPolyPools, 0xB8, count, name); }
+void CreateEventReceiverListPool(int count, const char* name) { CreatePoolOf(Obj::g_scriptListPools, 0x14, count, name); }
 
 // 0x005A5E70
 void AllocatePools()

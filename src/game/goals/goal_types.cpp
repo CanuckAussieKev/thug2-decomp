@@ -23,6 +23,9 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
+#include "game/core/stubs.h"
+#include "game/gfx/weather.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -46,16 +49,45 @@ constexpr uint32_t kNumGapsFound = 0xF1E59083;         // num_gaps_found
 constexpr uint32_t kNumGapsToFind = 0xE75C4BBF;        // num_gaps_to_find
 constexpr uint32_t kFindGapsFoundGap = 0x851AA6B8;     // goal_find_gaps_found_gap
 
-const char* const kGotBronze = reinterpret_cast<const char*>(0x0064DA98);    // "gotBronze"
-const char* const kGotSilver = reinterpret_cast<const char*>(0x0064DA8C);    // "gotSilver"
-const char* const kGotGold = reinterpret_cast<const char*>(0x0064DA84);      // "gotGold"
-const char* const kRewardGiven = reinterpret_cast<const char*>(0x0064DA74);  // "reward_given"
-const char* const kWinRecordName = reinterpret_cast<const char*>(0x0064DA68); // "win_record"
-const char* const kRewardParams = reinterpret_cast<const char*>(0x0064DAA4); // "reward_params"
+const char* const kGotBronze = GAME_TEXT(0x0064DA98, "gotBronze");    // "gotBronze"
+const char* const kGotSilver = GAME_TEXT(0x0064DA8C, "gotSilver");    // "gotSilver"
+const char* const kGotGold = GAME_TEXT(0x0064DA84, "gotGold");      // "gotGold"
+const char* const kRewardGiven = GAME_TEXT(0x0064DA74, "reward_given");  // "reward_given"
+const char* const kWinRecordName = GAME_TEXT(0x0064DA68, "win_record"); // "win_record"
+const char* const kRewardParams = GAME_TEXT(0x0064DAA4, "reward_params"); // "reward_params"
 
-void** const kCompetitionGoalVtable = reinterpret_cast<void**>(0x0064D9F0);
-void** const kFilmGoalVtable = reinterpret_cast<void**>(0x0064DC60);
-void** const kFindGapsGoalVtable = reinterpret_cast<void**>(0x0064DCD8);
+GAME_VTABLE(kCompetitionGoalVtable, 0x0064D9F0,
+            &Game::CCompetitionGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CCompetitionGoal::Expire,
+            &Game::CCompetitionGoal::LoadSaveData, &Game::CCompetitionGoal::GetSaveData,
+            &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue, &Game::CGoal::HasComponentA302D7CD,
+            &Game::CGoal::Activate, &Game::CCompetitionGoal::SetActive, &Game::CGoal::Deactivate,
+            &Game::CCompetitionGoal::SetInactive, &Game::CCompetitionGoal::Win, &Game::CGoal::Lose,
+            &Game::CGoal::Update, &Game::CCompetitionGoal::IsPaused, &Game::CGoal::SetFlag,
+            &Game::CGoal::StageFlagSet, &Game::CCompetitionGoal::HasWon, &Game::CGoal::NetStageFlagSet,
+            &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
+            &Game::CCompetitionGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
+            &Game::CCompetitionGoal::UnBeat);
+GAME_VTABLE(kFilmGoalVtable, 0x0064DC60,
+            &Game::CFilmGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CGoal::HasComponentA302D7CD, &Game::CFilmGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+            &Game::CFilmGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
+GAME_VTABLE(kFindGapsGoalVtable, 0x0064DCD8,
+            &Game::CFindGapsGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CGoal::HasComponentA302D7CD, &Game::CFindGapsGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
 
 int Truncate(double value) { return static_cast<int>(value); }
 

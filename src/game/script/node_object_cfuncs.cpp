@@ -53,6 +53,7 @@
 #include "hook/hook.h"
 #include "game/gfx/cag_cfuncs.h"
 #include "game/sys/game_config.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -229,15 +230,15 @@ bool __cdecl CFunc_CenterCamera(Script::CStruct* params, Script::CScript*)
     if (!Obj::g_viewMode)
         return false;
     float scale = 0.9f;
-    params->GetFloat(reinterpret_cast<const char*>(0x0064CF7C), &scale, 0); // "scale"
+    params->GetFloat(GAME_TEXT(0x0064CF7C, "scale"), &scale, 0); // "scale"
     float x = -45.0f;
-    params->GetFloat(reinterpret_cast<const char*>(0x0064D770), &x, 0); // "x"
+    params->GetFloat(GAME_TEXT(0x0064D770, "x"), &x, 0); // "x"
     float y = 45.0f;
-    params->GetFloat(reinterpret_cast<const char*>(0x0064D774), &y, 0); // "y"
+    params->GetFloat(GAME_TEXT(0x0064D774, "y"), &y, 0); // "y"
     float z = 0.0f;
-    params->GetFloat(reinterpret_cast<const char*>(0x0064FCF4), &z, 0); // "z"
+    params->GetFloat(GAME_TEXT(0x0064FCF4, "z"), &z, 0); // "z"
     uint32_t id = 0;
-    params->GetChecksum(reinterpret_cast<const char*>(0x0064C8F0), &id, 0); // "id"
+    params->GetChecksum(GAME_TEXT(0x0064C8F0, "id"), &id, 0); // "id"
     for (SceneNode* node = FirstScene(); node;) {
         SceneNode* next = NextScene(node);
         FitViewerCamera(node->scene, scale, x, y, z, id);
@@ -265,19 +266,19 @@ bool __cdecl CreateFromNode(Script::CStruct* node)
     switch (nodeClass) {
     case kClassPedestrian:
     case kClass061A741E:
-        Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650048)); // "Pedestrians"
+        Mem::PushMemProfile(GAME_TEXT(0x00650048, "Pedestrians")); // "Pedestrians"
         Obj::CreatePed(node);
         Mem::PopMemProfile();
         return true;
     case kClassClimbingNode:
     case kClassRailNode:
-        RailManager()->SetActive(name, 1, node->ContainsFlag(reinterpret_cast<const char*>(0x00650068))); // "FLAG_WHOLE_RAIL"
+        RailManager()->SetActive(name, 1, node->ContainsFlag(GAME_TEXT(0x00650068, "FLAG_WHOLE_RAIL"))); // "FLAG_WHOLE_RAIL"
         return true;
     case kClassProximNode:
         Obj::Proxim_SetActive(name, 1);
         return true;
     case kClassParticleObject:
-        Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650054)); // "Particle Systems"
+        Mem::PushMemProfile(GAME_TEXT(0x00650054, "Particle Systems")); // "Particle Systems"
         Obj::CreateParticleObject(node);
         Mem::PopMemProfile();
         return true;
@@ -285,7 +286,7 @@ bool __cdecl CreateFromNode(Script::CStruct* node)
         Obj::Emitter_SetActive(name, 1);
         return true;
     case kClassLevelObject:
-        Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650008)); // "LevelObjects"
+        Mem::PushMemProfile(GAME_TEXT(0x00650008, "LevelObjects")); // "LevelObjects"
         if (g_todManager->m_paramsSet) {
             uint32_t colour;
             g_todManager->GetLevelColor(&colour);
@@ -295,12 +296,12 @@ bool __cdecl CreateFromNode(Script::CStruct* node)
         Mem::PopMemProfile();
         return true;
     case kClassVehicle:
-        Mem::PushMemProfile(reinterpret_cast<const char*>(0x0064FFFC)); // "Vehicles"
+        Mem::PushMemProfile(GAME_TEXT(0x0064FFFC, "Vehicles")); // "Vehicles"
         Obj::CreateCar(node);
         Mem::PopMemProfile();
         return true;
     case kClassGameObject:
-        Mem::PushMemProfile(reinterpret_cast<const char*>(0x0064C284)); // "Game Objects"
+        Mem::PushMemProfile(GAME_TEXT(0x0064C284, "Game Objects")); // "Game Objects"
         Obj::CreateGameObjectFromNode(node);
         Mem::PopMemProfile();
         return true;
@@ -325,7 +326,7 @@ bool __cdecl CreateFromNode(Script::CStruct* node)
     }
     if (!sector) {
         // " WARNING: sGetSector(0x%x) returned NULL (%s)\n"
-        Dbg::Printf(reinterpret_cast<const char*>(0x00650018), sectorName, Script::FindChecksumNameOrUnknown(sectorName));
+        Dbg::Printf(GAME_TEXT(0x00650018, " WARNING: sGetSector(0x%x) returned NULL (%s)\n"), sectorName, Script::FindChecksumNameOrUnknown(sectorName));
         return true;
     }
     if (!cloneFrom) {
@@ -392,7 +393,7 @@ bool __cdecl KillFromNodeName(uint32_t name, Script::CScript* script)
     }
     case kClassClimbingNode:
     case kClassRailNode:
-        RailManager()->SetActive(name, 0, node->ContainsFlag(reinterpret_cast<const char*>(0x00650068))); // "FLAG_WHOLE_RAIL"
+        RailManager()->SetActive(name, 0, node->ContainsFlag(GAME_TEXT(0x00650068, "FLAG_WHOLE_RAIL"))); // "FLAG_WHOLE_RAIL"
         return true;
     case kClassProximNode:
         Obj::Proxim_SetActive(name, 0);
@@ -460,17 +461,17 @@ Obj::CTrickObjectManager* TrickObjects() { return Obj::g_trickObjectManager; }
 // scene's 0x0049E1B0 and the 0xA0E52802 nodes' 0x00490570. Always true.
 bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
 {
-    Mem::PushMemProfile(reinterpret_cast<const char*>(0x006501DC)); // "ParseNodeArray"
+    Mem::PushMemProfile(GAME_TEXT(0x006501DC, "ParseNodeArray")); // "ParseNodeArray"
     auto* nodes = reinterpret_cast<Script::CArray*>(SkateScript::GetNodeOwnerValue58());
     Obj::CRailManager* rails = RailManager();
-    if (!params || !params->ContainsFlag(reinterpret_cast<const char*>(0x006501D0))) { // "no_cleanup"
+    if (!params || !params->ContainsFlag(GAME_TEXT(0x006501D0, "no_cleanup"))) { // "no_cleanup"
         Obj::Proxim_Init();
         Obj::Emitter_Init();
         RailManager()->Cleanup();
         TrickObjects()->RemoveAllClusters();
         Nx::DeleteDynamicLights();
         Nx::DeleteAllSceneLights();
-        Mem::PushMemProfile(reinterpret_cast<const char*>(0x006501C4)); // "Rail Nodes"
+        Mem::PushMemProfile(GAME_TEXT(0x006501C4, "Rail Nodes")); // "Rail Nodes"
         rails->AddFromNodeArray(nodes);
         Mem::PopMemProfile();
     }
@@ -499,7 +500,7 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
             node->GetChecksum(kName, &name, 0);
             if (!name) {
                 Script::PrintContents(node, 0);
-                Dbg::Printf(reinterpret_cast<const char*>(0x00650184), i); // "FAILED BECAUSE Node %d is LevelGeometry..."
+                Dbg::Printf(GAME_TEXT(0x00650184, "FAILED BECAUSE Node %d is LevelGeometry, but has no Name=....\n"), i); // "FAILED BECAUSE Node %d is LevelGeometry..."
             }
             if (uint8_t* sector = FindSector(name)) {
                 if (!ParkEditorOff()) {
@@ -526,14 +527,14 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
                 node->GetChecksum(kCloneFrom, &cloneFrom, 0);
                 if (!cloneFrom && !Mdl::Skate::IsMultiplayer() && ParkEditorOff()) {
                     // "FAILED BECAUSE: Cannot find level geometry or collision for node %d ..."
-                    Dbg::Printf(reinterpret_cast<const char*>(0x006500B0), i, Script::FindChecksumNameOrUnknown(name));
+                    Dbg::Printf(GAME_TEXT(0x006500B0, "FAILED BECAUSE: Cannot find level geometry or collision for node %d \nMaybe there are spaces in or after the name of the Max object (%s)\?\nOr maybe the .QN file does not match the .SCN file checked into Perforce\?\n"), i, Script::FindChecksumNameOrUnknown(name));
                 }
             }
             bool trick = node->ContainsComponentNamed(kTrickObject);
             if (!GameConfig::g_fromCD && Script::GetInteger(kAllTrickObjects))
                 trick = true;
             if (!SkipsNode(node) && trick) {
-                Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650098)); // "Trick Object Clusters"
+                Mem::PushMemProfile(GAME_TEXT(0x00650098, "Trick Object Clusters")); // "Trick Object Clusters"
                 node->GetChecksum(kName, &objectName, true);
                 uint32_t cluster = objectName;
                 node->GetChecksum(kCluster, &cluster, false);
@@ -549,13 +550,13 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
                 continue;
         } else {
             if (nodeClass == kClassProximNode) {
-                Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650088)); // "Proximity Nodes"
+                Mem::PushMemProfile(GAME_TEXT(0x00650088, "Proximity Nodes")); // "Proximity Nodes"
                 bool active = node->ContainsFlag(kCreatedAtStart); // (asked before the name, as in the original)
                 Obj::Proxim_AddNode(SkateScript::GetNodeName(node), active);
                 Mem::PopMemProfile();
             }
             if (nodeClass == kClassEmitterObject) {
-                Mem::PushMemProfile(reinterpret_cast<const char*>(0x00650078)); // "Emitter Objects"
+                Mem::PushMemProfile(GAME_TEXT(0x00650078, "Emitter Objects")); // "Emitter Objects"
                 bool active = node->ContainsFlag(kCreatedAtStart); // (asked before the name, as in the original)
                 Obj::Emitter_AddNode(SkateScript::GetNodeName(node), active);
                 Mem::PopMemProfile();

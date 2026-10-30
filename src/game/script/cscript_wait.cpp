@@ -21,6 +21,7 @@
 #include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Script {
 
@@ -124,7 +125,7 @@ void CScript::StopWaiting() { m_waitType = WAIT_TYPE_NONE; }
 bool CScript::IsBlocked(bool print)
 {
     if (print)
-        Dbg::Printf(reinterpret_cast<const char*>(0x00648410) /* "m_wait_type == %i\n" */, m_waitType);
+        Dbg::Printf(GAME_TEXT(0x00648410, "m_wait_type == %i\n") /* "m_wait_type == %i\n" */, m_waitType);
     return m_waitType == WAIT_TYPE_BLOCKED;
 }
 

@@ -25,6 +25,7 @@
 #include "game/skater/trick_component.h"
 #include "game/sys/timer.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Mdl {
 
@@ -156,13 +157,13 @@ void Score::CaptureScore()
         if (trick->m_kind)
             points = points * 120 / 100;
         if (m_debug)
-            Dbg::Printf(Text(0x0064E2F0), trick->m_score, static_cast<double>(reduction) * static_cast<double>(0.01f),
+            Dbg::Printf(GAME_TEXT(0x0064E2F0, "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"), trick->m_score, static_cast<double>(reduction) * static_cast<double>(0.01f),
                         static_cast<double>(spin) * 0.5, points,
                         trick->m_text); // "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"
         m_pot += points;
     }
     if (m_debug)
-        Dbg::Printf(Text(0x0064E2E0), m_pot); // "   total %d\n"
+        Dbg::Printf(GAME_TEXT(0x0064E2E0, "   total %d\n"), m_pot); // "   total %d\n"
     if (Script::GetInteger(kNewSpecial)) {
         double points = static_cast<double>(m_pot) * m_multiplier;
         double counted = static_cast<double>(m_potSpecial);
@@ -370,7 +371,7 @@ void Score::Trigger(const char* text, int score, uint32_t flags)
         if (m_tricks > 249) {
             if (unnamed)
                 return;
-            Dbg::Printf(Text(0x0064E368), 250); // "Trick Limit (%d) Reached\n"
+            Dbg::Printf(GAME_TEXT(0x0064E368, "Trick Limit (%d) Reached\n"), 250); // "Trick Limit (%d) Reached\n"
             LastTrick()->m_score += score;
             if (!(flags & kTrickNoMultiplier))
                 m_multiplier = static_cast<float>(static_cast<double>(m_multiplier) + 1.0);
@@ -398,12 +399,12 @@ void Score::Trigger(const char* text, int score, uint32_t flags)
         EscapeSpaces(trick->m_text, text);
         const char* format;
         if (flags & kTrickColour3)
-            format = Text(0x0064E35C); // "\c3%s%s\c0 "
+            format = GAME_TEXT(0x0064E35C, "\\c3%s%s\\c0 "); // "\c3%s%s\c0 "
         else if (flags & kTrickSpecial)
-            format = Text(0x0064E350); // "\c2%s%s\c0 "
+            format = GAME_TEXT(0x0064E350, "\\c2%s%s\\c0 "); // "\c2%s%s\c0 "
         else
-            format = Text(0x0064E348); // "%s%s "
-        std::snprintf(trick->m_shown, sizeof(trick->m_shown), format, Text(0x006469B4), trick->m_text);
+            format = GAME_TEXT(0x0064E348, "%s%s "); // "%s%s "
+        std::snprintf(trick->m_shown, sizeof(trick->m_shown), format, GAME_TEXT(0x006469B4, ""), trick->m_text);
         // The trick before it (the last one named, not "...") gets the " + " joining them.
         for (int i = m_log.m_count - 2; i >= 0; --i) {
             char* shown = Trick(i)->m_shown;
@@ -412,7 +413,7 @@ void Score::Trigger(const char* text, int score, uint32_t flags)
                 continue;
             if (shown[length - 1] == ' ')
                 shown[length - 1] = 0;
-            std::memcpy(shown + std::strlen(shown), Text(0x0064E340), 5); // "\_+ "
+            std::memcpy(shown + std::strlen(shown), GAME_TEXT(0x0064E340, "\\_+ "), 5); // "\_+ "
             break;
         }
     }
@@ -496,9 +497,9 @@ void Score::SetSpin(int degrees)
     const char* side;
     if (degrees < 0) {
         size = -degrees;
-        side = flipped ? Text(0x0064E490) : Text(0x0064E494); // "BS" / "FS"
+        side = flipped ? GAME_TEXT(0x0064E490, "BS") : GAME_TEXT(0x0064E494, "FS"); // "BS" / "FS"
     } else {
-        side = flipped ? Text(0x0064E494) : Text(0x0064E490);
+        side = flipped ? GAME_TEXT(0x0064E494, "FS") : GAME_TEXT(0x0064E490, "BS");
     }
     int halfTurns = (Ftol(Obj::GetPhysicsFloat(kSpinCountSlop, 0, nullptr)) + size) / 180;
     Trick(m_spinTrick)->m_spinDegrees = degrees;
@@ -506,33 +507,33 @@ void Score::SetSpin(int degrees)
     bool renamed = false;
     if (crc == kFakieOllie || crc == kCabTrick2 || crc == kCabTrick3) {
         if (halfTurns == 1) {
-            std::memcpy(Trick(m_spinTrick)->m_text, Text(0x0064E484), 10); // "Half\_Cab"
+            std::memcpy(Trick(m_spinTrick)->m_text, GAME_TEXT(0x0064E484, "Half\\_Cab"), 10); // "Half\_Cab"
             renamed = true;
         } else if (halfTurns == 2) {
-            std::memcpy(Trick(m_spinTrick)->m_text, Text(0x0064E478), 11); // "Cabalerial"
+            std::memcpy(Trick(m_spinTrick)->m_text, GAME_TEXT(0x0064E478, "Cabalerial"), 11); // "Cabalerial"
             renamed = true;
         } else if (halfTurns > 2) {
             Trick(m_spinTrick)->m_text[0] = 0;
-            if (side == Text(0x0064E494))
-                side = Text(0x0064E470); // "FS Cab"
-            if (side == Text(0x0064E490))
-                side = Text(0x0064E468); // "BS Cab"
+            if (side == GAME_TEXT(0x0064E494, "FS"))
+                side = GAME_TEXT(0x0064E470, "FS Cab"); // "FS Cab"
+            if (side == GAME_TEXT(0x0064E490, "BS"))
+                side = GAME_TEXT(0x0064E468, "BS Cab"); // "BS Cab"
         }
     }
     if (Trick(m_spinTrick)->m_spin >= halfTurns)
         return;
     if (m_debug)
-        Dbg::Printf(Text(0x0064E454), halfTurns * 180); // "New spin value %d:\n"
+        Dbg::Printf(GAME_TEXT(0x0064E454, "New spin value %d:\n"), halfTurns * 180); // "New spin value %d:\n"
     STrickLog* trick = Trick(m_spinTrick);
     if (trick->m_name == kOllie && halfTurns % 2 == 1) { // (an odd number of half turns: the other side)
-        if (side == Text(0x0064E494))
-            side = Text(0x0064E490);
-        else if (side == Text(0x0064E490))
-            side = Text(0x0064E494);
-        if (side == Text(0x0064E470))
-            side = Text(0x0064E468);
-        else if (side == Text(0x0064E468))
-            side = Text(0x0064E470);
+        if (side == GAME_TEXT(0x0064E494, "FS"))
+            side = GAME_TEXT(0x0064E490, "BS");
+        else if (side == GAME_TEXT(0x0064E490, "BS"))
+            side = GAME_TEXT(0x0064E494, "FS");
+        if (side == GAME_TEXT(0x0064E470, "FS Cab"))
+            side = GAME_TEXT(0x0064E468, "BS Cab");
+        else if (side == GAME_TEXT(0x0064E468, "BS Cab"))
+            side = GAME_TEXT(0x0064E470, "FS Cab");
     }
     int shownDegrees = halfTurns * 180;
     bool joined = m_log.m_count - 1 > m_spinTrick;
@@ -540,20 +541,20 @@ void Score::SetSpin(int degrees)
     if (!renamed) {
         const char* format;
         if (flags & kTrickColour3)
-            format = Text(joined ? 0x0064E43C : 0x0064E400); // "\c3%s\_%d\_%s\c0[\_+ ]"
+            format = (joined ? GAME_TEXT(0x0064E43C, "\\c3%s\\_%d\\_%s\\c0\\_+ ") : GAME_TEXT(0x0064E400, "\\c3%s\\_%d\\_%s\\c0")); // "\c3%s\_%d\_%s\c0[\_+ ]"
         else if (flags & kTrickSpecial)
-            format = Text(joined ? 0x0064E424 : 0x0064E3EC); // "\c2%s\_%d\_%s\c0[\_+ ]"
+            format = (joined ? GAME_TEXT(0x0064E424, "\\c2%s\\_%d\\_%s\\c0\\_+ ") : GAME_TEXT(0x0064E3EC, "\\c2%s\\_%d\\_%s\\c0")); // "\c2%s\_%d\_%s\c0[\_+ ]"
         else
-            format = Text(joined ? 0x0064E414 : 0x0064E3E0); // "%s\_%d\_%s[\_+ ]"
+            format = (joined ? GAME_TEXT(0x0064E414, "%s\\_%d\\_%s\\_+ ") : GAME_TEXT(0x0064E3E0, "%s\\_%d\\_%s")); // "%s\_%d\_%s[\_+ ]"
         std::snprintf(trick->m_shown, sizeof(trick->m_shown), format, side, shownDegrees, trick->m_text);
     } else {
         const char* format;
         if (flags & kTrickColour3)
-            format = Text(joined ? 0x0064E3CC : 0x0064E39C); // "\c3%s\_%s\c0[\_+ ]"
+            format = (joined ? GAME_TEXT(0x0064E3CC, "\\c3%s\\_%s\\c0\\_+ ") : GAME_TEXT(0x0064E39C, "\\c3%s\\_%s\\c0")); // "\c3%s\_%s\c0[\_+ ]"
         else if (flags & kTrickSpecial)
-            format = Text(joined ? 0x0064E3B8 : 0x0064E38C); // "\c2%s\_%s\c0[\_+ ]"
+            format = (joined ? GAME_TEXT(0x0064E3B8, "\\c2%s\\_%s\\c0\\_+ ") : GAME_TEXT(0x0064E38C, "\\c2%s\\_%s\\c0")); // "\c2%s\_%s\c0[\_+ ]"
         else
-            format = Text(joined ? 0x0064E3AC : 0x0064E384); // "%s\_%s[\_+ ]"
+            format = (joined ? GAME_TEXT(0x0064E3AC, "%s\\_%s\\_+ ") : GAME_TEXT(0x0064E384, "%s\\_%s")); // "%s\_%s[\_+ ]"
         std::snprintf(trick->m_shown, sizeof(trick->m_shown), format, side, trick->m_text);
     }
     DispatchTrickSequence(false);
@@ -699,7 +700,7 @@ void Score::Reset()
     if (!SkateCalls::Skate())
         return;
     Obj::CSkater* skater = SkaterById(m_skaterId);
-    Dbg::Printf(Text(0x0064E498)); // "Score::RESET ...............\n"
+    Dbg::Printf(GAME_TEXT(0x0064E498, "Score::RESET ...............\n")); // "Score::RESET ...............\n"
     ResetRobot(this, true);
     ResetScorePot();
     Lst::LookupTableDestroyer destroyer{&m_seen};

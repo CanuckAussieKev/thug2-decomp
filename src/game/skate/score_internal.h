@@ -16,6 +16,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 
 namespace Mdl {
 namespace ScoreInternal {
@@ -39,8 +40,10 @@ constexpr uint32_t kAnimBlender = 0x7149B753;         // animblender
 
 // A trick's points by its repeats (percent: 100, 75, 50, 25, 10) and its spin (half the multiplier: 2 none ... 7),
 // read from the exe as the original does (an index outside the tables reads past them, as there).
-inline int Reduction(int repeats) { return repeats < 5 ? reinterpret_cast<const int*>(0x0064E280)[repeats] : 10; }
-inline int SpinMultiplier(int spin) { return spin < 6 ? reinterpret_cast<const int*>(0x0064E268)[spin] : 7; }
+GAME_GLOBAL_EXTERN(int[5], g_trickReduction); // (0x0064E280)
+GAME_GLOBAL_EXTERN(int[6], g_spinMultiplier); // (0x0064E268)
+inline int Reduction(int repeats) { return repeats < 5 ? g_trickReduction[repeats] : 10; }
+inline int SpinMultiplier(int spin) { return spin < 6 ? g_spinMultiplier[spin] : 7; }
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 inline int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -52,7 +55,6 @@ inline Obj::CSkater* SkaterById(int id)
 {
     return static_cast<Obj::CSkater*>(SkateCalls::GetSkaterById(static_cast<uint32_t>(id)));
 }
-inline const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 
 // The screen element with this id (its smart pointer let go at once: the raw pointer kept, as the original).
 inline Front::CScreenElement* FindElement(uint32_t id)

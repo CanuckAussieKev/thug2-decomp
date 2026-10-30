@@ -48,6 +48,11 @@ class CHorse;
 
 namespace Mdl {
 
+// The skate module's virtual tables: itself, and the skater list's node and head (defined in skate_module_state.cpp).
+extern void** const kSkateVtable;
+extern void** const kSkaterNodeVtable;
+extern void** const kSkaterHeadVtable;
+
 class Skate : public Module {
 public:
     // A skater slot's settings (+0x390, 8 of them).

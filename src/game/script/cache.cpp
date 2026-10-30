@@ -15,6 +15,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 
 namespace Script {
 
@@ -46,6 +48,7 @@ struct StoredScript {
     uint8_t code[1];
 };
 
+GAME_VTABLE(kScriptCacheVtable, 0x00648468, &Script::CScriptCache::Destroy, Stubs::DoNothing, Stubs::DoNothing);
 } // namespace
 
 // 0x00475AC0
@@ -64,7 +67,7 @@ void CScriptCacheEntry::operator delete(void* entry)
 CScriptCache* CScriptCache::Construct()
 {
     ConstructModule(this);
-    m_vtable = reinterpret_cast<void**>(0x00648468);
+    m_vtable = kScriptCacheVtable;
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_scriptHeap);
     void* memory = Mem::New(sizeof(Lst::HashTable));
@@ -79,7 +82,7 @@ CScriptCache* CScriptCache::Construct()
 // 0x00476090
 void CScriptCache::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x00648468);
+    m_vtable = kScriptCacheVtable;
     // Every entry, by iterating the table (the iteration carries on from where it was after each removal).
     m_entries->m_iterBucket = -1;
     m_entries->m_iterItem = nullptr;

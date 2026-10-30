@@ -20,6 +20,7 @@
 #include "game/skate/trick_goals.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -37,7 +38,6 @@ constexpr uint32_t kViewGoalsMenuAddItem = 0x380AEA65; // view_goals_menu_add_it
 constexpr uint32_t kCountAll = 0xA21884B5;         // count_all
 constexpr uint32_t kTrickBeat = 0xD0DD047B;        // TrickBeat
 
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 
 Script::CStruct* NewStructure()
@@ -90,7 +90,7 @@ void CGoalManager::UpdateTimeDisplay()
             minutes = time / 60000;
             seconds = (time - minutes * 60000) / 1000;
         }
-        std::snprintf(text, sizeof(text), Text(0x0064DF7C), minutes, seconds); // "%2i:%.2i"
+        std::snprintf(text, sizeof(text), GAME_TEXT(0x0064DF7C, "%2i:%.2i"), minutes, seconds); // "%2i:%.2i"
         break;
     }
     Front::ElementPtr element;
@@ -192,10 +192,10 @@ void CGoalManager::AddViewGoalsList()
             int value = 0;
             if (goal->IsCompetition()) {
                 params->GetInteger(kWinRecord, &value, 0);
-                std::snprintf(record, sizeof(record), Text(0x0064DFBC), value); // "%i"
-                const char* suffix = value == 1   ? Text(0x0064DF98)  // "st place"
-                                     : value == 2 ? Text(0x0064DFA4)  // "nd place"
-                                     : value == 3 ? Text(0x0064DFB0)  // "rd place"
+                std::snprintf(record, sizeof(record), GAME_TEXT(0x0064DFBC, "%i"), value); // "%i"
+                const char* suffix = value == 1   ? GAME_TEXT(0x0064DF98, "st place")  // "st place"
+                                     : value == 2 ? GAME_TEXT(0x0064DFA4, "nd place")  // "nd place"
+                                     : value == 3 ? GAME_TEXT(0x0064DFB0, "rd place")  // "rd place"
                                                   : "";
                 std::size_t length = std::strlen(record);
                 std::snprintf(record + length, sizeof(record) - length, "%s", suffix);
@@ -205,14 +205,14 @@ void CGoalManager::AddViewGoalsList()
                 if (params->GetChecksum(kRecordType, &type, 0)) {
                     if (type == kScore) {
                         params->GetInteger(kWinRecord, &value, 0);
-                        std::snprintf(record, sizeof(record), Text(0x00646B8C), Str::FormatWithSeparators(value)); // "%s"
+                        std::snprintf(record, sizeof(record), GAME_TEXT(0x00646B8C, "%s"), Str::FormatWithSeparators(value)); // "%s"
                         item->AddString(kRecordText, record);
                     } else if (type == kTime) {
                         int ms = 0;
                         params->GetInteger(kWinRecord, &ms, 0);
                         int totalSeconds = ms / 1000;
                         int minutes = totalSeconds / 60;
-                        std::snprintf(record, sizeof(record), Text(0x0064DF88), minutes, totalSeconds - minutes * 60,
+                        std::snprintf(record, sizeof(record), GAME_TEXT(0x0064DF88, "%i:%02i.%02i"), minutes, totalSeconds - minutes * 60,
                                       (ms % 1000) / 10); // "%i:%02i.%02i"
                         item->AddString(kRecordText, record);
                     }
@@ -318,7 +318,7 @@ bool __cdecl CFunc_GoalManager_UpdateAllGoals(Script::CStruct*, Script::CScript*
 bool __cdecl CFunc_GoalManager_GetTimeLeftInNetGame(Script::CStruct*, Script::CScript* script)
 {
     if (CGoal* goal = GetGoalManager()->GetActiveNetGoal())
-        script->m_params->AddInteger(Text(0x0064DFC0), goal->GetTimeLeft()); // "time_left"
+        script->m_params->AddInteger(GAME_TEXT(0x0064DFC0, "time_left"), goal->GetTimeLeft()); // "time_left"
     return true;
 }
 

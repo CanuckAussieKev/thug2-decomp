@@ -18,6 +18,7 @@
 #include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
 #include "game/gfx/loading_bar.h"
+#include "hook/game_code.h"
 
 namespace Mdl {
 
@@ -340,20 +341,20 @@ void CCompetition::Start(float bronze, float silver, float gold, float bronzeSco
         leader.m_scores[second] = Round(mirrored);
     }
 
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D888));
+    Dbg::Printf(GAME_TEXT(0x0064D888, "\n\n"));
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064D85C), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        Dbg::Printf(GAME_TEXT(0x0064D85C, "%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n"), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     SortLeaders();
     const char* firstPlace;
     if (m_params->GetString(kFirstPlaceName, &firstPlace, 0))
         m_leaders[0].m_name = firstPlace;
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D850));
+    Dbg::Printf(GAME_TEXT(0x0064D850, "\nSorted\n"));
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064D85C), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        Dbg::Printf(GAME_TEXT(0x0064D85C, "%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n"), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     for (int i = 0; i < kJudges; ++i)
@@ -369,17 +370,17 @@ void CCompetition::ShowLeaderBoard()
     Script::CStruct* params = NewStructure();
     Script::CArray* board = NewArray();
     board->SetSizeAndType(5, Script::ESYMBOLTYPE_STRUCTURE);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D8A4));
+    Dbg::Printf(GAME_TEXT(0x0064D8A4, "\nSetupJudgeText\n"));
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064D85C), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        Dbg::Printf(GAME_TEXT(0x0064D85C, "%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n"), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     for (int i = 0; i < 5; ++i) {
         Leader& leader = m_leaders[i];
         Script::CStruct* entry = NewStructure();
         entry->AddString(kName, leader.m_name.c_str());
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064D88C), m_runs);
+        Dbg::Printf(GAME_TEXT(0x0064D88C, "m_current_round: %i\n"), m_runs);
         entry->AddInteger(kScore, leader.BestTwo(m_runs + 1));
         if (leader.m_id == 0)
             entry->AddChecksum(kNoName, kPlayer);
@@ -396,8 +397,8 @@ void CCompetition::EndRun(int score)
 {
     if (m_ended)
         return;
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D9C8), score);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D9A8), static_cast<double>(m_bronzeScore),
+    Dbg::Printf(GAME_TEXT(0x0064D9C8, "Ending Competition with score of %d\n"), score);
+    Dbg::Printf(GAME_TEXT(0x0064D9A8, "Bronze %f, silver %f, gold %f\n"), static_cast<double>(m_bronzeScore),
                 static_cast<double>(m_silverScore), static_cast<double>(m_goldScore));
 
     // The points: linear between the medal scores (above gold: towards 100 at twice the gold score).
@@ -417,9 +418,9 @@ void CCompetition::EndRun(int score)
         points = static_cast<float>((x - m_goldScore) * (static_cast<double>(Hundred()) - m_gold) /
                                         (static_cast<double>(m_goldScore) + m_goldScore - m_goldScore) +
                                     m_gold);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D98C), static_cast<double>(points));
+    Dbg::Printf(GAME_TEXT(0x0064D98C, "points calculated at %f\n"), static_cast<double>(points));
     points = points - m_bailPoints;
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D960), static_cast<double>(m_bailPoints),
+    Dbg::Printf(GAME_TEXT(0x0064D960, "points decremented by %f bail points to %f\n"), static_cast<double>(m_bailPoints),
                 static_cast<double>(points));
 
     float max = MaxPoints();
@@ -472,7 +473,7 @@ void CCompetition::EndRun(int score)
     if (!(m_points <= limit))
         m_points = limit;
     m_runScores[m_runs] = Truncate(m_points);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D92C), static_cast<double>(judges[0]),
+    Dbg::Printf(GAME_TEXT(0x0064D92C, "3 scores are %f,%f,%f, total is %f\n"), static_cast<double>(judges[0]),
                 static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(m_points));
 
     // The player's score of the run, the standings, the place.
@@ -492,12 +493,12 @@ void CCompetition::EndRun(int score)
         lowest = judges[1];
     if (judges[2] < lowest)
         lowest = judges[2];
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D91C), static_cast<double>(lowest));
+    Dbg::Printf(GAME_TEXT(0x0064D91C, "Lowest = %f\n"), static_cast<double>(lowest));
     float base = lowest - spread;
     for (int i = 3; i < kJudges; ++i) {
         double judge = Mth::PlusOrMinusExact(spread) + base;
         judges[i] = static_cast<float>(judge);
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064D90C), i, judge); // (the unrounded value)
+        Dbg::Printf(GAME_TEXT(0x0064D90C, "Score %d is %f\n"), i, judge); // (the unrounded value)
     }
     for (int i = 0; i < kJudges; ++i) {
         if (judges[i] < Zero())
@@ -516,20 +517,20 @@ void CCompetition::EndRun(int score)
     Script::CStruct* params = NewStructure();
     Script::CArray* scores = NewArray();
     scores->SetSizeAndType(5, Script::ESYMBOLTYPE_STRUCTURE);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064D8F8));
+    Dbg::Printf(GAME_TEXT(0x0064D8F8, "\nJudgement Day\n\n"));
     for (int i = 0; i < kJudges; ++i) {
         Script::CStruct* entry = NewStructure();
-        entry->AddInteger(reinterpret_cast<const char*>(0x0064D384), Round(judges[i])); // "score"
+        entry->AddInteger(GAME_TEXT(0x0064D384, "score"), Round(judges[i])); // "score"
         if (IsTopJudge(i))
             entry->AddChecksum(kNoName, kTopJudge);
         scores->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064D8E8), i, static_cast<double>(judges[i]),
+        Dbg::Printf(GAME_TEXT(0x0064D8E8, "%d: %f Top=%d\n"), i, static_cast<double>(judges[i]),
                     static_cast<int>(IsTopJudge(i)));
     }
-    params->AddArray(reinterpret_cast<const char*>(0x0064D8E0), scores);              // "scores"
-    params->AddInteger(reinterpret_cast<const char*>(0x0064D8D4), Round(m_points));  // "total_score"
+    params->AddArray(GAME_TEXT(0x0064D8E0, "scores"), scores);              // "scores"
+    params->AddInteger(GAME_TEXT(0x0064D8D4, "total_score"), Round(m_points));  // "total_score"
     FreeArray(scores);
-    Script::SpawnScript(reinterpret_cast<const char*>(0x0064D8B8), params, 0, nullptr, 0, 0, false, false, false,
+    Script::SpawnScript(GAME_TEXT(0x0064D8B8, "goal_comp_show_run_scores"), params, 0, nullptr, 0, 0, false, false, false,
                         false); // goal_comp_show_run_scores
     DeleteStructure(params);
 }

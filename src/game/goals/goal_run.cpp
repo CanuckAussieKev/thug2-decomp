@@ -28,6 +28,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -321,7 +322,7 @@ void CGoal::KillCluster(uint32_t cluster, int score)
             m_params->GetInteger(kScore, &needed, 1);
         if (id == cluster && score > needed) {
             if (!Obj::g_trickObjectManager->SetObjectGraffitiColor(cluster, 0))
-                Dbg::Printf(reinterpret_cast<const char*>(0x0064DDA4)); // "ModulateTrickObjectColor didn't work\n"
+                Dbg::Printf(GAME_TEXT(0x0064DDA4, "ModulateTrickObjectColor didn't work\n")); // "ModulateTrickObjectColor didn't work\n"
             uint32_t flag;
             entry->GetChecksum(kFlag, &flag, 1);
             Virtual<bool>(this, kVtSetFlag, flag, 1, 0u);

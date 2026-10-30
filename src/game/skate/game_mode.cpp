@@ -15,6 +15,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -62,10 +63,10 @@ constexpr uint32_t kModeInfo = 0xCA5F7FFB;          // mode_info
 constexpr uint32_t kDefinition = 0x97CFD027;        // definition
 constexpr uint32_t kFreeskate = 0x34861A16;         // freeskate
 
-void** const kGameFlowVtable = reinterpret_cast<void**>(0x0064DD50);
-void** const kGameModeVtable = reinterpret_cast<void**>(0x0064DD58);
-void** const kConditionHeadVtable = reinterpret_cast<void**>(0x0064DD90);
-void** const kConditionNodeVtable = reinterpret_cast<void**>(0x0064DD54);
+GAME_VTABLE(kGameFlowVtable, 0x0064DD50, &Game::CGameFlow::Destroy);
+GAME_VTABLE(kGameModeVtable, 0x0064DD58, &Game::CGameMode::Destroy);
+GAME_VTABLE(kConditionHeadVtable, 0x0064DD90, &Game::CGameMode::ConditionNode::DestroyHead);
+GAME_VTABLE(kConditionNodeVtable, 0x0064DD54, &Game::CGameMode::ConditionNode::Destroy);
 CVictoryCondition* const kHeadMarker = reinterpret_cast<CVictoryCondition*>(-1);
 
 // (the getters' local when an asserted integer isn't there: the original's is the pushed `this`)
@@ -396,9 +397,9 @@ bool CGameMode::LoadGameType(uint32_t type)
 // 0x00553BE0
 bool CGameMode::OverrideOptions(Script::CStruct* options)
 {
-    for (const char* name : {reinterpret_cast<const char*>(0x0064DD80),   // "time_limit_type"
-                             reinterpret_cast<const char*>(0x0064DD68),   // "victory_condition_type"
-                             reinterpret_cast<const char*>(0x0064DD5C)}) { // "screenmode"
+    for (const char* name : {GAME_TEXT(0x0064DD80, "time_limit_type"),   // "time_limit_type"
+                             GAME_TEXT(0x0064DD68, "victory_condition_type"),   // "victory_condition_type"
+                             GAME_TEXT(0x0064DD5C, "screenmode")}) { // "screenmode"
         if (options->ContainsComponentNamed(name))
             m_params.RemoveComponent(Crc::GenerateCRCFromString(name));
     }

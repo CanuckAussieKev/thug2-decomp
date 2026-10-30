@@ -11,6 +11,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Script {
 
@@ -589,7 +590,8 @@ void EndPermanentStrings()
 }
 
 namespace {
-char (&ScriptStringSlot(int index))[128] { return reinterpret_cast<char(*)[128]>(0x006F3590)[index]; }
+GAME_GLOBAL(char[128], g_scriptStrings, 0x006F3590); // (the strings SetScriptString / GetScriptString use, 128 bytes each, indexed from here)
+char (&ScriptStringSlot(int index))[128] { return reinterpret_cast<char(*)[128]>(&g_scriptStrings)[index]; }
 } // namespace
 
 // 0x00476370
@@ -1618,7 +1620,7 @@ uint32_t SymbolValueOfType(CSymbolTableEntry* entry, ESymbolType type)
 }
 
 // The game's empty string (what the string getters give for missing symbols).
-const char* EmptyString() { return reinterpret_cast<const char*>(0x006469B4); }
+const char* EmptyString() { return GAME_TEXT(0x006469B4, ""); }
 
 } // namespace
 
@@ -1822,7 +1824,7 @@ namespace {
 using Script::CStruct;
 
 // 0x00479190: the type-name lookup was compiled out: it gives a "(Hey, don't use this...)" message.
-const char* GetTypeName() { return reinterpret_cast<const char*>(0x00648474); }
+const char* GetTypeName() { return GAME_TEXT(0x00648474, "(Hey, don't use GetTypeName on the CD!)"); }
 
 // ComponentsEqual is a member of the first component in the game.
 struct ComponentEqualsAdapter {

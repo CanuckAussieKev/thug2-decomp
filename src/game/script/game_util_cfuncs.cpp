@@ -27,6 +27,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/cag_cfuncs.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -277,7 +278,7 @@ bool __cdecl CFunc_GetInitialsString(Script::CStruct*, Script::CScript* script)
 bool __cdecl CFunc_SetInitialsString(Script::CStruct* params, Script::CScript*)
 {
     auto* records = Records::g_gameRecords;
-    const char* initials = reinterpret_cast<const char*>(0x00657CC8); // "ERR"
+    const char* initials = GAME_TEXT(0x00657CC8, "ERR"); // "ERR"
     params->GetString(kString, &initials, 0);
     records->SetDefaultInitials(initials);
     return true;

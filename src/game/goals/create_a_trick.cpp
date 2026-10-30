@@ -11,6 +11,7 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -19,21 +20,20 @@ namespace {
 constexpr uint32_t kFlipSkater180 = 0xAFB9A15E; // cat_flip_skater_180
 constexpr uint32_t kNoName = 0;                 // (the command's unnamed value)
 
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
-const char* const kTrickIndex = Text(0x0064DAE4);      // "trick_index"
-const char* const kOtherParams = Text(0x0064DAD4);     // "other_params"
-const char* const kRotationInfo = Text(0x0064DAC4);    // "rotation_info"
-const char* const kAnimationInfo = Text(0x0064DAB4);   // "animation_info"
-const char* const kNumAnimationsOn = Text(0x0064DB60); // "num_animations_on"
-const char* const kAnimationsDone = Text(0x0064DB74);  // "cat_animations_done"
-const char* const kRotationsDone = Text(0x0064DB88);   // "cat_rotations_done"
-const char* const kBailDone = Text(0x0064DB9C);        // "bailtimescriptdone"
-const char* const kHoldTime = Text(0x0064DBB0);        // "cat_hold_time"
-const char* const kTotalY = Text(0x0064DBC0);          // "total_Y_angle"
-const char* const kTotalX = Text(0x0064DBD0);          // "total_X_angle"
-const char* const kTotalZ = Text(0x0064DBE0);          // "total_Z_angle"
+const char* const kTrickIndex = GAME_TEXT(0x0064DAE4, "trick_index");      // "trick_index"
+const char* const kOtherParams = GAME_TEXT(0x0064DAD4, "other_params");     // "other_params"
+const char* const kRotationInfo = GAME_TEXT(0x0064DAC4, "rotation_info");    // "rotation_info"
+const char* const kAnimationInfo = GAME_TEXT(0x0064DAB4, "animation_info");   // "animation_info"
+const char* const kNumAnimationsOn = GAME_TEXT(0x0064DB60, "num_animations_on"); // "num_animations_on"
+const char* const kAnimationsDone = GAME_TEXT(0x0064DB74, "cat_animations_done");  // "cat_animations_done"
+const char* const kRotationsDone = GAME_TEXT(0x0064DB88, "cat_rotations_done");   // "cat_rotations_done"
+const char* const kBailDone = GAME_TEXT(0x0064DB9C, "bailtimescriptdone");        // "bailtimescriptdone"
+const char* const kHoldTime = GAME_TEXT(0x0064DBB0, "cat_hold_time");        // "cat_hold_time"
+const char* const kTotalY = GAME_TEXT(0x0064DBC0, "total_Y_angle");          // "total_Y_angle"
+const char* const kTotalX = GAME_TEXT(0x0064DBD0, "total_X_angle");          // "total_X_angle"
+const char* const kTotalZ = GAME_TEXT(0x0064DBE0, "total_Z_angle");          // "total_Z_angle"
 
-void** const kCreateATrickVtable = reinterpret_cast<void**>(0x0064DC40);
+GAME_VTABLE(kCreateATrickVtable, 0x0064DC40, &Game::CCreateATrick::Destroy);
 
 Obj::CSkater* LocalSkater() { return static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater()); }
 CCreateATrick* CreatedTrick(Obj::CSkater* skater, int index)
@@ -60,16 +60,16 @@ Script::CArray* NewArray()
 CCreateATrick* CCreateATrick::Construct()
 {
     m_vtable = kCreateATrickVtable;
-    Dbg::Printf(Text(0x0064DC44)); // "creating a CCreateATrick\n"
-    Script::CStruct* other = Script::GetStructure(Text(0x0064DC28)); // "Default_CAT_other_info"
+    Dbg::Printf(GAME_TEXT(0x0064DC44, "creating a CCreateATrick\n")); // "creating a CCreateATrick\n"
+    Script::CStruct* other = Script::GetStructure(GAME_TEXT(0x0064DC28, "Default_CAT_other_info")); // "Default_CAT_other_info"
     Script::CStruct* params = Script::NewStruct();
     m_otherParams = params ? params->Init() : nullptr;
     m_otherParams->AppendStructureIfAny(other);
-    Script::CArray* rotations = Script::GetArray(Text(0x0064DC0C)); // "Default_CAT_rotation_info"
+    Script::CArray* rotations = Script::GetArray(GAME_TEXT(0x0064DC0C, "Default_CAT_rotation_info")); // "Default_CAT_rotation_info"
     m_rotations = NewArray();
     m_rotations->SetSizeAndType(6, Script::ESYMBOLTYPE_STRUCTURE);
     Script::CopyArray(m_rotations, rotations);
-    Script::CArray* animations = Script::GetArray(Text(0x0064DBF0)); // "Default_CAT_animation_info"
+    Script::CArray* animations = Script::GetArray(GAME_TEXT(0x0064DBF0, "Default_CAT_animation_info")); // "Default_CAT_animation_info"
     m_animations = NewArray();
     m_animations->SetSizeAndType(6, Script::ESYMBOLTYPE_STRUCTURE);
     Script::CopyArray(m_animations, animations);
@@ -164,22 +164,22 @@ bool __cdecl CFunc_SetCreateATrickParams(Script::CStruct* params, Script::CScrip
     int index;
     params->GetInteger(kTrickIndex, &index, 1);
     if (!skater->m_trickInfo[1]) {
-        Dbg::Printf(Text(0x0064DB40)); // "Skater has no created tricks!!\n"
+        Dbg::Printf(GAME_TEXT(0x0064DB40, "Skater has no created tricks!!\n")); // "Skater has no created tricks!!\n"
         return false;
     }
     Script::CStruct* other;
     if (params->GetStructure(kOtherParams, &other, 1)) {
-        Dbg::Printf(Text(0x0064DB28), index); // "Storing param info %i\n"
+        Dbg::Printf(GAME_TEXT(0x0064DB28, "Storing param info %i\n"), index); // "Storing param info %i\n"
         CreatedTrick(skater, index)->m_otherParams->AppendStructureIfAny(other);
     }
     Script::CArray* rotations;
     if (params->GetArray(kRotationInfo, &rotations, 1)) {
-        Dbg::Printf(Text(0x0064DB0C), index); // "Storing rotation info %i\n"
+        Dbg::Printf(GAME_TEXT(0x0064DB0C, "Storing rotation info %i\n"), index); // "Storing rotation info %i\n"
         Script::CopyArray(CreatedTrick(skater, index)->m_rotations, rotations);
     }
     Script::CArray* animations;
     if (params->GetArray(kAnimationInfo, &animations, 1)) {
-        Dbg::Printf(Text(0x0064DAF0), index); // "Storing animation info %i\n"
+        Dbg::Printf(GAME_TEXT(0x0064DAF0, "Storing animation info %i\n"), index); // "Storing animation info %i\n"
         Script::CopyArray(CreatedTrick(skater, index)->m_animations, animations);
     }
     return true;
@@ -195,7 +195,7 @@ bool __cdecl CFunc_SetCreateATrickOtherParams(Script::CStruct* params, Script::C
     params->GetInteger(kTrickIndex, &index, 1);
     Script::CStruct* other;
     if (params->GetStructure(kOtherParams, &other, 1)) {
-        Dbg::Printf(Text(0x0064DB28), index);
+        Dbg::Printf(GAME_TEXT(0x0064DB28, "Storing param info %i\n"), index);
         CreatedTrick(skater, index)->m_otherParams->AppendStructureIfAny(other);
     }
     return true;
@@ -211,7 +211,7 @@ bool __cdecl CFunc_SetCreateATrickRotations(Script::CStruct* params, Script::CSc
     params->GetInteger(kTrickIndex, &index, 1);
     Script::CArray* rotations;
     if (params->GetArray(kRotationInfo, &rotations, 1)) {
-        Dbg::Printf(Text(0x0064DB0C), index);
+        Dbg::Printf(GAME_TEXT(0x0064DB0C, "Storing rotation info %i\n"), index);
         Script::CopyArray(CreatedTrick(skater, index)->m_rotations, rotations);
     }
     return true;
@@ -227,7 +227,7 @@ bool __cdecl CFunc_SetCreateATrickAnimations(Script::CStruct* params, Script::CS
     params->GetInteger(kTrickIndex, &index, 1);
     Script::CArray* animations;
     if (params->GetArray(kAnimationInfo, &animations, 1)) {
-        Dbg::Printf(Text(0x0064DAF0), index);
+        Dbg::Printf(GAME_TEXT(0x0064DAF0, "Storing animation info %i\n"), index);
         Script::CopyArray(CreatedTrick(skater, index)->m_animations, animations);
     }
     return true;

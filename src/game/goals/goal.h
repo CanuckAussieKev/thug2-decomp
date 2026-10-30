@@ -25,6 +25,8 @@ class CStruct;
 
 namespace Game {
 
+extern void** const kGoalNodeVtable; // 0x0064DDCC (defined in goal_life.cpp)
+
 class CGoalPed;
 
 // A link to another goal by id (0xC bytes): the children (+0x28) and the parents (+0x2C) are singly linked lists of

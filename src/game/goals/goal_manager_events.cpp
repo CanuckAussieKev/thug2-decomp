@@ -16,6 +16,7 @@
 #include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -58,7 +59,7 @@ constexpr uint32_t kTrickText = 0x3EAFA520;             // tricktext
 constexpr uint32_t kAttemptInfo = 0xD23AD129;           // (name unknown: GetGoalAttemptInfo's structure)
 constexpr uint32_t kSkater = 0x5B8AB877;                // skater
 
-const char* const kNoDescription = reinterpret_cast<const char*>(0x0064DEF8); // "Define <goal_description> ..."
+const char* const kNoDescription = GAME_TEXT(0x0064DEF8, "Define <goal_description> for this goal and it will appear here....If you'd like, also define <view_goals_tip>, it's optional."); // "Define <goal_description> ..."
 
 Script::CStruct* NewStructure()
 {
