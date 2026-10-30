@@ -21,9 +21,48 @@
 #include "game/script/struct_buffer.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
+
+GAME_GLOBAL(uint32_t[216], g_goalEditorMemberFunctions, 0x00684270,
+            0x0AB710F3, 0x81F01058, 0, 0, 0, 0,
+            0x5C155A29, 0x81F01058, 0, 0, 0, 0,
+            0xFB279560, 0x81F01058, 0, 0, 0, 0,
+            0xCCA11C78, 0x81F01058, 0, 0, 0, 0,
+            0x1D30A7B6, 0x81F01058, 0, 0, 0, 0,
+            0xE5ED63B7, 0x81F01058, 0, 0, 0, 0,
+            0x03EBD2C9, 0x81F01058, 0, 0, 0, 0,
+            0x47208C6D, 0x81F01058, 0, 0, 0, 0,
+            0x769309E1, 0x81F01058, 0, 0, 0, 0,
+            0x88D54A10, 0x81F01058, 0, 0, 0, 0,
+            0xFF9E8752, 0x81F01058, 0, 0, 0, 0,
+            0x259C59DD, 0x81F01058, 0, 0, 0, 0,
+            0x1F80B5AE, 0x81F01058, 0, 0, 0, 0,
+            0x26848221, 0x81F01058, 0, 0, 0, 0,
+            0xFDB2C514, 0x81F01058, 0, 0, 0, 0,
+            0x98ABBD09, 0x81F01058, 0, 0, 0, 0,
+            0x66A33157, 0x81F01058, 0, 0, 0, 0,
+            0x7AABBC09, 0x81F01058, 0, 0, 0, 0,
+            0x69B872E3, 0x81F01058, 0, 0, 0, 0,
+            0x96F11BD3, 0x81F01058, 0, 0, 0, 0,
+            0x96874358, 0x81F01058, 0, 0, 0, 0,
+            0x5BD8050A, 0x81F01058, 0, 0, 0, 0,
+            0x5408AC04, 0x81F01058, 0, 0, 0, 0,
+            0xB525B113, 0x81F01058, 0, 0, 0, 0,
+            0x4A569426, 0x81F01058, 0, 0, 0, 0,
+            0x410821DF, 0x81F01058, 0, 0, 0, 0,
+            0x60288ABE, 0x81F01058, 0, 0, 0, 0,
+            0x831ECA10, 0x81F01058, 0, 0, 0, 0,
+            0xDBA8E3FC, 0x81F01058, 0, 0, 0, 0,
+            0xD7258335, 0x81F01058, 0, 0, 0, 0,
+            0x9E5A634A, 0x81F01058, 0, 0, 0, 0,
+            0x7D5073F6, 0x81F01058, 0, 0, 0, 0,
+            0xEC316A9C, 0x81F01058, 0, 0, 0, 0,
+            0x20B566B1, 0x81F01058, 0, 0, 0, 0,
+            0xD5F6EA3B, 0x81F01058, 0, 0, 0, 0,
+            0, 0x81F01058, 0, 0, 0, 0);
 
 namespace {
 
@@ -44,7 +83,7 @@ int CompareNoCase(const char* a, const char* b)
     return GameFunction<int(__cdecl*)(const char*, const char*)>(0x00626EFB)(a, b);
 }
 
-char* CreatedGoalName() { return &GameVariable<char>(0x007CCC40); }
+char* CreatedGoalName() { return g_createdGoalName; }
 uint32_t CreatedGoalId(int index)
 {
     Sprintf(CreatedGoalName(), "CreatedGoal%d", index);
@@ -94,7 +133,7 @@ Obj::CBaseComponent* __cdecl CGoalEditorComponent::Create()
 // 0x004E6FB0
 void __cdecl CGoalEditorComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kGoalEditor), &GameVariable<uint32_t>(0x00684270), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kGoalEditor), g_goalEditorMemberFunctions, 0x18);
 }
 
 // 0x004EA230

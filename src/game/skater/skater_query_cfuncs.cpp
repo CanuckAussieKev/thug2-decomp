@@ -545,7 +545,7 @@ bool __cdecl CFunc_GetSkaterSex(Script::CStruct* params, Script::CScript* script
 {
     int player = 0; // (uninitialised in the original, as is_male)
     params->GetInteger(kPlayer, &player, 1);
-    Obj::CSkaterProfile* profile = GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4)->GetProfile(player);
+    Obj::CSkaterProfile* profile = Obj::g_profileManager->GetProfile(player);
     int male = 0;
     profile->InfoStructure()->GetInteger(kIsMale, &male, 1);
     script->m_params->AddInteger(kIsMale, male);

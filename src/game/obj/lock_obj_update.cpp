@@ -17,9 +17,12 @@
 #include "game/obj/objman.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(float, g_lockObjUpdateWobbleStep, 0x0064611C, 0.0061359233f);
 
 namespace {
 
@@ -30,7 +33,7 @@ constexpr uint32_t kFirstNonSkaterId = 8; // (objects with smaller ids are the s
 
 // The wobble's step: 2 pi / 1024 as the update's own float (0x0064611C; InitFromStructure's, 0x00646118, is one bit
 // smaller).
-float UpdateWobbleStep() { return GameVariable<float>(0x0064611C); }
+float UpdateWobbleStep() { return g_lockObjUpdateWobbleStep; }
 
 // x87 FSIN, as the original takes the wobble's sines.
 double X87Sin(double angle)

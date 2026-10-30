@@ -17,14 +17,17 @@
 #include "game/util/lzss.h"
 #include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Script {
 
+GAME_GLOBAL(uint32_t, g_loadingFile, 0x006F2364);
+
 namespace {
 
 // The checksum of the .qb file being loaded (0 outside loading).
-uint32_t& LoadingFile() { return GameVariable<uint32_t>(0x006F2364); }
+uint32_t& LoadingFile() { return g_loadingFile; }
 
 // Not rewritten yet: the platform's file extension for pre-compiled scripts.
 const char* PrecompiledExtension() { return GameConfig::GetPlatformExtension(); }

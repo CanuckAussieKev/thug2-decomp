@@ -18,6 +18,7 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -27,7 +28,7 @@ namespace {
 
 // The game clock in ms (0x0044ECE0) and the offset added to it (0x00696D60).
 int GameClock() { return Tmr::GameClockElapsed(); }
-int& GameClockOffset() { return GameVariable<int>(0x00696D60); }
+int& GameClockOffset() { return Obj::g_clockOffset; }
 
 // Wait n seconds: the milliseconds as seconds (0.001f, 0x3A83126F at 0x006461D8).
 constexpr float kSecondsPerMs = 0.001f;

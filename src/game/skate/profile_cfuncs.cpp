@@ -38,7 +38,7 @@ static_assert(sizeof(SwapSlot) == 12, "layout must match the original");
 constexpr int kSwapSlots = 5;
 SwapSlot* SwapTable() { return &GameVariable<SwapSlot>(0x007CEDE0); }
 
-Obj::CPlayerProfileManager* Profiles() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
+Obj::CPlayerProfileManager* Profiles() { return Obj::g_profileManager; }
 Obj::CSkaterCareer* Career()
 {
     return *reinterpret_cast<Obj::CSkaterCareer**>(reinterpret_cast<uint8_t*>(Mdl::Skate::Instance()) + 0x20);

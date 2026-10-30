@@ -22,10 +22,16 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint8_t[5], g_cutsceneCameraSlot, 0x006F0FD8);
+GAME_GLOBAL(float[512], g_cutsceneRotations, 0x006F1160);
+GAME_GLOBAL(float[512], g_cutsceneTranslations, 0x006F1960);
 
 namespace {
 
@@ -64,7 +70,7 @@ void ModelSet(void* model, uint32_t value)
 // The asset manager (0x006918DC).
 Ass::CAssMan* AssetManager()
 {
-    return GameVariable<Ass::CAssMan*>(0x006918DC);
+    return Ass::g_assetManager;
 }
 // (from memory, a2 the data and a3 its size: not permanent, copied)
 void LoadAssetFile(uint32_t name, uint32_t a2, uint32_t a3)
@@ -223,7 +229,7 @@ void CCutsceneData::DestroyObjects()
         entry.object = nullptr;
     }
     m_objectCount = 0;
-    GameVariable<bool>(0x006F1158) = false;
+    g_cutscenePlaying = false;
 }
 
 // 0x00463F20
@@ -255,7 +261,7 @@ CCompositeObject* CCutsceneData::CreateObject(Script::CStruct* params)
     void* memory = Mem::Calloc(0x108);
     auto* object = memory ? static_cast<CCompositeObject*>(memory)->Construct() : nullptr;
     object->SetType(kCutsceneObjectType);
-    void* objects = GameVariable<void*>(0x006F0FB8);
+    void* objects = static_cast<void*>(g_compositeObjectManager);
     reinterpret_cast<void(__thiscall*)(void*, CCompositeObject*)>((*reinterpret_cast<void***>(objects))[1])(objects,
                                                                                                          object);
     params->AddInteger(kFlagParam, m_flag34B0);
@@ -319,8 +325,8 @@ void CCutsceneData::UpdateCamera(void* camera)
 // 0x00464360
 void CCutsceneData::UpdateObjectPoses()
 {
-    float* rotations = &GameVariable<float>(0x006F1160);
-    float* translations = &GameVariable<float>(0x006F1960);
+    float* rotations = g_cutsceneRotations;
+    float* translations = g_cutsceneTranslations;
     for (int i = 0; i < m_objectCount; ++i) {
         ObjectEntry& entry = m_objects[i];
         if (!entry.animation)
@@ -344,7 +350,7 @@ void CCutsceneData::UpdateObjectPoses()
             source = nullptr;
         static_cast<Gfx::CBonedAnimFrameData*>(animation)->GetFrames(
             reinterpret_cast<Mth::Quat*>(rotations), reinterpret_cast<Mth::Vector*>(translations),
-            &GameVariable<uint8_t>(0x006F0FD8), static_cast<float>(m_time - static_cast<double>(m_cameraStart)), -1,
+            g_cutsceneCameraSlot, static_cast<float>(m_time - static_cast<double>(m_cameraStart)), -1,
             source);
         reinterpret_cast<Gfx::CSkeleton*>(skeleton)->Update(reinterpret_cast<const float(*)[4]>(rotations),
                                                             reinterpret_cast<const float(*)[4]>(translations));

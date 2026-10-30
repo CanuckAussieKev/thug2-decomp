@@ -6,9 +6,13 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
+
+GAME_GLOBAL(Mem::PoolPair, g_clipboardPools, 0x007CE5B4);
+GAME_GLOBAL(CCursor*, g_cursor, 0x007CE608);
 
 namespace {
 
@@ -17,9 +21,9 @@ void SetGapInfo(int tab, GapInfo* info) { CGapManager::Instance()->SetGapInfo(ta
 
 } // namespace
 
-void CClipboard::Free(void* item) { GameVariable<Mem::PoolPair>(0x007CE5B4).Free(item); }
+void CClipboard::Free(void* item) { g_clipboardPools.Free(item); }
 
-CCursor* CCursor::sInstance() { return GameVariable<CCursor*>(0x007CE608); }
+CCursor* CCursor::sInstance() { return g_cursor; }
 
 void CCursor::HideClipboards()
 {

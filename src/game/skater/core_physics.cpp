@@ -96,7 +96,7 @@ int PhysicsInteger(uint32_t name, void* object)
 int Now()
 {
     int time = Tmr::GameClockElapsed();
-    return time + GameVariable<int>(0x00696D60);
+    return time + Obj::g_clockOffset;
 }
 
 // A timed flag: a bool and, after it, the time it last changed.
@@ -599,7 +599,7 @@ void CorePhysicsComponent::DoAirPhysics()
         }
         uint32_t stamp = At<uint32_t>(At<void*>(this, kTimedFlags), 0x4C);
         uint32_t now = static_cast<uint32_t>(Tmr::GameClockElapsed());
-        int elapsed = static_cast<int>(now + (static_cast<uint32_t>(GameVariable<int>(0x00696D60)) - stamp));
+        int elapsed = static_cast<int>(now + (static_cast<uint32_t>(Obj::g_clockOffset) - stamp));
         if (elapsed > Script::GetInteger(0x26495947))
             SetTimedFlag(At<void*>(this, kTimedFlags), 0x48, 0);
     } else if (At<uint8_t>(flags, 0x30)) {

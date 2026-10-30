@@ -11,9 +11,12 @@
 #include "game/obj/smtptr.h"
 #include "game/skater/skater.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[5], g_stanceTextures, 0x0064C12C, 0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1);
 
 namespace {
 
@@ -27,7 +30,7 @@ constexpr uint32_t kPanelIdOffset = 0x69751A23; // the panel's element id: below
 constexpr int kHidden = 5;
 
 // The stances' textures (0x0064C12C).
-const uint32_t* StanceTextures() { return &GameVariable<uint32_t>(0x0064C12C); }
+const uint32_t* StanceTextures() { return g_stanceTextures; }
 
 } // namespace
 

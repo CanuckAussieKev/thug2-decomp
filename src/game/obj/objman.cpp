@@ -10,10 +10,14 @@
 #include "game/core/task.h"
 #include "game/lst/head.h"
 #include "game/sys/mlp.h"
+#include "game/ass/assman.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t, g_trackerReferences, 0x006F0FC4);
 
 namespace {
 
@@ -25,7 +29,7 @@ void** const kFlushTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Ta
 constexpr int kFlushTaskPriority = 1000;
 
 // The tracker's reference count.
-uint32_t& TrackerReferences() { return GameVariable<uint32_t>(0x006F0FC4); }
+uint32_t& TrackerReferences() { return g_trackerReferences; }
 
 // Lst::Head<CObject>'s insert by priority (the highest first, equal ones newest first).
 void AddNodeByPriority(Mem::ListNode* head, Mem::ListNode* node) { reinterpret_cast<Lst::Head*>(head)->AddNode(node); }
@@ -33,7 +37,7 @@ void AddNodeByPriority(Mem::ListNode* head, Mem::ListNode* node) { reinterpret_c
 void ConstructTask(void* task, int priority) { static_cast<Tsk::BaseTask*>(task)->Construct(priority); }
 void AddSystemTask(void* task)
 {
-    GameVariable<Mlp::Manager*>(0x00696D68)->m_systemTasks.AddTask(static_cast<Tsk::BaseTask*>(task));
+    Ass::g_mainLoopManager->m_systemTasks.AddTask(static_cast<Tsk::BaseTask*>(task));
 }
 
 // The node after `node`, or null at the head.

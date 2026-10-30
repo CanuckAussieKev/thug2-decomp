@@ -234,7 +234,7 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
         bool skater = isSkater && isSkater2;
         bool add = true;
         if (!special) {
-            void* asset = GameVariable<Ass::CAssMan*>(0x006918DC)->GetAssetData(modelFile, 0);
+            void* asset = Ass::g_assetManager->GetAssetData(modelFile, 0);
             if (!asset && !skater)
                 params2->AddChecksum(kUnnamed, kNoModelFile);
             if (object->ContainsFlag(kKeepSkeleton)) {

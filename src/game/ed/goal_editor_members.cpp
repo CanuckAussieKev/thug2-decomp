@@ -9,6 +9,7 @@
 #include "game/ed/goal_editor.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/ed/goal_editor_util.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -227,7 +228,7 @@ bool CGoalEditorComponent::GetCurrentEditedGoalId(Script::CStruct* /*params*/, S
 {
     script->m_params->RemoveComponent("goal_id");
     if (mp_current) {
-        char* name = &GameVariable<char>(0x007CCC40);
+        char* name = g_createdGoalName;
         Sprintf(name, "CreatedGoal%d", mp_current->m_goalIndex);
         script->m_params->AddChecksum("goal_id", Crc::GenerateCRCFromString(name));
     }

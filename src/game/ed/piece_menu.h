@@ -6,13 +6,17 @@
 #include <cstdint>
 
 #include "game/ed/park.h"
+#include "hook/game_global.h"
 
 namespace Ed {
+
+class CUpperMenuManager;
+GAME_GLOBAL_EXTERN(CUpperMenuManager*, g_upperMenuManager);
 
 class CUpperMenuManager {
 public:
     // The one instance.
-    static CUpperMenuManager*& Instance() { return GameVariable<CUpperMenuManager*>(0x007CE60C); }
+    static CUpperMenuManager*& Instance() { return g_upperMenuManager; }
 
     // 0x00598DA0: close the menus and delete the instance
     static void DeleteInstance();
@@ -36,5 +40,7 @@ public:
     int m_selected;           // +0x0C: the entry focused
 };
 static_assert(offsetof(CUpperMenuManager, m_selected) == 0xC);
+
+GAME_GLOBAL_EXTERN(void*, g_screenElementManager);
 
 } // namespace Ed

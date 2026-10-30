@@ -35,7 +35,7 @@ constexpr uint32_t kPlainObjectFlag = 0x69C257E9;
 constexpr uint32_t kPlainObjectScript = 0xA98F5C63;
 constexpr uint32_t kGameObjectComponentType = 0x286A8D26;
 
-CCompositeObjectManager* ObjectManager() { return GameVariable<CCompositeObjectManager*>(0x006F0FB8); }
+CCompositeObjectManager* ObjectManager() { return g_compositeObjectManager; }
 
 void Finalize(CCompositeObject* object)
 {

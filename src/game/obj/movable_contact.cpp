@@ -10,6 +10,7 @@
 #include "game/obj/smtptr.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -138,7 +139,7 @@ void CMovableContactComponent::StopRiding()
     reinterpret_cast<CSmtPtr<CRefCounted>*>(&ride->m_object)->Release();
     Mem::Manager::Get()->Free(ride);
     mp_ride = nullptr;
-    m_stopTime = Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60);
+    m_stopTime = Tmr::GameClockElapsed() + g_clockOffset;
 }
 
 // 0x00427CB0

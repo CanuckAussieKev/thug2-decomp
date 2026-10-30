@@ -18,9 +18,14 @@
 #include "game/ed/goal_editor.h"
 #include "game/script/game_cfuncs.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
+
+GAME_GLOBAL(bool, g_collisionAllowed, 0x0067F398, true);
+GAME_GLOBAL(GridDims, g_savedGridDims, 0x007CE5E0);
+GAME_GLOBAL(uint32_t, g_savedGridGuard, 0x007CE5E8);
 
 namespace {
 
@@ -98,8 +103,8 @@ void WorldRectangles(GridDims area, Rectangle* rails, Rectangle* goals)
 // ResizePark's area kept by its kSaveArea flag (a static GridDims: 0x007CE5E0, its guard bit 0x007CE5E8 & 1).
 GridDims& SavedArea()
 {
-    uint32_t& guard = GameVariable<uint32_t>(0x007CE5E8);
-    GridDims& saved = GameVariable<GridDims>(0x007CE5E0);
+    uint32_t& guard = g_savedGridGuard;
+    GridDims& saved = g_savedGridDims;
     if (!(guard & 1)) {
         guard |= 1;
         saved.Set(0, 0, 0, 0, 0, 0);
@@ -347,7 +352,7 @@ bool __cdecl CFunc_CanCleanlyResizePark(Script::CStruct* params, Script::CScript
 void __cdecl ResizeTo(GridDims area)
 {
     MarkProgress("ResizePark START--------");
-    bool& collisionAllowed = GameVariable<bool>(0x0067F398); // (the generator's RebuildCollision runs only when set)
+    bool& collisionAllowed = g_collisionAllowed; // (the generator's RebuildCollision runs only when set)
     collisionAllowed = false;
     Manager()->RebuildInnerShell(area);
     Manager()->RebuildArea(nullptr, false);
@@ -517,13 +522,13 @@ bool __cdecl CFunc_SwitchParkEditorMenuPieceToMostRecentClipboard(Script::CStruc
 // 0x0058F750
 bool __cdecl CFunc_SwitchToParkEditorCamera(Script::CStruct*, Script::CScript*)
 {
-    auto* objects = GameVariable<Obj::CBaseManager*>(0x006F0FB8);
+    auto* objects = reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager);
     if (!objects->GetObjectByID(kParkedCam)) {
         // The camera object, from parkedcam_composite_structure.
         Script::CStruct* memory = Script::NewStruct();
         Script::CStruct* params = memory ? memory->Init() : nullptr;
         params->AddChecksum("name", kParkedCam);
-        auto* composites = GameVariable<Obj::CCompositeObjectManager*>(0x006F0FB8);
+        auto* composites = Obj::g_compositeObjectManager;
         composites->CreateCompositeObjectFromNode(Script::GetArray("parkedcam_composite_structure"), params, true);
         if (params) {
             params->Clear();

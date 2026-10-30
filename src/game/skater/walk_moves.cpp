@@ -194,7 +194,7 @@ float WalkParameter(uint32_t name)
 }
 
 // The game clock as the skater code reads it (0x0044ECE0 plus the offset at 0x00696D60).
-int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Now() { return Tmr::GameClockElapsed() + g_clockOffset; }
 
 // The walk halted (the trigger component's +0x26: what it does this frame is over).
 bool Halted(const void* walk) { return At<bool>(At<void*>(walk, kTrigger), 0x26); }
@@ -1378,7 +1378,7 @@ bool CWalkComponent::UpdateContacts()
             }
             int since = At<int>(this, kBarrierSince);
             float delay = WalkParameter(kBarrierJumpDelay);
-            auto elapsed = static_cast<uint32_t>(Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - since));
+            auto elapsed = static_cast<uint32_t>(Tmr::GameClockElapsed() + (g_clockOffset - since));
             if (static_cast<double>(elapsed) > delay && (ClimbOntoBottom(false) || TryBarrierJump())) {
                 ReleaseHit(feeler);
                 return false;

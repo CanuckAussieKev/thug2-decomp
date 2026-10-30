@@ -15,9 +15,17 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[30], g_streamComponentMemberFunctions, 0x00684E70,
+            0xDB05A233, 0x0F1641E3, 0, 0, 0, 0,
+            0xC66E1B17, 0x0F1641E3, 0, 0, 0, 0,
+            0x82EC1DDD, 0x0F1641E3, 0, 0, 0, 0,
+            0xA738AEB8, 0x0F1641E3, 0, 0, 0, 0,
+            0, 0x0F1641E3, 0, 0, 0, 0);
 
 namespace {
 
@@ -49,7 +57,7 @@ CBaseComponent* __cdecl CStreamComponent::Create()
 // 0x00433870
 void __cdecl CStreamComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00684E70), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_streamComponentMemberFunctions, 0x18);
 }
 
 // 0x00433C10

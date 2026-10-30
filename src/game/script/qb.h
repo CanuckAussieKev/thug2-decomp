@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
+#include "game/core/pool.h"
 
 // Compiled scripts (.qb bytecode): reading and skipping tokens, and setting up the script system's pools.
 //
@@ -102,5 +104,7 @@ struct CStoredRandom {
     CStoredRandom* m_next;    // older
     CStoredRandom* m_previous; // newer
 };
+
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_storedRandomPools);
 
 } // namespace Script

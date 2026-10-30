@@ -16,12 +16,17 @@
 #include "game/obj/anim_blender.h"
 #include "game/obj/vehicle_internal.h"
 #include "game/sys/game_clock.h"
+#include "game/ed/park_editor.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
 
 using namespace Vehicle;
+
+GAME_GLOBAL(int, g_vehicleNetUpdateCounter, 0x006951C4);
 
 namespace {
 
@@ -268,7 +273,7 @@ void CVehicleComponent::ApplyGravity()
 {
     double gravity;
     if (m_righting && static_cast<uint32_t>(Tmr::GameClockElapsed()) +
-                              (GameVariable<uint32_t>(0x00696D60) - static_cast<uint32_t>(m_rightingStart)) >
+                              (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(m_rightingStart)) >
                           300)
         gravity = static_cast<double>(m_gravityScale) / m_invMass * kRightingGravity;
     else
@@ -655,7 +660,7 @@ void CVehicleComponent::UpdateWheelContacts()
             wheel.y = wheel.restY;
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
-        if (*reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) != kParkEditorOff) {
+        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) != kParkEditorOff) {
             feeler.SetIgnore(0, 0x50);
             if (feeler.GetCollision(false, false)) {
                 TriggerFeeler(mp_trigger, kWheelCrossing, &feeler);
@@ -811,7 +816,7 @@ void CVehicleComponent::UpdateSkater()
         return;
     }
     // In a network game every fifteenth update is sent on (b = 1).
-    int& counter = GameVariable<int>(0x006951C4);
+    int& counter = g_vehicleNetUpdateCounter;
     if (++counter == 15) {
         counter = 0;
         blender->PlayAnimationEx(m_skaterAnim, 1, frameBits, blend, 1, 0, 0);

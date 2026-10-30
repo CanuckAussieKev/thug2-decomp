@@ -8,10 +8,21 @@
 #include "game/core/pool.h"
 #include "game/mth/random.h"
 #include "game/script/eval.h"
+#include "game/script/qb.h"
+#include "game/script/cscript.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Script {
+
+GAME_GLOBAL(float, g_parseNudge, 0x00645D74, 0.1f);
+GAME_GLOBAL(float, g_parseRandomScale, 0x0064840C, 0.000030525032f);
+GAME_GLOBAL(CStoredRandom*, g_storedRandomsNewest, 0x006F2358);
+GAME_GLOBAL(CStoredRandom*, g_storedRandomsOldest, 0x006F235C);
+GAME_GLOBAL(int, g_storedRandomCount, 0x006F2360);
+GAME_GLOBAL(CExpressionEvaluator, g_evaluator, 0x006F2370);
+GAME_GLOBAL(CComponent, g_parseScratch, 0x006F2568);
 
 namespace {
 
@@ -51,13 +62,13 @@ CArray* NewInitArray()
 }
 
 // The evaluator expressions are parsed with, and the component values go through on the way.
-CExpressionEvaluator& Evaluator() { return GameVariable<CExpressionEvaluator>(0x006F2370); }
-CComponent& Scratch() { return GameVariable<CComponent>(0x006F2568); }
+CExpressionEvaluator& Evaluator() { return g_evaluator; }
+CComponent& Scratch() { return g_parseScratch; }
 
 // The stored randoms: newest first (next = older), at most 100.
-CStoredRandom*& StoredRandomsNewest() { return GameVariable<CStoredRandom*>(0x006F2358); }
-CStoredRandom*& StoredRandomsOldest() { return GameVariable<CStoredRandom*>(0x006F235C); }
-int& StoredRandomCount() { return GameVariable<int>(0x006F2360); }
+CStoredRandom*& StoredRandomsNewest() { return g_storedRandomsNewest; }
+CStoredRandom*& StoredRandomsOldest() { return g_storedRandomsOldest; }
+int& StoredRandomCount() { return g_storedRandomCount; }
 
 // An expression parameter of a structure / call: merged if it gives a structure, added (unnamed) otherwise.
 const uint8_t* AddExpression(const uint8_t* token, CStruct* dest, CStruct* args)
@@ -94,12 +105,12 @@ const uint8_t* AddNamedExpression(const uint8_t* token, uint32_t name, CStruct* 
 } // namespace
 
 // 0x004728C0
-CScript* GetCurrentScript() { return GameVariable<CScript*>(0x006F3530); }
+CScript* GetCurrentScript() { return g_currentScript; }
 
 // 0x004728D0
 CScript* GetNextScript(CScript* script)
 {
-    return script ? *reinterpret_cast<CScript**>(script) : GameVariable<CScript*>(0x006F3538);
+    return script ? *reinterpret_cast<CScript**>(script) : g_scriptListHead;
 }
 
 // 0x0046F7A0 (the table in EBX, the type in EDI, the count in ESI)
@@ -126,7 +137,7 @@ CStoredRandom* NewStoredRandom()
         if (newer)
             newer->m_next = nullptr;
     }
-    auto* stored = static_cast<CStoredRandom*>(GameVariable<Mem::PoolPair>(0x006F2578).Allocate(sizeof(CStoredRandom)));
+    auto* stored = static_cast<CStoredRandom*>(g_storedRandomPools.Allocate(sizeof(CStoredRandom)));
     if (stored) {
         ++StoredRandomCount();
         stored->m_next = nullptr;
@@ -260,7 +271,7 @@ const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool dete
     float a = AsFloat(Read4Bytes(token + 1));
     float b = AsFloat(Read4Bytes(token + 5));
     // (rounded with the game's 0.1 nudge, as the x87 does it)
-    const double nudge = GameVariable<float>(0x00645D74);
+    const double nudge = g_parseNudge;
     const double tolerance = GameVariable<float>(0x006453B8);
     auto nearest = [&](float f) {
         return static_cast<int>(f >= 0.0f || std::isnan(f) ? static_cast<double>(f) + nudge
@@ -289,7 +300,7 @@ const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool dete
     }
     int pick = deterministic ? Mth::Rnd2(0x7FF9) : Mth::Rnd(0x7FF9);
     SetType(out, ESYMBOLTYPE_FLOAT);
-    double scale = GameVariable<float>(0x0064840C);
+    double scale = g_parseRandomScale;
     out->floatValue = static_cast<float>((static_cast<double>(b) - a) * pick * scale + a);
     return token + 9;
 }

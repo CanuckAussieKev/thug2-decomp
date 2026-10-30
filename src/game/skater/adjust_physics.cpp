@@ -99,7 +99,7 @@ void CSkaterAdjustPhysicsComponent::Update()
     if (raise != 0.0f)
         start.y += raise;
     auto* physics = static_cast<Skater::CorePhysicsComponent*>(core);
-    uint8_t* parkEditor = reinterpret_cast<uint8_t*>(GameVariable<void*>(0x007CE5D8));
+    uint8_t* parkEditor = reinterpret_cast<uint8_t*>(static_cast<void*>(Ed::g_parkEditor));
 
     if (!physics->CheckFeeler(0x10, 0)) {
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame

@@ -72,10 +72,16 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/balance_trick.h"
 #include "game/skater/skater_camera_component.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(float, g_skaterDownLightColour, 0x007CE4C4);
+GAME_GLOBAL(float, g_skaterLightColour, 0x007CE4D4);
+GAME_GLOBAL(uint32_t, g_skaterLightsMade, 0x007CE4E4);
 
 namespace {
 
@@ -118,7 +124,7 @@ constexpr uint32_t kSkaterCam1 = 0xE17B231A;     // skatercam1
 constexpr uint32_t kModelComponent = 0x286A8D26; // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;     // (a physics integer: pausing freezes the whole game)
 
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 GameNet::Manager* Net() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 bool Rule5A1180() { return static_cast<uint8_t>(CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr)) != 0; }
 
@@ -359,7 +365,7 @@ float CSkater::GetScaledValue(Script::CStruct* params)
     // The game's difficulty (one more in classic mode): times the diff pair's first (0) or second (2).
     Game::CGoalManager* mode = Mdl::Skate::Instance()->GetGoalManager();
     int difficulty = mode->GetDifficultyLevel(false);
-    if (static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->IsTrue(kIsClassic))
+    if (static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->IsTrue(kIsClassic))
         ++difficulty;
     if (difficulty != 1) {
         Script::CPair diff;
@@ -463,9 +469,9 @@ void CSkater::SetPauseState(int state)
 // 0x005809C0
 void CSkater::UpdateShadowLight(int, int)
 {
-    uint32_t& made = GameVariable<uint32_t>(0x007CE4E4);
-    auto* light = &GameVariable<float>(0x007CE4D4); // (4 floats)
-    auto* down = &GameVariable<float>(0x007CE4C4);  // (4 floats)
+    uint32_t& made = g_skaterLightsMade;
+    auto* light = &g_skaterLightColour; // (4 floats)
+    auto* down = &g_skaterDownLightColour;  // (4 floats)
     if (!(made & 1)) {
         made |= 1;
         light[0] = 0.8f, light[1] = -0.8f, light[2] = 0.3f, light[3] = 1.0f;
@@ -524,7 +530,7 @@ constexpr uint32_t kSkateStyle = 0x76FD33E8;         // skatestyle
 constexpr uint32_t kFirstName = 0x562E3ECD;          // first_name
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // SkaterFlipAndRotate (a component)
 
-int Clock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Clock() { return Tmr::GameClockElapsed() + g_clockOffset; }
 
 // The score's two balance displays off (0x00563370 / 0x00563390).
 void BalanceDisplaysOff(void* score)
@@ -550,7 +556,7 @@ void* Elements() { return GameVariable<void*>(0x00700F1C); }
 void CSkater::SetStatsFromProfile(CSkaterProfile* profile)
 {
     void* classicStats = At<void*>(Skate(), 0x20);
-    if (static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->IsTrue(kIsClassic)) {
+    if (static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->IsTrue(kIsClassic)) {
         for (int i = 0; i < 10; ++i)
             SetStatOverride(i, static_cast<float>(static_cast<CSkaterCareer*>(classicStats)->GetInfoInteger(kStatNames[i])));
         return;
@@ -878,7 +884,7 @@ void CSkater::Init(CSkaterProfile* profile)
     m_unknown250 = reinterpret_cast<uint8_t*>(GetComponent(kModelComponent));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
     Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_skaterGeomHeaps[m_skaterNumber]);
-    auto* assets = GameVariable<Ass::CAssMan*>(0x006918DC);
+    auto* assets = Ass::g_assetManager;
     bool flag = assets->GetPermanentByDefault();
     assets->SetPermanentByDefault(false);
     reinterpret_cast<void(__thiscall*)(void*, CSkaterProfile*, int, int, int)>((*reinterpret_cast<void***>(m_unknown250))[0x34 / 4])(
@@ -1388,7 +1394,7 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
                 break;
             }
         }
-        if (i == count && At<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) != 0xD443A2BC)
+        if (i == count && At<uint32_t>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor), 0x40) != 0xD443A2BC)
             reinterpret_cast<Mdl::Skate*>(Skate())->MoveToRestart(this, 0, walking);
         return true;
     }
@@ -1545,7 +1551,7 @@ void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
     }
     SetTeleported(true);
     // In these game modes the server is told (message 0x57).
-    auto mode = [] { return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->GetNameChecksum(); };
+    auto mode = [] { return static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->GetNameChecksum(); };
     if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
         Net::MsgDesc message;
         message.Construct();

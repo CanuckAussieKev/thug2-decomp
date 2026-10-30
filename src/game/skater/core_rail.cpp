@@ -21,6 +21,8 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
 #include "game/skate/score.h"
+#include "game/ed/park_editor.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -52,7 +54,7 @@ constexpr float kRaiseEnd = 6.1f;   // 0x0064BDA8: its end
 constexpr float kFeelerAhead = 6.0f; // (the feeler past the move: 6 along it)
 constexpr float kTurnFacing = 0.3f; // (how far the display facing turns to the rail each frame)
 
-bool InParkEditor() { return At<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) == kParkEditorLevel; }
+bool InParkEditor() { return At<uint32_t>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor), 0x40) == kParkEditorLevel; }
 void ChangeState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
 
 Mth::Vector WorldPos(void* component, const Obj::CRailNode* node)
@@ -362,7 +364,7 @@ void CorePhysicsComponent::UpdateGrindBalance()
     uint32_t kind = At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18);
     if (kind == kGrind || kind == kSlide) {
         reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x7C)->Update();
-        auto career = [] { return At<Obj::CSkaterCareer*>(GameVariable<uint8_t*>(0x007CE478), 0x20); };
+        auto career = [] { return At<Obj::CSkaterCareer*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x20); };
         if (career()->GetCheat(kPerfectRail)) {
             career()->SetGlobalFlag(Script::GetInteger(kPerfectRail));
             At<uint32_t>(At<void*>(this, kBalanceTrick), 0xAC) = 0;

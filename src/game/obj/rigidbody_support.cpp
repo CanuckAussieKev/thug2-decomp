@@ -23,9 +23,26 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[78], g_rigidBodyMemberFunctions, 0x00683F28,
+            0xCC12CF87, 0xFFB39248, 0, 0, 0, 0,
+            0x9599C10F, 0xFFB39248, 0, 0, 0, 0,
+            0xCD5BA67B, 0xFFB39248, 0, 0, 0, 0,
+            0xAE24DF9F, 0xFFB39248, 0, 0, 0, 0,
+            0xE8B73AB3, 0xFFB39248, 0, 0, 0, 0,
+            0x8A3A6B5F, 0xFFB39248, 0, 0, 0, 0,
+            0x39D708AC, 0xFFB39248, 0, 0, 0, 0,
+            0x92F5DB9A, 0xFFB39248, 0, 0, 0, 0,
+            0x0A2BBB3A, 0xFFB39248, 0, 0, 0, 0,
+            0x49F44585, 0xFFB39248, 0, 0, 0, 0,
+            0xD4A0946B, 0xFFB39248, 0, 0, 0, 0,
+            0x949BE8A9, 0xFFB39248, 0, 0, 0, 0,
+            0, 0xFFB39248, 0, 0, 0, 0);
+GAME_GLOBAL(int, g_nextCollideSoundTime, 0x006939D8);
 
 namespace {
 
@@ -40,8 +57,8 @@ double Wide(float value) { return value; }
 float Narrow(double value) { return static_cast<float>(value); }
 
 // The debug drawing switches (rigidbody_physics.cpp reads them): the shapes, the details.
-bool& DrawShape() { return GameVariable<bool>(0x006939D4); }
-bool& DrawDetails() { return GameVariable<bool>(0x006939D5); }
+bool& DrawShape() { return g_rigidBodyDrawShape; }
+bool& DrawDetails() { return g_rigidBodyDrawDetails; }
 
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
 CSmtPtr<CCompositeObject>* Pushers() { return reinterpret_cast<CSmtPtr<CCompositeObject>*>(0x00695150); }
@@ -69,7 +86,7 @@ bool __cdecl CFunc_ToggleRigidBodyDebug(Script::CStruct*, Script::CScript*)
 // 0x0042BB00
 void __cdecl CRigidBodyComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00683F28), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_rigidBodyMemberFunctions, 0x18);
 }
 
 // 0x0042BB20
@@ -243,8 +260,8 @@ constexpr uint32_t kPercent = 0x9E497FC6; // percent
 
 // The pushers' height (0x006939D0: 77, set by InitFromStructure) and the time the next collide sound of any rigid
 // body may play (0x006939D8).
-float PusherHeight() { return GameVariable<float>(0x006939D0); }
-int& NextCollideSoundTime() { return GameVariable<int>(0x006939D8); }
+float PusherHeight() { return g_rigidBodyPusherHeight; }
+int& NextCollideSoundTime() { return g_nextCollideSoundTime; }
 
 // The scene's sector named `checksum` hidden (0x0048C770 the first scene - the name pushed as its argument slot,
 // which 0x0049CB00 then takes as its own; neither rewritten yet).

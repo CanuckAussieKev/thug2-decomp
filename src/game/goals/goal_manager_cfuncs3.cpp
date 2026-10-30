@@ -73,9 +73,9 @@ constexpr uint32_t kRewardPoints = 0xBAFFB052;      // reward_points
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
-CGameMode* GameMode() { return GameVariable<CGameMode*>(0x007CE470); }
+CGameMode* GameMode() { return g_gameMode; }
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
+Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
 
 uint32_t GoalName(Script::CStruct* params)
 {

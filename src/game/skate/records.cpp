@@ -12,10 +12,14 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
 namespace Records {
+
+GAME_GLOBAL(Records::CGameRecords*, g_gameRecords, 0x007CE4BC);
+GAME_GLOBAL(uint32_t, g_recordsReferences, 0x007CE4C0);
 
 namespace {
 
@@ -36,8 +40,8 @@ constexpr uint32_t kDefaultInitialsName = 0x24EB19A8; // (the default initials, 
 // The type the records' structures are added with (11: not one of Script::ESymbolType's named ones).
 constexpr uint32_t kStructureComponent = 11;
 
-CGameRecords*& Instance() { return GameVariable<CGameRecords*>(0x007CE4BC); }
-uint32_t& References() { return GameVariable<uint32_t>(0x007CE4C0); }
+CGameRecords*& Instance() { return g_gameRecords; }
+uint32_t& References() { return g_recordsReferences; }
 
 void CopyInitials(char* to, const char* from)
 {
@@ -398,7 +402,7 @@ void CGameRecords::Release()
 
 bool UpdateRecords(bool editedCopy)
 {
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     if (editedCopy) {
         if (skate)
             skate[0x384] = 0; // (no record new: as 0x00566F40 sets it before comparing)

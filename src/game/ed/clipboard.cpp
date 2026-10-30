@@ -11,9 +11,14 @@
 #include "game/ed/rail_editor.h"
 #include "game/mth/x87_math.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
+
+GAME_GLOBAL(Mth::Vector, g_railOrigin, 0x007CCD30);
+GAME_GLOBAL(Mem::PoolPair, g_railPools, 0x007CCD40);
+GAME_GLOBAL(Mem::PoolPair, g_clipboardEntryPools, 0x007CE5C4);
 
 namespace {
 
@@ -24,7 +29,7 @@ constexpr float kQuarterTurnDegrees = 90.0f; // 0x00645EB0
 constexpr float kDegreesToRadians = 0.017453292f; // 0x00645464
 
 // The clipboard entries' pool pair (CPoolable, 0x18-byte items).
-Mem::PoolPair& EntryPools() { return GameVariable<Mem::PoolPair>(0x007CE5C4); }
+Mem::PoolPair& EntryPools() { return g_clipboardEntryPools; }
 
 // The rail editor (0x004F4970) and its rails (CEditedRail objects linked by their first word).
 void* RailEditor() { return CRailEditorComponent::Instance(); }
@@ -67,8 +72,8 @@ void HideRail(void* rail)
     static_cast<CEditedRail*>(rail)->DeleteSegments();
 }
 void DestroyRail(void* rail) { static_cast<CEditedRail*>(rail)->Clear(); }
-Mem::PoolPair& RailPools() { return GameVariable<Mem::PoolPair>(0x007CCD40); }
-const Mth::Vector* RailOrigin() { return &GameVariable<Mth::Vector>(0x007CCD30); } // (zero)
+Mem::PoolPair& RailPools() { return g_railPools; }
+const Mth::Vector* RailOrigin() { return &g_railOrigin; } // (zero)
 
 // A preview metapiece taken out of the park.
 void DestroyPreview(CClipboardEntry* entry)

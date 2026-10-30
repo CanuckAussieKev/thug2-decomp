@@ -10,9 +10,12 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(float, g_scriptRadiansToDegrees, 0x00645468, 57.295776f);
 
 namespace {
 
@@ -42,7 +45,7 @@ constexpr uint32_t kRy = 0x8AF63FEC;           // "ry"
 constexpr uint32_t kRz = 0x13FF6E56;           // "rz"
 
 float DegreesToRadians() { return GameVariable<const float>(0x00645464); } // pi / 180
-float RadiansToDegrees() { return GameVariable<const float>(0x00645468); } // 180 / pi
+float RadiansToDegrees() { return g_scriptRadiansToDegrees; } // 180 / pi
 
 // The x87 instructions the originals use (53-bit precision), so the results match bit for bit.
 double X87Sin(double angle)

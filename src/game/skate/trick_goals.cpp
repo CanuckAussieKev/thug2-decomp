@@ -27,12 +27,18 @@
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
 #include "game/goals/goal.h"
+#include "game/obj/control_pad.h"
+#include "game/ed/piece_menu.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
 namespace Game {
+
+GAME_GLOBAL(double, g_trickGoalsThreeQuarters, 0x0064E918, 0.75);
+GAME_GLOBAL(float, g_trickGoalsBeatMilliseconds, 0x0064E9B4, 15000.0f);
 
 namespace {
 
@@ -124,7 +130,7 @@ void** const kTrickBeatVtable = reinterpret_cast<void**>(0x0064E9B8);
 void** const kTrickObjectsVtable = reinterpret_cast<void**>(0x0064EA30);
 
 // The red-tricks threshold (0x0064E918): three quarters of max_tricks.
-double ThreeQuarters() { return GameVariable<double>(0x0064E918); }
+double ThreeQuarters() { return g_trickGoalsThreeQuarters; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -145,7 +151,7 @@ void WinGoal(void* manager, uint32_t id) { static_cast<CGoalManager*>(manager)->
 void LoseGoal(void* manager, uint32_t id) { static_cast<CGoalManager*>(manager)->LoseGoal(id); }
 
 // The skate module (0x007CE478): the local skater, its score (Mdl::Score), the tricks the score has seen.
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 uint8_t* LocalSkater() { return reinterpret_cast<uint8_t*>(Mdl::Skate::Instance()->GetLocalSkater()); }
 uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<Obj::CSkater*>(skater)->GetScore()); }
 int TotalScore(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetTotalScore(); }
@@ -162,7 +168,7 @@ int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, bool perfect, int
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
 // makes is let go at once, as in the original), the containers and text elements made for the tricks.
 using Front::ElementPtr;
-void* ElementManager() { return GameVariable<void*>(0x00701440); }
+void* ElementManager() { return Ed::g_screenElementManager; }
 Front::CScreenElementManager* Manager(void* manager) { return static_cast<Front::CScreenElementManager*>(manager); }
 Front::CScreenElement* ElementById(void* manager, uint32_t id)
 {
@@ -873,7 +879,7 @@ int CTimedScoreRunGoal::IsRunning() { return IsActive() && !IsPaused() ? 1 : 0; 
 void CTrickBeatGoal::SetBeatPattern(Script::CArray* pattern, int tempo)
 {
     Script::CopyArray(m_pattern, pattern);
-    m_beatLength = static_cast<float>(GameVariable<float>(0x0064E9B4) / static_cast<double>(tempo)); // 15000 / tempo
+    m_beatLength = static_cast<float>(g_trickGoalsBeatMilliseconds / static_cast<double>(tempo)); // 15000 / tempo
 }
 
 // 0x00574990
@@ -905,7 +911,7 @@ void CTrickBeatGoal::Deactivate(int a, int b)
 }
 
 namespace {
-int GameClock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int GameClock() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
 } // namespace
 
 // 0x00574A10
@@ -981,7 +987,7 @@ CTrickBeatGoal* CTrickBeatGoal::Construct(Script::CStruct* params)
     int tempo;
     params->GetInteger(kTempo, &tempo, 1);
     Script::CopyArray(m_pattern, pattern);
-    m_beatLength = static_cast<float>(GameVariable<float>(0x0064E9B4) / static_cast<double>(tempo));
+    m_beatLength = static_cast<float>(g_trickGoalsBeatMilliseconds / static_cast<double>(tempo));
     return this;
 }
 
@@ -1067,7 +1073,7 @@ void CTrickBeatGoal::UpdateBeat()
 {
     float slomo = Tmr::GetSlomo();
     int last = m_lastTime;
-    int elapsed = Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - last);
+    int elapsed = Tmr::GameClockElapsed() + (Obj::g_clockOffset - last);
     m_beatTime += elapsed;
     m_lastTime += elapsed;
     double time = static_cast<double>(m_beatTime);

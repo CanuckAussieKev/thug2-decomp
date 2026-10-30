@@ -23,10 +23,15 @@
 #include "game/sys/timer.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Game {
+
+GAME_GLOBAL(float, g_goalRunMinusMilliseconds, 0x0064604C, -1000.0f);
+GAME_GLOBAL(float, g_goalRunInchesToFeet, 0x006461F4, 0.083333336f);
 
 namespace {
 
@@ -197,7 +202,7 @@ bool CGoal::Update()
         return true;
     if (Virtual<bool>(this, kVtHasTimeLimit) && m_timeLeft >= 1) {
         int before = m_timeLeft;
-        m_timeLeft += Truncate(Tmr::GetSlomoFrameSeconds() * GameVariable<float>(0x0064604C)); // (-1000)
+        m_timeLeft += Truncate(Tmr::GetSlomoFrameSeconds() * g_goalRunMinusMilliseconds); // (-1000)
         m_elapsed += Truncate(Tmr::GetSlomoFrameSeconds() * GameVariable<float>(0x006453C0));  // (1000)
         // The last ten seconds beep each second.
         if (m_timeLeft < 10000 && before / 1000 > m_timeLeft / 1000 && Virtual<bool>(this, kVtTimerBeeps) &&
@@ -314,7 +319,7 @@ void CGoal::KillCluster(uint32_t cluster, int score)
         if (!entry->GetInteger(kScore, &needed, 0))
             m_params->GetInteger(kScore, &needed, 1);
         if (id == cluster && score > needed) {
-            if (!GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->SetObjectGraffitiColor(cluster, 0))
+            if (!Obj::g_trickObjectManager->SetObjectGraffitiColor(cluster, 0))
                 Dbg::Printf(reinterpret_cast<const char*>(0x0064DDA4)); // "ModulateTrickObjectColor didn't work\n"
             uint32_t flag;
             entry->GetChecksum(kFlag, &flag, 1);
@@ -431,7 +436,7 @@ bool CGoal::CheckDistanceRecord()
 {
     uint32_t id;
     m_params->GetChecksum(kDistanceObject, &id, 1);
-    Obj::CObject* object = GameVariable<Obj::CBaseManager*>(0x006F0FB8)->GetObjectByID(id);
+    Obj::CObject* object = reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager)->GetObjectByID(id);
     Obj::CCompositeObject* skater = LocalSkater();
     if (!skater || !object)
         return false;
@@ -444,7 +449,7 @@ bool CGoal::CheckDistanceRecord()
     double down = static_cast<double>(to[1]) - from[1];
     double distance = std::sqrt(dz * dz + dx * dx + dy * dy - down * down);
     float rounded = static_cast<float>(distance);
-    int feet = Truncate(distance * GameVariable<float>(0x006461F4)); // (1/12)
+    int feet = Truncate(distance * g_goalRunInchesToFeet); // (1/12)
     int whole = Truncate(rounded);
     int inches = whole % 12;
     m_params->AddInteger(kCurrentDistanceFeet, feet);

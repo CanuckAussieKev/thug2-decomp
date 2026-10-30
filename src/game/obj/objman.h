@@ -8,6 +8,7 @@
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
 #include "game/obj/smtptr.h"
+#include "hook/game_global.h"
 
 // The managers that own objects: CBaseManager (a list of objects, sorted by their node's priority, registered
 // with the object tracker as they come and go) and CGeneralManager (adds a dead list, emptied by a task every
@@ -119,5 +120,7 @@ struct CObjectSearch {
 // (CTracker::RegisterEventListener 0x00461FE0 is in objman.cpp too.)
 // 0x00461FA0: drop a reference; the last one deletes it.
 void ReleaseTracker();
+
+GAME_GLOBAL_EXTERN(uint32_t, g_trackerReferences);
 
 } // namespace Obj

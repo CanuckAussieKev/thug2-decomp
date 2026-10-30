@@ -17,6 +17,7 @@
 #include "game/skater/skater_state.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -40,7 +41,7 @@ constexpr float kMoving = 0.001f;                // 0x006461D8
 constexpr float kSkitchFeelUp = 36.0f;           // 0x0064B9CC
 constexpr float kSkitchFeelDown = 200.0f;        // 0x0064BDB0
 
-Obj::CSkaterCareer* Career() { return At<Obj::CSkaterCareer*>(GameVariable<uint8_t*>(0x007CE478), 0x20); }
+Obj::CSkaterCareer* Career() { return At<Obj::CSkaterCareer*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x20); }
 
 // A cheat that keeps a balance trick perfect: its global flag set, the balance's lean (`lean`, two words) zeroed.
 void PerfectCheat(void* component, uint32_t cheat, uint32_t lean)

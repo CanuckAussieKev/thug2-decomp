@@ -13,9 +13,20 @@
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[4], g_runTimerStateNames, 0x0064C080, 0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA);
+GAME_GLOBAL(uint32_t[42], g_runTimerMemberFunctions, 0x006849C0,
+            0x82445966, 0x8BCE7E66, 0, 0, 0, 0,
+            0x956236B1, 0x8BCE7E66, 0, 0, 0, 0,
+            0xAB04CBF9, 0x8BCE7E66, 0, 0, 0, 0,
+            0x96D81D8E, 0x8BCE7E66, 0, 0, 0, 0,
+            0x81AAA6DD, 0x8BCE7E66, 0, 0, 0, 0,
+            0x37CC7691, 0x8BCE7E66, 0, 0, 0, 0,
+            0, 0x8BCE7E66, 0, 0, 0, 0);
 
 namespace {
 
@@ -32,7 +43,7 @@ constexpr int kMaxResumes = 8;
 constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 
 // The state names m_state shows as (0x0064C080).
-const uint32_t* StateNames() { return &GameVariable<uint32_t>(0x0064C080); }
+const uint32_t* StateNames() { return g_runTimerStateNames; }
 
 uint32_t SkaterIndex(CCompositeObject* skater) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC); }
 uint32_t TimerScriptId(CCompositeObject* skater) { return SkaterIndex(skater) + kRunTimerScriptId; }
@@ -67,7 +78,7 @@ CBaseComponent* __cdecl CSkaterRunTimerComponent::Create()
 // 0x00518240
 void __cdecl CSkaterRunTimerComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterRunTimer), &GameVariable<uint32_t>(0x006849C0),
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterRunTimer), g_runTimerMemberFunctions,
                                         0x18);
 }
 

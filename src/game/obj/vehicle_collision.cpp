@@ -19,6 +19,7 @@
 #include "game/obj/vehicle_internal.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -280,16 +281,16 @@ void CVehicleComponent::UpdateRighting()
         m_mom = {0.0f, 0.0f, 0.0f, 1.0f};
         m_rotmom = {0.0f, 0.0f, 0.0f, 1.0f};
         m_righting = true;
-        m_rightingStart = Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60);
+        m_rightingStart = Tmr::GameClockElapsed() + g_clockOffset;
     }
     int start = m_rightingStart;
-    if (static_cast<uint32_t>(Tmr::GameClockElapsed()) + (GameVariable<uint32_t>(0x00696D60) - static_cast<uint32_t>(start)) >
+    if (static_cast<uint32_t>(Tmr::GameClockElapsed()) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start)) >
         5300) {
         m_righting = false;
         return;
     }
     start = m_rightingStart;
-    if (static_cast<uint32_t>(Tmr::GameClockElapsed()) + (GameVariable<uint32_t>(0x00696D60) - static_cast<uint32_t>(start)) <
+    if (static_cast<uint32_t>(Tmr::GameClockElapsed()) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start)) <
         300)
         return;
     // After 300 ms, turned towards upright facing the same way.

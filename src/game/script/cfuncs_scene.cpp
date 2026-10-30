@@ -24,12 +24,15 @@
 #include "game/gfx/texture_dict.h"
 #include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
 
 using Script::CScript;
 using Script::CStruct;
+
+GAME_GLOBAL(int, g_configNtsc, 0x00684FB0, 1);
 
 namespace {
 
@@ -71,8 +74,8 @@ constexpr uint32_t kLensFlareData = 0x04CBD07F;    // "lens_flare_data"
 // the extra memory of a development kit, the TV standard (0 PAL, 1 NTSC) and the frame rate.
 int& ConfigLanguage() { return GameVariable<int>(0x007CEFA0); }
 bool& ConfigCD() { return GameVariable<bool>(0x00684FA8); }
-bool& ConfigGotExtraMemory() { return GameVariable<bool>(0x007CEFAC); }
-int& ConfigNTSC() { return GameVariable<int>(0x00684FB0); }
+bool& ConfigGotExtraMemory() { return g_gotExtraMemory; }
+int& ConfigNTSC() { return g_configNtsc; }
 int& ConfigFramerate() { return GameVariable<int>(0x00684FB4); }
 bool& ConfigBootstrap() { return GameVariable<bool>(0x007CEFAD); }
 // The configuration's names (cdecl): the hardware, the display type for a frame rate, the language, the territory.

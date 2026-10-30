@@ -45,10 +45,14 @@
 #include "game/gfx/face_texture.h"
 #include "game/gfx/model.h"
 #include "game/gfx/anim_blend.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mdl {
+
+GAME_GLOBAL(uint8_t, g_netRelayObjectId, 0x007CE48C);
 
 namespace {
 
@@ -107,8 +111,8 @@ constexpr uint32_t kSentCheats[] = {
 };
 
 GameNet::Manager* Net() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-Game::CGameMode* GameMode() { return GameVariable<Game::CGameMode*>(0x007CE470); }
-Obj::CBaseManager* ObjectManager() { return GameVariable<Obj::CBaseManager*>(0x006F0FB8); }
+Game::CGameMode* GameMode() { return Game::g_gameMode; }
+Obj::CBaseManager* ObjectManager() { return reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager); }
 
 template <typename T>
 T& Field(const void* object, uint32_t offset)
@@ -567,7 +571,7 @@ int SkateNet::HandleGraffitiTexture(Net::MsgHandlerContext* context)
     auto from = [&]() -> PlayerInfo* {
         if (net->OnServer())
             return ByConnection(context->m_Conn);
-        return ByObjectId(GameVariable<uint8_t>(0x007CE48C));
+        return ByObjectId(g_netRelayObjectId);
     };
     // the texture's virtual slot 5 (0x00456B30): its texture and palette
     auto load = [](void* texture, const void* textureData, uint32_t textureSize, const void* palette,
@@ -577,7 +581,7 @@ int SkateNet::HandleGraffitiTexture(Net::MsgHandlerContext* context)
     };
     switch (context->m_MsgId) {
     case 0x96: // the player the next ones are for
-        GameVariable<uint8_t>(0x007CE48C) = msg[0];
+        g_netRelayObjectId = msg[0];
         break;
     case 0x98: { // the palette
         PlayerInfo* player = from();
@@ -600,7 +604,7 @@ int SkateNet::HandleGraffitiTexture(Net::MsgHandlerContext* context)
             player = ByConnection(context->m_Conn);
             onServer = true;
         } else {
-            player = ByObjectId(GameVariable<uint8_t>(0x007CE48C));
+            player = ByObjectId(g_netRelayObjectId);
         }
         uint32_t parts = 0;
         if (player) {
@@ -921,7 +925,7 @@ int SkateNet::HandleGraffitiObjects(Net::MsgHandlerContext* context)
         owner = Field<int>(data, 4);
     auto* names = reinterpret_cast<const uint32_t*>(data + 0xC);
     for (uint32_t i = 0; i < Field<uint32_t>(data, 8); ++i)
-        GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->SetObjectGraffitiColor(names[i], owner);
+        Obj::g_trickObjectManager->SetObjectGraffitiColor(names[i], owner);
     return 1;
 }
 
@@ -1015,7 +1019,7 @@ int SkateNet::HandleProjectile(Net::MsgHandlerContext* context)
         time += conn->IsLocal() ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency);
     }
     // where it is now: moved along its direction for the time it took (x87: unrounded until stored)
-    double seconds = static_cast<double>(time) * static_cast<double>(GameVariable<float>(0x006461D8));
+    double seconds = static_cast<double>(time) * static_cast<double>(Game::g_goalLifeSecondsPerMillisecond);
     position.x = static_cast<float>(velocity.x * seconds + position.x);
     position.y = static_cast<float>(position.y + velocity.y * seconds);
     position.z = static_cast<float>(position.z + velocity.z * seconds);

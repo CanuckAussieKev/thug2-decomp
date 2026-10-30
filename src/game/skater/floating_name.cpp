@@ -41,7 +41,7 @@ bool ShowNames() { return NetManager()->ShouldDrawPlayerNames(); }
 uint8_t* PlayerByObjectId(uint32_t id) { return NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)); }
 uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetManager()->GetCamPlayer()); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
-bool IsTeamGame() { return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->IsTeamGame() != 0; }
+bool IsTeamGame() { return static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->IsTeamGame() != 0; }
 
 // `name` run with a structure holding only id = `labelId`.
 void RunWithLabelId(uint32_t name, uint32_t labelId)

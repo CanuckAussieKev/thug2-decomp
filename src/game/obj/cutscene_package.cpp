@@ -31,9 +31,13 @@
 #include "game/script/struct_buffer.h"
 #include "game/gfx/loading_console.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint8_t[80], g_skinColourTable, 0x0067D810, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 239, 226, 125, 59, 80, 171, 108, 64, 205, 4, 143, 63, 0, 0, 128, 63, 239, 226, 125, 59, 180, 212, 5, 65, 87, 207, 247, 63, 0, 0, 128, 63, 153, 71, 126, 59, 185, 169, 157, 64, 74, 151, 190, 64, 0, 0, 128, 63, 153, 71, 126, 59, 46, 84, 117, 64, 72, 24, 102, 64, 0, 0, 128, 63);
+GAME_GLOBAL(float[20], g_skinColours, 0x0067D860, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
 
 namespace {
 
@@ -66,7 +70,7 @@ constexpr uint32_t kTypeExtra = 0xFFC529F4;
 constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE;
 constexpr uint32_t kColourNames[4] = {0xA28FAB7F, 0xB90F08D0, 0x1DBCFAE8, 0x0442D3C1};
 
-Ass::CAssMan* Assets() { return GameVariable<Ass::CAssMan*>(0x006918DC); }
+Ass::CAssMan* Assets() { return Ass::g_assetManager; }
 // The asset manager's load (0x00408060: not permanent, copied), unload (0x00407B90 + 0x00407B20) and find.
 void* LoadAssetData(uint32_t name, int type, uint32_t textures, const void* data, uint32_t size, void* params)
 {
@@ -258,7 +262,7 @@ void CCutsceneDetails::End()
 void CCutsceneData::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(0x00647908);
-    GameVariable<bool>(0x006F1158) = false;
+    g_cutscenePlaying = false;
     if (mp_bundle) {
         DeleteVirtual(mp_bundle);
         mp_bundle = nullptr;
@@ -415,7 +419,7 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
         if (!part2)
             part2 = static_cast<Script::CStruct*>(
                 static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPartOption(kPartB));
-        float* skin = &GameVariable<float>(0x0067D860);
+        float* skin = g_skinColours;
         skin[0] = skin[1] = skin[2] = skin[3] = 1.0f;
         for (int k = 0; k < 4; ++k) {
             float colour[4];
@@ -426,7 +430,7 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
         SkinColours table;
         table.start = colours + 8;
         table.end = table.start + entries * 12;
-        table.table = &GameVariable<uint8_t>(0x0067D810);
+        table.table = g_skinColourTable;
         table.colours = skin;
         // which skin this is: the next names along say (none after it: the last)
         bool male = false, hasFace = false;

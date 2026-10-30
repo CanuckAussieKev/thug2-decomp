@@ -8,10 +8,15 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(CCompositeObject*, g_proximitySkater, 0x0069399C);
+GAME_GLOBAL(float, g_proximitySkaterRadius, 0x006939A8);
 
 namespace {
 
@@ -20,8 +25,8 @@ constexpr uint32_t kInactive = 0x742CF11F;  // INACTIVE
 constexpr uint32_t kDelay = 0x9D02737D;     // (its name unknown): seconds
 
 // The skater the component watches and the radius added to its outer one (globals no code here sets).
-CCompositeObject* Skater() { return GameVariable<CCompositeObject*>(0x0069399C); }
-float SkaterRadius() { return GameVariable<float>(0x006939A8); }
+CCompositeObject* Skater() { return g_proximitySkater; }
+float SkaterRadius() { return g_proximitySkaterRadius; }
 
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
@@ -102,7 +107,7 @@ bool CProximityComponent::Proximity_SetActive(Script::CStruct* params, Script::C
         if (params->GetFloat(kDelay, &delay, 0)) {
             int now = Tmr::GameClockElapsed();
             m_reactivateTime =
-                now + (GameVariable<int>(0x00696D60) - Truncate(static_cast<double>(delay) * -1000.0f));
+                now + (g_clockOffset - Truncate(static_cast<double>(delay) * -1000.0f));
         } else {
             m_reactivateTime = 0;
         }

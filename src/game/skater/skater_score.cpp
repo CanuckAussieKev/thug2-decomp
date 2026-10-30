@@ -11,6 +11,7 @@
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -50,7 +51,7 @@ int ScorePot(uint8_t* score)
 int LastScoreLanded(uint8_t* score) { return Field<int>(score, 0x20); }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
-uint8_t* Career() { return Field<uint8_t*>(GameVariable<uint8_t*>(0x007CE478), 0x20); }
+uint8_t* Career() { return Field<uint8_t*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x20); }
 
 // The unnamed integer (asserted). Without one the original's variable keeps what was in its stack slot - the
 // `params` argument it reuses - so that's the value then.

@@ -23,6 +23,7 @@
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -176,7 +177,7 @@ bool CorePhysicsComponent::CanGrindRail(const void* rail, const void*, bool anyT
     } else if (!sameRail()) {
         // Another rail. In a created park, only if its ends are all more than 6 from the last one's (pieces' rails
         // meet end to end).
-        uint8_t* park = GameVariable<uint8_t*>(0x007CE5D8); // (the park editor)
+        uint8_t* park = reinterpret_cast<uint8_t*>(Ed::g_parkEditor); // (the park editor)
         if (At<uint32_t>(park, 0x40) == kOff || !last->previous || !node->previous) {
             newRail = true;
         } else {

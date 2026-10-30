@@ -13,9 +13,13 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
+
+GAME_GLOBAL(uint32_t, g_parkEditorReferences, 0x007CE5DC);
+GAME_GLOBAL(uint32_t, g_editorClock, 0x007CE5EC);
 
 namespace {
 
@@ -24,7 +28,7 @@ constexpr uint32_t kTaskVtable = 0x006476F0;
 constexpr uint32_t kInputHandlerVtable = 0x0064D7D8;
 
 // The park editor's clock (milliseconds).
-uint32_t& EditorClock() { return GameVariable<uint32_t>(0x007CE5EC); }
+uint32_t& EditorClock() { return g_editorClock; }
 
 // A memory marker of the script's (MemoryMarker): the main heap's free memory as the park is set up.
 constexpr uint32_t kParkLoadMarker = 0xCC63F828;

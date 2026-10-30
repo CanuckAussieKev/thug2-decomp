@@ -15,6 +15,7 @@
 #include "game/obj/walk_hang.h"
 #include "game/sys/game_clock.h"
 #include "game/skater/core_physics.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -101,7 +102,7 @@ void CSkaterAdjustPhysicsComponent::FrameUpdate()
     if (At<int>(flags, 0x18) == 0 || m_object->m_vel.y < 0.0f) {
         if (flags[0x60] != 1) {
             flags[0x60] = 1;
-            At<int>(flags, 0x64) = Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60);
+            At<int>(flags, 0x64) = Tmr::GameClockElapsed() + g_clockOffset;
         }
     }
     if (!At<uint8_t*>(mp_core, kTimedFlags)[0x88])

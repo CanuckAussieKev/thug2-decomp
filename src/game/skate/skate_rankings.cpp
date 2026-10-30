@@ -42,7 +42,7 @@ constexpr uint32_t kKing = 0x5D32129C;               // king
 constexpr uint32_t kFirstLine = 0x00039447;          // the first score line's id
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
-Game::CGameMode* GameMode() { return GameVariable<Game::CGameMode*>(0x007CE470); }
+Game::CGameMode* GameMode() { return Game::g_gameMode; }
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 bool KingOfTheHill() { return GameMode()->GetNameChecksum() == kNetKing || GameMode()->GetNameChecksum() == kKing; }
 

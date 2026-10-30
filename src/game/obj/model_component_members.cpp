@@ -16,6 +16,7 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "game/core/crc.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -284,7 +285,7 @@ int CModelComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         bool hold = params->ContainsFlag(kHoldOnLastAngle);
         bool dontPause = params->ContainsFlag(kDontPause);
         uint32_t now = dontPause ? Tmr::GetTime()
-                                 : static_cast<uint32_t>(Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60));
+                                 : static_cast<uint32_t>(Tmr::GameClockElapsed() + g_clockOffset);
         uint8_t axes = 0;
         static const uint32_t kAxes[3] = {kX, kY, kZ};
         for (int axis = 0; axis < 3; ++axis) {

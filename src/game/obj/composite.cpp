@@ -17,6 +17,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
@@ -25,6 +26,12 @@ using Script::CArray;
 using Script::CMemberFunctionEntry;
 using Script::CScript;
 using Script::CStruct;
+
+GAME_GLOBAL(float, g_compositeAcosA0, 0x006453DC, 1.5707288f);
+GAME_GLOBAL(float, g_compositeAcosA1, 0x006453E0, 0.2121144f);
+GAME_GLOBAL(float, g_compositeAcosA2, 0x006453E4, 0.074261f);
+GAME_GLOBAL(float, g_compositeAcosA3, 0x006453E8, -0.0187293f);
+GAME_GLOBAL(float, g_compositeFeetToInches, 0x0064546C, 12.0f);
 
 namespace {
 
@@ -91,10 +98,10 @@ Mem::ListNode* ManagerObjectList(CBaseManager* manager)
 // Mth::FastACos (0x00403EF0) as its callers here see it: the x87 result is used before it is rounded to a float.
 double FastACosUnrounded(float value)
 {
-    const double a0 = GameVariable<float>(0x006453DC);
-    const double a1 = GameVariable<float>(0x006453E0);
-    const double a2 = GameVariable<float>(0x006453E4);
-    const double a3 = GameVariable<float>(0x006453E8);
+    const double a0 = g_compositeAcosA0;
+    const double a1 = g_compositeAcosA1;
+    const double a2 = g_compositeAcosA2;
+    const double a3 = g_compositeAcosA3;
     const double pi = GameVariable<float>(0x006453D8);
     if (value < 0.0f) {
         double x = -static_cast<double>(value);
@@ -168,7 +175,7 @@ private:
     alignas(16) uint8_t m_bytes[0xB0];
 };
 
-float FeetToInches() { return GameVariable<float>(0x0064546C); } // 12
+float FeetToInches() { return g_compositeFeetToInches; } // 12
 
 } // namespace
 

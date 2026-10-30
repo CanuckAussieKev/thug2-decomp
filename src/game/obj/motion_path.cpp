@@ -12,9 +12,61 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[294], g_motionPathMemberFunctions, 0x00681EB8,
+            0x21ACCF0D, 0x0A015E17, 0, 0, 0, 0,
+            0x7BC461AE, 0x0A015E17, 0, 0, 0, 0,
+            0x8E52ABEA, 0x0A015E17, 0, 0, 0, 0,
+            0xC8CC6820, 0x0A015E17, 0, 0, 0, 0,
+            0x68E1F022, 0x0A015E17, 0, 0, 0, 0,
+            0xDFBE3DB3, 0x0A015E17, 0, 0, 0, 0,
+            0xFB603EA9, 0x0A015E17, 0, 0, 0, 0,
+            0x2CA63CDF, 0x0A015E17, 0, 0, 0, 0,
+            0xD6697AD0, 0x0A015E17, 0, 0, 0, 0,
+            0xA67FC783, 0x0A015E17, 0, 0, 0, 0,
+            0x5CF1B7D4, 0x0A015E17, 0, 0, 0, 0,
+            0x0B231A9D, 0x0A015E17, 0, 0, 0, 0,
+            0x7C242A0B, 0x0A015E17, 0, 0, 0, 0,
+            0xE52D7BB1, 0x0A015E17, 0, 0, 0, 0,
+            0xD8F4BC32, 0x0A015E17, 0, 0, 0, 0,
+            0xAA3CB476, 0x0A015E17, 0, 0, 0, 0,
+            0xB75589CE, 0x0A015E17, 0, 0, 0, 0,
+            0x6866312F, 0x0A015E17, 0, 0, 0, 0,
+            0x434EA1FB, 0x0A015E17, 0, 0, 0, 0,
+            0x76003D82, 0x0A015E17, 0, 0, 0, 0,
+            0xBFB0031D, 0x0A015E17, 0, 0, 0, 0,
+            0x33E04032, 0x0A015E17, 0, 0, 0, 0,
+            0x103BD253, 0x0A015E17, 0, 0, 0, 0,
+            0x6419CEFF, 0x0A015E17, 0, 0, 0, 0,
+            0xA5A2D218, 0x0A015E17, 0, 0, 0, 0,
+            0x74C30242, 0x0A015E17, 0, 0, 0, 0,
+            0xE8D121CB, 0x0A015E17, 0, 0, 0, 0,
+            0x33DF698F, 0x0A015E17, 0, 0, 0, 0,
+            0xFE71453F, 0x0A015E17, 0, 0, 0, 0,
+            0xBD6C6807, 0x0A015E17, 0, 0, 0, 0,
+            0x0DA2D86D, 0x0A015E17, 0, 0, 0, 0,
+            0xCC19C48A, 0x0A015E17, 0, 0, 0, 0,
+            0x8B669799, 0x0A015E17, 0, 0, 0, 0,
+            0xF389285D, 0x0A015E17, 0, 0, 0, 0,
+            0x5CE058FD, 0x0A015E17, 0, 0, 0, 0,
+            0x84EC6600, 0x0A015E17, 0, 0, 0, 0,
+            0xEA81A32B, 0x0A015E17, 0, 0, 0, 0,
+            0x3BCAAC3F, 0x0A015E17, 0, 0, 0, 0,
+            0xC5ECA638, 0x0A015E17, 0, 0, 0, 0,
+            0x1E094B84, 0x0A015E17, 0, 0, 0, 0,
+            0xBDC4C878, 0x0A015E17, 0, 0, 0, 0,
+            0xDBFDD02F, 0x0A015E17, 0, 0, 0, 0,
+            0x8D95F1E1, 0x0A015E17, 0, 0, 0, 0,
+            0x3407AD3D, 0x0A015E17, 0, 0, 0, 0,
+            0xE606EBA2, 0x0A015E17, 0, 0, 0, 0,
+            0xE76D73D2, 0x0A015E17, 0, 0, 0, 0,
+            0x1AE46261, 0x0A015E17, 0, 0, 0, 0,
+            0x2FAD370D, 0x0A015E17, 0, 0, 0, 0,
+            0, 0x0A015E17, 0, 0, 0, 0);
 
 namespace {
 
@@ -55,7 +107,7 @@ int WaitOn(Script::CScript* script, CMotionPathMembers* component, Script::EWait
 // 0x00423130
 void __cdecl CMotionPathMembers::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00681EB8), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_motionPathMemberFunctions, 0x18);
 }
 
 // 0x00423150

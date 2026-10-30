@@ -6,6 +6,8 @@
 #include "game/obj/smtptr.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
+#include "game/core/pool.h"
 
 // A running script (Script::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, game/core/memory_sizes.h) and the list of all of them.
 //
@@ -311,13 +313,21 @@ constexpr uint8_t SCRIPT_FLAG_PAUSE_WITH_OBJECT = 0x08;    // not updated while 
 constexpr uint8_t SCRIPT_FLAG_TRACKER_BLOCKED = 0x10;      // Block registered it with the tracker
 
 // The globals.
-inline CScript*& ScriptListHead() { return GameVariable<CScript*>(0x006F3538); }
-inline CScript*& CurrentScriptVar() { return GameVariable<CScript*>(0x006F3530); } // GetCurrentScript 0x004728C0
-inline int& ScriptCount() { return GameVariable<int>(0x006F353C); }
-inline uint32_t& NextScriptUniqueId() { return GameVariable<uint32_t>(0x006F3540); }
-inline bool& UpdatingSpawnedScripts() { return GameVariable<bool>(0x006F3544); }
-inline bool& DeleteSpawnedScriptsPending() { return GameVariable<bool>(0x006F3545); }
-inline bool& OnePerFrameReleased() { return GameVariable<bool>(0x006F352C); } // WAIT_TYPE_ONE_PER_FRAME
+GAME_GLOBAL_EXTERN(CScript*, g_scriptListHead);
+GAME_GLOBAL_EXTERN(CScript*, g_currentScript);
+GAME_GLOBAL_EXTERN(int, g_scriptCount);
+GAME_GLOBAL_EXTERN(uint32_t, g_nextScriptUniqueId);
+GAME_GLOBAL_EXTERN(bool, g_updatingSpawnedScripts);
+GAME_GLOBAL_EXTERN(bool, g_deleteSpawnedScriptsPending);
+GAME_GLOBAL_EXTERN(bool, g_onePerFrameReleased); // WAIT_TYPE_ONE_PER_FRAME
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_scriptPools);
+inline CScript*& ScriptListHead() { return g_scriptListHead; }
+inline CScript*& CurrentScriptVar() { return g_currentScript; } // GetCurrentScript 0x004728C0
+inline int& ScriptCount() { return g_scriptCount; }
+inline uint32_t& NextScriptUniqueId() { return g_nextScriptUniqueId; }
+inline bool& UpdatingSpawnedScripts() { return g_updatingSpawnedScripts; }
+inline bool& DeleteSpawnedScriptsPending() { return g_deleteSpawnedScriptsPending; }
+inline bool& OnePerFrameReleased() { return g_onePerFrameReleased; }
 // (also: the CScript pool pair 0x006F3548 - qb.cpp creates it; the script cache 0x006F3558 - cache.h; the object
 // tracker 0x006F0FC0; GameNet::Manager 0x007CCE14; the game clock offset 0x00696D60)
 
@@ -375,5 +385,4 @@ void StopAllScriptsUsingThisObject(Obj::CObject* object);          // 0x004756F0
 void StopScriptsUsingObjectThatReferTo(Obj::CObject* object, uint32_t name); // 0x00474350 (name at any level)
 // 0x00475700: delete the scripts that aren't spawned, have no code and no event handler table (Cleanup).
 void DeleteFinishedScripts();
-
 } // namespace Script

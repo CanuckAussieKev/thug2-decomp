@@ -15,11 +15,14 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace Ed {
+
+GAME_GLOBAL(char[104], g_goalNameBuffer, 0x007CCC58);
 
 namespace {
 
@@ -34,7 +37,7 @@ int Sprintf(char* out, const char* format, Args... args)
 }
 
 // The goal editor's shared name buffer (also GoalEditorMarkerObject<n>'s).
-char* NameBuffer() { return &GameVariable<char>(0x007CCC58); }
+char* NameBuffer() { return g_goalNameBuffer; }
 
 uint32_t CurrentLevel() { return Mdl::Skate::Instance()->m_level; }
 

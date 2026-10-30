@@ -12,15 +12,19 @@
 #include "game/script/struct.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
 
+GAME_GLOBAL(bool, g_careerLeftOut, 0x007CE4E8);
+
 namespace {
 
 // Levels left out of the totals (a byte each).
-bool* LeftOut() { return &GameVariable<bool>(0x007CE4E8); }
+bool* LeftOut() { return &g_careerLeftOut; }
 
 uint32_t Bit(int index) { return 1u << (index & 0x1F); }
 int Word(int index) { return index >> 5; }
@@ -541,8 +545,8 @@ void CSkaterCareer::WriteToStructure(Script::CStruct* save)
     career->AddComponentOfType(kGlobalFlagsArray, Script::ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(globals));
     career->AddComponentOfType(kGapsArray, Script::ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(gapLevels));
     career->AddArrayPointer(kVisitedArray, visited);
-    career->AddChecksum(0xE3335D2F, *reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE478) + 0x378)); // (the skate module's)
-    career->AddChecksum(0x2CC06F5E, static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->GetNameChecksum());
+    career->AddChecksum(0xE3335D2F, *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x378)); // (the skate module's)
+    career->AddChecksum(0x2CC06F5E, static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->GetNameChecksum());
     // (both made first, then sized, as the original)
     Script::CArray* cashMemory = Script::NewArray();
     Script::CArray* cash = cashMemory ? cashMemory->Init() : nullptr;
@@ -573,7 +577,7 @@ void CSkaterCareer::WriteToStructure(Script::CStruct* save)
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career written to the script's results.
 bool __cdecl CFunc_GetCareerSaveInfo(Script::CStruct* /*params*/, Script::CScript* script)
 {
-    auto* career = *reinterpret_cast<CSkaterCareer**>(GameVariable<uint8_t*>(0x007CE478) + 0x20);
+    auto* career = *reinterpret_cast<CSkaterCareer**>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x20);
     career->WriteToStructure(*reinterpret_cast<Script::CStruct**>(reinterpret_cast<uint8_t*>(script) + 0x14));
     return true;
 }

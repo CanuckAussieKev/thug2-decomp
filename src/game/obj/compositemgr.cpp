@@ -14,10 +14,25 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
+#include "game/ass/assman.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(int, g_compositeMgrBlockHeaderSize, 0x00658454, 16);
+GAME_GLOBAL(int, g_coimInteger0, 0x0067D804, 4);
+GAME_GLOBAL(int, g_coimInteger1, 0x0067D808, 2);
+GAME_GLOBAL(int, g_coimA, 0x006F0D8C);
+GAME_GLOBAL(int, g_coimB, 0x006F0D90);
+GAME_GLOBAL(int, g_coimC, 0x006F0D98);
+GAME_GLOBAL(Mem::Region*, g_coimRegion, 0x006F0DA0);
+GAME_GLOBAL(Mem::Heap*, g_coimHeap, 0x006F0DA4);
+GAME_GLOBAL(uint32_t, g_instanceCount, 0x006F0DB4);
+GAME_GLOBAL(CBaseComponent*[82], g_componentList, 0x006F0DB8);
+GAME_GLOBAL(Obj::CCompositeObjectManager*, g_compositeObjectManager, 0x006F0FB8);
+GAME_GLOBAL(uint32_t, g_compositeMgrReferences, 0x006F0FBC);
 
 namespace {
 
@@ -27,10 +42,10 @@ constexpr uint32_t kCompositeObjectType = 0xCDEB9229;
 constexpr uint32_t kObjectMemberFunctionType = 0x57525413;    // the table at 0x00683550 (CObject's)
 constexpr uint32_t kCompositeMemberFunctionType = 0x0ADA4E74; // the table at 0x00683268 (CCompositeObject's)
 
-uint32_t& References() { return GameVariable<uint32_t>(0x006F0FBC); }
+uint32_t& References() { return g_compositeMgrReferences; }
 
 // The components of each type (index = the type's index in m_components), linked through their +0x14.
-CBaseComponent*& ComponentList(uint32_t index) { return GameVariable<CBaseComponent*>(0x006F0DB8 + 4 * index); }
+CBaseComponent*& ComponentList(uint32_t index) { return g_componentList[index]; }
 // A component's type and its link to the next of its type.
 uint32_t TypeOf(CBaseComponent* component) { return component->m_type; }
 CBaseComponent*& NextOfType(CBaseComponent* component) { return component->mp_nextOfType; }
@@ -60,7 +75,7 @@ void ConstructTask(void* task, int priority) { static_cast<Tsk::BaseTask*>(task)
 void RemoveTask(void* task) { static_cast<Tsk::BaseTask*>(task)->Remove(); }
 void AddLogicTask(void* task)
 {
-    GameVariable<Mlp::Manager*>(0x00696D68)->m_logicTasks.AddTask(static_cast<Tsk::BaseTask*>(task));
+    Ass::g_mainLoopManager->m_logicTasks.AddTask(static_cast<Tsk::BaseTask*>(task));
 }
 
 // The node after `node`, or null at the head; a node's object (null for none).
@@ -104,7 +119,7 @@ void WalkObjects(CBaseManager* manager, Visit visit)
 
 } // namespace
 
-CCompositeObjectManager*& CompositeObjectManager() { return GameVariable<CCompositeObjectManager*>(0x006F0FB8); }
+CCompositeObjectManager*& CompositeObjectManager() { return g_compositeObjectManager; }
 
 // 0x0045F6E0
 CCompositeObjectManager* CCompositeObjectManager::Construct()
@@ -295,8 +310,9 @@ struct InstanceNode {
     InstanceNode* next;
     InstanceNode* prev;
 };
-InstanceNode*& InstanceListHead() { return GameVariable<InstanceNode*>(0x006F0DB0); }
-uint32_t& InstanceCount() { return GameVariable<uint32_t>(0x006F0DB4); }
+GAME_GLOBAL(InstanceNode*, g_instanceListHead, 0x006F0DB0);
+InstanceNode*& InstanceListHead() { return g_instanceListHead; }
+uint32_t& InstanceCount() { return g_instanceCount; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void EraseInstances(InstanceNode** result, InstanceNode* first, InstanceNode* last)
 {
@@ -305,13 +321,13 @@ void EraseInstances(InstanceNode** result, InstanceNode* first, InstanceNode* la
                                                            reinterpret_cast<PointerListNode*>(last));
 }
 
-Mem::Region*& CoimRegion() { return GameVariable<Mem::Region*>(0x006F0DA0); }
-Mem::Heap*& CoimHeap() { return GameVariable<Mem::Heap*>(0x006F0DA4); }
-int& CoimA() { return GameVariable<int>(0x006F0D8C); }
-int& CoimB() { return GameVariable<int>(0x006F0D90); }
-int& CoimC() { return GameVariable<int>(0x006F0D98); }
-int& CoimInteger0() { return GameVariable<int>(0x0067D804); } // (4 until InitCOIM)
-int& CoimInteger1() { return GameVariable<int>(0x0067D808); } // (2 until InitCOIM)
+Mem::Region*& CoimRegion() { return g_coimRegion; }
+Mem::Heap*& CoimHeap() { return g_coimHeap; }
+int& CoimA() { return g_coimA; }
+int& CoimB() { return g_coimB; }
+int& CoimC() { return g_coimC; }
+int& CoimInteger0() { return g_coimInteger0; } // (4 until InitCOIM)
+int& CoimInteger1() { return g_coimInteger1; } // (2 until InitCOIM)
 
 } // namespace
 
@@ -361,7 +377,7 @@ bool CreateCoimHeap(uint32_t size)
         CoimRegion() = memory ? new (memory) Mem::AllocRegion(size) : nullptr;
         CoimHeap() = Mem::Manager::Get()->AddHeap(CoimRegion(), 1, "COIMHeap");
         CoimHeap()->m_unknown64 = true;
-        CoimHeap()->m_unknown68 = CoimB() - GameVariable<int>(0x00658454); // (16: a block header)
+        CoimHeap()->m_unknown68 = CoimB() - g_compositeMgrBlockHeaderSize; // (16: a block header)
         Script::GetInteger(0xBA2C7CCB); // (the result isn't used)
     }
     return false;

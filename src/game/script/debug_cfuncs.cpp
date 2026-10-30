@@ -19,10 +19,14 @@
 #include "game/script/script_startup.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
+#include "game/ass/assman.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(uint32_t[15], g_levelQbFiles, 0x00696900);
 
 namespace {
 
@@ -62,7 +66,7 @@ void PrintBytes(const void* data, int count)
 
 } // namespace
 
-uint32_t* LevelSpecificQbFiles() { return &GameVariable<uint32_t>(0x00696900); }
+uint32_t* LevelSpecificQbFiles() { return g_levelQbFiles; }
 
 // 0x004489B0: DisplayFreeMem: for every heap of the memory manager, run UpdateDisplayFreeMemory with id=<the
 // heap's name checksum> free_mem=<the space left in its region> min_free_mem=<the least there has been>.
@@ -200,7 +204,7 @@ bool __cdecl CFunc_Inside(Script::CStruct*, Script::CScript*)
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).
 bool __cdecl CFunc_ResetEngine(Script::CStruct*, Script::CScript*)
 {
-    GameVariable<Mlp::Manager*>(0x00696D68)->StopLoop();
+    Ass::g_mainLoopManager->StopLoop();
     return true;
 }
 

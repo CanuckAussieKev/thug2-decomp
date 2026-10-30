@@ -444,7 +444,7 @@ void CSkaterNonLocalNetLogicComponent::Update()
     // Extrapolated when this machine plays (not observing or waiting) in a game that wants it.
     auto* player = static_cast<GameNet::PlayerInfo*>(netManager->GetLocalPlayer());
     if (!player->IsObserver() && !player->IsSurveying()) {
-        void* gameMode = GameVariable<void*>(0x007CE470);
+        void* gameMode = static_cast<void*>(Game::g_gameMode);
         bool extrapolate = GameVariable<GameNet::Manager*>(0x007CCE14)->PlayerCollisionEnabled() ||
                            static_cast<Game::CGameMode*>(gameMode)->GetNameChecksum() == kNetFirefight ||
                            static_cast<Game::CGameMode*>(gameMode)->GetNameChecksum() == kFirefight;

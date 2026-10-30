@@ -18,6 +18,7 @@
 #include "game/gfx/face_texture.h"
 #include "game/gfx/model_appearance.h"
 #include "game/skate/cas_options.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -242,7 +243,7 @@ bool __cdecl CFunc_RefreshSkaterModel(Script::CStruct* params, Script::CScript*)
     params->GetInteger(kSkater, &skaterIndex, 0);
     auto* skater = static_cast<Obj::CSkater*>(GetSkater(skaterIndex));
     if (skater->m_viewport == 0) {
-        auto* objects = GameVariable<Obj::CGeneralManager*>(0x006F0FB8);
+        auto* objects = reinterpret_cast<Obj::CGeneralManager*>(Obj::g_compositeObjectManager);
         if (Obj::CObject* board = objects->GetObjectByID(kBailBoard)) {
             reinterpret_cast<void(__thiscall*)(Obj::CObject*)>(board->m_vtable[6])(board); // (MarkAsDead)
             objects->FlushDeadObjects();

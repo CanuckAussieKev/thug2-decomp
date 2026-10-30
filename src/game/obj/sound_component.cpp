@@ -16,9 +16,14 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[12], g_soundComponentMemberFunctions, 0x00683118,
+            0xAFA20E18, 0x07713C7B, 0, 0, 0, 0,
+            0, 0x07713C7B, 0, 0, 0, 0);
 
 namespace {
 
@@ -74,7 +79,7 @@ CBaseComponent* __cdecl CSoundComponent::Create()
 // 0x00432C80
 void __cdecl CSoundComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00683118), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_soundComponentMemberFunctions, 0x18);
 }
 
 // 0x00432D90

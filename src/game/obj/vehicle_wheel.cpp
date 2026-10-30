@@ -7,9 +7,22 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[60], g_vehicleWheelMemberFunctions, 0x00684060,
+            0x93B713A6, 0xE47F1B79, 0, 0, 0, 0,
+            0xA80A0D36, 0xE47F1B79, 0, 0, 0, 0,
+            0x4B0B27DD, 0xE47F1B79, 0, 0, 0, 0,
+            0xC33608E4, 0xE47F1B79, 0, 0, 0, 0,
+            0xDB35AAD8, 0xE47F1B79, 0, 0, 0, 0,
+            0x5008B253, 0xE47F1B79, 0, 0, 0, 0,
+            0x279602ED, 0xE47F1B79, 0, 0, 0, 0,
+            0x4C73526B, 0xE47F1B79, 0, 0, 0, 0,
+            0x81FAAC21, 0xE47F1B79, 0, 0, 0, 0,
+            0, 0xE47F1B79, 0, 0, 0, 0);
 
 namespace {
 
@@ -51,7 +64,7 @@ void ReadFeet(Script::CStruct* params, uint32_t name, float& value)
 // 0x00434F00
 void __cdecl RegisterVehicleMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kVehicle), &GameVariable<uint32_t>(0x00684060), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kVehicle), g_vehicleWheelMemberFunctions, 0x18);
 }
 
 // 0x00434F20

@@ -5,6 +5,7 @@
 
 #include "game/gfx/anim_controller.h"
 #include "game/obj/movie_manager.h"
+#include "hook/game_global.h"
 
 // Two kinds of movie the movie manager plays (0x005871B0-0x005880DF), each an animation asset played on a timeline
 // of its own:
@@ -87,5 +88,7 @@ struct CCameraAnimMovie {
 static_assert(offsetof(CCameraAnimMovie, m_target) == 0x34 && offsetof(CCameraAnimMovie, m_lookOffsetSet) == 0x59 &&
                   offsetof(CCameraAnimMovie, m_timeline) == 0x60 && sizeof(CCameraAnimMovie) == 0x94,
               "layout must match the original");
+
+GAME_GLOBAL_EXTERN(float, g_floatZero);
 
 } // namespace Obj

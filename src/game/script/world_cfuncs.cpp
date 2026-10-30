@@ -17,9 +17,13 @@
 #include "game/gfx/screen_effects.h"
 #include "game/script/game_cfuncs.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
+
+GAME_GLOBAL(Mdl::Manager*, g_moduleManager, 0x00696D78);
+GAME_GLOBAL(bool, g_viewerLaunched, 0x007CEBF0);
 
 namespace {
 
@@ -46,7 +50,7 @@ void UnpauseSkater(Obj::CCompositeObject* skater)
 }
 
 // Whether LaunchViewer has made the viewer (0x007CEBF0).
-bool& ViewerLaunched() { return GameVariable<bool>(0x007CEBF0); }
+bool& ViewerLaunched() { return g_viewerLaunched; }
 
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
 void* Weather() { return GameVariable<void*>(0x006FA7C8); }
@@ -108,7 +112,7 @@ bool __cdecl CFunc_LaunchViewer(CStruct*, CScript*)
 {
     if (ViewerLaunched())
         return true;
-    Mdl::Manager* modules = GameVariable<Mdl::Manager*>(0x00696D78);
+    Mdl::Manager* modules = g_moduleManager;
     void* memory = Mem::Calloc(sizeof(Mdl::Viewer));
     Mdl::Viewer* viewer = memory ? static_cast<Mdl::Viewer*>(memory)->Construct() : nullptr;
     modules->RegisterModule(viewer);

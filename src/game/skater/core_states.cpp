@@ -19,6 +19,7 @@
 #include "game/skater/manual.h"
 #include "game/skater/skater.h"
 #include "game/skater/trick_component.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -69,7 +70,7 @@ void CorePhysicsComponent::DoLipPhysics()
     }
     // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
     if (At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18) == kLipKind) {
-        auto career = [] { return At<Obj::CSkaterCareer*>(GameVariable<uint8_t*>(0x007CE478), 0x20); };
+        auto career = [] { return At<Obj::CSkaterCareer*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x20); };
         if (career()->GetCheat(kPerfectRail)) {
             career()->SetGlobalFlag(Script::GetInteger(kPerfectRail));
             At<uint32_t>(At<void*>(this, kBalanceTrick), 0x104) = 0;

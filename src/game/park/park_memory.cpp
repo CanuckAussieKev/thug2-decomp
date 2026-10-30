@@ -15,9 +15,19 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
+
+GAME_GLOBAL(double, g_parkMemoryFullUsage, 0x0064FA10, 0.95);
+GAME_GLOBAL(double, g_parkMemoryNearlyFullUsage, 0x0064FA18, 0.9);
+GAME_GLOBAL(MemoryStats, g_parkMemoryStats, 0x007CE618);
+GAME_GLOBAL(Mem::Region*, g_parkRegion, 0x007CE684);
+GAME_GLOBAL(Mem::Heap*, g_parkHeap, 0x007CE688);
+GAME_GLOBAL(int, g_parkMemoryUnknown7CE68C, 0x007CE68C);
+GAME_GLOBAL(int, g_dmaPieces, 0x007CE690);
+GAME_GLOBAL(bool, g_countsDirty, 0x007CE694);
 
 namespace {
 
@@ -38,17 +48,17 @@ struct PieceView {
 };
 
 // The script's object pools (CPoolable pairs): components, vectors, arrays.
-Mem::PoolPair& ComponentPools() { return GameVariable<Mem::PoolPair>(0x006F2338); }
-Mem::PoolPair& VectorPools() { return GameVariable<Mem::PoolPair>(0x006F3654); }
-Mem::PoolPair& ArrayPools() { return GameVariable<Mem::PoolPair>(0x006F22B4); }
+Mem::PoolPair& ComponentPools() { return Script::g_componentPools; }
+Mem::PoolPair& VectorPools() { return Script::g_vectorPools; }
+Mem::PoolPair& ArrayPools() { return Script::g_arrayPools; }
 // The park editor's: CClipboard, CClipboardEntry, CMapListNode. The second word's bytes say whether each pool
 // was made here (and is deleted by ShutDown).
-Mem::PoolPair& ClipboardEntryPools() { return GameVariable<Mem::PoolPair>(0x007CE5C4); }
-Mem::PoolPair& MapListNodePools() { return GameVariable<Mem::PoolPair>(0x007CE5F0); }
+Mem::PoolPair& ClipboardEntryPools() { return g_clipboardEntryPools; }
+Mem::PoolPair& MapListNodePools() { return g_nodePools; }
 uint8_t& PoolMadeHere(Mem::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
 Mem::Pool* CurrentPool(Mem::PoolPair& pair) { return pair.pools[pair.current]; }
 
-int& Unknown7CE68C() { return GameVariable<int>(0x007CE68C); }
+int& Unknown7CE68C() { return g_parkMemoryUnknown7CE68C; }
 
 // The park manager and its generator, whose +0x20 is the most players the park is set up for.
 Ed::CParkGenerator* ParkGenerator() { return Ed::CParkManager::sInstance()->mp_generator; }
@@ -99,12 +109,12 @@ float PoolUsage(Mem::PoolPair& pair, const char* baseName, const int& items)
 
 } // namespace
 
-Mem::PoolPair& ClipboardPools() { return GameVariable<Mem::PoolPair>(0x007CE5B4); }
-MemoryStats& Stats() { return GameVariable<MemoryStats>(0x007CE618); }
-Mem::Region*& ParkRegion() { return GameVariable<Mem::Region*>(0x007CE684); }
-Mem::Heap*& ParkHeap() { return GameVariable<Mem::Heap*>(0x007CE688); }
-int& DmaPieces() { return GameVariable<int>(0x007CE690); }
-bool& CountsDirty() { return GameVariable<bool>(0x007CE694); }
+Mem::PoolPair& ClipboardPools() { return g_clipboardPools; }
+MemoryStats& Stats() { return g_parkMemoryStats; }
+Mem::Region*& ParkRegion() { return g_parkRegion; }
+Mem::Heap*& ParkHeap() { return g_parkHeap; }
+int& DmaPieces() { return g_dmaPieces; }
+bool& CountsDirty() { return g_countsDirty; }
 
 // 0x0059E100
 Mem::Heap* __cdecl GetParkHeap() { return ParkHeap(); }
@@ -322,7 +332,7 @@ bool __cdecl MainHeapHasRoom(int count, int size)
 {
     int free = Stats().mainHeapFree - count * size * kFloorPieceMem;
     double usage = Usage(1.0f, free, GetMemoryValue(reinterpret_cast<const char*>(0x0064F9C4), -1)); // "main_heap_base"
-    return !(usage >= GameVariable<double>(0x0064FA10)); // 0.95 (unordered: true)
+    return !(usage >= g_parkMemoryFullUsage); // 0.95 (unordered: true)
 }
 
 // 0x0059EB30
@@ -340,7 +350,7 @@ bool __cdecl PiecesFit(int first, int last)
         return false;
     double usage = Usage(1.0f, Stats().mainHeapFree - main,
                          GetMemoryValue(reinterpret_cast<const char*>(0x0064F9C4), -1)); // "main_heap_base"
-    return !(usage >= GameVariable<double>(0x0064FA18)); // 0.9 (unordered: true)
+    return !(usage >= g_parkMemoryNearlyFullUsage); // 0.9 (unordered: true)
 }
 
 // 0x0059EC00

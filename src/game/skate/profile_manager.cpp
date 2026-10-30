@@ -14,9 +14,13 @@
 #include "game/gfx/model_appearance.h"
 #include "game/lst/lookup_table.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(Obj::CPlayerProfileManager*, g_profileManager, 0x007CE4B4);
+GAME_GLOBAL(uint32_t, g_profileManagerReferences, 0x007CE4B8);
 
 namespace {
 
@@ -48,8 +52,8 @@ constexpr uint32_t kStats[] = {
 
 Mem::Heap* SkaterInfoHeap() { return Mem::Manager::Get()->m_skaterInfoHeap; }
 
-CPlayerProfileManager*& Instance() { return GameVariable<CPlayerProfileManager*>(0x007CE4B4); }
-uint32_t& References() { return GameVariable<uint32_t>(0x007CE4B8); }
+CPlayerProfileManager*& Instance() { return g_profileManager; }
+uint32_t& References() { return g_profileManagerReferences; }
 
 // A new profile (constructed: its defaults).
 CSkaterProfile* NewProfile()

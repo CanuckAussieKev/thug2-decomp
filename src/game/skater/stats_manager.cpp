@@ -20,9 +20,22 @@
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[60], g_statsManagerMemberFunctions, 0x00684180,
+            0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0,
+            0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0,
+            0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0,
+            0xF1745991, 0x4FF8DAC6, 0, 0, 0, 0,
+            0x78E7D855, 0x4FF8DAC6, 0, 0, 0, 0,
+            0xB341B5A5, 0x4FF8DAC6, 0, 0, 0, 0,
+            0xB7FAC894, 0x4FF8DAC6, 0, 0, 0, 0,
+            0x629D29FA, 0x4FF8DAC6, 0, 0, 0, 0,
+            0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0,
+            0, 0x4FF8DAC6, 0, 0, 0, 0);
 
 namespace {
 
@@ -84,7 +97,7 @@ void DeleteParams(Script::CStruct* params)
     }
 }
 
-void* SkateModule() { return GameVariable<void*>(0x007CE478); }
+void* SkateModule() { return static_cast<void*>(Mdl::g_skateModule); }
 CSkaterProfile* FirstProfile() { return static_cast<Mdl::Skate*>(SkateModule())->GetProfile(static_cast<int>(0)); }
 void* GameFlow() { return Game::GetGoalManager(); }
 
@@ -120,7 +133,7 @@ CBaseComponent* __cdecl CStatsManagerComponent::Create()
 // 0x0051C440
 void __cdecl CStatsManagerComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00684180), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_statsManagerMemberFunctions, 0x18);
 }
 
 // 0x0051C5A0
@@ -253,7 +266,7 @@ bool CStatsManagerComponent::IsActive()
     if (!m_skater)
         return false;
     void* skate = SkateModule();
-    if (!static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->IsTrue(0x1DED1EA4))
+    if (!static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->IsTrue(0x1DED1EA4))
         return false;
     if (!m_activated || Field<uint32_t>(skate, 0x378) == 0xE92ECAFE)
         return false;

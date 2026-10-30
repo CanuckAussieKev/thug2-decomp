@@ -68,7 +68,7 @@ void** const kVtable = reinterpret_cast<void**>(0x0064ED24);
 
 constexpr double kFrames = 60.0; // 0x00645EA0 (frames a second)
 
-uint32_t Clock() { return static_cast<uint32_t>(Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60)); }
+uint32_t Clock() { return static_cast<uint32_t>(Tmr::GameClockElapsed() + g_clockOffset); }
 // A physics value (0x004F90A0 on the balance trick component).
 double Physics(uint8_t* balanceTrick, uint32_t name)
 {

@@ -18,9 +18,18 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[36], g_skeletonComponentMemberFunctions, 0x00684DE0,
+            0x20F7B992, 0x222756D5, 0, 0, 0, 0,
+            0x613831F2, 0x222756D5, 0, 0, 0, 0,
+            0xBE1C58CA, 0x222756D5, 0, 0, 0, 0,
+            0xB244C9CF, 0x222756D5, 0, 0, 0, 0,
+            0xF99F9FAF, 0x222756D5, 0, 0, 0, 0,
+            0, 0x222756D5, 0, 0, 0, 0);
 
 namespace {
 
@@ -94,7 +103,7 @@ CBaseComponent* __cdecl CSkeletonComponent::Create()
 // 0x00431BE0
 void __cdecl CSkeletonComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00684DE0), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_skeletonComponentMemberFunctions, 0x18);
 }
 
 // 0x00431FE0
@@ -120,7 +129,7 @@ CSkeletonComponent* CSkeletonComponent::Destroy(unsigned int flags)
 // 0x00431C70
 void CSkeletonComponent::InitSkeleton(uint32_t name)
 {
-    void* asset = GameVariable<Ass::CAssMan*>(0x006918DC)->GetAssetData(name, 0);
+    void* asset = Ass::g_assetManager->GetAssetData(name, 0);
     void* memory = Mem::New(0x1C);
     mp_skeleton = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx::CSkeleton*>(memory)->Construct(static_cast<Gfx::CSkeletonData*>(asset))) : nullptr;
 }

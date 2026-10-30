@@ -14,6 +14,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -118,7 +119,7 @@ void CFloatingTextComponent::InitFromStructure(Script::CStruct* params)
     const char* text;
     if (params->GetString(kString, &text, 0)) {
         if (!text[0]) {
-            m_endTime = static_cast<uint32_t>(Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60));
+            m_endTime = static_cast<uint32_t>(Tmr::GameClockElapsed() + g_clockOffset);
         } else {
             CopyText(m_text, text, sizeof(m_text)); // (the original: the game's strncpy, 0x006239E0)
             m_endTime = 0;
@@ -132,7 +133,7 @@ void CFloatingTextComponent::InitFromStructure(Script::CStruct* params)
         params->GetFloat(kDuration, &duration, 0);
         int elapsed = Tmr::GameClockElapsed();
         int milliseconds = Truncated(static_cast<double>(duration) * kMinusMilliseconds);
-        m_endTime = static_cast<uint32_t>(elapsed + (GameVariable<int>(0x00696D60) - milliseconds));
+        m_endTime = static_cast<uint32_t>(elapsed + (g_clockOffset - milliseconds));
     }
 }
 
@@ -147,7 +148,7 @@ void CFloatingTextComponent::Update()
         return;
     if (!m_text[0])
         return;
-    if (m_endTime && m_endTime < static_cast<uint32_t>(Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60))) {
+    if (m_endTime && m_endTime < static_cast<uint32_t>(Tmr::GameClockElapsed() + g_clockOffset)) {
         m_text[0] = 0;
         m_endTime = 0;
     }

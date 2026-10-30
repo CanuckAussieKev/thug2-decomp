@@ -27,6 +27,7 @@
 #include "game/skater/special_item.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -121,7 +122,7 @@ void* ObjectOf(const void* core) { return At<void*>(core, kObject); }
 uint8_t* FlagsOf(const void* core) { return At<uint8_t*>(core, kFlags); }
 uint8_t* PadOf(const void* core) { return At<uint8_t*>(core, kInput) + 0x20; }
 float FrameLength(const void* core) { return At<float>(core, kFrameLength); }
-int Now() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
+int Now() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
 
 void SetTimedFlag(const void* core, uint32_t flag, bool on)
 {
@@ -140,7 +141,7 @@ double Dot3(const Mth::Vector& a, const Mth::Vector& b)
 // The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x008A3B5C's +0x24).
 Obj::CRailManager* LevelRails()
 {
-    uint8_t* module = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* module = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     return module ? At<Obj::CRailManager*>(module, 0x24) : nullptr;
 }
 

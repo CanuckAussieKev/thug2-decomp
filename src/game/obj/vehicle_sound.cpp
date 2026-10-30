@@ -14,6 +14,8 @@
 #include "game/sfx/sfx.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/ed/park_editor.h"
+#include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -35,7 +37,7 @@ const float kPercent = 100.0f;                                // 0x006463D4
 const double kTwoTo32 = 4294967296.0;                         // 0x006453B4 (an unsigned clock difference)
 
 Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
-uint32_t ClockOffset() { return GameVariable<uint32_t>(0x00696D60); }
+uint32_t ClockOffset() { return static_cast<uint32_t>(g_clockOffset); }
 
 // A float of the global structure kRates (asserted).
 float Rate(uint32_t name)
@@ -133,7 +135,7 @@ CVehicleSoundComponent* CVehicleSoundComponent::Destroy(unsigned int flags)
 // 0x0043C670
 void CVehicleSoundComponent::InitFromStructure(Script::CStruct*)
 {
-    m_parkEditorLevel = *reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) != kParkEditorOff;
+    m_parkEditorLevel = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) != kParkEditorOff;
 }
 
 // 0x0043D050

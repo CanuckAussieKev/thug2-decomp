@@ -23,9 +23,15 @@
 #include "game/skater/skater_camera_component.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(float, g_balanceRollScale, 0x0067F004, -0.00012783174f);
+GAME_GLOBAL(float, g_airTiltRate, 0x0067F008, 0.011635667f);
+GAME_GLOBAL(float, g_tiltRecovery, 0x0067F010, 0.046542667f);
+GAME_GLOBAL(float, g_lipTurn, 0x007CCDB4);
 
 namespace {
 
@@ -51,10 +57,10 @@ constexpr float kCosineDecay = 0.9998f;             // 0x0064BB40
 constexpr float kLipBack = 3.0f;                    // 0x006467A8
 constexpr float kLipReach = 72.0f;                  // 0x00646244
 constexpr float kHalfPi = 1.5707963705062866f;      // 0x3FC90FDB
-float& BalanceRollScale() { return GameVariable<float>(0x0067F004); }
-float& AirTiltRate() { return GameVariable<float>(0x0067F008); }
-float& TiltRecovery() { return GameVariable<float>(0x0067F010); }
-float& LipTurn() { return GameVariable<float>(0x007CCDB4); }
+float& BalanceRollScale() { return g_balanceRollScale; }
+float& AirTiltRate() { return g_airTiltRate; }
+float& TiltRecovery() { return g_tiltRecovery; }
+float& LipTurn() { return g_lipTurn; }
 
 bool VertAir(const uint8_t* state) { return state[0x30] && !state[0x48] && !state[0x78]; }
 

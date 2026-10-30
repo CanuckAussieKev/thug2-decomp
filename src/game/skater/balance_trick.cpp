@@ -252,7 +252,7 @@ void CSkaterBalanceTrickComponent::SetParams(Script::CStruct* params)
 void CSkaterBalanceTrickComponent::SetWobble(Script::CStruct* wobble)
 {
     if (!m_object->m_script) {
-        void* memory = GameVariable<Mem::PoolPair>(0x006F3548).Allocate(0xF4);
+        void* memory = Script::g_scriptPools.Allocate(0xF4);
         m_object->m_script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
     }
     float values[5];

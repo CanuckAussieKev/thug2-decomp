@@ -19,6 +19,7 @@
 #include "game/sfx/terrain.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/walk_physics.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -239,7 +240,7 @@ void SetRailClearOverride(RailClearOverride override) { g_railClearOverride = ov
 // 0x0057C600
 bool __cdecl RailClear(Mth::Vector a, Mth::Vector b)
 {
-    if (*reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) == 0xD443A2BC) // (the park editor's)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) == 0xD443A2BC) // (the park editor's)
         return true;
     if (g_railClearOverride && g_railClearOverride(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
@@ -593,7 +594,7 @@ void CRailManager::RemoveOverlaps()
 // 0x0057D7A0
 void CRailManager::RemoveOverlapsIfNotPark()
 {
-    if (*reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) == 0xD443A2BC) // (the park editor's level)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) == 0xD443A2BC) // (the park editor's level)
         return;
     RemoveOverlaps();
 }
@@ -901,7 +902,7 @@ void CRailManager::AddFromNodeArray(Script::CArray* nodes)
             node->GetChecksum(kName, &nodeName, 1);
             uint32_t cluster = nodeName;
             node->GetChecksum(kCluster, &cluster, 1);
-            auto* trickObjects = GameVariable<CTrickObjectManager*>(0x007CE500);
+            auto* trickObjects = g_trickObjectManager;
             trickObjects->AddCluster(cluster);
             trickObjects->AddObjectToCluster(nodeName, cluster);
         }

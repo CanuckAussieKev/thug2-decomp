@@ -14,9 +14,12 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[6], g_loopingSoundMemberFunctions, 0x00684A68, 0, 0xB5F1E9D2, 0, 0, 0, 0);
 
 namespace {
 
@@ -84,7 +87,7 @@ CBaseComponent* __cdecl CSkaterLoopingSoundComponent::Create()
 void __cdecl CSkaterLoopingSoundComponent::RegisterMemberFunctions()
 {
     Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterLoopingSound),
-                                        &GameVariable<uint32_t>(0x00684A68), 0x18);
+                                        g_loopingSoundMemberFunctions, 0x18);
 }
 
 // 0x005138E0

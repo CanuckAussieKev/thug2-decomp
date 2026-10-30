@@ -20,6 +20,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/skater_sound.h"
 #include "game/skater/thaw_bmx.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -84,7 +85,7 @@ void CorePhysicsComponent::TriggerRailScript(const int* events)
     if (!node)
         return;
     if (!At<void*>(this, kRailManager))
-        At<void*>(this, kRailManager) = At<void*>(GameVariable<uint8_t*>(0x007CE478), 0x24); // (the skate module's)
+        At<void*>(this, kRailManager) = At<void*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x24); // (the skate module's)
     Script::CStruct* script = SkateScript::GetNode(node->m_name, false);
     if (!script)
         return;

@@ -10,9 +10,12 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(CPathManager*, g_pathManager, 0x006F2264);
 
 namespace {
 
@@ -20,7 +23,7 @@ constexpr uint32_t kPathNum = 0x9C91C3CA;   // PathNum
 constexpr uint32_t kClass = 0x12B4E660;     // class
 constexpr uint32_t kType = 0x7321A8D6;      // type
 
-CPathManager*& InstancePointer() { return GameVariable<CPathManager*>(0x006F2264); }
+CPathManager*& InstancePointer() { return g_pathManager; }
 
 // An array new[] of `count` elements of `size` bytes from the current heap: the count in the word before them.
 void* NewArray(int count, unsigned int size)

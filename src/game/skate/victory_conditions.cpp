@@ -43,7 +43,7 @@ constexpr uint32_t kElimination = 0xA6B8D7B0;       // elimination
 constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
 
 // The skate module (Mdl::Skate, 0x007CE478) and its skaters (not rewritten yet).
-uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 // How many skaters there are: the skate module's skater list (+0x34; nodes: +0x04 the skater, -1 at the end,
 // +0x0C the next).
 uint32_t SkaterCount(uint8_t* skate)
@@ -67,7 +67,7 @@ uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cas
 int TotalScore(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetTotalScore(); }
 
 // The game mode (0x007CE470).
-void* GameMode() { return GameVariable<void*>(0x007CE470); }
+void* GameMode() { return static_cast<void*>(g_gameMode); }
 bool IsTeamGame() { return static_cast<CGameMode*>(GameMode())->IsTeamGame() != 0; }
 int NumTeams() { return static_cast<CGameMode*>(GameMode())->NumTeams(); }
 

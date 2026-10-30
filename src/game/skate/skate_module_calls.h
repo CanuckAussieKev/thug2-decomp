@@ -61,7 +61,7 @@ inline Obj::CSkaterProfile* GetProfileFromParams(void* params)
 inline bool IsMultiplayer() { return Mdl::Skate::IsMultiplayer() != 0; }
 
 // The game mode.
-inline void* GameMode() { return GameVariable<void*>(0x007CE470); }
+inline void* GameMode() { return Game::g_gameMode; }
 // 0x00553220: the game mode's integer `property` (is_career, is_horse ...) is non-zero.
 inline bool GameModeIsTrue(uint32_t property)
 {

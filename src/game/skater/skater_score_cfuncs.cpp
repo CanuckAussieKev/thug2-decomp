@@ -43,7 +43,7 @@ void* ScoreOf(Obj::CSkater* skater) { return skater->GetScore(); }
 // The game mode's name (0x005532A0, no source yet).
 uint32_t GameModeName()
 {
-    return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->GetNameChecksum();
+    return static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->GetNameChecksum();
 }
 
 } // namespace

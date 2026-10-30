@@ -5,6 +5,11 @@
 
 #include "game/ass/asset.h"
 #include "game/sys/module.h"
+#include "hook/game_global.h"
+
+namespace Mlp {
+struct Manager;
+}
 
 namespace Lst {
 class HashTable;
@@ -106,6 +111,9 @@ static_assert(sizeof(CAssMan) == 0x3C && offsetof(CAssMan, m_assets) == 0x1C && 
 CAssMan* CreateAssetManager(bool create);
 // 0x00407980: drops a reference; the last deletes it.
 void ReleaseAssetManager();
-inline CAssMan*& AssetManager() { return *reinterpret_cast<CAssMan**>(0x006918DC); }
+GAME_GLOBAL_EXTERN(CAssMan*, g_assetManager);
+inline CAssMan*& AssetManager() { return g_assetManager; }
+
+GAME_GLOBAL_EXTERN(Mlp::Manager*, g_mainLoopManager);
 
 } // namespace Ass

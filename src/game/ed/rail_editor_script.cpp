@@ -281,7 +281,7 @@ int CRailEditorComponent::CallMemberFunction(uint32_t name, Script::CStruct* par
                 p->m_pos = pos;
                 p->m_height = static_cast<float>(static_cast<double>(pos.y) - CEditedRailPoint::GroundHeight(&p->m_pos));
                 p->m_hasPost = params->ContainsFlag(kAddPost);
-                const Vector& zero = GameVariable<Vector>(0x007CCD30);
+                const Vector& zero = g_railOrigin;
                 p->DrawSegment(&zero, &zero, 0.0f);
                 p->DrawPost(&zero, &zero, 0.0f);
                 CParkEditor::Release();

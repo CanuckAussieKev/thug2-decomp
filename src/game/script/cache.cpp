@@ -13,6 +13,7 @@
 #include "game/sys/module.h"
 #include "game/util/lzss.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Script {
@@ -23,11 +24,15 @@ static_assert(offsetof(CScriptCache, m_entries) == 0x14 && offsetof(CScriptCache
                   offsetof(CScriptCache, m_oldestUnused) == 0x1C && offsetof(CScriptCache, m_deleteUnused) == 0x20,
               "layout must match the original");
 
+GAME_GLOBAL(Script::CScriptCache*, g_scriptCache, 0x006F3558);
+GAME_GLOBAL(uint32_t, g_cacheReferences, 0x006F355C);
+GAME_GLOBAL(Mem::PoolPair, g_cacheEntryPools, 0x006F3560);
+
 namespace {
 
-CScriptCache*& TheCache() { return GameVariable<CScriptCache*>(0x006F3558); }
-uint32_t& CacheReferences() { return GameVariable<uint32_t>(0x006F355C); }
-Mem::PoolPair& EntryPools() { return GameVariable<Mem::PoolPair>(0x006F3560); }
+CScriptCache*& TheCache() { return g_scriptCache; }
+uint32_t& CacheReferences() { return g_cacheReferences; }
+Mem::PoolPair& EntryPools() { return g_cacheEntryPools; }
 
 // Mdl::Module's constructor (0x0044F7E0) and destructor body (0x0044F790).
 void ConstructModule(void* module) { static_cast<Mdl::Module*>(module)->Construct(); }

@@ -16,6 +16,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
@@ -23,6 +24,8 @@ namespace SkateScript {
 
 using Script::CArray;
 using Script::CStruct;
+
+GAME_GLOBAL(uint32_t, g_nodeManagerReferences, 0x006F0D88);
 
 namespace {
 
@@ -32,7 +35,7 @@ constexpr uint32_t kPosition = 0xB9D31B0A; // position
 constexpr uint32_t kPos = 0x7F261953;      // pos
 
 CNodeManager*& Instance() { return GameVariable<CNodeManager*>(0x006F0D84); }
-uint32_t& References() { return GameVariable<uint32_t>(0x006F0D88); }
+uint32_t& References() { return g_nodeManagerReferences; }
 
 // NOT ORIGINAL - a node asked for that must exist (the release build's assertion did nothing) and doesn't: logged, the
 // first time for each name. Many callers then use the null as a node and crash (e.g. IsAlive's 0x005A3D10 -> a crash

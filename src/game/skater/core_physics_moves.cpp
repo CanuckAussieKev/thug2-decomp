@@ -26,12 +26,16 @@
 #include "game/skater/skater.h"
 #include "game/skater/trick_component.h"
 #include "game/gfx/model_utils.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Skater {
 
 using namespace Physics;
+
+GAME_GLOBAL(int, g_grindCounter, 0x007CCDCC);
 
 namespace {
 
@@ -239,7 +243,7 @@ void CorePhysicsComponent::UpdateSpeedOverride()
             float inverse = static_cast<float>(1.0 / stat);
             float share = static_cast<float>(static_cast<double>(StatValue(object, kOverrideStat)) * inverse *
                                              At<float>(this, kLimitsMax));
-            int& counter = GameVariable<int>(0x007CCDCC);
+            int& counter = g_grindCounter;
             counter = (counter + 1) % 10;
             At<float>(this, kLimitsMaxMax) = share;
             // (Every tenth time: a line printed, compiled out - an inlined loop that runs once.)
@@ -265,7 +269,7 @@ double CorePhysicsComponent::GetGravity()
     float gravity = PhysicsFloat(kGravity, object);
     bool vert = flags[kFlagVertAir] || flags[kFlagAcidDrop];
     float result = static_cast<float>(gravity / static_cast<double>(Script::GetFloat(vert ? kGravityScaleVert : kGravityScale)));
-    auto* career = At<Obj::CSkaterCareer*>(GameVariable<uint8_t*>(0x007CE478), 0x20);
+    auto* career = At<Obj::CSkaterCareer*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x20);
     if (career->GetCheat(kMoonCheat)) {
         career->SetGlobalFlag(Script::GetInteger(kMoonCheat));
         result = static_cast<float>(static_cast<double>(PhysicsFloat(kMoonGravity, object)) * result);

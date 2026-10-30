@@ -15,6 +15,7 @@
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/skater.h"
+#include "game/ed/park_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -230,7 +231,7 @@ void CorePhysicsComponent::ApplyRollingFriction()
 // 0x004FE860
 void CorePhysicsComponent::TurnToNormal(Mth::Vector normal)
 {
-    uint8_t* settings = GameVariable<uint8_t*>(0x007CE5D8);
+    uint8_t* settings = reinterpret_cast<uint8_t*>(Ed::g_parkEditor);
     if (At<uint32_t>(settings, 0x40) != kOff && normal.y > 0.0f) {
         const Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
         Mth::Vector end;

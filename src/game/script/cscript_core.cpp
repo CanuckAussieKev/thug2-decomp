@@ -16,14 +16,24 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Script {
 
+GAME_GLOBAL(CScript*, g_currentScript, 0x006F3530);
+GAME_GLOBAL(CScript*, g_scriptListHead, 0x006F3538);
+GAME_GLOBAL(bool, g_onePerFrameReleased, 0x006F352C);
+GAME_GLOBAL(int, g_scriptCount, 0x006F353C);
+GAME_GLOBAL(uint32_t, g_nextScriptUniqueId, 0x006F3540);
+GAME_GLOBAL(bool, g_updatingSpawnedScripts, 0x006F3544);
+GAME_GLOBAL(bool, g_deleteSpawnedScriptsPending, 0x006F3545);
+GAME_GLOBAL(Mem::PoolPair, g_scriptPools, 0x006F3548);
+
 namespace {
 
 // The CScript pool pair (300 items, made by the script system's start-up).
-Mem::PoolPair& ScriptPools() { return GameVariable<Mem::PoolPair>(0x006F3548); }
+Mem::PoolPair& ScriptPools() { return g_scriptPools; }
 
 // A new empty structure from the structure pool (null if there's no room).
 CStruct* NewEmptyStruct()

@@ -23,6 +23,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/trick_component.h"
 #include "game/skate/score.h"
+#include "game/obj/compositemgr.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -84,7 +85,7 @@ constexpr uint32_t kTrickName = 0xEF6FB249;          // "trick_name"
 constexpr uint32_t kKeyCombo = 0xACFDB27A;           // "key_combo"
 
 Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
-Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
+Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
 Inp::Manager* InputManager() { return GameVariable<Inp::Manager*>(0x00696D40); }
 
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
@@ -142,7 +143,7 @@ uint32_t TrickTypeOf(CStruct* trick, uint32_t* type)
 // 0x005B0A40: FlushDeadObjects: the object manager's dead objects deleted now. Always true.
 bool __cdecl CFunc_FlushDeadObjects(Script::CStruct*, Script::CScript*)
 {
-    GameVariable<Obj::CGeneralManager*>(0x006F0FB8)->FlushDeadObjects();
+    reinterpret_cast<Obj::CGeneralManager*>(Obj::g_compositeObjectManager)->FlushDeadObjects();
     return true;
 }
 
@@ -469,7 +470,7 @@ bool __cdecl CFunc_GetLevelRecords(Script::CStruct* params, Script::CScript* scr
     int level;
     if (!params->GetInteger(kLevel, &level, 0))
         level = (*reinterpret_cast<Obj::CSkaterCareer**>(reinterpret_cast<uint8_t*>(skate) + 0x20))->GetLevel();
-    GameVariable<Records::CGameRecords*>(0x007CE4BC)->GetLevelRecords(level)->WriteToStructure(script->m_params);
+    Records::g_gameRecords->GetLevelRecords(level)->WriteToStructure(script->m_params);
     return true;
 }
 

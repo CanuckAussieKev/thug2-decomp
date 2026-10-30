@@ -11,10 +11,17 @@
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/game_clock.h"
+#include "game/obj/control_pad.h"
+#include "game/obj/movie_manager.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[12], g_vibrationComponentMemberFunctions, 0x00684EE8,
+            0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0,
+            0, 0x404EB936, 0, 0, 0, 0);
 
 namespace {
 
@@ -28,7 +35,7 @@ const float kMilliseconds = 1000.0f; // 0x006453C0
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-bool GamePaused() { return GameVariable<bool>(0x006FA7D4); }
+bool GamePaused() { return g_gamePaused; }
 
 } // namespace
 
@@ -51,7 +58,7 @@ CBaseComponent* __cdecl CVibrationComponent::Create()
 // 0x0043D490
 void __cdecl CVibrationComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x00684EE8), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_vibrationComponentMemberFunctions, 0x18);
 }
 
 // 0x0043D4B0
@@ -93,7 +100,7 @@ void CVibrationComponent::UpdateTimers()
             continue;
         int start = timer.start;
         int clock = Tmr::GameClockElapsed();
-        uint32_t elapsed = static_cast<uint32_t>(clock) + (GameVariable<uint32_t>(0x00696D60) - static_cast<uint32_t>(start));
+        uint32_t elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start));
         if (elapsed >= timer.duration) {
             mp_device->ActivateActuator(i, 0);
             timer.running = false;
@@ -168,7 +175,7 @@ bool CVibrationComponent::Vibrate(Script::CStruct* params, Script::CScript*)
         m_timers[actuator].running = true;
         m_timers[actuator].duration = static_cast<uint32_t>(Ftol(static_cast<double>(duration) * kMilliseconds));
         int clock = Tmr::GameClockElapsed();
-        m_timers[actuator].start = clock + GameVariable<int>(0x00696D60);
+        m_timers[actuator].start = clock + g_clockOffset;
     } else {
         m_timers[actuator].running = false;
     }

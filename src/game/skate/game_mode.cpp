@@ -13,9 +13,13 @@
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Game {
+
+GAME_GLOBAL(Game::CGameMode*, g_gameMode, 0x007CE470);
+GAME_GLOBAL(uint32_t, g_gameModeReferences, 0x007CE474);
 
 namespace {
 
@@ -67,8 +71,8 @@ CVictoryCondition* const kHeadMarker = reinterpret_cast<CVictoryCondition*>(-1);
 // (the getters' local when an asserted integer isn't there: the original's is the pushed `this`)
 int Unset(const void* mode) { return static_cast<int>(reinterpret_cast<uintptr_t>(mode)); }
 
-CGameMode*& TheGameMode() { return GameVariable<CGameMode*>(0x007CE470); }
-uint32_t& References() { return GameVariable<uint32_t>(0x007CE474); }
+CGameMode*& TheGameMode() { return g_gameMode; }
+uint32_t& References() { return g_gameModeReferences; }
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 
 // A virtual function of an object with a game vtable.

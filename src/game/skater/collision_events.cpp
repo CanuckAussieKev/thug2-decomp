@@ -151,7 +151,7 @@ std::string NameOf(uint32_t checksum)
 // The level loaded: its load script's name (the skate module's +0x378) without "Load_".
 uint32_t LevelLoad()
 {
-    uint8_t* module = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* module = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     return module ? At<uint32_t>(module, 0x378) : 0;
 }
 std::string LevelName()
@@ -198,7 +198,7 @@ std::string LevelFileStamp(const std::string& level, const char* kind)
 // The local skater (the skate module's 0x00566520; null with none).
 void* LocalSkater()
 {
-    uint8_t* module = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* module = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
     return module ? reinterpret_cast<Mdl::Skate*>(module)->GetLocalSkater() : nullptr;
 }
 

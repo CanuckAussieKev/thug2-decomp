@@ -18,9 +18,15 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[18], g_carPhysicsMemberFunctions, 0x006846A8,
+            0xA2331896, 0xC695136D, 0, 0, 0, 0,
+            0xC9F0DB4B, 0xC695136D, 0, 0, 0, 0,
+            0, 0xC695136D, 0, 0, 0, 0);
 
 namespace {
 
@@ -106,7 +112,7 @@ CBaseComponent* __cdecl CCarPhysicsComponent::Create()
 // 0x0041B910
 void __cdecl CCarPhysicsComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), &GameVariable<uint32_t>(0x006846A8), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_carPhysicsMemberFunctions, 0x18);
 }
 
 // 0x0041BAD0

@@ -20,9 +20,21 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[54], g_avoidMemberFunctions, 0x006839E8,
+            0x6157CBC0, 0x6EB050ED, 0, 0, 0, 0,
+            0xD2AA4D2D, 0x6EB050ED, 0, 0, 0, 0,
+            0x41226942, 0x6EB050ED, 0, 0, 0, 0,
+            0x3C7F8F3E, 0x6EB050ED, 0, 0, 0, 0,
+            0x6A4BCA91, 0x6EB050ED, 0, 0, 0, 0,
+            0x3FB422E8, 0x6EB050ED, 0, 0, 0, 0,
+            0x539A32DC, 0x6EB050ED, 0, 0, 0, 0,
+            0x53BC3B4E, 0x6EB050ED, 0, 0, 0, 0,
+            0, 0x6EB050ED, 0, 0, 0, 0);
 
 namespace {
 
@@ -140,7 +152,7 @@ CBaseComponent* __cdecl CAvoidComponent::Create()
 // 0x004E3310
 void __cdecl CAvoidComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kAvoid), &GameVariable<uint32_t>(0x006839E8), 0x18);
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kAvoid), g_avoidMemberFunctions, 0x18);
 }
 
 // 0x004E3660

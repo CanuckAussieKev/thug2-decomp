@@ -11,16 +11,23 @@
 #include "game/core/mem.h"
 #include "game/park/park_memory.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Ed {
 
+GAME_GLOBAL(float, g_parkCellSizeX, 0x0064F41C, 120.0f);
+GAME_GLOBAL(float, g_parkCellSizeY, 0x0064F420, 48.0f);
+GAME_GLOBAL(float, g_parkCellSizeZ, 0x0064F424, 120.0f);
+GAME_GLOBAL(CGapManager*, g_gapManager, 0x007CE5D4);
+GAME_GLOBAL(CParkManager*, g_parkManager, 0x007CE604);
+
 namespace {
 
 // The size of a cell in world units (0x0064F41C, 0x0064F420, 0x0064F424: 120, 48, 120).
-float CellSizeX() { return GameVariable<float>(0x0064F41C); }
-float CellSizeY() { return GameVariable<float>(0x0064F420); }
-float CellSizeZ() { return GameVariable<float>(0x0064F424); }
+float CellSizeX() { return g_parkCellSizeX; }
+float CellSizeY() { return g_parkCellSizeY; }
+float CellSizeZ() { return g_parkCellSizeZ; }
 
 // The grid's centre cell (world x and z are 0 at the corner of cell 29).
 constexpr int kGridCentre = 29;
@@ -34,7 +41,7 @@ void CopyText(char* to, const char* from)
 
 } // namespace
 
-CParkManager* CParkManager::sInstance() { return GameVariable<CParkManager*>(0x007CE604); }
+CParkManager* CParkManager::sInstance() { return g_parkManager; }
 
 CompressedMap* CParkManager::GetCompressedMapBuffer(bool markSaved)
 {
@@ -220,7 +227,7 @@ bool CParkManager::IsAreaBlocked(GridDims area)
 namespace {
 
 // CGapManager (0xA8 bytes): the instance in use (sInstance, 0x0058CBB0), constructor, copying and destructor.
-void*& GapManagerInstance() { return GameVariable<void*>(0x007CE5D4); }
+void*& GapManagerInstance() { return reinterpret_cast<void*&>(g_gapManager); }
 
 } // namespace
 

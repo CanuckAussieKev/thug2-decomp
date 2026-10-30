@@ -25,7 +25,7 @@ uint32_t& MetaFlags(void* meta) { return *reinterpret_cast<uint32_t*>(static_cas
 GridDims& MetaArea(void* meta) { return *reinterpret_cast<GridDims*>(static_cast<uint8_t*>(meta) + 0x4); }
 
 // The scene is rebuilt while this is set (0x0067F398; cleared around the floor's rebuild).
-bool& SceneUpdates() { return GameVariable<bool>(0x0067F398); }
+bool& SceneUpdates() { return g_collisionAllowed; }
 
 void CallDestroyConcreteMeta(CParkManager* manager, void* meta, int flags)
 {

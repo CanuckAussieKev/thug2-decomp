@@ -21,6 +21,7 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/balance_trick.h"
 #include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -214,10 +215,10 @@ bool CorePhysicsComponent::TurnDownSlope()
 // 0x00504730
 void CorePhysicsComponent::NatasSpin()
 {
-    auto* career = At<Obj::CSkaterCareer*>(GameVariable<void*>(0x007CE478), 0x20);
+    auto* career = At<Obj::CSkaterCareer*>(static_cast<void*>(Mdl::g_skateModule), 0x20);
     if (career->GetCheat(kPerfectRail)) {
         // (the perfect rail cheat: the balance held)
-        career = At<Obj::CSkaterCareer*>(GameVariable<void*>(0x007CE478), 0x20);
+        career = At<Obj::CSkaterCareer*>(static_cast<void*>(Mdl::g_skateModule), 0x20);
         career->SetGlobalFlag(Script::GetInteger(kPerfectRail));
         At<uint32_t>(At<void*>(this, kBalance), 0x104) = 0;
         At<uint32_t>(At<void*>(this, kBalance), 0x108) = 0;
