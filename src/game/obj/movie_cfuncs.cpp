@@ -8,6 +8,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/ed/park_editor.h"
+#include "game/gfx/flexible_particle_manager.h"
 #include "game/obj/movie_manager.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -232,7 +233,7 @@ bool __cdecl CFunc_ReloadSkaterCamAnim(Script::CStruct* params, Script::CScript*
 // 0x005AE000: CutsceneDestroyListActive - the renderer's 0x0049A8E0 (its +0x10 set) on 0x006FA7C0.
 bool __cdecl CFunc_CutsceneDestroyListActive(Script::CStruct*, Script::CScript*)
 {
-    return GameFunction<bool(__thiscall*)(void*)>(0x0049A8E0)(GameVariable<void*>(0x006FA7C0));
+    return GameVariable<Nx::CFlexibleParticleManager*>(0x006FA7C0)->HasTempHeap();
 }
 
 // 0x005AE010: PlayCutscene ... - a cutscene queued (as the movie Cutscene); with ObjectAnim, name=<anim> as an

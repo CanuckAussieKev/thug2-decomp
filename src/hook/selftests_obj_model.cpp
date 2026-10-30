@@ -21,6 +21,9 @@
 #include "game/script/names.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/model.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -66,12 +69,12 @@ void StandIn(StandIns& s)
         [](Regs&) { return static_cast<uint32_t>(g_a.clock); }, false);
     Rec(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0, 0xE970, [](Regs&) { return g_a.time; }, false);
     // The model.
-    Rec(s, {0x00494B70}, 1, 0x4B70);
-    Rec(s, {0x00494800}, 2, 0x4800);
-    Rec(s, {0x00493E80}, 3, 0x3E80, [](Regs&) { return g_a.replaced ? 0x12345601u : 0x12345600u; });
-    Rec(s, {0x00494640}, 1, 0x4640, [](Regs&) { return Addr(kGeom); });
-    Rec(s, {0x00492FC0}, 0, 0x2FC0, [](Regs&) { return g_a.haveVolumes ? Addr(kVolumes) : 0u; });
-    Rec(s, {0x004939E0}, 7, 0x39E0, [](Regs& r) {
+    Rec(s, {0x00494B70, AddressOf(&Nx::CModel::Hide)}, 1, 0x4B70);
+    Rec(s, {0x00494800, AddressOf(&Nx::CModel::HideGeom)}, 2, 0x4800);
+    Rec(s, {0x00493E80, AddressOf(&Nx::CModel::ReplaceTextureWith)}, 3, 0x3E80, [](Regs&) { return g_a.replaced ? 0x12345601u : 0x12345600u; });
+    Rec(s, {0x00494640, AddressOf(&Nx::CModel::GetGeom)}, 1, 0x4640, [](Regs&) { return Addr(kGeom); });
+    Rec(s, {0x00492FC0, AddressOf(&Nx::CModel::GetBoneVolumes)}, 0, 0x2FC0, [](Regs&) { return g_a.haveVolumes ? Addr(kVolumes) : 0u; });
+    Rec(s, {0x004939E0, AddressOf(&Nx::CModel::TestBoneVolumes)}, 7, 0x39E0, [](Regs& r) {
         const auto* m = reinterpret_cast<const uint32_t*>(r.args[2]);
         for (int i = 0; i < 16; ++i)
             g_trace.push_back(m[i]);
@@ -79,10 +82,10 @@ void StandIn(StandIns& s)
     });
     g_geomVtable[6] = RecThunk(s, 1, 0x6E06);
     // Its lights.
-    Rec(s, {0x0048E660}, 0, 0xE660);
-    Rec(s, {0x0048E8A0}, 1, 0xE8A0, [](Regs&) { return 1u; });
-    Rec(s, {0x0048E830}, 2, 0xE830, [](Regs&) { return 1u; });
-    Rec(s, {0x0048EDB0}, 1, 0xEDB0, [](Regs&) { return 1u; }, false, true);
+    Rec(s, {0x0048E660, AddressOf(&Nx::CModelLights::UpdateBrightness)}, 0, 0xE660);
+    Rec(s, {0x0048E8A0, AddressOf(&Nx::CModelLights::SetBrightness)}, 1, 0xE8A0, [](Regs&) { return 1u; });
+    Rec(s, {0x0048E830, AddressOf(&Nx::CModelLights::MoveBrightness)}, 2, 0xE830, [](Regs&) { return 1u; });
+    Rec(s, {0x0048EDB0, AddressOf(Nx::SetWorldBrightness)}, 1, 0xEDB0, [](Regs&) { return 1u; }, false, true);
     // The feeler.
     Rec(s, {0x00417120, AddressOf(&Nx::CFeeler::IsHitTriangleCollision)}, 0, 0x7120,
         [](Regs&) { return g_a.hit ? 1u : 0u; });

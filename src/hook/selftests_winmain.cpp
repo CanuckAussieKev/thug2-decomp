@@ -29,6 +29,7 @@
 #include "game/sys/platform_d3d.h"
 #include "game/sys/platform_input.h"
 #include "game/sys/platform_system.h"
+#include "game/gfx/loading_bar_cfuncs.h"
 #include "hook/standins.h"
 
 namespace {

@@ -18,6 +18,7 @@
 #include "game/obj/objman.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
+#include "game/gfx/sector.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

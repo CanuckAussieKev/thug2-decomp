@@ -6,6 +6,12 @@
 
 #include "game/ass/assman.h"
 #include "game/core/mem.h"
+#include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/frame_source.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/model.h"
+#include "game/gfx/skeleton.h"
 #include "game/mth/matrix.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/cutscene.h"
@@ -65,7 +71,7 @@ float VblankSeconds(uint64_t vblanks, int rate)
 void* NewAnimSource()
 {
     void* memory = AnimSourceAllocate(0x214);
-    return memory ? GameFunction<void*(__thiscall*)(void*)>(0x0048CF70)(memory) : nullptr;
+    return memory ? static_cast<Nx::CFrameSource*>(memory)->Construct() : nullptr;
 }
 void DeleteVirtual(void* object)
 {
@@ -80,7 +86,7 @@ void* FaderOf(void* model) { return ModelFader(model); }
 void FadeModel(void* model, float target)
 {
     void* fader = FaderOf(model);
-    GameFunction<bool(__thiscall*)(void*, float, float)>(0x0048E830)(fader, target, 0.02f);
+    static_cast<Nx::CModelLights*>(fader)->MoveBrightness(target, 0.02f);
 }
 uint8_t* Bytes(void* object)
 {
@@ -164,9 +170,9 @@ void CCutsceneData::UpdateTime(int /*unused*/)
         if (m_cameraSource)
             DeleteVirtual(m_cameraSource);
         m_cameraSource = NewAnimSource();
-        GameFunction<void*(__thiscall*)(void*, bool)>(0x0048CFA0)(m_cameraSource, true);
-        mp_cameraAnim = GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0048CFD0)(m_cameraSource, name);
-        GameFunction<void(__thiscall*)(void*)>(0x00482F10)(mp_cameraAnim);
+        static_cast<Nx::CFrameSource*>(m_cameraSource)->SetDone(true);
+        mp_cameraAnim = static_cast<Nx::CFrameSource*>(m_cameraSource)->SetAnim(name);
+        static_cast<Gfx::CBonedAnimFrameData*>(mp_cameraAnim)->ArmEvents();
     }
     if (m_objectPart < m_objectParts) {
         ++m_objectPart;
@@ -174,8 +180,8 @@ void CCutsceneData::UpdateTime(int /*unused*/)
         if (m_objectSource)
             DeleteVirtual(m_objectSource);
         m_objectSource = NewAnimSource();
-        mp_animList = GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0048CFD0)(m_objectSource, name);
-        GameFunction<void(__thiscall*)(void*)>(0x00482F10)(mp_animList);
+        mp_animList = static_cast<Nx::CFrameSource*>(m_objectSource)->SetAnim(name);
+        static_cast<Gfx::CBonedAnimFrameData*>(mp_animList)->ArmEvents();
     }
     for (int i = 0; i < m_objectCount; ++i) {
         ObjectEntry& entry = m_objects[i];
@@ -194,8 +200,8 @@ void CCutsceneData::UpdateTime(int /*unused*/)
         }
         if (entry.animation) {
             entry.animation->source = NewAnimSource();
-            GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0048CFD0)(entry.animation->source, anim);
-            GameFunction<void*(__thiscall*)(void*, bool)>(0x0048CFA0)(entry.animation->source, true);
+            static_cast<Nx::CFrameSource*>(entry.animation->source)->SetAnim(anim);
+            static_cast<Nx::CFrameSource*>(entry.animation->source)->SetDone(true);
         }
     }
 }
@@ -219,8 +225,9 @@ void CCutsceneData::UpdateStandIn(CCompositeObject* object)
             float matrix[16];
             *reinterpret_cast<Mth::Matrix*>(matrix) = *reinterpret_cast<const Mth::Matrix*>(Bytes(object) + 0xC0);
             std::memcpy(matrix + 12, Bytes(object) + 0x4C, 16);
-            GameFunction<void(__thiscall*)(void*, const float*, int, void*)>(0x00493090)(
-                levelModel, matrix, 0, reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(skeleton)->Word18()));
+            static_cast<Nx::CModel*>(levelModel)->Render(
+                reinterpret_cast<Mth::Matrix*>(matrix), false,
+                reinterpret_cast<uint8_t*>(reinterpret_cast<GameNet::FoldedGetters*>(skeleton)->Word18()));
             std::memcpy(Bytes(level) + 0x4C, Bytes(object) + 0x4C, 16);
         } else {
             if (FaderOf(model)) {
@@ -240,12 +247,13 @@ void CCutsceneData::UpdateObjectTransforms()
 {
     if (!m_objectSource)
         return;
-    GameFunction<void(__thiscall*)(void*, float*, float*, void*, float, void*)>(0x004844C0)(
-        mp_animList, Rotations(), Translations(), &GameVariable<uint8_t>(0x006F0FD8),
-        static_cast<float>(m_time - static_cast<double>(m_cameraStart)), m_objectSource);
+    static_cast<Gfx::CBonedAnimFrameData*>(mp_animList)->GetFloatKeyPose(
+        Rotations(), Translations(), &GameVariable<uint8_t>(0x006F0FD8),
+        static_cast<float>(m_time - static_cast<double>(m_cameraStart)),
+        static_cast<int>(reinterpret_cast<uint32_t>(m_objectSource)));
     // the animated objects of the level (not the cutscene's own)
     for (int j = 0; j < *reinterpret_cast<int*>(Bytes(mp_animList) + 8); ++j) {
-        uint32_t name = GameFunction<uint32_t(__thiscall*)(void*, int)>(0x00482F00)(mp_animList, j);
+        uint32_t name = static_cast<Gfx::CBonedAnimFrameData*>(mp_animList)->GetBoneName(j);
         bool own = false;
         for (int k = m_objectCount - 1; k >= 0; --k) {
             if (m_objects[k].name == name)
@@ -270,7 +278,7 @@ void CCutsceneData::UpdateObjectTransforms()
             auto* skeleton = reinterpret_cast<void*>(
                 reinterpret_cast<GameNet::FoldedGetters*>(parent->GetComponent(kSkeletonComponent))->Word18());
             float bone[4], turned[4];
-            GameFunction<void(__thiscall*)(void*, uint32_t, float*)>(0x004A3870)(skeleton, kAttachBone, bone);
+            static_cast<Gfx::CSkeleton*>(skeleton)->GetBonePosition(kAttachBone, reinterpret_cast<Mth::Vector*>(bone));
             *reinterpret_cast<Mth::Vector*>(turned) =
                 *reinterpret_cast<const Mth::Vector*>(bone) * *reinterpret_cast<const Mth::Matrix*>(Bytes(parent) + 0xC0);
             const float* offset = turned;
@@ -282,7 +290,7 @@ void CCutsceneData::UpdateObjectTransforms()
             position[1] = static_cast<float>(static_cast<double>(at[1]) + offset[1]);
             position[3] = 1.0f;
             float boneMatrix[16];
-            GameFunction<void(__thiscall*)(void*, uint32_t, float*)>(0x004A36E0)(skeleton, kAttachBone, boneMatrix);
+            static_cast<Gfx::CSkeleton*>(skeleton)->GetBoneMatrix(kAttachBone, reinterpret_cast<Mth::Matrix*>(boneMatrix));
             float parentMatrix[16];
             std::memcpy(parentMatrix, Bytes(parent) + 0xC0, 64);
             std::memcpy(parentMatrix + 12, at, 16);
@@ -356,9 +364,9 @@ void CCutsceneDetails::DestroyBody()
             assets->UnloadAsset(asset);
             m_data = nullptr;
         }
-        GameFunction<void(__cdecl*)(float, int)>(0x0048E970)(m_musicVolume, 0);
-        GameFunction<void(__cdecl*)(int, float, int)>(0x0048E990)(0, m_streamVolume0, 0);
-        GameFunction<void(__cdecl*)(int, float, int)>(0x0048E990)(1, m_streamVolume1, 0);
+        Nx::SetAmbientLightModulationFactor(m_musicVolume, 0.0f);
+        Nx::SetDiffuseLightModulationFactor(0, m_streamVolume0, 0.0f);
+        Nx::SetDiffuseLightModulationFactor(1, m_streamVolume1, 0.0f);
     }
     reinterpret_cast<CMovieDetails*>(this)->DestroyBody();
 }

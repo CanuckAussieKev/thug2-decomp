@@ -6,6 +6,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_texture_projection.h"
+#include "game/gfx/pc_texture_projection.h"
 #include "game/obj/movie_manager.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -26,7 +28,7 @@ constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 Mem::ListNode* NewProjection()
 {
     void* memory = Mem::Calloc(0xC8);
-    return memory ? GameFunction<Mem::ListNode*(__thiscall*)(void*)>(0x004C7E80)(memory) : nullptr;
+    return memory ? reinterpret_cast<Mem::ListNode*>(static_cast<Nx::CPcTextureProjection*>(memory)->Construct()) : nullptr;
 }
 
 bool IsHead(const Mem::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
@@ -95,7 +97,7 @@ void CTextureProjectionComponent::InitFromStructure(Script::CStruct* params)
         Mem::ListNode* projection = NewProjection();
         // (out of memory: written through null, as the original)
         *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(projection) + 0x14) = name;
-        GameFunction<void(__thiscall*)(Mem::ListNode*, Script::CStruct*)>(0x004A04C0)(projection, settings);
+        reinterpret_cast<Nx::CTextureProjection*>(projection)->InitFromStructure(settings);
         // At the front.
         projection->prev = &head;
         projection->next = head.next;
@@ -117,7 +119,7 @@ void CTextureProjectionComponent::Update()
 {
     // (the head test before the null test, as the original)
     for (Mem::ListNode* node = m_projections.m_node.next; !IsHead(node) && node; node = node->next)
-        GameFunction<void(__thiscall*)(Mem::ListNode*, CCompositeObject*)>(0x0049FFE0)(node, m_object);
+        reinterpret_cast<Nx::CTextureProjection*>(node)->Update(m_object);
 }
 
 } // namespace Obj

@@ -145,7 +145,7 @@ void StandInGraffiti(StandIns& s)
         Record({0xD1});
         return reinterpret_cast<uint32_t>(g_gw.goals);
     });
-    s.At({0x00558770}, 8, [](Regs& r) {
+    s.At({0x00558770, AddressOf(&Game::CGoalManager::KillCluster)}, 8, [](Regs& r) {
         Record({0xD2, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
@@ -153,11 +153,11 @@ void StandInGraffiti(StandIns& s)
         Record({0xD3, r.ecx});
         return g_gwMode;
     });
-    s.At({0x005535F0}, 0, [](Regs& r) {
+    s.At({0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, [](Regs& r) {
         Record({0xD4, r.ecx});
         return g_gwTeams ? 1u : 0u;
     });
-    s.At({0x00553300}, 0, [](Regs& r) {
+    s.At({0x00553300, AddressOf(&Game::CGameMode::GetTeamGraffitiMode)}, 0, [](Regs& r) {
         Record({0xD5, r.ecx});
         return g_gwTeamMode;
     });
@@ -366,7 +366,7 @@ void StandInTrickObjects(StandIns& s)
         Record({0xA1, TwRel(r.ecx)});
         return 0u;
     });
-    s.At({0x0049E980}, 4, [](Regs& r) {
+    s.At({0x0049E980, AddressOf(&Nx::CSector::GetColor)}, 4, [](Regs& r) {
         Record({0xA2, TwRel(r.ecx)});
         int sector = static_cast<int>((r.ecx - reinterpret_cast<uint32_t>(g_tw.sectors)) / 0x20);
         *reinterpret_cast<uint32_t*>(r.args[0]) = g_twSectorColor[sector & 3];

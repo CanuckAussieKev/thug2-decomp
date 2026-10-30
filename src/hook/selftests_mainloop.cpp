@@ -23,6 +23,9 @@
 #include "game/sys/mlp.h"
 #include "game/sys/platform.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/mesh.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -116,10 +119,10 @@ void SetUpStandIns(StandIns& s)
     });
     s.At({0x00536640, AddressOf(&GameNet::Manager::ServiceGameSpy)}, 0, On(kNetwork));
     s.At({0x004E0320, AddressOf(&Nx::ReleaseRenderTargetTextures)}, 0, On(kRelease1));
-    s.At({0x004D67F0}, 0, On(kRelease2));
+    s.At({0x004D67F0, AddressOf(Nx::ReleaseBuffers)}, 0, On(kRelease2));
     s.At({0x004D7AF0, AddressOf(&Nx::ReleaseRenderTargets)}, 0, On(kRelease3));
     s.At({0x004E0440, AddressOf(&Nx::RestoreRenderTargetTextures)}, 0, On(kRestore1));
-    s.At({0x004D68C0}, 0, On(kRestore2));
+    s.At({0x004D68C0, AddressOf(Nx::RecreateBuffers)}, 0, On(kRestore2));
     s.At({0x004D8420, AddressOf(&Nx::CreateRenderTargets)}, 0, On(kRestore3));
     s.At({0x005BE700, AddressOf(&Tmr::CountVblank)}, 0, On(kVblank));
     s.At({0x005BE740, AddressOf(&Tmr::OncePerRender)}, 0, On(kRendered));
@@ -133,9 +136,9 @@ void SetUpStandIns(StandIns& s)
         return Event(kTasks, r);
     });
     s.At({0x0048BF10}, 0, On(kBegin));
-    s.At({0x0048C330}, 0, On(kRender));
-    s.At({0x00565DA0}, 0, On(kAfter));
-    s.At({0x0048BF20}, 0, On(kEnd));
+    s.At({0x0048C330, AddressOf(Nx::Engine::RenderFrame)}, 0, On(kRender));
+    s.At({0x00565DA0, AddressOf(Mdl::Skate::DebugRails)}, 0, On(kAfter));
+    s.At({0x0048BF20, AddressOf(Nx::Engine::EndRender)}, 0, On(kEnd));
     s.At({Resolve(reinterpret_cast<const void*>(&Nx::SetLetterbox))}, 0, [](Regs& r) {
         Record({r.args[0]});
         Letterbox() = static_cast<uint8_t>(r.args[0]);

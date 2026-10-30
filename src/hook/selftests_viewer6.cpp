@@ -210,8 +210,8 @@ void Install(StandIns& s)
              v[0] = 0.25f, v[1] = static_cast<float>(r.args[0] & 0xFF) * 0.01f, v[2] = -0.5f, v[3] = 1.0f;
              return 1u;
          });
-    s.At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
-        Rec(0x5BB0, {r.ecx, r.args[0]});
+    s.At({0x00565BB0, AddressOf(Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
+        Rec(0x5BB0, {r.args[0]}); // (no `this`: ours is a static)
         return g_skippedNodes.count(r.args[0]) ? 1u : 0u;
     });
     s.At({0x005896D0, AddressOf(&Obj::CTrickObjectManager::AddCluster)}, 4, [](Regs& r) {

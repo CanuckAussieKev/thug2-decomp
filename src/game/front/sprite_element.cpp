@@ -5,6 +5,12 @@
 #include <cstring>
 
 #include "game/core/mem.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_sprite.h"
+#include "game/gfx/engine_text.h"
+#include "game/gfx/pc_lights.h"
+#include "game/gfx/texture_dict.h"
+#include "game/gfx/window2d.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -47,7 +53,7 @@ uint32_t ShownColour(const CScreenElement* e)
 // (vtable slots 0x84 / 0x88).
 void* FindTexture(uint32_t checksum)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(GameVariable<void*>(0x00700F1C), checksum);
+    return GameVariable<Nx::CTexDict*>(0x00700F1C)->GetTexture(checksum);
 }
 uint16_t TextureWidth(void* texture) { return GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3C0)(texture); }
 uint16_t TextureHeight(void* texture) { return GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3D0)(texture); }
@@ -56,18 +62,13 @@ uint16_t TextureHeight(void* texture) { return GameFunction<uint16_t(__thiscall*
 void* NewTexturedPiece() { return GameFunction<void*(__cdecl*)()>(0x0048BF40)(); }
 void* NewSprite(int unused) { return GameFunction<void*(__cdecl*)(int)>(0x0048BF30)(unused); }
 void FreePiece(void* piece) { GameFunction<void(__cdecl*)(void*)>(0x0048C080)(piece); }
-template <typename... A>
-void Set(uint32_t address, void* piece, A... args)
-{
-    GameFunction<void(__thiscall*)(void*, A...)>(address)(piece, args...);
-}
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
 void* NewWindow2d(int x, int y, int w, int h)
 {
-    return GameFunction<void*(__cdecl*)(int, int, int, int)>(0x004A1620)(x, y, w, h);
+    return Nx::AllocateWindow2D(x, y, w, h);
 }
-void FreeWindow2d(void* window) { GameFunction<void(__cdecl*)(void*)>(0x004A1670)(window); }
+void FreeWindow2d(void* window) { Nx::FreeWindow2D(static_cast<Nx::CWindow2D*>(window)); }
 
 } // namespace
 
@@ -109,7 +110,7 @@ void CTextureElement::SetProperties(CStruct* params)
     uint32_t texture;
     if (params->GetChecksum(kTexture, &texture, 0)) {
         m_texture = texture;
-        Set(0x0049ED40, mp_piece, FindTexture(texture));
+        reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetTexture(static_cast<uint8_t*>(FindTexture(texture)));
         m_objectFlags |= kVisibleNow;
     }
     float angle;
@@ -117,7 +118,7 @@ void CTextureElement::SetProperties(CStruct* params)
         SetRotation(angle, 1);
     uint32_t blend;
     if (params->GetChecksum(kBlend, &blend, 0))
-        Set(0x0049ED00, mp_piece, blend);
+        reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetBlendMode(blend);
 }
 
 // 0x004AEFD0
@@ -141,9 +142,9 @@ void CTextureElement::GetProperties(CStruct* out)
 // 0x004AEF40
 void CTextureElement::Update()
 {
-    Set(0x0049ED10, mp_piece, false);
-    Set(0x0049ED20, mp_piece, m_zPriority);
-    Set(0x0049ED50, mp_piece, ShownColour(this));
+    reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetHidden(false);
+    reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetPriority(m_zPriority);
+    reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetRGBA(ShownColour(this));
 }
 
 // --- SpriteElement --------------------------------------------------------------------------------------------
@@ -183,7 +184,7 @@ void CSpriteElement::SetTexture(uint32_t texture)
 {
     m_texture = texture;
     void* found = FindTexture(texture);
-    Set(0x0049EBC0, mp_sprite, found);
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetTexture(static_cast<uint8_t*>(found));
     float height = static_cast<float>(TextureHeight(found));
     float width = static_cast<float>(TextureWidth(found));
     SetDims(width, height, 0);
@@ -200,7 +201,7 @@ void CSpriteElement::SetSpriteRotation(float degrees, int now)
         m_objectFlags |= kDirty;
     }
     if (now && angle != m_shown.angle) {
-        Set(0x0049EC90, mp_sprite, angle);
+        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetRotation(angle);
         m_objectFlags |= kDirty;
         m_shown.angle = angle;
     }
@@ -218,12 +219,12 @@ void CSpriteElement::SetProperties(CStruct* params)
         SetSpriteRotation(angle, 1);
     uint32_t blend;
     if (params->GetChecksum(kBlend, &blend, 0))
-        Set(0x0049EC00, mp_sprite, blend);
+        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetBlendMode(blend);
     if (params->ContainsFlag(kNoZWrite))
         m_zWrite = false;
     // (no window above it: the original reads through null)
     auto* window = static_cast<CWindowElement*>(GetWindow());
-    Set(0x0048D1B0, mp_sprite, window->GetWindow2d());
+    reinterpret_cast<Nx::CText*>(mp_sprite)->SetWindow(window->GetWindow2d());
 }
 
 // 0x004AF4E0
@@ -254,32 +255,32 @@ void CSpriteElement::Update()
     float top = m_summed.top;
     bool outside = top < LayoutTop() || top > LayoutBottom();
     bool hidden = IsHidden();
-    Set(0x0049EBB0, mp_sprite, outside || hidden);
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetHidden(outside || hidden);
     if (!(m_objectFlags & (kChildrenDirty | kVisibleNow)))
         return;
     uint32_t rgba = ShownColour(this);
-    Set(0x0049EC10, mp_sprite, m_summed.x, m_summed.y);
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetPos(m_summed.x, m_summed.y);
     // (the size truncated: the height first)
     int height = Truncated(m_height);
     int width = Truncated(m_width);
-    Set(0x0049EC30, mp_sprite, static_cast<uint16_t>(width), static_cast<uint16_t>(height));
-    Set(0x0049EC50, mp_sprite, static_cast<bool>((m_objectFlags >> 25) & 1), static_cast<bool>((m_objectFlags >> 26) & 1));
-    Set(0x0049EC90, mp_sprite, (m_objectFlags & kFlag1000000) ? m_shown.angle : m_summed.angle);
-    Set(0x0049EC70, mp_sprite, m_justX, m_justY);
-    Set(0x0049EE00, mp_sprite, m_summed.scaleX, m_summed.scaleY);
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetSize(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetFlip(static_cast<bool>((m_objectFlags >> 25) & 1), static_cast<bool>((m_objectFlags >> 26) & 1));
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetRotation((m_objectFlags & kFlag1000000) ? m_shown.angle : m_summed.angle);
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetHotSpot(m_justX, m_justY);
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetScale(m_summed.scaleX, m_summed.scaleY);
     if (m_objectFlags & kPos3d) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth;
         std::memcpy(&depth, &m_summed.z, 4);
         depth += (m_objectFlags & kKeepScale) ? 5000u : 0u;
-        Set(0x0049ECC0, mp_sprite, depth);
-        Set(0x0049EBB0, mp_sprite, (m_objectFlags & kOffScreen) != 0 || hidden);
+        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetDepth(depth);
+        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetHidden((m_objectFlags & kOffScreen) != 0 || hidden);
     } else {
-        Set(0x0049ECA0, mp_sprite, m_zPriority);
-        Set(0x0049EBB0, mp_sprite, outside || hidden);
+        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetPriority(m_zPriority);
+        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetHidden(outside || hidden);
     }
-    Set(0x0049ECE0, mp_sprite, m_zWrite);
-    Set(0x0049ECF0, mp_sprite, rgba);
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetZWrite(m_zWrite);
+    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetRGBA(rgba);
 }
 
 // --- WindowElement --------------------------------------------------------------------------------------------
@@ -327,10 +328,10 @@ void CWindowElement::Update()
         return;
     int top = Truncated(m_summed.y - (static_cast<double>(m_justY) + One()) * Half() * m_height);
     int left = Truncated(m_summed.x - (static_cast<double>(m_justX) + One()) * Half() * m_width);
-    Set(0x004A15C0, mp_window, left, top);
+    reinterpret_cast<Nx::CWindow2D*>(mp_window)->SetPos(left, top);
     int height = Truncated(m_height);
     int width = Truncated(m_width);
-    Set(0x004A15E0, mp_window, width, height);
+    reinterpret_cast<Nx::CWindow2D*>(mp_window)->SetSize(width, height);
 }
 
 } // namespace Front

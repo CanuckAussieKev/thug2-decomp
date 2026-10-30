@@ -10,6 +10,7 @@
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/trick_component.h"
+#include "game/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 #include "hook/viewer_testkit.h"
 
@@ -71,7 +72,7 @@ void Install(StandIns& s)
         Rec(0x93A0, {r.ecx, r.args[0]});
         return r.ecx;
     });
-    s.At({0x00488F40}, 8, [](Regs& r) {
+    s.At({0x00488F40, AddressOf(&Gfx::CModelAppearance::Load)}, 8, [](Regs& r) {
         Rec(0x8F40, {r.ecx, r.args[0], r.args[1] & 0xFF});
         return 0u;
     });

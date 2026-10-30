@@ -4,6 +4,18 @@
 #include <cstdio>
 #include <cstring>
 
+#include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/frame_source.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/loading_bar_cfuncs.h"
+#include "game/gfx/model_appearance.h"
+#include "game/gfx/model_utils.h"
+#include "game/gfx/scene_lights.h"
+#include "game/skater/skater.h"
+#include "game/skate/skate_module.h"
 #include "game/ass/asset.h"
 #include "game/ass/assman.h"
 #include "game/core/crc.h"
@@ -72,7 +84,7 @@ void DeleteVirtual(void* object)
 void* NewAnimSource()
 {
     void* memory = AnimSourceAllocate(0x214);
-    return memory ? GameFunction<void*(__thiscall*)(void*)>(0x0048CF70)(memory) : nullptr;
+    return memory ? static_cast<Nx::CFrameSource*>(memory)->Construct() : nullptr;
 }
 Script::CStruct* MakeStruct()
 {
@@ -151,15 +163,15 @@ bool CCutsceneDetails::InitFromStructure(Script::CStruct* params)
         loaded = m_data != nullptr;
     } else {
         // the loading screen; the music volumes kept to give back at the end, then muted
-        GameFunction<void(__cdecl*)(const char*, bool, bool)>(0x00490890)(nullptr, true, false);
+        Nx::DisplayLoadingScreen(nullptr, true, false);
         Gfx::LoadingConsole::ScreenShown(true, false); // not original: the loading console (gfx/loading_console.h)
-        m_musicVolume = GameFunction<float(__cdecl*)(int)>(0x0048E9B0)(1);
-        m_streamVolume0 = GameFunction<float(__cdecl*)(int, int)>(0x0048E9D0)(0, 1);
-        m_streamVolume1 = GameFunction<float(__cdecl*)(int, int)>(0x0048E9D0)(1, 1);
-        GameFunction<void(__cdecl*)(float, int)>(0x0048E970)(0.0f, 0);
-        GameFunction<void(__cdecl*)(int, float, int)>(0x0048E990)(0, 0.0f, 0);
-        GameFunction<void(__cdecl*)(int, float, int)>(0x0048E990)(1, 0.0f, 0);
-        GameFunction<void(__cdecl*)()>(0x004904E0)();
+        m_musicVolume = Nx::GetAmbientLightModulationFactor(true);
+        m_streamVolume0 = Nx::GetDiffuseLightModulationFactor(0, true);
+        m_streamVolume1 = Nx::GetDiffuseLightModulationFactor(1, true);
+        Nx::SetAmbientLightModulationFactor(0.0f, 0.0f);
+        Nx::SetDiffuseLightModulationFactor(0, 0.0f, 0.0f);
+        Nx::SetDiffuseLightModulationFactor(1, 0.0f, 0.0f);
+        Nx::UpdateSceneLightQueue();
         Ass::CAssMan* assets = Assets();
         if (!assets->GetAssetDataByName(fileName, 0)) {
             int music = m_params->ContainsFlag(kNoMusicFlag) ? 0 : 1;
@@ -174,7 +186,7 @@ bool CCutsceneDetails::InitFromStructure(Script::CStruct* params)
             m_params->AddInteger(0xBABF2DC9, 1);
             m_params->AppendStructureIfAny(settings);
             Run(0x722D9CA7);
-            GameFunction<void(__cdecl*)()>(0x00487D20)();
+            Gfx::HideModelsForCutscene();
             Run(0xE1CE826A, m_params);
             m_data = static_cast<CCutsceneData*>(assets->LoadAsset(fileName, 0, 0, 0, false, false, false, m_settings, 0));
             float start;
@@ -216,19 +228,19 @@ void CCutsceneDetails::End()
     }
     Run(0xE7BC7EFD);
     Run(0x4C0FD1D7);
-    GameFunction<void(__thiscall*)(void*)>(0x0049A9D0)(GameVariable<void*>(0x006FA7C0));
+    GameVariable<Nx::CFlexibleParticleManager*>(0x006FA7C0)->DeleteTempHeap();
     if (m_data) {
         UnloadAsset(m_asset);
         m_data = nullptr;
     }
-    GameFunction<void(__cdecl*)()>(0x0048FDE0)();
+    Nx::ClearSceneLightQueue();
     if (m_endScript)
         Run(m_endScript);
     Run(0xF49A8C9C);
     Run(0xDEFF69FF);
     Mem::Manager::Get()->DeleteCutsceneHeaps();
     auto* skater =
-        GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00566520)(GameVariable<void*>(0x007CE478));
+        static_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
     if (skater) {
         Script::CStruct* flag = MakeStruct();
         flag->AddChecksum(kUnnamed, kFlagParam);
@@ -236,7 +248,7 @@ void CCutsceneDetails::End()
         FreeStruct(flag);
     }
     Run(0xBCA1791C, m_params);
-    GameFunction<void(__cdecl*)()>(0x00487D30)();
+    Gfx::ShowModelsAfterCutscene();
     Run(0x94D0D528);
     PrintCutsceneDetails(this);
     Run(0x15674315);
@@ -310,11 +322,11 @@ void CCutsceneData::LoadFromBundle()
             ++m_cameraParts;
             if (!m_cameraSource) {
                 m_cameraSource = NewAnimSource();
-                GameFunction<void*(__thiscall*)(void*, bool)>(0x0048CFA0)(m_cameraSource, true);
+                static_cast<Nx::CFrameSource*>(m_cameraSource)->SetDone(true);
             }
             if (!mp_cameraAnim) {
-                mp_cameraAnim = GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0048CFD0)(m_cameraSource, name);
-                GameFunction<void(__thiscall*)(void*)>(0x00482F10)(mp_cameraAnim);
+                mp_cameraAnim = static_cast<Nx::CFrameSource*>(m_cameraSource)->SetAnim(name);
+                static_cast<Gfx::CBonedAnimFrameData*>(mp_cameraAnim)->ArmEvents();
             }
             if (!mp_objectAnims)
                 mp_objectAnims = mp_cameraAnim;
@@ -326,11 +338,11 @@ void CCutsceneData::LoadFromBundle()
             ++m_objectParts;
             if (!m_objectSource) {
                 m_objectSource = NewAnimSource();
-                GameFunction<void*(__thiscall*)(void*, bool)>(0x0048CFA0)(m_objectSource, true);
+                static_cast<Nx::CFrameSource*>(m_objectSource)->SetDone(true);
             }
             if (!mp_animList) {
-                mp_animList = GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0048CFD0)(m_objectSource, name);
-                GameFunction<void(__thiscall*)(void*)>(0x00482F10)(mp_animList);
+                mp_animList = static_cast<Nx::CFrameSource*>(m_objectSource)->SetAnim(name);
+                static_cast<Gfx::CBonedAnimFrameData*>(mp_animList)->ArmEvents();
             }
             break;
         }
@@ -394,15 +406,15 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
             static_cast<const uint8_t*>(mp_bundle->FindAsset(entry->name, kTypeColours, 0))) {
         // the skater's colours from its appearance (part A or B, else the other)
         auto* part1 = static_cast<Script::CStruct*>(
-            GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x004890B0)(m_unknown34A8, kPartA));
+            static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPart(kPartA));
         if (!part1)
             part1 = static_cast<Script::CStruct*>(
-                GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x004890B0)(m_unknown34A8, kPartB));
+                static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPart(kPartB));
         auto* part2 = static_cast<Script::CStruct*>(
-            GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x00489050)(m_unknown34A8, kPartA));
+            static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPartOption(kPartA));
         if (!part2)
             part2 = static_cast<Script::CStruct*>(
-                GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x00489050)(m_unknown34A8, kPartB));
+                static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPartOption(kPartB));
         float* skin = &GameVariable<float>(0x0067D860);
         skin[0] = skin[1] = skin[2] = skin[3] = 1.0f;
         for (int k = 0; k < 4; ++k) {

@@ -11,6 +11,7 @@
 
 #include "game/skate/profile_manager.h"
 #include "game/gfx/face_texture.h"
+#include "game/gfx/model_appearance.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -155,11 +156,11 @@ void Install(StandIns& s)
         }
         return 0u;
     });
-    s.At({0x00488F40}, 8, [](Regs& r) {
+    s.At({0x00488F40, AddressOf(&Gfx::CModelAppearance::Load)}, 8, [](Regs& r) {
         Rec(0x8F40, {r.ecx, r.args[0], r.args[1] & 0xFF});
         return 0u;
     });
-    s.At({0x004890F0}, 0, [](Regs& r) {
+    s.At({0x004890F0, AddressOf(&Gfx::CModelAppearance::DestroyBody)}, 0, [](Regs& r) {
         Rec(0x90F0, {r.ecx});
         return 0u;
     });

@@ -12,6 +12,7 @@
 
 #include "game/gfx/anim_blend.h"
 #include "game/script/struct.h"
+#include "game/gfx/anim_controller.h"
 #include "game/gfx/frame_source.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
@@ -183,7 +184,7 @@ void TestBlendChannel()
              Record({0x4E3C0000, r.ecx, r.args[0]});
              return 0u;
          });
-    s.At({0x004813B0}, 12, [](Regs& r) {
+    s.At({0x004813B0, AddressOf(&Gfx::CAnimTimeline::GetTimes)}, 12, [](Regs& r) {
         Record({0x4813B000, r.ecx});
         for (int i = 0; i < 3; ++i)
             *reinterpret_cast<float*>(r.args[i]) = static_cast<float>(g_answers.Below(1000)) / 8.0f;

@@ -34,6 +34,7 @@
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/gfx/model.h"
 #include "game/gfx/viewport.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
@@ -1299,7 +1300,7 @@ void StandInLife(StandIns& s)
         default: return 0u;
         }
     });
-    s.At({0x00493040}, 0, [](Regs& r) {
+    s.At({0x00493040, AddressOf(&Nx::CModel::GetAssetHierarchy)}, 0, [](Regs& r) {
         Record({0x3040, LifeId(r.ecx)});
         return reinterpret_cast<uint32_t>(g_geometry);
     });
@@ -1650,7 +1651,7 @@ void TestVehicleRestart()
             Record({0xB680, r.args[0]});
             return (g_restartLinks >> (r.args[0] & 7)) & 1;
         });
-        s->At({0x00566100}, 4, [](Regs& r) {
+        s->At({0x00566100, AddressOf(&Mdl::Skate::SkipToRestartPoint)}, 4, [](Regs& r) {
             Record({0x6100, r.ecx, r.args[0]});
             return 0x7777u;
         });

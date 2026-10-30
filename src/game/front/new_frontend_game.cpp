@@ -16,6 +16,7 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skate/game_mode.h"
 #include "hook/game.h"
 
 namespace Front::NewFrontend::GameScreens {
@@ -56,7 +57,7 @@ std::string GameModeName()
     void* mode = GameVariable<void*>(0x007CE470);
     if (!mode)
         return {};
-    uint32_t name = GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(mode);
+    uint32_t name = static_cast<Game::CGameMode*>(mode)->GetNameChecksum();
     static const char* const kNames[] = {"singlesession", "freeskate", "career", "classic", "creategoals", "net",
                                          "netlobby", "freeskate_2p", "parkeditor"};
     for (const char* known : kNames)

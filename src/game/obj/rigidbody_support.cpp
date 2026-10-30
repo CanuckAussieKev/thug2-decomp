@@ -9,6 +9,9 @@
 #include <cstdint>
 
 #include "game/core/crc.h"
+#include "game/gfx/engine_scene.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/sector.h"
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
@@ -247,10 +250,10 @@ int& NextCollideSoundTime() { return GameVariable<int>(0x006939D8); }
 // which 0x0049CB00 then takes as its own; neither rewritten yet).
 void HideSector(uint32_t checksum)
 {
-    void* scene = GameFunction<void*(__cdecl*)()>(0x0048C770)();
-    void* sector = GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049CB00)(scene, checksum);
+    Nx::CScene* scene = Nx::GetMainScene();
+    void* sector = scene->GetSector(checksum);
     if (sector)
-        GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(sector, false);
+        static_cast<Nx::CSector*>(sector)->SetActive(false);
 }
 
 // A mute delay: 50-149 % of `delay` milliseconds from now (the product divided unsigned).

@@ -18,6 +18,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/mth/vector.h"
+#include "game/obj/movie_cfuncs.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
@@ -378,7 +379,7 @@ bool __cdecl CFunc_PlayCamera(Script::CStruct* params, Script::CScript* script)
         // (the last shot still playing: killed first, as the goals kill theirs)
         Script::CStruct* kill = Script::NewStruct()->Init();
         kill->AddChecksum(Crc("name"), shot);
-        GameFunction<CFunction>(0x005ADD70)(kill, script); // CFunc_KillSkaterCamAnim
+        CFuncs::CFunc_KillSkaterCamAnim(kill, script);
         kill->Clear();
         Script::DeleteStruct(kill);
     }
@@ -392,7 +393,7 @@ bool __cdecl CFunc_PlayCamera(Script::CStruct* params, Script::CScript* script)
     int frames = ShotFrames(seconds);
     anim->AddInteger(Crc("frames"), frames);
     anim->AddInteger(Crc("skippable"), 1);
-    GameFunction<CFunction>(0x005AD830)(anim, script); // CFunc_PlaySkaterCamAnim
+    CFuncs::CFunc_PlaySkaterCamAnim(anim, script);
     anim->Clear();
     Script::DeleteStruct(anim);
     g_shotUntil = now + frames / 60.0;

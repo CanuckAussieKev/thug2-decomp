@@ -14,6 +14,8 @@
 #include "game/obj/object.h"
 #include "game/obj/shadow_component.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine_shadows.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -118,32 +120,32 @@ void StandIn(StandIns& s)
         Record({0x7C00, r.ecx, r.args[0], r.args[1]});
         return reinterpret_cast<uint32_t>(g_world.asset);
     });
-    s.At({0x004949B0}, 4, [](Regs& r) {
+    s.At({0x004949B0, AddressOf(&Nx::CModel::EnableShadow)}, 4, [](Regs& r) {
         Record({0x49B0, Rel(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x00493040}, 0, [](Regs& r) {
+    s.At({0x00493040, AddressOf(&Nx::CModel::GetAssetHierarchy)}, 0, [](Regs& r) {
         Record({0x3040, Rel(r.ecx)});
         return g_a.haveHierarchy ? reinterpret_cast<uint32_t>(g_world.hierarchy) : 0u;
     });
     // The shadow constructors.
-    s.At({0x004A19C0}, 0x18, [](Regs& r) {
+    s.At({0x004A19C0, AddressOf(&Nx::CDetailedShadow::Construct)}, 0x18, [](Regs& r) {
         Record({0x19C0, Rel(r.ecx), Rel(r.args[0]), r.args[1], r.args[2], r.args[3], r.args[4], r.args[5]});
         At<void**>(reinterpret_cast<void*>(r.ecx), 0) = g_world.shadowVtable;
         At<int>(reinterpret_cast<void*>(r.ecx), 4) = 1;
         return r.ecx;
     });
-    s.At({0x004A1750}, 0, [](Regs& r) {
+    s.At({0x004A1750, AddressOf(&Nx::CSimpleShadow::Construct)}, 0, [](Regs& r) {
         Record({0x1750, Rel(r.ecx)});
         At<void**>(reinterpret_cast<void*>(r.ecx), 0) = g_world.shadowVtable;
         At<int>(reinterpret_cast<void*>(r.ecx), 4) = 2;
         return r.ecx;
     });
-    s.At({0x004A17E0}, 4, [](Regs& r) {
+    s.At({0x004A17E0, AddressOf(&Nx::CSimpleShadow::SetModel)}, 4, [](Regs& r) {
         Record({0x17E0, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });
-    s.At({0x004A1F80}, 0x18, [](Regs& r) {
+    s.At({0x004A1F80, AddressOf(&Nx::CShadowVolume::Construct)}, 0x18, [](Regs& r) {
         Record({0x1F80, Rel(r.ecx), Rel(r.args[0]), r.args[1], r.args[2], r.args[3], r.args[4], r.args[5]});
         At<void**>(reinterpret_cast<void*>(r.ecx), 0) = g_world.shadowVtable;
         At<int>(reinterpret_cast<void*>(r.ecx), 4) = 3;

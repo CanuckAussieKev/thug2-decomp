@@ -22,6 +22,9 @@
 #include "game/skate/profile_cfuncs.h"
 #include "game/skater/skater.h"
 #include "game/skater/tagging.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_appearance.h"
+#include "game/gfx/skeleton.h"
 #include "game/gfx/texture_dict.h"
 #include "game/script/game_cfuncs.h"
 #include "hook/gs4_testkit.h"
@@ -135,15 +138,15 @@ void StandInModelCalls(StandIns& s)
         Record({0x15A0, Id(r.ecx), r.args[0], Hash(reinterpret_cast<const char*>(r.args[1]))});
         return 0u;
     });
-    s.At({0x004A3D30}, 4, [](Regs& r) {
+    s.At({0x004A3D30, AddressOf(&Gfx::CSkeleton::Construct)}, 4, [](Regs& r) {
         Record({0x3D30, Id(r.ecx), r.args[0]});
         return r.ecx;
     });
-    s.At({0x004A2E20}, 8, [](Regs& r) {
+    s.At({0x004A2E20, AddressOf(&Gfx::CSkeleton::CopyBoneScales)}, 8, [](Regs& r) {
         Record({0x2E20, Id(r.ecx), Id(r.args[0]), r.args[1]});
         return 0u;
     });
-    s.At({0x004A2CB0}, 0, [](Regs& r) {
+    s.At({0x004A2CB0, AddressOf(&Gfx::CSkeleton::DestroyBody)}, 0, [](Regs& r) {
         Record({0x2CB0, Id(r.ecx)});
         return 0u;
     });
@@ -170,7 +173,7 @@ void StandInModelCalls(StandIns& s)
                 return g_mModelValue[i];
         return 0u;
     });
-    s.At({0x00493460}, 4, [](Regs& r) {
+    s.At({0x00493460, AddressOf(&Nx::CModel::SetBoneMatrices)}, 4, [](Regs& r) {
         Record({0x3460, Id(r.ecx), r.args[0]});
         return 0u;
     });
@@ -457,12 +460,12 @@ void StandInCagCalls(StandIns& s)
         Record({0x4FC0, r.args[0]});
         return g_cHaveProfile ? reinterpret_cast<uint32_t>(g_cProfile) : 0u;
     });
-    s.At({0x00489050}, 4, [](Regs& r) {
+    s.At({0x00489050, AddressOf(&Gfx::CModelAppearance::GetPartOption)}, 4, [](Regs& r) {
         Record({0x9050, r.ecx == reinterpret_cast<uint32_t>(g_cProfile), r.args[0]});
         bool give = (g_cHeadKind == 1 && r.args[0] == 0x650FAB6D) || (g_cHeadKind == 2 && r.args[0] == 0x0FC85BAE);
         return give ? reinterpret_cast<uint32_t>(g_cHead.Struct()) : 0u;
     });
-    s.At({0x004890B0}, 4, [](Regs& r) {
+    s.At({0x004890B0, AddressOf(&Gfx::CModelAppearance::GetPart)}, 4, [](Regs& r) {
         Record({0x90B0, r.ecx == reinterpret_cast<uint32_t>(g_cProfile), r.args[0]});
         const uint32_t groups[4] = {0xA28FAB7F, 0x1DBCFAE8, 0x0442D3C1, 0xB90F08D0};
         for (int i = 0; i < 4; ++i)

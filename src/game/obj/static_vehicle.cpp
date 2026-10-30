@@ -7,6 +7,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/model.h"
+#include "game/gfx/skeleton.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
@@ -25,7 +27,7 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 const uint8_t* HierarchyOf(CBaseComponent* model)
 {
     uint8_t* m = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208);
-    return GameFunction<const uint8_t*(__thiscall*)(uint8_t*)>(0x00493040)(m);
+    return reinterpret_cast<const uint8_t*>(reinterpret_cast<Nx::CModel*>(m)->GetAssetHierarchy());
 }
 
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).

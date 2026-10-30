@@ -31,6 +31,7 @@
 #include "game/script/struct.h"
 #include "game/sys/sdl_window.h"
 #include "game/sys/timer.h"
+#include "game/gfx/model.h"
 #include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -447,11 +448,11 @@ void InstallStandIns(StandIns& s)
         Rec(0xD990, {r.ecx, r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x00494970}, 4, [](Regs& r) {
+    s.At({0x00494970, AddressOf(&Nx::CModel::SetVisibility)}, 4, [](Regs& r) {
         Rec(0x4970, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00493CD0}, 4, [](Regs& r) {
+    s.At({0x00493CD0, AddressOf(&Nx::CModel::GetGeomByName)}, 4, [](Regs& r) {
         Rec(0x3CD0, {r.ecx, r.args[0]});
         return r.ecx + 0x10;
     });

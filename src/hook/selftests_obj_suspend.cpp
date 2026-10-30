@@ -22,7 +22,9 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/gfx/engine.h"
+#include "game/gfx/engine_texture_projection.h"
 #include "game/gfx/model.h"
+#include "game/gfx/pc_texture_projection.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -167,7 +169,7 @@ void StandIn(StandIns& s)
         Record({0xF2D0, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_world.components[0]);
     });
-    s.At({0x00493C60}, 4, [](Regs& r) {
+    s.At({0x00493C60, AddressOf(&Nx::CModel::SetActive)}, 4, [](Regs& r) {
         Record({0x3C60, Rel(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
@@ -192,16 +194,16 @@ void StandIn(StandIns& s)
         Record({0xA2F0, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x004C7E80}, 0, [](Regs& r) {
+    s.At({0x004C7E80, AddressOf(&Nx::CPcTextureProjection::Construct)}, 0, [](Regs& r) {
         Record({0x7E80, Rel(r.ecx)});
         At<uint32_t>(reinterpret_cast<void*>(r.ecx), 0) = 0x0064A764;
         return r.ecx;
     });
-    s.At({0x004A04C0}, 4, [](Regs& r) {
+    s.At({0x004A04C0, AddressOf(&Nx::CTextureProjection::InitFromStructure)}, 4, [](Regs& r) {
         Record({0x04C0, Rel(r.ecx), Rel(r.args[0]), At<uint32_t>(reinterpret_cast<void*>(r.ecx), 0x14)});
         return 0u;
     });
-    s.At({0x0049FFE0}, 4, [](Regs& r) {
+    s.At({0x0049FFE0, AddressOf(&Nx::CTextureProjection::Update)}, 4, [](Regs& r) {
         Record({0xFFE0, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });

@@ -20,7 +20,9 @@
 #include "game/front/level_editor_shadows.h"
 #include "game/front/level_editor_shared_coll.h"
 #include "game/front/level_editor_walls.h"
+#include "game/gfx/engine_scene.h"
 #include "game/gfx/mesh.h"
+#include "game/gfx/sector.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "game/script/names.h"
@@ -207,7 +209,7 @@ void ForEachSector(uint8_t* scene, F fn)
 
 uint8_t* LookupSector(uint8_t* scene, uint32_t checksum)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049CB00)(scene, checksum);
+    return static_cast<uint8_t*>(reinterpret_cast<Nx::CScene*>(scene)->GetSector(checksum));
 }
 
 // The sector of that checksum in the first (non-sky) scene having one.
@@ -386,7 +388,7 @@ void ApplyTrack(Track* track)
     V3 position;
     EngineState(track->quarters0, track->position0, track->placement, &quarters, &position);
     if (quarters != track->quarters) {
-        GameFunction<void(__thiscall*)(void*, int)>(0x0049E760)(track->sector, quarters);
+        reinterpret_cast<Nx::CSector*>(track->sector)->SetYRotation(quarters);
         track->quarters = quarters;
     }
     if (!SameV3(position, track->position)) {
@@ -1435,8 +1437,8 @@ namespace {
 
 // CSector::SetActive (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
 // "off" flag 4) / IsActive (0x0049E9E0).
-void SetActive(uint8_t* sector, bool active) { GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(sector, active); }
-bool IsActive(uint8_t* sector) { return GameFunction<bool(__thiscall*)(void*)>(0x0049E9E0)(sector); }
+void SetActive(uint8_t* sector, bool active) { reinterpret_cast<Nx::CSector*>(sector)->SetActive(active); }
+bool IsActive(uint8_t* sector) { return reinterpret_cast<Nx::CSector*>(sector)->IsActive(); }
 
 } // namespace
 
@@ -1584,8 +1586,8 @@ uint32_t Duplicate(uint32_t source)
     Placement sourcePlacement = PlacementOf(source, GeomOf(sector));
     // (the source's shared collision gathered before the copy is there to tie with it)
     auto sharedFaces = SharedCollision::PrepareCopy(source);
-    uint32_t made = GameFunction<uint32_t(__thiscall*)(void*, uint32_t, void*, int, int, uint32_t)>(0x0049DF30)(
-        scene, source, scene, 0, 1, 0);
+    uint32_t made = reinterpret_cast<Nx::CScene*>(scene)->CloneSectorNamed(
+        source, reinterpret_cast<Nx::CScene*>(scene), 0, true, 0);
     uint8_t* copy = made ? LookupSector(scene, made) : nullptr;
     uint8_t* geom = copy ? GeomOf(copy) : nullptr;
     if (!geom || *reinterpret_cast<uint32_t*>(geom) != kPcGeomVtable || *reinterpret_cast<void**>(geom + 0x4C)) {
@@ -1816,7 +1818,7 @@ void Commit()
             continue;
         if (manager)
             manager->PushContext(manager->m_bottomUpHeap);
-        GameFunction<void(__thiscall*)(void*, void*)>(0x0049D780)(scene, nullptr);
+        reinterpret_cast<Nx::CScene*>(scene)->UpdateSuperSectors(nullptr);
         if (manager)
             manager->PopContext();
         SharedCollision::Commit(scene); // (the pieces' shared collision: level_editor_shared_coll.h)

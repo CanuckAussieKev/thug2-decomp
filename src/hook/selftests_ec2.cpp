@@ -39,6 +39,9 @@
 #include "game/script/struct.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/skeleton.h"
+#include "game/gfx/viewport_list.h"
 #include "game/script/script_startup.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -470,12 +473,12 @@ void StandInObjectCalls(StandIns& s)
         default: return 0u;
         }
     });
-    s.At({0x004A06D0}, 0, [](Regs& r) {
+    s.At({0x004A06D0, AddressOf(Nx::GetActiveViewport)}, 0, [](Regs& r) {
         Record({0x06D0, r.args[0]});
         return 0x00CA3E7Au;
     });
     s.Bytes(0x004A1090, Branch(0xE9, 0x004A1090, reinterpret_cast<void*>(&ProjectStandIn)));
-    s.At({0x0049ADE0}, 4, [](Regs& r) {
+    s.At({0x0049ADE0, AddressOf(&Nx::CFlexibleParticleManager::DestroyGroup)}, 4, [](Regs& r) {
         Record({0xADE0, r.ecx, r.args[0]});
         return 0u;
     });
@@ -748,7 +751,7 @@ void StandInScriptCalls(StandIns& s)
         Record({0xDB90, ObjRel(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(g_skeletonComponent);
     });
-    s.At({0x004A36E0}, 8, [](Regs& r) {
+    s.At({0x004A36E0, AddressOf(&Gfx::CSkeleton::GetBoneMatrix)}, 8, [](Regs& r) {
         Record({0x36E0, r.ecx, r.args[0]});
         if (g_failBoneMatrix)
             return 0u;

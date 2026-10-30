@@ -14,6 +14,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
+#include "game/gfx/loading_bar_cfuncs.h"
 #include "game/net/online_identity.h"
 #include "game/sio/device.h"
 #include "hook/log.h"
@@ -348,7 +349,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     ReleaseDirectSound();
     // Originally from PartyMod Fixes: DirectInput isn't released here (SDL input replaces it): the original called 0x005F39E0.
     Gfx::LoadingConsole::ScreenHidden(); // (not original: the loading console's timer stopped)
-    GameFunction<void(__cdecl*)()>(0x004908C0)(); // (the renderer's clean-up)
+    Nx::RemoveLoadingScreen(); // (the renderer's clean-up)
     ReleaseDirect3D();
     InvalidateRect(nullptr, nullptr, TRUE);
     ShowWindow(GameWindow(), SW_SHOWMINIMIZED);

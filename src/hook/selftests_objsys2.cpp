@@ -251,7 +251,7 @@ void StandInProximWorld(StandIns& s)
         Record({0x5EC70001, Reloc(r.ecx)});
         return r.ecx + 0x20;
     });
-    s.At({0x0049E740}, 0, [](Regs& r) {
+    s.At({0x0049E740, AddressOf(&Nx::CSector::GetOrientation)}, 0, [](Regs& r) {
         Record({0x5EC70002, Reloc(r.ecx)});
         return r.ecx + 0x40;
     });

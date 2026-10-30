@@ -13,6 +13,9 @@
 #include "game/core/mem.h"
 #include "game/core/string.h"
 #include "game/core/task.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/net_app.h"
@@ -20,6 +23,7 @@
 #include "game/obj/anim_blender.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
+#include "game/obj/movie_cfuncs.h"
 #include "game/script/cscript.h"
 #include "game/script/load.h"
 #include "game/script/struct.h"
@@ -51,7 +55,7 @@ constexpr int kSkeletonAsset = 6;                        // (the asset type)
 void SetModelPath(Str::String& path, const char* name, const char* extension)
 {
     alignas(Str::String) uint8_t temporary[sizeof(Str::String)];
-    GameFunction<Str::String*(__cdecl*)(void*, const char*, const char*)>(0x004879D0)(temporary, name, extension);
+    Gfx::MakeModelPath(reinterpret_cast<Str::String*>(temporary), name, extension);
     path = *reinterpret_cast<Str::String*>(temporary);
     reinterpret_cast<Str::String*>(temporary)->~String();
 }
@@ -59,7 +63,7 @@ void SetModelPath(Str::String& path, const char* name, const char* extension)
 // `path` without its .skin / .mdl part, with `extension` (".col" / ".tex") on the end (0x0048BFE0 cuts the path).
 void SiblingFile(const char* path, const char* extension, char (&out)[256])
 {
-    GameFunction<bool(__cdecl*)(const char*, char*)>(0x0048BFE0)(path, out);
+    Nx::Engine::SplitSkinName(path, out);
     strcat_s(out, extension);
 }
 
@@ -144,8 +148,8 @@ uint8_t* ModelOf(CBaseComponent* component)
 {
     return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
 }
-int BoneCount(uint8_t* model) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x00492FF0)(model); }
-uint8_t* HierarchyOf(uint8_t* model) { return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x00493040)(model); }
+int BoneCount(uint8_t* model) { return static_cast<int>(reinterpret_cast<Nx::CModel*>(model)->GetAssetBoneCount()); }
+uint8_t* HierarchyOf(uint8_t* model) { return reinterpret_cast<uint8_t*>(reinterpret_cast<Nx::CModel*>(model)->GetAssetHierarchy()); }
 uint8_t* SkeletonOf(CBaseComponent* component)
 {
     return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18);
@@ -542,7 +546,7 @@ int __cdecl HandleReloadCamAnimation(Net::MsgHandlerContext* context)
     Script::CStruct* params = NewStructure();
     params->AddString(0u, message);
     params->AddChecksum(0u, *reinterpret_cast<const uint32_t*>(message + 0x80));
-    GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x005ADEC0)(params, nullptr); // ReloadSkaterCamAnim
+    CFuncs::CFunc_ReloadSkaterCamAnim(params, nullptr);
     DeleteStructure(params);
     return 1;
 }

@@ -10,7 +10,9 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/model.h"
 #include "game/gfx/screen.h"
+#include "game/gfx/viewport.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
@@ -87,7 +89,7 @@ void BaseSetMorph(CScreenElement* e, CStruct* params) { e->CScreenElement::SetMo
 
 // The viewport's camera (0x004A09C0, cdecl; null if none) and the camera's matrix, position and horizontal angle
 // in degrees (thiscall getters).
-void* ViewportCamera(int viewport) { return GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(viewport); }
+void* ViewportCamera(int viewport) { return Nx::GetActiveCamera(viewport); }
 const Mth::Matrix* CameraMatrix(void* camera)
 {
     return static_cast<Gfx::Camera*>(camera)->GetMatrix();
@@ -98,13 +100,19 @@ const Mth::Vector* CameraPosition(void* camera)
 }
 float CameraAngle(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetAdjustedHFOV(); }
 
+// A geom's bounding box (0x0048DE80, thiscall).
+const Mth::Vector* GeometryBoundingBox(void* geometry)
+{
+    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DE80)(geometry);
+}
+
 // A model's model (the model component's +0x208) and that model's bounding box (min x y z w, max x y z w): the
 // model's 0x00493CD0(0), then its 0x0048DE80 (thiscall).
 const Mth::Vector* ModelBoundingBox(Obj::CBaseComponent* component)
 {
     void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
-    void* geometry = GameFunction<void*(__thiscall*)(void*, int)>(0x00493CD0)(model, 0);
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DE80)(geometry);
+    void* geometry = static_cast<Nx::CModel*>(model)->GetGeomByName(0);
+    return GeometryBoundingBox(geometry);
 }
 // The same, or null when the model has no geometry yet (the widescreen rule asks every frame, for every element).
 const Mth::Vector* ModelBoundingBoxIfAny(Obj::CBaseComponent* component)
@@ -112,15 +120,15 @@ const Mth::Vector* ModelBoundingBoxIfAny(Obj::CBaseComponent* component)
     void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
     if (!model)
         return nullptr;
-    void* geometry = GameFunction<void*(__thiscall*)(void*, int)>(0x00493CD0)(model, 0);
+    void* geometry = static_cast<Nx::CModel*>(model)->GetGeomByName(0);
     if (!geometry)
         return nullptr;
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DE80)(geometry);
+    return GeometryBoundingBox(geometry);
 }
 void SetModelViewports(Obj::CBaseComponent* component, uint32_t mask)
 {
     void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00494970)(model, mask);
+    static_cast<Nx::CModel*>(model)->SetVisibility(mask);
 }
 
 // The node `name`'s structure (0x0045C1B0, asserting) and its position (0x0045C050).

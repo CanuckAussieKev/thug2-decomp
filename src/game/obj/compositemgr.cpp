@@ -1,6 +1,7 @@
 // The composite object manager and the COIM heap (compositemgr.h).
 
 #include "game/obj/compositemgr.h"
+#include "game/obj/pager_message.h"
 
 #include <cstdint>
 #include <new>
@@ -299,8 +300,9 @@ uint32_t& InstanceCount() { return GameVariable<uint32_t>(0x006F0DB4); }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void EraseInstances(InstanceNode** result, InstanceNode* first, InstanceNode* last)
 {
-    GameFunction<InstanceNode**(__thiscall*)(void*, InstanceNode**, InstanceNode*, InstanceNode*)>(0x004ECC30)(
-        reinterpret_cast<void*>(0x006F0DB0), result, first, last);
+    reinterpret_cast<PointerList*>(0x006F0DB0)->Erase(reinterpret_cast<PointerListNode**>(result),
+                                                           reinterpret_cast<PointerListNode*>(first),
+                                                           reinterpret_cast<PointerListNode*>(last));
 }
 
 Mem::Region*& CoimRegion() { return GameVariable<Mem::Region*>(0x006F0DA0); }

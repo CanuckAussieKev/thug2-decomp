@@ -15,6 +15,7 @@
 #include "game/core/alloc.h"
 #include "game/core/crc.h"
 #include "game/front/screen_element.h"
+#include "game/skate/profile_manager.h"
 #include "game/sys/platform.h"
 #include "game/sys/platform_input.h"
 #include "game/core/manager.h"

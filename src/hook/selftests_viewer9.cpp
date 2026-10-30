@@ -18,6 +18,7 @@
 #include "game/obj/stream_component.h"
 #include "game/obj/suspend_component.h"
 #include "game/script/nodes.h"
+#include "game/obj/object_proximity.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -56,7 +57,7 @@ void Install(StandIns& s)
     // The component constructors (each records which and returns the memory).
     const std::pair<uint32_t, uint32_t> constructors[] = {
         {0x00433F50u, AddressOf(&Obj::CSuspendComponent::Construct)}, {0x0041AAD0u, AddressOf(&Obj::CBBoxComponent::Construct)},
-        {0x00424AA0u, AddressOf(&Obj::CMotionComponent::Construct)},  {0x004EC370u, 0},
+        {0x00424AA0u, AddressOf(&Obj::CMotionComponent::Construct)},  {0x004EC370u, AddressOf(&Obj::CObjectProximityComponent::Construct)},
         {0x00432D90u, AddressOf(&Obj::CSoundComponent::Construct)},   {0x00433C10u, AddressOf(&Obj::CStreamComponent::Construct)},
         {0x0041F500u, AddressOf(&Obj::CLockObjComponent::Construct)}};
     for (auto [address, ours] : constructors) {

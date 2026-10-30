@@ -76,7 +76,7 @@ void StandInCareerCalls(StandIns& s)
         Record({0x76E0, r.ecx});
         return 0x100u | g_idle; // (only AL counts)
     });
-    s.At({0x0056BB70}, 4, [](Regs& r) {
+    s.At({0x0056BB70, AddressOf(&Mdl::Skate::SendScoreUpdates)}, 4, [](Regs& r) {
         Record({0xBB70, r.ecx, r.args[0] & 0xFF});
         return 0u;
     });

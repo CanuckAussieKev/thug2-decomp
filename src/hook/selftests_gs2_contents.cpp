@@ -29,8 +29,8 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/records.h"
 #include "game/skater/skater.h"
-#include "game/goals/goal_manager.h"
 #include "game/ed/goal_editor.h"
+#include "game/goals/goal_manager.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -276,8 +276,8 @@ void StandInCalls(StandIns& s)
         Record({0x61F0, Known(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });
-    for (uint32_t address : {0x00567C30u, 0x00567C00u, 0x00567BD0u}) {
-        s.At({address}, 8, [address](Regs& r) {
+    for (auto [address, ours_address] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00567C30u, AddressOf(&Mdl::Skate::SetVibration)}, {0x00567C00u, AddressOf(&Mdl::Skate::SetAutoKick)}, {0x00567BD0u, AddressOf(&Mdl::Skate::SetSpinTaps)}}) {
+        s.At({address, ours_address}, 8, [address](Regs& r) {
             Record({address, Known(r.ecx), r.args[0], r.args[1] & 0xFF});
             return 0u;
         });
@@ -305,7 +305,7 @@ void StandInCalls(StandIns& s)
         Record({0xDB90, r.ecx, r.args[0]});
         return 0x0C0E0000u;
     });
-    s.At({0x004EB850}, 4, [](Regs& r) { Record({0xB850, r.ecx, Known(r.args[0])}); return 0u; });
+    s.At({0x004EB850, AddressOf(&Ed::CGoalEditorComponent::WriteGoals)}, 4, [](Regs& r) { Record({0xB850, r.ecx, Known(r.args[0])}); return 0u; });
     s.At({0x004EA470, AddressOf(&Ed::CGoalEditorComponent::ReadGoals)}, 8, [](Regs& r) { Record({0xA470, r.ecx, Known(r.args[0]), r.args[1]}); return 0u; });
     s.At({0x0058D600, AddressOf(&Ed::CParkEditor::WriteIntoStructure)}, 4, [](Regs& r) {
         Record({0xD600, r.ecx, Known(r.args[0])});
@@ -317,8 +317,8 @@ void StandInCalls(StandIns& s)
     });
     s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return 0x60A10000u; });
     s.At({0x004A2BA0}, 0, [](Regs& r) { Record({0x2BA0, r.ecx}); return 0x60A1A000u; });
-    s.At({0x00557E70}, 4, [](Regs& r) { Record({0x7E70, r.ecx, r.args[0]}); return 0u; });
-    s.At({0x00558A00}, 0, [](Regs& r) { Record({0x8A00, r.ecx}); return 0u; });
+    s.At({0x00557E70, AddressOf(&Game::CGoalManager::ResetGoalData)}, 4, [](Regs& r) { Record({0x7E70, r.ecx, r.args[0]}); return 0u; });
+    s.At({0x00558A00, AddressOf(&Game::CGoalManager::RestoreGoalData)}, 0, [](Regs& r) { Record({0x8A00, r.ecx}); return 0u; });
     s.At({0x00477090, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) { Record({0x7090, Known(r.ecx)}); return 0u; });
     // GetSaveInfo's
     s.At({0x0047A070, AddressOf(&Script::CalculateBufferSize)}, 0, [](Regs& r) {

@@ -2,6 +2,15 @@
 
 #include <cstring>
 
+#include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/frame_source.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_appearance.h"
+#include "game/gfx/skeleton.h"
+#include "game/mth/vector.h"
+#include "game/skater/skater.h"
+#include "game/skate/skate_module.h"
 #include "game/ass/assman.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -98,12 +107,12 @@ CCompositeObject* LevelObjectOf(CCompositeObject* object)
 }
 void ModelSetOffset(void* model, const float* offset)
 {
-    GameFunction<void(__thiscall*)(void*, const float*)>(0x00492E80)(model, offset);
+    static_cast<Nx::CModel*>(model)->SetBoundingSphere(reinterpret_cast<const Mth::Vector*>(offset));
 }
 // The skater's appearance (+0x34A8) and its parts.
 void* AppearancePart(void* appearance, uint32_t part)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x00489050)(appearance, part);
+    return static_cast<Gfx::CModelAppearance*>(appearance)->GetPartOption(part);
 }
 
 } // namespace
@@ -167,7 +176,7 @@ void CCutsceneData::RefreshObjects()
             Script::RunScript(kRefreshScript, params, object, false, nullptr);
     }
     auto* skater =
-        GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x00566520)(GameVariable<void*>(0x007CE478));
+        static_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
     if (skater)
         Script::RunScript(kRefreshScript, params, skater, false, nullptr);
     FreeStruct(params);
@@ -284,7 +293,7 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
                     if (!m_colourSaved) {
                         float saved[4];
                         const float* settings =
-                            GameFunction<const float*(__thiscall*)(void*, float*)>(0x00492F30)(model2, saved);
+                            reinterpret_cast<const float*>(static_cast<Nx::CModel*>(model2)->GetBoundingSphere(reinterpret_cast<Mth::Vector*>(saved)));
                         std::memcpy(m_lent2C, settings, 16);
                         uint8_t flags = *(static_cast<uint8_t*>(model2) + 0x44);
                         m_lent3C = flags >> 2 & 1;
@@ -294,12 +303,12 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
                     }
                     float offset2[4] = {0.0f, 0.0f, 0.0f, 150.0f};
                     ModelSetOffset(model2, offset2);
-                    GameFunction<void(__thiscall*)(void*, int)>(0x00494B70)(model2, 0);
-                    GameFunction<void(__thiscall*)(void*, int)>(0x00492E60)(model2, 0);
+                    static_cast<Nx::CModel*>(model2)->Hide(0);
+                    static_cast<Nx::CModel*>(model2)->EnableScaling(0);
                     uint32_t mine = GameFunction<uint32_t(__thiscall*)(void*)>(0x00492E50)(model2);
                     uint32_t theirs = GameFunction<uint32_t(__thiscall*)(void*)>(0x00492E50)(ModelOf(standIn));
-                    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00493460)(model2, theirs);
-                    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00493460)(ModelOf(standIn), mine);
+                    static_cast<Nx::CModel*>(model2)->SetBoneMatrices(reinterpret_cast<uint8_t*>(theirs));
+                    static_cast<Nx::CModel*>(ModelOf(standIn))->SetBoneMatrices(reinterpret_cast<uint8_t*>(mine));
                     static_cast<CModelComponent*>(levelModel)->UpdateBrightness();
                 }
                 reinterpret_cast<void(__thiscall*)(CBaseComponent*, int)>((*reinterpret_cast<void***>(standIn))[7])(
@@ -320,9 +329,9 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
                     entry.animation = animation;
                     void* memory = AnimSourceAllocate(0x214);
                     animation->source =
-                        memory ? GameFunction<void*(__thiscall*)(void*)>(0x0048CF70)(memory) : nullptr;
-                    GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0048CFD0)(animation->source, anim);
-                    GameFunction<void*(__thiscall*)(void*, bool)>(0x0048CFA0)(animation->source, true);
+                        memory ? static_cast<Nx::CFrameSource*>(memory)->Construct() : nullptr;
+                    static_cast<Nx::CFrameSource*>(animation->source)->SetAnim(anim);
+                    static_cast<Nx::CFrameSource*>(animation->source)->SetDone(true);
                     break;
                 }
             }
@@ -350,14 +359,13 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
         if (!component)
             continue;
         void* model = ModelOf(component);
-        uint32_t flags = GameFunction<uint32_t(__thiscall*)(void*)>(0x00493B30)(model);
+        uint32_t flags = static_cast<Nx::CModel*>(model)->GetStripBreakFlags();
         ObjectEntry* parent = FindEntry(entry.name - 1);
         if (parent && parent->active) {
             CCompositeObject* level = LevelObjectOf(parent->object);
-            flags |= GameFunction<uint32_t(__thiscall*)(void*)>(0x00493B30)(
-                ModelOf(level->GetComponent(kModelComponent)));
+            flags |= static_cast<Nx::CModel*>(ModelOf(level->GetComponent(kModelComponent)))->GetStripBreakFlags();
         }
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00493B90)(model, flags);
+        static_cast<Nx::CModel*>(model)->BreakStrips(flags);
     }
     // children: their parent, the skater's look (colours from its appearance parts), their animation index
     for (int i = 0; i < m_objectCount; ++i) {
@@ -370,7 +378,7 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
         }
         void* anims = mp_animList;
         for (int j = 0; j < *reinterpret_cast<int*>(static_cast<uint8_t*>(anims) + 8); ++j) {
-            if (entry.name == GameFunction<uint32_t(__thiscall*)(void*, int)>(0x00482F00)(mp_animList, j)) {
+            if (entry.name == static_cast<Gfx::CBonedAnimFrameData*>(mp_animList)->GetBoneName(j)) {
                 entry.animIndex = j;
                 break;
             }
@@ -396,7 +404,7 @@ void CCutsceneData::CopySkeleton(ObjectEntry& from, ObjectEntry& to)
     CCompositeObject* object = to.object;
     CBaseComponent* own = object->GetComponent(kSkeletonComponent);
     if (own && StandsIn(object->GetComponent(kModelComponent)))
-        GameFunction<void(__thiscall*)(void*, void*, int)>(0x004A2E20)(SkeletonOf(own), skeleton, 0);
+        static_cast<Gfx::CSkeleton*>(SkeletonOf(own))->CopyBoneScales(static_cast<Gfx::CSkeleton*>(skeleton), false);
 }
 
 // A child of an object that stands in: the skater's look from its appearance (a colour from part A or B, or
@@ -408,11 +416,11 @@ void CCutsceneData::ApplySkaterLook(ObjectEntry& entry)
         (*reinterpret_cast<void***>(component))[0x34 / 4])(component, m_unknown34A8, 0, 0, 0x8FB01036);
     uint32_t partName = kPartA;
     auto* part = static_cast<Script::CStruct*>(
-        GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x004890B0)(m_unknown34A8, kPartA));
+        static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPart(kPartA));
     if (!part) {
         partName = kPartB;
         part = static_cast<Script::CStruct*>(
-            GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x004890B0)(m_unknown34A8, kPartB));
+            static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPart(kPartB));
         if (!part)
             return;
     }
@@ -434,8 +442,8 @@ void CCutsceneData::ApplySkaterLook(ObjectEntry& entry)
     colour->AddChecksum(0xB6F08F39, 0);
     colour->AddChecksum(0x83418A6A, 0xAA2206EF);
     colour->AddInteger(0x318F2BDB, 0);
-    GameFunction<void(__thiscall*)(void*, Script::CStruct*, float, float, float)>(0x00494200)(
-        model, colour, static_cast<float>(hue), static_cast<float>(saturation * static_cast<double>(0.0099999998f)),
+    static_cast<Nx::CModel*>(model)->SetColorFromScript(
+        colour, static_cast<float>(hue), static_cast<float>(saturation * static_cast<double>(0.0099999998f)),
         static_cast<float>(value * static_cast<double>(0.0099999998f)));
     FreeStruct(colour);
 }

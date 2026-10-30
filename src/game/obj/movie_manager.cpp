@@ -8,12 +8,15 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/viewport.h"
+#include "game/goals/goal_manager.h"
 #include "game/mth/matrix.h"
 #include "game/obj/anim_movies.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/node_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skate/skate_module.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -46,7 +49,12 @@ void Stop(CMovie* movie) { Virtual<void>(movie, 0x20); }
 CMovieDetails* Details(CMovie* movie) { return reinterpret_cast<CMovieDetails*>(movie); }
 uint32_t NameOf(CMovie* movie) { return MovieName(movie); }
 // The game's camera (0x004A0970).
-void SetGameCamera(Gfx::Camera* camera) { GameFunction<void(__cdecl*)(int, Gfx::Camera*)>(0x004A0970)(0, camera); }
+// The movie at `index` of the list (Lst::Head<CMovie>::GetItem, 0x0055D990; null past the end).
+CMovie* MovieAt(Mem::ListNode* head, int index)
+{
+    return reinterpret_cast<CMovie*>(reinterpret_cast<Game::GoalListHead*>(head)->NodeAt(index));
+}
+void SetGameCamera(Gfx::Camera* camera) { Nx::SetCamera(0, camera); }
 
 void Unlink(Mem::ListNode* node)
 {
@@ -141,7 +149,7 @@ CMovie* CMovieManager::GetMovie(int index)
 {
     if (!Count())
         return nullptr;
-    return GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, index);
+    return MovieAt(&m_movies, index);
 }
 
 // 0x0057A3A0
@@ -198,7 +206,7 @@ CMovieManager* CMovieManager::Construct()
 Gfx::Camera* CMovieManager::GetCamera()
 {
     if (Count()) {
-        CMovie* playing = GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, 0);
+        CMovie* playing = MovieAt(&m_movies, 0);
         if (playing && HasCamera(playing))
             return playing->m_camera;
     }
@@ -228,7 +236,7 @@ void CMovieManager::StopAll()
 void CMovieManager::ClearMovies()
 {
     if (m_movies.prev != &m_movies)
-        KeepCamera(Count() ? GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, 0) : nullptr);
+        KeepCamera(Count() ? MovieAt(&m_movies, 0) : nullptr);
     reinterpret_cast<ListHead*>(&m_movies)->DeleteAllNodes();
 }
 
@@ -257,7 +265,7 @@ void CMovieManager::EndMovie(CMovie* movie)
 bool CMovieManager::EndMovies(bool skippable)
 {
     auto first = [this]() -> CMovie* {
-        return Count() ? GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, 0) : nullptr;
+        return Count() ? MovieAt(&m_movies, 0) : nullptr;
     };
     bool ended = false;
     if (!skippable) {
@@ -346,7 +354,7 @@ bool CMovieManager::KillMovie(uint32_t name)
     CMovie* movie = FindMovie(name);
     if (!movie)
         return false;
-    CMovie* playing = Count() ? GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, 0) : nullptr;
+    CMovie* playing = Count() ? MovieAt(&m_movies, 0) : nullptr;
     if (movie == playing) {
         EndMovies(false);
         return true;
@@ -369,7 +377,7 @@ bool CMovieManager::AddMovie(uint32_t name, Script::CStruct* params, uint32_t ty
         bool skater;
     };
     auto skaterContext = [](bool skater) {
-        uint8_t* info = GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x00564FC0)(GameVariable<void*>(0x007CE478), 0);
+        uint8_t* info = reinterpret_cast<uint8_t*>(GameVariable<Mdl::Skate*>(0x007CE478)->GetProfile(0));
         return CameraContext{info, info + 0x5C, skater};
     };
     auto newObjectCamera = [](CameraContext* context) -> CMovie* {
@@ -399,7 +407,7 @@ bool CMovieManager::AddMovie(uint32_t name, Script::CStruct* params, uint32_t ty
     } else if (type == kSkaterCamera) {
         if (Count()) {
             for (int i = 0; i < Count(); ++i) {
-                CMovie* each = Count() ? GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, i)
+                CMovie* each = Count() ? MovieAt(&m_movies, i)
                                        : nullptr;
                 NameOf(each); // (its name read: compiled-out debug output)
             }
@@ -435,7 +443,7 @@ bool CMovieManager::Update()
     }
     if (!Count())
         return false;
-    CMovie* movie = GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, 0);
+    CMovie* movie = MovieAt(&m_movies, 0);
     if (!movie)
         return false;
     if (!GameVariable<bool>(0x006FA7D4) || GameVariable<int>(0x007CE4A4) != 0) // (not paused, or the view mode)
@@ -461,7 +469,7 @@ uint32_t CMovieManager::MovieValue(uint32_t name)
 // 0x0057AFC0
 bool CMovieManager::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
 {
-    CMovie* movie = Count() ? GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, 0) : nullptr;
+    CMovie* movie = Count() ? MovieAt(&m_movies, 0) : nullptr;
     if (Virtual<bool, uint32_t, Script::CStruct*, Script::CScript*>(movie, 0x10, name, params, script))
         return true;
     return CObject::CallMemberFunction(name, params, script);
@@ -472,7 +480,7 @@ uint32_t CMovieManager::GetPlayingName()
 {
     if (!Count())
         return 0;
-    CMovie* movie = GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, 0);
+    CMovie* movie = MovieAt(&m_movies, 0);
     return movie ? NameOf(movie) : 0;
 }
 
@@ -481,7 +489,7 @@ bool CMovieManager::PlayingFlag24()
 {
     if (!Count())
         return true;
-    CMovie* movie = GameFunction<CMovie*(__thiscall*)(Mem::ListNode*, int)>(0x0055D990)(&m_movies, 0);
+    CMovie* movie = MovieAt(&m_movies, 0);
     return movie ? Virtual<bool>(movie, 0x24) : true;
 }
 

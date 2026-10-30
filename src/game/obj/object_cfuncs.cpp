@@ -4,6 +4,9 @@
 
 #include <cstdint>
 
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/skeleton.h"
+#include "game/gfx/viewport_list.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/buddy_status.h"
@@ -59,7 +62,7 @@ Obj::CCompositeObject* ObjectById(uint32_t id)
 
 // The camera of viewport `index` (0x004A06D0), and its projection of a world position to the screen (0x004A1090,
 // vtable slot 1 of the camera: x, y and depth out; returns a scale, unused here).
-void* ViewportCamera(int index) { return GameFunction<void*(__cdecl*)(int)>(0x004A06D0)(index); }
+void* ViewportCamera(int index) { return Nx::GetActiveViewport(index); }
 float ProjectToScreen(void* camera, const Mth::Vector* position, float* x, float* y, float* depth)
 {
     return GameFunction<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(0x004A1090)(
@@ -70,7 +73,7 @@ float ProjectToScreen(void* camera, const Mth::Vector* position, float* x, float
 void* ParticleManager() { return GameVariable<void*>(0x006FA7C0); }
 void DestroyParticleGroup(void* manager, uint32_t group)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0049ADE0)(manager, group);
+    static_cast<Nx::CFlexibleParticleManager*>(manager)->DestroyGroup(group);
 }
 
 // A particle component's group id: its +0x1C points at its particle system, whose +0x0C is the group.
@@ -101,7 +104,7 @@ void* SkeletonOf(Obj::CBaseComponent* component)
 }
 bool GetBoneMatrix(void* skeleton, uint32_t bone, Mth::Matrix* out)
 {
-    return GameFunction<bool(__thiscall*)(void*, uint32_t, Mth::Matrix*)>(0x004A36E0)(skeleton, bone, out);
+    return static_cast<Gfx::CSkeleton*>(skeleton)->GetBoneMatrix(bone, out);
 }
 
 // The object's MarkAsDead (vtable slot 6).

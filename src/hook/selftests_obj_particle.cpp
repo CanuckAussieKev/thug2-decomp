@@ -25,6 +25,12 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_primitive.h"
+#include "game/gfx/particles.h"
+#include "game/gfx/pc_particles.h"
+#include "game/gfx/pc_primitive.h"
+#include "game/gfx/skeleton.h"
+#include "game/obj/pager_message.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -192,8 +198,8 @@ void RandomParticle()
 void TestParticleLife()
 {
     StandIns standIns({CallocCall(), BaseConstruct(), BaseDestroyBody(), ManagerFree(), GameClock(),
-                       {0x00496590, 4, 1, Ret::None, true, 0}, GetComponent(),
-                       {0x00494E70, 4, 1, Ret::None, true, 1}});
+                       {0x00496590, 4, 1, Ret::None, true, 0, {Ours(&Nx::CParticleManager::DestroyParticle)}}, GetComponent(),
+                       {0x00494E70, 4, 1, Ret::None, true, 1, {Ours(&Nx::CPcParticleSystem::Hide)}}});
     bool ok = CompareRuns(
         "Particle Create", 40,
         [](int v) {
@@ -253,17 +259,17 @@ void TestParticleMembers()
          Getter(0x00477040, static_cast<VectorFn>(&Script::CStruct::GetVector), Type::Vector, 12),
          Getter(0x00476EC0, static_cast<ChecksumFn>(&Script::CStruct::GetChecksum), Type::Checksum, 4),
          GetInteger(), ArrayGetter(0x00476F10), GetElement(),
-         {0x00494E20, 0, 0, Ret::None, true, 0},
-         {0x00494E90, 4, 1, Ret::None, true, 0},
-         {0x00494EA0, 4, 1, Ret::None, true, 0},
-         {0x00494EF0, 4, 1, Ret::None, true, 0},
+         {0x00494E20, 0, 0, Ret::None, true, 0, {Ours(&Nx::CPcParticleSystem::EngineUpdate)}},
+         {0x00494E90, 4, 1, Ret::None, true, 0, {Ours(&Nx::CPcParticleSystem::SetRate)}},
+         {0x00494EA0, 4, 1, Ret::None, true, 0, {Ours(&Nx::CPcParticleSystem::SetLifetime)}},
+         {0x00494EF0, 4, 1, Ret::None, true, 0, {Ours(&Nx::CPcParticleSystem::SetColourMidPercent)}},
          {0x004076F0, 4, 1, Ret::None, true, 0, {Ours(&Obj::SetParticleValue34)}},
-         {0x00494EB0, 8, 2, Ret::None, true, 0},
-         Pointing(0x00496030, 8, 2, 1, 4),
-         Pointing(0x00496160, 8, 2, 1, 4),
-         Pointing(0x00494EC0, 8, 2, 1, 1),
-         Pointing(0x00496190, 4, 1, 0, 1),
-         {0x004963B0, 8, 2, Ret::None, true, 0}});
+         {0x00494EB0, 8, 2, Ret::None, true, 0, {Ours(&Nx::CPcParticleSystem::SetSize)}},
+         Pointing(0x00496030, 8, 2, 1, 4, Ret::None, {Ours(&Nx::CParticle::SetPosition)}),
+         Pointing(0x00496160, 8, 2, 1, 4, Ret::None, {Ours(&Nx::CParticle::SetBox)}),
+         Pointing(0x00494EC0, 8, 2, 1, 1, Ret::None, {Ours(&Nx::CPcParticleSystem::SetColour)}),
+         Pointing(0x00496190, 4, 1, 0, 1, Ret::None, {Ours(&Nx::CParticle::SetColour)}),
+         {0x004963B0, 8, 2, Ret::None, true, 0, {Ours(&Nx::CParticle::SetEmitScript)}}});
     auto setup = [](int v) {
         RandomParticle();
         // (the vector always: without it both versions pass their own stack's leftovers on)
@@ -319,12 +325,12 @@ void TestParticleUpdate()
                                        static_cast<uint32_t>(GameVariable<int>(0x00696D60));
           }},
          {0x0045D7C0, 0, 0, Ret::None, true, 0},
-         {0x00494EE0, 4, 1, Ret::None, true, 0},
+         {0x00494EE0, 4, 1, Ret::None, true, 0, {Ours(&Nx::CPcParticleSystem::SetValue38)}},
          {0x004AAD40, 0, 0, Ret::Int, true, 0, {Ours(&Obj::ParticleSystemParams)},
           [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kParticleParams)); }},
-         Pointing(0x00496030, 8, 2, 1, 4),
-         Pointing(0x00496060, 8, 2, 1, 16),
-         {0x00496510, 0, 0, Ret::Bool, true, 0},
+         Pointing(0x00496030, 8, 2, 1, 4, Ret::None, {Ours(&Nx::CParticle::SetPosition)}),
+         Pointing(0x00496060, 8, 2, 1, 16, Ret::None, {Ours(&Nx::CParticle::Rotate)}),
+         {0x00496510, 0, 0, Ret::Bool, true, 0, {Ours(&Nx::CParticleManager::CreateParticle)}},
          {0x004172F0, 8, 2, Ret::Bool, true, 3, {Ours(&Nx::CFeeler::GetCollision)},
           [](Frame& f, Result&) {
               for (int i = 0; i < 8; ++i)
@@ -368,7 +374,7 @@ void TestParticleUpdate()
 // A stand-in recording the 0x15C-byte parameter block it's given (`arg`), handing back the particle system.
 StandIn ParamsGiven(uint32_t address, uint8_t pop, uint8_t args, int arg)
 {
-    StandIn s = {address, pop, args, Ret::Int, true, 0};
+    StandIn s = {address, pop, args, Ret::Int, true, 0, {Ours(&Nx::CParticleManager::CreateParticle)}};
     s.action = [arg](Frame& f, Result& r) {
         for (int i = 0; i < 0x15C / 4; ++i)
             Record(reinterpret_cast<const uint32_t*>(f.args[arg])[i]);
@@ -400,7 +406,7 @@ void TestParticleInit()
                   *reinterpret_cast<void**>(f.args[1]) = ArenaPtr(kMine + 0x1E00);
           }},
          // (the parameters' constructor: every word at random)
-         {0x00496240, 0, 0, Ret::Int, true, 0, {}, [](Frame& f, Result& r) {
+         {0x00496240, 0, 0, Ret::Int, true, 0, {Ours(&Nx::CParticleParams::Construct)}, [](Frame& f, Result& r) {
               for (int i = 0; i < 0x15C / 4; ++i)
                   reinterpret_cast<uint32_t*>(f.ecx)[i] = Next() % 3 ? Bits(RichFloat(4.0f)) : Next();
               r.eax = f.ecx;
@@ -410,7 +416,7 @@ void TestParticleInit()
           [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kOther)); }},
          GetComponent(),
          {0x00461480, 20, 5, Ret::Int, true, 6, {Ours(&Obj::CObject::SpawnAndRunScript)}},
-         {0x00496190, 4, 1, Ret::None, true, 0}});
+         {0x00496190, 4, 1, Ret::None, true, 0, {Ours(&Nx::CParticle::SetColour)}}});
     bool ok = CompareRuns(
         "Particle InitFromStructure", 3000,
         [](int) {
@@ -675,7 +681,7 @@ void TestChainLife()
     bool savedReady = GameVariable<bool>(0x007CC979);
     StandIns standIns({CallocCall(), BaseConstruct(), BaseDestroyBody(), ManagerFree(), FrameSeconds(), EnsureManager(),
                        Allocate(), GetComponent(), {0x004C5ED0, 4, 1, Ret::Int, true, 0},
-                       {0x004ECC30, 12, 3, Ret::Int, true, 0}});
+                       {0x004ECC30, 12, 3, Ret::Int, true, 0, {Ours(&Obj::PointerList::Erase)}}});
     bool ok = CompareRuns(
         "Chain Create", 40,
         [](int v) {
@@ -798,13 +804,13 @@ void TestChainInit()
          ArrayGetter(0x00476860),
          {0x0046CC30, 4, 1, Ret::Int, true, 0, {Ours(&Script::CArray::GetElement)},
           [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(Params()); }},
-         {0x004C5230, 4, 1, Ret::Int, true, 0, {},
+         {0x004C5230, 4, 1, Ret::Int, true, 0, {Ours(&Nx::CPcPrimitive::Construct)},
           [](Frame& f, Result& r) {
               *reinterpret_cast<uint32_t*>(f.ecx) = kLineVtable;
               r.eax = f.ecx;
           }},
          {0x004A10A0, 12, 3, Ret::None, true, 0}, LineSlot(0x004C56E0, 8, 2), LineSlot(0x004C5B20, 16, 4),
-         {0x0049C6C0, 0, 0, Ret::None, true, 0}});
+         {0x0049C6C0, 0, 0, Ret::None, true, 0, {Ours(&Nx::CPrimitive::Ready)}}});
     bool ok = CompareRuns(
         "Chain InitFromStructure", 600,
         [](int v) {
@@ -863,7 +869,7 @@ void TestChainUpdate()
              {0x005480F0, 0, 0, Ret::Int, true, 0, {Ours(&GameNet::FoldedGetters::Word18)}, [](Frame&, Result& r) {
                   r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kSkeleton));
               }},
-             {0x004A36E0, 8, 2, Ret::Bool, true, 0, {}, [](Frame& f, Result&) {
+             {0x004A36E0, 8, 2, Ret::Bool, true, 0, {Ours(&Gfx::CSkeleton::GetBoneMatrix)}, [](Frame& f, Result&) {
                   auto* out = reinterpret_cast<float*>(f.args[1]);
                   for (int i = 0; i < 16; ++i)
                       out[i] = RichFloat(i >= 12 ? 20.0f : 1.0f);

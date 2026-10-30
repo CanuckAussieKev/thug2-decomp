@@ -12,13 +12,16 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/stubs.h"
+#include "game/goals/goal_manager.h"
 #include "game/mc/memcard.h"
+#include "game/mc/save_contents.h"
 #include "game/mc/save_types.h"
 #include "game/pcm/music.h"
 #include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -108,82 +111,6 @@ uint8_t* ReadStructure(Script::CStruct* into, uint8_t* data)
     return const_cast<uint8_t*>(Script::ReadFromBuffer(into, data));
 }
 
-// The save type's helpers (register arguments, so called through inline assembly at their game addresses - our
-// save_types.cpp in the game; the LoadFromMemoryCard self-test stands in for them there).
-// 0x005A5F70: 8 letters made from the name's checksum, the last replaced by the type's letter; returns `buffer`.
-void GameMakeFileName(const char* name, char* buffer, uint32_t saveType)
-{
-    uint32_t code = 0x005A5F70;
-    __asm {
-        mov eax, name
-        mov esi, buffer
-        mov edi, saveType
-        call code
-    }
-}
-// 0x005A6390: that file name with the save folder in front (console builds).
-void GameMakeFolderFileName(uint32_t saveType, const char* name, char* buffer)
-{
-    uint32_t code = 0x005A6390;
-    __asm {
-        push buffer
-        push name
-        mov edi, saveType
-        call code
-        add esp, 8
-    }
-}
-// 0x005A62A0: the type's file name pattern filled in with the name (into a shared buffer, 0x007CECE8).
-const char* GameTypeFileName(uint32_t saveType, const char* name)
-{
-    uint32_t code = 0x005A62A0;
-    const char* result;
-    __asm {
-        mov eax, saveType
-        mov ecx, name
-        call code
-        mov result, eax
-    }
-    return result;
-}
-// 0x005A6210: the type's file version (-1 for an unknown type).
-int GameTypeVersion(uint32_t saveType)
-{
-    uint32_t code = 0x005A6210;
-    int result;
-    __asm {
-        mov eax, saveType
-        call code
-        mov result, eax
-    }
-    return result;
-}
-// 0x005A7340: the size of a save of this type.
-int GameTypeFileSize(uint32_t saveType)
-{
-    uint32_t code = 0x005A7340;
-    int result;
-    __asm {
-        mov ecx, saveType
-        call code
-        mov result, eax
-    }
-    return result;
-}
-// 0x005A81B0: put the loaded contents in place (per type: skater, career, settings...).
-void ApplyLoadedContents(uint32_t saveType, Script::CStruct* contents, Script::CScript* script, Script::CStruct* params)
-{
-    uint32_t code = 0x005A81B0;
-    __asm {
-        push params
-        push script
-        mov eax, saveType
-        mov esi, contents
-        call code
-        add esp, 8
-    }
-}
-
 constexpr uint32_t kNoApply = 0x8C6808D4;        // integer parameter: keep the contents in 0x007CECD4 instead
 constexpr uint32_t kLoadFailed = 0xFBF9C22A;     // checksum left in the script's parameters on a bad file
 constexpr uint32_t kObfuscatedType = 0xCA41692D; // its second structure's bytes are stored plus 0x69
@@ -221,21 +148,21 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
         case 1:
         case 2:
         case 3: { // console folders: /<dir><file>/<dir><file>
-            const char* folder = GameFunction<const char*(__cdecl*)()>(0x005B5F10)();
+            const char* folder = GameConfig::GetPathPrefix();
             char file[20];
-            GameMakeFileName(name, file, type);
+            MakeFileName(name, file, type);
             std::snprintf(path, sizeof(path), "/%s%s/%s%s", folder, file, folder, file);
             break;
         }
         case 5: {
             char file[104];
-            GameMakeFolderFileName(type, name, file);
+            MakeFolderFileName(type, name, file);
             std::snprintf(path, sizeof(path), "%s%s", file, file);
             break;
         }
         case 4:
         case 7: {
-            const char* converted = card->ConvertFilename(GameTypeFileName(type, name));
+            const char* converted = card->ConvertFilename(TypeFileName(type, name));
             if (!converted)
                 named = false;
             else
@@ -249,7 +176,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
         File* file = named ? card->Open(path, 1, 0) : nullptr;
         if (file) {
             int size = static_cast<int>(file->Seek(0, 2));
-            bool bad = size != GameTypeFileSize(type);
+            bool bad = size != TypeFileSize(type);
             if (!bad) {
                 data = static_cast<uint8_t*>(Mem::Malloc(size));
                 file->Seek(0, 0);
@@ -259,7 +186,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
                     // The original also rejected the file unless
                     //     Crc::GenerateCRCFromBuffer(data, fileHeader->size) == <the checksum read>
                     // - the test PartyMod NOPs (its patch at 0x005A8A01).
-                    bad = fileHeader->size > 500000 || fileHeader->version != GameTypeVersion(type);
+                    bad = fileHeader->size > 500000 || fileHeader->version != TypeVersion(type);
                     if (!bad) {
                         uint8_t* rest = ReadStructure(header, data + sizeof(SaveHeader));
                         if (type == kObfuscatedType) {
@@ -411,8 +338,7 @@ bool GetSummaryInfo(Script::CStruct* params, Script::CScript* script)
     }
     if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
-        void* goalManager = GameFunction<void*(__cdecl*)()>(0x005591B0)();
-        GameFunction<void(__thiscall*)(void*)>(0x0055C090)(goalManager);
+        Game::GetGoalManager()->LevelUnload();
     }
     WriteSummary(nullptr, ResultParams(script), type);
     return true;

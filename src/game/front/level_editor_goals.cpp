@@ -11,6 +11,7 @@
 #include <functional>
 
 #include "game/core/crc.h"
+#include "game/ed/goal_editor.h"
 #include "game/ed/goal_editor_util.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
@@ -18,11 +19,13 @@
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
+#include "game/goals/goal_manager_cfuncs.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/skate/gap_checklist.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -794,20 +797,20 @@ uint32_t CurrentLevel()
 }
 
 // A GoalManager_* script command with name=<goal> (they take no other parameter and don't use the script).
-bool GoalCommand(uint32_t address, uint32_t goal)
+bool GoalCommand(CFunction command, uint32_t goal)
 {
     Script::CStruct* params = Script::NewStruct()->Init();
     params->AddChecksum(0xA1DC81F9u, goal); // name
-    bool result = GameFunction<CFunction>(address)(params, nullptr);
+    bool result = command(params, nullptr);
     params->Clear();
     Script::DeleteStruct(params);
     return result;
 }
-bool GoalExists(uint32_t goal) { return GoalCommand(0x0055ADF0, goal); }       // GoalManager_GoalExists
-bool GoalIsActive(uint32_t goal) { return GoalCommand(0x005594F0, goal); }     // GoalManager_GoalIsActive
-void DeactivateGoal(uint32_t goal) { GoalCommand(0x00559290, goal); }          // GoalManager_DeactivateGoal
-void RemoveGoal(uint32_t goal) { GoalCommand(0x0055D450, goal); }              // GoalManager_RemoveGoal
-void InitializeGoal(uint32_t goal) { GoalCommand(0x0055AAA0, goal); }          // GoalManager_InitializeGoal
+bool GoalExists(uint32_t goal) { return GoalCommand(&Game::CFunc_GoalManager_GoalExists, goal); }       // GoalManager_GoalExists
+bool GoalIsActive(uint32_t goal) { return GoalCommand(&Game::CFunc_GoalManager_GoalIsActive, goal); }     // GoalManager_GoalIsActive
+void DeactivateGoal(uint32_t goal) { GoalCommand(&Game::CFunc_GoalManager_DeactivateGoal, goal); }          // GoalManager_DeactivateGoal
+void RemoveGoal(uint32_t goal) { GoalCommand(&Game::CFunc_GoalManager_RemoveGoal, goal); }              // GoalManager_RemoveGoal
+void InitializeGoal(uint32_t goal) { GoalCommand(&Game::CFunc_GoalManager_InitializeGoal, goal); }          // GoalManager_InitializeGoal
 
 void KillObject(const std::string& name)
 {
@@ -887,7 +890,7 @@ std::vector<int> GapNumbers(const Goal& g)
 {
     std::vector<int> out;
     uint8_t* skate = SkateModule();
-    auto* list = skate ? GameFunction<Game::CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(skate) : nullptr;
+    auto* list = skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
     if (!list)
         return out;
     for (const std::string& gap : g.gaps) {
@@ -961,7 +964,7 @@ void PutInPlay()
         // GoalManager_InitializeGoal (its pro made from TRG_EditedGoal<n>_Pro).
         GoalImage image;
         FillImage(*goal, level, index, GapNumbers(*goal), &image);
-        GameFunction<void(__thiscall*)(void*, bool)>(0x004EB6B0)(image.bytes, true);
+        reinterpret_cast<Ed::CEditedGoal*>(image.bytes)->AddToGoalManager(true);
         uint32_t id = Crc(GoalId(index));
         if (!GoalExists(id)) {
             Log("level editor: goal %s - the goal manager didn't take it", goal->id.c_str());
@@ -1322,7 +1325,7 @@ std::vector<std::string> LevelGaps()
 {
     std::vector<std::string> out;
     uint8_t* skate = SkateModule();
-    auto* list = skate ? GameFunction<Game::CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(skate) : nullptr;
+    auto* list = skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
     if (!list)
         return out;
     int count = list->Count();

@@ -95,7 +95,7 @@ void TestTriggerNode()
     standIns->At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
         auto* node = reinterpret_cast<CStruct*>(r.args[0]);
         uint32_t name = SkateScript::GetNodeName(node);
-        Record({0x5BB0, r.ecx == reinterpret_cast<uint32_t>(skate) ? 1u : 0u, name});
+        Record({0x5BB0, name}); // (no `this` to check: ours is a static)
         return g_skipped[name] ? 1u : 0u;
     });
     standIns->At({0x00461480, AddressOf(&Obj::CObject::SpawnAndRunScript)}, 0x14, [](Regs& r) {

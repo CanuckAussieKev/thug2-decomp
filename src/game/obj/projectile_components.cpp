@@ -78,7 +78,7 @@ Mdl::Skate* SkateModule() { return GameVariable<Mdl::Skate*>(0x007CE478); }
 // The skate module's local skater (0x00566520, a register stub on our side).
 CSkater* LocalSkater()
 {
-    return GameFunction<CSkater*(__thiscall*)(Mdl::Skate*)>(0x00566520)(SkateModule());
+    return SkateModule()->GetLocalSkater();
 }
 
 // The object dies (its vtable slot 6, MarkAsDead).

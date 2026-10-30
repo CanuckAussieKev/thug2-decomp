@@ -5,6 +5,11 @@
 
 #include <cstdint>
 
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
@@ -19,13 +24,6 @@ class CModel;
 } // namespace Nx
 
 namespace Obj::ModelNx {
-
-// A thiscall at `address` on `object`.
-template <typename R, typename... A>
-R ThisCall(uint32_t address, const void* object, A... args)
-{
-    return GameFunction<R(__thiscall*)(const void*, A...)>(address)(object, args...);
-}
 
 // A skeleton component's skeleton (0x005480F0: its +0x18), a skeleton's name (0x004A2BA0: its +0x14) and data (+0x08).
 inline void* SkeletonOf(CBaseComponent* component)
@@ -51,29 +49,29 @@ inline uint32_t ModelFileChecksum(Nx::CModel* model)
 inline uint8_t ModelFlags(Nx::CModel* model) { return reinterpret_cast<uint8_t*>(model)[0x44]; }
 
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
-inline void* GetSector(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+inline void* GetSector(uint32_t name) { return Nx::Engine::GetSector(name); }
 inline void* SectorGeom(void* sector) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(sector) + 0x14); }
 // A geom cloned for a model (0x0048DDC0) or from a sector (0x0048DD80), and activated (0x0048DE60); one added to a
 // model (0x004938E0).
-inline void* CloneModelGeom(void* geom, Nx::CModel* to) { return ThisCall<void*>(0x0048DDC0, geom, 1, to); }
-inline void* CloneSectorGeom(void* geom) { return ThisCall<void*>(0x0048DD80, geom, 1, 0); }
-inline void ActivateGeom(void* geom) { ThisCall<void>(0x0048DE60, geom, 1); }
-inline void AddGeom(Nx::CModel* model, void* geom, uint32_t name) { ThisCall<void>(0x004938E0, model, geom, name, 1); }
+inline void* CloneModelGeom(void* geom, Nx::CModel* to) { return static_cast<Nx::CGeom*>(geom)->CloneForModel(1, to); }
+inline void* CloneSectorGeom(void* geom) { return static_cast<Nx::CGeom*>(geom)->Clone(1, nullptr); }
+inline void ActivateGeom(void* geom) { GameFunction<void(__thiscall*)(void*, int)>(0x0048DE60)(geom, 1); }
+inline void AddGeom(Nx::CModel* model, void* geom, uint32_t name) { model->AddGeom(geom, name, true); }
 // The model loaded from an asset (0x004934A0: name, geom name, multicolour, 1).
 inline bool LoadAsset(Nx::CModel* model, uint32_t name, uint32_t geomName, bool multicolor)
 {
-    return ThisCall<bool>(0x004934A0, model, name, geomName, multicolor, 1);
+    return model->AddAssetGeom(name, geomName, multicolor, true);
 }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any), set on a model
 // (0x00492EE0) and switched on or off (0x00492E60).
 inline bool GetScale(Mth::Vector* scale, void* params)
 {
-    return GameFunction<bool(__cdecl*)(Mth::Vector*, void*)>(0x00487B00)(scale, params);
+    return Gfx::GetScaleFromParams(scale, static_cast<Script::CStruct*>(params));
 }
-inline void SetScale(Nx::CModel* model, Mth::Vector* scale) { ThisCall<void>(0x00492EE0, model, scale); }
-inline void EnableScaling(Nx::CModel* model, bool on) { ThisCall<void>(0x00492E60, model, on); }
+inline void SetScale(Nx::CModel* model, Mth::Vector* scale) { model->SetScale(scale); }
+inline void EnableScaling(Nx::CModel* model, bool on) { model->EnableScaling(on); }
 // The model's lights' brightness from the level's (0x0048E660).
-inline void UpdateLightsBrightness(void* lights) { ThisCall<void>(0x0048E660, lights); }
+inline void UpdateLightsBrightness(void* lights) { static_cast<Nx::CModelLights*>(lights)->UpdateBrightness(); }
 
 // The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
 // machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).

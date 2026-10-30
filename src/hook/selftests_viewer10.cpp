@@ -196,7 +196,7 @@ void Install(StandIns& s)
         Rec(0x3220, {r.ecx, r.args[0]});
         return g_classic ? 1u : 0u;
     });
-    s.At({0x00566100}, 4, [](Regs& r) {
+    s.At({0x00566100, AddressOf(&Mdl::Skate::SkipToRestartPoint)}, 4, [](Regs& r) {
         Rec(0x6100, {r.ecx, r.args[0]});
         if (g_boards.empty())
             return 0x0B0A0000u + r.args[0];

@@ -40,8 +40,7 @@ void DeleteStructure(Script::CStruct* structure)
 // std::list<PagerMessage*>::push_back (0x004964A0, the game's: inserts before the sentinel).
 void PushBack(PointerList* list, PagerMessage** message)
 {
-    GameFunction<void(__thiscall*)(PointerList*, PointerListNode*, PagerMessage**)>(0x004964A0)(list, list->head,
-                                                                                                  message);
+    list->Insert(list->head, reinterpret_cast<void* const*>(message));
 }
 
 } // namespace

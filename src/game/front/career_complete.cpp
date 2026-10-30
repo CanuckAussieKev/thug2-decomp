@@ -10,6 +10,8 @@
 #include "game/script/struct.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -43,7 +45,7 @@ constexpr int kStatGoalJustDone = 0x1C + 0x0C;
 
 int CompleteStatGoals()
 {
-    auto* skater = GameFunction<Obj::CCompositeObject*(__thiscall*)(void*)>(0x00566520)(Skate()); // (the local one)
+    Obj::CCompositeObject* skater = reinterpret_cast<Mdl::Skate*>(Skate())->GetLocalSkater(); // (the local one)
     auto* stats = skater ? reinterpret_cast<uint8_t*>(skater->GetComponent(0x4FF8DAC6)) : nullptr;
     if (!stats)
         return 0;

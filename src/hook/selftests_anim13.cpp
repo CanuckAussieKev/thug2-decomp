@@ -20,6 +20,9 @@
 #include "game/obj/suspend_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/anim_controller.h"
+#include "game/obj/pager_message.h"
+#include "game/gfx/skeleton.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -186,7 +189,7 @@ void TestAnimBlenderComponent()
         Record({0x4739A000u, r.ecx, r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x004ECC30}, 12, [](Regs& r) {
+    s.At({0x004ECC30, AddressOf(&Obj::PointerList::Erase)}, 12, [](Regs& r) {
         Record({0x4ECC3000u, r.ecx, r.args[1], r.args[2]});
         auto* head = *reinterpret_cast<uint32_t**>(r.ecx);
         head[1] = P(head);
@@ -224,19 +227,46 @@ void TestAnimBlenderComponent()
         uint32_t answer;
         uint32_t ours = 0; // our rewrite the source calls instead, if any
     };
-    const Method methods[] = {{0x0047EFF0, 0, 0},  {0x0047E010, 4, 0},    {0x0047EF20, 0, 0},  {0x004803D0, 8, 0},
-                              {0x0047D640, 4, 1, AddressOf(&Gfx::CBlendChannel::HasValue)},  {0x0047D420, 4, 0, AddressOf(&Gfx::CBlendChannel::SetFlag4C)},    {0x0047F260, 32, 0}, {0x0047E850, 16, 0},
-                              {0x0047E810, 4, 0},  {0x0047E280, 8, 0},    {0x0047E450, 8, 0},  {0x0047DC40, 16, 0},
-                              {0x0047E210, 0, 1},  {0x0047EA80, 4, 0},    {0x0047E030, 0, 0},  {0x0047E1B0, 0, 0},
-                              {0x0047D430, 8, 0, AddressOf(&Gfx::CBlendChannel::BlendTo)},
-                              {0x00433EA0, 4, 0x101, AddressOf(&Obj::CSuspendComponent::ShouldAnimate)}, {0x004A44E0, 4, 0}};
+    const Method methods[] = {
+        {0x0047EFF0, 0, 0, AddressOf(&Gfx::CBlendChannel::BlendFirstPose)},
+        {0x0047E010, 4, 0, AddressOf(&Gfx::CBlendChannel::AddTime)},
+        {0x0047EF20, 0, 0, AddressOf(&Gfx::CBlendChannel::Reset)},
+        {0x004803D0, 8, 0, AddressOf(&Gfx::CBlendChannel::PlayAnimation)},
+        {0x0047D640, 4, 1, AddressOf(&Gfx::CBlendChannel::HasValue)},
+        {0x0047D420, 4, 0, AddressOf(&Gfx::CBlendChannel::SetFlag4C)},
+        {0x0047F260, 32, 0, AddressOf(&Gfx::CBlendChannel::PlayAnim)},
+        {0x0047E850, 16, 0, AddressOf(&Gfx::CBlendChannel::SetSpeed)},
+        {0x0047E810, 4, 0, AddressOf(&Gfx::CBlendChannel::Reverse)},
+        {0x0047E280, 8, 0, AddressOf(&Gfx::CBlendChannel::SetWobbleTarget)},
+        {0x0047E450, 8, 0, AddressOf(&Gfx::CBlendChannel::SetWobbleDetails)},
+        {0x0047DC40, 16, 0, AddressOf(&Gfx::CBlendChannel::SetFlipped)},
+        {0x0047E210, 0, 1, AddressOf(&Gfx::CBlendChannel::IsAnimComplete)},
+        {0x0047EA80, 4, 0, AddressOf(&Gfx::CBlendChannel::SetEventsOn)},
+        {0x0047E030, 0, 0, AddressOf(&Gfx::CBlendChannel::UpdateBlend)},
+        {0x0047E1B0, 0, 0, AddressOf(&Gfx::CBlendChannel::UpdateTimelines)},
+        {0x0047D430, 8, 0, AddressOf(&Gfx::CBlendChannel::BlendTo)},
+        {0x00433EA0, 4, 0x101, AddressOf(&Obj::CSuspendComponent::ShouldAnimate)},
+        {0x004A44E0, 4, 0, AddressOf(static_cast<void (Gfx::CSkeleton::*)(const Gfx::CPose*)>(&Gfx::CSkeleton::Update))}};
     for (const Method& m : methods) {
         uint32_t address = m.address, pop = m.pop, answer = m.answer;
         void* thunk = s.At({address}, m.pop, [address, pop, answer](Regs& r) {
             g_trace.push_back(address);
             g_trace.push_back(r.ecx >= P(g_bl.heap) && r.ecx < P(g_bl.heap) + sizeof(g_bl.heap) ? ChannelIndex(reinterpret_cast<void*>(r.ecx)) : r.ecx);
+            // (a bool argument is a word the callers pass whole, and the callee reads its low byte: ours is given it as
+            // a bool - so those are recorded as one)
+            auto isBool = [address](uint32_t k) {
+                switch (address) {
+                case 0x0047DC40: return k == 1 || k == 3;
+                case 0x0047F260: return k == 1;
+                case 0x0047E850: return k >= 1;
+                case 0x0047E280:
+                case 0x0047E450: return k == 1;
+                case 0x0047EA80: return k == 0;
+                default: return false;
+                }
+            };
             for (uint32_t k = 0; k < pop / 4u; ++k)
-                g_trace.push_back(r.args[k]);
+                g_trace.push_back(isBool(k) ? ((r.args[k] & 0xFF) != 0 ? 1u : 0u) : r.args[k]);
             // 0x0047DC40: true for channel 2 only
             if (address == 0x0047DC40)
                 return static_cast<uint32_t>(ChannelIndex(reinterpret_cast<void*>(r.ecx)) % 3 == 2);
@@ -245,14 +275,14 @@ void TestAnimBlenderComponent()
         if (m.ours)
             s.Bytes(m.ours, Branch(0xE9, m.ours, thunk));
     }
-    s.At({0x004813B0}, 12, [](Regs& r) {
+    s.At({0x004813B0, AddressOf(&Gfx::CAnimTimeline::GetTimes)}, 12, [](Regs& r) {
         Record({0x4813B000u, r.ecx});
         reinterpret_cast<float*>(r.args[0])[0] = 1.25f;
         reinterpret_cast<float*>(r.args[1])[0] = 2.5f;
         reinterpret_cast<float*>(r.args[2])[0] = 3.75f;
         return 0u;
     });
-    s.At({0x0047F150}, 12, [](Regs& r) {
+    s.At({0x0047F150, AddressOf(&Gfx::CBlendChannel::Construct)}, 12, [](Regs& r) {
         Record({0x47F15000u, ChannelIndex(reinterpret_cast<void*>(r.ecx)), r.args[0], r.args[1], r.args[2]});
         auto* channel = reinterpret_cast<uint8_t*>(r.ecx);
         *reinterpret_cast<void***>(channel) = g_channelVtable;

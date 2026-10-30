@@ -7,8 +7,11 @@
 #include "game/gfx/occlusion.h"
 #include "game/mth/vector.h"
 #include "game/gfx/engine.h"
-#include "game/gfx/texture_dict.h"
+#include "game/gfx/engine_sprite.h"
+#include "game/gfx/engine_text.h"
 #include "game/gfx/pc_lights.h"
+#include "game/gfx/texture_dict.h"
+#include "game/gfx/window2d.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
 
@@ -60,13 +63,44 @@ void InstallSpriteStandIns(StandIns& s)
         {0x0049EC30, 8, 0xFFFF, 0xFFFF}, {0x0049EC50, 8, 0xFF, 0xFF}, {0x0049EC70, 8, ~0u, ~0u},
         {0x0049EE00, 8, ~0u, ~0u},     {0x004A15C0, 8, ~0u, ~0u},     {0x004A15E0, 8, ~0u, ~0u},
     };
+    // (our rewrite of each setter, which the source now calls instead of the original address)
+    auto oursOf = [](uint32_t address) -> uint32_t {
+        switch (address) {
+        case 0x0049ED40: return AddressOf(&Nx::CTexturedQuad::SetTexture);
+        case 0x0049ED00: return AddressOf(&Nx::CTexturedQuad::SetBlendMode);
+        case 0x0049ED10: return AddressOf(&Nx::CTexturedQuad::SetHidden);
+        case 0x0049ED20: return AddressOf(&Nx::CTexturedQuad::SetPriority);
+        case 0x0049ED50: return AddressOf(&Nx::CTexturedQuad::SetRGBA);
+        case 0x0049EBC0: return AddressOf(&Nx::CSprite::SetTexture);
+        case 0x0049EC90: return AddressOf(&Nx::CSprite::SetRotation);
+        case 0x0049EBB0: return AddressOf(&Nx::CSprite::SetHidden);
+        case 0x0049ECC0: return AddressOf(&Nx::CSprite::SetDepth);
+        case 0x0049ECA0: return AddressOf(&Nx::CSprite::SetPriority);
+        case 0x0049ECE0: return AddressOf(&Nx::CSprite::SetZWrite);
+        case 0x0049ECF0: return AddressOf(&Nx::CSprite::SetRGBA);
+        case 0x0049EC00: return AddressOf(&Nx::CSprite::SetBlendMode);
+        case 0x0048D1B0: return AddressOf(&Nx::CText::SetWindow);
+        case 0x0049EC10: return AddressOf(&Nx::CSprite::SetPos);
+        case 0x0049EC30: return AddressOf(&Nx::CSprite::SetSize);
+        case 0x0049EC50: return AddressOf(&Nx::CSprite::SetFlip);
+        case 0x0049EC70: return AddressOf(&Nx::CSprite::SetHotSpot);
+        case 0x0049EE00: return AddressOf(&Nx::CSprite::SetScale);
+        case 0x004A15C0: return AddressOf(&Nx::CWindow2D::SetPos);
+        case 0x004A15E0: return AddressOf(&Nx::CWindow2D::SetSize);
+        default: return 0u;
+        }
+    };
     for (const Setter& setter : setters) {
         uint32_t tag = setter.address & 0xFFFF;
         uint32_t m0 = setter.mask0, m1 = setter.mask1;
-        s.At({setter.address}, setter.pop, [tag, m0, m1](Regs& r) {
+        Handler handler = [tag, m0, m1](Regs& r) {
             Rec(tag, {r.ecx, r.args[0] & m0, r.args[1] & m1});
             return 0u;
-        });
+        };
+        if (uint32_t ours = oursOf(setter.address))
+            s.At({setter.address, ours}, setter.pop, handler);
+        else
+            s.At({setter.address}, setter.pop, handler);
     }
     s.At({0x0048BF40}, 0, [](Regs&) {
         Rec(0xBF40, {});
@@ -80,11 +114,11 @@ void InstallSpriteStandIns(StandIns& s)
         Rec(0xC080, {r.args[0]});
         return 0u;
     });
-    s.At({0x004A1620}, 0, [](Regs& r) {
+    s.At({0x004A1620, AddressOf(Nx::AllocateWindow2D)}, 0, [](Regs& r) {
         Rec(0x1620, {r.args[0], r.args[1], r.args[2], r.args[3]});
         return At(kWindow);
     });
-    s.At({0x004A1670}, 0, [](Regs& r) {
+    s.At({0x004A1670, AddressOf(Nx::FreeWindow2D)}, 0, [](Regs& r) {
         Rec(0x1670, {r.args[0]});
         return 0u;
     });

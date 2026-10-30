@@ -26,6 +26,7 @@
 #include "game/script/cscript.h"
 #include "game/script/node_manager.h"
 #include "game/script/struct.h"
+#include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -1433,7 +1434,7 @@ ModeFlags CurrentMode()
         return flags;
     // (0x00553220: the mode's structure's integer `property`, non-zero)
     auto is = [mode](uint32_t property) {
-        return GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(mode, property);
+        return static_cast<Game::CGameMode*>(mode)->IsTrue(property);
     };
     flags.known = true;
     flags.freeskate = is(kIsFreeskate);

@@ -3,6 +3,7 @@
 
 #include "game/obj/walk_hang.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 
@@ -255,8 +256,14 @@ const Mth::Vector* FacingAway(Obj::CWalkComponent* walk, Mth::Vector* buffer)
 }
 const Mth::Vector* Facing(Obj::CWalkComponent* walk, Mth::Vector*) { return &At<Mth::Vector>(walk, 0x48); }
 
-// The animation-end callback (+0x1948): a member function pointer as the compiler lays it out - the code (the game's
-// address: in the game, a jump to ours) and three words of adjustment.
+// The animation-end callback (+0x1948): a member function pointer as the compiler lays it out - the code address
+// and three words of adjustment.
+template <typename Method>
+uint32_t MemberCodeAddress(Method method)
+{
+    static_assert(sizeof(Method) == sizeof(uint32_t), "a plain member function pointer: just the code address");
+    return std::bit_cast<uint32_t>(method);
+}
 void SetAnimDone(void* walk, uint32_t code)
 {
     uint32_t* callback = &At<uint32_t>(walk, kAnimDone);
@@ -681,12 +688,12 @@ bool Obj::CWalkComponent::PullUp(Mth::Vector* target)
 
     // the animated move: walking at the end (the ledge's feeler kept), or in the air with no ground
     if (found) {
-        SetAnimDone(this, 0x0043DB00);
+        SetAnimDone(this, MemberCodeAddress(&Obj::CWalkComponent::EndPullUp));
         AssignFeeler(&At<Nx::CFeeler>(this, kPullUpFeeler), &ledge);
         At<bool>(this, kPullUpHit) = true;
         VectorAt(this, kHitNormal) = ledge.m_normal;
     } else {
-        SetAnimDone(this, 0x0043DB90);
+        SetAnimDone(this, MemberCodeAddress(&Obj::CWalkComponent::EndDropFromHang));
     }
     VectorAt(this, kStartPos) = pos;
     VectorAt(this, kEndPos) = ground;
@@ -736,7 +743,7 @@ bool Obj::CWalkComponent::DropToHang()
     At<bool>(tagging, 0x1D) = true;
     VectorAt(this, kStartPos) = VectorAt(this, kPos);
     VectorAt(this, kEndPos) = rail.point;
-    SetAnimDone(this, 0x0043DCF0);
+    SetAnimDone(this, MemberCodeAddress(&Obj::CWalkComponent::EndDropToHang));
     SetTransitionFacing(&rail.facing, Param(kDropToHangRotateFactor));
     At<int>(this, kAnimWaiting) = 1;
     float horiz = Param(kHangCriticalPointHorizOffset);
@@ -1390,7 +1397,7 @@ void Obj::CWalkComponent::ClimbOffBottom()
     // the animated move there
     VectorAt(this, kStartPos) = pos;
     VectorAt(this, kEndPos) = target;
-    SetAnimDone(this, 0x00441020);
+    SetAnimDone(this, MemberCodeAddress(&Obj::CWalkComponent::EndLadderOffBottom));
     At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
     At<float>(this, kEndHeightOffset) = 0.0f;
     SetTransitionFacing(&facing, 1.0f);
@@ -1460,12 +1467,12 @@ void Obj::CWalkComponent::ClimbOffTop()
     VectorAt(this, kStartPos) = pos;
     VectorAt(this, kEndPos) = target;
     if (found) {
-        SetAnimDone(this, 0x00441070);
+        SetAnimDone(this, MemberCodeAddress(&Obj::CWalkComponent::EndLadderOffTop));
         AssignFeeler(&At<Nx::CFeeler>(this, kPullUpFeeler), &ledge);
         At<bool>(this, kPullUpHit) = true;
         VectorAt(this, kHitNormal) = At<Nx::CFeeler>(this, kPullUpFeeler).m_normal;
     } else {
-        SetAnimDone(this, 0x00441860);
+        SetAnimDone(this, MemberCodeAddress(&Obj::CWalkComponent::EndLadderOffTopToAir));
     }
     At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
     At<float>(this, kEndHeightOffset) = 0.0f;
@@ -1491,7 +1498,7 @@ bool Obj::CWalkComponent::ClimbOntoBottom(bool button)
     GrabbedLadder(this);
     VectorAt(this, kStartPos) = VectorAt(this, kPos);
     VectorAt(this, kEndPos) = ladder.point;
-    SetAnimDone(this, 0x004410C0);
+    SetAnimDone(this, MemberCodeAddress(&Obj::CWalkComponent::EndOntoLadderBottom));
     At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
     At<float>(this, kEndHeightOffset) = 0.0f;
     SetTransitionFacing(&ladder.facing, 1.0f);
@@ -1517,7 +1524,7 @@ bool Obj::CWalkComponent::ClimbOntoTop()
     GrabbedLadder(this);
     VectorAt(this, kStartPos) = VectorAt(this, kPos);
     VectorAt(this, kEndPos) = ladder.point;
-    SetAnimDone(this, 0x00441190);
+    SetAnimDone(this, MemberCodeAddress(&Obj::CWalkComponent::EndOntoLadderTop));
     At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
     At<float>(this, kEndHeightOffset) = 0.0f;
     SetTransitionFacing(&ladder.facing, 1.0f);

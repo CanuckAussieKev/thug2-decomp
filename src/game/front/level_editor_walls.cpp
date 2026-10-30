@@ -7,6 +7,7 @@
 #include <map>
 
 #include "game/front/level_editor_scenery.h"
+#include "game/gfx/sector.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
@@ -97,7 +98,7 @@ bool FlagOff(uint8_t* coll) { return (coll[0x08] & 4) != 0; }
 // CSector::SetActive (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
 void SetActive(uint8_t* sector, bool active)
 {
-    GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(sector, active);
+    reinterpret_cast<Nx::CSector*>(sector)->SetActive(active);
 }
 // The geometry's IsActive (0x0048DE70, as CSector::IsActive 0x0049E9E0 asks it).
 bool GeomActive(uint8_t* geom) { return GameFunction<bool(__thiscall*)(void*)>(0x0048DE70)(geom); }

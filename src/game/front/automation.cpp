@@ -33,6 +33,7 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/skate/game_mode.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
 #include "hook/crash.h"
@@ -795,7 +796,7 @@ std::string NetRefusal()
         if (static_cast<GameNet::Manager*>(gameNet)->InNetGame())
             return "a network game runs";
     if (void* mode = GameVariable<void*>(0x007CE470)) {
-        std::string name = NameOf(GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(mode));
+        std::string name = NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum());
         if (name.rfind("net", 0) == 0)
             return "the game mode is a network one (" + name + ")";
     }
@@ -805,7 +806,7 @@ std::string NetRefusal()
 std::string GameModeName()
 {
     void* mode = GameVariable<void*>(0x007CE470);
-    return mode ? NameOf(GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(mode)) : "";
+    return mode ? NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum()) : "";
 }
 
 // The main menu: its menu up and taking pad events, in the front end.

@@ -20,6 +20,8 @@
 #include "game/sio/inpman.h"
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
+#include "game/gfx/model.h"
+#include "game/obj/movie_cfuncs.h"
 #include "hook/fe_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -371,11 +373,11 @@ void InstallAnimation(StandIns& s)
         Rec(0x97D0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00492FF0}, 0, [](Regs& r) {
+    s.At({0x00492FF0, AddressOf(&Nx::CModel::GetAssetBoneCount)}, 0, [](Regs& r) {
         Rec(0x2FF0, {r.ecx});
         return static_cast<uint32_t>(g_boneCount);
     });
-    s.At({0x00493040}, 0, [](Regs& r) {
+    s.At({0x00493040, AddressOf(&Nx::CModel::GetAssetHierarchy)}, 0, [](Regs& r) {
         Rec(0x3040, {r.ecx});
         return At(kHierarchy);
     });
@@ -621,7 +623,7 @@ void TestViewerObject7()
         Rec(0x9FD0, {r.ecx, Text(r.args[0]), r.args[1]});
         return 0u;
     });
-    s->At({0x005ADEC0}, 0, [](Regs& r) {
+    s->At({0x005ADEC0, AddressOf(CFuncs::CFunc_ReloadSkaterCamAnim)}, 0, [](Regs& r) {
         Rec(0xDEC0, {r.args[0], r.args[1]});
         return 1u;
     });

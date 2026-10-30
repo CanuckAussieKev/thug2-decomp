@@ -2,6 +2,8 @@
 // flexible_particle.h. From the disassembly of 0x0041D6E0-0x0041E25E.
 
 #include "game/obj/flexible_particle.h"
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/particle_system.h"
 
 #include <cstdint>
 
@@ -77,56 +79,52 @@ float& ParticleUpdateTime() { return GameVariable<float>(0x0067D6D0); }
 void* ParticleManager() { return GameVariable<void*>(0x006FA7C0); }
 Nx::CParticleSystem* FindSystem(uint32_t name)
 {
-    return GameFunction<Nx::CParticleSystem*(__thiscall*)(void*, uint32_t)>(0x0049AC20)(ParticleManager(), name);
+    return static_cast<Nx::CFlexibleParticleManager*>(ParticleManager())->FindSystem(name);
 }
 // 0x0049AC60: a new system (named `name`) from the parameters.
 Nx::CParticleSystem* CreateSystem(uint32_t name, uint32_t type, int max, int maxStreams, uint32_t texture,
                                   uint32_t blendMode, int unknownA605B89F, int segments, float unknown4E0A65EE,
                                   int history, int perm, bool useGlobalColorModulation, const char* model)
 {
-    return GameFunction<Nx::CParticleSystem*(__thiscall*)(void*, uint32_t, uint32_t, int, int, uint32_t, uint32_t, int,
-                                                          int, float, int, int, bool, const char*)>(0x0049AC60)(
-        ParticleManager(), name, type, max, maxStreams, texture, blendMode, unknownA605B89F, segments,
-        unknown4E0A65EE, history, perm, useGlobalColorModulation, model);
+    return static_cast<Nx::CFlexibleParticleManager*>(ParticleManager())
+        ->CreateSystem(name, type, max, maxStreams, texture, blendMode, unknownA605B89F, segments, unknown4E0A65EE,
+                       history, perm, useGlobalColorModulation, model);
 }
 void DestroySystemNow(uint32_t name)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0049AD90)(ParticleManager(), name);
+    static_cast<Nx::CFlexibleParticleManager*>(ParticleManager())->DestroySystemNow(name);
 }
 void DestroySystemWhenEmpty(uint32_t name)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0049ADB0)(ParticleManager(), name);
+    static_cast<Nx::CFlexibleParticleManager*>(ParticleManager())->DestroySystemWhenEmpty(name);
 }
 
 // The system's own (no source yet).
 bool SystemCallMemberFunction(Nx::CParticleSystem* system, uint32_t name, Script::CStruct* params,
                               Script::CScript* script)
 {
-    return GameFunction<bool(__thiscall*)(Nx::CParticleSystem*, uint32_t, Script::CStruct*, Script::CScript*)>(
-        0x00497B00)(system, name, params, script);
+    return system->CallMemberFunction(name, params, script);
 }
 void SetEmitScript(Nx::CParticleSystem* system, uint32_t script, Script::CStruct* params, CObject* object)
 {
-    GameFunction<void(__thiscall*)(Nx::CParticleSystem*, uint32_t, Script::CStruct*, CObject*)>(0x00497790)(
-        system, script, params, object);
+    system->SetEmitScript(script, params, object);
 }
 void SetUpdateScript(Nx::CParticleSystem* system, uint32_t script, Script::CStruct* params, CObject* object)
 {
-    GameFunction<void(__thiscall*)(Nx::CParticleSystem*, uint32_t, Script::CStruct*, CObject*)>(0x00497900)(
-        system, script, params, object);
+    system->SetUpdateScript(script, params, object);
 }
 void UpdateSystem(Nx::CParticleSystem* system, float time, int unknown)
 {
-    GameFunction<void(__thiscall*)(Nx::CParticleSystem*, float, int)>(0x004987F0)(system, time, unknown);
+    system->Update(time, unknown != 0);
 }
 void IdleSystem(Nx::CParticleSystem* system)
 {
-    GameFunction<void(__thiscall*)(Nx::CParticleSystem*)>(0x00496F60)(system);
+    system->RunEmitScript();
 }
 // 0x00497AB0: the matrix of the system's rotation, into `out` (returned).
 Mth::Matrix* SystemRotation(Nx::CParticleSystem* system, Mth::Matrix* out)
 {
-    return GameFunction<Mth::Matrix*(__thiscall*)(Nx::CParticleSystem*, Mth::Matrix*)>(0x00497AB0)(system, out);
+    return system->GetRotationMatrix(out);
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).

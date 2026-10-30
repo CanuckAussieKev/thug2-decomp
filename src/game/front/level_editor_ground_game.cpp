@@ -22,7 +22,9 @@
 #include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/gfx/engine_scene.h"
 #include "game/gfx/mesh.h"
+#include "game/gfx/sector.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
@@ -46,11 +48,11 @@ uint32_t VertexFormat(const Nx::sMesh* mesh)
 
 uint8_t* LookupSector(uint8_t* scene, uint32_t checksum)
 {
-    return scene ? GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049CB00)(scene, checksum) : nullptr;
+    return scene ? static_cast<uint8_t*>(reinterpret_cast<Nx::CScene*>(scene)->GetSector(checksum)) : nullptr;
 }
 // CSector::SetActive (0x0049E9B0) / IsActive (0x0049E9E0): drawn and collided with, or neither.
-void SetActive(uint8_t* sector, bool on) { GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(sector, on); }
-bool IsActive(uint8_t* sector) { return GameFunction<bool(__thiscall*)(void*)>(0x0049E9E0)(sector); }
+void SetActive(uint8_t* sector, bool on) { reinterpret_cast<Nx::CSector*>(sector)->SetActive(on); }
+bool IsActive(uint8_t* sector) { return reinterpret_cast<Nx::CSector*>(sector)->IsActive(); }
 
 Nx::CCollStatic* StaticOf(uint8_t* sector)
 {
@@ -64,22 +66,21 @@ Nx::CCollStatic* StaticOf(uint8_t* sector)
 // an index buffer (the C runtime's malloc 0x00624031, constructor 0x004D4270).
 Nx::sVertexBuffer* NewVertexBuffer(uint32_t size)
 {
-    return GameFunction<Nx::sVertexBuffer*(__cdecl*)(uint32_t, uint32_t, uint32_t)>(0x004D5760)(size, 0, 0);
+    return Nx::NewVertexBuffer(size, 0, 0);
 }
 void UploadVertices(Nx::sVertexBuffer* buffer)
 {
     buffer->lockOffset = 0;
     buffer->lockSize = buffer->size;
     buffer->lockFlags = 0;
-    GameFunction<void(__thiscall*)(Nx::sVertexBuffer*)>(0x004D40E0)(buffer);
+    buffer->Unlock();
 }
 Nx::sIndexBuffer* NewIndexBuffer(uint32_t bytes)
 {
     void* memory = GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(0x18);
     if (!memory)
         return nullptr;
-    return GameFunction<Nx::sIndexBuffer*(__thiscall*)(void*, uint32_t, uint32_t, uint32_t)>(0x004D4270)(memory, bytes,
-                                                                                                        0, 0x65);
+    return static_cast<Nx::sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
 }
 void UploadIndices(Nx::sIndexBuffer* buffer)
 {
@@ -322,8 +323,8 @@ bool Make(const Spec& spec, std::string* why)
             *why = std::string("its material's piece can't be copied: ") + no;
             return false;
         }
-        uint32_t made = GameFunction<uint32_t(__thiscall*)(void*, uint32_t, void*, int, int, uint32_t)>(0x0049DF30)(
-            scene, spec.material, scene, 0, 1, name);
+        uint32_t made = reinterpret_cast<Nx::CScene*>(scene)->CloneSectorNamed(
+            spec.material, reinterpret_cast<Nx::CScene*>(scene), 0, true, name);
         sector = made ? LookupSector(scene, made) : nullptr;
         if (!sector) {
             *why = "the material's piece wasn't copied";

@@ -19,6 +19,7 @@
 #include "game/sys/timer.h"
 #include "game/gfx/viewport.h"
 #include "game/skate/skate_module.h"
+#include "game/goals/goal_manager.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -83,7 +84,7 @@ void Install(StandIns& s)
     InstallCommon(s);
     for (uint32_t address : {0x005BE8D0u, AddressOf(&Tmr::GetRenderFrame)})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&RenderFrameStandIn)));
-    s.At({0x0055D990}, 4, [](Regs& r) {
+    s.At({0x0055D990, AddressOf(&Game::GoalListHead::NodeAt)}, 4, [](Regs& r) {
         Rec(0xD990, {r.ecx, r.args[0]});
         auto* head = reinterpret_cast<Mem::ListNode*>(r.ecx);
         int index = static_cast<int>(r.args[0]);

@@ -17,6 +17,7 @@
 #include "game/front/sprite_element.h"
 #include "game/front/text_block.h"
 #include "game/front/text_element.h"
+#include "game/gfx/font.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -90,7 +91,7 @@ int TextBlockLength(CScreenElement* e) { return TextBlock(e)->GetLength(); }
 int TextLength(CScreenElement* e) { return Text(e)->GetLength(); }
 
 // A font (0x0048D760, cdecl) and the size of a string in it (0x0048D060, thiscall).
-void* GetFont(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048D760)(name); }
+void* GetFont(uint32_t name) { return Nx::GetFont(name); }
 void QueryString(void* font, const char* text, float* width, float* height)
 {
     GameFunction<void(__thiscall*)(void*, const char*, float*, float*)>(0x0048D060)(font, text, width, height);

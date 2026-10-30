@@ -21,11 +21,13 @@
 #include "game/front/level_editor_objects.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
+#include "game/gfx/viewport.h"
 #include "game/mth/matrix.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/emitter.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
+#include "game/script/game_cfuncs.h"
 #include "game/script/load.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
@@ -507,7 +509,7 @@ void RunRemakes()
             continue;
         }
         if (Script::CStruct* node = NodeStruct(r.name)) {
-            GameFunction<int(__cdecl*)(Script::CStruct*)>(0x005A2E50)(node);
+            CFuncs::CreateFromNode(node);
             if (r.keep)
                 Objects::Restore(r.state);
             g_speedApplied.erase(r.name); // (its speed put on it again)
@@ -523,7 +525,7 @@ void RunRemakes()
 Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
 void* NearestCamera(const Mth::Vector* position, float* distance)
 {
-    return GameFunction<void*(__cdecl*)(const Mth::Vector*, float*)>(0x004A09E0)(position, distance);
+    return Nx::GetClosestCamera(position, distance);
 }
 const Mth::Vector* CameraPosition(void* camera)
 {

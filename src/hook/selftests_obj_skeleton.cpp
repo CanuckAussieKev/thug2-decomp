@@ -17,6 +17,8 @@
 #include "game/obj/skeleton_component.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/skeleton.h"
 #include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -140,7 +142,7 @@ void StandIn(StandIns& s)
         return reinterpret_cast<uint32_t>(g_world.asset);
     });
     // The renderer's skeleton.
-    s.At({0x004A3870}, 8, [](Regs& r) {
+    s.At({0x004A3870, AddressOf(&Gfx::CSkeleton::GetBonePosition)}, 8, [](Regs& r) {
         Record({0x3870, Rel(r.ecx), r.args[0], Rel(r.args[1])});
         if (!g_a.bonePositionFound)
             return 0u;
@@ -149,47 +151,47 @@ void StandIn(StandIns& s)
             out[i] = static_cast<float>((r.args[0] >> (4 * i)) & 0xFF) * 0.75f - 40.0f;
         return 1u;
     });
-    s.At({0x004A36E0}, 8, [](Regs& r) {
+    s.At({0x004A36E0, AddressOf(&Gfx::CSkeleton::GetBoneMatrix)}, 8, [](Regs& r) {
         Record({0x36E0, Rel(r.ecx), r.args[0]});
         auto* out = reinterpret_cast<float*>(r.args[1]);
         for (int i = 0; i < 16; ++i)
             out[i] = static_cast<float>(static_cast<int>((r.args[0] * (i + 3)) % 97) - 48) / 13.0f;
         return 1u;
     });
-    s.At({0x004A2D80}, 12, [](Regs& r) {
+    s.At({0x004A2D80, AddressOf(&Gfx::CSkeleton::SetBoneScale)}, 12, [](Regs& r) {
         const uint32_t* v = reinterpret_cast<const uint32_t*>(r.args[1]);
         Record({0x2D80, Rel(r.ecx), r.args[0], v[0], v[1], v[2], v[3], r.args[2] & 0xFF});
         return 0u;
     });
-    s.At({0x004A2BB0}, 8, [](Regs& r) {
+    s.At({0x004A2BB0, AddressOf(&Gfx::CSkeleton::SetBoneActive)}, 8, [](Regs& r) {
         Record({0x2BB0, Rel(r.ecx), r.args[0], r.args[1] & 0xFF});
         return 0u;
     });
-    s.At({0x004A2C70}, 4, [](Regs& r) {
+    s.At({0x004A2C70, AddressOf(&Gfx::CSkeletonData::GetIndex)}, 4, [](Regs& r) {
         Record({0x2C70, Rel(r.ecx), r.args[0]});
         return r.args[0] % 6;
     });
-    s.At({0x004A3100}, 8, [](Regs& r) {
+    s.At({0x004A3100, AddressOf(&Gfx::CSkeletonData::IsDescendant)}, 8, [](Regs& r) {
         Record({0x3100, Rel(r.ecx), r.args[0], r.args[1]});
         return static_cast<uint32_t>((r.args[0] + r.args[1]) % 3 == 0);
     });
-    s.At({0x004A4000}, 0, [](Regs& r) {
+    s.At({0x004A4000, AddressOf(&Gfx::CSkeleton::CollapseZeroScaledBones)}, 0, [](Regs& r) {
         Record({0x4000, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x004A2CB0}, 0, [](Regs& r) {
+    s.At({0x004A2CB0, AddressOf(&Gfx::CSkeleton::DestroyBody)}, 0, [](Regs& r) {
         Record({0x2CB0, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x004A3D30}, 4, [](Regs& r) {
+    s.At({0x004A3D30, AddressOf(&Gfx::CSkeleton::Construct)}, 4, [](Regs& r) {
         Record({0x3D30, Rel(r.ecx), Rel(r.args[0])});
         return reinterpret_cast<uint32_t>(g_world.skeleton);
     });
-    s.At({0x004A3E80}, 4, [](Regs& r) {
+    s.At({0x004A3E80, AddressOf(&Gfx::CSkeleton::ConstructCopy)}, 4, [](Regs& r) {
         Record({0x3E80, Rel(r.ecx), Rel(r.args[0])});
         return reinterpret_cast<uint32_t>(g_world.skeleton);
     });
-    s.At({0x0049F560}, 4, [](Regs& r) {
+    s.At({0x0049F560, AddressOf(&Nx::CTexDict::GetTextureByName)}, 4, [](Regs& r) {
         Record({0xF560, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return reinterpret_cast<uint32_t>(g_world.texture);
     });
@@ -202,7 +204,7 @@ void StandIn(StandIns& s)
         Record({0xBA3, static_cast<uint32_t>(g_a.rand)});
         return static_cast<uint32_t>(g_a.rand);
     });
-    s.At({0x004928A0}, 0, [](Regs& r) {
+    s.At({0x004928A0, AddressOf(Nx::Engine::CreateTextureSplatAt)}, 0, [](Regs& r) {
         const uint32_t* p = reinterpret_cast<const uint32_t*>(r.args[0]);
         const uint32_t* e = reinterpret_cast<const uint32_t*>(r.args[1]);
         Record({0x28A0, p[0], p[1], p[2], p[3], e[0], e[1], e[2], e[3]});

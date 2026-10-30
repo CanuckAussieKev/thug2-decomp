@@ -20,6 +20,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -130,7 +131,7 @@ void StandIn(StandIns& s)
         Record({0x7B80, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x005A3E80}, 0, [](Regs& r) {
+    s.At({0x005A3E80, AddressOf(CFuncs::SetNodeColor)}, 0, [](Regs& r) {
         Record({0x3E80, r.args[0], Rel(r.args[1])});
         return 1u;
     });

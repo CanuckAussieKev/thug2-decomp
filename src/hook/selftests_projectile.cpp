@@ -13,6 +13,7 @@
 #include "game/obj/projectile_component.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/trigger_component.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -36,7 +37,7 @@ void TestProjectileComponent()
          [](Frame&, Result& r) { r.eax = Next() % 4 ? reinterpret_cast<uint32_t>(ArenaPtr(kProjectile)) : 0; }},
         {0x005BABA0, 4, 1, Ret::None, true, 0, {Ours(&Mem::Manager::Free)}},
         {0x0045D740, 0, 0, Ret::None, true, 0, {Ours(&Obj::CBaseComponent::DestroyBody)}},
-        {0x00566520, 0, 0, Ret::Int, true, 0, {}, [](Frame&, Result& r) {
+        {0x00566520, 0, 0, Ret::Int, true, 0, {Ours(&Mdl::Skate::GetLocalSkater)}, [](Frame&, Result& r) {
              // (InitFromStructure's always finds one: the original reads the slots without a check)
              r.eax = g_localSkaterCalls++ == 0 || Next() % 5 ? reinterpret_cast<uint32_t>(ArenaPtr(kSkaterObject)) : 0;
          }},
