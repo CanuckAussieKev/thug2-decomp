@@ -6,7 +6,11 @@
 #include <cstring>
 
 #include "game/core/dbg.h"
+#include "game/gfx/camera.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/texture_dict.h"
+#include "game/gfx/viewport.h"
 #include "game/mth/geometry.h"
 #include "game/nx/coll_grid.h"
 #include "game/nx/coll_obj.h"
@@ -25,23 +29,23 @@ void** const kProjectionNodeVtable = reinterpret_cast<void**>(0x00646600);
 float F(double value) { return static_cast<float>(value); }
 
 // The camera of the first active viewport (0x004A09C0; null if none) and its position (0x00485A00).
-void* FirstCamera() { return GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(0); }
+void* FirstCamera() { return GetActiveCamera(0); }
 const Mth::Vector* CameraPosition(void* camera)
 {
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera);
+    return static_cast<Gfx::Camera*>(camera)->GetPos();
 }
 // Whether a sphere is out of the camera's view (0x0048C490).
 bool SphereOutOfView(const Mth::Vector* centre, float radius)
 {
-    return GameFunction<int(__cdecl*)(const Mth::Vector*, float)>(0x0048C490)(centre, radius) != 0;
+    return Engine::SphereVisibleInOneViewport(centre, radius) != 0;
 }
 // The collision grids a line reaches (0x0048C980: null-terminated), and the sector of a name in any scene
 // (0x0048C510).
 CCollGrid** GridsAlongLine(const Mth::Line* line)
 {
-    return GameFunction<CCollGrid**(__cdecl*)(const Mth::Line*)>(0x0048C980)(line);
+    return GetCollGridsOnLine(line);
 }
-void* FindSector(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+void* FindSector(uint32_t name) { return Engine::GetSector(name); }
 
 // The sectors and collision objects a projection reaches (0x00700F40 / 0x00701140, null-terminated).
 void** ProjectedSectors() { return &GameVariable<void*>(0x00700F40); }

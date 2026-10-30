@@ -11,6 +11,7 @@
 #include "game/core/str.h"
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_imposters.h"
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/gfx/particles.h"
@@ -18,6 +19,7 @@
 #include "game/gfx/pc_font.h"
 #include "game/gfx/pc_lights.h"
 #include "game/gfx/render.h"
+#include "game/gfx/scene_lights.h"
 #include "game/gfx/scene_load.h"
 #include "game/gfx/screen.h"
 #include "game/gfx/spawned_polys.h"
@@ -69,7 +71,7 @@ bool SkipRender() { return GameVariable<bool>(0x007D1EC0); }
 int ViewportCount() { return GameVariable<int>(0x00701378); }
 
 // (0x004904E0, not rewritten yet: the frame's ... after the imposters)
-void UpdateAfterImposters() { GameFunction<void(__cdecl*)()>(0x004904E0)(); }
+void UpdateAfterImposters() { UpdateSceneLightQueue(); }
 
 // The compiled-out call (0x005480A0, no arguments) DeleteGeomObject and UnloadScene make first.
 inline void DebugBeforeDelete() {}
@@ -112,7 +114,7 @@ void __cdecl Init(uint32_t textPoolSize)
     Mem::PopMemProfile();
     Mem::PushMemProfile("CImposterManager");
     memory = Mem::New(8);
-    ImposterManager() = memory ? GameFunction<void*(__thiscall*)(void*)>(0x0048E3E0)(memory) : nullptr;
+    ImposterManager() = memory ? static_cast<CImposterManager*>(memory)->Construct() : nullptr;
     Mem::PopMemProfile();
     Mem::PushMemProfile("MiscFXInitialize");
     InitEffects();
@@ -139,7 +141,7 @@ void __cdecl RenderFrame()
     void* weather = Weather();
     reinterpret_cast<void(__thiscall*)(void*, float)>((*static_cast<void***>(weather))[2])(
         weather, static_cast<float>(Tmr::GetSlomoFrameSeconds()));
-    GameFunction<void(__thiscall*)(void*)>(0x0048E2D0)(ImposterManager());
+    static_cast<CImposterManager*>(ImposterManager())->Update();
     UpdateAfterImposters();
     if (!SkipRender())
         RenderWorld();

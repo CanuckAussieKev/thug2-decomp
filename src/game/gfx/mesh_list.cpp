@@ -9,6 +9,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/material.h"
+#include "game/gfx/mesh.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -28,28 +30,27 @@ void*& IndexBufferOf(uint8_t* mesh) { return *reinterpret_cast<void**>(mesh + 0x
 uint16_t* LockIndices(void* buffer)
 {
     uint16_t* indices = nullptr;
-    GameFunction<long(__thiscall*)(void*, uint32_t, uint32_t, uint16_t**, uint32_t)>(0x004D42F0)(buffer, 0, 0,
-                                                                                               &indices, 0);
+    static_cast<sIndexBuffer*>(buffer)->Lock(0, 0, &indices, 0);
     return indices;
 }
-void UnlockIndices(void* buffer) { GameFunction<long(__thiscall*)(void*)>(0x004D4300)(buffer); }
-void ReleaseIndexBuffer(void* buffer) { GameFunction<void(__thiscall*)(void*)>(0x004D6790)(buffer); }
+void UnlockIndices(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Unlock(); }
+void ReleaseIndexBuffer(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Destroy(); }
 void* NewIndexBuffer(uint32_t bytes)
 {
     void* memory = GameFunction<void*(__cdecl*)(uint32_t)>(0x004D3BC0)(0x18); // (the renderer's operator new)
     if (!memory)
         return nullptr;
-    return GameFunction<void*(__thiscall*)(void*, uint32_t, uint32_t, uint32_t)>(0x004D4270)(memory, bytes, 0, 0x65);
+    return static_cast<sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
-void* VertexBuffer(uint8_t* mesh, int index) { return GameFunction<void*(__thiscall*)(void*, int)>(0x004D3FC0)(mesh, index); }
+void* VertexBuffer(uint8_t* mesh, int index) { return reinterpret_cast<sMesh*>(mesh)->GetVertexBuffer(index); }
 void SetVertexBuffer(uint8_t* mesh, int index, void* buffer)
 {
-    GameFunction<void(__thiscall*)(void*, int, void*)>(0x004D3FD0)(mesh, index, buffer);
+    reinterpret_cast<sMesh*>(mesh)->SetVertexBuffer(index, static_cast<sVertexBuffer*>(buffer));
 }
-void ReleaseVertexBuffer(void* buffer) { GameFunction<void(__thiscall*)(void*)>(0x004D6720)(buffer); }
+void ReleaseVertexBuffer(void* buffer) { static_cast<sVertexBuffer*>(buffer)->Destroy(); }
 // A material's destructor body (not rewritten yet; thiscall).
-void DestroyMaterial(void* material) { GameFunction<void(__thiscall*)(void*)>(0x004D2BD0)(material); }
+void DestroyMaterial(void* material) { static_cast<sMaterial*>(material)->DestroyBody(); }
 
 // The rebuilt strip (0x007CAA40).
 uint16_t* StripBuffer() { return &GameVariable<uint16_t>(0x007CAA40); }

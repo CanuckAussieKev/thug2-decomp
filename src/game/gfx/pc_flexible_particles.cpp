@@ -11,6 +11,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/material.h"
+#include "game/gfx/particle_types.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/mth/x87_math.h"
@@ -32,7 +34,7 @@ uint32_t& DrawnTriangles() { return GameVariable<uint32_t>(0x00786EC0); }
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-void SetMaterial(uint8_t* material) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004D1F00)(material); } // (its set-up)
+void SetMaterial(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->Submit(); } // (its set-up)
 
 // The camera's across and up directions from the view matrix's third column (a, b, c): r = (a, b, c) x (0, 1, 0)
 // and u = r x (a, b, c), then normalised (Mth::Vector::Normalize).
@@ -96,7 +98,7 @@ void CPcFlexibleParticles::EmitForFrame(float& accumulator)
     accumulator = static_cast<float>(owed);
     if (owed < 1.0f || owed != owed)
         return;
-    GameFunction<void(__thiscall*)(void*, int)>(0x00496FE0)(this, Truncate(owed));
+    reinterpret_cast<CParticleSystem*>(this)->Emit(Truncate(owed));
     accumulator = static_cast<float>(accumulator - static_cast<double>(Truncate(accumulator)));
 }
 
@@ -122,8 +124,15 @@ uint32_t CPcFlexibleParticles::Colour(uint32_t from, uint32_t to, float t)
     return colour;
 }
 
+// The engine class's destructor body: the call each PC class ends with.
+template <typename EngineClass>
+void __cdecl DestroyEngine(CPcFlexibleParticles* particles)
+{
+    reinterpret_cast<EngineClass*>(particles)->EngineClass::DestroyBody();
+}
+
 void CPcFlexibleParticles::DestroyParts(uint32_t primary, uint32_t secondary, sSimpleMaterial* material,
-                                        uint32_t engineDestructor)
+                                        void(__cdecl* engineDestructor)(CPcFlexibleParticles*))
 {
     vtable = reinterpret_cast<void**>(primary);
     secondaryVtable = reinterpret_cast<void**>(secondary);
@@ -131,8 +140,48 @@ void CPcFlexibleParticles::DestroyParts(uint32_t primary, uint32_t secondary, sS
         material->DestroyBody();
         Mem::Manager::Get()->Free(material);
     }
-    GameFunction<void(__thiscall*)(void*)>(engineDestructor)(this);
+    engineDestructor(this);
 }
+
+namespace {
+
+// What a system's constructor is given: (name, max, texture, blend, alpha, segments, unknown), and some also the
+// history; the shaded class only the first five; the engine's model class its model name instead of the texture.
+struct sConstructArgs {
+    uint32_t name;
+    int maxParticles;
+    uint32_t texture;
+    uint32_t blendMode;
+    int fixedAlpha;
+    int segments;
+    float unknown;
+    int history;
+    const char* model;
+};
+template <typename T>
+void* MakePlain(void* memory, const sConstructArgs& a)
+{
+    return static_cast<T*>(memory)->Construct(a.name, a.maxParticles, a.texture, a.blendMode, a.fixedAlpha, a.segments,
+                                              a.unknown);
+}
+template <typename T>
+void* MakeWithHistory(void* memory, const sConstructArgs& a)
+{
+    return static_cast<T*>(memory)->Construct(a.name, a.maxParticles, a.texture, a.blendMode, a.fixedAlpha, a.segments,
+                                              a.unknown, a.history);
+}
+template <typename T>
+void* MakeFive(void* memory, const sConstructArgs& a)
+{
+    return static_cast<T*>(memory)->Construct(a.name, a.maxParticles, a.texture, a.blendMode, a.fixedAlpha);
+}
+void* MakeModel(void* memory, const sConstructArgs& a)
+{
+    return static_cast<CModelParticles*>(memory)->Construct(a.name, a.maxParticles, a.model, a.blendMode, a.fixedAlpha,
+                                                            a.segments, a.unknown, a.history);
+}
+
+} // namespace
 
 // 0x004BCEF0
 void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int maxParticles, int, uint32_t texture,
@@ -142,24 +191,22 @@ void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int maxParti
     struct sType {
         uint32_t type;
         uint32_t size;
-        uint32_t constructor;
-        int kind; // 0: (name, max, texture, blend, alpha, segments, unknown); 1: and history; 2: shaded's five;
-                  // 3: the engine's model class
+        void* (*construct)(void*, const sConstructArgs&); // the class's constructor
     };
     static constexpr sType kTypes[] = {
-        {0x15834EEA, 0x150, 0x004BED10, 0}, // glow
-        {0x0EE6FC5B, 0x148, 0x004C0EB0, 1}, // ribbon
-        {0x097CB7A9, 0x150, 0x004C3D80, 0}, // smoothstar
-        {0x286A8D26, 0x148, 0x0049A0C0, 3},
-        {0x3624A5EB, 0x150, 0x004C48C0, 0}, // star
-        {0x2EEB4B09, 0x148, 0x004C09F0, 0}, // line
-        {0x3D56A7A6, 0x144, 0x004BDC80, 1}, // (a flat ribbon)
-        {0x8ADDAC1F, 0x148, 0x004C2B30, 0}, // smooth
-        {0x7EC7252D, 0x150, 0x004BF720, 1}, // glowribbontrail
-        {0x3F109FCC, 0x140, 0x004C3550, 1}, // smoothribbon
-        {0xC4D5A4CB, 0x148, 0x004C1720, 1}, // ribbontrail
-        {0xF4D8D486, 0x138, 0x004C21A0, 2}, // shaded
-        {0xDEDFC057, 0x148, 0x004BD3A0, 0}, // newflat
+        {0x15834EEA, 0x150, &MakePlain<CPcGlowParticles>},             // glow
+        {0x0EE6FC5B, 0x148, &MakeWithHistory<CPcRibbonParticles>},     // ribbon
+        {0x097CB7A9, 0x150, &MakePlain<CPcSmoothStarParticles>},       // smoothstar
+        {0x286A8D26, 0x148, &MakeModel},                               // (the engine's model class)
+        {0x3624A5EB, 0x150, &MakePlain<CPcStarParticles>},             // star
+        {0x2EEB4B09, 0x148, &MakePlain<CPcLineParticles>},             // line
+        {0x3D56A7A6, 0x144, &MakeWithHistory<CPcFlatRibbonParticles>}, // (a flat ribbon)
+        {0x8ADDAC1F, 0x148, &MakePlain<CPcSmoothParticles>},           // smooth
+        {0x7EC7252D, 0x150, &MakeWithHistory<CPcGlowRibbonTrailParticles>}, // glowribbontrail
+        {0x3F109FCC, 0x140, &MakeWithHistory<CPcSmoothRibbonParticles>}, // smoothribbon
+        {0xC4D5A4CB, 0x148, &MakeWithHistory<CPcRibbonTrailParticles>}, // ribbontrail
+        {0xF4D8D486, 0x138, &MakeFive<CPcShadedParticles>},            // shaded
+        {0xDEDFC057, 0x148, &MakePlain<CPcNewFlatParticles>},          // newflat
     };
     const sType* chosen = &kTypes[12]; // (any other type: newflat)
     for (const sType& t : kTypes)
@@ -168,21 +215,8 @@ void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int maxParti
     void* memory = Mem::Manager::Get()->AllocateZeroed(chosen->size, GameVariable<uint8_t>(0x00658555), nullptr);
     if (!memory)
         return nullptr;
-    switch (chosen->kind) {
-    case 0:
-        return GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float)>(
-            chosen->constructor)(memory, name, maxParticles, texture, blendMode, fixedAlpha, segments, unknown);
-    case 1:
-        return GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(
-            chosen->constructor)(memory, name, maxParticles, texture, blendMode, fixedAlpha, segments, unknown,
-                                 history);
-    case 2:
-        return GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int)>(chosen->constructor)(
-            memory, name, maxParticles, texture, blendMode, fixedAlpha);
-    default:
-        return GameFunction<void*(__thiscall*)(void*, uint32_t, int, const char*, uint32_t, int, int, float, int)>(
-            chosen->constructor)(memory, name, maxParticles, model, blendMode, fixedAlpha, segments, unknown, history);
-    }
+    const sConstructArgs args{name, maxParticles, texture, blendMode, fixedAlpha, segments, unknown, history, model};
+    return chosen->construct(memory, args);
 }
 
 // --- newflat ---
@@ -191,8 +225,7 @@ void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int maxParti
 CPcNewFlatParticles* CPcNewFlatParticles::Construct(uint32_t name, int maxParticles, uint32_t texture,
                                                     uint32_t blendMode, int fixedAlpha, int segments, float unknown)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x00499010)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segments, unknown, 0);
+    reinterpret_cast<CNewFlatParticles*>(this)->CNewFlatParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segments, unknown, 0);
     vtable = reinterpret_cast<void**>(0x0064A514);
     secondaryVtable = reinterpret_cast<void**>(0x0064A510);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -203,7 +236,7 @@ CPcNewFlatParticles* CPcNewFlatParticles::Construct(uint32_t name, int maxPartic
 }
 
 // 0x004BD610
-void CPcNewFlatParticles::DestroyBody() { DestroyParts(0x0064A514, 0x0064A510, material, 0x00498FB0); }
+void CPcNewFlatParticles::DestroyBody() { DestroyParts(0x0064A514, 0x0064A510, material, &DestroyEngine<CNewFlatParticles>); }
 
 // 0x004BDC40
 CPcNewFlatParticles* CPcNewFlatParticles::Destroy(unsigned int freeFlags)
@@ -358,8 +391,7 @@ CPcFlatRibbonParticles* CPcFlatRibbonParticles::Construct(uint32_t name, int max
                                                           uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                           float ribbonWidth, int history)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x004992C0)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, ribbonWidth, history);
+    reinterpret_cast<CFlatRibbonParticles*>(this)->CFlatRibbonParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, ribbonWidth, history);
     vtable = reinterpret_cast<void**>(0x0064A528);
     secondaryVtable = reinterpret_cast<void**>(0x0064A524);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -371,7 +403,7 @@ CPcFlatRibbonParticles* CPcFlatRibbonParticles::Construct(uint32_t name, int max
 }
 
 // 0x004BDD60
-void CPcFlatRibbonParticles::DestroyBody() { DestroyParts(0x0064A528, 0x0064A524, material, 0x00499200); }
+void CPcFlatRibbonParticles::DestroyBody() { DestroyParts(0x0064A528, 0x0064A524, material, &DestroyEngine<CFlatRibbonParticles>); }
 
 // 0x004BECD0
 CPcFlatRibbonParticles* CPcFlatRibbonParticles::Destroy(unsigned int freeFlags)
@@ -567,8 +599,7 @@ void CPcFlatRibbonParticles::Render()
 CPcGlowParticles* CPcGlowParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x004995B0)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CGlowParticles*>(this)->CGlowParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = reinterpret_cast<void**>(0x0064A540);
     secondaryVtable = reinterpret_cast<void**>(0x0064A53C);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -579,7 +610,7 @@ CPcGlowParticles* CPcGlowParticles::Construct(uint32_t name, int maxParticles, u
 }
 
 // 0x004BEDE0
-void CPcGlowParticles::DestroyBody() { DestroyParts(0x0064A540, 0x0064A53C, material, 0x00499550); }
+void CPcGlowParticles::DestroyBody() { DestroyParts(0x0064A540, 0x0064A53C, material, &DestroyEngine<CGlowParticles>); }
 
 // 0x004BF6E0
 CPcGlowParticles* CPcGlowParticles::Destroy(unsigned int freeFlags)
@@ -714,8 +745,7 @@ void CPcGlowParticles::Render()
 CPcLineParticles* CPcLineParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x00499B80)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CLineParticles*>(this)->CLineParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = reinterpret_cast<void**>(0x0064A570);
     secondaryVtable = reinterpret_cast<void**>(0x0064A56C);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -726,7 +756,7 @@ CPcLineParticles* CPcLineParticles::Construct(uint32_t name, int maxParticles, u
 }
 
 // 0x004C0AC0
-void CPcLineParticles::DestroyBody() { DestroyParts(0x0064A570, 0x0064A56C, material, 0x00499B20); }
+void CPcLineParticles::DestroyBody() { DestroyParts(0x0064A570, 0x0064A56C, material, &DestroyEngine<CLineParticles>); }
 
 // 0x004C0E70
 CPcLineParticles* CPcLineParticles::Destroy(unsigned int freeFlags)
@@ -796,8 +826,7 @@ CPcRibbonParticles* CPcRibbonParticles::Construct(uint32_t name, int maxParticle
                                                   uint32_t blendMode, int fixedAlpha, int segmentCount, float unknown,
                                                   int history)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x0049B0D0)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CRibbonParticles*>(this)->CRibbonParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = reinterpret_cast<void**>(0x0064A584);
     secondaryVtable = reinterpret_cast<void**>(0x0064A580);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -808,7 +837,7 @@ CPcRibbonParticles* CPcRibbonParticles::Construct(uint32_t name, int maxParticle
 }
 
 // 0x004C0F80
-void CPcRibbonParticles::DestroyBody() { DestroyParts(0x0064A584, 0x0064A580, material, 0x0049B070); }
+void CPcRibbonParticles::DestroyBody() { DestroyParts(0x0064A584, 0x0064A580, material, &DestroyEngine<CRibbonParticles>); }
 
 // 0x004C16E0
 CPcRibbonParticles* CPcRibbonParticles::Destroy(unsigned int freeFlags)
@@ -950,8 +979,7 @@ CPcRibbonTrailParticles* CPcRibbonTrailParticles::Construct(uint32_t name, int m
                                                             uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                             float unknown, int history)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x0049B380)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CRibbonTrailParticles*>(this)->CRibbonTrailParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = reinterpret_cast<void**>(0x0064A598);
     secondaryVtable = reinterpret_cast<void**>(0x0064A594);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -962,7 +990,7 @@ CPcRibbonTrailParticles* CPcRibbonTrailParticles::Construct(uint32_t name, int m
 }
 
 // 0x004C17F0
-void CPcRibbonTrailParticles::DestroyBody() { DestroyParts(0x0064A598, 0x0064A594, material, 0x0049B320); }
+void CPcRibbonTrailParticles::DestroyBody() { DestroyParts(0x0064A598, 0x0064A594, material, &DestroyEngine<CRibbonTrailParticles>); }
 
 // 0x004C2160
 CPcRibbonTrailParticles* CPcRibbonTrailParticles::Destroy(unsigned int freeFlags)
@@ -1116,8 +1144,7 @@ void CPcFlexibleParticles::AlignedAxes(Mth::Vector& r, Mth::Vector& u) const
 CPcShadedParticles* CPcShadedParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
                                                   int fixedAlpha)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, int, int)>(0x0049B660)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, 0, 0, 0);
+    reinterpret_cast<CShadedParticles*>(this)->CShadedParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, 0, 0, 0);
     vtable = reinterpret_cast<void**>(0x0064A5AC);
     secondaryVtable = reinterpret_cast<void**>(0x0064A5A8);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -1128,7 +1155,7 @@ CPcShadedParticles* CPcShadedParticles::Construct(uint32_t name, int maxParticle
 }
 
 // 0x004C2260
-void CPcShadedParticles::DestroyBody() { DestroyParts(0x0064A5AC, 0x0064A5A8, material, 0x0049B600); }
+void CPcShadedParticles::DestroyBody() { DestroyParts(0x0064A5AC, 0x0064A5A8, material, &DestroyEngine<CShadedParticles>); }
 
 // 0x004C2AF0
 CPcShadedParticles* CPcShadedParticles::Destroy(unsigned int freeFlags)
@@ -1250,8 +1277,7 @@ void CPcShadedParticles::Render()
 CPcSmoothParticles* CPcSmoothParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
                                                   int fixedAlpha, int segmentCount, float unknown)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x0049B910)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CSmoothParticles*>(this)->CSmoothParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = reinterpret_cast<void**>(0x0064A5C0);
     secondaryVtable = reinterpret_cast<void**>(0x0064A5BC);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -1262,7 +1288,7 @@ CPcSmoothParticles* CPcSmoothParticles::Construct(uint32_t name, int maxParticle
 }
 
 // 0x004C2C00
-void CPcSmoothParticles::DestroyBody() { DestroyParts(0x0064A5C0, 0x0064A5BC, material, 0x0049B8A0); }
+void CPcSmoothParticles::DestroyBody() { DestroyParts(0x0064A5C0, 0x0064A5BC, material, &DestroyEngine<CSmoothParticles>); }
 
 // 0x004C3500
 CPcSmoothParticles* CPcSmoothParticles::Destroy(unsigned int freeFlags)
@@ -1375,8 +1401,7 @@ CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Construct(uint32_t name, int
                                                               uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                               float unknown, int history)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x0049BBD0)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CSmoothRibbonParticles*>(this)->CSmoothRibbonParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = reinterpret_cast<void**>(0x0064A5D4);
     secondaryVtable = reinterpret_cast<void**>(0x0064A5D0);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -1387,7 +1412,7 @@ CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Construct(uint32_t name, int
 }
 
 // 0x004C3620
-void CPcSmoothRibbonParticles::DestroyBody() { DestroyParts(0x0064A5D4, 0x0064A5D0, material, 0x0049BB50); }
+void CPcSmoothRibbonParticles::DestroyBody() { DestroyParts(0x0064A5D4, 0x0064A5D0, material, &DestroyEngine<CSmoothRibbonParticles>); }
 
 // 0x004C3D40
 CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Destroy(unsigned int freeFlags)
@@ -1513,8 +1538,7 @@ CPcSmoothStarParticles* CPcSmoothStarParticles::Construct(uint32_t name, int max
                                                           uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                           float unknown)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x0049BE80)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CSmoothStarParticles*>(this)->CSmoothStarParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = reinterpret_cast<void**>(0x0064A5EC);
     secondaryVtable = reinterpret_cast<void**>(0x0064A5E8);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -1525,7 +1549,7 @@ CPcSmoothStarParticles* CPcSmoothStarParticles::Construct(uint32_t name, int max
 }
 
 // 0x004C3E50
-void CPcSmoothStarParticles::DestroyBody() { DestroyParts(0x0064A5EC, 0x0064A5E8, material, 0x0049BE20); }
+void CPcSmoothStarParticles::DestroyBody() { DestroyParts(0x0064A5EC, 0x0064A5E8, material, &DestroyEngine<CSmoothStarParticles>); }
 
 // 0x004C4880
 CPcSmoothStarParticles* CPcSmoothStarParticles::Destroy(unsigned int freeFlags)
@@ -1701,8 +1725,7 @@ void CPcSmoothStarParticles::Render()
 CPcStarParticles* CPcStarParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x0049C140)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CStarParticles*>(this)->CStarParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = reinterpret_cast<void**>(0x0064A604);
     secondaryVtable = reinterpret_cast<void**>(0x0064A600);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -1713,7 +1736,7 @@ CPcStarParticles* CPcStarParticles::Construct(uint32_t name, int maxParticles, u
 }
 
 // 0x004C4990
-void CPcStarParticles::DestroyBody() { DestroyParts(0x0064A604, 0x0064A600, material, 0x0049C0D0); }
+void CPcStarParticles::DestroyBody() { DestroyParts(0x0064A604, 0x0064A600, material, &DestroyEngine<CStarParticles>); }
 
 // 0x004C5200
 CPcStarParticles* CPcStarParticles::Destroy(unsigned int freeFlags)
@@ -1877,8 +1900,7 @@ CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Construct(uint32_t nam
                                                                     int fixedAlpha, int segmentCount, float unknown,
                                                                     int history)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, int, float, int)>(0x00499880)(
-        this, name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CGlowRibbonTrailParticles*>(this)->CGlowRibbonTrailParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = reinterpret_cast<void**>(0x0064A558);
     secondaryVtable = reinterpret_cast<void**>(0x0064A554);
     void* memory = Mem::New(sizeof(sSimpleMaterial));
@@ -1889,7 +1911,7 @@ CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Construct(uint32_t nam
 }
 
 // 0x004C0940
-void CPcGlowRibbonTrailParticles::DestroyBody() { DestroyParts(0x0064A558, 0x0064A554, material, 0x00499800); }
+void CPcGlowRibbonTrailParticles::DestroyBody() { DestroyParts(0x0064A558, 0x0064A554, material, &DestroyEngine<CGlowRibbonTrailParticles>); }
 
 // 0x004C09B0
 CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Destroy(unsigned int freeFlags)

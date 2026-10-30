@@ -11,9 +11,12 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/material.h"
 #include "game/gfx/occlusion.h"
+#include "game/gfx/particles.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
+#include "game/gfx/texture_dict.h"
 #include "game/sys/platform_d3d.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -34,17 +37,17 @@ int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game'
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The materials' code (0x004D1A90-0x004D3390).
-uint8_t* ConstructMaterial(void* memory) { return GameFunction<uint8_t*(__thiscall*)(void*)>(0x004D1A90)(memory); }
-void DestroyMaterial(uint8_t* material) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004D2BD0)(material); }
-void SetMaterialStates(uint8_t* material) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004D23E0)(material); }
+uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<sMaterial*>(memory)->Construct()); }
+void DestroyMaterial(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->DestroyBody(); }
+void SetMaterialStates(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->SubmitStates(); }
 void SetMaterialPass(uint8_t* material, int pass, int flags)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, int, int)>(0x004D24D0)(material, pass, flags);
+    reinterpret_cast<sMaterial*>(material)->SubmitPass(pass, reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const uint8_t* FindTexture(uint32_t checksum)
 {
-    return GameFunction<const uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049F540)(GameVariable<void*>(0x00700F20), checksum);
+    return reinterpret_cast<const uint8_t*>(static_cast<CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(checksum));
 }
 uint32_t TextureKey(const uint8_t* texture)
 {
@@ -213,13 +216,13 @@ CPcParticleSystem* __fastcall CPcParticleSystem::Create(void*)
     void* memory = Mem::Calloc(sizeof(CPcParticleSystem));
     if (!memory)
         return nullptr;
-    auto* system = static_cast<CPcParticleSystem*>(GameFunction<void*(__thiscall*)(void*)>(0x00496360)(memory));
+    auto* system = reinterpret_cast<CPcParticleSystem*>(static_cast<CParticle*>(memory)->Construct());
     system->vtable = reinterpret_cast<void**>(kSystemVtable);
     return system;
 }
 
 // 0x004BCE80
-void CPcParticleSystem::DestroyBody() { GameFunction<void(__thiscall*)(void*)>(0x00494DF0)(this); }
+void CPcParticleSystem::DestroyBody() { EngineDestroyBody(); }
 
 // 0x004BCE50
 CPcParticleSystem* CPcParticleSystem::Destroy(unsigned int flags)

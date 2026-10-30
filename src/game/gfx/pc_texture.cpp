@@ -2,6 +2,8 @@
 // double precision where it keeps values in registers, floats where it stores them.
 
 #include "game/gfx/pc_texture.h"
+#include "game/gfx/engine_texture.h"
+#include "game/gfx/texture_dict.h"
 
 #include <windows.h>
 
@@ -45,7 +47,7 @@ sTexture* CPcTexture::Texture() const
 // 0x004C7ED0
 CPcTexture* CPcTexture::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x0049F200)(this);
+    reinterpret_cast<CTexture*>(this)->CTexture::Construct();
     unknownD = 0;
     engine = nullptr;
     unknownC = 0;
@@ -71,7 +73,7 @@ void CPcTexture::DestroyBody()
         texture->DestroyBody();
         Mem::Manager::Get()->Free(texture);
     }
-    GameFunction<void(__thiscall*)(void*)>(0x0049F210)(this);
+    reinterpret_cast<CTexture*>(this)->CTexture::DestroyBody();
 }
 
 // 0x004CAE60
@@ -181,7 +183,7 @@ uint8_t CPcTexture::GetUnknownD() { return unknownD; }
 // 0x004C8450
 CPcTexture* CPcTexture::ConstructCopy(const CPcTexture* source)
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x0049F200)(this);
+    reinterpret_cast<CTexture*>(this)->CTexture::Construct();
     vtable = reinterpret_cast<void**>(kTextureVtable);
     unknownC = source->unknownC;
     flags = source->flags;
@@ -939,7 +941,7 @@ bool CPcTexture::Squash(uint16_t position, int vertical, int amount, bool fill, 
 // 0x004C8070
 CPcTexDict* CPcTexDict::Construct(uint32_t checksum)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, int)>(0x0049F830)(this, checksum, 1);
+    reinterpret_cast<CTexDict*>(this)->CTexDict::Construct(checksum, true);
     vtable = reinterpret_cast<void**>(kTexDictVtable);
     return this;
 }
@@ -948,7 +950,7 @@ CPcTexDict* CPcTexDict::Construct(uint32_t checksum)
 void CPcTexDict::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kTexDictVtable);
-    GameFunction<void(__thiscall*)(void*)>(0x0049FC70)(this);
+    reinterpret_cast<CTexDict*>(this)->CTexDict::DestroyBody();
 }
 
 // 0x004C9F60
@@ -965,7 +967,7 @@ CPcTexture* CPcTexDict::LoadTexture(const char* name, int a2, int /*unused*/)
 {
     CPcTexture* texture = NewTexture();
     // (no check: the engine's load called on null without memory, as the original)
-    GameFunction<bool(__thiscall*)(CPcTexture*, const char*, int, int)>(0x0049F220)(texture, name, a2, 1);
+    reinterpret_cast<CTexture*>(texture)->CTexture::LoadByName(name, a2, 1);
     return texture;
 }
 
@@ -974,8 +976,7 @@ CPcTexture* CPcTexDict::CreateTexture(uint32_t a1, uint32_t a2, uint32_t a3, uin
                                       uint32_t /*unused*/)
 {
     CPcTexture* texture = NewTexture();
-    GameFunction<bool(__thiscall*)(CPcTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, int)>(0x0049F300)(
-        texture, a1, a2, a3, a4, a5, 1);
+    reinterpret_cast<CTexture*>(texture)->CTexture::LoadFromMemory(reinterpret_cast<const uint8_t*>(static_cast<uintptr_t>(a1)), a2, a3, a4, a5, 1);
     return texture;
 }
 
@@ -986,8 +987,7 @@ CPcTexture* CPcTexDict::ReloadTexture(uint32_t checksum, uint32_t a2, uint32_t a
     auto* texture = static_cast<CPcTexture*>(static_cast<Lst::HashTable*>(textures)->GetItem(checksum));
     if (!texture)
         texture = NewTexture();
-    GameFunction<bool(__thiscall*)(CPcTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
-        0x0049F330)(texture, checksum, a2, a3, a4, a5, a6);
+    reinterpret_cast<CTexture*>(texture)->CTexture::Create(checksum, a2, a3, a4, a5, a6);
     return texture;
 }
 
@@ -1240,7 +1240,7 @@ bool CPcTexDict::LoadMemory(const uint8_t* data)
 // 0x004CB760
 CPcTexDict* CPcTexDict::ConstructFromFile(const char* name)
 {
-    GameFunction<void*(__thiscall*)(void*, const char*, int)>(0x0049F8F0)(this, name, 1);
+    reinterpret_cast<CTexDict*>(this)->CTexDict::ConstructNamed(name, true);
     vtable = reinterpret_cast<void**>(kTexDictVtable);
     LoadFile(name);
     return this;

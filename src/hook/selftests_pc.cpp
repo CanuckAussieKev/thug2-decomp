@@ -20,10 +20,12 @@
 #include "game/net/vault_man.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine_effects.h"
 #include "game/gfx/flash.h"
 #include "game/core/dbg.h"
 #include "game/gfx/movie.h"
 #include "game/gfx/render_state.h"
+#include "game/gfx/viewport_list.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
 #include "game/sfx/sfx.h"
@@ -473,7 +475,8 @@ void TestDrawFlash()
                             {CodeAddress(&Nx::SetState), reinterpret_cast<void*>(&StandInState2)},
                             {CodeAddress(&Nx::SetBlendMode), reinterpret_cast<void*>(&StandInBlend)},
                             {CodeAddress(&Nx::SetPixelShader), reinterpret_cast<void*>(&StandInState2b)},
-                            {CodeAddress(&Nx::SetVertexFormat), reinterpret_cast<void*>(&StandInFormat)}}) {
+                            {CodeAddress(&Nx::SetVertexFormat), reinterpret_cast<void*>(&StandInFormat)},
+                            {CodeAddress(&Nx::GetActiveViewport), reinterpret_cast<void*>(&StandInViewport)}}) {
         auto at = reinterpret_cast<uint32_t>(code);
         ours.push_back(std::make_unique<CodePatch>(at, JumpTo(at, to)));
     }
@@ -982,7 +985,7 @@ void TestPlayMovieFile()
     add(JumpBoth(0x00450650, CodeAddress(&Pcm::StopMusic), reinterpret_cast<const void*>(&PmPauseMusic)));
     add(JumpBoth(0x00450690, CodeAddress(static_cast<void(__cdecl*)(int)>(&Pcm::StopStreams)),
                  reinterpret_cast<const void*>(&PmStopStreams)));
-    add(JumpBoth(0x00490DE0, nullptr, reinterpret_cast<const void*>(&PmSetFog)));
+    add(JumpBoth(0x00490DE0, CodeAddress(&Nx::Engine::EnableFog), reinterpret_cast<const void*>(&PmSetFog)));
     add(JumpBoth(0x0044F250, reinterpret_cast<const void*>(&Mlp::Manager::ResetDeviceIfLost),
                  reinterpret_cast<const void*>(&PmResetDevice)));
     add(JumpBoth(0x004DAB60, CodeAddress(&Nx::SetState), reinterpret_cast<const void*>(&PmSampler)));

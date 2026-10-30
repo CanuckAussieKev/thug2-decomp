@@ -10,6 +10,8 @@
 #include <cstring>
 
 #include "game/gfx/camera.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/viewport.h"
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -43,11 +45,11 @@ double RandomBetween(float min, float max)
 }
 
 int ViewportCount() { return GameVariable<int>(0x00701378); }
-void* ViewportCamera(int viewport) { return GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(viewport); }
+void* ViewportCamera(int viewport) { return GetActiveCamera(viewport); }
 // 0x0048C490: whether a sphere is out of the camera's view.
 int SphereHidden(const Mth::Vector* centre, float radius)
 {
-    return GameFunction<int(__cdecl*)(const Mth::Vector*, float)>(0x0048C490)(centre, radius);
+    return Engine::SphereVisibleInOneViewport(centre, radius);
 }
 
 // The system's virtual functions.

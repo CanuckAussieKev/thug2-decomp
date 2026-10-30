@@ -11,6 +11,8 @@
 #include "game/core/mem.h"
 #include "game/file/file.h"
 #include "game/gfx/anim_blend.h"
+#include "game/gfx/anim_cache.h"
+#include "game/gfx/custom_anim_key.h"
 #include "game/gfx/anim_track.h"
 #include "game/mth/math.h"
 #include "game/mth/vector.h"
@@ -53,24 +55,24 @@ float QuatW(float x, float y, float z, uint16_t time, bool nanToZero)
 }
 
 // The frame cache (0x006F92B0) and its members (not rewritten here).
-void* FrameCache() { return GameFunction<void*(__cdecl*)()>(0x00480660)(); }
+void* FrameCache() { return CAnimCache::Get(); }
 void CacheRemove(void* cache, CBonedAnimFrameData* data)
 {
-    GameFunction<void(__thiscall*)(void*, CBonedAnimFrameData*)>(0x00480DF0)(cache, data);
+    static_cast<CAnimCache*>(cache)->Remove(reinterpret_cast<uint32_t>(data));
 }
 int CacheAcquire(void* cache, CBonedAnimFrameData* data)
 {
-    return GameFunction<int(__thiscall*)(void*, CBonedAnimFrameData*)>(0x00480E30)(cache, data);
+    return static_cast<CAnimCache*>(cache)->AddUser(reinterpret_cast<uint32_t>(data));
 }
 void CacheRelease(void* cache, CBonedAnimFrameData* data, int index)
 {
-    GameFunction<void(__thiscall*)(void*, CBonedAnimFrameData*, int)>(0x00480E80)(cache, data, index);
+    static_cast<CAnimCache*>(cache)->RemoveUser(reinterpret_cast<uint32_t>(data), index);
 }
 // The events' arming and firing.
-void ArmEvent(CAnimEvent* e, bool armed) { GameFunction<void(__thiscall*)(CAnimEvent*, bool)>(0x00486150)(e, armed); }
+void ArmEvent(CAnimEvent* e, bool armed) { reinterpret_cast<CCustomAnimKey*>(e)->SetActive(armed); }
 bool FireEvent(CAnimEvent* e, void* target)
 {
-    return GameFunction<bool(__thiscall*)(CAnimEvent*, void*)>(0x00486160)(e, target);
+    return reinterpret_cast<CCustomAnimKey*>(e)->ProcessIfActive(target);
 }
 
 template <typename R, typename... A>
@@ -788,7 +790,10 @@ uint8_t* PastBoneBits(uint8_t* p)
     return p + ((count - 1) / 32) * 4 + 8;
 }
 // An event made from the data at `*at` (0x00486680, not rewritten here), which it moves past.
-CAnimEvent* ReadEvent(uint8_t** at) { return GameFunction<CAnimEvent*(__cdecl*)(uint8_t**)>(0x00486680)(at); }
+CAnimEvent* ReadEvent(uint8_t** at)
+{
+    return reinterpret_cast<CAnimEvent*>(CreateCustomAnimKey(const_cast<const uint8_t**>(at)));
+}
 
 } // namespace
 
@@ -940,7 +945,7 @@ namespace {
 // The frame cache's time for a cursor (0x00480590 on the entry): its direction - negative when time went back.
 int16_t CacheDirection(uint8_t* entry, int cursor, int time)
 {
-    return GameFunction<int16_t(__thiscall*)(uint8_t*, int, int)>(0x00480590)(entry, cursor, time);
+    return reinterpret_cast<CAnimCacheEntry*>(entry)->SetSlotTime(cursor, static_cast<int16_t>(time));
 }
 
 } // namespace

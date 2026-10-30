@@ -12,8 +12,11 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_texture_projection.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
+#include "game/gfx/pc_scene.h"
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
@@ -44,7 +47,7 @@ void TransformCoord(float* out, const float* v, const Mth::Matrix* m)
 uint8_t* VertexStack() { return &GameVariable<uint8_t>(0x006FC4A0); }
 void PushVertex(const uint8_t* vertex)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, const uint8_t*)>(0x00490D50)(VertexStack(), vertex);
+    reinterpret_cast<sVertexStack*>(VertexStack())->Push(vertex);
 }
 
 float* Uv(uint8_t* vertex) { return reinterpret_cast<float*>(vertex + 0x10); }
@@ -73,7 +76,7 @@ void CopyTriangle(uint8_t* into, uint8_t* from)
 // 0x004C7610
 sProjectionBatch* sProjectionBatch::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x004D1A90)(material);
+    reinterpret_cast<sMaterial*>(material)->Construct();
     return this;
 }
 
@@ -128,7 +131,7 @@ void __cdecl DrawProjectionBatches()
     Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < BatchCount(); ++i) {
         sProjectionBatch* batch = &Batches()[i];
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x004D1F00)(batch->material); // (the material's set-up)
+        reinterpret_cast<sMaterial*>(batch->material)->Submit(); // (the material's set-up)
         SetPixelShader(batch->pixelShader, batch->material);
         DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangleCount, batch->vertices, 0x18);
         ++GameVariable<uint32_t>(0x00786EBC); // (the frame's draw calls)
@@ -141,7 +144,7 @@ void __cdecl DrawProjectionBatches()
 // 0x004C7E80
 CPcTextureProjection* CPcTextureProjection::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x0049FE20)(this);
+    reinterpret_cast<CTextureProjection*>(this)->CTextureProjection::Construct();
     vtable = reinterpret_cast<void**>(kProjectionVtable);
     return this;
 }
@@ -149,7 +152,7 @@ CPcTextureProjection* CPcTextureProjection::Construct()
 // 0x004C7EA0
 CPcTextureProjection* CPcTextureProjection::Destroy(unsigned int freeFlags)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004A04A0)(this);
+    reinterpret_cast<CTextureProjection*>(this)->CTextureProjection::DestroyBody();
     if (freeFlags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -161,7 +164,7 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
     sProjectionBatch* batch = nullptr;
     uint8_t* batchVertices = nullptr;
     for (; *sectors; ++sectors) {
-        auto* geom = GameFunction<uint8_t*(__thiscall*)(void*)>(0x004A2BA0)(*sectors); // (the sector's geom)
+        auto* geom = static_cast<uint8_t*>(static_cast<CPcSector*>(*sectors)->geom); // (the sector's geom)
         if (!geom)
             continue;
         auto** meshes = *reinterpret_cast<sMesh***>(geom + 0x3C);
@@ -170,11 +173,9 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
             if (mesh->flags & 2)
                 continue;
             uint8_t* vertices;
-            GameFunction<long(__thiscall*)(void*, uint32_t, uint32_t, uint8_t**, uint32_t)>(0x004D4090)(
-                mesh->vertexBuffers[0], 0, 0, &vertices, 0x10);
+            mesh->vertexBuffers[0]->Lock(0, 0, &vertices, 0x10);
             uint16_t* indices = nullptr;
-            GameFunction<long(__thiscall*)(void*, uint32_t, uint32_t, uint16_t**, uint32_t)>(0x004D42F0)(
-                mesh->indexBuffers[0], 0, 0, &indices, 0x10);
+            mesh->indexBuffers[0]->Lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
             for (uint32_t strip = 2; strip < mesh->indexCounts[0]; ++strip) {
                 uint32_t c = indices[strip];
@@ -236,7 +237,7 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                     double cx = e2z * e1y - e2y * e1z;
                     double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     GameVariable<float>(0x0067DDF0) = static_cast<float>(total / (static_cast<double>(fineness) * 16.0f));
-                    GameFunction<void(__thiscall*)(void*)>(0x00490D20)(VertexStack()); // (emptied)
+                    reinterpret_cast<sVertexStack*>(VertexStack())->Construct(); // (emptied)
                     GameVariable<uint32_t>(0x006FC4A4) = 0x18;
                     PushVertex(v0);
                     PushVertex(v1);
@@ -244,7 +245,7 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                     pieces = static_cast<uint8_t*>(Mem::New(0x2000));
                     std::memset(pieces, 0, 0x2000);
                     void* memory = Mem::New(0xD8);
-                    format = memory ? GameFunction<uint8_t*(__thiscall*)(void*)>(0x004D4BE0)(memory) : nullptr;
+                    format = memory ? reinterpret_cast<uint8_t*>(static_cast<sMesh*>(memory)->Construct()) : nullptr;
                     format[0x1C] = 0x0C; // (no check: written through null, as the original)
                     format[0x1E] = 0x10;
                     end = pieces;
@@ -276,7 +277,7 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                     batch->blendName = blendName;
                 if (fineness) {
                     if (format) {
-                        GameFunction<void(__thiscall*)(void*)>(0x004D69E0)(format); // (its destructor body)
+                        reinterpret_cast<sMesh*>(format)->DestroyBody(); // (its destructor body)
                         Mem::Manager::Get()->Free(format);
                     }
                     Mem::Manager::Get()->Free(pieces);
@@ -284,8 +285,8 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                 if (full)
                     return; // (the buffers left locked, as the original)
             }
-            GameFunction<void(__thiscall*)(void*)>(0x004D4300)(mesh->indexBuffers[0]); // (unlocked)
-            GameFunction<void(__thiscall*)(void*)>(0x004D40E0)(mesh->vertexBuffers[0]);
+            mesh->indexBuffers[0]->Unlock(); // (unlocked)
+            mesh->vertexBuffers[0]->Unlock();
         }
     }
 }

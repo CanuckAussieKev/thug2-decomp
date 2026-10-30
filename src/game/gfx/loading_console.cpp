@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the loading console (see loading_console.h).
 
 #include "game/gfx/loading_console.h"
+#include "game/gfx/loading_screen.h"
 
 #include <windows.h>
 #include <d3d9.h>
@@ -329,7 +330,7 @@ void CALLBACK ScreenTick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
         if (blank)
             device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         else
-            GameFunction<void(__cdecl*)()>(0x004B6CD0)(); // the picture, full screen
+            Nx::DrawLoadingScreenPicture(); // the picture, full screen
         DrawPanel();
         device->EndScene();
         device->Present(nullptr, nullptr, nullptr, nullptr);

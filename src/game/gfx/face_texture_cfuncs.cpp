@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/gfx/face_texture.h"
+#include "game/gfx/texture_dict.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
@@ -42,22 +44,22 @@ constexpr uint32_t kRgb = 0xDECB67C7;             // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
 void* TextureDictionary() { return GameVariable<void*>(0x00700F1C); }
-void* FindTexture(uint32_t name) { return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(TextureDictionary(), name); }
+void* FindTexture(uint32_t name) { return static_cast<Nx::CTexDict*>(TextureDictionary())->GetTexture(name); }
 
 // The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the
 // skate module's 0x00564F80 with no params is the current profile.
 void* FaceTexture()
 {
-    auto* profile = GameFunction<Obj::CSkaterProfile*(__thiscall*)(Mdl::Skate*, CStruct*)>(0x00564F80)(
-        Mdl::Skate::Instance(), nullptr);
+    auto* profile = Mdl::Skate::Instance()->GetProfile(static_cast<CStruct*>(nullptr));
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(profile) + 0x54);
 }
 
 // A texture's methods (each a jump through its vtable).
 template <typename R, typename... A>
-R TextureCall(uint32_t thunk, void* texture, A... args)
+R TextureCall(uint32_t slot, void* texture, A... args)
 {
-    return GameFunction<R(__thiscall*)(void*, A...)>(thunk)(texture, args...);
+    // (the texture's virtual slot `slot`: the original goes through a jump stub for each)
+    return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(texture))[slot])(texture, args...);
 }
 
 // A colour as the textures take it: four bytes (the first in the low byte).
@@ -108,10 +110,10 @@ bool __cdecl CFunc_LoadFaceTextureFromProfile(Script::CStruct* params, Script::C
     uint32_t name;
     params->GetChecksum(kChecksum, &name, 1);
     void* face = FaceTexture();
-    int size = GameFunction<int(__thiscall*)(void*)>(0x00487540)(face);         // (0x4420)
-    void* data = GameFunction<void*(__thiscall*)(void*)>(0x00487530)(face);     // (its +0x3C)
-    void* texture = GameFunction<void*(__thiscall*)(void*, void*, int, uint32_t, bool, bool, bool, bool)>(0x0049FA20)(
-        TextureDictionary(), data, size, name, true, true, true, true);
+    int size = static_cast<Gfx::CFaceTexture*>(face)->GetImageSize();         // (0x4420)
+    void* data = static_cast<Gfx::CFaceTexture*>(face)->GetImage();           // (its +0x3C)
+    void* texture = static_cast<Nx::CTexDict*>(TextureDictionary())
+                        ->LoadTextureFromBuffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
     return texture != nullptr;
 }
 
@@ -127,14 +129,14 @@ bool __cdecl CFunc_SetFaceTextureFromVideoCapture(Script::CStruct* params, Scrip
     void* texture = FindTexture(name);
     uint8_t image[0x4420];
     std::memset(image, 0, sizeof(image));
-    TextureCall<void>(0x0048DF50, texture, static_cast<void*>(image));
-    int paletteSize = TextureCall<int>(0x0048DF30, texture);
-    uint8_t bitsPerPixel = TextureCall<uint8_t>(0x0049F3E0, texture);
-    TextureCall<void>(0x0048DF40, texture, static_cast<void*>(image + 0x20), paletteSize / (bitsPerPixel >> 3));
-    const void* pixels = TextureCall<const void*>(0x0048DF00, texture);
-    int pixelSize = TextureCall<int>(0x0049F3A0, texture);
+    TextureCall<void>(30, texture, static_cast<void*>(image));
+    int paletteSize = TextureCall<int>(28, texture);
+    uint8_t bitsPerPixel = TextureCall<uint8_t>(38, texture);
+    TextureCall<void>(29, texture, static_cast<void*>(image + 0x20), paletteSize / (bitsPerPixel >> 3));
+    const void* pixels = TextureCall<const void*>(25, texture);
+    int pixelSize = TextureCall<int>(26, texture);
     std::memcpy(image + 0x20 + paletteSize, pixels, pixelSize);
-    GameFunction<void*(__thiscall*)(void*, void*, int)>(0x00487420)(face, image, pixelSize + paletteSize + 0x20);
+    static_cast<Gfx::CFaceTexture*>(face)->SetImage(image, pixelSize + paletteSize + 0x20);
     return true;
 }
 
@@ -153,7 +155,7 @@ bool __cdecl CFunc_OffsetTexture(Script::CStruct* params, Script::CScript*)
     params->GetInteger(kYOffset, &y, 0);
     bool given;
     uint32_t colour = ReadColour(params, &given);
-    TextureCall<void>(0x0048DEC0, texture, x, y, given, colour);
+    TextureCall<void>(18, texture, x, y, given, colour);
     return true;
 }
 
@@ -169,7 +171,7 @@ bool __cdecl CFunc_RotateTexture(Script::CStruct* params, Script::CScript*)
     if (texture) {
         // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
         float radians = static_cast<float>(static_cast<double>(angle) * GameVariable<float>(0x00645464));
-        TextureCall<void>(0x0049F360, texture, radians, -1.0f, -1.0f);
+        TextureCall<void>(17, texture, radians, -1.0f, -1.0f);
     }
     return true;
 }
@@ -192,7 +194,7 @@ bool __cdecl CFunc_PushTextureToPoint(Script::CStruct* params, Script::CScript*)
     params->GetInteger(kPushAmount, &amount, 0);
     bool given;
     uint32_t colour = ReadColour(params, &given);
-    TextureCall<void>(0x0048DEF0, texture, point, axis, amount, given, colour);
+    TextureCall<void>(22, texture, point, axis, amount, given, colour);
     return true;
 }
 
@@ -216,7 +218,7 @@ bool __cdecl CFunc_ApplyRGBAToTexture(Script::CStruct* params, Script::CScript*)
     int mode = 0;
     params->GetInteger(kTintMode, &mode, 0);
     bool second = mode == 1;
-    TextureCall<void>(0x0048DE50, texture, PackColour(r, g, b, a), second);
+    TextureCall<void>(12, texture, PackColour(r, g, b, a), second);
     return true;
 }
 

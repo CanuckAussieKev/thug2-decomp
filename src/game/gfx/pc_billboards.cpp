@@ -12,8 +12,11 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
 #include "game/gfx/render_state.h"
+#include "game/gfx/window2d.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -27,10 +30,10 @@ constexpr uint32_t kWindowVtable = 0x0064A88C;
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
 bool VertexShaders() { return GameVariable<bool>(0x00786AB8); }
-void SetFogEnabled(bool on) { GameFunction<void(__cdecl*)(bool)>(0x00490DE0)(on); }
+void SetFogEnabled(bool on) { Engine::EnableFog(on); }
 sVertexBuffer* VertexBuffer(sMesh* mesh, int index)
 {
-    return GameFunction<sVertexBuffer*(__thiscall*)(sMesh*, int)>(0x004D3FC0)(mesh, index);
+    return mesh->GetVertexBuffer(index);
 }
 template <typename T>
 T& At(void* base, uint32_t offset)
@@ -138,7 +141,7 @@ void DrawBillboardMesh(sMesh* mesh, const float* yAxis, const float* xAxis, cons
     }
     if (VertexShaders()) {
         if (mesh->flags & 4)
-            GameFunction<void(__thiscall*)(sMesh*)>(0x004D3D10)(mesh);
+            mesh->SetPixelShaderColored();
         else
             SetPixelShader(At<void*>(mesh, 0x44), nullptr);
     }
@@ -155,8 +158,7 @@ void DrawBillboardMesh(sMesh* mesh, const float* yAxis, const float* xAxis, cons
     Device()->GetIndices(&indices);
     uint32_t primitives = PrimitiveCount(At<uint32_t>(mesh, 0x50), mesh->indexCounts[0]);
     uint8_t* into;
-    GameFunction<long(__thiscall*)(sVertexBuffer*, uint32_t, uint32_t, uint8_t**, uint32_t)>(0x004D4090)(
-        VertexBuffer(mesh, 0), 0, 0, &into, D3DLOCK_DISCARD);
+    VertexBuffer(mesh, 0)->Lock(0, 0, &into, D3DLOCK_DISCARD);
     const uint8_t* from = VertexBuffer(mesh, 0)->data;
     const float* pivot = mesh->billboard->pivot;
     float px = pivot[0], py = pivot[1], pz = pivot[2];
@@ -202,10 +204,11 @@ void DrawBillboardMesh(sMesh* mesh, const float* yAxis, const float* xAxis, cons
         into += rest;
         from += rest;
     }
-    GameFunction<void(__thiscall*)(sVertexBuffer*)>(0x004D40E0)(VertexBuffer(mesh, 0));
+    VertexBuffer(mesh, 0)->Unlock();
     Device()->SetStreamSource(0, *reinterpret_cast<IDirect3DVertexBuffer9**>(reinterpret_cast<uint8_t*>(VertexBuffer(mesh, 0)) + 8),
                               0, mesh->stride);
-    Device()->SetIndices(GameFunction<IDirect3DIndexBuffer9*(__thiscall*)(void*)>(0x00492E50)(mesh->indexBuffers[0]));
+    // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
+    Device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(mesh->indexBuffers[0]->buffer));
     DWORD format;
     Device()->GetFVF(&format);
     Device()->SetFVF(At<uint32_t>(mesh, 0x38));
@@ -214,8 +217,9 @@ void DrawBillboardMesh(sMesh* mesh, const float* yAxis, const float* xAxis, cons
         Device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertexCount, 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < *reinterpret_cast<uint32_t*>(mesh->material + 8); ++pass) {
-            GameFunction<void(__thiscall*)(uint8_t*, uint32_t, void*)>(0x004D24D0)(
-                mesh->material, pass, mesh->flags & 4 ? reinterpret_cast<uint8_t*>(mesh) + 0x80 : nullptr);
+            reinterpret_cast<sMaterial*>(mesh->material)
+                ->SubmitPass(pass, mesh->flags & 4 ? reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80)
+                                                   : nullptr);
             Device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertexCount, 0, primitives);
         }
     }
@@ -382,9 +386,9 @@ void sBillboardBatch::Render()
     if (!material)
         return;
     if (VertexShaders())
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x004D1F00)(material);
+        reinterpret_cast<sMaterial*>(material)->Submit();
     else
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x004D23E0)(material);
+        reinterpret_cast<sMaterial*>(material)->SubmitStates();
     for (int i = 0; i < 3; ++i) { // (the first shown list's first mesh's pixel shader)
         Mem::ListNode* first = lists[i]->next;
         if (IsHead(first) || !first)
@@ -562,7 +566,7 @@ sBillboardNode* sBillboardNode::DestroyHead(unsigned int freeFlags)
 void CPcWindow::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kWindowVtable);
-    GameFunction<void(__thiscall*)(void*)>(0x004A15B0)(this);
+    reinterpret_cast<CWindow2D*>(this)->DestroyBody();
 }
 
 // 0x004CD870
@@ -581,8 +585,7 @@ void __cdecl CreateWindowPool()
         void* memory = Mem::New(sizeof(CPcWindow));
         CPcWindow* window = nullptr;
         if (memory) {
-            window = static_cast<CPcWindow*>(
-                GameFunction<void*(__thiscall*)(void*, int, int, int, int)>(0x004A1580)(memory, 0, 0, 640, 480));
+            window = reinterpret_cast<CPcWindow*>(static_cast<CWindow2D*>(memory)->Construct(0, 0, 640, 480));
             window->vtable = reinterpret_cast<void**>(kWindowVtable);
         }
         window->next = GameVariable<CPcWindow*>(0x007013D0); // (no check, as the original)

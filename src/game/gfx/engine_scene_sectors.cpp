@@ -143,9 +143,15 @@ void PutSector(CScene* scene, CSector* sector)
 }
 
 // A geom's counts (the engine's CGeom calls: 0x0048DF70, the slot-33 dispatcher, 0x0049C6F0).
-int GeomCount70(void* geom) { return GameFunction<int(__thiscall*)(void*)>(0x0048DF70)(geom); }
+int GeomCount70(void* geom) // (slot 36, through the jump 0x0048DF70)
+{
+    return reinterpret_cast<int(__thiscall*)(void*)>((*static_cast<void***>(geom))[36])(geom);
+}
 int GeomSlot33(void* geom) { return reinterpret_cast<int(__thiscall*)(void*)>(&VirtualSlot33Jump)(geom); }
-int GeomCountC6F0(void* geom) { return GameFunction<int(__thiscall*)(void*)>(0x0049C6F0)(geom); }
+int GeomCountC6F0(void* geom) // (slot 35, through the jump 0x0049C6F0)
+{
+    return reinterpret_cast<int(__thiscall*)(void*)>((*static_cast<void***>(geom))[35])(geom);
+}
 
 } // namespace
 
@@ -303,7 +309,10 @@ bool CScene::AddCollisionData(const uint8_t* data, int flag)
         }
     }
     if (Script::GetInteger(0xBA1E4254))
-        GameFunction<void(__thiscall*)(void*)>(0x004A1090)(GameVariable<void*>(0x006FA7C8)); // the weather
+    {
+        void* weather = GameVariable<void*>(0x006FA7C8); // the weather (slot 1, through the jump 0x004A1090)
+        reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(weather))[1])(weather);
+    }
     return true;
 }
 

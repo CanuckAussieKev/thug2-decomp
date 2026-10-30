@@ -1,6 +1,7 @@
 // Blending animation poses (0x0047D420-0x0047DC31). See anim_blend.h.
 
 #include "game/gfx/anim_blend.h"
+#include "game/gfx/frame_source.h"
 
 #include <cmath>
 #include <cstring>
@@ -152,8 +153,7 @@ void __stdcall AddTimelineInfo(CAnimTimeline* timeline, Script::CStruct* info)
     info->AddFloat(kSpeed, timeline->m_speed);
     info->AddChecksum(kLoopType, (&GameVariable<uint32_t>(0x006486BC))[timeline->m_loopType]);
     float start, current, end;
-    GameFunction<void(__thiscall*)(CAnimTimeline*, float*, float*, float*)>(0x004813B0)(timeline, &start, &current,
-                                                                                       &end);
+    timeline->GetTimes(&start, &current, &end);
     info->AddFloat(kStartTime, start);
     info->AddFloat(kCurrentTime, current);
     info->AddFloat(kEndTime, end);
@@ -182,13 +182,13 @@ void CBlendChannel::BlendTo(uint32_t target, float period)
 // 0x0047D620
 float CBlendChannel::GetValue(uint32_t offset)
 {
-    return *GameFunction<float*(__cdecl*)(uint32_t, int)>(0x0048CF50)(m_key + offset, 0);
+    return *static_cast<float*>(Nx::GetAnimData(m_key + offset, 0));
 }
 
 // 0x0047D640
 bool CBlendChannel::HasValue(uint32_t offset)
 {
-    return GameFunction<void*(__cdecl*)(uint32_t, int)>(0x0048CF50)(m_key + offset, 0) != nullptr;
+    return Nx::GetAnimData(m_key + offset, 0) != nullptr;
 }
 
 // 0x0047D660

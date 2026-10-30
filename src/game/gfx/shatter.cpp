@@ -12,6 +12,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/texture_splats.h"
@@ -39,7 +41,7 @@ void* MeshPixelShader(const sMesh* mesh) { return *reinterpret_cast<void* const*
 // 0x004B8120
 CPcShatter* CPcShatter::Construct(int count, sMesh* sourceMesh, uint32_t own)
 {
-    GameFunction<void*(__thiscall*)(void*, int)>(0x004912C0)(this, count);
+    reinterpret_cast<CShatter*>(this)->CShatter::Construct(count);
     mesh = sourceMesh;
     vtable = reinterpret_cast<void**>(kShatterVtable);
     vertices = static_cast<uint8_t*>(Mem::New(3 * sourceMesh->stride * count));
@@ -47,7 +49,7 @@ CPcShatter* CPcShatter::Construct(int count, sMesh* sourceMesh, uint32_t own)
     positions = static_cast<float*>(Mem::New(12 * count));
     if (own) {
         void* memory = Mem::New(0x110);
-        material = memory ? GameFunction<uint8_t*(__thiscall*)(void*)>(0x004D1A90)(memory) : nullptr;
+        material = memory ? reinterpret_cast<uint8_t*>(static_cast<sMaterial*>(memory)->Construct()) : nullptr;
     } else {
         material = nullptr;
     }
@@ -60,12 +62,12 @@ void CPcShatter::DestroyBody()
     vtable = reinterpret_cast<void**>(kShatterVtable);
     Mem::Manager::Get()->Free(vertices);
     if (uint8_t* own = material) {
-        GameFunction<void(__thiscall*)(uint8_t*)>(0x004D2BD0)(own); // (the material's destructor body)
+        reinterpret_cast<sMaterial*>(own)->DestroyBody(); // (the material's destructor body)
         Mem::Manager::Get()->Free(own);
     }
     if (positions)
         Mem::Manager::Get()->Free(positions);
-    GameFunction<void(__thiscall*)(void*)>(0x00490E80)(this);
+    reinterpret_cast<CShatter*>(this)->CShatter::DestroyBody();
 }
 
 // 0x004B9A30
@@ -81,7 +83,7 @@ CPcShatter* CPcShatter::Destroy(unsigned int flags)
 void __cdecl DrawShatter(CPcShatter* shatter)
 {
     sMesh* mesh = shatter->mesh;
-    GameFunction<void(__thiscall*)(uint8_t*)>(0x004D1F00)(mesh->material); // (the material's set-up)
+    reinterpret_cast<sMaterial*>(mesh->material)->Submit(); // (the material's set-up)
     SetPixelShader(MeshPixelShader(mesh), mesh->material);
     SetVertexFormat(MeshVertexFormat(mesh));
     ++GameVariable<int>(0x00786EBC); // the frame's draw calls and triangles
@@ -126,13 +128,19 @@ constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u); // 0x0064930
 // The vertex stack the splitter works from (0x006FC4A0; not rewritten yet: pushed onto).
 void PushVertex(const uint8_t* vertex)
 {
-    GameFunction<void(__thiscall*)(void*, const uint8_t*)>(0x00490D50)(&GameVariable<uint8_t>(0x006FC4A0), vertex);
+    reinterpret_cast<sVertexStack*>(&GameVariable<uint8_t>(0x006FC4A0))->Push(vertex);
 }
-uint8_t* Lock(void* buffer, uint32_t address)
+uint8_t* LockVertices(sVertexBuffer* buffer)
 {
     uint8_t* data;
-    GameFunction<long(__thiscall*)(void*, uint32_t, uint32_t, uint8_t**, uint32_t)>(address)(buffer, 0, 0, &data, 0x10);
+    buffer->Lock(0, 0, &data, 0x10);
     return data;
+}
+uint8_t* LockIndices(sIndexBuffer* buffer)
+{
+    uint16_t* data;
+    buffer->Lock(0, 0, &data, 0x10);
+    return reinterpret_cast<uint8_t*>(data);
 }
 
 } // namespace
@@ -158,7 +166,7 @@ void __cdecl UpdateShatter(CPcShatter* shatter, float step)
         Turn(m, d0[0], d0[1], d0[2], r0);
         Turn(m, d1[0], d1[1], d1[2], r1);
         Turn(m, d2[0], d2[1], d2[2], r2);
-        GameFunction<void(__thiscall*)(CPcShatter*, int, float)>(0x004913D0)(shatter, i, step); // (the centre moved)
+        reinterpret_cast<CShatter*>(shatter)->CShatter::Step(i, step); // (the centre moved)
         const Mth::Vector& moved = shatter->centres[i];
         for (int k = 0; k < 3; ++k) {
             At(v0)[k] = static_cast<float>(static_cast<double>(r0[k]) + (&moved.x)[k]);
@@ -193,9 +201,9 @@ void __cdecl ShatterGeom(uint8_t* geom)
             continue;
         uint32_t stride = mesh->stride;
         GameVariable<uint32_t>(0x006FC4A4) = stride; // (the vertex stack's vertex size)
-        sVertexBuffer* vertexBuffer = GameFunction<sVertexBuffer*(__thiscall*)(sMesh*, int)>(0x004D3FC0)(mesh, 0);
-        uint8_t* vertices = Lock(vertexBuffer, 0x004D4090);
-        auto* indices = reinterpret_cast<uint16_t*>(Lock(mesh->indexBuffers[0], 0x004D42F0));
+        sVertexBuffer* vertexBuffer = mesh->GetVertexBuffer(0);
+        uint8_t* vertices = LockVertices(vertexBuffer);
+        auto* indices = reinterpret_cast<uint16_t*>(LockIndices(mesh->indexBuffers[0]));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
         int count = 0;
         uint32_t a = indices[0], b = indices[1];
@@ -298,9 +306,8 @@ void __cdecl ShatterGeom(uint8_t* geom)
             GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(
                 &rotation, &rotation, &turn);
         }
-        GameFunction<void(__thiscall*)(void*)>(0x004D4300)(mesh->indexBuffers[0]); // (unlocked)
-        GameFunction<void(__thiscall*)(sVertexBuffer*)>(0x004D40E0)(
-            GameFunction<sVertexBuffer*(__thiscall*)(sMesh*, int)>(0x004D3FC0)(mesh, 0));
+        mesh->indexBuffers[0]->Unlock(); // (unlocked)
+        mesh->GetVertexBuffer(0)->Unlock();
     }
 }
 

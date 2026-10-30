@@ -6,7 +6,9 @@
 #include "game/core/mem.h"
 #include "game/gfx/engine_texture.h"
 #include "game/gfx/model.h"
+#include "game/gfx/face_texture.h"
 #include "game/gfx/model_appearance.h"
+#include "game/gfx/model_utils.h"
 #include "game/gfx/skeleton.h"
 #include "game/gfx/texture_dict.h"
 #include "game/mth/matrix.h"
@@ -129,13 +131,13 @@ const uint32_t kReplacements[][3] = {
 };
 
 // Whether a face texture holds one (0x00487510, called through the game: the tests script it).
-bool FaceTextureIsValid(CFaceTexture* face) { return GameFunction<bool(__thiscall*)(CFaceTexture*)>(0x00487510)(face); }
+bool FaceTextureIsValid(CFaceTexture* face) { return face->IsValid(); }
 
 // The scale a structure gives (not rewritten yet, cdecl: its scale - one value or a vector - or its x / y / z),
 // into `scale`. Whether it had one.
 bool GetScale(Mth::Vector* scale, Script::CStruct* from)
 {
-    return GameFunction<bool(__cdecl*)(Mth::Vector*, Script::CStruct*)>(0x00487B00)(scale, from);
+    return GetScaleFromParams(scale, from);
 }
 bool GetScript(Script::CStruct* s, uint32_t name, Script::SStructScript* out, int assert)
 {

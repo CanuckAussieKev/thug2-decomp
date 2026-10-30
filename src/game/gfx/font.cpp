@@ -5,6 +5,7 @@
 
 #include "game/core/crc.h"
 #include "game/gfx/glyphs.h"
+#include "game/gfx/pc_font.h"
 #include "game/lst/hashtable.h"
 #include "game/script/params.h"
 #include "game/script/struct.h"
@@ -22,9 +23,9 @@ char* MetaButtonMap() { return &GameVariable<char>(0x006FA808); }
 bool& MetaButtonMapLoaded() { return GameVariable<bool>(0x006FA828); }
 
 // The loaded font named by this checksum, or null.
-CFont* FindFont(uint32_t checksum) { return GameFunction<CFont*(__cdecl*)(uint32_t)>(0x0048D760)(checksum); }
+CFont* FindFont(uint32_t checksum) { return GetFont(checksum); }
 // Load a font file (fonts\<name>.fnt...).
-CFont* LoadFontFile(const char* name) { return GameFunction<CFont*(__cdecl*)(const char*)>(0x004B40A0)(name); }
+CFont* LoadFontFile(const char* name) { return reinterpret_cast<CFont*>(CreatePcFont(name)); }
 
 // Nx::CFont's setters (each calls the platform font's virtual).
 void SetSpacings(CFont* font, int charSpacing, int spaceSpacing)
@@ -36,11 +37,13 @@ void SetSpacings(CFont* font, int charSpacing, int spaceSpacing)
 }
 void SetColorTable(CFont* font, uint32_t* colors)
 {
-    GameFunction<void(__thiscall*)(CFont*, uint32_t*)>(0x004A10A0)(font, colors);
+    // (slot 3, through the jump 0x004A10A0)
+    reinterpret_cast<void(__thiscall*)(CFont*, uint32_t*)>((*reinterpret_cast<void***>(font))[3])(font, colors);
 }
 void MarkAsButtonFont(CFont* font, bool buttonFont)
 {
-    GameFunction<void(__thiscall*)(CFont*, bool)>(0x00487D50)(font, buttonFont);
+    // (slot 4, through the jump 0x00487D50)
+    reinterpret_cast<void(__thiscall*)(CFont*, bool)>((*reinterpret_cast<void***>(font))[4])(font, buttonFont);
 }
 
 // Calls to the empty 0x005480A0 (compiled-out debug output).

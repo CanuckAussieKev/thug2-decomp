@@ -5,6 +5,8 @@
 #include <cmath>
 
 #include "game/core/manager.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -19,11 +21,12 @@ void* GeomOf(const sModelGeomNode* node) { return *node->entry; }
 // The engine's CGeom calls (jumps through the geom's vtable).
 Mth::Vector* GetGeomBoundingSphere(void* geom, Mth::Vector* out)
 {
-    return GameFunction<Mth::Vector*(__thiscall*)(void*, Mth::Vector*)>(0x0048DE90)(geom, out);
+    return static_cast<CGeom*>(geom)->GetBoundingSphere(out);
 }
 void SetGeomBoundingSphere(void* geom, const Mth::Vector* sphere)
 {
-    GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x0048DEB0)(geom, sphere);
+    // (slot 16, through the jump 0x0048DEB0)
+    reinterpret_cast<void(__thiscall*)(void*, const Mth::Vector*)>((*static_cast<void***>(geom))[16])(geom, sphere);
 }
 
 } // namespace
@@ -31,7 +34,7 @@ void SetGeomBoundingSphere(void* geom, const Mth::Vector* sphere)
 // 0x004BAD90
 CPcModel* CPcModel::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x00494C40)(this);
+    reinterpret_cast<CModel*>(this)->CModel::Construct();
     vtable = reinterpret_cast<void**>(kModelVtable);
     unknown4C = 0;
     return this;
@@ -41,7 +44,7 @@ CPcModel* CPcModel::Construct()
 void CPcModel::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kModelVtable);
-    GameFunction<void(__thiscall*)(void*)>(0x00494D00)(this);
+    reinterpret_cast<CModel*>(this)->CModel::DestroyBody();
 }
 
 // 0x004BADC0

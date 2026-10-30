@@ -3,6 +3,7 @@
 // (0x00481380-0x004819E6, but 0x004817D0). From the disassembly.
 
 #include "game/gfx/anim_track.h"
+#include "game/gfx/custom_anim_key.h"
 
 #include "game/core/alloc.h"
 #include "game/core/mem.h"
@@ -275,7 +276,7 @@ bool CAnimTrack::IsFading()
 void CAnimTrack::ArmEvents()
 {
     for (uint32_t i = 0; i < m_eventCount; ++i)
-        GameFunction<void(__thiscall*)(CAnimEvent*, bool)>(0x00486150)(&mp_events[i], true); // (CCustomAnimKey::SetActive)
+        reinterpret_cast<CCustomAnimKey*>(&mp_events[i])->SetActive(true);
 }
 
 // 0x004819D0

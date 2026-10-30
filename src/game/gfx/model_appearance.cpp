@@ -7,7 +7,9 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/face_texture.h"
 #include "game/script/cscript.h"
+#include "game/skate/cas_options.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "hook/game.h"
@@ -60,28 +62,28 @@ const uint32_t kTattoos[] = {
 // it (made with `randomSet`); the option at `index`.
 Script::CStruct* CasOption(uint32_t part, uint32_t descId, bool assert)
 {
-    return GameFunction<Script::CStruct*(__cdecl*)(uint32_t, uint32_t, bool)>(0x00485CF0)(part, descId, assert);
+    return Obj::FindCasOption(part, descId, assert);
 }
 Script::CStruct* RandomCasOption(uint32_t part, uint32_t randomSet)
 {
-    return GameFunction<Script::CStruct*(__cdecl*)(uint32_t, uint32_t)>(0x00485E20)(part, randomSet);
+    return Obj::PickRandomCasOption(part, randomSet);
 }
 Script::CStruct* CasOptionAt(uint32_t part, int index, uint32_t randomSet)
 {
-    return GameFunction<Script::CStruct*(__cdecl*)(uint32_t, int, uint32_t)>(0x00485FC0)(part, index, randomSet);
+    return Obj::GetCasOptionByIndex(part, index, randomSet);
 }
 
 // A face texture constructed (0x004875C0, returns this).
 // Whether a face texture holds one (0x00487510) / set so (0x00487520) - called through the game (the tests script them).
-bool FaceTextureIsValid(CFaceTexture* face) { return GameFunction<bool(__thiscall*)(CFaceTexture*)>(0x00487510)(face); }
+bool FaceTextureIsValid(CFaceTexture* face) { return face->IsValid(); }
 void SetFaceTextureValid(CFaceTexture* face, bool valid)
 {
-    GameFunction<void(__thiscall*)(CFaceTexture*, bool)>(0x00487520)(face, valid);
+    face->SetValid(valid);
 }
 
 CFaceTexture* ConstructFaceTexture(void* memory)
 {
-    return GameFunction<CFaceTexture*(__thiscall*)(void*)>(0x004875C0)(memory);
+    return static_cast<CFaceTexture*>(memory)->Construct();
 }
 
 // A temporary structure (from the structure pool; null if there's no memory) / cleared and given back.

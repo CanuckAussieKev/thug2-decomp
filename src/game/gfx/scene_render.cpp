@@ -9,7 +9,10 @@
 #include <cstdint>
 
 #include "game/gfx/device.h"
+#include "game/gfx/material.h"
+#include "game/gfx/mesh.h"
 #include "game/gfx/occlusion.h"
+#include "game/gfx/pc_billboards.h"
 #include "game/gfx/shadow.h"
 #include "game/gfx/view_mode.h"
 #include "hook/game.h"
@@ -36,10 +39,10 @@ SortedMesh* Sorted() { return &GameVariable<SortedMesh>(0x007B7640); }
 // A mesh's fields and calls (not rewritten yet; thiscall).
 uint32_t MeshFlags(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
 uint8_t* MeshMaterial(const uint8_t* mesh) { return *reinterpret_cast<uint8_t* const*>(mesh + 0x14); }
-void SetMaterial(uint8_t* material) { GameFunction<void(__thiscall*)(void*)>(0x004D1F00)(material); }
-void DrawMesh(uint8_t* mesh) { GameFunction<void(__thiscall*)(void*)>(0x004D5290)(mesh); }
+void SetMaterial(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->Submit(); }
+void DrawMesh(uint8_t* mesh) { reinterpret_cast<sMesh*>(mesh)->Render(); }
 // The render statistics (0x00775B80; thiscall).
-void CountPass(int which) { GameFunction<void(__thiscall*)(void*, int)>(0x004CEAB0)(reinterpret_cast<void*>(0x00775B80), which); }
+void CountPass(int which) { reinterpret_cast<sBillboardManager*>(0x00775B80)->Render(which); }
 
 // The game's qsort (equal entries keep the game's order).
 void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))

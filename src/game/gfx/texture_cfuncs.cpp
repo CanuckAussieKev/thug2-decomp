@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "game/core/dbg.h"
+#include "game/gfx/texture_dict.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -34,27 +35,27 @@ void* ParticleTextures() { return GameVariable<void*>(0x00700F20); }
 // A dictionary's calls (no source yet).
 void* LoadTextureFile(void* dictionary, const char* file, bool flag1, bool allocateVram, bool flag3)
 {
-    return GameFunction<void*(__thiscall*)(void*, const char*, bool, bool, bool)>(0x0049F9B0)(dictionary, file, flag1,
-                                                                                             allocateVram, flag3);
+    return static_cast<Nx::CTexDict*>(dictionary)->LoadTexture(file, flag1, allocateVram, flag3);
 }
 void* GetTexture(void* dictionary, uint32_t checksum)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(dictionary, checksum);
+    return static_cast<Nx::CTexDict*>(dictionary)->GetTexture(checksum);
 }
 void* GetTextureByName(void* dictionary, const char* file)
 {
-    return GameFunction<void*(__thiscall*)(void*, const char*)>(0x0049F560)(dictionary, file);
+    return static_cast<Nx::CTexDict*>(dictionary)->GetTextureByName(file);
 }
 void UnloadTextureFrom(void* dictionary, void* texture)
 {
-    GameFunction<bool(__thiscall*)(void*, void*)>(0x0049F500)(dictionary, texture);
+    static_cast<Nx::CTexDict*>(dictionary)->UnloadTexture(static_cast<Nx::CTexture*>(texture));
 }
 
 // A texture's own calls (thunks into its vtable).
 template <typename Fn, typename... Args>
-void TextureCall(uint32_t thunk, void* texture, Args... args)
+void TextureCall(uint32_t slot, void* texture, Args... args)
 {
-    GameFunction<Fn>(thunk)(texture, args...);
+    // (the texture's virtual slot `slot`: the original goes through a jump stub for each)
+    reinterpret_cast<Fn>((*static_cast<void***>(texture))[slot])(texture, args...);
 }
 
 // A component's raw value.
@@ -172,8 +173,8 @@ bool __cdecl CFunc_CreateTexture(CStruct* params, CScript*)
         return false;
     if (!valid)
         return false;
-    return GameFunction<void*(__thiscall*)(void*, uint32_t, int, int, int, int, bool, bool)>(0x0049FAA0)(
-               Textures(), name, width, height, bitDepth, paletteBitDepth, true, true) != nullptr;
+    return static_cast<Nx::CTexDict*>(Textures())->CreateTexture(name, width, height, bitDepth, paletteBitDepth, 1, true) !=
+           nullptr;
 }
 
 // 0x005AA040
@@ -208,7 +209,7 @@ bool __cdecl CFunc_Generate32BitImage(CStruct* params, CScript*)
             renderable = true;
         if (params->GetInteger(0xEEFAF080u, &value, 0) && value == 1) // store_original
             storeOriginal = true;
-        TextureCall<void(__thiscall*)(void*, bool, bool)>(0x0048D060, texture, renderable, storeOriginal);
+        TextureCall<void(__thiscall*)(void*, bool, bool)>(8, texture, renderable, storeOriginal);
     }
     return true;
 }
@@ -225,7 +226,7 @@ bool __cdecl CFunc_Put32BitImageIntoTexture(CStruct* params, CScript*)
         params->GetInteger(0xC313FDFFu, &value, 0); // palette_gen
         if (value == 1)
             paletteGen = true;
-        TextureCall<void(__thiscall*)(void*, bool, bool)>(0x0048DE30, texture, paletteGen, false);
+        TextureCall<void(__thiscall*)(void*, bool, bool)>(9, texture, paletteGen, false);
     }
     return true;
 }
@@ -242,9 +243,9 @@ bool __cdecl CFunc_FlipTexture(CStruct* params, CScript*)
         params->GetInteger(0xA04027C9u, &horizontal, 0); // horiz
         params->GetInteger(0x94927839u, &vertical, 0);   // vert
         if (horizontal)
-            TextureCall<void(__thiscall*)(void*)>(0x0048DE60, texture);
+            TextureCall<void(__thiscall*)(void*)>(13, texture);
         if (vertical)
-            TextureCall<void(__thiscall*)(void*)>(0x0048DE70, texture);
+            TextureCall<void(__thiscall*)(void*)>(14, texture);
     }
     return true;
 }
@@ -259,7 +260,7 @@ bool __cdecl CFunc_ResizeTextureInto(CStruct* params, CScript*)
     void* texture = GetTexture(Textures(), id);
     if (texture) {
         if (void* sourceTexture = GetTexture(Textures(), source))
-            TextureCall<void(__thiscall*)(void*, void*, int)>(0x0048DE80, texture, sourceTexture, 0);
+            TextureCall<void(__thiscall*)(void*, void*, int)>(15, texture, sourceTexture, 0);
     }
     return true;
 }
@@ -272,7 +273,7 @@ bool __cdecl CFunc_ScaleTexture(CStruct* params, CScript*)
     float scale; // (not initialised without scale=, as in the original)
     params->GetFloat(0x13B9DA7Bu, &scale, 0);
     if (void* texture = GetTexture(Textures(), id))
-        TextureCall<void(__thiscall*)(void*, float, float)>(0x0048DEB0, texture, scale, scale);
+        TextureCall<void(__thiscall*)(void*, float, float)>(16, texture, scale, scale);
     return true;
 }
 
@@ -285,8 +286,10 @@ bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
     if (texture) {
         int x = 0;
         int y = 0;
-        int width = GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3C0)(texture);  // its width
-        int height = GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3D0)(texture); // its height
+        // (its width and height: slots 33 and 34, through the jumps 0x0049F3C0 / 0x0049F3D0)
+        auto** slots = *static_cast<void***>(texture);
+        int width = reinterpret_cast<uint16_t(__thiscall*)(void*)>(slots[33])(texture);
+        int height = reinterpret_cast<uint16_t(__thiscall*)(void*)>(slots[34])(texture);
         int value5 = 0;
         int value6 = 0;
         int value7 = 0;
@@ -297,7 +300,7 @@ bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
         params->GetInteger(0xE679982Eu, &value5, 0); // (names unknown)
         params->GetInteger(0x3D0F162Au, &value6, 0);
         params->GetInteger(0x39C54BDEu, &value7, 0);
-        TextureCall<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(0x0048DEE0, texture, x, y, width,
+        TextureCall<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(20, texture, x, y, width,
                                                                                  height, value5, value6, value7);
     }
     return true;
@@ -316,7 +319,7 @@ bool __cdecl CFunc_PullTextureToEdge(CStruct* params, CScript*)
         params->GetInteger(0x485A0CDBu, &edge, 0);   // (name unknown)
         params->GetInteger(0x7AF07905u, &axis, 0);   // Axis
         params->GetInteger(0x88CF948Cu, &pixels, 0); // num_pixels
-        TextureCall<void(__thiscall*)(void*, int, int, int)>(0x0049F370, texture, edge, axis, pixels);
+        TextureCall<void(__thiscall*)(void*, int, int, int)>(21, texture, edge, axis, pixels);
     }
     return true;
 }
@@ -335,7 +338,7 @@ bool __cdecl CFunc_AdjustTextureBrightness(CStruct* params, CScript*)
         params->GetInteger(kSetsPaletteFlag, &value, 0);
         if (value == 1)
             flag = true;
-        TextureCall<void(__thiscall*)(void*, float, bool)>(0x0049F380, texture, brightness, flag);
+        TextureCall<void(__thiscall*)(void*, float, bool)>(23, texture, brightness, flag);
     }
     return true;
 }
@@ -358,9 +361,9 @@ bool __cdecl CFunc_AdjustTextureHSV(CStruct* params, CScript*)
         params->GetInteger(kSetsPaletteFlag, &flagValue, 0);
         if (flagValue == 1)
             flag = true;
-        TextureCall<void(__thiscall*)(void*, float, float, float, bool)>(0x0049F390, texture, hue, saturation, value,
+        TextureCall<void(__thiscall*)(void*, float, float, float, bool)>(24, texture, hue, saturation, value,
                                                                          flag);
-        TextureCall<void(__thiscall*)(void*, bool, bool)>(0x0048DE30, texture, false, false);
+        TextureCall<void(__thiscall*)(void*, bool, bool)>(9, texture, false, false);
     }
     return true;
 }
@@ -373,7 +376,7 @@ bool __cdecl CFunc_CopyTexture(CStruct* params, CScript*)
     void* texture = GetTexture(Textures(), source);
     uint32_t copy;
     if (texture && params->GetChecksum(kNew, &copy, 0))
-        GameFunction<void*(__thiscall*)(void*, uint32_t, void*)>(0x0049FBE0)(Textures(), copy, texture);
+        static_cast<Nx::CTexDict*>(Textures())->CopyTexture(copy, static_cast<Nx::CTexture*>(texture));
     return true;
 }
 
@@ -397,11 +400,11 @@ bool __cdecl CFunc_CombineTextures(CStruct* params, CScript*)
         return true;
     if (combined) {
         // a new texture of the two
-        GameFunction<void*(__thiscall*)(void*, uint32_t, void*, void*, bool)>(0x0049FC20)(
-            Textures(), combined, sourceTexture, topTexture, paletteGen);
+        static_cast<Nx::CTexDict*>(Textures())->CopyTextureWithOverlay(
+            combined, static_cast<Nx::CTexture*>(sourceTexture), static_cast<Nx::CTexture*>(topTexture), paletteGen);
         return true;
     }
-    TextureCall<void(__thiscall*)(void*, void*, bool)>(0x0049F420, sourceTexture, topTexture, paletteGen);
+    TextureCall<void(__thiscall*)(void*, void*, bool)>(41, sourceTexture, topTexture, paletteGen);
     return true;
 }
 
@@ -425,7 +428,7 @@ bool __cdecl CFunc_UnloadParticleTexture(CStruct* params, CScript*)
     const char* file;
     params->GetString(0u, &file, 0);
     if (void* texture = GetTextureByName(ParticleTextures(), file)) {
-        TextureCall<void(__thiscall*)(void*)>(0x0049F3B0, texture); // (its vtable +0x80 first)
+        TextureCall<void(__thiscall*)(void*)>(32, texture); // (its vtable +0x80 first)
         UnloadTextureFrom(ParticleTextures(), texture);
     }
     return true;

@@ -9,6 +9,8 @@
 #include "game/core/mem.h"
 #include "game/core/str.h"
 #include "game/file/file.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_mesh.h"
 #include "game/gfx/mesh_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -19,7 +21,7 @@ namespace {
 
 constexpr uint32_t kPcMeshVtable = 0x0064A490;
 
-void ConstructBase(CPcMesh* mesh) { GameFunction<void*(__thiscall*)(void*)>(0x00490A60)(mesh); }
+void ConstructBase(CPcMesh* mesh) { reinterpret_cast<CMesh*>(mesh)->CMesh::Construct(); }
 
 sStripBreak* NewBreaks(uint32_t count) { return static_cast<sStripBreak*>(Mem::New(count * sizeof(sStripBreak))); }
 // (the C runtime's qsort; the original's is the game's, 0x006242A0)
@@ -74,8 +76,8 @@ void CPcMesh::DestroyBody()
     if (breaks)
         Mem::Manager::Get()->Free(breaks);
     if (scene)
-        GameFunction<void(__cdecl*)(uint8_t*, int)>(0x0048C690)(scene, 1); // (the engine's UnloadScene)
-    GameFunction<void(__thiscall*)(void*)>(0x00490B60)(this);
+        Engine::UnloadScene(reinterpret_cast<CScene*>(scene), 1); // (the engine's UnloadScene)
+    reinterpret_cast<CMesh*>(this)->CMesh::DestroyBody();
 }
 
 // 0x004B7F00
