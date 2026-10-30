@@ -5,6 +5,10 @@
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_texture.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/nx/coll_static.h"
+#include "game/nx/coll_tri.h"
 #include "game/nx/coll_obj.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -15,18 +19,16 @@ namespace {
 
 // The engine's CGeom calls (each a jump through the geom's vtable; not rewritten yet).
 template <typename R, typename... A>
-R GeomCall(uint32_t address, void* geom, A... args)
+R GeomCall(uint32_t slot, void* geom, A... args)
 {
-    return GameFunction<R(__thiscall*)(void*, A...)>(address)(geom, args...);
+    // (the geom's virtual slot `slot`: the original goes through a jump stub for each)
+    return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(geom))[slot])(geom, args...);
 }
-const Mth::Vector* GeomWorldPosition(void* geom) { return GeomCall<const Mth::Vector*>(0x0048DED0, geom); }
-void SetGeomCollTriData(void* geom, CCollObjTriData* faces) { GeomCall<void>(0x0048DF10, geom, faces); }
+const Mth::Vector* GeomWorldPosition(void* geom) { return GeomCall<const Mth::Vector*>(19, geom); }
+void SetGeomCollTriData(void* geom, CCollObjTriData* faces) { static_cast<CGeom*>(geom)->SetCollTriData(faces); }
 
 // The collision object's flag byte (+8): 2 not collided with, 4 inactive, 0x80 an occluder.
 uint8_t& CollFlags(CCollObj* coll) { return *reinterpret_cast<uint8_t*>(&coll->m_flags); }
-
-// A new sector name (0x0048CA80).
-uint32_t NewSectorName() { return GameFunction<uint32_t(__cdecl*)()>(0x0048CA80)(); }
 
 constexpr uint32_t kDefaultTerrain = 0xE3714DC1;
 constexpr uint32_t kSectorVtable = 0x00649A40;
@@ -91,7 +93,7 @@ CSector* CSector::Clone(int instance, bool flag, void* scene)
     clone->m_flags = m_flags | kSectorClone;
     clone->m_rotY = m_rotY;
     if (mp_geom)
-        clone->mp_geom = GeomCall<void*>(0x0048DD80, mp_geom, instance, scene);
+        clone->mp_geom = static_cast<CGeom*>(mp_geom)->Clone(instance, scene);
     if (!mp_collObj)
         return clone;
     auto* coll = mp_collObj->Call<CCollObj*>(12, instance);
@@ -139,14 +141,14 @@ void CSector::ClearFlags(uint32_t flags) { m_flags &= ~flags; }
 void CSector::ClearColor()
 {
     if (mp_geom)
-        GeomCall<void>(0x0048D060, mp_geom);
+        GeomCall<void>(8, mp_geom);
 }
 
 // 0x0049E980
 uint8_t* CSector::GetColor(uint8_t* out)
 {
     if (mp_geom) {
-        GeomCall<void*>(0x0048DE10, mp_geom, out);
+        static_cast<CGeom*>(mp_geom)->GetColor(reinterpret_cast<uint32_t*>(out));
         return out;
     }
     out[0] = 0;
@@ -160,11 +162,11 @@ uint8_t* CSector::GetColor(uint8_t* out)
 void CSector::SetVisibility(uint32_t mask)
 {
     if (mp_geom)
-        GeomCall<void>(0x0048DE40, mp_geom, mask);
+        GeomCall<void>(11, mp_geom, mask);
 }
 
 // 0x0049E690
-uint32_t CSector::GetVisibility() { return mp_geom ? GeomCall<uint32_t>(0x0048DE50, mp_geom) : 0; }
+uint32_t CSector::GetVisibility() { return mp_geom ? GeomCall<uint32_t>(12, mp_geom) : 0; }
 
 // 0x0049E9B0
 void CSector::SetActive(bool active)
@@ -176,14 +178,14 @@ void CSector::SetActive(bool active)
             CollFlags(mp_collObj) |= 4;
     }
     if (mp_geom)
-        GeomCall<void>(0x0048DE60, mp_geom, active);
+        GeomCall<void>(13, mp_geom, active);
 }
 
 // 0x0049E9E0 (no geometry and no collision: the original reads through null)
 bool CSector::IsActive()
 {
     if (mp_geom)
-        return GeomCall<bool>(0x0048DE70, mp_geom);
+        return GeomCall<bool>(14, mp_geom);
     return !(CollFlags(mp_collObj) & 4);
 }
 
@@ -213,7 +215,7 @@ void CSector::SetOccluder(bool occluder)
     }
     if (!(CollFlags(mp_collObj) & 0x80)) {
         mp_collObj->m_flags |= 0x80;
-        GameFunction<void(__thiscall*)(CCollObj*)>(0x0040AEB0)(mp_collObj); // its occlusion polygons added
+        static_cast<CollGeometryForwarders*>(mp_collObj)->AddOcclusionPolys(); // its occlusion polygons added
     }
 }
 
@@ -221,7 +223,7 @@ void CSector::SetOccluder(bool occluder)
 const Mth::BBox* CSector::GetBoundingBox()
 {
     if (mp_geom)
-        return GeomCall<const Mth::BBox*>(0x0048DE80, mp_geom);
+        return GeomCall<const Mth::BBox*>(15, mp_geom);
     return mp_collObj->Call<const Mth::BBox*>(21);
 }
 
@@ -237,7 +239,7 @@ void CSector::SetWorldPosition(const Mth::Vector* position)
             m_flags |= kSectorMoved;
     }
     if (mp_geom)
-        GeomCall<void>(0x0048DEC0, mp_geom, position);
+        GeomCall<void>(18, mp_geom, position);
 }
 
 // 0x0049E700
@@ -249,7 +251,7 @@ void CSector::SetOrientation(const Mth::Matrix* orientation)
             m_flags |= kSectorMoved;
     }
     if (mp_geom)
-        GeomCall<void>(0x0048DEE0, mp_geom, orientation);
+        GeomCall<void>(20, mp_geom, orientation);
 }
 
 // 0x0049E760 (the difference's remainder as C's: (turns - m_rotY + 4) % 4 may be negative)
@@ -261,7 +263,7 @@ void CSector::SetYRotation(int turns)
         mp_collObj->Call<void>(22, about, delta);
     }
     if (mp_geom)
-        GeomCall<void>(0x0048DEF0, mp_geom, delta);
+        GeomCall<void>(22, mp_geom, delta);
     m_rotY = turns;
 }
 
@@ -275,7 +277,7 @@ void CSector::SetScale(const Mth::Vector* scale)
             m_flags |= kSectorMoved;
     }
     if (mp_geom)
-        GeomCall<void>(0x0048DF00, mp_geom, scale);
+        GeomCall<void>(25, mp_geom, scale);
 }
 
 // 0x0049EA00
@@ -284,7 +286,7 @@ void CSector::SetRawVertices(const Mth::Vector* vertices)
     if (!mp_collObj || !mp_collObj->m_geometry)
         return;
     // CCollObjTriData: every vertex set (0x00415C10)
-    GameFunction<void(__thiscall*)(CCollObjTriData*, const Mth::Vector*)>(0x00415C10)(mp_collObj->m_geometry, vertices);
+    mp_collObj->m_geometry->SetRawVertices(vertices);
     if (m_flags & kSectorInGrid)
         m_flags |= kSectorMoved;
 }
@@ -302,42 +304,42 @@ void CSector::SetUVWibbleParams(float uVel, float uAmp, float uFreq, float uPhas
                                 float vPhase)
 {
     if (mp_geom)
-        GeomCall<void>(0x0048DFB0, mp_geom, uVel, uAmp, uFreq, uPhase, vVel, vAmp, vFreq, vPhase);
+        GeomCall<void>(42, mp_geom, uVel, uAmp, uFreq, uPhase, vVel, vAmp, vFreq, vPhase);
 }
 
 // 0x0049E840
 void CSector::UseExplicitUVWibble(bool on)
 {
     if (mp_geom)
-        GeomCall<void>(0x0048DFC0, mp_geom, on);
+        GeomCall<void>(43, mp_geom, on);
 }
 
 // 0x0049E850
 void CSector::SetUVWibbleOffsets(float u, float v)
 {
     if (mp_geom)
-        GeomCall<void>(0x0048DFD0, mp_geom, u, v);
+        GeomCall<void>(45, mp_geom, u, v);
 }
 
 // 0x0049E860
 void CSector::ResetTextureAnim()
 {
     if (mp_geom)
-        GeomCall<void>(0x0048E010, mp_geom);
+        GeomCall<void>(48, mp_geom);
 }
 
 // 0x0049E870
 void CSector::StartTextureAnim(bool reset)
 {
     if (mp_geom)
-        GeomCall<void>(0x0048E020, mp_geom, reset);
+        GeomCall<void>(49, mp_geom, reset);
 }
 
 // 0x0049E880
 void CSector::StopTextureAnim()
 {
     if (mp_geom)
-        GeomCall<void>(0x0048E030, mp_geom);
+        GeomCall<void>(50, mp_geom);
 }
 
 } // namespace Nx

@@ -14,6 +14,7 @@
 
 #include "game/core/stubs.h"
 #include "game/gfx/graphics_options.h"
+#include "game/gfx/pc_gamma.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
 #include "game/sys/platform_d3d.h"
@@ -307,7 +308,7 @@ void __cdecl LoadGamma()
         RegQueryValueExA(key, "B", nullptr, nullptr, reinterpret_cast<BYTE*>(&blue), &size);
         // (the key is left open)
     }
-    GameFunction<void(__cdecl*)(float, float, float)>(0x004D07B0)(red, green, blue); // the gamma ramp
+    Nx::SetDeviceGamma(red, green, blue); // the gamma ramp
 }
 
 // 0x004D89C0

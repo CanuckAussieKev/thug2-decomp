@@ -1,6 +1,7 @@
 // The engine's viewports seen as a list (see viewport_list.h).
 
 #include "game/gfx/viewport_list.h"
+#include "game/gfx/viewport.h"
 
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -38,7 +39,7 @@ bool __cdecl MarkCameraForDeletion(Gfx::Camera* camera)
     for (int i = 0; i < 10; ++i) {
         CViewport* viewport = Viewport(i);
         // (CViewport::MarkCameraForDeletion)
-        if (viewport && GameFunction<bool(__thiscall*)(CViewport*, Gfx::Camera*)>(0x004A0D50)(viewport, camera))
+        if (viewport && viewport->MarkCameraForDeletion(camera))
             return true;
     }
     return false;

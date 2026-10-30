@@ -12,7 +12,14 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/file/file.h"
+#include "game/ass/asset.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_scene.h"
 #include "game/gfx/geom.h"
+#include "game/gfx/pc_billboards.h"
+#include "game/gfx/pc_grass.h"
+#include "game/gfx/screen_effects.h"
+#include "game/gfx/sector.h"
 #include "game/gfx/mesh.h"
 #include "game/gfx/mesh_list.h"
 #include "game/lst/hashtable.h"
@@ -24,7 +31,7 @@ namespace Nx {
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-CPcGeom* GeometryOf(void* sector) { return GameFunction<CPcGeom*(__thiscall*)(void*)>(0x004A2BA0)(sector); }
+CPcGeom* GeometryOf(void* sector) { return static_cast<CPcGeom*>(static_cast<CPcSector*>(sector)->geom); } // (+0x14: the getter 0x004A2BA0, folded with others)
 
 // The first sector of a fresh iteration of the table (null if none).
 void* FirstSector(Lst::HashTable* table)
@@ -49,7 +56,7 @@ void* NextSector(Lst::HashTable* table)
 // 0x004C6550
 CPcSector* CPcSector::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x0049E900)(this);
+    reinterpret_cast<CSector*>(this)->CSector::Construct();
     vtable = reinterpret_cast<void**>(0x0064A718);
     unknown20[0] = unknown20[1] = unknown20[2] = 0.0f;
     unknown2C = 1.0f;
@@ -57,7 +64,7 @@ CPcSector* CPcSector::Construct()
 }
 
 // 0x004C65B0
-void CPcSector::DestroyBody() { GameFunction<void(__thiscall*)(void*)>(0x0049E630)(this); }
+void CPcSector::DestroyBody() { reinterpret_cast<CSector*>(this)->CSector::DestroyBody(); }
 
 // 0x004C6580
 CPcSector* CPcSector::Destroy(unsigned int freeFlags)
@@ -72,7 +79,7 @@ CPcSector* CPcSector::Destroy(unsigned int freeFlags)
 void CPcSector::SetActive(bool on)
 {
     if (on && geom)
-        GameFunction<void(__cdecl*)(void*)>(0x00490DC0)(geom);
+        Engine::ShatterGeom(geom);
 }
 
 // 0x004C65C0
@@ -99,13 +106,13 @@ const Mth::BBox* CPcSector::GetBoundingBox()
 // 0x004C6130
 CPcScene* CPcScene::Construct(int arg)
 {
-    GameFunction<void*(__thiscall*)(void*, int)>(0x0049D390)(this, arg);
+    reinterpret_cast<CScene*>(this)->CScene::Construct(arg);
     vtable = reinterpret_cast<void**>(0x0064A6B8);
     return this;
 }
 
 // 0x004C6180
-void CPcScene::DestroyBody() { GameFunction<void(__thiscall*)(void*)>(0x0049DD10)(this); }
+void CPcScene::DestroyBody() { reinterpret_cast<CScene*>(this)->CScene::DestroyBody(); }
 
 // 0x004C6150
 CPcScene* CPcScene::Destroy(unsigned int flags)
@@ -164,7 +171,7 @@ void CPcScene::PostLoad(sVertexArena* arena)
 // 0x004C6480
 CPcScreenEffects* CPcScreenEffects::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x0049E2F0)(this);
+    reinterpret_cast<CScreenEffects*>(this)->CScreenEffects::Construct();
     vtable = reinterpret_cast<void**>(0x0064A6E4);
     return this;
 }
@@ -173,7 +180,7 @@ CPcScreenEffects* CPcScreenEffects::Construct()
 void CPcScreenEffects::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(0x0064A6E4);
-    GameFunction<void(__thiscall*)(void*)>(0x0049E300)(this);
+    reinterpret_cast<CScreenEffects*>(this)->CScreenEffects::DestroyBody();
 }
 
 // 0x004C64B0
@@ -213,17 +220,17 @@ namespace {
 // The engine and mesh code the loaders go through.
 void SetSectorChecksum(CPcSector* sector, uint32_t checksum)
 {
-    GameFunction<void(__thiscall*)(CPcSector*, uint32_t)>(0x00407700)(sector, checksum); // (folded with CAsset's)
+    reinterpret_cast<Ass::CAsset*>(sector)->SetChecksum(checksum); // (folded with CAsset's)
 }
 sMesh* NewMesh()
 {
     void* memory = Mem::New(sizeof(sMesh));
-    return memory ? GameFunction<sMesh*(__thiscall*)(void*)>(0x004D4BE0)(memory) : nullptr; // (its constructor)
+    return memory ? static_cast<sMesh*>(memory)->Construct() : nullptr; // (its constructor)
 }
 void SetMeshSphereAndBox(sMesh* mesh, const float* centre, float radius, const Mth::Vector* min, const Mth::Vector* max)
 {
-    GameFunction<void(__thiscall*)(sMesh*, const float*, float, const Mth::Vector*, const Mth::Vector*)>(0x004D5900)(
-        mesh, centre, radius, min, max);
+    mesh->SetBoundingSphere(centre, radius, static_cast<int>(reinterpret_cast<intptr_t>(min)),
+                            static_cast<int>(reinterpret_cast<intptr_t>(max)));
 }
 // The rest of a mesh's set-up, the same for both loaders: the scene's box grown, a billboard made, the mesh added.
 void FinishMesh(CPcSector* sector, CPcGeom* geom, sMesh* mesh, uint32_t billboardType,
@@ -235,13 +242,13 @@ void FinishMesh(CPcSector* sector, CPcGeom* geom, sMesh* mesh, uint32_t billboar
     bounds->AddPoint(*max);
     if (sector->flags & 0x800000) {
         mesh->MakeBillboard(static_cast<int>(billboardType), pivot, axis);
-        GameFunction<void(__thiscall*)(void*, sMesh*)>(0x004CEBE0)(&GameVariable<uint8_t>(0x00775B80), mesh);
+        reinterpret_cast<sBillboardManager*>(&GameVariable<uint8_t>(0x00775B80))->AddMesh(mesh);
     }
     if (sector->flags & 0x200000)
         mesh->flags |= 0x200;
     geom->AddMesh(mesh);
     reinterpret_cast<uint8_t*>(mesh)[0x1F] = lightGroup;
-    GameFunction<void(__cdecl*)(CPcGeom*, sMesh*)>(0x004D0D30)(geom, mesh);
+    MakeGrass(geom, mesh);
 }
 // The meshes the load put on the list, counted (to a node that is the head, data -1, or null).
 uint32_t CountLoadedMeshes(const CPcGeom* geom)
@@ -314,8 +321,8 @@ bool CPcSector::LoadFromMemory(uint8_t** cursor)
         }
         mesh->loadIndex = static_cast<uint16_t>(i);
         auto* at = reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(p));
-        GameFunction<void(__thiscall*)(sMesh*, uint8_t**, uint32_t, void*, int)>(0x004D5CC0)(
-            mesh, &at, material, *reinterpret_cast<void**>(geometry->scene + 0x280), 0); // (the vertices)
+        mesh->LoadFromMemory(&at, material, *reinterpret_cast<sScene**>(geometry->scene + 0x280),
+                             nullptr); // (the vertices)
         p = reinterpret_cast<const uint32_t*>(at);
         SetMeshSphereAndBox(mesh, centre, radius, &min, &max);
         FinishMesh(this, geometry, mesh, billboardType, &pivot, &axis, &min, &max,
@@ -389,9 +396,9 @@ bool CPcSector::LoadFromFile(File::Handle file, uint32_t unknown)
             read(indices[j], 2, static_cast<int>(counts[j]));
         }
         mesh->loadIndex = static_cast<uint16_t>(i);
-        GameFunction<void(__thiscall*)(sMesh*, File::Handle, uint32_t, void*, uint32_t, uint32_t)>(0x004D6100)(
-            mesh, file, material, *reinterpret_cast<void**>(geometry->scene + 0x280),
-            flags & 0x800000 ? 0 : unknown, (flags >> 23) & 0xFFFFFF01); // (the vertices)
+        mesh->LoadFromFile(file, material, *reinterpret_cast<sScene**>(geometry->scene + 0x280),
+                           reinterpret_cast<sVertexArena*>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown)),
+                           ((flags >> 23) & 0xFFFFFF01) != 0); // (the vertices)
         SetMeshSphereAndBox(mesh, centre, radius, &min, &max);
         FinishMesh(this, geometry, mesh, billboardType, &pivot, &axis, &min, &max,
                    static_cast<uint8_t>(lightGroup));

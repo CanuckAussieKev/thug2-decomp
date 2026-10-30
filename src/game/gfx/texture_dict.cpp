@@ -10,6 +10,8 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_glue.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/pc_lights.h"
 #include "game/gfx/engine_texture.h"
 #include "game/gfx/pc_texture.h"
 #include "game/lst/hashtable.h"
@@ -320,7 +322,7 @@ CTexDict* __cdecl LoadTexDictFromMemory(uint32_t checksum, const uint8_t* data, 
 CTexDict* __cdecl LoadModelTextures(const char* name, uint32_t offset, uint32_t a4)
 {
     char base[0x200];
-    bool skin = GameFunction<bool(__cdecl*)(const char*, char*)>(0x0048BFE0)(name, base);
+    bool skin = Engine::SplitSkinName(name, base);
     char file[0x200];
     std::snprintf(file, sizeof(file), "%s.tex", base);
     return LoadTexDict(file, 0, offset, skin, a4);
@@ -333,7 +335,7 @@ bool __cdecl UnloadTexDict(CTexDict* dict)
         return false;
     uint32_t key = dict->m_checksum;
     LoadedTexDicts().FlushItem(key);
-    GameFunction<bool(__cdecl*)(CTexDict*)>(0x004B6920)(dict); // (deleted through its vtable)
+    DeleteModelLights(reinterpret_cast<CPcModelLights*>(dict)); // (deleted through its vtable)
     return true;
 }
 

@@ -8,6 +8,7 @@
 #include <d3d9.h>
 
 #include "game/gfx/loading_console.h"
+#include "game/gfx/loading_screen.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -106,7 +107,7 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
         return;
     WaitForSingleObject(ScreenMutex(), INFINITE);
     Device()->BeginScene();
-    GameFunction<void(__cdecl*)()>(0x004B6CD0)(); // the picture, full screen
+    Nx::DrawLoadingScreenPicture(); // the picture, full screen
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)

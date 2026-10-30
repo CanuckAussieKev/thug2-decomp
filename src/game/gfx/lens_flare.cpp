@@ -9,6 +9,12 @@
 #include "game/front/screen_element_cfuncs.h"
 #include "game/front/screen_element_manager.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/engine_primitive.h"
+#include "game/gfx/pc_primitive.h"
+#include "game/gfx/pc_viewport.h"
+#include "game/gfx/texture_dict.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/viewport_list.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/script/cscript.h"
@@ -68,7 +74,7 @@ Mth::Vector& Position() { return GameVariable<Mth::Vector>(0x006968C0); } // in 
 // the scalar deleting destructor).
 void* FindTexture(uint32_t checksum)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(GameVariable<void*>(0x00700F20), checksum);
+    return static_cast<Nx::CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(checksum);
 }
 void DeleteTexture(void* texture)
 {
@@ -83,16 +89,18 @@ uint32_t Since(uint32_t time) { return static_cast<uint32_t>(Tmr::GameClockTimeS
 // The first viewport's camera (Nx, 0x004A06D0): its vtable slot 1 (through 0x004A1090) projects a point to the
 // screen (the depth scale returned), slot 3 (through 0x004A10A0) issues an occlusion query over a screen
 // rectangle (the query's number, 0 if none).
-void* ViewportCamera() { return GameFunction<void*(__cdecl*)(int)>(0x004A06D0)(0); }
+void* ViewportCamera() { return Nx::GetActiveViewport(0); }
 void Project(void* camera, const Mth::Vector* point, float* x, float* y, float* z)
 {
-    GameFunction<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(0x004A1090)(camera, point, x,
-                                                                                                    y, z);
+    // (slot 1, through the jump 0x004A1090)
+    reinterpret_cast<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(
+        (*static_cast<void***>(camera))[1])(camera, point, x, y, z);
 }
 uint8_t IssueQuery(void* camera, float left, float top, float right, float bottom, int unknown, uint8_t query)
 {
-    return GameFunction<uint8_t(__thiscall*)(void*, float, float, float, float, int, uint32_t)>(0x004A10A0)(
-        camera, left, top, right, bottom, unknown, query);
+    // (slot 3, through the jump 0x004A10A0)
+    return reinterpret_cast<uint8_t(__thiscall*)(void*, float, float, float, float, int, uint32_t)>(
+        (*static_cast<void***>(camera))[3])(camera, left, top, right, bottom, unknown, query);
 }
 
 // A primitive drawer (Nx, PC; 0x200 bytes kept for it): made (0x004C5230 with 2) and destroyed (0x004C5A20); its
@@ -102,26 +110,32 @@ uint8_t IssueQuery(void* camera, float left, float top, float right, float botto
 struct Prim {
     alignas(16) uint8_t storage[0x200];
 
-    void Construct() { GameFunction<void*(__thiscall*)(Prim*, int)>(0x004C5230)(this, 2); }
-    void Destruct() { GameFunction<void(__thiscall*)(Prim*)>(0x004C5A20)(this); }
+    void Construct() { reinterpret_cast<Nx::CPcPrimitive*>(this)->Construct(2); }
+    void Destruct() { reinterpret_cast<Nx::CPcPrimitive*>(this)->DestroyBody(); }
     void SetTexture(void* texture)
     {
-        GameFunction<void(__thiscall*)(Prim*, void*, int, int)>(0x004A1090)(this, texture, 0, 0);
+        // (slot 1, through the jump 0x004A1090)
+        reinterpret_cast<void(__thiscall*)(Prim*, void*, int, int)>((*reinterpret_cast<void***>(this))[1])(this, texture,
+                                                                                                         0, 0);
     }
-    void SetUnknown(int a, int b, int c) { GameFunction<void(__thiscall*)(Prim*, int, int, int)>(0x004A10A0)(this, a, b, c); }
+    void SetUnknown(int a, int b, int c)
+    {
+        // (slot 3, through the jump 0x004A10A0)
+        reinterpret_cast<void(__thiscall*)(Prim*, int, int, int)>((*reinterpret_cast<void***>(this))[3])(this, a, b, c);
+    }
     // (the original calls linker-folded setters of other classes: 0x00428270, CLineObject::SetBlendMode, writes the
     // dword at +0x0C; 0x00407A50, CAssMan::SetPermanentByDefault, the byte at +0x14)
     void SetBlendMode(uint32_t mode) { std::memcpy(storage + 0x0C, &mode, 4); }
     void SetUnknown14(bool value) { storage[0x14] = value; }
-    void Ready() { GameFunction<void(__thiscall*)(Prim*)>(0x0049C6C0)(this); }
+    void Ready() { reinterpret_cast<Nx::CPrimitive*>(this)->Ready(); }
     void Draw(const float* corners, const uint8_t* colors, const float* uvs)
     {
-        GameFunction<void(__thiscall*)(Prim*, const float*, const uint8_t*, const float*, int)>(0x0049C6E0)(
-            this, corners, colors, uvs, 0);
+        reinterpret_cast<Nx::CPrimitive*>(this)->DrawIfReady(corners, reinterpret_cast<const uint32_t*>(colors), uvs,
+                                                             nullptr);
     }
 };
 // A render state for the primitives (0x0049C700).
-void SetPrimState(int state, int value) { GameFunction<void(__cdecl*)(int, int)>(0x0049C700)(state, value); }
+void SetPrimState(int state, int value) { Nx::SetPrimitiveState(state, value); }
 // A query to issue this frame (0x004A0EB0 takes a copy and fills in its slot number), and a query's result - its
 // visible pixels (0x004A0F20).
 struct QueryRequest {
@@ -135,8 +149,8 @@ struct QueryRequest {
     QueryRequest* Init();
 };
 static_assert(sizeof(QueryRequest) == 0x10, "the original keeps 0x10 bytes for it");
-void AddQuery(QueryRequest* request) { GameFunction<void(__cdecl*)(QueryRequest*)>(0x004A0EB0)(request); }
-uint32_t QueryResult(uint8_t query) { return GameFunction<uint32_t(__cdecl*)(uint32_t)>(0x004A0F20)(query); }
+void AddQuery(QueryRequest* request) { Nx::RequestOcclusionQuery(reinterpret_cast<Nx::OcclusionRequest*>(request)); }
+uint32_t QueryResult(uint8_t) { return Nx::OcclusionPixels(); } // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
 void TransformInPlace(Mth::Vector* v, const Mth::Matrix* m)
 {

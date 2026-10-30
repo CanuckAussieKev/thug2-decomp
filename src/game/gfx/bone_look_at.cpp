@@ -6,6 +6,7 @@
 
 #include "game/core/mem.h"
 #include "game/gfx/anim_blend.h"
+#include "game/gfx/anim_controller.h"
 #include "game/gfx/skeleton.h"
 #include "game/mth/x87_math.h"
 #include "game/obj/compositemgr.h"
@@ -162,10 +163,10 @@ Mth::Vector* __cdecl QuatToEuler(Mth::Vector* out, const Mth::Quat* q)
 // 0x00488300
 CBoneLookAt* CBoneLookAt::Construct(void* owner, void* object)
 {
-    GameFunction<void*(__thiscall*)(CBoneLookAt*, void*)>(0x00481710)(this, owner);
+    CAnimController* base = reinterpret_cast<CAnimController*>(this);
+    base->CAnimController::Construct(static_cast<CAnimTimeline*>(owner));
     vtable = reinterpret_cast<void**>(kVtable);
-    mp_object = static_cast<uint8_t*>(owner ? GameFunction<void*(__thiscall*)(CBoneLookAt*)>(0x00481760)(this)
-                                            : object);
+    mp_object = static_cast<uint8_t*>(owner ? static_cast<void*>(base->CAnimController::GetObject()) : object);
     for (SBone& bone : m_bones) {
         bone.m_active = false;
         bone.m_clamp = true;
@@ -186,7 +187,7 @@ CBoneLookAt* CBoneLookAt::Construct(void* owner, void* object)
 void CBoneLookAt::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kVtable);
-    GameFunction<void(__thiscall*)(CBoneLookAt*)>(0x00481730)(this); // (the base's)
+    reinterpret_cast<CAnimController*>(this)->CAnimController::DestroyBody(); // (the base's)
 }
 
 // 0x004880D0
@@ -363,7 +364,7 @@ void CBoneLookAt::Configure(bool all, int index, CStruct* params)
 // 0x00488B20
 void CBoneLookAt::InitFromStructure(CStruct* params)
 {
-    GameFunction<void(__thiscall*)(CBoneLookAt*, CStruct*)>(0x00481740)(this, params); // (the base's: its id)
+    reinterpret_cast<CAnimController*>(this)->CAnimController::InitFromStructure(params); // (the base's: its id)
     Configure(false, 0, params);
 }
 

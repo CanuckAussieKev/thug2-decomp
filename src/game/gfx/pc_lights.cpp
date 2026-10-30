@@ -8,6 +8,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/light_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -67,7 +69,7 @@ __declspec(naked) double __stdcall Falloff(void* /*light*/, float /*distance*/)
 // The dynamic lights within `radius` of `position` (the engine's 0x0048EF90): their count, pointers into `out`.
 uint32_t FindDynamicLights(const Mth::Vector* position, uint32_t radius, uint8_t** out)
 {
-    return GameFunction<uint32_t(__cdecl*)(const Mth::Vector*, uint32_t, uint8_t**)>(0x0048EF90)(position, radius, out);
+    return GetDynamicLightsNear(position, radius, reinterpret_cast<CDynamicLightBase**>(out));
 }
 
 } // namespace
@@ -75,7 +77,7 @@ uint32_t FindDynamicLights(const Mth::Vector* position, uint32_t radius, uint8_t
 // 0x004B6270
 CPcModelLights* CPcModelLights::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x0048E5B0)(this);
+    reinterpret_cast<CModelLights*>(this)->CModelLights::Construct();
     vtable = reinterpret_cast<void**>(kModelLightsVtable);
     overrides = 0;
     colors = static_cast<uint32_t*>(Mem::New(4 * ModelLightCount()));
@@ -101,7 +103,7 @@ void CPcModelLights::DestroyBody()
         Mem::Manager::Get()->Free(directions);
         directions = nullptr;
     }
-    GameFunction<void(__thiscall*)(void*)>(0x0048E630)(this);
+    reinterpret_cast<CModelLights*>(this)->CModelLights::DestroyBody();
 }
 
 // 0x004B67B0

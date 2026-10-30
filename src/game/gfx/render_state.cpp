@@ -11,6 +11,7 @@
 
 #include "game/gfx/device.h"
 #include "game/gfx/graphics_options.h"
+#include "game/gfx/pc_billboards.h"
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/view_mode.h"
 #include "hook/game.h"
@@ -574,7 +575,7 @@ void __cdecl ApplyRenderState()
     Device()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
     Device()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
     Device()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
-    GameFunction<void(__cdecl*)()>(0x004CD940)();
+    MarkBillboardsReady();
     CreatePixelShaders();
     Device()->SetRenderState(D3DRS_FOGENABLE, Fog());
     Device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);

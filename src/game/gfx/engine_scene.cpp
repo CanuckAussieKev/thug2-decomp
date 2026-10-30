@@ -12,6 +12,8 @@
 #include "game/core/mem.h"
 #include "game/file/pip.h"
 #include "game/gfx/engine_glue.h"
+#include "game/gfx/sector.h"
+#include "game/net/buddy_status.h"
 #include "game/lst/hashtable.h"
 #include "game/nx/coll_grid.h"
 #include "game/nx/coll_static.h"
@@ -35,21 +37,21 @@ R Virtual(void* object, int slot, A... args)
 
 // The engine's sector (not rewritten here; thiscall): its flags (+8) read / set / cleared, its name (+4 - the folded
 // getter 0x005480C0), its box, drawn and collided with or not.
-uint32_t SectorFlags(void* sector) { return GameFunction<uint32_t(__thiscall*)(void*)>(0x0049E810)(sector); }
+uint32_t SectorFlags(void* sector) { return static_cast<CSector*>(sector)->GetFlags(); }
 void SetSectorFlags(void* sector, uint32_t flags)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0049E890)(sector, flags);
+    static_cast<CSector*>(sector)->SetFlags(flags);
 }
 void ClearSectorFlags(void* sector, uint32_t flags)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0049E8A0)(sector, flags);
+    static_cast<CSector*>(sector)->ClearFlags(flags);
 }
-uint32_t SectorName(void* sector) { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005480C0)(sector); }
+uint32_t SectorName(void* sector) { return static_cast<GameNet::FoldedGetters*>(sector)->Word04(); }
 const Mth::BBox* SectorBox(void* sector)
 {
-    return GameFunction<const Mth::BBox*(__thiscall*)(void*)>(0x0049E6A0)(sector);
+    return static_cast<CSector*>(sector)->GetBoundingBox();
 }
-void SetSectorActive(void* sector, uint32_t on) { GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0049E9B0)(sector, on); }
+void SetSectorActive(void* sector, uint32_t on) { static_cast<CSector*>(sector)->SetActive(on != 0); }
 
 // (a static collision object's own print, compiled out: the empty 0x005480A0 with it in ECX)
 inline void PrintCollStatic(const CCollStatic*) {}

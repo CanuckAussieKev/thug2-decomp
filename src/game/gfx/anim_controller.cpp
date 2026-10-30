@@ -7,6 +7,13 @@
 
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/gfx/anim_cache.h"
+#include "game/gfx/anim_track.h"
+#include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/frame_source.h"
+#include "game/gfx/model_utils.h"
+#include "game/gfx/scene_load.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -76,27 +83,23 @@ uint32_t AnimSet(Obj::CCompositeObject* object)
 }
 
 // The timeline's pieces (thiscall, not rewritten yet).
-float Step(CAnimTimeline* t) { return GameFunction<float(__thiscall*)(CAnimTimeline*)>(0x004814B0)(t); }
+float Step(CAnimTimeline* t) { return static_cast<float>(t->NextTime()); }
 void PassedEvents(CAnimTimeline* t, float from, float to)
 {
-    GameFunction<void(__thiscall*)(CAnimTimeline*, float, float)>(0x00481E10)(t, from, to);
+    static_cast<CAnimTrack*>(t)->FireEvents(from, to);
 }
 void PlayAnim(CAnimTimeline* t, uint32_t anim, float start, float end, int loopType, float blend, float speed)
 {
-    GameFunction<void(__thiscall*)(CAnimTimeline*, uint32_t, float, float, int, float, float)>(0x00481430)(
-        t, anim, start, end, loopType, blend, speed);
+    t->PlayAnim(anim, start, end, loopType, blend, speed);
 }
-bool IsComplete(CAnimTimeline* t) { return GameFunction<bool(__thiscall*)(CAnimTimeline*)>(0x004813F0)(t); }
+bool IsComplete(CAnimTimeline* t) { return t->IsComplete(); }
 
 // Frame sources (0x0048BFC0 makes one, 0x0048BFD0 frees it) and their frames.
-void* NewSource() { return GameFunction<void*(__cdecl*)()>(0x0048BFC0)(); }
-void FreeSource(void* source) { GameFunction<void(__cdecl*)(void*)>(0x0048BFD0)(source); }
-void* SourceFrame(void* source, bool done) { return GameFunction<void*(__thiscall*)(void*, bool)>(0x0048CFA0)(source, done); }
-void* SourceFrameOf(void* source, uint32_t anim)
-{
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0048CFD0)(source, anim);
-}
-int FrameIndex(void* frame) { return GameFunction<int(__thiscall*)(void*)>(0x00482BA0)(frame); }
+void* NewSource() { return Nx::CreateFrameSource(); }
+void FreeSource(void* source) { Nx::DeleteObject(source); }
+void* SourceFrame(void* source, bool done) { return static_cast<Nx::CFrameSource*>(source)->SetDone(done); }
+void* SourceFrameOf(void* source, uint32_t anim) { return static_cast<Nx::CFrameSource*>(source)->SetAnim(anim); }
+int FrameIndex(void* frame) { return static_cast<CBonedAnimFrameData*>(frame)->AcquireCacheIndex(); }
 // NOT ORIGINAL - the frame of an animation the source's set hasn't is null, and FrameIndex reads through it (a crash at
 // 0x00482BA2, as in the original: e.g. peds whose animations weren't loaded, or a converted level's script playing one
 // the skeleton hasn't): logged first, with the animation's name.
@@ -110,11 +113,12 @@ void* LoggedSourceFrameOf(void* source, uint32_t set, uint32_t anim)
     }
     return frame;
 }
-void ReleaseFrameIndex(void* frame, int index) { GameFunction<void(__thiscall*)(void*, int)>(0x00482BD0)(frame, index); }
+void ReleaseFrameIndex(void* frame, int index) { static_cast<CBonedAnimFrameData*>(frame)->ReleaseCacheIndex(index); }
 void FramePose(void* frame, uint8_t* pose, float time, int index, void* source)
 {
-    GameFunction<bool(__thiscall*)(void*, uint8_t*, uint8_t*, uint8_t*, float, int, void*)>(0x00485730)(
-        frame, pose, pose + 0x400, pose + 0x800, time, index, source);
+    static_cast<CBonedAnimFrameData*>(frame)->GetFrames(reinterpret_cast<Mth::Quat*>(pose),
+                                                        reinterpret_cast<Mth::Vector*>(pose + 0x400), pose + 0x800, time,
+                                                        index, source);
 }
 // The frame source told where the skeleton's bones are (its +0x20C, from the skeleton's +0x08) and how many
 // (+0x210, from the skeleton's +0x0C).
@@ -249,9 +253,8 @@ int CStandardAnimController::CallMemberFunction(uint32_t name, Script::CStruct* 
         return 1;
     }
     case kGlobalFrame: {
-        void* global = GameFunction<void*(__cdecl*)()>(0x00480660)();
-        void* value = GameFunction<void*(__thiscall*)(void*)>(0x00480800)(global);
-        GameFunction<void(__thiscall*)(void*, void*)>(0x00485270)(mp_frameData, value);
+        int value = CAnimCache::Get()->GetType();
+        static_cast<CBonedAnimFrameData*>(mp_frameData)->BuildCache(value);
         return 1;
     }
     case kInvalidateCache:
@@ -322,8 +325,9 @@ bool CWeightedAnimController::GetPose(uint8_t* pose)
     };
     SetBones(mp_source, skeleton());
     SetBoneCount(mp_source, skeleton());
-    GameFunction<bool(__thiscall*)(void*, uint8_t*, uint8_t*, uint8_t*, float, void*)>(0x00485250)(
-        mp_frameData, pose, pose + 0x400, pose + 0x800, m_weight, mp_source);
+    static_cast<CBonedAnimFrameData*>(mp_frameData)
+        ->ApplyAdditiveIfCompressed(reinterpret_cast<Mth::Quat*>(pose), reinterpret_cast<Mth::Vector*>(pose + 0x400),
+                                    pose + 0x800, m_weight, static_cast<uint8_t*>(mp_source));
     SourceFrame(mp_source, true);
     return true;
 }
@@ -550,7 +554,7 @@ CPartialAnimController* CPartialAnimController::Construct(CAnimTimeline* timelin
     mp_frameData = SourceFrame(mp_source, false);
     m_animSet = AnimSet(ObjectOf(this));
     void* memory = Mem::Calloc(sizeof(CAnimTimeline));
-    mp_partial = memory ? GameFunction<CAnimTimeline*(__thiscall*)(void*)>(0x00481650)(memory) : nullptr;
+    mp_partial = memory ? static_cast<CAnimTimeline*>(memory)->Construct() : nullptr;
     mp_frameData = nullptr;
     return this;
 }
@@ -602,10 +606,9 @@ void CPartialAnimController::InitFromStructure(Script::CStruct* params)
     // (the blender's GetValue: the anim set's entry for the animation - its length)
     float duration = static_cast<Obj::CAnimBlenderComponent*>(blender)->GetValue(anim);
     // the times and loop type given (0x004877E0, 0x00487770; cdecl)
-    GameFunction<void(__cdecl*)(float*, float*, float, float, CStruct*, int)>(0x004877E0)(&start, &end, current,
-                                                                                          duration, params, 0);
+    GetAnimTimes(&start, &end, current, duration, params);
     int loopType = 0; // (the original leaves it to 0x00487770)
-    GameFunction<void(__cdecl*)(int*, CStruct*)>(0x00487770)(&loopType, params);
+    GetAnimLoopType(&loopType, params);
     float speed = 1.0f;
     params->GetFloat(kSpeed, &speed, 0);
     params->GetFloat(kCurrent, &current, 0);
@@ -613,7 +616,7 @@ void CPartialAnimController::InitFromStructure(Script::CStruct* params)
     reinterpret_cast<void(__thiscall*)(CAnimTimeline*, uint32_t, float, float, int, float, float)>(
         mp_partial->m_vtable[3])(mp_partial, anim, start, end, loopType, 0.0f, speed);
     if (current != 0.0f)
-        GameFunction<void(__thiscall*)(CAnimTimeline*, float)>(0x004816B0)(mp_partial, current);
+        mp_partial->AddTime(current);
     mp_frameData = SourceFrameOf(mp_source, m_animSet + anim);
 }
 

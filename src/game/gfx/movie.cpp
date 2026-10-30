@@ -12,6 +12,7 @@
 #include "game/core/dbg.h"
 #include "game/core/crc.h"
 #include "game/front/start_level.h"
+#include "game/gfx/engine_effects.h"
 #include "game/gfx/render_state.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
@@ -278,7 +279,7 @@ void CreateSoundManager() { Sfx::CreateManager(false); }
 void ReleaseSoundManager() { Sfx::ReleaseManager(); }
 float SoundVolume() { return Sfx::GetMainVolume(); }
 float MusicVolume() { return Pcm::GetMusicVolume(); }
-void SetFogEnabled(bool on) { GameFunction<void(__cdecl*)(bool)>(0x00490DE0)(on); }
+void SetFogEnabled(bool on) { Nx::Engine::EnableFog(on); }
 bool AppActive() { return GameVariable<bool>(0x007CCBE4); }
 bool QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
 bool DeviceLost() { return GameVariable<bool>(0x00786AB4); }

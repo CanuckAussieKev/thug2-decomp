@@ -8,6 +8,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/scene_load.h"
@@ -59,15 +60,15 @@ CScene* FirstScene(bool sky)
 // shown or hidden.
 void RegisterScene(CScene* scene, const char* name, CTexDict* textures, int skipPostLoad, void* arena, int unused)
 {
-    GameFunction<void(__cdecl*)(CScene*, const char*, CTexDict*, int, void*, int)>(0x0048C560)(
-        scene, name, textures, skipPostLoad, arena, unused);
+    (void)unused;
+    Engine::AddScene(scene, name, textures, skipPostLoad != 0, arena);
 }
-void UnloadEngineScene(CScene* scene, int flag) { GameFunction<void(__cdecl*)(CScene*, int)>(0x0048C690)(scene, flag); }
-CScene* GetScene(uint32_t checksum) { return GameFunction<CScene*(__cdecl*)(uint32_t)>(0x0048C700)(checksum); }
-void ToggleAddScenes() { GameFunction<void(__cdecl*)()>(0x0048C650)(); }
+void UnloadEngineScene(CScene* scene, int flag) { Engine::UnloadScene(scene, flag); }
+CScene* GetScene(uint32_t checksum) { return Engine::FindScene(checksum); }
+void ToggleAddScenes() { Engine::ToggleAddScenes(); }
 
 // The scene list's node's destructor body (0x0048C4B0: unlinked, its own vtable).
-void DestroyNodeBody(Mem::ListNode* node) { GameFunction<void(__thiscall*)(Mem::ListNode*)>(0x0048C4B0)(node); }
+void DestroyNodeBody(Mem::ListNode* node) { static_cast<CSceneNode*>(node)->DestroyBody(); }
 
 // Compiled out (0x005B9E50, false): the platform's own load of an added scene's geometry.
 bool PlatLoadAddScene(CScene* /*scene*/, const char* /*fileName*/) { return false; }

@@ -10,6 +10,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/render_state.h"
+#include "game/gfx/viewport.h"
 #include "game/sys/platform_d3d.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -57,7 +58,8 @@ CPcViewport* __cdecl CreateViewport(uint32_t a1, uint32_t a2)
 // 0x004CB8E0
 CPcViewport* CPcViewport::Construct(uint32_t a1, uint32_t a2)
 {
-    GameFunction<void*(__thiscall*)(void*, uint32_t, uint32_t)>(0x004A0DB0)(this, a1, a2);
+    reinterpret_cast<CViewport*>(this)->CViewport::Construct(reinterpret_cast<const float*>(static_cast<uintptr_t>(a1)),
+                                                              reinterpret_cast<Gfx::Camera*>(static_cast<uintptr_t>(a2)));
     vtable = reinterpret_cast<void**>(kViewportVtable);
     return this;
 }
@@ -66,7 +68,7 @@ CPcViewport* CPcViewport::Construct(uint32_t a1, uint32_t a2)
 void CPcViewport::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kViewportVtable);
-    GameFunction<void(__thiscall*)(void*)>(0x004A0E60)(this);
+    reinterpret_cast<CViewport*>(this)->CViewport::DestroyBody();
 }
 
 // 0x004CB910
@@ -157,7 +159,7 @@ uint32_t __cdecl OcclusionPixels()
     HRESULT result = Platform::GetOcclusionResult(GameVariable<uint32_t>(0x00701390), &pixels);
     if (result == S_OK) {
         GameVariable<uint8_t>(0x0067E550 + GameVariable<uint32_t>(0x00701390)) = 0;
-        GameFunction<void(__cdecl*)()>(0x004A0F80)(); // (the requests moved on)
+        PopOcclusionRequest(); // (the requests moved on)
         GameVariable<uint32_t>(0x00701384) = pixels;
         return pixels;
     }

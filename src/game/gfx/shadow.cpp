@@ -13,6 +13,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/device.h"
+#include "game/gfx/geom.h"
+#include "game/gfx/mesh.h"
+#include "game/gfx/model.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/render_state.h"
 #include "game/lst/hashtable.h"
@@ -77,11 +80,11 @@ void MatrixOrtho(float* out, float width, float height, float nearZ, float farZ)
 }
 
 // The models' meshes (not rewritten yet; thiscall).
-int MeshCount(void* model) { return GameFunction<int(__thiscall*)(void*)>(0x00492E40)(model); }
-void* Mesh(void* model, int index) { return GameFunction<void*(__thiscall*)(void*, int)>(0x00494640)(model, index); }
-void DrawMesh(void* mesh, int flags) { GameFunction<void(__cdecl*)(void*, int)>(0x004D16B0)(mesh, flags); }
+int MeshCount(void* model) { return static_cast<CModel*>(model)->GetNumGeoms(); }
+void* Mesh(void* model, int index) { return static_cast<CModel*>(model)->GetGeom(index); }
+void DrawMesh(void* mesh, int flags) { RenderInstance(static_cast<sInstance*>(mesh), static_cast<uint32_t>(flags)); }
 // A scene mesh's draw (thiscall).
-void DrawSceneMesh(void* mesh) { GameFunction<void(__thiscall*)(void*)>(0x004D5290)(mesh); }
+void DrawSceneMesh(void* mesh) { static_cast<sMesh*>(mesh)->Render(); }
 
 void Identity(float* m)
 {

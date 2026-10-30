@@ -7,6 +7,8 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/draw2d.h"
+#include "game/gfx/engine_text.h"
+#include "game/gfx/font.h"
 #include "game/gfx/text.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -35,7 +37,7 @@ SDraw2D* Draw2D(SText* text) { return reinterpret_cast<SDraw2D*>(text); }
 // 0x004B3BB0
 CPcFont* CPcFont::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x0048D020)(this);
+    reinterpret_cast<CFont*>(this)->CFont::Construct();
     vtable = reinterpret_cast<void**>(kPcFontVtable);
     font = nullptr;
     return this;
@@ -49,7 +51,7 @@ void CPcFont::DestroyBody()
         SFont::Unload(font);
         font = nullptr;
     }
-    GameFunction<void(__thiscall*)(void*)>(0x0048D030)(this);
+    reinterpret_cast<CFont*>(this)->CFont::DestroyBody();
 }
 
 // 0x004B4060
@@ -117,7 +119,7 @@ void CPcFont::QueryString(const char* string, float* width, float* height)
 // 0x004B3E70
 CPcText* CPcText::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*, int)>(0x0048D220)(this, 0);
+    reinterpret_cast<CText*>(this)->CText::Construct(nullptr);
     vtable = reinterpret_cast<void**>(kPcTextVtable);
     void* memory = Mem::New(sizeof(SText));
     text = memory ? static_cast<SText*>(memory)->Construct(0.0f) : nullptr;
@@ -134,7 +136,7 @@ void CPcText::DestroyBody()
     vtable = reinterpret_cast<void**>(kPcTextVtable);
     if (text)
         reinterpret_cast<void*(__thiscall*)(SText*, unsigned int)>(text->vtable[0])(text, 1);
-    GameFunction<void(__thiscall*)(void*)>(0x0048D620)(this);
+    reinterpret_cast<CText*>(this)->CText::DestroyBody();
 }
 
 // 0x004B3F20
@@ -203,7 +205,7 @@ void __cdecl AllocateTextPool(uint32_t count)
 // 0x004B4090
 void __cdecl UnloadPcFont(CPcFont* font)
 {
-    GameFunction<void(__thiscall*)(CPcFont*)>(0x0048D040)(font);
+    reinterpret_cast<CFont*>(font)->Unload();
 }
 
 // 0x004B40A0

@@ -9,9 +9,11 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_geom.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
 #include "game/gfx/mesh_list.h"
+#include "game/gfx/pc_scene.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -31,23 +33,22 @@ constexpr float kQuarterTurn = 1.57079637f;      // 0x00645484
 // into *data) and unlocked.
 sVertexBuffer* VertexBuffer(sMesh* mesh, int index)
 {
-    return GameFunction<sVertexBuffer*(__thiscall*)(sMesh*, int)>(0x004D3FC0)(mesh, index);
+    return mesh->GetVertexBuffer(index);
 }
 uint8_t* Lock(sVertexBuffer* buffer, uint32_t flags)
 {
     uint8_t* data;
-    GameFunction<long(__thiscall*)(sVertexBuffer*, uint32_t, uint32_t, uint8_t**, uint32_t)>(0x004D4090)(buffer, 0, 0,
-                                                                                                    &data, flags);
+    buffer->Lock(0, 0, &data, flags);
     return data;
 }
-void Unlock(sVertexBuffer* buffer) { GameFunction<long(__thiscall*)(sVertexBuffer*)>(0x004D40E0)(buffer); }
+void Unlock(sVertexBuffer* buffer) { buffer->Unlock(); }
 constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 
 // A mesh's per-vertex colour's offset in a vertex, and the position its transform says (0x004D4D30).
 uint8_t ColorOffset(const sMesh* mesh) { return mesh->unknown1C[0]; }
 void MeshPosition(sMesh* mesh, Mth::Vector* out)
 {
-    GameFunction<void(__thiscall*)(sMesh*, Mth::Vector*)>(0x004D4D30)(mesh, out);
+    mesh->GetPosition(reinterpret_cast<float*>(out));
 }
 sMaterial* MaterialOf(sMesh* mesh) { return reinterpret_cast<sMaterial*>(mesh->material); }
 // A mesh's colour (flag 4): the floats at +0x80; its vertex shader at +0x38.
@@ -134,7 +135,7 @@ sMeshListNode* sMeshListNode::DestroyHead(unsigned int flags)
 // 0x004B4460
 CPcGeom* CPcGeom::Construct()
 {
-    GameFunction<void*(__thiscall*)(void*)>(0x0048DD60)(this);
+    reinterpret_cast<CGeom*>(this)->CGeom::Construct();
     vtable = reinterpret_cast<void**>(kPcGeomVtable);
     new (&bounds) Mth::BBox();
     loadList = nullptr;
@@ -156,7 +157,7 @@ void CPcGeom::DestroyBody()
         Mem::Manager::Get()->Free(inst);
         instance = nullptr;
     }
-    GameFunction<void(__thiscall*)(void*)>(0x0048E130)(this);
+    reinterpret_cast<CGeom*>(this)->CGeom::DestroyBody();
 }
 
 // 0x004B5FC0
@@ -226,7 +227,7 @@ void CPcGeom::CreateMeshArray(void* vertexArena)
                 meshes[i] = static_cast<sMesh*>(node->data);
                 reinterpret_cast<void*(__thiscall*)(ListNode*, int)>(node->vtable[0])(node, 1); // (unlinked, freed)
                 if (vertexArena)
-                    GameFunction<void(__thiscall*)(sMesh*, void*)>(0x004D3E50)(meshes[i], vertexArena);
+                    meshes[i]->MoveIntoArena(static_cast<sVertexArena*>(vertexArena));
                 node = next;
             }
         }
@@ -247,7 +248,7 @@ void CPcGeom::DestroyMeshArray()
     }
     for (uint32_t i = 0; i < meshCount; ++i) {
         if (sMesh* mesh = meshes[i]) {
-            GameFunction<void(__thiscall*)(sMesh*)>(0x004D69E0)(mesh); // (the destructor's body)
+            mesh->DestroyBody(); // (the destructor's body)
             Mem::Manager::Get()->Free(mesh);
         }
     }
@@ -325,7 +326,7 @@ CPcGeom* CPcGeom::Clone(bool share, uint8_t* newScene)
 CPcGeom* CPcGeom::CloneInstance(bool share, uint8_t* model)
 {
     void* memory = Mem::New(0x284);
-    uint8_t* tempScene = memory ? GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x004C6130)(memory, 10) : nullptr;
+    uint8_t* tempScene = memory ? reinterpret_cast<uint8_t*>(static_cast<CPcScene*>(memory)->Construct(10)) : nullptr;
     sScene* sourceList = instance->scene;
     *reinterpret_cast<sScene**>(tempScene + 0x280) = sourceList;
     memory = Mem::Calloc(sizeof(CPcGeom));
@@ -368,8 +369,7 @@ bool CPcGeom::InitInstance(uint8_t* mesh, uint8_t* model, int /*unused*/)
     if (memory) {
         auto* list = *reinterpret_cast<sScene**>(*reinterpret_cast<uint8_t**>(mesh + 0xC4) + 0x280);
         auto* bones = *reinterpret_cast<Mth::Matrix**>(model + 0xC); // (the model's bones: 0x00492E50)
-        inst = GameFunction<sInstance*(__thiscall*)(void*, sScene*, const Mth::Matrix*, int, Mth::Matrix*)>(
-            0x004D1030)(memory, list, &identity, boneCount, bones);
+        inst = static_cast<sInstance*>(memory)->Construct(list, &identity, boneCount, bones);
     }
     instance = inst;
     inst->model = model; // (no check, as the original)
@@ -383,7 +383,7 @@ void CPcGeom::CleanInstanceStrips()
         return;
     sScene* list = instance->scene;
     for (int i = 0; i < list->meshCount; ++i)
-        GameFunction<void(__thiscall*)(sMesh*)>(0x004D57D0)(SceneMeshes(list)[i]);
+        SceneMeshes(list)[i]->CleanStrip();
 }
 
 // 0x004B48B0

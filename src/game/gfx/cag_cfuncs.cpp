@@ -2,6 +2,8 @@
 // cag_cfuncs.h).
 
 #include "game/gfx/cag_cfuncs.h"
+#include "game/gfx/model_appearance.h"
+#include "game/gfx/texture_dict.h"
 
 #include <cstdint>
 
@@ -56,19 +58,19 @@ void* Textures() { return GameVariable<void*>(0x00700F1C); }
 void* SkaterTextures() { return GameVariable<void*>(0x00700F20); }
 void* FindTexture(void* dictionary, uint32_t name)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(dictionary, name);
+    return static_cast<Nx::CTexDict*>(dictionary)->GetTexture(name);
 }
 void* NewTexture(uint32_t name, int width, int height, int a, int b)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t, int, int, int, int, bool, bool)>(0x0049FAA0)(
-        Textures(), name, width, height, a, b, true, true);
+    return static_cast<Nx::CTexDict*>(Textures())->CreateTexture(name, width, height, a, b, 1, true);
 }
 
 // A texture's methods (each a jump through its vtable).
 template <typename R, typename... A>
-R TextureCall(uint32_t thunk, void* texture, A... args)
+R TextureCall(uint32_t slot, void* texture, A... args)
 {
-    return GameFunction<R(__thiscall*)(void*, A...)>(thunk)(texture, args...);
+    // (the texture's virtual slot `slot`: the original goes through a jump stub for each)
+    return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(texture))[slot])(texture, args...);
 }
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
@@ -90,12 +92,12 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
     CArray* layers = nullptr;
     params->GetArray(kInfoArray, &layers, 1);
     void* tag = FindTexture(SkaterTextures(), kCustomTag);
-    TextureCall<void>(0x0048D060, tag, 0, 0);
-    TextureCall<void>(0x0048DE50, tag, 0u, false);
-    uint32_t size = TextureCall<uint32_t>(0x0049F3C0, tag);
+    TextureCall<void>(8, tag, 0, 0);
+    TextureCall<void>(12, tag, 0u, false);
+    uint32_t size = TextureCall<uint32_t>(33, tag);
     int width = static_cast<uint16_t>(size);
     void* workspace = NewTexture(kWorkspace, width, width, 4, 0x20);
-    TextureCall<void>(0x0048D060, workspace, 0, 0);
+    TextureCall<void>(8, workspace, 0, 0);
 
     uint32_t count = layers->m_size;
     bool translucent = false;
@@ -105,27 +107,27 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
         uint32_t textureId;
         info->GetChecksum(kTextureId, &textureId, 1);
         void* source = FindTexture(Textures(), textureId);
-        TextureCall<void>(0x0048D060, source, 0, 0);
-        TextureCall<void>(0x0048E4C0, workspace);
-        TextureCall<void>(0x0048D060, workspace, 0, 0);
-        TextureCall<void>(0x0048DE80, workspace, source, 0);
-        TextureCall<void>(0x0048E4C0, source);
-        TextureCall<void>(0x0048DED0, workspace, 0u);
+        TextureCall<void>(8, source, 0, 0);
+        TextureCall<void>(10, workspace);
+        TextureCall<void>(8, workspace, 0, 0);
+        TextureCall<void>(15, workspace, source, 0);
+        TextureCall<void>(10, source);
+        TextureCall<void>(19, workspace, 0u);
         float scale;
         info->GetFloat(kScale, &scale, 1);
-        TextureCall<void>(0x0048DEB0, workspace, scale, scale);
+        TextureCall<void>(16, workspace, scale, scale);
         int flipH;
         info->GetInteger(kFlipH, &flipH, 1);
         int flipV;
         info->GetInteger(kFlipV, &flipV, 1);
         if (flipH)
-            TextureCall<void>(0x0048DE60, workspace);
+            TextureCall<void>(13, workspace);
         if (flipV)
-            TextureCall<void>(0x0048DE70, workspace);
+            TextureCall<void>(14, workspace);
         float rot;
         info->GetFloat(kRot, &rot, 1);
         float radians = static_cast<float>(static_cast<double>(rot) * GameVariable<float>(0x00645464)); // pi / 180
-        TextureCall<void>(0x0049F360, workspace, radians, -1.0f, -1.0f);
+        TextureCall<void>(17, workspace, radians, -1.0f, -1.0f);
         float x;
         info->GetFloat(kPosX, &x, 1);
         float y;
@@ -134,7 +136,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
             x = x + x;
             y = y + y;
         }
-        TextureCall<void>(0x0048DEC0, workspace, Ftol(x), Ftol(y), 0, 0u);
+        TextureCall<void>(18, workspace, Ftol(x), Ftol(y), 0, 0u);
         CArray* rgba;
         info->GetArray(kRgba, &rgba, 1);
         uint8_t a = static_cast<uint8_t>(Ftol(rgba->GetFloat(3)));
@@ -142,23 +144,23 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
         uint8_t g = static_cast<uint8_t>(Ftol(rgba->GetFloat(1)));
         uint8_t r = static_cast<uint8_t>(Ftol(rgba->GetFloat(0)));
         uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
-        TextureCall<void>(0x0048DE50, workspace, colour, false);
+        TextureCall<void>(12, workspace, colour, false);
         if (a < 0x80)
             translucent = true;
         int layer;
         info->GetInteger(kLayerId, &layer, 1);
         if (lastLayer != layer)
             lastLayer = layer; // (kept, never used)
-        TextureCall<void>(0x0048DE30, workspace, 1, static_cast<void*>(nullptr));
-        TextureCall<void>(0x0049F420, tag, workspace, 1);
+        TextureCall<void>(9, workspace, 1, static_cast<void*>(nullptr));
+        TextureCall<void>(41, tag, workspace, 1);
     }
 
-    TextureCall<void>(0x0048DED0, tag, 0u);
-    if (!translucent && TextureCall<uint8_t>(0x0049C6F0, tag) == 8)
-        TextureCall<void>(0x0048DE30, tag, 0, static_cast<void*>(palette));
+    TextureCall<void>(19, tag, 0u);
+    if (!translucent && TextureCall<uint8_t>(35, tag) == 8)
+        TextureCall<void>(9, tag, 0, static_cast<void*>(palette));
     else
-        TextureCall<void>(0x0048DE30, tag, 1, static_cast<void*>(nullptr));
-    GameFunction<bool(__thiscall*)(void*, void*)>(0x0049F500)(Textures(), workspace);
+        TextureCall<void>(9, tag, 1, static_cast<void*>(nullptr));
+    static_cast<Nx::CTexDict*>(Textures())->UnloadTexture(static_cast<Nx::CTexture*>(workspace));
 
     int player;
     params->GetInteger(kPlayer, &player, 1);
@@ -171,7 +173,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
     params->GetInteger(kTest, &test, 0);
     if (test) {
         void* sprite = NewTexture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
-        TextureCall<void>(0x00487D50, sprite, tag);
+        TextureCall<void>(4, sprite, tag);
     }
     return true;
 }
@@ -183,11 +185,11 @@ bool __cdecl CFunc_SyncCAGWorkspace(Script::CStruct* params, Script::CScript*)
     int index;
     params->GetInteger(kSkater, &index, 1);
     Obj::CCompositeObject* skater = Skate()->GetSkater(index);
-    GameFunction<Obj::CSkaterProfile*(__thiscall*)(Mdl::Skate*, CStruct*)>(0x00564F80)(Skate(), nullptr);
+    Skate()->GetProfile(static_cast<CStruct*>(nullptr));
     auto* tagging = static_cast<Obj::CTaggingComponent*>(skater->GetComponent(Obj::CTaggingComponent::kType));
     void* graffiti = tagging->m_graffiti; // (0x00553E90, a getter folded with others)
     if (graffiti)
-        TextureCall<void>(0x00487D50, FindTexture(SkaterTextures(), kCustomTag), graffiti);
+        TextureCall<void>(4, FindTexture(SkaterTextures(), kCustomTag), graffiti);
     return true;
 }
 
@@ -250,13 +252,13 @@ bool __cdecl CFunc_ResolveHeadBoneScale(Script::CStruct* params, Script::CScript
 {
     int player = 0;
     params->GetInteger(kPlayer, &player, 1);
-    auto* profile = GameFunction<Obj::CSkaterProfile*(__thiscall*)(Mdl::Skate*, int)>(0x00564FC0)(Skate(), player);
+    auto* profile = Skate()->GetProfile(player);
     if (!profile)
         return true;
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's
     // own component of that name)
     auto partOf = [&](uint32_t name) {
-        return GameFunction<CStruct*(__thiscall*)(Obj::CSkaterProfile*, uint32_t)>(0x00489050)(profile, name);
+        return reinterpret_cast<Gfx::CModelAppearance*>(profile)->GetPartOption(name);
     };
     CStruct* head = partOf(kSkaterMHead);
     if (!head) {
@@ -266,7 +268,7 @@ bool __cdecl CFunc_ResolveHeadBoneScale(Script::CStruct* params, Script::CScript
     }
     void* has[4];
     for (int i = 0; i < 4; ++i)
-        has[i] = GameFunction<void*(__thiscall*)(Obj::CSkaterProfile*, uint32_t)>(0x004890B0)(profile, kHeadBoneGroups[i]);
+        has[i] = reinterpret_cast<Gfx::CModelAppearance*>(profile)->GetPart(kHeadBoneGroups[i]);
     auto* appearance = reinterpret_cast<CStruct*>(profile->m_appearance + 0x4C);
     for (int i = 0; i < 4; ++i) {
         if (has[i])

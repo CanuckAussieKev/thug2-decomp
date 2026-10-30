@@ -9,6 +9,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/gfx/engine_primitive.h"
 #include "game/gfx/pc_primitive.h"
 #include "game/lst/hashtable.h"
 #include "game/script/cfuncs_engine.h"
@@ -110,8 +111,9 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Mth::Vector* direction, Mth::Vector* 
     m.row[1].y = static_cast<float>(t1);
     uint32_t layout = 1; // (colours; 3: and texture coordinates)
     if (poly->texture) {
-        GameFunction<void(__thiscall*)(CPcPrimitive*, uint8_t*, int, int)>(0x004A1090)(poly->primitive, poly->texture,
-                                                                                      0, 0);
+        // (the primitive's slot 1, through the jump 0x004A1090)
+        reinterpret_cast<void(__thiscall*)(CPcPrimitive*, uint8_t*, int, int)>(
+            (*reinterpret_cast<void***>(poly->primitive))[1])(poly->primitive, poly->texture, 0, 0);
         layout = 3;
     }
     std::memcpy(poly->colours, poly->startColours, sizeof(poly->colours));
@@ -132,7 +134,9 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Mth::Vector* direction, Mth::Vector* 
     PlaceCorners(poly, corners);
     CPcPrimitive* primitive = poly->primitive;
     primitive->blendMode = poly->blendMode;
-    GameFunction<void(__thiscall*)(CPcPrimitive*, uint32_t, int, int)>(0x004A10A0)(primitive, layout, 4, 4);
+    // (slot 3, through the jump 0x004A10A0)
+    reinterpret_cast<void(__thiscall*)(CPcPrimitive*, uint32_t, int, int)>((*reinterpret_cast<void***>(primitive))[3])(
+        primitive, layout, 4, 4);
     const float uvs[4][2] = {{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}};
     for (int i = 0; i < 4; ++i) {
         SetCornerColour(poly->primitive, i, poly->colours[i]);
@@ -141,7 +145,7 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Mth::Vector* direction, Mth::Vector* 
         SetCorner(poly->primitive, i, corners[i]);
     }
     reinterpret_cast<uint8_t*>(poly->primitive)[0x14] = (poly->flags >> 1) & 1;
-    GameFunction<void(__thiscall*)(CPcPrimitive*)>(0x0049C6C0)(poly->primitive);
+    reinterpret_cast<CPrimitive*>(poly->primitive)->Ready();
     uint32_t key = reinterpret_cast<uint32_t>(poly);
     SpawnedPolys()->PutItem(key, poly);
 }

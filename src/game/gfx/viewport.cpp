@@ -8,6 +8,7 @@
 #include "game/core/manager.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/pc_viewport.h"
+#include "game/gfx/viewport_list.h"
 #include "game/gfx/screen.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -211,7 +212,7 @@ void __cdecl SetCamera(int view, Gfx::Camera* camera)
 // 0x004A09C0
 Gfx::Camera* __cdecl GetActiveCamera(int n)
 {
-    auto* viewport = GameFunction<CViewport*(__cdecl*)(int)>(0x004A06D0)(n);
+    auto* viewport = GetActiveViewport(n);
     return viewport->m_camera.Get();
 }
 

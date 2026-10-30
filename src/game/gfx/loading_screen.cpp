@@ -11,7 +11,10 @@
 #include <cstring>
 
 #include "game/core/mem.h"
+#include "game/gfx/engine_texture.h"
 #include "game/gfx/loading_bar.h"
+#include "game/gfx/pc_lights.h"
+#include "game/gfx/pc_texture.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -120,7 +123,7 @@ void __cdecl FreeLoadingScreenSprite()
     Lock();
     Device()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
     if (Sprite()) {
-        GameFunction<void(__cdecl*)(void*)>(0x0048C080)(Sprite()); // (the engine's delete)
+        Nx::DeleteModelLights(static_cast<Nx::CPcModelLights*>(Sprite())); // (the engine's delete)
         Sprite() = nullptr;
     }
     Unlock();
@@ -155,7 +158,7 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
                 }
             }
             void* memory = Mem::New(0x14);
-            Picture() = memory ? GameFunction<uint8_t*(__thiscall*)(void*)>(0x004C7ED0)(memory) : nullptr;
+            Picture() = memory ? reinterpret_cast<uint8_t*>(static_cast<Nx::CPcTexture*>(memory)->Construct()) : nullptr;
             // the language's picture: French "fr/<name>", German "gr/<name>"
             char localised[0xC8];
             const char* file = name;
@@ -168,8 +171,7 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
                 file = localised;
             }
             // (no check: a failed allocation calls through null, as the original)
-            bool loaded = GameFunction<bool(__thiscall*)(uint8_t*, const char*, int, int)>(0x0049F220)(Picture(), file,
-                                                                                                  1, 1);
+            bool loaded = reinterpret_cast<Nx::CTexture*>(Picture())->LoadByName(file, 1, 1);
             if (!loaded) {
                 Unlock();
                 return;

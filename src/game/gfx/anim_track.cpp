@@ -1,6 +1,8 @@
 // An animation playing on a blend channel - its controllers, events and fade: see anim_track.h.
 
 #include "game/gfx/anim_track.h"
+#include "game/gfx/bone_look_at.h"
+#include "game/gfx/custom_anim_key.h"
 
 #include <cstdint>
 #include <cstring>
@@ -58,18 +60,18 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 // An event's set-up, arming, firing and destructor body.
 void SetUpEvent(CAnimEvent* e, int frame, uint32_t type, CStruct* params)
 {
-    GameFunction<void(__thiscall*)(CAnimEvent*, int, uint32_t, CStruct*)>(0x004865D0)(e, frame, type, params);
+    reinterpret_cast<CAnimScriptKey*>(e)->Set(frame, type, params);
 }
-void ArmEvent(CAnimEvent* e, bool armed) { GameFunction<void(__thiscall*)(CAnimEvent*, bool)>(0x00486150)(e, armed); }
+void ArmEvent(CAnimEvent* e, bool armed) { reinterpret_cast<CCustomAnimKey*>(e)->SetActive(armed); }
 bool FireEvent(CAnimEvent* e, Obj::CCompositeObject* object)
 {
-    return GameFunction<bool(__thiscall*)(CAnimEvent*, Obj::CCompositeObject*)>(0x00486160)(e, object);
+    return reinterpret_cast<CCustomAnimKey*>(e)->ProcessIfActive(object);
 }
-void DestroyEventBody(CAnimEvent* e) { GameFunction<void(__thiscall*)(CAnimEvent*)>(0x00486560)(e); }
+void DestroyEventBody(CAnimEvent* e) { reinterpret_cast<CAnimScriptKey*>(e)->DestroyBody(); }
 // The 0x26205DB6 controller (0x1A4 bytes).
 CAnimController* ConstructProceduralController(void* memory, CAnimTimeline* timeline)
 {
-    return GameFunction<CAnimController*(__thiscall*)(void*, CAnimTimeline*, int)>(0x00488300)(memory, timeline, 0);
+    return reinterpret_cast<CAnimController*>(static_cast<CBoneLookAt*>(memory)->Construct(timeline, nullptr));
 }
 
 // A script structure from the structures' pools, and back.

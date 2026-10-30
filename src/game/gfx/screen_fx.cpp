@@ -9,6 +9,8 @@
 #include <cstdint>
 
 #include "game/gfx/graphics_options.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/primitive_states.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -26,7 +28,7 @@ bool& ScreenCopyInUse() { return GameVariable<bool>(0x007CC244); }
 void* Shader(uint32_t address) { return GameVariable<void*>(address); }
 
 // Fog on or off (not rewritten yet; the request kept, the device's state following).
-void SetFog(bool on) { GameFunction<void(__cdecl*)(int)>(0x00490DE0)(on); }
+void SetFog(bool on) { Engine::EnableFog(on); }
 
 // The renderer's draw counters.
 void CountDraw(int triangles)
@@ -147,7 +149,7 @@ void __cdecl BeginScreenEffects()
         CurrentScreenCopy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
         if (!GraphicsOptions::SetSceneTarget(CurrentScreenCopy()))
-            GameFunction<void(__cdecl*)(IDirect3DSurface9*, IDirect3DSurface9*)>(0x004B6070)(surface, DepthSurface());
+            SetRenderTargetAndDepth(surface, DepthSurface());
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
     uint32_t colour = (GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A))

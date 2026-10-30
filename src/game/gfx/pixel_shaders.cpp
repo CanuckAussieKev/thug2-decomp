@@ -12,6 +12,7 @@
 #include <new>
 
 #include "game/core/mem.h"
+#include "game/gfx/material.h"
 #include "game/gfx/view_mode.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
@@ -39,7 +40,7 @@ long AssembleShader(const char* source, uint32_t length, void** shader, void** e
 
 // Per-pass flags of a material (not rewritten yet; thiscall): bit n set for passes that take their alpha from the
 // texture alone.
-uint32_t PassAlphaFlags(const void* material) { return GameFunction<uint32_t(__thiscall*)(const void*)>(0x004D1D90)(material); }
+uint32_t PassAlphaFlags(const void* material) { return static_cast<const sMaterial*>(material)->TextureAlphaPasses(); }
 uint32_t PassCount(const void* material) { return *reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 8); }
 uint32_t BlendMode(const void* material, uint32_t pass)
 {

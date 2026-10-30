@@ -2,6 +2,7 @@
 // removed, drawn, tested against bone volumes, their textures replaced and their colours set from a script. See
 // model.h (the simpler members: model.cpp).
 
+#include <bit>
 #include <cstring>
 
 #include "game/ass/asset.h"
@@ -11,11 +12,19 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
+#include "game/gfx/bone_volumes.h"
 #include "game/gfx/debug_lines.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/face_texture.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_internal.h"
+#include "game/gfx/particles.h"
 #include "game/gfx/pc_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/gfx/texture_dict.h"
+#include "game/net/buddy_status.h"
+#include "game/obj/pager_message.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -46,13 +55,15 @@ constexpr uint32_t kFaceImage = 0xB00B0DC0; // the face texture's name in the di
 // (0x004ECC30; the result iterator out).
 void InsertGeom(CModel* model, sModelGeomNode* where, sModelGeom** entry)
 {
-    GameFunction<void(__thiscall*)(void*, sModelGeomNode*, sModelGeom**)>(0x004964A0)(&model->m_geoms, where, entry);
+    reinterpret_cast<Obj::PointerList*>(&model->m_geoms)
+        ->Insert(reinterpret_cast<Obj::PointerListNode*>(where), reinterpret_cast<void* const*>(entry));
 }
 void EraseGeoms(CModel* model, sModelGeomNode* first, sModelGeomNode* last)
 {
     sModelGeomNode* result;
-    GameFunction<sModelGeomNode**(__thiscall*)(void*, sModelGeomNode**, sModelGeomNode*, sModelGeomNode*)>(
-        0x004ECC30)(&model->m_geoms, &result, first, last);
+    reinterpret_cast<Obj::PointerList*>(&model->m_geoms)
+        ->Erase(reinterpret_cast<Obj::PointerListNode**>(&result), reinterpret_cast<Obj::PointerListNode*>(first),
+                reinterpret_cast<Obj::PointerListNode*>(last));
 }
 
 // A node's memory: from the default heap, or the current one (0x00658555: whether to assert when out of it).
@@ -80,14 +91,13 @@ void DeleteOwnScene(uint8_t* scene)
 // drawn (0x004A31E0).
 void* LoadTextures(const char* fileName, int texDictOffset, bool forceTexDict)
 {
-    return GameFunction<void*(__cdecl*)(const char*, int, bool)>(0x0049F180)(fileName, texDictOffset, forceTexDict);
+    return LoadModelTextures(fileName, texDictOffset, forceTexDict);
 }
 uint8_t* LoadScene(const char* fileName, void* textures, int texDictOffset, bool shadowVolume)
 {
-    return GameFunction<uint8_t*(__cdecl*)(const char*, void*, int, bool)>(0x0048C3D0)(fileName, textures,
-                                                                                         texDictOffset, shadowVolume);
+    return static_cast<uint8_t*>(Engine::LoadModelFile(fileName, textures, texDictOffset, shadowVolume));
 }
-void ReleaseBoneVolumes(void* volumes) { GameFunction<void(__cdecl*)(void*)>(0x0048B400)(volumes); }
+void ReleaseBoneVolumes(void* volumes) { Gfx::ReleaseBoneVolumes(reinterpret_cast<uint32_t>(volumes)); }
 
 // The texture dictionary (0x00700F1C): a texture by checksum (0x0049F540), one taken out (0x0049F500), a texture
 // made from an image (0x0049FA20) or loaded (0x0049F9B0); a texture's own replaced in a dictionary by name (0x0049FB20)
@@ -95,12 +105,15 @@ void ReleaseBoneVolumes(void* volumes) { GameFunction<void(__cdecl*)(void*)>(0x0
 void* Textures() { return GameVariable<void*>(0x00700F1C); }
 void* FindTexture(uint32_t checksum)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(Textures(), checksum);
+    return static_cast<CTexDict*>(Textures())->GetTexture(checksum);
 }
-void RemoveTexture(void* texture) { GameFunction<bool(__thiscall*)(void*, void*)>(0x0049F500)(Textures(), texture); }
+void RemoveTexture(void* texture)
+{
+    static_cast<CTexDict*>(Textures())->UnloadTexture(static_cast<CTexture*>(texture));
+}
 
 // The texture's checksum (+4, the folded getter 0x005480C0).
-uint32_t TextureChecksum(void* texture) { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005480C0)(texture); }
+uint32_t TextureChecksum(void* texture) { return static_cast<GameNet::FoldedGetters*>(texture)->Word04(); }
 
 // A colour channel (0-1) as a byte: x * 255 + 0.5, truncated (the original's x87 and _ftol).
 uint32_t ColorByte(float value)
@@ -277,7 +290,7 @@ bool CModel::AddFileGeom(const char* fileName, uint32_t name, bool useAssetManag
         texParams.flag0 = 0;
         texParams.texDictOffset = texDictOffset;
         texParams.forceTexDict = forceTexDict;
-        texParams.isSkin = GameFunction<bool(__cdecl*)(const char*, char*)>(0x0048BFE0)(fileName, texName);
+        texParams.isSkin = Engine::SplitSkinName(fileName, texName);
         AppendString(texName, ".tex");
         if (byName)
             assets->GetAssetDataByName(texName, 1);
@@ -387,8 +400,10 @@ bool CModel::Render(Mth::Matrix* matrix, bool noBones, uint8_t* skeleton)
         break;
     case 1:
         if (skeleton)
-            GameFunction<void(__thiscall*)(uint8_t*, Mth::Matrix*, float, float, float)>(0x004A31E0)(skeleton, matrix,
-                                                                                                 0.5f, 0.5f, 1.0f);
+            // (the original passes the floats 0.5, 0.5 and 1 as its colours and frame count: their bits)
+            reinterpret_cast<Gfx::CSkeleton*>(skeleton)->Draw(matrix, std::bit_cast<uint32_t>(0.5f),
+                                                              std::bit_cast<uint32_t>(0.5f),
+                                                              std::bit_cast<int>(1.0f));
         break;
     case 2:
     case 3:
@@ -420,9 +435,10 @@ int CModel::TestBoneVolumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint
         if (!volumes)
             continue;
         float distance = nearest;
-        int result = GameFunction<int(__thiscall*)(uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
-                                                   uint32_t, float*, uint32_t*)>(0x0048B580)(volumes, a, b, c, d, e,
-                                                                                             f, &distance, &extra);
+        int result = reinterpret_cast<Gfx::CBoneVolumes*>(volumes)->TestLine(
+            reinterpret_cast<const Mth::Line*>(a), reinterpret_cast<Gfx::CSkeleton*>(b),
+            reinterpret_cast<const Mth::Matrix*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
+            reinterpret_cast<float*>(&extra));
         if (!hit || distance < nearest) {
             nearest = distance;
             hitExtra = extra;
@@ -442,8 +458,8 @@ float CModel::GetBoneVolume(uint32_t a, uint32_t b, uint32_t bone)
         if (!volumes)
             continue;
         float value = 0.0f;
-        if (GameFunction<bool(__thiscall*)(uint8_t*, uint32_t, uint32_t, uint32_t, float*)>(0x0048BC40)(volumes, a, b,
-                                                                                                    bone, &value))
+        if (reinterpret_cast<Gfx::CBoneVolumes*>(volumes)->GetBoneVolume(
+                reinterpret_cast<Gfx::CSkeleton*>(a), reinterpret_cast<const Mth::Matrix*>(b), bone, &value))
             return value;
     }
     return 0.0f;
@@ -465,7 +481,7 @@ bool CModel::ReplaceTexture(uint32_t name, const char* source, const char* dest)
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
         sModelGeom* entry = Entry(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
-            GameFunction<bool(__thiscall*)(uint8_t*, const char*, const char*)>(0x0049FB20)(entry->textures, from, to))
+            reinterpret_cast<CTexDict*>(entry->textures)->ReplaceTextureFromFile(from, to))
             replaced = true;
     }
     if (!replaced)
@@ -486,7 +502,7 @@ bool CModel::ReplaceTextureWith(uint32_t name, const char* source, uint32_t dest
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
         sModelGeom* entry = Entry(node);
         if ((name == entry->name || all) && entry->textures &&
-            GameFunction<bool(__thiscall*)(uint8_t*, const char*, void*)>(0x0049F800)(entry->textures, from, texture))
+            reinterpret_cast<CTexDict*>(entry->textures)->ReplaceTexture(from, static_cast<CTexture*>(texture)))
             replaced = true;
     }
     if (!replaced)
@@ -593,29 +609,31 @@ bool CModel::ClearColorFromScript(Script::CStruct* params)
 // 0x00494A00
 bool CModel::ReplaceFaceTexture(void* face, const char* source, uint32_t name)
 {
-    // The face texture (not rewritten yet): its image's size (0x00487540) and data (0x00487530), its overlay's file
-    // name (0x004875B0), its colour parameters (0x00487550, into a buffer).
-    auto faceCall = [face](uint32_t address) { return GameFunction<void*(__thiscall*)(void*)>(address)(face); };
+    // The face texture: its image's size (0x00487540) and data (0x00487530), its overlay's file name (0x004875B0),
+    // its colour parameters (0x00487550, into a buffer).
+    auto* faceTexture = static_cast<Gfx::CFaceTexture*>(face);
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_topDownHeap);
-    int size = reinterpret_cast<int>(faceCall(0x00487540));
-    void* data = faceCall(0x00487530);
-    void* image = GameFunction<void*(__thiscall*)(void*, void*, int, uint32_t, bool, bool, bool, bool)>(0x0049FA20)(
-        Textures(), data, size, kFaceImage, true, true, false, true);
-    void* overlay = GameFunction<void*(__thiscall*)(void*, const char*, bool, bool, bool)>(0x0049F9B0)(
-        Textures(), static_cast<const char*>(faceCall(0x004875B0)), true, true, true);
+    int size = faceTexture->GetImageSize();
+    void* data = faceTexture->GetImage();
+    void* image = static_cast<CTexDict*>(Textures())
+                      ->LoadTextureFromBuffer(static_cast<const uint8_t*>(data), size, kFaceImage, 1, 1, false, 1);
+    void* overlay = static_cast<CTexDict*>(Textures())->LoadTexture(faceTexture->GetOverlayName(), 1, 1, true);
     Mem::Manager::Get()->PopContext();
     // The profile's skin colour (0x004869D0 reads it, 0x004869A0 makes it current) and the overlay (0x004869C0)
     // applied to the image (0x00486F70) with the face's colour parameters.
     uint8_t color[0x30];
-    GameFunction<void(__cdecl*)(void*, Script::CStruct*)>(0x004869D0)(color, Script::GetStructure(kSkinColor));
-    GameFunction<void(__cdecl*)(void*)>(0x004869A0)(color);
-    GameFunction<void(__cdecl*)(void*)>(0x004869C0)(overlay);
+    Gfx::ReadFacePoints(reinterpret_cast<Gfx::SFacePoints*>(color), Script::GetStructure(kSkinColor));
+    Gfx::SetModelFacePoints(reinterpret_cast<const Gfx::SFacePoints*>(color));
+    Gfx::SetFaceOverlay(static_cast<CTexture*>(overlay));
     uint8_t parameters[0x38];
-    auto getParameters = GameFunction<uint8_t*(__thiscall*)(void*, void*)>(0x00487550);
-    uint8_t flag = getParameters(face, parameters)[0x20];
-    GameFunction<bool(__cdecl*)(void*, uint8_t*, uint32_t, int, uint32_t)>(0x00486F70)(
-        image, getParameters(face, parameters), flag, 0, 0x80808080);
+    auto getParameters = [faceTexture](uint8_t* out) {
+        return reinterpret_cast<uint8_t*>(faceTexture->GetPoints(reinterpret_cast<Gfx::SFacePoints*>(out)));
+    };
+    uint8_t flag = getParameters(parameters)[0x20];
+    Gfx::MassageFaceTexture(static_cast<CTexture*>(image),
+                            reinterpret_cast<const Gfx::SFacePoints*>(getParameters(parameters)), flag != 0, false,
+                            0x80808080);
     bool replaced = ReplaceTextureWith(name, source, TextureChecksum(image));
     RemoveTexture(image);
     RemoveTexture(overlay);

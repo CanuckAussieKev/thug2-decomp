@@ -1,6 +1,8 @@
 // A one-pass material made on the fly, and the chunk skippers: see simple_material.h.
 
 #include "game/gfx/simple_material.h"
+#include "game/gfx/material.h"
+#include "game/gfx/texture_dict.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -18,11 +20,11 @@ namespace {
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
 uint8_t* FindTexture(uint32_t checksum)
 {
-    return GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049F540)(GameVariable<void*>(0x00700F20), checksum);
+    return reinterpret_cast<uint8_t*>(static_cast<CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(checksum));
 }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
-uint8_t* ConstructMaterial(void* memory) { return GameFunction<uint8_t*(__thiscall*)(void*)>(0x004D1A90)(memory); }
-void DestroyMaterial(void* material) { GameFunction<void(__thiscall*)(void*)>(0x004D2BD0)(material); }
+uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<sMaterial*>(memory)->Construct()); }
+void DestroyMaterial(void* material) { static_cast<sMaterial*>(material)->DestroyBody(); }
 // The C runtime's rand (the game's: its sequence).
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); }
 

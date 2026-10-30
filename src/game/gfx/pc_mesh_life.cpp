@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "game/core/manager.h"
+#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
 #include "game/gfx/mesh_list.h"
@@ -39,7 +40,7 @@ sBufferNode* IndexBufferList() { return GameVariable<sBufferNode*>(0x007865E8); 
 
 // The engine's scenes (a list: +4 the scene, +0xC the next node; the head's +4 is -1) and a scene's mesh list
 // (+0x280), whose arena vertex buffer is its +0x7C and the buffer's size its +0x80.
-uint8_t* FirstSceneNode() { return GameFunction<uint8_t*(__cdecl*)()>(0x0048C7F0)(); }
+uint8_t* FirstSceneNodeBytes() { return reinterpret_cast<uint8_t*>(Nx::FirstSceneNode()); }
 uint8_t* NextSceneNode(uint8_t* node)
 {
     uint8_t* next = *reinterpret_cast<uint8_t**>(node + 0xC);
@@ -239,7 +240,7 @@ void __cdecl ReleaseBuffers()
         }
         vb->buffer = buffer; // (kept: RecreateBuffers matches the shares by it)
     }
-    for (uint8_t* node = FirstSceneNode(); node;) {
+    for (uint8_t* node = FirstSceneNodeBytes(); node;) {
         uint8_t* next = NextSceneNode(node);
         if (sScene* meshes = SceneMeshes(node))
             if (IDirect3DVertexBuffer9* arena = ArenaBuffer(meshes))
@@ -259,7 +260,7 @@ void __cdecl ReleaseBuffers()
 // 0x004D68C0
 void __cdecl RecreateBuffers()
 {
-    for (uint8_t* node = FirstSceneNode(); node;) {
+    for (uint8_t* node = FirstSceneNodeBytes(); node;) {
         uint8_t* next = NextSceneNode(node);
         sScene* meshes = SceneMeshes(node);
         if (meshes && ArenaBuffer(meshes)) {

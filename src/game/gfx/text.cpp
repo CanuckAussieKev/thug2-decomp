@@ -14,6 +14,7 @@
 #include "game/core/str.h"
 #include "game/file/file.h"
 #include "game/gfx/draw2d.h"
+#include "game/gfx/font.h"
 #include "game/gfx/glyphs.h"
 #include "game/gfx/hd_ui.h"
 #include "game/gfx/render_state.h"
@@ -45,7 +46,7 @@ SFont* ButtonFont() { return GameVariable<SFont*>(0x00780FDC); }
 SFont*& TextureFont() { return GameVariable<SFont*>(0x00780FE0); }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).
-char MetaButton(const char* digit) { return GameFunction<char(__cdecl*)(const char*)>(0x0048D6A0)(digit); }
+char MetaButton(const char* digit) { return Nx::ButtonGlyph(digit); }
 // The name of the key a button is mapped to.
 const char* ButtonKeyName(int button) { return Sio::GetButtonKeyName(button); }
 

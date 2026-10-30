@@ -10,15 +10,19 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/flash.h"
 #include "game/gfx/pc_fog.h"
 #include "game/gfx/shatter.h"
 #include "game/gfx/spawned_polys.h"
+#include "game/gfx/texture_dict.h"
 #include "game/gfx/texture_splats.h"
 #include "game/lst/hashtable.h"
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
 #include "game/nx/coll_grid.h"
+#include "game/net/buddy_status.h"
 #include "game/nx/coll_obj.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
@@ -237,11 +241,9 @@ void __cdecl SetShatterParams(const Mth::Vector* velocity, const Mth::Vector* ve
 // 0x00490DC0
 void __cdecl ShatterGeom(void* geom)
 {
-    void* textures = GameVariable<void*>(0x00700F20); // (the particles' dictionary)
-    void* texture = GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(textures,
-                                                                                  GameVariable<uint32_t>(0x007004BC));
-    // (the PC's ShatterGeom - shatter.cpp - only reads the geom)
-    GameFunction<void(__cdecl*)(void*, void*)>(0x004BA7A0)(geom, texture);
+    // (the PC's ShatterGeom - shatter.cpp - only reads the geom: the original also looked up the particles' texture
+    // 0x007004BC and passed it, unused)
+    Nx::ShatterGeom(static_cast<uint8_t*>(geom));
 }
 
 // --- texture splats ---
@@ -426,9 +428,8 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
         }
     }
     if (!texture) {
-        void* textures = GameVariable<void*>(0x00700F20); // (the particles' dictionary)
-        texture = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049F540)(
-            textures, Crc::GenerateCRCFromString(textureName));
+        auto* textures = static_cast<CTexDict*>(GameVariable<void*>(0x00700F20)); // (the particles' dictionary)
+        texture = reinterpret_cast<uint8_t*>(textures->GetTexture(Crc::GenerateCRCFromString(textureName)));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.
     Mth::Line line(*from, *to);
@@ -441,7 +442,7 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
     box.max = {static_cast<float>(static_cast<double>(lineBox.max.x) + size),
                  static_cast<float>(static_cast<double>(lineBox.max.y) + size),
                  static_cast<float>(static_cast<double>(lineBox.max.z) + size), 1.0f};
-    auto** grids = GameFunction<CCollGrid**(__cdecl*)(Mth::Line*)>(0x0048C980)(&line);
+    auto** grids = GetCollGridsOnLine(&line);
     if (!grids || !*grids)
         return false;
     auto* sectors = &GameVariable<void*>(0x00700510);
@@ -459,7 +460,7 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
             if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) &&
                 !(bounds->min.z > box.max.z) && !(box.min.z > bounds->max.z) &&
                 !(bounds->min.y > box.max.y) && !(box.min.y > bounds->max.y)) {
-                void* sector = GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(object->m_checksum);
+                void* sector = Nx::Engine::GetSector(object->m_checksum);
                 objects[count] = object;
                 sectors[count] = sector;
                 ++count;
@@ -492,7 +493,7 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
         if (!follow && splats) {
             AgeTextureSplats(splats, FrameMilliseconds());
             LightTextureSplats(splats);
-            splats->texture = GameFunction<uint32_t(__thiscall*)(uint8_t*)>(0x005480C0)(texture);
+            splats->texture = reinterpret_cast<GameNet::FoldedGetters*>(texture)->Word04();
         }
     }
     if (recent) {
