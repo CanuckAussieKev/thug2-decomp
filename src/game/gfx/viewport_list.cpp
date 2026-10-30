@@ -18,7 +18,7 @@ CViewport* Viewport(int index) { return (&GameVariable<CViewport*>(0x00701350))[
 // 0x004A06D0
 CViewport* __cdecl GetActiveViewport(int n)
 {
-    const int* map = GameVariable<const int*>(0x0067E540);
+    const int* map = g_modeMap;
     int shown = 0;
     for (int view = 0; view < 10; ++view) {
         if (map[view] < 0)

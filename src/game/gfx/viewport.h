@@ -5,6 +5,7 @@
 
 #include "game/mth/vector.h"
 #include "game/obj/smtptr.h"
+#include "hook/game_global.h"
 
 namespace Gfx {
 class Camera;
@@ -19,6 +20,8 @@ class CScript;
 // horse1, horse2) maps up to four "views" onto them (the mode's map: -1 for a view not shown); the active
 // viewports are the mapped ones in map order. Also the occlusion queries the frame issues (four requests at most).
 namespace Nx {
+
+GAME_GLOBAL_EXTERN(const int*, g_modeMap);
 
 // The engine's viewport (0x24 bytes, vtable 0x00649DA0; the PC's CPcViewport derives from it).
 class CViewport {

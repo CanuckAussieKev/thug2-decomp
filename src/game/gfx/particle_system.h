@@ -7,6 +7,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/smtptr.h"
+#include "hook/game_global.h"
 
 namespace Script {
 class CScript;
@@ -19,6 +20,8 @@ class CStruct;
 // colours from start through mid to end. Each type is a class of its own over the base (newflat, a flat ribbon, glow,
 // glowribbontrail, line, ...), with a PC class over that which draws it (pc_flexible_particles.h).
 namespace Nx {
+
+GAME_GLOBAL_EXTERN(uint8_t, g_allocAssertFlag);
 
 // A particle (0x30 bytes).
 struct sFlexibleParticle {

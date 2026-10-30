@@ -18,9 +18,12 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint8_t, g_allocAssertFlag, 0x00658555);
 
 namespace {
 
@@ -42,11 +45,11 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 // The allocations of the types' constructors: the manager's, its assert flag the global byte 0x00658555.
 void* Allocate(unsigned int size)
 {
-    return Mem::Manager::Get()->Allocate(size, GameVariable<uint8_t>(0x00658555), nullptr);
+    return Mem::Manager::Get()->Allocate(size, g_allocAssertFlag, nullptr);
 }
 void* AllocateZeroed(unsigned int size)
 {
-    return Mem::Manager::Get()->AllocateZeroed(size, GameVariable<uint8_t>(0x00658555), nullptr);
+    return Mem::Manager::Get()->AllocateZeroed(size, g_allocAssertFlag, nullptr);
 }
 
 void DeleteScript(Script::CScript* script)

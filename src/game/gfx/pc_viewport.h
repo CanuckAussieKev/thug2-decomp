@@ -4,11 +4,16 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 // The PC viewport (Nx engine: the engine's CViewport - constructor 0x004A0DB0, destructor body 0x004A0E60 - over it;
 // the viewports at 0x00701350): a world point onto the 640 x 448 screen, and the occlusion queries the sun's
 // visibility test draws (nothing drawn to the colour buffer; not on a Radeon 8500).
 namespace Nx {
+
+GAME_GLOBAL_EXTERN(float, g_scale2DIn3DNumerator);
+GAME_GLOBAL_EXTERN(float, g_scale2DIn3DMax);
+GAME_GLOBAL_EXTERN(float, g_scale2DIn3DMin);
 
 // The PC viewport (0x24 bytes, vtable 0x0064A848).
 struct CPcViewport {

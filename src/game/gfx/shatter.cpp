@@ -226,7 +226,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
                 float cy = static_cast<float>(e2x * e1z - e2zf * e1x);
                 double cx = e2zf * e1y - e2yf * e1z;
                 double area = cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz;
-                double limit = GameVariable<float>(0x0067DDF0);
+                double limit = g_splitAreaLimit;
                 if (area > limit) {
                     int pieces = 1;
                     do {

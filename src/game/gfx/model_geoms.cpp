@@ -19,6 +19,7 @@
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_internal.h"
+#include "game/gfx/particle_system.h"
 #include "game/gfx/particles.h"
 #include "game/gfx/pc_texture.h"
 #include "game/gfx/skeleton.h"
@@ -72,7 +73,7 @@ sModelGeom* NewEntry(bool defaultHeap)
     if (defaultHeap)
         return static_cast<sModelGeom*>(Mem::New(sizeof(sModelGeom)));
     return static_cast<sModelGeom*>(
-        Mem::Manager::Get()->Allocate(sizeof(sModelGeom), GameVariable<uint8_t>(0x00658555), nullptr));
+        Mem::Manager::Get()->Allocate(sizeof(sModelGeom), g_allocAssertFlag, nullptr));
 }
 
 // A scene's texture dictionary (its +4).

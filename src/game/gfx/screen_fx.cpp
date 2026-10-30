@@ -10,6 +10,7 @@
 
 #include "game/gfx/graphics_options.h"
 #include "game/gfx/engine_effects.h"
+#include "game/gfx/pc_scene.h"
 #include "game/gfx/primitive_states.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
@@ -197,7 +198,7 @@ void __cdecl Bloom()
     IDirect3DTexture9* bright = ScreenCopy(3);
     SetPixelShader(Shader(0x007CA948), nullptr); // the cut-off
     // Constant 0: the cut-off colour (bytes / 128) and 0.5.
-    const uint8_t* cutoff = &GameVariable<uint8_t>(0x0067E98C);
+    const uint8_t* cutoff = reinterpret_cast<uint8_t*>(&g_bloomCutOff);
     float constant[4] = {static_cast<float>(cutoff[0] * (1.0 / 128)), static_cast<float>(cutoff[1] * (1.0 / 128)),
                          static_cast<float>(cutoff[2] * (1.0 / 128)), 0.5f};
     Device()->SetPixelShaderConstantF(0, constant, 1);
@@ -243,7 +244,7 @@ void __cdecl Bloom()
         CurrentScreenCopy()->GetLevelDesc(0, &desc);
         double halfX = 0.5 / Unsigned(desc.Width);
         double halfY = 0.5 / Unsigned(desc.Height);
-        uint32_t alpha = GameVariable<uint32_t>(pass ? 0x0067E980 : 0x0067E97C);
+        uint32_t alpha = pass ? g_bloomAlphaSecond : g_bloomAlphaFirst;
         float halfXFloat = static_cast<float>(halfX), halfYFloat = static_cast<float>(halfY);
         float width = static_cast<float>(GameVariable<int>(0x00786D6C));
         float height = static_cast<float>(GameVariable<int>(0x00786D70));

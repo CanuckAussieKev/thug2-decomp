@@ -225,7 +225,7 @@ void __cdecl SetShatterParams(const Mth::Vector* velocity, const Mth::Vector* ve
 {
     GameVariable<Mth::Vector>(0x007004D0) = *velocity;
     GameVariable<Mth::Vector>(0x007004E0) = *vector210E;
-    GameVariable<float>(0x0067DDF0) = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
+    g_splitAreaLimit = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
     GameVariable<float>(0x007004CC) = speed == 0.0f ? 0.0f : speed;
     GameVariable<float>(0x0067DDF4) = velocityScale == 0.0f ? 1.0f : velocityScale;
     GameVariable<float>(0x0067DDF8) = lifetime == 0.0f ? 4.0f : lifetime;

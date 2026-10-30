@@ -8,10 +8,13 @@
 #include "game/script/params.h"
 #include "game/sys/sdl_window.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
 namespace Nx {
+
+GAME_GLOBAL(float, g_angleFactor, 0x0067E544, 1.0f);
 
 namespace {
 
@@ -23,7 +26,7 @@ auto& ScriptScreenBlur() { return GameVariable<int>(0x006FA72C); }
 
 // The screen's aspect (width / height), and the original's angle factor constant (1.0).
 float& ScreenAspect() { return GameVariable<float>(0x00701340); }
-float AngleFactorConstant() { return GameVariable<float>(0x0067E544); }
+float AngleFactorConstant() { return g_angleFactor; }
 
 // The 640x480 -> back buffer conversion (InitDirect3D) and the letterbox flag.
 uint8_t& LetterboxActive() { return GameVariable<uint8_t>(0x00786CBE); }

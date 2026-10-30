@@ -12,6 +12,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/material.h"
+#include "game/gfx/particle_system.h"
 #include "game/gfx/particle_types.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
@@ -212,7 +213,7 @@ void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int maxParti
     for (const sType& t : kTypes)
         if (t.type == type)
             chosen = &t;
-    void* memory = Mem::Manager::Get()->AllocateZeroed(chosen->size, GameVariable<uint8_t>(0x00658555), nullptr);
+    void* memory = Mem::Manager::Get()->AllocateZeroed(chosen->size, g_allocAssertFlag, nullptr);
     if (!memory)
         return nullptr;
     const sConstructArgs args{name, maxParticles, texture, blendMode, fixedAlpha, segments, unknown, history, model};

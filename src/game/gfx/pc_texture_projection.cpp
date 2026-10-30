@@ -236,7 +236,7 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                     float cy = static_cast<float>(e2x * e1z - e2z * e1x);
                     double cx = e2z * e1y - e2y * e1z;
                     double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
-                    GameVariable<float>(0x0067DDF0) = static_cast<float>(total / (static_cast<double>(fineness) * 16.0f));
+                    g_splitAreaLimit = static_cast<float>(total / (static_cast<double>(fineness) * 16.0f));
                     reinterpret_cast<sVertexStack*>(VertexStack())->Construct(); // (emptied)
                     GameVariable<uint32_t>(0x006FC4A4) = 0x18;
                     PushVertex(v0);

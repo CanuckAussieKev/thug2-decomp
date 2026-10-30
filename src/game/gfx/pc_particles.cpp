@@ -20,9 +20,14 @@
 #include "game/sys/platform_d3d.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint32_t, g_particleRandomB, 0x0067E974, 0x12B9B0A1);
+GAME_GLOBAL(uint32_t, g_particleRandomC, 0x0067E978, 0xAA2FB3F);
+GAME_GLOBAL(uint32_t, g_particleRandomA, 0x00705608);
 
 namespace {
 
@@ -56,9 +61,9 @@ uint32_t TextureKey(const uint8_t* texture)
 }
 
 // The random sequence the particles' spreads come from (three words; four numbers a particle).
-uint32_t& RandomA() { return GameVariable<uint32_t>(0x00705608); }
-uint32_t& RandomB() { return GameVariable<uint32_t>(0x0067E974); }
-uint32_t& RandomC() { return GameVariable<uint32_t>(0x0067E978); }
+uint32_t& RandomA() { return g_particleRandomA; }
+uint32_t& RandomB() { return g_particleRandomB; }
+uint32_t& RandomC() { return g_particleRandomC; }
 // A step: a' = b a + c, b' = (b ^ a') + (a' >> 4), c' = c + (a' >> 3) - 0x10101010 (arithmetic shifts).
 void RandomStep(uint32_t& a, uint32_t& b, uint32_t& c)
 {

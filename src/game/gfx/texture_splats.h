@@ -3,12 +3,16 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "hook/game_global.h"
+
 // Texture splats on PC (Nx engine): textures projected onto the world (skid marks, splashes) - per texture a set of
 // up to 256 triangles kept in a table (0x007004B0, Lst::HashTable keyed by the set's address), drawn with a
 // perspective correction of their texture coordinates, lit, killed by box or all at once - and the geometry helpers
 // the projection uses: 2D segment and triangle tests against the screen square, and splitting triangles that are too
 // big (a stack of vertices at 0x006FC4A0).
 namespace Nx {
+
+GAME_GLOBAL_EXTERN(float, g_splitAreaLimit);
 
 // A splat set (laid out as the original: arrays of 256).
 struct sTextureSplats {

@@ -11,9 +11,13 @@
 #include "game/gfx/engine_model_lights.h"
 #include "game/gfx/light_manager.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(Mth::Vector*, g_sceneDirections, 0x0067DC9C);
+GAME_GLOBAL(uint32_t*, g_sceneColors, 0x0067DCA0);
 
 namespace {
 
@@ -29,8 +33,8 @@ float* LightColorConstant(uint32_t light) { return &GameVariable<float>(0x00786F
 // The scene's lights.
 uint32_t& SceneAmbient() { return GameVariable<uint32_t>(0x0067DC98); }
 float SceneScale() { return GameVariable<float>(0x0067DC94); }
-Mth::Vector* SceneDirections() { return GameVariable<Mth::Vector*>(0x0067DC9C); }
-uint32_t* SceneColors() { return GameVariable<uint32_t*>(0x0067DCA0); }
+Mth::Vector* SceneDirections() { return g_sceneDirections; }
+uint32_t* SceneColors() { return g_sceneColors; }
 float* SceneIntensities() { return GameVariable<float*>(0x006FAAEC); }
 uint32_t LightCount() { return GameVariable<uint32_t>(0x006FAAE0); }
 uint32_t ModelLightCount() { return GameVariable<uint32_t>(0x006FAAE4); }

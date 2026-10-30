@@ -24,9 +24,12 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(float, g_splitAreaLimit, 0x0067DDF0, 82944.0f);
 
 namespace {
 
@@ -254,7 +257,7 @@ bool __cdecl SplitNextTriangle(uint8_t** out, const sSplitFormat* format)
     double crossZ = ax * byf - ay * bxf;
     double lengthSquared = crossZ * crossZ + static_cast<double>(crossY) * crossY + static_cast<double>(crossX) * crossX;
     uint32_t size = VertexSize();
-    if (!(lengthSquared > GameVariable<float>(0x0067DDF0))) {
+    if (!(lengthSquared > g_splitAreaLimit)) {
         for (uint8_t* v : {v0, v1, v2}) {
             std::memcpy(*out, v, size);
             *out += size;
@@ -564,7 +567,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                     float cz = static_cast<float>(ey2f * ex1 - ex2 * ey1);
                     float cy = static_cast<float>(ex2 * ez1 - ez2f * ex1);
                     double cx = ez2f * ey1 - ey2f * ez1;
-                    GameVariable<float>(0x0067DDF0) = static_cast<float>(
+                    g_splitAreaLimit = static_cast<float>(
                         (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0));
                 }
                 reinterpret_cast<sVertexStack*>(VertexStack())->Construct(); // (emptied)

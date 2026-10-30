@@ -18,9 +18,13 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/window2d.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(float[12], g_billboardConstants, 0x0067E998,
+    0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 
 namespace {
 
@@ -410,7 +414,7 @@ void sBillboardBatch::Render()
     multiply(all, projection, viewWorld);
     Device()->SetVertexShaderConstantF(0, all, 4);
     auto* manager = &GameVariable<sBillboardManager>(0x00775B80);
-    float* constants = &GameVariable<float>(0x0067E998); // c4-c6
+    float* constants = g_billboardConstants; // c4-c6
     auto setAxes = [&](const float* x, const float* y, const float* z) {
         std::memcpy(constants, x, 12);
         std::memcpy(constants + 4, y, 12);

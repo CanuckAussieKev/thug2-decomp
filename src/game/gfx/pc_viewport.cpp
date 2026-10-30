@@ -13,9 +13,16 @@
 #include "game/gfx/viewport.h"
 #include "game/sys/platform_d3d.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(float, g_virtualScreenHeight, 0x00649FCC, 448.0f);
+GAME_GLOBAL(float, g_virtualScreenWidth, 0x00649FD4, 640.0f);
+GAME_GLOBAL(float, g_scale2DIn3DNumerator, 0x0067E548, 300.0f);
+GAME_GLOBAL(float, g_scale2DIn3DMax, 0x0067E54C, 3.0f);
+GAME_GLOBAL(float, g_scale2DIn3DMin, 0x0070137C);
 
 namespace {
 
@@ -93,12 +100,12 @@ float CPcViewport::ProjectToScreen(const Mth::Vector* point, float* x, float* y,
         clip[1] = static_cast<float>(clip[1] * inverse);
         clip[2] = static_cast<float>(inverse * clip[2]);
     }
-    *x = static_cast<float>((static_cast<double>(clip[0]) + 1.0f) * 0.5f * GameVariable<float>(0x00649FD4));
-    *y = static_cast<float>((1.0f - static_cast<double>(clip[1])) * 0.5f * GameVariable<float>(0x00649FCC));
+    *x = static_cast<float>((static_cast<double>(clip[0]) + 1.0f) * 0.5f * g_virtualScreenWidth);
+    *y = static_cast<float>((1.0f - static_cast<double>(clip[1])) * 0.5f * g_virtualScreenHeight);
     if (!(clip[2] < 1.0f))
         return -1.0f;
-    float most = GameVariable<float>(0x0067E54C), least = GameVariable<float>(0x0070137C);
-    double factor = view[2] == 0.0f ? most : -1.0f / static_cast<double>(view[2]) * GameVariable<float>(0x0067E548);
+    float most = g_scale2DIn3DMax, least = g_scale2DIn3DMin;
+    double factor = view[2] == 0.0f ? most : -1.0f / static_cast<double>(view[2]) * g_scale2DIn3DNumerator;
     if (factor > most)
         factor = most;
     else if (factor < least)

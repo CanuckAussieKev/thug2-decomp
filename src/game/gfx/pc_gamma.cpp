@@ -10,14 +10,18 @@
 #include <cstdint>
 
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(float[3], g_gammas, 0x0067E9C8, 1.0f, 1.0f, 1.0f);
+GAME_GLOBAL(uint16_t[768], g_gammaRamp, 0x00781BF8);
+
 namespace {
 
-float* Gammas() { return &GameVariable<float>(0x0067E9C8); }
-uint16_t* Ramp() { return &GameVariable<uint16_t>(0x00781BF8); } // red, then green and blue, 256 each
+float* Gammas() { return g_gammas; }
+uint16_t* Ramp() { return g_gammaRamp; } // red, then green and blue, 256 each
 
 // A value kept within 0-1 (a NaN kept, as the original's tests let it through).
 float Clamp01(float value)

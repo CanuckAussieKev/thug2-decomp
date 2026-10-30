@@ -8,14 +8,27 @@
 #include "game/core/manager.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/pc_viewport.h"
+#include "game/gfx/tod_manager.h"
 #include "game/gfx/viewport_list.h"
 #include "game/gfx/screen.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(float, g_minusOne, 0x00645420, -1.0f);
+GAME_GLOBAL(float, g_halfDegreeRadians, 0x00648800, 0.008726646f);
+GAME_GLOBAL(float[40], g_viewportRects, 0x00649C28,
+    0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.0f, 0.0f,
+    1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f, 0.5f);
+GAME_GLOBAL(int[6], g_modeViewportCounts, 0x00649CC8, 1, 2, 2, 4, 1, 1);
+GAME_GLOBAL(int[24], g_modeMaps, 0x00649CE0,
+    0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1);
+GAME_GLOBAL_UNCHECKED(const int*, g_modeMap, 0x0067E540, g_modeMaps);
 
 namespace {
 
@@ -40,11 +53,11 @@ constexpr uint32_t kMinScale = 0x774B6931; // min_scale
 
 CViewport*& Viewport(int index) { return (&GameVariable<CViewport*>(0x00701350))[index]; }
 // The screen mode's map of views onto viewports (4 per mode at 0x00649CE0; -1: not shown).
-const int*& ModeMap() { return GameVariable<const int*>(0x0067E540); }
+const int*& ModeMap() { return g_modeMap; }
 int& ScreenMode() { return GameVariable<int>(0x0070134C); }
 int& ActiveViewportCount() { return GameVariable<int>(0x00701378); }
-int ModeViewportCount(int mode) { return (&GameVariable<int>(0x00649CC8))[mode]; }
-const int* ModeMapOf(int mode) { return &GameVariable<int>(0x00649CE0) + 4 * mode; }
+int ModeViewportCount(int mode) { return g_modeViewportCounts[mode]; }
+const int* ModeMapOf(int mode) { return g_modeMaps + 4 * mode; }
 
 // The n-th mapped entry's viewport - the map's ten words are scanned (past the mode's four: the next modes'),
 // null when there's none.
@@ -119,7 +132,7 @@ CViewport* CViewport::Destroy(unsigned int freeFlags)
 float CViewport::ProjectToScreen(const Mth::Vector*, float*, float*, int*)
 {
     Dbg::Printf("STUB: PlatTransformToScreenCoord\n");
-    return GameVariable<float>(0x00645420); // -1
+    return g_minusOne; // -1
 }
 
 // 0x004A0CF0
@@ -183,7 +196,7 @@ void __cdecl DeleteMarkedCameras()
 void __cdecl CreateViewports()
 {
     for (int i = 0; i < kViewports; ++i) {
-        const float* table = &GameVariable<float>(0x00649C28) + 4 * i;
+        const float* table = g_viewportRects + 4 * i;
         float rect[4] = {table[0], table[1], table[2], table[3]};
         Viewport(i) = reinterpret_cast<CViewport*>(CreateViewport(reinterpret_cast<uint32_t>(rect), 0));
     }
@@ -257,7 +270,7 @@ void __cdecl SetScreenMode(int mode)
         float angle;
         if (mode == 1)
             angle = static_cast<float>(static_cast<double>(Script::GetFloat("Skater_Cam_Horiz_FOV")) *
-                                       GameVariable<float>(0x006453BC)); // (0.5: split_vertical)
+                                       Gfx::g_half); // (0.5: split_vertical)
         else
             angle = Script::GetFloat("Skater_Cam_Horiz_FOV");
         camera->SetHFOV(angle);
@@ -271,7 +284,7 @@ void __cdecl SetScreenFieldOfView(float degrees)
         degrees = GetScreenAngle();
     GameVariable<float>(0x00701344) = degrees;
     // tan(degrees / 2) / tan(default / 2), as the original's x87 code (FPTAN at its precision)
-    float halfDegreeRadians = GameVariable<float>(0x00648800);
+    float halfDegreeRadians = g_halfDegreeRadians;
     float defaultAngle = GameVariable<float>(0x00701348);
     float factor;
     __asm {
@@ -287,7 +300,7 @@ void __cdecl SetScreenFieldOfView(float degrees)
         _emit 0xF9
         fstp factor
     }
-    GameVariable<float>(0x0067E544) = factor;
+    g_angleFactor = factor;
     for (int i = 0; i < ActiveViewportCount(); ++i) {
         CViewport* viewport = ActiveViewport(i);
         if (viewport && viewport->m_camera.Get())
@@ -341,11 +354,11 @@ bool __cdecl CFunc_Set2DIn3DSpaceParams(Script::CStruct* params, Script::CScript
 {
     float value;
     if (params->GetFloat(kScaleNumerator, &value, 0))
-        GameVariable<float>(0x0067E548) = value;
+        g_scale2DIn3DNumerator = value;
     if (params->GetFloat(kMaxScale, &value, 0))
-        GameVariable<float>(0x0067E54C) = value;
+        g_scale2DIn3DMax = value;
     if (params->GetFloat(kMinScale, &value, 0))
-        GameVariable<float>(0x0070137C) = value;
+        g_scale2DIn3DMin = value;
     return true;
 }
 
