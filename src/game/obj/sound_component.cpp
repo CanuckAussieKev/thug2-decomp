@@ -18,6 +18,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/gfx/weather.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -27,7 +34,7 @@ GAME_GLOBAL(uint32_t[12], g_soundComponentMemberFunctions, 0x00683118,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646514);
+extern void** const kVtable;
 
 constexpr uint32_t kObjAdjustSound = 0x3E5E8023;
 constexpr uint32_t kObjStopSound = 0x4E4132D6;
@@ -364,3 +371,25 @@ REPLACE(0x00433240, &Obj::CSoundComponent::PlaySound);
 REPLACE(0x00432FF0, &Obj::CSoundComponent::AdjustSound);
 REPLACE(0x00432CE0, &Obj::CSoundComponent::SetSound);
 REPLACE(0x00433630, &Obj::CSoundComponent::Obj_PlaySound);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646514,
+    &Obj::CSoundComponent::Destroy,
+    &Obj::CSoundComponent::Update,
+    &Obj::CSoundComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Nx::VirtualSlot1Jump,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::CSoundComponent::CallMemberFunction,
+    Stubs::IgnoreArguments3);
+
+} // namespace
+} // namespace Obj

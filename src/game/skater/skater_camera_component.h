@@ -182,4 +182,7 @@ public:
 };
 static_assert(sizeof(CSkaterCleanupStateComponent) == 0x1C, "layout must match the original");
 
+// 0x0064BA74: skaterCameraVtable (defined where the class's functions are).
+extern void** const g_skaterCameraVtable;
+
 } // namespace Obj

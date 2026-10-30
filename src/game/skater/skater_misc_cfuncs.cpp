@@ -22,6 +22,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/gfx/cag_cfuncs.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -210,7 +211,7 @@ bool __cdecl CFunc_PlaySkaterStream(Script::CStruct* params, Script::CScript* sc
 
     for (int i = 0; i < count; ++i) {
         // "%s_%s%02i" (the original's sprintf is unbounded)
-        std::snprintf(stream, sizeof(stream), reinterpret_cast<const char*>(0x0064E048), voice, type,
+        std::snprintf(stream, sizeof(stream), GAME_TEXT(0x0064E048, "%s_%s%02i"), voice, type,
                       static_cast<int>(order->GetElement(i)));
         if (!Pcm::StreamExists(Crc::GenerateCRCFromString(stream)))
             continue;

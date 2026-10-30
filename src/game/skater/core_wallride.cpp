@@ -13,6 +13,7 @@
 #include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -33,9 +34,6 @@ constexpr uint32_t kOffEdge = 0xD96F01F1;            // SkaterOffEdge (event)
 constexpr uint32_t kGroundGone = 0x3B1001B6;         // GroundGone (event)
 
 constexpr uint32_t kWallNormal = 0x38C;              // the wall's normal
-constexpr uint32_t kOtherFeelerEvents = 0x0064BB80;  // (the other feeler leaving)
-constexpr uint32_t kOtherFeelerEvents2 = 0x0064BBB0;
-constexpr uint32_t kJumpTriggerEvents = 0x0064BB8C;  // {2, 4, 0}
 
 constexpr float kHeadingUp = 0.68f;   // 0x0064BDB4: heading up the wall this much: no turning
 constexpr float kTopFacesUp = 0.9f;   // 0x00649FE4: a hit ahead facing up this much: the wall's top
@@ -296,15 +294,15 @@ void CorePhysicsComponent::DoWallRidePhysics()
             ChangeState(this, kAir);
             static_cast<Obj::CObject*>(ObjectOf(this))->BroadcastEvent(kOffEdge, nullptr, 0.0f);
             static_cast<Obj::CObject*>(ObjectOf(this))->SelfEvent(kGroundGone, nullptr);
-            TriggerFeeler(this, kOtherFeelerEvents, kOtherFeeler);
+            TriggerFeeler(this, g_otherFeelerLeaveEvents, kOtherFeeler);
             if (TriggerTookOver(this))
                 return;
         } else {
             if (At<int>(this, 0xFC) != At<int>(this, 0x1AC)) {
-                TriggerFeeler(this, kOtherFeelerEvents, kOtherFeeler);
+                TriggerFeeler(this, g_otherFeelerLeaveEvents, kOtherFeeler);
                 if (TriggerTookOver(this))
                     return;
-                TriggerFeeler(this, kOtherFeelerEvents2, kOtherFeeler);
+                TriggerFeeler(this, g_skaterEvents0064BBB0, kOtherFeeler);
                 if (TriggerTookOver(this))
                     return;
             }
@@ -316,7 +314,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
         }
     } else {
         OffWallEdge(true);
-        TriggerFeeler(this, kOtherFeelerEvents, kOtherFeeler);
+        TriggerFeeler(this, g_otherFeelerLeaveEvents, kOtherFeeler);
         if (TriggerTookOver(this))
             return;
     }
@@ -326,7 +324,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
     // Jumping off: out from the wall and up, upright.
     if (JumpReleased()) {
         SetFlag(this, 0xD8, 1);
-        TriggerFeeler(this, kJumpTriggerEvents, kOtherFeeler);
+        TriggerFeeler(this, g_jumpTriggerEvents, kOtherFeeler);
         if (TriggerTookOver(this))
             return;
         float out = Script::GetFloat(kJumpOutSpeed);

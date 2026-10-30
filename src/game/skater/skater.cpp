@@ -76,6 +76,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/object.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "hook/game_code.h"
+#include "game/skater/state_history.h"
+#include "game/skater/local_net_logic.h"
 
 namespace Obj {
 
@@ -84,6 +90,8 @@ GAME_GLOBAL(float, g_skaterLightColour, 0x007CE4D4);
 GAME_GLOBAL(uint32_t, g_skaterLightsMade, 0x007CE4E4);
 
 namespace {
+
+extern void** const kSkaterVtable;
 
 // Names.
 constexpr uint32_t kIsPro = 0xD82F8AC8;          // is_pro
@@ -989,9 +997,13 @@ void CSkater::InitFromProfile(CSkaterProfile* profile)
         auto* dispatcher = reinterpret_cast<Net::Dispatcher*>(client + 0xC);
         const struct {
             uint8_t id;
-            uint32_t code;
-        } handlers[] = {{0x3B, 0x005626F0}, {0x44, 0x00519C10}, {0x43, 0x00519C10},
-                        {0x85, 0x00519870}, {0x84, 0x00519870}, {0x4B, 0x005136F0}};
+            void* code;
+        } handlers[] = {{0x3B, GAME_CODE(0x005626F0, &Mdl::Score::HandleScoreMessage)},
+                        {0x44, GAME_CODE(0x00519C10, &CSkaterStateHistoryComponent::HandleCollisionMessages)},
+                        {0x43, GAME_CODE(0x00519C10, &CSkaterStateHistoryComponent::HandleCollisionMessages)},
+                        {0x85, GAME_CODE(0x00519870, &CSkaterStateHistoryComponent::HandleHitMessages)},
+                        {0x84, GAME_CODE(0x00519870, &CSkaterStateHistoryComponent::HandleHitMessages)},
+                        {0x4B, GAME_CODE(0x005136F0, &CSkaterLocalNetLogicComponent::HandleGraffitiSteal)}};
         for (const auto& handler : handlers)
             dispatcher->AddHandler(handler.id, reinterpret_cast<Net::MsgHandlerCode>(handler.code), 0, this, 0x80);
     }
@@ -1178,7 +1190,7 @@ CSkater* CSkater::Construct(int viewport, CCompositeObjectManager* manager, bool
                             int /*unused*/)
 {
     CCompositeObject::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064EF48);
+    m_vtable = kSkaterVtable;
     new (&m_displayName) Str::String();
     // Its node in the skater list (Lst::Node: vtable, data, priority, next, prev).
     auto* node = reinterpret_cast<uint32_t*>(m_block238);
@@ -1568,7 +1580,7 @@ void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
 // 0x00583FB0
 void CSkater::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064EF48);
+    m_vtable = kSkaterVtable;
     if (m_paused && m_unknownBC && m_unknown264) {
         At<Sio::Device*>(At<uint8_t*>(m_unknown264, 0x490), 0x1C)->UnpauseActuators();
         At<Sio::Device*>(At<uint8_t*>(m_unknown264, 0x490), 0x1C)->StopActuators();
@@ -1658,3 +1670,31 @@ REPLACE(0x005835D0, &Obj::CSkater::CallMemberFunction);
 REPLACE(0x00583DA0, &Obj::CSkater::SkipToRestart);
 REPLACE(0x00583FB0, &Obj::CSkater::DestroyBody);
 REPLACE(0x005840E0, &Obj::CSkater::Destroy);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kSkaterVtable, 0x0064EF48,
+    &Obj::CSkater::Destroy,
+    &Obj::CObject::SetProperties,
+    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+    &Obj::CSkater::CallMemberFunction,
+    Stubs::IgnoreArgument,
+    &Obj::CObject::PassEventToScript,
+    &Obj::CCompositeObject::MarkAsDead,
+    &Obj::CCompositeObject::ShouldUpdateScripts,
+    &Obj::CCompositeObject::Finalize,
+    &Obj::CCompositeObject::CreateComponentFromStructure,
+    Stubs::DoNothing,
+    &Obj::CSkater::Pause,
+    &Obj::CSkater::Unpause,
+    &Obj::CSkater::InitFromProfile,
+    &Obj::CSkater::ResetInput,
+    &Obj::CSkater::SkipToRestart,
+    &Obj::CSkater::MoveToNode,
+    &Obj::CSkater::ResetState,
+    &Obj::CSkater::SetUpNetwork,
+    &Obj::CSkater::RunStateScript);
+
+} // namespace
+} // namespace Obj

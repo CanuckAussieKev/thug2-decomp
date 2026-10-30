@@ -12,13 +12,20 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646604);
-void** const kHeadVtable = reinterpret_cast<void**>(0x00646638);     // the head as made
+extern void** const kVtable;
+extern void** const kHeadVtable;     // the head as made
 void** const kDeadHeadVtable = reinterpret_cast<void**>(0x00646600); // the head's destructor's
 
 constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
@@ -131,3 +138,26 @@ REPLACE(0x00434840, &Obj::CTextureProjectionComponent::Destroy);
 REPLACE(0x00434730, &Obj::CTextureProjectionComponent::InitFromStructure);
 REPLACE(0x00434630, &Obj::CTextureProjectionComponent::Finalize);
 REPLACE(0x00434810, &Obj::CTextureProjectionComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646604,
+    &Obj::CTextureProjectionComponent::Destroy,
+    &Obj::CTextureProjectionComponent::Update,
+    &Obj::CTextureProjectionComponent::InitFromStructure,
+    &Obj::CTextureProjectionComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+GAME_VTABLE(kHeadVtable, 0x00646638,
+    &Nx::CPcTextureProjection::Destroy);
+
+} // namespace
+} // namespace Obj

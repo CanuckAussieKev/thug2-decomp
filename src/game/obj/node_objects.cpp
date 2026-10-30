@@ -19,10 +19,17 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/viewport.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
 namespace {
+
+extern void** const kMovieDetailsVtable;
+extern void** const kMovieNodeVtable;
 
 constexpr uint32_t kName = 0xA1DC81F9;            // name
 constexpr uint32_t kNodeScript = 0x2CA8A299;      // (the node's script)
@@ -87,8 +94,8 @@ void SwitchToNodeScript(CCompositeObject* object, Script::CStruct* params)
 // Whether a viewport is looking through `camera` (not rewritten yet).
 bool IsCameraInUse(Gfx::Camera* camera) { return Nx::MarkCameraForDeletion(camera); }
 
-void** MovieDetailsVtable() { return reinterpret_cast<void**>(0x00647A4C); }
-void** NodeVtable() { return reinterpret_cast<void**>(0x00647A48); }
+void** MovieDetailsVtable() { return kMovieDetailsVtable; }
+void** NodeVtable() { return kMovieNodeVtable; }
 
 } // namespace
 
@@ -345,3 +352,27 @@ REPLACE(0x00469350, &Obj::CClassNodeList::Transform);
 REPLACE(0x004693C0, &Obj::CClassNodeList::Init);
 REPLACE(0x004693E0, &Obj::CClassNodeList::AddEntry);
 REPLACE(0x00469430, &Obj::CClassNodeList::SetNodes);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kMovieDetailsVtable, 0x00647A4C,
+    &Obj::CMovieDetails::Destroy,
+    GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771),
+    &Nx::CViewport::QueryPoint,
+    GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771),
+    Stubs::DoNothing,
+    GAME_LIBRARY_SLOT(0x00623771),
+    Stubs::ReturnFalse,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing);
+GAME_VTABLE(kMovieNodeVtable, 0x00647A48,
+    &Obj::CMovieDetails::DestroyNode);
+
+} // namespace
+} // namespace Obj

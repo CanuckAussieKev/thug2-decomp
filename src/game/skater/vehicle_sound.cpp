@@ -18,6 +18,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -29,7 +35,7 @@ GAME_GLOBAL(uint32_t[24], g_vehicleSoundMemberFunctions, 0x00684648,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C1E4);
+extern void** const kVtable;
 
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kSound = 0x07713C7B;
@@ -381,3 +387,24 @@ REPLACE(0x0051B3B0, &Obj::CSkaterVehicleSoundComponent::UpdateUnused);
 REPLACE(0x0051B7C0, &Obj::CSkaterVehicleSoundComponent::SetSkaterVehicleSounds);
 REPLACE(0x0051B820, &Obj::CSkaterVehicleSoundComponent::NoSkaterVehicleSounds);
 REPLACE(0x0051B860, &Obj::CSkaterVehicleSoundComponent::StopSkaterVehicleSounds);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C1E4,
+    &Obj::CSkaterVehicleSoundComponent::Destroy,
+    &Obj::CSkaterVehicleSoundComponent::Update,
+    &Obj::CSkaterVehicleSoundComponent::InitFromStructure,
+    &Obj::CSkaterVehicleSoundComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

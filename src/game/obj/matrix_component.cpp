@@ -5,12 +5,19 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645F24);
+extern void** const kVtable;
 
 } // namespace
 
@@ -62,3 +69,24 @@ REPLACE(0x0041CA60, &Obj::CMatrixComponent::DestroyBody);
 REPLACE(0x0041CA70, &Obj::CMatrixComponent::Destroy);
 REPLACE(0x0041CAA0, &Obj::CMatrixComponent::Update);
 REPLACE(0x0041CAC0, &Obj::CMatrixComponent::SetMatrix);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645F24,
+    &Obj::CMatrixComponent::Destroy,
+    &Obj::CMatrixComponent::Update,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    Stubs::IgnoreArgument,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

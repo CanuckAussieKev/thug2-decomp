@@ -22,6 +22,7 @@
 #include "game/skater/balance_trick.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -64,7 +65,7 @@ constexpr uint32_t kLeanRndSpeed = 0x32EB3308;
 constexpr uint32_t kBalanceSafeButtonPeriod = 0x8CC8F176;
 constexpr uint32_t kBalanceIgnoreButtonPeriod = 0x07DA1621;
 
-void** const kVtable = reinterpret_cast<void**>(0x0064ED24);
+extern void** const kVtable;
 
 constexpr double kFrames = 60.0; // 0x00645EA0 (frames a second)
 
@@ -352,3 +353,12 @@ REPLACE(0x005799A0, &Obj::CBalance::Destroy);
 REPLACE(0x005799D0, &Obj::CBalance::Stop);
 REPLACE(0x00579A00, &Obj::CBalance::Start);
 REPLACE(0x00579CC0, &Obj::CBalance::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064ED24,
+    &Obj::CBalance::Destroy);
+
+} // namespace
+} // namespace Obj

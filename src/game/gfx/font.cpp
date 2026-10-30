@@ -12,6 +12,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Nx {
 

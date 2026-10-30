@@ -20,6 +20,14 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -33,7 +41,7 @@ GAME_GLOBAL(uint32_t[36], g_skeletonComponentMemberFunctions, 0x00684DE0,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x006464DC);
+extern void** const kVtable;
 
 constexpr uint32_t kBone = 0xCAB94088;              // bone
 constexpr uint32_t kCopySkeletonFrom = 0xA81F615C;  // CopySkeletonFrom
@@ -433,3 +441,24 @@ REPLACE(0x00431E30, &Obj::CSkeletonComponent::Obj_SetBoneScale);
 REPLACE(0x004327C0, &Obj::CSkeletonComponent::Obj_GetBonePosition);
 REPLACE(0x00432860, &Obj::CSkeletonComponent::TextureSplat);
 REPLACE(0x00432B90, &Obj::CSkeletonComponent::Skeleton_SpawnCompositeObject);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x006464DC,
+    &Obj::CSkeletonComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    &Obj::CSkeletonComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

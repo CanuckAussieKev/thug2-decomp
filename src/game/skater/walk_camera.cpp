@@ -20,6 +20,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -31,7 +32,7 @@ T& At(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C5E0);
+extern void** const kVtable;
 constexpr uint32_t kWalkCamera = 0xC7D37EC2;
 constexpr uint32_t kWalk = 0x726E85AA, kSkaterPhysicsControl = 0xD9151D4D, kCameraLookAround = 0x81C7122D,
                    kCamera = 0xC4E311FA, kSkaterCamera = 0x5E43A604, kInput = 0x27D7CD28;
@@ -522,3 +523,13 @@ REPLACE(0x005250E0, &Obj::CWalkCameraComponent::GetTarget);
 REPLACE(0x00524CB0, &Obj::CWalkCameraComponent::GetZoomedOffsets);
 REPLACE(0x00524D70, Obj::LerpByRange);
 REPLACE(0x005251D0, &Obj::CWalkCameraComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C5E0,
+    &Obj::CWalkCameraComponent::Destroy,
+    &Obj::CWalkCameraComponent::Update);
+
+} // namespace
+} // namespace Obj

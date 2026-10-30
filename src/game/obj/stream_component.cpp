@@ -17,6 +17,14 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -29,7 +37,7 @@ GAME_GLOBAL(uint32_t[30], g_streamComponentMemberFunctions, 0x00684E70,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646594);
+extern void** const kVtable;
 constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 
 const Mth::Vector* CameraPosition(void* camera)
@@ -228,3 +236,24 @@ REPLACE(0x00433C70, &Obj::CStreamComponent::Obj_PlayStream);
 REPLACE(0x00433C90, &Obj::CStreamComponent::Obj_AddStream);
 REPLACE(0x00433CB0, &Obj::CStreamComponent::Obj_RemoveStream);
 REPLACE(0x00433930, &Obj::CStreamComponent::Obj_StopStream);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646594,
+    &Obj::CStreamComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    &Obj::CStreamComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

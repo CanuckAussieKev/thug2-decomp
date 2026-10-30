@@ -23,6 +23,10 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -52,7 +56,7 @@ GAME_GLOBAL(Nx::CParticleManager*, g_particleManager, 0x006FA7C4);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646340);
+extern void** const kVtable;
 constexpr uint32_t kSuspend = 0xCE0CA665; // the suspend component
 
 // The particle system's methods (Nx, no source yet; thiscall).
@@ -600,3 +604,24 @@ REPLACE(0x0042A090, &CParticleComponent::InitFromStructure);
 REPLACE(0x0042AD90, &CParticleComponent::Update);
 REPLACE(0x0042AEE0, &CParticleComponent::CallMemberFunction);
 REPLACE(0x0042B040, &CParticleComponent::GetParticleParams);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646340,
+    &CParticleComponent::Destroy,
+    &CParticleComponent::Update,
+    &CParticleComponent::InitFromStructure,
+    &CParticleComponent::Finalize,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    &CParticleComponent::Hide,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &CParticleComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

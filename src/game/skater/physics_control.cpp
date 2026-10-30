@@ -21,6 +21,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -39,7 +45,7 @@ GAME_GLOBAL(uint32_t[66], g_physicsControlMemberFunctions, 0x006846F0,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BFE0);
+extern void** const kVtable;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterState = 0x43686585, kSkaterRotate = 0x52D61A0D,
                    kSkaterAdjustPhysics = 0x9F9CC949, kSkaterFinalizePhysics = 0x9B373E58, kWalk = 0x726E85AA,
@@ -335,3 +341,24 @@ REPLACE(0x00517700, &Obj::CSkaterPhysicsControlComponent::IsBoardMissing);
 REPLACE(0x00517710, &Obj::CSkaterPhysicsControlComponent::SetForceWalk);
 REPLACE(0x00517720, &Obj::CSkaterPhysicsControlComponent::UnSetForceWalk);
 REPLACE(0x00517730, &Obj::CSkaterPhysicsControlComponent::IsForceWalkOn);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BFE0,
+    &Obj::CSkaterPhysicsControlComponent::Destroy,
+    &Obj::CSkaterPhysicsControlComponent::Update,
+    &Obj::CSkaterPhysicsControlComponent::InitFromStructure,
+    &Obj::CSkaterPhysicsControlComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::CSkaterPhysicsControlComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

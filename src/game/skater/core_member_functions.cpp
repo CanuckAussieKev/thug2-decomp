@@ -19,15 +19,127 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_global.h"
 
 namespace Skater {
+
+GAME_GLOBAL(uint32_t[660], g_coreMemberFunctions, 0x006826C8,
+    0x584CF9E9, 0x5BD63B29, 0, 0, 0, 0,
+    0x0C7A712C, 0x5BD63B29, 0, 0, 0, 0,
+    0x8F66B80B, 0x5BD63B29, 0, 0, 0, 0,
+    0x4ADC6C2A, 0x5BD63B29, 0, 0, 0, 0,
+    0x262D42D5, 0x5BD63B29, 0, 0, 0, 0,
+    0xCA6B3809, 0x5BD63B29, 0, 0, 0, 0,
+    0x9C6A7E41, 0x5BD63B29, 0, 0, 0, 0,
+    0x32DCC9CF, 0x5BD63B29, 0, 0, 0, 0,
+    0x5E8F9E77, 0x5BD63B29, 0, 0, 0, 0,
+    0x0C890A84, 0x5BD63B29, 0, 0, 0, 0,
+    0xBBF2B570, 0x5BD63B29, 0, 0, 0, 0,
+    0xDE583E34, 0x5BD63B29, 0, 0, 0, 0,
+    0x1996B797, 0x5BD63B29, 0, 0, 0, 0,
+    0x1F8BBD05, 0x5BD63B29, 0, 0, 0, 0,
+    0xEBBCF455, 0x5BD63B29, 0, 0, 0, 0,
+    0xBC19E291, 0x5BD63B29, 0, 0, 0, 0,
+    0x02F66333, 0x5BD63B29, 0, 0, 0, 0,
+    0x68BF6C13, 0x5BD63B29, 0, 0, 0, 0,
+    0xE8DEB0D7, 0x5BD63B29, 0, 0, 0, 0,
+    0x34DCFC97, 0x5BD63B29, 0, 0, 0, 0,
+    0x0257947E, 0x5BD63B29, 0, 0, 0, 0,
+    0x01BAA1D9, 0x5BD63B29, 0, 0, 0, 0,
+    0x9FCFDFEB, 0x5BD63B29, 0, 0, 0, 0,
+    0xFEFF11CC, 0x5BD63B29, 0, 0, 0, 0,
+    0xFE243FEF, 0x5BD63B29, 0, 0, 0, 0,
+    0xE168CFE0, 0x5BD63B29, 0, 0, 0, 0,
+    0x29FBA9DF, 0x5BD63B29, 0, 0, 0, 0,
+    0x17846595, 0x5BD63B29, 0, 0, 0, 0,
+    0x259CB90D, 0x5BD63B29, 0, 0, 0, 0,
+    0x1D1FD4F0, 0x5BD63B29, 0, 0, 0, 0,
+    0x383B939B, 0x5BD63B29, 0, 0, 0, 0,
+    0x54EF2B79, 0x5BD63B29, 0, 0, 0, 0,
+    0x0E2998B9, 0x5BD63B29, 0, 0, 0, 0,
+    0x6FC5AAE0, 0x5BD63B29, 0, 0, 0, 0,
+    0xBD4303F4, 0x5BD63B29, 0, 0, 0, 0,
+    0xA901A50C, 0x5BD63B29, 0, 0, 0, 0,
+    0xE0DF1F0A, 0x5BD63B29, 0, 0, 0, 0,
+    0x8C3D7864, 0x5BD63B29, 0, 0, 0, 0,
+    0x0E1D5168, 0x5BD63B29, 0, 0, 0, 0,
+    0x948EBF96, 0x5BD63B29, 0, 0, 0, 0,
+    0x947FCCF4, 0x5BD63B29, 0, 0, 0, 0,
+    0xACB82C02, 0x5BD63B29, 0, 0, 0, 0,
+    0x510F983B, 0x5BD63B29, 0, 0, 0, 0,
+    0x71B993B7, 0x5BD63B29, 0, 0, 0, 0,
+    0xBE371B7B, 0x5BD63B29, 0, 0, 0, 0,
+    0x55934543, 0x5BD63B29, 0, 0, 0, 0,
+    0xB424244D, 0x5BD63B29, 0, 0, 0, 0,
+    0x224CDDC9, 0x5BD63B29, 0, 0, 0, 0,
+    0x6C8A1316, 0x5BD63B29, 0, 0, 0, 0,
+    0x448E3630, 0x5BD63B29, 0, 0, 0, 0,
+    0xF37CE040, 0x5BD63B29, 0, 0, 0, 0,
+    0x133E1293, 0x5BD63B29, 0, 0, 0, 0,
+    0x0F922431, 0x5BD63B29, 0, 0, 0, 0,
+    0xDFB8F052, 0x5BD63B29, 0, 0, 0, 0,
+    0xC5B4B390, 0x5BD63B29, 0, 0, 0, 0,
+    0xB9EEBFF6, 0x5BD63B29, 0, 0, 0, 0,
+    0xEC681A59, 0x5BD63B29, 0, 0, 0, 0,
+    0x065A559A, 0x5BD63B29, 0, 0, 0, 0,
+    0x461E5B92, 0x5BD63B29, 0, 0, 0, 0,
+    0xA14A467F, 0x5BD63B29, 0, 0, 0, 0,
+    0x90F1D8D5, 0x5BD63B29, 0, 0, 0, 0,
+    0x5E8D9B80, 0x5BD63B29, 0, 0, 0, 0,
+    0xB94BC0C6, 0x5BD63B29, 0, 0, 0, 0,
+    0xE47FF4B5, 0x5BD63B29, 0, 0, 0, 0,
+    0x05144783, 0x5BD63B29, 0, 0, 0, 0,
+    0xF7E21884, 0x5BD63B29, 0, 0, 0, 0,
+    0x0BFF3271, 0x5BD63B29, 0, 0, 0, 0,
+    0x2A547E37, 0x5BD63B29, 0, 0, 0, 0,
+    0xAAE7E1D8, 0x5BD63B29, 0, 0, 0, 0,
+    0xA038260D, 0x5BD63B29, 0, 0, 0, 0,
+    0xD27F89E8, 0x5BD63B29, 0, 0, 0, 0,
+    0x25B393E7, 0x5BD63B29, 0, 0, 0, 0,
+    0xB6222B3A, 0x5BD63B29, 0, 0, 0, 0,
+    0x9D8BDE21, 0x5BD63B29, 0, 0, 0, 0,
+    0x83A46968, 0x5BD63B29, 0, 0, 0, 0,
+    0x6A0834C5, 0x5BD63B29, 0, 0, 0, 0,
+    0x675CF35E, 0x5BD63B29, 0, 0, 0, 0,
+    0xD3E1A093, 0x5BD63B29, 0, 0, 0, 0,
+    0x3BAAC2C5, 0x5BD63B29, 0, 0, 0, 0,
+    0xB195C726, 0x5BD63B29, 0, 0, 0, 0,
+    0xB649958F, 0x5BD63B29, 0, 0, 0, 0,
+    0x11B99941, 0x5BD63B29, 0, 0, 0, 0,
+    0xEFFC54DC, 0x5BD63B29, 0, 0, 0, 0,
+    0xE3822CCE, 0x5BD63B29, 0, 0, 0, 0,
+    0xD5BCAB93, 0x5BD63B29, 0, 0, 0, 0,
+    0x9AF4A4C2, 0x5BD63B29, 0, 0, 0, 0,
+    0x8A8EBE72, 0x5BD63B29, 0, 0, 0, 0,
+    0xC5623AEE, 0x5BD63B29, 0, 0, 0, 0,
+    0xD7ECF37C, 0x5BD63B29, 0, 0, 0, 0,
+    0x43A7516D, 0x5BD63B29, 0, 0, 0, 0,
+    0x5F48F4D1, 0x5BD63B29, 0, 0, 0, 0,
+    0x5F43DDF3, 0x5BD63B29, 0, 0, 0, 0,
+    0x68F6DB80, 0x5BD63B29, 0, 0, 0, 0,
+    0x1B4A5FF9, 0x5BD63B29, 0, 0, 0, 0,
+    0x007CDADB, 0x5BD63B29, 0, 0, 0, 0,
+    0x27C92E33, 0x5BD63B29, 0, 0, 0, 0,
+    0x8476CA5B, 0x5BD63B29, 0, 0, 0, 0,
+    0xF900547B, 0x5BD63B29, 0, 0, 0, 0,
+    0xFC9E2886, 0x5BD63B29, 0, 0, 0, 0,
+    0x3981FBF0, 0x5BD63B29, 0, 0, 0, 0,
+    0x821BF006, 0x5BD63B29, 0, 0, 0, 0,
+    0x2C30B07A, 0x5BD63B29, 0, 0, 0, 0,
+    0x1EB4121A, 0x5BD63B29, 0, 0, 0, 0,
+    0xA751E3D8, 0x5BD63B29, 0, 0, 0, 0,
+    0x03B9946F, 0x5BD63B29, 0, 0, 0, 0,
+    0xADCA7EE6, 0x5BD63B29, 0, 0, 0, 0,
+    0x0898E60F, 0x5BD63B29, 0, 0, 0, 0,
+    0xB17D17CD, 0x5BD63B29, 0, 0, 0, 0,
+    0xF22B4480, 0x5BD63B29, 0, 0, 0, 0,
+    0, 0x5BD63B29, 0, 0, 0, 0);
 
 using namespace Physics;
 
 namespace {
 
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;    // SkaterCorePhysics (the component type)
-constexpr uint32_t kMemberTable = 0x006826C8;          // the member functions' table (0x18-byte entries)
 
 // Checksums.
 constexpr uint32_t kOn = 0xF649D637;                   // on
@@ -217,7 +329,7 @@ bool HitWall(const Nx::CFeeler& feeler)
 void __cdecl CorePhysicsComponent::RegisterMemberFunctions()
 {
     Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterCorePhysics),
-                                        &GameVariable<uint32_t>(kMemberTable), 0x18);
+                                        g_coreMemberFunctions, 0x18);
 }
 
 // 0x004FBEA0

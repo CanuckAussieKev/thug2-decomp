@@ -13,10 +13,13 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
 namespace {
+
+extern void** const kEventListenerVtable;
 
 using Script::CScript;
 using Script::CStruct;
@@ -110,7 +113,7 @@ void CEvent::Destroy()
 // 0x0045FAA0
 CEventListener* CEventListener::Construct()
 {
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kEventListenerVtable;
     mp_object.mp_prev = nullptr;
     mp_object.mp_next = nullptr;
     mp_object.mp_object = nullptr;
@@ -122,7 +125,7 @@ CEventListener* CEventListener::Construct()
 // 0x0045FAC0
 void CEventListener::Destroy()
 {
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kEventListenerVtable;
     TrackerUnregisterListener(this);
     mp_object.Release();
 }
@@ -511,3 +514,13 @@ REPLACE(0x0045FED0, &Obj::CEventHandlerTable::RemoveMarked);
 REPLACE(0x0045FF50, &Obj::CEventHandlerTable::Compact);
 REPLACE(0x004601A0, &Obj::CEventHandlerTable::AddHandlers);
 REPLACE(0x00460470, &Obj::CEventHandlerTable::PassEvent);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kEventListenerVtable, 0x006477D8,
+    &Obj::CEventListener::DeletingDestructor,
+    GAME_LIBRARY_SLOT(0x00623771));
+
+} // namespace
+} // namespace Obj

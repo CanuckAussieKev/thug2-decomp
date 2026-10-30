@@ -15,6 +15,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -30,7 +31,7 @@ GAME_GLOBAL(uint32_t[42], g_runTimerMemberFunctions, 0x006849C0,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C04C);
+extern void** const kVtable;
 constexpr uint32_t kSkaterRunTimer = 0x8BCE7E66, kWalk = 0x726E85AA;
 constexpr uint32_t kMState = 0x109B9260, kMTimer = 0xD9D89E81, kHangSpeedAdjustment = 0x92FB4D09,
                    kRunTimerUp = 0x9E22A8E9, kHideRunTimer = 0x813CC576, kShowRunTimer = 0x47EEC244,
@@ -215,3 +216,13 @@ REPLACE(0x00518500, &Obj::CSkaterRunTimerComponent::GetFactorComplete);
 REPLACE(0x00518540, &Obj::CSkaterRunTimerComponent::GetRunTimerControllerId);
 REPLACE(0x00518570, &Obj::CSkaterRunTimerComponent::GetRunTimerId);
 REPLACE(0x005185A0, &Obj::CSkaterRunTimerComponent::ComboStarted);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C04C,
+    &Obj::CSkaterRunTimerComponent::Destroy,
+    &Obj::CSkaterRunTimerComponent::Update);
+
+} // namespace
+} // namespace Obj

@@ -26,12 +26,19 @@
 #include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BFAC);
+extern void** const kVtable;
 constexpr uint32_t kSkaterNonLocalNetLogic = 0x850EEF66;
 constexpr uint32_t kSkaterStateHistory = 0x18223FD6, kSkaterState = 0x43686585, kSkaterEndRun = 0xB1D5A3E1,
                    kAnimBlender = 0x7149B753, kSkaterFlipAndRotate = 0x488AF07A, kModel = 0x286A8D26,
@@ -530,3 +537,24 @@ REPLACE(0x00514850, &Obj::CSkaterNonLocalNetLogicComponent::SnapToGround);
 REPLACE(0x00514D10, &Obj::CSkaterNonLocalNetLogicComponent::TurnTowards);
 REPLACE(0x00514E20, &Obj::CSkaterNonLocalNetLogicComponent::BounceOffWall);
 REPLACE(0x00517270, &Obj::CSkaterNonLocalNetLogicComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BFAC,
+    &Obj::CSkaterNonLocalNetLogicComponent::Destroy,
+    &Obj::CSkaterNonLocalNetLogicComponent::Update,
+    Stubs::IgnoreArgument,
+    &Obj::CSkaterNonLocalNetLogicComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

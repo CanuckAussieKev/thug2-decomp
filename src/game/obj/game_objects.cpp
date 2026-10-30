@@ -30,6 +30,9 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/object.h"
+#include "game/core/stubs.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -47,7 +50,7 @@ constexpr uint32_t kCarAddComponents = 0xF1753591;  // car_add_components (a scr
 constexpr uint32_t kObjectTypeCar = 0x5C0312EB;     // OBJECT_TYPE_CAR
 constexpr uint32_t kObjectTypeCrown = 0xD2156C50;
 
-void** const kCrownVtable = reinterpret_cast<void**>(0x0064EC44);
+extern void** const kCrownVtable;
 
 constexpr uint32_t kTriggerScript = 0x2CA8A299;    // TriggerScript
 constexpr uint32_t kParams = 0x7031F10C;           // params
@@ -303,3 +306,22 @@ REPLACE(0x005782F0, &Obj::CCrownObject::DestroyBody);
 REPLACE(0x00578310, &Obj::CCrownObject::OwnUpdate);
 REPLACE(0x00578460, &Obj::CCrownObject::Destroy);
 REPLACE(0x00578490, &Obj::CCrownObject::InitFromNode);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kCrownVtable, 0x0064EC44,
+    &Obj::CCrownObject::Destroy,
+    &Obj::CObject::SetProperties,
+    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+    static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
+    Stubs::IgnoreArgument,
+    &Obj::CObject::PassEventToScript,
+    &Obj::CCompositeObject::MarkAsDead,
+    &Obj::CCompositeObject::ShouldUpdateScripts,
+    &Obj::CCompositeObject::Finalize,
+    &Obj::CCompositeObject::CreateComponentFromStructure,
+    &Obj::CCrownObject::OwnUpdate);
+
+} // namespace
+} // namespace Obj

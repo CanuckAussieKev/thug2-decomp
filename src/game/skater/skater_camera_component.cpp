@@ -27,6 +27,12 @@
 #include "game/obj/compositemgr.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/skater/skater_camera_component.h"
 
 namespace Obj {
 
@@ -35,9 +41,8 @@ namespace {
 using Skater::Physics::At;
 using Skater::Physics::X87Sin;
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BA74);
 constexpr uint32_t kSkaterCamera = 0x5E43A604;        // skatercamera (the component type)
-void** const kCleanupVtable = reinterpret_cast<void**>(0x0064BB48);
+extern void** const kCleanupVtable;
 constexpr uint32_t kCleanupState = 0xD8CC3428;        // SkaterCleanupState (the component type)
 constexpr uint32_t kSkaterState = 0x43686585;         // SkaterState (a component)
 constexpr uint32_t kPhysicsControl = 0xD9151D4D;      // SkaterPhysicsControl (a component)
@@ -47,11 +52,11 @@ constexpr uint32_t kSetMode = 0xD7867FFE;             // (the camera mode member
 constexpr uint32_t kMode = 0x6835B854;                // (its parameter; name not recovered)
 
 // The shake's parameters (the game's strings).
-const char* const kDuration = reinterpret_cast<const char*>(0x0064BB34);  // "duration"
-const char* const kVertAmp = reinterpret_cast<const char*>(0x0064BB28);   // "vert_amp"
-const char* const kHorizAmp = reinterpret_cast<const char*>(0x0064BB1C);  // "horiz_amp"
-const char* const kVertVel = reinterpret_cast<const char*>(0x0064BB10);   // "vert_vel"
-const char* const kHorizVel = reinterpret_cast<const char*>(0x0064BB04); // "horiz_vel"
+const char* const kDuration = GAME_TEXT(0x0064BB34, "duration");  // "duration"
+const char* const kVertAmp = GAME_TEXT(0x0064BB28, "vert_amp");   // "vert_amp"
+const char* const kHorizAmp = GAME_TEXT(0x0064BB1C, "horiz_amp");  // "horiz_amp"
+const char* const kVertVel = GAME_TEXT(0x0064BB10, "vert_vel");   // "vert_vel"
+const char* const kHorizVel = GAME_TEXT(0x0064BB04, "horiz_vel"); // "horiz_vel"
 
 // The game's constants.
 constexpr float kTwoPi = 6.2831854820251465f;   // 0x0064545C
@@ -228,7 +233,7 @@ void CSkaterCameraComponent::SaveState(WalkCameraState* state)
 CSkaterCameraComponent* CSkaterCameraComponent::Construct()
 {
     CBaseComponent::Construct();
-    m_vtable = kVtable;
+    m_vtable = g_skaterCameraVtable;
     m_type = kSkaterCamera;
     m_mode = 0;
     if (!Mem::g_managerReady)
@@ -391,3 +396,43 @@ REPLACE(0x004FBDB0, &CSkaterCleanupStateComponent::Destroy);
 REPLACE(0x004FBDE0, &CSkaterCleanupStateComponent::Finalize);
 REPLACE(0x004FBE00, &CSkaterCleanupStateComponent::Update);
 REPLACE(0x004FBE20, CSkaterCleanupStateComponent::Create);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kCleanupVtable, 0x0064BB48,
+    &CSkaterCleanupStateComponent::Destroy,
+    &CSkaterCleanupStateComponent::Update,
+    &CSkaterCleanupStateComponent::InitFromStructure,
+    &CSkaterCleanupStateComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_skaterCameraVtable, 0x0064BA74,
+    &CSkaterCameraComponent::Destroy,
+    &Obj::CSkaterCameraComponent::Update,
+    &CSkaterCameraComponent::InitFromStructure,
+    &Obj::CSkaterCameraComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &CSkaterCameraComponent::CallMemberFunction);
+
+} // namespace Obj

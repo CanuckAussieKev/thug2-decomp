@@ -18,6 +18,7 @@
 #include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -87,9 +88,9 @@ bool __cdecl CFunc_ResetScore(Script::CStruct* params, Script::CScript*)
             continue;
         static_cast<Mdl::Score*>(ScoreOf(skater))->Reset();
         if (GameModeName() == kNetKing || GameModeName() == kKing)
-            Front::SetScoreText(reinterpret_cast<const char*>(0x00657D18), skater->GetSkaterNumber()); // "0:00"
+            Front::SetScoreText(GAME_TEXT(0x00657D18, "0:00"), skater->GetSkaterNumber()); // "0:00"
         else
-            Front::SetScoreText(reinterpret_cast<const char*>(0x00657D20), skater->GetSkaterNumber()); // "0"
+            Front::SetScoreText(GAME_TEXT(0x00657D20, "0"), skater->GetSkaterNumber()); // "0"
     }
     return true;
 }

@@ -16,6 +16,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -23,7 +29,7 @@ GAME_GLOBAL(uint32_t[6], g_loopingSoundMemberFunctions, 0x00684A68, 0, 0xB5F1E9D
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BF38);
+extern void** const kVtable;
 constexpr uint32_t kSkaterLoopingSound = 0xB5F1E9D2;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kTurnOn = 0xEDE3935F, kTurnOff = 0x9731E193, kPlayAnim = 0x0B1E7291;
@@ -64,8 +70,18 @@ uint32_t SoundChecksum(uint8_t* entry) { return Field<uint32_t>(entry, 0x68); }
 float FullSpeedPitch(uint8_t* entry) { return Field<float>(entry, 0x6C); }
 float RestPitch(uint8_t* entry) { return Field<float>(entry, 0x70); }
 
-// The air sound's entry (0x0067F018).
-const uint8_t* AirSound() { return reinterpret_cast<const uint8_t*>(0x0067F018); }
+// The air sound's entry (a terrain sound entry of its own: 0x84 bytes, its name, the sound's checksum, the pitches at
+// full speed and at rest).
+struct AirSoundEntry {
+    char name[0x68];
+    uint32_t checksum;
+    float fullSpeedPitch;
+    float restPitch;
+    uint8_t unused[0x10];
+};
+static_assert(sizeof(AirSoundEntry) == 0x84, "a terrain sound entry");
+GAME_GLOBAL(AirSoundEntry, g_airSoundEntry, 0x0067F018, "wheels01", 0x24257432, 100.0f, 110.0f);
+const uint8_t* AirSound() { return reinterpret_cast<const uint8_t*>(&g_airSoundEntry); }
 
 } // namespace
 
@@ -343,3 +359,24 @@ REPLACE(0x00513990, &Obj::LoopingSoundVolume::Assign);
 // 0x00513BED is Update's body after its first test (jumped to from inside it; no callers) that Ghidra made a function
 // of: its source is Update's.
 REPLACE_SOURCE_ONLY(0x00513BED, &Obj::CSkaterLoopingSoundComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BF38,
+    &Obj::CSkaterLoopingSoundComponent::Destroy,
+    &Obj::CSkaterLoopingSoundComponent::Update,
+    &Obj::CSkaterLoopingSoundComponent::InitFromStructure,
+    &Obj::CSkaterLoopingSoundComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CSkaterLoopingSoundComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::CSkaterLoopingSoundComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

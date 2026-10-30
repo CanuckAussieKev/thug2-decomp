@@ -21,6 +21,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/object.h"
+#include "game/core/stubs.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -29,9 +32,9 @@ GAME_GLOBAL(int, g_viewMode, 0x007CE4A4);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064ED34);
-void** const kQueueVtable = reinterpret_cast<void**>(0x0064ED30);     // Lst::Head<CMovie>
-void** const kMovieNodeVtable = reinterpret_cast<void**>(0x00647A48); // Lst::Node<CMovie>
+extern void** const kVtable;
+extern void** const kQueueVtable;     // Lst::Head<CMovie>
+extern void** const kMovieNodeVtable; // Lst::Node<CMovie>
 
 constexpr uint32_t kSkaterCameraAsset = 0xB46E218F;
 constexpr uint32_t kObjectCameraAsset = 0x12743EDB;
@@ -562,3 +565,24 @@ REPLACE(0x0057B120, &Obj::CMovieManager::Playing30);
 REPLACE(0x0057B160, &Obj::CMovieManager::Playing34);
 REPLACE(0x0057B1A0, &Obj::CMovieManager::DestroyBody);
 REPLACE(0x0057B220, &Obj::CMovieManager::Destroy);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kMovieNodeVtable, 0x00647A48,
+    &Obj::CMovieDetails::DestroyNode);
+GAME_VTABLE(kQueueVtable, 0x0064ED30,
+    &Obj::MovieListNode::Destroy);
+GAME_VTABLE(kVtable, 0x0064ED34,
+    &Obj::CMovieManager::Destroy,
+    &Obj::CObject::SetProperties,
+    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+    &Obj::CMovieManager::CallMemberFunction,
+    Stubs::IgnoreArgument,
+    &Obj::CObject::PassEventToScript,
+    &Obj::CObject::MarkAsDead,
+    Stubs::ReturnTrue,
+    &Obj::CMovieManager::Update);
+
+} // namespace
+} // namespace Obj

@@ -21,6 +21,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/trigger_events.h"
 
 namespace Obj {
 
@@ -44,9 +45,6 @@ const float kSleepSpin = std::bit_cast<float>(0x38D1B717u); // 0x006453D4: 0.000
 const double kTwoTo32 = 4294967296.0;                       // 0x006453B4
 
 // The trigger events a wheel's feeler is reported for (const int[3] each, for the trigger component's 0x00434BF0).
-const int* const kWheelLeaves = reinterpret_cast<const int*>(0x00646680);    // {1, 4, 0}
-const int* const kWheelLands = reinterpret_cast<const int*>(0x0064668C);     // {1, 3, 0}
-const int* const kWheelCrossing = reinterpret_cast<const int*>(0x00646698);  // {9, 0, 0}
 
 constexpr uint32_t kParkEditorOff = 0xD443A2BC;
 
@@ -631,15 +629,15 @@ void CVehicleComponent::UpdateWheelContacts()
         feeler.SetIgnore(0x10, 0);
         if (feeler.GetCollision(false, false)) {
             if (wheel.state == kWheelInAir) {
-                TriggerFeeler(mp_trigger, kWheelLands, &feeler);
+                TriggerFeeler(mp_trigger, g_wheelLandsEvents, &feeler);
                 if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return; // (the feeler's destructor lets go of its object)
             } else if (feeler.m_hit.object != wheel.feeler.m_hit.object) {
                 // Onto another collision object: off the old, onto the new.
-                TriggerFeeler(mp_trigger, kWheelLeaves, &wheel.feeler);
+                TriggerFeeler(mp_trigger, g_wheelLeavesEvents, &wheel.feeler);
                 if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
-                TriggerFeeler(mp_trigger, kWheelLands, &feeler);
+                TriggerFeeler(mp_trigger, g_wheelLandsEvents, &feeler);
                 if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }
@@ -652,7 +650,7 @@ void CVehicleComponent::UpdateWheelContacts()
             feeler.m_line.end = feeler.m_point;
         } else {
             if (wheel.state != kWheelInAir) {
-                TriggerFeeler(mp_trigger, kWheelLeaves, &wheel.feeler);
+                TriggerFeeler(mp_trigger, g_wheelLeavesEvents, &wheel.feeler);
                 if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }
@@ -663,7 +661,7 @@ void CVehicleComponent::UpdateWheelContacts()
         if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) != kParkEditorOff) {
             feeler.SetIgnore(0, 0x50);
             if (feeler.GetCollision(false, false)) {
-                TriggerFeeler(mp_trigger, kWheelCrossing, &feeler);
+                TriggerFeeler(mp_trigger, g_crossingEvents, &feeler);
                 if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }

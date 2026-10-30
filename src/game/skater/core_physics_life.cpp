@@ -19,6 +19,7 @@
 #include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Skater {
 
@@ -26,12 +27,11 @@ using namespace Physics;
 
 namespace {
 
-constexpr uint32_t kVtable = 0x0064BC48;
 constexpr uint32_t kRollingFriction = 0x78F80EC4;   // Physics_Rolling_Friction
 constexpr uint32_t kGetOffEvent = 0x5E27200A;       // (broadcast when the skater gets off its board; name not recovered)
 constexpr uint32_t kRailWaitName = 0xE4412EB7;      // (a script value: the rail wait, ms; name not recovered)
 constexpr uint32_t kTrackingName = 0x19FB78FA;      // (a script value: the tracking printout on; name not recovered)
-const char* const kProjectileControl = reinterpret_cast<const char*>(0x0064BC34); // "projectile_control"
+const char* const kProjectileControl = GAME_TEXT(0x0064BC34, "projectile_control"); // "projectile_control"
 
 // The components it finds in Finalize (each one's type, then where it's kept).
 constexpr struct {
@@ -105,7 +105,7 @@ void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b
 {
     if (!Script::GetInteger(kTrackingName))
         return;
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064B998), index, static_cast<double>(a->x),
+    Dbg::Printf(GAME_TEXT(0x0064B998, "Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n"), index, static_cast<double>(a->x),
                 static_cast<double>(a->y), static_cast<double>(a->z), static_cast<double>(b->x),
                 static_cast<double>(b->y), static_cast<double>(b->z));
 }
@@ -139,7 +139,7 @@ void CorePhysicsComponent::SetTerrain(uint32_t terrain)
 // 0x004FC500
 void CorePhysicsComponent::DestroyBody()
 {
-    At<uint32_t>(this, 0) = kVtable;
+    At<void**>(this, 0) = g_corePhysicsVtable;
     At<Nx::CCollCache>(this, kCollisionCache).Destruct();
     ReleasePointer(this, kSkitched);
     ReleasePointer(this, kGroundFeelerObject);

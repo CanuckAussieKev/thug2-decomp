@@ -15,6 +15,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -27,7 +34,7 @@ GAME_GLOBAL(uint32_t[30], g_colorCycleMemberFunctions, 0x006845D0,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645E00);
+extern void** const kVtable;
 constexpr uint32_t kName = 0xA1DC81F9;  // name
 constexpr uint32_t kColor = 0x99A9B716; // color
 constexpr uint32_t kNeutralColor = 0x808080;
@@ -200,3 +207,24 @@ REPLACE(0x0041B560, &Obj::CColorCycleComponent::On);
 REPLACE(0x0041B570, &Obj::CColorCycleComponent::Off);
 REPLACE(0x0041B2B0, &Obj::CColorCycleComponent::SetPeriodFromScript);
 REPLACE(0x0041B390, &Obj::CColorCycleComponent::SetColorsFromScript);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645E00,
+    &Obj::CColorCycleComponent::Destroy,
+    &Obj::CColorCycleComponent::Update,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

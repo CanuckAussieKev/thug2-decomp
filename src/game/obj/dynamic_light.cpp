@@ -14,6 +14,12 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Nx {
 
@@ -30,7 +36,7 @@ namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645F58);
+extern void** const kVtable;
 
 constexpr uint32_t kStartRadius = 0x3BEE67C8, kMiddleRadius = 0x8E39913D, kEndRadius = 0x3F243A3C; // StartRadius...
 constexpr uint32_t kStartIntensity = 0x27A7443F, kMiddleIntensity = 0xCEF9F4FD, kEndIntensity = 0xE1CE9780;
@@ -219,3 +225,24 @@ REPLACE(0x0041CBF0, &Obj::CDynamicLightComponent::InitFromStructure);
 REPLACE(0x0041CDA0, &Obj::CDynamicLightComponent::Finalize);
 REPLACE(0x0041CDC0, &Obj::CDynamicLightComponent::Update);
 REPLACE(0x0041CFC0, &Obj::CDynamicLightComponent::CallMemberFunction);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645F58,
+    &Obj::CDynamicLightComponent::Destroy,
+    &Obj::CDynamicLightComponent::Update,
+    &Obj::CDynamicLightComponent::InitFromStructure,
+    &Obj::CDynamicLightComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CDynamicLightComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

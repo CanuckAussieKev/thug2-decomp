@@ -22,6 +22,7 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -38,7 +39,7 @@ constexpr uint32_t kShadow = 0x8A897DD2;            // "shadow"
 constexpr uint32_t kSkeleton = 0x222756D5;          // "skeleton"
 constexpr uint32_t kSuspend = 0xCE0CA665;           // "suspend"
 constexpr uint32_t kSkater = 0x5B8AB877;            // "Skater"
-const char* const kPedShadow = reinterpret_cast<const char*>(0x006464CC); // "Ped_Shadow"
+const char* const kPedShadow = GAME_TEXT(0x006464CC, "Ped_Shadow"); // "Ped_Shadow"
 
 // The swaps made (0x007CEDE0, five entries): each object's id and the id of the object whose model it wears now.
 struct SwapEntry {

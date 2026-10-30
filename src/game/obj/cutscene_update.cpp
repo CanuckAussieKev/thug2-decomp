@@ -25,10 +25,15 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/sys/game_config.h"
+#include "game/core/stubs.h"
+#include "game/gfx/viewport.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
 namespace {
+
+extern void** const kCutsceneDetailsVtable;
 
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kModelComponent = 0x286A8D26;
@@ -338,7 +343,7 @@ void CCutsceneData::RestartObjects()
 CCutsceneDetails* CCutsceneDetails::Construct(const uint32_t* settings)
 {
     reinterpret_cast<CMovieDetails*>(this)->Construct();
-    m_vtable = reinterpret_cast<void**>(0x00647920);
+    m_vtable = kCutsceneDetailsVtable;
     m_data = nullptr;
     m_asset = 0;
     Script::CStruct* block = Script::NewStruct();
@@ -353,7 +358,7 @@ CCutsceneDetails* CCutsceneDetails::Construct(const uint32_t* settings)
 // 0x00466560
 void CCutsceneDetails::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x00647920);
+    m_vtable = kCutsceneDetailsVtable;
     if (Script::CStruct* params = m_params) {
         params->Clear();
         Script::DeleteStruct(params);
@@ -381,3 +386,25 @@ REPLACE(0x00465C00, &Obj::CCutsceneData::UpdateObjectTransforms);
 REPLACE(0x00466450, &Obj::CCutsceneData::RestartObjects);
 REPLACE(0x00466490, &Obj::CCutsceneDetails::Construct);
 REPLACE(0x00466560, &Obj::CCutsceneDetails::DestroyBody);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kCutsceneDetailsVtable, 0x00647920,
+    &Obj::CCutsceneDetails::Destroy,
+    &Obj::CCutsceneDetails::InitFromStructure,
+    &Obj::CCutsceneDetails::Update,
+    Stubs::ReturnTrue,
+    &Nx::CViewport::QueryPoint,
+    &Obj::CCutsceneDetails::IsDone,
+    Stubs::ReturnFalse,
+    &Obj::CCutsceneDetails::IsReady,
+    &Obj::CCutsceneDetails::End,
+    &Obj::CCutsceneDetails::IsSkippable,
+    Stubs::ReturnFalse,
+    &Obj::CCutsceneDetails::CallSlot12WithNotFlag5D,
+    Stubs::IgnoreArgument,
+    &Obj::CCutsceneDetails::UpdateSlot12);
+
+} // namespace
+} // namespace Obj

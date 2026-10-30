@@ -17,6 +17,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -58,7 +59,6 @@ void ForEachEvent(CTrickComponent* trick, Visit visit)
 
 uint32_t Now() { return Tmr::GetTime(); }
 
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 
 // _stricmp (0x00626EFB) in the C locale.
 int CompareNoCase(const char* a, const char* b)
@@ -560,45 +560,45 @@ bool CTrickComponent::TrickNamed(Script::CStruct* trick, const char* name)
 // 0x0051F010
 void CTrickComponent::DumpEventBuffer()
 {
-    Dbg::Printf(Text(0x0064C4F4));
+    Dbg::Printf(GAME_TEXT(0x0064C4F4, "Event buffer:\n"));
     int count = m_eventCount > 10 ? 10 : m_eventCount;
     int index = m_eventHead;
     for (int n = 0; n < count; ++n) {
         const TrickEvent& e = m_events[index];
-        Dbg::Printf(Text(0x0064C4D8), e.time, e.flags);
-        uint32_t text = 0;
+        Dbg::Printf(GAME_TEXT(0x0064C4D8, "T=%d Used=0x%08x Button="), e.time, e.flags);
+        const char* text = nullptr;
         switch (e.button) {
-        case 0x00000000: text = 0x0064C4C4; break;
-        case 0x20689278: text = 0x0064C4CC; break;
-        case 0x26B0C991: text = 0x00647AE4; break;
-        case 0x2B489A86: text = 0x0064C4BC; break;
-        case 0x321C9756: text = 0x0064C4B4; break;
-        case 0x4B358AEB: text = 0x0064C4AC; break;
-        case 0x6BF8A7F4: text = 0x00647AD4; break;
-        case 0x7323E97C: text = 0x00647AE8; break;
-        case 0x767A45D7: text = 0x0064C4A4; break;
-        case 0x786B8B68: text = 0x0064C498; break;
-        case 0x85981897: text = 0x0064C488; break;
-        case 0xA50950C5: text = 0x0064C490; break;
-        case 0xB7231A95: text = 0x0064C480; break;
-        case 0xBC6B118F: text = 0x0064C47C; break;
-        case 0xBD30325B: text = 0x0064C474; break;
-        case 0xBFB9982B: text = 0x00647AE0; break;
-        case 0xD8847EFA: text = 0x0064C468; break;
-        case 0xE3006FC4: text = 0x0064C460; break;
-        case 0xF2F1F64E: text = 0x00647AD8; break;
+        case 0x00000000: text = GAME_TEXT(0x0064C4C4, "Nothing"); break;
+        case 0x20689278: text = GAME_TEXT(0x0064C4CC, "Triangle"); break;
+        case 0x26B0C991: text = GAME_TEXT(0x00647AE4, "L1"); break;
+        case 0x2B489A86: text = GAME_TEXT(0x0064C4BC, "Circle"); break;
+        case 0x321C9756: text = GAME_TEXT(0x0064C4B4, "Square"); break;
+        case 0x4B358AEB: text = GAME_TEXT(0x0064C4AC, "Right"); break;
+        case 0x6BF8A7F4: text = GAME_TEXT(0x00647AD4, "R2"); break;
+        case 0x7323E97C: text = GAME_TEXT(0x00647AE8, "X"); break;
+        case 0x767A45D7: text = GAME_TEXT(0x0064C4A4, "Black"); break;
+        case 0x786B8B68: text = GAME_TEXT(0x0064C498, "DownRight"); break;
+        case 0x85981897: text = GAME_TEXT(0x0064C488, "Left"); break;
+        case 0xA50950C5: text = GAME_TEXT(0x0064C490, "UpRight"); break;
+        case 0xB7231A95: text = GAME_TEXT(0x0064C480, "UpLeft"); break;
+        case 0xBC6B118F: text = GAME_TEXT(0x0064C47C, "Up"); break;
+        case 0xBD30325B: text = GAME_TEXT(0x0064C474, "White"); break;
+        case 0xBFB9982B: text = GAME_TEXT(0x00647AE0, "L2"); break;
+        case 0xD8847EFA: text = GAME_TEXT(0x0064C468, "DownLeft"); break;
+        case 0xE3006FC4: text = GAME_TEXT(0x0064C460, "Down"); break;
+        case 0xF2F1F64E: text = GAME_TEXT(0x00647AD8, "R1"); break;
         default: break;
         }
         if (text)
-            Dbg::Printf(Text(text));
-        Dbg::Printf(Text(0x0064C458));
+            Dbg::Printf(text);
+        Dbg::Printf(GAME_TEXT(0x0064C458, " Event="));
         switch (e.type) {
-        case 0: Dbg::Printf(Text(0x0064C43C)); break;
-        case 1: Dbg::Printf(Text(0x0064C444)); break;
-        case 2: Dbg::Printf(Text(0x0064C44C)); break;
+        case 0: Dbg::Printf(GAME_TEXT(0x0064C43C, "None")); break;
+        case 1: Dbg::Printf(GAME_TEXT(0x0064C444, "Pressed")); break;
+        case 2: Dbg::Printf(GAME_TEXT(0x0064C44C, "Released")); break;
         default: break;
         }
-        Dbg::Printf(Text(0x00646AC0));
+        Dbg::Printf(GAME_TEXT(0x00646AC0, "\n"));
         if (--index < 0)
             index += kEvents;
     }

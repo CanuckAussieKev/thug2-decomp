@@ -28,6 +28,12 @@
 #include "game/skater/physics_control.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/camera_lookaround.h"
+#include "game/obj/node_components.h"
+#include "game/skater/core_physics.h"
 
 namespace Skater {
 
@@ -35,7 +41,6 @@ using namespace Physics;
 
 namespace {
 
-constexpr uint32_t kVtable = 0x0064BC48;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;    // SkaterCorePhysics (the component type)
 constexpr uint32_t kModel = 0x286A8D26;                // Model (a component)
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;  // SkaterFlipAndRotate (a component)
@@ -52,9 +57,9 @@ constexpr uint32_t kMotoskateboardGrind = 0xF7CA3F78; // Trick_Motoskateboard_Gr
 constexpr uint32_t kMotoGrind = 0x302;                 // (on the motoskateboard)
 
 // The free revert's message: the game's own format, file name and text.
-constexpr uint32_t kMessageFormat = 0x006466B0;        // "M:%s:%i: %s\n"
-constexpr uint32_t kSourceFile = 0x0064BCE0;           // (the component's source file)
-constexpr uint32_t kFreeRevertText = 0x0064BD08;       // "You earned a free revert!!!!"
+const char* const kMessageFormat = GAME_TEXT(0x006466B0, "M:%s:%i: %s\n"); // "M:%s:%i: %s\n"
+const char* const kSourceFile = GAME_TEXT(0x0064BCE0, "mponents\\SkaterCorePhysicsComponent.cpp"); // (the component's source file)
+const char* const kFreeRevertText = GAME_TEXT(0x0064BD08, "You earned a free revert!!!!"); // "You earned a free revert!!!!"
 
 // The fields used here.
 constexpr uint32_t kFreeRevertsPending = 0x318;
@@ -99,7 +104,7 @@ void* __cdecl CorePhysicsComponent::Create()
 CorePhysicsComponent* CorePhysicsComponent::Construct()
 {
     reinterpret_cast<Obj::CBaseComponent*>(this)->Construct();
-    At<uint32_t>(this, 0) = kVtable;
+    At<void**>(this, 0) = g_corePhysicsVtable;
     reinterpret_cast<Nx::CFeeler*>(&At<uint8_t>(this, kFeeler))->Construct();
     reinterpret_cast<Nx::CFeeler*>(&At<uint8_t>(this, kLastGroundFeeler))->Construct();
     At<uint32_t>(this, 0x368) = 0;
@@ -223,8 +228,8 @@ void CorePhysicsComponent::UpdateFreeRevert()
     if (Since(start) <= wait)
         return;
     --At<int>(this, kFreeRevertsPending);
-    Dbg::Printf(reinterpret_cast<const char*>(kMessageFormat), reinterpret_cast<const char*>(kSourceFile), 0x293F,
-                reinterpret_cast<const char*>(kFreeRevertText));
+    Dbg::Printf(kMessageFormat, kSourceFile, 0x293F,
+                kFreeRevertText);
     if (At<int>(this, kFreeRevertsPending))
         At<int>(this, kFreeRevertStart) = Now();
 }
@@ -416,3 +421,29 @@ REPLACE(0x00500BC0, &Skater::CorePhysicsComponent::UpdateSpecialTime);
 REPLACE(0x00500DE0, &Skater::CorePhysicsComponent::GetAirTimeLeft);
 REPLACE(0x00500E80, &Skater::CorePhysicsComponent::CanKick);
 REPLACE(0x00500E90, &Skater::CorePhysicsComponent::OrientToNormal);
+
+namespace Skater {
+namespace {
+
+
+} // namespace
+} // namespace Skater
+
+namespace Skater {
+
+GAME_VTABLE(g_corePhysicsVtable, 0x0064BC48,
+    &Skater::CorePhysicsComponent::Destroy,
+    &Skater::CorePhysicsComponent::Update,
+    &CorePhysicsComponent::InitFromStructure,
+    &CorePhysicsComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Skater::CorePhysicsComponent::CallMemberFunction);
+
+} // namespace Skater

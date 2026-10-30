@@ -18,12 +18,19 @@
 #include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BE20);
+extern void** const kVtable;
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kModel = 0x286A8D26, kAnimBlender = 0x7149B753,
                    kSkaterState = 0x43686585;
@@ -245,3 +252,21 @@ REPLACE(0x00511420, &Obj::CSkaterFlipAndRotateComponent::ApplyFlipToAnims);
 REPLACE(0x005114F0, &Obj::CSkaterFlipAndRotateComponent::Flip);
 REPLACE(0x00511570, &Obj::CSkaterFlipAndRotateComponent::DoAfterAnim);
 REPLACE(0x00511600, &Obj::CSkaterFlipAndRotateComponent::CallMemberFunction);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BE20,
+    &Obj::CSkaterFlipAndRotateComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    Stubs::IgnoreArgument,
+    &Obj::CSkaterFlipAndRotateComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing);
+
+} // namespace
+} // namespace Obj

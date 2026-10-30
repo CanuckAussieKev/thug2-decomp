@@ -13,6 +13,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -20,7 +26,7 @@ GAME_GLOBAL(uint32_t[5], g_stanceTextures, 0x0064C12C, 0x33A15296, 0xBE91F3B6, 0
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C0F8);
+extern void** const kVtable;
 constexpr uint32_t kSkaterStancePanel = 0x21FC3301, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kNollieOn = 0x41EB710B, kInNollie = 0x1EB61DCE, kPressureOn = 0x0A23D710,
                    kPressureOff = 0x71B57DD6, kNollieOff = 0xFB9B7C9C, kInPressure = 0x9FAB9D0B;
@@ -157,3 +163,24 @@ REPLACE(0x00519210, &Obj::CSkaterStancePanelComponent::Finalize);
 REPLACE(0x00519230, &Obj::CSkaterStancePanelComponent::Update);
 REPLACE(0x005192C0, &Obj::CSkaterStancePanelComponent::CallMemberFunction);
 REPLACE(0x00519150, &Obj::CSkaterStancePanelComponent::GetStance);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C0F8,
+    &Obj::CSkaterStancePanelComponent::Destroy,
+    &Obj::CSkaterStancePanelComponent::Update,
+    &Obj::CSkaterStancePanelComponent::InitFromStructure,
+    &Obj::CSkaterStancePanelComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CSkaterStancePanelComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

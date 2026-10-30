@@ -17,6 +17,12 @@
 #include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Front {
 
@@ -29,7 +35,7 @@ namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646018);
+extern void** const kVtable;
 
 constexpr uint32_t kId = 0x40C698AF;        // id
 constexpr uint32_t kString = 0x61414D56;    // string
@@ -191,3 +197,24 @@ REPLACE(0x0041E2B0, &Obj::CFloatingTextComponent::InitFromStructure);
 REPLACE(0x0041E3A0, &Obj::CFloatingTextComponent::Finalize);
 REPLACE(0x0041E450, &Obj::CFloatingTextComponent::Update);
 REPLACE(0x0041E270, &Obj::CFloatingTextComponent::CallMemberFunction);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646018,
+    &Obj::CFloatingTextComponent::Destroy,
+    &Obj::CFloatingTextComponent::Update,
+    &Obj::CFloatingTextComponent::InitFromStructure,
+    &Obj::CFloatingTextComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CFloatingTextComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

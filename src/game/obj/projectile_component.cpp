@@ -12,12 +12,20 @@
 #include "game/skate/skate_module_calls.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
+#include "game/obj/trigger_events.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B8A8);
+extern void** const kVtable;
 
 // The local skater's projectile slots (CSkater +0x1C0, five of 0x18 bytes: +0 the name, +4 taken, +8 the position).
 constexpr uint32_t kSlots = 0x1C0;
@@ -25,7 +33,7 @@ constexpr uint32_t kSlotSize = 0x18;
 constexpr int kSlotCount = 5;
 
 // The trigger component's events for a projectile's touch (0x0064B89C: 14, none, none).
-const int* TouchEvents() { return reinterpret_cast<const int*>(0x0064B89C); }
+const int* TouchEvents() { return g_projectileTouchEvents; }
 
 constexpr float kReach = 12.0f;          // 0x0064546C (also added to the feeler's end w)
 constexpr float kStep = 0.8975979f;      // 0x00646968 (2pi / 7)
@@ -163,3 +171,24 @@ REPLACE(0x004F3800, &Obj::CProjectileComponent::InitFromStructure);
 REPLACE(0x004F3860, &Obj::CProjectileComponent::Finalize);
 REPLACE(0x004F3A90, &Obj::CProjectileComponent::Update);
 REPLACE(0x004F3910, &Obj::CProjectileComponent::CheckTriggers);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B8A8,
+    &Obj::CProjectileComponent::Destroy,
+    &Obj::CProjectileComponent::Update,
+    &Obj::CProjectileComponent::InitFromStructure,
+    &Obj::CProjectileComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

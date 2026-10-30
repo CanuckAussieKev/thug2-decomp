@@ -42,4 +42,7 @@ static_assert(offsetof(CWaitAndDieComponent, m_start) == 0x18 && offsetof(CWaitA
                   sizeof(CWaitAndDieComponent) == 0x28,
               "layout must match the original");
 
+// 0x00646898: waitAndDieVtable (defined where the class's functions are).
+extern void** const g_waitAndDieVtable;
+
 } // namespace Obj

@@ -25,6 +25,7 @@
 #include "game/skater/trick_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -83,10 +84,10 @@ constexpr float kPi = 3.14159274f;            // 0x0064BB7C
 Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::CCompositeObject*>(ObjectOf(component)); }
 
 // 0x00434BF0 (Obj::CTriggerComponent::CheckFeeler): the triggers of what the feeler hit, for `kind`.
-void CheckTriggers(void* component, uint32_t kind)
+void CheckTriggers(void* component, const int* kind)
 {
     static_cast<Obj::CTriggerComponent*>(At<void*>(component, kTriggerComponent))
-        ->CheckFeeler(reinterpret_cast<const int*>(kind), &At<Nx::CFeeler>(component, kFeeler));
+        ->CheckFeeler(kind, &At<Nx::CFeeler>(component, kFeeler));
 }
 
 // Whether a trigger's script took over (+0x1530's +0x26).
@@ -143,7 +144,7 @@ bool CorePhysicsComponent::VertWallplant()
         return false;
     if (!static_cast<Obj::CTaggingControlComponent*>(At<void*>(this, 0x1538))->SlapSticker(true, false, false))
         return false;
-    CheckTriggers(this, 0x0064BB8C);
+    CheckTriggers(this, g_jumpTriggerEvents);
     if (TriggerTookOver(this))
         return true;
     object = ObjectOf(this);
@@ -366,7 +367,7 @@ void CorePhysicsComponent::CheckWallAhead()
             return;
         }
     }
-    CheckTriggers(this, 0x0064BBBC);
+    CheckTriggers(this, g_bonkEvents);
     if (!TriggerTookOver(this))
         BounceOffWallAhead(&normal);
 }

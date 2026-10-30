@@ -15,12 +15,23 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
+#include "hook/game_global.h"
 
 namespace Obj {
 
+GAME_GLOBAL(uint32_t[12], g_balanceTrickMemberFunctions, 0x00683238,
+    0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0,
+    0, 0x589E5FB3, 0, 0, 0, 0);
+
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BA30);
+extern void** const kVtable;
 
 constexpr uint32_t kAnimBlender = 0x7149B753, kSkaterScore = 0xD262802F;
 
@@ -63,7 +74,7 @@ CBaseComponent* __cdecl CSkaterBalanceTrickComponent::Create()
 // 0x004F8CD0
 void __cdecl CSkaterBalanceTrickComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), reinterpret_cast<const uint32_t*>(0x00683238),
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_balanceTrickMemberFunctions,
                                         0x18);
 }
 
@@ -383,3 +394,17 @@ REPLACE(0x004F90A0, &Obj::CSkaterBalanceTrickComponent::GetPhysicsValue);
 REPLACE(0x004F91D0, &Obj::CSkaterBalanceTrickComponent::ClearParams);
 REPLACE(0x004F9370, &Obj::CSkaterBalanceTrickComponent::SetParams);
 REPLACE(0x004F9200, &Obj::CSkaterBalanceTrickComponent::SetWobble);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BA30,
+    &Obj::CSkaterBalanceTrickComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    &Obj::CSkaterBalanceTrickComponent::InitFromStructure,
+    &Obj::CSkaterBalanceTrickComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure);
+
+} // namespace
+} // namespace Obj

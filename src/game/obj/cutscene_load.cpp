@@ -24,6 +24,8 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/gfx/scene_load.h"
+#include "game/obj/cutscene.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -133,7 +135,7 @@ void __cdecl AnimSourceFree(void* item)
 // 0x00464640
 CCutsceneData* CCutsceneData::Construct()
 {
-    m_vtable = reinterpret_cast<void**>(0x00647908);
+    m_vtable = g_cutsceneDataVtable;
     mp_bundle = nullptr;
     m_objectPart = 0;
     m_cameraPart = 0;
@@ -456,3 +458,10 @@ REPLACE(0x004645E0, Obj::AnimSourceFree);
 REPLACE(0x00464640, &Obj::CCutsceneData::Construct);
 REPLACE(0x00464780, &Obj::CCutsceneData::RefreshObjects);
 REPLACE(0x004648D0, &Obj::CCutsceneData::AddObjects);
+
+namespace Obj {
+
+GAME_VTABLE(g_cutsceneDataVtable, 0x00647908,
+    &Obj::CCutsceneData::Destroy);
+
+} // namespace Obj

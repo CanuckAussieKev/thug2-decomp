@@ -22,6 +22,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -39,7 +46,7 @@ GAME_GLOBAL(uint32_t[60], g_statsManagerMemberFunctions, 0x00684180,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C294);
+extern void** const kVtable;
 
 constexpr uint32_t kSkaterState = 0x43686585;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
@@ -207,7 +214,7 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
         m_physicsControl = m_skater->GetComponent(kSkaterPhysicsControl);
     }
     m_difficulty = static_cast<Game::CGoalManager*>(GameFlow())->GetDifficultyLevel(true);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064C2C8), m_difficulty); // "STATSManager: difficulty ... %i"
+    Dbg::Printf(GAME_TEXT(0x0064C2C8, "STATSManager: difficulty ====================== %i\n"), m_difficulty); // "STATSManager: difficulty ... %i"
     if (Script::GetInteger(0xB8688A8Au) == 1)
         m_raiseStats = true;
 
@@ -237,7 +244,7 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
             goal.m_text = byDifficulty->GetLocalString(static_cast<uint32_t>(m_difficulty));
         }
         if (source->ContainsComponentNamed(0xC4745838u)) {
-            const char* name = reinterpret_cast<const char*>(0x006469B4); // ""
+            const char* name = GAME_TEXT(0x006469B4, ""); // ""
             source->GetString(0xC4745838u, &name, 1);
             goal.m_name = name;
         }
@@ -358,7 +365,7 @@ void CStatsManagerComponent::AnnounceMetGoals()
             profile->SetStat(stat, profile->GetStat(stat) + 1);
     }
     if (announced) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064C2FC)); // "updating skater stats"
+        Dbg::Printf(GAME_TEXT(0x0064C2FC, "updating skater stats\n")); // "updating skater stats"
         reinterpret_cast<CSkater*>(m_skater)->SetStatsFromProfile(profile);
         if (!m_goalDone && static_cast<Game::CGoalManager*>(GameFlow())->CanStartGoal()) {
             RunScript(0xEF3A4EE5);
@@ -418,7 +425,7 @@ void CStatsManagerComponent::Update()
                 m_airStart = pos;
                 m_airStartPoints = m_points;
                 m_airStartMultiplier = m_multiplier;
-                Dbg::Printf(reinterpret_cast<const char*>(0x0064C314), m_score); // "vert_start_score = %i"
+                Dbg::Printf(GAME_TEXT(0x0064C314, "vert_start_score = %i\n"), m_score); // "vert_start_score = %i"
                 m_airBest = 0;
             } else {
                 double height = static_cast<double>(pos.y) - m_airStart.y;
@@ -686,3 +693,24 @@ REPLACE(0x0051C520, &Obj::CStatsManagerComponent::UnlockAmGoals);
 REPLACE(0x0051C550, &Obj::CStatsManagerComponent::UnlockProGoals);
 REPLACE(0x0051CB70, &Obj::CStatsManagerComponent::GetLastAirComboScore);
 REPLACE(0x0051C580, &Obj::CStatsManagerComponent::ClearLastAirComboScore);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C294,
+    &Obj::CStatsManagerComponent::Destroy,
+    &Obj::CStatsManagerComponent::Update,
+    &Obj::CStatsManagerComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

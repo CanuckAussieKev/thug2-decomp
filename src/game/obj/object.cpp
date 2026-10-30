@@ -13,6 +13,9 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "hook/game_code.h"
+#include "game/obj/object.h"
 
 namespace Obj {
 
@@ -23,9 +26,8 @@ using Script::CStruct;
 
 namespace {
 
-void** const kObjectVtable = reinterpret_cast<void**>(0x006477E8);
-void** const kObjectRefVtable = reinterpret_cast<void**>(0x006477E0);
-void** const kObjectNodeVtable = reinterpret_cast<void**>(0x006477E4);
+extern void** const kObjectVtable;
+extern void** const kObjectRefVtable;
 
 // Names (checksums) the object uses.
 constexpr uint32_t kUnnamed = 0;                 // an unnamed component
@@ -106,12 +108,12 @@ CObjectRef* CObjectRef::Destroy(unsigned int flags)
 }
 
 // 0x00460B20
-void CObjectNode::DestroyBody() { UnlinkAs(kObjectNodeVtable); }
+void CObjectNode::DestroyBody() { UnlinkAs(g_objectNodeVtable); }
 
 // 0x00460B40
 CObjectNode* CObjectNode::Destroy(unsigned int flags)
 {
-    UnlinkAs(kObjectNodeVtable);
+    UnlinkAs(g_objectNodeVtable);
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -122,7 +124,7 @@ CObject* CObject::Construct()
 {
     CRefCounted::Construct();
     m_vtable = kObjectVtable;
-    m_node.vtable = kObjectNodeVtable;
+    m_node.vtable = g_objectNodeVtable;
     m_node.data = this;
     m_node.priority = 0;
     m_node.next = &m_node;
@@ -157,7 +159,7 @@ void CObject::DestroyBody()
     }
     Script::StopAllScriptsUsingThisObject(this);
     m_ref.DestroyBody();
-    m_node.UnlinkAs(kObjectNodeVtable);
+    m_node.UnlinkAs(g_objectNodeVtable);
     Destruct();
 }
 
@@ -676,3 +678,28 @@ REPLACE(0x004618A0, &Obj::CObject::Obj_SwitchScript);
 REPLACE(0x00460AD0, Obj::FindObject);
 REPLACE(0x00460AC0, Obj::Unlock);
 REPLACE(0x00460AA0, Obj::DestroyIfUnlocked);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kObjectRefVtable, 0x006477E0,
+    &Obj::CObjectRef::Destroy);
+GAME_VTABLE(kObjectVtable, 0x006477E8,
+    &Obj::CObject::Destroy,
+    &Obj::CObject::SetProperties,
+    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+    static_cast<bool (Obj::CObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+    Stubs::IgnoreArgument,
+    &Obj::CObject::PassEventToScript,
+    &Obj::CObject::MarkAsDead,
+    Stubs::ReturnTrue);
+
+} // namespace
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_objectNodeVtable, 0x006477E4,
+    &Obj::CObjectNode::Destroy);
+
+} // namespace Obj

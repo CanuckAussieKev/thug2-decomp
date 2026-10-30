@@ -61,7 +61,7 @@ bool& DrawShape() { return g_rigidBodyDrawShape; }
 bool& DrawDetails() { return g_rigidBodyDrawDetails; }
 
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
-CSmtPtr<CCompositeObject>* Pushers() { return reinterpret_cast<CSmtPtr<CCompositeObject>*>(0x00695150); }
+CSmtPtr<CCompositeObject>* Pushers() { return g_rigidBodyPushers; }
 float* PusherReach() { return g_rigidBodyPusherReach; }
 
 // The matrix's element at byte offset `offset` from its start.

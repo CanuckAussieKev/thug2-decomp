@@ -8,15 +8,15 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/skater/gap.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kListEntryVtable = reinterpret_cast<void**>(0x0064EC80);
-void** const kListEntryNodeVtable = reinterpret_cast<void**>(0x0064BE88); // Lst::Node<TrickListEntry>
-void** const kNameEntryVtable = reinterpret_cast<void**>(0x0064EC84);
-void** const kNameEntryNodeVtable = reinterpret_cast<void**>(0x0064BE8C); // Lst::Node<TrickNameEntry>
+extern void** const kListEntryVtable;
+extern void** const kNameEntryVtable;
 
 void InitNode(Mem::ListNode& node, void* data)
 {
@@ -57,7 +57,7 @@ void TrickListEntry::DestroyBody()
         array->Clear();
         Script::DeleteArray(array);
     }
-    m_node.UnlinkAs(kListEntryNodeVtable);
+    m_node.UnlinkAs(g_gapNodeVtable);
 }
 
 // 0x00579820
@@ -82,7 +82,7 @@ TrickNameEntry* TrickNameEntry::Construct()
 void TrickNameEntry::DestroyBody()
 {
     m_name.~String();
-    m_node.UnlinkAs(kNameEntryNodeVtable);
+    m_node.UnlinkAs(g_gapTrickNodeVtable);
 }
 
 // 0x00579600
@@ -103,3 +103,14 @@ REPLACE(0x00579570, &Obj::TrickListEntry::DestroyBody);
 REPLACE(0x00579600, &Obj::TrickNameEntry::Destroy);
 REPLACE(0x00579630, &Obj::TrickNameEntry::DestroyBody);
 REPLACE(0x00579820, &Obj::TrickListEntry::Destroy);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kListEntryVtable, 0x0064EC80,
+    &Obj::TrickListEntry::Destroy);
+GAME_VTABLE(kNameEntryVtable, 0x0064EC84,
+    &Obj::TrickNameEntry::Destroy);
+
+} // namespace
+} // namespace Obj

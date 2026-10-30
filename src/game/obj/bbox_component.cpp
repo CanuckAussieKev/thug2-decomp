@@ -16,13 +16,20 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
+#include "game/obj/objman.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645DC4);
-void** const kObjectSearchVtable = reinterpret_cast<void**>(0x00645DFC);
+extern void** const kVtable;
 
 constexpr uint32_t kObjObjectInRect = 0x6520B902;         // Obj_ObjectInRect
 constexpr uint32_t kObjObjectInRadius = 0x67660FE5;       // Obj_ObjectInRadius
@@ -267,7 +274,7 @@ bool CBBoxComponent::AnyObjectNear(Script::CStruct* params, Script::CScript* scr
         return false;
     }
     CObjectSearch search;
-    search.m_vtable = kObjectSearchVtable;
+    search.m_vtable = g_objectSearchVtable;
     search.m_node = nullptr;
     for (auto* object = static_cast<CCompositeObject*>(
              search.FirstItemOfType(ManagerObjectList(m_object->mp_manager), objectType));
@@ -345,3 +352,31 @@ REPLACE(0x0041AE20, &Obj::CBBoxComponent::AnySkaterNear);
 REPLACE(0x0041AF10, &Obj::CBBoxComponent::AnyObjectNear);
 REPLACE(0x0041B0A0, &Obj::CBBoxComponent::QueryObjects);
 REPLACE(0x0041A8B0, Obj::RectRadiusSqr);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645DC4,
+    &Obj::CBBoxComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CBBoxComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_objectSearchVtable, 0x00645DFC,
+    &Obj::CObjectSearch::Destroy);
+
+} // namespace Obj

@@ -14,6 +14,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/front/screen_element_manager.h"
+#include "hook/game_code.h"
+#include "game/obj/object.h"
 
 namespace Obj {
 
@@ -21,10 +24,10 @@ GAME_GLOBAL(uint32_t, g_trackerReferences, 0x006F0FC4);
 
 namespace {
 
-void** const kManagerVtable = reinterpret_cast<void**>(0x00647818);
-void** const kGeneralManagerVtable = reinterpret_cast<void**>(0x00647834);
-void** const kListHeadVtable = reinterpret_cast<void**>(0x00647814);
-void** const kObjectNodeVtable = reinterpret_cast<void**>(0x006477E4);
+extern void** const kManagerVtable;
+extern void** const kGeneralManagerVtable;
+extern void** const kListHeadVtable;
+extern void** const kObjectSearchBaseVtable;
 void** const kFlushTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CGeneralManager>
 constexpr int kFlushTaskPriority = 1000;
 
@@ -83,7 +86,7 @@ CBaseManager* CBaseManager::Construct()
 void CBaseManager::DestroyBody()
 {
     m_vtable = kManagerVtable;
-    m_objects.UnlinkAs(kObjectNodeVtable);
+    m_objects.UnlinkAs(g_objectNodeVtable);
 }
 
 // 0x00461B80
@@ -219,9 +222,9 @@ void CGeneralManager::DestroyBody()
         auto* task = static_cast<void***>(m_flushTask);
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1); // its deleting destructor
     }
-    m_deadObjects.UnlinkAs(kObjectNodeVtable);
+    m_deadObjects.UnlinkAs(g_objectNodeVtable);
     m_vtable = kManagerVtable;
-    m_objects.UnlinkAs(kObjectNodeVtable);
+    m_objects.UnlinkAs(g_objectNodeVtable);
 }
 
 // 0x00461EA0
@@ -309,7 +312,7 @@ CObject* CObjectSearch::NextItemOfType()
 }
 
 // 0x0041AA90
-void CObjectSearch::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x00645DF8); }
+void CObjectSearch::DestroyBody() { m_vtable = kObjectSearchBaseVtable; }
 
 // 0x0041AAA0
 CObjectSearch* CObjectSearch::Destroy(unsigned int flags)
@@ -323,7 +326,7 @@ CObjectSearch* CObjectSearch::Destroy(unsigned int flags)
 // 0x0041A850
 CObjectSearch* CObjectSearch::DestroyAsBase(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(0x00645DF8);
+    m_vtable = kObjectSearchBaseVtable;
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -377,3 +380,37 @@ REPLACE(0x0041AAA0, &Obj::CObjectSearch::Destroy);
 REPLACE(0x0041A850, &Obj::CObjectSearch::DestroyAsBase);
 REPLACE(0x00461FA0, Obj::ReleaseTracker);
 REPLACE(0x00461FE0, &Obj::CTracker::RegisterEventListener);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kListHeadVtable, 0x00647814,
+    &Obj::CObjectListHead::Destroy);
+GAME_VTABLE(kManagerVtable, 0x00647818,
+    &Obj::CBaseManager::Destroy,
+    &Obj::CBaseManager::RegisterObject,
+    &Obj::CBaseManager::UnregisterObject,
+    &Obj::CBaseManager::ReassignObjectId,
+    &Obj::CBaseManager::SetObjectPriority,
+    GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771));
+GAME_VTABLE(kGeneralManagerVtable, 0x00647834,
+    &Obj::CGeneralManager::Destroy,
+    &Obj::CBaseManager::RegisterObject,
+    &Obj::CBaseManager::UnregisterObject,
+    &Obj::CBaseManager::ReassignObjectId,
+    &Obj::CBaseManager::SetObjectPriority,
+    &Obj::CGeneralManager::KillObject,
+    &Front::CScreenElementManager::GetObjectList);
+
+} // namespace
+} // namespace Obj
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kObjectSearchBaseVtable, 0x00645DF8,
+    &Obj::CObjectSearch::DestroyAsBase);
+
+} // namespace
+} // namespace Obj

@@ -34,6 +34,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
+#include "game/obj/cutscene.h"
 
 namespace Obj {
 
@@ -262,7 +263,7 @@ void CCutsceneDetails::End()
 // 0x00466C20
 void CCutsceneData::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x00647908);
+    m_vtable = g_cutsceneDataVtable;
     g_cutscenePlaying = false;
     if (mp_bundle) {
         DeleteVirtual(mp_bundle);

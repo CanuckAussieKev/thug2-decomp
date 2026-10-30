@@ -25,9 +25,16 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/sys/game_config.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
+GAME_GLOBAL(uint32_t[4], g_editorCameraSkipNames, 0x0067EFD8, 0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205);
 GAME_GLOBAL(uint32_t, g_editorCameraName, 0x0067EFE8, 0x43BFAB74);
 GAME_GLOBAL(uint32_t[20], g_editorCameraSeen, 0x007CCBE8);
 GAME_GLOBAL(uint8_t, g_editorCameraFlagged, 0x007CCC38);
@@ -35,7 +42,7 @@ GAME_GLOBAL(int, g_editorCameraSeenCount, 0x007CCC3C);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B2D0);
+extern void** const kVtable;
 constexpr uint32_t kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kInput = 0x27D7CD28;
 constexpr float kTwoPi = 6.2831854820251465f;    // 0x0064545C
@@ -112,8 +119,8 @@ bool __cdecl ScriptFlagged(uint32_t name)
     Seen()[SeenCount()++] = name;
     if (name == g_editorCameraName)
         return false;
-    for (uint32_t address = 0x0067EFD8; address < 0x0067EFE8; address += 4) {
-        if (name == GameVariable<uint32_t>(address))
+    for (uint32_t skipName : g_editorCameraSkipNames) {
+        if (name == skipName)
             return true;
     }
     Script::CScriptCache* cache = Script::g_scriptCache;
@@ -628,3 +635,24 @@ REPLACE(0x004E5640, &Obj::CEditorCameraComponent::PlaceCursor);
 REPLACE(0x004E4F50, Obj::ScriptFlagged);
 REPLACE(0x004E5320, Obj::FlagScriptedHit);
 REPLACE_UNCHECKED(0x004E5390, Obj::FlaggedObjectBetweenStub);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B2D0,
+    &Obj::CEditorCameraComponent::Destroy,
+    &Obj::CEditorCameraComponent::Update,
+    &Obj::CEditorCameraComponent::InitFromStructure,
+    &Obj::CEditorCameraComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    &Obj::CEditorCameraComponent::Hide,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CEditorCameraComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

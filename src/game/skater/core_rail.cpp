@@ -26,6 +26,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -45,9 +46,6 @@ constexpr uint32_t kOffRail = 0xAFAA46BA;          // OffRail (event)
 constexpr uint32_t kName = 0xA1DC81F9;
 constexpr uint32_t kParkEditorLevel = 0xD443A2BC;
 
-constexpr uint32_t kGrindEvents = 0x0064BC28;      // getting onto a rail
-constexpr uint32_t kGrindOffEvents = 0x0064BC1C;   // {13, 4, 0}: off a rail
-constexpr uint32_t kJumpTriggerEvents = 0x0064BB8C; // {2, 4, 0}
 
 constexpr float kDegrees = 0.0174532924f;
 constexpr float kRaise = 6.0f;      // 0x00646284: the transfer line's start raised
@@ -155,7 +153,7 @@ void CorePhysicsComponent::TransferOrLeaveRail(const Mth::Vector* end)
         }
     }
     if (!onto) {
-        TriggerRailScript(reinterpret_cast<const int*>(kGrindOffEvents));
+        TriggerRailScript(g_grindOffEvents);
         ChangeState(this, kAir);
         Mth::Vector& p = VectorAt(ObjectOf(this), kPosition);
         p.y = p.y + 1.0f;
@@ -179,7 +177,7 @@ void CorePhysicsComponent::TransferOrLeaveRail(const Mth::Vector* end)
     VectorAt(ObjectOf(this), kVelocity) *= sign;
     At<Obj::CRailNode*>(this, kRailNode) = found;
     VectorAt(ObjectOf(this), kPosition) = point;
-    TriggerRailScript(reinterpret_cast<const int*>(kGrindEvents));
+    TriggerRailScript(g_grindEvents);
     SetTerrain(At<Obj::CRailNode*>(this, kRailNode)->m_terrain);
 }
 
@@ -198,8 +196,8 @@ void CorePhysicsComponent::DoRailPhysics()
     SetFlag(this, 0x50, 0);
     // Off the rail (0x004FFB10): the TriggerScripts, the jump's rerail time, up and out.
     if (JumpReleased()) {
-        TriggerRailScript(reinterpret_cast<const int*>(kJumpTriggerEvents));
-        TriggerRailScript(reinterpret_cast<const int*>(kGrindOffEvents));
+        TriggerRailScript(g_jumpTriggerEvents);
+        TriggerRailScript(g_grindOffEvents);
         At<int>(this, 0x23C) = static_cast<int>(Script::GetFloat(kJumpRerailTime));
         SetFlag(this, 0xD0, 1);
         SetFlag(this, 0xD8, 1);
@@ -309,7 +307,7 @@ void CorePhysicsComponent::DoRailPhysics()
                 VectorAt(ObjectOf(this), kPosition) = WorldPos(this, corner);
                 At<Obj::CRailNode*>(this, kRailNode) = after < 0.0f ? node->m_prev : next;
                 SetTerrain(At<Obj::CRailNode*>(this, kRailNode)->m_terrain);
-                TriggerRailScript(reinterpret_cast<const int*>(kGrindEvents));
+                TriggerRailScript(g_grindEvents);
             } else {
                 Mth::Vector end = WorldPos(this, corner);
                 TransferOrLeaveRail(&end);
@@ -502,7 +500,7 @@ void CorePhysicsComponent::GrindAlong(Obj::CRailNode* startNode, Obj::CRailNode*
     // Something ahead: off the rail (not for faces flagged 0x10 at +0xF9, outside the park editor).
     if (!InParkEditor() && (At<uint8_t>(this, 0xF9) & 0x10))
         return;
-    TriggerRailScript(reinterpret_cast<const int*>(kGrindOffEvents));
+    TriggerRailScript(g_grindOffEvents);
     void* o = ObjectOf(this);
     VectorAt(o, kPosition) = VectorAt(o, kOldPosition);
     Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
@@ -546,8 +544,8 @@ void CorePhysicsComponent::DoBikeStallPhysics()
     if (JumpReleased()) {
         // Jumped (0x005E3053): the rail's TriggerScripts (THAW's with its stall event, which THUG2's haven't), the
         // jump's rerail time, up.
-        TriggerRailScript(reinterpret_cast<const int*>(kJumpTriggerEvents));
-        TriggerRailScript(reinterpret_cast<const int*>(kGrindOffEvents));
+        TriggerRailScript(g_jumpTriggerEvents);
+        TriggerRailScript(g_grindOffEvents);
         At<int>(this, 0x23C) = static_cast<int>(Script::GetFloat(kJumpRerailTime));
         SetFlag(this, 0xD0, 1);
         SetFlag(this, 0xD8, 1);

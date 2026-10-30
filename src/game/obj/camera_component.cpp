@@ -12,12 +12,19 @@
 #include "game/obj/objman.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645E34);
+extern void** const kVtable;
 constexpr int kCameraPriority = -1000;
 
 } // namespace
@@ -93,3 +100,24 @@ REPLACE(0x0041B7C0, &Obj::CCameraComponent::Destroy);
 REPLACE(0x0041B7F0, &Obj::CCameraComponent::InitFromStructure);
 REPLACE(0x0041B810, &Obj::CCameraComponent::Finalize);
 REPLACE(0x0041B8A0, &Obj::CCameraComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645E34,
+    &Obj::CCameraComponent::Destroy,
+    &Obj::CCameraComponent::Update,
+    &Obj::CCameraComponent::InitFromStructure,
+    &Obj::CCameraComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

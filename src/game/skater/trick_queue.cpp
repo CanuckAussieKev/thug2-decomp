@@ -26,6 +26,12 @@
 #include "game/skater/balance_trick.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -37,7 +43,7 @@ T& At(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C508);
+extern void** const kVtable;
 constexpr uint32_t kTrick = 0x270F56E1;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 
@@ -725,7 +731,7 @@ void CTrickComponent::SetExtraTricks(Script::CStruct* params, Script::CScript* /
     for (int i = 0; i < 10; ++i)
         At<uint32_t>(this, kExtraMasks + 4 * i) = 0;
     At<uint32_t>(this, kExtraSpecialMask) = 0;
-    const char* ignore = reinterpret_cast<const char*>(0x006469B4); // ("")
+    const char* ignore = GAME_TEXT(0x006469B4, ""); // ("")
     if (params->GetString(kIgnore, &ignore, 0)) {
         IgnoreTricks(reinterpret_cast<uint32_t>(ignore)); // (the string's address as a name, as the original)
         return;
@@ -756,7 +762,7 @@ void CTrickComponent::UpdateBash()
         }
         Script::RunScript(kTantrumOff, nullptr, m_object, false, nullptr);
         if (At<uint32_t>(this, kBailEndpose) && !At<bool>(this, kQuickGetupDone)) {
-            Dbg::Printf(reinterpret_cast<const char*>(0x0064C53C)); // "ButtonMash - trigger quick getup..."
+            Dbg::Printf(GAME_TEXT(0x0064C53C, "ButtonMash - trigger quick getup..........................\n")); // "ButtonMash - trigger quick getup..."
             At<bool>(this, kQuickGetupDone) = true;
             Script::RunScript(kBailQuickGetup, nullptr, m_object, false, nullptr);
             return;
@@ -850,3 +856,24 @@ REPLACE(0x00522C00, &Obj::CTrickComponent::UpdateExtraTricks);
 REPLACE(0x00522CD0, &Obj::CTrickComponent::SetExtraTricks);
 REPLACE(0x005230E0, &Obj::CTrickComponent::UpdateBash);
 REPLACE(0x00523350, Obj::CFunc_DoNextTrick);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C508,
+    &Obj::CTrickComponent::Destroy,
+    &Obj::CTrickComponent::Update,
+    Stubs::IgnoreArgument,
+    &Obj::CTrickComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::CTrickComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

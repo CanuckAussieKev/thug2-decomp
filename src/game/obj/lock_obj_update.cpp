@@ -19,6 +19,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -26,7 +32,7 @@ GAME_GLOBAL(float, g_lockObjUpdateWobbleStep, 0x0064611C, 0.0061359233f);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x006460E4);
+extern void** const kVtable;
 constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kFirstNonSkaterId = 8; // (objects with smaller ids are the skaters)
@@ -233,3 +239,24 @@ REPLACE(0x0041F500, &Obj::CLockObjComponent::Construct);
 REPLACE(0x0041F400, &Obj::CLockObjComponent::DestroyBody);
 REPLACE(0x0041F440, &Obj::CLockObjComponent::Destroy);
 REPLACE(0x0041F760, &Obj::CLockObjComponent::UpdateLock);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x006460E4,
+    &Obj::CLockObjComponent::Destroy,
+    &Obj::CLockObjComponent::Update,
+    &Obj::CLockObjComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    Stubs::IgnoreArgument,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CLockObjComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

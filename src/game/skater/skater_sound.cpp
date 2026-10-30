@@ -13,12 +13,19 @@
 #include "game/skater/thaw_bmx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C0C4);
+extern void** const kVtable;
 constexpr uint32_t kSkaterSound = 0x187574FA;
 constexpr uint32_t kVolumeMult = 0xF1A99B27;
 constexpr uint32_t kPlayJumpSound = 0x0E338369, kPlayBonkSound = 0x0069E457, kPlayLandSound = 0x2C779F22,
@@ -213,3 +220,20 @@ REPLACE(0x00518FA0, &Obj::CSkaterSoundComponent::PlayJumpHere);
 REPLACE(0x00518EE0, &Obj::CSkaterSoundComponent::PlayJumpInState);
 REPLACE(0x00518F00, &Obj::CSkaterSoundComponent::PlayBonkHere);
 REPLACE(0x00518F50, &Obj::CSkaterSoundComponent::PlayCessHere);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C0C4,
+    &Obj::CSkaterSoundComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    &Obj::CSkaterSoundComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument);
+
+} // namespace
+} // namespace Obj

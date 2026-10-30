@@ -4,11 +4,12 @@
 
 #include "game/core/mem.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
 namespace {
-void** const kRefCountedVtable = reinterpret_cast<void**>(0x006478E4);
+extern void** const kRefCountedVtable;
 } // namespace
 
 // 0x004637B0
@@ -88,3 +89,12 @@ REPLACE(0x004637C0, &Obj::CRefCounted::AddSmartPointer);
 REPLACE(0x004637E0, &Obj::CRefCounted::RemoveSmartPointer);
 REPLACE(0x00416DD0, &Obj::CSmtPtr<Obj::CRefCounted>::Release);
 REPLACE(0x0041D1D0, &Obj::CSmtPtr<Obj::CRefCounted>::AssignObject);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kRefCountedVtable, 0x006478E4,
+    &Obj::CRefCounted::ScalarDelete);
+
+} // namespace
+} // namespace Obj

@@ -18,6 +18,11 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -25,7 +30,7 @@ GAME_GLOBAL(GameNet::Manager*, g_gameNetManager, 0x006FA7D0);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645EB4);
+extern void** const kVtable;
 
 constexpr uint32_t kRadius = 0xC48391A5;      // radius
 constexpr uint32_t kScale = 0x13B9DA7B;       // scale
@@ -168,3 +173,24 @@ REPLACE(0x0041C280, &Obj::CCollideAndDieComponent::Destroy);
 REPLACE(0x0041C2B0, &Obj::CCollideAndDieComponent::InitFromStructure);
 REPLACE(0x0041C330, &Obj::CCollideAndDieComponent::Finalize);
 REPLACE(0x0041C3D0, &Obj::CCollideAndDieComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645EB4,
+    &Obj::CCollideAndDieComponent::Destroy,
+    &Obj::CCollideAndDieComponent::Update,
+    &Obj::CCollideAndDieComponent::InitFromStructure,
+    &Obj::CCollideAndDieComponent::Finalize,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

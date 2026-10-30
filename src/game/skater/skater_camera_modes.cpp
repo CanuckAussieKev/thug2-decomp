@@ -13,12 +13,12 @@
 #include "game/gfx/viewport_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/skater/skater_camera_component.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BA74);
 
 constexpr uint32_t kCameraLookaround = 0x81C7122D, kCamera = 0xC4E311FA;
 
@@ -51,7 +51,7 @@ int ScreenMode() { return Nx::GetScreenMode(); }
 void CSkaterCameraComponent::DestroyBody()
 {
     Mth::SlerpInterpolator* slerp = mp_slerp;
-    m_vtable = kVtable;
+    m_vtable = g_skaterCameraVtable;
     Mem::Manager::Get()->Free(slerp);
     CBaseComponent::DestroyBody();
 }

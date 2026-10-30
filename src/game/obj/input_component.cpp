@@ -20,6 +20,14 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -42,7 +50,7 @@ GAME_GLOBAL(uint32_t[90], g_inputComponentMemberFunctions, 0x00684C78,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064605C);
+extern void** const kVtable;
 void** const kHandlerVtable = reinterpret_cast<void**>(0x0064D7D8);
 
 constexpr uint32_t kPlayer = 0x67E6859A;      // Player
@@ -469,3 +477,24 @@ REPLACE(0x0041EA40, &Obj::CInputComponent::UpPressed);
 REPLACE(0x0041EA50, &Obj::CInputComponent::DownPressed);
 REPLACE(0x0041EA60, &Obj::CInputComponent::GetSticks);
 REPLACE(0x0041EB20, &Obj::CInputComponent::HeldLongerThan);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064605C,
+    &Obj::CInputComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    &Obj::CInputComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

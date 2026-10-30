@@ -26,14 +26,43 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
+#include "hook/game_global.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[114], g_walkMemberFunctions, 0x006847F8,
+    0x893213E5, 0x726E85AA, 0, 0, 0, 0,
+    0x5012082E, 0x726E85AA, 0, 0, 0, 0,
+    0x9A3CA853, 0x726E85AA, 0, 0, 0, 0,
+    0x19702CA8, 0x726E85AA, 0, 0, 0, 0,
+    0x8FE2B013, 0x726E85AA, 0, 0, 0, 0,
+    0xCE64576C, 0x726E85AA, 0, 0, 0, 0,
+    0x83E4BD70, 0x726E85AA, 0, 0, 0, 0,
+    0xAF04B983, 0x726E85AA, 0, 0, 0, 0,
+    0x56112C03, 0x726E85AA, 0, 0, 0, 0,
+    0x9D3EEBE8, 0x726E85AA, 0, 0, 0, 0,
+    0xC6CD659E, 0x726E85AA, 0, 0, 0, 0,
+    0x55BF1CD6, 0x726E85AA, 0, 0, 0, 0,
+    0xE9B1CDE8, 0x726E85AA, 0, 0, 0, 0,
+    0xAC7B36C8, 0x726E85AA, 0, 0, 0, 0,
+    0x7E01B923, 0x726E85AA, 0, 0, 0, 0,
+    0x492EBA50, 0x726E85AA, 0, 0, 0, 0,
+    0xF8F754EF, 0x726E85AA, 0, 0, 0, 0,
+    0x8BC2C0EC, 0x726E85AA, 0, 0, 0, 0,
+    0, 0x726E85AA, 0, 0, 0, 0);
 
 namespace {
 
 using namespace WalkFields;
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C75C);
+extern void** const kVtable;
 
 // Script names.
 constexpr uint32_t kHangControlDebounceTime = 0xAC96D24B,
@@ -55,7 +84,8 @@ constexpr float kMs = 0.001f;                  // 0x006461D8 (0.0010000000474974
 constexpr float kHalf = 0.5f;                  // 0x006453BC
 
 // The state names (0x0064C618: WALKING_GROUND, WALKING_AIR, ...).
-uint32_t StateName(int state) { return reinterpret_cast<const uint32_t*>(0x0064C618)[state]; }
+GAME_GLOBAL(const uint32_t[5], g_walkStateNames, 0x0064C618, 0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637);
+uint32_t StateName(int state) { return g_walkStateNames[state]; }
 
 // The skate module's career (0x007CE478's +0x20).
 CSkaterCareer* Career() { return At<CSkaterCareer*>(static_cast<void*>(Mdl::g_skateModule), 0x20); }
@@ -111,7 +141,7 @@ void TurnFlat(double angle, float x, float z, float* turnedX, float* turnedZ)
 // 0x00525E40
 void __cdecl CWalkComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kWalk), reinterpret_cast<const uint32_t*>(0x006847F8),
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kWalk), g_walkMemberFunctions,
                                         0x18);
 }
 
@@ -476,3 +506,24 @@ REPLACE(0x00528710, &Obj::CWalkComponent::Walk_GetPreviousState);
 REPLACE(0x00528740, &Obj::CWalkComponent::Walk_GetState);
 REPLACE(0x00528770, &Obj::CWalkComponent::Walk_GetHangAngle);
 REPLACE(0x00528860, &Obj::CWalkComponent::Walk_SetForwardControlLock);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C75C,
+    &CWalkComponent::Destroy,
+    &CWalkComponent::Update,
+    &Obj::CWalkComponent::InitFromStructure,
+    &Obj::CWalkComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

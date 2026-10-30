@@ -18,12 +18,17 @@
 #include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x006467F4);
+extern void** const kVtable;
 
 constexpr uint32_t kVehicle = 0xE47F1B79;
 constexpr uint32_t kSound = 0x07713C7B;
@@ -368,3 +373,18 @@ REPLACE(0x0043CE70, &Obj::CVehicleSoundComponent::ReadSettings);
 REPLACE(0x0043C690, &Obj::CVehicleSoundComponent::UpdateEngine);
 REPLACE(0x0043CBC0, &Obj::CVehicleSoundComponent::UpdateSkid);
 REPLACE(0x0043D090, &Obj::CVehicleSoundComponent::UpdateCollideSound);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x006467F4,
+    &Obj::CVehicleSoundComponent::Destroy,
+    &Obj::CVehicleSoundComponent::Update,
+    &Obj::CVehicleSoundComponent::InitFromStructure,
+    &Obj::CVehicleSoundComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2);
+
+} // namespace
+} // namespace Obj

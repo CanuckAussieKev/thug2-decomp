@@ -20,6 +20,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -33,7 +40,7 @@ GAME_GLOBAL(SuspendTaskHolder*, g_suspendTaskHolder, 0x006951BC);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x006465C8);
+extern void** const kVtable;
 void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<...>
 constexpr int kTaskPriority = -1100;
 
@@ -341,3 +348,24 @@ REPLACE(0x00433E20, Obj::NextSuspendFrame);
 REPLACE(0x00434520, &Obj::SuspendTaskHolder::Construct);
 REPLACE(0x004345B0, Obj::CreateSuspendTask);
 REPLACE(0x00434420, Obj::SuspendTask);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x006465C8,
+    &Obj::CSuspendComponent::Destroy,
+    &Obj::CSuspendComponent::Update,
+    &Obj::CSuspendComponent::InitFromStructure,
+    &Obj::CSuspendComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    Stubs::IgnoreArgument,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

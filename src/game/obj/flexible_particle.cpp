@@ -20,6 +20,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
@@ -67,7 +68,7 @@ GAME_GLOBAL(uint32_t[156], g_flexibleParticleMemberFunctions, 0x00683AC0,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645FE4);
+extern void** const kVtable;
 
 constexpr uint32_t kName = 0xA1DC81F9;                 // name
 constexpr uint32_t kMax = 0x6289DD76;                  // max
@@ -530,3 +531,12 @@ REPLACE(0x0041D940, &Obj::CFlexibleParticleComponent::EmitOff);
 REPLACE(0x0041D960, &Obj::CFlexibleParticleComponent::DestroySystem);
 REPLACE(0x0041E190, &Obj::CFlexibleParticleComponent::DestroyParticles);
 REPLACE(0x0041D9C0, &Nx::CParticleSystem::SetFlag);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645FE4,
+    &Obj::CFlexibleParticleComponent::Destroy);
+
+} // namespace
+} // namespace Obj

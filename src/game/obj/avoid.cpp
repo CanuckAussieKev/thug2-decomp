@@ -22,6 +22,14 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -38,7 +46,7 @@ GAME_GLOBAL(uint32_t[54], g_avoidMemberFunctions, 0x006839E8,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B220);
+extern void** const kVtable;
 constexpr uint32_t kAvoid = 0x6EB050ED;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr uint32_t kMotion = 0x0A015E17;
@@ -441,3 +449,24 @@ REPLACE(0x004E38C0, &Obj::CAvoidComponent::HoldMotion);
 REPLACE(0x004E38F0, &Obj::CAvoidComponent::RestoreMotion);
 REPLACE_UNCHECKED(0x004E3270, Obj::AvoidDistanceStub);
 REPLACE_UNCHECKED(0x004E3930, Obj::LineCollidesStub);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B220,
+    &Obj::CAvoidComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

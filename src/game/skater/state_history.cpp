@@ -26,12 +26,13 @@
 #include "game/skater/core_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/skater/state_history.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C174);
 void** const kPlayerSearchVtable = reinterpret_cast<void**>(0x0064C1A8);
 
 // Components of the skater this code asks for.
@@ -56,9 +57,9 @@ constexpr uint8_t kMsgTeamTagged = 0x73; // team tag, the same team: who (and th
 constexpr uint8_t kMsgTeamConverted = 0x74; // team tag, another team
 
 // The default name in the events: "Someone" (0x0064C1C4); the names the code looks up.
-const char* const kSomeone = reinterpret_cast<const char*>(0x0064C1C4);
-const char* const kUnbindFireballTricks = reinterpret_cast<const char*>(0x0064C1AC); // "unbind_fireball_tricks"
-const char* const kDrivingRadiusBoost = reinterpret_cast<const char*>(0x0064C1CC);   // "driving_radius_boost"
+const char* const kSomeone = GAME_TEXT(0x0064C1C4, "Someone");
+const char* const kUnbindFireballTricks = GAME_TEXT(0x0064C1AC, "unbind_fireball_tricks"); // "unbind_fireball_tricks"
+const char* const kDrivingRadiusBoost = GAME_TEXT(0x0064C1CC, "driving_radius_boost");   // "driving_radius_boost"
 
 // a - b as the original's x87 code rounds it when it stores it.
 float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
@@ -212,7 +213,7 @@ CBaseComponent* __cdecl CSkaterStateHistoryComponent::Create()
 CSkaterStateHistoryComponent* CSkaterStateHistoryComponent::Construct()
 {
     CBaseComponent::Construct();
-    m_vtable = kVtable;
+    m_vtable = g_stateHistoryVtable;
     // (The original clears each state entry's +0x68 / +0x6C and the entry, the messages, the counts, then the
     // entries and the messages again.)
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1C, 0, kEntries * 0x84);

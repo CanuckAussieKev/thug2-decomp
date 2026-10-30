@@ -23,6 +23,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -33,8 +34,6 @@ namespace {
 constexpr uint32_t kLipKind = 0xA549B57B;        // Lip (the balance trick's kind)
 constexpr uint32_t kPerfectRail = 0xCD09E062;    // CHEAT_PERFECT_RAIL
 constexpr uint32_t kName = 0xA1DC81F9;
-constexpr uint32_t kLipOffEvents = 0x0064BBE0;   // (getting off a lip)
-constexpr uint32_t kOffLipEvents = 0x0064BBD4;   // {7, 4, 0}
 
 void ChangeState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
 
@@ -85,8 +84,8 @@ void CorePhysicsComponent::DoLipPhysics()
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
     if (JumpReleased()) {
         SetFlag(this, 0xD8, 1);
-        TriggerRailScript(reinterpret_cast<const int*>(kLipOffEvents));
-        TriggerRailScript(reinterpret_cast<const int*>(kOffLipEvents));
+        TriggerRailScript(g_lipOffEvents);
+        TriggerRailScript(g_offLipEvents);
     }
     auto* node = At<Obj::CRailNode*>(this, kRailNode);
     if (node && At<Obj::CRailManager*>(this, kRailManager)->m_nodeArray) {

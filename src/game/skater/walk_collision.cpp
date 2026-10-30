@@ -27,6 +27,8 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/obj/trigger_events.h"
 
 namespace Obj {
 
@@ -64,10 +66,14 @@ constexpr float kAdjustClearance = 0.1f;   // the bad critical point's adjustmen
 constexpr float kGrindClearance = 36.0f;   // 0x0064B9CC: a wall this close (squared) to the rail's point is fine
 
 // The game's own messages (Dbg::Printf): "M:%s:%i: %s", the source file's name, and the texts.
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
-constexpr uint32_t kMessageFormat = 0x006466B0, kSourceFile = 0x0064C69C, kSlapMessage = 0x0064C66C,
-                   kUberFrigMessage = 0x0064C6B8, kBadPointMessage = 0x0064C72C, kAdjustmentFormat = 0x0064C6FC,
-                   kOffsetFormat = 0x0064C6CC, kTrackingFormat = 0x0064B998;
+const char* const kMessageFormat = GAME_TEXT(0x006466B0, "M:%s:%i: %s\n");
+const char* const kSourceFile = GAME_TEXT(0x0064C69C, "mponents\\WalkComponent.cpp");
+const char* const kSlapMessage = GAME_TEXT(0x0064C66C, "walking sticker slap...........\n");
+const char* const kUberFrigMessage = GAME_TEXT(0x0064C6B8, "applying uber frig");
+const char* const kBadPointMessage = GAME_TEXT(0x0064C72C, "adjusting position due to bad critical point");
+const char* const kAdjustmentFormat = GAME_TEXT(0x0064C6FC, "D:%s:%i: required_pos_adjustment = %g, %g, %g\n");
+const char* const kOffsetFormat = GAME_TEXT(0x0064C6CC, "D:%s:%i: m_critical_point_offset = %g, %g, %g\n");
+const char* const kTrackingFormat = GAME_TEXT(0x0064B998, "Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n");
 
 double FrameLength(void* walk) { return At<float>(walk, kFrameLength); }
 
@@ -211,7 +217,7 @@ void CWalkComponent::CheckStickerSlap()
         return;
     if (!At<Skater::CorePhysicsComponent*>(this, kCorePhysics)->WallPlant(false, true, false))
         return;
-    Dbg::Printf(Text(kSlapMessage));
+    Dbg::Printf(kSlapMessage);
     Script::RunScript(kWalkingWallplantSwitch, nullptr, m_object, false, nullptr);
 }
 
@@ -260,7 +266,7 @@ void CWalkComponent::UpdateGroundBelow()
     }
 
     // Nothing below at all: back to where the frame began, turned around, on the ground.
-    Dbg::Printf(Text(kMessageFormat), Text(kSourceFile), 0x941, Text(kUberFrigMessage));
+    Dbg::Printf(kMessageFormat, kSourceFile, 0x941, kUberFrigMessage);
     At<Mth::Vector>(this, kPos) = At<Mth::Vector>(this, kOldPos);
     Mth::Vector& vel = At<Mth::Vector>(this, kVel);
     vel.y = 0.0f;
@@ -318,10 +324,10 @@ void CWalkComponent::EaseCriticalPointOffset()
     if (feeler.GetCollision(true, false)) {
         Mth::Vector adjustment = (feeler.m_point + kAdjustClearance * feeler.m_normal) - feeler.m_line.end;
         pos += adjustment;
-        Dbg::Printf(Text(kMessageFormat), Text(kSourceFile), 0xB8C, Text(kBadPointMessage));
-        Dbg::Printf(Text(kAdjustmentFormat), Text(kSourceFile), 0xB8D, static_cast<double>(adjustment.x),
+        Dbg::Printf(kMessageFormat, kSourceFile, 0xB8C, kBadPointMessage);
+        Dbg::Printf(kAdjustmentFormat, kSourceFile, 0xB8D, static_cast<double>(adjustment.x),
                     static_cast<double>(adjustment.y), static_cast<double>(adjustment.z));
-        Dbg::Printf(Text(kOffsetFormat), Text(kSourceFile), 0xB8E, static_cast<double>(offset.x),
+        Dbg::Printf(kOffsetFormat, kSourceFile, 0xB8E, static_cast<double>(offset.x),
                     static_cast<double>(offset.y), static_cast<double>(offset.z));
     }
     // Pushed back off a wall: the critical point kept on its side of the plane.
@@ -438,7 +444,7 @@ void CWalkComponent::TryWallplant()
     }
     PlanJumpOverObstruction();
     // The trigger told (events 0x0064C63C); a trigger's script may take over.
-    At<CTriggerComponent*>(this, kTrigger)->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C), &feeler);
+    At<CTriggerComponent*>(this, kTrigger)->CheckFeeler(g_walkEvents0064C63C, &feeler);
     if (At<bool>(At<uint8_t*>(this, kPhysicsControl), 0x26))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
@@ -503,7 +509,7 @@ bool CWalkComponent::TryGrind()
             return false;
     }
     if (Script::GetInteger(kOutputTrackingLines))
-        Dbg::Printf(Text(kTrackingFormat), 2, static_cast<double>(oldPos.x), static_cast<double>(oldPos.y),
+        Dbg::Printf(kTrackingFormat, 2, static_cast<double>(oldPos.x), static_cast<double>(oldPos.y),
                     static_cast<double>(oldPos.z), static_cast<double>(pos.x), static_cast<double>(pos.y),
                     static_cast<double>(pos.z));
     At<int>(this, kLeaveFor) = 1;
