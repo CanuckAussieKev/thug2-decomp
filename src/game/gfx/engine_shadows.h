@@ -5,6 +5,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 namespace Gfx {
 class Camera;
@@ -130,5 +131,7 @@ void __cdecl RemoveShadowVolume(CShadowVolume* volume);
 ShadowEdges* __cdecl FindShadowEdges(uint32_t key);
 // 0x004A1F30: one user fewer of the edges under `key`; with none left they're freed and taken out of the table.
 void __cdecl ReleaseShadowEdges(uint32_t key);
+
+GAME_GLOBAL_EXTERN(CShadowVolume*[16], g_shadowVolumes);
 
 } // namespace Nx

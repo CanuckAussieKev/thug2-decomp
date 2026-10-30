@@ -12,6 +12,7 @@
 #include "game/obj/walk_hang.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -55,9 +56,12 @@ void RotationToQuatB(void* out, const void* key)
     ExpandQuatKeyWithW(static_cast<CFloatKey*>(out), static_cast<const CShortKey*>(key));
 }
 
+GAME_GLOBAL(uint32_t, g_cachesBuilt, 0x006FA2D8);
+GAME_GLOBAL(uint64_t, g_lastCacheVblank, 0x006FA2E0);
+
 // The vblank count when caches were last built (0x006FA2E0) and how many have been since (0x006FA2D8).
-uint64_t& LastCacheVblank() { return GameVariable<uint64_t>(0x006FA2E0); }
-uint32_t& CachesBuilt() { return GameVariable<uint32_t>(0x006FA2D8); }
+uint64_t& LastCacheVblank() { return g_lastCacheVblank; }
+uint32_t& CachesBuilt() { return g_cachesBuilt; }
 
 // A plain key's time: its first short (rotation keys: 15 bits, signed).
 int RotationKeyTime(const uint8_t* key)

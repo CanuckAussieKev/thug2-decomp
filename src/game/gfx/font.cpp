@@ -10,17 +10,20 @@
 #include "game/script/params.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
-FontSlot* Slots() { return &GameVariable<FontSlot>(0x006FA830); }
+FontSlot* Slots() { return g_fontSlots; }
 Lst::HashTable& FontTable() { return GameVariable<Lst::HashTable>(0x006FA9F0); }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
-char* MetaButtonMap() { return &GameVariable<char>(0x006FA808); }
-bool& MetaButtonMapLoaded() { return GameVariable<bool>(0x006FA828); }
+char* MetaButtonMap() { return g_metaButtonMap; }
+GAME_GLOBAL(bool, g_metaButtonMapLoaded, 0x006FA828);
+
+bool& MetaButtonMapLoaded() { return g_metaButtonMapLoaded; }
 
 // The loaded font named by this checksum, or null.
 CFont* FindFont(uint32_t checksum) { return GetFont(checksum); }

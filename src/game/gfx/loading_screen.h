@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
 
 // The loading screen (Nx engine, PC): its picture (a texture loaded by name, the language's version in "fr/" or
 // "gr/"), shown full screen; the bar's timer that draws it while the game loads (loading_bar.h); taking it down.
@@ -20,5 +21,7 @@ void __cdecl StartLoadingBar(float seconds);
 // loaded again each time (the old one deleted when the name changes, as the original; the new one replaces it in
 // any case), drawn and presented. A picture that won't load leaves the screen down.
 void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black);
+
+GAME_GLOBAL_EXTERN(uint8_t*, g_loadingScreenPicture);
 
 } // namespace Nx

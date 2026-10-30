@@ -2,6 +2,8 @@
 // timer callback that draws the loading screen while the game loads).
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
+#include "game/gfx/device.h"
+#include "game/gfx/engine_glue.h"
 #include "game/gfx/loading_bar.h"
 
 #include <windows.h>
@@ -11,9 +13,15 @@
 #include "game/gfx/loading_screen.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(int, g_gradientWidth, 0x00701684);
+GAME_GLOBAL(float, g_tickSeconds, 0x007052A0);
+GAME_GLOBAL(float, g_elapsedSeconds, 0x007052A4);
+GAME_GLOBAL(float, g_totalSeconds, 0x007052A8);
 
 namespace {
 
@@ -25,31 +33,45 @@ struct Rgb {
     int r, g, b;
 };
 
+GAME_GLOBAL(float, g_floatTen, 0x00646710, 10.0f);
+GAME_GLOBAL(float, g_floatFive, 0x006469AC, 5.0f);
+GAME_GLOBAL(float, g_floatTwenty, 0x006486AC, 20.0f);
+GAME_GLOBAL(float, g_per640, 0x0064A474, 0.0015625f);
+GAME_GLOBAL(float, g_float420, 0x0064A478, 420.0f);
+GAME_GLOBAL(float, g_per480, 0x0064A47C, 0.0020833334f);
+GAME_GLOBAL(int, g_barWidth, 0x0067DDBC, 140);
+GAME_GLOBAL(uint8_t[4], g_barStartColor, 0x0067DDCC, 0x00, 0x4C, 0x81, 0x80);
+GAME_GLOBAL(uint8_t[4], g_barEndColor, 0x0067DDD0, 0xAC, 0xD3, 0x73, 0x80);
+GAME_GLOBAL(uint8_t[4], g_barBorderColor, 0x0067DDD4, 0x28, 0x28, 0x28, 0x80);
+GAME_GLOBAL(uint32_t, g_borderArgb, 0x00701680);
+GAME_GLOBAL(Rgb, g_gradientEnd, 0x00705288);
+GAME_GLOBAL(Rgb, g_gradientStart, 0x00705294);
+
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
-const uint8_t* StartColor() { return &GameVariable<uint8_t>(0x0067DDCC); }
-const uint8_t* EndColor() { return &GameVariable<uint8_t>(0x0067DDD0); }
-const uint8_t* BorderColor() { return &GameVariable<uint8_t>(0x0067DDD4); }
-int& BarWidth() { return GameVariable<int>(0x0067DDBC); }
+const uint8_t* StartColor() { return g_barStartColor; }
+const uint8_t* EndColor() { return g_barEndColor; }
+const uint8_t* BorderColor() { return g_barBorderColor; }
+int& BarWidth() { return g_barWidth; }
 int& ScreenWidth() { return GameVariable<int>(0x00786D6C); }
-float& ScreenScaleX() { return GameVariable<float>(0x00786D80); }
+float& ScreenScaleX() { return g_screenScaleX; }
 
-Rgb& GradientStart() { return GameVariable<Rgb>(0x00705294); }
-Rgb& GradientEnd() { return GameVariable<Rgb>(0x00705288); }
-int& GradientWidth() { return GameVariable<int>(0x00701684); }
-uint32_t& BorderArgb() { return GameVariable<uint32_t>(0x00701680); }
+Rgb& GradientStart() { return g_gradientStart; }
+Rgb& GradientEnd() { return g_gradientEnd; }
+int& GradientWidth() { return g_gradientWidth; }
+uint32_t& BorderArgb() { return g_borderArgb; }
 
 Rgb* GradientTable() { return reinterpret_cast<Rgb*>(s_gradientBuffer); }
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
-float& TickSeconds() { return GameVariable<float>(0x007052A0); }
-float& ElapsedSeconds() { return GameVariable<float>(0x007052A4); }
-float& TotalSeconds() { return GameVariable<float>(0x007052A8); }
+float& TickSeconds() { return g_tickSeconds; }
+float& ElapsedSeconds() { return g_elapsedSeconds; }
+float& TotalSeconds() { return g_totalSeconds; }
 int& ScreenHeight() { return GameVariable<int>(0x00786D70); }
-uint32_t& BarTimer() { return GameVariable<uint32_t>(0x00786D08); }    // the timer's id (timeSetEvent)
-bool& ScreenUp() { return GameVariable<bool>(0x00786D04); }           // shown (0x004B78B0): the main loop doesn't draw
+uint32_t& BarTimer() { return g_loadingBarTimer; }    // the timer's id (timeSetEvent)
+bool& ScreenUp() { return g_loadingScreenUp; }           // shown (0x004B78B0): the main loop doesn't draw
 HANDLE& ScreenMutex() { return GameVariable<HANDLE>(0x007052AC); }    // held while the loading screen is drawn
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 struct BarVertex {
     float x, y, z, rhw;
@@ -111,19 +133,19 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
-    double xScale = static_cast<double>(ScreenWidth()) * GameVariable<float>(0x0064A474); // 1 / 640
-    float yScale = static_cast<float>(static_cast<double>(ScreenHeight()) * GameVariable<float>(0x0064A47C)); // 1 / 480
+    double xScale = static_cast<double>(ScreenWidth()) * g_per640; // 1 / 640
+    float yScale = static_cast<float>(static_cast<double>(ScreenHeight()) * g_per480); // 1 / 480
     double elapsed = static_cast<double>(TickSeconds()) + ElapsedSeconds();
     ElapsedSeconds() = static_cast<float>(elapsed);
     double fraction = elapsed / TotalSeconds();
     if (fraction > 1.0)
         fraction = 1.0;
     int left = (ScreenWidth() - GradientWidth()) / 2;
-    int frameLeft = Ftol(static_cast<double>(static_cast<float>(left)) - xScale * GameVariable<float>(0x006469AC)); // 5
+    int frameLeft = Ftol(static_cast<double>(static_cast<float>(left)) - xScale * g_floatFive); // 5
     int filled = Ftol(GradientWidth() * fraction) + left;
-    int frameRight = Ftol((GradientWidth() + frameLeft) + xScale * GameVariable<float>(0x00646710)); // 10
-    int top = Ftol(yScale * static_cast<double>(GameVariable<float>(0x0064A478)));                  // 420
-    int bottom = Ftol(top + yScale * static_cast<double>(GameVariable<float>(0x006486AC)));         // 20
+    int frameRight = Ftol((GradientWidth() + frameLeft) + xScale * g_floatTen); // 10
+    int top = Ftol(yScale * static_cast<double>(g_float420));                  // 420
+    int bottom = Ftol(top + yScale * static_cast<double>(g_floatTwenty));         // 20
     float topF = static_cast<float>(top), bottomF = static_cast<float>(bottom);
     float frameLeftF = static_cast<float>(frameLeft), frameRightF = static_cast<float>(frameRight);
 
@@ -132,7 +154,7 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
     SetVertexFormat(kBarVertexFormat);
     DrawQuad(frameLeftF, topF, frameRightF, bottomF, BorderArgb(), BorderArgb());
     // the gradient, inset 5/480 of the screen's height top and bottom
-    double inset = yScale * static_cast<double>(GameVariable<float>(0x006469AC)); // 5
+    double inset = yScale * static_cast<double>(g_floatFive); // 5
     float gradientTop = static_cast<float>(topF + inset);
     float gradientBottom = static_cast<float>(bottomF - static_cast<double>(static_cast<float>(inset)));
     DrawQuad(static_cast<float>(left), gradientTop, static_cast<float>(GradientWidth() + left), gradientBottom,

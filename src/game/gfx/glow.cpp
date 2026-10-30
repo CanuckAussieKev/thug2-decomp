@@ -1,5 +1,6 @@
 // Light glows (Nx engine, PC): see glow.h.
 
+#include "game/gfx/device.h"
 #include "game/gfx/glow.h"
 
 #include <windows.h>
@@ -13,18 +14,23 @@
 #include "game/lst/hashtable.h"
 #include "game/sys/platform_d3d.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
 Lst::HashTable& Glows() { return GameVariable<Lst::HashTable>(0x007CA9D8); }
+GAME_GLOBAL(uint8_t[456], g_glowQueriesInUse, 0x007BA520);
+GAME_GLOBAL(void*, g_vertexColourPixelShader, 0x007CA94C);
+GAME_GLOBAL(float[16], g_glowQuad, 0x007CA9F0);
+
 // The occlusion queries in use (a byte each).
-uint8_t* QueriesInUse() { return &GameVariable<uint8_t>(0x007BA520); }
+uint8_t* QueriesInUse() { return g_glowQueriesInUse; }
 // The quad worked out for the last glow (four positions and colours; nothing draws it).
-float* GlowQuad() { return &GameVariable<float>(0x007CA9F0); }
+float* GlowQuad() { return g_glowQuad; }
 
 // The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
 int QueryResult(uint32_t query, uint32_t* pixels)
@@ -123,7 +129,7 @@ void __cdecl UpdateGlows(bool queries)
 
     // Each glow grows towards its size while its queries see it, and fades otherwise.
     SetBlendMode(5);
-    SetPixelShader(GameVariable<void*>(0x007CA94C), nullptr);
+    SetPixelShader(g_vertexColourPixelShader, nullptr);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (; glow; glow = NextGlow()) {
         bool seen = false;

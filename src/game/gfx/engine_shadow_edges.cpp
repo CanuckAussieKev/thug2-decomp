@@ -9,9 +9,12 @@
 #include "game/lst/hashtable.h"
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(CShadowVolume*[16], g_shadowVolumes, 0x007013D8);
 
 namespace {
 
@@ -27,7 +30,7 @@ struct ShadowEdge {
 };
 static_assert(sizeof(ShadowEdge) == 0x50, "layout must match the original");
 
-CShadowVolume** ShadowVolumes() { return &GameVariable<CShadowVolume*>(0x007013D8); }
+CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
 Lst::HashTable& EdgeTable() { return GameVariable<Lst::HashTable>(0x00701418); }
 
 // Into the first free slot of the volumes drawn (none: not drawn).

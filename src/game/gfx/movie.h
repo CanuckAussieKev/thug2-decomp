@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Nx {
 
@@ -61,5 +62,7 @@ void __cdecl DrawMovie(Bink* bink, void* texture);
 // whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
 bool ButtonPressedAgain(const uint8_t* controlData, uint16_t* seenUp, uint32_t mask);
 void ButtonPressedAgainStub();
+
+GAME_GLOBAL_EXTERN(Bink*, g_currentMovie); // a Bink movie playing
 
 } // namespace Nx

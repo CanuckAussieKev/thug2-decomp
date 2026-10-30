@@ -8,6 +8,7 @@
 #include "game/gfx/screen.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -40,6 +41,8 @@ const float kRadiansToDegrees = FloatFromBits(0x42652EE0);
 
 } // namespace
 
+GAME_GLOBAL(int, g_drawDistanceSetting, 0x007D6444);
+
 // 0x00485BA0
 Camera* Camera::Construct()
 {
@@ -56,8 +59,8 @@ Camera* Camera::Construct()
     m_farClip = 12000.0f;
     if (GameVariable<bool>(0x007D643A)) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
-        double distance = static_cast<double>(GameVariable<int>(0x007D6444));
-        if (GameVariable<int>(0x007D6444) < 0)
+        double distance = static_cast<double>(g_drawDistanceSetting);
+        if (g_drawDistanceSetting < 0)
             distance += 4294967296.0;
         m_farClip = static_cast<float>(distance * 30.0);
     }

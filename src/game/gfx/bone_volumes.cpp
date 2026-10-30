@@ -14,6 +14,7 @@
 #include "game/mth/matrix.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -29,8 +30,10 @@ constexpr float kDefaultRadius = 3.0f;              // 0x40400000
 
 // The shared sets, by bone count.
 Lst::HashTable& Table() { return GameVariable<Lst::HashTable>(0x006FA308); }
+GAME_GLOBAL(Mth::Vector[64], g_bonePositions, 0x006FA320); // each bone's world position as TestLine found it
+
 // Each bone's world position as TestLine found it (64 of them).
-Mth::Vector* BonePositions() { return &GameVariable<Mth::Vector>(0x006FA320); }
+Mth::Vector* BonePositions() { return g_bonePositions; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void Multiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Nx {
 
@@ -16,5 +17,13 @@ uint8_t* LoadingBarGradientBuffer();
 // lock (0x007052AC): the picture (0x004B6CD0), the bar filled by time (0x007052A0 seconds a tick added to 0x007052A4,
 // of 0x007052A8), the loading console's panel (not original - gfx/loading_console.h), presented.
 void __stdcall DrawLoadingScreenFrame(unsigned int id, unsigned int message, unsigned long user, unsigned long, unsigned long);
+
+GAME_GLOBAL_EXTERN(int, g_gradientWidth);
+
+GAME_GLOBAL_EXTERN(float, g_tickSeconds);
+
+GAME_GLOBAL_EXTERN(float, g_elapsedSeconds);
+
+GAME_GLOBAL_EXTERN(float, g_totalSeconds);
 
 } // namespace Nx

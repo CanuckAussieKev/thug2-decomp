@@ -12,6 +12,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -190,16 +191,18 @@ bool CGeom::PlatIsActive()
     Stub(0x00648BF4); // "STUB: PlatIsActive\n"
     return false;
 }
+GAME_GLOBAL(Mth::BBox, g_platBoundingBox, 0x006FAA08);
+
 // 0x0048DB40 (the box 0x006FAA08, its guard 0x006FAA28: made empty the first time)
 Mth::BBox* CGeom::PlatGetBoundingBox()
 {
     uint32_t& guard = GameVariable<uint32_t>(0x006FAA28);
     if (!(guard & 1)) {
         guard |= 1;
-        new (&GameVariable<Mth::BBox>(0x006FAA08)) Mth::BBox();
+        new (&g_platBoundingBox) Mth::BBox();
     }
     Stub(0x00648C08); // "STUB: PlatGetBoundingBox\n"
-    return &GameVariable<Mth::BBox>(0x006FAA08);
+    return &g_platBoundingBox;
 }
 // 0x0048DC30
 void CGeom::PlatSetBoundingSphere(const Mth::Vector*) { Stub(0x00648CD0); } // "STUB: PlatSetBoundingSphere\n"

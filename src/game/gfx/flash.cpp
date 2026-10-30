@@ -5,6 +5,7 @@
 
 #include <cstdint>
 
+#include "game/gfx/device.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/viewport_list.h"
 #include "hook/game.h"
@@ -67,7 +68,7 @@ void DrawFlash(const Flash* flash)
     vertices[0] = vertices[1];
     vertices[1] = vertices[2];
     vertices[2] = first;
-    void** device = GameVariable<void**>(0x00786D0C);
+    void** device = reinterpret_cast<void**>(g_drawDevice);
     using DrawPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int);
     reinterpret_cast<DrawPrimitiveUP>((*reinterpret_cast<void***>(device))[83])(device, 5 /* triangle strip */, 2,
                                                                                  vertices, sizeof(FlashVertex));

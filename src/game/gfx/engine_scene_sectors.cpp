@@ -310,7 +310,7 @@ bool CScene::AddCollisionData(const uint8_t* data, int flag)
     }
     if (Script::GetInteger(0xBA1E4254))
     {
-        void* weather = GameVariable<void*>(0x006FA7C8); // the weather (slot 1, through the jump 0x004A1090)
+        void* weather = g_weather; // the weather (slot 1, through the jump 0x004A1090)
         reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(weather))[1])(weather);
     }
     return true;

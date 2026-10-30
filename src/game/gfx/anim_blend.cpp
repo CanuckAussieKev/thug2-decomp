@@ -11,6 +11,7 @@
 #include "game/obj/walk_hang.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Gfx {
@@ -144,6 +145,8 @@ void __cdecl BlendPosesById(CPose* poses, float* weights, const uint32_t* ids, i
         std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(CPose));
 }
 
+GAME_GLOBAL(uint32_t[4], g_loopTypeChecksums, 0x006486BC, 0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203); // the loop types' checksums
+
 // 0x0047D580
 void __stdcall AddTimelineInfo(CAnimTimeline* timeline, Script::CStruct* info)
 {
@@ -151,7 +154,7 @@ void __stdcall AddTimelineInfo(CAnimTimeline* timeline, Script::CStruct* info)
     constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;
     info->AddChecksum(kAnim, timeline->m_anim);
     info->AddFloat(kSpeed, timeline->m_speed);
-    info->AddChecksum(kLoopType, (&GameVariable<uint32_t>(0x006486BC))[timeline->m_loopType]);
+    info->AddChecksum(kLoopType, (g_loopTypeChecksums)[timeline->m_loopType]);
     float start, current, end;
     timeline->GetTimes(&start, &current, &end);
     info->AddFloat(kStartTime, start);

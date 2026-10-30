@@ -1,5 +1,6 @@
 // The engine's loaded scenes: see engine_scene_list.h.
 
+#include "game/gfx/device.h"
 #include "game/gfx/engine_scene_list.h"
 
 #include <cstdio>
@@ -19,6 +20,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -184,11 +186,15 @@ CCollGrid* __cdecl GetFirstCollGrid()
     return nullptr;
 }
 
+GAME_GLOBAL(uint32_t, g_nextSectorName, 0x0067DC84, 1);
+GAME_GLOBAL(CCollGrid*[16], g_collisionGrids, 0x006FA778);
+GAME_GLOBAL(CScene*[16], g_collisionScenes, 0x006FA738);
+
 // 0x0048C980
 CCollGrid** __cdecl GetCollGridsOnLine(const Mth::Line* line)
 {
-    auto* scenes = &GameVariable<CScene*>(0x006FA738);
-    auto* grids = &GameVariable<CCollGrid*>(0x006FA778);
+    auto* scenes = g_collisionScenes;
+    auto* grids = g_collisionGrids;
     Mth::BBox box(line->start);
     box.AddPoint(line->end);
     uint32_t count = 0;
@@ -220,7 +226,7 @@ CCollGrid** __cdecl GetCollGridsOnLine(const Mth::Line* line)
 // 0x0048CA80
 uint32_t __cdecl NewSectorName()
 {
-    uint32_t& counter = GameVariable<uint32_t>(0x0067DC84);
+    uint32_t& counter = g_nextSectorName;
     for (;;) {
         uint32_t name = counter;
         bool used = false;
@@ -283,7 +289,7 @@ CScene* __cdecl LoadScene(const char* name, CTexDict* textures, bool addSuperSec
     SceneFileName(file, sizeof(file), name);
     Mem::PushMemProfile(file);
     uint32_t vertexArena[4] = {0, 0, 0, 0};
-    void* arena = GameVariable<uint8_t>(0x00786AB6) ? vertexArena : nullptr;
+    void* arena = g_streamOffsetSupported ? vertexArena : nullptr;
     auto* scene = static_cast<CScene*>(LoadSceneFromFile(file, textures, addSuperSectors, isSky, meshFlag,
                                                          reinterpret_cast<int>(arena)));
     Mem::PopMemProfile();

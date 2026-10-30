@@ -13,6 +13,7 @@
 #include "game/gfx/mesh.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -52,8 +53,10 @@ void ReleaseVertexBuffer(void* buffer) { static_cast<sVertexBuffer*>(buffer)->De
 // A material's destructor body (not rewritten yet; thiscall).
 void DestroyMaterial(void* material) { static_cast<sMaterial*>(material)->DestroyBody(); }
 
+GAME_GLOBAL(uint16_t[596], g_stripBuffer, 0x007CAA40); // the rebuilt strip
+
 // The rebuilt strip (0x007CAA40).
-uint16_t* StripBuffer() { return &GameVariable<uint16_t>(0x007CAA40); }
+uint16_t* StripBuffer() { return g_stripBuffer; }
 
 // The C runtime's qsort (the game's, so equal meshes stay in the same order).
 void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))

@@ -13,6 +13,7 @@
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/engine_imposters.h"
 #include "game/gfx/engine_scene.h"
+#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/gfx/particles.h"
 #include "game/gfx/pc_billboards.h"
@@ -27,11 +28,14 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
 namespace Nx {
+
+GAME_GLOBAL(bool, g_skipRender, 0x007D1EC0); // rendering skipped (frames not drawn or shown)
 
 namespace {
 
@@ -60,14 +64,23 @@ CSceneNode* FirstScene()
 }
 CScene* SceneOf(Mem::ListNode* node) { return static_cast<CScene*>(node->data); }
 
+GAME_GLOBAL(void*, g_objectManager, 0x006FA720);
+GAME_GLOBAL(int, g_renderIgnore0, 0x006FA724);
+GAME_GLOBAL(int, g_renderIgnore1, 0x006FA728);
+GAME_GLOBAL(int, g_renderMode, 0x006FA734);
+GAME_GLOBAL(void*, g_imposterManager, 0x006FA7BC);
+GAME_GLOBAL(void*, g_flexibleParticleManager, 0x006FA7C0);
+GAME_GLOBAL(bool, g_metricsOn, 0x006FA7D6);
+GAME_GLOBAL(Engine::IdleFunction, g_idleFunction, 0x006FA7D8);
+
 // The engine's managers: the flexible particle manager (0x006FA7C0), the imposter manager (0x006FA7BC, 8 bytes:
 // constructor 0x0048E3E0, its frame 0x0048E2D0 - not rewritten yet), the particle manager and the weather (made by
 // StartEngine).
-void*& FlexibleParticleManager() { return GameVariable<void*>(0x006FA7C0); }
-void*& ImposterManager() { return GameVariable<void*>(0x006FA7BC); }
+void*& FlexibleParticleManager() { return g_flexibleParticleManager; }
+void*& ImposterManager() { return g_imposterManager; }
 CParticleManager* ParticleManager() { return GameVariable<CParticleManager*>(0x006FA7C4); }
-void* Weather() { return GameVariable<void*>(0x006FA7C8); }
-bool SkipRender() { return GameVariable<bool>(0x007D1EC0); }
+void* Weather() { return g_weather; }
+bool SkipRender() { return g_skipRender; }
 int ViewportCount() { return GameVariable<int>(0x00701378); }
 
 // (0x004904E0, not rewritten yet: the frame's ... after the imposters)
@@ -148,15 +161,15 @@ void __cdecl RenderFrame()
 }
 
 // 0x0048C0A0
-void __cdecl SetObjectManager(void* manager) { GameVariable<void*>(0x006FA720) = manager; }
+void __cdecl SetObjectManager(void* manager) { g_objectManager = manager; }
 
 // 0x0048C0B0
-uint32_t* __cdecl GetCollisionScenes() { return &GameVariable<uint32_t>(0x006FA738); }
+uint32_t* __cdecl GetCollisionScenes() { return reinterpret_cast<uint32_t*>(g_collisionScenes); }
 
 // 0x0048C0D0
 void __cdecl ToggleRenderMode()
 {
-    int& mode = GameVariable<int>(0x006FA734);
+    int& mode = g_renderMode;
     if (++mode == 4)
         mode = 0;
 }
@@ -164,19 +177,19 @@ void __cdecl ToggleRenderMode()
 // 0x0048C0F0
 void __cdecl ToggleMetrics()
 {
-    bool& on = GameVariable<bool>(0x006FA7D6);
+    bool& on = g_metricsOn;
     on = !on;
 }
 
 // 0x0048C110
 void __cdecl SetRenderIgnore(int ignore1, int ignore0)
 {
-    GameVariable<int>(0x006FA724) = ignore0;
-    GameVariable<int>(0x006FA728) = ignore1;
+    g_renderIgnore0 = ignore0;
+    g_renderIgnore1 = ignore1;
 }
 
 // 0x0048C1C0
-IdleFunction __cdecl GetIdleFunction() { return GameVariable<IdleFunction>(0x006FA7D8); }
+IdleFunction __cdecl GetIdleFunction() { return g_idleFunction; }
 
 // 0x0048BFE0
 bool __cdecl SplitSkinName(const char* name, char* base)

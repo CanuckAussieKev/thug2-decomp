@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
+#include "hook/game_global.h"
 
 namespace Mth {
 struct Line;
@@ -74,5 +75,7 @@ CScene* __cdecl LoadNamedSceneFromMemory(const char* name, const uint8_t* data, 
 CScene* __cdecl AddScene(const char* sceneName, const char* addName);
 // 0x0048CEF0: the scene `name` unloaded and loaded again (its textures, sky or not kept). Whether there was one.
 bool __cdecl ReloadScene(const char* name);
+
+GAME_GLOBAL_EXTERN(CScene*[16], g_collisionScenes);
 
 } // namespace Nx

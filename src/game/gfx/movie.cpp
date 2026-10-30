@@ -5,6 +5,8 @@
 
 #include <windows.h>
 
+#include <d3d9.h>
+
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -24,10 +26,14 @@
 #include "game/sys/platform.h"
 #include "game/sfx/mute_audio.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/log.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+// (device.h declares this too; not included here, its SetRenderState is another one than the one below)
+GAME_GLOBAL_EXTERN(IDirect3DDevice9*, g_d3dDevice);
 
 namespace {
 
@@ -38,7 +44,7 @@ struct MovieVertex {
 };
 static_assert(sizeof(MovieVertex) == 0x1C, "the draw's stride");
 
-void** Device() { return GameVariable<void**>(0x007D69E0); }
+void** Device() { return reinterpret_cast<void**>(g_d3dDevice); }
 template <typename F>
 F Method(int index) { return reinterpret_cast<F>((*reinterpret_cast<void***>(Device()))[index]); }
 void SetTextureStageState(int stage, int type, int value)
@@ -96,6 +102,25 @@ void __stdcall DrawMovieQuad(void* device, int type, uint32_t count, void* verti
         (*static_cast<void***>(device))[0x14C / 4])(device, type, count, vertices, stride);
 }
 
+GAME_GLOBAL(float, g_onePercent, 0x0064544C, 0.01f);
+GAME_GLOBAL(float, g_float255, 0x00646B88, 255.0f);
+GAME_GLOBAL(float, g_float16384, 0x006472BC, 16384.0f);
+GAME_GLOBAL(uint32_t, g_movieSurfaceType, 0x0067D7C4, 3);
+GAME_GLOBAL(float, g_movieBackBufferWidth, 0x0067D7C8, 640.0f);
+GAME_GLOBAL(float, g_movieBackBufferHeight, 0x0067D7CC, 480.0f);
+GAME_GLOBAL(float, g_moviePictureWidth, 0x0067D7D0, 640.0f);
+GAME_GLOBAL(float, g_moviePictureHeight, 0x0067D7D4, 480.0f);
+GAME_GLOBAL(float, g_movieDrawWidth, 0x0067D7D8, 1.0f);
+GAME_GLOBAL(float, g_movieDrawHeight, 0x0067D7DC, 1.0f);
+GAME_GLOBAL(uint32_t, g_savedMinFilter, 0x00696D80);
+GAME_GLOBAL(uint32_t, g_savedAntialias, 0x00696D84);
+GAME_GLOBAL(uint32_t, g_savedCullMode, 0x00696D88);
+GAME_GLOBAL(bool, g_moviePlaying, 0x00696D95);
+GAME_GLOBAL(int, g_movieDumpCount, 0x00696D9C);
+GAME_GLOBAL(bool, g_deviceLost, 0x00786AB4);
+GAME_GLOBAL(bool, g_quitRequested, 0x007D6A2C);
+GAME_GLOBAL(Bink*, g_currentMovie, 0x00696D90); // a Bink movie playing
+
 // 0x0044FA80
 void DrawMovieFrame(void* texture, float x, float y, float width, float height, float alpha)
 {
@@ -115,22 +140,22 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
     SetTexture(0, nullptr); // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
     char dumpName[256];
-    std::snprintf(dumpName, sizeof(dumpName), "e:\\movietest\\movie%04d.bmp", GameVariable<int>(0x00696D9C));
-    ++GameVariable<int>(0x00696D9C);
+    std::snprintf(dumpName, sizeof(dumpName), "e:\\movietest\\movie%04d.bmp", g_movieDumpCount);
+    ++g_movieDumpCount;
     // Originally from PartyMod Fixes (its call at 0x0044FB8C): SetMovieTexture in place of the renderer's texture set (0x004DA730)
     SetMovieTexture(0, texture, 0);
 
     // (x87: alpha * 255 truncated; each corner is position + size * the screen scale, rounded once)
-    uint32_t color = static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * GameVariable<float>(0x00646B88)))
+    uint32_t color = static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255))
                          << 24 |
                      0x808080;
     MovieVertex vertices[4];
     vertices[0] = {x, y, 0.0f, 1.0f, color, 0.0f, 0.0f};
     vertices[1] = vertices[0];
-    vertices[1].x = static_cast<float>(static_cast<double>(GameVariable<float>(0x0067D7C8)) * width + x);
+    vertices[1].x = static_cast<float>(static_cast<double>(g_movieBackBufferWidth) * width + x);
     vertices[1].u = 1.0f;
     vertices[2] = vertices[0];
-    vertices[2].y = static_cast<float>(static_cast<double>(GameVariable<float>(0x0067D7CC)) * height + y);
+    vertices[2].y = static_cast<float>(static_cast<double>(g_movieBackBufferHeight) * height + y);
     vertices[2].v = 1.0f;
     vertices[3] = vertices[1];
     vertices[3].y = vertices[2].y;
@@ -161,8 +186,8 @@ void BinkCopyToBuffer(Bink* bink, void* bits, int pitch, uint32_t height, uint32
 void BinkNextFrame(Bink* bink) { Import<void(__stdcall*)(Bink*)>(0x00645320)(bink); }
 void BinkClose(Bink* bink) { Import<void(__stdcall*)(Bink*)>(0x0064531C)(bink); }
 
-Bink*& CurrentMovie() { return GameVariable<Bink*>(0x00696D90); }
-bool& MoviePlaying() { return GameVariable<bool>(0x00696D95); }
+Bink*& CurrentMovie() { return g_currentMovie; }
+bool& MoviePlaying() { return g_moviePlaying; }
 
 // The D3D device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
 void SetRenderState(int state, uint32_t value) { Method<long(__stdcall*)(void*, int, uint32_t)>(0xE4 / 4)(Device(), state, value); }
@@ -177,9 +202,9 @@ void SetSamplerState(int sampler, int type, uint32_t value)
 }
 enum { kD3DCullMode = 22, kMultisampleAntialias = 161, kD3DLighting = 137, kMinFilter = 6 };
 // The states BeginMovie changes, for EndMovie.
-uint32_t& SavedCullMode() { return GameVariable<uint32_t>(0x00696D88); }
-uint32_t& SavedAntialias() { return GameVariable<uint32_t>(0x00696D84); }
-uint32_t& SavedMinFilter() { return GameVariable<uint32_t>(0x00696D80); }
+uint32_t& SavedCullMode() { return g_savedCullMode; }
+uint32_t& SavedAntialias() { return g_savedAntialias; }
+uint32_t& SavedMinFilter() { return g_savedMinFilter; }
 // The renderer's cached states (SetState: 1 the z write, 2 the z test).
 void SetRendererSampler(int state, int value) { SetState(state, static_cast<uint32_t>(value)); }
 
@@ -206,11 +231,11 @@ void* __cdecl BeginMovie(uint32_t width, uint32_t height)
     GetSamplerState(0, kMinFilter, &SavedMinFilter());
     SetSamplerState(0, kMinFilter, 2); // linear
     // (x87: unsigned to float through FILD and +2^32)
-    GameVariable<float>(0x0067D7D0) = static_cast<float>(static_cast<double>(width));
-    GameVariable<float>(0x0067D7D4) = static_cast<float>(static_cast<double>(height));
+    g_moviePictureWidth = static_cast<float>(static_cast<double>(width));
+    g_moviePictureHeight = static_cast<float>(static_cast<double>(height));
     void** device = Device();
-    GameVariable<float>(0x0067D7C8) = static_cast<float>(GameVariable<int>(0x00786D6C)); // the back buffer
-    GameVariable<float>(0x0067D7CC) = static_cast<float>(GameVariable<int>(0x00786D70));
+    g_movieBackBufferWidth = static_cast<float>(GameVariable<int>(0x00786D6C)); // the back buffer
+    g_movieBackBufferHeight = static_cast<float>(GameVariable<int>(0x00786D70));
     void* texture;
     // CreateTexture: one level, no usage, D3DFMT_X8R8G8B8 (0x16), D3DPOOL_MANAGED
     long result = Method<long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int, int, void**, void*)>(0x5C / 4)(
@@ -241,7 +266,7 @@ void __cdecl DrawMovie(Bink* bink, void* texture)
     Method<long(__stdcall*)(void*)>(0xA4 / 4)(Device()); // BeginScene
     // Clear: the target, to black (Z 1.0)
     Method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(0xAC / 4)(Device(), 0, nullptr, 1, 0, 1.0f, 0);
-    DrawMovieFrame(texture, 0.0f, 0.0f, GameVariable<float>(0x0067D7D8), GameVariable<float>(0x0067D7DC), 1.0f);
+    DrawMovieFrame(texture, 0.0f, 0.0f, g_movieDrawWidth, g_movieDrawHeight, 1.0f);
     Method<long(__stdcall*)(void*)>(0xA8 / 4)(Device()); // EndScene
     Method<long(__stdcall*)(void*, const void*, const void*, void*, const void*)>(0x44 / 4)(Device(), nullptr, nullptr, nullptr, nullptr); // Present
     BinkNextFrame(bink);
@@ -281,8 +306,8 @@ float SoundVolume() { return Sfx::GetMainVolume(); }
 float MusicVolume() { return Pcm::GetMusicVolume(); }
 void SetFogEnabled(bool on) { Nx::Engine::EnableFog(on); }
 bool AppActive() { return GameVariable<bool>(0x007CCBE4); }
-bool QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
-bool DeviceLost() { return GameVariable<bool>(0x00786AB4); }
+bool QuitRequested() { return g_quitRequested; }
+bool DeviceLost() { return g_deviceLost; }
 
 enum : uint32_t { kStart = 0x0800, kCross = 0x0040 }; // PS2 control data bytes 2-3 (set while up)
 } // namespace
@@ -331,8 +356,8 @@ void __cdecl PlayMovieFile(const char* name)
         uint16_t seenUp[4] = {};
         BinkSetSoundOnOff(CurrentMovie(), 1);
         BinkSetVolume(CurrentMovie(), 0,
-                      static_cast<int>(static_cast<double>(volume) * GameVariable<float>(0x0064544C) // 0.01
-                                       * GameVariable<float>(0x006472BC)));                         // 16384
+                      static_cast<int>(static_cast<double>(volume) * g_onePercent // 0.01
+                                       * g_float16384));                         // 16384
         int frames = 0;
         for (;;) {
             if (screenSaverTimeout && screenSaverFrames++ >= 200) {
@@ -370,7 +395,7 @@ void __cdecl PlayMovieFile(const char* name)
             if (TextureMethod<long(__stdcall*)(void*, uint32_t, LockedRect*, const void*, uint32_t)>(texture, 0x4C / 4)(
                     texture, 0, &locked, nullptr, 0) >= 0) {
                 BinkCopyToBuffer(bink, locked.bits, locked.pitch, bink->height, 0, 0,
-                                 GameVariable<uint32_t>(0x0067D7C4) | 0x80000000); // the surface type, copy all
+                                 g_movieSurfaceType | 0x80000000); // the surface type, copy all
                 TextureMethod<long(__stdcall*)(void*, uint32_t)>(texture, 0x50 / 4)(texture, 0);
             }
             DrawMovie(CurrentMovie(), texture);

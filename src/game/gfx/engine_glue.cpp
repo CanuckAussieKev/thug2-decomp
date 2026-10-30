@@ -1,5 +1,6 @@
 // The engine's platform calls: see engine_glue.h.
 
+#include "game/gfx/engine.h"
 #include "game/gfx/pc_gamma.h"
 #include "game/gfx/engine_glue.h"
 
@@ -30,29 +31,43 @@
 #include "game/gfx/texture.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(bool, g_loadingScreenUp, 0x00786D04); // the loading screen is up: it draws and presents on its own
+GAME_GLOBAL(void*, g_weather, 0x006FA7C8);
+
 namespace {
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
+GAME_GLOBAL(uint32_t, g_memViewToggle, 0x00701588);
+GAME_GLOBAL(bool, g_clearColourAndDepth, 0x00786CBD);
+GAME_GLOBAL(uint32_t, g_backgroundColour, 0x00786CC0);
+GAME_GLOBAL(char[128], g_pendingScreenShot, 0x00786D94); // the screenshot asked for by name
+GAME_GLOBAL(bool, g_screenShotNameExact, 0x00786E14);
+GAME_GLOBAL(uint32_t, g_screenBlur, 0x00787328);
+GAME_GLOBAL(uint32_t, g_screenBlurFrames, 0x0078732C);
+GAME_GLOBAL(uint32_t, g_fogColour, 0x0078733C);
+GAME_GLOBAL(void*, g_screenEffects, 0x006FA7CC);
+
 // The loading screen is up (0x00786D04, ShowLoadingScreen): it draws and presents on its own.
-bool LoadingScreenUp() { return GameVariable<bool>(0x00786D04); }
+bool LoadingScreenUp() { return g_loadingScreenUp; }
 // Rendering skipped (frames not drawn or shown).
-bool SkipRender() { return GameVariable<bool>(0x007D1EC0); }
+bool SkipRender() { return g_skipRender; }
 
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
-char* PendingScreenShot() { return &GameVariable<char>(0x00786D94); }
-bool& ScreenShotNameExact() { return GameVariable<bool>(0x00786E14); }
+char* PendingScreenShot() { return g_pendingScreenShot; }
+bool& ScreenShotNameExact() { return g_screenShotNameExact; }
 
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
 uint32_t ClearColour()
 {
     if (GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A))
-        return GameVariable<uint32_t>(0x0078733C);
-    return GameVariable<uint32_t>(0x00786CC0);
+        return g_fogColour;
+    return g_backgroundColour;
 }
 
 // D3DX (linked library code): a surface written to an image file (format 1: JPEG).
@@ -76,15 +91,15 @@ uint8_t* CasterKey(const uint8_t* texture)
 // 0x004B2270
 void __cdecl ToggleMemView()
 {
-    GameVariable<uint32_t>(0x00701588) ^= 1;
+    g_memViewToggle ^= 1;
 }
 
 // 0x004B2280 (the device 0x007D69E0's BeginScene, vtable slot 41; not while the loading screen is up: 0x00786D04)
 void __cdecl StartRender()
 {
-    if (GameVariable<bool>(0x00786D04))
+    if (g_loadingScreenUp)
         return;
-    void* device = GameVariable<void*>(0x007D69E0);
+    void* device = g_d3dDevice;
     reinterpret_cast<long(__stdcall*)(void*)>((*static_cast<void***>(device))[41])(device);
 }
 
@@ -182,9 +197,9 @@ void __cdecl StartEngine()
     }
     GameVariable<void*>(0x006FA7C4) = particles;
     memory = Mem::New(0x12AC);
-    GameVariable<void*>(0x006FA7C8) = memory ? static_cast<CPcWeather*>(memory)->Construct() : nullptr;
+    g_weather = memory ? static_cast<CPcWeather*>(memory)->Construct() : nullptr;
     memory = Mem::New(8);
-    GameVariable<void*>(0x006FA7CC) = memory ? static_cast<CPcScreenEffects*>(memory)->Construct() : nullptr;
+    g_screenEffects = memory ? static_cast<CPcScreenEffects*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B2710
@@ -220,22 +235,22 @@ void __cdecl FinishRendering()
     }
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
-    if (GameVariable<uint32_t>(0x00787328) != 0) {
+    if (g_screenBlur != 0) {
         if (!SkipRender())
             Device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, ClearColour(), 1.0f, 0);
-        ++GameVariable<uint32_t>(0x0078732C);
+        ++g_screenBlurFrames;
         return;
     }
     if (GameVariable<bool>(0x00786CBE)) {
         if (!SkipRender())
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
-    } else if (GameVariable<bool>(0x00786CBD)) {
+    } else if (g_clearColourAndDepth) {
         if (!SkipRender())
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, ClearColour(), 1.0f, 0);
     } else if (!SkipRender()) {
-        ClearDevice(0, nullptr, D3DCLEAR_ZBUFFER, GameVariable<uint32_t>(0x00786CC0), 1.0f, 0);
+        ClearDevice(0, nullptr, D3DCLEAR_ZBUFFER, g_backgroundColour, 1.0f, 0);
     }
-    GameVariable<uint32_t>(0x0078732C) = 0;
+    g_screenBlurFrames = 0;
 }
 
 // 0x004B28C0

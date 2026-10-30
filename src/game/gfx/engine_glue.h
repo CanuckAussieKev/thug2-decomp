@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "hook/game_global.h"
 
 namespace Mth {
 class Vector;
@@ -78,5 +79,9 @@ struct CPcParticleManager {
     // 0x004B2740: a jump to the engine's destructor body (0x004967D0).
     void DestroyBody();
 };
+
+GAME_GLOBAL_EXTERN(bool, g_loadingScreenUp); // the loading screen is up: it draws and presents on its own
+
+GAME_GLOBAL_EXTERN(void*, g_weather);
 
 } // namespace Nx

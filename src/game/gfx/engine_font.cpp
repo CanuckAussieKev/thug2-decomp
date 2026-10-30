@@ -11,17 +11,21 @@
 #include "game/lst/hashtable.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(char[32], g_metaButtonMap, 0x006FA808);
+GAME_GLOBAL(FontSlot[16], g_fontSlots, 0x006FA830);
 
 namespace {
 
 constexpr uint32_t kFontVtable = 0x00648A6C;
 
-FontSlot* Slots() { return &GameVariable<FontSlot>(0x006FA830); }
+FontSlot* Slots() { return g_fontSlots; }
 Lst::HashTable& FontTable() { return GameVariable<Lst::HashTable>(0x006FA9F0); }
-char* MetaButtonMap() { return &GameVariable<char>(0x006FA808); }
+char* MetaButtonMap() { return g_metaButtonMap; }
 
 template <typename R = void, typename... A>
 R Virtual(CFont* font, int slot, A... args)

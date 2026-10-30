@@ -1,5 +1,6 @@
 // NOT ORIGINAL - image-quality options (see graphics_options.h).
 
+#include "game/gfx/device.h"
 #include "game/gfx/graphics_options.h"
 
 #include <windows.h>
@@ -28,9 +29,9 @@ IDirect3DSurface9* s_sceneDepth = nullptr;
 IDirect3DTexture9* s_drawnFor = nullptr;
 bool s_unresolved = false;
 
-IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-D3DPRESENT_PARAMETERS& PresentParameters() { return GameVariable<D3DPRESENT_PARAMETERS>(0x00786A7C); }
-IDirect3DTexture9* ScreenCopy(int index) { return (&GameVariable<IDirect3DTexture9*>(0x00786D1C))[index]; }
+IDirect3DDevice9* Device() { return g_d3dDevice; }
+D3DPRESENT_PARAMETERS& PresentParameters() { return g_presentParameters; }
+IDirect3DTexture9* ScreenCopy(int index) { return g_screenTextures[index]; }
 
 constexpr float kMinScale = 0.25f;
 constexpr float kMaxScale = 8.0f;

@@ -27,6 +27,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -35,11 +36,37 @@ namespace {
 
 constexpr uint32_t kShatterVtable = 0x00649308;
 
+GAME_GLOBAL(float, g_shatterValue2E1C, 0x0067DDD8, 1.0f);
+GAME_GLOBAL(float, g_shatterValueC483Squared, 0x0067DDDC, 360.0f);
+GAME_GLOBAL(int, g_splatReserve, 0x0067DDE0, 128);
+GAME_GLOBAL(int, g_splatFade, 0x0067DDE4, 8);
+GAME_GLOBAL(float, g_fogDistance, 0x0067DDE8, 3000.0f);
+GAME_GLOBAL(float, g_fogExponent, 0x0067DDEC, 10.0f);
+GAME_GLOBAL(float, g_shatterVelocityScale, 0x0067DDF4, 1.0f);
+GAME_GLOBAL(float, g_shatterLifetime, 0x0067DDF8, 4.0f);
+GAME_GLOBAL(float, g_shatterFloor, 0x0067DDFC, -10000.0f);
+GAME_GLOBAL(float, g_shatterBounce, 0x0067DE00, 0.8f);
+GAME_GLOBAL(uint32_t, g_fogColor, 0x0067DE04, 0x66806060);
+GAME_GLOBAL(Lst::HashTable*, g_flashes, 0x007004A8);
+GAME_GLOBAL(Lst::HashTable*, g_spawnedPolys, 0x007004AC);
+GAME_GLOBAL(Lst::HashTable*, g_splatSets, 0x007004B0);
+GAME_GLOBAL(Lst::HashTable*, g_recentSplats, 0x007004B4);
+GAME_GLOBAL(uint32_t, g_shatterTexture, 0x007004BC);
+GAME_GLOBAL(uint32_t, g_shatterValueAF1A, 0x007004C0);
+GAME_GLOBAL(int, g_shatterValue33DF, 0x007004C4);
+GAME_GLOBAL(bool, g_fogEnabled, 0x007004C8);
+GAME_GLOBAL(float, g_shatterSpeed, 0x007004CC);
+GAME_GLOBAL(Mth::Vector, g_shatterVelocity, 0x007004D0);
+GAME_GLOBAL(Mth::Vector, g_shatterVector210E, 0x007004E0);
+GAME_GLOBAL(float[4], g_levelColor, 0x007004F0);
+GAME_GLOBAL(void*[128], g_lineSectors, 0x00700510);
+GAME_GLOBAL(CCollObj*[128], g_lineObjects, 0x00700710);
+
 // The tables.
-Lst::HashTable*& Flashes() { return GameVariable<Lst::HashTable*>(0x007004A8); }
-Lst::HashTable*& SpawnedPolys() { return GameVariable<Lst::HashTable*>(0x007004AC); }
-Lst::HashTable*& SplatSets() { return GameVariable<Lst::HashTable*>(0x007004B0); }
-Lst::HashTable*& RecentSplats() { return GameVariable<Lst::HashTable*>(0x007004B4); }
+Lst::HashTable*& Flashes() { return g_flashes; }
+Lst::HashTable*& SpawnedPolys() { return g_spawnedPolys; }
+Lst::HashTable*& SplatSets() { return g_splatSets; }
+Lst::HashTable*& RecentSplats() { return g_recentSplats; }
 Lst::HashTable*& Shatters() { return GameVariable<Lst::HashTable*>(0x007004B8); }
 
 // A table's first value and the next (null at the end) - the original's inlined iteration (IterateNext).
@@ -122,11 +149,11 @@ CShatter* CShatter::Construct(int count)
     velocities = static_cast<Mth::Vector*>(Mem::New(count << 4));
     rotations = static_cast<Mth::Matrix*>(Mem::New(count << 6));
     triangleCount = static_cast<uint16_t>(count);
-    unknown28 = GameVariable<uint32_t>(0x007004C0);
+    unknown28 = g_shatterValueAF1A;
     gravity = 128.0f;
-    lifetime = GameVariable<float>(0x0067DDF8);
-    floor = GameVariable<float>(0x0067DDFC);
-    bounce = GameVariable<float>(0x0067DE00);
+    lifetime = g_shatterLifetime;
+    floor = g_shatterFloor;
+    bounce = g_shatterBounce;
     return this;
 }
 
@@ -190,52 +217,52 @@ namespace Engine {
 // 0x00490DE0
 void __cdecl EnableFog(bool on)
 {
-    GameVariable<bool>(0x007004C8) = on;
+    g_fogEnabled = on;
     Nx::SetFogEnabled(on);
 }
 
 // 0x00490E00
 void __cdecl SetFogDistance(float distance)
 {
-    GameVariable<float>(0x0067DDE8) = distance;
+    g_fogDistance = distance;
     Nx::SetFogDistance(distance);
 }
 
 // 0x00490E10
 void __cdecl SetFogExponent(float exponent)
 {
-    GameVariable<float>(0x0067DDEC) = exponent;
+    g_fogExponent = exponent;
     PlatSetFogExponent(exponent);
 }
 
 // 0x00490E20
 void __cdecl SetFogColor(uint32_t rgba)
 {
-    GameVariable<uint32_t>(0x0067DE04) = rgba;
+    g_fogColor = rgba;
     Nx::SetFogColor(rgba);
 }
 
 // 0x00491290
-void __cdecl SetLevelColor(const float* color) { std::memcpy(&GameVariable<float>(0x007004F0), color, 16); }
+void __cdecl SetLevelColor(const float* color) { std::memcpy(g_levelColor, color, 16); }
 
 // 0x00491110
 void __cdecl SetShatterParams(const Mth::Vector* velocity, const Mth::Vector* vector210E, float valueC483, float area,
                               float speed, float velocityScale, float lifetime, float floor, float bounce,
                               float value2E1C, uint32_t texture, uint32_t valueAF1A, int value33DF)
 {
-    GameVariable<Mth::Vector>(0x007004D0) = *velocity;
-    GameVariable<Mth::Vector>(0x007004E0) = *vector210E;
+    g_shatterVelocity = *velocity;
+    g_shatterVector210E = *vector210E;
     GameVariable<float>(0x0067DDF0) = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
-    GameVariable<float>(0x007004CC) = speed == 0.0f ? 0.0f : speed;
-    GameVariable<float>(0x0067DDF4) = velocityScale == 0.0f ? 1.0f : velocityScale;
-    GameVariable<float>(0x0067DDF8) = lifetime == 0.0f ? 4.0f : lifetime;
-    GameVariable<float>(0x0067DDFC) = floor == 0.0f ? -10000.0f : floor;
-    GameVariable<float>(0x0067DE00) = bounce == 0.0f ? 0.8f : bounce;
-    GameVariable<float>(0x0067DDD8) = value2E1C;
-    GameVariable<float>(0x0067DDDC) = static_cast<float>(static_cast<double>(valueC483) * valueC483);
-    GameVariable<uint32_t>(0x007004BC) = texture;
-    GameVariable<uint32_t>(0x007004C0) = valueAF1A;
-    GameVariable<int>(0x007004C4) = value33DF;
+    g_shatterSpeed = speed == 0.0f ? 0.0f : speed;
+    g_shatterVelocityScale = velocityScale == 0.0f ? 1.0f : velocityScale;
+    g_shatterLifetime = lifetime == 0.0f ? 4.0f : lifetime;
+    g_shatterFloor = floor == 0.0f ? -10000.0f : floor;
+    g_shatterBounce = bounce == 0.0f ? 0.8f : bounce;
+    g_shatterValue2E1C = value2E1C;
+    g_shatterValueC483Squared = static_cast<float>(static_cast<double>(valueC483) * valueC483);
+    g_shatterTexture = texture;
+    g_shatterValueAF1A = valueAF1A;
+    g_shatterValue33DF = value33DF;
 }
 
 // 0x00490DC0
@@ -267,7 +294,7 @@ void __cdecl AgeTextureSplats(sTextureSplats* splats, int elapsed)
             ++living;
         }
     }
-    if (living < 0x100 - GameVariable<int>(0x0067DDE0))
+    if (living < 0x100 - g_splatReserve)
         return;
     // Nearly full: the triangle furthest through its life (of those with a time and a lifetime; the first one's
     // difference the bar to reach, whatever it is - the last of equals wins).
@@ -290,7 +317,7 @@ void __cdecl AgeTextureSplats(sTextureSplats* splats, int elapsed)
         if (splats->alive[i] != splats->alive[furthest] ||
             splats->correctionSteps[i] != splats->correctionSteps[furthest])
             continue;
-        int fade = GameVariable<int>(0x0067DDE4);
+        int fade = g_splatFade;
         uint8_t* alphas[6] = {reinterpret_cast<uint8_t*>(&splats->baseColors[i][0]) + 3,
                               reinterpret_cast<uint8_t*>(&splats->baseColors[i][1]) + 3,
                               reinterpret_cast<uint8_t*>(&splats->baseColors[i][2]) + 3,
@@ -391,7 +418,7 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
                                   float coneAngle, float lifetime, const char* textureName, uint32_t unknown38,
                                   uint32_t follow, uint8_t unknown40, uint8_t* texture)
 {
-    GameVariable<int>(0x0067DDE0) = Script::GetInteger(0x26FCB7BE); // (asserted)
+    g_splatReserve = Script::GetInteger(0x26FCB7BE); // (asserted)
     RecentSplat* recent = nullptr;
     if (follow) {
         // A recent position of the same id near enough: the splat is made from it. Old ones go.
@@ -445,8 +472,8 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
     auto** grids = GetCollGridsOnLine(&line);
     if (!grids || !*grids)
         return false;
-    auto* sectors = &GameVariable<void*>(0x00700510);
-    auto* objects = &GameVariable<CCollObj*>(0x00700710);
+    auto* sectors = g_lineSectors;
+    auto* objects = g_lineObjects;
     int count = 0;
     for (CCollGrid** grid = grids; *grid; ++grid) {
         CCollObj** inBox = (*grid)->ObjectsInBox(&box);

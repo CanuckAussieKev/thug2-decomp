@@ -7,6 +7,7 @@
 #include "game/core/mem.h"
 #include "game/gfx/pc_primitive.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -17,9 +18,13 @@ constexpr uint32_t kVtable = 0x00649878;
 constexpr uint32_t kDefaultBlendMode = 0x54628ED7;
 constexpr uint32_t kNewFlag = 0x100;
 
-CPrimitive*& NewPrimitives() { return GameVariable<CPrimitive*>(0x00700F00); }
-CPrimitive*& DrawnPrimitives() { return GameVariable<CPrimitive*>(0x00700EFC); }
-uint32_t& PrimitiveStates() { return GameVariable<uint32_t>(0x00700EF8); }
+GAME_GLOBAL(uint32_t, g_primitiveStates, 0x00700EF8);
+GAME_GLOBAL(CPrimitive*, g_drawnPrimitives, 0x00700EFC);
+GAME_GLOBAL(CPrimitive*, g_newPrimitives, 0x00700F00);
+
+CPrimitive*& NewPrimitives() { return g_newPrimitives; }
+CPrimitive*& DrawnPrimitives() { return g_drawnPrimitives; }
+uint32_t& PrimitiveStates() { return g_primitiveStates; }
 
 void** Vtable(CPrimitive* primitive) { return primitive->m_vtable; }
 
