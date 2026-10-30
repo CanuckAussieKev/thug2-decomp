@@ -20,12 +20,6 @@
 
 namespace Script {
 
-GAME_GLOBAL(Mem::PoolPair, g_animCachePredictorPools, 0x006F92B8);
-GAME_GLOBAL(Mem::PoolPair, g_blendChannelPools, 0x006F92C8);
-GAME_GLOBAL(Mem::PoolPair, g_bonedAnimControllerPools, 0x00701430);
-GAME_GLOBAL(Mem::PoolPair, g_animLookupPools, 0x006FA7F4);
-GAME_GLOBAL(Mem::PoolPair, g_spawnedPolyDetailsPools, 0x00700500);
-GAME_GLOBAL(Mem::PoolPair, g_eventReceiverListPools, 0x006F0FC8);
 
 namespace {
 
@@ -116,12 +110,12 @@ void LoadAllStartupQBFiles()
 }
 
 // 0x005A5B40 ... 0x005A5DF0
-void CreateAnimCachePredictorPool(int count, const char* name) { CreatePoolOf(g_animCachePredictorPools, 0x1E4, count, name); }
-void CreateBlendChannelPool(int count, const char* name) { CreatePoolOf(g_blendChannelPools, 0x74, count, name); }
-void CreateBonedAnimControllerPool(int count, const char* name) { CreatePoolOf(g_bonedAnimControllerPools, 0x28, count, name); }
-void CreateAnimLookupPool(int count, const char* name) { CreatePoolOf(g_animLookupPools, 0x214, count, name); }
-void CreateSpawnedPolyDetailsPool(int count, const char* name) { CreatePoolOf(g_spawnedPolyDetailsPools, 0xB8, count, name); }
-void CreateEventReceiverListPool(int count, const char* name) { CreatePoolOf(g_eventReceiverListPools, 0x14, count, name); }
+void CreateAnimCachePredictorPool(int count, const char* name) { CreatePoolOf(GameVariable<Mem::PoolPair>(0x006F92B8), 0x1E4, count, name); }
+void CreateBlendChannelPool(int count, const char* name) { CreatePoolOf(Gfx::g_animTrackPools, 0x74, count, name); }
+void CreateBonedAnimControllerPool(int count, const char* name) { CreatePoolOf(GameVariable<Mem::PoolPair>(0x00701430), 0x28, count, name); }
+void CreateAnimLookupPool(int count, const char* name) { CreatePoolOf(Nx::g_frameSourcePools, 0x214, count, name); }
+void CreateSpawnedPolyDetailsPool(int count, const char* name) { CreatePoolOf(Nx::g_spawnedPolyPools, 0xB8, count, name); }
+void CreateEventReceiverListPool(int count, const char* name) { CreatePoolOf(Obj::g_scriptListPools, 0x14, count, name); }
 
 // 0x005A5E70
 void AllocatePools()

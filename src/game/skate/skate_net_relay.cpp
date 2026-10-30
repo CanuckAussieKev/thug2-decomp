@@ -54,11 +54,14 @@
 #include "hook/hook.h"
 #include "hook/game_code.h"
 
+namespace Gfx {
+GAME_GLOBAL_EXTERN(float, g_oneOver255); // 0x00645D70 (defined in tod_manager.cpp)
+} // namespace Gfx
+
 namespace Mdl {
 
 GAME_GLOBAL(uint8_t, g_netRelayObjectId, 0x007CE48C);
 GAME_GLOBAL(float, g_relayTimeScale, 0x0064A568, 0.000244140625f);   // (2^-12: the relayed times and positions)
-GAME_GLOBAL(float, g_relayByteScale, 0x00645D70, 0.00392156886f);    // (1/255)
 
 namespace {
 
@@ -780,7 +783,7 @@ int SkateNet::HandleSkaterMessages(Net::MsgHandlerContext* context)
             return 1;
         message = NewMessage(History(target), 0x2B);
         At<uint8_t>(message, 1) = data[0];
-        At<float>(message, 0xC) = Scaled(data[1], g_relayByteScale);
+        At<float>(message, 0xC) = Scaled(data[1], Gfx::g_oneOver255);
         break;
     case 0x2A:
         target = object(0);

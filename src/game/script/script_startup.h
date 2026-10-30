@@ -3,19 +3,22 @@
 #include <cstdint>
 
 #include "game/core/pool.h"
+#include "game/gfx/scene_load.h"
+#include "game/gfx/spawned_polys.h"
 #include "hook/game_global.h"
 
 // The script system's start-up, 0x005A5660-0x005A5F6F: the counts of the script functions, loading and unloading
 // .qb files by name, loading every start-up .qb file (scripts\qdir.txt from qb_scripts.pre), and the pools of the
 // animation and object classes made with the script pools, before the script functions are registered.
+namespace Gfx {
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_animTrackPools);  // 0x006F92C8 (CBlendChannel, anim_track.cpp)
+} // namespace Gfx
+namespace Obj {
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_scriptListPools); // 0x006F0FC8 (CEventReceiverList, tracker.cpp)
+} // namespace Obj
+
 namespace Script {
 
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_animCachePredictorPools); // 0x006F92B8
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_blendChannelPools); // 0x006F92C8
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_bonedAnimControllerPools); // 0x00701430
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_animLookupPools); // 0x006FA7F4
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_spawnedPolyDetailsPools); // 0x00700500
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_eventReceiverListPools); // 0x006F0FC8
 
 // 0x005A5660 / 0x005A5670: the number of script functions (CFunctions, the table at 0x0067F3A0) and member
 // functions (the names at 0x00681AD0).
