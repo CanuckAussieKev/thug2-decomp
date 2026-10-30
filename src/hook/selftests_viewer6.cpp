@@ -25,6 +25,7 @@
 #include "game/script/nodes.h"
 #include "game/sfx/terrain.h"
 #include "game/skater/walk_physics.h"
+#include "game/skate/skate_module.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -209,7 +210,7 @@ void Install(StandIns& s)
              v[0] = 0.25f, v[1] = static_cast<float>(r.args[0] & 0xFF) * 0.01f, v[2] = -0.5f, v[3] = 1.0f;
              return 1u;
          });
-    s.At({0x00565BB0}, 4, [](Regs& r) {
+    s.At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
         Rec(0x5BB0, {r.ecx, r.args[0]});
         return g_skippedNodes.count(r.args[0]) ? 1u : 0u;
     });

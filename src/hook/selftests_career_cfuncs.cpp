@@ -52,7 +52,7 @@ void StandInCareerCalls(StandIns& s)
         Record({0x3910, r.ecx});
         return g_shouldEndRun;
     });
-    s.At({0x005651F0}, 0, [](Regs&) {
+    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) {
         Record({0x51F0});
         return g_multiplayer;
     });

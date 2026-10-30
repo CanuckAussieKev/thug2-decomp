@@ -15,6 +15,7 @@
 #include "game/script/cscript.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -183,7 +184,7 @@ void Install(StandIns& s)
         Rec(0x2560, {r.ecx});
         return r.ecx;
     });
-    s.At({0x0059F890}, 0, [](Regs& r) {
+    s.At({0x0059F890, AddressOf(&CFuncs::MakeCameraActive)}, 0, [](Regs& r) {
         Rec(0xF890, {r.args[0], r.args[1], r.args[2]});
         return 0u;
     });

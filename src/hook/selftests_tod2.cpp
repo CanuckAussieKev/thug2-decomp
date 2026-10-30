@@ -32,6 +32,9 @@
 #include "game/sys/module.h"
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
+#include "game/goals/goal_manager.h"
+#include "game/script/script_startup.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -149,7 +152,7 @@ void Install(StandIns& s)
         Rec(0x0480, {r.ecx});
         return r.ecx ? *reinterpret_cast<uint32_t*>(r.ecx + 0x20) : 0u;
     });
-    s.At({0x00561B40}, 0, [](Regs& r) {
+    s.At({0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, [](Regs& r) {
         Rec(0x1B40, {r.ecx});
         return r.ecx ? *reinterpret_cast<uint32_t*>(r.ecx) : 0u; // (a skater past the list has no score object)
     });
@@ -198,7 +201,7 @@ void Install(StandIns& s)
         return static_cast<uint32_t>(g_vc_teamGoals[r.args[0] & 3]);
     });
     // The goal manager and its goals.
-    s.At({0x005591B0}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kMisc);
     });
@@ -208,7 +211,7 @@ void Install(StandIns& s)
     });
     // (0x00469490, the goal count, is the folded getter `mov eax, [ecx]`: ours reads the goal manager's first word
     // itself - the original's real code reads the arena's, set with g_vc_goalCount)
-    s.At({0x00557FB0}, 4, [](Regs& r) {
+    s.At({0x00557FB0, AddressOf(&Game::CGoalManager::GetGoalByIndex)}, 4, [](Regs& r) {
         Rec(0x7FB0, {r.ecx, r.args[0]});
         return At(kGoals + 0x40 * r.args[0]);
     });
@@ -275,7 +278,7 @@ void Install(StandIns& s)
         Rec(0x2DE0, {r.args[0]});
         return g_vc_scriptExists ? 1u : 0u;
     });
-    s.At({0x005A5960}, 0, [](Regs& r) {
+    s.At({0x005A5960, AddressOf(&Script::LoadQBFile)}, 0, [](Regs& r) {
         Rec(0x5960, {Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0u;
     });

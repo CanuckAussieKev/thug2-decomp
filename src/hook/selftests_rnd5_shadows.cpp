@@ -17,6 +17,7 @@
 #include "game/lst/hashtable.h"
 #include "game/nx/coll_tri.h"
 #include "game/core/dbg.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -66,7 +67,7 @@ void StandInShadowCalls(StandIns& s)
     StandInCdecl(s, {0x0048C870}, 3);
     StandInCdecl(s, {0x0048BF70, AddressOf(&Nx::RemoveTextureShadowCaster)}, 1);
     StandInCdecl(s, {0x0048BF60, AddressOf(&Nx::AimTextureShadowCaster)}, 2);
-    StandInCdecl(s, {0x0048C3C0}, 1);
+    StandInCdecl(s, {0x0048C3C0, AddressOf(&Nx::Engine::DeleteGeomObject)}, 1);
     s.At({0x0048BFA0, AddressOf(&Nx::CreateModel)}, 0, [](Regs&) {
         Record({0xBFA0});
         uint32_t model = Bump(0x50);

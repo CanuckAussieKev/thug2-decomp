@@ -20,6 +20,9 @@
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -86,12 +89,12 @@ void Install(StandIns& s)
             return 0u;
         return At(kComponents + 0x20 * static_cast<uint32_t>(i));
     });
-    Stub(s, {0x00561B40}, 0, 0x1B40, [](Regs& r) { return *reinterpret_cast<uint32_t*>(r.ecx); });
-    StubCdecl(s, {0x005591B0}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x500); });
+    Stub(s, {0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, 0x1B40, [](Regs& r) { return *reinterpret_cast<uint32_t*>(r.ecx); });
+    StubCdecl(s, {0x005591B0, AddressOf(&Game::GetGoalManager)}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x500); });
     Stub(s, {0x00558B10}, 4, 0x8B10, [](Regs& r) { return 900 + r.args[0]; });
     Stub(s, {0x00558AB0}, 4, 0x8AB0, [](Regs& r) { return 700 + r.args[0]; });
     Stub(s, {0x00557F90}, 8, 0x7F90, [](Regs&) { return g_goalActive ? At(kGoal) : 0u; });
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
     Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
     Stub(s, {0x005343E0, AddressOf(&GameNet::Manager::ShowTeamScores)}, 0, 0x43E0, [](Regs&) { return g_teamMode ? 1u : 0u; });
     Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_numTeams); });

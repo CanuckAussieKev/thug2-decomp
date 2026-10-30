@@ -15,6 +15,7 @@
 #include "game/script/precompiled.h"
 #include "game/script/qb.h"
 #include "game/util/lzss.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -26,7 +27,7 @@ namespace {
 uint32_t& LoadingFile() { return GameVariable<uint32_t>(0x006F2364); }
 
 // Not rewritten yet: the platform's file extension for pre-compiled scripts.
-const char* PrecompiledExtension() { return GameFunction<const char*(__cdecl*)()>(0x005B6040)(); }
+const char* PrecompiledExtension() { return GameConfig::GetPlatformExtension(); }
 
 // The symbol `existing` makes way for a new definition: set aside (temporary loads) or removed.
 void Replace(CSymbolTableEntry* existing, int temporary)

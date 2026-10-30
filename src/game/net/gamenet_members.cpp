@@ -27,6 +27,8 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/skater/tagging.h"
+#include "game/script/game_cfuncs.h"
+#include "game/skate/cas_options.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -104,12 +106,12 @@ bool ModeIsTrue(uint32_t property) { return Call<bool>(0x00553220, GameMode(), p
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 4); }
 
 // The CFunction InSplitScreenGame (0x005A1180), called with no parameters.
-bool InSplitScreenGame() { return GameFunction<bool(__cdecl*)(void*, void*)>(0x005A1180)(nullptr, nullptr); }
+bool InSplitScreenGame() { return CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr) != 0; }
 
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
 bool ProfileHasPart(void* profile, uint32_t part)
 {
-    return GameFunction<bool(__cdecl*)(void*, uint32_t)>(0x00485CB0)(profile, part);
+    return Obj::PartIsCreatedGraphic(profile, part);
 }
 
 // The custom tag texture's parts (Nx::CTexture's virtual slots 25-28).

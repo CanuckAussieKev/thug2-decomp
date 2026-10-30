@@ -17,6 +17,9 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
+#include "game/gfx/model.h"
+#include "game/gfx/engine.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -297,8 +300,8 @@ bool CFilmGoal::TargetInView()
     auto* object = static_cast<Obj::CCompositeObject*>(target);
     void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(object->GetComponent(kModel)) + 0x208);
     // The model's bounding sphere (0x00492F30) in the world.
-    float sphere[4];
-    const float* bounds = GameFunction<const float*(__thiscall*)(void*, float*)>(0x00492F30)(model, sphere);
+    Mth::Vector sphere;
+    const Mth::Vector* bounds = static_cast<Nx::CModel*>(model)->GetBoundingSphere(&sphere);
     Mth::Vector centre;
     centre[0] = sphere[0];
     centre[1] = sphere[1];
@@ -309,7 +312,7 @@ bool CFilmGoal::TargetInView()
     for (int i = 0; i < 4; ++i)
         centre[i] = centre[i] + object->m_pos[i];
     // (0x0048C490: the sphere hidden from the camera)
-    if (GameFunction<int(__cdecl*)(Mth::Vector*, float)>(0x0048C490)(&centre, 6.0f))
+    if (Nx::Engine::SphereVisibleInOneViewport(&centre, 6.0f))
         return false;
     auto* skater = static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater());
     Mth::Vector* camera = static_cast<Gfx::Camera*>(skater->GetCamera())->GetPos();
@@ -402,9 +405,9 @@ void CFindGapsGoal::CheckGaps()
     bool foundNew = false;
     for (int i = 0; i < gaps; ++i) {
         // (Mdl::Score: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
-        if (!GameFunction<bool(__thiscall*)(void*, int)>(0x00562740)(score, i))
+        if (!static_cast<Mdl::Score*>(static_cast<void*>(score))->IsGap(i))
             continue;
-        uint32_t gap = GameFunction<uint32_t(__thiscall*)(void*, int)>(0x00561660)(score, i);
+        uint32_t gap = reinterpret_cast<Mdl::Score*>(score)->GetTrickName(i);
         if (found->ContainsComponentNamed(gap))
             continue;
         found->AddInteger(gap, 1);

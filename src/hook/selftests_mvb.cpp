@@ -21,6 +21,7 @@
 #include "game/sfx/sfx.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -461,7 +462,7 @@ void StandInStreams(StandIns& s)
         Record({0xB340, r.ecx == reinterpret_cast<uint32_t>(g_soundManager)});
         return g_noSound ? 1u : 0u;
     });
-    s.At({0x004A09E0}, 0, [](Regs& r) {
+    s.At({0x004A09E0, AddressOf(&Nx::GetClosestCamera)}, 0, [](Regs& r) {
         Record({0x09E0, r.args[0] - reinterpret_cast<uint32_t>(g_object), r.args[1]});
         return g_emitter;
     });

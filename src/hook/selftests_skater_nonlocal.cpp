@@ -20,6 +20,7 @@
 #include "game/skater/nonlocal_net_logic.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
+#include "game/skate/game_mode.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -212,7 +213,7 @@ void StandIn(StandIns& s, bool update)
     Rec(s, {0x00543320, AddressOf(&GameNet::PlayerInfo::IsObserver)}, 0, 0x3320, [](Regs&) { return g_a.observing ? 1u : 0u; });
     Rec(s, {0x00543330, AddressOf(&GameNet::PlayerInfo::IsSurveying)}, 0, 0x3330, [](Regs&) { return g_a.waiting ? 1u : 0u; });
     Rec(s, {0x00534340, AddressOf(&GameNet::Manager::PlayerCollisionEnabled)}, 0, 0x4340, [](Regs&) { return g_a.extrapolates ? 1u : 0u; });
-    Rec(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_a.gameMode; });
+    Rec(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_a.gameMode; });
     // (a new structure: the original's own pool allocation inlined in one place, NewStruct in the other)
     Rec(s, {0x00409030, AddressOf(&Script::NewStruct)}, 0, 0x9030, [](Regs&) { return Allocate(0x20); }, false, true);
     Rec(s, {0x005BA3D0}, 0, 0x9030, [](Regs&) { return Allocate(0x20); }, false);

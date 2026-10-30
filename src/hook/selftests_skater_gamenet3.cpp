@@ -19,6 +19,9 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/goals/goal_manager.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -112,7 +115,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // The editors.
-    StubCdecl(s, {0x004F4970}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
+    StubCdecl(s, {0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
     s.At({0x004F3C00}, 4, [](Regs& r) {
         Rec(0x3C00, {r.ecx, r.args[0], GameVariable<uint8_t>(0x0067F000)});
         return 0u;
@@ -121,7 +124,7 @@ void Install(StandIns& s)
         Rec(0x7DF0, {r.ecx, GameVariable<uint8_t>(0x0067F000)});
         return 0u;
     });
-    StubCdecl(s, {0x004E8470}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
+    StubCdecl(s, {0x004E8470, AddressOf(&Ed::CGoalEditorComponent::Get)}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x004EA2C0}, 8, 0xA2C0);
     Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);
     s.At({0x00459E50, AddressOf(&Net::Client::EnqueueMessageToServer)}, 4, [](Regs& r) {
@@ -129,7 +132,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // Goals.
-    StubCdecl(s, {0x005591B0}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x700); });
+    StubCdecl(s, {0x005591B0, AddressOf(&Game::GetGoalManager)}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x700); });
     Stub(s, {0x00558580}, 0, 0x8580);
     Stub(s, {0x00557F90}, 8, 0x7F90, [](Regs& r) {
         uint32_t name = r.args[0];

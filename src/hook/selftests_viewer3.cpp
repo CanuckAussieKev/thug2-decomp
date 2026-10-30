@@ -13,6 +13,8 @@
 #include "game/script/nodes.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/skate_module.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -100,7 +102,7 @@ void Install(StandIns& s)
             callback(Ptr<CStruct>(kNodes + 0x10 * i), Ptr<uint8_t>(0x0F00 + i));
         return 0u;
     });
-    s.At({0x005591B0}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kGoals);
     });
@@ -112,7 +114,7 @@ void Install(StandIns& s)
         Rec(0x86E0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x005656C0}, 0, [](Regs& r) {
+    s.At({0x005656C0, AddressOf(&Mdl::Skate::GetGapChecklist)}, 0, [](Regs& r) {
         Rec(0x56C0, {r.ecx});
         return At(kChecklist);
     });

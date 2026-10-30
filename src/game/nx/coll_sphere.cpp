@@ -11,6 +11,7 @@
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -30,13 +31,10 @@ Mth::Vector Minus(const Mth::Vector& a, const Mth::Vector& b)
 }
 
 // The scene grid holding the sphere (0x0048C940) and the grids along a line (0x0048C980).
-CCollGrid* GridOf(const CollSphere* sphere)
-{
-    return GameFunction<CCollGrid*(__cdecl*)(const CollSphere*)>(0x0048C940)(sphere);
-}
+CCollGrid* GridOf(const CollSphere*) { return GetFirstCollGrid(); }
 CCollGrid** GridsAlong(const Mth::Line* line)
 {
-    return GameFunction<CCollGrid**(__cdecl*)(const Mth::Line*)>(0x0048C980)(line);
+    return GetCollGridsOnLine(line);
 }
 
 bool CollideWithSphere(CCollObj* object, const CollSphere* sphere, const Mth::BBox* box, SphereHits* hits)

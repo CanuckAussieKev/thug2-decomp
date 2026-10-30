@@ -993,7 +993,7 @@ void TestGoalEditorNodes()
         GameVariable<uint8_t*>(0x007D1800) = g_manager;
         GameVariable<uint32_t>(0x006F0D84) = 0x0D0D0D0D;
         std::vector<uint32_t> trace;
-        Originals guard(original, {0x004E8F50});
+        Originals guard(original, {0x004E8F50, AddressOf(&Ed::AddGoalEditorNodes)});
         for (uint32_t round = 0; round < 4; ++round) {
             int index = static_cast<int>(round * 7);
             lastArray.m_size = round == 3 ? 0 : 5 + round;

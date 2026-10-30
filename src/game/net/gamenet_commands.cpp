@@ -17,6 +17,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -264,8 +265,8 @@ bool __cdecl CFunc_FCFSRequestChangeLevel(CStruct* params, CScript*)
     if (level == kCreatedPark) {
         void* map = Ed::CParkEditor::Instance()->GetCompressedMapBuffer(false);
         client->StreamMessageToServer(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);
-        GameFunction<void*(__cdecl*)()>(0x004F4970)(); // (the rail editor looked up once for nothing)
-        void* rails = Call<void*>(0x004F45B0, GameFunction<void*(__cdecl*)()>(0x004F4970)());
+        Ed::CRailEditorComponent::Instance(); // (the rail editor looked up once for nothing)
+        void* rails = Call<void*>(0x004F45B0, Ed::CRailEditorComponent::Instance());
         client->StreamMessageToServer(kMsgRailsData, kRailsDataSize, rails, kRailsDesc, kGroupGame, true, false);
     }
     SendRequest(manager, kMsgChangeLevelRequest, &level, 4);

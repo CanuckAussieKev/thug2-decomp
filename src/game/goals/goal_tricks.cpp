@@ -13,6 +13,7 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -176,8 +177,7 @@ bool CGoal::BuildTrickTexts(Script::CArray* keyCombos, Script::CArray* keyTexts,
         const char* keyText;
         comboTexts->GetString(combo, &keyText, 1);
         if (inSlot) {
-            Obj::CCompositeObject* skater =
-                GameFunction<Obj::CCompositeObject*(__thiscall*)(void*)>(0x00566520)(skate);
+            Obj::CCompositeObject* skater = static_cast<Mdl::Skate*>(skate)->GetLocalSkater();
             if (skater) {
                 auto* trickObject = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skater) + slot * 4 + 0x17C);
                 (*reinterpret_cast<Script::CStruct**>(trickObject + 4))->GetString(kName, &trickText, 1);

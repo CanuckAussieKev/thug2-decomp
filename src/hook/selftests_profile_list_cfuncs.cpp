@@ -14,6 +14,7 @@
 #include "game/skate/career.h"
 #include "game/skate/skater_profile_cfuncs.h"
 #include "game/skate/profile_manager.h"
+#include "game/goals/goal_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -80,7 +81,7 @@ void StandInProfileListCalls(StandIns& s)
         Record({0xB640, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[r.args[0] % kTemplates]);
     });
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[2]);
     });

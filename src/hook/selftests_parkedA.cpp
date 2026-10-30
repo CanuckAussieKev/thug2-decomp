@@ -17,6 +17,8 @@
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -1425,13 +1427,13 @@ void StandInIo(StandIns& s)
         Record({0x7B80, r.args[0], r.args[1]});
         return r.ecx;
     });
-    s.At({0x004E8470}, 0, [](Regs&) { return 0x4E840000u; });
-    s.At({0x004F4970}, 0, [](Regs&) { return 0x4F490000u; });
-    s.At({0x004EBA10}, 8, [](Regs& r) {
+    s.At({0x004E8470, AddressOf(&Ed::CGoalEditorComponent::Get)}, 0, [](Regs&) { return 0x4E840000u; });
+    s.At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { return 0x4F490000u; });
+    s.At({0x004EBA10, AddressOf(&Ed::CGoalEditorComponent::WriteLevelGoals)}, 8, [](Regs& r) {
         Record({0xBA10, r.ecx, r.args[0], Offset(reinterpret_cast<void*>(r.args[1]))});
         return 0u;
     });
-    s.At({0x004F6680}, 4, [](Regs& r) {
+    s.At({0x004F6680, AddressOf(&Ed::CRailEditorComponent::WriteToStructure)}, 4, [](Regs& r) {
         Record({0x6680, r.ecx});
         return 0u;
     });

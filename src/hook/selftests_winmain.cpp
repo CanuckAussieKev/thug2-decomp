@@ -21,6 +21,7 @@
 #include "game/sys/registry.h"
 #include "game/sys/sdl_window.h"
 #include "game/sys/winmain.h"
+#include "game/gfx/loading_bar_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -432,7 +433,7 @@ void TestWinMain()
         });
         s->At({0x005F5A00, AddressOf(&Platform::ReleaseDirectSound)}, 0, plain(0x5A00));
         s->At({0x005F39E0}, 0, plain(0x39E0));
-        s->At({0x004908C0}, 0, plain(0x08C0));
+        s->At({0x004908C0, AddressOf(&Nx::RemoveLoadingScreen)}, 0, plain(0x08C0));
         s->At({0x005F55E0, AddressOf(&Platform::ReleaseDirect3D)}, 0, plain(0x55E0));
         s->At({0x00624B20}, 0, plain(0xCE));
         s->At({0x005BC340, AddressOf(&Mem::ShutDownManager)}, 0, plain(0xC340));

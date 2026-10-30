@@ -15,6 +15,8 @@
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
 #include "game/sys/timer.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -70,9 +72,9 @@ void Install(StandIns& s)
     Stub(s, {0x00455A30, AddressOf(&Net::Conn::IsRemote)}, 0, 0x5A30, [](Regs&) { return g_remote; });
     Stub(s, {0x00456630, AddressOf(&Net::Conn::ClearResendCounts)}, 0, 0x6630);
     Stub(s, {0x004559A0, AddressOf(&Net::Conn::GetBandwidthType)}, 0, 0x59A0, [](Regs&) { return g_bandwidth; });
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
     Stub(s, {0x00553270}, 0, 0x3270, [](Regs&) { return 0x4321u; });
-    Stub(s, {0x00561B40}, 0, 0x1B40, [](Regs&) { return g_lives; });
+    Stub(s, {0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, 0x1B40, [](Regs&) { return g_lives; });
 }
 
 using Scenario = void (*)(bool original);

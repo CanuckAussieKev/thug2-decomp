@@ -22,6 +22,7 @@
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -158,7 +159,7 @@ void StandInCalls(StandIns& s)
 {
     // The math the original calls goes to ours, as in the game (the hooks): its x87 sine and cosine aren't ours.
     s.Bytes(0x00405950, Branch(0xE9, 0x00405950, reinterpret_cast<void*>(AddressOf(&Mth::Matrix::Rotate))));
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, r.ecx == reinterpret_cast<uint32_t>(g_dictionary), r.args[0]});
         return reinterpret_cast<uint32_t>(&g_textures[r.args[0] & 3]);
     });

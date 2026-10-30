@@ -16,6 +16,11 @@
 #include "game/sys/timer.h"
 #include "game/sys/viewer.h"
 #include "game/gfx/loading_console.h"
+#include "game/gfx/scene_lights.h"
+#include "game/gfx/engine_effects.h"
+#include "game/script/script_startup.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/loading_bar_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -117,7 +122,7 @@ bool __cdecl CFunc_FakeLights(Script::CStruct* params, Script::CScript*)
 {
     uint32_t id = 0;
     if (params->GetChecksum(kId, &id, 0)) {
-        GameFunction<void(__cdecl*)(uint32_t, Script::CStruct*)>(0x004901D0)(id, params);
+        Nx::UpdateSceneLight(id, params);
         return true;
     }
     int time = 0;
@@ -130,15 +135,14 @@ bool __cdecl CFunc_FakeLights(Script::CStruct* params, Script::CScript*)
     // (the original passes isPrefix too: 0x0045BF90 takes two arguments and ignores it)
     (void)isPrefix;
     uint32_t* nodes = SkateScript::GetPrefixedNodes(prefix, reinterpret_cast<uint16_t*>(&count));
-    GameFunction<void(__cdecl*)(uint32_t*, int, int, Script::CStruct*)>(0x0048FE40)(
-        nodes, static_cast<uint16_t>(count), time, params);
+    Nx::QueueSceneLights(nodes, static_cast<uint16_t>(count), time, params);
     return true;
 }
 
 // 0x0059F1B0: UpdateFxLighting (0x00491F10).
 bool __cdecl CFunc_UpdateFxLighting(Script::CStruct*, Script::CScript*)
 {
-    GameFunction<void(__cdecl*)()>(0x00491F10)();
+    Nx::Engine::LightAllTextureSplats();
     return true;
 }
 
@@ -162,7 +166,7 @@ bool __cdecl CFunc_LoadNodeArray(Script::CStruct* params, Script::CScript*)
     char* out = NodeArrayName(); // (no length limit, like strcpy)
     for (const char* in = name; (*out++ = *in++) != '\0';) {
     }
-    GameFunction<void(__cdecl*)(const char*, int)>(0x005A5960)(name, 0);
+    Script::LoadQBFile(name, 0);
     SkateScript::GetLastNodeArray();
     Mem::PopMemProfile();
     return true;
@@ -173,7 +177,7 @@ bool __cdecl CFunc_LoadNodeArray(Script::CStruct* params, Script::CScript*)
 bool __cdecl CFunc_ResetCamera(Script::CStruct*, Script::CScript*)
 {
     for (int viewport = 0; viewport < 2; ++viewport) {
-        if (GameFunction<void*(__cdecl*)(int)>(0x004A0950)(viewport))
+        if (Nx::GetCamera(viewport))
             Dbg::Printf(reinterpret_cast<const char*>(0x0064FAAC)); // "TODO: ScriptResetCamera not implemented\n"
     }
     return true;
@@ -282,11 +286,11 @@ bool __cdecl CFunc_DisplayLoadingScreen(Script::CStruct* params, Script::CScript
     params->GetString(0u, &image, 0);
     bool blank = params->ContainsFlag(kBlank);
     bool freeze = params->ContainsFlag(kFreeze);
-    GameFunction<void(__cdecl*)(const char*, bool, bool)>(0x00490890)(image, freeze, blank);
+    Nx::DisplayLoadingScreen(image, freeze, blank);
     Gfx::LoadingConsole::ScreenShown(freeze, blank); // not original: the loading console (gfx/loading_console.h)
     float seconds = 0.0f; // (the original leaves it unset - unused then)
     if (params->GetFloat(0u, &seconds, 0))
-        GameFunction<void(__cdecl*)(float)>(0x00490770)(seconds);
+        Nx::SetLoadingBarTime(seconds);
     return true;
 }
 
@@ -294,7 +298,7 @@ bool __cdecl CFunc_DisplayLoadingScreen(Script::CStruct* params, Script::CScript
 bool __cdecl CFunc_HideLoadingScreen(Script::CStruct*, Script::CScript*)
 {
     Gfx::LoadingConsole::ScreenHidden(); // not original: the loading console (gfx/loading_console.h)
-    GameFunction<void(__cdecl*)()>(0x004908C0)();
+    Nx::RemoveLoadingScreen();
     return true;
 }
 

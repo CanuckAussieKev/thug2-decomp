@@ -13,6 +13,7 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_movable.h"
 #include "game/nx/coll_tri.h"
+#include "game/core/stubs.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -62,8 +63,8 @@ void TestAnimCollMovables()
         Record({0x6E0D0000u, r.ecx});
         return 0u;
     });
-    s.At({0x0048D090}, 12, [](Regs& r) {
-        Record({0xD4A70000u, r.ecx, r.args[1], r.args[2]});
+    s.At({0x0048D090, AddressOf(&Stubs::IgnoreArguments3)}, 12, [](Regs& r) {
+        Record({0xD4A70000u, r.args[1], r.args[2]}); // (the original's `this` - the box - isn't passed by ours)
         const auto* m = reinterpret_cast<const uint32_t*>(r.args[0]);
         g_trace.insert(g_trace.end(), m, m + 16);
         return 0u;

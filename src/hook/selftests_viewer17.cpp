@@ -10,6 +10,7 @@
 
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
+#include "game/skate/game_mode.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -137,7 +138,7 @@ void Install(StandIns& s)
         Rec(0x9020, {r.args[0]});
         return At(0x3E00);
     });
-    s.At({0x005532A0}, 0, [](Regs& r) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
         Rec(0x32A0, {r.ecx});
         return 0x6A3Eu;
     });

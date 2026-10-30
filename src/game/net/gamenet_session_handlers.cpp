@@ -21,6 +21,7 @@
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -390,7 +391,7 @@ int __cdecl HandleChangeLevel(Net::MsgHandlerContext* context)
         if (manager->m_level == kLoadSk5edGameplay)
             GameVariable<uint32_t>(0x007CCDE8) += 1000;
     } else if (oldLevel == kLoadSk5edGameplay && manager->m_level != oldLevel) {
-        Call(0x004F7550, GameFunction<void*(__cdecl*)()>(0x004F4970)()); // the created park's rails gone
+        Ed::CRailEditorComponent::Instance()->Clear(); // the created park's rails gone
     }
     logicTasks->AddTask(changeTask);
     manager->CreateNetPanelMessage(false, kChangingLevels, manager->GetLevelName(true), nullptr, nullptr, nullptr, false,

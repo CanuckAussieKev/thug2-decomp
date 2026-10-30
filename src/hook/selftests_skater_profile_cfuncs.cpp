@@ -17,6 +17,7 @@
 #include "game/skate/skater_profile_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
+#include "game/gfx/face_texture.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -79,11 +80,11 @@ void StandInProfileCalls(StandIns& s)
             return 0u;
         });
     }
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[g_currentProfile]);
     });
-    s.At({0x00564FC0}, 4, [](Regs& r) {
+    s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4FC0, r.ecx, r.args[0]});
         return r.args[0] < kProfiles ? reinterpret_cast<uint32_t>(g_profiles[r.args[0]]) : 0u;
     });
@@ -159,7 +160,7 @@ void StandInProfileCalls(StandIns& s)
         Record({0x7590, static_cast<uint32_t>(FaceIndex(r.ecx)), Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });
-    s.At({0x00487520}, 4, [](Regs& r) {
+    s.At({0x00487520, AddressOf(&Gfx::CFaceTexture::SetValid)}, 4, [](Regs& r) {
         Record({0x7520, static_cast<uint32_t>(FaceIndex(r.ecx)), r.args[0] & 0xFF});
         return 0u;
     });

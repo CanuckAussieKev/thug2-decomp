@@ -12,6 +12,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/ed/goal_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -109,7 +110,7 @@ int NumberOf(uint32_t value, int first, int last, int bias, int otherwise)
 }
 
 // 0x004E8470: the goal editor module.
-void* GoalEditor() { return GameFunction<void*(__cdecl*)()>(0x004E8470)(); }
+Ed::CGoalEditorComponent* GoalEditor() { return Ed::CGoalEditorComponent::Get(); }
 
 } // namespace
 
@@ -327,8 +328,7 @@ void* Manager::GetPendingData(uint32_t* size)
 // 0x00533380
 bool Manager::HasCreatedGoals()
 {
-    void* editor = GoalEditor();
-    return GameFunction<int(__thiscall*)(void*, uint32_t)>(0x004E7E50)(editor, 0) > 0;
+    return GoalEditor()->CountCompleteGoals(0) > 0;
 }
 
 // 0x005333A0
@@ -336,9 +336,9 @@ void Manager::PrepareCreatedGoals(uint32_t level)
 {
     Field<uint32_t>(this, kGoalsLevel) = level;
     Field<uint32_t>(this, kGoalsMessage) = level;
-    void* editor = GoalEditor();
-    int size = GameFunction<int(__thiscall*)(void*, uint32_t, void*, int)>(0x004EBB70)(
-        editor, level, &Field<uint8_t>(this, kGoalsMessage + 4), kGoalsBufferSize);
+    Ed::CGoalEditorComponent* editor = GoalEditor();
+    int size = static_cast<int>(editor->WriteLevelGoalsToBuffer(
+        level, &Field<uint8_t>(this, kGoalsMessage + 4), static_cast<uint32_t>(kGoalsBufferSize)));
     Field<int>(this, kGoalsSize) = size + 4;
 }
 

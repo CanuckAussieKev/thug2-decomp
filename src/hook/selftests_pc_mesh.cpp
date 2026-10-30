@@ -11,6 +11,7 @@
 #include "game/file/file.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_mesh.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -47,7 +48,7 @@ void StandInMeshCalls(StandIns& s)
         return 0u;
     });
     StandInThis(s, {0x00490B60}, 0);
-    StandInCdecl(s, {0x0048C690}, 2);
+    StandInCdecl(s, {0x0048C690, AddressOf(&Nx::Engine::UnloadScene)}, 2);
 }
 
 std::vector<uint32_t> SkinData(Lcg& random, uint32_t version, uint32_t count)

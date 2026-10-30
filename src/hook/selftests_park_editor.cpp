@@ -31,6 +31,11 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/sys/timer.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/skate/skate_module.h"
+#include "game/script/game_cfuncs.h"
+#include "game/script/world_cfuncs.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -213,14 +218,14 @@ void StandInGame(StandIns& s)
         Record({Text(r.args[0]), r.args[1], r.args[2]});
         return 0u;
     });
-    Rec(s, {0x005656C0}, 0, 0, 0, [](Regs&) { return U(g_world.checklist); });
+    Rec(s, {0x005656C0, AddressOf(&Mdl::Skate::GetGapChecklist)}, 0, 0, 0, [](Regs&) { return U(g_world.checklist); });
     Rec(s, {0x00578B30}, 4, 0, 0, [](Regs& r) {
         Record({Text(r.args[0])});
         return Next(0x00578B30);
     });
-    RecC(s, {0x004E8470}, 0, [](Regs&) { return U(g_world.goalEditor); });
-    RecC(s, {0x004F4970}, 0, [](Regs&) { return U(g_world.railEditor); });
-    Rec(s, {0x004E8420}, 4, 1);
+    RecC(s, {0x004E8470, AddressOf(&Ed::CGoalEditorComponent::Get)}, 0, [](Regs&) { return U(g_world.goalEditor); });
+    RecC(s, {0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { return U(g_world.railEditor); });
+    Rec(s, {0x004E8420, AddressOf(&Ed::CGoalEditorComponent::RemoveGapFromParkGoals)}, 4, 1);
     // the generator, pieces
     Rec(s, {0x005935F0}, 4, 1);
     Rec(s, {0x005906B0, AddressOf(&Ed::CPiece::SetLength)}, 4, 1);
@@ -325,16 +330,16 @@ void StandInGame(StandIns& s)
     Rec(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 1);
     Rec(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0);
     RecBool(s, {0x0054F900});
-    RecC(s, {0x0059F890}, 3);
-    Rec(s, {0x00564F20}, 0, 0);
-    RecC(s, {0x005A53A0}, 2, [](Regs& r) {
+    RecC(s, {0x0059F890, AddressOf(&CFuncs::MakeCameraActive)}, 3);
+    Rec(s, {0x00564F20, AddressOf(&Mdl::Skate::CleanupForParkEditor)}, 0, 0);
+    RecC(s, {0x005A53A0, AddressOf(&CFuncs::CFunc_PauseSkaters)}, 2, [](Regs& r) {
         // (the structure's first component)
         auto* params = reinterpret_cast<Script::CStruct*>(r.args[0]);
         if (params && params->m_head)
             Record({params->m_head->name, params->m_head->raw});
         return 1u;
     });
-    RecC(s, {0x005A5420}, 2);
+    RecC(s, {0x005A5420, AddressOf(&CFuncs::CFunc_UnPauseSkaters)}, 2);
     Rec(s, {0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, 1);
     Rec(s, {0x0045F3A0}, 0xC, 3, 0, nullptr, false, 4);
     Rec(s, {0x00462F00}, 0x18, 6, 0, nullptr, false, 0x10);
@@ -349,14 +354,14 @@ void StandInGame(StandIns& s)
     RecC(s, {0x0059E390}, 1);
     RecC(s, {0x0059EAD0}, 2);
     // the rail and goal editors
-    Rec(s, {0x004F6510}, 0, 0);
-    Rec(s, {0x004F65A0}, 0, 0);
-    Rec(s, {0x004F6600}, 0, 0);
-    Rec(s, {0x004EA780}, 0, 0);
-    Rec(s, {0x004F4600}, 0x10, 4);
-    Rec(s, {0x004F74B0}, 0x14, 5);
-    Rec(s, {0x004E8300}, 0x10, 4);
-    Rec(s, {0x004E8390}, 0x10, 4);
+    Rec(s, {0x004F6510, AddressOf(&Ed::CRailEditorComponent::RestoreHeights)}, 0, 0);
+    Rec(s, {0x004F65A0, AddressOf(&Ed::CRailEditorComponent::DrawAllSegments)}, 0, 0);
+    Rec(s, {0x004F6600, AddressOf(&Ed::CRailEditorComponent::DrawAllPosts)}, 0, 0);
+    Rec(s, {0x004EA780, AddressOf(&Ed::CGoalEditorComponent::PlaceParkGoalsOnGround)}, 0, 0);
+    Rec(s, {0x004F4600, AddressOf(&Ed::CRailEditorComponent::AnyPointOutside)}, 0x10, 4);
+    Rec(s, {0x004F74B0, AddressOf(&Ed::CRailEditorComponent::DeletePoints)}, 0x14, 5);
+    Rec(s, {0x004E8300, AddressOf(&Ed::CGoalEditorComponent::AnyParkGoalOutside)}, 0x10, 4);
+    Rec(s, {0x004E8390, AddressOf(&Ed::CGoalEditorComponent::RemoveParkGoalsOutside)}, 0x10, 4);
 }
 
 

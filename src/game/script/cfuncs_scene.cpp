@@ -15,6 +15,14 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sfx/terrain.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_scene.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
+#include "game/gfx/texture_dict.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -68,38 +76,37 @@ int& ConfigNTSC() { return GameVariable<int>(0x00684FB0); }
 int& ConfigFramerate() { return GameVariable<int>(0x00684FB4); }
 bool& ConfigBootstrap() { return GameVariable<bool>(0x007CEFAD); }
 // The configuration's names (cdecl): the hardware, the display type for a frame rate, the language, the territory.
-const char* HardwareName() { return GameFunction<const char*(__cdecl*)()>(0x005B5FC0)(); }
-const char* DisplayTypeName(int framerate) { return GameFunction<const char*(__cdecl*)(int)>(0x005B6020)(framerate); }
-const char* LanguageName() { return GameFunction<const char*(__cdecl*)()>(0x005B5F20)(); }
-const char* TerritoryName() { return GameFunction<const char*(__cdecl*)()>(0x005B5F90)(); }
+const char* HardwareName() { return GameConfig::GetHardwareName(); }
+const char* DisplayTypeName(int) { return GameConfig::GetDisplayTypeName(); } // (the frame rate isn't read)
+const char* LanguageName() { return GameConfig::GetLanguageName(); }
+const char* TerritoryName() { return GameConfig::GetTerritoryName(); }
 
 // The engine's scenes (Nx, cdecl): by name (0x0048C750: the name's checksum looked up, 0x0048C700), the first in the
 // scene table, every one unloaded, one unloaded (0x0048C690; 1: its collision too), reloaded, geometry added to one
 // (0x0048CDD0: the scene's name and the added file's). A scene's texture dictionary is at +0x88.
-void* GetScene(const char* name) { return GameFunction<void*(__cdecl*)(const char*)>(0x0048C750)(name); }
-void* FirstScene() { return GameFunction<void*(__cdecl*)()>(0x0048C770)(); }
-void UnloadAllScenes() { GameFunction<void(__cdecl*)()>(0x0048C810)(); }
-void UnloadScene(void* scene, int flag) { GameFunction<void(__cdecl*)(void*, int)>(0x0048C690)(scene, flag); }
-void QuickReloadScene(const char* name) { GameFunction<void(__cdecl*)(const char*)>(0x0048CEF0)(name); }
-void AddToScene(const char* scene, const char* add) { GameFunction<void(__cdecl*)(const char*, const char*)>(0x0048CDD0)(scene, add); }
-void UnloadTexDict(void* textures) { GameFunction<void(__cdecl*)(void*)>(0x0049EFD0)(textures); }
+void* GetScene(const char* name) { return Nx::GetSceneByName(name); }
+void* FirstScene() { return Nx::GetMainScene(); }
+void UnloadAllScenes() { Nx::UnloadAllScenes(); }
+void UnloadScene(void* scene, int flag) { Nx::Engine::UnloadScene(static_cast<Nx::CScene*>(scene), flag); }
+void QuickReloadScene(const char* name) { Nx::ReloadScene(name); }
+void AddToScene(const char* scene, const char* add) { Nx::AddScene(scene, add); }
+void UnloadTexDict(void* textures) { Nx::UnloadTexDict(static_cast<Nx::CTexDict*>(textures)); }
 // A scene's collision (thiscall): loaded from the scene's collision file (0x0049DF70), or added from another one
 // (0x0049DFD0).
 void LoadSceneCollision(void* scene, const char* name, bool isNet)
 {
-    GameFunction<void(__thiscall*)(void*, const char*, uint32_t)>(0x0049DF70)(scene, name, isNet);
+    static_cast<Nx::CScene*>(scene)->LoadCollisionFile(name, isNet);
 }
-void AddSceneCollision(void* scene, const char* add) { GameFunction<void(__thiscall*)(void*, const char*)>(0x0049DFD0)(scene, add); }
+void AddSceneCollision(void* scene, const char* add) { static_cast<Nx::CScene*>(scene)->LoadAddScene(add); }
 
 // Models (Nx): one made (0x0048BFA0, a jump to 0x004B29C0), its model file loaded (0x004935E0, thiscall), destroyed
 // again (0x0048C3C0).
-void* CreateModel(int flag) { return GameFunction<void*(__cdecl*)(int)>(0x0048BFA0)(flag); }
+void* CreateModel(int) { return Nx::CreateModel(); } // (0x0048BFA0, a jump to 0x004B29C0)
 void LoadModelFile(void* model, const char* file, bool allowReplaceTex)
 {
-    GameFunction<void(__thiscall*)(void*, const char*, int, int, int, int, int, int, int)>(0x004935E0)(
-        model, file, 0, 1, 0, allowReplaceTex, 0, 1, 0);
+    static_cast<Nx::CModel*>(model)->AddFileGeom(file, 0, true, 0, allowReplaceTex, false, true, false);
 }
-void DestroyModel(void* model) { GameFunction<void(__cdecl*)(void*)>(0x0048C3C0)(model); }
+void DestroyModel(void* model) { Nx::Engine::DeleteGeomObject(model); }
 
 } // namespace
 
@@ -124,8 +131,7 @@ bool __cdecl CFunc_PreloadModel(CStruct* params, CScript*)
     {
         // <name>.mdl (0x004879D0 returns a String: made in `storage`)
         alignas(Str::String) uint8_t storage[sizeof(Str::String)];
-        auto* path = GameFunction<Str::String*(__cdecl*)(void*, const char*, const char*)>(0x004879D0)(storage, name,
-                                                                                                       ".mdl");
+        auto* path = Gfx::MakeModelPath(reinterpret_cast<Str::String*>(storage), name, ".mdl");
         file = *path;
         path->~String();
     }

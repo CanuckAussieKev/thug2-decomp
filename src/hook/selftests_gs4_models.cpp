@@ -22,6 +22,8 @@
 #include "game/skate/profile_cfuncs.h"
 #include "game/skater/skater.h"
 #include "game/skater/tagging.h"
+#include "game/gfx/texture_dict.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/gs4_testkit.h"
 
 namespace {
@@ -194,7 +196,7 @@ void StandInModelCalls(StandIns& s)
         Record({0x65C0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_mObjects[r.args[0] & 3]);
     });
-    s.At({0x00566520}, 0, [](Regs&) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs&) {
         Record({0x6520});
         return reinterpret_cast<uint32_t>(g_mObjects[1]);
     });
@@ -391,7 +393,7 @@ __declspec(naked) void FastCosStandIn()
 
 void StandInCagCalls(StandIns& s)
 {
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, r.ecx, r.args[0]});
         if (r.args[0] == 0xAA286543)
             return reinterpret_cast<uint32_t>(g_cTextures[0]);
@@ -447,11 +449,11 @@ void StandInCagCalls(StandIns& s)
         Record({0xD830, r.ecx == reinterpret_cast<uint32_t>(g_cTagging), g_cTagging[0x18]});
         return 0u;
     });
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.args[0]});
         return 0x9F0F1000u;
     });
-    s.At({0x00564FC0}, 4, [](Regs& r) {
+    s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4FC0, r.args[0]});
         return g_cHaveProfile ? reinterpret_cast<uint32_t>(g_cProfile) : 0u;
     });

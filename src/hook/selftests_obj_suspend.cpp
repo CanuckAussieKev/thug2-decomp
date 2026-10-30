@@ -21,6 +21,8 @@
 #include "game/obj/texture_projection_component.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -169,14 +171,14 @@ void StandIn(StandIns& s)
         Record({0x3C60, Rel(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x00492F30}, 4, [](Regs& r) {
+    s.At({0x00492F30, AddressOf(&Nx::CModel::GetBoundingSphere)}, 4, [](Regs& r) {
         Record({0x2F30, Rel(r.ecx)});
         float* s4 = reinterpret_cast<float*>(r.args[0]);
         for (int i = 0; i < 4; ++i)
             s4[i] = g_a.floats[i] * (i + 1);
         return r.args[0];
     });
-    s.At({0x0048C490}, 0, [](Regs& r) {
+    s.At({0x0048C490, AddressOf(&Nx::Engine::SphereVisibleInOneViewport)}, 0, [](Regs& r) {
         const uint32_t* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0xC490, v[0], v[1], v[2], v[3], r.args[1]});
         return static_cast<uint32_t>(g_a.culled);

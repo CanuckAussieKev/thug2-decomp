@@ -37,6 +37,9 @@
 #include "game/script/qb.h"
 #include "game/script/script_cfuncs.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/script/script_startup.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -476,19 +479,19 @@ void StandInObjectCalls(StandIns& s)
         Record({0xADE0, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x005A5960}, 0, [](Regs& r) {
+    s.At({0x005A5960, AddressOf(&Script::LoadQBFile)}, 0, [](Regs& r) {
         Record({0x5960, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0u;
     });
-    s.At({0x005A59B0}, 0, [](Regs& r) {
+    s.At({0x005A59B0, AddressOf(&Script::UnloadQBFile)}, 0, [](Regs& r) {
         Record({0x59B0, r.args[0]});
         return 0u;
     });
-    s.At({0x0048C100}, 0, [](Regs& r) {
+    s.At({0x0048C100, AddressOf(&Nx::ScreenShot)}, 0, [](Regs& r) {
         Record({0xC100, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0u;
     });
-    s.At({0x0048C0F0}, 0, [](Regs&) {
+    s.At({0x0048C0F0, AddressOf(&Nx::Engine::ToggleMetrics)}, 0, [](Regs&) {
         Record({0xC0F0});
         return 0u;
     });

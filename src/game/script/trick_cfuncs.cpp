@@ -22,6 +22,7 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/skater/trick_component.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -89,7 +90,7 @@ Inp::Manager* InputManager() { return GameVariable<Inp::Manager*>(0x00696D40); }
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
 Obj::CCompositeObject* LocalSkater()
 {
-    return GameFunction<Obj::CCompositeObject*(__thiscall*)(Mdl::Skate*)>(0x00566520)(Skate());
+    return Skate()->GetLocalSkater();
 }
 // Whether a skater is a local one (its byte at +0xBC, as 0x00566520 reads it).
 bool IsLocalSkater(Obj::CCompositeObject* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
@@ -100,7 +101,7 @@ void* SkaterScore(Obj::CCompositeObject* skater) { return static_cast<Obj::CSkat
 // current one (no params or no Skater).
 CSkaterProfile* ProfileFor(CStruct* params)
 {
-    return GameFunction<CSkaterProfile*(__thiscall*)(Mdl::Skate*, CStruct*)>(0x00564F80)(Skate(), params);
+    return Skate()->GetProfile(params);
 }
 
 // 0x005A9D90 (CFuncs::FindNameOfValue): the key combo in `mapping` bound to `trick` (0 if none).
@@ -478,7 +479,7 @@ bool __cdecl CFunc_ResetComboRecords(Script::CStruct*, Script::CScript*)
 {
     Obj::CCompositeObject* skater = LocalSkater();
     if (skater)
-        GameFunction<void(__thiscall*)(void*)>(0x00561400)(SkaterScore(skater));
+        static_cast<Mdl::Score*>(SkaterScore(skater))->ResetBests();
     return true;
 }
 
@@ -490,7 +491,7 @@ bool __cdecl CFunc_GetNumberOfTrickOccurrences(Script::CStruct* params, Script::
     params->GetString(kTrickText, &text, 1);
     uint32_t trick = Crc::GenerateCRCFromString(text);
     void* score = SkaterScore(LocalSkater());
-    int count = GameFunction<int(__thiscall*)(void*, uint32_t, int, int, int)>(0x005624C0)(score, trick, 0, 0, 1);
+    int count = static_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, 0, false, 1);
     script->m_params->AddInteger(kNumberOfOccurrences, count);
     return true;
 }
@@ -521,7 +522,7 @@ bool __cdecl CFunc_BindControllerToSkater(Script::CStruct* params, Script::CScri
     params->GetInteger(kSkaterHeapIndex, &skater, 1);
     Mdl::Skate* skate = Skate();
     InputManager()->SetPlayerController(skater, controller);
-    GameFunction<void(__thiscall*)(Mdl::Skate*)>(0x00567090)(skate);
+    skate->BindControllers();
     return true;
 }
 
@@ -613,7 +614,7 @@ bool __cdecl CFunc_GetKeyComboArrayFromTrickArray(Script::CStruct* params, Scrip
 // 0x005B1A00: FirstInputReceived: the skate module's flag (+0x3C) set (0x00564DA0). Always true.
 bool __cdecl CFunc_FirstInputReceived(Script::CStruct*, Script::CScript*)
 {
-    GameFunction<void(__thiscall*)(Mdl::Skate*)>(0x00564DA0)(Skate());
+    Skate()->CheckControllers();
     return true;
 }
 

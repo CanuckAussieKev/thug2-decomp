@@ -8,6 +8,8 @@
 #include <cstring>
 
 #include "game/ed/park.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "game/mth/matrix.h"
 #include "hook/viewer_testkit.h"
 
@@ -33,36 +35,38 @@ inline void RecWords(uint32_t tag, uint32_t at, int count)
 inline void InstallScene(StandIns& s)
 {
     InstallCommon(s);
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 0, [](Regs& r) {
         Rec(0xC510, {r.args[0]});
-        return r.args[0] == 0xDEAD ? 0u : At(kSector) + (r.args[0] & 0x30);
+        if (r.args[0] == 0xDEAD)
+            return 0u;
+        // (0x20 apart: +0x14 the sector's geometry - what GetGeometry (0x004A2BA0, a read of that word) answers)
+        uint32_t sector = At(kSector) + (r.args[0] & 0x30) * 2;
+        *reinterpret_cast<uint32_t*>(sector + 0x14) = g_geometry;
+        return sector;
     });
-    s.At({0x0049E760}, 4, [](Regs& r) {
+    s.At({0x0049E760, AddressOf(&Nx::CSector::SetYRotation)}, 4, [](Regs& r) {
         Rec(0xE760, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0049E9B0}, 4, [](Regs& r) {
+    s.At({0x0049E9B0, AddressOf(&Nx::CSector::SetActive)}, 4, [](Regs& r) {
         Rec(0xE9B0, {r.ecx, r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x0049E680}, 4, [](Regs& r) {
+    s.At({0x0049E680, AddressOf(&Nx::CSector::SetVisibility)}, 4, [](Regs& r) {
         Rec(0xE680, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0049E6C0}, 4, [](Regs& r) {
+    s.At({0x0049E6C0, AddressOf(&Nx::CSector::SetWorldPosition)}, 4, [](Regs& r) {
         Rec(0xE6C0, {r.ecx});
         RecWords(0xE6C1, r.args[0], 4);
         return 0u;
     });
-    s.At({0x0049E7C0}, 4, [](Regs& r) {
+    s.At({0x0049E7C0, AddressOf(&Nx::CSector::SetScale)}, 4, [](Regs& r) {
         Rec(0xE7C0, {r.ecx});
         RecWords(0xE7C1, r.args[0], 3); // (w is a stack leftover in the original)
         return 0u;
     });
-    s.At({0x004A2BA0}, 0, [](Regs& r) {
-        Rec(0x2BA0, {r.ecx});
-        return g_geometry;
-    });
+    // (a sector's geometry, +0x14, is read as it is: GetSector sets it)
     s.At({0x0048DEE0}, 4, [](Regs& r) {
         Rec(0xDEE0, {r.ecx});
         RecWords(0xDEE1, r.args[0], 16);
@@ -103,6 +107,9 @@ inline void InstallScene(StandIns& s)
 inline void SetUpGeometry()
 {
     reinterpret_cast<void**>(At(kGeometryVtable))[6] = g_setColor;
+    // (slots 8 and 20, ClearColor and SetOrientation, as the stood-in dispatchers' addresses)
+    reinterpret_cast<void**>(At(kGeometryVtable))[8] = reinterpret_cast<void*>(0x0048D060);
+    reinterpret_cast<void**>(At(kGeometryVtable))[20] = reinterpret_cast<void*>(0x0048DEE0);
     *Ptr<uint32_t>(kGeometry) = At(kGeometryVtable);
 }
 

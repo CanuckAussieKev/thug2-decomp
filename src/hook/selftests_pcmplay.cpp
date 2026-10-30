@@ -17,6 +17,7 @@
 #include "game/pcm/stream.h"
 #include "game/pcm/stream_commands.h"
 #include "game/sfx/sfx.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -143,7 +144,7 @@ void StandInPlatform(StandIns& s)
         return g_openResult;
     });
     // Elsewhere in the game.
-    s.At({0x005B6250}, 0, [](Regs&) {
+    s.At({0x005B6250, AddressOf(&GameConfig::GetBootstrapPrefix)}, 0, [](Regs&) {
         Record({0x5B62});
         return reinterpret_cast<uint32_t>("ROOT\\");
     });

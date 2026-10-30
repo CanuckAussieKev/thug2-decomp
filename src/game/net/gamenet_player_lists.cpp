@@ -27,6 +27,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
+#include "game/skate/cas_options.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -138,7 +139,7 @@ void DeleteVirtual(void* object)
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
 bool ProfileHasPart(void* profile, uint32_t part)
 {
-    return GameFunction<bool(__cdecl*)(void*, uint32_t)>(0x00485CB0)(profile, part);
+    return Obj::PartIsCreatedGraphic(profile, part);
 }
 // A custom tag texture's parts (Nx::CTexture's virtual slots 25-28).
 void* TexturePixels(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[25](texture); }

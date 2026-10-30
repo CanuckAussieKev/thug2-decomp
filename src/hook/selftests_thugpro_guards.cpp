@@ -27,6 +27,10 @@
 #include "game/skate/thugpro_cas.h"
 #include "game/skater/local_net_logic.h"
 #include "game/util/bitstream.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/game_mode.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -137,7 +141,7 @@ void StandInGraffiti(StandIns& s)
         Record({0xD0, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0xFFFFFFFFu;
     });
-    s.At({0x005591B0}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
         Record({0xD1});
         return reinterpret_cast<uint32_t>(g_gw.goals);
     });
@@ -145,7 +149,7 @@ void StandInGraffiti(StandIns& s)
         Record({0xD2, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x005532A0}, 0, [](Regs& r) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
         Record({0xD3, r.ecx});
         return g_gwMode;
     });
@@ -354,11 +358,11 @@ void StandInTrickObjects(StandIns& s)
         Record({0xD0, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0xFFFFFFFFu;
     });
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 0, [](Regs& r) {
         Record({0xA0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_tw.sectors[r.args[0] & 3]);
     });
-    s.At({0x0049E670}, 0, [](Regs& r) {
+    s.At({0x0049E670, AddressOf(&Nx::CSector::ClearColor)}, 0, [](Regs& r) {
         Record({0xA1, TwRel(r.ecx)});
         return 0u;
     });

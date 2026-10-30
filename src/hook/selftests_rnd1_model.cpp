@@ -12,6 +12,8 @@
 
 #include "game/ass/assman.h"
 #include "game/gfx/model.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/pc_lights.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -91,7 +93,7 @@ void StandInModel(StandIns& s)
         Record({0xEA80});
         return Bump(0x30);
     });
-    s.At({0x0048C080}, 0, [](Regs& r) {
+    s.At({0x0048C080, AddressOf(&Nx::DeleteModelLights)}, 0, [](Regs& r) {
         Record({0xC080, Relocate(r.args[0])});
         return 0u;
     });

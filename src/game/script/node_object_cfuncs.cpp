@@ -2,6 +2,7 @@
 // and the level's node objects made and killed by their class (see game_cfuncs.h).
 
 #include "game/script/game_cfuncs.h"
+#include "game/script/trick_cfuncs.h"
 
 #include <cmath>
 #include <cstdint>
@@ -33,6 +34,16 @@
 #include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_scene.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/scene_lights.h"
+#include "game/gfx/sector.h"
+#include "game/skate/skate_module.h"
+#include "game/script/script_startup.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -73,7 +84,7 @@ Mem::Manager* MemManager() { return GameVariable<Mem::Manager*>(0x007D1800); }
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).
 bool SkipsNode(Script::CStruct* node)
 {
-    return GameFunction<bool(__thiscall*)(uint8_t*, Script::CStruct*)>(0x00565BB0)(Skate(), node);
+    return Mdl::Skate::ShouldBeAbsent(node) != 0;
 }
 
 // The scenes (Nx), from their list (0x006FA7EC; 0x0048C7F0 gives the first node, its +0xC the next - the one with
@@ -84,31 +95,39 @@ struct SceneNode {
     uint32_t unknown8;
     SceneNode* next;    // +0x0C
 };
-SceneNode* FirstScene() { return GameFunction<SceneNode*(__cdecl*)()>(0x0048C7F0)(); }
+SceneNode* FirstScene() { return reinterpret_cast<SceneNode*>(Nx::FirstSceneNode()); }
 SceneNode* NextScene(SceneNode* node) { return node->next->scene == reinterpret_cast<uint8_t*>(-1) ? nullptr : node->next; }
 
 // A scene's sector by name (0x0049CB00) and a copy of one (0x0049D510).
-uint8_t* GetSector(uint8_t* scene, uint32_t name) { return GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049CB00)(scene, name); }
+Nx::CSector* AsSector(uint8_t* sector) { return reinterpret_cast<Nx::CSector*>(sector); }
+Nx::CScene* AsScene(uint8_t* scene) { return reinterpret_cast<Nx::CScene*>(scene); }
+uint8_t* GetSector(uint8_t* scene, uint32_t name) { return static_cast<uint8_t*>(AsScene(scene)->GetSector(name)); }
 void CloneSector(uint8_t* scene, uint8_t* sector, uint8_t* destination, int a, int b, uint32_t name)
 {
-    GameFunction<void(__thiscall*)(void*, void*, void*, int, int, uint32_t)>(0x0049D510)(scene, sector, destination, a, b, name);
+    AsScene(scene)->CloneSector(AsSector(sector), AsScene(destination), a, b != 0, name);
 }
 // A sector's (CSector, thiscall) settings: the viewports it shows in (0x0049E680), drawn (0x0049E9B0), collided
 // with (0x0049EA30), its orientation (0x0049E700), scale (0x0049E7C0), position (0x0049E6C0).
-void SetVisibility(uint8_t* sector, uint32_t mask) { GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0049E680)(sector, mask); }
-void SetActive(uint8_t* sector, bool active) { GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(sector, active); }
-void SetCollidable(uint8_t* sector, bool on) { GameFunction<void(__thiscall*)(void*, bool)>(0x0049EA30)(sector, on); }
-void SetOrientation(uint8_t* sector, const Mth::Matrix* m) { GameFunction<void(__thiscall*)(void*, const Mth::Matrix*)>(0x0049E700)(sector, m); }
+void SetVisibility(uint8_t* sector, uint32_t mask) { AsSector(sector)->SetVisibility(mask); }
+void SetActive(uint8_t* sector, bool active) { AsSector(sector)->SetActive(active); }
+void SetCollidable(uint8_t* sector, bool on) { AsSector(sector)->SetCollidable(on); }
+void SetOrientation(uint8_t* sector, const Mth::Matrix* m) { AsSector(sector)->SetOrientation(m); }
 void SetScale(uint8_t* sector, const Script::VectorValue* scale)
 {
-    GameFunction<void(__thiscall*)(void*, const Script::VectorValue*)>(0x0049E7C0)(sector, scale);
+    AsSector(sector)->SetScale(reinterpret_cast<const Mth::Vector*>(scale));
 }
 void SetPosition(uint8_t* sector, const Script::VectorValue* pos)
 {
-    GameFunction<void(__thiscall*)(void*, const Script::VectorValue*)>(0x0049E6C0)(sector, pos);
+    AsSector(sector)->SetWorldPosition(reinterpret_cast<const Mth::Vector*>(pos));
+}
+// A geometry's virtual slot, called through its vtable.
+template <typename Fn>
+Fn GeometrySlot(const uint8_t* geometry, int slot)
+{
+    return reinterpret_cast<Fn>((*reinterpret_cast<void* const* const*>(geometry))[slot]);
 }
 // A sector name's flag 0x4E549FE1 effect on or off (0x0048BF90, a jump to 0x004B22F0).
-void SetOccluder(uint32_t name, int on) { GameFunction<void(__cdecl*)(uint32_t, int)>(0x0048BF90)(name, on); }
+void SetOccluder(uint32_t name, int on) { Nx::FlagDebugLines(name, on != 0); }
 
 } // namespace
 
@@ -130,15 +149,15 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
             // (the sector's name: the getter folded at 0x005480C0, its +4)
             if (!only || *reinterpret_cast<uint32_t*>(sector + 4) == only) {
                 uint8_t* geometry = nullptr;
-                if (GameFunction<bool(__thiscall*)(void*)>(0x0049E9E0)(sector)) // active
-                    geometry = GameFunction<uint8_t*(__thiscall*)(void*)>(0x004A2BA0)(sector);
-                int count = geometry ? GameFunction<int(__thiscall*)(void*)>(0x0048DF70)(geometry) : 0;
+                if (AsSector(sector)->IsActive()) // active
+                    geometry = static_cast<uint8_t*>(AsSector(sector)->mp_geom);
+                int count = geometry ? GeometrySlot<int(__thiscall*)(void*)>(geometry, 36)(geometry) : 0;
                 if (count) {
                     if (!GameVariable<bool>(0x007CC979)) // (the memory manager set up, if it isn't)
                         Mem::EnsureManager();
                     auto* vertices = static_cast<Mth::Vector*>(MemManager()->Allocate(count * sizeof(Mth::Vector), 1, nullptr));
                     // (the original runs the vertices' empty constructor over the block, 0x00401020 with 0x005902E0)
-                    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x0048DF80)(geometry, vertices);
+                    GeometrySlot<void(__thiscall*)(void*, Mth::Vector*)>(geometry, 37)(geometry, vertices);
                     for (int i = 0; i < count; ++i)
                         box.AddPoint(vertices[i]);
                     MemManager()->Free(vertices);
@@ -369,7 +388,7 @@ bool __cdecl KillFromNodeName(uint32_t name, Script::CScript* script)
         Obj::Proxim_SetActive(name, 0);
         return true;
     case kClassA0E52802:
-        GameFunction<void(__cdecl*)(uint32_t)>(0x0048FCA0)(name);
+        Nx::DeleteSceneLight(name);
         return true;
     case kClassEmitterObject:
         Obj::Emitter_SetActive(name, 0);
@@ -414,7 +433,7 @@ constexpr uint32_t kGeometryRemove = 0x2D7E583B;  // (name unknown) removed from
 constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // CParkEditor::kStateOff
 
 // The sector named `name` in any scene (0x0048C510; null if none).
-uint8_t* FindSector(uint32_t name) { return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+uint8_t* FindSector(uint32_t name) { return static_cast<uint8_t*>(Nx::Engine::GetSector(name)); }
 bool ParkEditorOff() { return *reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) == kParkEditorOff; }
 Obj::CTrickObjectManager* TrickObjects() { return GameVariable<Obj::CTrickObjectManager*>(0x007CE500); }
 
@@ -432,7 +451,6 @@ Obj::CTrickObjectManager* TrickObjects() { return GameVariable<Obj::CTrickObject
 bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
 {
     Mem::PushMemProfile(reinterpret_cast<const char*>(0x006501DC)); // "ParseNodeArray"
-    uint8_t* skate = Skate();
     auto* nodes = reinterpret_cast<Script::CArray*>(SkateScript::GetNodeOwnerValue58());
     Obj::CRailManager* rails = RailManager();
     if (!params || !params->ContainsFlag(reinterpret_cast<const char*>(0x006501D0))) { // "no_cleanup"
@@ -440,8 +458,8 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
         Obj::Emitter_Init();
         RailManager()->Cleanup();
         TrickObjects()->RemoveAllClusters();
-        GameFunction<void(__cdecl*)()>(0x0048EF00)();
-        GameFunction<void(__cdecl*)()>(0x0048FDA0)();
+        Nx::DeleteDynamicLights();
+        Nx::DeleteAllSceneLights();
         Mem::PushMemProfile(reinterpret_cast<const char*>(0x006501C4)); // "Rail Nodes"
         rails->AddFromNodeArray(nodes);
         Mem::PopMemProfile();
@@ -485,7 +503,7 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
                     SetActive(sector, false);
                 }
                 if (node->ContainsFlag(kOccluder)) {
-                    GameFunction<void(__thiscall*)(void*, int)>(0x0049EA60)(sector, 1);
+                    AsSector(sector)->SetOccluder(true);
                     SetActive(sector, false);
                     if (!node->ContainsFlag(kCreatedAtStart))
                         SetOccluder(name, 0);
@@ -496,7 +514,7 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
             } else {
                 uint32_t cloneFrom = 0;
                 node->GetChecksum(kCloneFrom, &cloneFrom, 0);
-                if (!cloneFrom && !GameFunction<bool(__thiscall*)(uint8_t*)>(0x005651F0)(skate) && ParkEditorOff()) {
+                if (!cloneFrom && !Mdl::Skate::IsMultiplayer() && ParkEditorOff()) {
                     // "FAILED BECAUSE: Cannot find level geometry or collision for node %d ..."
                     Dbg::Printf(reinterpret_cast<const char*>(0x006500B0), i, Script::FindChecksumNameOrUnknown(name));
                 }
@@ -539,10 +557,10 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
     Mem::PopMemProfile();
     rails->RemoveOverlapsIfNotPark();
     if (!Script::GetInteger(kNoGapChecklist))
-        GameFunction<Game::CGapChecklist*(__thiscall*)(uint8_t*)>(0x005656C0)(Skate())->Build();
+        static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(Skate())->GetGapChecklist())->Build();
     for (SceneNode* at = FirstScene(); at;) {
         SceneNode* next = NextScene(at);
-        GameFunction<void(__thiscall*)(void*, int)>(0x0049E1B0)(at->scene, 0);
+        AsScene(at->scene)->UpdateSuperSectorsIfMarked(nullptr);
         at = next;
     }
     for (uint32_t i = 0; i < nodes->m_size; ++i) {
@@ -550,7 +568,7 @@ bool __cdecl CFunc_ParseNodeArray(Script::CStruct* params, Script::CScript*)
         uint32_t nodeClass = 0;
         node->GetChecksum(kClass, &nodeClass, 0);
         if (nodeClass == kClassA0E52802)
-            GameFunction<void(__cdecl*)(Script::CStruct*)>(0x00490570)(node);
+            Nx::CreateLightFromNode(node);
     }
     Mem::PopMemProfile();
     return true;
@@ -574,7 +592,7 @@ bool __cdecl CFunc_ReLoadNodeArray(Script::CStruct*, Script::CScript* script)
     file->GetString(0u, &name, 1);
     SkateScript::NodeManagerInstance()->RemoveNodeArrayOfFile(name);
     CFunc_NodeArrayManLoad(file, script);
-    GameFunction<void(__cdecl*)(const char*, int)>(0x005A5960)(nodeArrayName, 0);
+    Script::LoadQBFile(nodeArrayName, 0);
     SkateScript::GetLastNodeArray();
     uint32_t last = nodeManager->GetLastNodeArrayName();
     nodeManager->RemoveNodeArray(last);
@@ -646,7 +664,7 @@ bool __cdecl SetNodeHidden(uint32_t name, bool hide, int secondViewport)
     if (!node->GetChecksum(kName, &sectorName, 0))
         return true;
     uint8_t* sector = FindSceneSector(sectorName);
-    uint32_t mask = GameFunction<uint32_t(__thiscall*)(void*)>(0x0049E690)(sector); // (not checked for null)
+    uint32_t mask = AsSector(sector)->GetVisibility(); // (not checked for null)
     uint32_t bit = secondViewport == 1 ? 2u : 1u;
     SetVisibility(sector, hide ? mask & ~bit : mask | bit);
     return true;
@@ -677,7 +695,7 @@ bool __cdecl NodeIsAlive(uint32_t name)
     uint32_t sectorName = 0;
     if (!node->GetChecksum(kName, &sectorName, 0))
         return true;
-    return GameFunction<bool(__thiscall*)(void*)>(0x0049E9E0)(FindSceneSector(sectorName)); // (not checked for null)
+    return AsSector(FindSceneSector(sectorName))->IsActive(); // (not checked for null)
 }
 
 // 0x005A3E80: the node `name`'s colour (0x99A9B716 of `params`, 0xBBGGRR (0x808080), with alpha 0x80): a level
@@ -730,7 +748,7 @@ bool __cdecl ShatterNode(uint32_t name)
     if (!node->GetChecksum(kName, &sectorName, 0))
         return true;
     uint8_t* sector = FindSceneSector(sectorName); // (not checked for null)
-    GameFunction<void(__thiscall*)(void*, int)>(0x004A1090)(sector, 1); // (a jump to vtable +4)
+    reinterpret_cast<void(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(sector))[1])(sector, 1); // (0x004A1090: a jump to vtable +4)
     return true;
 }
 
@@ -762,7 +780,7 @@ bool __cdecl NodeCommand(uint32_t name, int action, Script::CScript* script, Scr
     int secondViewport = 0;
     if (script && script->m_object.Get() && !gameNet->InNetGame() && GameVariable<int>(0x00701378) == 2 &&
         script->m_object.Get() == reinterpret_cast<Obj::CObject*>(
-                                       GameFunction<void*(__thiscall*)(uint8_t*, int)>(0x005665C0)(Skate(), 1)))
+                                       reinterpret_cast<Mdl::Skate*>(Skate())->GetSkater(1)))
         secondViewport = 1;
     switch (action) {
     case 0:
@@ -815,7 +833,7 @@ bool __cdecl NodeCommandByName(Script::CStruct* params, Script::CScript* script,
 // 0x005A4FF0: Create name= / prefix=: the dead objects flushed first (the CFunction 0x005B0A40), then made.
 bool __cdecl CFunc_Create(Script::CStruct* params, Script::CScript* script)
 {
-    GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x005B0A40)(nullptr, nullptr);
+    CFunc_FlushDeadObjects(nullptr, nullptr);
     return NodeCommandByName(params, script, 0);
 }
 
@@ -874,14 +892,13 @@ bool __cdecl CFunc_Shatter(Script::CStruct* params, Script::CScript* script)
     int value33DF = 0;
     params->GetInteger(0x33DF5E27u, &value33DF, 0);
     float minimumArea = 2000.0f;
-    if (GameFunction<bool(__thiscall*)(uint8_t*)>(0x005651F0)(Skate()))
+    if (Mdl::Skate::IsMultiplayer())
         minimumArea = GameVariable<float>(0x006453D0); // (5000)
     if (area < minimumArea)
         area = minimumArea;
-    GameFunction<void(__cdecl*)(Mth::Vector*, Script::VectorValue*, float, float, float, float, float, float, float, float,
-                                uint32_t, uint32_t, int)>(0x00491110)(&velocity, &vector, valueC483, area, valueBD30,
-                                                                      value834A, valueE632, value7DC3, valueF01B,
-                                                                      value2E1C, checksumB3DE, checksumAF1A, value33DF);
+    Nx::Engine::SetShatterParams(&velocity, reinterpret_cast<const Mth::Vector*>(&vector), valueC483, area, valueBD30,
+                                 value834A, valueE632, value7DC3, valueF01B, value2E1C, checksumB3DE, checksumAF1A,
+                                 value33DF);
     return NodeCommandByName(params, script, 4);
 }
 

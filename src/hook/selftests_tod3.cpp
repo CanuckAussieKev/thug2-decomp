@@ -32,6 +32,9 @@
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -339,7 +342,7 @@ void Install(StandIns& s)
     simple(0x00554110, 0, 0x4110, [](Regs&) { return g_tg_flag554110 ? 1u : 0u; });
     simple(0x00554220, 0, 0x4220, [](Regs&) { return g_tg_flag554220 ? 1u : 0u; });
     simple(0x005541E0, 8, 0x41E0, [](Regs&) { return g_tg_flag5541E0 ? 1u : 0u; });
-    s.At({0x005591B0}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kMisc);
     });
@@ -347,7 +350,7 @@ void Install(StandIns& s)
     simple(0x00558180, 4, 0x8180, zero);
     simple(0x00557FC0, 8, 0x7FC0, zero);
     // The skater and its score.
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Rec(0x6520, {r.ecx});
         return g_tg_localSkater ? At(g_tg_localSkater) : 0u;
     });
@@ -355,7 +358,7 @@ void Install(StandIns& s)
         Rec(0x0480, {r.ecx});
         return At(kScore);
     });
-    s.At({0x00561B40}, 0, [](Regs& r) {
+    s.At({0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, [](Regs& r) {
         Rec(0x1B40, {r.ecx});
         return *reinterpret_cast<uint32_t*>(r.ecx);
     });
@@ -368,7 +371,7 @@ void Install(StandIns& s)
     };
     count(0x005624C0, 0x24C0);
     count(0x00562510, 0x2510);
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Rec(0x4F80, {r.ecx, r.args[0]});
         return At(kMisc + 0x20);
     });

@@ -14,6 +14,9 @@
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/ed/rail_editor.h"
+#include "game/ed/goal_editor.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -51,8 +54,8 @@ CCursor* Cursor() { return CCursor::sInstance(); }
 CParkEditor* Editor() { return CParkEditor::Instance(); }
 bool HaveCursor() { return CCursor::sInstance() != nullptr; }
 CGapManager* GapManager() { return CGapManager::sInstance(); }
-void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
-void* GoalEditor() { return GameFunction<void*(__cdecl*)()>(0x004E8470)(); }
+CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }
+CGoalEditorComponent* GoalEditor() { return CGoalEditorComponent::Get(); }
 
 // GetParkEdMemStats's compiled-out report (the empty 0x005480A0, given the script).
 inline void PrintMemStats(Script::CScript* /*script*/) {}
@@ -332,12 +335,10 @@ bool __cdecl CFunc_CanCleanlyResizePark(Script::CStruct* params, Script::CScript
     Rectangle goals;
     WorldRectangles(area, &rails, &goals);
     // 0x004F4600: whether a rail point lies outside the rectangle
-    if (GameFunction<bool(__thiscall*)(void*, float, float, float, float)>(0x004F4600)(RailEditor(), rails.x0, rails.z0,
-                                                                                       rails.x1, rails.z1))
+    if (RailEditor()->AnyPointOutside(rails.x0, rails.z0, rails.x1, rails.z1))
         clean = false;
     // 0x004E8300: whether a goal of the park lies outside the rectangle
-    if (GameFunction<bool(__thiscall*)(void*, float, float, float, float)>(0x004E8300)(GoalEditor(), goals.x0, goals.z0,
-                                                                                       goals.x1, goals.z1))
+    if (GoalEditor()->AnyParkGoalOutside(goals.x0, goals.z0, goals.x1, goals.z1))
         clean = false;
     return clean;
 }
@@ -354,12 +355,9 @@ void __cdecl ResizeTo(GridDims area)
     Rectangle goals;
     WorldRectangles(area, &rails, &goals);
     // 0x004F74B0: the rails' points outside the rectangle removed
-    GameFunction<void(__thiscall*)(void*, float, float, float, float, int)>(0x004F74B0)(RailEditor(), rails.x0,
-                                                                                         rails.z0, rails.x1,
-                                                                                         rails.z1, 0);
+    RailEditor()->DeletePoints(rails.x0, rails.z0, rails.x1, rails.z1, 0);
     // 0x004E8390: the park's goals outside the rectangle removed
-    GameFunction<void(__thiscall*)(void*, float, float, float, float)>(0x004E8390)(GoalEditor(), goals.x0, goals.z0,
-                                                                                   goals.x1, goals.z1);
+    GoalEditor()->RemoveParkGoalsOutside(goals.x0, goals.z0, goals.x1, goals.z1);
     if (HaveCursor())
         Cursor()->RemoveClipboardsTooBig();
     if (HaveCursor())
@@ -533,7 +531,7 @@ bool __cdecl CFunc_SwitchToParkEditorCamera(Script::CStruct*, Script::CScript*)
         }
     }
     // 0x0059F890: the active camera - the rail editor's while placing rails, else parked_cam
-    auto setCamera = GameFunction<void(__cdecl*)(uint32_t, int, int)>(0x0059F890);
+    auto setCamera = [](uint32_t id, int viewport, int takeCurrentView) { CFuncs::MakeCameraActive(id, viewport, takeCurrentView != 0); };
     if (HaveCursor() && Cursor()->m_mode == CCursor::kModeRailPlacement)
         setCamera(kRailEditorCam, 0, 0);
     else

@@ -72,6 +72,25 @@
 #include "game/skater/skater.h"
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
+#include "game/gfx/anim_cache.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_imposters.h"
+#include "game/gfx/engine_scene.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/scene_lights.h"
+#include "game/gfx/sector.h"
+#include "game/gfx/texture_dict.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/viewport_list.h"
+#include "game/goals/goal_manager.h"
+#include "game/script/script_startup.h"
+#include "game/script/trick_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -146,7 +165,7 @@ void StandInCalls(StandIns& s)
         Record({0x0090, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0048C8F0}, 0, [](Regs&) { Record({0xC8F0}); return 0u; });
+    s.At({0x0048C8F0, AddressOf(&Nx::PrintCollStatics)}, 0, [](Regs&) { Record({0xC8F0}); return 0u; });
     s.At({0x00401C30, AddressOf(static_cast<int (*)(const char*, ...)>(&Dbg::Printf))}, 0, [](Regs& r) {
         const char* format = reinterpret_cast<const char*>(r.args[0]);
         Record({0x1C30, Hash(format)});
@@ -177,9 +196,9 @@ void StandInCalls(StandIns& s)
         Record({0x19F0, r.ecx, r.args[0]});
         return g_hasObject ? reinterpret_cast<uint32_t>(g_fakes->object) : 0u;
     });
-    s.At({0x004A09C0}, 0, [](Regs& r) { Record({0x09C0, r.args[0]}); return reinterpret_cast<uint32_t>(g_fakes->camera); });
-    s.At({0x004A0970}, 0, [](Regs& r) { Record({0x0970, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) { Record({0x09C0, r.args[0]}); return reinterpret_cast<uint32_t>(g_fakes->camera); });
+    s.At({0x004A0970, AddressOf(&Nx::SetCamera)}, 0, [](Regs& r) { Record({0x0970, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_fakes->profile);
     });
@@ -242,7 +261,7 @@ void StandInCalls(StandIns& s)
         Record({0xD670, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 1u;
     });
-    s.At({0x00565680}, 0, [](Regs& r) { Record({0x5680, Rel(r.args[0]), r.args[1]}); return 0x00FE0000u; });
+    s.At({0x00565680, AddressOf(&Mdl::Skate::GetPreferences)}, 0, [](Regs& r) { Record({0x5680, Rel(r.args[0])}); return 0x00FE0000u; });
     s.At({0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, [](Regs& r) {
         Record({0xC4A0, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_preference->Struct());
@@ -502,19 +521,19 @@ void StandInFlowCalls(StandIns& s)
         });
     };
     simple({0x0048C1B0, AddressOf(&Stubs::DoNothing)}, 0, 0xC1B0, 0);
-    simple({0x005591B0}, 0, 0x91B0, 0, 0x00517F00);
-    simple({0x00558250}, 4, 0x8250, 3);
-    simple({0x0055BEF0}, 0, 0xBEF0, 1);
+    simple({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, 0x91B0, 0, 0x00517F00);
+    simple({0x00558250, AddressOf(&Game::CGoalManager::DeactivateAllGoals)}, 4, 0x8250, 3);
+    simple({0x0055BEF0, AddressOf(&Game::CGoalManager::RemoveAllGoals)}, 0, 0xBEF0, 1);
     simple({0x00572BD0, AddressOf(&Gfx::CTODManager::ClearDeadObjects)}, 0, 0x2BD0, 1);
     simple({0x0058DB30, AddressOf(&Ed::CParkEditor::Leave)}, 0, 0xDB30, 1);
-    simple({0x005666A0}, 0, 0x66A0, 1);
-    simple({0x0048E260}, 0, 0xE260, 1);
-    simple({0x00492340}, 0, 0x2340, 0);
-    simple({0x00480660}, 0, 0x0660, 0, 0x00FA2700);
-    simple({0x00480DB0}, 4, 0x0DB0, 3);
-    simple({0x00490DE0}, 0, 0x0DE0, 4);
+    simple({0x005666A0, AddressOf(&Mdl::Skate::Cleanup)}, 0, 0x66A0, 1);
+    simple({0x0048E260, AddressOf(&Nx::CImposterManager::DeleteAll)}, 0, 0xE260, 1);
+    simple({0x00492340, AddressOf(&Nx::Engine::KillAllEffects)}, 0, 0x2340, 0);
+    simple({0x00480660, AddressOf(&Gfx::CAnimCache::Get)}, 0, 0x0660, 0, 0x00FA2700);
+    simple({0x00480DB0, AddressOf(&Gfx::CAnimCache::Flush)}, 4, 0x0DB0, 3);
+    simple({0x00490DE0, AddressOf(&Nx::Engine::EnableFog)}, 0, 0x0DE0, 4);
     simple({0x00475700, AddressOf(&Script::DeleteFinishedScripts)}, 0, 0x5700, 0);
-    simple({0x0048FB60}, 0, 0xFB60, 0);
+    simple({0x0048FB60, AddressOf(&Nx::UninitLightManager)}, 0, 0xFB60, 0);
     simple({0x0047B1B0, AddressOf(&Sfx::CSfxManager::CleanUp)}, 0, 0xB1B0, 1);
     s.At({0x00407F50, AddressOf(&Ass::CAssMan::UnloadAllAssetsOfType)}, 8, [](Regs& r) {
         Record({0x7F50, r.ecx, r.args[0] & 0xFF, r.args[1]});
@@ -524,7 +543,7 @@ void StandInFlowCalls(StandIns& s)
         Record({0x7F20, r.ecx, r.args[0] & 0xFF});
         return 0u;
     });
-    simple({0x005A59B0}, 0, 0x59B0, 2);
+    simple({0x005A59B0, AddressOf(&Script::UnloadQBFile)}, 0, 0x59B0, 2);
     s.At({0x00445120, AddressOf(&CFuncs::CFunc_UnloadAllLevelGeometry)}, 0, [](Regs& r) {
         Record({0x5120, r.args[0], r.args[1]});
         return 1u;
@@ -548,13 +567,13 @@ void StandInFlowCalls(StandIns& s)
         Record({0x7130, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 1u;
     });
-    simple({0x004A0760}, 0, 0x0760, 0);
-    simple({0x0048FDE0}, 0, 0xFDE0, 0);
-    simple({0x0049EFB0}, 0, 0xEFB0, 2);
+    simple({0x004A0760, AddressOf(&Nx::DeleteMarkedCameras)}, 0, 0x0760, 0);
+    simple({0x0048FDE0, AddressOf(&Nx::ClearSceneLightQueue)}, 0, 0xFDE0, 0);
+    simple({0x0049EFB0, AddressOf(&Nx::FlushParticleTextures)}, 0, 0xEFB0, 2);
     simple({0x004694E0, AddressOf(&Obj::CPathManager::Instance)}, 0, 0x94E0, 0, 0x00BA7000);
     simple({0x00469820, AddressOf(&Obj::CPathManager::Free)}, 0, 0x9820, 1);
-    s.At({0x005656D0}, 0, [](Regs& r) { Record({0x56D0, r.ecx}); return g_netHeaps ? 1u : 0u; });
-    s.At({0x00565700}, 0, [](Regs& r) { Record({0x5701, r.ecx}); return g_internetHeaps ? 1u : 0u; });
+    s.At({0x005656D0, AddressOf(&Mdl::Skate::InNetGameLevel)}, 0, [](Regs& r) { Record({0x56D0, r.ecx}); return g_netHeaps ? 1u : 0u; });
+    s.At({0x00565700, AddressOf(&Mdl::Skate::InFrontEndOrNetMode)}, 0, [](Regs& r) { Record({0x5701, r.ecx}); return g_internetHeaps ? 1u : 0u; });
     simple({0x0045EFD0, AddressOf(&Obj::DestroyCoimHeap)}, 0, 0xEFD0, 0);
     simple({0x005BB560, AddressOf(&Mem::Manager::InitNetMiscHeap)}, 0, 0xB560, 1);
     simple({0x005BB660, AddressOf(&Mem::Manager::InitInternetHeaps)}, 0, 0xB660, 1);
@@ -593,7 +612,7 @@ void StandInFlowCalls(StandIns& s)
         return reinterpret_cast<uint32_t>(g_prefixNodes);
     });
     // skater scripts
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return (g_skaterMask >> 8) & 1 ? reinterpret_cast<uint32_t>(g_fakes->skater) : 0u;
     });
@@ -632,10 +651,10 @@ void StandInFlowCalls(StandIns& s)
         Record({0xF5D0, r.ecx, r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x00553170}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
-    s.At({0x00564D50}, 4, [](Regs& r) { Record({0x4D50, r.ecx, r.args[0]}); return 0u; });
+    s.At({0x00553170, AddressOf(&Game::CGameMode::GetTimeLimit)}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
+    s.At({0x00564D50, AddressOf(&Mdl::Skate::SetUnknown370)}, 4, [](Regs& r) { Record({0x4D50, r.ecx, r.args[0]}); return 0u; });
     s.At({0x0054ECA0, AddressOf(&Mdl::FrontEnd::PadsPluggedIn)}, 0, [](Regs& r) { Record({0xECA0, Rel(r.ecx)}); return 0x100u; });
-    s.At({0x004923E0}, 0, [](Regs& r) {
+    s.At({0x004923E0, AddressOf(&Nx::Engine::AddFlash)}, 0, [](Regs& r) {
         Record({0x23E0, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5],
                 Hash(reinterpret_cast<const char*>(r.args[6]))});
         return 0u;
@@ -905,9 +924,9 @@ void StandInNetCalls(StandIns& s)
     simple({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110, 1);
     simple({0x0056DEE0, AddressOf(&Mdl::SkateNet::StartServer)}, 0, 0xDEE0, 1);
     simple({0x00533F70, AddressOf(&GameNet::Manager::InLanMode)}, 0, 0x3F70, 1, 0x55);
-    simple({0x0056B890}, 0, 0xB890, 1);
+    simple({0x0056B890, AddressOf(&Mdl::Skate::LeaveServer)}, 0, 0xB890, 1);
     simple({0x00472830, AddressOf(&Script::ProcessPendingSymbols)}, 0, 0x2830, 0);
-    s.At({0x00553190}, 0, [](Regs& r) { Record({0x3190, r.ecx}); return g_players; });
+    s.At({0x00553190, AddressOf(&Game::CGameMode::GetInitialNumberOfPlayers)}, 0, [](Regs& r) { Record({0x3190, r.ecx}); return g_players; });
     s.At({0x00537220, AddressOf(&GameNet::Manager::SpawnClient)}, 0x10, [](Regs& r) {
         Record({0x7220, Rel(r.ecx), r.args[0] & 0xFF, r.args[1] & 0xFF, r.args[2] & 0xFF, r.args[3]});
         return 0x00C11E00u + r.args[3];
@@ -971,7 +990,7 @@ void StandInNetCalls(StandIns& s)
     simple({0x0044ED70, AddressOf(&Tmr::SetGameClockSpeed)}, 0, 0xED70, 2);
     simple({0x00533130, AddressOf(&GameNet::Manager::TogglePlayerNames)}, 0, 0x3130, 1);
     s.At({0x00533140, AddressOf(&GameNet::Manager::ShouldDrawPlayerNames)}, 0, [](Regs& r) { Record({0x3140, Rel(r.ecx)}); return g_drawNames ? 1u : 0u; });
-    simple({0x00564FD0}, 0, 0x4FD0, 1);
+    simple({0x00564FD0, AddressOf(&Mdl::Skate::SetCurrentGameType)}, 0, 0x4FD0, 1);
 }
 
 void TestNetStateCFuncs()
@@ -1166,7 +1185,7 @@ void StandInServerListCalls(StandIns& s)
         return 0u;
     });
     simple({0x0053AA70, AddressOf(&GameNet::Manager::SendObserveRequest)}, 0, 0xAA70, 1);
-    simple({0x005651D0}, 0, 0x51D0, 1);
+    simple({0x005651D0, AddressOf(&Mdl::Skate::ObserveNextSkater)}, 0, 0x51D0, 0); // (static in ours: no `this`)
     simple({0x00547E80, AddressOf(&GameNet::Manager::RefreshServerList)}, 4, 0x7E80, 5);
     simple({0x00545300, AddressOf(&GameNet::Manager::StartServerList)}, 0, 0x5300, 1);
     s.At({0x005451C0, AddressOf(&GameNet::Manager::GetServiceState)}, 0, [](Regs&) { Record({0x51C0}); return static_cast<uint32_t>(g_serviceState); });
@@ -1174,17 +1193,17 @@ void StandInServerListCalls(StandIns& s)
     simple({0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0, 3);
     simple({0x00545370, AddressOf(&GameNet::Manager::StopServerList)}, 0, 0x5370, 1);
     simple({0x005462F0, AddressOf(&GameNet::Manager::ClearServerList)}, 0, 0x62F0, 1);
-    s.At({0x005651F0}, 0, [](Regs& r) { Record({0x51F0, r.ecx}); return static_cast<uint32_t>(g_modeMatch & 1); });
+    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return static_cast<uint32_t>(g_modeMatch & 1); }); // (static in ours: no `this`)
     s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs&) { Record({0xE4F0}); return g_modeMatch & 2 ? 1u : 0u; });
-    simple({0x005536D0}, 0, 0x36D0, 1);
-    s.At({0x00553220}, 4, [](Regs& r) { Record({0x3220, r.ecx, r.args[0]}); return r.args[0] == static_cast<uint32_t>(g_modeMatch) ? 1u : 0u; });
+    simple({0x005536D0, AddressOf(&Game::CGameMode::IncrementRound)}, 0, 0x36D0, 1);
+    s.At({0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, [](Regs& r) { Record({0x3220, r.ecx, r.args[0]}); return r.args[0] == static_cast<uint32_t>(g_modeMatch) ? 1u : 0u; });
     s.At({0x004783C0, AddressOf(&CStruct::AddComponentOfType)}, 0xC, [](Regs& r) {
         Record({0x83C0, Rel(r.ecx), r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
-    simple({0x005668A0}, 0, 0x68A0, 1);
+    simple({0x005668A0, AddressOf(&Mdl::Skate::RestartLevel)}, 0, 0x68A0, 1);
     simple({0x00535BF0, AddressOf(&GameNet::Manager::ToggleScores)}, 0, 0x5BF0, 1);
-    simple({0x00552E30}, 4, 0x2E30, 3);
+    simple({0x00552E30, AddressOf(&Game::CGameFlow::Request)}, 4, 0x2E30, 3);
 }
 
 void TestServerListCFuncs()
@@ -1345,15 +1364,15 @@ void StandInLobbyCalls(StandIns& s)
                 GameVariable<uint32_t>(0x007CEBC8)});
         return 0u;
     });
-    simple({0x004A0C20}, 0, 0x0C20, 2);
+    simple({0x004A0C20, AddressOf(&Nx::CFunc_SetScreenMode)}, 0, 0x0C20, 2);
     s.At({0x00580480, AddressOf(&Obj::CSkater::GetScore)}, 0, [](Regs& r) {
         Record({0x0480, Rel(r.ecx)});
         return g_skaterMask & 0x200 ? 0x005C0E00u : 0u;
     });
-    simple({0x005626E0}, 0, 0x26E0, 1);
-    s.At({0x00553630}, 0, [](Regs&) { Record({0x3630}); return g_screenMode; });
-    s.At({0x004A0710}, 0, [](Regs&) { Record({0x0710}); return g_currentScreenMode; });
-    simple({0x004A0AD0}, 0, 0x0AD0, 2);
+    simple({0x005626E0, AddressOf(&Mdl::Score::RefreshBalanceMeter)}, 0, 0x26E0, 1);
+    s.At({0x00553630, AddressOf(&Game::CGameMode::GetScreenMode)}, 0, [](Regs&) { Record({0x3630}); return g_screenMode; });
+    s.At({0x004A0710, AddressOf(&Nx::GetScreenMode)}, 0, [](Regs&) { Record({0x0710}); return g_currentScreenMode; });
+    simple({0x004A0AD0, AddressOf(&Nx::SetScreenMode)}, 0, 0x0AD0, 2);
     s.At({0x006234FE}, 0, StandInSprintf);
     using ArrayFn = Script::CArray* (*)(uint32_t);
     s.At({0x00479070, AddressOf(static_cast<ArrayFn>(&Script::GetArray))}, 0, [](Regs& r) {
@@ -1601,11 +1620,11 @@ void StandInViewerModeCalls(StandIns& s)
         Record({0x7B80, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00553170}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
-    simple({0x005532D0}, 0, 0x32D0, 1, 0x60A15);
-    simple({0x005532A0}, 0, 0x32A0, 1, 0x60DE);
-    s.At({0x00565ED0}, 8, [](Regs& r) { Record({0x5ED0, r.ecx, r.args[0], Rel(r.args[1])}); return 0u; });
-    simple({0x00565F80}, 0, 0x5F80, 1, 0x100);
+    s.At({0x00553170, AddressOf(&Game::CGameMode::GetTimeLimit)}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
+    simple({0x005532D0, AddressOf(&Game::CGameMode::GetGoalsMode)}, 0, 0x32D0, 1, 0x60A15);
+    simple({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, 1, 0x60DE);
+    s.At({0x00565ED0, AddressOf(&Mdl::Skate::RunScript)}, 8, [](Regs& r) { Record({0x5ED0, r.ecx, r.args[0], Rel(r.args[1])}); return 0u; });
+    simple({0x00565F80, AddressOf(&Mdl::Skate::KillScript)}, 0, 0x5F80, 1, 0x100);
 }
 
 void TestViewerModeCFuncs()
@@ -1800,9 +1819,9 @@ void StandInNodeCalls(StandIns& s)
     s.At({0x00623F3E}, 0, [](Regs& r) { Record({0x3F3E, r.args[0], r.args[1], r.args[2], r.args[3]}); return r.args[2]; });
     s.At({0x00623E04}, 0, [](Regs& r) { Record({0x3E04, r.args[0]}); return 0u; });
     s.At({0x0062411B}, 0, [](Regs& r) { Record({0x411B, r.args[0]}); return 0u; });
-    s.At({0x00487420}, 8, [](Regs& r) { Record({0x7420, Rel(r.ecx), r.args[0], r.args[1]}); return 0u; });
-    s.At({0x00487520}, 4, [](Regs& r) { Record({0x7520, Rel(r.ecx), r.args[0]}); return 0u; });
-    s.At({0x00564FC0}, 4, [](Regs& r) {
+    s.At({0x00487420, AddressOf(&Gfx::CFaceTexture::SetImage)}, 8, [](Regs& r) { Record({0x7420, Rel(r.ecx), r.args[0], r.args[1]}); return 0u; });
+    s.At({0x00487520, AddressOf(&Gfx::CFaceTexture::SetValid)}, 4, [](Regs& r) { Record({0x7520, Rel(r.ecx), r.args[0]}); return 0u; });
+    s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4FC0, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_fakes->profile);
     });
@@ -1956,13 +1975,15 @@ void TestNodeTrackingCFuncs()
 
 // Stand-in scenes: a list of two (the third node ends it), each with a sector table of three sectors.
 struct FakeSector {
-    uint32_t unknown0;
+    void** vtable;   // +0 (it is its own geometry: the geometry's virtual slots are called through this)
     uint32_t name;   // +4
     uint32_t flags;  // +8
     uint32_t active;
     int vertexCount;
+    FakeSector* geometry; // +0x14: the sector's geometry (CSector::mp_geom): itself
     float base;
 };
+void* g_fakeSectorVtable[64]; // slot 1 (the shatter switch) and the vertex slots 36, 37: the stood-in addresses
 struct FakeScene {
     uint8_t unknown[0xD0];
     Lst::HashTable* sectors; // +0xD0
@@ -1989,6 +2010,11 @@ void SetUpScenes()
         for (int i = 0; i < 3; ++i) {
             FakeSector& sector = g_sectors[s][i];
             sector = FakeSector{};
+            sector.vtable = g_fakeSectorVtable;
+            sector.geometry = &sector;
+            g_fakeSectorVtable[1] = reinterpret_cast<void*>(0x004A1090);
+            g_fakeSectorVtable[36] = reinterpret_cast<void*>(0x0048DF70);
+            g_fakeSectorVtable[37] = reinterpret_cast<void*>(0x0048DF80);
             sector.name = 0x5EC0 + 0x10 * s + i;
             sector.flags = 0x1100 + i;
             sector.active = (s + i) % 3 != 1;
@@ -2018,7 +2044,7 @@ void StandInNodeObjectCalls(StandIns& s)
             return result;
         });
     };
-    s.At({0x0048C7F0}, 0, [](Regs&) {
+    s.At({0x0048C7F0, AddressOf(&Nx::FirstSceneNode)}, 0, [](Regs&) {
         Record({0xC7F0});
         if (!g_sceneCount)
             return 0u;
@@ -2026,8 +2052,8 @@ void StandInNodeObjectCalls(StandIns& s)
         g_sceneNodes[g_sceneCount].next = nullptr;
         return reinterpret_cast<uint32_t>(&g_sceneNodes[0]);
     });
-    s.At({0x0049E9E0}, 0, [](Regs& r) { Record({0xE9E0, reinterpret_cast<FakeSector*>(r.ecx)->name}); return reinterpret_cast<FakeSector*>(r.ecx)->active; });
-    s.At({0x004A2BA0}, 0, [](Regs& r) { Record({0x2BA0, reinterpret_cast<FakeSector*>(r.ecx)->name}); return r.ecx; });
+    s.At({0x0049E9E0, AddressOf(&Nx::CSector::IsActive)}, 0, [](Regs& r) { Record({0xE9E0, reinterpret_cast<FakeSector*>(r.ecx)->name}); return reinterpret_cast<FakeSector*>(r.ecx)->active; });
+    // (a sector's geometry, +0x14, is read as it is: the sector itself)
     s.At({0x0048DF70}, 0, [](Regs& r) { Record({0xDF70}); return static_cast<uint32_t>(reinterpret_cast<FakeSector*>(r.ecx)->vertexCount); });
     s.At({0x0048DF80}, 4, [](Regs& r) {
         auto* sector = reinterpret_cast<FakeSector*>(r.ecx);
@@ -2062,7 +2088,7 @@ void StandInNodeObjectCalls(StandIns& s)
         Record({0xC1B0, r.args[0], r.args[1] & 0xFF});
         return g_node ? reinterpret_cast<uint32_t>(g_node->Struct()) : 0u;
     });
-    s.At({0x00565BB0}, 4, [](Regs& r) { Record({0x5BB0, Rel(r.args[0])}); return g_skipNode ? 1u : 0u; });
+    s.At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) { Record({0x5BB0, Rel(r.args[0])}); return g_skipNode ? 1u : 0u; });
     simple({0x0057B4E0, AddressOf(&Obj::CreatePed)}, 0, 0xB4E0, 2);
     s.At({0x0057D7C0, AddressOf(&Obj::CRailManager::SetActive)}, 0xC, [](Regs& r) {
         Record({0xD7C0, r.ecx, r.args[0], r.args[1], r.args[2] & 0xFF});
@@ -2083,7 +2109,7 @@ void StandInNodeObjectCalls(StandIns& s)
     simple({0x00468EC0, AddressOf(&Obj::CreateNodeObject)}, 0, 0x8EC0, 2);
     simple({0x00578170, AddressOf(&Obj::CreateCar)}, 0, 0x8170, 2);
     simple({0x00468EB0, AddressOf(&Obj::CreateGameObjectFromNode)}, 0, 0x8EB0, 2, 0x0B1EC7);
-    s.At({0x0049CB00}, 4, [](Regs& r) {
+    s.At({0x0049CB00, AddressOf(&Nx::CScene::GetSector)}, 4, [](Regs& r) {
         Record({0xCB00, Rel(r.ecx), r.args[0]});
         if (r.args[0] == g_cloneMissing)
             return 0u;
@@ -2098,28 +2124,28 @@ void StandInNodeObjectCalls(StandIns& s)
         Record({0xD110, r.args[0]});
         return reinterpret_cast<uint32_t>("<name>");
     });
-    s.At({0x0049E680}, 4, [](Regs& r) { Record({0xE680, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
-    s.At({0x0049E9B0}, 4, [](Regs& r) { Record({0xE9B0, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0] & 0xFF}); return 0u; });
-    s.At({0x0049EA30}, 4, [](Regs& r) { Record({0xEA30, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0] & 0xFF}); return 0u; });
-    s.At({0x0048BF90}, 0, [](Regs& r) { Record({0xBF90, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x0049D510}, 0x14, [](Regs& r) {
+    s.At({0x0049E680, AddressOf(&Nx::CSector::SetVisibility)}, 4, [](Regs& r) { Record({0xE680, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
+    s.At({0x0049E9B0, AddressOf(&Nx::CSector::SetActive)}, 4, [](Regs& r) { Record({0xE9B0, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0] & 0xFF}); return 0u; });
+    s.At({0x0049EA30, AddressOf(&Nx::CSector::SetCollidable)}, 4, [](Regs& r) { Record({0xEA30, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0] & 0xFF}); return 0u; });
+    s.At({0x0048BF90, AddressOf(&Nx::FlagDebugLines)}, 0, [](Regs& r) { Record({0xBF90, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x0049D510, AddressOf(&Nx::CScene::CloneSector)}, 0x14, [](Regs& r) {
         Record({0xD510, Rel(r.ecx), reinterpret_cast<FakeSector*>(r.args[0])->name, Rel(r.args[1]), r.args[2], r.args[3], r.args[4]});
         g_cloneMissing = 0;
         return 0u;
     });
-    s.At({0x0049E700}, 4, [](Regs& r) {
+    s.At({0x0049E700, AddressOf(&Nx::CSector::SetOrientation)}, 4, [](Regs& r) {
         Record({0xE700, reinterpret_cast<FakeSector*>(r.ecx)->name, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 64)});
         return 0u;
     });
-    s.At({0x0049E7C0}, 4, [](Regs& r) {
+    s.At({0x0049E7C0, AddressOf(&Nx::CSector::SetScale)}, 4, [](Regs& r) {
         Record({0xE7C0, reinterpret_cast<FakeSector*>(r.ecx)->name, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 16)});
         return 0u;
     });
-    s.At({0x0049E6C0}, 4, [](Regs& r) {
+    s.At({0x0049E6C0, AddressOf(&Nx::CSector::SetWorldPosition)}, 4, [](Regs& r) {
         Record({0xE6C0, reinterpret_cast<FakeSector*>(r.ecx)->name, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 16)});
         return 0u;
     });
-    simple({0x0048FCA0}, 0, 0xFCA0, 2);
+    simple({0x0048FCA0, AddressOf(&Nx::DeleteSceneLight)}, 0, 0xFCA0, 2);
     s.At({0x00461CC0, AddressOf(&Obj::CBaseManager::ForEach)}, 8, [](Regs& r) {
         Record({0x1CC0, r.ecx, *reinterpret_cast<uint32_t*>(r.args[1])});
         for (auto& object : g_fakes->flagObjects)
@@ -2323,14 +2349,14 @@ void StandInParseCalls(StandIns& s)
     simple({0x004683B0, AddressOf(&Obj::Emitter_Init)}, 0, 0x83B0, 0);
     simple({0x0057C330, AddressOf(&Obj::CRailManager::Cleanup)}, 0, 0xC330, 1);
     simple({0x005889F0, AddressOf(&Obj::CTrickObjectManager::RemoveAllClusters)}, 0, 0x89F0, 1, 1);
-    simple({0x0048EF00}, 0, 0xEF00, 0);
-    simple({0x0048FDA0}, 0, 0xFDA0, 0);
+    simple({0x0048EF00, AddressOf(&Nx::DeleteDynamicLights)}, 0, 0xEF00, 0);
+    simple({0x0048FDA0, AddressOf(&Nx::DeleteAllSceneLights)}, 0, 0xFDA0, 0);
     simple({0x0057E960, AddressOf(&Obj::CRailManager::AddFromNodeArray)}, 4, 0xE960, 3);
     s.At({0x004776B0, AddressOf(static_cast<void (CStruct::*)(uint32_t)>(&CStruct::RemoveComponent))}, 4, [](Regs& r) {
         Record({0x76B0, Rel(r.ecx), r.args[0]});
         return 0u;
     });
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 0, [](Regs& r) {
         Record({0xC510, r.args[0]});
         for (auto& scene : g_sectors)
             for (auto& sector : scene)
@@ -2338,14 +2364,14 @@ void StandInParseCalls(StandIns& s)
                     return reinterpret_cast<uint32_t>(&sector);
         return 0u;
     });
-    s.At({0x0049EA60}, 4, [](Regs& r) { Record({0xEA60, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
-    s.At({0x00565BB0}, 4, [](Regs& r) {
+    s.At({0x0049EA60, AddressOf(&Nx::CSector::SetOccluder)}, 4, [](Regs& r) { Record({0xEA60, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
+    s.At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
         uint32_t name = 0;
         reinterpret_cast<CStruct*>(r.args[0])->GetChecksum(0xA1DC81F9u, &name, 0);
         Record({0x5BB0, name});
         return (g_skipMask >> (name & 31)) & 1;
     });
-    s.At({0x005651F0}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
+    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
     using IntFn = int (*)(uint32_t);
     s.At({0x00478F60, AddressOf(static_cast<IntFn>(&Script::GetInteger))}, 0, [](Regs& r) {
         Record({0x8F60, r.args[0]});
@@ -2358,10 +2384,10 @@ void StandInParseCalls(StandIns& s)
     s.At({0x00468450, AddressOf(&Obj::Emitter_AddNode)}, 0, [](Regs& r) { Record({0x8450, r.args[0], r.args[1] & 0xFF}); return 0u; });
     s.At({0x005A2E50, AddressOf(&CFuncs::CreateFromNode)}, 0, [](Regs& r) { Record({0x2E50, Rel(r.args[0])}); return 1u; });
     simple({0x0057D7A0, AddressOf(&Obj::CRailManager::RemoveOverlapsIfNotPark)}, 0, 0xD7A0, 1);
-    simple({0x005656C0}, 0, 0x56C0, 1, 0x00CEC000);
+    simple({0x005656C0, AddressOf(&Mdl::Skate::GetGapChecklist)}, 0, 0x56C0, 1, 0x00CEC000);
     simple({0x00578AC0, AddressOf(&Game::CGapChecklist::Build)}, 0, 0x8AC0, 1);
-    s.At({0x0049E1B0}, 4, [](Regs& r) { Record({0xE1B0, Rel(r.ecx), r.args[0]}); return 0u; });
-    simple({0x00490570}, 0, 0x0570, 2);
+    s.At({0x0049E1B0, AddressOf(&Nx::CScene::UpdateSuperSectorsIfMarked)}, 4, [](Regs& r) { Record({0xE1B0, Rel(r.ecx), r.args[0]}); return 0u; });
+    simple({0x00490570, AddressOf(&Nx::CreateLightFromNode)}, 0, 0x0570, 2);
     // ReLoadNodeArray
     simple({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, 0xB0E0, 3);
     simple({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0xB110, 1);
@@ -2381,7 +2407,7 @@ void StandInParseCalls(StandIns& s)
         return 0u;
     });
     s.At({0x0059FB30, AddressOf(&CFuncs::CFunc_NodeArrayManLoad)}, 0, [](Regs& r) { Record({0xFB30, Rel(r.args[1])}); return 1u; });
-    s.At({0x005A5960}, 0, [](Regs& r) { Record({0x5960, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]}); return 0u; });
+    s.At({0x005A5960, AddressOf(&Script::LoadQBFile)}, 0, [](Regs& r) { Record({0x5960, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]}); return 0u; });
     simple({0x0045C210, AddressOf(&SkateScript::GetLastNodeArray)}, 0, 0xC210, 0);
     simple({0x0045D150, AddressOf(&SkateScript::CNodeManager::GetLastNodeArrayName)}, 0, 0xD150, 1, 0x1A57);
     simple({0x0045D1C0, AddressOf(&SkateScript::CNodeManager::RemoveNodeArray)}, 4, 0xD1C0, 3, 1);
@@ -2504,7 +2530,7 @@ uint32_t g_geometryVtable[8];
 
 void StandInNodeCommandCalls(StandIns& s)
 {
-    s.At({0x0049E690}, 0, [](Regs& r) {
+    s.At({0x0049E690, AddressOf(&Nx::CSector::GetVisibility)}, 0, [](Regs& r) {
         Record({0xE690, reinterpret_cast<FakeSector*>(r.ecx)->name});
         return 0x00F0u | reinterpret_cast<FakeSector*>(r.ecx)->name & 3;
     });
@@ -2523,14 +2549,14 @@ void StandInNodeCommandCalls(StandIns& s)
         *reinterpret_cast<uint16_t*>(r.args[1]) = g_prefixedCount;
         return reinterpret_cast<uint32_t>(g_prefixed);
     });
-    s.At({0x005B0A40}, 0, [](Regs& r) { Record({0x0A40, r.args[0], r.args[1]}); return 1u; });
-    s.At({0x00491110}, 0, [](Regs& r) {
+    s.At({0x005B0A40, AddressOf(&CFuncs::CFunc_FlushDeadObjects)}, 0, [](Regs& r) { Record({0x0A40, r.args[0], r.args[1]}); return 1u; });
+    s.At({0x00491110, AddressOf(&Nx::Engine::SetShatterParams)}, 0, [](Regs& r) {
         Record({0x1110, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 16), HashBytes(reinterpret_cast<const uint8_t*>(r.args[1]), 16)});
         for (int i = 2; i < 13; ++i)
             Record({r.args[i]});
         return 0u;
     });
-    s.At({0x005651F0}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
+    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
 }
 
 void TestNodeCommandCFuncs()
@@ -2564,7 +2590,7 @@ void TestNodeCommandCFuncs()
         g_geometryVtable[6] = reinterpret_cast<uint32_t>(colourSlot);
         *reinterpret_cast<uint32_t**>(g_geometry) = g_geometryVtable;
         void* geometry = g_geometry;
-        std::memcpy(&g_sectors[1][0].base, &geometry, 4); // (sector 0x5ED0's geometry, +0x14)
+        g_sectors[1][0].geometry = static_cast<FakeSector*>(geometry); // (sector 0x5ED0's geometry, +0x14)
         auto* objects = g_fakes->flagObjects;
         for (int i = 0; i < 3; ++i) {
             reinterpret_cast<uint32_t*>(objects[i])[0x14 / 4] = 0x0B10 + i;
@@ -2829,7 +2855,7 @@ void StandInMenuCalls(StandIns& s)
                 r.args[7] & 0xFF, r.args[8] & 0xFF, r.args[9] & 0xFF});
         return reinterpret_cast<uint32_t>(g_spawnedScript);
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return (g_skaterMask >> 8) & 1 ? reinterpret_cast<uint32_t>(g_fakes->skater) : 0u;
     });

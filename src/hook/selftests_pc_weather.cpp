@@ -19,6 +19,8 @@
 #include "game/gfx/texture.h"
 #include "game/mth/random.h"
 #include "game/nx/feeler.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -122,8 +124,8 @@ void TestPcWeather()
         feeler->m_point.y = static_cast<float>(((ix * 7 + iz * 3) % 5) * 37.5 + (ix & 1) * 3.0 + 0.25 * iz);
         return 1u;
     });
-    s.At({0x0048C940}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_box); });
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0048C940, AddressOf(&Nx::GetFirstCollGrid)}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_box); });
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, Relocate(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(r.args[0] == 0x45C7EB0F ? g_textures[0] : g_textures[1]);
     });

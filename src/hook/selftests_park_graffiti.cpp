@@ -13,6 +13,8 @@
 #include "game/net/net_app.h"
 #include "game/net/player_info.h"
 #include "game/obj/trick_objects.h"
+#include "game/ed/rail_editor.h"
+#include "game/goals/goal_manager.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -82,7 +84,7 @@ void* g_destructor;
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    s.At({0x005591B0}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kGoals);
     });
@@ -220,7 +222,7 @@ void TestParkGraffiti2()
         Rec(0x8200, {r.ecx, r.args[0]});
         return 1u;
     });
-    s->At({0x004F4970}, 0, [](Regs&) {
+    s->At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
         Rec(0x4970, {});
         return At(0x7900);
     });
@@ -351,7 +353,7 @@ void TestParkGraffiti4()
         Rec(0x8270, {r.ecx, r.args[0]});
         return r.ecx == g_failObject ? 0u : 1u;
     });
-    s->At({0x004F4970}, 0, [](Regs&) {
+    s->At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
         Rec(0x4970, {});
         return At(0x7900);
     });
@@ -740,7 +742,7 @@ void TestParkGraffiti7()
             Record({reinterpret_cast<const uint32_t*>(r.args[3])[i]});
         return 0u;
     });
-    s->At({0x004F4970}, 0, [](Regs&) {
+    s->At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
         Rec(0x4970, {});
         return At(0x7900);
     });

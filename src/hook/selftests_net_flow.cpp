@@ -23,6 +23,9 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/skater/walk_camera.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/skater_camera_component.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
 
@@ -89,8 +92,8 @@ void Install(StandIns& s)
     Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return 2u; });
     Stub(s, {0x00553AD0}, 4, 0x3AD0);
     Stub(s, {0x005535A0}, 4, 0x35A0);
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
-    Stub(s, {0x00553220}, 4, 0x3220, [](Regs& r) { return r.args[0] == 0x11941568 ? 1u : 0u; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, 0x3220, [](Regs& r) { return r.args[0] == 0x11941568 ? 1u : 0u; });
     // The manager's own calls not rewritten here.
     Stub(s, {0x00537620, AddressOf(&GameNet::Manager::ResetPlayers)}, 0, 0x7620);
     Stub(s, {0x00537480, AddressOf(&GameNet::Manager::GetKingOfTheHill)}, 0, 0x7480, [](Regs&) { return g_king ? At(g_king) : 0u; });
@@ -152,7 +155,7 @@ void Install(StandIns& s)
     Stub(s, {0x005814D0, AddressOf(&Obj::CSkater::Reset27C)}, 0, 0x14D0);
     Stub(s, {0x0057FEC0, AddressOf(&Obj::CSkater::GetSkaterNumber)}, 0, 0xFEC0, [](Regs& r) { return (r.ecx - At(kSkaters)) / 0x100 % 2; });
     Stub(s, {0x00565790}, 4, 0x5790);
-    Stub(s, {0x00566520}, 0, 0x6520, [](Regs&) { return At(kSkaters + 0x700); });
+    Stub(s, {0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, 0x6520, [](Regs&) { return At(kSkaters + 0x700); });
     Stub(s, {0x005782D0, AddressOf(&Obj::CCrownObject::TakeOff)}, 0, 0x82D0);
     Stub(s, {0x00589230, AddressOf(&Obj::CTrickObjectManager::ReleasePlayerClusters)}, 4, 0x9230);
     // Apps and connections.
@@ -180,7 +183,7 @@ void Install(StandIns& s)
     RecordingObject(s, 0, {{7, 4}});
     RecordingObject(s, 1, {{7, 4}});
     Word<uint32_t>(kObjects + 0x40 * 6 + 0x2C) = At(kFree + 0x1700); // a skater's physics control's state
-    Stub(s, {0x004FA3C0}, 4, 0xA3C0);
+    Stub(s, {0x004FA3C0, AddressOf(&Obj::CSkaterCameraComponent::SetSkater)}, 4, 0xA3C0);
     Stub(s, {0x00524C50, AddressOf(&Obj::CWalkCameraComponent::SetSkater)}, 4, 0x4C50);
     Stub(s, {0x00524C30, AddressOf(&Obj::CWalkCameraComponent::ResetNow)}, 0, 0x4C30);
 }

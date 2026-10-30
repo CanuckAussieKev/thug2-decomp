@@ -13,6 +13,9 @@
 #include "game/skate/skate_module.h"
 #include "game/sys/module.h"
 #include "game/sys/viewer.h"
+#include "game/gfx/weather.h"
+#include "game/gfx/screen_effects.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -29,7 +32,7 @@ constexpr uint32_t kViewerCam = 0xEB17151B; // "viewer_cam": the viewer camera o
 // prefix= names; true unless neither is given.
 bool NodeCommand(CStruct* params, CScript* script, int command)
 {
-    return GameFunction<bool(__cdecl*)(CStruct*, CScript*, int)>(0x005A4EF0)(params, script, command);
+    return CFuncs::NodeCommandByName(params, script, command);
 }
 
 // The skater's own pause and unpause (its vtable +0x2C / +0x30).
@@ -97,7 +100,7 @@ bool __cdecl CFunc_SkatersAreReady(CStruct*, CScript*)
     if (Mdl::Skate::Instance()->GetNumSkaters() > 0)
         return true;
     // IsObserving (0x005A0D90, no source yet)
-    return GameFunction<bool(__cdecl*)(CStruct*, CScript*)>(0x005A0D90)(nullptr, nullptr);
+    return CFuncs::CFunc_IsObserving(nullptr, nullptr);
 }
 
 // 0x005A54E0
@@ -132,8 +135,8 @@ bool __cdecl CFunc_AddSkaterEarly(CStruct*, CScript*)
     if (Mdl::Skate::Instance()->GetNumSkaters() == 0) {
         Mdl::Skate* skate = Mdl::Skate::Instance();
         // its profile 0 (0x00564FC0) as a new local skater (0x00567180), no id, heap 0
-        void* profile = GameFunction<void*(__thiscall*)(Mdl::Skate*, int)>(0x00564FC0)(skate, 0);
-        GameFunction<void*(__thiscall*)(Mdl::Skate*, void*, bool, int, int)>(0x00567180)(skate, profile, true, 0, 0);
+        Obj::CSkaterProfile* profile = skate->GetProfile(static_cast<int>(0));
+        skate->AddSkater(profile, true, 0, 0);
     }
     return true;
 }
@@ -143,103 +146,103 @@ bool __cdecl CFunc_AddSkaterEarly(CStruct*, CScript*)
 // 0x005A5680: its vtable +0x04 (through 0x004A1090).
 bool __cdecl CFunc_WeatherUpdateGrid(CStruct*, CScript*)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004A1090)(Weather());
+    reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(Weather()))[1])(Weather()); // (0x004A1090: a jump through the vtable +0x04)
     return true;
 }
 // 0x005A5690
 bool __cdecl CFunc_WeatherSetRainHeight(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A10B0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetRainHeight(params, script);
 }
 // 0x005A56B0
 bool __cdecl CFunc_WeatherSetRainFrames(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A10D0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetRainFrames(params, script);
 }
 // 0x005A56D0
 bool __cdecl CFunc_WeatherSetRainLength(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1110)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetRainLength(params, script);
 }
 // 0x005A56F0
 bool __cdecl CFunc_WeatherSetRainBlendMode(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1130)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetRainBlendMode(params, script);
 }
 // 0x005A5710
 bool __cdecl CFunc_WeatherSetRainRate(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1190)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetRainRate(params, script);
 }
 // 0x005A5730
 bool __cdecl CFunc_WeatherSetRainColor(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A11B0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetRainColor(params, script);
 }
 // 0x005A5750
 bool __cdecl CFunc_WeatherSetSplashRate(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1240)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSplashRate(params, script);
 }
 // 0x005A5770
 bool __cdecl CFunc_WeatherSetSplashLife(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1260)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSplashLife(params, script);
 }
 // 0x005A5790
 bool __cdecl CFunc_WeatherSetSplashSize(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1280)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSplashSize(params, script);
 }
 // 0x005A57B0
 bool __cdecl CFunc_WeatherSetSplashColor(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A12A0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSplashColor(params, script);
 }
 // 0x005A57D0
 bool __cdecl CFunc_WeatherSetSplashBlendMode(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A12F0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSplashBlendMode(params, script);
 }
 // 0x005A57F0
 bool __cdecl CFunc_WeatherSetSnowHeight(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1350)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSnowHeight(params, script);
 }
 // 0x005A5810
 bool __cdecl CFunc_WeatherSetSnowFrames(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1370)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSnowFrames(params, script);
 }
 // 0x005A5830
 bool __cdecl CFunc_WeatherSetSnowSize(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A13B0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSnowSize(params, script);
 }
 // 0x005A5850
 bool __cdecl CFunc_WeatherSetSnowBlendMode(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A13D0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSnowBlendMode(params, script);
 }
 // 0x005A5870
 bool __cdecl CFunc_WeatherSetSnowRate(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1430)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSnowRate(params, script);
 }
 // 0x005A5890
 bool __cdecl CFunc_WeatherSetSnowColor(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A1450)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSnowColor(params, script);
 }
 // 0x005A58B0
 bool __cdecl CFunc_WeatherSetSnowActive(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A14A0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetSnowActive(params, script);
 }
 // 0x005A58D0
 bool __cdecl CFunc_WeatherSetRainActive(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x004A14B0)(Weather(), params, script);
+    return static_cast<Nx::CWeather*>(Weather())->ScriptSetRainActive(params, script);
 }
 
 // --- the screen effects ---
@@ -247,17 +250,17 @@ bool __cdecl CFunc_WeatherSetRainActive(CStruct* params, CScript* script)
 // 0x005A58F0
 bool __cdecl CFunc_SetScreenEffectsOn(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x0049E320)(ScreenEffects(), params, script);
+    return static_cast<Nx::CScreenEffects*>(ScreenEffects())->SetOn(params, script);
 }
 // 0x005A5910
 bool __cdecl CFunc_SetScreenEffectsOff(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x0049E310)(ScreenEffects(), params, script);
+    return static_cast<Nx::CScreenEffects*>(ScreenEffects())->SetOff(params, script);
 }
 // 0x005A5930
 bool __cdecl CFunc_SetScreenEffectsDOFParams(CStruct* params, CScript* script)
 {
-    return GameFunction<Setter>(0x0049E4B0)(ScreenEffects(), params, script);
+    return static_cast<Nx::CScreenEffects*>(ScreenEffects())->SetDOFParams(params, script);
 }
 
 // 0x005A5950

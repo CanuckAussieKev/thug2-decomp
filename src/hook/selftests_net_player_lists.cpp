@@ -28,6 +28,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
+#include "game/skate/score.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -133,7 +134,7 @@ void Install(StandIns& s)
     g_recordVtable[0] = s.Thunk(4, [](Regs& r) { Rec(0x9DE1, {r.ecx, r.args[0]}); return r.ecx; });
     Stub(s, {0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, 0xDB90,
          [](Regs& r) { return At(kScores + 0x20 * ((r.ecx - At(kSkaters)) / 0x10 % 4)); });
-    Stub(s, {0x00564A10}, 0, 0x4A10);
+    Stub(s, {0x00564A10, AddressOf(&Mdl::Score::Reset)}, 0, 0x4A10);
     Stub(s, {0x00569580}, 0, 0x9580);
     Stub(s, {0x00569590}, 0, 0x9590);
     s.At({0x0047B5D0, AddressOf(&Sfx::CSfxManager::SetMainVolume)}, 4, [](Regs& r) {

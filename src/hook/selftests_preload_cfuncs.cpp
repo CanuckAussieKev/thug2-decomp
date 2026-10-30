@@ -26,6 +26,11 @@
 #include "game/skate/preload_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skater_profile_cfuncs.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_utils.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -119,13 +124,13 @@ void StandInPreloadCalls(StandIns& s)
         Record({0xC200});
         return 0u;
     });
-    s.At({0x00565BB0}, 4, [](Regs& r) {
+    s.At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
         int skip = 0;
         reinterpret_cast<CStruct*>(r.args[0])->GetInteger(kSkipNode, &skip, 0);
         Record({0x5BB0, static_cast<uint32_t>(skip)});
         return skip ? 1u : 0u;
     });
-    s.At({0x005651F0}, 0, [](Regs&) {
+    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) {
         Record({0x51F0});
         return g_multiplayer;
     });
@@ -135,7 +140,7 @@ void StandInPreloadCalls(StandIns& s)
     s.At({0x00623B10}, 0, [](Regs& r) { // (strstr)
         return reinterpret_cast<uint32_t>(std::strstr(reinterpret_cast<char*>(r.args[0]), reinterpret_cast<const char*>(r.args[1])));
     });
-    s.At({0x004879D0}, 0, [](Regs& r) {
+    s.At({0x004879D0, AddressOf(&Gfx::MakeModelPath)}, 0, [](Regs& r) {
         char path[0x100];
         const char* name = reinterpret_cast<const char*>(r.args[1]);
         std::snprintf(path, sizeof(path), "models\\%s%s", name, // (a name with an extension of its own keeps it)
@@ -144,20 +149,20 @@ void StandInPreloadCalls(StandIns& s)
         new (reinterpret_cast<void*>(r.args[0])) Str::String(path);
         return r.args[0];
     });
-    s.At({0x0048BFA0}, 0, [](Regs& r) {
-        Record({0xBFA0, r.args[0]});
+    s.At({0x0048BFA0, AddressOf(&Nx::CreateModel)}, 0, [](Regs&) {
+        Record({0xBFA0}); // (its argument isn't read or passed)
         return 0x0DE10000u;
     });
-    s.At({0x0048C3C0}, 0, [](Regs& r) {
+    s.At({0x0048C3C0, AddressOf(&Nx::Engine::DeleteGeomObject)}, 0, [](Regs& r) {
         Record({0xC3C0, r.args[0]});
         return 0u;
     });
-    s.At({0x004935E0}, 32, [](Regs& r) {
+    s.At({0x004935E0, AddressOf(&Nx::CModel::AddFileGeom)}, 32, [](Regs& r) {
         Record({0x35E0, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2], r.args[3],
                 r.args[4] & 0xFF, r.args[5], r.args[6], r.args[7]});
         return 1u;
     });
-    s.At({0x0048BFE0}, 0, [](Regs& r) {
+    s.At({0x0048BFE0, AddressOf(&Nx::Engine::SplitSkinName)}, 0, [](Regs& r) {
         const char* name = reinterpret_cast<const char*>(r.args[0]);
         char* base = reinterpret_cast<char*>(r.args[1]);
         size_t length = std::strlen(name);

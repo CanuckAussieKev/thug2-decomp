@@ -17,6 +17,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/goals_testkit.h"
 #include "hook/hook.h"
@@ -116,7 +117,7 @@ void StandInModeCalls(StandIns& s)
         Record({0x3FB0, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x005651F0}, 0, [](Regs& r) {
+    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs& r) {
         Record({0x51F0, r.ecx});
         return g_multiplayer ? 1u : 0u;
     });

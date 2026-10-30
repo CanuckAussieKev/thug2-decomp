@@ -21,6 +21,7 @@
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/sys/timer.h"
+#include "game/mc/save_types.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -113,7 +114,7 @@ const char* GameSpyUniqueId() { return GameVariable<const char*(__cdecl*)()>(0x0
 // 0x005A8EB0: a downloaded item loaded from `buffer` by the type's script (not rewritten yet).
 void LoadDownloadedItem(char* buffer, uint32_t script)
 {
-    GameFunction<void(__cdecl*)(char*, uint32_t)>(0x005A8EB0)(buffer, script);
+    Mc::KeepLoadedContents(reinterpret_cast<const uint8_t*>(buffer), script);
 }
 
 // The folder of an item type ("levels"...; null for an unknown type).

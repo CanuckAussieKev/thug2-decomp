@@ -17,6 +17,9 @@
 #include "game/nx/feeler.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
+#include "game/gfx/engine_geom.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -73,21 +76,26 @@ uint32_t FlashMask(int rate)
     return mask;
 }
 
-// The sector calls.
-uint8_t* GetSector(uint32_t name) { return GameFunction<uint8_t*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
-uint8_t* GetGeometry(uint8_t* sector) { return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x004A2BA0)(sector); }
-int VertexCount(uint8_t* geometry) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x0048DF70)(geometry); }
+// The sector calls (the geometry's slots are virtual calls through its vtable; its collision is the word at +8).
+template <typename Fn>
+Fn GeometrySlot(const uint8_t* geometry, int slot)
+{
+    return reinterpret_cast<Fn>((*reinterpret_cast<void* const* const*>(geometry))[slot]);
+}
+uint8_t* GetSector(uint32_t name) { return static_cast<uint8_t*>(Nx::Engine::GetSector(name)); }
+uint8_t* GetGeometry(uint8_t* sector) { return static_cast<uint8_t*>(reinterpret_cast<Nx::CSector*>(sector)->mp_geom); }
+int VertexCount(uint8_t* geometry) { return GeometrySlot<int(__thiscall*)(uint8_t*)>(geometry, 36)(geometry); }
 void GetVertices(uint8_t* geometry, Vector* out)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, Vector*)>(0x0048DF80)(geometry, out);
+    GeometrySlot<void(__thiscall*)(uint8_t*, Vector*)>(geometry, 37)(geometry, out);
 }
 void SetVertices(uint8_t* geometry, Vector* vertices)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, Vector*)>(0x0048DF90)(geometry, vertices);
+    GeometrySlot<void(__thiscall*)(uint8_t*, Vector*)>(geometry, 39)(geometry, vertices);
 }
 Nx::CCollObjTriData* GetCollision(uint8_t* geometry)
 {
-    return GameFunction<Nx::CCollObjTriData*(__thiscall*)(uint8_t*)>(0x0049E810)(geometry);
+    return static_cast<Nx::CCollObjTriData*>(reinterpret_cast<Nx::CGeom*>(geometry)->mp_collTriData);
 }
 uint16_t CollisionVertexCount(const Nx::CCollObjTriData* collision)
 {
@@ -95,7 +103,7 @@ uint16_t CollisionVertexCount(const Nx::CCollObjTriData* collision)
 }
 void SetCollisionVertices(uint8_t* sector, Vector* vertices)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, Vector*)>(0x0049EA00)(sector, vertices);
+    reinterpret_cast<Nx::CSector*>(sector)->SetRawVertices(vertices);
 }
 
 // One point turned about y: x' = x cos + z sin, z' = z cos - x sin from the 53-bit differences, the sine rounded to

@@ -16,6 +16,9 @@
 #include "game/obj/model_component.h"
 #include "game/obj/objman.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/model.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -97,8 +100,8 @@ void StandIn(StandIns& s)
     Rec(s, {0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 1, 0x8F60,
         [](Regs&) { return g_a.boneVolumesOn ? 1u : 0u; }, false, true);
     // The model and its geoms.
-    Rec(s, {0x0048BFA0}, 1, 0xBFA0, [](Regs&) { return Addr(kModel); }, false, true);
-    Rec(s, {0x0048C3C0}, 1, 0xC3C0, nullptr, false, true);
+    Rec(s, {0x0048BFA0, AddressOf(&Nx::CreateModel)}, 0, 0xBFA0, [](Regs&) { return Addr(kModel); }, false, true);
+    Rec(s, {0x0048C3C0, AddressOf(&Nx::Engine::DeleteGeomObject)}, 1, 0xC3C0, nullptr, false, true);
     Rec(s, {0x00494BA0}, 0, 0x4BA0);
     Rec(s, {0x00492EE0}, 1, 0x2EE0, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
@@ -124,7 +127,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x00492E40}, 0, 0x2E40, [](Regs&) { return static_cast<uint32_t>(g_a.sourceGeoms); });
     Rec(s, {0x00494640}, 1, 0x4640, [](Regs& r) { return Addr(kGeom) + 4 * r.args[0]; });
     Rec(s, {0x00494680}, 1, 0x4680, [](Regs& r) { return 0x6E0E0000u + r.args[0]; });
-    Rec(s, {0x0048C510}, 1, 0xC510, [](Regs&) { return g_a.sector ? Addr(kSector) : 0u; }, false, true);
+    Rec(s, {0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 1, 0xC510, [](Regs&) { return g_a.sector ? Addr(kSector) : 0u; }, false, true);
     s.At({0x00487A70}, 0, [](Regs& r) { // (the extension's text recorded, not where it is)
         const char* name = reinterpret_cast<const char*>(r.args[0]);
         const char* ext = reinterpret_cast<const char*>(r.args[1]);
@@ -136,12 +139,12 @@ void StandIn(StandIns& s)
         std::memcpy(out + nameLength, ext, std::strlen(ext) + 1);
         return 0u;
     });
-    RecBools(s, {0x004935E0}, 8, 0x35E0, 4 | 0x10, [](Regs& r) {
+    RecBools(s, {0x004935E0, AddressOf(&Nx::CModel::AddFileGeom)}, 8, 0x35E0, 4 | 0x10, [](Regs& r) {
         const char* path = reinterpret_cast<const char*>(r.args[0]);
         g_trace.push_back(HashBytes(reinterpret_cast<const uint8_t*>(path), std::strlen(path)));
         return 1u;
     });
-    Rec(s, {0x00492F30}, 1, 0x2F30, [](Regs& r) {
+    Rec(s, {0x00492F30, AddressOf(&Nx::CModel::GetBoundingSphere)}, 1, 0x2F30, [](Regs& r) {
         auto* v = reinterpret_cast<float*>(r.args[0]);
         v[0] = 1.5f;
         v[1] = -2.0f;
